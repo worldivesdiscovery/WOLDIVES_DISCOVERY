@@ -1385,6 +1385,7 @@ def point_text(db, pid, lang):
 
 
 def migrate_v50_38(db):
+    add_columns(db, 'content_reports', [('lang', 'TEXT')])
     """v50.38 (Fase 7): own texts of the 10 points curated in v50.30 (point_extras.json); points not yet reviewed
     are written again with them. The previous text stays in description_legacy."""
     if migration_done(db, '50.38'): return
@@ -3336,6 +3337,8 @@ def _build_directory(db):
         d=directory_row(r)
         # «Confirmación inmediata»: at least one «Pago al reservar» service that can be booked now.
         d['instant']=bool(d.pop('has_payment_mode',0)) and center_payments_ready(r)
+        # «Recomendados» puts first the centres that take bookings online (published services AND a plan with the booking engine).
+        d['online_booking']=bool(d.get('services_count')) and provider_has(db,'center',r['id'],'online_bookings')
         for k in ('stripe_account_id','stripe_charges_enabled','stripe_payouts_enabled'): d.pop(k,None)
         d['_text']=fold_text(' '.join(str(d.get(k) or '') for k in ('name','city','region','specialties','tagline')))
         d['_name']=fold_text(d.get('name')); d['_spec']=fold_text(d.get('specialties'))
@@ -3348,7 +3351,7 @@ def directory_category_ids(db, cat):
 
 
 DIRECTORY_SORT_KEYS={
-    'recommended':lambda r:(-(r['services_count']>0),-(r['next_slot'] is not None),-r['review_count'],-(bool(r.get('cover_url'))),r['_name']),
+    'recommended':lambda r:(-bool(r.get('online_booking')),-(r['next_slot'] is not None),-r['review_count'],-(bool(r.get('cover_url'))),r['_name']),
     'rating':lambda r:(r['review_count']==0,-r['rating_average'],-r['review_count'],r['_name']),
     'reviews':lambda r:(-r['review_count'],-r['rating_average'],r['_name']),
     'price':lambda r:(r['price_from'] is None,r['price_from'] or 0,r['_name']),
@@ -4139,6 +4142,17 @@ def ensure_reward_event(db, user_id, event_key, title, description, points=0):
     return True
 
 
+LOGBOOK_POINTS_PER_DAY = 4
+
+
+def logbook_reverse_points(db, user_id, entry_id):
+    """Deleting a Log Book entry takes back the points it gave (the milestones already reached are kept)."""
+    ev = db.execute('SELECT id, points FROM reward_events WHERE user_id=? AND event_key=?', (user_id, f'logbook:dive:{entry_id}')).fetchone()
+    if not ev or not ev['points']: return
+    if db.execute("SELECT 1 FROM points_ledger WHERE user_id=? AND kind='reversal' AND ref_type='reward_event' AND ref_id=?", (user_id, ev['id'])).fetchone(): return
+    points_add(db, user_id, -int(ev['points']), 'reversal', 'Inmersión borrada del Log Book', 'reward_event', ev['id'])
+
+
 def sync_user_rewards(db, user_id):
     """Automatically award lightweight rewards for actions the diver already performs."""
     profile = db.execute('SELECT * FROM user_profiles WHERE user_id=?', (user_id,)).fetchone()
@@ -4149,10 +4163,15 @@ def sync_user_rewards(db, user_id):
     if profile and profile['phone'] and profile['city'] and profile['certification_id']:
         ensure_reward_event(db, user_id, 'profile_complete', 'Perfil preparado',
                             'Has completado los datos esenciales de tu perfil de buceador.', 50)
-    dives = db.execute('SELECT id FROM logbook_entries WHERE user_id=? ORDER BY id', (user_id,)).fetchall()
+    dives = db.execute('SELECT id, dive_date FROM logbook_entries WHERE user_id=? AND (dive_date IS NULL OR dive_date<=?) ORDER BY id', (user_id, _dt.date.today().isoformat())).fetchall()
     dive_count = len(dives)
-    # Every real logbook entry gives a modest amount of progression; no monetary credit per dive.
-    for i, dive in enumerate(dives, 1):
+    # Every real logbook entry gives a modest amount of progression; no monetary credit per dive. At most
+    # LOGBOOK_POINTS_PER_DAY entries of the same day give points (nobody does more dives a day), and deleting an
+    # entry takes its points back (logbook_reverse_points), so the Log Book cannot be used to farm points.
+    per_day = {}
+    for dive in dives:
+        per_day[dive['dive_date']] = per_day.get(dive['dive_date'], 0) + 1
+        if per_day[dive['dive_date']] > LOGBOOK_POINTS_PER_DAY: continue
         ensure_reward_event(db, user_id, f'logbook:dive:{dive[0]}', 'Inmersión registrada',
                             'Has añadido una inmersión a tu Log Book.', 10)
     milestones = [
@@ -4615,7 +4634,7 @@ EMAIL_TEMPLATES = {
    ('p', '{decision}'),
    ('note', '{resolution}'),
    ('button', ('Ver el contenido', 'content_url')),
-   ('note', 'Si no estás de acuerdo con la decisión, responde a este correo explicando tus motivos y la revisaremos de nuevo (referencia {ref}).')]},
+   ('note', 'Si no estás de acuerdo con la decisión, responde a este correo explicando tus motivos y la revisaremos de nuevo (referencia {ref}).'), ('p', 'También puedes acudir a un órgano de resolución extrajudicial de litigios certificado o a los tribunales (Reglamento (UE) 2022/2065, arts. 20 y 21).')]},
  'account_inactive': {'to': 'any', 'subject': 'Tu cuenta de WORLDIVES se eliminará por inactividad', 'pre': 'Entra antes del {delete_date} para conservarla.', 'blocks': [
    ('h', 'Hace mucho que no te vemos'),
    ('p', 'Hola {first_name}, tu cuenta lleva mucho tiempo sin usarse. Para proteger tus datos, la eliminaremos el {delete_date} junto con tu ficha y tus documentos.'),
@@ -4733,7 +4752,7 @@ EMAIL_TEMPLATES = {
    ('p', 'La revisaremos con diligencia y de forma objetiva, y te escribiremos con la decisión que tomemos.')]},
  'report_resolved': {'to': 'any', 'subject': 'Resultado de tu denuncia · {ref}', 'pre': '{decision}', 'blocks': [
    ('h', 'Hemos revisado tu denuncia'), ('p', 'Hola {first_name}, hemos revisado la denuncia {ref}.'), ('note', '{decision}'), ('p', '{resolution}'),
-   ('p', 'Si no estás de acuerdo con la decisión, puedes responder a este correo y la revisaremos de nuevo.')]},
+   ('p', 'Si no estás de acuerdo con la decisión, puedes responder a este correo y la revisaremos de nuevo.'), ('p', 'También puedes acudir a un órgano de resolución extrajudicial de litigios certificado o a los tribunales (Reglamento (UE) 2022/2065, arts. 20 y 21).')]},
  'verify_email': {'to': 'any', 'subject': 'Confirma tu email en WORLDIVES', 'pre': 'Un clic para confirmar tu dirección.', 'blocks': [
    ('h', 'Confirma tu email'),
    ('p', 'Hola {first_name}, confirma que esta dirección es tuya para recibir los avisos de tus reservas y poder recuperar tu cuenta.'),
@@ -8301,7 +8320,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     cid=int(parts[2]) if len(parts)>=4 and parts[2].isdigit() else 0
                     if not cid or not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(cid,)).fetchone():
                         raise ValueError('Centro no válido.')
-                    if user['role'] in {'center','admin'}:
+                    if user['role'] in {'center','freelance','admin'}:
                         raise PermissionError('Las cuentas profesionales y administrativas no pueden publicar reseñas de centros.')
                     data=json_body(self); rating=int(data.get('rating') or 0)
                     if rating<1 or rating>5: raise ValueError('La valoración debe estar entre 1 y 5 estrellas.')
@@ -8309,9 +8328,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     body=clean_text(data.get('body'),1200) or None
                     completed=db.execute("SELECT id FROM bookings WHERE center_id=? AND user_id=? AND status NOT IN ('cancelled','rejected') AND (payment_status='paid' OR status IN ('confirmed','completed')) ORDER BY booking_date DESC, id DESC LIMIT 1",(cid,user['id'])).fetchone()
                     if not completed: raise PermissionError('Podrás valorar este centro cuando tengas una reserva pagada o confirmada con él.')
-                    existing=db.execute('SELECT id FROM center_reviews WHERE center_id=? AND user_id=?',(cid,user['id'])).fetchone()
+                    existing=db.execute('SELECT id,active,moderated_at FROM center_reviews WHERE center_id=? AND user_id=?',(cid,user['id'])).fetchone()
                     if existing:
-                        db.execute('UPDATE center_reviews SET rating=?,title=?,body=?,active=1,verified=1,updated_at=? WHERE id=?',(rating,title,body,now(),existing['id']))
+                        # A review hidden by moderation stays hidden when its author edits it (only the administration restores it).
+                        db.execute('UPDATE center_reviews SET rating=?,title=?,body=?,active=?,verified=1,updated_at=? WHERE id=?',(rating,title,body,0 if (existing['moderated_at'] and not existing['active']) else 1,now(),existing['id']))
                         rid=existing['id']; action='center_review_updated'
                     else:
                         cur=db.execute('INSERT INTO center_reviews(center_id,user_id,rating,title,body,active,verified,created_at,updated_at) VALUES(?,?,?,?,?,1,1,?,?)',(cid,user['id'],rating,title,body,now(),now()))
@@ -9117,26 +9137,31 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     name=clean_text(data.get('name'),120) or (cu['fullname'] if cu else ''); email=(clean_text(data.get('email'),160) or (cu['email'] if cu else '') or '').lower()
                     target=clean_text(data.get('target_url'),500) or ''
                     if not data.get('good_faith'): raise ValueError('Confirma que la información es exacta y que la envías de buena fe.')
+                    # DSA art. 16.2: the notice identifies who sends it (name and email), so we can answer with the decision.
+                    if len(name)<2 or not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email): raise ValueError('Indica tu nombre y un email válido para comunicarte la decisión.')
+                    rlang=normalize_lang(data.get('lang') or (user_lang(db,cu['id']) if cu else 'es'))
                     ttype=clean_text(data.get('target_type'),20) or None; tid=int(data.get('target_id') or 0) or None; affected=None
                     if ttype:
                         info=report_target(db,ttype,tid)
                         if not info: raise ValueError('No encontramos el contenido que quieres denunciar.')
                         target=target or info[1]; affected=info[2][0] if info[2] else None
-                    rid=db.execute('INSERT INTO content_reports(reason,target_url,details,reporter_name,reporter_email,user_id,ip_hash,status,created_at,target_type,target_id,affected_user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-                                   (reason,target,details,name,email,cu['id'] if cu else None,wsec.ip_hash(ip),'open',now(),ttype,tid,affected)).lastrowid
+                    rid=db.execute('INSERT INTO content_reports(reason,target_url,details,reporter_name,reporter_email,user_id,ip_hash,status,created_at,target_type,target_id,affected_user_id,lang) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                                   (reason,target,details,name,email,cu['id'] if cu else None,wsec.ip_hash(ip),'open',now(),ttype,tid,affected,rlang)).lastrowid
                     notify_admins(db,'admin_content_report',{'reason':REPORT_REASONS[reason],'target':target or '—','details':details,'reporter':' · '.join(x for x in (name,email) if x) or 'Anónimo'},('report',rid))
                     if mail_deliverable(email):
-                        queue_email(db,'report_received',email,name,{'first_name':(name or '').split(' ')[0],'ref':f'DEN-{rid:05d}','reason':mail_t('es',REPORT_REASONS[reason])},'es',('report',rid))
+                        queue_email(db,'report_received',email,name,{'first_name':(name or '').split(' ')[0],'ref':f'DEN-{rid:05d}','reason':mail_t(rlang,REPORT_REASONS[reason])},rlang,('report',rid))
                     audit(db,cu['id'] if cu else None,'content_reported','content_report',rid,{'reason':reason}); db.commit(); self.send_json({'ok':True,'id':rid,'ref':f'DEN-{rid:05d}'}); return
                 if path=='/api/admin/reports/resolve':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); rid=int(data.get('id') or 0); st=data.get('status')
                     if st not in ('open','actioned','dismissed'): raise ValueError('Estado no válido.')
+                    if st!='open' and len(clean_text(data.get('resolution'),2000) or '')<10: raise ValueError('Explica los motivos de la decisión (se envían a las dos partes).')
                     if not db.execute('UPDATE content_reports SET status=?,resolution=?,resolved_by=?,resolved_at=? WHERE id=?',(st,clean_text(data.get('resolution'),2000),user['id'],now() if st!='open' else None,rid)).rowcount: raise ValueError('Denuncia no encontrada.')
                     r=db.execute('SELECT * FROM content_reports WHERE id=?',(rid,)).fetchone()
                     if st!='open' and mail_deliverable(r['reporter_email']):
+                        rl=r['lang'] or 'es'
                         queue_email(db,'report_resolved',r['reporter_email'],r['reporter_name'],{'first_name':(r['reporter_name'] or '').split(' ')[0],'ref':f'DEN-{rid:05d}',
-                                    'decision':'Hemos retirado o corregido el contenido denunciado.' if st=='actioned' else 'Tras revisarlo, no hemos encontrado motivos para retirar el contenido.',
-                                    'resolution':clean_text(data.get('resolution'),2000) or ''},'es',('report',rid))
+                                    'decision':mail_t(rl,'Hemos retirado o corregido el contenido denunciado.') if st=='actioned' else mail_t(rl,'Tras revisarlo, no hemos encontrado motivos para retirar el contenido.'),
+                                    'resolution':clean_text(data.get('resolution'),2000) or ''},rl,('report',rid))
                     reason_txt=clean_text(data.get('resolution'),2000) or ''
                     if st=='actioned' and r['target_type']=='review' and r['target_id']:
                         db.execute('UPDATE center_reviews SET active=0,moderated_at=?,moderation_reason=? WHERE id=?',(now(),reason_txt,r['target_id']))
@@ -9361,7 +9386,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     row=db.execute('SELECT booking_id FROM logbook_entries WHERE id=? AND user_id=?',(lid,user['id'])).fetchone()
                     if not row: self.send_json({'error':'Inmersión no encontrada'},404); return
                     if row['booking_id']: raise ValueError('Esta inmersión viene de una reserva completada: puedes editarla, pero no borrarla.')
-                    db.execute('DELETE FROM logbook_entries WHERE id=?',(lid,)); audit(db,user['id'],'logbook_deleted','logbook',lid); db.commit(); self.send_json({'ok':True}); return
+                    logbook_reverse_points(db,user['id'],lid); db.execute('DELETE FROM logbook_entries WHERE id=?',(lid,)); audit(db,user['id'],'logbook_deleted','logbook',lid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/account/password':
                     user=require_user(self,db); data=json_body(self); new=str(data.get('new_password') or '')
                     row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()

@@ -42,6 +42,18 @@ class Points(ServerTestCase):
         rw = self.diver2.get('/api/rewards').json
         self.assertEqual(rw['balance'], d['balance'])
 
+    def test_logbook_points_cannot_be_farmed(self):
+        diver = self.make_diver('granja3')
+        ids = [diver.post('/api/logbook', {'dive_date': '2026-08-15', 'site': f'Inmersión {i}', 'country': 'España', 'dive_type': 'Arrecife'}).json['id'] for i in range(8)]
+        diver.get('/api/points')
+        per_entry = self.server.sql("SELECT COUNT(*) n FROM reward_events WHERE user_id=? AND event_key LIKE 'logbook:dive:%'", (diver.user['id'],))[0]['n']
+        self.assertEqual(per_entry, 4)   # at most 4 entries of the same day give points
+        single = diver.post('/api/logbook', {'dive_date': '2026-08-20', 'site': 'Sola', 'country': 'España', 'dive_type': 'Arrecife'}).json['id']
+        before = self.balance(diver)
+        self.assertEqual(diver.post('/api/logbook/delete', {'id': single}).status, 200)
+        self.assertEqual(before - self.balance(diver), 10)   # deleting the entry takes its points back
+        self.assertEqual(diver.post('/api/logbook', {'dive_date': '2099-01-01', 'site': 'Futuro', 'country': 'España', 'dive_type': 'Arrecife'}).status, 400)
+
     def test_exchange_and_validation_by_the_centre(self):
         oid = self.offer(cost=30)
         self.give(self.diver, 40)

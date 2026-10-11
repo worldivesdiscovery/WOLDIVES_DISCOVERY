@@ -98,5 +98,5 @@ Los buceadores reciben un **justificante en PDF**, no una factura. Las condicion
 | `RELEASE_NOTES_v50_34.md` («Para abogado / gestoría») | 6.1 |
 | `RELEASE_NOTES_v50_37.md` («Para abogado / gestoría») | 2, 3, 4 |
 | `docs/legal/condiciones-centros.md` (desajuste 6 y puntos pendientes) | 2, 3, 4 |
-| `docs/legal/registro-actividades-tratamiento.md` | 4.7, 7.2 |
+| `docs/legal/registro-actividades-tratamiento.md`, `docs/legal/politica-privacidad.md` | 4.7, 7.2 |
 | Encargo, Fase 8 punto 15 | 1, 2, 4 |

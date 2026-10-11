@@ -29,14 +29,16 @@ Fichas relacionadas: `anexo-encargado-tratamiento.md`, `registro-actividades-tra
 3. **Solicitudes de información** (`info_requests`, `POST /api/info-requests`). El formulario está en la web de WORLDIVES, pide aceptar su privacidad y una casilla para enviar los datos al centro, que los recibe por email (`info_request`). ¿WORLDIVES es responsable que comunica, o encargado del centro? ¿Basta el consentimiento de la casilla?
 4. **Freelance.** El profesional independiente cobra con su propia cuenta Stripe y puede trabajar además para un centro como miembro de su equipo. ¿Mismo papel que un centro? ¿Cambia algo cuando actúa como empleado?
 5. **Stripe en cargos directos.** Stripe Payments Europe recibe los datos del pago en la cuenta conectada del centro; WORLDIVES crea la sesión de pago con su clave de plataforma y ve el estado del pago, la marca y los últimos 4 dígitos (`payment_orders`). ¿Stripe es responsable independiente, encargado del centro o subencargado de WORLDIVES? ¿Cómo se califica el acceso de WORLDIVES a los datos de la cuenta conectada? Hoy Stripe **no figura como subencargado** en el anexo.
-6. **Personal del centro.** Las cuentas del equipo (`center_members`, roles propietario, recepción e instructor) son cuentas personales de los empleados. ¿Qué papel tiene WORLDIVES con sus datos y con el registro de actividad que ve el propietario?
-7. **Transferencias a centros fuera del EEE** (Egipto, Indonesia, México…). ¿Sirve el art. 49.1.b RGPD (necesario para el contrato pedido por el interesado)? ¿Cómo se informa?
-8. **Delegado de protección de datos.** ¿Confirmar que no es obligatorio (art. 37 RGPD, art. 34 LOPDGDD)?
-9. **Conservación.** Plazos configurables (`RETENTION_DEFAULTS`): cuentas inactivas 36 meses con aviso 30 días antes, documentos caducados 12 meses, avisos 24 meses, auditoría 12 meses. Reservas y pagos **no se borran nunca**. Denuncias (`content_reports`) y pruebas de consentimiento (`consent_log`) tampoco; la privacidad dice «hasta 5 años». ¿Plazos correctos? ¿Quién conserva reservas y pagos tras la baja de un centro, él o WORLDIVES, y cuánto tiempo?
-10. **Documento de identidad.** Se puede subir como documento del buceador. ¿Es proporcional (minimización) o se debe quitar?
-11. **Responsabilidad entre las partes, costes de auditoría y ley aplicable del anexo** (las condiciones para centros remiten a la ley española). ¿Prevalencia del anexo sobre las condiciones?
-12. **Brechas.** En `procedimiento-brechas.md`: criterios de riesgo, cuándo no hace falta avisar a los afectados, autoridad principal con afectados de otros países (AEPD si el establecimiento está en España), plazo para avisar a los centros como responsables, y si aplica NIS2 (en principio no, por tamaño).
-13. **GEBCO y Nominatim.** No se envían datos personales; ¿hace falta mencionarlos como destinatarios?
+6. **Ficha compartida por QR** (`data_shares`): el buceador comparte su ficha con un centro haciendo check-in. ¿Comunicación entre responsables o encargo?
+7. **Personal de WORLDIVES** (administradores): informar aparte de su tratamiento.
+8. **Personal del centro.** Las cuentas del equipo (`center_members`, roles propietario, recepción e instructor) son cuentas personales de los empleados. ¿Qué papel tiene WORLDIVES con sus datos y con el registro de actividad que ve el propietario?
+9. **Transferencias a centros fuera del EEE** (Egipto, Indonesia, México…). ¿Sirve el art. 49.1.b RGPD (necesario para el contrato pedido por el interesado)? ¿Cómo se informa?
+10. **Delegado de protección de datos.** ¿Confirmar que no es obligatorio (art. 37 RGPD, art. 34 LOPDGDD)?
+11. **Conservación.** Plazos configurables (`RETENTION_DEFAULTS`): cuentas inactivas 36 meses con aviso 30 días antes, documentos caducados 12 meses, avisos 24 meses, auditoría 12 meses. Reservas y pagos **no se borran nunca**. Denuncias (`content_reports`) y pruebas de consentimiento (`consent_log`) tampoco; la privacidad dice «hasta 5 años». ¿Plazos correctos? ¿Quién conserva reservas y pagos tras la baja de un centro, él o WORLDIVES, y cuánto tiempo?
+12. **Documento de identidad.** Se puede subir como documento del buceador. ¿Es proporcional (minimización) o se debe quitar?
+13. **Responsabilidad entre las partes, costes de auditoría y ley aplicable del anexo** (las condiciones para centros remiten a la ley española). ¿Prevalencia del anexo sobre las condiciones?
+14. **Brechas.** En `procedimiento-brechas.md`: criterios de riesgo, cuándo no hace falta avisar a los afectados, autoridad principal con afectados de otros países (AEPD si el establecimiento está en España), plazo para avisar a los centros como responsables, y si aplica NIS2 (en principio no, por tamaño).
+15. **GEBCO y Nominatim.** No se envían datos personales; ¿hace falta mencionarlos como destinatarios?
 
 ## 2. Datos de salud
 
@@ -117,9 +119,10 @@ Ver `condiciones-centros.md`.
 
 ## 11. Reseñas verificadas (Directiva Ómnibus)
 
-1. Solo puede reseñar quien tenga una reserva **pagada o confirmada** con el centro (no hace falta que esté completada). Las cuentas de centro y administración no pueden reseñar. Una reseña por buceador y centro; se puede editar. ¿Basta para llamarlas «verificadas»? ¿Debería exigirse la reserva **completada**?
+1. Solo puede reseñar quien tenga una reserva **pagada o confirmada** con el centro (no hace falta que esté completada). Las cuentas de centro y administración no pueden reseñar. Una reseña por buceador y centro; se puede editar. La etiqueta de cada reseña dice «✓ Inmersión verificada», pero se puede reseñar **antes** de la actividad (`normas-resenas.md`, desajuste 3). ¿Basta para llamarlas «verificadas» (art. 20.7 TRLGDCU tras la Ley 4/2022 y el RDL 24/2021)? ¿Debería exigirse la reserva **completada** o cambiar la etiqueta a «reserva verificada»?
 2. **Normas de reseñas** (`resenas.md`): ¿informa suficientemente de cómo se comprueban (art. 5.6 Directiva 2005/29 tras Ómnibus)?
-3. **Invitación a reseñar** por email tras la reserva (plantilla `review_request`): ¿interés legítimo o consentimiento?
+3. **Invitación a reseñar** por email tras la reserva (plantilla `review_request`): ¿interés legítimo o consentimiento? No hay casilla de oposición en la web: ¿debe el email llevar un enlace para no recibir más?
+6. **Responsabilidad** de WORLDIVES por el contenido de reseñas y respuestas (art. 6 DSA) y plazo de conservación de las reseñas ocultas.
 4. **Respuesta del centro**: una por reseña, pública, avisa al autor (`review_replied`). Freelance sin centro no recibe reseñas, pero `resenas.md` habla de «centro o profesional». ¿Se corrige el texto?
 5. **Moderación**: ocultar con motivo enviado al autor (`/api/admin/reviews/<id>/moderate`). ¿Algo más?
 
@@ -129,9 +132,19 @@ Ver `condiciones-centros.md`.
 2. Los correos de los centros a sus clientes importados no existen como campañas. ¿Se puede ofrecer en el futuro y con qué base?
 3. Plazo de conservación de `consent_log` (hoy sin borrado).
 
+## 12 bis. Cookies y terceros
+
+Ficha: `cookies-terceros.md`.
+
+1. ¿Todo el almacenamiento listado es técnico y exento (art. 22.2 LSSI-CE, Guía de cookies de la AEPD de 2023), incluidos `wd_top10` (preferencia del usuario) y la caché del service worker?
+2. Si no hay cookies que requieran consentimiento, ¿basta un aviso informativo con un solo botón («Entendido»)?
+3. **GEBCO** (servidores del British Oceanographic Data Centre, Reino Unido): la IP sale al cargar la capa que el visitante elige. ¿Basta con informar (decisión de adecuación para el Reino Unido)?
+4. **Vídeos tras clic**: ¿vale el botón «Cargar vídeo» con el aviso actual como consentimiento para las cookies de Vimeo o Google Maps? (YouTube se usa en modo sin cookies.)
+5. **Cookies de Stripe** en su página de pago: ¿basta con mencionarlas como responsabilidad de Stripe?
+
 ## 13. Menores
 
-1. Las condiciones exigen 18 años; el registro tiene una casilla y no pide fecha de nacimiento. ¿Suficiente?
+1. Las condiciones exigen 18 años; el registro tiene una casilla y no pide fecha de nacimiento. ¿Suficiente? (El art. 7 LOPDGDD fija 14 años para el consentimiento.)
 2. Un adulto reserva para varias personas (`participants`) sin nombres; pueden ser menores. ¿Cómo acepta el adulto las condiciones del centro en nombre del menor? ¿Debe la web pedir algo (edad mínima de la actividad, autorización)?
 
 ## 14. Catálogo, imágenes y mapas
@@ -171,14 +184,17 @@ El código genera un informe anual por prestador y trimestre (`dac7_report()`, `
 |---|---|
 | `RELEASE_NOTES_v50_34.md` | 5.3, 5.4, 6.5, 17.4, cláusulas de cuota, cobros, devoluciones y disputas (6, 9) |
 | `RELEASE_NOTES_v50_35.md` | 15, 12.1 |
-| `RELEASE_NOTES_v50_36.md` | 1.9, 7, 11.3, 14.1, 14.4, 14.7, 17.2, 17.3 |
+| `RELEASE_NOTES_v50_36.md` | 1.11, 7, 11.3, 14.1, 14.4, 14.7, 17.2, 17.3 |
 | `RELEASE_NOTES_v50_37.md` | 1.3, 9, 10, 16 |
 | `docs/mapas.md` | 14.7 |
-| `docs/legal/anexo-encargado-tratamiento.md` | 1.2–1.6, 1.9, 1.11, 2.4, 10.2 |
-| `docs/legal/registro-actividades-tratamiento.md` | 1.7, 1.8, 1.10, 1.13, 2.3, 11.3, 12.3, 16.2 |
-| `docs/legal/procedimiento-brechas.md` | 1.12 |
+| `docs/legal/anexo-encargado-tratamiento.md` | 1.2–1.5, 1.8, 1.11, 1.13, 2.4, 10.2 |
+| `docs/legal/registro-actividades-tratamiento.md` | 1.9, 1.10, 1.12, 1.15, 2.3, 11.3, 12.3, 16.2 |
+| `docs/legal/procedimiento-brechas.md` | 1.14 |
 | `docs/legal/aviso-legal.md` | 14.5, 14.9, 17.1 |
 | `docs/legal/condiciones-buceadores.md` | 3.1, 4.1, 5.2, 5.5, 6.1–6.2, 13 |
 | `docs/legal/condiciones-centros.md` | 1.1–1.2, 5.3, 8, 9.2, 10.1, 14.6 |
 | `docs/legal/catalogo-origen.md`, `imagenes-origen.md` | 14.1–14.4 |
 | `docs/legal/procedimiento-denuncias.md` | 7 |
+| `docs/legal/cookies-terceros.md` | 12 bis |
+| `docs/legal/normas-resenas.md` | 11.1, 11.3, 11.6, 7 |
+| `docs/legal/politica-privacidad.md` | 1.1–1.7, 1.9–1.12, 2.2–2.3, 11.3, 13.1 |

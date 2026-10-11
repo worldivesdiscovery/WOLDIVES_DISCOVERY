@@ -193,6 +193,7 @@ class ReviewsAndReports(ServerTestCase):
 
     def test_single_editable_reply(self):
         rid = self.review(); cid = self.center.user['center_id']
+        self.admin.post(f'/api/admin/reviews/{rid}/moderate', {'active': True})   # another test may have hidden it
         self.assertEqual(self.other.post(f'/api/reviews/{rid}/reply', {'body': 'Gracias por venir'}).status, 403)
         self.assertEqual(self.diver.post(f'/api/reviews/{rid}/reply', {'body': 'Me respondo'}).status, 403)
         self.assertEqual(self.center.post(f'/api/reviews/{rid}/reply', {'body': 'Hola'}).status, 400)
@@ -227,12 +228,21 @@ class ReviewsAndReports(ServerTestCase):
         c = self.client(); cid = self.center.user['center_id']
         pid = self.server.sql('SELECT id FROM dive_points WHERE active=1 LIMIT 1')[0]['id']
         base = {'reason': 'false', 'details': 'La información de esta ficha no es correcta.', 'good_faith': True}
+        # DSA art. 16.2: an anonymous notice needs a name and an email to receive the decision
+        self.assertEqual(c.post('/api/reports', {**base, 'target_type': 'center', 'target_id': cid}).status, 400)
+        base.update(name='Marta Denunciante', email='marta@example.org', lang='fr')
         for tt, tid in (('center', cid), ('point', pid), ('photo', cid)):
             r = c.post('/api/reports', {**base, 'target_type': tt, 'target_id': tid})
             self.assertEqual(r.status, 200, (tt, r))
         self.assertEqual(c.post('/api/reports', {**base, 'target_type': 'virus', 'target_id': 1}).status, 400)
         items = self.admin.get('/api/admin/legal').json['reports']
         self.assertTrue({'center', 'point', 'photo'} <= {x['target_type'] for x in items})
+        rep = [x for x in items if x['target_type'] == 'point'][0]
+        self.assertEqual(self.admin.post('/api/admin/reports/resolve', {'id': rep['id'], 'status': 'dismissed', 'resolution': 'ok'}).status, 400)
+        self.assertEqual(self.admin.post('/api/admin/reports/resolve', {'id': rep['id'], 'status': 'dismissed', 'resolution': 'La ficha coincide con la información publicada por el centro.'}).status, 200)
+        mail = self.server.sql("SELECT text FROM email_outbox WHERE template='report_resolved' AND to_email='marta@example.org'")[0]['text']
+        self.assertIn('Après examen', mail)   # the reporter's language, with the redress options
+        self.assertIn('2022/2065', mail)
 
     def test_admin_moderation_needs_reason(self):
         rid = self.review()
@@ -240,7 +250,14 @@ class ReviewsAndReports(ServerTestCase):
         self.assertEqual(self.center.post(f'/api/admin/reviews/{rid}/moderate', {'active': False, 'reason': 'Me molesta esta reseña'}).status, 403)
         self.assertEqual(self.admin.post(f'/api/admin/reviews/{rid}/moderate', {'active': False, 'reason': 'Contiene datos personales de un tercero.'}).status, 200)
         self.assertEqual(self.server.sql('SELECT active FROM center_reviews WHERE id=?', (rid,))[0]['active'], 0)
+        self.review()   # editing a hidden review does not publish it again
+        self.assertEqual(self.server.sql('SELECT active FROM center_reviews WHERE id=?', (rid,))[0]['active'], 0)
         self.assertEqual(self.admin.post(f'/api/admin/reviews/{rid}/moderate', {'active': True}).status, 200)
+        self.assertEqual(self.server.sql('SELECT active FROM center_reviews WHERE id=?', (rid,))[0]['active'], 1)
+
+    def test_professionals_cannot_review(self):
+        pro = self.make_freelance(self.admin, 'resenapro5'); cid = self.center.user['center_id']
+        self.assertEqual(pro.post(f'/api/centers/{cid}/reviews', {'rating': 5, 'body': 'Excelente'}).status, 403)
 
     def test_experience_shows_provider_and_policy(self):
         offer = self.server.sql('SELECT id FROM travel_offers LIMIT 1')[0]['id']
