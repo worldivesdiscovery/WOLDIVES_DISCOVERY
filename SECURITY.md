@@ -1,25 +1,32 @@
 # WORLDIVES DISCOVERY — seguridad
 
-## Baseline aplicado
+## Medidas aplicadas (v50.31)
 
-- Las sesiones usan tokens aleatorios de alta entropía, cookies `HttpOnly` y `SameSite=Lax`.
-- En despliegues HTTPS, la cookie de sesión puede marcarse automáticamente como `Secure`.
-- Las sesiones expiran por inactividad/antigüedad mediante `WOD_SESSION_TTL_SECONDS` (8 horas por defecto).
-- Las peticiones `POST` y `DELETE` con cabecera `Origin` se comprueban contra el origen público configurado para reducir CSRF.
-- Se añaden cabeceras `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Permissions-Policy`; HSTS se activa cuando `WOD_PUBLIC_URL` usa HTTPS.
-- El servidor local escucha en `127.0.0.1` por defecto. El lanzador LAN lo expone explícitamente en `0.0.0.0` solo cuando se solicita.
-- Los documentos privados permanecen fuera de `/public`; `/storage/` no se sirve directamente.
-- Las consultas SQL de entrada usan parámetros; no se construyen consultas con valores de usuario concatenados en los endpoints auditados.
-- Las credenciales Stripe y secretos de webhook se leen desde variables de entorno y no deben entrar en Git.
-- `.gitignore` excluye secretos, archivos runtime y los sidecars WAL/SHM de SQLite.
+- **Sesiones** en la tabla `sessions` con el token guardado como hash SHA-256, caducidad de 8 h (`WOD_SESSION_TTL_SECONDS`), cookie `HttpOnly`, `SameSite=Lax` y `Secure` con https. Se cierran al cambiar la contraseña, el email o el rol; las caducadas se borran cada 10 minutos.
+- **Contraseñas** con PBKDF2-SHA256 a 600 000 iteraciones y prefijo de versión (`pbkdf2_sha256$…`), con re-hash automático de las antiguas al iniciar sesión.
+- **Límites de intentos** (seguros entre hilos y con memoria acotada) en inicio de sesión (por cuenta y por IP), registro, recuperación de contraseña, verificación de email, avisos y geocodificación.
+- **CSRF:** todo POST/DELETE debe traer `Origin` o `Referer` del propio dominio (`WOD_PUBLIC_URL`), salvo los webhooks de Stripe y la API de integración (que se autentican con firma o clave).
+- **Content-Security-Policy** en todas las respuestas: scripts solo propios, sin scripts en línea, iframes solo de los proveedores permitidos y cargados tras un clic.
+- **Cabeceras:** `nosniff`, `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, HSTS con https.
+- **Tamaño de las peticiones:** JSON 1 MB, subidas 15 MB (documentos 10 MB), comprobado con `Content-Length` antes de leer el cuerpo.
+- **Documentos privados** fuera de `public/` (`WOD_STORAGE_DIR`), tipo comprobado por contenido, servidos con `private, no-store`, acceso solo del dueño, del centro con reserva del propio buceador o datos compartidos, y del administrador; cada descarga queda en `audit_log`.
+- **Proxy de confianza:** `X-Forwarded-For/Proto` solo desde `WOD_TRUSTED_PROXIES`.
+- **Registros** sin cadena de consulta, IP truncada, rotación diaria y conservación limitada.
+- **SQL** siempre parametrizado.
+- **Secretos** solo en variables de entorno (`.env`, nunca en el repositorio).
+- **Instalación:** sin `WOD_ALLOW_SETUP=1` no existe el instalador web; el administrador se crea con `--create-admin`. En `WOD_ENV=production` el servidor no arranca con una configuración insegura.
 
 ## Antes de producción
 
-1. Usar HTTPS real y configurar `WOD_PUBLIC_URL` con `https://...`.
-2. Definir `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` y `WOD_PUBLIC_URL` únicamente en el entorno del servidor.
-3. No subir `.env`, bases de datos de producción ni `storage/` al repositorio.
-4. Ejecutar la aplicación detrás de un proxy HTTPS/reverse proxy y con copias de seguridad de SQLite.
-5. Revisar dependencias y actualizarlas periódicamente.
-6. Configurar límites y observabilidad del servidor de producción (rate limiting, logs centralizados, backups y alertas).
+1. Servidor detrás de Caddy o nginx con HTTPS y `WOD_TRUSTED_PROXIES` (ver `docs/despliegue.md`).
+2. `WOD_ENV=production`, `WOD_PUBLIC_URL=https://…`, `WOD_SECRET_KEY` aleatoria.
+3. Verificación en dos pasos activa para todas las cuentas de administración.
+4. Copias de seguridad automáticas probadas con una restauración.
+5. Monitor externo sobre `/api/health` y aviso de errores por email.
+6. Pruebas: `python -m unittest discover tests` y `python tests/e2e_walk.py`.
 
-Este archivo describe una línea base de endurecimiento; no sustituye una auditoría de penetración independiente antes de un lanzamiento comercial de gran escala.
+## Avisar de un problema de seguridad
+
+Escribe al email de contacto del aviso legal indicando «Seguridad» en el asunto. No publiques el fallo hasta que esté corregido.
+
+Este documento describe una línea base; no sustituye una auditoría de intrusión independiente antes de un lanzamiento comercial a gran escala.

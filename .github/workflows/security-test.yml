@@ -1,4 +1,4 @@
-name: WORLDIVES security smoke test
+name: WORLDIVES tests
 
 on:
   push:
@@ -15,16 +15,19 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
       - name: Compile backend
-        run: python -m py_compile app/server.py
+        run: python -m compileall -q app
       - name: Check repository for leaked secrets
         run: |
-          if grep -RInE --exclude='*.sqlite3*' --exclude-dir=.git 'sk_(live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+' .; then
-            echo 'Potential Stripe secret found in repository.'
+          if grep -RInE --exclude='*.sqlite3*' --exclude-dir=.git 'sk_(live|test)_[A-Za-z0-9]{8,}|whsec_[A-Za-z0-9]{8,}|AAPK[A-Za-z0-9_-]{20,}' .; then
+            echo 'Potential secret found in repository.'
             exit 1
           fi
       - name: Check forbidden runtime files
         run: |
           test ! -f .env
           test ! -d storage
+          test ! -d logs
           test ! -f data/worldivesdiscovery.sqlite3-wal
           test ! -f data/worldivesdiscovery.sqlite3-shm
+      - name: Unit and API tests (on a temporary copy of the database)
+        run: cd tests && python -m unittest discover -v

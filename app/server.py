@@ -22,21 +22,31 @@ from email.parser import BytesParser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse, unquote
+from urllib.parse import parse_qs, urlparse, unquote, quote
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(Path(__file__).resolve().parent) not in sys.path: sys.path.insert(0, str(Path(__file__).resolve().parent))
+from wod import config as wcfg
+from wod import security as wsec
+from wod import bookings as wbk
 # Bundled pure-python dependencies (qrcode). Installed packages take precedence.
 if str(ROOT/'vendor') not in sys.path: sys.path.append(str(ROOT/'vendor'))
 PUBLIC = ROOT / 'public'
-DATA = ROOT / 'data'
-UPLOADS = ROOT / 'storage' / 'documents'
-PHOTOS = PUBLIC / 'assets' / 'uploads'
-DB_PATH = DATA / 'worldivesdiscovery.sqlite3'
+DATA = Path(os.environ.get('WOD_DATA_DIR') or (ROOT / 'data'))
+STORAGE = Path(os.environ.get('WOD_STORAGE_DIR') or (ROOT / 'storage'))
+UPLOADS = STORAGE / 'documents'
+# Public images uploaded by centres and the administrator (served at /assets/uploads/…). Outside the code tree in
+# production (WOD_UPLOADS_DIR) so deployments and backups treat them as data, not as code.
+PHOTOS = Path(os.environ.get('WOD_UPLOADS_DIR') or (PUBLIC / 'assets' / 'uploads'))
+DB_PATH = Path(os.environ.get('WOD_DB_PATH') or (DATA / 'worldivesdiscovery.sqlite3'))
+LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.30'
-MAX_BODY = 256 * 1024 * 1024
+APP_VERSION = '50.31'
+# G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
+MAX_BODY = wcfg.MAX_JSON_BYTES
+MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
 SESSION_TTL_SECONDS = int(os.environ.get('WOD_SESSION_TTL_SECONDS', '28800'))
 LOGIN_WINDOW_SECONDS = int(os.environ.get('WOD_LOGIN_WINDOW_SECONDS', '900'))
 LOGIN_MAX_ATTEMPTS = int(os.environ.get('WOD_LOGIN_MAX_ATTEMPTS', '8'))
@@ -398,42 +408,51 @@ CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen);
 
 
 
-LOGIN_ATTEMPTS = {}
+# Rate limits: thread-safe and bounded in size (wod.security.RateLimiter).
+LOGIN_LIMIT = wsec.RateLimiter(LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_SECONDS)
+LOGIN_IP_LIMIT = wsec.RateLimiter(LOGIN_MAX_ATTEMPTS * 5, LOGIN_WINDOW_SECONDS)
+NOTICE_LIMIT = wsec.RateLimiter(60, 3600)
+REGISTER_LIMIT = wsec.RateLimiter(wcfg.env_int('WOD_REGISTER_MAX_PER_HOUR', 10, 1), 3600)
+FORGOT_LIMIT = wsec.RateLimiter(5, 900)
+TOTP_LIMIT = wsec.RateLimiter(6, 900)
+GEOCODE_LIMIT = wsec.RateLimiter(30, 60)
+INFO_LIMIT = wsec.RateLimiter(10, 3600)
+
+PRIVATE_USER_FIELDS = ('password_hash', 'totp_secret', 'totp_pending_secret', 'email_verify_token')
 
 def public_user(user):
     if not user:
         return None
     d = dict(user)
-    d.pop('password_hash', None)
+    for k in PRIVATE_USER_FIELDS: d.pop(k, None)
     return d
 
 def login_rate_limited(key):
-    current = time.time()
-    row = LOGIN_ATTEMPTS.get(key)
-    if not row or current - row[0] >= LOGIN_WINDOW_SECONDS:
-        LOGIN_ATTEMPTS[key] = [current, 0]
-        return False
-    return row[1] >= LOGIN_MAX_ATTEMPTS
+    return LOGIN_LIMIT.blocked(key)
 
 def record_login_failure(key):
-    current = time.time()
-    row = LOGIN_ATTEMPTS.get(key)
-    if not row or current - row[0] >= LOGIN_WINDOW_SECONDS:
-        LOGIN_ATTEMPTS[key] = [current, 1]
-    else:
-        row[1] += 1
+    LOGIN_LIMIT.hit(key)
 
 def clear_login_failures(key):
-    LOGIN_ATTEMPTS.pop(key, None)
+    LOGIN_LIMIT.reset(key)
 
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec='seconds')
 
 
+class _ClosingConnection(sqlite3.Connection):
+    """`with connect() as db:` commits or rolls back AND closes the connection at the end of the request."""
+    def __exit__(self, exc_type, exc, tb):
+        try:
+            return super().__exit__(exc_type, exc, tb)
+        finally:
+            self.close()
+
+
 def connect():
-    DATA.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(DB_PATH)
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    db = sqlite3.connect(DB_PATH, factory=_ClosingConnection)
     db.row_factory = sqlite3.Row
     db.execute('PRAGMA foreign_keys=ON')
     # WAL is persistent (set once in bootstrap); NORMAL sync is safe in WAL mode and much faster for writes.
@@ -445,9 +464,12 @@ def connect():
 
 
 def log_exception(handler, exc):
-    """Unexpected errors go to stderr with the request line so they can be traced in production logs."""
+    """Unexpected errors go to stderr with the request line (without the query string: it may hold searches or
+    coordinates) so they can be traced in production logs. Repeated errors raise an alert (see wod.ops)."""
     import traceback
-    try: sys.stderr.write(f"[{datetime.now().isoformat(timespec='seconds')}] {handler.command} {handler.path} -> {type(exc).__name__}: {exc}\n" + ''.join(traceback.format_exception(exc)[-3:]))
+    try: sys.stderr.write(f"[{datetime.now().isoformat(timespec='seconds')}] {handler.command} {urlparse(handler.path).path} -> {type(exc).__name__}: {exc}\n" + ''.join(traceback.format_exception(exc)[-3:]))
+    except Exception: pass
+    try: ERROR_MONITOR.record(urlparse(handler.path).path, exc)
     except Exception: pass
 
 
@@ -698,24 +720,79 @@ def bootstrap():
             db.executemany('INSERT INTO reward_offers(center_id,title,description,reward_type,cost_wallet,value_text,conditions,stock,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,?,?)', [(a,b,c,d,e,f,g,h,now(),now()) for a,b,c,d,e,f,g,h in offers])
         db.execute("UPDATE reward_offers SET active=0 WHERE center_id IS NULL")
         db.commit()
+        migrate_v50_31(db)
+        db.commit()
+
+
+def add_columns(db, table, cols):
+    have = {r['name'] for r in db.execute(f'PRAGMA table_info({table})').fetchall()}
+    for name, typ in cols:
+        if name not in have: db.execute(f'ALTER TABLE {table} ADD COLUMN {name} {typ}')
+
+
+def migrate_v50_31(db):
+    """v50.31 (security, Fase 1). Only adds tables/columns and moves data; nothing is deleted without a copy,
+    except medical certificates (G6), which must not be kept: their files are removed and the owner is told."""
+    add_columns(db, 'users', [('guest_center_id', 'INTEGER'), ('guest_email', 'TEXT'), ('email_verified_at', 'TEXT'),
+                              ('marketing_consent', 'INTEGER DEFAULT 0'), ('marketing_consent_at', 'TEXT'), ('marketing_token', 'TEXT'),
+                              ('totp_secret', 'TEXT'), ('totp_enabled', 'INTEGER DEFAULT 0'), ('totp_pending_secret', 'TEXT'), ('totp_recovery', 'TEXT')])
+    add_columns(db, 'bookings', [('public_token', 'TEXT'), ('contact_email', 'TEXT'), ('contact_name', 'TEXT')])
+    add_columns(db, 'messages', [('kind', "TEXT DEFAULT 'system'"), ('contact_phone', 'TEXT'), ('contact_email', 'TEXT'), ('sender_name', 'TEXT')])
+    add_columns(db, 'center_claims', [('requested_role', "TEXT DEFAULT 'center'"), ('suggested_center_id', 'INTEGER'), ('verification_method', 'TEXT'),
+                                      ('verification_note', 'TEXT'), ('email', 'TEXT')])
+    db.executescript('''
+      CREATE TABLE IF NOT EXISTS data_shares (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, center_id INTEGER NOT NULL REFERENCES centers(id) ON DELETE CASCADE,
+        source TEXT, granted_at TEXT NOT NULL, revoked_at TEXT, PRIMARY KEY(user_id, center_id));
+      CREATE INDEX IF NOT EXISTS idx_data_shares_center ON data_shares(center_id);
+      CREATE TABLE IF NOT EXISTS legal_acceptances (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        document TEXT NOT NULL, version TEXT NOT NULL, accepted_at TEXT NOT NULL, ip_hash TEXT);
+      CREATE INDEX IF NOT EXISTS idx_legal_acceptances_user ON legal_acceptances(user_id, document, version);
+      CREATE TABLE IF NOT EXISTS consent_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, kind TEXT NOT NULL,
+        granted INTEGER NOT NULL, created_at TEXT NOT NULL, ip_hash TEXT);
+      CREATE TABLE IF NOT EXISTS email_verifications (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        email TEXT NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS center_members (center_id INTEGER NOT NULL REFERENCES centers(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        member_role TEXT NOT NULL DEFAULT 'owner', created_at TEXT NOT NULL, created_by INTEGER, PRIMARY KEY(center_id, user_id));
+      CREATE TABLE IF NOT EXISTS pro_invites (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, note TEXT, created_by INTEGER, created_at TEXT NOT NULL,
+        expires_at TEXT, used_at TEXT);
+    ''')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_users_guest ON users(guest_center_id, guest_email)')
+    # Any booking created by any path gets its random token at once (24 random bytes from SQLite's CSPRNG).
+    db.execute('''CREATE TRIGGER IF NOT EXISTS trg_bookings_public_token AFTER INSERT ON bookings WHEN NEW.public_token IS NULL
+                  BEGIN UPDATE bookings SET public_token=lower(hex(randomblob(24))) WHERE id=NEW.id; END''')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_messages_booking ON messages(booking_id)')
+    # Every booking gets its own long random token for the public check page (G4).
+    for row in db.execute('SELECT id FROM bookings WHERE public_token IS NULL').fetchall():
+        db.execute('UPDATE bookings SET public_token=? WHERE id=?', (wsec.random_token(), row['id']))
+    # Existing centre managers become owners of their centre (team roles, Fase 6).
+    db.execute("INSERT OR IGNORE INTO center_members(center_id,user_id,member_role,created_at) SELECT center_id,id,'owner',? FROM users WHERE role='center' AND center_id IS NOT NULL", (now(),))
+    # Claims whose account no longer exists are closed (they had no cascade).
+    db.execute("UPDATE center_claims SET status='orphaned' WHERE status='pending' AND user_id NOT IN (SELECT id FROM users)")
+    # G6: medical certificates must not be stored. Remove any that exist and tell their owners.
+    medical = db.execute('SELECT id,user_id,file_path,original_name FROM user_documents').fetchall()
+    for d in medical:
+        dtype = db.execute('SELECT document_type,title FROM user_documents WHERE id=?', (d['id'],)).fetchone()
+        txt = fold_text(f"{dtype['document_type']} {dtype['title']}")
+        if not any(w in txt for w in ('medic', 'salud')): continue
+        delete_document_file(d['file_path'])
+        db.execute('DELETE FROM user_documents WHERE id=?', (d['id'],))
+        db.execute("DELETE FROM reward_events WHERE user_id=? AND event_key='document:certificado médico'", (d['user_id'],))
+        audit(db, None, 'medical_document_removed', 'user_document', d['id'], {'owner': d['user_id']})
+        try: notify_user(db, d['user_id'], 'medical_document_removed', {'document': d['original_name'] or ''}, ('user', d['user_id']))
+        except Exception: pass
 
 
 def hash_password(password: str) -> str:
-    salt = secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 240_000)
-    return base64.urlsafe_b64encode(salt + digest).decode()
+    return wsec.hash_password(password)
 
 
 def verify_password(password: str, stored: str) -> bool:
-    if not stored or stored == '!':
-        return False
-    try:
-        raw = base64.urlsafe_b64decode(stored.encode())
-        salt, digest = raw[:16], raw[16:]
-        check = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 240_000)
-        return secrets.compare_digest(check, digest)
-    except Exception:
-        return False
+    return wsec.verify_password(password, stored)
+
+
+def check_new_password(password: str):
+    problem = wsec.password_problem(password)
+    if problem: raise ValueError(problem)
 
 
 def audit(db, user_id, action, entity_type=None, entity_id=None, details=None):
@@ -729,21 +806,39 @@ def clean_text(value, max_len=5000):
     return str(value).strip()[:max_len]
 
 
+class BodyTooLarge(ValueError):
+    pass
+
+
+def body_length(handler, limit):
+    """Content-Length checked BEFORE reading anything (G7). Bodies above the limit are never read into memory."""
+    raw = handler.headers.get('Content-Length', '0') or '0'
+    try: length = int(raw)
+    except ValueError: raise ValueError('Cabecera Content-Length no válida.')
+    if length < 0: raise ValueError('Cabecera Content-Length no válida.')
+    if length > limit: raise BodyTooLarge(f'La petición supera el tamaño máximo permitido ({limit // (1024*1024) or 1} MB).')
+    return length
+
+
 def json_body(handler):
-    length = int(handler.headers.get('Content-Length', '0'))
-    if length > MAX_BODY:
-        raise ValueError('El archivo o formulario supera el límite permitido.')
-    raw = handler.rfile.read(length)
+    """The JSON body of the request (read once and cached: several helpers may ask for it)."""
+    cached = getattr(handler, '_json_cache', None)
+    if cached is not None: return cached
+    length = body_length(handler, MAX_BODY)
+    raw = handler.rfile.read(length) if length else b''
     if not raw:
-        return {}
-    return json.loads(raw.decode('utf-8'))
+        handler._json_cache = {}; return handler._json_cache
+    try: data = json.loads(raw.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError): raise ValueError('El cuerpo de la petición no es un JSON válido.')
+    if not isinstance(data, dict): raise ValueError('El cuerpo de la petición debe ser un objeto JSON.')
+    handler._json_cache = data
+    return data
 
 
 def parse_multipart(handler):
     ctype = handler.headers.get('Content-Type', '')
-    length = int(handler.headers.get('Content-Length', '0'))
-    if length > MAX_BODY:
-        raise ValueError('Archivo demasiado grande.')
+    if not ctype.lower().startswith('multipart/form-data'): raise ValueError('Envía el archivo como formulario (multipart/form-data).')
+    length = body_length(handler, MAX_UPLOAD)
     body = handler.rfile.read(length)
     msg = BytesParser(policy=policy.default).parsebytes((f'Content-Type: {ctype}\r\nMIME-Version: 1.0\r\n\r\n').encode() + body)
     fields = {}
@@ -763,13 +858,36 @@ def parse_multipart(handler):
 
 
 def save_upload(user_id: int, file_info: dict, prefix: str) -> str:
+    """Private document (G1/G8): type checked by its first bytes, at most WOD_MAX_DOCUMENT_MB, stored outside /public.
+    Returns the path relative to STORAGE (never served directly)."""
+    content = file_info.get('content') or b''
+    if not content: raise ValueError('El archivo está vacío.')
+    if len(content) > wcfg.MAX_DOCUMENT_BYTES: raise ValueError(f'El archivo pesa demasiado. Máximo {wcfg.MAX_DOCUMENT_BYTES // (1024*1024)} MB.')
+    ext = wsec.sniff_document(content)
+    if not ext: raise ValueError('Formato no admitido. Usa un PDF o una imagen JPG, PNG o WEBP.')
     UPLOADS.mkdir(parents=True, exist_ok=True)
-    ext = Path(file_info['filename']).suffix.lower()
-    safe_ext = ext if ext in {'.pdf','.jpg','.jpeg','.png','.webp'} else '.bin'
-    filename = f'{prefix}_{user_id}_{secrets.token_hex(5)}{safe_ext}'
+    filename = f'{prefix}_{user_id}_{secrets.token_hex(12)}{ext}'
     out = UPLOADS / filename
-    out.write_bytes(file_info['content'])
-    return str(out.relative_to(ROOT)).replace('\\','/')
+    out.write_bytes(content)
+    try: os.chmod(out, 0o600)
+    except OSError: pass
+    return 'documents/' + filename
+
+
+def document_file_path(stored):
+    """Absolute path of a private document. Accepts the v50.31 format (documents/…) and the older storage/documents/…."""
+    rel = str(stored or '').replace('\\', '/')
+    if rel.startswith('storage/'): rel = rel[len('storage/'):]
+    target = (STORAGE / rel).resolve()
+    if not target.is_relative_to(STORAGE.resolve()): return None
+    return target
+
+
+def delete_document_file(stored):
+    fp = document_file_path(stored)
+    if fp and fp.exists():
+        try: fp.unlink()
+        except OSError as exc: sys.stderr.write(f'[documentos] no se pudo borrar {fp.name}: {exc}\n')
 
 
 def current_user(handler, db):
@@ -808,6 +926,210 @@ def require_user(handler, db):
 def require_role(user, roles):
     if user['role'] not in roles:
         raise PermissionError('No tienes permisos para realizar esta acción.')
+
+
+# Bookings that no longer exist for the centre (they never give access to the diver's data).
+INACTIVE_BOOKING_STATES = ('cancelled', 'rejected', 'expired', 'unpaid')
+
+
+def center_can_see_user(db, center_id, user_id):
+    """G1/G5: a centre sees a registered diver's profile and documents only when the diver booked with that centre
+    themselves (an online booking that is still alive) or explicitly agreed to share the data (QR check-in or the
+    «Compartir mis datos» switch). Bookings typed in by the centre or imported through its API never open that access."""
+    if not center_id or not user_id: return False
+    placeholders = ','.join('?' * len(INACTIVE_BOOKING_STATES))
+    if db.execute(f"SELECT 1 FROM bookings WHERE center_id=? AND user_id=? AND COALESCE(source,'online')='online' AND status NOT IN ({placeholders}) LIMIT 1",
+                  (center_id, user_id, *INACTIVE_BOOKING_STATES)).fetchone():
+        return True
+    return bool(db.execute('SELECT 1 FROM data_shares WHERE center_id=? AND user_id=? AND revoked_at IS NULL', (center_id, user_id)).fetchone())
+
+
+VERIFICATION_METHODS = {'email_domain': 'Email del dominio del centro', 'phone_call': 'Llamada al teléfono público del centro',
+                        'document': 'Documento (licencia, alta fiscal o registro)'}
+MAX_DOCUMENTS_PER_USER = 30
+# G6: health data (medical certificates) are never uploaded to WORLDIVES: the diver hands them to the centre.
+DOCUMENT_TYPES = ('Titulación', 'Seguro', 'Documento de identidad', 'Documento adicional')
+MEDICAL_WORDS = ('medic', 'médic', 'salud', 'health', 'medical')
+
+
+def setup_allowed():
+    """G9: the web installer (#/setup) and the «first user is admin» rule only exist with WOD_ALLOW_SETUP=1."""
+    return wcfg.env_flag('WOD_ALLOW_SETUP')
+
+
+def registration_open():
+    """Demo deployments (WOD_DEMO_MODE=1) do not accept new accounts."""
+    return not wcfg.demo_mode() and not wcfg.env_flag('WOD_REGISTRATION_CLOSED')
+
+
+def pro_signup_check(db, data):
+    """Pilot mode (Administración → Funciones): only invited centres and professionals can sign up."""
+    row = db.execute("SELECT value FROM site_settings WHERE key='feature_pilot_mode'").fetchone()
+    if not row or row['value'] != '1': return
+    code = (clean_text(data.get('invite_code'), 60) or '').strip().upper()
+    inv = db.execute("SELECT id FROM pro_invites WHERE code=? AND used_at IS NULL AND (expires_at IS NULL OR expires_at>=?)", (code, now()[:10])).fetchone() if code else None
+    if not inv: raise PermissionError('WORLDIVES está en fase piloto: el alta de centros y profesionales es solo por invitación. Escríbenos para pedir la tuya.')
+    db.execute('UPDATE pro_invites SET used_at=? WHERE id=?', (now(), inv['id']))
+
+
+def normalize_lang(lang):
+    """Languages of the site (v50.33): retired ones fall back (ja/ko → en, zt → zh)."""
+    lang = (lang or 'es').lower()
+    lang = {'ja': 'en', 'ko': 'en', 'zt': 'zh'}.get(lang, lang)
+    return lang if lang in MAIL_LANGS else 'es'
+
+
+def clean_url_field(value, max_len=500):
+    return wsec.clean_http_url(value, max_len) if value not in (None, '') else None
+
+
+def clean_lat(v):
+    try: x = float(v)
+    except (TypeError, ValueError): return None
+    return x if -90 <= x <= 90 and x != 0 else None
+
+
+def clean_lng(v):
+    try: x = float(v)
+    except (TypeError, ValueError): return None
+    return x if -180 <= x <= 180 and x != 0 else None
+
+
+def clean_date(v):
+    v = (clean_text(v, 10) or '').strip()
+    if not v: return None
+    try: return _dt.date.fromisoformat(v).isoformat()
+    except ValueError: raise ValueError('La fecha no es válida (usa el formato AAAA-MM-DD).')
+
+
+def clean_document_type(v):
+    v = (clean_text(v, 50) or 'Documento adicional').strip()
+    if any(w in fold_text(v) for w in MEDICAL_WORDS):
+        raise ValueError('No subas certificados médicos a WORLDIVES: entrégalos directamente al centro de buceo.')
+    return v if v in DOCUMENT_TYPES else 'Documento adicional'
+
+
+def unique_center_name(db, name, city):
+    """centers has UNIQUE(name,country,city): a new draft with the same name gets a numbered suffix."""
+    base = clean_text(name, 170) or 'Centro'
+    cand = base; n = 2
+    while db.execute('SELECT 1 FROM centers WHERE name=? AND COALESCE(city,"")=COALESCE(?,"")', (cand, city)).fetchone():
+        cand = f'{base} ({n})'; n += 1
+    return cand
+
+
+def booking_status_label(state):
+    return wbk.state_label(state)
+
+
+def short_name(fullname):
+    """«Laura M.»: first name and the initial of the surname (public booking check, G4)."""
+    parts = [p for p in str(fullname or '').split() if p]
+    if not parts: return ''
+    return parts[0] + (f' {parts[1][0].upper()}.' if len(parts) > 1 else '')
+
+
+def booking_check_url(db, bid, base):
+    """Link printed in the QR and the PDF: it carries the booking's long random token (G4)."""
+    row = db.execute('SELECT public_token FROM bookings WHERE id=?', (bid,)).fetchone()
+    token = row['public_token'] if row else None
+    if row and not token:
+        token = wsec.random_token(); db.execute('UPDATE bookings SET public_token=? WHERE id=?', (token, bid)); db.commit()
+    return f'{base}/#/verificarreserva?id={bid}&t={token}'
+
+
+def qr_svg(payload, color='#000000'):
+    import qrcode
+    qr = qrcode.QRCode(box_size=1, border=1); qr.add_data(payload); qr.make(fit=True)
+    m = qr.get_matrix(); n = len(m); sc = 8; mg = sc * 3; size = n * sc + mg * 2
+    rects = ''.join(f'<rect x="{mg+c*sc}" y="{mg+r*sc}" width="{sc}" height="{sc}"/>' for r, row_ in enumerate(m) for c, v in enumerate(row_) if v)
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" width="{size}" height="{size}" shape-rendering="crispEdges">'
+            f'<rect width="100%" height="100%" fill="#fff"/><g fill="{html.escape(color)}">{rects}</g></svg>').encode()
+
+
+def record_acceptances(db, user_id, docs, ip='', version=None):
+    """Keeps WHO accepted WHICH version of WHICH legal document, WHEN and from which (pseudonymised) IP."""
+    for doc in docs:
+        ver = version or legal_doc_version(db, doc)
+        db.execute('INSERT INTO legal_acceptances(user_id,document,version,accepted_at,ip_hash) VALUES(?,?,?,?,?)', (user_id, doc, ver, now(), wsec.ip_hash(ip) if ip else None))
+    if any(d in ('terminos', 'privacidad') for d in docs):
+        db.execute('UPDATE users SET terms_version=?,terms_accepted_at=? WHERE id=?', (legal_doc_version(db, 'terminos'), now(), user_id))
+    if 'centros' in docs:
+        db.execute('UPDATE users SET pro_terms_version=?,pro_terms_accepted_at=? WHERE id=?', (legal_doc_version(db, 'centros'), now(), user_id))
+
+
+def set_marketing_consent(db, user_id, consent, ip=''):
+    """Commercial emails only with explicit, separate consent; one-click unsubscribe token (Fase 4.3)."""
+    db.execute('UPDATE users SET marketing_consent=?,marketing_consent_at=?,marketing_token=COALESCE(marketing_token,?) WHERE id=?',
+               (1 if consent else 0, now(), wsec.random_token(18), user_id))
+    db.execute('INSERT INTO consent_log(user_id,kind,granted,created_at,ip_hash) VALUES(?,?,?,?,?)', (user_id, 'marketing', 1 if consent else 0, now(), wsec.ip_hash(ip) if ip else None))
+
+
+def send_email_verification(db, user_id, new_email=None):
+    """Email verification at sign-up and when the email changes: a single-use link valid for 48 hours."""
+    u = db.execute('SELECT id,email,fullname FROM users WHERE id=?', (user_id,)).fetchone()
+    if not u: return None
+    target = (new_email or u['email'] or '').lower()
+    if not mail_deliverable(target): return None
+    token = wsec.random_token(32)
+    exp = (datetime.now(timezone.utc) + _timedelta(hours=48)).isoformat(timespec='seconds')
+    db.execute('UPDATE email_verifications SET used_at=? WHERE user_id=? AND used_at IS NULL', (now(), user_id))
+    db.execute('INSERT INTO email_verifications(token_hash,user_id,email,expires_at,created_at) VALUES(?,?,?,?,?)', (hashlib.sha256(token.encode()).hexdigest(), user_id, target, exp, now()))
+    ctx, lang = user_mail_ctx(db, user_id)
+    if ctx:
+        ctx.update({'verify_url': f'{public_site_url()}/#/verificar-email?token={token}', 'new_email': target})
+        queue_email(db, 'verify_email_change' if new_email else 'verify_email', target, u['fullname'], ctx, lang, ('user', user_id))
+    return token
+
+
+def booking_notice_recipient(db, user, booking_id, experience_booking_id):
+    """G11: the notice must be about a booking of the sender's own centre (or of his own freelance services/experiences)."""
+    if booking_id:
+        b = db.execute('SELECT b.user_id,b.center_id,s.provider_user_id FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?', (booking_id,)).fetchone()
+        if not b: raise ValueError('Reserva no válida.')
+        if user['role'] == 'center' and b['center_id'] == user['center_id']: return b['user_id']
+        if user['role'] == 'freelance' and b['provider_user_id'] == user['id']: return b['user_id']
+        raise PermissionError('Esta reserva no pertenece a tu centro.')
+    eb = db.execute('SELECT eb.user_id,e.provider_user_id,e.center_id FROM experience_bookings eb JOIN travel_experiences e ON e.id=eb.travel_experience_id WHERE eb.id=?', (experience_booking_id,)).fetchone()
+    if not eb: raise ValueError('Solicitud no válida.')
+    if eb['provider_user_id'] == user['id'] or (user['role'] == 'center' and eb['center_id'] and eb['center_id'] == user['center_id']): return eb['user_id']
+    raise PermissionError('Esta solicitud no es tuya.')
+
+
+def provider_contact(db, user):
+    """Phone and email shown under a notice: the diver answers the centre directly, not through WORLDIVES."""
+    if user['role'] == 'center' and user.get('center_id'):
+        c = db.execute('SELECT name,phone,email FROM centers WHERE id=?', (user['center_id'],)).fetchone()
+        if c: return c['name'], c['phone'] or '', c['email'] or ''
+    p = db.execute('SELECT phone FROM user_profiles WHERE user_id=?', (user['id'],)).fetchone()
+    return user['fullname'], (p['phone'] if p else '') or '', user['email'] or ''
+
+
+def send_booking_notice(db, user, recipient_id, booking_id, experience_booking_id, subject, body):
+    name, phone, email = provider_contact(db, user)
+    mid = db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,experience_booking_id,subject,body,created_at,kind,contact_phone,contact_email,sender_name) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                     (user['id'], recipient_id, booking_id, experience_booking_id, subject, body, now(), 'notice', phone, email, name)).lastrowid
+    ctx, lang = user_mail_ctx(db, recipient_id)
+    to = ctx['email'] if ctx else ''
+    if booking_id:
+        bc = db.execute('SELECT contact_email FROM bookings WHERE id=?', (booking_id,)).fetchone()
+        if not mail_deliverable(to) and bc and mail_deliverable(bc['contact_email']): to = bc['contact_email']
+    if ctx and mail_deliverable(to):
+        ctx.update({'provider': name, 'notice_subject': subject, 'notice_body': body, 'provider_phone': phone or '—', 'provider_email': email or '—',
+                    'booking_url': f'{public_site_url()}/#/reserva?id={booking_id}' if booking_id else f'{public_site_url()}/#/area'})
+        queue_email(db, 'booking_notice', to, ctx['name'], ctx, lang, ('booking', booking_id) if booking_id else ('experience_booking', experience_booking_id))
+    return mid
+
+
+def login_second_factor(db, user, data):
+    """Two-step verification hook (Fase 4). Returns a JSON answer when a code is still needed, else None."""
+    return None
+
+
+def grant_data_share(db, user_id, center_id, source):
+    db.execute('''INSERT INTO data_shares(user_id,center_id,source,granted_at) VALUES(?,?,?,?)
+                  ON CONFLICT(user_id,center_id) DO UPDATE SET revoked_at=NULL,source=excluded.source,granted_at=excluded.granted_at''',
+               (user_id, center_id, source, now()))
 
 
 SERVICE_TYPES = {'inmersion','curso','salida','experiencia','vida_a_bordo','viaje','alquiler_equipo'}
@@ -904,19 +1226,27 @@ def release_slot_spots(db, slot_id, qty):
     db.execute("UPDATE service_slots SET spots_available=MIN(spots_total,spots_available+?),status=CASE WHEN status='closed' THEN 'closed' ELSE 'open' END,updated_at=? WHERE id=?",(qty,now(),slot_id))
 
 
-def find_or_create_customer(db, fullname, email, phone):
-    """Link a booking to an existing account by email, or create a guest customer record."""
+def find_or_create_customer(db, fullname, email, phone, center_id=None):
+    """G5: a booking typed in by a centre (or imported through its API) is NEVER linked to a registered account,
+    not even when the email matches. It gets the centre's own customer record (a login-less user, password '!',
+    tied to that centre by guest_center_id). The real email and phone travel with the booking (contact_email /
+    contact_phone) so the confirmation still reaches the customer. If that person has an account, the centre
+    only sees it once the person books by himself or accepts to share his data."""
     email=(clean_text(email,160) or '').lower()
-    if email:
-        row=db.execute('SELECT id FROM users WHERE lower(email)=? LIMIT 1',(email,)).fetchone()
+    if email and center_id:
+        row=db.execute("SELECT id FROM users WHERE guest_center_id=? AND password_hash='!' AND lower(guest_email)=? LIMIT 1",(center_id,email)).fetchone()
         if row: return row['id']
-    else:
-        email=f'cliente-{secrets.token_hex(6)}@sin-email.worldives.local'
-    # '!' marks a customer record without login. If that person registers later with the same email,
-    # registration frees the email (see /api/auth/register) instead of merging unverified data.
-    uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at) VALUES(?,?,?,?,?,?)',(clean_text(fullname,180) or 'Cliente',email,'cliente_'+secrets.token_hex(6),'!','recreational',now())).lastrowid
+    placeholder=f'cliente-{secrets.token_hex(8)}@sin-email.worldives.local'
+    uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at,guest_center_id,guest_email) VALUES(?,?,?,?,?,?,?,?)',
+                   (clean_text(fullname,180) or 'Cliente',placeholder,'cliente_'+secrets.token_hex(6),'!','recreational',now(),center_id,email or None)).lastrowid
     db.execute('INSERT OR IGNORE INTO user_profiles(user_id,phone,updated_at) VALUES(?,?,?)',(uid,clean_text(phone,60),now()))
     return uid
+
+
+def is_guest_user(db, user_id):
+    """A customer record without login created by a centre: its data was typed by that centre."""
+    r = db.execute('SELECT password_hash, guest_center_id FROM users WHERE id=?', (user_id,)).fetchone()
+    return bool(r and r['password_hash'] == '!' and r['guest_center_id'])
 
 
 def resolve_travel_offer(db, data):
@@ -995,10 +1325,59 @@ def save_public_image(file_info, prefix):
 def delete_public_image(url):
     """Remove a file previously stored by save_public_image (never anything outside /assets/uploads)."""
     if not url or not str(url).startswith('/assets/uploads/'): return
-    target=(PHOTOS/Path(url).name).resolve()
+    target=(PHOTOS/str(url)[len('/assets/uploads/'):]).resolve()
     if str(target).startswith(str(PHOTOS.resolve())) and target.exists():
         try: target.unlink()
         except OSError: pass
+
+
+VIRTUAL_TYPES = {'panorama', 'video360', 'streetview', 'external360'}
+
+
+def virtual_public_row(row):
+    """G3: a stored link is only handed to browsers when it is an allowed https embed (older rows are re-checked)."""
+    d = dict(row)
+    if d.get('url') and not wsec.embed_allowed(d['url']): d['url'] = None; d['url_blocked'] = True
+    if d.get('media_path') and not str(d['media_path']).startswith('/assets/uploads/virtual/'): d['media_path'] = None
+    return d
+
+
+def can_manage_virtual(db, user, pid):
+    row = db.execute('SELECT center_id FROM dive_points WHERE id=?', (pid,)).fetchone()
+    if not row: raise ValueError('Punto no encontrado.')
+    if user['role'] == 'center' and row['center_id'] != user['center_id']:
+        raise PermissionError('No puedes gestionar el recorrido virtual de este punto.')
+    return row
+
+
+def clean_virtual_payload(data, has_file=False):
+    """Validates a virtual tour (server side; the browser checks the same rules). The URL must be https:// on one of
+    the providers in WOD_EMBED_DOMAINS (youtube-nocookie.com, player.vimeo.com, google.com/maps by default)."""
+    etype = clean_text(data.get('experience_type'), 40) or 'panorama'
+    if etype not in VIRTUAL_TYPES: raise ValueError('Tipo de experiencia no válido.')
+    url = wsec.clean_embed_url(clean_text(data.get('url'), 1000))
+    if etype in {'video360', 'streetview', 'external360'} and not url and not has_file:
+        raise ValueError('Añade una URL o un archivo para esta experiencia.')
+    try: duration = int(data.get('duration_seconds') or 0) or None
+    except (TypeError, ValueError): duration = None
+    if duration is not None and not 0 < duration < 24 * 3600: duration = None
+    return {'type': etype, 'url': url, 'title': clean_text(data.get('title'), 180) or 'Recorrido virtual',
+            'provider': clean_text(data.get('provider'), 100), 'description': clean_text(data.get('description'), 2000), 'duration': duration}
+
+
+def save_virtual_media(file_info, pid, etype):
+    """Panorama images or 360° videos for a dive site: type checked by content and size limited (WOD_MAX_VIRTUAL_UPLOAD_MB)."""
+    content = file_info.get('content') or b''
+    if len(content) > wcfg.MAX_VIRTUAL_UPLOAD_BYTES:
+        raise ValueError(f'El archivo pesa demasiado. Máximo {wcfg.MAX_VIRTUAL_UPLOAD_BYTES // (1024*1024)} MB.')
+    image = wsec.sniff_document(content); video = wsec.sniff_video(content)
+    if image == '.pdf': image = None
+    ext = image if etype == 'panorama' else video if etype == 'video360' else (image or video)
+    if not ext: raise ValueError('Formato no admitido para este tipo de recorrido.')
+    folder = PHOTOS / 'virtual'; folder.mkdir(parents=True, exist_ok=True)
+    out = folder / f'virtual_{pid}_{secrets.token_hex(8)}{ext}'
+    out.write_bytes(content)
+    return '/assets/uploads/virtual/' + out.name
 
 
 def center_gallery(row):
@@ -1681,11 +2060,39 @@ def new_promo_code(db):
 
 
 def public_base(handler):
-    env=os.environ.get('WOD_PUBLIC_URL','').strip().rstrip('/')
-    if env: return env
-    host=handler.headers.get('X-Forwarded-Host') or handler.headers.get('Host') or f'localhost:{PORT}'
-    proto=handler.headers.get('X-Forwarded-Proto') or ('https' if os.environ.get('WOD_HTTPS')=='1' else 'http')
-    return f'{proto}://{host}'
+    return handler.base_url()
+
+
+_GEOCODE_CACHE = {}
+_GEOCODE_LOCK = threading.Lock()
+_GEOCODE_LAST = [0.0]
+
+
+def geocode_search(q, lang='es'):
+    """Place search through Nominatim (OpenStreetMap), cached for a day and throttled to 1 request per second for
+    the whole server, with an identified User-Agent, as its usage policy requires. WOD_GEOCODER_URL can point to
+    another Nominatim-compatible service (or a self-hosted one) for heavy production use."""
+    key = (fold_text(q).strip(), lang)
+    hit = _GEOCODE_CACHE.get(key)
+    if hit and time.time() - hit[0] < 86400: return hit[1]
+    import urllib.request
+    base = wcfg.env('WOD_GEOCODER_URL', 'https://nominatim.openstreetmap.org/search')
+    url = f"{base}?format=jsonv2&limit=6&addressdetails=0&accept-language={quote(lang)}&q={quote(q)}"
+    with _GEOCODE_LOCK:
+        wait = 1.05 - (time.time() - _GEOCODE_LAST[0])
+        if wait > 0: time.sleep(wait)
+        _GEOCODE_LAST[0] = time.time()
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': f'WORLDIVES-DISCOVERY/{APP_VERSION} ({public_site_url()})', 'Accept': 'application/json'})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            raw = json.loads(resp.read(512 * 1024).decode('utf-8'))
+        items = [{'name': clean_text(x.get('display_name'), 200), 'lat': float(x['lat']), 'lon': float(x['lon'])} for x in raw if x.get('lat') and x.get('lon')][:6]
+    except Exception as exc:
+        sys.stderr.write(f'[geocode] {type(exc).__name__}: {exc}\n')
+        return []
+    if len(_GEOCODE_CACHE) > 5000: _GEOCODE_CACHE.clear()
+    _GEOCODE_CACHE[key] = (time.time(), items)
+    return items
 
 
 def promo_state(promo_status, code_status, uses, max_uses, valid_from, valid_until, today=None):
@@ -2412,6 +2819,29 @@ EMAIL_TEMPLATES = {
  'report_resolved': {'to': 'any', 'subject': 'Resultado de tu denuncia · {ref}', 'pre': '{decision}', 'blocks': [
    ('h', 'Hemos revisado tu denuncia'), ('p', 'Hola {first_name}, hemos revisado la denuncia {ref}.'), ('note', '{decision}'), ('p', '{resolution}'),
    ('p', 'Si no estás de acuerdo con la decisión, puedes responder a este correo y la revisaremos de nuevo.')]},
+ 'verify_email': {'to': 'any', 'subject': 'Confirma tu email en WORLDIVES', 'pre': 'Un clic para confirmar tu dirección.', 'blocks': [
+   ('h', 'Confirma tu email'),
+   ('p', 'Hola {first_name}, confirma que esta dirección es tuya para recibir los avisos de tus reservas y poder recuperar tu cuenta.'),
+   ('button', ('Confirmar mi email', 'verify_url')),
+   ('note', 'El enlace caduca en 48 horas. Si no has creado una cuenta en WORLDIVES, ignora este correo.')]},
+ 'verify_email_change': {'to': 'any', 'subject': 'Confirma tu nuevo email en WORLDIVES', 'pre': 'Cambio de email de tu cuenta.', 'blocks': [
+   ('h', 'Confirma tu nuevo email'),
+   ('p', 'Hola {first_name}, has pedido usar {new_email} en tu cuenta de WORLDIVES. El cambio se aplica cuando confirmes desde este correo.'),
+   ('button', ('Confirmar el cambio', 'verify_url')),
+   ('note', 'Si no has pedido este cambio, ignora este correo: tu email no cambiará.')]},
+ 'booking_notice': {'to': 'diver', 'subject': 'Aviso de {provider}: {notice_subject}', 'pre': '{notice_subject}', 'blocks': [
+   ('h', '{notice_subject}'),
+   ('p', 'Hola {first_name}, {provider} te envía este aviso sobre tu reserva:'),
+   ('note', '{notice_body}'),
+   ('p', 'Este aviso no admite respuesta por WORLDIVES. Si necesitas contestar, contacta directamente con {provider}: teléfono {provider_phone} · email {provider_email}.'),
+   ('button', ('Ver mi reserva', 'booking_url'))]},
+ 'medical_document_removed': {'to': 'any', 'subject': 'Hemos eliminado un certificado médico de tu cuenta', 'pre': 'Los datos de salud no se guardan en WORLDIVES.', 'blocks': [
+   ('h', 'Certificado médico eliminado'),
+   ('p', 'Hola {first_name}, para proteger tus datos de salud, WORLDIVES ya no guarda certificados médicos. Hemos eliminado el documento «{document}» y su archivo.'),
+   ('p', 'Cuando un centro te lo pida, entrégaselo directamente a él.')]},
+ 'admin_error_alert': {'to': 'admin', 'subject': 'Alerta: {count} errores del servidor en pocos minutos', 'pre': 'Revisa el servidor.', 'blocks': [
+   ('h', 'Errores repetidos en el servidor'), ('p', 'Se han producido {count} errores internos (500) en {site} en los últimos minutos. Los últimos:'),
+   ('note', '{errors}'), ('p', 'Revisa los registros del servicio (journalctl -u worldives) y el estado en Administración → Sistema.')]},
  'test': {'to': 'any', 'subject': 'Correo de prueba de WORLDIVES DISCOVERY', 'pre': 'La configuración de correo funciona.', 'blocks': [
    ('h', '¡Funciona!'), ('p', 'Este es un correo de prueba. Si lo estás leyendo, el envío de correos de WORLDIVES está bien configurado.')]},
 }
@@ -2426,7 +2856,9 @@ EMAIL_TEMPLATE_LABELS = {
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
  'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'admin_new_pro': 'Admin: nueva cuenta profesional',
  'admin_payment_review': 'Admin: pago en revisión', 'admin_refund_failed': 'Admin: devolución pendiente', 'admin_content_report': 'Admin: denuncia de contenido',
- 'report_received': 'Denuncia recibida', 'report_resolved': 'Resultado de la denuncia', 'test': 'Correo de prueba'}
+ 'report_received': 'Denuncia recibida', 'report_resolved': 'Resultado de la denuncia', 'test': 'Correo de prueba',
+ 'verify_email': 'Verificación de email', 'verify_email_change': 'Confirmación de cambio de email', 'booking_notice': 'Aviso del centro sobre una reserva',
+ 'medical_document_removed': 'Certificado médico eliminado', 'admin_error_alert': 'Admin: errores repetidos del servidor'}
 EMAIL_AUDIENCE = {'diver': 'Buceador', 'pro': 'Profesional', 'center': 'Centro', 'admin': 'Administración', 'any': 'Cualquier usuario'}
 
 
@@ -2865,6 +3297,16 @@ def sample_email_ctx(template, lang='es'):
 # Legal documents, cancellations with refunds, password reset, privacy rights and content reports (v50.30)
 # ---------------------------------------------------------------------------
 LEGAL_VERSION = '2026-10-11'
+
+
+def legal_doc_version(db, slug):
+    """Current version of a legal document (editable documents with history arrive in Fase 5)."""
+    try:
+        row = db.execute('SELECT version FROM legal_doc_versions WHERE slug=? AND published_at<=? ORDER BY published_at DESC, id DESC LIMIT 1', (slug, now())).fetchone()
+        if row: return row['version']
+    except sqlite3.OperationalError:
+        pass
+    return LEGAL_VERSION
 LEGAL_DOCS = {
     'aviso-legal': 'Aviso legal', 'terminos': 'Condiciones de uso', 'reservas': 'Condiciones de reserva, pago y cancelación',
     'privacidad': 'Política de privacidad', 'cookies': 'Política de cookies', 'centros': 'Condiciones para centros y profesionales',
@@ -2876,8 +3318,12 @@ LEGAL_FIELDS = {'owner_name': 'Titular (nombre y apellidos o razón social)', 't
 _LEGAL_CACHE = {}
 
 
+LEGAL_ALIASES = {'condiciones-buceadores': 'terminos', 'condiciones-centros': 'centros', 'normas-resenas': 'resenas'}
+
+
 def legal_doc(db, slug, lang='es'):
     """Reads app/legal/<lang>/<slug>.md (falls back to Spanish) and fills in the owner's data from Administración → Legal."""
+    slug = LEGAL_ALIASES.get(slug, slug)
     if slug not in LEGAL_DOCS: return None
     lang = 'en' if lang not in ('es',) and (ROOT / 'app' / 'legal' / 'en' / f'{slug}.md').exists() else 'es'
     key = (lang, slug)
@@ -2994,10 +3440,7 @@ def delete_user_account(db, user):
     if future: raise ValueError(f'Tienes {future} reserva(s) próxima(s). Cancélalas antes de eliminar tu cuenta.')
     notify_user(db, uid, 'account_deleted', related=('user', uid))
     for d in db.execute('SELECT file_path FROM user_documents WHERE user_id=?', (uid,)).fetchall():
-        try:
-            fp = (ROOT / d['file_path']).resolve()
-            if fp.is_relative_to(ROOT.resolve()) and fp.exists(): fp.unlink()
-        except Exception: pass
+        delete_document_file(d['file_path'])
     tag = secrets.token_hex(4)
     db.execute('''UPDATE users SET fullname='Usuario eliminado', email=?, username=?, password_hash='!', provider_bio=NULL, avatar_url=NULL,
                   instagram_url=NULL, facebook_url=NULL, twitter_url=NULL, youtube_url=NULL, tiktok_url=NULL WHERE id=?''',
@@ -3263,45 +3706,98 @@ def diver_sheet_pdf(db,booking_id,base_url="http://localhost:8000"):
     return _pdf_objects('\n'.join(cmds).encode('cp1252','replace'))
 
 
+from wod import ops as wops
+
+CSP_HEADER = wsec.content_security_policy()
+ACCESS_LOG = wops.access_logger(LOG_DIR)
+
+
+def _alert_errors(events):
+    """Repeated 500 errors: one email to the administrators (at most once an hour)."""
+    db = connect()
+    try:
+        notify_admins(db, 'admin_error_alert', {'count': len(events), 'errors': '\n'.join(e[1] for e in events[-10:]), 'site': public_site_url()}, ('system', 0))
+        db.commit()
+    finally:
+        db.close()
+
+
+ERROR_MONITOR = wops.ErrorMonitor(_alert_errors)
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = 'WorldDivesLocal/8.0'
     # A connection that stops sending data is dropped after 30 s instead of holding a worker forever.
     timeout = int(os.environ.get('WOD_SOCKET_TIMEOUT', '30'))
 
     def log_message(self, fmt, *args):
-        sys.stdout.write('%s - %s\n' % (self.address_string(), fmt % args))
+        # The query string never reaches the logs (it may carry coordinates or searches); the IP is truncated
+        # unless WOD_LOG_IP=full, and the access log rotates daily (wod.ops.access_logger, WOD_LOG_RETENTION_DAYS).
+        try:
+            line = fmt % args
+            if '?' in line: line = re.sub(r'\?[^\s"]*', '', line)
+            ACCESS_LOG.info('%s - %s', wsec.log_ip(self.client_ip()), line)
+        except Exception:
+            pass
 
-    def security_headers(self):
+    def client_ip(self):
+        """The visitor's IP. Behind nginx/Caddy it comes from X-Forwarded-For, but only when the TCP peer is one of
+        WOD_TRUSTED_PROXIES; otherwise anybody could forge it."""
+        ip = getattr(self, '_client_ip', None)
+        if ip is None:
+            ip = self._client_ip = wsec.client_ip(self.client_address[0], self.headers)
+        return ip
+
+    def base_url(self):
+        """Absolute base URL for links in QR codes and PDFs: WOD_PUBLIC_URL; Host header only in development."""
+        if wcfg.public_url(): return wcfg.public_url()
+        host = re.sub(r'[^A-Za-z0-9.:\[\]-]', '', self.headers.get('Host') or f'localhost:{PORT}')
+        return f"{wsec.request_scheme(self.client_address[0], self.headers)}://{host}"
+
+    def send_response(self, code, message=None):
+        super().send_response(code, message)
+        self._sec_sent = False
+
+    def security_headers(self, csp=True):
+        self._sec_sent = True
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('X-Frame-Options', 'DENY')
         self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
-        self.send_header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)')
+        self.send_header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=()')
+        self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+        if csp: self.send_header('Content-Security-Policy', CSP_HEADER)
+        if wcfg.demo_mode(): self.send_header('X-Robots-Tag', 'noindex, nofollow')
         public_url = os.environ.get('WOD_PUBLIC_URL', '').strip().lower()
         if public_url.startswith('https://'):
             self.send_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
 
-    def enforce_same_origin(self):
-        """Reject browser state-changing requests coming from another origin.
+    # Endpoints called by other servers (no browser, no cookie): they authenticate with their own signature or key.
+    CSRF_EXEMPT = ('/api/payments/webhook', '/api/payments/webhook/connect', '/api/integrations/bookings')
 
-        Requests without an Origin header are allowed for compatibility with
-        direct/local clients and Stripe webhooks. Cookie-based browser requests
-        sent by the application always carry the same origin.
-        """
-        origin = self.headers.get('Origin') or self.headers.get('Referer')
-        if not origin:
+    def enforce_same_origin(self):
+        """G10: every state-changing request from a browser must carry Origin (or Referer) and it must be our origin.
+        Requests without both headers are rejected, except the server-to-server endpoints in CSRF_EXEMPT.
+        The allowed origin is WOD_PUBLIC_URL (mandatory in production); in development it is the Host header."""
+        path = urlparse(self.path).path
+        if path in self.CSRF_EXEMPT:
             return
+        origin = self.headers.get('Origin') or self.headers.get('Referer')
+        if not origin or origin == 'null':
+            raise PermissionError('Solicitud bloqueada: falta el origen de la petición.')
         try:
             source = urlparse(origin)
             allowed = os.environ.get('WOD_PUBLIC_URL', '').strip()
+            allowed_origins = set()
             if allowed:
                 target = urlparse(allowed)
-                allowed_origin = f'{target.scheme}://{target.netloc}'
+                allowed_origins.add(f'{target.scheme}://{target.netloc}'.lower())
             else:
                 host = self.headers.get('Host', '')
-                scheme = 'https' if self.headers.get('X-Forwarded-Proto','').lower() == 'https' else 'http'
-                allowed_origin = f'{scheme}://{host}'
-            source_origin = f'{source.scheme}://{source.netloc}'
-            if source_origin.rstrip('/') != allowed_origin.rstrip('/'):
+                allowed_origins.add(f"{wsec.request_scheme(self.client_address[0], self.headers)}://{host}".lower())
+            for extra in wcfg.env('WOD_ALLOWED_ORIGINS').split(','):
+                if extra.strip(): allowed_origins.add(extra.strip().rstrip('/').lower())
+            source_origin = f'{source.scheme}://{source.netloc}'.lower()
+            if source_origin.rstrip('/') not in {a.rstrip('/') for a in allowed_origins}:
                 raise PermissionError('Solicitud bloqueada por origen no autorizado.')
         except PermissionError:
             raise
@@ -3351,6 +3847,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(304)
             self.send_header('ETag', etag)
             self.send_header('Cache-Control', cache)
+            self.security_headers()
             self.end_headers()
             return
         raw = path.read_bytes()
@@ -3374,6 +3871,35 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def send_private_file(self, path: Path, download_name: str, inline: bool = True):
+        """Private documents (G8): never cached by browsers or proxies, always with Content-Disposition."""
+        raw = path.read_bytes()
+        ct = wsec.DOCUMENT_TYPES.get(path.suffix.lower(), 'application/octet-stream')
+        safe = re.sub(r'[^A-Za-z0-9._-]+', '_', download_name or path.name)[:120] or path.name
+        self.send_response(200)
+        self.send_header('Content-Type', ct)
+        self.send_header('Content-Length', str(len(raw)))
+        self.send_header('Cache-Control', 'private, no-store, max-age=0')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Content-Disposition', f"{'inline' if inline else 'attachment'}; filename=\"{safe}\"; filename*=UTF-8''{quote(download_name or path.name)}")
+        self.send_header('X-Robots-Tag', 'noindex')
+        self.security_headers()
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def send_bytes(self, raw: bytes, content_type: str, filename: str | None = None, cache: str = 'no-store', inline: bool = False):
+        """Generated files (PDF, SVG, CSV, ICS…) with the same security headers as every other answer."""
+        self.send_response(200)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Content-Length', str(len(raw)))
+        self.send_header('Cache-Control', cache)
+        if filename:
+            safe = re.sub(r'[^A-Za-z0-9._-]+', '_', filename)[:120]
+            self.send_header('Content-Disposition', f"{'inline' if inline else 'attachment'}; filename=\"{safe}\"")
+        self.security_headers()
+        self.end_headers()
+        self.wfile.write(raw)
+
     def redirect(self, location):
         self.send_response(302)
         self.send_header('Location', location)
@@ -3381,6 +3907,8 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def end_headers(self):
+        # Any answer that did not add them explicitly (error pages, 30x…) still carries the security headers.
+        if not getattr(self, '_sec_sent', True): self.security_headers()
         super().end_headers()
         if self.command == 'HEAD':
             # HEAD (uptime monitors, link checkers): same headers as GET, body discarded.
@@ -3394,6 +3922,10 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         query = parse_qs(parsed.query)
         # Static files are served without touching the database.
+        if path.startswith('/assets/uploads/'):
+            candidate=(PHOTOS/unquote(path)[len('/assets/uploads/'):]).resolve()
+            if not candidate.is_relative_to(PHOTOS.resolve()): self.send_error(403); return
+            self.send_file(candidate); return
         if path.startswith('/assets/') or path in PUBLIC_ROOT_FILES:
             candidate=(PUBLIC/unquote(path).lstrip('/')).resolve()
             if not candidate.is_relative_to(PUBLIC.resolve()): self.send_error(403); return
@@ -3404,9 +3936,15 @@ class Handler(BaseHTTPRequestHandler):
                     # Storage is private: documents only through the authenticated API. Images used by the app are public only when deliberately copied to assets.
                     self.send_error(403); return
                 if path == '/api/health':
-                    count = db.execute('SELECT COUNT(*) FROM dive_points WHERE active=1').fetchone()[0]
-                    self.send_json({'ok': True, 'version': APP_VERSION, 'points': count, 'db': str(DB_PATH.name), 'configured': db.execute('SELECT COUNT(*) FROM users').fetchone()[0] > 0})
-                    return
+                    # Public health check (uptime monitors): only ok + version (G15). Details: /api/admin/health.
+                    db.execute('SELECT 1').fetchone()
+                    self.send_json({'ok': True, 'version': APP_VERSION}); return
+                if path == '/api/setup/status':
+                    # The installation screen only exists while WOD_ALLOW_SETUP=1 and there is no administrator (G9).
+                    has_admin = bool(db.execute("SELECT 1 FROM users WHERE role='admin' LIMIT 1").fetchone())
+                    self.send_json({'setup_allowed': setup_allowed() and not has_admin, 'configured': has_admin or not setup_allowed(),
+                                    'registration_open': registration_open(), 'demo': wcfg.demo_mode(),
+                                    'pilot_mode': (db.execute("SELECT value FROM site_settings WHERE key='feature_pilot_mode'").fetchone() or {'value':'0'})['value']=='1'}); return
                 if path == '/api/legal/doc':
                     doc=legal_doc(db,clean_text(query.get('slug',[''])[0],40) or '',clean_text(query.get('lang',['es'])[0],5) or 'es')
                     if not doc: self.send_json({'error':'Documento no encontrado'},404); return
@@ -3483,12 +4021,7 @@ class Handler(BaseHTTPRequestHandler):
                     code=path.split('/')[3].upper()
                     row=db.execute('SELECT 1 FROM promotion_codes WHERE code=?',(code,)).fetchone()
                     if not row: self.send_error(404); return
-                    import qrcode
-                    qr=qrcode.QRCode(box_size=1,border=1); qr.add_data(f'{public_base(self)}/#/promo/{code}'); qr.make(fit=True)
-                    m=qr.get_matrix(); n=len(m); sc=8; mg=sc*3; size=n*sc+mg*2
-                    rects=''.join(f'<rect x="{mg+c*sc}" y="{mg+r*sc}" width="{sc}" height="{sc}"/>' for r,row_ in enumerate(m) for c,v in enumerate(row_) if v)
-                    raw=f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" width="{size}" height="{size}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><g fill="#07364a">{rects}</g></svg>'.encode()
-                    self.send_response(200); self.send_header('Content-Type','image/svg+xml; charset=utf-8'); self.send_header('Cache-Control','private, max-age=3600'); self.send_header('Content-Length',str(len(raw))); self.end_headers(); self.wfile.write(raw); return
+                    self.send_bytes(qr_svg(f'{self.base_url()}/#/promo/{code}','#07364a'),'image/svg+xml; charset=utf-8',cache='private, max-age=3600'); return
                 if path.startswith('/api/promo/'):
                     code=path.split('/')[3].upper(); viewer=current_user(self,db)
                     row=db.execute(PROMO_CODE_SQL,(code,)).fetchone()
@@ -3528,11 +4061,9 @@ class Handler(BaseHTTPRequestHandler):
                     sid=int(query.get('service',['0'])[0] or 0); slot=int(query.get('slot',['0'])[0] or 0)
                     svc=db.execute('SELECT id,center_id,provider_user_id FROM provider_services WHERE id=?',(sid,)).fetchone() if sid else None
                     if svc and svc['provider_user_id']!=user['id']: raise PermissionError('Ese servicio no pertenece a tu cuenta.')
-                    host=self.headers.get('X-Forwarded-Host') or self.headers.get('Host') or f'localhost:{PORT}'
-                    proto=self.headers.get('X-Forwarded-Proto') or ('https' if os.environ.get('WOD_HTTPS')=='1' else 'http')
                     cid=(svc['center_id'] if svc else None) or user['center_id']
                     target=f'#/reservar?center={cid}'+(f'&service={sid}' if svc else '')+(f'&slot={slot}' if svc and slot else '') if cid else (f'#/profesional?id={user["id"]}')
-                    url=f'{proto}://{host}/{target}'
+                    url=f'{self.base_url()}/{target}'
                     try: matrix=qr_matrix(url)
                     except ImportError: matrix=None  # the poster is still generated, without the QR code
                     self.send_json({'url':url,'matrix':matrix}); return
@@ -3586,15 +4117,28 @@ class Handler(BaseHTTPRequestHandler):
                         'travel': [dict(r) for r in db.execute('SELECT * FROM travel_offers WHERE active=1 ORDER BY title')],
                     })
                     return
+                if path == '/api/account/shares':
+                    user=require_user(self,db)
+                    rows=db.execute('SELECT ds.center_id,ds.source,ds.granted_at,c.name AS center_name,c.city FROM data_shares ds JOIN centers c ON c.id=ds.center_id WHERE ds.user_id=? AND ds.revoked_at IS NULL ORDER BY ds.granted_at DESC',(user['id'],)).fetchall()
+                    self.send_json({'items':[dict(r_) for r_ in rows]}); return
+                if path == '/api/geocode':
+                    # Locality search for «Top 10 cerca de ti». Proxied by our server so the visitor's IP is not sent to a
+                    # third party, results are cached and the provider's usage policy (1 request/s, identified client) is respected.
+                    q=clean_text(query.get('q',[''])[0],120) or ''
+                    if len(q)<2: self.send_json({'items':[]}); return
+                    if GEOCODE_LIMIT.hit('geo:'+self.client_ip()): self.send_json({'error':'Demasiadas búsquedas seguidas. Espera un momento.'},429); return
+                    self.send_json({'items':geocode_search(q,clean_text(query.get('lang',['es'])[0],5) or 'es')}); return
                 if path == '/api/me':
                     user = current_user(self, db)
                     if not user:
                         self.send_json({'authenticated': False})
                     else:
                         profile = db.execute('''SELECT up.*, c.name AS certification_name FROM user_profiles up LEFT JOIN certifications c ON c.id=up.certification_id WHERE up.user_id=?''', (user['id'],)).fetchone()
-                        docs = db.execute('SELECT id,document_type,title,expires_at,status,original_name,uploaded_at,file_path FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at', (user['id'],)).fetchall()
+                        docs = db.execute('SELECT id,document_type,title,expires_at,status,original_name,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at', (user['id'],)).fetchall()
                         links = db.execute('''SELECT cl.*, c.name AS center_name, c.city, c.country FROM center_links cl JOIN centers c ON c.id=cl.center_id WHERE cl.user_id=? ORDER BY cl.last_checkin DESC''',(user['id'],)).fetchall()
-                        self.send_json({'authenticated': True, 'user': public_user(user), 'profile': dict(profile) if profile else None, 'documents': [dict(x) for x in docs], 'center_links':[dict(x) for x in links]})
+                        claim = db.execute('SELECT status,requested_role,created_at FROM center_claims WHERE user_id=? ORDER BY id DESC LIMIT 1', (user['id'],)).fetchone()
+                        self.send_json({'authenticated': True, 'user': public_user(user), 'profile': dict(profile) if profile else None, 'documents': [dict(x) for x in docs], 'center_links':[dict(x) for x in links],
+                                        'pro_request': dict(claim) if claim else None})
                     return
                 if path.startswith('/api/providers/'):
                     provider_id=int(path.rsplit('/',1)[1])
@@ -3841,20 +4385,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone():
                         self.send_json({'error':'Punto no encontrado'},404); return
                     rows=db.execute('SELECT id,dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_at,updated_at FROM virtual_experiences WHERE dive_point_id=? AND active=1 ORDER BY id',(pid,)).fetchall()
-                    self.send_json({'items':[dict(x) for x in rows]}); return
-                if path.startswith('/api/dive-points/') and path.endswith('/virtual'):
-                    user=require_user(self,db); require_role(user,{'admin','center'}); pid=int(path.split('/')[3])
-                    row=db.execute('SELECT center_id FROM dive_points WHERE id=?',(pid,)).fetchone()
-                    if not row: self.send_json({'error':'Punto no encontrado'},404); return
-                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes gestionar el recorrido virtual de este punto.')
-                    data=json_body(self)
-                    title=clean_text(data.get('title'),180) or 'Recorrido virtual'
-                    etype=clean_text(data.get('experience_type'),40) or 'panorama'
-                    if etype not in {'panorama','video360','streetview','external360'}: raise ValueError('Tipo de experiencia no válido.')
-                    url=clean_text(data.get('url'),1000)
-                    if etype in {'video360','streetview','external360'} and not url: raise ValueError('Esta experiencia necesita una URL.')
-                    cur=db.execute('INSERT INTO virtual_experiences(dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(pid,title,etype,clean_text(data.get('provider'),100),url or None,clean_text(data.get('media_path'),500),clean_text(data.get('description'),2000),data.get('duration_seconds') or None,1,user['id'],now(),now()))
-                    audit(db,user['id'],'virtual_experience_created','virtual_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                    self.send_json({'items':[virtual_public_row(x) for x in rows],'embed_domains':wcfg.embed_domains()}); return
                 if path.startswith('/api/dive-points/') and path.endswith('/photos'):
                     user=require_user(self,db); pid=int(path.split('/')[3]); row=db.execute('SELECT center_id FROM dive_points WHERE id=?',(pid,)).fetchone()
                     if not row: self.send_error(404); return
@@ -3929,9 +4460,9 @@ class Handler(BaseHTTPRequestHandler):
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
                     if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta reserva.')
                     if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
-                    host=self.headers.get('Host','localhost:8000'); proto=self.headers.get('X-Forwarded-Proto','http'); raw=booking_pdf(db,bid,f"{proto}://{host}")
+                    raw=booking_pdf(db,bid,self.base_url())
                     if raw is None: self.send_json({'error':'Reserva no encontrada'},404); return
-                    self.send_response(200); self.send_header('Content-Type','application/pdf'); self.send_header('Content-Disposition',f'attachment; filename="WORLDIVES-reserva-{bid}.pdf"'); self.send_header('Content-Length',str(len(raw))); self.end_headers(); self.wfile.write(raw); return
+                    self.send_bytes(raw,'application/pdf',f'WORLDIVES-reserva-{bid}.pdf'); return
                 if path == '/api/me/area':
                     user=require_user(self,db); uid=user['id']
                     bookings=db.execute('''SELECT b.*,c.name AS center_name,c.city,c.phone AS center_phone,c.email AS center_email,c.address AS center_address,p.name AS point_name,s.title AS service_title,s.booking_mode
@@ -3952,34 +4483,36 @@ class Handler(BaseHTTPRequestHandler):
                 if path == '/api/messages':
                     user=require_user(self,db); rows=db.execute('''SELECT m.*,u.fullname AS sender_name FROM messages m JOIN users u ON u.id=m.sender_user_id WHERE m.recipient_user_id=? ORDER BY m.created_at DESC,m.id DESC''',(user['id'],)).fetchall(); self.send_json({'items':[dict(x) for x in rows]}); return
                 if path.startswith('/api/public/bookings/') and path.count('/')==4:
-                    bid=int(path.rsplit('/',1)[1])
-                    b=db.execute("""SELECT b.id,b.user_id,b.center_id,b.booking_date,b.booking_time,b.participants,b.status,b.payment_status,b.price,b.currency,u.fullname,c.name AS center_name,c.city AS center_city,p.name AS point_name
+                    # G4: the booking check page (QR) needs the owner's or the centre's session, or the long random token
+                    # printed in the QR / PDF. It never returns the user id nor the surname.
+                    bid=int(path.rsplit('/',1)[1]); token=clean_text(query.get('t',[''])[0],80) or ''
+                    b=db.execute("""SELECT b.id,b.user_id,b.center_id,b.public_token,b.booking_date,b.booking_time,b.participants,b.status,b.payment_status,b.price,b.currency,
+                                           COALESCE(b.contact_name,u.fullname) AS fullname,c.name AS center_name,c.city AS center_city,p.name AS point_name
                                     FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id
                                     LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.id=?""",(bid,)).fetchone()
-                    if not b: self.send_json({'error':'Reserva no encontrada'},404); return
-                    self.send_json({'booking':dict(b)}); return
+                    viewer=current_user(self,db)
+                    allowed=bool(b) and ((token and b['public_token'] and wsec.constant_time_equals(token,b['public_token']))
+                                         or (viewer and (viewer['id']==b['user_id'] or viewer['role']=='admin' or (viewer['role']=='center' and viewer['center_id']==b['center_id']))))
+                    if not allowed: self.send_json({'error':'Reserva no encontrada'},404); return
+                    d={k:b[k] for k in ('id','booking_date','booking_time','participants','status','payment_status','price','currency','center_name','center_city','point_name')}
+                    d['customer']=short_name(b['fullname']); d['ref']=f"WOD-{b['id']:06d}"; d['status_label']=booking_status_label(b['status'])
+                    self.send_json({'booking':d}); return
                 if path.startswith('/api/bookings/') and path.endswith('/diver-sheet.pdf'):
                     user=require_user(self,db); bid=int(path.split('/')[3]); b=db.execute('SELECT user_id,center_id FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
                     if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
                     if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta ficha.')
-                    host=self.headers.get('Host','localhost:8000'); proto=self.headers.get('X-Forwarded-Proto','http'); raw=diver_sheet_pdf(db,bid,f'{proto}://{host}'); self.send_response(200); self.send_header('Content-Type','application/pdf'); self.send_header('Content-Length',str(len(raw))); self.send_header('Content-Disposition',f'attachment; filename=\"WORLDIVES-ficha-buceador-{bid}.pdf\"'); self.end_headers(); self.wfile.write(raw); return
+                    if user['role']=='center' and not center_can_see_user(db,b['center_id'],b['user_id']) and not is_guest_user(db,b['user_id']):
+                        raise PermissionError('Este cliente no ha compartido su ficha de buceador con tu centro.')
+                    if user['role']=='admin': audit(db,user['id'],'diver_sheet_viewed','booking',bid); db.commit()
+                    raw=diver_sheet_pdf(db,bid,self.base_url()); self.send_bytes(raw,'application/pdf',f'WORLDIVES-ficha-buceador-{bid}.pdf'); return
                 if path.startswith('/api/bookings/') and path.endswith('/qr.svg'):
                     user=require_user(self,db); bid=int(path.split('/')[3])
                     b=db.execute('SELECT user_id,center_id FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
                     if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta reserva.')
                     if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
-                    import qrcode
-                    qr=qrcode.QRCode(box_size=1,border=1); host=self.headers.get('Host','localhost:8000'); proto=self.headers.get('X-Forwarded-Proto','http'); qr.add_data(f'{proto}://{host}/#/verificarreserva?id={bid}'); qr.make(fit=True)
-                    matrix=qr.get_matrix(); n=len(matrix); scale=8; margin=scale*4; size=n*scale+margin*2
-                    rects=[]
-                    for r,row in enumerate(matrix):
-                        for c,v in enumerate(row):
-                            if v: rects.append(f'<rect x=\"{margin+c*scale}\" y=\"{margin+r*scale}\" width=\"{scale}\" height=\"{scale}\"/>')
-                    rects_raw="".join(rects)
-                    svg=f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" width="{size}" height="{size}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="white"/><g fill="black">{rects_raw}</g></svg>'
-                    raw=svg.encode('utf-8'); self.send_response(200); self.send_header('Content-Type','image/svg+xml'); self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.end_headers(); self.wfile.write(raw); return
+                    self.send_bytes(qr_svg(booking_check_url(db,bid,self.base_url())),'image/svg+xml; charset=utf-8'); return
                 if path.startswith('/api/bookings/') and path.count('/')==3:
                     user=require_user(self,db); bid=int(path.rsplit('/',1)[1])
                     b=db.execute('''SELECT b.*, u.fullname, u.email, u.username, c.name AS center_name, c.city AS center_city, c.phone AS center_phone, c.email AS center_email, c.website AS center_website, c.address AS center_address, p.name AS point_name, p.country AS point_country, p.dive_type AS point_dive_type, s.title AS service_title, s.booking_mode AS booking_mode
@@ -3989,8 +4522,10 @@ class Handler(BaseHTTPRequestHandler):
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
                     if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta reserva.')
                     if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
-                    docs=db.execute('SELECT id,document_type,title,expires_at,status,original_name,file_path,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(b['user_id'],)).fetchall()
-                    profile=db.execute('''SELECT up.phone,up.country,up.city,up.preferred_language,up.notes,up.date_of_birth,up.emergency_contact_name,up.emergency_contact_phone,up.equipment_required,up.suit_type,up.suit_size,up.boot_size,up.bcd_size,up.fin_size,up.mask_size,up.usual_weight_kg,up.tank_preference,up.computer_preference,up.equipment_notes,c.name AS certification_name FROM user_profiles up LEFT JOIN certifications c ON c.id=up.certification_id WHERE up.user_id=?''',(b['user_id'],)).fetchone()
+                    # G1/G5: the centre sees the diver's profile and documents only when the diver booked or shared them.
+                    can_see=user['role']=='admin' or b['user_id']==user['id'] or center_can_see_user(db,b['center_id'],b['user_id']) or is_guest_user(db,b['user_id'])
+                    docs=db.execute('SELECT id,document_type,title,expires_at,status,original_name,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(b['user_id'],)).fetchall() if can_see else []
+                    profile=None if not can_see else db.execute('''SELECT up.phone,up.country,up.city,up.preferred_language,up.notes,up.date_of_birth,up.emergency_contact_name,up.emergency_contact_phone,up.equipment_required,up.suit_type,up.suit_size,up.boot_size,up.bcd_size,up.fin_size,up.mask_size,up.usual_weight_kg,up.tank_preference,up.computer_preference,up.equipment_notes,c.name AS certification_name FROM user_profiles up LEFT JOIN certifications c ON c.id=up.certification_id WHERE up.user_id=?''',(b['user_id'],)).fetchone()
                     po=db.execute("SELECT id,status,amount,currency,created_at,paid_at,amount_received,receipt_url,card_brand,card_last4,provider_payment_id FROM payment_orders WHERE booking_id=? ORDER BY CASE status WHEN 'paid' THEN 0 ELSE 1 END, id DESC LIMIT 1",(bid,)).fetchone()
                     cpay=db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?',(b['center_id'],)).fetchone()
                     bd=dict(b); online=center_payments_ready(cpay)
@@ -4002,7 +4537,8 @@ class Handler(BaseHTTPRequestHandler):
                     if b['status'] in ('pending','confirmed'): bd['cancel']=booking_cancel_terms(db,b)
                     _cp=db.execute('SELECT cancellation_policy,cancellation_note FROM centers WHERE id=?',(b['center_id'],)).fetchone()
                     bd['cancellation_policy']=cancellation_policy_key(_cp['cancellation_policy']); bd['cancellation_text']=cancellation_policy_text(_cp['cancellation_policy']); bd['cancellation_note']=_cp['cancellation_note'] or ''
-                    self.send_json({'booking':bd,'payment':pay,'profile':dict(profile) if profile else {},'documents':[dict(x) for x in docs]}); return
+                    bd.pop('public_token',None); bd['check_url']=booking_check_url(db,bid,self.base_url()) if (b['user_id']==user['id'] or user['role'] in {'admin','center'}) else None
+                    self.send_json({'booking':bd,'payment':pay,'profile':dict(profile) if profile else {},'documents':[dict(x) for x in docs],'data_shared':bool(can_see)}); return
                 if path == '/api/bookings':
                     user=require_user(self,db)
                     if user['role']=='center':
@@ -4034,17 +4570,24 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({'items':[dict(r) for r in rows]}); return
                 if path == '/api/account/documents':
                     user=require_user(self,db)
-                    rows=db.execute('SELECT id,document_type,title,original_name,expires_at,status,file_path,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(user['id'],)).fetchall()
+                    rows=db.execute('SELECT id,document_type,title,original_name,expires_at,status,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(user['id'],)).fetchall()
                     self.send_json({'items':[dict(r) for r in rows]}); return
                 if path.startswith('/api/documents/file/'):
+                    # G1: owner; a centre only while the diver has a live booking made by himself with it (or shared his
+                    # data); the administrator with a record in the audit log. Every download is logged.
                     user=require_user(self,db); did=int(path.rsplit('/',1)[1]); doc=db.execute('SELECT * FROM user_documents WHERE id=?',(did,)).fetchone()
-                    if not doc: self.send_error(404); return
-                    # Recreational users may access their own docs; admin/center access only through a reservation workflow.
-                    if user['role'] not in {'admin','center'} and doc['user_id']!=user['id']:
-                        raise PermissionError('No tienes acceso a este documento.')
-                    file_path=ROOT / doc['file_path']
-                    if not file_path.exists(): self.send_error(404); return
-                    self.send_file(file_path); return
+                    if not doc: self.send_json({'error':'Documento no encontrado'},404); return
+                    own=doc['user_id']==user['id']
+                    if not own:
+                        if user['role']=='admin': pass
+                        elif user['role']=='center' and user['center_id'] and center_can_see_user(db,user['center_id'],doc['user_id']): pass
+                        else:
+                            audit(db,user['id'],'document_access_denied','user_document',did,{'owner':doc['user_id']}); db.commit()
+                            raise PermissionError('No tienes acceso a este documento.')
+                    file_path=document_file_path(doc['file_path'])
+                    if not file_path or not file_path.exists(): self.send_json({'error':'El archivo ya no está disponible.'},404); return
+                    audit(db,user['id'],'document_downloaded','user_document',did,{'owner':doc['user_id'],'as':'owner' if own else user['role'],'center_id':user.get('center_id') if user['role']=='center' else None}); db.commit()
+                    self.send_private_file(file_path,doc['original_name'] or file_path.name,inline=query.get('download',['0'])[0]!='1'); return
                 if path == '/api/logbook':
                     user=require_user(self,db)
                     rows=db.execute('SELECT * FROM logbook_entries WHERE user_id=? ORDER BY dive_date DESC,id DESC',(user['id'],)).fetchall()
@@ -4080,8 +4623,16 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({'items':[dict(r) for r in rows]}); return
                 if path == '/api/admin/center-claims':
                     user=require_user(self,db); require_role(user,{'admin'})
-                    rows=db.execute('''SELECT cc.*,u.fullname,u.email,u.username,c.name AS matched_center_name FROM center_claims cc JOIN users u ON u.id=cc.user_id LEFT JOIN centers c ON c.id=cc.center_id WHERE cc.status='pending' ORDER BY cc.created_at DESC''').fetchall()
-                    self.send_json({'items':[dict(r) for r in rows]}); return
+                    rows=db.execute('''SELECT cc.*,u.fullname,u.email,u.username,c.name AS matched_center_name,c.website AS draft_website,
+                                              sc.name AS suggested_center_name,sc.city AS suggested_center_city,sc.phone AS suggested_center_phone,sc.website AS suggested_center_website
+                                         FROM center_claims cc JOIN users u ON u.id=cc.user_id LEFT JOIN centers c ON c.id=cc.center_id LEFT JOIN centers sc ON sc.id=cc.suggested_center_id
+                                        WHERE cc.status='pending' ORDER BY cc.created_at DESC''').fetchall()
+                    items=[]
+                    for r_ in rows:
+                        d=dict(r_); dom=(d.get('email') or '').rsplit('@',1)[-1].lower(); site=urlparse(d.get('website') or d.get('draft_website') or '').hostname or ''
+                        d['email_matches_domain']=bool(dom and site and (site==dom or site.endswith('.'+dom) or dom.endswith('.'+site.removeprefix('www.')) or site.removeprefix('www.')==dom))
+                        items.append(d)
+                    self.send_json({'items':items,'methods':VERIFICATION_METHODS}); return
                 if path == '/api/admin/users':
                     user=require_user(self,db); require_role(user,{'admin'})
                     rows=db.execute('''SELECT u.id,u.fullname,u.email,u.username,u.role,u.center_id,u.created_at,u.last_login,c.name AS center_name FROM users u LEFT JOIN centers c ON c.id=u.center_id ORDER BY u.created_at DESC''').fetchall()
@@ -4117,7 +4668,14 @@ class Handler(BaseHTTPRequestHandler):
                                         LEFT JOIN center_links cl ON cl.user_id=u.id AND cl.center_id=?
                                         LEFT JOIN user_profiles up ON up.user_id=u.id
                                        ORDER BY COALESCE(b.last_booking,cl.last_checkin) DESC LIMIT 2000''',(cid,cid,cid)).fetchall()
-                    self.send_json({'items':[dict(r) for r in rows]}); return
+                    items=[]
+                    for r_ in rows:
+                        d=dict(r_)
+                        d['data_shared']=is_guest_user(db,d['id']) or center_can_see_user(db,cid,d['id'])
+                        if not d['data_shared']: d['phone']=db.execute('SELECT MAX(contact_phone) FROM bookings WHERE center_id=? AND user_id=?',(cid,d['id'])).fetchone()[0]
+                        if str(d.get('email') or '').endswith('.local'): d['email']=db.execute("SELECT MAX(contact_email) FROM bookings WHERE center_id=? AND user_id=?",(cid,d['id'])).fetchone()[0] or ''
+                        items.append(d)
+                    self.send_json({'items':items}); return
                 if path.startswith('/api/qr/'):
                     # Generate a real SVG QR for the current local origin.
                     code=path.rsplit('/',1)[1]
@@ -4127,14 +4685,14 @@ class Handler(BaseHTTPRequestHandler):
                         sys.path.insert(0, str(ROOT/'vendor'))
                         import qrcode
                         from qrcode.image.svg import SvgPathImage
-                        payload=f'{self.headers.get("Origin") or "http://localhost:%d"%PORT}/#/checkin/{code}'
+                        payload=f'{self.base_url()}/#/checkin/{code}'
                         img=qrcode.make(payload,image_factory=SvgPathImage)
                         import io
                         buff=io.BytesIO(); img.save(buff)
                         raw=buff.getvalue()
-                        self.send_response(200); self.send_header('Content-Type','image/svg+xml; charset=utf-8'); self.send_header('Content-Length',str(len(raw))); self.end_headers(); self.wfile.write(raw)
+                        self.send_bytes(raw,'image/svg+xml; charset=utf-8')
                     except Exception as e:
-                        self.send_json({'error':f'No se pudo generar el QR: {e}'},500)
+                        log_exception(self,e); self.send_json({'error':'No se pudo generar el QR.'},500)
                     return
                 if path=='/api/payments/connect-status':
                     user=require_user(self,db); require_role(user,{'center','admin'})
@@ -4175,19 +4733,33 @@ class Handler(BaseHTTPRequestHandler):
         index=PUBLIC/'index.html'
         self.send_file(index,'text/html; charset=utf-8')
 
+    def precheck_write(self):
+        """Runs before any state-changing request: CSRF origin check (G10), maintenance mode and the body size
+        limit read from Content-Length before a single byte of the body is read (G7). Returns False when it answered."""
+        path=urlparse(self.path).path
+        try:
+            self.enforce_same_origin()
+        except (BrokenPipeError, ConnectionResetError):
+            return False
+        except PermissionError as e:
+            self.send_json({'error':str(e)},403); return False
+        ctype=(self.headers.get('Content-Type') or '').lower()
+        limit=MAX_UPLOAD if ctype.startswith('multipart/') else (wcfg.MAX_WEBHOOK_BYTES if path.startswith('/api/payments/webhook') else MAX_BODY)
+        try:
+            body_length(self,limit)
+        except BodyTooLarge as e:
+            self.close_connection=True; self.send_json({'error':str(e)},413); return False
+        except ValueError as e:
+            self.close_connection=True; self.send_json({'error':str(e)},400); return False
+        return True
+
     def do_POST(self):
         parsed=urlparse(self.path); path=parsed.path
-        if path != '/api/integrations/bookings':
-            try:
-                self.enforce_same_origin()
-            except (BrokenPipeError, ConnectionResetError):
-                return
-            except PermissionError as e:
-                self.send_json({'error':str(e)},403); return
+        if not self.precheck_write(): return
         with connect() as db:
             try:
                 if path=='/api/payments/webhook':
-                    length=int(self.headers.get('Content-Length','0') or 0); raw=self.rfile.read(length); secret=os.environ.get('STRIPE_WEBHOOK_SECRET','').strip()
+                    length=body_length(self,wcfg.MAX_WEBHOOK_BYTES); raw=self.rfile.read(length); secret=os.environ.get('STRIPE_WEBHOOK_SECRET','').strip()
                     if not secret: self.send_json({'error':'Webhook no configurado.'},503); return
                     try:
                         import stripe
@@ -4301,76 +4873,125 @@ class Handler(BaseHTTPRequestHandler):
                         self.send_json({'ok':True,'url':link.url}); return
                     except Exception as exc: raise ValueError(f'No se pudo abrir el panel de cobros: {exc}')
                 if path=='/api/setup':
-                    if db.execute('SELECT COUNT(*) FROM users').fetchone()[0] != 0:
+                    # G9: the web installer only works with WOD_ALLOW_SETUP=1 and while there is no administrator.
+                    # In production the first administrator is created with: python app/server.py --create-admin
+                    if not setup_allowed(): self.send_json({'error':'La instalación desde la web está desactivada. Crea el administrador con «python app/server.py --create-admin».'},403); return
+                    if db.execute("SELECT 1 FROM users WHERE role='admin' LIMIT 1").fetchone():
                         self.send_json({'error':'La instalación ya está configurada.'},400); return
+                    if REGISTER_LIMIT.hit('setup:'+self.client_ip()): self.send_json({'error':'Demasiados intentos. Espera un poco.'},429); return
                     data=json_body(self)
                     fullname=clean_text(data.get('fullname'),120); email=(clean_text(data.get('email'),160) or '').lower(); username=clean_text(data.get('username'),80); password=str(data.get('password',''))
-                    if not fullname or not email or not username or len(password)<10: raise ValueError('Completa nombre, email, usuario y una contraseña de 10 caracteres o más.')
+                    if not fullname or not email or not username: raise ValueError('Completa nombre, email, usuario y contraseña.')
+                    check_new_password(password)
                     cur=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at) VALUES(?,?,?,?,?,?)',(fullname,email,username,hash_password(password),'admin',now())); uid=cur.lastrowid
                     db.execute('INSERT INTO user_profiles(user_id,updated_at) VALUES(?,?)',(uid,now())); db.execute('UPDATE users SET terms_version=?,terms_accepted_at=?,pro_terms_version=?,pro_terms_accepted_at=? WHERE id=?',(LEGAL_VERSION,now(),LEGAL_VERSION,now(),uid)); audit(db,uid,'setup_completed'); db.commit()
                     self.login_user(uid,db); return
                 if path=='/api/auth/register':
+                    # G2: nobody becomes a centre or a professional by registering. The account starts as a diver
+                    # ('recreational') with a pending request; the administrator verifies it (email on the centre's
+                    # domain, a phone call to the public number or a document) and only then grants the role.
+                    # A phone number that matches a centre is stored as a SUGGESTION for the administrator, never as a link.
+                    if not registration_open(): raise PermissionError('El registro de cuentas nuevas no está abierto en esta versión.')
+                    if REGISTER_LIMIT.hit('register:'+self.client_ip()): self.send_json({'error':'Demasiados registros desde esta conexión. Inténtalo más tarde.'},429); return
                     data=json_body(self); fullname=clean_text(data.get('fullname'),120); email=(clean_text(data.get('email'),160) or '').lower(); username=clean_text(data.get('username'),80); password=str(data.get('password',''))
                     requested=clean_text(data.get('account_type'),30) or 'recreational'
-                    phone=clean_text(data.get('phone'),60); requested_center_name=clean_text(data.get('center_name'),180); city=clean_text(data.get('city'),100); website=clean_text(data.get('website'),250); center_note=clean_text(data.get('center_note'),2000)
-                    if requested not in {'admin','recreational','center','freelance'}: requested='recreational'
-                    if not fullname or not email or not username or len(password)<10: raise ValueError('Completa todos los campos. La contraseña debe tener al menos 10 caracteres.')
+                    phone=clean_text(data.get('phone'),60); requested_center_name=clean_text(data.get('center_name'),180); city=clean_text(data.get('city'),100); center_note=clean_text(data.get('center_note'),2000)
+                    website=wsec.clean_http_url(data.get('website'),250) if data.get('website') else None
+                    if requested=='admin': raise PermissionError('Las cuentas de administración no se crean desde el registro.')
+                    if requested not in {'recreational','center','freelance'}: requested='recreational'
+                    if not fullname or not email or not username: raise ValueError('Completa todos los campos.')
+                    if not re.fullmatch(r'[A-Za-z0-9._-]{3,40}',username): raise ValueError('El nombre de usuario solo puede tener letras, números, punto, guion y guion bajo (3 a 40).')
+                    check_new_password(password)
                     if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email): raise ValueError('Escribe un email válido.')
                     if not data.get('accept_terms'): raise ValueError('Para crear la cuenta tienes que aceptar las condiciones de uso y la política de privacidad.')
                     if requested in {'center','freelance'} and not data.get('accept_pro_terms'): raise ValueError('Para crear una cuenta profesional tienes que aceptar las condiciones para centros y profesionales.')
+                    if requested in {'center','freelance'}: pro_signup_check(db,data)
+                    if requested=='center' and not requested_center_name: raise ValueError('Indica el nombre del centro de buceo.')
+                    if requested in {'center','freelance'} and not phone: raise ValueError('Indica un teléfono de contacto para verificar tu cuenta profesional.')
                     if db.execute('SELECT 1 FROM users WHERE lower(email)=? AND password_hash<>? AND NOT (username LIKE ? ESCAPE ? AND last_login IS NULL)',(email,'!','web\\_%','\\')).fetchone() or db.execute('SELECT 1 FROM users WHERE lower(username)=lower(?)',(username,)).fetchone():
                         raise ValueError('Ya existe una cuenta con ese email o nombre de usuario. Si es tuya, inicia sesión o recupera la contraseña.')
-                    reg_lang=clean_text(data.get('lang'),5) or 'es'
-                    if reg_lang not in MAIL_LANGS: reg_lang='es'
-                    first_user=db.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 0
-                    if requested=='admin' and not first_user:
-                        raise PermissionError('La cuenta de administrador inicial solo puede crearse durante la primera configuración.')
-                    role='admin' if (first_user and requested=='admin') else ('admin' if first_user else requested)
+                    reg_lang=normalize_lang(clean_text(data.get('lang'),5) or 'es')
                     # A customer record created by a center (manual booking / web import) never had a password.
                     # Without email verification we do not merge it into the new account: we free the email
                     # and keep that record (and its bookings) for the center only.
                     guest=db.execute("SELECT id FROM users WHERE lower(email)=? AND (password_hash='!' OR (username LIKE 'web\\_%' ESCAPE '\\' AND last_login IS NULL))",(email,)).fetchone()
                     if guest: db.execute('UPDATE users SET email=? WHERE id=?',(f'cliente-{guest["id"]}-{secrets.token_hex(4)}@sin-email.worldives.local',guest['id']))
-                    db.execute('INSERT INTO users(fullname,email,username,password_hash,role,requested_role,created_at) VALUES(?,?,?,?,?,?,?)',(fullname,email,username,hash_password(password),role,requested,now())); uid=db.execute('SELECT last_insert_rowid()').fetchone()[0]
+                    uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,requested_role,created_at) VALUES(?,?,?,?,?,?,?)',(fullname,email,username,hash_password(password),'recreational',requested,now())).lastrowid
                     db.execute('INSERT INTO user_profiles(user_id,phone,city,preferred_language,updated_at) VALUES(?,?,?,?,?)',(uid,phone,city,reg_lang,now()))
-                    db.execute('UPDATE users SET terms_version=?,terms_accepted_at=? WHERE id=?',(LEGAL_VERSION,now(),uid))
-                    if requested in {'center','freelance'}: db.execute('UPDATE users SET pro_terms_version=?,pro_terms_accepted_at=? WHERE id=?',(LEGAL_VERSION,now(),uid))
-                    claim_id=None; matched_center=None
-                    if requested in {'center','freelance'} and phone:
-                        norm=''.join(ch for ch in phone if ch.isdigit())
-                        candidates=db.execute('SELECT * FROM centers WHERE active=1').fetchall()
-                        for c in candidates:
-                            c_norm=''.join(ch for ch in (c['phone'] or '') if ch.isdigit())
-                            if norm and c_norm and (norm==c_norm or norm.endswith(c_norm[-9:]) or c_norm.endswith(norm[-9:])):
-                                matched_center=c; break
-                    if requested=='center':
-                        # A center account gets its own editable draft immediately. Existing catalog
-                        # centers can be claimed by phone; otherwise create a provider-submitted draft.
-                        if matched_center:
-                            db.execute("UPDATE users SET center_id=?, role='center' WHERE id=?",(matched_center['id'],uid))
-                        else:
-                            if not requested_center_name:
-                                raise ValueError('Indica el nombre del centro de buceo para crear su ficha.')
-                            cur_center=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at,verification_status,data_confidence,source_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-                                (requested_center_name,'España',None,city,None,website,phone,email,None,None,None,None,1,now(),now(),'pending_provider','provider_submitted','WORLDIVES DISCOVERY provider'))
-                            cid=cur_center.lastrowid
-                            db.execute("UPDATE users SET center_id=?, role='center' WHERE id=?",(cid,uid))
-                            matched_center=db.execute('SELECT * FROM centers WHERE id=?',(cid,)).fetchone()
-                        cur=db.execute('INSERT INTO center_claims(user_id,center_id,requested_center_name,phone,city,website,note,status,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(uid,matched_center['id'] if matched_center else None,requested_center_name,phone,city,website,center_note,'pending',now())); claim_id=cur.lastrowid
+                    record_acceptances(db,uid,['terminos','privacidad'],self.client_ip())
+                    if requested in {'center','freelance'}: record_acceptances(db,uid,['centros'],self.client_ip())
+                    set_marketing_consent(db,uid,bool(data.get('accept_marketing')),self.client_ip())
+                    claim_id=None; suggested=None
+                    if requested in {'center','freelance'}:
+                        norm=''.join(ch for ch in (phone or '') if ch.isdigit())
+                        if len(norm)>=6:
+                            for c in db.execute('SELECT id,name,city,phone FROM centers WHERE active=1').fetchall():
+                                c_norm=''.join(ch for ch in (c['phone'] or '') if ch.isdigit())
+                                if c_norm and (norm==c_norm or norm.endswith(c_norm[-9:]) or c_norm.endswith(norm[-9:])): suggested=c; break
+                        draft_id=None
+                        if requested=='center':
+                            # Always a NEW centre, hidden (active=0) until the administrator approves it.
+                            draft_id=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at,verification_status,data_confidence,source_name)
+                                                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,'pending_provider','provider_submitted','WORLDIVES DISCOVERY provider')''',
+                                                (unique_center_name(db,requested_center_name,city),clean_text(data.get('country'),100) or 'España',None,city,None,website,phone,email,None,None,None,None,now(),now())).lastrowid
+                        claim_id=db.execute('''INSERT INTO center_claims(user_id,center_id,requested_center_name,phone,city,website,note,status,created_at,requested_role,suggested_center_id,email)
+                                               VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''',(uid,draft_id,requested_center_name or fullname,phone,city,website,center_note,'pending',now(),requested,suggested['id'] if suggested else None,email)).lastrowid
                     notify_user(db,uid,'welcome_pro' if requested in {'center','freelance'} else 'welcome',related=('user',uid))
-                    if requested in {'center','freelance'} and not first_user:
-                        notify_admins(db,'admin_new_pro',{'pro_name':fullname,'pro_email':email,'pro_type':'centro de buceo' if requested=='center' else 'profesional freelance','center':requested_center_name or (matched_center['name'] if matched_center else fullname)},('user',uid))
-                    audit(db,uid,'register', 'user', uid, {'requested_role':requested,'first_user_admin':first_user,'center_claim_id':claim_id,'matched_center_id':matched_center['id'] if matched_center else None}); db.commit(); self.login_user(uid,db,{'ok':True,'role':role,'first_user_admin':first_user,'provider_verification':'pending' if requested in {'center','freelance'} else None,'matched_center':({'id':matched_center['id'],'name':matched_center['name'],'city':matched_center['city'],'phone':matched_center['phone']} if matched_center else None)}); return
+                    send_email_verification(db,uid)
+                    if requested in {'center','freelance'}:
+                        notify_admins(db,'admin_new_pro',{'pro_name':fullname,'pro_email':email,'pro_type':'centro de buceo' if requested=='center' else 'profesional freelance','center':requested_center_name or fullname},('user',uid))
+                    audit(db,uid,'register','user',uid,{'requested_role':requested,'center_claim_id':claim_id,'suggested_center_id':suggested['id'] if suggested else None,'ip':wsec.ip_hash(self.client_ip())}); db.commit()
+                    self.login_user(uid,db,{'ok':True,'role':'recreational','requested_role':requested,'provider_verification':'pending' if requested in {'center','freelance'} else None}); return
                 if path=='/api/auth/login':
-                    data=json_body(self); login=(clean_text(data.get('login'),160) or '').lower(); password=str(data.get('password',''))
-                    rate_key=f'{self.client_address[0]}:{login}'
-                    if login_rate_limited(rate_key):
+                    data=json_body(self); login=(clean_text(data.get('login'),160) or '').lower(); password=str(data.get('password',''))[:256]
+                    ip=self.client_ip(); rate_key=f'{ip}:{login}'; ip_key=f'ip:{ip}'
+                    # Per account+IP (8 per 15 min) and per IP (5x that), so one address cannot try many accounts.
+                    if login_rate_limited(rate_key) or LOGIN_IP_LIMIT.blocked(ip_key):
                         self.send_json({'error':'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.'},429); return
                     user=db.execute('SELECT * FROM users WHERE lower(email)=? OR lower(username)=?',(login,login)).fetchone()
                     if not user or not verify_password(password,user['password_hash']):
-                        record_login_failure(rate_key); self.send_json({'error':'Usuario o contraseña incorrectos.'},401); return
+                        record_login_failure(rate_key); LOGIN_IP_LIMIT.hit(ip_key); self.send_json({'error':'Usuario o contraseña incorrectos.'},401); return
                     clear_login_failures(rate_key)
-                    db.execute('UPDATE users SET last_login=? WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login'); db.commit(); self.login_user(user['id'],db); return
+                    if wsec.needs_rehash(user['password_hash']):
+                        # Accounts from before v50.31 move to PBKDF2 with 600 000 iterations on their next login.
+                        db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(password),user['id']))
+                    second=login_second_factor(db,user,data)
+                    if second: db.commit(); self.send_json(second); return
+                    db.execute('UPDATE users SET last_login=? WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login',details={'ip':wsec.ip_hash(ip)}); db.commit(); self.login_user(user['id'],db); return
+                if path=='/api/auth/verify-email':
+                    token=str(json_body(self).get('token') or '')[:200]
+                    if FORGOT_LIMIT.hit('verify:'+self.client_ip()): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
+                    th=hashlib.sha256(token.encode()).hexdigest()
+                    row=db.execute('SELECT * FROM email_verifications WHERE token_hash=?',(th,)).fetchone()
+                    if not row or row['used_at'] or row['expires_at']<now(): raise ValueError('El enlace no es válido o ha caducado. Pide uno nuevo desde «Mi cuenta».')
+                    if db.execute('UPDATE email_verifications SET used_at=? WHERE token_hash=? AND used_at IS NULL',(now(),th)).rowcount!=1: raise ValueError('Este enlace ya se ha utilizado.')
+                    u=db.execute('SELECT email FROM users WHERE id=?',(row['user_id'],)).fetchone()
+                    changed=bool(u and u['email'].lower()!=row['email'].lower())
+                    if changed:
+                        if db.execute('SELECT 1 FROM users WHERE lower(email)=? AND id<>?',(row['email'].lower(),row['user_id'])).fetchone(): raise ValueError('Ese email ya lo usa otra cuenta.')
+                        db.execute('UPDATE users SET email=?,email_verified_at=? WHERE id=?',(row['email'].lower(),now(),row['user_id']))
+                        db.execute('DELETE FROM sessions WHERE user_id=?',(row['user_id'],))
+                    else:
+                        db.execute('UPDATE users SET email_verified_at=? WHERE id=?',(now(),row['user_id']))
+                    audit(db,row['user_id'],'email_changed' if changed else 'email_verified','user',row['user_id']); db.commit(); self.send_json({'ok':True,'changed':changed}); return
+                if path=='/api/account/verify-email/resend':
+                    user=require_user(self,db)
+                    if user.get('email_verified_at'): self.send_json({'ok':True,'already':True}); return
+                    if FORGOT_LIMIT.hit(f"resend:{user['id']}"): self.send_json({'error':'Ya te hemos enviado varios correos. Espera unos minutos.'},429); return
+                    send_email_verification(db,user['id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/account/email':
+                    # Change of email (Fase 5): confirmed from the NEW address before it is applied.
+                    user=require_user(self,db); data=json_body(self); new=(clean_text(data.get('email'),160) or '').lower()
+                    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',new) or not mail_deliverable(new): raise ValueError('Escribe un email válido.')
+                    row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
+                    if not verify_password(str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
+                    if db.execute('SELECT 1 FROM users WHERE lower(email)=? AND id<>?',(new,user['id'])).fetchone(): raise ValueError('Ese email ya lo usa otra cuenta.')
+                    if FORGOT_LIMIT.hit(f"email-change:{user['id']}"): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
+                    send_email_verification(db,user['id'],new); audit(db,user['id'],'email_change_requested','user',user['id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/account/shares/revoke':
+                    user=require_user(self,db); cid=int(json_body(self).get('center_id') or 0)
+                    db.execute('UPDATE data_shares SET revoked_at=? WHERE user_id=? AND center_id=? AND revoked_at IS NULL',(now(),user['id'],cid))
+                    audit(db,user['id'],'data_share_revoked','center',cid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/auth/logout':
                     self.logout_user(); return
                 if path=='/api/provider/avatar':
@@ -4442,10 +5063,9 @@ class Handler(BaseHTTPRequestHandler):
                     if ext:
                         old=db.execute('SELECT id,status FROM bookings WHERE center_id=? AND external_ref=?',(cid,ext)).fetchone()
                         if old: self.send_json({'ok':True,'duplicate':True,'booking_id':old['id'],'status':old['status']}); return
-                    email=clean_text(data.get('email'),160) or f'web-{secrets.token_hex(8)}@worldives.local'; userrow=db.execute('SELECT * FROM users WHERE lower(email)=lower(?) LIMIT 1',(email,)).fetchone()
-                    if not userrow:
-                        fullname=clean_text(data.get('fullname') or data.get('customer_name'),180) or 'Cliente web'; username='web_'+secrets.token_hex(6); uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at) VALUES(?,?,?,?,?,?)',(fullname,email,username,hash_password(secrets.token_urlsafe(24)),'recreational',now())).lastrowid
-                    else: uid=userrow['id']
+                    contact_email=(clean_text(data.get('email'),160) or '').lower() or None
+                    contact_name=clean_text(data.get('fullname') or data.get('customer_name'),180) or 'Cliente web'
+                    uid=find_or_create_customer(db,contact_name,contact_email,data.get('phone'),cid)
                     service_id=int(data.get('service_id') or 0) or None; slot_id=int(data.get('slot_id') or 0) or None; service=None
                     if service_id:
                         service=db.execute('SELECT * FROM provider_services WHERE id=? AND center_id=? AND active=1',(service_id,cid)).fetchone()
@@ -4461,7 +5081,7 @@ class Handler(BaseHTTPRequestHandler):
                         changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(participants,participants,now(),slot_id,participants)).rowcount
                         if changed!=1: raise ValueError('Las plazas acaban de cambiar.')
                         reserved=1
-                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,external_ref,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(uid,cid,point_id,service_id,slot_id,reserved,bdate,btime,participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),status,price,service['currency'] if service else 'EUR','paid' if data.get('paid') else ('required' if price>0 else 'not_required'),ext,now(),now()))
+                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,external_ref,source,contact_email,contact_name,contact_phone,public_token,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(uid,cid,point_id,service_id,slot_id,reserved,bdate,btime,participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),status,price,service['currency'] if service else 'EUR','paid' if data.get('paid') else ('at_center' if price>0 else 'not_required'),ext,'web',contact_email,contact_name,clean_text(data.get('phone'),60),wsec.random_token(),now(),now()))
                     audit(db,uid,'booking_imported','booking',cur.lastrowid,{'source':'center_web','external_ref':ext}); db.commit(); self.send_json({'ok':True,'booking_id':cur.lastrowid,'status':status,'external_ref':ext}); return
                 if path=='/api/center/tariffs/save':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0); sid=int(data.get('service_id') or 0)
@@ -4672,7 +5292,11 @@ class Handler(BaseHTTPRequestHandler):
                     release_order_hold(db,order,'cancelled'); audit(db,user['id'],'payment_cancelled','payment_order',order['id']); db.commit()
                     self.send_json({'ok':True,'released':True}); return
                 if path=='/api/payments':
-                    user=require_user(self,db); rows=db.execute('''SELECT po.*,s.title AS service_title,c.name AS center_name FROM payment_orders po LEFT JOIN provider_services s ON s.id=po.service_id LEFT JOIN centers c ON c.id=s.center_id WHERE po.user_id=? ORDER BY po.id DESC''',(user['id'],)).fetchall(); self.send_json({'items':[dict(x) for x in rows]}); return
+                    # G12: the diver only gets what he needs about his own payments (no fees, connected accounts or checkout links).
+                    user=require_user(self,db); rows=db.execute('''SELECT po.id,po.booking_id,po.experience_booking_id,po.amount,po.currency,po.status,po.created_at,po.paid_at,po.amount_received,
+                                                                          po.receipt_url,po.card_brand,po.card_last4,po.refund_amount,po.refunded_at,s.title AS service_title,c.name AS center_name
+                                                                     FROM payment_orders po LEFT JOIN provider_services s ON s.id=po.service_id LEFT JOIN centers c ON c.id=s.center_id WHERE po.user_id=? ORDER BY po.id DESC''',(user['id'],)).fetchall()
+                    self.send_json({'items':[dict(x,reference=f"PAY-{x['id']:05d}") for x in rows]}); return
 
                 if path=='/api/account/profile':
                     user=require_user(self,db); data=json_body(self)
@@ -4709,32 +5333,37 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/account/documents':
                     user=require_user(self,db); fields,files=parse_multipart(self); file=files.get('file')
                     if not file: raise ValueError('Adjunta un archivo PDF o imagen.')
-                    ext=Path(file['filename']).suffix.lower()
-                    if ext not in {'.pdf','.jpg','.jpeg','.png','.webp'}: raise ValueError('Formato no admitido. Usa PDF, JPG, PNG o WEBP.')
-                    p=save_upload(user['id'],file,'doc'); db.execute('INSERT INTO user_documents(user_id,document_type,title,file_path,original_name,expires_at,status,uploaded_at) VALUES(?,?,?,?,?,?,?,?)',(user['id'],clean_text(fields.get('document_type'),50) or 'Otro',clean_text(fields.get('title'),160) or file['filename'],p,file['filename'],clean_text(fields.get('expires_at'),20), 'valid' if fields.get('expires_at') else 'uploaded',now())); audit(db,user['id'],'document_uploaded','user_document',db.execute('SELECT last_insert_rowid()').fetchone()[0]); sync_user_rewards(db,user['id']); db.commit(); self.send_json({'ok':True}); return
+                    dtype=clean_document_type(fields.get('document_type'))
+                    expires=clean_date(fields.get('expires_at'))
+                    if db.execute('SELECT COUNT(*) FROM user_documents WHERE user_id=?',(user['id'],)).fetchone()[0]>=MAX_DOCUMENTS_PER_USER: raise ValueError(f'Puedes guardar como máximo {MAX_DOCUMENTS_PER_USER} documentos. Elimina alguno para subir otro.')
+                    original=re.sub(r'[\x00-\x1f/\\\\]+','_',Path(file['filename'] or 'documento').name)[:160]
+                    p=save_upload(user['id'],file,'doc'); did=db.execute('INSERT INTO user_documents(user_id,document_type,title,file_path,original_name,expires_at,status,uploaded_at) VALUES(?,?,?,?,?,?,?,?)',(user['id'],dtype,clean_text(fields.get('title'),160) or original,p,original,expires,'valid' if expires else 'uploaded',now())).lastrowid
+                    audit(db,user['id'],'document_uploaded','user_document',did,{'type':dtype}); sync_user_rewards(db,user['id']); db.commit(); self.send_json({'ok':True,'id':did}); return
                 if path=='/api/account/documents/delete':
                     user=require_user(self,db); data=json_body(self); did=int(data['id']); doc=db.execute('SELECT * FROM user_documents WHERE id=? AND user_id=?',(did,user['id'])).fetchone();
                     if not doc: self.send_json({'error':'Documento no encontrado'},404); return
-                    db.execute('DELETE FROM user_documents WHERE id=?',(did,)); audit(db,user['id'],'document_deleted','user_document',did); db.commit(); self.send_json({'ok':True}); return
+                    db.execute('DELETE FROM user_documents WHERE id=?',(did,)); audit(db,user['id'],'document_deleted','user_document',did); db.commit()
+                    delete_document_file(doc['file_path']); self.send_json({'ok':True}); return
                 if path=='/api/messages':
-                    user=require_user(self,db); data=json_body(self); recipient_id=int(data.get('recipient_user_id') or 0); booking_id=int(data.get('booking_id') or 0) or None; experience_booking_id=int(data.get('experience_booking_id') or 0) or None
-                    if not recipient_id or not db.execute('SELECT 1 FROM users WHERE id=?',(recipient_id,)).fetchone(): raise ValueError('Destinatario no válido.')
-                    if user['role'] not in {'admin','center','freelance'}: raise PermissionError('Solo un proveedor puede enviar mensajes desde este flujo.')
-                    if booking_id:
-                        b=db.execute('SELECT user_id,center_id FROM bookings WHERE id=?',(booking_id,)).fetchone()
-                        if not b: raise ValueError('Reserva no válida.')
-                        if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
-                        if recipient_id!=b['user_id']: raise ValueError('El destinatario no corresponde a la reserva.')
-                    cur=db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,experience_booking_id,subject,body,created_at) VALUES(?,?,?,?,?,?,?)',(user['id'],recipient_id,booking_id,experience_booking_id,clean_text(data.get('subject'),180) or 'Mensaje de WORLDIVES',clean_text(data.get('body'),5000) or '',now())); audit(db,user['id'],'message_sent','message',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                    # G11: WORLDIVES is not a social network. There is no free messaging between users: a centre or a
+                    # freelance can only send a NOTICE about one of ITS bookings (e.g. a change of time). The diver gets it
+                    # by email and in «Avisos», with the centre's phone and email; there is no reply through the platform.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
+                    booking_id=int(data.get('booking_id') or 0) or None; experience_booking_id=int(data.get('experience_booking_id') or 0) or None
+                    if bool(booking_id)==bool(experience_booking_id): raise ValueError('Los avisos siempre van ligados a una reserva concreta.')
+                    recipient_id=booking_notice_recipient(db,user,booking_id,experience_booking_id)
+                    subject=clean_text(data.get('subject'),180) or 'Aviso sobre tu reserva'; body=clean_text(data.get('body'),3000) or ''
+                    if len(body)<5: raise ValueError('Escribe el aviso.')
+                    if NOTICE_LIMIT.hit(f"notice:{user['id']}"): raise ValueError('Has enviado demasiados avisos en la última hora.')
+                    mid=send_booking_notice(db,user,recipient_id,booking_id,experience_booking_id,subject,body)
+                    audit(db,user['id'],'booking_notice_sent','message',mid,{'booking_id':booking_id,'experience_booking_id':experience_booking_id}); db.commit(); self.send_json({'ok':True,'id':mid}); return
                 if path=='/api/messages/read':
                     user=require_user(self,db); data=json_body(self); mid=int(data.get('id') or 0); row=db.execute('SELECT id FROM messages WHERE id=? AND recipient_user_id=?',(mid,user['id'])).fetchone();
                     if not row: self.send_json({'error':'Mensaje no encontrado'},404); return
                     db.execute('UPDATE messages SET read_at=? WHERE id=?',(now(),mid)); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/auth/forgot':
                     data=json_body(self); email=(clean_text(data.get('email'),160) or '').strip().lower()
-                    key=f'forgot:{self.client_address[0]}'
-                    if login_rate_limited(key): self.send_json({'error':'Demasiadas solicitudes. Espera unos minutos.'},429); return
-                    record_login_failure(key)
+                    if FORGOT_LIMIT.hit(f'forgot:{self.client_ip()}') or (email and FORGOT_LIMIT.hit(f'forgot-mail:{email}')): self.send_json({'error':'Demasiadas solicitudes. Espera unos minutos.'},429); return
                     u=db.execute("SELECT id FROM users WHERE (lower(email)=? OR lower(username)=?) AND password_hash<>'!'",(email,email)).fetchone() if email else None
                     if u:
                         token=new_password_reset(db,u['id'])
@@ -4744,8 +5373,9 @@ class Handler(BaseHTTPRequestHandler):
                     # Same answer whether the account exists or not (no account enumeration).
                     self.send_json({'ok':True}); return
                 if path=='/api/auth/reset':
-                    data=json_body(self); token=str(data.get('token') or ''); new=str(data.get('password') or '')
-                    if len(new)<10: raise ValueError('La nueva contraseña debe tener al menos 10 caracteres.')
+                    data=json_body(self); token=str(data.get('token') or '')[:200]; new=str(data.get('password') or '')
+                    if FORGOT_LIMIT.hit(f'reset:{self.client_ip()}'): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
+                    check_new_password(new)
                     th=hashlib.sha256(token.encode()).hexdigest()
                     r=db.execute('SELECT * FROM password_resets WHERE token_hash=?',(th,)).fetchone()
                     if not r or r['used_at'] or r['expires_at']<now(): raise ValueError('El enlace no es válido o ha caducado. Pide uno nuevo.')
@@ -4797,7 +5427,7 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('UPDATE centers SET cancellation_policy=?,cancellation_note=?,updated_at=? WHERE id=?',(pol,clean_text(data.get('note'),500) or None,now(),user['center_id']))
                     audit(db,user['id'],'cancellation_policy_updated','center',user['center_id'],{'policy':pol}); db.commit(); DIRECTORY.invalidate(); self.send_json({'ok':True}); return
                 if path=='/api/reports':
-                    data=json_body(self); ip=self.client_address[0]
+                    data=json_body(self); ip=self.client_ip()
                     if report_rate_limited(ip): self.send_json({'error':'Has enviado muchas denuncias seguidas. Inténtalo más tarde.'},429); return
                     reason=data.get('reason'); details=clean_text(data.get('details'),3000) or ''
                     if reason not in REPORT_REASONS: raise ValueError('Elige el motivo de la denuncia.')
@@ -4807,7 +5437,7 @@ class Handler(BaseHTTPRequestHandler):
                     target=clean_text(data.get('target_url'),500) or ''
                     if not data.get('good_faith'): raise ValueError('Confirma que la información es exacta y que la envías de buena fe.')
                     rid=db.execute('INSERT INTO content_reports(reason,target_url,details,reporter_name,reporter_email,user_id,ip_hash,status,created_at) VALUES(?,?,?,?,?,?,?,?,?)',
-                                   (reason,target,details,name,email,cu['id'] if cu else None,hashlib.sha256(ip.encode()).hexdigest()[:16],'open',now())).lastrowid
+                                   (reason,target,details,name,email,cu['id'] if cu else None,wsec.ip_hash(ip),'open',now())).lastrowid
                     notify_admins(db,'admin_content_report',{'reason':REPORT_REASONS[reason],'target':target or '—','details':details,'reporter':' · '.join(x for x in (name,email) if x) or 'Anónimo'},('report',rid))
                     if mail_deliverable(email):
                         queue_email(db,'report_received',email,name,{'first_name':(name or '').split(' ')[0],'ref':f'DEN-{rid:05d}','reason':mail_t('es',REPORT_REASONS[reason])},'es',('report',rid))
@@ -4999,7 +5629,7 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); data=json_body(self); new=str(data.get('new_password') or '')
                     row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
                     if not verify_password(str(data.get('current_password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña actual no es correcta.')
-                    if len(new)<10: raise ValueError('La nueva contraseña debe tener al menos 10 caracteres.')
+                    check_new_password(new)
                     db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(new),user['id']))
                     tok=''
                     for item in self.headers.get('Cookie','').split(';'):
@@ -5014,9 +5644,9 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('UPDATE users SET fullname=? WHERE id=?',(name,user['id'])); audit(db,user['id'],'identity_updated','user',user['id']); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/provider/profile':
                     user=require_user(self,db); require_role(user,{'freelance','center'}); data=json_body(self)
-                    db.execute('UPDATE users SET provider_bio=?,instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=? WHERE id=?',(clean_text(data.get('provider_bio'),3000),clean_text(data.get('instagram_url'),500) or None,clean_text(data.get('facebook_url'),500) or None,clean_text(data.get('twitter_url'),500) or None,clean_text(data.get('youtube_url'),500) or None,clean_text(data.get('tiktok_url'),500) or None,user['id']))
+                    db.execute('UPDATE users SET provider_bio=?,instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=? WHERE id=?',(clean_text(data.get('provider_bio'),3000),clean_url_field(data.get('instagram_url')),clean_url_field(data.get('facebook_url')),clean_url_field(data.get('twitter_url')),clean_url_field(data.get('youtube_url')),clean_url_field(data.get('tiktok_url')),user['id']))
                     if user['role']=='center' and user['center_id']:
-                        db.execute('UPDATE centers SET instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=?,updated_at=? WHERE id=?',(clean_text(data.get('instagram_url'),500) or None,clean_text(data.get('facebook_url'),500) or None,clean_text(data.get('twitter_url'),500) or None,clean_text(data.get('youtube_url'),500) or None,clean_text(data.get('tiktok_url'),500) or None,now(),user['center_id']))
+                        db.execute('UPDATE centers SET instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=?,updated_at=? WHERE id=?',(clean_url_field(data.get('instagram_url')),clean_url_field(data.get('facebook_url')),clean_url_field(data.get('twitter_url')),clean_url_field(data.get('youtube_url')),clean_url_field(data.get('tiktok_url')),now(),user['center_id']))
                     audit(db,user['id'],'provider_profile_updated','user',user['id']); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/provider/center-update':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0)
@@ -5026,7 +5656,7 @@ class Handler(BaseHTTPRequestHandler):
                     # Keep the map position unless the form explicitly sends a new one.
                     lat=float(data['latitude']) if data.get('latitude') not in (None,'') else current['latitude']
                     lng=float(data['longitude']) if data.get('longitude') not in (None,'') else current['longitude']
-                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=?,logo_source='provider_uploaded',updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_text(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),lat,lng,clean_text(data.get('logo_url'),500) if 'logo_url' in data else current['logo_url'],clean_text(data.get('instagram_url'),500) or None,clean_text(data.get('facebook_url'),500) or None,clean_text(data.get('twitter_url'),500) or None,clean_text(data.get('youtube_url'),500) or None,clean_text(data.get('tiktok_url'),500) or None,now(),cid))
+                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=?,logo_source='provider_uploaded',updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),lat,lng,wsec.clean_local_or_http_url(data.get('logo_url'),500) if 'logo_url' in data else current['logo_url'],clean_url_field(data.get('instagram_url')),clean_url_field(data.get('facebook_url')),clean_url_field(data.get('twitter_url')),clean_url_field(data.get('youtube_url')),clean_url_field(data.get('tiktok_url')),now(),cid))
                     audit(db,user['id'],'center_profile_updated','center',cid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/provider/center-create':
                     user=require_user(self,db)
@@ -5034,9 +5664,14 @@ class Handler(BaseHTTPRequestHandler):
                     if user['center_id']: raise ValueError('Tu cuenta ya está asociada a un centro.')
                     data=json_body(self); phone=clean_text(data.get('phone'),60); name=clean_text(data.get('name'),180)
                     if not name or not phone: raise ValueError('Nombre y teléfono del centro son obligatorios.')
-                    cur=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at,verification_status,data_confidence,source_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(name,clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_text(data.get('website'),250),phone,clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),1,now(),now(),'pending_provider','provider_submitted','WORLDIVES DISCOVERY provider'))
+                    if db.execute("SELECT 1 FROM center_claims WHERE user_id=? AND status='pending'",(user['id'],)).fetchone(): raise ValueError('Ya tienes una solicitud pendiente de verificación.')
+                    pro_signup_check(db,data)
+                    website=wsec.clean_http_url(data.get('website'),250) if data.get('website') else None
+                    # Always a new centre, hidden until the administrator verifies the request (G2).
+                    cur=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at,verification_status,data_confidence,source_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)''',(unique_center_name(db,name,clean_text(data.get('city'),100)),clean_text(data.get('country'),100) or 'España',clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),website,phone,clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),clean_lat(data.get('latitude')),clean_lng(data.get('longitude')),now(),now(),'pending_provider','provider_submitted','WORLDIVES DISCOVERY provider'))
                     cid=cur.lastrowid
-                    db.execute('INSERT INTO center_claims(user_id,center_id,requested_center_name,phone,city,website,note,status,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(user['id'],cid,name,phone,clean_text(data.get('city'),100),clean_text(data.get('website'),250),clean_text(data.get('note'),2000),'pending',now()))
+                    db.execute('INSERT INTO center_claims(user_id,center_id,requested_center_name,phone,city,website,note,status,created_at,requested_role,email) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(user['id'],cid,name,phone,clean_text(data.get('city'),100),website,clean_text(data.get('note'),2000),'pending',now(),'center',user['email']))
+                    db.execute("UPDATE users SET requested_role='center' WHERE id=?",(user['id'],))
                     audit(db,user['id'],'center_created_by_provider','center',cid); db.commit(); self.send_json({'ok':True,'id':cid,'status':'pending'}); return
                 if path=='/api/dive-points':
                     user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self)
@@ -5045,43 +5680,17 @@ class Handler(BaseHTTPRequestHandler):
                     cur=db.execute('''INSERT INTO dive_points(name,country,region,dive_type,latitude,longitude,difficulty,min_depth,max_depth,description,access_info,center_id,verification_status,created_by_user_id,updated_by_user_id,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('dive_type'),100),float(data.get('latitude')),float(data.get('longitude')),clean_text(data.get('difficulty'),50),data.get('min_depth') or None,data.get('max_depth') or None,clean_text(data.get('description'),5000),clean_text(data.get('access_info'),3000),center_id,'verified' if user['role']=='admin' else 'pending_center',user['id'],user['id'],1,now(),now())); audit(db,user['id'],'dive_point_created','dive_point',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
                 if path.startswith('/api/dive-points/') and path.endswith('/virtual/upload'):
                     user=require_user(self,db); require_role(user,{'admin','center'}); pid=int(path.split('/')[3])
-                    row=db.execute('SELECT center_id FROM dive_points WHERE id=?',(pid,)).fetchone()
-                    if not row: self.send_json({'error':'Punto no encontrado'},404); return
-                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes gestionar el recorrido virtual de este punto.')
+                    can_manage_virtual(db,user,pid)
                     fields,files=parse_multipart(self); file=files.get('file')
-                    title=clean_text(fields.get('title'),180) or 'Recorrido virtual'
-                    etype=clean_text(fields.get('experience_type'),40) or 'panorama'
-                    if etype not in {'panorama','video360','streetview','external360'}: raise ValueError('Tipo de experiencia no válido.')
-                    url=clean_text(fields.get('url'),1000)
-                    if etype in {'video360','streetview','external360'} and not url and not file: raise ValueError('Añade una URL o un archivo para esta experiencia.')
-                    media_path=None
-                    if file:
-                        ext=Path(file['filename']).suffix.lower()
-                        allowed={'.jpg','.jpeg','.png','.webp'} if etype=='panorama' else {'.mp4','.webm','.mov'} if etype=='video360' else {'.jpg','.jpeg','.png','.webp','.mp4','.webm','.mov'}
-                        if ext not in allowed: raise ValueError('Formato no admitido para este tipo de recorrido.')
-                        folder=PUBLIC/'assets'/'uploads'/'virtual'; folder.mkdir(parents=True,exist_ok=True)
-                        filename=f'virtual_{pid}_{secrets.token_hex(6)}{ext}'; out=folder/filename; out.write_bytes(file['content'])
-                        media_path='/' + str(out.relative_to(ROOT)).replace('\\','/')
-                    cur=db.execute('INSERT INTO virtual_experiences(dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(pid,title,etype,clean_text(fields.get('provider'),100),url or None,media_path,clean_text(fields.get('description'),2000),fields.get('duration_seconds') or None,1,user['id'],now(),now()))
+                    v=clean_virtual_payload(fields,has_file=bool(file))
+                    media_path=save_virtual_media(file,pid,v['type']) if file else None
+                    cur=db.execute('INSERT INTO virtual_experiences(dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(pid,v['title'],v['type'],v['provider'],v['url'],media_path,v['description'],v['duration'],1,user['id'],now(),now()))
                     audit(db,user['id'],'virtual_experience_created','virtual_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid,'media_path':media_path}); return
                 if path.startswith('/api/dive-points/') and path.endswith('/virtual'):
-                    pid=int(path.split('/')[3])
-                    if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone():
-                        self.send_json({'error':'Punto no encontrado'},404); return
-                    rows=db.execute('SELECT id,dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_at,updated_at FROM virtual_experiences WHERE dive_point_id=? AND active=1 ORDER BY id',(pid,)).fetchall()
-                    self.send_json({'items':[dict(x) for x in rows]}); return
-                if path.startswith('/api/dive-points/') and path.endswith('/virtual'):
                     user=require_user(self,db); require_role(user,{'admin','center'}); pid=int(path.split('/')[3])
-                    row=db.execute('SELECT center_id FROM dive_points WHERE id=?',(pid,)).fetchone()
-                    if not row: self.send_json({'error':'Punto no encontrado'},404); return
-                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes gestionar el recorrido virtual de este punto.')
-                    data=json_body(self)
-                    title=clean_text(data.get('title'),180) or 'Recorrido virtual'
-                    etype=clean_text(data.get('experience_type'),40) or 'panorama'
-                    if etype not in {'panorama','video360','streetview','external360'}: raise ValueError('Tipo de experiencia no válido.')
-                    url=clean_text(data.get('url'),1000)
-                    if etype in {'video360','streetview','external360'} and not url: raise ValueError('Esta experiencia necesita una URL.')
-                    cur=db.execute('INSERT INTO virtual_experiences(dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(pid,title,etype,clean_text(data.get('provider'),100),url or None,clean_text(data.get('media_path'),500),clean_text(data.get('description'),2000),data.get('duration_seconds') or None,1,user['id'],now(),now()))
+                    can_manage_virtual(db,user,pid)
+                    v=clean_virtual_payload(json_body(self))
+                    cur=db.execute('INSERT INTO virtual_experiences(dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(pid,v['title'],v['type'],v['provider'],v['url'],None,v['description'],v['duration'],1,user['id'],now(),now()))
                     audit(db,user['id'],'virtual_experience_created','virtual_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
                 if path.startswith('/api/dive-points/') and path.endswith('/photos/delete'):
                     user=require_user(self,db); pid=int(path.split('/')[3]); data=json_body(self); phid=int(data.get('photo_id') or 0)
@@ -5366,11 +5975,11 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('UPDATE travel_experiences SET status=?,updated_at=? WHERE id=?',(status,now(),eid)); audit(db,user['id'],'travel_experience_status','travel_experience',eid,{'status':status}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/centers':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
-                    cur=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_text(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),1,now(),now())); audit(db,user['id'],'center_created','center',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                    cur=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),1,now(),now())); audit(db,user['id'],'center_created','center',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
                 if path=='/api/centers/update':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); cid=int(data.get('id') or 0)
                     if not db.execute('SELECT 1 FROM centers WHERE id=?',(cid,)).fetchone(): raise ValueError('Centro no encontrado.')
-                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_text(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),clean_text(data.get('logo_url'),500) or None,now(),cid))
+                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),wsec.clean_local_or_http_url(data.get('logo_url'),500) or None,now(),cid))
                     audit(db,user['id'],'center_updated','center',cid); db.commit(); self.send_json({'ok':True,'id':cid}); return
                 if path=='/api/admin/users/role':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
@@ -5378,7 +5987,10 @@ class Handler(BaseHTTPRequestHandler):
                     if role not in ROLES: raise ValueError('Rol no válido.')
                     if role=='center' and not center_id: raise ValueError('Una cuenta de centro necesita un centro asociado.')
                     if center_id and not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(center_id,)).fetchone(): raise ValueError('Centro no válido.')
-                    db.execute('UPDATE users SET role=?,center_id=? WHERE id=?',(role,center_id,uid)); audit(db,user['id'],'user_role_updated','user',uid,{'role':role,'center_id':center_id}); db.commit(); self.send_json({'ok':True}); return
+                    if uid==user['id'] and role!='admin': raise ValueError('No puedes quitarte a ti mismo el rol de administración.')
+                    db.execute('UPDATE users SET role=?,center_id=? WHERE id=?',(role,center_id,uid))
+                    db.execute('DELETE FROM sessions WHERE user_id=?',(uid,))  # a role change takes effect at once: the user signs in again
+                    audit(db,user['id'],'user_role_updated','user',uid,{'role':role,'center_id':center_id}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/qr/create':
                     user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self); cid=int(data.get('center_id') or user['center_id'])
                     if user['role']=='center' and cid!=user['center_id']: raise PermissionError('No puedes crear QR para otro centro.')
@@ -5387,7 +5999,7 @@ class Handler(BaseHTTPRequestHandler):
                     allowed={'center','diver','dive','booking'}
                     if purpose not in allowed: raise ValueError('Tipo de QR no válido.')
                     ref=int(data.get('reference_id') or 0) or None
-                    if purpose=='dive' and ref and not db.execute('SELECT 1 FROM provider_service_slots s JOIN provider_services ps ON ps.id=s.service_id WHERE s.id=? AND ps.provider_user_id=?',(ref,user['id'])).fetchone() and user['role']!='admin': raise PermissionError('La salida no pertenece a tu centro.')
+                    if purpose=='dive' and ref and not db.execute('SELECT 1 FROM service_slots s JOIN provider_services ps ON ps.id=s.service_id WHERE s.id=? AND ps.center_id=?',(ref,cid)).fetchone(): raise PermissionError('La salida no pertenece a tu centro.')
                     if purpose=='booking' and ref and not db.execute('SELECT 1 FROM bookings WHERE id=? AND center_id=?',(ref,cid)).fetchone(): raise ValueError('Reserva no válida.')
                     code=secrets.token_urlsafe(9).replace('-','').replace('_','')[:12].upper()
                     default_labels={'center':'Identificación del centro','diver':'Check-in del buceador','dive':'Inmersión','booking':'Reserva'}
@@ -5396,13 +6008,19 @@ class Handler(BaseHTTPRequestHandler):
                 if path.startswith('/api/checkin/'):
                     user=require_user(self,db); code=path.rsplit('/',1)[1]; qr=db.execute('SELECT * FROM qr_codes WHERE code=? AND active=1',(code,)).fetchone()
                     if not qr: self.send_json({'error':'QR no válido o caducado.'},404); return
+                    data=json_body(self)
+                    # G5: the check-in shares the diver's profile with the centre only after an explicit «Compartir mis datos».
+                    if not data.get('share_consent'):
+                        cname=db.execute('SELECT name FROM centers WHERE id=?',(qr['center_id'],)).fetchone()
+                        self.send_json({'error':'consent_required','needs_consent':True,'center_id':qr['center_id'],'center_name':cname[0] if cname else ''},409); return
+                    grant_data_share(db,user['id'],qr['center_id'],'qr_checkin')
                     existing=db.execute('SELECT id FROM center_links WHERE user_id=? AND center_id=?',(user['id'],qr['center_id'])).fetchone()
                     if existing: db.execute('UPDATE center_links SET last_checkin=? WHERE id=?',(now(),existing['id']))
                     else: db.execute('INSERT INTO center_links(user_id,center_id,first_checkin,last_checkin) VALUES(?,?,?,?)',(user['id'],qr['center_id'],now(),now()))
                     audit(db,user['id'],'center_checkin','center',qr['center_id'],{'code':code,'purpose':qr['purpose'],'reference_id':qr['reference_id']}); sync_user_rewards(db,user['id']); db.commit();
                     payload={'ok':True,'center_id':qr['center_id'],'center_name':db.execute('SELECT name FROM centers WHERE id=?',(qr['center_id'],)).fetchone()[0],'purpose':qr['purpose'],'reference_id':qr['reference_id'],'label':qr['label']}
                     if qr['purpose']=='dive' and qr['reference_id']:
-                        row=db.execute('''SELECT s.id,s.slot_date,s.slot_time,s.spots_total,s.spots_available,ps.title AS service_title,dp.name AS point_name,dp.country FROM provider_service_slots s JOIN provider_services ps ON ps.id=s.service_id LEFT JOIN provider_service_slot_points sp ON sp.slot_id=s.id LEFT JOIN dive_points dp ON dp.id=sp.dive_point_id WHERE s.id=? LIMIT 1''',(qr['reference_id'],)).fetchone()
+                        row=db.execute('''SELECT s.id,s.slot_date,s.slot_time,s.spots_total,s.spots_available,ps.title AS service_title,dp.name AS point_name,dp.country FROM service_slots s JOIN provider_services ps ON ps.id=s.service_id LEFT JOIN service_slot_points sp ON sp.slot_id=s.id LEFT JOIN dive_points dp ON dp.id=sp.dive_point_id WHERE s.id=? AND ps.center_id=? LIMIT 1''',(qr['reference_id'],qr['center_id'])).fetchone()
                         if row: payload['dive']=dict(row)
                     if qr['purpose']=='booking' and qr['reference_id']:
                         row=db.execute('''SELECT b.id,b.booking_date,b.booking_time,b.participants,b.status,ps.title AS service_title,dp.name AS point_name FROM bookings b LEFT JOIN provider_services ps ON ps.id=b.service_id LEFT JOIN dive_points dp ON dp.id=b.dive_point_id WHERE b.id=? AND b.center_id=?''',(qr['reference_id'],qr['center_id'])).fetchone()
@@ -5427,27 +6045,56 @@ class Handler(BaseHTTPRequestHandler):
                     audit(db,user['id'],'dive_point_reviewed','dive_point',pid,{'decision':decision}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/admin/center-claims':
                     user=require_user(self,db); require_role(user,{'admin'})
-                    rows=db.execute('''SELECT cc.*,u.fullname,u.email,u.username,c.name AS matched_center_name FROM center_claims cc JOIN users u ON u.id=cc.user_id LEFT JOIN centers c ON c.id=cc.center_id WHERE cc.status='pending' ORDER BY cc.created_at DESC''').fetchall()
-                    self.send_json({'items':[dict(r) for r in rows]}); return
+                    rows=db.execute('''SELECT cc.*,u.fullname,u.email,u.username,c.name AS matched_center_name,c.website AS draft_website,
+                                              sc.name AS suggested_center_name,sc.city AS suggested_center_city,sc.phone AS suggested_center_phone,sc.website AS suggested_center_website
+                                         FROM center_claims cc JOIN users u ON u.id=cc.user_id LEFT JOIN centers c ON c.id=cc.center_id LEFT JOIN centers sc ON sc.id=cc.suggested_center_id
+                                        WHERE cc.status='pending' ORDER BY cc.created_at DESC''').fetchall()
+                    items=[]
+                    for r_ in rows:
+                        d=dict(r_); dom=(d.get('email') or '').rsplit('@',1)[-1].lower(); site=urlparse(d.get('website') or d.get('draft_website') or '').hostname or ''
+                        d['email_matches_domain']=bool(dom and site and (site==dom or site.endswith('.'+dom) or dom.endswith('.'+site.removeprefix('www.')) or site.removeprefix('www.')==dom))
+                        items.append(d)
+                    self.send_json({'items':items,'methods':VERIFICATION_METHODS}); return
                 if path=='/api/admin/center-claims/review':
+                    # G2: approving a professional account requires saying HOW it was verified (email on the centre's own
+                    # domain, a call to its public phone number or a document) and a note; it is all kept in the audit log.
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); cid=int(data['id']); decision=clean_text(data.get('decision'),20); claim=db.execute('SELECT * FROM center_claims WHERE id=?',(cid,)).fetchone()
                     if not claim: raise ValueError('Solicitud no encontrada.')
+                    if claim['status']!='pending': raise ValueError('Esta solicitud ya está resuelta.')
+                    method=clean_text(data.get('verification_method'),30); vnote=clean_text(data.get('verification_note'),1000) or ''
+                    requested=claim['requested_role'] or 'center'
                     if decision=='approve':
-                        target=int(data.get('center_id') or claim['center_id'] or 0)
-                        if not target:
-                            raise ValueError('Esta solicitud no coincide con un centro existente. Crea el centro primero y después aprueba la vinculación.')
-                        db.execute("UPDATE users SET role='center',center_id=?,requested_role='center' WHERE id=?",(target,claim['user_id']))
-                        db.execute("UPDATE centers SET verification_status='verified',data_confidence='provider_verified',updated_at=? WHERE id=?",(now(),target))
-                        db.execute("UPDATE center_claims SET status='approved',center_id=?,reviewed_at=?,reviewed_by_user_id=? WHERE id=?",(target,now(),user['id'],cid))
-                        db.execute('INSERT OR IGNORE INTO center_links(user_id,center_id,first_checkin,last_checkin) VALUES(?,?,?,?)',(claim['user_id'],target,now(),now()))
-                        notify_user(db,claim['user_id'],'center_verified',{'center':db.execute('SELECT name FROM centers WHERE id=?',(target,)).fetchone()['name']},('center',target))
-                    elif decision=='reject': db.execute("UPDATE center_claims SET status='rejected',reviewed_at=?,reviewed_by_user_id=? WHERE id=?",(now(),user['id'],cid))
+                        if method not in VERIFICATION_METHODS: raise ValueError('Indica cómo has verificado la cuenta: email del dominio del centro, llamada al teléfono público o documento.')
+                        if len(vnote)<5: raise ValueError('Añade una nota de la verificación (por ejemplo, a qué número llamaste o qué documento revisaste).')
+                        if requested=='freelance':
+                            db.execute("UPDATE users SET role='freelance',requested_role='freelance' WHERE id=?",(claim['user_id'],))
+                            target=None
+                        else:
+                            target=int(data.get('center_id') or claim['center_id'] or 0)
+                            if not target: raise ValueError('Esta solicitud no tiene ficha de centro. Elige el centro que corresponde.')
+                            if db.execute("SELECT 1 FROM users WHERE center_id=? AND role='center' AND id<>?",(target,claim['user_id'])).fetchone() and not data.get('allow_second_manager'):
+                                raise ValueError('Ese centro ya tiene una cuenta gestora. Confirma que esta persona también debe gestionarlo.')
+                            db.execute("UPDATE users SET role='center',center_id=?,requested_role='center' WHERE id=?",(target,claim['user_id']))
+                            db.execute("UPDATE centers SET active=1,verification_status='verified',data_confidence='provider_verified',updated_at=? WHERE id=?",(now(),target))
+                            if claim['center_id'] and claim['center_id']!=target:
+                                # The administrator linked the request to another existing centre: the unused draft is discarded.
+                                db.execute("UPDATE centers SET active=0,verification_status='discarded',updated_at=? WHERE id=? AND verification_status='pending_provider'",(now(),claim['center_id']))
+                            db.execute("INSERT OR IGNORE INTO center_members(center_id,user_id,member_role,created_at) VALUES(?,?,'owner',?)",(target,claim['user_id'],now()))
+                        db.execute("UPDATE center_claims SET status='approved',center_id=COALESCE(?,center_id),reviewed_at=?,reviewed_by_user_id=?,verification_method=?,verification_note=? WHERE id=?",(target,now(),user['id'],method,vnote,cid))
+                        db.execute('DELETE FROM sessions WHERE user_id=?',(claim['user_id'],))
+                        cname=db.execute('SELECT name FROM centers WHERE id=?',(target,)).fetchone()['name'] if target else db.execute('SELECT fullname FROM users WHERE id=?',(claim['user_id'],)).fetchone()['fullname']
+                        notify_user(db,claim['user_id'],'center_verified',{'center':cname},('center',target) if target else ('user',claim['user_id']))
+                        DIRECTORY.invalidate(); PROMOS.invalidate()
+                    elif decision=='reject':
+                        db.execute("UPDATE center_claims SET status='rejected',reviewed_at=?,reviewed_by_user_id=?,verification_method=?,verification_note=? WHERE id=?",(now(),user['id'],method,vnote,cid))
+                        if claim['center_id']: db.execute("UPDATE centers SET active=0,verification_status='rejected',updated_at=? WHERE id=? AND verification_status='pending_provider'",(now(),claim['center_id']))
+                        db.execute("UPDATE users SET requested_role='recreational' WHERE id=?",(claim['user_id'],))
                     else: raise ValueError('Decisión no válida.')
-                    audit(db,user['id'],'center_claim_reviewed','center_claim',cid,{'decision':decision}); db.commit(); self.send_json({'ok':True}); return
+                    audit(db,user['id'],'center_claim_reviewed','center_claim',cid,{'decision':decision,'method':method,'note':vnote[:200]}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center/profile':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); target=int(user['center_id'] or 0)
                     if not target: raise ValueError('La cuenta aún no tiene un centro aprobado.')
-                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_text(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),now(),target)); audit(db,user['id'],'center_profile_updated','center',target); db.commit(); self.send_json({'ok':True}); return
+                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),now(),target)); audit(db,user['id'],'center_profile_updated','center',target); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/rewards/seed':
                     user=require_user(self,db); sync_user_rewards(db,user['id']); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/rewards/redeem':
@@ -5572,14 +6219,14 @@ class Handler(BaseHTTPRequestHandler):
                     point_id=None
                     if slot:
                         pr=db.execute('SELECT dive_point_id FROM service_slot_points WHERE slot_id=? LIMIT 1',(slot['id'],)).fetchone(); point_id=pr['dive_point_id'] if pr else None
-                    uid=find_or_create_customer(db,fullname,data.get('email'),data.get('phone'))
+                    uid=find_or_create_customer(db,fullname,data.get('email'),data.get('phone'),cid)
                     reserved=0
                     if slot and status=='confirmed':
                         if not reserve_slot_spots(db,slot['id'],participants): raise ValueError('Las plazas acaban de cambiar. Revisa la salida.')
                         reserved=1
                     codes=as_list(data.get('equipment_codes'))
-                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,notes,status,price,currency,payment_status,price_breakdown,source,contact_phone,created_by_user_id,payment_method,internal_notes,created_at,updated_at)
-                                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(uid,cid,point_id,service_id,slot['id'] if slot else None,reserved,bdate,btime,participants,1 if codes else 0,', '.join(l['label'] for l in lines if l['kind']=='equipment'),clean_text(data.get('notes'),2000),status,total,currency,payment_status,json.dumps(lines,ensure_ascii=False),'manual',clean_text(data.get('phone'),60),user['id'],clean_text(data.get('payment_method'),40),clean_text(data.get('internal_notes'),2000),now(),now()))
+                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,notes,status,price,currency,payment_status,price_breakdown,source,contact_phone,contact_email,contact_name,created_by_user_id,payment_method,internal_notes,public_token,created_at,updated_at)
+                                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(uid,cid,point_id,service_id,slot['id'] if slot else None,reserved,bdate,btime,participants,1 if codes else 0,', '.join(l['label'] for l in lines if l['kind']=='equipment'),clean_text(data.get('notes'),2000),status,total,currency,payment_status,json.dumps(lines,ensure_ascii=False),'manual',clean_text(data.get('phone'),60),(clean_text(data.get('email'),160) or '').lower() or None,fullname,user['id'],clean_text(data.get('payment_method'),40),clean_text(data.get('internal_notes'),2000),wsec.random_token(),now(),now()))
                     if data.get('notify_client',True) and status=='confirmed': notify_booking(db,cur.lastrowid,'manual')
                     audit(db,user['id'],'booking_created_manual','booking',cur.lastrowid,{'participants':participants,'total':total}); db.commit()
                     self.send_json({'ok':True,'id':cur.lastrowid,'total':total,'status':status,'payment_status':payment_status}); return
@@ -5679,10 +6326,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         parsed=urlparse(self.path)
-        try:
-            self.enforce_same_origin()
-        except PermissionError as e:
-            self.send_json({'error':str(e)},403); return
+        if not self.precheck_write(): return
         if '/virtual/' in parsed.path and parsed.path.startswith('/api/dive-points/'):
             with connect() as db:
                 try:
@@ -5765,7 +6409,103 @@ class WorldivesHTTPServer(ThreadingHTTPServer):
             self._slots.release()
 
 
+def maintenance_loop():
+    """Every 10 minutes: expired sessions are deleted (they are already refused when used). Further periodic jobs
+    (booking deadlines, retention, backups) are registered in MAINTENANCE_JOBS by later modules."""
+    while True:
+        db = None
+        try:
+            db = connect()
+            db.execute('DELETE FROM sessions WHERE last_seen<? OR created_at<?', (time.time() - SESSION_TTL_SECONDS, time.time() - SESSION_TTL_SECONDS))
+            db.commit()
+            for job in MAINTENANCE_JOBS:
+                try: job(db); db.commit()
+                except Exception as exc:
+                    db.rollback(); sys.stderr.write(f'[mantenimiento] {getattr(job, "__name__", job)}: {type(exc).__name__}: {exc}\n')
+        except Exception as exc:
+            sys.stderr.write(f'[mantenimiento] {type(exc).__name__}: {exc}\n')
+        finally:
+            if db is not None: db.close()
+        time.sleep(wcfg.env_int('WOD_MAINTENANCE_SECONDS', 600, 30, 3600))
+
+
+MAINTENANCE_JOBS = []
+
+
+def check_production_settings():
+    """WOD_ENV=production refuses to start with unsafe settings."""
+    problems = []
+    if not wcfg.public_url(): problems.append('WOD_PUBLIC_URL es obligatorio en producción (por ejemplo https://worldives.com).')
+    elif not wcfg.public_url().startswith('https://'): problems.append('WOD_PUBLIC_URL debe empezar por https:// en producción.')
+    if wcfg.env_flag('WOD_ALLOW_SETUP'): problems.append('WOD_ALLOW_SETUP=1 no se permite en producción: crea el administrador con --create-admin.')
+    if len(wcfg.env('WOD_SECRET_KEY')) < 32: problems.append('Define WOD_SECRET_KEY con al menos 32 caracteres aleatorios.')
+    if wcfg.env_flag('WOD_DEBUG'): problems.append('WOD_DEBUG no puede estar activo en producción.')
+    return problems
+
+
+def create_admin_cli(argv):
+    """python app/server.py --create-admin [--email E] [--username U] [--name N]
+    The password is asked on the terminal (or read from WOD_ADMIN_PASSWORD for automated installs)."""
+    import getpass
+    def arg(flag):
+        if flag in argv:
+            i = argv.index(flag)
+            if i + 1 < len(argv): return argv[i + 1]
+        return None
+    bootstrap()
+    email = (arg('--email') or input('Email del administrador: ')).strip().lower()
+    username = (arg('--username') or input('Usuario: ')).strip()
+    name = (arg('--name') or input('Nombre y apellidos: ')).strip()
+    password = os.environ.get('WOD_ADMIN_PASSWORD') or getpass.getpass('Contraseña (mínimo 10 caracteres): ')
+    if not os.environ.get('WOD_ADMIN_PASSWORD') and getpass.getpass('Repite la contraseña: ') != password:
+        print('Las contraseñas no coinciden.'); return 1
+    problem = wsec.password_problem(password)
+    if problem: print(problem); return 1
+    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email) or not username or not name:
+        print('Email, usuario y nombre son obligatorios.'); return 1
+    db = connect()
+    try:
+        if db.execute('SELECT 1 FROM users WHERE lower(email)=? OR lower(username)=lower(?)', (email, username)).fetchone():
+            print('Ya existe una cuenta con ese email o usuario.'); return 1
+        uid = db.execute("INSERT INTO users(fullname,email,username,password_hash,role,requested_role,created_at,email_verified_at) VALUES(?,?,?,?,'admin','admin',?,?)",
+                         (name, email, username, hash_password(password), now(), now())).lastrowid
+        db.execute('INSERT OR IGNORE INTO user_profiles(user_id,updated_at) VALUES(?,?)', (uid, now()))
+        record_acceptances(db, uid, ['terminos', 'privacidad', 'centros'])
+        audit(db, uid, 'admin_created_cli', 'user', uid); db.commit()
+    finally:
+        db.close()
+    print(f'Administrador creado: {username} <{email}>. Entra en la web y activa la verificación en dos pasos.')
+    return 0
+
+
+def report_center_accounts():
+    """python app/server.py --report-center-accounts: how every centre/freelance account got its role (G2 review)."""
+    bootstrap()
+    db = connect()
+    try:
+        rows = db.execute("SELECT u.id,u.fullname,u.email,u.role,u.center_id,u.created_at,c.name AS center FROM users u LEFT JOIN centers c ON c.id=u.center_id WHERE u.role IN ('center','freelance') ORDER BY u.id").fetchall()
+        print(f'Cuentas profesionales: {len(rows)}')
+        for u in rows:
+            reg = db.execute("SELECT details,created_at FROM audit_log WHERE action='register' AND entity_id=? ORDER BY id LIMIT 1", (u['id'],)).fetchone()
+            claim = db.execute('SELECT status,verification_method,reviewed_by_user_id FROM center_claims WHERE user_id=? ORDER BY id DESC LIMIT 1', (u['id'],)).fetchone()
+            how = 'aprobada por el administrador (' + (claim['verification_method'] or 'sin método registrado') + ')' if claim and claim['status'] == 'approved' else 'SIN aprobación registrada: revisar'
+            print(f"- #{u['id']} {u['fullname']} <{u['email']}> rol={u['role']} centro={u['center'] or '-'} alta={u['created_at']} · {how} · registro: {reg['details'] if reg else 'sin registro'}")
+        orphan = db.execute("SELECT id,center_id,requested_center_name,status FROM center_claims WHERE user_id NOT IN (SELECT id FROM users)").fetchall()
+        for c in orphan: print(f"- Solicitud #{c['id']} «{c['requested_center_name']}» sin cuenta asociada (estado {c['status']}).")
+        legacy = db.execute("SELECT entity_id,details,created_at FROM audit_log WHERE action='register' AND details LIKE '%\"requested_role\": \"center\"%'").fetchall()
+        for a in legacy: print(f"- Registro histórico como centro (usuario #{a['entity_id'] or '?'}, {a['created_at']}): {a['details']}")
+    finally:
+        db.close()
+    return 0
+
+
 def main():
+    if '--create-admin' in sys.argv: raise SystemExit(create_admin_cli(sys.argv))
+    if '--report-center-accounts' in sys.argv: raise SystemExit(report_center_accounts())
+    if wcfg.is_production():
+        problems = check_production_settings()
+        if problems:
+            print('No se puede arrancar en producción:'); [print(' - ' + p) for p in problems]; raise SystemExit(2)
     bootstrap()
     print(f'WORLDIVES DISCOVERY v{APP_VERSION} -> http://127.0.0.1:{PORT}')
     # Optional multi-process mode (Linux/macOS): WOD_WORKERS=4 starts 4 processes sharing the port.
@@ -5784,7 +6524,10 @@ def main():
         raise
     threading.Thread(target=warm_snapshots, name='warm-up', daemon=True).start()
     threading.Thread(target=sweep_payment_orders, name='payments-sweeper', daemon=True).start()
-    if email_worker_lock(): threading.Thread(target=email_scheduler, name='email-sender', daemon=True).start()
+    # Only one process (WOD_WORKERS may start several) sends emails and runs the periodic jobs.
+    is_worker = email_worker_lock()
+    if is_worker: threading.Thread(target=maintenance_loop, name='maintenance', daemon=True).start()
+    if is_worker: threading.Thread(target=email_scheduler, name='email-sender', daemon=True).start()
     s.serve_forever()
 
 

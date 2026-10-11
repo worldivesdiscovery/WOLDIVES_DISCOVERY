@@ -35,3 +35,8 @@ Thumbs.db
 htmlcov/
 dist/
 build/
+
+# Logs and local mail spool (v50.31)
+logs/
+mail-outbox/
+public/assets/uploads/
