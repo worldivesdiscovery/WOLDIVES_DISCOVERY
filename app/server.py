@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import html
 import json
 import math
@@ -30,6 +31,7 @@ from wod import config as wcfg
 from wod import security as wsec
 from wod import bookings as wbk
 from wod import pdf as wpdf
+from wod import totp as wtotp
 # Bundled pure-python dependencies (qrcode). Installed packages take precedence.
 if str(ROOT/'vendor') not in sys.path: sys.path.append(str(ROOT/'vendor'))
 PUBLIC = ROOT / 'public'
@@ -44,7 +46,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.34'
+APP_VERSION = '50.35'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -419,7 +421,7 @@ TOTP_LIMIT = wsec.RateLimiter(6, 900)
 GEOCODE_LIMIT = wsec.RateLimiter(30, 60)
 INFO_LIMIT = wsec.RateLimiter(10, 3600)
 
-PRIVATE_USER_FIELDS = ('password_hash', 'totp_secret', 'totp_pending_secret', 'email_verify_token')
+PRIVATE_USER_FIELDS = ('password_hash', 'totp_secret', 'totp_pending_secret', 'email_verify_token', 'totp_recovery', 'totp_last_step', 'marketing_token')
 
 def public_user(user):
     if not user:
@@ -711,14 +713,6 @@ def bootstrap():
             ]
             db.executemany('INSERT INTO travel_offers(title,region,kind,image_path,summary) VALUES(?,?,?,?,?)', offers)
         db.commit()
-        if os.environ.get('WORLDIVES_SEED_DEMO') == '1' and db.execute('SELECT COUNT(*) FROM reward_offers').fetchone()[0] == 0:
-            offers = [
-                (None, '2 € de descuento en tu próxima inmersión', 'Crédito WORLDIVES aplicable cuando el proveedor acepte esta recompensa.', 'discount', 2.0, '2 € de descuento', 'Sujeto a disponibilidad y condiciones del centro.', None),
-                (None, '5 € de descuento en un curso', 'Usa tu saldo acumulado en un curso que participe en WORLDIVES.', 'course_discount', 5.0, '5 € de descuento', 'El centro debe aceptar esta recompensa.', None),
-                (None, 'Seguro de día', 'Canjea saldo por un seguro de día cuando el proveedor ofrezca esta recompensa.', 'day_insurance', 5.0, 'Seguro de día', 'Sujeto a condiciones del proveedor y cobertura disponible.', None),
-                (None, '10 € para una inmersión', 'Una pequeña ayuda del monedero para seguir buceando.', 'dive_credit', 10.0, '10 € de crédito', 'Solo en centros/experiencias que acepten el crédito.', None),
-            ]
-            db.executemany('INSERT INTO reward_offers(center_id,title,description,reward_type,cost_wallet,value_text,conditions,stock,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,?,?)', [(a,b,c,d,e,f,g,h,now(),now()) for a,b,c,d,e,f,g,h in offers])
         db.execute("UPDATE reward_offers SET active=0 WHERE center_id IS NULL")
         db.commit()
         migrate_v50_31(db)
@@ -729,12 +723,53 @@ def bootstrap():
         db.commit()
         migrate_v50_34(db)
         db.commit()
+        migrate_v50_35(db)
+        db.commit()
 
 
 def add_columns(db, table, cols):
     have = {r['name'] for r in db.execute(f'PRAGMA table_info({table})').fetchall()}
     for name, typ in cols:
         if name not in have: db.execute(f'ALTER TABLE {table} ADD COLUMN {name} {typ}')
+
+
+def migrate_v50_35(db):
+    """v50.35 (Fase 3): «Monedero» (€) → WORLDIVES points (whole numbers).
+    - points_ledger is the balance; every achievement already earned is written into it.
+    - The € balance of each user becomes points 1:1 rounded up («Saldo del monedero convertido a puntos»).
+      wallet_transactions is kept untouched as history.
+    - cost_wallet (€) → cost_points, rounded up; exchange codes get an expiry date and a validation record.
+    Additive only: nothing is deleted."""
+    db.execute("CREATE TABLE IF NOT EXISTS points_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, points INTEGER NOT NULL, kind TEXT NOT NULL, "
+               "description TEXT NOT NULL, ref_type TEXT, ref_id INTEGER, center_id INTEGER, created_by INTEGER, created_at TEXT NOT NULL, "
+               "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE)")
+    db.execute('CREATE INDEX IF NOT EXISTS idx_points_ledger_user ON points_ledger(user_id, created_at DESC)')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_points_ledger_grants ON points_ledger(center_id, kind, created_at)')
+    add_columns(db, 'reward_offers', [('cost_points', 'INTEGER')])
+    add_columns(db, 'reward_redemptions', [('cost_points', 'INTEGER'), ('expires_at', 'TEXT'), ('redeemed_by', 'INTEGER'), ('redeemed_center_id', 'INTEGER'), ('cancelled_at', 'TEXT')])
+    ceil = lambda col: f'(CAST({col} AS INTEGER) + ({col} > CAST({col} AS INTEGER)))'
+    db.execute(f'UPDATE reward_offers SET cost_points={ceil("cost_wallet")} WHERE cost_points IS NULL')
+    db.execute(f'UPDATE reward_redemptions SET cost_points={ceil("cost_wallet")} WHERE cost_points IS NULL')
+    for old, new in LEGACY_REWARD_TYPES.items():
+        db.execute('UPDATE reward_offers SET reward_type=? WHERE reward_type=?', (new, old))
+    db.execute('UPDATE reward_offers SET active=0 WHERE center_id IS NULL')  # WORLDIVES does not fund advantages
+    # Fase 4: 48 h reminders, document expiry alerts, one-click unsubscribe, delivery channel, TOTP replay protection.
+    add_columns(db, 'bookings', [('reminder48_sent_at', 'TEXT')])
+    add_columns(db, 'email_outbox', [('unsubscribe_url', 'TEXT'), ('delivery', 'TEXT')])
+    add_columns(db, 'users', [('totp_last_step', 'INTEGER'), ('totp_enabled_at', 'TEXT')])
+    add_columns(db, 'sessions', [('second_factor', 'INTEGER DEFAULT 0')])
+    db.execute('CREATE TABLE IF NOT EXISTS document_alerts (document_id INTEGER NOT NULL, kind TEXT NOT NULL, sent_at TEXT NOT NULL, PRIMARY KEY(document_id, kind))')
+    if not migration_done(db, '50.35'):
+        db.execute("""INSERT INTO points_ledger(user_id,points,kind,description,ref_type,ref_id,created_at)
+                      SELECT e.user_id,e.points,'earned',e.title,'reward_event',e.id,e.created_at FROM reward_events e
+                       WHERE e.points<>0 AND NOT EXISTS (SELECT 1 FROM points_ledger l WHERE l.ref_type='reward_event' AND l.ref_id=e.id)""")
+        for r in db.execute('SELECT user_id, SUM(amount) AS bal FROM wallet_transactions GROUP BY user_id HAVING SUM(amount)>0').fetchall():
+            bal = float(r['bal'] or 0); pts = int(math.ceil(round(bal, 2)))
+            db.execute("INSERT INTO points_ledger(user_id,points,kind,description,ref_type,created_at) VALUES(?,?,'migrated',?,'wallet',?)",
+                       (r['user_id'], pts, f'Saldo del monedero convertido a puntos ({bal:.2f} € = {pts} puntos)', now()))
+        exp = (datetime.now(timezone.utc) + _timedelta(days=POINTS_CODE_DAYS)).isoformat(timespec='seconds')
+        db.execute("UPDATE reward_redemptions SET expires_at=? WHERE status='issued' AND expires_at IS NULL", (exp,))
+        db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.35', now(), 'Fase 3: monedero → puntos 1:1'))
 
 
 def backup_database(db, tag):
@@ -1087,6 +1122,9 @@ def require_user(handler, db):
 def require_role(user, roles):
     if user['role'] not in roles:
         raise PermissionError('No tienes permisos para realizar esta acción.')
+    if user['role'] == 'admin' and admin_totp_required() and not user.get('totp_enabled'):
+        # Fase 4: administrators work only with two-step verification active.
+        raise PermissionError('Activa la verificación en dos pasos en «Mi cuenta» para usar la administración.')
 
 
 # Bookings that no longer exist for the centre (they never give access to the diver's data).
@@ -1293,8 +1331,40 @@ def send_booking_notice(db, user, recipient_id, booking_id, experience_booking_i
     return mid
 
 
-def login_second_factor(db, user, data):
-    """Two-step verification hook (Fase 4). Returns a JSON answer when a code is still needed, else None."""
+def admin_totp_required():
+    """Two-step verification is mandatory for administrators (WOD_ADMIN_TOTP_REQUIRED, on by default)."""
+    return wcfg.env_flag('WOD_ADMIN_TOTP_REQUIRED', True)
+
+
+def check_totp_or_recovery(db, user, code):
+    """True if code is a valid authenticator code (never reused) or an unused recovery code (then consumed)."""
+    code = str(code or '').strip()
+    if not code or not user['totp_secret']: return False
+    step = wtotp.verify(user['totp_secret'], code, user['totp_last_step'] if 'totp_last_step' in user.keys() else None)
+    if step is not None:
+        db.execute('UPDATE users SET totp_last_step=? WHERE id=?', (step, user['id'])); return True
+    try: rec = json.loads(user['totp_recovery'] or '[]')
+    except ValueError: rec = []
+    h = wtotp.hash_recovery(code)
+    if h in rec:
+        rec.remove(h); db.execute('UPDATE users SET totp_recovery=? WHERE id=?', (json.dumps(rec), user['id']))
+        audit(db, user['id'], 'totp_recovery_code_used', details={'left': len(rec)}); return True
+    return False
+
+
+def login_second_factor(db, user, data, ip=''):
+    """Two-step verification (Fase 4). Returns (payload, status) when the login cannot finish yet, else None."""
+    if not (user['totp_enabled'] if 'totp_enabled' in user.keys() else 0): return None
+    code = str(data.get('totp_code') or data.get('totp') or '').strip()
+    if not code:
+        challenge = hmac.new(wsec.secret_key(), f"totp:{user['id']}:{int(time.time()) // 300}".encode(), hashlib.sha256).hexdigest()[:24]
+        return {'ok': False, 'totp_required': True, 'challenge': challenge}, 200
+    key = f"totp:{user['id']}"
+    if TOTP_LIMIT.blocked(key): return {'error': 'Demasiados intentos con el código. Espera unos minutos.'}, 429
+    if not check_totp_or_recovery(db, user, code):
+        TOTP_LIMIT.hit(key); audit(db, user['id'], 'totp_failed', details={'ip': wsec.ip_hash(ip)})
+        return {'error': 'El código de verificación no es correcto o ya se ha usado.', 'totp_required': True}, 401
+    TOTP_LIMIT.reset(key)
     return None
 
 
@@ -2581,17 +2651,70 @@ SITE_MEDIA=Snapshot('site-media',_build_site_media)
 PROMOS=Snapshot('promos',_build_promos)
 
 
-def ensure_reward_event(db, user_id, event_key, title, description, points=0, wallet_amount=0.0):
+# ---------------------------------------------------------------------------
+# Points (v50.35, Fase 3). The old «Monedero» (a balance in €) becomes WORLDIVES points: whole numbers that are
+# earned (diving, logging dives, completing bookings) or granted by a centre, and are only exchanged for
+# advantages that each centre defines and pays for. Points are not money: they cannot be bought, topped up,
+# transferred between users, converted into money or used as a balance in Stripe.
+# The ledger (points_ledger) is the single source of truth: balance = SUM(points).
+# ---------------------------------------------------------------------------
+POINTS_CODE_DAYS = wcfg.env_int('WOD_POINTS_CODE_DAYS', 180, 7, 730)
+POINTS_GRANT_CLIENT_MONTH = wcfg.env_int('WOD_POINTS_GRANT_MAX_PER_CLIENT_MONTH', 100, 0, 100000)
+POINTS_GRANT_CENTER_MONTH = wcfg.env_int('WOD_POINTS_GRANT_MAX_PER_CENTER_MONTH', 3000, 0, 10000000)
+REWARD_TYPES = {'discount': 'Descuento del centro', 'activity': 'Inmersión o actividad', 'course_discount': 'Descuento en un curso',
+                'insurance': 'Seguro de día pagado por el centro', 'gift': 'Regalo o ventaja del centro'}
+LEGACY_REWARD_TYPES = {'dive_credit': 'activity', 'day_insurance': 'insurance'}
+POINT_KINDS = ('earned', 'granted', 'redeemed', 'reversal', 'migrated', 'adjust')
+
+
+def points_add(db, user_id, points, kind, description, ref_type=None, ref_id=None, center_id=None, actor=None):
+    if kind not in POINT_KINDS: raise ValueError('Movimiento de puntos no válido.')
+    points = int(points)
+    if not points: return None
+    return db.execute('''INSERT INTO points_ledger(user_id,points,kind,description,ref_type,ref_id,center_id,created_by,created_at)
+                         VALUES(?,?,?,?,?,?,?,?,?)''', (user_id, points, kind, description, ref_type, ref_id, center_id, actor, now())).lastrowid
+
+
+def points_balance(db, user_id):
+    return int(db.execute('SELECT COALESCE(SUM(points),0) FROM points_ledger WHERE user_id=?', (user_id,)).fetchone()[0] or 0)
+
+
+def points_earned(db, user_id):
+    """Points ever earned (levels never go down when the diver exchanges points)."""
+    return int(db.execute("SELECT COALESCE(SUM(points),0) FROM points_ledger WHERE user_id=? AND kind IN ('earned','granted','migrated') AND points>0", (user_id,)).fetchone()[0] or 0)
+
+
+def reward_type_label(t):
+    return REWARD_TYPES.get(LEGACY_REWARD_TYPES.get(t, t), REWARD_TYPES['gift'])
+
+
+def run_points_jobs(db):
+    """Maintenance: exchange codes not used before they expire give the points back to the diver."""
+    for r in db.execute("SELECT rr.*, ro.title FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id WHERE rr.status='issued' AND rr.expires_at IS NOT NULL AND rr.expires_at<? LIMIT 200",
+                        (now(),)).fetchall():
+        if db.execute("UPDATE reward_redemptions SET status='expired' WHERE id=? AND status='issued'", (r['id'],)).rowcount == 1:
+            points_add(db, r['user_id'], int(r['cost_points'] or 0), 'reversal', 'Código caducado sin usar: ' + r['title'], 'reward_redemption', r['id'])
+            if r['offer_id']: db.execute('UPDATE reward_offers SET stock=stock+1 WHERE id=? AND stock IS NOT NULL', (r['offer_id'],))
+        db.commit()
+
+
+def redemption_row(r):
+    d = dict(r)
+    for k in ('cost_wallet',): d.pop(k, None)
+    d['reward_type_label'] = reward_type_label(d.get('reward_type'))
+    return d
+
+
+def ensure_reward_event(db, user_id, event_key, title, description, points=0):
+    """An achievement, awarded once per user and key. Its points go to the points ledger (Fase 3)."""
     row = db.execute('SELECT id FROM reward_events WHERE user_id=? AND event_key=?', (user_id, event_key)).fetchone()
     if row:
         return False
-    db.execute('INSERT INTO reward_events(user_id,event_key,title,description,points,wallet_amount,created_at) VALUES(?,?,?,?,?,?,?)',
-               (user_id, event_key, title, description, int(points or 0), float(wallet_amount or 0), now()))
+    eid = db.execute('INSERT INTO reward_events(user_id,event_key,title,description,points,wallet_amount,created_at) VALUES(?,?,?,?,?,0,?)',
+                     (user_id, event_key, title, description, int(points or 0), now())).lastrowid
     db.execute('INSERT INTO rewards(user_id,title,description,points,completed,created_at) VALUES(?,?,?,?,1,?)',
                (user_id, title, description, int(points or 0), now()))
-    if float(wallet_amount or 0):
-        db.execute('INSERT INTO wallet_transactions(user_id,amount,description,created_at) VALUES(?,?,?,?)',
-                   (user_id, float(wallet_amount), title, now()))
+    points_add(db, user_id, int(points or 0), 'earned', title, 'reward_event', eid)
     return True
 
 
@@ -2604,13 +2727,13 @@ def sync_user_rewards(db, user_id):
     # Profile completion is intentionally simple: no daily check-in or artificial engagement.
     if profile and profile['phone'] and profile['city'] and profile['certification_id']:
         ensure_reward_event(db, user_id, 'profile_complete', 'Perfil preparado',
-                            'Has completado los datos esenciales de tu perfil de buceador.', 50, 0)
+                            'Has completado los datos esenciales de tu perfil de buceador.', 50)
     dives = db.execute('SELECT id FROM logbook_entries WHERE user_id=? ORDER BY id', (user_id,)).fetchall()
     dive_count = len(dives)
     # Every real logbook entry gives a modest amount of progression; no monetary credit per dive.
     for i, dive in enumerate(dives, 1):
         ensure_reward_event(db, user_id, f'logbook:dive:{dive[0]}', 'Inmersión registrada',
-                            'Has añadido una inmersión a tu Log Book.', 10, 0)
+                            'Has añadido una inmersión a tu Log Book.', 10)
     milestones = [
         (1, 'first_dive', 'Primera inmersión', 'Tu primera inmersión queda registrada en WORLDIVES.', 50, 0),
         (5, 'dives_5', '5 inmersiones', 'Cinco inmersiones registradas en tu Log Book.', 100, 0),
@@ -2619,24 +2742,24 @@ def sync_user_rewards(db, user_id):
         (50, 'dives_50', '50 inmersiones', 'Has alcanzado 50 inmersiones.', 600, 0),
         (100, 'dives_100', '100 inmersiones', 'Has alcanzado 100 inmersiones.', 1200, 0),
     ]
-    for target,key,title,desc,pts,wallet in milestones:
+    for target,key,title,desc,pts,_ in milestones:
         if dive_count >= target:
-            ensure_reward_event(db, user_id, key, title, desc, pts, wallet)
+            ensure_reward_event(db, user_id, key, title, desc, pts)
     # Documents: only one modest bonus per useful document type.
-    for doc_type, label in [('Titulación','Titulación guardada'), ('Seguro','Seguro guardado'), ('Certificado médico','Certificado médico guardado')]:
+    for doc_type, label in [('Titulación','Titulación guardada'), ('Seguro','Seguro guardado')]:
         if db.execute('SELECT 1 FROM user_documents WHERE user_id=? AND lower(document_type)=lower(?) LIMIT 1', (user_id, doc_type)).fetchone():
             ensure_reward_event(db, user_id, 'document:'+doc_type.lower(), label,
-                                'Has preparado documentación útil para reservar con tranquilidad.', 25, 0)
+                                'Has preparado documentación útil para reservar con tranquilidad.', 25)
     # Completed reservations are valuable but not spammy.
     bookings = db.execute("SELECT id FROM bookings WHERE user_id=? AND status='completed' ORDER BY id", (user_id,)).fetchall()
     for b in bookings:
         ensure_reward_event(db, user_id, f'booking:completed:{b[0]}', 'Inmersión completada con un centro',
-                            'Has completado una reserva de buceo.', 40, 0)
+                            'Has completado una reserva de buceo.', 40)
     # Visiting a center through its QR is rewarded once per center.
     centers = db.execute('SELECT center_id FROM center_links WHERE user_id=? GROUP BY center_id', (user_id,)).fetchall()
     for c in centers:
         ensure_reward_event(db, user_id, f'center:visit:{c[0]}', 'Centro visitado',
-                            'Has hecho check-in en un centro de buceo.', 20, 0)
+                            'Has hecho check-in en un centro de buceo.', 20)
 
 
 def reward_level(total_points):
@@ -3055,6 +3178,44 @@ EMAIL_TEMPLATES = {
  'admin_refund_failed': {'to': 'admin', 'subject': 'Devolución pendiente: {ref} · {total}', 'pre': 'Stripe no ha podido hacer la devolución.', 'blocks': [
    ('h', 'Devolución pendiente'), ('p', 'Hay una incidencia con el pago de la reserva {ref} ({center}, {total}). Las devoluciones las hace el centro desde su panel o su cuenta de Stripe; revisa el caso y márcalo en Administración → Pagos.'),
    ('note', '{error}'), ('button', ('Abrir Pagos', 'admin_pay_url'))]},
+ 'totp_enabled': {'to': 'any', 'subject': 'Verificación en dos pasos activada', 'pre': 'Aviso de seguridad de tu cuenta.', 'blocks': [
+   ('h', 'Verificación en dos pasos activada'),
+   ('p', 'Hola {first_name}, desde ahora te pediremos un código de tu aplicación de verificación al iniciar sesión ({when}).'),
+   ('p', 'Guarda los códigos de recuperación en un lugar seguro. Si no has sido tú, cambia tu contraseña y escríbenos.'),
+   ('button', ('Ir a mi cuenta', 'account_url'))]},
+ 'reminder_48h': {'to': 'diver', 'subject': 'En 2 días buceas con {center} · {date_short}', 'pre': 'Tu inmersión se acerca.', 'blocks': [
+   ('h', 'Tu inmersión es pasado mañana'),
+   ('p', 'Hola {first_name}, te recordamos tu reserva con {center} del {date}.'),
+   ('details', None), ('bring', None), ('policy', None), ('button', ('Ver mi reserva', 'booking_url')),
+   ('p', 'Si no puedes ir, cancela desde tu reserva cuanto antes: según la política del centro puede corresponderte una devolución.')]},
+ 'booking_changed': {'to': 'diver', 'subject': 'Cambio en tu reserva: {service} · {date_short}', 'pre': '{center} ha cambiado la fecha u hora.', 'blocks': [
+   ('h', 'Tu reserva ha cambiado'),
+   ('p', 'Hola {first_name}, {center} ha cambiado tu reserva. Antes: {old_when}. Ahora: {date} a las {time}.'),
+   ('note', '{change_reason}'), ('details', None),
+   ('p', 'Si la nueva fecha no te viene bien, puedes cancelar la reserva desde la propia reserva o hablar con el centro.'),
+   ('button', ('Ver mi reserva', 'booking_url'))]},
+ 'document_expiring': {'to': 'diver', 'subject': 'Tu documento «{doc_title}» caduca el {doc_expires}', 'pre': 'Renuévalo para seguir reservando sin problemas.', 'blocks': [
+   ('h', 'Un documento está a punto de caducar'),
+   ('p', 'Hola {first_name}, tu documento «{doc_title}» ({doc_type}) caduca el {doc_expires}.'),
+   ('p', 'Los centros piden la titulación y el seguro de buceo en vigor. Sube la versión nueva desde tu cuenta cuando la tengas.'),
+   ('button', ('Ver mis documentos', 'account_url'))]},
+ 'document_expired': {'to': 'diver', 'subject': 'Tu documento «{doc_title}» ha caducado', 'pre': 'Súbelo de nuevo cuando lo renueves.', 'blocks': [
+   ('h', 'Un documento ha caducado'),
+   ('p', 'Hola {first_name}, tu documento «{doc_title}» ({doc_type}) caducó el {doc_expires}. Súbelo de nuevo cuando lo renueves.'),
+   ('button', ('Ver mis documentos', 'account_url'))]},
+ 'legal_update': {'to': 'any', 'subject': 'Cambios en «{doc_title}»', 'pre': 'Entran en vigor el {effective_date}.', 'blocks': [
+   ('h', 'Actualizamos «{doc_title}»'),
+   ('p', 'Hola {first_name}, hemos actualizado «{doc_title}». Los cambios entran en vigor el {effective_date}.'),
+   ('note', '{change_summary}'),
+   ('p', '{accept_text}'),
+   ('button', ('Leer el documento', 'doc_url'))]},
+ 'plan_renewal': {'to': 'center', 'subject': 'Tu plan {plan_name} se renueva el {renewal_date}', 'pre': 'Cuota anual de {plan_price}.', 'blocks': [
+   ('h', 'Renovación de tu plan'),
+   ('p', 'Hola {first_name}, el plan {plan_name} de {center} se renueva el {renewal_date} por {plan_price}.'),
+   ('p', '{renewal_text}'),
+   ('button', ('Ver mi plan', 'plan_url'))]},
+ 'marketing': {'to': 'marketing', 'subject': '{campaign_subject}', 'pre': '{campaign_pre}', 'blocks': [
+   ('h', '{campaign_title}'), ('p', '{campaign_body}'), ('button', ('{campaign_button}', 'campaign_url'))]},
  'refund_issued': {'to': 'diver', 'subject': 'Te han devuelto {refund_amount} · {service}', 'pre': '{center} ha hecho la devolución.', 'blocks': [
    ('h', 'Devolución hecha'),
    ('p', 'Hola {first_name}, {center} te ha devuelto {refund_amount} de tu reserva del {date}. Lo verás en tu tarjeta en 5–10 días hábiles, según tu banco.'),
@@ -3114,13 +3275,15 @@ EMAIL_TEMPLATE_LABELS = {
  'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
  'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'admin_new_pro': 'Admin: nueva cuenta profesional',
- 'refund_issued': 'Devolución hecha (buceador)', 'center_refund_reminder': 'Centro: devolución pendiente', 'center_dispute': 'Centro: disputa abierta',
+ 'totp_enabled': 'Verificación en dos pasos activada', 'reminder_48h': 'Recordatorio 48 h antes', 'booking_changed': 'Cambio de fecha u hora', 'document_expiring': 'Documento a punto de caducar',
+ 'document_expired': 'Documento caducado', 'legal_update': 'Cambio en un documento legal', 'plan_renewal': 'Centro: renovación de la cuota',
+ 'marketing': 'Comunicación comercial (con consentimiento)', 'refund_issued': 'Devolución hecha (buceador)', 'center_refund_reminder': 'Centro: devolución pendiente', 'center_dispute': 'Centro: disputa abierta',
  'admin_payment_review': 'Admin: pago en revisión', 'admin_refund_failed': 'Admin: devolución pendiente', 'admin_content_report': 'Admin: denuncia de contenido',
  'report_received': 'Denuncia recibida', 'report_resolved': 'Resultado de la denuncia', 'test': 'Correo de prueba',
  'booking_expired': 'Reserva caducada (buceador)', 'center_booking_expired': 'Centro: reserva caducada', 'center_payments_disabled': 'Centro: «Pago al reservar» sin cobros activos',
  'verify_email': 'Verificación de email', 'verify_email_change': 'Confirmación de cambio de email', 'booking_notice': 'Aviso del centro sobre una reserva',
  'medical_document_removed': 'Certificado médico eliminado', 'admin_error_alert': 'Admin: errores repetidos del servidor'}
-EMAIL_AUDIENCE = {'diver': 'Buceador', 'pro': 'Profesional', 'center': 'Centro', 'admin': 'Administración', 'any': 'Cualquier usuario'}
+EMAIL_AUDIENCE = {'diver': 'Buceador', 'pro': 'Profesional', 'center': 'Centro', 'admin': 'Administración', 'any': 'Cualquier usuario', 'marketing': 'Con consentimiento comercial'}
 
 
 def _esc(v): return html.escape(str(v if v is not None else ''), quote=True)
@@ -3246,7 +3409,9 @@ def render_email(db, template, lang, ctx):
     who = {'diver': 'Recibes este correo porque tienes una cuenta o una reserva en WORLDIVES DISCOVERY.',
            'center': 'Recibes este correo porque gestionas un centro o un perfil profesional en WORLDIVES DISCOVERY.',
            'pro': 'Recibes este correo porque has creado una cuenta profesional en WORLDIVES DISCOVERY.',
-           'admin': 'Aviso interno para la administración de WORLDIVES DISCOVERY.', 'any': 'Correo de servicio de WORLDIVES DISCOVERY.'}[tpl.get('to', 'any')]
+           'admin': 'Aviso interno para la administración de WORLDIVES DISCOVERY.', 'any': 'Correo de servicio de WORLDIVES DISCOVERY.',
+           'marketing': 'Recibes este correo porque aceptaste recibir novedades y ofertas de WORLDIVES DISCOVERY.'}[tpl.get('to', 'any')]
+    unsub = ctx.get('unsubscribe_url') or ''
     owner = legal.get('owner_name') or 'WORLDIVES DISCOVERY'
     foot_addr = ' · '.join(x for x in (owner, (f"NIF {legal['nif']}" if legal.get('nif') else ''), legal.get('address'), legal.get('email')) if x)
     html_lang = HTML_LANG.get(lang, lang)
@@ -3263,6 +3428,9 @@ def render_email(db, template, lang, ctx):
 <a href="{_esc(base)}/#/legal/privacidad" style="color:#0b7a89">{_esc(t('Política de privacidad'))}</a> · <a href="{_esc(base)}/#/legal/reservas" style="color:#0b7a89">{_esc(t('Condiciones de reserva'))}</a> · <a href="{_esc(base)}/#/legal/aviso-legal" style="color:#0b7a89">{_esc(t('Aviso legal'))}</a></td></tr>
 </table></td></tr></table></body></html>'''
     text_doc = '\n'.join(text).strip() + '\n\n--\n' + t(who) + '\n' + foot_addr + '\n' + f'{base}/#/legal/privacidad\n'
+    if unsub:
+        html_doc = html_doc.replace('</td></tr>\n</table></td></tr></table></body></html>', f'<br><a href="{_esc(unsub)}" style="color:#0b7a89">{_esc(t("Darme de baja de estas comunicaciones"))}</a></td></tr>\n</table></td></tr></table></body></html>', 1)
+        text_doc += t('Darme de baja de estas comunicaciones') + f': {unsub}\n'
     return subject, html_doc, text_doc
 
 
@@ -3272,8 +3440,8 @@ def queue_email(db, template, to_email, to_name, ctx, lang='es', related=None):
         subject, html_doc, text_doc = render_email(db, template, lang, ctx)
         status = 'queued' if mail_deliverable(to_email) else 'skipped'
         rel = related or (None, None)
-        db.execute('INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,0,?)',
-                   (template, lang, (to_email or '').strip().lower(), to_name or '', subject, html_doc, text_doc, status, rel[0], rel[1], now()))
+        db.execute('INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at,unsubscribe_url) VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?)',
+                   (template, lang, (to_email or '').strip().lower(), to_name or '', subject, html_doc, text_doc, status, rel[0], rel[1], now(), (ctx or {}).get('unsubscribe_api')))
     except Exception as exc:
         sys.stderr.write(f'[correo] no se pudo preparar «{template}»: {exc}\n')
 
@@ -3418,6 +3586,9 @@ def notify_booking(db, bid, event, extra=None):
             to_center('center_refund_reminder')
             notify_admins(db, 'admin_refund_failed', dict(ctx, error=extra.get('error', '')), rel)
         elif event == 'reminder': to_diver('reminder')
+        elif event == 'reminder_48h': to_diver('reminder_48h')
+        elif event == 'changed':
+            to_diver('booking_changed', {'old_when': extra.get('old_when', ''), 'change_reason': mail_t(lang_d, 'Motivo indicado por el centro: {reason}', reason=extra['reason']) if extra.get('reason') else ''})
         elif event == 'review': to_diver('review_request')
     except Exception as exc:
         sys.stderr.write(f'[correo] aviso de reserva {bid}/{event}: {exc}\n')
@@ -3438,7 +3609,14 @@ def _build_message(cfg, row):
     msg['Subject'] = row['subject']; msg['From'] = _formataddr((cfg['from_name'], cfg['from']))
     msg['To'] = _formataddr((row['to_name'] or '', row['to_email'])); msg['Message-ID'] = _make_msgid(domain=cfg['from'].split('@')[-1])
     if cfg['reply_to']: msg['Reply-To'] = cfg['reply_to']
-    msg['Auto-Submitted'] = 'auto-generated'
+    keys = row.keys() if hasattr(row, 'keys') else row
+    if 'unsubscribe_url' in keys and row['unsubscribe_url']:
+        # RFC 8058 one-click unsubscribe (Gmail and Yahoo require it for bulk senders).
+        msg['List-Unsubscribe'] = f"<{row['unsubscribe_url']}>"
+        msg['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
+        msg['Precedence'] = 'bulk'
+    else:
+        msg['Auto-Submitted'] = 'auto-generated'
     msg.set_content(row['text'] or '')
     msg.add_alternative(row['html'] or '', subtype='html')
     return msg
@@ -3456,10 +3634,36 @@ def send_one_email(cfg, row, conn=None):
         except Exception: pass
 
 
+def mail_file_dir():
+    """Development without an email provider: emails are written as .eml files (WOD_MAIL_FILE_DIR, or
+    data/mail-outbox outside production). In production without SMTP they wait in the queue."""
+    d = os.environ.get('WOD_MAIL_FILE_DIR', '').strip()
+    if d: return Path(d)
+    return None if wcfg.is_production() else DB_PATH.parent / 'mail-outbox'
+
+
+def spool_outbox_to_files(limit=150):
+    folder = mail_file_dir()
+    if not folder: return 0
+    db = None; n = 0
+    try:
+        db = connect(); folder.mkdir(parents=True, exist_ok=True); cfg = smtp_config()
+        for r in db.execute("SELECT * FROM email_outbox WHERE status='queued' ORDER BY id LIMIT ?", (limit,)).fetchall():
+            name = f"{r['id']:06d}-{r['template']}-{re.sub(r'[^a-z0-9]+', '_', (r['to_email'] or '').lower())[:40]}.eml"
+            (folder / name).write_bytes(bytes(_build_message(cfg, r)))
+            db.execute("UPDATE email_outbox SET status='sent',sent_at=?,delivery='file',attempts=attempts+1 WHERE id=?", (now(), r['id'])); n += 1
+        db.commit()
+    except Exception as exc:
+        sys.stderr.write(f'[correo] archivo local: {exc}\n')
+    finally:
+        if db: db.close()
+    return n
+
+
 def deliver_outbox_once(limit=150):
     """Sends a batch of queued emails over one SMTP connection. Returns how many were sent."""
     cfg = smtp_config()
-    if not cfg['enabled']: return 0
+    if not cfg['enabled']: return spool_outbox_to_files(limit)
     db = None; sent = 0; conn = None
     try:
         db = connect()
@@ -3474,7 +3678,7 @@ def deliver_outbox_once(limit=150):
             try:
                 if conn is None: conn = _smtp_open(cfg)
                 send_one_email(cfg, r, conn)
-                db.execute("UPDATE email_outbox SET status='sent',sent_at=?,attempts=attempts+1,last_error=NULL WHERE id=?", (now(), r['id'])); sent += 1
+                db.execute("UPDATE email_outbox SET status='sent',sent_at=?,attempts=attempts+1,last_error=NULL,delivery='smtp' WHERE id=?", (now(), r['id'])); sent += 1
             except Exception as exc:
                 try:
                     if conn is not None: conn.close()
@@ -3535,12 +3739,35 @@ def queue_center_agendas(db, day):
         db.execute('INSERT OR IGNORE INTO email_digest_log(center_id,digest_date,sent_at) VALUES(?,?,?)', (cid, day, now()))
 
 
+DOCUMENT_ALERT_DAYS = (30, 7)
+
+
+def queue_document_alerts(db, today):
+    """Documents (titulación, seguro…) that expire in 30 and 7 days, and on the day they expire: one email each time."""
+    for d in db.execute('''SELECT d.id,d.user_id,d.title,d.document_type,d.expires_at FROM user_documents d JOIN users u ON u.id=d.user_id
+                            WHERE d.expires_at IS NOT NULL AND d.expires_at BETWEEN ? AND ? AND u.guest_center_id IS NULL''',
+                        ((today - _timedelta(days=1)).isoformat(), (today + _timedelta(days=max(DOCUMENT_ALERT_DAYS))).isoformat())).fetchall():
+        try: left = (_dt.date.fromisoformat(str(d['expires_at'])[:10]) - today).days
+        except ValueError: continue
+        kind = 'expired' if left < 0 else next((f'd{n}' for n in sorted(DOCUMENT_ALERT_DAYS) if left <= n), None)
+        if not kind: continue
+        if db.execute('INSERT OR IGNORE INTO document_alerts(document_id,kind,sent_at) VALUES(?,?,?)', (d['id'], kind, now())).rowcount != 1: continue
+        lang = user_lang(db, d['user_id'])
+        notify_user(db, d['user_id'], 'document_expired' if kind == 'expired' else 'document_expiring',
+                    {'doc_title': d['title'] or d['document_type'], 'doc_type': mail_t(lang, d['document_type'] or 'Documento'), 'doc_expires': mail_date(d['expires_at'], lang)}, ('user_document', d['id']))
+
+
 def run_email_jobs(db, at=None):
     """Hourly jobs: reminders (day before), review requests (after the dive), centres' agenda (from 18:00) and cleanup."""
     at = at or datetime.now(); today = at.date(); tomorrow = (today + _timedelta(days=1)).isoformat(); yesterday = (today - _timedelta(days=1)).isoformat()
+    in2 = (today + _timedelta(days=2)).isoformat()
     if at.hour >= 9:
+        # Reminders 48 h and 24 h before (Fase 4). Bookings made after the 48 h mark only get the 24 h one.
+        for r in db.execute("SELECT id FROM bookings WHERE status='confirmed' AND booking_date=? AND reminder48_sent_at IS NULL AND created_at<?", (in2, (at - _timedelta(hours=12)).isoformat(timespec='seconds'))).fetchall():
+            if db.execute('UPDATE bookings SET reminder48_sent_at=? WHERE id=? AND reminder48_sent_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'reminder_48h')
         for r in db.execute("SELECT id FROM bookings WHERE status='confirmed' AND booking_date=? AND reminder_sent_at IS NULL", (tomorrow,)).fetchall():
             if db.execute('UPDATE bookings SET reminder_sent_at=? WHERE id=? AND reminder_sent_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'reminder')
+        queue_document_alerts(db, today)
     for r in db.execute("SELECT id FROM bookings WHERE status IN ('confirmed','completed') AND booking_date BETWEEN ? AND ? AND review_asked_at IS NULL",
                         ((today - _timedelta(days=7)).isoformat(), yesterday)).fetchall():
         if db.execute('UPDATE bookings SET review_asked_at=? WHERE id=? AND review_asked_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'review')
@@ -4698,7 +4925,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
 
     # Endpoints called by other servers (no browser, no cookie): they authenticate with their own signature or key.
-    CSRF_EXEMPT = ('/api/payments/webhook', '/api/payments/webhook/connect', '/api/integrations/bookings')
+    CSRF_EXEMPT = ('/api/payments/webhook', '/api/payments/webhook/connect', '/api/integrations/bookings', '/api/marketing/unsubscribe')
 
     def enforce_same_origin(self):
         """G10: every state-changing request from a browser must carry Origin (or Referer) and it must be our origin.
@@ -5084,7 +5311,9 @@ class Handler(BaseHTTPRequestHandler):
                         links = db.execute('''SELECT cl.*, c.name AS center_name, c.city, c.country FROM center_links cl JOIN centers c ON c.id=cl.center_id WHERE cl.user_id=? ORDER BY cl.last_checkin DESC''',(user['id'],)).fetchall()
                         claim = db.execute('SELECT status,requested_role,created_at FROM center_claims WHERE user_id=? ORDER BY id DESC LIMIT 1', (user['id'],)).fetchone()
                         self.send_json({'authenticated': True, 'user': public_user(user), 'profile': dict(profile) if profile else None, 'documents': [dict(x) for x in docs], 'center_links':[dict(x) for x in links],
-                                        'pro_request': dict(claim) if claim else None})
+                                        'pro_request': dict(claim) if claim else None,
+                                        'security':{'totp_enabled':bool(user.get('totp_enabled')),'totp_setup_required':user['role']=='admin' and admin_totp_required() and not user.get('totp_enabled'),
+                                                    'recovery_left':len(json.loads(user.get('totp_recovery') or '[]')) if user.get('totp_enabled') else 0}})
                     return
                 if path.startswith('/api/providers/'):
                     provider_id=int(path.rsplit('/',1)[1])
@@ -5605,28 +5834,54 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db)
                     rows=db.execute('SELECT * FROM logbook_entries WHERE user_id=? ORDER BY dive_date DESC,id DESC',(user['id'],)).fetchall()
                     self.send_json({'items':[dict(r) for r in rows]}); return
-                if path == '/api/wallet':
+                if path.startswith('/api/points/codes/') and path.endswith('/qr.svg'):
+                    # The diver's own exchange code as a QR, to show at the centre.
+                    user=require_user(self,db); rid=int(path.split('/')[4])
+                    r=db.execute("SELECT code FROM reward_redemptions WHERE id=? AND user_id=? AND status='issued'",(rid,user['id'])).fetchone()
+                    if not r: self.send_json({'error':'Código no encontrado'},404); return
+                    self.send_bytes(qr_svg(r['code']),'image/svg+xml; charset=utf-8',cache='no-store',inline=True); return
+                if path == '/api/points':
+                    # Fase 3: the points balance (the ledger), its movements and the exchange codes.
                     user=require_user(self,db)
                     sync_user_rewards(db,user['id']); db.commit()
-                    rows=db.execute('SELECT * FROM wallet_transactions WHERE user_id=? ORDER BY created_at DESC,id DESC',(user['id'],)).fetchall()
-                    total=db.execute('SELECT COALESCE(SUM(amount),0) FROM wallet_transactions WHERE user_id=?',(user['id'],)).fetchone()[0]
-                    red=db.execute('''SELECT rr.*, ro.title, ro.reward_type, c.name AS center_name FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id LEFT JOIN centers c ON c.id=ro.center_id WHERE rr.user_id=? ORDER BY rr.created_at DESC,rr.id DESC''',(user['id'],)).fetchall()
-                    self.send_json({'balance':round(float(total or 0),2),'items':[dict(r) for r in rows],'redemptions':[dict(r) for r in red]}); return
+                    rows=db.execute('SELECT id,points,kind,description,created_at FROM points_ledger WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 500',(user['id'],)).fetchall()
+                    red=db.execute('''SELECT rr.id,rr.code,rr.cost_points,rr.status,rr.created_at,rr.redeemed_at,rr.expires_at,rr.cancelled_at,ro.title,ro.reward_type,ro.value_text,ro.conditions,c.name AS center_name
+                                        FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id LEFT JOIN centers c ON c.id=ro.center_id WHERE rr.user_id=? ORDER BY rr.created_at DESC,rr.id DESC''',(user['id'],)).fetchall()
+                    legacy=db.execute('SELECT amount,description,created_at FROM wallet_transactions WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 200',(user['id'],)).fetchall()
+                    bal=points_balance(db,user['id'])
+                    spent=-int(db.execute("SELECT COALESCE(SUM(points),0) FROM points_ledger WHERE user_id=? AND kind='redeemed'",(user['id'],)).fetchone()[0] or 0)
+                    self.send_json({'balance':bal,'earned':points_earned(db,user['id']),'spent':spent,'items':[dict(r) for r in rows],'codes':[redemption_row(r) for r in red],
+                                    'legacy_wallet':[dict(r) for r in legacy]}); return
                 if path == '/api/rewards':
                     user=require_user(self,db)
                     sync_user_rewards(db,user['id']); db.commit()
                     events=db.execute('SELECT * FROM reward_events WHERE user_id=? ORDER BY created_at DESC,id DESC',(user['id'],)).fetchall()
-                    total=db.execute('SELECT COALESCE(SUM(points),0) FROM reward_events WHERE user_id=?',(user['id'],)).fetchone()[0]
+                    total=points_earned(db,user['id']); balance=points_balance(db,user['id'])
                     dive_count=db.execute('SELECT COUNT(*) FROM logbook_entries WHERE user_id=?',(user['id'],)).fetchone()[0]
                     centers_count=db.execute('SELECT COUNT(DISTINCT center_id) FROM center_links WHERE user_id=?',(user['id'],)).fetchone()[0]
-                    offers=db.execute('''SELECT ro.*, c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id WHERE ro.active=1 AND (ro.stock IS NULL OR ro.stock>0) ORDER BY ro.center_id IS NOT NULL, ro.cost_wallet, ro.id''').fetchall()
+                    offers=db.execute('''SELECT ro.*, c.name AS center_name, c.city AS center_city FROM reward_offers ro JOIN centers c ON c.id=ro.center_id AND c.active=1 WHERE ro.active=1 AND (ro.stock IS NULL OR ro.stock>0) ORDER BY ro.cost_points, ro.id LIMIT 300''').fetchall()
                     red=db.execute('''SELECT rr.*, ro.title, ro.reward_type, c.name AS center_name FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id LEFT JOIN centers c ON c.id=ro.center_id WHERE rr.user_id=? ORDER BY rr.created_at DESC,rr.id DESC''',(user['id'],)).fetchall()
                     level=reward_level(int(total or 0))
-                    self.send_json({'points':int(total or 0),'level':level,'stats':{'dives':dive_count,'centers':centers_count},'items':[dict(r) for r in events],'offers':[reward_offer_row(r) for r in offers],'redemptions':[dict(r) for r in red]}); return
+                    self.send_json({'points':int(total or 0),'balance':balance,'level':level,'stats':{'dives':dive_count,'centers':centers_count},'items':[dict(r) for r in events],'offers':[reward_offer_row(r) for r in offers],'redemptions':[dict(r) for r in red]}); return
                 if path == '/api/rewards/offers':
                     user=require_user(self,db)
-                    rows=db.execute('''SELECT ro.*, c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id WHERE ro.active=1 AND ro.center_id IS NOT NULL AND (ro.stock IS NULL OR ro.stock>0) ORDER BY ro.cost_wallet,ro.id''').fetchall()
-                    self.send_json({'items':[dict(r) for r in rows]}); return
+                    rows=db.execute('''SELECT ro.*, c.name AS center_name FROM reward_offers ro JOIN centers c ON c.id=ro.center_id AND c.active=1 WHERE ro.active=1 AND (ro.stock IS NULL OR ro.stock>0) ORDER BY ro.cost_points,ro.id''').fetchall()
+                    self.send_json({'items':[reward_offer_row(r) for r in rows]}); return
+                if path == '/api/center/redemptions':
+                    # Exchange codes of the centre's advantages, to validate at the desk.
+                    user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    code=(clean_text(query.get('code',[''])[0],40) or '').strip().upper()
+                    if code:
+                        r=db.execute('''SELECT rr.id,rr.code,rr.cost_points,rr.status,rr.created_at,rr.redeemed_at,rr.expires_at,ro.title,ro.value_text,ro.conditions,ro.center_id,u.fullname
+                                          FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id JOIN users u ON u.id=rr.user_id WHERE rr.code=?''',(code,)).fetchone()
+                        if not r or r['center_id']!=cid: self.send_json({'error':'Código no encontrado en las ventajas de tu centro.'},404); return
+                        d=dict(r); d['customer']=short_name(d.pop('fullname')); self.send_json({'item':d}); return
+                    rows=db.execute('''SELECT rr.id,rr.code,rr.cost_points,rr.status,rr.created_at,rr.redeemed_at,rr.expires_at,ro.title,u.fullname
+                                         FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id JOIN users u ON u.id=rr.user_id
+                                        WHERE ro.center_id=? ORDER BY rr.created_at DESC LIMIT 300''',(cid,)).fetchall()
+                    items=[]
+                    for r in rows: d=dict(r); d['customer']=short_name(d.pop('fullname')); items.append(d)
+                    self.send_json({'items':items}); return
                 if path == '/api/provider/reward-offers':
                     user=require_user(self,db); require_role(user,{'admin','center'})
                     if user['role']=='admin':
@@ -5914,9 +6169,77 @@ class Handler(BaseHTTPRequestHandler):
                     if wsec.needs_rehash(user['password_hash']):
                         # Accounts from before v50.31 move to PBKDF2 with 600 000 iterations on their next login.
                         db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(password),user['id']))
-                    second=login_second_factor(db,user,data)
-                    if second: db.commit(); self.send_json(second); return
-                    db.execute('UPDATE users SET last_login=? WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login',details={'ip':wsec.ip_hash(ip)}); db.commit(); self.login_user(user['id'],db); return
+                    second=login_second_factor(db,user,data,ip)
+                    if second: db.commit(); self.send_json(second[0],second[1]); return
+                    db.execute('UPDATE users SET last_login=? WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login',details={'ip':wsec.ip_hash(ip),'totp':bool(user['totp_enabled'])}); db.commit()
+                    self.login_user(user['id'],db,{'ok':True,'totp_setup_required':user['role']=='admin' and admin_totp_required() and not user['totp_enabled']}); return
+                if path in ('/api/account/totp/setup','/api/account/totp/enable','/api/account/totp/disable','/api/account/totp/recovery'):
+                    # Fase 4: two-step verification, optional for everybody and mandatory for administrators.
+                    user=require_user(self,db); data=json_body(self); action=path.rsplit('/',1)[1]
+                    u=db.execute('SELECT * FROM users WHERE id=?',(user['id'],)).fetchone()
+                    if action=='setup':
+                        if not verify_password(str(data.get('password') or ''),u['password_hash']): raise PermissionError('La contraseña no es correcta.')
+                        if u['totp_enabled']: raise ValueError('La verificación en dos pasos ya está activada.')
+                        sec=wtotp.new_secret(); db.execute('UPDATE users SET totp_pending_secret=? WHERE id=?',(sec,u['id'])); db.commit()
+                        uri=wtotp.otpauth_uri(sec,u['email'] or u['username'])
+                        self.send_json({'ok':True,'secret':sec,'uri':uri,'qr_svg':qr_svg(uri).decode('utf-8')}); return
+                    if action=='enable':
+                        sec=u['totp_pending_secret']
+                        if not sec: raise ValueError('Empieza de nuevo la activación.')
+                        if TOTP_LIMIT.blocked(f"totp:{u['id']}"): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
+                        step=wtotp.verify(sec,data.get('code'))
+                        if step is None: TOTP_LIMIT.hit(f"totp:{u['id']}"); raise ValueError('El código no es correcto. Comprueba la hora de tu móvil y vuelve a probar.')
+                        codes=wtotp.recovery_codes()
+                        db.execute('UPDATE users SET totp_secret=?,totp_pending_secret=NULL,totp_enabled=1,totp_enabled_at=?,totp_last_step=?,totp_recovery=? WHERE id=?',(sec,now(),step,json.dumps([wtotp.hash_recovery(c) for c in codes]),u['id']))
+                        db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(u['id'],self.session_hash() or ''))  # other devices sign in again with the code
+                        audit(db,u['id'],'totp_enabled'); notify_user(db,u['id'],'totp_enabled',{'when':now()[:16].replace('T',' ')},('user',u['id'])); db.commit()
+                        self.send_json({'ok':True,'recovery_codes':codes}); return
+                    if not u['totp_enabled']: raise ValueError('La verificación en dos pasos no está activada.')
+                    if not verify_password(str(data.get('password') or ''),u['password_hash']): raise PermissionError('La contraseña no es correcta.')
+                    if not check_totp_or_recovery(db,u,data.get('code')): db.commit(); raise PermissionError('El código de verificación no es correcto.')
+                    if action=='disable':
+                        if u['role']=='admin' and admin_totp_required(): raise PermissionError('Los administradores no pueden desactivar la verificación en dos pasos.')
+                        db.execute('UPDATE users SET totp_enabled=0,totp_secret=NULL,totp_recovery=NULL,totp_last_step=NULL WHERE id=?',(u['id'],))
+                        audit(db,u['id'],'totp_disabled'); db.commit(); self.send_json({'ok':True}); return
+                    codes=wtotp.recovery_codes()
+                    db.execute('UPDATE users SET totp_recovery=? WHERE id=?',(json.dumps([wtotp.hash_recovery(c) for c in codes]),u['id']))
+                    audit(db,u['id'],'totp_recovery_regenerated'); db.commit(); self.send_json({'ok':True,'recovery_codes':codes}); return
+                if path=='/api/marketing/unsubscribe':
+                    # Fase 4.3: one click, from the link in the email or from the mail client (RFC 8058 List-Unsubscribe-Post).
+                    # Protected by the long random token, so it works without a session or an Origin header.
+                    tok=(parse_qs(parsed.query).get('t',[''])[0] or '').strip()
+                    if not tok:
+                        try: tok=str(json_body(self).get('t') or '').strip()
+                        except ValueError: tok=''
+                    else:
+                        n=int(self.headers.get('Content-Length') or 0)
+                        if 0<n<=4096: self.rfile.read(n)
+                    u=db.execute('SELECT id,marketing_consent FROM users WHERE marketing_token=?',(tok[:80],)).fetchone() if len(tok)>=16 else None
+                    if not u: self.send_json({'error':'Enlace de baja no válido.'},404); return
+                    if u['marketing_consent']: set_marketing_consent(db,u['id'],False,self.client_ip()); audit(db,u['id'],'marketing_unsubscribed')
+                    db.commit(); self.send_json({'ok':True,'unsubscribed':True}); return
+                if path=='/api/account/marketing':
+                    user=require_user(self,db); consent=bool(json_body(self).get('consent'))
+                    set_marketing_consent(db,user['id'],consent,self.client_ip()); db.commit(); self.send_json({'ok':True,'consent':consent}); return
+                if path=='/api/admin/marketing/send':
+                    # Commercial emails: only to users who gave their consent, each with its one-click unsubscribe link.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    subject=clean_text(data.get('subject'),150); body=clean_text(data.get('body'),5000); title=clean_text(data.get('title'),150) or subject
+                    if not subject or not body: raise ValueError('Escribe el asunto y el texto.')
+                    button=clean_text(data.get('button'),60) or 'Ver en WORLDIVES'; url=clean_promo_url(data.get('url')) or public_site_url()
+                    if url.startswith('#/'): url=public_site_url()+'/'+url
+                    test_only=bool(data.get('test'))
+                    rows=[db.execute('SELECT id,fullname,email,marketing_token FROM users WHERE id=?',(user['id'],)).fetchone()] if test_only else db.execute(
+                        "SELECT id,fullname,email,marketing_token FROM users WHERE marketing_consent=1 AND email_verified_at IS NOT NULL AND guest_center_id IS NULL").fetchall()
+                    n=0; base=public_site_url()
+                    for r_ in rows:
+                        tok=r_['marketing_token']
+                        if not tok: tok=wsec.random_token(18); db.execute('UPDATE users SET marketing_token=? WHERE id=?',(tok,r_['id']))
+                        ctx={'campaign_subject':subject,'campaign_pre':clean_text(data.get('preheader'),150) or '','campaign_title':title,'campaign_body':body,'campaign_button':button,
+                             'campaign_url':url,'first_name':(r_['fullname'] or '').split(' ')[0],'unsubscribe_url':f'{base}/#/baja?t={tok}','unsubscribe_api':f'{base}/api/marketing/unsubscribe?t={tok}'}
+                        queue_email(db,'marketing',r_['email'],r_['fullname'],ctx,user_lang(db,r_['id']),('campaign',None)); n+=1
+                    audit(db,user['id'],'marketing_sent',details={'recipients':n,'test':test_only,'subject':subject}); db.commit()
+                    self.send_json({'ok':True,'recipients':n,'test':test_only}); return
                 if path=='/api/auth/verify-email':
                     token=str(json_body(self).get('token') or '')[:200]
                     if FORGOT_LIMIT.hit('verify:'+self.client_ip()): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
@@ -6373,6 +6696,29 @@ class Handler(BaseHTTPRequestHandler):
                         db.execute('UPDATE centers SET legal_name=?,tax_id=?,fiscal_address=?,updated_at=? WHERE id=?',vals+(now(),user['center_id']))
                     else: db.execute('UPDATE users SET legal_name=?,tax_id=?,fiscal_address=? WHERE id=?',vals+(user['id'],))
                     audit(db,user['id'],'provider_fiscal_data_updated'); db.commit(); self.send_json({'ok':True}); return
+                if path.startswith('/api/bookings/') and path.endswith('/reschedule'):
+                    # The provider moves a booking to another departure of the same service; the diver gets an email.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); bid=int(path.split('/')[-2]); data=json_body(self)
+                    b=booking_row(db,bid)
+                    if not b: self.send_json({'error':'Reserva no encontrada'},404); return
+                    require_booking_provider(user,b)
+                    if wbk.normalize_state(b['status']) not in ('requested','accepted_pending_payment','confirmed'): raise ValueError('Solo se pueden cambiar reservas en curso.')
+                    sid=int(data.get('slot_id') or 0)
+                    slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(sid,b['service_id'])).fetchone() if b['service_id'] else None
+                    if not slot: raise ValueError('Elige otra salida del mismo servicio.')
+                    if slot['id']==b['slot_id']: raise ValueError('La reserva ya está en esa salida.')
+                    start=wbk.activity_start(slot['slot_date'],slot['slot_time'])
+                    if start and start<=local_now(): raise ValueError('Esa salida ya ha empezado.')
+                    pax=max(1,int(b['participants'] or 1))
+                    if b['slot_reserved']:
+                        if not reserve_slot_spots(db,slot['id'],pax): raise ValueError('No quedan plazas suficientes en esa salida.')
+                        if b['slot_id']: release_slot_spots(db,b['slot_id'],pax)
+                    old_when=f"{b['booking_date']} {b['booking_time'] or ''}".strip()
+                    db.execute('UPDATE bookings SET slot_id=?,booking_date=?,booking_time=?,reminder_sent_at=NULL,reminder48_sent_at=NULL,updated_at=? WHERE id=?',(slot['id'],slot['slot_date'],slot['slot_time'],now(),bid))
+                    lang=user_lang(db,b['user_id'])
+                    notify_booking(db,bid,'changed',{'old_when':mail_date(b['booking_date'],lang)+(f" · {b['booking_time']}" if b['booking_time'] else ''),'reason':clean_text(data.get('reason'),300) or ''})
+                    audit(db,user['id'],'booking_rescheduled','booking',bid,{'from':old_when,'to':f"{slot['slot_date']} {slot['slot_time']}"}); db.commit()
+                    self.send_json({'ok':True,'booking_date':slot['slot_date'],'booking_time':slot['slot_time']}); return
                 if path.startswith('/api/bookings/') and path.endswith('/refund'):
                     # Fase 2.4: the provider refunds part or all of what the diver paid online, from its own Stripe account.
                     user=require_user(self,db); require_role(user,{'center','freelance'}); bid=int(path.split('/')[-2]); data=json_body(self)
@@ -7104,35 +7450,67 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/rewards/seed':
                     user=require_user(self,db); sync_user_rewards(db,user['id']); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/rewards/redeem':
+                    # The diver exchanges points for an advantage of a centre: a code to show at the centre.
                     user=require_user(self,db); data=json_body(self); offer_id=int(data.get('offer_id') or 0)
-                    offer=db.execute('SELECT * FROM reward_offers WHERE id=? AND active=1',(offer_id,)).fetchone()
-                    if not offer: raise ValueError('Recompensa no disponible.')
-                    if offer['stock'] is not None and offer['stock']<=0: raise ValueError('Esta recompensa ya no tiene disponibilidad.')
+                    offer=db.execute('SELECT ro.* FROM reward_offers ro JOIN centers c ON c.id=ro.center_id AND c.active=1 WHERE ro.id=? AND ro.active=1',(offer_id,)).fetchone()
+                    if not offer: raise ValueError('Ventaja no disponible.')
+                    if offer['stock'] is not None and offer['stock']<=0: raise ValueError('Esta ventaja ya no tiene disponibilidad.')
                     sync_user_rewards(db,user['id'])
-                    balance=float(db.execute('SELECT COALESCE(SUM(amount),0) FROM wallet_transactions WHERE user_id=?',(user['id'],)).fetchone()[0] or 0)
-                    cost=float(offer['cost_wallet'] or 0)
-                    if balance+1e-9 < cost: raise ValueError('Todavía no tienes saldo suficiente para este canje.')
+                    balance=points_balance(db,user['id']); cost=int(offer['cost_points'] or 0)
+                    if cost<=0: raise ValueError('Ventaja no disponible.')
+                    if balance<cost: raise ValueError(f'Te faltan {cost-balance} puntos para esta ventaja.')
                     code='WOD-'+secrets.token_hex(4).upper()
-                    db.execute('INSERT INTO reward_redemptions(offer_id,user_id,code,cost_wallet,status,created_at) VALUES(?,?,?,?,?,?)',(offer_id,user['id'],code,cost,'issued',now()))
-                    db.execute('INSERT INTO wallet_transactions(user_id,amount,description,created_at) VALUES(?,?,?,?)',(user['id'],-cost,'Canje: '+offer['title'],now()))
+                    exp=(datetime.now(timezone.utc)+_timedelta(days=POINTS_CODE_DAYS)).isoformat(timespec='seconds')
+                    rid=db.execute('INSERT INTO reward_redemptions(offer_id,user_id,code,cost_wallet,cost_points,status,expires_at,created_at) VALUES(?,?,?,0,?,?,?,?)',(offer_id,user['id'],code,cost,'issued',exp,now())).lastrowid
+                    points_add(db,user['id'],-cost,'redeemed','Canje: '+offer['title'],'reward_redemption',rid,offer['center_id'])
                     if offer['stock'] is not None: db.execute('UPDATE reward_offers SET stock=stock-1,updated_at=? WHERE id=?',(now(),offer_id))
-                    audit(db,user['id'],'reward_redeemed','reward_offer',offer_id,{'code':code,'cost':cost}); db.commit(); self.send_json({'ok':True,'code':code,'balance':round(balance-cost,2)}); return
-                if path=='/api/rewards/offers':
-                    user=require_user(self,db); rows=db.execute('''SELECT ro.*,c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id WHERE ro.active=1 AND (ro.stock IS NULL OR ro.stock>0) ORDER BY ro.cost_wallet,ro.id''').fetchall(); self.send_json({'items':[dict(r) for r in rows]}); return
+                    audit(db,user['id'],'reward_redeemed','reward_offer',offer_id,{'code':code,'points':cost}); db.commit()
+                    self.send_json({'ok':True,'code':code,'balance':balance-cost,'expires_at':exp}); return
+                if path=='/api/points/codes/cancel':
+                    # A code not used yet can be cancelled: the points come back.
+                    user=require_user(self,db); rid=int(json_body(self).get('id') or 0)
+                    r=db.execute('SELECT rr.*,ro.title FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id WHERE rr.id=? AND rr.user_id=?',(rid,user['id'])).fetchone()
+                    if not r: self.send_json({'error':'Código no encontrado'},404); return
+                    if db.execute("UPDATE reward_redemptions SET status='cancelled',cancelled_at=? WHERE id=? AND status='issued'",(now(),rid)).rowcount!=1: raise ValueError('Este código ya se ha usado o ya no es válido.')
+                    points_add(db,user['id'],int(r['cost_points'] or 0),'reversal','Código anulado: '+r['title'],'reward_redemption',rid)
+                    db.execute('UPDATE reward_offers SET stock=stock+1 WHERE id=? AND stock IS NOT NULL',(r['offer_id'],))
+                    audit(db,user['id'],'reward_code_cancelled','reward_redemption',rid); db.commit(); self.send_json({'ok':True,'balance':points_balance(db,user['id'])}); return
+                if path=='/api/center/redemptions/validate':
+                    # The centre validates a code at the desk (scanned or typed). Once validated it cannot be used again.
+                    user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    code=(clean_text(json_body(self).get('code'),40) or '').strip().upper()
+                    r=db.execute('SELECT rr.*,ro.center_id,ro.title FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id WHERE rr.code=?',(code,)).fetchone()
+                    if not r or r['center_id']!=cid: raise PermissionError('Este código no es de una ventaja de tu centro.')
+                    if r['status']!='issued':
+                        raise ValueError({'redeemed':f"Este código ya se usó el {(r['redeemed_at'] or '')[:10]}.",'expired':'Este código ha caducado.','cancelled':'El cliente anuló este código.'}.get(r['status'],'Código no válido.'))
+                    if r['expires_at'] and r['expires_at']<now(): raise ValueError('Este código ha caducado.')
+                    db.execute("UPDATE reward_redemptions SET status='redeemed',redeemed_at=?,redeemed_by=?,redeemed_center_id=? WHERE id=? AND status='issued'",(now(),user['id'],cid,r['id']))
+                    audit(db,user['id'],'reward_code_validated','reward_redemption',r['id'],{'code':code}); db.commit()
+                    self.send_json({'ok':True,'title':r['title'],'status':'redeemed'}); return
                 if path=='/api/provider/wallet-grant':
-                    user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self)
-                    target_id=int(data.get('user_id') or 0); amount=float(data.get('amount') or 0)
-                    if amount<=0 or amount>1000: raise ValueError('El importe debe estar entre 0 y 1000.')
-                    if not db.execute('SELECT 1 FROM users WHERE id=?',(target_id,)).fetchone(): raise ValueError('Usuario no encontrado.')
-                    if user['role']=='center':
-                        cid=int(user['center_id'] or 0)
-                        linked=db.execute('SELECT 1 FROM center_links WHERE user_id=? AND center_id=?',(target_id,cid)).fetchone()
-                        booking=db.execute('SELECT 1 FROM bookings WHERE user_id=? AND center_id=? LIMIT 1',(target_id,cid)).fetchone()
-                        if not linked and not booking: raise PermissionError('Solo puedes conceder saldo a clientes vinculados o con una reserva en tu centro.')
-                    reason=clean_text(data.get('reason'),250) or 'Saldo promocional concedido por el centro'
-                    db.execute('INSERT INTO wallet_transactions(user_id,amount,description,created_at) VALUES(?,?,?,?)',(target_id,amount,reason,now()))
-                    audit(db,user['id'],'wallet_granted','user',target_id,{'amount':amount,'reason':reason,'center_id':user.get('center_id')}); db.commit()
-                    self.send_json({'ok':True,'user_id':target_id,'amount':amount}); return
+                    # Fase 3: money balances no longer exist. Kept only to answer old clients clearly.
+                    self.send_json({'error':'El monedero ya no existe: los centros conceden puntos con «Conceder puntos».'},410); return
+                if path=='/api/provider/points-grant':
+                    # A centre grants points to one of its clients, with a monthly limit per client and per centre.
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0)
+                    target_id=int(data.get('user_id') or 0)
+                    try: pts=int(str(data.get('points') or '0'))
+                    except ValueError: raise ValueError('Los puntos son un número entero.')
+                    if pts<=0: raise ValueError('Indica cuántos puntos quieres conceder.')
+                    if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    if not db.execute("SELECT 1 FROM users WHERE id=? AND role='recreational'",(target_id,)).fetchone() or is_guest_user(db,target_id): raise ValueError('Solo puedes conceder puntos a buceadores con cuenta.')
+                    linked=db.execute('SELECT 1 FROM center_links WHERE user_id=? AND center_id=?',(target_id,cid)).fetchone()
+                    booking=db.execute("SELECT 1 FROM bookings WHERE user_id=? AND center_id=? AND status IN ('confirmed','completed') LIMIT 1",(target_id,cid)).fetchone()
+                    if not linked and not booking: raise PermissionError('Solo puedes conceder puntos a clientes con una reserva o un check-in en tu centro.')
+                    month=now()[:7]
+                    given=int(db.execute("SELECT COALESCE(SUM(points),0) FROM points_ledger WHERE kind='granted' AND center_id=? AND user_id=? AND substr(created_at,1,7)=?",(cid,target_id,month)).fetchone()[0] or 0)
+                    if given+pts>POINTS_GRANT_CLIENT_MONTH: raise ValueError(f'Límite por cliente: {POINTS_GRANT_CLIENT_MONTH} puntos al mes. Este mes puedes darle {max(0,POINTS_GRANT_CLIENT_MONTH-given)} más.')
+                    total=int(db.execute("SELECT COALESCE(SUM(points),0) FROM points_ledger WHERE kind='granted' AND center_id=? AND substr(created_at,1,7)=?",(cid,month)).fetchone()[0] or 0)
+                    if total+pts>POINTS_GRANT_CENTER_MONTH: raise ValueError(f'Tu centro ha llegado al límite mensual de {POINTS_GRANT_CENTER_MONTH} puntos concedidos.')
+                    reason=clean_text(data.get('reason'),200) or 'Puntos concedidos por el centro'
+                    points_add(db,target_id,pts,'granted',reason,'center',cid,cid,user['id'])
+                    audit(db,user['id'],'points_granted','user',target_id,{'points':pts,'center_id':cid}); db.commit()
+                    self.send_json({'ok':True,'user_id':target_id,'points':pts,'left_this_month':POINTS_GRANT_CLIENT_MONTH-given-pts}); return
                 if path=='/api/travel-experiences/update':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); eid=int(data.get('id') or 0)
                     exp=db.execute('SELECT * FROM travel_experiences WHERE id=?',(eid,)).fetchone()
@@ -7294,21 +7672,27 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/center/extras/delete':
                     user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); cid=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0); eid=int(data.get('id') or 0); db.execute('DELETE FROM center_extras WHERE id=? AND center_id=?',(eid,cid)); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/provider/reward-offers':
-                    user=require_user(self,db); require_role(user,{'admin','center'})
-                    if self.command == 'GET':
-                        if user['role']=='admin':
-                            rows=db.execute('SELECT ro.*, c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id ORDER BY ro.active DESC,ro.created_at DESC').fetchall()
-                        else:
-                            rows=db.execute('SELECT ro.*, c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id WHERE ro.center_id=? ORDER BY ro.active DESC,ro.created_at DESC',(user['center_id'],)).fetchall()
-                        self.send_json({'items':[dict(r) for r in rows]}); return
-                    data=json_body(self)
-                    cid=int(data.get('center_id') or user.get('center_id') or 0)
-                    if user['role']=='center' and cid!=user['center_id']: raise PermissionError('No puedes crear recompensas para otro centro.')
+                    # Advantages that each centre defines and pays for, exchanged for points (Fase 3). Never money.
+                    user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self)
+                    cid=int(data.get('center_id') or user['center_id'] or 0) if user['role']=='admin' else int(user['center_id'] or 0)
                     if not cid: raise ValueError('Selecciona un centro.')
                     if not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(cid,)).fetchone(): raise ValueError('Centro no válido.')
                     title=clean_text(data.get('title'),180)
-                    if not title: raise ValueError('El nombre de la recompensa es obligatorio.')
-                    cur=db.execute('INSERT INTO reward_offers(center_id,title,description,reward_type,cost_wallet,value_text,conditions,stock,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,?,?,?)',(cid,title,clean_text(data.get('description'),1000),clean_text(data.get('reward_type'),50) or 'discount',max(0,float(data.get('cost_wallet') or 0)),clean_text(data.get('value_text'),180),clean_text(data.get('conditions'),1000),int(data['stock']) if str(data.get('stock','')).strip() else None,user['id'],now(),now())); audit(db,user['id'],'reward_offer_created','reward_offer',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                    if not title: raise ValueError('El nombre de la ventaja es obligatorio.')
+                    rtype=clean_text(data.get('reward_type'),30) or 'discount'; rtype=LEGACY_REWARD_TYPES.get(rtype,rtype)
+                    if rtype not in REWARD_TYPES: raise ValueError('Tipo de ventaja no válido.')
+                    try: cost=int(str(data.get('cost_points') or '0'))
+                    except ValueError: raise ValueError('El coste en puntos es un número entero.')
+                    if not 1<=cost<=100000: raise ValueError('El coste debe estar entre 1 y 100 000 puntos.')
+                    stock=int(data.get('stock')) if str(data.get('stock') or '').strip().isdigit() else None
+                    oid=int(data.get('id') or 0)
+                    vals=(title,clean_text(data.get('description'),1000),rtype,cost,clean_text(data.get('value_text'),180),clean_text(data.get('conditions'),1000),stock)
+                    if oid:
+                        if not db.execute('SELECT 1 FROM reward_offers WHERE id=? AND center_id=?',(oid,cid)).fetchone(): raise PermissionError('Esta ventaja no es de tu centro.')
+                        db.execute('UPDATE reward_offers SET title=?,description=?,reward_type=?,cost_points=?,value_text=?,conditions=?,stock=?,active=?,updated_at=? WHERE id=?',(*vals,0 if data.get('active') in (False,0,'0') else 1,now(),oid))
+                    else:
+                        oid=db.execute('INSERT INTO reward_offers(center_id,title,description,reward_type,cost_points,value_text,conditions,stock,cost_wallet,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,0,1,?,?,?)',(cid,*vals,user['id'],now(),now())).lastrowid
+                    audit(db,user['id'],'reward_offer_saved','reward_offer',oid,{'center_id':cid,'points':cost}); db.commit(); self.send_json({'ok':True,'id':oid}); return
                 self.send_json({'error':'Endpoint no encontrado'},404)
             except sqlite3.IntegrityError as e:
                 db.rollback()  # never persist half-done work when a request fails
@@ -7362,6 +7746,13 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as e: self.send_json({'error':str(e)},403 if isinstance(e,PermissionError) else 500)
             return
         self.send_json({'error':'Endpoint no encontrado'},404)
+
+    def session_hash(self):
+        """Hash of the current session cookie (to keep this session when the others are closed)."""
+        for item in (self.headers.get('Cookie', '') or '').split(';'):
+            k, _, v = item.strip().partition('=')
+            if k == COOKIE and v: return hashlib.sha256(v.encode()).hexdigest()
+        return None
 
     def login_user(self, uid, db=None, payload=None):
         """Create a persistent session and answer the request (one response only)."""
@@ -7444,7 +7835,7 @@ def maintenance_loop():
         time.sleep(wcfg.env_int('WOD_MAINTENANCE_SECONDS', 60, 5, 3600))
 
 
-MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders]
+MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs]
 
 
 def check_production_settings():
@@ -7455,7 +7846,17 @@ def check_production_settings():
     if wcfg.env_flag('WOD_ALLOW_SETUP'): problems.append('WOD_ALLOW_SETUP=1 no se permite en producción: crea el administrador con --create-admin.')
     if len(wcfg.env('WOD_SECRET_KEY')) < 32: problems.append('Define WOD_SECRET_KEY con al menos 32 caracteres aleatorios.')
     if wcfg.env_flag('WOD_DEBUG'): problems.append('WOD_DEBUG no puede estar activo en producción.')
+    if not admin_totp_required(): problems.append('WOD_ADMIN_TOTP_REQUIRED=0 no se permite en producción: los administradores usan verificación en dos pasos.')
     return problems
+
+
+def production_warnings():
+    """Settings that do not stop the server but should be fixed before real users arrive."""
+    out = []
+    if not os.environ.get('WOD_SMTP_HOST', '').strip(): out.append('Sin WOD_SMTP_HOST: los correos esperan en la cola (72 h) hasta configurar el proveedor (docs/despliegue.md).')
+    if not os.environ.get('STRIPE_SECRET_KEY', '').strip(): out.append('Sin STRIPE_SECRET_KEY: los cobros online están desactivados.')
+    elif not os.environ.get('STRIPE_CONNECT_WEBHOOK_SECRET', '').strip(): out.append('Sin STRIPE_CONNECT_WEBHOOK_SECRET: los pagos se confirman solo al volver de Stripe y por la revisión periódica.')
+    return out
 
 
 def create_admin_cli(argv):
@@ -7521,6 +7922,7 @@ def main():
         problems = check_production_settings()
         if problems:
             print('No se puede arrancar en producción:'); [print(' - ' + p) for p in problems]; raise SystemExit(2)
+        for w in production_warnings(): print('Aviso: ' + w)
     bootstrap()
     print(f'WORLDIVES DISCOVERY v{APP_VERSION} -> http://127.0.0.1:{PORT}')
     # Optional multi-process mode (Linux/macOS): WOD_WORKERS=4 starts 4 processes sharing the port.

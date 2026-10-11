@@ -1,4 +1,4 @@
-const CACHE='worldives-v50-34';
+const CACHE='worldives-v50-35';
 const SHELL=['/','/index.html','/manifest.webmanifest','/assets/css/world-dives-v8.css','/assets/js/world-dives-v8.js','/assets/js/sw-register.js','/assets/vendor/leaflet/leaflet.js','/assets/vendor/leaflet/leaflet.css','/assets/vendor/markercluster/leaflet.markercluster.js','/assets/vendor/markercluster/MarkerCluster.css','/assets/images/wod-icon.png','/assets/images/wod-icon-512.png','/assets/images/wod-icon-256.png','/assets/images/wod-icon.ico','/assets/images/world-dives-discovery-logo.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));

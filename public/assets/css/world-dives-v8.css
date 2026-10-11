@@ -2656,3 +2656,24 @@ a.acc-kpi,button.acc-kpi{cursor:pointer}a.acc-kpi:hover,button.acc-kpi:hover{bor
 .cp-service p{margin:6px 0 0;color:var(--muted);font-size:14px}
 .cp-service-side{display:grid;justify-items:end;gap:4px;text-align:right;min-width:140px}
 @media (max-width:640px){.cp-service{flex-direction:column}.cp-service-side{justify-items:start;text-align:left}}
+
+/* v50.35 · Fase 3: points */
+.code-qr{display:grid;justify-items:center;gap:10px;padding:8px}
+.code-qr img{background:#fff;border-radius:12px;padding:8px}
+.code-qr code,.wl-code-used{font-size:15px;letter-spacing:.06em}
+.wl-code-used{color:var(--muted)}
+.rw-paid{display:block;margin-top:6px;color:var(--muted);font-size:12px}
+.rw-validate{display:flex;flex-wrap:wrap;gap:8px}
+.rw-validate input{flex:1 1 180px;min-width:0;text-transform:uppercase;letter-spacing:.05em}
+#rw-video{width:100%;max-width:360px;border-radius:12px;margin-top:10px;background:#000}
+.rw-check{margin-top:12px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);display:grid;gap:6px}
+.rw-check.is-ok{border-color:#2f7a63;background:#eef8f3}
+.rw-check.is-bad{border-color:#9c4038;background:#fbefed}
+.rw-check small{color:var(--muted)}
+.rw-manager{display:grid;gap:18px}
+
+/* v50.35 · Fase 4: two-step verification */
+.totp-steps{margin:0;padding-left:20px;display:grid;gap:14px}
+.totp-qr{margin:10px 0;width:200px;max-width:100%;background:#fff;padding:8px;border-radius:12px;border:1px solid var(--line)}
+.totp-qr svg{display:block;width:100%;height:auto}
+.totp-codes{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px;line-height:1.8;background:#fff;border:1px dashed var(--line);border-radius:10px;padding:10px 14px;margin:10px 0;columns:2}

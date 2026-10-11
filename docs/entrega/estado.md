@@ -76,3 +76,24 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 | Migración | Nuevo | Copia previa, reconstrucción segura, `schema_migrations`. | `MigrationV5034` |
 | Accounts v2 | Pendiente de decisión | Se usa v1 con propiedades de controlador (aviso en notas). | — |
 | Devolución propuesta no hecha | Pendiente de decisión | Recordatorio a 72 h e incidencia; falta decidir medida adicional. | — |
+
+## Fase 3 · Monedero → Puntos (v50.35)
+
+| Punto | Estado | Qué se hizo | Cómo se probó |
+|---|---|---|---|
+| 1. Migración | Nuevo | Libro `points_ledger`; logros al libro; saldo € → puntos 1:1 redondeando hacia arriba; `cost_points`; historial conservado. | `WalletMigration` |
+| 2. Recompensas | Completado | Concesión de puntos con límite por cliente y mes y por centro; ventajas definidas y pagadas por cada centro. | `test_grants_with_monthly_limit`, `test_offers_belong_to_a_centre…` |
+| 3. Canje | Nuevo | Código con QR; el centro lo comprueba y valida (escanear o escribir) con estado y fecha; anulación y caducidad devuelven puntos. | `test_exchange_and_validation_by_the_centre`, `test_cancel_and_expiry_give_points_back` + navegador |
+| 4. Prohibido | Nuevo | Sin recargas, transferencias, dinero ni Stripe. | `test_no_money_features` |
+| 5. Textos | Completado | Sin «Monedero/saldo/wallet» en web, menú, pie, correos y PDF; página «Cómo funcionan los puntos». | navegador |
+| Ruta `#/monedero` → `#/puntos` | Pendiente de decisión | `#/puntos` ya es la lista de puntos de buceo: se usa `#/mis-puntos`. | — |
+
+## Fase 4 · Email y verificación en dos pasos (v50.35)
+
+| Punto | Estado | Qué se hizo | Cómo se probó |
+|---|---|---|---|
+| 1. Envío | Completado | SMTP genérico, cola con reintentos y registro (ya existían); archivo `.eml` sin proveedor en desarrollo; guía Brevo + SPF/DKIM/DMARC. | `test_development_writes_emails_to_files` |
+| 2. Plantillas | Completado | Nuevas: 48 h, cambio de reserva, caducidad de documentos, cambios legales, renovación de cuota, TOTP activado, comercial. | `test_reminders_48h_and_24h`, `test_document_expiry_alerts`, `test_booking_change_by_the_provider` |
+| 3. Comerciales | Completado | Solo con consentimiento, baja en un clic (enlace y cabeceras RFC 8058), registro de consentimientos. | `test_commercial_emails_only_with_consent…` + navegador |
+| 4. Doble verificación | Nuevo | TOTP opcional para todos, obligatorio para admin (no desactivable en producción), códigos de recuperación. | `TwoStep`, `AdminNeedsTotp` + navegador |
+| Proveedor de email | Pendiente de decisión | Recomendado Brevo; solo cambia la configuración. | — |
