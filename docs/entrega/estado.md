@@ -41,7 +41,7 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 
 | Punto | Estado | Qué se hizo | Cómo se probó |
 |---|---|---|---|
-| Marcadores redondos y más pequeños | Nuevo | Círculo con bandera, 19 px (ordenador) / 23 px (móvil), activo 26 px con anillo. | `e2e_markers.py` (medidas en `docs/capturas/fase-1c/medidas.txt`) |
+| Marcadores redondos y más pequeños | Nuevo | Círculo con la bandera de buceo, 19 px (ordenador) / 23 px (móvil), activo 26 px con anillo. | `e2e_markers.py` (medidas en `docs/capturas/fase-1c/medidas.txt`) |
 | Zona de toque | Nuevo | 44 px en móvil sin agrandar el dibujo. | Medida en navegador |
 | Agrupación | Nuevo | `leaflet.markercluster` alojado; grupo rojo liso legible en mapa y satélite. | Capturas antes/después y prueba de fluidez (0 fotogramas lentos, CPU ×4) |
 | Accesibilidad | Nuevo | `title` y texto alternativo con el nombre del punto. | Navegador |
@@ -58,3 +58,21 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 | URL por idioma y hreflang | Nuevo | `?lang=`, `<html lang>`, `hreflang` + `x-default`. | `test_phase1d_languages` |
 | Limpieza de traducciones | Nuevo | 47 claves basura eliminadas; informe por idioma. | `docs/i18n/informe.md` |
 | Correos, textos legales y textos nuevos en 9 idiomas | Pendiente (pasada final) | Se traducirán juntos al final del encargo. | — |
+
+## Fase 2 · Pagos (v50.34)
+
+| Punto | Estado | Qué se hizo | Cómo se probó |
+|---|---|---|---|
+| 1. Sin comisión | Completado | Fuera la comisión del código, KPIs, datos legales, textos y README; historial conservado. | `test_direct_charge_without_commission`, `test_no_commission_in_legal_texts_and_settings`, `test_admin_sees_income_by_currency…` |
+| 2. Cargos directos | Nuevo | Checkout en la cuenta del prestador; `stripe_account` en todas las llamadas; cuentas con propiedades de controlador (v1) y solo `card_payments`. | `test_every_stripe_call_carries_the_account`, `test_onboarding_uses_controller_properties` |
+| 3. Webhook de Connect | Nuevo | Endpoint y secreto propios, `event.account`, idempotencia. | `test_connect_webhook_…`, `test_webhook_secrets_are_separate` |
+| 4. Devoluciones | Nuevo | Por el prestador, totales o parciales; propuesta al cancelar el buceador con recordatorio; admin solo ve e incidencias. | `test_partial_then_total_refund_by_centre`, `test_only_the_provider_refunds`, `test_diver_cancel_proposes_refund_by_policy`, `test_refund_made_in_stripe_dashboard_is_recorded`, `test_dispute_marks_an_incident` |
+| 5. Señal | Nuevo | Porcentaje o importe por persona; pagado y pendiente en la reserva; resto en mostrador. | `test_deposit_then_rest_at_the_desk` + navegador |
+| 6. Política por centro y servicio | Completado | Horas + % devuelto; copia en la reserva; visible antes de pagar y en el justificante. | `test_late_cancel_uses_percentage`, `test_policy_is_copied_into_the_booking` |
+| 7. Experiencias y freelance | Nuevo | Freelance con cuenta propia, reservas sin centro (tabla reconstruida con copia), panel de reservas y cobros. | `test_freelance_takes_bookings_and_payments` + navegador |
+| 8. Justificante | Completado | Nuevo diseño y motor PDF Unicode con fuentes incrustadas; «Ingresos». | `test_voucher_names_the_provider_and_is_not_an_invoice` |
+| 9. Precios e impuestos | Completado | Texto de impuestos; KPIs por moneda. | `test_centre_kpis_are_income_by_currency` |
+| 10. Patrocinio | Nuevo | Etiqueta fija «Patrocinado»; registro de patrocinios. | `test_sponsored_label_is_fixed_and_sponsor_registered` + navegador |
+| Migración | Nuevo | Copia previa, reconstrucción segura, `schema_migrations`. | `MigrationV5034` |
+| Accounts v2 | Pendiente de decisión | Se usa v1 con propiedades de controlador (aviso en notas). | — |
+| Devolución propuesta no hecha | Pendiente de decisión | Recordatorio a 72 h e incidencia; falta decidir medida adicional. | — |

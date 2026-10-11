@@ -20,7 +20,8 @@ Recibirás un email en cada paso: solicitud enviada, plaza confirmada, pago reci
 
 - El precio que ves es el **precio final**, con impuestos incluidos, e incluye el equipo y los extras que elijas. Lo fija el centro.
 - Los pagos online los procesa **Stripe** con cifrado y verificación 3D Secure. Ni {{trade_name}} ni el centro ven ni guardan los datos de tu tarjeta.
-- Cuando pagas online, {{trade_name}} recibe el importe en nombre del centro y se lo transfiere descontando su comisión de intermediación. El precio para ti es el mismo.
+- Cuando pagas online, pagas **directamente al centro** (o al profesional) a través de su cuenta de Stripe. {{trade_name}} no recibe tu dinero ni cobra comisión por la reserva.
+- Algunos servicios piden una **señal** al reservar; el resto lo pagas en el centro. Lo verás antes de pagar y en tu justificante.
 - Si el centro no cobra online, pagarás directamente en el centro, en la forma que este acepte.
 - Recibirás un justificante por email y podrás descargarlo en PDF desde tu reserva.
 

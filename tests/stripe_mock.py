@@ -98,6 +98,9 @@ class StripeMock:
                         out['payment_intent'] = {'id': s['pi'], 'object': 'payment_intent', 'latest_charge': {'id': 'ch_' + s['pi'][3:], 'receipt_url': 'https://pay.stripe.test/receipt',
                                                  'payment_method_details': {'card': {'brand': 'visa', 'last4': '4242'}}}}
                     return self._send(200, out)
+                if path == '/v1/refunds' and method == 'GET':
+                    pi = params.get('payment_intent')
+                    return self._send(200, {'object': 'list', 'data': [r for r in mock.refunds if not pi or r['payment_intent'] == pi]})
                 if path == '/v1/refunds' and method == 'POST':
                     r = {'id': f're_{next(mock.ids)}', 'object': 'refund', 'status': 'succeeded', 'amount': int(params.get('amount', 0) or 0),
                          'payment_intent': params.get('payment_intent'), 'account': acct, 'params': params}

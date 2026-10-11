@@ -29,6 +29,7 @@ if str(Path(__file__).resolve().parent) not in sys.path: sys.path.insert(0, str(
 from wod import config as wcfg
 from wod import security as wsec
 from wod import bookings as wbk
+from wod import pdf as wpdf
 # Bundled pure-python dependencies (qrcode). Installed packages take precedence.
 if str(ROOT/'vendor') not in sys.path: sys.path.append(str(ROOT/'vendor'))
 PUBLIC = ROOT / 'public'
@@ -43,7 +44,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.33'
+APP_VERSION = '50.34'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -127,7 +128,7 @@ CREATE INDEX IF NOT EXISTS idx_center_extras_center ON center_extras(center_id, 
 CREATE TABLE IF NOT EXISTS bookings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
-  center_id INTEGER NOT NULL,
+  center_id INTEGER,
   dive_point_id INTEGER,
   booking_date TEXT NOT NULL,
   booking_time TEXT,
@@ -693,7 +694,7 @@ def bootstrap():
             db.execute("ALTER TABLE travel_offers ADD COLUMN description TEXT")
         # Any reservation already completed before this version is imported once into the user's Log Book.
         completed=db.execute('''SELECT b.id,b.user_id,b.booking_date,b.booking_time,c.name AS center_name,p.name AS point_name,p.country,p.dive_type
-                               FROM bookings b JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id
+                               FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id
                                WHERE b.status='completed' AND NOT EXISTS (SELECT 1 FROM logbook_entries l WHERE l.booking_id=b.id)''').fetchall()
         for b in completed:
             site=b['point_name'] or b['center_name']
@@ -726,12 +727,113 @@ def bootstrap():
         db.commit()
         migrate_v50_33(db)
         db.commit()
+        migrate_v50_34(db)
+        db.commit()
 
 
 def add_columns(db, table, cols):
     have = {r['name'] for r in db.execute(f'PRAGMA table_info({table})').fetchall()}
     for name, typ in cols:
         if name not in have: db.execute(f'ALTER TABLE {table} ADD COLUMN {name} {typ}')
+
+
+def backup_database(db, tag):
+    """A full copy of the database before a migration that rebuilds a table (migrations add and transform; they
+    never remove data without a previous copy). Kept in WOD_BACKUP_DIR (data/backups by default)."""
+    folder = Path(os.environ.get('WOD_BACKUP_DIR') or (DB_PATH.parent / 'backups'))
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / f'{DB_PATH.stem}-antes-{tag}-{datetime.now().strftime("%Y%m%d-%H%M%S")}.sqlite3'
+    db.commit()
+    dst = sqlite3.connect(target)
+    try: db.backup(dst)
+    finally: dst.close()
+    try: os.chmod(target, 0o600)
+    except OSError: pass
+    return target
+
+
+def migration_done(db, version):
+    db.execute('CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL, backup_path TEXT, notes TEXT)')
+    return bool(db.execute('SELECT 1 FROM schema_migrations WHERE version=?', (version,)).fetchone())
+
+
+def rebuild_table(db, table, edit_sql):
+    """SQLite cannot change a column constraint in place: the table is rebuilt with the same columns and data
+    (official 12-step procedure), keeping its indexes and triggers. edit_sql(create_sql) returns the new CREATE."""
+    row = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone()
+    new_sql = edit_sql(row['sql'])
+    if new_sql == row['sql']: return False
+    extras = [r['sql'] for r in db.execute("SELECT sql FROM sqlite_master WHERE tbl_name=? AND type IN ('index','trigger') AND sql IS NOT NULL", (table,)).fetchall()]
+    cols = ','.join(r['name'] for r in db.execute(f'PRAGMA table_info({table})').fetchall())
+    db.commit()
+    db.execute('PRAGMA foreign_keys=OFF')
+    try:
+        db.execute('BEGIN')
+        db.execute(re.sub(r'^CREATE TABLE\s+(IF NOT EXISTS\s+)?"?' + table + r'"?', f'CREATE TABLE {table}__new', new_sql, count=1))
+        db.execute(f'INSERT INTO {table}__new({cols}) SELECT {cols} FROM {table}')
+        db.execute(f'DROP TABLE {table}')
+        db.execute(f'ALTER TABLE {table}__new RENAME TO {table}')
+        for sql in extras: db.execute(sql)
+        bad = db.execute('PRAGMA foreign_key_check').fetchall()
+        if bad: raise RuntimeError(f'{table}: comprobación de claves ajenas con {len(bad)} errores')
+        db.execute('COMMIT')
+    except Exception:
+        db.execute('ROLLBACK'); raise
+    finally:
+        db.execute('PRAGMA foreign_keys=ON')
+    return True
+
+
+def migrate_v50_34(db):
+    """v50.34 (Fase 2, payments aligned with the owner's decisions).
+    - No commission: platform_fee stays only as history of old orders.
+    - Direct charges on the provider's connected account (charge_type 'direct'; old orders keep 'destination').
+    - Refund history (several partial refunds), deposits, cancellation policy per centre and per service.
+    - Freelance professionals without a centre take bookings and payments with their own Stripe account:
+      bookings.center_id becomes optional and bookings.provider_user_id says who provides the service.
+    - Provider fiscal data for the booking voucher. Sponsorship register."""
+    first = not migration_done(db, '50.34')
+    backup = None
+    info = {r['name']: r for r in db.execute('PRAGMA table_info(bookings)').fetchall()}
+    if info['center_id']['notnull']:
+        if db.execute('SELECT 1 FROM bookings LIMIT 1').fetchone(): backup = backup_database(db, 'v50_34')
+        rebuild_table(db, 'bookings', lambda sql: re.sub(r'center_id INTEGER NOT NULL', 'center_id INTEGER', sql, count=1))
+    add_columns(db, 'bookings', [('provider_user_id', 'INTEGER'), ('deposit_amount', 'REAL'), ('amount_paid', 'REAL DEFAULT 0'), ('amount_due', 'REAL'),
+                                 ('refunded_total', 'REAL DEFAULT 0'), ('refund_proposed', 'REAL'), ('refund_status', 'TEXT'), ('refund_proposed_at', 'TEXT'),
+                                 ('refund_reminded_at', 'TEXT'), ('cancel_free_hours', 'INTEGER'), ('cancel_refund_pct', 'INTEGER')])
+    db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_provider ON bookings(provider_user_id, booking_date, status)')
+    db.execute('UPDATE bookings SET provider_user_id=(SELECT provider_user_id FROM provider_services s WHERE s.id=bookings.service_id) WHERE provider_user_id IS NULL AND service_id IS NOT NULL')
+    db.execute("UPDATE bookings SET amount_paid=COALESCE(price,0) WHERE payment_status='paid' AND COALESCE(amount_paid,0)=0")
+    add_columns(db, 'payment_orders', [('charge_type', 'TEXT'), ('payment_intent_id', 'TEXT'), ('payment_kind', "TEXT DEFAULT 'full'"), ('refunded_total', 'REAL DEFAULT 0'),
+                                       ('incident', 'TEXT'), ('incident_note', 'TEXT'), ('incident_at', 'TEXT'), ('incident_by', 'INTEGER'), ('payee_type', 'TEXT'), ('payee_id', 'INTEGER')])
+    db.execute("UPDATE payment_orders SET charge_type='destination' WHERE charge_type IS NULL")
+    db.execute("UPDATE payment_orders SET refunded_total=COALESCE(refund_amount,0) WHERE status IN ('refunded','partially_refunded') AND COALESCE(refunded_total,0)=0")
+    db.execute('CREATE INDEX IF NOT EXISTS idx_payment_orders_intent ON payment_orders(payment_intent_id)')
+    db.execute("CREATE TABLE IF NOT EXISTS payment_refunds (id INTEGER PRIMARY KEY AUTOINCREMENT, payment_order_id INTEGER NOT NULL, booking_id INTEGER, "
+               "experience_booking_id INTEGER, amount REAL NOT NULL, currency TEXT NOT NULL, reason TEXT, note TEXT, stripe_refund_id TEXT UNIQUE, status TEXT NOT NULL, "
+               "source TEXT NOT NULL, created_by INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)")
+    db.execute('CREATE INDEX IF NOT EXISTS idx_payment_refunds_order ON payment_refunds(payment_order_id)')
+    # The old single-refund columns become the first line of the history.
+    db.execute("INSERT INTO payment_refunds(payment_order_id,booking_id,experience_booking_id,amount,currency,reason,stripe_refund_id,status,source,created_at,updated_at) "
+               "SELECT id,booking_id,experience_booking_id,refund_amount,COALESCE(currency,'EUR'),'migrated',refund_id,'succeeded','migration',COALESCE(refunded_at,updated_at),COALESCE(refunded_at,updated_at) "
+               "FROM payment_orders WHERE refund_amount>0 AND status IN ('refunded','partially_refunded') "
+               "AND NOT EXISTS (SELECT 1 FROM payment_refunds r WHERE r.payment_order_id=payment_orders.id)")
+    add_columns(db, 'users', [('stripe_account_id', 'TEXT'), ('stripe_charges_enabled', 'INTEGER DEFAULT 0'), ('stripe_payouts_enabled', 'INTEGER DEFAULT 0'),
+                              ('stripe_details_submitted', 'INTEGER DEFAULT 0'), ('payments_warning_at', 'TEXT'), ('legal_name', 'TEXT'), ('tax_id', 'TEXT'),
+                              ('fiscal_address', 'TEXT'), ('cancel_free_hours', 'INTEGER'), ('cancel_refund_pct', 'INTEGER'), ('cancellation_note', 'TEXT')])
+    add_columns(db, 'centers', [('legal_name', 'TEXT'), ('tax_id', 'TEXT'), ('fiscal_address', 'TEXT'), ('cancel_free_hours', 'INTEGER'), ('cancel_refund_pct', 'INTEGER')])
+    add_columns(db, 'provider_services', [('deposit_type', "TEXT DEFAULT 'none'"), ('deposit_value', 'REAL'), ('cancel_free_hours', 'INTEGER'), ('cancel_refund_pct', 'INTEGER')])
+    add_columns(db, 'experience_bookings', [('payment_status', 'TEXT'), ('amount_paid', 'REAL DEFAULT 0'), ('refunded_total', 'REAL DEFAULT 0')])
+    # Cancellation policy as numbers (free until X hours, % refunded after). The three old presets keep their meaning.
+    for key, hours in CANCEL_POLICIES.items():
+        db.execute('UPDATE centers SET cancel_free_hours=?,cancel_refund_pct=COALESCE(cancel_refund_pct,0) WHERE cancellation_policy=? AND cancel_free_hours IS NULL', (hours, key))
+    db.execute("CREATE TABLE IF NOT EXISTS sponsorships (id INTEGER PRIMARY KEY AUTOINCREMENT, placement TEXT NOT NULL, ref_id INTEGER, sponsor_name TEXT NOT NULL, "
+               "sponsor_center_id INTEGER, sponsor_contact TEXT, starts_on TEXT, ends_on TEXT, amount REAL, currency TEXT, notes TEXT, created_by INTEGER, "
+               "created_at TEXT NOT NULL, ended_at TEXT)")
+    db.execute('CREATE INDEX IF NOT EXISTS idx_sponsorships_ref ON sponsorships(placement, ref_id)')
+    if first:
+        db.execute('INSERT INTO schema_migrations(version,applied_at,backup_path,notes) VALUES(?,?,?,?)',
+                   ('50.34', now(), str(backup) if backup else None, 'Fase 2: cargos directos, devoluciones, señal, política por servicio, freelance con cobros'))
 
 
 def migrate_v50_33(db):
@@ -1001,6 +1103,17 @@ def center_can_see_user(db, center_id, user_id):
                   (center_id, user_id, *INACTIVE_BOOKING_STATES)).fetchone():
         return True
     return bool(db.execute('SELECT 1 FROM data_shares WHERE center_id=? AND user_id=? AND revoked_at IS NULL', (center_id, user_id)).fetchone())
+
+
+def provider_can_see_user(db, b):
+    """The provider of a booking sees the diver's profile: centres by center_can_see_user; a freelance professional
+    without a centre only while the diver has an alive online booking of his own with him."""
+    if b['center_id']: return center_can_see_user(db, b['center_id'], b['user_id'])
+    prov = b['provider_user_id'] if 'provider_user_id' in b.keys() else None
+    if not prov: return False
+    placeholders = ','.join('?' * len(INACTIVE_BOOKING_STATES))
+    return bool(db.execute(f"SELECT 1 FROM bookings WHERE center_id IS NULL AND provider_user_id=? AND user_id=? AND COALESCE(source,'online')='online' AND status NOT IN ({placeholders}) LIMIT 1",
+                           (prov, b['user_id'], *INACTIVE_BOOKING_STATES)).fetchone())
 
 
 VERIFICATION_METHODS = {'email_domain': 'Email del dominio del centro', 'phone_call': 'Llamada al teléfono público del centro',
@@ -2416,6 +2529,7 @@ def qr_matrix(payload):
 # Partners / sponsors band and sponsored offers on the home page (v50.26), managed by the administrator.
 # ---------------------------------------------------------------------------
 PROMO_KINDS=('partner','offer')
+SPONSORED_LABEL='Patrocinado'  # fixed label of paid placements (Fase 2.10), translated on screen
 
 
 def clean_promo_url(v):
@@ -2448,7 +2562,7 @@ def public_promos(db):
     for p in snap['items']:
         if (p['starts_on'] and p['starts_on']>today) or (p['ends_on'] and p['ends_on']<today): continue
         if p['kind']=='offer' and not p['image_path']: continue
-        out['partners' if p['kind']=='partner' else 'offers'].append(p)
+        out['partners' if p['kind']=='partner' else 'offers'].append(dict(p,label=SPONSORED_LABEL))
     return out
 
 
@@ -2586,14 +2700,16 @@ def finalize_paid_order(db, order, session, source):
         if order['booking_id']: notify_booking(db,order['booking_id'],'payment_review')
         return False,'mismatch'
     receipt=brand=last4=None
-    pi=_obj(session,'payment_intent')
+    pi=_obj(session,'payment_intent'); pi_id=pi if isinstance(pi,str) else _obj(pi,'id')
     if pi and not isinstance(pi,str):
         ch=_obj(pi,'latest_charge')
         if ch and not isinstance(ch,str):
             receipt=_obj(ch,'receipt_url'); card=_obj(_obj(ch,'payment_method_details') or {},'card') or {}
             brand=_obj(card,'brand'); last4=_obj(card,'last4')
-    db.execute("UPDATE payment_orders SET status='paid',provider_payment_id=COALESCE(?,provider_payment_id),paid_at=?,amount_received=?,receipt_url=COALESCE(?,receipt_url),card_brand=COALESCE(?,card_brand),card_last4=COALESCE(?,card_last4),updated_at=? WHERE id=?",
-               (_obj(session,'id'),now(),(int(total)/100 if total is not None else order['amount']),receipt,brand,last4,now(),order['id']))
+    received=(int(total)/100 if total is not None else float(order['amount'] or 0))
+    db.execute("UPDATE payment_orders SET status='paid',provider_payment_id=COALESCE(?,provider_payment_id),payment_intent_id=COALESCE(?,payment_intent_id),paid_at=?,amount_received=?,receipt_url=COALESCE(?,receipt_url),card_brand=COALESCE(?,card_brand),card_last4=COALESCE(?,card_last4),updated_at=? WHERE id=?",
+               (_obj(session,'id'),pi_id,now(),received,receipt,brand,last4,now(),order['id']))
+    deposit=(order['payment_kind'] if 'payment_kind' in order.keys() else 'full')=='deposit'
     if order['booking_id']:
         b=db.execute('SELECT * FROM bookings WHERE id=?',(order['booking_id'],)).fetchone()
         if b:
@@ -2611,11 +2727,15 @@ def finalize_paid_order(db, order, session, source):
                     notify_booking(db,b['id'],'payment_review')
                     return False,'late_no_spots'
             # A payment confirmed by Stripe is the ONLY way a «Pago al reservar» booking becomes confirmed.
-            db.execute("UPDATE bookings SET payment_status='paid',status=CASE WHEN status IN ('pending','requested','payment_in_progress','accepted_pending_payment','confirmed','expired') THEN 'confirmed' ELSE status END,confirmed_at=COALESCE(confirmed_at,?),slot_reserved=?,expired_reason=NULL,updated_at=? WHERE id=?",(now(),reserved,now(),b['id']))
-            db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?,'system')",(order['provider_user_id'] or b['user_id'],b['user_id'],b['id'],'Pago recibido · reserva confirmada',f'Hemos recibido tu pago de {float(order["amount"] or 0):.2f} {order["currency"] or "EUR"}. Tu reserva #{b["id"]} está confirmada.',now()))
+            paid_total=round(float(b['amount_paid'] or 0)+received,2); due=round(max(0.0,float(b['price'] or 0)-paid_total),2)
+            db.execute("UPDATE bookings SET payment_status=?,amount_paid=?,amount_due=?,status=CASE WHEN status IN ('pending','requested','payment_in_progress','accepted_pending_payment','confirmed','expired') THEN 'confirmed' ELSE status END,confirmed_at=COALESCE(confirmed_at,?),slot_reserved=?,expired_reason=NULL,updated_at=? WHERE id=?",
+                       ('deposit_paid' if deposit and due>0 else 'paid',paid_total,due,now(),reserved,now(),b['id']))
+            body=(f'Hemos recibido la señal de {received:.2f} {order["currency"] or "EUR"}. Tu reserva #{b["id"]} está confirmada; el resto ({due:.2f} {order["currency"] or "EUR"}) se paga en el centro.'
+                  if deposit and due>0 else f'Hemos recibido tu pago de {received:.2f} {order["currency"] or "EUR"}. Tu reserva #{b["id"]} está confirmada.')
+            db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?,'system')",(order['provider_user_id'] or b['user_id'],b['user_id'],b['id'],'Pago recibido · reserva confirmada',body,now()))
             notify_booking(db,b['id'],'paid',{'was_confirmed':st=='accepted_pending_payment' or (was_visible and st=='confirmed'),'late':late})
     if order['experience_booking_id']:
-        db.execute("UPDATE experience_bookings SET status='confirmed',updated_at=? WHERE id=?",(now(),order['experience_booking_id']))
+        db.execute("UPDATE experience_bookings SET status='confirmed',payment_status='paid',amount_paid=COALESCE(amount_paid,0)+?,updated_at=? WHERE id=?",(received,now(),order['experience_booking_id']))
     audit(db,order['user_id'],'payment_completed','payment_order',order['id'],{'provider':'stripe','source':source})
     return True,'paid'
 
@@ -2649,12 +2769,9 @@ def sweep_payment_orders():
                 done=False
                 if stripe_secret() and o['provider_payment_id']:
                     try:
-                        stripe=stripe_module()
-                        sess=stripe.checkout.Session.retrieve(o['provider_payment_id'],expand=['payment_intent.latest_charge'])
+                        sess=stripe_session(o)
                         if _obj(sess,'payment_status')=='paid': finalize_paid_order(db,o,sess,'sweeper'); done=True
-                        elif _obj(sess,'status')=='open':
-                            try: stripe.checkout.Session.expire(o['provider_payment_id'])
-                            except Exception: pass
+                        elif _obj(sess,'status')=='open': expire_checkout(o)
                     except Exception as exc: sys.stderr.write(f'[pagos] no se pudo revisar el pedido {o["id"]}: {exc}\n')
                 if not done: release_order_hold(db,o,'expired')
                 db.commit()
@@ -2794,25 +2911,6 @@ def user_lang(db, user_id):
 def mail_deliverable(email):
     e = str(email or '').strip().lower()
     return bool(re.fullmatch(r'[^@\s]+@[^@\s]+\.[a-z]{2,}', e)) and not e.endswith('.local') and not e.endswith('.test') and not e.endswith('@example.com')
-
-
-CANCEL_POLICIES = {'flexible': 24, 'moderada': 48, 'estricta': 168}
-CANCEL_POLICY_TEXT = {
-    'flexible': 'Flexible: cancelación gratuita hasta 24 horas antes de la actividad; después no hay reembolso.',
-    'moderada': 'Moderada: cancelación gratuita hasta 48 horas antes de la actividad; después no hay reembolso.',
-    'estricta': 'Estricta: cancelación gratuita hasta 7 días antes de la actividad; después no hay reembolso.'}
-
-
-def cancellation_policy_key(policy_value):
-    return policy_value if policy_value in CANCEL_POLICIES else 'moderada'
-
-
-def cancellation_policy_hours(policy_value):
-    return CANCEL_POLICIES[cancellation_policy_key(policy_value)]
-
-
-def cancellation_policy_text(policy_value, lang='es'):
-    return mail_t(lang, CANCEL_POLICY_TEXT[cancellation_policy_key(policy_value)])
 
 
 # Templates: subject + preheader + blocks. Texts are Spanish sources with {placeholders}, translated per language.
@@ -2955,8 +3053,21 @@ EMAIL_TEMPLATES = {
    ('h', 'Pago en revisión'), ('p', 'El cobro de la reserva {ref} ({center}) no coincide con el importe esperado. Decide en Administración → Pagos.'),
    ('button', ('Abrir Pagos', 'admin_pay_url'))]},
  'admin_refund_failed': {'to': 'admin', 'subject': 'Devolución pendiente: {ref} · {total}', 'pre': 'Stripe no ha podido hacer la devolución.', 'blocks': [
-   ('h', 'Devolución pendiente'), ('p', 'No se ha podido devolver automáticamente el pago de la reserva {ref} ({center}, {total}). Hazla desde el panel de Stripe y márcala en Administración → Pagos.'),
+   ('h', 'Devolución pendiente'), ('p', 'Hay una incidencia con el pago de la reserva {ref} ({center}, {total}). Las devoluciones las hace el centro desde su panel o su cuenta de Stripe; revisa el caso y márcalo en Administración → Pagos.'),
    ('note', '{error}'), ('button', ('Abrir Pagos', 'admin_pay_url'))]},
+ 'refund_issued': {'to': 'diver', 'subject': 'Te han devuelto {refund_amount} · {service}', 'pre': '{center} ha hecho la devolución.', 'blocks': [
+   ('h', 'Devolución hecha'),
+   ('p', 'Hola {first_name}, {center} te ha devuelto {refund_amount} de tu reserva del {date}. Lo verás en tu tarjeta en 5–10 días hábiles, según tu banco.'),
+   ('note', '{refund_reason_text}'), ('details', None), ('button', ('Ver mi reserva', 'booking_url'))]},
+ 'center_refund_reminder': {'to': 'center', 'subject': 'Devolución pendiente: {ref} · {refund}', 'pre': 'Un cliente espera su devolución.', 'blocks': [
+   ('h', 'Tienes una devolución pendiente'),
+   ('p', '{diver_name} canceló su reserva del {date}. Según tu política de cancelación le corresponde una devolución de {refund}.'),
+   ('p', 'Hazla desde la reserva en tu panel con el botón «Devolver». El dinero sale de tu cuenta de Stripe, igual que entró.'),
+   ('details', None), ('button', ('Ver la reserva', 'panel_booking_url'))]},
+ 'center_dispute': {'to': 'center', 'subject': 'Disputa abierta en un pago: {ref}', 'pre': 'Respóndela desde tu panel de Stripe.', 'blocks': [
+   ('h', 'El banco del cliente ha abierto una disputa'),
+   ('p', 'El banco de {diver_name} ha abierto una disputa sobre el pago de la reserva {ref}. Las disputas las gestiona tu centro desde su panel de Stripe, donde puedes aportar pruebas (la reserva, el justificante, el registro de asistencia).'),
+   ('note', '{dispute_reason}'), ('details', None)]},
  'admin_content_report': {'to': 'admin', 'subject': 'Nueva denuncia de contenido · {reason}', 'pre': '{target}', 'blocks': [
    ('h', 'Nueva denuncia de contenido'), ('p', 'Motivo: {reason}'), ('p', 'Contenido: {target}'), ('note', '{details}'),
    ('p', 'Remitente: {reporter}'), ('button', ('Revisar denuncias', 'admin_legal_url'))]},
@@ -3003,6 +3114,7 @@ EMAIL_TEMPLATE_LABELS = {
  'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
  'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'admin_new_pro': 'Admin: nueva cuenta profesional',
+ 'refund_issued': 'Devolución hecha (buceador)', 'center_refund_reminder': 'Centro: devolución pendiente', 'center_dispute': 'Centro: disputa abierta',
  'admin_payment_review': 'Admin: pago en revisión', 'admin_refund_failed': 'Admin: devolución pendiente', 'admin_content_report': 'Admin: denuncia de contenido',
  'report_received': 'Denuncia recibida', 'report_resolved': 'Resultado de la denuncia', 'test': 'Correo de prueba',
  'booking_expired': 'Reserva caducada (buceador)', 'center_booking_expired': 'Centro: reserva caducada', 'center_payments_disabled': 'Centro: «Pago al reservar» sin cobros activos',
@@ -3015,29 +3127,34 @@ def _esc(v): return html.escape(str(v if v is not None else ''), quote=True)
 
 
 def booking_mail_ctx(db, bid, lang='es'):
-    b = db.execute('''SELECT b.*, u.fullname, u.email, up.phone AS diver_phone, c.name AS center_name, c.email AS center_email, c.phone AS center_phone,
-                             c.address AS center_address, c.city AS center_city, c.cancellation_policy, p.name AS point_name, s.title AS service_title, s.response_hours
-                        FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id LEFT JOIN user_profiles up ON up.user_id=u.id
+    b = db.execute('''SELECT b.*, u.fullname, u.email, up.phone AS diver_phone, p.name AS point_name, s.title AS service_title, s.response_hours
+                        FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN user_profiles up ON up.user_id=u.id
                         LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?''', (bid,)).fetchone()
     if not b: return None
     base = public_site_url()
+    _svc, payee = booking_payee(db, b); payee = payee or {'type': 'center', 'id': b['center_id'], 'name': ''}
+    prov_url = f"{base}/#/centro?id={payee['id']}" if payee['type'] == 'center' else f"{base}/#/profesional?id={payee['id']}"
+    paid_net = round(float(b['amount_paid'] or 0) - float(b['refunded_total'] or 0), 2)
     po = db.execute("SELECT * FROM payment_orders WHERE booking_id=? ORDER BY CASE status WHEN 'paid' THEN 0 WHEN 'refunded' THEN 1 ELSE 2 END, id DESC LIMIT 1", (bid,)).fetchone()
     first = (b['contact_name'] if b['contact_name'] and is_guest_user(db, b['user_id']) else b['fullname'] or '').split(' ')[0]
     diver_email = b['email'] if mail_deliverable(b['email']) else (b['contact_email'] if mail_deliverable(b['contact_email']) else '')
     return {'booking_id': bid, 'ref': f'WOD-{bid:06d}', 'first_name': first or mail_t(lang, 'buceador'), 'diver_name': (b['contact_name'] or b['fullname'] or '') if is_guest_user(db, b['user_id']) else (b['fullname'] or ''), 'diver_email': diver_email,
-            'diver_phone': b['diver_phone'] or b['contact_phone'] or '', 'center': b['center_name'] or '', 'center_id': b['center_id'], 'center_email': b['center_email'] or '',
-            'center_phone': b['center_phone'] or '', 'center_address': ', '.join(x for x in (b['center_address'], b['center_city']) if x),
+            'diver_phone': b['diver_phone'] or b['contact_phone'] or '', 'center': payee.get('name') or '', 'center_id': b['center_id'], 'provider_user_id': b['provider_user_id'],
+            'center_email': payee.get('email') or '', 'center_phone': payee.get('phone') or '', 'center_address': ', '.join(x for x in (payee.get('address'), payee.get('city')) if x),
+            'deposit': mail_money(b['deposit_amount'], b['currency'], lang) if b['deposit_amount'] else '', 'amount_due': mail_money(b['amount_due'], b['currency'], lang) if b['amount_due'] else '',
+            'paid': mail_money(paid_net, b['currency'], lang) if paid_net > 0 else '', 'refund': mail_money(b['refund_proposed'], b['currency'], lang) if b['refund_proposed'] else '',
+            'refunded': mail_money(b['refunded_total'], b['currency'], lang) if b['refunded_total'] else '',
             'service': b['service_title'] or mail_t(lang, 'Inmersión'), 'point': b['point_name'] or '', 'date': mail_date(b['booking_date'], lang),
             'date_short': '/'.join(reversed(str(b['booking_date'] or '').split('-'))), 'time': b['booking_time'] or '', 'participants': int(b['participants'] or 1),
             'total': mail_money(b['price'], b['currency'], lang), 'price': float(b['price'] or 0), 'currency': b['currency'] or 'EUR', 'payment_status': b['payment_status'],
             'status': b['status'], 'equipment': b['equipment_items'] or '', 'notes': b['notes'] or '', 'booking_mode': b['booking_mode'], 'user_id': b['user_id'],
             'card': (f"{(po['card_brand'] or '').title()} ···· {po['card_last4']}" if po and po['card_last4'] else ''), 'pay_ref': f"PAY-{po['id']:05d}" if po else '',
-            'policy': cancellation_policy_text(b['cancellation_policy'], lang),
+            'policy': booking_policy(db, b, lang)['text'],
             'status_label': mail_t(lang, wbk.state_label(b['status'])), 'mode_label': mail_t(lang, wbk.mode_label(b['booking_mode'] or 'request', b['response_hours'])),
             'payment_deadline': mail_datetime(b['payment_deadline'], lang), 'response_deadline': mail_datetime(b['response_deadline'], lang),
             'reject_reason': b['reject_reason'] or '',
-            'booking_url': f'{base}/#/reserva?id={bid}', 'pdf_url': f'{base}/api/bookings/{bid}/receipt.pdf', 'center_url': f"{base}/#/centro?id={b['center_id']}",
-            'review_url': f"{base}/#/centro?id={b['center_id']}&resena=1", 'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings',
+            'booking_url': f'{base}/#/reserva?id={bid}', 'pdf_url': f'{base}/api/bookings/{bid}/receipt.pdf', 'center_url': prov_url,
+            'review_url': f"{base}/#/centro?id={b['center_id']}&resena=1" if b['center_id'] else prov_url, 'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings',
             'panel_planning_url': f'{base}/#/admin?tab=planning', 'admin_pay_url': f'{base}/#/admin?tab=adminpay'}
 
 
@@ -3092,7 +3209,11 @@ def render_email(db, template, lang, ctx):
                 s = t('Pagado: {total}', total=ctx.get('total')) + (f" · {ctx['card']}" if ctx.get('card') else '') + (f" · {t('Ref. del pago')} {ctx['pay_ref']}" if ctx.get('pay_ref') else '')
             elif ps == 'at_center': s = t('Pago en el centro: {total}, el día de la actividad.', total=ctx.get('total'))
             elif ps in ('required', 'pending'): s = t('Pago pendiente: {total}.', total=ctx.get('total'))
-            elif ps == 'refunded': s = t('Importe devuelto: {total}.', total=ctx.get('total'))
+            elif ps == 'deposit_paid':
+                s = t('Señal pagada: {paid}. Resto a pagar en el centro: {due}.', paid=ctx.get('paid') or ctx.get('deposit'), due=ctx.get('amount_due')) + (f" · {ctx['card']}" if ctx.get('card') else '')
+            elif ps == 'refunded': s = t('Importe devuelto: {total}.', total=ctx.get('refunded') or ctx.get('total'))
+            elif ps == 'partially_refunded': s = t('Pagado: {paid} · devuelto: {refunded}.', paid=ctx.get('total'), refunded=ctx.get('refunded'))
+            if ps in ('required', 'pending') and ctx.get('deposit'): s = t('Señal a pagar online: {deposit}. El resto, {due}, se paga en el centro.', deposit=ctx['deposit'], due=ctx.get('amount_due'))
             if s: para(s, 'margin:0 0 16px;font-size:14px;line-height:1.5;color:#1f6b52;font-weight:600')
         elif kind == 'policy':
             if ctx.get('policy'): para(t('Política de cancelación del centro: {policy}', policy=ctx['policy']), 'margin:0 0 14px;font-size:13px;line-height:1.5;color:#65747d')
@@ -3185,6 +3306,13 @@ def center_recipients(db, center_id):
     return [(e, n, l) for e, (n, l) in out.items()]
 
 
+def provider_recipients(db, center_id=None, user_id=None):
+    """The provider of a booking: the centre's recipients, or the freelance professional without a centre."""
+    if center_id: return center_recipients(db, center_id)
+    u = db.execute('SELECT id,fullname,email FROM users WHERE id=?', (user_id,)).fetchone() if user_id else None
+    return [(u['email'], u['fullname'], user_lang(db, u['id']))] if u and mail_deliverable(u['email']) else []
+
+
 def admin_recipients(db):
     legal = legal_settings(db); out = []
     if mail_deliverable(legal.get('email')): out.append((legal['email'], legal.get('owner_name') or 'WORLDIVES', 'es'))
@@ -3206,6 +3334,7 @@ def refund_texts(lang, outcome, amount_text):
     t = lambda s, **kw: mail_t(lang, s, **kw)
     if outcome == 'refunded': return {'refund_note': t('Te devolvemos {amount} a la misma tarjeta. Lo verás en tu cuenta en 5–10 días hábiles, según tu banco.', amount=amount_text), 'refund_short': t('Te devolvemos {amount}.', amount=amount_text)}
     if outcome == 'refund_pending': return {'refund_note': t('Vamos a devolverte {amount} a la misma tarjeta. Te avisaremos cuando la devolución esté hecha.', amount=amount_text), 'refund_short': t('Te devolvemos {amount}.', amount=amount_text)}
+    if outcome == 'proposed': return {'refund_note': t('Según la política de cancelación del centro te corresponde una devolución de {amount}. Se la hemos pedido al centro, que la hace desde su cuenta; te avisaremos por email cuando esté hecha.', amount=amount_text), 'refund_short': t('Devolución de {amount} solicitada al centro.', amount=amount_text)}
     if outcome == 'no_refund': return {'refund_note': t('Según la política de cancelación del centro, esta cancelación no tiene reembolso.'), 'refund_short': t('Cancelación sin reembolso.')}
     return {'refund_note': t('No se te había cobrado nada.'), 'refund_short': t('No se te había cobrado nada.')}
 
@@ -3213,7 +3342,7 @@ def refund_texts(lang, outcome, amount_text):
 def notify_booking(db, bid, event, extra=None):
     """Emails for a booking event to the diver and, when it matters, to the centre and the administrators."""
     try:
-        b = db.execute('SELECT user_id,center_id FROM bookings WHERE id=?', (bid,)).fetchone()
+        b = db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?', (bid,)).fetchone()
         if not b: return
         lang_d = user_lang(db, b['user_id'])
         ctx = booking_mail_ctx(db, bid, lang_d)
@@ -3226,7 +3355,7 @@ def notify_booking(db, bid, event, extra=None):
             if c.get('diver_email'): queue_email(db, tpl, c['diver_email'], c['diver_name'], c, lang_d, rel)
 
         def to_center(tpl, more=None):
-            for email, name, lang in center_recipients(db, b['center_id']):
+            for email, name, lang in provider_recipients(db, b['center_id'], b['provider_user_id']):
                 c = booking_mail_ctx(db, bid, lang) or dict(ctx); c.update(extra); c.update(more or {})
                 for k in ('action_title', 'action_short', 'action_button', 'center_refund_note', 'expired_text'):
                     if c.get(k): c[k] = mail_t(lang, c[k], **{kk: vv for kk, vv in c.items() if isinstance(vv, (str, int, float))})
@@ -3271,12 +3400,22 @@ def notify_booking(db, bid, event, extra=None):
             to_diver('booking_cancelled_center', refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']))
         elif event == 'cancelled_diver':
             outcome = extra.get('refund', 'none_paid')
-            to_diver('booking_cancelled_diver', refund_texts(lang_d, outcome, ctx['total']))
-            note = {'refunded': 'El importe se ha devuelto automáticamente al cliente según tu política de cancelación.',
+            to_diver('booking_cancelled_diver', refund_texts(lang_d, outcome, ctx.get('refund') or ctx['total']))
+            note = {'proposed': 'Según tu política de cancelación corresponde devolver {refund} al cliente. Hazlo desde la reserva en tu panel con el botón «Devolver».',
+                    'refunded': 'El importe se ha devuelto al cliente según tu política de cancelación.',
                     'refund_pending': 'La devolución al cliente está en curso.',
                     'no_refund': 'Cancelación fuera de plazo: según tu política de cancelación, no hay reembolso.'}.get(outcome, 'El cliente no había pagado online.')
             to_center('center_booking_cancelled', {'center_refund_note': note})
+        elif event == 'refund_issued':
+            amount_text = mail_money(extra.get('amount'), ctx['currency'], lang_d)
+            to_diver('refund_issued', {'refund_amount': amount_text, 'refund_reason_text': mail_t(lang_d, 'Nota del centro: {note}', note=extra['note']) if extra.get('note') else ''})
+        elif event == 'refund_reminder':
+            to_center('center_refund_reminder')
+        elif event == 'dispute':
+            to_center('center_dispute', {'dispute_reason': extra.get('reason') or ''})
+            notify_admins(db, 'admin_refund_failed', dict(ctx, error=mail_t('es', 'Disputa abierta por el banco del cliente: {reason}', reason=extra.get('reason') or '')), rel)
         elif event == 'refund_failed':
+            to_center('center_refund_reminder')
             notify_admins(db, 'admin_refund_failed', dict(ctx, error=extra.get('error', '')), rel)
         elif event == 'reminder': to_diver('reminder')
         elif event == 'review': to_diver('review_request')
@@ -3435,7 +3574,8 @@ def sample_email_ctx(template, lang='es'):
          'center': 'Centro de buceo de ejemplo', 'center_email': 'info@centro.example', 'center_phone': '+34 965 000 000', 'center_address': 'Puerto deportivo, 03730 Xàbia',
          'service': 'Buceo doble', 'point': 'Cabo San Martín', 'date': mail_date('2026-10-17', lang), 'date_short': '17/10/2026', 'time': '09:00', 'participants': 2,
          'total': mail_money(150, 'EUR', lang), 'price': 150.0, 'payment_status': 'paid', 'status': 'confirmed', 'equipment': 'Traje de neopreno ×1', 'notes': 'Primera inmersión del año',
-         'card': 'Visa ···· 4242', 'pay_ref': 'PAY-00042', 'policy': cancellation_policy_text('moderada', lang),
+         'card': 'Visa ···· 4242', 'pay_ref': 'PAY-00042', 'policy': policy_text(48, 50, lang), 'refund': mail_money(75, 'EUR', lang), 'refund_amount': mail_money(75, 'EUR', lang),
+         'refund_reason_text': mail_t(lang, 'Nota del centro: {note}', note='Cancelación por mal tiempo'), 'dispute_reason': 'fraudulent', 'deposit': '', 'amount_due': '', 'paid': '', 'refunded': '',
          'booking_url': f'{base}/#/reserva?id=123', 'pdf_url': f'{base}/api/bookings/123/receipt.pdf', 'center_url': f'{base}/#/centros', 'review_url': f'{base}/#/centros',
          'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings', 'panel_planning_url': f'{base}/#/admin?tab=planning',
          'account_url': f'{base}/#/cuenta', 'panel_url': f'{base}/#/admin', 'reset_url': f'{base}/#/restablecer?token=ejemplo', 'forgot_url': f'{base}/#/recuperar',
@@ -3481,7 +3621,7 @@ LEGAL_DOCS = {
     'seguridad': 'Seguridad en el buceo'}
 LEGAL_FIELDS = {'owner_name': 'Titular (nombre y apellidos o razón social)', 'trade_name': 'Nombre comercial', 'nif': 'NIF / CIF',
                 'address': 'Domicilio', 'email': 'Email de contacto', 'phone': 'Teléfono', 'registry': 'Datos registrales (si es sociedad)',
-                'dpo_email': 'Email para protección de datos', 'hosting': 'Proveedor de alojamiento', 'fee_percent': 'Comisión por reserva (%)'}
+                'dpo_email': 'Email para protección de datos', 'hosting': 'Proveedor de alojamiento'}
 _LEGAL_CACHE = {}
 
 
@@ -3501,8 +3641,7 @@ def legal_doc(db, slug, lang='es'):
     text = _LEGAL_CACHE[key][1]
     st = legal_settings(db)
     pending = '[pendiente de completar]' if lang == 'es' else '[to be completed]'
-    fee = st.get('fee_percent') or os.environ.get('WOD_PLATFORM_FEE_PERCENT', '10') or '10'
-    values = {**{k: (st.get(k) or pending) for k in LEGAL_FIELDS}, 'fee_percent': fee, 'site_url': public_site_url(),
+    values = {**{k: (st.get(k) or pending) for k in LEGAL_FIELDS}, 'site_url': public_site_url(),
               'trade_name': st.get('trade_name') or 'WORLDIVES DISCOVERY', 'version': LEGAL_VERSION,
               'hosting': st.get('hosting') or pending, 'dpo_email': st.get('dpo_email') or st.get('email') or pending}
     text = re.sub(r'\{\{(\w+)\}\}', lambda m: str(values.get(m.group(1), m.group(0))), text)
@@ -3519,52 +3658,357 @@ def booking_start(b):
         return None
 
 
+# ---------------------------------------------------------------------------
+# Payments (v50.34, Fase 2). Decisions of the owner:
+#   · WORLDIVES charges no commission on bookings. Its only income is the annual plan of the centres.
+#   · Direct charges: the money goes from the diver to the provider's own Stripe account (centre, or freelance
+#     professional without a centre). It never passes through a WORLDIVES balance.
+#   · Connected accounts are configured with controller properties (Accounts v1): full Stripe Dashboard for the
+#     provider, Stripe fees paid by the provider, Stripe responsible for negative balances, and the provider
+#     manages its refunds and disputes. All of it can be changed with environment variables (see .env.example).
+# ---------------------------------------------------------------------------
+def stripe_controller():
+    """Controller properties of the connected accounts WORLDIVES creates."""
+    dash = (os.environ.get('WOD_STRIPE_DASHBOARD') or 'full').strip().lower()
+    losses = (os.environ.get('WOD_STRIPE_LOSSES') or 'stripe').strip().lower()
+    fees = (os.environ.get('WOD_STRIPE_FEES_PAYER') or 'account').strip().lower()
+    return {'stripe_dashboard': {'type': dash if dash in ('full', 'express', 'none') else 'full'},
+            'fees': {'payer': fees if fees in ('account', 'application') else 'account'},
+            'losses': {'payments': losses if losses in ('stripe', 'application') else 'stripe'},
+            'requirement_collection': 'stripe'}
+
+
+def stripe_capabilities():
+    caps = [c.strip() for c in (os.environ.get('WOD_STRIPE_CAPABILITIES') or 'card_payments').split(',') if c.strip()]
+    return {c: {'requested': True} for c in caps}
+
+
+PAYEE_CENTER_COLS = ('id,name,email,phone,address,city,country,website,legal_name,tax_id,fiscal_address,stripe_account_id,stripe_charges_enabled,'
+                     'stripe_payouts_enabled,stripe_details_submitted,cancellation_policy,cancellation_note,cancel_free_hours,cancel_refund_pct')
+
+
+def payee_of(db, center_id=None, user_id=None):
+    """Who provides the service and receives the money: a centre or a freelance professional without a centre.
+    Returns a dict with the same keys for both (type, id, name, contact, fiscal data, Stripe account, policy)."""
+    if center_id:
+        c = db.execute(f'SELECT {PAYEE_CENTER_COLS} FROM centers WHERE id=?', (center_id,)).fetchone()
+        if c: return dict(c, type='center')
+    if user_id:
+        u = db.execute('''SELECT u.id,u.fullname AS name,u.email,up.phone,NULL AS address,up.city,up.country,NULL AS website,u.legal_name,u.tax_id,u.fiscal_address,
+                                 u.stripe_account_id,u.stripe_charges_enabled,u.stripe_payouts_enabled,u.stripe_details_submitted,NULL AS cancellation_policy,
+                                 u.cancellation_note,u.cancel_free_hours,u.cancel_refund_pct,u.center_id AS own_center_id
+                            FROM users u LEFT JOIN user_profiles up ON up.user_id=u.id WHERE u.id=?''', (user_id,)).fetchone()
+        if u:
+            if u['own_center_id']: return payee_of(db, u['own_center_id'])
+            return dict(u, type='freelance')
+    return None
+
+
+def booking_payee(db, b):
+    """The service of a booking and its provider (payee_of)."""
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    keys = b.keys()
+    provider = b['provider_user_id'] if 'provider_user_id' in keys else None
+    return svc, payee_of(db, b['center_id'], provider or (svc['provider_user_id'] if svc else None))
+
+
+def payee_ready(p):
+    return center_payments_ready(p)
+
+
+def payee_table(p):
+    return 'centers' if p['type'] == 'center' else 'users'
+
+
+def order_is_direct(order):
+    return 'charge_type' in order.keys() and order['charge_type'] == 'direct'
+
+
+def stripe_kw(order):
+    """Direct charges live on the provider's account: every call about them carries stripe_account."""
+    return {'stripe_account': order['connected_account_id']} if order_is_direct(order) and order['connected_account_id'] else {}
+
+
+def stripe_session(order, expand=True):
+    stripe = stripe_module()
+    return stripe.checkout.Session.retrieve(order['provider_payment_id'], **({'expand': ['payment_intent.latest_charge']} if expand else {}), **stripe_kw(order))
+
+
+def expire_checkout(order):
+    """Closes an open Stripe Checkout so it can no longer be paid (best effort)."""
+    if not (stripe_secret() and order['provider_payment_id']): return
+    try:
+        stripe = stripe_module()
+        sess = stripe_session(order, expand=False)
+        if _obj(sess, 'status') == 'open': stripe.checkout.Session.expire(order['provider_payment_id'], **stripe_kw(order))
+    except Exception as exc:
+        sys.stderr.write(f'[pagos] no se pudo cerrar el pago {order["id"]}: {exc}\n')
+
+
+def order_paid_at_stripe(order):
+    """Asks Stripe whether an open Checkout was paid (when the webhook has not arrived yet). Returns the session or None."""
+    if not (stripe_secret() and order['provider_payment_id']): return None
+    try:
+        sess = stripe_session(order)
+        return sess if _obj(sess, 'payment_status') in ('paid', 'no_payment_required') else None
+    except Exception as exc:
+        sys.stderr.write(f'[pagos] consulta del pago {order["id"]}: {exc}\n')
+        return None
+
+
+# Cancellation policy (Fase 2.6): free cancellation until X hours before the activity, then Y % refunded.
+# Set by the centre (or freelance) and optionally per service. The policy shown before paying is copied into the
+# booking, so later changes never affect bookings already made.
+CANCEL_POLICIES = {'flexible': 24, 'moderada': 48, 'estricta': 168}
+CANCEL_POLICY_TEXT = {
+    'flexible': 'Flexible: cancelación gratuita hasta 24 horas antes de la actividad; después no hay reembolso.',
+    'moderada': 'Moderada: cancelación gratuita hasta 48 horas antes de la actividad; después no hay reembolso.',
+    'estricta': 'Estricta: cancelación gratuita hasta 7 días antes de la actividad; después no hay reembolso.'}
+DEFAULT_CANCEL_HOURS, DEFAULT_CANCEL_PCT = 48, 0
+
+
+def cancellation_policy_key(policy_value):
+    return policy_value if policy_value in CANCEL_POLICIES else 'moderada'
+
+
+def cancellation_policy_hours(policy_value):
+    return CANCEL_POLICIES[cancellation_policy_key(policy_value)]
+
+
+def clean_policy_numbers(hours, pct):
+    """Hours 0–720 (30 days) and refund 0–100 %. None stays None (inherit)."""
+    def num(v, lo, hi):
+        if v in (None, ''): return None
+        try: return max(lo, min(hi, int(round(float(v)))))
+        except (TypeError, ValueError): raise ValueError('La política de cancelación necesita números válidos.')
+    return num(hours, 0, 720), num(pct, 0, 100)
+
+
+def policy_text(hours, pct, lang='es'):
+    hours, pct = int(hours), int(pct)
+    when = (mail_t(lang, '{n} días', n=hours // 24) if hours >= 48 and hours % 24 == 0 else mail_t(lang, '{n} horas', n=hours))
+    if hours == 0 and pct == 0: return mail_t(lang, 'Sin cancelación gratuita: no hay reembolso al cancelar.')
+    if hours == 0: return mail_t(lang, 'Al cancelar se devuelve el {pct} % de lo pagado.', pct=pct)
+    after = mail_t(lang, 'después no hay reembolso.') if pct == 0 else (mail_t(lang, 'después se devuelve el {pct} % de lo pagado.', pct=pct) if pct < 100 else mail_t(lang, 'después también se devuelve todo.'))
+    return mail_t(lang, 'Cancelación gratuita hasta {when} antes de la actividad; {after}', when=when, after=after)
+
+
+def cancellation_policy_text(policy_value, lang='es'):
+    """Text of one of the three presets (kept for old callers)."""
+    return mail_t(lang, CANCEL_POLICY_TEXT[cancellation_policy_key(policy_value)])
+
+
+def provider_policy(payee, svc=None):
+    """Policy that applies to a new booking: the service's if it has one, else the provider's, else 48 h / 0 %."""
+    hours = pct = None
+    if svc is not None and 'cancel_free_hours' in svc.keys():
+        hours, pct = svc['cancel_free_hours'], svc['cancel_refund_pct']
+    if hours is None and payee:
+        hours = payee.get('cancel_free_hours')
+        if hours is None and payee.get('cancellation_policy'): hours = cancellation_policy_hours(payee['cancellation_policy'])
+    if pct is None and payee: pct = payee.get('cancel_refund_pct')
+    hours = DEFAULT_CANCEL_HOURS if hours is None else int(hours)
+    pct = DEFAULT_CANCEL_PCT if pct is None else int(pct)
+    return {'free_hours': hours, 'refund_pct': pct, 'text': policy_text(hours, pct), 'note': (payee or {}).get('cancellation_note') or ''}
+
+
+def booking_policy(db, b, lang='es'):
+    """The policy of an existing booking (its own copy; old bookings without a copy use the provider's)."""
+    keys = b.keys()
+    if 'cancel_free_hours' in keys and b['cancel_free_hours'] is not None:
+        hours, pct = int(b['cancel_free_hours']), int(b['cancel_refund_pct'] or 0)
+        svc, payee = booking_payee(db, b)
+        return {'free_hours': hours, 'refund_pct': pct, 'text': policy_text(hours, pct, lang), 'note': (payee or {}).get('cancellation_note') or ''}
+    svc, payee = booking_payee(db, b)
+    p = provider_policy(payee, svc)
+    if lang != 'es': p['text'] = policy_text(p['free_hours'], p['refund_pct'], lang)
+    return p
+
+
+def booking_paid_online(db, bid):
+    """What the diver has paid online for a booking, net of refunds, and the orders it came from."""
+    orders = db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status IN ('paid','partially_refunded','refunded') ORDER BY id", (bid,)).fetchall()
+    paid = sum(float(o['amount_received'] or o['amount'] or 0) for o in orders)
+    refunded = sum(float(o['refunded_total'] or 0) for o in orders)
+    return round(paid, 2), round(refunded, 2), orders
+
+
 def booking_cancel_terms(db, b):
-    """What happens if the diver cancels now: refund amount and the deadline of free cancellation."""
-    c = db.execute('SELECT cancellation_policy FROM centers WHERE id=?', (b['center_id'],)).fetchone()
-    pol = cancellation_policy_key(c['cancellation_policy'] if c else None); hours = CANCEL_POLICIES[pol]
+    """What happens if the diver cancels now: refund proposed by the provider's policy and the free-cancellation deadline."""
+    pol = booking_policy(db, b); hours = pol['free_hours']
     start = booking_start(b); left = (start - datetime.now()).total_seconds() / 3600 if start else 0
-    paid = db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='paid' ORDER BY id DESC LIMIT 1", (b['id'],)).fetchone()
-    amount = float(paid['amount_received'] or paid['amount'] or 0) if paid else 0.0
+    paid, refunded, orders = booking_paid_online(db, b['id'])
+    net = max(0.0, paid - refunded)
     free = left >= hours
+    amount = net if free else round(net * pol['refund_pct'] / 100, 2)
     deadline = (start - _timedelta(hours=hours)).isoformat(timespec='minutes') if start else None
-    return {'policy': pol, 'policy_hours': hours, 'hours_left': round(left, 1), 'free': free, 'paid_online': bool(paid),
-            'refund_amount': round(amount if free else 0.0, 2), 'paid_amount': round(amount, 2), 'deadline': deadline,
-            'started': left <= 0, 'policy_text': cancellation_policy_text(pol)}
+    return {'policy': f'{hours}h-{pol["refund_pct"]}', 'policy_hours': hours, 'refund_pct': pol['refund_pct'], 'hours_left': round(left, 1), 'free': free,
+            'paid_online': bool(orders), 'refund_amount': round(amount, 2), 'paid_amount': round(net, 2), 'deadline': deadline,
+            'started': left <= 0, 'policy_text': pol['text']}
+
+
+def deposit_for(svc, price, participants):
+    """Deposit («señal») charged online for a service, or None when the whole price is paid online.
+    Percentage of the total, or a fixed amount per person. Never more than the price."""
+    if not svc or price <= 0 or 'deposit_type' not in svc.keys(): return None
+    kind, value = svc['deposit_type'] or 'none', float(svc['deposit_value'] or 0)
+    if kind == 'percent' and 0 < value < 100: amount = round(price * value / 100, 2)
+    elif kind == 'fixed' and value > 0: amount = round(value * max(1, int(participants or 1)), 2)
+    else: return None
+    return amount if 0 < amount < price else None
+
+
+def clean_deposit(data, price):
+    kind = clean_text(data.get('deposit_type'), 10) or 'none'
+    if kind not in ('none', 'percent', 'fixed'): kind = 'none'
+    value = None
+    if kind != 'none':
+        try: value = round(float(str(data.get('deposit_value') or '0').replace(',', '.')), 2)
+        except ValueError: raise ValueError('La señal debe ser un número.')
+        if kind == 'percent' and not 0 < value < 100: raise ValueError('La señal en porcentaje debe estar entre 1 y 99 %.')
+        if kind == 'fixed' and not 0 < value: raise ValueError('Indica el importe de la señal por persona.')
+        if kind == 'fixed' and price and value >= price: raise ValueError('La señal por persona debe ser menor que el precio.')
+    return kind, value
+
+
+# Refunds (Fase 2.4): started by the provider from its panel, total or partial, on its own Stripe account.
+# A partial refund never cancels the booking. Refunds made in the Stripe Dashboard arrive by webhook.
+def recompute_order_refunds(db, order_id):
+    o = db.execute('SELECT * FROM payment_orders WHERE id=?', (order_id,)).fetchone()
+    if not o: return
+    total = db.execute("SELECT COALESCE(SUM(amount),0) FROM payment_refunds WHERE payment_order_id=? AND status IN ('succeeded','pending')", (order_id,)).fetchone()[0] or 0
+    paid = float(o['amount_received'] or o['amount'] or 0)
+    total = round(min(paid, float(total)), 2)
+    status = o['status']
+    if o['status'] in ('paid', 'partially_refunded', 'refunded'):
+        status = 'refunded' if total >= paid - 0.005 and total > 0 else ('partially_refunded' if total > 0 else 'paid')
+    db.execute('UPDATE payment_orders SET refunded_total=?,refund_amount=?,status=?,refunded_at=CASE WHEN ?>0 THEN COALESCE(refunded_at,?) ELSE refunded_at END,updated_at=? WHERE id=?',
+               (total, total, status, total, now(), now(), order_id))
+    if o['booking_id']:
+        bid = o['booking_id']
+        paid_b, refunded_b, orders = booking_paid_online(db, bid)
+        b = booking_row(db, bid)
+        pay = b['payment_status']
+        if refunded_b > 0: pay = 'refunded' if refunded_b >= paid_b - 0.005 else 'partially_refunded'
+        proposal = b['refund_status']
+        if proposal == 'proposed' and refunded_b >= float(b['refund_proposed'] or 0) - 0.005: proposal = 'done'
+        db.execute('UPDATE bookings SET refunded_total=?,refund_amount=?,payment_status=?,refund_status=?,updated_at=? WHERE id=?', (refunded_b, refunded_b, pay, proposal, now(), bid))
+    if o['experience_booking_id']:
+        db.execute('UPDATE experience_bookings SET refunded_total=?,updated_at=? WHERE id=?', (total, now(), o['experience_booking_id']))
+
+
+def upsert_refund(db, order, stripe_refund_id, amount, status, source, reason=None, note=None, actor=None):
+    """Records one refund (idempotent by its Stripe id) and recomputes the totals of the order and the booking."""
+    st = {'succeeded': 'succeeded', 'pending': 'pending', 'requires_action': 'pending', 'failed': 'failed', 'canceled': 'failed'}.get(status, 'pending')
+    row = db.execute('SELECT id FROM payment_refunds WHERE stripe_refund_id=?', (stripe_refund_id,)).fetchone() if stripe_refund_id else None
+    if row:
+        db.execute('UPDATE payment_refunds SET status=?,amount=?,updated_at=? WHERE id=?', (st, amount, now(), row['id']))
+    else:
+        db.execute('''INSERT INTO payment_refunds(payment_order_id,booking_id,experience_booking_id,amount,currency,reason,note,stripe_refund_id,status,source,created_by,created_at,updated_at)
+                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)''', (order['id'], order['booking_id'], order['experience_booking_id'], amount, order['currency'] or 'EUR', reason, note,
+                                                             stripe_refund_id, st, source, actor, now(), now()))
+    recompute_order_refunds(db, order['id'])
+
+
+def refund_payment(db, order, amount, reason='requested_by_customer', actor=None, note='', source='panel'):
+    """Refunds part or all of a paid order through Stripe, on the provider's account for direct charges.
+    Raises ValueError with a clear message when it cannot. Returns the refunded amount."""
+    paid = float(order['amount_received'] or order['amount'] or 0)
+    left = round(paid - float(order['refunded_total'] or 0), 2)
+    amount = round(float(amount), 2)
+    if amount <= 0: raise ValueError('Indica un importe mayor que cero.')
+    if amount > left + 0.005: raise ValueError(f'Solo quedan {left:.2f} {order["currency"] or "EUR"} por devolver de este pago.')
+    if not stripe_secret(): raise ValueError('Los cobros online no están configurados en el servidor.')
+    pi = order['payment_intent_id'] if 'payment_intent_id' in order.keys() else None
+    stripe = stripe_module()
+    if not pi and order['provider_payment_id']:
+        sess = stripe_session(order, expand=False)
+        p_ = _obj(sess, 'payment_intent'); pi = p_ if isinstance(p_, str) or p_ is None else _obj(p_, 'id')
+        if pi: db.execute('UPDATE payment_orders SET payment_intent_id=? WHERE id=?', (pi, order['id']))
+    if not pi: raise ValueError('Este pago no tiene referencia de Stripe: devuélvelo desde tu panel de Stripe.')
+    cents = int(round(amount * 100)); done = int(round(float(order['refunded_total'] or 0) * 100))
+    params = dict(payment_intent=pi, amount=cents, reason=reason if reason in ('duplicate', 'fraudulent', 'requested_by_customer') else 'requested_by_customer',
+                  metadata={'payment_order_id': str(order['id']), 'booking_id': str(order['booking_id'] or ''), 'wod_reason': str(reason)[:40]},
+                  idempotency_key=f'wod-refund-{order["id"]}-{done}-{cents}')
+    if order_is_direct(order): params.update(stripe_kw(order))
+    else:  # orders of v50.33 and earlier were destination charges with an application fee
+        params.update(reverse_transfer=True, refund_application_fee=abs(amount - left) < 0.005)
+    try:
+        ref = stripe.Refund.create(**params)
+    except Exception as exc:
+        sys.stderr.write(f'[pagos] devolución del pedido {order["id"]}: {exc}\n')
+        audit(db, actor, 'payment_refund_failed', 'payment_order', order['id'], {'amount': amount, 'error': str(exc)[:200]})
+        raise ValueError('Stripe no ha aceptado la devolución: ' + (getattr(exc, 'user_message', None) or str(exc))[:200])
+    upsert_refund(db, order, _obj(ref, 'id'), amount, _obj(ref, 'status') or 'pending', source, reason, clean_text(note, 300), actor)
+    audit(db, actor, 'payment_refunded', 'payment_order', order['id'], {'amount': amount, 'reason': reason, 'source': source})
+    return amount
+
+
+def refund_booking(db, bid, amount=None, reason='requested_by_customer', actor=None, note='', source='panel'):
+    """Refunds a booking's online payments (newest first) up to amount (None = everything still refundable).
+    Returns 'none_paid' | 'refunded' | 'refund_pending' | 'no_refund'."""
+    paid, refunded, orders = booking_paid_online(db, bid)
+    if not orders: return 'none_paid'
+    left = round(paid - refunded, 2)
+    want = left if amount is None else min(left, round(float(amount), 2))
+    if want <= 0: return 'no_refund'
+    try:
+        for o in reversed(orders):
+            o = db.execute('SELECT * FROM payment_orders WHERE id=?', (o['id'],)).fetchone()
+            avail = round(float(o['amount_received'] or o['amount'] or 0) - float(o['refunded_total'] or 0), 2)
+            if avail <= 0 or want <= 0: continue
+            part = min(avail, want)
+            refund_payment(db, o, part, reason, actor, note, source); want = round(want - part, 2)
+        return 'refunded'
+    except ValueError as exc:
+        db.execute("UPDATE bookings SET refund_status='failed',refund_proposed=COALESCE(refund_proposed,?),refund_proposed_at=COALESCE(refund_proposed_at,?),updated_at=? WHERE id=?",
+                   (want, now(), now(), bid))
+        notify_booking(db, bid, 'refund_failed', {'error': str(exc)[:200]})
+        return 'refund_pending'
 
 
 def refund_paid_booking(db, bid, amount=None, reason='requested_by_customer'):
-    """Refunds an online payment of a booking through Stripe (the centre's transfer and our fee are reversed).
-    amount=None refunds everything. Returns 'none_paid' | 'refunded' | 'refund_pending' | 'no_refund'."""
-    order = db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='paid' ORDER BY id DESC LIMIT 1", (bid,)).fetchone()
-    if not order: return 'none_paid'
-    paid = float(order['amount_received'] or order['amount'] or 0)
-    amount = paid if amount is None else max(0.0, min(paid, float(amount)))
-    if amount <= 0: return 'no_refund'
-    try:
-        if not stripe_secret(): raise RuntimeError('STRIPE_SECRET_KEY no configurada')
-        stripe = stripe_module()
-        pi = None
-        if order['provider_payment_id']:
-            sess = stripe.checkout.Session.retrieve(order['provider_payment_id'])
-            pi = _obj(sess, 'payment_intent'); pi = pi if isinstance(pi, str) or pi is None else _obj(pi, 'id')
-        if not pi: raise RuntimeError('pago sin referencia de Stripe')
-        full = abs(amount - paid) < 0.005
-        ref = stripe.Refund.create(payment_intent=pi, amount=int(round(amount * 100)), reason='requested_by_customer',
-                                   reverse_transfer=True, refund_application_fee=full, metadata={'booking_id': str(bid), 'reason': reason},
-                                   idempotency_key=f'wod-refund-{order["id"]}-{int(round(amount * 100))}')
-        db.execute("UPDATE payment_orders SET status=?,refund_id=?,refund_amount=?,refunded_at=?,updated_at=? WHERE id=?",
-                   ('refunded' if full else 'partially_refunded', _obj(ref, 'id'), amount, now(), now(), order['id']))
-        db.execute("UPDATE bookings SET payment_status='refunded',refund_amount=?,updated_at=? WHERE id=?", (amount, now(), bid))
-        audit(db, None, 'payment_refunded', 'payment_order', order['id'], {'amount': amount, 'reason': reason})
-        return 'refunded'
-    except Exception as exc:
-        sys.stderr.write(f'[pagos] devolución de la reserva {bid}: {exc}\n')
-        db.execute("UPDATE payment_orders SET status='refund_due',refund_amount=?,updated_at=? WHERE id=?", (amount, now(), order['id']))
-        db.execute("UPDATE bookings SET refund_amount=?,updated_at=? WHERE id=?", (amount, now(), bid))
-        audit(db, None, 'payment_refund_failed', 'payment_order', order['id'], {'amount': amount, 'error': str(exc)[:200]})
-        notify_booking(db, bid, 'refund_failed', {'error': str(exc)[:200]})
-        return 'refund_pending'
+    """Kept for old callers: refunds through refund_booking."""
+    return refund_booking(db, bid, amount, reason, source='system')
+
+
+def propose_refund(db, b, amount, why):
+    """The diver cancelled a paid booking: the refund that the provider's policy gives is proposed to the provider,
+    who sends it from its panel (it manages its own refunds). Reminded by email if it is still pending after 72 h."""
+    db.execute("UPDATE bookings SET refund_proposed=?,refund_status=?,refund_proposed_at=?,updated_at=? WHERE id=?",
+               (round(amount, 2), 'proposed' if amount > 0 else 'none', now(), now(), b['id']))
+    audit(db, None, 'refund_proposed', 'booking', b['id'], {'amount': round(amount, 2), 'why': why})
+
+
+def run_refund_reminders(db):
+    """Maintenance job: providers are reminded once of proposed refunds still pending after 72 hours."""
+    limit = (datetime.now(timezone.utc) - _timedelta(hours=72)).isoformat(timespec='seconds')
+    for b in db.execute("SELECT id FROM bookings WHERE refund_status='proposed' AND refund_proposed_at<? AND refund_reminded_at IS NULL LIMIT 200", (limit,)).fetchall():
+        notify_booking(db, b['id'], 'refund_reminder')
+        db.execute('UPDATE bookings SET refund_reminded_at=? WHERE id=?', (now(), b['id'])); db.commit()
+
+
+def can_manage_booking(user, b):
+    """The provider of a booking: its centre (owner and team), or the freelance professional when it has no centre."""
+    if not user: return False
+    if user['role'] == 'admin': return True
+    if user['role'] == 'center': return bool(user['center_id']) and b['center_id'] == user['center_id']
+    if user['role'] == 'freelance':
+        prov = b['provider_user_id'] if 'provider_user_id' in b.keys() else None
+        return not b['center_id'] and prov == user['id']
+    return False
+
+
+def require_booking_provider(user, b):
+    if not can_manage_booking(user, b):
+        raise PermissionError('Esta reserva no pertenece a tu centro.' if user['role'] == 'center' else 'No puedes gestionar esta reserva.')
+
+
+def provider_scope_sql(user, alias='b'):
+    """WHERE fragment for the bookings a provider manages (centre or freelance without centre)."""
+    if user['role'] == 'center' and user['center_id']: return f'{alias}.center_id=?', [int(user['center_id'])]
+    if user['role'] == 'freelance': return f'({alias}.center_id IS NULL AND {alias}.provider_user_id=?)', [user['id']]
+    raise PermissionError('Solo los centros y profesionales gestionan reservas.')
 
 
 def release_booking_spots(db, b):
@@ -3675,38 +4119,9 @@ def reject_booking(db, actor, b, reason=''):
                (clean_text(reason, 500) or None, actor['id'] if actor else None, now(), now(), b['id']))
     for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (b['id'],)).fetchall():
         expire_checkout(o); db.execute("UPDATE payment_orders SET status='cancelled',updated_at=? WHERE id=?", (now(), o['id']))
-    outcome = refund_paid_booking(db, b['id'], None, 'center_rejected')
+    outcome = refund_booking(db, b['id'], None, 'requested_by_customer', actor['id'] if actor else None, 'Solicitud rechazada', 'reject')
     notify_booking(db, b['id'], 'rejected', {'refund': outcome, 'reason': clean_text(reason, 500) or ''})
     return outcome
-
-
-def expire_checkout(order):
-    """Closes an open Stripe Checkout so it can no longer be paid (best effort)."""
-    if not (stripe_secret() and order['provider_payment_id']): return
-    try:
-        stripe = stripe_module()
-        kw = {'stripe_account': order['connected_account_id']} if 'connected_account_id' in order.keys() and order['connected_account_id'] and order_is_direct(order) else {}
-        sess = stripe.checkout.Session.retrieve(order['provider_payment_id'], **kw)
-        if _obj(sess, 'status') == 'open': stripe.checkout.Session.expire(order['provider_payment_id'], **kw)
-    except Exception as exc:
-        sys.stderr.write(f'[pagos] no se pudo cerrar el pago {order["id"]}: {exc}\n')
-
-
-def order_is_direct(order):
-    return 'charge_type' in order.keys() and order['charge_type'] == 'direct'
-
-
-def order_paid_at_stripe(order):
-    """Asks Stripe whether an open Checkout was paid (when the webhook has not arrived yet). Returns the session or None."""
-    if not (stripe_secret() and order['provider_payment_id']): return None
-    try:
-        stripe = stripe_module()
-        kw = {'stripe_account': order['connected_account_id']} if order_is_direct(order) and order['connected_account_id'] else {}
-        sess = stripe.checkout.Session.retrieve(order['provider_payment_id'], expand=['payment_intent.latest_charge'], **kw)
-        return sess if _obj(sess, 'payment_status') in ('paid', 'no_payment_required') else None
-    except Exception as exc:
-        sys.stderr.write(f'[pagos] consulta del pago {order["id"]}: {exc}\n')
-        return None
 
 
 def expire_booking(db, b, reason, notify=True):
@@ -3735,13 +4150,6 @@ def run_booking_deadlines(db):
         expire_booking(db, b, 'not_paid'); db.commit()
 
 
-def booking_payee(db, b):
-    """Who receives the money of a booking: the centre (or the freelance professional) and its connected account."""
-    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
-    c = db.execute('SELECT id,name,stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?', (b['center_id'],)).fetchone()
-    return svc, c
-
-
 def _open_order(db, where, args):
     o = db.execute(f"SELECT * FROM payment_orders WHERE {where} AND status='pending' AND checkout_url IS NOT NULL ORDER BY id DESC LIMIT 1", args).fetchone()
     if not o: return None
@@ -3750,30 +4158,157 @@ def _open_order(db, where, args):
     return o if age < 25 * 60 else None
 
 
-def create_stripe_checkout(db, user, *, amount, currency, title, provider_name, account_id, provider_user_id, booking_id=None, experience_booking_id=None,
-                           service_id=None, slot_id=None, cancel_url, hold_reserved=False, deposit=False):
-    """Creates the payment order and its Stripe Checkout Session. Raises ValueError when it cannot."""
+def order_for_stripe_object(db, obj, account=None):
+    """The payment order a Stripe object belongs to: by our metadata, else by its PaymentIntent or Checkout id."""
+    meta = obj.get('metadata') or {}
+    oid = int(meta.get('payment_order_id') or 0) if str(meta.get('payment_order_id') or '').isdigit() else 0
+    order = db.execute('SELECT * FROM payment_orders WHERE id=?', (oid,)).fetchone() if oid else None
+    if not order:
+        pi = obj.get('payment_intent') if obj.get('object') != 'payment_intent' else obj.get('id')
+        if isinstance(pi, dict): pi = pi.get('id')
+        if pi: order = db.execute('SELECT * FROM payment_orders WHERE payment_intent_id=? ORDER BY id DESC LIMIT 1', (pi,)).fetchone()
+    if not order and obj.get('object') == 'checkout.session':
+        order = db.execute('SELECT * FROM payment_orders WHERE provider_payment_id=?', (obj.get('id'),)).fetchone()
+    if order and account and order['connected_account_id'] and order['connected_account_id'] != account:
+        return None  # an event of another connected account can never touch this order
+    return order
+
+
+def sync_refunds_from_stripe(db, order, charge=None):
+    """Brings every refund of a payment (also those made by the provider in its Stripe Dashboard) into payment_refunds."""
+    refunds = ((charge or {}).get('refunds') or {}).get('data') if charge else None
+    if refunds is None and stripe_secret() and order['payment_intent_id']:
+        try:
+            refunds = stripe_module().Refund.list(payment_intent=order['payment_intent_id'], limit=100, **stripe_kw(order)).get('data', [])
+        except Exception as exc:
+            sys.stderr.write(f'[pagos] lista de devoluciones del pedido {order["id"]}: {exc}\n'); refunds = []
+    for r in refunds or []:
+        upsert_refund(db, order, r.get('id'), int(r.get('amount') or 0) / 100, r.get('status') or 'succeeded', 'stripe', (r.get('metadata') or {}).get('wod_reason') or r.get('reason'))
+
+
+def payee_account_updated(db, obj):
+    """account.updated: the provider's account can (or can no longer) charge cards."""
+    account_id = obj.get('id')
+    if not account_id: return
+    flags = (1 if obj.get('charges_enabled') else 0, 1 if obj.get('payouts_enabled') else 0, 1 if obj.get('details_submitted') else 0, now(), account_id)
+    db.execute('UPDATE centers SET stripe_charges_enabled=?,stripe_payouts_enabled=?,stripe_details_submitted=?,updated_at=? WHERE stripe_account_id=?', flags)
+    db.execute('UPDATE users SET stripe_charges_enabled=?,stripe_payouts_enabled=?,stripe_details_submitted=? WHERE stripe_account_id=?', flags[:3] + flags[4:])
+    if not (obj.get('charges_enabled') and obj.get('payouts_enabled')):
+        for c_ in db.execute('SELECT id FROM centers WHERE stripe_account_id=?', (account_id,)).fetchall(): warn_payment_mode_without_payments(db, c_['id'])
+        for u_ in db.execute("SELECT id FROM users WHERE stripe_account_id=? AND role='freelance'", (account_id,)).fetchall(): warn_payment_mode_without_payments(db, None, u_['id'])
+
+
+def handle_stripe_event(db, event, connect=False):
+    """One place for the events of both webhooks (platform and Connect). Idempotent by event id."""
+    event_id = event.get('id'); event_type = event.get('type', ''); account = event.get('account') if connect else None
+    if event_id:
+        try:
+            db.execute('INSERT INTO stripe_webhook_events(event_id,event_type,created_at) VALUES(?,?,?)', (event_id, event_type, now()))
+        except sqlite3.IntegrityError:
+            return 'duplicate'
+    obj = (event.get('data') or {}).get('object') or {}
+    if event_type in ('account.updated',):
+        payee_account_updated(db, obj); return 'ok'
+    if event_type == 'account.application.deauthorized' and account:
+        payee_account_updated(db, {'id': account}); return 'ok'
+    order = order_for_stripe_object(db, obj, account)
+    if not order:
+        if connect and account and obj.get('metadata', {}).get('platform') == 'worldives':
+            audit(db, None, 'stripe_event_without_order', 'stripe_event', None, {'type': event_type, 'account': account})
+        return 'ignored'
+    oid = order['id']
+    if event_type in ('checkout.session.completed', 'checkout.session.async_payment_succeeded'):
+        if order['status'] == 'pending':
+            sess = obj
+            try:
+                if stripe_secret(): sess = stripe_session(order)
+            except Exception: sess = obj
+            finalize_paid_order(db, order, sess, 'webhook')
+    elif event_type in ('checkout.session.expired', 'checkout.session.async_payment_failed'):
+        if order['status'] == 'pending':
+            release_order_hold(db, order, 'expired')
+            audit(db, order['user_id'], 'payment_expired', 'payment_order', oid, {'provider': 'stripe', 'event_id': event_id})
+    elif event_type == 'payment_intent.payment_failed':
+        if order['status'] == 'pending': db.execute("UPDATE payment_orders SET status='failed',updated_at=? WHERE id=?", (now(), oid))
+    elif event_type == 'charge.refunded':
+        sync_refunds_from_stripe(db, order, obj)
+        audit(db, order['user_id'], 'payment_refund_synced', 'payment_order', oid, {'event_id': event_id})
+    elif event_type in ('refund.created', 'refund.updated', 'charge.refund.updated'):
+        upsert_refund(db, order, obj.get('id'), int(obj.get('amount') or 0) / 100, obj.get('status') or 'pending', 'stripe', (obj.get('metadata') or {}).get('wod_reason') or obj.get('reason'))
+    elif event_type in ('charge.dispute.created', 'charge.dispute.closed'):
+        closed = event_type.endswith('closed')
+        db.execute('UPDATE payment_orders SET incident=?,incident_note=?,incident_at=?,updated_at=? WHERE id=?',
+                   ('dispute_closed' if closed else 'dispute', f"Disputa {obj.get('status') or ''} · {obj.get('reason') or ''}".strip(), now(), now(), oid))
+        audit(db, None, 'payment_dispute', 'payment_order', oid, {'status': obj.get('status'), 'reason': obj.get('reason')})
+        if not closed and order['booking_id']: notify_booking(db, order['booking_id'], 'dispute', {'reason': obj.get('reason') or ''})
+    return 'ok'
+
+
+def stripe_webhook(handler, db, secret_env, connect):
+    length = body_length(handler, wcfg.MAX_WEBHOOK_BYTES); raw = handler.rfile.read(length); secret = os.environ.get(secret_env, '').strip()
+    if not secret: handler.send_json({'error': 'Webhook no configurado.'}, 503); return
+    try:
+        event = stripe_module().Webhook.construct_event(raw, handler.headers.get('Stripe-Signature', ''), secret)
+    except ImportError: handler.send_json({'error': 'Falta instalar stripe.'}, 500); return
+    except Exception: handler.send_json({'error': 'Firma de webhook no válida.'}, 400); return
+    if hasattr(event, 'to_dict_recursive'): event = event.to_dict_recursive()
+    elif hasattr(event, 'to_dict'): event = event.to_dict()
+    out = handle_stripe_event(db, event, connect)
+    db.commit()
+    handler.send_json({'received': True, 'duplicate': out == 'duplicate'})
+
+
+COUNTRY_ISO = {'españa': 'ES', 'spain': 'ES', 'portugal': 'PT', 'francia': 'FR', 'france': 'FR', 'italia': 'IT', 'italy': 'IT', 'alemania': 'DE', 'germany': 'DE',
+               'grecia': 'GR', 'greece': 'GR', 'croacia': 'HR', 'croatia': 'HR', 'malta': 'MT', 'chipre': 'CY', 'cyprus': 'CY', 'países bajos': 'NL', 'netherlands': 'NL',
+               'bélgica': 'BE', 'belgium': 'BE', 'polonia': 'PL', 'poland': 'PL', 'reino unido': 'GB', 'united kingdom': 'GB', 'irlanda': 'IE', 'ireland': 'IE',
+               'méxico': 'MX', 'mexico': 'MX', 'estados unidos': 'US', 'united states': 'US', 'egipto': 'EG', 'tailandia': 'TH', 'indonesia': 'ID', 'filipinas': 'PH'}
+
+
+def self_payee(db, user, data):
+    """The payee a signed-in provider manages: its centre, or itself as freelance. The admin names one."""
+    if user['role'] == 'center':
+        p = payee_of(db, user['center_id']) if user['center_id'] else None
+    elif user['role'] == 'freelance':
+        p = payee_of(db, None, user['id'])
+    else:
+        cid = int(data.get('center_id') or 0); uid = int(data.get('user_id') or 0)
+        p = payee_of(db, cid) if cid else (payee_of(db, None, uid) if uid else None)
+    if not p: raise ValueError('Centro o profesional no válido.')
+    return p
+
+
+def create_stripe_checkout(db, user, *, amount, currency, title, payee, booking_id=None, experience_booking_id=None, provider_user_id=None,
+                           service_id=None, slot_id=None, cancel_url, hold_reserved=False, kind='full', description=None):
+    """Creates the payment order and its Stripe Checkout Session as a DIRECT charge on the provider's connected
+    account (no application fee, no transfer: WORLDIVES takes no commission). Raises ValueError when it cannot."""
     if amount <= 0: raise ValueError('Esta reserva no tiene un importe que pagar online.')
     secret = stripe_secret(); base = public_site_url()
     if not secret: raise ValueError('El pago seguro aún no está configurado en el servidor.')
-    commission_percent = max(0.0, min(100.0, float(os.environ.get('WOD_PLATFORM_FEE_PERCENT', '10') or 10)))
-    platform_fee = round(amount * commission_percent / 100, 2)
-    oid = db.execute('''INSERT INTO payment_orders(user_id,provider_user_id,booking_id,experience_booking_id,service_id,slot_id,amount,currency,status,provider,platform_fee,connected_account_id,hold_reserved,created_at,updated_at)
-                         VALUES(?,?,?,?,?,?,?,?,'pending','stripe',?,?,?,?,?)''', (user['id'], provider_user_id, booking_id, experience_booking_id, service_id, slot_id, amount, currency, platform_fee, account_id, 1 if hold_reserved else 0, now(), now())).lastrowid
+    if not payee or not payee_ready(payee): raise ValueError('El prestador no tiene ahora mismo los cobros online activos.')
+    account_id = payee['stripe_account_id']
+    oid = db.execute('''INSERT INTO payment_orders(user_id,provider_user_id,booking_id,experience_booking_id,service_id,slot_id,amount,currency,status,provider,platform_fee,
+                         connected_account_id,charge_type,payment_kind,payee_type,payee_id,hold_reserved,created_at,updated_at)
+                         VALUES(?,?,?,?,?,?,?,?,'pending','stripe',0,?,'direct',?,?,?,?,?,?)''',
+                     (user['id'], provider_user_id, booking_id, experience_booking_id, service_id, slot_id, amount, currency, account_id, kind, payee['type'], payee['id'],
+                      1 if hold_reserved else 0, now(), now())).lastrowid
     db.commit()
+    ref = f'WOD-{int(booking_id):06d}' if booking_id else f'EXP-{int(experience_booking_id or 0):05d}'
+    meta = {'payment_order_id': str(oid), 'booking_id': str(booking_id or ''), 'experience_booking_id': str(experience_booking_id or ''), 'platform': 'worldives'}
     try:
-        stripe=stripe_module()
+        stripe = stripe_module()
         session = stripe.checkout.Session.create(
             mode='payment',
-            line_items=[{'price_data': {'currency': currency.lower(), 'product_data': {'name': title, 'description': f'Reserva · {provider_name}'}, 'unit_amount': int(round(amount * 100))}, 'quantity': 1}],
+            line_items=[{'price_data': {'currency': currency.lower(), 'product_data': {'name': title[:250], 'description': (description or f'{ref} · {payee["name"]}')[:500]},
+                                        'unit_amount': int(round(amount * 100))}, 'quantity': 1}],
             success_url=f'{base}/#/pago-ok?session_id={{CHECKOUT_SESSION_ID}}',
             cancel_url=cancel_url,
-            metadata={'payment_order_id': str(oid), 'booking_id': str(booking_id or ''), 'experience_booking_id': str(experience_booking_id or ''), 'user_id': str(user['id'])},
-            payment_intent_data={'application_fee_amount': int(round(platform_fee * 100)), 'transfer_data': {'destination': account_id},
-                                 'description': f'Reserva #{booking_id or experience_booking_id} · {provider_name}', 'metadata': {'payment_order_id': str(oid)}},
+            metadata=meta,
+            payment_intent_data={'description': f'{ref} · {payee["name"]}'[:500], 'metadata': meta},
             client_reference_id=f'WOD-{oid}',
             customer_email=user['email'] if mail_deliverable(user['email']) else None,
-            expires_at=int(time.time()) + 30 * 60, locale='auto')
+            expires_at=int(time.time()) + 30 * 60, locale='auto',
+            stripe_account=account_id,
+            idempotency_key=f'wod-checkout-{oid}')
     except ImportError:
         db.execute("UPDATE payment_orders SET status='failed',updated_at=? WHERE id=?", (now(), oid)); db.commit()
         raise ValueError('Falta instalar la dependencia stripe en el servidor.')
@@ -3786,9 +4321,9 @@ def create_stripe_checkout(db, user, *, amount, currency, title, provider_name, 
 
 
 def start_checkout(db, user, b):
-    """Opens the payment of a booking in its two legal moments (Fase 1B)."""
+    """Opens the payment of a booking in its two legal moments (Fase 1B): the whole price or the deposit (Fase 2.5)."""
     st = wbk.normalize_state(b['status'])
-    if b['payment_status'] == 'paid': raise ValueError('Esta reserva ya está pagada.')
+    if b['payment_status'] in ('paid', 'deposit_paid'): raise ValueError('Esta reserva ya está pagada.')
     if st == 'payment_in_progress':
         hold = parse_local(b['hold_expires_at'])
         if hold and local_now() > hold: raise ValueError('El tiempo para pagar esta reserva ha terminado y las plazas se han liberado. Vuelve a reservar.')
@@ -3799,41 +4334,50 @@ def start_checkout(db, user, b):
     else: raise ValueError('Esta reserva no tiene ningún pago pendiente.')
     reuse = _open_order(db, 'booking_id=?', (b['id'],))
     if reuse: return {'checkout_url': reuse['checkout_url'], 'order_id': reuse['id'], 'reused': True}
-    svc, c = booking_payee(db, b)
-    if not (service_payments_ready(db, svc) if svc else center_payments_ready(c)):
+    svc, payee = booking_payee(db, b)
+    if not payee_ready(payee):
         raise ValueError('El centro no tiene ahora mismo los cobros online activos. Contacta con el centro.')
-    amount = float(b['price'] or 0); currency = b['currency'] or 'EUR'
-    return create_stripe_checkout(db, user, amount=amount, currency=currency, title=(svc['title'] if svc else 'Reserva de buceo'), provider_name=c['name'],
-                                  account_id=c['stripe_account_id'], provider_user_id=svc['provider_user_id'] if svc else None, booking_id=b['id'],
+    price = float(b['price'] or 0); currency = b['currency'] or 'EUR'
+    deposit = float(b['deposit_amount'] or 0) if 'deposit_amount' in b.keys() else 0
+    amount, kind = (deposit, 'deposit') if 0 < deposit < price else (price, 'full')
+    title = (svc['title'] if svc else 'Reserva de buceo') + (' · señal' if kind == 'deposit' else '')
+    return create_stripe_checkout(db, user, amount=amount, currency=currency, title=title, payee=payee, kind=kind,
+                                  provider_user_id=svc['provider_user_id'] if svc else None, booking_id=b['id'],
                                   service_id=b['service_id'], slot_id=b['slot_id'], hold_reserved=bool(b['slot_reserved']),
                                   cancel_url=f"{public_site_url()}/#/reserva?id={b['id']}&pago=cancelado")
 
 
 def start_experience_checkout(db, user, eb):
-    """Experiences are booked on request; once confirmed by the organiser they are paid online when it charges online."""
+    """Experiences are booked on request; once confirmed by the organiser they are paid online when it charges online.
+    The price is per person (price × participants). Centres and freelance professionals alike."""
     if eb['status'] not in ('confirmed', 'accepted_pending_payment'): raise ValueError('El organizador todavía no ha aceptado tu solicitud.')
+    if (eb['payment_status'] if 'payment_status' in eb.keys() else None) == 'paid': raise ValueError('Esta experiencia ya está pagada.')
     e = db.execute('SELECT * FROM travel_experiences WHERE id=?', (eb['travel_experience_id'],)).fetchone()
     if not e: raise ValueError('Experiencia no disponible.')
     reuse = _open_order(db, 'experience_booking_id=?', (eb['id'],))
     if reuse: return {'checkout_url': reuse['checkout_url'], 'order_id': reuse['id'], 'reused': True}
-    c = db.execute('SELECT id,name,stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?', (e['center_id'],)).fetchone() if e['center_id'] else None
-    if not c or not center_payments_ready(c): raise ValueError('Este organizador no cobra online: pagarás directamente con él.')
+    payee = payee_of(db, e['center_id'], e['provider_user_id'])
+    if not payee or not payee_ready(payee): raise ValueError('Este organizador no cobra online: pagarás directamente con él.')
     amount = round(float(e['price'] or 0) * max(1, int(eb['participants'] or 1)), 2)
-    return create_stripe_checkout(db, user, amount=amount, currency=e['currency'] or 'EUR', title=e['title'], provider_name=c['name'], account_id=c['stripe_account_id'],
+    return create_stripe_checkout(db, user, amount=amount, currency=e['currency'] or 'EUR', title=e['title'], payee=payee,
                                   provider_user_id=e['provider_user_id'], experience_booking_id=eb['id'], cancel_url=f'{public_site_url()}/#/area?payment=cancelled')
 
 
-def warn_payment_mode_without_payments(db, center_id):
-    """A centre lost its online payments: its «Pago al reservar» services stop being bookable (never silently
-    «pay at the centre») and the centre is told to move them to «Bajo petición»."""
-    svcs = db.execute("SELECT id,title FROM provider_services WHERE center_id=? AND active=1 AND booking_mode='payment'", (center_id,)).fetchall()
+def warn_payment_mode_without_payments(db, center_id=None, user_id=None):
+    """A provider lost its online payments: its «Pago al reservar» services stop being bookable (never silently
+    «pay at the centre») and it is told to move them to «Bajo petición». Centres, or freelance without a centre."""
+    if center_id:
+        svcs = db.execute("SELECT id,title FROM provider_services WHERE center_id=? AND active=1 AND booking_mode='payment'", (center_id,)).fetchall()
+        row = db.execute('SELECT payments_warning_at FROM centers WHERE id=?', (center_id,)).fetchone(); table, key = 'centers', center_id
+    else:
+        svcs = db.execute("SELECT id,title FROM provider_services WHERE provider_user_id=? AND center_id IS NULL AND active=1 AND booking_mode='payment'", (user_id,)).fetchall()
+        row = db.execute('SELECT payments_warning_at FROM users WHERE id=?', (user_id,)).fetchone(); table, key = 'users', user_id
     if not svcs: return
-    c = db.execute('SELECT payments_warning_at FROM centers WHERE id=?', (center_id,)).fetchone()
-    if c and c['payments_warning_at'] and c['payments_warning_at'] > (datetime.now(timezone.utc) - _timedelta(days=1)).isoformat(): return
-    db.execute('UPDATE centers SET payments_warning_at=? WHERE id=?', (now(), center_id))
+    if row and row['payments_warning_at'] and row['payments_warning_at'] > (datetime.now(timezone.utc) - _timedelta(days=1)).isoformat(): return
+    db.execute(f'UPDATE {table} SET payments_warning_at=? WHERE id=?', (now(), key))
     names = ', '.join(s['title'] for s in svcs)
-    for email, name, lang in center_recipients(db, center_id):
-        queue_email(db, 'center_payments_disabled', email, name, {'services': names, 'panel_url': f'{public_site_url()}/#/admin?tab=services'}, lang, ('center', center_id))
+    for email, name, lang in provider_recipients(db, center_id, user_id):
+        queue_email(db, 'center_payments_disabled', email, name, {'services': names, 'panel_url': f'{public_site_url()}/#/admin?tab=services'}, lang, ('center', center_id) if center_id else ('user', user_id))
 
 
 def new_password_reset(db, user_id):
@@ -3897,19 +4441,6 @@ def report_rate_limited(ip):
     return row[1] > 10
 
 
-def pdf_escape(value):
-    return str(value or '').encode('cp1252', 'replace').decode('cp1252').replace('\\','\\\\').replace('(','\\(').replace(')','\\)')
-
-
-
-def _pdf_objects(content):
-    objects=[b'<< /Type /Catalog /Pages 2 0 R >>',b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 6 0 R >> >> /Contents 5 0 R >>',b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',f'<< /Length {len(content)} >>\nstream\n'.encode()+content+b'\nendstream',b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>']
-    out=bytearray(b'%PDF-1.4\n%\xe2\xe3\xcf\xd3\n'); offs=[0]
-    for i,obj in enumerate(objects,1): offs.append(len(out)); out.extend(f'{i} 0 obj\n'.encode()); out.extend(obj); out.extend(b'\nendobj\n')
-    xref=len(out); out.extend(f'xref\n0 {len(objects)+1}\n0000000000 65535 f \n'.encode())
-    for off in offs[1:]: out.extend(f'{off:010d} 00000 n \n'.encode())
-    out.extend(f'trailer\n<< /Size {len(objects)+1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF'.encode()); return bytes(out)
-
 def _qr_cmds(payload,x0,y0,size):
     import qrcode
     qr=qrcode.QRCode(box_size=1,border=1); qr.add_data(payload); qr.make(fit=True); m=qr.get_matrix(); n=len(m); c=size/n
@@ -3919,21 +4450,6 @@ def _qr_cmds(payload,x0,y0,size):
             if v:a.append(f'{x0+col*c:.2f} {y0+(n-1-r)*c:.2f} {c+.03:.2f} {c+.03:.2f} re f')
     a.append('Q'); return a
 
-def _pdf_text(x,y,text,size=10,color='0.04 0.17 0.24',bold=False):
-    font='/F2' if bold else '/F1'
-    return ['BT',f'{font} {size} Tf',f'{color} rg',f'{x} {y} Td',f'({pdf_escape(text)}) Tj','ET']
-
-def _pdf_box(x,y,w,h,fill='1 1 1',stroke=None,r=10):
-    # Rounded rectangle, compatible with the small internal PDF renderer.
-    out=['q',f'{fill} rg',f'{x+r} {y} m',f'{x+w-r} {y} l',f'{x+w} {y+r} l',f'{x+w} {y+h-r} l',f'{x+w-r} {y+h} l',f'{x+r} {y+h} l',f'{x} {y+h-r} l',f'{x} {y+r} l','h','f']
-    if stroke:
-        out += [f'{stroke} RG','0.7 w',f'{x+r} {y} m',f'{x+w-r} {y} l',f'{x+w} {y+r} l',f'{x+w} {y+h-r} l',f'{x+w-r} {y+h} l',f'{x+r} {y+h} l',f'{x} {y+h-r} l',f'{x} {y+r} l','h','S']
-    out.append('Q'); return out
-
-def _pdf_label_value(x,y,label,value,wide=210):
-    return _pdf_text(x,y,label.upper(),7,'0.38 0.43 0.46') + _pdf_text(x,y-13,value,9,'0.04 0.17 0.24')
-
-HELV_WIDTHS = [[278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584, 761, 556, 0, 222, 556, 333, 1000, 556, 556, 333, 1000, 667, 333, 1000, 0, 611, 0, 0, 222, 222, 333, 333, 350, 556, 1000, 333, 1000, 500, 333, 944, 0, 500, 667, 278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 333, 400, 584, 333, 333, 333, 556, 537, 278, 333, 333, 365, 556, 834, 834, 834, 611, 667, 667, 667, 667, 667, 667, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, 722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611, 556, 556, 556, 556, 556, 556, 889, 500, 556, 556, 556, 556, 278, 278, 278, 278, 556, 556, 556, 556, 556, 556, 556, 584, 611, 556, 556, 556, 556, 500, 556, 500], [278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584, 761, 556, 0, 278, 556, 500, 1000, 556, 556, 333, 1000, 667, 333, 1000, 0, 611, 0, 0, 278, 278, 500, 500, 350, 556, 1000, 333, 1000, 556, 333, 944, 0, 500, 667, 278, 333, 556, 556, 556, 556, 280, 556, 333, 737, 370, 556, 584, 333, 737, 333, 400, 584, 333, 333, 333, 611, 556, 278, 333, 333, 365, 556, 834, 834, 834, 611, 722, 722, 722, 722, 722, 722, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, 722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611, 556, 556, 556, 556, 556, 556, 889, 556, 556, 556, 556, 556, 278, 278, 278, 278, 611, 611, 611, 611, 611, 611, 611, 584, 611, 611, 611, 611, 611, 556, 611, 556]]
 ES_MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
 ES_DAYS = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo']
 
@@ -3944,200 +4460,176 @@ def es_long_date(value):
     except Exception: return str(value or '')
 
 
-class PdfPage:
-    """Tiny A4 drawing surface (Helvetica, WinAnsi) with measuring, wrapping and rounded boxes."""
-    def __init__(self): self.c=[]
-    @staticmethod
-    def width(text,size,bold=False):
-        w=HELV_WIDTHS[1 if bold else 0]; total=0
-        for ch in str(text or ''):
-            try: code=ch.encode('cp1252')[0]
-            except Exception: code=63
-            total+=w[code-32] if 32<=code<=255 else 500
-        return total*size/1000
-    def fit(self,text,size,maxw,bold=False):
-        t=str(text or '')
-        if self.width(t,size,bold)<=maxw: return t
-        while t and self.width(t+'…',size,bold)>maxw: t=t[:-1]
-        return t.rstrip()+'…'
-    def wrap(self,text,size,maxw,bold=False,max_lines=3):
-        words=str(text or '').split(); lines=[]; cur=''
-        for wd in words:
-            nxt=(cur+' '+wd).strip()
-            if self.width(nxt,size,bold)<=maxw: cur=nxt
-            else:
-                if cur: lines.append(cur)
-                cur=wd
-        if cur: lines.append(cur)
-        if len(lines)>max_lines: lines=lines[:max_lines]; lines[-1]=self.fit(lines[-1]+' …',size,maxw,bold)
-        return lines or ['']
-    def text(self,x,y,text,size=10,color=(0.03,0.21,0.29),bold=False,align='left'):
-        if align=='right': x-=self.width(text,size,bold)
-        elif align=='center': x-=self.width(text,size,bold)/2
-        self.c+=['BT',f"/{'F2' if bold else 'F1'} {size} Tf",'%.3f %.3f %.3f rg' % color,f'{x:.2f} {y:.2f} Td',f'({pdf_escape(text)}) Tj','ET']
-    def box(self,x,y,w,h,fill=None,stroke=None,r=8,lw=0.7):
-        k=0.5523*r
-        path=[f'{x+r:.2f} {y:.2f} m',f'{x+w-r:.2f} {y:.2f} l',f'{x+w-r+k:.2f} {y:.2f} {x+w:.2f} {y+r-k:.2f} {x+w:.2f} {y+r:.2f} c',f'{x+w:.2f} {y+h-r:.2f} l',
-              f'{x+w:.2f} {y+h-r+k:.2f} {x+w-r+k:.2f} {y+h:.2f} {x+w-r:.2f} {y+h:.2f} c',f'{x+r:.2f} {y+h:.2f} l',f'{x+r-k:.2f} {y+h:.2f} {x:.2f} {y+h-r+k:.2f} {x:.2f} {y+h-r:.2f} c',
-              f'{x:.2f} {y+r:.2f} l',f'{x:.2f} {y+r-k:.2f} {x+r-k:.2f} {y:.2f} {x+r:.2f} {y:.2f} c','h']
-        self.c.append('q')
-        if fill: self.c.append('%.3f %.3f %.3f rg' % fill)
-        if stroke: self.c+=['%.3f %.3f %.3f RG' % stroke,f'{lw} w']
-        self.c+=path+['B' if fill and stroke else 'f' if fill else 'S','Q']
-    def rect(self,x,y,w,h,fill): self.c+=['q','%.3f %.3f %.3f rg' % fill,f'{x:.2f} {y:.2f} {w:.2f} {h:.2f} re f','Q']
-    def line(self,x1,y1,x2,y2,color=(0.86,0.89,0.91),lw=0.7,dash=None):
-        self.c+=['q','%.3f %.3f %.3f RG' % color,f'{lw} w']+([f'[{dash} {dash}] 0 d'] if dash else [])+[f'{x1:.2f} {y1:.2f} m {x2:.2f} {y2:.2f} l S','Q']
-    def check(self,x,y,color):
-        self.c+=['q','%.3f %.3f %.3f RG' % color,'1.4 w','1 J 1 j',f'{x:.2f} {y+3:.2f} m {x+2.6:.2f} {y+0.4:.2f} l {x+7:.2f} {y+6:.2f} l S','Q']
-    def pdf(self): return _pdf_objects('\n'.join(self.c).encode('cp1252','replace'))
-
-
-def booking_pdf(db,booking_id,base_url='http://localhost:8000'):
-    """Offline booking voucher: everything the diver needs at the dive centre, even without internet."""
-    b=db.execute("""SELECT b.*,u.fullname,u.email,up.phone AS customer_phone,c.name AS center_name,c.city,c.country AS center_country,c.address AS center_address,c.phone AS center_phone,c.email AS center_email,c.website AS center_website,p.name AS point_name,s.title AS service_title,s.duration_minutes FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN user_profiles up ON up.user_id=u.id JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?""",(booking_id,)).fetchone()
+def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
+    """«Justificante de reserva» (Fase 2.8): everything the diver needs at the dive centre, even without internet,
+    who provides the service (with its fiscal data) and that WORLDIVES DISCOVERY is only the booking platform.
+    It is not an invoice. Any of the 10 languages prints correctly (fonts embedded, wod.pdf)."""
+    b = db.execute("""SELECT b.*,u.fullname,u.email,up.phone AS customer_phone,p.name AS point_name,s.title AS service_title,s.duration_minutes
+                        FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN user_profiles up ON up.user_id=u.id
+                        LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?""", (booking_id,)).fetchone()
     if not b: return None
-    po=db.execute("SELECT id,paid_at,card_brand,card_last4,amount_received FROM payment_orders WHERE booking_id=? AND status='paid' ORDER BY id DESC LIMIT 1",(booking_id,)).fetchone()
-    DEEP=(0.027,0.212,0.290); SEA=(0.043,0.478,0.537); MUTED=(0.38,0.43,0.46); LINE=(0.86,0.89,0.91); SOFT=(0.955,0.972,0.978); WHITE=(1,1,1); INK=(0.07,0.13,0.16)
-    # Same states as everywhere else (wod.bookings), in capitals for the voucher.
-    WARN=(0.66,0.42,0.07); BAD=(0.61,0.25,0.22); GOOD=(0.184,0.478,0.388)
-    STATUS={'confirmed':('RESERVA CONFIRMADA','CONFIRMED',GOOD),'completed':('COMPLETADA','COMPLETED',SEA),'requested':('SOLICITADA','REQUESTED',WARN),
-            'pending':('SOLICITADA','REQUESTED',WARN),'accepted_pending_payment':('ACEPTADA · PENDIENTE DE PAGO','ACCEPTED · PAYMENT DUE',WARN),
-            'payment_in_progress':('PAGO EN CURSO','PAYMENT IN PROGRESS',WARN),'expired':('CADUCADA','EXPIRED',MUTED),
-            'rejected':('RECHAZADA','REJECTED',BAD),'cancelled':('CANCELADA','CANCELLED',BAD)}
-    PAY={'paid':('PAGADO','PAID',(0.184,0.478,0.388)),'required':('PAGO PENDIENTE','PAYMENT DUE',(0.66,0.42,0.07)),'pending':('PAGO EN CURSO','PROCESSING',(0.66,0.42,0.07)),
-         'at_center':('PAGO EN EL CENTRO','PAY AT CENTRE',SEA),'not_required':('SIN COBRO','NO CHARGE',SEA),'review':('PAGO EN REVISIÓN','UNDER REVIEW',(0.66,0.42,0.07)),'refunded':('DEVUELTO','REFUNDED',MUTED)}
-    st=STATUS.get(b['status'],(str(b['status']).upper(),'',MUTED)); py=PAY.get(b['payment_status'],(str(b['payment_status'] or '').upper(),'',MUTED))
-    cur=(b['currency'] or 'EUR').upper(); sym={'EUR':'€','USD':'$','GBP':'£'}.get(cur)
-    money=lambda v:(f"{float(v or 0):,.2f}".replace(',','X').replace('.',',').replace('X','.')+(f' {sym}' if sym else f' {cur}'))
-    ref=f'WOD-{int(booking_id):06d}'
-    pg=PdfPage(); W=595
-    # Header band
-    pg.rect(0,742,W,100,DEEP); pg.rect(0,738,W,4,SEA)
-    pg.text(40,800,'WORLDIVES DISCOVERY',17,WHITE,True)
-    pg.text(40,782,'Comprobante de reserva  ·  Booking voucher',9.5,(0.78,0.88,0.91))
-    pg.text(555,806,'Nº DE RESERVA · BOOKING REF.',7,(0.70,0.82,0.86),align='right')
-    pg.text(555,786,ref,17,WHITE,True,align='right')
-    pg.text(555,768,'Emitido · Issued '+_dt.datetime.now().strftime('%d/%m/%Y %H:%M'),7.5,(0.70,0.82,0.86),align='right')
+    lang = lang if lang in MAIL_LANGS else 'es'
+    t = lambda s, **kw: mail_t(lang, s, **kw)
+    _svc, prov = booking_payee(db, b); prov = prov or {'type': 'center', 'name': '—'}
+    po = db.execute("SELECT id,paid_at,card_brand,card_last4,amount_received,payment_kind FROM payment_orders WHERE booking_id=? AND status IN ('paid','partially_refunded','refunded') ORDER BY id DESC LIMIT 1", (booking_id,)).fetchone()
+    DEEP = (0.027, 0.212, 0.290); SEA = (0.043, 0.478, 0.537); MUTED = (0.38, 0.43, 0.46); LINE = (0.86, 0.89, 0.91); SOFT = (0.955, 0.972, 0.978); WHITE = (1, 1, 1); INK = (0.07, 0.13, 0.16)
+    WARN = (0.66, 0.42, 0.07); BAD = (0.61, 0.25, 0.22); GOOD = (0.184, 0.478, 0.388)
+    tone = {'confirmed': GOOD, 'completed': SEA, 'requested': WARN, 'accepted_pending_payment': WARN, 'payment_in_progress': WARN, 'expired': MUTED, 'rejected': BAD, 'cancelled': BAD}
+    state = wbk.normalize_state(b['status'])
+    PAY = {'paid': ('Pagado', GOOD), 'deposit_paid': ('Señal pagada', GOOD), 'required': ('Pago pendiente', WARN), 'pending': ('Pago en curso', WARN),
+           'at_center': ('Pago en el centro', SEA), 'not_required': ('Sin cobro', SEA), 'review': ('Pago en revisión', WARN), 'refunded': ('Devuelto', MUTED),
+           'partially_refunded': ('Devolución parcial', MUTED), 'not_paid': ('No pagado', MUTED)}
+    cur = (b['currency'] or 'EUR').upper()
+    money = lambda v: mail_money(v, cur, lang)
+    ref = f'WOD-{int(booking_id):06d}'
+    pg = wpdf.Document(t('Justificante de reserva') + ' ' + ref, lang); W = 595
+    # Header
+    pg.rect(0, 742, W, 100, DEEP); pg.rect(0, 738, W, 4, SEA)
+    pg.text(40, 800, 'WORLDIVES DISCOVERY', 17, WHITE, True)
+    pg.text(40, 781, t('Justificante de reserva'), 11, (0.78, 0.88, 0.91), True)
+    pg.text(555, 806, t('Nº de reserva').upper(), 7, (0.70, 0.82, 0.86), align='right')
+    pg.text(555, 786, ref, 17, WHITE, True, align='right')
+    pg.text(555, 768, t('Emitido: {when}', when=_dt.datetime.now().strftime('%d/%m/%Y %H:%M')), 7.5, (0.70, 0.82, 0.86), align='right')
     # Status pills
-    y=708; x=40
-    for label,en,col in (st,py):
+    y = 708; x = 40
+    for label, col in ((t(wbk.state_label(state)), tone.get(state, MUTED)), (t(PAY.get(b['payment_status'], (b['payment_status'] or '', MUTED))[0]), PAY.get(b['payment_status'], ('', MUTED))[1])):
         if not label: continue
-        t=label+(f'  ·  {en}' if en else ''); w=pg.width(t,8,True)+26
-        pg.box(x,y-6,w,22,col,None,11); pg.text(x+13,y+1.5,t,8,WHITE,True); x+=w+8
+        w = pg.width(label.upper(), 8, True) + 26
+        pg.box(x, y - 6, w, 22, col, None, 11); pg.text(x + 13, y + 1.5, label.upper(), 8, WHITE, True); x += w + 8
     # Title
-    pg.text(40,674,pg.fit(b['service_title'] or 'Inmersión',22,515,True),22,INK,True)
-    pg.text(40,655,pg.fit(f"{b['center_name']}"+(f" · {b['city']}" if b['city'] else ''),12,515),12,SEA,True)
-    when=es_long_date(b['booking_date'])+(f" · {b['booking_time']}" if b['booking_time'] else ' · hora por confirmar')
-    pg.text(40,637,when[:1].upper()+when[1:],10.5,MUTED)
-    # Details card + QR card
-    top=618; pg.box(40,top-236,350,236,WHITE,LINE,12); pg.box(402,top-236,153,236,SOFT,None,12)
-    pg.text(56,top-22,'DETALLES  ·  DETAILS',7.5,MUTED,True)
-    eq=(b['equipment_items'] or ('Sí' if b['needs_equipment'] else 'Equipo propio'))
-    rows=[('Fecha · Date','/'.join(reversed(str(b['booking_date'] or '').split('-'))) or '—'),('Hora · Time',b['booking_time'] or 'Por confirmar'),
-          ('Punto · Dive site',b['point_name'] or 'A concretar con el centro'),('Buceadores · Divers',str(b['participants'] or 1)),
-          ('Titular · Lead diver',b['fullname'] or '—'),('Contacto · Contact',b['customer_phone'] or b['email'] or '—'),
-          ('Equipo · Gear',eq),('Extras',', '.join(x for x,on in (('Guía',b['needs_guide']),('Nitrox',b['nitrox']),('Traslado',b['pickup'])) if on) or 'Ninguno')]
-    for i,(lab,val) in enumerate(rows):
-        cx=56+(i%2)*168; cy=top-46-(i//2)*46
-        pg.text(cx,cy,lab.upper(),6.5,MUTED,True)
-        for j,ln in enumerate(pg.wrap(val,9.5,152,True,2)): pg.text(cx,cy-13-j*11,ln,9.5,INK,True)
-    qr=booking_check_url(db,booking_id,base_url)
-    try: pg.c+=_qr_cmds(qr,421,top-150,115)
-    except Exception: pg.box(421,top-150,115,115,WHITE,LINE,6); pg.text(478,top-95,ref,8,MUTED,True,align='center')
-    pg.text(478,top-22,'VERIFICAR · VERIFY',7.5,MUTED,True,align='center')
-    pg.text(478,top-174,'Muestra este QR en el centro',7.5,INK,True,align='center')
-    pg.text(478,top-185,'Show this QR at the centre',7,MUTED,align='center')
-    pg.text(478,top-205,ref,10,DEEP,True,align='center')
-    pg.text(478,top-218,'Válido sin conexión',6.5,MUTED,align='center')
-    # Payment
-    y0=top-256; lines=[]
-    try: lines=json.loads(b['price_breakdown'] or '[]') or []
-    except Exception: lines=[]
-    if not lines: lines=[{'label':b['service_title'] or 'Actividad','qty':b['participants'] or 1,'unit':float(b['price'] or 0)/max(1,int(b['participants'] or 1)),'total':float(b['price'] or 0)}]
-    lines=lines[:7]; h=78+len(lines)*18
-    pg.box(40,y0-h,515,h,WHITE,LINE,12)
-    pg.text(56,y0-22,'IMPORTE Y PAGO  ·  PAYMENT',7.5,MUTED,True)
-    yy=y0-42
+    pg.text(40, 674, pg.fit(b['service_title'] or t('Inmersión'), 22, 515, True), 22, INK, True)
+    pg.text(40, 655, pg.fit(t('Prestado por {provider}', provider=prov['name']) + (f" · {prov.get('city')}" if prov.get('city') else ''), 12, 515), 12, SEA, True)
+    when = mail_date(b['booking_date'], lang) + ' · ' + (b['booking_time'] or t('hora por confirmar'))
+    pg.text(40, 637, when[:1].upper() + when[1:], 10.5, MUTED)
+    # Details card + QR
+    top = 618; pg.box(40, top - 214, 350, 214, WHITE, LINE, 12); pg.box(402, top - 214, 153, 214, SOFT, None, 12)
+    pg.text(56, top - 22, t('Detalles').upper(), 7.5, MUTED, True)
+    eq = b['equipment_items'] or (t('Sí') if b['needs_equipment'] else t('Equipo propio'))
+    rows = [(t('Fecha'), '/'.join(reversed(str(b['booking_date'] or '').split('-'))) or '—'), (t('Hora'), b['booking_time'] or t('Por confirmar')),
+            (t('Punto de buceo'), b['point_name'] or t('A concretar con el centro')), (t('Buceadores'), str(b['participants'] or 1)),
+            (t('Titular'), (b['contact_name'] if is_guest_user(db, b['user_id']) and b['contact_name'] else b['fullname']) or '—'), (t('Contacto'), b['customer_phone'] or b['contact_phone'] or '—'),
+            (t('Equipo de alquiler'), eq), (t('Extras'), ', '.join(t(x) for x, on in (('Guía', b['needs_guide']), ('Nitrox', b['nitrox']), ('Traslado', b['pickup'])) if on) or t('Ninguno'))]
+    for i, (lab, val) in enumerate(rows):
+        cx = 56 + (i % 2) * 168; cy = top - 44 - (i // 2) * 42
+        pg.text(cx, cy, lab.upper(), 6.5, MUTED, True)
+        for j, ln in enumerate(pg.wrap(val, 9.5, 152, True, 2)): pg.text(cx, cy - 13 - j * 11, ln, 9.5, INK, True)
+    qr = booking_check_url(db, booking_id, base_url)
+    try: pg.c += _qr_cmds(qr, 421, top - 140, 115)
+    except Exception: pg.box(421, top - 140, 115, 115, WHITE, LINE, 6)
+    pg.text(478, top - 18, t('Verificar').upper(), 7.5, MUTED, True, align='center')
+    pg.text(478, top - 162, pg.fit(t('Muestra este QR en el centro'), 7.5, 140, True), 7.5, INK, True, align='center')
+    pg.text(478, top - 182, ref, 10, DEEP, True, align='center')
+    pg.text(478, top - 196, t('Válido sin conexión'), 6.5, MUTED, align='center')
+    # Amount and payment
+    y0 = top - 230; lines = []
+    try: lines = json.loads(b['price_breakdown'] or '[]') or []
+    except Exception: lines = []
+    if not lines: lines = [{'label': b['service_title'] or t('Actividad'), 'qty': b['participants'] or 1, 'unit': float(b['price'] or 0) / max(1, int(b['participants'] or 1)), 'total': float(b['price'] or 0)}]
+    lines = lines[:6]
+    paid = float(b['amount_paid'] or 0); refunded = float(b['refunded_total'] or 0); due = float(b['amount_due'] if b['amount_due'] is not None else max(0.0, float(b['price'] or 0) - paid))
+    extra_rows = []
+    if paid > 0:
+        how = f"{(po['card_brand'] or '').title()} ···· {po['card_last4']}" if po and po['card_last4'] else (b['payment_method'] or '')
+        extra_rows.append((t('Señal pagada') if b['payment_status'] == 'deposit_paid' else t('Pagado'), money(paid), how))
+    if due > 0.005 and state not in ('cancelled', 'rejected', 'expired'):
+        extra_rows.append((t('Pendiente de pago en el centro') if b['payment_status'] in ('deposit_paid', 'at_center') else t('Pendiente de pago'), money(due), ''))
+    if refunded > 0: extra_rows.append((t('Devuelto'), money(refunded), ''))
+    h = 92 + len(lines) * 18 + len(extra_rows) * 16
+    pg.box(40, y0 - h, 515, h, WHITE, LINE, 12)
+    pg.text(56, y0 - 22, t('Importe y pago').upper(), 7.5, MUTED, True)
+    yy = y0 - 42
     for l in lines:
-        pg.text(56,yy,pg.fit(l.get('label') or '',9.5,300),9.5,INK)
-        pg.text(400,yy,f"{l.get('qty') or 1} × {money(l.get('unit'))}",8.5,MUTED,align='right')
-        pg.text(539,yy,money(l.get('total')),9.5,INK,align='right'); yy-=18
-    pg.line(56,yy+8,539,yy+8)
-    pg.text(56,yy-8,'Total',11,INK,True); pg.text(539,yy-8,money(b['price']),13,INK,True,align='right')
-    if b['payment_status']=='paid':
-        how=(f"{(po['card_brand'] or 'Tarjeta').title()} ···· {po['card_last4']}" if po and po['card_last4'] else (b['payment_method'] or 'Registrado por el centro'))
-        paid=(f" · {po['paid_at'][:10]}" if po and po['paid_at'] else '')
-        note=f'Pagado con {how}{paid}'+(f"  ·  Ref. pago PAY-{po['id']:05d}" if po else '')
-    elif b['payment_status'] in ('at_center','required') and b['status']!='cancelled':
-        note='Importe a abonar en el centro el día de la actividad.' if b['payment_status']=='at_center' else 'Pago pendiente: complétalo online desde «Mi reserva».'
-    elif b['payment_status']=='not_required': note='Actividad sin coste.'
-    else: note=py[0].capitalize()
-    pg.text(56,yy-26,pg.fit(note,8.5,483),8.5,MUTED)
-    # Centre + before you dive
-    y1=y0-h-16; hb=150
-    pg.box(40,y1-hb,250,hb,SOFT,None,12); pg.box(302,y1-hb,253,hb,SOFT,None,12)
-    pg.text(56,y1-22,'CENTRO DE BUCEO  ·  DIVE CENTRE',7.5,MUTED,True)
-    pg.text(56,y1-40,pg.fit(b['center_name'],11.5,220,True),11.5,INK,True)
-    cy=y1-58
-    for lab,val in (('Dirección',', '.join(x for x in (b['center_address'],b['city'],b['center_country']) if x)),('Teléfono',b['center_phone']),('Email',b['center_email']),('Web',b['center_website'])):
+        pg.text(56, yy, pg.fit(l.get('label') or '', 9.5, 300), 9.5, INK)
+        pg.text(400, yy, f"{l.get('qty') or 1} × {money(l.get('unit'))}", 8.5, MUTED, align='right')
+        pg.text(539, yy, money(l.get('total')), 9.5, INK, align='right'); yy -= 18
+    pg.line(56, yy + 8, 539, yy + 8)
+    pg.text(56, yy - 8, t('Total'), 11, INK, True); pg.text(539, yy - 8, money(b['price']), 13, INK, True, align='right')
+    pg.text(56, yy - 22, t('Precio final fijado por el centro, impuestos incluidos.'), 7.5, MUTED)
+    yy -= 40
+    for lab, val, how in extra_rows:
+        pg.text(56, yy, lab, 9, INK, True); pg.text(539, yy, val, 9, INK, True, align='right')
+        if how: pg.text(300, yy, pg.fit(how, 8, 140), 8, MUTED, align='right')
+        yy -= 16
+    # Provider + platform + policy
+    y1 = y0 - h - 14; hb = 170
+    pg.box(40, y1 - hb, 250, hb, SOFT, None, 12); pg.box(302, y1 - hb, 253, hb, SOFT, None, 12)
+    pg.text(56, y1 - 20, t('Prestador del servicio').upper(), 7.5, MUTED, True)
+    pg.text(56, y1 - 37, pg.fit(prov.get('legal_name') or prov['name'], 11, 220, True), 11, INK, True)
+    cy = y1 - 53
+    addr = prov.get('fiscal_address') or ', '.join(x for x in (prov.get('address'), prov.get('city'), prov.get('country')) if x)
+    for lab, val in ((t('NIF'), prov.get('tax_id') or t('pendiente de completar por el prestador')), (t('Dirección'), addr), (t('Teléfono'), prov.get('phone')), (t('Email'), prov.get('email'))):
         if not val: continue
-        pg.text(56,cy,lab,7,MUTED,True)
-        for j,ln in enumerate(pg.wrap(val,8.5,160,False,2)): pg.text(112,cy-j*10.5,ln,8.5,INK)
-        cy-=12+10.5*(len(pg.wrap(val,8.5,160,False,2))-1)
-    pg.text(318,y1-22,'ANTES DE BUCEAR  ·  BEFORE YOU DIVE',7.5,MUTED,True)
-    tips=['Llega 15–20 minutos antes de la hora.','Lleva tu titulación y el seguro de buceo.','Documento de identidad o pasaporte.','Avisa al centro si no puedes acudir.','No bucees si te encuentras mal.']
-    ty=y1-42
-    for t in tips: pg.check(318,ty-1,(0.184,0.478,0.388)); pg.text(332,ty,t,8.5,INK); ty-=19
-    if b['notes']:
-        pg.text(318,ty-4,'Tus notas:',7,MUTED,True); pg.text(318,ty-15,pg.fit(b['notes'],8,222),8,INK)
+        wl = pg.wrap(val, 8.5, 150, False, 2)
+        pg.text(56, cy, lab, 7, MUTED, True)
+        for j, ln in enumerate(wl): pg.text(122, cy - j * 10.5, ln, 8.5, INK)
+        cy -= 12 + 10.5 * (len(wl) - 1)
+    legal = legal_settings(db)
+    plat = ' · '.join(x for x in (legal.get('owner_name'), legal.get('nif')) if x)
+    pg.text(56, y1 - hb + 26, pg.fit(t('WORLDIVES DISCOVERY: plataforma de reservas.'), 7.5, 220, True), 7.5, SEA, True)
+    if plat: pg.text(56, y1 - hb + 14, pg.fit(plat, 7, 220), 7, MUTED)
+    pg.text(318, y1 - 20, t('Política de cancelación').upper(), 7.5, MUTED, True)
+    pol = booking_policy(db, b, lang)
+    ty = y1 - 38
+    for ln in pg.wrap(pol['text'], 8.5, 222, False, 4): pg.text(318, ty, ln, 8.5, INK); ty -= 11
+    if pol['note']:
+        for ln in pg.wrap(pol['note'], 7.5, 222, False, 2): pg.text(318, ty, ln, 7.5, MUTED); ty -= 10
+    ty -= 8
+    pg.text(318, ty, t('Antes de bucear').upper(), 7.5, MUTED, True); ty -= 16
+    for tip in (t('Llega 15–20 minutos antes de la hora.'), t('Lleva tu titulación y el seguro de buceo.'), t('Documento de identidad o pasaporte.')):
+        pg.check(318, ty - 1, GOOD); pg.text(332, ty, pg.fit(tip, 8, 210), 8, INK); ty -= 14
     # Footer
-    pg.line(40,62,555,62)
-    pg.text(40,46,'Documento generado por WORLDIVES DISCOVERY. Escanea el QR para comprobar el estado actualizado de la reserva.',7,MUTED)
-    pg.text(40,35,'El QR no contiene datos personales. Este comprobante no es una factura.',7,MUTED)
-    pg.text(555,35,base_url.replace('https://','').replace('http://','').rstrip('/'),7,SEA,True,align='right')
+    pg.line(40, 62, 555, 62)
+    pg.text(40, 46, pg.fit(t('Este documento no es una factura.') + ' ' + t('Escanea el QR para comprobar el estado actualizado de la reserva.'), 7, 515), 7, MUTED)
+    pg.text(40, 35, t('El QR no contiene datos personales.'), 7, MUTED)
+    pg.text(555, 35, base_url.replace('https://', '').replace('http://', '').rstrip('/'), 7, SEA, True, align='right')
     return pg.pdf()
 
-def diver_sheet_pdf(db,booking_id,base_url="http://localhost:8000"):
-    b=db.execute("""SELECT b.*,u.fullname,u.email,up.phone AS customer_phone,up.city,up.emergency_contact_name,up.emergency_contact_phone,up.equipment_required,up.suit_type,up.suit_size,up.boot_size,up.bcd_size,up.fin_size,up.mask_size,up.usual_weight_kg,up.tank_preference,up.computer_preference,c.name AS certification_name,ce.name AS center_name,p.name AS point_name,s.title AS service_title FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN user_profiles up ON up.user_id=u.id LEFT JOIN certifications c ON c.id=up.certification_id JOIN centers ce ON ce.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?""",(booking_id,)).fetchone()
+
+def diver_sheet_pdf(db,booking_id,base_url="http://localhost:8000",lang="es"):
+    b=db.execute("""SELECT b.*,u.fullname,u.email,up.phone AS customer_phone,up.city,up.emergency_contact_name,up.emergency_contact_phone,up.equipment_required,up.suit_type,up.suit_size,up.boot_size,up.bcd_size,up.fin_size,up.mask_size,up.usual_weight_kg,up.tank_preference,up.computer_preference,c.name AS certification_name,COALESCE(ce.name,pu.fullname) AS center_name,p.name AS point_name,s.title AS service_title FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN user_profiles up ON up.user_id=u.id LEFT JOIN certifications c ON c.id=up.certification_id LEFT JOIN centers ce ON ce.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?""",(booking_id,)).fetchone()
     if not b:return None
     qr=booking_check_url(db,booking_id,base_url)
-    cmds=[]
-    cmds += _pdf_box(24,24,547,794,'1 1 1','0.86 0.89 0.91',16)
-    cmds += _pdf_box(24,748,547,70,'0.04 0.17 0.24',None,16)
-    cmds += _pdf_text(46,790,'WORLDIVES DISCOVERY',21,'1 1 1')
-    cmds += _pdf_text(46,773,'FICHA OPERATIVA DEL CENTRO',8,'0.78 0.88 0.91')
-    cmds += _pdf_text(46,725,'FICHA DEL BUCEADOR',17,'0.04 0.17 0.24')
-    cmds += _pdf_text(46,705,b['fullname'],10,'0.38 0.43 0.46')
-    cmds += _pdf_box(42,610,511,72,'0.94 0.97 0.98',None,10)
-    cmds += _pdf_text(58,660,'OPERACION',8,'0.38 0.43 0.46')
-    op=[('Centro',b['center_name']),('Fecha',b['booking_date']),('Hora',b['booking_time'] or 'Por confirmar'),('Punto',b['point_name'] or 'A concretar'),('Actividad',b['service_title'] or 'Inmersion'),('Participantes',str(b['participants']))]
+    d=wpdf.Document('Ficha del buceador',lang)
+    col=lambda c:tuple(float(x) for x in c.split()) if c else None
+    box=lambda x,y,w,h,fill='1 1 1',stroke=None,r=10:d.box(x,y,w,h,col(fill),col(stroke),r)
+    text=lambda x,y,s,size=10,color='0.04 0.17 0.24':d.text(x,y,s,size,col(color))
+    def lv(x,y,label,value): text(x,y,label.upper(),7,'0.38 0.43 0.46'); text(x,y-13,d.fit(value,9,145),9,'0.04 0.17 0.24')
+    box(24,24,547,794,'1 1 1','0.86 0.89 0.91',16)
+    box(24,748,547,70,'0.04 0.17 0.24',None,16)
+    text(46,790,'WORLDIVES DISCOVERY',21,'1 1 1')
+    text(46,773,'FICHA OPERATIVA DEL CENTRO',8,'0.78 0.88 0.91')
+    text(46,725,'FICHA DEL BUCEADOR',17,'0.04 0.17 0.24')
+    text(46,705,b['fullname'],10,'0.38 0.43 0.46')
+    box(42,610,511,72,'0.94 0.97 0.98',None,10)
+    text(58,660,'OPERACIÓN',8,'0.38 0.43 0.46')
+    op=[('Centro',b['center_name']),('Fecha',b['booking_date']),('Hora',b['booking_time'] or 'Por confirmar'),('Punto',b['point_name'] or 'A concretar'),('Actividad',b['service_title'] or 'Inmersión'),('Participantes',str(b['participants']))]
     for i,(lab,val) in enumerate(op):
-        x=58+(i%3)*165; y=640-(i//3)*30; cmds += _pdf_label_value(x,y,lab,str(val)[:24])
-    cmds += _pdf_box(42,378,330,214,'1 1 1','0.86 0.89 0.91',12)
-    cmds += _pdf_text(58,568,'DATOS DEL BUCEADOR',8,'0.38 0.43 0.46')
-    diver=[('Nombre',b['fullname']),('Email',b['email'] or '—'),('Telefono',b['customer_phone'] or '—'),('Ciudad',b['city'] or '—'),('Titulacion',b['certification_name'] or 'No indicada'),('Emergencia',' · '.join([x for x in [b['emergency_contact_name'],b['emergency_contact_phone']] if x]) or '—')]
+        x=58+(i%3)*165; y=640-(i//3)*30; lv(x,y,lab,str(val))
+    box(42,378,330,214,'1 1 1','0.86 0.89 0.91',12)
+    text(58,568,'DATOS DEL BUCEADOR',8,'0.38 0.43 0.46')
+    diver=[('Nombre',b['fullname']),('Email',b['email'] or '—'),('Teléfono',b['customer_phone'] or '—'),('Ciudad',b['city'] or '—'),('Titulación',b['certification_name'] or 'No indicada'),('Emergencia',' · '.join([x for x in [b['emergency_contact_name'],b['emergency_contact_phone']] if x]) or '—')]
     for i,(lab,val) in enumerate(diver):
-        x=58+(i%2)*155; y=540-(i//2)*42; cmds += _pdf_label_value(x,y,lab,str(val)[:28])
-    cmds += _pdf_box(42,180,330,180,'1 1 1','0.86 0.89 0.91',12)
-    cmds += _pdf_text(58,336,'EQUIPO Y PREFERENCIAS',8,'0.38 0.43 0.46')
-    equip=[('Equipo','Si' if b['equipment_required'] else 'No'),('Traje / talla',' · '.join([x for x in [b['suit_type'],b['suit_size']] if x]) or '—'),('Botas',b['boot_size'] or '—'),('Chaleco',b['bcd_size'] or '—'),('Aletas',b['fin_size'] or '—'),('Mascara',b['mask_size'] or '—'),('Botella',b['tank_preference'] or '—'),('Ordenador',b['computer_preference'] or '—')]
+        x=58+(i%2)*155; y=540-(i//2)*42; lv(x,y,lab,str(val))
+    box(42,180,330,180,'1 1 1','0.86 0.89 0.91',12)
+    text(58,336,'EQUIPO Y PREFERENCIAS',8,'0.38 0.43 0.46')
+    equip=[('Equipo','Sí' if b['equipment_required'] else 'No'),('Traje / talla',' · '.join([x for x in [b['suit_type'],b['suit_size']] if x]) or '—'),('Botas',b['boot_size'] or '—'),('Chaleco',b['bcd_size'] or '—'),('Aletas',b['fin_size'] or '—'),('Máscara',b['mask_size'] or '—'),('Botella',b['tank_preference'] or '—'),('Ordenador',b['computer_preference'] or '—')]
     for i,(lab,val) in enumerate(equip):
-        x=58+(i%2)*155; y=312-(i//2)*35; cmds += _pdf_label_value(x,y,lab,str(val)[:27])
-    cmds += _pdf_box(393,378,160,180,'1 1 1','0.86 0.89 0.91',12)
-    cmds += _pdf_text(410,536,'VALIDAR RESERVA',8,'0.38 0.43 0.46')
-    cmds += _qr_cmds(qr,416,410,110)
-    cmds += _pdf_text(410,395,'Escanea el QR',9,'0.04 0.17 0.24')
-    cmds += _pdf_text(410,381,'para comprobar',7,'0.38 0.43 0.46')
-    cmds += _pdf_text(410,369,'el estado.',7,'0.38 0.43 0.46')
-    cmds += _pdf_box(393,180,160,180,'0.94 0.97 0.98',None,12)
-    cmds += _pdf_text(410,336,'RESERVA',8,'0.38 0.43 0.46')
-    cmds += _pdf_text(410,312,f'#{booking_id}',13,'0.04 0.17 0.24')
-    cmds += _pdf_text(410,285,'Centro',7,'0.38 0.43 0.46')
-    cmds += _pdf_text(410,270,str(b['center_name'] or '—')[:20],9,'0.04 0.17 0.24')
-    cmds += _pdf_text(410,244,'Uso interno del centro',7,'0.38 0.43 0.46')
-    cmds += _pdf_text(42,110,'WORLDIVES DISCOVERY · Ficha operativa de la reserva',7,'0.38 0.43 0.46')
-    cmds += _pdf_text(42,91,'El QR sirve para verificar la reserva y no contiene datos personales sensibles.',7,'0.38 0.43 0.46')
-    return _pdf_objects('\n'.join(cmds).encode('cp1252','replace'))
+        x=58+(i%2)*155; y=312-(i//2)*35; lv(x,y,lab,str(val))
+    box(393,378,160,180,'1 1 1','0.86 0.89 0.91',12)
+    text(410,536,'VALIDAR RESERVA',8,'0.38 0.43 0.46')
+    d.c += _qr_cmds(qr,416,410,110)
+    text(410,395,'Escanea el QR',9,'0.04 0.17 0.24')
+    text(410,381,'para comprobar',7,'0.38 0.43 0.46')
+    text(410,369,'el estado.',7,'0.38 0.43 0.46')
+    box(393,180,160,180,'0.94 0.97 0.98',None,12)
+    text(410,336,'RESERVA',8,'0.38 0.43 0.46')
+    text(410,312,f'#{booking_id}',13,'0.04 0.17 0.24')
+    text(410,285,'Centro',7,'0.38 0.43 0.46')
+    text(410,270,str(b['center_name'] or '—')[:20],9,'0.04 0.17 0.24')
+    text(410,244,'Uso interno del centro',7,'0.38 0.43 0.46')
+    text(42,110,'WORLDIVES DISCOVERY · Ficha operativa de la reserva',7,'0.38 0.43 0.46')
+    text(42,91,'El QR sirve para verificar la reserva y no contiene datos personales sensibles.',7,'0.38 0.43 0.46')
+    return d.pdf()
 
 
 from wod import ops as wops
@@ -4464,16 +4956,32 @@ class Handler(BaseHTTPRequestHandler):
                 if path == '/api/site-media':
                     self.send_json(resolve_site_media(SITE_MEDIA.get(db),query.get('h',['n'])[0],query.get('theme',[None])[0] or None)); return
                 if path == '/api/admin/payments':
+                    # Fase 2: the administrator sees payments and refunds (money goes straight to each provider) and marks incidents.
                     user=require_user(self,db); require_role(user,{'admin'}); st=clean_text(query.get('status',[''])[0],20) or ''
-                    where='WHERE po.status=?' if st else ''; args=(st,) if st else ()
-                    rows=db.execute(f'''SELECT po.id,po.booking_id,po.amount,po.currency,po.status,po.created_at,po.paid_at,po.amount_received,po.card_brand,po.card_last4,po.receipt_url,po.platform_fee,
-                                               u.fullname,u.email,c.name AS center_name,b.status AS booking_status,b.payment_status AS booking_payment
+                    conds=[]; args=[]
+                    if st=='incident': conds.append("po.incident IS NOT NULL AND po.incident<>'resolved'")
+                    elif st: conds.append('po.status=?'); args.append(st)
+                    where=('WHERE '+' AND '.join(conds)) if conds else ''
+                    rows=db.execute(f'''SELECT po.id,po.booking_id,po.experience_booking_id,po.amount,po.currency,po.status,po.created_at,po.paid_at,po.amount_received,po.card_brand,po.card_last4,po.receipt_url,
+                                               po.charge_type,po.payment_kind,po.refunded_total,po.incident,po.incident_note,po.payee_type,
+                                               u.fullname,u.email,COALESCE(c.name,pu.fullname) AS center_name,b.status AS booking_status,b.payment_status AS booking_payment,b.refund_status,b.refund_proposed
                                           FROM payment_orders po JOIN users u ON u.id=po.user_id LEFT JOIN bookings b ON b.id=po.booking_id
                                           LEFT JOIN provider_services s ON s.id=po.service_id LEFT JOIN centers c ON c.id=COALESCE(b.center_id,s.center_id)
-                                          {where} ORDER BY CASE po.status WHEN 'review' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, po.id DESC LIMIT 400''',args).fetchall()
+                                          LEFT JOIN users pu ON pu.id=COALESCE(b.provider_user_id,po.provider_user_id)
+                                          {where} ORDER BY CASE WHEN po.incident IS NOT NULL AND po.incident<>'resolved' THEN 0 WHEN po.status='review' THEN 1 WHEN po.status='pending' THEN 2 ELSE 3 END, po.id DESC LIMIT 400''',args).fetchall()
                     sums={r['status']:{'n':r['n'],'amount':round(r['a'] or 0,2)} for r in db.execute("SELECT status,COUNT(*) n,SUM(COALESCE(amount_received,amount)) a FROM payment_orders GROUP BY status").fetchall()}
-                    fee=db.execute("SELECT COALESCE(SUM(platform_fee),0) FROM payment_orders WHERE status='paid'").fetchone()[0]
-                    self.send_json({'items':[dict(r) for r in rows],'summary':sums,'platform_fees':round(fee or 0,2),'stripe_ready':bool(stripe_secret()),'webhook_ready':bool(os.environ.get('STRIPE_WEBHOOK_SECRET','').strip())}); return
+                    # «Ingresos» of the providers, by currency (never added across currencies). WORLDIVES takes no commission.
+                    income=[dict(r) for r in db.execute("""SELECT UPPER(COALESCE(currency,'EUR')) currency,COUNT(*) n,ROUND(SUM(COALESCE(amount_received,amount)),2) gross,ROUND(SUM(COALESCE(refunded_total,0)),2) refunded
+                                                         FROM payment_orders WHERE status IN ('paid','partially_refunded','refunded') GROUP BY 1 ORDER BY 3 DESC""").fetchall()]
+                    for r_ in income: r_['net']=round((r_['gross'] or 0)-(r_['refunded'] or 0),2)
+                    refunds=[dict(r) for r in db.execute('''SELECT r.id,r.payment_order_id,r.booking_id,r.amount,r.currency,r.reason,r.note,r.status,r.source,r.created_at,COALESCE(c.name,pu.fullname) AS center_name
+                                                             FROM payment_refunds r LEFT JOIN bookings b ON b.id=r.booking_id LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id
+                                                            ORDER BY r.id DESC LIMIT 200''').fetchall()]
+                    proposed=[dict(r) for r in db.execute('''SELECT b.id AS booking_id,b.refund_proposed,b.refund_status,b.refund_proposed_at,b.currency,COALESCE(c.name,pu.fullname) AS center_name
+                                                              FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id
+                                                             WHERE b.refund_status IN ('proposed','failed') ORDER BY b.refund_proposed_at LIMIT 200''').fetchall()]
+                    self.send_json({'items':[dict(r) for r in rows],'summary':sums,'income':income,'refunds':refunds,'pending_refunds':proposed,'stripe_ready':bool(stripe_secret()),
+                                    'webhook_ready':bool(os.environ.get('STRIPE_WEBHOOK_SECRET','').strip()),'connect_webhook_ready':bool(os.environ.get('STRIPE_CONNECT_WEBHOOK_SECRET','').strip())}); return
                 if path == '/api/admin/site-themes':
                     user=require_user(self,db); require_role(user,{'admin'}); snap=_build_site_media(db)
                     md=_dt.date.today().strftime('%m-%d')
@@ -4485,7 +4993,11 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(public_promos(db)); return
                 if path == '/api/admin/site-promos':
                     user=require_user(self,db); require_role(user,{'admin'})
-                    self.send_json({'items':[dict(r) for r in db.execute('SELECT * FROM site_promos ORDER BY kind,sort_order,id').fetchall()],
+                    items=[dict(r) for r in db.execute('SELECT * FROM site_promos ORDER BY kind,sort_order,id').fetchall()]
+                    for it in items:
+                        sp=db.execute("SELECT sponsor_name,sponsor_contact,amount,currency,notes FROM sponsorships WHERE placement=? AND ref_id=? AND ended_at IS NULL ORDER BY id DESC LIMIT 1",('band' if it['kind']=='partner' else 'offer',it['id'])).fetchone()
+                        it['sponsor']=dict(sp) if sp else None
+                    self.send_json({'items':items,'sponsorships':[dict(r) for r in db.execute('SELECT * FROM sponsorships ORDER BY id DESC LIMIT 300').fetchall()],
                                     'settings':{r['key']:r['value'] for r in db.execute("SELECT key,value FROM site_settings WHERE key LIKE 'partners_%'").fetchall()}}); return
                 if path == '/api/center/planning':
                     user=require_user(self,db); require_role(user,{'center','freelance'})
@@ -4586,22 +5098,21 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(result); return
                 if path.startswith('/api/payments/session/'):
                     user=require_user(self,db); sid=path.rsplit('/',1)[1]
-                    q='''SELECT po.*,s.title AS service_title,c.name AS center_name,b.id AS booking_id,b.status AS booking_status,b.booking_date,b.booking_time,b.participants
-                         FROM payment_orders po LEFT JOIN provider_services s ON s.id=po.service_id LEFT JOIN centers c ON c.id=s.center_id LEFT JOIN bookings b ON b.id=po.booking_id
+                    q='''SELECT po.*,s.title AS service_title,COALESCE(c.name,pu.fullname) AS center_name,b.id AS booking_id,b.status AS booking_status,b.booking_date,b.booking_time,b.participants,b.amount_due,b.deposit_amount
+                         FROM payment_orders po LEFT JOIN provider_services s ON s.id=po.service_id LEFT JOIN centers c ON c.id=s.center_id LEFT JOIN users pu ON pu.id=po.provider_user_id LEFT JOIN bookings b ON b.id=po.booking_id
                          WHERE po.provider_payment_id=? AND po.user_id=?'''
                     row=db.execute(q,(sid,user['id'])).fetchone()
                     if not row: self.send_json({'error':'Pago no encontrado'},404); return
                     if row['status']=='pending' and stripe_secret():
                         # Do not wait for the webhook: ask Stripe directly so the diver sees the confirmation at once.
                         try:
-                            stripe=stripe_module()
-                            sess=stripe.checkout.Session.retrieve(sid,expand=['payment_intent.latest_charge'])
                             order=db.execute('SELECT * FROM payment_orders WHERE id=?',(row['id'],)).fetchone()
+                            sess=stripe_session(order)
                             ok_,why=finalize_paid_order(db,order,sess,'return'); db.commit()
                             row=db.execute(q,(sid,user['id'])).fetchone()
                         except Exception as exc: sys.stderr.write(f'[pagos] verificación al volver de Stripe: {exc}\n')
                     d=dict(row)
-                    for k in ('connected_account_id','checkout_url','platform_fee','provider_payment_id'): d.pop(k,None)
+                    for k in ('connected_account_id','checkout_url','platform_fee','provider_payment_id','payment_intent_id','charge_type','payee_type','payee_id','incident','incident_note','incident_at','incident_by','provider_user_id'): d.pop(k,None)
                     d['reference']=f"PAY-{d['id']:05d}"
                     d['booking_ref']=f"WOD-{int(d['booking_id']):06d}" if d.get('booking_id') else ''
                     self.send_json({'payment':d}); return
@@ -4611,7 +5122,12 @@ class Handler(BaseHTTPRequestHandler):
                     bookings=db.execute(f'''SELECT b.*,COALESCE(b.contact_name,u.fullname) AS fullname,u.email,s.title AS service_title,p.name AS point_name FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.center_id=? AND b.status NOT IN ('payment_in_progress','expired') ORDER BY b.booking_date,b.booking_time''',(cid,)).fetchall()
                     today=time.strftime('%Y-%m-%d'); total=len(bookings)
                     upcoming=[b for b in bookings if (b['booking_date'] or '')>=today and b['status'] not in ('cancelled','rejected','completed')]
-                    revenue=sum(float(b['price'] or 0) for b in bookings if b['payment_status']=='paid')
+                    # «Ingresos» (never «Facturación»): what clients actually paid, net of refunds, per currency.
+                    income={}
+                    for b_ in bookings:
+                        amt=float(b_['amount_paid'] or 0)-float(b_['refunded_total'] or 0)
+                        if amt>0: cur_=(b_['currency'] or 'EUR').upper(); income[cur_]=round(income.get(cur_,0)+amt,2)
+                    revenue=max(income.values()) if income else 0.0
                     pending=sum(1 for b in bookings if b['status'] in ('pending','requested')); confirmed=sum(1 for b in bookings if b['status']=='confirmed'); completed=sum(1 for b in bookings if b['status']=='completed'); cancelled=sum(1 for b in bookings if b['status']=='cancelled')
                     participants=sum(int(b['participants'] or 1) for b in bookings if b['status'] not in ('cancelled','rejected'))
                     by_day={}; by_service={}
@@ -4623,7 +5139,7 @@ class Handler(BaseHTTPRequestHandler):
                         src=(b['source'] if 'source' in b.keys() else None) or ('web' if (b['external_ref'] or '') else 'online')
                         channels[{'web':'Web del centro','manual':'Manual'}.get(src,'WORLDIVES')]+=1
                     integ=db.execute('SELECT enabled,api_key_prefix,updated_at FROM center_integrations WHERE center_id=?',(cid,)).fetchone()
-                    self.send_json({'metrics':{'total':total,'upcoming':len(upcoming),'pending':pending,'confirmed':confirmed,'completed':completed,'cancelled':cancelled,'revenue':round(revenue,2),'participants':participants},'by_day':[{'date':k,'participants':v} for k,v in sorted(by_day.items())[-30:]],'by_service':[{'name':k,'participants':v} for k,v in sorted(by_service.items(),key=lambda x:x[1],reverse=True)[:8]],'channels':channels,'integration':dict(integ) if integ else {'enabled':False}}); return
+                    self.send_json({'metrics':{'total':total,'upcoming':len(upcoming),'pending':pending,'confirmed':confirmed,'completed':completed,'cancelled':cancelled,'revenue':round(revenue,2),'income':[{'currency':k,'amount':v} for k,v in sorted(income.items(),key=lambda x:-x[1])],'participants':participants},'by_day':[{'date':k,'participants':v} for k,v in sorted(by_day.items())[-30:]],'by_service':[{'name':k,'participants':v} for k,v in sorted(by_service.items(),key=lambda x:x[1],reverse=True)[:8]],'channels':channels,'integration':dict(integ) if integ else {'enabled':False}}); return
                 if path == '/api/center/integration':
                     user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
                     row=db.execute('SELECT enabled,api_key_prefix,updated_at,created_at FROM center_integrations WHERE center_id=?',(cid,)).fetchone()
@@ -4659,7 +5175,7 @@ class Handler(BaseHTTPRequestHandler):
                     for chunk in [slot_ids[i:i+500] for i in range(0,len(slot_ids),500)]:
                         for pp in db.execute(f"SELECT sp.slot_id,p.id,p.name,p.country,p.region FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id IN ({','.join('?'*len(chunk))}) AND p.active=1 ORDER BY p.name",chunk).fetchall():
                             points_by_slot.setdefault(pp['slot_id'],[]).append({'id':pp['id'],'name':pp['name'],'country':pp['country'],'region':pp['region']})
-                    ready_cache={}
+                    ready_cache={}; payee_cache={}
                     for r in rows:
                         d=dict(r)
                         tariff_price, tariff_currency, tariff_effective = effective_service_tariff(db, r['id'])
@@ -4667,6 +5183,9 @@ class Handler(BaseHTTPRequestHandler):
                         rk=(r['center_id'],r['provider_user_id'] if not r['center_id'] else None)
                         if rk not in ready_cache: ready_cache[rk]=service_payments_ready(db,r)
                         d.update(service_mode_info(db,r,tariff_price,ready_cache[rk]))
+                        if rk not in payee_cache: payee_cache[rk]=payee_of(db,r['center_id'],r['provider_user_id'])
+                        pol_=provider_policy(payee_cache[rk],r); d['policy']={'free_hours':pol_['free_hours'],'refund_pct':pol_['refund_pct'],'text':pol_['text'],'note':pol_['note'],'own':r['cancel_free_hours'] is not None}
+                        d['provider_name']=(payee_cache[rk] or {}).get('name') or d.get('center_name') or d.get('provider_name')
                         if include_inactive: d['experience']=exp_by_service.get(r['id'])
                         d['slots']=slots_by_service.get(r['id'],[])
                         for sd in d['slots']: sd['points']=points_by_slot.get(sd['id'],[])
@@ -4680,6 +5199,7 @@ class Handler(BaseHTTPRequestHandler):
                     rd=dict(r); tariff_price, tariff_currency, tariff_effective=effective_service_tariff(db, sid)
                     rd['price']=tariff_price; rd['currency']=tariff_currency; rd['tariff_effective_from']=tariff_effective
                     rd.update(service_mode_info(db,r,tariff_price))
+                    _pol=provider_policy(payee_of(db,r['center_id'],r['provider_user_id']),r); rd['policy']={'free_hours':_pol['free_hours'],'refund_pct':_pol['refund_pct'],'text':_pol['text'],'note':_pol['note']}
                     slots=db.execute("SELECT * FROM service_slots WHERE service_id=? AND status IN ('open','full','closed') ORDER BY slot_date,slot_time",(sid,)).fetchall()
                     slot_out=[]
                     for x in slots:
@@ -4693,17 +5213,33 @@ class Handler(BaseHTTPRequestHandler):
                         hist=db.execute('SELECT id,price,currency,effective_from,active,created_at FROM center_tariffs WHERE center_id=? AND service_id=? ORDER BY effective_from DESC,id DESC',(cid,svc['id'])).fetchall()
                         out.append({'service':dict(svc),'history':[dict(x) for x in hist]})
                     self.send_json({'items':out}); return
-                if path=='/api/payments/center':
-                    user=require_user(self,db); require_role(user,{'center','admin'})
-                    cid=int(user['center_id'] or 0) if user['role']=='center' else int(query.get('center_id',['0'])[0] or 0)
-                    rows=db.execute('''SELECT po.*,s.title AS service_title,c.name AS center_name,u.fullname AS customer_name,u.email AS customer_email
-                                      FROM payment_orders po
-                                      LEFT JOIN provider_services s ON s.id=po.service_id
-                                      LEFT JOIN centers c ON c.id=s.center_id
-                                      JOIN users u ON u.id=po.user_id
-                                      WHERE (c.id=? OR po.booking_id IN (SELECT id FROM bookings WHERE center_id=?))
-                                      ORDER BY po.id DESC LIMIT 200''',(cid,cid)).fetchall()
-                    self.send_json({'items':[dict(x) for x in rows]}); return
+                if path in ('/api/payments/center','/api/provider/payments'):
+                    # Payments of a provider (centre or freelance without centre): operations, refunds to make and its settings.
+                    user=require_user(self,db); require_role(user,{'center','freelance','admin'})
+                    payee=self_payee(db,user,{k:v[0] for k,v in query.items()})
+                    if payee['type']=='center':
+                        where,args='(po.payee_type=\'center\' AND po.payee_id=?) OR po.booking_id IN (SELECT id FROM bookings WHERE center_id=?) OR s.center_id=?',(payee['id'],payee['id'],payee['id'])
+                        bk_scope,bk_args='b.center_id=?',[payee['id']]
+                    else:
+                        where,args='(po.payee_type=\'freelance\' AND po.payee_id=?) OR po.booking_id IN (SELECT id FROM bookings WHERE center_id IS NULL AND provider_user_id=?)',(payee['id'],payee['id'])
+                        bk_scope,bk_args='(b.center_id IS NULL AND b.provider_user_id=?)',[payee['id']]
+                    rows=db.execute(f'''SELECT po.id,po.booking_id,po.experience_booking_id,po.amount,po.currency,po.status,po.created_at,po.paid_at,po.amount_received,po.refunded_total,
+                                              po.payment_kind,po.charge_type,po.card_brand,po.card_last4,po.incident,s.title AS service_title,COALESCE(b.contact_name,u.fullname) AS customer_name
+                                         FROM payment_orders po LEFT JOIN provider_services s ON s.id=po.service_id LEFT JOIN bookings b ON b.id=po.booking_id
+                                         JOIN users u ON u.id=po.user_id WHERE {where} ORDER BY po.id DESC LIMIT 300''',args).fetchall()
+                    income={}
+                    for r_ in rows:
+                        if r_['status'] in ('paid','partially_refunded','refunded'):
+                            cur_=(r_['currency'] or 'EUR').upper(); e_=income.setdefault(cur_,{'currency':cur_,'gross':0.0,'refunded':0.0,'n':0})
+                            e_['gross']=round(e_['gross']+float(r_['amount_received'] or r_['amount'] or 0),2); e_['refunded']=round(e_['refunded']+float(r_['refunded_total'] or 0),2); e_['n']+=1
+                    for e_ in income.values(): e_['net']=round(e_['gross']-e_['refunded'],2)
+                    pending=[dict(r) for r in db.execute(f"""SELECT b.id,b.booking_date,b.booking_time,b.refund_proposed,b.refund_status,b.refund_proposed_at,b.currency,COALESCE(b.contact_name,u.fullname) AS customer_name,s.title AS service_title
+                                                             FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
+                                                            WHERE {bk_scope} AND b.refund_status IN ('proposed','failed') ORDER BY b.refund_proposed_at""",bk_args).fetchall()]
+                    pol=provider_policy(payee)
+                    self.send_json({'items':[dict(x) for x in rows],'income':sorted(income.values(),key=lambda x:-x['net']),'pending_refunds':pending,
+                                    'profile':{'type':payee['type'],'name':payee['name'],'legal_name':payee.get('legal_name') or '','tax_id':payee.get('tax_id') or '','fiscal_address':payee.get('fiscal_address') or '',
+                                               'cancel_free_hours':pol['free_hours'],'cancel_refund_pct':pol['refund_pct'],'cancellation_note':pol['note'],'policy_text':pol['text']}}); return
                 if path=='/api/my/position-suggestions':
                     user=require_user(self,db); require_role(user,{'center','freelance','admin'}); rows=db.execute('''SELECT s.*, p.name AS point_name FROM point_position_suggestions s JOIN dive_points p ON p.id=s.dive_point_id WHERE s.user_id=? ORDER BY s.created_at DESC''',(user['id'],)).fetchall(); self.send_json({'items':[dict(r) for r in rows]}); return
                 if path=='/api/admin/travel-experiences':
@@ -4715,10 +5251,13 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({'items':[dict(r) for r in rows]}); return
                 if path == '/api/booking-quote':
                     cid=int(query.get('center_id',['0'])[0] or 0); sid=int(query.get('service_id',['0'])[0] or 0); slot_id=int(query.get('slot_id',['0'])[0] or 0)
-                    service=db.execute('SELECT * FROM provider_services WHERE id=? AND center_id=? AND active=1',(sid,cid)).fetchone() if sid else None
+                    if cid: service=db.execute('SELECT * FROM provider_services WHERE id=? AND center_id=? AND active=1',(sid,cid)).fetchone() if sid else None
+                    else: service=db.execute('SELECT * FROM provider_services WHERE id=? AND center_id IS NULL AND active=1',(sid,)).fetchone() if sid else None  # freelance
                     slot=db.execute('SELECT slot_date FROM service_slots WHERE id=? AND service_id=?',(slot_id,sid)).fetchone() if slot_id and sid else None
-                    total,currency,lines=booking_quote(db,cid,service,query.get('participants',['1'])[0],slot['slot_date'] if slot else None,as_list(query.get('extras',[''])[0]),as_list(query.get('equipment',[''])[0]))
-                    self.send_json({'total':total,'currency':currency,'lines':lines}); return
+                    pax=max(1,int(query.get('participants',['1'])[0] or 1))
+                    total,currency,lines=booking_quote(db,cid or None,service,pax,slot['slot_date'] if slot else None,as_list(query.get('extras',[''])[0]),as_list(query.get('equipment',[''])[0]))
+                    dep=deposit_for(service,total,pax)
+                    self.send_json({'total':total,'currency':currency,'lines':lines,'deposit':dep,'due_at_center':round(total-dep,2) if dep else 0}); return
                 if path == '/api/service-templates':
                     user=require_user(self,db); require_role(user,{'center','freelance'})
                     rows=db.execute('SELECT * FROM service_templates WHERE provider_user_id=? ORDER BY name COLLATE NOCASE',(user['id'],)).fetchall()
@@ -4896,17 +5435,17 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({'items':[center_row(r) for r in rows]}); return
                 if path.startswith('/api/bookings/') and (path.endswith('/receipt') or path.endswith('/receipt.pdf')):
                     user=require_user(self,db); bid=int(path.split('/')[3])
-                    b=db.execute('SELECT user_id,center_id FROM bookings WHERE id=?',(bid,)).fetchone()
+                    b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta reserva.')
-                    if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
-                    raw=booking_pdf(db,bid,self.base_url())
+                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise PermissionError('No puedes consultar esta reserva.')
+                    lang=normalize_lang(clean_text(query.get('lang',[''])[0],5) or user_lang(db,user['id']))
+                    raw=booking_pdf(db,bid,self.base_url(),lang)
                     if raw is None: self.send_json({'error':'Reserva no encontrada'},404); return
                     self.send_bytes(raw,'application/pdf',f'WORLDIVES-reserva-{bid}.pdf'); return
                 if path == '/api/me/area':
                     user=require_user(self,db); uid=user['id']
-                    bookings=db.execute('''SELECT b.*,c.name AS center_name,c.city,c.phone AS center_phone,c.email AS center_email,c.address AS center_address,p.name AS point_name,s.title AS service_title,s.response_hours
-                                          FROM bookings b JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id
+                    bookings=db.execute('''SELECT b.*,COALESCE(c.name,pu.fullname) AS center_name,c.city,c.phone AS center_phone,COALESCE(c.email,pu.email) AS center_email,c.address AS center_address,p.name AS point_name,s.title AS service_title,s.response_hours
+                                          FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id
                                           WHERE b.user_id=? ORDER BY b.booking_date DESC,b.booking_time DESC,b.id DESC''',(uid,)).fetchall()
                     bookings=[dict(dict(x),**booking_view_status(x),mode_label=wbk.mode_label(x['booking_mode'] or 'request',x['response_hours'])) for x in bookings]
                     exps=db.execute('''SELECT eb.*,e.title,e.summary,e.start_date,e.end_date,e.price,e.currency,e.includes,e.conditions,
@@ -4918,7 +5457,7 @@ class Handler(BaseHTTPRequestHandler):
                                        ORDER BY COALESCE(e.start_date,'9999-12-31'),eb.id DESC''',(uid,)).fetchall()
                     msgs=db.execute('''SELECT m.*,u.fullname AS sender_name,c.name AS booking_center_name
                                        FROM messages m JOIN users u ON u.id=m.sender_user_id LEFT JOIN bookings b ON b.id=m.booking_id
-                                       LEFT JOIN centers c ON c.id=b.center_id WHERE m.recipient_user_id=? ORDER BY m.created_at DESC,m.id DESC''',(uid,)).fetchall()
+                                       LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id WHERE m.recipient_user_id=? ORDER BY m.created_at DESC,m.id DESC''',(uid,)).fetchall()
                     unread=sum(1 for m in msgs if not m['read_at'])
                     self.send_json({'bookings':bookings,'experience_bookings':[dict(x) for x in exps],'messages':[dict(x) for x in msgs],'unread_messages':unread}); return
                 if path == '/api/messages':
@@ -4927,66 +5466,74 @@ class Handler(BaseHTTPRequestHandler):
                     # G4: the booking check page (QR) needs the owner's or the centre's session, or the long random token
                     # printed in the QR / PDF. It never returns the user id nor the surname.
                     bid=int(path.rsplit('/',1)[1]); token=clean_text(query.get('t',[''])[0],80) or ''
-                    b=db.execute("""SELECT b.id,b.user_id,b.center_id,b.public_token,b.booking_date,b.booking_time,b.participants,b.status,b.payment_status,b.price,b.currency,
-                                           COALESCE(b.contact_name,u.fullname) AS fullname,c.name AS center_name,c.city AS center_city,p.name AS point_name
-                                    FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id
+                    b=db.execute("""SELECT b.id,b.user_id,b.center_id,b.provider_user_id,b.public_token,b.booking_date,b.booking_time,b.participants,b.status,b.payment_status,b.price,b.currency,
+                                           COALESCE(b.contact_name,u.fullname) AS fullname,COALESCE(c.name,pu.fullname) AS center_name,c.city AS center_city,p.name AS point_name
+                                    FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id
                                     LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.id=?""",(bid,)).fetchone()
                     viewer=current_user(self,db)
                     allowed=bool(b) and ((token and b['public_token'] and wsec.constant_time_equals(token,b['public_token']))
-                                         or (viewer and (viewer['id']==b['user_id'] or viewer['role']=='admin' or (viewer['role']=='center' and viewer['center_id']==b['center_id']))))
+                                         or (viewer and (viewer['id']==b['user_id'] or viewer['role']=='admin' or can_manage_booking(viewer,b))))
                     if not allowed: self.send_json({'error':'Reserva no encontrada'},404); return
                     d={k:b[k] for k in ('id','booking_date','booking_time','participants','status','payment_status','price','currency','center_name','center_city','point_name')}
                     d['customer']=short_name(b['fullname']); d['ref']=f"WOD-{b['id']:06d}"; d['status_label']=booking_status_label(b['status'])
                     self.send_json({'booking':d}); return
                 if path.startswith('/api/bookings/') and path.endswith('/diver-sheet.pdf'):
-                    user=require_user(self,db); bid=int(path.split('/')[3]); b=db.execute('SELECT user_id,center_id FROM bookings WHERE id=?',(bid,)).fetchone()
+                    user=require_user(self,db); bid=int(path.split('/')[3]); b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
-                    if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta ficha.')
-                    if user['role']=='center' and not center_can_see_user(db,b['center_id'],b['user_id']) and not is_guest_user(db,b['user_id']):
+                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise PermissionError('No puedes consultar esta ficha.')
+                    if user['role'] in ('center','freelance') and b['user_id']!=user['id'] and not provider_can_see_user(db,b) and not is_guest_user(db,b['user_id']):
                         raise PermissionError('Este cliente no ha compartido su ficha de buceador con tu centro.')
                     if user['role']=='admin': audit(db,user['id'],'diver_sheet_viewed','booking',bid); db.commit()
                     raw=diver_sheet_pdf(db,bid,self.base_url()); self.send_bytes(raw,'application/pdf',f'WORLDIVES-ficha-buceador-{bid}.pdf'); return
                 if path.startswith('/api/bookings/') and path.endswith('/qr.svg'):
                     user=require_user(self,db); bid=int(path.split('/')[3])
-                    b=db.execute('SELECT user_id,center_id FROM bookings WHERE id=?',(bid,)).fetchone()
+                    b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta reserva.')
-                    if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
+                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise PermissionError('No puedes consultar esta reserva.')
                     self.send_bytes(qr_svg(booking_check_url(db,bid,self.base_url())),'image/svg+xml; charset=utf-8'); return
                 if path.startswith('/api/bookings/') and path.count('/')==3:
                     user=require_user(self,db); bid=int(path.rsplit('/',1)[1])
-                    b=db.execute('''SELECT b.*, u.fullname, u.email, u.username, c.name AS center_name, c.city AS center_city, c.phone AS center_phone, c.email AS center_email, c.website AS center_website, c.address AS center_address, p.name AS point_name, p.country AS point_country, p.dive_type AS point_dive_type, s.title AS service_title, s.response_hours
-                                    FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id
+                    b=db.execute('''SELECT b.*, u.fullname, u.email, u.username, COALESCE(c.name,pu.fullname) AS center_name, c.city AS center_city, c.phone AS center_phone, COALESCE(c.email,pu.email) AS center_email, c.website AS center_website, c.address AS center_address, p.name AS point_name, p.country AS point_country, p.dive_type AS point_dive_type, s.title AS service_title, s.response_hours
+                                    FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id
                                     LEFT JOIN user_profiles up ON up.user_id=u.id
                                     LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?''',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta reserva.')
-                    if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
+                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise PermissionError('No puedes consultar esta reserva.')
                     # G1/G5: the centre sees the diver's profile and documents only when the diver booked or shared them.
-                    can_see=user['role']=='admin' or b['user_id']==user['id'] or center_can_see_user(db,b['center_id'],b['user_id']) or is_guest_user(db,b['user_id'])
+                    can_see=user['role']=='admin' or b['user_id']==user['id'] or provider_can_see_user(db,b) or is_guest_user(db,b['user_id'])
                     docs=db.execute('SELECT id,document_type,title,expires_at,status,original_name,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(b['user_id'],)).fetchall() if can_see else []
                     profile=None if not can_see else db.execute('''SELECT up.phone,up.country,up.city,up.preferred_language,up.notes,up.date_of_birth,up.emergency_contact_name,up.emergency_contact_phone,up.equipment_required,up.suit_type,up.suit_size,up.boot_size,up.bcd_size,up.fin_size,up.mask_size,up.usual_weight_kg,up.tank_preference,up.computer_preference,up.equipment_notes,c.name AS certification_name FROM user_profiles up LEFT JOIN certifications c ON c.id=up.certification_id WHERE up.user_id=?''',(b['user_id'],)).fetchone()
                     po=db.execute("SELECT id,status,amount,currency,created_at,paid_at,amount_received,receipt_url,card_brand,card_last4,provider_payment_id FROM payment_orders WHERE booking_id=? ORDER BY CASE status WHEN 'paid' THEN 0 ELSE 1 END, id DESC LIMIT 1",(bid,)).fetchone()
-                    cpay=db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?',(b['center_id'],)).fetchone()
-                    bd=dict(b); online=center_payments_ready(cpay)
+                    _svc,payee=booking_payee(db,b)
+                    bd=dict(b); online=payee_ready(payee)
+                    bd['provider']={'type':payee['type'],'id':payee['id'],'name':payee['name'],'legal_name':payee.get('legal_name') or '','tax_id':payee.get('tax_id') or '',
+                                    'address':payee.get('fiscal_address') or ', '.join(x for x in (payee.get('address'),payee.get('city'),payee.get('country')) if x)} if payee else None
+                    if not b['center_id'] and payee: bd['center_phone']=payee.get('phone'); bd['center_city']=payee.get('city')
+                    is_provider=can_manage_booking(user,b) and b['user_id']!=user['id']
+                    paid_,refunded_,orders_=booking_paid_online(db,bid)
+                    bd['paid_online']=paid_; bd['refunded_online']=refunded_; bd['refundable']=round(max(0.0,paid_-refunded_),2)
+                    if is_provider or user['role']=='admin' or b['user_id']==user['id']:
+                        bd['refunds']=[dict(r) for r in db.execute('SELECT id,amount,currency,reason,note,status,source,created_at FROM payment_refunds WHERE booking_id=? ORDER BY id',(bid,)).fetchall()]
                     bd['center_online_payments']=online
                     st_=wbk.normalize_state(b['status'])
                     open_=(st_=='payment_in_progress' and (parse_local(b['hold_expires_at']) or local_now())>=local_now()) or (st_=='accepted_pending_payment' and (parse_local(b['payment_deadline']) or local_now())>=local_now())
-                    bd['can_pay_online']=bool(online and b['user_id']==user['id'] and open_ and b['payment_status']!='paid' and float(b['price'] or 0)>0)
+                    bd['can_pay_online']=bool(online and b['user_id']==user['id'] and open_ and b['payment_status'] not in ('paid','deposit_paid') and float(b['price'] or 0)>0)
+                    bd['pay_now']=float(b['deposit_amount'] or 0) if 0<float(b['deposit_amount'] or 0)<float(b['price'] or 0) else float(b['price'] or 0)
                     pay=dict(po) if po else None
                     if pay: pay['reference']=f"PAY-{pay['id']:05d}"; pay.pop('provider_payment_id',None)
                     if wbk.normalize_state(b['status']) in wbk.CANCELLABLE: bd['cancel']=booking_cancel_terms(db,b)
                     bd.update(booking_view_status(b)); bd['mode_label']=wbk.mode_label(b['booking_mode'] or 'request',b['response_hours'] if 'response_hours' in b.keys() else None)
-                    _cp=db.execute('SELECT cancellation_policy,cancellation_note FROM centers WHERE id=?',(b['center_id'],)).fetchone()
-                    bd['cancellation_policy']=cancellation_policy_key(_cp['cancellation_policy']); bd['cancellation_text']=cancellation_policy_text(_cp['cancellation_policy']); bd['cancellation_note']=_cp['cancellation_note'] or ''
-                    bd.pop('public_token',None); bd['check_url']=booking_check_url(db,bid,self.base_url()) if (b['user_id']==user['id'] or user['role'] in {'admin','center'}) else None
+                    _pol=booking_policy(db,b)
+                    bd['cancellation_policy']=f"{_pol['free_hours']}h-{_pol['refund_pct']}"; bd['cancellation_text']=_pol['text']; bd['cancellation_note']=_pol['note']
+                    bd['cancel_free_hours']=_pol['free_hours']; bd['cancel_refund_pct']=_pol['refund_pct']
+                    bd.pop('public_token',None); bd['check_url']=booking_check_url(db,bid,self.base_url()) if (b['user_id']==user['id'] or can_manage_booking(user,b)) else None
                     self.send_json({'booking':bd,'payment':pay,'profile':dict(profile) if profile else {},'documents':[dict(x) for x in docs],'data_shared':bool(can_see)}); return
                 if path == '/api/bookings':
                     user=require_user(self,db)
-                    if user['role']=='center':
+                    if user['role'] in ('center','freelance'):
                         # Optional server-side filters keep the payload small for centers with many bookings.
-                        where=['b.center_id=?',"b.status<>'payment_in_progress'",CENTER_VISIBLE_SQL]; args=[user['center_id']]
+                        scope,args=provider_scope_sql(user)
+                        where=[scope,"b.status<>'payment_in_progress'",CENTER_VISIBLE_SQL]
                         q_from=clean_text(query.get('from',[''])[0],10); q_to=clean_text(query.get('to',[''])[0],10)
                         if q_from: where.append('b.booking_date>=?'); args.append(q_from)
                         if q_to: where.append('b.booking_date<=?'); args.append(q_to)
@@ -5002,15 +5549,15 @@ class Handler(BaseHTTPRequestHandler):
                             like=f'%{fold_text(q_text)}%'; where.append("(fold(u.fullname) LIKE ? OR fold(u.email) LIKE ? OR fold(b.contact_phone) LIKE ? OR fold(b.external_ref) LIKE ? OR fold(s.title) LIKE ? OR CAST(b.id AS TEXT)=?)"); args+= [like,like,like,like,like,q_text.lstrip('#')]
                         order='b.booking_date ASC,b.booking_time ASC,b.id ASC' if query.get('order',[''])[0]=='asc' else 'b.booking_date DESC,b.booking_time DESC,b.id DESC'
                         limit=max(1,min(5000,int(query.get('limit',['2000'])[0] or 2000)))
-                        rows=db.execute(f'''SELECT b.*, COALESCE(b.contact_name,u.fullname) AS fullname, CASE WHEN u.email LIKE '%.local' THEN COALESCE(b.contact_email,'') ELSE u.email END AS email, u.username, c.name AS center_name, p.name AS point_name, s.title AS service_title, s.color AS service_color
-                                             FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id
+                        rows=db.execute(f'''SELECT b.*, COALESCE(b.contact_name,u.fullname) AS fullname, CASE WHEN u.email LIKE '%.local' THEN COALESCE(b.contact_email,'') ELSE u.email END AS email, u.username, COALESCE(c.name,pu.fullname) AS center_name, p.name AS point_name, s.title AS service_title, s.color AS service_color
+                                             FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id LEFT JOIN dive_points p ON p.id=b.dive_point_id
                                              LEFT JOIN provider_services s ON s.id=b.service_id WHERE {' AND '.join(where)} ORDER BY {order} LIMIT {limit}''',args).fetchall()
                     elif user['role']=='admin':
                         # The platform may hold hundreds of thousands of bookings: the admin list gets the most recent ones.
                         limit=max(1,min(5000,int(query.get('limit',['1000'])[0] or 1000)))
-                        rows=db.execute('''SELECT b.*, u.fullname, u.email, u.username, c.name AS center_name, p.name AS point_name, s.title AS service_title FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id ORDER BY b.booking_date DESC,b.id DESC LIMIT ?''',(limit,)).fetchall()
+                        rows=db.execute('''SELECT b.*, u.fullname, u.email, u.username, COALESCE(c.name,pu.fullname) AS center_name, p.name AS point_name, s.title AS service_title FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id ORDER BY b.booking_date DESC,b.id DESC LIMIT ?''',(limit,)).fetchall()
                     else:
-                        rows=db.execute('''SELECT b.*, c.name AS center_name, p.name AS point_name, s.title AS service_title FROM bookings b JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.user_id=? ORDER BY b.booking_date DESC,b.id DESC''',(user['id'],)).fetchall()
+                        rows=db.execute('''SELECT b.*, COALESCE(c.name,pu.fullname) AS center_name, p.name AS point_name, s.title AS service_title FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.user_id=? ORDER BY b.booking_date DESC,b.id DESC''',(user['id'],)).fetchall()
                     items=[]
                     for r_ in rows:
                         d=dict(r_); d.update(booking_view_status(r_)); d.pop('public_token',None) if user['role']!='recreational' else None
@@ -5019,20 +5566,21 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({'items':items}); return
                 if path == '/api/center/requests':
                     # «Solicitudes pendientes»: requests to accept or reject, with the time left to answer.
-                    user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
-                    rows=db.execute('''SELECT b.id,b.booking_date,b.booking_time,b.participants,b.price,b.currency,b.notes,b.response_deadline,b.created_at,b.payment_status,
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); scope,sargs=provider_scope_sql(user)
+                    rows=db.execute(f'''SELECT b.id,b.booking_date,b.booking_time,b.participants,b.price,b.currency,b.notes,b.response_deadline,b.created_at,b.payment_status,
                                               COALESCE(b.contact_name,u.fullname) AS fullname,s.title AS service_title,s.color AS service_color,p.name AS point_name,ss.spots_available
                                          FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
                                          LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN service_slots ss ON ss.id=b.slot_id
-                                        WHERE b.center_id=? AND b.status IN ('requested','pending') ORDER BY COALESCE(b.response_deadline,'9999'),b.id''',(cid,)).fetchall()
+                                        WHERE {scope} AND b.status IN ('requested','pending') ORDER BY COALESCE(b.response_deadline,'9999'),b.id''',sargs).fetchall()
                     now_l=local_now(); items=[]
                     for r_ in rows:
                         d=dict(r_); dl=parse_local(d['response_deadline'])
                         d['minutes_left']=max(0,int((dl-now_l).total_seconds()//60)) if dl else None
                         d['enough_spots']=d['spots_available'] is None or int(d['spots_available'])>=int(d['participants'] or 1)
                         items.append(d)
-                    awaiting=db.execute("SELECT COUNT(*) FROM bookings WHERE center_id=? AND status='accepted_pending_payment'",(cid,)).fetchone()[0]
-                    self.send_json({'items':items,'count':len(items),'awaiting_payment':awaiting}); return
+                    awaiting=db.execute(f"SELECT COUNT(*) FROM bookings b WHERE {scope} AND b.status='accepted_pending_payment'",sargs).fetchone()[0]
+                    refunds=db.execute(f"SELECT COUNT(*) FROM bookings b WHERE {scope} AND b.refund_status IN ('proposed','failed')",sargs).fetchone()[0]
+                    self.send_json({'items':items,'count':len(items),'awaiting_payment':awaiting,'pending_refunds':refunds}); return
                 if path == '/api/account/documents':
                     user=require_user(self,db)
                     rows=db.execute('SELECT id,document_type,title,original_name,expires_at,status,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(user['id'],)).fetchall()
@@ -5160,11 +5708,13 @@ class Handler(BaseHTTPRequestHandler):
                         log_exception(self,e); self.send_json({'error':'No se pudo generar el QR.'},500)
                     return
                 if path=='/api/payments/connect-status':
-                    user=require_user(self,db); require_role(user,{'center','admin'})
-                    cid=int(user['center_id'] or 0) if user['role']=='center' else int(query.get('center_id',['0'])[0] or 0)
-                    center=db.execute('SELECT id,name,stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled,stripe_details_submitted FROM centers WHERE id=? AND active=1',(cid,)).fetchone()
-                    if not center: raise ValueError('Centro no válido.')
-                    self.send_json({'configured':bool(center['stripe_account_id']),'charges_enabled':bool(center['stripe_charges_enabled']),'payouts_enabled':bool(center['stripe_payouts_enabled']),'details_submitted':bool(center['stripe_details_submitted']),'ready':bool(center['stripe_account_id'] and center['stripe_charges_enabled'] and center['stripe_payouts_enabled']),'center_id':cid,'center_name':center['name']}); return
+                    user=require_user(self,db); require_role(user,{'center','freelance','admin'})
+                    payee=self_payee(db,user,{k:v[0] for k,v in query.items()})
+                    ready=bool(payee['stripe_account_id'] and payee['stripe_charges_enabled'] and payee['stripe_payouts_enabled'])
+                    self.send_json({'configured':bool(payee['stripe_account_id']),'charges_enabled':bool(payee['stripe_charges_enabled']),'payouts_enabled':bool(payee['stripe_payouts_enabled']),
+                                    'details_submitted':bool(payee['stripe_details_submitted']),'ready':ready,'platform_ready':bool(stripe_secret()),'payee_type':payee['type'],
+                                    'center_id':payee['id'] if payee['type']=='center' else None,'center_name':payee['name'],'dashboard':stripe_controller()['stripe_dashboard']['type'],
+                                    'webhooks':{'platform':bool(os.environ.get('STRIPE_WEBHOOK_SECRET','').strip()),'connect':bool(os.environ.get('STRIPE_CONNECT_WEBHOOK_SECRET','').strip())}}); return
                 # Unknown API routes answer JSON, never the SPA page (otherwise the client silently gets empty data).
                 if path.startswith('/api/'):
                     self.send_json({'error':'Endpoint no encontrado'},404); return
@@ -5232,118 +5782,55 @@ class Handler(BaseHTTPRequestHandler):
         with connect() as db:
             try:
                 if path=='/api/payments/webhook':
-                    length=body_length(self,wcfg.MAX_WEBHOOK_BYTES); raw=self.rfile.read(length); secret=os.environ.get('STRIPE_WEBHOOK_SECRET','').strip()
-                    if not secret: self.send_json({'error':'Webhook no configurado.'},503); return
+                    stripe_webhook(self,db,'STRIPE_WEBHOOK_SECRET',False); return
+                if path=='/api/payments/webhook/connect':
+                    # Events of the connected accounts (direct charges, refunds, disputes, account changes).
+                    stripe_webhook(self,db,'STRIPE_CONNECT_WEBHOOK_SECRET',True); return
+                if path in ('/api/payments/connect/onboard','/api/payments/connect/refresh','/api/payments/connect/sync','/api/payments/connect/login','/api/payments/connect/unlink'):
+                    user=require_user(self,db); require_role(user,{'center','freelance','admin'}); data=json_body(self)
+                    payee=self_payee(db,user,data)
+                    if not stripe_secret(): raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
+                    table=payee_table(payee); base=public_site_url(); back=f'{base}/#/pagos?stripe='
+                    action=path.rsplit('/',1)[1]
                     try:
                         stripe=stripe_module()
-                        event=stripe.Webhook.construct_event(raw,self.headers.get('Stripe-Signature',''),secret)
-                    except ImportError: self.send_json({'error':'Falta instalar stripe.'},500); return
-                    except Exception: self.send_json({'error':'Firma de webhook no válida.'},400); return
-                    event_id=event.get('id'); event_type=event.get('type','')
-                    if event_id:
-                        try:
-                            db.execute('INSERT INTO stripe_webhook_events(event_id,event_type,created_at) VALUES(?,?,?)',(event_id,event_type,now()))
-                        except sqlite3.IntegrityError:
-                            self.send_json({'received':True,'duplicate':True}); return
-                    obj=event.get('data',{}).get('object',{})
-                    oid=int((obj.get('metadata') or {}).get('payment_order_id') or 0)
-                    order=db.execute('SELECT * FROM payment_orders WHERE id=?',(oid,)).fetchone() if oid else None
-                    if event_type in {'checkout.session.completed','checkout.session.async_payment_succeeded'}:
-                        if order and order['status']!='paid':
-                            sess=obj
-                            try:
-                                stripe=stripe_module()
-                                if stripe.api_key: sess=stripe.checkout.Session.retrieve(obj.get('id'),expand=['payment_intent.latest_charge'])
-                            except Exception: sess=obj
-                            finalize_paid_order(db,order,sess,'webhook')
-                    elif event_type=='checkout.session.expired':
-                        if order and order['status']=='pending':
-                            release_order_hold(db,order,'expired')
-                            audit(db,order['user_id'],'payment_expired','payment_order',oid,{'provider':'stripe','event_id':event_id})
-                    elif event_type=='payment_intent.payment_failed':
-                        if order and order['status']=='pending':
-                            db.execute("UPDATE payment_orders SET status='failed',updated_at=? WHERE id=?",(now(),oid))
-                    elif event_type in {'charge.refunded','refund.updated'}:
-                        if order:
-                            db.execute("UPDATE payment_orders SET status='refunded',updated_at=? WHERE id=?",(now(),oid))
-                            if order['booking_id']:
-                                db.execute("UPDATE bookings SET payment_status='refunded',status='cancelled',updated_at=? WHERE id=?",(now(),order['booking_id']))
-                            audit(db,order['user_id'],'payment_refunded','payment_order',oid,{'provider':'stripe','event_id':event_id})
-                    elif event_type=='account.updated':
-                        account_id=obj.get('id')
-                        if account_id:
-                            db.execute('UPDATE centers SET stripe_charges_enabled=?,stripe_payouts_enabled=?,stripe_details_submitted=?,updated_at=? WHERE stripe_account_id=?',(1 if obj.get('charges_enabled') else 0,1 if obj.get('payouts_enabled') else 0,1 if obj.get('details_submitted') else 0,now(),account_id))
-                            if not (obj.get('charges_enabled') and obj.get('payouts_enabled')):
-                                for c_ in db.execute('SELECT id FROM centers WHERE stripe_account_id=?',(account_id,)).fetchall(): warn_payment_mode_without_payments(db,c_['id'])
-                    db.commit()
-                    self.send_json({'received':True}); return
-                if path=='/api/payments/connect/onboard':
-                    user=require_user(self,db); require_role(user,{'center','admin'})
-                    data=json_body(self)
-                    cid=int(user['center_id'] or 0) if user['role']=='center' else int(data.get('center_id') or 0)
-                    center=db.execute('SELECT * FROM centers WHERE id=? AND active=1',(cid,)).fetchone()
-                    if not center: raise ValueError('Centro no válido.')
-                    secret=stripe_secret(); base=os.environ.get('WOD_PUBLIC_URL','http://localhost:8000').rstrip('/')
-                    if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
-                    try:
-                        stripe=stripe_module()
-                        account_id=center['stripe_account_id']
-                        if account_id:
-                            account=stripe.Account.retrieve(account_id)
-                        else:
+                        if action=='unlink':
+                            # Admin only: forget an old account (for example an Express test account) so the provider can connect a new one.
+                            require_role(user,{'admin'})
+                            db.execute(f'UPDATE {table} SET stripe_account_id=NULL,stripe_charges_enabled=0,stripe_payouts_enabled=0,stripe_details_submitted=0 WHERE id=?',(payee['id'],))
+                            audit(db,user['id'],'stripe_account_unlinked',payee['type'],payee['id'],{'account':payee['stripe_account_id']}); db.commit()
+                            self.send_json({'ok':True}); return
+                        account_id=payee['stripe_account_id']
+                        if action=='onboard' and not account_id:
+                            country=(payee.get('country') or 'ES').strip()
+                            country=COUNTRY_ISO.get(country.lower(),country[:2].upper()) if len(country)!=2 else country.upper()
                             account=stripe.Account.create(
-                                type='express',
-                                country=(center['country'] or 'ES')[:2].upper(),
-                                email=center['email'] or None,
-                                business_profile={'name':center['name'],'website':center['website'] or None},
-                                capabilities={'card_payments':{'requested':True},'transfers':{'requested':True}}
-                            )
+                                country=country, email=payee.get('email') if mail_deliverable(payee.get('email')) else None,
+                                controller=stripe_controller(), capabilities=stripe_capabilities(),
+                                business_profile={'name':payee['name'],'url':payee.get('website') or None,'mcc':'7999'},
+                                metadata={'wod_payee':f"{payee['type']}:{payee['id']}"},
+                                idempotency_key=f"wod-account-{payee['type']}-{payee['id']}")
                             account_id=account.id
-                            db.execute('UPDATE centers SET stripe_account_id=?,updated_at=? WHERE id=?',(account_id,now(),cid))
+                            db.execute(f'UPDATE {table} SET stripe_account_id=? WHERE id=?',(account_id,payee['id']))
+                            audit(db,user['id'],'stripe_account_created',payee['type'],payee['id'],{'account':account_id}); db.commit()
+                        if action in ('onboard','refresh'):
+                            if not account_id: raise ValueError('Todavía no tienes una cuenta de cobros.')
+                            link=stripe.AccountLink.create(account=account_id,type='account_onboarding',refresh_url=back+'refresh',return_url=back+'return')
+                            self.send_json({'ok':True,'url':link.url,'account_id':account_id}); return
+                        if not account_id: raise ValueError('Primero configura los cobros.')
+                        if action=='sync':
+                            a=stripe.Account.retrieve(account_id)
+                            db.execute(f'UPDATE {table} SET stripe_charges_enabled=?,stripe_payouts_enabled=?,stripe_details_submitted=? WHERE id=?',(1 if a.get('charges_enabled') else 0,1 if a.get('payouts_enabled') else 0,1 if a.get('details_submitted') else 0,payee['id']))
+                            if not (a.get('charges_enabled') and a.get('payouts_enabled')): warn_payment_mode_without_payments(db,payee['id'] if payee['type']=='center' else None,payee['id'] if payee['type']=='freelance' else None)
                             db.commit()
-                        link=stripe.AccountLink.create(account=account_id,type='account_onboarding',refresh_url=f'{base}/#/pagos?stripe=refresh',return_url=f'{base}/#/pagos?stripe=return')
-                        self.send_json({'ok':True,'url':link.url,'account_id':account_id}); return
+                            self.send_json({'ok':True,'charges_enabled':bool(a.get('charges_enabled')),'payouts_enabled':bool(a.get('payouts_enabled')),'details_submitted':bool(a.get('details_submitted')),'ready':bool(a.get('charges_enabled') and a.get('payouts_enabled'))}); return
+                        if action=='login':
+                            # Accounts with the full Stripe Dashboard sign in at dashboard.stripe.com; Express accounts get a login link.
+                            if stripe_controller()['stripe_dashboard']['type']=='full': self.send_json({'ok':True,'url':'https://dashboard.stripe.com/','full_dashboard':True}); return
+                            link=stripe.Account.create_login_link(account_id); self.send_json({'ok':True,'url':link.url}); return
+                    except ValueError: raise
                     except ImportError: raise ValueError('Falta instalar la dependencia stripe en el servidor.')
-                    except Exception as exc: raise ValueError(f'No se pudo iniciar la configuración de cobros: {exc}')
-                if path=='/api/payments/connect/refresh':
-                    user=require_user(self,db); require_role(user,{'center','admin'})
-                    data=json_body(self); cid=int(user['center_id'] or 0) if user['role']=='center' else int(data.get('center_id') or 0)
-                    center=db.execute('SELECT * FROM centers WHERE id=? AND active=1',(cid,)).fetchone()
-                    if not center or not center['stripe_account_id']: raise ValueError('El centro todavía no tiene una cuenta de cobros.')
-                    secret=stripe_secret(); base=os.environ.get('WOD_PUBLIC_URL','http://localhost:8000').rstrip('/')
-                    if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
-                    try:
-                        stripe=stripe_module()
-                        link=stripe.AccountLink.create(account=center['stripe_account_id'],type='account_onboarding',refresh_url=f'{base}/#/pagos?stripe=refresh',return_url=f'{base}/#/pagos?stripe=return')
-                        self.send_json({'ok':True,'url':link.url}); return
-                    except Exception as exc: raise ValueError(f'No se pudo continuar la configuración de cobros: {exc}')
-                if path=='/api/payments/connect/sync':
-                    user=require_user(self,db); require_role(user,{'center','admin'})
-                    data=json_body(self); cid=int(user['center_id'] or 0) if user['role']=='center' else int(data.get('center_id') or 0)
-                    center=db.execute('SELECT * FROM centers WHERE id=? AND active=1',(cid,)).fetchone()
-                    if not center or not center['stripe_account_id']: raise ValueError('El centro todavía no tiene una cuenta de cobros.')
-                    secret=os.environ.get('STRIPE_SECRET_KEY','').strip()
-                    if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
-                    try:
-                        stripe=stripe_module()
-                        a=stripe.Account.retrieve(center['stripe_account_id'])
-                        db.execute('UPDATE centers SET stripe_charges_enabled=?,stripe_payouts_enabled=?,stripe_details_submitted=?,updated_at=? WHERE id=?',(1 if a.get('charges_enabled') else 0,1 if a.get('payouts_enabled') else 0,1 if a.get('details_submitted') else 0,now(),cid))
-                        if not (a.get('charges_enabled') and a.get('payouts_enabled')): warn_payment_mode_without_payments(db,cid)
-                        db.commit()
-                        self.send_json({'ok':True,'charges_enabled':bool(a.get('charges_enabled')),'payouts_enabled':bool(a.get('payouts_enabled')),'details_submitted':bool(a.get('details_submitted')),'ready':bool(a.get('charges_enabled') and a.get('payouts_enabled'))}); return
-                    except Exception as exc: raise ValueError(f'No se pudo actualizar el estado de Stripe: {exc}')
-                if path=='/api/payments/connect/login':
-                    user=require_user(self,db); require_role(user,{'center','admin'})
-                    cid=int(user['center_id'] or 0) if user['role']=='center' else int((json_body(self)).get('center_id') or 0)
-                    center=db.execute('SELECT stripe_account_id FROM centers WHERE id=? AND active=1',(cid,)).fetchone()
-                    if not center or not center['stripe_account_id']: raise ValueError('Primero configura los cobros del centro.')
-                    secret=os.environ.get('STRIPE_SECRET_KEY','').strip()
-                    if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
-                    try:
-                        stripe=stripe_module()
-                        link=stripe.Account.create_login_link(center['stripe_account_id'])
-                        self.send_json({'ok':True,'url':link.url}); return
-                    except Exception as exc: raise ValueError(f'No se pudo abrir el panel de cobros: {exc}')
+                    except Exception as exc: raise ValueError(f'Stripe no ha podido completar la operación: {getattr(exc,"user_message",None) or exc}')
                 if path=='/api/setup':
                     # G9: the web installer only works with WOD_ALLOW_SETUP=1 and while there is no administrator.
                     # In production the first administrator is created with: python app/server.py --create-admin
@@ -5585,7 +6072,9 @@ class Handler(BaseHTTPRequestHandler):
                     if not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color='#2563eb'
                     currency=(clean_text(data.get('currency'),3) or 'EUR').upper()
                     if not re.fullmatch(r'[A-Z]{3}',currency): currency='EUR'
-                    cur=db.execute('''INSERT INTO provider_services(provider_user_id,center_id,service_type,title,description,duration_minutes,price,currency,max_participants,booking_mode,response_hours,payment_hours,active,color,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)''',(user['id'],center_id,stype,title,clean_text(data.get('description'),5000),duration,price,currency,maxp,mode,resp_h,pay_h,color,now(),now()))
+                    dep_kind,dep_value=clean_deposit(data,price); pol_h,pol_pct=clean_policy_numbers(data.get('cancel_free_hours'),data.get('cancel_refund_pct'))
+                    if (pol_h is None)!=(pol_pct is None): raise ValueError('Indica las horas y el porcentaje de la política de cancelación del servicio, o deja los dos vacíos.')
+                    cur=db.execute('''INSERT INTO provider_services(provider_user_id,center_id,service_type,title,description,duration_minutes,price,currency,max_participants,booking_mode,response_hours,payment_hours,active,color,deposit_type,deposit_value,cancel_free_hours,cancel_refund_pct,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?,?)''',(user['id'],center_id,stype,title,clean_text(data.get('description'),5000),duration,price,currency,maxp,mode,resp_h,pay_h,color,dep_kind,dep_value,pol_h,pol_pct,now(),now()))
                     sid=cur.lastrowid
                     if center_id:
                         db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)',(center_id,sid,price,clean_text(data.get('currency'),3) or 'EUR',now()[:10],now(),now()))
@@ -5623,6 +6112,12 @@ class Handler(BaseHTTPRequestHandler):
                     color=clean_text(data.get('color'),20) or '#2563eb'
                     if not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color='#2563eb'
                     db.execute('''UPDATE provider_services SET service_type=?,title=?,description=?,duration_minutes=?,max_participants=?,booking_mode=?,response_hours=?,payment_hours=?,active=?,color=?,updated_at=? WHERE id=?''',(stype,title,clean_text(data.get('description'),5000),duration,maxp,mode,resp_h,pay_h,1 if data.get('active',True) else 0,color,now(),sid))
+                    if 'deposit_type' in data:
+                        dep_kind,dep_value=clean_deposit(data,cur_price); db.execute('UPDATE provider_services SET deposit_type=?,deposit_value=? WHERE id=?',(dep_kind,dep_value,sid))
+                    if 'cancel_free_hours' in data or 'cancel_refund_pct' in data:
+                        pol_h,pol_pct=clean_policy_numbers(data.get('cancel_free_hours'),data.get('cancel_refund_pct'))
+                        if (pol_h is None)!=(pol_pct is None): raise ValueError('Indica las horas y el porcentaje de la política de cancelación del servicio, o deja los dos vacíos.')
+                        db.execute('UPDATE provider_services SET cancel_free_hours=?,cancel_refund_pct=? WHERE id=?',(pol_h,pol_pct,sid))
                     if 'publish_experience' in data: sync_service_experience(db,user,sid,data)
                     else: db.execute('UPDATE travel_experiences SET title=?,updated_at=? WHERE service_id=?',(clean_text(data.get('title'),180),now(),sid))
                     audit(db,user['id'],'service_updated','provider_service',sid); db.commit(); self.send_json({'ok':True}); return
@@ -5706,11 +6201,10 @@ class Handler(BaseHTTPRequestHandler):
                     if not order: self.send_json({'ok':True,'released':False}); return
                     if stripe_secret() and order['provider_payment_id']:
                         try:
-                            stripe=stripe_module()
-                            sess=stripe.checkout.Session.retrieve(order['provider_payment_id'],expand=['payment_intent.latest_charge'])
+                            sess=stripe_session(order)
                             if _obj(sess,'payment_status') in ('paid','no_payment_required'):
                                 finalize_paid_order(db,order,sess,'cancel-check'); db.commit(); self.send_json({'ok':True,'paid':True}); return
-                            if _obj(sess,'status')=='open': stripe.checkout.Session.expire(order['provider_payment_id'])
+                            if _obj(sess,'status')=='open': expire_checkout(order)
                         except Exception as exc: sys.stderr.write(f'[pagos] cancelar pedido {order["id"]}: {exc}\n')
                     release_order_hold(db,order,'cancelled'); audit(db,user['id'],'payment_cancelled','payment_order',order['id']); db.commit()
                     b_=booking_row(db,bid)
@@ -5718,8 +6212,8 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/payments':
                     # G12: the diver only gets what he needs about his own payments (no fees, connected accounts or checkout links).
                     user=require_user(self,db); rows=db.execute('''SELECT po.id,po.booking_id,po.experience_booking_id,po.amount,po.currency,po.status,po.created_at,po.paid_at,po.amount_received,
-                                                                          po.receipt_url,po.card_brand,po.card_last4,po.refund_amount,po.refunded_at,s.title AS service_title,c.name AS center_name
-                                                                     FROM payment_orders po LEFT JOIN provider_services s ON s.id=po.service_id LEFT JOIN centers c ON c.id=s.center_id WHERE po.user_id=? ORDER BY po.id DESC''',(user['id'],)).fetchall()
+                                                                          po.receipt_url,po.card_brand,po.card_last4,po.refund_amount,po.refunded_at,po.refunded_total,po.payment_kind,s.title AS service_title,COALESCE(c.name,pu.fullname) AS center_name
+                                                                     FROM payment_orders po LEFT JOIN provider_services s ON s.id=po.service_id LEFT JOIN centers c ON c.id=s.center_id LEFT JOIN users pu ON pu.id=po.provider_user_id WHERE po.user_id=? ORDER BY po.id DESC''',(user['id'],)).fetchall()
                     self.send_json({'items':[dict(x,reference=f"PAY-{x['id']:05d}") for x in rows]}); return
 
                 if path=='/api/account/profile':
@@ -5843,18 +6337,70 @@ class Handler(BaseHTTPRequestHandler):
                     if db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='diver',updated_at=? WHERE id=? AND status IN ('pending','requested','accepted_pending_payment','confirmed')",(now(),now(),bid)).rowcount!=1: raise ValueError('Esta reserva ya no se puede cancelar.')
                     release_booking_spots(db,b)
                     outcome='none_paid'
-                    if terms['paid_online']: outcome=refund_paid_booking(db,bid,terms['refund_amount'],'diver_cancel') if terms['refund_amount']>0 else 'no_refund'
+                    if terms['paid_online']:
+                        # Fase 2.4: the provider manages its refunds. The amount of its policy is proposed to it (and reminded after 72 h).
+                        propose_refund(db,b,terms['refund_amount'],'diver_cancel')
+                        outcome='proposed' if terms['refund_amount']>0 else 'no_refund'
                     reason=clean_text(data.get('reason'),300)
                     if reason: db.execute('UPDATE bookings SET internal_notes=COALESCE(internal_notes||char(10),\'\')||? WHERE id=?',('Motivo de la cancelación: '+reason,bid))
                     notify_booking(db,bid,'cancelled_diver',{'refund':outcome})
                     audit(db,user['id'],'booking_cancelled_by_diver','booking',bid,{'refund':outcome,'amount':terms['refund_amount']}); db.commit()
                     self.send_json({'ok':True,'refund':outcome,'refund_amount':terms['refund_amount']}); return
-                if path=='/api/center/cancellation-policy':
-                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); pol=data.get('policy')
-                    if pol not in CANCEL_POLICIES: raise ValueError('Elige una política de cancelación.')
-                    if not user['center_id']: raise ValueError('Tu cuenta no tiene un centro asociado.')
-                    db.execute('UPDATE centers SET cancellation_policy=?,cancellation_note=?,updated_at=? WHERE id=?',(pol,clean_text(data.get('note'),500) or None,now(),user['center_id']))
-                    audit(db,user['id'],'cancellation_policy_updated','center',user['center_id'],{'policy':pol}); db.commit(); DIRECTORY.invalidate(); self.send_json({'ok':True}); return
+                if path in ('/api/center/cancellation-policy','/api/provider/cancellation-policy'):
+                    # Fase 2.6: free cancellation until X hours before, then Y % refunded. The three old presets still work.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); pol=data.get('policy')
+                    if pol in CANCEL_POLICIES: hours,pct=CANCEL_POLICIES[pol],0
+                    else:
+                        hours,pct=clean_policy_numbers(data.get('cancel_free_hours'),data.get('cancel_refund_pct'))
+                        if hours is None or pct is None: raise ValueError('Elige una política de cancelación.')
+                        pol='custom'
+                    note=clean_text(data.get('note'),500) or None
+                    if user['role']=='center':
+                        if not user['center_id']: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                        db.execute('UPDATE centers SET cancellation_policy=?,cancel_free_hours=?,cancel_refund_pct=?,cancellation_note=?,updated_at=? WHERE id=?',(pol,hours,pct,note,now(),user['center_id']))
+                        target=('center',user['center_id'])
+                    else:
+                        db.execute('UPDATE users SET cancel_free_hours=?,cancel_refund_pct=?,cancellation_note=? WHERE id=?',(hours,pct,note,user['id'])); target=('user',user['id'])
+                    audit(db,user['id'],'cancellation_policy_updated',target[0],target[1],{'hours':hours,'pct':pct}); db.commit(); DIRECTORY.invalidate()
+                    self.send_json({'ok':True,'cancel_free_hours':hours,'cancel_refund_pct':pct,'text':policy_text(hours,pct)}); return
+                if path=='/api/provider/payment-profile':
+                    # Fiscal data of the provider for the booking voucher («Prestador del servicio»).
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
+                    vals=(clean_text(data.get('legal_name'),160),clean_text(data.get('tax_id'),40),clean_text(data.get('fiscal_address'),300))
+                    if vals[1] and not re.fullmatch(r'[A-Za-z0-9 .\-/]{4,40}',vals[1]): raise ValueError('El NIF / número fiscal no parece válido.')
+                    if user['role']=='center':
+                        if not user['center_id']: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                        db.execute('UPDATE centers SET legal_name=?,tax_id=?,fiscal_address=?,updated_at=? WHERE id=?',vals+(now(),user['center_id']))
+                    else: db.execute('UPDATE users SET legal_name=?,tax_id=?,fiscal_address=? WHERE id=?',vals+(user['id'],))
+                    audit(db,user['id'],'provider_fiscal_data_updated'); db.commit(); self.send_json({'ok':True}); return
+                if path.startswith('/api/bookings/') and path.endswith('/refund'):
+                    # Fase 2.4: the provider refunds part or all of what the diver paid online, from its own Stripe account.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); bid=int(path.split('/')[-2]); data=json_body(self)
+                    b=booking_row(db,bid)
+                    if not b: self.send_json({'error':'Reserva no encontrada'},404); return
+                    require_booking_provider(user,b)
+                    try: amount=round(float(str(data.get('amount') or '0').replace(',','.')),2)
+                    except ValueError: raise ValueError('Indica el importe que quieres devolver.')
+                    paid_,refunded_,orders_=booking_paid_online(db,bid)
+                    if not orders_: raise ValueError('Esta reserva no tiene pagos online que devolver.')
+                    note=clean_text(data.get('note'),300) or ''
+                    if amount<=0 or amount>round(paid_-refunded_,2)+0.005: raise ValueError(f'Puedes devolver entre 0,01 y {paid_-refunded_:.2f} {b["currency"] or "EUR"}.')
+                    left=amount
+                    for o in reversed(orders_):
+                        o=db.execute('SELECT * FROM payment_orders WHERE id=?',(o['id'],)).fetchone()
+                        avail=round(float(o['amount_received'] or o['amount'] or 0)-float(o['refunded_total'] or 0),2)
+                        if avail<=0 or left<=0: continue
+                        part=min(avail,left); refund_payment(db,o,part,'requested_by_customer',user['id'],note,'panel'); left=round(left-part,2)
+                    notify_booking(db,bid,'refund_issued',{'amount':amount,'note':note})
+                    db.commit(); b=booking_row(db,bid)
+                    self.send_json({'ok':True,'refunded_total':b['refunded_total'],'payment_status':b['payment_status'],'status':b['status']}); return
+                if path=='/api/admin/payments/incident':
+                    # The administrator does not move money: it only sees payments and refunds and marks incidents.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); oid=int(data.get('order_id') or 0)
+                    kind=clean_text(data.get('incident'),30) or None
+                    if kind not in (None,'refund_pending','dispute','dispute_closed','customer_complaint','resolved'): raise ValueError('Tipo de incidencia no válido.')
+                    if not db.execute('UPDATE payment_orders SET incident=?,incident_note=?,incident_at=?,incident_by=?,updated_at=? WHERE id=?',(kind,clean_text(data.get('note'),500),now(),user['id'],now(),oid)).rowcount: raise ValueError('Pago no encontrado.')
+                    audit(db,user['id'],'payment_incident_marked','payment_order',oid,{'incident':kind}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/reports':
                     data=json_body(self); ip=self.client_ip()
                     if report_rate_limited(ip): self.send_json({'error':'Has enviado muchas denuncias seguidas. Inténtalo más tarde.'},429); return
@@ -5887,9 +6433,6 @@ class Handler(BaseHTTPRequestHandler):
                         if k in data:
                             v=(clean_text(data.get(k),300) or '').strip()
                             if k=='email' and v and not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',v): raise ValueError('El email de contacto no es válido.')
-                            if k=='fee_percent' and v:
-                                try: v=str(max(0.0,min(50.0,float(v.replace(',','.'))))).removesuffix('.0')
-                                except ValueError: raise ValueError('La comisión debe ser un número.')
                             db.execute('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by',('legal_'+k,v,now(),user['id']))
                     audit(db,user['id'],'legal_settings_updated','site_settings',None,'legal'); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/admin/emails/test':
@@ -5915,15 +6458,22 @@ class Handler(BaseHTTPRequestHandler):
                     audit(db,user['id'],'email_resent','email_outbox',eid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/bookings':
                     user=require_user(self,db); data=json_body(self)
-                    center_id=int(data['center_id']);
-                    if center_id<=0 or not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(center_id,)).fetchone(): raise ValueError('Centro no válido.')
+                    center_id=int(data.get('center_id') or 0) or None
                     point_id=int(data.get('dive_point_id') or 0) or None
                     if point_id and not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(point_id,)).fetchone(): raise ValueError('Punto de buceo no válido.')
                     service_id=int(data.get('service_id') or 0) or None
-                    service=None
-                    if service_id:
-                        service=db.execute('SELECT * FROM provider_services WHERE id=? AND active=1 AND center_id=?',(service_id,center_id)).fetchone()
-                        if not service: raise ValueError('Servicio no válido para este centro.')
+                    service=None; provider_user_id=None
+                    if service_id and not center_id:
+                        # Fase 2.7: services of a freelance professional without a centre.
+                        service=db.execute("SELECT s.* FROM provider_services s JOIN users u ON u.id=s.provider_user_id WHERE s.id=? AND s.active=1 AND s.center_id IS NULL AND u.role='freelance'",(service_id,)).fetchone()
+                        if not service: raise ValueError('Servicio no válido.')
+                        provider_user_id=service['provider_user_id']
+                    else:
+                        if not center_id or not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(center_id,)).fetchone(): raise ValueError('Centro no válido.')
+                        if service_id:
+                            service=db.execute('SELECT * FROM provider_services WHERE id=? AND active=1 AND center_id=?',(service_id,center_id)).fetchone()
+                            if not service: raise ValueError('Servicio no válido para este centro.')
+                            provider_user_id=service['provider_user_id']
                     participants=max(1,int(data.get('participants') or 1))
                     if service and service['max_participants'] and participants>int(service['max_participants']): raise ValueError(f'Este servicio admite como máximo {service["max_participants"]} participantes por reserva.')
                     slot_id=int(data.get('slot_id') or 0) or None
@@ -5968,6 +6518,9 @@ class Handler(BaseHTTPRequestHandler):
                     mode='payment' if service and service['booking_mode']=='payment' else 'request'
                     ready=service_payments_ready(db,service) if service else False
                     deadline=None; hold=None; slot_reserved=0
+                    payee=payee_of(db,center_id,provider_user_id)
+                    pol=provider_policy(payee,service)  # the policy shown before paying is the one that applies
+                    deposit=deposit_for(service,price,participants)
                     if mode=='payment':
                         # «Pago al reservar»: the diver pays to book. Never silently turned into «pay at the centre».
                         if not ready: raise ValueError('Este servicio se reserva pagando online y ahora mismo el centro no tiene los cobros activos. Prueba más tarde o contacta con el centro.')
@@ -5983,9 +6536,10 @@ class Handler(BaseHTTPRequestHandler):
                         status='requested'; payment_status='not_required' if price<=0 else ('required' if ready else 'at_center')
                         hours=wbk.clamp_hours(service['response_hours'] if service else None, wbk.DEFAULT_RESPONSE_HOURS)
                         deadline=local_iso(wbk.deadline_before_start(local_now(),hours,start))
-                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,booking_mode,response_deadline,hold_expires_at,confirmed_at,terms_version,price_breakdown,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-                                   (user['id'],center_id,point_id,service_id,slot_id,slot_reserved,bdate,btime,participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),
-                                    status,price,service['currency'] if service else 'EUR',payment_status,mode,deadline,hold,now() if status=='confirmed' else None,legal_doc_version(db,'reservas'),json.dumps(price_lines,ensure_ascii=False),now(),now()))
+                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,provider_user_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,booking_mode,response_deadline,hold_expires_at,confirmed_at,terms_version,price_breakdown,deposit_amount,amount_paid,amount_due,cancel_free_hours,cancel_refund_pct,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)''',
+                                   (user['id'],center_id,provider_user_id,point_id,service_id,slot_id,slot_reserved,bdate,btime,participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),
+                                    status,price,service['currency'] if service else 'EUR',payment_status,mode,deadline,hold,now() if status=='confirmed' else None,legal_doc_version(db,'reservas'),json.dumps(price_lines,ensure_ascii=False),
+                                    deposit,price,pol['free_hours'],pol['refund_pct'],now(),now()))
                     bid=cur.lastrowid
                     audit(db,user['id'],'booking_created','booking',bid,{'mode':mode,'status':status})
                     if status=='payment_in_progress':
@@ -5995,17 +6549,17 @@ class Handler(BaseHTTPRequestHandler):
                             pay=start_checkout(db,user,booking_row(db,bid))
                         except ValueError:
                             expire_booking(db,booking_row(db,bid),'checkout_failed',notify=False); db.commit(); raise
-                        self.send_json({'ok':True,'id':bid,'status':status,'payment_required':True,'checkout_url':pay['checkout_url'],'hold_expires_at':hold,'price':price,'currency':service_currency,'booking_mode':mode}); return
+                        self.send_json({'ok':True,'id':bid,'status':status,'payment_required':True,'checkout_url':pay['checkout_url'],'hold_expires_at':hold,'price':price,'deposit':deposit,'currency':service_currency,'booking_mode':mode}); return
                     notify_booking(db,bid,'created')
                     db.commit(); self.send_json({'ok':True,'id':bid,'status':status,'payment_required':False,'price':price,'currency':service_currency,'booking_mode':mode,'response_deadline':deadline}); return
                 if path.startswith('/api/bookings/') and path.endswith('/status'):
                     # Provider decisions on a booking (Fase 1B): accept / reject a request (optional reason), cancel, complete.
-                    user=require_user(self,db); require_role(user,{'admin','center'}); bid=int(path.split('/')[-2]); data=json_body(self); status=clean_text(data.get('status'),30)
+                    user=require_user(self,db); require_role(user,{'admin','center','freelance'}); bid=int(path.split('/')[-2]); data=json_body(self); status=clean_text(data.get('status'),30)
                     if status=='accepted': status='confirmed'
                     if status not in {'confirmed','rejected','completed','cancelled'}: raise ValueError('Estado no válido.')
                     row=booking_row(db,bid)
                     if not row: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
+                    require_booking_provider(user,row)
                     cur_state=wbk.normalize_state(row['status'])
                     if status==cur_state: self.send_json({'ok':True,'unchanged':True,'status':cur_state}); return
                     result={'ok':True}
@@ -6022,15 +6576,19 @@ class Handler(BaseHTTPRequestHandler):
                         db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='center',reject_reason=?,updated_at=? WHERE id=?",(now(),clean_text(data.get('reason'),500) or None,now(),bid))
                         for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchall():
                             expire_checkout(o); db.execute("UPDATE payment_orders SET status='cancelled',updated_at=? WHERE id=?",(now(),o['id']))
-                        result['refund']=refund_paid_booking(db,bid,None,'center_cancelled')
+                        # The provider cancels: everything paid is refunded unless it sets a smaller amount (it is told the law).
+                        paid_,refunded_,_o=booking_paid_online(db,bid); net_=round(paid_-refunded_,2)
+                        amt=data.get('refund_amount'); amt=net_ if amt in (None,'') else max(0.0,min(net_,round(float(str(amt).replace(',','.')),2)))
+                        result['refund']=refund_booking(db,bid,amt,'requested_by_customer',user['id'],clean_text(data.get('reason'),300) or 'Cancelada por el centro','center_cancel') if amt>0 else ('no_refund' if net_>0 else 'none_paid')
+                        if result['refund']=='refunded': notify_booking(db,bid,'refund_issued',{'amount':amt,'note':clean_text(data.get('reason'),300) or ''})
                         notify_booking(db,bid,'cancelled_center',{'refund':result['refund'],'reason':clean_text(data.get('reason'),500) or ''})
                         result['status']='cancelled'
                     elif status=='completed':
                         if cur_state!='confirmed': raise ValueError('Solo se puede completar una reserva confirmada.')
                         if str(row['booking_date'] or '')>local_now().date().isoformat(): raise ValueError('Solo puedes marcar como completada una reserva cuya fecha ya ha llegado.')
                         db.execute("UPDATE bookings SET status='completed',updated_at=? WHERE id=?",(now(),bid))
-                        b=db.execute('''SELECT b.id,b.user_id,b.booking_date,c.name AS center_name,p.name AS point_name,p.country,p.dive_type
-                                       FROM bookings b JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.id=?''',(bid,)).fetchone()
+                        b=db.execute('''SELECT b.id,b.user_id,b.booking_date,COALESCE(c.name,pu.fullname) AS center_name,p.name AS point_name,p.country,p.dive_type
+                                       FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.id=?''',(bid,)).fetchone()
                         if b and not is_guest_user(db,b['user_id']) and not db.execute('SELECT 1 FROM logbook_entries WHERE booking_id=?',(bid,)).fetchone():
                             site=b['point_name'] or b['center_name']
                             note=f"Inmersión generada automáticamente desde la reserva #{bid} · {b['center_name']}"
@@ -6152,14 +6710,27 @@ class Handler(BaseHTTPRequestHandler):
                         return v or None
                     starts,ends=_d(fields.get('starts_on')),_d(fields.get('ends_on'))
                     if starts and ends and ends<starts: raise ValueError('La fecha de fin es anterior a la de inicio.')
+                    # Fase 2.10: the label «Patrocinado» is fixed (not editable) and every sponsor is recorded.
+                    sponsor=clean_text(fields.get('sponsor_name'),160) or (row['title'] if row and kind=='partner' else None) or (title if kind=='partner' else None)
+                    if not sponsor: raise ValueError('Indica quién patrocina (empresa o persona que paga la publicación).')
+                    try: amount=round(float(str(fields.get('sponsor_amount') or '').replace(',','.')),2) if str(fields.get('sponsor_amount') or '').strip() else None
+                    except ValueError: raise ValueError('El importe del patrocinio debe ser un número.')
                     old=row['image_path'] if row else None; img=old
                     if files.get('file'): img=save_public_image(files.get('file'),'promo')
                     elif fields.get('remove_image')=='1': img=None
-                    vals=(kind,title,clean_text(fields.get('subtitle'),240) or '',clean_text(fields.get('label'),40) or '',clean_promo_url(fields.get('url')),img,starts,ends,
+                    vals=(kind,title,clean_text(fields.get('subtitle'),240) or '',SPONSORED_LABEL,clean_promo_url(fields.get('url')),img,starts,ends,
                           int(fields.get('sort_order') or 0),0 if fields.get('active')=='0' else 1,now())
                     if row: db.execute('UPDATE site_promos SET kind=?,title=?,subtitle=?,label=?,url=?,image_path=?,starts_on=?,ends_on=?,sort_order=?,active=?,updated_at=? WHERE id=?',(*vals,pid))
                     else: pid=db.execute('INSERT INTO site_promos(kind,title,subtitle,label,url,image_path,starts_on,ends_on,sort_order,active,updated_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(*vals,now())).lastrowid
-                    audit(db,user['id'],'site_promo_saved','site_promo',pid); db.commit()
+                    placement='band' if kind=='partner' else 'offer'
+                    cur_sp=db.execute('SELECT * FROM sponsorships WHERE placement=? AND ref_id=? AND ended_at IS NULL ORDER BY id DESC LIMIT 1',(placement,pid)).fetchone()
+                    sp_vals=(sponsor,clean_text(fields.get('sponsor_contact'),200),starts,ends,amount,(clean_text(fields.get('sponsor_currency'),3) or 'EUR').upper(),clean_text(fields.get('sponsor_notes'),500))
+                    if cur_sp and cur_sp['sponsor_name']==sponsor:
+                        db.execute('UPDATE sponsorships SET sponsor_name=?,sponsor_contact=?,starts_on=?,ends_on=?,amount=?,currency=?,notes=? WHERE id=?',(*sp_vals,cur_sp['id']))
+                    else:
+                        if cur_sp: db.execute('UPDATE sponsorships SET ended_at=? WHERE id=?',(now(),cur_sp['id']))
+                        db.execute('INSERT INTO sponsorships(placement,ref_id,sponsor_name,sponsor_contact,starts_on,ends_on,amount,currency,notes,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(placement,pid,*sp_vals,user['id'],now()))
+                    audit(db,user['id'],'site_promo_saved','site_promo',pid,{'sponsor':sponsor}); db.commit()
                     if old and old!=img: delete_public_image(old)
                     self.send_json({'ok':True,'id':pid}); return
                 if path=='/api/admin/site-promos/settings':
@@ -6174,7 +6745,9 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); pid=int(data.get('id') or 0)
                     row=db.execute('SELECT image_path FROM site_promos WHERE id=?',(pid,)).fetchone()
                     if not row: self.send_json({'error':'No encontrado'},404); return
-                    db.execute('DELETE FROM site_promos WHERE id=?',(pid,)); audit(db,user['id'],'site_promo_deleted','site_promo',pid); db.commit()
+                    db.execute('DELETE FROM site_promos WHERE id=?',(pid,))
+                    db.execute("UPDATE sponsorships SET ended_at=? WHERE ref_id=? AND placement IN ('band','offer') AND ended_at IS NULL",(now(),pid))  # the register keeps the history
+                    audit(db,user['id'],'site_promo_deleted','site_promo',pid); db.commit()
                     delete_public_image(row['image_path']); self.send_json({'ok':True}); return
                 if path=='/api/center/promotions':
                     user=require_user(self,db); require_role(user,{'center'}); cid=user['center_id']; data=json_body(self); pid=int(data.get('id') or 0)
@@ -6266,9 +6839,13 @@ class Handler(BaseHTTPRequestHandler):
                             notify_booking(db,order['booking_id'],'paid',{'was_confirmed':was_confirmed})
                         audit(db,user['id'],'payment_review_accepted','payment_order',oid)
                     elif act=='refund':
-                        db.execute("UPDATE payment_orders SET status='refund_due',updated_at=? WHERE id=?",(now(),oid))
-                        if order['booking_id']: db.execute("UPDATE bookings SET payment_status='required',updated_at=? WHERE id=? AND payment_status<>'paid'",(now(),order['booking_id']))
-                        db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at) VALUES(?,?,?,?,?,?)',(user['id'],order['user_id'],order['booking_id'],'Te devolvemos tu pago','Hemos detectado una diferencia en el importe cobrado. Vamos a devolverte el dinero en tu tarjeta en los próximos días; tu reserva sigue guardada y puedes volver a pagarla desde «Mi reserva».',now()))
+                        # The money is in the provider's Stripe account (direct charge): the provider makes the refund.
+                        got=float(order['amount_received'] or order['amount'] or 0)
+                        db.execute("UPDATE payment_orders SET status='paid',paid_at=COALESCE(paid_at,?),incident='refund_pending',incident_note='Importe distinto al de la reserva: devolución pedida al prestador',incident_at=?,incident_by=?,updated_at=? WHERE id=?",(now(),now(),user['id'],now(),oid))
+                        if order['booking_id']:
+                            db.execute("UPDATE bookings SET payment_status='review',refund_proposed=?,refund_status='proposed',refund_proposed_at=?,updated_at=? WHERE id=?",(got,now(),now(),order['booking_id']))
+                            notify_booking(db,order['booking_id'],'refund_reminder')
+                            db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?,'system')",(user['id'],order['user_id'],order['booking_id'],'Vamos a devolverte tu pago','Hemos detectado una diferencia en el importe de tu pago y hemos pedido al centro que te lo devuelva. Te avisaremos por email cuando esté hecho.',now()))
                         audit(db,user['id'],'payment_review_refund','payment_order',oid)
                     else: raise ValueError('Acción no válida.')
                     db.commit(); self.send_json({'ok':True}); return
@@ -6662,17 +7239,21 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({'ok':True,'id':cur.lastrowid,'total':total,'status':status,'payment_status':payment_status}); return
                 if path.startswith('/api/bookings/') and path.endswith('/payment'):
                     # The center records a payment taken at the desk (cash, card terminal, transfer).
-                    user=require_user(self,db); require_role(user,{'center','admin'}); bid=int(path.split('/')[-2]); data=json_body(self)
+                    user=require_user(self,db); require_role(user,{'center','freelance','admin'}); bid=int(path.split('/')[-2]); data=json_body(self)
                     row=db.execute('SELECT * FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not row: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
+                    require_booking_provider(user,row)
                     pay=clean_text(data.get('payment_status'),20)
                     if pay not in {'paid','required','at_center'}: raise ValueError('Estado de pago no válido.')
                     cur_state=wbk.normalize_state(row['status'])
                     if cur_state in ('payment_in_progress','expired') and (row['booking_mode']=='payment'):
                         raise ValueError('Una reserva «Pago al reservar» solo se confirma con el pago online confirmado por Stripe.')
-                    if pay=='required' and not center_payments_ready(db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?',(row['center_id'],)).fetchone()): pay='at_center'
-                    db.execute('UPDATE bookings SET payment_status=?,payment_method=?,updated_at=? WHERE id=?',(pay,clean_text(data.get('payment_method'),40) or row['payment_method'],now(),bid))
+                    if pay!='paid' and booking_paid_online(db,bid)[2]: raise ValueError('Esta reserva tiene un pago online. Si hay que devolver dinero, usa «Devolver».')
+                    if pay=='required' and not payee_ready(booking_payee(db,row)[1]): pay='at_center'
+                    # Desk payment: the rest after a deposit, or the whole price. Online amounts stay as they are.
+                    paid_amt=float(row['price'] or 0) if pay=='paid' else float(row['amount_paid'] or 0)
+                    db.execute('UPDATE bookings SET payment_status=?,payment_method=?,amount_paid=?,amount_due=?,updated_at=? WHERE id=?',
+                               (pay,clean_text(data.get('payment_method'),40) or row['payment_method'],paid_amt,round(max(0.0,float(row['price'] or 0)-paid_amt),2),now(),bid))
                     if pay=='paid' and cur_state in ('requested','accepted_pending_payment'):
                         # Paid at the desk: the place is the diver's (any open online payment is closed).
                         reserve_or_fail(db,row)
@@ -6863,7 +7444,7 @@ def maintenance_loop():
         time.sleep(wcfg.env_int('WOD_MAINTENANCE_SECONDS', 60, 5, 3600))
 
 
-MAINTENANCE_JOBS = [run_booking_deadlines]
+MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders]
 
 
 def check_production_settings():

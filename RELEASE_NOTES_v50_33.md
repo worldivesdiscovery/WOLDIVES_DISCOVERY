@@ -1,7 +1,7 @@
 # WORLDIVES DISCOVERY v50.33: marcadores del mapa (Fase 1C) e idiomas (Fase 1D)
 
 ## Fase 1C · Marcadores
-- **Redondos y más pequeños.** El punto de inmersión se dibuja como un círculo con la bandera del país en degradado y borde blanco: **19 px en ordenador y 23 px en móvil**; el marcador activo (ficha abierta) sube a 26 px con un anillo turquesa (#12a5b5). Al pasar el ratón o seleccionarlo se ve el mismo anillo.
+- **Redondos y más pequeños.** El punto de inmersión se dibuja como un círculo con la bandera de buceo dentro (rojo con la diagonal blanca) y borde blanco: **19 px en ordenador y 23 px en móvil**; el marcador activo (ficha abierta) sube a 26 px con un anillo turquesa (#12a5b5). Al pasar el ratón o seleccionarlo se ve el mismo anillo.
 - **Zona de toque de 44 px en móvil** (28 px en ordenador) aunque el dibujo sea pequeño: se acierta con el dedo sin agrandar el icono.
 - **Agrupación** con `leaflet.markercluster` 1.5.3 (alojado en `public/assets/vendor/markercluster`, licencia MIT): radio 42 px, se deshace a partir del zoom 11, carga por tandas. El grupo es un círculo rojo liso con borde blanco y el número; se lee igual sobre mapa y satélite.
 - Cada marcador lleva `title` y texto alternativo con el nombre del punto (lectores de pantalla y teclado).

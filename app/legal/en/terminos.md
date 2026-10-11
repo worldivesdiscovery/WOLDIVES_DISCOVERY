@@ -26,7 +26,7 @@ You must not:
 - publish false information, non-genuine reviews or content you have no rights to;
 - use the website for illegal purposes, to send unsolicited advertising or to impersonate someone;
 - try to access other people's accounts or data, overload the service or extract content automatically;
-- bypass the platform to collect or pay for bookings made through it in order to avoid the commission.
+- use the platform to send unsolicited advertising or false payment details.
 
 We may remove content and suspend or close accounts that breach these terms. When we do so we will explain why (unless the law prevents it) and you will be able to respond.
 

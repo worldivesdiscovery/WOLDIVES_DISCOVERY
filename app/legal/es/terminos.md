@@ -26,7 +26,7 @@ No está permitido:
 - publicar información falsa, reseñas no auténticas o contenidos de los que no tengas derechos;
 - usar la web para fines ilegales, para enviar publicidad no solicitada o para suplantar a otra persona;
 - intentar acceder a cuentas o datos ajenos, sobrecargar el servicio o extraer contenidos de forma automatizada;
-- saltarse la plataforma para cobrar o pagar reservas hechas a través de ella con el fin de evitar la comisión.
+- usar la plataforma para enviar publicidad no solicitada o datos de pago falsos.
 
 Podemos retirar contenidos y suspender o cerrar cuentas que incumplan estas condiciones. Cuando lo hagamos te explicaremos el motivo (salvo que la ley lo impida) y podrás responder.
 

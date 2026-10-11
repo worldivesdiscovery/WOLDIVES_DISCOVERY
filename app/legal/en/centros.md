@@ -17,20 +17,21 @@ These terms govern the relationship between {{owner_name}} (Tax ID {{nif}}), own
 - Publish **final** prices, including taxes.
 - Honour confirmed bookings and your **cancellation policy**. If you cancel for safety or sea conditions, the customer is automatically refunded in full.
 - Use customer data **only to manage their booking**, as an independent controller, and comply with the GDPR.
-- Do not ask customers to pay outside the platform for bookings made through it to avoid the commission.
+- Make the refunds due under your cancellation policy without undue delay.
 - Handle customer complaints and keep the official complaint forms available.
 
-## 3. Fees and payouts
+## 3. Plan fee, payments and refunds
 
-- Listing your centre and receiving bookings is **free**.
-- For every booking **paid online** through {{trade_name}} an intermediation fee of **{{fee_percent}} %** of the amount charged applies. Bookings paid at the centre carry no fee.
-- Online payments are processed with **Stripe Connect**. To enable them you create your payout account with Stripe, which verifies your identity and bank account. {{trade_name}} does not store your bank details.
-- Stripe transfers the amount to your account minus the fee. Payouts to your bank follow your Stripe account schedule.
-- For **refunds**, the transfer to the centre is reversed by the refunded amount. For full refunds the fee is also returned. Chargebacks resulting from a service not provided will be passed on to the centre.
+- {{trade_name}} **takes no commission** on bookings. Its only income is the annual plan fee you choose for your centre; the free plan lets you publish your listing and receive requests.
+- Online payments are made with **Stripe**, on **your own Stripe account** (direct charges): the money goes from the customer to your account and never through a {{trade_name}} account. You create your account from your dashboard; Stripe verifies your identity and bank account. {{trade_name}} does not store your bank details.
+- You get the **full Stripe Dashboard**. Stripe's processing fees are paid by your account under your agreement with Stripe. Payouts follow your Stripe account schedule.
+- You can charge the full price or a **deposit** (percentage or amount per person); you record the rest as paid at the centre.
+- **Refunds** are made by you from your dashboard or from Stripe, in full or in part. When a customer cancels an online payment, we tell you the amount due under your policy so you can refund it. Disputes (chargebacks) are handled by you in your Stripe Dashboard.
+- Booking vouchers issued by the platform **are not invoices**. If your activity requires one, you issue the invoice.
 
 ## 4. Cancellation policy
 
-Choose your policy in **Dashboard → Payments**: flexible (24 h), moderate (48 h) or strict (7 days). It is shown to customers before booking and applied automatically when they cancel. Changes only affect new bookings.
+Choose your policy in **Dashboard → Payments**: until how many hours before the activity cancellation is free and what percentage you refund afterwards. You can set a different policy for each service. It is shown to customers before booking, stored with each booking, and changes only affect new bookings.
 
 ## 5. Ranking and visibility
 

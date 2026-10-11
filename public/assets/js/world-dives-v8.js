@@ -672,7 +672,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     <section class="hm-network" id="hm-network" hidden aria-labelledby="hm-network-title">
       <div class="tp-wrap hm-network-head"><div><p class="eyebrow">Red WORLDIVES</p><h2 id="hm-network-title">Centros que ya reservan con nosotros</h2><p id="hm-network-sub"></p></div><a class="btn btn-primary" href="#/registro">Dar de alta mi centro</a></div>
       <div class="hm-marquee" id="hm-centers-band"></div>
-      <div class="hm-sponsors" id="hm-sponsors" hidden><p class="hm-partners-title">Patrocinadores y colaboradores</p><div class="hm-marquee is-reverse" id="hm-marquee"></div></div>
+      <div class="hm-sponsors" id="hm-sponsors" hidden><p class="hm-partners-title">Patrocinadores y colaboradores <span class="hm-sponsored-tag">Patrocinado</span></p><div class="hm-marquee is-reverse" id="hm-marquee"></div></div>
       <p class="tp-wrap hm-network-foot">¿Tienes un centro de buceo? Date de alta y aparecerás aquí, con tu escaparate y tu motor de reservas.<span id="hm-brand-link"></span></p>
     </section>
   </section>`}
@@ -1054,7 +1054,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     else if(areas[0]){ status.textContent='Pulsa «Usar mi ubicación» o elige una zona para ver su Top 10.'; }
   }
 
-  async function renderProfessional(params){ const id=Number(params.get('id')||0); if(!id){setApp('<section class="page"><div class="empty"><h2>Profesional no encontrado</h2></div></section>');return;} const p=await api('/api/providers/'+id); const c=p.center||{}; const socialSource=p.role==='freelance'?p.socials:c; const socials=[['instagram_url','Instagram','◎'],['facebook_url','Facebook','f'],['twitter_url','X / Twitter','𝕏'],['youtube_url','YouTube','▶'],['tiktok_url','TikTok','♪']].filter(x=>socialSource&&socialSource[x[0]]); setApp(`<section class="page"><div class="breadcrumb"><a href="#/experiencias">Experiencias</a> / Profesional</div><div class="detail"><article class="detail-main"><p class="eyebrow">${p.role==='center'?'CENTRO DE BUCEO':'PROFESIONAL / FREELANCE'}</p><div style="display:flex;align-items:center;gap:16px">${p.role==='center'?centerLogoMarkup(c,'84px'):(p.avatar_url?`<img src="${escapeHtml(p.avatar_url)}" alt="" style="width:84px;height:84px;object-fit:cover;border-radius:50%">`: '')}<h1>${escapeHtml(c.name||p.fullname)}</h1></div>${c.city?`<div class="point-meta"><span class="meta-badge">${escapeHtml(c.city)}</span><span class="meta-badge">${escapeHtml(c.country||'')}</span></div>`:''}<p class="lead">${escapeHtml(c.description||p.provider_bio||'Profesional de buceo en WORLDIVES DISCOVERY.')}</p>${socials.length?`<div class="provider-socials">${socials.map(x=>`<a class="social-chip" href="${escapeHtml(socialSource[x[0]])}" target="_blank" rel="noopener noreferrer"><span>${x[2]}</span>${x[1]}</a>`).join('')}</div>`:''}<div class="data-grid"><div class="data-item"><span>Especialidad</span><strong>${escapeHtml(c.specialties||'Buceo y experiencias')}</strong></div><div class="data-item"><span>Web</span><strong>${c.website?`<a href="${escapeHtml(c.website)}" target="_blank" rel="noopener">Visitar</a>`:'—'}</strong></div><div class="data-item"><span>Contacto</span><strong>${escapeHtml(c.email||c.phone||'Disponible a través de WORLDIVES DISCOVERY')}</strong></div></div><div class="page-actions"><a class="btn" href="#\/experiencias">Volver a experiencias</a></div></article></div></section>`); }
+  async function renderProfessional(params){ const id=Number(params.get('id')||0); if(!id){setApp('<section class="page"><div class="empty"><h2>Profesional no encontrado</h2></div></section>');return;} const p=await api('/api/providers/'+id); const c=p.center||{}; const socialSource=p.role==='freelance'?p.socials:c; const socials=[['instagram_url','Instagram','◎'],['facebook_url','Facebook','f'],['twitter_url','X / Twitter','𝕏'],['youtube_url','YouTube','▶'],['tiktok_url','TikTok','♪']].filter(x=>socialSource&&socialSource[x[0]]); setApp(`<section class="page"><div class="breadcrumb"><a href="#/experiencias">Experiencias</a> / Profesional</div><div class="detail"><article class="detail-main"><p class="eyebrow">${p.role==='center'?'CENTRO DE BUCEO':'PROFESIONAL / FREELANCE'}</p><div style="display:flex;align-items:center;gap:16px">${p.role==='center'?centerLogoMarkup(c,'84px'):(p.avatar_url?`<img src="${escapeHtml(p.avatar_url)}" alt="" style="width:84px;height:84px;object-fit:cover;border-radius:50%">`: '')}<h1>${escapeHtml(c.name||p.fullname)}</h1></div>${c.city?`<div class="point-meta"><span class="meta-badge">${escapeHtml(c.city)}</span><span class="meta-badge">${escapeHtml(c.country||'')}</span></div>`:''}<p class="lead">${escapeHtml(c.description||p.provider_bio||'Profesional de buceo en WORLDIVES DISCOVERY.')}</p>${socials.length?`<div class="provider-socials">${socials.map(x=>`<a class="social-chip" href="${escapeHtml(socialSource[x[0]])}" target="_blank" rel="noopener noreferrer"><span>${x[2]}</span>${x[1]}</a>`).join('')}</div>`:''}<div class="data-grid"><div class="data-item"><span>Especialidad</span><strong>${escapeHtml(c.specialties||'Buceo y experiencias')}</strong></div><div class="data-item"><span>Web</span><strong>${c.website?`<a href="${escapeHtml(c.website)}" target="_blank" rel="noopener">Visitar</a>`:'—'}</strong></div><div class="data-item"><span>Contacto</span><strong>${escapeHtml(c.email||c.phone||'Disponible a través de WORLDIVES DISCOVERY')}</strong></div></div><div id="pro-services"></div><div class="page-actions"><a class="btn" href="#\/experiencias">Volver a experiencias</a></div></article></div></section>`);
+    // Fase 2.7: a freelance professional without a centre takes bookings (and online payments) for his own services.
+    if(p.role==='freelance'){ try{ const sv=(await api('/api/provider-services?provider_id='+id)).items.filter(x=>!x.center_id&&x.service_type!=='alquiler_equipo'); const m=$('#pro-services');
+      if(m&&sv.length){ m.innerHTML=`<h2 style="margin-top:26px">Servicios</h2><div class="cp-services">${sv.map(x=>`<article class="cp-service"><div><strong>${escapeHtml(x.title)}</strong><small>${escapeHtml(x.mode_label||'')}</small>${x.description?`<p>${escapeHtml(x.description)}</p>`:''}</div><div class="cp-service-side"><b>${wdMoney(x.price,x.currency)}</b><small>por persona</small>${(x.slots||[]).length&&x.bookable!==false?`<a class="btn btn-primary cp-book" href="#/reservar?provider=${id}&service=${x.id}">${x.booking_mode==='payment'?'Reservar y pagar':'Enviar solicitud'}</a>`:'<small>Sin salidas programadas</small>'}</div></article>`).join('')}</div>`; translateTree(m); } }catch{} } }
   function authCard(title, inner){ return `<section class="auth-split">
     <aside class="auth-visual">${heroImg('hero:auth')}<div class="auth-visual-in"><p class="eyebrow">WORLDIVES DISCOVERY</p><h2>Tu buceo, en un solo sitio</h2><ul><li>Reserva con centros de todo el mundo</li><li>Tu titulación y tu Log Book siempre contigo</li><li>Recompensas por cada inmersión</li></ul></div></aside>
     <div class="auth-panel"><div class="auth-card"><h1>${escapeHtml(title)}</h1>${inner}</div></div>
@@ -1257,16 +1260,20 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
 
   async function renderBooking(params){
-    const cid=Number(params.get('center')||0);
-    if(!cid) return renderBookingCenterPicker();
+    const cid=Number(params.get('center')||0), providerId=Number(params.get('provider')||0);
+    if(!cid&&!providerId) return renderBookingCenterPicker();
     const esc=escapeHtml;
     setApp(`<section class="bk-page"><div class="bk-loading">${wdIcon('calendar',22)} Preparando la reserva…</div></section>`);
     let root=$('.bk-page'); const alive=()=>document.body.contains(root);
-    const [cR,sR,eR,xR]=await Promise.allSettled([api('/api/centers/'+cid),api('/api/provider-services?provider_id=0&center_id='+cid),api('/api/center-equipment?center_id='+cid),api('/api/center-extras?center_id='+cid)]);
+    const none=Promise.resolve({items:[]});
+    // A freelance professional without a centre (Fase 2.7) is booked like a centre without equipment or extras.
+    const [cR,sR,eR,xR]=await Promise.allSettled(cid?[api('/api/centers/'+cid),api('/api/provider-services?provider_id=0&center_id='+cid),api('/api/center-equipment?center_id='+cid),api('/api/center-extras?center_id='+cid)]
+      :[api('/api/providers/'+providerId).then(p=>({item:{id:0,name:p.fullname,city:'',country:'',logo_url:p.avatar_url||'',cover_url:'',freelance:true}})),api('/api/provider-services?provider_id='+providerId),none,none]);
     if(!alive()) return;
     if(cR.status!=='fulfilled'){ setApp(`<section class="page"><div class="empty"><h2>Centro no encontrado</h2><p>Puede que ya no esté publicado.</p><a class="btn btn-primary" href="#/reservar">Elegir otro centro</a></div></section>`); return; }
     const center=cR.value.item;
-    const services=(sR.status==='fulfilled'?sR.value.items||[]:[]).filter(s=>String(s.center_id)===String(cid)&&s.service_type!=='alquiler_equipo');
+    const services=(sR.status==='fulfilled'?sR.value.items||[]:[]).filter(s=>(cid?String(s.center_id)===String(cid):!s.center_id)&&s.service_type!=='alquiler_equipo');
+    if(!cid&&services[0]) center.online_payments=!!services[0].payments_ready;
     const equipment=(eR.status==='fulfilled'?eR.value.items||[]:[]).filter(e=>e.price!=null&&e.price!=='');
     const extras=xR.status==='fulfilled'?xR.value.items||[]:[];
     const hasNitroxExtra=extras.some(x=>/nitrox/i.test(x.name));
@@ -1286,7 +1293,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const place=[center.city,center.country].filter(Boolean).join(', ');
     setApp(`<section class="bk-page">
       <header class="bk-hero">${cover?`<img class="bk-hero-img" src="${esc(cover)}" alt="">`:''}<div class="bk-hero-in">
-        <a class="bk-back" href="#/centro?id=${cid}">← ${esc(center.name)}</a>
+        <a class="bk-back" href="${cid?`#/centro?id=${cid}`:`#/profesional?id=${providerId}`}">← ${esc(center.name)}</a>
         <div class="bk-hero-id">${centerLogoMarkup(center,'64px')}<div><p class="eyebrow">Reserva tu inmersión</p><h1>${esc(center.name)}</h1><p class="bk-hero-meta">${place?`<span>${wdIcon('pin',15)}${esc(place)}</span>`:''}${Number(center.review_count)?`<span>★ ${Number(center.rating_average||0).toFixed(1)} · ${center.review_count} opiniones</span>`:''}${center.online_payments?'<span>'+wdIcon('card',15)+'Pago seguro online</span>':''}</p></div></div>
       </div></header>
       <div class="bk-layout">
@@ -1345,9 +1352,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const equipCodes=()=>st.rent?Object.entries(st.qty).filter(([,q])=>q>0).map(([c,q])=>`${c}:${q}`):[];
     let quote=null, qSeq=0, qTimer=0;
     const drawSummary=()=>{ const s=svc(), sl=slotObj(); const ready=!!(s&&sl);
-      const lines=quote?.lines||[]; const total=quote?.total||0;
+      const lines=quote?.lines||[]; const total=quote?.total||0; const dep=Number(quote?.deposit||0);
       const online=!!(s?s.payments_ready:center.online_payments), paid=total>0, payMode=s?.booking_mode==='payment';
-      const cta=!ready?(s?'Elige fecha y hora':'Elige una actividad'):s.bookable===false?'No disponible':!payMode?'Enviar solicitud':paid?`Reservar y pagar ${wdMoney(total,quote?.currency)}`:'Reservar';
+      const cta=!ready?(s?'Elige fecha y hora':'Elige una actividad'):s.bookable===false?'No disponible':!payMode?'Enviar solicitud':paid?(dep>0?`Reservar y pagar la señal: ${wdMoney(dep,quote?.currency)}`:`Reservar y pagar ${wdMoney(total,quote?.currency)}`):'Reservar';
+      const policyText=s?.policy?.text||center.cancellation_text||'', policyNote=s?.policy?.note||center.cancellation_note||'';
       const modeTxt=s?bkModeText(s,online):null;
       const payPanel=!s||!paid?'':(payMode||online)?`<div class="pay-trust"><div class="pay-trust-head">${wdIcon('lock',16)}<strong>${payMode?'Pago 100 % seguro':'No se cobra nada hasta que el centro acepte'}</strong></div>
           <ul><li>${wdIcon('shield',14)}Cobro procesado por Stripe, con cifrado y verificación 3D Secure.</li><li>${wdIcon('card',14)}Tus datos de tarjeta nunca pasan por WORLDIVES ni por el centro.</li><li>${wdIcon('check',14)}${payMode?'Confirmación al momento, recibo y justificante PDF.':'Cuando el centro acepte, te avisamos para pagar online antes del plazo.'}</li></ul>
@@ -1363,9 +1371,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         </dl>
         ${lines.length&&ready?`<table class="bk-lines">${lines.map(l=>`<tr><td>${esc(l.label)}<small>${l.qty} × ${wdMoney(l.unit,quote.currency)}</small></td><td>${wdMoney(l.total,quote.currency)}</td></tr>`).join('')}</table>`:''}
         <div class="bk-total"><span>Total</span><strong>${ready&&quote?wdMoney(total,quote.currency):'—'}</strong></div>
+        ${ready&&dep>0&&online?`<div class="bk-deposit"><span>${payMode?'Señal que pagas ahora':'Señal online si el centro acepta'}</span><b>${wdMoney(dep,quote.currency)}</b><span>Resto a pagar en el centro</span><b>${wdMoney(quote.due_at_center,quote.currency)}</b></div>`:''}
         <button type="button" class="btn btn-primary bk-go" ${ready?'':'disabled'}>${esc(cta)}</button>
         ${modeTxt?`<p class="bk-mode"><b>${esc(modeTxt[0])}.</b> ${esc(modeTxt[1])}</p>`:''}${payPanel}
-        ${center.cancellation_text?`<div class="bk-policy">${wdIcon('calendar',15)}<p><b>Política de cancelación.</b> ${esc(center.cancellation_text)}${center.cancellation_note?' '+esc(center.cancellation_note):''}</p></div>`:''}
+        ${policyText?`<div class="bk-policy">${wdIcon('calendar',15)}<p><b>Política de cancelación.</b> ${esc(policyText)}${policyNote?' '+esc(policyNote):''}</p></div>`:''}
         <div class="bk-legal"><p><b>Prestado por ${esc(center.legal_name||center.name)}${center.country?', '+esc(center.country):''}.</b> WORLDIVES DISCOVERY es la plataforma de reservas: no organiza ni presta la actividad.</p><p>Precio final fijado por el centro, impuestos incluidos.</p><p>Las actividades de ocio con fecha concreta no tienen derecho de desistimiento de 14 días (art. 103.l del TRLGDCU); se aplica la política de cancelación del centro.</p><p>Al reservar aceptas las <a href="#/legal/reservas" target="_blank" rel="noopener">condiciones de reserva</a> y las <a href="#/legal/condiciones-buceadores" target="_blank" rel="noopener">condiciones de uso</a>.</p></div>
         <ul class="bk-trust"><li>${wdIcon('users',15)}Tus datos y tu certificación llegan al centro con la reserva.</li>${center.phone?`<li>${wdIcon('clock',15)}¿Dudas? <a href="tel:${esc(String(center.phone).replace(/\s+/g,''))}">${esc(center.phone)}</a></li>`:''}</ul>
       </div>`;
@@ -1373,7 +1382,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       $$('.bk-step').forEach(x=>{ const n=+x.dataset.step; x.classList.toggle('is-done',(n===1&&!!s)||(n===2&&!!sl)||(n===3&&!!sl)); x.classList.toggle('is-locked',n>1&&!s); });
       const go=$('#bk-summary .bk-go'); go.onclick=submit; if(s&&s.bookable===false) go.disabled=true; };
     const refreshQuote=()=>{ clearTimeout(qTimer); qTimer=setTimeout(async()=>{ const s=svc(); if(!s){ quote=null; drawSummary(); return; } const my=++qSeq;
-      const q=new URLSearchParams({center_id:String(cid),service_id:String(s.id),slot_id:String(st.slot||0),participants:String(st.pax),extras:[...st.extras].join(','),equipment:equipCodes().join(',')});
+      const q=new URLSearchParams({center_id:String(cid||0),service_id:String(s.id),slot_id:String(st.slot||0),participants:String(st.pax),extras:[...st.extras].join(','),equipment:equipCodes().join(',')});
       try{ const r=await api('/api/booking-quote?'+q); if(my!==qSeq||!alive()) return; quote=r; }catch{ quote=null; } drawSummary(); },120); };
     const redraw=()=>{ drawServices(); drawPoints(); drawDates(); drawPax(); drawEquip(); drawSummary(); refreshQuote(); };
     // ---- events
@@ -1402,7 +1411,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const codes=equipCodes(); const items=st.rent?equipment.filter(e=>st.qty[e.code]>0).map(e=>`${e.label} ×${st.qty[e.code]}`).join(', '):'';
       const point=(sl.points||[]).find(p=>Number(p.id)===st.point)||(sl.points||[])[0]||null;
       sending=true; $$('.bk-go').forEach(b=>{ b.disabled=true; b.dataset.label=b.textContent; b.textContent='Reservando…'; });
-      try{ const created=await postJSON('/api/bookings',{center_id:cid,service_id:s.id,slot_id:sl.id,dive_point_id:point?Number(point.id):null,dive_point_name:point?.name||'',booking_date:sl.slot_date,booking_time:sl.slot_time,participants:st.pax,
+      try{ const created=await postJSON('/api/bookings',{center_id:cid||null,service_id:s.id,slot_id:sl.id,dive_point_id:point?Number(point.id):null,dive_point_name:point?.name||'',booking_date:sl.slot_date,booking_time:sl.slot_time,participants:st.pax,
           needs_equipment:codes.length>0,equipment_items:items,equipment_codes:codes,equipment_notes:st.sizes,extra_ids:[...st.extras],needs_guide:st.guide,guide_notes:st.guideNotes,nitrox:st.nitrox,pickup:st.pickup,notes:st.notes});
         if(created.checkout_url){ $$('.bk-go').forEach(b=>{ b.textContent='Abriendo el pago seguro…'; }); location.href=created.checkout_url; return; }
         toast(created.status==='confirmed'?'¡Reserva confirmada!':'Solicitud enviada. No se cobra nada hasta que el centro acepte.'); location.hash='#/reserva?id='+created.id;
@@ -1418,29 +1427,61 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const esc=escapeHtml, amount=wdMoney(b.price,b.currency), price=Number(b.price||0);
     if(!(price>0)) return '';
     const dead=['cancelled','rejected','expired'].includes(b.status);
-    if(b.payment_status==='refunded'){
-      return `<section class="pay-card is-refunded"><div class="pay-card-icon">${wdIcon('receipt',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO DEVUELTO</p><h3>Devuelto · ${esc(wdMoney(b.refund_amount||b.price,b.currency))}</h3>
-        <p>Hemos devuelto el importe a la misma tarjeta. Según tu banco, lo verás en 5–10 días hábiles.</p><div class="page-actions"><a class="btn" href="/api/bookings/${b.id}/receipt.pdf" target="_blank" rel="noopener">${wdIcon('download',15)} Justificante PDF</a></div></div></section>`;
+    const paid=Number(b.paid_online||0), refunded=Number(b.refunded_online||0);
+    const refundsList=(b.refunds||[]).length?`<ul class="pay-refunds">${b.refunds.map(r=>`<li>${wdIcon('receipt',13)} ${esc(fmtDate(r.created_at))} · ${esc(wdMoney(r.amount,r.currency))} ${r.status==='pending'?'(en curso)':r.status==='failed'?'(fallida)':''}${r.note?' · '+esc(r.note):''}</li>`).join('')}</ul>`:'';
+    const pdf=`<a class="btn" href="/api/bookings/${b.id}/receipt.pdf" target="_blank" rel="noopener">${wdIcon('download',15)} Justificante PDF</a>`;
+    if(refunded>0&&refunded>=paid-0.005){
+      return `<section class="pay-card is-refunded"><div class="pay-card-icon">${wdIcon('receipt',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO DEVUELTO</p><h3>Devuelto · ${esc(wdMoney(refunded,b.currency))}</h3>
+        <p>${own?'El importe se ha devuelto a la misma tarjeta. Según tu banco, lo verás en 5–10 días hábiles.':'Todo lo pagado online se ha devuelto al cliente.'}</p>${refundsList}<div class="page-actions">${pdf}</div></div></section>`;
     }
-    if(b.payment_status==='paid'&&dead&&Number(b.refund_amount||0)>0){
-      return `<section class="pay-card is-refunded"><div class="pay-card-icon">${wdIcon('clock',22)}</div><div class="pay-card-main"><p class="eyebrow">DEVOLUCIÓN EN CURSO</p><h3>${esc(wdMoney(b.refund_amount,b.currency))}</h3><p>Estamos tramitando la devolución a tu tarjeta. Te avisaremos por email cuando esté hecha.</p></div></section>`;
+    if(['proposed','failed'].includes(b.refund_status)&&Number(b.refund_proposed||0)>0){
+      return `<section class="pay-card is-refunded"><div class="pay-card-icon">${wdIcon('clock',22)}</div><div class="pay-card-main"><p class="eyebrow">DEVOLUCIÓN PENDIENTE</p><h3>${esc(wdMoney(b.refund_proposed,b.currency))}</h3>
+        <p>${own?`Según la política de cancelación te corresponde esta devolución. Se la hemos pedido a ${esc(b.center_name)}, que la hace desde su cuenta; te avisaremos por email cuando esté hecha.`:'El cliente canceló. Según tu política de cancelación le corresponde esta devolución: hazla con el botón «Devolver».'}</p>${refundsList}</div></section>`;
     }
-    if(b.payment_status==='paid'){
+    if(['paid','deposit_paid','partially_refunded'].includes(b.payment_status)&&paid>0){
       const when=pay?.paid_at?new Date(pay.paid_at).toLocaleString(wdLocale(),{dateStyle:'medium',timeStyle:'short'}):'';
       const card=pay?.card_last4?`${CARD_BRANDS[pay.card_brand]||esc(pay.card_brand||'Tarjeta')} ···· ${esc(pay.card_last4)}`:(b.payment_method?esc(b.payment_method):'Registrado por el centro');
-      return `<section class="pay-card is-paid"><div class="pay-card-icon">${wdIcon('check',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO</p><h3>Pagado · ${esc(amount)}</h3>
-        <dl class="pay-facts">${when?`<div><dt>Fecha</dt><dd>${esc(when)}</dd></div>`:''}<div><dt>Método</dt><dd>${card}</dd></div>${pay?.reference?`<div><dt>Ref. del pago</dt><dd>${esc(pay.reference)}</dd></div>`:''}</dl>
-        <div class="page-actions">${pay?.receipt_url?`<a class="btn" href="${esc(pay.receipt_url)}" target="_blank" rel="noopener">${wdIcon('receipt',15)} Recibo de Stripe</a>`:''}<a class="btn" href="/api/bookings/${b.id}/receipt.pdf" target="_blank" rel="noopener">${wdIcon('download',15)} Justificante PDF</a></div></div></section>`;
+      const due=Number(b.amount_due||0);
+      return `<section class="pay-card is-paid"><div class="pay-card-icon">${wdIcon('check',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO</p><h3>${b.payment_status==='deposit_paid'||(Number(b.deposit_amount||0)>0&&due>0.005)?'Señal pagada':'Pagado'} · ${esc(wdMoney(paid,b.currency))}</h3>
+        <dl class="pay-facts">${when?`<div><dt>Fecha</dt><dd>${esc(when)}</dd></div>`:''}<div><dt>Método</dt><dd>${card}</dd></div>${pay?.reference?`<div><dt>Ref. del pago</dt><dd>${esc(pay.reference)}</dd></div>`:''}${due>0.005&&!dead?`<div><dt>Resto en el centro</dt><dd>${esc(wdMoney(due,b.currency))}</dd></div>`:''}${refunded>0?`<div><dt>Devuelto</dt><dd>${esc(wdMoney(refunded,b.currency))}</dd></div>`:''}</dl>
+        ${refundsList}<div class="page-actions">${pay?.receipt_url?`<a class="btn" href="${esc(pay.receipt_url)}" target="_blank" rel="noopener">${wdIcon('receipt',15)} Recibo de Stripe</a>`:''}${pdf}</div></div></section>`;
+    }
+    if(b.payment_status==='paid'){
+      return `<section class="pay-card is-paid"><div class="pay-card-icon">${wdIcon('check',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO</p><h3>Pagado · ${esc(amount)}</h3><dl class="pay-facts"><div><dt>Método</dt><dd>${esc(b.payment_method||'Registrado por el centro')}</dd></div></dl><div class="page-actions">${pdf}</div></div></section>`;
     }
     if(dead) return '';
-    if(canPay) return `<section class="pay-card is-due">${cancelled?`<div class="notice warning pay-cancelled"><strong>No se ha completado el pago.</strong> No se te ha cobrado nada.${b.status==='accepted_pending_payment'?` Puedes pagar hasta el ${escapeHtml(wdDeadline(b.payment_deadline))}.`:''}</div>`:''}<div class="pay-card-icon">${wdIcon('lock',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO PENDIENTE</p><h3>${esc(amount)}</h3>
-        <p>${b.status==='accepted_pending_payment'?`El centro ha aceptado tu solicitud y te guarda la plaza. Paga antes del ${escapeHtml(wdDeadline(b.payment_deadline))} para confirmarla.`:'Completa el pago para confirmar tu plaza al momento.'}</p>
-        <button class="btn btn-primary" type="button" id="booking-pay-now">Pagar ahora de forma segura</button>
-        <ul class="pay-points"><li>${wdIcon('shield',14)}Stripe procesa el cobro con cifrado y 3D Secure</li><li>${wdIcon('card',14)}WORLDIVES y el centro nunca ven tu tarjeta</li><li>${wdIcon('check',14)}Confirmación inmediata y justificante PDF</li></ul></div></section>`;
-    if(b.payment_status==='pending') return `<section class="pay-card is-due"><div class="pay-card-icon">${wdIcon('clock',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO EN CURSO</p><h3>${esc(amount)}</h3><p>Estamos esperando la confirmación del banco. Si has cerrado la ventana de pago, vuelve a intentarlo en unos minutos.</p></div></section>`;
-    if(b.payment_status==='review') return `<section class="pay-card is-due"><div class="pay-card-icon">${wdIcon('alert',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO EN REVISIÓN</p><h3>${esc(amount)}</h3><p>Hemos recibido un pago que no coincide con el importe de la reserva. Nuestro equipo lo revisa y te escribirá; no hace falta que pagues otra vez.</p></div></section>`;
-    if(own&&['requested','pending'].includes(b.status)) return `<section class="pay-card"><div class="pay-card-icon">${wdIcon('clock',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO</p><h3>${esc(amount)}</h3><p>No se cobra nada hasta que el centro confirme la plaza. Te avisaremos para pagar online.</p></div></section>`;
+    const payNow=Number(b.pay_now||b.price||0), deposit=payNow>0&&payNow<price;
+    if(canPay) return `<section class="pay-card is-due">${cancelled?`<div class="notice warning pay-cancelled"><strong>No se ha completado el pago.</strong> No se te ha cobrado nada.${b.status==='accepted_pending_payment'?` Puedes pagar hasta el ${escapeHtml(wdDeadline(b.payment_deadline))}.`:''}</div>`:''}<div class="pay-card-icon">${wdIcon('lock',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO PENDIENTE</p><h3>${esc(wdMoney(payNow,b.currency))}${deposit?` <small>señal de ${esc(amount)}</small>`:''}</h3>
+        <p>${b.status==='accepted_pending_payment'?`El centro ha aceptado tu solicitud y te guarda la plaza. Paga antes del ${escapeHtml(wdDeadline(b.payment_deadline))} para confirmarla.`:'Completa el pago para confirmar tu plaza al momento.'}${deposit?` El resto, ${esc(wdMoney(price-payNow,b.currency))}, se paga en el centro.`:''}</p>
+        <button class="btn btn-primary" type="button" id="booking-pay-now">${deposit?'Pagar la señal de forma segura':'Pagar ahora de forma segura'}</button>
+        <ul class="pay-points"><li>${wdIcon('shield',14)}Stripe procesa el cobro con cifrado y 3D Secure</li><li>${wdIcon('card',14)}Pagas directamente al centro: ni WORLDIVES ni el centro ven tu tarjeta</li><li>${wdIcon('check',14)}Confirmación inmediata y justificante PDF</li></ul></div></section>`;
+    if(b.payment_status==='pending') return `<section class="pay-card is-due"><div class="pay-card-icon">${wdIcon('clock',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO EN CURSO</p><h3>${esc(wdMoney(payNow,b.currency))}</h3><p>Estamos esperando la confirmación del banco. Si has cerrado la ventana de pago, vuelve a intentarlo en unos minutos.</p></div></section>`;
+    if(b.payment_status==='review') return `<section class="pay-card is-due"><div class="pay-card-icon">${wdIcon('alert',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO EN REVISIÓN</p><h3>${esc(amount)}</h3><p>Hemos recibido un pago que no coincide con el importe de la reserva. Lo estamos revisando y te escribiremos; no hace falta que pagues otra vez.</p></div></section>`;
+    if(own&&['requested','pending'].includes(b.status)) return `<section class="pay-card"><div class="pay-card-icon">${wdIcon('clock',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO</p><h3>${esc(amount)}</h3><p>No se cobra nada hasta que el centro confirme la plaza.${b.payment_status==='required'?` Te avisaremos para pagar online${deposit?` la señal (${esc(wdMoney(payNow,b.currency))})`:''}.`:''}</p></div></section>`;
     return `<section class="pay-card"><div class="pay-card-icon">${wdIcon('wallet',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO EN EL CENTRO</p><h3>${esc(amount)}</h3><p>${own?'Pagas directamente al centro el día de la actividad (efectivo o tarjeta, según el centro).':'El buceador paga en el centro.'}</p></div></section>`;
+  }
+  // Provider: refund part or all of what the diver paid online (Fase 2.4). Partial refunds never cancel the booking.
+  async function openRefundModal(id,after){
+    let b; try{ b=(await api('/api/bookings/'+id)).booking; }catch(e){ toast(e.message); return; }
+    const max=Number(b.refundable||0); if(!(max>0)){ toast('Esta reserva no tiene pagos online por devolver.'); return; }
+    const sug=Number(b.refund_proposed||0)>0&&['proposed','failed'].includes(b.refund_status)?Math.min(max,Number(b.refund_proposed)):max;
+    const {el,close}=wdOpenModal({id:'refund-modal',title:'Devolver dinero al cliente',subtitle:`Se devuelve desde tu cuenta de Stripe a la misma tarjeta. Puedes devolver hasta ${wdMoney(max,b.currency)}.`,
+      body:`<div class="field"><label for="rf-amount">Importe a devolver (${escapeHtml(b.currency||'EUR')})</label><input id="rf-amount" type="number" min="0.01" step="0.01" max="${max}" value="${sug.toFixed(2)}"></div>
+        <p class="acc-help">${escapeHtml(b.cancellation_text||'')}</p><p class="acc-help">Una devolución parcial no cancela la reserva. Para cancelarla usa «Cancelar reserva».</p>
+        <div class="field"><label for="rf-note">Nota para el cliente (opcional)</label><input id="rf-note" maxlength="300" placeholder="Ej.: devolución por cancelación con 24 h de antelación"></div>`,
+      footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="rf-ok">Devolver</button>'});
+    $('#rf-ok',el).onclick=async e=>{ const btn=e.currentTarget; btn.disabled=true; try{ await postJSON(`/api/bookings/${id}/refund`,{amount:$('#rf-amount',el).value,note:$('#rf-note',el).value}); close(); toast('Devolución hecha. El cliente recibe un email.'); after&&after(); }catch(err){ toast(err.message); btn.disabled=false; } };
+  }
+  // Provider cancels a booking: everything paid online is refunded unless it sets a smaller amount.
+  async function openProviderCancelModal(id,after){
+    let b; try{ b=(await api('/api/bookings/'+id)).booking; }catch(e){ toast(e.message); return; }
+    const max=Number(b.refundable||0);
+    const {el,close}=wdOpenModal({id:'center-cancel-modal',title:'Cancelar la reserva',subtitle:'El cliente recibe un email con el motivo. Las plazas vuelven a quedar libres.',
+      body:`${max>0?`<div class="cx-summary">${wdIcon('receipt',20)}<p>Si cancelas tú, al cliente le corresponde la devolución de todo lo pagado: <b>${wdMoney(max,b.currency)}</b>. Se hace desde tu cuenta de Stripe.</p></div>
+        <div class="field"><label for="cc-amount">Importe a devolver (${escapeHtml(b.currency||'EUR')})</label><input id="cc-amount" type="number" min="0" step="0.01" max="${max}" value="${max.toFixed(2)}"></div>`:''}
+        <div class="field"><label for="cc-reason">Motivo</label><input id="cc-reason" maxlength="300" placeholder="Ej.: previsión de mal estado del mar"></div>`,
+      footer:'<button type="button" class="btn" data-modal-close>No cancelar</button><button type="button" class="btn danger" id="cc-ok">Cancelar la reserva</button>'});
+    $('#cc-ok',el).onclick=async e=>{ const btn=e.currentTarget; btn.disabled=true; try{ const r=await postJSON(`/api/bookings/${id}/status`,{status:'cancelled',reason:$('#cc-reason',el).value,refund_amount:$('#cc-amount',el)?.value}); close(); toast(r.refund==='refunded'?'Reserva cancelada y dinero devuelto.':r.refund==='refund_pending'?'Reserva cancelada. La devolución no se pudo hacer: revísala en Cobros y pagos.':'Reserva cancelada.'); after&&after(); }catch(err){ toast(err.message); btn.disabled=false; } };
   }
   function bookingReviewPrompt(b){
     const ok=!['cancelled','rejected'].includes(b.status)&&(b.payment_status==='paid'||['confirmed','completed'].includes(b.status));
@@ -1570,11 +1611,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   async function renderBookingDetail(params){
     const me=await api('/api/me');if(!me.authenticated){goLogin();return;}const id=Number(params?.get?.('id')||params||0);if(!id){location.hash='#/area';return;}
-    const d=await api('/api/bookings/'+id);const b=d.booking;const own=!['admin','center'].includes(me.user.role);const centerView=me.user.role==='center';const st=bookingStatus(b.status,b.status_label);const statusText=b.status_label||st[0];
+    const d=await api('/api/bookings/'+id);const b=d.booking;const own=b.user_id===me.user.id;const centerView=!own&&['center','freelance'].includes(me.user.role);const st=bookingStatus(b.status,b.status_label);const statusText=b.status_label||st[0];
     const canPay=own&&!!b.can_pay_online; const payRec=d.payment||null;const p=d.profile||{};const docs=d.documents||[];
     if(centerView){
       const docRows=docs.map(doc=>`<div class="doc-card"><div><strong>${escapeHtml(doc.title)}</strong><div style="font-size:12px;color:var(--muted)">${escapeHtml(doc.document_type)}${doc.expires_at?' · vence '+escapeHtml(doc.expires_at):''}</div></div><a class="btn" href="/api/documents/file/${doc.id}" target="_blank" rel="noopener">Abrir</a></div>`).join('');
-      setApp(`<section class="page diver-sheet-page"><div class="breadcrumb"><a href="#/admin?tab=bookings">Reservas</a> / Ficha del buceador</div><p class="eyebrow">FICHA OPERATIVA · USO INTERNO</p><div class="diver-sheet-head"><div><h1>${escapeHtml(b.fullname)}</h1><p class="lead">Documentación y datos operativos del buceador.</p></div><div class="page-actions"><a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Justificante PDF + QR</a>${d.data_shared?`<a class="btn btn-primary" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a>`:''}<button class="btn" type="button" id="center-notice">Enviar aviso al cliente</button></div></div>
+      setApp(`<section class="page diver-sheet-page"><div class="breadcrumb"><a href="#/admin?tab=bookings">Reservas</a> / Ficha del buceador</div><p class="eyebrow">FICHA OPERATIVA · USO INTERNO</p><div class="diver-sheet-head"><div><h1>${escapeHtml(b.fullname)}</h1><p class="lead">Documentación y datos operativos del buceador.</p></div><div class="page-actions"><a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Justificante PDF + QR</a>${d.data_shared?`<a class="btn btn-primary" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a>`:''}<button class="btn" type="button" id="center-notice">Enviar aviso al cliente</button>${Number(b.refundable||0)>0?'<button class="btn" type="button" id="center-refund">Devolver</button>':''}${['confirmed','accepted_pending_payment'].includes(b.status)?'<button class="btn danger" type="button" id="center-cancel">Cancelar reserva</button>':''}</div></div>
+      ${bookingPaymentCard(b,d.payment||null,{own:false,canPay:false})}
       <div class="bk-state-bar">${wdStatus(b.status,b.status_label)}<span class="wd-mode">${escapeHtml(b.mode_label||'')}</span>${b.status==='requested'&&b.response_deadline?`<span class="acc-due">${wdIcon('clock',13)} Responde antes del ${escapeHtml(wdDeadline(b.response_deadline))}</span>`:''}${b.status==='accepted_pending_payment'&&b.payment_deadline?`<span class="acc-due">${wdIcon('clock',13)} El cliente paga antes del ${escapeHtml(wdDeadline(b.payment_deadline))}</span>`:''}
         ${b.status==='requested'?`<button class="btn btn-primary" type="button" id="center-confirm-booking">Aceptar</button><button class="btn danger" type="button" id="center-reject-booking">Rechazar</button>`:''}</div>
       ${d.data_shared?'':'<div class="notice warn"><strong>Ficha no compartida.</strong> Este cliente no ha reservado él mismo con tu centro ni ha compartido sus datos (por ejemplo, haciendo check-in con tu QR). Solo ves los datos de la reserva.</div>'}<div class="detail" style="margin-top:22px"><article class="detail-main"><section class="reservation-pass-section"><p class="eyebrow">DATOS DEL BUCEADOR</p><div class="data-grid"><div class="data-item"><span>Nombre</span><strong>${escapeHtml(b.fullname)}</strong></div><div class="data-item"><span>Teléfono</span><strong>${p.phone?`<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Email</span><strong>${escapeHtml(b.email||'—')}</strong></div><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(p.city||'—')}</strong></div><div class="data-item"><span>Titulación</span><strong>${escapeHtml(p.certification_name||'No indicada')}</strong></div><div class="data-item"><span>Contacto de emergencia</span><strong>${escapeHtml([p.emergency_contact_name,p.emergency_contact_phone].filter(Boolean).join(' · ')||'—')}</strong></div></div></section><section class="reservation-pass-section"><p class="eyebrow">EQUIPO Y PREFERENCIAS</p><div class="data-grid"><div class="data-item"><span>Necesita equipo</span><strong>${p.equipment_required?'Sí':'No'}</strong></div><div class="data-item"><span>Traje / talla</span><strong>${escapeHtml([p.suit_type,p.suit_size].filter(Boolean).join(' · ')||'—')}</strong></div><div class="data-item"><span>Botas</span><strong>${escapeHtml(p.boot_size||'—')}</strong></div><div class="data-item"><span>Chaleco</span><strong>${escapeHtml(p.bcd_size||'—')}</strong></div><div class="data-item"><span>Aletas</span><strong>${escapeHtml(p.fin_size||'—')}</strong></div><div class="data-item"><span>Máscara</span><strong>${escapeHtml(p.mask_size||'—')}</strong></div><div class="data-item"><span>Botella</span><strong>${escapeHtml(p.tank_preference||'—')}</strong></div><div class="data-item"><span>Ordenador</span><strong>${escapeHtml(p.computer_preference||'—')}</strong></div><div class="data-item"><span>Peso habitual</span><strong>${p.usual_weight_kg?escapeHtml(String(p.usual_weight_kg))+' kg':'—'}</strong></div></div>${p.equipment_notes?`<div class="notice" style="margin-top:14px"><strong>Notas de equipo</strong><br>${escapeHtml(p.equipment_notes)}</div>`:''}</section><section class="reservation-pass-section"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><p class="eyebrow">DOCUMENTACIÓN</p><h2>Documentación del buceador</h2></div><a class="btn" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">PDF</a></div>${docRows||'<div class="empty" style="margin-top:12px">El buceador todavía no ha aportado documentación.</div>'}</section></article><aside class="detail-side"><div class="notice"><strong>Ficha interna del centro</strong><p style="margin:8px 0 0">Esta pantalla no modifica la reserva. La confirmación, pago y estado se gestionan desde la pantalla de reservas.</p></div><a class="btn" style="margin-top:12px;width:100%" href="#/admin?tab=bookings">← Volver a reservas</a></aside></div></section>`);
@@ -1609,6 +1651,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $('#center-confirm-booking')?.addEventListener('click',async()=>{ try{ const r=await postJSON('/api/bookings/'+id+'/status',{status:'confirmed'}); toast(r.status==='accepted_pending_payment'?'Solicitud aceptada. El cliente tiene un plazo para pagar.':'Reserva confirmada.'); after&&after(); }catch(e){ toast(e.message); } });
     $('#center-reject-booking')?.addEventListener('click',()=>openRejectModal(id,after));
     $('#center-notice')?.addEventListener('click',()=>openNoticeModal(id,b,after));
+    $('#center-refund')?.addEventListener('click',()=>openRefundModal(id,after));
+    $('#center-cancel')?.addEventListener('click',()=>openProviderCancelModal(id,after));
   }
   function openRejectModal(id,after){
     const {el,close}=wdOpenModal({id:'reject-booking',title:'Rechazar la solicitud',subtitle:'El cliente recibirá un email. No se le cobra nada.',
@@ -1708,15 +1752,16 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
   async function renderFreelancePanel(d){
     const u=d.user||{}, esc=escapeHtml; state.me=d;
-    const tabs=[['dashboard','⌂','Resumen'],['planning','▦','Planning / agenda'],['services','◈','Servicios y tarifas'],['experiences','✈','Experiencias y solicitudes'],['profile','✦','Perfil público']];
+    const tabs=[['dashboard','⌂','Resumen'],['bookings','☰','Reservas'],['planning','▦','Planning / agenda'],['services','◈','Servicios y tarifas'],['experiences','✈','Experiencias y solicitudes'],['payments','€','Cobros y pagos'],['profile','✦','Perfil público']];
     setApp(`<section class="center-backoffice fl-office">
       <div class="cb-header"><div class="cb-header-id">${u.avatar_url?`<img class="center-logo fl-avatar" src="${esc(u.avatar_url)}" alt="">`:`<span class="acc-avatar fl-avatar-txt">${esc(initials(u.fullname||''))}</span>`}<div><p class="eyebrow">Panel del profesional</p><h1>${esc(u.fullname||'Profesional')}</h1><p>Instructor / guía freelance · tus salidas, experiencias y ficha pública en un solo panel.</p></div></div>
         <div class="cb-header-actions"><a class="btn" href="#/profesional?id=${u.id}">${wdIcon('eye',15)} Ver mi ficha pública</a><a class="btn" href="#/cuenta">${wdIcon('user',15)} Mi cuenta</a></div></div>
-      <div class="cb-layout"><aside class="cb-sidebar"><div class="cb-section-title">MI ACTIVIDAD</div>${tabs.map(([k,ic,l])=>`<button class="cb-nav" data-cbtab="${k}">${ic} <span>${l}</span>${k==='experiences'?'<b id="fl-req-badge" hidden></b>':''}</button>`).join('')}
+      <div class="cb-layout"><aside class="cb-sidebar"><div class="cb-section-title">MI ACTIVIDAD</div>${tabs.map(([k,ic,l])=>`<button class="cb-nav" data-cbtab="${k}">${ic} <span>${l}</span>${k==='experiences'?'<b id="fl-req-badge" hidden></b>':k==='bookings'?'<b id="fl-bk-badge" hidden></b>':''}</button>`).join('')}
         <div class="cb-section-title">CUENTA</div><a class="cb-nav" href="#/logbook">${wdIcon('book',15)} <span>Log Book</span></a><a class="cb-nav" href="#/cuenta">${wdIcon('user',15)} <span>Mi cuenta</span></a></aside>
       <main class="cb-main"><div id="cb-content"></div></main></div></section>`); proTermsBanner(d.user);
     const content=$('#cb-content'), nav=$$('.cb-nav[data-cbtab]');
     const goServices=()=>load('services');
+    api('/api/center/requests').then(r=>{ const bd=$('#fl-bk-badge'); const n=(r.count||0)+(r.pending_refunds||0); if(bd&&n){ bd.hidden=false; bd.textContent=n; } }).catch(()=>{});
     let expData=null; const loadExp=async()=>{ try{ expData=await api('/api/provider/experiences'); }catch{ expData={items:[],requests:[]}; } const n=(expData.requests||[]).filter(r=>r.status==='requested').length; const b=$('#fl-req-badge'); if(b){ b.hidden=!n; b.textContent=n; } return expData; };
     async function load(tab){
       nav.forEach(n=>n.classList.toggle('active',n.dataset.cbtab===tab));
@@ -1724,6 +1769,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(tab==='planning'){ content.innerHTML='<div id="fl-planning"></div>'; await renderCenterPlanning('fl-planning',{center:{name:u.fullname,city:'',cover_url:''},canBook:false,onManage:goServices}); }
       else if(tab==='services'){ content.innerHTML='<div id="freelance-services-manager"></div>'; await renderProviderServicesManager(u.id,'freelance','freelance-services-manager'); }
       else if(tab==='experiences'){ content.innerHTML='<div id="freelance-experiences"></div>'; await renderProviderExperiences('freelance-experiences','freelance',{goServices}); loadExp(); }
+      else if(tab==='bookings'){ content.innerHTML='<div id="fl-bookings"></div>'; await renderCenterBookings('fl-bookings',{freelance:true}); }
+      else if(tab==='payments'){ content.innerHTML='<div id="fl-payments"></div>'; await renderProviderPayments('fl-payments'); }
       else if(tab==='profile') renderFreelanceProfile();
       else await renderFreelanceDashboard();
     }
@@ -1770,34 +1817,68 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     loadExp(); load(tabs.some(t=>t[0]===req)?req:'dashboard');
   }
 
-  async function renderCenterPayments(centerId,mountId){
-    const mount=document.getElementById(mountId); if(!mount)return;
+  // «Cobros y pagos» of a provider: a centre, or a freelance professional without a centre (v50.34, Fase 2).
+  // Direct charges: the money goes from the diver to the provider's own Stripe account. WORLDIVES takes no commission.
+  const PAY_ORDER_STATE={paid:['Cobrado','good'],pending:['En curso','warn'],review:['En revisión','bad'],refund_due:['Devolución pendiente','bad'],partially_refunded:['Devolución parcial','warn'],refunded:['Devuelto','muted'],expired:['Caducado','muted'],cancelled:['Cancelado','muted'],failed:['Fallido','bad']};
+  function wdPolicyText(h,p){ h=Number(h||0); p=Number(p||0); const when=h>=48&&h%24===0?`${h/24} días`:`${h} horas`;
+    if(!h&&!p) return 'Sin cancelación gratuita: no hay reembolso al cancelar.'; if(!h) return `Al cancelar se devuelve el ${p} % de lo pagado.`;
+    return `Cancelación gratuita hasta ${when} antes de la actividad; ${p===0?'después no hay reembolso.':p<100?`después se devuelve el ${p} % de lo pagado.`:'después también se devuelve todo.'}`; }
+  async function renderCenterPayments(centerId,mountId){ return renderProviderPayments(mountId,centerId); }
+  async function renderProviderPayments(mountId,centerId){
+    const mount=document.getElementById(mountId); if(!mount)return; const esc=escapeHtml; const q=centerId&&state.me?.user?.role==='admin'?`?center_id=${centerId}`:'';
+    const body=q?{center_id:centerId}:{};
     try{
       const qs=new URLSearchParams(location.hash.split('?')[1]||'');
-      if(qs.get('stripe')==='return'||qs.get('stripe')==='refresh'){try{await postJSON('/api/payments/connect/sync',{center_id:centerId});}catch(e){}}
-      const st=await api('/api/payments/connect-status?center_id='+centerId);
-      const rows=(await api('/api/payments/center?center_id='+centerId)).items||[];
+      if(qs.get('stripe')==='return'||qs.get('stripe')==='refresh'){ try{ await postJSON('/api/payments/connect/sync',body); }catch(e){} }
+      const [st,d]=await Promise.all([api('/api/payments/connect-status'+q),api('/api/provider/payments'+q)]);
+      const pf=d.profile||{}; const freelance=pf.type==='freelance';
       const status=st.ready?'<span class="status good">● Cobros activos</span>':st.configured?'<span class="status warn">● Configuración pendiente</span>':'<span class="status warn">● Cobros sin configurar</span>';
-      const totals=rows.filter(x=>x.status==='paid').reduce((a,x)=>a+Number(x.amount||0),0);
-      mount.innerHTML=`<div class="detail" style="margin-top:18px"><article class="detail-main">
-        <div class="section-head"><div><p class="eyebrow">COBROS PROFESIONALES</p><h2 style="margin:0">Pagos del centro</h2><p style="color:var(--muted);margin:6px 0 0">El cliente paga de forma segura y el importe se dirige automáticamente a la cuenta de cobros del centro. WORLDIVES nunca almacena los datos de la tarjeta.</p></div>${status}</div>
-        <div class="provider-mini-summary" style="margin-top:16px"><span><strong>${totals.toFixed(2)} €</strong> cobrado</span><span><strong>${rows.filter(x=>x.status==='paid').length}</strong> pagos completados</span></div>
-        <div class="form-actions" style="margin-top:18px">
-          ${st.ready?'<button class="btn btn-primary" id="stripe-dashboard">Abrir panel de cobros</button>':`<button class="btn btn-primary" id="stripe-onboard">${st.configured?'Continuar configuración de Stripe':'Configurar cobros seguros'}</button>`}
-          ${st.configured&&!st.ready?'<button class="btn" id="stripe-sync">Actualizar estado</button>':''}
+      const income=(d.income||[]);
+      mount.innerHTML=`<section class="pay-module">
+        <div class="svc-head"><div><p class="eyebrow">COBROS Y PAGOS</p><h2>${freelance?'Tus cobros':'Cobros del centro'}</h2>
+          <p>El cliente paga en una página segura de Stripe y el dinero va <strong>directamente a tu cuenta de Stripe</strong>. WORLDIVES no cobra comisión por las reservas ni guarda datos de tarjetas. Las comisiones de Stripe por cada cobro las paga tu cuenta.</p></div>${status}</div>
+        ${st.platform_ready===false?'<div class="notice warn"><strong>Cobros online pendientes en WORLDIVES</strong><p>El administrador todavía no ha configurado la conexión con Stripe en el servidor.</p></div>':''}
+        <div class="acc-kpis">${income.length?income.map(x=>accKpi('chart',wdMoney(x.net,x.currency),`Ingresos (${x.currency}) · ${x.n} ${x.n===1?'pago':'pagos'}${x.refunded?` · ${wdMoney(x.refunded,x.currency)} devueltos`:''}`)).join(''):accKpi('chart',wdMoney(0,'EUR'),'Ingresos online')}${accKpi('alert',(d.pending_refunds||[]).length,'devoluciones pendientes',null,(d.pending_refunds||[]).length>0)}</div>
+        <div class="form-actions">
+          ${st.ready?`<button class="btn btn-primary" id="stripe-dashboard">${wdIcon('chart',15)} Abrir mi panel de Stripe</button>`:`<button class="btn btn-primary" id="stripe-onboard">${st.configured?'Continuar la configuración en Stripe':'Activar los cobros online'}</button>`}
+          ${st.configured?'<button class="btn" id="stripe-sync">Actualizar estado</button>':''}
         </div>
-        <div class="notice" style="margin-top:16px"><strong>Cómo funciona</strong><p style="margin:6px 0 0">El pago se realiza en una página segura de Stripe. Cuando Stripe confirma el pago, WORLDIVES confirma automáticamente la reserva y registra la liquidación del centro.</p></div>
-        <div id="cancel-policy-card" style="margin-top:22px"></div>
-        <h3 style="margin-top:28px">Últimas operaciones</h3>
-        <div class="table-wrap"><table class="data-table"><thead><tr><th>Reserva</th><th>Cliente</th><th>Importe</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>
-        ${rows.length?rows.map(r=>`<tr><td>#${r.booking_id||r.experience_booking_id||r.id}</td><td>${escapeHtml(r.customer_name||'')}</td><td>${Number(r.amount||0).toFixed(2)} €</td><td>${escapeHtml(r.status||'')}</td><td>${escapeHtml((r.created_at||'').slice(0,10))}</td></tr>`).join(''):'<tr><td colspan="5">Todavía no hay operaciones de pago.</td></tr>'}
-        </tbody></table></div>
-      </article></div>`;
-      renderCancelPolicyCard(centerId,$('#cancel-policy-card'));
-      $('#stripe-onboard')?.addEventListener('click',async()=>{try{const r=await postJSON('/api/payments/connect/onboard',{center_id:centerId});location.href=r.url;}catch(e){toast(e.message)}});
-      $('#stripe-sync')?.addEventListener('click',async()=>{try{await postJSON('/api/payments/connect/sync',{center_id:centerId});toast('Estado actualizado.');renderCenterPayments(centerId,mountId);}catch(e){toast(e.message)}});
-      $('#stripe-dashboard')?.addEventListener('click',async()=>{try{const r=await postJSON('/api/payments/connect/login',{center_id:centerId});location.href=r.url;}catch(e){toast(e.message)}});
+        <div class="notice"><strong>Cómo funciona</strong><p>Tu cuenta de Stripe es tuya: tienes su panel completo, recibes los pagos en tu banco según su calendario y gestionas desde allí las disputas. Las devoluciones puedes hacerlas desde cada reserva (botón «Devolver») o desde Stripe; las dos quedan registradas aquí.</p></div>
+        ${(d.pending_refunds||[]).length?`<section class="cb-panel"><div class="cb-panel-head"><div><h3>${wdIcon('alert',17)} Devoluciones pendientes</h3><p>Clientes que cancelaron una reserva pagada. Según tu política les corresponde este importe.</p></div></div>
+          <div class="acc-list">${d.pending_refunds.map(r=>`<div class="acc-row">${accDate(r.booking_date)}<span class="acc-row-main"><strong>${esc(r.customer_name||'Cliente')} · ${wdMoney(r.refund_proposed,r.currency)}</strong><small>${esc(r.service_title||'Reserva')} · ${r.refund_status==='failed'?'la devolución automática falló':'propuesta '+esc(fmtDate(r.refund_proposed_at))}</small></span><a class="btn btn-primary" href="#/reserva?id=${r.id}">Devolver</a></div>`).join('')}</div></section>`:''}
+        <section class="cb-panel"><div class="cb-panel-head"><div><h3>Datos del prestador del servicio</h3><p>Aparecen en el justificante de cada reserva como «Prestador del servicio». El justificante no es una factura: si tu actividad lo exige, la factura la emites tú.</p></div></div>
+          <form id="pay-profile" class="form-grid"><div class="field"><label for="pp-legal">Razón social o nombre completo</label><input id="pp-legal" maxlength="160" value="${esc(pf.legal_name)}" placeholder="${esc(pf.name||'')}"></div>
+            <div class="field"><label for="pp-tax">NIF / número fiscal</label><input id="pp-tax" maxlength="40" value="${esc(pf.tax_id)}" placeholder="B12345678"></div>
+            <div class="field full"><label for="pp-addr">Dirección fiscal</label><input id="pp-addr" maxlength="300" value="${esc(pf.fiscal_address)}" placeholder="Calle, número, código postal, ciudad, país"></div>
+            <div class="form-actions full"><button class="btn btn-primary" type="submit">Guardar datos</button></div></form></section>
+        <div id="cancel-policy-card"></div>
+        <section class="cb-panel"><div class="cb-panel-head"><div><h3>Últimas operaciones</h3></div></div>
+        <div class="table-wrap"><table class="data-table"><thead><tr><th>Reserva</th><th>Cliente</th><th>Importe</th><th>Tipo</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>
+        ${(d.items||[]).length?d.items.map(r=>{ const s=PAY_ORDER_STATE[r.status]||[r.status,'muted']; return `<tr><td>${r.booking_id?`<a href="#/reserva?id=${r.booking_id}">WOD-${String(r.booking_id).padStart(6,'0')}</a>`:'#'+(r.experience_booking_id||r.id)}</td><td>${esc(r.customer_name||'')}</td><td>${wdMoney(r.amount_received??r.amount,r.currency)}${r.refunded_total>0?`<small> · ${wdMoney(r.refunded_total,r.currency)} devueltos</small>`:''}</td><td>${r.payment_kind==='deposit'?'Señal':'Total'}</td><td><span class="status ${s[1]}">${s[0]}</span>${r.incident?' <span class="status bad">Incidencia</span>':''}</td><td>${esc(fmtDate(r.created_at))}</td></tr>`; }).join(''):'<tr><td colspan="6">Todavía no hay operaciones de pago.</td></tr>'}
+        </tbody></table></div></section></section>`;
+      renderCancelPolicyCard(pf,$('#cancel-policy-card',mount));
+      translateTree(mount);
+      $('#pay-profile',mount).onsubmit=async e=>{ e.preventDefault(); try{ await postJSON('/api/provider/payment-profile',{legal_name:$('#pp-legal',mount).value,tax_id:$('#pp-tax',mount).value,fiscal_address:$('#pp-addr',mount).value}); toast('Datos guardados. Saldrán en los justificantes.'); }catch(err){ toast(err.message); } };
+      $('#stripe-onboard',mount)?.addEventListener('click',async()=>{try{const r=await postJSON('/api/payments/connect/onboard',body);location.href=r.url;}catch(e){toast(e.message)}});
+      $('#stripe-sync',mount)?.addEventListener('click',async()=>{try{await postJSON('/api/payments/connect/sync',body);toast('Estado actualizado.');renderProviderPayments(mountId,centerId);}catch(e){toast(e.message)}});
+      $('#stripe-dashboard',mount)?.addEventListener('click',async()=>{try{const r=await postJSON('/api/payments/connect/login',body);window.open(r.url,'_blank','noopener');}catch(e){toast(e.message)}});
     }catch(err){mount.innerHTML=`<div class="empty"><h3>No se pudo cargar la sección de cobros</h3><p>${escapeHtml(err.message)}</p></div>`;}
+  }
+  // Cancellation policy (Fase 2.6): free until X hours before, then Y % refunded. Presets are shortcuts.
+  async function renderCancelPolicyCard(pf,mount){
+    if(!mount) return; const esc=escapeHtml;
+    const presets=[[24,0,'Flexible','Gratis hasta 24 h antes'],[48,0,'Moderada','Gratis hasta 48 h antes'],[168,0,'Estricta','Gratis hasta 7 días antes']];
+    mount.innerHTML=`<section class="cb-panel cxp-card"><div class="cb-panel-head"><div><h3>Política de cancelación</h3><p>Se muestra antes de reservar y se guarda con cada reserva. Si el cliente cancela una reserva pagada, te proponemos la devolución que le corresponde y la haces tú. Si cancelas tú, devuelves todo. Puedes fijar otra política en cada servicio.</p></div></div>
+      <div class="cxp-opts">${presets.map(([h,p,l,s])=>`<button type="button" class="cxp-opt" data-h="${h}" data-p="${p}"><span><b>${l}</b><small>${s}</small></span></button>`).join('')}</div>
+      <div class="form-grid"><div class="field"><label for="cxp-h">Cancelación gratuita hasta (horas antes)</label><input id="cxp-h" type="number" min="0" max="720" value="${Number(pf.cancel_free_hours??48)}"></div>
+        <div class="field"><label for="cxp-p">Después se devuelve (%)</label><input id="cxp-p" type="number" min="0" max="100" value="${Number(pf.cancel_refund_pct??0)}"></div>
+        <div class="field full"><label for="cxp-note">Nota para el cliente (opcional)</label><input id="cxp-note" maxlength="500" value="${esc(pf.cancellation_note||'')}" placeholder="Ej.: Si el mar no permite salir, te ofrecemos otra fecha o la devolución."></div></div>
+      <p class="cxp-preview" id="cxp-preview"></p>
+      <div class="form-actions"><button type="button" class="btn btn-primary" id="cxp-save">Guardar política</button><a class="btn" href="#/legal/condiciones-centros" target="_blank" rel="noopener">Condiciones para centros</a></div></section>`;
+    const prev=()=>{ $('#cxp-preview',mount).textContent=wdPolicyText($('#cxp-h',mount).value,$('#cxp-p',mount).value); translateTree($('#cxp-preview',mount)); };
+    $$('.cxp-opt',mount).forEach(b=>b.onclick=()=>{ $('#cxp-h',mount).value=b.dataset.h; $('#cxp-p',mount).value=b.dataset.p; prev(); });
+    ['#cxp-h','#cxp-p'].forEach(s=>$(s,mount).oninput=prev); prev(); translateTree(mount);
+    $('#cxp-save',mount).onclick=async()=>{ try{ await postJSON('/api/provider/cancellation-policy',{cancel_free_hours:$('#cxp-h',mount).value,cancel_refund_pct:$('#cxp-p',mount).value,note:$('#cxp-note',mount).value}); toast('Política de cancelación guardada. Se aplica a las reservas nuevas.'); }catch(err){ toast(err.message); } };
   }
 
   const SERVICE_COLOR_PALETTE = [
@@ -1901,7 +1982,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const wdFullDate=s=>s?wdParseDate(s).toLocaleDateString(wdLocale(),{day:'numeric',month:'long',year:'numeric'}):'';
   const wdDuration=m=>{m=Number(m||0); if(!m)return ''; if(m%1440===0)return (m/1440)+(m===1440?' día':' días'); if(m<60)return m+' min'; const h=Math.floor(m/60),r=m%60; return r?`${h} h ${r} min`:`${h} h`;};
   const BOOKING_STATUS=Object.fromEntries(Object.entries(WD_STATES).map(([k,v])=>[k,[v[0],k==='completed'?'done':v[1]]]));
-  const PAYMENT_STATUS={paid:['Pagado','good'],required:['Pendiente de pago','warn'],pending:['Pago en curso','warn'],at_center:['Pago en el centro','muted'],not_required:['Sin cobro','muted'],refunded:['Devuelto','muted'],review:['Pago en revisión','warn'],not_paid:['No pagada','muted'],partially_refunded:['Devuelto en parte','muted']};
+  const PAYMENT_STATUS={paid:['Pagado','good'],deposit_paid:['Señal pagada','good'],required:['Pendiente de pago','warn'],pending:['Pago en curso','warn'],at_center:['Pago en el centro','muted'],not_required:['Sin cobro','muted'],refunded:['Devuelto','muted'],review:['Pago en revisión','warn'],not_paid:['No pagada','muted'],partially_refunded:['Devuelto en parte','muted']};
   const wdStatus=(s,label)=>{const x=BOOKING_STATUS[s]||[s||'—','muted']; return `<span class="wd-pill wd-pill-${x[1]}">${escapeHtml(label||x[0])}</span>`;};
   const wdPayment=s=>{const x=PAYMENT_STATUS[s]||[s||'—','muted']; return `<span class="wd-pay wd-pay-${x[1]}">${escapeHtml(x[0])}</span>`;};
 
@@ -2084,6 +2165,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
               <div class="svc-field" ${payReady?'':'hidden'}><label for="svc-pay-hours">Plazo para pagar tras aceptar</label><label class="svc-money"><input id="svc-pay-hours" type="number" min="1" max="168" step="1" value="${curPay}"><span>h</span></label><small>Si el cliente no paga a tiempo, la reserva se cancela sola y las plazas se liberan.</small></div>
             </div>
             ${id?'<small class="svc-mode-note">Si cambias el modo, las reservas que ya están en curso conservan el modo con el que se hicieron.</small>':''}</fieldset>
+          <fieldset class="svc-fieldset"><legend>Señal y cancelación</legend>
+            <div class="svc-form-row" ${payReady?'':'hidden'}><div class="svc-field"><label for="svc-dep-type">Pago online</label><select id="svc-dep-type"><option value="none" ${(src.deposit_type||'none')==='none'?'selected':''}>Cobrar el total</option><option value="percent" ${src.deposit_type==='percent'?'selected':''}>Cobrar una señal (% del total)</option><option value="fixed" ${src.deposit_type==='fixed'?'selected':''}>Cobrar una señal (importe por persona)</option></select><small>Con señal, el cliente paga esa parte online y el resto en el centro.</small></div>
+              <div class="svc-field" id="svc-dep-wrap"><label for="svc-dep-value">Señal</label><label class="svc-money"><input id="svc-dep-value" type="number" min="0" step="0.01" value="${src.deposit_value??''}"><span id="svc-dep-unit">%</span></label></div></div>
+            <label class="svc-check"><input type="checkbox" id="svc-pol-own" ${src.cancel_free_hours!=null?'checked':''}><span><strong>Política de cancelación propia para este servicio</strong><small>Si no la marcas, se aplica la política general de «Cobros y pagos».</small></span></label>
+            <div class="svc-form-row" id="svc-pol-wrap"><div class="svc-field"><label for="svc-pol-h">Gratis hasta (horas antes)</label><label class="svc-money"><input id="svc-pol-h" type="number" min="0" max="720" value="${src.cancel_free_hours??48}"><span>h</span></label></div>
+              <div class="svc-field"><label for="svc-pol-p">Después se devuelve</label><label class="svc-money"><input id="svc-pol-p" type="number" min="0" max="100" value="${src.cancel_refund_pct??0}"><span>%</span></label></div></div>
+            <small class="svc-mode-note" id="svc-pol-text"></small></fieldset>
           <fieldset class="svc-fieldset"><legend>Color en el planning <em id="svc-color-name">${esc((SERVICE_COLOR_PALETTE.find(c=>c.value===curColor)||SERVICE_COLOR_PALETTE[0]).label)}</em></legend><div class="svc-swatches">${SERVICE_COLOR_PALETTE.map(c=>`<label class="svc-swatch" title="${esc(c.label)}"><input type="radio" name="svc-color" value="${c.value}" ${c.value===curColor?'checked':''} aria-label="${esc(c.label)}"><span style="background:${c.value}"></span></label>`).join('')}</div></fieldset>
           <div class="svc-field"><label for="svc-description">Descripción para el cliente</label><textarea id="svc-description" rows="3" maxlength="5000" placeholder="Qué incluye, nivel necesario, punto de encuentro…">${esc(src.description||'')}</textarea></div>
           <div class="svc-publish ${publishDefault?'is-on':''}" id="svc-publish">
@@ -2103,6 +2191,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         const syncType=()=>{const v=form.querySelector('input[name="svc-type"]:checked')?.value; form.classList.toggle('is-rental',v==='alquiler_equipo'); pubBox.hidden=v==='alquiler_equipo';};
         const syncPublish=()=>{pubBox.classList.toggle('is-on',pubChk.checked); destNew.hidden=destSel.value!=='new';};
         const syncMode=()=>{ const m=form.querySelector('input[name="svc-mode"]:checked')?.value; el.querySelector('#svc-mode-times').hidden=m!=='request'; };
+        const syncDeposit=()=>{ const t=el.querySelector('#svc-dep-type').value; el.querySelector('#svc-dep-wrap').hidden=t==='none'; el.querySelector('#svc-dep-unit').textContent=t==='percent'?'%':'€/pax';
+          const own=el.querySelector('#svc-pol-own').checked; el.querySelector('#svc-pol-wrap').hidden=!own; el.querySelector('#svc-pol-text').textContent=own?wdPolicyText(el.querySelector('#svc-pol-h').value,el.querySelector('#svc-pol-p').value):''; };
+        ['#svc-dep-type','#svc-pol-own','#svc-pol-h','#svc-pol-p'].forEach(q=>{ const x=el.querySelector(q); x.addEventListener('input',syncDeposit); x.addEventListener('change',syncDeposit); }); syncDeposit();
         form.addEventListener('change',e=>{
           if(e.target.name==='svc-type'){ syncType(); if(!id&&!el.dataset.pubTouched){pubChk.checked=TRIP_TYPES.has(e.target.value); syncPublish();} }
           if(e.target.name==='svc-color') el.querySelector('#svc-color-name').textContent=SERVICE_COLOR_PALETTE.find(c=>c.value===e.target.value)?.label||'';
@@ -2111,7 +2202,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           if(e.target.name==='svc-mode') syncMode();
         }); syncType(); syncPublish(); syncMode();
         durInput.oninput=()=>{el.querySelector('#svc-duration-hint').textContent=wdDuration(durInput.value)||'Opcional';};
-        const formData=()=>({title:el.querySelector('#svc-title').value.trim(),service_type:form.querySelector('input[name="svc-type"]:checked')?.value||'inmersion',color:form.querySelector('input[name="svc-color"]:checked')?.value||SERVICE_COLOR_PALETTE[0].value,price:el.querySelector('#svc-price').value,duration_minutes:durInput.value,max_participants:el.querySelector('#svc-max').value,booking_mode:form.querySelector('input[name="svc-mode"]:checked')?.value||'request',response_hours:el.querySelector('#svc-resp-hours').value,payment_hours:el.querySelector('#svc-pay-hours').value,description:el.querySelector('#svc-description').value});
+        const formData=()=>({title:el.querySelector('#svc-title').value.trim(),service_type:form.querySelector('input[name="svc-type"]:checked')?.value||'inmersion',color:form.querySelector('input[name="svc-color"]:checked')?.value||SERVICE_COLOR_PALETTE[0].value,price:el.querySelector('#svc-price').value,duration_minutes:durInput.value,max_participants:el.querySelector('#svc-max').value,booking_mode:form.querySelector('input[name="svc-mode"]:checked')?.value||'request',response_hours:el.querySelector('#svc-resp-hours').value,payment_hours:el.querySelector('#svc-pay-hours').value,description:el.querySelector('#svc-description').value,
+          deposit_type:el.querySelector('#svc-dep-type').value,deposit_value:el.querySelector('#svc-dep-value').value,
+          cancel_free_hours:el.querySelector('#svc-pol-own').checked?el.querySelector('#svc-pol-h').value:'',cancel_refund_pct:el.querySelector('#svc-pol-own').checked?el.querySelector('#svc-pol-p').value:''});
         const applyTemplate=t=>{ if(!t)return; if(t.title)el.querySelector('#svc-title').value=t.title; const ty=form.querySelector(`input[name="svc-type"][value="${t.service_type}"]`); if(ty)ty.checked=true; const mo=form.querySelector(`input[name="svc-mode"][value="${resolveMode(t.booking_mode)}"]`); if(mo&&!mo.disabled)mo.checked=true; if(t.response_hours)el.querySelector('#svc-resp-hours').value=t.response_hours; if(t.payment_hours)el.querySelector('#svc-pay-hours').value=t.payment_hours; syncMode(); const c=form.querySelector(`input[name="svc-color"][value="${t.color}"]`); if(c){c.checked=true; el.querySelector('#svc-color-name').textContent=SERVICE_COLOR_PALETTE.find(x=>x.value===t.color)?.label||'';} durInput.value=t.duration_minutes||''; durInput.oninput(); el.querySelector('#svc-max').value=t.max_participants||''; const pr=el.querySelector('#svc-price'); if(pr.type!=='hidden'&&t.price!=null&&t.price!=='')pr.value=t.price; if(t.description!=null)el.querySelector('#svc-description').value=t.description||''; syncType(); if(!el.dataset.pubTouched){pubChk.checked=TRIP_TYPES.has(t.service_type); syncPublish();} el.dataset.dirty='1'; };
         const tplBar=el.querySelector('#svc-tpl-bar');
         const bindTplBar=()=>{ if(!tplBar)return; tplBar.innerHTML=tplChips();
@@ -2298,10 +2391,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         const out=[];
         const req=b.status==='requested'||(b.status==='requested'||b.status==='pending');
         if(req) out.push(`<button type="button" class="bk-act bk-primary" data-act="confirmed" data-id="${b.id}">Aceptar</button><button type="button" class="bk-act" data-act="rejected" data-id="${b.id}">Rechazar</button>`);
-        if((b.payment_status==='required'||b.payment_status==='at_center')&&['confirmed','accepted_pending_payment'].includes(b.status)&&Number(b.price)>0) out.push(`<button type="button" class="bk-act" data-act="pay" data-id="${b.id}">Registrar cobro</button>`);
+        if((b.payment_status==='required'||b.payment_status==='at_center'||b.payment_status==='deposit_paid')&&['confirmed','accepted_pending_payment'].includes(b.status)&&Number(b.price)>0) out.push(`<button type="button" class="bk-act" data-act="pay" data-id="${b.id}">${b.payment_status==='deposit_paid'?'Cobrar el resto':'Registrar cobro'}</button>`);
+        if(['proposed','failed'].includes(b.refund_status)) out.push(`<button type="button" class="bk-act bk-primary" data-act="refund" data-id="${b.id}">Devolver</button>`);
         if(b.status==='confirmed'&&b.booking_date<=t) out.push(`<button type="button" class="bk-act" data-act="completed" data-id="${b.id}">Completar</button>`);
         const menu=[`<a href="#/reserva?id=${b.id}">Ver ficha completa</a>`,`<button type="button" data-act="notice" data-id="${b.id}">Enviar aviso al cliente</button>`];
         if(['accepted_pending_payment','confirmed'].includes(b.status)) menu.push(`<button type="button" class="danger" data-act="cancelled" data-id="${b.id}">Cancelar reserva</button>`);
+        if(['paid','deposit_paid','partially_refunded'].includes(b.payment_status)&&Number(b.amount_paid||0)>0&&!['proposed','failed'].includes(b.refund_status)) menu.push(`<button type="button" data-act="refund" data-id="${b.id}">Devolver dinero</button>`);
         if(b.payment_status==='paid') menu.push(`<button type="button" data-act="unpay" data-id="${b.id}">Marcar como no pagado</button>`);
         return out.join('')+`<details class="svc-more"><summary class="svc-iconbtn" aria-label="Más acciones">···</summary><div class="svc-menu">${menu.join('')}</div></details>`;
       };
@@ -2319,7 +2414,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         return Object.entries(days).map(([day,list])=>{const pax=list.filter(b=>!['cancelled','rejected'].includes(b.status)).reduce((n,b)=>n+Number(b.participants||1),0);
           return `<section class="bk-day"><header><h3>${day===t?'Hoy · ':day===wdAddDays(t,1)?'Mañana · ':''}${esc(wdLongDay(day))}</h3><span>${list.length} ${list.length===1?'reserva':'reservas'} · ${pax} ${pax===1?'persona':'personas'}</span></header>${list.map(row).join('')}</section>`;}).join(''); };
       mount.innerHTML=`<section class="bk-module">
-        <div class="svc-head"><div><p class="eyebrow">Gestión de reservas</p><h2>Reservas</h2><p>Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apuntas tú.</p></div><button type="button" class="btn btn-primary bk-new">+ Nueva reserva</button></div>
+        <div class="svc-head"><div><p class="eyebrow">Gestión de reservas</p><h2>Reservas</h2><p>${ctx.freelance?'Las reservas y solicitudes de tus servicios.':'Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apuntas tú.'}</p></div>${ctx.freelance?'':'<button type="button" class="btn btn-primary bk-new">+ Nueva reserva</button>'}</div>
         <div class="bk-views" role="tablist">${BK_VIEWS.map(v=>`<button type="button" role="tab" aria-selected="${bkUi.view===v.key}" class="bk-view ${bkUi.view===v.key?'active':''}" data-view="${v.key}">${v.label}${counts[v.key]?`<b>${counts[v.key]}</b>`:''}</button>`).join('')}</div>
         <div class="bk-filters">
           <label class="svc-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="bk-q" type="search" placeholder="Cliente, teléfono, email o nº de reserva" value="${esc(bkUi.q)}"></label>
@@ -2348,7 +2443,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         if(act==='rejected'){ openRejectModal(b.id,()=>{refresh();ctx.onChange?.();}); return; }
         if(act==='notice'){ openNoticeModal(b.id,b,refresh); return; }
         const labels={confirmed:'aceptada',cancelled:'cancelada',completed:'completada'};
-        if(act==='cancelled'&&!confirm(`¿Seguro que quieres cancelar la reserva #${b.id} de ${b.fullname}? Las plazas vuelven a quedar libres y, si había pagado online, se le devuelve el importe.`))return;
+        if(act==='cancelled'){ openProviderCancelModal(b.id,()=>{refresh();ctx.onChange?.();}); return; }
+        if(act==='refund'){ openRefundModal(b.id,()=>{refresh();ctx.onChange?.();}); return; }
         try{const r=await postJSON(`/api/bookings/${b.id}/status`,{status:act});toast(r.status==='accepted_pending_payment'?'Solicitud aceptada: el cliente tiene un plazo para pagar.':`Reserva ${labels[act]}.`);refresh();ctx.onChange?.();}catch(err){toast(err.message)}
       };
     }catch(err){mount.innerHTML=`<div class="empty"><h3>No se han podido cargar las reservas</h3><p>${escapeHtml(err.message)}</p><button type="button" class="btn" id="bk-retry">Reintentar</button></div>`;$('#bk-retry').onclick=refresh;}
@@ -2356,7 +2452,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   function openPaymentModal(b,onDone){
     const {el,close}=wdOpenModal({id:'pay-modal',size:'sm',title:'Registrar pago',subtitle:`Reserva #${b.id} · ${escapeHtml(b.fullname||'')}`,
-      body:`<form id="pay-form" class="svc-form"><p class="svc-tariff-now">Importe <strong>${wdMoney(b.price,b.currency)}</strong></p><div class="svc-field"><label for="pay-method">Forma de pago</label><select id="pay-method">${PAYMENT_METHODS.map(m=>`<option>${m}</option>`).join('')}</select></div>${(b.status==='requested'||b.status==='pending')?'<p class="svc-note">Al registrar el pago la reserva queda confirmada y se reservan sus plazas.</p>':''}</form>`,
+      body:`<form id="pay-form" class="svc-form"><p class="svc-tariff-now">${b.payment_status==='deposit_paid'?`Resto a cobrar <strong>${wdMoney(Math.max(0,Number(b.price||0)-Number(b.amount_paid||0)),b.currency)}</strong> <small>(señal de ${wdMoney(b.amount_paid,b.currency)} ya pagada online)</small>`:`Importe <strong>${wdMoney(b.price,b.currency)}</strong>`}</p><div class="svc-field"><label for="pay-method">Forma de pago</label><select id="pay-method">${PAYMENT_METHODS.map(m=>`<option>${m}</option>`).join('')}</select></div>${(b.status==='requested'||b.status==='pending')?'<p class="svc-note">Al registrar el pago la reserva queda confirmada y se reservan sus plazas.</p>':''}</form>`,
       footer:`<button type="button" class="btn" data-modal-close>Cancelar</button><button type="submit" form="pay-form" class="btn btn-primary">Marcar como pagada</button>`});
     el.querySelector('#pay-form').onsubmit=async e=>{e.preventDefault(); try{await postJSON(`/api/bookings/${b.id}/payment`,{payment_status:'paid',payment_method:el.querySelector('#pay-method').value});close();toast('Pago registrado.');onDone?.();}catch(err){toast(err.message)}};
   }
@@ -2471,7 +2567,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     return `<div class="hm-marquee-track" style="--dur:${dur}s"><div class="hm-marquee-row">${row}</div><div class="hm-marquee-row" aria-hidden="true">${row.replace(/<a /g,'<a tabindex="-1" ')}</div></div>`;
   }
   function offerCard(o){ const attrs=promoLinkAttrs(o.url); const tag=attrs?'a':'div';
-    return `<${tag} class="hm-offer" ${attrs}><div class="hm-offer-media"><img src="${escapeHtml(o.image_path)}" alt="" loading="lazy"><span class="hm-offer-label">${escapeHtml(o.label||'Patrocinado')}</span></div><div class="hm-offer-body"><h3>${escapeHtml(o.title)}</h3>${o.subtitle?`<p>${escapeHtml(o.subtitle)}</p>`:''}${attrs?'<span class="hm-offer-go">Ver oferta →</span>':''}</div></${tag}>`; }
+    return `<${tag} class="hm-offer" ${attrs}><div class="hm-offer-media"><img src="${escapeHtml(o.image_path)}" alt="" loading="lazy"><span class="hm-offer-label">Patrocinado</span></div><div class="hm-offer-body"><h3>${escapeHtml(o.title)}</h3>${o.subtitle?`<p>${escapeHtml(o.subtitle)}</p>`:''}${attrs?'<span class="hm-offer-go">Ver oferta →</span>':''}</div></${tag}>`; }
 
   async function renderPromosManager(mountId){
     const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml; const refresh=()=>renderPromosManager(mountId);
@@ -2489,6 +2585,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="pr-list">${offers.map(row).join('')||'<div class="pr-empty">Todavía no hay ofertas. Mientras no haya ninguna, la sección no se muestra.</div>'}</div></section>
       <section class="cb-panel pr-panel"><div class="cb-panel-head"><div><h3>Contacto para marcas</h3><p>Si indicas un email, la portada muestra el bloque «Colabora con WORLDIVES» con un botón que abre un correo a esa dirección.</p></div></div>
         <form id="pr-settings" class="pr-settings"><label class="field"><span>Email de contacto</span><input id="pr-email" type="email" maxlength="160" value="${esc(st.partners_email||'')}" placeholder="partners@tudominio.com"></label><label class="field"><span>Texto (opcional)</span><input id="pr-text" maxlength="200" value="${esc(st.partners_text||'')}" placeholder="Llega a buceadores de todo el mundo que están eligiendo su próxima inmersión."></label><button class="btn btn-primary" type="submit">Guardar</button></form></section></section>`;
+    mount.querySelector('.pr-module').insertAdjacentHTML('beforeend',`<section class="cb-panel pr-panel"><div class="cb-panel-head"><div><h3>Registro de patrocinios</h3><p>Quién ha patrocinado cada logo u oferta, con fechas e importe. Se conserva aunque borres la publicación.</p></div></div>
+      ${(d.sponsorships||[]).length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Patrocinador</th><th>Dónde</th><th>Fechas</th><th>Importe</th><th>Estado</th></tr></thead><tbody>${d.sponsorships.map(x=>`<tr><td>${esc(x.sponsor_name)}<small>${esc(x.sponsor_contact||'')}</small></td><td>${x.placement==='band'?'Banda de colaboradores':'Oferta destacada'} #${x.ref_id}</td><td>${esc([x.starts_on,x.ends_on].filter(Boolean).map(wdDay).join(' – ')||'Sin fechas')}</td><td>${x.amount!=null?wdMoney(x.amount,x.currency):'—'}</td><td>${x.ended_at?'Terminado '+esc(fmtDate(x.ended_at)):'Activo'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="acc-empty">Todavía no hay patrocinios registrados.</p>'}</section>`);
+    translateTree(mount);
     $$('.pr-new',mount).forEach(b=>b.onclick=()=>openPromoForm({kind:b.dataset.kind},refresh));
     $$('.pr-row',mount).forEach(r=>{ const p=d.items.find(x=>String(x.id)===r.dataset.id);
       $('.pr-edit',r).onclick=()=>openPromoForm(p,refresh);
@@ -2501,7 +2600,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <div class="pr-form-media"><div class="pr-preview ${isOffer?'':'is-logo'}">${p.image_path?`<img src="${esc(p.image_path)}" alt="">`:`<span>${isOffer?'Sin foto':'Sin logo'}</span>`}</div>
         <div><label class="btn pr-pick">${p.image_path?'Cambiar':'Subir'} ${isOffer?'foto':'logo'}<input type="file" id="pr-file" accept="image/jpeg,image/png,image/webp" hidden></label>${p.image_path?'<label class="pr-remove"><input type="checkbox" id="pr-remove"> Quitar imagen</label>':''}<small>${isOffer?'Foto horizontal, 1200 × 800 px o más. Obligatoria para que la oferta se vea.':'PNG transparente o JPG, horizontal. Si no subes logo se muestra el nombre.'} Máximo 6 MB.</small></div></div>
       <div class="svc-field"><label for="pr-title">${isOffer?'Título':'Nombre'}</label><input id="pr-title" required maxlength="120" value="${esc(p.title||'')}" placeholder="${isOffer?'Mar Rojo en vida a bordo · 7 noches':'Nombre de la marca'}"></div>
-      ${isOffer?`<div class="svc-field"><label for="pr-sub">Descripción corta</label><input id="pr-sub" maxlength="240" value="${esc(p.subtitle||'')}" placeholder="Salidas en marzo y abril desde 1.290 €"></div><div class="svc-field"><label for="pr-label">Etiqueta</label><input id="pr-label" maxlength="40" value="${esc(p.label||'')}" placeholder="Patrocinado"></div>`:''}
+      ${isOffer?`<div class="svc-field"><label for="pr-sub">Descripción corta</label><input id="pr-sub" maxlength="240" value="${esc(p.subtitle||'')}" placeholder="Salidas en marzo y abril desde 1.290 €"></div>`:''}
+      <p class="svc-note">${wdIcon('tag',14)} Se muestra siempre con la etiqueta <b>«Patrocinado»</b>. No se puede cambiar.</p>
+      <fieldset class="svc-fieldset"><legend>Registro del patrocinio</legend>
+        <div class="svc-field"><label for="pr-sponsor">Quién patrocina (empresa o persona que paga)</label><input id="pr-sponsor" maxlength="160" required value="${esc(p.sponsor?.sponsor_name||(!isOffer?p.title||'':''))}"></div>
+        <div class="svc-form-row"><div class="svc-field"><label for="pr-contact">Contacto</label><input id="pr-contact" maxlength="200" value="${esc(p.sponsor?.sponsor_contact||'')}" placeholder="email o teléfono"></div>
+          <div class="svc-field"><label for="pr-amount">Importe acordado (€)</label><input id="pr-amount" type="number" min="0" step="0.01" value="${p.sponsor?.amount??''}"></div></div>
+        <div class="svc-field"><label for="pr-notes">Notas internas</label><input id="pr-notes" maxlength="500" value="${esc(p.sponsor?.notes||'')}"></div></fieldset>
       <div class="svc-field"><label for="pr-url">Enlace</label><input id="pr-url" maxlength="500" value="${esc(p.url||'')}" placeholder="https://… o #/experiencias"></div>
       <div class="svc-form-row svc-form-row-3"><div class="svc-field"><label for="pr-from">Desde</label><input id="pr-from" type="date" value="${esc(p.starts_on||'')}"></div><div class="svc-field"><label for="pr-to">Hasta</label><input id="pr-to" type="date" value="${esc(p.ends_on||'')}"></div><div class="svc-field"><label for="pr-order">Orden</label><input id="pr-order" type="number" min="0" max="999" value="${Number(p.sort_order||0)}"></div></div>
       <label class="pr-active"><input type="checkbox" id="pr-active" ${p.active===0?'':'checked'}> Visible en la portada</label>
@@ -2511,29 +2616,45 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     el.querySelector('#pr-file').onchange=e=>{ file=e.target.files[0]||null; if(file){ const u=URL.createObjectURL(file); el.querySelector('.pr-preview').innerHTML=`<img src="${u}" alt="">`; const r=el.querySelector('#pr-remove'); if(r) r.checked=false; } };
     el.querySelector('#pr-save').onclick=async()=>{ const title=el.querySelector('#pr-title').value.trim(); if(!title){ el.querySelector('#pr-title').focus(); toast('Escribe el nombre.'); return; }
       const fields={id:String(p.id||0),kind:p.kind,title,url:el.querySelector('#pr-url').value.trim(),starts_on:el.querySelector('#pr-from').value,ends_on:el.querySelector('#pr-to').value,sort_order:el.querySelector('#pr-order').value||'0',active:el.querySelector('#pr-active').checked?'1':'0'};
-      if(isOffer){ fields.subtitle=el.querySelector('#pr-sub').value.trim(); fields.label=el.querySelector('#pr-label').value.trim(); }
+      if(isOffer){ fields.subtitle=el.querySelector('#pr-sub').value.trim(); }
+      Object.assign(fields,{sponsor_name:el.querySelector('#pr-sponsor').value.trim(),sponsor_contact:el.querySelector('#pr-contact').value.trim(),sponsor_amount:el.querySelector('#pr-amount').value,sponsor_notes:el.querySelector('#pr-notes').value.trim()});
+      if(!fields.sponsor_name){ el.querySelector('#pr-sponsor').focus(); toast('Indica quién patrocina.'); return; }
       if(el.querySelector('#pr-remove')?.checked) fields.remove_image='1';
       const btn=el.querySelector('#pr-save'); btn.disabled=true;
       try{ await uploadForm('/api/admin/site-promos',fields,file); toast('Guardado.'); close(); onDone?.(); }catch(err){ toast(err.message); btn.disabled=false; } };
   }
 
-  // Pestaña «Pagos» (administrador, v50.29)
-  const PO_STATE={paid:['Cobrado','good'],pending:['En curso','warn'],review:['En revisión','bad'],refund_due:['Devolución pendiente','bad'],expired:['Caducado','muted'],cancelled:['Cancelado','muted'],failed:['Fallido','bad']};
+  // Pestaña «Pagos» (administrador). Since v50.34 the money goes straight to each provider (direct charges):
+  // the administrator sees payments and refunds, the providers' income by currency, and marks incidents.
+  const PO_INCIDENT={refund_pending:'Devolución pendiente del prestador',dispute:'Disputa abierta',dispute_closed:'Disputa cerrada',customer_complaint:'Queja del cliente',resolved:'Resuelta'};
   async function renderAdminPayments(mountId,filter=''){
     const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
     let d; try{ d=await api('/api/admin/payments'+(filter?'?status='+filter:'')); }catch(err){ mount.innerHTML=`<div class="empty"><h3>No se han podido cargar los pagos</h3><p>${esc(err.message)}</p></div>`; return; }
     const sm=k=>d.summary[k]||{n:0,amount:0};
-    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Seguridad de cobros</p><h2>Pagos online</h2><p>Cada cobro se comprueba con Stripe: importe, moneda y estado. Si algo no cuadra, el pago queda «en revisión» y la reserva no se confirma hasta que decidas.</p></div></div>
-      <div class="ap-checks"><span class="${d.stripe_ready?'is-ok':'is-bad'}">${wdIcon(d.stripe_ready?'check':'alert',15)} Clave de Stripe ${d.stripe_ready?'configurada':'sin configurar'}</span><span class="${d.webhook_ready?'is-ok':'is-bad'}">${wdIcon(d.webhook_ready?'check':'alert',15)} Webhook ${d.webhook_ready?'firmado':'sin configurar'}</span><span class="is-ok">${wdIcon('shield',15)} Comprobación de importe y moneda</span><span class="is-ok">${wdIcon('clock',15)} Revisión automática cada 5 min</span></div>
-      <div class="acc-kpis">${accKpi('check',wdMoney(sm('paid').amount,'EUR'),`${sm('paid').n} cobros`)}${accKpi('tag',wdMoney(d.platform_fees,'EUR'),'comisión WORLDIVES')}${accKpi('clock',sm('pending').n,'en curso')}${accKpi('alert',sm('review').n+sm('refund_due').n,'en revisión / devolución',null,(sm('review').n+sm('refund_due').n)>0)}</div>
-      <div class="ap-filter">${[['','Todos'],['review','En revisión'],['pending','En curso'],['paid','Cobrados'],['refund_due','Devoluciones'],['expired','Caducados']].map(([k,l])=>`<button type="button" class="cd-chip" data-f="${k}" aria-pressed="${k===filter}">${l}</button>`).join('')}</div>
-      ${d.items.length?`<div class="table-wrap"><table class="ap-table"><thead><tr><th>Ref.</th><th>Fecha</th><th>Cliente</th><th>Centro</th><th>Importe</th><th>Tarjeta</th><th>Estado</th><th></th></tr></thead><tbody>${d.items.map(o=>{ const st=PO_STATE[o.status]||[o.status,'muted']; const diff=o.amount_received!=null&&Math.abs(o.amount_received-o.amount)>0.009;
-        return `<tr data-id="${o.id}"><td><b>PAY-${String(o.id).padStart(5,'0')}</b>${o.booking_id?`<small><a href="#/reserva?id=${o.booking_id}">WOD-${String(o.booking_id).padStart(6,'0')}</a></small>`:''}</td><td>${esc(fmtDate(o.paid_at||o.created_at))}</td><td>${esc(o.fullname)}<small>${esc(o.email||'')}</small></td><td>${esc(o.center_name||'—')}</td>
-          <td><b>${wdMoney(o.amount,o.currency)}</b>${diff?`<small class="ap-diff">Recibido ${wdMoney(o.amount_received,o.currency)}</small>`:''}</td><td>${o.card_last4?`${esc(CARD_BRANDS[o.card_brand]||o.card_brand||'')} ···· ${esc(o.card_last4)}`:'—'}</td><td><span class="pr-pill is-${st[1]}">${esc(st[0])}</span></td>
-          <td class="ap-act">${o.status==='review'?'<button type="button" class="btn btn-primary ap-accept">Aceptar</button><button type="button" class="btn ap-refund">Devolver</button>':''}${o.receipt_url?`<a class="btn" href="${esc(o.receipt_url)}" target="_blank" rel="noopener">Recibo</a>`:''}</td></tr>`; }).join('')}</tbody></table></div>`:'<div class="empty"><h3>No hay pagos con este filtro</h3></div>'}</section>`;
+    const incidents=d.items.filter(o=>o.incident&&o.incident!=='resolved').length;
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Seguridad de cobros</p><h2>Pagos online</h2><p>Cada cobro va directamente a la cuenta de Stripe del centro o profesional (cargo directo). WORLDIVES no cobra comisión ni mueve dinero: aquí ves los pagos y las devoluciones y marcas incidencias.</p></div></div>
+      <div class="ap-checks"><span class="${d.stripe_ready?'is-ok':'is-bad'}">${wdIcon(d.stripe_ready?'check':'alert',15)} Clave de Stripe ${d.stripe_ready?'configurada':'sin configurar'}</span><span class="${d.webhook_ready?'is-ok':'is-bad'}">${wdIcon(d.webhook_ready?'check':'alert',15)} Webhook de la plataforma ${d.webhook_ready?'firmado':'sin configurar'}</span><span class="${d.connect_webhook_ready?'is-ok':'is-bad'}">${wdIcon(d.connect_webhook_ready?'check':'alert',15)} Webhook de Connect ${d.connect_webhook_ready?'firmado':'sin configurar'}</span><span class="is-ok">${wdIcon('shield',15)} Importe y moneda comprobados con Stripe</span></div>
+      <div class="acc-kpis">${(d.income||[]).length?d.income.map(x=>accKpi('chart',wdMoney(x.net,x.currency),`Ingresos de los prestadores (${x.currency}) · ${x.n} ${x.n===1?'cobro':'cobros'}`)).join(''):accKpi('chart',wdMoney(0,'EUR'),'Ingresos de los prestadores')}${accKpi('clock',sm('pending').n,'en curso')}${accKpi('alert',sm('review').n+incidents,'en revisión / incidencias',null,(sm('review').n+incidents)>0)}${accKpi('receipt',(d.pending_refunds||[]).length,'devoluciones pendientes',null,(d.pending_refunds||[]).length>0)}</div>
+      <div class="ap-filter">${[['','Todos'],['incident','Incidencias'],['review','En revisión'],['pending','En curso'],['paid','Cobrados'],['partially_refunded','Devolución parcial'],['refunded','Devueltos'],['expired','Caducados']].map(([k,l])=>`<button type="button" class="cd-chip" data-f="${k}" aria-pressed="${k===filter}">${l}</button>`).join('')}</div>
+      ${d.items.length?`<div class="table-wrap"><table class="ap-table"><thead><tr><th>Ref.</th><th>Fecha</th><th>Cliente</th><th>Prestador</th><th>Importe</th><th>Tipo</th><th>Estado</th><th></th></tr></thead><tbody>${d.items.map(o=>{ const st=PAY_ORDER_STATE[o.status]||[o.status,'muted']; const diff=o.amount_received!=null&&Math.abs(o.amount_received-o.amount)>0.009;
+        return `<tr data-id="${o.id}"><td>PAY-${String(o.id).padStart(5,'0')}${o.booking_id?`<small><a href="#/reserva?id=${o.booking_id}">WOD-${String(o.booking_id).padStart(6,'0')}</a></small>`:''}</td><td>${esc(fmtDate(o.created_at))}</td><td>${esc(o.fullname||'')}<small>${esc(o.email||'')}</small></td><td>${esc(o.center_name||'—')}</td>
+          <td><b>${wdMoney(o.amount,o.currency)}</b>${diff?`<small class="ap-diff">Recibido ${wdMoney(o.amount_received,o.currency)}</small>`:''}${o.refunded_total>0?`<small>Devuelto ${wdMoney(o.refunded_total,o.currency)}</small>`:''}</td><td>${o.payment_kind==='deposit'?'Señal':'Total'}<small>${o.charge_type==='direct'?'Cargo directo':'Cargo antiguo (con comisión)'}</small></td>
+          <td><span class="pr-pill is-${st[1]}">${esc(st[0])}</span>${o.incident?`<small class="ap-diff">${esc(PO_INCIDENT[o.incident]||o.incident)}${o.incident_note?' · '+esc(o.incident_note):''}</small>`:''}</td>
+          <td class="ap-act">${o.status==='review'?'<button type="button" class="btn btn-primary ap-accept">Aceptar</button><button type="button" class="btn ap-refund">Pedir devolución</button>':''}<button type="button" class="btn ap-incident">Incidencia</button>${o.receipt_url?`<a class="btn" href="${esc(o.receipt_url)}" target="_blank" rel="noopener">Recibo</a>`:''}</td></tr>`; }).join('')}</tbody></table></div>`:'<div class="empty"><h3>No hay pagos con este filtro</h3></div>'}
+      <section class="cb-panel"><div class="cb-panel-head"><div><h3>Devoluciones pendientes de los prestadores</h3><p>Cancelaciones con devolución según la política del prestador que todavía no se han hecho (se recuerda al prestador a las 72 h).</p></div></div>
+        ${(d.pending_refunds||[]).length?`<div class="acc-list">${d.pending_refunds.map(r=>`<div class="acc-row"><span class="acc-row-main"><strong><a href="#/reserva?id=${r.booking_id}">WOD-${String(r.booking_id).padStart(6,'0')}</a> · ${esc(r.center_name||'')}</strong><small>${wdMoney(r.refund_proposed,r.currency)} · ${r.refund_status==='failed'?'falló':'propuesta'} ${esc(fmtDate(r.refund_proposed_at))}</small></span></div>`).join('')}</div>`:'<p class="acc-empty">No hay devoluciones pendientes.</p>'}</section>
+      <section class="cb-panel"><div class="cb-panel-head"><div><h3>Últimas devoluciones</h3></div></div>
+        ${(d.refunds||[]).length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Reserva</th><th>Prestador</th><th>Importe</th><th>Origen</th><th>Estado</th></tr></thead><tbody>${d.refunds.map(r=>`<tr><td>${esc(fmtDate(r.created_at))}</td><td>${r.booking_id?`<a href="#/reserva?id=${r.booking_id}">WOD-${String(r.booking_id).padStart(6,'0')}</a>`:'—'}</td><td>${esc(r.center_name||'—')}</td><td>${wdMoney(r.amount,r.currency)}</td><td>${esc({panel:'Panel del prestador',stripe:'Panel de Stripe',center_cancel:'Cancelación del prestador',reject:'Solicitud rechazada',system:'Automática',migration:'Histórico'}[r.source]||r.source)}</td><td>${esc({succeeded:'Hecha',pending:'En curso',failed:'Fallida'}[r.status]||r.status)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="acc-empty">Todavía no hay devoluciones.</p>'}</section></section>`;
+    translateTree(mount);
     $$('.ap-filter .cd-chip',mount).forEach(b=>b.onclick=()=>renderAdminPayments(mountId,b.dataset.f));
-    $$('.ap-table tr[data-id]',mount).forEach(tr=>{ const send=async action=>{ if(!confirm(action==='accept'?'¿Aceptar el pago y confirmar la reserva?':'¿Marcar para devolución? Hazla después desde el panel de Stripe.')) return; try{ await postJSON('/api/admin/payments/resolve',{id:+tr.dataset.id,action}); toast(action==='accept'?'Pago aceptado y reserva confirmada.':'Marcado para devolución y avisado el cliente.'); renderAdminPayments(mountId,filter); }catch(err){ toast(err.message); } };
-      $('.ap-accept',tr)?.addEventListener('click',()=>send('accept')); $('.ap-refund',tr)?.addEventListener('click',()=>send('refund')); });
+    $$('.ap-table tr[data-id]',mount).forEach(tr=>{ const id=+tr.dataset.id;
+      const send=async action=>{ if(!confirm(action==='accept'?'¿Aceptar el pago y confirmar la reserva?':'¿Pedir al prestador que devuelva este pago? Se le avisa por email y al cliente en sus avisos.')) return; try{ await postJSON('/api/admin/payments/resolve',{id,action}); toast(action==='accept'?'Pago aceptado y reserva confirmada.':'Devolución pedida al prestador.'); renderAdminPayments(mountId,filter); }catch(err){ toast(err.message); } };
+      $('.ap-accept',tr)?.addEventListener('click',()=>send('accept')); $('.ap-refund',tr)?.addEventListener('click',()=>send('refund'));
+      $('.ap-incident',tr)?.addEventListener('click',()=>{ const o=d.items.find(x=>x.id===id)||{};
+        const {el,close}=wdOpenModal({id:'po-incident',size:'sm',title:'Marcar incidencia',subtitle:`PAY-${String(id).padStart(5,'0')}`,
+          body:`<div class="field"><label for="pi-kind">Incidencia</label><select id="pi-kind"><option value="">Ninguna</option>${Object.entries(PO_INCIDENT).map(([k,l])=>`<option value="${k}" ${o.incident===k?'selected':''}>${l}</option>`).join('')}</select></div><div class="field"><label for="pi-note">Nota interna</label><input id="pi-note" maxlength="500" value="${esc(o.incident_note||'')}"></div>`,
+          footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="pi-ok">Guardar</button>'});
+        $('#pi-ok',el).onclick=async()=>{ try{ await postJSON('/api/admin/payments/incident',{order_id:id,incident:$('#pi-kind',el).value||null,note:$('#pi-note',el).value}); close(); toast('Incidencia guardada.'); renderAdminPayments(mountId,filter); }catch(err){ toast(err.message); } }; }); });
   }
 
   // Pestaña «Imágenes de la web» (administrador)
@@ -2790,7 +2911,6 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const today=bookings.filter(b=>b.booking_date===isoNow && active(b)).sort((a,b)=>String(a.booking_time||'').localeCompare(String(b.booking_time||'')));
     const upcoming=bookings.filter(b=>b.booking_date>=isoNow && b.booking_date<=isoWeek && active(b)).sort((a,b)=>`${a.booking_date} ${a.booking_time||''}`.localeCompare(`${b.booking_date} ${b.booking_time||''}`));
     const future=bookings.filter(b=>b.booking_date>isoWeek && active(b)).sort((a,b)=>`${a.booking_date} ${a.booking_time||''}`.localeCompare(`${b.booking_date} ${b.booking_time||''}`));
-    const revenue=paid.reduce((n,b)=>n+Number(b.price||0),0);
     const todayParticipants=today.reduce((n,b)=>n+Number(b.participants||1),0);
     const bookingRow=b=>`<div class="ops-row"><div class="ops-date"><strong>${escapeHtml(b.booking_date||'')}</strong><span>${escapeHtml(b.booking_time||'Por confirmar')}</span></div><div class="ops-main"><strong>${escapeHtml(b.fullname||'Cliente')}</strong><span>${escapeHtml(b.service_title||'Inmersión')} · ${escapeHtml(b.point_name||'Punto por concretar')}</span></div><span class="status ${b.status==='confirmed'?'good':b.status==='rejected'||b.status==='cancelled'?'bad':'warn'}">${escapeHtml((b.status==='requested'||b.status==='pending')?'Pendiente':b.status==='confirmed'?'Confirmada':b.status==='completed'?'Completada':b.status==='cancelled'?'Cancelada':b.status)}</span><a class="btn booking-detail" href="#/reserva?id=${b.id}">Ver reserva</a></div>`;
     return `<div class="center-dashboard">
@@ -2798,7 +2918,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <div class="ops-kpis center-kpis">
         <div class="ops-kpi urgent"><span>⚠ Reservas por confirmar</span><strong>${pending.length}</strong><a href="#/admin?tab=bookings&status=pending">Revisar pendientes →</a></div>
         <div class="ops-kpi"><span>✓ Reservas confirmadas</span><strong>${confirmed.length}</strong><small>Activas ahora</small></div>
-        <div class="ops-kpi"><span>💳 Reservas pagadas</span><strong>${paid.length}</strong><small>${revenue.toFixed(2)} € cobrados</small></div>
+        <div class="ops-kpi"><span>💳 Reservas pagadas</span><strong>${paid.length}</strong><small>${Object.entries(paid.reduce((m,b)=>{ const c=(b.currency||'EUR').toUpperCase(); m[c]=(m[c]||0)+Number(b.price||0); return m; },{})).map(([c,v])=>wdMoney(v,c)).join(' · ')||wdMoney(0,'EUR')} cobrados</small></div>
         <div class="ops-kpi"><span>⏳ Pagos pendientes</span><strong>${unpaid.length}</strong><small>Revisar antes de la salida</small></div>
         <div class="ops-kpi"><span>📅 Salidas hoy</span><strong>${today.length}</strong><small>${todayParticipants} participante${todayParticipants===1?'':'s'}</small></div>
         <div class="ops-kpi"><span>📍 Puntos activos</span><strong>${points.length}</strong><small>Gestionados por tu centro</small></div>
@@ -2896,7 +3016,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   async function centerAnalyticsView(){
     const a=await api('/api/center/analytics'); const k=a.metrics||{}; const max=Math.max(1,...(a.by_day||[]).map(x=>x.participants));
-    return `<div class="cb-module"><div class="cb-module-head"><div><p class="eyebrow">ANALÍTICA</p><h2>Informes y rendimiento</h2><p>Datos operativos del centro, calculados a partir de las reservas reales.</p></div><button class="btn" id="cb-export-report">Exportar CSV</button></div><div class="cb-report-kpis"><div><span>Facturación cobrada</span><strong>${Number(k.revenue||0).toFixed(2)} €</strong></div><div><span>Participantes</span><strong>${k.participants||0}</strong></div><div><span>Conversión operativa</span><strong>${k.total?Math.round(((k.confirmed+k.completed)/k.total)*100):0}%</strong></div><div><span>Cancelación</span><strong>${k.total?Math.round((k.cancelled/k.total)*100):0}%</strong></div></div><div class="cb-grid-2"><section class="cb-panel"><p class="eyebrow">DEMANDA</p><h3>Participantes por día</h3><div class="cb-chart">${(a.by_day||[]).map(x=>`<div class="cb-chart-bar" title="${x.date}: ${x.participants}"><i style="height:${Math.max(5,(x.participants/max)*100)}%"></i><small>${escapeHtml(x.date.slice(5))}</small></div>`).join('')||'<div class="empty">Sin datos.</div>'}</div></section><section class="cb-panel"><p class="eyebrow">PRODUCTO</p><h3>Servicios más demandados</h3>${(a.by_service||[]).map((x,i)=>`<div class="cb-rank"><span>${i+1}. ${escapeHtml(x.name)}</span><strong>${x.participants} pax</strong></div>`).join('')||'<div class="empty">Sin datos.</div>'}</section></div></div>`;
+    return `<div class="cb-module"><div class="cb-module-head"><div><p class="eyebrow">ANALÍTICA</p><h2>Informes y rendimiento</h2><p>Datos operativos del centro, calculados a partir de las reservas reales.</p></div><button class="btn" id="cb-export-report">Exportar CSV</button></div><div class="cb-report-kpis"><div><span>Ingresos cobrados</span><strong>${(k.income||[]).length?k.income.map(x=>wdMoney(x.amount,x.currency)).join(' · '):wdMoney(0,'EUR')}</strong></div><div><span>Participantes</span><strong>${k.participants||0}</strong></div><div><span>Conversión operativa</span><strong>${k.total?Math.round(((k.confirmed+k.completed)/k.total)*100):0}%</strong></div><div><span>Cancelación</span><strong>${k.total?Math.round((k.cancelled/k.total)*100):0}%</strong></div></div><div class="cb-grid-2"><section class="cb-panel"><p class="eyebrow">DEMANDA</p><h3>Participantes por día</h3><div class="cb-chart">${(a.by_day||[]).map(x=>`<div class="cb-chart-bar" title="${x.date}: ${x.participants}"><i style="height:${Math.max(5,(x.participants/max)*100)}%"></i><small>${escapeHtml(x.date.slice(5))}</small></div>`).join('')||'<div class="empty">Sin datos.</div>'}</div></section><section class="cb-panel"><p class="eyebrow">PRODUCTO</p><h3>Servicios más demandados</h3>${(a.by_service||[]).map((x,i)=>`<div class="cb-rank"><span>${i+1}. ${escapeHtml(x.name)}</span><strong>${x.participants} pax</strong></div>`).join('')||'<div class="empty">Sin datos.</div>'}</section></div></div>`;
   }
 
   async function centerIntegrationView(){
@@ -2972,7 +3092,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           ${kpi('Salidas',st.slots,`${st.offered} plazas ofrecidas`,delta(st.slots,pv.slots))}
           ${kpi('Ocupación',st.offered?st.occupancy+'%':'—',`${st.taken} de ${st.offered} plazas`,occBar(st.taken,st.offered))}
           ${kpi('Reservas',st.bookings,`${st.divers} buceadores${st.pending?` · ${st.pending} por confirmar`:''}`,delta(st.bookings,pv.bookings))}
-          ${kpi(phase[1]==='past'?'Facturado':'Ingresos previstos',wdMoney(st.revenue),`${wdMoney(st.paid)} cobrado${st.cancelled?` · ${st.cancelled} canceladas`:''}`,delta(st.revenue,pv.revenue))}
+          ${kpi(phase[1]==='past'?'Ingresos':'Ingresos previstos',wdMoney(st.revenue),`${wdMoney(st.paid)} cobrado${st.cancelled?` · ${st.cancelled} canceladas`:''}`,delta(st.revenue,pv.revenue))}
           ${kpi('Plazas libres',st.free,phase[1]==='past'?'sin vender':'para vender',phase[1]!=='past'&&st.free?'<button type="button" class="pl-kpi-link pl-month-poster">Crear cartel</button>':'')}
         </div>
         <div class="pl-trend" aria-label="Últimos y próximos meses"><div class="pl-trend-head"><span>Tendencia</span><small><i class="off"></i>Plazas ofrecidas <i class="tk"></i>Ocupadas · cifra: buceadores</small></div><div class="pl-trend-bars">${trend}</div></div>
@@ -3626,7 +3746,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   async function proTermsBanner(user){
     if(!user||!['center','freelance'].includes(user.role)) return; const info=await legalInfo(); if(!info.version||user.pro_terms_version===info.version) return;
     const host=$('#app .cb-main')||$('#app > section'); if(!host||$('#pro-terms-bar')) return;
-    host.insertAdjacentHTML('afterbegin',`<div class="pro-terms-bar" id="pro-terms-bar">${wdIcon('file',18)}<p><strong>Condiciones para centros y profesionales</strong> Revisa y acepta las condiciones que regulan la publicación, la comisión y los cobros en WORLDIVES.</p><a class="btn" href="#/legal/centros" target="_blank" rel="noopener">Leer</a><button type="button" class="btn btn-primary" id="pro-terms-ok">Aceptar</button></div>`);
+    host.insertAdjacentHTML('afterbegin',`<div class="pro-terms-bar" id="pro-terms-bar">${wdIcon('file',18)}<p><strong>Condiciones para centros y profesionales</strong> Revisa y acepta las condiciones que regulan la publicación, la cuota y los cobros en WORLDIVES.</p><a class="btn" href="#/legal/centros" target="_blank" rel="noopener">Leer</a><button type="button" class="btn btn-primary" id="pro-terms-ok">Aceptar</button></div>`);
     translateTree($('#pro-terms-bar'));
     $('#pro-terms-ok').onclick=async()=>{ try{ await postJSON('/api/account/accept-terms',{kind:'pro'}); if(state.me?.user) state.me.user.pro_terms_version=info.version; $('#pro-terms-bar').remove(); toast('Condiciones aceptadas.'); }catch(err){ toast(err.message); } };
   }
@@ -3637,7 +3757,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const amount=wdMoney(c.refund_amount,b.currency), paidAmount=wdMoney(c.paid_amount,b.currency);
     const until=c.deadline?new Date(c.deadline).toLocaleString(wdLocale(),{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'}):'';
     const msg=!c.paid_online?'Puedes cancelar sin coste: no has pagado nada online.'
-      :c.free?`Cancelación gratuita hasta el ${until}. Si cancelas ahora te devolvemos ${amount}.`
+      :c.free?`Cancelación gratuita hasta el ${until}. Si cancelas ahora te corresponde una devolución de ${amount}.`
+      :c.refund_amount>0?`El plazo de cancelación gratuita terminó el ${until}. Si cancelas ahora, según la política del centro, te corresponde una devolución de ${amount} (de ${paidAmount} pagados).`
       :`El plazo de cancelación gratuita terminó el ${until}. Si cancelas ahora, según la política del centro, no hay reembolso de los ${paidAmount} pagados.`;
     return `<section class="cx-card ${c.paid_online&&!c.free?'is-late':''}"><div class="cx-icon">${wdIcon('calendar',20)}</div><div class="cx-main"><p class="eyebrow">CANCELACIÓN</p><h3>¿No puedes ir?</h3><p>${escapeHtml(msg)}</p>
       <p class="cx-policy">${escapeHtml(b.cancellation_text||c.policy_text||'')}${b.cancellation_note?' '+escapeHtml(b.cancellation_note):''} <a href="#/legal/reservas">Condiciones de reserva</a></p>
@@ -3647,25 +3768,15 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const btn=$('#booking-cancel'); if(!btn) return;
     btn.onclick=async()=>{
       let terms; try{ terms=(await postJSON(`/api/bookings/${id}/cancel`,{preview:true})).terms; }catch(err){ toast(err.message); return; }
-      const refund=terms.paid_online?(terms.refund_amount>0?`Te devolveremos <b>${wdMoney(terms.refund_amount,b.currency)}</b> a la misma tarjeta (5–10 días hábiles, según tu banco).`:'<b>No hay reembolso</b> porque estás fuera del plazo de cancelación gratuita.'):'No se te cobrará nada.';
+      const refund=terms.paid_online?(terms.refund_amount>0?`Según la política del centro te corresponde una devolución de <b>${wdMoney(terms.refund_amount,b.currency)}</b>. La hace el centro a la misma tarjeta y te avisamos por email (después, 5–10 días hábiles según tu banco).`:'<b>No hay reembolso</b> porque estás fuera del plazo de cancelación gratuita.'):'No se te cobrará nada.';
       const {el,close}=wdOpenModal({id:'cancel-modal',title:'Cancelar la reserva',subtitle:`${escapeHtml(b.center_name)} · ${escapeHtml(areaDate(b.booking_date,b.booking_time))}`,
         body:`<div class="cx-summary ${terms.paid_online&&!terms.refund_amount?'is-late':''}">${wdIcon(terms.refund_amount>0||!terms.paid_online?'check':'alert',20)}<p>${refund}</p></div>
           <div class="field"><label for="cx-reason">Motivo (opcional, lo verá el centro)</label><textarea id="cx-reason" rows="3" maxlength="300" placeholder="Por ejemplo: me he resfriado, cambio de planes…"></textarea></div>`,
         footer:'<button type="button" class="btn" data-modal-close>No, mantener la reserva</button><button type="button" class="btn danger" id="cx-ok">Sí, cancelar la reserva</button>'});
       $('#cx-ok',el).onclick=async e=>{ e.currentTarget.disabled=true; try{ const r=await postJSON(`/api/bookings/${id}/cancel`,{reason:$('#cx-reason',el).value}); close();
-        toast(r.refund==='refunded'?`Reserva cancelada. Te devolvemos ${wdMoney(r.refund_amount,b.currency)}.`:r.refund==='refund_pending'?'Reserva cancelada. Estamos tramitando tu devolución.':'Reserva cancelada.');
+        toast(r.refund==='proposed'?`Reserva cancelada. Hemos pedido al centro que te devuelva ${wdMoney(r.refund_amount,b.currency)}.`:r.refund==='refunded'?`Reserva cancelada. Te devolvemos ${wdMoney(r.refund_amount,b.currency)}.`:'Reserva cancelada.');
         renderBookingDetail(new URLSearchParams('id='+id)); }catch(err){ toast(err.message); e.currentTarget.disabled=false; } };
     };
-  }
-  async function renderCancelPolicyCard(centerId,mount){
-    if(!mount) return; let c; try{ c=(await api('/api/centers/'+centerId)).item; }catch{ return; }
-    const opts=[['flexible','Flexible','Gratis hasta 24 h antes'],['moderada','Moderada','Gratis hasta 48 h antes'],['estricta','Estricta','Gratis hasta 7 días antes']];
-    mount.innerHTML=`<section class="cxp-card"><div class="section-head"><div><p class="eyebrow">POLÍTICA DE CANCELACIÓN</p><h3 style="margin:0">¿Qué pasa si un cliente cancela?</h3><p style="color:var(--muted);margin:6px 0 0">Se muestra antes de reservar y se aplica sola: si el cliente cancela dentro del plazo gratuito recibe la devolución automática; fuera de plazo, no. Si cancelas tú (por el mar o por seguridad), el cliente recibe siempre el 100 %.</p></div></div>
-      <div class="cxp-opts" role="radiogroup">${opts.map(([k,l,h])=>`<label class="cxp-opt"><input type="radio" name="cxp" value="${k}" ${c.cancellation_policy===k?'checked':''}><span><b>${l}</b><small>${h}</small></span></label>`).join('')}</div>
-      <div class="field"><label for="cxp-note">Nota para el cliente (opcional)</label><input id="cxp-note" maxlength="500" value="${escapeHtml(c.cancellation_note||'')}" placeholder="Ej.: Si el mar no permite salir, te ofrecemos otra fecha o la devolución."></div>
-      <div class="form-actions"><button type="button" class="btn btn-primary" id="cxp-save">Guardar política</button><a class="btn" href="#/legal/centros" target="_blank" rel="noopener">Condiciones para centros</a></div></section>`;
-    translateTree(mount);
-    $('#cxp-save',mount).onclick=async()=>{ try{ await postJSON('/api/center/cancellation-policy',{policy:($('input[name=cxp]:checked',mount)||{}).value,note:$('#cxp-note',mount).value}); toast('Política de cancelación guardada. Se aplica a las reservas nuevas.'); }catch(err){ toast(err.message); } };
   }
   function accountPrivacyCard(u){
     return `<section class="acc-card" id="acc-privacy"><div class="acc-card-head"><h2>${wdIcon('shield',18)} Privacidad y datos</h2></div>

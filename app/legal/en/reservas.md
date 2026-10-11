@@ -20,7 +20,8 @@ You will receive an email at every step: request sent, place confirmed, payment 
 
 - The price shown is the **final price**, including taxes and the equipment and extras you choose. The centre sets it.
 - Online payments are processed by **Stripe** with encryption and 3D Secure. Neither {{trade_name}} nor the centre see or store your card details.
-- When you pay online, {{trade_name}} receives the amount on behalf of the centre and transfers it after deducting its intermediation fee. Your price is the same.
+- When you pay online, you pay **the centre directly** (or the professional) through its Stripe account. {{trade_name}} does not receive your money and takes no commission on the booking.
+- Some services ask for a **deposit** when booking; you pay the rest at the centre. You will see it before paying and on your voucher.
 - If the centre does not take online payments, you pay the centre directly in the way it accepts.
 - You will receive a receipt by email and can download it as a PDF from your booking.
 

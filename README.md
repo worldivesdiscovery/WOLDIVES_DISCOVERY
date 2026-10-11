@@ -112,58 +112,56 @@ La ruta `#/virtual?experience=ID&point=ID` queda separada de la ficha para poder
 - Nuevos puntos creados por centros quedan pendientes de aprobación administrativa.
 - Las tarjetas de centros usan la marca/fav icon del sitio oficial en esta demo; el centro o administrador puede sustituirlo por la URL del logotipo oficial.
 
-## v21 · pagos profesionales con Stripe Connect
+## Pagos con Stripe Connect (v50.34)
 
-Esta versión añade **solo la capa de pagos**, manteniendo la estructura existente de reservas, servicios, salidas, centros y perfiles. El modelo utilizado es un marketplace con **Stripe Connect + Checkout**: el cliente paga en una página segura de Stripe y, una vez confirmado el pago, Stripe transfiere el importe al centro conectado; WORLDIVES puede retener una comisión mediante `application_fee_amount`. Stripe documenta este patrón como **destination charges**.
+**WORLDIVES no cobra comisión por las reservas.** Su único ingreso es la cuota del plan anual de los centros. Los cobros online son **cargos directos**: el Checkout se crea en la cuenta de Stripe del centro (o del profesional freelance sin centro) con `stripe_account=…`, sin `application_fee_amount` ni `transfer_data`. El dinero va del buceador al prestador y nunca pasa por un saldo de WORLDIVES.
 
 ### Variables de servidor
 
-Configura estas variables de entorno en el servidor (no las pongas en JavaScript ni dentro del ZIP):
+Solo en el entorno del servidor (nunca en JavaScript, en el repositorio ni dentro del ZIP). Ver `.env.example`.
 
 ```text
 STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_WEBHOOK_SECRET=whsec_...           # endpoint de la plataforma
+STRIPE_CONNECT_WEBHOOK_SECRET=whsec_...   # endpoint de Connect (eventos de las cuentas de los centros)
 WOD_PUBLIC_URL=https://tu-dominio.example
-WOD_PLATFORM_FEE_PERCENT=10
+# Configuración de las cuentas conectadas (valores por defecto = decisión del titular):
+WOD_STRIPE_DASHBOARD=full        # panel completo de Stripe para el centro
+WOD_STRIPE_FEES_PAYER=account    # las comisiones de Stripe las paga la cuenta del centro
+WOD_STRIPE_LOSSES=stripe         # Stripe responde de los saldos negativos
+WOD_STRIPE_CAPABILITIES=card_payments
 ```
 
-Para producción, cambia la clave a `sk_live_...` y utiliza un webhook HTTPS de producción. `WOD_PLATFORM_FEE_PERCENT` controla la comisión de WORLDIVES; por defecto es 10%.
+### Alta de un centro o de un freelance
 
-### Alta de un centro
+Desde **Cobros y pagos** en su panel. WORLDIVES crea una cuenta conectada con **propiedades de controlador** (Accounts v1: `controller.stripe_dashboard.type=full`, `controller.fees.payer=account`, `controller.losses.payments=stripe`, `requirement_collection=stripe`) y solo la capacidad `card_payments`, y abre el alta alojada por Stripe (Account Link). Se guardan solo el identificador de la cuenta y sus estados. No se puede cobrar online hasta que Stripe indique `charges_enabled` y `payouts_enabled`; `account.updated` los mantiene al día. Con el panel completo, el centro entra en `dashboard.stripe.com` con su propio usuario.
 
-El centro entra en **Gestionar mi centro → Cobros y pagos → Configurar cobros seguros**. WORLDIVES crea una cuenta Connect Express y redirige al centro al onboarding alojado por Stripe. WORLDIVES guarda únicamente el identificador de la cuenta conectada y sus estados de capacidad; los datos bancarios y de verificación permanecen en Stripe. Las Account Links son temporales y de un solo uso.
-
-El centro no puede cobrar online hasta que Stripe indique `charges_enabled` y `payouts_enabled`. El webhook `account.updated` mantiene estos estados sincronizados.
+Las cuentas Express de prueba creadas con versiones anteriores no pueden cambiar de tipo: el administrador las desvincula (`POST /api/payments/connect/unlink`) y el centro conecta una nueva.
 
 ### Pago de una reserva
 
-Cuando un servicio está configurado como **Pago obligatorio** o **Reserva inmediata** con precio, el cliente crea la reserva y WORLDIVES genera una sesión de Stripe Checkout específica para esa reserva. El checkout utiliza: **importe total → comisión WORLDIVES → transferencia al centro conectado**.
+- «Pago al reservar»: Checkout al momento (total o **señal**), plazas bloqueadas 15 min, confirmación solo con el pago confirmado por Stripe.
+- «Bajo petición»: Checkout cuando el centro acepta, con plazo para pagar.
+- Señal: por servicio, porcentaje o importe por persona. La reserva guarda lo pagado (`amount_paid`) y lo pendiente (`amount_due`); el resto se registra con «Registrar cobro».
 
-La reserva solo se considera pagada cuando el servidor recibe y verifica el webhook firmado de Stripe. La URL de retorno del navegador no es la fuente de verdad del pago. Los eventos de webhook se registran con ID único para evitar procesarlos dos veces.
+La reserva solo se considera pagada cuando Stripe lo confirma (webhook firmado, o consulta directa a Stripe al volver del pago). Los eventos se registran por ID para no procesarlos dos veces.
 
-También se manejan expiraciones del Checkout y reembolsos, manteniendo el estado de la reserva y de la operación de pago vinculados.
+### Devoluciones
 
-### Webhook
+Las hace el centro desde su panel (botón «Devolver», total o parcial) con `Refund.create` en su cuenta, o desde su panel de Stripe; ambas llegan al historial `payment_refunds`. Un reembolso parcial no cancela la reserva. Si el buceador cancela una reserva pagada, se propone al centro el importe de su política y se le recuerda a las 72 h. El administrador solo ve pagos y devoluciones y marca incidencias.
 
-Configura en Stripe un endpoint HTTPS apuntando a:
+### Webhooks
 
 ```text
-POST https://tu-dominio.example/api/payments/webhook
+POST https://tu-dominio.example/api/payments/webhook          (cuenta de la plataforma)
+POST https://tu-dominio.example/api/payments/webhook/connect  (Connect: «eventos de las cuentas conectadas»)
 ```
 
-Como mínimo, suscribe el endpoint a:
-
-- `checkout.session.completed`
-- `checkout.session.async_payment_succeeded`
-- `checkout.session.expired`
-- `payment_intent.payment_failed`
-- `charge.refunded`
-- `refund.updated`
-- `account.updated`
+Eventos: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `payment_intent.payment_failed`, `charge.refunded`, `refund.created`, `refund.updated`, `charge.dispute.created`, `charge.dispute.closed`, `account.updated`, `account.application.deauthorized`. En el endpoint de Connect, un evento de una cuenta nunca puede tocar un pago de otra.
 
 ### Importante antes de producción
 
-La integración de pagos está separada de la aplicación y no almacena tarjetas. Antes de aceptar dinero real, el despliegue completo debe usar HTTPS, secretos fuera del repositorio, copias de seguridad, control de acceso, protección CSRF/rate limiting, política de cancelaciones y reembolsos, términos, privacidad/cookies y la configuración fiscal/legal correspondiente al modelo de marketplace. Stripe Connect proporciona el onboarding y la infraestructura de pagos; la responsabilidad comercial y legal de WORLDIVES debe definirse antes del lanzamiento.
+Antes de aceptar dinero real: HTTPS, secretos fuera del repositorio, copias de seguridad, términos y política de cancelación revisados por un abogado y configuración fiscal revisada por la gestoría (ver `docs/`).
 
 
 ## Seguridad y GitHub

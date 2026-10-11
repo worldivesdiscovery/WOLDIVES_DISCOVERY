@@ -2635,3 +2635,24 @@ a.acc-kpi,button.acc-kpi{cursor:pointer}a.acc-kpi:hover,button.acc-kpi:hover{bor
   box-shadow:0 0 0 1px rgba(110,20,14,.3),0 3px 9px rgba(7,30,40,.35);text-shadow:0 1px 1px rgba(0,0,0,.35);transition:transform .14s ease}
 .wd-cluster-wrap:hover .wd-cluster{transform:scale(1.1)}
 .tt-me{width:20px;height:20px;border-width:2.5px}
+
+/* v50.34 · Fase 2: payments, deposits, refunds, sponsorship */
+.pay-module{display:grid;gap:18px}
+.pay-module .notice p{margin:6px 0 0}
+.pay-module .form-actions{margin:0}
+.cxp-opt{text-align:left;font:inherit}
+.cxp-opt:hover,.cxp-opt:focus-visible{border-color:var(--sea);background:#eef7f8}
+.cxp-preview{margin:4px 0 12px;padding:10px 12px;border-radius:10px;background:#f1f7f8;color:var(--deep);font-size:14px}
+.bk-deposit{display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin:-4px 0 12px;padding:10px 12px;border-radius:10px;background:#f1f7f8;font-size:13px;color:var(--muted)}
+.bk-deposit b{color:var(--deep);text-align:right}
+.pay-refunds{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.pay-refunds li{display:flex;gap:6px;align-items:center}
+.pay-card h3 small{font-size:13px;font-weight:500;color:var(--muted)}
+.hm-sponsored-tag{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:99px;background:#eef2f4;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;vertical-align:middle}
+.ap-table td small{display:block;color:var(--muted);font-size:11.5px}
+.cp-services{display:grid;gap:10px;margin:12px 0 18px}
+.cp-service{display:flex;justify-content:space-between;gap:16px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.cp-service small{display:block;color:var(--muted)}
+.cp-service p{margin:6px 0 0;color:var(--muted);font-size:14px}
+.cp-service-side{display:grid;justify-items:end;gap:4px;text-align:right;min-width:140px}
+@media (max-width:640px){.cp-service{flex-direction:column}.cp-service-side{justify-items:start;text-align:left}}
