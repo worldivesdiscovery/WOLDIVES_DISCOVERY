@@ -103,9 +103,11 @@
     sel.__bound=true; sel.value=currentLanguage();
     sel.onchange=()=>{ try{ localStorage.setItem(LANG_KEY,sel.value); }catch{} if(state.me) fetch('/api/account/language',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang:sel.value}),keepalive:true}).catch(()=>{}); location.href=location.pathname+'?lang='+encodeURIComponent(sel.value)+location.hash; };
   }
-  const api = async (url, options={}) => { const r = await fetch(url, options); let d=null; try{d=await r.json();}catch{} if(!r.ok){ const e=new Error(d?.error==='consent_required'?'Confirma que quieres compartir tus datos con el centro.':(d?.error || `Error ${r.status}`)); e.status=r.status; e.data=d; throw e; } if(d===null) throw new Error('Respuesta no válida del servidor.'); return d; };
+  const api = async (url, options={}) => { const r = await fetch(url, options); let d=null; try{d=await r.json();}catch{} if(!r.ok){ if(d?.plan_required) planToastNext=true; const e=new Error(d?.error==='consent_required'?'Confirma que quieres compartir tus datos con el centro.':(d?.error || `Error ${r.status}`)); e.status=r.status; e.data=d; throw e; } if(d===null) throw new Error('Respuesta no válida del servidor.'); return d; };
   const postJSON = (url, data, method='POST') => api(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-  function toast(msg){ const t=$('#toast'); t.textContent=translateString(msg); t.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),2800); }
+  let planToastNext=false;
+  function toast(msg){ const t=$('#toast'); t.textContent=translateString(msg);
+    if(planToastNext){ planToastNext=false; t.insertAdjacentHTML('beforeend',' <a href="#/planes" class="toast-link">'+escapeHtml(translateString('Ver planes'))+'</a>'); } t.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),2800); }
   function initials(name=''){ return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase() || '?'; }
   // Sends the visitor to log in and brings them back to where they were afterwards.
   // Imágenes de la web: el administrador las cambia desde «Imágenes de la web»; estos son los valores de respaldo.
@@ -153,7 +155,7 @@
   async function loadMeta(){ if(!state.meta) state.meta=await api('/api/meta'); return state.meta; }
   // Marca en la cabecera la sección en la que está el visitante.
   function markNav(name){ const section={punto:'puntos',centro:'centros',experiencia:'experiencias',experienciareserva:'experiencias',reservar:'centros'}[name]||name; $$('#main-nav a').forEach(a=>{ const on=a.getAttribute('href')==='#/'+section; a.classList.toggle('active',on); if(on) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); }); }
-  function route(){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,registro:renderRegister,reservar:renderBooking,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); return Promise.resolve(fn(new URLSearchParams(qs||''))).catch(err=>{console.error(err);setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
+  function route(){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,registro:renderRegister,reservar:renderBooking,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); return Promise.resolve(fn(new URLSearchParams(qs||''))).catch(err=>{console.error(err);setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
   window.addEventListener('hashchange', route);
   // CSP (script-src 'self'): no inline handlers in the markup. These delegated listeners replace them.
   document.addEventListener('click',e=>{ if(e.target.closest?.('[data-reload]')) location.reload(); });
@@ -432,6 +434,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         body:`<div class="field"><label for="rh-why">Motivo</label><textarea id="rh-why" rows="4" maxlength="1000" required placeholder="Qué norma incumple y por qué."></textarea></div>`,
         footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn danger" id="rh-ok">Ocultar</button>'});
       $('#rh-ok',el).onclick=async()=>{ try{ await postJSON(`/api/admin/reviews/${b.dataset.id}/moderate`,{active:false,reason:$('#rh-why',el).value}); delete el.dataset.dirty; close(); toast('Reseña ocultada.'); renderCenterDetail(new URLSearchParams({id:String(id)})); }catch(err){ toast(err.message); } }; });
+    if(c.online_booking===false){
+      $$('.cp-page a[href^="#/reservar"], .cp a[href^="#/reservar"]').forEach(a=>{ const b=document.createElement('button'); b.type='button'; b.className=a.className.replace('cp-slot','btn cp-book'); b.textContent=translateString('Solicitar información'); b.onclick=()=>openInfoRequest({center_id:c.id,name:c.name}); a.replaceWith(b); });
+      $$('.cp-slots').forEach(x=>x.remove());
+      $('.cp-services')?.insertAdjacentHTML('beforebegin',`<div class="notice">${wdIcon('info',16)} Este centro todavía no tiene reserva online en WORLDIVES. Puedes enviarle una solicitud de información.</div>`);
+    } else {
+      $$('.cp a[href^="#/reservar"]').forEach(a=>a.addEventListener('click',()=>{ postJSON('/api/stats/track',{event:'book_click',type:'center',id:c.id}).catch(()=>{}); }));
+    }
+    if(c.reviews_off) $('#cp-reviews')?.remove();
     if(params?.get?.('resena')) setTimeout(()=>{ const r=$('#cp-reviews'); if(r){ r.scrollIntoView({behavior:'smooth',block:'start'}); $('#review-title')?.focus({preventScroll:true}); } },250);
     if(reviewInfo.can_review){
       let selected=Number(reviewInfo.current?.rating||0);
@@ -1107,7 +1117,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   async function renderProfessional(params){ const id=Number(params.get('id')||0); if(!id){setApp('<section class="page"><div class="empty"><h2>Profesional no encontrado</h2></div></section>');return;} const p=await api('/api/providers/'+id); const c=p.center||{}; const socialSource=p.role==='freelance'?p.socials:c; const socials=[['instagram_url','Instagram','◎'],['facebook_url','Facebook','f'],['twitter_url','X / Twitter','𝕏'],['youtube_url','YouTube','▶'],['tiktok_url','TikTok','♪']].filter(x=>socialSource&&socialSource[x[0]]); setApp(`<section class="page"><div class="breadcrumb"><a href="#/experiencias">Experiencias</a> / Profesional</div><div class="detail"><article class="detail-main"><p class="eyebrow">${p.role==='center'?'CENTRO DE BUCEO':'PROFESIONAL / FREELANCE'}</p><div style="display:flex;align-items:center;gap:16px">${p.role==='center'?centerLogoMarkup(c,'84px'):(p.avatar_url?`<img src="${escapeHtml(p.avatar_url)}" alt="" style="width:84px;height:84px;object-fit:cover;border-radius:50%">`: '')}<h1>${escapeHtml(c.name||p.fullname)}</h1></div>${c.city?`<div class="point-meta"><span class="meta-badge">${escapeHtml(c.city)}</span><span class="meta-badge">${escapeHtml(c.country||'')}</span></div>`:''}<p class="lead">${escapeHtml(c.description||p.provider_bio||'Profesional de buceo en WORLDIVES DISCOVERY.')}</p>${socials.length?`<div class="provider-socials">${socials.map(x=>`<a class="social-chip" href="${escapeHtml(socialSource[x[0]])}" target="_blank" rel="noopener noreferrer"><span>${x[2]}</span>${x[1]}</a>`).join('')}</div>`:''}<div class="data-grid"><div class="data-item"><span>Especialidad</span><strong>${escapeHtml(c.specialties||'Buceo y experiencias')}</strong></div><div class="data-item"><span>Web</span><strong>${c.website?`<a href="${escapeHtml(c.website)}" target="_blank" rel="noopener">Visitar</a>`:'—'}</strong></div><div class="data-item"><span>Contacto</span><strong>${escapeHtml(c.email||c.phone||'Disponible a través de WORLDIVES DISCOVERY')}</strong></div></div><div id="pro-services"></div><div class="page-actions"><a class="btn" href="#\/experiencias">Volver a experiencias</a></div></article></div></section>`);
     // Fase 2.7: a freelance professional without a centre takes bookings (and online payments) for his own services.
     if(p.role==='freelance'){ try{ const sv=(await api('/api/provider-services?provider_id='+id)).items.filter(x=>!x.center_id&&x.service_type!=='alquiler_equipo'); const m=$('#pro-services');
-      if(m&&sv.length){ m.innerHTML=`<h2 style="margin-top:26px">Servicios</h2><div class="cp-services">${sv.map(x=>`<article class="cp-service"><div><strong>${escapeHtml(x.title)}</strong><small>${escapeHtml(x.mode_label||'')}</small>${x.description?`<p>${escapeHtml(x.description)}</p>`:''}</div><div class="cp-service-side"><b>${wdMoney(x.price,x.currency)}</b><small>por persona</small>${(x.slots||[]).length&&x.bookable!==false?`<a class="btn btn-primary cp-book" href="#/reservar?provider=${id}&service=${x.id}">${x.booking_mode==='payment'?'Reservar y pagar':'Enviar solicitud'}</a>`:'<small>Sin salidas programadas</small>'}</div></article>`).join('')}</div>`; translateTree(m); } }catch{} } }
+      if(m&&sv.length){ m.innerHTML=`<h2 style="margin-top:26px">Servicios</h2><div class="cp-services">${sv.map(x=>`<article class="cp-service"><div><strong>${escapeHtml(x.title)}</strong><small>${escapeHtml(x.mode_label||'')}</small>${x.description?`<p>${escapeHtml(x.description)}</p>`:''}</div><div class="cp-service-side"><b>${wdMoney(x.price,x.currency)}</b><small>por persona</small>${(x.slots||[]).length&&x.bookable!==false?`<a class="btn btn-primary cp-book" href="#/reservar?provider=${id}&service=${x.id}">${x.booking_mode==='payment'?'Reservar y pagar':'Enviar solicitud'}</a>`:'<small>Sin salidas programadas</small>'}</div></article>`).join('')}</div>`; translateTree(m); } }catch{}
+      const m=$('#pro-services');
+      if(p.online_booking===false&&m){ m.querySelectorAll('a.cp-book').forEach(x=>x.remove()); m.insertAdjacentHTML('beforeend',`<div class="notice" style="margin-top:16px">${wdIcon('info',16)} Este profesional todavía no tiene reserva online en WORLDIVES. <button type="button" class="btn btn-primary" id="pro-info">Solicitar información</button></div>`); translateTree(m);
+        $('#pro-info').onclick=()=>openInfoRequest({provider_user_id:id,name:p.fullname}); }
+      else m?.querySelectorAll('a.cp-book').forEach(x=>x.addEventListener('click',()=>postJSON('/api/stats/track',{event:'book_click',type:'freelance',id}).catch(()=>{}))); } }
   function authCard(title, inner){ return `<section class="auth-split">
     <aside class="auth-visual">${heroImg('hero:auth')}<div class="auth-visual-in"><p class="eyebrow">WORLDIVES DISCOVERY</p><h2>Tu buceo, en un solo sitio</h2><ul><li>Reserva con centros de todo el mundo</li><li>Tu titulación y tu Log Book siempre contigo</li><li>Recompensas por cada inmersión</li></ul></div></aside>
     <div class="auth-panel"><div class="auth-card"><h1>${escapeHtml(title)}</h1>${inner}</div></div>
@@ -1325,10 +1339,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const none=Promise.resolve({items:[]});
     // A freelance professional without a centre (Fase 2.7) is booked like a centre without equipment or extras.
     const [cR,sR,eR,xR]=await Promise.allSettled(cid?[api('/api/centers/'+cid),api('/api/provider-services?provider_id=0&center_id='+cid),api('/api/center-equipment?center_id='+cid),api('/api/center-extras?center_id='+cid)]
-      :[api('/api/providers/'+providerId).then(p=>({item:{id:0,name:p.fullname,city:'',country:'',logo_url:p.avatar_url||'',cover_url:'',freelance:true}})),api('/api/provider-services?provider_id='+providerId),none,none]);
+      :[api('/api/providers/'+providerId).then(p=>({item:{id:0,name:p.fullname,city:'',country:'',logo_url:p.avatar_url||'',cover_url:'',freelance:true,online_booking:p.online_booking}})),api('/api/provider-services?provider_id='+providerId),none,none]);
     if(!alive()) return;
     if(cR.status!=='fulfilled'){ setApp(`<section class="page"><div class="empty"><h2>Centro no encontrado</h2><p>Puede que ya no esté publicado.</p><a class="btn btn-primary" href="#/reservar">Elegir otro centro</a></div></section>`); return; }
     const center=cR.value.item;
+    if(center.online_booking===false){ // free listing (Fase 6.3): information request instead of booking, never «sin plazas»
+      setApp(`<section class="page"><div class="empty"><h2>${esc(center.name)}</h2><p>Este centro todavía no tiene reserva online en WORLDIVES. Envíale una solicitud de información y te contestará directamente.</p><div class="form-actions" style="justify-content:center"><button type="button" class="btn btn-primary" id="bk-info">Solicitar información</button><a class="btn" href="${cid?`#/centro?id=${cid}`:`#/profesional?id=${providerId}`}">Volver</a></div></div></section>`);
+      $('#bk-info').onclick=()=>openInfoRequest({center_id:cid||null,provider_user_id:cid?null:providerId,name:center.name}); return; }
     const services=(sR.status==='fulfilled'?sR.value.items||[]:[]).filter(s=>(cid?String(s.center_id)===String(cid):!s.center_id)&&s.service_type!=='alquiler_equipo');
     if(!cid&&services[0]) center.online_payments=!!services[0].payments_ready;
     const equipment=(eR.status==='fulfilled'?eR.value.items||[]:[]).filter(e=>e.price!=null&&e.price!=='');
@@ -1879,7 +1896,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
   async function renderFreelancePanel(d){
     const u=d.user||{}, esc=escapeHtml; state.me=d;
-    const tabs=[['dashboard','⌂','Resumen'],['bookings','☰','Reservas'],['planning','▦','Planning / agenda'],['services','◈','Servicios y tarifas'],['experiences','✈','Experiencias y solicitudes'],['payments','€','Cobros y pagos'],['profile','✦','Perfil público']];
+    const tabs=[['dashboard','⌂','Resumen'],['bookings','☰','Reservas'],['planning','▦','Planning / agenda'],['services','◈','Servicios y tarifas'],['experiences','✈','Experiencias y solicitudes'],['payments','€','Cobros y pagos'],['profile','✦','Perfil público'],
+      ['requests','✉','Solicitudes de información'],['stats','◑','Estadísticas'],['tools','⇩','Herramientas'],['fiscal','§','Datos fiscales y seguro'],['plan','◆','Mi plan']];
     setApp(`<section class="center-backoffice fl-office">
       <div class="cb-header"><div class="cb-header-id">${u.avatar_url?`<img class="center-logo fl-avatar" src="${esc(u.avatar_url)}" alt="">`:`<span class="acc-avatar fl-avatar-txt">${esc(initials(u.fullname||''))}</span>`}<div><p class="eyebrow">Panel del profesional</p><h1>${esc(u.fullname||'Profesional')}</h1><p>Instructor / guía freelance · tus salidas, experiencias y ficha pública en un solo panel.</p></div></div>
         <div class="cb-header-actions"><a class="btn" href="#/profesional?id=${u.id}">${wdIcon('eye',15)} Ver mi ficha pública</a><a class="btn" href="#/cuenta">${wdIcon('user',15)} Mi cuenta</a></div></div>
@@ -1898,6 +1916,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       else if(tab==='experiences'){ content.innerHTML='<div id="freelance-experiences"></div>'; await renderProviderExperiences('freelance-experiences','freelance',{goServices}); loadExp(); }
       else if(tab==='bookings'){ content.innerHTML='<div id="fl-bookings"></div>'; await renderCenterBookings('fl-bookings',{freelance:true}); }
       else if(tab==='payments'){ content.innerHTML='<div id="fl-payments"></div>'; await renderProviderPayments('fl-payments'); }
+      else if(tab==='requests'){ content.innerHTML='<div id="fl-requests"></div>'; await renderInfoRequests('fl-requests'); }
+      else if(tab==='stats'){ content.innerHTML='<div id="fl-stats"></div>'; await renderProviderStats('fl-stats'); }
+      else if(tab==='tools'){ content.innerHTML='<div id="fl-tools"></div>'; await renderProviderTools('fl-tools',false); }
+      else if(tab==='fiscal'){ content.innerHTML='<div id="fl-fiscal"></div>'; await renderFiscalCard('fl-fiscal'); }
+      else if(tab==='plan'){ content.innerHTML='<div id="fl-plan"></div>'; await renderMyPlan('fl-plan'); }
       else if(tab==='profile') renderFreelanceProfile();
       else await renderFreelanceDashboard();
     }
@@ -3094,6 +3117,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="cb-section-title">CONFIGURACIÓN</div>
         <button class="cb-nav" data-cbtab="center">✦ <span>Escaparate y datos</span></button>
         <button class="cb-nav" data-cbtab="rewards">★ <span>Recompensas</span></button>
+        <div class="cb-section-title">MI CUENTA PROFESIONAL</div>
+        <button class="cb-nav" data-cbtab="requests">✉ <span>Solicitudes de información</span></button>
+        <button class="cb-nav" data-cbtab="stats">◑ <span>Estadísticas</span></button>
+        <button class="cb-nav" data-cbtab="tools">⇩ <span>Herramientas</span></button>
+        <button class="cb-nav" data-cbtab="team" data-owner>☺ <span>Equipo</span></button>
+        <button class="cb-nav" data-cbtab="activity" data-owner>☷ <span>Registro de actividad</span></button>
+        <button class="cb-nav" data-cbtab="fiscal" data-owner>§ <span>Datos fiscales y seguro</span></button>
+        <button class="cb-nav" data-cbtab="plan" data-owner>◆ <span>Mi plan</span></button>
       </aside><main class="cb-main"><div id="cb-content"></div></main></div>
     </section>`;
   }
@@ -3632,7 +3663,17 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         $$('.pr-tab').forEach(b=>b.onclick=()=>showPt(b.dataset.pt)); showPt(new URLSearchParams(location.hash.split('?')[1]||'').get('pt')||'promos');}
       else if(tab==='center'){content.innerHTML='<div id="cb-showcase"></div>'; await renderCenterShowcaseEditor('cb-showcase',d.user.center_id);}
       else if(tab==='rewards'){content.innerHTML='<div id="cb-rewards"></div>'; await renderRewardsManager('cb-rewards',{centerId:d.user.center_id});}
+      else if(tab==='requests'){content.innerHTML='<div id="cb-requests"></div>'; await renderInfoRequests('cb-requests');}
+      else if(tab==='stats'){content.innerHTML='<div id="cb-stats"></div>'; await renderProviderStats('cb-stats');}
+      else if(tab==='tools'){content.innerHTML='<div id="cb-tools"></div>'; await renderProviderTools('cb-tools',true);}
+      else if(tab==='team'){content.innerHTML='<div id="cb-team"></div>'; await renderTeam('cb-team');}
+      else if(tab==='activity'){content.innerHTML='<div id="cb-activity"></div>'; await renderActivity('cb-activity');}
+      else if(tab==='fiscal'){content.innerHTML='<div id="cb-fiscal"></div>'; await renderFiscalCard('cb-fiscal');}
+      else if(tab==='plan'){content.innerHTML='<div id="cb-plan"></div>'; await renderMyPlan('cb-plan');}
     };
+    if((state.me?.member_role||'owner')!=='owner') $$('.cb-nav[data-owner]').forEach(n=>n.remove());
+    if(state.me?.member_role==='instructor') $$('.cb-nav[data-cbtab="payments"],.cb-nav[data-cbtab="integration"],.cb-nav[data-cbtab="center"]').forEach(n=>n.remove());
+    { const pl=state.me?.plan; if(pl&&pl.status!=='active'){ const host=$('#cb-content'); host?.insertAdjacentHTML('beforebegin',`<div class="pl-bar ${pl.status==='expired'||pl.code==='free'?'is-free':''}">${wdIcon('info',16)} ${pl.status==='trial'?`Prueba gratuita del plan ${escapeHtml(pl.name)} hasta el ${escapeHtml(wdLegalDate(pl.expires_at))}.`:pl.status==='expired'?'Tu plan ha terminado: tu ficha sigue como ficha gratuita y no recibe reservas online nuevas.':'Ficha gratuita: recibes solicitudes de información.'} <a href="#/admin?tab=plan">Mi plan</a></div>`); } }
     nav.forEach(n=>n.onclick=()=>loadTab(n.dataset.cbtab));
     content.addEventListener('click',async e=>{const g=e.target.closest('.cb-go'); if(g){e.preventDefault();loadTab(g.dataset.tab,{view:g.dataset.view});return;} if(e.target.closest('.db-new-booking')){openManualBooking({onSaved:async()=>{await reloadData(); if(currentTab==='dashboard')loadTab('dashboard');}});return;} const b=e.target.closest('.cb-booking-open'); if(b){location.hash='#/reserva?id='+b.dataset.id;}});
     $('#cb-refresh').onclick=()=>loadTab(currentTab);
@@ -3667,7 +3708,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     setApp(`<section class="page provider-page"><div class="provider-topbar"><div><p class="eyebrow">${isAdmin?'CUENTA ADMINISTRADOR':'PANEL PROFESIONAL · CENTRO DE BUCEO'}</p><h1>${isAdmin?'Centro de control de WORLDIVES':escapeHtml(myCenter?.name||'Panel del centro')}</h1><p class="lead">${isAdmin?'Control administrativo de WORLDIVES DISCOVERY.':'Tu centro de operaciones: reservas, salidas, clientes, pagos y catálogo.'}</p></div>${!isAdmin&&myCenter?`<div class="provider-status"><span class="status good">● Centro activo</span><a href="#/admin?tab=center">Gestionar ficha</a></div>`:''}</div>
       ${isAdmin?'<div class="notice" style="margin-top:18px"><strong>Control total activado</strong><p style="margin:6px 0 0">Las acciones importantes quedan registradas en el historial de actividad.</p></div>':''}
       ${!isAdmin?`<div class="provider-mini-summary"><span><strong>${points.length}</strong> puntos activos</span><span><strong>${bookings.length}</strong> reservas</span><span><strong>${centerPending.length}</strong> por confirmar</span><span><strong>${centerConfirmed.length}</strong> confirmadas</span><span><strong>${centerPaid.length}</strong> pagadas</span></div>`:''}
-      <div class="tabs provider-tabs">${isAdmin?'<button class="tab active" data-tab="overview">Inicio</button>':'<button class="tab active" data-tab="overview">Resumen</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="services">Servicios y salidas</button><button class="tab" data-tab="clients">Clientes</button><button class="tab" data-tab="points">Puntos de buceo</button><button class="tab" data-tab="rewards">Recompensas</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR / Check-in</button><button class="tab" data-tab="center">Mi centro</button><button class="tab" data-tab="payments">Cobros y pagos</button>'}${isAdmin?'<button class="tab" data-tab="points">Puntos</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="adminpay">Pagos</button><button class="tab" data-tab="emails">Correos</button><button class="tab" data-tab="legal">Legal</button><button class="tab" data-tab="pointtexts">Descripciones de puntos</button><button class="tab" data-tab="maps">Mapas</button><button class="tab" data-tab="virtual">Recorridos virtuales</button><button class="tab" data-tab="experiences">Experiencias</button><button class="tab" data-tab="destinations">Destinos</button><button class="tab" data-tab="media">Imágenes de la web</button><button class="tab" data-tab="promos">Patrocinio</button><button class="tab" data-tab="users">Usuarios</button><button class="tab" data-tab="centers">Centros</button><button class="tab" data-tab="claims">Verificaciones</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR</button><button class="tab" data-tab="audit">Actividad</button><button class="tab" data-tab="rewards">Recompensas</button>':''}</div><div id="admin-content"></div></section>`);
+      <div class="tabs provider-tabs">${isAdmin?'<button class="tab active" data-tab="overview">Inicio</button>':'<button class="tab active" data-tab="overview">Resumen</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="services">Servicios y salidas</button><button class="tab" data-tab="clients">Clientes</button><button class="tab" data-tab="points">Puntos de buceo</button><button class="tab" data-tab="rewards">Recompensas</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR / Check-in</button><button class="tab" data-tab="center">Mi centro</button><button class="tab" data-tab="payments">Cobros y pagos</button>'}${isAdmin?'<button class="tab" data-tab="points">Puntos</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="adminpay">Pagos</button><button class="tab" data-tab="emails">Correos</button><button class="tab" data-tab="legal">Legal</button><button class="tab" data-tab="pointtexts">Descripciones de puntos</button><button class="tab" data-tab="maps">Mapas</button><button class="tab" data-tab="plans">Planes</button><button class="tab" data-tab="features">Funciones</button><button class="tab" data-tab="virtual">Recorridos virtuales</button><button class="tab" data-tab="experiences">Experiencias</button><button class="tab" data-tab="destinations">Destinos</button><button class="tab" data-tab="media">Imágenes de la web</button><button class="tab" data-tab="promos">Patrocinio</button><button class="tab" data-tab="users">Usuarios</button><button class="tab" data-tab="centers">Centros</button><button class="tab" data-tab="claims">Verificaciones</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR</button><button class="tab" data-tab="audit">Actividad</button><button class="tab" data-tab="rewards">Recompensas</button>':''}</div><div id="admin-content"></div></section>`);
     const tabs=$$('.tab');
     async function show(t){
       tabs.forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
@@ -3686,6 +3727,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t==='adminpay'&&isAdmin){ c.innerHTML='<div id="admin-payments"></div>'; renderAdminPayments('admin-payments'); }
       if(t==='emails'&&isAdmin){ c.innerHTML='<div id="admin-emails"></div>'; renderAdminEmails('admin-emails'); }
       if(t==='legal'&&isAdmin){ c.innerHTML='<div id="admin-legal"></div>'; renderAdminLegal('admin-legal'); }
+      if(t==='plans'&&isAdmin){ c.innerHTML='<div id="admin-plans"></div>'; renderAdminPlans('admin-plans'); }
+      if(t==='features'&&isAdmin){ c.innerHTML='<div id="admin-features"></div>'; renderAdminFeatures('admin-features'); }
       if(t==='maps'&&isAdmin){ c.innerHTML='<div id="admin-maps"></div>'; renderAdminMaps('admin-maps'); }
       if(t==='pointtexts'&&isAdmin){ c.innerHTML='<div id="admin-pointtexts"></div>'; renderAdminPointTexts('admin-pointtexts'); }
       if(t==='promos'&&isAdmin){ c.innerHTML='<div id="site-promos-manager"></div>'; renderPromosManager('site-promos-manager'); }
@@ -3703,7 +3746,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const qsAdmin=new URLSearchParams(location.hash.split('?')[1]||'');
     const requested=qsAdmin.get('tab'); const statusFilter=qsAdmin.get('status'); const editId=Number(qsAdmin.get('edit')||0);
     const centerTabs=['overview','bookings','services','clients','points','rewards','suggestions','qr','center','payments'];
-    show(isAdmin&&['adminpay','emails','legal','pointtexts','maps','media','promos','virtual','audit','destinations','experiences','users','centers','claims','suggestions','qr','rewards','bookings','points'].includes(requested)?requested:(isAdmin?'overview':(centerTabs.includes(requested)?requested:'overview')));
+    show(isAdmin&&['adminpay','emails','legal','pointtexts','maps','plans','features','media','promos','virtual','audit','destinations','experiences','users','centers','claims','suggestions','qr','rewards','bookings','points'].includes(requested)?requested:(isAdmin?'overview':(centerTabs.includes(requested)?requested:'overview')));
     if(isAdmin&&editId) editPointForm(editId);
   }
   // Shared by the center workspace and the legacy admin view.
@@ -3901,6 +3944,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const name=c.getAttribute('placeholder')||c.getAttribute('title'); if(name) c.setAttribute('aria-label',name); });
   }
   try{ let t=null; new MutationObserver(()=>{ clearTimeout(t); t=setTimeout(()=>wdLinkLabels(document.body),60); }).observe(document.documentElement,{childList:true,subtree:true}); }catch{}
+  // Administración → Funciones: what is switched off disappears from menus and pages (the server refuses it too).
+  function applyFeatureSwitches(){ const f=state.meta?.features||{}; Object.keys(f).forEach(k=>document.body.classList.toggle('feat-off-'+k,f[k]===false)); }
   // Demo deployments (WOD_DEMO_MODE=1): a fixed ribbon on every page.
   async function demoRibbon(){ let st; try{ st=await api('/api/setup/status'); }catch{ return; } if(!st.demo||$('#demo-ribbon')) return;
     document.body.classList.add('is-demo');
@@ -4076,6 +4121,246 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
   // Administración → Descripciones de puntos: the own texts written from the data of each point, to review one by one.
   // Administración → Medios: credit and origin/licence of every image the platform publishes.
+  // ---------------------------------------------------------------- v50.37 · Fase 6: plans, tools and team
+  const PLAN_STATUS={trial:['Prueba gratuita','warn'],active:['Activo','good'],expired:['Terminado','bad'],free:['Ficha gratuita','muted']};
+  function openInfoRequest({center_id=null,provider_user_id=null,name=''}){
+    const me=state.me?.user; const esc=escapeHtml;
+    const {el,close}=wdOpenModal({id:'info-request',title:'Solicitar información',subtitle:esc(name),
+      body:`<p class="muted" style="margin-top:0">Este centro todavía no tiene reserva online en WORLDIVES. Le enviamos tu mensaje y te contestará directamente.</p>
+        <form id="ir-form" class="form-grid"><div class="field"><label for="ir-name">Tu nombre</label><input id="ir-name" required maxlength="120" value="${esc(me?.fullname||'')}" autocomplete="name"></div>
+        <div class="field"><label for="ir-email">Tu email</label><input id="ir-email" type="email" required maxlength="160" value="${esc(me?.email&&!/\.local$/.test(me.email)?me.email:'')}" autocomplete="email"></div>
+        <div class="field"><label for="ir-phone">Teléfono (opcional)</label><input id="ir-phone" type="tel" maxlength="40" autocomplete="tel"></div>
+        <div class="field"><label for="ir-date">Fecha deseada (opcional)</label><input id="ir-date" type="date" min="${new Date().toISOString().slice(0,10)}"></div>
+        <div class="field"><label for="ir-pax">Personas</label><input id="ir-pax" type="number" min="1" max="99" value="1"></div>
+        <div class="field full"><label for="ir-msg">¿Qué necesitas?</label><textarea id="ir-msg" rows="4" minlength="10" maxlength="2000" required placeholder="Actividad, nivel, dudas…"></textarea></div>
+        <label class="lg-check full"><input type="checkbox" id="ir-ok" required> <span>Acepto que WORLDIVES envíe estos datos al centro para que me conteste (<a href="#/legal/privacidad" target="_blank" rel="noopener">privacidad</a>).</span></label></form>`,
+      footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="ir-send">Enviar solicitud</button>'});
+    translateTree(el);
+    $('#ir-send',el).onclick=async()=>{ if(!$('#ir-form',el).reportValidity()) return; const b=$('#ir-send',el); b.disabled=true;
+      try{ await postJSON('/api/info-requests',{center_id,provider_user_id,name:$('#ir-name',el).value,email:$('#ir-email',el).value,phone:$('#ir-phone',el).value,wanted_date:$('#ir-date',el).value,
+          participants:$('#ir-pax',el).value,message:$('#ir-msg',el).value,accept_privacy:$('#ir-ok',el).checked,lang:currentLanguage()});
+        delete el.dataset.dirty; close(); toast('Solicitud enviada. El centro te contestará directamente.'); }
+      catch(err){ toast(err.message); b.disabled=false; } };
+  }
+  function planFeatureList(p,labels,limits){ const esc=escapeHtml;
+    return `<ul class="pl-feats">${Object.entries(labels).map(([k,l])=>`<li class="${p.features[k]?'is-on':'is-off'}">${wdIcon(p.features[k]?'check':'extra',14)} ${esc(l)}</li>`).join('')}
+      ${Object.entries(limits||{}).map(([k,l])=>`<li class="is-on">${wdIcon('check',14)} ${esc(l)}: ${Number(p.limits?.[k]||0)?Number(p.limits[k]):'sin límite'}</li>`).join('')}</ul>`; }
+  async function renderPlans(){
+    let d; try{ d=await api('/api/plans'); }catch(err){ setApp(`<section class="page"><div class="empty">${escapeHtml(err.message)}</div></section>`); return; }
+    const esc=escapeHtml; const mine=state.me?.plan;
+    setApp(`<section class="page pl-page"><p class="eyebrow">Para centros y profesionales</p><h1>Planes de WORLDIVES</h1>
+      <p class="lead">Sin comisión por reserva: cobras directamente en tu cuenta de Stripe. Solo pagas, si quieres, la cuota anual de tu plan.${d.trial_days?` Al aprobar tu alta tienes ${d.trial_days} días de prueba gratuita.`:''}</p>
+      <div class="pl-grid">${d.items.map(p=>`<article class="pl-card ${mine?.code===p.code?'is-current':''}"><h2>${esc(p.name)}</h2><p class="pl-price">${p.code==='free'?'Gratis':(p.price_year?`${wdMoney(p.price_year,p.currency)} <small>/ año</small>`:'<small>Precio a consultar</small>')}</p>
+        <p class="muted">${esc(p.description||'')}</p>${planFeatureList(p,d.features,d.limits)}${mine?.code===p.code?'<span class="status good">Tu plan</span>':''}</article>`).join('')}</div>
+      <div class="notice"><strong>Siempre, en cualquier plan:</strong> tus reservas actuales se atienden con normalidad y puedes exportar tus datos. Si un plan termina, tu ficha sigue publicada como ficha gratuita.</div>
+      ${state.me?.user&&['center','freelance'].includes(state.me.user.role)?'<p><a class="btn btn-primary" href="#/admin?tab=plan">Gestionar mi plan</a></p>':'<p><a class="btn btn-primary" href="#/registro">Dar de alta mi centro</a></p>'}</section>`);
+  }
+  async function renderMyPlanRoute(params){
+    const sid=params?.get?.('pago'); if(sid){ try{ await postJSON('/api/provider/plan/sync',{session_id:sid}); toast('Pago recibido. Tu plan está activo.'); }catch(err){ toast(err.message); } }
+    location.hash='#/admin?tab=plan';
+  }
+  async function renderMyPlan(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let d,pl; try{ [d,pl]=await Promise.all([api('/api/provider/plan'),api('/api/plans')]); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    const p=d.plan; const st=PLAN_STATUS[p.status]||[p.status,''];
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Mi plan</p><h2>${esc(p.name)} <span class="status ${st[1]}">${esc(st[0])}</span></h2>
+      <p>${p.expires_at?`${p.status==='trial'?'La prueba gratuita termina':'Activo hasta'} el <b>${esc(wdLegalDate(p.expires_at))}</b>.`:'Ficha gratuita: tu centro aparece en el catálogo y recibe solicitudes de información.'} Las reservas que ya tienes se atienden siempre y puedes exportar tus datos en cualquier plan.</p></div><a class="btn" href="#/planes">Comparar planes</a></div>
+      ${planFeatureList(p,pl.features,pl.limits)}
+      ${p.exceptions.length?`<p class="adl-det">Excepciones de la administración: ${p.exceptions.map(e=>`${esc(pl.features[e.feature]||e.feature)} ${e.enabled?'activada':'desactivada'} (${esc(e.reason)})`).join(' · ')}</p>`:''}
+      <h3 class="adl-h">Renovar o cambiar de plan</h3>
+      <div class="pl-grid is-compact">${pl.items.filter(x=>x.code!=='free').map(x=>`<article class="pl-card"><h3>${esc(x.name)}</h3><p class="pl-price">${x.price_year?`${wdMoney(x.price_year,x.currency)} <small>/ año</small>`:'<small>Precio a consultar</small>'}</p>
+        ${x.price_year&&d.online_payment&&d.role==='owner'?`<button type="button" class="btn btn-primary pl-pay" data-plan="${esc(x.code)}">${p.code===x.code?'Renovar 12 meses':'Contratar 12 meses'}</button>`:`<p class="adl-det">${d.role!=='owner'?'Solo el propietario puede contratar.':'Escríbenos para activarlo por transferencia.'}</p>`}</article>`).join('')}</div>
+      ${d.payments.length?`<h3 class="adl-h">Pagos de la cuota</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Plan</th><th>Importe</th><th>Forma</th><th>Periodo</th><th>Estado</th></tr></thead><tbody>${d.payments.map(x=>`<tr><td>${esc((x.paid_at||x.created_at||'').slice(0,10))}</td><td>${esc(x.plan_code)}</td><td>${wdMoney(x.amount,x.currency)}</td><td>${x.method==='stripe'?'Tarjeta':'Manual'}</td><td>${esc([x.period_start,x.period_end].filter(Boolean).join(' → '))}</td><td>${esc({paid:'Pagado',pending:'En curso',failed:'No completado'}[x.status]||x.status)}</td></tr>`).join('')}</tbody></table></div>`:''}</section>`;
+    $$('.pl-pay',mount).forEach(b=>b.onclick=async()=>{ b.disabled=true; try{ const r=await postJSON('/api/provider/plan/checkout',{plan:b.dataset.plan}); location.href=r.checkout_url; }catch(err){ toast(err.message); b.disabled=false; } });
+  }
+  async function renderFiscalCard(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let f; try{ f=await api('/api/provider/fiscal'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    const v=k=>esc(f[k]||''); const miss=new Set(f.missing);
+    const exp=f.insurance_expires_at; const days=exp?Math.round((new Date(exp+'T12:00:00')-new Date())/864e5):null;
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Datos fiscales y verificación</p><h2>Datos del prestador (DAC7) y seguro</h2>
+      <p>La normativa europea DAC7 obliga a las plataformas a identificar a los prestadores que cobran a través de ellas. Estos datos solo los ve la administración de WORLDIVES y se usan para la declaración anual y para tus justificantes.</p></div></div>
+      ${f.missing.length?`<div class="notice warning"><strong>Faltan datos:</strong> completa los campos marcados.</div>`:'<div class="notice good"><strong>Datos completos.</strong></div>'}
+      ${days!==null&&days<0?'<div class="notice warning"><strong>Tu seguro de responsabilidad civil ha caducado.</strong> Actualiza la póliza.</div>':days!==null&&days<=30?`<div class="notice warning"><strong>Tu seguro caduca en ${days} días.</strong></div>`:''}
+      <form id="fi-form" class="form-grid">
+        <div class="field"><label for="fi-type">Tipo de prestador</label><select id="fi-type"><option value="">Elige…</option><option value="company" ${f.entity_type==='company'?'selected':''}>Empresa (persona jurídica)</option><option value="individual" ${f.entity_type==='individual'?'selected':''}>Autónomo (persona física)</option></select></div>
+        <div class="field"><label for="fi-legal">Razón social o nombre completo</label><input id="fi-legal" maxlength="160" value="${v('legal_name')}" ${miss.has('legal_name')?'aria-invalid="true"':''}></div>
+        <div class="field"><label for="fi-tax">NIF / TIN</label><input id="fi-tax" maxlength="40" value="${v('tax_id')}" ${miss.has('tax_id')?'aria-invalid="true"':''}></div>
+        <div class="field"><label for="fi-country">País emisor del NIF</label><input id="fi-country" maxlength="2" placeholder="ES" value="${v('tax_id_country')}" style="text-transform:uppercase" ${miss.has('tax_id_country')?'aria-invalid="true"':''}></div>
+        <div class="field" data-for="company"><label for="fi-reg">Número de registro mercantil</label><input id="fi-reg" maxlength="160" value="${v('registration_number')}"></div>
+        <div class="field" data-for="individual"><label for="fi-birth">Fecha de nacimiento</label><input id="fi-birth" type="date" value="${v('birth_date')}"></div>
+        <div class="field full"><label for="fi-addr">Dirección fiscal</label><input id="fi-addr" maxlength="300" value="${v('fiscal_address')}"></div>
+        <div class="field full"><p class="adl-det"><b>Cuenta de cobro:</b> ${f.payout_account?`Stripe · ${esc(f.payout_account)}`:'Sin cuenta de cobro conectada (Cobros y pagos).'}</p></div>
+        <label class="lg-check full"><input type="checkbox" id="fi-lic" ${f.declares_licences?'checked':''}> <span>Declaro que el centro tiene las licencias y autorizaciones necesarias para su actividad.</span></label>
+        <label class="lg-check full"><input type="checkbox" id="fi-staff" ${f.declares_qualified_staff?'checked':''}> <span>Declaro que el personal que guía y enseña tiene la titulación profesional exigida.</span></label>
+        <div class="field full"><label for="fi-licnote">Licencias y titulaciones (opcional)</label><input id="fi-licnote" maxlength="300" value="${v('licences_note')}" placeholder="Ej.: autorización de la Capitanía, centro PADI 5 estrellas…"></div>
+        <h3 class="adl-h full">Seguro de responsabilidad civil</h3>
+        <div class="field"><label for="fi-ins">Aseguradora</label><input id="fi-ins" maxlength="160" value="${v('insurance_company')}"></div>
+        <div class="field"><label for="fi-pol">Número de póliza</label><input id="fi-pol" maxlength="160" value="${v('insurance_policy')}"></div>
+        <div class="field"><label for="fi-exp">Caduca el</label><input id="fi-exp" type="date" value="${v('insurance_expires_at')}" ${miss.has('insurance_expires_at')?'aria-invalid="true"':''}></div>
+        <div class="field"><label for="fi-doc">Certificado de la póliza (PDF o imagen)</label><input id="fi-doc" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"><small>${f.has_insurance_doc?'Ya hay un certificado subido. Si subes otro, lo sustituye.':'Opcional. Solo lo ve la administración.'}</small></div>
+        <div class="form-actions full"><button class="btn btn-primary" type="submit">Guardar</button></div></form></section>`;
+    const sync=()=>{ const t=$('#fi-type').value; $$('#fi-form [data-for]').forEach(x=>x.hidden=x.dataset.for!==t); }; $('#fi-type').onchange=sync; sync();
+    $('#fi-form').onsubmit=async e=>{ e.preventDefault();
+      try{ await postJSON('/api/provider/fiscal',{entity_type:$('#fi-type').value,legal_name:$('#fi-legal').value,tax_id:$('#fi-tax').value,tax_id_country:$('#fi-country').value,
+          registration_number:$('#fi-reg').value,birth_date:$('#fi-birth').value,fiscal_address:$('#fi-addr').value,declares_licences:$('#fi-lic').checked,
+          declares_qualified_staff:$('#fi-staff').checked,licences_note:$('#fi-licnote').value,insurance_company:$('#fi-ins').value,insurance_policy:$('#fi-pol').value,insurance_expires_at:$('#fi-exp').value});
+        const file=$('#fi-doc').files[0]; if(file) await upload('/api/provider/insurance-doc',file);
+        toast('Datos guardados.'); renderFiscalCard(mountId); }catch(err){ toast(err.message); } };
+  }
+  async function renderInfoRequests(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let d; try{ d=await api('/api/center/info-requests'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Solicitudes de información</p><h2>Mensajes de buceadores interesados</h2><p>Contesta directamente por email o teléfono. Te llegan también por email.</p></div></div>
+      ${d.items.length?`<div class="ir-list">${d.items.map(r=>`<article class="ir-item ${r.read_at?'':'is-new'}" data-id="${r.id}"><header><b>${esc(r.name)}</b> <small>${esc((r.created_at||'').slice(0,16).replace('T',' '))}</small>${r.read_at?'':'<span class="status warn">Nueva</span>'}${r.status==='answered'?'<span class="status good">Contestada</span>':''}</header>
+        <p>${esc(r.message)}</p><p class="adl-det"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a>${r.phone?` · <a href="tel:${esc(r.phone.replace(/\s+/g,''))}">${esc(r.phone)}</a>`:''}${r.wanted_date?` · ${esc(wdLegalDate(r.wanted_date))}`:''}${r.participants?` · ${r.participants} pax`:''}</p>
+        <div class="form-actions"><button type="button" class="btn ir-read" data-answered="0">Marcar como leída</button><button type="button" class="btn ir-read" data-answered="1">Marcar como contestada</button></div></article>`).join('')}</div>`:'<div class="empty">Todavía no hay solicitudes.</div>'}</section>`;
+    $$('.ir-read',mount).forEach(b=>b.onclick=async()=>{ try{ await postJSON('/api/center/info-requests/read',{id:+b.closest('.ir-item').dataset.id,answered:b.dataset.answered==='1'}); renderInfoRequests(mountId); }catch(err){ toast(err.message); } });
+  }
+  async function renderProviderStats(mountId,days=30){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let d; try{ d=await api('/api/provider/stats?days='+days); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    const t=d.totals, z=d.zone; const max=Math.max(1,...d.series.map(x=>x.views));
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Estadísticas</p><h2>Cómo te encuentran los buceadores</h2><p>Datos agregados, sin datos personales. Disponibles en todos los planes.</p></div>
+      <label class="field" style="min-width:160px"><span>Periodo</span><select id="ps-days">${[30,90,365].map(n=>`<option value="${n}" ${n===days?'selected':''}>Últimos ${n} días</option>`).join('')}</select></label></div>
+      <div class="acc-kpis">${accKpi('eye',t.views,'visitas a tu ficha')}${accKpi('calendar',t.book_clicks,'clics en «Reservar»')}${accKpi('message',t.info_requests,'solicitudes de información')}</div>
+      ${z?`<div class="notice">Media de los ${z.providers} centros de ${esc(z.name)}: <b>${z.views}</b> visitas, <b>${z.book_clicks}</b> clics en «Reservar» y <b>${z.info_requests}</b> solicitudes.</div>`:'<p class="adl-det">La comparación con tu zona aparece cuando hay al menos 3 centros más en ella.</p>'}
+      ${d.series.length?`<div class="ps-chart" role="img" aria-label="Visitas por día">${d.series.map(x=>`<span style="height:${Math.round(x.views*100/max)}%" title="${esc(x.day)}: ${x.views}"></span>`).join('')}</div>`:''}</section>`;
+    $('#ps-days').onchange=e=>renderProviderStats(mountId,+e.target.value);
+  }
+  async function renderProviderTools(mountId,isCenter){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    const [ical,widget]=await Promise.all([api('/api/provider/ical').catch(e=>({error:e.message,plan:e.data?.plan_required})),api('/api/provider/widget').catch(()=>null)]);
+    const owner=(state.me?.member_role||'owner')==='owner';
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Herramientas</p><h2>Exportar, calendario, widget e importación</h2></div></div>
+      <h3 class="adl-h">Exportar mis datos (CSV)</h3><p class="adl-det">Disponible siempre, en cualquier plan. Se abre en Excel, Numbers o Google Sheets.</p>
+      <div class="tl-row">${[['clients','Clientes'],['bookings','Reservas'],['services','Servicios'],...(owner?[['payments','Pagos']]:[])].map(([k,l])=>`<a class="btn" href="/api/center/export?kind=${k}" download>${wdIcon('download',15)} ${l}</a>`).join('')}</div>
+      <h3 class="adl-h">Calendario (iCal)</h3>
+      ${ical.error?`<p class="adl-det">${esc(ical.error)} ${ical.plan?'<a href="#/planes">Ver planes</a>':''}</p>`:`<p class="adl-det">Suscríbete desde Google Calendar, Apple Calendar u Outlook con esta dirección privada. Quien la tenga ve tu agenda: si la compartes por error, genera otra.</p>
+        <div class="tl-row"><input id="tl-ical" readonly value="${esc(ical.url||'')}" placeholder="Genera tu dirección privada" aria-label="Dirección del calendario"><button type="button" class="btn" id="tl-ical-copy" ${ical.url?'':'hidden'}>Copiar</button>${owner?`<button type="button" class="btn" id="tl-ical-new">${ical.url?'Generar otra':'Generar dirección'}</button>`:''}</div>`}
+      ${widget?`<h3 class="adl-h">Reservas desde tu web y redes</h3>
+        <div class="field"><label for="tl-link">Enlace directo (Instagram, Google, tu web)</label><div class="tl-row"><input id="tl-link" readonly value="${esc(widget.link)}"><button type="button" class="btn tl-copy" data-src="tl-link">Copiar</button><a class="btn" href="${esc(widget.whatsapp)}" target="_blank" rel="noopener">Compartir por WhatsApp</a></div></div>
+        ${widget.widget?`<div class="field"><label for="tl-iframe">Widget para pegar en tu web</label><div class="tl-row"><textarea id="tl-iframe" rows="3" readonly>${esc(widget.iframe)}</textarea><button type="button" class="btn tl-copy" data-src="tl-iframe">Copiar</button></div></div>`:'<p class="adl-det">El widget para tu web está incluido en los planes con motor de reservas. <a href="#/planes">Ver planes</a></p>'}`:''}
+      ${isCenter&&owner?`<h3 class="adl-h">Importar clientes (CSV)</h3><p class="adl-det">Usa la <a href="/api/center/import/template" download>plantilla</a> (nombre, email, teléfono, titulación, notas). Antes de importar verás una vista previa con los duplicados. Los clientes importados son solo tuyos: no reciben correos de WORLDIVES.</p>
+        <div class="tl-row"><input type="file" id="tl-csv" accept=".csv,text/csv" aria-label="Archivo CSV de clientes"><button type="button" class="btn" id="tl-preview">Vista previa</button></div><div id="tl-import"></div>`:''}</section>`;
+    $$('.tl-copy',mount).forEach(b=>b.onclick=()=>{ const el=$('#'+b.dataset.src); el.select(); navigator.clipboard?.writeText(el.value).catch(()=>{}); toast('Copiado.'); });
+    $('#tl-ical-copy')?.addEventListener('click',()=>{ navigator.clipboard?.writeText($('#tl-ical').value).catch(()=>{}); toast('Copiado.'); });
+    $('#tl-ical-new')?.addEventListener('click',async()=>{ if($('#tl-ical').value&&!confirm('La dirección actual dejará de funcionar. ¿Generar otra?')) return; try{ await postJSON('/api/provider/ical/regenerate',{}); renderProviderTools(mountId,isCenter); }catch(err){ toast(err.message); } });
+    let csvText='';
+    $('#tl-preview')?.addEventListener('click',async()=>{ const f=$('#tl-csv').files[0]; if(!f){ toast('Elige el archivo CSV.'); return; } csvText=await f.text();
+      try{ const r=await postJSON('/api/center/import',{csv:csvText}); const S={new:['Nuevo','good'],duplicate:['Duplicado','warn'],error:['Error','bad']};
+        $('#tl-import').innerHTML=`<p><b>${r.summary.new}</b> nuevos · <b>${r.summary.duplicate}</b> duplicados · <b>${r.summary.error}</b> con errores</p><div class="table-wrap"><table class="data-table"><thead><tr><th>Línea</th><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>${r.rows.slice(0,300).map(x=>`<tr><td>${x.line}</td><td>${esc(x.name)}</td><td>${esc(x.email)}</td><td>${esc(x.phone)}</td><td><span class="status ${S[x.status][1]}">${S[x.status][0]}</span> ${esc(x.note)}</td></tr>`).join('')}</tbody></table></div>
+          ${r.summary.new?`<div class="form-actions"><button type="button" class="btn btn-primary" id="tl-confirm">Importar ${r.summary.new} clientes</button></div>`:''}`;
+        $('#tl-confirm')?.addEventListener('click',async()=>{ try{ const c=await postJSON('/api/center/import',{csv:csvText,confirm:true}); toast(`${c.created} clientes importados.`); $('#tl-import').innerHTML=''; }catch(err){ toast(err.message); } });
+      }catch(err){ toast(err.message); } });
+  }
+  async function renderTeam(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let d; try{ d=await api('/api/center/team'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    const me=state.me?.user?.id; const R=d.roles;
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Equipo</p><h2>Personas que gestionan el centro</h2>
+      <p><b>Propietario</b>: todo, incluidos cobros, plan y equipo. <b>Recepción</b>: reservas, clientes, servicios y salidas. <b>Instructor</b>: ve el planning y las reservas, sin cambiar nada.</p></div></div>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>Persona</th><th>Perfil</th><th></th></tr></thead><tbody>${d.members.map(m=>`<tr><td><b>${esc(m.fullname)}</b><div class="adl-det">${esc(m.email)}</div></td>
+        <td><label class="sr-only" for="tm-r-${m.id}">Perfil de ${esc(m.fullname)}</label><select id="tm-r-${m.id}" class="tm-role" data-id="${m.id}" ${m.id===me?'disabled':''}>${Object.entries(R).map(([k,l])=>`<option value="${k}" ${k===m.member_role?'selected':''}>${esc(l)}</option>`).join('')}</select></td>
+        <td>${m.id===me?'<small>Tú</small>':`<button type="button" class="btn tm-remove" data-id="${m.id}">Quitar</button>`}</td></tr>`).join('')}</tbody></table></div>
+      ${d.invites.length?`<h3 class="adl-h">Invitaciones pendientes</h3><ul class="tm-inv">${d.invites.map(i=>`<li>${esc(i.email)} · ${esc(R[i.member_role])} · caduca ${esc(wdLegalDate(i.expires_at))} <button type="button" class="btn-link tm-revoke" data-id="${i.id}">Anular</button></li>`).join('')}</ul>`:''}
+      ${d.team_feature?`<h3 class="adl-h">Invitar a alguien</h3><form id="tm-form" class="form-grid"><div class="field"><label for="tm-email">Email</label><input id="tm-email" type="email" required maxlength="160"></div>
+        <div class="field"><label for="tm-role">Perfil</label><select id="tm-role"><option value="reception">Recepción</option><option value="instructor">Instructor</option><option value="owner">Propietario</option></select></div>
+        <div class="form-actions full"><button class="btn btn-primary" type="submit">Enviar invitación</button></div></form><p class="adl-det">${d.limit?`Tu plan permite ${d.limit} personas.`:''}</p>`:'<p class="adl-det">El equipo está incluido en el plan Pro. <a href="#/planes">Ver planes</a></p>'}</section>`;
+    $('#tm-form')?.addEventListener('submit',async e=>{ e.preventDefault(); try{ await postJSON('/api/center/team/invite',{email:$('#tm-email').value,member_role:$('#tm-role').value}); toast('Invitación enviada.'); renderTeam(mountId); }catch(err){ toast(err.message); } });
+    $$('.tm-role',mount).forEach(x=>x.onchange=async()=>{ try{ await postJSON('/api/center/team/role',{user_id:+x.dataset.id,member_role:x.value}); toast('Perfil cambiado.'); }catch(err){ toast(err.message); renderTeam(mountId); } });
+    $$('.tm-remove',mount).forEach(b=>b.onclick=async()=>{ if(!confirm('Esta persona dejará de tener acceso al centro. ¿Continuar?')) return; try{ await postJSON('/api/center/team/remove',{user_id:+b.dataset.id}); renderTeam(mountId); }catch(err){ toast(err.message); } });
+    $$('.tm-revoke',mount).forEach(b=>b.onclick=async()=>{ try{ await postJSON('/api/center/team/invite/revoke',{id:+b.dataset.id}); renderTeam(mountId); }catch(err){ toast(err.message); } });
+  }
+  const ACTIVITY_LABELS={booking_created:'Reserva creada',booking_status_changed:'Estado de reserva cambiado',service_created:'Servicio creado',service_updated:'Servicio modificado',slot_created:'Salida creada',
+    center_profile_updated:'Datos del centro modificados',provider_fiscal_data_updated:'Datos fiscales modificados',team_invited:'Invitación al equipo',team_role_changed:'Perfil del equipo cambiado',
+    team_member_removed:'Persona quitada del equipo',team_joined:'Se une al equipo',clients_imported:'Clientes importados',provider_export:'Exportación de datos',ical_regenerated:'Nueva dirección de calendario',
+    review_reply_saved:'Respuesta a una reseña',booking_rescheduled:'Reserva cambiada de salida',refund_issued:'Devolución',points_granted:'Puntos concedidos'};
+  async function renderActivity(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let d; try{ d=await api('/api/center/activity'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Registro de actividad</p><h2>Quién ha hecho qué en el centro</h2></div></div>
+      ${d.items.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Persona</th><th>Acción</th></tr></thead><tbody>${d.items.map(x=>`<tr><td>${esc((x.created_at||'').slice(0,16).replace('T',' '))}</td><td>${esc(x.fullname||'—')}</td><td>${esc(ACTIVITY_LABELS[x.action]||x.action.replace(/_/g,' '))}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Todavía no hay actividad.</div>'}</section>`;
+  }
+  async function renderTeamJoin(params){
+    const token=params?.get?.('token')||''; const esc=escapeHtml;
+    let inv; try{ inv=await api('/api/team/invite?token='+encodeURIComponent(token)); }catch(err){ setApp(authCard('Invitación al equipo',`<div class="notice warning">${esc(err.message)}</div>`)); return; }
+    const me=state.me?.user;
+    setApp(authCard('Únete al equipo de '+esc(inv.center),`<p class="lead" style="font-size:15px">Te han invitado con el perfil de <b>${esc(inv.role_label)}</b> (${esc(inv.email)}).</p>
+      ${me?`<div class="form-actions"><button class="btn btn-primary" id="tj-ok" type="button">Aceptar con mi cuenta</button></div>`:`<form id="tj-form"><div class="field"><label for="tj-name">Nombre y apellidos</label><input id="tj-name" required maxlength="120" autocomplete="name"></div>
+        <div class="field"><label for="tj-user">Usuario</label><input id="tj-user" required maxlength="40" autocomplete="username"></div>
+        <div class="field"><label for="tj-pass">Contraseña</label><input id="tj-pass" type="password" minlength="10" required autocomplete="new-password"><small>Mínimo 10 caracteres.</small></div>
+        <label class="lg-check"><input type="checkbox" id="tj-terms" required> <span>Acepto las <a href="#/legal/condiciones-centros" target="_blank" rel="noopener">condiciones para centros</a> y la <a href="#/legal/privacidad" target="_blank" rel="noopener">política de privacidad</a>.</span></label>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">Crear mi cuenta y unirme</button></div></form><p style="font-size:13px">¿Ya tienes cuenta con ese email? <a href="#/login?next=${encodeURIComponent(location.hash)}">Inicia sesión</a>.</p>`}`));
+    const done=async()=>{ await loadMe(); toast('Ya formas parte del equipo.'); location.hash='#/admin'; };
+    $('#tj-ok')?.addEventListener('click',async()=>{ try{ await postJSON('/api/team/join',{token}); done(); }catch(err){ toast(err.message); } });
+    $('#tj-form')?.addEventListener('submit',async e=>{ e.preventDefault(); try{ await postJSON('/api/team/join',{token,fullname:$('#tj-name').value,username:$('#tj-user').value,password:$('#tj-pass').value,accept_terms:$('#tj-terms').checked}); done(); }catch(err){ toast(err.message); } });
+  }
+  // Administración → Planes
+  async function renderAdminPlans(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let d; try{ d=await api('/api/admin/plans'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    const y=new Date().getFullYear();
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Planes</p><h2>Planes, cuotas y excepciones</h2><p>El precio es la cuota anual (pendiente de confirmar con la gestoría si se muestra con IVA incluido). Los cambios valen desde ya para las funciones; los precios, para los pagos nuevos.</p></div></div>
+      <div class="ap-plans">${d.plans.map(p=>`<form class="ap-plan pl-card" data-code="${esc(p.code)}"><h3>${esc(p.code)}</h3>
+        <div class="field"><label for="ap-n-${p.code}">Nombre</label><input id="ap-n-${p.code}" name="name" value="${esc(p.name)}" maxlength="80" required></div>
+        <div class="field"><label for="ap-p-${p.code}">Precio anual</label><input id="ap-p-${p.code}" name="price" inputmode="decimal" value="${p.price_year??''}" ${p.code==='free'?'disabled':''} placeholder="Sin definir"></div>
+        <div class="field"><label for="ap-c-${p.code}">Moneda</label><input id="ap-c-${p.code}" name="currency" value="${esc(p.currency)}" maxlength="3"></div>
+        <div class="field"><label for="ap-d-${p.code}">Descripción</label><textarea id="ap-d-${p.code}" name="description" rows="2" maxlength="500">${esc(p.description||'')}</textarea></div>
+        <fieldset><legend>Funciones</legend>${Object.entries(d.features).map(([k,l])=>`<label class="lg-check"><input type="checkbox" name="f_${k}" ${p.features[k]?'checked':''} ${p.code==='free'&&['online_bookings','online_payments'].includes(k)?'disabled':''}> <span>${esc(l)}</span></label>`).join('')}</fieldset>
+        ${Object.entries(d.limits).map(([k,l])=>`<div class="field"><label for="ap-l-${p.code}-${k}">${esc(l)} (0 = sin límite)</label><input id="ap-l-${p.code}-${k}" name="l_${k}" type="number" min="0" value="${Number(p.limits[k]||0)}"></div>`).join('')}
+        ${p.code!=='free'?`<label class="lg-check"><input type="checkbox" name="active" ${p.active?'checked':''}> <span>Plan disponible</span></label>`:''}
+        <button class="btn btn-primary" type="submit">Guardar</button></form>`).join('')}</div>
+      <h3 class="adl-h">Prueba gratuita</h3><form id="ap-trial" class="form-grid"><div class="field"><label for="ap-td">Días de prueba al aprobar un alta</label><input id="ap-td" type="number" min="0" max="365" value="${d.settings.trial_days}"></div>
+        <div class="field"><label for="ap-tp">Plan de la prueba</label><select id="ap-tp">${d.plans.filter(p=>p.code!=='free').map(p=>`<option value="${esc(p.code)}" ${p.code===d.settings.trial_plan?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
+        <div class="form-actions full"><button class="btn btn-primary" type="submit">Guardar</button></div></form>
+      <h3 class="adl-h">Informe DAC7</h3><p class="adl-det">Importes cobrados a través de la web por cada prestador y trimestre, número de actividades y comisiones (0). Revísalo con la gestoría antes de presentar el modelo 238.</p>
+      <div class="tl-row"><label class="sr-only" for="ap-year">Año</label><select id="ap-year">${[y,y-1,y-2].map(v=>`<option ${v===y-1?'selected':''}>${v}</option>`).join('')}</select><a class="btn" id="ap-dac7" href="/api/admin/dac7?format=csv&year=${y-1}" download>${wdIcon('download',15)} Descargar CSV</a></div>
+      <h3 class="adl-h">Centros y profesionales</h3>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>Prestador</th><th>Plan</th><th>Hasta</th><th>Datos fiscales</th><th></th></tr></thead><tbody>${d.providers.map((p,i)=>`<tr><td><b>${esc(p.name)}</b><div class="adl-det">${p.type==='center'?'Centro':'Profesional'}${p.place?' · '+esc(p.place):''}</div></td>
+        <td>${esc(p.plan.name)} <span class="status ${(PLAN_STATUS[p.plan.status]||[])[1]||''}">${esc((PLAN_STATUS[p.plan.status]||[p.plan.status])[0])}</span>${p.plan.exceptions.length?`<div class="adl-det">${p.plan.exceptions.length} excepciones</div>`:''}</td>
+        <td>${esc(p.plan.expires_at||'—')}</td><td>${p.fiscal_missing.length?`<span class="status warn">Faltan ${p.fiscal_missing.length}</span>`:'<span class="status good">Completos</span>'}</td>
+        <td><button type="button" class="btn ap-manage" data-i="${i}">Gestionar</button></td></tr>`).join('')}</tbody></table></div>
+      ${d.payments.length?`<h3 class="adl-h">Últimos pagos de cuotas</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Prestador</th><th>Plan</th><th>Importe</th><th>Forma</th><th>Estado</th></tr></thead><tbody>${d.payments.map(x=>`<tr><td>${esc((x.paid_at||x.created_at||'').slice(0,10))}</td><td>${esc(x.provider_type)} #${x.provider_id}</td><td>${esc(x.plan_code)}</td><td>${wdMoney(x.amount,x.currency)}</td><td>${esc(x.method)}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table></div>`:''}</section>`;
+    $$('.ap-plan',mount).forEach(f=>f.onsubmit=async e=>{ e.preventDefault(); const code=f.dataset.code; const g=n=>f.elements[n];
+      const data={code,name:g('name').value,price_year:g('price').value,currency:g('currency').value,description:g('description').value,features:{},limits:{},active:g('active')?g('active').checked:true};
+      Object.keys(d.features).forEach(k=>data.features[k]=g('f_'+k).checked); Object.keys(d.limits).forEach(k=>data.limits[k]=g('l_'+k).value);
+      try{ await postJSON('/api/admin/plans/save',data); toast('Plan guardado.'); }catch(err){ toast(err.message); } });
+    $('#ap-trial').onsubmit=async e=>{ e.preventDefault(); try{ await postJSON('/api/admin/plans/settings',{trial_days:$('#ap-td').value,trial_plan:$('#ap-tp').value}); toast('Prueba gratuita guardada.'); }catch(err){ toast(err.message); } };
+    $('#ap-year').onchange=e=>{ $('#ap-dac7').href='/api/admin/dac7?format=csv&year='+e.target.value; };
+    $$('.ap-manage',mount).forEach(b=>b.onclick=()=>{ const p=d.providers[+b.dataset.i];
+      const {el,close}=wdOpenModal({id:'plan-manage',title:esc(p.name),subtitle:`Plan actual: ${esc(p.plan.name)}${p.plan.expires_at?' hasta '+esc(p.plan.expires_at):''}`,
+        body:`<h3 class="adl-h">Activar un plan (pago manual)</h3><div class="form-grid"><div class="field"><label for="pm-plan">Plan</label><select id="pm-plan">${d.plans.map(x=>`<option value="${esc(x.code)}">${esc(x.name)}</option>`).join('')}</select></div>
+          <div class="field"><label for="pm-months">Meses</label><input id="pm-months" type="number" min="1" max="36" value="12"></div><div class="field"><label for="pm-amount">Importe cobrado</label><input id="pm-amount" inputmode="decimal" placeholder="Precio del plan"></div>
+          <div class="field full"><label for="pm-note">Nota (obligatoria)</label><input id="pm-note" maxlength="500" placeholder="Ej.: transferencia del 12/10, factura 2026-031"></div>
+          <div class="form-actions full"><button type="button" class="btn btn-primary" id="pm-assign">Guardar</button></div></div>
+          <h3 class="adl-h">Excepciones</h3>${p.plan.exceptions.length?`<ul>${p.plan.exceptions.map(x=>`<li>${esc(d.features[x.feature]||x.feature)}: ${x.enabled?'activada':'desactivada'} — ${esc(x.reason)} <button type="button" class="btn-link pm-unexc" data-id="${x.id}">Quitar</button></li>`).join('')}</ul>`:'<p class="adl-det">Ninguna.</p>'}
+          <div class="form-grid"><div class="field"><label for="pm-feat">Función</label><select id="pm-feat">${Object.entries(d.features).map(([k,l])=>`<option value="${k}">${esc(l)}</option>`).join('')}</select></div>
+          <div class="field"><label for="pm-en">Valor</label><select id="pm-en"><option value="1">Activar</option><option value="0">Desactivar</option></select></div>
+          <div class="field full"><label for="pm-why">Motivo (obligatorio)</label><input id="pm-why" maxlength="500"></div>
+          <div class="form-actions full"><button type="button" class="btn" id="pm-exc">Añadir excepción</button></div></div>`,
+        footer:'<button type="button" class="btn" data-modal-close>Cerrar</button>'});
+      const after=()=>{ delete el.dataset.dirty; close(); renderAdminPlans(mountId); };
+      $('#pm-assign',el).onclick=async()=>{ try{ await postJSON('/api/admin/plans/assign',{type:p.type,id:p.id,plan:$('#pm-plan',el).value,months:$('#pm-months',el).value,amount:$('#pm-amount',el).value,note:$('#pm-note',el).value}); toast('Plan guardado.'); after(); }catch(err){ toast(err.message); } };
+      $('#pm-exc',el).onclick=async()=>{ try{ await postJSON('/api/admin/plans/exception',{type:p.type,id:p.id,feature:$('#pm-feat',el).value,enabled:$('#pm-en',el).value==='1',reason:$('#pm-why',el).value}); toast('Excepción añadida.'); after(); }catch(err){ toast(err.message); } };
+      $$('.pm-unexc',el).forEach(x=>x.onclick=async()=>{ try{ await postJSON('/api/admin/plans/exception/remove',{id:+x.dataset.id}); after(); }catch(err){ toast(err.message); } });
+    });
+  }
+  // Administración → Funciones
+  async function renderAdminFeatures(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let d; try{ d=await api('/api/admin/features'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Funciones</p><h2>Activar u ocultar funciones de la web</h2><p>Al desactivar una función desaparece de la web y el servidor rechaza su uso. Los datos se conservan y vuelven al activarla.</p></div></div>
+      <form id="af-form" class="af-list">${Object.entries(d.labels).map(([k,l])=>`<label class="lg-check"><input type="checkbox" data-k="${k}" ${d.switches[k]?'checked':''}> <span>${esc(l)}</span></label>`).join('')}
+        <label class="lg-check"><input type="checkbox" id="af-pilot" ${d.pilot_mode?'checked':''}> <span><b>Modo piloto:</b> solo pueden darse de alta centros y profesionales con invitación</span></label>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">Guardar</button></div></form>
+      <h3 class="adl-h">Invitaciones para el piloto</h3><form id="af-inv" class="form-grid"><div class="field"><label for="af-note">Para quién (nota)</label><input id="af-note" maxlength="200"></div><div class="field"><label for="af-days">Válida (días)</label><input id="af-days" type="number" min="1" max="365" value="30"></div><div class="form-actions full"><button class="btn" type="submit">Crear invitación</button></div></form>
+      ${d.invites.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Código</th><th>Nota</th><th>Caduca</th><th>Estado</th><th></th></tr></thead><tbody>${d.invites.map(i=>`<tr><td><code>${esc(i.code)}</code></td><td>${esc(i.note||'')}</td><td>${esc(i.expires_at||'—')}</td><td>${i.used_at?'Usada':'Disponible'}</td><td>${i.used_at?'':`<button type="button" class="btn-link af-revoke" data-id="${i.id}">Anular</button>`}</td></tr>`).join('')}</tbody></table></div>`:''}</section>`;
+    $('#af-form').onsubmit=async e=>{ e.preventDefault(); const sw={}; $$('#af-form [data-k]').forEach(x=>sw[x.dataset.k]=x.checked);
+      try{ await postJSON('/api/admin/features',{switches:sw,pilot_mode:$('#af-pilot').checked}); state.meta=null; toast('Funciones guardadas.'); }catch(err){ toast(err.message); } };
+    $('#af-inv').onsubmit=async e=>{ e.preventDefault(); try{ const r=await postJSON('/api/admin/invites',{note:$('#af-note').value,days:$('#af-days').value}); toast('Invitación '+r.code+' creada.'); renderAdminFeatures(mountId); }catch(err){ toast(err.message); } };
+    $$('.af-revoke',mount).forEach(b=>b.onclick=async()=>{ try{ await postJSON('/api/admin/invites',{revoke:+b.dataset.id}); renderAdminFeatures(mountId); }catch(err){ toast(err.message); } });
+  }
   async function renderImageOrigins(mountId){
     const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
     let d; try{ d=await api('/api/admin/images'); }catch(err){ mount.innerHTML=''; return; }
@@ -4278,5 +4563,5 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   navMobile();
   initLanguage();
-  window.addEventListener('DOMContentLoaded',async()=>{ await Promise.all([loadMe(),loadMeta().catch(()=>{}),loadSiteMedia(),loadLanguagePack(),loadMapConfig()]); applyLanguage(); route(); cookieNotice(); footerOwner(); demoRibbon(); });
+  window.addEventListener('DOMContentLoaded',async()=>{ await Promise.all([loadMe(),loadMeta().catch(()=>{}),loadSiteMedia(),loadLanguagePack(),loadMapConfig()]); applyLanguage(); applyFeatureSwitches(); route(); cookieNotice(); footerOwner(); demoRibbon(); });
 })();

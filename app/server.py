@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import io
 import html
 import json
 import math
@@ -48,7 +49,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.36'
+APP_VERSION = '50.37'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -729,6 +730,8 @@ def bootstrap():
         db.commit()
         migrate_v50_36(db)
         db.commit()
+        migrate_v50_37(db)
+        db.commit()
 
 
 def add_columns(db, table, cols):
@@ -777,6 +780,52 @@ def regenerate_point_texts(db, pid=None):
 def point_text(db, pid, lang):
     r = db.execute('SELECT description FROM dive_point_texts WHERE point_id=? AND lang=?', (pid, normalize_lang(lang))).fetchone()
     return r['description'] if r else None
+
+
+def migrate_v50_37(db):
+    """v50.37 (Fase 6): fiscal data (DAC7) and insurance of providers, plans with trial and exceptions, feature
+    switches, information requests, aggregated statistics, iCal feeds, imports, team invitations and the activity
+    log of each centre. Additive only."""
+    fiscal = [('entity_type', 'TEXT'), ('tax_id_country', 'TEXT'), ('registration_number', 'TEXT'), ('birth_date', 'TEXT'),
+              ('declares_licences', 'INTEGER NOT NULL DEFAULT 0'), ('declares_qualified_staff', 'INTEGER NOT NULL DEFAULT 0'),
+              ('licences_note', 'TEXT'), ('insurance_company', 'TEXT'), ('insurance_policy', 'TEXT'), ('insurance_expires_at', 'TEXT'),
+              ('insurance_doc', 'TEXT'), ('insurance_alerts', 'TEXT'), ('fiscal_updated_at', 'TEXT')]
+    plan = [('plan_code', 'TEXT'), ('plan_status', 'TEXT'), ('plan_started_at', 'TEXT'), ('plan_expires_at', 'TEXT'),
+            ('plan_trial_used', 'INTEGER NOT NULL DEFAULT 0'), ('plan_reminders', 'TEXT'), ('ical_token', 'TEXT')]
+    add_columns(db, 'centers', fiscal + plan)
+    add_columns(db, 'users', fiscal + plan)
+    db.executescript('''
+      CREATE TABLE IF NOT EXISTS plans (code TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_year REAL, currency TEXT NOT NULL DEFAULT 'EUR',
+        features TEXT NOT NULL DEFAULT '{}', limits TEXT NOT NULL DEFAULT '{}', active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT);
+      CREATE TABLE IF NOT EXISTS plan_exceptions (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_type TEXT NOT NULL, provider_id INTEGER NOT NULL, feature TEXT NOT NULL,
+        enabled INTEGER NOT NULL, reason TEXT NOT NULL, created_by INTEGER, created_at TEXT NOT NULL, removed_at TEXT, removed_by INTEGER);
+      CREATE INDEX IF NOT EXISTS idx_plan_exceptions ON plan_exceptions(provider_type, provider_id, removed_at);
+      CREATE TABLE IF NOT EXISTS plan_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_type TEXT NOT NULL, provider_id INTEGER NOT NULL, plan_code TEXT NOT NULL,
+        amount REAL NOT NULL, currency TEXT NOT NULL, method TEXT NOT NULL, status TEXT NOT NULL, stripe_session_id TEXT, checkout_url TEXT,
+        period_start TEXT, period_end TEXT, note TEXT, created_by INTEGER, created_at TEXT NOT NULL, paid_at TEXT);
+      CREATE INDEX IF NOT EXISTS idx_plan_payments_provider ON plan_payments(provider_type, provider_id, id DESC);
+      CREATE TABLE IF NOT EXISTS info_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER, provider_user_id INTEGER, user_id INTEGER,
+        name TEXT NOT NULL, email TEXT NOT NULL, phone TEXT, message TEXT NOT NULL, wanted_date TEXT, participants INTEGER, lang TEXT,
+        status TEXT NOT NULL DEFAULT 'new', ip_hash TEXT, created_at TEXT NOT NULL, read_at TEXT);
+      CREATE INDEX IF NOT EXISTS idx_info_requests_center ON info_requests(center_id, id DESC);
+      CREATE TABLE IF NOT EXISTS provider_stats_daily (provider_type TEXT NOT NULL, provider_id INTEGER NOT NULL, day TEXT NOT NULL,
+        views INTEGER NOT NULL DEFAULT 0, book_clicks INTEGER NOT NULL DEFAULT 0, info_requests INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(provider_type, provider_id, day));
+      CREATE TABLE IF NOT EXISTS team_invites (id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL, email TEXT NOT NULL, member_role TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE, created_by INTEGER, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, revoked_at TEXT);
+    ''')
+    add_columns(db, 'audit_log', [('center_id', 'INTEGER')])
+    db.execute('CREATE INDEX IF NOT EXISTS idx_audit_center ON audit_log(center_id, id DESC)')
+    seed_plans(db)
+    if not migration_done(db, '50.37'):
+        # Centres and professionals already approved keep working: they start the free trial of the top plan today.
+        trial = plan_settings(db)
+        end = (_dt.date.today() + _timedelta(days=trial['trial_days'])).isoformat()
+        db.execute("UPDATE centers SET plan_code=?, plan_status='trial', plan_started_at=?, plan_expires_at=?, plan_trial_used=1 WHERE active=1 AND verification_status='verified' AND plan_code IS NULL",
+                   (trial['trial_plan'], now(), end))
+        db.execute("UPDATE users SET plan_code=?, plan_status='trial', plan_started_at=?, plan_expires_at=?, plan_trial_used=1 WHERE role='freelance' AND plan_code IS NULL",
+                   (trial['trial_plan'], now(), end))
+        db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.37', now(), 'Fase 6: datos fiscales, planes, herramientas y equipo'))
 
 
 def migrate_v50_36(db):
@@ -1075,8 +1124,19 @@ def check_new_password(password: str):
 
 
 def audit(db, user_id, action, entity_type=None, entity_id=None, details=None):
-    db.execute('INSERT INTO audit_log(user_id,action,entity_type,entity_id,details,created_at) VALUES(?,?,?,?,?,?)',
-               (user_id, action, entity_type, entity_id, json.dumps(details, ensure_ascii=False) if details else None, now()))
+    # The activity log of each centre (Fase 6.6): actions by its team are tagged with the centre.
+    cid = None
+    if user_id:
+        try:
+            r = db.execute("SELECT center_id FROM users WHERE id=? AND role IN ('center','freelance')", (user_id,)).fetchone()
+            cid = r['center_id'] if r else None
+        except sqlite3.Error: cid = None
+    try:
+        db.execute('INSERT INTO audit_log(user_id,action,entity_type,entity_id,details,created_at,center_id) VALUES(?,?,?,?,?,?,?)',
+                   (user_id, action, entity_type, entity_id, json.dumps(details, ensure_ascii=False) if details else None, now(), cid))
+    except sqlite3.OperationalError:   # before the v50.37 migration
+        db.execute('INSERT INTO audit_log(user_id,action,entity_type,entity_id,details,created_at) VALUES(?,?,?,?,?,?)',
+                   (user_id, action, entity_type, entity_id, json.dumps(details, ensure_ascii=False) if details else None, now()))
 
 
 def clean_text(value, max_len=5000):
@@ -1829,6 +1889,545 @@ def images_report(db):
         e['missing'] = not e['origin']
         out.append(e)
     return out
+
+
+# ------------------------------------------------------------------------------------------- Plans (Fase 6.2)
+# Every centre and freelance professional has a plan. «Ficha gratuita» is free and permanent; «Motor de reservas» and «Pro»
+# have an annual fee (price set by the owner in Administración → Planes). New providers get a free trial (60 days by
+# default). When a plan expires the provider falls back to the free listing: no NEW online bookings, while the existing
+# ones are handled normally and the data export is always available. The plan never changes what the diver sees about
+# availability: a provider without the booking engine shows «Solicitar información», never «sin plazas».
+PLAN_FEATURES = {
+    'online_bookings': 'Reservas y solicitudes online', 'online_payments': 'Cobros online con Stripe', 'calendar_ical': 'Calendario iCal',
+    'widget': 'Widget de reservas para tu web', 'import_csv': 'Importación de clientes (CSV)', 'team': 'Equipo (recepción e instructores)',
+    'analytics': 'Informes completos', 'promotions': 'Promociones', 'experiences': 'Viajes y experiencias', 'rewards': 'Ventajas y puntos para clientes',
+    'integration': 'Conexión con tu web (API)'}
+PLAN_LIMITS = {'services_max': 'Servicios publicados', 'team_max': 'Personas en el equipo'}
+PLAN_DEFAULTS = [
+    ('free', 'Ficha gratuita', 'Tu ficha en el catálogo, con «Solicitar información», estadísticas básicas y exportación de datos.', 0, {}, {'services_max': 10, 'team_max': 1}, 0),
+    ('booking', 'Motor de reservas', 'Reservas y cobros online, calendario, widget e importación.', None,
+     {k: True for k in ('online_bookings', 'online_payments', 'calendar_ical', 'widget', 'import_csv', 'analytics', 'integration')}, {'services_max': 40, 'team_max': 3}, 1),
+    ('pro', 'Pro', 'Todo lo del motor de reservas más equipo, promociones, viajes y experiencias y ventajas para tus clientes.', None,
+     {k: True for k in PLAN_FEATURES}, {'services_max': 0, 'team_max': 20}, 2)]
+FEATURE_SWITCHES = {'points': 'Puntos', 'promotions': 'Promociones', 'experiences': 'Viajes y experiencias', 'sponsorship': 'Patrocinio',
+                    'reviews': 'Reseñas', 'online_payments': 'Pagos online'}
+# Global switches that also turn off a plan feature for everybody.
+SWITCH_OF_FEATURE = {'promotions': 'promotions', 'experiences': 'experiences', 'online_payments': 'online_payments', 'rewards': 'points'}
+
+
+class PlanRequired(PermissionError):
+    """A plan feature the provider does not have: 403 with plan_required, so the web shows «Ver planes»."""
+    def __init__(self, feature, message=None):
+        super().__init__(message or 'Función no incluida en tu plan.')
+        self.extra = {'plan_required': feature, 'plans_url': '#/planes'}
+
+
+class FeatureOff(PermissionError):
+    def __init__(self, feature):
+        super().__init__('Esta función no está disponible ahora mismo.')
+        self.extra = {'feature_off': feature}
+
+
+def seed_plans(db):
+    for i, (code, name, desc, price, feats, limits, order) in enumerate(PLAN_DEFAULTS):
+        db.execute('INSERT OR IGNORE INTO plans(code,name,description,price_year,currency,features,limits,active,sort_order,updated_at) VALUES(?,?,?,?,?,?,?,1,?,?)',
+                   (code, name, desc, price, 'EUR', json.dumps(feats), json.dumps(limits), order, now()))
+
+
+def plan_settings(db):
+    st = {r['key']: r['value'] for r in db.execute("SELECT key,value FROM site_settings WHERE key LIKE 'plans\\_%' ESCAPE '\\'").fetchall()}
+    try: days = max(0, min(365, int(st.get('plans_trial_days') or 60)))
+    except ValueError: days = 60
+    tp = st.get('plans_trial_plan') or 'pro'
+    return {'trial_days': days, 'trial_plan': tp if tp in {p[0] for p in PLAN_DEFAULTS} or db.execute('SELECT 1 FROM plans WHERE code=?', (tp,)).fetchone() else 'pro'}
+
+
+def feature_switch(db, key):
+    """Administración → Funciones (on by default)."""
+    r = db.execute('SELECT value FROM site_settings WHERE key=?', ('feature_' + key,)).fetchone()
+    return not r or r['value'] != '0'
+
+
+def feature_switches(db):
+    return {k: feature_switch(db, k) for k in FEATURE_SWITCHES}
+
+
+def require_switch(db, key):
+    if not feature_switch(db, key): raise FeatureOff(key)
+
+
+def plan_row(db, code):
+    r = db.execute('SELECT * FROM plans WHERE code=?', (code,)).fetchone()
+    if not r: return None
+    d = dict(r); d['features'] = json.loads(d['features'] or '{}'); d['limits'] = json.loads(d['limits'] or '{}')
+    return d
+
+
+def provider_ref(db, user):
+    """('center', id) for a centre account, ('freelance', id) for a professional without a centre, else None."""
+    if not user: return None
+    if user['role'] == 'center' and user['center_id']: return ('center', int(user['center_id']))
+    if user['role'] == 'freelance': return ('center', int(user['center_id'])) if user['center_id'] else ('freelance', int(user['id']))
+    return None
+
+
+def provider_table(ptype):
+    return 'centers' if ptype == 'center' else 'users'
+
+
+def provider_plan(db, ptype, pid):
+    """The plan in force of a provider, its features (plan + exceptions + global switches) and its state."""
+    row = db.execute(f'SELECT plan_code,plan_status,plan_started_at,plan_expires_at,plan_trial_used FROM {provider_table(ptype)} WHERE id=?', (pid,)).fetchone()
+    today = _dt.date.today().isoformat()
+    code = row['plan_code'] if row and row['plan_code'] else 'free'
+    expires = row['plan_expires_at'] if row else None
+    status = (row['plan_status'] if row else None) or 'free'
+    if code != 'free' and (not expires or expires < today):
+        code, status = 'free', ('expired' if expires else 'free')
+    p = plan_row(db, code) or plan_row(db, 'free') or {'code': 'free', 'name': 'Ficha gratuita', 'features': {}, 'limits': {}}
+    feats = {k: bool(p['features'].get(k)) for k in PLAN_FEATURES}
+    exc = [dict(r) for r in db.execute('SELECT id,feature,enabled,reason,created_at FROM plan_exceptions WHERE provider_type=? AND provider_id=? AND removed_at IS NULL ORDER BY id', (ptype, pid)).fetchall()]
+    for e in exc:
+        if e['feature'] in feats: feats[e['feature']] = bool(e['enabled'])
+    for f, sw in SWITCH_OF_FEATURE.items():
+        if not feature_switch(db, sw): feats[f] = False
+    return {'code': code, 'name': p['name'], 'status': status, 'expires_at': expires if code != 'free' else None, 'features': feats, 'limits': p['limits'],
+            'exceptions': exc, 'trial_used': bool(row and row['plan_trial_used']), 'original_code': row['plan_code'] if row else None, 'original_expires_at': expires}
+
+
+def provider_has(db, ptype, pid, feature):
+    return bool(ptype and pid and provider_plan(db, ptype, pid)['features'].get(feature))
+
+
+def require_feature(db, user, feature):
+    """Server check of a plan feature on a provider route (administrators are not limited)."""
+    if user['role'] == 'admin': return
+    ref = provider_ref(db, user)
+    if not ref or not provider_has(db, ref[0], ref[1], feature):
+        raise PlanRequired(feature)
+
+
+LIMIT_FEATURE = {'team_max': 'team'}
+
+
+def plan_limit(db, ptype, pid, key):
+    """0 = unlimited. A feature switched on by an exception of the administration is not limited by the plan."""
+    pp = provider_plan(db, ptype, pid)
+    if any(e['feature'] == LIMIT_FEATURE.get(key) and e['enabled'] for e in pp['exceptions']): return 0
+    v = pp['limits'].get(key)
+    try: return int(v or 0)
+    except (TypeError, ValueError): return 0
+
+
+def start_trial(db, ptype, pid):
+    """A new provider approved by the administration gets the free trial once."""
+    st = plan_settings(db)
+    row = db.execute(f'SELECT plan_trial_used FROM {provider_table(ptype)} WHERE id=?', (pid,)).fetchone()
+    if not row or row['plan_trial_used'] or not st['trial_days']: return
+    end = (_dt.date.today() + _timedelta(days=st['trial_days'])).isoformat()
+    db.execute(f"UPDATE {provider_table(ptype)} SET plan_code=?, plan_status='trial', plan_started_at=?, plan_expires_at=?, plan_trial_used=1, plan_reminders=NULL WHERE id=?",
+               (st['trial_plan'], now(), end, pid))
+
+
+def set_provider_plan(db, ptype, pid, code, months=12, status='active', start=None):
+    """Activates a plan for a period (after a payment or by the administration). A renewal before the end adds to it."""
+    row = db.execute(f'SELECT plan_code,plan_expires_at FROM {provider_table(ptype)} WHERE id=?', (pid,)).fetchone()
+    today = _dt.date.today()
+    base = today
+    if row and row['plan_code'] == code and row['plan_expires_at'] and row['plan_expires_at'] >= today.isoformat():
+        base = _dt.date.fromisoformat(row['plan_expires_at'])
+    if start: base = start
+    y, m = divmod(base.month - 1 + months, 12)
+    import calendar
+    end = _dt.date(base.year + y, m + 1, min(base.day, calendar.monthrange(base.year + y, m + 1)[1]))
+    db.execute(f'UPDATE {provider_table(ptype)} SET plan_code=?, plan_status=?, plan_started_at=?, plan_expires_at=?, plan_reminders=NULL WHERE id=?',
+               (code, status, now(), end.isoformat(), pid))
+    return base.isoformat(), end.isoformat()
+
+
+def provider_label(db, ptype, pid):
+    if ptype == 'center':
+        r = db.execute('SELECT name FROM centers WHERE id=?', (pid,)).fetchone(); return r['name'] if r else f'Centro {pid}'
+    r = db.execute('SELECT fullname FROM users WHERE id=?', (pid,)).fetchone(); return r['fullname'] if r else f'Profesional {pid}'
+
+
+def provider_users(db, ptype, pid, owners_only=True):
+    if ptype == 'freelance': return [pid]
+    q = "SELECT u.id FROM users u LEFT JOIN center_members m ON m.user_id=u.id AND m.center_id=u.center_id WHERE u.center_id=? AND u.role='center'"
+    if owners_only: q += " AND COALESCE(m.member_role,'owner')='owner'"
+    return [r['id'] for r in db.execute(q, (pid,)).fetchall()]
+
+
+def run_plan_jobs(db, at=None):
+    """Daily: renewal notices 30, 7 and 1 days before the end of a plan (or of the trial) and the move to the free listing."""
+    at = at or _dt.date.today()
+    for ptype in ('center', 'freelance'):
+        t = provider_table(ptype)
+        extra = " AND role='freelance'" if ptype == 'freelance' else ''
+        for r in db.execute(f"SELECT id,plan_code,plan_status,plan_expires_at,plan_reminders FROM {t} WHERE plan_code IS NOT NULL AND plan_code<>'free' AND plan_expires_at IS NOT NULL{extra}").fetchall():
+            try: end = _dt.date.fromisoformat(r['plan_expires_at'][:10])
+            except ValueError: continue
+            days = (end - at).days
+            sent = set(json.loads(r['plan_reminders'] or '[]'))
+            p = plan_row(db, r['plan_code']) or {'name': r['plan_code'], 'price_year': None, 'currency': 'EUR'}
+            if days < 0:
+                if r['plan_status'] != 'expired':
+                    db.execute(f"UPDATE {t} SET plan_status='expired' WHERE id=?", (r['id'],))
+                    for uid in provider_users(db, ptype, r['id']):
+                        notify_user(db, uid, 'plan_expired', {'plan_name': p['name'], 'center': provider_label(db, ptype, r['id']), 'plan_url': f'{public_site_url()}/#/mi-plan'}, (ptype, r['id']))
+                    audit(db, None, 'plan_expired', ptype, r['id'], {'plan': r['plan_code']})
+                continue
+            mark = next((m for m in (1, 7, 30) if days <= m), None)
+            key = f"{r['plan_expires_at']}:{mark}"
+            if mark and key not in sent:
+                sent.add(key)
+                price = plan_money(p.get('price_year'), p.get('currency') or 'EUR') if p.get('price_year') else ''
+                for uid in provider_users(db, ptype, r['id']):
+                    lang = user_lang(db, uid)
+                    notify_user(db, uid, 'plan_renewal', {'plan_name': p['name'], 'center': provider_label(db, ptype, r['id']), 'renewal_date': mail_date(r['plan_expires_at'], lang),
+                                'plan_price': price or mail_t(lang, 'el precio de tu plan'), 'plan_url': f'{public_site_url()}/#/mi-plan',
+                                'renewal_text': mail_t(lang, 'Si no lo renuevas, tu ficha seguirá publicada como ficha gratuita: no recibirás reservas online nuevas, las que ya tienes se mantienen y podrás exportar tus datos siempre.')},
+                                (ptype, r['id']))
+            db.execute(f'UPDATE {t} SET plan_reminders=? WHERE id=?', (json.dumps(sorted(sent)), r['id']))
+
+
+# --------------------------------------------------------------------- Statistics for every provider (Fase 6.4)
+# Aggregated counters only (no personal data): views of the public page, clicks on «Reservar» and information requests.
+_STAT_SEEN = {}
+
+
+def stat_bump(db, ptype, pid, field, ip=None):
+    if field not in ('views', 'book_clicks', 'info_requests') or not pid: return
+    day = _dt.date.today().isoformat()
+    if ip and field != 'info_requests':
+        key = (day, ptype, pid, field, wsec.ip_hash(ip))
+        if key in _STAT_SEEN: return
+        if len(_STAT_SEEN) > 200000: _STAT_SEEN.clear()
+        _STAT_SEEN[key] = 1
+    db.execute(f"INSERT INTO provider_stats_daily(provider_type,provider_id,day,{field}) VALUES(?,?,?,1) ON CONFLICT(provider_type,provider_id,day) DO UPDATE SET {field}={field}+1",
+               (ptype, pid, day))
+
+
+def provider_stats(db, ptype, pid, days=30):
+    since = (_dt.date.today() - _timedelta(days=days - 1)).isoformat()
+    row = db.execute('SELECT COALESCE(SUM(views),0) v, COALESCE(SUM(book_clicks),0) b, COALESCE(SUM(info_requests),0) i FROM provider_stats_daily WHERE provider_type=? AND provider_id=? AND day>=?',
+                     (ptype, pid, since)).fetchone()
+    series = [dict(r) for r in db.execute('SELECT day,views,book_clicks,info_requests FROM provider_stats_daily WHERE provider_type=? AND provider_id=? AND day>=? ORDER BY day', (ptype, pid, since)).fetchall()]
+    mine = {'views': row['v'], 'book_clicks': row['b'], 'info_requests': row['i']}
+    # Anonymous comparison with the zone (same region, else same country), only with at least 3 other providers.
+    zone = None
+    if ptype == 'center':
+        c = db.execute('SELECT region,country FROM centers WHERE id=?', (pid,)).fetchone()
+        for col, val in (('region', c['region'] if c else None), ('country', c['country'] if c else None)):
+            if not val: continue
+            peers = [r['id'] for r in db.execute(f"SELECT id FROM centers c WHERE {public_center_sql()} AND {col}=? AND id<>?", (val, pid)).fetchall()]
+            if len(peers) < 3: continue
+            agg = db.execute(f"SELECT COALESCE(SUM(views),0) v, COALESCE(SUM(book_clicks),0) b, COALESCE(SUM(info_requests),0) i FROM provider_stats_daily WHERE provider_type='center' AND day>=? AND provider_id IN ({','.join('?' * len(peers))})",
+                             (since, *peers)).fetchone()
+            n = len(peers)
+            zone = {'scope': col, 'name': val, 'providers': n, 'views': round(agg['v'] / n, 1), 'book_clicks': round(agg['b'] / n, 1), 'info_requests': round(agg['i'] / n, 1)}
+            break
+    return {'days': days, 'totals': mine, 'series': series, 'zone': zone}
+
+
+def run_monthly_stats_emails(db):
+    """On the 1st of each month: the previous month's counters to every provider (owners)."""
+    for ptype, q in (('center', "SELECT id FROM centers c WHERE c.active=1 AND c.verification_status='verified'"), ('freelance', "SELECT id FROM users WHERE role='freelance' AND center_id IS NULL")):
+        for r in db.execute(q).fetchall():
+            st = provider_stats(db, ptype, r['id'], 30)
+            t = st['totals']
+            for uid in provider_users(db, ptype, r['id']):
+                lang = user_lang(db, uid)
+                zone = st['zone']
+                notify_user(db, uid, 'monthly_stats', {'center': provider_label(db, ptype, r['id']), 'views': t['views'], 'book_clicks': t['book_clicks'], 'info_requests': t['info_requests'],
+                            'zone_text': mail_t(lang, 'Media de los centros de {zone}: {v} visitas y {b} clics en «Reservar».', zone=zone['name'], v=zone['views'], b=zone['book_clicks']) if zone else '',
+                            'stats_url': f'{public_site_url()}/#/admin?tab=stats'}, (ptype, r['id']))
+
+
+# ---------------------------------------------------------------- Fiscal data, insurance and DAC7 (Fase 6.1)
+FISCAL_FIELDS = ('legal_name', 'tax_id', 'fiscal_address', 'entity_type', 'tax_id_country', 'registration_number', 'birth_date',
+                 'declares_licences', 'declares_qualified_staff', 'licences_note', 'insurance_company', 'insurance_policy', 'insurance_expires_at')
+
+
+def provider_fiscal(db, ptype, pid):
+    cols = ','.join(FISCAL_FIELDS + ('stripe_account_id', 'insurance_doc', 'fiscal_updated_at'))
+    r = db.execute(f'SELECT {cols} FROM {provider_table(ptype)} WHERE id=?', (pid,)).fetchone()
+    d = dict(r) if r else {}
+    missing = [k for k, lbl in (('legal_name', 'Razón social o nombre'), ('tax_id', 'NIF / TIN'), ('tax_id_country', 'País emisor del NIF'),
+                                ('fiscal_address', 'Dirección'), ('entity_type', 'Tipo de prestador')) if not d.get(k)]
+    if d.get('entity_type') == 'individual' and not d.get('birth_date'): missing.append('birth_date')
+    if d.get('entity_type') == 'company' and not d.get('registration_number'): missing.append('registration_number')
+    if not d.get('insurance_expires_at'): missing.append('insurance_expires_at')
+    d['has_insurance_doc'] = bool(d.pop('insurance_doc', None))
+    d['payout_account'] = d.pop('stripe_account_id', None)
+    d['missing'] = missing
+    return d
+
+
+def save_provider_fiscal(db, ptype, pid, data):
+    sets, vals = [], []
+    for k in FISCAL_FIELDS:
+        if k not in data: continue
+        v = data.get(k)
+        if k in ('declares_licences', 'declares_qualified_staff'): v = 1 if v else 0
+        elif k == 'entity_type':
+            v = v if v in ('company', 'individual') else None
+        elif k in ('birth_date', 'insurance_expires_at'):
+            v = (clean_text(v, 10) or None)
+            if v:
+                try: d = _dt.date.fromisoformat(v)
+                except ValueError: raise ValueError('Revisa el formato de las fechas (AAAA-MM-DD).')
+                if k == 'birth_date' and not (_dt.date(1900, 1, 1) < d < _dt.date.today() - _timedelta(days=365 * 18)): raise ValueError('La fecha de nacimiento no es válida.')
+        elif k == 'tax_id_country':
+            v = (clean_text(v, 10) or '').strip().upper() or None
+            if v and not re.fullmatch(r'[A-Z]{2}', v): raise ValueError('El país emisor es un código de dos letras (ES, PT, FR…).')
+        elif k == 'tax_id':
+            v = clean_text(v, 40)
+            if v and not re.fullmatch(r'[A-Za-z0-9 .\-/]{4,40}', v): raise ValueError('El NIF / número fiscal no parece válido.')
+        else:
+            v = clean_text(v, 300 if k in ('fiscal_address', 'licences_note') else 160)
+        sets.append(f'{k}=?'); vals.append(v)
+    if 'insurance_expires_at' in data: sets.append('insurance_alerts=NULL')
+    if not sets: return
+    sets.append('fiscal_updated_at=?'); vals.append(now())
+    db.execute(f"UPDATE {provider_table(ptype)} SET {','.join(sets)} WHERE id=?", (*vals, pid))
+
+
+def run_insurance_alerts(db, at=None):
+    """Liability insurance: email 30 and 7 days before it expires and on the day after (the panel shows it too)."""
+    at = at or _dt.date.today()
+    for ptype, q in (('center', "SELECT id,insurance_expires_at,insurance_alerts FROM centers WHERE active=1 AND insurance_expires_at IS NOT NULL"),
+                     ('freelance', "SELECT id,insurance_expires_at,insurance_alerts FROM users WHERE role='freelance' AND insurance_expires_at IS NOT NULL")):
+        for r in db.execute(q).fetchall():
+            try: days = (_dt.date.fromisoformat(r['insurance_expires_at']) - at).days
+            except ValueError: continue
+            mark = 'expired' if days < 0 else next((str(m) for m in (7, 30) if days <= m), None)
+            sent = set(json.loads(r['insurance_alerts'] or '[]'))
+            if not mark or mark in sent: continue
+            sent.add(mark)
+            for uid in provider_users(db, ptype, r['id']):
+                lang = user_lang(db, uid)
+                notify_user(db, uid, 'insurance_expired' if mark == 'expired' else 'insurance_expiring',
+                            {'center': provider_label(db, ptype, r['id']), 'expiry_date': mail_date(r['insurance_expires_at'], lang), 'days': max(0, days),
+                             'profile_url': f'{public_site_url()}/#/admin?tab=fiscal'}, (ptype, r['id']))
+            db.execute(f'UPDATE {provider_table(ptype)} SET insurance_alerts=? WHERE id=?', (json.dumps(sorted(sent)), r['id']))
+
+
+def dac7_report(db, year):
+    """DAC7 (Directive (EU) 2021/514): one row per provider and year with the amounts paid THROUGH the platform per
+    quarter (online payments minus refunds), the number of activities and the fees (always 0: WORLDIVES charges no
+    commission). Providers without any online payment are not reportable and are left out."""
+    rows = []
+    q = f"""SELECT payee_type, payee_id, created_at, paid_at, amount, COALESCE(refunded_total,0) refunded, currency, booking_id, experience_booking_id
+            FROM payment_orders WHERE status IN ('paid','partially_refunded','refunded') AND substr(COALESCE(paid_at,created_at),1,4)=?"""
+    agg = {}
+    for o in db.execute(q, (str(year),)).fetchall():
+        if not o['payee_type'] or not o['payee_id']: continue
+        key = (o['payee_type'], o['payee_id'], o['currency'] or 'EUR')
+        a = agg.setdefault(key, {'q': [0.0, 0.0, 0.0, 0.0], 'n': [0, 0, 0, 0]})
+        try: month = int((o['paid_at'] or o['created_at'])[5:7])
+        except ValueError: month = 1
+        qi = (month - 1) // 3
+        a['q'][qi] += float(o['amount'] or 0) - float(o['refunded'] or 0)
+        a['n'][qi] += 1
+    for (ptype, pid, cur), a in sorted(agg.items()):
+        f = provider_fiscal(db, ptype, pid)
+        rows.append({'tipo_prestador': 'centro' if ptype == 'center' else 'profesional', 'id': pid, 'nombre': provider_label(db, ptype, pid),
+                     'razon_social': f.get('legal_name') or '', 'persona': {'company': 'jurídica', 'individual': 'física'}.get(f.get('entity_type') or '', ''),
+                     'nif_tin': f.get('tax_id') or '', 'pais_emisor': f.get('tax_id_country') or '', 'registro_mercantil': f.get('registration_number') or '',
+                     'fecha_nacimiento': f.get('birth_date') or '', 'direccion': f.get('fiscal_address') or '', 'cuenta_cobro': f.get('payout_account') or '',
+                     'moneda': cur, **{f'importe_t{i + 1}': round(a['q'][i], 2) for i in range(4)}, **{f'actividades_t{i + 1}': a['n'][i] for i in range(4)},
+                     'comisiones': 0, 'impuestos_retenidos': 0, 'datos_incompletos': ', '.join(f['missing'])})
+    return rows
+
+
+# -------------------------------------------------------------------------------- iCal feed (Fase 6.5)
+def ical_escape(s):
+    return str(s or '').replace('\\', '\\\\').replace(';', '\\;').replace(',', '\\,').replace('\n', '\\n')
+
+
+def ical_feed(db, ptype, pid):
+    """Private calendar of the provider's bookings in progress (from 30 days ago), for Google, Apple or Outlook calendar."""
+    since = (_dt.date.today() - _timedelta(days=30)).isoformat()
+    where = 'b.center_id=?' if ptype == 'center' else 'b.provider_user_id=? AND b.center_id IS NULL'
+    rows = db.execute(f"""SELECT b.id,b.booking_date,b.status,b.participants,b.updated_at,s.title,s.duration_minutes,sl.slot_time,u.fullname
+                          FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN service_slots sl ON sl.id=b.slot_id LEFT JOIN users u ON u.id=b.user_id
+                          WHERE {where} AND b.booking_date>=? AND b.status NOT IN ('cancelled','rejected','expired','unpaid') ORDER BY b.booking_date LIMIT 2000""", (pid, since)).fetchall()
+    host = urlparse(public_site_url()).hostname or 'worldives'
+    out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//WORLDIVES DISCOVERY//Reservas//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+           'X-WR-CALNAME:' + ical_escape('WORLDIVES · ' + provider_label(db, ptype, pid)), 'X-WR-TIMEZONE:' + wcfg.env('WOD_TIMEZONE', 'Europe/Madrid')]
+    for r in rows:
+        name = (r['fullname'] or 'Cliente').split(' ')[0]
+        summary = f"{r['title'] or 'Reserva'} · {name} · {r['participants']} pax"
+        stamp = re.sub(r'[-:]', '', (r['updated_at'] or now())[:19]) + 'Z'
+        out += ['BEGIN:VEVENT', f"UID:wod-booking-{r['id']}@{host}", f'DTSTAMP:{stamp}']
+        if r['slot_time'] and re.fullmatch(r'\d{2}:\d{2}', r['slot_time']):
+            start = _dt.datetime.fromisoformat(f"{r['booking_date']}T{r['slot_time']}")
+            end = start + _timedelta(minutes=int(r['duration_minutes'] or 120))
+            out += [f"DTSTART:{start.strftime('%Y%m%dT%H%M%S')}", f"DTEND:{end.strftime('%Y%m%dT%H%M%S')}"]
+        else:
+            d = _dt.date.fromisoformat(r['booking_date'][:10])
+            out += [f"DTSTART;VALUE=DATE:{d.strftime('%Y%m%d')}", f"DTEND;VALUE=DATE:{(d + _timedelta(days=1)).strftime('%Y%m%d')}"]
+        out += ['SUMMARY:' + ical_escape(summary), f"DESCRIPTION:{ical_escape('Reserva WOD-%06d · estado: %s' % (r['id'], r['status']))}",
+                f"URL:{public_site_url()}/#/admin?tab=bookings", 'STATUS:' + ('CONFIRMED' if r['status'] == 'confirmed' else 'TENTATIVE'), 'END:VEVENT']
+    out.append('END:VCALENDAR')
+    # Lines of at most 75 octets (RFC 5545 folding)
+    folded = []
+    for line in out:
+        b = line.encode('utf-8')
+        while len(b) > 75:
+            cut = 75
+            while (b[cut] & 0xC0) == 0x80: cut -= 1
+            folded.append(b[:cut].decode('utf-8')); b = b' ' + b[cut:]
+        folded.append(b.decode('utf-8'))
+    return '\r\n'.join(folded) + '\r\n'
+
+
+# ---------------------------------------------------------------------- CSV export and import (Fase 6.5)
+def csv_text(rows, header):
+    import csv as _csv
+    buf = io.StringIO()
+    w = _csv.writer(buf, delimiter=';', quoting=_csv.QUOTE_MINIMAL)
+    w.writerow(header)
+    for r in rows:
+        w.writerow([('' if v is None else (("'" + str(v)) if isinstance(v, str) and v[:1] in ('=', '+', '-', '@') else v)) for v in r])
+    return '\ufeff' + buf.getvalue()
+
+
+def provider_export(db, ptype, pid, kind):
+    """CSV exports, available in every plan (also the free listing)."""
+    pw = 'b.center_id=?' if ptype == 'center' else 'b.provider_user_id=? AND b.center_id IS NULL'
+    if kind == 'bookings':
+        rows = db.execute(f"""SELECT 'WOD-'||printf('%06d',b.id), b.booking_date, sl.slot_time, s.title, b.participants, b.status, b.payment_status, b.price, b.currency,
+                                     u.fullname, CASE WHEN u.email LIKE '%.local' THEN '' ELSE u.email END, b.contact_phone, b.created_at
+                              FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN service_slots sl ON sl.id=b.slot_id LEFT JOIN users u ON u.id=b.user_id
+                              WHERE {pw} ORDER BY b.booking_date DESC, b.id DESC LIMIT 50000""", (pid,)).fetchall()
+        return csv_text(rows, ['Reserva', 'Fecha', 'Hora', 'Actividad', 'Personas', 'Estado', 'Pago', 'Precio', 'Moneda', 'Cliente', 'Email', 'Teléfono', 'Creada'])
+    if kind == 'clients':
+        rows = db.execute(f"""SELECT u.fullname, CASE WHEN u.email LIKE '%.local' THEN '' ELSE u.email END, MAX(b.contact_phone), COUNT(*), MIN(b.booking_date), MAX(b.booking_date)
+                              FROM bookings b JOIN users u ON u.id=b.user_id WHERE {pw} GROUP BY u.id ORDER BY u.fullname LIMIT 50000""", (pid,)).fetchall()
+        return csv_text(rows, ['Nombre', 'Email', 'Teléfono', 'Reservas', 'Primera', 'Última'])
+    if kind == 'services':
+        sw = 's.center_id=?' if ptype == 'center' else 's.provider_user_id=? AND s.center_id IS NULL'
+        rows = db.execute(f"""SELECT s.id, s.title, s.service_type, s.price, s.currency, s.duration_minutes, s.max_participants, s.booking_mode, s.active,
+                                     (SELECT COUNT(*) FROM service_slots x WHERE x.service_id=s.id AND x.slot_date>=date('now'))
+                              FROM provider_services s WHERE {sw} ORDER BY s.title""", (pid,)).fetchall()
+        return csv_text(rows, ['Id', 'Servicio', 'Tipo', 'Precio', 'Moneda', 'Duración (min)', 'Máx. personas', 'Modo de reserva', 'Activo', 'Salidas futuras'])
+    if kind == 'payments':
+        rows = db.execute("""SELECT o.id, COALESCE(o.paid_at,o.created_at), o.payment_kind, o.amount, COALESCE(o.refunded_total,0), o.currency, o.status,
+                                    CASE WHEN o.booking_id THEN 'WOD-'||printf('%06d',o.booking_id) ELSE 'EXP-'||printf('%05d',o.experience_booking_id) END, o.payment_intent_id
+                             FROM payment_orders o WHERE o.payee_type=? AND o.payee_id=? ORDER BY o.id DESC LIMIT 50000""", (ptype, pid)).fetchall()
+        return csv_text(rows, ['Pedido', 'Fecha', 'Tipo', 'Importe', 'Devuelto', 'Moneda', 'Estado', 'Reserva', 'Pago Stripe'])
+    raise ValueError('Exportación no válida.')
+
+
+IMPORT_COLUMNS = {'nombre': 'fullname', 'name': 'fullname', 'email': 'email', 'correo': 'email', 'telefono': 'phone', 'teléfono': 'phone', 'phone': 'phone',
+                  'notas': 'notes', 'notes': 'notes', 'titulacion': 'certification', 'titulación': 'certification'}
+
+
+def import_clients(db, center_id, text, dry_run=True, actor=None):
+    """Clients of a centre from a CSV (template: nombre;email;telefono;titulacion;notas). Duplicates by email or phone
+    against the centre's existing clients and inside the file. Imported clients are customer records of the centre only:
+    they never become accounts nor receive marketing."""
+    import csv as _csv
+    text = (text or '').lstrip('\ufeff')
+    if len(text) > 2_000_000: raise ValueError('El archivo es demasiado grande (máximo 2 MB).')
+    sample = text[:2000]
+    delim = ';' if sample.count(';') >= sample.count(',') else ','
+    reader = _csv.reader(io.StringIO(text), delimiter=delim)
+    rows = list(reader)
+    if not rows: raise ValueError('El archivo está vacío.')
+    head = [IMPORT_COLUMNS.get(fold_text(h).strip(), None) for h in rows[0]]
+    if 'fullname' not in head: raise ValueError('Falta la columna «nombre». Usa la plantilla.')
+    existing_e = {r['e'] for r in db.execute("SELECT lower(email) e FROM users WHERE guest_center_id=? OR id IN (SELECT user_id FROM bookings WHERE center_id=?)", (center_id, center_id)).fetchall()}
+    existing_p = {re.sub(r'\D', '', r['p'] or '')[-9:] for r in db.execute('SELECT up.phone p FROM user_profiles up JOIN users u ON u.id=up.user_id WHERE u.guest_center_id=?', (center_id,)).fetchall()}
+    existing_p.discard('')
+    seen_e, seen_p, out = set(), set(), []
+    for n, raw in enumerate(rows[1:5001], start=2):
+        rec = {k: (raw[i].strip() if i < len(raw) else '') for i, k in enumerate(head) if k}
+        if not any(rec.values()): continue
+        name = clean_text(rec.get('fullname'), 120) or ''
+        email = (clean_text(rec.get('email'), 160) or '').lower()
+        phone = clean_text(rec.get('phone'), 40) or ''
+        pkey = re.sub(r'\D', '', phone)[-9:]
+        status, note = 'new', ''
+        if not name: status, note = 'error', 'Falta el nombre'
+        elif email and not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email): status, note = 'error', 'Email no válido'
+        elif (email and email in existing_e) or (pkey and pkey in existing_p): status, note = 'duplicate', 'Ya es cliente del centro'
+        elif (email and email in seen_e) or (pkey and pkey in seen_p): status, note = 'duplicate', 'Repetido en el archivo'
+        if email: seen_e.add(email)
+        if pkey: seen_p.add(pkey)
+        out.append({'line': n, 'name': name, 'email': email, 'phone': phone, 'certification': clean_text(rec.get('certification'), 120) or '',
+                    'notes': clean_text(rec.get('notes'), 500) or '', 'status': status, 'note': note})
+    created = 0
+    if not dry_run:
+        for r in out:
+            if r['status'] != 'new': continue
+            tag = secrets.token_hex(4)
+            email = r['email'] or f'cliente-{center_id}-{tag}@sin-email.worldives.local'
+            uid = db.execute("INSERT INTO users(fullname,email,username,password_hash,role,created_at,guest_center_id,guest_email) VALUES(?,?,?,?,?,?,?,?)",
+                             (r['name'], f'cliente-{center_id}-{tag}@sin-email.worldives.local', f'cliente_{center_id}_{tag}', '!', 'recreational', now(), center_id, email if r['email'] else None)).lastrowid
+            notes = ' · '.join(x for x in (('Titulación: ' + r['certification']) if r['certification'] else '', r['notes']) if x) or None
+            db.execute('INSERT INTO user_profiles(user_id,phone,notes,updated_at) VALUES(?,?,?,?)', (uid, r['phone'] or None, notes, now()))
+            created += 1
+        audit(db, actor, 'clients_imported', 'center', center_id, {'created': created, 'rows': len(out)})
+    return {'rows': out, 'summary': {k: sum(1 for r in out if r['status'] == k) for k in ('new', 'duplicate', 'error')}, 'created': created}
+
+
+# ------------------------------------------------------------------------------- Team of a centre (Fase 6.6)
+TEAM_ROLES = {'owner': 'Propietario', 'reception': 'Recepción', 'instructor': 'Instructor'}
+# What each role cannot do (POST). Owners can do everything; instructors only read (and manage their own account).
+OWNER_ONLY_PREFIXES = ('/api/payments/connect/', '/api/provider/payment-profile', '/api/provider/fiscal', '/api/provider/insurance', '/api/provider/cancellation-policy',
+                       '/api/provider/plan', '/api/center/team', '/api/provider/center-update', '/api/provider/center-showcase', '/api/provider/center-cover',
+                       '/api/provider/center-gallery', '/api/center/integration', '/api/provider/ical', '/api/center/import', '/api/center/tariffs', '/api/bookings/refund')
+INSTRUCTOR_POST_OK = ('/api/auth/', '/api/account/', '/api/legal/accept', '/api/reports', '/api/me', '/api/team/')
+OWNER_ONLY_GET = ('/api/provider/payments', '/api/provider/fiscal', '/api/provider/plan', '/api/center/team', '/api/center/activity')
+
+
+def member_role(db, user):
+    if not user or user['role'] != 'center' or not user['center_id']: return None
+    r = db.execute('SELECT member_role FROM center_members WHERE center_id=? AND user_id=?', (user['center_id'], user['id'])).fetchone()
+    return r['member_role'] if r else 'owner'
+
+
+def team_gate(db, user, path, method):
+    """Team roles of a centre: reception cannot touch settings, payments, plan or team; instructors only read.
+    Exports of payments are for owners only."""
+    role = member_role(db, user)
+    if not role or role == 'owner': return
+    if method == 'GET':
+        if path.startswith(OWNER_ONLY_GET) or (path == '/api/center/export' and False):
+            raise PermissionError('Solo el propietario del centro puede ver esto.')
+        return
+    if role == 'instructor' and not path.startswith(INSTRUCTOR_POST_OK):
+        raise PermissionError('Tu perfil de instructor es de solo lectura. Pide el cambio al propietario del centro.')
+    if role == 'reception' and (path.startswith(OWNER_ONLY_PREFIXES) or (path.startswith('/api/bookings/') and path.endswith('/refund'))):
+        raise PermissionError('Solo el propietario del centro puede hacer este cambio.')
+
+
+def plan_payment_paid(db, pp_id, source):
+    """Marks an annual fee as paid (idempotent) and extends the plan 12 months."""
+    r = db.execute('SELECT * FROM plan_payments WHERE id=?', (pp_id,)).fetchone()
+    if not r or r['status'] == 'paid': return False
+    start, end = set_provider_plan(db, r['provider_type'], r['provider_id'], r['plan_code'], 12, 'active')
+    db.execute("UPDATE plan_payments SET status='paid',paid_at=?,period_start=?,period_end=? WHERE id=?", (now(), start, end, pp_id))
+    p = plan_row(db, r['plan_code']) or {'name': r['plan_code']}
+    for uid in provider_users(db, r['provider_type'], r['provider_id']):
+        lang = user_lang(db, uid)
+        notify_user(db, uid, 'plan_paid', {'plan_name': p['name'], 'center': provider_label(db, r['provider_type'], r['provider_id']), 'amount': plan_money(r['amount'], r['currency']),
+                    'end_date': mail_date(end, lang), 'plan_url': f'{public_site_url()}/#/mi-plan'}, (r['provider_type'], r['provider_id']))
+    audit(db, None, 'plan_paid', r['provider_type'], r['provider_id'], {'plan': r['plan_code'], 'until': end, 'source': source, 'payment': pp_id})
+    return True
+
+
+def plan_money(amount, currency):
+    try: return f"{float(amount):,.2f} {currency}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    except (TypeError, ValueError): return ''
+
+
+def owns_service(user, provider_user_id, center_id):
+    """A service (and its departures) is managed by its creator or by any member of the same centre (Fase 6.6)."""
+    return provider_user_id == user['id'] or bool(user['role'] == 'center' and user['center_id'] and center_id == user['center_id'])
 
 
 def public_center_sql(alias='c'):
@@ -2829,10 +3428,12 @@ def public_promos(db):
     try: min_c=max(1,int(st.get('partners_min_centers') or 6))
     except ValueError: min_c=6
     band=list(snap.get('centers') or []); random.shuffle(band)
+    sponsored_ok=feature_switch(db,'sponsorship')
     out={'partners':[],'offers':[],'centers':band if len(band)>=min_c else [],'center_total':snap.get('center_total') or 0,'centers_min':min_c,'contact':{'email':st.get('partners_email') or '','text':st.get('partners_text') or ''}}
     for p in snap['items']:
         if (p['starts_on'] and p['starts_on']>today) or (p['ends_on'] and p['ends_on']<today): continue
         if p['kind']=='offer' and not p['image_path']: continue
+        if not sponsored_ok: continue
         out['partners' if p['kind']=='partner' else 'offers'].append(dict(p,label=SPONSORED_LABEL))
     return out
 
@@ -3335,6 +3936,45 @@ EMAIL_TEMPLATES = {
    ('button', ('Ver mis viajes', 'area_url'))]},
  'experience_status': {'to': 'diver', 'subject': '{status_title}: {experience}', 'pre': '{status_title}', 'blocks': [
    ('h', '{status_title}'), ('p', 'Hola {first_name}, {status_text}'), ('button', ('Ver mis viajes', 'area_url'))]},
+ 'plan_expired': {'to': 'center', 'subject': 'Tu plan {plan_name} ha terminado: {center} sigue como ficha gratuita', 'pre': 'Tus reservas actuales se mantienen.', 'blocks': [
+   ('h', 'Tu plan ha terminado'),
+   ('p', 'Hola {first_name}, el plan {plan_name} de {center} ha terminado. Tu ficha sigue publicada como ficha gratuita.'),
+   ('list', ['No recibirás reservas online nuevas: los buceadores podrán enviarte solicitudes de información.', 'Las reservas que ya tienes se mantienen y se atienden con normalidad.', 'Puedes exportar tus datos siempre, en cualquier plan.']),
+   ('button', ('Renovar mi plan', 'plan_url'))]},
+ 'plan_paid': {'to': 'center', 'subject': 'Plan {plan_name} activo hasta el {end_date}', 'pre': 'Gracias por renovar.', 'blocks': [
+   ('h', 'Tu plan está activo'),
+   ('p', 'Hola {first_name}, hemos registrado el pago de {amount} del plan {plan_name} de {center}. Está activo hasta el {end_date}.'),
+   ('button', ('Ver mi plan', 'plan_url'))]},
+ 'info_request': {'to': 'center', 'subject': 'Solicitud de información de {client_name}', 'pre': '{wanted}', 'blocks': [
+   ('h', 'Nueva solicitud de información'),
+   ('p', 'Hola {first_name}, {client_name} quiere información sobre {center}.'),
+   ('note', '{message}'),
+   ('list', ['Email: {client_email}', 'Teléfono: {client_phone}', 'Fecha deseada: {wanted}', 'Personas: {participants}']),
+   ('p', 'Contesta directamente a su email o teléfono. La solicitud también está en tu panel.'),
+   ('button', ('Abrir mi panel', 'panel_url'))]},
+ 'info_request_copy': {'to': 'any', 'subject': 'Hemos enviado tu solicitud a {center}', 'pre': 'Te contestarán directamente.', 'blocks': [
+   ('h', 'Solicitud enviada'),
+   ('p', 'Hola {first_name}, hemos enviado tu solicitud a {center}. Este centro todavía no tiene reserva online en WORLDIVES: te contestará directamente por email o por teléfono.'),
+   ('note', '{message}')]},
+ 'insurance_expiring': {'to': 'center', 'subject': 'El seguro de responsabilidad civil de {center} caduca el {expiry_date}', 'pre': 'Actualiza los datos de tu póliza.', 'blocks': [
+   ('h', 'Tu seguro está a punto de caducar'),
+   ('p', 'Hola {first_name}, el seguro de responsabilidad civil que indicaste para {center} caduca el {expiry_date} (dentro de {days} días).'),
+   ('p', 'Cuando lo renueves, actualiza la fecha y la póliza en tu panel.'),
+   ('button', ('Actualizar mi seguro', 'profile_url'))]},
+ 'insurance_expired': {'to': 'center', 'subject': 'El seguro de responsabilidad civil de {center} ha caducado', 'pre': 'Actualiza los datos de tu póliza.', 'blocks': [
+   ('h', 'Tu seguro ha caducado'),
+   ('p', 'Hola {first_name}, el seguro de responsabilidad civil de {center} caducó el {expiry_date}. Actualiza los datos de la póliza en tu panel.'),
+   ('button', ('Actualizar mi seguro', 'profile_url'))]},
+ 'monthly_stats': {'to': 'center', 'subject': '{center}: {views} visitas a tu ficha en los últimos 30 días', 'pre': '{book_clicks} clics en «Reservar» y {info_requests} solicitudes.', 'blocks': [
+   ('h', 'Tu ficha en WORLDIVES este mes'),
+   ('list', ['Visitas a tu ficha: {views}', 'Clics en «Reservar»: {book_clicks}', 'Solicitudes de información: {info_requests}']),
+   ('p', '{zone_text}'),
+   ('button', ('Ver mis estadísticas', 'stats_url'))]},
+ 'team_invite': {'to': 'any', 'subject': '{inviter} te invita al equipo de {center} en WORLDIVES', 'pre': 'Perfil: {member_role}.', 'blocks': [
+   ('h', 'Únete al equipo de {center}'),
+   ('p', '{inviter} te ha invitado a gestionar {center} en WORLDIVES con el perfil de {member_role}.'),
+   ('button', ('Aceptar la invitación', 'join_url')),
+   ('note', 'La invitación caduca en 7 días. Si no conoces a este centro, ignora este correo.')]},
  'admin_map_quota': {'to': 'admin', 'subject': 'Vista satélite: {used} teselas este mes (80 % del límite)', 'pre': 'Límite mensual: {limit}.', 'blocks': [
    ('h', 'La vista satélite se acerca al límite'),
    ('p', 'Este mes ({month}) se han servido {used} teselas de satélite de Esri. El límite configurado es {limit}.'),
@@ -3503,7 +4143,9 @@ EMAIL_TEMPLATE_LABELS = {
  'payment_review': 'Pago en revisión', 'booking_rejected': 'Solicitud rechazada', 'booking_cancelled_center': 'Cancelada por el centro',
  'booking_cancelled_diver': 'Cancelada por el buceador', 'reminder': 'Recordatorio del día anterior', 'review_request': 'Petición de reseña',
  'promotion_received': 'Promoción recibida', 'experience_request': 'Solicitud de viaje enviada', 'experience_status': 'Respuesta a solicitud de viaje',
- 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
+ 'plan_expired': 'Centro: plan terminado', 'plan_paid': 'Centro: plan pagado', 'info_request': 'Centro: solicitud de información',
+ 'info_request_copy': 'Copia de la solicitud de información', 'insurance_expiring': 'Centro: seguro a punto de caducar', 'insurance_expired': 'Centro: seguro caducado',
+ 'monthly_stats': 'Centro: estadísticas del mes', 'team_invite': 'Invitación al equipo de un centro', 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
  'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'admin_new_pro': 'Admin: nueva cuenta profesional',
  'totp_enabled': 'Verificación en dos pasos activada', 'reminder_48h': 'Recordatorio 48 h antes', 'booking_changed': 'Cambio de fecha u hora', 'document_expiring': 'Documento a punto de caducar',
@@ -4775,6 +5417,15 @@ def handle_stripe_event(db, event, connect=False):
         except sqlite3.IntegrityError:
             return 'duplicate'
     obj = (event.get('data') or {}).get('object') or {}
+    meta = obj.get('metadata') or {}
+    if not connect and meta.get('kind') == 'plan_fee':
+        # Annual fee of a plan, charged on the platform account (Fase 6.2).
+        pp = int(meta.get('plan_payment_id') or 0) if str(meta.get('plan_payment_id') or '').isdigit() else 0
+        if event_type in ('checkout.session.completed', 'checkout.session.async_payment_succeeded') and obj.get('payment_status') in ('paid', None):
+            plan_payment_paid(db, pp, 'webhook')
+        elif event_type in ('checkout.session.expired', 'checkout.session.async_payment_failed'):
+            db.execute("UPDATE plan_payments SET status='failed' WHERE id=? AND status='pending'", (pp,))
+        return 'ok'
     if event_type in ('account.updated',):
         payee_account_updated(db, obj); return 'ok'
     if event_type == 'account.application.deauthorized' and account:
@@ -5319,6 +5970,45 @@ class Handler(BaseHTTPRequestHandler):
         super().send_response(code, message)
         self._sec_sent = False
 
+    def serve_widget(self, db, path, query):
+        """Booking widget (Fase 6.5): a small page any website can embed in an iframe. It lists the provider's activities
+        and next departures; every button opens the booking on WORLDIVES in a new tab (no payment inside the iframe)."""
+        parts = path.strip('/').split('/')
+        if len(parts) != 3 or parts[1] not in ('center', 'pro') or not parts[2].isdigit(): self.send_error(404); return
+        ptype = 'center' if parts[1] == 'center' else 'freelance'; pid = int(parts[2])
+        lang = normalize_lang(query.get('lang', ['es'])[0]); t = lambda x: mail_t(lang, x)
+        if ptype == 'center':
+            p = db.execute(f'SELECT id,name,city,country FROM centers c WHERE c.id=? AND {public_center_sql()}', (pid,)).fetchone()
+            name = p['name'] if p else ''; sq = 's.center_id=?'; book = lambda sid: f'{public_site_url()}/#/reservar?center={pid}&service={sid}'
+        else:
+            p = db.execute("SELECT id,fullname FROM users WHERE id=? AND role='freelance'", (pid,)).fetchone()
+            name = p['fullname'] if p else ''; sq = 's.provider_user_id=? AND s.center_id IS NULL'; book = lambda sid: f'{public_site_url()}/#/reservar?provider={pid}&service={sid}'
+        if not p: self.send_error(404); return
+        e = html.escape
+        if provider_has(db, ptype, pid, 'widget') and provider_has(db, ptype, pid, 'online_bookings'):
+            items = []
+            for sv in db.execute(f'SELECT s.id,s.title,s.price,s.currency,s.duration_minutes FROM provider_services s WHERE {sq} AND s.active=1 ORDER BY s.title LIMIT 30', (pid,)).fetchall():
+                slots = db.execute("SELECT slot_date,slot_time,spots_available FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date>=date('now') ORDER BY slot_date,slot_time LIMIT 3", (sv['id'],)).fetchall()
+                sl = ''.join(f'<li>{e(x["slot_date"])} {e(x["slot_time"] or "")} · ' + (e(t('Completa')) if int(x['spots_available'] or 0) <= 0 else f'{int(x["spots_available"])} ' + e(t('plazas'))) + '</li>' for x in slots)
+                items.append(f'<article><div><h2>{e(sv["title"])}</h2><p>{e(plan_money(sv["price"], sv["currency"] or "EUR"))}</p>{f"<ul>{sl}</ul>" if sl else ""}</div>'
+                             f'<a href="{e(book(sv["id"]))}" target="_blank" rel="noopener">{e(t("Reservar"))}</a></article>')
+            body = ''.join(items) or f'<p>{e(t("Todavía no hay actividades publicadas."))}</p>'
+        else:
+            link = f'{public_site_url()}/#/centro?id={pid}' if ptype == 'center' else f'{public_site_url()}/#/profesional?id={pid}'
+            body = f'<p>{e(t("Este centro todavía no tiene reserva online."))}</p><a href="{e(link)}" target="_blank" rel="noopener">{e(t("Solicitar información"))}</a>'
+        doc = f'''<!doctype html><html lang="{e(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(name)}</title>
+<style>body{{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#123142;background:#fff}}header{{padding:12px 14px;background:#07364a;color:#fff}}header b{{font-size:15px}}
+main{{padding:10px 14px;display:grid;gap:10px}}article{{display:flex;gap:10px;justify-content:space-between;align-items:center;border:1px solid #dfe6e7;border-radius:10px;padding:10px 12px}}
+h2{{font-size:15px;margin:0}}p{{margin:2px 0;color:#5f717b}}ul{{margin:4px 0 0;padding-left:16px;color:#5f717b;font-size:12px}}a{{background:#0b7a89;color:#fff;text-decoration:none;font-weight:700;padding:9px 14px;border-radius:999px;white-space:nowrap}}
+footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none;color:#0b7a89;padding:0}}</style></head>
+<body><header><b>{e(name)}</b></header><main>{body}</main><footer>{e(t("Reservas con"))} <a href="{e(public_site_url())}" target="_blank" rel="noopener">WORLDIVES DISCOVERY</a></footer></body></html>'''
+        raw = doc.encode('utf-8')
+        self.send_response(200); self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Content-Length', str(len(raw)))
+        self.send_header('Cache-Control', 'public, max-age=300'); self.send_header('X-Content-Type-Options', 'nosniff'); self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+        # Embeddable anywhere, but nothing runs inside: no scripts, no forms.
+        self.send_header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; frame-ancestors *; base-uri 'none'; form-action 'none'")
+        self._sec_sent = True; self.end_headers(); self.wfile.write(raw)
+
     def security_headers(self, csp=True):
         self._sec_sent = True
         self.send_header('X-Content-Type-Options', 'nosniff')
@@ -5531,6 +6221,20 @@ class Handler(BaseHTTPRequestHandler):
                 if path.startswith('/storage/'):
                     # Storage is private: documents only through the authenticated API. Images used by the app are public only when deliberately copied to assets.
                     self.send_error(403); return
+                if path.startswith('/ical/') and path.endswith('.ics'):
+                    # Private calendar feed (Fase 6.5): the long random token in the address is the only key.
+                    tok=path[len('/ical/'):-4]
+                    if not re.fullmatch(r'[A-Za-z0-9_-]{20,80}',tok): self.send_error(404); return
+                    r=db.execute('SELECT id FROM centers WHERE ical_token=?',(tok,)).fetchone(); ptype='center'
+                    if not r: r=db.execute("SELECT id FROM users WHERE ical_token=? AND role='freelance'",(tok,)).fetchone(); ptype='freelance'
+                    if not r or not provider_has(db,ptype,r['id'],'calendar_ical'): self.send_error(404); return
+                    raw=ical_feed(db,ptype,r['id']).encode('utf-8')
+                    self.send_response(200); self.send_header('Content-Type','text/calendar; charset=utf-8'); self.send_header('Content-Length',str(len(raw)))
+                    self.send_header('Cache-Control','private, max-age=300'); self.send_header('X-Robots-Tag','noindex'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
+                if path.startswith('/widget/'):
+                    self.serve_widget(db,path,query); return
+                if path.startswith('/api/'):
+                    team_gate(db,current_user(self,db),path,'GET')
                 if path == '/api/health':
                     # Public health check (uptime monitors): only ok + version (G15). Details: /api/admin/health.
                     db.execute('SELECT 1').fetchone()
@@ -5589,6 +6293,112 @@ class Handler(BaseHTTPRequestHandler):
                     last=db.execute("SELECT value FROM site_settings WHERE key='retention_last_report'").fetchone()
                     self.send_json({'settings':retention_settings(db),'defaults':RETENTION_DEFAULTS,'limits':RETENTION_LIMITS,'warn_days':RETENTION_WARN_DAYS,
                                     'log_days':wcfg.env_int('WOD_LOG_RETENTION_DAYS',14,1,365),'last':json.loads(last['value']) if last else None}); return
+                if path == '/api/plans':
+                    # Public: the plans and what each includes (Fase 6.2).
+                    items=[]
+                    for r in db.execute('SELECT code FROM plans WHERE active=1 ORDER BY sort_order,code').fetchall():
+                        p=plan_row(db,r['code']); items.append({k:p[k] for k in ('code','name','description','price_year','currency','features','limits')})
+                    self.send_json({'items':items,'features':PLAN_FEATURES,'limits':PLAN_LIMITS,'trial_days':plan_settings(db)['trial_days']}); return
+                if path == '/api/provider/plan':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    pays=[dict(r) for r in db.execute('SELECT id,plan_code,amount,currency,method,status,period_start,period_end,created_at,paid_at FROM plan_payments WHERE provider_type=? AND provider_id=? ORDER BY id DESC LIMIT 50',ref).fetchall()]
+                    self.send_json({'plan':provider_plan(db,*ref),'payments':pays,'online_payment':bool(os.environ.get('STRIPE_SECRET_KEY','').strip()) and not wcfg.demo_mode(),
+                                    'role':member_role(db,user) or 'owner'}); return
+                if path == '/api/provider/fiscal':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    self.send_json(provider_fiscal(db,*ref)); return
+                if path == '/api/provider/stats':
+                    # Every plan (also the free listing): aggregated counters and the anonymous comparison with the zone.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    days=max(7,min(365,int(query.get('days',['30'])[0] or 30)))
+                    self.send_json(provider_stats(db,*ref,days=days)); return
+                if path == '/api/center/info-requests':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    col='center_id' if ref[0]=='center' else 'provider_user_id'
+                    rows=[dict(r) for r in db.execute(f'SELECT id,name,email,phone,message,wanted_date,participants,lang,status,created_at,read_at FROM info_requests WHERE {col}=? ORDER BY id DESC LIMIT 300',(ref[1],)).fetchall()]
+                    self.send_json({'items':rows,'unread':sum(1 for r in rows if not r['read_at'])}); return
+                if path == '/api/center/export':
+                    # CSV exports in EVERY plan: clients, bookings, services and payments (payments only for owners).
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    kind=clean_text(query.get('kind',['bookings'])[0],20) or 'bookings'
+                    if kind=='payments' and (member_role(db,user) or 'owner')!='owner': raise PermissionError('Solo el propietario del centro puede exportar los pagos.')
+                    raw=provider_export(db,*ref,kind).encode('utf-8'); audit(db,user['id'],'provider_export',ref[0],ref[1],{'kind':kind}); db.commit()
+                    self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8')
+                    self.send_header('Content-Disposition',f'attachment; filename="worldives-{kind}-{_dt.date.today().isoformat()}.csv"')
+                    self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
+                if path == '/api/center/import/template':
+                    raw=csv_text([['Ana García','ana@example.org','+34 600 000 000','Advanced Open Water','Prefiere salidas de mañana']],['nombre','email','telefono','titulacion','notas']).encode('utf-8')
+                    self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8'); self.send_header('Content-Disposition','attachment; filename="plantilla-clientes.csv"')
+                    self.send_header('Content-Length',str(len(raw))); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
+                if path == '/api/provider/ical':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    require_feature(db,user,'calendar_ical')
+                    r=db.execute(f'SELECT ical_token FROM {provider_table(ref[0])} WHERE id=?',(ref[1],)).fetchone()
+                    self.send_json({'url':f"{public_site_url()}/ical/{r['ical_token']}.ics" if r and r['ical_token'] else None}); return
+                if path == '/api/provider/widget':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    base=public_site_url(); kind='center' if ref[0]=='center' else 'pro'
+                    link=f"{base}/#/reservar?center={ref[1]}" if ref[0]=='center' else f"{base}/#/profesional?id={ref[1]}"
+                    self.send_json({'widget':provider_has(db,*ref,'widget'),'link':link,'iframe':f'<iframe src="{base}/widget/{kind}/{ref[1]}" title="Reservas" style="width:100%;max-width:520px;height:560px;border:0" loading="lazy"></iframe>',
+                                    'whatsapp':'https://wa.me/?text='+quote('Reserva tu inmersión aquí: '+link),'instagram':link}); return
+                if path == '/api/center/team':
+                    user=require_user(self,db); require_role(user,{'center'})
+                    if not user['center_id']: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    members=[dict(r) for r in db.execute('''SELECT u.id,u.fullname,u.email,COALESCE(m.member_role,'owner') member_role,m.created_at FROM users u LEFT JOIN center_members m ON m.user_id=u.id AND m.center_id=u.center_id
+                                                             WHERE u.center_id=? AND u.role='center' ORDER BY m.member_role='owner' DESC,u.fullname''',(user['center_id'],)).fetchall()]
+                    inv=[dict(r) for r in db.execute('SELECT id,email,member_role,created_at,expires_at FROM team_invites WHERE center_id=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>=? ORDER BY id DESC',(user['center_id'],now())).fetchall()]
+                    self.send_json({'members':members,'invites':inv,'roles':TEAM_ROLES,'limit':plan_limit(db,'center',user['center_id'],'team_max'),'team_feature':provider_has(db,'center',user['center_id'],'team')}); return
+                if path == '/api/center/activity':
+                    user=require_user(self,db); require_role(user,{'center'})
+                    rows=[dict(r) for r in db.execute('''SELECT a.id,a.action,a.entity_type,a.entity_id,a.created_at,u.fullname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id
+                                                         WHERE a.center_id=? ORDER BY a.id DESC LIMIT 300''',(user['center_id'] or -1,)).fetchall()]
+                    self.send_json({'items':rows}); return
+                if path == '/api/team/invite':
+                    tok=clean_text(query.get('token',[''])[0],100) or ''
+                    r=db.execute('SELECT t.email,t.member_role,t.expires_at,t.used_at,t.revoked_at,c.name FROM team_invites t JOIN centers c ON c.id=t.center_id WHERE t.token_hash=?',(hashlib.sha256(tok.encode()).hexdigest(),)).fetchone()
+                    if not r or r['used_at'] or r['revoked_at'] or r['expires_at']<now(): self.send_json({'error':'La invitación no es válida o ha caducado.'},404); return
+                    self.send_json({'email':r['email'],'member_role':r['member_role'],'role_label':TEAM_ROLES.get(r['member_role']),'center':r['name']}); return
+                if path == '/api/admin/plans':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    plans=[plan_row(db,r['code']) for r in db.execute('SELECT code FROM plans ORDER BY sort_order,code').fetchall()]
+                    provs=[]
+                    for r in db.execute("SELECT id,name,city,country FROM centers c WHERE c.active=1 AND c.verification_status IN ('verified','demo') ORDER BY name LIMIT 500").fetchall():
+                        provs.append({'type':'center','id':r['id'],'name':r['name'],'place':', '.join(x for x in (r['city'],r['country']) if x),'plan':provider_plan(db,'center',r['id']),'fiscal_missing':provider_fiscal(db,'center',r['id'])['missing']})
+                    for r in db.execute("SELECT id,fullname FROM users WHERE role='freelance' AND center_id IS NULL ORDER BY fullname LIMIT 500").fetchall():
+                        provs.append({'type':'freelance','id':r['id'],'name':r['fullname'],'place':'','plan':provider_plan(db,'freelance',r['id']),'fiscal_missing':provider_fiscal(db,'freelance',r['id'])['missing']})
+                    pays=[dict(r) for r in db.execute('SELECT * FROM plan_payments ORDER BY id DESC LIMIT 100').fetchall()]
+                    self.send_json({'plans':plans,'features':PLAN_FEATURES,'limits':PLAN_LIMITS,'settings':plan_settings(db),'providers':provs,'payments':pays}); return
+                if path == '/api/admin/dac7':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    year=int(query.get('year',[str(_dt.date.today().year-1)])[0] or 0)
+                    if not 2020<=year<=2100: raise ValueError('Año no válido.')
+                    rows=dac7_report(db,year)
+                    if query.get('format',[''])[0]=='csv':
+                        head=['tipo_prestador','id','nombre','razon_social','persona','nif_tin','pais_emisor','registro_mercantil','fecha_nacimiento','direccion','cuenta_cobro','moneda',
+                              'importe_t1','importe_t2','importe_t3','importe_t4','actividades_t1','actividades_t2','actividades_t3','actividades_t4','comisiones','impuestos_retenidos','datos_incompletos']
+                        raw=csv_text([[r[h] for h in head] for r in rows],head).encode('utf-8'); audit(db,user['id'],'dac7_exported','system',None,{'year':year}); db.commit()
+                        self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8'); self.send_header('Content-Disposition',f'attachment; filename="dac7-{year}.csv"')
+                        self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
+                    self.send_json({'year':year,'items':rows}); return
+                if path == '/api/admin/features':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    inv=[dict(r) for r in db.execute('SELECT id,code,note,created_at,expires_at,used_at FROM pro_invites ORDER BY id DESC LIMIT 200').fetchall()]
+                    pilot=(db.execute("SELECT value FROM site_settings WHERE key='feature_pilot_mode'").fetchone() or {'value':'0'})['value']=='1'
+                    self.send_json({'switches':feature_switches(db),'labels':FEATURE_SWITCHES,'pilot_mode':pilot,'invites':inv}); return
+                if path == '/api/admin/insurance-doc':
+                    user=require_user(self,db); require_role(user,{'admin'}); ptype=query.get('type',['center'])[0]; pid=int(query.get('id',['0'])[0] or 0)
+                    if ptype not in ('center','freelance'): raise ValueError('Tipo no válido.')
+                    r=db.execute(f'SELECT insurance_doc FROM {provider_table(ptype)} WHERE id=?',(pid,)).fetchone()
+                    fp=document_file_path(r['insurance_doc']) if r and r['insurance_doc'] else None
+                    if not fp or not fp.exists(): self.send_json({'error':'Sin documento'},404); return
+                    audit(db,user['id'],'insurance_doc_viewed',ptype,pid); db.commit(); self.send_file(fp); return
                 if path == '/api/map/config':
                     self.send_json(map_config(db)); return
                 if path.startswith('/api/tiles/satellite/'):
@@ -5754,7 +6564,7 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); require_role(user,{'center','freelance'})
                     sid=int(query.get('service',['0'])[0] or 0); slot=int(query.get('slot',['0'])[0] or 0)
                     svc=db.execute('SELECT id,center_id,provider_user_id FROM provider_services WHERE id=?',(sid,)).fetchone() if sid else None
-                    if svc and svc['provider_user_id']!=user['id']: raise PermissionError('Ese servicio no pertenece a tu cuenta.')
+                    if svc and not owns_service(user,svc['provider_user_id'],svc['center_id']): raise PermissionError('Ese servicio no pertenece a tu cuenta.')
                     cid=(svc['center_id'] if svc else None) or user['center_id']
                     target=f'#/reservar?center={cid}'+(f'&service={sid}' if svc else '')+(f'&slot={slot}' if svc and slot else '') if cid else (f'#/profesional?id={user["id"]}')
                     url=f'{self.base_url()}/{target}'
@@ -5816,6 +6626,7 @@ class Handler(BaseHTTPRequestHandler):
                         'certifications': [dict(r) for r in db.execute('SELECT id,name FROM certifications WHERE active=1 ORDER BY name')],
                         'zones': [dict(r) for r in db.execute('SELECT id,zone,subregion,country FROM dive_zones WHERE active=1 ORDER BY zone,sort_order,subregion')],
                         'travel': [dict(r) for r in db.execute('SELECT * FROM travel_offers WHERE active=1 ORDER BY title')],
+                        'features': feature_switches(db),
                     })
                     return
                 if path == '/api/account/shares':
@@ -5841,6 +6652,7 @@ class Handler(BaseHTTPRequestHandler):
                         self.send_json({'authenticated': True, 'user': public_user(user), 'profile': dict(profile) if profile else None, 'documents': [dict(x) for x in docs], 'center_links':[dict(x) for x in links],
                                         'pro_request': dict(claim) if claim else None,
                                         'legal':dict(zip(('pending','upcoming'),legal_pending_for(db,user))),
+                                        'plan':provider_plan(db,*provider_ref(db,user)) if provider_ref(db,user) else None,'member_role':member_role(db,user),
                                         'security':{'totp_enabled':bool(user.get('totp_enabled')),'totp_setup_required':user['role']=='admin' and admin_totp_required() and not user.get('totp_enabled'),
                                                     'recovery_left':len(json.loads(user.get('totp_recovery') or '[]')) if user.get('totp_enabled') else 0}})
                     return
@@ -5848,7 +6660,8 @@ class Handler(BaseHTTPRequestHandler):
                     provider_id=int(path.rsplit('/',1)[1])
                     u=db.execute("SELECT id,fullname,role,provider_bio,avatar_url,center_id,instagram_url,facebook_url,twitter_url,youtube_url,tiktok_url FROM users WHERE id=? AND role IN ('center','freelance')",(provider_id,)).fetchone()
                     if not u: self.send_json({'error':'Profesional no encontrado'},404); return
-                    result={'id':u['id'],'fullname':u['fullname'],'role':u['role'],'provider_bio':u['provider_bio'] or '', 'avatar_url':u['avatar_url'] or '', 'socials': {k:(u[k] or '') for k in ('instagram_url','facebook_url','twitter_url','youtube_url','tiktok_url')}}
+                    if u['role']=='freelance' and not u['center_id']: stat_bump(db,'freelance',u['id'],'views',self.client_ip()); db.commit()
+                    result={'online_booking':provider_has(db,'freelance',u['id'],'online_bookings') if u['role']=='freelance' and not u['center_id'] else None,'id':u['id'],'fullname':u['fullname'],'role':u['role'],'provider_bio':u['provider_bio'] or '', 'avatar_url':u['avatar_url'] or '', 'socials': {k:(u[k] or '') for k in ('instagram_url','facebook_url','twitter_url','youtube_url','tiktok_url')}}
                     if u['role']=='center' and u['center_id']:
                         c=db.execute('SELECT * FROM centers WHERE id=? AND active=1',(u['center_id'],)).fetchone()
                         if c:
@@ -5876,6 +6689,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({'payment':d}); return
                 if path == '/api/center/analytics':
                     user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    require_feature(db,user,'analytics')
                     if not cid: raise ValueError('La cuenta aún no tiene un centro aprobado.')
                     bookings=db.execute(f'''SELECT b.*,COALESCE(b.contact_name,u.fullname) AS fullname,u.email,s.title AS service_title,p.name AS point_name FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.center_id=? AND b.status NOT IN ('payment_in_progress','expired') ORDER BY b.booking_date,b.booking_time''',(cid,)).fetchall()
                     today=time.strftime('%Y-%m-%d'); total=len(bookings)
@@ -5907,16 +6721,22 @@ class Handler(BaseHTTPRequestHandler):
                     # Paused services are only listed for their own provider (management panel). Public listings stay active-only.
                     include_inactive=0
                     center_filter=int(query.get('center_id',['0'])[0] or 0)  # booking engine asks only for one center's catalog
+                    owner_center=None
+                    if provider_id:
+                        pu=db.execute("SELECT role,center_id FROM users WHERE id=?",(provider_id,)).fetchone()
+                        if pu and pu['role']=='center' and pu['center_id']:
+                            # Fase 6.6: a centre's catalogue is the whole team's, whoever created each service.
+                            owner_center=int(pu['center_id']); center_filter=center_filter or owner_center
                     if provider_id and query.get('include_inactive',['0'])[0]=='1':
                         viewer=current_user(self,db)
-                        include_inactive=1 if viewer and int(viewer['id'])==provider_id else 0
+                        include_inactive=1 if viewer and (int(viewer['id'])==provider_id or (owner_center and viewer['role']=='center' and viewer['center_id']==owner_center)) else 0
                     if not provider_id and not center_filter:
                         # Never dump the whole marketplace catalog in one answer: ask for one center or provider.
                         raise ValueError('Indica el centro o el profesional cuyo catálogo quieres ver.')
                     rows=db.execute('''SELECT s.*, u.fullname AS provider_name, c.name AS center_name
                                       FROM provider_services s JOIN users u ON u.id=s.provider_user_id
                                       LEFT JOIN centers c ON c.id=s.center_id
-                                      WHERE (s.active=1 OR ?=1) AND (?=0 OR s.provider_user_id=?) AND (?=0 OR s.center_id=?) ORDER BY s.title''',(include_inactive,provider_id,provider_id,center_filter,center_filter)).fetchall()
+                                      WHERE (s.active=1 OR ?=1) AND (?=0 OR s.provider_user_id=?) AND (?=0 OR s.center_id=?) ORDER BY s.title''',(include_inactive,0 if owner_center else provider_id,provider_id,center_filter,center_filter)).fetchall()
                     result=[]; ids=[r['id'] for r in rows]
                     slots_by_service={}; points_by_slot={}; exp_by_service={}
                     # Batched queries: a constant number of queries per request instead of one per departure.
@@ -6116,6 +6936,8 @@ class Handler(BaseHTTPRequestHandler):
                                                  AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))
                                                ORDER BY e.id DESC LIMIT 12''',(cid,)).fetchall()
                         _ci=center_row(row); _ci['cancellation_policy']=cancellation_policy_key(row['cancellation_policy']); _ci['cancellation_text']=cancellation_policy_text(row['cancellation_policy']); _ci['cancellation_note']=row['cancellation_note'] or ''
+                        _ci['online_booking']=provider_has(db,'center',cid,'online_bookings'); stat_bump(db,'center',cid,'views',self.client_ip()); db.commit()
+                        if not feature_switch(db,'reviews'): review_payload=[]; can_review=False; _ci['reviews_off']=True
                         self.send_json({'item':_ci,'points':[point_row(r) for r in points],'services':service_out,'experiences':enrich_experiences(db,exp_rows), 'reviews':review_payload, 'review':{'can_review':can_review,'reason':review_reason,'current':current_review,'can_reply':bool(current and current['role']=='center' and current['center_id']==cid),'is_admin':bool(current and current['role']=='admin')}}); return
                 if path.startswith('/api/dive-points/') and path.endswith('/virtual'):
                     pid=int(path.split('/')[3])
@@ -6377,6 +7199,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path == '/api/points':
                     # Fase 3: the points balance (the ledger), its movements and the exchange codes.
                     user=require_user(self,db)
+                    require_switch(db,'points')
                     sync_user_rewards(db,user['id']); db.commit()
                     rows=db.execute('SELECT id,points,kind,description,created_at FROM points_ledger WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 500',(user['id'],)).fetchall()
                     red=db.execute('''SELECT rr.id,rr.code,rr.cost_points,rr.status,rr.created_at,rr.redeemed_at,rr.expires_at,rr.cancelled_at,ro.title,ro.reward_type,ro.value_text,ro.conditions,c.name AS center_name
@@ -6404,6 +7227,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path == '/api/center/redemptions':
                     # Exchange codes of the centre's advantages, to validate at the desk.
                     user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    require_switch(db,'points')
                     code=(clean_text(query.get('code',[''])[0],40) or '').strip().upper()
                     if code:
                         r=db.execute('''SELECT rr.id,rr.code,rr.cost_points,rr.status,rr.created_at,rr.redeemed_at,rr.expires_at,ro.title,ro.value_text,ro.conditions,ro.center_id,u.fullname
@@ -6513,7 +7337,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except PermissionError as e:
                 db.rollback()  # never persist half-done work when a request fails
-                self.send_json({'error':str(e)},403)
+                self.send_json({'error':str(e),**getattr(e,'extra',{})},403)
             except ValueError as e:
                 db.rollback()  # never persist half-done work when a request fails
                 self.send_json({'error':str(e)},400)
@@ -6572,6 +7396,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 if path=='/api/payments/webhook':
                     stripe_webhook(self,db,'STRIPE_WEBHOOK_SECRET',False); return
+                team_gate(db,current_user(self,db),path,'POST')
                 if path=='/api/payments/webhook/connect':
                     # Events of the connected accounts (direct charges, refunds, disputes, account changes).
                     stripe_webhook(self,db,'STRIPE_CONNECT_WEBHOOK_SECRET',True); return
@@ -6581,6 +7406,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not stripe_secret(): raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
                     table=payee_table(payee); base=public_site_url(); back=f'{base}/#/pagos?stripe='
                     action=path.rsplit('/',1)[1]
+                    if action=='onboard' and user['role']!='admin': require_switch(db,'online_payments'); require_feature(db,user,'online_payments')
                     try:
                         stripe=stripe_module()
                         if action=='unlink':
@@ -6817,7 +7643,7 @@ class Handler(BaseHTTPRequestHandler):
                         db.execute('UPDATE users SET avatar_url=? WHERE id=?',(public_url,user['id']))
                     audit(db,user['id'],'provider_avatar_updated','center' if user['role']=='center' else 'user',user['center_id'] if user['role']=='center' else user['id']); db.commit(); self.send_json({'ok':True,'url':public_url}); return
                 if path.startswith('/api/centers/') and path.endswith('/reviews'):
-                    user=require_user(self,db)
+                    user=require_user(self,db); require_switch(db,'reviews')
                     parts=path.strip('/').split('/')
                     cid=int(parts[2]) if len(parts)>=4 and parts[2].isdigit() else 0
                     if not cid or not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(cid,)).fetchone():
@@ -6858,6 +7684,7 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('''INSERT INTO center_equipment(center_id,code,label,price,active,sort_order,updated_at) VALUES(?,?,?,?,1,?,?) ON CONFLICT(center_id,code) DO UPDATE SET label=excluded.label,price=excluded.price,active=1,updated_at=excluded.updated_at''',(center_id,code,label,price,list(defaults).index(code),now())); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center/integration/regenerate':
                     user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    require_feature(db,user,'integration')
                     if not cid: raise ValueError('La cuenta aún no tiene un centro aprobado.')
                     key='wod_'+secrets.token_urlsafe(32); digest=hashlib.sha256(key.encode()).hexdigest(); prefix=key[:12]
                     if db.execute('SELECT id FROM center_integrations WHERE center_id=?',(cid,)).fetchone(): db.execute('UPDATE center_integrations SET api_key_hash=?,api_key_prefix=?,enabled=1,updated_at=? WHERE center_id=?',(digest,prefix,now(),cid))
@@ -6865,6 +7692,7 @@ class Handler(BaseHTTPRequestHandler):
                     audit(db,user['id'],'center_api_key_regenerated','center',cid); db.commit(); self.send_json({'ok':True,'api_key':key,'prefix':prefix}); return
                 if path=='/api/center/integration/toggle':
                     user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0); data=json_body(self); enabled=1 if data.get('enabled',True) else 0
+                    require_feature(db,user,'integration')
                     db.execute('UPDATE center_integrations SET enabled=?,updated_at=? WHERE center_id=?',(enabled,now(),cid)); audit(db,user['id'],'center_integration_toggled','center',cid,{'enabled':bool(enabled)}); db.commit(); self.send_json({'ok':True,'enabled':bool(enabled)}); return
                 if path=='/api/integrations/bookings':
                     key=self.headers.get('X-WORLDIVES-API-Key','').strip(); data=json_body(self)
@@ -6915,6 +7743,10 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
                     center_id=user['center_id'] if user['role']=='center' else None
                     if user['role']=='center' and not center_id: raise ValueError('Tu cuenta de centro no tiene una ficha asociada.')
+                    ref=provider_ref(db,user); lim=plan_limit(db,*ref,'services_max') if ref else 0
+                    if lim:
+                        n_=db.execute('SELECT COUNT(*) FROM provider_services WHERE active=1 AND '+('center_id=?' if ref[0]=='center' else 'provider_user_id=? AND center_id IS NULL'),(ref[1],)).fetchone()[0]
+                        if n_>=lim: raise PlanRequired('services_max',f'Tu plan permite {lim} servicios publicados. Desactiva alguno o cambia de plan.')
                     title=clean_text(data.get('title'),180)
                     if not title: raise ValueError('El nombre del servicio es obligatorio.')
                     price=max(0.0,float(data.get('price') or 0)); duration=int(data.get('duration_minutes') or 0) or None; maxp=int(data.get('max_participants') or 0) or None
@@ -6935,8 +7767,8 @@ class Handler(BaseHTTPRequestHandler):
                     audit(db,user['id'],'service_created','provider_service',sid); db.commit(); self.send_json({'ok':True,'id':sid}); return
                 if path=='/api/provider-services/delete':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
-                    row=db.execute('SELECT provider_user_id,title FROM provider_services WHERE id=?',(sid,)).fetchone()
-                    if not row or row['provider_user_id']!=user['id']: raise PermissionError('Este servicio no pertenece a tu cuenta.')
+                    row=db.execute('SELECT provider_user_id,center_id,title FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise PermissionError('Este servicio no pertenece a tu cuenta.')
                     # Do not destroy a service that already has bookings: historical reservations must keep their context.
                     bookings_count=db.execute('SELECT COUNT(*) FROM bookings WHERE service_id=?',(sid,)).fetchone()[0]
                     if bookings_count:
@@ -6948,7 +7780,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/provider-services/update':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
                     row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
-                    if not row or row['provider_user_id']!=user['id']: raise PermissionError('Este servicio no pertenece a tu cuenta.')
+                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise PermissionError('Este servicio no pertenece a tu cuenta.')
                     duration=int(data.get('duration_minutes') or 0) or None; maxp=int(data.get('max_participants') or 0) or None
                     title=clean_text(data.get('title'),180)
                     if not title: raise ValueError('El nombre del servicio es obligatorio.')
@@ -6976,8 +7808,8 @@ class Handler(BaseHTTPRequestHandler):
                     audit(db,user['id'],'service_updated','provider_service',sid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/provider-services/slot':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('service_id') or 0)
-                    row=db.execute('SELECT provider_user_id FROM provider_services WHERE id=?',(sid,)).fetchone()
-                    if not row or row['provider_user_id']!=user['id']: raise PermissionError('Este servicio no pertenece a tu cuenta.')
+                    row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise PermissionError('Este servicio no pertenece a tu cuenta.')
                     date=clean_text(data.get('slot_date'),20); tm=clean_text(data.get('slot_time'),10); total=max(1,int(data.get('spots_total') or 1))
                     if not date or not tm: raise ValueError('Indica fecha y hora de la salida.')
                     service=db.execute('SELECT center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
@@ -7001,8 +7833,8 @@ class Handler(BaseHTTPRequestHandler):
                     audit(db,user['id'],'service_slot_updated','service_slot',slot_id,{'spots_total':total,'spots_available':available,'dive_point_ids':point_ids}); db.commit(); self.send_json({'ok':True,'slot_id':slot_id,'spots_available':available}); return
                 if path=='/api/provider-services/slot-update':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); slot_id=int(data.get('id') or 0)
-                    slot=db.execute('SELECT ss.*,s.provider_user_id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
-                    if not slot or slot['provider_user_id']!=user['id']: raise PermissionError('Esta salida no pertenece a tu cuenta.')
+                    slot=db.execute('SELECT ss.*,s.provider_user_id,s.center_id AS service_center_id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
+                    if not slot or not owns_service(user,slot['provider_user_id'],slot['service_center_id']): raise PermissionError('Esta salida no pertenece a tu cuenta.')
                     date=clean_text(data.get('slot_date'),20) or slot['slot_date']; tm=clean_text(data.get('slot_time'),10) or slot['slot_time']; total=max(1,int(data.get('spots_total') or slot['spots_total']))
                     consumed=int(slot['spots_total'])-int(slot['spots_available'])
                     if total < consumed: raise ValueError(f'No puedes bajar la capacidad a {total}: ya hay {consumed} plazas ocupadas.')
@@ -7019,8 +7851,8 @@ class Handler(BaseHTTPRequestHandler):
                     audit(db,user['id'],'service_slot_updated','service_slot',slot_id,{'spots_total':total,'spots_available':available,'dive_point_ids':point_ids}); db.commit(); self.send_json({'ok':True,'slot_id':slot_id,'spots_available':available}); return
                 if path=='/api/provider-services/slot-delete':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); slot_id=int(data.get('id') or 0)
-                    slot=db.execute('SELECT ss.*,s.provider_user_id,s.title AS service_title FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
-                    if not slot or slot['provider_user_id']!=user['id']: raise PermissionError('Esta salida no pertenece a tu cuenta.')
+                    slot=db.execute('SELECT ss.*,s.provider_user_id,s.center_id AS service_center_id,s.title AS service_title FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
+                    if not slot or not owns_service(user,slot['provider_user_id'],slot['service_center_id']): raise PermissionError('Esta salida no pertenece a tu cuenta.')
                     active=db.execute("SELECT COUNT(*) FROM bookings WHERE slot_id=? AND slot_reserved=1 AND status NOT IN ('cancelled','rejected')",(slot_id,)).fetchone()[0]
                     if active: raise ValueError('No puedes eliminar una salida que tiene reservas activas. Cancela o gestiona primero esas reservas.')
                     db.execute('DELETE FROM service_slot_points WHERE slot_id=?',(slot_id,))
@@ -7029,12 +7861,13 @@ class Handler(BaseHTTPRequestHandler):
                     db.commit(); self.send_json({'ok':True,'id':slot_id}); return
                 if path=='/api/provider-services/slot-close':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); slot_id=int(data.get('id') or 0)
-                    slot=db.execute('SELECT ss.*,s.provider_user_id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
-                    if not slot or slot['provider_user_id']!=user['id']: raise PermissionError('Esta salida no pertenece a tu cuenta.')
+                    slot=db.execute('SELECT ss.*,s.provider_user_id,s.center_id AS service_center_id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
+                    if not slot or not owns_service(user,slot['provider_user_id'],slot['service_center_id']): raise PermissionError('Esta salida no pertenece a tu cuenta.')
                     active=db.execute("SELECT COUNT(*) FROM bookings WHERE slot_id=? AND slot_reserved=1 AND status NOT IN ('cancelled','rejected')",(slot_id,)).fetchone()[0]
                     if active: raise ValueError('No puedes cerrar una salida que todavía tiene reservas activas.')
                     db.execute("UPDATE service_slots SET status='closed',updated_at=? WHERE id=?",(now(),slot_id)); audit(db,user['id'],'service_slot_closed','service_slot',slot_id); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/payments/checkout':
+                    require_switch(db,'online_payments')
                     # Pay a booking (payment_in_progress within its hold, or accepted_pending_payment before its deadline)
                     # or an accepted travel experience. Everything else is refused.
                     user=require_user(self,db); data=json_body(self); booking_id=int(data.get('booking_id') or 0) or None; experience_booking_id=int(data.get('experience_booking_id') or 0) or None
@@ -7191,6 +8024,263 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('INSERT INTO image_origins(path,credit,origin,updated_at,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(path) DO UPDATE SET credit=excluded.credit,origin=excluded.origin,updated_at=excluded.updated_at,updated_by=excluded.updated_by',
                                (p,clean_text(data.get('credit'),200) or '',clean_text(data.get('origin'),300) or '',now(),user['id']))
                     audit(db,user['id'],'image_origin_updated','image',None,{'path':p}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/provider/plan/checkout':
+                    # Annual fee on the PLATFORM's Stripe account (the only money WORLDIVES charges).
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    p=plan_row(db,clean_text(data.get('plan'),20) or '')
+                    if not p or not p['active'] or p['code']=='free': raise ValueError('Plan no válido.')
+                    if not p['price_year'] or float(p['price_year'])<=0: raise ValueError('Este plan todavía no tiene precio. Escríbenos y lo activamos.')
+                    if not stripe_secret(): raise ValueError('El pago online de la cuota no está disponible. Escríbenos y lo activamos con transferencia.')
+                    pid_=db.execute("INSERT INTO plan_payments(provider_type,provider_id,plan_code,amount,currency,method,status,created_by,created_at) VALUES(?,?,?,?,?,'stripe','pending',?,?)",
+                                    (ref[0],ref[1],p['code'],float(p['price_year']),p['currency'],user['id'],now())).lastrowid
+                    db.commit(); base=public_site_url()
+                    try:
+                        stripe=stripe_module()
+                        sess=stripe.checkout.Session.create(mode='payment',
+                            line_items=[{'price_data':{'currency':p['currency'].lower(),'product_data':{'name':f"WORLDIVES · {p['name']} · 12 meses"[:250],'description':provider_label(db,*ref)[:200]},
+                                                       'unit_amount':int(round(float(p['price_year'])*100))},'quantity':1}],
+                            success_url=f'{base}/#/mi-plan?pago={{CHECKOUT_SESSION_ID}}',cancel_url=f'{base}/#/mi-plan',
+                            metadata={'kind':'plan_fee','plan_payment_id':str(pid_),'platform':'worldives'},client_reference_id=f'PLAN-{pid_}',
+                            customer_email=user['email'] if mail_deliverable(user['email']) else None,locale='auto',idempotency_key=f'wod-plan-{pid_}')
+                    except Exception as exc:
+                        db.execute("UPDATE plan_payments SET status='failed' WHERE id=?",(pid_,)); db.commit()
+                        sys.stderr.write(f'[planes] Stripe rechazó el pago {pid_}: {exc}\n'); raise ValueError('No se ha podido abrir el pago. Inténtalo de nuevo en unos minutos.')
+                    db.execute('UPDATE plan_payments SET stripe_session_id=?,checkout_url=? WHERE id=?',(sess.id,sess.url,pid_)); db.commit()
+                    self.send_json({'ok':True,'checkout_url':sess.url}); return
+                if path=='/api/provider/plan/sync':
+                    # Back from Stripe: confirm the payment at once (the webhook does the same, idempotently).
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
+                    r=db.execute('SELECT * FROM plan_payments WHERE stripe_session_id=? AND provider_type=? AND provider_id=?',(clean_text(data.get('session_id'),200) or '',*ref)).fetchone() if ref else None
+                    if not r: raise ValueError('Pago no encontrado.')
+                    if r['status']!='paid' and stripe_secret():
+                        sess=stripe_module().checkout.Session.retrieve(r['stripe_session_id'])
+                        if getattr(sess,'payment_status',None)=='paid' or (isinstance(sess,dict) and sess.get('payment_status')=='paid'): plan_payment_paid(db,r['id'],'return')
+                    db.commit(); self.send_json({'ok':True,'plan':provider_plan(db,*ref)}); return
+                if path=='/api/admin/plans/save':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    code=clean_text(data.get('code'),20) or ''
+                    if not re.fullmatch(r'[a-z][a-z0-9_]{1,19}',code): raise ValueError('El código del plan solo admite minúsculas, números y guion bajo.')
+                    name=clean_text(data.get('name'),80)
+                    if not name: raise ValueError('Ponle un nombre al plan.')
+                    price=data.get('price_year')
+                    if price in ('',None): price=None
+                    else:
+                        try: price=round(float(str(price).replace(',','.')),2)
+                        except ValueError: raise ValueError('El precio no es válido.')
+                        if price<0 or price>100000: raise ValueError('El precio no es válido.')
+                    if code=='free': price=0
+                    feats={k:bool((data.get('features') or {}).get(k)) for k in PLAN_FEATURES}
+                    if code=='free' and any(feats[k] for k in ('online_bookings','online_payments')): raise ValueError('La ficha gratuita no incluye reservas ni cobros online.')
+                    limits={}
+                    for k in PLAN_LIMITS:
+                        try: limits[k]=max(0,int((data.get('limits') or {}).get(k) or 0))
+                        except (TypeError,ValueError): raise ValueError('Los límites tienen que ser números enteros.')
+                    cur=(clean_text(data.get('currency'),3) or 'EUR').upper()
+                    if not re.fullmatch(r'[A-Z]{3}',cur): raise ValueError('Moneda no válida.')
+                    active=0 if (code!='free' and data.get('active') is False) else 1
+                    db.execute('''INSERT INTO plans(code,name,description,price_year,currency,features,limits,active,sort_order,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)
+                                  ON CONFLICT(code) DO UPDATE SET name=excluded.name,description=excluded.description,price_year=excluded.price_year,currency=excluded.currency,
+                                  features=excluded.features,limits=excluded.limits,active=excluded.active,updated_at=excluded.updated_at''',
+                               (code,name,clean_text(data.get('description'),500) or '',price,cur,json.dumps(feats),json.dumps(limits),active,int(data.get('sort_order') or 9),now()))
+                    audit(db,user['id'],'plan_saved','plan',None,{'code':code,'price':price,'features':feats,'limits':limits}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/plans/settings':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    try: days=int(data.get('trial_days'))
+                    except (TypeError,ValueError): raise ValueError('Los días de prueba tienen que ser un número.')
+                    if not 0<=days<=365: raise ValueError('La prueba gratuita va de 0 a 365 días.')
+                    tp=clean_text(data.get('trial_plan'),20) or 'pro'
+                    if not db.execute("SELECT 1 FROM plans WHERE code=? AND code<>'free'",(tp,)).fetchone(): raise ValueError('Plan de prueba no válido.')
+                    for k,v in (('plans_trial_days',str(days)),('plans_trial_plan',tp)):
+                        db.execute('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by',(k,v,now(),user['id']))
+                    audit(db,user['id'],'plan_settings_saved','system',None,{'trial_days':days,'trial_plan':tp}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/plans/assign':
+                    # Manual activation (bank transfer, agreement…) or move to the free listing, always with a note.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    ptype=data.get('type'); pid=int(data.get('id') or 0); code=clean_text(data.get('plan'),20) or ''
+                    if ptype not in ('center','freelance') or not db.execute(f'SELECT 1 FROM {provider_table(ptype)} WHERE id=?',(pid,)).fetchone(): raise ValueError('Centro o profesional no válido.')
+                    note=clean_text(data.get('note'),500) or ''
+                    if len(note)<3: raise ValueError('Añade una nota (por ejemplo, «transferencia del 12/10»).')
+                    if code=='free':
+                        db.execute(f"UPDATE {provider_table(ptype)} SET plan_code='free',plan_status='free',plan_expires_at=NULL WHERE id=?",(pid,))
+                        audit(db,user['id'],'plan_set_free',ptype,pid,{'note':note}); db.commit(); self.send_json({'ok':True}); return
+                    p=plan_row(db,code)
+                    if not p: raise ValueError('Plan no válido.')
+                    months=max(1,min(36,int(data.get('months') or 12)))
+                    start,end=set_provider_plan(db,ptype,pid,code,months,'active')
+                    amount=float(str(data.get('amount') or p['price_year'] or 0).replace(',','.'))
+                    db.execute("INSERT INTO plan_payments(provider_type,provider_id,plan_code,amount,currency,method,status,period_start,period_end,note,created_by,created_at,paid_at) VALUES(?,?,?,?,?,'manual','paid',?,?,?,?,?,?)",
+                               (ptype,pid,code,amount,p['currency'],start,end,note,user['id'],now(),now()))
+                    audit(db,user['id'],'plan_assigned',ptype,pid,{'plan':code,'months':months,'until':end,'note':note}); db.commit(); self.send_json({'ok':True,'until':end}); return
+                if path=='/api/admin/plans/exception':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    ptype=data.get('type'); pid=int(data.get('id') or 0); feat=data.get('feature'); reason=clean_text(data.get('reason'),500) or ''
+                    if ptype not in ('center','freelance') or not db.execute(f'SELECT 1 FROM {provider_table(ptype)} WHERE id=?',(pid,)).fetchone(): raise ValueError('Centro o profesional no válido.')
+                    if feat not in PLAN_FEATURES: raise ValueError('Función no válida.')
+                    if len(reason)<5: raise ValueError('Explica el motivo de la excepción.')
+                    db.execute('UPDATE plan_exceptions SET removed_at=?,removed_by=? WHERE provider_type=? AND provider_id=? AND feature=? AND removed_at IS NULL',(now(),user['id'],ptype,pid,feat))
+                    eid=db.execute('INSERT INTO plan_exceptions(provider_type,provider_id,feature,enabled,reason,created_by,created_at) VALUES(?,?,?,?,?,?,?)',(ptype,pid,feat,1 if data.get('enabled') else 0,reason,user['id'],now())).lastrowid
+                    audit(db,user['id'],'plan_exception_added',ptype,pid,{'feature':feat,'enabled':bool(data.get('enabled')),'reason':reason}); db.commit(); self.send_json({'ok':True,'id':eid}); return
+                if path=='/api/admin/plans/exception/remove':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    r=db.execute('SELECT * FROM plan_exceptions WHERE id=? AND removed_at IS NULL',(int(data.get('id') or 0),)).fetchone()
+                    if not r: raise ValueError('Excepción no encontrada.')
+                    db.execute('UPDATE plan_exceptions SET removed_at=?,removed_by=? WHERE id=?',(now(),user['id'],r['id']))
+                    audit(db,user['id'],'plan_exception_removed',r['provider_type'],r['provider_id'],{'feature':r['feature']}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/features':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); changed={}
+                    for k,v in (data.get('switches') or {}).items():
+                        if k not in FEATURE_SWITCHES: continue
+                        changed[k]=bool(v)
+                        db.execute('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by',('feature_'+k,'1' if v else '0',now(),user['id']))
+                    if 'pilot_mode' in data:
+                        changed['pilot_mode']=bool(data['pilot_mode'])
+                        db.execute('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by',('feature_pilot_mode','1' if data['pilot_mode'] else '0',now(),user['id']))
+                    for n in ('PROMOS','DIRECTORY','TRAVEL'): globals()[n].invalidate()
+                    audit(db,user['id'],'features_updated','system',None,changed); db.commit(); self.send_json({'ok':True,'switches':feature_switches(db)}); return
+                if path=='/api/admin/invites':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    if data.get('revoke'):
+                        db.execute("UPDATE pro_invites SET expires_at=? WHERE id=? AND used_at IS NULL",((_dt.date.today()-_timedelta(days=1)).isoformat(),int(data['revoke'])))
+                        audit(db,user['id'],'pro_invite_revoked','pro_invite',int(data['revoke'])); db.commit(); self.send_json({'ok':True}); return
+                    days=max(1,min(365,int(data.get('days') or 30))); code='WOD-'+secrets.token_hex(4).upper()
+                    db.execute('INSERT INTO pro_invites(code,note,created_by,created_at,expires_at) VALUES(?,?,?,?,?)',(code,clean_text(data.get('note'),200) or '',user['id'],now(),(_dt.date.today()+_timedelta(days=days)).isoformat()))
+                    audit(db,user['id'],'pro_invite_created','pro_invite',None,{'code':code}); db.commit(); self.send_json({'ok':True,'code':code}); return
+                if path=='/api/info-requests':
+                    # «Solicitar información» for providers without online booking (and for any provider): email + panel.
+                    data=json_body(self); ip=self.client_ip()
+                    if report_rate_limited('info:'+ip): self.send_json({'error':'Has enviado muchas solicitudes seguidas. Inténtalo más tarde.'},429); return
+                    cid=int(data.get('center_id') or 0) or None; puid=int(data.get('provider_user_id') or 0) or None
+                    if cid:
+                        if not db.execute(f'SELECT 1 FROM centers c WHERE c.id=? AND {public_center_sql()}',(cid,)).fetchone(): raise ValueError('Centro no válido.')
+                        ptype,pid_='center',cid
+                    elif puid and db.execute("SELECT 1 FROM users WHERE id=? AND role='freelance'",(puid,)).fetchone(): ptype,pid_='freelance',puid
+                    else: raise ValueError('Centro no válido.')
+                    cu=current_user(self,db)
+                    name=clean_text(data.get('name'),120) or (cu['fullname'] if cu else ''); email=(clean_text(data.get('email'),160) or (cu['email'] if cu else '') or '').lower()
+                    msg=clean_text(data.get('message'),2000) or ''
+                    if len(name)<2: raise ValueError('Escribe tu nombre.')
+                    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email) or email.endswith('.local'): raise ValueError('Escribe un email válido para que el centro pueda contestarte.')
+                    if len(msg)<10: raise ValueError('Cuéntale al centro qué necesitas (mínimo 10 caracteres).')
+                    if not data.get('accept_privacy'): raise ValueError('Acepta que enviemos tus datos al centro para que te conteste.')
+                    wanted=clean_text(data.get('wanted_date'),10) or None
+                    if wanted:
+                        try: _dt.date.fromisoformat(wanted)
+                        except ValueError: raise ValueError('Fecha no válida.')
+                    pax=max(0,min(99,int(data.get('participants') or 0)))
+                    lang=normalize_lang(data.get('lang') or 'es')
+                    rid=db.execute('INSERT INTO info_requests(center_id,provider_user_id,user_id,name,email,phone,message,wanted_date,participants,lang,status,ip_hash,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                                   (cid,puid,cu['id'] if cu else None,name,email,clean_text(data.get('phone'),40) or '',msg,wanted,pax or None,lang,'new',wsec.ip_hash(ip),now())).lastrowid
+                    stat_bump(db,ptype,pid_,'info_requests')
+                    label=provider_label(db,ptype,pid_)
+                    for uid in provider_users(db,ptype,pid_,owners_only=False):
+                        notify_user(db,uid,'info_request',{'center':label,'client_name':name,'client_email':email,'client_phone':clean_text(data.get('phone'),40) or '—','message':msg,
+                                    'wanted':mail_date(wanted,user_lang(db,uid)) if wanted else '—','participants':pax or '—','panel_url':f'{public_site_url()}/#/admin?tab=requests'},('info_request',rid))
+                    queue_email(db,'info_request_copy',email,name,{'first_name':name.split(' ')[0],'center':label,'message':msg},lang,('info_request',rid))
+                    audit(db,cu['id'] if cu else None,'info_request_sent',ptype,pid_,{'id':rid}); db.commit(); self.send_json({'ok':True,'id':rid}); return
+                if path=='/api/center/info-requests/read':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
+                    col='center_id' if ref and ref[0]=='center' else 'provider_user_id'
+                    if not ref or not db.execute(f'UPDATE info_requests SET read_at=COALESCE(read_at,?),status=? WHERE id=? AND {col}=?',(now(),'answered' if data.get('answered') else 'read',int(data.get('id') or 0),ref[1])).rowcount:
+                        raise ValueError('Solicitud no encontrada.')
+                    db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/stats/track':
+                    data=json_body(self); ev=data.get('event'); ptype=data.get('type'); pid_=int(data.get('id') or 0)
+                    if ev=='book_click' and ptype in ('center','freelance') and pid_: stat_bump(db,ptype,pid_,'book_clicks',self.client_ip()); db.commit()
+                    self.send_json({'ok':True}); return
+                if path=='/api/provider/fiscal':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    save_provider_fiscal(db,*ref,data); audit(db,user['id'],'provider_fiscal_data_updated',ref[0],ref[1]); db.commit()
+                    self.send_json({'ok':True,'fiscal':provider_fiscal(db,*ref)}); return
+                if path=='/api/provider/insurance-doc':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    fields,files=parse_multipart(self)
+                    if not files.get('file'): raise ValueError('Adjunta la póliza o el certificado del seguro (PDF o imagen).')
+                    stored=save_upload(user['id'],files['file'],'insurance')
+                    old=db.execute(f'SELECT insurance_doc FROM {provider_table(ref[0])} WHERE id=?',(ref[1],)).fetchone()
+                    db.execute(f'UPDATE {provider_table(ref[0])} SET insurance_doc=?,fiscal_updated_at=? WHERE id=?',(stored,now(),ref[1]))
+                    if old and old['insurance_doc']: delete_document_file(old['insurance_doc'])
+                    audit(db,user['id'],'insurance_doc_uploaded',ref[0],ref[1]); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center/import':
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self)
+                    if not user['center_id']: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    require_feature(db,user,'import_csv')
+                    res=import_clients(db,user['center_id'],str(data.get('csv') or ''),dry_run=not data.get('confirm'),actor=user['id'])
+                    db.commit(); self.send_json(res); return
+                if path=='/api/provider/ical/regenerate':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    require_feature(db,user,'calendar_ical')
+                    tok=wsec.random_token(32)
+                    db.execute(f'UPDATE {provider_table(ref[0])} SET ical_token=? WHERE id=?',(tok,ref[1])); audit(db,user['id'],'ical_regenerated',ref[0],ref[1]); db.commit()
+                    self.send_json({'ok':True,'url':f'{public_site_url()}/ical/{tok}.ics'}); return
+                if path=='/api/center/team/invite':
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']
+                    if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    require_feature(db,user,'team')
+                    role=data.get('member_role')
+                    if role not in ('reception','instructor','owner'): raise ValueError('Elige el perfil: recepción, instructor o propietario.')
+                    email=(clean_text(data.get('email'),160) or '').lower()
+                    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email): raise ValueError('Email no válido.')
+                    count=db.execute("SELECT COUNT(*) FROM users WHERE center_id=? AND role='center'",(cid,)).fetchone()[0]+db.execute('SELECT COUNT(*) FROM team_invites WHERE center_id=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>=?',(cid,now())).fetchone()[0]
+                    lim=plan_limit(db,'center',cid,'team_max')
+                    if lim and count>=lim: raise PlanRequired('team',f'Tu plan permite {lim} personas en el equipo.')
+                    if db.execute("SELECT 1 FROM users WHERE lower(email)=? AND role IN ('center','freelance','admin')",(email,)).fetchone(): raise ValueError('Ese email ya pertenece a una cuenta profesional.')
+                    tok=wsec.random_token(32)
+                    db.execute('INSERT INTO team_invites(center_id,email,member_role,token_hash,created_by,created_at,expires_at) VALUES(?,?,?,?,?,?,?)',
+                               (cid,email,role,hashlib.sha256(tok.encode()).hexdigest(),user['id'],now(),(datetime.now(timezone.utc)+_timedelta(days=7)).isoformat(timespec='seconds')))
+                    cname=provider_label(db,'center',cid)
+                    queue_email(db,'team_invite',email,'',{'first_name':'','center':cname,'inviter':user['fullname'],'member_role':mail_t('es',TEAM_ROLES[role]),
+                                'join_url':f'{public_site_url()}/#/equipo?token={tok}'},'es',('center',cid))
+                    audit(db,user['id'],'team_invited','center',cid,{'email':email,'role':role}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center/team/invite/revoke':
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self)
+                    if not db.execute('UPDATE team_invites SET revoked_at=? WHERE id=? AND center_id=? AND used_at IS NULL',(now(),int(data.get('id') or 0),user['center_id'] or -1)).rowcount: raise ValueError('Invitación no encontrada.')
+                    audit(db,user['id'],'team_invite_revoked','center',user['center_id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center/team/role':
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']; uid=int(data.get('user_id') or 0); role=data.get('member_role')
+                    if role not in TEAM_ROLES: raise ValueError('Perfil no válido.')
+                    if not db.execute("SELECT 1 FROM users WHERE id=? AND center_id=? AND role='center'",(uid,cid or -1)).fetchone(): raise ValueError('Esa persona no es del equipo.')
+                    if uid==user['id'] and role!='owner': raise ValueError('No puedes quitarte a ti mismo el perfil de propietario.')
+                    db.execute("INSERT INTO center_members(center_id,user_id,member_role,created_at,created_by) VALUES(?,?,?,?,?) ON CONFLICT(center_id,user_id) DO UPDATE SET member_role=excluded.member_role",(cid,uid,role,now(),user['id']))
+                    audit(db,user['id'],'team_role_changed','user',uid,{'role':role}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center/team/remove':
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']; uid=int(data.get('user_id') or 0)
+                    if uid==user['id']: raise ValueError('No puedes quitarte a ti mismo del equipo.')
+                    if not db.execute("SELECT 1 FROM users WHERE id=? AND center_id=? AND role='center'",(uid,cid or -1)).fetchone(): raise ValueError('Esa persona no es del equipo.')
+                    # The account stays (it is a person's account) as a diver account, without access to the centre.
+                    db.execute("UPDATE users SET role='recreational',center_id=NULL,requested_role='recreational' WHERE id=?",(uid,))
+                    db.execute('DELETE FROM center_members WHERE center_id=? AND user_id=?',(cid,uid)); db.execute('DELETE FROM sessions WHERE user_id=?',(uid,))
+                    audit(db,user['id'],'team_member_removed','user',uid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/team/join':
+                    # Accepting a team invitation: creates the account (or turns the signed-in diver account of the same email) into a member.
+                    data=json_body(self); tok=clean_text(data.get('token'),100) or ''
+                    inv=db.execute('SELECT * FROM team_invites WHERE token_hash=?',(hashlib.sha256(tok.encode()).hexdigest(),)).fetchone()
+                    if not inv or inv['used_at'] or inv['revoked_at'] or inv['expires_at']<now(): raise ValueError('La invitación no es válida o ha caducado.')
+                    cu=current_user(self,db)
+                    if cu:
+                        if cu['email'].lower()!=inv['email']: raise PermissionError('Esta invitación es para otro email. Cierra sesión o entra con la cuenta invitada.')
+                        if cu['role']!='recreational': raise ValueError('Tu cuenta ya es profesional.')
+                        uid=cu['id']
+                    else:
+                        if db.execute('SELECT 1 FROM users WHERE lower(email)=?',(inv['email'],)).fetchone(): raise ValueError('Ya hay una cuenta con ese email: inicia sesión con ella y vuelve a abrir el enlace.')
+                        name=clean_text(data.get('fullname'),120); username=(clean_text(data.get('username'),40) or '').lower(); pw=str(data.get('password') or '')
+                        if not name or len(name)<2: raise ValueError('Escribe tu nombre.')
+                        if not re.fullmatch(r'[a-z0-9_.-]{3,40}',username): raise ValueError('El usuario solo admite letras, números, punto, guion y guion bajo (3–40).')
+                        if db.execute('SELECT 1 FROM users WHERE lower(username)=?',(username,)).fetchone(): raise ValueError('Ese nombre de usuario ya existe.')
+                        if len(pw)<10: raise ValueError('La contraseña debe tener al menos 10 caracteres.')
+                        if not data.get('accept_terms'): raise ValueError('Acepta las condiciones para centros y la política de privacidad.')
+                        uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at,email_verified_at) VALUES(?,?,?,?,?,?,?)',(name,inv['email'],username,hash_password(pw),'recreational',now(),now())).lastrowid
+                        db.execute('INSERT INTO user_profiles(user_id,updated_at) VALUES(?,?)',(uid,now()))
+                        record_acceptances(db,uid,['terminos','privacidad','centros'],self.client_ip())
+                    db.execute("UPDATE users SET role='center',center_id=?,requested_role='center' WHERE id=?",(inv['center_id'],uid))
+                    db.execute("INSERT INTO center_members(center_id,user_id,member_role,created_at,created_by) VALUES(?,?,?,?,?) ON CONFLICT(center_id,user_id) DO UPDATE SET member_role=excluded.member_role",(inv['center_id'],uid,inv['member_role'],now(),inv['created_by']))
+                    db.execute('UPDATE team_invites SET used_at=? WHERE id=?',(now(),inv['id']))
+                    audit(db,uid,'team_joined','center',inv['center_id'],{'role':inv['member_role']}); db.commit()
+                    if cu: self.send_json({'ok':True}); return
+                    self.login_user(uid,db,{'ok':True}); return
                 if path=='/api/admin/maps':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
                     try: lim=int(str(data.get('limit','')).replace('.','').replace(' ',''))
@@ -7460,6 +8550,10 @@ class Handler(BaseHTTPRequestHandler):
                             service=db.execute('SELECT * FROM provider_services WHERE id=? AND active=1 AND center_id=?',(service_id,center_id)).fetchone()
                             if not service: raise ValueError('Servicio no válido para este centro.')
                             provider_user_id=service['provider_user_id']
+                    # Fase 6.2: a provider on the free listing receives information requests, not bookings (never «sin plazas»).
+                    if not (provider_has(db,'center',center_id,'online_bookings') if center_id else provider_has(db,'freelance',provider_user_id,'online_bookings')):
+                        e_=PermissionError('Este centro todavía no tiene reserva online en WORLDIVES. Puedes enviarle una solicitud de información y te contestará directamente.')
+                        e_.extra={'no_online_booking':True}; raise e_
                     participants=max(1,int(data.get('participants') or 1))
                     if service and service['max_participants'] and participants>int(service['max_participants']): raise ValueError(f'Este servicio admite como máximo {service["max_participants"]} participantes por reserva.')
                     slot_id=int(data.get('slot_id') or 0) or None
@@ -7741,6 +8835,7 @@ class Handler(BaseHTTPRequestHandler):
                     delete_public_image(row['image_path']); self.send_json({'ok':True}); return
                 if path=='/api/center/promotions':
                     user=require_user(self,db); require_role(user,{'center'}); cid=user['center_id']; data=json_body(self); pid=int(data.get('id') or 0)
+                    require_switch(db,'promotions'); require_feature(db,user,'promotions')
                     if not cid: raise ValueError('La cuenta aún no tiene un centro aprobado.')
                     title=clean_text(data.get('title'),120)
                     if not title: raise ValueError('Ponle un título a la promoción.')
@@ -7926,6 +9021,7 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('''UPDATE dive_points SET name=?,country=?,region=?,dive_type=?,latitude=?,longitude=?,difficulty=?,min_depth=?,max_depth=?,description=?,access_info=?,center_id=?,recommended_certification_id=?,verification_status=?,updated_by_user_id=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('dive_type'),100),float(data.get('latitude')),float(data.get('longitude')),clean_text(data.get('difficulty'),50),data.get('min_depth') or None,data.get('max_depth') or None,clean_text(data.get('description'),5000),clean_text(data.get('access_info'),3000),data.get('center_id') if user['role']=='admin' else user['center_id'],int(data['recommended_certification_id']) if data.get('recommended_certification_id') else None,'verified' if user['role']=='admin' else 'pending_review',user['id'],now(),pid)); audit(db,user['id'],'dive_point_updated','dive_point',pid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/travel-experiences':
                     user=require_user(self,db)
+                    require_switch(db,'experiences'); require_feature(db,user,'experiences')
                     data=json_body(self)
                     if user['role'] not in {'admin','center','freelance'}: raise PermissionError('Solo un centro o un perfil freelance puede publicar experiencias.')
                     tid=resolve_travel_offer(db,data)
@@ -7950,6 +9046,7 @@ class Handler(BaseHTTPRequestHandler):
                     db.commit(); self.send_json({'ok':True,'id':tid}); return
                 if path=='/api/experience-bookings':
                     user=require_user(self,db); data=json_body(self); eid=int(data.get('travel_experience_id') or 0); participants=max(1,int(data.get('participants') or 1))
+                    require_switch(db,'experiences')
                     exp=db.execute('SELECT * FROM travel_experiences WHERE id=? AND active=1 AND status=\'published\'',(eid,)).fetchone()
                     if not exp: self.send_json({'error':'Experiencia no disponible.'},404); return
                     if exp['spots_available'] is not None and participants>exp['spots_available']: raise ValueError('No hay suficientes plazas disponibles.')
@@ -8080,6 +9177,7 @@ class Handler(BaseHTTPRequestHandler):
                         db.execute('DELETE FROM sessions WHERE user_id=?',(claim['user_id'],))
                         cname=db.execute('SELECT name FROM centers WHERE id=?',(target,)).fetchone()['name'] if target else db.execute('SELECT fullname FROM users WHERE id=?',(claim['user_id'],)).fetchone()['fullname']
                         notify_user(db,claim['user_id'],'center_verified',{'center':cname},('center',target) if target else ('user',claim['user_id']))
+                        start_trial(db,'center' if target else 'freelance',target or claim['user_id'])   # free trial (Fase 6.2)
                         DIRECTORY.invalidate(); PROMOS.invalidate()
                     elif decision=='reject':
                         db.execute("UPDATE center_claims SET status='rejected',reviewed_at=?,reviewed_by_user_id=?,verification_method=?,verification_note=? WHERE id=?",(now(),user['id'],method,vnote,cid))
@@ -8096,6 +9194,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/rewards/redeem':
                     # The diver exchanges points for an advantage of a centre: a code to show at the centre.
                     user=require_user(self,db); data=json_body(self); offer_id=int(data.get('offer_id') or 0)
+                    require_switch(db,'points')
                     offer=db.execute('SELECT ro.* FROM reward_offers ro JOIN centers c ON c.id=ro.center_id AND c.active=1 WHERE ro.id=? AND ro.active=1',(offer_id,)).fetchone()
                     if not offer: raise ValueError('Ventaja no disponible.')
                     if offer['stock'] is not None and offer['stock']<=0: raise ValueError('Esta ventaja ya no tiene disponibilidad.')
@@ -8113,6 +9212,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/points/codes/cancel':
                     # A code not used yet can be cancelled: the points come back.
                     user=require_user(self,db); rid=int(json_body(self).get('id') or 0)
+                    require_switch(db,'points')
                     r=db.execute('SELECT rr.*,ro.title FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id WHERE rr.id=? AND rr.user_id=?',(rid,user['id'])).fetchone()
                     if not r: self.send_json({'error':'Código no encontrado'},404); return
                     if db.execute("UPDATE reward_redemptions SET status='cancelled',cancelled_at=? WHERE id=? AND status='issued'",(now(),rid)).rowcount!=1: raise ValueError('Este código ya se ha usado o ya no es válido.')
@@ -8122,6 +9222,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/center/redemptions/validate':
                     # The centre validates a code at the desk (scanned or typed). Once validated it cannot be used again.
                     user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    require_switch(db,'points')
                     code=(clean_text(json_body(self).get('code'),40) or '').strip().upper()
                     r=db.execute('SELECT rr.*,ro.center_id,ro.title FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id WHERE rr.code=?',(code,)).fetchone()
                     if not r or r['center_id']!=cid: raise PermissionError('Este código no es de una ventaja de tu centro.')
@@ -8137,6 +9238,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/provider/points-grant':
                     # A centre grants points to one of its clients, with a monthly limit per client and per centre.
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0)
+                    require_switch(db,'points'); require_feature(db,user,'rewards')
                     target_id=int(data.get('user_id') or 0)
                     try: pts=int(str(data.get('points') or '0'))
                     except ValueError: raise ValueError('Los puntos son un número entero.')
@@ -8157,6 +9259,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({'ok':True,'user_id':target_id,'points':pts,'left_this_month':POINTS_GRANT_CLIENT_MONTH-given-pts}); return
                 if path=='/api/travel-experiences/update':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); eid=int(data.get('id') or 0)
+                    require_switch(db,'experiences'); require_feature(db,user,'experiences')
                     exp=db.execute('SELECT * FROM travel_experiences WHERE id=?',(eid,)).fetchone()
                     if not exp or not (exp['provider_user_id']==user['id'] or (exp['center_id'] and exp['center_id']==user['center_id'])): raise PermissionError('Esta experiencia no es tuya.')
                     if data.get('delete'):
@@ -8318,6 +9421,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/provider/reward-offers':
                     # Advantages that each centre defines and pays for, exchanged for points (Fase 3). Never money.
                     user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self)
+                    require_switch(db,'points'); require_feature(db,user,'rewards')
                     cid=int(data.get('center_id') or user['center_id'] or 0) if user['role']=='admin' else int(user['center_id'] or 0)
                     if not cid: raise ValueError('Selecciona un centro.')
                     if not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(cid,)).fetchone(): raise ValueError('Centro no válido.')
@@ -8345,7 +9449,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except PermissionError as e:
                 db.rollback()  # never persist half-done work when a request fails
-                self.send_json({'error':str(e)},403)
+                self.send_json({'error':str(e),**getattr(e,'extra',{})},403)
             except ValueError as e:
                 db.rollback()  # never persist half-done work when a request fails
                 self.send_json({'error':str(e)},400)
@@ -8540,6 +9644,18 @@ def run_retention_jobs(db, at=None, force=False):
 
 
 MAINTENANCE_JOBS.append(run_retention_jobs)
+
+
+def run_daily_plan_jobs(db):
+    last = db.execute("SELECT value FROM site_settings WHERE key='plans_last_run'").fetchone()
+    day = _dt.date.today().isoformat()
+    if last and last['value'] == day: return
+    run_plan_jobs(db); run_insurance_alerts(db)
+    if _dt.date.today().day == 1: run_monthly_stats_emails(db)
+    db.execute("INSERT INTO site_settings(key,value,updated_at) VALUES('plans_last_run',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at", (day, now()))
+
+
+MAINTENANCE_JOBS.append(run_daily_plan_jobs)
 
 
 def check_production_settings():

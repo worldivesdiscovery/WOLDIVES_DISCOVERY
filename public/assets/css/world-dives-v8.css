@@ -2711,3 +2711,29 @@ a.acc-kpi,button.acc-kpi{cursor:pointer}a.acc-kpi:hover,button.acc-kpi:hover{bor
 tr.is-warn td{background:#fffaf0}
 .sc-consent{margin:12px 0 0}
 @media (max-width:640px){.lg-hist-list li{flex-direction:column;align-items:flex-start}.review-actions{justify-content:flex-start;flex-wrap:wrap}}
+
+/* ---------------------------------------------------------------- v50.37 · Fase 6: plans, tools, team */
+.toast-link{color:#9fe7ef;font-weight:800;margin-left:6px}
+.pl-page h1{margin:6px 0 10px}.pl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:18px 0}
+.pl-grid.is-compact{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.pl-card{border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;display:grid;gap:8px;align-content:start}
+.pl-card.is-current{border-color:var(--sea);box-shadow:var(--ring)}.pl-card h2,.pl-card h3{margin:0}
+.pl-price{font-size:22px;font-weight:800;color:var(--deep);margin:0}.pl-price small{font-size:13px;font-weight:600;color:var(--muted)}
+.pl-feats{list-style:none;margin:6px 0;padding:0;display:grid;gap:6px;font-size:14px}.pl-feats li{display:flex;gap:6px;align-items:flex-start}
+.pl-feats li.is-off{color:var(--muted);text-decoration:line-through;opacity:.7}.pl-feats li.is-on .wd-icon{color:var(--sea)}
+.pl-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;border-radius:10px;background:#eef6f6;border:1px solid #cfe4e5;font-size:14px}
+.pl-bar.is-free{background:#fff7e8;border-color:#f0d9a8}.pl-bar a{font-weight:800;color:var(--sea)}
+.ap-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.ap-plan fieldset{border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:grid;gap:6px}
+.ap-plan legend{font-size:12px;font-weight:800;color:var(--muted);padding:0 4px}
+.af-list{display:grid;gap:10px;max-width:640px}
+.ir-list{display:grid;gap:10px}.ir-item{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}.ir-item.is-new{border-color:var(--sea)}
+.ir-item header{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.ir-item p{margin:6px 0}
+.ps-chart{display:flex;align-items:flex-end;gap:2px;height:120px;padding:8px 0;border-bottom:1px solid var(--line)}.ps-chart span{flex:1;min-width:2px;background:var(--sea-2);border-radius:3px 3px 0 0}
+.tl-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 12px}.tl-row input,.tl-row textarea{flex:1;min-width:220px;border:1px solid #cfd9db;border-radius:10px;padding:9px 11px;font:inherit;background:#fff}
+.tl-row textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.tm-inv{margin:0 0 10px;padding-left:18px;font-size:14px}
+/* Feature switches (Administración → Funciones) */
+.feat-off-points a[href^="#/mis-puntos"],.feat-off-points a[href^="#/como-funcionan-los-puntos"],.feat-off-points a[href="#/recompensas"],.feat-off-points .cb-nav[data-cbtab="rewards"]{display:none!important}
+.feat-off-experiences a[href^="#/experiencias"],.feat-off-experiences .cb-nav[data-cbtab="experiences"],.feat-off-experiences .cp-exps{display:none!important}
+.feat-off-reviews #cp-reviews,.feat-off-reviews .cd-rating{display:none!important}
+.feat-off-sponsorship #hm-offers,.feat-off-sponsorship #hm-sponsors{display:none!important}
