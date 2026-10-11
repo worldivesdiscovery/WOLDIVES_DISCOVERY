@@ -12,6 +12,7 @@ import os
 import socket
 import re
 import secrets
+import random
 import sqlite3
 import unicodedata
 import sys
@@ -32,6 +33,7 @@ from wod import security as wsec
 from wod import bookings as wbk
 from wod import pdf as wpdf
 from wod import totp as wtotp
+from wod import pointtext as wpt
 # Bundled pure-python dependencies (qrcode). Installed packages take precedence.
 if str(ROOT/'vendor') not in sys.path: sys.path.append(str(ROOT/'vendor'))
 PUBLIC = ROOT / 'public'
@@ -46,7 +48,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.35'
+APP_VERSION = '50.36'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -725,12 +727,93 @@ def bootstrap():
         db.commit()
         migrate_v50_35(db)
         db.commit()
+        migrate_v50_36(db)
+        db.commit()
 
 
 def add_columns(db, table, cols):
     have = {r['name'] for r in db.execute(f'PRAGMA table_info({table})').fetchall()}
     for name, typ in cols:
         if name not in have: db.execute(f'ALTER TABLE {table} ADD COLUMN {name} {typ}')
+
+
+_PACKS = {}
+
+
+def lang_pack(lang):
+    """Exact strings of a language pack (Spanish → language), cached; used for country and region names."""
+    if lang not in _PACKS:
+        try: _PACKS[lang] = json.loads((ROOT / 'public' / 'assets' / 'i18n' / f'{lang}.json').read_text(encoding='utf-8')).get('exact', {})
+        except (OSError, ValueError): _PACKS[lang] = {}
+    return _PACKS[lang]
+
+
+def point_extras():
+    """Facts checked by WORLDIVES for some points (what you see, a practical tip), by point name, in 10 languages."""
+    try: return json.loads((ROOT / 'app' / 'data' / 'point_extras.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError): return {}
+
+
+def regenerate_point_texts(db, pid=None):
+    """Writes the own description of the points not yet reviewed (or of one point) in the 10 languages.
+    The first time, the previous text is kept in description_legacy. Reviewed points are left alone."""
+    extras = point_extras(); n = 0
+    q = 'SELECT * FROM dive_points WHERE ' + ('id=?' if pid else 'COALESCE(description_reviewed,0)=0')
+    for p in db.execute(q, (pid,) if pid else ()).fetchall():
+        p = dict(p); ex = extras.get(p['name'])
+        texts = {}
+        for lang in wpt.LANGS:
+            texts[lang], missing = wpt.describe(p, lang, lang_pack(lang) if lang != 'es' else None, ex)
+            if lang == 'es': miss_es = missing
+        db.execute('UPDATE dive_points SET description_legacy=COALESCE(description_legacy,description), description=?, description_missing=?, description_generated=1 WHERE id=?',
+                   (texts['es'], json.dumps(miss_es, ensure_ascii=False), p['id']))
+        for lang, txt in texts.items():
+            db.execute('INSERT INTO dive_point_texts(point_id,lang,description,updated_at) VALUES(?,?,?,?) ON CONFLICT(point_id,lang) DO UPDATE SET description=excluded.description, updated_at=excluded.updated_at',
+                       (p['id'], lang, txt, now()))
+        n += 1
+    return n
+
+
+def point_text(db, pid, lang):
+    r = db.execute('SELECT description FROM dive_point_texts WHERE point_id=? AND lang=?', (pid, normalize_lang(lang))).fetchone()
+    return r['description'] if r else None
+
+
+def migrate_v50_36(db):
+    """v50.36 (Fase 5): legal documents with versions, privacy rights, retention, transparency, catalogue and maps.
+    Additive only."""
+    db.execute("CREATE TABLE IF NOT EXISTS legal_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, lang TEXT NOT NULL, version TEXT NOT NULL, "
+               "title TEXT NOT NULL, markdown TEXT NOT NULL, summary TEXT, status TEXT NOT NULL DEFAULT 'published', effective_at TEXT NOT NULL, published_at TEXT, "
+               "created_by INTEGER, created_at TEXT NOT NULL, source TEXT)")
+    db.execute('CREATE INDEX IF NOT EXISTS idx_legal_documents ON legal_documents(slug, lang, status, effective_at)')
+    legal_seed_documents(db)
+    # Right to erasure confirmed by email (a single-use link valid for 24 hours).
+    add_columns(db, 'users', [('inactive_warned_at', 'TEXT')])
+    # Images (Fase 5.11): «Origen / licencia» besides «Crédito», for every image the platform publishes itself.
+    db.execute('CREATE TABLE IF NOT EXISTS image_origins (path TEXT PRIMARY KEY, credit TEXT, origin TEXT, updated_at TEXT NOT NULL, updated_by INTEGER)')
+    add_columns(db, 'site_media', [('origin', 'TEXT')])
+    add_columns(db, 'site_theme_media', [('origin', 'TEXT')])
+    # Maps: satellite tiles served through our server, counted per month against the free quota of ArcGIS.
+    db.execute('CREATE TABLE IF NOT EXISTS map_tile_usage (month TEXT NOT NULL, layer TEXT NOT NULL, tiles INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(month, layer))')
+    # «Centros asociados» on the home page: only verified centres that allow the use of their logo.
+    add_columns(db, 'centers', [('logo_consent', 'INTEGER NOT NULL DEFAULT 0'), ('logo_consent_at', 'TEXT')])
+    # Reviews: one public reply of the provider; moderation by the administration (DSA: reasons sent to both parties).
+    add_columns(db, 'center_reviews', [('reply_body', 'TEXT'), ('reply_at', 'TEXT'), ('reply_user_id', 'INTEGER'), ('moderated_at', 'TEXT'), ('moderation_reason', 'TEXT')])
+    add_columns(db, 'content_reports', [('target_type', 'TEXT'), ('target_id', 'INTEGER'), ('affected_user_id', 'INTEGER'), ('affected_notified_at', 'TEXT')])
+    db.execute("CREATE TABLE IF NOT EXISTS account_deletion_requests (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, "
+               "expires_at TEXT NOT NULL, created_at TEXT NOT NULL, used_at TEXT)")
+    # Dive points: own descriptions in 10 languages; the previous text stays in description_legacy until reviewed.
+    add_columns(db, 'dive_points', [('description_legacy', 'TEXT'), ('description_reviewed', 'INTEGER NOT NULL DEFAULT 0'), ('description_reviewed_at', 'TEXT'),
+                                    ('description_missing', 'TEXT'), ('description_generated', 'INTEGER NOT NULL DEFAULT 0')])
+    db.execute('CREATE TABLE IF NOT EXISTS dive_point_texts (point_id INTEGER NOT NULL REFERENCES dive_points(id) ON DELETE CASCADE, lang TEXT NOT NULL, '
+               'description TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(point_id, lang))')
+    if not migration_done(db, '50.36-points'):
+        backup = backup_database(db, 'v50_36_points') if db.execute('SELECT 1 FROM dive_points LIMIT 1').fetchone() else None
+        n = regenerate_point_texts(db)
+        db.execute('INSERT INTO schema_migrations(version,applied_at,backup_path,notes) VALUES(?,?,?,?)',
+                   ('50.36-points', now(), str(backup) if backup else None, f'Descripciones propias de {n} puntos de buceo (texto anterior en description_legacy)'))
+    if not migration_done(db, '50.36'):
+        db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.36', now(), 'Fase 5: legal, privacidad, catálogo y mapas'))
 
 
 def migrate_v50_35(db):
@@ -1641,6 +1724,120 @@ def center_gallery(row):
     return [x for x in items if isinstance(x,str) and x.startswith('/assets/')][:MAX_GALLERY_IMAGES]
 
 
+# ---------------------------------------------------------------------------------------------- Maps (Fase 5.10)
+# Base map: our own PMTiles file (Protomaps, © OpenStreetMap contributors), served with HTTP Range requests.
+# Satellite: Esri World Imagery through ArcGIS Location Platform. The key (ARCGIS_API_KEY) stays on the server:
+# the browser asks /api/tiles/satellite/z/y/x, we fetch the tile from Esri and count it. The visitor's IP never
+# reaches Esri. When the monthly limit is reached (Administración → Mapas, 1 900 000 by default, below the 2 000 000
+# free tiles), the layer disappears until next month; the administrators get an email at 80 %.
+# Bathymetry: GEBCO WMS, loaded by the browser only when the visitor chooses it.
+SAT_LIMIT_DEFAULT = 1_900_000
+SAT_UPSTREAM = os.environ.get('WOD_ARCGIS_TILE_URL') or 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'  # override only for tests
+SAT_ATTRIBUTION = 'Powered by <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a> | Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+OSM_ATTRIBUTION = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · <a href="https://protomaps.com" target="_blank" rel="noopener">Protomaps</a>'
+GEBCO_ATTRIBUTION = 'Batimetría: <a href="https://www.gebco.net/data_and_products/gridded_bathymetry_data/" target="_blank" rel="noopener">GEBCO Compilation Group (2024) GEBCO 2024 Grid</a>'
+SAT_RATE = {}
+
+
+def arcgis_key():
+    return os.environ.get('ARCGIS_API_KEY', '').strip()
+
+
+def pmtiles_url():
+    return (os.environ.get('WOD_PMTILES_URL') or '/tiles/worldives.pmtiles').strip()
+
+
+def pmtiles_path():
+    """Local file behind WOD_PMTILES_URL when it is served by this server (/tiles/<name>.pmtiles)."""
+    url = pmtiles_url()
+    if not url.startswith('/tiles/'): return None
+    folder = Path(os.environ.get('WOD_TILES_DIR') or (DATA / 'tiles'))
+    p = (folder / Path(url).name).resolve()
+    return p if p.is_relative_to(folder.resolve()) else None
+
+
+def sat_month():
+    return datetime.now(timezone.utc).strftime('%Y-%m')
+
+
+def sat_limit(db):
+    r = db.execute("SELECT value FROM site_settings WHERE key='maps_satellite_limit'").fetchone()
+    try: return max(0, int(r['value'])) if r and r['value'] not in (None, '') else SAT_LIMIT_DEFAULT
+    except ValueError: return SAT_LIMIT_DEFAULT
+
+
+def sat_usage(db, month=None):
+    r = db.execute("SELECT tiles FROM map_tile_usage WHERE month=? AND layer='satellite'", (month or sat_month(),)).fetchone()
+    return int(r['tiles']) if r else 0
+
+
+def sat_available(db):
+    return bool(arcgis_key()) and sat_usage(db) < sat_limit(db)
+
+
+def sat_count(db):
+    """One tile served: +1 for the month, and the 80 % alert (once a month)."""
+    m = sat_month()
+    db.execute("INSERT INTO map_tile_usage(month,layer,tiles) VALUES(?,'satellite',1) ON CONFLICT(month,layer) DO UPDATE SET tiles=tiles+1", (m,))
+    used, lim = sat_usage(db, m), sat_limit(db)
+    if lim and used >= lim * 0.8 and not db.execute("SELECT 1 FROM site_settings WHERE key=?", ('maps_satellite_alert_' + m,)).fetchone():
+        db.execute('INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,?)', ('maps_satellite_alert_' + m, str(used), now()))
+        notify_admins(db, 'admin_map_quota', {'used': f'{used:,}'.replace(',', '.'), 'limit': f'{lim:,}'.replace(',', '.'), 'month': m}, ('system', None))
+
+
+def sat_rate_limited(ip):
+    """At most 1 200 satellite tiles per minute and IP (a person panning a map uses far fewer)."""
+    t = int(time.time() // 60); row = SAT_RATE.get(ip)
+    if not row or row[0] != t:
+        if len(SAT_RATE) > 20000: SAT_RATE.clear()
+        SAT_RATE[ip] = [t, 1]; return False
+    row[1] += 1
+    return row[1] > 1200
+
+
+def map_config(db):
+    p = pmtiles_path()
+    own = bool(p and p.exists()) or pmtiles_url().startswith('https://')
+    return {'basemap': {'type': 'pmtiles', 'url': pmtiles_url(), 'attribution': OSM_ATTRIBUTION, 'max_data_zoom': wcfg.env_int('WOD_PMTILES_MAXZOOM', 15, 6, 15)} if own else
+                       {'type': 'none' if wcfg.environment() == 'production' else 'osm-dev',
+                        'attribution': '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'},
+            'satellite': {'enabled': sat_available(db), 'url': '/api/tiles/satellite/{z}/{y}/{x}', 'attribution': SAT_ATTRIBUTION, 'max_zoom': 19},
+            'bathymetry': {'url': 'https://wms.gebco.net/mapserv?', 'layers': 'GEBCO_LATEST', 'attribution': GEBCO_ATTRIBUTION}}
+
+
+def images_report(db):
+    """Every image the platform publishes itself (not the centres' own uploads) with its credit and origin/licence.
+    Images without an origin have to be checked before launch (docs/legal/imagenes-origen.md)."""
+    known = {r['path']: dict(r) for r in db.execute('SELECT path,credit,origin,updated_at FROM image_origins').fetchall()}
+    used = {}
+    def add(path, where, credit='', origin=''):
+        if not path or not str(path).startswith('/assets/'): return
+        e = used.setdefault(path, {'path': path, 'where': [], 'credit': '', 'origin': ''})
+        if where not in e['where']: e['where'].append(where)
+        e['credit'] = e['credit'] or (credit or ''); e['origin'] = e['origin'] or (origin or '')
+    for f in sorted((PUBLIC / 'assets' / 'images').glob('*')):
+        if f.is_file() and f.suffix.lower() in ('.webp', '.png', '.jpg', '.jpeg', '.svg'): add('/assets/images/' + f.name, 'Archivos de la web')
+    for s_ in site_media_slots(): add(s_['default'], 'Imagen por defecto: ' + s_['label'])
+    for r in db.execute('SELECT key,image_url,credit,origin FROM site_media').fetchall(): add(r['image_url'], 'Portada: ' + r['key'], r['credit'], r['origin'])
+    for r in db.execute('SELECT key,image_url,credit,origin FROM site_theme_media').fetchall(): add(r['image_url'], 'Tema: ' + r['key'], r['credit'], r['origin'])
+    for r in db.execute('SELECT id,title,image_path FROM travel_offers WHERE image_path IS NOT NULL').fetchall(): add(r['image_path'], 'Destino: ' + r['title'])
+    for r in db.execute('SELECT p.name,ph.image_path,ph.caption FROM dive_point_photos ph JOIN dive_points p ON p.id=ph.dive_point_id').fetchall(): add(r['image_path'], 'Punto: ' + r['name'])
+    out = []
+    for path, e in sorted(used.items()):
+        k = known.get(path) or {}
+        e['credit'] = k.get('credit') or e['credit']; e['origin'] = k.get('origin') or e['origin']
+        e['missing'] = not e['origin']
+        out.append(e)
+    return out
+
+
+def public_center_sql(alias='c'):
+    """Centres shown to the public: active and verified by the administration. In demo mode (WOD_DEMO_MODE=1) the
+    example centres are shown too."""
+    p = f'{alias}.' if alias else ''
+    return f"{p}active=1" + ('' if wcfg.demo_mode() else f" AND {p}verification_status='verified'")
+
+
 def point_row(row):
     if not row:
         return None
@@ -1917,7 +2114,7 @@ def directory_snapshot(db):
 
 def _build_directory(db):
     rows=[]
-    for r in db.execute(CENTER_DIRECTORY_SQL+' WHERE c.active=1').fetchall():
+    for r in db.execute(CENTER_DIRECTORY_SQL+' WHERE '+public_center_sql()).fetchall():
         d=directory_row(r)
         # «Confirmación inmediata»: at least one «Pago al reservar» service that can be booked now.
         d['instant']=bool(d.pop('has_payment_mode',0)) and center_payments_ready(r)
@@ -2042,7 +2239,7 @@ def _build_points(db):
              links AS (SELECT dive_point_id, center_id FROM center_point_links UNION SELECT id, center_id FROM dive_points WHERE center_id IS NOT NULL),
              pc AS (SELECT l.dive_point_id, COUNT(DISTINCT l.center_id) AS centers,
                            MAX(COALESCE(cr.avg_r,0)) AS rating_average, MAX(COALESCE(cr.n,0)) AS review_count
-                      FROM links l JOIN centers ce ON ce.id=l.center_id AND ce.active=1 LEFT JOIN cr ON cr.center_id=l.center_id GROUP BY l.dive_point_id),
+                      FROM links l JOIN centers ce ON ce.id=l.center_id AND """+public_center_sql('ce')+""" LEFT JOIN cr ON cr.center_id=l.center_id GROUP BY l.dive_point_id),
              ph AS (SELECT dive_point_id, COUNT(*) AS n FROM dive_point_photos WHERE image_path NOT IN ('/assets/images/fondo1.webp','/assets/images/buceador1.png','/assets/images/buceador2.png') GROUP BY dive_point_id)
         SELECT p.id,p.name,p.country,p.region,p.zone,p.subregion,p.dive_type,p.difficulty,p.min_depth,p.max_depth,p.latitude,p.longitude,
                p.verification_status,p.description,
@@ -2078,7 +2275,7 @@ def _build_points(db):
     facets={'zones':[{'name':z['name'],'count':z['count'],'subregions':[{'name':k,'count':v} for k,v in sorted(z['subregions'].items(),key=lambda x:(-x[1],x[0]))]} for z in sorted(zones.values(),key=lambda z:-z['count'])]}
     links=[(r[0],r[1]) for r in db.execute('''SELECT l.center_id, l.dive_point_id FROM (SELECT center_id, dive_point_id FROM center_point_links
                                                    UNION SELECT center_id, id FROM dive_points WHERE center_id IS NOT NULL AND active=1) l
-                                               JOIN centers c ON c.id=l.center_id AND c.active=1''')]
+                                               JOIN centers c ON c.id=l.center_id AND '''+public_center_sql()+''' ''')]
     return {'rows':out,'by_id':by_id,'facets':facets,'links':links}
 
 
@@ -2478,7 +2675,7 @@ def point_photo_allowed(db, user, pid):
 
 
 SNAPSHOT_WRITE_PREFIXES=(('/api/dive-points','POINTS','DIVE_TYPES'),('/api/center-points','POINTS','DIRECTORY','DIVE_TYPES'),('/api/admin/dive-points','POINTS','DIVE_TYPES'),
-    ('/api/travel-experiences','TRAVEL'),('/api/admin/travel','TRAVEL'),('/api/centers','DIRECTORY'),('/api/provider/center','DIRECTORY'),('/api/admin/site-promos','PROMOS'),('/api/provider/center','PROMOS'),('/api/admin/centers','PROMOS'),('/api/provider/avatar','PROMOS'))
+    ('/api/travel-experiences','TRAVEL'),('/api/admin/travel','TRAVEL'),('/api/centers','DIRECTORY'),('/api/provider/center','DIRECTORY','PROMOS'),('/api/admin/site-promos','PROMOS'),('/api/provider/center','PROMOS'),('/api/admin/centers','PROMOS'),('/api/provider/avatar','PROMOS'))
 
 
 # ---------------------------------------------------------------------------
@@ -2617,18 +2814,22 @@ def _build_promos(db):
     centers=[]
     for r in db.execute('''SELECT c.id,c.name,c.city,c.country,c.logo_url FROM centers c
                            LEFT JOIN (SELECT center_id, COUNT(*) n FROM provider_services WHERE active=1 GROUP BY center_id) sv ON sv.center_id=c.id
-                           WHERE c.active=1
-                           ORDER BY (CASE WHEN c.logo_url LIKE '/assets/%' THEN 0 ELSE 1 END), COALESCE(sv.n,0) DESC, c.name LIMIT 80''').fetchall():
+                           WHERE c.active=1 AND c.verification_status='verified' AND COALESCE(c.logo_consent,0)=1 AND COALESCE(c.logo_url,'')<>''
+                           ORDER BY c.name LIMIT 200''').fetchall():
         d=dict(r); logo=(d.pop('logo_url') or '').strip()
         d['logo']=logo if logo and not re.match(r'^https?://[^/]+/?$',logo) else ''
-        centers.append(d)
-    total=db.execute('SELECT COUNT(*) FROM centers WHERE active=1').fetchone()[0]
+        if d['logo']: centers.append(d)
+    total=db.execute('SELECT COUNT(*) FROM centers c WHERE '+public_center_sql()).fetchone()[0]
     return {'items':[dict(r) for r in rows],'settings':settings,'centers':centers,'center_total':total}
 
 
 def public_promos(db):
     today=_dt.date.today().isoformat(); snap=PROMOS.get(db); st=snap.get('settings') or {}
-    out={'partners':[],'offers':[],'centers':snap.get('centers') or [],'center_total':snap.get('center_total') or 0,'contact':{'email':st.get('partners_email') or '','text':st.get('partners_text') or ''}}
+    # The band appears only with a minimum of associated centres (Administración → Promociones, 6 by default), in random order.
+    try: min_c=max(1,int(st.get('partners_min_centers') or 6))
+    except ValueError: min_c=6
+    band=list(snap.get('centers') or []); random.shuffle(band)
+    out={'partners':[],'offers':[],'centers':band if len(band)>=min_c else [],'center_total':snap.get('center_total') or 0,'centers_min':min_c,'contact':{'email':st.get('partners_email') or '','text':st.get('partners_text') or ''}}
     for p in snap['items']:
         if (p['starts_on'] and p['starts_on']>today) or (p['ends_on'] and p['ends_on']<today): continue
         if p['kind']=='offer' and not p['image_path']: continue
@@ -2782,6 +2983,8 @@ def reward_offer_row(row):
 # one function confirms a payment, whoever reports it first (Stripe webhook, return page or sweeper).
 # ---------------------------------------------------------------------------
 def stripe_secret():
+    # Demo deployments never take real payments (Fase 5.9): without a key every centre shows «pago en el centro».
+    if wcfg.demo_mode(): return ''
     return os.environ.get('STRIPE_SECRET_KEY','').strip()
 
 
@@ -3132,6 +3335,34 @@ EMAIL_TEMPLATES = {
    ('button', ('Ver mis viajes', 'area_url'))]},
  'experience_status': {'to': 'diver', 'subject': '{status_title}: {experience}', 'pre': '{status_title}', 'blocks': [
    ('h', '{status_title}'), ('p', 'Hola {first_name}, {status_text}'), ('button', ('Ver mis viajes', 'area_url'))]},
+ 'admin_map_quota': {'to': 'admin', 'subject': 'Vista satélite: {used} teselas este mes (80 % del límite)', 'pre': 'Límite mensual: {limit}.', 'blocks': [
+   ('h', 'La vista satélite se acerca al límite'),
+   ('p', 'Este mes ({month}) se han servido {used} teselas de satélite de Esri. El límite configurado es {limit}.'),
+   ('p', 'Al llegar al límite, la capa satélite se oculta hasta el mes que viene para no salir de la cuota gratuita. Puedes cambiar el límite en Administración → Mapas.')]},
+ 'review_replied': {'to': 'any', 'subject': '{center_name} ha respondido a tu reseña', 'pre': 'Respuesta pública del centro.', 'blocks': [
+   ('h', 'El centro ha respondido a tu reseña'),
+   ('p', 'Hola {first_name}, {center_name} ha publicado esta respuesta a tu reseña:'),
+   ('note', '{reply}'),
+   ('button', ('Ver la reseña', 'center_url')),
+   ('note', 'Puedes editar tu reseña cuando quieras. Si la respuesta incumple las normas, denúnciala desde la propia página.')]},
+ 'report_decision_affected': {'to': 'any', 'subject': 'Decisión sobre un contenido tuyo en WORLDIVES ({ref})', 'pre': '{decision}', 'blocks': [
+   ('h', 'Hemos revisado una denuncia sobre tu contenido'),
+   ('p', 'Hola {first_name}, hemos recibido una denuncia sobre «{content}» y la hemos revisado.'),
+   ('p', '{decision}'),
+   ('note', '{resolution}'),
+   ('button', ('Ver el contenido', 'content_url')),
+   ('note', 'Si no estás de acuerdo con la decisión, responde a este correo explicando tus motivos y la revisaremos de nuevo (referencia {ref}).')]},
+ 'account_inactive': {'to': 'any', 'subject': 'Tu cuenta de WORLDIVES se eliminará por inactividad', 'pre': 'Entra antes del {delete_date} para conservarla.', 'blocks': [
+   ('h', 'Hace mucho que no te vemos'),
+   ('p', 'Hola {first_name}, tu cuenta lleva mucho tiempo sin usarse. Para proteger tus datos, la eliminaremos el {delete_date} junto con tu ficha y tus documentos.'),
+   ('p', 'Si quieres conservarla, solo tienes que iniciar sesión antes de esa fecha.'),
+   ('button', ('Iniciar sesión', 'login_url')),
+   ('note', 'Las reservas y los pagos se conservan sin tu nombre el tiempo que exige la ley.')]},
+ 'account_delete_confirm': {'to': 'any', 'subject': 'Confirma la eliminación de tu cuenta de WORLDIVES', 'pre': 'Un clic para confirmar. El enlace caduca en 24 horas.', 'blocks': [
+   ('h', 'Confirma que quieres eliminar tu cuenta'),
+   ('p', 'Hola {first_name}, hemos recibido una petición para eliminar tu cuenta. Al confirmarla borraremos tu ficha, tus documentos, tu Log Book y tus puntos. Las reservas y los pagos se conservan sin tu nombre el tiempo que exige la ley.'),
+   ('button', ('Eliminar mi cuenta', 'confirm_url')),
+   ('note', 'El enlace caduca en 24 horas. Si no lo has pedido tú, ignora este correo y cambia tu contraseña.')]},
  'account_deleted': {'to': 'any', 'subject': 'Tu cuenta de WORLDIVES se ha eliminado', 'pre': 'Confirmación de baja.', 'blocks': [
    ('h', 'Cuenta eliminada'),
    ('p', 'Hola {first_name}, hemos eliminado tu cuenta y tus datos personales como nos pediste. Solo conservamos, de forma bloqueada, lo que la ley nos obliga a guardar (por ejemplo, los datos de los pagos).'),
@@ -3272,7 +3503,7 @@ EMAIL_TEMPLATE_LABELS = {
  'payment_review': 'Pago en revisión', 'booking_rejected': 'Solicitud rechazada', 'booking_cancelled_center': 'Cancelada por el centro',
  'booking_cancelled_diver': 'Cancelada por el buceador', 'reminder': 'Recordatorio del día anterior', 'review_request': 'Petición de reseña',
  'promotion_received': 'Promoción recibida', 'experience_request': 'Solicitud de viaje enviada', 'experience_status': 'Respuesta a solicitud de viaje',
- 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
+ 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
  'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'admin_new_pro': 'Admin: nueva cuenta profesional',
  'totp_enabled': 'Verificación en dos pasos activada', 'reminder_48h': 'Recordatorio 48 h antes', 'booking_changed': 'Cambio de fecha u hora', 'document_expiring': 'Documento a punto de caducar',
@@ -3830,50 +4061,160 @@ def sample_email_ctx(template, lang='es'):
 # ---------------------------------------------------------------------------
 # Legal documents, cancellations with refunds, password reset, privacy rights and content reports (v50.30)
 # ---------------------------------------------------------------------------
-LEGAL_VERSION = '2026-10-11'
+LEGAL_VERSION = '2026-10-11'   # version of the texts shipped in app/legal (first version of every document)
+
+# Legal documents (v50.36, Fase 5): editable from Administración, with versions and history (legal_documents).
+# The texts in app/legal/<lang>/<slug>.md are the first version. Spanish and English are official; the other
+# languages are translations and show «prevalece el castellano». Internal slugs keep their v50.30 names.
+LEGAL_DOCS = {
+    'aviso-legal': 'Aviso legal', 'terminos': 'Condiciones de uso para buceadores', 'reservas': 'Condiciones de reserva, pago y cancelación',
+    'privacidad': 'Política de privacidad', 'cookies': 'Política de cookies y servicios de terceros', 'centros': 'Condiciones para centros y profesionales',
+    'resenas': 'Normas de las reseñas', 'clasificacion': 'Cómo ordenamos los resultados', 'denuncias': 'Denunciar contenido',
+    'seguridad': 'Seguridad en el buceo', 'puntos': 'Puntos WORLDIVES', 'accesibilidad': 'Declaración de accesibilidad',
+    'contacto': 'Contacto', 'creditos': 'Créditos y licencias de terceros'}
+LEGAL_ALIASES = {'condiciones-buceadores': 'terminos', 'condiciones-centros': 'centros', 'normas-resenas': 'resenas', 'condiciones-reserva': 'reservas'}
+LEGAL_PUBLIC_SLUGS = {v: k for k, v in LEGAL_ALIASES.items() if k != 'condiciones-reserva'}  # internal → route name
+# Who has to accept each document (and accept it again when a new version comes into force).
+LEGAL_ACCEPTANCE = {'terminos': 'all', 'privacidad': 'all', 'centros': 'pro'}
+LEGAL_NOTICE_DAYS = {'centros': 15}  # changes for centres are announced 15 days before they apply
+LEGAL_OFFICIAL_LANGS = ('es', 'en')
+LEGAL_FIELDS = {'owner_name': 'Titular (nombre y apellidos o razón social)', 'trade_name': 'Nombre comercial', 'nif': 'NIF / CIF',
+                'address': 'Domicilio', 'email': 'Email de contacto', 'phone': 'Teléfono', 'registry': 'Datos registrales (si es sociedad)',
+                'dpo_email': 'Email para protección de datos', 'hosting': 'Proveedor de alojamiento'}
+
+
+def legal_slug(slug):
+    slug = LEGAL_ALIASES.get(slug, slug)
+    return slug if slug in LEGAL_DOCS else None
+
+
+def legal_seed_documents(db):
+    """First version of every document from app/legal (idempotent)."""
+    for slug in LEGAL_DOCS:
+        for lang in MAIL_LANGS:
+            p = ROOT / 'app' / 'legal' / lang / f'{slug}.md'
+            if not p.exists(): continue
+            if db.execute('SELECT 1 FROM legal_documents WHERE slug=? AND lang=? LIMIT 1', (slug, lang)).fetchone(): continue
+            text = p.read_text(encoding='utf-8')
+            title = text.split('\n', 1)[0].lstrip('# ').strip() or LEGAL_DOCS[slug]
+            db.execute('''INSERT INTO legal_documents(slug,lang,version,title,markdown,summary,status,effective_at,published_at,created_at,source)
+                          VALUES(?,?,?,?,?,?,'published',?,?,?,'file')''', (slug, lang, LEGAL_VERSION, title, text, 'Primera versión', LEGAL_VERSION, now(), now()))
+
+
+def legal_current(db, slug, lang, at=None):
+    """The version in force (effective_at <= today) of a document in a language, or None."""
+    day = (at or _dt.date.today().isoformat())
+    return db.execute("""SELECT * FROM legal_documents WHERE slug=? AND lang=? AND status='published' AND effective_at<=?
+                         ORDER BY effective_at DESC, id DESC LIMIT 1""", (slug, lang, day)).fetchone()
+
+
+def legal_upcoming(db, slug):
+    """A Spanish version already published that comes into force later (the 15-day notice)."""
+    return db.execute("""SELECT slug,version,title,summary,effective_at,published_at FROM legal_documents WHERE slug=? AND lang='es' AND status='published' AND effective_at>?
+                         ORDER BY effective_at LIMIT 1""", (slug, _dt.date.today().isoformat())).fetchone()
 
 
 def legal_doc_version(db, slug):
-    """Current version of a legal document (editable documents with history arrive in Fase 5)."""
+    """Version in force of a document (the Spanish text is the reference)."""
+    slug = legal_slug(slug) or slug
     try:
-        row = db.execute('SELECT version FROM legal_doc_versions WHERE slug=? AND published_at<=? ORDER BY published_at DESC, id DESC LIMIT 1', (slug, now())).fetchone()
+        row = legal_current(db, slug, 'es')
         if row: return row['version']
     except sqlite3.OperationalError:
         pass
     return LEGAL_VERSION
-LEGAL_DOCS = {
-    'aviso-legal': 'Aviso legal', 'terminos': 'Condiciones de uso', 'reservas': 'Condiciones de reserva, pago y cancelación',
-    'privacidad': 'Política de privacidad', 'cookies': 'Política de cookies', 'centros': 'Condiciones para centros y profesionales',
-    'resenas': 'Política de reseñas', 'clasificacion': 'Cómo ordenamos los resultados', 'denuncias': 'Denunciar contenido',
-    'seguridad': 'Seguridad en el buceo'}
-LEGAL_FIELDS = {'owner_name': 'Titular (nombre y apellidos o razón social)', 'trade_name': 'Nombre comercial', 'nif': 'NIF / CIF',
-                'address': 'Domicilio', 'email': 'Email de contacto', 'phone': 'Teléfono', 'registry': 'Datos registrales (si es sociedad)',
-                'dpo_email': 'Email para protección de datos', 'hosting': 'Proveedor de alojamiento'}
-_LEGAL_CACHE = {}
-
-
-LEGAL_ALIASES = {'condiciones-buceadores': 'terminos', 'condiciones-centros': 'centros', 'normas-resenas': 'resenas'}
 
 
 def legal_doc(db, slug, lang='es'):
-    """Reads app/legal/<lang>/<slug>.md (falls back to Spanish) and fills in the owner's data from Administración → Legal."""
-    slug = LEGAL_ALIASES.get(slug, slug)
-    if slug not in LEGAL_DOCS: return None
-    lang = 'en' if lang not in ('es',) and (ROOT / 'app' / 'legal' / 'en' / f'{slug}.md').exists() else 'es'
-    key = (lang, slug)
-    p = ROOT / 'app' / 'legal' / lang / f'{slug}.md'
-    try: mt = p.stat().st_mtime
-    except OSError: return None
-    if key not in _LEGAL_CACHE or _LEGAL_CACHE[key][0] != mt: _LEGAL_CACHE[key] = (mt, p.read_text(encoding='utf-8'))
-    text = _LEGAL_CACHE[key][1]
+    """A document in the reader's language: the official text (es, en) or a translation with «prevalece el castellano»;
+    without a translation, English. The owner's data from Administración → Legal fill in the {{placeholders}}."""
+    slug = legal_slug(slug)
+    if not slug: return None
+    lang = normalize_lang(lang)
+    row = None
+    for cand in (lang, 'en', 'es'):
+        row = legal_current(db, slug, cand)
+        if row: break
+    if not row: return None
+    shown = row['lang']
+    text = legal_fill(db, row['markdown'], shown, row['version'])
+    up = legal_upcoming(db, slug)
+    return {'slug': slug, 'route': LEGAL_PUBLIC_SLUGS.get(slug, slug), 'lang': shown, 'title': row['title'], 'markdown': text, 'version': row['version'],
+            'effective_at': row['effective_at'], 'official': shown in LEGAL_OFFICIAL_LANGS,
+            'prevails_note': '' if shown in LEGAL_OFFICIAL_LANGS else mail_t(shown, 'Traducción informativa. En caso de discrepancia prevalece la versión en castellano.'),
+            'upcoming': dict(up) if up else None}
+
+
+def legal_fill(db, markdown, lang, version):
+    """The owner's data from Administración → Legal in the {{placeholders}} of a document."""
     st = legal_settings(db)
     pending = '[pendiente de completar]' if lang == 'es' else '[to be completed]'
     values = {**{k: (st.get(k) or pending) for k in LEGAL_FIELDS}, 'site_url': public_site_url(),
-              'trade_name': st.get('trade_name') or 'WORLDIVES DISCOVERY', 'version': LEGAL_VERSION,
-              'hosting': st.get('hosting') or pending, 'dpo_email': st.get('dpo_email') or st.get('email') or pending}
-    text = re.sub(r'\{\{(\w+)\}\}', lambda m: str(values.get(m.group(1), m.group(0))), text)
-    title = text.split('\n', 1)[0].lstrip('# ').strip()
-    return {'slug': slug, 'lang': lang, 'title': title, 'markdown': text, 'version': LEGAL_VERSION}
+              'trade_name': st.get('trade_name') or 'WORLDIVES DISCOVERY', 'version': version,
+              'hosting': st.get('hosting') or pending, 'dpo_email': st.get('dpo_email') or st.get('email') or pending,
+              'points_code_days': POINTS_CODE_DAYS, 'points_grant_month': POINTS_GRANT_CLIENT_MONTH}
+    return re.sub(r'\{\{(\w+)\}\}', lambda m: str(values.get(m.group(1), m.group(0))), markdown or '')
+
+
+def legal_pending_for(db, user):
+    """Documents the user still has to accept (new version in force), and new versions announced for later."""
+    if not user: return [], []
+    need = [s for s, who in LEGAL_ACCEPTANCE.items() if who == 'all' or (who == 'pro' and user['role'] in ('center', 'freelance'))]
+    pending, upcoming = [], []
+    for slug in need:
+        cur = legal_doc_version(db, slug)
+        ok = db.execute('SELECT 1 FROM legal_acceptances WHERE user_id=? AND document=? AND version>=? LIMIT 1', (user['id'], slug, cur)).fetchone()
+        if not ok: pending.append({'slug': slug, 'route': LEGAL_PUBLIC_SLUGS.get(slug, slug), 'title': LEGAL_DOCS[slug], 'version': cur})
+        up = legal_upcoming(db, slug)
+        if up and not db.execute('SELECT 1 FROM legal_acceptances WHERE user_id=? AND document=? AND version>=? LIMIT 1', (user['id'], slug, up['version'])).fetchone():
+            upcoming.append({'slug': slug, 'route': LEGAL_PUBLIC_SLUGS.get(slug, slug), 'title': LEGAL_DOCS[slug], 'version': up['version'], 'effective_at': up['effective_at'], 'summary': up['summary'] or ''})
+    return pending, upcoming
+
+
+def legal_publish(db, actor, slug, lang, title, markdown, summary, effective_at, notify=True):
+    """Publishes a new version. Spanish is the reference: its version is the date it comes into force (plus a counter
+    when there are several the same day). Centres get at least 15 days of notice; users who must accept it are told by email."""
+    slug = legal_slug(slug)
+    if not slug: raise ValueError('Documento no válido.')
+    lang = normalize_lang(lang)
+    if lang not in MAIL_LANGS: raise ValueError('Idioma no válido.')
+    markdown = (markdown or '').replace('\r\n', '\n').strip()
+    if len(markdown) < 40: raise ValueError('El texto es demasiado corto.')
+    if len(markdown) > 200000: raise ValueError('El texto es demasiado largo.')
+    try: eff = _dt.date.fromisoformat(str(effective_at or _dt.date.today().isoformat())[:10])
+    except ValueError: raise ValueError('Fecha de entrada en vigor no válida.')
+    today = _dt.date.today()
+    if eff < today: raise ValueError('La fecha de entrada en vigor no puede ser anterior a hoy.')
+    min_days = LEGAL_NOTICE_DAYS.get(slug, 0)
+    if lang == 'es' and min_days and (eff - today).days < min_days and legal_current(db, slug, 'es'):
+        raise ValueError(f'Los cambios en este documento se anuncian con {min_days} días de antelación: la fecha de entrada en vigor debe ser como pronto el {(today + _timedelta(days=min_days)).strftime("%d/%m/%Y")}.')
+    base = eff.isoformat()
+    if lang == 'es':
+        n = db.execute("SELECT COUNT(*) FROM legal_documents WHERE slug=? AND lang='es' AND version LIKE ?", (slug, base + '%')).fetchone()[0]
+        version = base if not n else f'{base}.{n + 1}'
+    else:
+        es = db.execute("SELECT version FROM legal_documents WHERE slug=? AND lang='es' AND status='published' AND effective_at<=? ORDER BY effective_at DESC,id DESC LIMIT 1", (slug, base)).fetchone()
+        version = es['version'] if es else base   # a translation follows the Spanish version it translates
+    title = clean_text(title, 200) or (markdown.split('\n', 1)[0].lstrip('# ').strip()) or LEGAL_DOCS[slug]
+    did = db.execute('''INSERT INTO legal_documents(slug,lang,version,title,markdown,summary,status,effective_at,published_at,created_by,created_at,source)
+                        VALUES(?,?,?,?,?,?,'published',?,?,?,?,'admin')''', (slug, lang, version, title, markdown, clean_text(summary, 1000) or '', base, now(), actor, now())).lastrowid
+    audit(db, actor, 'legal_document_published', 'legal_document', did, {'slug': slug, 'lang': lang, 'version': version, 'effective_at': base})
+    if notify and lang == 'es' and slug in LEGAL_ACCEPTANCE:
+        notify_legal_change(db, slug, version, base, clean_text(summary, 1000) or '')
+    return {'id': did, 'version': version, 'effective_at': base}
+
+
+def notify_legal_change(db, slug, version, effective_at, summary):
+    """Email to everybody who has to accept the new version (template legal_update), in their language."""
+    who = LEGAL_ACCEPTANCE.get(slug)
+    q = "SELECT id FROM users WHERE guest_center_id IS NULL AND email NOT LIKE '%.local'" + (" AND role IN ('center','freelance')" if who == 'pro' else '')
+    base = public_site_url()
+    for r in db.execute(q).fetchall():
+        lang = user_lang(db, r['id'])
+        notify_user(db, r['id'], 'legal_update', {'doc_title': mail_t(lang, LEGAL_DOCS[slug]), 'effective_date': mail_date(effective_at, lang),
+                    'change_summary': summary, 'doc_url': f"{base}/#/legal/{LEGAL_PUBLIC_SLUGS.get(slug, slug)}",
+                    'accept_text': mail_t(lang, 'Cuando entren en vigor te pediremos que los aceptes al entrar en tu cuenta. Si no estás de acuerdo, puedes darte de baja antes de esa fecha.')},
+                    ('legal', None))
 
 
 def booking_start(b):
@@ -4633,6 +4974,38 @@ def export_user_data(db, uid):
     return out
 
 
+def export_user_zip(db, uid):
+    """Right of access / portability (v50.36): a ZIP with all the data (datos.json) and the documents the user uploaded."""
+    import io, zipfile
+    data = export_user_data(db, uid)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr('datos.json', json.dumps(data, ensure_ascii=False, indent=2, default=str))
+        z.writestr('LEEME.txt', mail_t(user_lang(db, uid), 'Copia de tus datos en WORLDIVES DISCOVERY. datos.json contiene tu cuenta, ficha, reservas, pagos, puntos, reseñas, avisos y consentimientos; la carpeta documentos contiene los archivos que subiste.') + '\n')
+        for d in db.execute('SELECT id,document_type,file_path,original_name FROM user_documents WHERE user_id=?', (uid,)).fetchall():
+            fp = document_file_path(d['file_path'])
+            if not fp or not fp.exists(): continue
+            name = re.sub(r'[^A-Za-z0-9._-]+', '_', d['original_name'] or fp.name)[-80:] or fp.name
+            z.write(fp, f"documentos/{d['id']}_{d['document_type'] or 'documento'}_{name}")
+    return buf.getvalue()
+
+
+def request_account_deletion(db, user):
+    """Erasure is confirmed from the account's email. Without a deliverable email the password already confirmed it."""
+    uid = user['id']
+    if not mail_deliverable(user['email']): return None
+    token = wsec.random_token(32)
+    exp = (datetime.now(timezone.utc) + _timedelta(hours=24)).isoformat(timespec='seconds')
+    db.execute('UPDATE account_deletion_requests SET used_at=? WHERE user_id=? AND used_at IS NULL', (now(), uid))
+    db.execute('INSERT INTO account_deletion_requests(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)', (hashlib.sha256(token.encode()).hexdigest(), uid, exp, now()))
+    ctx, lang = user_mail_ctx(db, uid)
+    if ctx:
+        ctx.update({'confirm_url': f'{public_site_url()}/#/eliminar-cuenta?token={token}', 'export_url': f'{public_site_url()}/#/cuenta'})
+        queue_email(db, 'account_delete_confirm', user['email'], user['fullname'], ctx, lang, ('user', uid))
+    audit(db, uid, 'account_deletion_requested', 'user', uid)
+    return token
+
+
 def delete_user_account(db, user):
     """Right to erasure: personal data removed or anonymised. Bookings and payments stay (anonymised) for the centres' and
     the tax obligations; reviews stay without the author's name."""
@@ -4640,6 +5013,7 @@ def delete_user_account(db, user):
     future = db.execute("SELECT COUNT(*) FROM bookings WHERE user_id=? AND status IN ('pending','confirmed') AND booking_date>=?", (uid, _dt.date.today().isoformat())).fetchone()[0]
     if future: raise ValueError(f'Tienes {future} reserva(s) próxima(s). Cancélalas antes de eliminar tu cuenta.')
     notify_user(db, uid, 'account_deleted', related=('user', uid))
+    db.execute('DELETE FROM document_alerts WHERE document_id IN (SELECT id FROM user_documents WHERE user_id=?)', (uid,))
     for d in db.execute('SELECT file_path FROM user_documents WHERE user_id=?', (uid,)).fetchall():
         delete_document_file(d['file_path'])
     tag = secrets.token_hex(4)
@@ -4650,9 +5024,43 @@ def delete_user_account(db, user):
     for sql in ('DELETE FROM user_documents WHERE user_id=?', 'DELETE FROM sessions WHERE user_id=?', 'DELETE FROM logbook_entries WHERE user_id=?',
                 'DELETE FROM center_links WHERE user_id=?', 'DELETE FROM password_resets WHERE user_id=?', 'DELETE FROM messages WHERE recipient_user_id=?',
                 "UPDATE promotion_codes SET status='revoked',revoked_at=? WHERE user_id=? AND status='active'",
+                "UPDATE center_claims SET status='withdrawn', phone=NULL, note=NULL, email=NULL, reviewed_at=COALESCE(reviewed_at,?) WHERE user_id=? AND status='pending'",
+                "UPDATE reward_redemptions SET status='cancelled', cancelled_at=? WHERE user_id=? AND status='issued'",
+                'DELETE FROM account_deletion_requests WHERE user_id=?',
                 'UPDATE bookings SET contact_phone=NULL, notes=NULL, equipment_notes=NULL, guide_notes=NULL WHERE user_id=?'):
         db.execute(sql, (now(), uid) if sql.count('?') == 2 else (uid,))
     audit(db, uid, 'account_deleted', 'user', uid)
+
+
+REPORT_TARGETS = ('review', 'center', 'point', 'experience', 'photo', 'promotion', 'profile')
+
+
+def report_target(db, ttype, tid):
+    """The reported item, checked: (label, url, affected user ids) — affected users are told about the decision."""
+    if ttype not in REPORT_TARGETS or not tid: return None
+    base = public_site_url()
+    if ttype == 'review':
+        r = db.execute('SELECT cr.id,cr.center_id,cr.user_id,c.name FROM center_reviews cr JOIN centers c ON c.id=cr.center_id WHERE cr.id=?', (tid,)).fetchone()
+        return r and (f"Reseña #{r['id']} de {r['name']}", f"{base}/#/centro?id={r['center_id']}", [r['user_id']])
+    if ttype in ('center', 'photo'):
+        r = db.execute('SELECT id,name FROM centers WHERE id=?', (tid,)).fetchone()
+        users = [x['id'] for x in db.execute("SELECT id FROM users WHERE center_id=? AND role='center'", (tid,)).fetchall()]
+        return r and ((('Foto de ' if ttype == 'photo' else 'Centro ') + r['name']), f"{base}/#/centro?id={r['id']}", users)
+    if ttype == 'point':
+        r = db.execute('SELECT id,name FROM dive_points WHERE id=?', (tid,)).fetchone()
+        return r and (f"Punto de buceo {r['name']}", f"{base}/#/punto?id={r['id']}", [])
+    if ttype == 'experience':
+        r = db.execute('SELECT id,title,provider_user_id,center_id,travel_offer_id FROM travel_experiences WHERE id=?', (tid,)).fetchone()
+        if not r: return None
+        users = [r['provider_user_id']] if r['provider_user_id'] else [x['id'] for x in db.execute("SELECT id FROM users WHERE center_id=? AND role='center'", (r['center_id'] or -1,)).fetchall()]
+        return (f"Experiencia {r['title']}", f"{base}/#/experiencia?id={r['travel_offer_id']}", users)
+    if ttype == 'promotion':
+        r = db.execute('SELECT id,title FROM promotions WHERE id=?', (tid,)).fetchone()
+        return r and (f"Promoción {r['title']}", f"{base}/#/promo/{r['id']}", [])
+    if ttype == 'profile':
+        r = db.execute("SELECT id,fullname FROM users WHERE id=? AND role='freelance'", (tid,)).fetchone()
+        return r and (f"Perfil de {r['fullname']}", f"{base}/#/profesional?id={r['id']}", [r['id']])
+    return None
 
 
 REPORT_REASONS = {'illegal': 'Contenido ilegal', 'false': 'Información falsa o engañosa', 'fake_review': 'Reseña falsa o no auténtica',
@@ -4986,6 +5394,37 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def send_range_file(self, path: Path, content_type):
+        """Large static file with HTTP Range (PMTiles clients read small byte ranges of a file of several GB)."""
+        if not path.exists() or not path.is_file(): self.send_error(404); return
+        size = path.stat().st_size; etag = f'"{int(path.stat().st_mtime_ns):x}-{size:x}"'
+        rng = self.headers.get('Range', ''); start, end = 0, size - 1; partial = False
+        m = re.fullmatch(r'bytes=(\d*)-(\d*)', rng.strip()) if rng else None
+        if rng and not m:
+            self.send_response(416); self.send_header('Content-Range', f'bytes */{size}'); self.security_headers(); self.end_headers(); return
+        if m:
+            a, b = m.group(1), m.group(2)
+            if a == '' and b == '': self.send_response(416); self.send_header('Content-Range', f'bytes */{size}'); self.security_headers(); self.end_headers(); return
+            if a == '': start = max(0, size - int(b))
+            else: start = int(a); end = min(size - 1, int(b)) if b else size - 1
+            if start >= size or start > end:
+                self.send_response(416); self.send_header('Content-Range', f'bytes */{size}'); self.security_headers(); self.end_headers(); return
+            partial = True
+        length = end - start + 1
+        if length > 64 * 1024 * 1024: end = start + 64 * 1024 * 1024 - 1; length = end - start + 1
+        self.send_response(206 if partial else 200)
+        self.send_header('Content-Type', content_type); self.send_header('Accept-Ranges', 'bytes'); self.send_header('ETag', etag)
+        self.send_header('Content-Length', str(length)); self.send_header('Cache-Control', 'public, max-age=86400')
+        if partial: self.send_header('Content-Range', f'bytes {start}-{end}/{size}')
+        self.security_headers(); self.end_headers()
+        if self.command == 'HEAD': return
+        with path.open('rb') as fh:
+            fh.seek(start); left = length
+            while left > 0:
+                chunk = fh.read(min(262144, left))
+                if not chunk: break
+                self.wfile.write(chunk); left -= len(chunk)
+
     def send_file(self, path: Path, content_type=None):
         if not path.exists() or not path.is_file():
             self.send_error(404)
@@ -5075,6 +5514,10 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         query = parse_qs(parsed.query)
         # Static files are served without touching the database.
+        if path.startswith('/tiles/') and path.endswith('.pmtiles'):
+            p = pmtiles_path()
+            if not p or Path(unquote(path)).name != p.name: self.send_error(404); return
+            self.send_range_file(p, 'application/vnd.pmtiles'); return
         if path.startswith('/assets/uploads/'):
             candidate=(PHOTOS/unquote(path)[len('/assets/uploads/'):]).resolve()
             if not candidate.is_relative_to(PHOTOS.resolve()): self.send_error(403); return
@@ -5104,7 +5547,26 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(doc); return
                 if path == '/api/legal/info':
                     st=legal_settings(db)
-                    self.send_json({'version':LEGAL_VERSION,'docs':LEGAL_DOCS,'owner':{k:st.get(k,'') for k in ('owner_name','trade_name','nif','address','email','phone')},'reasons':REPORT_REASONS}); return
+                    docs={LEGAL_PUBLIC_SLUGS.get(k,k):v for k,v in LEGAL_DOCS.items()}
+                    self.send_json({'version':legal_doc_version(db,'terminos'),'versions':{LEGAL_PUBLIC_SLUGS.get(k,k):legal_doc_version(db,k) for k in LEGAL_DOCS},'docs':docs,
+                                    'owner':{k:st.get(k,'') for k in ('owner_name','trade_name','nif','address','email','phone')},'reasons':REPORT_REASONS}); return
+                if path == '/api/legal/history':
+                    # Public history of a document: every version with its date and the summary of the changes.
+                    slug=legal_slug(clean_text(query.get('slug',[''])[0],40) or '')
+                    if not slug: self.send_json({'error':'Documento no encontrado'},404); return
+                    rows=db.execute("SELECT id,version,title,summary,effective_at,published_at FROM legal_documents WHERE slug=? AND lang='es' AND status='published' ORDER BY effective_at DESC,id DESC",(slug,)).fetchall()
+                    self.send_json({'slug':slug,'items':[dict(r) for r in rows]}); return
+                if path == '/api/legal/version':
+                    # One past version (Spanish or another language), to read exactly what someone accepted.
+                    did=int(query.get('id',['0'])[0] or 0)
+                    r=db.execute("SELECT slug,lang,version,title,markdown,effective_at FROM legal_documents WHERE id=? AND status='published'",(did,)).fetchone()
+                    if not r: self.send_json({'error':'Versión no encontrada'},404); return
+                    self.send_json(dict(r,markdown=legal_fill(db,r['markdown'],r['lang'],r['version']))); return
+                if path == '/api/account/export' and query.get('format',[''])[0]=='zip':
+                    user=require_user(self,db); raw=export_user_zip(db,user['id']); audit(db,user['id'],'data_exported','user',user['id'],{'format':'zip'}); db.commit()
+                    self.send_response(200); self.send_header('Content-Type','application/zip')
+                    self.send_header('Content-Disposition',f'attachment; filename="worldives-mis-datos-{_dt.date.today().isoformat()}.zip"')
+                    self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
                 if path == '/api/account/export':
                     user=require_user(self,db); data=export_user_data(db,user['id']); audit(db,user['id'],'data_exported','user',user['id']); db.commit()
                     raw=json.dumps(data,ensure_ascii=False,indent=2,default=str).encode('utf-8')
@@ -5113,9 +5575,68 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
                 if path == '/api/admin/legal':
                     user=require_user(self,db); require_role(user,{'admin'}); st=legal_settings(db)
-                    reports=[dict(r) for r in db.execute('SELECT id,reason,target_url,details,reporter_name,reporter_email,status,resolution,resolved_at,created_at FROM content_reports ORDER BY status=\'open\' DESC, id DESC LIMIT 200').fetchall()]
-                    self.send_json({'settings':{k:st.get(k,'') for k in LEGAL_FIELDS},'fields':LEGAL_FIELDS,'docs':LEGAL_DOCS,'version':LEGAL_VERSION,'reports':reports,'reasons':REPORT_REASONS,
+                    reports=[dict(r) for r in db.execute('SELECT id,reason,target_url,target_type,target_id,affected_notified_at,details,reporter_name,reporter_email,status,resolution,resolved_at,created_at FROM content_reports ORDER BY status=\'open\' DESC, id DESC LIMIT 200').fetchall()]
+                    docs_state=[]
+                    for slug,title in LEGAL_DOCS.items():
+                        langs={r['lang'] for r in db.execute("SELECT DISTINCT lang FROM legal_documents WHERE slug=? AND status='published' AND effective_at<=?",(slug,_dt.date.today().isoformat())).fetchall()}
+                        up=legal_upcoming(db,slug)
+                        docs_state.append({'slug':slug,'route':LEGAL_PUBLIC_SLUGS.get(slug,slug),'title':title,'version':legal_doc_version(db,slug),'langs':sorted(langs),'upcoming':dict(up) if up else None,
+                                           'acceptance':LEGAL_ACCEPTANCE.get(slug),'notice_days':LEGAL_NOTICE_DAYS.get(slug,0)})
+                    self.send_json({'settings':{k:st.get(k,'') for k in LEGAL_FIELDS},'fields':LEGAL_FIELDS,'docs':LEGAL_DOCS,'documents':docs_state,'version':legal_doc_version(db,'terminos'),'reports':reports,'reasons':REPORT_REASONS,
                                     'open_reports':sum(1 for r in reports if r['status']=='open')}); return
+                if path == '/api/admin/retention':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    last=db.execute("SELECT value FROM site_settings WHERE key='retention_last_report'").fetchone()
+                    self.send_json({'settings':retention_settings(db),'defaults':RETENTION_DEFAULTS,'limits':RETENTION_LIMITS,'warn_days':RETENTION_WARN_DAYS,
+                                    'log_days':wcfg.env_int('WOD_LOG_RETENTION_DAYS',14,1,365),'last':json.loads(last['value']) if last else None}); return
+                if path == '/api/map/config':
+                    self.send_json(map_config(db)); return
+                if path.startswith('/api/tiles/satellite/'):
+                    parts=path.split('/')[4:]
+                    if len(parts)!=3 or not all(x.isdigit() for x in parts): self.send_error(404); return
+                    z,y,x=(int(v) for v in parts)
+                    if z>19 or y>=2**z or x>=2**z: self.send_error(404); return
+                    if not sat_available(db): self.send_json({'error':'Vista satélite no disponible.'},404); return
+                    if sat_rate_limited(self.client_ip()): self.send_json({'error':'Demasiadas peticiones.'},429); return
+                    import urllib.request, urllib.error
+                    url=SAT_UPSTREAM.format(z=z,y=y,x=x)+'?token='+quote(arcgis_key(),safe='')
+                    try:
+                        with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'WORLDIVES-DISCOVERY/'+APP_VERSION}),timeout=10) as up:
+                            raw=up.read(2*1024*1024); ct=up.headers.get('Content-Type','image/jpeg')
+                    except urllib.error.HTTPError as exc:
+                        self.send_error(404 if exc.code in (400,404) else 502); return
+                    except (urllib.error.URLError,OSError,TimeoutError):
+                        self.send_error(502); return
+                    if not ct.startswith('image/'): self.send_error(502); return
+                    sat_count(db); db.commit()
+                    self.send_response(200); self.send_header('Content-Type',ct); self.send_header('Content-Length',str(len(raw)))
+                    self.send_header('Cache-Control','private, max-age=86400'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
+                if path == '/api/admin/maps':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    hist=[dict(r) for r in db.execute("SELECT month,tiles FROM map_tile_usage WHERE layer='satellite' ORDER BY month DESC LIMIT 12").fetchall()]
+                    p=pmtiles_path()
+                    self.send_json({'key_configured':bool(arcgis_key()),'limit':sat_limit(db),'default_limit':SAT_LIMIT_DEFAULT,'used':sat_usage(db),'month':sat_month(),'history':hist,
+                                    'available':sat_available(db),'pmtiles':{'url':pmtiles_url(),'local':bool(p),'exists':bool(p and p.exists()),'size':p.stat().st_size if p and p.exists() else 0}}); return
+                if path == '/api/admin/images':
+                    user=require_user(self,db); require_role(user,{'admin'}); items=images_report(db)
+                    self.send_json({'items':items,'missing':sum(1 for x in items if x['missing'])}); return
+                if path == '/api/admin/point-texts':
+                    # Rewritten descriptions to review: new text, previous text and the data still missing.
+                    user=require_user(self,db); require_role(user,{'admin'}); only=query.get('pending',['1'])[0]=='1'
+                    rows=db.execute('SELECT id,name,country,region,description,description_legacy,description_missing,description_reviewed,description_reviewed_at FROM dive_points WHERE active=1'
+                                    +(' AND COALESCE(description_reviewed,0)=0' if only else '')+' ORDER BY country,region,name LIMIT 500').fetchall()
+                    tot=db.execute('SELECT COUNT(*) n, SUM(COALESCE(description_reviewed,0)) r FROM dive_points WHERE active=1').fetchone()
+                    self.send_json({'items':[dict(x,description_missing=json.loads(x['description_missing'] or '[]')) for x in rows],'total':tot['n'],'reviewed':tot['r'] or 0}); return
+                if path == '/api/admin/legal/doc':
+                    # Raw text of the version in force (with its {{placeholders}}) to edit it.
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    slug=legal_slug(clean_text(query.get('slug',[''])[0],40) or ''); lang=normalize_lang(query.get('lang',['es'])[0])
+                    if not slug: self.send_json({'error':'Documento no encontrado'},404); return
+                    r=legal_current(db,slug,lang) or legal_current(db,slug,'es')
+                    hist=[dict(x) for x in db.execute("SELECT id,lang,version,title,summary,effective_at,published_at,source FROM legal_documents WHERE slug=? ORDER BY effective_at DESC,id DESC LIMIT 100",(slug,)).fetchall()]
+                    self.send_json({'slug':slug,'lang':lang,'title':r['title'] if r else LEGAL_DOCS[slug],'markdown':r['markdown'] if r and r['lang']==lang else '','base_markdown':r['markdown'] if r else '',
+                                    'version':r['version'] if r else None,'history':hist,'notice_days':LEGAL_NOTICE_DAYS.get(slug,0),'acceptance':LEGAL_ACCEPTANCE.get(slug),
+                                    'placeholders':sorted(set(re.findall(r'\{\{(\w+)\}\}',r['markdown'] if r else '')))}); return
                 if path == '/api/admin/emails':
                     user=require_user(self,db); require_role(user,{'admin'})
                     where=[]; args=[]
@@ -5265,7 +5786,14 @@ class Handler(BaseHTTPRequestHandler):
                                       WHERE e.id=? AND e.active=1 AND e.status='published'
                                         AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))''',(eid,)).fetchone()
                     if not row: self.send_json({'error':'Experiencia no disponible.'},404); return
-                    self.send_json({'item':enrich_experiences(db,[row])[0]}); return
+                    item=enrich_experiences(db,[row])[0]
+                    # Who provides it and on what terms (shown before the request, Fase 5).
+                    pay=payee_of(db,row['center_id'],row['provider_user_id'])
+                    svc=db.execute('SELECT * FROM provider_services WHERE id=?',(row['service_id'],)).fetchone() if row['service_id'] else None
+                    pol=provider_policy(pay,svc)
+                    item['provider_legal']={'name':(pay or {}).get('legal_name') or (pay or {}).get('name') or item.get('center_name') or item.get('provider_name'),
+                                            'country':(pay or {}).get('country') or '','type':(pay or {}).get('type') or '','policy_text':policy_text(pol['free_hours'],pol['refund_pct'],normalize_lang(query.get('lang',['es'])[0])),'policy_note':pol['note']}
+                    self.send_json({'item':item}); return
                 if path == '/api/provider/experiences':
                     user=require_user(self,db); require_role(user,{'center','freelance'})
                     rows=db.execute('''SELECT e.*, t.title AS destination_title, s.title AS service_title,
@@ -5312,6 +5840,7 @@ class Handler(BaseHTTPRequestHandler):
                         claim = db.execute('SELECT status,requested_role,created_at FROM center_claims WHERE user_id=? ORDER BY id DESC LIMIT 1', (user['id'],)).fetchone()
                         self.send_json({'authenticated': True, 'user': public_user(user), 'profile': dict(profile) if profile else None, 'documents': [dict(x) for x in docs], 'center_links':[dict(x) for x in links],
                                         'pro_request': dict(claim) if claim else None,
+                                        'legal':dict(zip(('pending','upcoming'),legal_pending_for(db,user))),
                                         'security':{'totp_enabled':bool(user.get('totp_enabled')),'totp_setup_required':user['role']=='admin' and admin_totp_required() and not user.get('totp_enabled'),
                                                     'recovery_left':len(json.loads(user.get('totp_recovery') or '[]')) if user.get('totp_enabled') else 0}})
                     return
@@ -5560,10 +6089,10 @@ class Handler(BaseHTTPRequestHandler):
                             (SELECT COUNT(*) FROM center_point_links cpl JOIN dive_points dp ON dp.id=cpl.dive_point_id WHERE cpl.center_id=c.id AND dp.active=1) AS point_count,
                             COALESCE((SELECT ROUND(AVG(cr.rating),1) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1),0) AS rating_average,
                             (SELECT COUNT(*) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1) AS review_count
-                            FROM centers c WHERE c.id=? AND c.active=1''',(cid,)).fetchone()
+                            FROM centers c WHERE c.id=? AND '''+public_center_sql()+'''''',(cid,)).fetchone()
                         if not row: self.send_json({'error':'Centro no encontrado'},404); return
                         points=db.execute('SELECT p.* FROM center_point_links cpl JOIN dive_points p ON p.id=cpl.dive_point_id WHERE cpl.center_id=? AND p.active=1 ORDER BY p.name',(cid,)).fetchall()
-                        services=db.execute('SELECT s.* FROM provider_services s WHERE s.center_id=? AND s.active=1 ORDER BY s.title',(cid,)).fetchall(); reviews=db.execute('''SELECT cr.id,cr.rating,cr.title,cr.body,cr.verified,cr.created_at,cr.updated_at,u.fullname
+                        services=db.execute('SELECT s.* FROM provider_services s WHERE s.center_id=? AND s.active=1 ORDER BY s.title',(cid,)).fetchall(); reviews=db.execute('''SELECT cr.id,cr.rating,cr.title,cr.body,cr.verified,cr.created_at,cr.updated_at,cr.reply_body,cr.reply_at,u.fullname
                                                FROM center_reviews cr JOIN users u ON u.id=cr.user_id
                                                WHERE cr.center_id=? AND cr.active=1 ORDER BY cr.created_at DESC,cr.id DESC LIMIT 50''',(cid,)).fetchall()
                         review_payload=[dict(r) for r in reviews]
@@ -5587,7 +6116,7 @@ class Handler(BaseHTTPRequestHandler):
                                                  AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))
                                                ORDER BY e.id DESC LIMIT 12''',(cid,)).fetchall()
                         _ci=center_row(row); _ci['cancellation_policy']=cancellation_policy_key(row['cancellation_policy']); _ci['cancellation_text']=cancellation_policy_text(row['cancellation_policy']); _ci['cancellation_note']=row['cancellation_note'] or ''
-                        self.send_json({'item':_ci,'points':[point_row(r) for r in points],'services':service_out,'experiences':enrich_experiences(db,exp_rows), 'reviews':review_payload, 'review':{'can_review':can_review,'reason':review_reason,'current':current_review}}); return
+                        self.send_json({'item':_ci,'points':[point_row(r) for r in points],'services':service_out,'experiences':enrich_experiences(db,exp_rows), 'reviews':review_payload, 'review':{'can_review':can_review,'reason':review_reason,'current':current_review,'can_reply':bool(current and current['role']=='center' and current['center_id']==cid),'is_admin':bool(current and current['role']=='admin')}}); return
                 if path.startswith('/api/dive-points/') and path.endswith('/virtual'):
                     pid=int(path.split('/')[3])
                     if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone():
@@ -5603,10 +6132,10 @@ class Handler(BaseHTTPRequestHandler):
                 if path.startswith('/api/dive-points/') and path.endswith('/centers'):
                     pid=int(path.split('/')[3]); p=db.execute('SELECT latitude,longitude FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone()
                     if not p: self.send_json({'error':'Punto no encontrado'},404); return
-                    rows=db.execute('''SELECT c.*, COALESCE((SELECT ROUND(AVG(cr.rating),1) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1),0) AS rating_average, (SELECT COUNT(*) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1) AS review_count FROM center_point_links cpl JOIN centers c ON c.id=cpl.center_id WHERE cpl.dive_point_id=? AND c.active=1 ORDER BY c.name''',(pid,)).fetchall()
+                    rows=db.execute('''SELECT c.*, COALESCE((SELECT ROUND(AVG(cr.rating),1) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1),0) AS rating_average, (SELECT COUNT(*) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1) AS review_count FROM center_point_links cpl JOIN centers c ON c.id=cpl.center_id WHERE cpl.dive_point_id=? AND '''+public_center_sql()+''' ORDER BY c.name''',(pid,)).fetchall()
                     mode='exact'
                     if not rows:
-                        mode='nearby'; candidates=db.execute('''SELECT c.*, COALESCE((SELECT ROUND(AVG(cr.rating),1) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1),0) AS rating_average, (SELECT COUNT(*) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1) AS review_count FROM centers c WHERE c.active=1 AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL''').fetchall()
+                        mode='nearby'; candidates=db.execute('''SELECT c.*, COALESCE((SELECT ROUND(AVG(cr.rating),1) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1),0) AS rating_average, (SELECT COUNT(*) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1) AS review_count FROM centers c WHERE '''+public_center_sql()+''' AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL''').fetchall()
                         from math import radians,sin,cos,asin,sqrt
                         def dist(a,b,c,d):
                             lat1,lon1,lat2,lon2=map(radians,[a,b,c,d]); x=sin((lat2-lat1)/2)**2+cos(lat1)*cos(lat2)*sin((lon2-lon1)/2)**2; return 6371*2*asin(sqrt(x))
@@ -5635,7 +6164,12 @@ class Handler(BaseHTTPRequestHandler):
                         if r['latitude'] is not None and r['longitude'] is not None: near=nearby_points(db,float(r['latitude']),float(r['longitude']),80,exclude=pid,limit=6)
                     except (TypeError,ValueError): near=[]
                     snap_row=points_snapshot(db)['by_id'].get(pid) or {}
-                    self.send_json({'item':point_row(r),'photos':[dict(x) for x in photos],'nearby':near,'types':snap_row.get('types',[])})
+                    item=point_row(r)
+                    for k in ('description_legacy','description_missing','description_reviewed_at'): item.pop(k,None)
+                    lang=normalize_lang(query.get('lang',['es'])[0]); loc=point_text(db,pid,lang)
+                    if loc: item['description']=loc; item['description_lang']=lang
+                    if item.get('description_generated'): item['access_info']=''   # the access is already in the text
+                    self.send_json({'item':item,'photos':[dict(x) for x in photos],'nearby':near,'types':snap_row.get('types',[])})
                     return
                 if path == '/api/center-directory':
                     self.send_json(center_directory(db, query)); return
@@ -5648,7 +6182,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path == '/api/centers':
                     q = clean_text(query.get('q',[''])[0], 120)
                     country = clean_text(query.get('country',[''])[0], 120)
-                    where=['c.active=1']; args=[]
+                    where=[public_center_sql()]; args=[]
                     if q:
                         like=f'%{fold_text(q)}%'; where.append('(fold(c.name) LIKE ? OR fold(c.city) LIKE ? OR fold(c.region) LIKE ? OR fold(c.specialties) LIKE ?)'); args += [like]*4
                     if country: where.append('c.country=?'); args.append(country)
@@ -6137,11 +6671,7 @@ class Handler(BaseHTTPRequestHandler):
                     set_marketing_consent(db,uid,bool(data.get('accept_marketing')),self.client_ip())
                     claim_id=None; suggested=None
                     if requested in {'center','freelance'}:
-                        norm=''.join(ch for ch in (phone or '') if ch.isdigit())
-                        if len(norm)>=6:
-                            for c in db.execute('SELECT id,name,city,phone FROM centers WHERE active=1').fetchall():
-                                c_norm=''.join(ch for ch in (c['phone'] or '') if ch.isdigit())
-                                if c_norm and (norm==c_norm or norm.endswith(c_norm[-9:]) or c_norm.endswith(norm[-9:])): suggested=c; break
+                        # v50.36: there are no imported listings to claim (G2 removed): every sign-up is a new centre pending approval.
                         draft_id=None
                         if requested=='center':
                             # Always a NEW centre, hidden (active=0) until the administrator approves it.
@@ -6171,7 +6701,7 @@ class Handler(BaseHTTPRequestHandler):
                         db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(password),user['id']))
                     second=login_second_factor(db,user,data,ip)
                     if second: db.commit(); self.send_json(second[0],second[1]); return
-                    db.execute('UPDATE users SET last_login=? WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login',details={'ip':wsec.ip_hash(ip),'totp':bool(user['totp_enabled'])}); db.commit()
+                    db.execute('UPDATE users SET last_login=?,inactive_warned_at=NULL WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login',details={'ip':wsec.ip_hash(ip),'totp':bool(user['totp_enabled'])}); db.commit()
                     self.login_user(user['id'],db,{'ok':True,'totp_setup_required':user['role']=='admin' and admin_totp_required() and not user['totp_enabled']}); return
                 if path in ('/api/account/totp/setup','/api/account/totp/enable','/api/account/totp/disable','/api/account/totp/recovery'):
                     # Fase 4: two-step verification, optional for everybody and mandatory for administrators.
@@ -6630,17 +7160,87 @@ class Handler(BaseHTTPRequestHandler):
                     lang=normalize_lang(lang)
                     db.execute('INSERT INTO user_profiles(user_id,preferred_language,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET preferred_language=excluded.preferred_language',(user['id'],lang,now()))
                     db.commit(); self.send_json({'ok':True}); return
-                if path=='/api/account/accept-terms':
-                    user=require_user(self,db); kind=json_body(self).get('kind')
-                    if kind=='pro': require_role(user,{'center','freelance','admin'}); db.execute('UPDATE users SET pro_terms_version=?,pro_terms_accepted_at=? WHERE id=?',(LEGAL_VERSION,now(),user['id']))
-                    else: db.execute('UPDATE users SET terms_version=?,terms_accepted_at=? WHERE id=?',(LEGAL_VERSION,now(),user['id']))
-                    audit(db,user['id'],'terms_accepted','user',user['id'],{'kind':kind or 'user','version':LEGAL_VERSION}); db.commit(); self.send_json({'ok':True,'version':LEGAL_VERSION}); return
+                if path in ('/api/account/accept-terms','/api/legal/accept'):
+                    # Accepts the versions in force (and, for centres, an announced version) of the documents the user must accept.
+                    user=require_user(self,db); data=json_body(self)
+                    slugs=[legal_slug(x) for x in (data.get('docs') or ([] if data.get('kind') is None else (['centros'] if data.get('kind')=='pro' else ['terminos','privacidad'])))]
+                    pending,upcoming=legal_pending_for(db,user)
+                    if not slugs: slugs=[p['slug'] for p in pending]
+                    done=[]
+                    for slug in [x for x in slugs if x in LEGAL_ACCEPTANCE]:
+                        if LEGAL_ACCEPTANCE[slug]=='pro' and user['role'] not in ('center','freelance','admin'): continue
+                        up=next((u for u in upcoming if u['slug']==slug),None)
+                        ver=up['version'] if up and data.get('upcoming') else legal_doc_version(db,slug)
+                        record_acceptances(db,user['id'],[slug],self.client_ip(),ver); done.append({'slug':slug,'version':ver})
+                    audit(db,user['id'],'legal_accepted','user',user['id'],{'docs':done}); db.commit()
+                    pending,upcoming=legal_pending_for(db,user)
+                    self.send_json({'ok':True,'accepted':done,'pending':pending,'upcoming':upcoming}); return
+                if path=='/api/admin/retention':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); changed={}
+                    for k,(lo,hi) in RETENTION_LIMITS.items():
+                        if k not in data: continue
+                        try: v=int(data[k])
+                        except (TypeError,ValueError): raise ValueError('Los plazos tienen que ser números enteros.')
+                        if not lo<=v<=hi: raise ValueError(f'Valor fuera de rango ({lo}–{hi}).')
+                        db.execute('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by',('retention_'+k,str(v),now(),user['id'])); changed[k]=v
+                    rep=run_retention_jobs(db,force=True) if data.get('run_now') else None
+                    audit(db,user['id'],'retention_settings','system',None,changed); db.commit(); self.send_json({'ok':True,'settings':retention_settings(db),'report':rep}); return
+                if path=='/api/admin/images':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); p=clean_text(data.get('path'),300) or ''
+                    if not p.startswith('/assets/') or '..' in p: raise ValueError('Imagen no válida.')
+                    db.execute('INSERT INTO image_origins(path,credit,origin,updated_at,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(path) DO UPDATE SET credit=excluded.credit,origin=excluded.origin,updated_at=excluded.updated_at,updated_by=excluded.updated_by',
+                               (p,clean_text(data.get('credit'),200) or '',clean_text(data.get('origin'),300) or '',now(),user['id']))
+                    audit(db,user['id'],'image_origin_updated','image',None,{'path':p}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/maps':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    try: lim=int(str(data.get('limit','')).replace('.','').replace(' ',''))
+                    except ValueError: raise ValueError('El límite tiene que ser un número entero.')
+                    if not 0<=lim<=50_000_000: raise ValueError('Límite fuera de rango.')
+                    db.execute('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by',('maps_satellite_limit',str(lim),now(),user['id']))
+                    audit(db,user['id'],'maps_limit_updated','system',None,{'limit':lim}); db.commit(); self.send_json({'ok':True,'limit':lim}); return
+                if path=='/api/admin/point-texts/review':
+                    # Marks a description as reviewed (optionally with an edited Spanish text; the other languages keep the generated text
+                    # until they are edited too). «Regenerar» rebuilds the text from the data of the point.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); pid=int(data.get('id') or 0)
+                    if not db.execute('SELECT 1 FROM dive_points WHERE id=?',(pid,)).fetchone(): raise ValueError('Punto no encontrado.')
+                    if data.get('regenerate'):
+                        db.execute('UPDATE dive_points SET description_reviewed=0 WHERE id=?',(pid,)); regenerate_point_texts(db,pid)
+                    else:
+                        lang=normalize_lang(data.get('lang') or 'es'); txt=clean_text(data.get('description'),4000) if data.get('description') is not None else None
+                        if txt is not None:
+                            if len(txt)<20: raise ValueError('La descripción es demasiado corta.')
+                            db.execute('INSERT INTO dive_point_texts(point_id,lang,description,updated_at) VALUES(?,?,?,?) ON CONFLICT(point_id,lang) DO UPDATE SET description=excluded.description,updated_at=excluded.updated_at',(pid,lang,txt,now()))
+                            if lang=='es': db.execute('UPDATE dive_points SET description=? WHERE id=?',(txt,pid))
+                        if data.get('reviewed',True):
+                            db.execute('UPDATE dive_points SET description_reviewed=1,description_reviewed_at=? WHERE id=?',(now(),pid))
+                    POINTS.invalidate(); audit(db,user['id'],'point_text_reviewed','dive_point',pid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/legal/publish':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    r=legal_publish(db,user['id'],data.get('slug'),data.get('lang') or 'es',data.get('title'),data.get('markdown'),data.get('summary'),data.get('effective_at'),notify=data.get('notify',True)!=False)
+                    db.commit(); self.send_json(dict(r,ok=True)); return
                 if path=='/api/account/delete':
                     user=require_user(self,db); data=json_body(self)
                     if user['role']!='recreational': raise PermissionError('Las cuentas de centro, profesional o administración se dan de baja escribiéndonos: así no se pierden reservas de clientes.')
                     row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
                     if not verify_password(str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
+                    future=db.execute("SELECT COUNT(*) FROM bookings WHERE user_id=? AND status IN ('pending','confirmed') AND booking_date>=?",(user['id'],_dt.date.today().isoformat())).fetchone()[0]
+                    if future: raise ValueError(f'Tienes {future} reserva(s) próxima(s). Cancélalas antes de eliminar tu cuenta.')
+                    if request_account_deletion(db,user):
+                        db.commit(); self.send_json({'ok':True,'email_sent':True}); return
                     delete_user_account(db,user); db.commit(); self.logout_user(); return
+                if path=='/api/account/delete/confirm':
+                    # The link from the email: works without a session (the token proves it), single use, 24 hours.
+                    data=json_body(self); th=hashlib.sha256(str(data.get('token') or '').encode()).hexdigest()
+                    row=db.execute('SELECT * FROM account_deletion_requests WHERE token_hash=?',(th,)).fetchone()
+                    if not row or row['used_at']: raise ValueError('El enlace no es válido o ya se ha utilizado.')
+                    if row['expires_at']<now(): raise ValueError('El enlace ha caducado. Vuelve a pedir la eliminación desde Mi cuenta.')
+                    target=db.execute('SELECT * FROM users WHERE id=?',(row['user_id'],)).fetchone()
+                    if not target or target['role']!='recreational': raise ValueError('El enlace no es válido o ya se ha utilizado.')
+                    db.execute('UPDATE account_deletion_requests SET used_at=? WHERE token_hash=?',(now(),th))
+                    delete_user_account(db,dict(target)); db.commit()
+                    me=current_user(self,db)
+                    if me and me['id']==target['id']: self.logout_user(); return
+                    self.send_json({'ok':True}); return
                 if path.startswith('/api/bookings/') and path.endswith('/cancel'):
                     user=require_user(self,db); bid=int(path.split('/')[-2]); data=json_body(self)
                     b=db.execute('SELECT * FROM bookings WHERE id=? AND user_id=?',(bid,user['id'])).fetchone()
@@ -6757,8 +7357,13 @@ class Handler(BaseHTTPRequestHandler):
                     name=clean_text(data.get('name'),120) or (cu['fullname'] if cu else ''); email=(clean_text(data.get('email'),160) or (cu['email'] if cu else '') or '').lower()
                     target=clean_text(data.get('target_url'),500) or ''
                     if not data.get('good_faith'): raise ValueError('Confirma que la información es exacta y que la envías de buena fe.')
-                    rid=db.execute('INSERT INTO content_reports(reason,target_url,details,reporter_name,reporter_email,user_id,ip_hash,status,created_at) VALUES(?,?,?,?,?,?,?,?,?)',
-                                   (reason,target,details,name,email,cu['id'] if cu else None,wsec.ip_hash(ip),'open',now())).lastrowid
+                    ttype=clean_text(data.get('target_type'),20) or None; tid=int(data.get('target_id') or 0) or None; affected=None
+                    if ttype:
+                        info=report_target(db,ttype,tid)
+                        if not info: raise ValueError('No encontramos el contenido que quieres denunciar.')
+                        target=target or info[1]; affected=info[2][0] if info[2] else None
+                    rid=db.execute('INSERT INTO content_reports(reason,target_url,details,reporter_name,reporter_email,user_id,ip_hash,status,created_at,target_type,target_id,affected_user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+                                   (reason,target,details,name,email,cu['id'] if cu else None,wsec.ip_hash(ip),'open',now(),ttype,tid,affected)).lastrowid
                     notify_admins(db,'admin_content_report',{'reason':REPORT_REASONS[reason],'target':target or '—','details':details,'reporter':' · '.join(x for x in (name,email) if x) or 'Anónimo'},('report',rid))
                     if mail_deliverable(email):
                         queue_email(db,'report_received',email,name,{'first_name':(name or '').split(' ')[0],'ref':f'DEN-{rid:05d}','reason':mail_t('es',REPORT_REASONS[reason])},'es',('report',rid))
@@ -6772,7 +7377,42 @@ class Handler(BaseHTTPRequestHandler):
                         queue_email(db,'report_resolved',r['reporter_email'],r['reporter_name'],{'first_name':(r['reporter_name'] or '').split(' ')[0],'ref':f'DEN-{rid:05d}',
                                     'decision':'Hemos retirado o corregido el contenido denunciado.' if st=='actioned' else 'Tras revisarlo, no hemos encontrado motivos para retirar el contenido.',
                                     'resolution':clean_text(data.get('resolution'),2000) or ''},'es',('report',rid))
+                    reason_txt=clean_text(data.get('resolution'),2000) or ''
+                    if st=='actioned' and r['target_type']=='review' and r['target_id']:
+                        db.execute('UPDATE center_reviews SET active=0,moderated_at=?,moderation_reason=? WHERE id=?',(now(),reason_txt,r['target_id']))
+                    if st!='open' and r['target_type']:
+                        info=report_target(db,r['target_type'],r['target_id'])
+                        for uid in (info[2] if info else []):
+                            notify_user(db,uid,'report_decision_affected',{'content':info[0],'content_url':info[1],'ref':f'DEN-{rid:05d}',
+                                        'decision':mail_t(user_lang(db,uid),'Hemos retirado o corregido este contenido.' if st=='actioned' else 'Tras revisarlo, el contenido se mantiene publicado.'),'resolution':reason_txt},('report',rid))
+                        db.execute('UPDATE content_reports SET affected_notified_at=? WHERE id=?',(now(),rid))
                     audit(db,user['id'],'content_report_'+st,'content_report',rid); db.commit(); self.send_json({'ok':True}); return
+                if path.startswith('/api/reviews/') and path.endswith('/reply'):
+                    # One public reply per review from the centre that was reviewed; an empty text removes it.
+                    user=require_user(self,db); rid=int(path.split('/')[-2]); data=json_body(self)
+                    r=db.execute('SELECT * FROM center_reviews WHERE id=? AND active=1',(rid,)).fetchone()
+                    if not r: raise ValueError('Reseña no encontrada.')
+                    if not (user['role']=='center' and user['center_id']==r['center_id']): raise PermissionError('Solo el centro valorado puede responder a esta reseña.')
+                    body=clean_text(data.get('body'),1000) or ''
+                    if body and len(body)<5: raise ValueError('La respuesta es demasiado corta.')
+                    db.execute('UPDATE center_reviews SET reply_body=?,reply_at=?,reply_user_id=? WHERE id=?',(body or None,now() if body else None,user['id'] if body else None,rid))
+                    if body and not r['reply_body']:
+                        notify_user(db,r['user_id'],'review_replied',{'center_name':db.execute('SELECT name FROM centers WHERE id=?',(r['center_id'],)).fetchone()['name'],
+                                    'reply':body,'center_url':f"{public_site_url()}/#/centro?id={r['center_id']}"},('center_review',rid))
+                    audit(db,user['id'],'review_reply_saved' if body else 'review_reply_deleted','center_review',rid); db.commit(); self.send_json({'ok':True}); return
+                if path.startswith('/api/admin/reviews/') and path.endswith('/moderate'):
+                    # Administration hides or restores a review and tells the author why.
+                    user=require_user(self,db); require_role(user,{'admin'}); rid=int(path.split('/')[-2]); data=json_body(self)
+                    r=db.execute('SELECT * FROM center_reviews WHERE id=?',(rid,)).fetchone()
+                    if not r: raise ValueError('Reseña no encontrada.')
+                    active=1 if data.get('active') else 0; why=clean_text(data.get('reason'),1000) or ''
+                    if not active and len(why)<10: raise ValueError('Explica el motivo (se enviará a quien escribió la reseña).')
+                    db.execute('UPDATE center_reviews SET active=?,moderated_at=?,moderation_reason=? WHERE id=?',(active,now(),why or None,rid))
+                    if not active:
+                        cname=db.execute('SELECT name FROM centers WHERE id=?',(r['center_id'],)).fetchone()['name']
+                        notify_user(db,r['user_id'],'report_decision_affected',{'content':f'Reseña de {cname}','content_url':f"{public_site_url()}/#/centro?id={r['center_id']}",'ref':f'RES-{rid:05d}',
+                                    'decision':mail_t(user_lang(db,r['user_id']),'Hemos retirado o corregido este contenido.'),'resolution':why},('center_review',rid))
+                    audit(db,user['id'],'review_hidden' if not active else 'review_restored','center_review',rid,{'reason':why}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/admin/legal':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
                     for k in LEGAL_FIELDS:
@@ -6990,7 +7630,9 @@ class Handler(BaseHTTPRequestHandler):
                     lat=float(data['latitude']) if data.get('latitude') not in (None,'') else current['latitude']
                     lng=float(data['longitude']) if data.get('longitude') not in (None,'') else current['longitude']
                     db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=?,logo_source='provider_uploaded',updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),lat,lng,wsec.clean_local_or_http_url(data.get('logo_url'),500) if 'logo_url' in data else current['logo_url'],clean_url_field(data.get('instagram_url')),clean_url_field(data.get('facebook_url')),clean_url_field(data.get('twitter_url')),clean_url_field(data.get('youtube_url')),clean_url_field(data.get('tiktok_url')),now(),cid))
-                    audit(db,user['id'],'center_profile_updated','center',cid); db.commit(); self.send_json({'ok':True}); return
+                    if 'logo_consent' in data:
+                        db.execute('UPDATE centers SET logo_consent=?,logo_consent_at=? WHERE id=?',(1 if data.get('logo_consent') else 0,now() if data.get('logo_consent') else None,cid))
+                    audit(db,user['id'],'center_profile_updated','center',cid,{'logo_consent':data.get('logo_consent')}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/provider/center-create':
                     user=require_user(self,db)
                     if user['role'] not in {'center','freelance','recreational'} and user.get('requested_role')!='center': raise PermissionError('Cuenta no autorizada para solicitar un centro.')
@@ -7084,7 +7726,9 @@ class Handler(BaseHTTPRequestHandler):
                     email=(clean_text(data.get('partners_email'),160) or '').strip()
                     if email and not re.fullmatch(r'[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+',email): raise ValueError('Revisa el email de contacto.')
                     text=(clean_text(data.get('partners_text'),200) or '').strip()
-                    for k,v in (('partners_email',email),('partners_text',text)):
+                    try: min_c=str(max(1,min(100,int(data.get('partners_min_centers') or 6))))
+                    except (TypeError,ValueError): raise ValueError('El mínimo de centros asociados tiene que ser un número.')
+                    for k,v in (('partners_email',email),('partners_text',text),('partners_min_centers',min_c)):
                         db.execute('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by',(k,v,now(),user['id']))
                     audit(db,user['id'],'site_settings_updated','site_settings',None,'partners'); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/admin/site-promos/delete':
@@ -7838,6 +8482,66 @@ def maintenance_loop():
 MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs]
 
 
+RETENTION_DEFAULTS = {'inactive_months': 36, 'expired_docs_months': 12, 'notices_months': 24, 'audit_months': 12, 'audit_keep': 300}
+RETENTION_LIMITS = {'inactive_months': (12, 120), 'expired_docs_months': (1, 60), 'notices_months': (3, 120), 'audit_months': (3, 120), 'audit_keep': (50, 100000)}
+RETENTION_WARN_DAYS = 30   # an inactive account is warned and deleted 30 days later if nobody signs in
+
+
+def retention_settings(db):
+    rows = {r['key'][10:]: r['value'] for r in db.execute("SELECT key,value FROM site_settings WHERE key LIKE 'retention\\_%' ESCAPE '\\'").fetchall()}
+    out = {}
+    for k, d in RETENTION_DEFAULTS.items():
+        lo, hi = RETENTION_LIMITS[k]
+        try: out[k] = max(lo, min(hi, int(rows.get(k) or d)))
+        except (TypeError, ValueError): out[k] = d
+    return out
+
+
+def _months_ago(at, months):
+    return (at - _timedelta(days=round(months * 30.44)))
+
+
+def run_retention_jobs(db, at=None, force=False):
+    """Once a day: the retention periods of the privacy policy (configurable in Administración → Legal).
+    - Inactive accounts (divers): warned by email, deleted 30 days later if nobody signs in.
+    - Expired documents: file and row deleted N months after the expiry date.
+    - Centres' notices about bookings and the activity log: older than N months (the last entries of the log are kept).
+    Bookings and payments are never deleted here (6 years, legal obligation)."""
+    at = at or datetime.now(timezone.utc); day = at.date().isoformat()
+    last = db.execute("SELECT value FROM site_settings WHERE key='retention_last_run'").fetchone()
+    if not force and last and last['value'] == day: return None
+    st = retention_settings(db); rep = {'date': day, 'warned': 0, 'accounts_deleted': 0, 'documents_deleted': 0, 'notices_deleted': 0, 'audit_deleted': 0}
+    cutoff = _months_ago(at, st['inactive_months']).isoformat(timespec='seconds')
+    base = """FROM users WHERE role='recreational' AND guest_center_id IS NULL AND email NOT LIKE '%.local'
+              AND COALESCE(last_login, created_at) < ?"""
+    for u in db.execute('SELECT id ' + base + ' AND inactive_warned_at IS NULL LIMIT 500', (cutoff,)).fetchall():
+        db.execute('UPDATE users SET inactive_warned_at=? WHERE id=?', (at.isoformat(timespec='seconds'), u['id']))
+        notify_user(db, u['id'], 'account_inactive', {'delete_date': mail_date((at + _timedelta(days=RETENTION_WARN_DAYS)).date().isoformat(), user_lang(db, u['id'])),
+                    'login_url': f'{public_site_url()}/#/login'}, ('user', u['id']))
+        rep['warned'] += 1
+    warned_before = (at - _timedelta(days=RETENTION_WARN_DAYS)).isoformat(timespec='seconds')
+    for u in db.execute('SELECT * ' + base + ' AND inactive_warned_at IS NOT NULL AND inactive_warned_at < ? AND COALESCE(last_login, created_at) < inactive_warned_at LIMIT 500', (cutoff, warned_before)).fetchall():
+        future = db.execute("SELECT 1 FROM bookings WHERE user_id=? AND status IN ('pending','confirmed') AND booking_date>=? LIMIT 1", (u['id'], day)).fetchone()
+        if future: continue
+        delete_user_account(db, dict(u)); rep['accounts_deleted'] += 1
+    doc_cut = _months_ago(at, st['expired_docs_months']).date().isoformat()
+    for d in db.execute("SELECT id,file_path FROM user_documents WHERE expires_at IS NOT NULL AND expires_at<>'' AND expires_at < ? LIMIT 2000", (doc_cut,)).fetchall():
+        delete_document_file(d['file_path'])
+        db.execute('DELETE FROM document_alerts WHERE document_id=?', (d['id'],)); db.execute('DELETE FROM user_documents WHERE id=?', (d['id'],))
+        rep['documents_deleted'] += 1
+    rep['notices_deleted'] = db.execute('DELETE FROM messages WHERE created_at < ?', (_months_ago(at, st['notices_months']).isoformat(timespec='seconds'),)).rowcount
+    keep = db.execute('SELECT id FROM audit_log ORDER BY id DESC LIMIT 1 OFFSET ?', (st['audit_keep'] - 1,)).fetchone()
+    if keep:
+        rep['audit_deleted'] = db.execute('DELETE FROM audit_log WHERE created_at < ? AND id < ?', (_months_ago(at, st['audit_months']).isoformat(timespec='seconds'), keep['id'])).rowcount
+    for k, v in (('retention_last_run', day), ('retention_last_report', json.dumps(rep))):
+        db.execute('INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at', (k, v, now()))
+    if any(rep[k] for k in rep if k != 'date'): audit(db, None, 'retention_run', 'system', None, rep)
+    return rep
+
+
+MAINTENANCE_JOBS.append(run_retention_jobs)
+
+
 def check_production_settings():
     """WOD_ENV=production refuses to start with unsafe settings."""
     problems = []
@@ -7855,6 +8559,9 @@ def production_warnings():
     out = []
     if not os.environ.get('WOD_SMTP_HOST', '').strip(): out.append('Sin WOD_SMTP_HOST: los correos esperan en la cola (72 h) hasta configurar el proveedor (docs/despliegue.md).')
     if not os.environ.get('STRIPE_SECRET_KEY', '').strip(): out.append('Sin STRIPE_SECRET_KEY: los cobros online están desactivados.')
+    p = pmtiles_path()
+    if p and not p.exists(): out.append(f'Falta el mapa base {p} (Protomaps PMTiles): sin él los mapas no muestran fondo. Ver docs/mapas.md.')
+    if not arcgis_key(): out.append('Sin ARCGIS_API_KEY: la vista satélite no aparece.')
     elif not os.environ.get('STRIPE_CONNECT_WEBHOOK_SECRET', '').strip(): out.append('Sin STRIPE_CONNECT_WEBHOOK_SECRET: los pagos se confirman solo al volver de Stripe y por la revisión periódica.')
     return out
 

@@ -145,7 +145,7 @@
   function centerLogo(c){ const u=String(c?.logo_url||'').trim(); if(!u || /^https?:\/\/[^/]+\/?$/i.test(u)) return ''; return u; }
   function centerLogoMarkup(c,size='56px'){ const src=centerLogo(c); if(!src) return centerMonogram(c,size); return `<img class="center-logo" src="${escapeHtml(src)}" alt="Logo de ${escapeHtml(c.name)}" style="width:${size};height:${size};object-fit:contain;border-radius:12px;background:#fff;padding:6px" loading="lazy" data-fallback="next">${centerMonogram(c,size).replace('<span ','<span hidden ')}`; }
 
-  async function loadMe(){ try{ const d=await api('/api/me'); state.me=d.authenticated?d:null; renderAccount(); return d; }catch{state.me=null; renderAccount();}}
+  async function loadMe(){ try{ const d=await api('/api/me'); state.me=d.authenticated?d:null; renderAccount(); setTimeout(legalAcceptGate,400); return d; }catch{state.me=null; renderAccount();}}
   function closeTransientMenus(){ const menu=$('#account-dropdown'), toggle=$('#account-toggle'); menu?.classList.remove('open'); toggle?.setAttribute('aria-expanded','false'); $('#main-nav')?.classList.remove('open'); }
   function renderAccount(){ const slot=$('#account-slot'); if(!slot) return; if(!state.me){ slot.innerHTML='<a class="account-link" href="#/login"><span>Iniciar sesión</span></a>'; translateTree(slot); return; } const u=state.me.user; const role=u.role; const management=role==='admin'?'<a href="#/admin">👑 Administración</a>':role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':role==='freelance'?'<a href="#/admin">🧭 Gestionar mis servicios</a>':''; const personalLinks=role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':`<a href="#/area">${wdIcon('home',16)}Mi área</a>`; slot.innerHTML=`<div class="account-menu"><button class="account-link account-toggle" id="account-toggle" type="button" aria-expanded="false"><span class="avatar">${escapeHtml(initials(u.fullname))}</span><span class="label" translate="no">${escapeHtml(u.fullname.split(' ')[0])}</span><span class="account-chevron">⌄</span></button><div class="account-dropdown" id="account-dropdown"><div class="account-dropdown-head"><strong>${escapeHtml(u.fullname)}</strong><small>${escapeHtml(role==='admin'?'Administrador':role==='center'?'Centro de buceo':role==='freelance'?'Profesional / freelance':'Buceador / cliente')}</small></div>${personalLinks}<a href="#/cuenta">${wdIcon('user',16)}Mi cuenta</a><a href="#/logbook">${wdIcon('book',16)}Log Book</a><a href="#/recompensas">${wdIcon('gift',16)}Recompensas</a><a href="#/mis-puntos">${wdIcon('star',16)}Mis puntos</a>${management && role!=='center'?management:''}<button type="button" id="account-logout">Cerrar sesión</button></div></div>`; const toggle=$('#account-toggle'),menu=$('#account-dropdown'); toggle.onclick=e=>{e.stopPropagation(); const open=menu.classList.toggle('open'); toggle.setAttribute('aria-expanded',open?'true':'false');}; if(!window.__wdAccountClickBound){ document.addEventListener('click',()=>closeTransientMenus()); window.__wdAccountClickBound=true; } $('#account-logout').onclick=async()=>{closeTransientMenus();await postJSON('/api/auth/logout',{});await loadMe();location.hash='#/';}; translateTree(slot); }
   function navMobile(){ $('#mobile-menu')?.addEventListener('click',()=>$('#main-nav').classList.toggle('open')); $$('#main-nav a').forEach(a=>a.addEventListener('click',()=>$('#main-nav').classList.remove('open'))); }
@@ -153,7 +153,7 @@
   async function loadMeta(){ if(!state.meta) state.meta=await api('/api/meta'); return state.meta; }
   // Marca en la cabecera la sección en la que está el visitante.
   function markNav(name){ const section={punto:'puntos',centro:'centros',experiencia:'experiencias',experienciareserva:'experiencias',reservar:'centros'}[name]||name; $$('#main-nav a').forEach(a=>{ const on=a.getAttribute('href')==='#/'+section; a.classList.toggle('active',on); if(on) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); }); }
-  function route(){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,registro:renderRegister,reservar:renderBooking,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); return Promise.resolve(fn(new URLSearchParams(qs||''))).catch(err=>{console.error(err);setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
+  function route(){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,registro:renderRegister,reservar:renderBooking,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); return Promise.resolve(fn(new URLSearchParams(qs||''))).catch(err=>{console.error(err);setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
   window.addEventListener('hashchange', route);
   // CSP (script-src 'self'): no inline handlers in the markup. These delegated listeners replace them.
   document.addEventListener('click',e=>{ if(e.target.closest?.('[data-reload]')) location.reload(); });
@@ -177,7 +177,22 @@
     return map;
   }
   function wdTileDefaults(){ if(!window.L||wdTileDefaults.done) return; wdTileDefaults.done=true; try{ L.TileLayer.prototype.options.noWrap=true; L.TileLayer.prototype.options.bounds=L.latLngBounds(WD_WORLD); }catch(e){} }
-  function makeLayers(){ wdTileDefaults(); const street=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}); const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles © Esri'}); const marine=L.tileLayer.wms('https://wms.gebco.net/mapserv?',{layers:'GEBCO_Latest',format:'image/png',transparent:true,version:'1.3.0',attribution:'GEBCO'}); return {street,satellite:sat,marine}; }
+  // Maps (v50.36): own base map (Protomaps PMTiles, © OpenStreetMap contributors) served by our server; the satellite
+  // view (Esri) passes through our server and only appears when it is configured and within the monthly limit;
+  // GEBCO bathymetry is loaded only when the visitor chooses it. /api/map/config says what is available.
+  let WD_MAP_CFG=null;
+  async function loadMapConfig(){ try{ WD_MAP_CFG=await api('/api/map/config'); }catch{ WD_MAP_CFG={basemap:{type:'none'},satellite:{enabled:false},bathymetry:null}; } return WD_MAP_CFG; }
+  function wdBaseLayer(){
+    const b=WD_MAP_CFG?.basemap||{type:'none'};
+    if(b.type==='pmtiles'&&window.protomapsL&&window.WD_MAP_FLAVOR){ const lang=currentLanguage(); const f=window.WD_MAP_FLAVOR;
+      try{ return protomapsL.leafletLayer({url:b.url,paintRules:protomapsL.paintRules(f),labelRules:protomapsL.labelRules(f,lang==='zh'?'zh-Hans':lang),backgroundColor:f.background,maxDataZoom:b.max_data_zoom||15,maxZoom:19,attribution:b.attribution}); }catch(e){ console.warn('mapa base',e); } }
+    if(b.type==='osm-dev') return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:b.attribution});
+    return L.layerGroup();
+  }
+  function makeLayers(){ wdTileDefaults(); const c=WD_MAP_CFG||{}; const out={street:wdBaseLayer()};
+    if(c.satellite?.enabled) out.satellite=L.tileLayer(c.satellite.url,{maxZoom:c.satellite.max_zoom||19,attribution:c.satellite.attribution});
+    if(c.bathymetry) out.marine=L.tileLayer.wms(c.bathymetry.url,{layers:c.bathymetry.layers,format:'image/png',transparent:true,version:'1.3.0',attribution:c.bathymetry.attribution});
+    return out; }
   // Map markers (v50.33): the dive flag inside a small circle. 19 px on desktop, 23 px on touch screens, with a
   // 44 px invisible touch target on phones. Same icon on every map; clusters keep the same round style.
   const WD_TOUCH=(()=>{ try{ return matchMedia('(pointer:coarse)').matches; }catch{ return false; } })();
@@ -186,7 +201,7 @@
   function wdClusterIcon(cluster){ const n=cluster.getChildCount(); const size=n<10?30:n<100?36:44; return L.divIcon({className:'wd-cluster-wrap',html:`<span class="wd-cluster" style="width:${size}px;height:${size}px" role="img" aria-label="${n} puntos de buceo">${n>999?Math.round(n/100)/10+'k':n}</span>`,iconSize:[size,size],iconAnchor:[size/2,size/2]}); }
   function wdMarkerLayer(){ return L.markerClusterGroup?L.markerClusterGroup({iconCreateFunction:wdClusterIcon,showCoverageOnHover:false,maxClusterRadius:42,disableClusteringAtZoom:11,chunkedLoading:true,spiderfyOnMaxZoom:true,zoomToBoundsOnClick:true}):L.layerGroup(); }
   function wdSelectMarker(m){ if(state.selectedMarker) state.selectedMarker.getElement()?.classList.remove('is-selected'); state.selectedMarker=m; m?.getElement()?.classList.add('is-selected'); }
-  function initMap(id, points, center, zoom){ if(state.map){state.map.remove();state.map=null;} if(!window.L){ const el=document.getElementById(id); state.markerIndex=[]; if(el) el.innerHTML='<div class="map-fallback"><strong>El mapa no está disponible ahora mismo</strong><span>Puedes seguir explorando los puntos en formato lista.</span><a class="btn" href="#/puntos">Ver puntos de buceo</a></div>'; state.markers=[]; return null; } wdTileDefaults(); const map=wdLimitMap(L.map(id,{zoomControl:false,scrollWheelZoom:'center',dragging:true,doubleClickZoom:true,touchZoom:true,boxZoom:false,keyboard:true,zoomAnimation:true,markerZoomAnimation:true,zoomSnap:.25,zoomDelta:.5})).setView(center,zoom); map.addControl(L.control.zoom({position:'bottomright'})); state.map=map; state.layers=makeLayers(); state.layers.street.addTo(map); state.markerLayer=wdMarkerLayer().addTo(map); state.markers=[]; state.markerIndex=[]; const batch=[]; points.forEach(p=>{ if(p.latitude==null||p.longitude==null) return; const m=L.marker([p.latitude,p.longitude],{icon:pointIcon(p),riseOnHover:true,title:p.name,alt:p.name,keyboard:true}); batch.push(m); state.markerIndex.push({m,id:String(p.id)}); m.on('click',()=>{ wdSelectMarker(m); openPointDrawer(p); }); if(!WD_TOUCH) m.bindTooltip(escapeHtml(p.name),{direction:'top',offset:[0,-10],opacity:.95}); state.markers.push(m); }); if(state.markerLayer.addLayers) state.markerLayer.addLayers(batch); else batch.forEach(m=>m.addTo(state.markerLayer)); return map; }
+  function initMap(id, points, center, zoom){ if(state.map){state.map.remove();state.map=null;} if(!window.L){ const el=document.getElementById(id); state.markerIndex=[]; if(el) el.innerHTML='<div class="map-fallback"><strong>El mapa no está disponible ahora mismo</strong><span>Puedes seguir explorando los puntos en formato lista.</span><a class="btn" href="#/puntos">Ver puntos de buceo</a></div>'; state.markers=[]; return null; } wdTileDefaults(); const map=wdLimitMap(L.map(id,{zoomControl:false,scrollWheelZoom:'center',dragging:true,doubleClickZoom:true,touchZoom:true,boxZoom:false,keyboard:true,zoomAnimation:true,markerZoomAnimation:true,zoomSnap:.25,zoomDelta:.5})).setView(center,zoom); map.addControl(L.control.zoom({position:'bottomright'})); state.map=map; state.layers=makeLayers(); state.layers.street.addTo(map); $$('[data-mapmode="satellite"]').forEach(x=>x.hidden=!state.layers.satellite); $$('[data-mapmode="marine"]').forEach(x=>x.hidden=!state.layers.marine); state.markerLayer=wdMarkerLayer().addTo(map); state.markers=[]; state.markerIndex=[]; const batch=[]; points.forEach(p=>{ if(p.latitude==null||p.longitude==null) return; const m=L.marker([p.latitude,p.longitude],{icon:pointIcon(p),riseOnHover:true,title:p.name,alt:p.name,keyboard:true}); batch.push(m); state.markerIndex.push({m,id:String(p.id)}); m.on('click',()=>{ wdSelectMarker(m); openPointDrawer(p); }); if(!WD_TOUCH) m.bindTooltip(escapeHtml(p.name),{direction:'top',offset:[0,-10],opacity:.95}); state.markers.push(m); }); if(state.markerLayer.addLayers) state.markerLayer.addLayers(batch); else batch.forEach(m=>m.addTo(state.markerLayer)); return map; }
   function openPointDrawer(p){ const d=$('#home-drawer') || $('#explore-drawer'); if(!d){ location.hash=pointHref(p.id); return; } const depth=depthText(p); d.innerHTML=`<button class="close" type="button" aria-label="Cerrar">×</button><p class="eyebrow">${escapeHtml(p.zone||'Punto de buceo')}</p><h3>${escapeHtml(p.name)}</h3><p class="cd-place">${wdIcon('pin',14)}${escapeHtml(placeText(p)||p.country||'')}</p><div class="pt-facts">${p.dive_type?`<span>${escapeHtml(p.dive_type)}</span>`:''}${depth?`<span>${wdIcon('depth',14)}${escapeHtml(depth)}</span>`:''}${p.difficulty?`<span>${wdIcon('level',14)}${escapeHtml(p.difficulty)}</span>`:''}</div><div class="drawer-actions"><a class="btn btn-primary" href="${pointHref(p.id)}">Ver ficha del punto</a><a class="btn" href="#/top10?lat=${p.latitude}&lon=${p.longitude}&label=${encodeURIComponent(p.name)}">Top 10 de la zona</a></div>`; d.classList.add('open'); $('.close',d).onclick=()=>d.classList.remove('open'); try{ state.map?.flyTo([p.latitude,p.longitude],Math.max(Number(state.map.getZoom())||2,11),{duration:.8}); }catch(e){ console.warn('mapa',e); } }
   function bindHomeSearch(){
     const input=$('#home-search'),btn=$('#home-search-btn'),res=$('#home-search-results'),clear=$('#home-search-clear');
@@ -336,11 +351,32 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const rounded=Math.round(avg); const stars='★★★★★'.split('').map((_,i)=>`<span class="star ${i<rounded?'filled':''}">★</span>`).join('');
     return `<span class="center-rating" aria-label="${avg.toFixed(1)} de 5 estrellas, ${count} reseñas"><span class="stars">${stars}</span><strong>${avg.toFixed(1)}</strong><span>${count} ${count===1?'reseña':'reseñas'}</span></span>`;
   }
-  function reviewCard(r){
+  function reviewCard(r,ri={}){
     const rating=Math.max(1,Math.min(5,Number(r.rating||0))); const stars='★★★★★'.split('').map((_,i)=>`<span class="star ${i<rating?'filled':''}">★</span>`).join('');
     const date=r.created_at?new Date(r.created_at).toLocaleDateString(wdLocale(),{day:'numeric',month:'short',year:'numeric'}):'';
-    return `<article class="review-card"><div class="review-head"><div><strong>${escapeHtml((r.fullname||'Buceador').split(' ')[0])}</strong>${r.verified?'<span class="verified-review">✓ Inmersión verificada</span>':''}</div><time>${escapeHtml(date)}</time></div><div class="review-stars">${stars}</div>${r.title?`<h4>${escapeHtml(r.title)}</h4>`:''}${r.body?`<p>${escapeHtml(r.body)}</p>`:''}</article>`;
+    const reply=r.reply_body?`<div class="review-reply"><p class="review-reply-h">${wdIcon('message',14)} Respuesta del centro${r.reply_at?` · <time>${escapeHtml(new Date(r.reply_at).toLocaleDateString(wdLocale(),{day:'numeric',month:'short',year:'numeric'}))}</time>`:''}</p><p>${escapeHtml(r.reply_body)}</p></div>`:'';
+    const acts=[ri.can_reply?`<button type="button" class="btn-link rv-reply" data-id="${r.id}">${r.reply_body?'Editar respuesta':'Responder'}</button>`:'',
+      ri.is_admin?`<button type="button" class="btn-link rv-hide" data-id="${r.id}">Ocultar reseña</button>`:'',
+      `<button type="button" class="wd-report" data-report="review" data-report-id="${r.id}">${wdIcon('alert',13)} Denunciar</button>`].filter(Boolean).join('');
+    return `<article class="review-card" id="review-${r.id}"><div class="review-head"><div><strong>${escapeHtml((r.fullname||'Buceador').split(' ')[0])}</strong>${r.verified?'<span class="verified-review">✓ Inmersión verificada</span>':''}</div><time>${escapeHtml(date)}</time></div><div class="review-stars">${stars}</div>${r.title?`<h4>${escapeHtml(r.title)}</h4>`:''}${r.body?`<p>${escapeHtml(r.body)}</p>`:''}${reply}<div class="review-actions">${acts}</div></article>`;
   }
+  // «Denunciar»: any button with data-report="review|center|point|experience|photo|promotion|profile" and data-report-id.
+  async function openReportModal(type,id,label){
+    const info=await legalInfo(); const me=state.me?.user; const esc=escapeHtml;
+    const {el,close}=wdOpenModal({id:'report-modal',title:'Denunciar contenido',subtitle:label?esc(label):'Revisaremos la denuncia y te comunicaremos la decisión.',
+      body:`<form id="rpm-form" class="form-grid"><div class="field full"><label for="rpm-reason">Motivo</label><select id="rpm-reason" required><option value="">Elige un motivo…</option>${Object.entries(info.reasons||{}).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')}</select></div>
+        <div class="field full"><label for="rpm-details">Explica por qué es ilegal o incumple las normas</label><textarea id="rpm-details" rows="4" minlength="20" maxlength="3000" required></textarea></div>
+        ${me?'':`<div class="field"><label for="rpm-name">Tu nombre</label><input id="rpm-name" maxlength="120"></div><div class="field"><label for="rpm-email">Tu email (para comunicarte la decisión)</label><input id="rpm-email" type="email" maxlength="160"></div>`}
+        <label class="lg-check full"><input type="checkbox" id="rpm-faith" required> <span>Declaro que la información es exacta y que la envío de buena fe.</span></label></form>`,
+      footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="rpm-send">Enviar denuncia</button>'});
+    translateTree(el);
+    $('#rpm-send',el).onclick=async()=>{ if(!$('#rpm-form',el).reportValidity()) return; const btn=$('#rpm-send',el); btn.disabled=true;
+      try{ const r=await postJSON('/api/reports',{reason:$('#rpm-reason',el).value,details:$('#rpm-details',el).value,target_type:type,target_id:+id,target_url:location.href,
+          name:$('#rpm-name',el)?.value||'',email:$('#rpm-email',el)?.value||'',good_faith:$('#rpm-faith',el).checked});
+        delete el.dataset.dirty; close(); toast(`Denuncia recibida (${r.ref}). La revisaremos con diligencia.`); }
+      catch(err){ toast(err.message); btn.disabled=false; } };
+  }
+  document.addEventListener('click',e=>{ const b=e.target.closest('[data-report]'); if(!b) return; e.preventDefault(); openReportModal(b.dataset.report,b.dataset.reportId,b.dataset.reportLabel||''); });
   async function renderCenterDetail(params){
     const id=Number(params?.get?.('id')||params||0);
     if(!id){setApp('<section class="page"><div class="empty"><h2>Centro no encontrado</h2><a class="btn btn-primary" href="#/centros">Volver a centros</a></div></section>');return;}
@@ -372,18 +408,30 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <section class="cp-section"><h2>Actividades y precios</h2>${services.length?`<div class="cp-services">${services.map(svcCard).join('')}</div>`:'<div class="empty">Este centro todavía no ha publicado actividades. Puedes contactar directamente para reservar.</div>'}</section>
           ${exps.length?`<section class="cp-section"><h2>Viajes y experiencias</h2><div class="cp-exps">${exps.map(e=>`<a class="cp-exp" href="#/experiencia?id=${e.travel_offer_id}"><span>${esc(e.destination_title||'')}</span><strong>${esc(e.title)}</strong><small>${e.start_date?esc(wdDay(e.start_date))+' · ':''}${e.price!=null?wdMoney(e.price,e.currency):'Precio a consultar'}</small></a>`).join('')}</div></section>`:''}
           ${gallery.length?`<section class="cp-section"><h2>Galería</h2><div class="cp-gallery">${gallery.map((u,i)=>`<button type="button" class="cp-photo" data-i="${i}"><img src="${esc(u)}" alt="Foto ${i+1} de ${esc(c.name)}" loading="lazy"></button>`).join('')}</div></section>`:''}
-          <section class="reviews-section cp-section" id="cp-reviews"><div class="reviews-head"><div><h2>Reseñas</h2><p>Opiniones de buceadores que han completado una inmersión con este centro.</p></div><div class="review-summary-box">${reviewSummary}</div></div>${reviewForm}<div class="reviews-list">${reviews.length?reviews.map(reviewCard).join(''):'<div class="empty"><h3>Aún no hay reseñas</h3><p>Cuando los primeros buceadores completen una inmersión y compartan su experiencia, aparecerán aquí.</p></div>'}</div></section>
+          <section class="reviews-section cp-section" id="cp-reviews"><div class="reviews-head"><div><h2>Reseñas</h2><p>Opiniones de buceadores que han completado una inmersión con este centro.</p></div><div class="review-summary-box">${reviewSummary}</div></div>${reviewForm}<div class="reviews-list">${reviews.length?reviews.map(r=>reviewCard(r,reviewInfo)).join(''):'<div class="empty"><h3>Aún no hay reseñas</h3><p>Cuando los primeros buceadores completen una inmersión y compartan su experiencia, aparecerán aquí.</p></div>'}</div></section>
         </article>
         <aside class="cp-side">
           <section class="cp-card"><h3>Contacto</h3><dl>${c.phone?`<div><dt>Teléfono</dt><dd><a href="tel:${esc(String(c.phone).replace(/\s+/g,''))}">${esc(c.phone)}</a></dd></div>`:''}${c.email?`<div><dt>Email</dt><dd><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></dd></div>`:''}${c.website?`<div><dt>Web</dt><dd><a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(String(c.website).replace(/^https?:\/\//,'').replace(/\/$/,''))}</a></dd></div>`:''}${c.address?`<div><dt>Dirección</dt><dd>${esc(c.address)}</dd></div>`:''}</dl>
             ${c.latitude&&c.longitude?`<a class="btn cp-map" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${c.latitude}&mlon=${c.longitude}#map=15/${c.latitude}/${c.longitude}">Ver en el mapa</a>`:''}
             ${socials.length?`<div class="cp-socials">${socials.map(x=>`<a href="${esc(c[x[0]])}" target="_blank" rel="noopener noreferrer">${x[1]}</a>`).join('')}</div>`:''}
-            <a class="btn btn-primary cp-side-book" href="#/reservar?center=${c.id}">Reservar con ${esc(c.name)}</a></section>
+            <a class="btn btn-primary cp-side-book" href="#/reservar?center=${c.id}">Reservar con ${esc(c.name)}</a>
+            <button type="button" class="wd-report" data-report="center" data-report-id="${c.id}" data-report-label="${esc(c.name)}">${wdIcon('alert',13)} Denunciar contenido</button></section>
           <section class="cp-card"><h3>Dónde bucea</h3>${d.points.length?`<ul class="cp-points">${d.points.slice(0,10).map(p=>`<li><a href="#/punto?id=${p.id}">${esc(p.name)}</a><span>${esc(p.region||p.country||'')}</span></li>`).join('')}</ul>`:'<p class="cp-muted">Este centro aún no ha indicado sus puntos habituales.</p>'}</section>
         </aside>
       </div>
     </section>`);
-    $$('.cp-photo').forEach(b=>b.onclick=()=>{let i=+b.dataset.i; const show=()=>{const {el}=wdOpenModal({id:'cp-lightbox',size:'lg',title:esc(c.name),subtitle:`Foto ${i+1} de ${gallery.length}`,body:`<img class="cp-lightbox-img" src="${esc(gallery[i])}" alt="">`,footer:gallery.length>1?`<button type="button" class="btn" id="cp-prev">Anterior</button><button type="button" class="btn" id="cp-next">Siguiente</button>`:''}); el.querySelector('#cp-prev')?.addEventListener('click',()=>{i=(i-1+gallery.length)%gallery.length;show();}); el.querySelector('#cp-next')?.addEventListener('click',()=>{i=(i+1)%gallery.length;show();});}; show();});
+    $$('.cp-photo').forEach(b=>b.onclick=()=>{let i=+b.dataset.i; const show=()=>{const {el}=wdOpenModal({id:'cp-lightbox',size:'lg',title:esc(c.name),subtitle:`Foto ${i+1} de ${gallery.length}`,body:`<img class="cp-lightbox-img" src="${esc(gallery[i])}" alt="">`,footer:`<button type="button" class="wd-report" data-report="photo" data-report-id="${c.id}" data-report-label="Foto ${i+1} de ${esc(c.name)}">${wdIcon('alert',13)} Denunciar foto</button>`+(gallery.length>1?`<button type="button" class="btn" id="cp-prev">Anterior</button><button type="button" class="btn" id="cp-next">Siguiente</button>`:'')}); el.querySelector('#cp-prev')?.addEventListener('click',()=>{i=(i-1+gallery.length)%gallery.length;show();}); el.querySelector('#cp-next')?.addEventListener('click',()=>{i=(i+1)%gallery.length;show();});}; show();});
+    $$('.rv-reply').forEach(b=>b.onclick=()=>{ const r=reviews.find(x=>x.id===+b.dataset.id)||{};
+      const {el,close}=wdOpenModal({id:'review-reply',title:'Responder a la reseña',subtitle:'Una única respuesta pública. Puedes editarla o borrarla.',
+        body:`<div class="field"><label for="rr-body">Tu respuesta</label><textarea id="rr-body" rows="5" maxlength="1000">${esc(r.reply_body||'')}</textarea><small>Sé respetuoso y no incluyas datos personales del cliente.</small></div>`,
+        footer:`${r.reply_body?'<button type="button" class="btn danger" id="rr-del">Borrar respuesta</button>':''}<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="rr-save">Publicar respuesta</button>`});
+      const save=async body=>{ try{ await postJSON(`/api/reviews/${r.id}/reply`,{body}); delete el.dataset.dirty; close(); toast(body?'Respuesta publicada.':'Respuesta borrada.'); renderCenterDetail(new URLSearchParams({id:String(id)})); }catch(err){ toast(err.message); } };
+      $('#rr-save',el).onclick=()=>save($('#rr-body',el).value); $('#rr-del',el)?.addEventListener('click',()=>save('')); });
+    $$('.rv-hide').forEach(b=>b.onclick=()=>{
+      const {el,close}=wdOpenModal({id:'review-hide',title:'Ocultar reseña',subtitle:'Se enviará el motivo a quien la escribió.',
+        body:`<div class="field"><label for="rh-why">Motivo</label><textarea id="rh-why" rows="4" maxlength="1000" required placeholder="Qué norma incumple y por qué."></textarea></div>`,
+        footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn danger" id="rh-ok">Ocultar</button>'});
+      $('#rh-ok',el).onclick=async()=>{ try{ await postJSON(`/api/admin/reviews/${b.dataset.id}/moderate`,{active:false,reason:$('#rh-why',el).value}); delete el.dataset.dirty; close(); toast('Reseña ocultada.'); renderCenterDetail(new URLSearchParams({id:String(id)})); }catch(err){ toast(err.message); } }; });
     if(params?.get?.('resena')) setTimeout(()=>{ const r=$('#cp-reviews'); if(r){ r.scrollIntoView({behavior:'smooth',block:'start'}); $('#review-title')?.focus({preventScroll:true}); } },250);
     if(reviewInfo.can_review){
       let selected=Number(reviewInfo.current?.rating||0);
@@ -482,7 +530,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const html=(d.items||[]).map(centerCard).join('');
       if(append) grid.insertAdjacentHTML('beforeend',html); else grid.innerHTML=html;
       loaded+=(d.items||[]).length;
-      if(!d.total){ grid.innerHTML=`<div class="empty cd-empty"><h3>No hay centros con estos filtros</h3><p>Prueba con otra zona o quita algún filtro.</p>${hasFilters()?'<button class="btn btn-primary" type="button" id="cd-empty-clear">Quitar filtros</button>':''}</div>`; $('#cd-empty-clear')?.addEventListener('click',reset); }
+      if(!d.total){ grid.innerHTML=`<div class="empty cd-empty"><h3>${hasFilters()?'No hay centros con estos filtros':'Todavía no hay centros en esta zona'}</h3><p>${hasFilters()?'Prueba con otra zona o quita algún filtro.':'Estamos sumando centros verificados.'}</p><a class="btn" href="#/registro">¿Tienes un centro? Únete a WORLDIVES</a>${hasFilters()?'<button class="btn btn-primary" type="button" id="cd-empty-clear">Quitar filtros</button>':''}</div>`; $('#cd-empty-clear')?.addEventListener('click',reset); }
       count.innerHTML=d.total?`<strong>${d.total.toLocaleString(wdLocale())}</strong> ${d.total===1?'centro':'centros'}${st.country?' en '+escapeHtml(st.country):''}`:'';
       more.hidden=loaded>=d.total; more.disabled=false; more.textContent=`Mostrar más centros (${(d.total-loaded).toLocaleString(wdLocale())})`;
       clear.hidden=!hasFilters();
@@ -571,7 +619,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             ${pts.length?`<div class="tp-points">${pts.slice(0,9).map(typePointCard).join('')}</div>`:'<div class="empty">Aún no hay puntos catalogados de este tipo. Los centros pueden proponer nuevos puntos desde su panel.</div>'}</section>
           <section class="tp-block"><div class="tp-block-head"><h2>Centros que te llevan</h2>${centers.length?`<a href="#/centros?type=${encodeURIComponent(t.key)}">Ver todos →</a>`:''}</div>
             ${scopeNote?`<p class="tp-scope">${scopeNote}</p>`:''}
-            ${centers.length?`<div class="cd-grid is-compact">${centers.slice(0,6).map(centerCard).join('')}</div>`:'<div class="empty">Todavía no hay centros asociados a este tipo de inmersión.</div>'}</section>
+            ${centers.length?`<div class="cd-grid is-compact">${centers.slice(0,6).map(centerCard).join('')}</div>`:'<div class="empty"><p>Todavía no hay centros en esta zona.</p><a class="btn" href="#/registro">¿Tienes un centro? Únete a WORLDIVES</a></div>'}</section>
         </div>
         <aside class="tp-side">
           ${(t.top_countries||[]).length?`<div class="tp-side-card"><h3>Países con más puntos</h3><ol class="tp-countries">${t.top_countries.map(c=>`<li><a href="${pointsLink}&country=${encodeURIComponent(c.name)}">${escapeHtml(c.name)}</a><span>${c.count}</span></li>`).join('')}</ol></div>`:''}
@@ -670,7 +718,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     <section class="hm-section"><div class="tp-wrap">${sectionHead('Tipos de buceo','¿Qué inmersión te apetece?','#/tipos','Ver todos los tipos')}<div class="tp-grid is-small" id="hm-types"></div></div></section>
     <section class="hm-section hm-alt hm-offers" id="hm-offers" hidden><div class="tp-wrap">${sectionHead('Destacado','Ofertas y viajes')}<div class="hm-offer-grid" id="hm-offer-grid"></div></div></section>
     <section class="hm-network" id="hm-network" hidden aria-labelledby="hm-network-title">
-      <div class="tp-wrap hm-network-head"><div><p class="eyebrow">Red WORLDIVES</p><h2 id="hm-network-title">Centros que ya reservan con nosotros</h2><p id="hm-network-sub"></p></div><a class="btn btn-primary" href="#/registro">Dar de alta mi centro</a></div>
+      <div class="tp-wrap hm-network-head"><div><p class="eyebrow">Red WORLDIVES</p><h2 id="hm-network-title">Centros asociados</h2><p id="hm-network-sub"></p></div><a class="btn btn-primary" href="#/registro">Dar de alta mi centro</a></div>
       <div class="hm-marquee" id="hm-centers-band"></div>
       <div class="hm-sponsors" id="hm-sponsors" hidden><p class="hm-partners-title">Patrocinadores y colaboradores <span class="hm-sponsored-tag">Patrocinado</span></p><div class="hm-marquee is-reverse" id="hm-marquee"></div></div>
       <p class="tp-wrap hm-network-foot">¿Tienes un centro de buceo? Date de alta y aparecerás aquí, con tu escaparate y tu motor de reservas.<span id="hm-brand-link"></span></p>
@@ -816,7 +864,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
   async function renderPointDetail(id){
     if(!/^#\/punto\?/.test(location.hash)){ location.hash='#/punto?id='+encodeURIComponent(id); return; }
-    const still=navGuard(); let d; try{ d=await api('/api/dive-points/'+id); }
+    const still=navGuard(); let d; try{ d=await api('/api/dive-points/'+id+'?lang='+currentLanguage()); }
     catch(err){ if(!still()) return; setApp(`<section class="page"><div class="empty"><h2>Punto de buceo no encontrado</h2><p>${escapeHtml(err.message)}</p><a class="btn btn-primary" href="#/puntos">Ver todos los puntos</a></div></section>`); return; }
     const p=d.item, photos=(d.photos||[]).filter(ph=>!PLACEHOLDER_IMG.test(ph.image_path||'')), nearby=d.nearby||[], types=(d.types||[]);
     const [me,virtual,pc]=await Promise.all([api('/api/me').catch(()=>({})),api('/api/dive-points/'+id+'/virtual').catch(()=>({items:[]})),api('/api/dive-points/'+id+'/centers').catch(()=>({items:[],mode:'exact'}))]);
@@ -842,23 +890,24 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <div class="tp-wrap tp-dbody">
         <div class="tp-main">
           ${pending?'<div class="notice warning pp-notice"><strong>Posición de referencia.</strong> La coordenada de este punto está pendiente de verificación local. Un centro o el equipo de WORLDIVES puede confirmarla.</div>':''}
-          <section class="tp-block"><h2>Sobre el punto</h2><p class="tp-body">${escapeHtml(pointAbout(p))}</p>${p.access_info&&!/pendientes? de completar/i.test(p.access_info)?`<div class="tp-note"><h3>Acceso y condiciones</h3><p>${escapeHtml(p.access_info)}</p></div>`:''}</section>
+          <section class="tp-block"><h2>Sobre el punto</h2>${p.description_lang?`<div class="tp-body" translate="no" lang="${escapeHtml(p.description_lang)}">${String(p.description).split(/\n{2,}/).map(x=>`<p>${escapeHtml(x)}</p>`).join('')}</div>`:`<p class="tp-body">${escapeHtml(pointAbout(p))}</p>`}${p.access_info&&!/pendientes? de completar/i.test(p.access_info)?`<div class="tp-note"><h3>Acceso y condiciones</h3><p>${escapeHtml(p.access_info)}</p></div>`:''}</section>
           <section class="tp-block pp-cert">${certificationGuidance(p,currentCert)}</section>
           ${photos.length>1?`<section class="tp-block"><h2>Fotos</h2><div class="pp-gallery">${photos.map(ph=>`<a href="${escapeHtml(ph.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(ph.image_path)}" alt="${escapeHtml(ph.caption||p.name)}" loading="lazy"></a>`).join('')}</div></section>`:''}
           <section class="tp-block"><h2>Recorrido virtual</h2>${vt?`<div class="pp-virtuals">${vt}</div>`:'<div class="pp-empty"><span class="pp-virtual-mark">360°</span><p>Este punto aún no tiene recorrido 360°. Cuando un centro lo publique, podrás visitarlo antes de reservar.</p></div>'}</section>
           <section class="tp-block" id="pp-centers"><div class="tp-block-head"><h2>${pc.mode==='exact'?'Centros que bucean aquí':'Centros cercanos'}</h2>${centers.length?`<a href="#/centros?point=${p.id}">Ver en el directorio →</a>`:''}</div>
             ${pc.mode!=='exact'&&centers.length?'<p class="tp-scope">Ningún centro tiene todavía este punto en su operativa; estos trabajan a menos de 60 km.</p>':''}
-            ${centers.length?`<div class="pp-centers">${centers.map(centerRowHtml).join('')}</div>`:'<div class="empty">Todavía no hay centros asociados a este punto ni cerca de él.</div>'}</section>
+            ${centers.length?`<div class="pp-centers">${centers.map(centerRowHtml).join('')}</div>`:'<div class="empty"><p>Todavía no hay centros en esta zona.</p><a class="btn" href="#/registro">¿Tienes un centro? Únete a WORLDIVES</a></div>'}</section>
           ${nearby.length?`<section class="tp-block"><div class="tp-block-head"><h2>Puntos cercanos</h2></div><div class="tp-points">${nearby.map(n=>typePointCard(n).replace('</small></span></a>',`</small><small class="tp-point-meta">a ${Number(n.distance_km).toLocaleString(wdLocale(),{maximumFractionDigits:1})} km</small></span></a>`)).join('')}</div></section>`:''}
         </div>
         <aside class="tp-side">
           <div class="tp-side-card pp-mapcard"><h3>Ubicación</h3><div id="pp-map" class="pp-map">${hasGeo?'':'<div class="map-fallback">Sin coordenadas</div>'}</div>${osm?`<a class="btn" href="${osm}" target="_blank" rel="noopener">Abrir en OpenStreetMap</a>`:''}</div>
           <div class="tp-side-card"><h3>¿La posición no es exacta?</h3><p class="pp-small">Propón una corrección: pasa a revisión antes de publicarse.</p>${state.me?'<button id="suggest-pos" class="btn btn-primary" type="button">Proponer nueva posición</button>':`<a class="btn btn-primary" href="#/login?next=${encodeURIComponent(location.hash)}">Inicia sesión para proponerla</a>`}<div id="suggest-form"></div></div>
+          <button type="button" class="wd-report" data-report="point" data-report-id="${p.id}" data-report-label="${escapeHtml(p.name)}">${wdIcon('alert',13)} Denunciar contenido</button>
         </aside>
       </div>
     </section>`);
     $$('[data-scroll]').forEach(a=>a.onclick=e=>{ e.preventDefault(); document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:'smooth',block:'start'}); });
-    if(hasGeo && window.L){ try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:true,scrollWheelZoom:false,attributionControl:true}))).setView([lat,lng],12); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(m); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } }
+    if(hasGeo && window.L){ try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:true,scrollWheelZoom:false,attributionControl:true}))).setView([lat,lng],12); wdBaseLayer().addTo(m); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } }
     else if(hasGeo){ $('#pp-map').innerHTML=`<div class="map-fallback"><strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong></div>`; }
     $('#suggest-pos')?.addEventListener('click',()=>{ $('#suggest-form').innerHTML=`<div class="form-grid pp-suggest"><div class="field"><label>Latitud</label><input id="s-lat" type="number" step="0.000001" value="${hasGeo?lat:''}"></div><div class="field"><label>Longitud</label><input id="s-lon" type="number" step="0.000001" value="${hasGeo?lng:''}"></div><div class="field full"><label>Motivo</label><textarea id="s-note" placeholder="Qué ves en el mapa y por qué propones moverlo…"></textarea></div></div><button class="btn btn-primary" id="s-save" type="button">Enviar propuesta</button>`; $('#s-save').onclick=async()=>{ try{ await postJSON('/api/dive-points/'+id+'/suggest',{latitude:+$('#s-lat').value,longitude:+$('#s-lon').value,note:$('#s-note').value}); toast('Propuesta enviada.'); $('#suggest-form').innerHTML='<div class="notice">Propuesta registrada y pendiente de revisión.</div>'; }catch(e){ toast(e.message); } }; });
   }
@@ -926,6 +975,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="cd-fact"><small>Precio</small><strong>${e.price!=null&&e.price!==''?wdMoney(e.price,e.currency):'<span class="muted">Consultar</span>'}</strong></div>
         <div class="cd-fact"><small>Plazas</small><strong>${spots!=null?(spots>0?`${spots} libres`:'<span class="muted">Completo</span>'):'<span class="muted">Consultar</span>'}</strong></div>
         ${e.book_url?`<a class="btn btn-primary" href="${escapeHtml(e.book_url)}">Reservar plaza</a>`:spots===0?'<span class="btn" aria-disabled="true">Completo</span>':`<button class="btn btn-primary book-experience" type="button" data-id="${e.id}">Solicitar plaza</button>`}
+        <button type="button" class="wd-report" data-report="experience" data-report-id="${e.id}" data-report-label="${escapeHtml(e.title)}">${wdIcon('alert',13)} Denunciar</button>
       </div>
     </article>`;
   }
@@ -1063,16 +1113,23 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     <div class="auth-panel"><div class="auth-card"><h1>${escapeHtml(title)}</h1>${inner}</div></div>
   </section>`; }
 
+  // Same legal information as the dive booking screen: who provides it, final price, no 14-day withdrawal, policy.
+  function expLegalBlock(e){ const esc=escapeHtml, p=e.provider_legal||{};
+    return `<div class="bk-legal eb-legal"><p><b>Prestado por ${esc(p.name||e.center_name||e.provider_name||'el organizador')}${p.country?', '+esc(p.country):''}.</b> WORLDIVES DISCOVERY es la plataforma de reservas: no organiza ni presta la actividad.</p>
+      <p>Precio final fijado por el organizador, impuestos incluidos.</p>
+      ${p.policy_text?`<p><b>Política de cancelación.</b> <span translate="no">${esc(p.policy_text)}</span>${p.policy_note?' '+esc(p.policy_note):''}</p>`:''}
+      <p>Las actividades de ocio con fecha concreta no tienen derecho de desistimiento de 14 días (art. 103.l del TRLGDCU); se aplica la política de cancelación del organizador.</p>
+      <label class="lg-check"><input type="checkbox" id="eb-accept" required> <span>Acepto las <a href="#/legal/condiciones-reserva" target="_blank" rel="noopener">condiciones de reserva</a> y la política de cancelación del organizador.</span></label></div>`; }
   async function renderExperienceBooking(params){
     const id=Number(params.get('id')||0); if(!id){location.hash='#/experiencias';return;}
-    let e; try{ e=(await api('/api/travel-experiences/'+id)).item; }catch(err){ setApp('<section class="page"><div class="empty"><h2>Experiencia no disponible</h2><p>Puede que se haya completado o que el organizador la haya retirado.</p><a class="btn btn-primary" href="#/experiencias">Ver otras experiencias</a></div></section>'); return; }
+    let e; try{ e=(await api('/api/travel-experiences/'+id+'?lang='+currentLanguage())).item; }catch(err){ setApp('<section class="page"><div class="empty"><h2>Experiencia no disponible</h2><p>Puede que se haya completado o que el organizador la haya retirado.</p><a class="btn btn-primary" href="#/experiencias">Ver otras experiencias</a></div></section>'); return; }
     if(e.book_url){ location.hash=e.book_url; return; }  // trips sold as a service use the booking engine
     if(!state.me){ location.hash='#/login?next='+encodeURIComponent('#/experienciareserva?id='+id); return; }
     const max=e.spots_available!=null?Math.max(0,Number(e.spots_available)):99;
     setApp(`<section class="page auth"><div class="auth-card"><p class="eyebrow">SOLICITAR EXPERIENCIA</p><h1 style="font-size:40px">${escapeHtml(e.title)}</h1><p class="lead" style="font-size:15px">${escapeHtml(e.destination_title||'')} · ${escapeHtml(e.center_name||e.provider_name||'Organizador')}</p>
       <div class="data-grid" style="margin-top:14px"><div class="data-item"><span>Fechas</span><strong>${e.start_date?escapeHtml(wdFullDate(e.start_date))+(e.end_date?' – '+escapeHtml(wdFullDate(e.end_date)):''):'Por confirmar'}</strong></div><div class="data-item"><span>Precio por persona</span><strong>${e.price!=null?wdMoney(e.price,e.currency):'Consultar'}</strong></div><div class="data-item"><span>Plazas libres</span><strong>${e.spots_available!=null?escapeHtml(String(e.spots_available)):'Consultar'}</strong></div></div>
-      ${max<=0?'<div class="empty" style="margin-top:18px">Esta experiencia está completa.</div>':`<form id="experience-booking-form" style="margin-top:20px"><div class="field"><label for="eb-participants">Participantes</label><input id="eb-participants" type="number" min="1" max="${max}" value="1" required></div><div class="field"><label for="eb-notes">Mensaje para el organizador</label><textarea id="eb-notes" placeholder="Certificación, equipo, dudas…"></textarea></div><div class="form-actions"><button class="btn btn-primary">Enviar solicitud</button><a class="btn" href="#/experiencia?id=${e.travel_offer_id}">Volver</a></div></form>`}</div></section>`);
-    $('#experience-booking-form')?.addEventListener('submit',async ev=>{ev.preventDefault();try{const created=await postJSON('/api/experience-bookings',{travel_experience_id:id,participants:+$('#eb-participants').value,notes:$('#eb-notes').value}); if(created.payment_required){const pay=await postJSON('/api/payments/checkout',{experience_booking_id:created.id}).catch(()=>null); if(pay?.checkout_url){location.href=pay.checkout_url;return;}} toast('Solicitud enviada. El organizador te responderá en tu área.');location.hash='#/area';}catch(err){toast(err.message)}});
+      ${max<=0?'<div class="empty" style="margin-top:18px">Esta experiencia está completa.</div>':`<form id="experience-booking-form" style="margin-top:20px"><div class="field"><label for="eb-participants">Participantes</label><input id="eb-participants" type="number" min="1" max="${max}" value="1" required></div><div class="field"><label for="eb-notes">Mensaje para el organizador</label><textarea id="eb-notes" placeholder="Certificación, equipo, dudas…"></textarea></div>${expLegalBlock(e)}<div class="form-actions"><button class="btn btn-primary">Enviar solicitud</button><a class="btn" href="#/experiencia?id=${e.travel_offer_id}">Volver</a></div></form>`}</div></section>`);
+    $('#experience-booking-form')?.addEventListener('submit',async ev=>{ev.preventDefault();if(!$('#eb-accept')?.checked){toast('Acepta las condiciones para enviar la solicitud.');return;}try{const created=await postJSON('/api/experience-bookings',{travel_experience_id:id,participants:+$('#eb-participants').value,notes:$('#eb-notes').value}); if(created.payment_required){const pay=await postJSON('/api/payments/checkout',{experience_booking_id:created.id}).catch(()=>null); if(pay?.checkout_url){location.href=pay.checkout_url;return;}} toast('Solicitud enviada. El organizador te responderá en tu área.');location.hash='#/area';}catch(err){toast(err.message)}});
   }
 
   async function renderLogin(){ if((await api('/api/me')).authenticated){location.hash='#/cuenta';return;} const st=await api('/api/setup/status').catch(()=>({})); const nextParam = new URLSearchParams(location.hash.split('?')[1]||'').get('next'); if(nextParam) sessionStorage.setItem('wd_after_login', nextParam.startsWith('#')?nextParam:'#'+nextParam);
@@ -1375,7 +1432,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <button type="button" class="btn btn-primary bk-go" ${ready?'':'disabled'}>${esc(cta)}</button>
         ${modeTxt?`<p class="bk-mode"><b>${esc(modeTxt[0])}.</b> ${esc(modeTxt[1])}</p>`:''}${payPanel}
         ${policyText?`<div class="bk-policy">${wdIcon('calendar',15)}<p><b>Política de cancelación.</b> ${esc(policyText)}${policyNote?' '+esc(policyNote):''}</p></div>`:''}
-        <div class="bk-legal"><p><b>Prestado por ${esc(center.legal_name||center.name)}${center.country?', '+esc(center.country):''}.</b> WORLDIVES DISCOVERY es la plataforma de reservas: no organiza ni presta la actividad.</p><p>Precio final fijado por el centro, impuestos incluidos.</p><p>Las actividades de ocio con fecha concreta no tienen derecho de desistimiento de 14 días (art. 103.l del TRLGDCU); se aplica la política de cancelación del centro.</p><p>Al reservar aceptas las <a href="#/legal/reservas" target="_blank" rel="noopener">condiciones de reserva</a> y las <a href="#/legal/condiciones-buceadores" target="_blank" rel="noopener">condiciones de uso</a>.</p></div>
+        <div class="bk-legal"><p><b>Prestado por ${esc(center.legal_name||center.name)}${center.country?', '+esc(center.country):''}.</b> WORLDIVES DISCOVERY es la plataforma de reservas: no organiza ni presta la actividad.</p><p>Precio final fijado por el centro, impuestos incluidos.</p><p>Las actividades de ocio con fecha concreta no tienen derecho de desistimiento de 14 días (art. 103.l del TRLGDCU); se aplica la política de cancelación del centro.</p><p>Al reservar aceptas las <a href="#/legal/condiciones-reserva" target="_blank" rel="noopener">condiciones de reserva</a> y las <a href="#/legal/condiciones-buceadores" target="_blank" rel="noopener">condiciones de uso</a>.</p></div>
         <ul class="bk-trust"><li>${wdIcon('users',15)}Tus datos y tu certificación llegan al centro con la reserva.</li>${center.phone?`<li>${wdIcon('clock',15)}¿Dudas? <a href="tel:${esc(String(center.phone).replace(/\s+/g,''))}">${esc(center.phone)}</a></li>`:''}</ul>
       </div>`;
       $('#bk-bar-total').textContent=ready&&quote?wdMoney(total,quote.currency):'—'; const bb=$('#bk-bar-go'); bb.textContent=ready?cta:'Continuar'; bb.disabled=!!(ready&&s.bookable===false);
@@ -1982,6 +2039,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     message:'<path d="M4 5h16v11H8l-4 4z"/>',
     arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
     alert:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.5"/>',
+    info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
     image:'<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-8 9"/>',
     download:'<path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/>',
     megaphone:'<path d="M4 10v4a1 1 0 0 0 1 1h3l6 4V5L8 9H5a1 1 0 0 0-1 1Z"/><path d="M18 9a4 4 0 0 1 0 6"/>',
@@ -2654,7 +2712,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <section class="cb-panel pr-panel"><div class="cb-panel-head"><div><h3>Ofertas destacadas</h3><p>Viajes, promociones o anuncios con foto. Se muestran hasta tres a la vez, por orden, y desaparecen solas al pasar la fecha de fin.</p></div><button type="button" class="btn btn-primary pr-new" data-kind="offer">+ Añadir oferta</button></div>
         <div class="pr-list">${offers.map(row).join('')||'<div class="pr-empty">Todavía no hay ofertas. Mientras no haya ninguna, la sección no se muestra.</div>'}</div></section>
       <section class="cb-panel pr-panel"><div class="cb-panel-head"><div><h3>Contacto para marcas</h3><p>Si indicas un email, la portada muestra el bloque «Colabora con WORLDIVES» con un botón que abre un correo a esa dirección.</p></div></div>
-        <form id="pr-settings" class="pr-settings"><label class="field"><span>Email de contacto</span><input id="pr-email" type="email" maxlength="160" value="${esc(st.partners_email||'')}" placeholder="partners@tudominio.com"></label><label class="field"><span>Texto (opcional)</span><input id="pr-text" maxlength="200" value="${esc(st.partners_text||'')}" placeholder="Llega a buceadores de todo el mundo que están eligiendo su próxima inmersión."></label><button class="btn btn-primary" type="submit">Guardar</button></form></section></section>`;
+        <form id="pr-settings" class="pr-settings"><label class="field"><span>Email de contacto</span><input id="pr-email" type="email" maxlength="160" value="${esc(st.partners_email||'')}" placeholder="partners@tudominio.com"></label><label class="field"><span>Texto (opcional)</span><input id="pr-text" maxlength="200" value="${esc(st.partners_text||'')}" placeholder="Llega a buceadores de todo el mundo que están eligiendo su próxima inmersión."></label><label class="field"><span>Mínimo de centros para mostrar «Centros asociados»</span><input id="pr-minc" type="number" min="1" max="100" value="${esc(st.partners_min_centers||'6')}"></label><button class="btn btn-primary" type="submit">Guardar</button></form></section></section>`;
     mount.querySelector('.pr-module').insertAdjacentHTML('beforeend',`<section class="cb-panel pr-panel"><div class="cb-panel-head"><div><h3>Registro de patrocinios</h3><p>Quién ha patrocinado cada logo u oferta, con fechas e importe. Se conserva aunque borres la publicación.</p></div></div>
       ${(d.sponsorships||[]).length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Patrocinador</th><th>Dónde</th><th>Fechas</th><th>Importe</th><th>Estado</th></tr></thead><tbody>${d.sponsorships.map(x=>`<tr><td>${esc(x.sponsor_name)}<small>${esc(x.sponsor_contact||'')}</small></td><td>${x.placement==='band'?'Banda de colaboradores':'Oferta destacada'} #${x.ref_id}</td><td>${esc([x.starts_on,x.ends_on].filter(Boolean).map(wdDay).join(' – ')||'Sin fechas')}</td><td>${x.amount!=null?wdMoney(x.amount,x.currency):'—'}</td><td>${x.ended_at?'Terminado '+esc(fmtDate(x.ended_at)):'Activo'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="acc-empty">Todavía no hay patrocinios registrados.</p>'}</section>`);
     translateTree(mount);
@@ -2662,7 +2720,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $$('.pr-row',mount).forEach(r=>{ const p=d.items.find(x=>String(x.id)===r.dataset.id);
       $('.pr-edit',r).onclick=()=>openPromoForm(p,refresh);
       $('.pr-del',r).onclick=async()=>{ if(!confirm(`¿Eliminar «${p.title}»?`)) return; try{ await postJSON('/api/admin/site-promos/delete',{id:p.id}); toast('Eliminado.'); refresh(); }catch(err){ toast(err.message); } }; });
-    $('#pr-settings',mount).onsubmit=async e=>{ e.preventDefault(); try{ await postJSON('/api/admin/site-promos/settings',{partners_email:$('#pr-email',mount).value.trim(),partners_text:$('#pr-text',mount).value.trim()}); toast('Contacto guardado.'); }catch(err){ toast(err.message); } };
+    $('#pr-settings',mount).onsubmit=async e=>{ e.preventDefault(); try{ await postJSON('/api/admin/site-promos/settings',{partners_email:$('#pr-email',mount).value.trim(),partners_text:$('#pr-text',mount).value.trim(),partners_min_centers:$('#pr-minc',mount).value}); toast('Contacto guardado.'); }catch(err){ toast(err.message); } };
   }
   function openPromoForm(p,onDone){
     const esc=escapeHtml; const isOffer=p.kind==='offer'; const editing=!!p.id;
@@ -2913,6 +2971,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="sc-hero-actions"><label class="btn sc-file">Cambiar portada<input type="file" id="sc-cover" accept="image/jpeg,image/png,image/webp" hidden></label>${c.cover_url?'<button type="button" class="btn" id="sc-cover-remove">Quitar</button>':''}<label class="btn sc-file">Cambiar logo<input type="file" id="sc-logo" accept="image/jpeg,image/png,image/webp" hidden></label></div>
       </div>
       <p class="sc-hint">Portada recomendada: foto horizontal de al menos 1600 × 700 px (JPG, PNG o WEBP, máximo 6 MB). La misma portada aparece en la cabecera de tu panel.</p>
+      <label class="lg-check sc-consent"><input type="checkbox" id="sc-logo-consent" ${c.logo_consent?'checked':''}> <span>Autorizo a WORLDIVES DISCOVERY a mostrar el nombre y el logo de mi centro en la banda «Centros asociados» de la portada. Puedo retirar la autorización cuando quiera desmarcando esta casilla.</span></label>
       <form id="sc-form" class="svc-form sc-form">
         <section class="sc-card"><h3>Presentación</h3>
           <div class="svc-field"><label for="sc-tagline">Frase de presentación</label><input id="sc-tagline" maxlength="160" value="${esc(c.tagline||'')}" placeholder="Buceo en barco en la reserva marina de Tabarca desde 1998"></div>
@@ -2944,7 +3003,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(!v('mc-name').trim()){toast('El nombre del centro es obligatorio.');return;}
       const btn=e.target.querySelector('button[type=submit]'); btn.disabled=true;
       try{
-        await postJSON('/api/provider/center-update',{name:v('mc-name'),country:v('mc-country'),region:v('mc-region'),city:v('mc-city'),phone:v('mc-phone'),website:v('mc-web'),email:v('mc-email'),address:v('mc-address'),specialties:v('mc-spec'),description:v('mc-desc'),latitude:v('mc-lat'),longitude:v('mc-lng'),instagram_url:v('mc-instagram_url'),facebook_url:v('mc-facebook_url'),twitter_url:v('mc-twitter_url'),youtube_url:v('mc-youtube_url'),tiktok_url:v('mc-tiktok_url')});
+        await postJSON('/api/provider/center-update',{logo_consent:!!mount.querySelector('#sc-logo-consent')?.checked,name:v('mc-name'),country:v('mc-country'),region:v('mc-region'),city:v('mc-city'),phone:v('mc-phone'),website:v('mc-web'),email:v('mc-email'),address:v('mc-address'),specialties:v('mc-spec'),description:v('mc-desc'),latitude:v('mc-lat'),longitude:v('mc-lng'),instagram_url:v('mc-instagram_url'),facebook_url:v('mc-facebook_url'),twitter_url:v('mc-twitter_url'),youtube_url:v('mc-youtube_url'),tiktok_url:v('mc-tiktok_url')});
         await postJSON('/api/provider/center-showcase',{tagline:v('sc-tagline'),languages:v('sc-languages'),opening_hours:v('sc-hours')});
         toast('Escaparate guardado.'); refresh();
       }catch(err){toast(err.message);btn.disabled=false;}
@@ -3608,7 +3667,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     setApp(`<section class="page provider-page"><div class="provider-topbar"><div><p class="eyebrow">${isAdmin?'CUENTA ADMINISTRADOR':'PANEL PROFESIONAL · CENTRO DE BUCEO'}</p><h1>${isAdmin?'Centro de control de WORLDIVES':escapeHtml(myCenter?.name||'Panel del centro')}</h1><p class="lead">${isAdmin?'Control administrativo de WORLDIVES DISCOVERY.':'Tu centro de operaciones: reservas, salidas, clientes, pagos y catálogo.'}</p></div>${!isAdmin&&myCenter?`<div class="provider-status"><span class="status good">● Centro activo</span><a href="#/admin?tab=center">Gestionar ficha</a></div>`:''}</div>
       ${isAdmin?'<div class="notice" style="margin-top:18px"><strong>Control total activado</strong><p style="margin:6px 0 0">Las acciones importantes quedan registradas en el historial de actividad.</p></div>':''}
       ${!isAdmin?`<div class="provider-mini-summary"><span><strong>${points.length}</strong> puntos activos</span><span><strong>${bookings.length}</strong> reservas</span><span><strong>${centerPending.length}</strong> por confirmar</span><span><strong>${centerConfirmed.length}</strong> confirmadas</span><span><strong>${centerPaid.length}</strong> pagadas</span></div>`:''}
-      <div class="tabs provider-tabs">${isAdmin?'<button class="tab active" data-tab="overview">Inicio</button>':'<button class="tab active" data-tab="overview">Resumen</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="services">Servicios y salidas</button><button class="tab" data-tab="clients">Clientes</button><button class="tab" data-tab="points">Puntos de buceo</button><button class="tab" data-tab="rewards">Recompensas</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR / Check-in</button><button class="tab" data-tab="center">Mi centro</button><button class="tab" data-tab="payments">Cobros y pagos</button>'}${isAdmin?'<button class="tab" data-tab="points">Puntos</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="adminpay">Pagos</button><button class="tab" data-tab="emails">Correos</button><button class="tab" data-tab="legal">Legal</button><button class="tab" data-tab="virtual">Recorridos virtuales</button><button class="tab" data-tab="experiences">Experiencias</button><button class="tab" data-tab="destinations">Destinos</button><button class="tab" data-tab="media">Imágenes de la web</button><button class="tab" data-tab="promos">Patrocinio</button><button class="tab" data-tab="users">Usuarios</button><button class="tab" data-tab="centers">Centros</button><button class="tab" data-tab="claims">Verificaciones</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR</button><button class="tab" data-tab="audit">Actividad</button><button class="tab" data-tab="rewards">Recompensas</button>':''}</div><div id="admin-content"></div></section>`);
+      <div class="tabs provider-tabs">${isAdmin?'<button class="tab active" data-tab="overview">Inicio</button>':'<button class="tab active" data-tab="overview">Resumen</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="services">Servicios y salidas</button><button class="tab" data-tab="clients">Clientes</button><button class="tab" data-tab="points">Puntos de buceo</button><button class="tab" data-tab="rewards">Recompensas</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR / Check-in</button><button class="tab" data-tab="center">Mi centro</button><button class="tab" data-tab="payments">Cobros y pagos</button>'}${isAdmin?'<button class="tab" data-tab="points">Puntos</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="adminpay">Pagos</button><button class="tab" data-tab="emails">Correos</button><button class="tab" data-tab="legal">Legal</button><button class="tab" data-tab="pointtexts">Descripciones de puntos</button><button class="tab" data-tab="maps">Mapas</button><button class="tab" data-tab="virtual">Recorridos virtuales</button><button class="tab" data-tab="experiences">Experiencias</button><button class="tab" data-tab="destinations">Destinos</button><button class="tab" data-tab="media">Imágenes de la web</button><button class="tab" data-tab="promos">Patrocinio</button><button class="tab" data-tab="users">Usuarios</button><button class="tab" data-tab="centers">Centros</button><button class="tab" data-tab="claims">Verificaciones</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR</button><button class="tab" data-tab="audit">Actividad</button><button class="tab" data-tab="rewards">Recompensas</button>':''}</div><div id="admin-content"></div></section>`);
     const tabs=$$('.tab');
     async function show(t){
       tabs.forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
@@ -3623,10 +3682,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t==='users') c.innerHTML=adminUsers(users);
       if(t==='experiences') c.innerHTML=adminTravelExperiences(travelExperiences);
       if(t==='destinations') c.innerHTML=adminDestinations(meta.travel);
-      if(t==='media'&&isAdmin){ c.innerHTML='<div id="site-theme-manager"></div><div id="site-media-manager"></div>'; renderThemeManager('site-theme-manager'); renderSiteMediaManager('site-media-manager'); }
+      if(t==='media'&&isAdmin){ c.innerHTML='<div id="site-theme-manager"></div><div id="site-media-manager"></div><div id="image-origins"></div>'; renderThemeManager('site-theme-manager'); renderSiteMediaManager('site-media-manager'); renderImageOrigins('image-origins'); }
       if(t==='adminpay'&&isAdmin){ c.innerHTML='<div id="admin-payments"></div>'; renderAdminPayments('admin-payments'); }
       if(t==='emails'&&isAdmin){ c.innerHTML='<div id="admin-emails"></div>'; renderAdminEmails('admin-emails'); }
       if(t==='legal'&&isAdmin){ c.innerHTML='<div id="admin-legal"></div>'; renderAdminLegal('admin-legal'); }
+      if(t==='maps'&&isAdmin){ c.innerHTML='<div id="admin-maps"></div>'; renderAdminMaps('admin-maps'); }
+      if(t==='pointtexts'&&isAdmin){ c.innerHTML='<div id="admin-pointtexts"></div>'; renderAdminPointTexts('admin-pointtexts'); }
       if(t==='promos'&&isAdmin){ c.innerHTML='<div id="site-promos-manager"></div>'; renderPromosManager('site-promos-manager'); }
       if(t==='virtual') c.innerHTML=adminVirtuals(virtuals);
       if(t==='suggestions') c.innerHTML=isAdmin?adminSuggestions(suggestions):providerSuggestions(suggestions);
@@ -3642,7 +3703,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const qsAdmin=new URLSearchParams(location.hash.split('?')[1]||'');
     const requested=qsAdmin.get('tab'); const statusFilter=qsAdmin.get('status'); const editId=Number(qsAdmin.get('edit')||0);
     const centerTabs=['overview','bookings','services','clients','points','rewards','suggestions','qr','center','payments'];
-    show(isAdmin&&['adminpay','emails','legal','media','promos','virtual','audit','destinations','experiences','users','centers','claims','suggestions','qr','rewards','bookings','points'].includes(requested)?requested:(isAdmin?'overview':(centerTabs.includes(requested)?requested:'overview')));
+    show(isAdmin&&['adminpay','emails','legal','pointtexts','maps','media','promos','virtual','audit','destinations','experiences','users','centers','claims','suggestions','qr','rewards','bookings','points'].includes(requested)?requested:(isAdmin?'overview':(centerTabs.includes(requested)?requested:'overview')));
     if(isAdmin&&editId) editPointForm(editId);
   }
   // Shared by the center workspace and the legacy admin view.
@@ -3693,7 +3754,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       $$('.virtual-delete').forEach(b=>b.onclick=async()=>{if(!confirm('¿Eliminar este recorrido virtual?'))return; try{const r=await fetch('/api/dive-points/'+id+'/virtual/'+b.dataset.id,{method:'DELETE'}); if(!r.ok){const x=await r.json().catch(()=>({}));throw new Error(x.error||'No se pudo eliminar.');} toast('Recorrido eliminado.');editPointForm(id);}catch(err){toast(err.message)}});
       $('#point-photo-form').onsubmit=async e=>{e.preventDefault(); const pid=e.target.dataset.pointId; try{await api('/api/dive-points/'+pid+'/photos',{method:'POST',body:new FormData(e.target)}); toast('Fotografía subida.'); editPointForm(+pid);}catch(err){toast(err.message)}};
     }
-    if(window.L && $('#point-editor-map')){ const emap=(wdTileDefaults(),wdLimitMap(L.map('point-editor-map',{zoomControl:true}))).setView([+p.latitude,+p.longitude],15); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(emap); const mk=L.marker([+p.latitude,+p.longitude],{draggable:true,icon:pointIcon(p,{active:true}),title:p.name||'Nuevo punto',alt:p.name||'Nuevo punto'}).addTo(emap); const sync=ll=>{ $('#p-lat').value=ll.lat.toFixed(6); $('#p-lon').value=ll.lng.toFixed(6); mk.setLatLng(ll); }; mk.on('dragend',e=>sync(e.target.getLatLng())); emap.on('click',e=>sync(e.latlng)); }
+    if(window.L && $('#point-editor-map')){ const emap=(wdTileDefaults(),wdLimitMap(L.map('point-editor-map',{zoomControl:true}))).setView([+p.latitude,+p.longitude],15); wdBaseLayer().addTo(emap); const mk=L.marker([+p.latitude,+p.longitude],{draggable:true,icon:pointIcon(p,{active:true}),title:p.name||'Nuevo punto',alt:p.name||'Nuevo punto'}).addTo(emap); const sync=ll=>{ $('#p-lat').value=ll.lat.toFixed(6); $('#p-lon').value=ll.lng.toFixed(6); mk.setLatLng(ll); }; mk.on('dragend',e=>sync(e.target.getLatLng())); emap.on('click',e=>sync(e.latlng)); }
   }
   async function editDestinationForm(id){ const meta=await loadMeta(); let t={title:'',region:'',kind:'Viaje',image_path:'',summary:'',description:''}; if(id) t=meta.travel.find(x=>x.id===id)||t; setApp(`<section class="page"><div class="breadcrumb"><a href="#/admin?tab=destinations">Gestión</a> / ${id?'Editar destino':'Nuevo destino'}</div><p class="eyebrow">EXPERIENCIAS</p><h1>${id?'Editar destino':'Nuevo destino'}</h1><form id="destination-form" style="margin-top:28px"><div class="form-grid"><div class="field full"><label>Nombre del destino</label><input id="td-title" value="${escapeHtml(t.title)}" required></div><div class="field"><label>Región / país</label><input id="td-region" value="${escapeHtml(t.region||'')}" required></div><div class="field"><label>Tipo</label><input id="td-kind" value="${escapeHtml(t.kind||'Viaje')}" required></div><div class="field full"><label>Foto del destino</label><div class="td-photo"><div class="td-photo-preview" id="td-photo-preview">${t.image_path?`<img src="${escapeHtml(t.image_path)}" alt="">`:'<span>Sin foto</span>'}</div><div><input id="td-file" type="file" accept="image/jpeg,image/png,image/webp"><small>${IMG_HINT}</small>${t.image_path?'<label class="td-remove"><input type="checkbox" id="td-remove"> Quitar la foto actual</label>':''}</div></div></div><div class="field full"><label>Resumen</label><textarea id="td-summary">${escapeHtml(t.summary||'')}</textarea></div><div class="field full"><label>Descripción</label><textarea id="td-description">${escapeHtml(t.description||'')}</textarea></div></div><div class="form-actions"><a class="btn" href="#/admin?tab=destinations">Cancelar</a><button class="btn btn-primary">Guardar destino</button></div></form></section>`); $('#td-file').onchange=e=>{ const f=e.target.files[0]; if(f) $('#td-photo-preview').innerHTML=`<img src="${URL.createObjectURL(f)}" alt="">`; }; $('#destination-form').onsubmit=async e=>{e.preventDefault();try{const r=await postJSON('/api/admin/travel-offers',{id:id||null,title:$('#td-title').value,region:$('#td-region').value,kind:$('#td-kind').value,summary:$('#td-summary').value,description:$('#td-description').value}); const tid=r.id||id; const f=$('#td-file').files[0]; if(f) await uploadForm('/api/admin/travel-offer-image',{id:tid},f); else if($('#td-remove')?.checked) await uploadForm('/api/admin/travel-offer-image',{id:tid,remove:'1'}); __travel=null; try{ state.meta=null; }catch{} toast('Destino guardado.');location.hash='#/admin?tab=destinations';}catch(err){toast(err.message)}}; }
   async function editCenterForm(id){ const meta=await loadMeta(); let c={name:'',country:'España',region:'',city:'',address:'',phone:'',email:'',website:'',specialties:'',latitude:38.54,longitude:-0.12,description:'',logo_url:''}; if(id){c=(await api('/api/centers/'+id)).item;} setApp(`<section class="page"><div class="breadcrumb"><a href="#/admin?tab=centers">Gestión</a> / ${id?'Editar centro':'Nuevo centro'}</div><p class="eyebrow">CENTROS</p><h1>${id?'Editar centro':'Nuevo centro'}</h1><form id="center-form" style="margin-top:28px"><div class="form-grid"><div class="field full"><label>Nombre</label><input id="c-name" value="${escapeHtml(c.name||'')}" required></div><div class="field"><label>País</label><select id="c-country">${meta.countries.map(x=>`<option ${x.name===c.country?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></div><div class="field"><label>Región</label><input id="c-region" value="${escapeHtml(c.region||'')}"></div><div class="field"><label>Ciudad</label><input id="c-city" value="${escapeHtml(c.city||'')}"></div><div class="field"><label>Dirección</label><input id="c-address" value="${escapeHtml(c.address||'')}"></div><div class="field"><label>Teléfono</label><input id="c-phone" value="${escapeHtml(c.phone||'')}"></div><div class="field"><label>Email</label><input id="c-email" type="email" value="${escapeHtml(c.email||'')}"></div><div class="field"><label>Web</label><input id="c-web" value="${escapeHtml(c.website||'')}"></div><div class="field full"><label>Logo URL</label><input id="c-logo" value="${escapeHtml(c.logo_url||'')}" placeholder="URL del logotipo oficial"></div><div class="field full"><label>Especialidades</label><input id="c-spec" value="${escapeHtml(c.specialties||'')}" placeholder="Cuevas, técnico, sidemount…"></div><div class="field"><label>Latitud</label><input id="c-lat" type="number" step="0.000001" value="${c.latitude||0}"></div><div class="field"><label>Longitud</label><input id="c-lon" type="number" step="0.000001" value="${c.longitude||0}"></div><div class="field full"><label>Descripción</label><textarea id="c-desc">${escapeHtml(c.description||'')}</textarea></div></div><div class="notice" style="margin-top:18px"><strong>Ubicación del centro</strong><br><small>Arrastra el marcador o haz clic en el mapa.</small><div id="center-editor-map" class="map-card" style="height:300px;margin-top:12px"></div></div><div class="form-actions"><a class="btn" href="#/admin?tab=centers">Cancelar</a><button class="btn btn-primary">Guardar centro</button></div></form></section>`); $('#center-form').onsubmit=async e=>{e.preventDefault();try{const data={id:id||null,name:$('#c-name').value,country:$('#c-country').value,region:$('#c-region').value,city:$('#c-city').value,address:$('#c-address').value,phone:$('#c-phone').value,email:$('#c-email').value,website:$('#c-web').value,specialties:$('#c-spec').value,latitude:+$('#c-lat').value,longitude:+$('#c-lon').value,description:$('#c-desc').value,logo_url:$('#c-logo').value};await postJSON(id?'/api/centers/update':'/api/centers',data);toast(id?'Centro actualizado.':'Centro creado.');location.hash='#/admin?tab=centers';}catch(err){toast(err.message)}}; if(window.L && $('#center-editor-map')){ const cm=(wdTileDefaults(),wdLimitMap(L.map('center-editor-map'))).setView([+$('#c-lat').value||38.54,+$('#c-lon').value||-0.12],13); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(cm); const mk=L.marker([+$('#c-lat').value||38.54,+$('#c-lon').value||-0.12],{draggable:true}).addTo(cm); const sync=ll=>{ $('#c-lat').value=ll.lat.toFixed(6); $('#c-lon').value=ll.lng.toFixed(6); mk.setLatLng(ll); }; mk.on('dragend',e=>sync(e.target.getLatLng())); cm.on('click',e=>sync(e.latlng)); } }
@@ -3759,20 +3820,56 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let doc, info;
     try{ [doc,info]=await Promise.all([api('/api/legal/doc?slug='+encodeURIComponent(slug)+'&lang='+currentLanguage()),legalInfo()]); }
     catch(e){ setApp(`<section class="page"><div class="empty"><h2>Documento no encontrado</h2><p>Consulta el resto de la información legal.</p><a class="btn btn-primary" href="#/legal/aviso-legal">Aviso legal</a></div></section>`); return; }
-    const toc=[...String(doc.markdown).matchAll(/^##\s+(.*)$/gm)].map(m=>m[1]);
+    const route=doc.route||slug, toc=[...String(doc.markdown).matchAll(/^##\s+(.*)$/gm)].map(m=>m[1]);
     const slugOf=s=>wdFold(s).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    const up=doc.upcoming;
     setApp(`<section class="lg-page">
       <header class="lg-hero"><div class="lg-hero-in"><p class="eyebrow">${wdIcon('file',14)} Información legal</p><h1 translate="no">${esc(doc.title)}</h1>
-        <p class="lg-meta">Versión vigente: ${esc(doc.version)}${doc.lang!=='es'?' · <span translate="no">English translation · the Spanish version prevails</span>':''}</p></div></header>
+        <p class="lg-meta">Versión vigente: <span translate="no">${esc(doc.version)}</span> · En vigor desde el <span translate="no">${esc(wdLegalDate(doc.effective_at))}</span></p></div></header>
       <div class="lg-wrap">
-        <nav class="lg-nav" aria-label="Documentos legales"><p class="lg-nav-t">Documentos</p>${Object.entries(info.docs||{}).map(([k,v])=>`<a href="#/legal/${k}" ${k===slug?'aria-current="page"':''}>${esc(v)}</a>`).join('')}</nav>
-        <article class="lg-doc" translate="no" lang="${esc(doc.lang)}">${wdMd(doc.markdown)}${slug==='denuncias'?'<div id="lg-report"></div>':''}</article>
-        <aside class="lg-side">${toc.length>2?`<div class="lg-toc"><p class="lg-nav-t">En esta página</p>${toc.map(h=>`<a href="#" data-to="${slugOf(h)}" translate="no">${esc(h)}</a>`).join('')}</div>`:''}
+        <nav class="lg-nav" aria-label="Documentos legales"><p class="lg-nav-t">Documentos</p>${Object.entries(info.docs||{}).map(([k,v])=>`<a href="#/legal/${k}" ${k===route?'aria-current="page"':''}>${esc(v)}</a>`).join('')}</nav>
+        <div class="lg-main">
+          ${doc.prevails_note?`<div class="notice lg-prevails" translate="no" lang="${esc(doc.lang)}">${wdIcon('info',16)} ${esc(doc.prevails_note)}</div>`:''}
+          ${doc.lang!==currentLanguage()&&!doc.prevails_note?`<div class="notice lg-prevails">${wdIcon('info',16)} Este documento todavía no está traducido a tu idioma. Se muestra la versión oficial.</div>`:''}
+          ${up?`<div class="notice warning lg-upcoming" id="lg-upcoming"><strong>Nueva versión anunciada.</strong> Entra en vigor el <span translate="no">${esc(wdLegalDate(up.effective_at))}</span>.${up.summary?` <span translate="no">${esc(up.summary)}</span>`:''} <button type="button" class="btn-link" id="lg-up-read">Leer la nueva versión</button></div>`:''}
+          <article class="lg-doc" translate="no" lang="${esc(doc.lang)}">${wdMd(doc.markdown)}${slug==='denuncias'?'<div id="lg-report"></div>':''}</article>
+          <section class="lg-history" aria-labelledby="lg-hist-t"><h2 id="lg-hist-t">Versiones de este documento</h2><div id="lg-hist"><p class="muted">Cargando…</p></div></section>
+        </div>
+        <aside class="lg-side">${toc.length>2?`<div class="lg-toc"><p class="lg-nav-t">En esta página</p>${toc.map(h=>`<a href="#${slugOf(h)}" data-to="${slugOf(h)}" translate="no">${esc(h)}</a>`).join('')}</div>`:''}
           <div class="lg-actions"><button type="button" class="btn" id="lg-print">${wdIcon('download',15)} Imprimir o guardar en PDF</button><a class="btn" href="#/legal/denuncias">${wdIcon('alert',15)} Denunciar contenido</a></div></aside>
       </div></section>`);
     $('#lg-print').onclick=()=>window.print();
-    $$('.lg-toc a').forEach(a=>a.onclick=e=>{ e.preventDefault(); document.getElementById(a.dataset.to)?.scrollIntoView({behavior:'smooth',block:'start'}); });
+    $$('.lg-toc a').forEach(a=>a.onclick=e=>{ e.preventDefault(); const t=document.getElementById(a.dataset.to); if(t){ t.setAttribute('tabindex','-1'); t.scrollIntoView({behavior:'smooth',block:'start'}); t.focus({preventScroll:true}); } });
     if(slug==='denuncias') renderReportForm($('#lg-report'),info,qs.get('url')||'');
+    let hist=[]; try{ hist=(await api('/api/legal/history?slug='+encodeURIComponent(doc.slug))).items||[]; }catch{}
+    const hm=$('#lg-hist'); if(!hm) return;
+    hm.innerHTML=hist.length?`<ul class="lg-hist-list">${hist.map(h=>`<li><div><b translate="no">${esc(h.version)}</b> · <span>${h.effective_at>new Date().toISOString().slice(0,10)?'Entra en vigor el':'En vigor desde el'}</span> <span translate="no">${esc(wdLegalDate(h.effective_at))}</span>${h.version===doc.version?' <span class="status good">Vigente</span>':''}${h.summary?`<p translate="no">${esc(h.summary)}</p>`:''}</div><button type="button" class="btn" data-ver="${h.id}">Leer</button></li>`).join('')}</ul>`:'<p class="muted">Esta es la primera versión.</p>';
+    translateTree(hm);
+    $$('[data-ver]',hm).forEach(b=>b.onclick=()=>openLegalVersion(+b.dataset.ver));
+    const upRow=up&&hist.find(h=>h.version===up.version); if(upRow&&$('#lg-up-read')) $('#lg-up-read').onclick=()=>openLegalVersion(upRow.id);
+    else $('#lg-up-read')?.remove();
+  }
+  function wdLegalDate(d){ if(!d) return ''; try{ return new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString(currentLanguage(),{day:'numeric',month:'long',year:'numeric'}); }catch{ return String(d).slice(0,10); } }
+  async function openLegalVersion(id){
+    let v; try{ v=await api('/api/legal/version?id='+id); }catch(err){ toast(err.message); return; }
+    const text=String(v.markdown);
+    wdOpenModal({id:'legal-version',size:'lg',title:escapeHtml(v.title),subtitle:`Versión ${escapeHtml(v.version)} · ${escapeHtml(wdLegalDate(v.effective_at))}`,
+      body:`<article class="lg-doc" translate="no" lang="${escapeHtml(v.lang)}">${wdMd(text)}</article>`,footer:'<button type="button" class="btn" data-modal-close>Cerrar</button>'});
+  }
+  // A new version in force of a document the user must accept: one window asks for it (once per visit if postponed).
+  function legalAcceptGate(){
+    const pend=state.me?.legal?.pending||[]; if(!pend.length||$('#legal-accept')) return;
+    if((location.hash||'').startsWith('#/legal/')) return;
+    try{ if(sessionStorage.getItem('wd_legal_later')===pend.map(p=>p.slug+p.version).join(',')) return; }catch{}
+    const esc=escapeHtml;
+    const {el,close}=wdOpenModal({id:'legal-accept',title:'Hemos actualizado nuestras condiciones',subtitle:'Para seguir usando tu cuenta, revisa y acepta las nuevas versiones.',
+      body:`<ul class="lg-accept-list">${pend.map(p=>`<li>${wdIcon('file',16)} <a href="#/legal/${esc(p.route)}" target="_blank" rel="noopener">${esc(p.title)}</a> <small>· versión <span translate="no">${esc(p.version)}</span></small></li>`).join('')}</ul>
+        <label class="lg-check"><input type="checkbox" id="la-ok"> <span>He leído y acepto estas versiones.</span></label>`,
+      footer:'<button type="button" class="btn" id="la-later">Más tarde</button><button type="button" class="btn btn-primary" id="la-accept" disabled>Aceptar</button>'});
+    translateTree(el);
+    $('#la-ok',el).onchange=e=>{ $('#la-accept',el).disabled=!e.target.checked; };
+    $('#la-later',el).onclick=()=>{ try{ sessionStorage.setItem('wd_legal_later',pend.map(p=>p.slug+p.version).join(',')); }catch{} close(); };
+    $('#la-accept',el).onclick=async()=>{ try{ const r=await postJSON('/api/legal/accept',{docs:pend.map(p=>p.slug)}); if(state.me) state.me.legal={pending:r.pending,upcoming:r.upcoming}; close(); toast('Gracias. Condiciones aceptadas.'); }catch(err){ toast(err.message); } };
   }
   function renderReportForm(mount,info,url){
     if(!mount) return; const me=state.me?.user; const esc=escapeHtml;
@@ -3790,12 +3887,46 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         mount.innerHTML=`<div class="lg-done">${wdIcon('check',22)}<div><h2>Denuncia recibida</h2><p>Referencia <b>${esc(r.ref)}</b>. La revisaremos con diligencia${$('#rp-email')?.value?' y te escribiremos con la decisión':''}. Gracias por ayudarnos.</p></div></div>`; translateTree(mount);
       }catch(err){ toast(err.message); btn.disabled=false; } };
   }
+  // Accessibility (v50.36): every <label> is tied to its field. Labels written without «for» (about a hundred in the
+  // panels) are linked at render time to the only control of their field; controls without any label get the
+  // placeholder or the nearby text as their accessible name.
+  let wdLabelSeq=0;
+  function wdLinkLabels(root){
+    if(!root?.querySelectorAll) return;
+    root.querySelectorAll('label:not([for])').forEach(l=>{ if(l.querySelector('input,select,textarea')) return;
+      let c=l.nextElementSibling; if(!(c&&c.matches('input,select,textarea'))){ const box=l.closest('.field,.svc-field,.bk-field,.form-row,.cd-field'); const all=box?box.querySelectorAll('input:not([type=hidden]),select,textarea'):[]; c=all.length===1?all[0]:null; }
+      if(!c) return; if(!c.id) c.id='wdf-'+(++wdLabelSeq); l.htmlFor=c.id; });
+    root.querySelectorAll('input:not([type=hidden]):not([aria-label]):not([aria-labelledby]),select:not([aria-label]):not([aria-labelledby]),textarea:not([aria-label]):not([aria-labelledby])').forEach(c=>{
+      if(c.closest('label')||(c.id&&root.querySelector(`label[for="${CSS.escape(c.id)}"]`))||(c.id&&document.querySelector(`label[for="${CSS.escape(c.id)}"]`))) return;
+      const name=c.getAttribute('placeholder')||c.getAttribute('title'); if(name) c.setAttribute('aria-label',name); });
+  }
+  try{ let t=null; new MutationObserver(()=>{ clearTimeout(t); t=setTimeout(()=>wdLinkLabels(document.body),60); }).observe(document.documentElement,{childList:true,subtree:true}); }catch{}
+  // Demo deployments (WOD_DEMO_MODE=1): a fixed ribbon on every page.
+  async function demoRibbon(){ let st; try{ st=await api('/api/setup/status'); }catch{ return; } if(!st.demo||$('#demo-ribbon')) return;
+    document.body.classList.add('is-demo');
+    document.body.insertAdjacentHTML('afterbegin','<div class="demo-ribbon" id="demo-ribbon" role="note"><strong>Versión de demostración:</strong> los centros y reservas que ves son ejemplos. No se hacen pagos reales.</div>');
+    translateTree($('#demo-ribbon')); }
+  // Footer: the owner's identification (LSSI-CE art. 10) as soon as it is filled in at Administración → Legal.
+  async function footerOwner(){ const el=$('#footer-owner'); if(!el) return; const o=(await legalInfo()).owner||{};
+    const parts=[o.owner_name,o.nif&&('NIF '+o.nif),o.address,o.email].filter(Boolean); if(!parts.length) return;
+    el.setAttribute('translate','no'); el.textContent=`© ${new Date().getFullYear()} ${o.trade_name||'WORLDIVES DISCOVERY'} · ${parts.join(' · ')}`; }
   function cookieNotice(){
     let seen=null; try{ seen=Number(localStorage.getItem('wd_cookie_notice')||0); }catch{ return; }
     if(seen&&Date.now()-seen<365*864e5) return; if($('#ck-bar')) return;
     document.body.insertAdjacentHTML('beforeend',`<div class="ck-bar" id="ck-bar" role="region" aria-label="Aviso de cookies"><p>${wdIcon('shield',16)}<span>Solo usamos cookies técnicas, necesarias para que la web funcione (por ejemplo, para mantener tu sesión). No usamos cookies de publicidad ni de analítica. <a href="#/legal/cookies">Más información</a></span></p><button type="button" class="btn btn-primary" id="ck-ok">Entendido</button></div>`);
     $('#ck-ok').onclick=()=>{ try{ localStorage.setItem('wd_cookie_notice',String(Date.now())); }catch{} $('#ck-bar')?.remove(); };
     translateTree($('#ck-bar'));
+  }
+  // Link from the «Confirma la eliminación de tu cuenta» email.
+  function renderConfirmDeletion(params){
+    const token=params?.get?.('token')||new URLSearchParams(location.hash.split('?')[1]||'').get('token')||'';
+    setApp(authCard('Eliminar mi cuenta',token?`<div class="cx-summary is-late">${wdIcon('alert',20)}<p>Al confirmar borraremos tu ficha, tus documentos, tu Log Book y tus puntos. Las reservas y los pagos se conservan sin tu nombre el tiempo que exige la ley. No se puede deshacer.</p></div>
+      <p><a href="/api/account/export?format=zip" download>Descarga antes una copia de tus datos</a> (necesitas haber iniciado sesión).</p>
+      <div class="form-actions"><a class="btn" href="#/">Cancelar</a><button class="btn danger" type="button" id="cd-ok">Eliminar definitivamente</button></div>`
+      :`<div class="notice warning">El enlace no es válido.</div>`));
+    $('#cd-ok')?.addEventListener('click',async e=>{ e.target.disabled=true;
+      try{ await postJSON('/api/account/delete/confirm',{token}); state.me=null; renderAccount(); setApp(authCard('Cuenta eliminada','<p class="lead" style="font-size:15px">Hemos eliminado tu cuenta y tus datos personales. Gracias por haber buceado con nosotros.</p><div class="form-actions"><a class="btn btn-primary" href="#/">Ir al inicio</a></div>')); }
+      catch(err){ toast(err.message); e.target.disabled=false; } });
   }
   async function renderForgot(){
     setApp(authCard('¿Has olvidado tu contraseña?',`<p class="lead" style="font-size:15px">Escribe el email de tu cuenta y te enviaremos un enlace para elegir una contraseña nueva.</p>
@@ -3812,13 +3943,18 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $('#reset-form')?.addEventListener('submit',async e=>{ e.preventDefault(); if($('#rs-1').value!==$('#rs-2').value){ toast('Las contraseñas no coinciden.'); return; }
       try{ await postJSON('/api/auth/reset',{token,password:$('#rs-1').value}); toast('Contraseña cambiada. Ya puedes iniciar sesión.'); location.hash='#/login'; }catch(err){ toast(err.message); } });
   }
-  // Pro accounts accept the terms for centres (P2B) once; a new version asks again.
+  // Centres and professionals: the terms for centres change with 15 days of notice. The banner announces the new
+  // version (with its summary) and lets them accept it now; a version already in force is asked in legalAcceptGate.
   async function proTermsBanner(user){
-    if(!user||!['center','freelance'].includes(user.role)) return; const info=await legalInfo(); if(!info.version||user.pro_terms_version===info.version) return;
+    if(!user||!['center','freelance'].includes(user.role)) return; const esc=escapeHtml;
+    const lg=state.me?.legal||{}; const up=(lg.upcoming||[]).find(u=>u.slug==='centros'); const pend=(lg.pending||[]).find(p=>p.slug==='centros');
+    if(!up&&!pend) return;
     const host=$('#app .cb-main')||$('#app > section'); if(!host||$('#pro-terms-bar')) return;
-    host.insertAdjacentHTML('afterbegin',`<div class="pro-terms-bar" id="pro-terms-bar">${wdIcon('file',18)}<p><strong>Condiciones para centros y profesionales</strong> Revisa y acepta las condiciones que regulan la publicación, la cuota y los cobros en WORLDIVES.</p><a class="btn" href="#/legal/centros" target="_blank" rel="noopener">Leer</a><button type="button" class="btn btn-primary" id="pro-terms-ok">Aceptar</button></div>`);
+    const msg=pend?`<strong>Condiciones para centros y profesionales</strong> Hay una nueva versión en vigor (<span translate="no">${esc(pend.version)}</span>). Revísala y acéptala para seguir publicando.`
+      :`<strong>Cambios en las condiciones para centros</strong> La nueva versión entra en vigor el <span translate="no">${esc(wdLegalDate(up.effective_at))}</span>.${up.summary?` <span translate="no">${esc(up.summary)}</span>`:''} Si no estás de acuerdo, puedes darte de baja antes de esa fecha.`;
+    host.insertAdjacentHTML('afterbegin',`<div class="pro-terms-bar" id="pro-terms-bar" role="status">${wdIcon('file',18)}<p>${msg}</p><a class="btn" href="#/legal/condiciones-centros" target="_blank" rel="noopener">Leer</a><button type="button" class="btn btn-primary" id="pro-terms-ok">Aceptar</button></div>`);
     translateTree($('#pro-terms-bar'));
-    $('#pro-terms-ok').onclick=async()=>{ try{ await postJSON('/api/account/accept-terms',{kind:'pro'}); if(state.me?.user) state.me.user.pro_terms_version=info.version; $('#pro-terms-bar').remove(); toast('Condiciones aceptadas.'); }catch(err){ toast(err.message); } };
+    $('#pro-terms-ok').onclick=async()=>{ try{ const r=await postJSON('/api/legal/accept',{docs:['centros'],upcoming:!pend}); if(state.me) state.me.legal={pending:r.pending,upcoming:r.upcoming}; $('#pro-terms-bar').remove(); toast('Condiciones aceptadas.'); }catch(err){ toast(err.message); } };
   }
 
   // ---------------------------------------------------------------- v50.30 · Cancelling a booking
@@ -3831,7 +3967,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       :c.refund_amount>0?`El plazo de cancelación gratuita terminó el ${until}. Si cancelas ahora, según la política del centro, te corresponde una devolución de ${amount} (de ${paidAmount} pagados).`
       :`El plazo de cancelación gratuita terminó el ${until}. Si cancelas ahora, según la política del centro, no hay reembolso de los ${paidAmount} pagados.`;
     return `<section class="cx-card ${c.paid_online&&!c.free?'is-late':''}"><div class="cx-icon">${wdIcon('calendar',20)}</div><div class="cx-main"><p class="eyebrow">CANCELACIÓN</p><h3>¿No puedes ir?</h3><p>${escapeHtml(msg)}</p>
-      <p class="cx-policy">${escapeHtml(b.cancellation_text||c.policy_text||'')}${b.cancellation_note?' '+escapeHtml(b.cancellation_note):''} <a href="#/legal/reservas">Condiciones de reserva</a></p>
+      <p class="cx-policy">${escapeHtml(b.cancellation_text||c.policy_text||'')}${b.cancellation_note?' '+escapeHtml(b.cancellation_note):''} <a href="#/legal/condiciones-reserva">Condiciones de reserva</a></p>
       <button type="button" class="btn cx-btn" id="booking-cancel">Cancelar reserva</button></div></section>`;
   }
   function bindBookingCancel(b,id){
@@ -3851,17 +3987,19 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function accountPrivacyCard(u){
     return `<section class="acc-card" id="acc-privacy"><div class="acc-card-head"><h2>${wdIcon('shield',18)} Privacidad y datos</h2></div>
       <p class="acc-help">Descarga una copia de todos tus datos o elimina tu cuenta cuando quieras.</p>
-      <div class="acc-privacy-actions"><a class="btn" href="/api/account/export" download>${wdIcon('download',15)} Descargar mis datos</a>${u.role==='recreational'?'<button type="button" class="btn danger" id="acc-delete">Eliminar mi cuenta</button>':''}</div>
-      <p class="acc-legal-links"><a href="#/legal/privacidad">Privacidad</a> · <a href="#/legal/terminos">Condiciones de uso</a> · <a href="#/legal/reservas">Condiciones de reserva</a> · <a href="#/legal/cookies">Cookies</a></p></section>`;
+      <div class="acc-privacy-actions"><a class="btn" href="/api/account/export?format=zip" download>${wdIcon('download',15)} Descargar mis datos (ZIP)</a>${u.role==='recreational'?'<button type="button" class="btn danger" id="acc-delete">Eliminar mi cuenta</button>':''}</div>
+      <p class="acc-legal-links"><a href="#/legal/privacidad">Privacidad</a> · <a href="#/legal/condiciones-buceadores">Condiciones de uso</a> · <a href="#/legal/condiciones-reserva">Condiciones de reserva</a> · <a href="#/legal/cookies">Cookies</a></p></section>`;
   }
   function bindAccountPrivacy(){
     $('#acc-delete')?.addEventListener('click',()=>{
       const {el,close}=wdOpenModal({id:'delete-account',title:'Eliminar mi cuenta',subtitle:'Esta acción no se puede deshacer',
         body:`<div class="cx-summary is-late">${wdIcon('alert',20)}<p>Borraremos tu ficha, tu documentación, tu Log Book, tus mensajes y tus recompensas. Las reservas pasadas se conservan sin tu nombre, porque la ley obliga a guardar los datos de los pagos. Si tienes reservas próximas, cancélalas antes.</p></div>
-          <p style="margin:0 0 10px"><a href="/api/account/export" download>Descarga antes una copia de tus datos</a></p>
+          <p style="margin:0 0 10px"><a href="/api/account/export?format=zip" download>Descarga antes una copia de tus datos</a></p>
           <div class="field"><label for="del-pw">Escribe tu contraseña para confirmar</label><input id="del-pw" type="password" autocomplete="current-password" required></div>`,
         footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn danger" id="del-ok">Eliminar definitivamente</button>'});
-      $('#del-ok',el).onclick=async()=>{ try{ await postJSON('/api/account/delete',{password:$('#del-pw',el).value}); close(); state.me=null; renderAccount(); toast('Tu cuenta se ha eliminado.'); location.hash='#/'; }catch(err){ toast(err.message); } };
+      $('#del-ok',el).onclick=async()=>{ try{ const r=await postJSON('/api/account/delete',{password:$('#del-pw',el).value}); close();
+        if(r&&r.email_sent){ toast('Te hemos enviado un email para confirmar la eliminación. El enlace caduca en 24 horas.'); return; }
+        state.me=null; renderAccount(); toast('Tu cuenta se ha eliminado.'); location.hash='#/'; }catch(err){ toast(err.message); } };
     });
   }
 
@@ -3903,18 +4041,107 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       ${missing.length?`<div class="notice warning"><strong>Faltan datos obligatorios.</strong> Mientras no los completes, los documentos muestran «pendiente de completar».</div>`:'<div class="notice good"><strong>Datos del titular completos.</strong></div>'}
       <form id="adl-form" class="form-grid adl-form">${Object.entries(d.fields).map(([k,l])=>`<div class="field ${['address','registry'].includes(k)?'full':''}"><label for="adl-${k}">${esc(l)}</label><input id="adl-${k}" data-k="${k}" maxlength="300" value="${esc(d.settings[k]||'')}" ${k==='fee_percent'?'inputmode="decimal" placeholder="10"':''}></div>`).join('')}
         <div class="form-actions full"><button class="btn btn-primary" type="submit">Guardar datos legales</button></div></form>
-      <h3 class="adl-h">Documentos publicados <small>versión ${esc(d.version)}</small></h3>
-      <div class="adl-docs">${Object.entries(d.docs).map(([k,v])=>`<a class="adl-doc" href="#/legal/${k}" target="_blank" rel="noopener">${wdIcon('file',18)}<span>${esc(v)}</span></a>`).join('')}</div>
+      <div id="adl-retention"></div>
+      <h3 class="adl-h">Documentos legales</h3>
+      <p class="muted">Cada cambio crea una versión nueva con su fecha de entrada en vigor y queda en el historial público. El castellano es la versión de referencia; el inglés también es oficial y el resto de idiomas muestran «prevalece el castellano».</p>
+      <div class="table-wrap"><table class="data-table adl-doctable"><thead><tr><th>Documento</th><th>Versión vigente</th><th>Idiomas</th><th>Próxima versión</th><th></th></tr></thead><tbody>${(d.documents||[]).map(x=>`<tr><td><a href="#/legal/${esc(x.route)}" target="_blank" rel="noopener">${esc(x.title)}</a>${x.acceptance?`<div class="adl-det">${x.acceptance==='pro'?'Lo aceptan centros y profesionales':'Lo acepta cada usuario'}${x.notice_days?` · aviso de ${x.notice_days} días`:''}</div>`:''}</td><td>${esc(x.version)}</td><td>${x.langs.map(l=>`<span class="adl-lang">${esc(l)}</span>`).join(' ')}</td><td>${x.upcoming?`${esc(x.upcoming.version)} · ${esc(wdLegalDate(x.upcoming.effective_at))}`:'—'}</td><td><button type="button" class="btn adl-edit" data-slug="${esc(x.slug)}">Editar</button></td></tr>`).join('')}</tbody></table></div>
       <h3 class="adl-h">Denuncias de contenido ${d.open_reports?`<b class="adl-badge">${d.open_reports} abiertas</b>`:''}</h3>
-      ${d.reports.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Ref.</th><th>Fecha</th><th>Motivo</th><th>Contenido</th><th>Remitente</th><th>Estado</th><th></th></tr></thead><tbody>${d.reports.map(r=>`<tr><td>DEN-${String(r.id).padStart(5,'0')}</td><td>${esc((r.created_at||'').slice(0,10))}</td><td>${esc(d.reasons[r.reason]||r.reason)}</td><td>${r.target_url?`<a href="${esc(r.target_url)}" target="_blank" rel="noopener">Abrir</a>`:'—'}<div class="adl-det">${esc(r.details)}</div></td><td>${esc([r.reporter_name,r.reporter_email].filter(Boolean).join(' · ')||'Anónimo')}</td><td><span class="status ${RS[r.status]?.[1]||''}">${esc(RS[r.status]?.[0]||r.status)}</span>${r.resolution?`<div class="adl-det">${esc(r.resolution)}</div>`:''}</td><td>${r.status==='open'?`<button type="button" class="btn adl-resolve" data-id="${r.id}">Resolver</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">No hay denuncias.</div>'}
+      ${d.reports.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Ref.</th><th>Fecha</th><th>Motivo</th><th>Contenido</th><th>Remitente</th><th>Estado</th><th></th></tr></thead><tbody>${d.reports.map(r=>`<tr><td>DEN-${String(r.id).padStart(5,'0')}</td><td>${esc((r.created_at||'').slice(0,10))}</td><td>${esc(d.reasons[r.reason]||r.reason)}</td><td>${r.target_type?`<b>${esc({review:'Reseña',center:'Centro',point:'Punto de buceo',experience:'Experiencia',photo:'Foto',promotion:'Promoción',profile:'Perfil'}[r.target_type]||r.target_type)}</b> `:''}${r.target_url?`<a href="${esc(r.target_url)}" target="_blank" rel="noopener">Abrir</a>`:'—'}<div class="adl-det">${esc(r.details)}</div></td><td>${esc([r.reporter_name,r.reporter_email].filter(Boolean).join(' · ')||'Anónimo')}</td><td><span class="status ${RS[r.status]?.[1]||''}">${esc(RS[r.status]?.[0]||r.status)}</span>${r.resolution?`<div class="adl-det">${esc(r.resolution)}</div>`:''}</td><td>${r.status==='open'?`<button type="button" class="btn adl-resolve" data-id="${r.id}">Resolver</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">No hay denuncias.</div>'}
     </section>`;
     $('#adl-form').onsubmit=async e=>{ e.preventDefault(); const data={}; $$('#adl-form input[data-k]').forEach(i=>data[i.dataset.k]=i.value); try{ await postJSON('/api/admin/legal',data); LEGAL_INFO=null; toast('Datos legales guardados.'); renderAdminLegal(mountId); }catch(err){ toast(err.message); } };
+    $$('.adl-edit',mount).forEach(b=>b.onclick=()=>openLegalEditor(b.dataset.slug,'es',()=>renderAdminLegal(mountId)));
+    renderRetentionCard($('#adl-retention',mount));
     $$('.adl-resolve',mount).forEach(b=>b.onclick=()=>{
-      const {el,close}=wdOpenModal({id:'report-resolve',title:'Resolver denuncia',subtitle:'Se enviará la decisión a quien la presentó',
+      const {el,close}=wdOpenModal({id:'report-resolve',title:'Resolver denuncia',subtitle:'Se enviará la decisión, con los motivos, a quien la presentó y a quien publicó el contenido',
         body:`<div class="field"><label for="rr-st">Decisión</label><select id="rr-st"><option value="actioned">Retirar o corregir el contenido</option><option value="dismissed">Desestimar: el contenido se mantiene</option></select></div><div class="field"><label for="rr-txt">Explicación de los motivos</label><textarea id="rr-txt" rows="4" maxlength="2000" required placeholder="Explica brevemente qué has comprobado y qué has decidido."></textarea><small>Si retiras contenido de un usuario o centro, infórmale también de los motivos.</small></div>`,
         footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="rr-ok">Guardar decisión</button>'});
       $('#rr-ok',el).onclick=async()=>{ try{ await postJSON('/api/admin/reports/resolve',{id:+b.dataset.id,status:$('#rr-st',el).value,resolution:$('#rr-txt',el).value}); close(); toast('Denuncia resuelta.'); renderAdminLegal(mountId); }catch(err){ toast(err.message); } };
     });
+  }
+  // Administración → Legal: retention periods of the privacy policy (a daily job applies them).
+  async function renderRetentionCard(mount){
+    if(!mount) return; const esc=escapeHtml; let d; try{ d=await api('/api/admin/retention'); }catch(err){ mount.innerHTML=''; return; }
+    const F=[['inactive_months','Cuentas de buceador sin actividad','meses',`Se avisa por email y se elimina ${d.warn_days} días después si no entra.`],
+      ['expired_docs_months','Documentos caducados','meses','Se borran después de su fecha de caducidad.'],
+      ['notices_months','Avisos de los centros','meses',''],['audit_months','Registro de actividad','meses',''],['audit_keep','Entradas del registro que se conservan siempre','entradas','']];
+    const L=d.last;
+    mount.innerHTML=`<h3 class="adl-h">Conservación de datos</h3><p class="muted">Plazos de la política de privacidad. Cada día se aplican automáticamente. Las reservas y los pagos se conservan 6 años y no se borran aquí. Los registros del servidor se conservan ${d.log_days} días (variable WOD_LOG_RETENTION_DAYS).</p>
+      <form id="ret-form" class="form-grid">${F.map(([k,l,u,h])=>`<div class="field"><label for="ret-${k}">${esc(l)} (${u})</label><input id="ret-${k}" data-k="${k}" type="number" min="${d.limits[k][0]}" max="${d.limits[k][1]}" value="${d.settings[k]}" required>${h?`<small>${esc(h)}</small>`:`<small>Por defecto: ${d.defaults[k]}</small>`}</div>`).join('')}
+        <div class="form-actions full"><button class="btn" type="button" id="ret-run">Guardar y aplicar ahora</button><button class="btn btn-primary" type="submit">Guardar plazos</button></div></form>
+      ${L?`<p class="adl-det" id="ret-last">Última ejecución ${esc(L.date)}: ${L.warned} avisos de inactividad, ${L.accounts_deleted} cuentas eliminadas, ${L.documents_deleted} documentos, ${L.notices_deleted} avisos y ${L.audit_deleted} entradas del registro borradas.</p>`:'<p class="adl-det">Todavía no se ha ejecutado.</p>'}`;
+    const send=async run=>{ const data={run_now:run}; $$('#ret-form input[data-k]').forEach(i=>data[i.dataset.k]=i.value);
+      try{ await postJSON('/api/admin/retention',data); toast(run?'Plazos guardados y aplicados.':'Plazos guardados.'); renderRetentionCard(mount); }catch(err){ toast(err.message); } };
+    $('#ret-form').onsubmit=e=>{ e.preventDefault(); send(false); };
+    $('#ret-run').onclick=()=>{ if($('#ret-form').reportValidity()&&confirm('Se borrarán ahora los datos que hayan superado los plazos. ¿Continuar?')) send(true); };
+  }
+  // Administración → Descripciones de puntos: the own texts written from the data of each point, to review one by one.
+  // Administración → Medios: credit and origin/licence of every image the platform publishes.
+  async function renderImageOrigins(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let d; try{ d=await api('/api/admin/images'); }catch(err){ mount.innerHTML=''; return; }
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Imágenes</p><h2>Origen y licencia de las imágenes</h2><p>Indica de dónde sale cada imagen (foto propia, banco de imágenes con su licencia, cesión del autor…) además del crédito que se muestra. Las imágenes sin origen hay que comprobarlas o sustituirlas antes del lanzamiento.</p></div></div>
+      ${d.missing?`<div class="notice warning"><strong>${d.missing} ${d.missing===1?'imagen sin origen':'imágenes sin origen'}.</strong></div>`:'<div class="notice good"><strong>Todas las imágenes tienen origen.</strong></div>'}
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>Imagen</th><th>Dónde se usa</th><th>Crédito</th><th>Origen / licencia</th><th></th></tr></thead><tbody>${d.items.map((x,i)=>`<tr${x.missing?' class="is-warn"':''}><td><img src="${esc(x.path)}" alt="" loading="lazy" style="width:72px;height:48px;object-fit:cover;border-radius:6px"><div class="adl-det">${esc(x.path.split('/').pop())}</div></td><td class="adl-det">${x.where.map(esc).join('<br>')}</td>
+        <td><label class="sr-only" for="io-c-${i}">Crédito</label><input id="io-c-${i}" maxlength="200" value="${esc(x.credit)}"></td><td><label class="sr-only" for="io-o-${i}">Origen o licencia</label><input id="io-o-${i}" maxlength="300" value="${esc(x.origin)}" placeholder="Ej.: foto propia; Unsplash License; cedida por…"></td>
+        <td><button type="button" class="btn io-save" data-i="${i}">Guardar</button></td></tr>`).join('')}</tbody></table></div></section>`;
+    $$('.io-save',mount).forEach(b=>b.onclick=async()=>{ const i=+b.dataset.i; try{ await postJSON('/api/admin/images',{path:d.items[i].path,credit:$('#io-c-'+i).value,origin:$('#io-o-'+i).value}); toast('Guardado.'); renderImageOrigins(mountId); }catch(err){ toast(err.message); } });
+  }
+  async function renderAdminMaps(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let d; try{ d=await api('/api/admin/maps'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    const n=x=>Number(x||0).toLocaleString(wdLocale()); const pct=d.limit?Math.min(100,Math.round(d.used*100/d.limit)):0;
+    const mb=x=>(x/1048576).toLocaleString(wdLocale(),{maximumFractionDigits:0})+' MB';
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Mapas</p><h2>Mapa base, satélite y batimetría</h2><p>El mapa base se sirve desde nuestro servidor. La vista satélite pasa por nuestro servidor con la clave de ArcGIS, que nunca llega al navegador; aquí controlas cuántas teselas se sirven al mes para no salir de la cuota gratuita.</p></div></div>
+      <div class="acc-kpis">${accKpi('map',d.pmtiles.exists?mb(d.pmtiles.size):(d.pmtiles.local?'Falta el archivo':'Externo'),'Mapa base (PMTiles) · '+esc(d.pmtiles.url))}
+        ${accKpi('globe',d.key_configured?(d.available?'Activa':'Oculta: límite alcanzado'):'Sin clave','Vista satélite (ARCGIS_API_KEY)')}
+        ${accKpi('chart',`${n(d.used)} / ${n(d.limit)}`,`Teselas satélite en ${esc(d.month)} (${pct} %)`)}</div>
+      ${!d.pmtiles.exists&&d.pmtiles.local?'<div class="notice warning"><strong>Falta el mapa base.</strong> Sigue los pasos de docs/mapas.md para descargar el archivo PMTiles.</div>':''}
+      ${!d.key_configured?'<div class="notice"><strong>La vista satélite está oculta.</strong> Añade ARCGIS_API_KEY al archivo .env del servidor (nunca en el código) y reinicia.</div>':''}
+      <form id="maps-form" class="form-grid"><div class="field"><label for="maps-limit">Límite mensual de teselas satélite</label><input id="maps-limit" type="number" min="0" max="50000000" step="1000" value="${d.limit}" required><small>Por defecto ${n(d.default_limit)}, por debajo de las 2.000.000 gratuitas. Al 80 % se avisa por email; al llegar al límite la capa se oculta hasta el mes siguiente.</small></div>
+        <div class="form-actions full"><button class="btn btn-primary" type="submit">Guardar límite</button></div></form>
+      ${d.history.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Mes</th><th>Teselas satélite</th></tr></thead><tbody>${d.history.map(h=>`<tr><td>${esc(h.month)}</td><td>${n(h.tiles)}</td></tr>`).join('')}</tbody></table></div>`:''}</section>`;
+    $('#maps-form').onsubmit=async e=>{ e.preventDefault(); try{ await postJSON('/api/admin/maps',{limit:$('#maps-limit').value}); toast('Límite guardado.'); renderAdminMaps(mountId); }catch(err){ toast(err.message); } };
+  }
+  async function renderAdminPointTexts(mountId,pending=true){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let d; try{ d=await api('/api/admin/point-texts?pending='+(pending?1:0)); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Catálogo</p><h2>Descripciones de los puntos de buceo</h2>
+      <p>Todas las descripciones se han reescrito con texto propio a partir de los datos de cada punto (lugar, tipo, profundidad, nivel y acceso), en los 10 idiomas. No se inventa ningún dato: lo que falta aparece en «Datos que faltan». El texto anterior se guarda aquí hasta que marques el punto como revisado.</p></div></div>
+      <p class="adl-det"><b>${d.reviewed}</b> de <b>${d.total}</b> puntos revisados. <label class="lg-check" style="display:inline-flex"><input type="checkbox" id="apt-all" ${pending?'':'checked'}> <span>Mostrar también los revisados</span></label></p>
+      ${d.items.length?`<div class="apt-list">${d.items.map(p=>`<article class="apt-item" data-id="${p.id}"><header><h3>${esc(p.name)}</h3><span class="adl-det">${esc([p.region,p.country].filter(Boolean).join(', '))}</span>${p.description_reviewed?'<span class="status good">Descripción revisada</span>':'<span class="status warn">Pendiente de revisar</span>'}</header>
+        <div class="field"><label for="apt-t-${p.id}">Descripción nueva (castellano)</label><textarea id="apt-t-${p.id}" rows="5" maxlength="4000">${esc(p.description||'')}</textarea></div>
+        ${p.description_missing.length?`<p class="adl-det"><b>Datos que faltan:</b> ${p.description_missing.map(esc).join(', ')}</p>`:''}
+        ${p.description_legacy&&p.description_legacy!==p.description?`<details><summary>Texto anterior</summary><p class="adl-det">${esc(p.description_legacy)}</p></details>`:''}
+        <div class="form-actions"><button type="button" class="btn apt-regen">Regenerar desde los datos</button><button type="button" class="btn btn-primary apt-ok">Guardar y marcar como revisada</button></div></article>`).join('')}</div>`:'<div class="empty">No hay descripciones pendientes de revisar.</div>'}</section>`;
+    $('#apt-all').onchange=e=>renderAdminPointTexts(mountId,!e.target.checked);
+    $$('.apt-item',mount).forEach(el=>{ const id=+el.dataset.id;
+      $('.apt-ok',el).onclick=async()=>{ try{ await postJSON('/api/admin/point-texts/review',{id,description:$('textarea',el).value,lang:'es'}); toast('Descripción revisada.'); renderAdminPointTexts(mountId,pending); }catch(err){ toast(err.message); } };
+      $('.apt-regen',el).onclick=async()=>{ try{ await postJSON('/api/admin/point-texts/review',{id,regenerate:true}); toast('Descripción regenerada.'); renderAdminPointTexts(mountId,pending); }catch(err){ toast(err.message); } }; });
+  }
+  async function openLegalEditor(slug,lang,done){
+    const esc=escapeHtml; let d; try{ d=await api(`/api/admin/legal/doc?slug=${encodeURIComponent(slug)}&lang=${lang}`); }catch(err){ toast(err.message); return; }
+    const today=new Date(), minDays=lang==='es'&&d.version?d.notice_days:0;
+    const iso=x=>new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+    const minDate=iso(new Date(today.getTime()+minDays*864e5));
+    const LANGS=['es','en','fr','de','it','pt','nl','pl','ru','zh'];
+    const {el,close}=wdOpenModal({id:'legal-editor',size:'lg',title:'Editar «'+esc(d.title)+'»',subtitle:'Se publica como una versión nueva. Las anteriores se conservan en el historial.',
+      body:`<div class="form-grid">
+        <div class="field"><label for="le-lang">Idioma</label><select id="le-lang">${LANGS.map(l=>`<option value="${l}" ${l===lang?'selected':''}>${l.toUpperCase()}${l==='es'?' · referencia':l==='en'?' · oficial':''}</option>`).join('')}</select></div>
+        <div class="field"><label for="le-eff">Entra en vigor el</label><input id="le-eff" type="date" min="${minDate}" value="${minDate}" required>${minDays?`<small>Los cambios de este documento se anuncian con ${minDays} días de antelación.</small>`:''}</div>
+        <div class="field full"><label for="le-title">Título</label><input id="le-title" maxlength="200" value="${esc(d.title)}"></div>
+        <div class="field full"><label for="le-md">Texto (Markdown)</label><textarea id="le-md" rows="18" class="le-md" spellcheck="true">${esc(d.markdown||d.base_markdown||'')}</textarea>
+          <small>${!d.markdown&&lang!=='es'?'<b>No hay versión en este idioma:</b> se muestra el texto en castellano para que lo traduzcas. ':''}Campos que se rellenan solos: ${d.placeholders.map(p=>`<code>{{${esc(p)}}}</code>`).join(' ')||'—'}</small></div>
+        <div class="field full"><label for="le-sum">Resumen de los cambios</label><textarea id="le-sum" rows="2" maxlength="1000" placeholder="Por ejemplo: añadimos el plazo de devolución de la señal."></textarea><small>Aparece en el historial y en el email a los usuarios.</small></div>
+        ${lang==='es'&&d.acceptance?`<label class="lg-check full"><input type="checkbox" id="le-notify" checked> <span>Avisar por email a ${d.acceptance==='pro'?'los centros y profesionales':'todos los usuarios'} y pedirles que la acepten cuando entre en vigor</span></label>`:''}
+      </div>
+      <details class="le-hist"><summary>Historial (${d.history.length})</summary><ul>${d.history.map(h=>`<li><b>${esc(h.version)}</b> · ${esc(h.lang)} · ${esc(wdLegalDate(h.effective_at))}${h.summary?' — '+esc(h.summary):''} <small>(${h.source==='file'?'texto inicial':'publicado '+esc((h.published_at||'').slice(0,10))})</small></li>`).join('')}</ul></details>`,
+      footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn" id="le-preview">Vista previa</button><button type="button" class="btn btn-primary" id="le-pub">Publicar versión</button>'});
+    $('#le-lang',el).onchange=e=>{ close(); openLegalEditor(slug,e.target.value,done); };
+    $('#le-preview',el).onclick=()=>wdOpenModal({id:'legal-preview',size:'lg',title:'Vista previa',body:`<article class="lg-doc" translate="no">${wdMd($('#le-md',el).value)}</article>`,footer:'<button type="button" class="btn" data-modal-close>Cerrar</button>'});
+    $('#le-pub',el).onclick=async()=>{ const b=$('#le-pub',el); b.disabled=true;
+      try{ const r=await postJSON('/api/admin/legal/publish',{slug,lang,title:$('#le-title',el).value,markdown:$('#le-md',el).value,summary:$('#le-sum',el).value,effective_at:$('#le-eff',el).value,notify:$('#le-notify',el)?$('#le-notify',el).checked:false});
+        delete el.dataset.dirty; close(); LEGAL_INFO=null; toast(`Versión ${r.version} publicada. Entra en vigor el ${wdLegalDate(r.effective_at)}.`); done&&done(); }
+      catch(err){ toast(err.message); b.disabled=false; } };
   }
   async function renderAdminEmails(mountId,opts={}){
     const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
@@ -4029,7 +4256,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="tt-pick-ok" disabled>Ver el Top 10 aquí</button>'});
     if(!window.L){ $('#tt-pick-map',el).innerHTML='<div class="map-fallback"><strong>El mapa no está disponible ahora mismo</strong><span>Busca tu localidad en el buscador.</span></div>'; return; }
     wdTileDefaults(); const m=L.map($('#tt-pick-map',el),{zoomControl:true,attributionControl:true}).setView(start?[start.lat,start.lon]:[39.4,-0.4],start?9:6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(m);
+    wdBaseLayer().addTo(m);
     const icon=L.divIcon({className:'tt-me-wrap',html:'<span class="tt-me"></span>',iconSize:[22,22],iconAnchor:[11,11]});
     // Dive sites as context (same round markers and clusters as every other map; tapping one picks its position).
     loadMapLayer().then(layer=>{ const grp=wdMarkerLayer(); const ms=(layer.items||[]).filter(p=>p.latitude!=null).map(p=>{ const x=L.marker([p.latitude,p.longitude],{icon:pointIcon(p),title:p.name,alt:p.name}); x.on('click',()=>m.fire('click',{latlng:x.getLatLng()})); return x; }); grp.addLayers?grp.addLayers(ms):ms.forEach(x=>x.addTo(grp)); grp.addTo(m); }).catch(()=>{});
@@ -4051,5 +4278,5 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   navMobile();
   initLanguage();
-  window.addEventListener('DOMContentLoaded',async()=>{ await Promise.all([loadMe(),loadMeta().catch(()=>{}),loadSiteMedia(),loadLanguagePack()]); applyLanguage(); route(); cookieNotice(); });
+  window.addEventListener('DOMContentLoaded',async()=>{ await Promise.all([loadMe(),loadMeta().catch(()=>{}),loadSiteMedia(),loadLanguagePack(),loadMapConfig()]); applyLanguage(); route(); cookieNotice(); footerOwner(); demoRibbon(); });
 })();

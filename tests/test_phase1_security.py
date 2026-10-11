@@ -22,7 +22,7 @@ class Phase1Security(ServerTestCase):
     # ------------------------------------------------------------------ G2
     def test_g2_register_never_grants_center_role(self):
         c = self.client()
-        # Same phone as an existing centre: only a suggestion for the administrator.
+        # Same phone as an existing centre: since v50.36 there are no listings to claim (Fase 5.9), so not even a suggestion.
         phone = self.server.sql('SELECT phone FROM centers WHERE active=1 AND phone IS NOT NULL LIMIT 1')[0]['phone']
         r = c.register('Intruso', 'intruso@evil.example.org', 'intruso', account_type='center', center_name='Centro Robado', phone=phone)
         self.assertEqual(r.status, 200, r)
@@ -31,8 +31,8 @@ class Phase1Security(ServerTestCase):
         self.assertIsNone(me['center_id'])
         self.assertEqual(c.get('/api/center/analytics').status, 403)
         claim = self.server.sql("SELECT * FROM center_claims WHERE email='intruso@evil.example.org'")[0]
-        self.assertIsNotNone(claim['suggested_center_id'])
-        self.assertNotEqual(claim['center_id'], claim['suggested_center_id'])
+        self.assertIsNone(claim['suggested_center_id'])
+        self.assertIsNotNone(claim['center_id'])
         draft = self.server.sql('SELECT active,verification_status FROM centers WHERE id=?', (claim['center_id'],))[0]
         self.assertEqual(draft['active'], 0)
         # Approval needs a verification method and a note.

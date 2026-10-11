@@ -1,28 +1,37 @@
-# Cookie policy
+# Cookies and third-party services policy
 
 Last updated: {{version}}
 
 ## What we use
 
-{{trade_name}} **only uses technical cookies and storage**, needed for the website to work or to remember your choices. **We do not use advertising or third-party analytics cookies.** Therefore, under article 22.2 of the Spanish LSSI-CE and the guidance of the Spanish Data Protection Agency, they do not require your consent; we inform you about them here.
+{{trade_name}} **only uses technical cookies and storage**, which are necessary for the website to work or to remember the choices you make. **We do not use advertising or analytics cookies.** Under article 22.2 of the LSSI-CE and the guidance of the Spanish Data Protection Agency (AEPD), they do not require your consent; we inform you about them here.
 
 | Name | Type | Purpose | Duration |
 |---|---|---|---|
-| wd_session | First-party technical cookie | Keep you securely signed in | Until you sign out or 8 hours of inactivity |
-| Language and filters | Local storage | Remember your language and latest search filters | Until you delete them |
-| wd_top10 | Local storage | Remember the location and radius you chose in the Top 10 | Until you delete them |
-| wd_booking_draft | Local storage | Keep a half-made booking while you sign in | Deleted when used |
-| wd_cookie_notice | Local storage | Not show this notice again | 1 year |
+| wd_session | First-party technical cookie | Keeping you securely logged in | Until you log out or after 8 hours of inactivity |
+| Language and filters | Local storage | Remembering your language and your latest search filters | Until you delete them |
+| wd_top10 | Local storage | Remembering the location and radius you chose in the Top 10 | Until you delete them |
+| wd_booking_draft | Session storage | Not losing a half-completed booking when you log in | Deleted once used |
+| wd_cookie_notice | Local storage | Not showing you the notice again | 1 year |
 
-## Third parties
+## Third-party services that receive your IP address
 
-- **Maps (OpenStreetMap, Esri and GEBCO):** when a map is shown, your browser downloads images from their servers, which receive your IP address. They set no cookies.
-- **Payment (Stripe):** when you pay, Stripe's secure page opens and uses its own cookies to prevent fraud. See Stripe's cookie policy.
+Even though they do not use cookies, some services loaded in your browser receive your IP address:
+
+| Service | When | What it receives |
+|---|---|---|
+| **Base map** | Whenever you view a map | Nothing: it is served from our server (data © OpenStreetMap contributors) |
+| **Satellite view (Esri)** | Only if you choose «Satellite» | Nothing: the images pass through our server |
+| **Bathymetry (GEBCO)** | Only if you choose the depth layer | Your IP reaches the servers of GEBCO / British Oceanographic Data Centre |
+| **Embedded videos and maps** (cookie-free YouTube, Vimeo, Google Maps) | Only if you tap «Load video» | Your IP and whatever that service collects; see its policy |
+| **Payment (Stripe)** | When you pay | Stripe's page opens, with its own cookies to prevent fraud |
+
+No video or third-party content is loaded unless you ask for it.
 
 ## How to delete them
 
-You can delete cookies and local storage in your browser settings. If you delete the session cookie you will need to sign in again.
+You can delete cookies and local storage from your browser settings. If you delete the session cookie, you will have to log in again.
 
-If we ever add cookies that require your consent, we will ask for it before using them.
+## If we ever add more
 
-> This is a translation for your convenience. In case of discrepancy, the Spanish version prevails.
+If in the future we use analytics or advertising cookies, we will ask you first with a notice with three equally visible buttons: **Accept**, **Reject** and **Configure**. Rejecting will be as easy as accepting.

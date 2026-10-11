@@ -6,15 +6,14 @@ Estas condiciones se aplican a todas las reservas hechas en {{trade_name}}. Ante
 
 ## 1. Quién presta la actividad
 
-La actividad la presta el **centro** que aparece en la reserva, que es un profesional independiente. {{trade_name}} ({{owner_name}}, NIF {{nif}}) actúa como intermediario: gestiona la reserva y, si el centro lo tiene activado, cobra el pago en su nombre.
+La actividad la presta el **centro o profesional** que aparece en la reserva («Prestado por…»), que es un profesional independiente. {{trade_name}} ({{owner_name}}, NIF {{nif}}) es la plataforma de reservas: gestiona la reserva, pero no organiza ni presta la actividad.
 
-## 2. Tipos de reserva
+## 2. Modos de reserva
 
-- **Reserva inmediata:** la plaza queda confirmada al pagar (o al reservar, si la actividad es gratuita).
-- **Pago al reservar:** pagas online y la reserva se confirma al completarse el pago.
-- **Solicitud:** el centro revisa la disponibilidad y te confirma o rechaza la solicitud. No se cobra nada hasta que el centro la acepta; después podrás pagar online o, si el centro no cobra online, pagarás en el centro.
+- **Pago al reservar · confirmación inmediata:** pagas online (el total o una señal) y la plaza queda confirmada en cuanto el pago se completa. Mientras pagas, tu plaza se guarda unos minutos.
+- **Bajo petición:** el centro revisa la disponibilidad y acepta o rechaza tu solicitud dentro de su plazo de respuesta. No se cobra nada hasta que el centro acepta; después tendrás un plazo para pagar online o, si el centro no cobra online, pagarás en el centro.
 
-Recibirás un email en cada paso: solicitud enviada, plaza confirmada, pago recibido, recordatorio el día anterior y, si ocurre, cancelación.
+Recibirás un email en cada paso: solicitud enviada, plaza confirmada, pago recibido, recordatorios 2 días antes y el día anterior y, si ocurre, cambio o cancelación.
 
 ## 3. Precio y pago
 
@@ -31,24 +30,23 @@ Las actividades de ocio que se prestan en una fecha o un periodo concretos (inme
 
 ## 5. Si cancelas tú
 
-Puedes cancelar desde **Mi área → tu reserva → Cancelar reserva**. Antes de confirmar verás exactamente cuánto se te devuelve.
+Puedes cancelar desde **Mi área → tu reserva → Cancelar reserva**. Antes de confirmar verás exactamente cuánto te corresponde.
 
-Cada centro elige una de estas políticas:
+Cada centro fija su **política de cancelación**, que ves antes de reservar y queda guardada con tu reserva: hasta cuántas horas antes de la actividad la cancelación es gratuita y qué porcentaje se devuelve después (puede ser 0 %). Un centro puede tener una política distinta en algún servicio.
 
-- **Flexible:** cancelación gratuita hasta 24 horas antes de la actividad.
-- **Moderada:** cancelación gratuita hasta 48 horas antes de la actividad.
-- **Estricta:** cancelación gratuita hasta 7 días antes de la actividad.
-
-Si cancelas dentro del plazo gratuito te devolvemos el **100 %** de lo pagado online. Fuera de plazo, o si no te presentas, no hay reembolso, salvo que el centro decida otra cosa. Si no habías pagado online, la cancelación no tiene coste a través de la plataforma.
+- Si cancelas dentro del plazo gratuito te corresponde el **100 %** de lo pagado online.
+- Fuera de plazo, o si no te presentas, te corresponde el porcentaje que indique la política (puede ser ninguno).
+- La devolución **la hace el centro** desde su cuenta, porque el pago fue a su cuenta. Te avisamos por email cuando esté hecha y se lo recordamos al centro si tarda. Si no la hace, escríbenos.
+- Si no habías pagado online, la cancelación no tiene coste a través de la plataforma.
 
 Las devoluciones se hacen a la misma tarjeta y suelen verse en 5 a 10 días hábiles, según el banco.
 
-## 6. Si cancela el centro
+## 6. Si cancela o cambia el centro
 
 El centro puede cancelar o cambiar una actividad por **seguridad o por el estado del mar**, por falta de participantes mínimos o por causas de fuerza mayor. En ese caso:
 
-- te devolvemos automáticamente el **100 %** de lo pagado online, o
-- si lo prefieres y el centro lo ofrece, puedes cambiar a otra fecha.
+- si cancela, te devuelve el **100 %** de lo pagado online;
+- si cambia la fecha o la hora, te avisamos por email y, si no te viene bien, puedes cancelar.
 
 Si el centro rechaza una solicitud, no se te cobra nada.
 
@@ -57,7 +55,7 @@ Si el centro rechaza una solicitud, no se te cobra nada.
 Al reservar declaras que:
 
 - tienes la titulación y la experiencia que exige la actividad (o que es un curso o bautizo para principiantes);
-- estás en condiciones de salud adecuadas para bucear y, si el centro lo pide, presentarás un cuestionario o certificado médico;
+- estás en condiciones de salud adecuadas para bucear y, si el centro te lo pide, le entregarás directamente un cuestionario o certificado médico (en {{trade_name}} no se suben datos de salud);
 - llevas un seguro de buceo cuando sea obligatorio;
 - seguirás las indicaciones del guía o instructor.
 
@@ -65,4 +63,4 @@ El centro puede negarse a que bucees si no cumples estos requisitos o si conside
 
 ## 8. Reclamaciones
 
-Si tienes un problema con una reserva, escríbenos a {{email}} indicando el número de reserva (WOD-…). Mediaremos con el centro. También puedes pedir las hojas oficiales de reclamaciones en el centro.
+Si tienes un problema con una reserva, escríbenos a {{email}} (ver [Contacto](#/legal/contacto)) indicando el número de reserva (WOD-…). Mediaremos con el centro. También puedes pedir las hojas oficiales de reclamaciones en el centro.

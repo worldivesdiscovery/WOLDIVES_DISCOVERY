@@ -2,72 +2,88 @@
 
 Last updated: {{version}}
 
-We explain clearly what data we process, why, and what your rights are, under Regulation (EU) 2016/679 (GDPR) and Spanish Organic Law 3/2018 (LOPDGDD).
+We explain clearly what data we process, for what purpose, who we share it with, how long we keep it and what your rights are, in accordance with Regulation (EU) 2016/679 (GDPR) and Organic Law 3/2018 (LOPDGDD).
 
 ## 1. Controller
 
 - **Controller:** {{owner_name}} ({{trade_name}})
-- **Tax ID:** {{nif}}
+- **Tax ID (NIF/CIF):** {{nif}}
 - **Address:** {{address}}
 - **Privacy email:** {{dpo_email}}
 
-## 2. Data we process
+When you make a booking, **the centre or professional providing the activity** is an independent controller of the data it receives in order to provide it (see section 4).
 
-- **Account:** name, email, username, password (stored hashed), language.
-- **Diver profile:** phone, country, city, date of birth, qualification, emergency contact, equipment sizes and preferences, usual weight.
-- **Documents you upload:** qualification, insurance and, if you choose to upload them, medical certificates. Health data is a special category: we only process it if you upload it, with your explicit consent, and only the centres you book with can see it.
-- **Bookings and payments:** activities, dates, participants, amounts and payment status. Card data is processed by Stripe; we only see the brand and last four digits.
-- **Log Book, reviews, rewards and promotions.**
-- **Messages** between you and the centres.
-- **Technical data:** IP address, security logs and the session cookie.
-- **Location:** if you tap "Use my location", your browser sends us your coordinates only to calculate nearby sites. We do not store them on the server.
-- **Centres and professionals:** data of the person in charge, the business and the payout account (managed by Stripe).
+## 2. What data we process
 
-## 3. Purposes and legal bases
+- **Account:** name, email, username, password (stored encrypted using a one-way algorithm), language and, if you enable it, the key for your two-step verification.
+- **Diver profile (optional):** phone, country, city, date of birth, certification, emergency contact, sizes and equipment preferences, and usual weighting. Only what you choose to fill in.
+- **Documents you upload:** diving certification and diving insurance, with their expiry date. **We do not accept medical certificates or any other health data:** if a centre asks you for them, give them directly to the centre.
+- **Bookings and payments:** activity, dates, participants, amounts, deposit, refunds and status. Your card details are processed by Stripe; we only see the card brand and the last four digits.
+- **Log Book, reviews, points and redemptions, promotions.**
+- **Notices from centres** about your bookings (there is no messaging between users).
+- **Consents:** whether you agree to receive news and offers, and which version of each legal document you have accepted and when.
+- **Technical data:** IP address (truncated in logs), security logs and the session cookie.
+- **Location:** if you tap «Use my location», your browser sends us your coordinates solely to calculate nearby sites. We do not store them.
+- **Centres and professionals:** contact details, the provider's tax details and the identifier of its Stripe account (bank and verification details are handled by Stripe).
 
-- **Managing your account and bookings** and sending service emails (confirmations, payments, reminders, cancellations): performance of a contract (Art. 6(1)(b) GDPR).
-- **Collecting and refunding payments, invoicing and accounting:** legal obligation (Art. 6(1)(c)) and performance of a contract.
-- **Security, fraud prevention and technical improvement:** legitimate interest (Art. 6(1)(f)).
-- **Asking for a review after your dive:** legitimate interest; you can object by writing to us.
-- **Health data you upload:** your explicit consent (Art. 9(2)(a)), which you can withdraw by deleting the document.
-- **Handling content reports:** legal obligation (Digital Services Act, Regulation (EU) 2022/2065).
+## 3. Purposes and legal basis
 
-We do not send advertising without your consent and we do not make automated decisions that significantly affect you.
+| Purpose | Legal basis |
+|---|---|
+| Managing your account, your bookings and service emails (confirmations, payments, reminders, changes, cancellations, document expiry) | Performance of the contract (art. 6.1.b GDPR) |
+| Recording acceptance of the legal documents and keeping booking data for the period required by law | Legal obligation (art. 6.1.c GDPR) |
+| Security, fraud prevention, verification of centres and technical improvement of the service | Legitimate interest (art. 6.1.f GDPR) |
+| Asking you for a review after your dive | Legitimate interest; you can object by writing to us |
+| Points programme | Performance of the contract |
+| Sending you news and offers | Your consent (art. 6.1.a GDPR), which you can withdraw in one click |
+| Handling reports about content | Legal obligation (Regulation (EU) 2022/2065 on digital services) |
+
+We do not make automated decisions that significantly affect you. The order of results is explained in [How we rank results](#/legal/clasificacion).
 
 ## 4. Who we share your data with
 
-- **The centre you book with:** it receives the data needed to provide the activity (name, contact, qualification, sizes, documents and safety data). The centre is responsible for using it only for your booking and for complying with data protection law.
-- **Stripe Payments Europe Ltd.** (Ireland), to process payments and refunds.
-- **Hosting provider:** {{hosting}}.
-- **The email delivery provider** we use to send service emails.
-- **Map services:** when you view a map, your browser downloads images from OpenStreetMap and, if you choose the "Satellite" or "Seabed relief" views, from Esri and GEBCO. If you search for a place in the Top 10, the text you type is sent to OpenStreetMap's Nominatim search. These services receive your IP address.
-- **Public authorities** when required by law.
+- **The centre or professional you book with:** receives the booking details and your contact details. It can see your diver profile and your documents **only if you booked with it** (while the booking is still in progress) **or if you share your data with it** when checking in with its QR code. You can stop sharing them in «My account → Centres that can see your profile».
+- **Stripe Payments Europe Ltd.** (Ireland): processes the payment **into the centre's Stripe account** and any refunds. Stripe is the controller of the payment data it processes.
+- **Hosting provider:** {{hosting}}, within the European Economic Area.
+- **Email provider:** the SMTP service that sends our emails, as processor.
+- **Map services:** the base map is served from our own server. The satellite view (Esri) is requested through our server, which does not send your IP to Esri. The GEBCO bathymetric layer is downloaded directly from its servers, which receive your IP. Details in the [Cookies and third-party services policy](#/legal/cookies).
+- **Embedded videos** (YouTube, Vimeo, Google Maps): these only load if you tap «Load video». From that moment, the provider receives your IP.
+- **Authorities**, when required by law.
 
-Some of these providers may process data outside the European Economic Area. If so, they do it with appropriate safeguards: an adequacy decision (such as the EU-US Data Privacy Framework) or the European Commission's standard contractual clauses.
+Some of these providers may process data outside the European Economic Area with appropriate safeguards (standard contractual clauses of the European Commission or the EU-U.S. Data Privacy Framework).
 
 ## 5. How long we keep it
 
-- **Account and profile:** while you keep your account. If you delete it, we delete or anonymise your data.
-- **Bookings and payments:** 6 years, for accounting and tax obligations, blocked and without commercial use.
-- **Sent emails:** 120 days.
-- **Password reset links:** expire after 1 hour and are deleted after 2 days.
-- **Security logs:** only as long as needed to investigate incidents.
+| Data | Period |
+|---|---|
+| Account and profile | For as long as you have the account. Accounts with no activity for the configured period (36 months by default) are notified and then deleted |
+| Uploaded documents | Until you delete them or delete your account. Expired documents are deleted after the configured period (12 months by default) |
+| Bookings and payments | 6 years, without your name if you delete your account (commercial and tax obligations of the centre and of us) |
+| Notices from centres | 24 months by default |
+| Sessions | Until you log out or after 8 hours of inactivity |
+| Security logs with IP | 14 days; the activity log, 12 months, except for the last 300 entries |
+| Acceptance of legal documents and consents | For as long as you have the account and up to 5 years afterwards |
 
 ## 6. Your rights
 
-You can exercise your rights of **access, rectification, erasure, objection, restriction and portability**, and withdraw your consent, at any time:
+You can **access, rectify, erase, object to, restrict the processing of and request the portability** of your data, and withdraw your consent at any time:
 
-- from **My account** you can correct your data, **download all your data** (JSON file) and **delete your account**;
-- or by writing to {{dpo_email}}.
+- **Download my data:** in «My account», a ZIP file with all your data (in JSON) and your documents.
+- **Delete my account:** in «My account». We ask you to confirm it from your email. We delete your profile, your documents and your content; bookings are kept without your name for the period required by law.
+- **Change your email:** with verification of the new email.
+- **Stop receiving news:** using the link in each email or in «My account».
+- For anything else, write to {{dpo_email}}. We will reply within one month at the latest.
 
-If you believe we have not handled your data properly, you can complain to the **Spanish Data Protection Agency** (www.aepd.es) or the authority of your country.
+If you disagree with our reply, you can lodge a complaint with the **Spanish Data Protection Agency (AEPD)** (www.aepd.es).
 
-## 7. Minors
+## 7. Security
 
-Accounts are for people aged 18 or over. If a minor takes part in an activity, a responsible adult makes the booking and provides their data.
+Encrypted connection (HTTPS), encrypted passwords, optional two-step verification (mandatory for administrators), logged and restricted access to documents, and encrypted backups. If there is ever a security breach affecting you, we will notify you as required by law.
 
-## 8. Security
+## 8. Minors
 
-We use encrypted connections, passwords stored with a secure algorithm, expiring sessions and role-based access. If a personal data breach affecting you occurs, we will inform you as required by law.
+Accounts are for people aged 18 or over. Bookings for minors are made by a responsible adult.
 
-> This is a translation for your convenience. In case of discrepancy, the Spanish version prevails.
+## 9. Changes
+
+If we change this policy we will notify you by email and ask you to accept it when you log in. You can see all previous versions at the bottom of this page.

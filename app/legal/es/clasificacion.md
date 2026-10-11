@@ -31,4 +31,12 @@ En el mapa se muestran todos los puntos que coinciden con tus filtros, sin orden
 
 ## Contenido patrocinado
 
-Si en el futuro hubiera contenido promocionado o posiciones de pago, se señalará claramente como **«Patrocinado»**.
+En la portada puede haber **ofertas destacadas** y una **banda de patrocinadores** pagadas por marcas o empresas. Siempre llevan la etiqueta **«Patrocinado»**, que no se puede quitar, y no cambian el orden del directorio, del mapa ni del Top 10.
+
+## Centros asociados
+
+La banda «Centros asociados» de la portada muestra centros verificados que han aceptado que mostremos su logotipo. Aparece solo cuando hay un número mínimo de ellos y el orden es aleatorio en cada visita.
+
+## Planes de los centros
+
+El plan que contrata un centro (gratuito o de pago) no cambia su posición en los resultados.

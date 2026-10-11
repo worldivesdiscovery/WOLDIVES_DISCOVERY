@@ -2,7 +2,7 @@
 
 Última actualización: {{version}}
 
-Te explicamos de forma clara qué datos tratamos, para qué y cuáles son tus derechos, según el Reglamento (UE) 2016/679 (RGPD) y la Ley Orgánica 3/2018 (LOPDGDD).
+Te explicamos de forma clara qué datos tratamos, para qué, con quién los compartimos, cuánto tiempo los guardamos y cuáles son tus derechos, según el Reglamento (UE) 2016/679 (RGPD) y la Ley Orgánica 3/2018 (LOPDGDD).
 
 ## 1. Responsable
 
@@ -11,61 +11,79 @@ Te explicamos de forma clara qué datos tratamos, para qué y cuáles son tus de
 - **Domicilio:** {{address}}
 - **Email de privacidad:** {{dpo_email}}
 
+Cuando reservas, **el centro o profesional que presta la actividad** es responsable independiente de los datos que recibe para prestarla (ver el apartado 4).
+
 ## 2. Qué datos tratamos
 
-- **Cuenta:** nombre, email, usuario, contraseña (guardada cifrada), idioma.
-- **Ficha de buceador:** teléfono, país, ciudad, fecha de nacimiento, titulación, contacto de emergencia, tallas y preferencias de equipo, peso habitual de lastre.
-- **Documentación que subas:** titulación, seguro y, si decides subirlos, certificados médicos. Los datos de salud son una categoría especial: solo los tratamos si los subes tú, con tu consentimiento explícito, y solo los ven los centros con los que reservas.
-- **Reservas y pagos:** actividades, fechas, participantes, importes y estado del pago. Los datos de la tarjeta los trata Stripe; nosotros solo vemos la marca y los cuatro últimos dígitos.
-- **Log Book, reseñas, recompensas y promociones.**
-- **Mensajes** entre tú y los centros.
-- **Datos técnicos:** dirección IP, registros de seguridad y la cookie de sesión.
-- **Ubicación:** si pulsas «Usar mi ubicación», tu navegador nos envía tus coordenadas solo para calcular los puntos cercanos. No las guardamos en el servidor.
-- **Centros y profesionales:** datos del responsable, del negocio y de la cuenta de cobros (estos los gestiona Stripe).
+- **Cuenta:** nombre, email, usuario, contraseña (guardada cifrada con un algoritmo de un solo sentido), idioma y, si la activas, la clave de tu verificación en dos pasos.
+- **Ficha de buceador (opcional):** teléfono, país, ciudad, fecha de nacimiento, titulación, contacto de emergencia, tallas y preferencias de equipo y lastre habitual. Solo lo que tú quieras rellenar.
+- **Documentos que subas:** titulación y seguro de buceo, con su fecha de caducidad. **No admitimos certificados médicos ni otros datos de salud:** si un centro te los pide, entrégaselos directamente a él.
+- **Reservas y pagos:** actividad, fechas, participantes, importes, señal, devoluciones y estado. Los datos de tu tarjeta los trata Stripe; nosotros solo vemos la marca y los cuatro últimos dígitos.
+- **Log Book, reseñas, puntos y canjes, promociones.**
+- **Avisos de los centros** sobre tus reservas (no hay mensajería entre usuarios).
+- **Consentimientos:** si aceptas recibir novedades y ofertas, y qué versión de cada documento legal has aceptado y cuándo.
+- **Datos técnicos:** dirección IP (recortada en los registros), registros de seguridad y la cookie de sesión.
+- **Ubicación:** si pulsas «Usar mi ubicación», tu navegador nos envía tus coordenadas solo para calcular los puntos cercanos. No las guardamos.
+- **Centros y profesionales:** datos de contacto, datos fiscales del prestador y el identificador de su cuenta de Stripe (los datos bancarios y de verificación los gestiona Stripe).
 
 ## 3. Para qué y con qué base legal
 
-- **Gestionar tu cuenta y tus reservas** y enviarte los emails del servicio (confirmaciones, pagos, recordatorios, cancelaciones): ejecución del contrato (art. 6.1.b RGPD).
-- **Cobrar, devolver pagos, facturar y llevar la contabilidad:** obligación legal (art. 6.1.c RGPD) y ejecución del contrato.
-- **Seguridad, prevención del fraude y mejora técnica del servicio:** interés legítimo (art. 6.1.f RGPD).
-- **Pedirte una reseña tras tu inmersión:** interés legítimo; puedes oponerte escribiéndonos.
-- **Datos de salud que subas:** tu consentimiento explícito (art. 9.2.a RGPD), que puedes retirar borrando el documento.
-- **Gestionar denuncias de contenidos:** obligación legal (Reglamento (UE) 2022/2065 de servicios digitales).
+| Finalidad | Base legal |
+|---|---|
+| Gestionar tu cuenta, tus reservas y los emails del servicio (confirmaciones, pagos, recordatorios, cambios, cancelaciones, caducidad de documentos) | Ejecución del contrato (art. 6.1.b RGPD) |
+| Registrar las aceptaciones de los documentos legales y conservar los datos de las reservas el tiempo que exige la ley | Obligación legal (art. 6.1.c RGPD) |
+| Seguridad, prevención del fraude, verificación de los centros y mejora técnica del servicio | Interés legítimo (art. 6.1.f RGPD) |
+| Pedirte una reseña tras tu inmersión | Interés legítimo; puedes oponerte escribiéndonos |
+| Programa de puntos | Ejecución del contrato |
+| Enviarte novedades y ofertas | Tu consentimiento (art. 6.1.a RGPD), que puedes retirar en un clic |
+| Gestionar denuncias de contenidos | Obligación legal (Reglamento (UE) 2022/2065 de servicios digitales) |
 
-No enviamos publicidad sin tu consentimiento y no tomamos decisiones automatizadas que te afecten de forma significativa.
+No tomamos decisiones automatizadas que te afecten de forma significativa. El orden de los resultados se explica en [Cómo ordenamos los resultados](#/legal/clasificacion).
 
 ## 4. Con quién compartimos tus datos
 
-- **El centro con el que reservas:** recibe los datos necesarios para prestar la actividad (nombre, contacto, titulación, tallas, documentación y datos de seguridad). El centro es responsable de usarlos solo para tu reserva y de cumplir la normativa de protección de datos.
-- **Stripe Payments Europe Ltd.** (Irlanda), para procesar pagos y devoluciones.
-- **Proveedor de alojamiento:** {{hosting}}.
-- **Proveedor de envío de correo electrónico** que usemos para mandar los emails del servicio.
-- **Servicios de mapas:** al ver un mapa, tu navegador descarga las imágenes de OpenStreetMap y, si eliges las vistas «Satélite» o «Relieve marino», de Esri y GEBCO. Si buscas una localidad en el Top 10, el texto que escribes se envía al buscador Nominatim de OpenStreetMap. Estos servicios reciben tu dirección IP.
-- **Administraciones y autoridades** cuando la ley lo exija.
+- **El centro o profesional con el que reservas:** recibe los datos de la reserva y tu contacto. Ve tu ficha de buceador y tus documentos **solo si reservaste tú con él** (mientras la reserva siga en curso) **o si compartes tus datos con él** al hacer check-in con su QR. Puedes dejar de compartirlos en «Mi cuenta → Centros que ven tu ficha».
+- **Stripe Payments Europe Ltd.** (Irlanda): procesa el pago **en la cuenta de Stripe del centro** y las devoluciones. Stripe es responsable de los datos de pago que trata.
+- **Proveedor de alojamiento:** {{hosting}}, dentro del Espacio Económico Europeo.
+- **Proveedor de correo electrónico:** el servicio SMTP que envía nuestros emails, como encargado del tratamiento.
+- **Servicios de mapas:** el mapa base se sirve desde nuestro propio servidor. La vista satélite (Esri) se pide a través de nuestro servidor, que no envía tu IP a Esri. La capa batimétrica de GEBCO se descarga directamente de sus servidores, que reciben tu IP. Detalles en la [Política de cookies y servicios de terceros](#/legal/cookies).
+- **Vídeos integrados** (YouTube, Vimeo, Google Maps): solo se cargan si pulsas «Cargar vídeo». A partir de ese momento, el proveedor recibe tu IP.
+- **Autoridades**, cuando una ley nos obligue.
 
-Algunos de estos proveedores pueden tratar datos fuera del Espacio Económico Europeo. En ese caso lo hacen con garantías adecuadas: decisión de adecuación (como el Marco de Privacidad de Datos UE-EE. UU.) o cláusulas contractuales tipo de la Comisión Europea.
+Algunos de estos proveedores pueden tratar datos fuera del Espacio Económico Europeo con garantías adecuadas (cláusulas contractuales tipo de la Comisión Europea o el Marco de Privacidad de Datos UE-EE. UU.).
 
 ## 5. Cuánto tiempo los guardamos
 
-- **Cuenta y ficha:** mientras tengas la cuenta. Si la eliminas, borramos o anonimizamos tus datos.
-- **Reservas y pagos:** 6 años, por obligaciones contables y fiscales (Código de Comercio y normativa tributaria), bloqueados y sin uso comercial.
-- **Emails enviados:** 120 días.
-- **Enlaces para cambiar la contraseña:** caducan en 1 hora y se borran a los 2 días.
-- **Registros de seguridad:** el tiempo imprescindible para investigar incidencias.
+| Datos | Plazo |
+|---|---|
+| Cuenta y ficha | Mientras tengas la cuenta. Las cuentas sin actividad durante el plazo configurado (36 meses por defecto) se avisan y después se eliminan |
+| Documentos subidos | Hasta que los borres o elimines tu cuenta. Los documentos caducados se borran pasado el plazo configurado (12 meses por defecto) |
+| Reservas y pagos | 6 años, sin tu nombre si eliminas tu cuenta (obligaciones mercantiles y fiscales del centro y nuestras) |
+| Avisos de los centros | 24 meses por defecto |
+| Sesiones | Hasta cerrar sesión o 8 horas sin actividad |
+| Registros de seguridad con IP | 14 días; el registro de actividad, 12 meses, salvo las últimas 300 entradas |
+| Aceptaciones de documentos legales y consentimientos | Mientras tengas la cuenta y hasta 5 años después |
 
 ## 6. Tus derechos
 
-Puedes ejercer en cualquier momento tus derechos de **acceso, rectificación, supresión, oposición, limitación del tratamiento y portabilidad**, y retirar tu consentimiento:
+Puedes **acceder, rectificar, suprimir, oponerte, limitar el tratamiento y pedir la portabilidad** de tus datos, y retirar tu consentimiento cuando quieras:
 
-- desde **Mi cuenta** puedes corregir tus datos, **descargar todos tus datos** (archivo JSON) y **eliminar tu cuenta**;
-- o escribiéndonos a {{dpo_email}}.
+- **Descargar mis datos:** en «Mi cuenta», un archivo ZIP con todos tus datos (en JSON) y tus documentos.
+- **Eliminar mi cuenta:** en «Mi cuenta». Te pedimos que lo confirmes desde tu email. Borramos tu ficha, tus documentos y tu contenido; las reservas se conservan sin tu nombre el tiempo que exige la ley.
+- **Cambiar tu email:** con verificación del nuevo email.
+- **Dejar de recibir novedades:** con el enlace de cada email o en «Mi cuenta».
+- Para todo lo demás, escribe a {{dpo_email}}. Te responderemos en un mes como máximo.
 
-Si crees que no hemos tratado bien tus datos, puedes reclamar ante la **Agencia Española de Protección de Datos** (www.aepd.es).
+Si no estás de acuerdo con nuestra respuesta, puedes reclamar ante la **Agencia Española de Protección de Datos** (www.aepd.es).
 
-## 7. Menores
+## 7. Seguridad
 
-Las cuentas son para mayores de 18 años. Si un menor participa en una actividad, un adulto responsable hace la reserva y facilita sus datos.
+Conexión cifrada (HTTPS), contraseñas cifradas, verificación en dos pasos opcional (obligatoria para los administradores), accesos a documentos registrados y limitados, y copias de seguridad cifradas. Si alguna vez hubiera una brecha de seguridad que te afecte, te avisaremos según la ley.
 
-## 8. Seguridad
+## 8. Menores
 
-Usamos conexiones cifradas, contraseñas guardadas con un algoritmo seguro, sesiones con caducidad y acceso restringido por perfiles. Si ocurriera una brecha de seguridad que te afecte, te lo comunicaremos según establece la ley.
+La cuenta es para mayores de 18 años. Las reservas de menores las hace un adulto responsable.
+
+## 9. Cambios
+
+Si cambiamos esta política te avisaremos por email y te pediremos que la aceptes al entrar. Puedes ver todas las versiones anteriores al final de esta página.

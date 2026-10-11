@@ -1,0 +1,884 @@
+{
+ "Cap Dor": {
+  "facts": [
+   "también llamado Punta de Moraira",
+   "bajo la Torre de Cap d'Or",
+   "pared rocosa",
+   "agujeros",
+   "grietas",
+   "túnel"
+  ],
+  "see": {
+   "es": "Bajo la Torre de Cap d'Or, una pared rocosa llena de agujeros y grietas que lleva hasta un túnel.",
+   "en": "Below the Torre de Cap d'Or, a rock wall full of holes and cracks leads to a tunnel.",
+   "fr": "Sous la Torre de Cap d'Or, une paroi rocheuse criblée de trous et de fissures mène jusqu'à un tunnel.",
+   "de": "Unterhalb der Torre de Cap d'Or führt eine Felswand voller Löcher und Spalten zu einem Tunnel.",
+   "it": "Sotto la Torre de Cap d'Or, una parete rocciosa piena di buchi e fessure conduce fino a un tunnel.",
+   "pt": "Sob a Torre de Cap d'Or, uma parede rochosa cheia de buracos e fendas leva até um túnel.",
+   "nl": "Onder de Torre de Cap d'Or leidt een rotswand vol gaten en spleten naar een tunnel.",
+   "pl": "Pod Torre de Cap d'Or skalna ściana pełna otworów i szczelin prowadzi do tunelu.",
+   "ru": "Под башней Torre de Cap d'Or скальная стена с множеством отверстий и трещин ведёт к тоннелю.",
+   "zh": "在 Torre de Cap d'Or 塔下方，一面布满孔洞和裂缝的岩壁通向一条隧道。"
+  },
+  "tips": {
+   "es": "Una linterna ayuda a mirar dentro de agujeros y grietas.",
+   "en": "A torch helps you look inside the holes and cracks.",
+   "fr": "Une lampe aide à regarder à l'intérieur des trous et des fissures.",
+   "de": "Eine Lampe hilft, in die Löcher und Spalten zu schauen.",
+   "it": "Una torcia aiuta a guardare dentro buchi e fessure.",
+   "pt": "Uma lanterna ajuda a espreitar dentro dos buracos e fendas.",
+   "nl": "Een lamp helpt om in de gaten en spleten te kijken.",
+   "pl": "Latarka pomoże zajrzeć do otworów i szczelin.",
+   "ru": "Фонарь поможет заглянуть в отверстия и трещины.",
+   "zh": "带上手电筒，方便查看孔洞和裂缝内部。"
+  }
+ },
+ "Los Arcos (Calpe)": {
+  "facts": [
+   "lado norte del Peñón de Ifach",
+   "arcos",
+   "túneles",
+   "zonas de poca profundidad"
+  ],
+  "see": {
+   "es": "En la cara norte del Peñón de Ifach, la roca forma arcos y túneles, con tramos de poca profundidad.",
+   "en": "On the north side of the Peñón de Ifach, the rock forms arches and tunnels, with some shallow stretches.",
+   "fr": "Sur la face nord du Peñón de Ifach, la roche forme des arches et des tunnels, avec des passages peu profonds.",
+   "de": "An der Nordseite des Peñón de Ifach bildet der Fels Bögen und Tunnel, dazu einige flache Abschnitte.",
+   "it": "Sul lato nord del Peñón de Ifach la roccia forma archi e tunnel, con tratti poco profondi.",
+   "pt": "Na face norte do Peñón de Ifach, a rocha forma arcos e túneis, com zonas pouco profundas.",
+   "nl": "Aan de noordkant van de Peñón de Ifach vormt de rots bogen en tunnels, met enkele ondiepe stukken.",
+   "pl": "Na północnej stronie Peñón de Ifach skała tworzy łuki i tunele, z płytszymi odcinkami.",
+   "ru": "С северной стороны Peñón de Ifach скала образует арки и тоннели, есть и мелководные участки.",
+   "zh": "在 Peñón de Ifach 北侧，岩石形成拱门和隧道，还有一些浅水区域。"
+  },
+  "tips": {
+   "es": "Las zonas poco profundas son un buen lugar para terminar la inmersión.",
+   "en": "The shallow areas are a good place to finish the dive.",
+   "fr": "Les zones peu profondes sont idéales pour terminer la plongée.",
+   "de": "Die flachen Bereiche eignen sich gut zum Ausklingen des Tauchgangs.",
+   "it": "Le zone poco profonde sono un buon posto per concludere l'immersione.",
+   "pt": "As zonas pouco profundas são um bom sítio para terminar o mergulho.",
+   "nl": "De ondiepe delen zijn een goede plek om de duik af te ronden.",
+   "pl": "Płytkie fragmenty to dobre miejsce na zakończenie nurkowania.",
+   "ru": "Мелководные участки хорошо подходят для завершения погружения.",
+   "zh": "浅水区域很适合作为潜水的收尾部分。"
+  }
+ },
+ "Portitxol Norte": {
+  "facts": [
+   "cara norte de la Illa del Portitxol",
+   "Jávea",
+   "bajos rocosos",
+   "posidonia",
+   "posibles bancos de peces"
+  ],
+  "see": {
+   "es": "Bajos rocosos y praderas de posidonia en la cara norte de la Illa del Portitxol, en Jávea, donde a veces aparecen bancos de peces.",
+   "en": "Rocky shoals and posidonia meadows on the north face of the Illa del Portitxol in Jávea, where schools of fish sometimes appear.",
+   "fr": "Hauts-fonds rocheux et herbiers de posidonie sur la face nord de l'Illa del Portitxol, à Jávea, où apparaissent parfois des bancs de poissons.",
+   "de": "Felsige Untiefen und Posidonia-Wiesen an der Nordseite der Illa del Portitxol in Jávea, wo manchmal Fischschwärme auftauchen.",
+   "it": "Secche rocciose e praterie di posidonia sul lato nord dell'Illa del Portitxol, a Jávea, dove a volte compaiono banchi di pesci.",
+   "pt": "Baixios rochosos e pradarias de posidónia na face norte da Illa del Portitxol, em Jávea, onde por vezes aparecem cardumes.",
+   "nl": "Rotsige ondiepten en posidoniavelden aan de noordkant van de Illa del Portitxol in Jávea, waar soms scholen vissen verschijnen.",
+   "pl": "Skaliste płycizny i łąki posidonii na północnej stronie Illa del Portitxol w Jávei, gdzie czasem pojawiają się ławice ryb.",
+   "ru": "Скалистые отмели и луга посидонии у северной стороны Illa del Portitxol в Jávea, где порой появляются косяки рыб.",
+   "zh": "Jávea 的 Illa del Portitxol 北侧有岩石浅滩和波喜荡海草床，有时能看到鱼群。"
+  },
+  "tips": {
+   "es": "Mira también hacia el agua abierta para no perderte los bancos de peces.",
+   "en": "Keep an eye on the open water too so you don't miss the schools of fish.",
+   "fr": "Regardez aussi vers le large pour ne pas manquer les bancs de poissons.",
+   "de": "Behalte auch das offene Wasser im Blick, um die Fischschwärme nicht zu verpassen.",
+   "it": "Guarda anche verso il blu per non perderti i banchi di pesci.",
+   "pt": "Olha também para a água aberta para não perder os cardumes.",
+   "nl": "Kijk ook naar het open water, zodat je de scholen vissen niet mist.",
+   "pl": "Zerkaj też w otwartą toń, żeby nie przegapić ławic ryb.",
+   "ru": "Поглядывайте и в толщу воды, чтобы не пропустить косяки рыб.",
+   "zh": "也要留意开阔水域，以免错过鱼群。"
+  }
+ },
+ "Cueva de los Organos": {
+  "facts": [
+   "frente al Cabo de la Nao",
+   "Jávea",
+   "cueva abierta"
+  ],
+  "see": {
+   "es": "Frente al Cabo de la Nao, en Jávea, la inmersión gira en torno a una cueva abierta.",
+   "en": "Off the Cabo de la Nao in Jávea, the dive centres on an open cave.",
+   "fr": "Face au Cabo de la Nao, à Jávea, la plongée s'organise autour d'une grotte ouverte.",
+   "de": "Vor dem Cabo de la Nao in Jávea dreht sich der Tauchgang um eine offene Höhle.",
+   "it": "Di fronte al Cabo de la Nao, a Jávea, l'immersione ruota attorno a una grotta aperta.",
+   "pt": "Em frente ao Cabo de la Nao, em Jávea, o mergulho gira em torno de uma gruta aberta.",
+   "nl": "Voor de Cabo de la Nao in Jávea draait de duik om een open grot.",
+   "pl": "Naprzeciw Cabo de la Nao w Jávei nurkowanie koncentruje się wokół otwartej jaskini.",
+   "ru": "Напротив Cabo de la Nao в Jávea погружение строится вокруг открытой пещеры.",
+   "zh": "在 Jávea 的 Cabo de la Nao 外海，这次潜水围绕一个开放式洞穴展开。"
+  },
+  "tips": {
+   "es": "Lleva linterna para ver bien el interior de la cueva.",
+   "en": "Bring a torch to see the inside of the cave properly.",
+   "fr": "Prenez une lampe pour bien voir l'intérieur de la grotte.",
+   "de": "Nimm eine Lampe mit, um das Innere der Höhle gut zu sehen.",
+   "it": "Porta una torcia per vedere bene l'interno della grotta.",
+   "pt": "Leva lanterna para ver bem o interior da gruta.",
+   "nl": "Neem een lamp mee om de binnenkant van de grot goed te zien.",
+   "pl": "Weź latarkę, by dobrze zobaczyć wnętrze jaskini.",
+   "ru": "Возьмите фонарь, чтобы хорошо рассмотреть пещеру изнутри.",
+   "zh": "带上手电筒，才能看清洞穴内部。"
+  }
+ },
+ "Cabo San Antonio": {
+  "facts": [
+   "Reserva Marina del Cabo de San Antonio",
+   "entre Dénia y Jávea",
+   "paredes",
+   "canales de arena",
+   "formaciones rocosas"
+  ],
+  "see": {
+   "es": "Dentro de la Reserva Marina del Cabo de San Antonio, entre Dénia y Jávea, se alternan paredes, canales de arena y formaciones rocosas.",
+   "en": "Inside the Cabo de San Antonio Marine Reserve, between Dénia and Jávea, walls alternate with sand channels and rock formations.",
+   "fr": "Dans la réserve marine du Cabo de San Antonio, entre Dénia et Jávea, se succèdent tombants, chenaux de sable et formations rocheuses.",
+   "de": "Im Meeresschutzgebiet Cabo de San Antonio zwischen Dénia und Jávea wechseln sich Wände, Sandkanäle und Felsformationen ab.",
+   "it": "Nella Riserva Marina del Cabo de San Antonio, tra Dénia e Jávea, si alternano pareti, canali di sabbia e formazioni rocciose.",
+   "pt": "Na Reserva Marinha do Cabo de San Antonio, entre Dénia e Jávea, alternam-se paredes, canais de areia e formações rochosas.",
+   "nl": "In het zeereservaat van Cabo de San Antonio, tussen Dénia en Jávea, wisselen wanden, zandgeulen en rotsformaties elkaar af.",
+   "pl": "W rezerwacie morskim Cabo de San Antonio, między Dénią a Jáveą, ściany przeplatają się z piaszczystymi kanałami i formacjami skalnymi.",
+   "ru": "В морском заповеднике Cabo de San Antonio, между Dénia и Jávea, стены чередуются с песчаными каналами и скальными образованиями.",
+   "zh": "在 Dénia 与 Jávea 之间的 Cabo de San Antonio 海洋保护区内，岩壁、沙道和岩石地貌交替出现。"
+  },
+  "tips": {
+   "es": "Es reserva marina: no toques ni recojas nada y sigue las normas de la zona.",
+   "en": "It is a marine reserve: don't touch or take anything, and follow the local rules.",
+   "fr": "C'est une réserve marine : ne touchez et ne prélevez rien, et respectez les règles locales.",
+   "de": "Es ist ein Meeresschutzgebiet: nichts berühren oder mitnehmen und die örtlichen Regeln beachten.",
+   "it": "È una riserva marina: non toccare né raccogliere nulla e rispetta le regole della zona.",
+   "pt": "É uma reserva marinha: não toques nem recolhas nada e cumpre as regras da zona.",
+   "nl": "Het is een zeereservaat: raak niets aan, neem niets mee en volg de lokale regels.",
+   "pl": "To rezerwat morski: niczego nie dotykaj ani nie zabieraj i przestrzegaj lokalnych zasad.",
+   "ru": "Это морской заповедник: ничего не трогайте и не забирайте, соблюдайте местные правила.",
+   "zh": "这里是海洋保护区：请勿触碰或带走任何东西，并遵守当地规定。"
+  }
+ },
+ "Cabo San Martin / Cueva de la Virgen": {
+  "facts": [
+   "Cabo de San Martín",
+   "Jávea",
+   "pared",
+   "túnel poco profundo",
+   "gruta con luz natural"
+  ],
+  "see": {
+   "es": "Una pared del Cabo de San Martín, en Jávea, un túnel a poca profundidad y una gruta que se ilumina con luz natural.",
+   "en": "A wall at the Cabo de San Martín in Jávea, a shallow tunnel and a grotto lit by natural light.",
+   "fr": "Un tombant du Cabo de San Martín, à Jávea, un tunnel peu profond et une grotte éclairée par la lumière naturelle.",
+   "de": "Eine Wand am Cabo de San Martín in Jávea, ein flacher Tunnel und eine Grotte, die von natürlichem Licht erhellt wird.",
+   "it": "Una parete del Cabo de San Martín, a Jávea, un tunnel poco profondo e una grotta illuminata dalla luce naturale.",
+   "pt": "Uma parede do Cabo de San Martín, em Jávea, um túnel pouco profundo e uma gruta iluminada pela luz natural.",
+   "nl": "Een wand bij Cabo de San Martín in Jávea, een ondiepe tunnel en een grot die door natuurlijk licht wordt verlicht.",
+   "pl": "Ściana przy Cabo de San Martín w Jávei, płytki tunel i grota oświetlona naturalnym światłem.",
+   "ru": "Стена у Cabo de San Martín в Jávea, неглубокий тоннель и грот, освещённый естественным светом.",
+   "zh": "Jávea 的 Cabo de San Martín 有一面岩壁、一条浅水隧道，以及一个由自然光照亮的洞穴。"
+  },
+  "tips": {
+   "es": "En la gruta, apaga la linterna un momento para apreciar la luz natural.",
+   "en": "In the grotto, switch your torch off for a moment to enjoy the natural light.",
+   "fr": "Dans la grotte, éteignez un instant votre lampe pour profiter de la lumière naturelle.",
+   "de": "Schalte in der Grotte kurz die Lampe aus, um das natürliche Licht zu genießen.",
+   "it": "Nella grotta, spegni per un attimo la torcia per goderti la luce naturale.",
+   "pt": "Na gruta, desliga a lanterna por um momento para apreciar a luz natural.",
+   "nl": "Doe in de grot even je lamp uit om van het natuurlijke licht te genieten.",
+   "pl": "W grocie zgaś na chwilę latarkę, by docenić naturalne światło.",
+   "ru": "В гроте ненадолго выключите фонарь, чтобы оценить естественное освещение.",
+   "zh": "在洞穴里不妨暂时关掉手电筒，欣赏自然光。"
+  }
+ },
+ "Piscinas de Neptuno": {
+  "facts": [
+   "cañón submarino",
+   "zona de Portitxol",
+   "pasos rocosos",
+   "dos cavidades con luz natural",
+   "macrofotografía",
+   "exploración tranquila"
+  ],
+  "see": {
+   "es": "Un cañón submarino en la zona de Portitxol, con pasos entre rocas y dos cavidades donde entra la luz natural.",
+   "en": "An underwater canyon in the Portitxol area, with passages between rocks and two cavities that let in natural light.",
+   "fr": "Un canyon sous-marin dans le secteur de Portitxol, avec des passages entre les rochers et deux cavités où entre la lumière naturelle.",
+   "de": "Ein Unterwasser-Canyon im Gebiet von Portitxol mit Durchgängen zwischen Felsen und zwei Hohlräumen, in die natürliches Licht fällt.",
+   "it": "Un canyon sommerso nella zona di Portitxol, con passaggi tra le rocce e due cavità dove entra la luce naturale.",
+   "pt": "Um canhão submarino na zona de Portitxol, com passagens entre rochas e duas cavidades onde entra luz natural.",
+   "nl": "Een onderwatercanyon bij Portitxol, met doorgangen tussen rotsen en twee holtes waar natuurlijk licht binnenvalt.",
+   "pl": "Podwodny kanion w rejonie Portitxol, z przejściami między skałami i dwiema wnękami, do których wpada naturalne światło.",
+   "ru": "Подводный каньон в районе Portitxol с проходами между скалами и двумя полостями, куда проникает естественный свет.",
+   "zh": "Portitxol 一带的水下峡谷，有岩石间的通道和两个透入自然光的洞穴。"
+  },
+  "tips": {
+   "es": "Muy indicado para macrofotografía: avanza sin prisa y revisa cada rincón.",
+   "en": "Well suited to macro photography: move slowly and check every nook.",
+   "fr": "Très adapté à la macrophotographie : avancez sans hâte et explorez chaque recoin.",
+   "de": "Gut geeignet für Makrofotografie: langsam tauchen und jede Ecke absuchen.",
+   "it": "Molto adatto alla macrofotografia: procedi con calma e osserva ogni angolo.",
+   "pt": "Muito indicado para macrofotografia: avança devagar e explora cada recanto.",
+   "nl": "Zeer geschikt voor macrofotografie: ga rustig te werk en bekijk elk hoekje.",
+   "pl": "Świetne miejsce do makrofotografii: płyń powoli i zaglądaj w każdy zakamarek.",
+   "ru": "Хорошо подходит для макросъёмки: двигайтесь не спеша и осматривайте каждый уголок.",
+   "zh": "非常适合微距摄影：放慢速度，仔细查看每个角落。"
+  }
+ },
+ "Piedras Rotas": {
+  "facts": [
+   "formaciones rocosas",
+   "dos torres submarinas",
+   "pasos",
+   "pequeñas ventanas entre rocas",
+   "vida a poca profundidad"
+  ],
+  "see": {
+   "es": "Dos torres submarinas y otras formaciones rocosas crean pasos y pequeñas ventanas entre las piedras, con vida también en la parte somera.",
+   "en": "Two underwater towers and other rock formations create passages and small windows between the stones, with life in the shallows too.",
+   "fr": "Deux tours sous-marines et d'autres formations rocheuses créent des passages et de petites fenêtres entre les pierres, avec de la vie aussi près de la surface.",
+   "de": "Zwei Unterwassertürme und weitere Felsformationen bilden Durchgänge und kleine Fenster zwischen den Steinen, auch im Flachen gibt es Leben.",
+   "it": "Due torri sommerse e altre formazioni rocciose creano passaggi e piccole finestre tra le pietre, con vita anche a bassa profondità.",
+   "pt": "Duas torres submarinas e outras formações rochosas criam passagens e pequenas janelas entre as pedras, com vida também na zona pouco profunda.",
+   "nl": "Twee onderwatertorens en andere rotsformaties vormen doorgangen en kleine vensters tussen de stenen, met ook leven in het ondiepe deel.",
+   "pl": "Dwie podwodne wieże i inne formacje skalne tworzą przejścia i małe okna między kamieniami, a życie widać także na płyciźnie.",
+   "ru": "Две подводные башни и другие скальные образования создают проходы и небольшие окна между камнями; жизнь есть и на мелководье.",
+   "zh": "两座水下岩塔和其他岩石地貌在石块间形成通道和小窗口，浅水处也有丰富的生物。"
+  },
+  "tips": {
+   "es": "Reserva tiempo para la parte menos profunda, donde también hay mucho que observar.",
+   "en": "Save some time for the shallower part, where there is plenty to see as well.",
+   "fr": "Gardez du temps pour la partie la moins profonde, où il y a aussi beaucoup à observer.",
+   "de": "Plane Zeit für den flacheren Teil ein, auch dort gibt es viel zu sehen.",
+   "it": "Tieni un po' di tempo per la parte meno profonda, dove c'è molto da osservare.",
+   "pt": "Guarda algum tempo para a parte menos profunda, onde também há muito para ver.",
+   "nl": "Houd tijd over voor het ondiepere deel, daar is ook veel te zien.",
+   "pl": "Zostaw trochę czasu na płytszą część, gdzie też jest sporo do zobaczenia.",
+   "ru": "Оставьте время на мелкую часть — там тоже есть что посмотреть.",
+   "zh": "留些时间给较浅的区域，那里同样有很多可看。"
+  }
+ },
+ "San Martin Sur": {
+  "facts": [
+   "pared escalonada",
+   "cotas sucesivas",
+   "formaciones rocosas",
+   "inmersión progresiva"
+  ],
+  "see": {
+   "es": "Una pared que desciende en escalones, con formaciones rocosas en cada nivel.",
+   "en": "A wall that steps down in terraces, with rock formations on each level.",
+   "fr": "Un tombant qui descend en paliers, avec des formations rocheuses à chaque niveau.",
+   "de": "Eine Wand, die in Stufen abfällt, mit Felsformationen auf jeder Ebene.",
+   "it": "Una parete che scende a gradoni, con formazioni rocciose a ogni livello.",
+   "pt": "Uma parede que desce em degraus, com formações rochosas em cada nível.",
+   "nl": "Een wand die trapsgewijs afdaalt, met rotsformaties op elk niveau.",
+   "pl": "Ściana opadająca stopniami, z formacjami skalnymi na każdym poziomie.",
+   "ru": "Стена, спускающаяся уступами, со скальными образованиями на каждом уровне.",
+   "zh": "一面呈阶梯状下降的岩壁，每一层都有岩石地貌。"
+  },
+  "tips": {
+   "es": "El perfil escalonado permite ir ganando profundidad poco a poco.",
+   "en": "The stepped profile lets you gain depth little by little.",
+   "fr": "Le profil en paliers permet de gagner de la profondeur progressivement.",
+   "de": "Durch das stufige Profil lässt sich die Tiefe nach und nach steigern.",
+   "it": "Il profilo a gradoni permette di scendere poco a poco.",
+   "pt": "O perfil em degraus permite ganhar profundidade aos poucos.",
+   "nl": "Door het getrapte profiel kun je geleidelijk dieper gaan.",
+   "pl": "Stopniowy profil pozwala schodzić głębiej krok po kroku.",
+   "ru": "Ступенчатый профиль позволяет набирать глубину постепенно.",
+   "zh": "阶梯状的地形让你可以循序渐进地下潜。"
+  }
+ },
+ "Pared Negra": {
+  "facts": [
+   "al sur de Portitxol",
+   "pared rocosa",
+   "pequeñas cavidades",
+   "grietas",
+   "pasos",
+   "pulpos",
+   "morenas"
+  ],
+  "see": {
+   "es": "Pared rocosa al sur de Portitxol con pequeñas cavidades, grietas y pasos donde se refugian pulpos y morenas.",
+   "en": "A rock wall south of Portitxol with small cavities, cracks and passages where octopuses and moray eels take shelter.",
+   "fr": "Paroi rocheuse au sud de Portitxol, avec petites cavités, fissures et passages où se cachent poulpes et murènes.",
+   "de": "Felswand südlich von Portitxol mit kleinen Hohlräumen, Spalten und Durchgängen, in denen sich Oktopusse und Muränen verstecken.",
+   "it": "Parete rocciosa a sud di Portitxol con piccole cavità, fessure e passaggi dove si rifugiano polpi e murene.",
+   "pt": "Parede rochosa a sul de Portitxol com pequenas cavidades, fendas e passagens onde se abrigam polvos e moreias.",
+   "nl": "Rotswand ten zuiden van Portitxol met kleine holtes, spleten en doorgangen waar octopussen en murenen schuilen.",
+   "pl": "Skalna ściana na południe od Portitxol z małymi wnękami, szczelinami i przejściami, w których kryją się ośmiornice i mureny.",
+   "ru": "Скальная стена к югу от Portitxol с небольшими полостями, трещинами и проходами, где прячутся осьминоги и мурены.",
+   "zh": "Portitxol 以南的岩壁，有小洞穴、裂缝和通道，章鱼和海鳝常藏身其中。"
+  },
+  "tips": {
+   "es": "Lleva linterna para revisar grietas y cavidades.",
+   "en": "Bring a torch to check the cracks and cavities.",
+   "fr": "Prenez une lampe pour inspecter fissures et cavités.",
+   "de": "Nimm eine Lampe mit, um Spalten und Hohlräume abzusuchen.",
+   "it": "Porta una torcia per ispezionare fessure e cavità.",
+   "pt": "Leva lanterna para espreitar fendas e cavidades.",
+   "nl": "Neem een lamp mee om spleten en holtes te bekijken.",
+   "pl": "Weź latarkę, by zaglądać do szczelin i wnęk.",
+   "ru": "Возьмите фонарь, чтобы осматривать трещины и полости.",
+   "zh": "带上手电筒，方便查看裂缝和洞穴。"
+  }
+ },
+ "Montaña Sumergida - Cabo Negro": {
+  "facts": [
+   "zona de Cabo Negro",
+   "formación sumergida que se rodea",
+   "fondo arenoso",
+   "relieve que concentra vida",
+   "más vida en los meses fríos"
+  ],
+  "see": {
+   "es": "Una montaña sumergida en la zona de Cabo Negro que se recorre en círculo hasta llegar a la arena; su relieve reúne mucha vida.",
+   "en": "A submerged mountain in the Cabo Negro area that you circle down to the sand; its rocky relief gathers a lot of life.",
+   "fr": "Une montagne immergée dans le secteur de Cabo Negro, que l'on contourne jusqu'au sable ; son relief concentre beaucoup de vie.",
+   "de": "Ein versunkener Berg im Gebiet von Cabo Negro, den man bis zum Sandgrund umrundet; sein Relief zieht viel Leben an.",
+   "it": "Una montagna sommersa nella zona di Cabo Negro che si gira attorno fino alla sabbia; il suo rilievo concentra molta vita.",
+   "pt": "Uma montanha submersa na zona de Cabo Negro que se contorna até chegar à areia; o seu relevo reúne muita vida.",
+   "nl": "Een onderwaterberg bij Cabo Negro die je rondt tot op de zandbodem; het reliëf trekt veel leven aan.",
+   "pl": "Podwodna góra w rejonie Cabo Negro, którą okrąża się aż do piaszczystego dna; jej rzeźba skupia dużo życia.",
+   "ru": "Подводная гора в районе Cabo Negro, которую обходят по кругу до песчаного дна; её рельеф собирает много жизни.",
+   "zh": "Cabo Negro 一带的水下山体，可环绕而下直到沙底；起伏的岩石聚集了大量生物。"
+  },
+  "tips": {
+   "es": "En los meses más fríos suele concentrarse aún más vida.",
+   "en": "In the colder months even more life tends to gather here.",
+   "fr": "Pendant les mois les plus froids, la vie y est souvent encore plus concentrée.",
+   "de": "In den kälteren Monaten sammelt sich hier oft noch mehr Leben.",
+   "it": "Nei mesi più freddi la vita tende a concentrarsi ancora di più.",
+   "pt": "Nos meses mais frios costuma concentrar-se ainda mais vida.",
+   "nl": "In de koudere maanden verzamelt zich hier vaak nog meer leven.",
+   "pl": "W chłodniejszych miesiącach życia bywa tu jeszcze więcej.",
+   "ru": "В более холодные месяцы жизни здесь обычно ещё больше.",
+   "zh": "在较冷的月份，这里聚集的生物往往更多。"
+  }
+ },
+ "Cala Blanca - Jávea": {
+  "facts": [
+   "zona protegida",
+   "iniciación",
+   "cursos",
+   "inmersiones nocturnas",
+   "arena",
+   "roca",
+   "praderas de posidonia"
+  ],
+  "see": {
+   "es": "Fondo mixto de arena, roca y praderas de posidonia en una zona resguardada.",
+   "en": "A mixed seabed of sand, rock and posidonia meadows in a sheltered spot.",
+   "fr": "Un fond mixte de sable, de roche et d'herbiers de posidonie dans un endroit abrité.",
+   "de": "Gemischter Grund aus Sand, Fels und Posidonia-Wiesen an einer geschützten Stelle.",
+   "it": "Fondale misto di sabbia, roccia e praterie di posidonia in una zona riparata.",
+   "pt": "Fundo misto de areia, rocha e pradarias de posidónia numa zona abrigada.",
+   "nl": "Een gemengde bodem van zand, rots en posidoniavelden op een beschutte plek.",
+   "pl": "Mieszane dno z piasku, skał i łąk posidonii w osłoniętym miejscu.",
+   "ru": "Смешанное дно из песка, скал и лугов посидонии в защищённом месте.",
+   "zh": "在一处避风的区域，海底由沙地、岩石和波喜荡海草床混合而成。"
+  },
+  "tips": {
+   "es": "Buena opción para iniciación, cursos e inmersiones nocturnas.",
+   "en": "A good choice for beginners, courses and night dives.",
+   "fr": "Un bon choix pour l'initiation, les formations et les plongées de nuit.",
+   "de": "Gut geeignet für Einsteiger, Kurse und Nachttauchgänge.",
+   "it": "Una buona scelta per principianti, corsi e immersioni notturne.",
+   "pt": "Boa opção para iniciação, cursos e mergulhos noturnos.",
+   "nl": "Een goede keuze voor beginners, cursussen en nachtduiken.",
+   "pl": "Dobry wybór dla początkujących, na kursy i nurkowania nocne.",
+   "ru": "Хороший вариант для новичков, курсов и ночных погружений.",
+   "zh": "适合入门体验、课程培训和夜潜。"
+  }
+ },
+ "La Higuera - Peñón de Ifach": {
+  "facts": [
+   "cara norte del Peñón de Ifach",
+   "descenso gradual",
+   "grandes bloques de roca",
+   "fondo arenoso"
+  ],
+  "see": {
+   "es": "Cara norte del Peñón de Ifach: grandes bloques de roca acompañan un descenso gradual hasta el fondo de arena.",
+   "en": "North face of the Peñón de Ifach: large rock blocks line a gradual descent down to the sandy bottom.",
+   "fr": "Face nord du Peñón de Ifach : de gros blocs rocheux accompagnent une descente progressive jusqu'au fond de sable.",
+   "de": "Nordseite des Peñón de Ifach: Große Felsblöcke begleiten einen allmählichen Abstieg bis zum Sandgrund.",
+   "it": "Lato nord del Peñón de Ifach: grandi massi accompagnano una discesa graduale fino al fondo sabbioso.",
+   "pt": "Face norte do Peñón de Ifach: grandes blocos de rocha acompanham uma descida gradual até ao fundo de areia.",
+   "nl": "Noordkant van de Peñón de Ifach: grote rotsblokken begeleiden een geleidelijke afdaling naar de zandbodem.",
+   "pl": "Północna strona Peñón de Ifach: duże bloki skalne towarzyszą łagodnemu zejściu aż do piaszczystego dna.",
+   "ru": "Северная сторона Peñón de Ifach: крупные каменные глыбы сопровождают плавный спуск к песчаному дну.",
+   "zh": "Peñón de Ifach 北侧：沿着大块岩石逐渐下降，直到沙质海底。"
+  },
+  "tips": {
+   "es": "El descenso gradual facilita controlar la flotabilidad mientras bajas.",
+   "en": "The gradual descent makes it easier to control your buoyancy on the way down.",
+   "fr": "La descente progressive facilite le contrôle de la flottabilité.",
+   "de": "Der allmähliche Abstieg erleichtert die Tarierung beim Abtauchen.",
+   "it": "La discesa graduale aiuta a controllare l'assetto mentre scendi.",
+   "pt": "A descida gradual facilita o controlo da flutuabilidade enquanto desces.",
+   "nl": "Door de geleidelijke afdaling houd je je trim makkelijker onder controle.",
+   "pl": "Łagodne zejście ułatwia kontrolę pływalności podczas schodzenia.",
+   "ru": "Плавный спуск облегчает контроль плавучести.",
+   "zh": "渐进式的下潜有助于更好地控制浮力。"
+  }
+ },
+ "El Portet - Moraira": {
+  "facts": [
+   "roca",
+   "posidonia",
+   "pequeñas formaciones",
+   "recorridos según nivel y condiciones del mar"
+  ],
+  "see": {
+   "es": "Un fondo variado de roca, posidonia y pequeñas formaciones.",
+   "en": "A varied seabed of rock, posidonia and small formations.",
+   "fr": "Un fond varié de roche, de posidonie et de petites formations.",
+   "de": "Abwechslungsreicher Grund aus Fels, Posidonia und kleinen Formationen.",
+   "it": "Un fondale vario di roccia, posidonia e piccole formazioni.",
+   "pt": "Um fundo variado de rocha, posidónia e pequenas formações.",
+   "nl": "Een gevarieerde bodem van rots, posidonia en kleine formaties.",
+   "pl": "Urozmaicone dno ze skał, posidonii i niewielkich formacji.",
+   "ru": "Разнообразное дно: скалы, посидония и небольшие образования.",
+   "zh": "海底多样，有岩石、波喜荡海草和小型岩石地貌。"
+  },
+  "tips": {
+   "es": "La ruta se adapta al nivel del grupo y al estado del mar.",
+   "en": "The route is adapted to the group's level and sea conditions.",
+   "fr": "L'itinéraire s'adapte au niveau du groupe et à l'état de la mer.",
+   "de": "Die Route wird an das Niveau der Gruppe und die Seebedingungen angepasst.",
+   "it": "Il percorso si adatta al livello del gruppo e alle condizioni del mare.",
+   "pt": "O percurso adapta-se ao nível do grupo e ao estado do mar.",
+   "nl": "De route wordt aangepast aan het niveau van de groep en de zeecondities.",
+   "pl": "Trasa dopasowywana jest do poziomu grupy i stanu morza.",
+   "ru": "Маршрут подбирается под уровень группы и состояние моря.",
+   "zh": "路线会根据团队水平和海况进行调整。"
+  }
+ },
+ "Los Arcos - Moraira": {
+  "facts": [
+   "laberinto de formaciones rocosas",
+   "arcos",
+   "esponjas",
+   "anémonas",
+   "vida de pequeño y mediano tamaño",
+   "(descripción original lo sitúa al pie del Peñón de Ifach; no usado)"
+  ],
+  "see": {
+   "es": "Un laberinto de rocas y arcos con esponjas y anémonas, y mucha vida de tamaño pequeño y mediano.",
+   "en": "A maze of rocks and arches with sponges and anemones, and plenty of small and medium-sized life.",
+   "fr": "Un labyrinthe de rochers et d'arches avec éponges et anémones, et une vie abondante de petite et moyenne taille.",
+   "de": "Ein Labyrinth aus Felsen und Bögen mit Schwämmen und Anemonen sowie viel kleinem und mittelgroßem Leben.",
+   "it": "Un labirinto di rocce e archi con spugne e anemoni, e tanta vita di piccola e media taglia.",
+   "pt": "Um labirinto de rochas e arcos com esponjas e anémonas, e muita vida de pequeno e médio porte.",
+   "nl": "Een doolhof van rotsen en bogen met sponzen en anemonen, en veel klein en middelgroot leven.",
+   "pl": "Labirynt skał i łuków z gąbkami i ukwiałami oraz mnóstwem małych i średnich organizmów.",
+   "ru": "Лабиринт скал и арок с губками и анемонами и множеством мелкой и средней живности.",
+   "zh": "由岩石和拱门构成的迷宫，有海绵和海葵，还有大量中小型海洋生物。"
+  },
+  "tips": {
+   "es": "Avanza despacio entre los arcos para fijarte en esponjas y anémonas.",
+   "en": "Move slowly through the arches to take in the sponges and anemones.",
+   "fr": "Avancez lentement entre les arches pour observer éponges et anémones.",
+   "de": "Tauche langsam durch die Bögen, um Schwämme und Anemonen zu betrachten.",
+   "it": "Muoviti lentamente tra gli archi per osservare spugne e anemoni.",
+   "pt": "Avança devagar entre os arcos para reparar nas esponjas e anémonas.",
+   "nl": "Zwem rustig tussen de bogen door om sponzen en anemonen te bekijken.",
+   "pl": "Płyń powoli między łukami, by przyjrzeć się gąbkom i ukwiałom.",
+   "ru": "Двигайтесь медленно между арками, чтобы рассмотреть губок и анемонов.",
+   "zh": "在拱门间慢慢游动，仔细观察海绵和海葵。"
+  }
+ },
+ "El Pesebre - Moraira": {
+  "facts": [
+   "bahía resguardada",
+   "formaciones rocosas",
+   "recorrido entre bloques",
+   "pulpos",
+   "pequeñas morenas"
+  ],
+  "see": {
+   "es": "Bahía resguardada con un recorrido entre bloques de roca donde es habitual ver pulpos y pequeñas morenas.",
+   "en": "A sheltered bay with a route between rock blocks where octopuses and small moray eels are often found.",
+   "fr": "Baie abritée avec un parcours entre des blocs rocheux où l'on croise souvent poulpes et petites murènes.",
+   "de": "Geschützte Bucht mit einer Route zwischen Felsblöcken, wo häufig Oktopusse und kleine Muränen zu finden sind.",
+   "it": "Baia riparata con un percorso tra massi dove è comune incontrare polpi e piccole murene.",
+   "pt": "Baía abrigada com um percurso entre blocos de rocha onde é comum encontrar polvos e pequenas moreias.",
+   "nl": "Beschutte baai met een route tussen rotsblokken waar je vaak octopussen en kleine murenen ziet.",
+   "pl": "Osłonięta zatoka z trasą między blokami skalnymi, gdzie często spotyka się ośmiornice i małe mureny.",
+   "ru": "Защищённая бухта с маршрутом между каменными глыбами, где часто встречаются осьминоги и небольшие мурены.",
+   "zh": "一处避风的海湾，路线穿行于岩块之间，常能见到章鱼和小型海鳝。"
+  },
+  "tips": {
+   "es": "Revisa con linterna los huecos entre bloques.",
+   "en": "Use a torch to check the gaps between the blocks.",
+   "fr": "Inspectez à la lampe les interstices entre les blocs.",
+   "de": "Leuchte mit der Lampe in die Lücken zwischen den Blöcken.",
+   "it": "Controlla con la torcia gli spazi tra i massi.",
+   "pt": "Usa a lanterna para espreitar os espaços entre os blocos.",
+   "nl": "Schijn met je lamp in de openingen tussen de blokken.",
+   "pl": "Zaglądaj z latarką w szczeliny między blokami.",
+   "ru": "Осматривайте с фонарём промежутки между глыбами.",
+   "zh": "用手电筒查看岩块之间的缝隙。"
+  }
+ },
+ "Playetes Beach - Moraira": {
+  "facts": [
+   "pequeño arrecife",
+   "accesible desde la costa",
+   "bautizos",
+   "prácticas",
+   "nocturnas",
+   "escasa profundidad"
+  ],
+  "see": {
+   "es": "Un pequeño arrecife de poca profundidad.",
+   "en": "A small, shallow reef.",
+   "fr": "Un petit récif peu profond.",
+   "de": "Ein kleines, flaches Riff.",
+   "it": "Una piccola scogliera poco profonda.",
+   "pt": "Um pequeno recife pouco profundo.",
+   "nl": "Een klein, ondiep rif.",
+   "pl": "Niewielka, płytka rafa.",
+   "ru": "Небольшой неглубокий риф.",
+   "zh": "一处小型浅水礁石区。"
+  },
+  "tips": {
+   "es": "Adecuado para bautizos, prácticas e inmersiones nocturnas.",
+   "en": "Suitable for try-dives, skills practice and night dives.",
+   "fr": "Adapté aux baptêmes, aux exercices et aux plongées de nuit.",
+   "de": "Geeignet für Schnuppertauchen, Übungen und Nachttauchgänge.",
+   "it": "Adatto a battesimi, esercitazioni e immersioni notturne.",
+   "pt": "Adequado para batismos, prática e mergulhos noturnos.",
+   "nl": "Geschikt voor introductieduiken, oefeningen en nachtduiken.",
+   "pl": "Odpowiednia na nurkowania próbne, ćwiczenia i nurkowania nocne.",
+   "ru": "Подходит для пробных погружений, тренировок и ночных погружений.",
+   "zh": "适合体验潜水、技能练习和夜潜。"
+  }
+ },
+ "Los 3 Amigos - Moraira": {
+  "facts": [
+   "tres pequeñas formaciones",
+   "cavidades",
+   "pasos cortos",
+   "fotografía",
+   "vida mediterránea"
+  ],
+  "see": {
+   "es": "Tres pequeñas formaciones rocosas con cavidades y pasos cortos, y vida mediterránea para observar.",
+   "en": "Three small rock formations with cavities and short passages, and Mediterranean life to observe.",
+   "fr": "Trois petites formations rocheuses avec cavités et courts passages, et de la vie méditerranéenne à observer.",
+   "de": "Drei kleine Felsformationen mit Hohlräumen und kurzen Durchgängen sowie mediterranem Leben zum Beobachten.",
+   "it": "Tre piccole formazioni rocciose con cavità e brevi passaggi, e vita mediterranea da osservare.",
+   "pt": "Três pequenas formações rochosas com cavidades e passagens curtas, e vida mediterrânica para observar.",
+   "nl": "Drie kleine rotsformaties met holtes en korte doorgangen, en mediterraan leven om te bekijken.",
+   "pl": "Trzy niewielkie formacje skalne z wnękami i krótkimi przejściami oraz śródziemnomorskim życiem do obserwacji.",
+   "ru": "Три небольших скальных образования с полостями и короткими проходами, а также средиземноморская жизнь для наблюдения.",
+   "zh": "三处小型岩石地貌，有洞穴和短通道，可以观察地中海海洋生物。"
+  },
+  "tips": {
+   "es": "Lleva la cámara: es un sitio agradecido para la fotografía.",
+   "en": "Bring your camera: it is a rewarding spot for photography.",
+   "fr": "Emportez votre appareil photo : c'est un site gratifiant pour la photographie.",
+   "de": "Nimm die Kamera mit: Der Platz lohnt sich für die Fotografie.",
+   "it": "Porta la fotocamera: è un posto che dà soddisfazione per la fotografia.",
+   "pt": "Leva a câmara: é um local que compensa para fotografia.",
+   "nl": "Neem je camera mee: het is een dankbare plek voor fotografie.",
+   "pl": "Weź aparat: to wdzięczne miejsce do fotografii.",
+   "ru": "Возьмите камеру: место хорошо подходит для фотосъёмки.",
+   "zh": "带上相机：这里很适合拍照。"
+  }
+ },
+ "Morro de Toix": {
+  "facts": [
+   "gran pared",
+   "entre Altea y Calpe",
+   "relieves rocosos",
+   "grietas",
+   "posidonia"
+  ],
+  "see": {
+   "es": "Una gran pared entre Altea y Calpe con relieves rocosos, grietas y zonas de posidonia.",
+   "en": "A large wall between Altea and Calpe with rocky relief, cracks and patches of posidonia.",
+   "fr": "Un grand tombant entre Altea et Calpe avec reliefs rocheux, fissures et zones de posidonie.",
+   "de": "Eine große Wand zwischen Altea und Calpe mit Felsstrukturen, Spalten und Posidonia-Flächen.",
+   "it": "Una grande parete tra Altea e Calpe con rilievi rocciosi, fessure e zone di posidonia.",
+   "pt": "Uma grande parede entre Altea e Calpe com relevos rochosos, fendas e zonas de posidónia.",
+   "nl": "Een grote wand tussen Altea en Calpe met rotsreliëf, spleten en posidoniavelden.",
+   "pl": "Duża ściana między Alteą a Calpe z rzeźbą skalną, szczelinami i płatami posidonii.",
+   "ru": "Большая стена между Altea и Calpe со скальным рельефом, трещинами и участками посидонии.",
+   "zh": "Altea 与 Calpe 之间的一面大岩壁，有起伏的岩石、裂缝和波喜荡海草区。"
+  },
+  "tips": {
+   "es": "Una linterna resulta útil para asomarse a las grietas.",
+   "en": "A torch comes in handy for peering into the cracks.",
+   "fr": "Une lampe est utile pour regarder dans les fissures.",
+   "de": "Eine Lampe ist praktisch, um in die Spalten zu schauen.",
+   "it": "Una torcia è utile per sbirciare nelle fessure.",
+   "pt": "Uma lanterna dá jeito para espreitar as fendas.",
+   "nl": "Een lamp is handig om in de spleten te kijken.",
+   "pl": "Latarka przyda się do zaglądania w szczeliny.",
+   "ru": "Фонарь пригодится, чтобы заглядывать в трещины.",
+   "zh": "手电筒有助于查看裂缝内部。"
+  }
+ },
+ "Cala Racó - Calpe": {
+  "facts": [
+   "junto al Peñón de Ifach",
+   "acceso sencillo",
+   "roca",
+   "arena",
+   "praderas de posidonia",
+   "refugio de numerosas especies"
+  ],
+  "see": {
+   "es": "Junto al Peñón de Ifach, roca, arena y praderas de posidonia que dan refugio a muchas especies.",
+   "en": "Next to the Peñón de Ifach, rock, sand and posidonia meadows that shelter many species.",
+   "fr": "Près du Peñón de Ifach, roche, sable et herbiers de posidonie qui abritent de nombreuses espèces.",
+   "de": "Am Peñón de Ifach: Fels, Sand und Posidonia-Wiesen, die vielen Arten Schutz bieten.",
+   "it": "Accanto al Peñón de Ifach, roccia, sabbia e praterie di posidonia che danno rifugio a molte specie.",
+   "pt": "Junto ao Peñón de Ifach, rocha, areia e pradarias de posidónia que abrigam muitas espécies.",
+   "nl": "Naast de Peñón de Ifach: rots, zand en posidoniavelden die veel soorten beschutting bieden.",
+   "pl": "Przy Peñón de Ifach skały, piasek i łąki posidonii dają schronienie wielu gatunkom.",
+   "ru": "Рядом с Peñón de Ifach — скалы, песок и луга посидонии, где укрываются многие виды.",
+   "zh": "在 Peñón de Ifach 旁，岩石、沙地和波喜荡海草床为众多物种提供庇护。"
+  },
+  "tips": {
+   "es": "Recorre despacio el borde de la posidonia, donde se resguarda buena parte de la vida.",
+   "en": "Swim slowly along the edge of the posidonia, where much of the life takes shelter.",
+   "fr": "Longez lentement la bordure de la posidonie, où s'abrite une grande partie de la vie.",
+   "de": "Schwimme langsam am Rand der Posidonia entlang, dort sucht viel Leben Schutz.",
+   "it": "Percorri lentamente il bordo della posidonia, dove si ripara buona parte della vita.",
+   "pt": "Percorre devagar a orla da posidónia, onde se abriga boa parte da vida.",
+   "nl": "Zwem rustig langs de rand van de posidonia, waar veel leven schuilt.",
+   "pl": "Płyń powoli wzdłuż skraju posidonii, gdzie chroni się sporo życia.",
+   "ru": "Медленно проплывите вдоль края посидонии — там укрывается большая часть живности.",
+   "zh": "沿着波喜荡海草床边缘慢慢游，许多生物都藏身于此。"
+  }
+ },
+ "El Tazón - Calpe": {
+  "facts": [
+   "zona rocosa del Peñón",
+   "depresión característica",
+   "recorrido más profundo",
+   "bancos de peces",
+   "grandes ejemplares"
+  ],
+  "see": {
+   "es": "Zona rocosa del Peñón con una depresión característica, donde pueden verse bancos de peces y ejemplares de buen tamaño.",
+   "en": "A rocky area of the Peñón with a distinctive hollow, where schools of fish and large specimens can be seen.",
+   "fr": "Zone rocheuse du Peñón avec une dépression caractéristique, où l'on peut voir des bancs de poissons et de gros spécimens.",
+   "de": "Felsiges Gebiet am Peñón mit einer markanten Senke, in der Fischschwärme und große Exemplare zu sehen sind.",
+   "it": "Zona rocciosa del Peñón con una caratteristica depressione, dove si possono vedere banchi di pesci ed esemplari di grandi dimensioni.",
+   "pt": "Zona rochosa do Peñón com uma depressão característica, onde se podem ver cardumes e exemplares de grande porte.",
+   "nl": "Rotsachtig gebied bij de Peñón met een kenmerkende kom, waar scholen vissen en grote exemplaren te zien zijn.",
+   "pl": "Skalisty rejon Peñón z charakterystycznym zagłębieniem, gdzie można zobaczyć ławice ryb i duże okazy.",
+   "ru": "Скалистый участок Peñón с характерной впадиной, где можно увидеть косяки рыб и крупные экземпляры.",
+   "zh": "Peñón 的岩石区域，有一处标志性的凹陷，可以看到鱼群和大型个体。"
+  },
+  "tips": {
+   "es": "Es un recorrido más profundo: vigila el consumo de aire y tus límites de no descompresión.",
+   "en": "It is a deeper route: keep an eye on your air consumption and no-decompression limits.",
+   "fr": "C'est un parcours plus profond : surveillez votre consommation d'air et vos limites de non-décompression.",
+   "de": "Es ist eine tiefere Route: Achte auf deinen Luftverbrauch und die Nullzeit.",
+   "it": "È un percorso più profondo: tieni d'occhio il consumo d'aria e i limiti di non decompressione.",
+   "pt": "É um percurso mais profundo: vigia o consumo de ar e os limites de não descompressão.",
+   "nl": "Het is een diepere route: let op je luchtverbruik en je nultijd.",
+   "pl": "To głębsza trasa: kontroluj zużycie powietrza i limity bezdekompresyjne.",
+   "ru": "Это более глубокий маршрут: следите за расходом воздуха и бездекомпрессионными пределами.",
+   "zh": "这是一条较深的路线：注意耗气量和免减压极限。"
+  }
+ },
+ "Sargo’s Rock - Calpe": {
+  "facts": [
+   "lado sur del Peñón",
+   "pared",
+   "bloques desprendidos",
+   "pequeñas estructuras",
+   "vida marina concentrada"
+  ],
+  "see": {
+   "es": "Pared en la cara sur del Peñón con bloques desprendidos y pequeñas estructuras que reúnen vida marina.",
+   "en": "A wall on the south side of the Peñón with fallen blocks and small structures that gather marine life.",
+   "fr": "Paroi sur la face sud du Peñón, avec des blocs éboulés et de petites structures qui concentrent la vie marine.",
+   "de": "Wand an der Südseite des Peñón mit abgebrochenen Blöcken und kleinen Strukturen, an denen sich Meeresleben sammelt.",
+   "it": "Parete sul lato sud del Peñón con massi crollati e piccole strutture che radunano vita marina.",
+   "pt": "Parede na face sul do Peñón com blocos desprendidos e pequenas estruturas que reúnem vida marinha.",
+   "nl": "Wand aan de zuidkant van de Peñón met losgeraakte blokken en kleine structuren waar zeeleven samenkomt.",
+   "pl": "Ściana po południowej stronie Peñón z oderwanymi blokami i małymi strukturami, wokół których skupia się życie.",
+   "ru": "Стена на южной стороне Peñón с обрушившимися глыбами и небольшими структурами, где собирается морская жизнь.",
+   "zh": "Peñón 南侧的岩壁，有崩落的岩块和小型结构，海洋生物在此聚集。"
+  },
+  "tips": {
+   "es": "Dedica tiempo a los bloques, que es donde se agrupa la vida.",
+   "en": "Spend time around the blocks, which is where the life gathers.",
+   "fr": "Prenez le temps autour des blocs, c'est là que la vie se regroupe.",
+   "de": "Nimm dir Zeit für die Blöcke, dort sammelt sich das Leben.",
+   "it": "Dedica tempo ai massi, è lì che si raccoglie la vita.",
+   "pt": "Dedica tempo aos blocos, que é onde a vida se concentra.",
+   "nl": "Neem de tijd bij de blokken, daar verzamelt het leven zich.",
+   "pl": "Poświęć czas blokom skalnym, bo tam skupia się życie.",
+   "ru": "Уделите время глыбам — именно там собирается жизнь.",
+   "zh": "多花些时间在岩块周围，生物主要聚集在那里。"
+  }
+ },
+ "El Peñón - Calpe": {
+  "facts": [
+   "zona central del Peñón de Ifach",
+   "pared",
+   "bloques",
+   "pasos rocosos"
+  ],
+  "see": {
+   "es": "Por la parte central del Peñón de Ifach, alternando pared, bloques y pasos entre rocas.",
+   "en": "Along the central part of the Peñón de Ifach, alternating wall, blocks and passages between rocks.",
+   "fr": "Le long de la partie centrale du Peñón de Ifach, en alternant tombant, blocs et passages entre les rochers.",
+   "de": "Entlang des mittleren Teils des Peñón de Ifach, im Wechsel aus Wand, Blöcken und Felsdurchgängen.",
+   "it": "Lungo la parte centrale del Peñón de Ifach, alternando parete, massi e passaggi tra le rocce.",
+   "pt": "Pela parte central do Peñón de Ifach, alternando parede, blocos e passagens entre rochas.",
+   "nl": "Langs het middelste deel van de Peñón de Ifach, afwisselend wand, blokken en doorgangen tussen rotsen.",
+   "pl": "Wzdłuż środkowej części Peñón de Ifach, na przemian ściana, bloki i przejścia między skałami.",
+   "ru": "Вдоль центральной части Peñón de Ifach, где чередуются стена, глыбы и проходы между скалами.",
+   "zh": "沿着 Peñón de Ifach 中部前行，岩壁、岩块与岩间通道交替出现。"
+  },
+  "tips": {}
+ },
+ "Embarcadero - Isla de Benidorm": {
+  "facts": [
+   "zona protegida",
+   "junto al embarcadero de la isla",
+   "inmersiones tranquilas",
+   "vida mediterránea"
+  ],
+  "see": {
+   "es": "Junto al embarcadero de la isla, una zona resguardada con vida mediterránea para observar.",
+   "en": "Next to the island's jetty, a sheltered area with Mediterranean life to observe.",
+   "fr": "Près de l'embarcadère de l'île, une zone abritée avec de la vie méditerranéenne à observer.",
+   "de": "Neben dem Anleger der Insel, ein geschützter Bereich mit mediterranem Leben zum Beobachten.",
+   "it": "Accanto all'imbarcadero dell'isola, una zona riparata con vita mediterranea da osservare.",
+   "pt": "Junto ao cais da ilha, uma zona abrigada com vida mediterrânica para observar.",
+   "nl": "Naast de steiger van het eiland, een beschut gebied met mediterraan leven om te bekijken.",
+   "pl": "Przy przystani na wyspie, osłonięte miejsce ze śródziemnomorskim życiem do obserwacji.",
+   "ru": "Рядом с причалом острова — защищённое место со средиземноморской жизнью для наблюдения.",
+   "zh": "在岛上码头旁，一处避风的区域，可观察地中海海洋生物。"
+  },
+  "tips": {
+   "es": "Pensada para una inmersión tranquila y sin prisas.",
+   "en": "Ideal for a calm, unhurried dive.",
+   "fr": "Idéal pour une plongée calme et sans précipitation.",
+   "de": "Ideal für einen ruhigen Tauchgang ohne Eile.",
+   "it": "Ideale per un'immersione tranquilla e senza fretta.",
+   "pt": "Ideal para um mergulho tranquilo e sem pressa.",
+   "nl": "Ideaal voor een rustige duik zonder haast.",
+   "pl": "Idealne na spokojne nurkowanie bez pośpiechu.",
+   "ru": "Подходит для спокойного, неспешного погружения.",
+   "zh": "适合一次轻松、不赶时间的潜水。"
+  }
+ },
+ "Bajo del Faro - Isla de Benidorm": {
+  "facts": [
+   "bajo el faro",
+   "recorrido paralelo a la pared de la isla",
+   "fondo rocoso",
+   "bancos de peces",
+   "morenas",
+   "nudibranquios"
+  ],
+  "see": {
+   "es": "Siguiendo la pared de la isla bajo el faro, sobre fondo rocoso, con bancos de peces, morenas y nudibranquios.",
+   "en": "Following the island's wall beneath the lighthouse over a rocky bottom, with schools of fish, moray eels and nudibranchs.",
+   "fr": "Le long de la paroi de l'île sous le phare, sur fond rocheux, avec bancs de poissons, murènes et nudibranches.",
+   "de": "Entlang der Inselwand unterhalb des Leuchtturms über felsigem Grund, mit Fischschwärmen, Muränen und Nacktschnecken.",
+   "it": "Lungo la parete dell'isola sotto il faro, su fondale roccioso, con banchi di pesci, murene e nudibranchi.",
+   "pt": "Ao longo da parede da ilha sob o farol, sobre fundo rochoso, com cardumes, moreias e nudibrânquios.",
+   "nl": "Langs de wand van het eiland onder de vuurtoren, boven rotsbodem, met scholen vissen, murenen en naaktslakken.",
+   "pl": "Wzdłuż ściany wyspy pod latarnią, nad skalistym dnem, z ławicami ryb, murenami i nagoskrzelnymi.",
+   "ru": "Вдоль стены острова под маяком, над скалистым дном, с косяками рыб, муренами и голожаберными моллюсками.",
+   "zh": "沿着灯塔下方的岛屿岩壁前行，海底为岩石，可见鱼群、海鳝和海蛞蝓。"
+  },
+  "tips": {
+   "es": "Revisa la roca con calma: los nudibranquios son pequeños y fáciles de pasar por alto.",
+   "en": "Scan the rock slowly: nudibranchs are small and easy to miss.",
+   "fr": "Examinez la roche sans hâte : les nudibranches sont petits et faciles à manquer.",
+   "de": "Suche den Fels langsam ab: Nacktschnecken sind klein und leicht zu übersehen.",
+   "it": "Osserva la roccia con calma: i nudibranchi sono piccoli e facili da non notare.",
+   "pt": "Observa a rocha com calma: os nudibrânquios são pequenos e fáceis de passar despercebidos.",
+   "nl": "Bekijk de rots rustig: naaktslakken zijn klein en makkelijk over het hoofd te zien.",
+   "pl": "Przeglądaj skałę powoli: nagoskrzelne są małe i łatwo je przeoczyć.",
+   "ru": "Осматривайте скалу не спеша: голожаберные маленькие, их легко пропустить.",
+   "zh": "慢慢搜寻岩石：海蛞蝓体型很小，很容易错过。"
+  }
+ },
+ "Cala del Mal Pas - Benidorm": {
+  "facts": [
+   "pequeña cala resguardada",
+   "junto al puerto",
+   "iniciación",
+   "nocturnas",
+   "poca profundidad",
+   "fondo sencillo"
+  ],
+  "see": {
+   "es": "Una pequeña cala resguardada junto al puerto, de fondo sencillo y poca profundidad.",
+   "en": "A small sheltered cove next to the harbour, with a simple, shallow seabed.",
+   "fr": "Une petite crique abritée près du port, au fond simple et peu profond.",
+   "de": "Eine kleine geschützte Bucht neben dem Hafen mit einfachem, flachem Grund.",
+   "it": "Una piccola cala riparata accanto al porto, con fondale semplice e poco profondo.",
+   "pt": "Uma pequena enseada abrigada junto ao porto, de fundo simples e pouco profundo.",
+   "nl": "Een kleine beschutte baai naast de haven, met een eenvoudige, ondiepe bodem.",
+   "pl": "Mała osłonięta zatoczka przy porcie, z prostym i płytkim dnem.",
+   "ru": "Небольшая защищённая бухта у порта с простым и неглубоким дном.",
+   "zh": "港口旁一处避风的小海湾，海底地形简单、水深较浅。"
+  },
+  "tips": {
+   "es": "Buena elección para iniciarse y para inmersiones nocturnas.",
+   "en": "A good choice for getting started and for night dives.",
+   "fr": "Un bon choix pour débuter et pour les plongées de nuit.",
+   "de": "Eine gute Wahl für den Einstieg und für Nachttauchgänge.",
+   "it": "Una buona scelta per iniziare e per le immersioni notturne.",
+   "pt": "Boa escolha para começar e para mergulhos noturnos.",
+   "nl": "Een goede keuze om te beginnen en voor nachtduiken.",
+   "pl": "Dobry wybór na początek i na nurkowania nocne.",
+   "ru": "Хороший выбор для начинающих и для ночных погружений.",
+   "zh": "适合入门和夜潜。"
+  }
+ },
+ "Cueva del Elefante y El Enano": {
+  "facts": [
+   "acantilados de Serra Gelada",
+   "pequeña cavidad",
+   "primera sala",
+   "segunda cámara con burbuja de aire"
+  ],
+  "see": {
+   "es": "En los acantilados de Serra Gelada, una pequeña cavidad con una primera sala y una segunda cámara con burbuja de aire.",
+   "en": "In the cliffs of Serra Gelada, a small cavity with a first chamber and a second one holding an air pocket.",
+   "fr": "Dans les falaises de la Serra Gelada, une petite cavité avec une première salle et une seconde chambre abritant une bulle d'air.",
+   "de": "In den Klippen der Serra Gelada eine kleine Höhle mit einem ersten Raum und einer zweiten Kammer mit Luftblase.",
+   "it": "Nelle scogliere della Serra Gelada, una piccola cavità con una prima sala e una seconda camera con bolla d'aria.",
+   "pt": "Nas falésias da Serra Gelada, uma pequena cavidade com uma primeira sala e uma segunda câmara com bolsa de ar.",
+   "nl": "In de kliffen van Serra Gelada een kleine holte met een eerste zaal en een tweede kamer met een luchtbel.",
+   "pl": "W klifach Serra Gelada niewielka jaskinia z pierwszą salą i drugą komorą z pęcherzem powietrza.",
+   "ru": "В скалах Serra Gelada — небольшая полость с первым залом и второй камерой с воздушным пузырём.",
+   "zh": "在 Serra Gelada 的悬崖中，有一个小洞穴，内有第一个洞室和带有气穴的第二个洞室。"
+  },
+  "tips": {
+   "es": "Lleva linterna para recorrer el interior de la cavidad.",
+   "en": "Bring a torch to explore the inside of the cavity.",
+   "fr": "Prenez une lampe pour explorer l'intérieur de la cavité.",
+   "de": "Nimm eine Lampe mit, um das Innere der Höhle zu erkunden.",
+   "it": "Porta una torcia per esplorare l'interno della cavità.",
+   "pt": "Leva lanterna para explorar o interior da cavidade.",
+   "nl": "Neem een lamp mee om de binnenkant van de holte te verkennen.",
+   "pl": "Weź latarkę, by zwiedzić wnętrze jaskini.",
+   "ru": "Возьмите фонарь, чтобы осмотреть полость изнутри.",
+   "zh": "带上手电筒，探索洞穴内部。"
+  }
+ }
+}

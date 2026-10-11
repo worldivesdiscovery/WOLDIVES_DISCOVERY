@@ -2677,3 +2677,37 @@ a.acc-kpi,button.acc-kpi{cursor:pointer}a.acc-kpi:hover,button.acc-kpi:hover{bor
 .totp-qr{margin:10px 0;width:200px;max-width:100%;background:#fff;padding:8px;border-radius:12px;border:1px solid var(--line)}
 .totp-qr svg{display:block;width:100%;height:auto}
 .totp-codes{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px;line-height:1.8;background:#fff;border:1px dashed var(--line);border-radius:10px;padding:10px 14px;margin:10px 0;columns:2}
+
+/* ---------------------------------------------------------------- v50.36 · Fase 5: legal, transparency, catalogue, maps, accessibility */
+/* Visible focus everywhere (the 13 «outline:none» rules either have a ring or get one here) and in Windows high contrast */
+.search-input-wrap input:focus{box-shadow:0 0 0 2px var(--sea) inset;background:#fff}
+.wd-pin-wrap:focus-visible .wd-pin{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--sea);border-radius:50%}
+@media (forced-colors:active){:focus-visible,.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid CanvasText!important;outline-offset:2px}}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Demo ribbon */
+.demo-ribbon{position:sticky;top:0;z-index:2000;background:#7a2b12;color:#fff;text-align:center;font-size:13px;line-height:1.4;padding:7px 14px}
+/* Legal pages: prevails note, announced version, history */
+.lg-main{min-width:0;display:grid;gap:16px;align-content:start}
+.lg-prevails,.lg-upcoming{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.lg-upcoming{display:block}.btn-link{background:none;border:0;padding:0;color:var(--sea);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+.lg-history{border-top:1px solid var(--line);padding-top:16px}.lg-history h2{font-size:18px;margin:0 0 10px}
+.lg-hist-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.lg-hist-list li{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:14px}
+.lg-hist-list p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.lg-accept-list{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:8px}.lg-accept-list li{display:flex;gap:8px;align-items:center}
+.le-md{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.5}
+.le-hist ul{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--muted)}
+.adl-lang{display:inline-block;padding:2px 6px;border-radius:6px;background:#eef6f6;font-size:11px;font-weight:800;text-transform:uppercase}
+/* Reviews: provider reply, actions, reports */
+.review-reply{margin:12px 0 0;padding:12px 14px;border-left:3px solid var(--sea);background:#f3f8f8;border-radius:0 10px 10px 0;font-size:14px}
+.review-reply p{margin:0}.review-reply-h{display:flex;align-items:center;gap:6px;font-weight:800;color:var(--deep);margin-bottom:6px!important;font-size:13px}
+.review-actions{display:flex;gap:14px;justify-content:flex-end;align-items:center;margin-top:10px;font-size:13px}
+.wd-report{display:inline-flex;align-items:center;gap:5px;background:none;border:0;padding:4px 0;color:var(--muted);font:600 12px/1.2 inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.wd-report:hover{color:#8a3b25}.cp-card .wd-report,.tp-side>.wd-report{margin-top:12px}
+/* Booking of experiences: legal block */
+.eb-legal{margin:16px 0}.eb-legal .lg-check{margin-top:10px}
+/* Administración: point texts, images */
+.apt-list{display:grid;gap:14px}.apt-item{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fff}
+.apt-item header{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:baseline;margin-bottom:10px}.apt-item h3{margin:0;font-size:16px}
+tr.is-warn td{background:#fffaf0}
+.sc-consent{margin:12px 0 0}
+@media (max-width:640px){.lg-hist-list li{flex-direction:column;align-items:flex-start}.review-actions{justify-content:flex-start;flex-wrap:wrap}}

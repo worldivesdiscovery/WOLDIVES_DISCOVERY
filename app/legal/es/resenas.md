@@ -1,4 +1,4 @@
-# Política de reseñas
+# Normas de las reseñas
 
 Última actualización: {{version}}
 
@@ -22,7 +22,11 @@ Retiramos las reseñas que:
 - no traten sobre la experiencia con el centro;
 - sean falsas o se hayan escrito a cambio de una contraprestación no indicada.
 
-Si crees que una reseña incumple esta política, denúnciala desde [Denunciar contenido](#/legal/denuncias).
+Si crees que una reseña incumple estas normas, pulsa **«Denunciar»** en la propia reseña o usa [Denunciar contenido](#/legal/denuncias). Revisamos cada denuncia, decidimos de forma motivada y avisamos a quien denunció y a quien escribió la reseña.
+
+## Respuesta del centro
+
+El centro o profesional valorado puede publicar **una única respuesta pública** a cada reseña, que puede editar o borrar. No hay hilos ni comentarios de otros usuarios. La respuesta debe ser respetuosa y no puede incluir datos personales del cliente.
 
 ## Después de tu inmersión
 
