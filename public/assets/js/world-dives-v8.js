@@ -325,10 +325,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const socials=[['instagram_url','Instagram'],['facebook_url','Facebook'],['youtube_url','YouTube'],['tiktok_url','TikTok'],['twitter_url','X']].filter(x=>c[x[0]]);
     const typeLabel=v=>(SERVICE_TYPES.find(x=>x.value===v)||{label:'Actividad'}).label;
     const svcCard=s=>{const isRental=s.service_type==='alquiler_equipo'; const slots=s.next_slots||[];
-      return `<article class="cp-service" style="--svc:${esc(s.color||'#0b7a89')}"><div class="cp-service-head"><span class="cp-service-icon">${wdIcon(s.service_type,22)}</span><div><h3>${esc(s.title)}</h3><p>${esc(typeLabel(s.service_type))}${s.duration_minutes?' · '+esc(wdDuration(s.duration_minutes)):''}</p></div><div class="cp-price"><strong>${wdMoney(s.price,s.currency)}</strong><small>${isRental?'tarifa base':'por persona'}</small></div></div>
+      const off=s.bookable===false;
+      return `<article class="cp-service" style="--svc:${esc(s.color||'#0b7a89')}"><div class="cp-service-head"><span class="cp-service-icon">${wdIcon(s.service_type,22)}</span><div><h3>${esc(s.title)}</h3><p>${esc(typeLabel(s.service_type))}${s.duration_minutes?' · '+esc(wdDuration(s.duration_minutes)):''}</p>${isRental?'':wdModeTag(s)}</div><div class="cp-price"><strong>${wdMoney(s.price,s.currency)}</strong><small>${isRental?'tarifa base':'por persona'}</small></div></div>
         ${s.description?`<p class="cp-service-desc">${esc(s.description)}</p>`:''}
-        ${isRental?'':`<div class="cp-slots">${slots.length?slots.map(sl=>`${Number(sl.spots_available)<=0?`<span class="cp-slot is-full" aria-disabled="true"><strong>${esc(wdDay(sl.slot_date))}</strong><span>${esc(sl.slot_time)}</span><small>Completa</small></span>`:`<a class="cp-slot" href="#/reservar?center=${c.id}&service=${s.id}&slot=${sl.id}"><strong>${esc(wdDay(sl.slot_date))}</strong><span>${esc(sl.slot_time)}</span><small>${sl.spots_available} plazas</small></a>`}`).join(''):'<span class="cp-slots-empty">Próximas fechas por anunciar. Puedes solicitarla igualmente.</span>'}</div>`}
-        <a class="btn ${isRental?'':'btn-primary'} cp-book" href="#/reservar?center=${c.id}&service=${s.id}">${isRental?'Añadir a una reserva':'Reservar'}</a></article>`;};
+        ${isRental||off?'':`<div class="cp-slots">${slots.length?slots.map(sl=>`${Number(sl.spots_available)<=0?`<span class="cp-slot is-full" aria-disabled="true"><strong>${esc(wdDay(sl.slot_date))}</strong><span>${esc(sl.slot_time)}</span><small>Completa</small></span>`:`<a class="cp-slot" href="#/reservar?center=${c.id}&service=${s.id}&slot=${sl.id}"><strong>${esc(wdDay(sl.slot_date))}</strong><span>${esc(sl.slot_time)}</span><small>${sl.spots_available} plazas</small></a>`}`).join(''):'<span class="cp-slots-empty">Próximas fechas por anunciar. Puedes solicitarla igualmente.</span>'}</div>`}
+        ${off?`<span class="btn cp-book is-disabled" aria-disabled="true">No admite reservas ahora mismo</span>`:`<a class="btn ${isRental?'':'btn-primary'} cp-book" href="#/reservar?center=${c.id}&service=${s.id}">${isRental?'Añadir a una reserva':s.booking_mode==='payment'?(Number(s.price)>0?'Reservar y pagar':'Reservar'):'Enviar solicitud'}</a>`}</article>`;};
     setApp(`<section class="cp">
       <div class="cp-hero ${c.cover_url?'has-cover':''}" style="${c.cover_url?`--cover:url('${esc(c.cover_url)}')`:''}">
         <div class="cp-hero-inner">
@@ -387,7 +388,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const rating=reviews?`<span class="cd-rating"><span class="cd-star">★</span><strong>${Number(c.rating_average||0).toFixed(1)}</strong><span>(${reviews})</span></span>`:'<span class="cd-rating is-new">Sin reseñas aún</span>';
     return `<article class="cd-card">
       <a class="cd-media" href="#/centro?id=${id}" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(centerCoverImg(c))}" alt="" loading="lazy">
-        <span class="cd-badges">${online?'<span class="cd-badge is-live">Reserva online</span>':''}${Number(c.spots_week||0)>0?'<span class="cd-badge">Plazas esta semana</span>':''}</span></a>
+        <span class="cd-badges">${c.instant?'<span class="cd-badge is-live">Confirmación inmediata</span>':online?'<span class="cd-badge">Bajo petición</span>':''}${Number(c.spots_week||0)>0?'<span class="cd-badge">Plazas esta semana</span>':''}</span></a>
       <div class="cd-body">
         <div class="cd-id"><span class="cd-logo">${centerLogoMarkup(c,'48px')}</span><div><h3><a href="#/centro?id=${id}">${escapeHtml(c.name)}</a></h3><p class="cd-place">${wdIcon('pin',14)}${place||'Ubicación por confirmar'}</p></div></div>
         <div class="cd-line">${rating}${Number(c.point_count||0)?`<span class="cd-dot">${c.point_count} ${Number(c.point_count)===1?'punto':'puntos'} de buceo</span>`:''}</div>
@@ -401,7 +402,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       </div>
     </article>`;
   }
-  const CD_FLAGS=[['online','Reserva online'],['week','Plazas esta semana'],['courses','Cursos'],['try','Bautizos'],['trips','Viajes'],['reviews','Con reseñas']];
+  const CD_FLAGS=[['instant','Confirmación inmediata'],['online','Reserva online'],['week','Plazas esta semana'],['courses','Cursos'],['try','Bautizos'],['trips','Viajes'],['reviews','Con reseñas']];
   const CD_SORTS=[['recommended','Recomendados'],['rating','Mejor valorados'],['reviews','Más reseñas'],['price','Precio más bajo'],['name','Nombre A-Z']];
   async function renderCenters(params){
     params=params instanceof URLSearchParams?params:new URLSearchParams();
@@ -728,7 +729,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       </div></header>
       <div class="cd-wrap">
         <div class="cd-toolbar">
-          <div class="cd-chips" role="group" aria-label="Nivel">${PT_LEVELS.map(([k,l])=>`<button type="button" class="cd-chip" data-level="${k}" aria-pressed="${st.level===k}">${l}</button>`).join('')}<button type="button" class="cd-chip" data-only="centers" aria-pressed="${st.only==='centers'}">Con centro que lo ofrece</button></div>
+          <div class="cd-chips" role="group" aria-label="Nivel">${PT_LEVELS.map(([k,l])=>`<button type="button" class="cd-chip" data-level="${k}" aria-pressed="${st.level===k}">${l}</button>`).join('')}<button type="button" class="cd-chip" data-only="centers" aria-pressed="${st.only==='centers'}">Con centro que lo ofrece</button><button type="button" class="cd-chip" data-only="instant" aria-pressed="${st.only==='instant'}">Confirmación inmediata</button></div>
           <div class="cd-tools">
             <label><span class="sr-only">Tipo de buceo</span><select id="pt-type"><option value="">Cualquier tipo</option>${DIVE_TYPE_FALLBACK.map(([l])=>`<option value="${wdKey(l)}" ${wdKey(l)===st.type?'selected':''}>${escapeHtml(l)}</option>`).join('')}</select></label>
             <label><span class="sr-only">País</span><select id="pt-country"><option value="">Todos los países</option></select></label>
@@ -775,7 +776,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $('#pt-type').onchange=e=>{ st.type=e.target.value; load(); };
     $('#pt-sort').onchange=e=>{ st.sort=e.target.value; load(); };
     $$('.pt-page [data-level]').forEach(b=>b.onclick=()=>{ st.level=st.level===b.dataset.level?'':b.dataset.level; $$('.pt-page [data-level]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.level===st.level))); load(); });
-    $('.pt-page [data-only]').onclick=e=>{ st.only=st.only?'':'centers'; e.currentTarget.setAttribute('aria-pressed',String(!!st.only)); load(); };
+    $$('.pt-page [data-only]').forEach(b=>b.onclick=e=>{ const k=e.currentTarget.dataset.only; st.only=st.only===k?'':k; $$('.pt-page [data-only]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.only===st.only))); load(); });
     clear.onclick=reset; more.onclick=()=>{ st.page+=1; load(true); };
     await load();
   }
@@ -801,7 +802,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const vt=(virtual.items||[]).map(v=>{ const ext=v.experience_type==='streetview'; const href=ext?(v.url||'#'):`#/virtual?experience=${v.id}&point=${p.id}`;
       return `<article class="pp-virtual"><span class="pp-virtual-mark">360°</span><div><p class="eyebrow">${escapeHtml(labels[v.experience_type]||'Recorrido virtual')}</p><h3>${escapeHtml(v.title)}</h3><p>${escapeHtml(v.description||'Recorre esta inmersión antes de entrar al agua.')}</p><a class="btn btn-primary" href="${escapeHtml(href)}" ${ext?'target="_blank" rel="noopener"':''}>${ext?'Abrir Street View':'Entrar en el recorrido'}</a></div></article>`; }).join('');
     const centers=pc.items||[];
-    const centerRowHtml=c=>`<article class="pp-center"><span class="pp-center-logo">${centerLogoMarkup(c,'48px')}</span><div class="pp-center-main"><a href="#/centro?id=${c.id}"><strong>${escapeHtml(c.name)}</strong></a><small>${escapeHtml([c.city,c.country].filter(Boolean).join(' · '))}${c.distance_km!=null?' · a '+Number(c.distance_km).toLocaleString(wdLocale(),{maximumFractionDigits:1})+' km':''}</small>${centerRatingMarkup(c)}</div><div class="pp-center-actions"><a class="btn" href="#/centro?id=${c.id}">Ver centro</a><a class="btn btn-primary" href="#/reservar?center=${c.id}">Reservar</a></div></article>`;
+    const centerRowHtml=c=>`<article class="pp-center"><span class="pp-center-logo">${centerLogoMarkup(c,'48px')}</span><div class="pp-center-main"><a href="#/centro?id=${c.id}"><strong>${escapeHtml(c.name)}</strong></a><small>${escapeHtml([c.city,c.country].filter(Boolean).join(' · '))}${c.distance_km!=null?' · a '+Number(c.distance_km).toLocaleString(wdLocale(),{maximumFractionDigits:1})+' km':''}</small>${centerRatingMarkup(c)}${c.instant?'<span class="wd-mode is-pay">Confirmación inmediata disponible</span>':Number(c.services_count)>0?'<span class="wd-mode is-req">Reservas bajo petición</span>':''}</div><div class="pp-center-actions"><a class="btn" href="#/centro?id=${c.id}">Ver centro</a>${Number(c.services_count)>0?`<a class="btn btn-primary" href="#/reservar?center=${c.id}">Reservar</a>`:''}</div></article>`;
     setApp(`<section class="tp-page pp-page">
       <header class="tp-hero tp-dhero"><img class="tp-hero-img" src="${escapeHtml(cover)}" alt=""><div class="tp-hero-in">
         <nav class="tp-crumbs"><a href="#/puntos">Puntos de buceo</a><span>/</span>${p.zone?`<a href="#/puntos?zone=${encodeURIComponent(p.zone)}">${escapeHtml(p.zone)}</a><span>/</span>`:''}${escapeHtml(p.name)}</nav>
@@ -1068,8 +1069,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $('#setup-form').onsubmit=async e=>{e.preventDefault(); try{await postJSON('/api/setup',{fullname:$('#s-name').value,email:$('#s-email').value,username:$('#s-user').value,password:$('#s-pass').value});await loadMe();location.hash='#/cuenta?seguridad=1';toast('Administrador creado. Activa ahora la verificación en dos pasos.');}catch(err){toast(err.message)}};
   }
 
-  function bookingStatus(status){ const map={pending:['Pendiente','warn'],confirmed:['Confirmada','good'],rejected:['Rechazada','bad'],completed:['Completada','good'],cancelled:['Cancelada','bad']}; return map[status]||[status||'Pendiente','warn']; }
+  // One set of booking states everywhere (same labels as the server, emails and PDFs).
+  const WD_STATES={requested:['Solicitada','warn'],pending:['Solicitada','warn'],accepted_pending_payment:['Aceptada · pendiente de pago','warn'],payment_in_progress:['Pago en curso','muted'],confirmed:['Confirmada','good'],rejected:['Rechazada','bad'],expired:['Caducada','muted'],cancelled:['Cancelada','bad'],completed:['Completada','good']};
+  function bookingStatus(status,label){ const x=WD_STATES[status]||[status||'—','muted']; return [label||x[0],x[1]]; }
   function experienceStatus(status){ const map={requested:['Solicitud enviada','warn'],confirmed:['Confirmada','good'],rejected:['No disponible','bad'],cancelled:['Cancelada','bad'],completed:['Completada','good']}; return map[status]||[status||'Solicitud enviada','warn']; }
+  // «12/10 18:30» for deadlines (local time of the activity).
+  function wdDeadline(v){ if(!v) return ''; const d=new Date(String(v).length<=16?String(v):v); if(isNaN(d)) return String(v); return d.toLocaleString(wdLocale(),{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
   function daysUntil(date){ if(!date)return null; const d=new Date(date+'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); return Math.ceil((d-today)/86400000); }
   function areaDate(date,time=''){ return date ? `${fmtDate(date)}${time?' · '+escapeHtml(time):''}` : 'Fecha por confirmar'; }
 
@@ -1102,15 +1107,15 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const me=await api('/api/me'); if(!me.authenticated){goLogin();return;} state.me=me; if(me.user.role==='center'){location.hash='#/admin';return;}
     const d=await api('/api/me/area'); const esc=escapeHtml, today=wdToday();
     const bookings=d.bookings||[], experiences=d.experience_bookings||[], messages=d.messages||[];
-    const live=b=>!['completed','cancelled','rejected'].includes(b.status)&&(b.booking_date||'9999')>=today;
+    const live=b=>!['completed','cancelled','rejected','expired'].includes(b.status)&&(b.booking_date||'9999')>=today;
     const upcoming=bookings.filter(live).sort((a,b)=>String(a.booking_date+a.booking_time).localeCompare(String(b.booking_date+b.booking_time)));
     const past=bookings.filter(b=>!live(b));
     const upcomingExp=experiences.filter(e=>!['completed','cancelled','rejected'].includes(e.status));
     const next=upcoming[0]; const comp=profileCompletion(me.profile,me.documents);
     const expiring=(me.documents||[]).filter(x=>x.expires_at&&daysUntil(x.expires_at)<45).length;
-    const toPay=upcoming.filter(b=>Number(b.price)>0&&(b.payment_status==='review'||b.payment_status==='required'&&(b.status==='confirmed'||b.booking_mode!=='request'))).length;
-    const bkRow=b=>{ const st=bookingStatus(b.status); return `<a class="acc-row" href="#/reserva?id=${b.id}">${accDate(b.booking_date)}<span class="acc-row-main"><strong>${esc(b.service_title||'Inmersión')} · ${esc(b.center_name)}</strong><small>${esc([b.booking_time,b.point_name||'Punto a concretar',`${b.participants} buceador${b.participants==1?'':'es'}`].filter(Boolean).join(' · '))}</small></span><span class="acc-row-tags"><span class="status ${st[1]}">${esc(st[0])}</span>${Number(b.price)>0?wdPayment(b.payment_status):''}</span><span class="acc-chev">${wdIcon('arrow',16)}</span></a>`; };
-    const nextCard=next?(()=>{ const n=daysUntil(next.booking_date), st=bookingStatus(next.status); const when=n===0?'Hoy':n===1?'Mañana':`En ${n} días`; const maps=next.center_address?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([next.center_address,next.city].filter(Boolean).join(', '))}`:'';
+    const toPay=upcoming.filter(b=>Number(b.price)>0&&(b.payment_status==='review'||['accepted_pending_payment','payment_in_progress'].includes(b.status))).length;
+    const bkRow=b=>{ const st=bookingStatus(b.status,b.status_label); const due=b.status==='accepted_pending_payment'&&b.payment_deadline?`<small class="acc-due">${wdIcon('clock',13)} Paga antes del ${esc(wdDeadline(b.payment_deadline))}</small>`:b.status==='requested'&&b.response_deadline?`<small class="acc-due">${wdIcon('clock',13)} El centro responde antes del ${esc(wdDeadline(b.response_deadline))}</small>`:''; return `<a class="acc-row" href="#/reserva?id=${b.id}">${accDate(b.booking_date)}<span class="acc-row-main"><strong>${esc(b.service_title||'Inmersión')} · ${esc(b.center_name)}</strong><small>${esc([b.booking_time,b.point_name||'Punto a concretar',`${b.participants} buceador${b.participants==1?'':'es'}`].filter(Boolean).join(' · '))}</small><small class="acc-mode">${esc(b.mode_label||'')}</small>${due}</span><span class="acc-row-tags"><span class="status ${st[1]}">${esc(st[0])}</span>${Number(b.price)>0?wdPayment(b.payment_status):''}</span><span class="acc-chev">${wdIcon('arrow',16)}</span></a>`; };
+    const nextCard=next?(()=>{ const n=daysUntil(next.booking_date), st=bookingStatus(next.status,next.status_label); const when=n===0?'Hoy':n===1?'Mañana':`En ${n} días`; const maps=next.center_address?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([next.center_address,next.city].filter(Boolean).join(', '))}`:'';
       return `<article class="acc-next"><div class="acc-next-when"><span>${esc(when)}</span>${accDate(next.booking_date)}</div><div class="acc-next-main"><p class="eyebrow">TU PRÓXIMA INMERSIÓN</p><h2>${esc(next.service_title||'Inmersión')}</h2><p class="acc-next-meta">${wdIcon('calendar',15)} ${esc(wdLongDay(next.booking_date))}${next.booking_time?' · '+esc(next.booking_time):''}<br>${wdIcon('pin',15)} ${esc(next.center_name)}${next.point_name?' · '+esc(next.point_name):''}</p>
         <div class="acc-next-tags"><span class="status ${st[1]}">${esc(st[0])}</span>${Number(next.price)>0?wdPayment(next.payment_status):''}</div>
         <div class="page-actions"><a class="btn btn-primary" href="#/reserva?id=${next.id}">Ver reserva y QR</a><a class="btn" href="/api/bookings/${next.id}/receipt.pdf" target="_blank" rel="noopener">${wdIcon('download',15)} PDF sin conexión</a>${maps?`<a class="btn" href="${esc(maps)}" target="_blank" rel="noopener">${wdIcon('pin',15)} Cómo llegar</a>`:''}</div></div></article>`; })()
@@ -1210,7 +1215,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     computer:'<rect x="6" y="5" width="12" height="14" rx="3"/><path d="M9 10h6M9 14h4M6 9H3M6 15H3"/>',
     full_kit:'<path d="M4 8h16l-1 12H5z"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/>'};
   const bkEquipIcon=code=>`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${BK_EQUIP_ICONS[code]||BK_EQUIP_ICONS.full_kit}</svg>`;
-  const BK_MODE={payment:['Pago online','Pagas al reservar y la plaza queda guardada.'],instant:['Confirmación inmediata','La plaza queda confirmada al momento.'],request:['Bajo confirmación','El centro confirma la plaza y después pagas.']};
+  // What each booking mode means for the diver (v50.32).
+  const bkModeText=(s,online)=>s.booking_mode==='payment'
+    ?[s.mode_label||'Pago al reservar · confirmación inmediata','Pagas ahora con tarjeta y la reserva queda confirmada al momento, sin esperar al centro. Te guardamos las plazas unos minutos mientras pagas.']
+    :[s.mode_label||'Bajo petición','No se cobra nada hasta que el centro acepte. '+(online?'Si acepta, te avisaremos para pagar online antes del plazo que te indiquemos.':'Si acepta, pagarás directamente en el centro el día de la actividad.')];
 
   async function renderBookingCenterPicker(){
     let centers=[]; try{ centers=(await api('/api/centers')).items||[]; }catch(err){ setApp(`<section class="page"><div class="empty"><h2>No se han podido cargar los centros</h2><p>${escapeHtml(err.message)}</p></div></section>`); return; }
@@ -1279,10 +1287,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     </section>`);
     root=$('.bk-page');
     // ---- render pieces
-    const drawServices=()=>{ $('#bk-services').innerHTML=services.map(s=>{ const free=(s.slots||[]).filter(sl=>Number(sl.spots_available)>0); const next=free[0]; const mode=BK_MODE[s.booking_mode]||BK_MODE.request;
-        return `<button type="button" class="bk-svc ${s.id===st.service?'is-on':''}" data-id="${s.id}" ${free.length?'':'disabled'} aria-pressed="${s.id===st.service}" style="--c:${esc(s.color||'#0b7a89')}">
+    const drawServices=()=>{ $('#bk-services').innerHTML=services.map(s=>{ const free=(s.slots||[]).filter(sl=>Number(sl.spots_available)>0); const next=free[0]; const ok=free.length&&s.bookable!==false;
+        return `<button type="button" class="bk-svc ${s.id===st.service?'is-on':''}" data-id="${s.id}" ${ok?'':'disabled'} aria-pressed="${s.id===st.service}" style="--c:${esc(s.color||'#0b7a89')}">
           <span class="bk-svc-icon">${wdIcon(s.service_type,22)}</span>
-          <span class="bk-svc-txt"><strong>${esc(s.title)}</strong><small>${[s.duration_minutes?wdDuration(s.duration_minutes):'',mode[0]].filter(Boolean).map(esc).join(' · ')}</small><small class="bk-svc-next">${next?`Próxima: ${esc(wdDay(next.slot_date))} · ${esc(next.slot_time)}`:'Sin salidas próximas'}</small></span>
+          <span class="bk-svc-txt"><strong>${esc(s.title)}</strong><small>${s.duration_minutes?esc(wdDuration(s.duration_minutes)):''}</small>${wdModeTag(s)}<small class="bk-svc-next">${s.bookable===false?'No admite reservas ahora mismo':next?`Próxima: ${esc(wdDay(next.slot_date))} · ${esc(next.slot_time)}`:'Sin salidas próximas'}</small></span>
           <span class="bk-svc-price"><strong>${wdMoney(s.price,s.currency)}</strong><small>por persona</small></span></button>`; }).join('')||`<div class="bk-empty">Este centro todavía no ha publicado actividades con reserva online.${center.phone?` Llámales al <a href="tel:${esc(String(center.phone).replace(/\s+/g,''))}">${esc(center.phone)}</a>.`:''}</div>`; };
     const drawPoints=()=>{ const used=new Map(); (svc()?.slots||[]).forEach(sl=>(sl.points||[]).forEach(p=>used.set(Number(p.id),p.name))); const box=$('#bk-points');
       if(used.size<2){ box.innerHTML=''; box.hidden=true; if(st.point&&!used.has(st.point)) st.point=0; return; }
@@ -1309,13 +1317,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       $$('#bk-equip .bk-item').forEach(it=>{ const q=st.qty[it.dataset.code]||0; it.querySelector('output').textContent=q; it.classList.toggle('is-on',q>0); it.querySelector('[data-q="-1"]').disabled=q<=0; it.querySelector('[data-q="1"]').disabled=q>=st.pax; }); };
     const equipCodes=()=>st.rent?Object.entries(st.qty).filter(([,q])=>q>0).map(([c,q])=>`${c}:${q}`):[];
     let quote=null, qSeq=0, qTimer=0;
-    const drawSummary=()=>{ const s=svc(), sl=slotObj(), mode=BK_MODE[s?.booking_mode]||BK_MODE.request; const ready=!!(s&&sl);
+    const drawSummary=()=>{ const s=svc(), sl=slotObj(); const ready=!!(s&&sl);
       const lines=quote?.lines||[]; const total=quote?.total||0;
-      const online=!!center.online_payments, paid=total>0;
-      const cta=!ready?(s?'Elige fecha y hora':'Elige una actividad'):s.booking_mode==='request'?'Enviar solicitud':!paid?'Reservar ahora':online?`Reservar y pagar ${wdMoney(total,quote?.currency)}`:'Reservar · pago en el centro';
-      const modeTxt=!s?null:online||!paid?mode:s.booking_mode==='request'?['Bajo confirmación','El centro confirma la plaza y pagas allí el día de la inmersión.']:['Sin pago por adelantado','Reservas ahora, el centro confirma tu plaza y pagas allí el día de la inmersión.'];
-      const payPanel=!s||!paid?'':online?`<div class="pay-trust"><div class="pay-trust-head">${wdIcon('lock',16)}<strong>${s.booking_mode==='request'?'Sin cargo hasta que el centro confirme':'Pago 100 % seguro'}</strong></div>
-          <ul><li>${wdIcon('shield',14)}Cobro procesado por Stripe, con cifrado y verificación 3D Secure.</li><li>${wdIcon('card',14)}Tus datos de tarjeta nunca pasan por WORLDIVES ni por el centro.</li><li>${wdIcon('check',14)}${s.booking_mode==='request'?'Cuando el centro acepte, te avisamos para pagar online.':'Confirmación al momento, recibo y justificante PDF.'}</li></ul>
+      const online=!!(s?s.payments_ready:center.online_payments), paid=total>0, payMode=s?.booking_mode==='payment';
+      const cta=!ready?(s?'Elige fecha y hora':'Elige una actividad'):s.bookable===false?'No disponible':!payMode?'Enviar solicitud':paid?`Reservar y pagar ${wdMoney(total,quote?.currency)}`:'Reservar';
+      const modeTxt=s?bkModeText(s,online):null;
+      const payPanel=!s||!paid?'':(payMode||online)?`<div class="pay-trust"><div class="pay-trust-head">${wdIcon('lock',16)}<strong>${payMode?'Pago 100 % seguro':'No se cobra nada hasta que el centro acepte'}</strong></div>
+          <ul><li>${wdIcon('shield',14)}Cobro procesado por Stripe, con cifrado y verificación 3D Secure.</li><li>${wdIcon('card',14)}Tus datos de tarjeta nunca pasan por WORLDIVES ni por el centro.</li><li>${wdIcon('check',14)}${payMode?'Confirmación al momento, recibo y justificante PDF.':'Cuando el centro acepte, te avisamos para pagar online antes del plazo.'}</li></ul>
           <div class="pay-brands" aria-label="Tarjetas aceptadas"><span>VISA</span><span>Mastercard</span><span>AMEX</span><span>Apple Pay</span><span>Google Pay</span></div></div>`
         :`<div class="pay-trust is-desk"><div class="pay-trust-head">${wdIcon('wallet',16)}<strong>Pagas en el centro</strong></div><ul><li>${wdIcon('check',14)}No se te cobra nada ahora.</li><li>${wdIcon('card',14)}Abonas ${ready&&quote?wdMoney(total,quote.currency):'el importe'} directamente al centro el día de la actividad.</li></ul></div>`;
       $('#bk-summary').innerHTML=`<div class="bk-card">
@@ -1330,13 +1338,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="bk-total"><span>Total</span><strong>${ready&&quote?wdMoney(total,quote.currency):'—'}</strong></div>
         <button type="button" class="btn btn-primary bk-go" ${ready?'':'disabled'}>${esc(cta)}</button>
         ${modeTxt?`<p class="bk-mode"><b>${esc(modeTxt[0])}.</b> ${esc(modeTxt[1])}</p>`:''}${payPanel}
-        ${center.cancellation_text?`<div class="bk-policy">${wdIcon('calendar',15)}<p>${esc(center.cancellation_text)}${center.cancellation_note?' '+esc(center.cancellation_note):''}</p></div>`:''}
-        <p class="bk-legal">Al reservar aceptas las <a href="#/legal/reservas" target="_blank" rel="noopener">condiciones de reserva</a> y la política de cancelación del centro. Las actividades con fecha concreta no tienen derecho de desistimiento. Presta la actividad ${esc(center.name)}; WORLDIVES gestiona la reserva y el cobro.</p>
+        ${center.cancellation_text?`<div class="bk-policy">${wdIcon('calendar',15)}<p><b>Política de cancelación.</b> ${esc(center.cancellation_text)}${center.cancellation_note?' '+esc(center.cancellation_note):''}</p></div>`:''}
+        <div class="bk-legal"><p><b>Prestado por ${esc(center.legal_name||center.name)}${center.country?', '+esc(center.country):''}.</b> WORLDIVES DISCOVERY es la plataforma de reservas: no organiza ni presta la actividad.</p><p>Precio final fijado por el centro, impuestos incluidos.</p><p>Las actividades de ocio con fecha concreta no tienen derecho de desistimiento de 14 días (art. 103.l del TRLGDCU); se aplica la política de cancelación del centro.</p><p>Al reservar aceptas las <a href="#/legal/reservas" target="_blank" rel="noopener">condiciones de reserva</a> y las <a href="#/legal/condiciones-buceadores" target="_blank" rel="noopener">condiciones de uso</a>.</p></div>
         <ul class="bk-trust"><li>${wdIcon('users',15)}Tus datos y tu certificación llegan al centro con la reserva.</li>${center.phone?`<li>${wdIcon('clock',15)}¿Dudas? <a href="tel:${esc(String(center.phone).replace(/\s+/g,''))}">${esc(center.phone)}</a></li>`:''}</ul>
       </div>`;
-      $('#bk-bar-total').textContent=ready&&quote?wdMoney(total,quote.currency):'—'; const bb=$('#bk-bar-go'); bb.textContent=ready?(s.booking_mode==='request'?'Enviar solicitud':'Reservar'):'Continuar'; bb.disabled=false;
+      $('#bk-bar-total').textContent=ready&&quote?wdMoney(total,quote.currency):'—'; const bb=$('#bk-bar-go'); bb.textContent=ready?cta:'Continuar'; bb.disabled=!!(ready&&s.bookable===false);
       $$('.bk-step').forEach(x=>{ const n=+x.dataset.step; x.classList.toggle('is-done',(n===1&&!!s)||(n===2&&!!sl)||(n===3&&!!sl)); x.classList.toggle('is-locked',n>1&&!s); });
-      $('#bk-summary .bk-go').onclick=submit; };
+      const go=$('#bk-summary .bk-go'); go.onclick=submit; if(s&&s.bookable===false) go.disabled=true; };
     const refreshQuote=()=>{ clearTimeout(qTimer); qTimer=setTimeout(async()=>{ const s=svc(); if(!s){ quote=null; drawSummary(); return; } const my=++qSeq;
       const q=new URLSearchParams({center_id:String(cid),service_id:String(s.id),slot_id:String(st.slot||0),participants:String(st.pax),extras:[...st.extras].join(','),equipment:equipCodes().join(',')});
       try{ const r=await api('/api/booking-quote?'+q); if(my!==qSeq||!alive()) return; quote=r; }catch{ quote=null; } drawSummary(); },120); };
@@ -1369,8 +1377,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       sending=true; $$('.bk-go').forEach(b=>{ b.disabled=true; b.dataset.label=b.textContent; b.textContent='Reservando…'; });
       try{ const created=await postJSON('/api/bookings',{center_id:cid,service_id:s.id,slot_id:sl.id,dive_point_id:point?Number(point.id):null,dive_point_name:point?.name||'',booking_date:sl.slot_date,booking_time:sl.slot_time,participants:st.pax,
           needs_equipment:codes.length>0,equipment_items:items,equipment_codes:codes,equipment_notes:st.sizes,extra_ids:[...st.extras],needs_guide:st.guide,guide_notes:st.guideNotes,nitrox:st.nitrox,pickup:st.pickup,notes:st.notes});
-        if(created.payment_required){ $$('.bk-go').forEach(b=>{ b.textContent='Abriendo el pago seguro…'; }); try{ const pay=await postJSON('/api/payments/checkout',{booking_id:created.id,service_id:s.id,slot_id:sl.id}); if(pay.checkout_url){ location.href=pay.checkout_url; return; } }catch(err){ toast('Tu reserva está guardada. '+err.message); location.hash='#/reserva?id='+created.id; return; } }
-        toast(created.status==='confirmed'?'¡Reserva confirmada!':created.payment_status==='at_center'||!center.online_payments?'Reserva enviada. El centro confirmará tu plaza y pagarás allí.':'Solicitud enviada. El centro te confirmará la plaza.'); location.hash='#/reserva?id='+created.id;
+        if(created.checkout_url){ $$('.bk-go').forEach(b=>{ b.textContent='Abriendo el pago seguro…'; }); location.href=created.checkout_url; return; }
+        toast(created.status==='confirmed'?'¡Reserva confirmada!':'Solicitud enviada. No se cobra nada hasta que el centro acepte.'); location.hash='#/reserva?id='+created.id;
       }catch(err){ toast(err.message); sending=false; $$('.bk-go').forEach(b=>{ b.disabled=false; if(b.dataset.label) b.textContent=b.dataset.label; }); }
     }
     redraw();
@@ -1382,7 +1390,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function bookingPaymentCard(b,pay,{own,canPay,cancelled}){
     const esc=escapeHtml, amount=wdMoney(b.price,b.currency), price=Number(b.price||0);
     if(!(price>0)) return '';
-    const dead=['cancelled','rejected'].includes(b.status);
+    const dead=['cancelled','rejected','expired'].includes(b.status);
     if(b.payment_status==='refunded'){
       return `<section class="pay-card is-refunded"><div class="pay-card-icon">${wdIcon('receipt',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO DEVUELTO</p><h3>Devuelto · ${esc(wdMoney(b.refund_amount||b.price,b.currency))}</h3>
         <p>Hemos devuelto el importe a la misma tarjeta. Según tu banco, lo verás en 5–10 días hábiles.</p><div class="page-actions"><a class="btn" href="/api/bookings/${b.id}/receipt.pdf" target="_blank" rel="noopener">${wdIcon('download',15)} Justificante PDF</a></div></div></section>`;
@@ -1398,13 +1406,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="page-actions">${pay?.receipt_url?`<a class="btn" href="${esc(pay.receipt_url)}" target="_blank" rel="noopener">${wdIcon('receipt',15)} Recibo de Stripe</a>`:''}<a class="btn" href="/api/bookings/${b.id}/receipt.pdf" target="_blank" rel="noopener">${wdIcon('download',15)} Justificante PDF</a></div></div></section>`;
     }
     if(dead) return '';
-    if(canPay) return `<section class="pay-card is-due">${cancelled?`<div class="notice warning pay-cancelled"><strong>No se ha completado el pago.</strong> No se te ha cobrado nada y tu reserva sigue guardada. Puedes pagar cuando quieras.</div>`:''}<div class="pay-card-icon">${wdIcon('lock',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO PENDIENTE</p><h3>${esc(amount)}</h3>
-        <p>${b.status==='confirmed'?'El centro ha confirmado tu plaza. Completa el pago para cerrar la reserva.':'Completa el pago para confirmar tu plaza al momento.'}</p>
+    if(canPay) return `<section class="pay-card is-due">${cancelled?`<div class="notice warning pay-cancelled"><strong>No se ha completado el pago.</strong> No se te ha cobrado nada.${b.status==='accepted_pending_payment'?` Puedes pagar hasta el ${escapeHtml(wdDeadline(b.payment_deadline))}.`:''}</div>`:''}<div class="pay-card-icon">${wdIcon('lock',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO PENDIENTE</p><h3>${esc(amount)}</h3>
+        <p>${b.status==='accepted_pending_payment'?`El centro ha aceptado tu solicitud y te guarda la plaza. Paga antes del ${escapeHtml(wdDeadline(b.payment_deadline))} para confirmarla.`:'Completa el pago para confirmar tu plaza al momento.'}</p>
         <button class="btn btn-primary" type="button" id="booking-pay-now">Pagar ahora de forma segura</button>
         <ul class="pay-points"><li>${wdIcon('shield',14)}Stripe procesa el cobro con cifrado y 3D Secure</li><li>${wdIcon('card',14)}WORLDIVES y el centro nunca ven tu tarjeta</li><li>${wdIcon('check',14)}Confirmación inmediata y justificante PDF</li></ul></div></section>`;
     if(b.payment_status==='pending') return `<section class="pay-card is-due"><div class="pay-card-icon">${wdIcon('clock',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO EN CURSO</p><h3>${esc(amount)}</h3><p>Estamos esperando la confirmación del banco. Si has cerrado la ventana de pago, vuelve a intentarlo en unos minutos.</p></div></section>`;
     if(b.payment_status==='review') return `<section class="pay-card is-due"><div class="pay-card-icon">${wdIcon('alert',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO EN REVISIÓN</p><h3>${esc(amount)}</h3><p>Hemos recibido un pago que no coincide con el importe de la reserva. Nuestro equipo lo revisa y te escribirá; no hace falta que pagues otra vez.</p></div></section>`;
-    if(b.payment_status==='required'&&own&&b.status==='pending'&&b.booking_mode==='request') return `<section class="pay-card"><div class="pay-card-icon">${wdIcon('clock',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO</p><h3>${esc(amount)}</h3><p>No se cobra nada hasta que el centro confirme la plaza. Te avisaremos para pagar online.</p></div></section>`;
+    if(own&&['requested','pending'].includes(b.status)) return `<section class="pay-card"><div class="pay-card-icon">${wdIcon('clock',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO</p><h3>${esc(amount)}</h3><p>No se cobra nada hasta que el centro confirme la plaza. Te avisaremos para pagar online.</p></div></section>`;
     return `<section class="pay-card"><div class="pay-card-icon">${wdIcon('wallet',22)}</div><div class="pay-card-main"><p class="eyebrow">PAGO EN EL CENTRO</p><h3>${esc(amount)}</h3><p>${own?'Pagas directamente al centro el día de la actividad (efectivo o tarjeta, según el centro).':'El buceador paga en el centro.'}</p></div></section>`;
   }
   function bookingReviewPrompt(b){
@@ -1535,21 +1543,57 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   async function renderBookingDetail(params){
     const me=await api('/api/me');if(!me.authenticated){goLogin();return;}const id=Number(params?.get?.('id')||params||0);if(!id){location.hash='#/area';return;}
-    const d=await api('/api/bookings/'+id);const b=d.booking;const own=!['admin','center'].includes(me.user.role);const centerView=me.user.role==='center';const st=bookingStatus(b.status);const statusText=b.status==='pending'?'Pendiente de confirmación':b.status==='confirmed'?'Reserva confirmada':b.status==='rejected'?'Reserva rechazada':b.status==='completed'?'Inmersión completada':'Reserva cancelada';
+    const d=await api('/api/bookings/'+id);const b=d.booking;const own=!['admin','center'].includes(me.user.role);const centerView=me.user.role==='center';const st=bookingStatus(b.status,b.status_label);const statusText=b.status_label||st[0];
     const canPay=own&&!!b.can_pay_online; const payRec=d.payment||null;const p=d.profile||{};const docs=d.documents||[];
     if(centerView){
       const docRows=docs.map(doc=>`<div class="doc-card"><div><strong>${escapeHtml(doc.title)}</strong><div style="font-size:12px;color:var(--muted)">${escapeHtml(doc.document_type)}${doc.expires_at?' · vence '+escapeHtml(doc.expires_at):''}</div></div><a class="btn" href="/api/documents/file/${doc.id}" target="_blank" rel="noopener">Abrir</a></div>`).join('');
-      setApp(`<section class="page diver-sheet-page"><div class="breadcrumb"><a href="#/admin?tab=bookings">Reservas</a> / Ficha del buceador</div><p class="eyebrow">FICHA OPERATIVA · USO INTERNO</p><div class="diver-sheet-head"><div><h1>${escapeHtml(b.fullname)}</h1><p class="lead">Documentación y datos operativos del buceador.</p></div><div class="page-actions"><a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Recibo PDF + QR</a><a class="btn btn-primary" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a></div></div><div class="detail" style="margin-top:22px"><article class="detail-main"><section class="reservation-pass-section"><p class="eyebrow">DATOS DEL BUCEADOR</p><div class="data-grid"><div class="data-item"><span>Nombre</span><strong>${escapeHtml(b.fullname)}</strong></div><div class="data-item"><span>Teléfono</span><strong>${p.phone?`<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Email</span><strong>${escapeHtml(b.email||'—')}</strong></div><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(p.city||'—')}</strong></div><div class="data-item"><span>Titulación</span><strong>${escapeHtml(p.certification_name||'No indicada')}</strong></div><div class="data-item"><span>Contacto de emergencia</span><strong>${escapeHtml([p.emergency_contact_name,p.emergency_contact_phone].filter(Boolean).join(' · ')||'—')}</strong></div></div></section><section class="reservation-pass-section"><p class="eyebrow">EQUIPO Y PREFERENCIAS</p><div class="data-grid"><div class="data-item"><span>Necesita equipo</span><strong>${p.equipment_required?'Sí':'No'}</strong></div><div class="data-item"><span>Traje / talla</span><strong>${escapeHtml([p.suit_type,p.suit_size].filter(Boolean).join(' · ')||'—')}</strong></div><div class="data-item"><span>Botas</span><strong>${escapeHtml(p.boot_size||'—')}</strong></div><div class="data-item"><span>Chaleco</span><strong>${escapeHtml(p.bcd_size||'—')}</strong></div><div class="data-item"><span>Aletas</span><strong>${escapeHtml(p.fin_size||'—')}</strong></div><div class="data-item"><span>Máscara</span><strong>${escapeHtml(p.mask_size||'—')}</strong></div><div class="data-item"><span>Botella</span><strong>${escapeHtml(p.tank_preference||'—')}</strong></div><div class="data-item"><span>Ordenador</span><strong>${escapeHtml(p.computer_preference||'—')}</strong></div><div class="data-item"><span>Peso habitual</span><strong>${p.usual_weight_kg?escapeHtml(String(p.usual_weight_kg))+' kg':'—'}</strong></div></div>${p.equipment_notes?`<div class="notice" style="margin-top:14px"><strong>Notas de equipo</strong><br>${escapeHtml(p.equipment_notes)}</div>`:''}</section><section class="reservation-pass-section"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><p class="eyebrow">DOCUMENTACIÓN</p><h2>Documentación del buceador</h2></div><a class="btn" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">PDF</a></div>${docRows||'<div class="empty" style="margin-top:12px">El buceador todavía no ha aportado documentación.</div>'}</section></article><aside class="detail-side"><div class="notice"><strong>Ficha interna del centro</strong><p style="margin:8px 0 0">Esta pantalla no modifica la reserva. La confirmación, pago y estado se gestionan desde la pantalla de reservas.</p></div><a class="btn" style="margin-top:12px;width:100%" href="#/admin?tab=bookings">← Volver a reservas</a></aside></div></section>`); return;
+      setApp(`<section class="page diver-sheet-page"><div class="breadcrumb"><a href="#/admin?tab=bookings">Reservas</a> / Ficha del buceador</div><p class="eyebrow">FICHA OPERATIVA · USO INTERNO</p><div class="diver-sheet-head"><div><h1>${escapeHtml(b.fullname)}</h1><p class="lead">Documentación y datos operativos del buceador.</p></div><div class="page-actions"><a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Justificante PDF + QR</a>${d.data_shared?`<a class="btn btn-primary" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a>`:''}<button class="btn" type="button" id="center-notice">Enviar aviso al cliente</button></div></div>
+      <div class="bk-state-bar">${wdStatus(b.status,b.status_label)}<span class="wd-mode">${escapeHtml(b.mode_label||'')}</span>${b.status==='requested'&&b.response_deadline?`<span class="acc-due">${wdIcon('clock',13)} Responde antes del ${escapeHtml(wdDeadline(b.response_deadline))}</span>`:''}${b.status==='accepted_pending_payment'&&b.payment_deadline?`<span class="acc-due">${wdIcon('clock',13)} El cliente paga antes del ${escapeHtml(wdDeadline(b.payment_deadline))}</span>`:''}
+        ${b.status==='requested'?`<button class="btn btn-primary" type="button" id="center-confirm-booking">Aceptar</button><button class="btn danger" type="button" id="center-reject-booking">Rechazar</button>`:''}</div>
+      ${d.data_shared?'':'<div class="notice warn"><strong>Ficha no compartida.</strong> Este cliente no ha reservado él mismo con tu centro ni ha compartido sus datos (por ejemplo, haciendo check-in con tu QR). Solo ves los datos de la reserva.</div>'}<div class="detail" style="margin-top:22px"><article class="detail-main"><section class="reservation-pass-section"><p class="eyebrow">DATOS DEL BUCEADOR</p><div class="data-grid"><div class="data-item"><span>Nombre</span><strong>${escapeHtml(b.fullname)}</strong></div><div class="data-item"><span>Teléfono</span><strong>${p.phone?`<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Email</span><strong>${escapeHtml(b.email||'—')}</strong></div><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(p.city||'—')}</strong></div><div class="data-item"><span>Titulación</span><strong>${escapeHtml(p.certification_name||'No indicada')}</strong></div><div class="data-item"><span>Contacto de emergencia</span><strong>${escapeHtml([p.emergency_contact_name,p.emergency_contact_phone].filter(Boolean).join(' · ')||'—')}</strong></div></div></section><section class="reservation-pass-section"><p class="eyebrow">EQUIPO Y PREFERENCIAS</p><div class="data-grid"><div class="data-item"><span>Necesita equipo</span><strong>${p.equipment_required?'Sí':'No'}</strong></div><div class="data-item"><span>Traje / talla</span><strong>${escapeHtml([p.suit_type,p.suit_size].filter(Boolean).join(' · ')||'—')}</strong></div><div class="data-item"><span>Botas</span><strong>${escapeHtml(p.boot_size||'—')}</strong></div><div class="data-item"><span>Chaleco</span><strong>${escapeHtml(p.bcd_size||'—')}</strong></div><div class="data-item"><span>Aletas</span><strong>${escapeHtml(p.fin_size||'—')}</strong></div><div class="data-item"><span>Máscara</span><strong>${escapeHtml(p.mask_size||'—')}</strong></div><div class="data-item"><span>Botella</span><strong>${escapeHtml(p.tank_preference||'—')}</strong></div><div class="data-item"><span>Ordenador</span><strong>${escapeHtml(p.computer_preference||'—')}</strong></div><div class="data-item"><span>Peso habitual</span><strong>${p.usual_weight_kg?escapeHtml(String(p.usual_weight_kg))+' kg':'—'}</strong></div></div>${p.equipment_notes?`<div class="notice" style="margin-top:14px"><strong>Notas de equipo</strong><br>${escapeHtml(p.equipment_notes)}</div>`:''}</section><section class="reservation-pass-section"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><p class="eyebrow">DOCUMENTACIÓN</p><h2>Documentación del buceador</h2></div><a class="btn" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">PDF</a></div>${docRows||'<div class="empty" style="margin-top:12px">El buceador todavía no ha aportado documentación.</div>'}</section></article><aside class="detail-side"><div class="notice"><strong>Ficha interna del centro</strong><p style="margin:8px 0 0">Esta pantalla no modifica la reserva. La confirmación, pago y estado se gestionan desde la pantalla de reservas.</p></div><a class="btn" style="margin-top:12px;width:100%" href="#/admin?tab=bookings">← Volver a reservas</a></aside></div></section>`);
+      bindCenterBookingActions(b,id,()=>renderBookingDetail(new URLSearchParams('id='+id))); return;
     }
     const payBox=bookingPaymentCard(b,payRec,{own,canPay,cancelled:params?.get?.('pago')==='cancelado'})+(own?bookingReviewPrompt(b)+bookingCancelCard(b):'');
     const customerPanel=centerView?`<section class="reservation-pass-section"><p class="eyebrow">FICHA OPERATIVA DEL BUCEADOR</p><h2>${escapeHtml(b.fullname)}</h2><div class="data-grid"><div class="data-item"><span>Email</span><strong>${escapeHtml(b.email||'—')}</strong></div><div class="data-item"><span>Teléfono</span><strong>${p.phone?`<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(p.city||'—')}</strong></div><div class="data-item"><span>Titulación</span><strong>${escapeHtml(p.certification_name||'No indicada')}</strong></div><div class="data-item"><span>Seguro / documentación</span><strong>${docs.length?`${docs.length} documento(s) disponible(s)`:'No aportada'}</strong></div><div class="data-item"><span>Necesita equipo</span><strong>${p.equipment_required?'Sí':'No'}</strong></div><div class="data-item"><span>Traje / talla</span><strong>${escapeHtml([p.suit_type,p.suit_size].filter(Boolean).join(' · ')||'—')}</strong></div><div class="data-item"><span>Botas</span><strong>${escapeHtml(p.boot_size||'—')}</strong></div><div class="data-item"><span>Chaleco</span><strong>${escapeHtml(p.bcd_size||'—')}</strong></div><div class="data-item"><span>Aletas</span><strong>${escapeHtml(p.fin_size||'—')}</strong></div><div class="data-item"><span>Máscara</span><strong>${escapeHtml(p.mask_size||'—')}</strong></div><div class="data-item"><span>Botella</span><strong>${escapeHtml(p.tank_preference||'—')}</strong></div><div class="data-item"><span>Ordenador</span><strong>${escapeHtml(p.computer_preference||'—')}</strong></div><div class="data-item"><span>Peso habitual</span><strong>${p.usual_weight_kg?escapeHtml(String(p.usual_weight_kg))+' kg':'—'}</strong></div></div>${p.equipment_notes?`<div class="notice" style="margin-top:14px"><strong>Notas de equipo</strong><br>${escapeHtml(p.equipment_notes)}</div>`:''}<div style="margin-top:18px"><h3 style="margin-bottom:8px">Documentación disponible</h3>${docs.map(doc=>`<div class="doc-card"><div><strong>${escapeHtml(doc.title)}</strong><div style="font-size:12px;color:var(--muted)">${escapeHtml(doc.document_type)}${doc.expires_at?' · vence '+escapeHtml(doc.expires_at):''}</div></div><a class="btn" href="/api/documents/file/${doc.id}" target="_blank" rel="noopener">Abrir</a></div>`).join('')||'<div class="empty">El buceador todavía no ha aportado documentación.</div>'}</div></section>`:'';
     const customerNotes=centerView?`<div class="notice"><strong>Información proporcionada por el buceador</strong><br>${escapeHtml(b.notes||'Sin notas adicionales.')}</div>`:(b.notes?`<div class="notice"><strong>Tus notas para el centro</strong><br>${escapeHtml(b.notes)}</div>`:'');
-    const passActions=centerView?`<div class="page-actions"><a class="btn" href="#/admin?tab=bookings">Volver a reservas</a><a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Recibo PDF + QR</a><a class="btn" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a>${b.status==='pending'?`<button class="btn btn-primary" id="center-confirm-booking">Confirmar reserva</button><button class="btn danger" id="center-reject-booking">Rechazar</button>`:''}</div>`:`<aside class="reservation-qr"><img src="/api/bookings/${id}/qr.svg" alt="QR de la reserva"><strong>Presenta este QR</strong><small>El centro puede escanearlo para verificar la reserva.</small><a class="btn btn-primary" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Descargar esta reserva en PDF</a></aside>`;
-    setApp(`<section class="page"><div class="breadcrumb"><a href="${centerView?'#/admin?tab=bookings':'#/area'}">${centerView?'Reservas':'Mi área'}</a> / Reserva WOD-${String(id).padStart(6,'0')}</div><div class="reservation-pass"><div class="reservation-pass-head"><div><p class="eyebrow">WORLDIVES DISCOVERY · ${own?'MI RESERVA':'RESERVA DEL CENTRO'}</p><h1>${escapeHtml(b.center_name)}</h1><p class="lead">${escapeHtml(areaDate(b.booking_date,b.booking_time))}</p></div><span class="status ${st[1]}">${escapeHtml(statusText)}</span></div><div class="reservation-pass-grid"><div><p class="eyebrow">${centerView?'DATOS DE LA SALIDA':'TU INMERSIÓN'}</p><h2>${escapeHtml(b.point_name||'Punto a concretar con el centro')}</h2><div class="data-grid"><div class="data-item"><span>Fecha</span><strong>${escapeHtml(b.booking_date)}</strong></div><div class="data-item"><span>Hora</span><strong>${escapeHtml(b.booking_time||'Por confirmar')}</strong></div><div class="data-item"><span>Punto</span><strong>${escapeHtml(b.point_name||'A concretar con el centro')}</strong></div><div class="data-item"><span>Participantes</span><strong>${b.participants}</strong></div><div class="data-item"><span>Servicio</span><strong>${escapeHtml(b.service_title||'—')}</strong></div><div class="data-item"><span>Precio</span><strong>${Number(b.price||0).toFixed(2)} ${escapeHtml(b.currency||'EUR')}</strong>${(()=>{let ls=[];try{ls=JSON.parse(b.price_breakdown||'[]')||[];}catch{} return ls.length>1?`<small class="booking-price-lines">${ls.map(l=>`${escapeHtml(l.label)}: ${l.qty} × ${Number(l.unit||0).toFixed(2)} €`).join('<br>')}</small>`:'';})()}</div><div class="data-item"><span>Pago</span><strong>${b.payment_status==='paid'?'Pagado':b.payment_status==='required'?'Pendiente de pago':b.payment_status==='pending'?'Pago en proceso':'No requerido'}</strong></div><div class="data-item"><span>Equipo solicitado</span><strong>${b.needs_equipment?'Sí':'No'}${b.equipment_items?' · '+escapeHtml(b.equipment_items):''}</strong></div><div class="data-item"><span>Guía</span><strong>${b.needs_guide?'Sí':'No'}${b.guide_notes?' · '+escapeHtml(b.guide_notes):''}</strong></div><div class="data-item"><span>Nitrox</span><strong>${b.nitrox?'Sí':'No'}</strong></div><div class="data-item"><span>Traslado</span><strong>${b.pickup?'Sí':'No'}</strong></div></div></div>${passActions}</div>${centerView?customerNotes:`<div class="reservation-pass-section"><p class="eyebrow">CENTRO DE BUCEO</p><h2><a href="#/centro?id=${b.center_id}">${escapeHtml(b.center_name)}</a></h2><div class="data-grid"><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(b.center_city||'—')}</strong></div><div class="data-item"><span>Teléfono</span><strong>${b.center_phone?`<a href="tel:${escapeHtml(b.center_phone)}">${escapeHtml(b.center_phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Email</span><strong>${b.center_email?`<a href="mailto:${escapeHtml(b.center_email)}">${escapeHtml(b.center_email)}</a>`:'—'}</strong></div><div class="data-item"><span>Dirección</span><strong>${escapeHtml(b.center_address||'—')}</strong></div></div></div>`}${customerPanel}${payBox}<div class="notice ${b.status==='confirmed'||b.status==='completed'?'success':b.status==='rejected'||b.status==='cancelled'?'warning':''}"><strong>${escapeHtml(statusText)}.</strong> ${b.status==='pending'?'El centro todavía tiene que confirmar esta solicitud.':b.status==='confirmed'?(b.payment_status==='required'?'La plaza está reservada para esta solicitud; falta completar el pago.':'La reserva está confirmada.') : b.status==='completed'?'Esta inmersión está completada.':''}</div></div></section>`);
+    const passActions=centerView?`<div class="page-actions"><a class="btn" href="#/admin?tab=bookings">Volver a reservas</a><a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Recibo PDF + QR</a><a class="btn" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a>${(b.status==='requested'||b.status==='pending')?`<button class="btn btn-primary" id="center-confirm-booking">Confirmar reserva</button><button class="btn danger" id="center-reject-booking">Rechazar</button>`:''}</div>`:`<aside class="reservation-qr"><img src="/api/bookings/${id}/qr.svg" alt="QR de la reserva"><strong>Presenta este QR</strong><small>El centro puede escanearlo para verificar la reserva.</small><a class="btn btn-primary" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Descargar esta reserva en PDF</a></aside>`;
+    setApp(`<section class="page"><div class="breadcrumb"><a href="${centerView?'#/admin?tab=bookings':'#/area'}">${centerView?'Reservas':'Mi área'}</a> / Reserva WOD-${String(id).padStart(6,'0')}</div><div class="reservation-pass"><div class="reservation-pass-head"><div><p class="eyebrow">WORLDIVES DISCOVERY · ${own?'MI RESERVA':'RESERVA DEL CENTRO'}</p><h1>${escapeHtml(b.center_name)}</h1><p class="lead">${escapeHtml(areaDate(b.booking_date,b.booking_time))}</p></div><span class="status ${st[1]}">${escapeHtml(statusText)}</span></div><div class="reservation-pass-grid"><div><p class="eyebrow">${centerView?'DATOS DE LA SALIDA':'TU INMERSIÓN'}</p><h2>${escapeHtml(b.point_name||'Punto a concretar con el centro')}</h2><div class="data-grid"><div class="data-item"><span>Fecha</span><strong>${escapeHtml(b.booking_date)}</strong></div><div class="data-item"><span>Hora</span><strong>${escapeHtml(b.booking_time||'Por confirmar')}</strong></div><div class="data-item"><span>Punto</span><strong>${escapeHtml(b.point_name||'A concretar con el centro')}</strong></div><div class="data-item"><span>Participantes</span><strong>${b.participants}</strong></div><div class="data-item"><span>Servicio</span><strong>${escapeHtml(b.service_title||'—')}</strong></div><div class="data-item"><span>Precio</span><strong>${Number(b.price||0).toFixed(2)} ${escapeHtml(b.currency||'EUR')}</strong>${(()=>{let ls=[];try{ls=JSON.parse(b.price_breakdown||'[]')||[];}catch{} return ls.length>1?`<small class="booking-price-lines">${ls.map(l=>`${escapeHtml(l.label)}: ${l.qty} × ${Number(l.unit||0).toFixed(2)} €`).join('<br>')}</small>`:'';})()}</div><div class="data-item"><span>Pago</span><strong>${Number(b.price||0)>0?wdPayment(b.payment_status):'Sin coste'}</strong></div><div class="data-item"><span>Modo de reserva</span><strong>${escapeHtml(b.mode_label||'')}</strong></div><div class="data-item"><span>Equipo solicitado</span><strong>${b.needs_equipment?'Sí':'No'}${b.equipment_items?' · '+escapeHtml(b.equipment_items):''}</strong></div><div class="data-item"><span>Guía</span><strong>${b.needs_guide?'Sí':'No'}${b.guide_notes?' · '+escapeHtml(b.guide_notes):''}</strong></div><div class="data-item"><span>Nitrox</span><strong>${b.nitrox?'Sí':'No'}</strong></div><div class="data-item"><span>Traslado</span><strong>${b.pickup?'Sí':'No'}</strong></div></div></div>${passActions}</div>${centerView?customerNotes:`<div class="reservation-pass-section"><p class="eyebrow">CENTRO DE BUCEO</p><h2><a href="#/centro?id=${b.center_id}">${escapeHtml(b.center_name)}</a></h2><div class="data-grid"><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(b.center_city||'—')}</strong></div><div class="data-item"><span>Teléfono</span><strong>${b.center_phone?`<a href="tel:${escapeHtml(b.center_phone)}">${escapeHtml(b.center_phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Email</span><strong>${b.center_email?`<a href="mailto:${escapeHtml(b.center_email)}">${escapeHtml(b.center_email)}</a>`:'—'}</strong></div><div class="data-item"><span>Dirección</span><strong>${escapeHtml(b.center_address||'—')}</strong></div></div></div>`}${customerPanel}${payBox}<div class="notice ${['confirmed','completed'].includes(b.status)?'success':['rejected','cancelled','expired'].includes(b.status)?'warning':''}"><strong>${escapeHtml(statusText)}.</strong> ${bookingStateHelp(b)}</div></div></section>`);
     if(canPay)$('#booking-pay-now').onclick=async e=>{const btn=e.currentTarget; btn.disabled=true; btn.textContent='Abriendo el pago seguro…'; try{const pay=await postJSON('/api/payments/checkout',{booking_id:id,service_id:Number(b.service_id||0),slot_id:Number(b.slot_id||0)||null});if(pay.checkout_url){location.href=pay.checkout_url;return;}}catch(err){toast(err.message)} btn.disabled=false; btn.textContent='Pagar ahora de forma segura';};
     if(own) bindBookingCancel(b,id);
-    if(own&&params?.get?.('pago')==='cancelado'&&!renderBookingDetail.cancelled?.[id]){ (renderBookingDetail.cancelled??={})[id]=1; postJSON('/api/payments/cancel',{booking_id:id}).then(r=>{ if(r.paid){ toast('El pago ya se había completado.'); renderBookingDetail(new URLSearchParams('id='+id)); } }).catch(()=>{}); }
-    if(centerView&&b.status==='pending'){ $('#center-confirm-booking').onclick=async()=>{try{await postJSON('/api/bookings/'+id+'/status',{status:'confirmed'});toast('Reserva confirmada. El cliente podrá pagar si corresponde.');renderBookingDetail(new URLSearchParams('id='+id));}catch(e){toast(e.message)}}; $('#center-reject-booking').onclick=async()=>{if(!confirm('¿Rechazar esta reserva?'))return;try{await postJSON('/api/bookings/'+id+'/status',{status:'rejected'});toast('Reserva rechazada.');renderAdmin();}catch(e){toast(e.message)}}; }
+    if(own&&params?.get?.('pago')==='cancelado'&&!renderBookingDetail.cancelled?.[id]){ (renderBookingDetail.cancelled??={})[id]=1; postJSON('/api/payments/cancel',{booking_id:id}).then(r=>{ if(r.paid){ toast('El pago ya se había completado.'); renderBookingDetail(new URLSearchParams('id='+id)); } else if(r.status&&r.status!==b.status){ toast(r.status==='expired'?'No se ha completado el pago: la reserva no se ha hecho y las plazas se han liberado.':'No se ha completado el pago.'); renderBookingDetail(new URLSearchParams('id='+id)); } }).catch(()=>{}); }
+  }
+  // What a booking's state means, in the diver's words.
+  function bookingStateHelp(b){
+    const dl=v=>escapeHtml(wdDeadline(v));
+    switch(b.status){
+      case 'requested': case 'pending': return `No se cobra nada hasta que el centro acepte.${b.response_deadline?` El centro responde como muy tarde el ${dl(b.response_deadline)}; si no, la solicitud caduca sola.`:''}`;
+      case 'accepted_pending_payment': return `El centro ha aceptado y te guarda la plaza. Paga antes del ${dl(b.payment_deadline)} para confirmarla; si no, la reserva se cancela sola y no se te cobra nada.`;
+      case 'payment_in_progress': return 'Estamos esperando la confirmación del pago. Si has cerrado la ventana de pago, puedes volver a intentarlo durante unos minutos.';
+      case 'confirmed': return b.payment_status==='at_center'?'La reserva está confirmada. Pagas en el centro el día de la actividad.':'La reserva está confirmada.';
+      case 'completed': return 'Esta inmersión está completada.';
+      case 'rejected': return `El centro no ha podido aceptar la solicitud.${b.reject_reason?' Motivo: '+escapeHtml(b.reject_reason):''} No se te ha cobrado nada.`;
+      case 'expired': return 'Esta reserva ha caducado y las plazas se han liberado. No se te ha cobrado nada.';
+      case 'cancelled': return 'La reserva está cancelada.';
+      default: return '';
+    }
+  }
+  // Provider actions on one booking: accept, reject with an optional reason, and «Enviar aviso al cliente» (G11).
+  function bindCenterBookingActions(b,id,after){
+    $('#center-confirm-booking')?.addEventListener('click',async()=>{ try{ const r=await postJSON('/api/bookings/'+id+'/status',{status:'confirmed'}); toast(r.status==='accepted_pending_payment'?'Solicitud aceptada. El cliente tiene un plazo para pagar.':'Reserva confirmada.'); after&&after(); }catch(e){ toast(e.message); } });
+    $('#center-reject-booking')?.addEventListener('click',()=>openRejectModal(id,after));
+    $('#center-notice')?.addEventListener('click',()=>openNoticeModal(id,b,after));
+  }
+  function openRejectModal(id,after){
+    const {el,close}=wdOpenModal({id:'reject-booking',title:'Rechazar la solicitud',subtitle:'El cliente recibirá un email. No se le cobra nada.',
+      body:`<div class="field"><label for="rj-reason">Motivo (opcional)</label><input id="rj-reason" maxlength="300" placeholder="Ej. previsión de mal estado del mar"></div>`,
+      footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn danger" id="rj-ok">Rechazar</button>'});
+    $('#rj-ok',el).onclick=async()=>{ try{ await postJSON('/api/bookings/'+id+'/status',{status:'rejected',reason:$('#rj-reason',el).value}); close(); toast('Solicitud rechazada.'); after&&after(); }catch(e){ toast(e.message); } };
+  }
+  function openNoticeModal(id,b,after){
+    const {el,close}=wdOpenModal({id:'booking-notice',title:'Enviar aviso al cliente',subtitle:'Solo sobre esta reserva. Le llega por email y a sus «Avisos», con el teléfono y el email de tu centro para que te conteste directamente.',
+      body:`<div class="field"><label for="nt-subject">Asunto</label><input id="nt-subject" maxlength="180" value="Aviso sobre tu reserva del ${escapeHtml(wdDay(b.booking_date))}"></div><div class="field"><label for="nt-body">Aviso</label><textarea id="nt-body" rows="4" maxlength="3000" placeholder="Ej. La salida pasa a las 10:00 por el estado del mar."></textarea></div>`,
+      footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="nt-ok">Enviar aviso</button>'});
+    $('#nt-ok',el).onclick=async()=>{ try{ await postJSON('/api/messages',{booking_id:id,subject:$('#nt-subject',el).value,body:$('#nt-body',el).value}); close(); toast('Aviso enviado.'); after&&after(); }catch(e){ toast(e.message); } };
   }
 
   async function renderPublicBookingVerification(params){
@@ -1797,20 +1841,24 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     {value:'viaje',label:'Viaje',hint:'Paquetes y destinos'},
     {value:'alquiler_equipo',label:'Alquiler de equipo',hint:'Sin agenda ni salidas'}
   ];
+  // Two booking modes only (v50.32). Labels shared with the server (wod/bookings.py) and every screen.
   const BOOKING_MODES=[
-    {value:'instant',label:'Reserva inmediata',icon:'bolt',hint:'La plaza queda confirmada al momento.'},
-    {value:'request',label:'Bajo petición',icon:'inbox',hint:'Recibes la solicitud y la confirmas tú.'},
-    {value:'payment',label:'Pago al reservar',icon:'card',hint:'El cliente paga online para cerrar la reserva.'}
+    {value:'payment',label:'Pago al reservar',icon:'card',hint:'El cliente paga online al reservar y la reserva se confirma sola, sin que tengas que aceptarla.',example:'El cliente verá «Pago al reservar · confirmación inmediata» y el botón «Reservar y pagar».'},
+    {value:'request',label:'Bajo petición',icon:'inbox',hint:'El cliente envía una solicitud sin pagar nada; tú la aceptas o la rechazas dentro del plazo.',example:'El cliente verá «Bajo petición · el centro responde en 24 h» y el botón «Enviar solicitud».'}
   ];
+  const wdModeLabel=(mode,hours)=>mode==='payment'?'Pago al reservar · confirmación inmediata':`Bajo petición · el centro responde en ${Number(hours)||24} h`;
+  const wdModeTag=s=>{ if(!s) return ''; const pay=s.booking_mode==='payment'; const off=s.bookable===false; return `<span class="wd-mode ${pay?'is-pay':'is-req'} ${off?'is-off':''}" title="${escapeHtml(off?(s.unavailable_reason||'No se puede reservar ahora mismo'):'')}">${wdIcon(pay?'card':'inbox',13)}${escapeHtml(s.mode_label||wdModeLabel(s.booking_mode,s.response_hours))}${off?' · no disponible':''}</span>`; };
   const TRIP_TYPES=new Set(['viaje','vida_a_bordo']);
+  // Default templates: «Pago al reservar» where it makes sense and the provider has online payments, otherwise «Bajo petición»
+  // (booking_mode 'auto' is resolved when the template is used).
   const SERVICE_TEMPLATES=[
-    {name:'Buceo simple',title:'Buceo simple',service_type:'inmersion',duration_minutes:120,max_participants:12,booking_mode:'instant',color:'#0891b2'},
-    {name:'Buceo doble',title:'Buceo doble',service_type:'inmersion',duration_minutes:240,max_participants:12,booking_mode:'instant',color:'#2563eb'},
+    {name:'Buceo simple',title:'Buceo simple',service_type:'inmersion',duration_minutes:120,max_participants:12,booking_mode:'auto',color:'#0891b2'},
+    {name:'Buceo doble',title:'Buceo doble',service_type:'inmersion',duration_minutes:240,max_participants:12,booking_mode:'auto',color:'#2563eb'},
     {name:'Bautizo de buceo',title:'Bautizo de buceo',service_type:'experiencia',duration_minutes:150,max_participants:4,booking_mode:'request',color:'#059669'},
-    {name:'Curso Open Water',title:'Curso Open Water',service_type:'curso',duration_minutes:0,max_participants:4,booking_mode:'payment',color:'#d97706'},
-    {name:'Curso Advanced',title:'Curso Advanced',service_type:'curso',duration_minutes:0,max_participants:4,booking_mode:'payment',color:'#ea580c'},
+    {name:'Curso Open Water',title:'Curso Open Water',service_type:'curso',duration_minutes:0,max_participants:4,booking_mode:'auto',color:'#d97706'},
+    {name:'Curso Advanced',title:'Curso Advanced',service_type:'curso',duration_minutes:0,max_participants:4,booking_mode:'auto',color:'#ea580c'},
     {name:'Viaje de buceo',title:'Viaje de buceo',service_type:'viaje',duration_minutes:0,max_participants:10,booking_mode:'request',color:'#7c3aed'},
-    {name:'Alquiler de equipo',title:'Alquiler de equipo',service_type:'alquiler_equipo',duration_minutes:0,max_participants:0,booking_mode:'instant',color:'#475569'}
+    {name:'Alquiler de equipo',title:'Alquiler de equipo',service_type:'alquiler_equipo',duration_minutes:0,max_participants:0,booking_mode:'request',color:'#475569'}
   ];
   const svcUi={tab:'services',q:'',type:'all'};
 
@@ -1825,9 +1873,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const wdLongDay=s=>s?wdCap(wdParseDate(s).toLocaleDateString(wdLocale(),{weekday:'long',day:'numeric',month:'long'})):'';
   const wdFullDate=s=>s?wdParseDate(s).toLocaleDateString(wdLocale(),{day:'numeric',month:'long',year:'numeric'}):'';
   const wdDuration=m=>{m=Number(m||0); if(!m)return ''; if(m%1440===0)return (m/1440)+(m===1440?' día':' días'); if(m<60)return m+' min'; const h=Math.floor(m/60),r=m%60; return r?`${h} h ${r} min`:`${h} h`;};
-  const BOOKING_STATUS={pending:['Pendiente','warn'],confirmed:['Confirmada','good'],completed:['Completada','done'],cancelled:['Cancelada','bad'],rejected:['Rechazada','bad'],requested:['Solicitada','warn']};
-  const PAYMENT_STATUS={paid:['Pagado','good'],required:['Pendiente de pago','warn'],pending:['Pago en curso','warn'],at_center:['Pago en el centro','muted'],not_required:['Sin cobro','muted'],refunded:['Devuelto','muted'],review:['Pago en revisión','warn']};
-  const wdStatus=s=>{const x=BOOKING_STATUS[s]||[s||'—','muted']; return `<span class="wd-pill wd-pill-${x[1]}">${escapeHtml(x[0])}</span>`;};
+  const BOOKING_STATUS=Object.fromEntries(Object.entries(WD_STATES).map(([k,v])=>[k,[v[0],k==='completed'?'done':v[1]]]));
+  const PAYMENT_STATUS={paid:['Pagado','good'],required:['Pendiente de pago','warn'],pending:['Pago en curso','warn'],at_center:['Pago en el centro','muted'],not_required:['Sin cobro','muted'],refunded:['Devuelto','muted'],review:['Pago en revisión','warn'],not_paid:['No pagada','muted'],partially_refunded:['Devuelto en parte','muted']};
+  const wdStatus=(s,label)=>{const x=BOOKING_STATUS[s]||[s||'—','muted']; return `<span class="wd-pill wd-pill-${x[1]}">${escapeHtml(label||x[0])}</span>`;};
   const wdPayment=s=>{const x=PAYMENT_STATUS[s]||[s||'—','muted']; return `<span class="wd-pay wd-pay-${x[1]}">${escapeHtml(x[0])}</span>`;};
 
   // Generic modal: fixed overlay, centered card. Esc, × and Cancel close it; a click outside closes it only while the form is untouched.
@@ -1855,15 +1903,18 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     try{
       const isCenter=role==='center';
       const centerId=isCenter?(state.me?.user?.center_id||0):0;
-      const [d, assignedResult, tariffResult, extrasResult, equipmentResult, ownTplResult, expResult]=await Promise.all([
+      const [d, assignedResult, tariffResult, extrasResult, equipmentResult, ownTplResult, expResult, payResult]=await Promise.all([
         api('/api/provider-services?provider_id='+providerId+'&include_inactive=1'),
         isCenter?api('/api/center-points?center_id='+centerId):{items:[]},
         isCenter?api('/api/center/tariffs'):{items:[]},
         isCenter?api('/api/center/extras'):{items:[]},
         isCenter?api('/api/center-equipment?center_id='+centerId):{items:[]},
         api('/api/service-templates').catch(()=>({items:[]})),
-        api('/api/provider/experiences').catch(()=>({destinations:[]}))
+        api('/api/provider/experiences').catch(()=>({destinations:[]})),
+        api('/api/payments/connect-status').catch(()=>({ready:false}))
       ]);
+      const payReady=!!payResult.ready;
+      const resolveMode=m=>m==='auto'||m==='instant'?(payReady?'payment':'request'):(m==='payment'&&!payReady?'request':m);
       const items=(d.items||[]).slice().sort((a,b)=>(Number(b.active)-Number(a.active))||String(a.title).localeCompare(String(b.title),'es'));
       const assigned=assignedResult.items||[], tariffs=tariffResult.items||[], extras=extrasResult.items||[], equipment=equipmentResult.items||[];
       const destinations=expResult.destinations||[];
@@ -1873,6 +1924,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const todayIso=wdToday();
       const typeOf=v=>SERVICE_TYPES.find(t=>t.value===v)||{value:v,label:v||'Servicio',hint:''};
       const modeOf=v=>BOOKING_MODES.find(m=>m.value===v)||BOOKING_MODES[1];
+      const offline=items.filter(s=>s.active&&s.booking_mode==='payment'&&s.bookable===false);
       const tariffFor=id=>tariffs.find(t=>Number(t.service?.id)===Number(id));
       const nextTariff=id=>{const h=(tariffFor(id)?.history||[]).filter(x=>String(x.effective_from)>todayIso).sort((a,b)=>String(a.effective_from).localeCompare(String(b.effective_from))); return h[0]||null;};
       const pointText=sl=>sl.point_mode==='weather'?'Según el estado del mar':((sl.points||[]).map(p=>p.name).join(', ')||'Punto sin asignar');
@@ -1919,7 +1971,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             ${isCenter?`<button type="button" class="svc-link service-price" data-id="${s.id}">Cambiar tarifa</button>`:''}
           </div>
           <div class="svc-meta">
-            <span title="${esc(m.hint)}">${wdIcon(m.icon,15)}${esc(m.label)}</span>
+            ${wdModeTag(s)}
             ${s.max_participants&&!isRental?`<span>${wdIcon('users',15)}Hasta ${esc(String(s.max_participants))}</span>`:''}
             ${exp?`<span class="svc-meta-exp" title="Visible en Experiencias">${wdIcon('globe',15)}${exp.status==='published'?'En Experiencias':'Experiencia en revisión'}${destName(exp.travel_offer_id)?` · ${esc(destName(exp.travel_offer_id))}`:''}</span>`:''}
           </div>
@@ -1962,6 +2014,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
       const render=()=>{mount.innerHTML=`<section class="svc-module services-operations-module">
         <div class="svc-head"><div><p class="eyebrow">Catálogo y precios</p><h2>Servicios y tarifas</h2><p>Lo que vende tu centro, su precio y sus salidas.</p></div><button type="button" class="btn btn-primary new-center-service" id="new-center-service">+ Nuevo servicio</button></div>
+        ${offline.length?`<div class="notice warn" role="alert"><strong>${offline.length===1?'Un servicio no se puede reservar':offline.length+' servicios no se pueden reservar'}.</strong> Usan «Pago al reservar» y los cobros online no están activos: ${offline.map(s=>esc(s.title)).join(', ')}. Actívalos en <a href="#/admin?tab=payments">Cobros y pagos</a> o cambia esos servicios a «Bajo petición».</div>`:''}
         ${items.length?kpis:''}${tabs}
         <div class="svc-pane">${svcUi.tab==='extras'?extrasPane():svcUi.tab==='equipment'?equipmentPane():servicesPane()}</div>
       </section>`; if(svcUi.tab==='services')renderGrid(); bindPane();};
@@ -1977,12 +2030,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       };
 
       // ---------- Templates ----------
-      const saveTemplate=async(data,name)=>{const fields=['title','service_type','description','duration_minutes','max_participants','booking_mode','color','price']; const payload={name}; fields.forEach(f=>{payload[f]=data[f]??'';}); const existing=ownTemplates.find(x=>x.name.toLowerCase()===name.toLowerCase()); if(existing)payload.id=existing.id; const r=await postJSON('/api/service-templates/save',payload); ownTemplates=(await api('/api/service-templates')).items||[]; return r;};
+      const saveTemplate=async(data,name)=>{const fields=['title','service_type','description','duration_minutes','max_participants','booking_mode','response_hours','payment_hours','color','price']; const payload={name}; fields.forEach(f=>{payload[f]=data[f]??'';}); const existing=ownTemplates.find(x=>x.name.toLowerCase()===name.toLowerCase()); if(existing)payload.id=existing.id; const r=await postJSON('/api/service-templates/save',payload); ownTemplates=(await api('/api/service-templates')).items||[]; return r;};
 
       // ---------- Service form ----------
       const openServiceForm=(existing,template)=>{
         const id=existing?.id||0; const src=existing||template||{};
-        const curType=src.service_type||'inmersion', curMode=src.booking_mode||'request', curColor=src.color||SERVICE_COLOR_PALETTE[0].value;
+        const curType=src.service_type||'inmersion', curMode=existing?(existing.booking_mode==='payment'?'payment':'request'):resolveMode(src.booking_mode||'auto'), curColor=src.color||SERVICE_COLOR_PALETTE[0].value;
+        const curResp=Number(src.response_hours)||24, curPay=Number(src.payment_hours)||24;
         const exp=existing?.experience&&existing.experience.active?existing.experience:null;
         const publishDefault=exp?true:(!id&&TRIP_TYPES.has(curType));
         const tplChips=()=>`<span class="svc-tpl-label">Plantillas</span>${allTemplates().map((t,i)=>`<span class="svc-tpl ${t.own?'is-own':''}"><button type="button" class="svc-tpl-use" data-template="${i}" title="${t.own?'Tu plantilla':'Plantilla predefinida'}">${wdIcon(t.service_type,15)}${esc(t.name)}</button>${t.own?`<button type="button" class="svc-tpl-del" data-id="${t.id}" aria-label="Eliminar la plantilla ${esc(t.name)}">×</button>`:''}</span>`).join('')}`;
@@ -1997,7 +2051,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             <div class="svc-field svc-hide-rental"><label for="svc-duration">Duración</label><label class="svc-money"><input id="svc-duration" type="number" min="0" step="5" value="${src.duration_minutes||''}" placeholder="120"><span>min</span></label><small id="svc-duration-hint">${esc(wdDuration(src.duration_minutes))||'Opcional'}</small></div>
             <div class="svc-field svc-hide-rental"><label for="svc-max">Plazas por salida</label><label class="svc-money"><input id="svc-max" type="number" min="1" value="${src.max_participants||''}" placeholder="12"><span>pax</span></label><small>Valor inicial de cada salida.</small></div>
           </div>
-          <fieldset class="svc-fieldset"><legend>Cómo se reserva</legend><div class="svc-mode-grid">${BOOKING_MODES.map(m=>`<label class="svc-mode-option"><input type="radio" name="svc-mode" value="${m.value}" ${m.value===curMode?'checked':''}><span><b>${wdIcon(m.icon,20)}</b><strong>${esc(m.label)}</strong><small>${esc(m.hint)}</small></span></label>`).join('')}</div></fieldset>
+          <fieldset class="svc-fieldset"><legend>Cómo se reserva</legend><div class="svc-mode-grid">${BOOKING_MODES.map(m=>{ const locked=m.value==='payment'&&!payReady&&curMode!=='payment'; return `<label class="svc-mode-option ${locked?'is-locked':''}"><input type="radio" name="svc-mode" value="${m.value}" ${m.value===curMode?'checked':''} ${locked?'disabled':''}><span><b>${wdIcon(m.icon,20)}</b><strong>${esc(m.label)}</strong><small>${esc(m.hint)}</small><em class="svc-mode-example">${esc(m.example)}</em>${locked?`<em class="svc-mode-lock">Activa los cobros online para usar esta opción. <a href="#/admin?tab=payments">Cobros y pagos</a></em>`:''}</span></label>`; }).join('')}</div>
+            <div class="svc-form-row svc-mode-times" id="svc-mode-times">
+              <div class="svc-field"><label for="svc-resp-hours">Plazo para responder</label><label class="svc-money"><input id="svc-resp-hours" type="number" min="1" max="168" step="1" value="${curResp}"><span>h</span></label><small>Si no respondes a tiempo, la solicitud caduca sola y avisamos al cliente. Nunca después del inicio de la salida.</small></div>
+              <div class="svc-field" ${payReady?'':'hidden'}><label for="svc-pay-hours">Plazo para pagar tras aceptar</label><label class="svc-money"><input id="svc-pay-hours" type="number" min="1" max="168" step="1" value="${curPay}"><span>h</span></label><small>Si el cliente no paga a tiempo, la reserva se cancela sola y las plazas se liberan.</small></div>
+            </div>
+            ${id?'<small class="svc-mode-note">Si cambias el modo, las reservas que ya están en curso conservan el modo con el que se hicieron.</small>':''}</fieldset>
           <fieldset class="svc-fieldset"><legend>Color en el planning <em id="svc-color-name">${esc((SERVICE_COLOR_PALETTE.find(c=>c.value===curColor)||SERVICE_COLOR_PALETTE[0]).label)}</em></legend><div class="svc-swatches">${SERVICE_COLOR_PALETTE.map(c=>`<label class="svc-swatch" title="${esc(c.label)}"><input type="radio" name="svc-color" value="${c.value}" ${c.value===curColor?'checked':''} aria-label="${esc(c.label)}"><span style="background:${c.value}"></span></label>`).join('')}</div></fieldset>
           <div class="svc-field"><label for="svc-description">Descripción para el cliente</label><textarea id="svc-description" rows="3" maxlength="5000" placeholder="Qué incluye, nivel necesario, punto de encuentro…">${esc(src.description||'')}</textarea></div>
           <div class="svc-publish ${publishDefault?'is-on':''}" id="svc-publish">
@@ -2016,15 +2075,17 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         const pubBox=el.querySelector('#svc-publish'), pubChk=el.querySelector('#svc-publish-exp'), destSel=el.querySelector('#svc-dest'), destNew=el.querySelector('#svc-dest-new');
         const syncType=()=>{const v=form.querySelector('input[name="svc-type"]:checked')?.value; form.classList.toggle('is-rental',v==='alquiler_equipo'); pubBox.hidden=v==='alquiler_equipo';};
         const syncPublish=()=>{pubBox.classList.toggle('is-on',pubChk.checked); destNew.hidden=destSel.value!=='new';};
+        const syncMode=()=>{ const m=form.querySelector('input[name="svc-mode"]:checked')?.value; el.querySelector('#svc-mode-times').hidden=m!=='request'; };
         form.addEventListener('change',e=>{
           if(e.target.name==='svc-type'){ syncType(); if(!id&&!el.dataset.pubTouched){pubChk.checked=TRIP_TYPES.has(e.target.value); syncPublish();} }
           if(e.target.name==='svc-color') el.querySelector('#svc-color-name').textContent=SERVICE_COLOR_PALETTE.find(c=>c.value===e.target.value)?.label||'';
           if(e.target===pubChk){el.dataset.pubTouched='1'; syncPublish();}
           if(e.target===destSel) syncPublish();
-        }); syncType(); syncPublish();
+          if(e.target.name==='svc-mode') syncMode();
+        }); syncType(); syncPublish(); syncMode();
         durInput.oninput=()=>{el.querySelector('#svc-duration-hint').textContent=wdDuration(durInput.value)||'Opcional';};
-        const formData=()=>({title:el.querySelector('#svc-title').value.trim(),service_type:form.querySelector('input[name="svc-type"]:checked')?.value||'inmersion',color:form.querySelector('input[name="svc-color"]:checked')?.value||SERVICE_COLOR_PALETTE[0].value,price:el.querySelector('#svc-price').value,duration_minutes:durInput.value,max_participants:el.querySelector('#svc-max').value,booking_mode:form.querySelector('input[name="svc-mode"]:checked')?.value||'request',description:el.querySelector('#svc-description').value});
-        const applyTemplate=t=>{ if(!t)return; if(t.title)el.querySelector('#svc-title').value=t.title; const ty=form.querySelector(`input[name="svc-type"][value="${t.service_type}"]`); if(ty)ty.checked=true; const mo=form.querySelector(`input[name="svc-mode"][value="${t.booking_mode}"]`); if(mo)mo.checked=true; const c=form.querySelector(`input[name="svc-color"][value="${t.color}"]`); if(c){c.checked=true; el.querySelector('#svc-color-name').textContent=SERVICE_COLOR_PALETTE.find(x=>x.value===t.color)?.label||'';} durInput.value=t.duration_minutes||''; durInput.oninput(); el.querySelector('#svc-max').value=t.max_participants||''; const pr=el.querySelector('#svc-price'); if(pr.type!=='hidden'&&t.price!=null&&t.price!=='')pr.value=t.price; if(t.description!=null)el.querySelector('#svc-description').value=t.description||''; syncType(); if(!el.dataset.pubTouched){pubChk.checked=TRIP_TYPES.has(t.service_type); syncPublish();} el.dataset.dirty='1'; };
+        const formData=()=>({title:el.querySelector('#svc-title').value.trim(),service_type:form.querySelector('input[name="svc-type"]:checked')?.value||'inmersion',color:form.querySelector('input[name="svc-color"]:checked')?.value||SERVICE_COLOR_PALETTE[0].value,price:el.querySelector('#svc-price').value,duration_minutes:durInput.value,max_participants:el.querySelector('#svc-max').value,booking_mode:form.querySelector('input[name="svc-mode"]:checked')?.value||'request',response_hours:el.querySelector('#svc-resp-hours').value,payment_hours:el.querySelector('#svc-pay-hours').value,description:el.querySelector('#svc-description').value});
+        const applyTemplate=t=>{ if(!t)return; if(t.title)el.querySelector('#svc-title').value=t.title; const ty=form.querySelector(`input[name="svc-type"][value="${t.service_type}"]`); if(ty)ty.checked=true; const mo=form.querySelector(`input[name="svc-mode"][value="${resolveMode(t.booking_mode)}"]`); if(mo&&!mo.disabled)mo.checked=true; if(t.response_hours)el.querySelector('#svc-resp-hours').value=t.response_hours; if(t.payment_hours)el.querySelector('#svc-pay-hours').value=t.payment_hours; syncMode(); const c=form.querySelector(`input[name="svc-color"][value="${t.color}"]`); if(c){c.checked=true; el.querySelector('#svc-color-name').textContent=SERVICE_COLOR_PALETTE.find(x=>x.value===t.color)?.label||'';} durInput.value=t.duration_minutes||''; durInput.oninput(); el.querySelector('#svc-max').value=t.max_participants||''; const pr=el.querySelector('#svc-price'); if(pr.type!=='hidden'&&t.price!=null&&t.price!=='')pr.value=t.price; if(t.description!=null)el.querySelector('#svc-description').value=t.description||''; syncType(); if(!el.dataset.pubTouched){pubChk.checked=TRIP_TYPES.has(t.service_type); syncPublish();} el.dataset.dirty='1'; };
         const tplBar=el.querySelector('#svc-tpl-bar');
         const bindTplBar=()=>{ if(!tplBar)return; tplBar.innerHTML=tplChips();
           $$('.svc-tpl-use',tplBar).forEach(b=>b.onclick=()=>{ $$('.svc-tpl',tplBar).forEach(x=>x.classList.remove('is-active')); b.parentElement.classList.add('is-active'); applyTemplate(allTemplates()[+b.dataset.template]); el.querySelector('#svc-price')?.focus(); });
@@ -2173,7 +2234,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const BK_VIEWS=[
     {key:'today',label:'Hoy'},
     {key:'week',label:'Próximos 7 días'},
-    {key:'pending',label:'Por confirmar'},
+    {key:'pending',label:'Solicitudes pendientes'},
     {key:'unpaid',label:'Por cobrar'},
     {key:'upcoming',label:'Todas las próximas'},
     {key:'history',label:'Historial'}
@@ -2182,11 +2243,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const PAYMENT_METHODS=['Efectivo','Tarjeta (TPV)','Transferencia','Bizum','Bono / regalo','Otro'];
   const bkUi={view:'week',q:'',service:'',from:'',to:''};
 
+  const wdLeft=m=>{ m=Number(m)||0; if(m<60) return `${m} min`; const h=Math.floor(m/60); return h<48?`${h} h`:`${Math.floor(h/24)} días`; };
   function bkQuery(){
     const t=wdToday(), p=new URLSearchParams();
     if(bkUi.view==='today'){p.set('from',t);p.set('to',t);p.set('order','asc');}
     if(bkUi.view==='week'){p.set('from',t);p.set('to',wdAddDays(t,7));p.set('order','asc');}
-    if(bkUi.view==='pending'){p.set('status','pending');p.set('order','asc');}
+    if(bkUi.view==='pending'){p.set('status','requested');p.set('order','asc');}
     if(bkUi.view==='unpaid'){p.set('payment','required');p.set('order','asc');}
     if(bkUi.view==='upcoming'){p.set('from',t);p.set('order','asc');}
     if(bkUi.view==='history'){p.set('to',wdAddDays(t,-1));p.set('limit','400');}
@@ -2200,18 +2262,19 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const refresh=()=>renderCenterBookings(mountId,ctx);
     if(!mount.querySelector('.bk-module')) mount.innerHTML='<p class="wd-loading">Cargando reservas…</p>';
     try{
-      const [list,pend,unpaid,svc]=await Promise.all([api('/api/bookings?'+bkQuery()),api('/api/bookings?status=pending&limit=500'),api('/api/bookings?payment=required&limit=500'),api('/api/provider-services?provider_id='+(state.me?.user?.id||0)+'&include_inactive=1')]);
+      const [list,pend,unpaid,svc]=await Promise.all([api('/api/bookings?'+bkQuery()),api('/api/center/requests'),api('/api/bookings?payment=required&limit=500'),api('/api/provider-services?provider_id='+(state.me?.user?.id||0)+'&include_inactive=1')]);
       const items=list.items||[], services=svc.items||[]; const esc=escapeHtml; const t=wdToday();
-      const pendingCount=(pend.items||[]).length, unpaidCount=(unpaid.items||[]).filter(b=>!['cancelled','rejected'].includes(b.status)).length;
+      const reqById=Object.fromEntries((pend.items||[]).map(x=>[x.id,x]));
+      const pendingCount=pend.count||0, unpaidCount=(unpaid.items||[]).filter(b=>!['cancelled','rejected','expired'].includes(b.status)).length;
       const counts={pending:pendingCount,unpaid:unpaidCount};
       const actions=b=>{
         const out=[];
-        if(b.status==='pending') out.push(`<button type="button" class="bk-act bk-primary" data-act="confirmed" data-id="${b.id}">Confirmar</button>`);
-        if(b.payment_status==='required'&&!['cancelled','rejected'].includes(b.status)) out.push(`<button type="button" class="bk-act" data-act="pay" data-id="${b.id}">Registrar pago</button>`);
+        const req=b.status==='requested'||(b.status==='requested'||b.status==='pending');
+        if(req) out.push(`<button type="button" class="bk-act bk-primary" data-act="confirmed" data-id="${b.id}">Aceptar</button><button type="button" class="bk-act" data-act="rejected" data-id="${b.id}">Rechazar</button>`);
+        if((b.payment_status==='required'||b.payment_status==='at_center')&&['confirmed','accepted_pending_payment'].includes(b.status)&&Number(b.price)>0) out.push(`<button type="button" class="bk-act" data-act="pay" data-id="${b.id}">Registrar cobro</button>`);
         if(b.status==='confirmed'&&b.booking_date<=t) out.push(`<button type="button" class="bk-act" data-act="completed" data-id="${b.id}">Completar</button>`);
-        const menu=[`<a href="#/reserva?id=${b.id}">Ver ficha completa</a>`];
-        if(b.status==='pending') menu.push(`<button type="button" data-act="rejected" data-id="${b.id}">Rechazar</button>`);
-        if(['pending','confirmed'].includes(b.status)) menu.push(`<button type="button" class="danger" data-act="cancelled" data-id="${b.id}">Cancelar reserva</button>`);
+        const menu=[`<a href="#/reserva?id=${b.id}">Ver ficha completa</a>`,`<button type="button" data-act="notice" data-id="${b.id}">Enviar aviso al cliente</button>`];
+        if(['accepted_pending_payment','confirmed'].includes(b.status)) menu.push(`<button type="button" class="danger" data-act="cancelled" data-id="${b.id}">Cancelar reserva</button>`);
         if(b.payment_status==='paid') menu.push(`<button type="button" data-act="unpay" data-id="${b.id}">Marcar como no pagado</button>`);
         return out.join('')+`<details class="svc-more"><summary class="svc-iconbtn" aria-label="Más acciones">···</summary><div class="svc-menu">${menu.join('')}</div></details>`;
       };
@@ -2221,7 +2284,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <div class="bk-activity"><strong><i></i>${esc(b.service_title||'Reserva')}</strong><span>${esc(b.point_name||'Punto sin asignar')}${b.equipment_items?' · Equipo: '+esc(b.equipment_items):''}</span></div>
           <div class="bk-pax"><strong>${Number(b.participants||1)}</strong><span>${Number(b.participants||1)===1?'persona':'personas'}</span></div>
           <div class="bk-amount"><strong>${wdMoney(b.price,b.currency)}</strong>${wdPayment(b.payment_status)}</div>
-          <div class="bk-state">${wdStatus(b.status)}<span class="bk-source">${esc(BK_SOURCE[b.source]||(b.external_ref?'Tu web':'WORLDIVES'))}</span></div>
+          <div class="bk-state">${wdStatus(b.status,b.status_label)}${(b.status==='requested'||(b.status==='requested'||b.status==='pending'))&&reqById[b.id]?.minutes_left!=null?`<span class="acc-due">${wdIcon('clock',12)} ${esc(wdLeft(reqById[b.id].minutes_left))} para responder</span>`:''}${b.status==='accepted_pending_payment'&&b.payment_deadline?`<span class="acc-due">Paga antes del ${esc(wdDeadline(b.payment_deadline))}</span>`:''}<span class="bk-source">${esc(BK_SOURCE[b.source]||(b.external_ref?'Tu web':'WORLDIVES'))}</span></div>
           <div class="bk-actions">${actions(b)}</div>
         </div>`;
       const grouped=()=>{ if(!items.length) return `<div class="bk-empty"><span>${wdIcon('calendar',26)}</span><h3>${bkUi.view==='today'?'Hoy no hay reservas':bkUi.view==='pending'?'No hay nada por confirmar':bkUi.view==='unpaid'?'No hay cobros pendientes':'No hay reservas'}</h3><p>${bkUi.q||bkUi.service||bkUi.from||bkUi.to?'Prueba a quitar algún filtro.':'Cuando entre una reserva, o la crees tú, aparecerá aquí.'}</p><button type="button" class="btn btn-primary bk-new">+ Nueva reserva</button></div>`;
@@ -2255,16 +2318,18 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         const b=byId(a.dataset.id); if(!b)return; const act=a.dataset.act;
         if(act==='pay'){openPaymentModal(b,()=>{refresh();ctx.onChange?.();});return;}
         if(act==='unpay'){if(!confirm('¿Marcar esta reserva como no pagada?'))return; try{await postJSON(`/api/bookings/${b.id}/payment`,{payment_status:'required'});toast('Pago desmarcado.');refresh();}catch(err){toast(err.message)} return;}
-        const labels={confirmed:'confirmada',rejected:'rechazada',cancelled:'cancelada',completed:'completada'};
-        if(['rejected','cancelled'].includes(act)&&!confirm(`¿Seguro que quieres marcar la reserva #${b.id} de ${b.fullname} como ${labels[act]}? Las plazas vuelven a quedar libres.`))return;
-        try{await postJSON(`/api/bookings/${b.id}/status`,{status:act});toast(`Reserva ${labels[act]}.`);refresh();ctx.onChange?.();}catch(err){toast(err.message)}
+        if(act==='rejected'){ openRejectModal(b.id,()=>{refresh();ctx.onChange?.();}); return; }
+        if(act==='notice'){ openNoticeModal(b.id,b,refresh); return; }
+        const labels={confirmed:'aceptada',cancelled:'cancelada',completed:'completada'};
+        if(act==='cancelled'&&!confirm(`¿Seguro que quieres cancelar la reserva #${b.id} de ${b.fullname}? Las plazas vuelven a quedar libres y, si había pagado online, se le devuelve el importe.`))return;
+        try{const r=await postJSON(`/api/bookings/${b.id}/status`,{status:act});toast(r.status==='accepted_pending_payment'?'Solicitud aceptada: el cliente tiene un plazo para pagar.':`Reserva ${labels[act]}.`);refresh();ctx.onChange?.();}catch(err){toast(err.message)}
       };
     }catch(err){mount.innerHTML=`<div class="empty"><h3>No se han podido cargar las reservas</h3><p>${escapeHtml(err.message)}</p><button type="button" class="btn" id="bk-retry">Reintentar</button></div>`;$('#bk-retry').onclick=refresh;}
   }
 
   function openPaymentModal(b,onDone){
     const {el,close}=wdOpenModal({id:'pay-modal',size:'sm',title:'Registrar pago',subtitle:`Reserva #${b.id} · ${escapeHtml(b.fullname||'')}`,
-      body:`<form id="pay-form" class="svc-form"><p class="svc-tariff-now">Importe <strong>${wdMoney(b.price,b.currency)}</strong></p><div class="svc-field"><label for="pay-method">Forma de pago</label><select id="pay-method">${PAYMENT_METHODS.map(m=>`<option>${m}</option>`).join('')}</select></div>${b.status==='pending'?'<p class="svc-note">Al registrar el pago la reserva queda confirmada y se reservan sus plazas.</p>':''}</form>`,
+      body:`<form id="pay-form" class="svc-form"><p class="svc-tariff-now">Importe <strong>${wdMoney(b.price,b.currency)}</strong></p><div class="svc-field"><label for="pay-method">Forma de pago</label><select id="pay-method">${PAYMENT_METHODS.map(m=>`<option>${m}</option>`).join('')}</select></div>${(b.status==='requested'||b.status==='pending')?'<p class="svc-note">Al registrar el pago la reserva queda confirmada y se reservan sus plazas.</p>':''}</form>`,
       footer:`<button type="button" class="btn" data-modal-close>Cancelar</button><button type="submit" form="pay-form" class="btn btn-primary">Marcar como pagada</button>`});
     el.querySelector('#pay-form').onsubmit=async e=>{e.preventDefault(); try{await postJSON(`/api/bookings/${b.id}/payment`,{payment_status:'paid',payment_method:el.querySelector('#pay-method').value});close();toast('Pago registrado.');onDone?.();}catch(err){toast(err.message)}};
   }
@@ -2691,7 +2756,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const isoNow=now.toISOString().slice(0,10);
     const week=new Date(now); week.setDate(week.getDate()+7); const isoWeek=week.toISOString().slice(0,10);
     const active=b=>!['cancelled','rejected','completed'].includes(b.status);
-    const pending=bookings.filter(b=>b.status==='pending');
+    const pending=bookings.filter(b=>(b.status==='requested'||b.status==='pending'));
     const confirmed=bookings.filter(b=>b.status==='confirmed');
     const paid=bookings.filter(b=>b.payment_status==='paid');
     const unpaid=bookings.filter(b=>b.payment_status && b.payment_status!=='paid' && !['cancelled','rejected'].includes(b.status));
@@ -2700,7 +2765,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const future=bookings.filter(b=>b.booking_date>isoWeek && active(b)).sort((a,b)=>`${a.booking_date} ${a.booking_time||''}`.localeCompare(`${b.booking_date} ${b.booking_time||''}`));
     const revenue=paid.reduce((n,b)=>n+Number(b.price||0),0);
     const todayParticipants=today.reduce((n,b)=>n+Number(b.participants||1),0);
-    const bookingRow=b=>`<div class="ops-row"><div class="ops-date"><strong>${escapeHtml(b.booking_date||'')}</strong><span>${escapeHtml(b.booking_time||'Por confirmar')}</span></div><div class="ops-main"><strong>${escapeHtml(b.fullname||'Cliente')}</strong><span>${escapeHtml(b.service_title||'Inmersión')} · ${escapeHtml(b.point_name||'Punto por concretar')}</span></div><span class="status ${b.status==='confirmed'?'good':b.status==='rejected'||b.status==='cancelled'?'bad':'warn'}">${escapeHtml(b.status==='pending'?'Pendiente':b.status==='confirmed'?'Confirmada':b.status==='completed'?'Completada':b.status==='cancelled'?'Cancelada':b.status)}</span><a class="btn booking-detail" href="#/reserva?id=${b.id}">Ver reserva</a></div>`;
+    const bookingRow=b=>`<div class="ops-row"><div class="ops-date"><strong>${escapeHtml(b.booking_date||'')}</strong><span>${escapeHtml(b.booking_time||'Por confirmar')}</span></div><div class="ops-main"><strong>${escapeHtml(b.fullname||'Cliente')}</strong><span>${escapeHtml(b.service_title||'Inmersión')} · ${escapeHtml(b.point_name||'Punto por concretar')}</span></div><span class="status ${b.status==='confirmed'?'good':b.status==='rejected'||b.status==='cancelled'?'bad':'warn'}">${escapeHtml((b.status==='requested'||b.status==='pending')?'Pendiente':b.status==='confirmed'?'Confirmada':b.status==='completed'?'Completada':b.status==='cancelled'?'Cancelada':b.status)}</span><a class="btn booking-detail" href="#/reserva?id=${b.id}">Ver reserva</a></div>`;
     return `<div class="center-dashboard">
       <div class="dashboard-hero center-hero"><div><p class="eyebrow">CENTRO DE OPERACIONES</p><h2>Buenos días. Este es el estado de tu centro.</h2><p>Una vista rápida para saber qué requiere atención, qué tienes hoy y qué viene después.</p></div><div class="hero-actions"><a class="btn btn-primary" href="#/admin?tab=bookings">Gestionar reservas</a><a class="btn" href="#/admin?tab=services">Gestionar servicios</a></div></div>
       <div class="ops-kpis center-kpis">
@@ -2759,23 +2824,23 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   function centerDashboardPro(c, a, bookings, services){
     const esc=escapeHtml, t=wdToday(), tomorrow=wdAddDays(t,1), week=wdAddDays(t,7);
-    const live=b=>!['cancelled','rejected'].includes(b.status);
+    const live=b=>!['cancelled','rejected','expired','payment_in_progress'].includes(b.status);
     const todayB=bookings.filter(b=>b.booking_date===t&&live(b));
     const nextB=bookings.filter(b=>b.booking_date>=t&&b.booking_date<=tomorrow&&live(b)).sort((x,y)=>`${x.booking_date} ${x.booking_time||''}`.localeCompare(`${y.booking_date} ${y.booking_time||''}`));
-    const pending=bookings.filter(b=>b.status==='pending');
+    const pending=bookings.filter(b=>(b.status==='requested'||b.status==='pending'));
     const unpaid=bookings.filter(b=>b.payment_status==='required'&&live(b));
     const unpaidAmount=unpaid.reduce((n,b)=>n+Number(b.price||0),0);
     const weekB=bookings.filter(b=>b.booking_date>=t&&b.booking_date<=week&&live(b));
     const paid=bookings.filter(b=>b.payment_status==='paid').reduce((n,b)=>n+Number(b.price||0),0);
     const hour=new Date().getHours(); const hello=hour<13?'Buenos días':hour<20?'Buenas tardes':'Buenas noches';
     const row=b=>`<a class="db-row" href="#/reserva?id=${b.id}" style="--svc:${esc(b.service_color||'#94a3b8')}"><span class="db-when"><strong>${esc(b.booking_time||'—')}</strong><small>${b.booking_date===t?'Hoy':b.booking_date===tomorrow?'Mañana':esc(wdDay(b.booking_date))}</small></span><span class="db-who"><strong>${esc(b.fullname||'Cliente')}</strong><small>${esc(b.service_title||'Reserva')} · ${Number(b.participants||1)} ${Number(b.participants||1)===1?'persona':'personas'}</small></span>${wdStatus(b.status)}</a>`;
-    const attention=[...pending.map(b=>({b,why:'Por confirmar'})),...unpaid.filter(b=>b.status!=='pending').map(b=>({b,why:'Por cobrar · '+wdMoney(b.price,b.currency)}))].slice(0,7);
+    const attention=[...pending.map(b=>({b,why:'Solicitud: acéptala o recházala'})),...unpaid.filter(b=>!['requested','pending'].includes(b.status)).map(b=>({b,why:'Por cobrar · '+wdMoney(b.price,b.currency)}))].slice(0,7);
     const channels=a.channels||{}; const chTotal=Object.values(channels).reduce((n,v)=>n+v,0)||1;
     return `<div class="cb-dashboard db">
       <div class="db-hello"><div><p class="eyebrow">${esc(wdLongDay(t))}</p><h2>${hello}. ${todayB.length?`Hoy tienes ${todayB.length} ${todayB.length===1?'reserva':'reservas'} con ${todayB.reduce((n,b)=>n+Number(b.participants||1),0)} buceadores.`:'Hoy no hay reservas en agenda.'}</h2></div><div class="db-actions"><button type="button" class="btn btn-primary db-new-booking">+ Nueva reserva</button><button type="button" class="btn cb-go" data-tab="planning">Abrir planning</button></div></div>
       <div class="db-kpis">
         <button type="button" class="cb-go" data-tab="bookings" data-view="today"><span>Hoy</span><strong>${todayB.length}</strong><small>${todayB.reduce((n,b)=>n+Number(b.participants||1),0)} personas</small></button>
-        <button type="button" class="cb-go ${pending.length?'is-alert':''}" data-tab="bookings" data-view="pending"><span>Por confirmar</span><strong>${pending.length}</strong><small>${pending.length?'Necesitan respuesta':'Todo al día'}</small></button>
+        <button type="button" class="cb-go ${pending.length?'is-alert':''}" data-tab="bookings" data-view="pending"><span>Solicitudes pendientes</span><strong>${pending.length}</strong><small>${pending.length?'Necesitan respuesta':'Todo al día'}</small></button>
         <button type="button" class="cb-go ${unpaid.length?'is-warn':''}" data-tab="bookings" data-view="unpaid"><span>Por cobrar</span><strong>${wdMoney(unpaidAmount)}</strong><small>${unpaid.length} ${unpaid.length===1?'reserva':'reservas'}</small></button>
         <button type="button" class="cb-go" data-tab="bookings" data-view="week"><span>Próximos 7 días</span><strong>${weekB.length}</strong><small>reservas</small></button>
         <button type="button" class="cb-go" data-tab="analytics"><span>Cobrado</span><strong>${wdMoney(paid)}</strong><small>total registrado</small></button>
@@ -2793,7 +2858,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
 
   function centerBookingsPro(bookings){
-    return `<div class="cb-module"><div class="cb-module-head"><div><p class="eyebrow">GESTIÓN DE RESERVAS</p><h2>Reservas</h2><p>Una única bandeja para reservas online, WORLDIVES y reservas introducidas por el equipo.</p></div><div class="cb-filters"><input id="cb-booking-search" placeholder="Buscar cliente, servicio o referencia…"><select id="cb-booking-status"><option value="">Todos los estados</option><option value="pending">Pendientes</option><option value="confirmed">Confirmadas</option><option value="completed">Completadas</option><option value="cancelled">Canceladas</option><option value="rejected">Rechazadas</option></select></div></div><div id="cb-booking-table" class="table-wrap"></div></div>`;
+    return `<div class="cb-module"><div class="cb-module-head"><div><p class="eyebrow">GESTIÓN DE RESERVAS</p><h2>Reservas</h2><p>Una única bandeja para reservas online, WORLDIVES y reservas introducidas por el equipo.</p></div><div class="cb-filters"><input id="cb-booking-search" placeholder="Buscar cliente, servicio o referencia…"><select id="cb-booking-status"><option value="">Todos los estados</option>${Object.entries(WD_STATES).filter(([k])=>!['pending','payment_in_progress'].includes(k)).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('')}</select></div></div><div id="cb-booking-table" class="table-wrap"></div></div>`;
   }
 
   function renderCenterBookingTable(bookings){
@@ -2821,7 +2886,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const plIso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const plEndTime=(t,min)=>{ if(!min||!/^\d{1,2}:\d{2}/.test(t||'')) return ''; const [h,m]=t.split(':').map(Number); const x=h*60+m+Number(min); if(x>=24*60) return ''; return `${String(Math.floor(x/60)).padStart(2,'0')}:${String(x%60).padStart(2,'0')}`; };
   const plFree=sl=>Math.max(Number(sl.spots_total||0)-Number(sl.taken||0),0);
-  const plActive=b=>!['cancelled','rejected'].includes(b.status);
+  const plActive=b=>!['cancelled','rejected','expired'].includes(b.status);
   const PL_STATUS={pending:['Pendiente','warn'],confirmed:['Confirmada','good'],completed:['Completada','good'],cancelled:['Cancelada','bad'],rejected:['Rechazada','bad']};
   const PL_PAY={paid:['Pagado','good'],required:['Pago pendiente','warn'],pending:['Pago en curso','warn'],at_center:['Paga en el centro','muted'],not_required:['Sin cobro','muted'],refunded:['Devuelto','muted'],review:['Pago en revisión','warn']};
 
@@ -2911,7 +2976,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         return `<article class="pl-slot" style="--c:${esc(sl.service_color||'#2563eb')}">
           <div class="pl-slot-head"><span class="pl-time">${esc(sl.slot_time)}${end?`<small>– ${end}</small>`:''}</span><div class="pl-slot-title"><strong>${esc(sl.service_title)}</strong><small>${esc(sl.points.map(p=>p.name).join(' · ')||'Punto a elegir')}</small></div>${stTag}</div>
           <div class="pl-slot-occ">${occBar(sl.taken,sl.spots_total)}<small>${sl.taken} de ${sl.spots_total} plazas ocupadas</small></div>
-          ${act.length?`<ul class="pl-people">${act.map(b=>`<li><button type="button" class="pl-person" data-booking="${b.id}"><span class="pl-avatar">${esc(initials(b.fullname||'?'))}</span><span class="pl-pname">${esc(b.fullname||'Cliente')}${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}</span>${PL_PAY[b.payment_status]?`<span class="pl-tag ${PL_PAY[b.payment_status][1]}">${PL_PAY[b.payment_status][0]}</span>`:''}${b.status==='pending'?'<span class="pl-tag warn">Por confirmar</span>':''}</button></li>`).join('')}</ul>`:'<p class="pl-nobody">Todavía sin reservas.</p>'}
+          ${act.length?`<ul class="pl-people">${act.map(b=>b.placeholder?`<li><span class="pl-person is-placeholder" title="Un buceador está pagando estas plazas. Si no completa el pago en unos minutos, se liberan solas."><span class="pl-avatar">…</span><span class="pl-pname">Pago en curso${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}</span></span></li>`:`<li><button type="button" class="pl-person" data-booking="${b.id}"><span class="pl-avatar">${esc(initials(b.fullname||'?'))}</span><span class="pl-pname">${esc(b.fullname||'Cliente')}${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}</span>${PL_PAY[b.payment_status]?`<span class="pl-tag ${PL_PAY[b.payment_status][1]}">${PL_PAY[b.payment_status][0]}</span>`:''}${(b.status==='requested'||b.status==='pending')?'<span class="pl-tag warn">Solicitud</span>':b.status==='accepted_pending_payment'?'<span class="pl-tag warn">Aceptada · pendiente de pago</span>':''}</button></li>`).join('')}</ul>`:'<p class="pl-nobody">Todavía sin reservas.</p>'}
           ${gone?`<p class="pl-gone">${gone} ${gone===1?'reserva cancelada':'reservas canceladas'}</p>`:''}
           <div class="pl-slot-actions">${!past&&sl.status!=='closed'&&free>0?`${canBook?`<button type="button" class="btn pl-add" data-slot="${sl.id}" data-service="${sl.service_id}">+ Reserva</button>`:''}<button type="button" class="btn pl-poster" data-slot="${sl.id}">${wdIcon('image',15)} Crear cartel</button>`:''}<button type="button" class="btn pl-manage">Gestionar</button></div>
         </article>`; };
@@ -3316,7 +3381,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const meta=await loadMeta();
     const myCenter=!isAdmin?centers.find(c=>String(c.id)===String(d.user.center_id)):null;
     const centerPaid=bookings.filter(b=>b.payment_status==='paid');
-    const centerPending=bookings.filter(b=>b.status==='pending');
+    const centerPending=bookings.filter(b=>(b.status==='requested'||b.status==='pending'));
     const centerConfirmed=bookings.filter(b=>b.status==='confirmed');
     setApp(`<section class="page provider-page"><div class="provider-topbar"><div><p class="eyebrow">${isAdmin?'CUENTA ADMINISTRADOR':'PANEL PROFESIONAL · CENTRO DE BUCEO'}</p><h1>${isAdmin?'Centro de control de WORLDIVES':escapeHtml(myCenter?.name||'Panel del centro')}</h1><p class="lead">${isAdmin?'Control administrativo de WORLDIVES DISCOVERY.':'Tu centro de operaciones: reservas, salidas, clientes, pagos y catálogo.'}</p></div>${!isAdmin&&myCenter?`<div class="provider-status"><span class="status good">● Centro activo</span><a href="#/admin?tab=center">Gestionar ficha</a></div>`:''}</div>
       ${isAdmin?'<div class="notice" style="margin-top:18px"><strong>Control total activado</strong><p style="margin:6px 0 0">Las acciones importantes quedan registradas en el historial de actividad.</p></div>':''}
@@ -3537,7 +3602,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   // ---------------------------------------------------------------- v50.30 · Cancelling a booking
   function bookingCancelCard(b){
-    const c=b.cancel; if(!c||!['pending','confirmed'].includes(b.status)||c.started) return '';
+    const c=b.cancel; if(!c||!['pending','requested','accepted_pending_payment','confirmed'].includes(b.status)||c.started) return '';
     const amount=wdMoney(c.refund_amount,b.currency), paidAmount=wdMoney(c.paid_amount,b.currency);
     const until=c.deadline?new Date(c.deadline).toLocaleString(wdLocale(),{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'}):'';
     const msg=!c.paid_online?'Puedes cancelar sin coste: no has pagado nada online.'

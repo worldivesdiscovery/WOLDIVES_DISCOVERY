@@ -2581,3 +2581,40 @@ a.acc-kpi,button.acc-kpi{cursor:pointer}a.acc-kpi:hover,button.acc-kpi:hover{bor
 @media (max-width:1100px){.em-grid{grid-template-columns:1fr}.em-preview{position:static}}
 .footer-legal{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:flex-end}
 @media (max-width:760px){.footer-bottom{flex-direction:column}.footer-legal{justify-content:flex-start}}
+
+/* ---------------------------------------------------------------- v50.31-32: security screens and booking modes */
+.notice.warn{background:#fdf6e7;border-color:#f0e0bb;color:#6f5320}
+.notice.success{background:#eaf5ef;border-color:#cde6d8;color:#2f5f4c}
+.opt{font-weight:500;color:var(--muted);font-size:.9em}
+.wd-mode{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;line-height:1.3;background:#eef1f2;color:#40565f;width:fit-content}
+.wd-mode svg{flex:0 0 auto}
+.wd-mode.is-pay{background:#e6f2ed;color:#2f6a55}
+.wd-mode.is-req{background:#eaf2f8;color:#2f557a}
+.wd-mode.is-off{background:#f4eeee;color:#8d4b48;text-decoration:line-through;text-decoration-thickness:1px}
+.acc-due{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#8a6129;font-weight:600}
+.acc-mode{display:block;color:var(--muted);font-size:12px}
+.acc-msg-contact{display:block;margin-top:4px}
+.acc-msg-contact a{color:var(--sea);font-weight:700}
+.bk-state-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:14px 0}
+.bk-state-bar .btn{margin-left:auto}
+.bk-state-bar .btn+.btn{margin-left:0}
+.cp-book.is-disabled,.btn.is-disabled{opacity:.6;cursor:not-allowed;pointer-events:none}
+.pl-person.is-placeholder{opacity:.55;background:repeating-linear-gradient(135deg,#f3f5f6 0 6px,#eceff1 6px 12px);cursor:default}
+.svc-mode-option.is-locked{opacity:.7}
+.svc-mode-option.is-locked input{cursor:not-allowed}
+.svc-mode-example{display:block;margin-top:6px;font-style:normal;font-size:12px;color:#40565f;background:#f3f6f7;border-radius:8px;padding:6px 8px}
+.svc-mode-lock{display:block;margin-top:6px;font-style:normal;font-size:12px;color:#8a6129;font-weight:600}
+.svc-mode-lock a{color:var(--sea);text-decoration:underline}
+.svc-mode-times{margin-top:12px}
+.svc-mode-note{display:block;margin-top:8px;color:var(--muted)}
+.bk-legal p{margin:0 0 6px}
+.virtual-consent{display:grid;place-items:center;background:linear-gradient(160deg,#07364a,#0b5566);color:#fff;text-align:center;padding:24px}
+.virtual-consent-box{max-width:460px}
+.virtual-consent-box h2{color:#fff}
+.virtual-consent-box a{color:#bfeef3;text-decoration:underline}
+.virtual-video{width:100%;height:100%;object-fit:contain;background:#07191d}
+.claim-card{margin-bottom:14px}
+.claim-data{display:grid;grid-template-columns:180px 1fr;gap:6px 14px;margin:10px 0 14px;font-size:14px}
+.claim-data dt{color:var(--muted)}
+.claim-data dd{margin:0}
+@media (max-width:640px){.claim-data{grid-template-columns:1fr}.claim-data dt{margin-top:6px}}

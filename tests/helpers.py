@@ -71,7 +71,7 @@ class Server:
         e.update(env or {})
         return subprocess.run([sys.executable, str(ROOT / 'app' / 'server.py'), *args], env=e, cwd=str(self.tmp), capture_output=True, text=True, timeout=120)
 
-    def stop(self):
+    def stop(self, cleanup=True):
         if self.proc and self.proc.poll() is None:
             self.proc.terminate()
             try:
@@ -81,7 +81,8 @@ class Server:
         for f in (getattr(self, '_out', None), getattr(self, '_err', None)):
             if f: f.close()
         self.stderr = (self.tmp / 'stderr.log').read_text() if (self.tmp / 'stderr.log').exists() else ''
-        shutil.rmtree(self.tmp, ignore_errors=True)
+        if cleanup:
+            shutil.rmtree(self.tmp, ignore_errors=True)
 
     def sql(self, query, args=()):
         import sqlite3

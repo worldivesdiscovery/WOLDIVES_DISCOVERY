@@ -43,7 +43,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.31'
+APP_VERSION = '50.32'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -722,12 +722,61 @@ def bootstrap():
         db.commit()
         migrate_v50_31(db)
         db.commit()
+        migrate_v50_32(db)
+        db.commit()
 
 
 def add_columns(db, table, cols):
     have = {r['name'] for r in db.execute(f'PRAGMA table_info({table})').fetchall()}
     for name, typ in cols:
         if name not in have: db.execute(f'ALTER TABLE {table} ADD COLUMN {name} {typ}')
+
+
+def migrate_v50_32(db):
+    """v50.32 (Fase 1B, booking modes). «Reserva inmediata» disappears: services and templates move to «Pago al reservar»
+    (price > 0 and online payments active) or «Bajo petición» (everything else). Every change is listed in
+    booking_mode_migration so the owner can review it. Old 'pending' bookings move to the new states."""
+    add_columns(db, 'provider_services', [('response_hours', 'INTEGER DEFAULT 24'), ('payment_hours', 'INTEGER DEFAULT 24')])
+    add_columns(db, 'service_templates', [('response_hours', 'INTEGER'), ('payment_hours', 'INTEGER')])
+    add_columns(db, 'bookings', [('booking_mode', 'TEXT'), ('response_deadline', 'TEXT'), ('payment_deadline', 'TEXT'), ('hold_expires_at', 'TEXT'),
+                                 ('accepted_at', 'TEXT'), ('decided_by', 'INTEGER'), ('reject_reason', 'TEXT'), ('expired_reason', 'TEXT'), ('confirmed_at', 'TEXT')])
+    add_columns(db, 'centers', [('payments_warning_at', 'TEXT')])
+    db.execute('''CREATE TABLE IF NOT EXISTS booking_mode_migration (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, item_id INTEGER NOT NULL,
+                  title TEXT, provider TEXT, old_mode TEXT, new_mode TEXT, reason TEXT, created_at TEXT NOT NULL)''')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_deadlines ON bookings(status, response_deadline, payment_deadline, hold_expires_at)')
+    db.execute('''CREATE TRIGGER IF NOT EXISTS trg_bookings_mode AFTER INSERT ON bookings WHEN NEW.booking_mode IS NULL
+                  BEGIN UPDATE bookings SET booking_mode='request' WHERE id=NEW.id; END''')
+    for s in db.execute('''SELECT s.id,s.title,s.price,s.booking_mode,s.center_id,s.provider_user_id,COALESCE(c.name,u.fullname) AS provider_name
+                             FROM provider_services s LEFT JOIN centers c ON c.id=s.center_id LEFT JOIN users u ON u.id=s.provider_user_id
+                            WHERE s.booking_mode NOT IN ('payment','request') OR s.booking_mode IS NULL''').fetchall():
+        price, _, _ = effective_service_tariff(db, s['id'])
+        ready = service_payments_ready(db, s)
+        new = 'payment' if price > 0 and ready else 'request'
+        why = 'precio > 0 y cobros online activos' if new == 'payment' else ('sin precio' if price <= 0 else 'sin cobros online activos')
+        db.execute('UPDATE provider_services SET booking_mode=?,updated_at=? WHERE id=?', (new, now(), s['id']))
+        db.execute('INSERT INTO booking_mode_migration(kind,item_id,title,provider,old_mode,new_mode,reason,created_at) VALUES(?,?,?,?,?,?,?,?)',
+                   ('service', s['id'], s['title'], s['provider_name'], s['booking_mode'], new, why, now()))
+    for t in db.execute("SELECT t.*,u.center_id AS user_center,u.fullname FROM service_templates t JOIN users u ON u.id=t.provider_user_id WHERE t.booking_mode NOT IN ('payment','request') OR t.booking_mode IS NULL").fetchall():
+        ready = service_payments_ready(db, {'center_id': t['user_center'], 'provider_user_id': t['provider_user_id']})
+        new = 'payment' if float(t['price'] or 0) > 0 and ready else 'request'
+        db.execute('UPDATE service_templates SET booking_mode=?,updated_at=? WHERE id=?', (new, now(), t['id']))
+        db.execute('INSERT INTO booking_mode_migration(kind,item_id,title,provider,old_mode,new_mode,reason,created_at) VALUES(?,?,?,?,?,?,?,?)',
+                   ('template', t['id'], t['name'], t['fullname'], t['booking_mode'], new, 'plantilla', now()))
+    # Bookings: give every booking its mode, then translate the old 'pending' state.
+    db.execute('''UPDATE bookings SET booking_mode=COALESCE((SELECT CASE WHEN s.booking_mode='payment' THEN 'payment' ELSE 'request' END FROM provider_services s WHERE s.id=bookings.service_id),'request')
+                  WHERE booking_mode IS NULL''')
+    for b in db.execute("SELECT * FROM bookings WHERE status='pending'").fetchall():
+        open_order = db.execute("SELECT 1 FROM payment_orders WHERE booking_id=? AND status='pending'", (b['id'],)).fetchone()
+        if b['payment_status'] == 'paid': new = 'confirmed'
+        elif b['booking_mode'] == 'payment': new = 'payment_in_progress' if open_order else 'expired'
+        else: new = 'requested'
+        db.execute('UPDATE bookings SET status=?,expired_reason=CASE WHEN ?=\'expired\' THEN \'legacy_unpaid\' ELSE expired_reason END,updated_at=? WHERE id=?', (new, new, now(), b['id']))
+        if new == 'expired' and b['slot_reserved']: release_booking_spots(db, b)
+    # Accepted requests that still had to be paid online.
+    db.execute("UPDATE bookings SET status='accepted_pending_payment' WHERE status='confirmed' AND booking_mode='request' AND payment_status IN ('required','pending')")
+    db.execute("UPDATE bookings SET hold_expires_at=? WHERE status='payment_in_progress' AND hold_expires_at IS NULL", (local_iso(local_now() + _timedelta(minutes=HOLD_MINUTES)),))
+    db.execute("UPDATE bookings SET payment_deadline=? WHERE status='accepted_pending_payment' AND payment_deadline IS NULL", (local_iso(local_now() + _timedelta(hours=24)),))
+    db.execute("UPDATE bookings SET response_deadline=? WHERE status='requested' AND response_deadline IS NULL AND COALESCE(source,'online')='online'", (local_iso(local_now() + _timedelta(hours=24)),))
 
 
 def migrate_v50_31(db):
@@ -1133,7 +1182,19 @@ def grant_data_share(db, user_id, center_id, source):
 
 
 SERVICE_TYPES = {'inmersion','curso','salida','experiencia','vida_a_bordo','viaje','alquiler_equipo'}
-BOOKING_MODES = {'request','instant','payment'}
+BOOKING_MODES = set(wbk.MODES)  # 'payment' (Pago al reservar) and 'request' (Bajo petición); 'instant' no longer exists
+
+
+def clean_booking_mode(db, user, data, price):
+    """Validates the booking mode of a service. «Pago al reservar» needs online payments active (Fase 1B)."""
+    mode = clean_text(data.get('booking_mode'), 30) or 'request'
+    if mode == 'payment_keep':  # editing other fields of a «Pago al reservar» service while payments are off: allowed, it stays not bookable
+        return 'payment', wbk.clamp_hours(data.get('response_hours'), wbk.DEFAULT_RESPONSE_HOURS), wbk.clamp_hours(data.get('payment_hours'), wbk.DEFAULT_PAYMENT_HOURS)
+    if mode == 'instant': mode = 'payment' if price > 0 else 'request'
+    if mode not in BOOKING_MODES: raise ValueError('Elige el modo de reserva: «Pago al reservar» o «Bajo petición».')
+    if mode == 'payment' and not service_payments_ready(db, {'center_id': user['center_id'] if user['role'] == 'center' else None, 'provider_user_id': user['id']}):
+        raise ValueError('Activa los cobros online para usar «Pago al reservar» (Panel → Cobros y pagos).')
+    return mode, wbk.clamp_hours(data.get('response_hours'), wbk.DEFAULT_RESPONSE_HOURS), wbk.clamp_hours(data.get('payment_hours'), wbk.DEFAULT_PAYMENT_HOURS)
 MAX_TEMPLATES_PER_PROVIDER = 50
 
 
@@ -1145,6 +1206,7 @@ def clean_service_template(data):
     if stype not in SERVICE_TYPES: stype='inmersion'
     mode=clean_text(data.get('booking_mode'),30) or 'request'
     if mode not in BOOKING_MODES: mode='request'
+    resp=wbk.clamp_hours(data.get('response_hours'),wbk.DEFAULT_RESPONSE_HOURS); payh=wbk.clamp_hours(data.get('payment_hours'),wbk.DEFAULT_PAYMENT_HOURS)
     def pos_int(v):
         try: v=int(float(v or 0))
         except (TypeError,ValueError): return None
@@ -1156,7 +1218,7 @@ def clean_service_template(data):
     if color and not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color=None
     return {'name':name,'service_type':stype,'title':clean_text(data.get('title'),180),'description':clean_text(data.get('description'),5000),
             'duration_minutes':pos_int(data.get('duration_minutes')),'max_participants':pos_int(data.get('max_participants')),
-            'booking_mode':mode,'color':color,'price':price}
+            'booking_mode':mode,'color':color,'price':price,'response_hours':resp,'payment_hours':payh}
 
 
 def effective_service_tariff(db, service_id, target_date=None):
@@ -1639,14 +1701,15 @@ WITH rv AS (SELECT center_id, ROUND(AVG(rating),1) AS rating_average, COUNT(*) A
      pt AS (SELECT cpl.center_id, COUNT(*) AS point_count FROM center_point_links cpl JOIN dive_points dp ON dp.id=cpl.dive_point_id AND dp.active=1 GROUP BY cpl.center_id),
      sv AS (SELECT center_id, COUNT(*) AS services_count, MIN(CASE WHEN service_type<>'alquiler_equipo' AND price>0 THEN price END) AS price_from,
                    MAX(service_type='curso') AS has_courses, MAX(service_type IN ('viaje','vida_a_bordo')) AS has_trips,
-                   MAX(service_type='experiencia') AS has_try FROM provider_services WHERE active=1 AND center_id IS NOT NULL GROUP BY center_id),
+                   MAX(service_type='experiencia') AS has_try, MAX(booking_mode='payment') AS has_payment_mode FROM provider_services WHERE active=1 AND center_id IS NOT NULL GROUP BY center_id),
      sl AS (SELECT s.center_id, MIN(ss.slot_date) AS next_slot, SUM(CASE WHEN ss.slot_date<=date('now','+7 day') THEN ss.spots_available ELSE 0 END) AS spots_week
               FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id AND s.active=1
              WHERE ss.status='open' AND ss.spots_available>0 AND ss.slot_date>=date('now') GROUP BY s.center_id)
 SELECT c.id,c.name,c.city,c.region,c.country,c.tagline,c.description,c.specialties,c.logo_url,c.cover_url,c.website,c.verification_status,
        COALESCE(rv.rating_average,0) AS rating_average, COALESCE(rv.review_count,0) AS review_count, COALESCE(pt.point_count,0) AS point_count,
        COALESCE(sv.services_count,0) AS services_count, sv.price_from, COALESCE(sv.has_courses,0) AS has_courses, COALESCE(sv.has_trips,0) AS has_trips, COALESCE(sv.has_try,0) AS has_try,
-       sl.next_slot, COALESCE(sl.spots_week,0) AS spots_week
+       sl.next_slot, COALESCE(sl.spots_week,0) AS spots_week, COALESCE(sv.has_payment_mode,0) AS has_payment_mode,
+       c.stripe_account_id, c.stripe_charges_enabled, c.stripe_payouts_enabled
   FROM centers c LEFT JOIN rv ON rv.center_id=c.id LEFT JOIN pt ON pt.center_id=c.id LEFT JOIN sv ON sv.center_id=c.id LEFT JOIN sl ON sl.center_id=c.id
 """
 
@@ -1663,6 +1726,9 @@ def _build_directory(db):
     rows=[]
     for r in db.execute(CENTER_DIRECTORY_SQL+' WHERE c.active=1').fetchall():
         d=directory_row(r)
+        # «Confirmación inmediata»: at least one «Pago al reservar» service that can be booked now.
+        d['instant']=bool(d.pop('has_payment_mode',0)) and center_payments_ready(r)
+        for k in ('stripe_account_id','stripe_charges_enabled','stripe_payouts_enabled'): d.pop(k,None)
         d['_text']=fold_text(' '.join(str(d.get(k) or '') for k in ('name','city','region','specialties','tagline')))
         d['_name']=fold_text(d.get('name')); d['_spec']=fold_text(d.get('specialties'))
         rows.append(d)
@@ -1680,8 +1746,15 @@ DIRECTORY_SORT_KEYS={
     'price':lambda r:(r['price_from'] is None,r['price_from'] or 0,r['_name']),
     'name':lambda r:r['_name'],
 }
-DIRECTORY_FLAGS={'online':lambda r:r['services_count']>0,'week':lambda r:r['spots_week']>0,'courses':lambda r:r['has_courses']==1,
+DIRECTORY_FLAGS={'instant':lambda r:bool(r.get('instant')),'online':lambda r:r['services_count']>0,'week':lambda r:r['spots_week']>0,'courses':lambda r:r['has_courses']==1,
                  'trips':lambda r:r['has_trips']==1,'try':lambda r:r['has_try']==1,'reviews':lambda r:r['review_count']>0}
+
+
+def with_booking_flags(db, d):
+    """Adds the «Confirmación inmediata» flag and the number of bookable services from the directory snapshot."""
+    row = next((x for x in directory_snapshot(db)['rows'] if x['id'] == d.get('id')), None)
+    d['instant'] = bool(row and row.get('instant')); d['services_count'] = int(row['services_count']) if row else 0
+    return d
 
 
 def public_directory_row(r):
@@ -1846,6 +1919,11 @@ def point_directory(db, query):
     level=g('level')
     if level in POINT_LEVELS: rows=[r for r in rows if r['level']==level]
     if g('only')=='centers': rows=[r for r in rows if r['centers_count']>0]
+    if g('only')=='instant' or g('instant')=='1':
+        # «Confirmación inmediata»: dive sites where at least one centre offers «Pago al reservar» bookable now.
+        inst={x['id'] for x in directory_snapshot(db)['rows'] if x.get('instant')}
+        ids={x[0] for x in db.execute('SELECT DISTINCT dive_point_id FROM center_point_links WHERE center_id IN (%s)'%(','.join('?'*len(inst)) or 'NULL'),list(inst)).fetchall()} if inst else set()
+        rows=[r for r in rows if r['id'] in ids]
     # Facets are computed before the geographic filters so the visitor can always switch zone or country.
     zone=clean_text(g('zone'),120); sub=clean_text(g('subregion'),120); country=clean_text(g('country'),120)
     zf={}; cf={}
@@ -2229,10 +2307,15 @@ def _shift_month(d, n):
     return _dt.date(k//12,k%12+1,1)
 
 
+# A «Pago al reservar» booking whose payment was abandoned never existed for the centre: it is hidden everywhere.
+CENTER_VISIBLE_SQL = "NOT (b.status='expired' AND COALESCE(b.expired_reason,'') IN ('hold_expired','payment_cancelled','checkout_failed','legacy_unpaid'))"
+
+
 def planning_scope(user):
-    """SQL fragments restricting services and bookings to what the signed-in center or professional owns."""
+    """SQL fragments restricting services and bookings to what the signed-in center or professional owns.
+    A centre sees ALL the services of the centre, whoever created them (team members included)."""
     if user['role']=='center' and user['center_id']:
-        return 's.provider_user_id=?',(user['id'],),'b.center_id=?',(int(user['center_id']),)
+        return 's.center_id=?',(int(user['center_id']),),'b.center_id=?',(int(user['center_id']),)
     if user['role']=='freelance':
         return 's.provider_user_id=?',(user['id'],),'b.service_id IN (SELECT id FROM provider_services WHERE provider_user_id=?)',(user['id'],)
     raise PermissionError('Solo los centros y profesionales tienen planning.')
@@ -2245,8 +2328,8 @@ def _planning_figures(db, svc_where, svc_args, bk_where, bk_args, start, end):
                         WHERE {svc_where} AND ss.slot_date BETWEEN ? AND ? AND ss.status IN ('open','full','closed')''',(*svc_args,start,end)).fetchone()
     bk=db.execute(f'''SELECT COUNT(*) n, COALESCE(SUM(b.participants),0) divers, COALESCE(SUM(b.price),0) revenue,
                           COALESCE(SUM(CASE WHEN b.payment_status='paid' THEN b.price ELSE 0 END),0) paid,
-                          COALESCE(SUM(CASE WHEN b.status='pending' THEN 1 ELSE 0 END),0) pending
-                      FROM bookings b WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status NOT IN ('cancelled','rejected')''',(*bk_args,start,end)).fetchone()
+                          COALESCE(SUM(CASE WHEN b.status IN ('pending','requested') THEN 1 ELSE 0 END),0) pending
+                      FROM bookings b WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status NOT IN ('cancelled','rejected','expired','payment_in_progress')''',(*bk_args,start,end)).fetchone()
     cancelled=db.execute(f"SELECT COUNT(*) FROM bookings b WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status IN ('cancelled','rejected')",(*bk_args,start,end)).fetchone()[0]
     offered=int(slots['offered'] or 0); taken=int(slots['taken'] or 0)
     return {'slots':int(slots['n'] or 0),'offered':offered,'taken':taken,'free':max(offered-taken,0),
@@ -2275,13 +2358,20 @@ def center_planning(db, user, month):
         for pp in db.execute(f"SELECT sp.slot_id,p.id,p.name FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id IN ({','.join('?'*len(chunk))}) ORDER BY p.name",chunk).fetchall():
             by_id[pp['slot_id']]['points'].append({'id':pp['id'],'name':pp['name']})
     other=[]
-    for b in db.execute(f'''SELECT b.id,b.slot_id,b.service_id,b.booking_date,b.booking_time,b.participants,b.status,b.payment_status,b.price,
-                                   COALESCE(b.source,'online') AS source,u.fullname,s.title AS service_title,s.color AS service_color,p.name AS point_name
+    for b in db.execute(f'''SELECT b.id,b.slot_id,b.service_id,b.booking_date,b.booking_time,b.participants,b.status,b.payment_status,b.price,b.booking_mode,
+                                   b.response_deadline,b.payment_deadline,COALESCE(b.source,'online') AS source,COALESCE(b.contact_name,u.fullname) AS fullname,
+                                   s.title AS service_title,s.color AS service_color,p.name AS point_name
                               FROM bookings b LEFT JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
                               LEFT JOIN dive_points p ON p.id=b.dive_point_id
-                             WHERE {bk_where} AND b.booking_date BETWEEN ? AND ?
+                             WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status<>'expired'
                              ORDER BY b.booking_date,b.booking_time,b.id LIMIT 5000''',(*bk_args,start,end)).fetchall():
         bd=dict(b)
+        if bd['status']=='payment_in_progress':
+            # Only a grey «pago en curso» placeholder: no name, no money, not a booking yet.
+            bd={'id':None,'slot_id':bd['slot_id'],'service_id':bd['service_id'],'booking_date':bd['booking_date'],'booking_time':bd['booking_time'],
+                'participants':bd['participants'],'status':'payment_in_progress','status_label':'Pago en curso','placeholder':True}
+        else:
+            bd.update(booking_view_status(b))
         if bd['slot_id'] in by_id: by_id[bd['slot_id']]['bookings'].append(bd)
         else: other.append(bd)
     # Twelve months around the one on screen, for the trend strip.
@@ -2292,7 +2382,7 @@ def center_planning(db, user, month):
                              WHERE {svc_where} AND ss.slot_date BETWEEN ? AND ? AND ss.status IN ('open','full','closed') GROUP BY m''',(*svc_args,t0.isoformat(),t1.isoformat())).fetchall():
         trend.setdefault(r['m'],{})['slots']=int(r['n'] or 0); trend[r['m']]['offered']=int(r['offered'] or 0); trend[r['m']]['taken']=int(r['taken'] or 0)
     for r in db.execute(f'''SELECT substr(b.booking_date,1,7) m, COUNT(*) n, SUM(b.participants) divers, SUM(b.price) revenue FROM bookings b
-                             WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status NOT IN ('cancelled','rejected') GROUP BY m''',(*bk_args,t0.isoformat(),t1.isoformat())).fetchall():
+                             WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status NOT IN ('cancelled','rejected','expired','payment_in_progress') GROUP BY m''',(*bk_args,t0.isoformat(),t1.isoformat())).fetchall():
         e=trend.setdefault(r['m'],{}); e['bookings']=int(r['n'] or 0); e['divers']=int(r['divers'] or 0); e['revenue']=round(float(r['revenue'] or 0),2)
     months=[]
     for i in range(12):
@@ -2448,6 +2538,15 @@ def stripe_secret():
     return os.environ.get('STRIPE_SECRET_KEY','').strip()
 
 
+def stripe_module():
+    """The Stripe library configured with the secret key. WOD_STRIPE_API_BASE points it to a local simulator in tests."""
+    import stripe
+    stripe.api_key = stripe_secret()
+    base = os.environ.get('WOD_STRIPE_API_BASE', '').strip()
+    if base: stripe.api_base = base
+    return stripe
+
+
 def center_payments_ready(center):
     """True when WORLDIVES can charge cards for this centre: platform keys + a finished Stripe Connect account."""
     if not center or not stripe_secret(): return False
@@ -2488,14 +2587,23 @@ def finalize_paid_order(db, order, session, source):
     if order['booking_id']:
         b=db.execute('SELECT * FROM bookings WHERE id=?',(order['booking_id'],)).fetchone()
         if b:
-            reserved=int(b['slot_reserved'] or 0); was_confirmed=b['status']=='confirmed'
+            reserved=int(b['slot_reserved'] or 0); st=wbk.normalize_state(b['status'])
+            was_visible=st in ('requested','accepted_pending_payment','confirmed')
+            late=st in ('expired','cancelled','rejected')
             if b['slot_id'] and not reserved:
                 # The hold was released (late payment): take the spots again if they are still there.
                 if reserve_slot_spots(db,b['slot_id'],max(1,int(b['participants'] or 1))): reserved=1
-                else: audit(db,order['user_id'],'payment_after_slot_full','booking',b['id'],{'source':source})
-            db.execute("UPDATE bookings SET payment_status='paid',status=CASE WHEN status IN ('pending','confirmed') THEN 'confirmed' ELSE status END,slot_reserved=?,updated_at=? WHERE id=?",(reserved,now(),b['id']))
-            db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at) VALUES(?,?,?,?,?,?)',(order['provider_user_id'] or b['user_id'],b['user_id'],b['id'],'Pago recibido · reserva confirmada',f'Hemos recibido tu pago de {float(order["amount"] or 0):.2f} {order["currency"] or "EUR"}. Tu reserva #{b["id"]} está confirmada.',now()))
-            notify_booking(db,b['id'],'paid',{'was_confirmed':was_confirmed})
+                else:
+                    # No spots left for a late payment: never a phantom booking. The payment goes to review/refund.
+                    db.execute("UPDATE payment_orders SET status='review',updated_at=? WHERE id=?",(now(),order['id']))
+                    db.execute("UPDATE bookings SET payment_status='review',updated_at=? WHERE id=?",(now(),b['id']))
+                    audit(db,order['user_id'],'payment_after_slot_full','booking',b['id'],{'source':source})
+                    notify_booking(db,b['id'],'payment_review')
+                    return False,'late_no_spots'
+            # A payment confirmed by Stripe is the ONLY way a «Pago al reservar» booking becomes confirmed.
+            db.execute("UPDATE bookings SET payment_status='paid',status=CASE WHEN status IN ('pending','requested','payment_in_progress','accepted_pending_payment','confirmed','expired') THEN 'confirmed' ELSE status END,confirmed_at=COALESCE(confirmed_at,?),slot_reserved=?,expired_reason=NULL,updated_at=? WHERE id=?",(now(),reserved,now(),b['id']))
+            db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?,'system')",(order['provider_user_id'] or b['user_id'],b['user_id'],b['id'],'Pago recibido · reserva confirmada',f'Hemos recibido tu pago de {float(order["amount"] or 0):.2f} {order["currency"] or "EUR"}. Tu reserva #{b["id"]} está confirmada.',now()))
+            notify_booking(db,b['id'],'paid',{'was_confirmed':st=='accepted_pending_payment' or (was_visible and st=='confirmed'),'late':late})
     if order['experience_booking_id']:
         db.execute("UPDATE experience_bookings SET status='confirmed',updated_at=? WHERE id=?",(now(),order['experience_booking_id']))
     audit(db,order['user_id'],'payment_completed','payment_order',order['id'],{'provider':'stripe','source':source})
@@ -2503,15 +2611,18 @@ def finalize_paid_order(db, order, session, source):
 
 
 def release_order_hold(db, order, new_status):
+    """A Checkout ended without payment. «Pago al reservar»: the booking expires and its spots are freed at once
+    (it never existed for the centre). «Bajo petición» accepted: the spots stay held until the payment deadline."""
     db.execute('UPDATE payment_orders SET status=?,updated_at=? WHERE id=?',(new_status,now(),order['id']))
     if order['booking_id']:
-        b=db.execute('SELECT participants,slot_reserved,slot_id,payment_status FROM bookings WHERE id=?',(order['booking_id'],)).fetchone()
-        if b and b['payment_status']!='paid':
-            held=_obj(order,'hold_reserved')
-            if held and b['slot_reserved'] and b['slot_id']:
-                release_slot_spots(db,b['slot_id'],max(1,int(b['participants'] or 1)))
-                db.execute('UPDATE bookings SET slot_reserved=0 WHERE id=?',(order['booking_id'],))
-            db.execute("UPDATE bookings SET payment_status='required',updated_at=? WHERE id=?",(now(),order['booking_id']))
+        b=db.execute('SELECT * FROM bookings WHERE id=?',(order['booking_id'],)).fetchone()
+        if not b or b['payment_status']=='paid': return
+        if wbk.normalize_state(b['status'])=='payment_in_progress':
+            expire_checkout(order)
+            release_booking_spots(db,b)
+            db.execute("UPDATE bookings SET status='expired',expired_reason=?,payment_status='not_paid',updated_at=? WHERE id=?",('payment_cancelled' if new_status=='cancelled' else 'hold_expired',now(),b['id']))
+        elif wbk.normalize_state(b['status'])=='accepted_pending_payment':
+            db.execute("UPDATE bookings SET payment_status='required',updated_at=? WHERE id=?",(now(),b['id']))
 
 
 def sweep_payment_orders():
@@ -2528,7 +2639,7 @@ def sweep_payment_orders():
                 done=False
                 if stripe_secret() and o['provider_payment_id']:
                     try:
-                        import stripe; stripe.api_key=stripe_secret()
+                        stripe=stripe_module()
                         sess=stripe.checkout.Session.retrieve(o['provider_payment_id'],expand=['payment_intent.latest_charge'])
                         if _obj(sess,'payment_status')=='paid': finalize_paid_order(db,o,sess,'sweeper'); done=True
                         elif _obj(sess,'status')=='open':
@@ -2640,6 +2751,14 @@ def mail_date(value, lang='es'):
     return d.strftime('%d/%m/%Y')
 
 
+def mail_datetime(value, lang='es'):
+    """«domingo, 11 de octubre de 2026, 18:30» in the recipient's language (deadlines)."""
+    if not value: return ''
+    try: d = datetime.fromisoformat(str(value))
+    except ValueError: return str(value)
+    return f"{mail_date(d.date().isoformat(), lang)}, {d.strftime('%H:%M')}"
+
+
 def mail_money(amount, currency='EUR', lang='es'):
     cur = (currency or 'EUR').upper(); sym = {'EUR': '€', 'USD': '$', 'GBP': '£'}.get(cur)
     v = float(amount or 0)
@@ -2710,9 +2829,9 @@ EMAIL_TEMPLATES = {
    ('p', 'Hola {first_name}, la contraseña de tu cuenta de WORLDIVES se ha cambiado el {when}. Por seguridad hemos cerrado las demás sesiones abiertas.'),
    ('note', 'Si no has sido tú, restablece tu contraseña ahora y escríbenos.'),
    ('button', ('Restablecer contraseña', 'forgot_url'))]},
- 'booking_request': {'to': 'diver', 'subject': 'Solicitud enviada: {service} · {date_short}', 'pre': '{center} te confirmará la plaza en breve.', 'blocks': [
+ 'booking_request': {'to': 'diver', 'subject': 'Solicitud enviada: {service} · {date_short}', 'pre': '{center} responderá antes de {response_deadline}.', 'blocks': [
    ('h', 'Hemos enviado tu solicitud'),
-   ('p', 'Hola {first_name}, {center} ha recibido tu solicitud. Te avisaremos por correo en cuanto confirme la plaza.'),
+   ('p', 'Hola {first_name}, {center} ha recibido tu solicitud ({mode_label}). Te avisaremos por correo en cuanto la acepte o la rechace, y como muy tarde el {response_deadline}.'),
    ('details', None), ('note', '{pay_note}'), ('policy', None), ('button', ('Ver mi reserva', 'booking_url'))]},
  'booking_confirmed': {'to': 'diver', 'subject': 'Reserva confirmada: {service} · {date_short}', 'pre': 'Tu plaza con {center} está confirmada.', 'blocks': [
    ('h', '¡Tu reserva está confirmada!'),
@@ -2723,9 +2842,10 @@ EMAIL_TEMPLATES = {
    ('h', 'Tienes una reserva con {center}'),
    ('p', 'Hola {first_name}, {center} ha registrado esta reserva a tu nombre en WORLDIVES. Si no la reconoces, contacta directamente con el centro.'),
    ('details', None), ('payment', None), ('bring', None), ('p', 'Comprobante en PDF: {pdf_url}')]},
- 'payment_required': {'to': 'diver', 'subject': 'Plaza aceptada: completa el pago · {service}', 'pre': '{center} ha aceptado tu solicitud.', 'blocks': [
+ 'payment_required': {'to': 'diver', 'subject': 'Plaza aceptada: completa el pago · {service}', 'pre': 'Paga antes de {payment_deadline}.', 'blocks': [
    ('h', 'Tu plaza está aceptada'),
-   ('p', 'Hola {first_name}, {center} ha aceptado tu solicitud. Completa el pago de {total} para cerrar la reserva.'),
+   ('p', 'Hola {first_name}, {center} ha aceptado tu solicitud y te guarda la plaza. Completa el pago de {total} antes del {payment_deadline} para confirmar la reserva.'),
+   ('note', 'Si no pagas antes de ese momento, la reserva se cancela sola y las plazas se liberan. No se te cobrará nada.'),
    ('details', None), ('button', ('Pagar ahora de forma segura', 'booking_url')),
    ('note', 'El pago lo procesa Stripe con cifrado y verificación 3D Secure. WORLDIVES y el centro nunca ven los datos de tu tarjeta.'), ('policy', None)]},
  'payment_receipt': {'to': 'diver', 'subject': 'Recibo de pago · {service} · {total}', 'pre': 'Hemos recibido tu pago.', 'blocks': [
@@ -2740,7 +2860,12 @@ EMAIL_TEMPLATES = {
  'booking_rejected': {'to': 'diver', 'subject': 'Solicitud no disponible · {service} · {date_short}', 'pre': '{center} no puede atender esta solicitud.', 'blocks': [
    ('h', 'Esta solicitud no está disponible'),
    ('p', 'Hola {first_name}, lo sentimos: {center} no puede atender tu solicitud para el {date}.'),
+   ('p', '{reject_reason_text}'),
    ('note', '{refund_note}'), ('button', ('Buscar otra fecha', 'center_url'))]},
+ 'booking_expired': {'to': 'diver', 'subject': 'Reserva caducada · {service} · {date_short}', 'pre': 'No se te ha cobrado nada.', 'blocks': [
+   ('h', 'Tu reserva ha caducado'),
+   ('p', 'Hola {first_name}, {expired_text}'),
+   ('details', None), ('button', ('Buscar otra fecha', 'center_url'))]},
  'booking_cancelled_center': {'to': 'diver', 'subject': 'Reserva cancelada por el centro · {service}', 'pre': '{refund_short}', 'blocks': [
    ('h', '{center} ha cancelado tu reserva'),
    ('p', 'Hola {first_name}, el centro ha tenido que cancelar tu reserva del {date}. Suele deberse al estado del mar o a motivos de seguridad.'),
@@ -2778,6 +2903,13 @@ EMAIL_TEMPLATES = {
  'center_new_booking': {'to': 'center', 'subject': 'Nueva reserva: {service} · {date_short} · {diver_name}', 'pre': '{action_short}', 'blocks': [
    ('h', '{action_title}'), ('p', '{diver_name} ha reservado «{service}» para el {date}.'),
    ('details', None), ('payment', None), ('diver', None), ('button', ('{action_button}', 'panel_booking_url'))]},
+ 'center_booking_expired': {'to': 'center', 'subject': 'Reserva caducada: {service} · {date_short} · {diver_name}', 'pre': '{status_label}', 'blocks': [
+   ('h', 'Reserva caducada'), ('p', '{expired_text}'), ('details', None), ('button', ('Ver el planning', 'panel_planning_url'))]},
+ 'center_payments_disabled': {'to': 'center', 'subject': 'Tus servicios con «Pago al reservar» no se pueden reservar', 'pre': 'Los cobros online de tu centro no están activos.', 'blocks': [
+   ('h', 'Revisa el modo de reserva de tus servicios'),
+   ('p', 'Los cobros online de tu centro no están activos ahora mismo. Estos servicios usan «Pago al reservar» y han dejado de poder reservarse: {services}.'),
+   ('p', 'Para que los buceadores puedan volver a reservarlos, reactiva los cobros en «Cobros y pagos» o cambia esos servicios a «Bajo petición». Las reservas ya confirmadas no cambian.'),
+   ('button', ('Revisar mis servicios', 'panel_url'))]},
  'center_booking_paid': {'to': 'center', 'subject': 'Pago recibido: {service} · {date_short} · {diver_name}', 'pre': '{total} cobrados online.', 'blocks': [
    ('h', 'Pago recibido'), ('p', '{diver_name} ha pagado su reserva. La plaza queda confirmada.'),
    ('details', None), ('payment', None), ('button', ('Ver la reserva', 'panel_booking_url'))]},
@@ -2857,6 +2989,7 @@ EMAIL_TEMPLATE_LABELS = {
  'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'admin_new_pro': 'Admin: nueva cuenta profesional',
  'admin_payment_review': 'Admin: pago en revisión', 'admin_refund_failed': 'Admin: devolución pendiente', 'admin_content_report': 'Admin: denuncia de contenido',
  'report_received': 'Denuncia recibida', 'report_resolved': 'Resultado de la denuncia', 'test': 'Correo de prueba',
+ 'booking_expired': 'Reserva caducada (buceador)', 'center_booking_expired': 'Centro: reserva caducada', 'center_payments_disabled': 'Centro: «Pago al reservar» sin cobros activos',
  'verify_email': 'Verificación de email', 'verify_email_change': 'Confirmación de cambio de email', 'booking_notice': 'Aviso del centro sobre una reserva',
  'medical_document_removed': 'Certificado médico eliminado', 'admin_error_alert': 'Admin: errores repetidos del servidor'}
 EMAIL_AUDIENCE = {'diver': 'Buceador', 'pro': 'Profesional', 'center': 'Centro', 'admin': 'Administración', 'any': 'Cualquier usuario'}
@@ -2867,14 +3000,15 @@ def _esc(v): return html.escape(str(v if v is not None else ''), quote=True)
 
 def booking_mail_ctx(db, bid, lang='es'):
     b = db.execute('''SELECT b.*, u.fullname, u.email, up.phone AS diver_phone, c.name AS center_name, c.email AS center_email, c.phone AS center_phone,
-                             c.address AS center_address, c.city AS center_city, c.cancellation_policy, p.name AS point_name, s.title AS service_title, s.booking_mode
+                             c.address AS center_address, c.city AS center_city, c.cancellation_policy, p.name AS point_name, s.title AS service_title, s.response_hours
                         FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id LEFT JOIN user_profiles up ON up.user_id=u.id
                         LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?''', (bid,)).fetchone()
     if not b: return None
     base = public_site_url()
     po = db.execute("SELECT * FROM payment_orders WHERE booking_id=? ORDER BY CASE status WHEN 'paid' THEN 0 WHEN 'refunded' THEN 1 ELSE 2 END, id DESC LIMIT 1", (bid,)).fetchone()
-    first = (b['fullname'] or '').split(' ')[0]
-    return {'booking_id': bid, 'ref': f'WOD-{bid:06d}', 'first_name': first or mail_t(lang, 'buceador'), 'diver_name': b['fullname'] or '', 'diver_email': b['email'] if mail_deliverable(b['email']) else '',
+    first = (b['contact_name'] if b['contact_name'] and is_guest_user(db, b['user_id']) else b['fullname'] or '').split(' ')[0]
+    diver_email = b['email'] if mail_deliverable(b['email']) else (b['contact_email'] if mail_deliverable(b['contact_email']) else '')
+    return {'booking_id': bid, 'ref': f'WOD-{bid:06d}', 'first_name': first or mail_t(lang, 'buceador'), 'diver_name': (b['contact_name'] or b['fullname'] or '') if is_guest_user(db, b['user_id']) else (b['fullname'] or ''), 'diver_email': diver_email,
             'diver_phone': b['diver_phone'] or b['contact_phone'] or '', 'center': b['center_name'] or '', 'center_id': b['center_id'], 'center_email': b['center_email'] or '',
             'center_phone': b['center_phone'] or '', 'center_address': ', '.join(x for x in (b['center_address'], b['center_city']) if x),
             'service': b['service_title'] or mail_t(lang, 'Inmersión'), 'point': b['point_name'] or '', 'date': mail_date(b['booking_date'], lang),
@@ -2883,6 +3017,9 @@ def booking_mail_ctx(db, bid, lang='es'):
             'status': b['status'], 'equipment': b['equipment_items'] or '', 'notes': b['notes'] or '', 'booking_mode': b['booking_mode'], 'user_id': b['user_id'],
             'card': (f"{(po['card_brand'] or '').title()} ···· {po['card_last4']}" if po and po['card_last4'] else ''), 'pay_ref': f"PAY-{po['id']:05d}" if po else '',
             'policy': cancellation_policy_text(b['cancellation_policy'], lang),
+            'status_label': mail_t(lang, wbk.state_label(b['status'])), 'mode_label': mail_t(lang, wbk.mode_label(b['booking_mode'] or 'request', b['response_hours'])),
+            'payment_deadline': mail_datetime(b['payment_deadline'], lang), 'response_deadline': mail_datetime(b['response_deadline'], lang),
+            'reject_reason': b['reject_reason'] or '',
             'booking_url': f'{base}/#/reserva?id={bid}', 'pdf_url': f'{base}/api/bookings/{bid}/receipt.pdf', 'center_url': f"{base}/#/centro?id={b['center_id']}",
             'review_url': f"{base}/#/centro?id={b['center_id']}&resena=1", 'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings',
             'panel_planning_url': f'{base}/#/admin?tab=planning', 'admin_pay_url': f'{base}/#/admin?tab=adminpay'}
@@ -3075,18 +3212,27 @@ def notify_booking(db, bid, event, extra=None):
         def to_center(tpl, more=None):
             for email, name, lang in center_recipients(db, b['center_id']):
                 c = booking_mail_ctx(db, bid, lang) or dict(ctx); c.update(extra); c.update(more or {})
-                for k in ('action_title', 'action_short', 'action_button', 'center_refund_note'):
-                    if c.get(k): c[k] = mail_t(lang, c[k])
+                for k in ('action_title', 'action_short', 'action_button', 'center_refund_note', 'expired_text'):
+                    if c.get(k): c[k] = mail_t(lang, c[k], **{kk: vv for kk, vv in c.items() if isinstance(vv, (str, int, float))})
                 queue_email(db, tpl, email, name, c, lang, rel)
         if event == 'created':
             if ctx['status'] == 'confirmed':
                 to_diver('booking_confirmed')
                 to_center('center_new_booking', {'action_title': 'Nueva reserva confirmada', 'action_short': 'Reserva confirmada', 'action_button': 'Ver la reserva'})
             else:
-                pay_note = ('Pagarás directamente en el centro el día de la actividad.' if ctx['payment_status'] == 'at_center' else
-                            'No se cobra nada hasta que el centro confirme la plaza. Después podrás pagar online.' if ctx['payment_status'] == 'required' else '')
-                to_diver('booking_request', {'pay_note': mail_t(lang_d, pay_note) if pay_note else ''})
-                to_center('center_new_booking', {'action_title': 'Nueva solicitud: confírmala', 'action_short': 'Pendiente de que la confirmes', 'action_button': 'Confirmar o rechazar'})
+                pay_note = ('No se cobra nada hasta que el centro acepte. Si acepta, pagarás directamente en el centro el día de la actividad.' if ctx['payment_status'] == 'at_center' else
+                            'No se cobra nada hasta que el centro acepte. Si acepta, te avisaremos para pagar online antes del plazo que te indiquemos.' if ctx['payment_status'] == 'required' else
+                            'No se cobra nada hasta que el centro acepte.')
+                to_diver('booking_request', {'pay_note': mail_t(lang_d, pay_note)})
+                to_center('center_new_booking', {'action_title': 'Nueva solicitud: acéptala o recházala', 'action_short': 'Responde antes de {response_deadline}', 'action_button': 'Aceptar o rechazar'})
+        elif event == 'accepted_payment':
+            to_diver('payment_required')
+        elif event == 'expired_no_response':
+            to_diver('booking_expired', {'expired_text': mail_t(lang_d, '{center} no ha respondido a tu solicitud dentro del plazo, así que la hemos cerrado. No se te ha cobrado nada.', center=ctx['center'])})
+            to_center('center_booking_expired', {'expired_text': 'La solicitud de {diver_name} ha caducado porque no se respondió antes del plazo. El buceador ya está avisado.'})
+        elif event == 'expired_not_paid':
+            to_diver('booking_expired', {'expired_text': mail_t(lang_d, 'No hemos recibido el pago dentro del plazo, así que la reserva se ha cancelado y las plazas se han liberado. No se te ha cobrado nada.')})
+            to_center('center_booking_expired', {'expired_text': 'La reserva aceptada de {diver_name} se ha cancelado porque no se pagó dentro del plazo. Las plazas vuelven a estar libres.'})
         elif event == 'manual':
             to_diver('booking_manual')
         elif event == 'confirmed':
@@ -3102,7 +3248,9 @@ def notify_booking(db, bid, event, extra=None):
             to_diver('payment_review')
             notify_admins(db, 'admin_payment_review', ctx, rel)
         elif event == 'rejected':
-            to_diver('booking_rejected', refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']))
+            reason = extra.get('reason') or ctx.get('reject_reason') or ''
+            to_diver('booking_rejected', dict(refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']),
+                                              reject_reason_text=mail_t(lang_d, 'Motivo indicado por el centro: {reason}', reason=reason) if reason else ''))
         elif event == 'cancelled_center':
             to_diver('booking_cancelled_center', refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']))
         elif event == 'cancelled_diver':
@@ -3285,7 +3433,10 @@ def sample_email_ctx(template, lang='es'):
          'admin_pay_url': f'{base}/#/admin?tab=adminpay', 'admin_legal_url': f'{base}/#/admin?tab=legal', 'error': 'charge_already_refunded',
          'center_refund_note': t('El importe se ha devuelto automáticamente al cliente según tu política de cancelación.'),
          'reason': t('Información falsa o engañosa'), 'target': f'{base}/#/punto?id=40', 'details': 'La profundidad indicada no es correcta.', 'reporter': 'Laura Martín · laura@ejemplo.com',
-         'slots_count': 2, 'divers_count': 7,
+         'slots_count': 2, 'divers_count': 7, 'payment_deadline': mail_datetime('2026-10-15T18:30', lang), 'response_deadline': mail_datetime('2026-10-12T18:30', lang),
+         'mode_label': t('Bajo petición · el centro responde en 24 h'), 'status_label': t('Confirmada'), 'services': 'Bautizo de buceo, Buceo doble',
+         'expired_text': mail_t(lang, 'No hemos recibido el pago dentro del plazo, así que la reserva se ha cancelado y las plazas se han liberado. No se te ha cobrado nada.'),
+         'reject_reason_text': mail_t(lang, 'Motivo indicado por el centro: {reason}', reason='Mal estado del mar previsto'),
          'agenda': [{'time': '09:00', 'title': 'Buceo doble', 'taken': 5, 'total': 12, 'points': 'Cabo San Martín, Isla del Portitxol', 'people': ['Laura Martín · 2 pax · Traje de neopreno ×1', 'Marc Soler · 3 pax']},
                     {'time': '15:30', 'title': 'Bautizo de buceo', 'taken': 2, 'total': 6, 'points': 'Cala Blanca', 'people': ['Elena Vidal · 2 pax · Equipo completo ×2']}]}
     c.update(refund_texts(lang, 'refunded', c['total']))
@@ -3376,7 +3527,7 @@ def refund_paid_booking(db, bid, amount=None, reason='requested_by_customer'):
     if amount <= 0: return 'no_refund'
     try:
         if not stripe_secret(): raise RuntimeError('STRIPE_SECRET_KEY no configurada')
-        import stripe; stripe.api_key = stripe_secret()
+        stripe = stripe_module()
         pi = None
         if order['provider_payment_id']:
             sess = stripe.checkout.Session.retrieve(order['provider_payment_id'])
@@ -3404,6 +3555,269 @@ def release_booking_spots(db, b):
     if b['slot_id'] and b['slot_reserved']:
         release_slot_spots(db, b['slot_id'], max(1, int(b['participants'] or 1)))
         db.execute('UPDATE bookings SET slot_reserved=0 WHERE id=?', (b['id'],))
+
+
+# ---------------------------------------------------------------------------
+# Booking flow (v50.32, Fase 1B). Two modes and one state machine (wod.bookings):
+#   «Pago al reservar»: payment_in_progress (spots held HOLD_MINUTES) → confirmed when Stripe confirms the payment.
+#   «Bajo petición»: requested → accepted_pending_payment (spots held, pay before the deadline) → confirmed
+#                    or requested → confirmed (no online payments / free) · rejected · expired.
+# There is no path that confirms a «Pago al reservar» booking with a price without a payment confirmed by Stripe.
+# Times are local wall-clock times (as booking dates and times are).
+# ---------------------------------------------------------------------------
+HOLD_MINUTES = wcfg.env_int('WOD_PAYMENT_HOLD_MINUTES', wbk.DEFAULT_HOLD_MINUTES, 5, 60)
+
+
+def local_now():
+    return datetime.now().replace(microsecond=0)
+
+
+def local_iso(dt):
+    return dt.replace(microsecond=0).isoformat(timespec='minutes') if dt else None
+
+
+def parse_local(value):
+    try: return datetime.fromisoformat(str(value)) if value else None
+    except ValueError: return None
+
+
+def service_payments_ready(db, svc):
+    """Can this service's provider take card payments right now? Centres: their Stripe Connect account.
+    Freelance professionals without a centre: their own connected account (Fase 2)."""
+    if not svc: return False
+    center_id = svc['center_id'] if 'center_id' in (svc.keys() if hasattr(svc, 'keys') else svc) else None
+    if center_id:
+        c = db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?', (center_id,)).fetchone()
+        return center_payments_ready(c)
+    try:
+        u = db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM users WHERE id=?', (svc['provider_user_id'],)).fetchone()
+    except sqlite3.OperationalError:
+        return False
+    return center_payments_ready(u)
+
+
+def service_mode_info(db, svc, price=None, ready=None):
+    """What the diver sees for a service: mode, its label, whether it can be booked now and the button text."""
+    mode = 'payment' if svc['booking_mode'] == 'payment' else 'request'
+    ready = service_payments_ready(db, svc) if ready is None else ready
+    hours = wbk.clamp_hours(svc['response_hours'] if 'response_hours' in svc.keys() else None, wbk.DEFAULT_RESPONSE_HOURS)
+    info = {'booking_mode': mode, 'mode_label': wbk.mode_label(mode, hours), 'response_hours': hours, 'payments_ready': bool(ready), 'bookable': True,
+            'instant': mode == 'payment' and bool(ready)}
+    if mode == 'payment' and not ready:
+        info.update(bookable=False, unavailable_reason='Este servicio se reserva pagando online y ahora mismo no admite reservas.')
+    return info
+
+
+def booking_view_status(b):
+    """Status text shared by «Mis reservas», the panel, emails and PDFs."""
+    d = {'status': wbk.normalize_state(b['status']), 'status_label': wbk.state_label(b['status'])}
+    reason = b['expired_reason'] if 'expired_reason' in b.keys() else None
+    if d['status'] == 'expired':
+        d['status_label'] = {'hold_expired': 'Caducada · no pagada', 'payment_cancelled': 'Caducada · no pagada', 'checkout_failed': 'Caducada · no pagada',
+                             'no_response': 'Caducada · el centro no respondió a tiempo', 'not_paid': 'Caducada · no se pagó a tiempo'}.get(reason, 'Caducada')
+    return d
+
+
+def reserve_or_fail(db, b):
+    if b['slot_id'] and not b['slot_reserved']:
+        if not reserve_slot_spots(db, b['slot_id'], max(1, int(b['participants'] or 1))):
+            raise ValueError('No quedan plazas suficientes en esa salida.')
+        db.execute('UPDATE bookings SET slot_reserved=1 WHERE id=?', (b['id'],))
+
+
+def booking_row(db, bid):
+    return db.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+
+
+def accept_booking(db, actor, b):
+    """The provider accepts a request. Spots are taken now; if it charges online the diver gets a deadline to pay."""
+    if b['status'] not in ('requested', 'pending'): raise ValueError('Esta solicitud ya no está pendiente.')
+    dl = parse_local(b['response_deadline'])
+    if dl and local_now() > dl: raise ValueError('El plazo para responder a esta solicitud ha terminado.')
+    reserve_or_fail(db, b)
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    price = float(b['price'] or 0)
+    ready = service_payments_ready(db, svc) if svc else center_payments_ready(db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?', (b['center_id'],)).fetchone())
+    if price > 0 and ready and b['payment_status'] != 'paid':
+        hours = wbk.clamp_hours(svc['payment_hours'] if svc else None, wbk.DEFAULT_PAYMENT_HOURS)
+        deadline = wbk.deadline_before_start(local_now(), hours, wbk.activity_start(b['booking_date'], b['booking_time']))
+        db.execute("UPDATE bookings SET status='accepted_pending_payment',payment_status='required',payment_deadline=?,accepted_at=?,decided_by=?,updated_at=? WHERE id=?",
+                   (local_iso(deadline), now(), actor['id'] if actor else None, now(), b['id']))
+        notify_booking(db, b['id'], 'accepted_payment')
+        return 'accepted_pending_payment'
+    pay = 'paid' if b['payment_status'] == 'paid' else ('at_center' if price > 0 else 'not_required')
+    db.execute("UPDATE bookings SET status='confirmed',payment_status=?,accepted_at=?,confirmed_at=?,decided_by=?,updated_at=? WHERE id=?",
+               (pay, now(), now(), actor['id'] if actor else None, now(), b['id']))
+    notify_booking(db, b['id'], 'confirmed')
+    return 'confirmed'
+
+
+def reject_booking(db, actor, b, reason=''):
+    if b['status'] not in ('requested', 'pending', 'accepted_pending_payment'): raise ValueError('Esta solicitud ya no se puede rechazar.')
+    release_booking_spots(db, b)
+    db.execute("UPDATE bookings SET status='rejected',reject_reason=?,decided_by=?,cancelled_at=?,cancelled_by='center',updated_at=? WHERE id=?",
+               (clean_text(reason, 500) or None, actor['id'] if actor else None, now(), now(), b['id']))
+    for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (b['id'],)).fetchall():
+        expire_checkout(o); db.execute("UPDATE payment_orders SET status='cancelled',updated_at=? WHERE id=?", (now(), o['id']))
+    outcome = refund_paid_booking(db, b['id'], None, 'center_rejected')
+    notify_booking(db, b['id'], 'rejected', {'refund': outcome, 'reason': clean_text(reason, 500) or ''})
+    return outcome
+
+
+def expire_checkout(order):
+    """Closes an open Stripe Checkout so it can no longer be paid (best effort)."""
+    if not (stripe_secret() and order['provider_payment_id']): return
+    try:
+        stripe = stripe_module()
+        kw = {'stripe_account': order['connected_account_id']} if 'connected_account_id' in order.keys() and order['connected_account_id'] and order_is_direct(order) else {}
+        sess = stripe.checkout.Session.retrieve(order['provider_payment_id'], **kw)
+        if _obj(sess, 'status') == 'open': stripe.checkout.Session.expire(order['provider_payment_id'], **kw)
+    except Exception as exc:
+        sys.stderr.write(f'[pagos] no se pudo cerrar el pago {order["id"]}: {exc}\n')
+
+
+def order_is_direct(order):
+    return 'charge_type' in order.keys() and order['charge_type'] == 'direct'
+
+
+def order_paid_at_stripe(order):
+    """Asks Stripe whether an open Checkout was paid (when the webhook has not arrived yet). Returns the session or None."""
+    if not (stripe_secret() and order['provider_payment_id']): return None
+    try:
+        stripe = stripe_module()
+        kw = {'stripe_account': order['connected_account_id']} if order_is_direct(order) and order['connected_account_id'] else {}
+        sess = stripe.checkout.Session.retrieve(order['provider_payment_id'], expand=['payment_intent.latest_charge'], **kw)
+        return sess if _obj(sess, 'payment_status') in ('paid', 'no_payment_required') else None
+    except Exception as exc:
+        sys.stderr.write(f'[pagos] consulta del pago {order["id"]}: {exc}\n')
+        return None
+
+
+def expire_booking(db, b, reason, notify=True):
+    """A deadline has passed: release the spots and mark the booking as expired («caducada»)."""
+    for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (b['id'],)).fetchall():
+        sess = order_paid_at_stripe(o)
+        if sess:
+            finalize_paid_order(db, o, sess, 'deadline-check'); return 'paid'
+        expire_checkout(o); db.execute("UPDATE payment_orders SET status='expired',updated_at=? WHERE id=?", (now(), o['id']))
+    release_booking_spots(db, b)
+    db.execute("UPDATE bookings SET status='expired',expired_reason=?,payment_status=CASE WHEN payment_status IN ('required','pending') THEN 'not_paid' ELSE payment_status END,updated_at=? WHERE id=?",
+               (reason, now(), b['id']))
+    audit(db, None, 'booking_expired', 'booking', b['id'], {'reason': reason})
+    if notify and reason in ('no_response', 'not_paid'): notify_booking(db, b['id'], 'expired_' + reason)
+    return 'expired'
+
+
+def run_booking_deadlines(db):
+    """Every minute: payment holds, response deadlines and payment deadlines (Fase 1B)."""
+    now_l = local_iso(local_now())
+    for b in db.execute("SELECT * FROM bookings WHERE status='payment_in_progress' AND hold_expires_at IS NOT NULL AND hold_expires_at<? LIMIT 500", (now_l,)).fetchall():
+        expire_booking(db, b, 'hold_expired'); db.commit()
+    for b in db.execute("SELECT * FROM bookings WHERE status IN ('requested','pending') AND response_deadline IS NOT NULL AND response_deadline<? LIMIT 500", (now_l,)).fetchall():
+        expire_booking(db, b, 'no_response'); db.commit()
+    for b in db.execute("SELECT * FROM bookings WHERE status='accepted_pending_payment' AND payment_deadline IS NOT NULL AND payment_deadline<? LIMIT 500", (now_l,)).fetchall():
+        expire_booking(db, b, 'not_paid'); db.commit()
+
+
+def booking_payee(db, b):
+    """Who receives the money of a booking: the centre (or the freelance professional) and its connected account."""
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    c = db.execute('SELECT id,name,stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?', (b['center_id'],)).fetchone()
+    return svc, c
+
+
+def _open_order(db, where, args):
+    o = db.execute(f"SELECT * FROM payment_orders WHERE {where} AND status='pending' AND checkout_url IS NOT NULL ORDER BY id DESC LIMIT 1", args).fetchone()
+    if not o: return None
+    try: age = datetime.now(timezone.utc).timestamp() - datetime.fromisoformat(o['created_at']).timestamp()
+    except Exception: age = 9999
+    return o if age < 25 * 60 else None
+
+
+def create_stripe_checkout(db, user, *, amount, currency, title, provider_name, account_id, provider_user_id, booking_id=None, experience_booking_id=None,
+                           service_id=None, slot_id=None, cancel_url, hold_reserved=False, deposit=False):
+    """Creates the payment order and its Stripe Checkout Session. Raises ValueError when it cannot."""
+    if amount <= 0: raise ValueError('Esta reserva no tiene un importe que pagar online.')
+    secret = stripe_secret(); base = public_site_url()
+    if not secret: raise ValueError('El pago seguro aún no está configurado en el servidor.')
+    commission_percent = max(0.0, min(100.0, float(os.environ.get('WOD_PLATFORM_FEE_PERCENT', '10') or 10)))
+    platform_fee = round(amount * commission_percent / 100, 2)
+    oid = db.execute('''INSERT INTO payment_orders(user_id,provider_user_id,booking_id,experience_booking_id,service_id,slot_id,amount,currency,status,provider,platform_fee,connected_account_id,hold_reserved,created_at,updated_at)
+                         VALUES(?,?,?,?,?,?,?,?,'pending','stripe',?,?,?,?,?)''', (user['id'], provider_user_id, booking_id, experience_booking_id, service_id, slot_id, amount, currency, platform_fee, account_id, 1 if hold_reserved else 0, now(), now())).lastrowid
+    db.commit()
+    try:
+        stripe=stripe_module()
+        session = stripe.checkout.Session.create(
+            mode='payment',
+            line_items=[{'price_data': {'currency': currency.lower(), 'product_data': {'name': title, 'description': f'Reserva · {provider_name}'}, 'unit_amount': int(round(amount * 100))}, 'quantity': 1}],
+            success_url=f'{base}/#/pago-ok?session_id={{CHECKOUT_SESSION_ID}}',
+            cancel_url=cancel_url,
+            metadata={'payment_order_id': str(oid), 'booking_id': str(booking_id or ''), 'experience_booking_id': str(experience_booking_id or ''), 'user_id': str(user['id'])},
+            payment_intent_data={'application_fee_amount': int(round(platform_fee * 100)), 'transfer_data': {'destination': account_id},
+                                 'description': f'Reserva #{booking_id or experience_booking_id} · {provider_name}', 'metadata': {'payment_order_id': str(oid)}},
+            client_reference_id=f'WOD-{oid}',
+            customer_email=user['email'] if mail_deliverable(user['email']) else None,
+            expires_at=int(time.time()) + 30 * 60, locale='auto')
+    except ImportError:
+        db.execute("UPDATE payment_orders SET status='failed',updated_at=? WHERE id=?", (now(), oid)); db.commit()
+        raise ValueError('Falta instalar la dependencia stripe en el servidor.')
+    except Exception as exc:
+        db.execute("UPDATE payment_orders SET status='failed',updated_at=? WHERE id=?", (now(), oid)); db.commit()
+        sys.stderr.write(f'[pagos] Stripe rechazó el pedido {oid}: {exc}\n')
+        raise ValueError('No se ha podido abrir el pago seguro. Inténtalo de nuevo en unos minutos.')
+    db.execute('UPDATE payment_orders SET provider_payment_id=?,checkout_url=?,updated_at=? WHERE id=?', (session.id, session.url, now(), oid)); db.commit()
+    return {'checkout_url': session.url, 'order_id': oid}
+
+
+def start_checkout(db, user, b):
+    """Opens the payment of a booking in its two legal moments (Fase 1B)."""
+    st = wbk.normalize_state(b['status'])
+    if b['payment_status'] == 'paid': raise ValueError('Esta reserva ya está pagada.')
+    if st == 'payment_in_progress':
+        hold = parse_local(b['hold_expires_at'])
+        if hold and local_now() > hold: raise ValueError('El tiempo para pagar esta reserva ha terminado y las plazas se han liberado. Vuelve a reservar.')
+    elif st == 'accepted_pending_payment':
+        dl = parse_local(b['payment_deadline'])
+        if dl and local_now() > dl: raise ValueError('El plazo para pagar esta reserva ha terminado.')
+    elif st == 'requested': raise ValueError('El centro todavía no ha aceptado esta solicitud. No se cobra nada hasta entonces.')
+    else: raise ValueError('Esta reserva no tiene ningún pago pendiente.')
+    reuse = _open_order(db, 'booking_id=?', (b['id'],))
+    if reuse: return {'checkout_url': reuse['checkout_url'], 'order_id': reuse['id'], 'reused': True}
+    svc, c = booking_payee(db, b)
+    if not (service_payments_ready(db, svc) if svc else center_payments_ready(c)):
+        raise ValueError('El centro no tiene ahora mismo los cobros online activos. Contacta con el centro.')
+    amount = float(b['price'] or 0); currency = b['currency'] or 'EUR'
+    return create_stripe_checkout(db, user, amount=amount, currency=currency, title=(svc['title'] if svc else 'Reserva de buceo'), provider_name=c['name'],
+                                  account_id=c['stripe_account_id'], provider_user_id=svc['provider_user_id'] if svc else None, booking_id=b['id'],
+                                  service_id=b['service_id'], slot_id=b['slot_id'], hold_reserved=bool(b['slot_reserved']),
+                                  cancel_url=f"{public_site_url()}/#/reserva?id={b['id']}&pago=cancelado")
+
+
+def start_experience_checkout(db, user, eb):
+    """Experiences are booked on request; once confirmed by the organiser they are paid online when it charges online."""
+    if eb['status'] not in ('confirmed', 'accepted_pending_payment'): raise ValueError('El organizador todavía no ha aceptado tu solicitud.')
+    e = db.execute('SELECT * FROM travel_experiences WHERE id=?', (eb['travel_experience_id'],)).fetchone()
+    if not e: raise ValueError('Experiencia no disponible.')
+    reuse = _open_order(db, 'experience_booking_id=?', (eb['id'],))
+    if reuse: return {'checkout_url': reuse['checkout_url'], 'order_id': reuse['id'], 'reused': True}
+    c = db.execute('SELECT id,name,stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?', (e['center_id'],)).fetchone() if e['center_id'] else None
+    if not c or not center_payments_ready(c): raise ValueError('Este organizador no cobra online: pagarás directamente con él.')
+    amount = round(float(e['price'] or 0) * max(1, int(eb['participants'] or 1)), 2)
+    return create_stripe_checkout(db, user, amount=amount, currency=e['currency'] or 'EUR', title=e['title'], provider_name=c['name'], account_id=c['stripe_account_id'],
+                                  provider_user_id=e['provider_user_id'], experience_booking_id=eb['id'], cancel_url=f'{public_site_url()}/#/area?payment=cancelled')
+
+
+def warn_payment_mode_without_payments(db, center_id):
+    """A centre lost its online payments: its «Pago al reservar» services stop being bookable (never silently
+    «pay at the centre») and the centre is told to move them to «Bajo petición»."""
+    svcs = db.execute("SELECT id,title FROM provider_services WHERE center_id=? AND active=1 AND booking_mode='payment'", (center_id,)).fetchall()
+    if not svcs: return
+    c = db.execute('SELECT payments_warning_at FROM centers WHERE id=?', (center_id,)).fetchone()
+    if c and c['payments_warning_at'] and c['payments_warning_at'] > (datetime.now(timezone.utc) - _timedelta(days=1)).isoformat(): return
+    db.execute('UPDATE centers SET payments_warning_at=? WHERE id=?', (now(), center_id))
+    names = ', '.join(s['title'] for s in svcs)
+    for email, name, lang in center_recipients(db, center_id):
+        queue_email(db, 'center_payments_disabled', email, name, {'services': names, 'panel_url': f'{public_site_url()}/#/admin?tab=services'}, lang, ('center', center_id))
 
 
 def new_password_reset(db, user_id):
@@ -3568,8 +3982,12 @@ def booking_pdf(db,booking_id,base_url='http://localhost:8000'):
     if not b: return None
     po=db.execute("SELECT id,paid_at,card_brand,card_last4,amount_received FROM payment_orders WHERE booking_id=? AND status='paid' ORDER BY id DESC LIMIT 1",(booking_id,)).fetchone()
     DEEP=(0.027,0.212,0.290); SEA=(0.043,0.478,0.537); MUTED=(0.38,0.43,0.46); LINE=(0.86,0.89,0.91); SOFT=(0.955,0.972,0.978); WHITE=(1,1,1); INK=(0.07,0.13,0.16)
-    STATUS={'confirmed':('RESERVA CONFIRMADA','CONFIRMED',(0.184,0.478,0.388)),'completed':('INMERSIÓN REALIZADA','COMPLETED',SEA),'pending':('PENDIENTE DE CONFIRMAR','PENDING',(0.66,0.42,0.07)),
-            'rejected':('RESERVA RECHAZADA','REJECTED',(0.61,0.25,0.22)),'cancelled':('RESERVA CANCELADA','CANCELLED',(0.61,0.25,0.22))}
+    # Same states as everywhere else (wod.bookings), in capitals for the voucher.
+    WARN=(0.66,0.42,0.07); BAD=(0.61,0.25,0.22); GOOD=(0.184,0.478,0.388)
+    STATUS={'confirmed':('RESERVA CONFIRMADA','CONFIRMED',GOOD),'completed':('COMPLETADA','COMPLETED',SEA),'requested':('SOLICITADA','REQUESTED',WARN),
+            'pending':('SOLICITADA','REQUESTED',WARN),'accepted_pending_payment':('ACEPTADA · PENDIENTE DE PAGO','ACCEPTED · PAYMENT DUE',WARN),
+            'payment_in_progress':('PAGO EN CURSO','PAYMENT IN PROGRESS',WARN),'expired':('CADUCADA','EXPIRED',MUTED),
+            'rejected':('RECHAZADA','REJECTED',BAD),'cancelled':('CANCELADA','CANCELLED',BAD)}
     PAY={'paid':('PAGADO','PAID',(0.184,0.478,0.388)),'required':('PAGO PENDIENTE','PAYMENT DUE',(0.66,0.42,0.07)),'pending':('PAGO EN CURSO','PROCESSING',(0.66,0.42,0.07)),
          'at_center':('PAGO EN EL CENTRO','PAY AT CENTRE',SEA),'not_required':('SIN COBRO','NO CHARGE',SEA),'review':('PAGO EN REVISIÓN','UNDER REVIEW',(0.66,0.42,0.07)),'refunded':('DEVUELTO','REFUNDED',MUTED)}
     st=STATUS.get(b['status'],(str(b['status']).upper(),'',MUTED)); py=PAY.get(b['payment_status'],(str(b['payment_status'] or '').upper(),'',MUTED))
@@ -3607,7 +4025,7 @@ def booking_pdf(db,booking_id,base_url='http://localhost:8000'):
         cx=56+(i%2)*168; cy=top-46-(i//2)*46
         pg.text(cx,cy,lab.upper(),6.5,MUTED,True)
         for j,ln in enumerate(pg.wrap(val,9.5,152,True,2)): pg.text(cx,cy-13-j*11,ln,9.5,INK,True)
-    qr=f'{base_url}/#/verificarreserva?id={booking_id}'
+    qr=booking_check_url(db,booking_id,base_url)
     try: pg.c+=_qr_cmds(qr,421,top-150,115)
     except Exception: pg.box(421,top-150,115,115,WHITE,LINE,6); pg.text(478,top-95,ref,8,MUTED,True,align='center')
     pg.text(478,top-22,'VERIFICAR · VERIFY',7.5,MUTED,True,align='center')
@@ -3666,7 +4084,7 @@ def booking_pdf(db,booking_id,base_url='http://localhost:8000'):
 def diver_sheet_pdf(db,booking_id,base_url="http://localhost:8000"):
     b=db.execute("""SELECT b.*,u.fullname,u.email,up.phone AS customer_phone,up.city,up.emergency_contact_name,up.emergency_contact_phone,up.equipment_required,up.suit_type,up.suit_size,up.boot_size,up.bcd_size,up.fin_size,up.mask_size,up.usual_weight_kg,up.tank_preference,up.computer_preference,c.name AS certification_name,ce.name AS center_name,p.name AS point_name,s.title AS service_title FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN user_profiles up ON up.user_id=u.id LEFT JOIN certifications c ON c.id=up.certification_id JOIN centers ce ON ce.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?""",(booking_id,)).fetchone()
     if not b:return None
-    qr=f'{base_url}/#/verificarreserva?id={booking_id}'
+    qr=booking_check_url(db,booking_id,base_url)
     cmds=[]
     cmds += _pdf_box(24,24,547,794,'1 1 1','0.86 0.89 0.91',16)
     cmds += _pdf_box(24,748,547,70,'0.04 0.17 0.24',None,16)
@@ -4160,7 +4578,7 @@ class Handler(BaseHTTPRequestHandler):
                     if row['status']=='pending' and stripe_secret():
                         # Do not wait for the webhook: ask Stripe directly so the diver sees the confirmation at once.
                         try:
-                            import stripe; stripe.api_key=stripe_secret()
+                            stripe=stripe_module()
                             sess=stripe.checkout.Session.retrieve(sid,expand=['payment_intent.latest_charge'])
                             order=db.execute('SELECT * FROM payment_orders WHERE id=?',(row['id'],)).fetchone()
                             ok_,why=finalize_paid_order(db,order,sess,'return'); db.commit()
@@ -4174,11 +4592,11 @@ class Handler(BaseHTTPRequestHandler):
                 if path == '/api/center/analytics':
                     user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
                     if not cid: raise ValueError('La cuenta aún no tiene un centro aprobado.')
-                    bookings=db.execute('''SELECT b.*,u.fullname,u.email,s.title AS service_title,p.name AS point_name FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.center_id=? ORDER BY b.booking_date,b.booking_time''',(cid,)).fetchall()
+                    bookings=db.execute(f'''SELECT b.*,COALESCE(b.contact_name,u.fullname) AS fullname,u.email,s.title AS service_title,p.name AS point_name FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.center_id=? AND b.status NOT IN ('payment_in_progress','expired') ORDER BY b.booking_date,b.booking_time''',(cid,)).fetchall()
                     today=time.strftime('%Y-%m-%d'); total=len(bookings)
                     upcoming=[b for b in bookings if (b['booking_date'] or '')>=today and b['status'] not in ('cancelled','rejected','completed')]
                     revenue=sum(float(b['price'] or 0) for b in bookings if b['payment_status']=='paid')
-                    pending=sum(1 for b in bookings if b['status']=='pending'); confirmed=sum(1 for b in bookings if b['status']=='confirmed'); completed=sum(1 for b in bookings if b['status']=='completed'); cancelled=sum(1 for b in bookings if b['status']=='cancelled')
+                    pending=sum(1 for b in bookings if b['status'] in ('pending','requested')); confirmed=sum(1 for b in bookings if b['status']=='confirmed'); completed=sum(1 for b in bookings if b['status']=='completed'); cancelled=sum(1 for b in bookings if b['status']=='cancelled')
                     participants=sum(int(b['participants'] or 1) for b in bookings if b['status'] not in ('cancelled','rejected'))
                     by_day={}; by_service={}
                     for b in bookings:
@@ -4225,10 +4643,14 @@ class Handler(BaseHTTPRequestHandler):
                     for chunk in [slot_ids[i:i+500] for i in range(0,len(slot_ids),500)]:
                         for pp in db.execute(f"SELECT sp.slot_id,p.id,p.name,p.country,p.region FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id IN ({','.join('?'*len(chunk))}) AND p.active=1 ORDER BY p.name",chunk).fetchall():
                             points_by_slot.setdefault(pp['slot_id'],[]).append({'id':pp['id'],'name':pp['name'],'country':pp['country'],'region':pp['region']})
+                    ready_cache={}
                     for r in rows:
                         d=dict(r)
                         tariff_price, tariff_currency, tariff_effective = effective_service_tariff(db, r['id'])
                         d['price']=tariff_price; d['currency']=tariff_currency; d['tariff_effective_from']=tariff_effective
+                        rk=(r['center_id'],r['provider_user_id'] if not r['center_id'] else None)
+                        if rk not in ready_cache: ready_cache[rk]=service_payments_ready(db,r)
+                        d.update(service_mode_info(db,r,tariff_price,ready_cache[rk]))
                         if include_inactive: d['experience']=exp_by_service.get(r['id'])
                         d['slots']=slots_by_service.get(r['id'],[])
                         for sd in d['slots']: sd['points']=points_by_slot.get(sd['id'],[])
@@ -4241,6 +4663,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not r: self.send_json({'error':'Servicio no encontrado'},404); return
                     rd=dict(r); tariff_price, tariff_currency, tariff_effective=effective_service_tariff(db, sid)
                     rd['price']=tariff_price; rd['currency']=tariff_currency; rd['tariff_effective_from']=tariff_effective
+                    rd.update(service_mode_info(db,r,tariff_price))
                     slots=db.execute("SELECT * FROM service_slots WHERE service_id=? AND status IN ('open','full','closed') ORDER BY slot_date,slot_time",(sid,)).fetchall()
                     slot_out=[]
                     for x in slots:
@@ -4369,9 +4792,10 @@ class Handler(BaseHTTPRequestHandler):
                             can_review=bool(completed_booking) and current['role'] not in {'center','admin'}
                             if can_review: review_reason='Puedes valorar tu experiencia. Tu reseña aparece como verificada porque tienes una reserva con este centro.'
                             elif current['role'] in {'center','admin'}: review_reason='Las cuentas profesionales y administrativas no pueden valorar centros.'
-                        service_out=[]
+                        service_out=[]; c_ready=center_payments_ready(row)
                         for sv in services:
                             sd=dict(sv); sd['price'],sd['currency'],_=effective_service_tariff(db,sv['id'])
+                            sd.update(service_mode_info(db,sv,sd['price'],c_ready))
                             sd['next_slots']=[dict(x) for x in db.execute("SELECT id,slot_date,slot_time,spots_available,spots_total FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date>=date('now') ORDER BY slot_date,slot_time LIMIT 3",(sv['id'],)).fetchall()]
                             service_out.append(sd)
                         exp_rows=db.execute('''SELECT e.*, t.title AS destination_title FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id
@@ -4407,8 +4831,8 @@ class Handler(BaseHTTPRequestHandler):
                             km=dist(float(p['latitude']),float(p['longitude']),float(c['latitude']),float(c['longitude']))
                             if km<=60: nearby.append((km,c))
                         nearby.sort(key=lambda x:(x[0],x[1]['name']))
-                        self.send_json({'mode':mode,'items':[dict(center_row(c),distance_km=km) for km,c in nearby[:12]]}); return
-                    self.send_json({'mode':mode,'items':[center_row(r) for r in rows]}); return
+                        self.send_json({'mode':mode,'items':[with_booking_flags(db,dict(center_row(c),distance_km=km)) for km,c in nearby[:12]]}); return
+                    self.send_json({'mode':mode,'items':[with_booking_flags(db,center_row(r)) for r in rows]}); return
                 if path == '/api/top-dives':
                     try:
                         lat = float(query.get('lat',[''])[0]); lon = float(query.get('lon',[''])[0])
@@ -4465,9 +4889,10 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_bytes(raw,'application/pdf',f'WORLDIVES-reserva-{bid}.pdf'); return
                 if path == '/api/me/area':
                     user=require_user(self,db); uid=user['id']
-                    bookings=db.execute('''SELECT b.*,c.name AS center_name,c.city,c.phone AS center_phone,c.email AS center_email,c.address AS center_address,p.name AS point_name,s.title AS service_title,s.booking_mode
+                    bookings=db.execute('''SELECT b.*,c.name AS center_name,c.city,c.phone AS center_phone,c.email AS center_email,c.address AS center_address,p.name AS point_name,s.title AS service_title,s.response_hours
                                           FROM bookings b JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id
                                           WHERE b.user_id=? ORDER BY b.booking_date DESC,b.booking_time DESC,b.id DESC''',(uid,)).fetchall()
+                    bookings=[dict(dict(x),**booking_view_status(x),mode_label=wbk.mode_label(x['booking_mode'] or 'request',x['response_hours'])) for x in bookings]
                     exps=db.execute('''SELECT eb.*,e.title,e.summary,e.start_date,e.end_date,e.price,e.currency,e.includes,e.conditions,
                                               t.title AS destination_title,c.name AS center_name,c.city,c.phone AS center_phone,c.email AS center_email,
                                               u.fullname AS provider_name
@@ -4479,7 +4904,7 @@ class Handler(BaseHTTPRequestHandler):
                                        FROM messages m JOIN users u ON u.id=m.sender_user_id LEFT JOIN bookings b ON b.id=m.booking_id
                                        LEFT JOIN centers c ON c.id=b.center_id WHERE m.recipient_user_id=? ORDER BY m.created_at DESC,m.id DESC''',(uid,)).fetchall()
                     unread=sum(1 for m in msgs if not m['read_at'])
-                    self.send_json({'bookings':[dict(x) for x in bookings],'experience_bookings':[dict(x) for x in exps],'messages':[dict(x) for x in msgs],'unread_messages':unread}); return
+                    self.send_json({'bookings':bookings,'experience_bookings':[dict(x) for x in exps],'messages':[dict(x) for x in msgs],'unread_messages':unread}); return
                 if path == '/api/messages':
                     user=require_user(self,db); rows=db.execute('''SELECT m.*,u.fullname AS sender_name FROM messages m JOIN users u ON u.id=m.sender_user_id WHERE m.recipient_user_id=? ORDER BY m.created_at DESC,m.id DESC''',(user['id'],)).fetchall(); self.send_json({'items':[dict(x) for x in rows]}); return
                 if path.startswith('/api/public/bookings/') and path.count('/')==4:
@@ -4515,7 +4940,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_bytes(qr_svg(booking_check_url(db,bid,self.base_url())),'image/svg+xml; charset=utf-8'); return
                 if path.startswith('/api/bookings/') and path.count('/')==3:
                     user=require_user(self,db); bid=int(path.rsplit('/',1)[1])
-                    b=db.execute('''SELECT b.*, u.fullname, u.email, u.username, c.name AS center_name, c.city AS center_city, c.phone AS center_phone, c.email AS center_email, c.website AS center_website, c.address AS center_address, p.name AS point_name, p.country AS point_country, p.dive_type AS point_dive_type, s.title AS service_title, s.booking_mode AS booking_mode
+                    b=db.execute('''SELECT b.*, u.fullname, u.email, u.username, c.name AS center_name, c.city AS center_city, c.phone AS center_phone, c.email AS center_email, c.website AS center_website, c.address AS center_address, p.name AS point_name, p.country AS point_country, p.dive_type AS point_dive_type, s.title AS service_title, s.response_hours
                                     FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id
                                     LEFT JOIN user_profiles up ON up.user_id=u.id
                                     LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?''',(bid,)).fetchone()
@@ -4530,11 +4955,13 @@ class Handler(BaseHTTPRequestHandler):
                     cpay=db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?',(b['center_id'],)).fetchone()
                     bd=dict(b); online=center_payments_ready(cpay)
                     bd['center_online_payments']=online
-                    bd['can_pay_online']=bool(online and b['user_id']==user['id'] and b['payment_status'] in ('required','pending') and float(b['price'] or 0)>0
-                                              and (b['status']=='confirmed' or (b['status']=='pending' and b['booking_mode']!='request')))
+                    st_=wbk.normalize_state(b['status'])
+                    open_=(st_=='payment_in_progress' and (parse_local(b['hold_expires_at']) or local_now())>=local_now()) or (st_=='accepted_pending_payment' and (parse_local(b['payment_deadline']) or local_now())>=local_now())
+                    bd['can_pay_online']=bool(online and b['user_id']==user['id'] and open_ and b['payment_status']!='paid' and float(b['price'] or 0)>0)
                     pay=dict(po) if po else None
                     if pay: pay['reference']=f"PAY-{pay['id']:05d}"; pay.pop('provider_payment_id',None)
-                    if b['status'] in ('pending','confirmed'): bd['cancel']=booking_cancel_terms(db,b)
+                    if wbk.normalize_state(b['status']) in wbk.CANCELLABLE: bd['cancel']=booking_cancel_terms(db,b)
+                    bd.update(booking_view_status(b)); bd['mode_label']=wbk.mode_label(b['booking_mode'] or 'request',b['response_hours'] if 'response_hours' in b.keys() else None)
                     _cp=db.execute('SELECT cancellation_policy,cancellation_note FROM centers WHERE id=?',(b['center_id'],)).fetchone()
                     bd['cancellation_policy']=cancellation_policy_key(_cp['cancellation_policy']); bd['cancellation_text']=cancellation_policy_text(_cp['cancellation_policy']); bd['cancellation_note']=_cp['cancellation_note'] or ''
                     bd.pop('public_token',None); bd['check_url']=booking_check_url(db,bid,self.base_url()) if (b['user_id']==user['id'] or user['role'] in {'admin','center'}) else None
@@ -4543,11 +4970,12 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db)
                     if user['role']=='center':
                         # Optional server-side filters keep the payload small for centers with many bookings.
-                        where=['b.center_id=?']; args=[user['center_id']]
+                        where=['b.center_id=?',"b.status<>'payment_in_progress'",CENTER_VISIBLE_SQL]; args=[user['center_id']]
                         q_from=clean_text(query.get('from',[''])[0],10); q_to=clean_text(query.get('to',[''])[0],10)
                         if q_from: where.append('b.booking_date>=?'); args.append(q_from)
                         if q_to: where.append('b.booking_date<=?'); args.append(q_to)
-                        q_status=clean_text(query.get('status',[''])[0],20)
+                        q_status=clean_text(query.get('status',[''])[0],30)
+                        if q_status=='pending': q_status='requested'
                         if q_status: where.append('b.status=?'); args.append(q_status)
                         q_pay=clean_text(query.get('payment',[''])[0],20)
                         if q_pay: where.append('b.payment_status=?'); args.append(q_pay)
@@ -4558,7 +4986,7 @@ class Handler(BaseHTTPRequestHandler):
                             like=f'%{fold_text(q_text)}%'; where.append("(fold(u.fullname) LIKE ? OR fold(u.email) LIKE ? OR fold(b.contact_phone) LIKE ? OR fold(b.external_ref) LIKE ? OR fold(s.title) LIKE ? OR CAST(b.id AS TEXT)=?)"); args+= [like,like,like,like,like,q_text.lstrip('#')]
                         order='b.booking_date ASC,b.booking_time ASC,b.id ASC' if query.get('order',[''])[0]=='asc' else 'b.booking_date DESC,b.booking_time DESC,b.id DESC'
                         limit=max(1,min(5000,int(query.get('limit',['2000'])[0] or 2000)))
-                        rows=db.execute(f'''SELECT b.*, u.fullname, u.email, u.username, c.name AS center_name, p.name AS point_name, s.title AS service_title, s.color AS service_color
+                        rows=db.execute(f'''SELECT b.*, COALESCE(b.contact_name,u.fullname) AS fullname, CASE WHEN u.email LIKE '%.local' THEN COALESCE(b.contact_email,'') ELSE u.email END AS email, u.username, c.name AS center_name, p.name AS point_name, s.title AS service_title, s.color AS service_color
                                              FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id
                                              LEFT JOIN provider_services s ON s.id=b.service_id WHERE {' AND '.join(where)} ORDER BY {order} LIMIT {limit}''',args).fetchall()
                     elif user['role']=='admin':
@@ -4567,7 +4995,28 @@ class Handler(BaseHTTPRequestHandler):
                         rows=db.execute('''SELECT b.*, u.fullname, u.email, u.username, c.name AS center_name, p.name AS point_name, s.title AS service_title FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id ORDER BY b.booking_date DESC,b.id DESC LIMIT ?''',(limit,)).fetchall()
                     else:
                         rows=db.execute('''SELECT b.*, c.name AS center_name, p.name AS point_name, s.title AS service_title FROM bookings b JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.user_id=? ORDER BY b.booking_date DESC,b.id DESC''',(user['id'],)).fetchall()
-                    self.send_json({'items':[dict(r) for r in rows]}); return
+                    items=[]
+                    for r_ in rows:
+                        d=dict(r_); d.update(booking_view_status(r_)); d.pop('public_token',None) if user['role']!='recreational' else None
+                        d['mode_label']=wbk.mode_label(d.get('booking_mode') or 'request')
+                        items.append(d)
+                    self.send_json({'items':items}); return
+                if path == '/api/center/requests':
+                    # «Solicitudes pendientes»: requests to accept or reject, with the time left to answer.
+                    user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    rows=db.execute('''SELECT b.id,b.booking_date,b.booking_time,b.participants,b.price,b.currency,b.notes,b.response_deadline,b.created_at,b.payment_status,
+                                              COALESCE(b.contact_name,u.fullname) AS fullname,s.title AS service_title,s.color AS service_color,p.name AS point_name,ss.spots_available
+                                         FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
+                                         LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN service_slots ss ON ss.id=b.slot_id
+                                        WHERE b.center_id=? AND b.status IN ('requested','pending') ORDER BY COALESCE(b.response_deadline,'9999'),b.id''',(cid,)).fetchall()
+                    now_l=local_now(); items=[]
+                    for r_ in rows:
+                        d=dict(r_); dl=parse_local(d['response_deadline'])
+                        d['minutes_left']=max(0,int((dl-now_l).total_seconds()//60)) if dl else None
+                        d['enough_spots']=d['spots_available'] is None or int(d['spots_available'])>=int(d['participants'] or 1)
+                        items.append(d)
+                    awaiting=db.execute("SELECT COUNT(*) FROM bookings WHERE center_id=? AND status='accepted_pending_payment'",(cid,)).fetchone()[0]
+                    self.send_json({'items':items,'count':len(items),'awaiting_payment':awaiting}); return
                 if path == '/api/account/documents':
                     user=require_user(self,db)
                     rows=db.execute('SELECT id,document_type,title,original_name,expires_at,status,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(user['id'],)).fetchall()
@@ -4762,7 +5211,7 @@ class Handler(BaseHTTPRequestHandler):
                     length=body_length(self,wcfg.MAX_WEBHOOK_BYTES); raw=self.rfile.read(length); secret=os.environ.get('STRIPE_WEBHOOK_SECRET','').strip()
                     if not secret: self.send_json({'error':'Webhook no configurado.'},503); return
                     try:
-                        import stripe
+                        stripe=stripe_module()
                         event=stripe.Webhook.construct_event(raw,self.headers.get('Stripe-Signature',''),secret)
                     except ImportError: self.send_json({'error':'Falta instalar stripe.'},500); return
                     except Exception: self.send_json({'error':'Firma de webhook no válida.'},400); return
@@ -4779,7 +5228,7 @@ class Handler(BaseHTTPRequestHandler):
                         if order and order['status']!='paid':
                             sess=obj
                             try:
-                                import stripe; stripe.api_key=stripe_secret()
+                                stripe=stripe_module()
                                 if stripe.api_key: sess=stripe.checkout.Session.retrieve(obj.get('id'),expand=['payment_intent.latest_charge'])
                             except Exception: sess=obj
                             finalize_paid_order(db,order,sess,'webhook')
@@ -4800,6 +5249,8 @@ class Handler(BaseHTTPRequestHandler):
                         account_id=obj.get('id')
                         if account_id:
                             db.execute('UPDATE centers SET stripe_charges_enabled=?,stripe_payouts_enabled=?,stripe_details_submitted=?,updated_at=? WHERE stripe_account_id=?',(1 if obj.get('charges_enabled') else 0,1 if obj.get('payouts_enabled') else 0,1 if obj.get('details_submitted') else 0,now(),account_id))
+                            if not (obj.get('charges_enabled') and obj.get('payouts_enabled')):
+                                for c_ in db.execute('SELECT id FROM centers WHERE stripe_account_id=?',(account_id,)).fetchall(): warn_payment_mode_without_payments(db,c_['id'])
                     db.commit()
                     self.send_json({'received':True}); return
                 if path=='/api/payments/connect/onboard':
@@ -4811,8 +5262,7 @@ class Handler(BaseHTTPRequestHandler):
                     secret=stripe_secret(); base=os.environ.get('WOD_PUBLIC_URL','http://localhost:8000').rstrip('/')
                     if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
                     try:
-                        import stripe
-                        stripe.api_key=secret
+                        stripe=stripe_module()
                         account_id=center['stripe_account_id']
                         if account_id:
                             account=stripe.Account.retrieve(account_id)
@@ -4839,8 +5289,7 @@ class Handler(BaseHTTPRequestHandler):
                     secret=stripe_secret(); base=os.environ.get('WOD_PUBLIC_URL','http://localhost:8000').rstrip('/')
                     if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
                     try:
-                        import stripe
-                        stripe.api_key=secret
+                        stripe=stripe_module()
                         link=stripe.AccountLink.create(account=center['stripe_account_id'],type='account_onboarding',refresh_url=f'{base}/#/pagos?stripe=refresh',return_url=f'{base}/#/pagos?stripe=return')
                         self.send_json({'ok':True,'url':link.url}); return
                     except Exception as exc: raise ValueError(f'No se pudo continuar la configuración de cobros: {exc}')
@@ -4852,10 +5301,10 @@ class Handler(BaseHTTPRequestHandler):
                     secret=os.environ.get('STRIPE_SECRET_KEY','').strip()
                     if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
                     try:
-                        import stripe
-                        stripe.api_key=secret
+                        stripe=stripe_module()
                         a=stripe.Account.retrieve(center['stripe_account_id'])
                         db.execute('UPDATE centers SET stripe_charges_enabled=?,stripe_payouts_enabled=?,stripe_details_submitted=?,updated_at=? WHERE id=?',(1 if a.get('charges_enabled') else 0,1 if a.get('payouts_enabled') else 0,1 if a.get('details_submitted') else 0,now(),cid))
+                        if not (a.get('charges_enabled') and a.get('payouts_enabled')): warn_payment_mode_without_payments(db,cid)
                         db.commit()
                         self.send_json({'ok':True,'charges_enabled':bool(a.get('charges_enabled')),'payouts_enabled':bool(a.get('payouts_enabled')),'details_submitted':bool(a.get('details_submitted')),'ready':bool(a.get('charges_enabled') and a.get('payouts_enabled'))}); return
                     except Exception as exc: raise ValueError(f'No se pudo actualizar el estado de Stripe: {exc}')
@@ -4867,8 +5316,7 @@ class Handler(BaseHTTPRequestHandler):
                     secret=os.environ.get('STRIPE_SECRET_KEY','').strip()
                     if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
                     try:
-                        import stripe
-                        stripe.api_key=secret
+                        stripe=stripe_module()
                         link=stripe.Account.create_login_link(center['stripe_account_id'])
                         self.send_json({'ok':True,'url':link.url}); return
                     except Exception as exc: raise ValueError(f'No se pudo abrir el panel de cobros: {exc}')
@@ -5076,7 +5524,7 @@ class Handler(BaseHTTPRequestHandler):
                         if not slot or participants>slot['spots_available']: raise ValueError('La salida seleccionada no tiene plazas suficientes.')
                     bdate=slot['slot_date'] if slot else clean_text(data.get('booking_date'),20); btime=slot['slot_time'] if slot else clean_text(data.get('booking_time'),20)
                     if not bdate: raise ValueError('Falta booking_date.')
-                    point_id=int(data.get('dive_point_id') or 0) or None; price=float(data.get('price') if data.get('price') not in (None,'') else (service['price'] if service else 0) or 0); status=clean_text(data.get('status'),30) or 'pending'; status=status if status in {'pending','confirmed'} else 'pending'; reserved=0
+                    point_id=int(data.get('dive_point_id') or 0) or None; price=float(data.get('price') if data.get('price') not in (None,'') else (service['price'] if service else 0) or 0); status=clean_text(data.get('status'),30) or 'requested'; status='requested' if status in {'pending','requested'} else ('confirmed' if status=='confirmed' else 'requested'); reserved=0
                     if slot and status=='confirmed':
                         changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(participants,participants,now(),slot_id,participants)).rowcount
                         if changed!=1: raise ValueError('Las plazas acaban de cambiar.')
@@ -5105,8 +5553,15 @@ class Handler(BaseHTTPRequestHandler):
                     if user['role']=='center' and not center_id: raise ValueError('Tu cuenta de centro no tiene una ficha asociada.')
                     title=clean_text(data.get('title'),180)
                     if not title: raise ValueError('El nombre del servicio es obligatorio.')
-                    price=float(data.get('price') or 0); duration=int(data.get('duration_minutes') or 0) or None; maxp=int(data.get('max_participants') or 0) or None
-                    cur=db.execute('''INSERT INTO provider_services(provider_user_id,center_id,service_type,title,description,duration_minutes,price,currency,max_participants,booking_mode,active,color,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,1,?,?,?)''',(user['id'],center_id,clean_text(data.get('service_type'),60) or 'inmersion',title,clean_text(data.get('description'),5000),duration,price,clean_text(data.get('currency'),3) or 'EUR',maxp,clean_text(data.get('booking_mode'),30) or 'request',clean_text(data.get('color'),20) or '#2563eb',now(),now()))
+                    price=max(0.0,float(data.get('price') or 0)); duration=int(data.get('duration_minutes') or 0) or None; maxp=int(data.get('max_participants') or 0) or None
+                    stype=clean_text(data.get('service_type'),60) or 'inmersion'
+                    if stype not in SERVICE_TYPES: stype='inmersion'
+                    mode,resp_h,pay_h=clean_booking_mode(db,user,data,price)
+                    color=clean_text(data.get('color'),20) or '#2563eb'
+                    if not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color='#2563eb'
+                    currency=(clean_text(data.get('currency'),3) or 'EUR').upper()
+                    if not re.fullmatch(r'[A-Z]{3}',currency): currency='EUR'
+                    cur=db.execute('''INSERT INTO provider_services(provider_user_id,center_id,service_type,title,description,duration_minutes,price,currency,max_participants,booking_mode,response_hours,payment_hours,active,color,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)''',(user['id'],center_id,stype,title,clean_text(data.get('description'),5000),duration,price,currency,maxp,mode,resp_h,pay_h,color,now(),now()))
                     sid=cur.lastrowid
                     if center_id:
                         db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)',(center_id,sid,price,clean_text(data.get('currency'),3) or 'EUR',now()[:10],now(),now()))
@@ -5128,8 +5583,22 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
                     row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
                     if not row or row['provider_user_id']!=user['id']: raise PermissionError('Este servicio no pertenece a tu cuenta.')
-                    price=float(data.get('price') or 0); duration=int(data.get('duration_minutes') or 0) or None; maxp=int(data.get('max_participants') or 0) or None
-                    db.execute('''UPDATE provider_services SET service_type=?,title=?,description=?,duration_minutes=?,max_participants=?,booking_mode=?,active=?,color=?,updated_at=? WHERE id=?''',(clean_text(data.get('service_type'),60) or 'inmersion',clean_text(data.get('title'),180),clean_text(data.get('description'),5000),duration,maxp,clean_text(data.get('booking_mode'),30) or 'request',1 if data.get('active',True) else 0,clean_text(data.get('color'),20) or '#2563eb',now(),sid))
+                    duration=int(data.get('duration_minutes') or 0) or None; maxp=int(data.get('max_participants') or 0) or None
+                    title=clean_text(data.get('title'),180)
+                    if not title: raise ValueError('El nombre del servicio es obligatorio.')
+                    stype=clean_text(data.get('service_type'),60) or 'inmersion'
+                    if stype not in SERVICE_TYPES: stype='inmersion'
+                    cur_price,_,_=effective_service_tariff(db,sid)
+                    cur_svc=db.execute('SELECT booking_mode,response_hours,payment_hours FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    for k in ('booking_mode','response_hours','payment_hours'):
+                        if data.get(k) in (None,''): data[k]=cur_svc[k]
+                    if data.get('booking_mode')=='payment' and cur_svc['booking_mode']=='payment' and not service_payments_ready(db,{'center_id':row['center_id'],'provider_user_id':user['id']}):
+                        data['booking_mode']='payment_keep'
+                    # Changing the mode never touches bookings already in progress: each booking keeps its own mode.
+                    mode,resp_h,pay_h=clean_booking_mode(db,user,data,cur_price)
+                    color=clean_text(data.get('color'),20) or '#2563eb'
+                    if not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color='#2563eb'
+                    db.execute('''UPDATE provider_services SET service_type=?,title=?,description=?,duration_minutes=?,max_participants=?,booking_mode=?,response_hours=?,payment_hours=?,active=?,color=?,updated_at=? WHERE id=?''',(stype,title,clean_text(data.get('description'),5000),duration,maxp,mode,resp_h,pay_h,1 if data.get('active',True) else 0,color,now(),sid))
                     if 'publish_experience' in data: sync_service_experience(db,user,sid,data)
                     else: db.execute('UPDATE travel_experiences SET title=?,updated_at=? WHERE service_id=?',(clean_text(data.get('title'),180),now(),sid))
                     audit(db,user['id'],'service_updated','provider_service',sid); db.commit(); self.send_json({'ok':True}); return
@@ -5194,103 +5663,34 @@ class Handler(BaseHTTPRequestHandler):
                     if active: raise ValueError('No puedes cerrar una salida que todavía tiene reservas activas.')
                     db.execute("UPDATE service_slots SET status='closed',updated_at=? WHERE id=?",(now(),slot_id)); audit(db,user['id'],'service_slot_closed','service_slot',slot_id); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/payments/checkout':
-                    user=require_user(self,db); data=json_body(self); booking_id=int(data.get('booking_id') or 0) or None; experience_booking_id=int(data.get('experience_booking_id') or 0) or None; sid=int(data.get('service_id') or 0); slot_id=int(data.get('slot_id') or 0) or None
-                    if experience_booking_id:
-                        eb=db.execute('SELECT eb.*,e.title,e.price,e.currency,e.provider_user_id,e.center_id FROM experience_bookings eb JOIN travel_experiences e ON e.id=eb.travel_experience_id WHERE eb.id=? AND eb.user_id=?',(experience_booking_id,user['id'])).fetchone()
-                        if not eb: raise PermissionError('Solicitud de experiencia no válida.')
-                        amount=float(eb['price'] or 0); currency=eb['currency'] or 'EUR'; provider_user_id=eb['provider_user_id']; center_id=eb['center_id']; service=None
-                    else:
-                        amount=None; currency=None; provider_user_id=None; center_id=None
+                    # Pay a booking (payment_in_progress within its hold, or accepted_pending_payment before its deadline)
+                    # or an accepted travel experience. Everything else is refused.
+                    user=require_user(self,db); data=json_body(self); booking_id=int(data.get('booking_id') or 0) or None; experience_booking_id=int(data.get('experience_booking_id') or 0) or None
                     if booking_id:
                         b0=db.execute('SELECT * FROM bookings WHERE id=? AND user_id=?',(booking_id,user['id'])).fetchone()
                         if not b0: raise PermissionError('Reserva no válida.')
-                        sid=int(b0['service_id'] or sid or 0)
-                        center_id=b0['center_id']
-                        if b0['status'] not in {'confirmed','completed'}:
-                            svc0=db.execute('SELECT booking_mode FROM provider_services WHERE id=?',(sid,)).fetchone()
-                            if svc0 and svc0['booking_mode']=='request':
-                                raise ValueError('El centro todavía no ha confirmado esta solicitud. El pago se habilitará después de la confirmación.')
-                    service=db.execute('SELECT * FROM provider_services WHERE id=? AND active=1',(sid,)).fetchone() if not experience_booking_id else None
-                    if not experience_booking_id and not service: raise ValueError('Servicio no disponible.')
-                    slot_id=int(b0['slot_id'] or 0) if booking_id and not slot_id else slot_id
-                    slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(slot_id,sid)).fetchone() if slot_id else None
-                    participants=max(1,int(b0['participants'] or 1)) if booking_id else max(1,int(eb['participants'] or 1)) if experience_booking_id else 1
-                    if slot and not booking_id and participants>slot['spots_available']: raise ValueError(f'Quedan {slot["spots_available"]} plazas en esta salida.')
-                    if slot and booking_id and not b0['slot_reserved'] and participants>slot['spots_available']: raise ValueError(f'Quedan {slot["spots_available"]} plazas en esta salida.')
-                    if not experience_booking_id:
-                        provider_user_id=service['provider_user_id']
-                        if booking_id:
-                            # Charge exactly what the booking was quoted (activity x participants + equipment + extras).
-                            amount=float(b0['price'] or 0); currency=b0['currency'] or service['currency'] or 'EUR'
-                        else:
-                            amount=float(service['price'] or 0)*participants; currency=service['currency'] or 'EUR'
-                    if amount<=0: raise ValueError('Este servicio no tiene un precio de pago configurado.')
-                    center=db.execute('SELECT id,name,stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=? AND active=1',(center_id,)).fetchone() if center_id else None
-                    connected_account_id=center['stripe_account_id'] if center else None
-                    if not center_payments_ready(center):
-                        raise ValueError('Este centro todavía no cobra online: pagarás directamente en el centro. Tu reserva queda guardada.')
-                    if booking_id:
-                        b_paid=db.execute("SELECT payment_status FROM bookings WHERE id=?",(booking_id,)).fetchone()
-                        if b_paid and b_paid['payment_status']=='paid': raise ValueError('Esta reserva ya está pagada.')
-                        open_order=db.execute("SELECT id,checkout_url,created_at FROM payment_orders WHERE booking_id=? AND status='pending' AND checkout_url IS NOT NULL ORDER BY id DESC LIMIT 1",(booking_id,)).fetchone()
-                        if open_order:
-                            try: age=datetime.now(timezone.utc).timestamp()-datetime.fromisoformat(open_order['created_at']).timestamp()
-                            except Exception: age=9999
-                            if age<25*60: self.send_json({'ok':True,'checkout_url':open_order['checkout_url'],'order_id':open_order['id'],'reused':True}); return
-                    reserved_here=False
-                    if booking_id and slot and not b0['slot_reserved']:
-                        db.execute('BEGIN IMMEDIATE')
-                        changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(participants,participants,now(),slot['id'],participants)).rowcount
-                        if changed!=1: db.rollback(); raise ValueError('Las plazas acaban de cambiar. Vuelve a seleccionar la salida.')
-                        db.execute("UPDATE bookings SET slot_reserved=1,payment_status='pending',updated_at=? WHERE id=?",(now(),booking_id)); reserved_here=True
-                    commission_percent=max(0.0,min(100.0,float(os.environ.get('WOD_PLATFORM_FEE_PERCENT','10') or 10)))
-                    platform_fee=round(amount*commission_percent/100,2)
-                    cur=db.execute('''INSERT INTO payment_orders(user_id,provider_user_id,booking_id,experience_booking_id,service_id,slot_id,amount,currency,status,provider,platform_fee,connected_account_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'pending','stripe',?,?,?,?)''',(user['id'],provider_user_id,booking_id,experience_booking_id,sid,slot_id,amount,currency,platform_fee,connected_account_id,now(),now())); oid=cur.lastrowid
-                    if reserved_here: db.execute('UPDATE payment_orders SET hold_reserved=1 WHERE id=?',(oid,))
-                    db.commit()
-                    secret=stripe_secret(); base=os.environ.get('WOD_PUBLIC_URL','http://localhost:8000').rstrip('/')
-                    if not secret:
-                        if reserved_here:
-                            db.execute("UPDATE service_slots SET spots_available=spots_available+?,status='open',updated_at=? WHERE id=?",(participants,now(),slot_id)); db.execute("UPDATE bookings SET slot_reserved=0,payment_status='required',updated_at=? WHERE id=?",(now(),booking_id))
-                        db.execute('DELETE FROM payment_orders WHERE id=?',(oid,)); db.commit(); raise ValueError('El pago seguro aún no está configurado. Falta STRIPE_SECRET_KEY en el servidor.')
-                    try:
-                        import stripe
-                        stripe.api_key=secret
-                        product_name=service['title'] if service else eb['title']
-                        session=stripe.checkout.Session.create(
-                            mode='payment',
-                            line_items=[{'price_data':{'currency':currency.lower(),'product_data':{'name':product_name,'description':f'Reserva WORLDIVES · {center["name"]}'},'unit_amount':int(round(amount*100))},'quantity':1}],
-                            success_url=f'{base}/#/pago-ok?session_id={{CHECKOUT_SESSION_ID}}',
-                            cancel_url=(f'{base}/#/reserva?id={booking_id}&pago=cancelado' if booking_id else f'{base}/#/area?payment=cancelled'),
-                            metadata={'payment_order_id':str(oid),'service_id':str(sid),'user_id':str(user['id']),'booking_id':str(booking_id or ''),'center_id':str(center_id or '')},
-                            payment_intent_data={'application_fee_amount':int(round(platform_fee*100)),'transfer_data':{'destination':connected_account_id},'description':f'WORLDIVES · reserva #{booking_id or experience_booking_id} · {center["name"]}','metadata':{'payment_order_id':str(oid)}},
-                            client_reference_id=f'WOD-{oid}',
-                            customer_email=user['email'] if '@' in str(user['email'] or '') and not str(user['email']).endswith('.local') else None,
-                            expires_at=int(time.time())+30*60,
-                            locale='auto'
-                        )
-                        db.execute('UPDATE payment_orders SET provider_payment_id=?,checkout_url=?,updated_at=? WHERE id=?',(session.id,session.url,now(),oid)); db.commit(); self.send_json({'ok':True,'checkout_url':session.url,'order_id':oid}); return
-                    except ImportError: raise ValueError('Falta instalar la dependencia stripe en el servidor.')
-                    except Exception as exc:
-                        db.execute("UPDATE payment_orders SET status='failed',updated_at=? WHERE id=?",(now(),oid))
-                        if reserved_here:
-                            db.execute("UPDATE service_slots SET spots_available=spots_available+?,status='open',updated_at=? WHERE id=?",(participants,now(),slot_id)); db.execute("UPDATE bookings SET slot_reserved=0,payment_status='required',updated_at=? WHERE id=?",(now(),booking_id))
-                        sys.stderr.write(f'[pagos] Stripe rechazó el pedido {oid}: {exc}\n')
-                        db.commit(); raise ValueError('No se ha podido abrir el pago seguro. Inténtalo de nuevo en unos minutos; tu reserva sigue guardada.')
+                        pay=start_checkout(db,user,b0)
+                    elif experience_booking_id:
+                        eb=db.execute('SELECT * FROM experience_bookings WHERE id=? AND user_id=?',(experience_booking_id,user['id'])).fetchone()
+                        if not eb: raise PermissionError('Solicitud de experiencia no válida.')
+                        pay=start_experience_checkout(db,user,eb)
+                    else: raise ValueError('Indica la reserva que quieres pagar.')
+                    self.send_json(dict(pay,ok=True)); return
                 if path=='/api/payments/cancel':
                     user=require_user(self,db); bid=int(json_body(self).get('booking_id') or 0)
                     order=db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND user_id=? AND status='pending' ORDER BY id DESC LIMIT 1",(bid,user['id'])).fetchone()
                     if not order: self.send_json({'ok':True,'released':False}); return
                     if stripe_secret() and order['provider_payment_id']:
                         try:
-                            import stripe; stripe.api_key=stripe_secret()
+                            stripe=stripe_module()
                             sess=stripe.checkout.Session.retrieve(order['provider_payment_id'],expand=['payment_intent.latest_charge'])
                             if _obj(sess,'payment_status') in ('paid','no_payment_required'):
                                 finalize_paid_order(db,order,sess,'cancel-check'); db.commit(); self.send_json({'ok':True,'paid':True}); return
                             if _obj(sess,'status')=='open': stripe.checkout.Session.expire(order['provider_payment_id'])
                         except Exception as exc: sys.stderr.write(f'[pagos] cancelar pedido {order["id"]}: {exc}\n')
                     release_order_hold(db,order,'cancelled'); audit(db,user['id'],'payment_cancelled','payment_order',order['id']); db.commit()
-                    self.send_json({'ok':True,'released':True}); return
+                    b_=booking_row(db,bid)
+                    self.send_json({'ok':True,'released':True,'status':b_['status'] if b_ else None}); return
                 if path=='/api/payments':
                     # G12: the diver only gets what he needs about his own payments (no fees, connected accounts or checkout links).
                     user=require_user(self,db); rows=db.execute('''SELECT po.id,po.booking_id,po.experience_booking_id,po.amount,po.currency,po.status,po.created_at,po.paid_at,po.amount_received,
@@ -5404,14 +5804,19 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); bid=int(path.split('/')[-2]); data=json_body(self)
                     b=db.execute('SELECT * FROM bookings WHERE id=? AND user_id=?',(bid,user['id'])).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if b['status'] not in ('pending','confirmed'): raise ValueError('Esta reserva ya no se puede cancelar.')
+                    if wbk.normalize_state(b['status'])=='payment_in_progress':
+                        # Abandoning the payment of a «Pago al reservar» booking: nothing was charged, the spots are freed.
+                        for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchall(): release_order_hold(db,o,'cancelled')
+                        if wbk.normalize_state(booking_row(db,bid)['status'])=='payment_in_progress': expire_booking(db,booking_row(db,bid),'payment_cancelled',notify=False)
+                        db.commit(); self.send_json({'ok':True,'refund':'none_paid','refund_amount':0}); return
+                    if wbk.normalize_state(b['status']) not in wbk.CANCELLABLE: raise ValueError('Esta reserva ya no se puede cancelar.')
                     terms=booking_cancel_terms(db,b)
                     if terms['started']: raise ValueError('La actividad ya ha empezado o ha pasado: habla directamente con el centro.')
                     if data.get('preview'): self.send_json({'ok':True,'terms':terms}); return
                     if db.execute("SELECT 1 FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchone():
                         for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchall(): release_order_hold(db,o,'cancelled')
                         b=db.execute('SELECT * FROM bookings WHERE id=?',(bid,)).fetchone()
-                    if db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='diver',updated_at=? WHERE id=? AND status IN ('pending','confirmed')",(now(),now(),bid)).rowcount!=1: raise ValueError('Esta reserva ya no se puede cancelar.')
+                    if db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='diver',updated_at=? WHERE id=? AND status IN ('pending','requested','accepted_pending_payment','confirmed')",(now(),now(),bid)).rowcount!=1: raise ValueError('Esta reserva ya no se puede cancelar.')
                     release_booking_spots(db,b)
                     outcome='none_paid'
                     if terms['paid_online']: outcome=refund_paid_booking(db,bid,terms['refund_amount'],'diver_cancel') if terms['refund_amount']>0 else 'no_refund'
@@ -5530,85 +5935,85 @@ class Handler(BaseHTTPRequestHandler):
                     if slot:
                         # La salida seleccionada es la fuente de verdad para fecha/hora.
                         data['booking_date']=slot['slot_date']; data['booking_time']=slot['slot_time']
-                    price, service_currency, price_lines = booking_quote(db, center_id, service, participants, clean_text(data.get('booking_date'),20) or (slot['slot_date'] if slot else None), as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
-                    center_pay=db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?',(center_id,)).fetchone()
-                    pay_online=center_payments_ready(center_pay) and bool(service and service['booking_mode'] in {'payment','instant'})
-                    # Without online payments the diver pays at the centre and the centre confirms the place.
-                    payment_status=('required' if pay_online or (service and service['booking_mode']=='request' and center_payments_ready(center_pay)) else 'at_center') if price>0 else 'not_required'
-                    status='confirmed' if service and service['booking_mode']=='instant' and price<=0 else 'pending'
-                    slot_reserved=0
-                    if status=='confirmed' and slot:
-                        changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(participants,participants,now(),slot['id'],participants)).rowcount
-                        if changed!=1: raise ValueError('Las plazas acaban de cambiar. Vuelve a seleccionar la salida.')
-                        slot_reserved=1
-                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(user['id'],center_id,point_id,service_id,slot_id,slot_reserved,clean_text(data.get('booking_date'),20),clean_text(data.get('booking_time'),20),participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),status,price,service['currency'] if service else 'EUR',payment_status,now(),now()))
-                    db.execute('UPDATE bookings SET price_breakdown=? WHERE id=?',(json.dumps(price_lines,ensure_ascii=False),cur.lastrowid))
-                    payment_required = bool(pay_online and price>0)
-                    db.execute('UPDATE bookings SET terms_version=? WHERE id=?',(LEGAL_VERSION,cur.lastrowid))
-                    notify_booking(db,cur.lastrowid,'created')
-                    audit(db,user['id'],'booking_created','booking',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid,'status':status,'payment_required':payment_required,'price':price,'currency':service_currency,'booking_mode':service['booking_mode'] if service else 'request'}); return
+                    bdate=clean_text(data.get('booking_date'),20) or (slot['slot_date'] if slot else None)
+                    if not bdate or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',bdate): raise ValueError('Elige la fecha de la actividad.')
+                    btime=clean_text(data.get('booking_time'),20)
+                    start=wbk.activity_start(bdate,btime)
+                    if start and start<=local_now(): raise ValueError('Esa salida ya ha empezado o ha pasado. Elige otra fecha.')
+                    price, service_currency, price_lines = booking_quote(db, center_id, service, participants, bdate, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
+                    mode='payment' if service and service['booking_mode']=='payment' else 'request'
+                    ready=service_payments_ready(db,service) if service else False
+                    deadline=None; hold=None; slot_reserved=0
+                    if mode=='payment':
+                        # «Pago al reservar»: the diver pays to book. Never silently turned into «pay at the centre».
+                        if not ready: raise ValueError('Este servicio se reserva pagando online y ahora mismo el centro no tiene los cobros activos. Prueba más tarde o contacta con el centro.')
+                        if price<=0:
+                            status='confirmed'; payment_status='not_required'
+                        else:
+                            status='payment_in_progress'; payment_status='pending'; hold=local_iso(local_now()+_timedelta(minutes=HOLD_MINUTES))
+                        if slot:
+                            if not reserve_slot_spots(db,slot['id'],participants): raise ValueError('Las plazas acaban de cambiar. Vuelve a seleccionar la salida.')
+                            slot_reserved=1
+                    else:
+                        # «Bajo petición»: no money and no spots until the centre accepts, within its response deadline.
+                        status='requested'; payment_status='not_required' if price<=0 else ('required' if ready else 'at_center')
+                        hours=wbk.clamp_hours(service['response_hours'] if service else None, wbk.DEFAULT_RESPONSE_HOURS)
+                        deadline=local_iso(wbk.deadline_before_start(local_now(),hours,start))
+                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,booking_mode,response_deadline,hold_expires_at,confirmed_at,terms_version,price_breakdown,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                                   (user['id'],center_id,point_id,service_id,slot_id,slot_reserved,bdate,btime,participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),
+                                    status,price,service['currency'] if service else 'EUR',payment_status,mode,deadline,hold,now() if status=='confirmed' else None,legal_doc_version(db,'reservas'),json.dumps(price_lines,ensure_ascii=False),now(),now()))
+                    bid=cur.lastrowid
+                    audit(db,user['id'],'booking_created','booking',bid,{'mode':mode,'status':status})
+                    if status=='payment_in_progress':
+                        # The booking is not visible to the centre until Stripe confirms the payment.
+                        db.commit()
+                        try:
+                            pay=start_checkout(db,user,booking_row(db,bid))
+                        except ValueError:
+                            expire_booking(db,booking_row(db,bid),'checkout_failed',notify=False); db.commit(); raise
+                        self.send_json({'ok':True,'id':bid,'status':status,'payment_required':True,'checkout_url':pay['checkout_url'],'hold_expires_at':hold,'price':price,'currency':service_currency,'booking_mode':mode}); return
+                    notify_booking(db,bid,'created')
+                    db.commit(); self.send_json({'ok':True,'id':bid,'status':status,'payment_required':False,'price':price,'currency':service_currency,'booking_mode':mode,'response_deadline':deadline}); return
                 if path.startswith('/api/bookings/') and path.endswith('/status'):
+                    # Provider decisions on a booking (Fase 1B): accept / reject a request (optional reason), cancel, complete.
                     user=require_user(self,db); require_role(user,{'admin','center'}); bid=int(path.split('/')[-2]); data=json_body(self); status=clean_text(data.get('status'),30)
-                    if status not in {'pending','confirmed','rejected','completed','cancelled'}: raise ValueError('Estado no válido.')
-                    row=db.execute('SELECT center_id,status,slot_id,slot_reserved,participants,payment_status FROM bookings WHERE id=?',(bid,)).fetchone()
+                    if status=='accepted': status='confirmed'
+                    if status not in {'confirmed','rejected','completed','cancelled'}: raise ValueError('Estado no válido.')
+                    row=booking_row(db,bid)
                     if not row: self.send_json({'error':'Reserva no encontrada'},404); return
                     if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
-                    bdate_row=db.execute('SELECT booking_date FROM bookings WHERE id=?',(bid,)).fetchone()
-                    if status=='completed' and bdate_row and str(bdate_row['booking_date'] or '')>now()[:10]:
-                        raise ValueError('Solo puedes marcar como completada una reserva cuya fecha ya ha llegado.')
-                    if status==row['status']: self.send_json({'ok':True,'unchanged':True}); return
-                    service_mode = None
+                    cur_state=wbk.normalize_state(row['status'])
+                    if status==cur_state: self.send_json({'ok':True,'unchanged':True,'status':cur_state}); return
+                    result={'ok':True}
                     if status=='confirmed':
-                        svc = db.execute('SELECT booking_mode,price FROM provider_services WHERE id=(SELECT service_id FROM bookings WHERE id=?)',(bid,)).fetchone()
-                        service_mode = svc['booking_mode'] if svc else None
-                        # En servicios de tipo "solicitud + confirmación", el centro confirma primero
-                        # la disponibilidad. El pago se habilita después para que el buceador lo complete.
-                        # En "pago obligatorio" o "reserva inmediata", el pago debe estar confirmado
-                        # antes de considerar la reserva confirmada.
-                        if service_mode in {'payment','instant'} and row['payment_status'] not in {'paid','not_required'}:
-                            raise ValueError('Esta reserva necesita un pago confirmado antes de aceptarse.')
-                    if status=='confirmed' and row['slot_id'] and not row['slot_reserved']:
-                        qty=max(1,int(row['participants'] or 1))
-                        changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(qty,qty,now(),row['slot_id'],qty)).rowcount
-                        if changed!=1: raise ValueError('No quedan suficientes plazas en esa salida.')
-                        db.execute('UPDATE bookings SET slot_reserved=1,updated_at=? WHERE id=?',(now(),bid))
-                    if status in {'cancelled','rejected'} and row['slot_id'] and row['slot_reserved']:
-                        qty=max(1,int(row['participants'] or 1)); db.execute("UPDATE service_slots SET spots_available=spots_available+?,status='open',updated_at=? WHERE id=?",(qty,now(),row['slot_id'])); db.execute('UPDATE bookings SET slot_reserved=0,updated_at=? WHERE id=?',(now(),bid))
-                    # En una solicitud confirmada, el siguiente paso es el pago si el servicio tiene tarifa.
-                    if status=='confirmed':
-                        if service_mode=='request':
-                            price_row=db.execute('SELECT price FROM bookings WHERE id=?',(bid,)).fetchone()
-                            cpay_row=db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?',(row['center_id'],)).fetchone()
-                            new_payment=('required' if center_payments_ready(cpay_row) else 'at_center') if price_row and float(price_row['price'] or 0)>0 else 'not_required'
-                            if row['payment_status']=='paid': new_payment='paid'
-                            db.execute('UPDATE bookings SET status=?,payment_status=?,updated_at=? WHERE id=?',(status,new_payment,now(),bid))
-                        else:
-                            db.execute('UPDATE bookings SET status=?,updated_at=? WHERE id=?',(status,now(),bid))
-                    else:
-                        db.execute('UPDATE bookings SET status=?,updated_at=? WHERE id=?',(status,now(),bid))
-                    audit(db,user['id'],'booking_status_changed','booking',bid,{'status':status}); owner=db.execute('SELECT user_id FROM bookings WHERE id=?',(bid,)).fetchone();
-                    if status=='confirmed' and service_mode=='request' and owner:
-                        pr=db.execute('SELECT price,currency FROM bookings WHERE id=?',(bid,)).fetchone()
-                        if pr and float(pr['price'] or 0)>0 and db.execute("SELECT payment_status FROM bookings WHERE id=?",(bid,)).fetchone()['payment_status']=='required':
-                            db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at) VALUES(?,?,?,?,?,?)',(user['id'],owner['user_id'],bid,'Reserva confirmada · pago pendiente',f'El centro ha confirmado tu inmersión. Ya puedes realizar el pago de {float(pr["price"]):.2f} {pr["currency"]}.',now()))
-                    if status=='completed' and owner:
+                        if cur_state=='requested': result['status']=accept_booking(db,user,row)
+                        elif cur_state=='accepted_pending_payment': raise ValueError('Esta reserva espera el pago online del buceador. Si te paga en el centro, registra el cobro desde «Cobro».')
+                        elif cur_state=='payment_in_progress': raise ValueError('El buceador está pagando ahora mismo. La reserva se confirmará sola cuando Stripe confirme el pago.')
+                        else: raise ValueError('Esta reserva no se puede confirmar en su estado actual.')
+                    elif status=='rejected':
+                        result['refund']=reject_booking(db,user,row,data.get('reason') or ''); result['status']='rejected'
+                    elif status=='cancelled':
+                        if cur_state not in ('confirmed','accepted_pending_payment'): raise ValueError('Solo se pueden cancelar reservas aceptadas o confirmadas. Las solicitudes se rechazan.')
+                        release_booking_spots(db,row)
+                        db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='center',reject_reason=?,updated_at=? WHERE id=?",(now(),clean_text(data.get('reason'),500) or None,now(),bid))
+                        for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchall():
+                            expire_checkout(o); db.execute("UPDATE payment_orders SET status='cancelled',updated_at=? WHERE id=?",(now(),o['id']))
+                        result['refund']=refund_paid_booking(db,bid,None,'center_cancelled')
+                        notify_booking(db,bid,'cancelled_center',{'refund':result['refund'],'reason':clean_text(data.get('reason'),500) or ''})
+                        result['status']='cancelled'
+                    elif status=='completed':
+                        if cur_state!='confirmed': raise ValueError('Solo se puede completar una reserva confirmada.')
+                        if str(row['booking_date'] or '')>local_now().date().isoformat(): raise ValueError('Solo puedes marcar como completada una reserva cuya fecha ya ha llegado.')
+                        db.execute("UPDATE bookings SET status='completed',updated_at=? WHERE id=?",(now(),bid))
                         b=db.execute('''SELECT b.id,b.user_id,b.booking_date,c.name AS center_name,p.name AS point_name,p.country,p.dive_type
                                        FROM bookings b JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.id=?''',(bid,)).fetchone()
-                        if b and not db.execute('SELECT 1 FROM logbook_entries WHERE booking_id=?',(bid,)).fetchone():
+                        if b and not is_guest_user(db,b['user_id']) and not db.execute('SELECT 1 FROM logbook_entries WHERE booking_id=?',(bid,)).fetchone():
                             site=b['point_name'] or b['center_name']
                             note=f"Inmersión generada automáticamente desde la reserva #{bid} · {b['center_name']}"
                             db.execute('INSERT INTO logbook_entries(user_id,dive_date,site,country,depth,duration,dive_type,notes,created_at,booking_id) VALUES(?,?,?,?,?,?,?,?,?,?)',(b['user_id'],b['booking_date'],site,b['country'],None,None,b['dive_type'] or 'Buceo recreativo',note,now(),bid))
-                        sync_user_rewards(db,owner['user_id'])
-                    refund_outcome=None
-                    if status=='confirmed': notify_booking(db,bid,'confirmed')
-                    elif status in {'cancelled','rejected'}:
-                        db.execute('UPDATE bookings SET cancelled_at=?,cancelled_by=? WHERE id=?',(now(),'center',bid))
-                        refund_outcome=refund_paid_booking(db,bid,None,'center_'+status)
-                        notify_booking(db,bid,'rejected' if status=='rejected' else 'cancelled_center',{'refund':refund_outcome})
-                        db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at) VALUES(?,?,?,?,?,?)',(user['id'],owner['user_id'],bid,
-                                   'Solicitud no disponible' if status=='rejected' else 'Reserva cancelada por el centro',
-                                   {'refunded':'Te hemos devuelto el importe íntegro a tu tarjeta.','refund_pending':'Vamos a devolverte el importe íntegro a tu tarjeta.'}.get(refund_outcome,'No se te había cobrado nada.'),now()))
-                    db.commit(); self.send_json({'ok':True,'refund':refund_outcome}); return
+                        sync_user_rewards(db,row['user_id']); result['status']='completed'
+                    audit(db,user['id'],'booking_status_changed','booking',bid,{'from':cur_state,'to':result.get('status',status),'reason':clean_text(data.get('reason'),200) or None})
+                    db.commit(); self.send_json(result); return
                 if path=='/api/logbook':
                     user=require_user(self,db); data=json_body(self)
                     v=clean_logbook(data)
@@ -6204,7 +6609,8 @@ class Handler(BaseHTTPRequestHandler):
                     btime=slot['slot_time'] if slot else clean_text(data.get('booking_time'),5)
                     if not bdate: raise ValueError('Elige una salida o indica la fecha.')
                     status=clean_text(data.get('status'),20) or 'confirmed'
-                    if status not in {'confirmed','pending'}: status='confirmed'
+                    if status=='pending': status='requested'
+                    if status not in {'confirmed','requested'}: status='confirmed'
                     if slot and status=='confirmed' and participants>int(slot['spots_available']):
                         raise ValueError(f'En esa salida solo quedan {slot["spots_available"]} plazas.')
                     total,currency,lines=booking_quote(db,cid,service,participants,bdate,as_list(data.get('extra_ids')),as_list(data.get('equipment_codes')))
@@ -6238,13 +6644,17 @@ class Handler(BaseHTTPRequestHandler):
                     if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
                     pay=clean_text(data.get('payment_status'),20)
                     if pay not in {'paid','required','at_center'}: raise ValueError('Estado de pago no válido.')
+                    cur_state=wbk.normalize_state(row['status'])
+                    if cur_state in ('payment_in_progress','expired') and (row['booking_mode']=='payment'):
+                        raise ValueError('Una reserva «Pago al reservar» solo se confirma con el pago online confirmado por Stripe.')
                     if pay=='required' and not center_payments_ready(db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?',(row['center_id'],)).fetchone()): pay='at_center'
                     db.execute('UPDATE bookings SET payment_status=?,payment_method=?,updated_at=? WHERE id=?',(pay,clean_text(data.get('payment_method'),40) or row['payment_method'],now(),bid))
-                    if pay=='paid' and row['status']=='pending':
-                        if row['slot_id'] and not row['slot_reserved']:
-                            if not reserve_slot_spots(db,row['slot_id'],max(1,int(row['participants'] or 1))): raise ValueError('No quedan plazas suficientes en esa salida para confirmarla.')
-                            db.execute('UPDATE bookings SET slot_reserved=1 WHERE id=?',(bid,))
-                        db.execute("UPDATE bookings SET status='confirmed',updated_at=? WHERE id=?",(now(),bid))
+                    if pay=='paid' and cur_state in ('requested','accepted_pending_payment'):
+                        # Paid at the desk: the place is the diver's (any open online payment is closed).
+                        reserve_or_fail(db,row)
+                        for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchall():
+                            expire_checkout(o); db.execute("UPDATE payment_orders SET status='cancelled',updated_at=? WHERE id=?",(now(),o['id']))
+                        db.execute("UPDATE bookings SET status='confirmed',confirmed_at=?,accepted_at=COALESCE(accepted_at,?),updated_at=? WHERE id=?",(now(),now(),now(),bid))
                         notify_booking(db,bid,'confirmed')
                     audit(db,user['id'],'booking_payment_recorded','booking',bid,{'payment_status':pay}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/service-templates/save':
@@ -6426,10 +6836,10 @@ def maintenance_loop():
             sys.stderr.write(f'[mantenimiento] {type(exc).__name__}: {exc}\n')
         finally:
             if db is not None: db.close()
-        time.sleep(wcfg.env_int('WOD_MAINTENANCE_SECONDS', 600, 30, 3600))
+        time.sleep(wcfg.env_int('WOD_MAINTENANCE_SECONDS', 60, 5, 3600))
 
 
-MAINTENANCE_JOBS = []
+MAINTENANCE_JOBS = [run_booking_deadlines]
 
 
 def check_production_settings():

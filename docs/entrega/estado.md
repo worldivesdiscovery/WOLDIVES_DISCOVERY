@@ -23,3 +23,16 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 | 14. Proxy | Nuevo | `WOD_TRUSTED_PROXIES`. | Pruebas unitarias de `wod.security` (en `test_units.py`) |
 | 15. Registros | Nuevo | Sin query string, IP truncada, rotación diaria con plazo, `/api/health` mínima, alerta de 500 repetidos. | `test_15_*` |
 | 16. Errores menores | Ya estaba / Completado | `return` del QR de promoción ya estaba. Conexiones SQLite cerradas por petición (`_ClosingConnection`). | `test_16_promo_qr_svg` |
+
+## Fase 1B · Modos de reserva (v50.32)
+
+| Punto | Estado | Qué se hizo | Cómo se probó |
+|---|---|---|---|
+| 1. Migración de «Reserva inmediata» | Nuevo | Servicios y plantillas a «Pago al reservar» o «Bajo petición»; lista en `booking_mode_migration`. | `InstantMigration.test_migration` |
+| 2. «Pago al reservar» | Completado | Requisito de cobros online; bloqueo de plazas 15 min; invisible al centro hasta pagar; confirmación automática solo con Stripe; liberación al abandonar/caducar; gratis → confirmada; aviso si se desactivan los cobros. | `test_payment_mode_*`, `test_centre_disables_payments` |
+| 3. «Bajo petición» | Completado | Sin plazas hasta aceptar; bandeja con contador y tiempo; aceptar/rechazar con motivo; plazos de respuesta y de pago; caducidad automática con avisos. | `test_request_*` |
+| 4. Estados únicos | Nuevo | 8 estados en `wod/bookings.py`, usados en servidor, panel, «Mis reservas», correos y PDF; tarea cada minuto. | `test_units.BookingUnits` + pruebas anteriores |
+| 5. Que se vea igual | Nuevo | Etiquetas y botones en buscador, ficha de centro y punto, reserva, «Mis reservas», panel; filtro «Confirmación inmediata». | `e2e_booking_modes.py` (35/35) |
+| 6. Formulario de servicio | Completado | Dos opciones con explicación y ejemplo; plazos; plantillas por defecto según cobros; reservas en curso conservan su modo. | `test_mode_change_keeps_existing_bookings` + navegador |
+| 7. Pruebas obligatorias | Nuevo | Todas las combinaciones listadas, más recorrido en navegador. | Ver arriba |
+| Freelance sin centro con reservas de servicios | Pendiente (Fase 2) | La tabla de reservas exige un centro; se resuelve con las cuentas de cobro del freelance en la Fase 2. | — |
