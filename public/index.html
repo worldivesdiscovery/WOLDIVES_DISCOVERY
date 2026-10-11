@@ -10,10 +10,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>WORLDIVES DISCOVERY</title>
+<!--hreflang-->
 <link rel="icon" type="image/png" sizes="512x512" href="/assets/images/wod-icon-512.png">
 <link rel="icon" type="image/x-icon" href="/assets/images/wod-icon.ico">
 <link rel="apple-touch-icon" href="/assets/images/wod-icon-512.png">
 <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="/assets/vendor/markercluster/MarkerCluster.css">
 <link rel="stylesheet" href="/assets/css/world-dives-v8.css">
 </head>
 <body>
@@ -31,7 +33,7 @@
       <a href="#/experiencias">Experiencias</a>
       <a href="#/top10">Top 10 buceos</a>
     </nav>
-    <div class="header-tools"><div class="language-switcher" id="language-switcher"><label for="language-select" class="sr-only">Idioma</label><select id="language-select" aria-label="Seleccionar idioma"><option value="es">ES</option><option value="en">EN</option><option value="fr">FR</option><option value="de">DE</option><option value="it">IT</option><option value="pt">PT</option><option value="nl">NL</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="zh">简中</option><option value="zt">繁中</option></select></div><div class="account-slot" id="account-slot"></div></div>
+    <div class="header-tools"><div class="language-switcher" id="language-switcher"><label for="language-select" class="sr-only">Idioma</label><select id="language-select" aria-label="Seleccionar idioma"><option value="es" lang="es">Español</option><option value="en" lang="en">English</option><option value="fr" lang="fr">Français</option><option value="de" lang="de">Deutsch</option><option value="it" lang="it">Italiano</option><option value="pt" lang="pt">Português</option><option value="pl" lang="pl">Polski</option><option value="nl" lang="nl">Nederlands</option><option value="zh" lang="zh-Hans">中文</option><option value="ru" lang="ru">Русский</option></select></div><div class="account-slot" id="account-slot"></div></div>
   </header>
 
   <main id="app" tabindex="-1"></main>
@@ -51,6 +53,7 @@
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="/assets/vendor/leaflet/leaflet.js"></script>
+<script src="/assets/vendor/markercluster/leaflet.markercluster.js"></script>
 <script src="/assets/js/world-dives-v8.js"></script>
 <script src="/assets/js/sw-register.js"></script>
 </body>

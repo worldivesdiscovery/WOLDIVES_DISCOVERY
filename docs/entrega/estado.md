@@ -36,3 +36,25 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 | 6. Formulario de servicio | Completado | Dos opciones con explicación y ejemplo; plazos; plantillas por defecto según cobros; reservas en curso conservan su modo. | `test_mode_change_keeps_existing_bookings` + navegador |
 | 7. Pruebas obligatorias | Nuevo | Todas las combinaciones listadas, más recorrido en navegador. | Ver arriba |
 | Freelance sin centro con reservas de servicios | Pendiente (Fase 2) | La tabla de reservas exige un centro; se resuelve con las cuentas de cobro del freelance en la Fase 2. | — |
+
+## Fase 1C · Marcadores (v50.33)
+
+| Punto | Estado | Qué se hizo | Cómo se probó |
+|---|---|---|---|
+| Marcadores redondos y más pequeños | Nuevo | Círculo con bandera, 19 px (ordenador) / 23 px (móvil), activo 26 px con anillo. | `e2e_markers.py` (medidas en `docs/capturas/fase-1c/medidas.txt`) |
+| Zona de toque | Nuevo | 44 px en móvil sin agrandar el dibujo. | Medida en navegador |
+| Agrupación | Nuevo | `leaflet.markercluster` alojado; grupo rojo liso legible en mapa y satélite. | Capturas antes/después y prueba de fluidez (0 fotogramas lentos, CPU ×4) |
+| Accesibilidad | Nuevo | `title` y texto alternativo con el nombre del punto. | Navegador |
+
+## Fase 1D · Idiomas (v50.33)
+
+| Punto | Estado | Qué se hizo | Cómo se probó |
+|---|---|---|---|
+| 10 idiomas | Completado | es, en, fr, de, it, pt, pl, nl, zh, ru; nombres nativos en el selector. | `e2e_walk.py` y recorrido en pl/ru |
+| Retirar ja, ko, zt | Nuevo | Archivados en `archive/i18n/`; usuarios y correos en cola pasan a en/zh (`migrate_v50_33`). | `test_units` (normalize_lang) + migración |
+| Polaco y ruso | Nuevo | Web completa (3 812 frases + 426 patrones). Correos: pendiente pasada final. | Validador de marcadores/etiquetas y `tools/i18n_report.py` |
+| Plurales | Nuevo | `Intl.PluralRules` con formas one/few/many/other. | Navegador (ru/pl) |
+| Formatos | Completado | Fechas, horas e importes por idioma en web y correos. | Navegador |
+| URL por idioma y hreflang | Nuevo | `?lang=`, `<html lang>`, `hreflang` + `x-default`. | `test_phase1d_languages` |
+| Limpieza de traducciones | Nuevo | 47 claves basura eliminadas; informe por idioma. | `docs/i18n/informe.md` |
+| Correos, textos legales y textos nuevos en 9 idiomas | Pendiente (pasada final) | Se traducirán juntos al final del encargo. | — |

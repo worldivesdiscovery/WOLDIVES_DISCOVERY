@@ -1,0 +1,6 @@
+despues ordenador tamaño dibujo/zona táctil (px) [19, 19, 28, 28]
+despues movil tamaño dibujo/zona táctil (px) [23, 23, 44, 44]
+despues movil fluidez al mover el mapa (CPU x4 en móvil emulado) {'frames': 60, 'total_ms': 1006, 'slow_frames': 0, 'avg_ms': 17}
+despues movil elementos dibujados (marcadores + grupos) 7
+antes ordenador tamaño dibujo/zona táctil (px) [15, 11, 16, 13]
+antes movil tamaño dibujo/zona táctil (px) [15, 11, 16, 13]

@@ -2618,3 +2618,20 @@ a.acc-kpi,button.acc-kpi{cursor:pointer}a.acc-kpi:hover,button.acc-kpi:hover{bor
 .claim-data dt{color:var(--muted)}
 .claim-data dd{margin:0}
 @media (max-width:640px){.claim-data{grid-template-columns:1fr}.claim-data dt{margin-top:6px}}
+
+/* ---------------------------------------------------------------- v50.33: round dive-flag markers and clusters */
+.wd-pin-wrap{background:transparent;border:0;display:grid!important;place-items:center;cursor:pointer;outline:none}
+.wd-pin{display:block;width:19px;height:19px;border-radius:50%;box-sizing:border-box;border:1.5px solid #fff;
+  background:linear-gradient(to top right,#d42a1f 0 38%,#fff 38% 62%,#d42a1f 62% 100%);
+  box-shadow:0 0 0 1px rgba(110,20,14,.35),0 2px 6px rgba(7,30,40,.35);transition:transform .14s ease,box-shadow .14s ease}
+.wd-pin-wrap.is-touch .wd-pin{width:23px;height:23px}
+.wd-pin-wrap:hover .wd-pin,.wd-pin-wrap:focus-visible .wd-pin,.wd-pin-wrap.is-selected .wd-pin{transform:scale(1.22);box-shadow:0 0 0 3px #12a5b5,0 3px 9px rgba(7,30,40,.4)}
+.wd-pin-wrap.is-active .wd-pin{width:26px;height:26px;border-width:2px;box-shadow:0 0 0 3px #07364a,0 0 0 7px rgba(18,165,181,.35),0 4px 12px rgba(7,30,40,.45)}
+.wd-pin-wrap.is-active.is-touch .wd-pin{width:28px;height:28px}
+.ex-legend .wd-pin{width:15px;height:15px}
+.wd-cluster-wrap{background:transparent;border:0;display:grid!important;place-items:center}
+.wd-cluster{display:grid;place-items:center;border-radius:50%;box-sizing:border-box;color:#fff;font-weight:800;font-size:12.5px;
+  background:#c8281e;border:2px solid #fff;
+  box-shadow:0 0 0 1px rgba(110,20,14,.3),0 3px 9px rgba(7,30,40,.35);text-shadow:0 1px 1px rgba(0,0,0,.35);transition:transform .14s ease}
+.wd-cluster-wrap:hover .wd-cluster{transform:scale(1.1)}
+.tt-me{width:20px;height:20px;border-width:2.5px}

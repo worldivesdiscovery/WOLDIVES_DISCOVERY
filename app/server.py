@@ -43,7 +43,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.32'
+APP_VERSION = '50.33'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -724,12 +724,22 @@ def bootstrap():
         db.commit()
         migrate_v50_32(db)
         db.commit()
+        migrate_v50_33(db)
+        db.commit()
 
 
 def add_columns(db, table, cols):
     have = {r['name'] for r in db.execute(f'PRAGMA table_info({table})').fetchall()}
     for name, typ in cols:
         if name not in have: db.execute(f'ALTER TABLE {table} ADD COLUMN {name} {typ}')
+
+
+def migrate_v50_33(db):
+    """v50.33 (Fase 1D): 10 languages. Users of retired languages move to English (ja, ko) or simplified Chinese (zt);
+    the same for emails still waiting in the queue."""
+    for old, new in (('ja', 'en'), ('ko', 'en'), ('zt', 'zh')):
+        db.execute('UPDATE user_profiles SET preferred_language=? WHERE preferred_language=?', (new, old))
+        db.execute("UPDATE email_outbox SET lang=? WHERE lang=? AND status IN ('queued','sending')", (new, old))
 
 
 def migrate_v50_32(db):
@@ -2666,7 +2676,9 @@ from email.message import EmailMessage as _EmailMessage
 from email.utils import formataddr as _formataddr, make_msgid as _make_msgid
 from datetime import timedelta as _timedelta
 
-MAIL_LANGS = ('es', 'en', 'fr', 'de', 'it', 'pt', 'nl', 'ja', 'ko', 'zh', 'zt')
+# The 10 languages of the site (v50.33). Retired: ja, ko → en and zt → zh (see normalize_lang).
+MAIL_LANGS = ('es', 'en', 'fr', 'de', 'it', 'pt', 'pl', 'nl', 'zh', 'ru')
+HTML_LANG = {'zh': 'zh-Hans'}
 _EMAIL_I18N = {}
 
 
@@ -2724,7 +2736,9 @@ _MONTHS = {
     'de': ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
     'it': ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'],
     'pt': ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
-    'nl': ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december']}
+    'nl': ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'],
+    'pl': ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'],
+    'ru': ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']}
 _DAYS = {
     'en': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
     'fr': ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'],
@@ -2732,8 +2746,9 @@ _DAYS = {
     'it': ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'],
     'pt': ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo'],
     'nl': ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'],
-    'ja': ['月', '火', '水', '木', '金', '土', '日'], 'ko': ['월', '화', '수', '목', '금', '토', '일'],
-    'zh': ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'], 'zt': ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']}
+    'zh': ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'],
+    'pl': ['poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota', 'niedziela'],
+    'ru': ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье']}
 
 
 def mail_date(value, lang='es'):
@@ -2745,9 +2760,8 @@ def mail_date(value, lang='es'):
     if lang == 'de': return f"{_DAYS['de'][d.weekday()]}, {d.day}. {_MONTHS['de'][d.month - 1]} {d.year}"
     if lang in ('fr', 'it', 'nl'): return f"{_DAYS[lang][d.weekday()]} {d.day} {_MONTHS[lang][d.month - 1]} {d.year}"
     if lang == 'pt': return f"{_DAYS['pt'][d.weekday()]}, {d.day} de {_MONTHS['pt'][d.month - 1]} de {d.year}"
-    if lang == 'ja': return f"{d.year}年{d.month}月{d.day}日（{_DAYS['ja'][d.weekday()]}）"
-    if lang == 'ko': return f"{d.year}년 {d.month}월 {d.day}일 ({_DAYS['ko'][d.weekday()]})"
-    if lang in ('zh', 'zt'): return f"{d.year}年{d.month}月{d.day}日 {_DAYS[lang][d.weekday()]}"
+    if lang in ('pl', 'ru'): return f"{_DAYS[lang][d.weekday()]}, {d.day} {_MONTHS[lang][d.month - 1]} {d.year}" + (' г.' if lang == 'ru' else ' r.')
+    if lang == 'zh': return f"{d.year}年{d.month}月{d.day}日 {_DAYS['zh'][d.weekday()]}"
     return d.strftime('%d/%m/%Y')
 
 
@@ -2762,17 +2776,19 @@ def mail_datetime(value, lang='es'):
 def mail_money(amount, currency='EUR', lang='es'):
     cur = (currency or 'EUR').upper(); sym = {'EUR': '€', 'USD': '$', 'GBP': '£'}.get(cur)
     v = float(amount or 0)
-    if lang in ('en', 'ja', 'ko', 'zh', 'zt'):
+    if lang in ('en', 'zh'):
         txt = f'{v:,.2f}'.removesuffix('.00')
         return f'{sym}{txt}' if sym else f'{txt} {cur}'
+    if lang in ('pl', 'ru'):  # 1 234,50 €  (narrow no-break space as thousands separator)
+        txt = f'{v:,.2f}'.replace(',', '\u202f').replace('.', ',').removesuffix(',00')
+        return f'{txt} {sym}' if sym else f'{txt} {cur}'
     txt = f'{v:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.').removesuffix(',00')
     return f'{txt} {sym}' if sym else f'{txt} {cur}'
 
 
 def user_lang(db, user_id):
     r = db.execute('SELECT preferred_language FROM user_profiles WHERE user_id=?', (user_id,)).fetchone()
-    lang = (r['preferred_language'] if r else '') or 'es'
-    return lang if lang in MAIL_LANGS else 'es'
+    return normalize_lang((r['preferred_language'] if r else '') or 'es')
 
 
 def mail_deliverable(email):
@@ -3112,7 +3128,7 @@ def render_email(db, template, lang, ctx):
            'admin': 'Aviso interno para la administración de WORLDIVES DISCOVERY.', 'any': 'Correo de servicio de WORLDIVES DISCOVERY.'}[tpl.get('to', 'any')]
     owner = legal.get('owner_name') or 'WORLDIVES DISCOVERY'
     foot_addr = ' · '.join(x for x in (owner, (f"NIF {legal['nif']}" if legal.get('nif') else ''), legal.get('address'), legal.get('email')) if x)
-    html_lang = {'zt': 'zh-Hant', 'zh': 'zh-Hans'}.get(lang, lang)
+    html_lang = HTML_LANG.get(lang, lang)
     html_doc = f'''<!doctype html><html lang="{_esc(html_lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>{_esc(subject)}</title></head>
 <body style="margin:0;padding:0;background:#f2efe8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">{_esc(pre)}</div>
@@ -5179,8 +5195,16 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(payload,500)
 
     def serve_spa(self):
-        index=PUBLIC/'index.html'
-        self.send_file(index,'text/html; charset=utf-8')
+        """index.html with the language of ?lang= in <html lang>, and hreflang alternates for the 10 languages (SEO)."""
+        lang=normalize_lang((parse_qs(urlparse(self.path).query).get('lang',['es'])[0] or 'es')[:5])
+        raw=(PUBLIC/'index.html').read_text(encoding='utf-8')
+        base=wcfg.public_url() or self.base_url()
+        alts=''.join(f'<link rel="alternate" hreflang="{HTML_LANG.get(l,l)}" href="{html.escape(base)}/?lang={l}">' for l in MAIL_LANGS)
+        alts+=f'<link rel="alternate" hreflang="x-default" href="{html.escape(base)}/">'
+        if wcfg.demo_mode(): alts+='<meta name="robots" content="noindex,nofollow">'
+        raw=raw.replace('<html lang="es">',f'<html lang="{HTML_LANG.get(lang,lang)}">',1).replace('<!--hreflang-->',alts,1)
+        body=raw.encode('utf-8')
+        self.send_bytes(body,'text/html; charset=utf-8',cache='no-cache',inline=True)
 
     def precheck_write(self):
         """Runs before any state-changing request: CSRF origin check (G10), maintenance mode and the body size
@@ -5718,7 +5742,7 @@ class Handler(BaseHTTPRequestHandler):
                         tank_preference=excluded.tank_preference,computer_preference=excluded.computer_preference,
                         equipment_notes=excluded.equipment_notes,updated_at=excluded.updated_at''',
                     (user['id'],clean_text(data.get('phone'),50),clean_text(data.get('country'),100),
-                     clean_text(data.get('city'),100),clean_text(data.get('preferred_language'),10) or 'es',
+                     clean_text(data.get('city'),100),normalize_lang(clean_text(data.get('preferred_language'),10) or 'es'),
                      int(data['certification_id']) if data.get('certification_id') else None,
                      clean_text(data.get('notes'),2000),clean_text(data.get('date_of_birth'),20),
                      clean_text(data.get('emergency_contact_name'),160),clean_text(data.get('emergency_contact_phone'),60),
@@ -5786,7 +5810,7 @@ class Handler(BaseHTTPRequestHandler):
                     audit(db,r['user_id'],'password_reset_done','user',r['user_id']); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/account/language':
                     user=require_user(self,db); lang=clean_text(json_body(self).get('lang'),5) or 'es'
-                    if lang not in MAIL_LANGS: raise ValueError('Idioma no válido.')
+                    lang=normalize_lang(lang)
                     db.execute('INSERT INTO user_profiles(user_id,preferred_language,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET preferred_language=excluded.preferred_language',(user['id'],lang,now()))
                     db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/account/accept-terms':

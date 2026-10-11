@@ -43,7 +43,7 @@ def walk(shots: Path | None = None, extra_routes=None):
             browser = p.chromium.launch(executable_path=exe) if exe else p.chromium.launch()
             for role, creds in accounts.items():
                 for viewport in ({'width': 1366, 'height': 900}, {'width': 390, 'height': 844}):
-                    ctx = browser.new_context(viewport=viewport)
+                    ctx = browser.new_context(viewport=viewport, locale='es-ES')
                     page = ctx.new_page()
                     errs = []
                     page.on('console', lambda m, errs=errs: errs.append(m.text) if m.type == 'error' else None)

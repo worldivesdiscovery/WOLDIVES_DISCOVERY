@@ -48,7 +48,7 @@ def run(shots: Path | None):
         with sync_playwright() as p:
             browser = chromium(p)
             for width in (1366, 390):
-                ctx = browser.new_context(viewport={'width': width, 'height': 900})
+                ctx = browser.new_context(viewport={'width': width, 'height': 900}, locale='es-ES')
                 page = ctx.new_page()
                 errors = []
                 page.on('pageerror', lambda e: errors.append(str(e)))
@@ -112,7 +112,7 @@ def run(shots: Path | None):
                 check(f'{width} sin errores JS', not errors, errors)
                 ctx.close()
             # Centre panel
-            ctx = browser.new_context(viewport={'width': 1366, 'height': 900})
+            ctx = browser.new_context(viewport={'width': 1366, 'height': 900}, locale='es-ES')
             page = ctx.new_page()
             errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))
