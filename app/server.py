@@ -13,6 +13,7 @@ import os
 import socket
 import re
 import secrets
+import shutil
 import random
 import sqlite3
 import unicodedata
@@ -35,6 +36,7 @@ from wod import bookings as wbk
 from wod import pdf as wpdf
 from wod import totp as wtotp
 from wod import pointtext as wpt
+from wod import backup as wbackup
 # Bundled pure-python dependencies (qrcode). Installed packages take precedence.
 if str(ROOT/'vendor') not in sys.path: sys.path.append(str(ROOT/'vendor'))
 PUBLIC = ROOT / 'public'
@@ -60,6 +62,598 @@ LOGIN_MAX_ATTEMPTS = int(os.environ.get('WOD_LOGIN_MAX_ATTEMPTS', '8'))
 
 
 ROLES = {'admin', 'center', 'freelance', 'recreational'}
+
+# Complete schema (Fase 7.1): every table and index in its current shape. Until v50.37 some tables (users, centres, dive
+# points…) only existed inside the bundled .sqlite3; now a clean installation creates everything. Later migrations only add what is missing (add_columns), so existing databases are untouched.
+BASE_SCHEMA = '''
+CREATE TABLE IF NOT EXISTS account_deletion_requests (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, used_at TEXT);
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  action TEXT NOT NULL,
+  entity_type TEXT,
+  entity_id INTEGER,
+  details TEXT,
+  created_at TEXT NOT NULL, center_id INTEGER,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS booking_mode_migration (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, item_id INTEGER NOT NULL,
+                  title TEXT, provider TEXT, old_mode TEXT, new_mode TEXT, reason TEXT, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  center_id INTEGER,
+  dive_point_id INTEGER,
+  booking_date TEXT NOT NULL,
+  booking_time TEXT,
+  participants INTEGER NOT NULL DEFAULT 1,
+  needs_equipment INTEGER NOT NULL DEFAULT 0,
+  equipment_items TEXT,
+  equipment_notes TEXT,
+  needs_guide INTEGER NOT NULL DEFAULT 0,
+  guide_notes TEXT,
+  nitrox INTEGER NOT NULL DEFAULT 0,
+  pickup INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, service_id INTEGER, price REAL DEFAULT 0, currency TEXT DEFAULT 'EUR', payment_status TEXT DEFAULT 'not_required', slot_id INTEGER, slot_reserved INTEGER DEFAULT 0, external_ref TEXT, reminder_sent_at TEXT, review_asked_at TEXT, terms_version TEXT, cancelled_at TEXT, cancelled_by TEXT, refund_amount REAL, source TEXT DEFAULT 'online', contact_phone TEXT, created_by_user_id INTEGER, payment_method TEXT, internal_notes TEXT, price_breakdown TEXT, public_token TEXT, contact_email TEXT, contact_name TEXT, booking_mode TEXT, response_deadline TEXT, payment_deadline TEXT, hold_expires_at TEXT, accepted_at TEXT, decided_by INTEGER, reject_reason TEXT, expired_reason TEXT, confirmed_at TEXT, provider_user_id INTEGER, deposit_amount REAL, amount_paid REAL DEFAULT 0, amount_due REAL, refunded_total REAL DEFAULT 0, refund_proposed REAL, refund_status TEXT, refund_proposed_at TEXT, refund_reminded_at TEXT, cancel_free_hours INTEGER, cancel_refund_pct INTEGER, reminder48_sent_at TEXT,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE,
+  FOREIGN KEY(dive_point_id) REFERENCES dive_points(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS center_claims (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER NOT NULL,
+ center_id INTEGER,
+ requested_center_name TEXT,
+ phone TEXT,
+ city TEXT,
+ website TEXT,
+ note TEXT,
+ status TEXT NOT NULL DEFAULT 'pending',
+ created_at TEXT NOT NULL,
+ reviewed_at TEXT,
+ reviewed_by_user_id INTEGER
+, requested_role TEXT DEFAULT 'center', suggested_center_id INTEGER, verification_method TEXT, verification_note TEXT, email TEXT);
+CREATE TABLE IF NOT EXISTS center_equipment (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL, code TEXT NOT NULL, label TEXT NOT NULL, price REAL,
+ active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
+ UNIQUE(center_id,code), FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS center_extras (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  price REAL NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS center_integrations (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL UNIQUE, api_key_hash TEXT NOT NULL, api_key_prefix TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+ FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS center_links (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  center_id INTEGER NOT NULL,
+  first_checkin TEXT NOT NULL,
+  last_checkin TEXT NOT NULL,
+  UNIQUE(user_id, center_id),
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS center_members (center_id INTEGER NOT NULL REFERENCES centers(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        member_role TEXT NOT NULL DEFAULT 'owner', created_at TEXT NOT NULL, created_by INTEGER, PRIMARY KEY(center_id, user_id));
+CREATE TABLE IF NOT EXISTS center_photos (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ center_id INTEGER NOT NULL,
+ image_path TEXT NOT NULL,
+ caption TEXT,
+ sort_order INTEGER NOT NULL DEFAULT 0,
+ FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS center_point_links (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL, dive_point_id INTEGER NOT NULL, created_at TEXT NOT NULL,
+ UNIQUE(center_id,dive_point_id), FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE, FOREIGN KEY(dive_point_id) REFERENCES dive_points(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS center_reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+  title TEXT,
+  body TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  verified INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, reply_body TEXT, reply_at TEXT, reply_user_id INTEGER, moderated_at TEXT, moderation_reason TEXT,
+  UNIQUE(center_id,user_id),
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS center_tariffs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL, service_id INTEGER NOT NULL,
+          price REAL NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'EUR', effective_from TEXT NOT NULL,
+          active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+          FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE,
+          FOREIGN KEY(service_id) REFERENCES provider_services(id) ON DELETE CASCADE
+        );
+CREATE TABLE IF NOT EXISTS centers (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ name TEXT NOT NULL,
+ country TEXT NOT NULL,
+ region TEXT,
+ city TEXT,
+ address TEXT,
+ website TEXT,
+ phone TEXT,
+ email TEXT,
+ description TEXT,
+ specialties TEXT,
+ latitude REAL,
+ longitude REAL,
+ active INTEGER NOT NULL DEFAULT 1,
+ created_at TEXT NOT NULL,
+ updated_at TEXT NOT NULL, source_name TEXT, source_url TEXT, verification_status TEXT DEFAULT 'source_public', data_confidence TEXT DEFAULT 'public', logo_url TEXT, logo_source TEXT, instagram_url TEXT, facebook_url TEXT, twitter_url TEXT, youtube_url TEXT, tiktok_url TEXT, stripe_account_id TEXT, stripe_charges_enabled INTEGER DEFAULT 0, stripe_payouts_enabled INTEGER DEFAULT 0, stripe_details_submitted INTEGER DEFAULT 0, cover_url TEXT, tagline TEXT, gallery_json TEXT, languages TEXT, opening_hours TEXT, cancellation_policy TEXT DEFAULT 'moderada', cancellation_note TEXT, payments_warning_at TEXT, legal_name TEXT, tax_id TEXT, fiscal_address TEXT, cancel_free_hours INTEGER, cancel_refund_pct INTEGER, logo_consent INTEGER NOT NULL DEFAULT 0, logo_consent_at TEXT, entity_type TEXT, tax_id_country TEXT, registration_number TEXT, birth_date TEXT, declares_licences INTEGER NOT NULL DEFAULT 0, declares_qualified_staff INTEGER NOT NULL DEFAULT 0, licences_note TEXT, insurance_company TEXT, insurance_policy TEXT, insurance_expires_at TEXT, insurance_doc TEXT, insurance_alerts TEXT, fiscal_updated_at TEXT, plan_code TEXT, plan_status TEXT, plan_started_at TEXT, plan_expires_at TEXT, plan_trial_used INTEGER NOT NULL DEFAULT 0, plan_reminders TEXT, ical_token TEXT,
+ UNIQUE(name, country, city)
+);
+CREATE TABLE IF NOT EXISTS certifications (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ name TEXT NOT NULL UNIQUE,
+ active INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS consent_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, kind TEXT NOT NULL,
+        granted INTEGER NOT NULL, created_at TEXT NOT NULL, ip_hash TEXT);
+CREATE TABLE IF NOT EXISTS content_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, reason TEXT NOT NULL, target_url TEXT, details TEXT NOT NULL,
+          reporter_name TEXT, reporter_email TEXT, user_id INTEGER, ip_hash TEXT, status TEXT NOT NULL DEFAULT 'open', resolution TEXT, resolved_by INTEGER, resolved_at TEXT, created_at TEXT NOT NULL, target_type TEXT, target_id INTEGER, affected_user_id INTEGER, affected_notified_at TEXT);
+CREATE TABLE IF NOT EXISTS countries (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ name TEXT NOT NULL UNIQUE,
+ active INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS data_shares (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, center_id INTEGER NOT NULL REFERENCES centers(id) ON DELETE CASCADE,
+        source TEXT, granted_at TEXT NOT NULL, revoked_at TEXT, PRIMARY KEY(user_id, center_id));
+CREATE TABLE IF NOT EXISTS dive_point_photos (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ dive_point_id INTEGER NOT NULL,
+ image_path TEXT NOT NULL,
+ caption TEXT,
+ sort_order INTEGER NOT NULL DEFAULT 0, uploaded_by INTEGER,
+ FOREIGN KEY(dive_point_id) REFERENCES dive_points(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS dive_point_texts (point_id INTEGER NOT NULL REFERENCES dive_points(id) ON DELETE CASCADE, lang TEXT NOT NULL, description TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(point_id, lang));
+CREATE TABLE IF NOT EXISTS dive_points (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ name TEXT NOT NULL,
+ country TEXT NOT NULL,
+ region TEXT,
+ dive_type TEXT NOT NULL,
+ latitude REAL,
+ longitude REAL,
+ difficulty TEXT,
+ min_depth REAL,
+ max_depth REAL,
+ description TEXT,
+ access_info TEXT,
+ center_id INTEGER,
+ verification_status TEXT NOT NULL DEFAULT 'verified',
+ created_by_user_id INTEGER,
+ updated_by_user_id INTEGER,
+ active INTEGER NOT NULL DEFAULT 1,
+ created_at TEXT NOT NULL,
+ updated_at TEXT NOT NULL, zone TEXT, subregion TEXT, source_name TEXT, source_url TEXT, data_confidence TEXT DEFAULT 'curated', recommended_certification_id integer, description_legacy TEXT, description_reviewed INTEGER NOT NULL DEFAULT 0, description_reviewed_at TEXT, description_missing TEXT, description_generated INTEGER NOT NULL DEFAULT 0,
+ UNIQUE(name, country),
+ FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE SET NULL,
+ FOREIGN KEY(created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+ FOREIGN KEY(updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS dive_types (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ name TEXT NOT NULL UNIQUE,
+ active INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS dive_zones (id INTEGER PRIMARY KEY AUTOINCREMENT, zone TEXT NOT NULL, subregion TEXT NOT NULL, country TEXT, sort_order INTEGER DEFAULT 0, active INTEGER DEFAULT 1, UNIQUE(zone,subregion));
+CREATE TABLE IF NOT EXISTS document_alerts (document_id INTEGER NOT NULL, kind TEXT NOT NULL, sent_at TEXT NOT NULL, PRIMARY KEY(document_id, kind));
+CREATE TABLE IF NOT EXISTS email_digest_log (center_id INTEGER NOT NULL, digest_date TEXT NOT NULL, sent_at TEXT, PRIMARY KEY(center_id,digest_date));
+CREATE TABLE IF NOT EXISTS email_outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, template TEXT NOT NULL, lang TEXT NOT NULL DEFAULT 'es',
+          to_email TEXT NOT NULL, to_name TEXT, subject TEXT NOT NULL, html TEXT, text TEXT, status TEXT NOT NULL DEFAULT 'queued', related_type TEXT, related_id INTEGER,
+          attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT, next_try_at TEXT, sent_at TEXT, created_at TEXT NOT NULL, unsubscribe_url TEXT, delivery TEXT);
+CREATE TABLE IF NOT EXISTS email_verifications (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        email TEXT NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS experience_bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  travel_experience_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  participants INTEGER NOT NULL DEFAULT 1,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'requested',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, updated_by INTEGER, payment_status TEXT, amount_paid REAL DEFAULT 0, refunded_total REAL DEFAULT 0,
+  FOREIGN KEY(travel_experience_id) REFERENCES travel_experiences(id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS image_origins (path TEXT PRIMARY KEY, credit TEXT, origin TEXT, updated_at TEXT NOT NULL, updated_by INTEGER);
+CREATE TABLE IF NOT EXISTS info_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER, provider_user_id INTEGER, user_id INTEGER,
+        name TEXT NOT NULL, email TEXT NOT NULL, phone TEXT, message TEXT NOT NULL, wanted_date TEXT, participants INTEGER, lang TEXT,
+        status TEXT NOT NULL DEFAULT 'new', ip_hash TEXT, created_at TEXT NOT NULL, read_at TEXT);
+CREATE TABLE IF NOT EXISTS legal_acceptances (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        document TEXT NOT NULL, version TEXT NOT NULL, accepted_at TEXT NOT NULL, ip_hash TEXT);
+CREATE TABLE IF NOT EXISTS legal_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, lang TEXT NOT NULL, version TEXT NOT NULL, title TEXT NOT NULL, markdown TEXT NOT NULL, summary TEXT, status TEXT NOT NULL DEFAULT 'published', effective_at TEXT NOT NULL, published_at TEXT, created_by INTEGER, created_at TEXT NOT NULL, source TEXT);
+CREATE TABLE IF NOT EXISTS logbook_entries (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER NOT NULL,
+ dive_date TEXT NOT NULL,
+ site TEXT NOT NULL,
+ country TEXT,
+ depth REAL,
+ duration INTEGER,
+ dive_type TEXT,
+ notes TEXT,
+ created_at TEXT NOT NULL, booking_id INTEGER,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS map_tile_usage (month TEXT NOT NULL, layer TEXT NOT NULL, tiles INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(month, layer));
+CREATE TABLE IF NOT EXISTS messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sender_user_id INTEGER NOT NULL,
+  recipient_user_id INTEGER NOT NULL,
+  booking_id INTEGER,
+  experience_booking_id INTEGER,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  read_at TEXT, kind TEXT DEFAULT 'system', contact_phone TEXT, contact_email TEXT, sender_name TEXT,
+  FOREIGN KEY(sender_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY(recipient_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY(booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
+  FOREIGN KEY(experience_booking_id) REFERENCES experience_bookings(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS payment_orders (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, provider_user_id INTEGER, booking_id INTEGER,
+ experience_booking_id INTEGER, service_id INTEGER, amount REAL NOT NULL, currency TEXT NOT NULL DEFAULT 'EUR',
+ status TEXT NOT NULL DEFAULT 'pending', provider TEXT NOT NULL DEFAULT 'stripe', provider_payment_id TEXT,
+ checkout_url TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, slot_id INTEGER, platform_fee REAL DEFAULT 0, connected_account_id TEXT, refund_id TEXT, refund_amount REAL, refunded_at TEXT, paid_at TEXT, amount_received REAL, receipt_url TEXT, card_brand TEXT, card_last4 TEXT, hold_reserved INTEGER, charge_type TEXT, payment_intent_id TEXT, payment_kind TEXT DEFAULT 'full', refunded_total REAL DEFAULT 0, incident TEXT, incident_note TEXT, incident_at TEXT, incident_by INTEGER, payee_type TEXT, payee_id INTEGER,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ FOREIGN KEY(provider_user_id) REFERENCES users(id) ON DELETE SET NULL,
+ FOREIGN KEY(booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
+ FOREIGN KEY(experience_booking_id) REFERENCES experience_bookings(id) ON DELETE SET NULL,
+ FOREIGN KEY(service_id) REFERENCES provider_services(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS payment_refunds (id INTEGER PRIMARY KEY AUTOINCREMENT, payment_order_id INTEGER NOT NULL, booking_id INTEGER, experience_booking_id INTEGER, amount REAL NOT NULL, currency TEXT NOT NULL, reason TEXT, note TEXT, stripe_refund_id TEXT UNIQUE, status TEXT NOT NULL, source TEXT NOT NULL, created_by INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS plan_exceptions (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_type TEXT NOT NULL, provider_id INTEGER NOT NULL, feature TEXT NOT NULL,
+        enabled INTEGER NOT NULL, reason TEXT NOT NULL, created_by INTEGER, created_at TEXT NOT NULL, removed_at TEXT, removed_by INTEGER);
+CREATE TABLE IF NOT EXISTS plan_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_type TEXT NOT NULL, provider_id INTEGER NOT NULL, plan_code TEXT NOT NULL,
+        amount REAL NOT NULL, currency TEXT NOT NULL, method TEXT NOT NULL, status TEXT NOT NULL, stripe_session_id TEXT, checkout_url TEXT,
+        period_start TEXT, period_end TEXT, note TEXT, created_by INTEGER, created_at TEXT NOT NULL, paid_at TEXT);
+CREATE TABLE IF NOT EXISTS plans (code TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_year REAL, currency TEXT NOT NULL DEFAULT 'EUR',
+        features TEXT NOT NULL DEFAULT '{}', limits TEXT NOT NULL DEFAULT '{}', active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS point_position_suggestions (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ dive_point_id INTEGER NOT NULL,
+ user_id INTEGER NOT NULL,
+ latitude REAL NOT NULL,
+ longitude REAL NOT NULL,
+ note TEXT,
+ status TEXT NOT NULL DEFAULT 'pending',
+ created_at TEXT NOT NULL,
+ reviewed_at TEXT,
+ reviewed_by_user_id INTEGER,
+ FOREIGN KEY(dive_point_id) REFERENCES dive_points(id) ON DELETE CASCADE,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ FOREIGN KEY(reviewed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS points_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, points INTEGER NOT NULL, kind TEXT NOT NULL, description TEXT NOT NULL, ref_type TEXT, ref_id INTEGER, center_id INTEGER, created_by INTEGER, created_at TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS pro_invites (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, note TEXT, created_by INTEGER, created_at TEXT NOT NULL,
+        expires_at TEXT, used_at TEXT);
+CREATE TABLE IF NOT EXISTS promotion_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, promotion_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+          code TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'active', uses INTEGER NOT NULL DEFAULT 0, created_by INTEGER, created_at TEXT NOT NULL, revoked_at TEXT);
+CREATE TABLE IF NOT EXISTS promotion_partners (promotion_id INTEGER NOT NULL, center_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'invited',
+          updated_at TEXT NOT NULL, PRIMARY KEY(promotion_id,center_id));
+CREATE TABLE IF NOT EXISTS promotion_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, code_id INTEGER NOT NULL, center_id INTEGER NOT NULL,
+          redeemed_by INTEGER, note TEXT, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS promotions (id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL, created_by INTEGER,
+          title TEXT NOT NULL, description TEXT, value_text TEXT, conditions TEXT, valid_from TEXT, valid_until TEXT NOT NULL,
+          uses_per_code INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS provider_services (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, provider_user_id INTEGER NOT NULL, center_id INTEGER,
+ service_type TEXT NOT NULL DEFAULT 'inmersion', title TEXT NOT NULL, description TEXT,
+ duration_minutes INTEGER, price REAL NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'EUR',
+ max_participants INTEGER, booking_mode TEXT NOT NULL DEFAULT 'request', active INTEGER NOT NULL DEFAULT 1,
+ created_at TEXT NOT NULL, updated_at TEXT NOT NULL, color TEXT DEFAULT '#2563eb', response_hours INTEGER DEFAULT 24, payment_hours INTEGER DEFAULT 24, deposit_type TEXT DEFAULT 'none', deposit_value REAL, cancel_free_hours INTEGER, cancel_refund_pct INTEGER,
+ FOREIGN KEY(provider_user_id) REFERENCES users(id) ON DELETE CASCADE,
+ FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS provider_stats_daily (provider_type TEXT NOT NULL, provider_id INTEGER NOT NULL, day TEXT NOT NULL,
+        views INTEGER NOT NULL DEFAULT 0, book_clicks INTEGER NOT NULL DEFAULT 0, info_requests INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(provider_type, provider_id, day));
+CREATE TABLE IF NOT EXISTS qr_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_id INTEGER NOT NULL,
+  code TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL, purpose TEXT DEFAULT 'center', reference_id INTEGER,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS reward_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  event_key TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  points INTEGER NOT NULL DEFAULT 0,
+  wallet_amount REAL NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  UNIQUE(user_id, event_key),
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS reward_offers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_id INTEGER,
+  title TEXT NOT NULL,
+  description TEXT,
+  reward_type TEXT NOT NULL DEFAULT 'discount',
+  cost_wallet REAL NOT NULL DEFAULT 0,
+  value_text TEXT,
+  conditions TEXT,
+  stock INTEGER,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_by_user_id INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, cost_points INTEGER,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE SET NULL,
+  FOREIGN KEY(created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS reward_redemptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  offer_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  code TEXT NOT NULL UNIQUE,
+  cost_wallet REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'issued',
+  created_at TEXT NOT NULL,
+  redeemed_at TEXT, cost_points INTEGER, expires_at TEXT, redeemed_by INTEGER, redeemed_center_id INTEGER, cancelled_at TEXT,
+  FOREIGN KEY(offer_id) REFERENCES reward_offers(id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS rewards (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER,
+ title TEXT NOT NULL,
+ description TEXT,
+ points INTEGER NOT NULL DEFAULT 0,
+ completed INTEGER NOT NULL DEFAULT 0,
+ created_at TEXT NOT NULL,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL, backup_path TEXT, notes TEXT);
+CREATE TABLE IF NOT EXISTS service_slot_points (
+ slot_id INTEGER NOT NULL, dive_point_id INTEGER NOT NULL, PRIMARY KEY(slot_id,dive_point_id),
+ FOREIGN KEY(slot_id) REFERENCES service_slots(id) ON DELETE CASCADE, FOREIGN KEY(dive_point_id) REFERENCES dive_points(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS service_slots (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, service_id INTEGER NOT NULL, slot_date TEXT NOT NULL, slot_time TEXT NOT NULL,
+ spots_total INTEGER NOT NULL DEFAULT 1, spots_available INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'open',
+ created_at TEXT NOT NULL, updated_at TEXT NOT NULL, point_mode TEXT NOT NULL DEFAULT 'fixed', UNIQUE(service_id, slot_date, slot_time),
+ FOREIGN KEY(service_id) REFERENCES provider_services(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS service_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  service_type TEXT NOT NULL DEFAULT 'inmersion',
+  title TEXT,
+  description TEXT,
+  duration_minutes INTEGER,
+  max_participants INTEGER,
+  booking_mode TEXT NOT NULL DEFAULT 'request',
+  color TEXT,
+  price REAL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+, response_hours INTEGER, payment_hours INTEGER);
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at REAL NOT NULL,
+  last_seen REAL NOT NULL
+, second_factor INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS site_media (key TEXT PRIMARY KEY, image_url TEXT, credit TEXT, updated_at TEXT, updated_by INTEGER, origin TEXT);
+CREATE TABLE IF NOT EXISTS site_promos (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL DEFAULT 'partner', title TEXT NOT NULL,
+          subtitle TEXT, label TEXT, url TEXT, image_path TEXT, starts_on TEXT, ends_on TEXT, sort_order INTEGER NOT NULL DEFAULT 0,
+          active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT, updated_by INTEGER);
+CREATE TABLE IF NOT EXISTS site_theme_media (theme_id INTEGER NOT NULL REFERENCES site_themes(id) ON DELETE CASCADE, key TEXT NOT NULL,
+          image_url TEXT NOT NULL, credit TEXT, updated_at TEXT NOT NULL, origin TEXT, PRIMARY KEY(theme_id,key));
+CREATE TABLE IF NOT EXISTS site_themes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, accent TEXT NOT NULL DEFAULT 'oceano',
+          ribbon TEXT, mode TEXT NOT NULL DEFAULT 'schedule', scope TEXT NOT NULL DEFAULT 'all', starts_on TEXT, ends_on TEXT,
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by INTEGER);
+CREATE TABLE IF NOT EXISTS sponsorships (id INTEGER PRIMARY KEY AUTOINCREMENT, placement TEXT NOT NULL, ref_id INTEGER, sponsor_name TEXT NOT NULL, sponsor_center_id INTEGER, sponsor_contact TEXT, starts_on TEXT, ends_on TEXT, amount REAL, currency TEXT, notes TEXT, created_by INTEGER, created_at TEXT NOT NULL, ended_at TEXT);
+CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ event_id TEXT NOT NULL UNIQUE,
+ event_type TEXT NOT NULL,
+ created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS team_invites (id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL, email TEXT NOT NULL, member_role TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE, created_by INTEGER, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, revoked_at TEXT);
+CREATE TABLE IF NOT EXISTS travel_experiences (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  travel_offer_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  provider_user_id INTEGER,
+  center_id INTEGER,
+  provider_type TEXT NOT NULL DEFAULT 'center',
+  summary TEXT,
+  description TEXT,
+  start_date TEXT,
+  end_date TEXT,
+  price REAL,
+  currency TEXT NOT NULL DEFAULT 'EUR',
+  spots_total INTEGER,
+  spots_available INTEGER,
+  includes TEXT,
+  conditions TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, service_id INTEGER, image_url TEXT,
+  FOREIGN KEY(travel_offer_id) REFERENCES travel_offers(id) ON DELETE CASCADE,
+  FOREIGN KEY(provider_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS travel_offers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  region TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  image_path TEXT,
+  summary TEXT,
+  active INTEGER NOT NULL DEFAULT 1
+, description TEXT);
+CREATE TABLE IF NOT EXISTS user_documents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  document_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  expires_at TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  uploaded_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS user_profiles (
+  user_id INTEGER PRIMARY KEY,
+  phone TEXT,
+  country TEXT,
+  city TEXT,
+  preferred_language TEXT DEFAULT 'es',
+  notes TEXT,
+  updated_at TEXT NOT NULL, certification_id integer, date_of_birth TEXT, emergency_contact_name TEXT, emergency_contact_phone TEXT, equipment_required INTEGER DEFAULT 0, suit_type TEXT, suit_size TEXT, boot_size TEXT, bcd_size TEXT, fin_size TEXT, mask_size TEXT, usual_weight_kg REAL, tank_preference TEXT, computer_preference TEXT, equipment_notes TEXT,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS users (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ fullname TEXT NOT NULL,
+ email TEXT NOT NULL UNIQUE,
+ username TEXT NOT NULL UNIQUE,
+ password_hash TEXT NOT NULL,
+ role TEXT NOT NULL DEFAULT 'recreational',
+ center_id INTEGER,
+ created_at TEXT NOT NULL,
+ last_login TEXT, requested_role TEXT DEFAULT 'recreational', provider_bio TEXT, instagram_url TEXT, facebook_url TEXT, twitter_url TEXT, youtube_url TEXT, tiktok_url TEXT, avatar_url TEXT, terms_version TEXT, terms_accepted_at TEXT, pro_terms_version TEXT, pro_terms_accepted_at TEXT, guest_center_id INTEGER, guest_email TEXT, email_verified_at TEXT, marketing_consent INTEGER DEFAULT 0, marketing_consent_at TEXT, marketing_token TEXT, totp_secret TEXT, totp_enabled INTEGER DEFAULT 0, totp_pending_secret TEXT, totp_recovery TEXT, stripe_account_id TEXT, stripe_charges_enabled INTEGER DEFAULT 0, stripe_payouts_enabled INTEGER DEFAULT 0, stripe_details_submitted INTEGER DEFAULT 0, payments_warning_at TEXT, legal_name TEXT, tax_id TEXT, fiscal_address TEXT, cancel_free_hours INTEGER, cancel_refund_pct INTEGER, cancellation_note TEXT, totp_last_step INTEGER, totp_enabled_at TEXT, inactive_warned_at TEXT, entity_type TEXT, tax_id_country TEXT, registration_number TEXT, birth_date TEXT, declares_licences INTEGER NOT NULL DEFAULT 0, declares_qualified_staff INTEGER NOT NULL DEFAULT 0, licences_note TEXT, insurance_company TEXT, insurance_policy TEXT, insurance_expires_at TEXT, insurance_doc TEXT, insurance_alerts TEXT, fiscal_updated_at TEXT, plan_code TEXT, plan_status TEXT, plan_started_at TEXT, plan_expires_at TEXT, plan_trial_used INTEGER NOT NULL DEFAULT 0, plan_reminders TEXT, ical_token TEXT,
+ FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS virtual_experiences (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  dive_point_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  experience_type TEXT NOT NULL DEFAULT 'panorama',
+  provider TEXT,
+  url TEXT,
+  media_path TEXT,
+  description TEXT,
+  duration_seconds INTEGER,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_by_user_id INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(dive_point_id) REFERENCES dive_points(id) ON DELETE CASCADE,
+  FOREIGN KEY(created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER NOT NULL,
+ amount REAL NOT NULL,
+ description TEXT NOT NULL,
+ created_at TEXT NOT NULL,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_audit_center ON audit_log(center_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_center ON bookings(center_id, booking_date, status);
+CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_bookings_deadlines ON bookings(status, response_deadline, payment_deadline, hold_expires_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_external_ref ON bookings(center_id, external_ref) WHERE external_ref IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_bookings_provider ON bookings(provider_user_id, booking_date, status);
+CREATE INDEX IF NOT EXISTS idx_bookings_reminders ON bookings(booking_date, status);
+CREATE INDEX IF NOT EXISTS idx_bookings_service ON bookings(service_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_slot ON bookings(slot_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id, booking_date DESC);
+CREATE INDEX IF NOT EXISTS idx_center_equipment_center ON center_equipment(center_id);
+CREATE INDEX IF NOT EXISTS idx_center_extras_center ON center_extras(center_id, active);
+CREATE INDEX IF NOT EXISTS idx_center_integrations_center ON center_integrations(center_id);
+CREATE INDEX IF NOT EXISTS idx_center_links_center ON center_links(center_id, last_checkin DESC);
+CREATE INDEX IF NOT EXISTS idx_center_links_user ON center_links(user_id);
+CREATE INDEX IF NOT EXISTS idx_center_point_links_center ON center_point_links(center_id);
+CREATE INDEX IF NOT EXISTS idx_center_reviews_center ON center_reviews(center_id, active, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_center_reviews_user ON center_reviews(user_id, center_id);
+CREATE INDEX IF NOT EXISTS idx_center_tariffs_active ON center_tariffs(center_id,active,effective_from);
+CREATE INDEX IF NOT EXISTS idx_center_tariffs_service ON center_tariffs(center_id,service_id,effective_from);
+CREATE INDEX IF NOT EXISTS idx_centers_active_country ON centers(active, country);
+CREATE INDEX IF NOT EXISTS idx_centers_country ON centers(country);
+CREATE INDEX IF NOT EXISTS idx_content_reports_status ON content_reports(status, id DESC);
+CREATE INDEX IF NOT EXISTS idx_data_shares_center ON data_shares(center_id);
+CREATE INDEX IF NOT EXISTS idx_dive_points_center ON dive_points(center_id);
+CREATE INDEX IF NOT EXISTS idx_dive_points_country ON dive_points(country);
+CREATE INDEX IF NOT EXISTS idx_dive_points_status ON dive_points(verification_status);
+CREATE INDEX IF NOT EXISTS idx_dive_points_type ON dive_points(dive_type);
+CREATE INDEX IF NOT EXISTS idx_email_outbox_created ON email_outbox(created_at);
+CREATE INDEX IF NOT EXISTS idx_email_outbox_related ON email_outbox(related_type, related_id);
+CREATE INDEX IF NOT EXISTS idx_email_outbox_status ON email_outbox(status, next_try_at, id);
+CREATE INDEX IF NOT EXISTS idx_experience_bookings_exp ON experience_bookings(travel_experience_id, status);
+CREATE INDEX IF NOT EXISTS idx_info_requests_center ON info_requests(center_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_legal_acceptances_user ON legal_acceptances(user_id, document, version);
+CREATE INDEX IF NOT EXISTS idx_legal_documents ON legal_documents(slug, lang, status, effective_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_logbook_booking ON logbook_entries(booking_id) WHERE booking_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_logbook_user_date ON logbook_entries(user_id, dive_date DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_booking ON messages(booking_id);
+CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_booking ON payment_orders(booking_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_intent ON payment_orders(payment_intent_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_provider ON payment_orders(provider_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON payment_orders(status,created_at);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_user ON payment_orders(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payment_refunds_order ON payment_refunds(payment_order_id);
+CREATE INDEX IF NOT EXISTS idx_plan_exceptions ON plan_exceptions(provider_type, provider_id, removed_at);
+CREATE INDEX IF NOT EXISTS idx_plan_payments_provider ON plan_payments(provider_type, provider_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_points_ledger_grants ON points_ledger(center_id, kind, created_at);
+CREATE INDEX IF NOT EXISTS idx_points_ledger_user ON points_ledger(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_promo_codes_promo ON promotion_codes(promotion_id);
+CREATE INDEX IF NOT EXISTS idx_promo_codes_user ON promotion_codes(user_id);
+CREATE INDEX IF NOT EXISTS idx_promo_partners_center ON promotion_partners(center_id,status);
+CREATE INDEX IF NOT EXISTS idx_promo_redemptions_code ON promotion_redemptions(code_id);
+CREATE INDEX IF NOT EXISTS idx_promotions_center ON promotions(center_id,status);
+CREATE INDEX IF NOT EXISTS idx_provider_services_center ON provider_services(center_id, active);
+CREATE INDEX IF NOT EXISTS idx_provider_services_provider ON provider_services(provider_user_id, active);
+CREATE INDEX IF NOT EXISTS idx_reward_events_user ON reward_events(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reward_offers_center ON reward_offers(center_id, active);
+CREATE INDEX IF NOT EXISTS idx_reward_redemptions_user ON reward_redemptions(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_service_slot_points_slot ON service_slot_points(slot_id);
+CREATE INDEX IF NOT EXISTS idx_service_slots_service ON service_slots(service_id, slot_date, slot_time);
+CREATE INDEX IF NOT EXISTS idx_service_templates_provider ON service_templates(provider_user_id, name);
+CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_site_promos_active ON site_promos(active, kind, sort_order);
+CREATE INDEX IF NOT EXISTS idx_sponsorships_ref ON sponsorships(placement, ref_id);
+CREATE INDEX IF NOT EXISTS idx_suggestions_status ON point_position_suggestions(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_travel_experiences_destination ON travel_experiences(travel_offer_id, active, status);
+CREATE INDEX IF NOT EXISTS idx_travel_experiences_provider ON travel_experiences(provider_user_id, active);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_travel_experiences_service ON travel_experiences(service_id) WHERE service_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_user_documents_user ON user_documents(user_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(lower(email));
+CREATE INDEX IF NOT EXISTS idx_users_guest ON users(guest_center_id, guest_email);
+CREATE INDEX IF NOT EXISTS idx_virtual_experiences_point ON virtual_experiences(dive_point_id, active, id);
+CREATE INDEX IF NOT EXISTS idx_wallet_user_date ON wallet_transactions(user_id, created_at DESC);
+'''
 
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS user_profiles (
@@ -539,6 +1133,9 @@ def seed_curated_points_v30(db):
 def bootstrap():
     with connect() as db:
         db.execute('PRAGMA journal_mode=WAL')
+        # Tables first; the indexes of the complete schema go after the migrations (an old database gets its columns first).
+        base_tables = [x for x in BASE_SCHEMA.split(';\n') if x.strip().startswith('CREATE TABLE')]
+        db.executescript(';\n'.join(base_tables) + ';')
         db.executescript(SCHEMA)
         # Reviews are tied to a real completed booking at the center.
         db.execute('CREATE INDEX IF NOT EXISTS idx_center_reviews_user ON center_reviews(user_id, center_id)')
@@ -732,6 +1329,11 @@ def bootstrap():
         db.commit()
         migrate_v50_37(db)
         db.commit()
+        migrate_v50_38(db)
+        db.commit()
+        for stmt in BASE_SCHEMA.split(';\n'):
+            if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
+        db.commit()
 
 
 def add_columns(db, table, cols):
@@ -780,6 +1382,19 @@ def regenerate_point_texts(db, pid=None):
 def point_text(db, pid, lang):
     r = db.execute('SELECT description FROM dive_point_texts WHERE point_id=? AND lang=?', (pid, normalize_lang(lang))).fetchone()
     return r['description'] if r else None
+
+
+def migrate_v50_38(db):
+    """v50.38 (Fase 7): own texts of the 10 points curated in v50.30 (point_extras.json); points not yet reviewed
+    are written again with them. The previous text stays in description_legacy."""
+    if migration_done(db, '50.38'): return
+    names = list(point_extras().keys())
+    n = 0
+    for chunk in range(0, len(names), 200):
+        part = names[chunk:chunk + 200]
+        for r in db.execute(f"SELECT id FROM dive_points WHERE COALESCE(description_reviewed,0)=0 AND name IN ({','.join('?' * len(part))})", part).fetchall():
+            regenerate_point_texts(db, r['id']); n += 1
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.38', now(), f'Fase 7: esquema completo, copias y operación; textos propios de {n} puntos'))
 
 
 def migrate_v50_37(db):
@@ -861,6 +1476,9 @@ def migrate_v50_36(db):
         n = regenerate_point_texts(db)
         db.execute('INSERT INTO schema_migrations(version,applied_at,backup_path,notes) VALUES(?,?,?,?)',
                    ('50.36-points', now(), str(backup) if backup else None, f'Descripciones propias de {n} puntos de buceo (texto anterior en description_legacy)'))
+    # Points added later (new catalogue entries, a production database built from another one) get their texts too.
+    for r in db.execute('SELECT p.id FROM dive_points p WHERE COALESCE(p.description_reviewed,0)=0 AND NOT EXISTS (SELECT 1 FROM dive_point_texts t WHERE t.point_id=p.id) LIMIT 5000').fetchall():
+        regenerate_point_texts(db, r['id'])
     if not migration_done(db, '50.36'):
         db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.36', now(), 'Fase 5: legal, privacidad, catálogo y mapas'))
 
@@ -3936,6 +4554,11 @@ EMAIL_TEMPLATES = {
    ('button', ('Ver mis viajes', 'area_url'))]},
  'experience_status': {'to': 'diver', 'subject': '{status_title}: {experience}', 'pre': '{status_title}', 'blocks': [
    ('h', '{status_title}'), ('p', 'Hola {first_name}, {status_text}'), ('button', ('Ver mis viajes', 'area_url'))]},
+ 'admin_ops_alert': {'to': 'admin', 'subject': 'WORLDIVES · {subject}', 'pre': 'Aviso de operación.', 'blocks': [
+   ('h', '{subject}'), ('note', '{detail}'), ('p', 'Revisa Administración → Operación y el registro del servidor.')]},
+ 'service_notice': {'to': 'center', 'subject': 'Aviso de WORLDIVES: {notice_title}', 'pre': '{notice_text}', 'blocks': [
+   ('h', '{notice_title}'), ('p', 'Hola {first_name},'), ('p', '{notice_text}'),
+   ('note', 'Las reservas ya hechas se mantienen. Te avisaremos cuando todo funcione con normalidad.')]},
  'plan_expired': {'to': 'center', 'subject': 'Tu plan {plan_name} ha terminado: {center} sigue como ficha gratuita', 'pre': 'Tus reservas actuales se mantienen.', 'blocks': [
    ('h', 'Tu plan ha terminado'),
    ('p', 'Hola {first_name}, el plan {plan_name} de {center} ha terminado. Tu ficha sigue publicada como ficha gratuita.'),
@@ -4143,7 +4766,7 @@ EMAIL_TEMPLATE_LABELS = {
  'payment_review': 'Pago en revisión', 'booking_rejected': 'Solicitud rechazada', 'booking_cancelled_center': 'Cancelada por el centro',
  'booking_cancelled_diver': 'Cancelada por el buceador', 'reminder': 'Recordatorio del día anterior', 'review_request': 'Petición de reseña',
  'promotion_received': 'Promoción recibida', 'experience_request': 'Solicitud de viaje enviada', 'experience_status': 'Respuesta a solicitud de viaje',
- 'plan_expired': 'Centro: plan terminado', 'plan_paid': 'Centro: plan pagado', 'info_request': 'Centro: solicitud de información',
+ 'admin_ops_alert': 'Admin: aviso de operación (copias, integridad)', 'service_notice': 'Centro: aviso de mantenimiento o incidencia', 'plan_expired': 'Centro: plan terminado', 'plan_paid': 'Centro: plan pagado', 'info_request': 'Centro: solicitud de información',
  'info_request_copy': 'Copia de la solicitud de información', 'insurance_expiring': 'Centro: seguro a punto de caducar', 'insurance_expired': 'Centro: seguro caducado',
  'monthly_stats': 'Centro: estadísticas del mes', 'team_invite': 'Invitación al equipo de un centro', 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
@@ -6293,6 +6916,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     last=db.execute("SELECT value FROM site_settings WHERE key='retention_last_report'").fetchone()
                     self.send_json({'settings':retention_settings(db),'defaults':RETENTION_DEFAULTS,'limits':RETENTION_LIMITS,'warn_days':RETENTION_WARN_DAYS,
                                     'log_days':wcfg.env_int('WOD_LOG_RETENTION_DAYS',14,1,365),'last':json.loads(last['value']) if last else None}); return
+                if path == '/api/admin/health':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    self.send_json(admin_health(db)); return
                 if path == '/api/plans':
                     # Public: the plans and what each includes (Fase 6.2).
                     items=[]
@@ -6627,6 +7253,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         'zones': [dict(r) for r in db.execute('SELECT id,zone,subregion,country FROM dive_zones WHERE active=1 ORDER BY zone,sort_order,subregion')],
                         'travel': [dict(r) for r in db.execute('SELECT * FROM travel_offers WHERE active=1 ORDER BY title')],
                         'features': feature_switches(db),
+                        'banner': site_banner(db),
                     })
                     return
                 if path == '/api/account/shares':
@@ -8024,6 +8651,23 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     db.execute('INSERT INTO image_origins(path,credit,origin,updated_at,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(path) DO UPDATE SET credit=excluded.credit,origin=excluded.origin,updated_at=excluded.updated_at,updated_by=excluded.updated_by',
                                (p,clean_text(data.get('credit'),200) or '',clean_text(data.get('origin'),300) or '',now(),user['id']))
                     audit(db,user['id'],'image_origin_updated','image',None,{'path':p}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/banner':
+                    # Maintenance or incident banner on every page; optionally an email to every centre and professional.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    text=clean_text(data.get('text'),300) or ''
+                    if not text:
+                        db.execute("DELETE FROM site_settings WHERE key='site_banner'"); audit(db,user['id'],'site_banner_removed','system',None); db.commit(); self.send_json({'ok':True}); return
+                    level=data.get('level') if data.get('level') in ('info','maintenance','incident') else 'info'
+                    hours=max(1,min(24*14,int(data.get('hours') or 24)))
+                    until=(datetime.now(timezone.utc)+_timedelta(hours=hours)).isoformat(timespec='seconds')
+                    ops_setting(db,'site_banner',json.dumps({'text':text,'level':level,'until':until}))
+                    sent=0
+                    if data.get('notify_centers'):
+                        title={'info':'Información','maintenance':'Mantenimiento programado','incident':'Incidencia en el servicio'}[level]
+                        for r in db.execute("SELECT id FROM users WHERE role IN ('center','freelance') AND guest_center_id IS NULL").fetchall():
+                            lang=user_lang(db,r['id'])
+                            notify_user(db,r['id'],'service_notice',{'notice_title':mail_t(lang,title),'notice_text':text},('system',None)); sent+=1
+                    audit(db,user['id'],'site_banner_set','system',None,{'level':level,'hours':hours,'emails':sent}); db.commit(); self.send_json({'ok':True,'until':until,'emails':sent}); return
                 if path=='/api/provider/plan/checkout':
                     # Annual fee on the PLATFORM's Stripe account (the only money WORLDIVES charges).
                     user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
@@ -9656,6 +10300,81 @@ def run_daily_plan_jobs(db):
 
 
 MAINTENANCE_JOBS.append(run_daily_plan_jobs)
+STARTED_AT = time.time()
+
+
+def ops_setting(db, key, value=None):
+    if value is None:
+        r = db.execute('SELECT value FROM site_settings WHERE key=?', (key,)).fetchone()
+        return r['value'] if r else None
+    db.execute('INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at', (key, value, now()))
+
+
+def ops_alert(db, subject, detail):
+    """Operations alert to the administrators, at most once a day per subject."""
+    key = 'ops_alert_' + re.sub(r'[^a-z0-9]+', '_', subject.lower())[:40]
+    if ops_setting(db, key) == _dt.date.today().isoformat(): return
+    ops_setting(db, key, _dt.date.today().isoformat())
+    notify_admins(db, 'admin_ops_alert', {'subject': subject, 'detail': detail[:1500]}, ('system', None))
+    sys.stderr.write(f'[operaciones] {subject}: {detail}\n')
+
+
+def run_backup_jobs(db):
+    """Fase 7.4: hourly database copy, daily copy of the uploaded files, rotation, external copy and quick_check."""
+    if wcfg.env('WOD_BACKUP', 'on').lower() == 'off': return
+    nowts = time.time()
+    every = wcfg.env_int('WOD_BACKUP_DB_MINUTES', 60, 5, 1440) * 60
+    last = float(ops_setting(db, 'backup_last_db_ts') or 0)
+    if nowts - last >= every:
+        ops_setting(db, 'backup_last_db_ts', str(nowts)); db.commit()
+        try:
+            out = wbackup.backup_db(DB_PATH)
+            ops_setting(db, 'backup_last_db', json.dumps({'at': now(), 'file': out.name, 'size': out.stat().st_size}))
+            err = wbackup.ship(out)
+            if err: ops_alert(db, 'Copia externa de la base fallida', err)
+            wbackup.rotate(DB_PATH)
+        except Exception as exc:
+            ops_alert(db, 'Copia de seguridad de la base fallida', f'{type(exc).__name__}: {exc}')
+    day = _dt.date.today().isoformat()
+    if ops_setting(db, 'backup_last_files_day') != day:
+        ops_setting(db, 'backup_last_files_day', day); db.commit()
+        try:
+            out = wbackup.backup_files([PHOTOS, STORAGE], DB_PATH)
+            if out:
+                ops_setting(db, 'backup_last_files', json.dumps({'at': now(), 'file': out.name, 'size': out.stat().st_size}))
+                err = wbackup.ship(out)
+                if err: ops_alert(db, 'Copia externa de los archivos fallida', err)
+        except Exception as exc:
+            ops_alert(db, 'Copia de seguridad de los archivos fallida', f'{type(exc).__name__}: {exc}')
+        res = db.execute('PRAGMA quick_check').fetchone()[0]
+        ops_setting(db, 'ops_quick_check', json.dumps({'at': now(), 'result': res}))
+        if res != 'ok': ops_alert(db, 'La base de datos no supera quick_check', str(res))
+
+
+MAINTENANCE_JOBS.append(run_backup_jobs)
+
+
+def site_banner(db):
+    """Maintenance or incident banner (Administración → Operación), while it is in force."""
+    raw = ops_setting(db, 'site_banner')
+    if not raw: return None
+    try: b = json.loads(raw)
+    except ValueError: return None
+    if not b.get('text') or (b.get('until') and b['until'] < now()): return None
+    return {k: b.get(k) for k in ('text', 'level', 'until')}
+
+
+def admin_health(db):
+    q = lambda k: json.loads(ops_setting(db, k) or 'null')
+    try:
+        du = shutil.disk_usage(DB_PATH.parent); disk = {'free_gb': round(du.free / 1e9, 1), 'used_pct': round(du.used * 100 / du.total, 1)}
+    except OSError: disk = None
+    counts = {r['status']: r['n'] for r in db.execute('SELECT status, COUNT(*) n FROM email_outbox GROUP BY status').fetchall()}
+    return {'version': APP_VERSION, 'uptime_s': int(time.time() - STARTED_AT), 'db_size_mb': round(DB_PATH.stat().st_size / 1e6, 2) if DB_PATH.exists() else 0,
+            'quick_check': q('ops_quick_check'), 'backup_db': q('backup_last_db'), 'backup_files': q('backup_last_files'),
+            'backup_external': bool(wcfg.env('WOD_BACKUP_COMMAND')), 'backup_enabled': wcfg.env('WOD_BACKUP', 'on').lower() != 'off',
+            'email_queue': counts, 'errors_recent': len(getattr(ERROR_MONITOR, '_events', [])), 'disk': disk, 'workers': wcfg.env_int('WOD_WORKERS', 1, 1, 64),
+            'production': wcfg.is_production(), 'warnings': production_warnings(), 'banner': site_banner(db)}
 
 
 def check_production_settings():
@@ -9741,11 +10460,29 @@ def report_center_accounts():
 def main():
     if '--create-admin' in sys.argv: raise SystemExit(create_admin_cli(sys.argv))
     if '--report-center-accounts' in sys.argv: raise SystemExit(report_center_accounts())
+    if '--backup-now' in sys.argv:
+        out = wbackup.backup_db(DB_PATH); print(f'Copia creada: {out} ({wbackup.verify(out)})'); err = wbackup.ship(out)
+        if err: print('Copia externa fallida: ' + err)
+        raise SystemExit(1 if err else 0)
+    if '--verify-backup' in sys.argv:
+        p = Path(sys.argv[sys.argv.index('--verify-backup') + 1]); print(f'{p.name}: {wbackup.verify(p)}'); raise SystemExit(0)
+    if '--restore' in sys.argv:
+        p = Path(sys.argv[sys.argv.index('--restore') + 1])
+        print('Comprobando la copia: ' + wbackup.verify(p))
+        if '--yes' not in sys.argv: print('Para el servidor y repite con --yes para restaurar.'); raise SystemExit(1)
+        aside = wbackup.restore(p, DB_PATH); print(f'Base restaurada en {DB_PATH}.' + (f' La anterior se ha guardado en {aside}.' if aside else '')); raise SystemExit(0)
     if wcfg.is_production():
         problems = check_production_settings()
         if problems:
             print('No se puede arrancar en producción:'); [print(' - ' + p) for p in problems]; raise SystemExit(2)
         for w in production_warnings(): print('Aviso: ' + w)
+    if not DB_PATH.exists() and not wcfg.is_production():
+        # Development and demo: start from the demo catalogue (production starts clean: tools/crear_base_produccion.py).
+        demo = ROOT / 'data' / 'demo' / 'catalogo-demo.sqlite3'
+        if demo.exists() and not os.environ.get('WOD_EMPTY_DB'):
+            import shutil
+            DB_PATH.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(demo, DB_PATH)
+            print(f'Base nueva {DB_PATH} creada a partir del catálogo de demostración.')
     bootstrap()
     print(f'WORLDIVES DISCOVERY v{APP_VERSION} -> http://127.0.0.1:{PORT}')
     # Optional multi-process mode (Linux/macOS): WOD_WORKERS=4 starts 4 processes sharing the port.

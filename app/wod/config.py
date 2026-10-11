@@ -2,6 +2,37 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+
+def load_env_file(path: Path | None = None) -> int:
+    """Reads the server's .env (WOD_ENV_FILE, or .env next to the application) into the environment.
+    Variables already set (systemd, shell, tests) win. Supports «KEY=value  # comment», quotes and blank lines.
+    Returns how many variables were loaded."""
+    p = Path(os.environ.get('WOD_ENV_FILE') or path or (Path(__file__).resolve().parents[2] / '.env'))
+    if not p.is_file():
+        return 0
+    n = 0
+    for raw in p.read_text(encoding='utf-8').splitlines():
+        line = raw.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, _, value = line.partition('=')
+        key = key.strip().removeprefix('export ').strip()
+        value = value.strip()
+        if value[:1] in ('"', "'") and value[1:].find(value[0]) >= 0:
+            value = value[1:1 + value[1:].find(value[0])]
+        else:
+            cut = value.find(' #')
+            if cut >= 0: value = value[:cut]
+            value = value.strip()
+        if key and key not in os.environ:
+            os.environ[key] = value; n += 1
+    return n
+
+
+if not os.environ.get('WOD_NO_ENV_FILE'):
+    load_env_file()
 
 
 def env(name: str, default: str = '') -> str:

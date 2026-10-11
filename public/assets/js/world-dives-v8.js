@@ -3708,7 +3708,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     setApp(`<section class="page provider-page"><div class="provider-topbar"><div><p class="eyebrow">${isAdmin?'CUENTA ADMINISTRADOR':'PANEL PROFESIONAL · CENTRO DE BUCEO'}</p><h1>${isAdmin?'Centro de control de WORLDIVES':escapeHtml(myCenter?.name||'Panel del centro')}</h1><p class="lead">${isAdmin?'Control administrativo de WORLDIVES DISCOVERY.':'Tu centro de operaciones: reservas, salidas, clientes, pagos y catálogo.'}</p></div>${!isAdmin&&myCenter?`<div class="provider-status"><span class="status good">● Centro activo</span><a href="#/admin?tab=center">Gestionar ficha</a></div>`:''}</div>
       ${isAdmin?'<div class="notice" style="margin-top:18px"><strong>Control total activado</strong><p style="margin:6px 0 0">Las acciones importantes quedan registradas en el historial de actividad.</p></div>':''}
       ${!isAdmin?`<div class="provider-mini-summary"><span><strong>${points.length}</strong> puntos activos</span><span><strong>${bookings.length}</strong> reservas</span><span><strong>${centerPending.length}</strong> por confirmar</span><span><strong>${centerConfirmed.length}</strong> confirmadas</span><span><strong>${centerPaid.length}</strong> pagadas</span></div>`:''}
-      <div class="tabs provider-tabs">${isAdmin?'<button class="tab active" data-tab="overview">Inicio</button>':'<button class="tab active" data-tab="overview">Resumen</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="services">Servicios y salidas</button><button class="tab" data-tab="clients">Clientes</button><button class="tab" data-tab="points">Puntos de buceo</button><button class="tab" data-tab="rewards">Recompensas</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR / Check-in</button><button class="tab" data-tab="center">Mi centro</button><button class="tab" data-tab="payments">Cobros y pagos</button>'}${isAdmin?'<button class="tab" data-tab="points">Puntos</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="adminpay">Pagos</button><button class="tab" data-tab="emails">Correos</button><button class="tab" data-tab="legal">Legal</button><button class="tab" data-tab="pointtexts">Descripciones de puntos</button><button class="tab" data-tab="maps">Mapas</button><button class="tab" data-tab="plans">Planes</button><button class="tab" data-tab="features">Funciones</button><button class="tab" data-tab="virtual">Recorridos virtuales</button><button class="tab" data-tab="experiences">Experiencias</button><button class="tab" data-tab="destinations">Destinos</button><button class="tab" data-tab="media">Imágenes de la web</button><button class="tab" data-tab="promos">Patrocinio</button><button class="tab" data-tab="users">Usuarios</button><button class="tab" data-tab="centers">Centros</button><button class="tab" data-tab="claims">Verificaciones</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR</button><button class="tab" data-tab="audit">Actividad</button><button class="tab" data-tab="rewards">Recompensas</button>':''}</div><div id="admin-content"></div></section>`);
+      <div class="tabs provider-tabs">${isAdmin?'<button class="tab active" data-tab="overview">Inicio</button>':'<button class="tab active" data-tab="overview">Resumen</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="services">Servicios y salidas</button><button class="tab" data-tab="clients">Clientes</button><button class="tab" data-tab="points">Puntos de buceo</button><button class="tab" data-tab="rewards">Recompensas</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR / Check-in</button><button class="tab" data-tab="center">Mi centro</button><button class="tab" data-tab="payments">Cobros y pagos</button>'}${isAdmin?'<button class="tab" data-tab="points">Puntos</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="adminpay">Pagos</button><button class="tab" data-tab="emails">Correos</button><button class="tab" data-tab="legal">Legal</button><button class="tab" data-tab="pointtexts">Descripciones de puntos</button><button class="tab" data-tab="maps">Mapas</button><button class="tab" data-tab="plans">Planes</button><button class="tab" data-tab="features">Funciones</button><button class="tab" data-tab="ops">Operación</button><button class="tab" data-tab="virtual">Recorridos virtuales</button><button class="tab" data-tab="experiences">Experiencias</button><button class="tab" data-tab="destinations">Destinos</button><button class="tab" data-tab="media">Imágenes de la web</button><button class="tab" data-tab="promos">Patrocinio</button><button class="tab" data-tab="users">Usuarios</button><button class="tab" data-tab="centers">Centros</button><button class="tab" data-tab="claims">Verificaciones</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR</button><button class="tab" data-tab="audit">Actividad</button><button class="tab" data-tab="rewards">Recompensas</button>':''}</div><div id="admin-content"></div></section>`);
     const tabs=$$('.tab');
     async function show(t){
       tabs.forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
@@ -3727,6 +3727,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t==='adminpay'&&isAdmin){ c.innerHTML='<div id="admin-payments"></div>'; renderAdminPayments('admin-payments'); }
       if(t==='emails'&&isAdmin){ c.innerHTML='<div id="admin-emails"></div>'; renderAdminEmails('admin-emails'); }
       if(t==='legal'&&isAdmin){ c.innerHTML='<div id="admin-legal"></div>'; renderAdminLegal('admin-legal'); }
+      if(t==='ops'&&isAdmin){ c.innerHTML='<div id="admin-ops"></div>'; renderAdminOps('admin-ops'); }
       if(t==='plans'&&isAdmin){ c.innerHTML='<div id="admin-plans"></div>'; renderAdminPlans('admin-plans'); }
       if(t==='features'&&isAdmin){ c.innerHTML='<div id="admin-features"></div>'; renderAdminFeatures('admin-features'); }
       if(t==='maps'&&isAdmin){ c.innerHTML='<div id="admin-maps"></div>'; renderAdminMaps('admin-maps'); }
@@ -3746,7 +3747,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const qsAdmin=new URLSearchParams(location.hash.split('?')[1]||'');
     const requested=qsAdmin.get('tab'); const statusFilter=qsAdmin.get('status'); const editId=Number(qsAdmin.get('edit')||0);
     const centerTabs=['overview','bookings','services','clients','points','rewards','suggestions','qr','center','payments'];
-    show(isAdmin&&['adminpay','emails','legal','pointtexts','maps','plans','features','media','promos','virtual','audit','destinations','experiences','users','centers','claims','suggestions','qr','rewards','bookings','points'].includes(requested)?requested:(isAdmin?'overview':(centerTabs.includes(requested)?requested:'overview')));
+    show(isAdmin&&['adminpay','emails','legal','pointtexts','maps','plans','features','ops','media','promos','virtual','audit','destinations','experiences','users','centers','claims','suggestions','qr','rewards','bookings','points'].includes(requested)?requested:(isAdmin?'overview':(centerTabs.includes(requested)?requested:'overview')));
     if(isAdmin&&editId) editPointForm(editId);
   }
   // Shared by the center workspace and the legacy admin view.
@@ -3944,6 +3945,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const name=c.getAttribute('placeholder')||c.getAttribute('title'); if(name) c.setAttribute('aria-label',name); });
   }
   try{ let t=null; new MutationObserver(()=>{ clearTimeout(t); t=setTimeout(()=>wdLinkLabels(document.body),60); }).observe(document.documentElement,{childList:true,subtree:true}); }catch{}
+  // Maintenance or incident banner (Administración → Operación).
+  function siteBanner(){ const b=state.meta?.banner; $('#site-banner')?.remove(); if(!b) return;
+    document.body.insertAdjacentHTML('afterbegin',`<div class="site-banner is-${escapeHtml(b.level||'info')}" id="site-banner" role="status">${wdIcon(b.level==='incident'?'alert':'info',16)} <span>${escapeHtml(b.text)}</span></div>`);
+    translateTree($('#site-banner')); }
   // Administración → Funciones: what is switched off disappears from menus and pages (the server refuses it too).
   function applyFeatureSwitches(){ const f=state.meta?.features||{}; Object.keys(f).forEach(k=>document.body.classList.toggle('feat-off-'+k,f[k]===false)); }
   // Demo deployments (WOD_DEMO_MODE=1): a fixed ribbon on every page.
@@ -4297,6 +4302,33 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $('#tj-form')?.addEventListener('submit',async e=>{ e.preventDefault(); try{ await postJSON('/api/team/join',{token,fullname:$('#tj-name').value,username:$('#tj-user').value,password:$('#tj-pass').value,accept_terms:$('#tj-terms').checked}); done(); }catch(err){ toast(err.message); } });
   }
   // Administración → Planes
+  async function renderAdminOps(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let h; try{ h=await api('/api/admin/health'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    const ago=t=>t?esc(t.replace('T',' ').slice(0,16)):'—'; const mb=b=>b?(b/1048576).toLocaleString(wdLocale(),{maximumFractionDigits:1})+' MB':'';
+    const q=h.email_queue||{};
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Operación</p><h2>Estado del servidor, copias y avisos</h2><p>Versión ${esc(h.version)} · en marcha desde hace ${Math.round(h.uptime_s/3600)} h · ${h.workers} proceso(s) · base de ${h.db_size_mb} MB.</p></div><button type="button" class="btn" id="ops-refresh">Actualizar</button></div>
+      ${h.warnings.length?`<div class="notice warning"><strong>Ajustes pendientes:</strong><ul>${h.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul></div>`:''}
+      <div class="acc-kpis">${accKpi('shield',h.quick_check?esc(h.quick_check.result):'—','Integridad de la base (quick_check diario) · '+ago(h.quick_check?.at))}
+        ${accKpi('download',h.backup_db?ago(h.backup_db.at):(h.backup_enabled?'Pendiente':'Desactivadas'),'Última copia de la base '+(h.backup_db?mb(h.backup_db.size):'')+(h.backup_external?' · con copia externa':' · sin copia externa'))}
+        ${accKpi('image',h.backup_files?ago(h.backup_files.at):'—','Última copia de fotos y documentos')}
+        ${accKpi('mail',(q.queued||0)+(q.retry||0),'Correos en cola · '+(q.failed||0)+' fallidos')}
+        ${accKpi('alert',h.errors_recent,'Errores 500 recientes')}
+        ${h.disk?accKpi('chart',h.disk.free_gb+' GB','Disco libre ('+h.disk.used_pct+' % usado)',null,h.disk.used_pct>85):''}</div>
+      <h3 class="adl-h">Aviso de mantenimiento o incidencia</h3>
+      ${h.banner?`<div class="notice">Aviso activo hasta ${ago(h.banner.until)}: «${esc(h.banner.text)}» <button type="button" class="btn-link" id="ops-off">Quitar</button></div>`:''}
+      <form id="ops-banner" class="form-grid"><div class="field full"><label for="ops-text">Texto que verá todo el mundo arriba de la web</label><input id="ops-text" maxlength="300" placeholder="Ej.: El domingo de 7:00 a 8:00 haremos mantenimiento; las reservas pueden tardar en confirmarse."></div>
+        <div class="field"><label for="ops-level">Tipo</label><select id="ops-level"><option value="maintenance">Mantenimiento</option><option value="incident">Incidencia</option><option value="info">Información</option></select></div>
+        <div class="field"><label for="ops-hours">Durante (horas)</label><input id="ops-hours" type="number" min="1" max="336" value="24"></div>
+        <label class="lg-check full"><input type="checkbox" id="ops-notify"> <span>Avisar también por email a todos los centros y profesionales</span></label>
+        <div class="form-actions full"><button class="btn btn-primary" type="submit">Publicar aviso</button></div></form>
+      <p class="adl-det">Monitor externo: configura un servicio de uptime (UptimeRobot, Better Stack, Uptime Kuma…) contra <code>${esc(location.origin)}/api/health</code>. Si se repiten errores 500, se avisa por email a los administradores.</p></section>`;
+    $('#ops-refresh').onclick=()=>renderAdminOps(mountId);
+    $('#ops-off')?.addEventListener('click',async()=>{ try{ await postJSON('/api/admin/banner',{text:''}); state.meta=null; toast('Aviso quitado.'); renderAdminOps(mountId); }catch(err){ toast(err.message); } });
+    $('#ops-banner').onsubmit=async e=>{ e.preventDefault(); if(!$('#ops-text').value.trim()){ toast('Escribe el texto del aviso.'); return; }
+      if($('#ops-notify').checked&&!confirm('Se enviará un email a todos los centros y profesionales. ¿Continuar?')) return;
+      try{ const r=await postJSON('/api/admin/banner',{text:$('#ops-text').value,level:$('#ops-level').value,hours:$('#ops-hours').value,notify_centers:$('#ops-notify').checked}); toast(r.emails?`Aviso publicado y ${r.emails} emails en cola.`:'Aviso publicado.'); renderAdminOps(mountId); }catch(err){ toast(err.message); } };
+  }
   async function renderAdminPlans(mountId){
     const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
     let d; try{ d=await api('/api/admin/plans'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
@@ -4563,5 +4595,5 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   navMobile();
   initLanguage();
-  window.addEventListener('DOMContentLoaded',async()=>{ await Promise.all([loadMe(),loadMeta().catch(()=>{}),loadSiteMedia(),loadLanguagePack(),loadMapConfig()]); applyLanguage(); applyFeatureSwitches(); route(); cookieNotice(); footerOwner(); demoRibbon(); });
+  window.addEventListener('DOMContentLoaded',async()=>{ await Promise.all([loadMe(),loadMeta().catch(()=>{}),loadSiteMedia(),loadLanguagePack(),loadMapConfig()]); applyLanguage(); applyFeatureSwitches(); siteBanner(); route(); cookieNotice(); footerOwner(); demoRibbon(); });
 })();

@@ -1,9 +1,153 @@
-# Despliegue de WORLDIVES DISCOVERY
+# Despliegue de WORLDIVES DISCOVERY (v50.38)
 
-> Este documento se completa en la Fase 7 (servidor, proxy, copias de seguridad y monitorización).
-> Aquí está ya la parte de **correo electrónico** (Fase 4).
+Guía para poner la web en un servidor propio (VPS) con HTTPS, reinicio automático, copias de seguridad y avisos.
+Los archivos de ejemplo están en `deploy/`. Los mapas tienen su propia guía: `docs/mapas.md`.
 
-## Correo electrónico
+## 1. Servidor
+
+- **VPS Linux** (Debian 12 o Ubuntu 24.04) en la UE, con **2 vCPU y 4 GB de RAM** para empezar, y disco SSD de 40 GB más el mapa base (ver `docs/mapas.md`).
+- **Python 3.11 o superior.** La web no necesita base de datos externa: usa SQLite (ver el apartado 9).
+- Un usuario sin privilegios para la aplicación:
+
+```bash
+sudo adduser --system --group --home /opt/worldives worldives
+sudo -u worldives git clone <repositorio> /opt/worldives
+cd /opt/worldives && sudo -u worldives python3 -m venv .venv && sudo -u worldives .venv/bin/pip install -r requirements.txt
+sudo mkdir -p /var/backups/worldives && sudo chown worldives: /var/backups/worldives
+```
+
+## 2. Variables de entorno
+
+Copia `.env.example` a `/opt/worldives/.env`, rellénalo y protégelo (`chmod 600`, propietario `worldives`). El servidor y sus comandos lo leen solos (o el archivo de `WOD_ENV_FILE`); lo que venga del entorno tiene prioridad. **Las claves (Stripe, SMTP, ArcGIS, `WOD_SECRET_KEY`) solo viven en ese archivo, nunca en el repositorio.** Mínimo para producción:
+
+```ini
+WOD_ENV=production
+WOD_PUBLIC_URL=https://worldives.com
+WOD_SECRET_KEY=<64 caracteres aleatorios: python3 -c "import secrets;print(secrets.token_urlsafe(48))">
+WOD_HOST=127.0.0.1
+WOD_PORT=8000
+WOD_TRUSTED_PROXIES=127.0.0.1
+WOD_WORKERS=2
+WOD_DB_PATH=/opt/worldives/data/worldives.sqlite3
+WOD_BACKUP_DIR=/var/backups/worldives
+WOD_BACKUP_COMMAND=/opt/worldives/deploy/backup-externo.sh
+```
+
+Con `WOD_ENV=production` el servidor **no arranca** si falta algo esencial (URL https, clave secreta, verificación en dos pasos de los administradores) y avisa al arrancar de lo recomendable (SMTP, Stripe, mapa base, satélite).
+
+**`WOD_TRUSTED_PROXIES`**: la web solo cree la cabecera `X-Forwarded-For` (la IP real del visitante) si la petición llega desde una de estas direcciones. Con Caddy o nginx en el mismo servidor, `127.0.0.1`. Sin esto, los límites por IP (inicio de sesión, denuncias, registro) verían a todos los visitantes como si fueran el proxy.
+
+## 3. Base de datos de producción (empieza limpia)
+
+```bash
+cd /opt/worldives
+sudo -u worldives .venv/bin/python tools/crear_base_produccion.py --source data/demo/catalogo-demo.sqlite3 --out /opt/worldives/data/worldives.sqlite3
+sudo -u worldives .venv/bin/python app/server.py --create-admin
+```
+
+La base de producción lleva solo el catálogo (puntos con sus descripciones propias en 10 idiomas, zonas, tipos, países y titulaciones), los textos legales y los datos del titular. **No lleva usuarios, centros, reservas, mensajes, pagos ni registros.** Los centros importados de PADI/SSI se quedan en la demo. El primer administrador se crea con `--create-admin` y debe activar la verificación en dos pasos al entrar.
+
+## 4. HTTPS y proxy
+
+- **Caddy (recomendado):** `deploy/Caddyfile`. Obtiene y renueva el certificado solo. `sudo systemctl reload caddy`.
+- **nginx + certbot:** `deploy/nginx.conf`.
+
+En los dos, `/tiles/` (el mapa base) va sin compresión ni búfer, porque el navegador lo lee por rangos.
+
+## 5. Servicio con reinicio automático
+
+```bash
+sudo cp deploy/worldives.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now worldives
+journalctl -u worldives -f          # registro
+```
+
+## 6. Entorno de pruebas separado
+
+Otra carpeta (`/opt/worldives-pruebas`), otro usuario, otra base, otro `.env` (`WOD_PORT=8001`, **claves de prueba de Stripe**, `WOD_DEMO_MODE=1` si es la demo pública) y otro servicio (`deploy/worldives-pruebas.service`), en `pruebas.worldives.com` con contraseña (bloque del `Caddyfile`). **Nunca se prueba con la base real**: para reproducir algo, se restaura una copia en pruebas y se anonimiza.
+
+## 7. Copias de seguridad
+
+Automáticas, sin cron:
+
+| Qué | Cuándo | Dónde |
+|---|---|---|
+| Base de datos (API de copia de SQLite, consistente con la web funcionando, comprobada con `quick_check` y comprimida) | Cada hora (`WOD_BACKUP_DB_MINUTES`) | `WOD_BACKUP_DIR/db/` |
+| Fotos subidas y documentos privados (`.tar.gz`) | Cada día | `WOD_BACKUP_DIR/files/` |
+| Copia fuera del servidor | Tras cada copia | `WOD_BACKUP_COMMAND` (ejemplo con rclone en `deploy/backup-externo.sh`) |
+| `PRAGMA quick_check` de la base en uso | Cada día | Aviso por email si falla |
+
+**Rotación:** se guardan las últimas 48 copias horarias, una por día durante 30 días y una por mes durante 12 meses (`WOD_BACKUP_KEEP_*`). Si una copia o su envío fuera falla, los administradores reciben un email (máximo uno al día por motivo) y queda en *Administración → Operación*.
+
+**Destino externo recomendado:** un almacenamiento en la UE con versiones o bloqueo de objetos (Backblaze B2 en Ámsterdam, Hetzner Storage Box, Scaleway…). Las copias contienen datos personales: cifra el destino (por ejemplo, un remoto `crypt` de rclone) y limita quién tiene acceso.
+
+**Copia manual:** `python app/server.py --backup-now`.
+
+### Restaurar (y prueba de restauración)
+
+Haz la prueba **una vez al mes en el entorno de pruebas**:
+
+```bash
+# 1. Comprobar una copia sin tocar nada
+python app/server.py --verify-backup /var/backups/worldives/db/worldives-20261012-0300.sqlite3.gz
+#    → «ok · N tablas» (integrity_check correcto)
+# 2. Restaurar (con el servicio parado). La base actual se guarda al lado con «.antes-de-restaurar-…»
+sudo systemctl stop worldives
+sudo -u worldives .venv/bin/python app/server.py --restore /var/backups/worldives/db/worldives-20261012-0300.sqlite3.gz --yes
+tar -xzf /var/backups/worldives/files/archivos-20261012-0300.tar.gz -C /tmp/restaurar   # fotos y documentos
+sudo systemctl start worldives
+# 3. Comprobar: entrar como admin, abrir una reserva y un documento, y mirar Administración → Operación.
+```
+
+Anota en la lista de lanzamiento la fecha de la última prueba de restauración.
+
+## 8. Monitorización y avisos
+
+- **Monitor externo** (UptimeRobot, Better Stack, Uptime Kuma…) contra `https://worldives.com/api/health` cada 1–5 minutos, con aviso por email o móvil.
+- **Errores 500 repetidos:** si hay 5 en 10 minutos (`WOD_ALERT_ERRORS`, `WOD_ALERT_WINDOW_MIN`), se envía un email a los administradores (como mucho uno por hora).
+- **Administración → Operación:** versión, tiempo en marcha, integridad de la base, últimas copias, cola de correos, errores recientes, disco libre y ajustes pendientes.
+- **Aviso de mantenimiento o incidencia:** en *Administración → Operación* se publica un texto que aparece arriba en toda la web durante las horas que elijas. Opcionalmente se envía un email a todos los centros y profesionales.
+
+### Actualizar a una versión nueva
+
+```bash
+cd /opt/worldives && sudo -u worldives git pull && sudo -u worldives .venv/bin/pip install -r requirements.txt
+sudo -u worldives .venv/bin/python app/server.py --backup-now
+sudo systemctl restart worldives          # las migraciones se aplican solas al arrancar
+```
+
+Las migraciones solo añaden y transforman, sin borrar datos; las que reescriben una tabla o textos guardan antes una copia completa de la base. Además, haz `--backup-now` antes de cada actualización, como arriba.
+
+## 9. Rendimiento y cuándo pasar a PostgreSQL
+
+**Prueba de carga** (`tools/prueba_carga.py`): visitantes simultáneos que navegan por la portada, el mapa, el directorio de centros, la lista de puntos y las fichas. **Repítela en el servidor real** (en el entorno de pruebas, con la misma máquina):
+
+```bash
+python3 tools/prueba_carga.py --url https://pruebas.worldives.com --users 100 --seconds 60
+```
+
+Resultados de referencia, medidos en una máquina de 4 núcleos con el cliente en la misma máquina (orientativos; el servidor real dará otras cifras):
+
+| Configuración | Visitantes simultáneos | Peticiones/s | Mediana | p95 | Errores |
+|---|---|---|---|---|---|
+| 1 proceso (`WOD_WORKERS=1`) | 50 | 96 | 5 ms | 13 ms | 0 |
+| 1 proceso | 200 | 175 | ~500 ms | ~1,2 s | 0 |
+| 4 procesos (`WOD_WORKERS=4`) | 50 | 96 | 4 ms | 9 ms | 0 |
+| 4 procesos | 200 | 390 | 5 ms | 15 ms | 0 |
+
+Con 1 proceso la web va sobrada hasta unos 50 visitantes navegando a la vez. Por encima, el procesador se satura y conviene **`WOD_WORKERS` = número de núcleos**: con 4 procesos, 200 visitantes simultáneos responden en milisegundos. Como referencia, 200 visitantes a la vez equivalen a varios miles de visitas al día.
+
+**Cuándo migrar a PostgreSQL.** SQLite en modo WAL admite muchas lecturas simultáneas, pero **una sola escritura a la vez**. Las escrituras de WORLDIVES son pocas y cortas (reservas, pagos, inicios de sesión, estadísticas). Conviene empezar a preparar la migración cuando se cumpla **cualquiera** de estas condiciones de forma sostenida:
+
+- más de **50 escrituras por segundo** en hora punta (equivale a unas **20 000 reservas o solicitudes al día**), o errores «database is locked» en el registro;
+- la base supera **10 GB**, o las copias horarias tardan más de un minuto;
+- hace falta **más de un servidor** de aplicación (alta disponibilidad o varias regiones), porque SQLite es un archivo local;
+- se necesitan **informes pesados** en paralelo con el tráfico.
+
+Hasta entonces, SQLite es más simple, más rápido y más barato de operar. El código usa SQL estándar casi en todo; la migración consistiría en un adaptador de conexión, cambiar `INSERT … ON CONFLICT` y las funciones propias (`fold`), y un volcado de datos.
+
+
+## 10. Correo electrónico
 
 WORLDIVES envía todos los correos por **SMTP genérico**: sirve cualquier proveedor y se cambia sin tocar el código.
 El proveedor está **pendiente de decisión del titular**. Recomendado: **Brevo** (empresa europea, servidores en la UE,

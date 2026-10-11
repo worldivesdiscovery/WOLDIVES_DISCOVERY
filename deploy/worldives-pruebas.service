@@ -1,0 +1,31 @@
+# systemd unit for the TEST environment (pruebas.tudominio.com): its own folder, user, database, .env (WOD_PORT=8001, Stripe test keys, WOD_DEMO_MODE=1 if it is the demo).
+#   sudo systemctl daemon-reload && sudo systemctl enable --now worldives
+# Logs: journalctl -u worldives -f
+[Unit]
+Description=WORLDIVES DISCOVERY (pruebas)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=worldives-pruebas
+Group=worldives-pruebas
+WorkingDirectory=/opt/worldives-pruebas
+# Secrets and settings: the server reads WorkingDirectory/.env itself (chmod 600, owner of the service; never in the
+# repository). Do not use EnvironmentFile: it would keep the «# comments» of .env.example inside the values.
+# EnvironmentFile=/opt/worldives-pruebas/.env
+Environment=PYTHONUNBUFFERED=1
+Environment=WOD_ACCESS_LOG=stdout
+ExecStart=/opt/worldives-pruebas/.venv/bin/python app/server.py
+Restart=always
+RestartSec=3
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/worldives-pruebas/data /opt/worldives-pruebas/storage /opt/worldives-pruebas/public/assets/uploads /opt/worldives-pruebas/logs /var/backups/worldives-pruebas
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

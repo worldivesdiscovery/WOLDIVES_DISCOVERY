@@ -19,7 +19,11 @@ storage/
 *.tmp
 *.swp
 
-# SQLite runtime sidecars (the seed database may be committed)
+# Databases (Fase 7.2): the runtime database is never committed. Only the demo/test catalogue in data/demo/ is.
+data/*.sqlite3
+data/backups/
+data/tiles/
+data/mail-outbox/
 *.sqlite3-wal
 *.sqlite3-shm
 

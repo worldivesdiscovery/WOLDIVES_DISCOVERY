@@ -1,0 +1,39 @@
+# Caddy: HTTPS automático (Let's Encrypt) delante de WORLDIVES. /etc/caddy/Caddyfile
+# En el .env del servidor: WOD_PUBLIC_URL=https://worldives.com y WOD_TRUSTED_PROXIES=127.0.0.1
+worldives.com, www.worldives.com {
+	@www host www.worldives.com
+	redir @www https://worldives.com{uri} permanent
+
+	encode {
+		gzip
+		match {
+			not path /tiles/*
+		}
+	}
+	# Map tiles are read by byte ranges: no compression, no buffering.
+	@tiles path /tiles/*
+	reverse_proxy @tiles 127.0.0.1:8000 {
+		flush_interval -1
+	}
+	reverse_proxy 127.0.0.1:8000 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+	request_body {
+		max_size 60MB
+	}
+	log {
+		output file /var/log/caddy/worldives.log {
+			roll_keep_for 336h
+		}
+		format json
+	}
+}
+
+# Test environment (separate service, database and Stripe test keys)
+pruebas.worldives.com {
+	basic_auth {
+		# caddy hash-password  → pon aquí el usuario y el hash
+		equipo $2a$14$CAMBIAR_POR_EL_HASH
+	}
+	reverse_proxy 127.0.0.1:8001
+}

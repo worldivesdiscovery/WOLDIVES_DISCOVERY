@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """List of the rewritten dive-point descriptions, for the owner's review (docs/legal/puntos-reescritos.md).
 
-Usage: python3 tools/puntos_reescritos.py data/worldivesdiscovery.sqlite3 > docs/legal/puntos-reescritos.md
+Usage: python3 tools/puntos_reescritos.py data/demo/catalogo-demo.sqlite3 > docs/legal/puntos-reescritos.md
 Reads the database only (never writes)."""
 import json
 import sqlite3

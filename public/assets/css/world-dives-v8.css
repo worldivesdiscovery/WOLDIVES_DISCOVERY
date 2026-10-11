@@ -2737,3 +2737,6 @@ tr.is-warn td{background:#fffaf0}
 .feat-off-experiences a[href^="#/experiencias"],.feat-off-experiences .cb-nav[data-cbtab="experiences"],.feat-off-experiences .cp-exps{display:none!important}
 .feat-off-reviews #cp-reviews,.feat-off-reviews .cd-rating{display:none!important}
 .feat-off-sponsorship #hm-offers,.feat-off-sponsorship #hm-sponsors{display:none!important}
+/* v50.38 · maintenance / incident banner */
+.site-banner{display:flex;gap:8px;align-items:center;justify-content:center;padding:8px 16px;font-size:14px;line-height:1.4;background:#eef6f6;color:#123142;border-bottom:1px solid #cfe4e5;text-align:center}
+.site-banner.is-maintenance{background:#fff7e8;border-color:#f0d9a8}.site-banner.is-incident{background:#7a2b12;color:#fff;border-color:#7a2b12}

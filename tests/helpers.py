@@ -21,7 +21,7 @@ import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SEED_DB = ROOT / 'data' / 'worldivesdiscovery.sqlite3'
+SEED_DB = ROOT / 'data' / 'demo' / 'catalogo-demo.sqlite3'   # demo catalogue (never real data)
 
 
 def free_port() -> int:
@@ -46,7 +46,7 @@ class Server:
             'WOD_DATA_DIR': str(self.tmp), 'WOD_UPLOADS_DIR': str(self.tmp / 'uploads'), 'WOD_PORT': str(self.port), 'WOD_HOST': '127.0.0.1', 'WOD_ENV': 'development',
             'WOD_PUBLIC_URL': self.base, 'WOD_SECRET_KEY': 'x' * 40, 'WOD_MAIL_FILE_DIR': str(self.tmp / 'mail'),
             'WOD_ADMIN_TOTP_REQUIRED': '0', 'WOD_PBKDF2_ITERATIONS': '100000', 'WOD_MAINTENANCE_SECONDS': '30',
-            'PYTHONDONTWRITEBYTECODE': '1', 'WOD_REGISTER_MAX_PER_HOUR': '1000',
+            'PYTHONDONTWRITEBYTECODE': '1', 'WOD_REGISTER_MAX_PER_HOUR': '1000', 'WOD_NO_ENV_FILE': '1',
         })
         for k in ('STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_CONNECT_WEBHOOK_SECRET', 'WOD_SMTP_HOST', 'ARCGIS_API_KEY', 'WOD_DEMO_MODE'):
             self.env.pop(k, None)
