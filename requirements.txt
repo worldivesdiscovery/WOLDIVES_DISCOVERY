@@ -1,0 +1,4 @@
+# WORLDIVES DISCOVERY v21
+stripe>=12.0.0,<13
+
+qrcode>=7.4,<9

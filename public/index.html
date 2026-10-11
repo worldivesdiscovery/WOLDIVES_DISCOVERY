@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07364a">
+<meta name="description" content="WORLDIVES DISCOVERY · Dive the World">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>WORLDIVES DISCOVERY</title>
+<link rel="icon" type="image/png" sizes="512x512" href="/assets/images/wod-icon-512.png">
+<link rel="icon" type="image/x-icon" href="/assets/images/wod-icon.ico">
+<link rel="apple-touch-icon" href="/assets/images/wod-icon-512.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="/assets/css/world-dives-v8.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="brand" href="#/" data-route="home" aria-label="WORLDIVES DISCOVERY · inicio">
+      <img src="/assets/images/world-dives-discovery-logo.png" alt="WORLDIVES DISCOVERY">
+    </a>
+    <button class="mobile-menu" id="mobile-menu" type="button" aria-label="Abrir menú">Menú</button>
+    <nav class="main-nav" id="main-nav" aria-label="Navegación principal">
+      <a href="#/explorar">Explorar</a>
+      <a href="#/puntos">Puntos de buceo</a>
+      <a href="#/centros">Centros</a>
+      <a href="#/tipos">Tipos de buceo</a>
+      <a href="#/experiencias">Experiencias</a>
+      <a href="#/top10">Top 10 buceos</a>
+    </nav>
+    <div class="header-tools"><div class="language-switcher" id="language-switcher"><label for="language-select" class="sr-only">Idioma</label><select id="language-select" aria-label="Seleccionar idioma"><option value="es">ES</option><option value="en">EN</option><option value="fr">FR</option><option value="de">DE</option><option value="it">IT</option><option value="pt">PT</option><option value="nl">NL</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="zh">简中</option><option value="zt">繁中</option></select></div><div class="account-slot" id="account-slot"></div></div>
+  </header>
+
+  <main id="app" tabindex="-1"></main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand"><img src="/assets/images/world-dives-discovery-logo.png" alt="" width="56" height="56"><div><strong>WORLDIVES DISCOVERY</strong><span>Puntos de buceo, centros y experiencias de todo el mundo, con reserva directa.</span></div></div>
+      <nav class="footer-cols" aria-label="Pie de página">
+        <div><h4>Descubre</h4><a href="#/explorar">Explorar el mapa</a><a href="#/puntos">Puntos de buceo</a><a href="#/tipos">Tipos de buceo</a><a href="#/top10">Top 10 cerca de ti</a></div>
+        <div><h4>Reserva</h4><a href="#/centros">Centros de buceo</a><a href="#/experiencias">Viajes y vida a bordo</a></div>
+        <div><h4>Tu cuenta</h4><a href="#/cuenta">Mi cuenta</a><a href="#/logbook">Log Book</a><a href="#/recompensas">Recompensas</a><a href="#/monedero">Monedero</a></div>
+        <div><h4>Para centros</h4><a href="#/registro">Dar de alta mi centro</a><a href="#/admin">Panel del centro</a><a href="#/legal/centros">Condiciones para centros</a></div>
+      </nav>
+    </div>
+    <div class="footer-bottom"><span>© WORLDIVES DISCOVERY</span><nav class="footer-legal" aria-label="Información legal"><a href="#/legal/aviso-legal">Aviso legal</a><a href="#/legal/privacidad">Privacidad</a><a href="#/legal/cookies">Cookies</a><a href="#/legal/terminos">Condiciones de uso</a><a href="#/legal/reservas">Condiciones de reserva</a><a href="#/legal/centros">Para centros</a><a href="#/legal/denuncias">Denunciar contenido</a></nav></div>
+  </footer>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/assets/js/world-dives-v8.js"></script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));}</script>
+</body>
+</html>

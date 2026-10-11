@@ -1,0 +1,19 @@
+{
+  "name": "WORLDIVES DISCOVERY",
+  "short_name": "WORLDIVES",
+  "description": "Descubre puntos de buceo, centros y experiencias en una sola plataforma.",
+  "lang": "es",
+  "start_url": "/#/explorar",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f3ec",
+  "theme_color": "#10384b",
+  "icons": [
+    {
+      "src": "/assets/images/wod-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

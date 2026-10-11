@@ -1,0 +1,5818 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import base64
+import hashlib
+import html
+import json
+import math
+import mimetypes
+import os
+import socket
+import re
+import secrets
+import sqlite3
+import unicodedata
+import sys
+import threading
+import time
+from datetime import datetime, timezone
+from email import policy
+from email.parser import BytesParser
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse, unquote
+
+ROOT = Path(__file__).resolve().parents[1]
+# Bundled pure-python dependencies (qrcode). Installed packages take precedence.
+if str(ROOT/'vendor') not in sys.path: sys.path.append(str(ROOT/'vendor'))
+PUBLIC = ROOT / 'public'
+DATA = ROOT / 'data'
+UPLOADS = ROOT / 'storage' / 'documents'
+PHOTOS = PUBLIC / 'assets' / 'uploads'
+DB_PATH = DATA / 'worldivesdiscovery.sqlite3'
+HOST = os.environ.get('WOD_HOST', '127.0.0.1')
+PORT = int(os.environ.get('WOD_PORT', '8000'))
+COOKIE = 'wd_session'
+APP_VERSION = '50.30'
+MAX_BODY = 256 * 1024 * 1024
+SESSION_TTL_SECONDS = int(os.environ.get('WOD_SESSION_TTL_SECONDS', '28800'))
+LOGIN_WINDOW_SECONDS = int(os.environ.get('WOD_LOGIN_WINDOW_SECONDS', '900'))
+LOGIN_MAX_ATTEMPTS = int(os.environ.get('WOD_LOGIN_MAX_ATTEMPTS', '8'))
+# Sessions are stored in the database (table sessions) so they survive restarts and work with several server processes.
+
+
+ROLES = {'admin', 'center', 'freelance', 'recreational'}
+
+SCHEMA = '''
+CREATE TABLE IF NOT EXISTS user_profiles (
+  user_id INTEGER PRIMARY KEY,
+  phone TEXT,
+  country TEXT,
+  city TEXT,
+  preferred_language TEXT DEFAULT 'es',
+  notes TEXT,
+  date_of_birth TEXT,
+  emergency_contact_name TEXT,
+  emergency_contact_phone TEXT,
+  equipment_required INTEGER DEFAULT 0,
+  suit_type TEXT,
+  suit_size TEXT,
+  boot_size TEXT,
+  bcd_size TEXT,
+  fin_size TEXT,
+  mask_size TEXT,
+  usual_weight_kg REAL,
+  tank_preference TEXT,
+  computer_preference TEXT,
+  equipment_notes TEXT,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS user_documents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  document_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  expires_at TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  uploaded_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS center_links (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  center_id INTEGER NOT NULL,
+  first_checkin TEXT NOT NULL,
+  last_checkin TEXT NOT NULL,
+  UNIQUE(user_id, center_id),
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS qr_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_id INTEGER NOT NULL,
+  code TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS center_extras (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  price REAL NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_center_extras_center ON center_extras(center_id, active);
+
+CREATE TABLE IF NOT EXISTS bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  center_id INTEGER NOT NULL,
+  dive_point_id INTEGER,
+  booking_date TEXT NOT NULL,
+  booking_time TEXT,
+  participants INTEGER NOT NULL DEFAULT 1,
+  needs_equipment INTEGER NOT NULL DEFAULT 0,
+  equipment_items TEXT,
+  equipment_notes TEXT,
+  needs_guide INTEGER NOT NULL DEFAULT 0,
+  guide_notes TEXT,
+  nitrox INTEGER NOT NULL DEFAULT 0,
+  pickup INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE,
+  FOREIGN KEY(dive_point_id) REFERENCES dive_points(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  action TEXT NOT NULL,
+  entity_type TEXT,
+  entity_id INTEGER,
+  details TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS center_reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+  title TEXT,
+  body TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  verified INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(center_id,user_id),
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_center_reviews_center ON center_reviews(center_id, active, created_at DESC);
+CREATE TABLE IF NOT EXISTS travel_offers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  region TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  image_path TEXT,
+  summary TEXT,
+  active INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS travel_experiences (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  travel_offer_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  provider_user_id INTEGER,
+  center_id INTEGER,
+  provider_type TEXT NOT NULL DEFAULT 'center',
+  summary TEXT,
+  description TEXT,
+  start_date TEXT,
+  end_date TEXT,
+  price REAL,
+  currency TEXT NOT NULL DEFAULT 'EUR',
+  spots_total INTEGER,
+  spots_available INTEGER,
+  includes TEXT,
+  conditions TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(travel_offer_id) REFERENCES travel_offers(id) ON DELETE CASCADE,
+  FOREIGN KEY(provider_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_travel_experiences_destination ON travel_experiences(travel_offer_id, active, status);
+CREATE INDEX IF NOT EXISTS idx_travel_experiences_provider ON travel_experiences(provider_user_id, active);
+CREATE TABLE IF NOT EXISTS experience_bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  travel_experience_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  participants INTEGER NOT NULL DEFAULT 1,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'requested',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(travel_experience_id) REFERENCES travel_experiences(id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sender_user_id INTEGER NOT NULL,
+  recipient_user_id INTEGER NOT NULL,
+  booking_id INTEGER,
+  experience_booking_id INTEGER,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  read_at TEXT,
+  FOREIGN KEY(sender_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY(recipient_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY(booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
+  FOREIGN KEY(experience_booking_id) REFERENCES experience_bookings(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_user_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS virtual_experiences (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  dive_point_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  experience_type TEXT NOT NULL DEFAULT 'panorama',
+  provider TEXT,
+  url TEXT,
+  media_path TEXT,
+  description TEXT,
+  duration_seconds INTEGER,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_by_user_id INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(dive_point_id) REFERENCES dive_points(id) ON DELETE CASCADE,
+  FOREIGN KEY(created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_virtual_experiences_point ON virtual_experiences(dive_point_id, active, id);
+CREATE INDEX IF NOT EXISTS idx_user_documents_user ON user_documents(user_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_bookings_center ON bookings(center_id, booking_date, status);
+CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id, booking_date DESC);
+CREATE INDEX IF NOT EXISTS idx_center_links_center ON center_links(center_id, last_checkin DESC);
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  description TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS rewards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  title TEXT NOT NULL,
+  description TEXT,
+  points INTEGER NOT NULL DEFAULT 0,
+  completed INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS reward_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  event_key TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  points INTEGER NOT NULL DEFAULT 0,
+  wallet_amount REAL NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  UNIQUE(user_id, event_key),
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_reward_events_user ON reward_events(user_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS reward_offers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_id INTEGER,
+  title TEXT NOT NULL,
+  description TEXT,
+  reward_type TEXT NOT NULL DEFAULT 'discount',
+  cost_wallet REAL NOT NULL DEFAULT 0,
+  value_text TEXT,
+  conditions TEXT,
+  stock INTEGER,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_by_user_id INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE SET NULL,
+  FOREIGN KEY(created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_reward_offers_center ON reward_offers(center_id, active);
+CREATE TABLE IF NOT EXISTS reward_redemptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  offer_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  code TEXT NOT NULL UNIQUE,
+  cost_wallet REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'issued',
+  created_at TEXT NOT NULL,
+  redeemed_at TEXT,
+  FOREIGN KEY(offer_id) REFERENCES reward_offers(id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_reward_redemptions_user ON reward_redemptions(user_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS provider_services (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, provider_user_id INTEGER NOT NULL, center_id INTEGER,
+ service_type TEXT NOT NULL DEFAULT 'inmersion', title TEXT NOT NULL, description TEXT,
+ duration_minutes INTEGER, price REAL NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'EUR',
+ max_participants INTEGER, booking_mode TEXT NOT NULL DEFAULT 'request', active INTEGER NOT NULL DEFAULT 1,
+ color TEXT DEFAULT '#2563eb',
+ created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+ FOREIGN KEY(provider_user_id) REFERENCES users(id) ON DELETE CASCADE,
+ FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_provider_services_provider ON provider_services(provider_user_id, active);
+CREATE TABLE IF NOT EXISTS service_slots (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, service_id INTEGER NOT NULL, slot_date TEXT NOT NULL, slot_time TEXT NOT NULL,
+ spots_total INTEGER NOT NULL DEFAULT 1, spots_available INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'open',
+ point_mode TEXT NOT NULL DEFAULT 'fixed',
+ created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(service_id, slot_date, slot_time),
+ FOREIGN KEY(service_id) REFERENCES provider_services(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_service_slots_service ON service_slots(service_id, slot_date, slot_time);
+CREATE TABLE IF NOT EXISTS center_point_links (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL, dive_point_id INTEGER NOT NULL, created_at TEXT NOT NULL,
+ UNIQUE(center_id,dive_point_id), FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE, FOREIGN KEY(dive_point_id) REFERENCES dive_points(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_center_point_links_center ON center_point_links(center_id);
+CREATE TABLE IF NOT EXISTS center_equipment (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL, code TEXT NOT NULL, label TEXT NOT NULL, price REAL,
+ active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
+ UNIQUE(center_id,code), FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_center_equipment_center ON center_equipment(center_id);
+CREATE TABLE IF NOT EXISTS service_slot_points (
+ slot_id INTEGER NOT NULL, dive_point_id INTEGER NOT NULL, PRIMARY KEY(slot_id,dive_point_id),
+ FOREIGN KEY(slot_id) REFERENCES service_slots(id) ON DELETE CASCADE, FOREIGN KEY(dive_point_id) REFERENCES dive_points(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_service_slot_points_slot ON service_slot_points(slot_id);
+CREATE TABLE IF NOT EXISTS payment_orders (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, provider_user_id INTEGER, booking_id INTEGER,
+ experience_booking_id INTEGER, service_id INTEGER, amount REAL NOT NULL, currency TEXT NOT NULL DEFAULT 'EUR',
+ status TEXT NOT NULL DEFAULT 'pending', provider TEXT NOT NULL DEFAULT 'stripe', provider_payment_id TEXT,
+ checkout_url TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ FOREIGN KEY(provider_user_id) REFERENCES users(id) ON DELETE SET NULL,
+ FOREIGN KEY(booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
+ FOREIGN KEY(experience_booking_id) REFERENCES experience_bookings(id) ON DELETE SET NULL,
+ FOREIGN KEY(service_id) REFERENCES provider_services(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_user ON payment_orders(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_booking ON payment_orders(booking_id);
+CREATE TABLE IF NOT EXISTS center_integrations (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL UNIQUE, api_key_hash TEXT NOT NULL, api_key_prefix TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+ FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_center_integrations_center ON center_integrations(center_id);
+CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ event_id TEXT NOT NULL UNIQUE,
+ event_type TEXT NOT NULL,
+ created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS service_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  service_type TEXT NOT NULL DEFAULT 'inmersion',
+  title TEXT,
+  description TEXT,
+  duration_minutes INTEGER,
+  max_participants INTEGER,
+  booking_mode TEXT NOT NULL DEFAULT 'request',
+  color TEXT,
+  price REAL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_service_templates_provider ON service_templates(provider_user_id, name);
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at REAL NOT NULL,
+  last_seen REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen);
+'''
+
+
+
+LOGIN_ATTEMPTS = {}
+
+def public_user(user):
+    if not user:
+        return None
+    d = dict(user)
+    d.pop('password_hash', None)
+    return d
+
+def login_rate_limited(key):
+    current = time.time()
+    row = LOGIN_ATTEMPTS.get(key)
+    if not row or current - row[0] >= LOGIN_WINDOW_SECONDS:
+        LOGIN_ATTEMPTS[key] = [current, 0]
+        return False
+    return row[1] >= LOGIN_MAX_ATTEMPTS
+
+def record_login_failure(key):
+    current = time.time()
+    row = LOGIN_ATTEMPTS.get(key)
+    if not row or current - row[0] >= LOGIN_WINDOW_SECONDS:
+        LOGIN_ATTEMPTS[key] = [current, 1]
+    else:
+        row[1] += 1
+
+def clear_login_failures(key):
+    LOGIN_ATTEMPTS.pop(key, None)
+
+
+def now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec='seconds')
+
+
+def connect():
+    DATA.mkdir(parents=True, exist_ok=True)
+    db = sqlite3.connect(DB_PATH)
+    db.row_factory = sqlite3.Row
+    db.execute('PRAGMA foreign_keys=ON')
+    # WAL is persistent (set once in bootstrap); NORMAL sync is safe in WAL mode and much faster for writes.
+    db.execute('PRAGMA synchronous=NORMAL')
+    db.execute('PRAGMA busy_timeout=10000')
+    # fold(): lower-case without accents, so «maria» finds «María».
+    db.create_function('fold', 1, fold_text, deterministic=True)
+    return db
+
+
+def log_exception(handler, exc):
+    """Unexpected errors go to stderr with the request line so they can be traced in production logs."""
+    import traceback
+    try: sys.stderr.write(f"[{datetime.now().isoformat(timespec='seconds')}] {handler.command} {handler.path} -> {type(exc).__name__}: {exc}\n" + ''.join(traceback.format_exception(exc)[-3:]))
+    except Exception: pass
+
+
+class _NullWriter:
+    def write(self, data): return len(data)
+    def flush(self): pass
+
+
+PUBLIC_ROOT_FILES = {'/sw.js':'application/javascript; charset=utf-8','/manifest.webmanifest':'application/manifest+json','/robots.txt':'text/plain; charset=utf-8'}
+
+
+def fold_text(value):
+    if value is None: return ''
+    return ''.join(ch for ch in unicodedata.normalize('NFKD', str(value).lower()) if not unicodedata.combining(ch))
+
+
+CURATED_POINTS_V30 = [
+    # name, dive_type, lat, lon, difficulty, min_depth, max_depth, access, subregion, description
+    ('La Barra (Les Marines)', 'Arrecife · Fondo rocoso', 38.86187, 0.11197, 'Fácil', None, 15,
+     'Barco desde Dénia', 'Marina Alta · Dénia',
+     'Bajos rocosos frente a Les Marines, al norte del puerto de Dénia: lajas, grietas y escalones de roca con vida abundante sobre fondo de arena. Profundidad máxima de unos 15 m; inmersión sencilla.'),
+    ('La Cullerà', 'Cueva · Pared', 38.811389, 0.182903, 'Intermedia', 9, 15,
+     'Barco · Reserva Marina del Cabo de San Antonio: autorización previa', 'Marina Alta · Dénia',
+     'Dentro de la Reserva Marina del Cabo de San Antonio. Se entra por una pequeña garganta al pie del acantilado, a unos 9 m, hasta una gran cueva de unos 50 m (imprescindible linterna). En la zona abierta, entre 10 y 15 m, rocas con pulpos, dentones y corvinas. Necesita autorización previa de la reserva.'),
+    ('Les Rotes · El Fresquito', 'Arrecife · Pared', 38.82345, 0.159433, 'Fácil', 3, 10,
+     'Orilla (bajada a una poza natural)', 'Marina Alta · Dénia',
+     'Ruta desde la costa rocosa de Les Rotes, al sur de Dénia, siguiendo una pared de roca con pulpos, gusanos tubícolas y morenas. Empieza a unos 3 m y llega a unos 10 m. También es un buen punto de snorkel, con arcos a unos 4 m.'),
+    ('El Tangó', 'Arrecife · Posidonia', 38.799898, 0.190415, 'Fácil', None, None,
+     'Orilla, junto al puerto de Xàbia', 'Marina Alta · Xàbia',
+     'Cala de poca profundidad junto al dique del puerto de Xàbia, con pradera de posidonia y lenguas de roca. Morenas, pulpos y salpas. Inmersión fácil desde la orilla y muy buen snorkel.'),
+    ("María Claudia (Mona de l'Illa)", 'Pared · Chimenea · Bloques', 38.752255, 0.231217, 'Intermedia', 7, 22,
+     'Barco (fondeo junto al islote)', 'Marina Alta · Xàbia',
+     "Inmersión alrededor del islote de la Mona de l'Illa. Se entra por una chimenea que va de unos 11 a 7 m, con juegos de luz, y se recorre un fondo de arena con grandes bloques entre 15 y 22 m."),
+    ('Escull de Sant Pere (El Bergantí)', 'Pared · Cueva', 38.742467, 0.233333, 'Avanzado', None, 32,
+     'Barco desde Xàbia', 'Marina Alta · Xàbia',
+     'Bajo rocoso frente al cabo Negre con una cueva en forma de L de unos 25 m de recorrido, cuya entrada está a unos 22 m. Profundidad máxima de unos 32 m. Para buceadores avanzados.'),
+    ('Isla del Descubridor', 'Pared · Túneles', 38.726667, 0.218056, 'Fácil', None, None,
+     'Barco desde Xàbia', 'Marina Alta · Xàbia',
+     'Islote junto a los acantilados del cabo de la Nao. Pared con túneles y pasos entre rocas, con una profundidad media de unos 14 m. Inmersión sencilla.'),
+    ('La Granadella', 'Arrecife · Arco · Posidonia', 38.729355, 0.196434, 'Fácil', None, 10,
+     'Orilla, desde la playa de la Granadella', 'Marina Alta · Xàbia',
+     'Desde la playa de la Granadella: un pequeño arco a unos 3 m, rocas y posidonia y, a la vuelta, una serie de pequeñas cuevas junto a la pared. Unos 10 m de máximo; apta para todos los niveles y para snorkel.'),
+    ('El Moraig · Cova dels Arcs', 'Cueva · Pared', 38.709826, 0.166764, 'Avanzado', 5, 14,
+     'Orilla, desde la cala del Moraig', 'Marina Alta · Benitatxell',
+     'Se baja por una escalera hasta una cueva y una poza; un paso estrecho lleva a mar abierto y se sigue la pared hasta una gran cueva con luz cenital y una haloclina. Para buceadores con experiencia. No hay que entrar en la galería del río subterráneo.'),
+    ('Acantilados del Mascarat (La Bodega)', 'Pared · Túnel · Arcos', 38.628056, 0.005833, 'Intermedia', None, 27,
+     'Barco desde Calp o Altea', 'Marina Alta y Baixa · Calpe',
+     'Pared del acantilado del Mascarat, entre Calp y Altea, con un túnel, arcos y una chimenea. Gorgonias y, a menudo, barracudas. Profundidad máxima de unos 27 m.'),
+]
+
+
+def seed_curated_points_v30(db):
+    have={r['name'] for r in db.execute('SELECT name FROM dive_points').fetchall()}
+    for name,dtype,lat,lon,diff,dmin,dmax,access,sub,desc in CURATED_POINTS_V30:
+        if name in have: continue
+        db.execute("""INSERT INTO dive_points(name,country,region,dive_type,latitude,longitude,difficulty,min_depth,max_depth,description,access_info,zone,subregion,
+                      verification_status,data_confidence,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
+                   (name,'España','Comunitat Valenciana',dtype,lat,lon,diff,dmin,dmax,desc,access,'Europa',sub,'curated_pending','curated',now(),now()))
+
+
+def bootstrap():
+    with connect() as db:
+        db.execute('PRAGMA journal_mode=WAL')
+        db.executescript(SCHEMA)
+        # Reviews are tied to a real completed booking at the center.
+        db.execute('CREATE INDEX IF NOT EXISTS idx_center_reviews_user ON center_reviews(user_id, center_id)')
+        # Migrations for the evolving WORLDIVES DISCOVERY prototype.
+        user_cols={r['name'] for r in db.execute('PRAGMA table_info(users)').fetchall()}
+        if 'requested_role' not in user_cols:
+            db.execute("ALTER TABLE users ADD COLUMN requested_role TEXT DEFAULT 'recreational'")
+        if 'provider_bio' not in user_cols:
+            db.execute("ALTER TABLE users ADD COLUMN provider_bio TEXT")
+        if 'avatar_url' not in user_cols: db.execute('ALTER TABLE users ADD COLUMN avatar_url TEXT')
+        for _col in ['instagram_url','facebook_url','twitter_url','youtube_url','tiktok_url']:
+            if _col not in user_cols: db.execute(f'ALTER TABLE users ADD COLUMN {_col} TEXT')
+        profile_cols={r['name'] for r in db.execute('PRAGMA table_info(user_profiles)').fetchall()}
+        profile_migrations={'certification_id':'INTEGER','date_of_birth':'TEXT','emergency_contact_name':'TEXT','emergency_contact_phone':'TEXT','equipment_required':'INTEGER DEFAULT 0','suit_type':'TEXT','suit_size':'TEXT','boot_size':'TEXT','bcd_size':'TEXT','fin_size':'TEXT','mask_size':'TEXT','usual_weight_kg':'REAL','tank_preference':'TEXT','computer_preference':'TEXT','equipment_notes':'TEXT'}
+        for _col,_typ in profile_migrations.items():
+            if _col not in profile_cols: db.execute(f'ALTER TABLE user_profiles ADD COLUMN {_col} {_typ}')
+        point_cols={r['name'] for r in db.execute('PRAGMA table_info(dive_points)').fetchall()}
+        if 'recommended_certification_id' not in point_cols:
+            db.execute('ALTER TABLE dive_points ADD COLUMN recommended_certification_id INTEGER')
+        logbook_cols={r['name'] for r in db.execute('PRAGMA table_info(logbook_entries)').fetchall()}
+        if 'booking_id' not in logbook_cols:
+            db.execute('ALTER TABLE logbook_entries ADD COLUMN booking_id INTEGER')
+        db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_logbook_booking ON logbook_entries(booking_id) WHERE booking_id IS NOT NULL')
+        # Associate existing center-owned points with the new reusable center catalog.
+        db.execute('INSERT OR IGNORE INTO center_point_links(center_id,dive_point_id,created_at) SELECT center_id,id,? FROM dive_points WHERE center_id IS NOT NULL AND active=1',(now(),))
+        center_cols={r['name'] for r in db.execute('PRAGMA table_info(centers)').fetchall()}
+        for _col,_typ in [('source_name','TEXT'),('source_url','TEXT'),('verification_status',"TEXT DEFAULT 'source_public'"),('data_confidence',"TEXT DEFAULT 'public'"),('instagram_url','TEXT'),('facebook_url','TEXT'),('twitter_url','TEXT'),('youtube_url','TEXT'),('tiktok_url','TEXT')]:
+            if _col not in center_cols: db.execute(f'ALTER TABLE centers ADD COLUMN {_col} {_typ}')
+        # Stripe Connect: the connected account ID is the only payment-provider
+        # identifier stored locally. Sensitive KYC/bank data remains with Stripe.
+        for _col,_typ in [('stripe_account_id','TEXT'),('stripe_charges_enabled','INTEGER DEFAULT 0'),('stripe_payouts_enabled','INTEGER DEFAULT 0'),('stripe_details_submitted','INTEGER DEFAULT 0')]:
+            if _col not in center_cols: db.execute(f'ALTER TABLE centers ADD COLUMN {_col} {_typ}')
+        qr_cols={r['name'] for r in db.execute('PRAGMA table_info(qr_codes)').fetchall()}
+        for _col,_typ in [('purpose',"TEXT DEFAULT 'center'"),('reference_id','INTEGER')]:
+            if _col not in qr_cols: db.execute(f'ALTER TABLE qr_codes ADD COLUMN {_col} {_typ}')
+        # Indexes for the queries that grow with the number of centers and bookings.
+        for _idx in ["CREATE INDEX IF NOT EXISTS idx_provider_services_center ON provider_services(center_id, active)",
+                     "CREATE INDEX IF NOT EXISTS idx_bookings_slot ON bookings(slot_id)",
+                     "CREATE INDEX IF NOT EXISTS idx_bookings_service ON bookings(service_id)",
+                     "CREATE INDEX IF NOT EXISTS idx_experience_bookings_exp ON experience_bookings(travel_experience_id, status)",
+                     "CREATE INDEX IF NOT EXISTS idx_payment_orders_provider ON payment_orders(provider_user_id, created_at DESC)",
+                     "CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id)",
+                     "CREATE INDEX IF NOT EXISTS idx_users_email ON users(lower(email))",
+                     "CREATE INDEX IF NOT EXISTS idx_center_links_user ON center_links(user_id)"]:
+            db.execute(_idx)
+        # Center showcase (public page) customisation.
+        for _col,_typ in [('cover_url','TEXT'),('tagline','TEXT'),('gallery_json','TEXT'),('languages','TEXT'),('opening_hours','TEXT')]:
+            if _col not in center_cols: db.execute(f'ALTER TABLE centers ADD COLUMN {_col} {_typ}')
+        migrate_center_directory_data(db)
+        db.execute('CREATE TABLE IF NOT EXISTS site_media (key TEXT PRIMARY KEY, image_url TEXT, credit TEXT, updated_at TEXT, updated_by INTEGER)')
+        db.execute('''CREATE TABLE IF NOT EXISTS promotions (id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL, created_by INTEGER,
+          title TEXT NOT NULL, description TEXT, value_text TEXT, conditions TEXT, valid_from TEXT, valid_until TEXT NOT NULL,
+          uses_per_code INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)''')
+        db.execute('''CREATE TABLE IF NOT EXISTS promotion_partners (promotion_id INTEGER NOT NULL, center_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'invited',
+          updated_at TEXT NOT NULL, PRIMARY KEY(promotion_id,center_id))''')
+        db.execute('''CREATE TABLE IF NOT EXISTS promotion_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, promotion_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+          code TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'active', uses INTEGER NOT NULL DEFAULT 0, created_by INTEGER, created_at TEXT NOT NULL, revoked_at TEXT)''')
+        db.execute('''CREATE TABLE IF NOT EXISTS promotion_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, code_id INTEGER NOT NULL, center_id INTEGER NOT NULL,
+          redeemed_by INTEGER, note TEXT, created_at TEXT NOT NULL)''')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_promotions_center ON promotions(center_id,status)')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_promo_codes_user ON promotion_codes(user_id)')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_promo_codes_promo ON promotion_codes(promotion_id)')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_promo_partners_center ON promotion_partners(center_id,status)')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_promo_redemptions_code ON promotion_redemptions(code_id)')
+        db.execute('''CREATE TABLE IF NOT EXISTS site_themes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, accent TEXT NOT NULL DEFAULT 'oceano',
+          ribbon TEXT, mode TEXT NOT NULL DEFAULT 'schedule', scope TEXT NOT NULL DEFAULT 'all', starts_on TEXT, ends_on TEXT,
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by INTEGER)''')
+        db.execute('''CREATE TABLE IF NOT EXISTS site_theme_media (theme_id INTEGER NOT NULL REFERENCES site_themes(id) ON DELETE CASCADE, key TEXT NOT NULL,
+          image_url TEXT NOT NULL, credit TEXT, updated_at TEXT NOT NULL, PRIMARY KEY(theme_id,key))''')
+        db.execute('''CREATE TABLE IF NOT EXISTS site_promos (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL DEFAULT 'partner', title TEXT NOT NULL,
+          subtitle TEXT, label TEXT, url TEXT, image_path TEXT, starts_on TEXT, ends_on TEXT, sort_order INTEGER NOT NULL DEFAULT 0,
+          active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)''')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_site_promos_active ON site_promos(active, kind, sort_order)')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date DESC, id DESC)')
+        db.execute('CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT, updated_by INTEGER)')
+        # v50.30: automatic emails, password reset, legal acceptance, cancellations and refunds, content reports.
+        db.execute('''CREATE TABLE IF NOT EXISTS email_outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, template TEXT NOT NULL, lang TEXT NOT NULL DEFAULT 'es',
+          to_email TEXT NOT NULL, to_name TEXT, subject TEXT NOT NULL, html TEXT, text TEXT, status TEXT NOT NULL DEFAULT 'queued', related_type TEXT, related_id INTEGER,
+          attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT, next_try_at TEXT, sent_at TEXT, created_at TEXT NOT NULL)''')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_email_outbox_status ON email_outbox(status, next_try_at, id)')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_email_outbox_related ON email_outbox(related_type, related_id)')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_email_outbox_created ON email_outbox(created_at)')
+        db.execute('CREATE TABLE IF NOT EXISTS email_digest_log (center_id INTEGER NOT NULL, digest_date TEXT NOT NULL, sent_at TEXT, PRIMARY KEY(center_id,digest_date))')
+        db.execute('''CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL)''')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id)')
+        db.execute('''CREATE TABLE IF NOT EXISTS content_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, reason TEXT NOT NULL, target_url TEXT, details TEXT NOT NULL,
+          reporter_name TEXT, reporter_email TEXT, user_id INTEGER, ip_hash TEXT, status TEXT NOT NULL DEFAULT 'open', resolution TEXT, resolved_by INTEGER, resolved_at TEXT, created_at TEXT NOT NULL)''')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_content_reports_status ON content_reports(status, id DESC)')
+        _uc={r['name'] for r in db.execute('PRAGMA table_info(users)').fetchall()}
+        for _col in ('terms_version','terms_accepted_at','pro_terms_version','pro_terms_accepted_at'):
+            if _col not in _uc: db.execute(f'ALTER TABLE users ADD COLUMN {_col} TEXT')
+        _bc={r['name'] for r in db.execute('PRAGMA table_info(bookings)').fetchall()}
+        for _col,_typ in [('reminder_sent_at','TEXT'),('review_asked_at','TEXT'),('terms_version','TEXT'),('cancelled_at','TEXT'),('cancelled_by','TEXT'),('refund_amount','REAL')]:
+            if _col not in _bc: db.execute(f'ALTER TABLE bookings ADD COLUMN {_col} {_typ}')
+        # Existing bookings already in the past never get a late reminder or review request.
+        seed_curated_points_v30(db)
+        if 'reminder_sent_at' not in _bc:
+            db.execute("UPDATE bookings SET reminder_sent_at='legacy', review_asked_at='legacy' WHERE booking_date<=date('now','+1 day')")
+        db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_reminders ON bookings(booking_date, status)')
+        _cc={r['name'] for r in db.execute('PRAGMA table_info(centers)').fetchall()}
+        for _col,_typ in [('cancellation_policy',"TEXT DEFAULT 'moderada'"),('cancellation_note','TEXT')]:
+            if _col not in _cc: db.execute(f'ALTER TABLE centers ADD COLUMN {_col} {_typ}')
+        _pc={r['name'] for r in db.execute('PRAGMA table_info(payment_orders)').fetchall()}
+        for _col,_typ in [('refund_id','TEXT'),('refund_amount','REAL'),('refunded_at','TEXT')]:
+            if _col not in _pc: db.execute(f'ALTER TABLE payment_orders ADD COLUMN {_col} {_typ}')
+        if 'uploaded_by' not in {r['name'] for r in db.execute('PRAGMA table_info(dive_point_photos)').fetchall()}:
+            db.execute('ALTER TABLE dive_point_photos ADD COLUMN uploaded_by INTEGER')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_centers_active_country ON centers(active, country)')
+        # (status, slot_date) index misled the planner away from idx_service_slots_service on per-service lookups.
+        db.execute('DROP INDEX IF EXISTS idx_service_slots_open_date')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_center_reviews_center ON center_reviews(center_id, active)')
+        # Trips sold as a service can be published automatically as an Experience.
+        exp_cols={r['name'] for r in db.execute('PRAGMA table_info(travel_experiences)').fetchall()}
+        for _col,_typ in [('service_id','INTEGER'),('image_url','TEXT')]:
+            if _col not in exp_cols: db.execute(f'ALTER TABLE travel_experiences ADD COLUMN {_col} {_typ}')
+        db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_travel_experiences_service ON travel_experiences(service_id) WHERE service_id IS NOT NULL')
+        eb_cols={r['name'] for r in db.execute('PRAGMA table_info(experience_bookings)').fetchall()}
+        if 'updated_by' not in eb_cols: db.execute('ALTER TABLE experience_bookings ADD COLUMN updated_by INTEGER')
+        # Booking origin and walk-in contact data for bookings entered by the center.
+        booking_cols2={r['name'] for r in db.execute('PRAGMA table_info(bookings)').fetchall()}
+        for _col,_typ in [('source',"TEXT DEFAULT 'online'"),('contact_phone','TEXT'),('created_by_user_id','INTEGER'),('payment_method','TEXT'),('internal_notes','TEXT')]:
+            if _col not in booking_cols2: db.execute(f'ALTER TABLE bookings ADD COLUMN {_col} {_typ}')
+        db.execute("UPDATE bookings SET source='web' WHERE external_ref IS NOT NULL AND (source IS NULL OR source='online')")
+        service_cols={r['name'] for r in db.execute('PRAGMA table_info(provider_services)').fetchall()}
+        if 'color' not in service_cols: db.execute("ALTER TABLE provider_services ADD COLUMN color TEXT DEFAULT '#2563eb'")
+        slot_cols={r['name'] for r in db.execute('PRAGMA table_info(service_slots)').fetchall()}
+        if 'point_mode' not in slot_cols: db.execute("ALTER TABLE service_slots ADD COLUMN point_mode TEXT NOT NULL DEFAULT 'fixed'")
+        db.execute('''CREATE TABLE IF NOT EXISTS center_tariffs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL, service_id INTEGER NOT NULL,
+          price REAL NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'EUR', effective_from TEXT NOT NULL,
+          active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+          FOREIGN KEY(center_id) REFERENCES centers(id) ON DELETE CASCADE,
+          FOREIGN KEY(service_id) REFERENCES provider_services(id) ON DELETE CASCADE
+        )''')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_center_tariffs_service ON center_tariffs(center_id,service_id,effective_from)')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_center_tariffs_active ON center_tariffs(center_id,active,effective_from)')
+        payment_cols={r['name'] for r in db.execute('PRAGMA table_info(payment_orders)').fetchall()}
+        for _col,_typ in [('platform_fee','REAL DEFAULT 0'),('connected_account_id','TEXT')]:
+            if _col not in payment_cols: db.execute(f'ALTER TABLE payment_orders ADD COLUMN {_col} {_typ}')
+
+        payment_cols={r['name'] for r in db.execute('PRAGMA table_info(payment_orders)').fetchall()}
+        if 'slot_id' not in payment_cols: db.execute('ALTER TABLE payment_orders ADD COLUMN slot_id INTEGER')
+        for _col,_typ in [('paid_at','TEXT'),('amount_received','REAL'),('receipt_url','TEXT'),('card_brand','TEXT'),('card_last4','TEXT'),('hold_reserved','INTEGER')]:
+            if _col not in payment_cols: db.execute(f'ALTER TABLE payment_orders ADD COLUMN {_col} {_typ}')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_payment_orders_booking ON payment_orders(booking_id,status)')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON payment_orders(status,created_at)')
+        booking_cols={r['name'] for r in db.execute('PRAGMA table_info(bookings)').fetchall()}
+        for _col,_typ in [('service_id','INTEGER'),('slot_id','INTEGER'),('slot_reserved','INTEGER DEFAULT 0'),('price','REAL DEFAULT 0'),('currency',"TEXT DEFAULT 'EUR'"),('payment_status',"TEXT DEFAULT 'not_required'"),('price_breakdown','TEXT')]:
+            if _col not in booking_cols: db.execute(f'ALTER TABLE bookings ADD COLUMN {_col} {_typ}')
+        if 'external_ref' not in booking_cols:
+            db.execute("ALTER TABLE bookings ADD COLUMN external_ref TEXT")
+        db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_external_ref ON bookings(center_id, external_ref) WHERE external_ref IS NOT NULL')
+        # Link older service bookings to their matching scheduled slot when possible.
+        db.execute('''UPDATE bookings SET slot_id=(SELECT ss.id FROM service_slots ss WHERE ss.service_id=bookings.service_id AND ss.slot_date=bookings.booking_date AND ss.slot_time=bookings.booking_time LIMIT 1) WHERE slot_id IS NULL AND service_id IS NOT NULL''')
+        travel_cols={r['name'] for r in db.execute('PRAGMA table_info(travel_offers)').fetchall()}
+        if 'description' not in travel_cols:
+            db.execute("ALTER TABLE travel_offers ADD COLUMN description TEXT")
+        # Any reservation already completed before this version is imported once into the user's Log Book.
+        completed=db.execute('''SELECT b.id,b.user_id,b.booking_date,b.booking_time,c.name AS center_name,p.name AS point_name,p.country,p.dive_type
+                               FROM bookings b JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id
+                               WHERE b.status='completed' AND NOT EXISTS (SELECT 1 FROM logbook_entries l WHERE l.booking_id=b.id)''').fetchall()
+        for b in completed:
+            site=b['point_name'] or b['center_name']
+            note=f"Inmersión generada automáticamente desde la reserva #{b['id']} · {b['center_name']}"
+            db.execute('INSERT INTO logbook_entries(user_id,dive_date,site,country,depth,duration,dive_type,notes,created_at,booking_id) VALUES(?,?,?,?,?,?,?,?,?,?)',(b['user_id'],b['booking_date'],site,b['country'],None,None,b['dive_type'] or 'Buceo recreativo',note,now(),b['id']))
+        db.commit()
+        if os.environ.get('WORLDIVES_SEED_DEMO') == '1' and db.execute('SELECT COUNT(*) FROM travel_offers').fetchone()[0] == 0:
+            offers = [
+                ('Maldivas · Atolones centrales', 'Maldivas', 'Vida a bordo', '/assets/images/maldivas.webp', 'Corrientes, canales y arrecifes para una semana de inmersiones sin cambiar de base.'),
+                ('Mar Rojo · Sur del Sinaí', 'Egipto', 'Viaje', '/assets/images/egipto.webp', 'Paredes, pecios y arrecifes. Una referencia clásica para planificar una escapada de buceo.'),
+                ('Riviera Maya · Cenotes', 'México', 'Viaje', '/assets/images/mexico.webp', 'Cenotes y cavernas para una experiencia de buceo en agua dulce muy distinta.'),
+                ('Great Barrier Reef', 'Australia', 'Vida a bordo', '/assets/images/australia.webp', 'Grandes sistemas arrecifales y vida a bordo para varios días de exploración.'),
+                ('Galápagos', 'Ecuador', 'Viaje', '/assets/images/galapagos.webp', 'Un destino para buceadores que buscan fauna pelágica y condiciones cambiantes.'),
+            ]
+            db.executemany('INSERT INTO travel_offers(title,region,kind,image_path,summary) VALUES(?,?,?,?,?)', offers)
+        db.commit()
+        if os.environ.get('WORLDIVES_SEED_DEMO') == '1' and db.execute('SELECT COUNT(*) FROM reward_offers').fetchone()[0] == 0:
+            offers = [
+                (None, '2 € de descuento en tu próxima inmersión', 'Crédito WORLDIVES aplicable cuando el proveedor acepte esta recompensa.', 'discount', 2.0, '2 € de descuento', 'Sujeto a disponibilidad y condiciones del centro.', None),
+                (None, '5 € de descuento en un curso', 'Usa tu saldo acumulado en un curso que participe en WORLDIVES.', 'course_discount', 5.0, '5 € de descuento', 'El centro debe aceptar esta recompensa.', None),
+                (None, 'Seguro de día', 'Canjea saldo por un seguro de día cuando el proveedor ofrezca esta recompensa.', 'day_insurance', 5.0, 'Seguro de día', 'Sujeto a condiciones del proveedor y cobertura disponible.', None),
+                (None, '10 € para una inmersión', 'Una pequeña ayuda del monedero para seguir buceando.', 'dive_credit', 10.0, '10 € de crédito', 'Solo en centros/experiencias que acepten el crédito.', None),
+            ]
+            db.executemany('INSERT INTO reward_offers(center_id,title,description,reward_type,cost_wallet,value_text,conditions,stock,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,?,?)', [(a,b,c,d,e,f,g,h,now(),now()) for a,b,c,d,e,f,g,h in offers])
+        db.execute("UPDATE reward_offers SET active=0 WHERE center_id IS NULL")
+        db.commit()
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 240_000)
+    return base64.urlsafe_b64encode(salt + digest).decode()
+
+
+def verify_password(password: str, stored: str) -> bool:
+    if not stored or stored == '!':
+        return False
+    try:
+        raw = base64.urlsafe_b64decode(stored.encode())
+        salt, digest = raw[:16], raw[16:]
+        check = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 240_000)
+        return secrets.compare_digest(check, digest)
+    except Exception:
+        return False
+
+
+def audit(db, user_id, action, entity_type=None, entity_id=None, details=None):
+    db.execute('INSERT INTO audit_log(user_id,action,entity_type,entity_id,details,created_at) VALUES(?,?,?,?,?,?)',
+               (user_id, action, entity_type, entity_id, json.dumps(details, ensure_ascii=False) if details else None, now()))
+
+
+def clean_text(value, max_len=5000):
+    if value is None:
+        return None
+    return str(value).strip()[:max_len]
+
+
+def json_body(handler):
+    length = int(handler.headers.get('Content-Length', '0'))
+    if length > MAX_BODY:
+        raise ValueError('El archivo o formulario supera el límite permitido.')
+    raw = handler.rfile.read(length)
+    if not raw:
+        return {}
+    return json.loads(raw.decode('utf-8'))
+
+
+def parse_multipart(handler):
+    ctype = handler.headers.get('Content-Type', '')
+    length = int(handler.headers.get('Content-Length', '0'))
+    if length > MAX_BODY:
+        raise ValueError('Archivo demasiado grande.')
+    body = handler.rfile.read(length)
+    msg = BytesParser(policy=policy.default).parsebytes((f'Content-Type: {ctype}\r\nMIME-Version: 1.0\r\n\r\n').encode() + body)
+    fields = {}
+    files = {}
+    for part in msg.iter_parts():
+        name = part.get_param('name', header='content-disposition')
+        if not name:
+            continue
+        filename = part.get_filename()
+        data = part.get_payload(decode=True) or b''
+        if filename is not None:
+            files[name] = {'filename': Path(filename).name, 'content': data, 'content_type': part.get_content_type()}
+        else:
+            charset = part.get_content_charset() or 'utf-8'
+            fields[name] = data.decode(charset, errors='replace')
+    return fields, files
+
+
+def save_upload(user_id: int, file_info: dict, prefix: str) -> str:
+    UPLOADS.mkdir(parents=True, exist_ok=True)
+    ext = Path(file_info['filename']).suffix.lower()
+    safe_ext = ext if ext in {'.pdf','.jpg','.jpeg','.png','.webp'} else '.bin'
+    filename = f'{prefix}_{user_id}_{secrets.token_hex(5)}{safe_ext}'
+    out = UPLOADS / filename
+    out.write_bytes(file_info['content'])
+    return str(out.relative_to(ROOT)).replace('\\','/')
+
+
+def current_user(handler, db):
+    cookie = handler.headers.get('Cookie','')
+    token = None
+    for item in cookie.split(';'):
+        k, _, v = item.strip().partition('=')
+        if k == COOKIE:
+            token = v
+            break
+    if not token:
+        return None
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    session = db.execute('SELECT user_id,created_at,last_seen FROM sessions WHERE token_hash=?', (token_hash,)).fetchone()
+    if not session:
+        return None
+    current = time.time()
+    if current - session['last_seen'] > SESSION_TTL_SECONDS or current - session['created_at'] > SESSION_TTL_SECONDS:
+        db.execute('DELETE FROM sessions WHERE token_hash=?', (token_hash,)); db.commit()
+        return None
+    # Sliding expiry, written at most once a minute per session to keep writes cheap.
+    if current - session['last_seen'] > 60:
+        db.execute('UPDATE sessions SET last_seen=? WHERE token_hash=?', (current, token_hash)); db.commit()
+    user_id = session['user_id']
+    row = db.execute('''SELECT u.*, c.name AS center_name FROM users u LEFT JOIN centers c ON c.id=u.center_id WHERE u.id=?''', (user_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def require_user(handler, db):
+    user = current_user(handler, db)
+    if not user:
+        raise PermissionError('Necesitas iniciar sesión.')
+    return user
+
+
+def require_role(user, roles):
+    if user['role'] not in roles:
+        raise PermissionError('No tienes permisos para realizar esta acción.')
+
+
+SERVICE_TYPES = {'inmersion','curso','salida','experiencia','vida_a_bordo','viaje','alquiler_equipo'}
+BOOKING_MODES = {'request','instant','payment'}
+MAX_TEMPLATES_PER_PROVIDER = 50
+
+
+def clean_service_template(data):
+    """Validate a service template payload. Only fields of a service definition are kept."""
+    name=clean_text(data.get('name'),80)
+    if not name: raise ValueError('Ponle un nombre a la plantilla.')
+    stype=clean_text(data.get('service_type'),60) or 'inmersion'
+    if stype not in SERVICE_TYPES: stype='inmersion'
+    mode=clean_text(data.get('booking_mode'),30) or 'request'
+    if mode not in BOOKING_MODES: mode='request'
+    def pos_int(v):
+        try: v=int(float(v or 0))
+        except (TypeError,ValueError): return None
+        return v if v>0 else None
+    price=data.get('price')
+    try: price=None if price in (None,'') else max(0.0,float(price))
+    except (TypeError,ValueError): price=None
+    color=clean_text(data.get('color'),20)
+    if color and not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color=None
+    return {'name':name,'service_type':stype,'title':clean_text(data.get('title'),180),'description':clean_text(data.get('description'),5000),
+            'duration_minutes':pos_int(data.get('duration_minutes')),'max_participants':pos_int(data.get('max_participants')),
+            'booking_mode':mode,'color':color,'price':price}
+
+
+def effective_service_tariff(db, service_id, target_date=None):
+    """Return the tariff effective for a service on target_date.
+    Falls back to provider_services.price when no tariff history exists.
+    """
+    target = (target_date or now()[:10])[:10]
+    row = db.execute('''SELECT ct.price,ct.currency,ct.effective_from
+                       FROM center_tariffs ct
+                       JOIN provider_services ps ON ps.id=ct.service_id
+                       WHERE ct.service_id=? AND ct.center_id=ps.center_id AND ct.effective_from<=?
+                       ORDER BY ct.effective_from DESC, ct.id DESC LIMIT 1''',(service_id,target)).fetchone()
+    if row:
+        return float(row['price'] or 0), row['currency'] or 'EUR', row['effective_from']
+    row = db.execute('SELECT price,currency FROM provider_services WHERE id=?',(service_id,)).fetchone()
+    return (float(row['price'] or 0), row['currency'] or 'EUR', None) if row else (0.0,'EUR',None)
+
+
+def booking_quote(db, center_id, service, participants, activity_date=None, extra_ids=None, equipment_codes=None):
+    """Single source of truth for what a booking costs.
+    Activity, rental equipment and extras are priced per participant. Returns (total, currency, lines)."""
+    participants=max(1,int(participants or 1)); lines=[]
+    currency='EUR'
+    if service:
+        unit, currency, _ = effective_service_tariff(db, service['id'], activity_date)
+        lines.append({'kind':'service','label':service['title'],'unit':round(unit,2),'qty':participants,'total':round(unit*participants,2)})
+    # Rental items are 'code' (one per participant) or 'code:qty' (only some divers need it; at most one per participant).
+    qty_by_code={}
+    for raw in (equipment_codes or []):
+        raw=clean_text(raw,48) or ''
+        code,_,q=raw.partition(':')
+        code=code.strip()
+        if not code: continue
+        try: n=int(q) if q else participants
+        except ValueError: n=participants
+        n=max(0,min(participants,n))
+        if n: qty_by_code[code]=n
+    codes=list(qty_by_code)[:40]
+    if codes:
+        rows=db.execute('SELECT code,label,price FROM center_equipment WHERE center_id=? AND active=1 AND price IS NOT NULL AND code IN (%s) ORDER BY sort_order' % ','.join('?'*len(codes)),[center_id]+codes).fetchall()
+        for r in rows:
+            n=qty_by_code[r['code']]; unit=float(r['price'] or 0); lines.append({'kind':'equipment','code':r['code'],'label':r['label'],'unit':round(unit,2),'qty':n,'total':round(unit*n,2)})
+    ids=[]
+    for x in (extra_ids or []):
+        try: ids.append(int(x))
+        except (TypeError,ValueError): pass
+    if ids:
+        rows=db.execute('SELECT id,name,price FROM center_extras WHERE center_id=? AND active=1 AND id IN (%s) ORDER BY name' % ','.join('?'*len(ids)),[center_id]+ids).fetchall()
+        for r in rows:
+            unit=float(r['price'] or 0); lines.append({'kind':'extra','id':r['id'],'label':r['name'],'unit':round(unit,2),'qty':participants,'total':round(unit*participants,2)})
+    total=round(sum(l['total'] for l in lines),2)
+    return total, currency, lines
+
+
+def as_list(value):
+    if value is None: return []
+    if isinstance(value,(list,tuple)): return list(value)
+    return [v for v in str(value).split(',') if v.strip()]
+
+
+def reserve_slot_spots(db, slot_id, qty):
+    """Atomically take qty spots from a departure. Returns False when there are not enough."""
+    return db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status IN ('open','full') AND spots_available>=?",(qty,qty,now(),slot_id,qty)).rowcount==1
+
+
+def release_slot_spots(db, slot_id, qty):
+    db.execute("UPDATE service_slots SET spots_available=MIN(spots_total,spots_available+?),status=CASE WHEN status='closed' THEN 'closed' ELSE 'open' END,updated_at=? WHERE id=?",(qty,now(),slot_id))
+
+
+def find_or_create_customer(db, fullname, email, phone):
+    """Link a booking to an existing account by email, or create a guest customer record."""
+    email=(clean_text(email,160) or '').lower()
+    if email:
+        row=db.execute('SELECT id FROM users WHERE lower(email)=? LIMIT 1',(email,)).fetchone()
+        if row: return row['id']
+    else:
+        email=f'cliente-{secrets.token_hex(6)}@sin-email.worldives.local'
+    # '!' marks a customer record without login. If that person registers later with the same email,
+    # registration frees the email (see /api/auth/register) instead of merging unverified data.
+    uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at) VALUES(?,?,?,?,?,?)',(clean_text(fullname,180) or 'Cliente',email,'cliente_'+secrets.token_hex(6),'!','recreational',now())).lastrowid
+    db.execute('INSERT OR IGNORE INTO user_profiles(user_id,phone,updated_at) VALUES(?,?,?)',(uid,clean_text(phone,60),now()))
+    return uid
+
+
+def resolve_travel_offer(db, data):
+    """Destination for an experience: an existing one or a new one created by the provider."""
+    tid=int(data.get('travel_offer_id') or 0)
+    if tid:
+        if not db.execute('SELECT 1 FROM travel_offers WHERE id=? AND active=1',(tid,)).fetchone(): raise ValueError('Destino no válido.')
+        return tid
+    title=clean_text(data.get('new_destination'),180)
+    if not title: return 0
+    same=db.execute('SELECT id FROM travel_offers WHERE lower(title)=lower(?) AND active=1',(title,)).fetchone()
+    if same: return same['id']
+    return db.execute('INSERT INTO travel_offers(title,region,kind,image_path,summary,description,active) VALUES(?,?,?,?,?,?,1)',(title,clean_text(data.get('new_destination_region'),100) or title,'Viaje',None,'','')).lastrowid
+
+
+def sync_service_experience(db, user, service_id, data):
+    """Publish (or unpublish) a service as an Experience. The service stays the single source of truth
+    for title, description, price and departures; the experience only places it in a destination."""
+    svc=db.execute('SELECT * FROM provider_services WHERE id=?',(service_id,)).fetchone()
+    if not svc: return
+    existing=db.execute('SELECT * FROM travel_experiences WHERE service_id=?',(service_id,)).fetchone()
+    publish=bool(data.get('publish_experience'))
+    if not publish:
+        if existing: db.execute('UPDATE travel_experiences SET active=0,updated_at=? WHERE id=?',(now(),existing['id']))
+        return
+    tid=resolve_travel_offer(db,data) or (existing['travel_offer_id'] if existing else 0)
+    if not tid: raise ValueError('Elige el destino donde aparecerá la experiencia.')
+    status='published' if user['role'] in {'center','admin'} else (existing['status'] if existing and existing['status']=='published' else 'pending')
+    price,currency,_=effective_service_tariff(db,service_id)
+    summary=(svc['description'] or '')[:300]
+    if existing:
+        db.execute('UPDATE travel_experiences SET travel_offer_id=?,title=?,summary=?,description=?,price=?,currency=?,status=?,active=1,updated_at=? WHERE id=?',(tid,svc['title'],summary,svc['description'],price,currency,status,now(),existing['id']))
+    else:
+        db.execute('INSERT INTO travel_experiences(travel_offer_id,title,provider_user_id,center_id,provider_type,summary,description,price,currency,status,active,service_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                   (tid,svc['title'],user['id'],svc['center_id'],'center' if user['role']=='center' else 'freelance',summary,svc['description'],price,currency,status,1,service_id,now(),now()))
+
+
+def enrich_experiences(db, rows):
+    """Experiences linked to a service show live price and upcoming departures from that service."""
+    out=[]
+    for r in rows:
+        d=dict(r)
+        if d.get('service_id'):
+            price,currency,_=effective_service_tariff(db,d['service_id'])
+            d['price']=price; d['currency']=currency
+            slots=db.execute("SELECT id,slot_date,slot_time,spots_total,spots_available FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date>=date('now') ORDER BY slot_date,slot_time LIMIT 12",(d['service_id'],)).fetchall()
+            d['departures']=[dict(x) for x in slots]
+            if slots:
+                d['start_date']=slots[0]['slot_date']; d['spots_available']=slots[0]['spots_available']; d['spots_total']=slots[0]['spots_total']
+            d['book_url']=f"#/reservar?center={d.get('center_id') or ''}&service={d['service_id']}"
+        out.append(d)
+    return out
+
+
+IMAGE_SIGNATURES = {b'\xff\xd8\xff': '.jpg', b'\x89PNG\r\n\x1a\n': '.png'}
+MAX_IMAGE_BYTES = 6 * 1024 * 1024
+MAX_GALLERY_IMAGES = 12
+
+
+def save_public_image(file_info, prefix):
+    """Store an uploaded image under /assets/uploads after checking it really is a JPG, PNG or WEBP."""
+    if not file_info: raise ValueError('Adjunta una imagen.')
+    content=file_info.get('content') or b''
+    if len(content)>MAX_IMAGE_BYTES: raise ValueError('La imagen pesa demasiado. Máximo 6 MB.')
+    ext=None
+    for sig,e in IMAGE_SIGNATURES.items():
+        if content.startswith(sig): ext=e
+    if content[:4]==b'RIFF' and content[8:12]==b'WEBP': ext='.webp'
+    if not ext: raise ValueError('Formato no admitido. Usa una foto JPG, PNG o WEBP.')
+    PHOTOS.mkdir(parents=True,exist_ok=True)
+    name=f'{prefix}_{secrets.token_hex(8)}{ext}'
+    (PHOTOS/name).write_bytes(content)
+    return '/assets/uploads/'+name
+
+
+def delete_public_image(url):
+    """Remove a file previously stored by save_public_image (never anything outside /assets/uploads)."""
+    if not url or not str(url).startswith('/assets/uploads/'): return
+    target=(PHOTOS/Path(url).name).resolve()
+    if str(target).startswith(str(PHOTOS.resolve())) and target.exists():
+        try: target.unlink()
+        except OSError: pass
+
+
+def center_gallery(row):
+    try: items=json.loads(row['gallery_json'] or '[]') if row and 'gallery_json' in row.keys() else []
+    except (TypeError,ValueError): items=[]
+    return [x for x in items if isinstance(x,str) and x.startswith('/assets/')][:MAX_GALLERY_IMAGES]
+
+
+def point_row(row):
+    if not row:
+        return None
+    d = dict(row)
+    # Provenance metadata is kept internally but is not exposed in the public catalog API.
+    for k in ('source_name', 'source_url', 'data_confidence'):
+        d.pop(k, None)
+    return d
+
+
+def center_row(row):
+    if not row:
+        return None
+    d = dict(row)
+    # Provenance metadata is kept internally but is not exposed in the public catalog API.
+    for k in ('source_name', 'source_url', 'logo_source', 'data_confidence', 'stripe_account_id', 'stripe_details_submitted', 'stripe_payouts_enabled'):
+        d.pop(k, None)
+    if 'gallery_json' in d:
+        d['gallery']=center_gallery(row); d.pop('gallery_json',None)
+    d['online_payments']=bool(d.pop('stripe_charges_enabled',0)) and bool(stripe_secret()) and bool(row['stripe_payouts_enabled'] if 'stripe_payouts_enabled' in row.keys() else 0)
+    return d
+
+
+
+
+# ---------------------------------------------------------------------------
+# Dive types: one definition shared by the «Tipos de buceo» pages and the points filter.
+# `match` lists accent-free fragments searched in the folded dive_type (and name/description when noted).
+# ---------------------------------------------------------------------------
+DIVE_CATEGORIES = [
+    {'slug':'arrecifes','label':'Arrecifes','depth':(5,25),'level':'Todos los niveles','cert':'Open Water','tone':'reef',
+     'summary':'Fondos coralinos o rocosos llenos de vida, ideales para empezar y para volver siempre.',
+     'body':'El arrecife es la inmersión más versátil: fondos rocosos o de coral con peces de colores, nudibranquios, morenas y gorgonias. Se adapta a todos los niveles porque suele permitir elegir la profundidad.',
+     'need':'Certificación básica. Flotabilidad controlada para no tocar el fondo.',
+     'tip':'Las mañanas suelen tener mejor visibilidad y menos oleaje.',
+     'where':"(fold(p.dive_type) LIKE '%arrecif%' AND fold(p.dive_type) NOT LIKE '%pecio%')"},
+    {'slug':'paredes','label':'Paredes','depth':(10,40),'level':'Intermedio','cert':'Advanced Open Water','tone':'wall',
+     'summary':'Caídas verticales hacia el azul, con gorgonias, esponjas y sensación de vacío.',
+     'body':'En una pared se bucea a lo largo de un acantilado submarino que cae hacia la profundidad. La vida se concentra en grietas y salientes, y el azul abierto ofrece encuentros con pelágicos.',
+     'need':'Buen control de flotabilidad y de la profundidad: el fondo puede estar muy lejos.',
+     'tip':'Lleva el ordenador siempre a la vista; es fácil bajar sin darse cuenta.',
+     'where':"(fold(p.dive_type) LIKE '%pared%' OR fold(p.dive_type) LIKE '%wall%')"},
+    {'slug':'pecios y naufragios','label':'Pecios y naufragios','depth':(12,40),'level':'Intermedio','cert':'Advanced + especialidad de pecios','tone':'wreck',
+     'summary':'Barcos, aviones y estructuras hundidas convertidas en arrecifes artificiales.',
+     'body':'Un pecio mezcla historia y vida marina: cascos colonizados por corales, bancos de peces y rincones con mucha luz o ninguna. Recorrerlo por fuera es accesible; entrar dentro exige formación específica.',
+     'need':'Certificación avanzada. Para penetrar en el pecio, especialidad y equipo adecuados.',
+     'tip':'Pregunta al centro por la corriente sobre el pecio y por el plan de penetración.',
+     'where':"(fold(p.dive_type) LIKE '%pecio%' OR fold(p.dive_type) LIKE '%naufrag%' OR fold(p.dive_type) LIKE '%wreck%' OR fold(p.name) LIKE '%wreck%' OR fold(p.description) LIKE '%naufrag%')"},
+    {'slug':'cuevas y cavernas','label':'Cuevas y cavernas','depth':(5,30),'level':'Formación específica','cert':'Cavern / Cave','tone':'cave',
+     'summary':'Túneles, arcos y cavidades donde la luz entra a rayos.',
+     'body':'Las cavernas permiten bucear con la salida a la vista; las cuevas van más allá de la luz natural. Son inmersiones espectaculares por la luz y la roca, y muy exigentes en procedimientos.',
+     'need':'Para cavernas, especialidad; para cuevas, formación técnica de cueva y guía.',
+     'tip':'No entres nunca en una cavidad sin línea guía ni sin la formación que exige.',
+     'where':"((fold(p.dive_type) LIKE '%cueva%' OR fold(p.dive_type) LIKE '%caverna%' OR fold(p.dive_type) LIKE '%tunel%') AND fold(p.name) NOT LIKE '%cenote%' AND fold(p.description) NOT LIKE '%cenote%')"},
+    {'slug':'cenotes','label':'Cenotes','depth':(5,40),'level':'Formación específica','cert':'Cavern para la zona iluminada','tone':'cenote',
+     'summary':'Pozos de agua dulce cristalina con haloclinas y haces de luz.',
+     'body':'Los cenotes son sistemas de agua dulce y salada conectados bajo tierra. Visibilidad casi infinita, haloclinas que parecen espejos y rayos de luz que atraviesan el agua.',
+     'need':'Para la zona de caverna basta con Open Water y guía; para cueva, formación técnica.',
+     'tip':'Evita protector solar y repelente antes de entrar: el agua se contamina con facilidad.',
+     'where':"(fold(p.dive_type) LIKE '%cenote%' OR fold(p.name) LIKE '%cenote%' OR fold(p.description) LIKE '%cenote%')"},
+    {'slug':'muck','label':'Muck','depth':(3,20),'level':'Todos los niveles','cert':'Open Water','tone':'muck',
+     'summary':'Fondos de arena y limo para buscar criaturas raras y macrofotografía.',
+     'body':'El muck diving consiste en explorar despacio fondos aparentemente vacíos donde viven pulpos mimo, caballitos de mar, peces rana y nudibranquios. Es el paraíso de la fotografía macro.',
+     'need':'Flotabilidad muy fina para no levantar sedimento.',
+     'tip':'Un buen guía local multiplica lo que verás.',
+     'where':"(fold(p.dive_type) LIKE '%muck%' OR fold(p.description) LIKE '%muck%' OR fold(p.description) LIKE '%lodo%')"},
+    {'slug':'canales','label':'Canales','depth':(10,30),'level':'Intermedio','cert':'Advanced Open Water','tone':'channel',
+     'summary':'Pasos entre arrecifes donde el agua se concentra y llegan los grandes peces.',
+     'body':'Los canales conectan una laguna con el mar abierto. Con la marea entrante atraen tiburones, mantas y bancos de peces, y la inmersión suele planificarse con la corriente.',
+     'need':'Experiencia con corriente y uso de boya de superficie.',
+     'tip':'Pregunta al centro a qué hora entra la marea: cambia por completo la inmersión.',
+     'where':"(fold(p.dive_type) LIKE '%canal%' OR fold(p.dive_type) LIKE '%channel%')"},
+    {'slug':'cañones','label':'Cañones','depth':(15,40),'level':'Avanzado','cert':'Advanced Open Water','tone':'canyon',
+     'summary':'Corredores encajados entre paredes de roca.',
+     'body':'Un cañón submarino es un valle estrecho con paredes a ambos lados. Ofrece relieve espectacular, juegos de luz y a menudo vida pelágica en su boca.',
+     'need':'Control de profundidad y de la orientación.',
+     'tip':'Planifica bien el punto de giro: es fácil seguir bajando.',
+     'where':"(fold(p.dive_type) LIKE '%canon%' OR fold(p.dive_type) LIKE '%canyon%')"},
+    {'slug':'pináculos','label':'Pináculos','depth':(8,35),'level':'Intermedio','cert':'Advanced Open Water','tone':'pinnacle',
+     'summary':'Agujas de roca que suben desde el fondo y concentran la vida a su alrededor.',
+     'body':'Los pináculos y bajos son montañas submarinas aisladas. Al recibir corriente por todas partes reúnen bancos de peces, depredadores y mucho color.',
+     'need':'Experiencia con corriente y descensos en azul.',
+     'tip':'Baja por el cabo del barco y rodea el pináculo en espiral ascendente.',
+     'where':"(fold(p.dive_type) LIKE '%pinnacle%' OR fold(p.dive_type) LIKE '%pinaculo%' OR fold(p.dive_type) LIKE '%pico%')"},
+    {'slug':'corrientes y deriva','label':'Corrientes y deriva','depth':(10,30),'level':'Avanzado','cert':'Advanced + especialidad de deriva','tone':'drift',
+     'summary':'Déjate llevar por la corriente y recorre kilómetros sin aletear.',
+     'body':'En una deriva el barco te sigue mientras la corriente te transporta. Es una sensación parecida a volar y permite ver mucha más superficie de arrecife.',
+     'need':'Boya de superficie, descensos rápidos y buena coordinación con el grupo.',
+     'tip':'Mantente cerca del guía y lleva siempre señalización de superficie.',
+     'where':"(fold(p.dive_type) LIKE '%corriente%' OR fold(p.dive_type) LIKE '%deriva%' OR fold(p.dive_type) LIKE '%drift%')"},
+    {'slug':'aguas profundas','label':'Aguas profundas','depth':(30,40),'level':'Avanzado','cert':'Advanced Open Water / Deep','tone':'deep',
+     'summary':'Puntos que alcanzan los 30 metros o más, para buceadores con experiencia.',
+     'body':'Las inmersiones profundas dan acceso a paisajes y especies que no se ven cerca de la superficie. Requieren más gas, más planificación y atención a la narcosis y a la descompresión.',
+     'need':'Certificación avanzada o especialidad de profundidad, según el límite del punto.',
+     'tip':'Valora el nitrox para alargar el tiempo sin descompresión.',
+     'where':"(p.max_depth IS NOT NULL AND CAST(p.max_depth AS REAL) >= 30)"},
+    {'slug':'nocturnas','label':'Nocturnas','depth':(3,18),'level':'Intermedio','cert':'Open Water + especialidad nocturna','tone':'night',
+     'summary':'El mismo arrecife, otra vida: la que sale cuando se apaga el sol.',
+     'body':'De noche aparecen cazadores, crustáceos y plancton bioluminiscente. Una zona que conoces de día se convierte en otra inmersión.',
+     'need':'Linterna principal y de respaldo; el centro suele exigir especialidad o experiencia.',
+     'tip':'Apaga la linterna un momento para ver la bioluminiscencia.',
+     'where':"(fold(p.dive_type) LIKE '%nocturn%' OR fold(p.dive_type) LIKE '%night%')"},
+    {'slug':'lagos','label':'Lagos','depth':(3,30),'level':'Todos los niveles','cert':'Open Water','tone':'lake',
+     'summary':'Agua dulce, paisajes sumergidos y temperatura muy distinta al mar.',
+     'body':'Bucear en un lago es distinto: no hay sal, la flotabilidad cambia y aparecen bosques sumergidos, restos y fauna de agua dulce.',
+     'need':'Ajustar el lastre (en agua dulce se flota menos) y protección térmica.',
+     'tip':'Si el lago está en altura, la tabla de inmersión cambia: pregunta al centro.',
+     'where':"(fold(p.dive_type) LIKE '%lago%' OR fold(p.dive_type) LIKE '%lake%')"},
+    {'slug':'pilares','label':'Pilares','depth':(5,25),'level':'Todos los niveles','cert':'Open Water','tone':'pillar',
+     'summary':'Columnas y formaciones verticales que sostienen mucha vida.',
+     'body':'Pilares naturales o estructuras como muelles crean refugio para peces y fauna fija. Son inmersiones fotogénicas y fáciles de orientar.',
+     'need':'Certificación básica.',
+     'tip':'Mira hacia arriba: las siluetas a contraluz dan las mejores fotos.',
+     'where':"(fold(p.dive_type) LIKE '%pilar%' OR fold(p.dive_type) LIKE '%pillar%')"},
+    {'slug':'playa y esnórquel','label':'Playa y esnórquel','depth':(0,10),'level':'Iniciación','cert':'Sin certificación (esnórquel) / Open Water','tone':'beach',
+     'summary':'Entradas desde la orilla y puntos para disfrutar con tubo y aletas.',
+     'body':'Sin barco ni horarios: se entra caminando desde la playa. Perfecto para iniciarse, para bautizos y para quien prefiere el esnórquel.',
+     'need':'Nada especial para esnórquel; para buceo, certificación básica.',
+     'tip':'Consulta el estado del mar: el oleaje en la orilla decide si se puede entrar.',
+     'where':"(fold(p.dive_type) LIKE '%snorquel%' OR fold(p.dive_type) LIKE '%snorkel%' OR fold(p.dive_type) LIKE '%playa%' OR fold(p.dive_type) LIKE '%beach%')"},
+]
+DIVE_CATEGORY_CENTER_HINTS = {'arrecifes': [], 'paredes': [], 'pecios y naufragios': ['pecio', 'wreck'], 'cuevas y cavernas': ['cueva', 'cave', 'caverna'], 'cenotes': ['cenote'], 'muck': ['macro', 'muck'], 'canales': [], 'cañones': [], 'pináculos': [], 'corrientes y deriva': ['deriva', 'drift'], 'aguas profundas': ['profund', 'deep', 'tecnico', 'tecrec'], 'nocturnas': ['noctur', 'night'], 'lagos': ['lago'], 'pilares': [], 'playa y esnórquel': ['esnorquel', 'snorkel', 'bautizo']}
+DIVE_CATEGORY_BY_KEY = {}
+for _c in DIVE_CATEGORIES:
+    DIVE_CATEGORY_BY_KEY[_c['slug']] = _c
+    DIVE_CATEGORY_BY_KEY[_c['label'].lower()] = _c
+
+
+def dive_category(value):
+    """Find a category by slug or label, ignoring case and accents."""
+    if not value: return None
+    v=str(value).strip().lower()
+    if v in DIVE_CATEGORY_BY_KEY: return DIVE_CATEGORY_BY_KEY[v]
+    fv=fold_text(v).replace('-',' ')
+    for c in DIVE_CATEGORIES:
+        if fold_text(c['slug'])==fv or fold_text(c['label'])==fv: return c
+    return None
+
+
+def dive_category_public(c):
+    return {k:c[k] for k in ('slug','label','summary','body','need','tip','level','cert','tone')} | {'key':fold_text(c['slug']).replace(' ','-'),'depth_min':c['depth'][0],'depth_max':c['depth'][1]}
+
+
+class Snapshot:
+    """A value computed from the database and shared by every thread of a process.
+    Readers always get an answer at once: when it is older than `ttl`, one background thread
+    rebuilds it while everyone keeps using the previous version (no visitor waits for a rebuild)."""
+    def __init__(self, name, build, ttl=60):
+        self.name=name; self.build=build; self.ttl=ttl; self.value=None; self.at=0.0
+        self.lock=threading.Lock(); self.refreshing=False
+
+    def get(self, db):
+        v=self.value
+        if v is not None and time.time()-self.at<self.ttl: return v
+        if v is None:
+            with self.lock:
+                if self.value is None:
+                    self.value=self.build(db); self.at=time.time()
+            return self.value
+        with self.lock:
+            if self.refreshing: return v
+            self.refreshing=True
+        threading.Thread(target=self._refresh, name=f'snapshot-{self.name}', daemon=True).start()
+        return v
+
+    def invalidate(self):
+        """Called after an edit: this process rebuilds on its next read (others within `ttl`)."""
+        self.value=None; self.at=0.0
+
+    def _refresh(self):
+        db=None
+        try:
+            db=connect(); value=self.build(db)
+            self.value=value; self.at=time.time()
+        except Exception as e:
+            sys.stderr.write(f'[snapshot {self.name}] {type(e).__name__}: {e}\n')
+        finally:
+            self.refreshing=False
+            if db is not None: db.close()
+
+
+
+
+def cat_key(c):
+    return fold_text(c['slug']).replace(' ','-')
+
+
+def dive_types_overview(db):
+    """Counts per category for the «Tipos de buceo» pages, built from the in-memory catalogue snapshots."""
+    return DIVE_TYPES.get(db)
+
+
+def _build_dive_types(db):
+    pts=points_snapshot(db); rows=pts['rows']; items=[]
+    for c in DIVE_CATEGORIES:
+        key=cat_key(c); mine=[r for r in rows if key in r['types']]
+        by_country={}
+        for r in mine: by_country[r['country']]=by_country.get(r['country'],0)+1
+        top=sorted(by_country.items(),key=lambda x:(-x[1],x[0] or ''))[:4]
+        items.append(dive_category_public(c)|{'count':len(mine),'countries':len(by_country),'centers':len(category_center_ids(db,c)),
+                                              'top_countries':[{'name':n,'count':k} for n,k in top]})
+    return {'items':items,'totals':{'points':len(rows),'countries':len({r['country'] for r in rows}),'centers':len(directory_snapshot(db)['rows'])}}
+
+
+def category_center_ids(db, cat):
+    """Centers that offer a dive type: linked to one of its points, or listing it among their specialties."""
+    pts=points_snapshot(db); dirs=directory_snapshot(db)
+    memo=dirs.setdefault('_cats',{}); key=(id(pts),cat['slug'])
+    if key in memo: return memo[key]
+    k=cat_key(cat); by_id=pts['by_id']
+    ids={cid for cid,pid in pts['links'] if k in (by_id.get(pid) or {}).get('types',())}
+    hints=DIVE_CATEGORY_CENTER_HINTS.get(cat['slug'],[])
+    if hints: ids|={r['id'] for r in dirs['rows'] if any(h in r['_spec'] for h in hints)}
+    active={r['id'] for r in dirs['rows']}
+    memo[key]=ids&active
+    return memo[key]
+
+
+def dive_type_detail(db, slug):
+    c=dive_category(slug)
+    if not c: return None
+    overview={x['slug']:x for x in dive_types_overview(db)['items']}
+    k=cat_key(c); mine=[r for r in points_snapshot(db)['rows'] if k in r['types']]
+    points=sorted(mine,key=lambda r:(-r['photo_count'],r['country'] or '',r['_name']))[:60]
+    snap=directory_snapshot(db); key=DIRECTORY_SORT_KEYS['recommended']
+    ids=category_center_ids(db,c)
+    centers=sorted([r for r in snap['rows'] if r['id'] in ids],key=key)[:8]
+    centers_scope='type'
+    if len(centers)<4:
+        # Few centers declare this type yet: suggest centers in the countries where these dives are.
+        countries={r['country'] for r in mine}
+        more=sorted([r for r in snap['rows'] if r['id'] not in ids and r['country'] in countries],key=key)[:8-len(centers)]
+        if more: centers_scope='mixed' if centers else 'country'; centers=centers+more
+    related=[overview[x['slug']] for x in DIVE_CATEGORIES if x['slug']!=c['slug'] and x['level']==c['level'] and overview[x['slug']]['count']>0][:4]
+    if len(related)<3: related+= [overview[x['slug']] for x in DIVE_CATEGORIES if x['slug']!=c['slug'] and overview[x['slug']] not in related and overview[x['slug']]['count']>0][:3-len(related)]
+    return {'item':overview[c['slug']],'points':[public_point_row(p) for p in points],'centers':[public_directory_row(r) for r in centers],'centers_scope':centers_scope,'related':related}
+
+
+def directory_row(r):
+    d=dict(r)
+    if d.get('logo_url') and is_homepage_url(d['logo_url']): d['logo_url']=None
+    return d
+
+
+# ---------------------------------------------------------------------------
+# Center directory (public «Centros» page): one query with pre-aggregated subtables,
+# server-side filters, sorting and pagination, so it stays fast with thousands of centers.
+# ---------------------------------------------------------------------------
+CENTER_DIRECTORY_SQL = """
+WITH rv AS (SELECT center_id, ROUND(AVG(rating),1) AS rating_average, COUNT(*) AS review_count FROM center_reviews WHERE active=1 GROUP BY center_id),
+     pt AS (SELECT cpl.center_id, COUNT(*) AS point_count FROM center_point_links cpl JOIN dive_points dp ON dp.id=cpl.dive_point_id AND dp.active=1 GROUP BY cpl.center_id),
+     sv AS (SELECT center_id, COUNT(*) AS services_count, MIN(CASE WHEN service_type<>'alquiler_equipo' AND price>0 THEN price END) AS price_from,
+                   MAX(service_type='curso') AS has_courses, MAX(service_type IN ('viaje','vida_a_bordo')) AS has_trips,
+                   MAX(service_type='experiencia') AS has_try FROM provider_services WHERE active=1 AND center_id IS NOT NULL GROUP BY center_id),
+     sl AS (SELECT s.center_id, MIN(ss.slot_date) AS next_slot, SUM(CASE WHEN ss.slot_date<=date('now','+7 day') THEN ss.spots_available ELSE 0 END) AS spots_week
+              FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id AND s.active=1
+             WHERE ss.status='open' AND ss.spots_available>0 AND ss.slot_date>=date('now') GROUP BY s.center_id)
+SELECT c.id,c.name,c.city,c.region,c.country,c.tagline,c.description,c.specialties,c.logo_url,c.cover_url,c.website,c.verification_status,
+       COALESCE(rv.rating_average,0) AS rating_average, COALESCE(rv.review_count,0) AS review_count, COALESCE(pt.point_count,0) AS point_count,
+       COALESCE(sv.services_count,0) AS services_count, sv.price_from, COALESCE(sv.has_courses,0) AS has_courses, COALESCE(sv.has_trips,0) AS has_trips, COALESCE(sv.has_try,0) AS has_try,
+       sl.next_slot, COALESCE(sl.spots_week,0) AS spots_week
+  FROM centers c LEFT JOIN rv ON rv.center_id=c.id LEFT JOIN pt ON pt.center_id=c.id LEFT JOIN sv ON sv.center_id=c.id LEFT JOIN sl ON sl.center_id=c.id
+"""
+
+
+
+
+def directory_snapshot(db):
+    """All active centers with their aggregates. The aggregate query reads every future departure,
+    so it runs once a minute in the background; filtering and sorting thousands of rows in memory is instant."""
+    return DIRECTORY.get(db)
+
+
+def _build_directory(db):
+    rows=[]
+    for r in db.execute(CENTER_DIRECTORY_SQL+' WHERE c.active=1').fetchall():
+        d=directory_row(r)
+        d['_text']=fold_text(' '.join(str(d.get(k) or '') for k in ('name','city','region','specialties','tagline')))
+        d['_name']=fold_text(d.get('name')); d['_spec']=fold_text(d.get('specialties'))
+        rows.append(d)
+    return {'rows':rows}
+
+
+def directory_category_ids(db, cat):
+    return category_center_ids(db, cat)
+
+
+DIRECTORY_SORT_KEYS={
+    'recommended':lambda r:(-(r['services_count']>0),-(r['next_slot'] is not None),-r['review_count'],-(bool(r.get('cover_url'))),r['_name']),
+    'rating':lambda r:(r['review_count']==0,-r['rating_average'],-r['review_count'],r['_name']),
+    'reviews':lambda r:(-r['review_count'],-r['rating_average'],r['_name']),
+    'price':lambda r:(r['price_from'] is None,r['price_from'] or 0,r['_name']),
+    'name':lambda r:r['_name'],
+}
+DIRECTORY_FLAGS={'online':lambda r:r['services_count']>0,'week':lambda r:r['spots_week']>0,'courses':lambda r:r['has_courses']==1,
+                 'trips':lambda r:r['has_trips']==1,'try':lambda r:r['has_try']==1,'reviews':lambda r:r['review_count']>0}
+
+
+def public_directory_row(r):
+    return {k:v for k,v in r.items() if not k.startswith('_')}
+
+
+def center_directory(db, query):
+    g=lambda k,d='': (query.get(k,[d])[0] or d)
+    rows=directory_snapshot(db)['rows']
+    q=fold_text(clean_text(g('q'),120) or '').strip()
+    if q:
+        words=q.split()
+        rows=[r for r in rows if all(w in r['_text'] for w in words)]
+    for f in [x for x in g('only').split(',') if x in DIRECTORY_FLAGS]:
+        rows=[r for r in rows if DIRECTORY_FLAGS[f](r)]
+    point=g('point')
+    if point.isdigit():
+        ids={x[0] for x in db.execute('SELECT center_id FROM center_point_links WHERE dive_point_id=?',(int(point),))}
+        rows=[r for r in rows if r['id'] in ids]
+    cat=dive_category(g('type'))
+    if cat:
+        ids=directory_category_ids(db,cat); rows=[r for r in rows if r['id'] in ids]
+    # Country facet ignores the country filter itself so people can switch country.
+    facet={}
+    for r in rows: facet[r['country']]=facet.get(r['country'],0)+1
+    country=clean_text(g('country'),120)
+    if country: rows=[r for r in rows if r['country']==country]
+    rows=sorted(rows,key=DIRECTORY_SORT_KEYS.get(g('sort','recommended'),DIRECTORY_SORT_KEYS['recommended']))
+    try: per=max(1,min(60,int(g('per_page','24')))); page=max(1,min(10000,int(g('page','1'))))
+    except ValueError: per,page=24,1
+    total=len(rows)
+    items=[public_directory_row(r) for r in rows[(page-1)*per:page*per]]
+    countries=sorted(facet.items(),key=lambda x:(-x[1],x[0] or ''))
+    return {'items':items,'total':total,'page':page,'per_page':per,'pages':(total+per-1)//per,'countries':[{'name':n,'count':k} for n,k in countries]}
+
+
+def is_homepage_url(url):
+    """A bare website address (no path) stored where an image was expected."""
+    u=str(url or '').strip()
+    if not u or u.startswith('/'): return False
+    rest=re.sub(r'^https?://','',u,flags=re.I).split('?')[0].split('#')[0]
+    return '/' not in rest.rstrip('/')
+
+
+SPECIALTY_ES = {'scuba diving':'Buceo recreativo','snorkelling':'Esnórquel','snorkeling':'Esnórquel','courses':'Cursos','conservation':'Conservación',
+    'tecrec':'Buceo técnico','technical':'Buceo técnico','nitrox':'Nitrox','freediving':'Apnea','wreck':'Pecios','professional':'Formación profesional',
+    'travel':'Viajes de buceo','caves':'Cuevas','adaptive':'Buceo adaptado','equipment':'Tienda y material','dpv':'Scooter (DPV)','deep':'Buceo profundo',
+    'rescue':'Rescate','nature reserves':'Reservas marinas','night':'Nocturnas'}
+
+
+def migrate_center_directory_data(db):
+    """One-off clean-up of imported centers (idempotent): Spanish country name, Spanish specialties,
+    and websites that were stored in logo_url (they are not images)."""
+    db.execute("UPDATE centers SET country='España' WHERE country IN ('Spain','spain','ESPAÑA','Espana')")
+    for r in db.execute("SELECT id,specialties FROM centers WHERE specialties LIKE '%;%'").fetchall():
+        parts=[p.strip() for p in r['specialties'].split(';') if p.strip()]
+        out=[]
+        for p in parts:
+            t=SPECIALTY_ES.get(p.lower(),p)
+            if t not in out: out.append(t)
+        db.execute('UPDATE centers SET specialties=? WHERE id=?',(' · '.join(out),r['id']))
+    for r in db.execute("SELECT id,logo_url,website FROM centers WHERE logo_url IS NOT NULL AND logo_url<>''").fetchall():
+        if not is_homepage_url(r['logo_url']): continue
+        if not (r['website'] or '').strip(): db.execute('UPDATE centers SET website=?,logo_url=NULL WHERE id=?',(r['logo_url'],r['id']))
+        else: db.execute('UPDATE centers SET logo_url=NULL WHERE id=?',(r['id'],))
+
+
+
+
+# ---------------------------------------------------------------------------
+# Public catalogue of dive points: one in-memory snapshot per process, refreshed every minute.
+# It feeds the points directory, the map layer, the home search and the Top 10, so none of
+# those pages scan or aggregate the database on every visit.
+# ---------------------------------------------------------------------------
+POINT_LEVELS={'start':('principiante','iniciacion','facil'),'mid':('intermedio','intermedia','moderado'),'adv':('avanzado',)}
+
+
+def point_level(difficulty):
+    d=fold_text(difficulty)
+    for k,words in POINT_LEVELS.items():
+        if any(w in d for w in words): return k
+    return ''
+
+
+def points_snapshot(db):
+    return POINTS.get(db)
+
+
+def _build_points(db):
+    rows=db.execute("""
+        WITH cr AS (SELECT center_id, ROUND(AVG(rating),1) AS avg_r, COUNT(*) AS n FROM center_reviews WHERE active=1 GROUP BY center_id),
+             links AS (SELECT dive_point_id, center_id FROM center_point_links UNION SELECT id, center_id FROM dive_points WHERE center_id IS NOT NULL),
+             pc AS (SELECT l.dive_point_id, COUNT(DISTINCT l.center_id) AS centers,
+                           MAX(COALESCE(cr.avg_r,0)) AS rating_average, MAX(COALESCE(cr.n,0)) AS review_count
+                      FROM links l JOIN centers ce ON ce.id=l.center_id AND ce.active=1 LEFT JOIN cr ON cr.center_id=l.center_id GROUP BY l.dive_point_id),
+             ph AS (SELECT dive_point_id, COUNT(*) AS n FROM dive_point_photos WHERE image_path NOT IN ('/assets/images/fondo1.webp','/assets/images/buceador1.png','/assets/images/buceador2.png') GROUP BY dive_point_id)
+        SELECT p.id,p.name,p.country,p.region,p.zone,p.subregion,p.dive_type,p.difficulty,p.min_depth,p.max_depth,p.latitude,p.longitude,
+               p.verification_status,p.description,
+               COALESCE(pc.centers,0) AS centers_count, COALESCE(pc.rating_average,0) AS rating_average, COALESCE(pc.review_count,0) AS review_count,
+               COALESCE(ph.n,0) AS photo_count,
+               (SELECT image_path FROM dive_point_photos x WHERE x.dive_point_id=p.id AND x.image_path NOT IN ('/assets/images/fondo1.webp','/assets/images/buceador1.png','/assets/images/buceador2.png') ORDER BY sort_order,id LIMIT 1) AS photo
+          FROM dive_points p LEFT JOIN pc ON pc.dive_point_id=p.id LEFT JOIN ph ON ph.dive_point_id=p.id
+         WHERE p.active=1""").fetchall()
+    type_ids={}
+    for cat in DIVE_CATEGORIES:
+        for (pid,) in db.execute(f"SELECT p.id FROM dive_points p WHERE p.active=1 AND {cat['where']}"):
+            type_ids.setdefault(pid,[]).append(fold_text(cat['slug']).replace(' ','-'))
+    out=[]; by_id={}
+    for r in rows:
+        d=dict(r)
+        for k in ('min_depth','max_depth','latitude','longitude'):
+            try: d[k]=float(d[k]) if d[k] not in (None,'') else None
+            except (TypeError,ValueError): d[k]=None
+        desc=d.pop('description') or ''
+        # Generic catalogue sentences say nothing to a visitor: no excerpt rather than boilerplate.
+        boiler=re.search(r'cat[aá]logo inicial|pendiente de (verificaci|ampliar|completar)|ubicaci[oó]n de referencia',desc,re.I)
+        d['excerpt']='' if boiler else ((desc[:157]+'…') if len(desc)>160 else desc)
+        d['types']=type_ids.get(d['id'],[])
+        d['level']=point_level(d.get('difficulty'))
+        d['_text']=fold_text(' '.join(str(x or '') for x in (d['name'],d['country'],d['region'],d['zone'],d['subregion'],d['dive_type'],desc)))
+        d['_name']=fold_text(d['name'])
+        out.append(d); by_id[d['id']]=d
+    zones={}
+    for d in out:
+        z=zones.setdefault(d['zone'] or 'Otros',{'name':d['zone'] or 'Otros','count':0,'subregions':{}})
+        z['count']+=1; s=d['subregion'] or d['region'] or d['country']
+        z['subregions'][s]=z['subregions'].get(s,0)+1
+    facets={'zones':[{'name':z['name'],'count':z['count'],'subregions':[{'name':k,'count':v} for k,v in sorted(z['subregions'].items(),key=lambda x:(-x[1],x[0]))]} for z in sorted(zones.values(),key=lambda z:-z['count'])]}
+    links=[(r[0],r[1]) for r in db.execute('''SELECT l.center_id, l.dive_point_id FROM (SELECT center_id, dive_point_id FROM center_point_links
+                                                   UNION SELECT center_id, id FROM dive_points WHERE center_id IS NOT NULL AND active=1) l
+                                               JOIN centers c ON c.id=l.center_id AND c.active=1''')]
+    return {'rows':out,'by_id':by_id,'facets':facets,'links':links}
+
+
+def public_point_row(d):
+    return {k:v for k,v in d.items() if not k.startswith('_')}
+
+
+POINT_SORTS={
+    'recommended':lambda r:(-(r['photo_count']>0),-r['centers_count'],-r['review_count'],r['_name']),
+    'name':lambda r:r['_name'],
+    'rating':lambda r:(r['review_count']==0,-r['rating_average'],-r['review_count'],r['_name']),
+    'depth':lambda r:(r['max_depth'] is None,-(r['max_depth'] or 0),r['_name']),
+    'shallow':lambda r:(r['max_depth'] is None,(r['max_depth'] or 0),r['_name']),
+}
+
+
+def point_directory(db, query):
+    g=lambda k,d='': (query.get(k,[d])[0] or d)
+    snap=points_snapshot(db)
+    # Rows are pre-sorted once per snapshot and sort key; filters below keep that order (no sort per request).
+    sort=g('sort','recommended'); sort=sort if sort in POINT_SORTS else 'recommended'
+    cache=snap.setdefault('_sorted',{})
+    if sort not in cache: cache[sort]=sorted(snap['rows'],key=POINT_SORTS[sort])
+    rows=cache[sort]
+    q=fold_text(clean_text(g('q'),120) or '').strip()
+    if q:
+        words=q.split(); rows=[r for r in rows if all(w in r['_text'] for w in words)]
+    cat=dive_category(g('type'))
+    if cat:
+        key=fold_text(cat['slug']).replace(' ','-'); rows=[r for r in rows if key in r['types']]
+    level=g('level')
+    if level in POINT_LEVELS: rows=[r for r in rows if r['level']==level]
+    if g('only')=='centers': rows=[r for r in rows if r['centers_count']>0]
+    # Facets are computed before the geographic filters so the visitor can always switch zone or country.
+    zone=clean_text(g('zone'),120); sub=clean_text(g('subregion'),120); country=clean_text(g('country'),120)
+    zf={}; cf={}
+    for r in rows:
+        zf[r['zone'] or 'Otros']=zf.get(r['zone'] or 'Otros',0)+1
+    if zone: rows=[r for r in rows if (r['zone'] or 'Otros')==zone]
+    for r in rows: cf[r['country']]=cf.get(r['country'],0)+1
+    if country: rows=[r for r in rows if r['country']==country]
+    if sub: rows=[r for r in rows if (r['subregion'] or r['region'] or r['country'])==sub]
+    try: per=max(1,min(60,int(g('per_page','24')))); page=max(1,min(10000,int(g('page','1'))))
+    except ValueError: per,page=24,1
+    total=len(rows)
+    return {'items':[public_point_row(r) for r in rows[(page-1)*per:page*per]],'total':total,'page':page,'per_page':per,'pages':(total+per-1)//per,
+            'zones':[{'name':k,'count':v} for k,v in sorted(zf.items(),key=lambda x:-x[1])],
+            'countries':[{'name':k,'count':v} for k,v in sorted(cf.items(),key=lambda x:(-x[1],x[0] or ''))]}
+
+
+MAP_FIELDS=('id','name','country','region','zone','subregion','dive_type','difficulty','latitude','longitude','min_depth','max_depth','types')
+
+
+def points_map_payload(db):
+    """Everything the map, the zone list and the instant search need. Rows travel as arrays (field names once),
+    and the JSON and its gzip version are built once per snapshot: serving the map costs no CPU per visitor."""
+    snap=points_snapshot(db)
+    cached=snap.get('_map')
+    if cached: return cached
+    rows=[[r[f] for f in MAP_FIELDS] for r in snap['rows'] if r['latitude'] is not None and r['longitude'] is not None]
+    raw=json.dumps({'fields':MAP_FIELDS,'rows':rows,'zones':snap['facets']['zones'],'total':len(snap['rows'])},ensure_ascii=False,separators=(',',':')).encode('utf-8')
+    cached=(raw,gzip_bytes(raw,6)); snap['_map']=cached
+    return cached
+
+
+def haversine_km(lat1, lon1, lat2, lon2):
+    p1,p2=math.radians(lat1),math.radians(lat2); dp=math.radians(lat2-lat1); dl=math.radians(lon2-lon1)
+    a=math.sin(dp/2)**2+math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
+    return 6371.0088*2*math.atan2(math.sqrt(a),math.sqrt(max(0,1-a)))
+
+
+def nearby_points(db, lat, lon, radius_km, exclude=None, limit=6):
+    snap=points_snapshot(db); dlat=radius_km/111.0; out=[]
+    for r in snap['rows']:
+        if r['id']==exclude or r['latitude'] is None or r['longitude'] is None: continue
+        if abs(r['latitude']-lat)>dlat: continue  # cheap box filter before the exact distance
+        km=haversine_km(lat,lon,r['latitude'],r['longitude'])
+        if km<=radius_km: out.append((km,r))
+    out.sort(key=lambda x:x[0])
+    return [dict(public_point_row(r),distance_km=round(km,1)) for km,r in out[:limit]]
+
+
+def top_dives(db, lat, lon, radius_km):
+    snap=points_snapshot(db); dlat=radius_km/111.0; ranked=[]
+    for r in snap['rows']:
+        if r['latitude'] is None or r['longitude'] is None or abs(r['latitude']-lat)>dlat: continue
+        km=haversine_km(lat,lon,r['latitude'],r['longitude'])
+        if km>radius_km: continue
+        rating=float(r['rating_average'] or 0); reviews=int(r['review_count'] or 0)
+        # Until point-level reviews exist, centre reviews are the strongest available social signal.
+        # Proximity is deliberately secondary so the list stays a "best dives" list, not a nearest-points list.
+        social=(rating/5.0)*0.78+min(reviews,20)/20.0*0.22 if reviews else 0.45
+        score=social*0.82+max(0.0,1.0-(km/radius_km))*0.18
+        ranked.append(dict(public_point_row(r),distance_km=round(km,1),top_score=round(score,4)))
+    ranked.sort(key=lambda x:(-x['top_score'],x['distance_km'],x['name'].lower()))
+    out={'items':ranked[:10],'radius_km':radius_km,'has_reviews':any(x['review_count'] for x in ranked),'candidates':len(ranked),'nearest':None}
+    if not ranked:
+        # Nothing inside the radius: tell the visitor where the closest dive site is, so the page never looks broken.
+        best=None
+        for r in snap['rows']:
+            if r['latitude'] is None or r['longitude'] is None: continue
+            km=haversine_km(lat,lon,r['latitude'],r['longitude'])
+            if best is None or km<best[0]: best=(km,r)
+        if best: out['nearest']=dict(public_point_row(best[1]),distance_km=round(best[0],1))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Experiences directory: destinations with what is published in each (cached one minute).
+# ---------------------------------------------------------------------------
+def travel_directory(db):
+    return TRAVEL.get(db)
+
+
+def _build_travel(db):
+    offers=db.execute('SELECT * FROM travel_offers WHERE active=1 ORDER BY title').fetchall()
+    exps=db.execute('''SELECT e.*, u.fullname AS provider_name, c.name AS center_name FROM travel_experiences e
+                         LEFT JOIN users u ON u.id=e.provider_user_id LEFT JOIN centers c ON c.id=e.center_id
+                        WHERE e.active=1 AND e.status='published'
+                          AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))''').fetchall()
+    by_offer={}
+    for e in enrich_experiences(db,exps): by_offer.setdefault(e['travel_offer_id'],[]).append(e)
+    today=datetime.now().date().isoformat(); items=[]
+    for o in offers:
+        lst=by_offer.get(o['id'],[])
+        prices=[float(e['price']) for e in lst if e.get('price') not in (None,'') and float(e['price'])>0]
+        dates=sorted(d for d in ([e.get('start_date') for e in lst]+[x['slot_date'] for e in lst for x in (e.get('departures') or [])]) if d and d>=today)
+        providers={(e.get('center_id') or 0, e.get('provider_user_id') or 0) for e in lst}
+        items.append(dict(o)|{'experiences':len(lst),'providers':len(providers),'price_from':min(prices) if prices else None,
+                              'currency':(lst[0].get('currency') if lst else None) or 'EUR','next_date':dates[0] if dates else None})
+    items.sort(key=lambda x:(-x['experiences'],x['title']))
+    return {'items':items,'kinds':sorted({i['kind'] for i in items if i.get('kind')})}
+
+
+_GZIP_CACHE={}
+
+
+def gzip_bytes(raw, level=5):
+    import gzip as _gz
+    return _gz.compress(raw, compresslevel=level, mtime=0)
+
+
+
+
+# ---------------------------------------------------------------------------
+# Editable images of the public site (section covers and dive-type photos).
+# Defaults live here; an administrator replaces any of them from «Imágenes de la web».
+# ---------------------------------------------------------------------------
+SITE_MEDIA_SLOTS = [
+    # key, label, where it appears, default image, recommended size
+    ('hero:home', 'Portada de la web', 'Cabecera de la página de inicio', '/assets/images/portada-arrecife.webp', '2400 × 1350'),
+    ('hero:centros', 'Centros de buceo', 'Cabecera del directorio de centros', '/assets/images/BUCEADORES.webp', '2400 × 900'),
+    ('hero:puntos', 'Puntos de buceo', 'Cabecera del catálogo de puntos', '/assets/images/australia.webp', '2400 × 900'),
+    ('hero:tipos', 'Tipos de buceo', 'Cabecera de la página de tipos', '/assets/images/fondo.webp', '2400 × 900'),
+    ('hero:experiencias', 'Experiencias', 'Cabecera de viajes y vida a bordo', '/assets/images/maldivas.webp', '2400 × 900'),
+    ('hero:top10', 'Top 10', 'Cabecera del Top 10', '/assets/images/tailandia.webp', '2400 × 900'),
+    ('hero:explorar', 'Explorar el mapa', 'Cabecera del mapa de Explorar', '/assets/images/micronesia.webp', '2400 × 900'),
+    ('hero:auth', 'Iniciar sesión y registro', 'Foto junto al formulario de acceso', '/assets/images/logbook1.webp', '1600 × 2000 (vertical)'),
+]
+SITE_MEDIA_TYPE_DEFAULTS = {'arrecifes':'fondosuperior','paredes':'australia','pecios-y-naufragios':'logbook1','cuevas-y-cavernas':'galapagos',
+    'cenotes':'mexico','muck':'tailandia','canales':'egipto','canones':'fondo','pinaculos':'BUCEADORES','corrientes-y-deriva':'fondo1',
+    'aguas-profundas':'california','nocturnas':'micronesia','lagos':'fondo','pilares':'BUCEADORES','playa-y-esnorquel':'maldivas'}
+
+
+def site_media_slots():
+    slots=[{'key':k,'label':l,'where':w,'default':d,'size':sz,'group':'Portadas de sección'} for k,l,w,d,sz in SITE_MEDIA_SLOTS]
+    for c in DIVE_CATEGORIES:
+        key=cat_key(c)
+        slots.append({'key':'type:'+key,'label':c['label'],'where':'Tarjeta y cabecera del tipo de buceo','default':f"/assets/images/{SITE_MEDIA_TYPE_DEFAULTS.get(key,'fondo')}.webp",'size':'1600 × 1000','group':'Tipos de buceo'})
+    return slots
+
+
+SITE_MEDIA_KEYS = None
+
+
+def site_media_key_ok(key):
+    global SITE_MEDIA_KEYS
+    if SITE_MEDIA_KEYS is None: SITE_MEDIA_KEYS={s['key'] for s in site_media_slots()}
+    return key in SITE_MEDIA_KEYS
+
+
+def _build_site_media(db):
+    custom={r['key']:dict(r) for r in db.execute('SELECT key,image_url,credit,updated_at FROM site_media').fetchall()}
+    items={}
+    for s in site_media_slots():
+        c=custom.get(s['key']) or {}
+        items[s['key']]={'url':c.get('image_url') or s['default'],'credit':c.get('credit') or '','custom':bool(c.get('image_url')),'default':s['default']}
+    themes=[dict(r) for r in db.execute('SELECT id,name,accent,ribbon,mode,scope,starts_on,ends_on,updated_at FROM site_themes ORDER BY id').fetchall()]
+    tm={}
+    for r in db.execute('SELECT theme_id,key,image_url,credit FROM site_theme_media').fetchall():
+        tm.setdefault(r['theme_id'],{})[r['key']]={'url':r['image_url'],'credit':r['credit'] or ''}
+    for t in themes: t['media']=tm.get(t['id'],{})
+    return {'items':items,'themes':themes}
+
+
+# ---------------------------------------------------------------------------
+# Seasonal looks (v50.29). The administrator prepares «temas» (summer, Christmas, whale season...)
+# with their own photos and colour; each one is shown on its dates every year, for the whole world
+# or only for visitors of one hemisphere (seasons are reversed in the south), or switched on by hand.
+# ---------------------------------------------------------------------------
+THEME_ACCENTS = ('oceano','coral','tropical','atardecer','invierno','abisal')
+THEME_MODES = ('schedule','always','off')
+THEME_SCOPES = ('all','north','south')
+
+
+def _md(value):
+    m=re.fullmatch(r'(\d{2})-(\d{2})', str(value or '').strip())
+    if not m: return None
+    mo,d=int(m.group(1)),int(m.group(2))
+    if not (1<=mo<=12 and 1<=d<=31): return None
+    return f'{mo:02d}-{d:02d}'
+
+
+def _theme_span(t):
+    """Days covered by a yearly range (wraps over New Year); used so a short campaign beats a whole season."""
+    a,b=_md(t.get('starts_on')),_md(t.get('ends_on'))
+    if not a or not b: return 999
+    da=int(a[:2])*31+int(a[3:]); db_=int(b[:2])*31+int(b[3:])
+    return (db_-da) if db_>=da else (12*31-da+db_)
+
+
+def theme_is_on(t, md, hemi):
+    if t.get('mode')=='off': return False
+    if t.get('scope') not in ('all', None, '') and t.get('scope')!=hemi: return False
+    if t.get('mode')=='always': return True
+    a,b=_md(t.get('starts_on')),_md(t.get('ends_on'))
+    if not a or not b: return False
+    return (a<=md<=b) if a<=b else (md>=a or md<=b)
+
+
+# ---------------------------------------------------------------------------
+# Promotional QR codes (v50.29). A centre creates a promotion («Curso Open Water + 1 año de
+# equipo gratis»), gives a personal code to clients it already has, and any centre of the
+# promotion (the issuer and the partners that accepted) scans it to check and redeem it.
+# ---------------------------------------------------------------------------
+PROMO_ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+
+def new_promo_code(db):
+    import secrets as _s
+    for _ in range(20):
+        c=''.join(_s.choice(PROMO_ALPHABET) for _ in range(10))
+        if not db.execute('SELECT 1 FROM promotion_codes WHERE code=?',(c,)).fetchone(): return c
+    raise RuntimeError('No se ha podido generar un código único.')
+
+
+def public_base(handler):
+    env=os.environ.get('WOD_PUBLIC_URL','').strip().rstrip('/')
+    if env: return env
+    host=handler.headers.get('X-Forwarded-Host') or handler.headers.get('Host') or f'localhost:{PORT}'
+    proto=handler.headers.get('X-Forwarded-Proto') or ('https' if os.environ.get('WOD_HTTPS')=='1' else 'http')
+    return f'{proto}://{host}'
+
+
+def promo_state(promo_status, code_status, uses, max_uses, valid_from, valid_until, today=None):
+    today=today or _dt.date.today().isoformat()
+    if code_status=='revoked': return 'revoked'
+    if promo_status!='active': return 'ended'
+    if valid_until and valid_until<today: return 'expired'
+    if valid_from and valid_from>today: return 'upcoming'
+    if int(uses or 0)>=int(max_uses or 1): return 'used'
+    return 'active'
+
+
+PROMO_STATE_TEXT={'active':'Activa','used':'Ya utilizada','expired':'Caducada','revoked':'Anulada por el centro','ended':'Promoción finalizada','upcoming':'Todavía no ha empezado'}
+
+
+def promo_centers(db, promo_id, issuer_id):
+    rows=db.execute('''SELECT c.id,c.name,c.city,c.country FROM centers c WHERE c.id=? UNION ALL
+                       SELECT c.id,c.name,c.city,c.country FROM promotion_partners pp JOIN centers c ON c.id=pp.center_id WHERE pp.promotion_id=? AND pp.status='accepted' ''',(issuer_id,promo_id)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def promo_code_payload(db, row, viewer=None):
+    """What a scan of a promotional QR shows. Personal data only to the holder and to centres of the promotion."""
+    centers=promo_centers(db,row['promotion_id'],row['center_id'])
+    st=promo_state(row['promo_status'],row['status'],row['uses'],row['uses_per_code'],row['valid_from'],row['valid_until'])
+    out={'code':row['code'],'title':row['title'],'description':row['description'] or '','value_text':row['value_text'] or '','conditions':row['conditions'] or '',
+         'valid_from':row['valid_from'],'valid_until':row['valid_until'],'uses':row['uses'],'max_uses':row['uses_per_code'],'state':st,'state_text':PROMO_STATE_TEXT.get(st,st),
+         'issuer':{'id':row['center_id'],'name':row['center_name'],'city':row['center_city']},'centers':centers,'viewer':'public'}
+    name=row['holder_name'] or ''
+    out['holder']=' '.join(w[:1]+'.' for w in name.split()[:2]) if name else ''
+    if viewer:
+        if viewer['id']==row['user_id']: out['viewer']='holder'; out['holder']=name
+        elif viewer['role'] in ('center','admin'):
+            ok=viewer['role']=='admin' or any(c['id']==viewer['center_id'] for c in centers)
+            out['viewer']='center_ok' if ok else 'center_other'
+            if ok:
+                out['holder']=name; out['holder_email']=row['holder_email']
+                out['can_redeem']=st=='active' and viewer['role']=='center'
+                out['redemptions']=[dict(r) for r in db.execute('''SELECT pr.created_at,c.name AS center_name,pr.note FROM promotion_redemptions pr JOIN centers c ON c.id=pr.center_id WHERE pr.code_id=? ORDER BY pr.id DESC''',(row['id'],)).fetchall()]
+    return out
+
+
+PROMO_CODE_SQL='''SELECT pc.*,p.title,p.description,p.value_text,p.conditions,p.valid_from,p.valid_until,p.uses_per_code,p.status AS promo_status,p.center_id,
+                         c.name AS center_name,c.city AS center_city,u.fullname AS holder_name,u.email AS holder_email
+                    FROM promotion_codes pc JOIN promotions p ON p.id=pc.promotion_id JOIN centers c ON c.id=p.center_id JOIN users u ON u.id=pc.user_id WHERE pc.code=?'''
+
+
+def center_promotions(db, cid):
+    items=[]
+    for p in db.execute('SELECT * FROM promotions WHERE center_id=? ORDER BY status=\'active\' DESC, id DESC',(cid,)).fetchall():
+        d=dict(p)
+        d['partners']=[dict(r) for r in db.execute('SELECT pp.center_id,pp.status,c.name,c.city FROM promotion_partners pp JOIN centers c ON c.id=pp.center_id WHERE pp.promotion_id=? ORDER BY c.name',(p['id'],)).fetchall()]
+        k=db.execute("SELECT COUNT(*) n,SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) live,SUM(uses) used FROM promotion_codes WHERE promotion_id=?",(p['id'],)).fetchone()
+        d['codes_count']=k['n'] or 0; d['codes_live']=k['live'] or 0; d['redemptions']=k['used'] or 0
+        d['expired']=bool(p['valid_until'] and p['valid_until']<_dt.date.today().isoformat())
+        items.append(d)
+    invites=[dict(r) for r in db.execute('''SELECT p.id,p.title,p.value_text,p.valid_until,p.status AS promo_status,pp.status,c.name AS issuer_name,c.city AS issuer_city
+                                              FROM promotion_partners pp JOIN promotions p ON p.id=pp.promotion_id JOIN centers c ON c.id=p.center_id
+                                             WHERE pp.center_id=? ORDER BY pp.status='invited' DESC, p.id DESC''',(cid,)).fetchall()]
+    return {'items':items,'network':invites}
+
+
+def clean_logbook(data):
+    """Validated Log Book fields: a real date, a site name and plausible depth/time."""
+    d=clean_text(data.get('dive_date'),10) or ''
+    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',d): raise ValueError('Indica la fecha de la inmersión.')
+    if d>_dt.date.today().isoformat(): raise ValueError('La fecha de la inmersión no puede ser futura.')
+    site=clean_text(data.get('site'),200)
+    if not site: raise ValueError('Indica el punto de buceo.')
+    def num(k,lo,hi,label):
+        v=data.get(k)
+        if v in (None,''): return None
+        try: f=float(str(v).replace(',','.'))
+        except ValueError: raise ValueError(f'{label}: escribe un número.')
+        if not lo<=f<=hi: raise ValueError(f'{label}: debe estar entre {lo} y {hi}.')
+        return round(f,1)
+    return {'dive_date':d,'site':site,'country':clean_text(data.get('country'),100) or '','depth':num('depth',0,350,'Profundidad'),
+            'duration':num('duration',0,600,'Duración'),'dive_type':clean_text(data.get('dive_type'),100) or '','notes':clean_text(data.get('notes'),2000) or ''}
+
+
+def is_center_client(db, cid, uid):
+    return bool(db.execute('SELECT 1 FROM bookings WHERE center_id=? AND user_id=? UNION SELECT 1 FROM center_links WHERE center_id=? AND user_id=? LIMIT 1',(cid,uid,cid,uid)).fetchone())
+
+
+def resolve_site_media(snap, hemi='north', preview=None, today=None):
+    """Pick the look for this visitor: forced theme > dated theme (shortest range first) > custom photo > original."""
+    hemi='south' if hemi in ('s','south') else 'north'
+    md=(today or _dt.date.today()).strftime('%m-%d')
+    themes=snap.get('themes') or []
+    theme=None
+    if preview:
+        theme=next((t for t in themes if str(t['id'])==str(preview)),None)
+    if theme is None:
+        on=[t for t in themes if theme_is_on(t,md,hemi)]
+        on.sort(key=lambda t:(0 if t['mode']=='always' else 1, _theme_span(t), -t['id']))
+        theme=on[0] if on else None
+    items=snap['items']
+    if theme and theme.get('media'):
+        items=dict(items)
+        for k,v in theme['media'].items():
+            if k in items: items[k]={**items[k],'url':v['url'],'credit':v['credit'] or items[k]['credit'],'theme':True}
+    out={'items':items,'theme':None}
+    if theme: out['theme']={'id':theme['id'],'name':theme['name'],'accent':theme['accent'],'ribbon':theme.get('ribbon') or '','preview':bool(preview)}
+    return out
+
+
+def point_photo_allowed(db, user, pid):
+    """Admins manage every point; a center manages the points it operates (own or linked)."""
+    if user['role']=='admin': return True
+    if user['role']!='center' or not user['center_id']: return False
+    return bool(db.execute('''SELECT 1 FROM dive_points p WHERE p.id=? AND (p.center_id=? OR EXISTS(SELECT 1 FROM center_point_links l WHERE l.dive_point_id=p.id AND l.center_id=?))''',(pid,user['center_id'],user['center_id'])).fetchone())
+
+
+SNAPSHOT_WRITE_PREFIXES=(('/api/dive-points','POINTS','DIVE_TYPES'),('/api/center-points','POINTS','DIRECTORY','DIVE_TYPES'),('/api/admin/dive-points','POINTS','DIVE_TYPES'),
+    ('/api/travel-experiences','TRAVEL'),('/api/admin/travel','TRAVEL'),('/api/centers','DIRECTORY'),('/api/provider/center','DIRECTORY'),('/api/admin/site-promos','PROMOS'),('/api/provider/center','PROMOS'),('/api/admin/centers','PROMOS'),('/api/provider/avatar','PROMOS'))
+
+
+# ---------------------------------------------------------------------------
+import datetime as _dt
+# Planning of a center (v50.26): any month, past or future, with day detail and month figures.
+# ---------------------------------------------------------------------------
+def _month_bounds(month):
+    m=re.fullmatch(r'(\d{4})-(\d{2})', str(month or ''))
+    today=_dt.date.today()
+    y,mo=(int(m.group(1)),int(m.group(2))) if m else (today.year,today.month)
+    if not (2000<=y<=2100 and 1<=mo<=12): y,mo=today.year,today.month
+    first=_dt.date(y,mo,1)
+    nxt=_dt.date(y+(mo==12),1 if mo==12 else mo+1,1)
+    return first, nxt-_dt.timedelta(days=1)
+
+
+def _shift_month(d, n):
+    k=d.year*12+d.month-1+n
+    return _dt.date(k//12,k%12+1,1)
+
+
+def planning_scope(user):
+    """SQL fragments restricting services and bookings to what the signed-in center or professional owns."""
+    if user['role']=='center' and user['center_id']:
+        return 's.provider_user_id=?',(user['id'],),'b.center_id=?',(int(user['center_id']),)
+    if user['role']=='freelance':
+        return 's.provider_user_id=?',(user['id'],),'b.service_id IN (SELECT id FROM provider_services WHERE provider_user_id=?)',(user['id'],)
+    raise PermissionError('Solo los centros y profesionales tienen planning.')
+
+
+def _planning_figures(db, svc_where, svc_args, bk_where, bk_args, start, end):
+    slots=db.execute(f'''SELECT COUNT(*) n, COALESCE(SUM(ss.spots_total),0) offered,
+                             COALESCE(SUM(MAX(ss.spots_total-ss.spots_available,0)),0) taken
+                        FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
+                        WHERE {svc_where} AND ss.slot_date BETWEEN ? AND ? AND ss.status IN ('open','full','closed')''',(*svc_args,start,end)).fetchone()
+    bk=db.execute(f'''SELECT COUNT(*) n, COALESCE(SUM(b.participants),0) divers, COALESCE(SUM(b.price),0) revenue,
+                          COALESCE(SUM(CASE WHEN b.payment_status='paid' THEN b.price ELSE 0 END),0) paid,
+                          COALESCE(SUM(CASE WHEN b.status='pending' THEN 1 ELSE 0 END),0) pending
+                      FROM bookings b WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status NOT IN ('cancelled','rejected')''',(*bk_args,start,end)).fetchone()
+    cancelled=db.execute(f"SELECT COUNT(*) FROM bookings b WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status IN ('cancelled','rejected')",(*bk_args,start,end)).fetchone()[0]
+    offered=int(slots['offered'] or 0); taken=int(slots['taken'] or 0)
+    return {'slots':int(slots['n'] or 0),'offered':offered,'taken':taken,'free':max(offered-taken,0),
+            'occupancy':round(100*taken/offered) if offered else 0,'bookings':int(bk['n'] or 0),'divers':int(bk['divers'] or 0),
+            'revenue':round(float(bk['revenue'] or 0),2),'paid':round(float(bk['paid'] or 0),2),'pending':int(bk['pending'] or 0),'cancelled':int(cancelled or 0)}
+
+
+def center_planning(db, user, month):
+    svc_where,svc_args,bk_where,bk_args=planning_scope(user)
+    first,last=_month_bounds(month); start,end=first.isoformat(),last.isoformat()
+    rows=db.execute(f'''SELECT ss.id,ss.service_id,ss.slot_date,ss.slot_time,ss.spots_total,ss.spots_available,ss.status,
+                               s.title AS service_title,s.color AS service_color,s.service_type,s.price AS service_price,s.currency,s.duration_minutes
+                          FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
+                         WHERE {svc_where} AND ss.slot_date BETWEEN ? AND ? AND ss.status IN ('open','full','closed')
+                         ORDER BY ss.slot_date,ss.slot_time,s.title LIMIT 3000''',(*svc_args,start,end)).fetchall()
+    slots=[]; by_id={}; tariff_cache={}; today_iso=_dt.date.today().isoformat()
+    for r in rows:
+        d=dict(r); d['taken']=max(int(d['spots_total'] or 0)-int(d['spots_available'] or 0),0); d['points']=[]; d['bookings']=[]
+        if d['slot_date']>=today_iso:
+            key=(d['service_id'],d['slot_date'])
+            if key not in tariff_cache: tariff_cache[key]=effective_service_tariff(db,d['service_id'],d['slot_date'])[0]
+            d['service_price']=tariff_cache[key]
+        slots.append(d); by_id[d['id']]=d
+    ids=list(by_id)
+    for chunk in [ids[i:i+500] for i in range(0,len(ids),500)]:
+        for pp in db.execute(f"SELECT sp.slot_id,p.id,p.name FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id IN ({','.join('?'*len(chunk))}) ORDER BY p.name",chunk).fetchall():
+            by_id[pp['slot_id']]['points'].append({'id':pp['id'],'name':pp['name']})
+    other=[]
+    for b in db.execute(f'''SELECT b.id,b.slot_id,b.service_id,b.booking_date,b.booking_time,b.participants,b.status,b.payment_status,b.price,
+                                   COALESCE(b.source,'online') AS source,u.fullname,s.title AS service_title,s.color AS service_color,p.name AS point_name
+                              FROM bookings b LEFT JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
+                              LEFT JOIN dive_points p ON p.id=b.dive_point_id
+                             WHERE {bk_where} AND b.booking_date BETWEEN ? AND ?
+                             ORDER BY b.booking_date,b.booking_time,b.id LIMIT 5000''',(*bk_args,start,end)).fetchall():
+        bd=dict(b)
+        if bd['slot_id'] in by_id: by_id[bd['slot_id']]['bookings'].append(bd)
+        else: other.append(bd)
+    # Twelve months around the one on screen, for the trend strip.
+    t0=_shift_month(first,-6); t1=_shift_month(first,6)-_dt.timedelta(days=1)
+    trend={}
+    for r in db.execute(f'''SELECT substr(ss.slot_date,1,7) m, COUNT(*) n, SUM(ss.spots_total) offered, SUM(MAX(ss.spots_total-ss.spots_available,0)) taken
+                              FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
+                             WHERE {svc_where} AND ss.slot_date BETWEEN ? AND ? AND ss.status IN ('open','full','closed') GROUP BY m''',(*svc_args,t0.isoformat(),t1.isoformat())).fetchall():
+        trend.setdefault(r['m'],{})['slots']=int(r['n'] or 0); trend[r['m']]['offered']=int(r['offered'] or 0); trend[r['m']]['taken']=int(r['taken'] or 0)
+    for r in db.execute(f'''SELECT substr(b.booking_date,1,7) m, COUNT(*) n, SUM(b.participants) divers, SUM(b.price) revenue FROM bookings b
+                             WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status NOT IN ('cancelled','rejected') GROUP BY m''',(*bk_args,t0.isoformat(),t1.isoformat())).fetchall():
+        e=trend.setdefault(r['m'],{}); e['bookings']=int(r['n'] or 0); e['divers']=int(r['divers'] or 0); e['revenue']=round(float(r['revenue'] or 0),2)
+    months=[]
+    for i in range(12):
+        m=_shift_month(t0,i).isoformat()[:7]; e=trend.get(m,{})
+        months.append({'month':m,'slots':e.get('slots',0),'offered':e.get('offered',0),'taken':e.get('taken',0),'bookings':e.get('bookings',0),'divers':e.get('divers',0),'revenue':e.get('revenue',0)})
+    pf=_shift_month(first,-1); pl=first-_dt.timedelta(days=1)
+    return {'month':start[:7],'start':start,'end':end,'today':_dt.date.today().isoformat(),
+            'prev':pf.isoformat()[:7],'next':_shift_month(first,1).isoformat()[:7],
+            'slots':slots,'other':other,'stats':_planning_figures(db,svc_where,svc_args,bk_where,bk_args,start,end),
+            'prev_stats':_planning_figures(db,svc_where,svc_args,bk_where,bk_args,pf.isoformat(),pl.isoformat()),'trend':months}
+
+
+def qr_matrix(payload):
+    sys.path.insert(0, str(ROOT/'vendor'))
+    import qrcode
+    qr=qrcode.QRCode(box_size=1,border=0,error_correction=qrcode.constants.ERROR_CORRECT_M); qr.add_data(payload); qr.make(fit=True)
+    return [''.join('1' if v else '0' for v in row) for row in qr.get_matrix()]
+
+
+# ---------------------------------------------------------------------------
+# Partners / sponsors band and sponsored offers on the home page (v50.26), managed by the administrator.
+# ---------------------------------------------------------------------------
+PROMO_KINDS=('partner','offer')
+
+
+def clean_promo_url(v):
+    v=(clean_text(v,500) or '').strip()
+    if not v: return ''
+    if v.startswith('#/') or re.match(r'^https?://[^\s<>"]+$',v,re.I): return v
+    if re.match(r'^[a-z0-9.-]+\.[a-z]{2,}(/[^\s<>"]*)?$',v,re.I): return 'https://'+v
+    raise ValueError('El enlace debe empezar por https:// (o por #/ para una página de WORLDIVES).')
+
+
+def _build_promos(db):
+    rows=db.execute('SELECT id,kind,title,subtitle,label,url,image_path,starts_on,ends_on,sort_order FROM site_promos WHERE active=1 ORDER BY sort_order,id').fetchall()
+    settings={r['key']:r['value'] for r in db.execute("SELECT key,value FROM site_settings WHERE key LIKE 'partners_%'").fetchall()}
+    # Associated dive centers for the home band: those with their own logo first, then the ones with most activity.
+    centers=[]
+    for r in db.execute('''SELECT c.id,c.name,c.city,c.country,c.logo_url FROM centers c
+                           LEFT JOIN (SELECT center_id, COUNT(*) n FROM provider_services WHERE active=1 GROUP BY center_id) sv ON sv.center_id=c.id
+                           WHERE c.active=1
+                           ORDER BY (CASE WHEN c.logo_url LIKE '/assets/%' THEN 0 ELSE 1 END), COALESCE(sv.n,0) DESC, c.name LIMIT 80''').fetchall():
+        d=dict(r); logo=(d.pop('logo_url') or '').strip()
+        d['logo']=logo if logo and not re.match(r'^https?://[^/]+/?$',logo) else ''
+        centers.append(d)
+    total=db.execute('SELECT COUNT(*) FROM centers WHERE active=1').fetchone()[0]
+    return {'items':[dict(r) for r in rows],'settings':settings,'centers':centers,'center_total':total}
+
+
+def public_promos(db):
+    today=_dt.date.today().isoformat(); snap=PROMOS.get(db); st=snap.get('settings') or {}
+    out={'partners':[],'offers':[],'centers':snap.get('centers') or [],'center_total':snap.get('center_total') or 0,'contact':{'email':st.get('partners_email') or '','text':st.get('partners_text') or ''}}
+    for p in snap['items']:
+        if (p['starts_on'] and p['starts_on']>today) or (p['ends_on'] and p['ends_on']<today): continue
+        if p['kind']=='offer' and not p['image_path']: continue
+        out['partners' if p['kind']=='partner' else 'offers'].append(p)
+    return out
+
+
+def invalidate_after_post(path):
+    """Catalogue edits show up at once in this process (other worker processes refresh within a minute)."""
+    for prefix,*names in SNAPSHOT_WRITE_PREFIXES:
+        if path.startswith(prefix):
+            for n in names: globals()[n].invalidate()
+
+
+POINTS=Snapshot('points',_build_points)
+DIRECTORY=Snapshot('directory',_build_directory)
+DIVE_TYPES=Snapshot('dive-types',_build_dive_types)
+TRAVEL=Snapshot('travel',_build_travel)
+SITE_MEDIA=Snapshot('site-media',_build_site_media)
+PROMOS=Snapshot('promos',_build_promos)
+
+
+def ensure_reward_event(db, user_id, event_key, title, description, points=0, wallet_amount=0.0):
+    row = db.execute('SELECT id FROM reward_events WHERE user_id=? AND event_key=?', (user_id, event_key)).fetchone()
+    if row:
+        return False
+    db.execute('INSERT INTO reward_events(user_id,event_key,title,description,points,wallet_amount,created_at) VALUES(?,?,?,?,?,?,?)',
+               (user_id, event_key, title, description, int(points or 0), float(wallet_amount or 0), now()))
+    db.execute('INSERT INTO rewards(user_id,title,description,points,completed,created_at) VALUES(?,?,?,?,1,?)',
+               (user_id, title, description, int(points or 0), now()))
+    if float(wallet_amount or 0):
+        db.execute('INSERT INTO wallet_transactions(user_id,amount,description,created_at) VALUES(?,?,?,?)',
+                   (user_id, float(wallet_amount), title, now()))
+    return True
+
+
+def sync_user_rewards(db, user_id):
+    """Automatically award lightweight rewards for actions the diver already performs."""
+    profile = db.execute('SELECT * FROM user_profiles WHERE user_id=?', (user_id,)).fetchone()
+    user = db.execute('SELECT * FROM users WHERE id=?', (user_id,)).fetchone()
+    if not user:
+        return
+    # Profile completion is intentionally simple: no daily check-in or artificial engagement.
+    if profile and profile['phone'] and profile['city'] and profile['certification_id']:
+        ensure_reward_event(db, user_id, 'profile_complete', 'Perfil preparado',
+                            'Has completado los datos esenciales de tu perfil de buceador.', 50, 0)
+    dives = db.execute('SELECT id FROM logbook_entries WHERE user_id=? ORDER BY id', (user_id,)).fetchall()
+    dive_count = len(dives)
+    # Every real logbook entry gives a modest amount of progression; no monetary credit per dive.
+    for i, dive in enumerate(dives, 1):
+        ensure_reward_event(db, user_id, f'logbook:dive:{dive[0]}', 'Inmersión registrada',
+                            'Has añadido una inmersión a tu Log Book.', 10, 0)
+    milestones = [
+        (1, 'first_dive', 'Primera inmersión', 'Tu primera inmersión queda registrada en WORLDIVES.', 50, 0),
+        (5, 'dives_5', '5 inmersiones', 'Cinco inmersiones registradas en tu Log Book.', 100, 0),
+        (10, 'dives_10', '10 inmersiones', 'Diez inmersiones registradas.', 150, 0),
+        (25, 'dives_25', '25 inmersiones', 'Has alcanzado 25 inmersiones.', 300, 0),
+        (50, 'dives_50', '50 inmersiones', 'Has alcanzado 50 inmersiones.', 600, 0),
+        (100, 'dives_100', '100 inmersiones', 'Has alcanzado 100 inmersiones.', 1200, 0),
+    ]
+    for target,key,title,desc,pts,wallet in milestones:
+        if dive_count >= target:
+            ensure_reward_event(db, user_id, key, title, desc, pts, wallet)
+    # Documents: only one modest bonus per useful document type.
+    for doc_type, label in [('Titulación','Titulación guardada'), ('Seguro','Seguro guardado'), ('Certificado médico','Certificado médico guardado')]:
+        if db.execute('SELECT 1 FROM user_documents WHERE user_id=? AND lower(document_type)=lower(?) LIMIT 1', (user_id, doc_type)).fetchone():
+            ensure_reward_event(db, user_id, 'document:'+doc_type.lower(), label,
+                                'Has preparado documentación útil para reservar con tranquilidad.', 25, 0)
+    # Completed reservations are valuable but not spammy.
+    bookings = db.execute("SELECT id FROM bookings WHERE user_id=? AND status='completed' ORDER BY id", (user_id,)).fetchall()
+    for b in bookings:
+        ensure_reward_event(db, user_id, f'booking:completed:{b[0]}', 'Inmersión completada con un centro',
+                            'Has completado una reserva de buceo.', 40, 0)
+    # Visiting a center through its QR is rewarded once per center.
+    centers = db.execute('SELECT center_id FROM center_links WHERE user_id=? GROUP BY center_id', (user_id,)).fetchall()
+    for c in centers:
+        ensure_reward_event(db, user_id, f'center:visit:{c[0]}', 'Centro visitado',
+                            'Has hecho check-in en un centro de buceo.', 20, 0)
+
+
+def reward_level(total_points):
+    levels = [(0,'Explorador'),(250,'Buceador'),(750,'Explorador del mundo'),(1500,'Navegante'),(3000,'Embajador WORLDIVES'),(6000,'Leyenda')]
+    current=levels[0]
+    nxt=None
+    for item in levels:
+        if total_points >= item[0]: current=item
+        elif nxt is None: nxt=item
+    return {'name':current[1], 'threshold':current[0], 'next_threshold':nxt[0] if nxt else None, 'next_name':nxt[1] if nxt else None}
+
+
+def reward_offer_row(row):
+    d=dict(row)
+    return d
+
+
+# ---------------------------------------------------------------------------
+# Online payments (v50.29): one place decides whether a centre can take card payments and
+# one function confirms a payment, whoever reports it first (Stripe webhook, return page or sweeper).
+# ---------------------------------------------------------------------------
+def stripe_secret():
+    return os.environ.get('STRIPE_SECRET_KEY','').strip()
+
+
+def center_payments_ready(center):
+    """True when WORLDIVES can charge cards for this centre: platform keys + a finished Stripe Connect account."""
+    if not center or not stripe_secret(): return False
+    keys=center.keys() if hasattr(center,'keys') else center
+    return bool(('stripe_account_id' in keys and center['stripe_account_id']) and int(center['stripe_charges_enabled'] or 0) and int(center['stripe_payouts_enabled'] or 0))
+
+
+def _obj(o,k,default=None):
+    try:
+        if isinstance(o,dict): return o.get(k,default)
+        if isinstance(o,sqlite3.Row): return o[k] if k in o.keys() else default
+        return getattr(o,k,default)
+    except Exception: return default
+
+
+def finalize_paid_order(db, order, session, source):
+    """Marks a payment order as paid after checking the amount, confirms its booking and keeps the spots.
+    Idempotent: calling it twice changes nothing. Returns (ok, message)."""
+    if order['status']=='paid': return True,'already'
+    pay_status=_obj(session,'payment_status'); total=_obj(session,'amount_total'); cur=(_obj(session,'currency') or '').upper()
+    expected=int(round(float(order['amount'] or 0)*100))
+    if pay_status not in ('paid','no_payment_required'): return False,'not_paid'
+    if total is not None and int(total)!=expected or (cur and cur!=(order['currency'] or 'EUR').upper()):
+        db.execute("UPDATE payment_orders SET status='review',updated_at=? WHERE id=?",(now(),order['id']))
+        if order['booking_id']: db.execute("UPDATE bookings SET payment_status='review',updated_at=? WHERE id=? AND payment_status<>'paid'",(now(),order['booking_id']))
+        audit(db,order['user_id'],'payment_amount_mismatch','payment_order',order['id'],{'expected':expected,'received':total,'currency':cur,'source':source})
+        if order['booking_id']: notify_booking(db,order['booking_id'],'payment_review')
+        return False,'mismatch'
+    receipt=brand=last4=None
+    pi=_obj(session,'payment_intent')
+    if pi and not isinstance(pi,str):
+        ch=_obj(pi,'latest_charge')
+        if ch and not isinstance(ch,str):
+            receipt=_obj(ch,'receipt_url'); card=_obj(_obj(ch,'payment_method_details') or {},'card') or {}
+            brand=_obj(card,'brand'); last4=_obj(card,'last4')
+    db.execute("UPDATE payment_orders SET status='paid',provider_payment_id=COALESCE(?,provider_payment_id),paid_at=?,amount_received=?,receipt_url=COALESCE(?,receipt_url),card_brand=COALESCE(?,card_brand),card_last4=COALESCE(?,card_last4),updated_at=? WHERE id=?",
+               (_obj(session,'id'),now(),(int(total)/100 if total is not None else order['amount']),receipt,brand,last4,now(),order['id']))
+    if order['booking_id']:
+        b=db.execute('SELECT * FROM bookings WHERE id=?',(order['booking_id'],)).fetchone()
+        if b:
+            reserved=int(b['slot_reserved'] or 0); was_confirmed=b['status']=='confirmed'
+            if b['slot_id'] and not reserved:
+                # The hold was released (late payment): take the spots again if they are still there.
+                if reserve_slot_spots(db,b['slot_id'],max(1,int(b['participants'] or 1))): reserved=1
+                else: audit(db,order['user_id'],'payment_after_slot_full','booking',b['id'],{'source':source})
+            db.execute("UPDATE bookings SET payment_status='paid',status=CASE WHEN status IN ('pending','confirmed') THEN 'confirmed' ELSE status END,slot_reserved=?,updated_at=? WHERE id=?",(reserved,now(),b['id']))
+            db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at) VALUES(?,?,?,?,?,?)',(order['provider_user_id'] or b['user_id'],b['user_id'],b['id'],'Pago recibido · reserva confirmada',f'Hemos recibido tu pago de {float(order["amount"] or 0):.2f} {order["currency"] or "EUR"}. Tu reserva #{b["id"]} está confirmada.',now()))
+            notify_booking(db,b['id'],'paid',{'was_confirmed':was_confirmed})
+    if order['experience_booking_id']:
+        db.execute("UPDATE experience_bookings SET status='confirmed',updated_at=? WHERE id=?",(now(),order['experience_booking_id']))
+    audit(db,order['user_id'],'payment_completed','payment_order',order['id'],{'provider':'stripe','source':source})
+    return True,'paid'
+
+
+def release_order_hold(db, order, new_status):
+    db.execute('UPDATE payment_orders SET status=?,updated_at=? WHERE id=?',(new_status,now(),order['id']))
+    if order['booking_id']:
+        b=db.execute('SELECT participants,slot_reserved,slot_id,payment_status FROM bookings WHERE id=?',(order['booking_id'],)).fetchone()
+        if b and b['payment_status']!='paid':
+            held=_obj(order,'hold_reserved')
+            if held and b['slot_reserved'] and b['slot_id']:
+                release_slot_spots(db,b['slot_id'],max(1,int(b['participants'] or 1)))
+                db.execute('UPDATE bookings SET slot_reserved=0 WHERE id=?',(order['booking_id'],))
+            db.execute("UPDATE bookings SET payment_status='required',updated_at=? WHERE id=?",(now(),order['booking_id']))
+
+
+def sweep_payment_orders():
+    """Every few minutes: confirm payments whose webhook never arrived and free the spots of abandoned checkouts."""
+    while True:
+        time.sleep(300)
+        db=None
+        try:
+            db=connect(); limit=datetime.now(timezone.utc).timestamp()-40*60
+            for o in db.execute("SELECT * FROM payment_orders WHERE status='pending' ORDER BY id LIMIT 200").fetchall():
+                try: created=datetime.fromisoformat(o['created_at']).timestamp()
+                except Exception: continue
+                if created>limit: continue
+                done=False
+                if stripe_secret() and o['provider_payment_id']:
+                    try:
+                        import stripe; stripe.api_key=stripe_secret()
+                        sess=stripe.checkout.Session.retrieve(o['provider_payment_id'],expand=['payment_intent.latest_charge'])
+                        if _obj(sess,'payment_status')=='paid': finalize_paid_order(db,o,sess,'sweeper'); done=True
+                        elif _obj(sess,'status')=='open':
+                            try: stripe.checkout.Session.expire(o['provider_payment_id'])
+                            except Exception: pass
+                    except Exception as exc: sys.stderr.write(f'[pagos] no se pudo revisar el pedido {o["id"]}: {exc}\n')
+                if not done: release_order_hold(db,o,'expired')
+                db.commit()
+        except Exception as exc:
+            sys.stderr.write(f'[pagos] revisión periódica: {exc}\n')
+        finally:
+            if db: db.close()
+
+
+# ---------------------------------------------------------------------------
+# Automatic emails (v50.30)
+# Every email is rendered at the moment of the event (in the recipient's language) and stored in
+# email_outbox inside the same transaction as the change that caused it. A background sender
+# delivers the queue through SMTP (WOD_SMTP_*). Without SMTP configured nothing is lost: emails
+# wait in the outbox and the administrator can read them in Administración → Correos.
+# ---------------------------------------------------------------------------
+import smtplib as _smtplib
+from email.message import EmailMessage as _EmailMessage
+from email.utils import formataddr as _formataddr, make_msgid as _make_msgid
+from datetime import timedelta as _timedelta
+
+MAIL_LANGS = ('es', 'en', 'fr', 'de', 'it', 'pt', 'nl', 'ja', 'ko', 'zh', 'zt')
+_EMAIL_I18N = {}
+
+
+def email_i18n(lang):
+    """Translations of the email texts (Spanish source → language), kept in app/emails/<lang>.json."""
+    if lang in _EMAIL_I18N: return _EMAIL_I18N[lang]
+    d = {}
+    try:
+        p = ROOT / 'app' / 'emails' / f'{lang}.json'
+        if lang != 'es' and p.exists(): d = json.loads(p.read_text(encoding='utf-8'))
+    except Exception as exc:
+        sys.stderr.write(f'[correo] traducciones {lang}: {exc}\n')
+    _EMAIL_I18N[lang] = d
+    return d
+
+
+class _SafeDict(dict):
+    def __missing__(self, key): return ''
+
+
+def mail_t(lang, text, **kw):
+    s = email_i18n(lang).get(text, text) if lang and lang != 'es' else text
+    try: return s.format_map(_SafeDict(kw))
+    except Exception:
+        try: return text.format_map(_SafeDict(kw))
+        except Exception: return text
+
+
+def public_site_url():
+    return (os.environ.get('WOD_PUBLIC_URL', '').strip() or f'http://localhost:{PORT}').rstrip('/')
+
+
+def smtp_config():
+    host = os.environ.get('WOD_SMTP_HOST', '').strip()
+    site_host = urlparse(public_site_url()).hostname or ''
+    default_from = f'no-reply@{site_host}' if '.' in site_host and not site_host.replace('.', '').isdigit() else 'no-reply@worldives.local'
+    try: port = int(os.environ.get('WOD_SMTP_PORT', '587') or 587)
+    except ValueError: port = 587
+    return {'host': host, 'port': port,
+            'user': os.environ.get('WOD_SMTP_USER', '').strip(), 'password': os.environ.get('WOD_SMTP_PASSWORD', ''),
+            'security': (os.environ.get('WOD_SMTP_SECURITY', 'starttls') or 'starttls').strip().lower(),
+            'from': os.environ.get('WOD_MAIL_FROM', '').strip() or default_from,
+            'from_name': os.environ.get('WOD_MAIL_FROM_NAME', 'WORLDIVES DISCOVERY').strip() or 'WORLDIVES DISCOVERY',
+            'reply_to': os.environ.get('WOD_MAIL_REPLY_TO', '').strip(), 'enabled': bool(host)}
+
+
+def legal_settings(db):
+    rows = {r['key']: r['value'] for r in db.execute("SELECT key,value FROM site_settings WHERE key LIKE 'legal\\_%' ESCAPE '\\'").fetchall()}
+    return {k[6:]: (v or '').strip() for k, v in rows.items()}
+
+
+_MONTHS = {
+    'en': ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    'fr': ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'],
+    'de': ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
+    'it': ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'],
+    'pt': ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
+    'nl': ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december']}
+_DAYS = {
+    'en': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    'fr': ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'],
+    'de': ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'],
+    'it': ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'],
+    'pt': ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo'],
+    'nl': ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'],
+    'ja': ['月', '火', '水', '木', '金', '土', '日'], 'ko': ['월', '화', '수', '목', '금', '토', '일'],
+    'zh': ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'], 'zt': ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']}
+
+
+def mail_date(value, lang='es'):
+    """Long date in the recipient's language («domingo, 11 de octubre de 2026», «Sunday 11 October 2026»…)."""
+    try: d = _dt.date.fromisoformat(str(value)[:10])
+    except Exception: return str(value or '')
+    if lang == 'es': return es_long_date(d.isoformat())
+    if lang == 'en': return f"{_DAYS['en'][d.weekday()]} {d.day} {_MONTHS['en'][d.month - 1]} {d.year}"
+    if lang == 'de': return f"{_DAYS['de'][d.weekday()]}, {d.day}. {_MONTHS['de'][d.month - 1]} {d.year}"
+    if lang in ('fr', 'it', 'nl'): return f"{_DAYS[lang][d.weekday()]} {d.day} {_MONTHS[lang][d.month - 1]} {d.year}"
+    if lang == 'pt': return f"{_DAYS['pt'][d.weekday()]}, {d.day} de {_MONTHS['pt'][d.month - 1]} de {d.year}"
+    if lang == 'ja': return f"{d.year}年{d.month}月{d.day}日（{_DAYS['ja'][d.weekday()]}）"
+    if lang == 'ko': return f"{d.year}년 {d.month}월 {d.day}일 ({_DAYS['ko'][d.weekday()]})"
+    if lang in ('zh', 'zt'): return f"{d.year}年{d.month}月{d.day}日 {_DAYS[lang][d.weekday()]}"
+    return d.strftime('%d/%m/%Y')
+
+
+def mail_money(amount, currency='EUR', lang='es'):
+    cur = (currency or 'EUR').upper(); sym = {'EUR': '€', 'USD': '$', 'GBP': '£'}.get(cur)
+    v = float(amount or 0)
+    if lang in ('en', 'ja', 'ko', 'zh', 'zt'):
+        txt = f'{v:,.2f}'.removesuffix('.00')
+        return f'{sym}{txt}' if sym else f'{txt} {cur}'
+    txt = f'{v:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.').removesuffix(',00')
+    return f'{txt} {sym}' if sym else f'{txt} {cur}'
+
+
+def user_lang(db, user_id):
+    r = db.execute('SELECT preferred_language FROM user_profiles WHERE user_id=?', (user_id,)).fetchone()
+    lang = (r['preferred_language'] if r else '') or 'es'
+    return lang if lang in MAIL_LANGS else 'es'
+
+
+def mail_deliverable(email):
+    e = str(email or '').strip().lower()
+    return bool(re.fullmatch(r'[^@\s]+@[^@\s]+\.[a-z]{2,}', e)) and not e.endswith('.local') and not e.endswith('.test') and not e.endswith('@example.com')
+
+
+CANCEL_POLICIES = {'flexible': 24, 'moderada': 48, 'estricta': 168}
+CANCEL_POLICY_TEXT = {
+    'flexible': 'Flexible: cancelación gratuita hasta 24 horas antes de la actividad; después no hay reembolso.',
+    'moderada': 'Moderada: cancelación gratuita hasta 48 horas antes de la actividad; después no hay reembolso.',
+    'estricta': 'Estricta: cancelación gratuita hasta 7 días antes de la actividad; después no hay reembolso.'}
+
+
+def cancellation_policy_key(policy_value):
+    return policy_value if policy_value in CANCEL_POLICIES else 'moderada'
+
+
+def cancellation_policy_hours(policy_value):
+    return CANCEL_POLICIES[cancellation_policy_key(policy_value)]
+
+
+def cancellation_policy_text(policy_value, lang='es'):
+    return mail_t(lang, CANCEL_POLICY_TEXT[cancellation_policy_key(policy_value)])
+
+
+# Templates: subject + preheader + blocks. Texts are Spanish sources with {placeholders}, translated per language.
+# Blocks: h (title), p (paragraph), note (highlighted box), list (items), code (big text), details (booking table),
+# payment (payment line), policy (cancellation policy), bring (checklist), diver (client data for centres),
+# button (label, url key), agenda (centre daily list).
+EMAIL_TEMPLATES = {
+ 'welcome': {'to': 'diver', 'subject': 'Bienvenido a WORLDIVES DISCOVERY', 'pre': 'Tu cuenta está lista para buscar y reservar inmersiones.', 'blocks': [
+   ('h', '¡Hola, {first_name}! Ya formas parte de WORLDIVES'),
+   ('p', 'Tu cuenta está lista. Desde ahora puedes buscar puntos de buceo de todo el mundo, reservar con centros de buceo y llevar tu Log Book en un solo sitio.'),
+   ('list', ['Completa tu ficha de buceador una sola vez: los centros reciben tu titulación y tus tallas al reservar.',
+             'Sube tu titulación y tu seguro para reservar más rápido.',
+             'Cada inmersión suma puntos y desbloquea recompensas.']),
+   ('button', ('Completar mi ficha', 'account_url'))]},
+ 'welcome_pro': {'to': 'pro', 'subject': 'Tu cuenta profesional en WORLDIVES DISCOVERY', 'pre': 'Siguientes pasos para empezar a recibir reservas.', 'blocks': [
+   ('h', 'Bienvenido, {first_name}'),
+   ('p', 'Hemos recibido el alta de tu cuenta profesional. Revisaremos tus datos para activarla y marcar tu perfil como verificado. Mientras tanto, estos son los siguientes pasos:'),
+   ('list', ['Completa tu escaparate: fotos, descripción, idiomas y datos de contacto.',
+             'Crea tus servicios y tarifas y programa tus salidas en el planning.',
+             'Activa los cobros online en «Cobros y pagos» para cobrar al reservar.',
+             'Elige tu política de cancelación para que los buceadores la vean antes de reservar.']),
+   ('button', ('Abrir mi panel', 'panel_url'))]},
+ 'password_reset': {'to': 'any', 'subject': 'Restablece tu contraseña de WORLDIVES', 'pre': 'El enlace caduca en 1 hora.', 'blocks': [
+   ('h', 'Restablecer contraseña'),
+   ('p', 'Hola {first_name}, hemos recibido una solicitud para cambiar la contraseña de tu cuenta de WORLDIVES.'),
+   ('button', ('Elegir una contraseña nueva', 'reset_url')),
+   ('note', 'El enlace caduca en 1 hora y solo se puede usar una vez. Si no has sido tú, ignora este correo: tu contraseña no cambiará.')]},
+ 'password_changed': {'to': 'any', 'subject': 'Tu contraseña se ha cambiado', 'pre': 'Aviso de seguridad de tu cuenta.', 'blocks': [
+   ('h', 'Contraseña cambiada'),
+   ('p', 'Hola {first_name}, la contraseña de tu cuenta de WORLDIVES se ha cambiado el {when}. Por seguridad hemos cerrado las demás sesiones abiertas.'),
+   ('note', 'Si no has sido tú, restablece tu contraseña ahora y escríbenos.'),
+   ('button', ('Restablecer contraseña', 'forgot_url'))]},
+ 'booking_request': {'to': 'diver', 'subject': 'Solicitud enviada: {service} · {date_short}', 'pre': '{center} te confirmará la plaza en breve.', 'blocks': [
+   ('h', 'Hemos enviado tu solicitud'),
+   ('p', 'Hola {first_name}, {center} ha recibido tu solicitud. Te avisaremos por correo en cuanto confirme la plaza.'),
+   ('details', None), ('note', '{pay_note}'), ('policy', None), ('button', ('Ver mi reserva', 'booking_url'))]},
+ 'booking_confirmed': {'to': 'diver', 'subject': 'Reserva confirmada: {service} · {date_short}', 'pre': 'Tu plaza con {center} está confirmada.', 'blocks': [
+   ('h', '¡Tu reserva está confirmada!'),
+   ('p', 'Hola {first_name}, {center} te espera. Aquí tienes todos los detalles de tu reserva.'),
+   ('details', None), ('payment', None), ('button', ('Ver mi reserva y el QR', 'booking_url')),
+   ('p', 'Descarga el comprobante en PDF para tenerlo sin conexión: {pdf_url}'), ('policy', None), ('bring', None)]},
+ 'booking_manual': {'to': 'diver', 'subject': 'Tu reserva con {center}: {service} · {date_short}', 'pre': '{center} ha registrado tu reserva.', 'blocks': [
+   ('h', 'Tienes una reserva con {center}'),
+   ('p', 'Hola {first_name}, {center} ha registrado esta reserva a tu nombre en WORLDIVES. Si no la reconoces, contacta directamente con el centro.'),
+   ('details', None), ('payment', None), ('bring', None), ('p', 'Comprobante en PDF: {pdf_url}')]},
+ 'payment_required': {'to': 'diver', 'subject': 'Plaza aceptada: completa el pago · {service}', 'pre': '{center} ha aceptado tu solicitud.', 'blocks': [
+   ('h', 'Tu plaza está aceptada'),
+   ('p', 'Hola {first_name}, {center} ha aceptado tu solicitud. Completa el pago de {total} para cerrar la reserva.'),
+   ('details', None), ('button', ('Pagar ahora de forma segura', 'booking_url')),
+   ('note', 'El pago lo procesa Stripe con cifrado y verificación 3D Secure. WORLDIVES y el centro nunca ven los datos de tu tarjeta.'), ('policy', None)]},
+ 'payment_receipt': {'to': 'diver', 'subject': 'Recibo de pago · {service} · {total}', 'pre': 'Hemos recibido tu pago.', 'blocks': [
+   ('h', 'Pago recibido'),
+   ('p', 'Hola {first_name}, hemos recibido tu pago. Tu reserva con {center} está confirmada.'),
+   ('details', None), ('payment', None), ('button', ('Ver mi reserva y el QR', 'booking_url')), ('policy', None)]},
+ 'payment_review': {'to': 'diver', 'subject': 'Estamos revisando tu pago · {service}', 'pre': 'No pagues otra vez.', 'blocks': [
+   ('h', 'Estamos revisando tu pago'),
+   ('p', 'Hola {first_name}, el importe recibido no coincide con el de tu reserva con {center}. Nuestro equipo lo está revisando y te escribirá en breve.'),
+   ('note', 'No hace falta que pagues otra vez. Si se ha cobrado de más, te lo devolveremos íntegramente.'),
+   ('button', ('Ver mi reserva', 'booking_url'))]},
+ 'booking_rejected': {'to': 'diver', 'subject': 'Solicitud no disponible · {service} · {date_short}', 'pre': '{center} no puede atender esta solicitud.', 'blocks': [
+   ('h', 'Esta solicitud no está disponible'),
+   ('p', 'Hola {first_name}, lo sentimos: {center} no puede atender tu solicitud para el {date}.'),
+   ('note', '{refund_note}'), ('button', ('Buscar otra fecha', 'center_url'))]},
+ 'booking_cancelled_center': {'to': 'diver', 'subject': 'Reserva cancelada por el centro · {service}', 'pre': '{refund_short}', 'blocks': [
+   ('h', '{center} ha cancelado tu reserva'),
+   ('p', 'Hola {first_name}, el centro ha tenido que cancelar tu reserva del {date}. Suele deberse al estado del mar o a motivos de seguridad.'),
+   ('details', None), ('note', '{refund_note}'), ('button', ('Buscar otra fecha', 'center_url'))]},
+ 'booking_cancelled_diver': {'to': 'diver', 'subject': 'Has cancelado tu reserva · {service}', 'pre': '{refund_short}', 'blocks': [
+   ('h', 'Reserva cancelada'),
+   ('p', 'Hola {first_name}, hemos cancelado tu reserva con {center} del {date}.'),
+   ('details', None), ('note', '{refund_note}'), ('button', ('Buscar otra inmersión', 'search_url'))]},
+ 'reminder': {'to': 'diver', 'subject': 'Mañana buceas con {center} · {time}', 'pre': 'Todo lo que necesitas para mañana.', 'blocks': [
+   ('h', '¡Mañana buceas!'),
+   ('p', 'Hola {first_name}, te recordamos tu inmersión de mañana con {center}.'),
+   ('details', None), ('bring', None), ('button', ('Ver mi reserva y el QR', 'booking_url')),
+   ('p', 'Si no puedes acudir, cancela o avisa al centro cuanto antes desde tu reserva.')]},
+ 'review_request': {'to': 'diver', 'subject': '¿Qué tal con {center}?', 'pre': 'Tu opinión ayuda a otros buceadores.', 'blocks': [
+   ('h', '¿Qué tal tu inmersión?'),
+   ('p', 'Hola {first_name}, esperamos que disfrutaras buceando con {center}. ¿Nos cuentas qué tal? Tu reseña aparece como verificada y ayuda a otros buceadores a elegir.'),
+   ('button', ('Escribir mi reseña', 'review_url')),
+   ('p', 'Recuerda que puedes apuntar la profundidad, el tiempo y tus notas en tu Log Book.')]},
+ 'promotion_received': {'to': 'diver', 'subject': 'Tienes una promoción de {center}', 'pre': '{promo_title}', 'blocks': [
+   ('h', 'Tienes una promoción'),
+   ('p', 'Hola {first_name}, {center} te ha regalado una promoción:'), ('code', '{promo_title}'), ('p', '{promo_value}'),
+   ('p', 'Válida hasta el {valid_until}. Enseña tu QR personal en el centro y lo validarán al momento.'),
+   ('button', ('Ver mi QR', 'promo_url'))]},
+ 'experience_request': {'to': 'diver', 'subject': 'Solicitud enviada: {experience}', 'pre': 'El organizador te responderá en breve.', 'blocks': [
+   ('h', 'Hemos enviado tu solicitud'),
+   ('p', 'Hola {first_name}, el organizador de «{experience}» ha recibido tu solicitud para {participants} personas. Te avisaremos en cuanto responda.'),
+   ('button', ('Ver mis viajes', 'area_url'))]},
+ 'experience_status': {'to': 'diver', 'subject': '{status_title}: {experience}', 'pre': '{status_title}', 'blocks': [
+   ('h', '{status_title}'), ('p', 'Hola {first_name}, {status_text}'), ('button', ('Ver mis viajes', 'area_url'))]},
+ 'account_deleted': {'to': 'any', 'subject': 'Tu cuenta de WORLDIVES se ha eliminado', 'pre': 'Confirmación de baja.', 'blocks': [
+   ('h', 'Cuenta eliminada'),
+   ('p', 'Hola {first_name}, hemos eliminado tu cuenta y tus datos personales como nos pediste. Solo conservamos, de forma bloqueada, lo que la ley nos obliga a guardar (por ejemplo, los datos de los pagos).'),
+   ('p', 'Gracias por haber buceado con nosotros. Si algún día quieres volver, estaremos aquí.')]},
+ # ---- dive centres and professionals
+ 'center_new_booking': {'to': 'center', 'subject': 'Nueva reserva: {service} · {date_short} · {diver_name}', 'pre': '{action_short}', 'blocks': [
+   ('h', '{action_title}'), ('p', '{diver_name} ha reservado «{service}» para el {date}.'),
+   ('details', None), ('payment', None), ('diver', None), ('button', ('{action_button}', 'panel_booking_url'))]},
+ 'center_booking_paid': {'to': 'center', 'subject': 'Pago recibido: {service} · {date_short} · {diver_name}', 'pre': '{total} cobrados online.', 'blocks': [
+   ('h', 'Pago recibido'), ('p', '{diver_name} ha pagado su reserva. La plaza queda confirmada.'),
+   ('details', None), ('payment', None), ('button', ('Ver la reserva', 'panel_booking_url'))]},
+ 'center_booking_cancelled': {'to': 'center', 'subject': 'Reserva cancelada por el cliente: {service} · {date_short}', 'pre': '{diver_name} ha cancelado.', 'blocks': [
+   ('h', 'Reserva cancelada por el cliente'),
+   ('p', '{diver_name} ha cancelado su reserva del {date}. Las plazas vuelven a estar disponibles en tu planning.'),
+   ('details', None), ('note', '{center_refund_note}'), ('button', ('Ver el planning', 'panel_planning_url'))]},
+ 'center_daily_agenda': {'to': 'center', 'subject': 'Agenda de mañana · {date_short} · {slots_count} salidas', 'pre': '{divers_count} buceadores confirmados.', 'blocks': [
+   ('h', 'Tu agenda de mañana'), ('p', 'Estas son tus salidas del {date}:'), ('agenda', None),
+   ('button', ('Abrir el planning', 'panel_planning_url'))]},
+ 'center_promo_invite': {'to': 'center', 'subject': '{issuer} te invita a una promoción', 'pre': '{promo_title}', 'blocks': [
+   ('h', 'Invitación a una promoción'),
+   ('p', '{issuer} quiere que su promoción «{promo_title}» también sea válida en tu centro. Si la aceptas, podrás validar y canjear los códigos de sus clientes.'),
+   ('button', ('Ver la invitación', 'panel_qr_url'))]},
+ 'center_experience_request': {'to': 'center', 'subject': 'Nueva solicitud: {experience}', 'pre': '{diver_name} quiere apuntarse.', 'blocks': [
+   ('h', 'Nueva solicitud de viaje'), ('p', '{diver_name} ha solicitado plaza en «{experience}» para {participants} personas.'),
+   ('p', '{notes}'), ('button', ('Responder la solicitud', 'panel_exp_url'))]},
+ 'center_verified': {'to': 'center', 'subject': 'Tu perfil profesional está verificado en WORLDIVES', 'pre': 'Ya puedes recibir reservas.', 'blocks': [
+   ('h', '¡Perfil verificado!'),
+   ('p', 'Hola {first_name}, hemos verificado tu perfil profesional ({center}). Desde ahora puedes gestionar tus servicios y recibir reservas en WORLDIVES.'),
+   ('button', ('Abrir mi panel', 'panel_url'))]},
+ # ---- administrators
+ 'admin_new_pro': {'to': 'admin', 'subject': 'Nueva cuenta profesional pendiente: {center}', 'pre': 'Revisa la verificación.', 'blocks': [
+   ('h', 'Nueva cuenta profesional'), ('p', '{pro_name} ({pro_email}) ha creado una cuenta de {pro_type}: {center}.'),
+   ('button', ('Revisar verificaciones', 'admin_claims_url'))]},
+ 'admin_payment_review': {'to': 'admin', 'subject': 'Pago en revisión: {service} · {total}', 'pre': 'El importe no coincide.', 'blocks': [
+   ('h', 'Pago en revisión'), ('p', 'El cobro de la reserva {ref} ({center}) no coincide con el importe esperado. Decide en Administración → Pagos.'),
+   ('button', ('Abrir Pagos', 'admin_pay_url'))]},
+ 'admin_refund_failed': {'to': 'admin', 'subject': 'Devolución pendiente: {ref} · {total}', 'pre': 'Stripe no ha podido hacer la devolución.', 'blocks': [
+   ('h', 'Devolución pendiente'), ('p', 'No se ha podido devolver automáticamente el pago de la reserva {ref} ({center}, {total}). Hazla desde el panel de Stripe y márcala en Administración → Pagos.'),
+   ('note', '{error}'), ('button', ('Abrir Pagos', 'admin_pay_url'))]},
+ 'admin_content_report': {'to': 'admin', 'subject': 'Nueva denuncia de contenido · {reason}', 'pre': '{target}', 'blocks': [
+   ('h', 'Nueva denuncia de contenido'), ('p', 'Motivo: {reason}'), ('p', 'Contenido: {target}'), ('note', '{details}'),
+   ('p', 'Remitente: {reporter}'), ('button', ('Revisar denuncias', 'admin_legal_url'))]},
+ 'report_received': {'to': 'any', 'subject': 'Hemos recibido tu denuncia · {ref}', 'pre': 'La revisaremos lo antes posible.', 'blocks': [
+   ('h', 'Hemos recibido tu denuncia'),
+   ('p', 'Hola {first_name}, gracias por avisarnos. Hemos registrado tu denuncia con la referencia {ref} (motivo: {reason}).'),
+   ('p', 'La revisaremos con diligencia y de forma objetiva, y te escribiremos con la decisión que tomemos.')]},
+ 'report_resolved': {'to': 'any', 'subject': 'Resultado de tu denuncia · {ref}', 'pre': '{decision}', 'blocks': [
+   ('h', 'Hemos revisado tu denuncia'), ('p', 'Hola {first_name}, hemos revisado la denuncia {ref}.'), ('note', '{decision}'), ('p', '{resolution}'),
+   ('p', 'Si no estás de acuerdo con la decisión, puedes responder a este correo y la revisaremos de nuevo.')]},
+ 'test': {'to': 'any', 'subject': 'Correo de prueba de WORLDIVES DISCOVERY', 'pre': 'La configuración de correo funciona.', 'blocks': [
+   ('h', '¡Funciona!'), ('p', 'Este es un correo de prueba. Si lo estás leyendo, el envío de correos de WORLDIVES está bien configurado.')]},
+}
+EMAIL_TEMPLATE_LABELS = {
+ 'welcome': 'Bienvenida (buceador)', 'welcome_pro': 'Bienvenida (centro / profesional)', 'password_reset': 'Restablecer contraseña',
+ 'password_changed': 'Aviso de contraseña cambiada', 'booking_request': 'Solicitud enviada', 'booking_confirmed': 'Reserva confirmada',
+ 'booking_manual': 'Reserva registrada por el centro', 'payment_required': 'Plaza aceptada: pago pendiente', 'payment_receipt': 'Recibo de pago',
+ 'payment_review': 'Pago en revisión', 'booking_rejected': 'Solicitud rechazada', 'booking_cancelled_center': 'Cancelada por el centro',
+ 'booking_cancelled_diver': 'Cancelada por el buceador', 'reminder': 'Recordatorio del día anterior', 'review_request': 'Petición de reseña',
+ 'promotion_received': 'Promoción recibida', 'experience_request': 'Solicitud de viaje enviada', 'experience_status': 'Respuesta a solicitud de viaje',
+ 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
+ 'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
+ 'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'admin_new_pro': 'Admin: nueva cuenta profesional',
+ 'admin_payment_review': 'Admin: pago en revisión', 'admin_refund_failed': 'Admin: devolución pendiente', 'admin_content_report': 'Admin: denuncia de contenido',
+ 'report_received': 'Denuncia recibida', 'report_resolved': 'Resultado de la denuncia', 'test': 'Correo de prueba'}
+EMAIL_AUDIENCE = {'diver': 'Buceador', 'pro': 'Profesional', 'center': 'Centro', 'admin': 'Administración', 'any': 'Cualquier usuario'}
+
+
+def _esc(v): return html.escape(str(v if v is not None else ''), quote=True)
+
+
+def booking_mail_ctx(db, bid, lang='es'):
+    b = db.execute('''SELECT b.*, u.fullname, u.email, up.phone AS diver_phone, c.name AS center_name, c.email AS center_email, c.phone AS center_phone,
+                             c.address AS center_address, c.city AS center_city, c.cancellation_policy, p.name AS point_name, s.title AS service_title, s.booking_mode
+                        FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id LEFT JOIN user_profiles up ON up.user_id=u.id
+                        LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?''', (bid,)).fetchone()
+    if not b: return None
+    base = public_site_url()
+    po = db.execute("SELECT * FROM payment_orders WHERE booking_id=? ORDER BY CASE status WHEN 'paid' THEN 0 WHEN 'refunded' THEN 1 ELSE 2 END, id DESC LIMIT 1", (bid,)).fetchone()
+    first = (b['fullname'] or '').split(' ')[0]
+    return {'booking_id': bid, 'ref': f'WOD-{bid:06d}', 'first_name': first or mail_t(lang, 'buceador'), 'diver_name': b['fullname'] or '', 'diver_email': b['email'] if mail_deliverable(b['email']) else '',
+            'diver_phone': b['diver_phone'] or b['contact_phone'] or '', 'center': b['center_name'] or '', 'center_id': b['center_id'], 'center_email': b['center_email'] or '',
+            'center_phone': b['center_phone'] or '', 'center_address': ', '.join(x for x in (b['center_address'], b['center_city']) if x),
+            'service': b['service_title'] or mail_t(lang, 'Inmersión'), 'point': b['point_name'] or '', 'date': mail_date(b['booking_date'], lang),
+            'date_short': '/'.join(reversed(str(b['booking_date'] or '').split('-'))), 'time': b['booking_time'] or '', 'participants': int(b['participants'] or 1),
+            'total': mail_money(b['price'], b['currency'], lang), 'price': float(b['price'] or 0), 'currency': b['currency'] or 'EUR', 'payment_status': b['payment_status'],
+            'status': b['status'], 'equipment': b['equipment_items'] or '', 'notes': b['notes'] or '', 'booking_mode': b['booking_mode'], 'user_id': b['user_id'],
+            'card': (f"{(po['card_brand'] or '').title()} ···· {po['card_last4']}" if po and po['card_last4'] else ''), 'pay_ref': f"PAY-{po['id']:05d}" if po else '',
+            'policy': cancellation_policy_text(b['cancellation_policy'], lang),
+            'booking_url': f'{base}/#/reserva?id={bid}', 'pdf_url': f'{base}/api/bookings/{bid}/receipt.pdf', 'center_url': f"{base}/#/centro?id={b['center_id']}",
+            'review_url': f"{base}/#/centro?id={b['center_id']}&resena=1", 'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings',
+            'panel_planning_url': f'{base}/#/admin?tab=planning', 'admin_pay_url': f'{base}/#/admin?tab=adminpay'}
+
+
+def render_email(db, template, lang, ctx):
+    """Returns (subject, html, text) for a template in `lang`. Values from the context are inserted escaped."""
+    tpl = EMAIL_TEMPLATES[template]; lang = lang if lang in MAIL_LANGS else 'es'
+    t = lambda s, **kw: mail_t(lang, s, **kw)
+    fmt = lambda s: mail_t(lang, s, **ctx)
+    legal = legal_settings(db); base = public_site_url()
+    rows_html = []; text = []
+    P = 'margin:0 0 14px;font-size:15px;line-height:1.6;color:#2b3f48'
+
+    def para(s, style=P):
+        rows_html.append(f'<p style="{style}">{_esc(s)}</p>'); text.append(s); text.append('')
+
+    def details_rows():
+        items = [(t('Reserva'), ctx.get('ref')), (t('Actividad'), ctx.get('service')), (t('Centro'), ctx.get('center')), (t('Fecha'), ctx.get('date')),
+                 (t('Hora'), ctx.get('time') or t('Por confirmar')), (t('Punto de buceo'), ctx.get('point') or t('A concretar con el centro')),
+                 (t('Buceadores'), ctx.get('participants')), (t('Equipo de alquiler'), ctx.get('equipment')), (t('Total'), ctx.get('total'))]
+        return [(k, v) for k, v in items if v not in (None, '', 0)]
+    for kind, val in tpl['blocks']:
+        if kind == 'h':
+            s = fmt(val)
+            rows_html.append(f'<h1 style="margin:0 0 16px;font-size:24px;line-height:1.25;color:#07364a;font-family:Georgia,\'Times New Roman\',serif;font-weight:500">{_esc(s)}</h1>')
+            text += [s.upper(), '']
+        elif kind == 'p':
+            s = fmt(val)
+            if s.strip(): para(s)
+        elif kind == 'note':
+            s = fmt(val)
+            if s.strip():
+                rows_html.append(f'<div style="margin:4px 0 18px;padding:14px 16px;border-radius:10px;background:#f1f7f8;border-left:4px solid #0b7a89;font-size:14px;line-height:1.55;color:#2b3f48">{_esc(s)}</div>')
+                text += ['» ' + s, '']
+        elif kind == 'list':
+            lis = ''.join(f'<li style="margin:0 0 8px">{_esc(fmt(x))}</li>' for x in val)
+            rows_html.append(f'<ul style="margin:0 0 18px;padding-left:20px;font-size:15px;line-height:1.55;color:#2b3f48">{lis}</ul>')
+            text += ['- ' + fmt(x) for x in val] + ['']
+        elif kind == 'code':
+            s = fmt(val)
+            rows_html.append(f'<div style="margin:4px 0 14px;padding:16px;border:2px dashed #0b7a89;border-radius:12px;text-align:center;font-size:18px;font-weight:700;color:#07364a">{_esc(s)}</div>')
+            text += [s, '']
+        elif kind == 'details':
+            rws = details_rows()
+            tr = ''.join(f'<tr><td style="padding:9px 12px;border-bottom:1px solid #e6eef0;color:#65747d;font-size:13px;width:38%;vertical-align:top">{_esc(k)}</td>'
+                         f'<td style="padding:9px 12px;border-bottom:1px solid #e6eef0;font-size:14px;font-weight:600;color:#153142">{_esc(v)}</td></tr>' for k, v in rws)
+            rows_html.append(f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 18px;border:1px solid #e6eef0;border-radius:10px;border-collapse:separate;overflow:hidden">{tr}</table>')
+            text += [f'{k}: {v}' for k, v in rws] + ['']
+        elif kind == 'payment':
+            ps = ctx.get('payment_status'); s = ''
+            if ctx.get('price', 0) <= 0: s = t('Actividad sin coste.')
+            elif ps == 'paid':
+                s = t('Pagado: {total}', total=ctx.get('total')) + (f" · {ctx['card']}" if ctx.get('card') else '') + (f" · {t('Ref. del pago')} {ctx['pay_ref']}" if ctx.get('pay_ref') else '')
+            elif ps == 'at_center': s = t('Pago en el centro: {total}, el día de la actividad.', total=ctx.get('total'))
+            elif ps in ('required', 'pending'): s = t('Pago pendiente: {total}.', total=ctx.get('total'))
+            elif ps == 'refunded': s = t('Importe devuelto: {total}.', total=ctx.get('total'))
+            if s: para(s, 'margin:0 0 16px;font-size:14px;line-height:1.5;color:#1f6b52;font-weight:600')
+        elif kind == 'policy':
+            if ctx.get('policy'): para(t('Política de cancelación del centro: {policy}', policy=ctx['policy']), 'margin:0 0 14px;font-size:13px;line-height:1.5;color:#65747d')
+        elif kind == 'bring':
+            items = [t('Llega 15–20 minutos antes de la hora.'), t('Lleva tu titulación y el seguro de buceo.'), t('Documento de identidad o pasaporte.')]
+            if ctx.get('center_address'): items.append(t('Dirección del centro: {address}', address=ctx['center_address']))
+            if ctx.get('center_phone'): items.append(t('Teléfono del centro: {phone}', phone=ctx['center_phone']))
+            lis = ''.join(f'<li style="margin:0 0 6px">{_esc(x)}</li>' for x in items)
+            rows_html.append(f'<p style="margin:6px 0 8px;font-size:12px;font-weight:700;color:#07364a;text-transform:uppercase;letter-spacing:.08em">{_esc(t("Antes de bucear"))}</p>'
+                             f'<ul style="margin:0 0 18px;padding-left:20px;font-size:14px;line-height:1.5;color:#2b3f48">{lis}</ul>')
+            text += [t('Antes de bucear').upper()] + ['- ' + x for x in items] + ['']
+        elif kind == 'diver':
+            rws = [(t('Cliente'), ctx.get('diver_name')), (t('Email'), ctx.get('diver_email')), (t('Teléfono'), ctx.get('diver_phone')), (t('Notas'), ctx.get('notes'))]
+            rws = [(k, v) for k, v in rws if v]
+            tr = ''.join(f'<tr><td style="padding:6px 0;color:#65747d;font-size:13px;width:38%">{_esc(k)}</td><td style="padding:6px 0;font-size:14px;color:#153142">{_esc(v)}</td></tr>' for k, v in rws)
+            rows_html.append(f'<table role="presentation" width="100%" style="margin:0 0 16px">{tr}</table>'); text += [f'{k}: {v}' for k, v in rws] + ['']
+        elif kind == 'agenda':
+            for sl in ctx.get('agenda', []):
+                people = ''.join(f'<li style="margin:0 0 4px">{_esc(p)}</li>' for p in sl['people']) or f'<li>{_esc(t("Sin reservas todavía"))}</li>'
+                rows_html.append(f'<div style="margin:0 0 14px;padding:12px 14px;border:1px solid #e6eef0;border-radius:10px"><div style="font-size:15px;font-weight:700;color:#07364a">{_esc(sl["time"])} · {_esc(sl["title"])}</div>'
+                                 f'<div style="font-size:13px;color:#65747d;margin:2px 0 8px">{_esc(t("Buceadores") + ": " + str(sl["taken"]) if sl.get("loose") else t("{taken} de {total} plazas ocupadas", taken=sl["taken"], total=sl["total"]))}{(" · " + _esc(sl["points"])) if sl.get("points") else ""}</div>'
+                                 f'<ul style="margin:0;padding-left:18px;font-size:14px;color:#2b3f48">{people}</ul></div>')
+                text += [f"{sl['time']} · {sl['title']} ({sl['taken']}/{sl['total']})"] + ['  - ' + p for p in sl['people']] + ['']
+        elif kind == 'button':
+            label, key = val; url = ctx.get(key) or base; s = fmt(label)
+            rows_html.append(f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 22px"><tr><td style="border-radius:999px;background:#07364a">'
+                             f'<a href="{_esc(url)}" style="display:inline-block;padding:13px 24px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px">{_esc(s)}</a></td></tr></table>')
+            text += [f'{s}: {url}', '']
+    subject = fmt(tpl['subject']); pre = fmt(tpl.get('pre', ''))
+    who = {'diver': 'Recibes este correo porque tienes una cuenta o una reserva en WORLDIVES DISCOVERY.',
+           'center': 'Recibes este correo porque gestionas un centro o un perfil profesional en WORLDIVES DISCOVERY.',
+           'pro': 'Recibes este correo porque has creado una cuenta profesional en WORLDIVES DISCOVERY.',
+           'admin': 'Aviso interno para la administración de WORLDIVES DISCOVERY.', 'any': 'Correo de servicio de WORLDIVES DISCOVERY.'}[tpl.get('to', 'any')]
+    owner = legal.get('owner_name') or 'WORLDIVES DISCOVERY'
+    foot_addr = ' · '.join(x for x in (owner, (f"NIF {legal['nif']}" if legal.get('nif') else ''), legal.get('address'), legal.get('email')) if x)
+    html_lang = {'zt': 'zh-Hant', 'zh': 'zh-Hans'}.get(lang, lang)
+    html_doc = f'''<!doctype html><html lang="{_esc(html_lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>{_esc(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f2efe8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">{_esc(pre)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2efe8"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(7,54,74,.08)">
+<tr><td style="background:#07364a;padding:20px 28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="padding-right:12px"><img src="{_esc(base)}/assets/images/wod-icon-512.png" width="40" height="40" alt="" style="display:block;border-radius:10px;background:#ffffff"></td>
+<td><a href="{_esc(base)}" style="color:#ffffff;text-decoration:none;font-size:17px;font-weight:800;letter-spacing:.06em">WORLDIVES DISCOVERY</a><div style="height:3px;width:42px;background:#12a5b5;margin-top:8px;border-radius:3px"></div></td></tr></table></td></tr>
+<tr><td style="padding:30px 28px 8px">{''.join(rows_html)}</td></tr>
+<tr><td style="padding:18px 28px 26px;border-top:1px solid #eef2f3;font-size:12px;line-height:1.55;color:#7d8d94">{_esc(t(who))}<br>{_esc(foot_addr)}<br>
+<a href="{_esc(base)}/#/legal/privacidad" style="color:#0b7a89">{_esc(t('Política de privacidad'))}</a> · <a href="{_esc(base)}/#/legal/reservas" style="color:#0b7a89">{_esc(t('Condiciones de reserva'))}</a> · <a href="{_esc(base)}/#/legal/aviso-legal" style="color:#0b7a89">{_esc(t('Aviso legal'))}</a></td></tr>
+</table></td></tr></table></body></html>'''
+    text_doc = '\n'.join(text).strip() + '\n\n--\n' + t(who) + '\n' + foot_addr + '\n' + f'{base}/#/legal/privacidad\n'
+    return subject, html_doc, text_doc
+
+
+def queue_email(db, template, to_email, to_name, ctx, lang='es', related=None):
+    """Renders and stores an email in the outbox, inside the caller's transaction. Never raises."""
+    try:
+        subject, html_doc, text_doc = render_email(db, template, lang, ctx)
+        status = 'queued' if mail_deliverable(to_email) else 'skipped'
+        rel = related or (None, None)
+        db.execute('INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,0,?)',
+                   (template, lang, (to_email or '').strip().lower(), to_name or '', subject, html_doc, text_doc, status, rel[0], rel[1], now()))
+    except Exception as exc:
+        sys.stderr.write(f'[correo] no se pudo preparar «{template}»: {exc}\n')
+
+
+def user_mail_ctx(db, user_id):
+    u = db.execute('SELECT id,fullname,email,role,center_id FROM users WHERE id=?', (user_id,)).fetchone()
+    if not u: return None, 'es'
+    lang = user_lang(db, u['id']); base = public_site_url()
+    return {'first_name': (u['fullname'] or '').split(' ')[0], 'name': u['fullname'] or '', 'email': u['email'] or '',
+            'account_url': f'{base}/#/cuenta', 'panel_url': f'{base}/#/admin', 'area_url': f'{base}/#/area', 'forgot_url': f'{base}/#/recuperar',
+            'promo_url': f'{base}/#/recompensas', 'search_url': f'{base}/#/centros', 'panel_qr_url': f'{base}/#/admin?tab=qr',
+            'panel_exp_url': f'{base}/#/admin?tab=experiences', 'admin_claims_url': f'{base}/#/admin?tab=claims', 'admin_pay_url': f'{base}/#/admin?tab=adminpay',
+            'admin_legal_url': f'{base}/#/admin?tab=legal', 'panel_planning_url': f'{base}/#/admin?tab=planning'}, lang
+
+
+def notify_user(db, user_id, template, extra=None, related=None):
+    ctx, lang = user_mail_ctx(db, user_id)
+    if not ctx: return
+    ctx.update(extra or {})
+    queue_email(db, template, ctx['email'], ctx['name'], ctx, lang, related)
+
+
+def center_recipients(db, center_id):
+    """Who receives a centre's emails: its manager accounts and, if different, the centre's public email."""
+    out = {}
+    for r in db.execute("SELECT id,fullname,email FROM users WHERE center_id=? AND role='center'", (center_id,)).fetchall():
+        if mail_deliverable(r['email']): out[r['email'].lower()] = (r['fullname'], user_lang(db, r['id']))
+    c = db.execute('SELECT name,email FROM centers WHERE id=?', (center_id,)).fetchone()
+    if c and mail_deliverable(c['email']) and c['email'].lower() not in out: out[c['email'].lower()] = (c['name'], 'es')
+    return [(e, n, l) for e, (n, l) in out.items()]
+
+
+def admin_recipients(db):
+    legal = legal_settings(db); out = []
+    if mail_deliverable(legal.get('email')): out.append((legal['email'], legal.get('owner_name') or 'WORLDIVES', 'es'))
+    for r in db.execute("SELECT fullname,email FROM users WHERE role='admin' ORDER BY id LIMIT 3").fetchall():
+        if mail_deliverable(r['email']) and all(r['email'].lower() != o[0].lower() for o in out): out.append((r['email'], r['fullname'], 'es'))
+    return out
+
+
+def notify_admins(db, template, ctx, related=None):
+    base_ctx, _ = user_mail_ctx(db, 0) if False else ({}, 'es')
+    base = public_site_url()
+    full = {'admin_claims_url': f'{base}/#/admin?tab=claims', 'admin_pay_url': f'{base}/#/admin?tab=adminpay', 'admin_legal_url': f'{base}/#/admin?tab=legal', **(ctx or {})}
+    for email, name, lang in admin_recipients(db):
+        queue_email(db, template, email, name, full, lang, related)
+
+
+def refund_texts(lang, outcome, amount_text):
+    """outcome: 'none_paid' | 'refunded' | 'refund_pending' | 'no_refund'."""
+    t = lambda s, **kw: mail_t(lang, s, **kw)
+    if outcome == 'refunded': return {'refund_note': t('Te devolvemos {amount} a la misma tarjeta. Lo verás en tu cuenta en 5–10 días hábiles, según tu banco.', amount=amount_text), 'refund_short': t('Te devolvemos {amount}.', amount=amount_text)}
+    if outcome == 'refund_pending': return {'refund_note': t('Vamos a devolverte {amount} a la misma tarjeta. Te avisaremos cuando la devolución esté hecha.', amount=amount_text), 'refund_short': t('Te devolvemos {amount}.', amount=amount_text)}
+    if outcome == 'no_refund': return {'refund_note': t('Según la política de cancelación del centro, esta cancelación no tiene reembolso.'), 'refund_short': t('Cancelación sin reembolso.')}
+    return {'refund_note': t('No se te había cobrado nada.'), 'refund_short': t('No se te había cobrado nada.')}
+
+
+def notify_booking(db, bid, event, extra=None):
+    """Emails for a booking event to the diver and, when it matters, to the centre and the administrators."""
+    try:
+        b = db.execute('SELECT user_id,center_id FROM bookings WHERE id=?', (bid,)).fetchone()
+        if not b: return
+        lang_d = user_lang(db, b['user_id'])
+        ctx = booking_mail_ctx(db, bid, lang_d)
+        if not ctx: return
+        extra = extra or {}; ctx.update(extra)
+        rel = ('booking', bid)
+
+        def to_diver(tpl, more=None):
+            c = dict(ctx); c.update(more or {})
+            if c.get('diver_email'): queue_email(db, tpl, c['diver_email'], c['diver_name'], c, lang_d, rel)
+
+        def to_center(tpl, more=None):
+            for email, name, lang in center_recipients(db, b['center_id']):
+                c = booking_mail_ctx(db, bid, lang) or dict(ctx); c.update(extra); c.update(more or {})
+                for k in ('action_title', 'action_short', 'action_button', 'center_refund_note'):
+                    if c.get(k): c[k] = mail_t(lang, c[k])
+                queue_email(db, tpl, email, name, c, lang, rel)
+        if event == 'created':
+            if ctx['status'] == 'confirmed':
+                to_diver('booking_confirmed')
+                to_center('center_new_booking', {'action_title': 'Nueva reserva confirmada', 'action_short': 'Reserva confirmada', 'action_button': 'Ver la reserva'})
+            else:
+                pay_note = ('Pagarás directamente en el centro el día de la actividad.' if ctx['payment_status'] == 'at_center' else
+                            'No se cobra nada hasta que el centro confirme la plaza. Después podrás pagar online.' if ctx['payment_status'] == 'required' else '')
+                to_diver('booking_request', {'pay_note': mail_t(lang_d, pay_note) if pay_note else ''})
+                to_center('center_new_booking', {'action_title': 'Nueva solicitud: confírmala', 'action_short': 'Pendiente de que la confirmes', 'action_button': 'Confirmar o rechazar'})
+        elif event == 'manual':
+            to_diver('booking_manual')
+        elif event == 'confirmed':
+            if ctx['payment_status'] == 'required' and ctx['price'] > 0: to_diver('payment_required')
+            else: to_diver('booking_confirmed')
+        elif event == 'paid':
+            if extra.get('was_confirmed'):
+                to_diver('payment_receipt'); to_center('center_booking_paid')
+            else:
+                to_diver('booking_confirmed')
+                to_center('center_new_booking', {'action_title': 'Nueva reserva pagada', 'action_short': 'Pagada online y confirmada', 'action_button': 'Ver la reserva'})
+        elif event == 'payment_review':
+            to_diver('payment_review')
+            notify_admins(db, 'admin_payment_review', ctx, rel)
+        elif event == 'rejected':
+            to_diver('booking_rejected', refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']))
+        elif event == 'cancelled_center':
+            to_diver('booking_cancelled_center', refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']))
+        elif event == 'cancelled_diver':
+            outcome = extra.get('refund', 'none_paid')
+            to_diver('booking_cancelled_diver', refund_texts(lang_d, outcome, ctx['total']))
+            note = {'refunded': 'El importe se ha devuelto automáticamente al cliente según tu política de cancelación.',
+                    'refund_pending': 'La devolución al cliente está en curso.',
+                    'no_refund': 'Cancelación fuera de plazo: según tu política de cancelación, no hay reembolso.'}.get(outcome, 'El cliente no había pagado online.')
+            to_center('center_booking_cancelled', {'center_refund_note': note})
+        elif event == 'refund_failed':
+            notify_admins(db, 'admin_refund_failed', dict(ctx, error=extra.get('error', '')), rel)
+        elif event == 'reminder': to_diver('reminder')
+        elif event == 'review': to_diver('review_request')
+    except Exception as exc:
+        sys.stderr.write(f'[correo] aviso de reserva {bid}/{event}: {exc}\n')
+
+
+def _smtp_open(cfg):
+    if cfg['security'] == 'ssl':
+        s = _smtplib.SMTP_SSL(cfg['host'], cfg['port'], timeout=20)
+    else:
+        s = _smtplib.SMTP(cfg['host'], cfg['port'], timeout=20)
+        if cfg['security'] == 'starttls': s.starttls()
+    if cfg['user']: s.login(cfg['user'], cfg['password'])
+    return s
+
+
+def _build_message(cfg, row):
+    msg = _EmailMessage()
+    msg['Subject'] = row['subject']; msg['From'] = _formataddr((cfg['from_name'], cfg['from']))
+    msg['To'] = _formataddr((row['to_name'] or '', row['to_email'])); msg['Message-ID'] = _make_msgid(domain=cfg['from'].split('@')[-1])
+    if cfg['reply_to']: msg['Reply-To'] = cfg['reply_to']
+    msg['Auto-Submitted'] = 'auto-generated'
+    msg.set_content(row['text'] or '')
+    msg.add_alternative(row['html'] or '', subtype='html')
+    return msg
+
+
+def send_one_email(cfg, row, conn=None):
+    """Sends one email. With `conn` the open SMTP connection is reused (batch sending)."""
+    msg = _build_message(cfg, row)
+    if conn is not None:
+        conn.send_message(msg); return
+    s = _smtp_open(cfg)
+    try: s.send_message(msg)
+    finally:
+        try: s.quit()
+        except Exception: pass
+
+
+def deliver_outbox_once(limit=150):
+    """Sends a batch of queued emails over one SMTP connection. Returns how many were sent."""
+    cfg = smtp_config()
+    if not cfg['enabled']: return 0
+    db = None; sent = 0; conn = None
+    try:
+        db = connect()
+        cutoff = (datetime.now(timezone.utc) - _timedelta(hours=72)).isoformat(timespec='seconds')
+        db.execute("UPDATE email_outbox SET status='expired' WHERE status='queued' AND created_at<?", (cutoff,))
+        db.execute("UPDATE email_outbox SET status='queued' WHERE status='sending' AND created_at<?", ((datetime.now(timezone.utc) - _timedelta(minutes=15)).isoformat(timespec='seconds'),))
+        db.commit()
+        rows = db.execute("SELECT * FROM email_outbox WHERE status='queued' AND (next_try_at IS NULL OR next_try_at<=?) ORDER BY id LIMIT ?", (now(), limit)).fetchall()
+        for r in rows:
+            if db.execute("UPDATE email_outbox SET status='sending' WHERE id=? AND status='queued'", (r['id'],)).rowcount != 1: db.commit(); continue
+            db.commit()
+            try:
+                if conn is None: conn = _smtp_open(cfg)
+                send_one_email(cfg, r, conn)
+                db.execute("UPDATE email_outbox SET status='sent',sent_at=?,attempts=attempts+1,last_error=NULL WHERE id=?", (now(), r['id'])); sent += 1
+            except Exception as exc:
+                try:
+                    if conn is not None: conn.close()
+                except Exception: pass
+                conn = None
+                att = int(r['attempts'] or 0) + 1
+                nxt = (datetime.now(timezone.utc) + _timedelta(minutes=min(60, 2 ** att))).isoformat(timespec='seconds')
+                db.execute("UPDATE email_outbox SET status=?,attempts=?,last_error=?,next_try_at=? WHERE id=?", ('failed' if att >= 6 else 'queued', att, str(exc)[:300], nxt, r['id']))
+                sys.stderr.write(f'[correo] envío {r["id"]} fallido: {exc}\n')
+            db.commit()
+    except Exception as exc:
+        sys.stderr.write(f'[correo] cola: {exc}\n')
+    finally:
+        if conn is not None:
+            try: conn.quit()
+            except Exception: pass
+        if db: db.close()
+    return sent
+
+
+def queue_center_agendas(db, day):
+    """Tomorrow's departures for each centre, with its divers (sent once per centre and day).
+    Bookings without a departure (entered by date only) are listed too."""
+    rows = db.execute('''SELECT s.id AS slot_id, s.slot_time, s.spots_total, s.spots_available, ps.title, ps.center_id
+                           FROM service_slots s JOIN provider_services ps ON ps.id=s.service_id
+                          WHERE s.slot_date=? AND ps.center_id IS NOT NULL AND s.status IN ('open','full') ORDER BY ps.center_id, s.slot_time''', (day,)).fetchall()
+    loose = db.execute('''SELECT b.center_id, b.booking_time, b.participants, b.equipment_items, u.fullname, COALESCE(ps.title,'Reserva') AS title
+                            FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services ps ON ps.id=b.service_id
+                           WHERE b.booking_date=? AND b.slot_id IS NULL AND b.status IN ('confirmed','pending') ORDER BY b.center_id, b.booking_time''', (day,)).fetchall()
+    by_center = {}
+    for r in rows: by_center.setdefault(r['center_id'], {'slots': [], 'loose': []})['slots'].append(r)
+    for r in loose: by_center.setdefault(r['center_id'], {'slots': [], 'loose': []})['loose'].append(r)
+    for cid, grp in by_center.items():
+        if db.execute('SELECT 1 FROM email_digest_log WHERE center_id=? AND digest_date=?', (cid, day)).fetchone(): continue
+        agenda = []; divers = 0
+        for s in grp['slots']:
+            people = []
+            for b in db.execute('''SELECT u.fullname, b.participants, b.equipment_items FROM bookings b JOIN users u ON u.id=b.user_id
+                                    WHERE b.slot_id=? AND b.status IN ('confirmed','pending') ORDER BY b.id''', (s['slot_id'],)).fetchall():
+                divers += int(b['participants'] or 1)
+                people.append(f"{b['fullname']} · {int(b['participants'] or 1)} pax" + (f" · {b['equipment_items']}" if b['equipment_items'] else ''))
+            pts = ', '.join(r['name'] for r in db.execute('SELECT p.name FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id=?', (s['slot_id'],)).fetchall())
+            agenda.append({'time': s['slot_time'], 'title': s['title'], 'taken': int(s['spots_total']) - int(s['spots_available']), 'total': int(s['spots_total']), 'people': people, 'points': pts})
+        loose_by = {}
+        for b in grp['loose']:
+            divers += int(b['participants'] or 1)
+            loose_by.setdefault((b['booking_time'] or '—', b['title']), []).append(f"{b['fullname']} · {int(b['participants'] or 1)} pax" + (f" · {b['equipment_items']}" if b['equipment_items'] else ''))
+        for (tm, title), people in sorted(loose_by.items()):
+            n = sum(int(x.split(' · ')[1].split(' ')[0]) for x in people)
+            agenda.append({'time': tm, 'title': title, 'taken': n, 'total': n, 'people': people, 'points': '', 'loose': True})
+        agenda.sort(key=lambda a: str(a['time']))
+        if not any(a['people'] for a in agenda):
+            db.execute('INSERT OR IGNORE INTO email_digest_log(center_id,digest_date,sent_at) VALUES(?,?,?)', (cid, day, now())); continue
+        base = public_site_url()
+        for email, name, lang in center_recipients(db, cid):
+            queue_email(db, 'center_daily_agenda', email, name, {'agenda': agenda, 'date': mail_date(day, lang), 'date_short': '/'.join(reversed(day.split('-'))),
+                        'slots_count': len(agenda), 'divers_count': divers, 'panel_planning_url': f'{base}/#/admin?tab=planning'}, lang, ('center', cid))
+        db.execute('INSERT OR IGNORE INTO email_digest_log(center_id,digest_date,sent_at) VALUES(?,?,?)', (cid, day, now()))
+
+
+def run_email_jobs(db, at=None):
+    """Hourly jobs: reminders (day before), review requests (after the dive), centres' agenda (from 18:00) and cleanup."""
+    at = at or datetime.now(); today = at.date(); tomorrow = (today + _timedelta(days=1)).isoformat(); yesterday = (today - _timedelta(days=1)).isoformat()
+    if at.hour >= 9:
+        for r in db.execute("SELECT id FROM bookings WHERE status='confirmed' AND booking_date=? AND reminder_sent_at IS NULL", (tomorrow,)).fetchall():
+            if db.execute('UPDATE bookings SET reminder_sent_at=? WHERE id=? AND reminder_sent_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'reminder')
+    for r in db.execute("SELECT id FROM bookings WHERE status IN ('confirmed','completed') AND booking_date BETWEEN ? AND ? AND review_asked_at IS NULL",
+                        ((today - _timedelta(days=7)).isoformat(), yesterday)).fetchall():
+        if db.execute('UPDATE bookings SET review_asked_at=? WHERE id=? AND review_asked_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'review')
+    if at.hour >= 18: queue_center_agendas(db, tomorrow)
+    db.execute('DELETE FROM email_outbox WHERE created_at<?', ((datetime.now(timezone.utc) - _timedelta(days=120)).isoformat(timespec='seconds'),))
+    db.execute('DELETE FROM password_resets WHERE expires_at<?', ((datetime.now(timezone.utc) - _timedelta(days=2)).isoformat(timespec='seconds'),))
+    db.commit()
+
+
+def email_scheduler():
+    """Background loop: deliver the outbox continuously (batches over one SMTP connection) and run the hourly jobs."""
+    last_jobs = 0.0
+    while True:
+        # A full batch means more are waiting: keep sending; otherwise check again in a few seconds.
+        sent = deliver_outbox_once()
+        time.sleep(0.2 if sent >= 150 else 5)
+        if time.time() - last_jobs < 3600: continue
+        last_jobs = time.time(); db = None
+        try:
+            db = connect(); run_email_jobs(db)
+        except Exception as exc:
+            sys.stderr.write(f'[correo] tareas programadas: {exc}\n')
+        finally:
+            if db: db.close()
+
+
+def sample_email_ctx(template, lang='es'):
+    """Realistic example data for the admin preview of every template."""
+    base = public_site_url(); t = lambda s: mail_t(lang, s)
+    c = {'booking_id': 123, 'ref': 'WOD-000123', 'first_name': 'Laura', 'name': 'Laura Martín', 'diver_name': 'Laura Martín', 'diver_email': 'laura@ejemplo.com', 'diver_phone': '+34 600 000 000',
+         'center': 'Centro de buceo de ejemplo', 'center_email': 'info@centro.example', 'center_phone': '+34 965 000 000', 'center_address': 'Puerto deportivo, 03730 Xàbia',
+         'service': 'Buceo doble', 'point': 'Cabo San Martín', 'date': mail_date('2026-10-17', lang), 'date_short': '17/10/2026', 'time': '09:00', 'participants': 2,
+         'total': mail_money(150, 'EUR', lang), 'price': 150.0, 'payment_status': 'paid', 'status': 'confirmed', 'equipment': 'Traje de neopreno ×1', 'notes': 'Primera inmersión del año',
+         'card': 'Visa ···· 4242', 'pay_ref': 'PAY-00042', 'policy': cancellation_policy_text('moderada', lang),
+         'booking_url': f'{base}/#/reserva?id=123', 'pdf_url': f'{base}/api/bookings/123/receipt.pdf', 'center_url': f'{base}/#/centros', 'review_url': f'{base}/#/centros',
+         'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings', 'panel_planning_url': f'{base}/#/admin?tab=planning',
+         'account_url': f'{base}/#/cuenta', 'panel_url': f'{base}/#/admin', 'reset_url': f'{base}/#/restablecer?token=ejemplo', 'forgot_url': f'{base}/#/recuperar',
+         'when': '17/10/2026 18:30', 'pay_note': t('Pagarás directamente en el centro el día de la actividad.'),
+         'promo_title': 'Curso Open Water + 1 año de equipo', 'promo_value': 'Equipo completo gratis durante 12 meses', 'valid_until': '30/06/2027',
+         'promo_url': f'{base}/#/recompensas', 'experience': 'Semana en las Islas Medas', 'area_url': f'{base}/#/area', 'status_title': t('Solicitud confirmada'),
+         'status_text': mail_t(lang, 'tu plaza en «{experience}» está confirmada. El organizador te contactará con los detalles.', experience='Semana en las Islas Medas'),
+         'action_title': t('Nueva solicitud: confírmala'), 'action_short': t('Pendiente de que la confirmes'), 'action_button': t('Confirmar o rechazar'),
+         'issuer': 'Centro de buceo de ejemplo', 'panel_qr_url': f'{base}/#/admin?tab=qr', 'panel_exp_url': f'{base}/#/admin?tab=experiences',
+         'pro_name': 'Pedro Ruiz', 'pro_email': 'pedro@centro.example', 'pro_type': t('centro de buceo'), 'admin_claims_url': f'{base}/#/admin?tab=claims',
+         'admin_pay_url': f'{base}/#/admin?tab=adminpay', 'admin_legal_url': f'{base}/#/admin?tab=legal', 'error': 'charge_already_refunded',
+         'center_refund_note': t('El importe se ha devuelto automáticamente al cliente según tu política de cancelación.'),
+         'reason': t('Información falsa o engañosa'), 'target': f'{base}/#/punto?id=40', 'details': 'La profundidad indicada no es correcta.', 'reporter': 'Laura Martín · laura@ejemplo.com',
+         'slots_count': 2, 'divers_count': 7,
+         'agenda': [{'time': '09:00', 'title': 'Buceo doble', 'taken': 5, 'total': 12, 'points': 'Cabo San Martín, Isla del Portitxol', 'people': ['Laura Martín · 2 pax · Traje de neopreno ×1', 'Marc Soler · 3 pax']},
+                    {'time': '15:30', 'title': 'Bautizo de buceo', 'taken': 2, 'total': 6, 'points': 'Cala Blanca', 'people': ['Elena Vidal · 2 pax · Equipo completo ×2']}]}
+    c.update(refund_texts(lang, 'refunded', c['total']))
+    return c
+
+
+
+# ---------------------------------------------------------------------------
+# Legal documents, cancellations with refunds, password reset, privacy rights and content reports (v50.30)
+# ---------------------------------------------------------------------------
+LEGAL_VERSION = '2026-10-11'
+LEGAL_DOCS = {
+    'aviso-legal': 'Aviso legal', 'terminos': 'Condiciones de uso', 'reservas': 'Condiciones de reserva, pago y cancelación',
+    'privacidad': 'Política de privacidad', 'cookies': 'Política de cookies', 'centros': 'Condiciones para centros y profesionales',
+    'resenas': 'Política de reseñas', 'clasificacion': 'Cómo ordenamos los resultados', 'denuncias': 'Denunciar contenido',
+    'seguridad': 'Seguridad en el buceo'}
+LEGAL_FIELDS = {'owner_name': 'Titular (nombre y apellidos o razón social)', 'trade_name': 'Nombre comercial', 'nif': 'NIF / CIF',
+                'address': 'Domicilio', 'email': 'Email de contacto', 'phone': 'Teléfono', 'registry': 'Datos registrales (si es sociedad)',
+                'dpo_email': 'Email para protección de datos', 'hosting': 'Proveedor de alojamiento', 'fee_percent': 'Comisión por reserva (%)'}
+_LEGAL_CACHE = {}
+
+
+def legal_doc(db, slug, lang='es'):
+    """Reads app/legal/<lang>/<slug>.md (falls back to Spanish) and fills in the owner's data from Administración → Legal."""
+    if slug not in LEGAL_DOCS: return None
+    lang = 'en' if lang not in ('es',) and (ROOT / 'app' / 'legal' / 'en' / f'{slug}.md').exists() else 'es'
+    key = (lang, slug)
+    p = ROOT / 'app' / 'legal' / lang / f'{slug}.md'
+    try: mt = p.stat().st_mtime
+    except OSError: return None
+    if key not in _LEGAL_CACHE or _LEGAL_CACHE[key][0] != mt: _LEGAL_CACHE[key] = (mt, p.read_text(encoding='utf-8'))
+    text = _LEGAL_CACHE[key][1]
+    st = legal_settings(db)
+    pending = '[pendiente de completar]' if lang == 'es' else '[to be completed]'
+    fee = st.get('fee_percent') or os.environ.get('WOD_PLATFORM_FEE_PERCENT', '10') or '10'
+    values = {**{k: (st.get(k) or pending) for k in LEGAL_FIELDS}, 'fee_percent': fee, 'site_url': public_site_url(),
+              'trade_name': st.get('trade_name') or 'WORLDIVES DISCOVERY', 'version': LEGAL_VERSION,
+              'hosting': st.get('hosting') or pending, 'dpo_email': st.get('dpo_email') or st.get('email') or pending}
+    text = re.sub(r'\{\{(\w+)\}\}', lambda m: str(values.get(m.group(1), m.group(0))), text)
+    title = text.split('\n', 1)[0].lstrip('# ').strip()
+    return {'slug': slug, 'lang': lang, 'title': title, 'markdown': text, 'version': LEGAL_VERSION}
+
+
+def booking_start(b):
+    """Local date and time of the activity (09:00 when the centre has not set a time)."""
+    try:
+        t = (b['booking_time'] or '09:00')[:5]
+        return datetime.fromisoformat(f"{b['booking_date']}T{t if re.fullmatch(r'\d{2}:\d{2}', t) else '09:00'}")
+    except Exception:
+        return None
+
+
+def booking_cancel_terms(db, b):
+    """What happens if the diver cancels now: refund amount and the deadline of free cancellation."""
+    c = db.execute('SELECT cancellation_policy FROM centers WHERE id=?', (b['center_id'],)).fetchone()
+    pol = cancellation_policy_key(c['cancellation_policy'] if c else None); hours = CANCEL_POLICIES[pol]
+    start = booking_start(b); left = (start - datetime.now()).total_seconds() / 3600 if start else 0
+    paid = db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='paid' ORDER BY id DESC LIMIT 1", (b['id'],)).fetchone()
+    amount = float(paid['amount_received'] or paid['amount'] or 0) if paid else 0.0
+    free = left >= hours
+    deadline = (start - _timedelta(hours=hours)).isoformat(timespec='minutes') if start else None
+    return {'policy': pol, 'policy_hours': hours, 'hours_left': round(left, 1), 'free': free, 'paid_online': bool(paid),
+            'refund_amount': round(amount if free else 0.0, 2), 'paid_amount': round(amount, 2), 'deadline': deadline,
+            'started': left <= 0, 'policy_text': cancellation_policy_text(pol)}
+
+
+def refund_paid_booking(db, bid, amount=None, reason='requested_by_customer'):
+    """Refunds an online payment of a booking through Stripe (the centre's transfer and our fee are reversed).
+    amount=None refunds everything. Returns 'none_paid' | 'refunded' | 'refund_pending' | 'no_refund'."""
+    order = db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='paid' ORDER BY id DESC LIMIT 1", (bid,)).fetchone()
+    if not order: return 'none_paid'
+    paid = float(order['amount_received'] or order['amount'] or 0)
+    amount = paid if amount is None else max(0.0, min(paid, float(amount)))
+    if amount <= 0: return 'no_refund'
+    try:
+        if not stripe_secret(): raise RuntimeError('STRIPE_SECRET_KEY no configurada')
+        import stripe; stripe.api_key = stripe_secret()
+        pi = None
+        if order['provider_payment_id']:
+            sess = stripe.checkout.Session.retrieve(order['provider_payment_id'])
+            pi = _obj(sess, 'payment_intent'); pi = pi if isinstance(pi, str) or pi is None else _obj(pi, 'id')
+        if not pi: raise RuntimeError('pago sin referencia de Stripe')
+        full = abs(amount - paid) < 0.005
+        ref = stripe.Refund.create(payment_intent=pi, amount=int(round(amount * 100)), reason='requested_by_customer',
+                                   reverse_transfer=True, refund_application_fee=full, metadata={'booking_id': str(bid), 'reason': reason},
+                                   idempotency_key=f'wod-refund-{order["id"]}-{int(round(amount * 100))}')
+        db.execute("UPDATE payment_orders SET status=?,refund_id=?,refund_amount=?,refunded_at=?,updated_at=? WHERE id=?",
+                   ('refunded' if full else 'partially_refunded', _obj(ref, 'id'), amount, now(), now(), order['id']))
+        db.execute("UPDATE bookings SET payment_status='refunded',refund_amount=?,updated_at=? WHERE id=?", (amount, now(), bid))
+        audit(db, None, 'payment_refunded', 'payment_order', order['id'], {'amount': amount, 'reason': reason})
+        return 'refunded'
+    except Exception as exc:
+        sys.stderr.write(f'[pagos] devolución de la reserva {bid}: {exc}\n')
+        db.execute("UPDATE payment_orders SET status='refund_due',refund_amount=?,updated_at=? WHERE id=?", (amount, now(), order['id']))
+        db.execute("UPDATE bookings SET refund_amount=?,updated_at=? WHERE id=?", (amount, now(), bid))
+        audit(db, None, 'payment_refund_failed', 'payment_order', order['id'], {'amount': amount, 'error': str(exc)[:200]})
+        notify_booking(db, bid, 'refund_failed', {'error': str(exc)[:200]})
+        return 'refund_pending'
+
+
+def release_booking_spots(db, b):
+    if b['slot_id'] and b['slot_reserved']:
+        release_slot_spots(db, b['slot_id'], max(1, int(b['participants'] or 1)))
+        db.execute('UPDATE bookings SET slot_reserved=0 WHERE id=?', (b['id'],))
+
+
+def new_password_reset(db, user_id):
+    token = secrets.token_urlsafe(32)
+    exp = (datetime.now(timezone.utc) + _timedelta(hours=1)).isoformat(timespec='seconds')
+    db.execute('UPDATE password_resets SET used_at=? WHERE user_id=? AND used_at IS NULL', (now(), user_id))
+    db.execute('INSERT INTO password_resets(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)', (hashlib.sha256(token.encode()).hexdigest(), user_id, exp, now()))
+    return token
+
+
+def export_user_data(db, uid):
+    """Right of access / portability: every row about the user, as JSON (secrets left out)."""
+    out = {'exported_at': now(), 'site': public_site_url()}
+    u = db.execute('SELECT id,fullname,email,username,role,created_at,last_login,provider_bio,avatar_url,instagram_url,facebook_url,twitter_url,youtube_url,tiktok_url,terms_version,terms_accepted_at FROM users WHERE id=?', (uid,)).fetchone()
+    out['account'] = dict(u) if u else {}
+    skip = {'sessions', 'password_resets', 'email_outbox', 'audit_log', 'login_attempts'}
+    for t in [r['name'] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()]:
+        if t in skip or t == 'users' or t.startswith('sqlite_'): continue
+        cols = [r['name'] for r in db.execute(f'PRAGMA table_info("{t}")').fetchall()]
+        if 'user_id' not in cols: continue
+        keep = [c for c in cols if c not in ('password_hash', 'token_hash', 'api_key_hash', 'file_path', 'internal_notes')]
+        rows = db.execute(f'SELECT {",".join(chr(34) + c + chr(34) for c in keep)} FROM "{t}" WHERE user_id=? LIMIT 5000', (uid,)).fetchall()
+        if rows: out[t] = [dict(r) for r in rows]
+    out['messages_received'] = [dict(r) for r in db.execute('SELECT subject,body,created_at,read_at FROM messages WHERE recipient_user_id=? ORDER BY id DESC LIMIT 2000', (uid,)).fetchall()]
+    out['emails_sent_to_you'] = [dict(r) for r in db.execute('SELECT template,subject,status,created_at,sent_at FROM email_outbox WHERE to_email=(SELECT lower(email) FROM users WHERE id=?) ORDER BY id DESC LIMIT 500', (uid,)).fetchall()]
+    return out
+
+
+def delete_user_account(db, user):
+    """Right to erasure: personal data removed or anonymised. Bookings and payments stay (anonymised) for the centres' and
+    the tax obligations; reviews stay without the author's name."""
+    uid = user['id']
+    future = db.execute("SELECT COUNT(*) FROM bookings WHERE user_id=? AND status IN ('pending','confirmed') AND booking_date>=?", (uid, _dt.date.today().isoformat())).fetchone()[0]
+    if future: raise ValueError(f'Tienes {future} reserva(s) próxima(s). Cancélalas antes de eliminar tu cuenta.')
+    notify_user(db, uid, 'account_deleted', related=('user', uid))
+    for d in db.execute('SELECT file_path FROM user_documents WHERE user_id=?', (uid,)).fetchall():
+        try:
+            fp = (ROOT / d['file_path']).resolve()
+            if fp.is_relative_to(ROOT.resolve()) and fp.exists(): fp.unlink()
+        except Exception: pass
+    tag = secrets.token_hex(4)
+    db.execute('''UPDATE users SET fullname='Usuario eliminado', email=?, username=?, password_hash='!', provider_bio=NULL, avatar_url=NULL,
+                  instagram_url=NULL, facebook_url=NULL, twitter_url=NULL, youtube_url=NULL, tiktok_url=NULL WHERE id=?''',
+               (f'eliminado-{uid}-{tag}@sin-email.worldives.local', f'eliminado_{uid}_{tag}', uid))
+    db.execute('DELETE FROM user_profiles WHERE user_id=?', (uid,))
+    for sql in ('DELETE FROM user_documents WHERE user_id=?', 'DELETE FROM sessions WHERE user_id=?', 'DELETE FROM logbook_entries WHERE user_id=?',
+                'DELETE FROM center_links WHERE user_id=?', 'DELETE FROM password_resets WHERE user_id=?', 'DELETE FROM messages WHERE recipient_user_id=?',
+                "UPDATE promotion_codes SET status='revoked',revoked_at=? WHERE user_id=? AND status='active'",
+                'UPDATE bookings SET contact_phone=NULL, notes=NULL, equipment_notes=NULL, guide_notes=NULL WHERE user_id=?'):
+        db.execute(sql, (now(), uid) if sql.count('?') == 2 else (uid,))
+    audit(db, uid, 'account_deleted', 'user', uid)
+
+
+REPORT_REASONS = {'illegal': 'Contenido ilegal', 'false': 'Información falsa o engañosa', 'fake_review': 'Reseña falsa o no auténtica',
+                  'ip': 'Uso no autorizado de fotos o textos', 'safety': 'Riesgo para la seguridad', 'privacy': 'Datos personales publicados sin permiso',
+                  'fraud': 'Fraude o estafa', 'other': 'Otro motivo'}
+REPORT_LIMIT = {}
+
+
+def report_rate_limited(ip):
+    current = time.time(); row = REPORT_LIMIT.get(ip)
+    if not row or current - row[0] > 3600: REPORT_LIMIT[ip] = [current, 1]; return False
+    row[1] += 1
+    return row[1] > 10
+
+
+def pdf_escape(value):
+    return str(value or '').encode('cp1252', 'replace').decode('cp1252').replace('\\','\\\\').replace('(','\\(').replace(')','\\)')
+
+
+
+def _pdf_objects(content):
+    objects=[b'<< /Type /Catalog /Pages 2 0 R >>',b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 6 0 R >> >> /Contents 5 0 R >>',b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',f'<< /Length {len(content)} >>\nstream\n'.encode()+content+b'\nendstream',b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>']
+    out=bytearray(b'%PDF-1.4\n%\xe2\xe3\xcf\xd3\n'); offs=[0]
+    for i,obj in enumerate(objects,1): offs.append(len(out)); out.extend(f'{i} 0 obj\n'.encode()); out.extend(obj); out.extend(b'\nendobj\n')
+    xref=len(out); out.extend(f'xref\n0 {len(objects)+1}\n0000000000 65535 f \n'.encode())
+    for off in offs[1:]: out.extend(f'{off:010d} 00000 n \n'.encode())
+    out.extend(f'trailer\n<< /Size {len(objects)+1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF'.encode()); return bytes(out)
+
+def _qr_cmds(payload,x0,y0,size):
+    import qrcode
+    qr=qrcode.QRCode(box_size=1,border=1); qr.add_data(payload); qr.make(fit=True); m=qr.get_matrix(); n=len(m); c=size/n
+    a=['q','1 1 1 rg',f'{x0-8:.2f} {y0-8:.2f} {size+16:.2f} {size+16:.2f} re f','0 0 0 rg']
+    for r,row in enumerate(m):
+        for col,v in enumerate(row):
+            if v:a.append(f'{x0+col*c:.2f} {y0+(n-1-r)*c:.2f} {c+.03:.2f} {c+.03:.2f} re f')
+    a.append('Q'); return a
+
+def _pdf_text(x,y,text,size=10,color='0.04 0.17 0.24',bold=False):
+    font='/F2' if bold else '/F1'
+    return ['BT',f'{font} {size} Tf',f'{color} rg',f'{x} {y} Td',f'({pdf_escape(text)}) Tj','ET']
+
+def _pdf_box(x,y,w,h,fill='1 1 1',stroke=None,r=10):
+    # Rounded rectangle, compatible with the small internal PDF renderer.
+    out=['q',f'{fill} rg',f'{x+r} {y} m',f'{x+w-r} {y} l',f'{x+w} {y+r} l',f'{x+w} {y+h-r} l',f'{x+w-r} {y+h} l',f'{x+r} {y+h} l',f'{x} {y+h-r} l',f'{x} {y+r} l','h','f']
+    if stroke:
+        out += [f'{stroke} RG','0.7 w',f'{x+r} {y} m',f'{x+w-r} {y} l',f'{x+w} {y+r} l',f'{x+w} {y+h-r} l',f'{x+w-r} {y+h} l',f'{x+r} {y+h} l',f'{x} {y+h-r} l',f'{x} {y+r} l','h','S']
+    out.append('Q'); return out
+
+def _pdf_label_value(x,y,label,value,wide=210):
+    return _pdf_text(x,y,label.upper(),7,'0.38 0.43 0.46') + _pdf_text(x,y-13,value,9,'0.04 0.17 0.24')
+
+HELV_WIDTHS = [[278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584, 761, 556, 0, 222, 556, 333, 1000, 556, 556, 333, 1000, 667, 333, 1000, 0, 611, 0, 0, 222, 222, 333, 333, 350, 556, 1000, 333, 1000, 500, 333, 944, 0, 500, 667, 278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 333, 400, 584, 333, 333, 333, 556, 537, 278, 333, 333, 365, 556, 834, 834, 834, 611, 667, 667, 667, 667, 667, 667, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, 722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611, 556, 556, 556, 556, 556, 556, 889, 500, 556, 556, 556, 556, 278, 278, 278, 278, 556, 556, 556, 556, 556, 556, 556, 584, 611, 556, 556, 556, 556, 500, 556, 500], [278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584, 761, 556, 0, 278, 556, 500, 1000, 556, 556, 333, 1000, 667, 333, 1000, 0, 611, 0, 0, 278, 278, 500, 500, 350, 556, 1000, 333, 1000, 556, 333, 944, 0, 500, 667, 278, 333, 556, 556, 556, 556, 280, 556, 333, 737, 370, 556, 584, 333, 737, 333, 400, 584, 333, 333, 333, 611, 556, 278, 333, 333, 365, 556, 834, 834, 834, 611, 722, 722, 722, 722, 722, 722, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, 722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611, 556, 556, 556, 556, 556, 556, 889, 556, 556, 556, 556, 556, 278, 278, 278, 278, 611, 611, 611, 611, 611, 611, 611, 584, 611, 611, 611, 611, 611, 556, 611, 556]]
+ES_MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+ES_DAYS = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo']
+
+
+def es_long_date(value):
+    try:
+        d=_dt.date.fromisoformat(str(value)[:10]); return f'{ES_DAYS[d.weekday()]}, {d.day} de {ES_MONTHS[d.month-1]} de {d.year}'
+    except Exception: return str(value or '')
+
+
+class PdfPage:
+    """Tiny A4 drawing surface (Helvetica, WinAnsi) with measuring, wrapping and rounded boxes."""
+    def __init__(self): self.c=[]
+    @staticmethod
+    def width(text,size,bold=False):
+        w=HELV_WIDTHS[1 if bold else 0]; total=0
+        for ch in str(text or ''):
+            try: code=ch.encode('cp1252')[0]
+            except Exception: code=63
+            total+=w[code-32] if 32<=code<=255 else 500
+        return total*size/1000
+    def fit(self,text,size,maxw,bold=False):
+        t=str(text or '')
+        if self.width(t,size,bold)<=maxw: return t
+        while t and self.width(t+'…',size,bold)>maxw: t=t[:-1]
+        return t.rstrip()+'…'
+    def wrap(self,text,size,maxw,bold=False,max_lines=3):
+        words=str(text or '').split(); lines=[]; cur=''
+        for wd in words:
+            nxt=(cur+' '+wd).strip()
+            if self.width(nxt,size,bold)<=maxw: cur=nxt
+            else:
+                if cur: lines.append(cur)
+                cur=wd
+        if cur: lines.append(cur)
+        if len(lines)>max_lines: lines=lines[:max_lines]; lines[-1]=self.fit(lines[-1]+' …',size,maxw,bold)
+        return lines or ['']
+    def text(self,x,y,text,size=10,color=(0.03,0.21,0.29),bold=False,align='left'):
+        if align=='right': x-=self.width(text,size,bold)
+        elif align=='center': x-=self.width(text,size,bold)/2
+        self.c+=['BT',f"/{'F2' if bold else 'F1'} {size} Tf",'%.3f %.3f %.3f rg' % color,f'{x:.2f} {y:.2f} Td',f'({pdf_escape(text)}) Tj','ET']
+    def box(self,x,y,w,h,fill=None,stroke=None,r=8,lw=0.7):
+        k=0.5523*r
+        path=[f'{x+r:.2f} {y:.2f} m',f'{x+w-r:.2f} {y:.2f} l',f'{x+w-r+k:.2f} {y:.2f} {x+w:.2f} {y+r-k:.2f} {x+w:.2f} {y+r:.2f} c',f'{x+w:.2f} {y+h-r:.2f} l',
+              f'{x+w:.2f} {y+h-r+k:.2f} {x+w-r+k:.2f} {y+h:.2f} {x+w-r:.2f} {y+h:.2f} c',f'{x+r:.2f} {y+h:.2f} l',f'{x+r-k:.2f} {y+h:.2f} {x:.2f} {y+h-r+k:.2f} {x:.2f} {y+h-r:.2f} c',
+              f'{x:.2f} {y+r:.2f} l',f'{x:.2f} {y+r-k:.2f} {x+r-k:.2f} {y:.2f} {x+r:.2f} {y:.2f} c','h']
+        self.c.append('q')
+        if fill: self.c.append('%.3f %.3f %.3f rg' % fill)
+        if stroke: self.c+=['%.3f %.3f %.3f RG' % stroke,f'{lw} w']
+        self.c+=path+['B' if fill and stroke else 'f' if fill else 'S','Q']
+    def rect(self,x,y,w,h,fill): self.c+=['q','%.3f %.3f %.3f rg' % fill,f'{x:.2f} {y:.2f} {w:.2f} {h:.2f} re f','Q']
+    def line(self,x1,y1,x2,y2,color=(0.86,0.89,0.91),lw=0.7,dash=None):
+        self.c+=['q','%.3f %.3f %.3f RG' % color,f'{lw} w']+([f'[{dash} {dash}] 0 d'] if dash else [])+[f'{x1:.2f} {y1:.2f} m {x2:.2f} {y2:.2f} l S','Q']
+    def check(self,x,y,color):
+        self.c+=['q','%.3f %.3f %.3f RG' % color,'1.4 w','1 J 1 j',f'{x:.2f} {y+3:.2f} m {x+2.6:.2f} {y+0.4:.2f} l {x+7:.2f} {y+6:.2f} l S','Q']
+    def pdf(self): return _pdf_objects('\n'.join(self.c).encode('cp1252','replace'))
+
+
+def booking_pdf(db,booking_id,base_url='http://localhost:8000'):
+    """Offline booking voucher: everything the diver needs at the dive centre, even without internet."""
+    b=db.execute("""SELECT b.*,u.fullname,u.email,up.phone AS customer_phone,c.name AS center_name,c.city,c.country AS center_country,c.address AS center_address,c.phone AS center_phone,c.email AS center_email,c.website AS center_website,p.name AS point_name,s.title AS service_title,s.duration_minutes FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN user_profiles up ON up.user_id=u.id JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?""",(booking_id,)).fetchone()
+    if not b: return None
+    po=db.execute("SELECT id,paid_at,card_brand,card_last4,amount_received FROM payment_orders WHERE booking_id=? AND status='paid' ORDER BY id DESC LIMIT 1",(booking_id,)).fetchone()
+    DEEP=(0.027,0.212,0.290); SEA=(0.043,0.478,0.537); MUTED=(0.38,0.43,0.46); LINE=(0.86,0.89,0.91); SOFT=(0.955,0.972,0.978); WHITE=(1,1,1); INK=(0.07,0.13,0.16)
+    STATUS={'confirmed':('RESERVA CONFIRMADA','CONFIRMED',(0.184,0.478,0.388)),'completed':('INMERSIÓN REALIZADA','COMPLETED',SEA),'pending':('PENDIENTE DE CONFIRMAR','PENDING',(0.66,0.42,0.07)),
+            'rejected':('RESERVA RECHAZADA','REJECTED',(0.61,0.25,0.22)),'cancelled':('RESERVA CANCELADA','CANCELLED',(0.61,0.25,0.22))}
+    PAY={'paid':('PAGADO','PAID',(0.184,0.478,0.388)),'required':('PAGO PENDIENTE','PAYMENT DUE',(0.66,0.42,0.07)),'pending':('PAGO EN CURSO','PROCESSING',(0.66,0.42,0.07)),
+         'at_center':('PAGO EN EL CENTRO','PAY AT CENTRE',SEA),'not_required':('SIN COBRO','NO CHARGE',SEA),'review':('PAGO EN REVISIÓN','UNDER REVIEW',(0.66,0.42,0.07)),'refunded':('DEVUELTO','REFUNDED',MUTED)}
+    st=STATUS.get(b['status'],(str(b['status']).upper(),'',MUTED)); py=PAY.get(b['payment_status'],(str(b['payment_status'] or '').upper(),'',MUTED))
+    cur=(b['currency'] or 'EUR').upper(); sym={'EUR':'€','USD':'$','GBP':'£'}.get(cur)
+    money=lambda v:(f"{float(v or 0):,.2f}".replace(',','X').replace('.',',').replace('X','.')+(f' {sym}' if sym else f' {cur}'))
+    ref=f'WOD-{int(booking_id):06d}'
+    pg=PdfPage(); W=595
+    # Header band
+    pg.rect(0,742,W,100,DEEP); pg.rect(0,738,W,4,SEA)
+    pg.text(40,800,'WORLDIVES DISCOVERY',17,WHITE,True)
+    pg.text(40,782,'Comprobante de reserva  ·  Booking voucher',9.5,(0.78,0.88,0.91))
+    pg.text(555,806,'Nº DE RESERVA · BOOKING REF.',7,(0.70,0.82,0.86),align='right')
+    pg.text(555,786,ref,17,WHITE,True,align='right')
+    pg.text(555,768,'Emitido · Issued '+_dt.datetime.now().strftime('%d/%m/%Y %H:%M'),7.5,(0.70,0.82,0.86),align='right')
+    # Status pills
+    y=708; x=40
+    for label,en,col in (st,py):
+        if not label: continue
+        t=label+(f'  ·  {en}' if en else ''); w=pg.width(t,8,True)+26
+        pg.box(x,y-6,w,22,col,None,11); pg.text(x+13,y+1.5,t,8,WHITE,True); x+=w+8
+    # Title
+    pg.text(40,674,pg.fit(b['service_title'] or 'Inmersión',22,515,True),22,INK,True)
+    pg.text(40,655,pg.fit(f"{b['center_name']}"+(f" · {b['city']}" if b['city'] else ''),12,515),12,SEA,True)
+    when=es_long_date(b['booking_date'])+(f" · {b['booking_time']}" if b['booking_time'] else ' · hora por confirmar')
+    pg.text(40,637,when[:1].upper()+when[1:],10.5,MUTED)
+    # Details card + QR card
+    top=618; pg.box(40,top-236,350,236,WHITE,LINE,12); pg.box(402,top-236,153,236,SOFT,None,12)
+    pg.text(56,top-22,'DETALLES  ·  DETAILS',7.5,MUTED,True)
+    eq=(b['equipment_items'] or ('Sí' if b['needs_equipment'] else 'Equipo propio'))
+    rows=[('Fecha · Date','/'.join(reversed(str(b['booking_date'] or '').split('-'))) or '—'),('Hora · Time',b['booking_time'] or 'Por confirmar'),
+          ('Punto · Dive site',b['point_name'] or 'A concretar con el centro'),('Buceadores · Divers',str(b['participants'] or 1)),
+          ('Titular · Lead diver',b['fullname'] or '—'),('Contacto · Contact',b['customer_phone'] or b['email'] or '—'),
+          ('Equipo · Gear',eq),('Extras',', '.join(x for x,on in (('Guía',b['needs_guide']),('Nitrox',b['nitrox']),('Traslado',b['pickup'])) if on) or 'Ninguno')]
+    for i,(lab,val) in enumerate(rows):
+        cx=56+(i%2)*168; cy=top-46-(i//2)*46
+        pg.text(cx,cy,lab.upper(),6.5,MUTED,True)
+        for j,ln in enumerate(pg.wrap(val,9.5,152,True,2)): pg.text(cx,cy-13-j*11,ln,9.5,INK,True)
+    qr=f'{base_url}/#/verificarreserva?id={booking_id}'
+    try: pg.c+=_qr_cmds(qr,421,top-150,115)
+    except Exception: pg.box(421,top-150,115,115,WHITE,LINE,6); pg.text(478,top-95,ref,8,MUTED,True,align='center')
+    pg.text(478,top-22,'VERIFICAR · VERIFY',7.5,MUTED,True,align='center')
+    pg.text(478,top-174,'Muestra este QR en el centro',7.5,INK,True,align='center')
+    pg.text(478,top-185,'Show this QR at the centre',7,MUTED,align='center')
+    pg.text(478,top-205,ref,10,DEEP,True,align='center')
+    pg.text(478,top-218,'Válido sin conexión',6.5,MUTED,align='center')
+    # Payment
+    y0=top-256; lines=[]
+    try: lines=json.loads(b['price_breakdown'] or '[]') or []
+    except Exception: lines=[]
+    if not lines: lines=[{'label':b['service_title'] or 'Actividad','qty':b['participants'] or 1,'unit':float(b['price'] or 0)/max(1,int(b['participants'] or 1)),'total':float(b['price'] or 0)}]
+    lines=lines[:7]; h=78+len(lines)*18
+    pg.box(40,y0-h,515,h,WHITE,LINE,12)
+    pg.text(56,y0-22,'IMPORTE Y PAGO  ·  PAYMENT',7.5,MUTED,True)
+    yy=y0-42
+    for l in lines:
+        pg.text(56,yy,pg.fit(l.get('label') or '',9.5,300),9.5,INK)
+        pg.text(400,yy,f"{l.get('qty') or 1} × {money(l.get('unit'))}",8.5,MUTED,align='right')
+        pg.text(539,yy,money(l.get('total')),9.5,INK,align='right'); yy-=18
+    pg.line(56,yy+8,539,yy+8)
+    pg.text(56,yy-8,'Total',11,INK,True); pg.text(539,yy-8,money(b['price']),13,INK,True,align='right')
+    if b['payment_status']=='paid':
+        how=(f"{(po['card_brand'] or 'Tarjeta').title()} ···· {po['card_last4']}" if po and po['card_last4'] else (b['payment_method'] or 'Registrado por el centro'))
+        paid=(f" · {po['paid_at'][:10]}" if po and po['paid_at'] else '')
+        note=f'Pagado con {how}{paid}'+(f"  ·  Ref. pago PAY-{po['id']:05d}" if po else '')
+    elif b['payment_status'] in ('at_center','required') and b['status']!='cancelled':
+        note='Importe a abonar en el centro el día de la actividad.' if b['payment_status']=='at_center' else 'Pago pendiente: complétalo online desde «Mi reserva».'
+    elif b['payment_status']=='not_required': note='Actividad sin coste.'
+    else: note=py[0].capitalize()
+    pg.text(56,yy-26,pg.fit(note,8.5,483),8.5,MUTED)
+    # Centre + before you dive
+    y1=y0-h-16; hb=150
+    pg.box(40,y1-hb,250,hb,SOFT,None,12); pg.box(302,y1-hb,253,hb,SOFT,None,12)
+    pg.text(56,y1-22,'CENTRO DE BUCEO  ·  DIVE CENTRE',7.5,MUTED,True)
+    pg.text(56,y1-40,pg.fit(b['center_name'],11.5,220,True),11.5,INK,True)
+    cy=y1-58
+    for lab,val in (('Dirección',', '.join(x for x in (b['center_address'],b['city'],b['center_country']) if x)),('Teléfono',b['center_phone']),('Email',b['center_email']),('Web',b['center_website'])):
+        if not val: continue
+        pg.text(56,cy,lab,7,MUTED,True)
+        for j,ln in enumerate(pg.wrap(val,8.5,160,False,2)): pg.text(112,cy-j*10.5,ln,8.5,INK)
+        cy-=12+10.5*(len(pg.wrap(val,8.5,160,False,2))-1)
+    pg.text(318,y1-22,'ANTES DE BUCEAR  ·  BEFORE YOU DIVE',7.5,MUTED,True)
+    tips=['Llega 15–20 minutos antes de la hora.','Lleva tu titulación y el seguro de buceo.','Documento de identidad o pasaporte.','Avisa al centro si no puedes acudir.','No bucees si te encuentras mal.']
+    ty=y1-42
+    for t in tips: pg.check(318,ty-1,(0.184,0.478,0.388)); pg.text(332,ty,t,8.5,INK); ty-=19
+    if b['notes']:
+        pg.text(318,ty-4,'Tus notas:',7,MUTED,True); pg.text(318,ty-15,pg.fit(b['notes'],8,222),8,INK)
+    # Footer
+    pg.line(40,62,555,62)
+    pg.text(40,46,'Documento generado por WORLDIVES DISCOVERY. Escanea el QR para comprobar el estado actualizado de la reserva.',7,MUTED)
+    pg.text(40,35,'El QR no contiene datos personales. Este comprobante no es una factura.',7,MUTED)
+    pg.text(555,35,base_url.replace('https://','').replace('http://','').rstrip('/'),7,SEA,True,align='right')
+    return pg.pdf()
+
+def diver_sheet_pdf(db,booking_id,base_url="http://localhost:8000"):
+    b=db.execute("""SELECT b.*,u.fullname,u.email,up.phone AS customer_phone,up.city,up.emergency_contact_name,up.emergency_contact_phone,up.equipment_required,up.suit_type,up.suit_size,up.boot_size,up.bcd_size,up.fin_size,up.mask_size,up.usual_weight_kg,up.tank_preference,up.computer_preference,c.name AS certification_name,ce.name AS center_name,p.name AS point_name,s.title AS service_title FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN user_profiles up ON up.user_id=u.id LEFT JOIN certifications c ON c.id=up.certification_id JOIN centers ce ON ce.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?""",(booking_id,)).fetchone()
+    if not b:return None
+    qr=f'{base_url}/#/verificarreserva?id={booking_id}'
+    cmds=[]
+    cmds += _pdf_box(24,24,547,794,'1 1 1','0.86 0.89 0.91',16)
+    cmds += _pdf_box(24,748,547,70,'0.04 0.17 0.24',None,16)
+    cmds += _pdf_text(46,790,'WORLDIVES DISCOVERY',21,'1 1 1')
+    cmds += _pdf_text(46,773,'FICHA OPERATIVA DEL CENTRO',8,'0.78 0.88 0.91')
+    cmds += _pdf_text(46,725,'FICHA DEL BUCEADOR',17,'0.04 0.17 0.24')
+    cmds += _pdf_text(46,705,b['fullname'],10,'0.38 0.43 0.46')
+    cmds += _pdf_box(42,610,511,72,'0.94 0.97 0.98',None,10)
+    cmds += _pdf_text(58,660,'OPERACION',8,'0.38 0.43 0.46')
+    op=[('Centro',b['center_name']),('Fecha',b['booking_date']),('Hora',b['booking_time'] or 'Por confirmar'),('Punto',b['point_name'] or 'A concretar'),('Actividad',b['service_title'] or 'Inmersion'),('Participantes',str(b['participants']))]
+    for i,(lab,val) in enumerate(op):
+        x=58+(i%3)*165; y=640-(i//3)*30; cmds += _pdf_label_value(x,y,lab,str(val)[:24])
+    cmds += _pdf_box(42,378,330,214,'1 1 1','0.86 0.89 0.91',12)
+    cmds += _pdf_text(58,568,'DATOS DEL BUCEADOR',8,'0.38 0.43 0.46')
+    diver=[('Nombre',b['fullname']),('Email',b['email'] or '—'),('Telefono',b['customer_phone'] or '—'),('Ciudad',b['city'] or '—'),('Titulacion',b['certification_name'] or 'No indicada'),('Emergencia',' · '.join([x for x in [b['emergency_contact_name'],b['emergency_contact_phone']] if x]) or '—')]
+    for i,(lab,val) in enumerate(diver):
+        x=58+(i%2)*155; y=540-(i//2)*42; cmds += _pdf_label_value(x,y,lab,str(val)[:28])
+    cmds += _pdf_box(42,180,330,180,'1 1 1','0.86 0.89 0.91',12)
+    cmds += _pdf_text(58,336,'EQUIPO Y PREFERENCIAS',8,'0.38 0.43 0.46')
+    equip=[('Equipo','Si' if b['equipment_required'] else 'No'),('Traje / talla',' · '.join([x for x in [b['suit_type'],b['suit_size']] if x]) or '—'),('Botas',b['boot_size'] or '—'),('Chaleco',b['bcd_size'] or '—'),('Aletas',b['fin_size'] or '—'),('Mascara',b['mask_size'] or '—'),('Botella',b['tank_preference'] or '—'),('Ordenador',b['computer_preference'] or '—')]
+    for i,(lab,val) in enumerate(equip):
+        x=58+(i%2)*155; y=312-(i//2)*35; cmds += _pdf_label_value(x,y,lab,str(val)[:27])
+    cmds += _pdf_box(393,378,160,180,'1 1 1','0.86 0.89 0.91',12)
+    cmds += _pdf_text(410,536,'VALIDAR RESERVA',8,'0.38 0.43 0.46')
+    cmds += _qr_cmds(qr,416,410,110)
+    cmds += _pdf_text(410,395,'Escanea el QR',9,'0.04 0.17 0.24')
+    cmds += _pdf_text(410,381,'para comprobar',7,'0.38 0.43 0.46')
+    cmds += _pdf_text(410,369,'el estado.',7,'0.38 0.43 0.46')
+    cmds += _pdf_box(393,180,160,180,'0.94 0.97 0.98',None,12)
+    cmds += _pdf_text(410,336,'RESERVA',8,'0.38 0.43 0.46')
+    cmds += _pdf_text(410,312,f'#{booking_id}',13,'0.04 0.17 0.24')
+    cmds += _pdf_text(410,285,'Centro',7,'0.38 0.43 0.46')
+    cmds += _pdf_text(410,270,str(b['center_name'] or '—')[:20],9,'0.04 0.17 0.24')
+    cmds += _pdf_text(410,244,'Uso interno del centro',7,'0.38 0.43 0.46')
+    cmds += _pdf_text(42,110,'WORLDIVES DISCOVERY · Ficha operativa de la reserva',7,'0.38 0.43 0.46')
+    cmds += _pdf_text(42,91,'El QR sirve para verificar la reserva y no contiene datos personales sensibles.',7,'0.38 0.43 0.46')
+    return _pdf_objects('\n'.join(cmds).encode('cp1252','replace'))
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = 'WorldDivesLocal/8.0'
+    # A connection that stops sending data is dropped after 30 s instead of holding a worker forever.
+    timeout = int(os.environ.get('WOD_SOCKET_TIMEOUT', '30'))
+
+    def log_message(self, fmt, *args):
+        sys.stdout.write('%s - %s\n' % (self.address_string(), fmt % args))
+
+    def security_headers(self):
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('X-Frame-Options', 'DENY')
+        self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+        self.send_header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)')
+        public_url = os.environ.get('WOD_PUBLIC_URL', '').strip().lower()
+        if public_url.startswith('https://'):
+            self.send_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+
+    def enforce_same_origin(self):
+        """Reject browser state-changing requests coming from another origin.
+
+        Requests without an Origin header are allowed for compatibility with
+        direct/local clients and Stripe webhooks. Cookie-based browser requests
+        sent by the application always carry the same origin.
+        """
+        origin = self.headers.get('Origin') or self.headers.get('Referer')
+        if not origin:
+            return
+        try:
+            source = urlparse(origin)
+            allowed = os.environ.get('WOD_PUBLIC_URL', '').strip()
+            if allowed:
+                target = urlparse(allowed)
+                allowed_origin = f'{target.scheme}://{target.netloc}'
+            else:
+                host = self.headers.get('Host', '')
+                scheme = 'https' if self.headers.get('X-Forwarded-Proto','').lower() == 'https' else 'http'
+                allowed_origin = f'{scheme}://{host}'
+            source_origin = f'{source.scheme}://{source.netloc}'
+            if source_origin.rstrip('/') != allowed_origin.rstrip('/'):
+                raise PermissionError('Solicitud bloqueada por origen no autorizado.')
+        except PermissionError:
+            raise
+        except Exception:
+            raise PermissionError('Solicitud bloqueada por origen no autorizado.')
+
+    def accepts_gzip(self):
+        return 'gzip' in (self.headers.get('Accept-Encoding') or '').lower()
+
+    def send_prebuilt_json(self, raw, gz):
+        use_gz=self.accepts_gzip(); body=gz if use_gz else raw
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        if use_gz: self.send_header('Content-Encoding', 'gzip')
+        self.send_header('Vary', 'Accept-Encoding')
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'no-store')
+        self.security_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_json(self, payload, status=200):
+        raw = json.dumps(payload, ensure_ascii=False, separators=(',',':')).encode('utf-8')
+        gz = len(raw) > 1400 and self.accepts_gzip()
+        if gz: raw = gzip_bytes(raw)
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        if gz: self.send_header('Content-Encoding', 'gzip')
+        self.send_header('Vary', 'Accept-Encoding')
+        self.send_header('Content-Length', str(len(raw)))
+        self.send_header('Cache-Control', 'no-store')
+        self.security_headers()
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def send_file(self, path: Path, content_type=None):
+        if not path.exists() or not path.is_file():
+            self.send_error(404)
+            return
+        ct = content_type or mimetypes.guess_type(path.name)[0] or 'application/octet-stream'
+        st = path.stat()
+        etag = f'"{int(st.st_mtime_ns):x}-{st.st_size:x}"'
+        # Images and uploads change name when they change, so browsers may keep them a week;
+        # code, styles and the page are revalidated on every visit (cheap 304 thanks to the ETag).
+        cache = 'public, max-age=604800' if ct.startswith(('image/','font/')) else 'no-cache'
+        if self.headers.get('If-None-Match') == etag:
+            self.send_response(304)
+            self.send_header('ETag', etag)
+            self.send_header('Cache-Control', cache)
+            self.end_headers()
+            return
+        raw = path.read_bytes()
+        gz = (ct.startswith(('text/','application/javascript','application/json','application/manifest','image/svg')) and len(raw) > 1400 and self.accepts_gzip())
+        if gz:
+            key=(str(path),etag)
+            cached=_GZIP_CACHE.get(key)
+            if cached is None:
+                cached=gzip_bytes(raw, 6)
+                if len(_GZIP_CACHE) > 64: _GZIP_CACHE.clear()
+                _GZIP_CACHE[key]=cached
+            raw=cached
+        self.send_response(200)
+        self.send_header('Content-Type', ct)
+        if gz: self.send_header('Content-Encoding', 'gzip')
+        self.send_header('Vary', 'Accept-Encoding')
+        self.send_header('Content-Length', str(len(raw)))
+        self.send_header('ETag', etag)
+        self.send_header('Cache-Control', cache)
+        self.security_headers()
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def redirect(self, location):
+        self.send_response(302)
+        self.send_header('Location', location)
+        self.security_headers()
+        self.end_headers()
+
+    def end_headers(self):
+        super().end_headers()
+        if self.command == 'HEAD':
+            # HEAD (uptime monitors, link checkers): same headers as GET, body discarded.
+            self.wfile.flush(); self.wfile = _NullWriter()
+
+    def do_HEAD(self):
+        self.do_GET()
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        query = parse_qs(parsed.query)
+        # Static files are served without touching the database.
+        if path.startswith('/assets/') or path in PUBLIC_ROOT_FILES:
+            candidate=(PUBLIC/unquote(path).lstrip('/')).resolve()
+            if not candidate.is_relative_to(PUBLIC.resolve()): self.send_error(403); return
+            self.send_file(candidate, PUBLIC_ROOT_FILES.get(path)); return
+        with connect() as db:
+            try:
+                if path.startswith('/storage/'):
+                    # Storage is private: documents only through the authenticated API. Images used by the app are public only when deliberately copied to assets.
+                    self.send_error(403); return
+                if path == '/api/health':
+                    count = db.execute('SELECT COUNT(*) FROM dive_points WHERE active=1').fetchone()[0]
+                    self.send_json({'ok': True, 'version': APP_VERSION, 'points': count, 'db': str(DB_PATH.name), 'configured': db.execute('SELECT COUNT(*) FROM users').fetchone()[0] > 0})
+                    return
+                if path == '/api/legal/doc':
+                    doc=legal_doc(db,clean_text(query.get('slug',[''])[0],40) or '',clean_text(query.get('lang',['es'])[0],5) or 'es')
+                    if not doc: self.send_json({'error':'Documento no encontrado'},404); return
+                    self.send_json(doc); return
+                if path == '/api/legal/info':
+                    st=legal_settings(db)
+                    self.send_json({'version':LEGAL_VERSION,'docs':LEGAL_DOCS,'owner':{k:st.get(k,'') for k in ('owner_name','trade_name','nif','address','email','phone')},'reasons':REPORT_REASONS}); return
+                if path == '/api/account/export':
+                    user=require_user(self,db); data=export_user_data(db,user['id']); audit(db,user['id'],'data_exported','user',user['id']); db.commit()
+                    raw=json.dumps(data,ensure_ascii=False,indent=2,default=str).encode('utf-8')
+                    self.send_response(200); self.send_header('Content-Type','application/json; charset=utf-8')
+                    self.send_header('Content-Disposition',f'attachment; filename="worldives-mis-datos-{_dt.date.today().isoformat()}.json"')
+                    self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
+                if path == '/api/admin/legal':
+                    user=require_user(self,db); require_role(user,{'admin'}); st=legal_settings(db)
+                    reports=[dict(r) for r in db.execute('SELECT id,reason,target_url,details,reporter_name,reporter_email,status,resolution,resolved_at,created_at FROM content_reports ORDER BY status=\'open\' DESC, id DESC LIMIT 200').fetchall()]
+                    self.send_json({'settings':{k:st.get(k,'') for k in LEGAL_FIELDS},'fields':LEGAL_FIELDS,'docs':LEGAL_DOCS,'version':LEGAL_VERSION,'reports':reports,'reasons':REPORT_REASONS,
+                                    'open_reports':sum(1 for r in reports if r['status']=='open')}); return
+                if path == '/api/admin/emails':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    where=[]; args=[]
+                    stf=clean_text(query.get('status',[''])[0],20)
+                    if stf: where.append('status=?'); args.append(stf)
+                    q=clean_text(query.get('q',[''])[0],80)
+                    if q: where.append('(to_email LIKE ? OR subject LIKE ?)'); args += [f'%{q}%',f'%{q}%']
+                    tpl=clean_text(query.get('template',[''])[0],40)
+                    if tpl: where.append('template=?'); args.append(tpl)
+                    page=max(0,int(query.get('page',['0'])[0] or 0))
+                    sql_where=(' WHERE '+' AND '.join(where)) if where else ''
+                    rows=db.execute(f'SELECT id,template,lang,to_email,to_name,subject,status,related_type,related_id,attempts,last_error,sent_at,created_at FROM email_outbox{sql_where} ORDER BY id DESC LIMIT 50 OFFSET ?',args+[page*50]).fetchall()
+                    total=db.execute(f'SELECT COUNT(*) FROM email_outbox{sql_where}',args).fetchone()[0]
+                    counts={r['status']:r['n'] for r in db.execute('SELECT status,COUNT(*) AS n FROM email_outbox GROUP BY status').fetchall()}
+                    cfg=smtp_config()
+                    self.send_json({'items':[dict(r) for r in rows],'total':total,'page':page,'counts':counts,
+                                    'smtp':{'enabled':cfg['enabled'],'host':cfg['host'],'port':cfg['port'],'security':cfg['security'],'from':cfg['from'],'from_name':cfg['from_name'],'reply_to':cfg['reply_to'],'user_set':bool(cfg['user'])},
+                                    'templates':[{'key':k,'label':EMAIL_TEMPLATE_LABELS.get(k,k),'audience':EMAIL_AUDIENCE[v.get('to','any')]} for k,v in EMAIL_TEMPLATES.items()],
+                                    'langs':list(MAIL_LANGS)}); return
+                if path.startswith('/api/admin/emails/') and path.rsplit('/',1)[1].isdigit():
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    r=db.execute('SELECT * FROM email_outbox WHERE id=?',(int(path.rsplit('/',1)[1]),)).fetchone()
+                    if not r: self.send_json({'error':'Correo no encontrado'},404); return
+                    self.send_json({'item':dict(r)}); return
+                if path == '/api/admin/email-preview':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    tpl=clean_text(query.get('template',[''])[0],40) or ''; lang=clean_text(query.get('lang',['es'])[0],5) or 'es'
+                    if tpl not in EMAIL_TEMPLATES: raise ValueError('Plantilla no válida.')
+                    subject,html_doc,text_doc=render_email(db,tpl,lang if lang in MAIL_LANGS else 'es',sample_email_ctx(tpl,lang))
+                    self.send_json({'subject':subject,'html':html_doc,'text':text_doc}); return
+                if path == '/api/center/promotions':
+                    user=require_user(self,db); require_role(user,{'center'})
+                    if not user['center_id']: raise ValueError('La cuenta aún no tiene un centro aprobado.')
+                    self.send_json(center_promotions(db,user['center_id'])); return
+                if path.startswith('/api/center/promotions/') and path.endswith('/codes'):
+                    user=require_user(self,db); require_role(user,{'center'}); pid=int(path.split('/')[4])
+                    pr=db.execute('SELECT * FROM promotions WHERE id=? AND center_id=?',(pid,user['center_id'])).fetchone()
+                    if not pr: self.send_json({'error':'Promoción no encontrada'},404); return
+                    rows=db.execute('''SELECT pc.id,pc.code,pc.status,pc.uses,pc.created_at,u.fullname,u.email,
+                                              (SELECT MAX(created_at) FROM promotion_redemptions r WHERE r.code_id=pc.id) AS last_used
+                                         FROM promotion_codes pc JOIN users u ON u.id=pc.user_id WHERE pc.promotion_id=? ORDER BY pc.id DESC''',(pid,)).fetchall()
+                    items=[]
+                    for r in rows:
+                        d=dict(r); d['state']=promo_state(pr['status'],r['status'],r['uses'],pr['uses_per_code'],pr['valid_from'],pr['valid_until']); items.append(d)
+                    self.send_json({'items':items}); return
+                if path == '/api/center/partner-search':
+                    user=require_user(self,db); require_role(user,{'center'}); q=clean_text(query.get('q',[''])[0],80) or ''
+                    if len(q)<2: self.send_json({'items':[]}); return
+                    rows=db.execute("SELECT id,name,city,country FROM centers WHERE active=1 AND id<>? AND (name LIKE ? OR city LIKE ?) ORDER BY name LIMIT 12",(user['center_id'] or 0,f'%{q}%',f'%{q}%')).fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/my/promotions':
+                    user=require_user(self,db)
+                    rows=db.execute(PROMO_CODE_SQL.replace('WHERE pc.code=?','WHERE pc.user_id=? ORDER BY pc.id DESC'),(user['id'],)).fetchall()
+                    self.send_json({'items':[promo_code_payload(db,r,user) for r in rows]}); return
+                if path.startswith('/api/promo/') and path.endswith('/qr.svg'):
+                    code=path.split('/')[3].upper()
+                    row=db.execute('SELECT 1 FROM promotion_codes WHERE code=?',(code,)).fetchone()
+                    if not row: self.send_error(404); return
+                    import qrcode
+                    qr=qrcode.QRCode(box_size=1,border=1); qr.add_data(f'{public_base(self)}/#/promo/{code}'); qr.make(fit=True)
+                    m=qr.get_matrix(); n=len(m); sc=8; mg=sc*3; size=n*sc+mg*2
+                    rects=''.join(f'<rect x="{mg+c*sc}" y="{mg+r*sc}" width="{sc}" height="{sc}"/>' for r,row_ in enumerate(m) for c,v in enumerate(row_) if v)
+                    raw=f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" width="{size}" height="{size}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><g fill="#07364a">{rects}</g></svg>'.encode()
+                    self.send_response(200); self.send_header('Content-Type','image/svg+xml; charset=utf-8'); self.send_header('Cache-Control','private, max-age=3600'); self.send_header('Content-Length',str(len(raw))); self.end_headers(); self.wfile.write(raw); return
+                if path.startswith('/api/promo/'):
+                    code=path.split('/')[3].upper(); viewer=current_user(self,db)
+                    row=db.execute(PROMO_CODE_SQL,(code,)).fetchone()
+                    if not row: self.send_json({'error':'Este código promocional no existe.'},404); return
+                    self.send_json(promo_code_payload(db,row,viewer)); return
+                if path == '/api/site-media':
+                    self.send_json(resolve_site_media(SITE_MEDIA.get(db),query.get('h',['n'])[0],query.get('theme',[None])[0] or None)); return
+                if path == '/api/admin/payments':
+                    user=require_user(self,db); require_role(user,{'admin'}); st=clean_text(query.get('status',[''])[0],20) or ''
+                    where='WHERE po.status=?' if st else ''; args=(st,) if st else ()
+                    rows=db.execute(f'''SELECT po.id,po.booking_id,po.amount,po.currency,po.status,po.created_at,po.paid_at,po.amount_received,po.card_brand,po.card_last4,po.receipt_url,po.platform_fee,
+                                               u.fullname,u.email,c.name AS center_name,b.status AS booking_status,b.payment_status AS booking_payment
+                                          FROM payment_orders po JOIN users u ON u.id=po.user_id LEFT JOIN bookings b ON b.id=po.booking_id
+                                          LEFT JOIN provider_services s ON s.id=po.service_id LEFT JOIN centers c ON c.id=COALESCE(b.center_id,s.center_id)
+                                          {where} ORDER BY CASE po.status WHEN 'review' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, po.id DESC LIMIT 400''',args).fetchall()
+                    sums={r['status']:{'n':r['n'],'amount':round(r['a'] or 0,2)} for r in db.execute("SELECT status,COUNT(*) n,SUM(COALESCE(amount_received,amount)) a FROM payment_orders GROUP BY status").fetchall()}
+                    fee=db.execute("SELECT COALESCE(SUM(platform_fee),0) FROM payment_orders WHERE status='paid'").fetchone()[0]
+                    self.send_json({'items':[dict(r) for r in rows],'summary':sums,'platform_fees':round(fee or 0,2),'stripe_ready':bool(stripe_secret()),'webhook_ready':bool(os.environ.get('STRIPE_WEBHOOK_SECRET','').strip())}); return
+                if path == '/api/admin/site-themes':
+                    user=require_user(self,db); require_role(user,{'admin'}); snap=_build_site_media(db)
+                    md=_dt.date.today().strftime('%m-%d')
+                    for t in snap['themes']: t['live_north']=theme_is_on(t,md,'north'); t['live_south']=theme_is_on(t,md,'south')
+                    cur={'north':(resolve_site_media(snap,'north').get('theme') or {}).get('id'),'south':(resolve_site_media(snap,'south').get('theme') or {}).get('id')}
+                    slots=[x for x in site_media_slots() if x['group']=='Portadas de sección']
+                    self.send_json({'themes':snap['themes'],'accents':list(THEME_ACCENTS),'slots':slots,'current':cur}); return
+                if path == '/api/site-promos':
+                    self.send_json(public_promos(db)); return
+                if path == '/api/admin/site-promos':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    self.send_json({'items':[dict(r) for r in db.execute('SELECT * FROM site_promos ORDER BY kind,sort_order,id').fetchall()],
+                                    'settings':{r['key']:r['value'] for r in db.execute("SELECT key,value FROM site_settings WHERE key LIKE 'partners_%'").fetchall()}}); return
+                if path == '/api/center/planning':
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    self.send_json(center_planning(db,user,query.get('month',[''])[0])); return
+                if path == '/api/center/poster-qr':
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    sid=int(query.get('service',['0'])[0] or 0); slot=int(query.get('slot',['0'])[0] or 0)
+                    svc=db.execute('SELECT id,center_id,provider_user_id FROM provider_services WHERE id=?',(sid,)).fetchone() if sid else None
+                    if svc and svc['provider_user_id']!=user['id']: raise PermissionError('Ese servicio no pertenece a tu cuenta.')
+                    host=self.headers.get('X-Forwarded-Host') or self.headers.get('Host') or f'localhost:{PORT}'
+                    proto=self.headers.get('X-Forwarded-Proto') or ('https' if os.environ.get('WOD_HTTPS')=='1' else 'http')
+                    cid=(svc['center_id'] if svc else None) or user['center_id']
+                    target=f'#/reservar?center={cid}'+(f'&service={sid}' if svc else '')+(f'&slot={slot}' if svc and slot else '') if cid else (f'#/profesional?id={user["id"]}')
+                    url=f'{proto}://{host}/{target}'
+                    try: matrix=qr_matrix(url)
+                    except ImportError: matrix=None  # the poster is still generated, without the QR code
+                    self.send_json({'url':url,'matrix':matrix}); return
+                if path == '/api/admin/site-media':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    self.send_json({'slots':site_media_slots(),'items':_build_site_media(db)['items']}); return
+                if path == '/api/point-directory':
+                    self.send_json(point_directory(db, query)); return
+                if path == '/api/dive-points/map':
+                    self.send_prebuilt_json(*points_map_payload(db)); return
+                if path == '/api/travel-directory':
+                    self.send_json(travel_directory(db)); return
+                if path.startswith('/api/travel-offers/'):
+                    tid=int(path.rsplit('/',1)[1])
+                    offer=db.execute('SELECT * FROM travel_offers WHERE id=? AND active=1',(tid,)).fetchone()
+                    if not offer: self.send_json({'error':'Destino no encontrado'},404); return
+                    rows=db.execute('''SELECT e.*, u.fullname AS provider_name, u.role AS provider_role, c.name AS center_name
+                                      FROM travel_experiences e LEFT JOIN users u ON u.id=e.provider_user_id LEFT JOIN centers c ON c.id=e.center_id
+                                      WHERE e.travel_offer_id=? AND e.active=1 AND e.status='published'
+                                        AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1)) ORDER BY COALESCE(e.start_date,'9999-12-31'), e.id DESC''',(tid,)).fetchall()
+                    self.send_json({'offer':dict(offer),'experiences':enrich_experiences(db,rows)}); return
+                if path.startswith('/api/travel-experiences/') and path.rsplit('/',1)[1].isdigit():
+                    eid=int(path.rsplit('/',1)[1])
+                    row=db.execute('''SELECT e.*, u.fullname AS provider_name, c.name AS center_name, c.logo_url AS center_logo, t.title AS destination_title, t.region AS destination_region
+                                      FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id LEFT JOIN users u ON u.id=e.provider_user_id LEFT JOIN centers c ON c.id=e.center_id
+                                      WHERE e.id=? AND e.active=1 AND e.status='published'
+                                        AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))''',(eid,)).fetchone()
+                    if not row: self.send_json({'error':'Experiencia no disponible.'},404); return
+                    self.send_json({'item':enrich_experiences(db,[row])[0]}); return
+                if path == '/api/provider/experiences':
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    rows=db.execute('''SELECT e.*, t.title AS destination_title, s.title AS service_title,
+                                              (SELECT COUNT(*) FROM experience_bookings eb WHERE eb.travel_experience_id=e.id AND eb.status='requested') AS pending_requests
+                                         FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id LEFT JOIN provider_services s ON s.id=e.service_id
+                                        WHERE (e.provider_user_id=? OR (e.center_id IS NOT NULL AND e.center_id=?)) ORDER BY e.active DESC, e.id DESC''',(user['id'],user['center_id'] or -1)).fetchall()
+                    reqs=db.execute('''SELECT eb.*, e.title AS experience_title, u.fullname, u.email, up.phone
+                                         FROM experience_bookings eb JOIN travel_experiences e ON e.id=eb.travel_experience_id JOIN users u ON u.id=eb.user_id LEFT JOIN user_profiles up ON up.user_id=u.id
+                                        WHERE (e.provider_user_id=? OR (e.center_id IS NOT NULL AND e.center_id=?)) ORDER BY CASE eb.status WHEN 'requested' THEN 0 ELSE 1 END, eb.created_at DESC LIMIT 500''',(user['id'],user['center_id'] or -1)).fetchall()
+                    offers=db.execute('SELECT id,title,region,kind FROM travel_offers WHERE active=1 ORDER BY title').fetchall()
+                    self.send_json({'items':enrich_experiences(db,rows),'requests':[dict(r) for r in reqs],'destinations':[dict(o) for o in offers]}); return
+                if path == '/api/my-travel-experiences':
+                    user=require_user(self,db)
+                    rows=db.execute('''SELECT e.*, t.title AS destination_title, c.name AS center_name FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id LEFT JOIN centers c ON c.id=e.center_id WHERE e.provider_user_id=? ORDER BY e.id DESC''',(user['id'],)).fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/meta':
+                    self.send_json({
+                        'countries': [dict(r) for r in db.execute('SELECT id,name FROM countries WHERE active=1 ORDER BY name')],
+                        'types': [dict(r) for r in db.execute('SELECT id,name FROM dive_types WHERE active=1 ORDER BY name')],
+                        'certifications': [dict(r) for r in db.execute('SELECT id,name FROM certifications WHERE active=1 ORDER BY name')],
+                        'zones': [dict(r) for r in db.execute('SELECT id,zone,subregion,country FROM dive_zones WHERE active=1 ORDER BY zone,sort_order,subregion')],
+                        'travel': [dict(r) for r in db.execute('SELECT * FROM travel_offers WHERE active=1 ORDER BY title')],
+                    })
+                    return
+                if path == '/api/me':
+                    user = current_user(self, db)
+                    if not user:
+                        self.send_json({'authenticated': False})
+                    else:
+                        profile = db.execute('''SELECT up.*, c.name AS certification_name FROM user_profiles up LEFT JOIN certifications c ON c.id=up.certification_id WHERE up.user_id=?''', (user['id'],)).fetchone()
+                        docs = db.execute('SELECT id,document_type,title,expires_at,status,original_name,uploaded_at,file_path FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at', (user['id'],)).fetchall()
+                        links = db.execute('''SELECT cl.*, c.name AS center_name, c.city, c.country FROM center_links cl JOIN centers c ON c.id=cl.center_id WHERE cl.user_id=? ORDER BY cl.last_checkin DESC''',(user['id'],)).fetchall()
+                        self.send_json({'authenticated': True, 'user': public_user(user), 'profile': dict(profile) if profile else None, 'documents': [dict(x) for x in docs], 'center_links':[dict(x) for x in links]})
+                    return
+                if path.startswith('/api/providers/'):
+                    provider_id=int(path.rsplit('/',1)[1])
+                    u=db.execute("SELECT id,fullname,role,provider_bio,avatar_url,center_id,instagram_url,facebook_url,twitter_url,youtube_url,tiktok_url FROM users WHERE id=? AND role IN ('center','freelance')",(provider_id,)).fetchone()
+                    if not u: self.send_json({'error':'Profesional no encontrado'},404); return
+                    result={'id':u['id'],'fullname':u['fullname'],'role':u['role'],'provider_bio':u['provider_bio'] or '', 'avatar_url':u['avatar_url'] or '', 'socials': {k:(u[k] or '') for k in ('instagram_url','facebook_url','twitter_url','youtube_url','tiktok_url')}}
+                    if u['role']=='center' and u['center_id']:
+                        c=db.execute('SELECT * FROM centers WHERE id=? AND active=1',(u['center_id'],)).fetchone()
+                        if c:
+                            result['center']=center_row(c)
+                    self.send_json(result); return
+                if path.startswith('/api/payments/session/'):
+                    user=require_user(self,db); sid=path.rsplit('/',1)[1]
+                    q='''SELECT po.*,s.title AS service_title,c.name AS center_name,b.id AS booking_id,b.status AS booking_status,b.booking_date,b.booking_time,b.participants
+                         FROM payment_orders po LEFT JOIN provider_services s ON s.id=po.service_id LEFT JOIN centers c ON c.id=s.center_id LEFT JOIN bookings b ON b.id=po.booking_id
+                         WHERE po.provider_payment_id=? AND po.user_id=?'''
+                    row=db.execute(q,(sid,user['id'])).fetchone()
+                    if not row: self.send_json({'error':'Pago no encontrado'},404); return
+                    if row['status']=='pending' and stripe_secret():
+                        # Do not wait for the webhook: ask Stripe directly so the diver sees the confirmation at once.
+                        try:
+                            import stripe; stripe.api_key=stripe_secret()
+                            sess=stripe.checkout.Session.retrieve(sid,expand=['payment_intent.latest_charge'])
+                            order=db.execute('SELECT * FROM payment_orders WHERE id=?',(row['id'],)).fetchone()
+                            ok_,why=finalize_paid_order(db,order,sess,'return'); db.commit()
+                            row=db.execute(q,(sid,user['id'])).fetchone()
+                        except Exception as exc: sys.stderr.write(f'[pagos] verificación al volver de Stripe: {exc}\n')
+                    d=dict(row)
+                    for k in ('connected_account_id','checkout_url','platform_fee','provider_payment_id'): d.pop(k,None)
+                    d['reference']=f"PAY-{d['id']:05d}"
+                    d['booking_ref']=f"WOD-{int(d['booking_id']):06d}" if d.get('booking_id') else ''
+                    self.send_json({'payment':d}); return
+                if path == '/api/center/analytics':
+                    user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    if not cid: raise ValueError('La cuenta aún no tiene un centro aprobado.')
+                    bookings=db.execute('''SELECT b.*,u.fullname,u.email,s.title AS service_title,p.name AS point_name FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.center_id=? ORDER BY b.booking_date,b.booking_time''',(cid,)).fetchall()
+                    today=time.strftime('%Y-%m-%d'); total=len(bookings)
+                    upcoming=[b for b in bookings if (b['booking_date'] or '')>=today and b['status'] not in ('cancelled','rejected','completed')]
+                    revenue=sum(float(b['price'] or 0) for b in bookings if b['payment_status']=='paid')
+                    pending=sum(1 for b in bookings if b['status']=='pending'); confirmed=sum(1 for b in bookings if b['status']=='confirmed'); completed=sum(1 for b in bookings if b['status']=='completed'); cancelled=sum(1 for b in bookings if b['status']=='cancelled')
+                    participants=sum(int(b['participants'] or 1) for b in bookings if b['status'] not in ('cancelled','rejected'))
+                    by_day={}; by_service={}
+                    for b in bookings:
+                        if b['booking_date']: by_day[b['booking_date']]=by_day.get(b['booking_date'],0)+int(b['participants'] or 1)
+                        k=b['service_title'] or 'Reserva manual'; by_service[k]=by_service.get(k,0)+int(b['participants'] or 1)
+                    channels={'WORLDIVES':0,'Web del centro':0,'Manual':0}
+                    for b in bookings:
+                        src=(b['source'] if 'source' in b.keys() else None) or ('web' if (b['external_ref'] or '') else 'online')
+                        channels[{'web':'Web del centro','manual':'Manual'}.get(src,'WORLDIVES')]+=1
+                    integ=db.execute('SELECT enabled,api_key_prefix,updated_at FROM center_integrations WHERE center_id=?',(cid,)).fetchone()
+                    self.send_json({'metrics':{'total':total,'upcoming':len(upcoming),'pending':pending,'confirmed':confirmed,'completed':completed,'cancelled':cancelled,'revenue':round(revenue,2),'participants':participants},'by_day':[{'date':k,'participants':v} for k,v in sorted(by_day.items())[-30:]],'by_service':[{'name':k,'participants':v} for k,v in sorted(by_service.items(),key=lambda x:x[1],reverse=True)[:8]],'channels':channels,'integration':dict(integ) if integ else {'enabled':False}}); return
+                if path == '/api/center/integration':
+                    user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    row=db.execute('SELECT enabled,api_key_prefix,updated_at,created_at FROM center_integrations WHERE center_id=?',(cid,)).fetchone()
+                    self.send_json({'configured':bool(row),'integration':dict(row) if row else None}); return
+                if path == '/api/provider-services':
+                    provider_id=int(query.get('provider_id',['0'])[0] or 0)
+                    # Paused services are only listed for their own provider (management panel). Public listings stay active-only.
+                    include_inactive=0
+                    center_filter=int(query.get('center_id',['0'])[0] or 0)  # booking engine asks only for one center's catalog
+                    if provider_id and query.get('include_inactive',['0'])[0]=='1':
+                        viewer=current_user(self,db)
+                        include_inactive=1 if viewer and int(viewer['id'])==provider_id else 0
+                    if not provider_id and not center_filter:
+                        # Never dump the whole marketplace catalog in one answer: ask for one center or provider.
+                        raise ValueError('Indica el centro o el profesional cuyo catálogo quieres ver.')
+                    rows=db.execute('''SELECT s.*, u.fullname AS provider_name, c.name AS center_name
+                                      FROM provider_services s JOIN users u ON u.id=s.provider_user_id
+                                      LEFT JOIN centers c ON c.id=s.center_id
+                                      WHERE (s.active=1 OR ?=1) AND (?=0 OR s.provider_user_id=?) AND (?=0 OR s.center_id=?) ORDER BY s.title''',(include_inactive,provider_id,provider_id,center_filter,center_filter)).fetchall()
+                    result=[]; ids=[r['id'] for r in rows]
+                    slots_by_service={}; points_by_slot={}; exp_by_service={}
+                    # Batched queries: a constant number of queries per request instead of one per departure.
+                    for chunk in [ids[i:i+500] for i in range(0,len(ids),500)]:
+                        marks=','.join('?'*len(chunk))
+                        for x in db.execute(f"""SELECT * FROM (SELECT ss.*, ROW_NUMBER() OVER (PARTITION BY service_id ORDER BY slot_date,slot_time) AS rn FROM service_slots ss
+                                                 WHERE service_id IN ({marks}) AND status IN ('open','full') AND (slot_date > date('now') OR (slot_date=date('now') AND slot_time>=time('now'))))
+                                                WHERE rn<=100 ORDER BY service_id,slot_date,slot_time""",chunk).fetchall():
+                            sd=dict(x); sd.pop('rn',None); sd['points']=[]; slots_by_service.setdefault(x['service_id'],[]).append(sd)
+                        if include_inactive:
+                            for ex in db.execute(f'SELECT id,service_id,travel_offer_id,status,active FROM travel_experiences WHERE service_id IN ({marks})',chunk).fetchall():
+                                exp_by_service[ex['service_id']]=dict(ex)
+                    slot_ids=[sd['id'] for lst in slots_by_service.values() for sd in lst]
+                    for chunk in [slot_ids[i:i+500] for i in range(0,len(slot_ids),500)]:
+                        for pp in db.execute(f"SELECT sp.slot_id,p.id,p.name,p.country,p.region FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id IN ({','.join('?'*len(chunk))}) AND p.active=1 ORDER BY p.name",chunk).fetchall():
+                            points_by_slot.setdefault(pp['slot_id'],[]).append({'id':pp['id'],'name':pp['name'],'country':pp['country'],'region':pp['region']})
+                    for r in rows:
+                        d=dict(r)
+                        tariff_price, tariff_currency, tariff_effective = effective_service_tariff(db, r['id'])
+                        d['price']=tariff_price; d['currency']=tariff_currency; d['tariff_effective_from']=tariff_effective
+                        if include_inactive: d['experience']=exp_by_service.get(r['id'])
+                        d['slots']=slots_by_service.get(r['id'],[])
+                        for sd in d['slots']: sd['points']=points_by_slot.get(sd['id'],[])
+                        result.append(d)
+                    self.send_json({'items':result}); return
+                if path.startswith('/api/provider-services/'):
+                    sid=int(path.rsplit('/',1)[1]); r=db.execute('''SELECT s.*,u.fullname AS provider_name,c.name AS center_name,c.phone AS center_phone,c.email AS center_email
+                                                                    FROM provider_services s JOIN users u ON u.id=s.provider_user_id LEFT JOIN centers c ON c.id=s.center_id
+                                                                    WHERE s.id=? AND s.active=1''',(sid,)).fetchone()
+                    if not r: self.send_json({'error':'Servicio no encontrado'},404); return
+                    rd=dict(r); tariff_price, tariff_currency, tariff_effective=effective_service_tariff(db, sid)
+                    rd['price']=tariff_price; rd['currency']=tariff_currency; rd['tariff_effective_from']=tariff_effective
+                    slots=db.execute("SELECT * FROM service_slots WHERE service_id=? AND status IN ('open','full','closed') ORDER BY slot_date,slot_time",(sid,)).fetchall()
+                    slot_out=[]
+                    for x in slots:
+                        sd=dict(x); sd['points']=[dict(pp) for pp in db.execute('SELECT p.id,p.name,p.country,p.region FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id=? AND p.active=1 ORDER BY p.name',(x['id'],)).fetchall()]; slot_out.append(sd)
+                    self.send_json({'service':rd,'slots':slot_out}); return
+                if path == '/api/center/tariffs':
+                    user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    services=db.execute('SELECT id,title,service_type,price,currency,color,active FROM provider_services WHERE center_id=? ORDER BY title',(cid,)).fetchall()
+                    out=[]
+                    for svc in services:
+                        hist=db.execute('SELECT id,price,currency,effective_from,active,created_at FROM center_tariffs WHERE center_id=? AND service_id=? ORDER BY effective_from DESC,id DESC',(cid,svc['id'])).fetchall()
+                        out.append({'service':dict(svc),'history':[dict(x) for x in hist]})
+                    self.send_json({'items':out}); return
+                if path=='/api/payments/center':
+                    user=require_user(self,db); require_role(user,{'center','admin'})
+                    cid=int(user['center_id'] or 0) if user['role']=='center' else int(query.get('center_id',['0'])[0] or 0)
+                    rows=db.execute('''SELECT po.*,s.title AS service_title,c.name AS center_name,u.fullname AS customer_name,u.email AS customer_email
+                                      FROM payment_orders po
+                                      LEFT JOIN provider_services s ON s.id=po.service_id
+                                      LEFT JOIN centers c ON c.id=s.center_id
+                                      JOIN users u ON u.id=po.user_id
+                                      WHERE (c.id=? OR po.booking_id IN (SELECT id FROM bookings WHERE center_id=?))
+                                      ORDER BY po.id DESC LIMIT 200''',(cid,cid)).fetchall()
+                    self.send_json({'items':[dict(x) for x in rows]}); return
+                if path=='/api/my/position-suggestions':
+                    user=require_user(self,db); require_role(user,{'center','freelance','admin'}); rows=db.execute('''SELECT s.*, p.name AS point_name FROM point_position_suggestions s JOIN dive_points p ON p.id=s.dive_point_id WHERE s.user_id=? ORDER BY s.created_at DESC''',(user['id'],)).fetchall(); self.send_json({'items':[dict(r) for r in rows]}); return
+                if path=='/api/admin/travel-experiences':
+                    user=require_user(self,db); require_role(user,{'admin'}); rows=db.execute('''SELECT e.*,t.title AS destination_title,u.fullname AS provider_name,c.name AS center_name FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id LEFT JOIN users u ON u.id=e.provider_user_id LEFT JOIN centers c ON c.id=e.center_id ORDER BY e.id DESC''').fetchall(); self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/center-extras':
+                    # Public: what a diver can add to a booking at this center.
+                    cid=int(query.get('center_id',['0'])[0] or 0)
+                    rows=db.execute('SELECT id,name,description,price FROM center_extras WHERE center_id=? AND active=1 ORDER BY name',(cid,)).fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/booking-quote':
+                    cid=int(query.get('center_id',['0'])[0] or 0); sid=int(query.get('service_id',['0'])[0] or 0); slot_id=int(query.get('slot_id',['0'])[0] or 0)
+                    service=db.execute('SELECT * FROM provider_services WHERE id=? AND center_id=? AND active=1',(sid,cid)).fetchone() if sid else None
+                    slot=db.execute('SELECT slot_date FROM service_slots WHERE id=? AND service_id=?',(slot_id,sid)).fetchone() if slot_id and sid else None
+                    total,currency,lines=booking_quote(db,cid,service,query.get('participants',['1'])[0],slot['slot_date'] if slot else None,as_list(query.get('extras',[''])[0]),as_list(query.get('equipment',[''])[0]))
+                    self.send_json({'total':total,'currency':currency,'lines':lines}); return
+                if path == '/api/service-templates':
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    rows=db.execute('SELECT * FROM service_templates WHERE provider_user_id=? ORDER BY name COLLATE NOCASE',(user['id'],)).fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/center/extras':
+                    user=require_user(self,db); require_role(user,{'center','admin'})
+                    cid=user['center_id'] if user['role']=='center' else int(query.get('center_id',['0'])[0] or 0)
+                    rows=db.execute('SELECT * FROM center_extras WHERE center_id=? ORDER BY active DESC,name',(cid,)).fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/center-equipment':
+                    center_id=int(query.get('center_id',['0'])[0] or 0)
+                    defaults=[('fins','Aletas'),('mask','Máscara'),('wetsuit','Traje de neopreno'),('regulator','Regulador'),('bcd','Chaleco BCD'),('tank','Botella'),('computer','Ordenador de buceo'),('full_kit','Equipo completo')]
+                    rows=db.execute('SELECT code,label,price,active FROM center_equipment WHERE center_id=? ORDER BY sort_order,label',(center_id,)).fetchall()
+                    existing={r['code']:dict(r) for r in rows}
+                    items=[existing.get(code,{'code':code,'label':label,'price':None,'active':1}) for code,label in defaults if existing.get(code,{'active':1})['active']]
+                    self.send_json({'items':items}); return
+                if path == '/api/center-points':
+                    # This endpoint is also part of the public booking flow. A recreational
+                    # diver or freelance user must be able to see the points that a centre
+                    # operates before choosing a date/activity. Centre users are restricted
+                    # to their own catalogue; admin can query any centre.
+                    user=require_user(self,db); requested_center_id=int(query.get('center_id',['0'])[0] or 0)
+                    if user['role']=='center':
+                        center_id=int(user['center_id'] or 0)
+                    elif user['role']=='admin':
+                        center_id=requested_center_id
+                    else:
+                        center_id=requested_center_id
+                    if not center_id: raise ValueError('Centro no válido.')
+                    center=db.execute('SELECT id FROM centers WHERE id=? AND active=1',(center_id,)).fetchone()
+                    if not center: raise ValueError('Centro no válido.')
+                    rows=db.execute('''SELECT p.*, cpl.created_at AS associated_at
+                                      FROM center_point_links cpl
+                                      JOIN dive_points p ON p.id=cpl.dive_point_id
+                                      WHERE cpl.center_id=? AND p.active=1
+                                      ORDER BY p.name''',(center_id,)).fetchall()
+                    self.send_json({'items':[point_row(r) for r in rows],'center_id':center_id}); return
+                if path == '/api/dive-points':
+                    q = clean_text(query.get('q',[''])[0], 120)
+                    country = clean_text(query.get('country',[''])[0], 120)
+                    dtype = clean_text(query.get('type',[''])[0], 120)
+                    region = clean_text(query.get('region',[''])[0], 120)
+                    zone = clean_text(query.get('zone',[''])[0], 120)
+                    subregion = clean_text(query.get('subregion',[''])[0], 120)
+                    center_id = query.get('center_id',[''])[0]
+                    where = ['p.active=1']
+                    args = []
+                    if q:
+                        like = f'%{fold_text(q)}%'; where.append('(fold(p.name) LIKE ? OR fold(p.country) LIKE ? OR fold(p.region) LIKE ? OR fold(p.subregion) LIKE ? OR fold(p.description) LIKE ?)'); args += [like]*5
+                    if country: where.append('p.country=?'); args.append(country)
+                    if dtype:
+                        # The catalog stores descriptive dive types (e.g. Arrecife, Pared, Pecio,
+                        # Muck) while the public "Tipos de buceo" section uses semantic categories.
+                        # Keep those categories mutually meaningful instead of doing an exact-string
+                        # match that would return the same rows for every button.
+                        cat = dive_category(dtype)
+                        if cat: where.append(cat['where'])
+                        else: where.append('fold(p.dive_type) LIKE ?'); args.append(f'%{fold_text(dtype)}%')
+                    if region: where.append('p.region=?'); args.append(region)
+                    if zone: where.append('p.zone=?'); args.append(zone)
+                    if subregion: where.append('p.subregion=?'); args.append(subregion)
+                    if center_id.isdigit(): where.append('p.center_id=?'); args.append(int(center_id))
+                    rows = db.execute('''SELECT p.*, c.name AS center_name, rc.name AS recommended_certification_name FROM dive_points p LEFT JOIN centers c ON c.id=p.center_id LEFT JOIN certifications rc ON rc.id=p.recommended_certification_id WHERE '''+' AND '.join(where)+' ORDER BY p.zone,p.subregion,p.country,p.name', args).fetchall()
+                    self.send_json({'items':[point_row(r) for r in rows]})
+                    return
+                if path.startswith('/api/centers/') and path.count('/')==3:
+                    cid_txt=path.rsplit('/',1)[1]
+                    if cid_txt.isdigit():
+                        cid=int(cid_txt)
+                        row=db.execute('''SELECT c.*,
+                            (SELECT COUNT(*) FROM center_point_links cpl JOIN dive_points dp ON dp.id=cpl.dive_point_id WHERE cpl.center_id=c.id AND dp.active=1) AS point_count,
+                            COALESCE((SELECT ROUND(AVG(cr.rating),1) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1),0) AS rating_average,
+                            (SELECT COUNT(*) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1) AS review_count
+                            FROM centers c WHERE c.id=? AND c.active=1''',(cid,)).fetchone()
+                        if not row: self.send_json({'error':'Centro no encontrado'},404); return
+                        points=db.execute('SELECT p.* FROM center_point_links cpl JOIN dive_points p ON p.id=cpl.dive_point_id WHERE cpl.center_id=? AND p.active=1 ORDER BY p.name',(cid,)).fetchall()
+                        services=db.execute('SELECT s.* FROM provider_services s WHERE s.center_id=? AND s.active=1 ORDER BY s.title',(cid,)).fetchall(); reviews=db.execute('''SELECT cr.id,cr.rating,cr.title,cr.body,cr.verified,cr.created_at,cr.updated_at,u.fullname
+                                               FROM center_reviews cr JOIN users u ON u.id=cr.user_id
+                                               WHERE cr.center_id=? AND cr.active=1 ORDER BY cr.created_at DESC,cr.id DESC LIMIT 50''',(cid,)).fetchall()
+                        review_payload=[dict(r) for r in reviews]
+                        current_review=None; can_review=False; review_reason='Podrás dejar una reseña verificada cuando tengas una reserva pagada o confirmada con este centro.'
+                        current=current_user(self,db)
+                        if current:
+                            current_review_row=db.execute('SELECT id,rating,title,body,created_at,updated_at FROM center_reviews WHERE center_id=? AND user_id=? AND active=1',(cid,current['id'])).fetchone()
+                            current_review=dict(current_review_row) if current_review_row else None
+                            completed_booking=db.execute("SELECT 1 FROM bookings WHERE center_id=? AND user_id=? AND status NOT IN ('cancelled','rejected') AND (payment_status='paid' OR status IN ('confirmed','completed')) LIMIT 1",(cid,current['id'])).fetchone()
+                            can_review=bool(completed_booking) and current['role'] not in {'center','admin'}
+                            if can_review: review_reason='Puedes valorar tu experiencia. Tu reseña aparece como verificada porque tienes una reserva con este centro.'
+                            elif current['role'] in {'center','admin'}: review_reason='Las cuentas profesionales y administrativas no pueden valorar centros.'
+                        service_out=[]
+                        for sv in services:
+                            sd=dict(sv); sd['price'],sd['currency'],_=effective_service_tariff(db,sv['id'])
+                            sd['next_slots']=[dict(x) for x in db.execute("SELECT id,slot_date,slot_time,spots_available,spots_total FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date>=date('now') ORDER BY slot_date,slot_time LIMIT 3",(sv['id'],)).fetchall()]
+                            service_out.append(sd)
+                        exp_rows=db.execute('''SELECT e.*, t.title AS destination_title FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id
+                                               WHERE e.center_id=? AND e.active=1 AND e.status='published'
+                                                 AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))
+                                               ORDER BY e.id DESC LIMIT 12''',(cid,)).fetchall()
+                        _ci=center_row(row); _ci['cancellation_policy']=cancellation_policy_key(row['cancellation_policy']); _ci['cancellation_text']=cancellation_policy_text(row['cancellation_policy']); _ci['cancellation_note']=row['cancellation_note'] or ''
+                        self.send_json({'item':_ci,'points':[point_row(r) for r in points],'services':service_out,'experiences':enrich_experiences(db,exp_rows), 'reviews':review_payload, 'review':{'can_review':can_review,'reason':review_reason,'current':current_review}}); return
+                if path.startswith('/api/dive-points/') and path.endswith('/virtual'):
+                    pid=int(path.split('/')[3])
+                    if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone():
+                        self.send_json({'error':'Punto no encontrado'},404); return
+                    rows=db.execute('SELECT id,dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_at,updated_at FROM virtual_experiences WHERE dive_point_id=? AND active=1 ORDER BY id',(pid,)).fetchall()
+                    self.send_json({'items':[dict(x) for x in rows]}); return
+                if path.startswith('/api/dive-points/') and path.endswith('/virtual'):
+                    user=require_user(self,db); require_role(user,{'admin','center'}); pid=int(path.split('/')[3])
+                    row=db.execute('SELECT center_id FROM dive_points WHERE id=?',(pid,)).fetchone()
+                    if not row: self.send_json({'error':'Punto no encontrado'},404); return
+                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes gestionar el recorrido virtual de este punto.')
+                    data=json_body(self)
+                    title=clean_text(data.get('title'),180) or 'Recorrido virtual'
+                    etype=clean_text(data.get('experience_type'),40) or 'panorama'
+                    if etype not in {'panorama','video360','streetview','external360'}: raise ValueError('Tipo de experiencia no válido.')
+                    url=clean_text(data.get('url'),1000)
+                    if etype in {'video360','streetview','external360'} and not url: raise ValueError('Esta experiencia necesita una URL.')
+                    cur=db.execute('INSERT INTO virtual_experiences(dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(pid,title,etype,clean_text(data.get('provider'),100),url or None,clean_text(data.get('media_path'),500),clean_text(data.get('description'),2000),data.get('duration_seconds') or None,1,user['id'],now(),now()))
+                    audit(db,user['id'],'virtual_experience_created','virtual_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                if path.startswith('/api/dive-points/') and path.endswith('/photos'):
+                    user=require_user(self,db); pid=int(path.split('/')[3]); row=db.execute('SELECT center_id FROM dive_points WHERE id=?',(pid,)).fetchone()
+                    if not row: self.send_error(404); return
+                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes modificar las fotos de este punto.')
+                    require_role(user,{'admin','center'});
+                    self.send_json({'ok':True,'photos':[dict(x) for x in db.execute('SELECT * FROM dive_point_photos WHERE dive_point_id=? ORDER BY sort_order,id',(pid,)).fetchall()]}); return
+                if path.startswith('/api/dive-points/') and path.endswith('/centers'):
+                    pid=int(path.split('/')[3]); p=db.execute('SELECT latitude,longitude FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone()
+                    if not p: self.send_json({'error':'Punto no encontrado'},404); return
+                    rows=db.execute('''SELECT c.*, COALESCE((SELECT ROUND(AVG(cr.rating),1) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1),0) AS rating_average, (SELECT COUNT(*) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1) AS review_count FROM center_point_links cpl JOIN centers c ON c.id=cpl.center_id WHERE cpl.dive_point_id=? AND c.active=1 ORDER BY c.name''',(pid,)).fetchall()
+                    mode='exact'
+                    if not rows:
+                        mode='nearby'; candidates=db.execute('''SELECT c.*, COALESCE((SELECT ROUND(AVG(cr.rating),1) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1),0) AS rating_average, (SELECT COUNT(*) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1) AS review_count FROM centers c WHERE c.active=1 AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL''').fetchall()
+                        from math import radians,sin,cos,asin,sqrt
+                        def dist(a,b,c,d):
+                            lat1,lon1,lat2,lon2=map(radians,[a,b,c,d]); x=sin((lat2-lat1)/2)**2+cos(lat1)*cos(lat2)*sin((lon2-lon1)/2)**2; return 6371*2*asin(sqrt(x))
+                        nearby=[]
+                        for c in candidates:
+                            km=dist(float(p['latitude']),float(p['longitude']),float(c['latitude']),float(c['longitude']))
+                            if km<=60: nearby.append((km,c))
+                        nearby.sort(key=lambda x:(x[0],x[1]['name']))
+                        self.send_json({'mode':mode,'items':[dict(center_row(c),distance_km=km) for km,c in nearby[:12]]}); return
+                    self.send_json({'mode':mode,'items':[center_row(r) for r in rows]}); return
+                if path == '/api/top-dives':
+                    try:
+                        lat = float(query.get('lat',[''])[0]); lon = float(query.get('lon',[''])[0])
+                    except (TypeError, ValueError):
+                        self.send_json({'error':'Necesitamos una ubicación válida para calcular el top 10.'},400); return
+                    try: radius_km = max(5.0, min(500.0, float(query.get('radius',['80'])[0])))
+                    except (TypeError, ValueError): radius_km = 80.0
+                    self.send_json(top_dives(db, lat, lon, radius_km)); return
+                if path.startswith('/api/dive-points/'):
+                    pid = int(path.rsplit('/',1)[1])
+                    r = db.execute('''SELECT p.*, c.name AS center_name, rc.name AS recommended_certification_name FROM dive_points p LEFT JOIN centers c ON c.id=p.center_id LEFT JOIN certifications rc ON rc.id=p.recommended_certification_id WHERE p.id=? AND p.active=1''',(pid,)).fetchone()
+                    if not r: self.send_json({'error':'Punto no encontrado'},404); return
+                    photos = db.execute('SELECT * FROM dive_point_photos WHERE dive_point_id=? ORDER BY sort_order,id',(pid,)).fetchall()
+                    near=[]
+                    try:
+                        if r['latitude'] is not None and r['longitude'] is not None: near=nearby_points(db,float(r['latitude']),float(r['longitude']),80,exclude=pid,limit=6)
+                    except (TypeError,ValueError): near=[]
+                    snap_row=points_snapshot(db)['by_id'].get(pid) or {}
+                    self.send_json({'item':point_row(r),'photos':[dict(x) for x in photos],'nearby':near,'types':snap_row.get('types',[])})
+                    return
+                if path == '/api/center-directory':
+                    self.send_json(center_directory(db, query)); return
+                if path == '/api/dive-types':
+                    self.send_json(dive_types_overview(db)); return
+                if path.startswith('/api/dive-types/'):
+                    d=dive_type_detail(db, unquote(path.split('/',3)[3]))
+                    if not d: self.send_json({'error':'Tipo de buceo no encontrado'},404); return
+                    self.send_json(d); return
+                if path == '/api/centers':
+                    q = clean_text(query.get('q',[''])[0], 120)
+                    country = clean_text(query.get('country',[''])[0], 120)
+                    where=['c.active=1']; args=[]
+                    if q:
+                        like=f'%{fold_text(q)}%'; where.append('(fold(c.name) LIKE ? OR fold(c.city) LIKE ? OR fold(c.region) LIKE ? OR fold(c.specialties) LIKE ?)'); args += [like]*4
+                    if country: where.append('c.country=?'); args.append(country)
+                    order='c.name'
+                    sort=clean_text(query.get('sort',[''])[0],40)
+                    if sort=='rating': order='CASE WHEN review_count=0 THEN 1 ELSE 0 END, rating_average DESC, review_count DESC, c.name'
+                    elif sort=='reviews': order='review_count DESC, rating_average DESC, c.name'
+                    rows=db.execute('''SELECT c.*,
+                                      (SELECT COUNT(*) FROM center_point_links cpl JOIN dive_points dp ON dp.id=cpl.dive_point_id WHERE cpl.center_id=c.id AND dp.active=1) AS point_count,
+                                      COALESCE((SELECT ROUND(AVG(cr.rating),1) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1),0) AS rating_average,
+                                      (SELECT COUNT(*) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1) AS review_count
+                                      FROM centers c WHERE '''+' AND '.join(where)+' ORDER BY '+order,args).fetchall()
+                    self.send_json({'items':[center_row(r) for r in rows]}); return
+                if path.startswith('/api/bookings/') and (path.endswith('/receipt') or path.endswith('/receipt.pdf')):
+                    user=require_user(self,db); bid=int(path.split('/')[3])
+                    b=db.execute('SELECT user_id,center_id FROM bookings WHERE id=?',(bid,)).fetchone()
+                    if not b: self.send_json({'error':'Reserva no encontrada'},404); return
+                    if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta reserva.')
+                    if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
+                    host=self.headers.get('Host','localhost:8000'); proto=self.headers.get('X-Forwarded-Proto','http'); raw=booking_pdf(db,bid,f"{proto}://{host}")
+                    if raw is None: self.send_json({'error':'Reserva no encontrada'},404); return
+                    self.send_response(200); self.send_header('Content-Type','application/pdf'); self.send_header('Content-Disposition',f'attachment; filename="WORLDIVES-reserva-{bid}.pdf"'); self.send_header('Content-Length',str(len(raw))); self.end_headers(); self.wfile.write(raw); return
+                if path == '/api/me/area':
+                    user=require_user(self,db); uid=user['id']
+                    bookings=db.execute('''SELECT b.*,c.name AS center_name,c.city,c.phone AS center_phone,c.email AS center_email,c.address AS center_address,p.name AS point_name,s.title AS service_title,s.booking_mode
+                                          FROM bookings b JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id
+                                          WHERE b.user_id=? ORDER BY b.booking_date DESC,b.booking_time DESC,b.id DESC''',(uid,)).fetchall()
+                    exps=db.execute('''SELECT eb.*,e.title,e.summary,e.start_date,e.end_date,e.price,e.currency,e.includes,e.conditions,
+                                              t.title AS destination_title,c.name AS center_name,c.city,c.phone AS center_phone,c.email AS center_email,
+                                              u.fullname AS provider_name
+                                       FROM experience_bookings eb JOIN travel_experiences e ON e.id=eb.travel_experience_id
+                                       JOIN travel_offers t ON t.id=e.travel_offer_id LEFT JOIN centers c ON c.id=e.center_id
+                                       LEFT JOIN users u ON u.id=e.provider_user_id WHERE eb.user_id=?
+                                       ORDER BY COALESCE(e.start_date,'9999-12-31'),eb.id DESC''',(uid,)).fetchall()
+                    msgs=db.execute('''SELECT m.*,u.fullname AS sender_name,c.name AS booking_center_name
+                                       FROM messages m JOIN users u ON u.id=m.sender_user_id LEFT JOIN bookings b ON b.id=m.booking_id
+                                       LEFT JOIN centers c ON c.id=b.center_id WHERE m.recipient_user_id=? ORDER BY m.created_at DESC,m.id DESC''',(uid,)).fetchall()
+                    unread=sum(1 for m in msgs if not m['read_at'])
+                    self.send_json({'bookings':[dict(x) for x in bookings],'experience_bookings':[dict(x) for x in exps],'messages':[dict(x) for x in msgs],'unread_messages':unread}); return
+                if path == '/api/messages':
+                    user=require_user(self,db); rows=db.execute('''SELECT m.*,u.fullname AS sender_name FROM messages m JOIN users u ON u.id=m.sender_user_id WHERE m.recipient_user_id=? ORDER BY m.created_at DESC,m.id DESC''',(user['id'],)).fetchall(); self.send_json({'items':[dict(x) for x in rows]}); return
+                if path.startswith('/api/public/bookings/') and path.count('/')==4:
+                    bid=int(path.rsplit('/',1)[1])
+                    b=db.execute("""SELECT b.id,b.user_id,b.center_id,b.booking_date,b.booking_time,b.participants,b.status,b.payment_status,b.price,b.currency,u.fullname,c.name AS center_name,c.city AS center_city,p.name AS point_name
+                                    FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id
+                                    LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.id=?""",(bid,)).fetchone()
+                    if not b: self.send_json({'error':'Reserva no encontrada'},404); return
+                    self.send_json({'booking':dict(b)}); return
+                if path.startswith('/api/bookings/') and path.endswith('/diver-sheet.pdf'):
+                    user=require_user(self,db); bid=int(path.split('/')[3]); b=db.execute('SELECT user_id,center_id FROM bookings WHERE id=?',(bid,)).fetchone()
+                    if not b: self.send_json({'error':'Reserva no encontrada'},404); return
+                    if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
+                    if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta ficha.')
+                    host=self.headers.get('Host','localhost:8000'); proto=self.headers.get('X-Forwarded-Proto','http'); raw=diver_sheet_pdf(db,bid,f'{proto}://{host}'); self.send_response(200); self.send_header('Content-Type','application/pdf'); self.send_header('Content-Length',str(len(raw))); self.send_header('Content-Disposition',f'attachment; filename=\"WORLDIVES-ficha-buceador-{bid}.pdf\"'); self.end_headers(); self.wfile.write(raw); return
+                if path.startswith('/api/bookings/') and path.endswith('/qr.svg'):
+                    user=require_user(self,db); bid=int(path.split('/')[3])
+                    b=db.execute('SELECT user_id,center_id FROM bookings WHERE id=?',(bid,)).fetchone()
+                    if not b: self.send_json({'error':'Reserva no encontrada'},404); return
+                    if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta reserva.')
+                    if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
+                    import qrcode
+                    qr=qrcode.QRCode(box_size=1,border=1); host=self.headers.get('Host','localhost:8000'); proto=self.headers.get('X-Forwarded-Proto','http'); qr.add_data(f'{proto}://{host}/#/verificarreserva?id={bid}'); qr.make(fit=True)
+                    matrix=qr.get_matrix(); n=len(matrix); scale=8; margin=scale*4; size=n*scale+margin*2
+                    rects=[]
+                    for r,row in enumerate(matrix):
+                        for c,v in enumerate(row):
+                            if v: rects.append(f'<rect x=\"{margin+c*scale}\" y=\"{margin+r*scale}\" width=\"{scale}\" height=\"{scale}\"/>')
+                    rects_raw="".join(rects)
+                    svg=f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" width="{size}" height="{size}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="white"/><g fill="black">{rects_raw}</g></svg>'
+                    raw=svg.encode('utf-8'); self.send_response(200); self.send_header('Content-Type','image/svg+xml'); self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.end_headers(); self.wfile.write(raw); return
+                if path.startswith('/api/bookings/') and path.count('/')==3:
+                    user=require_user(self,db); bid=int(path.rsplit('/',1)[1])
+                    b=db.execute('''SELECT b.*, u.fullname, u.email, u.username, c.name AS center_name, c.city AS center_city, c.phone AS center_phone, c.email AS center_email, c.website AS center_website, c.address AS center_address, p.name AS point_name, p.country AS point_country, p.dive_type AS point_dive_type, s.title AS service_title, s.booking_mode AS booking_mode
+                                    FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id
+                                    LEFT JOIN user_profiles up ON up.user_id=u.id
+                                    LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?''',(bid,)).fetchone()
+                    if not b: self.send_json({'error':'Reserva no encontrada'},404); return
+                    if user['role'] not in {'admin','center'} and b['user_id']!=user['id']: raise PermissionError('No puedes consultar esta reserva.')
+                    if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
+                    docs=db.execute('SELECT id,document_type,title,expires_at,status,original_name,file_path,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(b['user_id'],)).fetchall()
+                    profile=db.execute('''SELECT up.phone,up.country,up.city,up.preferred_language,up.notes,up.date_of_birth,up.emergency_contact_name,up.emergency_contact_phone,up.equipment_required,up.suit_type,up.suit_size,up.boot_size,up.bcd_size,up.fin_size,up.mask_size,up.usual_weight_kg,up.tank_preference,up.computer_preference,up.equipment_notes,c.name AS certification_name FROM user_profiles up LEFT JOIN certifications c ON c.id=up.certification_id WHERE up.user_id=?''',(b['user_id'],)).fetchone()
+                    po=db.execute("SELECT id,status,amount,currency,created_at,paid_at,amount_received,receipt_url,card_brand,card_last4,provider_payment_id FROM payment_orders WHERE booking_id=? ORDER BY CASE status WHEN 'paid' THEN 0 ELSE 1 END, id DESC LIMIT 1",(bid,)).fetchone()
+                    cpay=db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?',(b['center_id'],)).fetchone()
+                    bd=dict(b); online=center_payments_ready(cpay)
+                    bd['center_online_payments']=online
+                    bd['can_pay_online']=bool(online and b['user_id']==user['id'] and b['payment_status'] in ('required','pending') and float(b['price'] or 0)>0
+                                              and (b['status']=='confirmed' or (b['status']=='pending' and b['booking_mode']!='request')))
+                    pay=dict(po) if po else None
+                    if pay: pay['reference']=f"PAY-{pay['id']:05d}"; pay.pop('provider_payment_id',None)
+                    if b['status'] in ('pending','confirmed'): bd['cancel']=booking_cancel_terms(db,b)
+                    _cp=db.execute('SELECT cancellation_policy,cancellation_note FROM centers WHERE id=?',(b['center_id'],)).fetchone()
+                    bd['cancellation_policy']=cancellation_policy_key(_cp['cancellation_policy']); bd['cancellation_text']=cancellation_policy_text(_cp['cancellation_policy']); bd['cancellation_note']=_cp['cancellation_note'] or ''
+                    self.send_json({'booking':bd,'payment':pay,'profile':dict(profile) if profile else {},'documents':[dict(x) for x in docs]}); return
+                if path == '/api/bookings':
+                    user=require_user(self,db)
+                    if user['role']=='center':
+                        # Optional server-side filters keep the payload small for centers with many bookings.
+                        where=['b.center_id=?']; args=[user['center_id']]
+                        q_from=clean_text(query.get('from',[''])[0],10); q_to=clean_text(query.get('to',[''])[0],10)
+                        if q_from: where.append('b.booking_date>=?'); args.append(q_from)
+                        if q_to: where.append('b.booking_date<=?'); args.append(q_to)
+                        q_status=clean_text(query.get('status',[''])[0],20)
+                        if q_status: where.append('b.status=?'); args.append(q_status)
+                        q_pay=clean_text(query.get('payment',[''])[0],20)
+                        if q_pay: where.append('b.payment_status=?'); args.append(q_pay)
+                        q_service=int(query.get('service_id',['0'])[0] or 0)
+                        if q_service: where.append('b.service_id=?'); args.append(q_service)
+                        q_text=clean_text(query.get('q',[''])[0],80)
+                        if q_text:
+                            like=f'%{fold_text(q_text)}%'; where.append("(fold(u.fullname) LIKE ? OR fold(u.email) LIKE ? OR fold(b.contact_phone) LIKE ? OR fold(b.external_ref) LIKE ? OR fold(s.title) LIKE ? OR CAST(b.id AS TEXT)=?)"); args+= [like,like,like,like,like,q_text.lstrip('#')]
+                        order='b.booking_date ASC,b.booking_time ASC,b.id ASC' if query.get('order',[''])[0]=='asc' else 'b.booking_date DESC,b.booking_time DESC,b.id DESC'
+                        limit=max(1,min(5000,int(query.get('limit',['2000'])[0] or 2000)))
+                        rows=db.execute(f'''SELECT b.*, u.fullname, u.email, u.username, c.name AS center_name, p.name AS point_name, s.title AS service_title, s.color AS service_color
+                                             FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id
+                                             LEFT JOIN provider_services s ON s.id=b.service_id WHERE {' AND '.join(where)} ORDER BY {order} LIMIT {limit}''',args).fetchall()
+                    elif user['role']=='admin':
+                        # The platform may hold hundreds of thousands of bookings: the admin list gets the most recent ones.
+                        limit=max(1,min(5000,int(query.get('limit',['1000'])[0] or 1000)))
+                        rows=db.execute('''SELECT b.*, u.fullname, u.email, u.username, c.name AS center_name, p.name AS point_name, s.title AS service_title FROM bookings b JOIN users u ON u.id=b.user_id JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id ORDER BY b.booking_date DESC,b.id DESC LIMIT ?''',(limit,)).fetchall()
+                    else:
+                        rows=db.execute('''SELECT b.*, c.name AS center_name, p.name AS point_name, s.title AS service_title FROM bookings b JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.user_id=? ORDER BY b.booking_date DESC,b.id DESC''',(user['id'],)).fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/account/documents':
+                    user=require_user(self,db)
+                    rows=db.execute('SELECT id,document_type,title,original_name,expires_at,status,file_path,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(user['id'],)).fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path.startswith('/api/documents/file/'):
+                    user=require_user(self,db); did=int(path.rsplit('/',1)[1]); doc=db.execute('SELECT * FROM user_documents WHERE id=?',(did,)).fetchone()
+                    if not doc: self.send_error(404); return
+                    # Recreational users may access their own docs; admin/center access only through a reservation workflow.
+                    if user['role'] not in {'admin','center'} and doc['user_id']!=user['id']:
+                        raise PermissionError('No tienes acceso a este documento.')
+                    file_path=ROOT / doc['file_path']
+                    if not file_path.exists(): self.send_error(404); return
+                    self.send_file(file_path); return
+                if path == '/api/logbook':
+                    user=require_user(self,db)
+                    rows=db.execute('SELECT * FROM logbook_entries WHERE user_id=? ORDER BY dive_date DESC,id DESC',(user['id'],)).fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/wallet':
+                    user=require_user(self,db)
+                    sync_user_rewards(db,user['id']); db.commit()
+                    rows=db.execute('SELECT * FROM wallet_transactions WHERE user_id=? ORDER BY created_at DESC,id DESC',(user['id'],)).fetchall()
+                    total=db.execute('SELECT COALESCE(SUM(amount),0) FROM wallet_transactions WHERE user_id=?',(user['id'],)).fetchone()[0]
+                    red=db.execute('''SELECT rr.*, ro.title, ro.reward_type, c.name AS center_name FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id LEFT JOIN centers c ON c.id=ro.center_id WHERE rr.user_id=? ORDER BY rr.created_at DESC,rr.id DESC''',(user['id'],)).fetchall()
+                    self.send_json({'balance':round(float(total or 0),2),'items':[dict(r) for r in rows],'redemptions':[dict(r) for r in red]}); return
+                if path == '/api/rewards':
+                    user=require_user(self,db)
+                    sync_user_rewards(db,user['id']); db.commit()
+                    events=db.execute('SELECT * FROM reward_events WHERE user_id=? ORDER BY created_at DESC,id DESC',(user['id'],)).fetchall()
+                    total=db.execute('SELECT COALESCE(SUM(points),0) FROM reward_events WHERE user_id=?',(user['id'],)).fetchone()[0]
+                    dive_count=db.execute('SELECT COUNT(*) FROM logbook_entries WHERE user_id=?',(user['id'],)).fetchone()[0]
+                    centers_count=db.execute('SELECT COUNT(DISTINCT center_id) FROM center_links WHERE user_id=?',(user['id'],)).fetchone()[0]
+                    offers=db.execute('''SELECT ro.*, c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id WHERE ro.active=1 AND (ro.stock IS NULL OR ro.stock>0) ORDER BY ro.center_id IS NOT NULL, ro.cost_wallet, ro.id''').fetchall()
+                    red=db.execute('''SELECT rr.*, ro.title, ro.reward_type, c.name AS center_name FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id LEFT JOIN centers c ON c.id=ro.center_id WHERE rr.user_id=? ORDER BY rr.created_at DESC,rr.id DESC''',(user['id'],)).fetchall()
+                    level=reward_level(int(total or 0))
+                    self.send_json({'points':int(total or 0),'level':level,'stats':{'dives':dive_count,'centers':centers_count},'items':[dict(r) for r in events],'offers':[reward_offer_row(r) for r in offers],'redemptions':[dict(r) for r in red]}); return
+                if path == '/api/rewards/offers':
+                    user=require_user(self,db)
+                    rows=db.execute('''SELECT ro.*, c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id WHERE ro.active=1 AND ro.center_id IS NOT NULL AND (ro.stock IS NULL OR ro.stock>0) ORDER BY ro.cost_wallet,ro.id''').fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/provider/reward-offers':
+                    user=require_user(self,db); require_role(user,{'admin','center'})
+                    if user['role']=='admin':
+                        rows=db.execute('SELECT ro.*, c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id ORDER BY ro.active DESC,ro.created_at DESC').fetchall()
+                    else:
+                        rows=db.execute('SELECT ro.*, c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id WHERE ro.center_id=? ORDER BY ro.active DESC,ro.created_at DESC',(user['center_id'],)).fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/admin/center-claims':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    rows=db.execute('''SELECT cc.*,u.fullname,u.email,u.username,c.name AS matched_center_name FROM center_claims cc JOIN users u ON u.id=cc.user_id LEFT JOIN centers c ON c.id=cc.center_id WHERE cc.status='pending' ORDER BY cc.created_at DESC''').fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/admin/users':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    rows=db.execute('''SELECT u.id,u.fullname,u.email,u.username,u.role,u.center_id,u.created_at,u.last_login,c.name AS center_name FROM users u LEFT JOIN centers c ON c.id=u.center_id ORDER BY u.created_at DESC''').fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/admin/suggestions':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    rows=db.execute('''SELECT s.*, p.name AS point_name, u.fullname, u.email FROM point_position_suggestions s JOIN dive_points p ON p.id=s.dive_point_id JOIN users u ON u.id=s.user_id WHERE s.status='pending' ORDER BY s.created_at DESC''').fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/admin/qr':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    rows=db.execute('''SELECT q.*, c.name AS center_name FROM qr_codes q JOIN centers c ON c.id=q.center_id ORDER BY q.created_at DESC''').fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/admin/virtual-experiences':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    rows=db.execute('''SELECT v.*, p.name AS point_name, p.country, p.region, u.fullname AS created_by_name FROM virtual_experiences v JOIN dive_points p ON p.id=v.dive_point_id LEFT JOIN users u ON u.id=v.created_by_user_id WHERE v.active=1 ORDER BY v.updated_at DESC, v.id DESC''').fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/admin/audit':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    rows=db.execute('''SELECT a.*, u.fullname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.id DESC LIMIT 300''').fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path.startswith('/api/center/clients'):
+                    user=require_user(self,db); require_role(user,{'center','admin'})
+                    cid = user['center_id'] if user['role']=='center' else int(query.get('center_id',['0'])[0] or 0)
+                    if not cid: self.send_json({'items':[]}); return
+                    # A client is anyone who booked with the center or checked in with its QR.
+                    rows=db.execute('''WITH b AS (SELECT user_id, COUNT(*) AS bookings_count, MAX(booking_date) AS last_booking, MIN(booking_date) AS first_booking,
+                                                     SUM(CASE WHEN payment_status='paid' THEN price ELSE 0 END) AS total_paid, MAX(contact_phone) AS phone
+                                                FROM bookings WHERE center_id=? AND status NOT IN ('rejected') GROUP BY user_id),
+                                           ids AS (SELECT user_id FROM b UNION SELECT user_id FROM center_links WHERE center_id=?)
+                                      SELECT u.id,u.fullname,u.email,u.username,COALESCE(b.phone,up.phone) AS phone,cl.first_checkin,cl.last_checkin,
+                                             COALESCE(b.bookings_count,0) AS bookings_count,b.first_booking,b.last_booking,COALESCE(b.total_paid,0) AS total_paid
+                                        FROM ids JOIN users u ON u.id=ids.user_id LEFT JOIN b ON b.user_id=u.id
+                                        LEFT JOIN center_links cl ON cl.user_id=u.id AND cl.center_id=?
+                                        LEFT JOIN user_profiles up ON up.user_id=u.id
+                                       ORDER BY COALESCE(b.last_booking,cl.last_checkin) DESC LIMIT 2000''',(cid,cid,cid)).fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path.startswith('/api/qr/'):
+                    # Generate a real SVG QR for the current local origin.
+                    code=path.rsplit('/',1)[1]
+                    qr=db.execute('''SELECT q.*,c.name AS center_name FROM qr_codes q JOIN centers c ON c.id=q.center_id WHERE q.code=? AND q.active=1''',(code,)).fetchone()
+                    if not qr: self.send_error(404); return
+                    try:
+                        sys.path.insert(0, str(ROOT/'vendor'))
+                        import qrcode
+                        from qrcode.image.svg import SvgPathImage
+                        payload=f'{self.headers.get("Origin") or "http://localhost:%d"%PORT}/#/checkin/{code}'
+                        img=qrcode.make(payload,image_factory=SvgPathImage)
+                        import io
+                        buff=io.BytesIO(); img.save(buff)
+                        raw=buff.getvalue()
+                        self.send_response(200); self.send_header('Content-Type','image/svg+xml; charset=utf-8'); self.send_header('Content-Length',str(len(raw))); self.end_headers(); self.wfile.write(raw)
+                    except Exception as e:
+                        self.send_json({'error':f'No se pudo generar el QR: {e}'},500)
+                    return
+                if path=='/api/payments/connect-status':
+                    user=require_user(self,db); require_role(user,{'center','admin'})
+                    cid=int(user['center_id'] or 0) if user['role']=='center' else int(query.get('center_id',['0'])[0] or 0)
+                    center=db.execute('SELECT id,name,stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled,stripe_details_submitted FROM centers WHERE id=? AND active=1',(cid,)).fetchone()
+                    if not center: raise ValueError('Centro no válido.')
+                    self.send_json({'configured':bool(center['stripe_account_id']),'charges_enabled':bool(center['stripe_charges_enabled']),'payouts_enabled':bool(center['stripe_payouts_enabled']),'details_submitted':bool(center['stripe_details_submitted']),'ready':bool(center['stripe_account_id'] and center['stripe_charges_enabled'] and center['stripe_payouts_enabled']),'center_id':cid,'center_name':center['name']}); return
+                # Unknown API routes answer JSON, never the SPA page (otherwise the client silently gets empty data).
+                if path.startswith('/api/'):
+                    self.send_json({'error':'Endpoint no encontrado'},404); return
+                # Static: SPA fallback for every app route.
+                self.serve_spa()
+            except (BrokenPipeError, ConnectionResetError):
+                return
+            except PermissionError as e:
+                db.rollback()  # never persist half-done work when a request fails
+                self.send_json({'error':str(e)},403)
+            except ValueError as e:
+                db.rollback()  # never persist half-done work when a request fails
+                self.send_json({'error':str(e)},400)
+            except KeyError as e:
+                # A required field is missing in the request: the client's fault, not a server error.
+                db.rollback()
+                self.send_json({'error':f'Falta un dato obligatorio: {e.args[0] if e.args else ""}.'},400)
+            except TypeError as e:
+                db.rollback()
+                log_exception(self, e)
+                self.send_json({'error':'Algún dato enviado no tiene el formato esperado.'},400)
+            except Exception as e:
+                db.rollback()  # never persist half-done work when a request fails
+                log_exception(self, e)
+                payload={'error':'Error interno'}
+                if os.environ.get('WOD_DEBUG','').strip().lower() in {'1','true','yes','on'}:
+                    payload['detail']=str(e)
+                self.send_json(payload,500)
+
+    def serve_spa(self):
+        index=PUBLIC/'index.html'
+        self.send_file(index,'text/html; charset=utf-8')
+
+    def do_POST(self):
+        parsed=urlparse(self.path); path=parsed.path
+        if path != '/api/integrations/bookings':
+            try:
+                self.enforce_same_origin()
+            except (BrokenPipeError, ConnectionResetError):
+                return
+            except PermissionError as e:
+                self.send_json({'error':str(e)},403); return
+        with connect() as db:
+            try:
+                if path=='/api/payments/webhook':
+                    length=int(self.headers.get('Content-Length','0') or 0); raw=self.rfile.read(length); secret=os.environ.get('STRIPE_WEBHOOK_SECRET','').strip()
+                    if not secret: self.send_json({'error':'Webhook no configurado.'},503); return
+                    try:
+                        import stripe
+                        event=stripe.Webhook.construct_event(raw,self.headers.get('Stripe-Signature',''),secret)
+                    except ImportError: self.send_json({'error':'Falta instalar stripe.'},500); return
+                    except Exception: self.send_json({'error':'Firma de webhook no válida.'},400); return
+                    event_id=event.get('id'); event_type=event.get('type','')
+                    if event_id:
+                        try:
+                            db.execute('INSERT INTO stripe_webhook_events(event_id,event_type,created_at) VALUES(?,?,?)',(event_id,event_type,now()))
+                        except sqlite3.IntegrityError:
+                            self.send_json({'received':True,'duplicate':True}); return
+                    obj=event.get('data',{}).get('object',{})
+                    oid=int((obj.get('metadata') or {}).get('payment_order_id') or 0)
+                    order=db.execute('SELECT * FROM payment_orders WHERE id=?',(oid,)).fetchone() if oid else None
+                    if event_type in {'checkout.session.completed','checkout.session.async_payment_succeeded'}:
+                        if order and order['status']!='paid':
+                            sess=obj
+                            try:
+                                import stripe; stripe.api_key=stripe_secret()
+                                if stripe.api_key: sess=stripe.checkout.Session.retrieve(obj.get('id'),expand=['payment_intent.latest_charge'])
+                            except Exception: sess=obj
+                            finalize_paid_order(db,order,sess,'webhook')
+                    elif event_type=='checkout.session.expired':
+                        if order and order['status']=='pending':
+                            release_order_hold(db,order,'expired')
+                            audit(db,order['user_id'],'payment_expired','payment_order',oid,{'provider':'stripe','event_id':event_id})
+                    elif event_type=='payment_intent.payment_failed':
+                        if order and order['status']=='pending':
+                            db.execute("UPDATE payment_orders SET status='failed',updated_at=? WHERE id=?",(now(),oid))
+                    elif event_type in {'charge.refunded','refund.updated'}:
+                        if order:
+                            db.execute("UPDATE payment_orders SET status='refunded',updated_at=? WHERE id=?",(now(),oid))
+                            if order['booking_id']:
+                                db.execute("UPDATE bookings SET payment_status='refunded',status='cancelled',updated_at=? WHERE id=?",(now(),order['booking_id']))
+                            audit(db,order['user_id'],'payment_refunded','payment_order',oid,{'provider':'stripe','event_id':event_id})
+                    elif event_type=='account.updated':
+                        account_id=obj.get('id')
+                        if account_id:
+                            db.execute('UPDATE centers SET stripe_charges_enabled=?,stripe_payouts_enabled=?,stripe_details_submitted=?,updated_at=? WHERE stripe_account_id=?',(1 if obj.get('charges_enabled') else 0,1 if obj.get('payouts_enabled') else 0,1 if obj.get('details_submitted') else 0,now(),account_id))
+                    db.commit()
+                    self.send_json({'received':True}); return
+                if path=='/api/payments/connect/onboard':
+                    user=require_user(self,db); require_role(user,{'center','admin'})
+                    data=json_body(self)
+                    cid=int(user['center_id'] or 0) if user['role']=='center' else int(data.get('center_id') or 0)
+                    center=db.execute('SELECT * FROM centers WHERE id=? AND active=1',(cid,)).fetchone()
+                    if not center: raise ValueError('Centro no válido.')
+                    secret=stripe_secret(); base=os.environ.get('WOD_PUBLIC_URL','http://localhost:8000').rstrip('/')
+                    if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
+                    try:
+                        import stripe
+                        stripe.api_key=secret
+                        account_id=center['stripe_account_id']
+                        if account_id:
+                            account=stripe.Account.retrieve(account_id)
+                        else:
+                            account=stripe.Account.create(
+                                type='express',
+                                country=(center['country'] or 'ES')[:2].upper(),
+                                email=center['email'] or None,
+                                business_profile={'name':center['name'],'website':center['website'] or None},
+                                capabilities={'card_payments':{'requested':True},'transfers':{'requested':True}}
+                            )
+                            account_id=account.id
+                            db.execute('UPDATE centers SET stripe_account_id=?,updated_at=? WHERE id=?',(account_id,now(),cid))
+                            db.commit()
+                        link=stripe.AccountLink.create(account=account_id,type='account_onboarding',refresh_url=f'{base}/#/pagos?stripe=refresh',return_url=f'{base}/#/pagos?stripe=return')
+                        self.send_json({'ok':True,'url':link.url,'account_id':account_id}); return
+                    except ImportError: raise ValueError('Falta instalar la dependencia stripe en el servidor.')
+                    except Exception as exc: raise ValueError(f'No se pudo iniciar la configuración de cobros: {exc}')
+                if path=='/api/payments/connect/refresh':
+                    user=require_user(self,db); require_role(user,{'center','admin'})
+                    data=json_body(self); cid=int(user['center_id'] or 0) if user['role']=='center' else int(data.get('center_id') or 0)
+                    center=db.execute('SELECT * FROM centers WHERE id=? AND active=1',(cid,)).fetchone()
+                    if not center or not center['stripe_account_id']: raise ValueError('El centro todavía no tiene una cuenta de cobros.')
+                    secret=stripe_secret(); base=os.environ.get('WOD_PUBLIC_URL','http://localhost:8000').rstrip('/')
+                    if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
+                    try:
+                        import stripe
+                        stripe.api_key=secret
+                        link=stripe.AccountLink.create(account=center['stripe_account_id'],type='account_onboarding',refresh_url=f'{base}/#/pagos?stripe=refresh',return_url=f'{base}/#/pagos?stripe=return')
+                        self.send_json({'ok':True,'url':link.url}); return
+                    except Exception as exc: raise ValueError(f'No se pudo continuar la configuración de cobros: {exc}')
+                if path=='/api/payments/connect/sync':
+                    user=require_user(self,db); require_role(user,{'center','admin'})
+                    data=json_body(self); cid=int(user['center_id'] or 0) if user['role']=='center' else int(data.get('center_id') or 0)
+                    center=db.execute('SELECT * FROM centers WHERE id=? AND active=1',(cid,)).fetchone()
+                    if not center or not center['stripe_account_id']: raise ValueError('El centro todavía no tiene una cuenta de cobros.')
+                    secret=os.environ.get('STRIPE_SECRET_KEY','').strip()
+                    if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
+                    try:
+                        import stripe
+                        stripe.api_key=secret
+                        a=stripe.Account.retrieve(center['stripe_account_id'])
+                        db.execute('UPDATE centers SET stripe_charges_enabled=?,stripe_payouts_enabled=?,stripe_details_submitted=?,updated_at=? WHERE id=?',(1 if a.get('charges_enabled') else 0,1 if a.get('payouts_enabled') else 0,1 if a.get('details_submitted') else 0,now(),cid))
+                        db.commit()
+                        self.send_json({'ok':True,'charges_enabled':bool(a.get('charges_enabled')),'payouts_enabled':bool(a.get('payouts_enabled')),'details_submitted':bool(a.get('details_submitted')),'ready':bool(a.get('charges_enabled') and a.get('payouts_enabled'))}); return
+                    except Exception as exc: raise ValueError(f'No se pudo actualizar el estado de Stripe: {exc}')
+                if path=='/api/payments/connect/login':
+                    user=require_user(self,db); require_role(user,{'center','admin'})
+                    cid=int(user['center_id'] or 0) if user['role']=='center' else int((json_body(self)).get('center_id') or 0)
+                    center=db.execute('SELECT stripe_account_id FROM centers WHERE id=? AND active=1',(cid,)).fetchone()
+                    if not center or not center['stripe_account_id']: raise ValueError('Primero configura los cobros del centro.')
+                    secret=os.environ.get('STRIPE_SECRET_KEY','').strip()
+                    if not secret: raise ValueError('Los cobros online todavía no están activados en WORLDIVES (el administrador debe configurar la clave de Stripe en el servidor).')
+                    try:
+                        import stripe
+                        stripe.api_key=secret
+                        link=stripe.Account.create_login_link(center['stripe_account_id'])
+                        self.send_json({'ok':True,'url':link.url}); return
+                    except Exception as exc: raise ValueError(f'No se pudo abrir el panel de cobros: {exc}')
+                if path=='/api/setup':
+                    if db.execute('SELECT COUNT(*) FROM users').fetchone()[0] != 0:
+                        self.send_json({'error':'La instalación ya está configurada.'},400); return
+                    data=json_body(self)
+                    fullname=clean_text(data.get('fullname'),120); email=(clean_text(data.get('email'),160) or '').lower(); username=clean_text(data.get('username'),80); password=str(data.get('password',''))
+                    if not fullname or not email or not username or len(password)<10: raise ValueError('Completa nombre, email, usuario y una contraseña de 10 caracteres o más.')
+                    cur=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at) VALUES(?,?,?,?,?,?)',(fullname,email,username,hash_password(password),'admin',now())); uid=cur.lastrowid
+                    db.execute('INSERT INTO user_profiles(user_id,updated_at) VALUES(?,?)',(uid,now())); db.execute('UPDATE users SET terms_version=?,terms_accepted_at=?,pro_terms_version=?,pro_terms_accepted_at=? WHERE id=?',(LEGAL_VERSION,now(),LEGAL_VERSION,now(),uid)); audit(db,uid,'setup_completed'); db.commit()
+                    self.login_user(uid,db); return
+                if path=='/api/auth/register':
+                    data=json_body(self); fullname=clean_text(data.get('fullname'),120); email=(clean_text(data.get('email'),160) or '').lower(); username=clean_text(data.get('username'),80); password=str(data.get('password',''))
+                    requested=clean_text(data.get('account_type'),30) or 'recreational'
+                    phone=clean_text(data.get('phone'),60); requested_center_name=clean_text(data.get('center_name'),180); city=clean_text(data.get('city'),100); website=clean_text(data.get('website'),250); center_note=clean_text(data.get('center_note'),2000)
+                    if requested not in {'admin','recreational','center','freelance'}: requested='recreational'
+                    if not fullname or not email or not username or len(password)<10: raise ValueError('Completa todos los campos. La contraseña debe tener al menos 10 caracteres.')
+                    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email): raise ValueError('Escribe un email válido.')
+                    if not data.get('accept_terms'): raise ValueError('Para crear la cuenta tienes que aceptar las condiciones de uso y la política de privacidad.')
+                    if requested in {'center','freelance'} and not data.get('accept_pro_terms'): raise ValueError('Para crear una cuenta profesional tienes que aceptar las condiciones para centros y profesionales.')
+                    if db.execute('SELECT 1 FROM users WHERE lower(email)=? AND password_hash<>? AND NOT (username LIKE ? ESCAPE ? AND last_login IS NULL)',(email,'!','web\\_%','\\')).fetchone() or db.execute('SELECT 1 FROM users WHERE lower(username)=lower(?)',(username,)).fetchone():
+                        raise ValueError('Ya existe una cuenta con ese email o nombre de usuario. Si es tuya, inicia sesión o recupera la contraseña.')
+                    reg_lang=clean_text(data.get('lang'),5) or 'es'
+                    if reg_lang not in MAIL_LANGS: reg_lang='es'
+                    first_user=db.execute('SELECT COUNT(*) FROM users').fetchone()[0] == 0
+                    if requested=='admin' and not first_user:
+                        raise PermissionError('La cuenta de administrador inicial solo puede crearse durante la primera configuración.')
+                    role='admin' if (first_user and requested=='admin') else ('admin' if first_user else requested)
+                    # A customer record created by a center (manual booking / web import) never had a password.
+                    # Without email verification we do not merge it into the new account: we free the email
+                    # and keep that record (and its bookings) for the center only.
+                    guest=db.execute("SELECT id FROM users WHERE lower(email)=? AND (password_hash='!' OR (username LIKE 'web\\_%' ESCAPE '\\' AND last_login IS NULL))",(email,)).fetchone()
+                    if guest: db.execute('UPDATE users SET email=? WHERE id=?',(f'cliente-{guest["id"]}-{secrets.token_hex(4)}@sin-email.worldives.local',guest['id']))
+                    db.execute('INSERT INTO users(fullname,email,username,password_hash,role,requested_role,created_at) VALUES(?,?,?,?,?,?,?)',(fullname,email,username,hash_password(password),role,requested,now())); uid=db.execute('SELECT last_insert_rowid()').fetchone()[0]
+                    db.execute('INSERT INTO user_profiles(user_id,phone,city,preferred_language,updated_at) VALUES(?,?,?,?,?)',(uid,phone,city,reg_lang,now()))
+                    db.execute('UPDATE users SET terms_version=?,terms_accepted_at=? WHERE id=?',(LEGAL_VERSION,now(),uid))
+                    if requested in {'center','freelance'}: db.execute('UPDATE users SET pro_terms_version=?,pro_terms_accepted_at=? WHERE id=?',(LEGAL_VERSION,now(),uid))
+                    claim_id=None; matched_center=None
+                    if requested in {'center','freelance'} and phone:
+                        norm=''.join(ch for ch in phone if ch.isdigit())
+                        candidates=db.execute('SELECT * FROM centers WHERE active=1').fetchall()
+                        for c in candidates:
+                            c_norm=''.join(ch for ch in (c['phone'] or '') if ch.isdigit())
+                            if norm and c_norm and (norm==c_norm or norm.endswith(c_norm[-9:]) or c_norm.endswith(norm[-9:])):
+                                matched_center=c; break
+                    if requested=='center':
+                        # A center account gets its own editable draft immediately. Existing catalog
+                        # centers can be claimed by phone; otherwise create a provider-submitted draft.
+                        if matched_center:
+                            db.execute("UPDATE users SET center_id=?, role='center' WHERE id=?",(matched_center['id'],uid))
+                        else:
+                            if not requested_center_name:
+                                raise ValueError('Indica el nombre del centro de buceo para crear su ficha.')
+                            cur_center=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at,verification_status,data_confidence,source_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                                (requested_center_name,'España',None,city,None,website,phone,email,None,None,None,None,1,now(),now(),'pending_provider','provider_submitted','WORLDIVES DISCOVERY provider'))
+                            cid=cur_center.lastrowid
+                            db.execute("UPDATE users SET center_id=?, role='center' WHERE id=?",(cid,uid))
+                            matched_center=db.execute('SELECT * FROM centers WHERE id=?',(cid,)).fetchone()
+                        cur=db.execute('INSERT INTO center_claims(user_id,center_id,requested_center_name,phone,city,website,note,status,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(uid,matched_center['id'] if matched_center else None,requested_center_name,phone,city,website,center_note,'pending',now())); claim_id=cur.lastrowid
+                    notify_user(db,uid,'welcome_pro' if requested in {'center','freelance'} else 'welcome',related=('user',uid))
+                    if requested in {'center','freelance'} and not first_user:
+                        notify_admins(db,'admin_new_pro',{'pro_name':fullname,'pro_email':email,'pro_type':'centro de buceo' if requested=='center' else 'profesional freelance','center':requested_center_name or (matched_center['name'] if matched_center else fullname)},('user',uid))
+                    audit(db,uid,'register', 'user', uid, {'requested_role':requested,'first_user_admin':first_user,'center_claim_id':claim_id,'matched_center_id':matched_center['id'] if matched_center else None}); db.commit(); self.login_user(uid,db,{'ok':True,'role':role,'first_user_admin':first_user,'provider_verification':'pending' if requested in {'center','freelance'} else None,'matched_center':({'id':matched_center['id'],'name':matched_center['name'],'city':matched_center['city'],'phone':matched_center['phone']} if matched_center else None)}); return
+                if path=='/api/auth/login':
+                    data=json_body(self); login=(clean_text(data.get('login'),160) or '').lower(); password=str(data.get('password',''))
+                    rate_key=f'{self.client_address[0]}:{login}'
+                    if login_rate_limited(rate_key):
+                        self.send_json({'error':'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.'},429); return
+                    user=db.execute('SELECT * FROM users WHERE lower(email)=? OR lower(username)=?',(login,login)).fetchone()
+                    if not user or not verify_password(password,user['password_hash']):
+                        record_login_failure(rate_key); self.send_json({'error':'Usuario o contraseña incorrectos.'},401); return
+                    clear_login_failures(rate_key)
+                    db.execute('UPDATE users SET last_login=? WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login'); db.commit(); self.login_user(user['id'],db); return
+                if path=='/api/auth/logout':
+                    self.logout_user(); return
+                if path=='/api/provider/avatar':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); fields,files=parse_multipart(self); file=files.get('file')
+                    if not file: raise ValueError('Adjunta una imagen.')
+                    public_url=save_public_image(file,f"provider_{user['id']}")
+                    if user['role']=='center':
+                        if not user['center_id']: raise ValueError('Tu cuenta no tiene centro asociado.')
+                        db.execute("UPDATE centers SET logo_url=?,logo_source='uploaded',updated_at=? WHERE id=?",(public_url,now(),user['center_id']))
+                    else:
+                        db.execute('UPDATE users SET avatar_url=? WHERE id=?',(public_url,user['id']))
+                    audit(db,user['id'],'provider_avatar_updated','center' if user['role']=='center' else 'user',user['center_id'] if user['role']=='center' else user['id']); db.commit(); self.send_json({'ok':True,'url':public_url}); return
+                if path.startswith('/api/centers/') and path.endswith('/reviews'):
+                    user=require_user(self,db)
+                    parts=path.strip('/').split('/')
+                    cid=int(parts[2]) if len(parts)>=4 and parts[2].isdigit() else 0
+                    if not cid or not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(cid,)).fetchone():
+                        raise ValueError('Centro no válido.')
+                    if user['role'] in {'center','admin'}:
+                        raise PermissionError('Las cuentas profesionales y administrativas no pueden publicar reseñas de centros.')
+                    data=json_body(self); rating=int(data.get('rating') or 0)
+                    if rating<1 or rating>5: raise ValueError('La valoración debe estar entre 1 y 5 estrellas.')
+                    title=clean_text(data.get('title'),120) or None
+                    body=clean_text(data.get('body'),1200) or None
+                    completed=db.execute("SELECT id FROM bookings WHERE center_id=? AND user_id=? AND status NOT IN ('cancelled','rejected') AND (payment_status='paid' OR status IN ('confirmed','completed')) ORDER BY booking_date DESC, id DESC LIMIT 1",(cid,user['id'])).fetchone()
+                    if not completed: raise PermissionError('Podrás valorar este centro cuando tengas una reserva pagada o confirmada con él.')
+                    existing=db.execute('SELECT id FROM center_reviews WHERE center_id=? AND user_id=?',(cid,user['id'])).fetchone()
+                    if existing:
+                        db.execute('UPDATE center_reviews SET rating=?,title=?,body=?,active=1,verified=1,updated_at=? WHERE id=?',(rating,title,body,now(),existing['id']))
+                        rid=existing['id']; action='center_review_updated'
+                    else:
+                        cur=db.execute('INSERT INTO center_reviews(center_id,user_id,rating,title,body,active,verified,created_at,updated_at) VALUES(?,?,?,?,?,1,1,?,?)',(cid,user['id'],rating,title,body,now(),now()))
+                        rid=cur.lastrowid; action='center_review_created'
+                    audit(db,user['id'],action,'center_review',rid,{'center_id':cid,'rating':rating,'booking_id':completed['id']}); db.commit()
+                    agg=db.execute('SELECT ROUND(AVG(rating),1) AS rating_average, COUNT(*) AS review_count FROM center_reviews WHERE center_id=? AND active=1',(cid,)).fetchone()
+                    self.send_json({'ok':True,'id':rid,'rating_average':float(agg['rating_average'] or 0),'review_count':int(agg['review_count'] or 0)}); return
+                if path=='/api/center-points/assign':
+                    user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); center_id=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0); pid=int(data.get('dive_point_id') or 0)
+                    if not center_id or not pid: raise ValueError('Centro y punto son obligatorios.')
+                    if not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(center_id,)).fetchone(): raise ValueError('Centro no válido.')
+                    if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone(): raise ValueError('Punto no válido.')
+                    db.execute('INSERT OR IGNORE INTO center_point_links(center_id,dive_point_id,created_at) VALUES(?,?,?)',(center_id,pid,now())); audit(db,user['id'],'center_point_assigned','center_point',pid,{'center_id':center_id}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center-points/unassign':
+                    user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); center_id=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0); pid=int(data.get('dive_point_id') or 0)
+                    if not center_id or not pid: raise ValueError('Centro y punto son obligatorios.')
+                    db.execute('DELETE FROM center_point_links WHERE center_id=? AND dive_point_id=?',(center_id,pid)); audit(db,user['id'],'center_point_unassigned','center_point',pid,{'center_id':center_id}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center-equipment':
+                    user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); center_id=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0)
+                    defaults={'fins':'Aletas','mask':'Máscara','wetsuit':'Traje de neopreno','regulator':'Regulador','bcd':'Chaleco BCD','tank':'Botella','computer':'Ordenador de buceo','full_kit':'Equipo completo'}
+                    code=clean_text(data.get('code'),40); label=clean_text(data.get('label'),120) or defaults.get(code,code); price=data.get('price'); price=None if price in (None,'') else max(0,float(price))
+                    if code not in defaults: raise ValueError('Equipo no válido.')
+                    db.execute('''INSERT INTO center_equipment(center_id,code,label,price,active,sort_order,updated_at) VALUES(?,?,?,?,1,?,?) ON CONFLICT(center_id,code) DO UPDATE SET label=excluded.label,price=excluded.price,active=1,updated_at=excluded.updated_at''',(center_id,code,label,price,list(defaults).index(code),now())); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center/integration/regenerate':
+                    user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    if not cid: raise ValueError('La cuenta aún no tiene un centro aprobado.')
+                    key='wod_'+secrets.token_urlsafe(32); digest=hashlib.sha256(key.encode()).hexdigest(); prefix=key[:12]
+                    if db.execute('SELECT id FROM center_integrations WHERE center_id=?',(cid,)).fetchone(): db.execute('UPDATE center_integrations SET api_key_hash=?,api_key_prefix=?,enabled=1,updated_at=? WHERE center_id=?',(digest,prefix,now(),cid))
+                    else: db.execute('INSERT INTO center_integrations(center_id,api_key_hash,api_key_prefix,enabled,created_at,updated_at) VALUES(?,?,?,?,?,?)',(cid,digest,prefix,1,now(),now()))
+                    audit(db,user['id'],'center_api_key_regenerated','center',cid); db.commit(); self.send_json({'ok':True,'api_key':key,'prefix':prefix}); return
+                if path=='/api/center/integration/toggle':
+                    user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0); data=json_body(self); enabled=1 if data.get('enabled',True) else 0
+                    db.execute('UPDATE center_integrations SET enabled=?,updated_at=? WHERE center_id=?',(enabled,now(),cid)); audit(db,user['id'],'center_integration_toggled','center',cid,{'enabled':bool(enabled)}); db.commit(); self.send_json({'ok':True,'enabled':bool(enabled)}); return
+                if path=='/api/integrations/bookings':
+                    key=self.headers.get('X-WORLDIVES-API-Key','').strip(); data=json_body(self)
+                    if not key: raise PermissionError('Falta la API Key de WORLDIVES.')
+                    digest=hashlib.sha256(key.encode()).hexdigest(); integ=db.execute('SELECT * FROM center_integrations WHERE api_key_hash=? AND enabled=1',(digest,)).fetchone()
+                    if not integ: raise PermissionError('API Key no válida o integración desactivada.')
+                    cid=int(integ['center_id']); ext=clean_text(data.get('external_ref') or data.get('reservation_id'),180)
+                    if ext:
+                        old=db.execute('SELECT id,status FROM bookings WHERE center_id=? AND external_ref=?',(cid,ext)).fetchone()
+                        if old: self.send_json({'ok':True,'duplicate':True,'booking_id':old['id'],'status':old['status']}); return
+                    email=clean_text(data.get('email'),160) or f'web-{secrets.token_hex(8)}@worldives.local'; userrow=db.execute('SELECT * FROM users WHERE lower(email)=lower(?) LIMIT 1',(email,)).fetchone()
+                    if not userrow:
+                        fullname=clean_text(data.get('fullname') or data.get('customer_name'),180) or 'Cliente web'; username='web_'+secrets.token_hex(6); uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at) VALUES(?,?,?,?,?,?)',(fullname,email,username,hash_password(secrets.token_urlsafe(24)),'recreational',now())).lastrowid
+                    else: uid=userrow['id']
+                    service_id=int(data.get('service_id') or 0) or None; slot_id=int(data.get('slot_id') or 0) or None; service=None
+                    if service_id:
+                        service=db.execute('SELECT * FROM provider_services WHERE id=? AND center_id=? AND active=1',(service_id,cid)).fetchone()
+                        if not service: raise ValueError('Servicio no válido para este centro.')
+                    participants=max(1,int(data.get('participants') or 1)); slot=None
+                    if slot_id:
+                        slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(slot_id,service_id)).fetchone()
+                        if not slot or participants>slot['spots_available']: raise ValueError('La salida seleccionada no tiene plazas suficientes.')
+                    bdate=slot['slot_date'] if slot else clean_text(data.get('booking_date'),20); btime=slot['slot_time'] if slot else clean_text(data.get('booking_time'),20)
+                    if not bdate: raise ValueError('Falta booking_date.')
+                    point_id=int(data.get('dive_point_id') or 0) or None; price=float(data.get('price') if data.get('price') not in (None,'') else (service['price'] if service else 0) or 0); status=clean_text(data.get('status'),30) or 'pending'; status=status if status in {'pending','confirmed'} else 'pending'; reserved=0
+                    if slot and status=='confirmed':
+                        changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(participants,participants,now(),slot_id,participants)).rowcount
+                        if changed!=1: raise ValueError('Las plazas acaban de cambiar.')
+                        reserved=1
+                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,external_ref,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(uid,cid,point_id,service_id,slot_id,reserved,bdate,btime,participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),status,price,service['currency'] if service else 'EUR','paid' if data.get('paid') else ('required' if price>0 else 'not_required'),ext,now(),now()))
+                    audit(db,uid,'booking_imported','booking',cur.lastrowid,{'source':'center_web','external_ref':ext}); db.commit(); self.send_json({'ok':True,'booking_id':cur.lastrowid,'status':status,'external_ref':ext}); return
+                if path=='/api/center/tariffs/save':
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0); sid=int(data.get('service_id') or 0)
+                    svc=db.execute('SELECT id,price,currency FROM provider_services WHERE id=? AND center_id=?',(sid,cid)).fetchone()
+                    if not svc: raise ValueError('El servicio no pertenece a tu centro.')
+                    price=max(0,float(data.get('price') or 0)); effective=clean_text(data.get('effective_from'),20) or now()[:10]
+                    # Keep tariff history. A new tariff only replaces the price from its effective date.
+                    db.execute('DELETE FROM center_tariffs WHERE center_id=? AND service_id=? AND effective_from=?',(cid,sid,effective))
+                    db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)',(cid,sid,price,svc['currency'] or 'EUR',effective,now(),now()))
+                    if effective <= now()[:10]:
+                        db.execute('UPDATE provider_services SET price=?,updated_at=? WHERE id=?',(price,now(),sid))
+                    audit(db,user['id'],'service_tariff_updated','provider_service',sid,{'price':price,'effective_from':effective}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center/tariffs/history-delete':
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); tid=int(data.get('id') or 0); cid=int(user['center_id'] or 0)
+                    row=db.execute('SELECT * FROM center_tariffs WHERE id=? AND center_id=?',(tid,cid)).fetchone()
+                    if not row: raise ValueError('Tarifa no encontrada.')
+                    db.execute('DELETE FROM center_tariffs WHERE id=?',(tid,)); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/provider-services':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
+                    center_id=user['center_id'] if user['role']=='center' else None
+                    if user['role']=='center' and not center_id: raise ValueError('Tu cuenta de centro no tiene una ficha asociada.')
+                    title=clean_text(data.get('title'),180)
+                    if not title: raise ValueError('El nombre del servicio es obligatorio.')
+                    price=float(data.get('price') or 0); duration=int(data.get('duration_minutes') or 0) or None; maxp=int(data.get('max_participants') or 0) or None
+                    cur=db.execute('''INSERT INTO provider_services(provider_user_id,center_id,service_type,title,description,duration_minutes,price,currency,max_participants,booking_mode,active,color,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,1,?,?,?)''',(user['id'],center_id,clean_text(data.get('service_type'),60) or 'inmersion',title,clean_text(data.get('description'),5000),duration,price,clean_text(data.get('currency'),3) or 'EUR',maxp,clean_text(data.get('booking_mode'),30) or 'request',clean_text(data.get('color'),20) or '#2563eb',now(),now()))
+                    sid=cur.lastrowid
+                    if center_id:
+                        db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)',(center_id,sid,price,clean_text(data.get('currency'),3) or 'EUR',now()[:10],now(),now()))
+                    sync_service_experience(db,user,sid,data)
+                    audit(db,user['id'],'service_created','provider_service',sid); db.commit(); self.send_json({'ok':True,'id':sid}); return
+                if path=='/api/provider-services/delete':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
+                    row=db.execute('SELECT provider_user_id,title FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    if not row or row['provider_user_id']!=user['id']: raise PermissionError('Este servicio no pertenece a tu cuenta.')
+                    # Do not destroy a service that already has bookings: historical reservations must keep their context.
+                    bookings_count=db.execute('SELECT COUNT(*) FROM bookings WHERE service_id=?',(sid,)).fetchone()[0]
+                    if bookings_count:
+                        raise ValueError('Este servicio ya tiene reservas asociadas y no se puede eliminar. Puedes desactivarlo para que deje de aparecer a nuevos clientes.')
+                    db.execute('UPDATE travel_experiences SET active=0,service_id=NULL,updated_at=? WHERE service_id=?',(now(),sid))
+                    db.execute('DELETE FROM provider_services WHERE id=?',(sid,))
+                    audit(db,user['id'],'service_deleted','provider_service',sid,{'title':row['title']})
+                    db.commit(); self.send_json({'ok':True,'id':sid}); return
+                if path=='/api/provider-services/update':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
+                    row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    if not row or row['provider_user_id']!=user['id']: raise PermissionError('Este servicio no pertenece a tu cuenta.')
+                    price=float(data.get('price') or 0); duration=int(data.get('duration_minutes') or 0) or None; maxp=int(data.get('max_participants') or 0) or None
+                    db.execute('''UPDATE provider_services SET service_type=?,title=?,description=?,duration_minutes=?,max_participants=?,booking_mode=?,active=?,color=?,updated_at=? WHERE id=?''',(clean_text(data.get('service_type'),60) or 'inmersion',clean_text(data.get('title'),180),clean_text(data.get('description'),5000),duration,maxp,clean_text(data.get('booking_mode'),30) or 'request',1 if data.get('active',True) else 0,clean_text(data.get('color'),20) or '#2563eb',now(),sid))
+                    if 'publish_experience' in data: sync_service_experience(db,user,sid,data)
+                    else: db.execute('UPDATE travel_experiences SET title=?,updated_at=? WHERE service_id=?',(clean_text(data.get('title'),180),now(),sid))
+                    audit(db,user['id'],'service_updated','provider_service',sid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/provider-services/slot':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('service_id') or 0)
+                    row=db.execute('SELECT provider_user_id FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    if not row or row['provider_user_id']!=user['id']: raise PermissionError('Este servicio no pertenece a tu cuenta.')
+                    date=clean_text(data.get('slot_date'),20); tm=clean_text(data.get('slot_time'),10); total=max(1,int(data.get('spots_total') or 1))
+                    if not date or not tm: raise ValueError('Indica fecha y hora de la salida.')
+                    service=db.execute('SELECT center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    point_ids=[int(x) for x in (data.get('dive_point_ids') or []) if str(x).isdigit()]
+                    point_mode=clean_text(data.get('point_mode'),20) or 'fixed'
+                    if point_mode not in ('fixed','weather'): point_mode='fixed'
+                    if point_ids and (not service or not service['center_id']): raise ValueError('Esta salida no pertenece a un centro.')
+                    if point_ids:
+                        allowed={r['dive_point_id'] for r in db.execute('SELECT dive_point_id FROM center_point_links WHERE center_id=?',(service['center_id'],)).fetchall()}
+                        if not set(point_ids).issubset(allowed): raise ValueError('Selecciona solo puntos asociados al centro.')
+                    existing=db.execute('SELECT * FROM service_slots WHERE service_id=? AND slot_date=? AND slot_time=?',(sid,date,tm)).fetchone()
+                    if existing:
+                        consumed=int(existing['spots_total'])-int(existing['spots_available'])
+                        if total < consumed: raise ValueError(f'No puedes bajar la capacidad a {total}: ya hay {consumed} plazas ocupadas.')
+                        available=total-consumed; status='full' if available==0 else 'open'; slot_id=existing['id']
+                        db.execute('UPDATE service_slots SET spots_total=?,spots_available=?,status=?,point_mode=?,updated_at=? WHERE id=?',(total,available,status,point_mode,now(),slot_id))
+                    else:
+                        available=total; slot_id=db.execute("INSERT INTO service_slots(service_id,slot_date,slot_time,spots_total,spots_available,status,point_mode,created_at,updated_at) VALUES(?,?,?,?,?,'open',?,?,?)",(sid,date,tm,total,total,point_mode,now(),now())).lastrowid
+                    db.execute('DELETE FROM service_slot_points WHERE slot_id=?',(slot_id,))
+                    db.executemany('INSERT OR IGNORE INTO service_slot_points(slot_id,dive_point_id) VALUES(?,?)',[(slot_id,pid) for pid in point_ids])
+                    audit(db,user['id'],'service_slot_updated','service_slot',slot_id,{'spots_total':total,'spots_available':available,'dive_point_ids':point_ids}); db.commit(); self.send_json({'ok':True,'slot_id':slot_id,'spots_available':available}); return
+                if path=='/api/provider-services/slot-update':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); slot_id=int(data.get('id') or 0)
+                    slot=db.execute('SELECT ss.*,s.provider_user_id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
+                    if not slot or slot['provider_user_id']!=user['id']: raise PermissionError('Esta salida no pertenece a tu cuenta.')
+                    date=clean_text(data.get('slot_date'),20) or slot['slot_date']; tm=clean_text(data.get('slot_time'),10) or slot['slot_time']; total=max(1,int(data.get('spots_total') or slot['spots_total']))
+                    consumed=int(slot['spots_total'])-int(slot['spots_available'])
+                    if total < consumed: raise ValueError(f'No puedes bajar la capacidad a {total}: ya hay {consumed} plazas ocupadas.')
+                    service=db.execute('SELECT center_id FROM provider_services WHERE id=?',(slot['service_id'],)).fetchone()
+                    point_ids=[int(x) for x in (data.get('dive_point_ids') or []) if str(x).isdigit()]
+                    point_mode=clean_text(data.get('point_mode'),20) or 'fixed'
+                    if point_mode not in ('fixed','weather'): point_mode='fixed'
+                    if point_ids and service and service['center_id']:
+                        allowed={r['dive_point_id'] for r in db.execute('SELECT dive_point_id FROM center_point_links WHERE center_id=?',(service['center_id'],)).fetchall()}
+                        if not set(point_ids).issubset(allowed): raise ValueError('Selecciona solo puntos asociados al centro.')
+                    available=total-consumed; status='full' if available==0 else 'open'
+                    db.execute('UPDATE service_slots SET slot_date=?,slot_time=?,spots_total=?,spots_available=?,status=?,point_mode=?,updated_at=? WHERE id=?',(date,tm,total,available,status,point_mode,now(),slot_id))
+                    db.execute('DELETE FROM service_slot_points WHERE slot_id=?',(slot_id,)); db.executemany('INSERT OR IGNORE INTO service_slot_points(slot_id,dive_point_id) VALUES(?,?)',[(slot_id,pid) for pid in point_ids])
+                    audit(db,user['id'],'service_slot_updated','service_slot',slot_id,{'spots_total':total,'spots_available':available,'dive_point_ids':point_ids}); db.commit(); self.send_json({'ok':True,'slot_id':slot_id,'spots_available':available}); return
+                if path=='/api/provider-services/slot-delete':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); slot_id=int(data.get('id') or 0)
+                    slot=db.execute('SELECT ss.*,s.provider_user_id,s.title AS service_title FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
+                    if not slot or slot['provider_user_id']!=user['id']: raise PermissionError('Esta salida no pertenece a tu cuenta.')
+                    active=db.execute("SELECT COUNT(*) FROM bookings WHERE slot_id=? AND slot_reserved=1 AND status NOT IN ('cancelled','rejected')",(slot_id,)).fetchone()[0]
+                    if active: raise ValueError('No puedes eliminar una salida que tiene reservas activas. Cancela o gestiona primero esas reservas.')
+                    db.execute('DELETE FROM service_slot_points WHERE slot_id=?',(slot_id,))
+                    db.execute('DELETE FROM service_slots WHERE id=?',(slot_id,))
+                    audit(db,user['id'],'service_slot_deleted','service_slot',slot_id,{'service_id':slot['service_id'],'service_title':slot['service_title']})
+                    db.commit(); self.send_json({'ok':True,'id':slot_id}); return
+                if path=='/api/provider-services/slot-close':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); slot_id=int(data.get('id') or 0)
+                    slot=db.execute('SELECT ss.*,s.provider_user_id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
+                    if not slot or slot['provider_user_id']!=user['id']: raise PermissionError('Esta salida no pertenece a tu cuenta.')
+                    active=db.execute("SELECT COUNT(*) FROM bookings WHERE slot_id=? AND slot_reserved=1 AND status NOT IN ('cancelled','rejected')",(slot_id,)).fetchone()[0]
+                    if active: raise ValueError('No puedes cerrar una salida que todavía tiene reservas activas.')
+                    db.execute("UPDATE service_slots SET status='closed',updated_at=? WHERE id=?",(now(),slot_id)); audit(db,user['id'],'service_slot_closed','service_slot',slot_id); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/payments/checkout':
+                    user=require_user(self,db); data=json_body(self); booking_id=int(data.get('booking_id') or 0) or None; experience_booking_id=int(data.get('experience_booking_id') or 0) or None; sid=int(data.get('service_id') or 0); slot_id=int(data.get('slot_id') or 0) or None
+                    if experience_booking_id:
+                        eb=db.execute('SELECT eb.*,e.title,e.price,e.currency,e.provider_user_id,e.center_id FROM experience_bookings eb JOIN travel_experiences e ON e.id=eb.travel_experience_id WHERE eb.id=? AND eb.user_id=?',(experience_booking_id,user['id'])).fetchone()
+                        if not eb: raise PermissionError('Solicitud de experiencia no válida.')
+                        amount=float(eb['price'] or 0); currency=eb['currency'] or 'EUR'; provider_user_id=eb['provider_user_id']; center_id=eb['center_id']; service=None
+                    else:
+                        amount=None; currency=None; provider_user_id=None; center_id=None
+                    if booking_id:
+                        b0=db.execute('SELECT * FROM bookings WHERE id=? AND user_id=?',(booking_id,user['id'])).fetchone()
+                        if not b0: raise PermissionError('Reserva no válida.')
+                        sid=int(b0['service_id'] or sid or 0)
+                        center_id=b0['center_id']
+                        if b0['status'] not in {'confirmed','completed'}:
+                            svc0=db.execute('SELECT booking_mode FROM provider_services WHERE id=?',(sid,)).fetchone()
+                            if svc0 and svc0['booking_mode']=='request':
+                                raise ValueError('El centro todavía no ha confirmado esta solicitud. El pago se habilitará después de la confirmación.')
+                    service=db.execute('SELECT * FROM provider_services WHERE id=? AND active=1',(sid,)).fetchone() if not experience_booking_id else None
+                    if not experience_booking_id and not service: raise ValueError('Servicio no disponible.')
+                    slot_id=int(b0['slot_id'] or 0) if booking_id and not slot_id else slot_id
+                    slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(slot_id,sid)).fetchone() if slot_id else None
+                    participants=max(1,int(b0['participants'] or 1)) if booking_id else max(1,int(eb['participants'] or 1)) if experience_booking_id else 1
+                    if slot and not booking_id and participants>slot['spots_available']: raise ValueError(f'Quedan {slot["spots_available"]} plazas en esta salida.')
+                    if slot and booking_id and not b0['slot_reserved'] and participants>slot['spots_available']: raise ValueError(f'Quedan {slot["spots_available"]} plazas en esta salida.')
+                    if not experience_booking_id:
+                        provider_user_id=service['provider_user_id']
+                        if booking_id:
+                            # Charge exactly what the booking was quoted (activity x participants + equipment + extras).
+                            amount=float(b0['price'] or 0); currency=b0['currency'] or service['currency'] or 'EUR'
+                        else:
+                            amount=float(service['price'] or 0)*participants; currency=service['currency'] or 'EUR'
+                    if amount<=0: raise ValueError('Este servicio no tiene un precio de pago configurado.')
+                    center=db.execute('SELECT id,name,stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=? AND active=1',(center_id,)).fetchone() if center_id else None
+                    connected_account_id=center['stripe_account_id'] if center else None
+                    if not center_payments_ready(center):
+                        raise ValueError('Este centro todavía no cobra online: pagarás directamente en el centro. Tu reserva queda guardada.')
+                    if booking_id:
+                        b_paid=db.execute("SELECT payment_status FROM bookings WHERE id=?",(booking_id,)).fetchone()
+                        if b_paid and b_paid['payment_status']=='paid': raise ValueError('Esta reserva ya está pagada.')
+                        open_order=db.execute("SELECT id,checkout_url,created_at FROM payment_orders WHERE booking_id=? AND status='pending' AND checkout_url IS NOT NULL ORDER BY id DESC LIMIT 1",(booking_id,)).fetchone()
+                        if open_order:
+                            try: age=datetime.now(timezone.utc).timestamp()-datetime.fromisoformat(open_order['created_at']).timestamp()
+                            except Exception: age=9999
+                            if age<25*60: self.send_json({'ok':True,'checkout_url':open_order['checkout_url'],'order_id':open_order['id'],'reused':True}); return
+                    reserved_here=False
+                    if booking_id and slot and not b0['slot_reserved']:
+                        db.execute('BEGIN IMMEDIATE')
+                        changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(participants,participants,now(),slot['id'],participants)).rowcount
+                        if changed!=1: db.rollback(); raise ValueError('Las plazas acaban de cambiar. Vuelve a seleccionar la salida.')
+                        db.execute("UPDATE bookings SET slot_reserved=1,payment_status='pending',updated_at=? WHERE id=?",(now(),booking_id)); reserved_here=True
+                    commission_percent=max(0.0,min(100.0,float(os.environ.get('WOD_PLATFORM_FEE_PERCENT','10') or 10)))
+                    platform_fee=round(amount*commission_percent/100,2)
+                    cur=db.execute('''INSERT INTO payment_orders(user_id,provider_user_id,booking_id,experience_booking_id,service_id,slot_id,amount,currency,status,provider,platform_fee,connected_account_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'pending','stripe',?,?,?,?)''',(user['id'],provider_user_id,booking_id,experience_booking_id,sid,slot_id,amount,currency,platform_fee,connected_account_id,now(),now())); oid=cur.lastrowid
+                    if reserved_here: db.execute('UPDATE payment_orders SET hold_reserved=1 WHERE id=?',(oid,))
+                    db.commit()
+                    secret=stripe_secret(); base=os.environ.get('WOD_PUBLIC_URL','http://localhost:8000').rstrip('/')
+                    if not secret:
+                        if reserved_here:
+                            db.execute("UPDATE service_slots SET spots_available=spots_available+?,status='open',updated_at=? WHERE id=?",(participants,now(),slot_id)); db.execute("UPDATE bookings SET slot_reserved=0,payment_status='required',updated_at=? WHERE id=?",(now(),booking_id))
+                        db.execute('DELETE FROM payment_orders WHERE id=?',(oid,)); db.commit(); raise ValueError('El pago seguro aún no está configurado. Falta STRIPE_SECRET_KEY en el servidor.')
+                    try:
+                        import stripe
+                        stripe.api_key=secret
+                        product_name=service['title'] if service else eb['title']
+                        session=stripe.checkout.Session.create(
+                            mode='payment',
+                            line_items=[{'price_data':{'currency':currency.lower(),'product_data':{'name':product_name,'description':f'Reserva WORLDIVES · {center["name"]}'},'unit_amount':int(round(amount*100))},'quantity':1}],
+                            success_url=f'{base}/#/pago-ok?session_id={{CHECKOUT_SESSION_ID}}',
+                            cancel_url=(f'{base}/#/reserva?id={booking_id}&pago=cancelado' if booking_id else f'{base}/#/area?payment=cancelled'),
+                            metadata={'payment_order_id':str(oid),'service_id':str(sid),'user_id':str(user['id']),'booking_id':str(booking_id or ''),'center_id':str(center_id or '')},
+                            payment_intent_data={'application_fee_amount':int(round(platform_fee*100)),'transfer_data':{'destination':connected_account_id},'description':f'WORLDIVES · reserva #{booking_id or experience_booking_id} · {center["name"]}','metadata':{'payment_order_id':str(oid)}},
+                            client_reference_id=f'WOD-{oid}',
+                            customer_email=user['email'] if '@' in str(user['email'] or '') and not str(user['email']).endswith('.local') else None,
+                            expires_at=int(time.time())+30*60,
+                            locale='auto'
+                        )
+                        db.execute('UPDATE payment_orders SET provider_payment_id=?,checkout_url=?,updated_at=? WHERE id=?',(session.id,session.url,now(),oid)); db.commit(); self.send_json({'ok':True,'checkout_url':session.url,'order_id':oid}); return
+                    except ImportError: raise ValueError('Falta instalar la dependencia stripe en el servidor.')
+                    except Exception as exc:
+                        db.execute("UPDATE payment_orders SET status='failed',updated_at=? WHERE id=?",(now(),oid))
+                        if reserved_here:
+                            db.execute("UPDATE service_slots SET spots_available=spots_available+?,status='open',updated_at=? WHERE id=?",(participants,now(),slot_id)); db.execute("UPDATE bookings SET slot_reserved=0,payment_status='required',updated_at=? WHERE id=?",(now(),booking_id))
+                        sys.stderr.write(f'[pagos] Stripe rechazó el pedido {oid}: {exc}\n')
+                        db.commit(); raise ValueError('No se ha podido abrir el pago seguro. Inténtalo de nuevo en unos minutos; tu reserva sigue guardada.')
+                if path=='/api/payments/cancel':
+                    user=require_user(self,db); bid=int(json_body(self).get('booking_id') or 0)
+                    order=db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND user_id=? AND status='pending' ORDER BY id DESC LIMIT 1",(bid,user['id'])).fetchone()
+                    if not order: self.send_json({'ok':True,'released':False}); return
+                    if stripe_secret() and order['provider_payment_id']:
+                        try:
+                            import stripe; stripe.api_key=stripe_secret()
+                            sess=stripe.checkout.Session.retrieve(order['provider_payment_id'],expand=['payment_intent.latest_charge'])
+                            if _obj(sess,'payment_status') in ('paid','no_payment_required'):
+                                finalize_paid_order(db,order,sess,'cancel-check'); db.commit(); self.send_json({'ok':True,'paid':True}); return
+                            if _obj(sess,'status')=='open': stripe.checkout.Session.expire(order['provider_payment_id'])
+                        except Exception as exc: sys.stderr.write(f'[pagos] cancelar pedido {order["id"]}: {exc}\n')
+                    release_order_hold(db,order,'cancelled'); audit(db,user['id'],'payment_cancelled','payment_order',order['id']); db.commit()
+                    self.send_json({'ok':True,'released':True}); return
+                if path=='/api/payments':
+                    user=require_user(self,db); rows=db.execute('''SELECT po.*,s.title AS service_title,c.name AS center_name FROM payment_orders po LEFT JOIN provider_services s ON s.id=po.service_id LEFT JOIN centers c ON c.id=s.center_id WHERE po.user_id=? ORDER BY po.id DESC''',(user['id'],)).fetchall(); self.send_json({'items':[dict(x) for x in rows]}); return
+
+                if path=='/api/account/profile':
+                    user=require_user(self,db); data=json_body(self)
+                    db.execute('''INSERT INTO user_profiles(
+                        user_id,phone,country,city,preferred_language,certification_id,notes,date_of_birth,
+                        emergency_contact_name,emergency_contact_phone,equipment_required,suit_type,suit_size,
+                        boot_size,bcd_size,fin_size,mask_size,usual_weight_kg,tank_preference,
+                        computer_preference,equipment_notes,updated_at
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        phone=excluded.phone,country=excluded.country,city=excluded.city,
+                        preferred_language=excluded.preferred_language,certification_id=excluded.certification_id,
+                        notes=excluded.notes,date_of_birth=excluded.date_of_birth,
+                        emergency_contact_name=excluded.emergency_contact_name,
+                        emergency_contact_phone=excluded.emergency_contact_phone,
+                        equipment_required=excluded.equipment_required,suit_type=excluded.suit_type,
+                        suit_size=excluded.suit_size,boot_size=excluded.boot_size,bcd_size=excluded.bcd_size,
+                        fin_size=excluded.fin_size,mask_size=excluded.mask_size,usual_weight_kg=excluded.usual_weight_kg,
+                        tank_preference=excluded.tank_preference,computer_preference=excluded.computer_preference,
+                        equipment_notes=excluded.equipment_notes,updated_at=excluded.updated_at''',
+                    (user['id'],clean_text(data.get('phone'),50),clean_text(data.get('country'),100),
+                     clean_text(data.get('city'),100),clean_text(data.get('preferred_language'),10) or 'es',
+                     int(data['certification_id']) if data.get('certification_id') else None,
+                     clean_text(data.get('notes'),2000),clean_text(data.get('date_of_birth'),20),
+                     clean_text(data.get('emergency_contact_name'),160),clean_text(data.get('emergency_contact_phone'),60),
+                     1 if data.get('equipment_required') else 0,clean_text(data.get('suit_type'),80),
+                     clean_text(data.get('suit_size'),40),clean_text(data.get('boot_size'),40),
+                     clean_text(data.get('bcd_size'),40),clean_text(data.get('fin_size'),40),
+                     clean_text(data.get('mask_size'),40),
+                     float(data.get('usual_weight_kg')) if data.get('usual_weight_kg') not in (None,'') else None,
+                     clean_text(data.get('tank_preference'),120),clean_text(data.get('computer_preference'),120),
+                     clean_text(data.get('equipment_notes'),2000),now()))
+                    audit(db,user['id'],'profile_updated','user',user['id']); sync_user_rewards(db,user['id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/account/documents':
+                    user=require_user(self,db); fields,files=parse_multipart(self); file=files.get('file')
+                    if not file: raise ValueError('Adjunta un archivo PDF o imagen.')
+                    ext=Path(file['filename']).suffix.lower()
+                    if ext not in {'.pdf','.jpg','.jpeg','.png','.webp'}: raise ValueError('Formato no admitido. Usa PDF, JPG, PNG o WEBP.')
+                    p=save_upload(user['id'],file,'doc'); db.execute('INSERT INTO user_documents(user_id,document_type,title,file_path,original_name,expires_at,status,uploaded_at) VALUES(?,?,?,?,?,?,?,?)',(user['id'],clean_text(fields.get('document_type'),50) or 'Otro',clean_text(fields.get('title'),160) or file['filename'],p,file['filename'],clean_text(fields.get('expires_at'),20), 'valid' if fields.get('expires_at') else 'uploaded',now())); audit(db,user['id'],'document_uploaded','user_document',db.execute('SELECT last_insert_rowid()').fetchone()[0]); sync_user_rewards(db,user['id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/account/documents/delete':
+                    user=require_user(self,db); data=json_body(self); did=int(data['id']); doc=db.execute('SELECT * FROM user_documents WHERE id=? AND user_id=?',(did,user['id'])).fetchone();
+                    if not doc: self.send_json({'error':'Documento no encontrado'},404); return
+                    db.execute('DELETE FROM user_documents WHERE id=?',(did,)); audit(db,user['id'],'document_deleted','user_document',did); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/messages':
+                    user=require_user(self,db); data=json_body(self); recipient_id=int(data.get('recipient_user_id') or 0); booking_id=int(data.get('booking_id') or 0) or None; experience_booking_id=int(data.get('experience_booking_id') or 0) or None
+                    if not recipient_id or not db.execute('SELECT 1 FROM users WHERE id=?',(recipient_id,)).fetchone(): raise ValueError('Destinatario no válido.')
+                    if user['role'] not in {'admin','center','freelance'}: raise PermissionError('Solo un proveedor puede enviar mensajes desde este flujo.')
+                    if booking_id:
+                        b=db.execute('SELECT user_id,center_id FROM bookings WHERE id=?',(booking_id,)).fetchone()
+                        if not b: raise ValueError('Reserva no válida.')
+                        if user['role']=='center' and b['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
+                        if recipient_id!=b['user_id']: raise ValueError('El destinatario no corresponde a la reserva.')
+                    cur=db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,experience_booking_id,subject,body,created_at) VALUES(?,?,?,?,?,?,?)',(user['id'],recipient_id,booking_id,experience_booking_id,clean_text(data.get('subject'),180) or 'Mensaje de WORLDIVES',clean_text(data.get('body'),5000) or '',now())); audit(db,user['id'],'message_sent','message',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                if path=='/api/messages/read':
+                    user=require_user(self,db); data=json_body(self); mid=int(data.get('id') or 0); row=db.execute('SELECT id FROM messages WHERE id=? AND recipient_user_id=?',(mid,user['id'])).fetchone();
+                    if not row: self.send_json({'error':'Mensaje no encontrado'},404); return
+                    db.execute('UPDATE messages SET read_at=? WHERE id=?',(now(),mid)); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/auth/forgot':
+                    data=json_body(self); email=(clean_text(data.get('email'),160) or '').strip().lower()
+                    key=f'forgot:{self.client_address[0]}'
+                    if login_rate_limited(key): self.send_json({'error':'Demasiadas solicitudes. Espera unos minutos.'},429); return
+                    record_login_failure(key)
+                    u=db.execute("SELECT id FROM users WHERE (lower(email)=? OR lower(username)=?) AND password_hash<>'!'",(email,email)).fetchone() if email else None
+                    if u:
+                        token=new_password_reset(db,u['id'])
+                        notify_user(db,u['id'],'password_reset',{'reset_url':f'{public_site_url()}/#/restablecer?token={token}'},('user',u['id']))
+                        audit(db,u['id'],'password_reset_requested','user',u['id'])
+                    db.commit()
+                    # Same answer whether the account exists or not (no account enumeration).
+                    self.send_json({'ok':True}); return
+                if path=='/api/auth/reset':
+                    data=json_body(self); token=str(data.get('token') or ''); new=str(data.get('password') or '')
+                    if len(new)<10: raise ValueError('La nueva contraseña debe tener al menos 10 caracteres.')
+                    th=hashlib.sha256(token.encode()).hexdigest()
+                    r=db.execute('SELECT * FROM password_resets WHERE token_hash=?',(th,)).fetchone()
+                    if not r or r['used_at'] or r['expires_at']<now(): raise ValueError('El enlace no es válido o ha caducado. Pide uno nuevo.')
+                    if db.execute('UPDATE password_resets SET used_at=? WHERE token_hash=? AND used_at IS NULL',(now(),th)).rowcount!=1: raise ValueError('El enlace ya se ha utilizado.')
+                    db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(new),r['user_id']))
+                    db.execute('DELETE FROM sessions WHERE user_id=?',(r['user_id'],))
+                    notify_user(db,r['user_id'],'password_changed',{'when':datetime.now().strftime('%d/%m/%Y %H:%M')},('user',r['user_id']))
+                    audit(db,r['user_id'],'password_reset_done','user',r['user_id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/account/language':
+                    user=require_user(self,db); lang=clean_text(json_body(self).get('lang'),5) or 'es'
+                    if lang not in MAIL_LANGS: raise ValueError('Idioma no válido.')
+                    db.execute('INSERT INTO user_profiles(user_id,preferred_language,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET preferred_language=excluded.preferred_language',(user['id'],lang,now()))
+                    db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/account/accept-terms':
+                    user=require_user(self,db); kind=json_body(self).get('kind')
+                    if kind=='pro': require_role(user,{'center','freelance','admin'}); db.execute('UPDATE users SET pro_terms_version=?,pro_terms_accepted_at=? WHERE id=?',(LEGAL_VERSION,now(),user['id']))
+                    else: db.execute('UPDATE users SET terms_version=?,terms_accepted_at=? WHERE id=?',(LEGAL_VERSION,now(),user['id']))
+                    audit(db,user['id'],'terms_accepted','user',user['id'],{'kind':kind or 'user','version':LEGAL_VERSION}); db.commit(); self.send_json({'ok':True,'version':LEGAL_VERSION}); return
+                if path=='/api/account/delete':
+                    user=require_user(self,db); data=json_body(self)
+                    if user['role']!='recreational': raise PermissionError('Las cuentas de centro, profesional o administración se dan de baja escribiéndonos: así no se pierden reservas de clientes.')
+                    row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
+                    if not verify_password(str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
+                    delete_user_account(db,user); db.commit(); self.logout_user(); return
+                if path.startswith('/api/bookings/') and path.endswith('/cancel'):
+                    user=require_user(self,db); bid=int(path.split('/')[-2]); data=json_body(self)
+                    b=db.execute('SELECT * FROM bookings WHERE id=? AND user_id=?',(bid,user['id'])).fetchone()
+                    if not b: self.send_json({'error':'Reserva no encontrada'},404); return
+                    if b['status'] not in ('pending','confirmed'): raise ValueError('Esta reserva ya no se puede cancelar.')
+                    terms=booking_cancel_terms(db,b)
+                    if terms['started']: raise ValueError('La actividad ya ha empezado o ha pasado: habla directamente con el centro.')
+                    if data.get('preview'): self.send_json({'ok':True,'terms':terms}); return
+                    if db.execute("SELECT 1 FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchone():
+                        for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchall(): release_order_hold(db,o,'cancelled')
+                        b=db.execute('SELECT * FROM bookings WHERE id=?',(bid,)).fetchone()
+                    if db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='diver',updated_at=? WHERE id=? AND status IN ('pending','confirmed')",(now(),now(),bid)).rowcount!=1: raise ValueError('Esta reserva ya no se puede cancelar.')
+                    release_booking_spots(db,b)
+                    outcome='none_paid'
+                    if terms['paid_online']: outcome=refund_paid_booking(db,bid,terms['refund_amount'],'diver_cancel') if terms['refund_amount']>0 else 'no_refund'
+                    reason=clean_text(data.get('reason'),300)
+                    if reason: db.execute('UPDATE bookings SET internal_notes=COALESCE(internal_notes||char(10),\'\')||? WHERE id=?',('Motivo de la cancelación: '+reason,bid))
+                    notify_booking(db,bid,'cancelled_diver',{'refund':outcome})
+                    audit(db,user['id'],'booking_cancelled_by_diver','booking',bid,{'refund':outcome,'amount':terms['refund_amount']}); db.commit()
+                    self.send_json({'ok':True,'refund':outcome,'refund_amount':terms['refund_amount']}); return
+                if path=='/api/center/cancellation-policy':
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); pol=data.get('policy')
+                    if pol not in CANCEL_POLICIES: raise ValueError('Elige una política de cancelación.')
+                    if not user['center_id']: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    db.execute('UPDATE centers SET cancellation_policy=?,cancellation_note=?,updated_at=? WHERE id=?',(pol,clean_text(data.get('note'),500) or None,now(),user['center_id']))
+                    audit(db,user['id'],'cancellation_policy_updated','center',user['center_id'],{'policy':pol}); db.commit(); DIRECTORY.invalidate(); self.send_json({'ok':True}); return
+                if path=='/api/reports':
+                    data=json_body(self); ip=self.client_address[0]
+                    if report_rate_limited(ip): self.send_json({'error':'Has enviado muchas denuncias seguidas. Inténtalo más tarde.'},429); return
+                    reason=data.get('reason'); details=clean_text(data.get('details'),3000) or ''
+                    if reason not in REPORT_REASONS: raise ValueError('Elige el motivo de la denuncia.')
+                    if len(details)<20: raise ValueError('Explica con un poco más de detalle qué ocurre (mínimo 20 caracteres).')
+                    cu=current_user(self,db)
+                    name=clean_text(data.get('name'),120) or (cu['fullname'] if cu else ''); email=(clean_text(data.get('email'),160) or (cu['email'] if cu else '') or '').lower()
+                    target=clean_text(data.get('target_url'),500) or ''
+                    if not data.get('good_faith'): raise ValueError('Confirma que la información es exacta y que la envías de buena fe.')
+                    rid=db.execute('INSERT INTO content_reports(reason,target_url,details,reporter_name,reporter_email,user_id,ip_hash,status,created_at) VALUES(?,?,?,?,?,?,?,?,?)',
+                                   (reason,target,details,name,email,cu['id'] if cu else None,hashlib.sha256(ip.encode()).hexdigest()[:16],'open',now())).lastrowid
+                    notify_admins(db,'admin_content_report',{'reason':REPORT_REASONS[reason],'target':target or '—','details':details,'reporter':' · '.join(x for x in (name,email) if x) or 'Anónimo'},('report',rid))
+                    if mail_deliverable(email):
+                        queue_email(db,'report_received',email,name,{'first_name':(name or '').split(' ')[0],'ref':f'DEN-{rid:05d}','reason':mail_t('es',REPORT_REASONS[reason])},'es',('report',rid))
+                    audit(db,cu['id'] if cu else None,'content_reported','content_report',rid,{'reason':reason}); db.commit(); self.send_json({'ok':True,'id':rid,'ref':f'DEN-{rid:05d}'}); return
+                if path=='/api/admin/reports/resolve':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); rid=int(data.get('id') or 0); st=data.get('status')
+                    if st not in ('open','actioned','dismissed'): raise ValueError('Estado no válido.')
+                    if not db.execute('UPDATE content_reports SET status=?,resolution=?,resolved_by=?,resolved_at=? WHERE id=?',(st,clean_text(data.get('resolution'),2000),user['id'],now() if st!='open' else None,rid)).rowcount: raise ValueError('Denuncia no encontrada.')
+                    r=db.execute('SELECT * FROM content_reports WHERE id=?',(rid,)).fetchone()
+                    if st!='open' and mail_deliverable(r['reporter_email']):
+                        queue_email(db,'report_resolved',r['reporter_email'],r['reporter_name'],{'first_name':(r['reporter_name'] or '').split(' ')[0],'ref':f'DEN-{rid:05d}',
+                                    'decision':'Hemos retirado o corregido el contenido denunciado.' if st=='actioned' else 'Tras revisarlo, no hemos encontrado motivos para retirar el contenido.',
+                                    'resolution':clean_text(data.get('resolution'),2000) or ''},'es',('report',rid))
+                    audit(db,user['id'],'content_report_'+st,'content_report',rid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/legal':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    for k in LEGAL_FIELDS:
+                        if k in data:
+                            v=(clean_text(data.get(k),300) or '').strip()
+                            if k=='email' and v and not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',v): raise ValueError('El email de contacto no es válido.')
+                            if k=='fee_percent' and v:
+                                try: v=str(max(0.0,min(50.0,float(v.replace(',','.'))))).removesuffix('.0')
+                                except ValueError: raise ValueError('La comisión debe ser un número.')
+                            db.execute('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by',('legal_'+k,v,now(),user['id']))
+                    audit(db,user['id'],'legal_settings_updated','site_settings',None,'legal'); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/emails/test':
+                    user=require_user(self,db); require_role(user,{'admin'}); to=(clean_text(json_body(self).get('to'),160) or user['email'] or '').strip()
+                    if not mail_deliverable(to): raise ValueError('Escribe un email real para la prueba.')
+                    queue_email(db,'test',to,user['fullname'],{},'es',('user',user['id'])); db.commit()
+                    cfg=smtp_config()
+                    if not cfg['enabled']: self.send_json({'ok':True,'sent':False,'message':'El correo está en la cola. Se enviará cuando configures el servidor SMTP (WOD_SMTP_HOST).'}); return
+                    row=db.execute("SELECT * FROM email_outbox WHERE template='test' AND to_email=? ORDER BY id DESC LIMIT 1",(to.lower(),)).fetchone()
+                    try:
+                        send_one_email(cfg,row); db.execute("UPDATE email_outbox SET status='sent',sent_at=?,attempts=attempts+1 WHERE id=?",(now(),row['id'])); db.commit()
+                        self.send_json({'ok':True,'sent':True,'message':f'Enviado a {to}. Revisa la bandeja de entrada (y la de spam).'}); return
+                    except Exception as exc:
+                        db.execute("UPDATE email_outbox SET status='failed',attempts=attempts+1,last_error=? WHERE id=?",(str(exc)[:300],row['id'])); db.commit()
+                        raise ValueError(f'El servidor de correo ha rechazado el envío: {exc}')
+                if path=='/api/admin/emails/resend':
+                    user=require_user(self,db); require_role(user,{'admin'}); eid=int(json_body(self).get('id') or 0)
+                    r=db.execute('SELECT * FROM email_outbox WHERE id=?',(eid,)).fetchone()
+                    if not r: raise ValueError('Correo no encontrado.')
+                    if not mail_deliverable(r['to_email']): raise ValueError('Este destinatario no tiene un email real.')
+                    db.execute("INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at) VALUES(?,?,?,?,?,?,?,'queued',?,?,0,?)",
+                               (r['template'],r['lang'],r['to_email'],r['to_name'],r['subject'],r['html'],r['text'],r['related_type'],r['related_id'],now()))
+                    audit(db,user['id'],'email_resent','email_outbox',eid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/bookings':
+                    user=require_user(self,db); data=json_body(self)
+                    center_id=int(data['center_id']);
+                    if center_id<=0 or not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(center_id,)).fetchone(): raise ValueError('Centro no válido.')
+                    point_id=int(data.get('dive_point_id') or 0) or None
+                    if point_id and not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(point_id,)).fetchone(): raise ValueError('Punto de buceo no válido.')
+                    service_id=int(data.get('service_id') or 0) or None
+                    service=None
+                    if service_id:
+                        service=db.execute('SELECT * FROM provider_services WHERE id=? AND active=1 AND center_id=?',(service_id,center_id)).fetchone()
+                        if not service: raise ValueError('Servicio no válido para este centro.')
+                    participants=max(1,int(data.get('participants') or 1))
+                    if service and service['max_participants'] and participants>int(service['max_participants']): raise ValueError(f'Este servicio admite como máximo {service["max_participants"]} participantes por reserva.')
+                    slot_id=int(data.get('slot_id') or 0) or None
+                    slot=None
+                    if slot_id:
+                        slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(slot_id,service_id)).fetchone()
+                        if not slot: raise ValueError('La salida seleccionada ya no está disponible.')
+                        if participants>slot['spots_available']: raise ValueError(f'Solo quedan {slot["spots_available"]} plazas disponibles.')
+                        slot_points=[int(r['dive_point_id']) for r in db.execute('SELECT dive_point_id FROM service_slot_points WHERE slot_id=?',(slot_id,)).fetchall()]
+                        if slot_points:
+                            # La selección visible del usuario es la fuente de verdad, pero
+                            # aceptamos también el nombre como respaldo por si el select oculto
+                            # no se sincroniza en algún navegador/cache. Nunca elegimos un punto
+                            # arbitrario cuando la salida tiene varios.
+                            point_name=(clean_text(data.get('dive_point_name'),200) or '').strip().casefold()
+                            if point_id and point_id not in slot_points:
+                                point_id=None
+                            if not point_id and point_name:
+                                matches=[]
+                                for rr in db.execute('SELECT id,name FROM dive_points WHERE id IN (%s)' % ','.join('?'*len(slot_points)), slot_points).fetchall():
+                                    if (clean_text(rr['name'],200) or '').strip().casefold()==point_name:
+                                        matches.append(int(rr['id']))
+                                if len(matches)==1: point_id=matches[0]
+                            if not point_id and len(slot_points)==1: point_id=slot_points[0]
+                            # Una salida puede tener varios puntos (por ejemplo, un servicio
+                            # de doble inmersion). La reserva sigue necesitando un punto
+                            # principal para el logbook y la ficha de reserva. Si el cliente no
+                            # ha podido transmitir la seleccion visual, usamos de forma
+                            # determinista el primer punto programado en la salida en lugar de
+                            # bloquear una reserva valida. Si el cliente eligio uno, siempre se
+                            # respeta esa eleccion.
+                            if not point_id and len(slot_points)>1: point_id=slot_points[0]
+                    if slot:
+                        # La salida seleccionada es la fuente de verdad para fecha/hora.
+                        data['booking_date']=slot['slot_date']; data['booking_time']=slot['slot_time']
+                    price, service_currency, price_lines = booking_quote(db, center_id, service, participants, clean_text(data.get('booking_date'),20) or (slot['slot_date'] if slot else None), as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
+                    center_pay=db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?',(center_id,)).fetchone()
+                    pay_online=center_payments_ready(center_pay) and bool(service and service['booking_mode'] in {'payment','instant'})
+                    # Without online payments the diver pays at the centre and the centre confirms the place.
+                    payment_status=('required' if pay_online or (service and service['booking_mode']=='request' and center_payments_ready(center_pay)) else 'at_center') if price>0 else 'not_required'
+                    status='confirmed' if service and service['booking_mode']=='instant' and price<=0 else 'pending'
+                    slot_reserved=0
+                    if status=='confirmed' and slot:
+                        changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(participants,participants,now(),slot['id'],participants)).rowcount
+                        if changed!=1: raise ValueError('Las plazas acaban de cambiar. Vuelve a seleccionar la salida.')
+                        slot_reserved=1
+                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(user['id'],center_id,point_id,service_id,slot_id,slot_reserved,clean_text(data.get('booking_date'),20),clean_text(data.get('booking_time'),20),participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),status,price,service['currency'] if service else 'EUR',payment_status,now(),now()))
+                    db.execute('UPDATE bookings SET price_breakdown=? WHERE id=?',(json.dumps(price_lines,ensure_ascii=False),cur.lastrowid))
+                    payment_required = bool(pay_online and price>0)
+                    db.execute('UPDATE bookings SET terms_version=? WHERE id=?',(LEGAL_VERSION,cur.lastrowid))
+                    notify_booking(db,cur.lastrowid,'created')
+                    audit(db,user['id'],'booking_created','booking',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid,'status':status,'payment_required':payment_required,'price':price,'currency':service_currency,'booking_mode':service['booking_mode'] if service else 'request'}); return
+                if path.startswith('/api/bookings/') and path.endswith('/status'):
+                    user=require_user(self,db); require_role(user,{'admin','center'}); bid=int(path.split('/')[-2]); data=json_body(self); status=clean_text(data.get('status'),30)
+                    if status not in {'pending','confirmed','rejected','completed','cancelled'}: raise ValueError('Estado no válido.')
+                    row=db.execute('SELECT center_id,status,slot_id,slot_reserved,participants,payment_status FROM bookings WHERE id=?',(bid,)).fetchone()
+                    if not row: self.send_json({'error':'Reserva no encontrada'},404); return
+                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
+                    bdate_row=db.execute('SELECT booking_date FROM bookings WHERE id=?',(bid,)).fetchone()
+                    if status=='completed' and bdate_row and str(bdate_row['booking_date'] or '')>now()[:10]:
+                        raise ValueError('Solo puedes marcar como completada una reserva cuya fecha ya ha llegado.')
+                    if status==row['status']: self.send_json({'ok':True,'unchanged':True}); return
+                    service_mode = None
+                    if status=='confirmed':
+                        svc = db.execute('SELECT booking_mode,price FROM provider_services WHERE id=(SELECT service_id FROM bookings WHERE id=?)',(bid,)).fetchone()
+                        service_mode = svc['booking_mode'] if svc else None
+                        # En servicios de tipo "solicitud + confirmación", el centro confirma primero
+                        # la disponibilidad. El pago se habilita después para que el buceador lo complete.
+                        # En "pago obligatorio" o "reserva inmediata", el pago debe estar confirmado
+                        # antes de considerar la reserva confirmada.
+                        if service_mode in {'payment','instant'} and row['payment_status'] not in {'paid','not_required'}:
+                            raise ValueError('Esta reserva necesita un pago confirmado antes de aceptarse.')
+                    if status=='confirmed' and row['slot_id'] and not row['slot_reserved']:
+                        qty=max(1,int(row['participants'] or 1))
+                        changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(qty,qty,now(),row['slot_id'],qty)).rowcount
+                        if changed!=1: raise ValueError('No quedan suficientes plazas en esa salida.')
+                        db.execute('UPDATE bookings SET slot_reserved=1,updated_at=? WHERE id=?',(now(),bid))
+                    if status in {'cancelled','rejected'} and row['slot_id'] and row['slot_reserved']:
+                        qty=max(1,int(row['participants'] or 1)); db.execute("UPDATE service_slots SET spots_available=spots_available+?,status='open',updated_at=? WHERE id=?",(qty,now(),row['slot_id'])); db.execute('UPDATE bookings SET slot_reserved=0,updated_at=? WHERE id=?',(now(),bid))
+                    # En una solicitud confirmada, el siguiente paso es el pago si el servicio tiene tarifa.
+                    if status=='confirmed':
+                        if service_mode=='request':
+                            price_row=db.execute('SELECT price FROM bookings WHERE id=?',(bid,)).fetchone()
+                            cpay_row=db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?',(row['center_id'],)).fetchone()
+                            new_payment=('required' if center_payments_ready(cpay_row) else 'at_center') if price_row and float(price_row['price'] or 0)>0 else 'not_required'
+                            if row['payment_status']=='paid': new_payment='paid'
+                            db.execute('UPDATE bookings SET status=?,payment_status=?,updated_at=? WHERE id=?',(status,new_payment,now(),bid))
+                        else:
+                            db.execute('UPDATE bookings SET status=?,updated_at=? WHERE id=?',(status,now(),bid))
+                    else:
+                        db.execute('UPDATE bookings SET status=?,updated_at=? WHERE id=?',(status,now(),bid))
+                    audit(db,user['id'],'booking_status_changed','booking',bid,{'status':status}); owner=db.execute('SELECT user_id FROM bookings WHERE id=?',(bid,)).fetchone();
+                    if status=='confirmed' and service_mode=='request' and owner:
+                        pr=db.execute('SELECT price,currency FROM bookings WHERE id=?',(bid,)).fetchone()
+                        if pr and float(pr['price'] or 0)>0 and db.execute("SELECT payment_status FROM bookings WHERE id=?",(bid,)).fetchone()['payment_status']=='required':
+                            db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at) VALUES(?,?,?,?,?,?)',(user['id'],owner['user_id'],bid,'Reserva confirmada · pago pendiente',f'El centro ha confirmado tu inmersión. Ya puedes realizar el pago de {float(pr["price"]):.2f} {pr["currency"]}.',now()))
+                    if status=='completed' and owner:
+                        b=db.execute('''SELECT b.id,b.user_id,b.booking_date,c.name AS center_name,p.name AS point_name,p.country,p.dive_type
+                                       FROM bookings b JOIN centers c ON c.id=b.center_id LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.id=?''',(bid,)).fetchone()
+                        if b and not db.execute('SELECT 1 FROM logbook_entries WHERE booking_id=?',(bid,)).fetchone():
+                            site=b['point_name'] or b['center_name']
+                            note=f"Inmersión generada automáticamente desde la reserva #{bid} · {b['center_name']}"
+                            db.execute('INSERT INTO logbook_entries(user_id,dive_date,site,country,depth,duration,dive_type,notes,created_at,booking_id) VALUES(?,?,?,?,?,?,?,?,?,?)',(b['user_id'],b['booking_date'],site,b['country'],None,None,b['dive_type'] or 'Buceo recreativo',note,now(),bid))
+                        sync_user_rewards(db,owner['user_id'])
+                    refund_outcome=None
+                    if status=='confirmed': notify_booking(db,bid,'confirmed')
+                    elif status in {'cancelled','rejected'}:
+                        db.execute('UPDATE bookings SET cancelled_at=?,cancelled_by=? WHERE id=?',(now(),'center',bid))
+                        refund_outcome=refund_paid_booking(db,bid,None,'center_'+status)
+                        notify_booking(db,bid,'rejected' if status=='rejected' else 'cancelled_center',{'refund':refund_outcome})
+                        db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at) VALUES(?,?,?,?,?,?)',(user['id'],owner['user_id'],bid,
+                                   'Solicitud no disponible' if status=='rejected' else 'Reserva cancelada por el centro',
+                                   {'refunded':'Te hemos devuelto el importe íntegro a tu tarjeta.','refund_pending':'Vamos a devolverte el importe íntegro a tu tarjeta.'}.get(refund_outcome,'No se te había cobrado nada.'),now()))
+                    db.commit(); self.send_json({'ok':True,'refund':refund_outcome}); return
+                if path=='/api/logbook':
+                    user=require_user(self,db); data=json_body(self)
+                    v=clean_logbook(data)
+                    cur=db.execute('INSERT INTO logbook_entries(user_id,dive_date,site,country,depth,duration,dive_type,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(user['id'],v['dive_date'],v['site'],v['country'],v['depth'],v['duration'],v['dive_type'],v['notes'],now())); audit(db,user['id'],'logbook_created','logbook',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                if path=='/api/logbook/update':
+                    user=require_user(self,db); data=json_body(self); lid=int(data.get('id') or 0); v=clean_logbook(data)
+                    row=db.execute('SELECT booking_id FROM logbook_entries WHERE id=? AND user_id=?',(lid,user['id'])).fetchone()
+                    if not row: self.send_json({'error':'Inmersión no encontrada'},404); return
+                    db.execute('UPDATE logbook_entries SET dive_date=?,site=?,country=?,depth=?,duration=?,dive_type=?,notes=? WHERE id=?',(v['dive_date'],v['site'],v['country'],v['depth'],v['duration'],v['dive_type'],v['notes'],lid))
+                    audit(db,user['id'],'logbook_updated','logbook',lid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/logbook/delete':
+                    user=require_user(self,db); lid=int(json_body(self).get('id') or 0)
+                    row=db.execute('SELECT booking_id FROM logbook_entries WHERE id=? AND user_id=?',(lid,user['id'])).fetchone()
+                    if not row: self.send_json({'error':'Inmersión no encontrada'},404); return
+                    if row['booking_id']: raise ValueError('Esta inmersión viene de una reserva completada: puedes editarla, pero no borrarla.')
+                    db.execute('DELETE FROM logbook_entries WHERE id=?',(lid,)); audit(db,user['id'],'logbook_deleted','logbook',lid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/account/password':
+                    user=require_user(self,db); data=json_body(self); new=str(data.get('new_password') or '')
+                    row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
+                    if not verify_password(str(data.get('current_password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña actual no es correcta.')
+                    if len(new)<10: raise ValueError('La nueva contraseña debe tener al menos 10 caracteres.')
+                    db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(new),user['id']))
+                    tok=''
+                    for item in self.headers.get('Cookie','').split(';'):
+                        k,_,v_=item.strip().partition('=')
+                        if k==COOKIE: tok=v_
+                    db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(user['id'],hashlib.sha256(tok.encode()).hexdigest()))
+                    notify_user(db,user['id'],'password_changed',{'when':datetime.now().strftime('%d/%m/%Y %H:%M')},('user',user['id']))
+                    audit(db,user['id'],'password_changed','user',user['id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/account/identity':
+                    user=require_user(self,db); name=clean_text(json_body(self).get('fullname'),120)
+                    if not name or len(name)<2: raise ValueError('Escribe tu nombre y apellidos.')
+                    db.execute('UPDATE users SET fullname=? WHERE id=?',(name,user['id'])); audit(db,user['id'],'identity_updated','user',user['id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/provider/profile':
+                    user=require_user(self,db); require_role(user,{'freelance','center'}); data=json_body(self)
+                    db.execute('UPDATE users SET provider_bio=?,instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=? WHERE id=?',(clean_text(data.get('provider_bio'),3000),clean_text(data.get('instagram_url'),500) or None,clean_text(data.get('facebook_url'),500) or None,clean_text(data.get('twitter_url'),500) or None,clean_text(data.get('youtube_url'),500) or None,clean_text(data.get('tiktok_url'),500) or None,user['id']))
+                    if user['role']=='center' and user['center_id']:
+                        db.execute('UPDATE centers SET instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=?,updated_at=? WHERE id=?',(clean_text(data.get('instagram_url'),500) or None,clean_text(data.get('facebook_url'),500) or None,clean_text(data.get('twitter_url'),500) or None,clean_text(data.get('youtube_url'),500) or None,clean_text(data.get('tiktok_url'),500) or None,now(),user['center_id']))
+                    audit(db,user['id'],'provider_profile_updated','user',user['id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/provider/center-update':
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0)
+                    if not cid: raise ValueError('Tu cuenta no está asociada a un centro verificado.')
+                    current=db.execute('SELECT latitude,longitude,logo_url FROM centers WHERE id=?',(cid,)).fetchone()
+                    if not clean_text(data.get('name'),180): raise ValueError('El nombre del centro es obligatorio.')
+                    # Keep the map position unless the form explicitly sends a new one.
+                    lat=float(data['latitude']) if data.get('latitude') not in (None,'') else current['latitude']
+                    lng=float(data['longitude']) if data.get('longitude') not in (None,'') else current['longitude']
+                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=?,logo_source='provider_uploaded',updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_text(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),lat,lng,clean_text(data.get('logo_url'),500) if 'logo_url' in data else current['logo_url'],clean_text(data.get('instagram_url'),500) or None,clean_text(data.get('facebook_url'),500) or None,clean_text(data.get('twitter_url'),500) or None,clean_text(data.get('youtube_url'),500) or None,clean_text(data.get('tiktok_url'),500) or None,now(),cid))
+                    audit(db,user['id'],'center_profile_updated','center',cid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/provider/center-create':
+                    user=require_user(self,db)
+                    if user['role'] not in {'center','freelance','recreational'} and user.get('requested_role')!='center': raise PermissionError('Cuenta no autorizada para solicitar un centro.')
+                    if user['center_id']: raise ValueError('Tu cuenta ya está asociada a un centro.')
+                    data=json_body(self); phone=clean_text(data.get('phone'),60); name=clean_text(data.get('name'),180)
+                    if not name or not phone: raise ValueError('Nombre y teléfono del centro son obligatorios.')
+                    cur=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at,verification_status,data_confidence,source_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(name,clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_text(data.get('website'),250),phone,clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),1,now(),now(),'pending_provider','provider_submitted','WORLDIVES DISCOVERY provider'))
+                    cid=cur.lastrowid
+                    db.execute('INSERT INTO center_claims(user_id,center_id,requested_center_name,phone,city,website,note,status,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(user['id'],cid,name,phone,clean_text(data.get('city'),100),clean_text(data.get('website'),250),clean_text(data.get('note'),2000),'pending',now()))
+                    audit(db,user['id'],'center_created_by_provider','center',cid); db.commit(); self.send_json({'ok':True,'id':cid,'status':'pending'}); return
+                if path=='/api/dive-points':
+                    user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self)
+                    center_id=data.get('center_id') or (user['center_id'] if user['role']=='center' else None)
+                    if user['role']=='center' and center_id!=user['center_id']: raise PermissionError('Solo puedes crear puntos de tu centro.')
+                    cur=db.execute('''INSERT INTO dive_points(name,country,region,dive_type,latitude,longitude,difficulty,min_depth,max_depth,description,access_info,center_id,verification_status,created_by_user_id,updated_by_user_id,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('dive_type'),100),float(data.get('latitude')),float(data.get('longitude')),clean_text(data.get('difficulty'),50),data.get('min_depth') or None,data.get('max_depth') or None,clean_text(data.get('description'),5000),clean_text(data.get('access_info'),3000),center_id,'verified' if user['role']=='admin' else 'pending_center',user['id'],user['id'],1,now(),now())); audit(db,user['id'],'dive_point_created','dive_point',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                if path.startswith('/api/dive-points/') and path.endswith('/virtual/upload'):
+                    user=require_user(self,db); require_role(user,{'admin','center'}); pid=int(path.split('/')[3])
+                    row=db.execute('SELECT center_id FROM dive_points WHERE id=?',(pid,)).fetchone()
+                    if not row: self.send_json({'error':'Punto no encontrado'},404); return
+                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes gestionar el recorrido virtual de este punto.')
+                    fields,files=parse_multipart(self); file=files.get('file')
+                    title=clean_text(fields.get('title'),180) or 'Recorrido virtual'
+                    etype=clean_text(fields.get('experience_type'),40) or 'panorama'
+                    if etype not in {'panorama','video360','streetview','external360'}: raise ValueError('Tipo de experiencia no válido.')
+                    url=clean_text(fields.get('url'),1000)
+                    if etype in {'video360','streetview','external360'} and not url and not file: raise ValueError('Añade una URL o un archivo para esta experiencia.')
+                    media_path=None
+                    if file:
+                        ext=Path(file['filename']).suffix.lower()
+                        allowed={'.jpg','.jpeg','.png','.webp'} if etype=='panorama' else {'.mp4','.webm','.mov'} if etype=='video360' else {'.jpg','.jpeg','.png','.webp','.mp4','.webm','.mov'}
+                        if ext not in allowed: raise ValueError('Formato no admitido para este tipo de recorrido.')
+                        folder=PUBLIC/'assets'/'uploads'/'virtual'; folder.mkdir(parents=True,exist_ok=True)
+                        filename=f'virtual_{pid}_{secrets.token_hex(6)}{ext}'; out=folder/filename; out.write_bytes(file['content'])
+                        media_path='/' + str(out.relative_to(ROOT)).replace('\\','/')
+                    cur=db.execute('INSERT INTO virtual_experiences(dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(pid,title,etype,clean_text(fields.get('provider'),100),url or None,media_path,clean_text(fields.get('description'),2000),fields.get('duration_seconds') or None,1,user['id'],now(),now()))
+                    audit(db,user['id'],'virtual_experience_created','virtual_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid,'media_path':media_path}); return
+                if path.startswith('/api/dive-points/') and path.endswith('/virtual'):
+                    pid=int(path.split('/')[3])
+                    if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone():
+                        self.send_json({'error':'Punto no encontrado'},404); return
+                    rows=db.execute('SELECT id,dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_at,updated_at FROM virtual_experiences WHERE dive_point_id=? AND active=1 ORDER BY id',(pid,)).fetchall()
+                    self.send_json({'items':[dict(x) for x in rows]}); return
+                if path.startswith('/api/dive-points/') and path.endswith('/virtual'):
+                    user=require_user(self,db); require_role(user,{'admin','center'}); pid=int(path.split('/')[3])
+                    row=db.execute('SELECT center_id FROM dive_points WHERE id=?',(pid,)).fetchone()
+                    if not row: self.send_json({'error':'Punto no encontrado'},404); return
+                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes gestionar el recorrido virtual de este punto.')
+                    data=json_body(self)
+                    title=clean_text(data.get('title'),180) or 'Recorrido virtual'
+                    etype=clean_text(data.get('experience_type'),40) or 'panorama'
+                    if etype not in {'panorama','video360','streetview','external360'}: raise ValueError('Tipo de experiencia no válido.')
+                    url=clean_text(data.get('url'),1000)
+                    if etype in {'video360','streetview','external360'} and not url: raise ValueError('Esta experiencia necesita una URL.')
+                    cur=db.execute('INSERT INTO virtual_experiences(dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(pid,title,etype,clean_text(data.get('provider'),100),url or None,clean_text(data.get('media_path'),500),clean_text(data.get('description'),2000),data.get('duration_seconds') or None,1,user['id'],now(),now()))
+                    audit(db,user['id'],'virtual_experience_created','virtual_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                if path.startswith('/api/dive-points/') and path.endswith('/photos/delete'):
+                    user=require_user(self,db); pid=int(path.split('/')[3]); data=json_body(self); phid=int(data.get('photo_id') or 0)
+                    ph=db.execute('SELECT * FROM dive_point_photos WHERE id=? AND dive_point_id=?',(phid,pid)).fetchone()
+                    if not ph: self.send_json({'error':'Foto no encontrada'},404); return
+                    if not point_photo_allowed(db,user,pid) or (user['role']!='admin' and ph['uploaded_by']!=user['id']): raise PermissionError('Solo puedes quitar las fotos que has subido tú.')
+                    db.execute('DELETE FROM dive_point_photos WHERE id=?',(phid,)); audit(db,user['id'],'dive_point_photo_deleted','dive_point',pid); db.commit()
+                    delete_public_image(ph['image_path']); self.send_json({'ok':True}); return
+                if path.startswith('/api/dive-points/') and path.endswith('/photos'):
+                    user=require_user(self,db); pid=int(path.split('/')[3])
+                    if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone(): self.send_json({'error':'Punto no encontrado'},404); return
+                    if not point_photo_allowed(db,user,pid): raise PermissionError('Solo el administrador o un centro que bucea en este punto puede subir fotos.')
+                    if db.execute('SELECT COUNT(*) FROM dive_point_photos WHERE dive_point_id=?',(pid,)).fetchone()[0]>=24: raise ValueError('Este punto ya tiene 24 fotos. Quita alguna para añadir otra.')
+                    fields,files=parse_multipart(self)
+                    url=save_public_image(files.get('file'),f'point_{pid}')
+                    cur=db.execute('INSERT INTO dive_point_photos(dive_point_id,image_path,caption,sort_order,uploaded_by) VALUES(?,?,?,?,?)',(pid,url,clean_text(fields.get('caption'),300),db.execute('SELECT COALESCE(MAX(sort_order),0)+1 FROM dive_point_photos WHERE dive_point_id=?',(pid,)).fetchone()[0],user['id']))
+                    audit(db,user['id'],'dive_point_photo_added','dive_point',pid); db.commit()
+                    self.send_json({'ok':True,'id':cur.lastrowid,'url':url}); return
+                if path=='/api/admin/site-promos':
+                    user=require_user(self,db); require_role(user,{'admin'}); fields,files=parse_multipart(self)
+                    pid=int(fields.get('id') or 0); kind=fields.get('kind') or 'partner'
+                    if kind not in PROMO_KINDS: raise ValueError('Tipo no válido.')
+                    title=clean_text(fields.get('title'),120)
+                    if not title: raise ValueError('Indica el nombre.')
+                    row=db.execute('SELECT * FROM site_promos WHERE id=?',(pid,)).fetchone() if pid else None
+                    if pid and not row: self.send_json({'error':'No encontrado'},404); return
+                    def _d(v):
+                        v=(clean_text(v,10) or '').strip()
+                        if v and not re.fullmatch(r'\d{4}-\d{2}-\d{2}',v): raise ValueError('Fecha no válida.')
+                        return v or None
+                    starts,ends=_d(fields.get('starts_on')),_d(fields.get('ends_on'))
+                    if starts and ends and ends<starts: raise ValueError('La fecha de fin es anterior a la de inicio.')
+                    old=row['image_path'] if row else None; img=old
+                    if files.get('file'): img=save_public_image(files.get('file'),'promo')
+                    elif fields.get('remove_image')=='1': img=None
+                    vals=(kind,title,clean_text(fields.get('subtitle'),240) or '',clean_text(fields.get('label'),40) or '',clean_promo_url(fields.get('url')),img,starts,ends,
+                          int(fields.get('sort_order') or 0),0 if fields.get('active')=='0' else 1,now())
+                    if row: db.execute('UPDATE site_promos SET kind=?,title=?,subtitle=?,label=?,url=?,image_path=?,starts_on=?,ends_on=?,sort_order=?,active=?,updated_at=? WHERE id=?',(*vals,pid))
+                    else: pid=db.execute('INSERT INTO site_promos(kind,title,subtitle,label,url,image_path,starts_on,ends_on,sort_order,active,updated_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(*vals,now())).lastrowid
+                    audit(db,user['id'],'site_promo_saved','site_promo',pid); db.commit()
+                    if old and old!=img: delete_public_image(old)
+                    self.send_json({'ok':True,'id':pid}); return
+                if path=='/api/admin/site-promos/settings':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    email=(clean_text(data.get('partners_email'),160) or '').strip()
+                    if email and not re.fullmatch(r'[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+',email): raise ValueError('Revisa el email de contacto.')
+                    text=(clean_text(data.get('partners_text'),200) or '').strip()
+                    for k,v in (('partners_email',email),('partners_text',text)):
+                        db.execute('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by',(k,v,now(),user['id']))
+                    audit(db,user['id'],'site_settings_updated','site_settings',None,'partners'); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/site-promos/delete':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); pid=int(data.get('id') or 0)
+                    row=db.execute('SELECT image_path FROM site_promos WHERE id=?',(pid,)).fetchone()
+                    if not row: self.send_json({'error':'No encontrado'},404); return
+                    db.execute('DELETE FROM site_promos WHERE id=?',(pid,)); audit(db,user['id'],'site_promo_deleted','site_promo',pid); db.commit()
+                    delete_public_image(row['image_path']); self.send_json({'ok':True}); return
+                if path=='/api/center/promotions':
+                    user=require_user(self,db); require_role(user,{'center'}); cid=user['center_id']; data=json_body(self); pid=int(data.get('id') or 0)
+                    if not cid: raise ValueError('La cuenta aún no tiene un centro aprobado.')
+                    title=clean_text(data.get('title'),120)
+                    if not title: raise ValueError('Ponle un título a la promoción.')
+                    vu=clean_text(data.get('valid_until'),10) or ''; vf=clean_text(data.get('valid_from'),10) or None
+                    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',vu): raise ValueError('Indica hasta qué día es válida la promoción.')
+                    if vf and not re.fullmatch(r'\d{4}-\d{2}-\d{2}',vf): vf=None
+                    if vf and vf>vu: raise ValueError('La fecha de inicio no puede ser posterior a la de caducidad.')
+                    if not pid and vu<_dt.date.today().isoformat(): raise ValueError('La fecha de caducidad ya ha pasado.')
+                    uses=max(1,min(50,int(data.get('uses_per_code') or 1)))
+                    vals=(title,clean_text(data.get('description'),1000) or '',clean_text(data.get('value_text'),120) or '',clean_text(data.get('conditions'),1000) or '',vf,vu,uses)
+                    if pid:
+                        if not db.execute('SELECT 1 FROM promotions WHERE id=? AND center_id=?',(pid,cid)).fetchone(): raise PermissionError('Esta promoción no es de tu centro.')
+                        db.execute('UPDATE promotions SET title=?,description=?,value_text=?,conditions=?,valid_from=?,valid_until=?,uses_per_code=?,updated_at=? WHERE id=?',vals+(now(),pid))
+                    else:
+                        pid=db.execute('INSERT INTO promotions(center_id,created_by,title,description,value_text,conditions,valid_from,valid_until,uses_per_code,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(cid,user['id'])+vals+('active',now(),now())).lastrowid
+                    want={int(x) for x in (data.get('partner_ids') or []) if str(x).isdigit() and int(x)!=cid}
+                    have={r['center_id'] for r in db.execute('SELECT center_id FROM promotion_partners WHERE promotion_id=?',(pid,)).fetchall()}
+                    for c in want-have:
+                        if db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(c,)).fetchone():
+                            db.execute("INSERT INTO promotion_partners(promotion_id,center_id,status,updated_at) VALUES(?,?,'invited',?)",(pid,c,now()))
+                            issuer=db.execute('SELECT name FROM centers WHERE id=?',(cid,)).fetchone()['name']
+                            for _em,_nm,_lg in center_recipients(db,c):
+                                queue_email(db,'center_promo_invite',_em,_nm,{'issuer':issuer,'promo_title':title,'panel_qr_url':public_site_url()+'/#/admin?tab=qr'},_lg,('promotion',pid))
+                    for c in have-want: db.execute('DELETE FROM promotion_partners WHERE promotion_id=? AND center_id=?',(pid,c))
+                    audit(db,user['id'],'promotion_saved','promotion',pid); db.commit(); self.send_json({'ok':True,'id':pid}); return
+                if path.startswith('/api/center/promotions/') and path.endswith('/status'):
+                    user=require_user(self,db); require_role(user,{'center'}); pid=int(path.split('/')[4]); st=json_body(self).get('status')
+                    if st not in ('active','archived'): raise ValueError('Estado no válido.')
+                    if not db.execute('UPDATE promotions SET status=?,updated_at=? WHERE id=? AND center_id=?',(st,now(),pid,user['center_id'])).rowcount: raise PermissionError('Esta promoción no es de tu centro.')
+                    audit(db,user['id'],'promotion_'+st,'promotion',pid); db.commit(); self.send_json({'ok':True}); return
+                if path.startswith('/api/center/promotions/') and path.endswith('/assign'):
+                    user=require_user(self,db); require_role(user,{'center'}); pid=int(path.split('/')[4]); data=json_body(self); cid=user['center_id']
+                    pr=db.execute('SELECT * FROM promotions WHERE id=? AND center_id=?',(pid,cid)).fetchone()
+                    if not pr: self.send_json({'error':'Promoción no encontrada'},404); return
+                    if pr['status']!='active' or pr['valid_until']<_dt.date.today().isoformat(): raise ValueError('Esta promoción ya no está activa.')
+                    ids=[int(x) for x in (data.get('user_ids') or []) if str(x).isdigit()][:500]
+                    if not ids: raise ValueError('Elige al menos un cliente.')
+                    created=skipped=0; cname=db.execute('SELECT name FROM centers WHERE id=?',(cid,)).fetchone()['name']
+                    for uid in ids:
+                        if not is_center_client(db,cid,uid): skipped+=1; continue
+                        if db.execute("SELECT 1 FROM promotion_codes WHERE promotion_id=? AND user_id=? AND status='active'",(pid,uid)).fetchone(): skipped+=1; continue
+                        code=new_promo_code(db)
+                        db.execute('INSERT INTO promotion_codes(promotion_id,user_id,code,status,uses,created_by,created_at) VALUES(?,?,?,?,?,?,?)',(pid,uid,code,'active',0,user['id'],now()))
+                        db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,subject,body,created_at) VALUES(?,?,?,?,?)',
+                                   (user['id'],uid,f'Tienes una promoción de {cname}',f'{pr["title"]}'+(f' · {pr["value_text"]}' if pr['value_text'] else '')+f'. Válida hasta el {pr["valid_until"]}. Encontrarás tu QR en Recompensas → Mis promociones.',now()))
+                        notify_user(db,uid,'promotion_received',{'center':cname,'promo_title':pr['title'],'promo_value':pr['value_text'] or '','valid_until':'/'.join(reversed(pr['valid_until'].split('-')))},('promotion',pid))
+                        created+=1
+                    audit(db,user['id'],'promotion_assigned','promotion',pid,{'created':created,'skipped':skipped}); db.commit()
+                    self.send_json({'ok':True,'created':created,'skipped':skipped}); return
+                if path.startswith('/api/center/promo-codes/') and path.endswith('/revoke'):
+                    user=require_user(self,db); require_role(user,{'center'}); code=path.split('/')[4].upper()
+                    row=db.execute('SELECT pc.id FROM promotion_codes pc JOIN promotions p ON p.id=pc.promotion_id WHERE pc.code=? AND p.center_id=?',(code,user['center_id'])).fetchone()
+                    if not row: raise PermissionError('Este código no es de una promoción de tu centro.')
+                    db.execute("UPDATE promotion_codes SET status='revoked',revoked_at=? WHERE id=?",(now(),row['id'])); audit(db,user['id'],'promo_code_revoked','promotion_code',row['id']); db.commit()
+                    self.send_json({'ok':True}); return
+                if path.startswith('/api/center/promotions/') and path.endswith('/partner'):
+                    user=require_user(self,db); require_role(user,{'center'}); pid=int(path.split('/')[4]); act=json_body(self).get('action')
+                    if act not in ('accepted','declined'): raise ValueError('Respuesta no válida.')
+                    if not db.execute('UPDATE promotion_partners SET status=?,updated_at=? WHERE promotion_id=? AND center_id=?',(act,now(),pid,user['center_id'])).rowcount: raise PermissionError('Tu centro no está invitado a esta promoción.')
+                    audit(db,user['id'],'promotion_partner_'+act,'promotion',pid); db.commit(); self.send_json({'ok':True}); return
+                if path.startswith('/api/promo/') and path.endswith('/redeem'):
+                    user=require_user(self,db); require_role(user,{'center'}); code=path.split('/')[3].upper(); note=clean_text(json_body(self).get('note'),200) or ''
+                    db.execute('BEGIN IMMEDIATE')
+                    row=db.execute(PROMO_CODE_SQL,(code,)).fetchone()
+                    if not row: db.rollback(); self.send_json({'error':'Este código promocional no existe.'},404); return
+                    pay=promo_code_payload(db,row,user)
+                    if pay['viewer']!='center_ok': db.rollback(); raise PermissionError('Esta promoción no es válida en tu centro.')
+                    if pay['state']!='active': db.rollback(); raise ValueError(f"No se puede canjear: {pay['state_text'].lower()}.")
+                    if db.execute('UPDATE promotion_codes SET uses=uses+1 WHERE id=? AND uses<?',(row['id'],row['uses_per_code'])).rowcount!=1: db.rollback(); raise ValueError('Este código acaba de usarse.')
+                    db.execute('INSERT INTO promotion_redemptions(code_id,center_id,redeemed_by,note,created_at) VALUES(?,?,?,?,?)',(row['id'],user['center_id'],user['id'],note,now()))
+                    audit(db,user['id'],'promo_redeemed','promotion_code',row['id']); db.commit()
+                    self.send_json({'ok':True,'promo':promo_code_payload(db,db.execute(PROMO_CODE_SQL,(code,)).fetchone(),user)}); return
+                if path=='/api/admin/payments/resolve':
+                    # A payment under review (amount or currency did not match): the administrator accepts it or flags it for refund.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); oid=int(data.get('id') or 0); act=data.get('action')
+                    order=db.execute('SELECT * FROM payment_orders WHERE id=?',(oid,)).fetchone()
+                    if not order or order['status']!='review': raise ValueError('Ese pago no está en revisión.')
+                    if act=='accept':
+                        db.execute("UPDATE payment_orders SET status='paid',paid_at=COALESCE(paid_at,?),updated_at=? WHERE id=?",(now(),now(),oid))
+                        if order['booking_id']:
+                            b=db.execute('SELECT * FROM bookings WHERE id=?',(order['booking_id'],)).fetchone()
+                            if b and b['slot_id'] and not b['slot_reserved']:
+                                if reserve_slot_spots(db,b['slot_id'],max(1,int(b['participants'] or 1))): db.execute('UPDATE bookings SET slot_reserved=1 WHERE id=?',(b['id'],))
+                            was_confirmed=bool(b and b['status']=='confirmed')
+                            db.execute("UPDATE bookings SET payment_status='paid',payment_method='card',status=CASE WHEN status IN ('pending','confirmed') THEN 'confirmed' ELSE status END,updated_at=? WHERE id=?",(now(),order['booking_id']))
+                            notify_booking(db,order['booking_id'],'paid',{'was_confirmed':was_confirmed})
+                        audit(db,user['id'],'payment_review_accepted','payment_order',oid)
+                    elif act=='refund':
+                        db.execute("UPDATE payment_orders SET status='refund_due',updated_at=? WHERE id=?",(now(),oid))
+                        if order['booking_id']: db.execute("UPDATE bookings SET payment_status='required',updated_at=? WHERE id=? AND payment_status<>'paid'",(now(),order['booking_id']))
+                        db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at) VALUES(?,?,?,?,?,?)',(user['id'],order['user_id'],order['booking_id'],'Te devolvemos tu pago','Hemos detectado una diferencia en el importe cobrado. Vamos a devolverte el dinero en tu tarjeta en los próximos días; tu reserva sigue guardada y puedes volver a pagarla desde «Mi reserva».',now()))
+                        audit(db,user['id'],'payment_review_refund','payment_order',oid)
+                    else: raise ValueError('Acción no válida.')
+                    db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/site-themes':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); tid=int(data.get('id') or 0)
+                    name=clean_text(data.get('name'),80)
+                    if not name: raise ValueError('Ponle un nombre al tema (por ejemplo «Verano» o «Navidad»).')
+                    accent=data.get('accent') if data.get('accent') in THEME_ACCENTS else 'oceano'
+                    mode=data.get('mode') if data.get('mode') in THEME_MODES else 'schedule'
+                    scope=data.get('scope') if data.get('scope') in THEME_SCOPES else 'all'
+                    a,b=_md(data.get('starts_on')),_md(data.get('ends_on'))
+                    if mode=='schedule' and not (a and b): raise ValueError('Indica desde qué día y hasta qué día se muestra (cada año).')
+                    ribbon=clean_text(data.get('ribbon'),90) or ''
+                    if mode=='always': db.execute("UPDATE site_themes SET mode='schedule' WHERE mode='always' AND id<>? AND scope=?",(tid,scope))
+                    if tid:
+                        if not db.execute('SELECT 1 FROM site_themes WHERE id=?',(tid,)).fetchone(): self.send_json({'error':'Tema no encontrado'},404); return
+                        db.execute('UPDATE site_themes SET name=?,accent=?,ribbon=?,mode=?,scope=?,starts_on=?,ends_on=?,updated_at=?,updated_by=? WHERE id=?',(name,accent,ribbon,mode,scope,a,b,now(),user['id'],tid))
+                    else:
+                        tid=db.execute('INSERT INTO site_themes(name,accent,ribbon,mode,scope,starts_on,ends_on,created_at,updated_at,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?)',(name,accent,ribbon,mode,scope,a,b,now(),now(),user['id'])).lastrowid
+                    audit(db,user['id'],'site_theme_saved','site_theme',tid); db.commit(); SITE_MEDIA.invalidate(); self.send_json({'ok':True,'id':tid}); return
+                if path=='/api/admin/site-themes/delete':
+                    user=require_user(self,db); require_role(user,{'admin'}); tid=int(json_body(self).get('id') or 0)
+                    imgs=[r['image_url'] for r in db.execute('SELECT image_url FROM site_theme_media WHERE theme_id=?',(tid,)).fetchall()]
+                    db.execute('DELETE FROM site_theme_media WHERE theme_id=?',(tid,)); db.execute('DELETE FROM site_themes WHERE id=?',(tid,))
+                    audit(db,user['id'],'site_theme_deleted','site_theme',tid); db.commit()
+                    for u in imgs: delete_public_image(u)
+                    SITE_MEDIA.invalidate(); self.send_json({'ok':True}); return
+                if path=='/api/admin/site-theme-media':
+                    user=require_user(self,db); require_role(user,{'admin'}); fields,files=parse_multipart(self)
+                    tid=int(fields.get('theme_id') or 0); key=clean_text(fields.get('key'),80) or ''
+                    if not db.execute('SELECT 1 FROM site_themes WHERE id=?',(tid,)).fetchone(): self.send_json({'error':'Tema no encontrado'},404); return
+                    if not site_media_key_ok(key): raise ValueError('Esa imagen no existe en la web.')
+                    row=db.execute('SELECT image_url,credit FROM site_theme_media WHERE theme_id=? AND key=?',(tid,key)).fetchone()
+                    old=row['image_url'] if row else None
+                    if fields.get('reset')=='1' or not (files.get('file') or old):
+                        db.execute('DELETE FROM site_theme_media WHERE theme_id=? AND key=?',(tid,key)); db.commit(); delete_public_image(old)
+                        SITE_MEDIA.invalidate(); self.send_json({'ok':True}); return
+                    url=save_public_image(files.get('file'),f'theme_{tid}_'+re.sub(r'[^a-z0-9]+','_',key)) if files.get('file') else old
+                    credit=clean_text(fields.get('credit'),200) if 'credit' in fields else (row['credit'] if row else '')
+                    db.execute('INSERT INTO site_theme_media(theme_id,key,image_url,credit,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(theme_id,key) DO UPDATE SET image_url=excluded.image_url,credit=excluded.credit,updated_at=excluded.updated_at',(tid,key,url,credit,now()))
+                    audit(db,user['id'],'site_theme_media','site_theme',tid,key); db.commit()
+                    if old and old!=url: delete_public_image(old)
+                    SITE_MEDIA.invalidate(); self.send_json({'ok':True,'url':url}); return
+                if path=='/api/admin/site-media':
+                    user=require_user(self,db); require_role(user,{'admin'}); fields,files=parse_multipart(self)
+                    key=clean_text(fields.get('key'),80) or ''
+                    if not site_media_key_ok(key): raise ValueError('Esa imagen no existe en la web.')
+                    row=db.execute('SELECT image_url,credit FROM site_media WHERE key=?',(key,)).fetchone()
+                    old=row['image_url'] if row else None
+                    if fields.get('reset')=='1':
+                        db.execute('DELETE FROM site_media WHERE key=?',(key,)); audit(db,user['id'],'site_media_reset','site_media',None,key); db.commit()
+                        delete_public_image(old); SITE_MEDIA.invalidate(); self.send_json({'ok':True}); return
+                    url=save_public_image(files.get('file'),'site_'+re.sub(r'[^a-z0-9]+','_',key)) if files.get('file') else old
+                    credit=clean_text(fields.get('credit'),200) if 'credit' in fields else (row['credit'] if row else '')
+                    if not url and not credit:
+                        if row: db.execute('DELETE FROM site_media WHERE key=?',(key,)); db.commit(); SITE_MEDIA.invalidate(); self.send_json({'ok':True}); return
+                        raise ValueError('Adjunta una foto.')
+                    db.execute('INSERT INTO site_media(key,image_url,credit,updated_at,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET image_url=excluded.image_url,credit=excluded.credit,updated_at=excluded.updated_at,updated_by=excluded.updated_by',(key,url,credit,now(),user['id']))
+                    audit(db,user['id'],'site_media_updated','site_media',None,key); db.commit()
+                    if old and old!=url: delete_public_image(old)
+                    SITE_MEDIA.invalidate(); self.send_json({'ok':True,'url':url}); return
+                if path=='/api/admin/travel-offer-image':
+                    user=require_user(self,db); require_role(user,{'admin'}); fields,files=parse_multipart(self); tid=int(fields.get('id') or 0)
+                    row=db.execute('SELECT image_path FROM travel_offers WHERE id=?',(tid,)).fetchone()
+                    if not row: self.send_json({'error':'Destino no encontrado'},404); return
+                    url=None if fields.get('remove')=='1' else save_public_image(files.get('file'),f'destination_{tid}')
+                    db.execute('UPDATE travel_offers SET image_path=? WHERE id=?',(url,tid)); audit(db,user['id'],'travel_destination_image','travel_offer',tid); db.commit()
+                    if row['image_path']!=url: delete_public_image(row['image_path'])
+                    self.send_json({'ok':True,'url':url}); return
+                if path=='/api/provider/experience-image':
+                    user=require_user(self,db); fields,files=parse_multipart(self); eid=int(fields.get('id') or 0)
+                    exp=db.execute('SELECT * FROM travel_experiences WHERE id=?',(eid,)).fetchone()
+                    if not exp: self.send_json({'error':'Experiencia no encontrada'},404); return
+                    if not (user['role']=='admin' or exp['provider_user_id']==user['id'] or (exp['center_id'] and exp['center_id']==user['center_id'])): raise PermissionError('Esta experiencia no es tuya.')
+                    url=None if fields.get('remove')=='1' else save_public_image(files.get('file'),f'experience_{eid}')
+                    db.execute('UPDATE travel_experiences SET image_url=?,updated_at=? WHERE id=?',(url,now(),eid)); audit(db,user['id'],'travel_experience_image','travel_experience',eid); db.commit()
+                    if exp['image_url']!=url: delete_public_image(exp['image_url'])
+                    TRAVEL.invalidate(); self.send_json({'ok':True,'url':url}); return
+                if path.startswith('/api/dive-points/') and '/suggest' in path:
+                    user=require_user(self,db); pid=int(path.split('/')[3]); data=json_body(self)
+                    if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone(): self.send_json({'error':'Punto no encontrado'},404); return
+                    cur=db.execute('INSERT INTO point_position_suggestions(dive_point_id,user_id,latitude,longitude,note,status,created_at) VALUES(?,?,?,?,?,?,?)',(pid,user['id'],float(data.get('latitude')),float(data.get('longitude')),clean_text(data.get('note'),2000),'pending',now())); audit(db,user['id'],'position_suggested','point_position_suggestion',cur.lastrowid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/dive-points/update':
+                    user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self); pid=int(data['id']); row=db.execute('SELECT * FROM dive_points WHERE id=?',(pid,)).fetchone()
+                    if not row: self.send_json({'error':'Punto no encontrado'},404); return
+                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes modificar este punto.')
+                    if user['role']=='center' and ('latitude' in data or 'longitude' in data): raise PermissionError('La posición oficial no puede modificarse directamente. Envía una corrección para que el administrador la revise.')
+                    db.execute('''UPDATE dive_points SET name=?,country=?,region=?,dive_type=?,latitude=?,longitude=?,difficulty=?,min_depth=?,max_depth=?,description=?,access_info=?,center_id=?,recommended_certification_id=?,verification_status=?,updated_by_user_id=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('dive_type'),100),float(data.get('latitude')),float(data.get('longitude')),clean_text(data.get('difficulty'),50),data.get('min_depth') or None,data.get('max_depth') or None,clean_text(data.get('description'),5000),clean_text(data.get('access_info'),3000),data.get('center_id') if user['role']=='admin' else user['center_id'],int(data['recommended_certification_id']) if data.get('recommended_certification_id') else None,'verified' if user['role']=='admin' else 'pending_review',user['id'],now(),pid)); audit(db,user['id'],'dive_point_updated','dive_point',pid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/travel-experiences':
+                    user=require_user(self,db)
+                    data=json_body(self)
+                    if user['role'] not in {'admin','center','freelance'}: raise PermissionError('Solo un centro o un perfil freelance puede publicar experiencias.')
+                    tid=resolve_travel_offer(db,data)
+                    if not tid: raise ValueError('Elige un destino o escribe uno nuevo.')
+                    if not clean_text(data.get('title'),180): raise ValueError('Ponle un título a la experiencia.')
+                    provider_type=user['role'] if user['role'] in {'center','freelance'} else clean_text(data.get('provider_type'),20)
+                    center_id=user['center_id'] if user['role']=='center' else (int(data.get('center_id') or 0) or None)
+                    # Verified centers publish directly (the admin can still hide it); freelance proposals are reviewed.
+                    status='published' if user['role'] in {'admin','center'} else 'pending'
+                    cur=db.execute('''INSERT INTO travel_experiences(travel_offer_id,title,provider_user_id,center_id,provider_type,summary,description,start_date,end_date,price,currency,spots_total,spots_available,includes,conditions,status,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(tid,clean_text(data.get('title'),180),user['id'],center_id,provider_type,clean_text(data.get('summary'),500),clean_text(data.get('description'),5000),clean_text(data.get('start_date'),30),clean_text(data.get('end_date'),30),float(data.get('price')) if data.get('price') not in (None,'') else None,clean_text(data.get('currency'),8) or 'EUR',int(data.get('spots_total')) if data.get('spots_total') not in (None,'') else None,int(data.get('spots_available')) if data.get('spots_available') not in (None,'') else None,clean_text(data.get('includes'),3000),clean_text(data.get('conditions'),3000),status,1,now(),now())); audit(db,user['id'],'travel_experience_created','travel_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid,'status':status}); return
+                if path=='/api/admin/travel-offers':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    tid=int(data.get('id') or 0)
+                    current=db.execute('SELECT image_path FROM travel_offers WHERE id=?',(tid,)).fetchone() if tid else None
+                    image=clean_text(data.get('image_path'),300) if 'image_path' in data else (current['image_path'] if current else None)
+                    vals=(clean_text(data.get('title'),180),clean_text(data.get('region'),100),clean_text(data.get('kind'),60),image,clean_text(data.get('summary'),500),clean_text(data.get('description'),5000))
+                    if tid:
+                        if not db.execute('SELECT 1 FROM travel_offers WHERE id=?',(tid,)).fetchone(): self.send_json({'error':'Destino no encontrado'},404); return
+                        db.execute('UPDATE travel_offers SET title=?,region=?,kind=?,image_path=?,summary=?,description=? WHERE id=?',vals+(tid,)); audit(db,user['id'],'travel_destination_updated','travel_offer',tid)
+                    else:
+                        cur=db.execute('INSERT INTO travel_offers(title,region,kind,image_path,summary,description,active) VALUES(?,?,?,?,?,?,1)',vals); tid=cur.lastrowid; audit(db,user['id'],'travel_destination_created','travel_offer',tid)
+                    db.commit(); self.send_json({'ok':True,'id':tid}); return
+                if path=='/api/experience-bookings':
+                    user=require_user(self,db); data=json_body(self); eid=int(data.get('travel_experience_id') or 0); participants=max(1,int(data.get('participants') or 1))
+                    exp=db.execute('SELECT * FROM travel_experiences WHERE id=? AND active=1 AND status=\'published\'',(eid,)).fetchone()
+                    if not exp: self.send_json({'error':'Experiencia no disponible.'},404); return
+                    if exp['spots_available'] is not None and participants>exp['spots_available']: raise ValueError('No hay suficientes plazas disponibles.')
+                    cur=db.execute('INSERT INTO experience_bookings(travel_experience_id,user_id,participants,notes,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',(eid,user['id'],participants,clean_text(data.get('notes'),2000),'requested',now(),now()))
+                    ebid=cur.lastrowid
+                    if exp['spots_available'] is not None: db.execute('UPDATE travel_experiences SET spots_available=spots_available-?,updated_at=? WHERE id=?',(participants,now(),eid))
+                    price=float(exp['price'] or 0)
+                    notify_user(db,user['id'],'experience_request',{'experience':exp['title'],'participants':participants},('experience_booking',ebid))
+                    _pctx={'experience':exp['title'],'participants':participants,'diver_name':user['fullname'],'notes':clean_text(data.get('notes'),2000) or '','panel_exp_url':public_site_url()+'/#/admin?tab=experiences'}
+                    _rcp=center_recipients(db,exp['center_id']) if exp['center_id'] else []
+                    if not _rcp and exp['provider_user_id']:
+                        _pu=db.execute('SELECT id,fullname,email FROM users WHERE id=?',(exp['provider_user_id'],)).fetchone()
+                        if _pu: _rcp=[(_pu['email'],_pu['fullname'],user_lang(db,_pu['id']))]
+                    for _em,_nm,_lg in _rcp: queue_email(db,'center_experience_request',_em,_nm,_pctx,_lg,('experience_booking',ebid))
+                    audit(db,user['id'],'experience_booking_requested','experience_booking',ebid,{'experience_id':eid,'participants':participants}); db.commit(); self.send_json({'ok':True,'id':ebid,'payment_required':price>0,'price':price,'currency':exp['currency'] or 'EUR'}); return
+                if path=='/api/admin/travel-experiences/status':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); eid=int(data.get('id')); status=clean_text(data.get('status'),30)
+                    if status not in {'published','rejected','pending'}: raise ValueError('Estado no válido.')
+                    db.execute('UPDATE travel_experiences SET status=?,updated_at=? WHERE id=?',(status,now(),eid)); audit(db,user['id'],'travel_experience_status','travel_experience',eid,{'status':status}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/centers':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    cur=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_text(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),1,now(),now())); audit(db,user['id'],'center_created','center',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                if path=='/api/centers/update':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); cid=int(data.get('id') or 0)
+                    if not db.execute('SELECT 1 FROM centers WHERE id=?',(cid,)).fetchone(): raise ValueError('Centro no encontrado.')
+                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_text(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),clean_text(data.get('logo_url'),500) or None,now(),cid))
+                    audit(db,user['id'],'center_updated','center',cid); db.commit(); self.send_json({'ok':True,'id':cid}); return
+                if path=='/api/admin/users/role':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    uid=int(data['user_id']); role=clean_text(data.get('role'),30); center_id=int(data.get('center_id') or 0) or None
+                    if role not in ROLES: raise ValueError('Rol no válido.')
+                    if role=='center' and not center_id: raise ValueError('Una cuenta de centro necesita un centro asociado.')
+                    if center_id and not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(center_id,)).fetchone(): raise ValueError('Centro no válido.')
+                    db.execute('UPDATE users SET role=?,center_id=? WHERE id=?',(role,center_id,uid)); audit(db,user['id'],'user_role_updated','user',uid,{'role':role,'center_id':center_id}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/qr/create':
+                    user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self); cid=int(data.get('center_id') or user['center_id'])
+                    if user['role']=='center' and cid!=user['center_id']: raise PermissionError('No puedes crear QR para otro centro.')
+                    if not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(cid,)).fetchone(): raise ValueError('Centro no válido.')
+                    purpose=clean_text(data.get('purpose'),40) or 'center'
+                    allowed={'center','diver','dive','booking'}
+                    if purpose not in allowed: raise ValueError('Tipo de QR no válido.')
+                    ref=int(data.get('reference_id') or 0) or None
+                    if purpose=='dive' and ref and not db.execute('SELECT 1 FROM provider_service_slots s JOIN provider_services ps ON ps.id=s.service_id WHERE s.id=? AND ps.provider_user_id=?',(ref,user['id'])).fetchone() and user['role']!='admin': raise PermissionError('La salida no pertenece a tu centro.')
+                    if purpose=='booking' and ref and not db.execute('SELECT 1 FROM bookings WHERE id=? AND center_id=?',(ref,cid)).fetchone(): raise ValueError('Reserva no válida.')
+                    code=secrets.token_urlsafe(9).replace('-','').replace('_','')[:12].upper()
+                    default_labels={'center':'Identificación del centro','diver':'Check-in del buceador','dive':'Inmersión','booking':'Reserva'}
+                    label=clean_text(data.get('label'),120) or default_labels[purpose]
+                    cur=db.execute('INSERT INTO qr_codes(center_id,code,label,purpose,reference_id,active,created_at) VALUES(?,?,?,?,?,?,?)',(cid,code,label,purpose,ref,1,now())); audit(db,user['id'],'qr_created','qr_code',cur.lastrowid,{'purpose':purpose,'reference_id':ref}); db.commit(); self.send_json({'ok':True,'code':code,'purpose':purpose,'reference_id':ref}); return
+                if path.startswith('/api/checkin/'):
+                    user=require_user(self,db); code=path.rsplit('/',1)[1]; qr=db.execute('SELECT * FROM qr_codes WHERE code=? AND active=1',(code,)).fetchone()
+                    if not qr: self.send_json({'error':'QR no válido o caducado.'},404); return
+                    existing=db.execute('SELECT id FROM center_links WHERE user_id=? AND center_id=?',(user['id'],qr['center_id'])).fetchone()
+                    if existing: db.execute('UPDATE center_links SET last_checkin=? WHERE id=?',(now(),existing['id']))
+                    else: db.execute('INSERT INTO center_links(user_id,center_id,first_checkin,last_checkin) VALUES(?,?,?,?)',(user['id'],qr['center_id'],now(),now()))
+                    audit(db,user['id'],'center_checkin','center',qr['center_id'],{'code':code,'purpose':qr['purpose'],'reference_id':qr['reference_id']}); sync_user_rewards(db,user['id']); db.commit();
+                    payload={'ok':True,'center_id':qr['center_id'],'center_name':db.execute('SELECT name FROM centers WHERE id=?',(qr['center_id'],)).fetchone()[0],'purpose':qr['purpose'],'reference_id':qr['reference_id'],'label':qr['label']}
+                    if qr['purpose']=='dive' and qr['reference_id']:
+                        row=db.execute('''SELECT s.id,s.slot_date,s.slot_time,s.spots_total,s.spots_available,ps.title AS service_title,dp.name AS point_name,dp.country FROM provider_service_slots s JOIN provider_services ps ON ps.id=s.service_id LEFT JOIN provider_service_slot_points sp ON sp.slot_id=s.id LEFT JOIN dive_points dp ON dp.id=sp.dive_point_id WHERE s.id=? LIMIT 1''',(qr['reference_id'],)).fetchone()
+                        if row: payload['dive']=dict(row)
+                    if qr['purpose']=='booking' and qr['reference_id']:
+                        row=db.execute('''SELECT b.id,b.booking_date,b.booking_time,b.participants,b.status,ps.title AS service_title,dp.name AS point_name FROM bookings b LEFT JOIN provider_services ps ON ps.id=b.service_id LEFT JOIN dive_points dp ON dp.id=b.dive_point_id WHERE b.id=? AND b.center_id=?''',(qr['reference_id'],qr['center_id'])).fetchone()
+                        if row: payload['booking']=dict(row)
+                    self.send_json(payload); return
+                if path=='/api/admin/suggestions/review':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); sid=int(data['id']); decision=data.get('decision'); sug=db.execute('SELECT * FROM point_position_suggestions WHERE id=?',(sid,)).fetchone()
+                    if not sug: self.send_json({'error':'Propuesta no encontrada'},404); return
+                    if decision=='approve':
+                        db.execute('UPDATE dive_points SET latitude=?,longitude=?,updated_by_user_id=?,updated_at=?,verification_status="verified" WHERE id=?',(sug['latitude'],sug['longitude'],user['id'],now(),sug['dive_point_id'])); new_status='approved'
+                    else: new_status='rejected'
+                    db.execute('UPDATE point_position_suggestions SET status=?,reviewed_at=?,reviewed_by_user_id=? WHERE id=?',(new_status,now(),user['id'],sid)); audit(db,user['id'],'position_suggestion_reviewed','point_position_suggestion',sid,{'decision':decision}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/dive-points/review':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); pid=int(data.get('id')); decision=clean_text(data.get('decision'),20)
+                    row=db.execute('SELECT * FROM dive_points WHERE id=?',(pid,)).fetchone()
+                    if not row: raise ValueError('Punto no encontrado.')
+                    if decision=='approve':
+                        db.execute("UPDATE dive_points SET verification_status='verified',updated_by_user_id=?,updated_at=? WHERE id=?",(user['id'],now(),pid))
+                    elif decision=='reject':
+                        db.execute("UPDATE dive_points SET active=0,verification_status='rejected',updated_by_user_id=?,updated_at=? WHERE id=?",(user['id'],now(),pid))
+                    else: raise ValueError('Decisión no válida.')
+                    audit(db,user['id'],'dive_point_reviewed','dive_point',pid,{'decision':decision}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/center-claims':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    rows=db.execute('''SELECT cc.*,u.fullname,u.email,u.username,c.name AS matched_center_name FROM center_claims cc JOIN users u ON u.id=cc.user_id LEFT JOIN centers c ON c.id=cc.center_id WHERE cc.status='pending' ORDER BY cc.created_at DESC''').fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
+                if path=='/api/admin/center-claims/review':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); cid=int(data['id']); decision=clean_text(data.get('decision'),20); claim=db.execute('SELECT * FROM center_claims WHERE id=?',(cid,)).fetchone()
+                    if not claim: raise ValueError('Solicitud no encontrada.')
+                    if decision=='approve':
+                        target=int(data.get('center_id') or claim['center_id'] or 0)
+                        if not target:
+                            raise ValueError('Esta solicitud no coincide con un centro existente. Crea el centro primero y después aprueba la vinculación.')
+                        db.execute("UPDATE users SET role='center',center_id=?,requested_role='center' WHERE id=?",(target,claim['user_id']))
+                        db.execute("UPDATE centers SET verification_status='verified',data_confidence='provider_verified',updated_at=? WHERE id=?",(now(),target))
+                        db.execute("UPDATE center_claims SET status='approved',center_id=?,reviewed_at=?,reviewed_by_user_id=? WHERE id=?",(target,now(),user['id'],cid))
+                        db.execute('INSERT OR IGNORE INTO center_links(user_id,center_id,first_checkin,last_checkin) VALUES(?,?,?,?)',(claim['user_id'],target,now(),now()))
+                        notify_user(db,claim['user_id'],'center_verified',{'center':db.execute('SELECT name FROM centers WHERE id=?',(target,)).fetchone()['name']},('center',target))
+                    elif decision=='reject': db.execute("UPDATE center_claims SET status='rejected',reviewed_at=?,reviewed_by_user_id=? WHERE id=?",(now(),user['id'],cid))
+                    else: raise ValueError('Decisión no válida.')
+                    audit(db,user['id'],'center_claim_reviewed','center_claim',cid,{'decision':decision}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center/profile':
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); target=int(user['center_id'] or 0)
+                    if not target: raise ValueError('La cuenta aún no tiene un centro aprobado.')
+                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_text(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),now(),target)); audit(db,user['id'],'center_profile_updated','center',target); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/rewards/seed':
+                    user=require_user(self,db); sync_user_rewards(db,user['id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/rewards/redeem':
+                    user=require_user(self,db); data=json_body(self); offer_id=int(data.get('offer_id') or 0)
+                    offer=db.execute('SELECT * FROM reward_offers WHERE id=? AND active=1',(offer_id,)).fetchone()
+                    if not offer: raise ValueError('Recompensa no disponible.')
+                    if offer['stock'] is not None and offer['stock']<=0: raise ValueError('Esta recompensa ya no tiene disponibilidad.')
+                    sync_user_rewards(db,user['id'])
+                    balance=float(db.execute('SELECT COALESCE(SUM(amount),0) FROM wallet_transactions WHERE user_id=?',(user['id'],)).fetchone()[0] or 0)
+                    cost=float(offer['cost_wallet'] or 0)
+                    if balance+1e-9 < cost: raise ValueError('Todavía no tienes saldo suficiente para este canje.')
+                    code='WOD-'+secrets.token_hex(4).upper()
+                    db.execute('INSERT INTO reward_redemptions(offer_id,user_id,code,cost_wallet,status,created_at) VALUES(?,?,?,?,?,?)',(offer_id,user['id'],code,cost,'issued',now()))
+                    db.execute('INSERT INTO wallet_transactions(user_id,amount,description,created_at) VALUES(?,?,?,?)',(user['id'],-cost,'Canje: '+offer['title'],now()))
+                    if offer['stock'] is not None: db.execute('UPDATE reward_offers SET stock=stock-1,updated_at=? WHERE id=?',(now(),offer_id))
+                    audit(db,user['id'],'reward_redeemed','reward_offer',offer_id,{'code':code,'cost':cost}); db.commit(); self.send_json({'ok':True,'code':code,'balance':round(balance-cost,2)}); return
+                if path=='/api/rewards/offers':
+                    user=require_user(self,db); rows=db.execute('''SELECT ro.*,c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id WHERE ro.active=1 AND (ro.stock IS NULL OR ro.stock>0) ORDER BY ro.cost_wallet,ro.id''').fetchall(); self.send_json({'items':[dict(r) for r in rows]}); return
+                if path=='/api/provider/wallet-grant':
+                    user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self)
+                    target_id=int(data.get('user_id') or 0); amount=float(data.get('amount') or 0)
+                    if amount<=0 or amount>1000: raise ValueError('El importe debe estar entre 0 y 1000.')
+                    if not db.execute('SELECT 1 FROM users WHERE id=?',(target_id,)).fetchone(): raise ValueError('Usuario no encontrado.')
+                    if user['role']=='center':
+                        cid=int(user['center_id'] or 0)
+                        linked=db.execute('SELECT 1 FROM center_links WHERE user_id=? AND center_id=?',(target_id,cid)).fetchone()
+                        booking=db.execute('SELECT 1 FROM bookings WHERE user_id=? AND center_id=? LIMIT 1',(target_id,cid)).fetchone()
+                        if not linked and not booking: raise PermissionError('Solo puedes conceder saldo a clientes vinculados o con una reserva en tu centro.')
+                    reason=clean_text(data.get('reason'),250) or 'Saldo promocional concedido por el centro'
+                    db.execute('INSERT INTO wallet_transactions(user_id,amount,description,created_at) VALUES(?,?,?,?)',(target_id,amount,reason,now()))
+                    audit(db,user['id'],'wallet_granted','user',target_id,{'amount':amount,'reason':reason,'center_id':user.get('center_id')}); db.commit()
+                    self.send_json({'ok':True,'user_id':target_id,'amount':amount}); return
+                if path=='/api/travel-experiences/update':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); eid=int(data.get('id') or 0)
+                    exp=db.execute('SELECT * FROM travel_experiences WHERE id=?',(eid,)).fetchone()
+                    if not exp or not (exp['provider_user_id']==user['id'] or (exp['center_id'] and exp['center_id']==user['center_id'])): raise PermissionError('Esta experiencia no es tuya.')
+                    if data.get('delete'):
+                        db.execute('UPDATE travel_experiences SET active=0,updated_at=? WHERE id=?',(now(),eid)); audit(db,user['id'],'travel_experience_hidden','travel_experience',eid); db.commit(); self.send_json({'ok':True}); return
+                    if exp['service_id']: raise ValueError('Esta experiencia se edita desde su servicio en «Servicios y tarifas».')
+                    tid=resolve_travel_offer(db,data) or exp['travel_offer_id']
+                    num=lambda v,f: f(v) if v not in (None,'') else None
+                    status='published' if user['role']=='center' else exp['status']
+                    db.execute('UPDATE travel_experiences SET travel_offer_id=?,title=?,summary=?,description=?,start_date=?,end_date=?,price=?,spots_total=?,spots_available=?,includes=?,conditions=?,status=?,active=1,updated_at=? WHERE id=?',
+                               (tid,clean_text(data.get('title'),180) or exp['title'],clean_text(data.get('summary'),500),clean_text(data.get('description'),5000),clean_text(data.get('start_date'),30),clean_text(data.get('end_date'),30),num(data.get('price'),float),num(data.get('spots_total'),int),num(data.get('spots_available'),int),clean_text(data.get('includes'),3000),clean_text(data.get('conditions'),3000),status,now(),eid))
+                    audit(db,user['id'],'travel_experience_updated','travel_experience',eid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/provider/experience-bookings/status':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); rid=int(data.get('id') or 0); status=clean_text(data.get('status'),20)
+                    if status not in {'confirmed','rejected','cancelled'}: raise ValueError('Estado no válido.')
+                    r=db.execute('SELECT eb.*,e.provider_user_id,e.center_id,e.spots_available,e.spots_total,e.title FROM experience_bookings eb JOIN travel_experiences e ON e.id=eb.travel_experience_id WHERE eb.id=?',(rid,)).fetchone()
+                    if not r or not (r['provider_user_id']==user['id'] or (r['center_id'] and r['center_id']==user['center_id'])): raise PermissionError('Esta solicitud no es tuya.')
+                    if status==r['status']: self.send_json({'ok':True,'unchanged':True}); return
+                    if status in {'rejected','cancelled'} and r['status'] in {'requested','confirmed'} and r['spots_available'] is not None:
+                        db.execute('UPDATE travel_experiences SET spots_available=MIN(COALESCE(spots_total,spots_available+?),spots_available+?),updated_at=? WHERE id=?',(r['participants'],r['participants'],now(),r['travel_experience_id']))
+                    db.execute('UPDATE experience_bookings SET status=?,updated_by=?,updated_at=? WHERE id=?',(status,user['id'],now(),rid))
+                    label={'confirmed':'confirmada','rejected':'rechazada','cancelled':'cancelada'}[status]
+                    db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,experience_booking_id,subject,body,created_at) VALUES(?,?,?,?,?,?)',(user['id'],r['user_id'],rid,f'Solicitud {label}',f'Tu solicitud para «{r["title"]}» ha sido {label}.',now()))
+                    _lg=user_lang(db,r['user_id'])
+                    _st={'confirmed':('Solicitud confirmada','tu plaza en «{experience}» está confirmada. El organizador te contactará con los detalles.'),
+                         'rejected':('Solicitud no disponible','el organizador de «{experience}» no puede atender tu solicitud esta vez. Echa un vistazo a otros viajes en WORLDIVES.'),
+                         'cancelled':('Solicitud cancelada','tu solicitud para «{experience}» se ha cancelado. Si habías pagado, te devolveremos el importe.')}[status]
+                    notify_user(db,r['user_id'],'experience_status',{'experience':r['title'],'status_title':mail_t(_lg,_st[0]),'status_text':mail_t(_lg,_st[1],experience=r['title'])},('experience_booking',rid))
+                    audit(db,user['id'],'experience_booking_status','experience_booking',rid,{'status':status}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/provider/center-cover' or path=='/api/provider/center-gallery':
+                    user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    fields,files=parse_multipart(self)
+                    row=db.execute('SELECT cover_url,gallery_json FROM centers WHERE id=?',(cid,)).fetchone()
+                    if path.endswith('cover'):
+                        url=save_public_image(files.get('file'),f'center_{cid}_cover')
+                        old=row['cover_url']; db.execute('UPDATE centers SET cover_url=?,updated_at=? WHERE id=?',(url,now(),cid))
+                        audit(db,user['id'],'center_cover_updated','center',cid); db.commit(); delete_public_image(old); self.send_json({'ok':True,'url':url}); return
+                    gallery=center_gallery(row)
+                    if len(gallery)>=MAX_GALLERY_IMAGES: raise ValueError(f'La galería admite {MAX_GALLERY_IMAGES} fotos. Elimina alguna para añadir otra.')
+                    url=save_public_image(files.get('file'),f'center_{cid}_gallery'); gallery.append(url)
+                    db.execute('UPDATE centers SET gallery_json=?,updated_at=? WHERE id=?',(json.dumps(gallery),now(),cid))
+                    audit(db,user['id'],'center_gallery_added','center',cid); db.commit(); self.send_json({'ok':True,'url':url,'gallery':gallery}); return
+                if path=='/api/provider/center-showcase':
+                    # Texts and photo management for the public page; the contact data stay in center-update.
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0)
+                    if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    row=db.execute('SELECT cover_url,gallery_json FROM centers WHERE id=?',(cid,)).fetchone()
+                    gallery=center_gallery(row); removed=[]
+                    if 'gallery' in data:
+                        wanted=[x for x in (data.get('gallery') or []) if x in gallery]
+                        removed=[x for x in gallery if x not in wanted]; gallery=wanted
+                    cover=row['cover_url']
+                    if data.get('remove_cover'): removed.append(cover); cover=None
+                    db.execute('UPDATE centers SET tagline=?,languages=?,opening_hours=?,gallery_json=?,cover_url=?,updated_at=? WHERE id=?',(clean_text(data.get('tagline'),160),clean_text(data.get('languages'),160),clean_text(data.get('opening_hours'),300),json.dumps(gallery),cover,now(),cid))
+                    audit(db,user['id'],'center_showcase_updated','center',cid); db.commit()
+                    for u in removed: delete_public_image(u)
+                    self.send_json({'ok':True}); return
+                if path=='/api/center/bookings/manual':
+                    # A booking entered by the center itself: phone, walk-in, email, agency...
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0)
+                    if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    fullname=clean_text(data.get('fullname'),180)
+                    if not fullname: raise ValueError('Indica el nombre del cliente.')
+                    service_id=int(data.get('service_id') or 0)
+                    service=db.execute('SELECT * FROM provider_services WHERE id=? AND center_id=?',(service_id,cid)).fetchone()
+                    if not service: raise ValueError('Elige una actividad de tu centro.')
+                    participants=max(1,min(200,int(data.get('participants') or 1)))
+                    slot=None; slot_id=int(data.get('slot_id') or 0) or None
+                    if slot_id:
+                        slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(slot_id,service_id)).fetchone()
+                        if not slot: raise ValueError('Esa salida ya no está disponible.')
+                    bdate=slot['slot_date'] if slot else clean_text(data.get('booking_date'),10)
+                    btime=slot['slot_time'] if slot else clean_text(data.get('booking_time'),5)
+                    if not bdate: raise ValueError('Elige una salida o indica la fecha.')
+                    status=clean_text(data.get('status'),20) or 'confirmed'
+                    if status not in {'confirmed','pending'}: status='confirmed'
+                    if slot and status=='confirmed' and participants>int(slot['spots_available']):
+                        raise ValueError(f'En esa salida solo quedan {slot["spots_available"]} plazas.')
+                    total,currency,lines=booking_quote(db,cid,service,participants,bdate,as_list(data.get('extra_ids')),as_list(data.get('equipment_codes')))
+                    override=data.get('price_override')
+                    if override not in (None,''):
+                        override=round(max(0.0,float(override)),2)
+                        if abs(override-total)>=0.005: lines.append({'kind':'adjustment','label':'Ajuste del centro','unit':round(override-total,2),'qty':1,'total':round(override-total,2)})
+                        total=override
+                    payment_status=clean_text(data.get('payment_status'),20) or ('required' if total>0 else 'not_required')
+                    if payment_status not in {'paid','required','not_required'}: payment_status='required'
+                    if total<=0: payment_status='not_required'
+                    point_id=None
+                    if slot:
+                        pr=db.execute('SELECT dive_point_id FROM service_slot_points WHERE slot_id=? LIMIT 1',(slot['id'],)).fetchone(); point_id=pr['dive_point_id'] if pr else None
+                    uid=find_or_create_customer(db,fullname,data.get('email'),data.get('phone'))
+                    reserved=0
+                    if slot and status=='confirmed':
+                        if not reserve_slot_spots(db,slot['id'],participants): raise ValueError('Las plazas acaban de cambiar. Revisa la salida.')
+                        reserved=1
+                    codes=as_list(data.get('equipment_codes'))
+                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,notes,status,price,currency,payment_status,price_breakdown,source,contact_phone,created_by_user_id,payment_method,internal_notes,created_at,updated_at)
+                                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(uid,cid,point_id,service_id,slot['id'] if slot else None,reserved,bdate,btime,participants,1 if codes else 0,', '.join(l['label'] for l in lines if l['kind']=='equipment'),clean_text(data.get('notes'),2000),status,total,currency,payment_status,json.dumps(lines,ensure_ascii=False),'manual',clean_text(data.get('phone'),60),user['id'],clean_text(data.get('payment_method'),40),clean_text(data.get('internal_notes'),2000),now(),now()))
+                    if data.get('notify_client',True) and status=='confirmed': notify_booking(db,cur.lastrowid,'manual')
+                    audit(db,user['id'],'booking_created_manual','booking',cur.lastrowid,{'participants':participants,'total':total}); db.commit()
+                    self.send_json({'ok':True,'id':cur.lastrowid,'total':total,'status':status,'payment_status':payment_status}); return
+                if path.startswith('/api/bookings/') and path.endswith('/payment'):
+                    # The center records a payment taken at the desk (cash, card terminal, transfer).
+                    user=require_user(self,db); require_role(user,{'center','admin'}); bid=int(path.split('/')[-2]); data=json_body(self)
+                    row=db.execute('SELECT * FROM bookings WHERE id=?',(bid,)).fetchone()
+                    if not row: self.send_json({'error':'Reserva no encontrada'},404); return
+                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('Esta reserva no pertenece a tu centro.')
+                    pay=clean_text(data.get('payment_status'),20)
+                    if pay not in {'paid','required','at_center'}: raise ValueError('Estado de pago no válido.')
+                    if pay=='required' and not center_payments_ready(db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?',(row['center_id'],)).fetchone()): pay='at_center'
+                    db.execute('UPDATE bookings SET payment_status=?,payment_method=?,updated_at=? WHERE id=?',(pay,clean_text(data.get('payment_method'),40) or row['payment_method'],now(),bid))
+                    if pay=='paid' and row['status']=='pending':
+                        if row['slot_id'] and not row['slot_reserved']:
+                            if not reserve_slot_spots(db,row['slot_id'],max(1,int(row['participants'] or 1))): raise ValueError('No quedan plazas suficientes en esa salida para confirmarla.')
+                            db.execute('UPDATE bookings SET slot_reserved=1 WHERE id=?',(bid,))
+                        db.execute("UPDATE bookings SET status='confirmed',updated_at=? WHERE id=?",(now(),bid))
+                        notify_booking(db,bid,'confirmed')
+                    audit(db,user['id'],'booking_payment_recorded','booking',bid,{'payment_status':pay}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/service-templates/save':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); tid=int(data.get('id') or 0)
+                    t=clean_service_template(data); cols=list(t)
+                    if tid:
+                        if not db.execute('SELECT 1 FROM service_templates WHERE id=? AND provider_user_id=?',(tid,user['id'])).fetchone(): raise PermissionError('Plantilla no válida.')
+                        db.execute(f"UPDATE service_templates SET {','.join(c+'=?' for c in cols)},updated_at=? WHERE id=?",[t[c] for c in cols]+[now(),tid])
+                    else:
+                        same=db.execute('SELECT id FROM service_templates WHERE provider_user_id=? AND lower(name)=lower(?)',(user['id'],t['name'])).fetchone()
+                        if same:
+                            tid=same['id']; db.execute(f"UPDATE service_templates SET {','.join(c+'=?' for c in cols)},updated_at=? WHERE id=?",[t[c] for c in cols]+[now(),tid])
+                        else:
+                            if db.execute('SELECT COUNT(*) FROM service_templates WHERE provider_user_id=?',(user['id'],)).fetchone()[0]>=MAX_TEMPLATES_PER_PROVIDER:
+                                raise ValueError(f'Has llegado al máximo de {MAX_TEMPLATES_PER_PROVIDER} plantillas. Elimina alguna para crear otra.')
+                            tid=db.execute(f"INSERT INTO service_templates(provider_user_id,{','.join(cols)},created_at,updated_at) VALUES(?,{','.join('?' for _ in cols)},?,?)",[user['id']]+[t[c] for c in cols]+[now(),now()]).lastrowid
+                    audit(db,user['id'],'service_template_saved','service_template',tid); db.commit(); self.send_json({'ok':True,'id':tid}); return
+                if path=='/api/service-templates/delete':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); tid=int(data.get('id') or 0)
+                    cur=db.execute('DELETE FROM service_templates WHERE id=? AND provider_user_id=?',(tid,user['id']))
+                    if not cur.rowcount: raise PermissionError('Plantilla no válida.')
+                    audit(db,user['id'],'service_template_deleted','service_template',tid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center/extras/save':
+                    user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); cid=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0); eid=int(data.get('id') or 0)
+                    if eid:
+                        row=db.execute('SELECT id FROM center_extras WHERE id=? AND center_id=?',(eid,cid)).fetchone()
+                        if not row: raise PermissionError('Extra no válido.')
+                        db.execute('UPDATE center_extras SET name=?,description=?,price=?,active=?,updated_at=? WHERE id=?',(clean_text(data.get('name'),120),clean_text(data.get('description'),500),float(data.get('price') or 0),1 if data.get('active',1) else 0,now(),eid))
+                    else:
+                        db.execute('INSERT INTO center_extras(center_id,name,description,price,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',(cid,clean_text(data.get('name'),120),clean_text(data.get('description'),500),float(data.get('price') or 0),1,now(),now()))
+                    db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center/extras/delete':
+                    user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); cid=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0); eid=int(data.get('id') or 0); db.execute('DELETE FROM center_extras WHERE id=? AND center_id=?',(eid,cid)); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/provider/reward-offers':
+                    user=require_user(self,db); require_role(user,{'admin','center'})
+                    if self.command == 'GET':
+                        if user['role']=='admin':
+                            rows=db.execute('SELECT ro.*, c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id ORDER BY ro.active DESC,ro.created_at DESC').fetchall()
+                        else:
+                            rows=db.execute('SELECT ro.*, c.name AS center_name FROM reward_offers ro LEFT JOIN centers c ON c.id=ro.center_id WHERE ro.center_id=? ORDER BY ro.active DESC,ro.created_at DESC',(user['center_id'],)).fetchall()
+                        self.send_json({'items':[dict(r) for r in rows]}); return
+                    data=json_body(self)
+                    cid=int(data.get('center_id') or user.get('center_id') or 0)
+                    if user['role']=='center' and cid!=user['center_id']: raise PermissionError('No puedes crear recompensas para otro centro.')
+                    if not cid: raise ValueError('Selecciona un centro.')
+                    if not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(cid,)).fetchone(): raise ValueError('Centro no válido.')
+                    title=clean_text(data.get('title'),180)
+                    if not title: raise ValueError('El nombre de la recompensa es obligatorio.')
+                    cur=db.execute('INSERT INTO reward_offers(center_id,title,description,reward_type,cost_wallet,value_text,conditions,stock,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,?,?,?)',(cid,title,clean_text(data.get('description'),1000),clean_text(data.get('reward_type'),50) or 'discount',max(0,float(data.get('cost_wallet') or 0)),clean_text(data.get('value_text'),180),clean_text(data.get('conditions'),1000),int(data['stock']) if str(data.get('stock','')).strip() else None,user['id'],now(),now())); audit(db,user['id'],'reward_offer_created','reward_offer',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                self.send_json({'error':'Endpoint no encontrado'},404)
+            except sqlite3.IntegrityError as e:
+                db.rollback()  # never persist half-done work when a request fails
+                self.send_json({'error':'El dato ya existe o no cumple una regla de integridad.','detail':str(e)},409)
+            except (BrokenPipeError, ConnectionResetError):
+                return
+            except PermissionError as e:
+                db.rollback()  # never persist half-done work when a request fails
+                self.send_json({'error':str(e)},403)
+            except ValueError as e:
+                db.rollback()  # never persist half-done work when a request fails
+                self.send_json({'error':str(e)},400)
+            except KeyError as e:
+                # A required field is missing in the request: the client's fault, not a server error.
+                db.rollback()
+                self.send_json({'error':f'Falta un dato obligatorio: {e.args[0] if e.args else ""}.'},400)
+            except TypeError as e:
+                db.rollback()
+                log_exception(self, e)
+                self.send_json({'error':'Algún dato enviado no tiene el formato esperado.'},400)
+            except Exception as e:
+                db.rollback()  # never persist half-done work when a request fails
+                log_exception(self, e)
+                payload={'error':'Error interno'}
+                if os.environ.get('WOD_DEBUG','').strip().lower() in {'1','true','yes','on'}:
+                    payload['detail']=str(e)
+                self.send_json(payload,500)
+            finally:
+                invalidate_after_post(path)
+
+    def do_DELETE(self):
+        parsed=urlparse(self.path)
+        try:
+            self.enforce_same_origin()
+        except PermissionError as e:
+            self.send_json({'error':str(e)},403); return
+        if '/virtual/' in parsed.path and parsed.path.startswith('/api/dive-points/'):
+            with connect() as db:
+                try:
+                    user=require_user(self,db); require_role(user,{'admin','center'})
+                    parts=parsed.path.strip('/').split('/')
+                    pid=int(parts[2]); vid=int(parts[4])
+                    row=db.execute('SELECT v.media_path,p.center_id FROM virtual_experiences v JOIN dive_points p ON p.id=v.dive_point_id WHERE v.id=? AND v.dive_point_id=?',(vid,pid)).fetchone()
+                    if not row: self.send_json({'error':'Recorrido no encontrado'},404); return
+                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes eliminar este recorrido virtual.')
+                    db.execute('UPDATE virtual_experiences SET active=0,updated_at=? WHERE id=?',(now(),vid)); audit(db,user['id'],'virtual_experience_deleted','virtual_experience',vid); db.commit(); self.send_json({'ok':True}); return
+                except Exception as e: self.send_json({'error':str(e)},403 if isinstance(e,PermissionError) else 500)
+            return
+        if parsed.path.startswith('/api/dive-points/'):
+            with connect() as db:
+                try:
+                    user=require_user(self,db); require_role(user,{'admin'}); pid=int(parsed.path.rsplit('/',1)[1]);
+                    db.execute('UPDATE dive_points SET active=0,updated_at=? WHERE id=?',(now(),pid)); audit(db,user['id'],'dive_point_archived','dive_point',pid); db.commit(); self.send_json({'ok':True})
+                except Exception as e: self.send_json({'error':str(e)},403 if isinstance(e,PermissionError) else 500)
+            return
+        self.send_json({'error':'Endpoint no encontrado'},404)
+
+    def login_user(self, uid, db=None, payload=None):
+        """Create a persistent session and answer the request (one response only)."""
+        token=secrets.token_urlsafe(32); now_ts=time.time(); token_hash=hashlib.sha256(token.encode()).hexdigest()
+        own = db is None
+        conn = connect() if own else db
+        try:
+            conn.execute('DELETE FROM sessions WHERE last_seen<?',(now_ts-SESSION_TTL_SECONDS,))
+            conn.execute('INSERT INTO sessions(token_hash,user_id,created_at,last_seen) VALUES(?,?,?,?)',(token_hash,uid,now_ts,now_ts)); conn.commit()
+        finally:
+            if own: conn.close()
+        secure = '; Secure' if os.environ.get('WOD_SECURE_COOKIES','').strip().lower() in {'1','true','yes','on'} or os.environ.get('WOD_PUBLIC_URL','').lower().startswith('https://') else ''
+        body=json.dumps(payload or {'ok':True},ensure_ascii=False).encode('utf-8')
+        self.send_response(200); self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Set-Cookie',f'{COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax{secure}'); self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(body)
+
+    def logout_user(self):
+        cookie=self.headers.get('Cookie',''); token=None
+        for item in cookie.split(';'):
+            k,_,v=item.strip().partition('=')
+            if k==COOKIE: token=v
+        if token:
+            with connect() as conn:
+                conn.execute('DELETE FROM sessions WHERE token_hash=?',(hashlib.sha256(token.encode()).hexdigest(),)); conn.commit()
+        secure = '; Secure' if os.environ.get('WOD_SECURE_COOKIES','').strip().lower() in {'1','true','yes','on'} or os.environ.get('WOD_PUBLIC_URL','').lower().startswith('https://') else ''
+        body=b'{"ok":true}'
+        self.send_response(200); self.send_header('Content-Type','application/json'); self.send_header('Set-Cookie',f'{COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax{secure}'); self.send_header('Content-Length',str(len(body))); self.security_headers(); self.end_headers(); self.wfile.write(body)
+
+
+class WorldivesHTTPServer(ThreadingHTTPServer):
+    allow_reuse_port = False
+
+    def server_bind(self):
+        if self.allow_reuse_port and hasattr(socket,'SO_REUSEPORT'):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        super().server_bind()
+
+    # Python's default accept backlog is 5: with many simultaneous visitors extra connections were reset.
+    request_queue_size = int(os.environ.get('WOD_BACKLOG', '1024'))
+    daemon_threads = True
+    # At most this many requests are processed at once per process. Beyond that, new connections
+    # wait in the kernel queue instead of spawning thousands of threads that fight for the CPU
+    # (measured: unbounded threads made every request slow when traffic exceeded capacity).
+    max_concurrent = int(os.environ.get('WOD_MAX_CONCURRENT', '64'))
+
+    def server_activate(self):
+        super().server_activate()
+        self._slots = threading.BoundedSemaphore(self.max_concurrent)
+
+    def process_request(self, request, client_address):
+        self._slots.acquire()
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._slots.release(); raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
+
+
+def main():
+    bootstrap()
+    print(f'WORLDIVES DISCOVERY v{APP_VERSION} -> http://127.0.0.1:{PORT}')
+    # Optional multi-process mode (Linux/macOS): WOD_WORKERS=4 starts 4 processes sharing the port.
+    # Sessions live in the database, so any process can serve any user.
+    workers=max(1,int(os.environ.get('WOD_WORKERS','1') or 1))
+    reuse=workers>1 and hasattr(os,'fork') and hasattr(socket,'SO_REUSEPORT')
+    if workers>1 and not reuse: print('WOD_WORKERS solo está disponible en Linux/macOS; se usa un único proceso.')
+    if reuse:
+        WorldivesHTTPServer.allow_reuse_port=True
+        for _ in range(workers-1):
+            if os.fork()==0: break
+    try:
+        s=WorldivesHTTPServer((HOST,PORT),Handler)
+    except OSError as e:
+        print(f'No se puede abrir el puerto {PORT}: {e}')
+        raise
+    threading.Thread(target=warm_snapshots, name='warm-up', daemon=True).start()
+    threading.Thread(target=sweep_payment_orders, name='payments-sweeper', daemon=True).start()
+    if email_worker_lock(): threading.Thread(target=email_scheduler, name='email-sender', daemon=True).start()
+    s.serve_forever()
+
+
+_MAIL_LOCK = None
+def email_worker_lock():
+    """Only one process sends emails and runs the hourly jobs (WOD_WORKERS may start several)."""
+    global _MAIL_LOCK
+    try:
+        import fcntl
+        _MAIL_LOCK = open(DATA / '.email-worker.lock', 'w')
+        fcntl.flock(_MAIL_LOCK, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except ImportError:
+        return True
+    except OSError:
+        return False
+
+
+def warm_snapshots():
+    """Build the public catalogue snapshots as soon as the process starts, so the first visitors do not wait."""
+    db=None
+    try:
+        db=connect()
+        for snap in (POINTS, DIRECTORY, DIVE_TYPES, TRAVEL, SITE_MEDIA, PROMOS): snap.get(db)
+    except Exception as e:
+        sys.stderr.write(f'[warm-up] {type(e).__name__}: {e}\n')
+    finally:
+        if db is not None: db.close()
+
+if __name__=='__main__':
+    main()
