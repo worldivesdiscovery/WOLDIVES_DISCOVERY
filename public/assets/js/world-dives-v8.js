@@ -4324,10 +4324,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="form-actions full"><button class="btn btn-primary" type="submit">Publicar aviso</button></div></form>
       <p class="adl-det">Monitor externo: configura un servicio de uptime (UptimeRobot, Better Stack, Uptime Kuma…) contra <code>${esc(location.origin)}/api/health</code>. Si se repiten errores 500, se avisa por email a los administradores.</p></section>`;
     $('#ops-refresh').onclick=()=>renderAdminOps(mountId);
-    $('#ops-off')?.addEventListener('click',async()=>{ try{ await postJSON('/api/admin/banner',{text:''}); state.meta=null; toast('Aviso quitado.'); renderAdminOps(mountId); }catch(err){ toast(err.message); } });
+    $('#ops-off')?.addEventListener('click',async()=>{ try{ await postJSON('/api/admin/banner',{text:''}); state.meta=null; await loadMeta().catch(()=>{}); siteBanner(); toast('Aviso quitado.'); renderAdminOps(mountId); }catch(err){ toast(err.message); } });
     $('#ops-banner').onsubmit=async e=>{ e.preventDefault(); if(!$('#ops-text').value.trim()){ toast('Escribe el texto del aviso.'); return; }
       if($('#ops-notify').checked&&!confirm('Se enviará un email a todos los centros y profesionales. ¿Continuar?')) return;
-      try{ const r=await postJSON('/api/admin/banner',{text:$('#ops-text').value,level:$('#ops-level').value,hours:$('#ops-hours').value,notify_centers:$('#ops-notify').checked}); toast(r.emails?`Aviso publicado y ${r.emails} emails en cola.`:'Aviso publicado.'); renderAdminOps(mountId); }catch(err){ toast(err.message); } };
+      try{ const r=await postJSON('/api/admin/banner',{text:$('#ops-text').value,level:$('#ops-level').value,hours:$('#ops-hours').value,notify_centers:$('#ops-notify').checked}); state.meta=null; await loadMeta().catch(()=>{}); siteBanner(); toast(r.emails?`Aviso publicado y ${r.emails} emails en cola.`:'Aviso publicado.'); renderAdminOps(mountId); }catch(err){ toast(err.message); } };
   }
   async function renderAdminPlans(mountId){
     const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;

@@ -1451,6 +1451,7 @@ def migrate_v50_36(db):
                "created_by INTEGER, created_at TEXT NOT NULL, source TEXT)")
     db.execute('CREATE INDEX IF NOT EXISTS idx_legal_documents ON legal_documents(slug, lang, status, effective_at)')
     legal_seed_documents(db)
+    legal_sync_files(db)
     # Right to erasure confirmed by email (a single-use link valid for 24 hours).
     add_columns(db, 'users', [('inactive_warned_at', 'TEXT')])
     # Images (Fase 5.11): «Origen / licencia» besides «Crédito», for every image the platform publishes itself.
@@ -5364,6 +5365,31 @@ def legal_seed_documents(db):
             title = text.split('\n', 1)[0].lstrip('# ').strip() or LEGAL_DOCS[slug]
             db.execute('''INSERT INTO legal_documents(slug,lang,version,title,markdown,summary,status,effective_at,published_at,created_at,source)
                           VALUES(?,?,?,?,?,?,'published',?,?,?,'file')''', (slug, lang, LEGAL_VERSION, title, text, 'Primera versión', LEGAL_VERSION, now(), now()))
+
+
+def legal_sync_files(db):
+    """A text in app/legal that changed with a new version of the web becomes a new version of the document, unless
+    the administration has already edited that document (its edits always win). Changes to the terms for centres
+    keep the 15-day notice. Runs at every start; idempotent."""
+    for slug in LEGAL_DOCS:
+        for lang in MAIL_LANGS:
+            p = ROOT / 'app' / 'legal' / lang / f'{slug}.md'
+            if not p.exists(): continue
+            last = db.execute('SELECT * FROM legal_documents WHERE slug=? AND lang=? ORDER BY id DESC LIMIT 1', (slug, lang)).fetchone()
+            if not last or last['source'] == 'admin': continue
+            text = p.read_text(encoding='utf-8')
+            if text.strip() == (last['markdown'] or '').strip(): continue
+            today = _dt.date.today()
+            eff = today + _timedelta(days=LEGAL_NOTICE_DAYS.get(slug, 0) if lang == 'es' else 0)
+            if lang != 'es':
+                es = db.execute("SELECT version,effective_at FROM legal_documents WHERE slug=? AND lang='es' ORDER BY id DESC LIMIT 1", (slug,)).fetchone()
+                version, eff_s = (es['version'], es['effective_at']) if es else (eff.isoformat(), eff.isoformat())
+            else:
+                n = db.execute("SELECT COUNT(*) FROM legal_documents WHERE slug=? AND lang='es' AND version LIKE ?", (slug, eff.isoformat() + '%')).fetchone()[0]
+                version, eff_s = (eff.isoformat() if not n else f'{eff.isoformat()}.{n + 1}'), eff.isoformat()
+            title = text.split('\n', 1)[0].lstrip('# ').strip() or LEGAL_DOCS[slug]
+            db.execute("""INSERT INTO legal_documents(slug,lang,version,title,markdown,summary,status,effective_at,published_at,created_at,source)
+                          VALUES(?,?,?,?,?,?,'published',?,?,?,'file')""", (slug, lang, version, title, text, f'Actualización de la versión {APP_VERSION} de la web', eff_s, now(), now()))
 
 
 def legal_current(db, slug, lang, at=None):

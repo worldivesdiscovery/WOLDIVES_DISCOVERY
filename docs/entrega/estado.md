@@ -97,3 +97,47 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 | 3. Comerciales | Completado | Solo con consentimiento, baja en un clic (enlace y cabeceras RFC 8058), registro de consentimientos. | `test_commercial_emails_only_with_consent…` + navegador |
 | 4. Doble verificación | Nuevo | TOTP opcional para todos, obligatorio para admin (no desactivable en producción), códigos de recuperación. | `TwoStep`, `AdminNeedsTotp` + navegador |
 | Proveedor de email | Pendiente de decisión | Recomendado Brevo; solo cambia la configuración. | — |
+
+## Fase 5 · Legal y privacidad en la web (v50.36)
+
+| Punto | Estado | Qué se hizo | Cómo se probó |
+|---|---|---|---|
+| 1. Datos del titular | Completado | Ya estaban en Administración → Legal; ahora también en el pie de la web. | `e2e_legal_catalog.py` |
+| 2. Páginas legales editables | Nuevo | `legal_documents` con versiones, fecha de entrada en vigor, historial público y lectura de versiones anteriores; rutas nuevas y alias; es/en oficiales y «prevalece el castellano»; editor con vista previa. | `LegalDocuments.*` |
+| 3. Aceptaciones | Completado | Reaceptar al entrar en vigor una versión nueva; 15 días de aviso para centros con email y banda en el panel. | `test_new_version_must_be_accepted_again`, `test_centres_get_15_days_notice` |
+| 4. Cookies y terceros | Ya estaba / Completado | Aviso y vídeos tras pulsar ya estaban; política con tabla de terceros. | navegador |
+| 5. Derechos | Nuevo | ZIP con datos y documentos; baja confirmada por email; cascadas revisadas. | `DataRights.*` |
+| 6. Conservación | Nuevo | Tarea diaria configurable (inactivos con aviso, documentos caducados, avisos, registro de actividad). | `test_retention_job` |
+| 7. Pantalla de reserva | Completado | Bloque legal también en experiencias, con casilla de aceptación. | `test_experience_shows_provider_and_policy` |
+| 8. Transparencia | Nuevo | Respuesta única del centro, «Denunciar» en reseñas, centros, puntos, experiencias y fotos, moderación con motivo y aviso a las dos partes. | `ReviewsAndReports.*` |
+| 9. Centros y catálogo | Nuevo | Solo verificados; «Centros asociados» con consentimiento de logo; sin reclamar por teléfono; modo demo; centros ficticios; descripciones propias de los 293 puntos en 10 idiomas. | `CatalogueAndMaps.*`, `DemoMode` |
+| 10. Mapas | Nuevo | Protomaps propio con Range; satélite Esri por proxy con contador, límite y aviso; GEBCO; créditos. | `test_pmtiles_served_with_range`, `test_satellite_proxy_counter_and_limit` |
+| 11. Imágenes | Nuevo | Origen/licencia e informe. | `test_image_origins_report` |
+| 12. Accesibilidad | Completado | Etiquetas enlazadas, foco visible, página de accesibilidad. | navegador (etiquetas sin enlazar = 0) |
+| Proxy de Esri | Pendiente de decisión | Confirmar términos de ArcGIS. | — |
+
+## Fase 6 · Centros (v50.37)
+
+| Punto | Estado | Qué se hizo | Cómo se probó |
+|---|---|---|---|
+| 1. Datos fiscales y DAC7 | Nuevo | Datos del prestador, declaraciones, seguro con certificado y avisos; informe DAC7 por trimestre. | `test_fiscal_data_and_insurance`, `test_dac7_report` |
+| 2. Planes | Nuevo | 3 planes editables, excepciones, comprobación en servidor, cuota con Stripe o manual, prueba, avisos y degradación sin perjudicar al buceador. | `Plans.*` |
+| 3. Ficha gratuita | Nuevo | «Solicitar información» por email y panel. | `test_expired_plan_becomes_free_listing` |
+| 4. Datos para convencer | Nuevo | Estadísticas agregadas, comparación con la zona, email mensual. | `test_statistics_are_aggregated` |
+| 5. Herramientas | Nuevo | CSV en todos los planes, iCal, importación con vista previa, widget, enlaces. | `test_exports_ical_widget`, `test_import_clients_with_preview` |
+| 6. Equipo | Completado | Roles en servidor, invitaciones, catálogo del equipo (corregido), registro de actividad. | `test_roles_and_activity_log` |
+| 7. Funciones activables | Completado | Interruptores y modo piloto con invitaciones. | `test_feature_switches`, `test_pilot_mode_invites` |
+| Precios de los planes | Pendiente de decisión | Sin definir. | — |
+| «Destacado» o «Patrocinado» | Pendiente de decisión | Hoy «Patrocinado». | — |
+
+## Fase 7 · Infraestructura (v50.38)
+
+| Punto | Estado | Qué se hizo | Cómo se probó |
+|---|---|---|---|
+| 1. Esquema completo y base limpia | Nuevo | `BASE_SCHEMA`; instalación limpia sin `.sqlite3`; `tools/crear_base_produccion.py`. | `Schema.*` |
+| 2. `.gitignore` | Completado | `data/*.sqlite3` fuera; catálogo de demo en `data/demo/`. | CI (`security-test.yml`) |
+| 3. Despliegue | Nuevo | `deploy/` (Caddy, nginx, systemd producción y pruebas), `.env` leído por el servidor, guía completa. | `test_env_file_with_inline_comments` |
+| 4. Copias | Nuevo | Horaria + diaria, rotación, copia externa, `quick_check`, restauración documentada y probada. | `Backups.*` |
+| 5. Monitorización | Completado | Alertas de 500 (ya estaban), salud en Administración, aviso de mantenimiento con email a centros. | `test_health_and_banner` + navegador |
+| 6. Rendimiento | Nuevo | `tools/prueba_carga.py`, resultados y umbral de PostgreSQL en `docs/despliegue.md`. | prueba de carga (4 núcleos) |
+| Prueba de carga en el servidor real | Pendiente | Repetir en el VPS. | — |

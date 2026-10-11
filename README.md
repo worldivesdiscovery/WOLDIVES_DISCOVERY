@@ -1,116 +1,55 @@
-# WORLDIVES · Local 8
+# WORLDIVES DISCOVERY (v50.38)
 
-Aplicación local para WORLDIVES basada en **Python estándar + SQLite + HTML/CSS/JavaScript**. La portada se ha replanteado como una plataforma de descubrimiento y reservas, no como una colección de páginas aisladas.
+Plataforma de descubrimiento y reservas de buceo: catálogo de puntos y centros con mapa, reservas y cobros
+directos con Stripe Connect, ficha y Log Book del buceador, puntos, reseñas, panel de centros y profesionales
+con planes, y administración completa. **Python 3.11+ con la biblioteca estándar, SQLite y HTML/CSS/JavaScript
+sin compilar.** Dependencias mínimas: `stripe`, `qrcode` y `fonttools` (`requirements.txt`).
 
-## Arranque en Windows
+## Arranque local
 
-1. Descomprime la carpeta.
-2. Ejecuta `start_windows.bat`.
-3. Abre `http://localhost:8000`.
-4. Para probarla desde un móvil o tablet en la misma Wi-Fi, usa la IP del ordenador que se muestra en la ventana del servidor, por ejemplo `http://192.168.1.30:8000`.
+```bash
+pip install -r requirements.txt
+./start_unix.sh          # o start_windows.bat
+```
 
-No abras `index.html` con doble clic.
+Abre `http://localhost:8000` (no abras `index.html` con doble clic). La primera vez se crea `data/worldivesdiscovery.sqlite3`
+a partir del catálogo de demostración (`data/demo/catalogo-demo.sqlite3`). Crea el administrador con
+`python app/server.py --create-admin`. La configuración va en `.env` (plantilla: `.env.example`); el servidor la lee solo.
 
-## Primera instalación
+## Roles
 
-La primera vez que no existe ningún usuario, entra en `#/setup` desde la propia interfaz y crea la cuenta administradora. Después podrás crear centros, crear cuentas de usuario normales y asignar roles.
+- **Visitante:** catálogo, mapa, fichas, «Solicitar información», denuncias.
+- **Buceador:** reservas, ficha y documentos, Log Book, puntos y ventajas, reseñas, privacidad (descarga ZIP y baja).
+- **Centro:** propietario, recepción o instructor, con planning, reservas, clientes, servicios, cobros, estadísticas,
+  herramientas (CSV, iCal, widget, importación), equipo, datos fiscales y plan.
+- **Profesional freelance sin centro:** como un centro, con su propia cuenta de cobros.
+- **Administración** (con verificación en dos pasos obligatoria): catálogo, centros, verificaciones, pagos,
+  denuncias, textos legales, planes, funciones, mapas, correos y operación.
 
-Roles disponibles:
+## Documentación
 
-- **Administrador**: catálogo, centros, usuarios, roles, correcciones de posiciones, QR y reservas.
-- **Centro**: gestiona sus puntos, sus reservas y clientes asociados; puede crear QR del centro.
-- **Recreativo / buceador**: consulta el mapa y catálogo, reserva inmersiones, mantiene su documentación y Log Book, usa recompensas/monedero y puede proponer correcciones de posición.
-- **Profesional / freelance**: gestiona su perfil profesional y experiencias publicadas y conserva las funciones de usuario necesarias para explorar, reservar, mantener su Log Book y utilizar su cuenta.
-
-## Reserva y QR
-
-El usuario recreativo mantiene en su cuenta:
-
-- datos de contacto;
-- titulaciones;
-- seguros;
-- certificados/documentación adicional y caducidades;
-- preferencias de equipo;
-- necesidad de guía;
-- nitrox/recogida;
-- reservas;
-- Log Book.
-
-El centro puede ver la ficha completa que acompaña a una reserva, incluidas las fechas de documentación y las preferencias que el cliente haya indicado.
-
-Cada centro puede generar un QR de recepción. El cliente lo escanea y, si ha iniciado sesión, se crea el vínculo en `center_links`. Esto prepara el flujo de check-in que podrá convertirse posteriormente en la integración comercial definitiva.
-
-## Catálogo y mapa
-
-El mapa usa Leaflet en el navegador y mantiene la fuente de datos en SQLite:
-
-- Mapa OpenStreetMap.
-- Satélite de Esri.
-- Capa de relieve GEBCO.
-- Puntos con latitud/longitud reales.
-- Edición de posición por arrastre o clic desde administración.
-- Correcciones de usuarios enviadas a revisión.
-
-Las teselas cartográficas se descargan de Internet. El servidor y la base de datos son locales.
-
-## Archivos y seguridad
-
-Los documentos personales **no** se guardan dentro de `public/`. Se almacenan en `storage/documents` y se sirven mediante un endpoint autenticado. Las fotografías de puntos pueden ser públicas porque forman parte del catálogo.
-
-Las sesiones actuales son de memoria porque esta fase es un prototipo local. Antes de publicar habrá que migrar la sesión a un almacenamiento persistente y habilitar HTTPS, protección CSRF, rate limiting, gestión de consentimientos, copias de seguridad, cifrado/retención documental y un proveedor de almacenamiento adecuado para documentación sensible.
+| Tema | Dónde |
+|---|---|
+| Qué se ha hecho en cada versión, pendientes de decisión y temas para abogado y gestoría | `RELEASE_NOTES_v50_31.md` … `RELEASE_NOTES_v50_38.md` |
+| Despliegue en VPS, HTTPS, systemd, copias, restauración, monitorización, rendimiento, correo | `docs/despliegue.md` y `deploy/` |
+| Mapas (Protomaps, satélite Esri, GEBCO) | `docs/mapas.md` |
+| Estados de una reserva | `docs/estados-reserva.md` |
+| Documentos legales, inventario, lista de lanzamiento y guías | `docs/legal/` |
+| Seguridad | `SECURITY.md` |
 
 ## Base de datos
 
-El archivo principal es:
+SQLite en modo WAL. El esquema completo está en el código (`BASE_SCHEMA` en `app/server.py`) y las migraciones se
+aplican solas al arrancar: solo añaden y transforman, y antes de reescribir datos hacen una copia completa. La base de
+producción **empieza limpia** con `tools/crear_base_produccion.py` (solo catálogo y textos legales). `data/*.sqlite3`
+nunca se sube al repositorio.
 
-`data/worldivesdiscovery.sqlite3`
+## Pruebas
 
-La aplicación crea automáticamente tablas auxiliares para:
-
-- `user_profiles`
-- `user_documents`
-- `center_links`
-- `qr_codes`
-- `bookings`
-- `audit_log`
-- `travel_offers`
-
-además de conservar el catálogo que ya tenía la versión anterior.
-
-## Siguiente evolución
-
-La arquitectura está preparada para crecer hacia:
-
-1. Back-office completo con edición visual de puntos y centros.
-2. Reservas con disponibilidad/horarios reales de cada centro.
-3. Gestión de miembros del centro y permisos más finos.
-4. Notificaciones reales de caducidad.
-5. Aplicación móvil reutilizando la misma API.
-6. Migración a hosting/HTTPS sin rehacer la interfaz ni el modelo de datos.
-
-
-## Arranque local
-Ejecuta `start_windows.bat`. El lanzador detecta primero `py -3` para evitar el alias de Microsoft Store.
-
-## Recorridos virtuales
-
-Las fichas de puntos de buceo ya no presentan una galería fotográfica como experiencia principal. Cada punto puede tener uno o varios `virtual_experiences` en SQLite, con tipos `panorama`, `video360`, `streetview` o `external360`.
-
-- `panorama`: preparado para una imagen/equirectangular 360 local cuando se incorpore el visor inmersivo.
-- `video360`: admite una URL de vídeo 360 y se muestra dentro del visor.
-- `streetview`: abre la visita del proveedor en una nueva ventana.
-- `external360`: reservado para otros visores/servicios 360.
-
-La ruta `#/virtual?experience=ID&point=ID` queda separada de la ficha para poder evolucionar el visor sin modificar el catálogo.
-
-
-## V12.5 — Centros verificados y logos
-- Registro de centros con teléfono y datos empresariales.
-- Coincidencia de teléfono con centros existentes -> solicitud de verificación para aprobación del administrador.
-- Solicitud de nueva ficha de centro cuando no existe coincidencia.
-- Centros verificados pueden editar su ficha y gestionar sus puntos; las coordenadas pasan por Correcciones.
-- Nuevos puntos creados por centros quedan pendientes de aprobación administrativa.
-- Las tarjetas de centros usan la marca/fav icon del sitio oficial en esta demo; el centro o administrador puede sustituirlo por la URL del logotipo oficial.
+```bash
+cd tests && python -m unittest discover -p 'test_*.py'      # pruebas de API y de cada fase (siempre sobre una copia)
+python tests/e2e_centers.py                                  # pruebas en navegador (Playwright), una por fase
+```
 
 ## Pagos con Stripe Connect (v50.34)
 
