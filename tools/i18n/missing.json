@@ -5,7 +5,7 @@
  "+ Nueva ventaja",
  ", y reinicia.",
  ". Las reservas que ya tienes se atienden siempre y puedes exportar tus datos en cualquier plan.",
- ". Si el teléfono coincide con un centro existente, solo aparece como sugerencia.",
+ ". Si el centro ya existe, elige tú su ficha al aprobar: el sistema no la asocia por el teléfono. Si rechazas, la persona recibe un correo (sin tu nota interna).",
  ". WORLDIVES no cobra comisión por las reservas ni guarda datos de tarjetas. Las comisiones de Stripe por cada cobro las paga tu cuenta.",
  ": reservas, clientes, servicios y salidas.",
  ": todo, incluidos cobros, plan y equipo.",

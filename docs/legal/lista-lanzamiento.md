@@ -9,7 +9,7 @@ Guías de apoyo:
 
 - `docs/despliegue.md` (servidor, copias, correo y monitorización);
 - `docs/mapas.md`;
-- `RELEASE_NOTES_v50_31.md` … `RELEASE_NOTES_v50_37.md`;
+- `RELEASE_NOTES_v50_31.md` … `RELEASE_NOTES_v50_38.md`;
 - `docs/legal/inventario.md` (estado de cada punto y discrepancias).
 
 Marcas:
@@ -145,7 +145,7 @@ Rellena la fecha y quién lo hizo al marcar cada casilla.
 - [ ] Límite mensual de teselas satélite (`maps_satellite_limit`, 1 900 000 por defecto, por debajo de las 2 000 000 gratuitas) revisado según el plan de ArcGIS.
 - [ ] GEBCO: la capa «Relieve marino» carga y muestra su atribución.
 - [ ] `#/legal/creditos` muestra las atribuciones de OSM, Esri y GEBCO.
-- [ ] **Corregir antes de abrir:** el editor de centros de *Administración → Centros* (`editCenterForm()` en `public/assets/js/world-dives-v8.js`) usa `tile.openstreetmap.org` también en producción. Debe usar el mismo mapa base que el resto (ver `docs/legal/inventario.md`, discrepancia 2).
+- [x] El editor de centros de *Administración → Centros* usa el mismo mapa base que el resto de la web (corregido en v50.38; antes cargaba `tile.openstreetmap.org`).
 - [ ] Recordatorio: actualizar el PMTiles cada 3–6 meses.
 
 ## 9. Base de producción y primer administrador con TOTP
@@ -203,7 +203,7 @@ Rellena la fecha y quién lo hizo al marcar cada casilla.
 ## 14. Pruebas finales
 
 - [ ] Suite automática en verde en el servidor de pruebas: `python3 -m unittest discover -s tests -p 'test_*.py'`.
-  - A 11/10/2026, las pruebas de las fases 1–7 pasan. `tests/test_phase8_languages.py` falla mientras no termine la traducción final (textos legales y correos en los 10 idiomas).
+  - A 11/10/2026 (v50.38), las 143 pruebas pasan en el entorno de desarrollo, también `test_phase8_languages.py`. Falta repetirlas en el servidor de pruebas.
 - [ ] Recorridos en navegador: `tests/e2e_walk.py` (5 roles), `e2e_booking_modes.py`, `e2e_payments.py`, `e2e_points_email.py`, `e2e_legal_catalog.py`, `e2e_centers.py` y `e2e_markers.py`.
 - [ ] Prueba de carga en el **servidor real** (entorno de pruebas, misma máquina): `python3 tools/prueba_carga.py --url https://pruebas.<dominio> --users 100 --seconds 60`. Anotar los resultados en `docs/despliegue.md` §9.
 - [ ] Recorrido manual completo en producción con cuentas reales de prueba (borrarlas después):
@@ -213,6 +213,6 @@ Rellena la fecha y quién lo hizo al marcar cada casilla.
   - reseña y respuesta del centro;
   - denuncia y resolución;
   - exportación ZIP y baja de la cuenta confirmada por email.
-- [ ] Traducciones: el pase final en los 10 idiomas, terminado y revisado al menos en es y en (oficiales).
+- [ ] Traducciones: el pase final en los 10 idiomas está hecho (v50.38). Falta la revisión jurídica al menos de es y en (oficiales) y que los nombres de botones citados en los textos traducidos coincidan con la web.
 - [ ] Accesibilidad: navegación con teclado y lector de pantalla en portada, reserva y registro.
 - [ ] Fecha de apertura y aviso a los centros piloto **[PENDIENTE TITULAR]**.

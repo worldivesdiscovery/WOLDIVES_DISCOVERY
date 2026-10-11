@@ -8,7 +8,7 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 | Punto | Estado | Qué se hizo | Cómo se probó |
 |---|---|---|---|
 | 1. Documentos (G1, G8) | Completado | Acceso: dueño, centro con reserva del propio buceador no cancelada o datos compartidos, admin con registro. `private, no-store` + `Content-Disposition`. Tipo por bytes mágicos, 10 MB. Archivo borrado al borrar el documento o la cuenta. Cada descarga y cada intento denegado en `audit_log`. | `test_g1_documents_access`, `test_g1_real_file_type_and_size` |
-| 2. Alta de centros (G2) | Completado | Cuenta nueva siempre `recreational` con solicitud; ficha nueva oculta; teléfono solo como sugerencia (`suggested_center_id`); aprobación con método (email del dominio, llamada, documento) y nota. Informe `--report-center-accounts`. | `test_g2_*` |
+| 2. Alta de centros (G2) | Completado | Cuenta nueva siempre `recreational` con solicitud; ficha nueva oculta; sin asociación por teléfono (desde v50.36 `suggested_center_id` queda vacío; el administrador elige la ficha); correo al solicitante si se rechaza (v50.38); aprobación con método (email del dominio, llamada, documento) y nota. Informe `--report-center-accounts`. | `test_g2_*` |
 | 3. Recorridos virtuales (G3) | Nuevo | Lista de dominios https (`WOD_EMBED_DOMAINS`), validación en servidor y navegador, carga solo tras «Cargar vídeo», subidas 15 MB comprobadas por contenido. | `test_g3_virtual_urls` + navegador |
 | 4. CSP | Nuevo | CSP en todas las respuestas (PDF, SVG, 304 incluidos). Leaflet alojado. Sin scripts ni manejadores en línea. Geocodificación por el servidor. | `test_csp_and_headers_everywhere` + navegador sin violaciones |
 | 5. Reservas públicas (G4) | Nuevo | Sesión del dueño/centro o token aleatorio de 48 caracteres; sin `user_id` ni apellido. | `test_g4_public_booking_needs_token` |
@@ -52,12 +52,12 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 |---|---|---|---|
 | 10 idiomas | Completado | es, en, fr, de, it, pt, pl, nl, zh, ru; nombres nativos en el selector. | `e2e_walk.py` y recorrido en pl/ru |
 | Retirar ja, ko, zt | Nuevo | Archivados en `archive/i18n/`; usuarios y correos en cola pasan a en/zh (`migrate_v50_33`). | `test_units` (normalize_lang) + migración |
-| Polaco y ruso | Nuevo | Web completa (3 812 frases + 426 patrones). Correos: pendiente pasada final. | Validador de marcadores/etiquetas y `tools/i18n_report.py` |
+| Polaco y ruso | Nuevo | Web completa (3 812 frases + 426 patrones). Correos y textos legales completados en v50.38. | Validador de marcadores/etiquetas y `tools/i18n_report.py` |
 | Plurales | Nuevo | `Intl.PluralRules` con formas one/few/many/other. | Navegador (ru/pl) |
 | Formatos | Completado | Fechas, horas e importes por idioma en web y correos. | Navegador |
 | URL por idioma y hreflang | Nuevo | `?lang=`, `<html lang>`, `hreflang` + `x-default`. | `test_phase1d_languages` |
 | Limpieza de traducciones | Nuevo | 47 claves basura eliminadas; informe por idioma. | `docs/i18n/informe.md` |
-| Correos, textos legales y textos nuevos en 9 idiomas | Pendiente (pasada final) | Se traducirán juntos al final del encargo. | — |
+| Correos, textos legales y textos nuevos en 9 idiomas | Completado (v50.38) | 14 textos legales × 9 idiomas, 449 textos de correo y 743 textos nuevos de la web. | `test_phase8_languages` |
 
 ## Fase 2 · Pagos (v50.34)
 
@@ -141,3 +141,30 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 | 5. Monitorización | Completado | Alertas de 500 (ya estaban), salud en Administración, aviso de mantenimiento con email a centros. | `test_health_and_banner` + navegador |
 | 6. Rendimiento | Nuevo | `tools/prueba_carga.py`, resultados y umbral de PostgreSQL en `docs/despliegue.md`. | prueba de carga (4 núcleos) |
 | Prueba de carga en el servidor real | Pendiente | Repetir en el VPS. | — |
+
+## Fase 8 · Documentos en `docs/legal/` (v50.38)
+
+Todos redactados a partir del código; las marcas [PENDIENTE ABOGADO], [PENDIENTE TITULAR] y [PENDIENTE] indican lo que falta decidir. Cada ficha termina con los desajustes entre el texto publicado y el código.
+
+| Punto | Estado | Archivo | Cómo se comprobó |
+|---|---|---|---|
+| 1. Inventario | Completado (parte del diagnóstico de la Parte 1) | `inventario.md` | Cada punto con su función, ruta y prueba |
+| 2. Aviso legal | Nuevo | `aviso-legal.md` | Contra `app/legal/es/aviso-legal.md` y los datos del titular |
+| 3. Condiciones para buceadores | Nuevo | `condiciones-buceadores.md` | Contra reservas, pagos, cancelaciones y reseñas |
+| 4. Condiciones para centros | Nuevo | `condiciones-centros.md` | Planes, degradación, Stripe, orden, 15 días, DAC7, logo |
+| 5. Anexo de encargado | Nuevo | `anexo-encargado-tratamiento.md` | Datos que trata el centro en WORLDIVES |
+| 6. Privacidad por rol | Nuevo | `politica-privacidad.md` | Plazos reales de `RETENTION_DEFAULTS` |
+| 7. Cookies y terceros | Nuevo | `cookies-terceros.md` | Claves de almacenamiento, CSP y terceros que cargan |
+| 8. Normas de reseñas | Nuevo | `normas-resenas.md` | Rutas, avisos y moderación |
+| 9. Reglas de los Puntos | Nuevo | `reglas-puntos.md` | Libro de puntos, límites y caducidad |
+| 10. Accesibilidad | Nuevo | `declaracion-accesibilidad.md` | Lo hecho y lo pendiente |
+| 11. Registro de actividades | Nuevo | `registro-actividades-tratamiento.md` | Tablas con datos personales |
+| 12. Brechas (AEPD 72 h) | Nuevo | `procedimiento-brechas.md` | — |
+| 13. Denuncias | Nuevo | `procedimiento-denuncias.md` | Flujo real; desajustes corregidos en v50.38 |
+| 14. Preguntas para el abogado | Nuevo | `preguntas-abogado.md` | — |
+| 15. Preguntas para la gestoría | Nuevo | `preguntas-gestoria.md` | — |
+| 16. Lista de lanzamiento | Nuevo | `lista-lanzamiento.md` | Con casillas |
+| 17. Verificación de centros | Nuevo | `guia-verificacion-centros.md` | Flujo real de `center_claims` |
+| 18. Guía de operación | Nuevo | `guia-operacion.md` | Comandos reales de copias y restauración |
+| Desajustes que eran errores de código | Completado (v50.38) | Ver `RELEASE_NOTES_v50_38.md` § 8 | Pruebas en fases 1, 3, 5 y 6 |
+| Desajustes que necesitan decisión | Pendiente de decisión | Ver `RELEASE_NOTES_v50_38.md` | — |

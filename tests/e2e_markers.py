@@ -63,8 +63,10 @@ def shoot(base, shots: Path, tag: str, results: list):
             page.evaluate("""()=>{ try{ const m=document.querySelector('#explore-map')._leaflet_id; }catch(e){} }""")
             for mode, label in (('street', 'mapa'), ('satellite', 'satelite')):
                 btn = page.locator(f'.map-toolbar button[data-mapmode="{mode}"]')
-                if btn.count():
+                if btn.count() and btn.first.is_visible():
                     btn.first.click(); page.wait_for_timeout(700)
+                elif mode == 'satellite':
+                    continue   # satellite needs ARCGIS_API_KEY (Fase 5.10); without it the button is hidden
                 el = page.locator('#explore-map')
                 el.screenshot(path=str(shots / f'{tag}-{dev}-{label}-mundo.png'))
                 page.evaluate("()=>{ const L_=window.L; }")
@@ -95,7 +97,7 @@ def shoot(base, shots: Path, tag: str, results: list):
 
 
 def main():
-    shots = Path(sys.argv[1]); shots.mkdir(parents=True, exist_ok=True)
+    shots = Path(sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith('--') else 'docs/capturas/fase-1c'); shots.mkdir(parents=True, exist_ok=True)
     results = []
     # AFTER (this version)
     s = Server().start()

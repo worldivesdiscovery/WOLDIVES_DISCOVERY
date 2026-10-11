@@ -320,6 +320,8 @@ class TeamAndSwitches(ServerTestCase):
         self.assertEqual(r.status, 403); self.assertEqual(r.json['feature_off'], 'reviews')
         self.assertEqual(self.client().get(f'/api/centers/{cid}').json['reviews'], [])
         self.assertEqual(self.diver.get('/api/points').status, 403)
+        # codes already issued are still honoured at the desk (30 days' notice in the points rules)
+        self.assertNotEqual(self.center.post('/api/center/redemptions/validate', {'code': 'NOEXISTE'}).json.get('feature_off'), 'points')
         self.assertFalse(self.center.me()['plan']['features']['rewards'])
         self.admin.post('/api/admin/features', {'switches': {'reviews': True, 'points': True}})
         self.assertEqual(self.diver.get('/api/points').status, 200)

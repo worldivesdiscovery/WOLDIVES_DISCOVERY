@@ -126,14 +126,14 @@ Las pruebas automáticas se ejecutan con `python3 -m unittest discover -s tests 
 
 ## 6. Discrepancias entre documentos y código
 
-1. **Sugerencia por teléfono (G2).** `docs/entrega/estado.md` (Fase 1, punto 2) y el texto de *Administración → Verificaciones* hablan de una «sugerencia» por teléfono. Desde la v50.36 el registro guarda siempre `suggested_center_id` vacío. Hay que actualizar el texto.
-2. **Teselas de OSM en producción.** `docs/mapas.md` dice que los mapas ya no usan los servidores públicos de OpenStreetMap. El editor de centros del admin sí los usa (`editCenterForm`).
+1. **Sugerencia por teléfono (G2).** `docs/entrega/estado.md` (Fase 1, punto 2) y el texto de *Administración → Verificaciones* hablan de una «sugerencia» por teléfono. Desde la v50.36 el registro guarda siempre `suggested_center_id` vacío. Hay que actualizar el texto. **Corregido en v50.38:** texto de Verificaciones y `estado.md` actualizados; al rechazar se envía un correo al solicitante.
+2. **Teselas de OSM en producción.** `docs/mapas.md` dice que los mapas ya no usan los servidores públicos de OpenStreetMap. El editor de centros del admin sí los usa (`editCenterForm`). **Corregido en v50.38:** el editor usa `wdBaseLayer()`, el mismo mapa base que el resto.
 3. **Top 10 y localStorage.** El diagnóstico decía que las coordenadas no se guardan. Las de la ubicación GPS no se guardan, pero las de un lugar elegido en el mapa o buscado sí (`wd_top10`). Conviene mencionarlo en la política de cookies (almacenamiento local).
 4. **Certificado del seguro.** `RELEASE_NOTES_v50_37.md` dice que el certificado «solo lo ve la administración». Existe la ruta `/api/admin/insurance-doc?type=center&id=N`, pero **ninguna pantalla de Administración la enlaza**, y tampoco hay pantalla con los datos fiscales de un centro concreto: solo el CSV de DAC7.
-5. **Aviso de webhook de Connect.** En `production_warnings()`, el aviso de falta de `STRIPE_CONNECT_WEBHOOK_SECRET` está en un `elif` que depende de `ARCGIS_API_KEY`. Sin clave de ArcGIS, nunca sale. Es un fallo menor de lógica.
+5. **Aviso de webhook de Connect.** En `production_warnings()`, el aviso de falta de `STRIPE_CONNECT_WEBHOOK_SECRET` está en un `elif` que depende de `ARCGIS_API_KEY`. Sin clave de ArcGIS, nunca sale. Es un fallo menor de lógica. **Corregido en v50.38:** el aviso ya no depende de la clave de ArcGIS.
 6. **Número de imágenes sin licencia.** `docs/legal/catalogo-origen.md` habla de 24 imágenes y `RELEASE_NOTES_v50_36.md` de 23. El informe real está en *Administración → Imágenes de la web* (`images_report`).
 7. **Baja de cuentas profesionales.** `/api/account/delete` solo admite cuentas `recreational`: centros, freelance y admins «se dan de baja escribiéndonos». No hay herramienta de administración para borrarlas: el admin solo puede cambiar el rol (`/api/admin/users/role`), y después la persona puede borrar la cuenta ella misma.
-8. **Pruebas que faltan.** No hay prueba automática de recuperación de contraseña, cambio de email, precio × participantes en experiencias ni cierre de sesiones al cambiar la contraseña.
+8. **Pruebas que faltan.** No hay prueba automática de recuperación de contraseña, cambio de email, precio × participantes en experiencias ni cierre de sesiones al cambiar la contraseña. **Corregido en v50.38:** `tests/test_phase8_flows.py` cubre los cuatro casos.
 
 ---
 

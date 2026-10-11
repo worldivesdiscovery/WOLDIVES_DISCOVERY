@@ -40,6 +40,10 @@ class Phase1Security(ServerTestCase):
         self.assertEqual(r.status, 400)
         r = self.admin.post('/api/admin/center-claims/review', {'id': claim['id'], 'decision': 'reject', 'verification_method': 'phone_call', 'verification_note': 'el centro no conoce a esta persona'})
         self.assertEqual(r.status, 200)
+        # The applicant is told, without the internal note
+        mail = self.server.sql("SELECT text FROM email_outbox WHERE template='center_rejected' AND to_email='intruso@evil.example.org'")
+        self.assertEqual(len(mail), 1)
+        self.assertNotIn('no conoce a esta persona', mail[0]['text'])
 
     def test_g2_admin_role_cannot_be_requested(self):
         r = self.client().register('X', 'x-admin@example.org', 'xadmin', account_type='admin')

@@ -4682,6 +4682,10 @@ EMAIL_TEMPLATES = {
    ('h', '¡Perfil verificado!'),
    ('p', 'Hola {first_name}, hemos verificado tu perfil profesional ({center}). Desde ahora puedes gestionar tus servicios y recibir reservas en WORLDIVES.'),
    ('button', ('Abrir mi panel', 'panel_url'))]},
+ 'center_rejected': {'to': 'center', 'subject': 'No hemos podido verificar tu perfil profesional', 'pre': 'No hemos podido verificarlo.', 'blocks': [
+   ('h', 'Verificación no completada'),
+   ('p', 'Hola {first_name}, no hemos podido verificar que gestionas {center} con la información disponible. Tu cuenta sigue activa como buceador. Si crees que es un error, responde a este correo o escríbenos desde Contacto con un email del dominio del centro, su teléfono público o un documento que lo acredite, y lo revisaremos de nuevo.'),
+   ('button', ('Contacto', 'contact_url'))]},
  # ---- administrators
  'admin_new_pro': {'to': 'admin', 'subject': 'Nueva cuenta profesional pendiente: {center}', 'pre': 'Revisa la verificación.', 'blocks': [
    ('h', 'Nueva cuenta profesional'), ('p', '{pro_name} ({pro_email}) ha creado una cuenta de {pro_type}: {center}.'),
@@ -4790,7 +4794,7 @@ EMAIL_TEMPLATE_LABELS = {
  'info_request_copy': 'Copia de la solicitud de información', 'insurance_expiring': 'Centro: seguro a punto de caducar', 'insurance_expired': 'Centro: seguro caducado',
  'monthly_stats': 'Centro: estadísticas del mes', 'team_invite': 'Invitación al equipo de un centro', 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
- 'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'admin_new_pro': 'Admin: nueva cuenta profesional',
+ 'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'center_rejected': 'Profesional: verificación no completada', 'admin_new_pro': 'Admin: nueva cuenta profesional',
  'totp_enabled': 'Verificación en dos pasos activada', 'reminder_48h': 'Recordatorio 48 h antes', 'booking_changed': 'Cambio de fecha u hora', 'document_expiring': 'Documento a punto de caducar',
  'document_expired': 'Documento caducado', 'legal_update': 'Cambio en un documento legal', 'plan_renewal': 'Centro: renovación de la cuota',
  'marketing': 'Comunicación comercial (con consentimiento)', 'refund_issued': 'Devolución hecha (buceador)', 'center_refund_reminder': 'Centro: devolución pendiente', 'center_dispute': 'Centro: disputa abierta',
@@ -7587,7 +7591,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         services=db.execute('SELECT s.* FROM provider_services s WHERE s.center_id=? AND s.active=1 ORDER BY s.title',(cid,)).fetchall(); reviews=db.execute('''SELECT cr.id,cr.rating,cr.title,cr.body,cr.verified,cr.created_at,cr.updated_at,cr.reply_body,cr.reply_at,u.fullname
                                                FROM center_reviews cr JOIN users u ON u.id=cr.user_id
                                                WHERE cr.center_id=? AND cr.active=1 ORDER BY cr.created_at DESC,cr.id DESC LIMIT 50''',(cid,)).fetchall()
-                        review_payload=[dict(r) for r in reviews]
+                        # Only the author's first name leaves the server (the page never showed more).
+                        review_payload=[{**dict(r),'fullname':((r['fullname'] or '').split(' ')[0] or None)} for r in reviews]
                         current_review=None; can_review=False; review_reason='Podrás dejar una reseña verificada cuando tengas una reserva pagada o confirmada con este centro.'
                         current=current_user(self,db)
                         if current:
@@ -9878,6 +9883,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         db.execute("UPDATE center_claims SET status='rejected',reviewed_at=?,reviewed_by_user_id=?,verification_method=?,verification_note=? WHERE id=?",(now(),user['id'],method,vnote,cid))
                         if claim['center_id']: db.execute("UPDATE centers SET active=0,verification_status='rejected',updated_at=? WHERE id=? AND verification_status='pending_provider'",(now(),claim['center_id']))
                         db.execute("UPDATE users SET requested_role='recreational' WHERE id=?",(claim['user_id'],))
+                        cname=(db.execute('SELECT name FROM centers WHERE id=?',(claim['center_id'],)).fetchone() or {'name':''})['name'] if claim['center_id'] else db.execute('SELECT fullname FROM users WHERE id=?',(claim['user_id'],)).fetchone()['fullname']
+                        notify_user(db,claim['user_id'],'center_rejected',{'center':cname,'contact_url':public_site_url()+'/#/legal/contacto'},('user',claim['user_id']))
                     else: raise ValueError('Decisión no válida.')
                     audit(db,user['id'],'center_claim_reviewed','center_claim',cid,{'decision':decision,'method':method,'note':vnote[:200]}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center/profile':
@@ -9907,7 +9914,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/points/codes/cancel':
                     # A code not used yet can be cancelled: the points come back.
                     user=require_user(self,db); rid=int(json_body(self).get('id') or 0)
-                    require_switch(db,'points')
+                    pass   # codes already issued are honoured and can be cancelled even with the points switched off
                     r=db.execute('SELECT rr.*,ro.title FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id WHERE rr.id=? AND rr.user_id=?',(rid,user['id'])).fetchone()
                     if not r: self.send_json({'error':'Código no encontrado'},404); return
                     if db.execute("UPDATE reward_redemptions SET status='cancelled',cancelled_at=? WHERE id=? AND status='issued'",(now(),rid)).rowcount!=1: raise ValueError('Este código ya se ha usado o ya no es válido.')
@@ -9917,7 +9924,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/center/redemptions/validate':
                     # The centre validates a code at the desk (scanned or typed). Once validated it cannot be used again.
                     user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
-                    require_switch(db,'points')
+                    pass   # codes already issued are honoured and can be cancelled even with the points switched off
                     code=(clean_text(json_body(self).get('code'),40) or '').strip().upper()
                     r=db.execute('SELECT rr.*,ro.center_id,ro.title FROM reward_redemptions rr JOIN reward_offers ro ON ro.id=rr.offer_id WHERE rr.code=?',(code,)).fetchone()
                     if not r or r['center_id']!=cid: raise PermissionError('Este código no es de una ventaja de tu centro.')
@@ -10448,7 +10455,7 @@ def production_warnings():
     p = pmtiles_path()
     if p and not p.exists(): out.append(f'Falta el mapa base {p} (Protomaps PMTiles): sin él los mapas no muestran fondo. Ver docs/mapas.md.')
     if not arcgis_key(): out.append('Sin ARCGIS_API_KEY: la vista satélite no aparece.')
-    elif not os.environ.get('STRIPE_CONNECT_WEBHOOK_SECRET', '').strip(): out.append('Sin STRIPE_CONNECT_WEBHOOK_SECRET: los pagos se confirman solo al volver de Stripe y por la revisión periódica.')
+    if not os.environ.get('STRIPE_CONNECT_WEBHOOK_SECRET', '').strip(): out.append('Sin STRIPE_CONNECT_WEBHOOK_SECRET: los pagos se confirman solo al volver de Stripe y por la revisión periódica.')
     return out
 
 

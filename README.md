@@ -31,6 +31,7 @@ a partir del catálogo de demostración (`data/demo/catalogo-demo.sqlite3`). Cre
 | Tema | Dónde |
 |---|---|
 | Qué se ha hecho en cada versión, pendientes de decisión y temas para abogado y gestoría | `RELEASE_NOTES_v50_31.md` … `RELEASE_NOTES_v50_38.md` |
+| Entrega final: estado, pruebas (también permisos entre roles), lanzamiento, abogado y gestoría | `docs/entrega/entrega-final.md` (tabla completa en `docs/entrega/estado.md`) |
 | Despliegue en VPS, HTTPS, systemd, copias, restauración, monitorización, rendimiento, correo | `docs/despliegue.md` y `deploy/` |
 | Mapas (Protomaps, satélite Esri, GEBCO) | `docs/mapas.md` |
 | Estados de una reserva | `docs/estados-reserva.md` |

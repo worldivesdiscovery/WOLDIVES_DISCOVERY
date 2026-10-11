@@ -59,7 +59,7 @@ Fichas relacionadas: `anexo-encargado-tratamiento.md`, `registro-actividades-tra
 
 1. **Roma I, art. 6.** Las condiciones remiten a la ley española. Los buceadores son de muchos países y la web está en 10 idiomas. ¿Qué cláusula de ley aplicable y jurisdicción es válida frente a un consumidor de otro Estado de la UE que «dirige» la web a su país?
 2. **Actividades prestadas fuera de España** por centros extranjeros: ¿qué ley rige el contrato buceador–centro? ¿Debe la web informar de ella antes de reservar?
-3. **Idioma de prevalencia.** Castellano e inglés oficiales con nota de prevalencia; los otros 8 idiomas son traducciones. ¿Válido frente a consumidores?
+3. **Idioma de prevalencia.** Castellano e inglés son oficiales; los otros 8 idiomas son traducciones y la web muestra encima «en caso de discrepancia prevalece el castellano». Pero 4 textos en inglés (`centros`, `denuncias`, `aviso-legal`, `seguridad`) también llevan dentro la frase «the Spanish version prevails», lo que contradice que el inglés sea oficial. ¿Se quita esa frase del inglés, o el inglés pasa a ser también traducción? ¿Es válida la nota de prevalencia frente a consumidores (art. 5 Directiva 93/13: interpretación más favorable)?
 4. **Reclamaciones.** Las condiciones de reserva remiten a email con la referencia `WOD-…`, mediación con el centro y hojas oficiales. ¿Qué debe ofrecer WORLDIVES (ODR/plataforma de resolución de litigios, entidades de resolución alternativa)?
 
 ## 5. Responsabilidad como intermediario
@@ -86,9 +86,9 @@ Ver `procedimiento-denuncias.md`.
 1. ¿WORLDIVES es **plataforma en línea** y **mercado en línea**?
 2. ¿Puede acogerse a la **exención de micro y pequeñas empresas** (art. 19 y 29) y desde cuándo? ¿Qué sigue aplicando (arts. 11–18 y 24.3)? ¿Aplica el art. 24.2 (cifra de destinatarios activos cada seis meses)?
 3. **Informe de transparencia** (art. 15): ¿exento? Si no, se puede sacar de `content_reports` y `audit_log`.
-4. **Declaración de motivos** (art. 17): los correos `report_resolved` y `report_decision_affected` dan la decisión, los motivos y la opción de responder al correo. ¿Qué falta? (Vías extrajudicial y judicial, tipo de restricción.)
+4. **Declaración de motivos** (art. 17): los correos `report_resolved` y `report_decision_affected` dan la decisión, los motivos (obligatorios desde v50.38, mínimo 10 caracteres), la opción de responder al correo y, desde v50.38, la mención a los órganos de resolución extrajudicial certificados y a los tribunales (arts. 20 y 21). El correo al denunciante va en su idioma. ¿Falta algo (tipo de restricción, si la decisión fue automatizada)?
 5. **Recurso por respuesta al correo** en lugar de un sistema interno de reclamaciones (art. 20): ¿suficiente si se está exento? ¿Plazo?
-6. **Denuncias anónimas.** El código permite denunciar sin nombre ni email; el texto dice que son necesarios. ¿Cuál debe ser la regla?
+6. **Denuncias anónimas.** Desde v50.38 el nombre y el email son obligatorios (art. 16.2.c), como dice el texto. Excepción del art. 16.2.c para contenidos de abuso sexual de menores: hoy también exige nombre y email. ¿Se permite el anonimato solo para ese motivo?
 7. Coordinador de servicios digitales en España, alertadores fiables y órdenes de autoridades: confirmar el procedimiento.
 
 ## 8. Reglamento P2B (UE) 2019/1150
@@ -119,12 +119,12 @@ Ver `condiciones-centros.md`.
 
 ## 11. Reseñas verificadas (Directiva Ómnibus)
 
-1. Solo puede reseñar quien tenga una reserva **pagada o confirmada** con el centro (no hace falta que esté completada). Las cuentas de centro y administración no pueden reseñar. Una reseña por buceador y centro; se puede editar. La etiqueta de cada reseña dice «✓ Inmersión verificada», pero se puede reseñar **antes** de la actividad (`normas-resenas.md`, desajuste 3). ¿Basta para llamarlas «verificadas» (art. 20.7 TRLGDCU tras la Ley 4/2022 y el RDL 24/2021)? ¿Debería exigirse la reserva **completada** o cambiar la etiqueta a «reserva verificada»?
+1. Solo puede reseñar quien tenga una reserva **pagada o confirmada** con el centro (no hace falta que esté completada). Las cuentas de centro, profesional (freelance, desde v50.38) y administración no pueden reseñar. Una reseña ocultada por moderación sigue oculta aunque su autor la edite (corregido en v50.38). Una reseña por buceador y centro; se puede editar. La etiqueta de cada reseña dice «✓ Inmersión verificada», pero se puede reseñar **antes** de la actividad (`normas-resenas.md`, desajuste 3). ¿Basta para llamarlas «verificadas» (art. 20.7 TRLGDCU tras la Ley 4/2022 y el RDL 24/2021)? ¿Debería exigirse la reserva **completada** o cambiar la etiqueta a «reserva verificada»?
 2. **Normas de reseñas** (`resenas.md`): ¿informa suficientemente de cómo se comprueban (art. 5.6 Directiva 2005/29 tras Ómnibus)?
 3. **Invitación a reseñar** por email tras la reserva (plantilla `review_request`): ¿interés legítimo o consentimiento? No hay casilla de oposición en la web: ¿debe el email llevar un enlace para no recibir más?
-6. **Responsabilidad** de WORLDIVES por el contenido de reseñas y respuestas (art. 6 DSA) y plazo de conservación de las reseñas ocultas.
 4. **Respuesta del centro**: una por reseña, pública, avisa al autor (`review_replied`). Freelance sin centro no recibe reseñas, pero `resenas.md` habla de «centro o profesional». ¿Se corrige el texto?
 5. **Moderación**: ocultar con motivo enviado al autor (`/api/admin/reviews/<id>/moderate`). ¿Algo más?
+6. **Responsabilidad** de WORLDIVES por el contenido de reseñas y respuestas (art. 6 DSA) y plazo de conservación de las reseñas ocultas.
 
 ## 12. Comunicaciones comerciales y consentimiento
 

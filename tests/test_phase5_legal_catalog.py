@@ -201,6 +201,7 @@ class ReviewsAndReports(ServerTestCase):
         self.assertEqual(self.center.post(f'/api/reviews/{rid}/reply', {'body': 'Gracias de nuevo por bucear con nosotros.'}).status, 200)
         d = self.center.get(f'/api/centers/{cid}').json
         rv = [x for x in d['reviews'] if x['id'] == rid][0]
+        self.assertNotIn(' ', rv['fullname'] or '')   # only the first name leaves the server
         self.assertEqual(rv['reply_body'], 'Gracias de nuevo por bucear con nosotros.')
         self.assertTrue(d['review']['can_reply'])
         self.assertEqual(len(outbox(self.server, 'review_replied', 'resena5@diver.example.org')), 1)   # only the first reply notifies
