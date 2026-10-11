@@ -14,7 +14,7 @@
   // «exact»: frase completa → traducción. «patterns»: frases con partes variables ({n} número, {x} texto).
   // Todo lo que se pinta en la página (también lo que llega después: ventanas, avisos, listas) se traduce al vuelo.
   // ---------------------------------------------------------------------------
-  const WD_I18N_VERSION='50.33';
+  const WD_I18N_VERSION='50.38';
   const WD_LOCALES={es:'es-ES',en:'en-GB',fr:'fr-FR',de:'de-DE',it:'it-IT',pt:'pt-PT',pl:'pl-PL',nl:'nl-NL',zh:'zh-CN',ru:'ru-RU'};
   // Plural forms (Polish and Russian have several): a translation may be {one,few,many,other}.
   const wdPlural=(tpl,n)=>{ if(typeof tpl!=='object'||!tpl) return tpl; let k='other'; try{ k=new Intl.PluralRules(wdLocale()).select(Number(String(n).replace(/[^\d.-]/g,''))||0); }catch{} return tpl[k]??tpl.other??Object.values(tpl)[0]; };

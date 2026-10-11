@@ -25,7 +25,7 @@ Si titular y técnico son la misma persona, lo hace todo ella, pero **siempre** 
 | **Alerta de errores 500** | 5 errores internos en 10 minutos (`WOD_ALERT_ERRORS`, `WOD_ALERT_WINDOW_MIN`). Email `admin_error_alert` a los administradores, como mucho uno por hora | `ErrorMonitor` en `app/wod/ops.py`; `_alert_errors()` en `app/server.py` |
 | **Avisos de operación** | Copia de la base fallida, copia de archivos fallida, copia externa fallida, la base no supera `PRAGMA quick_check`. Email `admin_ops_alert`, uno al día por asunto | `ops_alert()` y `run_backup_jobs()` |
 | **Administración → Operación** | Versión, integridad, últimas copias, cola de correos, errores recientes, disco libre, avisos de configuración | `admin_health()` |
-| **Registro de actividad** | Inicios de sesión (`login`, con `ip_hash`), fallos de TOTP (`totp_failed`), descargas y denegaciones de documentos (`document_downloaded`, `document_access_denied`), cambios de rol, exportaciones (`provider_export`, `dac7_exported`), importaciones (`clients_imported`), eliminaciones de cuenta | Tabla `audit_log`; *Administración → Registro* (`/api/admin/audit`, últimas 300) |
+| **Registro de actividad** | Inicios de sesión (`login`, con `ip_hash`), fallos de TOTP (`totp_failed`), descargas y denegaciones de documentos (`document_downloaded`, `document_access_denied`), cambios de rol, exportaciones (`provider_export`, `dac7_exported`), importaciones (`clients_imported`), eliminaciones de cuenta | Tabla `audit_log`; *Administración → Actividad* (`/api/admin/audit`, últimas 300) |
 | **Registro de accesos** | Peticiones con IP truncada (/24 o /48), sin cadena de consulta; 14 días | `logs/access.log` (`access_logger()`); o el journal de systemd si `WOD_ACCESS_LOG=stdout` |
 | **Monitor externo** | La web no responde | `/api/health` (UptimeRobot, Better Stack…; `docs/despliegue.md`, apartado 8) |
 | **Personas** | Un usuario, un centro, Stripe, el proveedor de hosting o de correo, un investigador de seguridad | {{email}}, {{dpo_email}} |
@@ -52,7 +52,7 @@ Antes de tocar nada:
 # Copia de la base en este momento (comprobada)
 python app/server.py --backup-now
 # Registro de actividad completo
-sqlite3 data/worldives.sqlite3 ".mode csv" ".headers on" "SELECT * FROM audit_log" > /root/brecha-AAAAMMDD/audit_log.csv
+sqlite3 data/worldivesdiscovery.sqlite3 ".mode csv" ".headers on" "SELECT * FROM audit_log" > /root/brecha-AAAAMMDD/audit_log.csv
 # Registros de accesos
 cp -a logs/ /root/brecha-AAAAMMDD/logs/
 ```
@@ -176,7 +176,7 @@ Para avisar a un **centro** como encargado, usa el mismo esquema añadiendo: nú
 
 ### Sesiones
 
-- **Cerrar todas las sesiones:** con el servidor en marcha, `sqlite3 data/worldives.sqlite3 "DELETE FROM sessions;"`. Todo el mundo tiene que volver a entrar. No hay botón para esto en Administración.
+- **Cerrar todas las sesiones:** con el servidor en marcha, `sqlite3 data/worldivesdiscovery.sqlite3 "DELETE FROM sessions;"`. Todo el mundo tiene que volver a entrar. No hay botón para esto en Administración.
 - **Cerrar las sesiones de una persona:** cambiarle el rol en Administración (cierra sus sesiones) o `DELETE FROM sessions WHERE user_id=…`. Cambiar la contraseña, activar el TOTP o cambiar el email también cierra las demás sesiones.
 
 ### Rotar `WOD_SECRET_KEY`: qué hace y qué no
