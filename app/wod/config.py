@@ -7,7 +7,7 @@ from pathlib import Path
 
 def load_env_file(path: Path | None = None) -> int:
     """Reads the server's .env (WOD_ENV_FILE, or .env next to the application) into the environment.
-    Variables already set (systemd, shell, tests) win. Supports «KEY=value  # comment», quotes and blank lines.
+    Variables already set (systemd, shell, tests) win; empty ones are ignored. Supports «KEY=value  # comment», quotes and blank lines.
     Returns how many variables were loaded."""
     p = Path(os.environ.get('WOD_ENV_FILE') or path or (Path(__file__).resolve().parents[2] / '.env'))
     if not p.is_file():
@@ -22,11 +22,13 @@ def load_env_file(path: Path | None = None) -> int:
         value = value.strip()
         if value[:1] in ('"', "'") and value[1:].find(value[0]) >= 0:
             value = value[1:1 + value[1:].find(value[0])]
+        elif value.startswith('#'):                      # «KEY=   # comment»: empty
+            value = ''
         else:
             cut = value.find(' #')
             if cut >= 0: value = value[:cut]
             value = value.strip()
-        if key and key not in os.environ:
+        if key and value and key not in os.environ:      # an empty variable means «not set»: the default applies
             os.environ[key] = value; n += 1
     return n
 

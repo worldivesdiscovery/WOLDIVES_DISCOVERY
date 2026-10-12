@@ -115,6 +115,19 @@ def _pdf_str(s):
     return '(' + s.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)') + ')'
 
 
+def jpeg_info(data: bytes):
+    """(width, height, components) of a JPEG, read from its SOF marker."""
+    i = 2
+    while i < len(data) - 9:
+        if data[i] != 0xFF: i += 1; continue
+        marker = data[i + 1]
+        if marker in (0xC0, 0xC1, 0xC2):
+            h = int.from_bytes(data[i + 5:i + 7], 'big'); w = int.from_bytes(data[i + 7:i + 9], 'big')
+            return w, h, data[i + 9]
+        i += 2 + int.from_bytes(data[i + 2:i + 4], 'big')
+    raise ValueError('JPEG sin tamaño')
+
+
 class Document:
     """A4 pages drawn with simple commands. Same drawing interface as the old PdfPage (text, width, fit, wrap,
     box, rect, line, check), plus new_page() for long documents."""
@@ -127,6 +140,7 @@ class Document:
         self.raw = []       # extra raw command lists (QR codes) are appended to self.c directly
         self.title = title
         self.lang = lang
+        self.images = {}    # name -> (jpeg bytes, width px, height px, components)
 
     # --- text -----------------------------------------------------------------
     def _runs(self, text, bold):
@@ -216,6 +230,15 @@ class Document:
     def check(self, x, y, color):
         self.c += ['q', '%.3f %.3f %.3f RG' % color, '1.4 w', '1 J 1 j', f'{x:.2f} {y + 3:.2f} m {x + 2.6:.2f} {y + 0.4:.2f} l {x + 7:.2f} {y + 6:.2f} l S', 'Q']
 
+    def image_jpeg(self, data: bytes, x, y, w, h):
+        """Draws a JPEG (baseline or progressive, RGB or grey) at x, y with size w × h points. Used for the brand
+        icon in the header of the documents (v50.45). The same image is embedded once however often it is drawn."""
+        key = next((k for k, v in self.images.items() if v[0] is data), None)
+        if not key:
+            pw, ph, comps = jpeg_info(data)
+            key = f'Im{len(self.images) + 1}'; self.images[key] = (data, pw, ph, comps)
+        self.c += ['q', f'{w:.2f} 0 0 {h:.2f} {x:.2f} {y:.2f} cm', f'/{key} Do', 'Q']
+
     def new_page(self):
         self.pages.append([]); self.c = self.pages[-1]
 
@@ -250,7 +273,12 @@ class Document:
                     + 'endcmap CMapName currentdict /CMap defineresource pop end end').encode()
             tu = add(f'<< /Length {len(cmap)} >>\nstream\n'.encode() + cmap + b'\nendstream')
             font_refs[f'F{order.index(f) + 1}'] = add(f'<< /Type /Font /Subtype /Type0 /BaseFont /{name} /Encoding /Identity-H /DescendantFonts [{cid} 0 R] /ToUnicode {tu} 0 R >>'.encode())
-        res = '<< /Font << ' + ' '.join(f'/{k} {v} 0 R' for k, v in font_refs.items()) + ' >> >>'
+        img_refs = {}
+        for key, (data, pw, ph, comps) in self.images.items():
+            cs = '/DeviceGray' if comps == 1 else '/DeviceRGB'
+            img_refs[key] = add(f'<< /Type /XObject /Subtype /Image /Width {pw} /Height {ph} /ColorSpace {cs} /BitsPerComponent 8 /Filter /DCTDecode /Length {len(data)} >>\nstream\n'.encode() + data + b'\nendstream')
+        res = ('<< /Font << ' + ' '.join(f'/{k} {v} 0 R' for k, v in font_refs.items()) + ' >>'
+               + (' /XObject << ' + ' '.join(f'/{k} {v} 0 R' for k, v in img_refs.items()) + ' >>' if img_refs else '') + ' >>')
         kids = []
         for cmds in self.pages:
             content = zlib.compress('\n'.join(cmds).encode('latin-1'))

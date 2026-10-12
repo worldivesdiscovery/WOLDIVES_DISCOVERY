@@ -1,9 +1,29 @@
-# WORLDIVES DISCOVERY (v50.38)
+# WORLDIVES DISCOVERY (v50.45)
 
 Plataforma de descubrimiento y reservas de buceo: catálogo de puntos y centros con mapa, reservas y cobros
 directos con Stripe Connect, ficha y Log Book del buceador, puntos, reseñas, panel de centros y profesionales
 con planes, y administración completa. **Python 3.11+ con la biblioteca estándar, SQLite y HTML/CSS/JavaScript
 sin compilar.** Dependencias mínimas: `stripe`, `qrcode` y `fonttools` (`requirements.txt`).
+
+## Entregas: dos zips por versión (desde v50.45)
+
+| Zip | Para qué | Qué lleva |
+|---|---|---|
+| `WORLDIVES-vXX.XX-produccion.zip` | El servidor real | Solo código, la semilla del catálogo (`data/seed/catalogo.sqlite3`) y `.env.example` con todo vacío. Sin personas, sin base de pruebas, sin subidas, registros, cachés ni `.env` |
+| `WORLDIVES-vXX.XX-pruebas.zip` | Probarlo todo en tu ordenador | El mismo código, la base de demostración, `CUENTAS-DE-PRUEBA.md` y `scripts/start_pruebas` (puerto 8100). **Nunca se sube al servidor real** |
+
+Los dos se crean con `python scripts/build_release.py`, que antes de escribir cada zip hace una **comprobación
+automática** y se para si encuentra cuentas o contraseñas de prueba, claves reales, una base que no sea la semilla,
+un `.env`, `WOD_DEMO_MODE=1` o archivos de caché y registros. El servidor se niega a arrancar en modo pruebas con la
+dirección del dominio real o con una clave real de Stripe. Estructura de carpetas y plan de separación en módulos:
+`docs/estructura.md`. Marca, logo y paleta: `docs/marca.md`.
+
+### Primer arranque en producción
+
+1. Copia `.env.example` a `.env` y rellena las variables (claves y contraseñas **solo** ahí).
+2. Arranca el servidor: la base se crea sola a partir de `data/seed/catalogo.sqlite3` (catálogo sin personas).
+3. Crea la primera cuenta de administración: `./scripts/crear_admin.sh --email tu@dominio --username admin --name "Tu Nombre"`
+   (Windows: `scripts\crear_admin.bat …`). La contraseña se pide sin mostrarla.
 
 ## Arranque local
 
@@ -13,7 +33,7 @@ pip install -r requirements.txt
 ```
 
 Abre `http://localhost:8000` (no abras `index.html` con doble clic). La primera vez se crea `data/worldivesdiscovery.sqlite3`
-a partir del catálogo de demostración (`data/demo/catalogo-demo.sqlite3`). Crea el administrador con
+a partir de la semilla del catálogo (`data/seed/`) o, en desarrollo, del catálogo de demostración (`data/demo/`). Crea el administrador con
 `python app/server.py --create-admin`. La configuración va en `.env` (plantilla: `.env.example`); el servidor la lee solo.
 
 ## Roles
@@ -30,7 +50,7 @@ a partir del catálogo de demostración (`data/demo/catalogo-demo.sqlite3`). Cre
 
 | Tema | Dónde |
 |---|---|
-| Qué se ha hecho en cada versión, pendientes de decisión y temas para abogado y gestoría | `RELEASE_NOTES_v50_31.md` … `RELEASE_NOTES_v50_42.md` |
+| Qué se ha hecho en cada versión, pendientes de decisión y temas para abogado y gestoría | `RELEASE_NOTES_v50_31.md` … `RELEASE_NOTES_v50_45.md` |
 | Entrega final: estado, pruebas (también permisos entre roles), lanzamiento, abogado y gestoría | `docs/entrega/entrega-final.md` (tabla completa en `docs/entrega/estado.md`) |
 | Encargo 2 (6 mejoras para centros y registro): estado, pruebas, capturas y pendientes | `docs/entrega/entrega-encargo2.md` (tabla en `docs/entrega/estado-encargo2.md`) |
 | Despliegue en VPS, HTTPS, systemd, copias, restauración, monitorización, rendimiento, correo | `docs/despliegue.md` y `deploy/` |
@@ -47,6 +67,9 @@ producción **empieza limpia** con `tools/crear_base_produccion.py` (solo catál
 nunca se sube al repositorio.
 
 ## Pruebas
+
+Las pruebas usan el catálogo de demostración, que solo va en el zip de pruebas: ejecútalas desde ese zip o desde el
+repositorio.
 
 ```bash
 cd tests && python -m unittest discover -p 'test_*.py'      # pruebas de API y de cada fase (siempre sobre una copia)

@@ -44,3 +44,8 @@ build/
 logs/
 mail-outbox/
 public/assets/uploads/
+
+# Delivery (v50.45): generated seed, test environment data and release zips
+data/seed/*.sqlite3
+data/pruebas/
+dist/

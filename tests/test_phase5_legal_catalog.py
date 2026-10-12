@@ -377,7 +377,7 @@ class CatalogueAndMaps(ServerTestCase):
     def test_image_origins_report(self):
         d = self.admin.get('/api/admin/images').json
         self.assertGreater(d['missing'], 0)
-        path = d['items'][0]['path']
+        path = [x for x in d['items'] if x['missing']][0]['path']
         self.assertEqual(self.admin.post('/api/admin/images', {'path': '/etc/passwd', 'origin': 'x'}).status, 400)
         self.assertEqual(self.admin.post('/api/admin/images', {'path': path, 'credit': 'Autor', 'origin': 'Foto propia'}).status, 200)
         d2 = self.admin.get('/api/admin/images').json

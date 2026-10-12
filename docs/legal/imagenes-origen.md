@@ -25,7 +25,4 @@ Informe generado desde *Administración → Medios → Origen y licencia de las 
 | `/assets/images/micronesia.webp` | Archivos de la web; Imagen por defecto: Explorar el mapa; Imagen por defecto: Nocturnas | **Sin origen** |
 | `/assets/images/portada-arrecife.webp` | Archivos de la web; Imagen por defecto: Portada de la web | **Sin origen** |
 | `/assets/images/tailandia.webp` | Archivos de la web; Imagen por defecto: Top 10; Imagen por defecto: Muck | **Sin origen** |
-| `/assets/images/wod-icon-256.png` | Archivos de la web | **Sin origen** |
-| `/assets/images/wod-icon-512.png` | Archivos de la web | **Sin origen** |
-| `/assets/images/wod-icon.png` | Archivos de la web | **Sin origen** |
-| `/assets/images/world-dives-discovery-logo.png` | Archivos de la web | **Sin origen** |
+| `/assets/brand/` (todos los archivos) | Logo, símbolo e iconos de la marca | Logo propio del titular, entregado con el encargo 2b (12/10/2026). Originales en `docs/marca/originales/`; generados con `tools/brand/build_brand.py` |

@@ -34,6 +34,7 @@ from wod import config as wcfg
 from wod import security as wsec
 from wod import bookings as wbk
 from wod import agenda as wag
+from wod import money as wmoney
 from wod import pdf as wpdf
 from wod import totp as wtotp
 from wod import pointtext as wpt
@@ -52,7 +53,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.44'
+APP_VERSION = '50.45'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -1370,6 +1371,8 @@ def bootstrap():
         db.commit()
         migrate_v50_44(db)
         db.commit()
+        migrate_v50_45(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1421,6 +1424,47 @@ def regenerate_point_texts(db, pid=None):
 def point_text(db, pid, lang):
     r = db.execute('SELECT description FROM dive_point_texts WHERE point_id=? AND lang=?', (pid, normalize_lang(lang))).fetchone()
     return r['description'] if r else None
+
+
+PRODUCTION_HOSTS = {'worldives.com', 'www.worldives.com'}
+
+
+def demo_guard():
+    """The test environment (WOD_DEMO_MODE=1, fixed test accounts) never runs as the real site."""
+    if not wcfg.demo_mode(): return ''
+    hosts = PRODUCTION_HOSTS | {h.strip().lower() for h in os.environ.get('WOD_PRODUCTION_HOSTS', '').split(',') if h.strip()}
+    host = (urlparse(wcfg.public_url()).hostname or '').lower()
+    if wcfg.is_production() or host in hosts:
+        return f'WOD_DEMO_MODE=1 no se permite en producción ni con la dirección pública {host or "de producción"}. El entorno de pruebas usa otra dirección (por ejemplo http://127.0.0.1:8100).'
+    if any(os.environ.get(k, '').strip().startswith(('sk_live_', 'rk_live_')) for k in ('STRIPE_SECRET_KEY', 'STRIPE_RESTRICTED_KEY')):
+        return 'El entorno de pruebas solo admite claves de Stripe en modo test (sk_test_…). Quita la clave real del .env de pruebas.'
+    return ''
+
+
+def reset_demo_database():
+    """«Restaurar demo» (test environment only): rebuilds the demonstration data with dates relative to today and
+    copies it over the running database. Never available outside WOD_DEMO_MODE (demo_guard keeps it off the real site)."""
+    if not wcfg.demo_mode() or demo_guard(): raise PermissionError('Solo disponible en el entorno de pruebas.')
+    import subprocess, tempfile
+    tmp = Path(tempfile.mkdtemp(prefix='wod-demo-')) / 'demo.sqlite3'
+    try:
+        res = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'crear_demo.py'), '--out', str(tmp)], capture_output=True, text=True, timeout=300)
+        if res.returncode != 0 or not tmp.exists(): raise RuntimeError('No se ha podido crear la demo: ' + (res.stdout + res.stderr)[-400:])
+        src = sqlite3.connect(tmp); dst = sqlite3.connect(DB_PATH, timeout=30)
+        try: src.backup(dst)
+        finally: dst.close(); src.close()
+    finally:
+        shutil.rmtree(tmp.parent, ignore_errors=True)
+
+
+def migrate_v50_45(db):
+    """v50.45 (encargo 2b): the brand name is always WORLDIVES DISCOVERY / WORLDIVES. Only transforms texts of the
+    initial catalogue that still used the old spelling; nothing is deleted."""
+    if migration_done(db, '50.45'): return
+    old = ('World' + ' Dives', 'World' + 'Dives')   # written in two parts so the brand check finds no old spelling
+    for col in ('description', 'source_name'):
+        db.execute(f"UPDATE dive_points SET {col}=replace(replace({col},?,'WORLDIVES'),?,'WORLDIVES') WHERE {col} LIKE ? OR {col} LIKE ?", (*old, f'%{old[0]}%', f'%{old[1]}%'))
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.45', now(), 'Nueva marca: nombre WORLDIVES en el catálogo'))
 
 
 def migrate_v50_44(db):
@@ -2623,6 +2667,9 @@ def images_report(db):
         e['credit'] = e['credit'] or (credit or ''); e['origin'] = e['origin'] or (origin or '')
     for f in sorted((PUBLIC / 'assets' / 'images').glob('*')):
         if f.is_file() and f.suffix.lower() in ('.webp', '.png', '.jpg', '.jpeg', '.svg'): add('/assets/images/' + f.name, 'Archivos de la web')
+    for f in sorted((PUBLIC / 'assets' / 'brand').glob('*')):       # v50.45: the brand (logo, icons) is our own
+        if f.is_file() and f.suffix.lower() in ('.webp', '.png', '.jpg', '.jpeg', '.svg', '.ico'):
+            add('/assets/brand/' + f.name, 'Marca', 'WORLDIVES DISCOVERY', 'Marca propia (docs/marca.md)')
     for s_ in site_media_slots(): add(s_['default'], 'Imagen por defecto: ' + s_['label'])
     for r in db.execute('SELECT key,image_url,credit,origin FROM site_media').fetchall(): add(r['image_url'], 'Portada: ' + r['key'], r['credit'], r['origin'])
     for r in db.execute('SELECT key,image_url,credit,origin FROM site_theme_media').fetchall(): add(r['image_url'], 'Tema: ' + r['key'], r['credit'], r['origin'])
@@ -4396,7 +4443,7 @@ def finalize_paid_order(db, order, session, source):
     Idempotent: calling it twice changes nothing. Returns (ok, message)."""
     if order['status']=='paid': return True,'already'
     pay_status=_obj(session,'payment_status'); total=_obj(session,'amount_total'); cur=(_obj(session,'currency') or '').upper()
-    expected=int(round(float(order['amount'] or 0)*100))
+    expected=wmoney.to_minor(order['amount'],order['currency'])   # v50.45: JPY and other zero-decimal currencies are never × 100
     if pay_status not in ('paid','no_payment_required'): return False,'not_paid'
     if total is not None and int(total)!=expected or (cur and cur!=(order['currency'] or 'EUR').upper()):
         db.execute("UPDATE payment_orders SET status='review',updated_at=? WHERE id=?",(now(),order['id']))
@@ -4411,7 +4458,7 @@ def finalize_paid_order(db, order, session, source):
         if ch and not isinstance(ch,str):
             receipt=_obj(ch,'receipt_url'); card=_obj(_obj(ch,'payment_method_details') or {},'card') or {}
             brand=_obj(card,'brand'); last4=_obj(card,'last4')
-    received=(int(total)/100 if total is not None else float(order['amount'] or 0))
+    received=(wmoney.from_minor(total,order['currency']) if total is not None else float(order['amount'] or 0))
     db.execute("UPDATE payment_orders SET status='paid',provider_payment_id=COALESCE(?,provider_payment_id),payment_intent_id=COALESCE(?,payment_intent_id),paid_at=?,amount_received=?,receipt_url=COALESCE(?,receipt_url),card_brand=COALESCE(?,card_brand),card_last4=COALESCE(?,card_last4),updated_at=? WHERE id=?",
                (_obj(session,'id'),pi_id,now(),received,receipt,brand,last4,now(),order['id']))
     deposit=(order['payment_kind'] if 'payment_kind' in order.keys() else 'full')=='deposit'
@@ -4550,7 +4597,7 @@ def smtp_config():
             'security': (os.environ.get('WOD_SMTP_SECURITY', 'starttls') or 'starttls').strip().lower(),
             'from': os.environ.get('WOD_MAIL_FROM', '').strip() or default_from,
             'from_name': os.environ.get('WOD_MAIL_FROM_NAME', 'WORLDIVES DISCOVERY').strip() or 'WORLDIVES DISCOVERY',
-            'reply_to': os.environ.get('WOD_MAIL_REPLY_TO', '').strip(), 'enabled': bool(host)}
+            'reply_to': os.environ.get('WOD_MAIL_REPLY_TO', '').strip(), 'enabled': bool(host) and not wcfg.demo_mode()}   # the test environment never sends real emails
 
 
 def legal_settings(db):
@@ -5043,7 +5090,7 @@ def render_email(db, template, lang, ctx):
     for kind, val in tpl['blocks']:
         if kind == 'h':
             s = fmt(val)
-            rows_html.append(f'<h1 style="margin:0 0 16px;font-size:24px;line-height:1.25;color:#07364a;font-family:Georgia,\'Times New Roman\',serif;font-weight:500">{_esc(s)}</h1>')
+            rows_html.append(f'<h1 style="margin:0 0 16px;font-size:24px;line-height:1.25;color:#011C3C;font-family:Georgia,\'Times New Roman\',serif;font-weight:500">{_esc(s)}</h1>')
             text += [s.upper(), '']
         elif kind == 'p':
             s = fmt(val)
@@ -5051,7 +5098,7 @@ def render_email(db, template, lang, ctx):
         elif kind == 'note':
             s = fmt(val)
             if s.strip():
-                rows_html.append(f'<div style="margin:4px 0 18px;padding:14px 16px;border-radius:10px;background:#f1f7f8;border-left:4px solid #0b7a89;font-size:14px;line-height:1.55;color:#2b3f48">{_esc(s)}</div>')
+                rows_html.append(f'<div style="margin:4px 0 18px;padding:14px 16px;border-radius:10px;background:#f1f7f8;border-left:4px solid #076898;font-size:14px;line-height:1.55;color:#2b3f48">{_esc(s)}</div>')
                 text += ['» ' + s, '']
         elif kind == 'list':
             lis = ''.join(f'<li style="margin:0 0 8px">{_esc(fmt(x))}</li>' for x in val)
@@ -5059,12 +5106,12 @@ def render_email(db, template, lang, ctx):
             text += ['- ' + fmt(x) for x in val] + ['']
         elif kind == 'code':
             s = fmt(val)
-            rows_html.append(f'<div style="margin:4px 0 14px;padding:16px;border:2px dashed #0b7a89;border-radius:12px;text-align:center;font-size:18px;font-weight:700;color:#07364a">{_esc(s)}</div>')
+            rows_html.append(f'<div style="margin:4px 0 14px;padding:16px;border:2px dashed #076898;border-radius:12px;text-align:center;font-size:18px;font-weight:700;color:#011C3C">{_esc(s)}</div>')
             text += [s, '']
         elif kind == 'details':
             rws = details_rows()
             tr = ''.join(f'<tr><td style="padding:9px 12px;border-bottom:1px solid #e6eef0;color:#65747d;font-size:13px;width:38%;vertical-align:top">{_esc(k)}</td>'
-                         f'<td style="padding:9px 12px;border-bottom:1px solid #e6eef0;font-size:14px;font-weight:600;color:#153142">{_esc(v)}</td></tr>' for k, v in rws)
+                         f'<td style="padding:9px 12px;border-bottom:1px solid #e6eef0;font-size:14px;font-weight:600;color:#011C3C">{_esc(v)}</td></tr>' for k, v in rws)
             rows_html.append(f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 18px;border:1px solid #e6eef0;border-radius:10px;border-collapse:separate;overflow:hidden">{tr}</table>')
             text += [f'{k}: {v}' for k, v in rws] + ['']
         elif kind == 'payment':
@@ -5087,24 +5134,24 @@ def render_email(db, template, lang, ctx):
             if ctx.get('center_address'): items.append(t('Dirección del centro: {address}', address=ctx['center_address']))
             if ctx.get('center_phone'): items.append(t('Teléfono del centro: {phone}', phone=ctx['center_phone']))
             lis = ''.join(f'<li style="margin:0 0 6px">{_esc(x)}</li>' for x in items)
-            rows_html.append(f'<p style="margin:6px 0 8px;font-size:12px;font-weight:700;color:#07364a;text-transform:uppercase;letter-spacing:.08em">{_esc(t("Antes de bucear"))}</p>'
+            rows_html.append(f'<p style="margin:6px 0 8px;font-size:12px;font-weight:700;color:#011C3C;text-transform:uppercase;letter-spacing:.08em">{_esc(t("Antes de bucear"))}</p>'
                              f'<ul style="margin:0 0 18px;padding-left:20px;font-size:14px;line-height:1.5;color:#2b3f48">{lis}</ul>')
             text += [t('Antes de bucear').upper()] + ['- ' + x for x in items] + ['']
         elif kind == 'diver':
             rws = [(t('Cliente'), ctx.get('diver_name')), (t('Email'), ctx.get('diver_email')), (t('Teléfono'), ctx.get('diver_phone')), (t('Notas'), ctx.get('notes'))]
             rws = [(k, v) for k, v in rws if v]
-            tr = ''.join(f'<tr><td style="padding:6px 0;color:#65747d;font-size:13px;width:38%">{_esc(k)}</td><td style="padding:6px 0;font-size:14px;color:#153142">{_esc(v)}</td></tr>' for k, v in rws)
+            tr = ''.join(f'<tr><td style="padding:6px 0;color:#65747d;font-size:13px;width:38%">{_esc(k)}</td><td style="padding:6px 0;font-size:14px;color:#011C3C">{_esc(v)}</td></tr>' for k, v in rws)
             rows_html.append(f'<table role="presentation" width="100%" style="margin:0 0 16px">{tr}</table>'); text += [f'{k}: {v}' for k, v in rws] + ['']
         elif kind == 'agenda':
             for sl in ctx.get('agenda', []):
                 people = ''.join(f'<li style="margin:0 0 4px">{_esc(p)}</li>' for p in sl['people']) or f'<li>{_esc(t("Sin reservas todavía"))}</li>'
-                rows_html.append(f'<div style="margin:0 0 14px;padding:12px 14px;border:1px solid #e6eef0;border-radius:10px"><div style="font-size:15px;font-weight:700;color:#07364a">{_esc(sl["time"])} · {_esc(sl["title"])}</div>'
+                rows_html.append(f'<div style="margin:0 0 14px;padding:12px 14px;border:1px solid #e6eef0;border-radius:10px"><div style="font-size:15px;font-weight:700;color:#011C3C">{_esc(sl["time"])} · {_esc(sl["title"])}</div>'
                                  f'<div style="font-size:13px;color:#65747d;margin:2px 0 8px">{_esc(t("Buceadores") + ": " + str(sl["taken"]) if sl.get("loose") else t("{taken} de {total} plazas ocupadas", taken=sl["taken"], total=sl["total"]))}{(" · " + _esc(sl["points"])) if sl.get("points") else ""}</div>'
                                  f'<ul style="margin:0;padding-left:18px;font-size:14px;color:#2b3f48">{people}</ul></div>')
                 text += [f"{sl['time']} · {sl['title']} ({sl['taken']}/{sl['total']})"] + ['  - ' + p for p in sl['people']] + ['']
         elif kind == 'button':
             label, key = val; url = ctx.get(key) or base; s = fmt(label)
-            rows_html.append(f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 22px"><tr><td style="border-radius:999px;background:#07364a">'
+            rows_html.append(f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 22px"><tr><td style="border-radius:999px;background:#011C3C">'
                              f'<a href="{_esc(url)}" style="display:inline-block;padding:13px 24px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px">{_esc(s)}</a></td></tr></table>')
             text += [f'{s}: {url}', '']
     subject = fmt(tpl['subject']); pre = fmt(tpl.get('pre', ''))
@@ -5121,17 +5168,17 @@ def render_email(db, template, lang, ctx):
 <body style="margin:0;padding:0;background:#f2efe8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">{_esc(pre)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2efe8"><tr><td align="center" style="padding:24px 12px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(7,54,74,.08)">
-<tr><td style="background:#07364a;padding:20px 28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td style="padding-right:12px"><img src="{_esc(base)}/assets/images/wod-icon-512.png" width="40" height="40" alt="" style="display:block;border-radius:10px;background:#ffffff"></td>
-<td><a href="{_esc(base)}" style="color:#ffffff;text-decoration:none;font-size:17px;font-weight:800;letter-spacing:.06em">WORLDIVES DISCOVERY</a><div style="height:3px;width:42px;background:#12a5b5;margin-top:8px;border-radius:3px"></div></td></tr></table></td></tr>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(1,28,60,.08)">
+<tr><td style="background:#011C3C;padding:20px 28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="padding-right:12px"><img src="{_esc(base)}/assets/brand/worldives-icono-correo-96.png" width="44" height="44" alt="" style="display:block;border-radius:10px;background:#011C3C"></td>
+<td><a href="{_esc(base)}" style="color:#ffffff;text-decoration:none;font-size:17px;font-weight:800;letter-spacing:.06em">WORLDIVES DISCOVERY</a><div style="height:3px;width:42px;background:#1CA5C7;margin-top:8px;border-radius:3px"></div></td></tr></table></td></tr>
 <tr><td style="padding:30px 28px 8px">{''.join(rows_html)}</td></tr>
 <tr><td style="padding:18px 28px 26px;border-top:1px solid #eef2f3;font-size:12px;line-height:1.55;color:#7d8d94">{_esc(t(who))}<br>{_esc(foot_addr)}<br>
-<a href="{_esc(base)}/#/legal/privacidad" style="color:#0b7a89">{_esc(t('Política de privacidad'))}</a> · <a href="{_esc(base)}/#/legal/reservas" style="color:#0b7a89">{_esc(t('Condiciones de reserva'))}</a> · <a href="{_esc(base)}/#/legal/aviso-legal" style="color:#0b7a89">{_esc(t('Aviso legal'))}</a></td></tr>
+<a href="{_esc(base)}/#/legal/privacidad" style="color:#076898">{_esc(t('Política de privacidad'))}</a> · <a href="{_esc(base)}/#/legal/reservas" style="color:#076898">{_esc(t('Condiciones de reserva'))}</a> · <a href="{_esc(base)}/#/legal/aviso-legal" style="color:#076898">{_esc(t('Aviso legal'))}</a></td></tr>
 </table></td></tr></table></body></html>'''
     text_doc = '\n'.join(text).strip() + '\n\n--\n' + t(who) + '\n' + foot_addr + '\n' + f'{base}/#/legal/privacidad\n'
     if unsub:
-        html_doc = html_doc.replace('</td></tr>\n</table></td></tr></table></body></html>', f'<br><a href="{_esc(unsub)}" style="color:#0b7a89">{_esc(t("Darme de baja de estas comunicaciones"))}</a></td></tr>\n</table></td></tr></table></body></html>', 1)
+        html_doc = html_doc.replace('</td></tr>\n</table></td></tr></table></body></html>', f'<br><a href="{_esc(unsub)}" style="color:#076898">{_esc(t("Darme de baja de estas comunicaciones"))}</a></td></tr>\n</table></td></tr></table></body></html>', 1)
         text_doc += t('Darme de baja de estas comunicaciones') + f': {unsub}\n'
     return subject, html_doc, text_doc
 
@@ -6012,7 +6059,7 @@ def refund_payment(db, order, amount, reason='requested_by_customer', actor=None
         p_ = _obj(sess, 'payment_intent'); pi = p_ if isinstance(p_, str) or p_ is None else _obj(p_, 'id')
         if pi: db.execute('UPDATE payment_orders SET payment_intent_id=? WHERE id=?', (pi, order['id']))
     if not pi: raise ValueError('Este pago no tiene referencia de Stripe: devuélvelo desde tu panel de Stripe.')
-    cents = int(round(amount * 100)); done = int(round(float(order['refunded_total'] or 0) * 100))
+    cents = wmoney.to_minor(amount, order['currency']); done = wmoney.to_minor(order['refunded_total'] or 0, order['currency'])
     params = dict(payment_intent=pi, amount=cents, reason=reason if reason in ('duplicate', 'fraudulent', 'requested_by_customer') else 'requested_by_customer',
                   metadata={'payment_order_id': str(order['id']), 'booking_id': str(order['booking_id'] or ''), 'wod_reason': str(reason)[:40]},
                   idempotency_key=f'wod-refund-{order["id"]}-{done}-{cents}')
@@ -6273,7 +6320,7 @@ def sync_refunds_from_stripe(db, order, charge=None):
         except Exception as exc:
             sys.stderr.write(f'[pagos] lista de devoluciones del pedido {order["id"]}: {exc}\n'); refunds = []
     for r in refunds or []:
-        upsert_refund(db, order, r.get('id'), int(r.get('amount') or 0) / 100, r.get('status') or 'succeeded', 'stripe', (r.get('metadata') or {}).get('wod_reason') or r.get('reason'))
+        upsert_refund(db, order, r.get('id'), wmoney.from_minor(r.get('amount'), order['currency']), r.get('status') or 'succeeded', 'stripe', (r.get('metadata') or {}).get('wod_reason') or r.get('reason'))
 
 
 def payee_account_updated(db, obj):
@@ -6333,7 +6380,7 @@ def handle_stripe_event(db, event, connect=False):
         sync_refunds_from_stripe(db, order, obj)
         audit(db, order['user_id'], 'payment_refund_synced', 'payment_order', oid, {'event_id': event_id})
     elif event_type in ('refund.created', 'refund.updated', 'charge.refund.updated'):
-        upsert_refund(db, order, obj.get('id'), int(obj.get('amount') or 0) / 100, obj.get('status') or 'pending', 'stripe', (obj.get('metadata') or {}).get('wod_reason') or obj.get('reason'))
+        upsert_refund(db, order, obj.get('id'), wmoney.from_minor(obj.get('amount'), order['currency']), obj.get('status') or 'pending', 'stripe', (obj.get('metadata') or {}).get('wod_reason') or obj.get('reason'))
     elif event_type in ('charge.dispute.created', 'charge.dispute.closed'):
         closed = event_type.endswith('closed')
         db.execute('UPDATE payment_orders SET incident=?,incident_note=?,incident_at=?,updated_at=? WHERE id=?',
@@ -6381,6 +6428,8 @@ def create_stripe_checkout(db, user, *, amount, currency, title, payee, booking_
     """Creates the payment order and its Stripe Checkout Session as a DIRECT charge on the provider's connected
     account (no application fee, no transfer: WORLDIVES takes no commission). Raises ValueError when it cannot."""
     if amount <= 0: raise ValueError('Esta reserva no tiene un importe que pagar online.')
+    if wmoney.below_minimum(amount, currency):   # Stripe refuses charges below its minimum for the currency
+        raise ValueError(f'El importe online mínimo en {wmoney.code(currency)} es {wmoney.minimum(currency):g}. Pide al centro que cobre esta reserva en el centro.')
     secret = stripe_secret(); base = public_site_url()
     if not secret: raise ValueError('El pago seguro aún no está configurado en el servidor.')
     if not payee or not payee_ready(payee): raise ValueError('El prestador no tiene ahora mismo los cobros online activos.')
@@ -6398,7 +6447,7 @@ def create_stripe_checkout(db, user, *, amount, currency, title, payee, booking_
         session = stripe.checkout.Session.create(
             mode='payment',
             line_items=[{'price_data': {'currency': currency.lower(), 'product_data': {'name': title[:250], 'description': (description or f'{ref} · {payee["name"]}')[:500]},
-                                        'unit_amount': int(round(amount * 100))}, 'quantity': 1}],
+                                        'unit_amount': wmoney.to_minor(amount, currency)}, 'quantity': 1}],
             success_url=f'{base}/#/pago-ok?session_id={{CHECKOUT_SESSION_ID}}',
             cancel_url=cancel_url,
             metadata=meta,
@@ -6626,6 +6675,20 @@ def es_long_date(value):
     except Exception: return str(value or '')
 
 
+# Brand palette for the PDF documents (docs/marca.md), as RGB 0–1
+BRAND_PDF = {'abismo': (0.004, 0.110, 0.235), 'profundo': (0.016, 0.239, 0.424), 'oceano': (0.027, 0.408, 0.596),
+             'turquesa': (0.110, 0.647, 0.780), 'agua': (0.529, 0.886, 0.937)}
+_PDF_ICON = []
+
+
+def pdf_brand_icon(doc, x, y, size):
+    """The app icon (public/assets/brand/worldives-icono-pdf.jpg) in the header of every document."""
+    if not _PDF_ICON:
+        p = PUBLIC / 'assets' / 'brand' / 'worldives-icono-pdf.jpg'
+        _PDF_ICON.append(p.read_bytes() if p.exists() else None)
+    if _PDF_ICON[0]: doc.image_jpeg(_PDF_ICON[0], x, y, size, size)
+
+
 def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
     """«Justificante de reserva» (Fase 2.8): everything the diver needs at the dive centre, even without internet,
     who provides the service (with its fiscal data) and that WORLDIVES DISCOVERY is only the booking platform.
@@ -6638,7 +6701,7 @@ def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
     t = lambda s, **kw: mail_t(lang, s, **kw)
     _svc, prov = booking_payee(db, b); prov = prov or {'type': 'center', 'name': '—'}
     po = db.execute("SELECT id,paid_at,card_brand,card_last4,amount_received,payment_kind FROM payment_orders WHERE booking_id=? AND status IN ('paid','partially_refunded','refunded') ORDER BY id DESC LIMIT 1", (booking_id,)).fetchone()
-    DEEP = (0.027, 0.212, 0.290); SEA = (0.043, 0.478, 0.537); MUTED = (0.38, 0.43, 0.46); LINE = (0.86, 0.89, 0.91); SOFT = (0.955, 0.972, 0.978); WHITE = (1, 1, 1); INK = (0.07, 0.13, 0.16)
+    DEEP = BRAND_PDF['abismo']; SEA = BRAND_PDF['oceano']; MUTED = (0.38, 0.43, 0.46); LINE = (0.86, 0.89, 0.91); SOFT = (0.955, 0.972, 0.978); WHITE = (1, 1, 1); INK = (0.07, 0.13, 0.16)
     WARN = (0.66, 0.42, 0.07); BAD = (0.61, 0.25, 0.22); GOOD = (0.184, 0.478, 0.388)
     tone = {'confirmed': GOOD, 'completed': SEA, 'requested': WARN, 'accepted_pending_payment': WARN, 'payment_in_progress': WARN, 'expired': MUTED, 'rejected': BAD, 'cancelled': BAD}
     state = wbk.normalize_state(b['status'])
@@ -6650,9 +6713,10 @@ def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
     ref = f'WOD-{int(booking_id):06d}'
     pg = wpdf.Document(t('Justificante de reserva') + ' ' + ref, lang); W = 595
     # Header
-    pg.rect(0, 742, W, 100, DEEP); pg.rect(0, 738, W, 4, SEA)
-    pg.text(40, 800, 'WORLDIVES DISCOVERY', 17, WHITE, True)
-    pg.text(40, 781, t('Justificante de reserva'), 11, (0.78, 0.88, 0.91), True)
+    pg.rect(0, 742, W, 100, DEEP); pg.rect(0, 738, W, 4, BRAND_PDF['turquesa'])
+    pdf_brand_icon(pg, 40, 763, 58)
+    pg.text(110, 800, 'WORLDIVES DISCOVERY', 17, WHITE, True)
+    pg.text(110, 781, t('Justificante de reserva'), 11, BRAND_PDF['agua'], True)
     pg.text(555, 806, t('Nº de reserva').upper(), 7, (0.70, 0.82, 0.86), align='right')
     pg.text(555, 786, ref, 17, WHITE, True, align='right')
     pg.text(555, 768, t('Emitido: {when}', when=_dt.datetime.now().strftime('%d/%m/%Y %H:%M')), 7.5, (0.70, 0.82, 0.86), align='right')
@@ -6761,9 +6825,9 @@ def diver_sheet_pdf(db,booking_id,base_url="http://localhost:8000",lang="es"):
     text=lambda x,y,s,size=10,color='0.04 0.17 0.24':d.text(x,y,s,size,col(color))
     def lv(x,y,label,value): text(x,y,label.upper(),7,'0.38 0.43 0.46'); text(x,y-13,d.fit(value,9,145),9,'0.04 0.17 0.24')
     box(24,24,547,794,'1 1 1','0.86 0.89 0.91',16)
-    box(24,748,547,70,'0.04 0.17 0.24',None,16)
-    text(46,790,'WORLDIVES DISCOVERY',21,'1 1 1')
-    text(46,773,'FICHA OPERATIVA DEL CENTRO',8,'0.78 0.88 0.91')
+    d.box(24,748,547,70,BRAND_PDF['abismo'],None,16); pdf_brand_icon(d,40,756,54)
+    text(104,790,'WORLDIVES DISCOVERY',21,'1 1 1')
+    text(104,773,'FICHA OPERATIVA DEL CENTRO',8,'%.3f %.3f %.3f' % BRAND_PDF['agua'])
     text(46,725,'FICHA DEL BUCEADOR',17,'0.04 0.17 0.24')
     text(46,705,b['fullname'],10,'0.38 0.43 0.46')
     box(42,610,511,72,'0.94 0.97 0.98',None,10)
@@ -7004,8 +7068,8 @@ def waiver_pdf(db, sig_id, lang='es'):
     T = lambda x: mail_t(lang, x)
     d = wpdf.Document(T('Descargo de responsabilidad'), lang)
     ink, muted = (0.04, 0.17, 0.24), (0.38, 0.43, 0.46)
-    d.box(24, 748, 547, 70, (0.04, 0.17, 0.24), None, 16)
-    d.text(46, 790, 'WORLDIVES DISCOVERY', 21, (1, 1, 1)); d.text(46, 773, T('DESCARGO FIRMADO').upper(), 8, (0.78, 0.88, 0.91))
+    d.box(24, 748, 547, 70, BRAND_PDF['abismo'], None, 16); pdf_brand_icon(d, 40, 756, 54)
+    d.text(104, 790, 'WORLDIVES DISCOVERY', 21, (1, 1, 1)); d.text(104, 773, T('DESCARGO FIRMADO').upper(), 8, BRAND_PDF['agua'])
     d.text(46, 722, d.fit(s['title'], 16, 500), 16, ink)
     meta = [(T('Centro'), s['provider_name'] or '—'), (T('Reserva'), f"WOD-{s['booking_id']:06d}"), (T('Actividad'), s['service_title'] or '—'),
             (T('Fecha'), mail_date(s['booking_date'], lang) + (' · ' + s['booking_time'] if s['booking_time'] else '')),
@@ -7637,7 +7701,7 @@ ERROR_MONITOR = wops.ErrorMonitor(_alert_errors)
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'WorldDivesLocal/8.0'
+    server_version = 'WORLDIVES'
     # A connection that stops sending data is dropped after 30 s instead of holding a worker forever.
     timeout = int(os.environ.get('WOD_SOCKET_TIMEOUT', '30'))
 
@@ -7696,10 +7760,10 @@ class Handler(BaseHTTPRequestHandler):
             link = f'{public_site_url()}/#/centro?id={pid}' if ptype == 'center' else f'{public_site_url()}/#/profesional?id={pid}'
             body = f'<p>{e(t("Este centro todavía no tiene reserva online."))}</p><a href="{e(link)}" target="_blank" rel="noopener">{e(t("Solicitar información"))}</a>'
         doc = f'''<!doctype html><html lang="{e(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(name)}</title>
-<style>body{{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#123142;background:#fff}}header{{padding:12px 14px;background:#07364a;color:#fff}}header b{{font-size:15px}}
+<style>body{{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#011C3C;background:#fff}}header{{padding:12px 14px;background:#011C3C;color:#fff}}header b{{font-size:15px}}
 main{{padding:10px 14px;display:grid;gap:10px}}article{{display:flex;gap:10px;justify-content:space-between;align-items:center;border:1px solid #dfe6e7;border-radius:10px;padding:10px 12px}}
-h2{{font-size:15px;margin:0}}p{{margin:2px 0;color:#5f717b}}ul{{margin:4px 0 0;padding-left:16px;color:#5f717b;font-size:12px}}a{{background:#0b7a89;color:#fff;text-decoration:none;font-weight:700;padding:9px 14px;border-radius:999px;white-space:nowrap}}
-footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none;color:#0b7a89;padding:0}}</style></head>
+h2{{font-size:15px;margin:0}}p{{margin:2px 0;color:#5f717b}}ul{{margin:4px 0 0;padding-left:16px;color:#5f717b;font-size:12px}}a{{background:#076898;color:#fff;text-decoration:none;font-weight:700;padding:9px 14px;border-radius:999px;white-space:nowrap}}
+footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none;color:#076898;padding:0}}</style></head>
 <body><header><b>{e(name)}</b></header><main>{body}</main><footer>{e(t("Reservas con"))} <a href="{e(public_site_url())}" target="_blank" rel="noopener">WORLDIVES DISCOVERY</a></footer></body></html>'''
         raw = doc.encode('utf-8')
         self.send_response(200); self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Content-Length', str(len(raw)))
@@ -8207,7 +8271,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     code=path.split('/')[3].upper()
                     row=db.execute('SELECT 1 FROM promotion_codes WHERE code=?',(code,)).fetchone()
                     if not row: self.send_error(404); return
-                    self.send_bytes(qr_svg(f'{self.base_url()}/#/promo/{code}','#07364a'),'image/svg+xml; charset=utf-8',cache='private, max-age=3600'); return
+                    self.send_bytes(qr_svg(f'{self.base_url()}/#/promo/{code}','#011C3C'),'image/svg+xml; charset=utf-8',cache='private, max-age=3600'); return
                 if path.startswith('/api/promo/'):
                     code=path.split('/')[3].upper(); viewer=current_user(self,db)
                     row=db.execute(PROMO_CODE_SQL,(code,)).fetchone()
@@ -10072,7 +10136,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         stripe=stripe_module()
                         sess=stripe.checkout.Session.create(mode='payment',
                             line_items=[{'price_data':{'currency':p['currency'].lower(),'product_data':{'name':f"WORLDIVES · {p['name']} · 12 meses"[:250],'description':provider_label(db,*ref)[:200]},
-                                                       'unit_amount':int(round(float(p['price_year'])*100))},'quantity':1}],
+                                                       'unit_amount':wmoney.to_minor(p['price_year'],p['currency'])},'quantity':1}],
                             success_url=f'{base}/#/mi-plan?pago={{CHECKOUT_SESSION_ID}}',cancel_url=f'{base}/#/mi-plan',
                             metadata={'kind':'plan_fee','plan_payment_id':str(pid_),'platform':'worldives'},client_reference_id=f'PLAN-{pid_}',
                             customer_email=user['email'] if mail_deliverable(user['email']) else None,locale='auto',idempotency_key=f'wod-plan-{pid_}')
@@ -11122,6 +11186,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if _pu: _rcp=[(_pu['email'],_pu['fullname'],user_lang(db,_pu['id']))]
                     for _em,_nm,_lg in _rcp: queue_email(db,'center_experience_request',_em,_nm,_pctx,_lg,('experience_booking',ebid))
                     audit(db,user['id'],'experience_booking_requested','experience_booking',ebid,{'experience_id':eid,'participants':participants}); db.commit(); self.send_json({'ok':True,'id':ebid,'payment_required':price>0,'price':price,'currency':exp['currency'] or 'EUR'}); return
+                if path=='/api/admin/demo/reset':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    if not wcfg.demo_mode(): self.send_json({'error':'Solo disponible en el entorno de pruebas.'},404); return
+                    db.commit(); reset_demo_database(); self.send_json({'ok':True,'message':'Datos de demostración restaurados. Vuelve a entrar con una cuenta de prueba.'}); return
                 if path=='/api/admin/travel-experiences/status':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); eid=int(data.get('id')); status=clean_text(data.get('status'),30)
                     if status not in {'published','rejected','pending'}: raise ValueError('Estado no válido.')
@@ -11594,7 +11662,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         self.send_response(200); self.send_header('Content-Type','application/json'); self.send_header('Set-Cookie',f'{COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax{secure}'); self.send_header('Content-Length',str(len(body))); self.security_headers(); self.end_headers(); self.wfile.write(body)
 
 
-class WorldivesHTTPServer(ThreadingHTTPServer):
+class WodHTTPServer(ThreadingHTTPServer):
     allow_reuse_port = False
 
     def server_bind(self):
@@ -11791,7 +11859,7 @@ def admin_health(db):
         du = shutil.disk_usage(DB_PATH.parent); disk = {'free_gb': round(du.free / 1e9, 1), 'used_pct': round(du.used * 100 / du.total, 1)}
     except OSError: disk = None
     counts = {r['status']: r['n'] for r in db.execute('SELECT status, COUNT(*) n FROM email_outbox GROUP BY status').fetchall()}
-    return {'version': APP_VERSION, 'uptime_s': int(time.time() - STARTED_AT), 'db_size_mb': round(DB_PATH.stat().st_size / 1e6, 2) if DB_PATH.exists() else 0,
+    return {'version': APP_VERSION, 'demo': wcfg.demo_mode(), 'uptime_s': int(time.time() - STARTED_AT), 'db_size_mb': round(DB_PATH.stat().st_size / 1e6, 2) if DB_PATH.exists() else 0,
             'quick_check': q('ops_quick_check'), 'backup_db': q('backup_last_db'), 'backup_files': q('backup_last_files'),
             'backup_external': bool(wcfg.env('WOD_BACKUP_COMMAND')), 'backup_enabled': wcfg.env('WOD_BACKUP', 'on').lower() != 'off',
             'email_queue': counts, 'errors_recent': len(getattr(ERROR_MONITOR, '_events', [])), 'disk': disk, 'workers': wcfg.env_int('WOD_WORKERS', 1, 1, 64),
@@ -11897,13 +11965,18 @@ def main():
         if problems:
             print('No se puede arrancar en producción:'); [print(' - ' + p) for p in problems]; raise SystemExit(2)
         for w in production_warnings(): print('Aviso: ' + w)
-    if not DB_PATH.exists() and not wcfg.is_production():
-        # Development and demo: start from the demo catalogue (production starts clean: tools/crear_base_produccion.py).
+    demo_problem = demo_guard()
+    if demo_problem: print('No se puede arrancar: ' + demo_problem); raise SystemExit(2)
+    if not DB_PATH.exists() and not os.environ.get('WOD_EMPTY_DB'):
+        # v50.45 (encargo 2b · bloque 1): the base is created on the first start. The production zip carries the
+        # catalogue of dive points (without centres, users or bookings) in data/seed/; development uses the demo.
+        seed = ROOT / 'data' / 'seed' / 'catalogo.sqlite3'
         demo = ROOT / 'data' / 'demo' / 'catalogo-demo.sqlite3'
-        if demo.exists() and not os.environ.get('WOD_EMPTY_DB'):
+        src = seed if seed.exists() else (demo if demo.exists() and not wcfg.is_production() else None)
+        if src:
             import shutil
-            DB_PATH.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(demo, DB_PATH)
-            print(f'Base nueva {DB_PATH} creada a partir del catálogo de demostración.')
+            DB_PATH.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(src, DB_PATH)
+            print(f'Base nueva {DB_PATH} creada a partir de {src.relative_to(ROOT)}.')
     bootstrap()
     print(f'WORLDIVES DISCOVERY v{APP_VERSION} -> http://127.0.0.1:{PORT}')
     # Optional multi-process mode (Linux/macOS): WOD_WORKERS=4 starts 4 processes sharing the port.
@@ -11912,11 +11985,11 @@ def main():
     reuse=workers>1 and hasattr(os,'fork') and hasattr(socket,'SO_REUSEPORT')
     if workers>1 and not reuse: print('WOD_WORKERS solo está disponible en Linux/macOS; se usa un único proceso.')
     if reuse:
-        WorldivesHTTPServer.allow_reuse_port=True
+        WodHTTPServer.allow_reuse_port=True
         for _ in range(workers-1):
             if os.fork()==0: break
     try:
-        s=WorldivesHTTPServer((HOST,PORT),Handler)
+        s=WodHTTPServer((HOST,PORT),Handler)
     except OSError as e:
         print(f'No se puede abrir el puerto {PORT}: {e}')
         raise

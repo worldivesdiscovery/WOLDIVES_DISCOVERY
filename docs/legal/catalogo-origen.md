@@ -6,8 +6,8 @@ Documento interno para el titular y su abogado. Explica de dónde viene cada dat
 
 | Origen (`source_name`) | Puntos | Campos que aporta | Textos |
 |---|---|---|---|
-| PADI / World Dives curated seed | 215 | nombre, país, región, coordenadas, tipo, profundidad mínima y máxima, dificultad | La descripción era una frase genérica propia («Ubicación de referencia de destino; pendiente de verificación por World Dives»). No había texto copiado. |
-| World Dives · catálogo inicial | 41 | nombre, país, región, coordenadas, tipo, dificultad | Frase genérica propia. Sin profundidades ni acceso verificados. |
+| PADI / WORLDIVES curated seed | 215 | nombre, país, región, coordenadas, tipo, profundidad mínima y máxima, dificultad | La descripción era una frase genérica propia («Ubicación de referencia de destino; pendiente de verificación por WORLDIVES»). No había texto copiado. |
+| WORLDIVES · catálogo inicial | 41 | nombre, país, región, coordenadas, tipo, dificultad | Frase genérica propia. Sin profundidades ni acceso verificados. |
 | Sin origen indicado (Costa Blanca) | 27 | nombre, región, coordenadas, tipo, profundidades, dificultad, acceso | Descripciones de 1–2 frases cuyo origen no consta: **podrían proceder de webs de centros o guías**. |
 
 **Datos factuales** (no protegidos por derechos de autor): nombre del punto, coordenadas, profundidades, tipo de inmersión, dificultad y forma de acceso. Se conservan.

@@ -175,7 +175,7 @@ def run(shots: Path | None):
             browser = chromium(p)
             ctx = browser.new_context(viewport={'width': 1280, 'height': 900}, locale='es-ES'); page = ctx.new_page()
             page.goto(srv.base + '/#/'); page.wait_for_load_state('networkidle'); page.wait_for_timeout(1500)
-            check('demo: cinta «Versión de demostración»', 'Versión de demostración' in page.inner_text('#demo-ribbon'))
+            check('demo: banda «Entorno de pruebas»', 'Entorno de pruebas' in page.inner_text('#demo-ribbon'))
             if shots: page.screenshot(path=str(shots / 'demo-cinta.png'))
             browser.close()
     finally:

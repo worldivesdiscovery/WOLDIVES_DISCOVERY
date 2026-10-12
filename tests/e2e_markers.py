@@ -63,10 +63,10 @@ def shoot(base, shots: Path, tag: str, results: list):
             page.evaluate("""()=>{ try{ const m=document.querySelector('#explore-map')._leaflet_id; }catch(e){} }""")
             for mode, label in (('street', 'mapa'), ('satellite', 'satelite')):
                 btn = page.locator(f'.map-toolbar button[data-mapmode="{mode}"]')
-                if btn.count() and btn.first.is_visible():
+                if btn.count() and btn.first.is_visible() and btn.first.is_enabled():
                     btn.first.click(); page.wait_for_timeout(700)
                 elif mode == 'satellite':
-                    continue   # satellite needs ARCGIS_API_KEY (Fase 5.10); without it the button is hidden
+                    continue   # satellite needs ARCGIS_API_KEY (Fase 5.10); without it the button is disabled (v50.43)
                 el = page.locator('#explore-map')
                 el.screenshot(path=str(shots / f'{tag}-{dev}-{label}-mundo.png'))
                 page.evaluate("()=>{ const L_=window.L; }")

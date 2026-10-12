@@ -13,7 +13,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Australia
@@ -26,7 +26,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Great Barrier Reef – Cod Hole (Great Barrier Reef) · #262
 
@@ -36,7 +36,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Great Barrier Reef (Queensland) · #38
 
@@ -56,7 +56,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Port Douglas – Agincourt Reef (Queensland) · #269
 
@@ -66,7 +66,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### SS Yongala (Queensland) · #264
 
@@ -76,7 +76,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Sydney – Gordon’s Bay (Sydney) · #267
 
@@ -86,7 +86,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Sydney – Magic Point (Sydney) · #268
 
@@ -96,7 +96,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Ningaloo – Muiron Islands (Western Australia) · #266
 
@@ -106,7 +106,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Ningaloo – Navy Pier (Western Australia) · #265
 
@@ -116,7 +116,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Bahamas
@@ -129,7 +129,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Bahamas – Dean’s Blue Hole (Long Island) · #241
 
@@ -139,7 +139,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Belice
@@ -152,7 +152,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Belize – Half Moon Caye Wall (Belize) · #243
 
@@ -162,7 +162,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Bonaire
@@ -185,7 +185,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Bonaire – Salt Pier (Bonaire) · #237
 
@@ -195,7 +195,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Brasil
@@ -208,7 +208,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Chipre
@@ -221,7 +221,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Amphorae Caves (Paphos) · #111
 
@@ -231,7 +231,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Colombia
@@ -244,7 +244,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Costa Rica
@@ -257,7 +257,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cocos Island – Dirty Rock (Isla del Coco) · #230
 
@@ -267,7 +267,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cocos Island – Manuelita (Isla del Coco) · #229
 
@@ -277,7 +277,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cocos Island (Puntarenas) · #39
 
@@ -300,7 +300,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Curazao
@@ -313,7 +313,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Curaçao – Tugboat (Curaçao) · #239
 
@@ -323,7 +323,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Dominica
@@ -336,7 +336,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Ecuador
@@ -359,7 +359,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Galápagos – Wolf Island (Galápagos) · #290
 
@@ -369,7 +369,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Egipto
@@ -382,7 +382,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Canyon Dahab (Dahab) · #248
 
@@ -392,7 +392,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Elphinstone Reef (Marsa Alam) · #249
 
@@ -402,7 +402,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Shaab Abu Dabab (Marsa Alam) · #253
 
@@ -412,7 +412,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Brothers Islands (Red Sea Offshore) · #251
 
@@ -422,7 +422,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Daedalus Reef (Red Sea Offshore) · #250
 
@@ -432,7 +432,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### SS Salem Express (Safaga) · #252
 
@@ -442,7 +442,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Ras Mohammed – Shark Reef (Sharm el-Sheikh) · #244
 
@@ -452,7 +452,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Ras Mohammed – Yolanda Reef (Sharm el-Sheikh) · #245
 
@@ -462,7 +462,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Blue Hole, Dahab (South Sinai) · #34
 
@@ -492,7 +492,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## España
@@ -565,7 +565,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cabo de Palos – Bajo de Piles (Cabo de Palos) · #87
 
@@ -575,7 +575,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cabo de Palos – Islas Hormigas (Cabo de Palos) · #89
 
@@ -585,7 +585,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### La Restinga, El Hierro (Canarias) · #8
 
@@ -1135,7 +1135,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cap de Creus (Costa Brava) · #105
 
@@ -1145,7 +1145,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### La Restinga – Baja de los Rosarios (El Hierro) · #95
 
@@ -1155,7 +1155,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### La Restinga – El Bajón (El Hierro) · #94
 
@@ -1165,7 +1165,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Islas Atlánticas, Galicia (Galicia) · #17
 
@@ -1205,7 +1205,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Es Vedrà (Ibiza) · #102
 
@@ -1215,7 +1215,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### La Llosa de Santa Eulalia (Ibiza) · #103
 
@@ -1225,7 +1225,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cala Blanca, Menorca (Illes Balears) · #11
 
@@ -1275,7 +1275,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Medes – La Vaca (Islas Medes) · #83
 
@@ -1285,7 +1285,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Medes – Tascons (Islas Medes) · #85
 
@@ -1295,7 +1295,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cueva de la Virgen (Lanzarote) · #97
 
@@ -1305,7 +1305,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### La Catedral (Lanzarote) · #91
 
@@ -1315,7 +1315,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Mala (Lanzarote) · #92
 
@@ -1325,7 +1325,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Puerto del Carmen – Playa Chica (Lanzarote) · #93
 
@@ -1335,7 +1335,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cala Figuera (Mallorca) · #101
 
@@ -1345,7 +1345,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### El Toro (Mallorca) · #100
 
@@ -1355,7 +1355,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Sa Dragonera (Mallorca) · #99
 
@@ -1365,7 +1365,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Bajo de Fuera (Murcia) · #86
 
@@ -1375,7 +1375,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cabo Tiñoso, Murcia (Región de Murcia) · #23
 
@@ -1415,7 +1415,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Punta de Teno (Tenerife) · #98
 
@@ -1425,7 +1425,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Estados Unidos
@@ -1438,7 +1438,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Molasses Reef (Florida Keys) · #216
 
@@ -1448,7 +1448,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### USNS Vandenberg (Florida Keys) · #217
 
@@ -1458,7 +1458,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Fiji
@@ -1471,7 +1471,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Fiji – Great White Wall (Taveuni) · #274
 
@@ -1481,7 +1481,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Fiji – Rainbow Reef (Vanua Levu) · #273
 
@@ -1491,7 +1491,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Filipinas
@@ -1504,7 +1504,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Anilao – Secret Bay (Batangas) · #139
 
@@ -1514,7 +1514,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Balicasag – Black Forest (Bohol) · #133
 
@@ -1524,7 +1524,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Balicasag – Cathedral (Bohol) · #134
 
@@ -1534,7 +1534,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Panglao – Napaling (Bohol) · #135
 
@@ -1544,7 +1544,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Boracay – Crocodile Island (Boracay) · #150
 
@@ -1554,7 +1554,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Boracay – Yapak (Boracay) · #149
 
@@ -1564,7 +1564,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Mactan – Hilutungan (Cebu) · #126
 
@@ -1574,7 +1574,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Mactan – Kontiki (Cebu) · #125
 
@@ -1584,7 +1584,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Moalboal – Sardine Run (Cebu) · #127
 
@@ -1594,7 +1594,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Oslob (Cebu) · #132
 
@@ -1604,7 +1604,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Pescador Island (Cebu) · #128
 
@@ -1614,7 +1614,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Subic Bay – Oryoku Maru (Luzon) · #148
 
@@ -1624,7 +1624,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Subic Bay – USS New York (Luzon) · #147
 
@@ -1634,7 +1634,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Gato Island (Malapascua) · #123
 
@@ -1644,7 +1644,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Kimud Shoal (Malapascua) · #122
 
@@ -1654,7 +1654,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Monad Shoal (Malapascua) · #121
 
@@ -1664,7 +1664,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Pasil Reef (Malapascua) · #124
 
@@ -1674,7 +1674,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Puerto Galera – Sabang Wrecks (Mindoro) · #137
 
@@ -1684,7 +1684,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Puerto Galera – The Canyons (Mindoro) · #136
 
@@ -1694,7 +1694,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Apo Island – Chapel (Negros) · #129
 
@@ -1704,7 +1704,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Apo Island – Cogon (Negros) · #130
 
@@ -1714,7 +1714,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Dauin – Dauin Sanctuary (Negros) · #131
 
@@ -1724,7 +1724,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Coron – Akitsushima (Palawan) · #142
 
@@ -1734,7 +1734,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Coron – Barracuda Lake (Palawan) · #140
 
@@ -1744,7 +1744,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Coron – Irako Wreck (Palawan) · #141
 
@@ -1754,7 +1754,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Coron – Skeleton Wreck (Palawan) · #143
 
@@ -1764,7 +1764,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### El Nido – Cadlao Lagoon (Palawan) · #146
 
@@ -1774,7 +1774,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Tubbataha – Amos Rock (Palawan) · #144
 
@@ -1784,7 +1784,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Tubbataha – Shark Airport (Palawan) · #145
 
@@ -1794,7 +1794,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Granada
@@ -1807,7 +1807,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Grecia
@@ -1820,7 +1820,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cavern of the Elephants (Creta) · #115
 
@@ -1830,7 +1830,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Myrmidon (Creta) · #114
 
@@ -1840,7 +1840,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Blue Caves Zakynthos (Zakynthos) · #113
 
@@ -1850,7 +1850,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Navagio (Zakynthos) · #112
 
@@ -1860,7 +1860,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Honduras
@@ -1873,7 +1873,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Roatan – West End Wall (Roatán) · #233
 
@@ -1883,7 +1883,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Indonesia
@@ -1896,7 +1896,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Amed – Jemeluk Bay (Bali – Amed) · #154
 
@@ -1906,7 +1906,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Menjangan – Eel Garden (Bali – Menjangan) · #159
 
@@ -1916,7 +1916,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Pemuteran – Bio Rock (Bali – Pemuteran) · #160
 
@@ -1926,7 +1926,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Bali – Seraya (Bali – Tulamben) · #175
 
@@ -1936,7 +1936,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Tulamben – Drop Off (Bali – Tulamben) · #152
 
@@ -1946,7 +1946,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Tulamben – Seraya (Bali – Tulamben) · #153
 
@@ -1956,7 +1956,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### USAT Liberty Wreck (Bali – Tulamben) · #151
 
@@ -1966,7 +1966,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Gili Air – Frogfish Point (Gili Islands) · #163
 
@@ -1976,7 +1976,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Gili Meno – Meno Wall (Gili Islands) · #162
 
@@ -1986,7 +1986,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Gili Trawangan – Shark Point (Gili Islands) · #161
 
@@ -1996,7 +1996,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Komodo – Batu Bolong (Komodo) · #164
 
@@ -2006,7 +2006,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Komodo – Castle Rock (Komodo) · #166
 
@@ -2016,7 +2016,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Komodo – Manta Point (Komodo) · #165
 
@@ -2026,7 +2026,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Lembeh – Hairball (Lembeh) · #170
 
@@ -2036,7 +2036,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Lembeh – Nudi Falls (Lembeh) · #171
 
@@ -2046,7 +2046,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Bunaken – Lekuan (Manado) · #172
 
@@ -2056,7 +2056,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Bangka Island – Sahaung (North Sulawesi) · #173
 
@@ -2066,7 +2066,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Nusa Penida – Crystal Bay (Nusa Penida) · #157
 
@@ -2076,7 +2076,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Nusa Penida – Manta Point (Nusa Penida) · #156
 
@@ -2086,7 +2086,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Nusa Penida – SD Point (Nusa Penida) · #158
 
@@ -2096,7 +2096,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Weh Island – Rubiah Sea Garden (Pulau Weh) · #174
 
@@ -2106,7 +2106,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Raja Ampat – Blue Magic (Raja Ampat) · #168
 
@@ -2116,7 +2116,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Raja Ampat – Cape Kri (Raja Ampat) · #167
 
@@ -2126,7 +2126,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Raja Ampat – Manta Sandy (Raja Ampat) · #169
 
@@ -2136,7 +2136,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Islas Caimán
@@ -2149,7 +2149,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cayman – Bloody Bay Wall (Little Cayman) · #235
 
@@ -2159,7 +2159,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Italia
@@ -2172,7 +2172,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Sardinia – Tavolara (Cerdeña) · #117
 
@@ -2182,7 +2182,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Portofino – Christ of the Abyss (Liguria) · #119
 
@@ -2192,7 +2192,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Ustica – Secca della Colombara (Sicilia) · #118
 
@@ -2202,7 +2202,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Japón
@@ -2215,7 +2215,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Ishigaki – Manta Scramble (Okinawa) · #281
 
@@ -2225,7 +2225,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Okinawa – Blue Cave (Okinawa) · #282
 
@@ -2235,7 +2235,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Yonaguni – Monument (Yonaguni) · #280
 
@@ -2245,7 +2245,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Malasia
@@ -2258,7 +2258,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Tunku Abdul Rahman – Sapi (Kota Kinabalu) · #189
 
@@ -2268,7 +2268,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Layang-Layang – The Point (Layang-Layang) · #187
 
@@ -2278,7 +2278,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Mabul – Lobster Point (Mabul) · #179
 
@@ -2288,7 +2288,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Mabul – Paradise Reef (Mabul) · #180
 
@@ -2298,7 +2298,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Perhentian – Shark Point (Perhentian) · #183
 
@@ -2308,7 +2308,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Perhentian – Tokong Laut (Perhentian) · #182
 
@@ -2318,7 +2318,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Redang – Tanjung Mak Chincang (Redang) · #184
 
@@ -2328,7 +2328,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Mabul-style muck site (Sabah) · #284
 
@@ -2338,7 +2338,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Miri – Eve’s Garden (Sarawak) · #188
 
@@ -2348,7 +2348,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Sipadan – Barracuda Point (Sipadan) · #176
 
@@ -2358,7 +2358,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Sipadan – Drop Off (Sipadan) · #177
 
@@ -2368,7 +2368,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Sipadan – Hanging Gardens (Sipadan) · #178
 
@@ -2378,7 +2378,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Tioman – Chebeh Island (Tioman) · #186
 
@@ -2388,7 +2388,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Tioman – Renggis Island (Tioman) · #185
 
@@ -2398,7 +2398,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Maldivas
@@ -2421,7 +2421,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Manta Point – Hanifaru (Baa Atoll) · #209
 
@@ -2431,7 +2431,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Kuredu Caves (Lhaviyani Atoll) · #211
 
@@ -2441,7 +2441,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Kuredu Express (Lhaviyani Atoll) · #210
 
@@ -2451,7 +2451,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Fish Head (North Ari Atoll) · #204
 
@@ -2461,7 +2461,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Banana Reef (North Male Atoll) · #206
 
@@ -2471,7 +2471,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### HP Reef (North Male Atoll) · #207
 
@@ -2481,7 +2481,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Kuda Haa (North Male Atoll) · #208
 
@@ -2491,7 +2491,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Manta Point – Lankanfinolhu (North Male Atoll) · #205
 
@@ -2501,7 +2501,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Maaya Thila (South Ari Atoll) · #203
 
@@ -2511,7 +2511,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Fotteyo Kandu (Vaavu Atoll) · #212
 
@@ -2521,7 +2521,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Miyaru Kandu (Vaavu Atoll) · #213
 
@@ -2531,7 +2531,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Malta
@@ -2544,7 +2544,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Blue Hole Gozo (Gozo) · #106
 
@@ -2554,7 +2554,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Inland Sea Gozo (Gozo) · #107
 
@@ -2564,7 +2564,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cirkewwa (Malta) · #109
 
@@ -2574,7 +2574,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Mauricio
@@ -2587,7 +2587,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Micronesia
@@ -2600,7 +2600,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Truk Lagoon – Shinkoku Maru (Chuuk) · #278
 
@@ -2610,7 +2610,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Mozambique
@@ -2623,7 +2623,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## México
@@ -2636,7 +2636,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### La Paz – Los Islotes (Baja California Sur) · #227
 
@@ -2646,7 +2646,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cabo San Lucas – Pelican Rock (Cabo San Lucas) · #226
 
@@ -2656,7 +2656,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Musa – Museo Subacuático (Cancún) · #225
 
@@ -2666,7 +2666,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cozumel – Palancar Gardens (Cozumel) · #219
 
@@ -2676,7 +2676,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cozumel – Punta Sur (Cozumel) · #221
 
@@ -2686,7 +2686,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cozumel – Santa Rosa Wall (Cozumel) · #220
 
@@ -2696,7 +2696,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Playa del Carmen – Tortugas (Riviera Maya) · #222
 
@@ -2706,7 +2706,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cenote Dos Ojos (Tulum) · #223
 
@@ -2716,7 +2716,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cenote Tajma Ha (Tulum) · #224
 
@@ -2726,7 +2726,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Cenotes de Yucatán (Yucatán) · #41
 
@@ -2749,7 +2749,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Palau – Chandelier Cave (Palau) · #272
 
@@ -2759,7 +2759,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Palau – German Channel (Palau) · #271
 
@@ -2769,7 +2769,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Polinesia Francesa
@@ -2782,7 +2782,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Rangiroa – Tiputa Pass (Tuamotu) · #275
 
@@ -2792,7 +2792,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Seychelles
@@ -2805,7 +2805,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Sri Lanka
@@ -2818,7 +2818,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Trincomalee – Swami Rock (Trincomalee) · #288
 
@@ -2828,7 +2828,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Sudáfrica
@@ -2841,7 +2841,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Aliwal Shoal – Raggies Cave (KwaZulu-Natal) · #255
 
@@ -2851,7 +2851,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Sodwana Bay – 2 Mile Reef (KwaZulu-Natal) · #256
 
@@ -2861,7 +2861,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Tailandia
@@ -2874,7 +2874,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Koh Lanta – Hin Daeng (Koh Lanta) · #199
 
@@ -2884,7 +2884,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Koh Lanta – Hin Muang (Koh Lanta) · #200
 
@@ -2894,7 +2894,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Koh Tachai – Twin Peaks (Koh Tachai) · #194
 
@@ -2904,7 +2904,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Koh Tao – Chumphon Pinnacle (Koh Tao) · #195
 
@@ -2914,7 +2914,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Koh Tao – Japanese Gardens (Koh Tao) · #197
 
@@ -2924,7 +2924,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Koh Tao – Sail Rock (Koh Tao) · #196
 
@@ -2934,7 +2934,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Koh Phi Phi – Bida Nok (Phi Phi) · #198
 
@@ -2944,7 +2944,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Phuket – Anemone Reef (Phuket) · #202
 
@@ -2954,7 +2954,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Phuket – Shark Point (Phuket) · #201
 
@@ -2964,7 +2964,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Similan – East of Eden (Similan) · #192
 
@@ -2974,7 +2974,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Similan – Elephant Head Rock (Similan) · #191
 
@@ -2984,7 +2984,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Similan – Richelieu Rock (Similan) · #190
 
@@ -2994,7 +2994,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Taiwán
@@ -3007,7 +3007,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Green Island (Northeast Coast) · #285
 
@@ -3017,7 +3017,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Tanzania
@@ -3030,7 +3030,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 ### Mnemba Atoll (Zanzibar) · #258
 
@@ -3040,7 +3040,7 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
 
 ## Venezuela
@@ -3053,5 +3053,5 @@ Confirma con el centro las condiciones del día antes de bucear.
 
 [Faltan: qué se ve (fondo y vida marina), acceso]
 
-> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por World Dives.
+> Texto anterior: Ubicación de referencia de destino; pendiente de verificación por WORLDIVES.
 
