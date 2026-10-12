@@ -1,0 +1,26 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Maqueta · Planning del centro, mes</title><link rel="stylesheet" href="maqueta.css"></head><body>
+<div class="top"><b>WORLDIVES</b><nav><span>Resumen</span><span class="on">Planning</span><span>Reservas</span><span>Servicios</span><span>Equipo</span></nav></div>
+<main class="page">
+ <div class="row" style="justify-content:space-between"><div><p class="eyebrow">Panel del centro · Buceo Medas</p><h1>Planning</h1></div>
+  <div class="row"><div class="tabs"><span class="on">Mes</span><span>Día</span><span>Recursos</span><span>Lista</span></div><span class="btn btn-primary">+ Nuevo</span></div></div>
+ <div class="row" style="margin:12px 0"><span class="btn btn-sm">‹</span><strong>junio 2027</strong><span class="btn btn-sm">›</span>
+  <span class="hide-m" style="flex:1"></span><select class="btn btn-sm"><option>Todos los instructores</option></select><select class="btn btn-sm"><option>Todos los barcos</option></select><select class="btn btn-sm"><option>Todos los tipos</option></select></div>
+ <div class="pmbox"><div class="pmhead"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div><div id="m"></div></div>
+ <div class="legend"><span><i class="c-ow"></i>Open Water</span><span><i class="c-adv"></i>Advanced</span><span><i class="c-res"></i>Rescue</span><span><i style="background:#eef4f6;border-left:4px solid #2563eb"></i>Salidas de un día (como hasta ahora)</span></div>
+</main><span class="mk-tag">MAQUETA A1 · no funcional</span>
+<script>
+// June 2027 starts on Tuesday
+const bars=[[7,9,'c-ow','Open Water · 6/8 · Laura'],[8,11,'c-adv','Advanced · 4/6 · Marc'],[14,16,'c-ow','Open Water · 8/8 · Laura'],[17,20,'c-res','Rescue · 3/6 · Marc'],[21,23,'c-ow','Open Water · 5/8 · Iván'],[24,25,'c-adv','Advanced · 2/6 · Laura'],[28,30,'c-ow','Open Water · 2/8 · Laura']];
+const singles={2:['09:00 Doble Medas 10/12'],3:['09:00 Doble Medas 8/12'],5:['09:00 Doble 12/12','17:00 Snorkel 6/10'],6:['09:00 Doble 9/12'],12:['09:00 Doble 11/12','21:00 Nocturna 4/8'],13:['09:00 Doble 7/12'],19:['09:00 Doble 12/12'],26:['09:00 Doble 10/12','17:00 Snorkel 3/10'],27:['09:00 Doble 6/12']};
+let h=''; const lead=1, days=30; let day=1-lead;
+while(day<=days){ let w='<div class="pmw"><div style="grid-column:1;grid-row:1;height:24px"></div>'; const ws=day;
+ for(let c=0;c<7;c++){ const d=day+c; w+=`<div class="dc${d<1||d>days?' o':''}${d===8?' today':''}" style="grid-column:${c+1}"><span class="n">${d>=1&&d<=days?d:''}</span></div>`; }
+ let row=2; bars.forEach(([a,b,cls,t])=>{ const s=Math.max(a,ws), e=Math.min(b,ws+6); if(s>e) return; w+=`<div class="b ${cls}" style="grid-column:${s-ws+1}/${e-ws+2};grid-row:${row}">${s===a?'':'… '}${t}</div>`; row++; });
+ for(let c=0;c<7;c++){ const d=day+c; (singles[d]||[]).forEach((t,i)=>{ w+=`<div class="s" style="grid-column:${c+1};grid-row:${row+i}">${t}</div>`; }); }
+ w=w.replace(/grid-row:1\/span 4/g,''); h+=w+'</div>'; day+=7; }
+document.getElementById('m').innerHTML=h;
+document.querySelectorAll('.pmw').forEach(w=>{ const rows=Math.max(4,[...w.children].reduce((m,e)=>Math.max(m,+(e.style.gridRow||1)),1)); w.querySelectorAll('.dc').forEach(dc=>dc.style.gridRow=`1/${rows+2}`); w.querySelectorAll('.b,.s').forEach(e=>{}); });
+// day numbers sit in row 1: push events below
+document.querySelectorAll('.pmw .b,.pmw .s').forEach(e=>{ e.style.marginTop='0'; });
+</script>
+</body></html>

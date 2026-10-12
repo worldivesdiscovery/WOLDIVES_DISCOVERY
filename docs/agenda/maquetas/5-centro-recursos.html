@@ -1,0 +1,24 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Maqueta · Vista por recursos</title><link rel="stylesheet" href="maqueta.css"></head><body>
+<div class="top"><b>WORLDIVES</b><nav><span>Resumen</span><span class="on">Planning</span><span>Reservas</span><span>Servicios</span><span>Equipo</span></nav></div>
+<main class="page">
+ <div class="row" style="justify-content:space-between"><div><p class="eyebrow">Panel del centro</p><h1>Recursos</h1><p class="muted" style="margin:0">Quién está ocupado y dónde hay hueco. Toca un hueco para crear una salida o un curso con ese recurso.</p></div>
+  <div class="row"><div class="tabs"><span>Mes</span><span>Día</span><span class="on">Recursos</span><span>Lista</span></div></div></div>
+ <div class="row" style="margin:12px 0"><span class="btn btn-sm">‹</span><strong>7 – 13 de junio de 2027</strong><span class="btn btn-sm">›</span><select class="btn btn-sm"><option>Instructores y barcos</option></select></div>
+ <div style="overflow-x:auto"><div class="rs" id="r" style="min-width:860px"></div></div>
+ <div class="legend"><span><i class="c-ow"></i>Open Water</span><span><i class="c-adv"></i>Advanced</span><span><i class="c-dive"></i>Salidas</span><span><i style="background:repeating-linear-gradient(135deg,#d9dfe1 0 4px,#e8ecee 4px 8px)"></i>Vacaciones / no disponible</span><span><i style="outline:2px dashed var(--sea)"></i>Hueco: tócalo para crear</span></div>
+ <div class="card" style="margin-top:14px;max-width:520px"><p class="eyebrow">Hueco · Iván · jueves 10</p><h3>Crear con Iván ya asignado</h3><div class="row"><span class="btn btn-primary btn-sm">Salida de un día</span><span class="btn btn-sm">Convocatoria de curso</span><span class="btn btn-sm">Bloquear</span></div></div>
+</main><span class="mk-tag">MAQUETA A1 · no funcional</span>
+<script>
+const days=['Lun 7','Mar 8','Mié 9','Jue 10','Vie 11','Sáb 12','Dom 13'];
+const res=[['Laura','Instructora',{0:['c-ow','OW día 1 · teoría + piscina'],1:['c-ow','OW día 2 · mar 8:30'],2:['c-ow','OW día 3 · mar 8:30'],5:['c-dive','Doble 9:00']}],
+ ['Marc','Instructor',{1:['c-adv','Advanced día 1'],2:['c-adv','Advanced día 2'],3:['c-adv','Advanced día 3'],4:['c-adv','Advanced día 4']}],
+ ['Iván','Instructor',{1:['c-dive','Doble 9:00 · Nitrox 15:00 · Snorkel 17:00'],5:['c-dive','Nocturna 21:00'],6:['c-dive','Doble 9:00']}],
+ ['Sara','Instructora',{0:['vac','Vacaciones'],1:['vac','Vacaciones'],2:['vac','Vacaciones'],3:['vac','Vacaciones'],4:['vac','Vacaciones']}],
+ ['Neptuno','Barco · 12 personas',{1:['c-ow','8:30 OW + Advanced · 13/12 ⚠'],2:['c-ow','8:30 OW + Adv · 9/12'],5:['c-dive','9:00 Doble 11/12']}],
+ ['Tritón','Barco · 10 personas',{1:['c-dive','9:00 Doble · 10/10'],6:['c-dive','9:00 Doble · 6/10']}]];
+const r=document.getElementById('r'); r.style.gridTemplateColumns='150px repeat(7,1fr)';
+let h='<div class="rh">Recurso</div>'+days.map(d=>`<div class="rh">${d}</div>`).join('');
+res.forEach(([n,k,c])=>{ h+=`<div class="rn"><div class="avatar" style="width:30px;height:30px;font-size:12px">${n[0]}</div><div>${n}<small>${k}</small></div></div>`;
+ for(let i=0;i<7;i++){ const b=c[i]; h+= b?`<div><div class="blk ${b[0]==='vac'?'vac':b[0]}">${b[1]}</div></div>`:`<div class="free"></div>`; } });
+r.innerHTML=h;
+</script></body></html>

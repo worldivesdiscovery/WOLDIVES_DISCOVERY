@@ -1,0 +1,26 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Maqueta · Agenda del freelance</title><link rel="stylesheet" href="maqueta.css"><script src="cal.js"></script></head><body>
+<div class="top"><b>WORLDIVES</b><nav><span>Resumen</span><span class="on">Agenda</span><span>Solicitudes <span class="chip warn">2</span></span><span>Servicios</span><span>Cobros</span></nav></div>
+<main class="page">
+ <div class="row" style="justify-content:space-between"><div><p class="eyebrow">Panel profesional</p><h1>Mi agenda</h1><p class="muted" style="margin:0">Horario habitual: lunes a sábado · Cerrado del 10 al 31 de enero · Horario de Cancún</p></div>
+  <div class="row"><div class="tabs"><span class="on">Mes</span><span>Lista</span></div><span class="btn">Horario y temporadas</span><span class="btn">Calendario iCal</span></div></div>
+ <div class="grid2" style="margin-top:16px">
+  <div class="card">
+   <div class="row" style="justify-content:space-between"><h2>noviembre 2026</h2><span class="muted" style="font-size:13px">Toca un día libre para bloquearlo</span></div>
+   <table class="cal" id="c"></table>
+   <div class="legend"><span><i style="background:var(--deep)"></i>Reserva confirmada</span><span><i style="background:repeating-linear-gradient(135deg,var(--busy-soft) 0 4px,#fbe9e7 4px 8px)"></i>Bloqueado por ti</span><span><i style="background:var(--warn-soft)"></i>Solicitudes sin responder</span><span><i style="background:#eef1f1"></i>No trabajas (domingo)</span></div>
+  </div>
+  <div>
+   <div class="card"><p class="eyebrow">Jueves 5 – viernes 6</p><h3>Cenotes por días · Ana Ruiz · 2 personas</h3>
+    <p class="muted" style="margin:0 0 8px">Confirmada · Pagado 360 € · «Somos principiantes en cenotes, nos gustaría ir despacio.»</p>
+    <div class="row"><span class="chip ok">Pagado</span><span class="chip">Hotel Aldea, Tulum</span></div>
+    <div class="row" style="margin-top:12px"><span class="btn btn-sm">Ver reserva</span><span class="btn btn-sm">Cambiar fecha</span></div></div>
+   <div class="card" style="margin-top:12px"><p class="eyebrow">Solicitudes para el 16–18</p>
+    <div class="note">2 solicitudes piden estos días. Si confirmas la de <b>Marc</b>, la de <b>Lucía</b> se rechazará sola con el aviso «Esas fechas ya no están disponibles. Mira otras fechas de Tito».</div>
+    <div class="row" style="margin-top:10px"><span class="btn btn-primary btn-sm">Confirmar a Marc (3 días)</span><span class="btn btn-sm">Rechazar</span></div><p class="muted" style="font-size:12px;margin:8px 0 0">Responde antes del 13/11 a las 10:00</p></div>
+   <div class="card" style="margin-top:12px"><p class="eyebrow">Martes 24 – jueves 26</p><h3>Bloqueado por ti</h3><p class="muted" style="margin:0">El público solo ve «ocupado», nunca el motivo.</p><div class="row" style="margin-top:10px"><span class="btn btn-sm">Desbloquear</span></div></div>
+  </div>
+ </div>
+</main><span class="mk-tag">MAQUETA A1 · no funcional</span>
+<script>drawMonth(document.getElementById('c'),2026,11,{1:'past',8:'past',15:'past',22:'past',29:'past',5:'sel',6:'sel',11:'am',16:'pend',17:'pend',18:'pend',20:'pm',24:'blocked',25:'blocked',26:'blocked'},{5:'Ana · 2',6:'Ana · 2',11:'mañana · Leo',16:'2 solic.',17:'2 solic.',18:'2 solic.',20:'tarde · Kim',24:'bloqueado',25:'bloqueado',26:'bloqueado'});
+document.querySelectorAll('td.pend').forEach(t=>{t.style.background='var(--warn-soft)';t.style.color='var(--warn)'});</script>
+</body></html>
