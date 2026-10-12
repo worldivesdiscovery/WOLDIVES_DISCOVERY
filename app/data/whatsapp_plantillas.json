@@ -1,0 +1,273 @@
+{
+ "_nota": "Plantillas de WhatsApp (categoría UTILIDAD) que WORLDIVES crea en la cuenta de WhatsApp Business de cada centro al conectarla. {{n}} son variables que rellena el servidor. Cambiar un texto obliga a crear la plantilla de nuevo y a que Meta la apruebe otra vez.",
+ "slot_cancelled": {
+  "example": [
+   "Centro de Buceo Pruebas",
+   "sábado 14/11",
+   "09:00",
+   "mal tiempo",
+   "Te devolvemos el importe íntegro."
+  ],
+  "body": {
+   "es": "Hola. {{1}} ha cancelado tu salida del {{2}} a las {{3}}. Motivo: {{4}}. {{5}} Abre tu reserva con el botón para ver los detalles.",
+   "en": "Hello. {{1}} has cancelled your trip on {{2}} at {{3}}. Reason: {{4}}. {{5}} Open your booking with the button to see the details.",
+   "fr": "Bonjour. {{1}} a annulé votre sortie du {{2}} à {{3}}. Motif : {{4}}. {{5}} Ouvrez votre réservation avec le bouton pour voir les détails.",
+   "de": "Hallo. {{1}} hat deine Ausfahrt am {{2}} um {{3}} abgesagt. Grund: {{4}}. {{5}} Öffne deine Buchung über die Schaltfläche, um die Details zu sehen.",
+   "it": "Ciao. {{1}} ha annullato la tua uscita del {{2}} alle {{3}}. Motivo: {{4}}. {{5}} Apri la tua prenotazione con il pulsante per vedere i dettagli.",
+   "pt": "Olá. {{1}} cancelou a tua saída de {{2}} às {{3}}. Motivo: {{4}}. {{5}} Abre a tua reserva com o botão para ver os detalhes.",
+   "nl": "Hallo. {{1}} heeft je uitvaart van {{2}} om {{3}} geannuleerd. Reden: {{4}}. {{5}} Open je boeking met de knop om de details te zien.",
+   "pl": "Dzień dobry. {{1}} odwołał Twoje wyjście w dniu {{2}} o {{3}}. Powód: {{4}}. {{5}} Otwórz rezerwację przyciskiem, aby zobaczyć szczegóły.",
+   "zh": "您好。{{1}} 已取消您于 {{2}}（{{3}}）的出海潜水。原因：{{4}}。{{5}} 请点击按钮打开您的预订查看详情。"
+  },
+  "button": {
+   "es": "Ver mi reserva",
+   "en": "See my booking",
+   "fr": "Voir ma réservation",
+   "de": "Meine Buchung",
+   "it": "Vedi la prenotazione",
+   "pt": "Ver a minha reserva",
+   "nl": "Mijn boeking",
+   "pl": "Moja rezerwacja",
+   "zh": "查看我的预订"
+  }
+ },
+ "slot_changed": {
+  "example": [
+   "Centro de Buceo Pruebas",
+   "sábado 14/11",
+   "nueva hora 10:30, punto de encuentro Puerto de Xàbia"
+  ],
+  "body": {
+   "es": "Hola. {{1}} ha cambiado tu salida del {{2}}: {{3}}. Abre tu reserva con el botón para ver los detalles.",
+   "en": "Hello. {{1}} has changed your trip on {{2}}: {{3}}. Open your booking with the button to see the details.",
+   "fr": "Bonjour. {{1}} a modifié votre sortie du {{2}} : {{3}}. Ouvrez votre réservation avec le bouton pour voir les détails.",
+   "de": "Hallo. {{1}} hat deine Ausfahrt am {{2}} geändert: {{3}}. Öffne deine Buchung über die Schaltfläche, um die Details zu sehen.",
+   "it": "Ciao. {{1}} ha modificato la tua uscita del {{2}}: {{3}}. Apri la tua prenotazione con il pulsante per vedere i dettagli.",
+   "pt": "Olá. {{1}} alterou a tua saída de {{2}}: {{3}}. Abre a tua reserva com o botão para ver os detalhes.",
+   "nl": "Hallo. {{1}} heeft je uitvaart van {{2}} gewijzigd: {{3}}. Open je boeking met de knop om de details te zien.",
+   "pl": "Dzień dobry. {{1}} zmienił Twoje wyjście w dniu {{2}}: {{3}}. Otwórz rezerwację przyciskiem, aby zobaczyć szczegóły.",
+   "zh": "您好。{{1}} 已更改您 {{2}} 的出海潜水：{{3}}。请点击按钮打开您的预订查看详情。"
+  },
+  "button": {
+   "es": "Ver mi reserva",
+   "en": "See my booking",
+   "fr": "Voir ma réservation",
+   "de": "Meine Buchung",
+   "it": "Vedi la prenotazione",
+   "pt": "Ver a minha reserva",
+   "nl": "Mijn boeking",
+   "pl": "Moja rezerwacja",
+   "zh": "查看我的预订"
+  }
+ },
+ "reminder": {
+  "example": [
+   "Centro de Buceo Pruebas",
+   "sábado 14/11",
+   "09:00",
+   "Puerto de Xàbia",
+   "titulación, toalla y protector solar"
+  ],
+  "body": {
+   "es": "Hola. Te recordamos tu salida con {{1}} mañana, {{2}}, a las {{3}}. Punto de encuentro: {{4}}. Qué llevar: {{5}}. Si no puedes venir, contesta a este mensaje.",
+   "en": "Hello. A reminder of your trip with {{1}} tomorrow, {{2}}, at {{3}}. Meeting point: {{4}}. What to bring: {{5}}. If you cannot come, reply to this message.",
+   "fr": "Bonjour. Nous vous rappelons votre sortie avec {{1}} demain, {{2}}, à {{3}}. Point de rendez-vous : {{4}}. À apporter : {{5}}. Si vous ne pouvez pas venir, répondez à ce message.",
+   "de": "Hallo. Wir erinnern dich an deine Ausfahrt mit {{1}} morgen, {{2}}, um {{3}}. Treffpunkt: {{4}}. Mitbringen: {{5}}. Wenn du nicht kommen kannst, antworte auf diese Nachricht.",
+   "it": "Ciao. Ti ricordiamo la tua uscita con {{1}} domani, {{2}}, alle {{3}}. Punto d’incontro: {{4}}. Cosa portare: {{5}}. Se non puoi venire, rispondi a questo messaggio.",
+   "pt": "Olá. Lembramos a tua saída com {{1}} amanhã, {{2}}, às {{3}}. Ponto de encontro: {{4}}. O que levar: {{5}}. Se não puderes vir, responde a esta mensagem.",
+   "nl": "Hallo. We herinneren je aan je uitvaart met {{1}} morgen, {{2}}, om {{3}}. Verzamelpunt: {{4}}. Meenemen: {{5}}. Kun je niet komen, antwoord dan op dit bericht.",
+   "pl": "Dzień dobry. Przypominamy o wyjściu z {{1}} jutro, {{2}}, o {{3}}. Miejsce zbiórki: {{4}}. Co zabrać: {{5}}. Jeśli nie możesz przyjść, odpowiedz na tę wiadomość.",
+   "zh": "您好。提醒您明天与 {{1}} 的出海潜水：{{2}}，{{3}}。集合地点：{{4}}。请携带：{{5}}。如果无法前来，请回复此消息。"
+  },
+  "button": {
+   "es": "Ver mi reserva",
+   "en": "See my booking",
+   "fr": "Voir ma réservation",
+   "de": "Meine Buchung",
+   "it": "Vedi la prenotazione",
+   "pt": "Ver a minha reserva",
+   "nl": "Mijn boeking",
+   "pl": "Moja rezerwacja",
+   "zh": "查看我的预订"
+  },
+  "map_button": {
+   "es": "Cómo llegar",
+   "en": "Directions",
+   "fr": "Itinéraire",
+   "de": "Route",
+   "it": "Indicazioni",
+   "pt": "Como chegar",
+   "nl": "Route",
+   "pl": "Dojazd",
+   "zh": "路线"
+  }
+ },
+ "textos": {
+  "_nota": "Textos que el servidor pone en las variables de las plantillas y en los avisos de la app, en el idioma de cada buceador.",
+  "reason_weather": {
+   "es": "mal tiempo",
+   "en": "bad weather",
+   "fr": "mauvais temps",
+   "de": "schlechtes Wetter",
+   "it": "maltempo",
+   "pt": "mau tempo",
+   "nl": "slecht weer",
+   "pl": "zła pogoda",
+   "zh": "天气恶劣"
+  },
+  "reason_sea": {
+   "es": "estado del mar",
+   "en": "sea conditions",
+   "fr": "état de la mer",
+   "de": "Seegang",
+   "it": "condizioni del mare",
+   "pt": "estado do mar",
+   "nl": "zeegang",
+   "pl": "stan morza",
+   "zh": "海况不佳"
+  },
+  "reason_boat": {
+   "es": "avería del barco",
+   "en": "boat breakdown",
+   "fr": "panne du bateau",
+   "de": "Bootsschaden",
+   "it": "guasto della barca",
+   "pt": "avaria do barco",
+   "nl": "motorpech van de boot",
+   "pl": "awaria łodzi",
+   "zh": "船只故障"
+  },
+  "reason_other": {
+   "es": "otro motivo",
+   "en": "another reason",
+   "fr": "autre motif",
+   "de": "anderer Grund",
+   "it": "altro motivo",
+   "pt": "outro motivo",
+   "nl": "andere reden",
+   "pl": "inny powód",
+   "zh": "其他原因"
+  },
+  "money_refund": {
+   "es": "Te devolvemos {amount} a la misma tarjeta.",
+   "en": "We are refunding {amount} to the same card.",
+   "fr": "Nous vous remboursons {amount} sur la même carte.",
+   "de": "Wir erstatten dir {amount} auf dieselbe Karte.",
+   "it": "Ti rimborsiamo {amount} sulla stessa carta.",
+   "pt": "Devolvemos-te {amount} no mesmo cartão.",
+   "nl": "We betalen {amount} terug op dezelfde kaart.",
+   "pl": "Zwracamy {amount} na tę samą kartę.",
+   "zh": "我们会将 {amount} 退回到同一张银行卡。"
+  },
+  "money_choice": {
+   "es": "Puedes elegir otra fecha o la devolución íntegra de {amount}.",
+   "en": "You can choose another date or a full refund of {amount}.",
+   "fr": "Vous pouvez choisir une autre date ou le remboursement intégral de {amount}.",
+   "de": "Du kannst einen anderen Termin oder die volle Erstattung von {amount} wählen.",
+   "it": "Puoi scegliere un'altra data o il rimborso completo di {amount}.",
+   "pt": "Podes escolher outra data ou o reembolso total de {amount}.",
+   "nl": "Je kunt een andere datum kiezen of het volledige bedrag van {amount} terugkrijgen.",
+   "pl": "Możesz wybrać inny termin lub pełny zwrot {amount}.",
+   "zh": "您可以选择其他日期，或全额退款 {amount}。"
+  },
+  "money_choice_free": {
+   "es": "Puedes elegir otra fecha o anular la reserva sin coste.",
+   "en": "You can choose another date or cancel the booking at no cost.",
+   "fr": "Vous pouvez choisir une autre date ou annuler la réservation sans frais.",
+   "de": "Du kannst einen anderen Termin wählen oder kostenlos stornieren.",
+   "it": "Puoi scegliere un'altra data o annullare la prenotazione senza costi.",
+   "pt": "Podes escolher outra data ou anular a reserva sem custos.",
+   "nl": "Je kunt een andere datum kiezen of de boeking kosteloos annuleren.",
+   "pl": "Możesz wybrać inny termin lub anulować rezerwację bez kosztów.",
+   "zh": "您可以选择其他日期，或免费取消预订。"
+  },
+  "money_none": {
+   "es": "No se te había cobrado nada.",
+   "en": "You had not been charged anything.",
+   "fr": "Rien ne vous avait été débité.",
+   "de": "Dir wurde nichts berechnet.",
+   "it": "Non ti era stato addebitato nulla.",
+   "pt": "Não te tinha sido cobrado nada.",
+   "nl": "Er was niets bij je in rekening gebracht.",
+   "pl": "Nic nie zostało pobrane.",
+   "zh": "您尚未被收取任何费用。"
+  },
+  "change_time": {
+   "es": "nueva hora {time}",
+   "en": "new time {time}",
+   "fr": "nouvel horaire {time}",
+   "de": "neue Uhrzeit {time}",
+   "it": "nuovo orario {time}",
+   "pt": "nova hora {time}",
+   "nl": "nieuwe tijd {time}",
+   "pl": "nowa godzina {time}",
+   "zh": "新时间 {time}"
+  },
+  "change_point": {
+   "es": "punto de encuentro {point}",
+   "en": "meeting point {point}",
+   "fr": "point de rendez-vous {point}",
+   "de": "Treffpunkt {point}",
+   "it": "punto d'incontro {point}",
+   "pt": "ponto de encontro {point}",
+   "nl": "verzamelpunt {point}",
+   "pl": "miejsce spotkania {point}",
+   "zh": "集合地点 {point}"
+  },
+  "bring_default": {
+   "es": "titulación, toalla y protector solar",
+   "en": "certification card, towel and sunscreen",
+   "fr": "carte de niveau, serviette et crème solaire",
+   "de": "Brevet, Handtuch und Sonnencreme",
+   "it": "brevetto, asciugamano e crema solare",
+   "pt": "certificação, toalha e protetor solar",
+   "nl": "brevet, handdoek en zonnebrand",
+   "pl": "certyfikat, ręcznik i krem z filtrem",
+   "zh": "潜水证、毛巾和防晒霜"
+  },
+  "note": {
+   "es": "Nota del centro: {note}",
+   "en": "Note from the centre: {note}",
+   "fr": "Note du centre : {note}",
+   "de": "Hinweis des Zentrums: {note}",
+   "it": "Nota del centro: {note}",
+   "pt": "Nota do centro: {note}",
+   "nl": "Opmerking van het centrum: {note}",
+   "pl": "Uwaga od centrum: {note}",
+   "zh": "中心备注：{note}"
+  },
+  "app_subject_slot_cancelled": {
+   "es": "Salida cancelada: {service}",
+   "en": "Trip cancelled: {service}",
+   "fr": "Sortie annulée : {service}",
+   "de": "Ausfahrt abgesagt: {service}",
+   "it": "Uscita annullata: {service}",
+   "pt": "Saída cancelada: {service}",
+   "nl": "Uitvaart geannuleerd: {service}",
+   "pl": "Wyjście odwołane: {service}",
+   "zh": "出海潜水已取消：{service}"
+  },
+  "app_subject_slot_changed": {
+   "es": "Cambio en tu salida: {service}",
+   "en": "Change to your trip: {service}",
+   "fr": "Changement de votre sortie : {service}",
+   "de": "Änderung deiner Ausfahrt: {service}",
+   "it": "Modifica alla tua uscita: {service}",
+   "pt": "Alteração na tua saída: {service}",
+   "nl": "Wijziging van je uitvaart: {service}",
+   "pl": "Zmiana Twojego wyjścia: {service}",
+   "zh": "您的出海潜水有变动：{service}"
+  },
+  "app_subject_reminder": {
+   "es": "Mañana: {service}",
+   "en": "Tomorrow: {service}",
+   "fr": "Demain : {service}",
+   "de": "Morgen: {service}",
+   "it": "Domani: {service}",
+   "pt": "Amanhã: {service}",
+   "nl": "Morgen: {service}",
+   "pl": "Jutro: {service}",
+   "zh": "明天：{service}"
+  }
+ }
+}

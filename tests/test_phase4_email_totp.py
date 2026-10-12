@@ -145,7 +145,7 @@ class Emails(ServerTestCase):
         self.center.post(f'/api/bookings/{bid}/status', {'status': 'confirmed'})
         self.assertEqual(d.post(f'/api/bookings/{bid}/reschedule', {'slot_id': s2}).status, 403)
         other = self.make_center(self.admin, 'ajeno', phone='+34 600 000 042')
-        self.assertEqual(other.post(f'/api/bookings/{bid}/reschedule', {'slot_id': s2}).status, 403)
+        self.assertEqual(other.post(f'/api/bookings/{bid}/reschedule', {'slot_id': s2}).status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
         r = self.center.post(f'/api/bookings/{bid}/reschedule', {'slot_id': s2, 'reason': 'mar de fondo'})
         self.assertEqual(r.status, 200, r)
         b = self.server.sql('SELECT booking_date,booking_time,slot_id FROM bookings WHERE id=?', (bid,))[0]

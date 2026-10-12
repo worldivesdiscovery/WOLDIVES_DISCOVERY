@@ -286,7 +286,7 @@ class TeamAndSwitches(ServerTestCase):
         r = rec.post('/api/provider-services', {'title': 'Salida de recepción', 'price': 30})
         self.assertEqual(r.status, 200, r)
         self.assertEqual(self.center.post('/api/provider-services/update', {'id': r.json['id'], 'title': 'Salida de recepción', 'price': 35}).status, 200)   # owner edits the team's services
-        self.assertEqual(self.make_center(self.admin, 'ajeno6', phone='+34 600 600 021').post('/api/provider-services/update', {'id': r.json['id'], 'title': 'x', 'price': 1}).status, 403)
+        self.assertEqual(self.make_center(self.admin, 'ajeno6', phone='+34 600 600 021').post('/api/provider-services/update', {'id': r.json['id'], 'title': 'x', 'price': 1}).status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
         for path in ('/api/provider/payment-profile', '/api/provider/fiscal', '/api/center/team/invite', '/api/provider/plan/checkout'):
             self.assertEqual(rec.post(path, {}).status, 403, path)
         self.assertEqual(rec.get('/api/provider/payments').status, 403)

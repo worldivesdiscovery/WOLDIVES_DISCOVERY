@@ -67,8 +67,8 @@ class SlotCancel(ServerTestCase):
         self.assertEqual(rec, {b1: 'refund', b2: 'refund', b3: 'released'}); self.assertEqual(p['choice_hours'], 48)
         self.assertEqual([a['paid'] for a in p['affected'] if a['booking_id'] == b1], [80.0])
         # Permissions and bad data
-        self.assertEqual(self.other.post('/api/provider-services/slot-cancel', {'slot_id': self.A, 'reason': 'weather'}).status, 403)
-        self.assertEqual(self.d1.post('/api/provider-services/slot-cancel', {'slot_id': self.A, 'reason': 'weather'}).status, 403)
+        self.assertEqual(self.other.post('/api/provider-services/slot-cancel', {'slot_id': self.A, 'reason': 'weather'}).status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
+        self.assertEqual(self.d1.post('/api/provider-services/slot-cancel', {'slot_id': self.A, 'reason': 'weather'}).status, 404)  # v50.47 (B.3)
         self.assertEqual(c.post('/api/provider-services/slot-cancel', {'slot_id': self.A}).status, 400)
         self.assertEqual(c.post('/api/provider-services/slot-cancel', {'slot_id': self.A, 'reason': 'other', 'note': ''}).status, 400)
         self.assertEqual(c.post('/api/provider-services/slot-cancel', {'slot_id': self.A, 'reason': 'weather', 'choice_hours': 0}).status, 400)
@@ -84,7 +84,7 @@ class SlotCancel(ServerTestCase):
         self.assertEqual(c.post('/api/provider-services/slot-cancel', {'slot_id': self.A, 'reason': 'weather'}).status, 400)   # already cancelled
         # Diver 1 chooses another date from the email link, without signing in
         anon = self.client()
-        self.assertEqual(anon.get(f'/api/slot-cancel/{b1}?t=falso').status, 403)
+        self.assertEqual(anon.get(f'/api/slot-cancel/{b1}?t=falso').status, 404)  # v50.47 (B.3)
         o = anon.get(f'/api/slot-cancel/{b1}?t={tok.group(2)}').json
         self.assertEqual(o['paid'], 80.0); self.assertIn(self.B, [a['slot_id'] for a in o['alternatives']])
         before = self.spots(self.B)
@@ -142,7 +142,7 @@ class Reschedule(ServerTestCase):
 
     def test_direct_approval_deadline_and_permissions(self):
         c = self.center
-        self.assertEqual(self.other.post('/api/provider-services/options', {'id': self.sid, 'reschedule_mode': 'direct'}).status, 403)
+        self.assertEqual(self.other.post('/api/provider-services/options', {'id': self.sid, 'reschedule_mode': 'direct'}).status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
         self.assertEqual(c.post('/api/provider-services/options', {'id': self.sid, 'reschedule_mode': 'loquesea'}).status, 400)
         self.assertEqual(c.post('/api/provider-services/options', {'id': self.sid, 'reschedule_mode': 'direct', 'reschedule_hours': 48}).status, 200)
         # A different price on the new date: the difference is shown, the booking keeps its price
@@ -170,8 +170,8 @@ class Reschedule(ServerTestCase):
         self.assertEqual(self.server.sql('SELECT slot_id FROM bookings WHERE id=?', (bid,))[0]['slot_id'], self.Y)   # nothing moves yet
         self.assertEqual(self.diver.post(f'/api/bookings/{bid}/change-date', {'slot_id': self.X}).status, 400)    # one request at a time
         self.assertTrue(self.server.sql("SELECT 1 FROM email_outbox WHERE template='center_reschedule_request'"))
-        self.assertEqual(self.other.post(f'/api/bookings/{bid}/change-date/decide', {'approve': True}).status, 403)
-        self.assertEqual(self.diver.post(f'/api/bookings/{bid}/change-date/decide', {'approve': True}).status, 403)
+        self.assertEqual(self.other.post(f'/api/bookings/{bid}/change-date/decide', {'approve': True}).status, 404)  # v50.47 (B.3)
+        self.assertEqual(self.diver.post(f'/api/bookings/{bid}/change-date/decide', {'approve': True}).status, 404)  # v50.47 (B.3)
         self.assertEqual(c.get(f'/api/bookings/{bid}/change-date').json['request']['to_slot_id'], self.Y2)
         self.assertEqual(c.post(f'/api/bookings/{bid}/change-date/decide', {'approve': True}).status, 200)
         self.assertEqual(self.server.sql('SELECT slot_id FROM bookings WHERE id=?', (bid,))[0]['slot_id'], self.Y2)

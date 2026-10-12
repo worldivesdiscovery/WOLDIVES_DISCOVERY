@@ -118,16 +118,16 @@ class Manifest(ServerTestCase):
 
     def test_3_permissions(self):
         # Another centre: nothing
-        self.assertEqual(self.other.get(f'/api/manifest/{self.slot}').status, 403)
-        self.assertEqual(self.other.post(f'/api/manifest/{self.slot}/suggest', {'apply': True}).status, 403)
+        self.assertEqual(self.other.get(f'/api/manifest/{self.slot}').status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
+        self.assertEqual(self.other.post(f'/api/manifest/{self.slot}/suggest', {'apply': True}).status, 404)  # v50.47 (B.3)
         b_other = self.other.post('/api/manifest/boats/save', {'name': 'Ajeno', 'capacity': 8}).json['id']
-        self.assertEqual(self.center.post('/api/manifest/boats/save', {'id': b_other, 'name': 'Robado', 'capacity': 8}).status, 403)
+        self.assertEqual(self.center.post('/api/manifest/boats/save', {'id': b_other, 'name': 'Robado', 'capacity': 8}).status, 404)  # v50.47 (B.3)
         g = self.center.post(f'/api/manifest/{self.slot}/groups/save', {}).json['id']
-        self.assertEqual(self.center.post(f'/api/manifest/{self.slot}/groups/save', {'id': g, 'boat_id': b_other}).status, 403)
+        self.assertEqual(self.center.post(f'/api/manifest/{self.slot}/groups/save', {'id': g, 'boat_id': b_other}).status, 404)  # v50.47 (B.3)
         # A diver: nothing
         diver = self.divers['ana5'][0]
-        self.assertEqual(diver.get(f'/api/manifest/{self.slot}').status, 403)
-        self.assertEqual(diver.post(f'/api/manifest/{self.slot}/assign', {'moves': [{'booking_id': 1, 'seat': 1}]}).status, 403)
+        self.assertEqual(diver.get(f'/api/manifest/{self.slot}').status, 404)  # v50.47 (B.3)
+        self.assertEqual(diver.post(f'/api/manifest/{self.slot}/assign', {'moves': [{'booking_id': 1, 'seat': 1}]}).status, 404)  # v50.47 (B.3)
         # Team: an instructor reads but cannot change the split
         inst = self.make_diver('instr5')
         uid = inst.user['id']
@@ -140,7 +140,7 @@ class Manifest(ServerTestCase):
         # Bad data
         for body in ({'moves': []}, {'moves': 'x'}, {'moves': [{'booking_id': 'a'}]}):
             self.assertLess(self.center.post(f'/api/manifest/{self.slot}/assign', body).status, 500)
-        self.assertEqual(self.center.post('/api/manifest/999999/suggest', {}).status, 400)
+        self.assertEqual(self.center.post('/api/manifest/999999/suggest', {}).status, 404)  # v50.47: a departure that does not exist is 404
 
 
 class Waiver(ServerTestCase):
@@ -196,8 +196,8 @@ class Waiver(ServerTestCase):
         pdf = self.diver.get(r.json['pdf_url'])
         self.assertEqual(pdf.status, 200); self.assertTrue(pdf.body.startswith(b'%PDF'))
         self.assertEqual(c.get(r.json['pdf_url']).status, 200)
-        self.assertEqual(self.stranger.get(r.json['pdf_url']).status, 403)
-        self.assertEqual(self.other.get(r.json['pdf_url']).status, 403)
+        self.assertEqual(self.stranger.get(r.json['pdf_url']).status, 404)  # v50.47 (B.3)
+        self.assertEqual(self.other.get(r.json['pdf_url']).status, 404)  # v50.47 (B.3)
         # The manifest shows who signed
         d = c.get(f'/api/manifest/{self.slot}').json
         self.assertTrue(all(x['signed'] for x in d['divers']))

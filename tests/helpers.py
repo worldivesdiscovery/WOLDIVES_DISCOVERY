@@ -16,6 +16,7 @@ import tempfile
 import time
 import unittest
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
@@ -30,6 +31,16 @@ def free_port() -> int:
     port = s.getsockname()[1]
     s.close()
     return port
+
+
+def cifrado_for(env):
+    """wod.cifrado of the app, with the keys of a test server (its .env values)."""
+    sys.path.insert(0, str(ROOT / 'app')) if str(ROOT / 'app') not in sys.path else None
+    from wod import cifrado
+    for k in ('WOD_DATA_KEY', 'WOD_DATA_KEY_OLD', 'WOD_SECRET_KEY'):
+        if env.get(k) is not None: os.environ[k] = env[k]
+        else: os.environ.pop(k, None)
+    return cifrado
 
 
 class Server:
@@ -88,6 +99,10 @@ class Server:
         import sqlite3
         c = sqlite3.connect(self.db)
         c.row_factory = sqlite3.Row
+        # v50.47: the same SQL functions as the server (phones are encrypted by the database guards).
+        cif = cifrado_for(self.env)
+        c.create_function('wod_cifrar', 1, cif.sql_encrypt)
+        c.create_function('wod_huella', 1, cif.sql_fingerprint)
         try:
             rows = [dict(r) for r in c.execute(query, args).fetchall()]
             c.commit()
@@ -122,6 +137,8 @@ class Client:
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar), NoRedirect())
         self.origin = server.base if origin == 'self' else origin
         self.user = None
+        # v50.47 (B.9): administrators state a reason to see a centre's data; the tests send one unless they test it.
+        self.admin_reason = 'pruebas automáticas'
 
     def request(self, method, path, data=None, headers=None, raw=None, content_type=None):
         url = self.server.base + path
@@ -134,6 +151,8 @@ class Client:
         elif data is not None:
             body = json.dumps(data).encode()
             h['Content-Type'] = 'application/json'
+        if self.admin_reason and 'X-Admin-Reason' not in h:
+            h['X-Admin-Reason'] = urllib.parse.quote(self.admin_reason)
         if method in ('POST', 'DELETE', 'PUT') and self.origin and 'Origin' not in h:
             h['Origin'] = self.origin
         req = urllib.request.Request(url, data=body, method=method, headers=h)

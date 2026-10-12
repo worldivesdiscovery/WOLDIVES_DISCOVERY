@@ -67,9 +67,9 @@ class Phase1Security(ServerTestCase):
         self.assertIn('private', own.headers.get('Cache-Control'))
         self.assertIn('filename', own.headers.get('Content-Disposition', ''))
         # A centre without a booking from this diver: denied (G1).
-        self.assertEqual(self.center_a.get(f'/api/documents/file/{did}').status, 403)
+        self.assertEqual(self.center_a.get(f'/api/documents/file/{did}').status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
         # Another diver: denied.
-        self.assertEqual(self.diver2.get(f'/api/documents/file/{did}').status, 403)
+        self.assertEqual(self.diver2.get(f'/api/documents/file/{did}').status, 404)  # v50.47 (B.3)
         # The administrator: allowed and logged.
         self.assertEqual(self.admin.get(f'/api/documents/file/{did}').status, 200)
         logged = self.server.sql("SELECT * FROM audit_log WHERE action='document_downloaded' AND entity_id=?", (did,))
@@ -80,10 +80,10 @@ class Phase1Security(ServerTestCase):
         self.assertEqual(r.status, 200, r)
         bid = r.json['id']
         self.assertEqual(self.center_a.get(f'/api/documents/file/{did}').status, 200)
-        self.assertEqual(self.center_b.get(f'/api/documents/file/{did}').status, 403)
+        self.assertEqual(self.center_b.get(f'/api/documents/file/{did}').status, 404)  # v50.47 (B.3)
         # Cancelled booking -> access gone.
         self.server.sql("UPDATE bookings SET status='cancelled' WHERE id=?", (bid,))
-        self.assertEqual(self.center_a.get(f'/api/documents/file/{did}').status, 403)
+        self.assertEqual(self.center_a.get(f'/api/documents/file/{did}').status, 404)  # v50.47 (B.3)
         # Delete removes the file from disk.
         path = self.server.sql('SELECT file_path FROM user_documents WHERE id=?', (did,))[0]['file_path']
         full = self.server.tmp / 'storage' / path
@@ -232,7 +232,7 @@ class Phase1Security(ServerTestCase):
         cid = self.center_a.user['center_id']
         bid = self.diver2.post('/api/bookings', {'center_id': cid, 'booking_date': '2030-09-01'}).json['id']
         # Centre B cannot send a notice about centre A's booking.
-        self.assertEqual(self.center_b.post('/api/messages', {'booking_id': bid, 'body': 'cambio de hora'}).status, 403)
+        self.assertEqual(self.center_b.post('/api/messages', {'booking_id': bid, 'body': 'cambio de hora'}).status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
         r = self.center_a.post('/api/messages', {'booking_id': bid, 'subject': 'Cambio de hora', 'body': 'La salida pasa a las 10:00.'})
         self.assertEqual(r.status, 200, r)
         msgs = self.diver2.get('/api/me/area').json['messages']
@@ -240,8 +240,8 @@ class Phase1Security(ServerTestCase):
 
     # ------------------------------------------------------------------ G12
     def test_g12_payments_fields(self):
-        self.server.sql("INSERT INTO payment_orders(user_id,amount,currency,status,provider,platform_fee,connected_account_id,checkout_url,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                        (self.diver.user['id'], 10, 'EUR', 'pending', 'stripe', 1, 'acct_x', 'https://checkout', 'x', 'x'))
+        self.server.sql("INSERT INTO payment_orders(user_id,amount,currency,status,provider,platform_fee,connected_account_id,checkout_url,payee_type,payee_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (self.diver.user['id'], 10, 'EUR', 'pending', 'stripe', 1, 'acct_x', 'https://checkout', 'center', self.center_a.user['center_id'], 'x', 'x'))  # v50.47: a payment always has its centre
         items = self.diver.post('/api/payments').json['items']
         self.assertTrue(items)
         for it in items:
@@ -295,14 +295,14 @@ class Phase1Security(ServerTestCase):
         cid_a = self.center_a.user['center_id']
         bid = self.diver.post('/api/bookings', {'center_id': cid_a, 'booking_date': '2030-10-01'}).json['id']
         # Another diver cannot see or cancel it.
-        self.assertEqual(self.diver2.get(f'/api/bookings/{bid}').status, 403)
+        self.assertEqual(self.diver2.get(f'/api/bookings/{bid}').status, 404)  # v50.47 (B.3)
         self.assertIn(self.diver2.post(f'/api/bookings/{bid}/cancel', {}).status, (403, 404))
-        self.assertEqual(self.diver2.get(f'/api/bookings/{bid}/receipt.pdf').status, 403)
+        self.assertEqual(self.diver2.get(f'/api/bookings/{bid}/receipt.pdf').status, 404)  # v50.47 (B.3)
         # Centre B cannot see or change it.
-        self.assertEqual(self.center_b.get(f'/api/bookings/{bid}').status, 403)
-        self.assertEqual(self.center_b.post(f'/api/bookings/{bid}/status', {'status': 'cancelled'}).status, 403)
-        self.assertEqual(self.center_b.post(f'/api/bookings/{bid}/payment', {'payment_status': 'paid'}).status, 403)
-        self.assertEqual(self.center_b.get(f'/api/bookings/{bid}/diver-sheet.pdf').status, 403)
+        self.assertEqual(self.center_b.get(f'/api/bookings/{bid}').status, 404)  # v50.47 (B.3)
+        self.assertEqual(self.center_b.post(f'/api/bookings/{bid}/status', {'status': 'cancelled'}).status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
+        self.assertEqual(self.center_b.post(f'/api/bookings/{bid}/payment', {'payment_status': 'paid'}).status, 404)  # v50.47 (B.3)
+        self.assertEqual(self.center_b.get(f'/api/bookings/{bid}/diver-sheet.pdf').status, 404)  # v50.47 (B.3)
         # Freelance and divers cannot reach admin or centre endpoints.
         for c in (self.pro, self.diver):
             self.assertEqual(c.get('/api/admin/users').status, 403)
@@ -310,9 +310,9 @@ class Phase1Security(ServerTestCase):
             self.assertEqual(c.get('/api/center/clients').status, 403)
         # A centre cannot manage another centre's services.
         svc = self.center_a.post('/api/provider-services', {'title': 'Bautizo', 'price': 40, 'booking_mode': 'request'}).json['id']
-        self.assertEqual(self.center_b.post('/api/provider-services/update', {'id': svc, 'title': 'Hackeado'}).status, 403)
-        self.assertEqual(self.center_b.post('/api/provider-services/delete', {'id': svc}).status, 403)
-        self.assertEqual(self.center_b.post('/api/provider-services/slot', {'service_id': svc, 'slot_date': '2030-01-01', 'slot_time': '10:00'}).status, 403)
+        self.assertEqual(self.center_b.post('/api/provider-services/update', {'id': svc, 'title': 'Hackeado'}).status, 404)  # v50.47 (B.3)
+        self.assertEqual(self.center_b.post('/api/provider-services/delete', {'id': svc}).status, 404)  # v50.47 (B.3)
+        self.assertEqual(self.center_b.post('/api/provider-services/slot', {'service_id': svc, 'slot_date': '2030-01-01', 'slot_time': '10:00'}).status, 404)  # v50.47 (B.3)
         # Anonymous: no private data.
         anon = self.client()
         for path in ('/api/bookings', '/api/me/area', '/api/account/documents', '/api/logbook', f'/api/bookings/{bid}'):

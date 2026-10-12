@@ -41,6 +41,11 @@ from wod import pdf as wpdf
 from wod import totp as wtotp
 from wod import pointtext as wpt
 from wod import backup as wbackup
+from wod import inquilinos as winq
+from wod import cifrado as wcif
+from wod import whatsapp as wwa
+from wod import avisos as wav
+from wod.inquilinos import NotFound
 PUBLIC = ROOT / 'public'
 DATA = Path(os.environ.get('WOD_DATA_DIR') or (ROOT / 'data'))
 STORAGE = Path(os.environ.get('WOD_STORAGE_DIR') or (ROOT / 'storage'))
@@ -1090,13 +1095,22 @@ class _ClosingConnection(sqlite3.Connection):
 def connect():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(DB_PATH, factory=_ClosingConnection)
-    db.row_factory = sqlite3.Row
+    # v50.47 (parte C): phones are stored encrypted; rows come back with them in clear for the server code only.
+    db.row_factory = wcif.row_factory
     db.execute('PRAGMA foreign_keys=ON')
+    db.execute('PRAGMA secure_delete=ON')   # freed space is zeroed: no old value stays readable in the file
     # WAL is persistent (set once in bootstrap); NORMAL sync is safe in WAL mode and much faster for writes.
     db.execute('PRAGMA synchronous=NORMAL')
     db.execute('PRAGMA busy_timeout=10000')
     # fold(): lower-case without accents, so «maria» finds «María».
+    return wire_connection(db)
+
+
+def wire_connection(db):
+    """The SQL functions every connection to the database needs (the v50.47 triggers call wod_huella)."""
     db.create_function('fold', 1, fold_text, deterministic=True)
+    db.create_function('wod_cifrar', 1, wcif.sql_encrypt)
+    db.create_function('wod_huella', 1, wcif.sql_fingerprint)
     return db
 
 
@@ -1378,6 +1392,8 @@ def bootstrap():
         db.commit()
         migrate_v50_46(db)
         db.commit()
+        migrate_v50_47(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1461,7 +1477,7 @@ def reset_demo_database():
             cols = [r[1] for r in live.execute('PRAGMA table_info(users)')]
             admins = [dict(r) for r in live.execute("SELECT * FROM users WHERE role='admin'").fetchall()]
         finally: live.close()
-        src = sqlite3.connect(tmp)
+        src = wire_connection(sqlite3.connect(tmp))
         try:
             new_cols = {r[1] for r in src.execute('PRAGMA table_info(users)')}
             for a in admins:
@@ -1476,6 +1492,161 @@ def reset_demo_database():
         finally: src.close()
     finally:
         shutil.rmtree(tmp.parent, ignore_errors=True)
+
+
+# v50.47 (parte C): diver phones (and the phones of professionals and of the centres' notices) are stored encrypted.
+# table: [(column, fingerprint column or None)]
+PHONE_COLUMNS = {
+    'user_profiles': [('phone', 'phone_hash'), ('emergency_contact_phone', None)],
+    'bookings': [('contact_phone', 'contact_phone_hash')],
+    'info_requests': [('phone', None)],
+    'center_claims': [('phone', None)],
+    'messages': [('contact_phone', None)],
+}
+WHATSAPP_CONSENT_VERSION = '2026-10-12'
+
+
+def install_phone_guards(db):
+    """Triggers: a phone in clear is refused by the database itself; the fingerprint follows the phone."""
+    for t, cols in PHONE_COLUMNS.items():
+        have = {r['name'] for r in db.execute(f'PRAGMA table_info({t})')}
+        for col, hcol in cols:
+            if hcol and hcol not in have: db.execute(f'ALTER TABLE {t} ADD COLUMN {hcol} TEXT')
+            for when, name in (('BEFORE INSERT', 'ins'), (f'BEFORE UPDATE OF {col}', 'upd')):
+                db.execute(f'''CREATE TRIGGER IF NOT EXISTS wod_{t}_{col}_cifrado_{name} {when} ON {t}
+                    WHEN NEW.{col} IS NOT NULL AND NEW.{col}<>'' AND substr(NEW.{col},1,5)<>'wdx1:' BEGIN
+                    SELECT RAISE(ABORT, 'WOD: teléfono sin cifrar ({t}.{col})'); END''')
+            if hcol:
+                for when, name, cond in (('AFTER INSERT', 'ins', f'NEW.{col} IS NOT NULL'), (f'AFTER UPDATE OF {col}', 'upd', f'NEW.{col} IS NOT OLD.{col}')):
+                    db.execute(f'''CREATE TRIGGER IF NOT EXISTS wod_{t}_{col}_huella_{name} {when} ON {t} WHEN {cond} BEGIN
+                        UPDATE {t} SET {hcol}=wod_huella(NEW.{col}) WHERE rowid=NEW.rowid AND {hcol} IS NOT wod_huella(NEW.{col}); END''')
+                db.execute(f'CREATE INDEX IF NOT EXISTS idx_{t}_{hcol} ON {t}({hcol}) WHERE {hcol} IS NOT NULL')
+
+
+def migrate_v50_47(db):
+    """v50.47 (encargo «avisos masivos y aislamiento total entre centros»). Adds and transforms; nothing is deleted:
+    - tenant schema (wod.inquilinos.install_schema): providers, provider_id NOT NULL + FK, consistency triggers, indexes;
+    - a freelance is always its own tenant: the centre an administrator had «attached» to it is cleared (kept in the log);
+    - phones encrypted (AES-GCM) with fingerprints for searches; triggers refuse phones in clear;
+    - WhatsApp consent of the diver, WhatsApp account of each centre (credentials encrypted), notices (batches + outbox),
+      settings of each tenant, random ids (uid) for bookings and departures, session context of the team."""
+    first = not migration_done(db, '50.47')
+    backup = None
+    if first and db.execute('SELECT 1 FROM users LIMIT 1').fetchone(): backup = backup_database(db, 'v50_47') or ''
+    report = winq.install_schema(db)
+    if first:
+        for u in db.execute("SELECT id, center_id FROM users WHERE role='freelance' AND center_id IS NOT NULL").fetchall():
+            db.execute('UPDATE users SET center_id=NULL WHERE id=?', (u['id'],))
+            audit(db, None, 'freelance_tenant_resolved', 'user', u['id'], {'centro_anterior': u['center_id'], 'motivo': 'un freelance es siempre su propio inquilino (v50.47)'})
+    scols = {r['name'] for r in db.execute('PRAGMA table_info(sessions)')}
+    if 'active_center_id' not in scols: db.execute('ALTER TABLE sessions ADD COLUMN active_center_id INTEGER')
+    if 'meeting_point' not in {r['name'] for r in db.execute('PRAGMA table_info(service_slots)')}: db.execute('ALTER TABLE service_slots ADD COLUMN meeting_point TEXT')
+    # Random ids for what leaves for the web in links and notices (B.4).
+    for t in ('bookings', 'service_slots'):
+        if 'uid' not in {r['name'] for r in db.execute(f'PRAGMA table_info({t})')}: db.execute(f'ALTER TABLE {t} ADD COLUMN uid TEXT')
+        db.execute(f"UPDATE {t} SET uid=lower(hex(randomblob(16))) WHERE uid IS NULL")
+        db.execute(f'CREATE UNIQUE INDEX IF NOT EXISTS ux_{t}_uid ON {t}(uid)')
+        db.execute(f'''CREATE TRIGGER IF NOT EXISTS wod_{t}_uid AFTER INSERT ON {t} WHEN NEW.uid IS NULL BEGIN
+            UPDATE {t} SET uid=lower(hex(randomblob(16))) WHERE id=NEW.id; END''')
+    # Phones: encrypt what is in clear, then the guards.
+    for t, cols in PHONE_COLUMNS.items():
+        have = {r['name'] for r in db.execute(f'PRAGMA table_info({t})')}
+        for col, hcol in cols:
+            if hcol and hcol not in have: db.execute(f'ALTER TABLE {t} ADD COLUMN {hcol} TEXT'); have.add(hcol)
+            for rid, val in db.execute(f"SELECT rowid, {col} FROM {t} WHERE {col} IS NOT NULL AND {col}<>'' AND substr({col},1,5)<>'wdx1:'").fetchall():
+                db.execute(f'UPDATE {t} SET {col}=? WHERE rowid=?', (wcif.encrypt(str(val).strip()), rid))
+            if hcol: db.execute(f'UPDATE {t} SET {hcol}=wod_huella({col}) WHERE {col} IS NOT NULL AND {hcol} IS NULL')
+    install_phone_guards(db)
+    # WhatsApp consent of the diver (withdrawable; every change also goes to consent_log with the text version).
+    pcols = {r['name'] for r in db.execute('PRAGMA table_info(user_profiles)')}
+    for col, typ in (('wa_consent', 'INTEGER NOT NULL DEFAULT 0'), ('wa_consent_at', 'TEXT'), ('wa_consent_version', 'TEXT'), ('wa_consent_lang', 'TEXT')):
+        if col not in pcols: db.execute(f'ALTER TABLE user_profiles ADD COLUMN {col} {typ}')
+    ccols = {r['name'] for r in db.execute('PRAGMA table_info(consent_log)')}
+    for col in ('text_version', 'lang', 'source'):
+        if col not in ccols: db.execute(f'ALTER TABLE consent_log ADD COLUMN {col} TEXT')
+    db.executescript(NOTICES_SCHEMA)
+    if first:
+        move_tenant_files(db)
+        quarantine = {k: v for k, v in report.items() if v}
+        if quarantine: audit(db, None, 'tenant_quarantine', 'system', None, quarantine)
+        db.execute('INSERT INTO schema_migrations(version,applied_at,backup_path,notes) VALUES(?,?,?,?)',
+                   ('50.47', now(), str(backup) if backup else None, 'Aislamiento por centro (provider_id), teléfonos cifrados, WhatsApp por centro y avisos masivos'
+                    + (f'; en cuarentena: {quarantine}' if quarantine else '')))
+
+
+NOTICES_SCHEMA = '''
+CREATE TABLE IF NOT EXISTS provider_settings (provider_id TEXT PRIMARY KEY REFERENCES providers(id),
+  notice_policy TEXT NOT NULL DEFAULT 'choice' CHECK (notice_policy IN ('choice','refund')),
+  reminder_enabled INTEGER NOT NULL DEFAULT 1, reminder_hour INTEGER NOT NULL DEFAULT 18 CHECK (reminder_hour BETWEEN 0 AND 23),
+  reminder_bring TEXT, updated_at TEXT, updated_by INTEGER);
+CREATE TABLE IF NOT EXISTS whatsapp_accounts (provider_id TEXT PRIMARY KEY REFERENCES providers(id),
+  status TEXT NOT NULL DEFAULT 'connected' CHECK (status IN ('connected','reconnect')),
+  waba_id TEXT NOT NULL, phone_number_id TEXT NOT NULL, display_number TEXT NOT NULL, token TEXT NOT NULL,
+  pnid_hash TEXT NOT NULL UNIQUE, number_hash TEXT NOT NULL UNIQUE, waba_hash TEXT, verified_name TEXT, coexistence INTEGER NOT NULL DEFAULT 0,
+  templates TEXT, connected_at TEXT NOT NULL, connected_by INTEGER, last_error TEXT, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS notice_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL UNIQUE,
+  provider_id TEXT NOT NULL REFERENCES providers(id), slot_id INTEGER NOT NULL REFERENCES service_slots(id),
+  kind TEXT NOT NULL CHECK (kind IN ('slot_cancelled','slot_changed','reminder')), reason TEXT, note TEXT, policy TEXT,
+  new_date TEXT, new_time TEXT, old_time TEXT, new_meeting TEXT, status TEXT NOT NULL DEFAULT 'scheduled'
+  CHECK (status IN ('scheduled','undone','running','done','failed','blocked')), run_after TEXT NOT NULL,
+  created_by INTEGER, ip_hash TEXT, counts TEXT, result TEXT, created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_notice_batches_cancel ON notice_batches(slot_id) WHERE kind='slot_cancelled' AND status IN ('scheduled','running','done');
+CREATE UNIQUE INDEX IF NOT EXISTS ux_notice_batches_reminder ON notice_batches(slot_id) WHERE kind='reminder' AND status<>'undone';
+CREATE INDEX IF NOT EXISTS idx_notice_batches_tenant ON notice_batches(provider_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_notice_batches_due ON notice_batches(status, run_after);
+CREATE TABLE IF NOT EXISTS notice_outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL UNIQUE,
+  batch_id INTEGER NOT NULL REFERENCES notice_batches(id), provider_id TEXT NOT NULL REFERENCES providers(id),
+  slot_id INTEGER NOT NULL REFERENCES service_slots(id), booking_id INTEGER NOT NULL REFERENCES bookings(id), event TEXT NOT NULL,
+  channel TEXT NOT NULL CHECK (channel IN ('whatsapp','email','app')), template TEXT NOT NULL, lang TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','sending','sent','delivered','read','failed','blocked','skipped','unknown')),
+  recipient TEXT, recipient_name TEXT, origin TEXT, wamid TEXT, email_id INTEGER, message_id INTEGER, skip_reason TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0, next_try_at TEXT, last_error TEXT, sent_at TEXT, delivered_at TEXT, read_at TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE (booking_id, event, channel));
+CREATE INDEX IF NOT EXISTS idx_notice_outbox_due ON notice_outbox(status, next_try_at);
+CREATE INDEX IF NOT EXISTS idx_notice_outbox_batch ON notice_outbox(batch_id);
+CREATE INDEX IF NOT EXISTS idx_notice_outbox_tenant ON notice_outbox(provider_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_notice_outbox_wamid ON notice_outbox(wamid) WHERE wamid IS NOT NULL;
+CREATE TABLE IF NOT EXISTS whatsapp_webhook_events (event_key TEXT PRIMARY KEY, received_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS notice_refunds (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id INTEGER NOT NULL REFERENCES notice_batches(id),
+  provider_id TEXT NOT NULL REFERENCES providers(id), booking_id INTEGER NOT NULL REFERENCES bookings(id), amount REAL NOT NULL, currency TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','working','done','failed','blocked')), result TEXT, attempts INTEGER NOT NULL DEFAULT 0,
+  next_try_at TEXT, last_error TEXT, created_at TEXT NOT NULL, done_at TEXT, UNIQUE (batch_id, booking_id));
+CREATE TRIGGER IF NOT EXISTS wod_notice_refunds_tenant BEFORE INSERT ON notice_refunds BEGIN
+  SELECT RAISE(ABORT, 'WOD: devolución de una reserva de otro centro') WHERE (SELECT provider_id FROM bookings WHERE id=NEW.booking_id) IS NOT NEW.provider_id; END;
+CREATE TRIGGER IF NOT EXISTS wod_notice_batches_tenant BEFORE INSERT ON notice_batches BEGIN
+  SELECT RAISE(ABORT, 'WOD: aviso de una salida de otro centro') WHERE (SELECT provider_id FROM service_slots WHERE id=NEW.slot_id) IS NOT NEW.provider_id; END;
+CREATE TRIGGER IF NOT EXISTS wod_notice_outbox_tenant BEFORE INSERT ON notice_outbox BEGIN
+  SELECT RAISE(ABORT, 'WOD: aviso a una reserva de otro centro')
+   WHERE (SELECT provider_id FROM bookings WHERE id=NEW.booking_id) IS NOT NEW.provider_id
+      OR (SELECT provider_id FROM notice_batches WHERE id=NEW.batch_id) IS NOT NEW.provider_id
+      OR (SELECT slot_id FROM notice_batches WHERE id=NEW.batch_id) IS NOT NEW.slot_id; END;
+CREATE TRIGGER IF NOT EXISTS wod_notice_outbox_no_move BEFORE UPDATE OF provider_id,booking_id,slot_id,batch_id,channel ON notice_outbox BEGIN
+  SELECT RAISE(ABORT, 'WOD: un aviso no cambia de centro ni de destinatario'); END;
+'''
+
+
+def tenant_dir(key):
+    """Private folder of a tenant ('c:12' → storage/documents/centros/c-12). Files there have random names and are
+    served only by the server after checking the session (B.7)."""
+    if not re.fullmatch(r'[cf]:\d+', key or ''): raise NotFound('Centro no encontrado.')
+    return 'documents/centros/' + key.replace(':', '-')
+
+
+def move_tenant_files(db):
+    """The insurance documents of centres and freelances move to the folder of their tenant (random name kept)."""
+    for table, kind in (('centers', 'c'), ('users', 'f')):
+        for r in db.execute(f"SELECT id, insurance_doc FROM {table} WHERE insurance_doc IS NOT NULL AND insurance_doc<>''").fetchall():
+            if '/centros/' in r['insurance_doc']: continue
+            src = document_file_path(r['insurance_doc'])
+            if not src or not src.exists(): continue
+            rel = tenant_dir(f"{kind}:{r['id']}") + '/' + secrets.token_hex(16) + src.suffix.lower()
+            dst = document_file_path(rel); dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            try: os.chmod(dst, 0o600)
+            except OSError: pass
+            db.execute(f'UPDATE {table} SET insurance_doc=? WHERE id=?', (rel, r['id']))
+            try: src.unlink()
+            except OSError: pass
 
 
 def migrate_v50_46(db):
@@ -1754,6 +1925,7 @@ def rebuild_table(db, table, edit_sql):
     cols = ','.join(r['name'] for r in db.execute(f'PRAGMA table_info({table})').fetchall())
     db.commit()
     db.execute('PRAGMA foreign_keys=OFF')
+    db.execute('PRAGMA legacy_alter_table=ON')   # the triggers of other tables (v50.47) keep naming the table
     try:
         db.execute('BEGIN')
         db.execute(re.sub(r'^CREATE TABLE\s+(IF NOT EXISTS\s+)?"?' + table + r'"?', f'CREATE TABLE {table}__new', new_sql, count=1))
@@ -1768,6 +1940,7 @@ def rebuild_table(db, table, edit_sql):
         db.execute('ROLLBACK'); raise
     finally:
         db.execute('PRAGMA foreign_keys=ON')
+        db.execute('PRAGMA legacy_alter_table=OFF')
     return True
 
 
@@ -2016,9 +2189,22 @@ def parse_multipart(handler):
     return fields, files
 
 
-def save_upload(user_id: int, file_info: dict, prefix: str) -> str:
+def save_upload(user_id: int, file_info: dict, prefix: str, tenant: str | None = None) -> str:
     """Private document (G1/G8): type checked by its first bytes, at most WOD_MAX_DOCUMENT_MB, stored outside /public.
-    Returns the path relative to STORAGE (never served directly)."""
+    Returns the path relative to STORAGE (never served directly). With tenant ('c:12'), it goes to the private folder
+    of that centre with a random name (v50.47, B.7)."""
+    if tenant:
+        content = file_info.get('content') or b''
+        if not content: raise ValueError('El archivo está vacío.')
+        if len(content) > wcfg.MAX_DOCUMENT_BYTES: raise ValueError(f'El archivo pesa demasiado. Máximo {wcfg.MAX_DOCUMENT_BYTES // (1024*1024)} MB.')
+        ext = wsec.sniff_document(content)
+        if not ext: raise ValueError('Formato no admitido. Usa un PDF o una imagen JPG, PNG o WEBP.')
+        rel = tenant_dir(tenant) + '/' + secrets.token_hex(16) + ext
+        out = document_file_path(rel); out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(content)
+        try: os.chmod(out, 0o600)
+        except OSError: pass
+        return rel
     content = file_info.get('content') or b''
     if not content: raise ValueError('El archivo está vacío.')
     if len(content) > wcfg.MAX_DOCUMENT_BYTES: raise ValueError(f'El archivo pesa demasiado. Máximo {wcfg.MAX_DOCUMENT_BYTES // (1024*1024)} MB.')
@@ -2049,6 +2235,64 @@ def delete_document_file(stored):
         except OSError as exc: sys.stderr.write(f'[documentos] no se pudo borrar {fp.name}: {exc}\n')
 
 
+# ---- Regla de oro (v50.47): if there is any doubt about the centre a piece of data belongs to, it is not sent, shown or
+# changed; the block is recorded and the administrators are told. security_alert() never writes on the caller's
+# transaction (it is usually rolled back): alerts wait in memory and are written by flush_security_alerts() once the
+# request or job has finished (and by the maintenance loop).
+from collections import deque as _deque
+_SECURITY_ALERTS = _deque(maxlen=2000)
+_SECURITY_ALERT_SENT: dict = {}
+SECURITY_ALERT_EMAIL_MINUTES = 15
+
+
+def security_alert(kind, details=None, user_id=None, center_id=None):
+    safe = {k: v for k, v in (details or {}).items() if 'phone' not in k and 'token' not in k}   # never a phone or a token in clear
+    _SECURITY_ALERTS.append((kind, safe, user_id, center_id, now()))
+    sys.stderr.write(f'[seguridad] {kind} {json.dumps(safe, ensure_ascii=False)[:300]}\n')
+
+
+def flush_security_alerts():
+    if not _SECURITY_ALERTS: return 0
+    items = []
+    while _SECURITY_ALERTS:
+        try: items.append(_SECURITY_ALERTS.popleft())
+        except IndexError: break
+    db = None
+    try:
+        db = connect()
+        mail = []
+        for kind, details, uid, cid, at in items:
+            db.execute('INSERT INTO audit_log(user_id,action,entity_type,entity_id,details,created_at,center_id) VALUES(?,?,?,?,?,?,?)',
+                       (uid, 'security_alert', kind, None, json.dumps(details, ensure_ascii=False), at, cid))
+            last = _SECURITY_ALERT_SENT.get(kind, 0)
+            if time.time() - last > SECURITY_ALERT_EMAIL_MINUTES * 60:
+                _SECURITY_ALERT_SENT[kind] = time.time(); mail.append((kind, details, at))
+        for kind, details, at in mail:
+            notify_admins(db, 'admin_security_alert', {'kind': SECURITY_ALERT_LABELS.get(kind, kind), 'when': at,
+                          'details': '\n'.join(f'{k}: {v}' for k, v in details.items())[:1500], 'site': public_site_url()}, ('system', 0))
+        db.commit()
+    except Exception as exc:
+        sys.stderr.write(f'[seguridad] no se pudieron guardar {len(items)} alertas: {exc}\n')
+        for it in items: _SECURITY_ALERTS.append(it)
+    finally:
+        if db is not None: db.close()
+    return len(items)
+
+
+SECURITY_ALERT_LABELS = {
+    'refund_tenant_mismatch': 'Devolución bloqueada: el pago no es del centro de la reserva',
+    'notice_tenant_mismatch': 'Aviso bloqueado: datos de otro centro',
+    'whatsapp_number_taken': 'Intento de conectar un número de WhatsApp de otro centro',
+    'whatsapp_wrong_number': 'WhatsApp: el número no pertenece a la cuenta autorizada',
+    'webhook_bad_signature': 'WhatsApp: aviso de estado con firma falsa',
+    'webhook_wrong_number': 'WhatsApp: estado de un mensaje que no es de ese número',
+    'notice_limit': 'Aviso masivo: límite diario superado',
+    'notice_unusual': 'Aviso masivo fuera de lo normal',
+    'tenant_conflict': 'Dato con centro dudoso',
+    'job_without_tenant': 'Tarea sin centro: no se ha ejecutado',
+}
+
+
 def current_user(handler, db):
     cookie = handler.headers.get('Cookie','')
     token = None
@@ -2060,7 +2304,7 @@ def current_user(handler, db):
     if not token:
         return None
     token_hash = hashlib.sha256(token.encode()).hexdigest()
-    session = db.execute('SELECT user_id,created_at,last_seen FROM sessions WHERE token_hash=?', (token_hash,)).fetchone()
+    session = db.execute('SELECT * FROM sessions WHERE token_hash=?', (token_hash,)).fetchone()
     if not session:
         return None
     current = time.time()
@@ -2072,7 +2316,32 @@ def current_user(handler, db):
         db.execute('UPDATE sessions SET last_seen=? WHERE token_hash=?', (current, token_hash)); db.commit()
     user_id = session['user_id']
     row = db.execute('''SELECT u.*, c.name AS center_name FROM users u LEFT JOIN centers c ON c.id=u.center_id WHERE u.id=?''', (user_id,)).fetchone()
-    return dict(row) if row else None
+    if not row: return None
+    user = dict(row)
+    # v50.47 (B.6): a member of several centres works in ONE centre per session, chosen explicitly (/api/team/switch).
+    active = session['active_center_id'] if 'active_center_id' in session.keys() else None
+    if active and user['role'] == 'center' and active != user['center_id']:
+        if db.execute('SELECT 1 FROM center_members WHERE center_id=? AND user_id=?', (active, user_id)).fetchone():
+            c = db.execute('SELECT name FROM centers WHERE id=?', (active,)).fetchone()
+            user['home_center_id'] = user['center_id']; user['center_id'] = active; user['center_name'] = c['name'] if c else ''
+        else:
+            db.execute('UPDATE sessions SET active_center_id=NULL WHERE token_hash=?', (token_hash,)); db.commit()
+    return user
+
+
+def user_centers(db, user):
+    """The centres a team account belongs to: its own (users.center_id) and those of center_members."""
+    if not user or user['role'] != 'center': return []
+    home = user.get('home_center_id') or user['center_id']
+    rows = db.execute('''SELECT c.id, c.name, COALESCE(m.member_role,'owner') AS member_role FROM centers c
+                           LEFT JOIN center_members m ON m.center_id=c.id AND m.user_id=?
+                          WHERE c.id=? OR m.user_id IS NOT NULL ORDER BY c.id=? DESC, c.name''', (user['id'], home or -1, home or -1)).fetchall()
+    return [dict(r, active=(r['id'] == user['center_id'])) for r in rows]
+
+
+def is_team_member(db, center_id, user_id):
+    return bool(center_id and db.execute('''SELECT 1 FROM users u WHERE u.id=? AND u.role='center' AND (u.center_id=?
+                 OR EXISTS(SELECT 1 FROM center_members m WHERE m.center_id=? AND m.user_id=u.id))''', (user_id, center_id, center_id)).fetchone())
 
 
 def require_user(handler, db):
@@ -2269,16 +2538,16 @@ def send_email_verification(db, user_id, new_email=None):
 
 def booking_notice_recipient(db, user, booking_id, experience_booking_id):
     """G11: the notice must be about a booking of the sender's own centre (or of his own freelance services/experiences)."""
+    # v50.47: the booking or request must be of the sender's tenant (centre or freelance), never of the person who
+    # created the service or the experience. Anything else does not exist for the sender (404).
+    if user['role'] not in ('center', 'freelance'): raise NotFound('Reserva no encontrada.')
     if booking_id:
-        b = db.execute('SELECT b.user_id,b.center_id,s.provider_user_id FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?', (booking_id,)).fetchone()
-        if not b: raise ValueError('Reserva no válida.')
-        if user['role'] == 'center' and b['center_id'] == user['center_id']: return b['user_id']
-        if user['role'] == 'freelance' and b['provider_user_id'] == user['id']: return b['user_id']
-        raise PermissionError('Esta reserva no pertenece a tu centro.')
+        b = db.execute('SELECT b.user_id,b.center_id,b.provider_user_id FROM bookings b WHERE b.id=?', (booking_id,)).fetchone()
+        if not b or not can_manage_booking(user, b): raise NotFound('Reserva no encontrada.')
+        return b['user_id']
     eb = db.execute('SELECT eb.user_id,e.provider_user_id,e.center_id FROM experience_bookings eb JOIN travel_experiences e ON e.id=eb.travel_experience_id WHERE eb.id=?', (experience_booking_id,)).fetchone()
-    if not eb: raise ValueError('Solicitud no válida.')
-    if eb['provider_user_id'] == user['id'] or (user['role'] == 'center' and eb['center_id'] and eb['center_id'] == user['center_id']): return eb['user_id']
-    raise PermissionError('Esta solicitud no es tuya.')
+    if not eb or not owns_service(user, eb['provider_user_id'], eb['center_id']): raise NotFound('Solicitud no encontrada.')
+    return eb['user_id']
 
 
 def provider_contact(db, user):
@@ -2292,7 +2561,7 @@ def provider_contact(db, user):
 
 def send_booking_notice(db, user, recipient_id, booking_id, experience_booking_id, subject, body):
     name, phone, email = provider_contact(db, user)
-    mid = db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,experience_booking_id,subject,body,created_at,kind,contact_phone,contact_email,sender_name) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+    mid = db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,experience_booking_id,subject,body,created_at,kind,contact_phone,contact_email,sender_name) VALUES(?,?,?,?,?,?,?,?,wod_cifrar(?),?,?)',
                      (user['id'], recipient_id, booking_id, experience_booking_id, subject, body, now(), 'notice', phone, email, name)).lastrowid
     ctx, lang = user_mail_ctx(db, recipient_id)
     to = ctx['email'] if ctx else ''
@@ -2474,10 +2743,12 @@ def find_or_create_customer(db, fullname, email, phone, center_id=None):
     return uid
 
 
-def is_guest_user(db, user_id):
-    """A customer record without login created by a centre: its data was typed by that centre."""
+def is_guest_user(db, user_id, center_id=None):
+    """A customer record without login created by a centre: its data was typed by that centre. With center_id, only
+    a record created by THAT centre counts (v50.47)."""
     r = db.execute('SELECT password_hash, guest_center_id FROM users WHERE id=?', (user_id,)).fetchone()
-    return bool(r and r['password_hash'] == '!' and r['guest_center_id'])
+    if not (r and r['password_hash'] == '!' and r['guest_center_id']): return False
+    return center_id is None or int(r['guest_center_id']) == int(center_id)
 
 
 def resolve_travel_offer(db, data):
@@ -2813,7 +3084,8 @@ def provider_ref(db, user):
     """('center', id) for a centre account, ('freelance', id) for a professional without a centre, else None."""
     if not user: return None
     if user['role'] == 'center' and user['center_id']: return ('center', int(user['center_id']))
-    if user['role'] == 'freelance': return ('center', int(user['center_id'])) if user['center_id'] else ('freelance', int(user['id']))
+    # v50.47: a freelance professional is always a tenant of their own, never «the centre it is attached to».
+    if user['role'] == 'freelance': return ('freelance', int(user['id']))
     return None
 
 
@@ -3225,23 +3497,25 @@ def import_clients(db, center_id, text, dry_run=True, actor=None):
             uid = db.execute("INSERT INTO users(fullname,email,username,password_hash,role,created_at,guest_center_id,guest_email) VALUES(?,?,?,?,?,?,?,?)",
                              (r['name'], f'cliente-{center_id}-{tag}@sin-email.worldives.local', f'cliente_{center_id}_{tag}', '!', 'recreational', now(), center_id, email if r['email'] else None)).lastrowid
             notes = ' · '.join(x for x in (('Titulación: ' + r['certification']) if r['certification'] else '', r['notes']) if x) or None
-            db.execute('INSERT INTO user_profiles(user_id,phone,notes,updated_at) VALUES(?,?,?,?)', (uid, r['phone'] or None, notes, now()))
+            db.execute('INSERT INTO user_profiles(user_id,phone,notes,updated_at) VALUES(?,wod_cifrar(?),?,?)', (uid, r['phone'] or None, notes, now()))
             created += 1
         audit(db, actor, 'clients_imported', 'center', center_id, {'created': created, 'rows': len(out)})
     return {'rows': out, 'summary': {k: sum(1 for r in out if r['status'] == k) for k in ('new', 'duplicate', 'error')}, 'created': created}
 
 
 # ------------------------------------------------------------------------------- Team of a centre (Fase 6.6)
-TEAM_ROLES = {'owner': 'Propietario', 'reception': 'Recepción', 'instructor': 'Instructor'}
+TEAM_ROLES = winq.TEAM_ROLES   # v50.47: owner, manager (encargado), reception, instructor
 # What each role cannot do (POST). Owners can do everything; instructors only read (and manage their own account).
 OWNER_ONLY_PREFIXES = ('/api/payments/connect/', '/api/provider/payment-profile', '/api/provider/fiscal', '/api/provider/insurance', '/api/provider/cancellation-policy',
                        '/api/provider/plan', '/api/center/team', '/api/provider/center-update', '/api/provider/center-showcase', '/api/provider/center-cover',
                        '/api/provider/center-gallery', '/api/center/integration', '/api/provider/ical', '/api/center/import', '/api/center/tariffs', '/api/bookings/refund',
                        '/api/provider/waiver')
+# v50.47: cancelling departures and mass notices: owner and manager only.
+NOTICE_ONLY_PREFIXES = ('/api/provider-services/slot-cancel', '/api/avisos/', '/api/whatsapp/')
 INSTRUCTOR_POST_OK = ('/api/auth/', '/api/account/', '/api/legal/accept', '/api/reports', '/api/contact', '/api/me', '/api/team/')
 # Instructors on the boat also take the signatures at check-in (encargo 2, punto 5).
 INSTRUCTOR_POST_RE = re.compile(r'/api/bookings/\d+/waiver/sign|/api/manifest/sync')
-OWNER_ONLY_GET = ('/api/provider/payments', '/api/provider/fiscal', '/api/provider/plan', '/api/center/team', '/api/center/activity')
+OWNER_ONLY_GET = ('/api/provider/payments', '/api/payments/center', '/api/provider/fiscal', '/api/provider/plan', '/api/center/team', '/api/center/activity', '/api/provider/ical')
 
 
 def member_role(db, user):
@@ -3261,8 +3535,10 @@ def team_gate(db, user, path, method):
         return
     if role == 'instructor' and not path.startswith(INSTRUCTOR_POST_OK) and not INSTRUCTOR_POST_RE.fullmatch(path):
         raise PermissionError('Tu perfil de instructor es de solo lectura. Pide el cambio al propietario del centro.')
-    if role == 'reception' and (path.startswith(OWNER_ONLY_PREFIXES) or (path.startswith('/api/bookings/') and path.endswith('/refund'))):
+    if role in ('reception', 'manager') and (path.startswith(OWNER_ONLY_PREFIXES) or (path.startswith('/api/bookings/') and path.endswith('/refund'))):
         raise PermissionError('Solo el propietario del centro puede hacer este cambio.')
+    if role == 'reception' and path.startswith(NOTICE_ONLY_PREFIXES):
+        raise PermissionError('Solo el propietario o el encargado del centro pueden cancelar salidas y enviar avisos a todos los clientes.')
 
 
 def plan_payment_paid(db, pp_id, source):
@@ -3286,8 +3562,73 @@ def plan_money(amount, currency):
 
 
 def owns_service(user, provider_user_id, center_id):
-    """A service (and its departures) is managed by its creator or by any member of the same centre (Fase 6.6)."""
-    return provider_user_id == user['id'] or bool(user['role'] == 'center' and user['center_id'] and center_id == user['center_id'])
+    """A service, its departures, its manifest and its experience belong to a tenant (v50.47): a centre's ones are
+    managed by the current members of that centre, a freelance's ones by that freelance. Who created them does not
+    matter (before v50.47 the creator kept them after leaving the centre)."""
+    if not user: return False
+    if center_id: return user['role'] == 'center' and bool(user['center_id']) and int(center_id) == int(user['center_id'])
+    return user['role'] == 'freelance' and provider_user_id is not None and int(provider_user_id) == int(user['id'])
+
+
+def experience_scope(user):
+    """WHERE fragment (alias e) for the travel experiences of the session's tenant (v50.47)."""
+    if user['role'] == 'center' and user['center_id']: return 'e.center_id=?', (int(user['center_id']),)
+    if user['role'] == 'freelance': return 'e.center_id IS NULL AND e.provider_user_id=?', (int(user['id']),)
+    raise PermissionError('Solo los centros y profesionales tienen experiencias.')
+
+
+# B.1 (v50.47): the tenant of a private request is always the one of the session. Fields of the body that name a
+# tenant, a payee or a list of recipients are removed before the handler reads them, and the attempt is logged.
+TENANT_FIELDS = ('provider_id', 'center_id', 'provider_user_id', 'payee_id', 'payee_type', 'owner_center_id', 'owner_user_id', 'tenant_id',
+                 'recipients', 'recipient_ids', 'phones')
+PRIVATE_POST_PREFIXES = ('/api/provider', '/api/center/', '/api/center-points', '/api/center-equipment', '/api/manifest', '/api/messages',
+                         '/api/payments/connect', '/api/team/', '/api/avisos', '/api/whatsapp', '/api/bookings/', '/api/qr/create', '/api/dive-points',
+                         '/api/travel-experiences', '/api/service-templates', '/api/promo/', '/api/reviews/', '/api/agenda/block', '/api/agenda/unblock',
+                         '/api/agenda/hours', '/api/slot-cancel/')
+
+
+# B.9 (v50.47): the administrator sees or changes the private data of a centre only with a stated reason, which is
+# logged in audit_log (header X-Admin-Reason; the web asks for it once and keeps it for 30 minutes).
+ADMIN_CENTER_GET = re.compile(r'^/api/(bookings(/\d+(/.*)?)?|manifest/.*|provider/payments|payments/center|payments/connect-status|center/clients|center/extras'
+                              r'|provider/reward-offers|admin/payments|admin/emails(/.*)?|documents/file/\d+|admin/insurance-doc|waivers/.*|public/bookings/\d+'
+                              r'|admin/dac7|admin/avisos(/.*)?)$')
+ADMIN_CENTER_POST = re.compile(r'^/api/(bookings/\d+/(status|payment|refund|reschedule|change-date/decide)|payments/connect/.*|center/extras/.*'
+                               r'|provider/reward-offers|center-points/.*|center-equipment|admin/payments/(resolve|incident)|admin/emails/resend'
+                               r'|admin/users/role|centers/update|manifest/.*)$')
+
+
+class AdminReasonRequired(PermissionError):
+    extra = {'admin_reason_required': True}
+
+
+def admin_reason_gate(handler, db, path, method):
+    rx = ADMIN_CENTER_GET if method == 'GET' else ADMIN_CENTER_POST
+    if not rx.match(path): return
+    user = current_user(handler, db)
+    if not user or user['role'] != 'admin': return
+    raw = handler.headers.get('X-Admin-Reason') or (parse_qs(urlparse(handler.path).query).get('motivo', [''])[0] if method == 'GET' else '')
+    try: raw = unquote(raw)
+    except Exception: pass
+    reason = clean_text(raw, 300) or ''
+    if len(reason) < 5:
+        raise AdminReasonRequired('Indica el motivo para ver o cambiar datos de un centro: queda registrado en la actividad.')
+    audit(db, user['id'], 'admin_center_access', 'request', None, {'method': method, 'path': path, 'reason': reason}); db.commit()
+
+
+def ignored_tenant_fields(db, user, path, keys):
+    audit(db, user['id'], 'tenant_fields_ignored', 'request', None, {'path': path, 'fields': sorted(set(keys))})
+
+
+def tenant_guard(handler, db, path):
+    if not path.startswith(PRIVATE_POST_PREFIXES): return
+    if 'application/json' not in (handler.headers.get('Content-Type') or ''): return
+    user = current_user(handler, db)
+    if not user or user['role'] not in ('center', 'freelance'): return
+    data = json_body(handler)
+    found = [k for k in TENANT_FIELDS if k in data]
+    if not found: return
+    for k in found: data.pop(k, None)
+    ignored_tenant_fields(db, user, path, found); db.commit()
 
 
 def public_center_sql(alias='c'):
@@ -3307,16 +3648,34 @@ def point_row(row):
     return d
 
 
-def center_row(row):
+# v50.47 (F1): the columns of a centre that the public may see. Every other column of `centers` (tax data, birth date,
+# insurance, plan, iCal token, Stripe, internal settings and any column added later) never leaves in a public answer.
+CENTER_PUBLIC_COLUMNS = frozenset({'id', 'name', 'country', 'region', 'city', 'address', 'website', 'phone', 'email', 'description', 'specialties',
+    'latitude', 'longitude', 'active', 'created_at', 'updated_at', 'verification_status', 'logo_url', 'instagram_url', 'facebook_url', 'twitter_url',
+    'youtube_url', 'tiktok_url', 'cover_url', 'tagline', 'gallery_json', 'languages', 'opening_hours', 'cancellation_policy', 'cancellation_note',
+    'cancel_free_hours', 'cancel_refund_pct', 'legal_name', 'stripe_charges_enabled'})
+# The centre's own team also sees these in its «Mi centro» form (never the iCal token, Stripe ids or tax data).
+CENTER_MEMBER_COLUMNS = frozenset({'logo_consent'})
+_CENTER_COLUMNS = []
+
+
+def centers_columns():
+    if not _CENTER_COLUMNS:
+        with connect() as db: _CENTER_COLUMNS.extend(r[1] for r in db.execute('PRAGMA table_info(centers)'))
+    return _CENTER_COLUMNS
+
+
+def center_row(row, member=False):
     if not row:
         return None
     d = dict(row)
-    # Provenance metadata is kept internally but is not exposed in the public catalog API.
-    for k in ('source_name', 'source_url', 'logo_source', 'data_confidence', 'stripe_account_id', 'stripe_details_submitted', 'stripe_payouts_enabled'):
+    allowed = CENTER_PUBLIC_COLUMNS | (CENTER_MEMBER_COLUMNS if member else frozenset())
+    for k in set(centers_columns()) - allowed:   # computed columns of the query (distance, rating…) stay
         d.pop(k, None)
     if 'gallery_json' in d:
         d['gallery']=center_gallery(row); d.pop('gallery_json',None)
     d['online_payments']=bool(d.pop('stripe_charges_enabled',0)) and bool(stripe_secret()) and bool(row['stripe_payouts_enabled'] if 'stripe_payouts_enabled' in row.keys() else 0)
+    for k in ('stripe_payouts_enabled', 'stripe_details_submitted', 'stripe_account_id'): d.pop(k, None)
     return d
 
 
@@ -4109,7 +4468,7 @@ def clean_logbook(data):
 
 
 def is_center_client(db, cid, uid):
-    return bool(db.execute('SELECT 1 FROM bookings WHERE center_id=? AND user_id=? UNION SELECT 1 FROM center_links WHERE center_id=? AND user_id=? LIMIT 1',(cid,uid,cid,uid)).fetchone())
+    return bool(db.execute(f'SELECT 1 FROM bookings b WHERE b.center_id=? AND b.user_id=? AND {CENTER_VISIBLE_SQL} AND b.status<>\'payment_in_progress\' UNION SELECT 1 FROM center_links WHERE center_id=? AND user_id=? LIMIT 1',(cid,uid,cid,uid)).fetchone())
 
 
 def resolve_site_media(snap, hemi='north', preview=None, today=None):
@@ -4174,7 +4533,8 @@ def planning_scope(user):
     if user['role']=='center' and user['center_id']:
         return 's.center_id=?',(int(user['center_id']),),'b.center_id=?',(int(user['center_id']),)
     if user['role']=='freelance':
-        return 's.provider_user_id=?',(user['id'],),'b.service_id IN (SELECT id FROM provider_services WHERE provider_user_id=?)',(user['id'],)
+        return ('s.center_id IS NULL AND s.provider_user_id=?',(user['id'],),
+                'b.center_id IS NULL AND b.service_id IN (SELECT id FROM provider_services WHERE center_id IS NULL AND provider_user_id=?)',(user['id'],))
     raise PermissionError('Solo los centros y profesionales tienen planning.')
 
 
@@ -4306,6 +4666,11 @@ def public_promos(db):
 
 
 def invalidate_after_post(path):
+    flush_security_alerts()
+    _invalidate_after_post(path)
+
+
+def _invalidate_after_post(path):
     """Catalogue edits show up at once in this process (other worker processes refresh within a minute)."""
     for prefix,*names in SNAPSHOT_WRITE_PREFIXES:
         if path.startswith(prefix):
@@ -5018,6 +5383,9 @@ EMAIL_TEMPLATES = {
  'admin_error_alert': {'to': 'admin', 'subject': 'Alerta: {count} errores del servidor en pocos minutos', 'pre': 'Revisa el servidor.', 'blocks': [
    ('h', 'Errores repetidos en el servidor'), ('p', 'Se han producido {count} errores internos (500) en {site} en los últimos minutos. Los últimos:'),
    ('note', '{errors}'), ('p', 'Revisa los registros del servicio (journalctl -u worldives) y el estado en Administración → Sistema.')]},
+ 'admin_security_alert': {'to': 'admin', 'subject': 'Seguridad: {kind}', 'pre': 'Se ha bloqueado una operación por seguridad.', 'blocks': [
+   ('h', 'Operación bloqueada por seguridad'), ('p', '{kind} ({when}). No se ha enviado, mostrado ni cambiado nada.'),
+   ('note', '{details}'), ('p', 'Revisa Administración → Actividad (acción «security_alert») en {site}.')]},
  'test': {'to': 'any', 'subject': 'Correo de prueba de WORLDIVES DISCOVERY', 'pre': 'La configuración de correo funciona.', 'blocks': [
    ('h', '¡Funciona!'), ('p', 'Este es un correo de prueba. Si lo estás leyendo, el envío de correos de WORLDIVES está bien configurado.')]},
 }
@@ -5041,7 +5409,7 @@ EMAIL_TEMPLATE_LABELS = {
  'contact_received': 'Mensaje de contacto recibido', 'admin_contact_message': 'Admin: mensaje de contacto', 'test': 'Correo de prueba',
  'booking_expired': 'Reserva caducada (buceador)', 'center_booking_expired': 'Centro: reserva caducada', 'center_payments_disabled': 'Centro: «Pago al reservar» sin cobros activos',
  'verify_email': 'Verificación de email', 'verify_email_change': 'Confirmación de cambio de email', 'booking_notice': 'Aviso del centro sobre una reserva',
- 'medical_document_removed': 'Certificado médico eliminado', 'admin_error_alert': 'Admin: errores repetidos del servidor'}
+ 'medical_document_removed': 'Certificado médico eliminado', 'admin_security_alert': 'Admin: operación bloqueada por seguridad', 'admin_error_alert': 'Admin: errores repetidos del servidor'}
 EMAIL_AUDIENCE = {'diver': 'Buceador', 'pro': 'Profesional', 'center': 'Centro', 'admin': 'Administración', 'any': 'Cualquier usuario', 'marketing': 'Con consentimiento comercial'}
 
 
@@ -5227,7 +5595,8 @@ def notify_user(db, user_id, template, extra=None, related=None):
 def center_recipients(db, center_id):
     """Who receives a centre's emails: its manager accounts and, if different, the centre's public email."""
     out = {}
-    for r in db.execute("SELECT id,fullname,email FROM users WHERE center_id=? AND role='center'", (center_id,)).fetchall():
+    for r in db.execute('''SELECT id,fullname,email FROM users u WHERE u.role='center' AND (u.center_id=?
+                            OR EXISTS(SELECT 1 FROM center_members m WHERE m.center_id=? AND m.user_id=u.id))''', (center_id, center_id)).fetchall():
         if mail_deliverable(r['email']): out[r['email'].lower()] = (r['fullname'], user_lang(db, r['id']))
     c = db.execute('SELECT name,email FROM centers WHERE id=?', (center_id,)).fetchone()
     if c and mail_deliverable(c['email']) and c['email'].lower() not in out: out[c['email'].lower()] = (c['name'], 'es')
@@ -5346,7 +5715,7 @@ def notify_booking(db, bid, event, extra=None):
             base = public_site_url(); paid = float(extra.get('paid_net') or 0)
             reason = mail_t(lang_d, SLOT_CANCEL_REASONS.get(extra.get('reason_key'), 'Otro motivo')) + (f": {extra['note']}" if extra.get('note') else '')
             dl = mail_datetime(extra.get('deadline_iso'), lang_d)
-            to_diver('slot_cancelled', {'cancel_reason': reason, 'choice_url': f"{base}/#/salida-cancelada?b={bid}&t={booking_token(db, bid)}",
+            to_diver('slot_cancelled', {'cancel_reason': reason, 'choice_url': extra.get('link') or f"{base}/#/salida-cancelada?b={bid}&t={booking_token(db, bid)}",
                      'choice_text': mail_t(lang_d, 'Puedes pasar a otra fecha del mismo servicio o pedir la devolución íntegra de {amount}.', amount=mail_money(paid, ctx['currency'], lang_d)) if paid > 0 else mail_t(lang_d, 'Puedes pasar a otra fecha del mismo servicio o anular la reserva sin ningún coste.'),
                      'deadline_text': mail_t(lang_d, 'Si no eliges antes del {deadline}, te devolveremos el importe automáticamente.', deadline=dl) if paid > 0 else mail_t(lang_d, 'Si no eliges antes del {deadline}, la reserva se anulará sin coste.', deadline=dl)})
         elif event == 'date_changed':
@@ -5843,7 +6212,7 @@ def payee_of(db, center_id=None, user_id=None):
                                  u.cancellation_note,u.cancel_free_hours,u.cancel_refund_pct,u.center_id AS own_center_id
                             FROM users u LEFT JOIN user_profiles up ON up.user_id=u.id WHERE u.id=?''', (user_id,)).fetchone()
         if u:
-            if u['own_center_id']: return payee_of(db, u['own_center_id'])
+            # v50.47: the payments of a freelance go to its own account, never to a centre's (one tenant per account).
             return dict(u, type='freelance')
     return None
 
@@ -6054,9 +6423,25 @@ def upsert_refund(db, order, stripe_refund_id, amount, status, source, reason=No
     recompute_order_refunds(db, order['id'])
 
 
+def order_tenant_problem(db, order):
+    """v50.47: a payment of a booking can only be refunded when it was charged for the centre (or freelance) of that
+    booking. Returns a short reason when it cannot be proven (empty when it is fine)."""
+    if not order['booking_id']: return ''
+    b = db.execute('SELECT center_id, provider_user_id FROM bookings WHERE id=?', (order['booking_id'],)).fetchone()
+    if not b: return 'reserva inexistente'
+    want = ('center', int(b['center_id'])) if b['center_id'] else ('freelance', int(b['provider_user_id'] or 0))
+    if not order['payee_type'] or not order['payee_id']: return 'pago sin centro registrado'
+    if (order['payee_type'], int(order['payee_id'])) != want: return 'el pago es de otro centro'
+    return ''
+
+
 def refund_payment(db, order, amount, reason='requested_by_customer', actor=None, note='', source='panel'):
     """Refunds part or all of a paid order through Stripe, on the provider's account for direct charges.
     Raises ValueError with a clear message when it cannot. Returns the refunded amount."""
+    problem = order_tenant_problem(db, order)
+    if problem:
+        security_alert('refund_tenant_mismatch', {'order': order['id'], 'booking': order['booking_id'], 'problem': problem, 'source': source}, actor)
+        raise ValueError('Devolución bloqueada por seguridad: no se puede comprobar que este pago sea del centro de la reserva. Se ha avisado al administrador.')
     paid = float(order['amount_received'] or order['amount'] or 0)
     left = round(paid - float(order['refunded_total'] or 0), 2)
     amount = round(float(amount), 2)
@@ -6136,7 +6521,7 @@ def can_manage_booking(user, b):
     """The provider of a booking: its centre (owner and team), or the freelance professional when it has no centre."""
     if not user: return False
     if user['role'] == 'admin': return True
-    if user['role'] == 'center': return bool(user['center_id']) and b['center_id'] == user['center_id']
+    if user['role'] == 'center': return bool(user['center_id']) and bool(b['center_id']) and int(b['center_id']) == int(user['center_id'])
     if user['role'] == 'freelance':
         prov = b['provider_user_id'] if 'provider_user_id' in b.keys() else None
         return not b['center_id'] and prov == user['id']
@@ -6144,8 +6529,9 @@ def can_manage_booking(user, b):
 
 
 def require_booking_provider(user, b):
+    # v50.47: a booking of another centre does not exist for this session (404, not 403).
     if not can_manage_booking(user, b):
-        raise PermissionError('Esta reserva no pertenece a tu centro.' if user['role'] == 'center' else 'No puedes gestionar esta reserva.')
+        raise NotFound('Reserva no encontrada.')
 
 
 def provider_scope_sql(user, alias='b'):
@@ -6894,9 +7280,8 @@ def manifest_slot(db, user, slot_id):
     """The departure and its service, if this centre or professional manages it (admins too)."""
     r = db.execute('''SELECT ss.*, s.title AS service_title, s.center_id, s.provider_user_id, s.service_type, s.duration_minutes
                         FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?''', (slot_id,)).fetchone()
-    if not r: raise ValueError('Salida no encontrada.')
-    if user['role'] != 'admin' and not owns_service(user, r['provider_user_id'], r['center_id']):
-        raise PermissionError('Esta salida no es de tu centro.')
+    if not r or (user['role'] != 'admin' and not owns_service(user, r['provider_user_id'], r['center_id'])):
+        raise NotFound('Salida no encontrada.')
     return r
 
 
@@ -6962,7 +7347,7 @@ def manifest_data(db, user, slot_id):
     waiver = current_waiver(db, kind, oid)
     divers = []
     for b in books:
-        visible = provider_can_see_user(db, b) or is_guest_user(db, b['user_id'])
+        visible = provider_can_see_user(db, b) or is_guest_user(db, b['user_id'], b['center_id'] or -1)
         shared = bool(provider_can_see_user(db, b))
         sigs = booking_signatures(db, b['id'])
         for seat in range(1, max(1, int(b['participants'] or 1)) + 1):
@@ -7013,7 +7398,7 @@ def manifest_data(db, user, slot_id):
 
 def manifest_require_edit(db, user, slot_id):
     slot = manifest_slot(db, user, slot_id)
-    if user['role'] != 'admin' and member_role(db, user) not in (None, 'owner', 'reception'):
+    if user['role'] != 'admin' and member_role(db, user) not in (None, 'owner', 'manager', 'reception'):
         raise PermissionError('Tu perfil de instructor es de solo lectura. Pide el cambio al propietario del centro.')
     return slot
 
@@ -7114,7 +7499,7 @@ def waiver_pdf(db, sig_id, lang='es'):
 # 3. The diver changes the date himself, within the service's deadline, directly or with the centre's approval.
 # 4. Waiting list on full departures: when a spot frees up, the first person who fits gets it kept for 2 h (never
 #    after the start); without a booking it goes to the next one.
-SLOT_CANCEL_REASONS = {'weather': 'Mal tiempo', 'sea': 'Estado del mar', 'other': 'Otro motivo'}
+SLOT_CANCEL_REASONS = {'weather': 'Mal tiempo', 'sea': 'Estado del mar', 'boat': 'Avería del barco', 'other': 'Otro motivo'}
 SLOT_CHOICE_HOURS_DEFAULT = 48
 RESCHEDULE_HOURS_DEFAULT = 48
 RESCHEDULE_MODES = ('none', 'direct', 'approval')
@@ -7161,16 +7546,19 @@ def target_slots(db, b, exclude=None):
     return out
 
 
-def provider_cancel_booking(db, b, reason, actor=None, source='slot_cancel'):
-    """The provider cancels a booking: spots released, pending payments cancelled and everything paid refunded."""
+def provider_cancel_booking(db, b, reason, actor=None, source='slot_cancel', notify=True, refund=True):
+    """The provider cancels a booking: spots released, pending payments cancelled and everything paid refunded.
+    v50.47: with refund=False the refund is left to the notice worker (after the transaction, with Stripe's
+    idempotency) and with notify=False the notices are sent by the notice queue."""
     release_booking_spots(db, b)
     db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='center',reject_reason=?,updated_at=? WHERE id=?", (now(), reason, now(), b['id']))
     for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (b['id'],)).fetchall():
         expire_checkout(o); db.execute("UPDATE payment_orders SET status='cancelled',updated_at=? WHERE id=?", (now(), o['id']))
     paid_, refunded_, _o = booking_paid_online(db, b['id']); net_ = round(paid_ - refunded_, 2)
+    if not refund: return ('refund_pending' if net_ > 0 else 'none_paid'), net_
     outcome = refund_booking(db, b['id'], net_, 'requested_by_customer', actor, reason, source) if net_ > 0 else 'none_paid'
-    if outcome == 'refunded': notify_booking(db, b['id'], 'refund_issued', {'amount': net_, 'note': reason})
-    notify_booking(db, b['id'], 'cancelled_center', {'refund': outcome, 'reason': reason})
+    if outcome == 'refunded' and notify: notify_booking(db, b['id'], 'refund_issued', {'amount': net_, 'note': reason})
+    if notify: notify_booking(db, b['id'], 'cancelled_center', {'refund': outcome, 'reason': reason})
     return outcome, net_
 
 
@@ -7192,8 +7580,9 @@ def slot_cancel_preview(db, slot):
     return out
 
 
-def cancel_slot(db, user, slot, reason, note, hours):
-    """Cancels a departure and gives every booking the choice (punto 2). Returns the list of affected bookings."""
+def cancel_slot(db, user, slot, reason, note, hours, notify=True):
+    """Cancels a departure and gives every booking the choice (punto 2). Returns the list of affected bookings.
+    v50.47: with notify=False the divers are told by the notice queue (WhatsApp, email and app)."""
     affected = slot_cancel_preview(db, slot)
     db.execute("UPDATE service_slots SET status='closed',cancelled_at=?,cancel_reason=?,cancel_note=?,cancelled_by=?,updated_at=? WHERE id=?",
                (now(), reason, note, user['id'], now(), slot['id']))
@@ -7204,7 +7593,7 @@ def cancel_slot(db, user, slot, reason, note, hours):
             if expire_booking(db, b, 'slot_cancelled', notify=False) != 'paid': continue
             b = booking_row(db, a['booking_id'])
         db.execute('INSERT OR IGNORE INTO slot_cancel_offers(booking_id,slot_id,deadline,created_at) VALUES(?,?,?,?)', (b['id'], slot['id'], deadline, now()))
-        notify_booking(db, b['id'], 'slot_cancelled', {'reason_key': reason, 'note': note, 'deadline_iso': deadline, 'paid_net': a['paid']})
+        if notify: notify_booking(db, b['id'], 'slot_cancelled', {'reason_key': reason, 'note': note, 'deadline_iso': deadline, 'paid_net': a['paid']})
     for w in db.execute("SELECT * FROM waitlist_entries WHERE slot_id=? AND status IN ('waiting','notified')", (slot['id'],)).fetchall():
         db.execute("UPDATE waitlist_entries SET status='cancelled',held=0,updated_at=? WHERE id=?", (now(), w['id']))
     slot_event(db, slot['id'], 'cancelled', user['id'], reason=reason, note=note, affected=len(affected), choice_hours=hours)
@@ -7251,6 +7640,728 @@ def run_slot_cancel_jobs(db):
         if st and st <= local_now():
             db.execute("UPDATE reschedule_requests SET status='expired',decided_at=? WHERE id=?", (now(), r['id'])); db.commit()
     run_waitlist_jobs(db)
+
+
+# =================================================================== v50.47 · Mass notices of the centres (partes D y E)
+# A centre cancels a departure (or changes its time or meeting point, or the day-before reminder goes out) and every
+# diver of that departure is told by WhatsApp (from the centre's OWN number, with consent), email and the app.
+# - The recipients are computed here, from the bookings of that departure of that centre. Never a list from the browser.
+# - Nothing leaves for NOTICE_UNDO_SECONDS: the centre can undo. Then one transaction cancels the departure and its
+#   bookings, prepares the refunds and queues one row per diver and channel (notice_outbox; unique per booking, event
+#   and channel, so a double click or a restart never sends twice).
+# - Before each message everything is checked again (centre of the session = of the departure = of the booking = owner
+#   of the WhatsApp number). Any doubt: the message is not sent, it is marked «bloqueado por seguridad» and the
+#   administrators are told (regla de oro).
+NOTICE_UNDO_SECONDS = wcfg.env_int('WOD_AVISOS_DESHACER_SEGUNDOS', 10, 3, 120)
+NOTICE_MAX_PER_DAY = wcfg.env_int('WOD_AVISOS_MAX_DIA', 10, 1, 500)
+NOTICE_ALERT_RECIPIENTS = wcfg.env_int('WOD_AVISOS_ALERTA_DESTINATARIOS', 60, 2, 100000)
+NOTICE_ALERT_CANCELLATIONS = wcfg.env_int('WOD_AVISOS_ALERTA_CANCELACIONES', 5, 1, 1000)
+NOTICE_RETRY_MINUTES = (1, 5, 15, 60, 240)
+NOTICE_LINK_DAYS = 14
+NOTICE_RECIPIENT_STATES = ('requested', 'accepted_pending_payment', 'confirmed')
+NOTICE_CHANNELS = ('whatsapp', 'email', 'app')
+NOTICE_TEMPLATES = wwa.TEMPLATE_NAMES
+
+
+def notice_actor_ctx(db, user):
+    """The tenant of the session, for notices: owner or manager of a centre, or a freelance. Never the admin."""
+    ctx = winq.ctx_from_user(db, user)
+    if not ctx: raise PermissionError('Solo los centros y profesionales envían avisos a sus clientes.')
+    if not ctx.can_send_notices: raise PermissionError('Solo el propietario o el encargado del centro pueden cancelar salidas y enviar avisos a todos los clientes.')
+    return ctx
+
+
+def provider_settings(db, key):
+    r = db.execute('SELECT * FROM provider_settings WHERE provider_id=?', (key,)).fetchone()
+    return dict(r) if r else {'provider_id': key, 'notice_policy': 'choice', 'reminder_enabled': 1, 'reminder_hour': 18, 'reminder_bring': ''}
+
+
+def tenant_parts(key):
+    kind, oid = key.split(':')
+    return ('center' if kind == 'c' else 'freelance'), int(oid)
+
+
+def whatsapp_account(db, key):
+    """The connected WhatsApp number of THIS tenant (never another one). None when WhatsApp is off or not connected."""
+    if not wwa.enabled(): return None
+    return db.execute("SELECT * FROM whatsapp_accounts WHERE provider_id=? AND status='connected'", (key,)).fetchone()
+
+
+def diver_contact(db, b):
+    """Who the diver of a booking is and how they can be told. The WhatsApp phone is ONLY the one the diver wrote in
+    their own profile, with their consent and an international prefix; never a phone typed or imported by a centre."""
+    u = db.execute('''SELECT u.id,u.fullname,u.email,u.password_hash,u.guest_center_id,up.phone,up.wa_consent
+                        FROM users u LEFT JOIN user_profiles up ON up.user_id=u.id WHERE u.id=?''', (b['user_id'],)).fetchone()
+    guest = (not u) or (u['password_hash'] == '!' and bool(u['guest_center_id']))
+    name = (b['contact_name'] if guest and b['contact_name'] else (u['fullname'] if u else '')) or ''
+    email = ((b['contact_email'] if guest else (u['email'] if u else '')) or '').strip().lower()
+    phone = None if guest or not u else wcif.normalize_phone(u['phone'])
+    return {'user_id': b['user_id'], 'name': name, 'email': email if mail_deliverable(email) else '', 'guest': guest,
+            'phone': phone, 'consent': bool(u and not guest and u['wa_consent']), 'lang': user_lang(db, b['user_id'])}
+
+
+def notice_channels(contact, wa_acc):
+    """{channel: (recipient or None, reason when skipped)}."""
+    out = {}
+    if not wa_acc: out['whatsapp'] = (None, 'El centro no tiene WhatsApp conectado' if wwa.enabled() else 'WhatsApp no está activado en el servidor')
+    elif contact['guest']: out['whatsapp'] = (None, 'Cliente sin cuenta: sin permiso de WhatsApp')
+    elif not contact['consent']: out['whatsapp'] = (None, 'Sin permiso para avisos por WhatsApp')
+    elif not contact['phone']: out['whatsapp'] = (None, 'Teléfono sin prefijo internacional')
+    else: out['whatsapp'] = (contact['phone'], '')
+    out['email'] = (contact['email'], '') if contact['email'] else (None, 'Sin correo')
+    out['app'] = (str(contact['user_id']), '') if not contact['guest'] else (None, 'Cliente sin cuenta en WORLDIVES')
+    return out
+
+
+def slot_label(slot, lang='es'):
+    return f"{slot['service_title'] or ''} · {mail_date(slot['slot_date'], lang)}" + (f" · {slot['slot_time']}" if slot['slot_time'] else '')
+
+
+def notice_link(bid, kind, slot_date):
+    """Signed link that opens only this booking (14 days, and at least until 2 days after the departure)."""
+    try: until = datetime.fromisoformat(f'{slot_date}T23:59:59').replace(tzinfo=timezone.utc).timestamp() + 2 * 86400
+    except (TypeError, ValueError): until = 0
+    exp = int(max(time.time() + NOTICE_LINK_DAYS * 86400, until))
+    return wav.sign_link(wcfg.env('WOD_SECRET_KEY') or 'desarrollo', bid, kind, exp)
+
+
+def notice_texts(db, kind, slot, booking, lang, *, center, reason=None, note=None, policy='choice', paid=0.0, new_time=None, new_point=None, bring=None, meeting=None):
+    """(WhatsApp body params, app subject, app body) of one booking, in the diver's language."""
+    lang = wav.lang_of(lang)
+    date_txt = mail_date(slot['slot_date'], lang); time_txt = slot['slot_time'] or ''
+    if kind == 'slot_cancelled':
+        money = wav.money_text(policy, paid, mail_money(paid, booking['currency'] or 'EUR', lang), lang)
+        params = wav.params(kind, lang, center=center, date=date_txt, time_=time_txt, reason=reason, note=note, money=money)
+    elif kind == 'slot_changed':
+        params = wav.params(kind, lang, center=center, date=date_txt, time_=time_txt, change=wav.change_text(lang, new_time, new_point), note=note)
+    else:
+        params = wav.params(kind, lang, center=center, date=date_txt, time_=time_txt, point=meeting, bring=bring)
+    params = [wav.whatsapp_safe(p) for p in params]
+    subject = wav.text('app_subject_' + kind, lang, service=slot['service_title'] or '')
+    return params, subject, wav.body(kind, lang, params)
+
+
+def notice_preview(db, ctx, slot_id, kind, *, reason=None, note='', policy=None, new_time=None, new_point=None):
+    """What the confirmation screen shows: recipients per channel, names with initial, money of each booking and the
+    message in each language. Computed only from the bookings of this departure of this tenant."""
+    slot, rows = winq.slot_bookings(db, ctx, slot_id, NOTICE_RECIPIENT_STATES + ('payment_in_progress',))
+    sett = provider_settings(db, ctx.key)
+    policy = policy if policy in ('choice', 'refund') else sett['notice_policy']
+    wa = whatsapp_account(db, ctx.key)
+    center = provider_label(db, ctx.kind, ctx.oid)
+    counts = {c: 0 for c in NOTICE_CHANNELS}; people = []; langs = {}; money = {'refund': 0.0, 'currency': None, 'paying': 0}
+    for b in rows:
+        if b['status'] == 'payment_in_progress':
+            money['paying'] += 1; continue
+        contact = diver_contact(db, b); chans = notice_channels(contact, wa)
+        paid_, refunded_, _o = booking_paid_online(db, b['id']); net = round(paid_ - refunded_, 2)
+        for c, (to, _why) in chans.items():
+            if to: counts[c] += 1
+        if kind == 'slot_cancelled' and net > 0: money['refund'] = round(money['refund'] + net, 2); money['currency'] = b['currency'] or 'EUR'
+        people.append({'name': winq.first_name_initial(contact['name']), 'participants': int(b['participants'] or 1), 'lang': contact['lang'],
+                       'channels': {c: bool(to) for c, (to, _w) in chans.items()}, 'why_not': {c: w for c, (to, w) in chans.items() if not to},
+                       'paid': net, 'currency': b['currency'] or 'EUR',
+                       'money': (('Devolución de ' + mail_money(net, b['currency'] or 'EUR', 'es')) if net > 0 else 'Sin cobro') if kind == 'slot_cancelled' and policy == 'refund' else
+                                (('Elige otra fecha o devolución de ' + mail_money(net, b['currency'] or 'EUR', 'es')) if net > 0 else 'Elige otra fecha o anula sin coste') if kind == 'slot_cancelled' else ''})
+        langs.setdefault(contact['lang'], b)
+    previews = []
+    for lang, b in sorted(langs.items()):
+        paid_, refunded_, _o = booking_paid_online(db, b['id']); net = round(paid_ - refunded_, 2)
+        params, subject, body = notice_texts(db, kind, slot, b, lang, center=center, reason=reason, note=note, policy=policy, paid=net,
+                                             new_time=new_time, new_point=new_point, bring=sett.get('reminder_bring') or None, meeting=slot_meeting_point(db, slot))
+        previews.append({'lang': lang, 'whatsapp': body, 'button': wav.button_label(kind, lang), 'app_subject': subject, 'app_body': body})
+    return {'slot': {'id': slot['id'], 'uid': slot['uid'], 'label': slot_label(slot), 'date': slot['slot_date'], 'time': slot['slot_time'], 'service': slot['service_title'],
+                     'cancelled': bool(slot['cancelled_at'])},
+            'kind': kind, 'policy': policy, 'counts': counts, 'people': people, 'recipients': len(people), 'money': money, 'previews': previews,
+            'whatsapp': {'enabled': wwa.enabled(), 'connected': bool(wa), 'number': wcif.mask_phone(wcif.decrypt_secret(wa['display_number'])) if wa else None},
+            'undo_seconds': NOTICE_UNDO_SECONDS, 'confirm_hint': confirm_words(slot)}
+
+
+def slot_meeting_point(db, slot):
+    mp = slot['meeting_point'] if 'meeting_point' in slot.keys() else None
+    if mp: return mp
+    kind, oid = tenant_parts(slot['provider_id'])
+    if kind == 'center':
+        c = db.execute('SELECT address, city FROM centers WHERE id=?', (oid,)).fetchone()
+        return ', '.join(x for x in ((c['address'] if c else None), (c['city'] if c else None)) if x) or None
+    return None
+
+
+def confirm_words(slot):
+    """What the centre may type to confirm: the date (17/10 or 2026-10-17) or the name of the departure."""
+    d = slot['slot_date'] or ''
+    short = f'{d[8:10]}/{d[5:7]}' if len(d) >= 10 else d
+    return {'date': short, 'iso': d, 'name': slot['service_title'] or ''}
+
+
+def confirm_matches(slot, typed):
+    t = fold_text(str(typed or '').strip()).replace(' ', '')
+    if not t: return False
+    w = confirm_words(slot)
+    return t in {fold_text(w['date']).replace(' ', ''), w['iso'], fold_text(w['name']).replace(' ', '')}
+
+
+def create_notice_batch(db, handler, user, data, kind):
+    """A mass notice of the session's tenant. Returns the batch row. Nothing is sent for NOTICE_UNDO_SECONDS."""
+    ctx = notice_actor_ctx(db, user)
+    slot = winq.get_slot(db, ctx, data.get('slot_id'))
+    if kind in ('slot_cancelled', 'slot_changed'):
+        st = slot_start(slot)
+        if slot['cancelled_at'] and kind == 'slot_changed': raise ValueError('Esta salida está cancelada.')
+        if st and st <= local_now(): raise ValueError('Esta salida ya ha empezado.')
+    reason = data.get('reason') if kind == 'slot_cancelled' else None
+    if kind == 'slot_cancelled' and reason not in wav.REASONS: raise ValueError('Elige el motivo de la cancelación.')
+    note = wav.clean_note(data.get('note'))
+    if kind == 'slot_cancelled' and reason == 'other' and not note: raise ValueError('Explica el motivo en la nota (máximo 200 caracteres).')
+    policy = data.get('policy') if data.get('policy') in ('choice', 'refund') else provider_settings(db, ctx.key)['notice_policy']
+    new_time = new_point = None
+    if kind == 'slot_changed':
+        new_time = clean_text(data.get('new_time'), 5) or None
+        if new_time and not re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', new_time): raise ValueError('La hora debe tener el formato HH:MM.')
+        if new_time == slot['slot_time']: new_time = None
+        new_point = clean_text(data.get('meeting_point'), 160) or None
+        if not new_time and not new_point: raise ValueError('Indica la nueva hora o el nuevo punto de encuentro.')
+    if kind != 'reminder' and not confirm_matches(slot, data.get('confirm')):
+        raise ValueError(f"Para confirmar, escribe la fecha de la salida ({confirm_words(slot)['date']}) o su nombre.")
+    existing = db.execute("SELECT * FROM notice_batches WHERE slot_id=? AND kind='slot_cancelled' AND status IN ('scheduled','running','done')", (slot['id'],)).fetchone() if kind == 'slot_cancelled' else None
+    if existing: return existing                     # a double click shows the same notice, never a second one
+    if kind == 'slot_cancelled' and slot['cancelled_at']: raise ValueError('Esta salida ya está cancelada.')
+    today = local_now().date().isoformat()
+    sent_today = db.execute("SELECT COUNT(*) FROM notice_batches WHERE provider_id=? AND kind IN ('slot_cancelled','slot_changed') AND status<>'undone' AND substr(created_at,1,10)=?",
+                            (ctx.key, today)).fetchone()[0]
+    if sent_today >= NOTICE_MAX_PER_DAY:
+        security_alert('notice_limit', {'provider': ctx.key, 'today': sent_today, 'limit': NOTICE_MAX_PER_DAY}, user['id'])
+        raise ValueError(f'Has llegado al límite de {NOTICE_MAX_PER_DAY} avisos masivos por día. Si es una emergencia, escribe a la administración.')
+    pv = notice_preview(db, ctx, slot['id'], kind, reason=reason, note=note, policy=policy, new_time=new_time, new_point=new_point)
+    uid = secrets.token_hex(16)
+    run_after = (datetime.now(timezone.utc) + _timedelta(seconds=NOTICE_UNDO_SECONDS)).isoformat(timespec='seconds')
+    try:
+        db.execute('''INSERT INTO notice_batches(uid,provider_id,slot_id,kind,reason,note,policy,new_time,new_meeting,status,run_after,created_by,ip_hash,counts,created_at)
+                      VALUES(?,?,?,?,?,?,?,?,?,'scheduled',?,?,?,?,?)''',
+                   (uid, ctx.key, slot['id'], kind, reason, note or None, policy if kind == 'slot_cancelled' else None, new_time, new_point, run_after, user['id'],
+                    wsec.ip_hash(handler.client_ip()) if handler else None, json.dumps({'previstos': pv['counts'], 'destinatarios': pv['recipients']}), now()))
+    except sqlite3.IntegrityError:
+        again = db.execute("SELECT * FROM notice_batches WHERE slot_id=? AND kind=? AND status IN ('scheduled','running','done')", (slot['id'], kind)).fetchone()
+        if again: return again
+        raise
+    audit(db, user['id'], 'notice_batch_created', 'notice_batch', None, {'uid': uid, 'kind': kind, 'slot': slot['id'], 'provider': ctx.key,
+                                                                         'recipients': pv['recipients'], 'channels': pv['counts']})
+    if pv['recipients'] > NOTICE_ALERT_RECIPIENTS:
+        security_alert('notice_unusual', {'provider': ctx.key, 'kind': kind, 'recipients': pv['recipients'], 'threshold': NOTICE_ALERT_RECIPIENTS}, user['id'])
+    if kind == 'slot_cancelled':
+        n = db.execute("SELECT COUNT(*) FROM notice_batches WHERE provider_id=? AND kind='slot_cancelled' AND status<>'undone' AND substr(created_at,1,10)=?", (ctx.key, today)).fetchone()[0]
+        if n >= NOTICE_ALERT_CANCELLATIONS:
+            security_alert('notice_unusual', {'provider': ctx.key, 'cancellations_today': n, 'threshold': NOTICE_ALERT_CANCELLATIONS}, user['id'])
+    return db.execute('SELECT * FROM notice_batches WHERE uid=?', (uid,)).fetchone()
+
+
+def notice_batch_of(db, ctx, uid):
+    r = db.execute('SELECT * FROM notice_batches WHERE uid=? AND provider_id=?', (str(uid or ''), ctx.key)).fetchone()
+    if not r: raise NotFound('Aviso no encontrado.')
+    return r
+
+
+def undo_notice_batch(db, ctx, user, uid):
+    b = notice_batch_of(db, ctx, uid)
+    if db.execute("UPDATE notice_batches SET status='undone',finished_at=? WHERE id=? AND status='scheduled'", (now(), b['id'])).rowcount != 1:
+        raise ValueError('Ya no se puede deshacer: el aviso ha empezado a salir.')
+    audit(db, user['id'], 'notice_batch_undone', 'notice_batch', b['id'], {'uid': uid})
+    return True
+
+
+def notice_status(db, ctx, uid):
+    """Status panel: one line per diver and channel (never the phone or email in clear)."""
+    b = notice_batch_of(db, ctx, uid)
+    slot = winq.get_slot(db, ctx, b['slot_id'])
+    rows = db.execute('''SELECT o.*, bk.participants FROM notice_outbox o JOIN bookings bk ON bk.id=o.booking_id
+                          WHERE o.batch_id=? AND o.provider_id=? ORDER BY o.booking_id, o.channel''', (b['id'], ctx.key)).fetchall()
+    people = {}
+    for r in rows:
+        p = people.setdefault(r['booking_id'], {'name': winq.first_name_initial(r['recipient_name']), 'participants': r['participants'], 'lang': r['lang'], 'channels': {}})
+        status = r['status']
+        if r['channel'] == 'email' and r['email_id'] and status == 'sent':
+            e = db.execute('SELECT status FROM email_outbox WHERE id=?', (r['email_id'],)).fetchone()
+            status = {'sent': 'sent', 'queued': 'sending', 'sending': 'sending', 'failed': 'failed', 'expired': 'failed', 'skipped': 'skipped'}.get(e['status'] if e else '', status)
+        p['channels'][r['channel']] = {'status': status, 'reason': r['skip_reason'] or r['last_error'] or '', 'at': r['read_at'] or r['delivered_at'] or r['sent_at']}
+    summary = {}
+    for p in people.values():
+        for c, v in p['channels'].items(): summary.setdefault(c, {}).setdefault(v['status'], 0); summary[c][v['status']] += 1
+    refunds = [dict(r) for r in db.execute('SELECT status, amount, currency FROM notice_refunds WHERE batch_id=?', (b['id'],)).fetchall()]
+    left = max(0, int((datetime.fromisoformat(b['run_after']) - datetime.now(timezone.utc)).total_seconds())) if b['status'] == 'scheduled' else 0
+    return {'uid': b['uid'], 'kind': b['kind'], 'status': b['status'], 'undo_left': left, 'slot': {'id': slot['id'], 'label': slot_label(slot)},
+            'reason': b['reason'], 'note': b['note'], 'policy': b['policy'], 'created_at': b['created_at'], 'result': b['result'],
+            'people': list(people.values()), 'summary': summary, 'refunds': refunds}
+
+
+# ---- the worker
+def _batch_actor(db, batch):
+    u = db.execute('SELECT id FROM users WHERE id=?', (batch['created_by'],)).fetchone() if batch['created_by'] else None
+    return {'id': u['id'] if u else None}
+
+
+def execute_notice_batch(db, batch):
+    """ONE transaction: the change (cancellation, new time…), the refunds to make and one queued row per diver and
+    channel. If anything fails, nothing at all is changed."""
+    slot = db.execute('''SELECT ss.*, s.title AS service_title, s.center_id, s.provider_user_id, s.currency AS service_currency
+                           FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?''', (batch['slot_id'],)).fetchone()
+    if not slot or slot['provider_id'] != batch['provider_id']:
+        security_alert('notice_tenant_mismatch', {'batch': batch['uid'], 'provider': batch['provider_id'], 'slot': batch['slot_id']}, batch['created_by'])
+        raise LookupError('la salida no es del centro del aviso')
+    kind = batch['kind']; actor = _batch_actor(db, batch)
+    tkind, toid = tenant_parts(batch['provider_id'])
+    w, a = winq.owner_filter(winq.Ctx(actor['id'] or 0, tkind, tkind, toid), 'b')
+    rows = db.execute(f"SELECT b.* FROM bookings b WHERE b.slot_id=? AND {w} AND b.status IN ({','.join('?' * len(NOTICE_RECIPIENT_STATES))}) ORDER BY b.id",
+                      (slot['id'], *a, *NOTICE_RECIPIENT_STATES)).fetchall()
+    paid = {}
+    for b in rows:
+        paid_, refunded_, _o = booking_paid_online(db, b['id']); paid[b['id']] = round(paid_ - refunded_, 2)
+    if kind == 'slot_cancelled':
+        if slot['cancelled_at']: raise ValueError('la salida ya estaba cancelada')
+        reason_es = SLOT_CANCEL_REASONS.get(batch['reason'], 'Otro motivo')
+        if batch['policy'] == 'refund':
+            db.execute("UPDATE service_slots SET status='closed',cancelled_at=?,cancel_reason=?,cancel_note=?,cancelled_by=?,updated_at=? WHERE id=?",
+                       (now(), batch['reason'], batch['note'], actor['id'], now(), slot['id']))
+            for b in db.execute("SELECT * FROM bookings WHERE slot_id=? AND status='payment_in_progress'", (slot['id'],)).fetchall():
+                expire_booking(db, b, 'slot_cancelled', notify=False)
+            for b in rows:
+                provider_cancel_booking(db, b, reason_es + (f": {batch['note']}" if batch['note'] else ''), actor['id'], 'slot_cancel', notify=False, refund=False)
+                if paid[b['id']] > 0:
+                    db.execute('INSERT INTO notice_refunds(batch_id,provider_id,booking_id,amount,currency,status,created_at) VALUES(?,?,?,?,?,?,?)',
+                               (batch['id'], batch['provider_id'], b['id'], paid[b['id']], b['currency'] or 'EUR', 'pending', now()))
+            for wl in db.execute("SELECT id FROM waitlist_entries WHERE slot_id=? AND status IN ('waiting','notified')", (slot['id'],)).fetchall():
+                db.execute("UPDATE waitlist_entries SET status='cancelled',held=0,updated_at=? WHERE id=?", (now(), wl['id']))
+            slot_event(db, slot['id'], 'cancelled', actor['id'], reason=batch['reason'], note=batch['note'], affected=len(rows), policy='refund')
+        else:
+            cancel_slot(db, actor, slot, batch['reason'], batch['note'], service_choice_hours(db, slot), notify=False)
+    elif kind == 'slot_changed':
+        if batch['new_time']:
+            db.execute('UPDATE notice_batches SET old_time=? WHERE id=?', (slot['slot_time'], batch['id']))
+            db.execute('UPDATE service_slots SET slot_time=?,updated_at=? WHERE id=?', (batch['new_time'], now(), slot['id']))
+            for b in rows: db.execute('UPDATE bookings SET booking_time=?,updated_at=? WHERE id=?', (batch['new_time'], now(), b['id']))
+        if batch['new_meeting']: db.execute('UPDATE service_slots SET meeting_point=?,updated_at=? WHERE id=?', (batch['new_meeting'], now(), slot['id']))
+        slot_event(db, slot['id'], 'changed', actor['id'], new_time=batch['new_time'], meeting_point=batch['new_meeting'], note=batch['note'])
+    wa = whatsapp_account(db, batch['provider_id'])
+    origin = wa['pnid_hash'] if wa else None
+    queued = {c: 0 for c in NOTICE_CHANNELS}
+    event = f"{kind}:{slot['id']}" if kind != 'slot_changed' else f"slot_changed:{batch['uid']}"
+    for b in rows:
+        contact = diver_contact(db, b)
+        for ch, (to, why) in notice_channels(contact, wa).items():
+            db.execute('''INSERT INTO notice_outbox(uid,batch_id,provider_id,slot_id,booking_id,event,channel,template,lang,status,recipient,recipient_name,origin,skip_reason,created_at,updated_at)
+                          VALUES(?,?,?,?,?,?,?,?,?,?,wod_cifrar(?),?,?,?,?,?) ON CONFLICT(booking_id,event,channel) DO NOTHING''',
+                       (secrets.token_hex(16), batch['id'], batch['provider_id'], slot['id'], b['id'], event, ch, NOTICE_TEMPLATES[kind], contact['lang'],
+                        'queued' if to else 'skipped', to, contact['name'] or None, origin if ch == 'whatsapp' else None, why or None, now(), now()))
+            if to: queued[ch] += 1
+    db.execute('UPDATE notice_batches SET counts=?,result=? WHERE id=?', (json.dumps({'encolados': queued, 'destinatarios': len(rows)}), None, batch['id']))
+    return len(rows)
+
+
+def run_notice_batches(db):
+    due = db.execute("SELECT * FROM notice_batches WHERE status='scheduled' AND run_after<=? ORDER BY id LIMIT 20", (now(),)).fetchall()
+    for batch in due:
+        if not batch['provider_id']:
+            security_alert('job_without_tenant', {'batch': batch['uid']}); continue
+        if db.execute("UPDATE notice_batches SET status='running',started_at=? WHERE id=? AND status='scheduled'", (now(), batch['id'])).rowcount != 1:
+            db.commit(); continue
+        db.commit()
+        try:
+            n = execute_notice_batch(db, batch)
+            audit(db, batch['created_by'], 'notice_batch_started', 'notice_batch', batch['id'], {'uid': batch['uid'], 'recipients': n, 'provider': batch['provider_id']})
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            blocked = isinstance(exc, LookupError)
+            db.execute('UPDATE notice_batches SET status=?,result=?,finished_at=? WHERE id=?', ('blocked' if blocked else 'failed', str(exc)[:300], now(), batch['id']))
+            audit(db, batch['created_by'], 'notice_batch_failed', 'notice_batch', batch['id'], {'uid': batch['uid'], 'error': str(exc)[:200]})
+            db.commit()
+
+
+def run_notice_refunds(db):
+    for r in db.execute("SELECT * FROM notice_refunds WHERE status='pending' AND (next_try_at IS NULL OR next_try_at<=?) ORDER BY id LIMIT 20", (now(),)).fetchall():
+        b = db.execute('SELECT * FROM bookings WHERE id=?', (r['booking_id'],)).fetchone()
+        if not b or b['provider_id'] != r['provider_id']:
+            db.execute("UPDATE notice_refunds SET status='blocked',last_error=? WHERE id=?", ('reserva de otro centro', r['id']))
+            security_alert('refund_tenant_mismatch', {'notice_refund': r['id'], 'booking': r['booking_id'], 'provider': r['provider_id']}); db.commit(); continue
+        if db.execute("UPDATE notice_refunds SET status='working',attempts=attempts+1 WHERE id=? AND status='pending'", (r['id'],)).rowcount != 1: db.commit(); continue
+        db.commit()
+        try:
+            outcome = refund_booking(db, b['id'], r['amount'], 'requested_by_customer', None, 'Salida cancelada por el centro', 'slot_cancel')
+            if outcome == 'refunded':
+                db.execute("UPDATE notice_refunds SET status='done',result=?,done_at=? WHERE id=?", (outcome, now(), r['id']))
+                notify_booking(db, b['id'], 'refund_issued', {'amount': r['amount'], 'note': ''})
+            elif outcome in ('none_paid', 'no_refund'):
+                db.execute("UPDATE notice_refunds SET status='done',result=?,done_at=? WHERE id=?", (outcome, now(), r['id']))
+            else:
+                att = int(r['attempts'] or 0) + 1
+                db.execute("UPDATE notice_refunds SET status=?,result=?,next_try_at=? WHERE id=?",
+                           ('failed' if att >= len(NOTICE_RETRY_MINUTES) else 'pending', outcome,
+                            (datetime.now(timezone.utc) + _timedelta(minutes=NOTICE_RETRY_MINUTES[min(att, len(NOTICE_RETRY_MINUTES) - 1)])).isoformat(timespec='seconds'), r['id']))
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            db.execute("UPDATE notice_refunds SET status='pending',last_error=?,next_try_at=? WHERE id=?",
+                       (str(exc)[:200], (datetime.now(timezone.utc) + _timedelta(minutes=15)).isoformat(timespec='seconds'), r['id'])); db.commit()
+
+
+def notice_recheck(db, row):
+    """Everything is checked again just before sending. Returns (problem, batch, booking, slot, account)."""
+    batch = db.execute('SELECT * FROM notice_batches WHERE id=?', (row['batch_id'],)).fetchone()
+    booking = db.execute('SELECT * FROM bookings WHERE id=?', (row['booking_id'],)).fetchone()
+    slot = db.execute('''SELECT ss.*, s.title AS service_title, s.center_id, s.provider_user_id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
+                          WHERE ss.id=?''', (row['slot_id'],)).fetchone()
+    acc = db.execute('SELECT * FROM whatsapp_accounts WHERE provider_id=?', (row['provider_id'],)).fetchone() if row['channel'] == 'whatsapp' else None
+    key = row['provider_id']
+    if not batch or not booking or not slot: return 'faltan datos del aviso', batch, booking, slot, acc
+    if batch['provider_id'] != key or booking['provider_id'] != key or slot['provider_id'] != key: return 'centro distinto', batch, booking, slot, acc
+    if booking['slot_id'] != slot['id']: return 'la reserva no es de esta salida', batch, booking, slot, acc
+    if batch['status'] not in ('running', 'done'): return 'aviso no activo', batch, booking, slot, acc
+    if row['channel'] == 'whatsapp':
+        if not acc or acc['status'] != 'connected': return 'whatsapp_off', batch, booking, slot, acc
+        if acc['provider_id'] != key or acc['pnid_hash'] != row['origin']: return 'el número de origen no es el del centro', batch, booking, slot, acc
+    return '', batch, booking, slot, acc
+
+
+def _notice_retry(db, row, error, final=False):
+    att = int(row['attempts'] or 0) + 1
+    if final or att >= len(NOTICE_RETRY_MINUTES):
+        db.execute("UPDATE notice_outbox SET status='failed',last_error=?,updated_at=? WHERE id=?", (str(error)[:200], now(), row['id']))
+    else:
+        nxt = (datetime.now(timezone.utc) + _timedelta(minutes=NOTICE_RETRY_MINUTES[att - 1])).isoformat(timespec='seconds')
+        db.execute("UPDATE notice_outbox SET status='queued',last_error=?,next_try_at=?,updated_at=? WHERE id=?", (str(error)[:200], nxt, now(), row['id']))
+
+
+def demo_notice_copy(row, payload):
+    """Test environment: WhatsApp messages (and a copy of every notice) are written to a local folder per centre."""
+    folder = DATA / 'avisos-pruebas' / row['provider_id'].replace(':', '-') / row['channel']
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{row['created_at'][:10]}-{row['uid']}.json").write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding='utf-8')
+
+
+def send_notice_row(db, row):
+    if db.execute("UPDATE notice_outbox SET status='sending',attempts=attempts+1,updated_at=? WHERE id=? AND status='queued'", (now(), row['id'])).rowcount != 1:
+        db.commit(); return
+    db.commit()
+    problem, batch, booking, slot, acc = notice_recheck(db, row)
+    if problem == 'whatsapp_off':
+        db.execute("UPDATE notice_outbox SET status='skipped',skip_reason=?,updated_at=? WHERE id=?",
+                   ('El centro ha desconectado WhatsApp o tiene que reconectarlo' if acc else 'El centro no tiene WhatsApp conectado', now(), row['id'])); db.commit(); return
+    if problem:
+        db.execute("UPDATE notice_outbox SET status='blocked',skip_reason=?,updated_at=? WHERE id=?", ('Bloqueado por seguridad', now(), row['id']))
+        security_alert('notice_tenant_mismatch', {'notice': row['uid'], 'provider': row['provider_id'], 'booking': row['booking_id'], 'channel': row['channel'], 'problem': problem})
+        db.commit(); return
+    kind = batch['kind']; lang = row['lang']
+    tkind, toid = tenant_parts(row['provider_id'])
+    center = provider_label(db, tkind, toid)
+    paid_, refunded_, _o = booking_paid_online(db, booking['id'])
+    paid = round(paid_ - refunded_, 2)
+    if kind == 'slot_cancelled' and batch['policy'] == 'refund':
+        r = db.execute('SELECT amount FROM notice_refunds WHERE batch_id=? AND booking_id=?', (batch['id'], booking['id'])).fetchone()
+        paid = float(r['amount']) if r else paid
+    sett = provider_settings(db, row['provider_id'])
+    params, subject, body = notice_texts(db, kind, slot, booking, lang, center=center, reason=batch['reason'], note=batch['note'], policy=batch['policy'] or 'choice',
+                                         paid=paid, new_time=batch['new_time'], new_point=batch['new_meeting'], bring=sett.get('reminder_bring') or None, meeting=slot_meeting_point(db, slot))
+    link = notice_link(booking['id'], kind, slot['slot_date'])
+    try:
+        if row['channel'] == 'app':
+            name, phone, email = provider_contact_of(db, row['provider_id'])
+            mid = db.execute('''INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind,contact_phone,contact_email,sender_name)
+                                VALUES(?,?,?,?,?,?,'notice',wod_cifrar(?),?,?)''',
+                             (batch['created_by'] or booking['user_id'], booking['user_id'], booking['id'], subject, body + f"\n{public_site_url()}/r/{link}", now(), phone, email, name)).lastrowid
+            db.execute("UPDATE notice_outbox SET status='sent',message_id=?,sent_at=?,updated_at=? WHERE id=?", (mid, now(), now(), row['id']))
+            if wcfg.demo_mode(): demo_notice_copy(row, {'canal': 'app', 'asunto': subject, 'texto': body})
+        elif row['channel'] == 'email':
+            before = db.execute('SELECT COALESCE(MAX(id),0) FROM email_outbox').fetchone()[0]
+            if kind == 'slot_cancelled' and batch['policy'] == 'refund':
+                notify_booking(db, booking['id'], 'cancelled_center', {'refund': 'refund_pending' if paid > 0 else 'none_paid', 'reason': batch['reason']})
+            elif kind == 'slot_cancelled':
+                offer = slot_offer_for(db, booking['id'])
+                notify_booking(db, booking['id'], 'slot_cancelled', {'reason_key': batch['reason'], 'note': batch['note'], 'paid_net': paid,
+                                                                     'deadline_iso': offer['deadline'] if offer else None, 'link': f'{public_site_url()}/r/{link}'})
+            elif kind == 'slot_changed':
+                notify_booking(db, booking['id'], 'changed', {'old_when': when_text(slot['slot_date'], batch['old_time'] or slot['slot_time'], lang),
+                                                              'reason': wav.change_text(lang, batch['new_time'], batch['new_meeting']) + (f". {batch['note']}" if batch['note'] else '')})
+            else:
+                notify_booking(db, booking['id'], 'reminder')
+            eid = db.execute('SELECT MAX(id) FROM email_outbox WHERE id>? AND related_type=? AND related_id=?', (before, 'booking', booking['id'])).fetchone()[0]
+            db.execute("UPDATE notice_outbox SET status=?,email_id=?,sent_at=?,updated_at=? WHERE id=?", ('sent' if eid else 'skipped', eid, now(), now(), row['id']))
+            if wcfg.demo_mode(): demo_notice_copy(row, {'canal': 'correo', 'asunto': subject, 'texto': body})
+        else:
+            to = row['recipient']
+            if not to or not wcif.normalize_phone(to):
+                db.execute("UPDATE notice_outbox SET status='skipped',skip_reason=?,updated_at=? WHERE id=?", ('Teléfono no válido', now(), row['id'])); db.commit(); return
+            u = db.execute('SELECT up.phone, up.wa_consent FROM user_profiles up WHERE up.user_id=?', (booking['user_id'],)).fetchone()
+            if not u or not u['wa_consent'] or wcif.fingerprint(u['phone']) != wcif.fingerprint(to):
+                db.execute("UPDATE notice_outbox SET status='skipped',skip_reason=?,updated_at=? WHERE id=?", ('El buceador ha retirado el permiso o cambiado el teléfono', now(), row['id'])); db.commit(); return
+            name = NOTICE_TEMPLATES[kind]
+            buttons = [link] + ([quote(slot_meeting_point(db, slot) or center)] if kind == 'reminder' else [])
+            if wcfg.demo_mode():
+                wamid = 'wamid.pruebas.' + row['uid'][:16]
+                demo_notice_copy(row, {'canal': 'whatsapp', 'desde': wcif.mask_phone(wcif.decrypt_secret(acc['display_number'])), 'para': wcif.mask_phone(to),
+                                       'plantilla': name, 'idioma': wwa.META_LANG.get(lang, 'es'), 'texto': body, 'boton': f'{public_site_url()}/r/{link}'})
+            else:
+                wamid = wwa.send_template(wcif.decrypt_secret(acc['token']), wcif.decrypt_secret(acc['phone_number_id']), to, name, lang, params, buttons)
+            db.execute("UPDATE notice_outbox SET status='sent',wamid=?,sent_at=?,last_error=NULL,updated_at=? WHERE id=?", (wamid, now(), now(), row['id']))
+        db.commit()
+    except wwa.GraphError as exc:
+        db.rollback()
+        if exc.code in wwa.TOKEN_CODES:
+            db.execute("UPDATE whatsapp_accounts SET status='reconnect',last_error=?,updated_at=? WHERE provider_id=?", ('El permiso de WhatsApp ha caducado o se ha retirado: reconecta.', now(), row['provider_id']))
+            _notice_retry(db, row, 'El centro tiene que reconectar WhatsApp', final=True)
+        else:
+            _notice_retry(db, row, f'WhatsApp: {exc}', final=not exc.temporary)
+        db.commit()
+    except Exception as exc:
+        db.rollback(); _notice_retry(db, row, exc); db.commit()
+
+
+def provider_contact_of(db, key):
+    """Name, phone and email the diver sees under a notice of this tenant (to answer the centre directly)."""
+    kind, oid = tenant_parts(key)
+    if kind == 'center':
+        c = db.execute('SELECT name,phone,email FROM centers WHERE id=?', (oid,)).fetchone()
+        return (c['name'], c['phone'] or '', c['email'] or '') if c else ('', '', '')
+    u = db.execute('SELECT u.fullname,u.email,up.phone FROM users u LEFT JOIN user_profiles up ON up.user_id=u.id WHERE u.id=?', (oid,)).fetchone()
+    return (u['fullname'], u['phone'] or '', u['email'] or '') if u else ('', '', '')
+
+
+def run_notice_outbox(db, budget=200):
+    # A row left «sending» by a restart is never sent again automatically (it may have left): «unknown».
+    db.execute("UPDATE notice_outbox SET status='unknown',last_error='Interrumpido (reinicio del servidor): revisa con el cliente' WHERE status='sending' AND updated_at<?",
+               ((datetime.now(timezone.utc) - _timedelta(minutes=5)).isoformat(timespec='seconds'),)); db.commit()
+    rows = db.execute("SELECT * FROM notice_outbox WHERE status='queued' AND (next_try_at IS NULL OR next_try_at<=?) ORDER BY id LIMIT ?", (now(), budget)).fetchall()
+    per_origin = {}
+    for row in rows:
+        if not row['provider_id']: security_alert('job_without_tenant', {'notice': row['uid']}); continue
+        if row['channel'] == 'whatsapp':      # Meta's throughput per number: never more than SEND_PER_SECOND
+            n = per_origin.get(row['origin'], 0)
+            if n and n % wwa.SEND_PER_SECOND == 0: time.sleep(1)
+            per_origin[row['origin']] = n + 1
+        send_notice_row(db, row)
+    # Batches whose rows are all final are done.
+    for b in db.execute("SELECT id FROM notice_batches WHERE status='running'").fetchall():
+        if not db.execute("SELECT 1 FROM notice_outbox WHERE batch_id=? AND status IN ('queued','sending')", (b['id'],)).fetchone() and \
+           not db.execute("SELECT 1 FROM notice_refunds WHERE batch_id=? AND status IN ('pending','working')", (b['id'],)).fetchone():
+            summary = {r['channel'] + ':' + r['status']: r['n'] for r in db.execute('SELECT channel,status,COUNT(*) n FROM notice_outbox WHERE batch_id=? GROUP BY 1,2', (b['id'],)).fetchall()}
+            db.execute("UPDATE notice_batches SET status='done',finished_at=?,result=? WHERE id=?", (now(), json.dumps(summary), b['id']))
+            audit(db, None, 'notice_batch_done', 'notice_batch', b['id'], summary)
+    db.commit()
+
+
+def run_reminder_batches(db):
+    """Day-before reminder at the hour each tenant chose (default 18:00). One per departure."""
+    nowl = local_now(); tomorrow = (nowl.date() + _timedelta(days=1)).isoformat()
+    rows = db.execute(f'''SELECT ss.id, ss.provider_id, COALESCE(ps.reminder_hour,18) AS hour FROM service_slots ss LEFT JOIN provider_settings ps ON ps.provider_id=ss.provider_id
+                           WHERE ss.slot_date=? AND ss.status IN ('open','full') AND ss.cancelled_at IS NULL AND COALESCE(ps.reminder_enabled,1)=1
+                             AND ss.provider_id IS NOT NULL AND ss.provider_id<>'x:0'
+                             AND EXISTS(SELECT 1 FROM bookings b WHERE b.slot_id=ss.id AND b.status='confirmed')
+                             AND NOT EXISTS(SELECT 1 FROM notice_batches nb WHERE nb.slot_id=ss.id AND nb.kind='reminder' AND nb.status<>'undone')''', (tomorrow,)).fetchall()
+    for r in rows:
+        if nowl.hour < int(r['hour']): continue
+        try:
+            db.execute('''INSERT INTO notice_batches(uid,provider_id,slot_id,kind,status,run_after,created_at) VALUES(?,?,?,'reminder','scheduled',?,?)''',
+                       (secrets.token_hex(16), r['provider_id'], r['id'], now(), now()))
+            db.commit()
+        except sqlite3.IntegrityError:
+            db.rollback()
+
+
+def run_notice_jobs(db):
+    run_reminder_batches(db)
+    run_notice_batches(db)
+    run_notice_refunds(db)
+    run_notice_outbox(db)
+
+
+# ---- WhatsApp of each centre (parte D)
+def whatsapp_status(db, ctx):
+    acc = db.execute('SELECT * FROM whatsapp_accounts WHERE provider_id=?', (ctx.key,)).fetchone()
+    country = ''
+    if ctx.kind == 'center':
+        c = db.execute('SELECT country FROM centers WHERE id=?', (ctx.oid,)).fetchone(); country = country_iso(c['country']) if c else ''
+    tpl = json.loads(acc['templates'] or '{}') if acc else {}
+    return {'enabled': wwa.enabled(), 'app_id': wcfg.env('WHATSAPP_APP_ID') if wwa.enabled() else '', 'config_id': wcfg.env('WHATSAPP_CONFIG_ID') if wwa.enabled() else '',
+            'graph_version': wcfg.env('WHATSAPP_GRAPH_VERSION') or 'v23.0', 'country': country, 'coexistence_available': not wwa.coex_unavailable(country),
+            'connected': bool(acc), 'status': acc['status'] if acc else None, 'number': wcif.mask_phone(wcif.decrypt_secret(acc['display_number'])) if acc else None,
+            'verified_name': acc['verified_name'] if acc else None, 'coexistence': bool(acc['coexistence']) if acc else None, 'connected_at': acc['connected_at'] if acc else None,
+            'last_error': acc['last_error'] if acc else None,
+            'templates': {'approved': sum(1 for v in tpl.values() if v in ('APPROVED', 'EXISTS')), 'pending': sum(1 for v in tpl.values() if v in ('PENDING', 'IN_APPEAL')),
+                          'rejected': sum(1 for v in tpl.values() if v in ('REJECTED', 'ERROR', 'DISABLED', 'PAUSED')), 'total': len(tpl)},
+            'can_manage': ctx.can_send_notices}
+
+
+def country_iso(name):
+    n = fold_text(str(name or '')).strip()
+    if len(n) == 2: return n.upper()
+    return COUNTRY_ISO.get(n, '')
+
+
+COUNTRY_ISO = {'espana': 'ES', 'spain': 'ES', 'portugal': 'PT', 'francia': 'FR', 'france': 'FR', 'italia': 'IT', 'italy': 'IT', 'alemania': 'DE', 'germany': 'DE',
+               'reino unido': 'GB', 'united kingdom': 'GB', 'mexico': 'MX', 'egipto': 'EG', 'egypt': 'EG', 'tailandia': 'TH', 'thailand': 'TH', 'indonesia': 'ID',
+               'filipinas': 'PH', 'philippines': 'PH', 'malta': 'MT', 'croacia': 'HR', 'croatia': 'HR', 'grecia': 'GR', 'greece': 'GR', 'nigeria': 'NG',
+               'sudafrica': 'ZA', 'south africa': 'ZA', 'estados unidos': 'US', 'united states': 'US', 'belice': 'BZ', 'honduras': 'HN', 'colombia': 'CO', 'brasil': 'BR'}
+
+
+def whatsapp_connect(db, ctx, user, data):
+    """Embedded Signup finished in the browser: the server exchanges the code, checks that the number belongs to the
+    WhatsApp Business account the centre has just authorised and that no other centre uses it, subscribes the app,
+    registers the number (not with coexistence) and creates the templates. Credentials are stored encrypted."""
+    if not wwa.enabled(): raise ValueError('WhatsApp todavía no está activado en WORLDIVES.')
+    code = clean_text(data.get('code'), 600)
+    if not code: raise ValueError('Falta la autorización de Meta: vuelve a pulsar «Conectar mi WhatsApp Business».')
+    coex = bool(data.get('coexistence'))
+    try:
+        token = wwa.exchange_code(code)
+        info = wwa.verify_connection(token, clean_text(data.get('waba_id'), 40), clean_text(data.get('phone_number_id'), 40))
+    except wwa.GraphError as exc:
+        security_alert('whatsapp_wrong_number', {'provider': ctx.key, 'error': str(exc)[:150]}, user['id'])
+        raise ValueError(f'No se ha podido conectar: {exc}')
+    digits = re.sub(r'\D', '', info['display_number'])
+    number = '+' + digits if digits else ''
+    number_hash = wcif.fingerprint(number); pnid_hash = wcif.keyed_hash('pnid', info['phone_number_id']); waba_hash = wcif.keyed_hash('waba', info['waba_id'])
+    other = db.execute('SELECT provider_id FROM whatsapp_accounts WHERE (number_hash=? OR pnid_hash=?) AND provider_id<>?', (number_hash, pnid_hash, ctx.key)).fetchone()
+    if other:
+        # Never says which centre has it (regla de oro); the administrators are told.
+        security_alert('whatsapp_number_taken', {'provider': ctx.key, 'number': wcif.mask_phone(number)}, user['id'])
+        raise ValueError('Ese número de WhatsApp ya está conectado en WORLDIVES. Si es tuyo, escribe a la administración.')
+    try:
+        wwa.subscribe_app(token, info['waba_id'])
+        if not coex: wwa.register_number(token, info['phone_number_id'], f'{secrets.randbelow(10**6):06d}')
+        templates = wwa.create_templates(token, info['waba_id'], wwa.template_payloads(wav.data(), public_site_url()))
+    except wwa.GraphError as exc:
+        raise ValueError(f'Meta ha rechazado un paso de la conexión: {exc}')
+    vals = (wcif.encrypt_secret(info['waba_id']), wcif.encrypt_secret(info['phone_number_id']), wcif.encrypt_secret(number), wcif.encrypt_secret(token),
+            pnid_hash, number_hash, waba_hash, info['verified_name'][:120], 1 if coex else 0, json.dumps(templates), now(), user['id'], now())
+    db.execute('''INSERT INTO whatsapp_accounts(provider_id,status,waba_id,phone_number_id,display_number,token,pnid_hash,number_hash,waba_hash,verified_name,coexistence,templates,connected_at,connected_by,updated_at)
+                  VALUES(?,'connected',?,?,?,?,?,?,?,?,?,?,?,?,?)
+                  ON CONFLICT(provider_id) DO UPDATE SET status='connected',waba_id=excluded.waba_id,phone_number_id=excluded.phone_number_id,display_number=excluded.display_number,
+                  token=excluded.token,pnid_hash=excluded.pnid_hash,number_hash=excluded.number_hash,waba_hash=excluded.waba_hash,verified_name=excluded.verified_name,
+                  coexistence=excluded.coexistence,templates=excluded.templates,connected_at=excluded.connected_at,connected_by=excluded.connected_by,last_error=NULL,updated_at=excluded.updated_at''',
+               (ctx.key, *vals))
+    audit(db, user['id'], 'whatsapp_connected', 'provider', None, {'provider': ctx.key, 'number': wcif.mask_phone(number), 'coexistence': coex})
+    db.commit()
+    return whatsapp_status(db, ctx)
+
+
+def whatsapp_refresh_templates(db, ctx):
+    acc = db.execute("SELECT * FROM whatsapp_accounts WHERE provider_id=?", (ctx.key,)).fetchone()
+    if not acc: raise NotFound('No tienes WhatsApp conectado.')
+    try:
+        st = wwa.template_statuses(wcif.decrypt_secret(acc['token']), wcif.decrypt_secret(acc['waba_id']))
+    except wwa.GraphError as exc:
+        if exc.code in wwa.TOKEN_CODES:
+            db.execute("UPDATE whatsapp_accounts SET status='reconnect',last_error=?,updated_at=? WHERE provider_id=?", ('El permiso de WhatsApp ha caducado o se ha retirado: reconecta.', now(), ctx.key)); db.commit()
+        raise ValueError(f'Meta no ha respondido: {exc}')
+    mine = {k: v for k, v in st.items() if k.split(':')[0] in wwa.TEMPLATE_NAMES.values()}
+    db.execute('UPDATE whatsapp_accounts SET templates=?,updated_at=? WHERE provider_id=?', (json.dumps(mine), now(), ctx.key)); db.commit()
+    return whatsapp_status(db, ctx)
+
+
+WA_STATUS_ORDER = {'sent': 1, 'delivered': 2, 'read': 3, 'failed': 4}
+
+
+def whatsapp_webhook(handler, db):
+    """Statuses of the messages sent (sent/delivered/read/failed) and template reviews. Signed by Meta with the app
+    secret (X-Hub-Signature-256); duplicates are ignored; a status is applied only to a message sent from that very
+    number of that very centre. The divers' replies are never read or stored: they reach the centre's WhatsApp."""
+    raw = handler.rfile.read(body_length(handler, wcfg.MAX_WEBHOOK_BYTES))
+    if not wwa.valid_signature(raw, handler.headers.get('X-Hub-Signature-256') or ''):
+        security_alert('webhook_bad_signature', {'bytes': len(raw)}); handler.send_json({'error': 'Firma no válida.'}, 403); return
+    try: payload = json.loads(raw.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError): handler.send_json({'error': 'JSON no válido.'}, 400); return
+    applied = ignored = 0
+    for pnid, wamid, status, ts, err in wwa.statuses_of(payload):
+        key = hashlib.sha256(f'{wamid}|{status}|{ts}'.encode()).hexdigest()
+        if db.execute('INSERT OR IGNORE INTO whatsapp_webhook_events(event_key,received_at) VALUES(?,?)', (key, now())).rowcount != 1: ignored += 1; continue
+        row = db.execute('SELECT * FROM notice_outbox WHERE wamid=?', (wamid,)).fetchone()
+        ph = wcif.keyed_hash('pnid', pnid)
+        acc = db.execute('SELECT provider_id FROM whatsapp_accounts WHERE pnid_hash=?', (ph,)).fetchone()
+        if not row or row['origin'] != ph or not acc or acc['provider_id'] != row['provider_id']:
+            security_alert('webhook_wrong_number', {'known_message': bool(row), 'status': status}); ignored += 1; continue
+        if status not in WA_STATUS_ORDER: continue
+        cur = WA_STATUS_ORDER.get(row['status'], 0)
+        if status != 'failed' and WA_STATUS_ORDER[status] <= cur: continue
+        col = {'delivered': 'delivered_at', 'read': 'read_at'}.get(status)
+        db.execute(f"UPDATE notice_outbox SET status=?,{col + '=?,' if col else ''}last_error=?,updated_at=? WHERE id=?",
+                   (status, *([now()] if col else []), (f'Meta: error {err}' if status == 'failed' and err else row['last_error']), now(), row['id']))
+        applied += 1
+    for waba, name, lang, st in wwa.template_updates_of(payload):
+        acc = db.execute('SELECT provider_id,templates FROM whatsapp_accounts WHERE waba_hash=?', (wcif.keyed_hash('waba', waba),)).fetchone()
+        if not acc: continue
+        tpl = json.loads(acc['templates'] or '{}'); tpl[f'{name}:{lang}'] = st
+        db.execute('UPDATE whatsapp_accounts SET templates=?,updated_at=? WHERE provider_id=?', (json.dumps(tpl), now(), acc['provider_id']))
+    db.commit()
+    handler.send_json({'ok': True, 'applied': applied, 'ignored': ignored})
+
+
+# ---- signed links of the notices (D.2.4)
+def signed_link_booking(db, token):
+    got = wav.verify_link(wcfg.env('WOD_SECRET_KEY') or 'desarrollo', token)
+    b = booking_row(db, got[0]) if got else None
+    if not b: raise NotFound('El enlace no es válido o ha caducado.')
+    return b, got[1]
+
+
+def signed_link_view(db, b, kind):
+    """What the link of a notice opens: only this booking (no other data of the diver or of the centre)."""
+    svc = db.execute('SELECT title FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    who = booking_payee(db, b)[1] or {}
+    slot = db.execute('SELECT slot_date,slot_time,meeting_point,provider_id FROM service_slots WHERE id=?', (b['slot_id'],)).fetchone() if b['slot_id'] else None
+    out = {'kind': kind, 'booking': {'ref': f"WOD-{b['id']:06d}", 'participants': b['participants'], 'status': b['status'], 'service': svc['title'] if svc else '',
+                                      'center': who.get('name') or '', 'center_phone': who.get('phone') or '', 'center_email': who.get('email') or '',
+                                      'booking_date': b['booking_date'], 'booking_time': b['booking_time'],
+                                      'meeting_point': (slot['meeting_point'] if slot else None) or (slot_meeting_point(db, dict(slot, meeting_point=slot['meeting_point'])) if slot else None)}}
+    offer = slot_offer_for(db, b['id'])
+    if offer:
+        paid_, refunded_, _o = booking_paid_online(db, b['id']); net_ = round(paid_ - refunded_, 2)
+        out['offer'] = {'slot_date': offer['slot_date'], 'slot_time': offer['slot_time'], 'reason': offer['cancel_reason'], 'note': offer['cancel_note'], 'deadline': offer['deadline'],
+                        'choice': offer['choice'], 'resolved_at': offer['resolved_at']}
+        out['paid'] = net_; out['currency'] = b['currency'] or 'EUR'
+        out['alternatives'] = [{'slot_id': x['id'], 'slot_date': x['slot_date'], 'slot_time': x['slot_time'], 'spots_available': x['spots_available']}
+                               for x in target_slots(db, b, offer['slot_id'])] if not offer['resolved_at'] else []
+    return out
+
+
+# ---- WhatsApp consent of the diver (C.5)
+WA_CONSENT_TEXT = 'Recibir por WhatsApp los avisos de mis reservas del centro'
+
+
+def set_wa_consent(db, user_id, granted, lang, source, ip=None):
+    db.execute('INSERT OR IGNORE INTO user_profiles(user_id,updated_at) VALUES(?,?)', (user_id, now()))
+    cur = db.execute('SELECT wa_consent FROM user_profiles WHERE user_id=?', (user_id,)).fetchone()
+    if bool(cur and cur['wa_consent']) == bool(granted): return False
+    db.execute('UPDATE user_profiles SET wa_consent=?,wa_consent_at=?,wa_consent_version=?,wa_consent_lang=?,updated_at=? WHERE user_id=?',
+               (1 if granted else 0, now(), WHATSAPP_CONSENT_VERSION, normalize_lang(lang or 'es'), now(), user_id))
+    db.execute('INSERT INTO consent_log(user_id,kind,granted,created_at,ip_hash,text_version,lang,source) VALUES(?,?,?,?,?,?,?,?)',
+               (user_id, 'whatsapp_avisos', 1 if granted else 0, now(), wsec.ip_hash(ip) if ip else None, WHATSAPP_CONSENT_VERSION, normalize_lang(lang or 'es'), source))
+    return True
+
+
+def wa_profile_info(db, user_id):
+    p = db.execute('SELECT phone, wa_consent, wa_consent_at, wa_consent_version FROM user_profiles WHERE user_id=?', (user_id,)).fetchone()
+    phone = p['phone'] if p else None
+    return {'consent': bool(p and p['wa_consent']), 'consent_at': p['wa_consent_at'] if p else None, 'version': p['wa_consent_version'] if p else None,
+            'phone_ok': bool(wcif.normalize_phone(phone)), 'phone_warning': wcif.phone_problem(phone), 'text': WA_CONSENT_TEXT}
+
+
+# ---- C.3: every view or export of phones by a centre is logged
+def log_phone_access(db, user, what, count, ref=None):
+    if not user or user['role'] not in ('center', 'freelance', 'admin') or not count: return
+    audit(db, user['id'], 'phones_viewed' if not what.startswith('export') else 'phones_exported', what, ref, {'phones': count})
+    db.commit()
+
+
+def notice_loop():
+    """Background thread (only in the worker process): notices go out a few seconds after the undo window."""
+    while True:
+        db = None
+        try:
+            db = connect(); run_notice_jobs(db)
+        except Exception as exc:
+            sys.stderr.write(f'[avisos] {type(exc).__name__}: {exc}\n')
+        finally:
+            if db is not None: db.close()
+            flush_security_alerts()
+        time.sleep(wcfg.env_int('WOD_AVISOS_SEGUNDOS', 2, 1, 60))
 
 
 # ---- 3. Change of date by the diver
@@ -7351,10 +8462,6 @@ def booking_token(db, bid):
 # booked for the same day. A centre's service booked by days has a resource of its own. Blocks are never deleted:
 # they are released (history). The public calendar only says free / busy / half day / not available per day.
 AGENDA_KINDS = {'booking', 'manual', 'holiday', 'unavailable'}
-
-
-class NotFound(LookupError):
-    """Something asked for does not exist (or is not public): 404."""
 
 
 def service_unit(svc):
@@ -7790,7 +8897,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
             self.send_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
 
     # Endpoints called by other servers (no browser, no cookie): they authenticate with their own signature or key.
-    CSRF_EXEMPT = ('/api/payments/webhook', '/api/payments/webhook/connect', '/api/integrations/bookings', '/api/marketing/unsubscribe')
+    CSRF_EXEMPT = ('/api/payments/webhook', '/api/payments/webhook/connect', '/api/integrations/bookings', '/api/marketing/unsubscribe', '/api/whatsapp/webhook')
 
     def enforce_same_origin(self):
         """G10: every state-changing request from a browser must carry Origin (or Referer) and it must be our origin.
@@ -8005,8 +9112,12 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     self.send_header('Cache-Control','private, max-age=300'); self.send_header('X-Robots-Tag','noindex'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
                 if path.startswith('/widget/'):
                     self.serve_widget(db,path,query); return
+                if re.fullmatch(r'/r/[0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
+                    # Link of a notice (WhatsApp button, email, app): the web opens only that booking.
+                    self.redirect('/#/r/'+path[3:]); return
                 if path.startswith('/api/'):
                     team_gate(db,current_user(self,db),path,'GET')
+                    admin_reason_gate(self,db,path,'GET')
                 if path == '/api/health':
                     # Public health check (uptime monitors): only ok + version (G15). Details: /api/admin/health.
                     db.execute('SELECT 1').fetchone()
@@ -8125,11 +9236,41 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     link=f"{base}/#/reservar?center={ref[1]}" if ref[0]=='center' else f"{base}/#/profesional?id={ref[1]}"
                     self.send_json({'widget':provider_has(db,*ref,'widget'),'link':link,'iframe':f'<iframe src="{base}/widget/{kind}/{ref[1]}" title="Reservas" style="width:100%;max-width:520px;height:560px;border:0" loading="lazy"></iframe>',
                                     'whatsapp':'https://wa.me/?text='+quote('Reserva tu inmersión aquí: '+link),'instagram':link}); return
+                # ------------------------------------------------ v50.47 · mass notices and WhatsApp of each centre
+                if re.fullmatch(r'/api/avisos/[0-9a-f]{32}',path):
+                    user=require_user(self,db); ctx=winq.require_ctx(db,user)
+                    self.send_json(notice_status(db,ctx,path.rsplit('/',1)[1])); return
+                if path=='/api/avisos':
+                    user=require_user(self,db); ctx=winq.require_ctx(db,user); sid=int(query.get('slot',['0'])[0] or 0)
+                    if sid: winq.get_slot(db,ctx,sid)
+                    rows=db.execute(f"SELECT uid,kind,status,slot_id,reason,created_at,counts FROM notice_batches WHERE provider_id=? {'AND slot_id=?' if sid else ''} ORDER BY id DESC LIMIT 50",
+                                    (ctx.key,sid) if sid else (ctx.key,)).fetchall()
+                    self.send_json({'items':[dict(r,counts=json.loads(r['counts'] or '{}')) for r in rows]}); return
+                if path=='/api/avisos/ajustes':
+                    user=require_user(self,db); ctx=winq.require_ctx(db,user)
+                    self.send_json({'settings':provider_settings(db,ctx.key),'whatsapp':whatsapp_status(db,ctx),'can_send':ctx.can_send_notices,
+                                    'undo_seconds':NOTICE_UNDO_SECONDS,'max_per_day':NOTICE_MAX_PER_DAY,'reasons':SLOT_CANCEL_REASONS}); return
+                if path=='/api/whatsapp':
+                    user=require_user(self,db); ctx=winq.require_ctx(db,user)
+                    self.send_json(whatsapp_status(db,ctx)); return
+                if path=='/api/whatsapp/webhook':
+                    # Meta's verification of the webhook address (hub.challenge), only with our verify token.
+                    tok=query.get('hub.verify_token',[''])[0]; want=wcfg.env('WHATSAPP_VERIFY_TOKEN')
+                    if query.get('hub.mode',[''])[0]=='subscribe' and want and wsec.constant_time_equals(tok,want):
+                        raw=str(query.get('hub.challenge',[''])[0])[:200].encode()
+                        self.send_response(200); self.send_header('Content-Type','text/plain'); self.send_header('Content-Length',str(len(raw))); self.end_headers(); self.wfile.write(raw); return
+                    self.send_json({'error':'No autorizado.'},403); return
+                if re.fullmatch(r'/api/r/[0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
+                    b,kind=signed_link_booking(db,path.rsplit('/',1)[1])
+                    self.send_json(signed_link_view(db,b,kind)); return
+                if path == '/api/team/centers':
+                    user=require_user(self,db); require_role(user,{'center'})
+                    self.send_json({'items':user_centers(db,user),'active':user['center_id']}); return
                 if path == '/api/center/team':
                     user=require_user(self,db); require_role(user,{'center'})
                     if not user['center_id']: raise ValueError('Tu cuenta no tiene un centro asociado.')
-                    members=[dict(r) for r in db.execute('''SELECT u.id,u.fullname,u.email,COALESCE(m.member_role,'owner') member_role,m.created_at FROM users u LEFT JOIN center_members m ON m.user_id=u.id AND m.center_id=u.center_id
-                                                             WHERE u.center_id=? AND u.role='center' ORDER BY m.member_role='owner' DESC,u.fullname''',(user['center_id'],)).fetchall()]
+                    members=[dict(r) for r in db.execute('''SELECT u.id,u.fullname,u.email,COALESCE(m.member_role,'owner') member_role,m.created_at FROM users u LEFT JOIN center_members m ON m.user_id=u.id AND m.center_id=?
+                                                             WHERE u.role='center' AND (u.center_id=? OR m.user_id IS NOT NULL) ORDER BY m.member_role='owner' DESC,u.fullname''',(user['center_id'],user['center_id'])).fetchall()]
                     inv=[dict(r) for r in db.execute('SELECT id,email,member_role,created_at,expires_at FROM team_invites WHERE center_id=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>=? ORDER BY id DESC',(user['center_id'],now())).fetchall()]
                     self.send_json({'members':members,'invites':inv,'roles':TEAM_ROLES,'limit':plan_limit(db,'center',user['center_id'],'team_max'),'team_feature':provider_has(db,'center',user['center_id'],'team')}); return
                 if path == '/api/center/activity':
@@ -8346,7 +9487,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'center','freelance'})
                     sid=int(query.get('service',['0'])[0] or 0); slot=int(query.get('slot',['0'])[0] or 0)
                     svc=db.execute('SELECT id,center_id,provider_user_id FROM provider_services WHERE id=?',(sid,)).fetchone() if sid else None
-                    if svc and not owns_service(user,svc['provider_user_id'],svc['center_id']): raise PermissionError('Ese servicio no pertenece a tu cuenta.')
+                    if sid and (not svc or not owns_service(user,svc['provider_user_id'],svc['center_id'])): raise NotFound('Servicio no encontrado.')
                     cid=(svc['center_id'] if svc else None) or user['center_id']
                     target=f'#/reservar?center={cid}'+(f'&service={sid}' if svc else '')+(f'&slot={slot}' if svc and slot else '') if cid else (f'#/profesional?id={user["id"]}')
                     url=f'{self.base_url()}/{target}'
@@ -8388,18 +9529,20 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     self.send_json({'item':item}); return
                 if path == '/api/provider/experiences':
                     user=require_user(self,db); require_role(user,{'center','freelance'})
-                    rows=db.execute('''SELECT e.*, t.title AS destination_title, s.title AS service_title,
+                    ew,ea=experience_scope(user)
+                    rows=db.execute(f'''SELECT e.*, t.title AS destination_title, s.title AS service_title,
                                               (SELECT COUNT(*) FROM experience_bookings eb WHERE eb.travel_experience_id=e.id AND eb.status='requested') AS pending_requests
                                          FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id LEFT JOIN provider_services s ON s.id=e.service_id
-                                        WHERE (e.provider_user_id=? OR (e.center_id IS NOT NULL AND e.center_id=?)) ORDER BY e.active DESC, e.id DESC''',(user['id'],user['center_id'] or -1)).fetchall()
-                    reqs=db.execute('''SELECT eb.*, e.title AS experience_title, u.fullname, u.email, up.phone
+                                        WHERE {ew} ORDER BY e.active DESC, e.id DESC''',ea).fetchall()
+                    reqs=db.execute(f'''SELECT eb.*, e.title AS experience_title, u.fullname, u.email, up.phone
                                          FROM experience_bookings eb JOIN travel_experiences e ON e.id=eb.travel_experience_id JOIN users u ON u.id=eb.user_id LEFT JOIN user_profiles up ON up.user_id=u.id
-                                        WHERE (e.provider_user_id=? OR (e.center_id IS NOT NULL AND e.center_id=?)) ORDER BY CASE eb.status WHEN 'requested' THEN 0 ELSE 1 END, eb.created_at DESC LIMIT 500''',(user['id'],user['center_id'] or -1)).fetchall()
+                                        WHERE {ew} ORDER BY CASE eb.status WHEN 'requested' THEN 0 ELSE 1 END, eb.created_at DESC LIMIT 500''',ea).fetchall()
                     offers=db.execute('SELECT id,title,region,kind FROM travel_offers WHERE active=1 ORDER BY title').fetchall()
                     self.send_json({'items':enrich_experiences(db,rows),'requests':[dict(r) for r in reqs],'destinations':[dict(o) for o in offers]}); return
                 if path == '/api/my-travel-experiences':
                     user=require_user(self,db)
-                    rows=db.execute('''SELECT e.*, t.title AS destination_title, c.name AS center_name FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id LEFT JOIN centers c ON c.id=e.center_id WHERE e.provider_user_id=? ORDER BY e.id DESC''',(user['id'],)).fetchall()
+                    ew,ea=experience_scope(user) if user['role'] in ('center','freelance') else ('e.center_id IS NULL AND e.provider_user_id=?',(user['id'],))
+                    rows=db.execute(f'''SELECT e.*, t.title AS destination_title, c.name AS center_name FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id LEFT JOIN centers c ON c.id=e.center_id WHERE {ew} ORDER BY e.id DESC''',ea).fetchall()
                     self.send_json({'items':[dict(r) for r in rows]}); return
                 if path == '/api/meta':
                     self.send_json({
@@ -8432,7 +9575,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         docs = db.execute('SELECT id,document_type,title,expires_at,status,original_name,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at', (user['id'],)).fetchall()
                         links = db.execute('''SELECT cl.*, c.name AS center_name, c.city, c.country FROM center_links cl JOIN centers c ON c.id=cl.center_id WHERE cl.user_id=? ORDER BY cl.last_checkin DESC''',(user['id'],)).fetchall()
                         claim = db.execute('SELECT status,requested_role,created_at FROM center_claims WHERE user_id=? ORDER BY id DESC LIMIT 1', (user['id'],)).fetchone()
-                        self.send_json({'authenticated': True, 'user': public_user(user), 'profile': dict(profile) if profile else None, 'documents': [dict(x) for x in docs], 'center_links':[dict(x) for x in links],
+                        profile = {k: v for k, v in dict(profile).items() if k != 'phone_hash'} if profile else None
+                        self.send_json({'authenticated': True, 'user': public_user(user), 'profile': profile, 'whatsapp': wa_profile_info(db, user['id']), 'documents': [dict(x) for x in docs], 'center_links':[dict(x) for x in links],
                                         'pro_request': dict(claim) if claim else None,
                                         'legal':dict(zip(('pending','upcoming'),legal_pending_for(db,user))),
                                         'plan':provider_plan(db,*provider_ref(db,user)) if provider_ref(db,user) else None,'member_role':member_role(db,user),
@@ -8446,7 +9590,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if u['role']=='freelance' and not u['center_id']: stat_bump(db,'freelance',u['id'],'views',self.client_ip()); db.commit()
                     result={'online_booking':provider_has(db,'freelance',u['id'],'online_bookings') if u['role']=='freelance' and not u['center_id'] else None,'id':u['id'],'fullname':u['fullname'],'role':u['role'],'provider_bio':u['provider_bio'] or '', 'avatar_url':u['avatar_url'] or '', 'socials': {k:(u[k] or '') for k in ('instagram_url','facebook_url','twitter_url','youtube_url','tiktok_url')}}
                     if u['role']=='center' and u['center_id']:
-                        c=db.execute('SELECT * FROM centers WHERE id=? AND active=1',(u['center_id'],)).fetchone()
+                        c=db.execute(f'SELECT * FROM centers c WHERE c.id=? AND {public_center_sql()}',(u['center_id'],)).fetchone()
                         if c:
                             result['center']=center_row(c)
                     self.send_json(result); return
@@ -8512,14 +9656,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                             owner_center=int(pu['center_id']); center_filter=center_filter or owner_center
                     if provider_id and query.get('include_inactive',['0'])[0]=='1':
                         viewer=current_user(self,db)
-                        include_inactive=1 if viewer and (int(viewer['id'])==provider_id or (owner_center and viewer['role']=='center' and viewer['center_id']==owner_center)) else 0
+                        include_inactive=1 if viewer and ((not owner_center and viewer['role']=='freelance' and int(viewer['id'])==provider_id) or (owner_center and viewer['role']=='center' and viewer['center_id']==owner_center)) else 0
                     if not provider_id and not center_filter:
                         # Never dump the whole marketplace catalog in one answer: ask for one center or provider.
                         raise ValueError('Indica el centro o el profesional cuyo catálogo quieres ver.')
                     rows=db.execute('''SELECT s.*, u.fullname AS provider_name, c.name AS center_name
                                       FROM provider_services s JOIN users u ON u.id=s.provider_user_id
                                       LEFT JOIN centers c ON c.id=s.center_id
-                                      WHERE (s.active=1 OR ?=1) AND (?=0 OR s.provider_user_id=?) AND (?=0 OR s.center_id=?) ORDER BY s.title''',(include_inactive,0 if owner_center else provider_id,provider_id,center_filter,center_filter)).fetchall()
+                                      WHERE (s.active=1 OR ?=1) AND (?=0 OR (s.provider_user_id=? AND s.center_id IS NULL)) AND (?=0 OR s.center_id=?) ORDER BY s.title''',(include_inactive,0 if owner_center else provider_id,provider_id,center_filter,center_filter)).fetchall()
                     result=[]; ids=[r['id'] for r in rows]
                     slots_by_service={}; points_by_slot={}; exp_by_service={}
                     # Batched queries: a constant number of queries per request instead of one per departure.
@@ -8723,7 +9867,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                                WHERE e.center_id=? AND e.active=1 AND e.status='published'
                                                  AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))
                                                ORDER BY e.id DESC LIMIT 12''',(cid,)).fetchall()
-                        _ci=center_row(row); _ci['cancellation_policy']=cancellation_policy_key(row['cancellation_policy']); _ci['cancellation_text']=cancellation_policy_text(row['cancellation_policy']); _ci['cancellation_note']=row['cancellation_note'] or ''
+                        _ci=center_row(row,member=bool(current and current['role']=='center' and current['center_id']==cid)); _ci['cancellation_policy']=cancellation_policy_key(row['cancellation_policy']); _ci['cancellation_text']=cancellation_policy_text(row['cancellation_policy']); _ci['cancellation_note']=row['cancellation_note'] or ''
                         _ci['online_booking']=provider_has(db,'center',cid,'online_bookings'); stat_bump(db,'center',cid,'views',self.client_ip()); db.commit()
                         if not feature_switch(db,'reviews'): review_payload=[]; can_review=False; _ci['reviews_off']=True
                         self.send_json({'item':_ci,'points':[point_row(r) for r in points],'services':service_out,'experiences':enrich_experiences(db,exp_rows), 'reviews':review_payload, 'review':{'can_review':can_review,'reason':review_reason,'current':current_review,'can_reply':bool(current and current['role']=='center' and current['center_id']==cid),'is_admin':bool(current and current['role']=='admin')}}); return
@@ -8810,7 +9954,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); bid=int(path.split('/')[3])
                     b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise PermissionError('No puedes consultar esta reserva.')
+                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise NotFound('Reserva no encontrada.')
                     lang=normalize_lang(clean_text(query.get('lang',[''])[0],5) or user_lang(db,user['id']))
                     raw=booking_pdf(db,bid,self.base_url(),lang)
                     if raw is None: self.send_json({'error':'Reserva no encontrada'},404); return
@@ -8852,7 +9996,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     self.send_json({'booking':d}); return
                 if re.fullmatch(r'/api/slot-cancel/\d+',path):
                     bid=int(path.rsplit('/',1)[1]); b=booking_row(db,bid); viewer=current_user(self,db); tok=(query.get('t',[''])[0] or '')
-                    if not b or not ((viewer and viewer['id']==b['user_id']) or (tok and b['public_token'] and wsec.constant_time_equals(tok,b['public_token']))): raise PermissionError('Enlace no válido.')
+                    if not b or not ((viewer and viewer['id']==b['user_id']) or (tok and b['public_token'] and wsec.constant_time_equals(tok,b['public_token']))): raise NotFound('Reserva no encontrada.')
                     offer=slot_offer_for(db,bid)
                     if not offer: raise ValueError('Esta reserva no tiene ninguna salida cancelada.')
                     paid_,refunded_,_o=booking_paid_online(db,bid); net_=round(paid_-refunded_,2)
@@ -8865,12 +10009,12 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                              'choice':offer['choice'],'resolved_at':offer['resolved_at']},'paid':net_,'currency':b['currency'] or 'EUR','alternatives':alts}); return
                 if re.fullmatch(r'/api/bookings/\d+/reschedule-options',path):
                     user=require_user(self,db); bid=int(path.split('/')[3]); b=booking_row(db,bid)
-                    if not b or b['user_id']!=user['id']: raise PermissionError('Reserva no encontrada.')
+                    if not b or b['user_id']!=user['id']: raise NotFound('Reserva no encontrada.')
                     self.send_json(reschedule_options(db,b,user)); return
                 if re.fullmatch(r'/api/bookings/\d+/change-date',path):
                     # For the centre: the pending change request of a booking.
                     user=require_user(self,db); bid=int(path.split('/')[3]); b=booking_row(db,bid)
-                    if not b: raise PermissionError('Reserva no encontrada.')
+                    if not b: raise NotFound('Reserva no encontrada.')
                     require_booking_provider(user,b)
                     r=db.execute("SELECT r.*, ss.slot_date, ss.slot_time, ss.spots_available FROM reschedule_requests r JOIN service_slots ss ON ss.id=r.to_slot_id WHERE r.booking_id=? AND r.status='pending' ORDER BY r.id DESC LIMIT 1",(bid,)).fetchone()
                     o=slot_offer_for(db,bid)
@@ -8894,7 +10038,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if re.fullmatch(r'/api/bookings/\d+/waiver',path):
                     # Encargo 2, punto 5: the waiver of the booking's centre and who has signed it (the diver or the centre).
                     user=require_user(self,db); bid=int(path.split('/')[3]); b=db.execute('SELECT * FROM bookings WHERE id=?',(bid,)).fetchone()
-                    if not b or (b['user_id']!=user['id'] and not can_manage_booking(user,b)): raise PermissionError('Reserva no encontrada.')
+                    if not b or (b['user_id']!=user['id'] and not can_manage_booking(user,b)): raise NotFound('Reserva no encontrada.')
                     kind,oid=('center',b['center_id']) if b['center_id'] else ('freelance',b['provider_user_id'])
                     tpl=current_waiver(db,kind,oid) if oid else None
                     sigs=booking_signatures(db,bid)
@@ -8905,13 +10049,13 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if re.fullmatch(r'/api/waivers/\d+\.pdf',path):
                     user=require_user(self,db); sid=int(path.rsplit('/',1)[1].split('.')[0])
                     r=db.execute('SELECT ws.id,b.user_id,b.center_id,b.provider_user_id FROM waiver_signatures ws JOIN bookings b ON b.id=ws.booking_id WHERE ws.id=?',(sid,)).fetchone()
-                    if not r or (r['user_id']!=user['id'] and not can_manage_booking(user,r)): raise PermissionError('Documento no encontrado.')
+                    if not r or (r['user_id']!=user['id'] and not can_manage_booking(user,r)): raise NotFound('Documento no encontrado.')
                     raw=waiver_pdf(db,sid,user_lang(db,user['id'])); self.send_bytes(raw,'application/pdf',f'WORLDIVES-descargo-{sid}.pdf'); return
                 if path.startswith('/api/bookings/') and path.endswith('/diver-sheet.pdf'):
                     user=require_user(self,db); bid=int(path.split('/')[3]); b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise PermissionError('No puedes consultar esta ficha.')
-                    if user['role'] in ('center','freelance') and b['user_id']!=user['id'] and not provider_can_see_user(db,b) and not is_guest_user(db,b['user_id']):
+                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise NotFound('Reserva no encontrada.')
+                    if user['role'] in ('center','freelance') and b['user_id']!=user['id'] and not provider_can_see_user(db,b) and not is_guest_user(db,b['user_id'],b['center_id'] or -1):
                         raise PermissionError('Este cliente no ha compartido su ficha de buceador con tu centro.')
                     if user['role']=='admin': audit(db,user['id'],'diver_sheet_viewed','booking',bid); db.commit()
                     raw=diver_sheet_pdf(db,bid,self.base_url()); self.send_bytes(raw,'application/pdf',f'WORLDIVES-ficha-buceador-{bid}.pdf'); return
@@ -8919,7 +10063,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); bid=int(path.split('/')[3])
                     b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise PermissionError('No puedes consultar esta reserva.')
+                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise NotFound('Reserva no encontrada.')
                     self.send_bytes(qr_svg(booking_check_url(db,bid,self.base_url())),'image/svg+xml; charset=utf-8'); return
                 if path.startswith('/api/bookings/') and path.count('/')==3:
                     user=require_user(self,db); bid=int(path.rsplit('/',1)[1])
@@ -8928,9 +10072,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                     LEFT JOIN user_profiles up ON up.user_id=u.id
                                     LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?''',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise PermissionError('No puedes consultar esta reserva.')
+                    if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise NotFound('Reserva no encontrada.')
                     # G1/G5: the centre sees the diver's profile and documents only when the diver booked or shared them.
-                    can_see=user['role']=='admin' or b['user_id']==user['id'] or provider_can_see_user(db,b) or is_guest_user(db,b['user_id'])
+                    can_see=user['role']=='admin' or b['user_id']==user['id'] or provider_can_see_user(db,b) or is_guest_user(db,b['user_id'],b['center_id'] or -1)
                     docs=db.execute('SELECT id,document_type,title,expires_at,status,original_name,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(b['user_id'],)).fetchall() if can_see else []
                     profile=None if not can_see else db.execute('''SELECT up.phone,up.country,up.city,up.preferred_language,up.notes,up.date_of_birth,up.emergency_contact_name,up.emergency_contact_phone,up.equipment_required,up.suit_type,up.suit_size,up.boot_size,up.bcd_size,up.fin_size,up.mask_size,up.usual_weight_kg,up.tank_preference,up.computer_preference,up.equipment_notes,c.name AS certification_name FROM user_profiles up LEFT JOIN certifications c ON c.id=up.certification_id WHERE up.user_id=?''',(b['user_id'],)).fetchone()
                     po=db.execute("SELECT id,status,amount,currency,created_at,paid_at,amount_received,receipt_url,card_brand,card_last4,provider_payment_id FROM payment_orders WHERE booking_id=? ORDER BY CASE status WHEN 'paid' THEN 0 ELSE 1 END, id DESC LIMIT 1",(bid,)).fetchone()
@@ -8976,7 +10120,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if q_service: where.append('b.service_id=?'); args.append(q_service)
                         q_text=clean_text(query.get('q',[''])[0],80)
                         if q_text:
-                            like=f'%{fold_text(q_text)}%'; where.append("(fold(u.fullname) LIKE ? OR fold(u.email) LIKE ? OR fold(b.contact_phone) LIKE ? OR fold(b.external_ref) LIKE ? OR fold(s.title) LIKE ? OR CAST(b.id AS TEXT)=?)"); args+= [like,like,like,like,like,q_text.lstrip('#')]
+                            like=f'%{fold_text(q_text)}%'; where.append("(fold(u.fullname) LIKE ? OR fold(u.email) LIKE ? OR b.contact_phone_hash=? OR fold(b.external_ref) LIKE ? OR fold(s.title) LIKE ? OR CAST(b.id AS TEXT)=?)"); args+= [like,like,wcif.fingerprint(q_text) if sum(ch.isdigit() for ch in q_text)>=6 else '-',like,like,q_text.lstrip('#')]  # v50.47: phones are searched by their fingerprint
                         order='b.booking_date ASC,b.booking_time ASC,b.id ASC' if query.get('order',[''])[0]=='asc' else 'b.booking_date DESC,b.booking_time DESC,b.id DESC'
                         limit=max(1,min(5000,int(query.get('limit',['2000'])[0] or 2000)))
                         rows=db.execute(f'''SELECT b.*, COALESCE(b.contact_name,u.fullname) AS fullname, CASE WHEN u.email LIKE '%.local' THEN COALESCE(b.contact_email,'') ELSE u.email END AS email, u.username, COALESCE(c.name,pu.fullname) AS center_name, p.name AS point_name, s.title AS service_title, s.color AS service_color
@@ -9026,7 +10170,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         elif user['role']=='center' and user['center_id'] and center_can_see_user(db,user['center_id'],doc['user_id']): pass
                         else:
                             audit(db,user['id'],'document_access_denied','user_document',did,{'owner':doc['user_id']}); db.commit()
-                            raise PermissionError('No tienes acceso a este documento.')
+                            raise NotFound('Documento no encontrado.')
                     file_path=document_file_path(doc['file_path'])
                     if not file_path or not file_path.exists(): self.send_json({'error':'El archivo ya no está disponible.'},404); return
                     audit(db,user['id'],'document_downloaded','user_document',did,{'owner':doc['user_id'],'as':'owner' if own else user['role'],'center_id':user.get('center_id') if user['role']=='center' else None}); db.commit()
@@ -9142,7 +10286,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     items=[]
                     for r_ in rows:
                         d=dict(r_)
-                        d['data_shared']=is_guest_user(db,d['id']) or center_can_see_user(db,cid,d['id'])
+                        d['data_shared']=is_guest_user(db,d['id'],cid) or center_can_see_user(db,cid,d['id'])
                         if not d['data_shared']: d['phone']=db.execute('SELECT MAX(contact_phone) FROM bookings WHERE center_id=? AND user_id=?',(cid,d['id'])).fetchone()[0]
                         if str(d.get('email') or '').endswith('.local'): d['email']=db.execute("SELECT MAX(contact_email) FROM bookings WHERE center_id=? AND user_id=?",(cid,d['id'])).fetchone()[0] or ''
                         items.append(d)
@@ -9227,7 +10371,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         except PermissionError as e:
             self.send_json({'error':str(e)},403); return False
         ctype=(self.headers.get('Content-Type') or '').lower()
-        limit=MAX_UPLOAD if ctype.startswith('multipart/') else (wcfg.MAX_WEBHOOK_BYTES if path.startswith('/api/payments/webhook') else MAX_BODY)
+        limit=MAX_UPLOAD if ctype.startswith('multipart/') else (wcfg.MAX_WEBHOOK_BYTES if path.startswith(('/api/payments/webhook','/api/whatsapp/webhook')) else MAX_BODY)
         try:
             body_length(self,limit)
         except BodyTooLarge as e:
@@ -9244,6 +10388,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/payments/webhook':
                     stripe_webhook(self,db,'STRIPE_WEBHOOK_SECRET',False); return
                 team_gate(db,current_user(self,db),path,'POST')
+                admin_reason_gate(self,db,path,'POST')
+                tenant_guard(self,db,path)
                 if path=='/api/payments/webhook/connect':
                     # Events of the connected accounts (direct charges, refunds, disputes, account changes).
                     stripe_webhook(self,db,'STRIPE_CONNECT_WEBHOOK_SECRET',True); return
@@ -9346,7 +10492,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if cert_id and not db.execute('SELECT 1 FROM certifications WHERE id=? AND active=1',(cert_id,)).fetchone(): cert_id=None
                     cert_text=clean_text(data.get('certification_text'),120)
                     if requested=='freelance' and not (cert_id or cert_text): raise ValueError('Indica tu titulación profesional.')
-                    db.execute('INSERT INTO user_profiles(user_id,phone,country,city,certification_id,preferred_language,updated_at) VALUES(?,?,?,?,?,?,?)',(uid,phone,clean_text(data.get('country'),100),city,cert_id,reg_lang,now()))
+                    db.execute('INSERT INTO user_profiles(user_id,phone,country,city,certification_id,preferred_language,updated_at) VALUES(?,wod_cifrar(?),?,?,?,?,?)',(uid,phone,clean_text(data.get('country'),100),city,cert_id,reg_lang,now()))
                     if requested=='freelance':
                         cert_name=(db.execute('SELECT name FROM certifications WHERE id=?',(cert_id,)).fetchone() or {'name':''})['name'] if cert_id else cert_text
                         center_note='Titulación: '+cert_name+('\n'+center_note if center_note else '')
@@ -9363,7 +10509,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,'pending_provider','provider_submitted','WORLDIVES DISCOVERY provider')''',
                                                 (unique_center_name(db,requested_center_name,city),clean_text(data.get('country'),100) or 'España',None,city,None,website,phone,email,None,None,None,None,now(),now())).lastrowid
                         claim_id=db.execute('''INSERT INTO center_claims(user_id,center_id,requested_center_name,phone,city,website,note,status,created_at,requested_role,suggested_center_id,email)
-                                               VALUES(?,?,?,?,?,?,?,?,?,?,?,?)''',(uid,draft_id,requested_center_name or fullname,phone,city,website,center_note,'pending',now(),requested,suggested['id'] if suggested else None,email)).lastrowid
+                                               VALUES(?,?,?,wod_cifrar(?),?,?,?,?,?,?,?,?)''',(uid,draft_id,requested_center_name or fullname,phone,city,website,center_note,'pending',now(),requested,suggested['id'] if suggested else None,email)).lastrowid
                     notify_user(db,uid,'welcome_pro' if requested in {'center','freelance'} else 'welcome',related=('user',uid))
                     send_email_verification(db,uid)
                     if requested in {'center','freelance'}:
@@ -9581,7 +10727,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     # Per service: change of date by the diver (none / direct / with approval, deadline) and waiting list.
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
                     row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
-                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise PermissionError('Este servicio no pertenece a tu cuenta.')
+                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise NotFound('Servicio no encontrado.')
                     mode=data.get('reschedule_mode') or 'approval'
                     if mode not in RESCHEDULE_MODES: raise ValueError('Opción de cambio de fecha no válida.')
                     hours=int(data.get('reschedule_hours') if data.get('reschedule_hours') not in (None,'') else RESCHEDULE_HOURS_DEFAULT)
@@ -9629,7 +10775,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if not 1<=cap<=200: raise ValueError('La capacidad del barco debe estar entre 1 y 200 personas.')
                         if bid:
                             w,a=owner_where(kind,oid)
-                            if not db.execute(f'SELECT 1 FROM boats WHERE id=? AND {w}',(bid,*a)).fetchone(): raise PermissionError('Este barco no es de tu centro.')
+                            if not db.execute(f'SELECT 1 FROM boats WHERE id=? AND {w}',(bid,*a)).fetchone(): raise NotFound('Barco no encontrado.')
                             db.execute('UPDATE boats SET name=?,capacity=?,active=?,updated_at=? WHERE id=?',(name,cap,0 if data.get('active') is False else 1,now(),bid))
                         else:
                             bid=db.execute('INSERT INTO boats(center_id,provider_user_id,name,capacity,active,created_at,updated_at) VALUES(?,?,?,?,1,?,?)',
@@ -9650,7 +10796,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         gname=clean_text(data.get('guide_name'),80); label=clean_text(data.get('label'),60)
                         if boat:
                             w,a=owner_where(kind,oid)
-                            if not db.execute(f'SELECT 1 FROM boats WHERE id=? AND {w}',(boat,*a)).fetchone(): raise PermissionError('Este barco no es de tu centro.')
+                            if not db.execute(f'SELECT 1 FROM boats WHERE id=? AND {w}',(boat,*a)).fetchone(): raise NotFound('Barco no encontrado.')
                         if guide and guide not in {g['user_id'] for g in owner_guides(db,kind,oid)}: raise PermissionError('Esa persona no es guía de tu centro.')
                         if guide: gname=None
                         if gid:
@@ -9805,7 +10951,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(participants,participants,now(),slot_id,participants)).rowcount
                         if changed!=1: raise ValueError('Las plazas acaban de cambiar.')
                         reserved=1
-                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,external_ref,source,contact_email,contact_name,contact_phone,public_token,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(uid,cid,point_id,service_id,slot_id,reserved,bdate,btime,participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),status,price,service['currency'] if service else 'EUR','paid' if data.get('paid') else ('at_center' if price>0 else 'not_required'),ext,'web',contact_email,contact_name,clean_text(data.get('phone'),60),wsec.random_token(),now(),now()))
+                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,external_ref,source,contact_email,contact_name,contact_phone,public_token,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,wod_cifrar(?),?,?,?)''',(uid,cid,point_id,service_id,slot_id,reserved,bdate,btime,participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),status,price,service['currency'] if service else 'EUR','paid' if data.get('paid') else ('at_center' if price>0 else 'not_required'),ext,'web',contact_email,contact_name,clean_text(data.get('phone'),60),wsec.random_token(),now(),now()))
                     audit(db,uid,'booking_imported','booking',cur.lastrowid,{'source':'center_web','external_ref':ext}); db.commit(); self.send_json({'ok':True,'booking_id':cur.lastrowid,'status':status,'external_ref':ext}); return
                 if path=='/api/center/tariffs/save':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0); sid=int(data.get('service_id') or 0)
@@ -9853,7 +10999,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/provider-services/delete':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
                     row=db.execute('SELECT provider_user_id,center_id,title FROM provider_services WHERE id=?',(sid,)).fetchone()
-                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise PermissionError('Este servicio no pertenece a tu cuenta.')
+                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise NotFound('Servicio no encontrado.')
                     # Do not destroy a service that already has bookings: historical reservations must keep their context.
                     bookings_count=db.execute('SELECT COUNT(*) FROM bookings WHERE service_id=?',(sid,)).fetchone()[0]
                     if bookings_count:
@@ -9865,7 +11011,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/provider-services/update':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
                     row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
-                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise PermissionError('Este servicio no pertenece a tu cuenta.')
+                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise NotFound('Servicio no encontrado.')
                     duration=int(data.get('duration_minutes') or 0) or None; maxp=int(data.get('max_participants') or 0) or None
                     title=clean_text(data.get('title'),180)
                     if not title: raise ValueError('El nombre del servicio es obligatorio.')
@@ -9901,7 +11047,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/provider-services/slot':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('service_id') or 0)
                     row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
-                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise PermissionError('Este servicio no pertenece a tu cuenta.')
+                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise NotFound('Servicio no encontrado.')
                     date=clean_text(data.get('slot_date'),20); tm=clean_text(data.get('slot_time'),10); total=max(1,int(data.get('spots_total') or 1))
                     if not date or not tm: raise ValueError('Indica fecha y hora de la salida.')
                     service=db.execute('SELECT center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
@@ -9926,7 +11072,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/provider-services/slot-update':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); slot_id=int(data.get('id') or 0)
                     slot=db.execute('SELECT ss.*,s.provider_user_id,s.center_id AS service_center_id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
-                    if not slot or not owns_service(user,slot['provider_user_id'],slot['service_center_id']): raise PermissionError('Esta salida no pertenece a tu cuenta.')
+                    if not slot or not owns_service(user,slot['provider_user_id'],slot['service_center_id']): raise NotFound('Salida no encontrada.')
                     date=clean_text(data.get('slot_date'),20) or slot['slot_date']; tm=clean_text(data.get('slot_time'),10) or slot['slot_time']; total=max(1,int(data.get('spots_total') or slot['spots_total']))
                     consumed=int(slot['spots_total'])-int(slot['spots_available'])
                     if total < consumed: raise ValueError(f'No puedes bajar la capacidad a {total}: ya hay {consumed} plazas ocupadas.')
@@ -9944,7 +11090,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/provider-services/slot-delete':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); slot_id=int(data.get('id') or 0)
                     slot=db.execute('SELECT ss.*,s.provider_user_id,s.center_id AS service_center_id,s.title AS service_title FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
-                    if not slot or not owns_service(user,slot['provider_user_id'],slot['service_center_id']): raise PermissionError('Esta salida no pertenece a tu cuenta.')
+                    if not slot or not owns_service(user,slot['provider_user_id'],slot['service_center_id']): raise NotFound('Salida no encontrada.')
                     active=db.execute("SELECT COUNT(*) FROM bookings WHERE slot_id=? AND slot_reserved=1 AND status NOT IN ('cancelled','rejected')",(slot_id,)).fetchone()[0]
                     if active: raise ValueError('No puedes eliminar una salida que tiene reservas activas. Cancela o gestiona primero esas reservas.')
                     db.execute('DELETE FROM service_slot_points WHERE slot_id=?',(slot_id,))
@@ -9954,7 +11100,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/provider-services/slot-close':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); slot_id=int(data.get('id') or 0)
                     slot=db.execute('SELECT ss.*,s.provider_user_id,s.center_id AS service_center_id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
-                    if not slot or not owns_service(user,slot['provider_user_id'],slot['service_center_id']): raise PermissionError('Esta salida no pertenece a tu cuenta.')
+                    if not slot or not owns_service(user,slot['provider_user_id'],slot['service_center_id']): raise NotFound('Salida no encontrada.')
                     active=db.execute("SELECT COUNT(*) FROM bookings WHERE slot_id=? AND slot_reserved=1 AND status NOT IN ('cancelled','rejected')",(slot_id,)).fetchone()[0]
                     if active: raise ValueError('No puedes cerrar una salida que todavía tiene reservas activas.')
                     db.execute("UPDATE service_slots SET status='closed',updated_at=? WHERE id=?",(now(),slot_id)); audit(db,user['id'],'service_slot_closed','service_slot',slot_id); db.commit(); self.send_json({'ok':True}); return
@@ -10001,7 +11147,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         emergency_contact_name,emergency_contact_phone,equipment_required,suit_type,suit_size,
                         boot_size,bcd_size,fin_size,mask_size,usual_weight_kg,tank_preference,
                         computer_preference,equipment_notes,updated_at
-                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    ) VALUES(?,wod_cifrar(?),?,?,?,?,?,?,?,wod_cifrar(?),?,?,?,?,?,?,?,?,?,?,?,?)
                     ON CONFLICT(user_id) DO UPDATE SET
                         phone=excluded.phone,country=excluded.country,city=excluded.city,
                         preferred_language=excluded.preferred_language,certification_id=excluded.certification_id,
@@ -10025,7 +11171,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                      float(data.get('usual_weight_kg')) if data.get('usual_weight_kg') not in (None,'') else None,
                      clean_text(data.get('tank_preference'),120),clean_text(data.get('computer_preference'),120),
                      clean_text(data.get('equipment_notes'),2000),now()))
-                    audit(db,user['id'],'profile_updated','user',user['id']); sync_user_rewards(db,user['id']); db.commit(); self.send_json({'ok':True}); return
+                    if 'wa_consent' in data: set_wa_consent(db,user['id'],bool(data.get('wa_consent')),data.get('lang') or user_lang(db,user['id']),'perfil',self.client_ip())
+                    audit(db,user['id'],'profile_updated','user',user['id']); sync_user_rewards(db,user['id']); db.commit()
+                    # v50.47 (C.1): a number without an international prefix is saved, with a warning (no WhatsApp notices).
+                    self.send_json({'ok':True,'whatsapp':wa_profile_info(db,user['id']),'phone_warning':wcif.phone_problem(clean_text(data.get('phone'),50))}); return
                 if path=='/api/account/documents':
                     user=require_user(self,db); fields,files=parse_multipart(self); file=files.get('file')
                     if not file: raise ValueError('Adjunta un archivo PDF o imagen.')
@@ -10278,7 +11427,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         except ValueError: raise ValueError('Fecha no válida.')
                     pax=max(0,min(99,int(data.get('participants') or 0)))
                     lang=normalize_lang(data.get('lang') or 'es')
-                    rid=db.execute('INSERT INTO info_requests(center_id,provider_user_id,user_id,name,email,phone,message,wanted_date,participants,lang,status,ip_hash,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                    rid=db.execute('INSERT INTO info_requests(center_id,provider_user_id,user_id,name,email,phone,message,wanted_date,participants,lang,status,ip_hash,created_at) VALUES(?,?,?,?,?,wod_cifrar(?),?,?,?,?,?,?,?)',
                                    (cid,puid,cu['id'] if cu else None,name,email,clean_text(data.get('phone'),40) or '',msg,wanted,pax or None,lang,'new',wsec.ip_hash(ip),now())).lastrowid
                     stat_bump(db,ptype,pid_,'info_requests')
                     label=provider_label(db,ptype,pid_)
@@ -10307,7 +11456,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
                     fields,files=parse_multipart(self)
                     if not files.get('file'): raise ValueError('Adjunta la póliza o el certificado del seguro (PDF o imagen).')
-                    stored=save_upload(user['id'],files['file'],'insurance')
+                    stored=save_upload(user['id'],files['file'],'insurance',tenant=winq.tenant_key(*ref))
                     old=db.execute(f'SELECT insurance_doc FROM {provider_table(ref[0])} WHERE id=?',(ref[1],)).fetchone()
                     db.execute(f'UPDATE {provider_table(ref[0])} SET insurance_doc=?,fiscal_updated_at=? WHERE id=?',(stored,now(),ref[1]))
                     if old and old['insurance_doc']: delete_document_file(old['insurance_doc'])
@@ -10330,13 +11479,16 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
                     require_feature(db,user,'team')
                     role=data.get('member_role')
-                    if role not in ('reception','instructor','owner'): raise ValueError('Elige el perfil: recepción, instructor o propietario.')
+                    if role not in TEAM_ROLES: raise ValueError('Elige el perfil: propietario, encargado, recepción o instructor.')
                     email=(clean_text(data.get('email'),160) or '').lower()
                     if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email): raise ValueError('Email no válido.')
                     count=db.execute("SELECT COUNT(*) FROM users WHERE center_id=? AND role='center'",(cid,)).fetchone()[0]+db.execute('SELECT COUNT(*) FROM team_invites WHERE center_id=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>=?',(cid,now())).fetchone()[0]
                     lim=plan_limit(db,'center',cid,'team_max')
                     if lim and count>=lim: raise PlanRequired('team',f'Tu plan permite {lim} personas en el equipo.')
-                    if db.execute("SELECT 1 FROM users WHERE lower(email)=? AND role IN ('center','freelance','admin')",(email,)).fetchone(): raise ValueError('Ese email ya pertenece a una cuenta profesional.')
+                    # v50.47: the staff of another centre can be invited (they will choose the centre in each session);
+                    # a freelance (own tenant) or an administrator cannot.
+                    if db.execute("SELECT 1 FROM users WHERE lower(email)=? AND role IN ('freelance','admin')",(email,)).fetchone(): raise ValueError('Ese email ya pertenece a una cuenta profesional.')
+                    if is_team_member(db,cid,(db.execute('SELECT id FROM users WHERE lower(email)=?',(email,)).fetchone() or {'id':0})['id']): raise ValueError('Esa persona ya es del equipo.')
                     tok=wsec.random_token(32)
                     db.execute('INSERT INTO team_invites(center_id,email,member_role,token_hash,created_by,created_at,expires_at) VALUES(?,?,?,?,?,?,?)',
                                (cid,email,role,hashlib.sha256(tok.encode()).hexdigest(),user['id'],now(),(datetime.now(timezone.utc)+_timedelta(days=7)).isoformat(timespec='seconds')))
@@ -10351,18 +11503,86 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/center/team/role':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']; uid=int(data.get('user_id') or 0); role=data.get('member_role')
                     if role not in TEAM_ROLES: raise ValueError('Perfil no válido.')
-                    if not db.execute("SELECT 1 FROM users WHERE id=? AND center_id=? AND role='center'",(uid,cid or -1)).fetchone(): raise ValueError('Esa persona no es del equipo.')
+                    if not is_team_member(db,cid,uid): raise NotFound('Esa persona no es del equipo.')
                     if uid==user['id'] and role!='owner': raise ValueError('No puedes quitarte a ti mismo el perfil de propietario.')
                     db.execute("INSERT INTO center_members(center_id,user_id,member_role,created_at,created_by) VALUES(?,?,?,?,?) ON CONFLICT(center_id,user_id) DO UPDATE SET member_role=excluded.member_role",(cid,uid,role,now(),user['id']))
                     audit(db,user['id'],'team_role_changed','user',uid,{'role':role}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center/team/remove':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']; uid=int(data.get('user_id') or 0)
                     if uid==user['id']: raise ValueError('No puedes quitarte a ti mismo del equipo.')
-                    if not db.execute("SELECT 1 FROM users WHERE id=? AND center_id=? AND role='center'",(uid,cid or -1)).fetchone(): raise ValueError('Esa persona no es del equipo.')
-                    # The account stays (it is a person's account) as a diver account, without access to the centre.
-                    db.execute("UPDATE users SET role='recreational',center_id=NULL,requested_role='recreational' WHERE id=?",(uid,))
-                    db.execute('DELETE FROM center_members WHERE center_id=? AND user_id=?',(cid,uid)); db.execute('DELETE FROM sessions WHERE user_id=?',(uid,))
+                    if not is_team_member(db,cid,uid): raise NotFound('Esa persona no es del equipo.')
+                    # The account stays (it is a person's account). If it works for other centres it keeps them;
+                    # otherwise it becomes a diver account, without access to any centre. Its sessions end at once.
+                    db.execute('DELETE FROM center_members WHERE center_id=? AND user_id=?',(cid,uid))
+                    other=db.execute('SELECT center_id FROM center_members WHERE user_id=? AND center_id<>? ORDER BY created_at LIMIT 1',(uid,cid)).fetchone()
+                    if other: db.execute("UPDATE users SET center_id=? WHERE id=? AND center_id=?",(other['center_id'],uid,cid))
+                    else: db.execute("UPDATE users SET role='recreational',center_id=NULL,requested_role='recreational' WHERE id=?",(uid,))
+                    db.execute('DELETE FROM sessions WHERE user_id=?',(uid,))
                     audit(db,user['id'],'team_member_removed','user',uid); db.commit(); self.send_json({'ok':True}); return
+                # ------------------------------------------------ v50.47 · mass notices and WhatsApp of each centre
+                if path=='/api/avisos/preview':
+                    user=require_user(self,db); ctx=notice_actor_ctx(db,user); data=json_body(self)
+                    kind=data.get('kind') if data.get('kind') in ('slot_cancelled','slot_changed') else 'slot_cancelled'
+                    self.send_json(notice_preview(db,ctx,data.get('slot_id'),kind,reason=data.get('reason'),note=wav.clean_note(data.get('note')),policy=data.get('policy'),
+                                                  new_time=clean_text(data.get('new_time'),5) or None,new_point=clean_text(data.get('meeting_point'),160) or None)); return
+                if path in ('/api/avisos/cancelar','/api/avisos/cambio'):
+                    user=require_user(self,db); data=json_body(self)
+                    b=create_notice_batch(db,self,user,data,'slot_cancelled' if path.endswith('cancelar') else 'slot_changed'); db.commit()
+                    self.send_json({'ok':True,'uid':b['uid'],'status':b['status'],'undo_seconds':NOTICE_UNDO_SECONDS}); return
+                if re.fullmatch(r'/api/avisos/[0-9a-f]{32}/deshacer',path):
+                    user=require_user(self,db); ctx=notice_actor_ctx(db,user); undo_notice_batch(db,ctx,user,path.split('/')[3]); db.commit()
+                    self.send_json({'ok':True}); return
+                if path=='/api/avisos/ajustes':
+                    user=require_user(self,db); ctx=notice_actor_ctx(db,user); data=json_body(self); cur=provider_settings(db,ctx.key)
+                    policy=data.get('notice_policy') if data.get('notice_policy') in ('choice','refund') else cur['notice_policy']
+                    try: hour=int(data.get('reminder_hour',cur['reminder_hour']))
+                    except (TypeError,ValueError): raise ValueError('La hora del recordatorio debe ser un número de 0 a 23.')
+                    if not 0<=hour<=23: raise ValueError('La hora del recordatorio debe ser un número de 0 a 23.')
+                    enabled=1 if data.get('reminder_enabled',cur['reminder_enabled']) else 0
+                    bring=wav.clean_note(data.get('reminder_bring',cur.get('reminder_bring') or ''))[:120]
+                    db.execute('''INSERT INTO provider_settings(provider_id,notice_policy,reminder_enabled,reminder_hour,reminder_bring,updated_at,updated_by) VALUES(?,?,?,?,?,?,?)
+                                  ON CONFLICT(provider_id) DO UPDATE SET notice_policy=excluded.notice_policy,reminder_enabled=excluded.reminder_enabled,reminder_hour=excluded.reminder_hour,
+                                  reminder_bring=excluded.reminder_bring,updated_at=excluded.updated_at,updated_by=excluded.updated_by''',(ctx.key,policy,enabled,hour,bring or None,now(),user['id']))
+                    audit(db,user['id'],'notice_settings_saved','provider',None,{'provider':ctx.key,'policy':policy,'reminder':enabled,'hour':hour}); db.commit()
+                    self.send_json({'ok':True,'settings':provider_settings(db,ctx.key)}); return
+                if path=='/api/whatsapp/webhook':
+                    whatsapp_webhook(self,db); return
+                if path=='/api/whatsapp/connect':
+                    user=require_user(self,db); ctx=notice_actor_ctx(db,user); data=json_body(self)
+                    self.send_json(whatsapp_connect(db,ctx,user,data)); return
+                if path=='/api/whatsapp/disconnect':
+                    user=require_user(self,db); ctx=notice_actor_ctx(db,user)
+                    acc=db.execute('SELECT display_number FROM whatsapp_accounts WHERE provider_id=?',(ctx.key,)).fetchone()
+                    if not acc: raise NotFound('No tienes WhatsApp conectado.')
+                    db.execute('DELETE FROM whatsapp_accounts WHERE provider_id=?',(ctx.key,))   # the credentials are deleted, not kept
+                    audit(db,user['id'],'whatsapp_disconnected','provider',None,{'provider':ctx.key,'number':wcif.mask_phone(wcif.decrypt_secret(acc['display_number']))}); db.commit()
+                    self.send_json({'ok':True}); return
+                if path=='/api/whatsapp/templates/refresh':
+                    user=require_user(self,db); ctx=notice_actor_ctx(db,user)
+                    self.send_json(whatsapp_refresh_templates(db,ctx)); return
+                if re.fullmatch(r'/api/r/[0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
+                    # The diver's choice from the signed link of a notice (no session needed; the link opens only that booking).
+                    b,kind=signed_link_booking(db,path.rsplit('/',1)[1]); data=json_body(self)
+                    offer=slot_offer_for(db,b['id'])
+                    if not offer: raise ValueError('Esta reserva no tiene ninguna salida cancelada.')
+                    if offer['resolved_at']: raise ValueError('Ya habías elegido una opción para esta reserva.')
+                    choice=data.get('choice')
+                    if choice=='reschedule':
+                        ns=db.execute("SELECT * FROM service_slots WHERE id=? AND status IN ('open','full')",(int(data.get('slot_id') or 0),)).fetchone()
+                        if not ns or ns['id'] not in {x['id'] for x in target_slots(db,b,offer['slot_id'])}: raise ValueError('Elige una salida con plazas libres.')
+                        result=resolve_slot_offer(db,b,offer,'reschedule',None,ns)
+                    elif choice=='refund': result=resolve_slot_offer(db,b,offer,'refund',None)
+                    else: raise ValueError('Elige una opción.')
+                    audit(db,None,'slot_cancel_choice','booking',b['id'],{'choice':choice,'result':result,'via':'enlace firmado'}); db.commit()
+                    self.send_json({'ok':True,'result':result}); return
+                if path=='/api/team/switch':
+                    # v50.47 (B.6): explicit change of the centre of this session. Only to a centre the account belongs to.
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); target=int(data.get('center') or 0)
+                    if not any(c['id']==target for c in user_centers(db,user)): raise NotFound('Centro no encontrado.')
+                    home=user.get('home_center_id') or user['center_id']
+                    db.execute('UPDATE sessions SET active_center_id=? WHERE token_hash=?',(None if target==home else target,self.session_hash()))
+                    audit(db,user['id'],'team_context_switch','center',target,{'from':user['center_id']}); db.commit()
+                    self.send_json({'ok':True,'center_id':target}); return
                 if path=='/api/team/join':
                     # Accepting a team invitation: creates the account (or turns the signed-in diver account of the same email) into a member.
                     data=json_body(self); tok=clean_text(data.get('token'),100) or ''
@@ -10371,7 +11591,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     cu=current_user(self,db)
                     if cu:
                         if cu['email'].lower()!=inv['email']: raise PermissionError('Esta invitación es para otro email. Cierra sesión o entra con la cuenta invitada.')
-                        if cu['role']!='recreational': raise ValueError('Tu cuenta ya es profesional.')
+                        if cu['role'] not in ('recreational','center'): raise ValueError('Tu cuenta ya es profesional.')
                         uid=cu['id']
                     else:
                         if db.execute('SELECT 1 FROM users WHERE lower(email)=?',(inv['email'],)).fetchone(): raise ValueError('Ya hay una cuenta con ese email: inicia sesión con ella y vuelve a abrir el enlace.')
@@ -10384,7 +11604,13 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at,email_verified_at) VALUES(?,?,?,?,?,?,?)',(name,inv['email'],username,hash_password(pw),'recreational',now(),now())).lastrowid
                         db.execute('INSERT INTO user_profiles(user_id,updated_at) VALUES(?,?)',(uid,now()))
                         record_acceptances(db,uid,['terminos','privacidad','centros'],self.client_ip())
-                    db.execute("UPDATE users SET role='center',center_id=?,requested_role='center' WHERE id=?",(inv['center_id'],uid))
+                    if cu and cu['role']=='center':
+                        # Staff of another centre: one more centre for the same account (its own centre does not change).
+                        home=cu.get('home_center_id') or cu['center_id']
+                        if home and not db.execute('SELECT 1 FROM center_members WHERE center_id=? AND user_id=?',(home,uid)).fetchone():
+                            db.execute("INSERT INTO center_members(center_id,user_id,member_role,created_at,created_by) VALUES(?,?,?,?,?)",(home,uid,member_role(db,dict(cu,center_id=home)) or 'owner',now(),uid))
+                    else:
+                        db.execute("UPDATE users SET role='center',center_id=?,requested_role='center' WHERE id=?",(inv['center_id'],uid))
                     db.execute("INSERT INTO center_members(center_id,user_id,member_role,created_at,created_by) VALUES(?,?,?,?,?) ON CONFLICT(center_id,user_id) DO UPDATE SET member_role=excluded.member_role",(inv['center_id'],uid,inv['member_role'],now(),inv['created_by']))
                     db.execute('UPDATE team_invites SET used_at=? WHERE id=?',(now(),inv['id']))
                     audit(db,uid,'team_joined','center',inv['center_id'],{'role':inv['member_role']}); db.commit()
@@ -10782,6 +12008,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if status=='confirmed': reject_overlapping_requests(db,booking_row(db,bid))
                     if wl_hold: db.execute("UPDATE waitlist_entries SET status='booked',held=0,booking_id=?,updated_at=? WHERE id=?",(bid,now(),wl_hold['id'])); slot_event(db,slot_id,'waitlist_booked',user['id'],entry=wl_hold['id'],booking_id=bid)
                     audit(db,user['id'],'booking_created','booking',bid,{'mode':mode,'status':status})
+                    # v50.47 (C.5): «Recibir por WhatsApp los avisos de mis reservas del centro», marked at booking time.
+                    if data.get('wa_consent') is not None: set_wa_consent(db,user['id'],bool(data.get('wa_consent')),data.get('lang') or user_lang(db,user['id']),'reserva',self.client_ip())
                     if status=='payment_in_progress':
                         # The booking is not visible to the centre until Stripe confirms the payment.
                         db.commit()
@@ -10899,7 +12127,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     # Always a new centre, hidden until the administrator verifies the request (G2).
                     cur=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at,verification_status,data_confidence,source_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)''',(unique_center_name(db,name,clean_text(data.get('city'),100)),clean_text(data.get('country'),100) or 'España',clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),website,phone,clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),clean_lat(data.get('latitude')),clean_lng(data.get('longitude')),now(),now(),'pending_provider','provider_submitted','WORLDIVES DISCOVERY provider'))
                     cid=cur.lastrowid
-                    db.execute('INSERT INTO center_claims(user_id,center_id,requested_center_name,phone,city,website,note,status,created_at,requested_role,email) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(user['id'],cid,name,phone,clean_text(data.get('city'),100),website,clean_text(data.get('note'),2000),'pending',now(),'center',user['email']))
+                    db.execute('INSERT INTO center_claims(user_id,center_id,requested_center_name,phone,city,website,note,status,created_at,requested_role,email) VALUES(?,?,?,wod_cifrar(?),?,?,?,?,?,?,?)',(user['id'],cid,name,phone,clean_text(data.get('city'),100),website,clean_text(data.get('note'),2000),'pending',now(),'center',user['email']))
                     db.execute("UPDATE users SET requested_role='center' WHERE id=?",(user['id'],))
                     audit(db,user['id'],'center_created_by_provider','center',cid); db.commit(); self.send_json({'ok':True,'id':cid,'status':'pending'}); return
                 if path=='/api/dive-points':
@@ -11007,7 +12235,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     uses=max(1,min(50,int(data.get('uses_per_code') or 1)))
                     vals=(title,clean_text(data.get('description'),1000) or '',clean_text(data.get('value_text'),120) or '',clean_text(data.get('conditions'),1000) or '',vf,vu,uses)
                     if pid:
-                        if not db.execute('SELECT 1 FROM promotions WHERE id=? AND center_id=?',(pid,cid)).fetchone(): raise PermissionError('Esta promoción no es de tu centro.')
+                        if not db.execute('SELECT 1 FROM promotions WHERE id=? AND center_id=?',(pid,cid)).fetchone(): raise NotFound('Promoción no encontrada.')
                         db.execute('UPDATE promotions SET title=?,description=?,value_text=?,conditions=?,valid_from=?,valid_until=?,uses_per_code=?,updated_at=? WHERE id=?',vals+(now(),pid))
                     else:
                         pid=db.execute('INSERT INTO promotions(center_id,created_by,title,description,value_text,conditions,valid_from,valid_until,uses_per_code,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(cid,user['id'])+vals+('active',now(),now())).lastrowid
@@ -11024,7 +12252,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path.startswith('/api/center/promotions/') and path.endswith('/status'):
                     user=require_user(self,db); require_role(user,{'center'}); pid=int(path.split('/')[4]); st=json_body(self).get('status')
                     if st not in ('active','archived'): raise ValueError('Estado no válido.')
-                    if not db.execute('UPDATE promotions SET status=?,updated_at=? WHERE id=? AND center_id=?',(st,now(),pid,user['center_id'])).rowcount: raise PermissionError('Esta promoción no es de tu centro.')
+                    if not db.execute('UPDATE promotions SET status=?,updated_at=? WHERE id=? AND center_id=?',(st,now(),pid,user['center_id'])).rowcount: raise NotFound('Promoción no encontrada.')
                     audit(db,user['id'],'promotion_'+st,'promotion',pid); db.commit(); self.send_json({'ok':True}); return
                 if path.startswith('/api/center/promotions/') and path.endswith('/assign'):
                     user=require_user(self,db); require_role(user,{'center'}); pid=int(path.split('/')[4]); data=json_body(self); cid=user['center_id']
@@ -11161,10 +12389,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if row['image_path']!=url: delete_public_image(row['image_path'])
                     self.send_json({'ok':True,'url':url}); return
                 if path=='/api/provider/experience-image':
-                    user=require_user(self,db); fields,files=parse_multipart(self); eid=int(fields.get('id') or 0)
+                    user=require_user(self,db); require_role(user,{'admin','center','freelance'}); fields,files=parse_multipart(self); eid=int(fields.get('id') or 0)
                     exp=db.execute('SELECT * FROM travel_experiences WHERE id=?',(eid,)).fetchone()
-                    if not exp: self.send_json({'error':'Experiencia no encontrada'},404); return
-                    if not (user['role']=='admin' or exp['provider_user_id']==user['id'] or (exp['center_id'] and exp['center_id']==user['center_id'])): raise PermissionError('Esta experiencia no es tuya.')
+                    if not exp or not (user['role']=='admin' or owns_service(user,exp['provider_user_id'],exp['center_id'])): raise NotFound('Experiencia no encontrada.')
                     url=None if fields.get('remove')=='1' else save_public_image(files.get('file'),f'experience_{eid}')
                     db.execute('UPDATE travel_experiences SET image_url=?,updated_at=? WHERE id=?',(url,now(),eid)); audit(db,user['id'],'travel_experience_image','travel_experience',eid); db.commit()
                     if exp['image_url']!=url: delete_public_image(exp['image_url'])
@@ -11188,7 +12415,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not tid: raise ValueError('Elige un destino o escribe uno nuevo.')
                     if not clean_text(data.get('title'),180): raise ValueError('Ponle un título a la experiencia.')
                     provider_type=user['role'] if user['role'] in {'center','freelance'} else clean_text(data.get('provider_type'),20)
-                    center_id=user['center_id'] if user['role']=='center' else (int(data.get('center_id') or 0) or None)
+                    # v50.47: a centre publishes for its own centre and a freelance for itself (never for another centre).
+                    center_id=user['center_id'] if user['role']=='center' else ((int(data.get('center_id') or 0) or None) if user['role']=='admin' else None)
+                    if user['role']=='freelance' and data.get('center_id'): ignored_tenant_fields(db,user,path,['center_id'])
                     # Verified centers publish directly (the admin can still hide it); freelance proposals are reviewed.
                     status='published' if user['role'] in {'admin','center'} else 'pending'
                     cur=db.execute('''INSERT INTO travel_experiences(travel_offer_id,title,provider_user_id,center_id,provider_type,summary,description,start_date,end_date,price,currency,spots_total,spots_available,includes,conditions,status,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(tid,clean_text(data.get('title'),180),user['id'],center_id,provider_type,clean_text(data.get('summary'),500),clean_text(data.get('description'),5000),clean_text(data.get('start_date'),30),clean_text(data.get('end_date'),30),float(data.get('price')) if data.get('price') not in (None,'') else None,clean_text(data.get('currency'),8) or 'EUR',int(data.get('spots_total')) if data.get('spots_total') not in (None,'') else None,int(data.get('spots_available')) if data.get('spots_available') not in (None,'') else None,clean_text(data.get('includes'),3000),clean_text(data.get('conditions'),3000),status,1,now(),now())); audit(db,user['id'],'travel_experience_created','travel_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid,'status':status}); return
@@ -11243,6 +12472,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     uid=int(data['user_id']); role=clean_text(data.get('role'),30); center_id=int(data.get('center_id') or 0) or None
                     if role not in ROLES: raise ValueError('Rol no válido.')
                     if role=='center' and not center_id: raise ValueError('Una cuenta de centro necesita un centro asociado.')
+                    if role!='center': center_id=None   # v50.47: only a centre account belongs to a centre (one tenant per account)
                     if center_id and not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(center_id,)).fetchone(): raise ValueError('Centro no válido.')
                     if uid==user['id'] and role!='admin': raise ValueError('No puedes quitarte a ti mismo el rol de administración.')
                     db.execute('UPDATE users SET role=?,center_id=? WHERE id=?',(role,center_id,uid))
@@ -11427,7 +12657,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); eid=int(data.get('id') or 0)
                     require_switch(db,'experiences'); require_feature(db,user,'experiences')
                     exp=db.execute('SELECT * FROM travel_experiences WHERE id=?',(eid,)).fetchone()
-                    if not exp or not (exp['provider_user_id']==user['id'] or (exp['center_id'] and exp['center_id']==user['center_id'])): raise PermissionError('Esta experiencia no es tuya.')
+                    if not exp or not owns_service(user,exp['provider_user_id'],exp['center_id']): raise NotFound('Experiencia no encontrada.')
                     if data.get('delete'):
                         db.execute('UPDATE travel_experiences SET active=0,updated_at=? WHERE id=?',(now(),eid)); audit(db,user['id'],'travel_experience_hidden','travel_experience',eid); db.commit(); self.send_json({'ok':True}); return
                     if exp['service_id']: raise ValueError('Esta experiencia se edita desde su servicio en «Servicios y tarifas».')
@@ -11441,7 +12671,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); rid=int(data.get('id') or 0); status=clean_text(data.get('status'),20)
                     if status not in {'confirmed','rejected','cancelled'}: raise ValueError('Estado no válido.')
                     r=db.execute('SELECT eb.*,e.provider_user_id,e.center_id,e.spots_available,e.spots_total,e.title FROM experience_bookings eb JOIN travel_experiences e ON e.id=eb.travel_experience_id WHERE eb.id=?',(rid,)).fetchone()
-                    if not r or not (r['provider_user_id']==user['id'] or (r['center_id'] and r['center_id']==user['center_id'])): raise PermissionError('Esta solicitud no es tuya.')
+                    if not r or not owns_service(user,r['provider_user_id'],r['center_id']): raise NotFound('Solicitud no encontrada.')
                     if status==r['status']: self.send_json({'ok':True,'unchanged':True}); return
                     if status in {'rejected','cancelled'} and r['status'] in {'requested','confirmed'} and r['spots_available'] is not None:
                         db.execute('UPDATE travel_experiences SET spots_available=MIN(COALESCE(spots_total,spots_available+?),spots_available+?),updated_at=? WHERE id=?',(r['participants'],r['participants'],now(),r['travel_experience_id']))
@@ -11524,7 +12754,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         reserved=1
                     codes=as_list(data.get('equipment_codes'))
                     cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,notes,status,price,currency,payment_status,price_breakdown,source,contact_phone,contact_email,contact_name,created_by_user_id,payment_method,internal_notes,public_token,created_at,updated_at)
-                                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(uid,cid,point_id,service_id,slot['id'] if slot else None,reserved,bdate,btime,participants,1 if codes else 0,', '.join(l['label'] for l in lines if l['kind']=='equipment'),clean_text(data.get('notes'),2000),status,total,currency,payment_status,json.dumps(lines,ensure_ascii=False),'manual',clean_text(data.get('phone'),60),(clean_text(data.get('email'),160) or '').lower() or None,fullname,user['id'],clean_text(data.get('payment_method'),40),clean_text(data.get('internal_notes'),2000),wsec.random_token(),now(),now()))
+                                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,wod_cifrar(?),?,?,?,?,?,?,?,?)''',(uid,cid,point_id,service_id,slot['id'] if slot else None,reserved,bdate,btime,participants,1 if codes else 0,', '.join(l['label'] for l in lines if l['kind']=='equipment'),clean_text(data.get('notes'),2000),status,total,currency,payment_status,json.dumps(lines,ensure_ascii=False),'manual',clean_text(data.get('phone'),60),(clean_text(data.get('email'),160) or '').lower() or None,fullname,user['id'],clean_text(data.get('payment_method'),40),clean_text(data.get('internal_notes'),2000),wsec.random_token(),now(),now()))
                     if data.get('notify_client',True) and status=='confirmed': notify_booking(db,cur.lastrowid,'manual')
                     audit(db,user['id'],'booking_created_manual','booking',cur.lastrowid,{'participants':participants,'total':total}); db.commit()
                     self.send_json({'ok':True,'id':cur.lastrowid,'total':total,'status':status,'payment_status':payment_status}); return
@@ -11602,7 +12832,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     oid=int(data.get('id') or 0)
                     vals=(title,clean_text(data.get('description'),1000),rtype,cost,clean_text(data.get('value_text'),180),clean_text(data.get('conditions'),1000),stock)
                     if oid:
-                        if not db.execute('SELECT 1 FROM reward_offers WHERE id=? AND center_id=?',(oid,cid)).fetchone(): raise PermissionError('Esta ventaja no es de tu centro.')
+                        if not db.execute('SELECT 1 FROM reward_offers WHERE id=? AND center_id=?',(oid,cid)).fetchone(): raise NotFound('Ventaja no encontrada.')
                         db.execute('UPDATE reward_offers SET title=?,description=?,reward_type=?,cost_points=?,value_text=?,conditions=?,stock=?,active=?,updated_at=? WHERE id=?',(*vals,0 if data.get('active') in (False,0,'0') else 1,now(),oid))
                     else:
                         oid=db.execute('INSERT INTO reward_offers(center_id,title,description,reward_type,cost_points,value_text,conditions,stock,cost_wallet,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,0,1,?,?,?)',(cid,*vals,user['id'],now(),now())).lastrowid
@@ -11646,21 +12876,21 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         if '/virtual/' in parsed.path and parsed.path.startswith('/api/dive-points/'):
             with connect() as db:
                 try:
-                    user=require_user(self,db); require_role(user,{'admin','center'})
+                    user=require_user(self,db); require_role(user,{'admin','center'}); team_gate(db,user,'/api/dive-points/virtual','POST')
                     parts=parsed.path.strip('/').split('/')
                     pid=int(parts[2]); vid=int(parts[4])
                     row=db.execute('SELECT v.media_path,p.center_id FROM virtual_experiences v JOIN dive_points p ON p.id=v.dive_point_id WHERE v.id=? AND v.dive_point_id=?',(vid,pid)).fetchone()
                     if not row: self.send_json({'error':'Recorrido no encontrado'},404); return
-                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes eliminar este recorrido virtual.')
+                    if user['role']=='center' and (not user['center_id'] or row['center_id']!=user['center_id']): raise PermissionError('No puedes eliminar este recorrido virtual.')
                     db.execute('UPDATE virtual_experiences SET active=0,updated_at=? WHERE id=?',(now(),vid)); audit(db,user['id'],'virtual_experience_deleted','virtual_experience',vid); db.commit(); self.send_json({'ok':True}); return
-                except Exception as e: self.send_json({'error':str(e)},403 if isinstance(e,PermissionError) else 500)
+                except Exception as e: self.send_json({'error':str(e) if isinstance(e,(PermissionError,ValueError)) else 'Error interno.'},403 if isinstance(e,PermissionError) else 500)
             return
         if parsed.path.startswith('/api/dive-points/'):
             with connect() as db:
                 try:
                     user=require_user(self,db); require_role(user,{'admin'}); pid=int(parsed.path.rsplit('/',1)[1]);
                     db.execute('UPDATE dive_points SET active=0,updated_at=? WHERE id=?',(now(),pid)); audit(db,user['id'],'dive_point_archived','dive_point',pid); db.commit(); self.send_json({'ok':True})
-                except Exception as e: self.send_json({'error':str(e)},403 if isinstance(e,PermissionError) else 500)
+                except Exception as e: self.send_json({'error':str(e) if isinstance(e,(PermissionError,ValueError)) else 'Error interno.'},403 if isinstance(e,PermissionError) else 500)
             return
         self.send_json({'error':'Endpoint no encontrado'},404)
 
@@ -11749,6 +12979,7 @@ def maintenance_loop():
             sys.stderr.write(f'[mantenimiento] {type(exc).__name__}: {exc}\n')
         finally:
             if db is not None: db.close()
+            flush_security_alerts()
         time.sleep(wcfg.env_int('WOD_MAINTENANCE_SECONDS', 60, 5, 3600))
 
 
@@ -11911,6 +13142,11 @@ def check_production_settings():
     if len(wcfg.env('WOD_SECRET_KEY')) < 32: problems.append('Define WOD_SECRET_KEY con al menos 32 caracteres aleatorios.')
     if wcfg.env_flag('WOD_DEBUG'): problems.append('WOD_DEBUG no puede estar activo en producción.')
     if not admin_totp_required(): problems.append('WOD_ADMIN_TOTP_REQUIRED=0 no se permite en producción: los administradores usan verificación en dos pasos.')
+    # v50.47: phones and WhatsApp credentials are encrypted with this key (never derived in production).
+    if len(wcfg.env('WOD_DATA_KEY')) < 32: problems.append('Define WOD_DATA_KEY (clave de cifrado de teléfonos y credenciales) con al menos 32 caracteres aleatorios: python3 -c "import secrets;print(secrets.token_urlsafe(32))".')
+    if wcfg.env_flag('WHATSAPP_ENABLED'):
+        for k in ('WHATSAPP_APP_ID', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'WHATSAPP_CONFIG_ID'):
+            if not wcfg.env(k): problems.append(f'WHATSAPP_ENABLED=1 necesita {k} en el .env (ver docs/notas-de-version/v50.47.md).')
     return problems
 
 
@@ -12035,6 +13271,7 @@ def main():
     is_worker = email_worker_lock()
     if is_worker: threading.Thread(target=maintenance_loop, name='maintenance', daemon=True).start()
     if is_worker: threading.Thread(target=email_scheduler, name='email-sender', daemon=True).start()
+    if is_worker: threading.Thread(target=notice_loop, name='notices', daemon=True).start()
     s.serve_forever()
 
 

@@ -72,8 +72,8 @@ class OfflineCheckin(ServerTestCase):
         r = self.inst.post('/api/manifest/sync', {'changes': [{**base, 'seat': 2, 'field': 'status', 'base': 'no_show', 'value': '', 'force': True}]}).json
         self.assertEqual(r['applied'], 1)
         # Permissions and bad data
-        self.assertEqual(self.other.post('/api/manifest/sync', {'changes': [{**base, 'seat': 1, 'field': 'status', 'base': 'present', 'value': ''}]}).status, 403)
-        self.assertEqual(self.diver.post('/api/manifest/sync', {'changes': [{**base, 'seat': 1, 'field': 'status', 'base': 'present', 'value': ''}]}).status, 403)
+        self.assertEqual(self.other.post('/api/manifest/sync', {'changes': [{**base, 'seat': 1, 'field': 'status', 'base': 'present', 'value': ''}]}).status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
+        self.assertEqual(self.diver.post('/api/manifest/sync', {'changes': [{**base, 'seat': 1, 'field': 'status', 'base': 'present', 'value': ''}]}).status, 404)  # v50.47 (B.3)
         self.assertEqual(self.center.post('/api/manifest/sync', {'changes': [{**base, 'seat': 1, 'field': 'boat', 'value': 'x'}]}).status, 400)
         self.assertEqual(self.center.post('/api/manifest/sync', {'changes': [{**base, 'seat': 1, 'field': 'status', 'value': 'dormido'}]}).status, 400)
         self.assertEqual(self.center.post('/api/manifest/sync', {'changes': 'x'}).status, 400)

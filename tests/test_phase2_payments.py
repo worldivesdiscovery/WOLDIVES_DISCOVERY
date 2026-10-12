@@ -159,7 +159,8 @@ class Payments(ServerTestCase):
         bid, _ = self.paid_booking(diver=self.diver2, price=20, pax=1)
         for who in (self.other, self.diver2, self.admin, self.pro):
             r = who.post(f'/api/bookings/{bid}/refund', {'amount': 5})
-            self.assertEqual(r.status, 403, (who.user if hasattr(who, 'user') else 'admin', r))
+            # v50.47 (B.3): another provider gets 404 (the booking does not exist for it); other roles 403
+            self.assertEqual(r.status, 404 if who in (self.other, self.pro) else 403, (who.user if hasattr(who, 'user') else 'admin', r))
         self.assertEqual(self.bk(bid)['refunded_total'], 0)
 
     def test_diver_cancel_proposes_refund_by_policy(self):
@@ -338,6 +339,7 @@ class MigrationV5034(unittest.TestCase):
             sql = db.execute("SELECT sql FROM sqlite_master WHERE name='bookings'").fetchone()[0]
             # Simulate a v50.33 database: center_id NOT NULL again, one booking, migration not yet applied.
             db.execute('PRAGMA foreign_keys=OFF')
+            db.execute('PRAGMA legacy_alter_table=ON')   # like the 12-step rebuild: the triggers of other tables keep naming «bookings»
             db.execute("INSERT INTO users(id,fullname,email,username,password_hash,role,created_at) VALUES(9501,'U','u9501@x.org','u9501','!','recreational','x')")
             cid = db.execute('SELECT id FROM centers LIMIT 1').fetchone()[0]
             db.execute('ALTER TABLE bookings RENAME TO bookings_tmp')
