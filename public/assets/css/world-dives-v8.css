@@ -2837,3 +2837,19 @@ tr.is-warn td{background:#fffaf0}
   .mf-print th{background:#eee;font-size:9pt}.mf-print tr{break-inside:avoid}.mf-print .mf-tick{width:52px}
   @page{size:A4;margin:12mm}
 }
+
+/* v50.41 · Encargo 2, puntos 2, 3 y 4: cancelled departure, change of date, waiting list */
+.sc-reasons{border:0;padding:0;margin:0 0 12px;display:flex;gap:6px 18px;flex-wrap:wrap}.sc-reasons legend{font-weight:800;font-size:13.5px;margin-bottom:6px;padding:0}
+.sc-list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px;max-height:36vh;overflow:auto}
+.sc-list li{display:grid;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-size:14px}.sc-list li span{color:var(--muted)}.sc-list li small{font-size:12.5px}
+.sc-alts{display:grid;gap:8px;margin:8px 0 14px}
+.sc-alt{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:12px;cursor:pointer;background:#fff}
+.sc-alt:has(input:checked){border-color:var(--sea);box-shadow:0 0 0 1px var(--sea)}.sc-alt input{margin-top:3px}
+.sc-alt span{display:grid;gap:2px}.sc-alt small{color:var(--muted);font-size:12.5px}
+.sc-card{border-color:#e5b4ad}
+.bk-wl{display:grid;gap:8px;margin-top:12px}
+.bk-wl-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;font-size:14px}
+.mf-extra{margin-top:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface,#fff);padding:14px 16px}
+.mf-extra h2{font-size:17px;margin:0 0 8px}.mf-wl{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
+.mf-hist summary{cursor:pointer;font-weight:800}.mf-hist ul{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;font-size:13.5px}.mf-hist small{color:var(--muted);margin-right:6px}
+.btn.pl-cancel{color:#8d3024}

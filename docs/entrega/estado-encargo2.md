@@ -35,13 +35,28 @@ Requisito previo: Fase 1 (seguridad, v50.31) y Fase 1B (modos de reserva, v50.32
 | 5. Manifiesto marca quién ha firmado | Nuevo | Etiqueta «Firmado / Sin firmar» y aviso | ambos |
 | 5. Sin preguntas de salud | Pendiente de decisión | Preparado y desactivado (`WAIVER_HEALTH_QUESTIONS`) | `test_e2_p1_p5_manifest` |
 
-## Puntos 2, 3, 4 y 6
+## Puntos 2, 3 y 4 · Cancelar salida, cambio de fecha y lista de espera (v50.41)
+
+| Parte | Estado | Qué se hizo | Cómo se probó |
+|---|---|---|---|
+| 2. «Cancelar salida» con motivo | Nuevo | En el planning y en el manifiesto; propietario y recepción | `test_e2_p2_p3_p4`, `e2e_departures.py` |
+| 2. Lista de afectados y qué recibe cada uno antes de confirmar | Nuevo | Vista previa con importes y fechas alternativas | ambos |
+| 2. Correo con otra fecha o devolución íntegra | Nuevo | Enlace con clave de la reserva (sin iniciar sesión) y aviso en «Mi reserva» | ambos |
+| 2. Devolución automática si no elige (48 h configurable) | Nuevo | Trabajo periódico `run_slot_cancel_jobs` | `test_e2_p2_p3_p4` |
+| 2. Devoluciones y cola de correos existentes; historial de la salida | Completado | `refund_booking`, `notify_booking`; tabla `slot_events` | ambos |
+| 3. «Cambiar fecha» en «Mi reserva» dentro de plazo | Nuevo | 48 h por defecto, por servicio | ambos |
+| 3. Mismo servicio y plazas libres; mismo precio; diferencia indicada | Nuevo | Cobro o devolución de la diferencia: pendiente de decisión | `test_e2_p2_p3_p4` |
+| 3. Directo o con aprobación por servicio | Nuevo | Formulario del servicio; el centro acepta o rechaza en la reserva | ambos |
+| 3. Avisos y plazas movidas de forma atómica | Completado | `move_booking`, común con el cambio del centro (Fase 1B) | ambos |
+| 4. «Avisarme si queda plaza» | Nuevo | Página de reserva, con puesto y «Salir de la lista» | ambos |
+| 4. Primero con plazo de 2 h (nunca después del inicio), luego el siguiente | Nuevo | Plazas guardadas al avisado; enganche en `release_slot_spots` | `test_e2_p2_p3_p4` |
+| 4. Respeta el modo de reserva | Nuevo | «Bajo petición» conserva la plaza mientras responde el centro | `test_e2_p2_p3_p4` |
+| 4. El centro ve la lista y la desactiva por servicio | Nuevo | Manifiesto y formulario del servicio | ambos |
+
+## Punto 6
 
 | Punto | Estado | Versión |
 |---|---|---|
-| 2. Cancelar una salida por mal tiempo | Pendiente | v50.41 |
-| 3. Cambio de fecha por el cliente | Pendiente | v50.41 |
-| 4. Lista de espera | Pendiente | v50.41 |
 | 6. Check-in en el barco sin cobertura | Pendiente | v50.42 |
 
 ## Pendiente de decisión
@@ -50,3 +65,5 @@ Requisito previo: Fase 1 (seguridad, v50.31) y Fase 1B (modos de reserva, v50.32
 - Cambio de fecha con precio distinto: cobro o devolución de la diferencia (punto 3).
 - Cuestionario médico en el descargo: solo si el abogado lo aprueba (punto 5).
 - Texto base del descargo revisado por el abogado para ofrecer a los centros (opcional).
+- Opción por defecto del cambio de fecha en los servicios (hoy «con mi aprobación»).
+- Lista de espera cuando la primera persona no cabe (hoy se avisa a la siguiente que sí cabe).

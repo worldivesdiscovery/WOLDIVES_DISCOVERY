@@ -51,7 +51,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.40'
+APP_VERSION = '50.41'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -670,6 +670,19 @@ CREATE INDEX IF NOT EXISTS idx_manifest_entries_slot ON manifest_entries(slot_id
 CREATE INDEX IF NOT EXISTS idx_boats_owner ON boats(center_id, provider_user_id);
 CREATE INDEX IF NOT EXISTS idx_waiver_templates_owner ON waiver_templates(center_id, provider_user_id, version);
 CREATE INDEX IF NOT EXISTS idx_waiver_signatures_booking ON waiver_signatures(booking_id);
+CREATE TABLE IF NOT EXISTS slot_events (id INTEGER PRIMARY KEY AUTOINCREMENT, slot_id INTEGER NOT NULL REFERENCES service_slots(id) ON DELETE CASCADE, kind TEXT NOT NULL, details TEXT,
+  user_id INTEGER, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS slot_cancel_offers (id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE, slot_id INTEGER NOT NULL,
+  deadline TEXT NOT NULL, choice TEXT, new_slot_id INTEGER, refund_result TEXT, resolved_at TEXT, resolved_by INTEGER, created_at TEXT NOT NULL, UNIQUE(booking_id, slot_id));
+CREATE TABLE IF NOT EXISTS reschedule_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE, from_slot_id INTEGER, to_slot_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', price_diff REAL, note TEXT, created_at TEXT NOT NULL, decided_at TEXT, decided_by INTEGER);
+CREATE TABLE IF NOT EXISTS waitlist_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, slot_id INTEGER NOT NULL REFERENCES service_slots(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  participants INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'waiting', held INTEGER NOT NULL DEFAULT 0, notified_at TEXT, expires_at TEXT, booking_id INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_slot_events_slot ON slot_events(slot_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_slot_cancel_offers_open ON slot_cancel_offers(resolved_at, deadline);
+CREATE INDEX IF NOT EXISTS idx_reschedule_requests_booking ON reschedule_requests(booking_id, status);
+CREATE INDEX IF NOT EXISTS idx_waitlist_slot ON waitlist_entries(slot_id, status, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_waitlist_active ON waitlist_entries(slot_id, user_id) WHERE status IN ('waiting','notified');
 '''
 
 SCHEMA = '''
@@ -1350,6 +1363,8 @@ def bootstrap():
         db.commit()
         migrate_v50_40(db)
         db.commit()
+        migrate_v50_41(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1401,6 +1416,17 @@ def regenerate_point_texts(db, pid=None):
 def point_text(db, pid, lang):
     r = db.execute('SELECT description FROM dive_point_texts WHERE point_id=? AND lang=?', (pid, normalize_lang(lang))).fetchone()
     return r['description'] if r else None
+
+
+def migrate_v50_41(db):
+    """v50.41 (encargo 2, puntos 2, 3 y 4): cancelled departures, change of date by the diver and waiting list.
+    Tables in BASE_SCHEMA; here only new columns (with their defaults). Nothing is deleted."""
+    add_columns(db, 'service_slots', [('cancelled_at', 'TEXT'), ('cancel_reason', 'TEXT'), ('cancel_note', 'TEXT'), ('cancelled_by', 'INTEGER')])
+    add_columns(db, 'provider_services', [('reschedule_mode', "TEXT DEFAULT 'approval'"), ('reschedule_hours', 'INTEGER'), ('waitlist_enabled', 'INTEGER DEFAULT 1')])
+    add_columns(db, 'centers', [('slot_cancel_choice_hours', 'INTEGER')])
+    add_columns(db, 'users', [('slot_cancel_choice_hours', 'INTEGER')])
+    if migration_done(db, '50.41'): return
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.41', now(), 'Encargo 2: cancelar salidas, cambio de fecha por el cliente y lista de espera'))
 
 
 def migrate_v50_40(db):
@@ -2278,8 +2304,9 @@ def reserve_slot_spots(db, slot_id, qty):
     return db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status IN ('open','full') AND spots_available>=?",(qty,qty,now(),slot_id,qty)).rowcount==1
 
 
-def release_slot_spots(db, slot_id, qty):
+def release_slot_spots(db, slot_id, qty, notify=True):
     db.execute("UPDATE service_slots SET spots_available=MIN(spots_total,spots_available+?),status=CASE WHEN status='closed' THEN 'closed' ELSE 'open' END,updated_at=? WHERE id=?",(qty,now(),slot_id))
+    if notify: waitlist_offer(db, slot_id)   # encargo 2, punto 4: the freed spots go first to the waiting list
 
 
 def find_or_create_customer(db, fullname, email, phone, center_id=None):
@@ -3992,7 +4019,7 @@ def _planning_figures(db, svc_where, svc_args, bk_where, bk_args, start, end):
 def center_planning(db, user, month):
     svc_where,svc_args,bk_where,bk_args=planning_scope(user)
     first,last=_month_bounds(month); start,end=first.isoformat(),last.isoformat()
-    rows=db.execute(f'''SELECT ss.id,ss.service_id,ss.slot_date,ss.slot_time,ss.spots_total,ss.spots_available,ss.status,
+    rows=db.execute(f'''SELECT ss.id,ss.service_id,ss.slot_date,ss.slot_time,ss.spots_total,ss.spots_available,ss.status,ss.cancelled_at,ss.cancel_reason,
                                s.title AS service_title,s.color AS service_color,s.service_type,s.price AS service_price,s.currency,s.duration_minutes
                           FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
                          WHERE {svc_where} AND ss.slot_date BETWEEN ? AND ? AND ss.status IN ('open','full','closed')
@@ -4727,6 +4754,41 @@ EMAIL_TEMPLATES = {
    ('h', 'Verificación no completada'),
    ('p', 'Hola {first_name}, no hemos podido verificar que gestionas {center} con la información disponible. Tu cuenta sigue activa como buceador. Si crees que es un error, responde a este correo o escríbenos desde Contacto con un email del dominio del centro, su teléfono público o un documento que lo acredite, y lo revisaremos de nuevo.'),
    ('button', ('Contacto', 'contact_url'))]},
+
+ # ---- encargo 2 (v50.41): cancelled departures, change of date, waiting list
+ 'slot_cancelled': {'to': 'diver', 'subject': 'Salida cancelada: {service} · {date_short}', 'pre': 'Elige otra fecha o la devolución.', 'blocks': [
+   ('h', 'Hemos tenido que cancelar tu salida'),
+   ('p', 'Hola {first_name}, {center} ha cancelado la salida de {service} del {date} a las {time}. Motivo: {cancel_reason}.'),
+   ('p', '{choice_text}'), ('note', '{deadline_text}'),
+   ('button', ('Elegir ahora', 'choice_url'))]},
+ 'center_slot_choice': {'to': 'center', 'subject': 'Salida cancelada: respuesta de {diver_name}', 'pre': '{choice_text}', 'blocks': [
+   ('h', 'Respuesta a la salida cancelada'), ('p', '{diver_name} ({participants}): {choice_text}'), ('details', None),
+   ('button', ('Abrir el planning', 'panel_planning_url'))]},
+ 'booking_date_changed': {'to': 'diver', 'subject': 'Nueva fecha de tu reserva: {service} · {date_short}', 'pre': 'Ahora: {date} a las {time}.', 'blocks': [
+   ('h', 'Tu reserva tiene nueva fecha'),
+   ('p', 'Hola {first_name}, tu reserva de {service} con {center} pasa al {date} a las {time}. Antes: {old_when}.'), ('details', None),
+   ('button', ('Ver mi reserva', 'booking_url'))]},
+ 'center_booking_date_changed': {'to': 'center', 'subject': 'Cambio de fecha: {diver_name} · {date_short}', 'pre': 'Antes: {old_when}.', 'blocks': [
+   ('h', 'Una reserva ha cambiado de fecha'),
+   ('p', '{diver_name} ({participants}) pasa su reserva de {service} del {old_when} al {date} a las {time}. Las plazas ya se han movido en tu planning.'),
+   ('button', ('Abrir el planning', 'panel_planning_url'))]},
+ 'center_reschedule_request': {'to': 'center', 'subject': 'Solicitud de cambio de fecha: {diver_name}', 'pre': 'Pide pasar al {new_when}.', 'blocks': [
+   ('h', 'Solicitud de cambio de fecha'),
+   ('p', '{diver_name} ({participants}) pide pasar su reserva de {service} del {date} a las {time} al {new_when}.'), ('note', '{price_note}'),
+   ('button', ('Revisar la solicitud', 'booking_panel_url'))]},
+ 'reschedule_approved': {'to': 'diver', 'subject': 'Cambio de fecha aceptado: {service}', 'pre': 'Ahora: {date} a las {time}.', 'blocks': [
+   ('h', 'Cambio de fecha aceptado'),
+   ('p', 'Hola {first_name}, {center} ha aceptado el cambio. Tu reserva de {service} pasa al {date} a las {time}.'), ('details', None),
+   ('button', ('Ver mi reserva', 'booking_url'))]},
+ 'reschedule_rejected': {'to': 'diver', 'subject': 'Cambio de fecha no aceptado: {service}', 'pre': 'Tu reserva sigue el {date}.', 'blocks': [
+   ('h', 'Cambio de fecha no aceptado'),
+   ('p', 'Hola {first_name}, {center} no ha podido aceptar el cambio al {new_when}. Tu reserva sigue el {date} a las {time}.'), ('note', '{decision_note}'),
+   ('button', ('Ver mi reserva', 'booking_url'))]},
+ 'waitlist_spot': {'to': 'diver', 'subject': 'Ha quedado una plaza: {service} · {when}', 'pre': 'Te la guardamos hasta el {deadline}.', 'blocks': [
+   ('h', 'Ha quedado una plaza para ti'),
+   ('p', 'Hola {first_name}, se ha liberado sitio en la salida de {service} del {when}. Te guardamos {participants} plaza(s) hasta el {deadline}.'),
+   ('p', 'Si no reservas antes, pasarán a la siguiente persona de la lista de espera.'),
+   ('button', ('Reservar ahora', 'book_url'))]},
  # ---- administrators
  'admin_new_pro': {'to': 'admin', 'subject': 'Nueva cuenta profesional pendiente: {center}', 'pre': 'Revisa la verificación.', 'blocks': [
    ('h', 'Nueva cuenta profesional'), ('p', '{pro_name} ({pro_email}) ha creado una cuenta de {pro_type}: {center}.'),
@@ -4835,7 +4897,7 @@ EMAIL_TEMPLATE_LABELS = {
  'info_request_copy': 'Copia de la solicitud de información', 'insurance_expiring': 'Centro: seguro a punto de caducar', 'insurance_expired': 'Centro: seguro caducado',
  'monthly_stats': 'Centro: estadísticas del mes', 'team_invite': 'Invitación al equipo de un centro', 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
- 'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'center_rejected': 'Profesional: verificación no completada', 'admin_new_pro': 'Admin: nueva cuenta profesional',
+ 'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'slot_cancelled': 'Salida cancelada por el centro (buceador)', 'center_slot_choice': 'Centro: respuesta a una salida cancelada', 'booking_date_changed': 'Nueva fecha de la reserva (buceador)', 'center_booking_date_changed': 'Centro: el cliente ha cambiado la fecha', 'center_reschedule_request': 'Centro: solicitud de cambio de fecha', 'reschedule_approved': 'Cambio de fecha aceptado', 'reschedule_rejected': 'Cambio de fecha no aceptado', 'waitlist_spot': 'Lista de espera: ha quedado una plaza', 'center_rejected': 'Profesional: verificación no completada', 'admin_new_pro': 'Admin: nueva cuenta profesional',
  'totp_enabled': 'Verificación en dos pasos activada', 'reminder_48h': 'Recordatorio 48 h antes', 'booking_changed': 'Cambio de fecha u hora', 'document_expiring': 'Documento a punto de caducar',
  'document_expired': 'Documento caducado', 'legal_update': 'Cambio en un documento legal', 'plan_renewal': 'Centro: renovación de la cuota',
  'marketing': 'Comunicación comercial (con consentimiento)', 'refund_issued': 'Devolución hecha (buceador)', 'center_refund_reminder': 'Centro: devolución pendiente', 'center_dispute': 'Centro: disputa abierta',
@@ -5086,7 +5148,7 @@ def notify_booking(db, bid, event, extra=None):
         def to_center(tpl, more=None):
             for email, name, lang in provider_recipients(db, b['center_id'], b['provider_user_id']):
                 c = booking_mail_ctx(db, bid, lang) or dict(ctx); c.update(extra); c.update(more or {})
-                for k in ('action_title', 'action_short', 'action_button', 'center_refund_note', 'expired_text'):
+                for k in ('action_title', 'action_short', 'action_button', 'center_refund_note', 'expired_text', 'choice_text', 'price_note'):
                     if c.get(k): c[k] = mail_t(lang, c[k], **{kk: vv for kk, vv in c.items() if isinstance(vv, (str, int, float))})
                 queue_email(db, tpl, email, name, c, lang, rel)
         if event == 'created':
@@ -5138,6 +5200,23 @@ def notify_booking(db, bid, event, extra=None):
         elif event == 'refund_issued':
             amount_text = mail_money(extra.get('amount'), ctx['currency'], lang_d)
             to_diver('refund_issued', {'refund_amount': amount_text, 'refund_reason_text': mail_t(lang_d, 'Nota del centro: {note}', note=extra['note']) if extra.get('note') else ''})
+        elif event == 'slot_cancelled':
+            base = public_site_url(); paid = float(extra.get('paid_net') or 0)
+            reason = mail_t(lang_d, SLOT_CANCEL_REASONS.get(extra.get('reason_key'), 'Otro motivo')) + (f": {extra['note']}" if extra.get('note') else '')
+            dl = mail_datetime(extra.get('deadline_iso'), lang_d)
+            to_diver('slot_cancelled', {'cancel_reason': reason, 'choice_url': f"{base}/#/salida-cancelada?b={bid}&t={booking_token(db, bid)}",
+                     'choice_text': mail_t(lang_d, 'Puedes pasar a otra fecha del mismo servicio o pedir la devolución íntegra de {amount}.', amount=mail_money(paid, ctx['currency'], lang_d)) if paid > 0 else mail_t(lang_d, 'Puedes pasar a otra fecha del mismo servicio o anular la reserva sin ningún coste.'),
+                     'deadline_text': mail_t(lang_d, 'Si no eliges antes del {deadline}, te devolveremos el importe automáticamente.', deadline=dl) if paid > 0 else mail_t(lang_d, 'Si no eliges antes del {deadline}, la reserva se anulará sin coste.', deadline=dl)})
+        elif event == 'date_changed':
+            to_diver('booking_date_changed')
+            to_center('center_booking_date_changed')
+        elif event == 'slot_choice_center':
+            to_center('center_slot_choice', {'choice_text': {'refund': 'Ha elegido la devolución íntegra. La reserva queda cancelada.', 'auto': 'No ha elegido a tiempo: la reserva se ha cancelado con devolución automática.'}.get(extra.get('choice_key'), '')})
+        elif event == 'reschedule_requested':
+            to_center('center_reschedule_request', {'booking_panel_url': f"{public_site_url()}/#/reserva?id={bid}"})
+        elif event == 'reschedule_decided':
+            to_diver('reschedule_approved' if extra.get('approved') else 'reschedule_rejected',
+                     {'decision_note': mail_t(lang_d, 'Nota del centro: {note}', note=extra['note']) if extra.get('note') else ''})
         elif event == 'refund_reminder':
             to_center('center_refund_reminder')
         elif event == 'dispute':
@@ -5324,9 +5403,9 @@ def run_email_jobs(db, at=None):
     in2 = (today + _timedelta(days=2)).isoformat()
     if at.hour >= 9:
         # Reminders 48 h and 24 h before (Fase 4). Bookings made after the 48 h mark only get the 24 h one.
-        for r in db.execute("SELECT id FROM bookings WHERE status='confirmed' AND booking_date=? AND reminder48_sent_at IS NULL AND created_at<?", (in2, (at - _timedelta(hours=12)).isoformat(timespec='seconds'))).fetchall():
+        for r in db.execute(f"SELECT id FROM bookings WHERE status='confirmed' AND booking_date=? AND reminder48_sent_at IS NULL AND created_at<? AND {OPEN_OFFER_SQL}", (in2, (at - _timedelta(hours=12)).isoformat(timespec='seconds'))).fetchall():
             if db.execute('UPDATE bookings SET reminder48_sent_at=? WHERE id=? AND reminder48_sent_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'reminder_48h')
-        for r in db.execute("SELECT id FROM bookings WHERE status='confirmed' AND booking_date=? AND reminder_sent_at IS NULL", (tomorrow,)).fetchall():
+        for r in db.execute(f"SELECT id FROM bookings WHERE status='confirmed' AND booking_date=? AND reminder_sent_at IS NULL AND {OPEN_OFFER_SQL}", (tomorrow,)).fetchall():
             if db.execute('UPDATE bookings SET reminder_sent_at=? WHERE id=? AND reminder_sent_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'reminder')
         queue_document_alerts(db, today)
     for r in db.execute("SELECT id FROM bookings WHERE status IN ('confirmed','completed') AND booking_date BETWEEN ? AND ? AND review_asked_at IS NULL",
@@ -6067,9 +6146,9 @@ def run_booking_deadlines(db):
     now_l = local_iso(local_now())
     for b in db.execute("SELECT * FROM bookings WHERE status='payment_in_progress' AND hold_expires_at IS NOT NULL AND hold_expires_at<? LIMIT 500", (now_l,)).fetchall():
         expire_booking(db, b, 'hold_expired'); db.commit()
-    for b in db.execute("SELECT * FROM bookings WHERE status IN ('requested','pending') AND response_deadline IS NOT NULL AND response_deadline<? LIMIT 500", (now_l,)).fetchall():
+    for b in db.execute(f"SELECT * FROM bookings WHERE status IN ('requested','pending') AND response_deadline IS NOT NULL AND response_deadline<? AND "+OPEN_OFFER_SQL+" LIMIT 500", (now_l,)).fetchall():
         expire_booking(db, b, 'no_response'); db.commit()
-    for b in db.execute("SELECT * FROM bookings WHERE status='accepted_pending_payment' AND payment_deadline IS NOT NULL AND payment_deadline<? LIMIT 500", (now_l,)).fetchall():
+    for b in db.execute(f"SELECT * FROM bookings WHERE status='accepted_pending_payment' AND payment_deadline IS NOT NULL AND payment_deadline<? AND {OPEN_OFFER_SQL} LIMIT 500", (now_l,)).fetchall():
         expire_booking(db, b, 'not_paid'); db.commit()
 
 
@@ -6768,7 +6847,12 @@ def manifest_data(db, user, slot_id):
             'points': [dict(p) for p in db.execute('SELECT p.id,p.name FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id=? ORDER BY p.name', (slot_id,)).fetchall()],
             'settings': settings, 'boats': boats, 'guides': guides, 'groups': groups, 'divers': divers, 'warnings': warn,
             'waiver': {'id': waiver['id'], 'version': waiver['version'], 'title': waiver['title']} if waiver else None,
-            'can_edit': bool(can_edit), 'level_labels': wmf.LEVEL_LABELS}
+            'can_edit': bool(can_edit), 'level_labels': wmf.LEVEL_LABELS,
+            'cancelled': {'at': slot['cancelled_at'], 'reason': slot['cancel_reason'], 'note': slot['cancel_note']} if slot['cancelled_at'] else None,
+            'waitlist': [dict(r) for r in db.execute('''SELECT w.id,w.participants,w.status,w.created_at,w.expires_at,u.fullname FROM waitlist_entries w JOIN users u ON u.id=w.user_id
+                                                        WHERE w.slot_id=? AND w.status IN ('waiting','notified') ORDER BY w.created_at,w.id''', (slot_id,)).fetchall()],
+            'waitlist_enabled': (db.execute('SELECT waitlist_enabled FROM provider_services WHERE id=?', (slot['service_id'],)).fetchone()['waitlist_enabled'] != 0),
+            'events': [{**dict(e), 'details': json.loads(e['details'] or '{}')} for e in db.execute('SELECT e.kind,e.details,e.created_at,u.fullname AS who FROM slot_events e LEFT JOIN users u ON u.id=e.user_id WHERE e.slot_id=? ORDER BY e.id DESC LIMIT 100', (slot_id,)).fetchall()]}
 
 
 def manifest_require_edit(db, user, slot_id):
@@ -6866,6 +6950,243 @@ def waiver_pdf(db, sig_id, lang='es'):
         d.text(366, yy, lab.upper(), 7, muted); d.text(366, yy - 13, d.fit(str(val), 9, 190), 9, ink)
     d.text(46, 60, T('Documento generado por WORLDIVES DISCOVERY con el texto exacto que se firmó (versión y fecha).'), 7, muted)
     return d.pdf()
+
+
+# ------------------------------------------------------------------ v50.41 · Encargo 2, puntos 2, 3 y 4
+# 2. A centre cancels a departure (weather, sea…): every diver chooses another date of the same service or the full
+#    refund; without an answer before the deadline (48 h by default) the refund is automatic.
+# 3. The diver changes the date himself, within the service's deadline, directly or with the centre's approval.
+# 4. Waiting list on full departures: when a spot frees up, the first person who fits gets it kept for 2 h (never
+#    after the start); without a booking it goes to the next one.
+SLOT_CANCEL_REASONS = {'weather': 'Mal tiempo', 'sea': 'Estado del mar', 'other': 'Otro motivo'}
+SLOT_CHOICE_HOURS_DEFAULT = 48
+RESCHEDULE_HOURS_DEFAULT = 48
+RESCHEDULE_MODES = ('none', 'direct', 'approval')
+WAITLIST_HOLD_HOURS = 2
+OPEN_OFFER_SQL = 'id NOT IN (SELECT booking_id FROM slot_cancel_offers WHERE resolved_at IS NULL)'
+
+
+def slot_event(db, slot_id, kind, user_id=None, **details):
+    db.execute('INSERT INTO slot_events(slot_id,kind,details,user_id,created_at) VALUES(?,?,?,?,?)', (slot_id, kind, json.dumps(details, ensure_ascii=False), user_id, now()))
+
+
+def slot_start(slot):
+    return wbk.activity_start(slot['slot_date'], slot['slot_time'])
+
+
+def move_booking(db, b, slot):
+    """Moves a booking to another departure: the new spots are taken before the old ones are released (atomic in the
+    same transaction). Returns the old date and time."""
+    pax = max(1, int(b['participants'] or 1))
+    if b['slot_reserved']:
+        if not reserve_slot_spots(db, slot['id'], pax): raise ValueError('No quedan plazas suficientes en esa salida.')
+    db.execute('UPDATE bookings SET slot_id=?,booking_date=?,booking_time=?,reminder_sent_at=NULL,reminder48_sent_at=NULL,updated_at=? WHERE id=?',
+               (slot['id'], slot['slot_date'], slot['slot_time'], now(), b['id']))
+    db.execute('DELETE FROM manifest_entries WHERE booking_id=?', (b['id'],))
+    if b['slot_reserved'] and b['slot_id']: release_slot_spots(db, b['slot_id'], pax)
+    if b['slot_id']: slot_event(db, b['slot_id'], 'booking_moved_out', None, booking_id=b['id'], to_slot=slot['id'])
+    slot_event(db, slot['id'], 'booking_moved_in', None, booking_id=b['id'], from_slot=b['slot_id'])
+    return b['booking_date'], b['booking_time']
+
+
+def when_text(date, time_, lang):
+    return mail_date(date, lang) + (f' · {time_}' if time_ else '')
+
+
+def target_slots(db, b, exclude=None):
+    """Departures of the same service with enough free spots for the booking, not started."""
+    pax = max(1, int(b['participants'] or 1)); out = []
+    for s in db.execute("SELECT * FROM service_slots WHERE service_id=? AND status IN ('open','full') AND id<>? AND slot_date>=? ORDER BY slot_date,slot_time LIMIT 200",
+                        (b['service_id'], exclude or b['slot_id'] or 0, local_now().date().isoformat())).fetchall():
+        st = slot_start(s)
+        if st and st <= local_now(): continue
+        if int(s['spots_available'] or 0) < pax: continue
+        out.append(s)
+    return out
+
+
+def provider_cancel_booking(db, b, reason, actor=None, source='slot_cancel'):
+    """The provider cancels a booking: spots released, pending payments cancelled and everything paid refunded."""
+    release_booking_spots(db, b)
+    db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='center',reject_reason=?,updated_at=? WHERE id=?", (now(), reason, now(), b['id']))
+    for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (b['id'],)).fetchall():
+        expire_checkout(o); db.execute("UPDATE payment_orders SET status='cancelled',updated_at=? WHERE id=?", (now(), o['id']))
+    paid_, refunded_, _o = booking_paid_online(db, b['id']); net_ = round(paid_ - refunded_, 2)
+    outcome = refund_booking(db, b['id'], net_, 'requested_by_customer', actor, reason, source) if net_ > 0 else 'none_paid'
+    if outcome == 'refunded': notify_booking(db, b['id'], 'refund_issued', {'amount': net_, 'note': reason})
+    notify_booking(db, b['id'], 'cancelled_center', {'refund': outcome, 'reason': reason})
+    return outcome, net_
+
+
+def service_choice_hours(db, slot):
+    r = db.execute('SELECT s.center_id,s.provider_user_id FROM provider_services s WHERE s.id=?', (slot['service_id'],)).fetchone()
+    row = db.execute('SELECT slot_cancel_choice_hours AS h FROM centers WHERE id=?', (r['center_id'],)).fetchone() if r and r['center_id'] else \
+        db.execute('SELECT slot_cancel_choice_hours AS h FROM users WHERE id=?', (r['provider_user_id'],)).fetchone() if r else None
+    return int(row['h']) if row and row['h'] else SLOT_CHOICE_HOURS_DEFAULT
+
+
+def slot_cancel_preview(db, slot):
+    out = []
+    for b in db.execute(f"""SELECT b.*, COALESCE(b.contact_name,u.fullname) AS diver_name FROM bookings b LEFT JOIN users u ON u.id=b.user_id
+                            WHERE b.slot_id=? AND b.status IN ('requested','accepted_pending_payment','confirmed','payment_in_progress') ORDER BY b.id""", (slot['id'],)).fetchall():
+        paid_, refunded_, _o = booking_paid_online(db, b['id']); net_ = round(paid_ - refunded_, 2)
+        out.append({'booking_id': b['id'], 'name': b['diver_name'] if b['status'] != 'payment_in_progress' else None, 'participants': int(b['participants'] or 1), 'status': b['status'],
+                    'paid': net_, 'currency': b['currency'] or 'EUR', 'alternatives': len(target_slots(db, b, slot['id'])) if b['status'] != 'payment_in_progress' else 0,
+                    'receives': 'released' if b['status'] == 'payment_in_progress' else ('refund' if net_ > 0 else 'no_charge')})
+    return out
+
+
+def cancel_slot(db, user, slot, reason, note, hours):
+    """Cancels a departure and gives every booking the choice (punto 2). Returns the list of affected bookings."""
+    affected = slot_cancel_preview(db, slot)
+    db.execute("UPDATE service_slots SET status='closed',cancelled_at=?,cancel_reason=?,cancel_note=?,cancelled_by=?,updated_at=? WHERE id=?",
+               (now(), reason, note, user['id'], now(), slot['id']))
+    deadline = local_iso(local_now() + _timedelta(hours=hours))
+    for a in affected:
+        b = booking_row(db, a['booking_id'])
+        if b['status'] == 'payment_in_progress':
+            if expire_booking(db, b, 'slot_cancelled', notify=False) != 'paid': continue
+            b = booking_row(db, a['booking_id'])
+        db.execute('INSERT OR IGNORE INTO slot_cancel_offers(booking_id,slot_id,deadline,created_at) VALUES(?,?,?,?)', (b['id'], slot['id'], deadline, now()))
+        notify_booking(db, b['id'], 'slot_cancelled', {'reason_key': reason, 'note': note, 'deadline_iso': deadline, 'paid_net': a['paid']})
+    for w in db.execute("SELECT * FROM waitlist_entries WHERE slot_id=? AND status IN ('waiting','notified')", (slot['id'],)).fetchall():
+        db.execute("UPDATE waitlist_entries SET status='cancelled',held=0,updated_at=? WHERE id=?", (now(), w['id']))
+    slot_event(db, slot['id'], 'cancelled', user['id'], reason=reason, note=note, affected=len(affected), choice_hours=hours)
+    audit(db, user['id'], 'service_slot_cancelled', 'service_slot', slot['id'], {'reason': reason, 'affected': len(affected)})
+    return affected
+
+
+def slot_offer_for(db, bid):
+    return db.execute('''SELECT o.*, ss.slot_date, ss.slot_time, ss.cancel_reason, ss.cancel_note FROM slot_cancel_offers o JOIN service_slots ss ON ss.id=o.slot_id
+                         WHERE o.booking_id=? ORDER BY o.id DESC LIMIT 1''', (bid,)).fetchone()
+
+
+def resolve_slot_offer(db, b, offer, choice, actor=None, new_slot=None):
+    """choice: 'reschedule' (with new_slot), 'refund' or 'auto' (deadline passed)."""
+    if offer['resolved_at']: raise ValueError('Ya habías elegido una opción para esta reserva.')
+    if choice == 'reschedule':
+        if not new_slot or new_slot['service_id'] != b['service_id'] or new_slot['id'] == offer['slot_id']: raise ValueError('Elige otra salida del mismo servicio.')
+        old_date, old_time = move_booking(db, b, new_slot)
+        db.execute("UPDATE slot_cancel_offers SET choice='reschedule',new_slot_id=?,resolved_at=?,resolved_by=? WHERE id=?", (new_slot['id'], now(), actor, offer['id']))
+        lang = user_lang(db, b['user_id'])
+        notify_booking(db, b['id'], 'date_changed', {'old_when': when_text(old_date, old_time, lang), 'by': 'slot_cancel'})
+        slot_event(db, offer['slot_id'], 'choice_reschedule', actor, booking_id=b['id'], to_slot=new_slot['id'])
+        return 'rescheduled'
+    outcome, amount = provider_cancel_booking(db, b, mail_t('es', 'Salida cancelada por el centro'), actor)
+    db.execute("UPDATE slot_cancel_offers SET choice=?,refund_result=?,resolved_at=?,resolved_by=? WHERE id=?", ('refund' if choice == 'refund' else 'auto_refund', outcome, now(), actor, offer['id']))
+    notify_booking(db, b['id'], 'slot_choice_center', {'choice_key': 'refund' if choice == 'refund' else 'auto'})
+    slot_event(db, offer['slot_id'], 'choice_refund' if choice == 'refund' else 'auto_refund', actor, booking_id=b['id'], refund=outcome, amount=amount)
+    return outcome
+
+
+def run_slot_cancel_jobs(db):
+    """Every minute: offers of cancelled departures whose deadline has passed get the full refund automatically."""
+    now_l = local_iso(local_now())
+    for o in db.execute('SELECT * FROM slot_cancel_offers WHERE resolved_at IS NULL AND deadline<? LIMIT 200', (now_l,)).fetchall():
+        b = booking_row(db, o['booking_id'])
+        if not b or b['status'] not in ('requested', 'accepted_pending_payment', 'confirmed'):
+            db.execute("UPDATE slot_cancel_offers SET choice='closed',resolved_at=? WHERE id=?", (now(), o['id'])); db.commit(); continue
+        try: resolve_slot_offer(db, b, o, 'auto'); db.commit()
+        except Exception as exc:
+            db.rollback(); audit(db, None, 'slot_cancel_auto_failed', 'booking', o['booking_id'], {'error': str(exc)[:200]}); db.commit()
+    # Point 3: change requests whose original departure has started are closed.
+    for r in db.execute("SELECT r.*, b.booking_date, b.booking_time FROM reschedule_requests r JOIN bookings b ON b.id=r.booking_id WHERE r.status='pending' LIMIT 200").fetchall():
+        st = wbk.activity_start(r['booking_date'], r['booking_time'])
+        if st and st <= local_now():
+            db.execute("UPDATE reschedule_requests SET status='expired',decided_at=? WHERE id=?", (now(), r['id'])); db.commit()
+    run_waitlist_jobs(db)
+
+
+# ---- 3. Change of date by the diver
+def reschedule_policy(db, b):
+    s = db.execute('SELECT reschedule_mode, reschedule_hours FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    mode = (s['reschedule_mode'] if s and s['reschedule_mode'] in RESCHEDULE_MODES else 'approval') if s else 'none'
+    hours = int(s['reschedule_hours']) if s and s['reschedule_hours'] is not None else RESCHEDULE_HOURS_DEFAULT
+    return mode, hours
+
+
+def reschedule_options(db, b, user):
+    """What «Cambiar fecha» offers to the diver for a booking: whether it is allowed, until when, and the departures."""
+    mode, hours = reschedule_policy(db, b)
+    start = wbk.activity_start(b['booking_date'], b['booking_time'])
+    until = start - _timedelta(hours=hours) if start else None
+    pending = db.execute("SELECT r.*, ss.slot_date, ss.slot_time FROM reschedule_requests r JOIN service_slots ss ON ss.id=r.to_slot_id WHERE r.booking_id=? AND r.status='pending'", (b['id'],)).fetchone()
+    why = None
+    if mode == 'none': why = 'Este centro no permite cambiar la fecha desde la web. Escríbele si lo necesitas.'
+    elif b['status'] not in ('requested', 'accepted_pending_payment', 'confirmed') or not b['slot_id']: why = 'Esta reserva ya no se puede cambiar de fecha.'
+    elif db.execute(f"SELECT 1 FROM slot_cancel_offers WHERE booking_id=? AND resolved_at IS NULL", (b['id'],)).fetchone(): why = 'El centro ha cancelado esta salida: elige la nueva fecha desde el aviso de cancelación.'
+    elif until and local_now() > until: why = 'El plazo para cambiar la fecha ha terminado.'
+    opts = []
+    if not why:
+        pax = max(1, int(b['participants'] or 1)); old_total = float(b['price'] or 0)
+        for s in target_slots(db, b):
+            unit = effective_service_tariff(db, b['service_id'], s['slot_date'])[0]
+            base_old = effective_service_tariff(db, b['service_id'], b['booking_date'])[0]
+            diff = round((float(unit or 0) - float(base_old or 0)) * pax, 2)
+            opts.append({'slot_id': s['id'], 'slot_date': s['slot_date'], 'slot_time': s['slot_time'], 'spots_available': s['spots_available'], 'price_diff': diff})
+    return {'allowed': not why, 'reason': why, 'mode': mode, 'hours': hours, 'until': local_iso(until) if until else None, 'options': opts, 'currency': b['currency'] or 'EUR',
+            'pending': {'id': pending['id'], 'slot_date': pending['slot_date'], 'slot_time': pending['slot_time'], 'price_diff': pending['price_diff']} if pending else None}
+
+
+# ---- 4. Waiting list
+def waitlist_offer(db, slot_id):
+    """Spots were freed: keep them for the first people of the list who fit (2 h, never after the start)."""
+    s = db.execute('''SELECT ss.*, ps.waitlist_enabled, ps.title AS service_title, ps.center_id, ps.provider_user_id FROM service_slots ss JOIN provider_services ps ON ps.id=ss.service_id
+                      WHERE ss.id=?''', (slot_id,)).fetchone()
+    if not s or s['status'] not in ('open', 'full') or s['cancelled_at'] or not (s['waitlist_enabled'] if s['waitlist_enabled'] is not None else 1): return
+    start = slot_start(s)
+    if not start or start <= local_now(): return
+    for w in db.execute("SELECT * FROM waitlist_entries WHERE slot_id=? AND status='waiting' ORDER BY created_at, id", (slot_id,)).fetchall():
+        free = db.execute('SELECT spots_available FROM service_slots WHERE id=?', (slot_id,)).fetchone()['spots_available']
+        if free <= 0: break
+        if w['participants'] > free: continue
+        if not reserve_slot_spots(db, slot_id, w['participants']): continue
+        until = min(local_now() + _timedelta(hours=WAITLIST_HOLD_HOURS), start)
+        db.execute("UPDATE waitlist_entries SET status='notified',held=?,notified_at=?,expires_at=?,updated_at=? WHERE id=?", (w['participants'], now(), local_iso(until), now(), w['id']))
+        u = db.execute('SELECT id,fullname,email FROM users WHERE id=?', (w['user_id'],)).fetchone()
+        if u and mail_deliverable(u['email']):
+            lang = user_lang(db, u['id']); base = public_site_url()
+            who = s['center_id'] and db.execute('SELECT name FROM centers WHERE id=?', (s['center_id'],)).fetchone()
+            ctx = {'first_name': (u['fullname'] or '').split(' ')[0], 'service': s['service_title'], 'center': (who['name'] if who else '') or '',
+                   'when': when_text(s['slot_date'], s['slot_time'], lang), 'deadline': mail_datetime(local_iso(until), lang), 'participants': w['participants'],
+                   'book_url': f"{base}/#/reservar?{'center=' + str(s['center_id']) if s['center_id'] else 'provider=' + str(s['provider_user_id'])}&service={s['service_id']}&slot={slot_id}"}
+            queue_email(db, 'waitlist_spot', u['email'], u['fullname'], ctx, lang, ('service_slot', slot_id))
+        slot_event(db, slot_id, 'waitlist_notified', None, entry=w['id'], participants=w['participants'], until=local_iso(until))
+
+
+def waitlist_hold_for(db, slot_id, user_id):
+    w = db.execute("SELECT * FROM waitlist_entries WHERE slot_id=? AND user_id=? AND status='notified' AND held>0", (slot_id, user_id)).fetchone()
+    if w and w['expires_at'] and w['expires_at'] < local_iso(local_now()): return None
+    return w
+
+
+def run_waitlist_jobs(db):
+    now_l = local_iso(local_now())
+    for w in db.execute("SELECT * FROM waitlist_entries WHERE status='notified' AND expires_at<? LIMIT 200", (now_l,)).fetchall():
+        db.execute("UPDATE waitlist_entries SET status='expired',held=0,updated_at=? WHERE id=?", (now(), w['id']))
+        slot_event(db, w['slot_id'], 'waitlist_expired', None, entry=w['id'])
+        if w['held']: release_slot_spots(db, w['slot_id'], w['held'])   # → next person of the list
+        db.commit()
+    for w in db.execute("SELECT w.id, ss.slot_date, ss.slot_time FROM waitlist_entries w JOIN service_slots ss ON ss.id=w.slot_id WHERE w.status='waiting' LIMIT 500").fetchall():
+        st = wbk.activity_start(w['slot_date'], w['slot_time'])
+        if st and st <= local_now(): db.execute("UPDATE waitlist_entries SET status='expired',updated_at=? WHERE id=?", (now(), w['id']))
+    db.commit()
+
+
+def waitlist_for_slots(db, user_id, slot_ids):
+    out = {}
+    if not user_id or not slot_ids: return out
+    for chunk in [slot_ids[i:i + 500] for i in range(0, len(slot_ids), 500)]:
+        for w in db.execute(f"SELECT * FROM waitlist_entries WHERE user_id=? AND status IN ('waiting','notified') AND slot_id IN ({','.join('?' * len(chunk))})", (user_id, *chunk)).fetchall():
+            pos = db.execute("SELECT COUNT(*) FROM waitlist_entries WHERE slot_id=? AND status='waiting' AND (created_at<? OR (created_at=? AND id<=?))", (w['slot_id'], w['created_at'], w['created_at'], w['id'])).fetchone()[0]
+            out[w['slot_id']] = {'status': w['status'], 'participants': w['participants'], 'held': w['held'] or 0, 'expires_at': w['expires_at'], 'position': pos if w['status'] == 'waiting' else None}
+    return out
+
+
+def booking_token(db, bid):
+    row = db.execute('SELECT public_token FROM bookings WHERE id=?', (bid,)).fetchone()
+    if row and row['public_token']: return row['public_token']
+    tok = wsec.random_token(); db.execute('UPDATE bookings SET public_token=? WHERE id=?', (tok, bid)); return tok
 
 
 from wod import ops as wops
@@ -7707,6 +8028,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     for chunk in [slot_ids[i:i+500] for i in range(0,len(slot_ids),500)]:
                         for pp in db.execute(f"SELECT sp.slot_id,p.id,p.name,p.country,p.region FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id IN ({','.join('?'*len(chunk))}) AND p.active=1 ORDER BY p.name",chunk).fetchall():
                             points_by_slot.setdefault(pp['slot_id'],[]).append({'id':pp['id'],'name':pp['name'],'country':pp['country'],'region':pp['region']})
+                    viewer_=current_user(self,db)
+                    wl_=waitlist_for_slots(db,viewer_['id'] if viewer_ else None,slot_ids)
                     ready_cache={}; payee_cache={}
                     for r in rows:
                         d=dict(r)
@@ -7720,7 +8043,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         d['provider_name']=(payee_cache[rk] or {}).get('name') or d.get('center_name') or d.get('provider_name')
                         if include_inactive: d['experience']=exp_by_service.get(r['id'])
                         d['slots']=slots_by_service.get(r['id'],[])
-                        for sd in d['slots']: sd['points']=points_by_slot.get(sd['id'],[])
+                        for sd in d['slots']:
+                            sd['points']=points_by_slot.get(sd['id'],[])
+                            if sd['id'] in wl_: sd['waitlist']=wl_[sd['id']]
                         result.append(d)
                     self.send_json({'items':result}); return
                 if path.startswith('/api/provider-services/'):
@@ -8017,6 +8342,31 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     d={k:b[k] for k in ('id','booking_date','booking_time','participants','status','payment_status','price','currency','center_name','center_city','point_name')}
                     d['customer']=short_name(b['fullname']); d['ref']=f"WOD-{b['id']:06d}"; d['status_label']=booking_status_label(b['status'])
                     self.send_json({'booking':d}); return
+                if re.fullmatch(r'/api/slot-cancel/\d+',path):
+                    bid=int(path.rsplit('/',1)[1]); b=booking_row(db,bid); viewer=current_user(self,db); tok=(query.get('t',[''])[0] or '')
+                    if not b or not ((viewer and viewer['id']==b['user_id']) or (tok and b['public_token'] and wsec.constant_time_equals(tok,b['public_token']))): raise PermissionError('Enlace no válido.')
+                    offer=slot_offer_for(db,bid)
+                    if not offer: raise ValueError('Esta reserva no tiene ninguna salida cancelada.')
+                    paid_,refunded_,_o=booking_paid_online(db,bid); net_=round(paid_-refunded_,2)
+                    svc=db.execute('SELECT title FROM provider_services WHERE id=?',(b['service_id'],)).fetchone()
+                    who=booking_payee(db,b)[1] or {}
+                    alts=[{'slot_id':x['id'],'slot_date':x['slot_date'],'slot_time':x['slot_time'],'spots_available':x['spots_available']} for x in target_slots(db,b,offer['slot_id'])] if not offer['resolved_at'] else []
+                    self.send_json({'booking':{'id':bid,'ref':f"WOD-{bid:06d}",'participants':b['participants'],'status':b['status'],'service':svc['title'] if svc else '','center':who.get('name') or '',
+                                               'booking_date':b['booking_date'],'booking_time':b['booking_time']},
+                                    'offer':{'slot_date':offer['slot_date'],'slot_time':offer['slot_time'],'reason':offer['cancel_reason'],'note':offer['cancel_note'],'deadline':offer['deadline'],
+                                             'choice':offer['choice'],'resolved_at':offer['resolved_at']},'paid':net_,'currency':b['currency'] or 'EUR','alternatives':alts}); return
+                if re.fullmatch(r'/api/bookings/\d+/reschedule-options',path):
+                    user=require_user(self,db); bid=int(path.split('/')[3]); b=booking_row(db,bid)
+                    if not b or b['user_id']!=user['id']: raise PermissionError('Reserva no encontrada.')
+                    self.send_json(reschedule_options(db,b,user)); return
+                if re.fullmatch(r'/api/bookings/\d+/change-date',path):
+                    # For the centre: the pending change request of a booking.
+                    user=require_user(self,db); bid=int(path.split('/')[3]); b=booking_row(db,bid)
+                    if not b: raise PermissionError('Reserva no encontrada.')
+                    require_booking_provider(user,b)
+                    r=db.execute("SELECT r.*, ss.slot_date, ss.slot_time, ss.spots_available FROM reschedule_requests r JOIN service_slots ss ON ss.id=r.to_slot_id WHERE r.booking_id=? AND r.status='pending' ORDER BY r.id DESC LIMIT 1",(bid,)).fetchone()
+                    o=slot_offer_for(db,bid)
+                    self.send_json({'request':dict(r) if r else None,'slot_offer':{k:o[k] for k in ('deadline','choice','resolved_at','cancel_reason')} if o else None}); return
                 if re.fullmatch(r'/api/manifest/\d+',path):
                     # Encargo 2, punto 1: the manifest of a departure (centre or professional that runs it; team members read it).
                     user=require_user(self,db); d=manifest_data(db,user,int(path.rsplit('/',1)[1])); db.commit(); self.send_json(d); return
@@ -8631,6 +8981,118 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     else:
                         db.execute('UPDATE users SET avatar_url=? WHERE id=?',(public_url,user['id']))
                     audit(db,user['id'],'provider_avatar_updated','center' if user['role']=='center' else 'user',user['center_id'] if user['role']=='center' else user['id']); db.commit(); self.send_json({'ok':True,'url':public_url}); return
+                if path=='/api/provider-services/slot-cancel':
+                    # Encargo 2, punto 2: cancel a departure (weather, sea…). With preview, only who is affected and what they get.
+                    user=require_user(self,db); data=json_body(self); slot_id=int(data.get('slot_id') or 0)
+                    slot=manifest_require_edit(db,user,slot_id)
+                    if slot['cancelled_at'] or slot['status'] not in ('open','full','closed'): raise ValueError('Esta salida ya está cancelada.')
+                    st=slot_start(slot)
+                    if st and st<=local_now(): raise ValueError('Esta salida ya ha empezado.')
+                    hours=int(data['choice_hours']) if data.get('choice_hours') not in (None,'') else service_choice_hours(db,slot)
+                    if not 1<=hours<=168: raise ValueError('El plazo para elegir debe estar entre 1 y 168 horas.')
+                    if data.get('preview'):
+                        self.send_json({'ok':True,'affected':slot_cancel_preview(db,slot),'choice_hours':hours,'reasons':SLOT_CANCEL_REASONS}); return
+                    reason=clean_text(data.get('reason'),20)
+                    if reason not in SLOT_CANCEL_REASONS: raise ValueError('Elige el motivo de la cancelación.')
+                    note=clean_text(data.get('note'),300) or ''
+                    if reason=='other' and len(note)<3: raise ValueError('Explica brevemente el motivo.')
+                    kind,oid=slot_owner(slot)
+                    db.execute('UPDATE centers SET slot_cancel_choice_hours=? WHERE id=?' if kind=='center' else 'UPDATE users SET slot_cancel_choice_hours=? WHERE id=?',(hours,oid))
+                    affected=cancel_slot(db,user,slot,reason,note,hours); db.commit()
+                    self.send_json({'ok':True,'affected':len(affected)}); return
+                if re.fullmatch(r'/api/slot-cancel/\d+',path):
+                    # The diver's choice after a cancelled departure: link with the booking's token, or signed in.
+                    data=json_body(self); bid=int(path.rsplit('/',1)[1]); b=booking_row(db,bid); viewer=current_user(self,db)
+                    tok=str(data.get('t') or '')
+                    if not b or not ((viewer and viewer['id']==b['user_id']) or (tok and b['public_token'] and wsec.constant_time_equals(tok,b['public_token']))): raise PermissionError('Enlace no válido.')
+                    offer=slot_offer_for(db,bid)
+                    if not offer: raise ValueError('Esta reserva no tiene ninguna salida cancelada.')
+                    if offer['resolved_at']: raise ValueError('Ya habías elegido una opción para esta reserva.')
+                    choice=data.get('choice')
+                    if choice=='reschedule':
+                        ns=db.execute("SELECT * FROM service_slots WHERE id=? AND status IN ('open','full')",(int(data.get('slot_id') or 0),)).fetchone()
+                        if not ns or ns['id'] not in {x['id'] for x in target_slots(db,b,offer['slot_id'])}: raise ValueError('Elige una salida con plazas libres.')
+                        result=resolve_slot_offer(db,b,offer,'reschedule',viewer['id'] if viewer else None,ns)
+                    elif choice=='refund': result=resolve_slot_offer(db,b,offer,'refund',viewer['id'] if viewer else None)
+                    else: raise ValueError('Elige una opción.')
+                    audit(db,viewer['id'] if viewer else None,'slot_cancel_choice','booking',bid,{'choice':choice,'result':result}); db.commit()
+                    self.send_json({'ok':True,'result':result}); return
+                if re.fullmatch(r'/api/bookings/\d+/change-date',path):
+                    # Encargo 2, punto 3: the diver changes the date (same service, free spots, within the deadline).
+                    user=require_user(self,db); bid=int(path.split('/')[3]); data=json_body(self); b=booking_row(db,bid)
+                    if not b or b['user_id']!=user['id']: raise PermissionError('Reserva no encontrada.')
+                    opts=reschedule_options(db,b,user)
+                    if not opts['allowed']: raise ValueError(opts['reason'])
+                    if opts['pending']: raise ValueError('Ya tienes una solicitud de cambio pendiente de respuesta del centro.')
+                    sid=int(data.get('slot_id') or 0); o=next((x for x in opts['options'] if x['slot_id']==sid),None)
+                    if not o: raise ValueError('Elige una salida con plazas libres.')
+                    ns=db.execute('SELECT * FROM service_slots WHERE id=?',(sid,)).fetchone(); lang=user_lang(db,b['user_id'])
+                    if opts['mode']=='direct':
+                        od,ot=move_booking(db,b,ns)
+                        notify_booking(db,bid,'date_changed',{'old_when':when_text(od,ot,lang)})
+                        audit(db,user['id'],'booking_date_changed_by_diver','booking',bid,{'to_slot':sid,'price_diff':o['price_diff']}); db.commit()
+                        self.send_json({'ok':True,'status':'changed','booking_date':ns['slot_date'],'booking_time':ns['slot_time']}); return
+                    rid=db.execute('INSERT INTO reschedule_requests(booking_id,from_slot_id,to_slot_id,status,price_diff,created_at) VALUES(?,?,?,?,?,?)',(bid,b['slot_id'],sid,'pending',o['price_diff'],now())).lastrowid
+                    clang=lang
+                    price_note=('El precio de la nueva fecha es distinto: diferencia de {diff} sobre el precio de la reserva. Acuerda con el cliente cómo se ajusta.' if o['price_diff'] else '')
+                    notify_booking(db,bid,'reschedule_requested',{'new_when':when_text(ns['slot_date'],ns['slot_time'],clang),'price_note':price_note,'diff':mail_money(o['price_diff'],b['currency'],clang)})
+                    slot_event(db,b['slot_id'],'reschedule_requested',user['id'],booking_id=bid,to_slot=sid)
+                    audit(db,user['id'],'booking_reschedule_requested','booking',bid,{'request':rid,'to_slot':sid}); db.commit()
+                    self.send_json({'ok':True,'status':'requested','request_id':rid}); return
+                if re.fullmatch(r'/api/bookings/\d+/change-date/decide',path):
+                    user=require_user(self,db); bid=int(path.split('/')[3]); data=json_body(self); b=booking_row(db,bid)
+                    if not b: raise PermissionError('Reserva no encontrada.')
+                    require_booking_provider(user,b)
+                    r=db.execute("SELECT * FROM reschedule_requests WHERE booking_id=? AND status='pending' ORDER BY id DESC LIMIT 1",(bid,)).fetchone()
+                    if not r: raise ValueError('No hay ninguna solicitud de cambio pendiente.')
+                    ns=db.execute('SELECT * FROM service_slots WHERE id=?',(r['to_slot_id'],)).fetchone(); lang=user_lang(db,b['user_id'])
+                    note=clean_text(data.get('note'),300) or ''
+                    if data.get('approve'):
+                        if b['status'] not in ('requested','accepted_pending_payment','confirmed'): raise ValueError('Esta reserva ya no se puede cambiar de fecha.')
+                        if not ns or ns['status'] not in ('open','full') or (slot_start(ns) and slot_start(ns)<=local_now()): raise ValueError('Esa salida ya no está disponible. Rechaza la solicitud.')
+                        od,ot=move_booking(db,b,ns)
+                        db.execute("UPDATE reschedule_requests SET status='approved',decided_at=?,decided_by=?,note=? WHERE id=?",(now(),user['id'],note,r['id']))
+                        notify_booking(db,bid,'reschedule_decided',{'approved':True,'note':note})
+                    else:
+                        db.execute("UPDATE reschedule_requests SET status='rejected',decided_at=?,decided_by=?,note=? WHERE id=?",(now(),user['id'],note,r['id']))
+                        notify_booking(db,bid,'reschedule_decided',{'approved':False,'note':note,'new_when':when_text(ns['slot_date'],ns['slot_time'],lang) if ns else ''})
+                    audit(db,user['id'],'booking_reschedule_decided','booking',bid,{'request':r['id'],'approved':bool(data.get('approve'))}); db.commit()
+                    self.send_json({'ok':True}); return
+                if path=='/api/provider-services/options':
+                    # Per service: change of date by the diver (none / direct / with approval, deadline) and waiting list.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
+                    row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise PermissionError('Este servicio no pertenece a tu cuenta.')
+                    mode=data.get('reschedule_mode') or 'approval'
+                    if mode not in RESCHEDULE_MODES: raise ValueError('Opción de cambio de fecha no válida.')
+                    hours=int(data.get('reschedule_hours') if data.get('reschedule_hours') not in (None,'') else RESCHEDULE_HOURS_DEFAULT)
+                    if not 0<=hours<=720: raise ValueError('El plazo para cambiar la fecha debe estar entre 0 y 720 horas.')
+                    db.execute('UPDATE provider_services SET reschedule_mode=?,reschedule_hours=?,waitlist_enabled=?,updated_at=? WHERE id=?',(mode,hours,0 if data.get('waitlist_enabled') is False else 1,now(),sid))
+                    audit(db,user['id'],'service_options','provider_service',sid,{'reschedule':mode,'hours':hours,'waitlist':data.get('waitlist_enabled') is not False}); db.commit()
+                    self.send_json({'ok':True}); return
+                if path in ('/api/waitlist/join','/api/waitlist/leave'):
+                    # Encargo 2, punto 4: «Avisarme si queda plaza».
+                    user=require_user(self,db); data=json_body(self); slot_id=int(data.get('slot_id') or 0)
+                    if path.endswith('/leave'):
+                        w=db.execute("SELECT * FROM waitlist_entries WHERE slot_id=? AND user_id=? AND status IN ('waiting','notified')",(slot_id,user['id'])).fetchone()
+                        if not w: raise ValueError('No estás en la lista de espera de esta salida.')
+                        db.execute("UPDATE waitlist_entries SET status='left',held=0,updated_at=? WHERE id=?",(now(),w['id']))
+                        slot_event(db,slot_id,'waitlist_left',user['id'],entry=w['id'])
+                        if w['held']: release_slot_spots(db,slot_id,w['held'])
+                        db.commit(); self.send_json({'ok':True}); return
+                    if user['role']!='recreational': raise PermissionError('La lista de espera es para buceadores.')
+                    s=db.execute('SELECT ss.*, ps.waitlist_enabled, ps.max_participants FROM service_slots ss JOIN provider_services ps ON ps.id=ss.service_id WHERE ss.id=? AND ps.active=1',(slot_id,)).fetchone()
+                    if not s or s['status'] not in ('open','full') or s['cancelled_at']: raise ValueError('Esta salida ya no está disponible.')
+                    if s['waitlist_enabled']==0: raise ValueError('Esta salida no tiene lista de espera.')
+                    st=slot_start(s)
+                    if not st or st<=local_now(): raise ValueError('Esta salida ya ha empezado.')
+                    pax=max(1,int(data.get('participants') or 1))
+                    if pax>int(s['spots_total'] or 1) or (s['max_participants'] and pax>int(s['max_participants'])): raise ValueError('Demasiadas personas para esta salida.')
+                    if int(s['spots_available'] or 0)>=pax: raise ValueError('Todavía quedan plazas: puedes reservar ya.')
+                    if db.execute("SELECT 1 FROM waitlist_entries WHERE slot_id=? AND user_id=? AND status IN ('waiting','notified')",(slot_id,user['id'])).fetchone(): raise ValueError('Ya estás en la lista de espera de esta salida.')
+                    db.execute("INSERT INTO waitlist_entries(slot_id,user_id,participants,status,created_at,updated_at) VALUES(?,?,?,'waiting',?,?)",(slot_id,user['id'],pax,now(),now()))
+                    slot_event(db,slot_id,'waitlist_joined',user['id'],participants=pax)
+                    db.commit(); self.send_json({'ok':True,**waitlist_for_slots(db,user['id'],[slot_id]).get(slot_id,{})}); return
                 if path.startswith('/api/manifest/'):
                     # Encargo 2, punto 1: boats, groups, guides and the split of the divers of a departure.
                     user=require_user(self,db); data=json_body(self); parts=path.strip('/').split('/')
@@ -9513,12 +9975,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if slot['id']==b['slot_id']: raise ValueError('La reserva ya está en esa salida.')
                     start=wbk.activity_start(slot['slot_date'],slot['slot_time'])
                     if start and start<=local_now(): raise ValueError('Esa salida ya ha empezado.')
-                    pax=max(1,int(b['participants'] or 1))
-                    if b['slot_reserved']:
-                        if not reserve_slot_spots(db,slot['id'],pax): raise ValueError('No quedan plazas suficientes en esa salida.')
-                        if b['slot_id']: release_slot_spots(db,b['slot_id'],pax)
                     old_when=f"{b['booking_date']} {b['booking_time'] or ''}".strip()
-                    db.execute('UPDATE bookings SET slot_id=?,booking_date=?,booking_time=?,reminder_sent_at=NULL,reminder48_sent_at=NULL,updated_at=? WHERE id=?',(slot['id'],slot['slot_date'],slot['slot_time'],now(),bid))
+                    move_booking(db,b,slot)
                     lang=user_lang(db,b['user_id'])
                     notify_booking(db,bid,'changed',{'old_when':mail_date(b['booking_date'],lang)+(f" · {b['booking_time']}" if b['booking_time'] else ''),'reason':clean_text(data.get('reason'),300) or ''})
                     audit(db,user['id'],'booking_rescheduled','booking',bid,{'from':old_when,'to':f"{slot['slot_date']} {slot['slot_time']}"}); db.commit()
@@ -9676,10 +10134,15 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     participants=max(1,int(data.get('participants') or 1))
                     if service and service['max_participants'] and participants>int(service['max_participants']): raise ValueError(f'Este servicio admite como máximo {service["max_participants"]} participantes por reserva.')
                     slot_id=int(data.get('slot_id') or 0) or None
-                    slot=None
+                    slot=None; wl_hold=None
                     if slot_id:
                         slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(slot_id,service_id)).fetchone()
                         if not slot: raise ValueError('La salida seleccionada ya no está disponible.')
+                        wl_hold=waitlist_hold_for(db,slot_id,user['id'])
+                        if wl_hold:
+                            # Encargo 2, punto 4: the spots kept for this person of the waiting list are theirs to book.
+                            release_slot_spots(db,slot_id,wl_hold['held'],notify=False)
+                            slot=db.execute('SELECT * FROM service_slots WHERE id=?',(slot_id,)).fetchone()
                         if participants>slot['spots_available']: raise ValueError(f'Solo quedan {slot["spots_available"]} plazas disponibles.')
                         slot_points=[int(r['dive_point_id']) for r in db.execute('SELECT dive_point_id FROM service_slot_points WHERE slot_id=?',(slot_id,)).fetchall()]
                         if slot_points:
@@ -9733,6 +10196,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     else:
                         # «Bajo petición»: no money and no spots until the centre accepts, within its response deadline.
                         status='requested'; payment_status='not_required' if price<=0 else ('required' if ready else 'at_center')
+                        if slot and wl_hold:
+                            # A request from the waiting list keeps its spots while the centre answers.
+                            if not reserve_slot_spots(db,slot['id'],participants): raise ValueError('Las plazas acaban de cambiar. Vuelve a seleccionar la salida.')
+                            slot_reserved=1
                         hours=wbk.clamp_hours(service['response_hours'] if service else None, wbk.DEFAULT_RESPONSE_HOURS)
                         deadline=local_iso(wbk.deadline_before_start(local_now(),hours,start))
                     cur=db.execute('''INSERT INTO bookings(user_id,center_id,provider_user_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,booking_mode,response_deadline,hold_expires_at,confirmed_at,terms_version,price_breakdown,deposit_amount,amount_paid,amount_due,cancel_free_hours,cancel_refund_pct,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)''',
@@ -9740,6 +10207,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                     status,price,service['currency'] if service else 'EUR',payment_status,mode,deadline,hold,now() if status=='confirmed' else None,legal_doc_version(db,'reservas'),json.dumps(price_lines,ensure_ascii=False),
                                     deposit,price,pol['free_hours'],pol['refund_pct'],now(),now()))
                     bid=cur.lastrowid
+                    if wl_hold: db.execute("UPDATE waitlist_entries SET status='booked',held=0,booking_id=?,updated_at=? WHERE id=?",(bid,now(),wl_hold['id'])); slot_event(db,slot_id,'waitlist_booked',user['id'],entry=wl_hold['id'],booking_id=bid)
                     audit(db,user['id'],'booking_created','booking',bid,{'mode':mode,'status':status})
                     if status=='payment_in_progress':
                         # The booking is not visible to the centre until Stripe confirms the payment.
@@ -10704,7 +11172,7 @@ def maintenance_loop():
         time.sleep(wcfg.env_int('WOD_MAINTENANCE_SECONDS', 60, 5, 3600))
 
 
-MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs]
+MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs, run_slot_cancel_jobs]
 
 
 RETENTION_DEFAULTS = {'inactive_months': 36, 'expired_docs_months': 12, 'notices_months': 24, 'audit_months': 12, 'audit_keep': 300}

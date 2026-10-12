@@ -217,3 +217,6 @@ Ver `RELEASE_NOTES_v50_40.md` y siguientes.
 4. **Responsable de los descargos, las firmas y el manifiesto:** el centro, con WORLDIVES como encargado. ¿Hay que añadirlo al anexo de encargado y al registro de actividades? ¿Cuál es el plazo de conservación de las firmas? Hoy se conservan mientras exista la reserva.
 5. **Acompañantes menores de edad** en una reserva: ¿debe firmar el tutor?
 6. **Contacto de emergencia en el manifiesto:** solo se muestra si el buceador ha compartido su ficha con el centro (mismas reglas que la ficha del buceador). ¿Basta con lo que dice la política de privacidad?
+7. **Cancelación de una salida por el centro** (mal tiempo, mar): el consumidor elige entre otra fecha del mismo servicio y la devolución íntegra. Si no elige en 48 h (plazo configurable), se le devuelve automáticamente. ¿Cumple el TRLGDCU y la normativa de servicios de ocio? ¿Es razonable el plazo?
+8. **Cambio de fecha con precio distinto:** hoy la reserva mantiene su precio y solo se informa de la diferencia. Si se decide cobrar o devolver la diferencia, ¿qué información previa hace falta?
+9. **Lista de espera:** se guarda la cuenta, la salida, el número de personas y las fechas del aviso. Las plazas se guardan 2 h a la persona avisada. ¿Hay que mencionarlo en la política de privacidad y en las condiciones de reserva?
