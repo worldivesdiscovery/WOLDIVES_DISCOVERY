@@ -51,7 +51,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.41'
+APP_VERSION = '50.42'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -1365,6 +1365,8 @@ def bootstrap():
         db.commit()
         migrate_v50_41(db)
         db.commit()
+        migrate_v50_42(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1416,6 +1418,13 @@ def regenerate_point_texts(db, pid=None):
 def point_text(db, pid, lang):
     r = db.execute('SELECT description FROM dive_point_texts WHERE point_id=? AND lang=?', (pid, normalize_lang(lang))).fetchone()
     return r['description'] if r else None
+
+
+def migrate_v50_42(db):
+    """v50.42 (encargo 2, punto 6): who checked each diver in, from where and when (for the offline sync)."""
+    add_columns(db, 'manifest_entries', [('checkin_by', 'INTEGER'), ('checkin_source', 'TEXT'), ('checkin_updated_at', 'TEXT'), ('note_updated_at', 'TEXT')])
+    if migration_done(db, '50.42'): return
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.42', now(), 'Encargo 2: check-in sin conexión'))
 
 
 def migrate_v50_41(db):
@@ -3068,7 +3077,7 @@ OWNER_ONLY_PREFIXES = ('/api/payments/connect/', '/api/provider/payment-profile'
                        '/api/provider/waiver')
 INSTRUCTOR_POST_OK = ('/api/auth/', '/api/account/', '/api/legal/accept', '/api/reports', '/api/me', '/api/team/')
 # Instructors on the boat also take the signatures at check-in (encargo 2, punto 5).
-INSTRUCTOR_POST_RE = re.compile(r'/api/bookings/\d+/waiver/sign')
+INSTRUCTOR_POST_RE = re.compile(r'/api/bookings/\d+/waiver/sign|/api/manifest/sync')
 OWNER_ONLY_GET = ('/api/provider/payments', '/api/provider/fiscal', '/api/provider/plan', '/api/center/team', '/api/center/activity')
 
 
@@ -7189,6 +7198,65 @@ def booking_token(db, bid):
     tok = wsec.random_token(); db.execute('UPDATE bookings SET public_token=? WHERE id=?', (tok, bid)); return tok
 
 
+# ------------------------------------------------------------------ v50.42 · Encargo 2, punto 6: check-in without coverage
+# The staff app keeps the manifest of the day on the device (only the departures of that day, never documents) to
+# check divers in, mark «no se presentó» and write notes without connection; back online, the changes are sent and
+# compared field by field with what the server has (three-way): a change made meanwhile by someone else is a conflict.
+DAY_FIELDS = ('booking_id', 'seat', 'participants', 'status', 'group_id', 'name', 'companion_of', 'level_name', 'nitrox', 'rental', 'sizes', 'emergency', 'phone', 'signed')
+
+
+def entry_state(e):
+    return {'status': 'present' if e['checked_in_at'] else ('no_show' if e['no_show'] else ''), 'note': e['note'] or ''}
+
+
+def manifest_day(db, user, day):
+    kind, oid = provider_owner(user)
+    w, a = owner_where(kind, oid, 's')
+    slots = db.execute(f"""SELECT ss.id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
+                           WHERE {w} AND ss.slot_date=? AND ss.cancelled_at IS NULL AND ss.status IN ('open','full','closed') ORDER BY ss.slot_time""", (*a, day)).fetchall()
+    out = []
+    for r in slots:
+        d = manifest_data(db, user, r['id'])
+        if not d['divers']: continue
+        divers = []
+        for x in d['divers']:
+            row = {k: x.get(k) for k in DAY_FIELDS}; row['booking_status'] = row.pop('status')
+            e = db.execute('SELECT checked_in_at,no_show,note FROM manifest_entries WHERE booking_id=? AND seat=?', (x['booking_id'], x['seat'])).fetchone()
+            row.update(entry_state(e)); divers.append(row)
+        out.append({'slot': d['slot'], 'points': d['points'], 'groups': [{k: g[k] for k in ('id', 'label', 'guide', 'boat_id')} for g in d['groups']],
+                    'boats': [{k: b[k] for k in ('id', 'name')} for b in d['boats']], 'waiver': bool(d['waiver']), 'divers': divers})
+    return out
+
+
+def manifest_sync(db, user, changes):
+    """changes: [{slot_id, booking_id, seat, field ('status'|'note'), base, value, at, force}] → applied and conflicts."""
+    applied, conflicts, seen = 0, [], {}
+    for c in changes[:500]:
+        if not isinstance(c, dict): continue
+        slot_id = int(c.get('slot_id') or 0); bid = int(c.get('booking_id') or 0); seat = int(c.get('seat') or 1); field = c.get('field')
+        if field not in ('status', 'note'): raise ValueError('Cambio no válido.')
+        if slot_id not in seen: seen[slot_id] = manifest_slot(db, user, slot_id)
+        e = db.execute('SELECT * FROM manifest_entries WHERE booking_id=? AND seat=? AND slot_id=?', (bid, seat, slot_id)).fetchone()
+        if not e: conflicts.append({**c, 'reason': 'gone'}); continue
+        cur = entry_state(e)[field]
+        value = str(c.get('value') or '')[:500] if field == 'note' else (c.get('value') or '')
+        if field == 'status' and value not in ('present', 'no_show', ''): raise ValueError('Cambio no válido.')
+        base = str(c.get('base') or '')
+        if cur != base and cur != value and not c.get('force'):
+            who = db.execute('SELECT fullname FROM users WHERE id=?', (e['checkin_by'] if field == 'status' else e['updated_by'],)).fetchone() if (e['checkin_by'] if field == 'status' else e['updated_by']) else None
+            conflicts.append({**c, 'server_value': cur, 'server_by': who['fullname'] if who else None, 'server_at': e['checkin_updated_at'] if field == 'status' else e['note_updated_at']}); continue
+        at = clean_text(c.get('at'), 40) or now()
+        if field == 'status':
+            db.execute('UPDATE manifest_entries SET checked_in_at=?,no_show=?,checkin_by=?,checkin_source=?,checkin_updated_at=?,updated_at=?,updated_by=? WHERE booking_id=? AND seat=?',
+                       (at if value == 'present' else None, 1 if value == 'no_show' else 0, user['id'], 'offline' if c.get('offline') else 'online', now(), now(), user['id'], bid, seat))
+        else:
+            db.execute('UPDATE manifest_entries SET note=?,note_updated_at=?,updated_at=?,updated_by=? WHERE booking_id=? AND seat=?', (value or None, now(), now(), user['id'], bid, seat))
+        applied += 1
+    for sid in seen:
+        if applied: slot_event(db, sid, 'checkin_synced', user['id'], applied=applied, conflicts=len(conflicts))
+    return applied, conflicts
+
+
 from wod import ops as wops
 
 CSP_HEADER = wsec.content_security_policy()
@@ -8367,6 +8435,13 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     r=db.execute("SELECT r.*, ss.slot_date, ss.slot_time, ss.spots_available FROM reschedule_requests r JOIN service_slots ss ON ss.id=r.to_slot_id WHERE r.booking_id=? AND r.status='pending' ORDER BY r.id DESC LIMIT 1",(bid,)).fetchone()
                     o=slot_offer_for(db,bid)
                     self.send_json({'request':dict(r) if r else None,'slot_offer':{k:o[k] for k in ('deadline','choice','resolved_at','cancel_reason')} if o else None}); return
+                if path=='/api/manifest/day':
+                    # Encargo 2, punto 6: the manifests of one day (today or tomorrow) to keep on the staff device.
+                    user=require_user(self,db); day=clean_text(query.get('date',[''])[0],10) or local_now().date().isoformat()
+                    today=local_now().date()
+                    if day not in (today.isoformat(),(today+_timedelta(days=1)).isoformat()): raise ValueError('Solo se puede preparar el manifiesto de hoy o de mañana.')
+                    slots=manifest_day(db,user,day); db.commit()
+                    self.send_json({'date':day,'generated_at':now(),'slots':slots}); return
                 if re.fullmatch(r'/api/manifest/\d+',path):
                     # Encargo 2, punto 1: the manifest of a departure (centre or professional that runs it; team members read it).
                     user=require_user(self,db); d=manifest_data(db,user,int(path.rsplit('/',1)[1])); db.commit(); self.send_json(d); return
@@ -9093,6 +9168,12 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     db.execute("INSERT INTO waitlist_entries(slot_id,user_id,participants,status,created_at,updated_at) VALUES(?,?,?,'waiting',?,?)",(slot_id,user['id'],pax,now(),now()))
                     slot_event(db,slot_id,'waitlist_joined',user['id'],participants=pax)
                     db.commit(); self.send_json({'ok':True,**waitlist_for_slots(db,user['id'],[slot_id]).get(slot_id,{})}); return
+                if path=='/api/manifest/sync':
+                    user=require_user(self,db); data=json_body(self); changes=data.get('changes')
+                    if not isinstance(changes,list): raise ValueError('Cambio no válido.')
+                    applied,conflicts=manifest_sync(db,user,changes)
+                    audit(db,user['id'],'manifest_sync','user',user['id'],{'applied':applied,'conflicts':len(conflicts)}); db.commit()
+                    self.send_json({'ok':True,'applied':applied,'conflicts':conflicts}); return
                 if path.startswith('/api/manifest/'):
                     # Encargo 2, punto 1: boats, groups, guides and the split of the divers of a departure.
                     user=require_user(self,db); data=json_body(self); parts=path.strip('/').split('/')

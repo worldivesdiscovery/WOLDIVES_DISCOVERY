@@ -15,5 +15,30 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Check-in en el barco",
+      "short_name": "Check-in",
+      "url": "/#/barco",
+      "icons": [
+        {
+          "src": "/assets/images/wod-icon-256.png",
+          "sizes": "256x256",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Planning",
+      "url": "/#/admin?tab=planning",
+      "icons": [
+        {
+          "src": "/assets/images/wod-icon-256.png",
+          "sizes": "256x256",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }

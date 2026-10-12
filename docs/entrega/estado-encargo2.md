@@ -53,11 +53,15 @@ Requisito previo: Fase 1 (seguridad, v50.31) y Fase 1B (modos de reserva, v50.32
 | 4. Respeta el modo de reserva | Nuevo | «Bajo petición» conserva la plaza mientras responde el centro | `test_e2_p2_p3_p4` |
 | 4. El centro ve la lista y la desactiva por servicio | Nuevo | Manifiesto y formulario del servicio | ambos |
 
-## Punto 6
+## Punto 6 · Check-in en el barco sin cobertura (v50.42)
 
-| Punto | Estado | Versión |
-|---|---|---|
-| 6. Check-in en el barco sin cobertura | Pendiente | v50.42 |
+| Parte | Estado | Qué se hizo | Cómo se probó |
+|---|---|---|---|
+| La app instalable guarda el manifiesto del día | Completado | `#/barco` guarda hoy (o mañana) en el dispositivo; acceso directo en la app | `e2e_offline.py` |
+| Check-in, presentes, «no se presentó» y notas sin conexión | Nuevo | Cola de cambios en el dispositivo | `e2e_offline.py`, `test_e2_p6_offline` |
+| Sincronización y pantalla de conflictos | Nuevo | Comparación campo a campo; «En este dispositivo» o «En el servidor» | ambos |
+| Indicador «Sin conexión · cambios pendientes» | Nuevo | Discreto, abajo a la izquierda | `e2e_offline.py` |
+| Solo datos de esa salida, sin documentos; borrado al terminar el día | Nuevo | Días anteriores borrados al abrir; todo al cerrar sesión | `e2e_offline.py` |
 
 ## Pendiente de decisión
 - Casilla de comunicaciones comerciales en el registro (hoy solo en «Mi cuenta»).
