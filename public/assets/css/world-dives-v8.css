@@ -2745,3 +2745,32 @@ tr.is-warn td{background:#fffaf0}
 .sort-why{font-size:.82rem;color:var(--muted,#5b6b7a);text-decoration:underline;align-self:center;white-space:nowrap}
 .skip-link{position:absolute;left:8px;top:-60px;z-index:10000;background:var(--ink,#0b2233);color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none}
 .skip-link:focus{top:8px}
+
+/* v50.39 · Encargo 2, punto 7: sign-in and sign-up as in v50.30 (photo left, form right; only the form on phones).
+   An element with the «hidden» attribute is never shown, whatever display its class gives it (the code field of
+   the sign-in and the centre fields of the sign-up were visible because of this). */
+[hidden]{display:none!important}
+.auth-lead{font-size:15px}
+.auth-small{margin:12px 0 0;font-size:13.5px;text-align:center}
+.auth-small a{color:var(--sea);font-weight:700}
+.auth-alt{margin-top:18px;font-size:13px;color:var(--muted)}
+.auth-alt a{color:var(--sea);font-weight:800}
+.reg-types{display:grid;gap:10px;margin-top:16px}
+.reg-type{display:flex;gap:14px;align-items:flex-start;padding:16px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);text-decoration:none;transition:border-color .15s,box-shadow .15s}
+.reg-type:hover{border-color:var(--sea)}
+.reg-type:focus-visible{outline:3px solid var(--sea);outline-offset:2px}
+.reg-type .wd-icon{flex:none;color:var(--sea);margin-top:2px}
+.reg-type strong{display:block;font-size:16px}
+.reg-type small{display:block;margin-top:3px;color:var(--muted);font-size:13.5px;line-height:1.4}
+.reg-chosen{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:6px 0 16px;padding:10px 14px;border-radius:12px;background:var(--surface-2,#f4f7f7)}
+.reg-chosen span{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--ink)}
+.reg-chosen a{color:var(--sea);font-weight:700;font-size:13.5px}
+.reg-review{margin:14px 0 0;font-size:13.5px}
+@media (max-width:760px){
+  .auth-split .auth-visual{display:none}
+}
+.acc-verify{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 16px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2,#f4f7f7);font-size:14px;color:var(--ink)}
+.acc-verify .wd-icon{color:var(--sea);flex:none}
+.acc-verify span{flex:1;min-width:200px}
+.link-btn{border:0;background:none;padding:4px 2px;color:var(--sea);font-weight:800;cursor:pointer;font:inherit;font-weight:800}
+.link-btn:focus-visible{outline:3px solid var(--sea);outline-offset:2px;border-radius:4px}

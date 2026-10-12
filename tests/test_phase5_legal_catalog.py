@@ -140,7 +140,7 @@ class DataRights(ServerTestCase):
 
     def test_deletion_cascades(self):
         c = self.client()
-        r = c.register('Pro Borrable', 'pro5@pro.example.org', 'pro_borrable5', account_type='freelance', phone='+34 611 222 333')
+        r = c.register('Pro Borrable', 'pro5@pro.example.org', 'pro_borrable5', account_type='freelance', phone='+34 611 222 333', certification_text='Instructor')
         self.assertEqual(r.status, 200)
         uid = c.me()['user']['id']
         # A pending professional application stays a diver account: the deletion withdraws the claim.

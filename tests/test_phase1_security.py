@@ -51,7 +51,7 @@ class Phase1Security(ServerTestCase):
 
     def test_g2_freelance_needs_approval(self):
         c = self.client()
-        c.register('Libre', 'libre@pro.example.org', 'libre1', account_type='freelance', phone='+34 699 000 111')
+        c.register('Libre', 'libre@pro.example.org', 'libre1', account_type='freelance', phone='+34 699 000 111', certification_text='Divemaster')
         self.assertEqual(c.me()['user']['role'], 'recreational')
         self.assertEqual(c.get('/api/provider/experiences').status, 403)
 

@@ -21,7 +21,8 @@ from playwright.sync_api import sync_playwright  # noqa: E402
 
 OUT = ROOT / 'tools' / 'i18n'
 PW = 'buceo-seguro-2026'
-PUBLIC = ['#/', '#/explorar', '#/puntos', '#/centros', '#/tipos', '#/experiencias', '#/top10', '#/planes', '#/login', '#/registro', '#/recuperar',
+PUBLIC = ['#/', '#/explorar', '#/puntos', '#/centros', '#/tipos', '#/experiencias', '#/top10', '#/planes', '#/login', '#/registro', '#/registro?tipo=recreational', '#/registro?tipo=center',
+          '#/registro?tipo=freelance', '#/recuperar',
           '#/como-funcionan-los-puntos', '#/legal/aviso-legal', '#/legal/condiciones-buceadores', '#/legal/privacidad', '#/legal/cookies',
           '#/legal/denuncias', '#/legal/accesibilidad', '#/legal/contacto', '#/legal/creditos', '#/reservar']
 DIVER = ['#/area', '#/cuenta', '#/logbook', '#/mis-puntos', '#/recompensas', '#/reservas']

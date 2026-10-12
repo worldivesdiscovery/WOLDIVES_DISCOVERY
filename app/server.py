@@ -51,7 +51,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.38'
+APP_VERSION = '50.39'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -1993,6 +1993,16 @@ def unique_center_name(db, name, city):
 
 def booking_status_label(state):
     return wbk.state_label(state)
+
+
+def username_from_email(db, email):
+    """A free user name made from the part of the email before «@» (letters, digits, dot, hyphen, underscore)."""
+    base = re.sub(r'[^A-Za-z0-9._-]', '', (email or '').split('@')[0])[:30] or 'buceador'
+    if len(base) < 3: base = (base + 'diver')[:8]
+    cand, n = base, 1
+    while db.execute('SELECT 1 FROM users WHERE lower(username)=lower(?)', (cand,)).fetchone():
+        n += 1; cand = f'{base}{n}'
+    return cand
 
 
 def short_name(fullname):
@@ -8150,6 +8160,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     website=wsec.clean_http_url(data.get('website'),250) if data.get('website') else None
                     if requested=='admin': raise PermissionError('Las cuentas de administración no se crean desde el registro.')
                     if requested not in {'recreational','center','freelance'}: requested='recreational'
+                    # v50.39 (encargo 2, punto 7): the sign-up form no longer asks for a user name; one is made from the email.
+                    if not username and email: username=username_from_email(db,email)
                     if not fullname or not email or not username: raise ValueError('Completa todos los campos.')
                     if not re.fullmatch(r'[A-Za-z0-9._-]{3,40}',username): raise ValueError('El nombre de usuario solo puede tener letras, números, punto, guion y guion bajo (3 a 40).')
                     check_new_password(password)
@@ -8168,7 +8180,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     guest=db.execute("SELECT id FROM users WHERE lower(email)=? AND (password_hash='!' OR (username LIKE 'web\\_%' ESCAPE '\\' AND last_login IS NULL))",(email,)).fetchone()
                     if guest: db.execute('UPDATE users SET email=? WHERE id=?',(f'cliente-{guest["id"]}-{secrets.token_hex(4)}@sin-email.worldives.local',guest['id']))
                     uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,requested_role,created_at) VALUES(?,?,?,?,?,?,?)',(fullname,email,username,hash_password(password),'recreational',requested,now())).lastrowid
-                    db.execute('INSERT INTO user_profiles(user_id,phone,city,preferred_language,updated_at) VALUES(?,?,?,?,?)',(uid,phone,city,reg_lang,now()))
+                    cert_id=int(data.get('certification_id') or 0) or None
+                    if cert_id and not db.execute('SELECT 1 FROM certifications WHERE id=? AND active=1',(cert_id,)).fetchone(): cert_id=None
+                    cert_text=clean_text(data.get('certification_text'),120)
+                    if requested=='freelance' and not (cert_id or cert_text): raise ValueError('Indica tu titulación profesional.')
+                    db.execute('INSERT INTO user_profiles(user_id,phone,country,city,certification_id,preferred_language,updated_at) VALUES(?,?,?,?,?,?,?)',(uid,phone,clean_text(data.get('country'),100),city,cert_id,reg_lang,now()))
+                    if requested=='freelance':
+                        cert_name=(db.execute('SELECT name FROM certifications WHERE id=?',(cert_id,)).fetchone() or {'name':''})['name'] if cert_id else cert_text
+                        center_note='Titulación: '+cert_name+('\n'+center_note if center_note else '')
                     record_acceptances(db,uid,['terminos','privacidad'],self.client_ip())
                     if requested in {'center','freelance'}: record_acceptances(db,uid,['centros'],self.client_ip())
                     set_marketing_consent(db,uid,bool(data.get('accept_marketing')),self.client_ip())

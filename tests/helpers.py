@@ -232,7 +232,7 @@ class ServerTestCase(unittest.TestCase):
 
     def make_freelance(self, admin, tag):
         c = self.client()
-        r = c.register(f'Instructor {tag}', f'{tag}@pro.example.org', f'pro_{tag}', account_type='freelance', phone='+34 611 000 000')
+        r = c.register(f'Instructor {tag}', f'{tag}@pro.example.org', f'pro_{tag}', account_type='freelance', phone='+34 611 000 000', certification_text='Instructor OWD')
         assert r.status == 200, r
         claim = [x for x in admin.get('/api/admin/center-claims').json['items'] if x['email'] == f'{tag}@pro.example.org'][0]
         r = admin.post('/api/admin/center-claims/review', {'id': claim['id'], 'decision': 'approve', 'verification_method': 'document', 'verification_note': 'licencia de instructor revisada'})
