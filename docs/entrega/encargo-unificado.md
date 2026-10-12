@@ -8,15 +8,15 @@ Fecha: 12/10/2026 · Versión base: v50.43
 |---|---|---|
 | 1 | Auditoría · Fase 1 (seguridad G1-G12) | Ya estaba (v50.31) |
 | 2 | Auditoría · Fases 1B, 1C y 1D | Ya estaba (v50.32-v50.33). Capas «Mapa», «Satélite» y «Relieve» en v50.43. |
-| 3 | `encargo-auditoria-experiencia-y-promesas.md` · Partes A y B | **Pendiente: falta el documento.** No se ha pegado en la sesión. Hace falta para medir las promesas 1, 3 y 4 «con los mismos scripts». |
+| 3 | `encargo-auditoria-experiencia-y-promesas.md` · Partes A y B | Documento redactado (`docs/encargos/`). Pendiente de programar: se puede hacer en paralelo. |
 | 4 | Auditoría · Fases 2 y 3 | Ya estaba (v50.34-v50.35) |
-| 5 | Encargo unificado · Bloque A, tanda 1 | **En curso:** A1 (revisión y diseño) entregado; **esperando la aprobación de las maquetas** |
+| 5 | Encargo unificado · Bloque A, tanda 1 | **En curso:** A1 entregado y **maquetas aprobadas** (12/10/2026). Siguiente: v50.44. |
 | 6 | Encargo unificado · Bloque B | B1 (revisión) entregado. El resto, después de la tanda 1. |
 | 7 | Auditoría · Fases 4 a 6 | Ya estaba (v50.35-v50.37) |
 | 8 | Encargo unificado · Bloque A, tanda 2 | Pendiente (después del bloque B). Parte de E7 y E14 ya existe (v50.41 y v50.42). |
 | 9 | Experiencia y promesas · Partes C y D | Pendiente (necesita el documento del punto 3) |
 | 10 | Auditoría · Fases 7 y 8 | Ya estaba en código (v50.38). Falta contratar el VPS. |
-| 11 | `encargo-app-android-ios.md` | Pendiente (falta el documento) |
+| 11 | `encargo-app-android-ios.md` | Documento redactado (`docs/encargos/`). Pendiente. |
 
 ## Entregado ahora (A1 y B1, sin cambiar código)
 
@@ -42,12 +42,11 @@ Fecha: 12/10/2026 · Versión base: v50.43
 - **Push:** no existe. Hay una propuesta en el diseño.
 
 ## Pendiente de decisión del titular
-1. **Aprobar las maquetas** (o pedir cambios). Hasta entonces no se programa el bloque A.
-2. **Push con Web Push** en la app instalable.
-3. **En qué plan va cada opción avanzada.**
-4. **Zona horaria por defecto:** la del país del perfil.
-5. **Solicitudes que se solapan:** avisar y rechazarlas al confirmar (propuesta).
-6. **Pegar los documentos que faltan:** `encargo-auditoria-experiencia-y-promesas.md` y `encargo-app-android-ios.md`.
+- **Resuelto el 12/10/2026:**
+  - maquetas aprobadas;
+  - push, opciones por plan, zona horaria y solicitudes que se solapan, según la recomendación (`docs/agenda/diseno.md`, §14);
+  - los dos encargos que faltaban, redactados en `docs/encargos/`.
+- **Pendiente:** revisar los dos encargos redactados por si el titular quiere cambiar algo.
 
 ## Para el abogado
 - **B6:** licencia de agencia de viajes cuando una experiencia incluya alojamiento y transporte. Se preparará como un campo desactivado.

@@ -1,6 +1,6 @@
 # Motor de agenda común: diseño (A1.2)
 
-**Estado: propuesta pendiente de aprobación del titular.** No se programa nada hasta que apruebe las maquetas (`docs/agenda/maquetas/`).
+**Estado: maquetas aprobadas por el titular (12/10/2026).** Las decisiones de la lista final se toman con la recomendación de abajo (§14); el titular puede cambiarlas.
 
 Principio: **un solo motor** para todo. Lo usan los freelance por días, los cursos, las salidas de siempre, los instructores, los barcos y, más adelante, las aulas y el equipo. Se apoya en lo que ya existe (servicios, salidas, reservas, modos de reserva, pagos, avisos, equipo y barcos) y **no lo duplica**. La migración solo añade; lo actual sigue funcionando igual.
 
@@ -182,3 +182,35 @@ Así **no se duplican** las tablas de barcos ni de equipo.
 3. **En qué plan va cada opción avanzada.** Mientras tanto, todas quedan disponibles en todos los planes.
 4. **Zona horaria por defecto** de un freelance sin dirección: la del país de su perfil, ¿de acuerdo?
 5. **Solicitudes pendientes que se solapan:** ¿se rechazan solas al confirmar otra (como pide el encargo) o se avisa antes al freelance de cuántas se rechazarán? Propuesta: las dos cosas. Se avisa en la confirmación y se rechazan al confirmar.
+
+## 14. Decisiones tomadas (recomendación aceptada por el titular, 12/10/2026)
+1. **Push:**
+   - **Sí, con Web Push** en la app instalable. Es gratis y funciona en Android y en iPhone (iOS 16.4 o posterior, con la web añadida a la pantalla de inicio).
+   - Las claves VAPID se generan una vez y van solo en el `.env`.
+   - La app de las tiendas (encargo de la app) usará el mismo servicio de avisos.
+   - Cada persona elige qué avisos recibe; nunca hay publicidad.
+2. **Opciones avanzadas por plan** (valores iniciales; se cambian en *Administración → Planes* sin tocar código):
+   - **Ficha gratuita:** sin motor de reservas, como hoy. Puede marcar su horario y sus vacaciones para que la ficha muestre «Disponible» u «Ocupado».
+   - **Motor de reservas:**
+     - por días, medio día y horas (`agenda_days`);
+     - cursos de varios días (`courses`);
+     - vista por recursos (`resources_view`);
+     - temporadas y tramos (`flex_pricing`);
+     - datos de cada participante (`participant_links`);
+     - lista de espera ampliada (`waitlist_plus`);
+     - importar iCal (`ical_import`);
+     - horarios recurrentes (`recurring`);
+     - calendario público del centro (`public_calendar`);
+     - agenda de 7 días sin conexión (`offline_week`).
+   - **Pro:** todo lo anterior y además:
+     - salidas privadas (`private_trips`);
+     - mínimo de participantes (`min_participants`);
+     - varios servicios en una reserva (`multi_service`);
+     - stock de equipo por talla (`equipment_stock`).
+   - **Siempre gratis y sin plan,** porque protege al buceador:
+     - «Avísame si hay hueco»;
+     - la privacidad del calendario;
+     - las cancelaciones y las devoluciones;
+     - los avisos de cambios.
+3. **Zona horaria por defecto:** la del país del perfil (o de la dirección del centro). Se puede cambiar en cada servicio.
+4. **Solicitudes que se solapan:** antes de confirmar se avisa de cuántas se rechazarán, y se rechazan solas al confirmar.
