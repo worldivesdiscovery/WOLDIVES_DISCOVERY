@@ -36,8 +36,8 @@ NOT_IN_PRODUCTION = ['archive/*', 'docs/capturas/*', 'docs/pruebas/*', 'data/dem
 NOT_IN_ANY = ['archive/*', '.env', '.env.*', '*.pyc', '*/__pycache__/*', '*.log', 'logs/*', 'storage/*', 'public/assets/uploads/*',
               'data/backups/*', 'data/mail-outbox/*', 'data/tiles/*', 'dist/*', '*.sqlite3-wal', '*.sqlite3-shm', '.git/*']
 ALLOWED_ENV = {'.env.example'}
-# Screenshots: only those of the last deliveries go in the test zip (the rest stay in the repository)
-CAPTURES_IN_PRUEBAS = {'marca-v50-45', 'agenda-v50-44'}
+# Screenshots go in no zip (the delivery size limit is 30 MB); they stay in the repository
+CAPTURES_IN_PRUEBAS: set[str] = set()   # none: they are heavy and stay in the repository (docs/capturas/)
 
 # What must never be inside the production zip
 TEST_ACCOUNT = re.compile(r'\b(?:admin|centro|freelance|pendiente|buzo\d?)\.prueba\b|Worldives-Prueba-2026', re.I)

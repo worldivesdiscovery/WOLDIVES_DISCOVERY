@@ -8,7 +8,7 @@ Corresponde a la fila **2b** del índice: «Bloques 1, 2 y arreglo del yen». El
 | Zip | Tamaño | Archivos | Para qué |
 |---|---|---|---|
 | `WORLDIVES-v50.45-produccion.zip` | 22,1 MB | 470 | El servidor real. Solo código y la semilla del catálogo |
-| `WORLDIVES-v50.45-pruebas.zip` | 43,4 MB | 532 | Probarlo todo en tu ordenador (puerto 8100). **Nunca se sube al servidor real** |
+| `WORLDIVES-v50.45-pruebas.zip` | 22,6 MB | 481 | Probarlo todo en tu ordenador (puerto 8100). **Nunca se sube al servidor real** |
 
 Los dos se crean con `python scripts/build_release.py`. Antes de escribir cada zip, una **comprobación automática** se
 para si encuentra alguna de estas cosas:
@@ -39,8 +39,9 @@ Las dos comprobaciones de esta entrega han salido correctas.
 - **Lo que añade al de producción:**
   - el mismo código;
   - la base de demostración (`data/pruebas/worldives.sqlite3`) y `CUENTAS-DE-PRUEBA.md` en la raíz;
-  - `scripts/start_pruebas.bat` / `.sh`;
-  - las capturas de esta entrega y de la anterior.
+  - `scripts/start_pruebas.bat` / `.sh`.
+
+  Las capturas no van en los zips (para no pasar de 30 MB): están en el repositorio, en `docs/capturas/`.
 - **Al arrancar:**
   - puerto **8100** y banda «Entorno de pruebas» en las 10 lenguas;
   - los correos no salen: se guardan como `.eml` en `data/pruebas/correos/`;

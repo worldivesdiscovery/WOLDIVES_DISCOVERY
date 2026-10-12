@@ -9,7 +9,7 @@
 | `data/seed/` | Semilla del catálogo (`catalogo.sqlite3`): países, tipos, zonas, certificaciones, puntos, destinos y textos legales. Sin personas | Sí (la crea `build_release`) |
 | `data/demo/` | Catálogo de demostración para las pruebas automáticas | Solo pruebas |
 | `data/pruebas/` | Base del entorno de pruebas, correos guardados y copias | Solo pruebas (nunca en el repositorio) |
-| `docs/` | Documentación, encargos, entregas, marca, legal | Sí (sin capturas ni `docs/pruebas/`) |
+| `docs/` | Documentación, encargos, entregas, marca, legal | Sí (sin `docs/pruebas/`). Las capturas no van en ningún zip |
 | `scripts/` | `build_release.py` (zips y comprobación), `crear_admin`, `crear_demo.py`, `reset_demo`, `start_pruebas` | Producción: solo `build_release` y `crear_admin` |
 | `tests/` | Pruebas de API y de navegador (se ejecutan con el zip de pruebas, que trae el catálogo de demostración) | Sí |
 | `tools/` | Herramientas (base de producción, marca, traducciones, prueba de carga) | Sí, salvo la de centros ficticios |
