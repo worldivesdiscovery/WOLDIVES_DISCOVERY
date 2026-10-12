@@ -26,6 +26,12 @@ As profundidades, níveis, coordenadas e acessos baseiam-se em informação púb
 
 Não toque nem leve nada, controle a sua flutuabilidade para não danificar o fundo e respeite as regras das áreas protegidas.
 
+## Mapas e relevo do fundo do mar
+
+A camada **«Relevo»** dos mapas mostra a grelha batimétrica da GEBCO. É **meramente indicativa**: tem uma resolução limitada, pode não mostrar baixios, rochas ou alterações recentes do fundo e **não é adequada para a navegação nem para a segurança no mar**. Não a uses para planear a rota de uma embarcação nem a profundidade de um mergulho: usa as cartas náuticas oficiais e segue sempre as indicações do centro e do guia.
+
+Imagery reproduced from the GEBCO_2026 Grid, GEBCO Compilation Group (2026) GEBCO 2026 Grid.
+
 ## Em caso de emergência
 
 Em Espanha, ligue para o **112**. Em caso de acidentes de mergulho, o centro ativará o seu plano de emergência e encaminhá-lo-á para a câmara hiperbárica mais próxima.

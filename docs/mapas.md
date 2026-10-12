@@ -6,7 +6,9 @@ Los mapas de WORLDIVES ya no usan los servidores públicos de OpenStreetMap ni e
 |---|---|---|---|
 | Mapa base (predeterminado) | Archivo PMTiles propio (Protomaps, datos © OpenStreetMap contributors) servido por nuestro servidor | Nadie más | Solo el almacenamiento y el tráfico |
 | Satélite (solo si el visitante lo elige) | Esri World Imagery con clave de ArcGIS Location Platform, **a través de nuestro servidor** | Nadie más: Esri solo ve nuestro servidor | Cuota gratuita mensual; límite configurable |
-| Batimetría (solo si el visitante lo elige) | WMS de GEBCO, cargado por el navegador | GEBCO / BODC | Gratis |
+| Relieve (solo si el visitante lo elige) | WMS de GEBCO, cargado por el navegador | GEBCO / BODC | Gratis |
+
+**Selector de capas (v50.43):** todos los mapas (portada, Explorar, ficha del punto, editores y «Elegir en el mapa») tienen el mismo selector: «Mapa», «Satélite» y «Relieve», en ese orden y con los mismos iconos. Por defecto «Mapa». Se recuerda en el dispositivo la última capa elegida.
 
 ## 1. Mapa base con Protomaps
 
@@ -34,7 +36,9 @@ El servidor entrega el archivo con peticiones de rango HTTP (`Range`), que es co
 
 1. Crea una cuenta en ArcGIS Location Platform (facturación por teselas, no por sesiones) y una clave de API con el permiso «Basemaps».
 2. Ponla en el `.env` del servidor: `ARCGIS_API_KEY=…`. **Nunca se escribe en el código ni en el repositorio.**
-3. Reinicia. La capa «Satélite» aparece en los mapas.
+3. Reinicia. El botón «Satélite» se activa en todos los mapas.
+
+**Sin clave** (o con el límite del mes alcanzado), el botón «Satélite» se ve desactivado con el texto «Disponible próximamente». En *Administración* aparece el aviso «Añade la clave de ArcGIS para activar el satélite». Nunca se usa el servidor público de Esri sin clave.
 
 El navegador pide `/api/tiles/satellite/z/y/x` y nuestro servidor la pide a Esri con la clave. Así la clave no llega nunca al navegador y el contador es exacto. Cada tesela servida suma 1 en el contador del mes (*Administración → Mapas*). El límite es de 1.900.000 por defecto, por debajo de las 2.000.000 gratuitas. Al llegar al 80 % se avisa por email a los administradores, y al llegar al límite la capa se oculta hasta el mes siguiente. Las teselas no se guardan en el servidor; el navegador las guarda 24 horas.
 
@@ -42,9 +46,16 @@ El navegador pide `/api/tiles/satellite/z/y/x` y nuestro servidor la pide a Esri
 
 **Atribución** (visible cuando la capa está activa): «Powered by Esri | Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community».
 
-## 3. Batimetría GEBCO
+## 3. Relieve (batimetría GEBCO)
 
-Se carga desde `wms.gebco.net` solo si el visitante elige «Relieve marino». Atribución: «GEBCO Compilation Group (2024) GEBCO 2024 Grid». Uso libre con atribución (https://www.gebco.net/data_and_products/gridded_bathymetry_data/).
+- **Capa:** WMS `https://wms.gebco.net/mapserv?`, capa `GEBCO_LATEST` (relieve sombreado), WMS 1.3.0, EPSG:3857.
+  - Para la versión en color, pon `WOD_GEBCO_LAYER=GEBCO_LATEST_2` en el `.env` y reinicia. Cualquier otro valor se ignora.
+- **Se muestra sola y opaca** (`transparent:false`): la cuadrícula de GEBCO ya incluye la tierra. Antes (v50.36–v50.42) se pedía transparente y sin nada debajo, por eso parecía que no se veía.
+- **Solo se carga si el visitante elige «Relieve».** La política de seguridad (CSP) permite las imágenes de `https:`, así que `wms.gebco.net` no se bloquea.
+- **Si GEBCO no responde,** el mapa vuelve a «Mapa», avisa «Relieve no disponible ahora» y el botón queda desactivado hasta recargar.
+- **Atribución exacta** (visible con la capa activa): «Imagery reproduced from the GEBCO_2026 Grid, GEBCO Compilation Group (2026) GEBCO 2026 Grid». Uso libre con atribución (https://www.gebco.net/data_and_products/gridded_bathymetry_data/).
+- **Aviso:** con la capa activa se ve «Relieve orientativo (GEBCO). No sirve para navegar ni para la seguridad en el mar», con enlace a «Seguridad en el buceo», que lo explica en los 10 idiomas.
+- **Comprobar en el navegador** (si un día no se ve): abre la consola (F12), elige «Relieve» y mira la pestaña *Red*: las peticiones a `wms.gebco.net` deben responder 200 con una imagen. Si responden con error, el servicio de GEBCO está caído y la web lo indica sola.
 
 ## 4. Desarrollo
 

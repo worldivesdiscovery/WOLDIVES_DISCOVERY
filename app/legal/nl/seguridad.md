@@ -26,6 +26,12 @@ Dieptes, niveaus, coördinaten en toegangswegen zijn gebaseerd op openbare infor
 
 Raak niets aan en neem niets mee, beheers uw drijfvermogen om de bodem niet te beschadigen en respecteer de regels van beschermde gebieden.
 
+## Kaarten en reliëf van de zeebodem
+
+De laag **«Reliëf»** van de kaarten toont het bathymetrische raster van GEBCO. Het is **alleen ter oriëntatie**: de resolutie is beperkt, ondiepten, rotsen of recente veranderingen van de bodem worden mogelijk niet getoond en het is **niet geschikt voor navigatie of voor veiligheid op zee**. Gebruik het niet om de route van een boot of de diepte van een duik te plannen: gebruik officiële zeekaarten en volg altijd de aanwijzingen van het centrum en de gids.
+
+Imagery reproduced from the GEBCO_2026 Grid, GEBCO Compilation Group (2026) GEBCO 2026 Grid.
+
 ## In geval van nood
 
 Bel in Spanje **112**. Bij duikongevallen activeert het centrum zijn noodplan en verwijst het u naar de dichtstbijzijnde decompressiekamer.

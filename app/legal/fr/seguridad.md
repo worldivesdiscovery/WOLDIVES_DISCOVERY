@@ -26,6 +26,12 @@ Les profondeurs, niveaux, coordonnées et accès reposent sur des informations p
 
 Ne touchez à rien et n'emportez rien, contrôlez votre flottabilité pour ne pas abîmer le fond et respectez les règles des aires protégées.
 
+## Cartes et relief des fonds marins
+
+La couche **« Relief »** des cartes affiche la grille bathymétrique de GEBCO. Elle est **indicative** : sa résolution est limitée, elle peut ne pas montrer les hauts-fonds, les rochers ou les changements récents du fond et elle **n'est pas adaptée à la navigation ni à la sécurité en mer**. Ne l'utilisez pas pour planifier la route d'un bateau ni la profondeur d'une plongée : utilisez les cartes marines officielles et suivez toujours les instructions du centre et du guide.
+
+Imagery reproduced from the GEBCO_2026 Grid, GEBCO Compilation Group (2026) GEBCO 2026 Grid.
+
 ## En cas d'urgence
 
 En Espagne, appelez le **112**. En cas d'accident de plongée, le centre déclenchera son plan d'urgence et vous orientera vers le caisson hyperbare le plus proche.

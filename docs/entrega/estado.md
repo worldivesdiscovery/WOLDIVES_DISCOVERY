@@ -45,6 +45,8 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 | Zona de toque | Nuevo | 44 px en móvil sin agrandar el dibujo. | Medida en navegador |
 | Agrupación | Nuevo | `leaflet.markercluster` alojado; grupo rojo liso legible en mapa y satélite. | Capturas antes/después y prueba de fluidez (0 fotogramas lentos, CPU ×4) |
 | Accesibilidad | Nuevo | `title` y texto alternativo con el nombre del punto. | Navegador |
+| 9. Capa «Relieve» (GEBCO) que no se veía (v50.43) | Completado | Causa: se pedía transparente y sin mapa debajo. Ahora `GEBCO_LATEST` opaca y sola (o `GEBCO_LATEST_2` con `WOD_GEBCO_LAYER`); la CSP ya la permitía; aviso «Relieve no disponible ahora» si GEBCO falla; atribución exacta 2026; aviso de no navegación en «Seguridad en el buceo» (10 idiomas) y en el mapa. | `test_v50_43_layers`, `e2e_layers.py` (GEBCO simulado: aquí no hay internet; comprobar en real, ver «Pendiente») |
+| 10. Selector «Mapa», «Satélite», «Relieve» (v50.43) | Completado | Fuera «Mundo» (solo volvía a la vista del mundo con el mismo mapa). Mismo selector, nombres e iconos en portada, Explorar, ficha del punto, editores y «Elegir en el mapa». Sin clave de ArcGIS: «Satélite» desactivado con «Disponible próximamente» y aviso en Administración. Recuerda la última capa; por defecto «Mapa». 10 idiomas. | `e2e_layers.py` 68/68 (ordenador y móvil, con y sin clave) + capturas `docs/capturas/fase-1c-capas/` |
 
 ## Fase 1D · Idiomas (v50.33)
 

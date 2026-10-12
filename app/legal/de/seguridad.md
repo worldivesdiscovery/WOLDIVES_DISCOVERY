@@ -26,6 +26,12 @@ Tiefen, Niveaus, Koordinaten und Zugänge beruhen auf öffentlichen Informatione
 
 Berühren Sie nichts und nehmen Sie nichts mit, kontrollieren Sie Ihre Tarierung, um den Meeresboden nicht zu beschädigen, und beachten Sie die Regeln der Schutzgebiete.
 
+## Karten und Meeresbodenrelief
+
+Die Ebene **«Relief»** der Karten zeigt das bathymetrische Gitter von GEBCO. Sie dient **nur zur Orientierung**: Ihre Auflösung ist begrenzt, Untiefen, Felsen oder jüngste Veränderungen des Meeresbodens werden möglicherweise nicht angezeigt, und sie ist **nicht für die Navigation oder die Sicherheit auf See geeignet**. Nutze sie nicht, um die Route eines Bootes oder die Tiefe eines Tauchgangs zu planen: Verwende amtliche Seekarten und befolge immer die Anweisungen des Zentrums und des Guides.
+
+Imagery reproduced from the GEBCO_2026 Grid, GEBCO Compilation Group (2026) GEBCO 2026 Grid.
+
 ## Im Notfall
 
 In Spanien rufen Sie die **112** an. Bei Tauchunfällen aktiviert das Zentrum seinen Notfallplan und leitet Sie zur nächstgelegenen Druckkammer.

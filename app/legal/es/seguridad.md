@@ -26,6 +26,12 @@ Profundidades, niveles, coordenadas y accesos se basan en información pública 
 
 No toques ni te lleves nada, controla tu flotabilidad para no dañar el fondo y respeta las normas de las áreas protegidas.
 
+## Mapas y relieve del fondo marino
+
+La capa **«Relieve»** de los mapas muestra la cuadrícula batimétrica de GEBCO. Es **orientativa**: tiene una resolución limitada, puede no reflejar bajos, rocas o cambios recientes del fondo y **no es apta para la navegación ni para la seguridad en el mar**. No la uses para planificar la ruta de una embarcación ni la profundidad de una inmersión: usa las cartas náuticas oficiales y sigue siempre las indicaciones del centro y del guía.
+
+Imagery reproduced from the GEBCO_2026 Grid, GEBCO Compilation Group (2026) GEBCO 2026 Grid.
+
 ## En caso de emergencia
 
 En España, llama al **112**. Para accidentes de buceo, el centro activará su plan de emergencia y te dirigirá a la cámara hiperbárica más cercana.

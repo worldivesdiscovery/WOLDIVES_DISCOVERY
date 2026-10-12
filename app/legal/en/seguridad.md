@@ -26,6 +26,12 @@ Depths, levels, coordinates and access are based on public and centre informatio
 
 Do not touch or take anything, control your buoyancy to avoid damaging the seabed and respect the rules of protected areas.
 
+## Maps and seabed relief
+
+The **«Relief»** layer of the maps shows the GEBCO bathymetric grid. It is **for orientation only**: its resolution is limited, it may not show shoals, rocks or recent changes of the seabed and it is **not suitable for navigation or for safety at sea**. Do not use it to plan a boat's route or the depth of a dive: use official nautical charts and always follow the instructions of the centre and the guide.
+
+Imagery reproduced from the GEBCO_2026 Grid, GEBCO Compilation Group (2026) GEBCO 2026 Grid.
+
 ## In an emergency
 
 In Spain and the EU, call **112**. For diving accidents, the centre will activate its emergency plan and direct you to the nearest hyperbaric chamber.

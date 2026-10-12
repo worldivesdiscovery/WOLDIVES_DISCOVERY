@@ -51,7 +51,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.42'
+APP_VERSION = '50.43'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -2489,7 +2489,16 @@ SAT_LIMIT_DEFAULT = 1_900_000
 SAT_UPSTREAM = os.environ.get('WOD_ARCGIS_TILE_URL') or 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'  # override only for tests
 SAT_ATTRIBUTION = 'Powered by <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a> | Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
 OSM_ATTRIBUTION = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · <a href="https://protomaps.com" target="_blank" rel="noopener">Protomaps</a>'
-GEBCO_ATTRIBUTION = 'Batimetría: <a href="https://www.gebco.net/data_and_products/gridded_bathymetry_data/" target="_blank" rel="noopener">GEBCO Compilation Group (2024) GEBCO 2024 Grid</a>'
+# Exact credit asked by GEBCO for the 2026 grid. The relief is not for navigation (see «Seguridad en el buceo»).
+GEBCO_ATTRIBUTION = 'Imagery reproduced from the GEBCO_2026 Grid, GEBCO Compilation Group (2026) GEBCO 2026 Grid'
+GEBCO_WMS_URL = 'https://wms.gebco.net/mapserv?'
+GEBCO_LAYERS = ('GEBCO_LATEST', 'GEBCO_LATEST_2')   # shaded relief / the same grid in colour
+
+
+def gebco_layer():
+    """WMS layer of the «Relieve» view: GEBCO_LATEST by default; GEBCO_LATEST_2 (colour) with WOD_GEBCO_LAYER."""
+    v = (os.environ.get('WOD_GEBCO_LAYER') or '').strip()
+    return v if v in GEBCO_LAYERS else GEBCO_LAYERS[0]
 SAT_RATE = {}
 
 
@@ -2556,7 +2565,7 @@ def map_config(db):
                        {'type': 'none' if wcfg.environment() == 'production' else 'osm-dev',
                         'attribution': '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'},
             'satellite': {'enabled': sat_available(db), 'url': '/api/tiles/satellite/{z}/{y}/{x}', 'attribution': SAT_ATTRIBUTION, 'max_zoom': 19},
-            'bathymetry': {'url': 'https://wms.gebco.net/mapserv?', 'layers': 'GEBCO_LATEST', 'attribution': GEBCO_ATTRIBUTION}}
+            'bathymetry': {'url': GEBCO_WMS_URL, 'layers': gebco_layer(), 'attribution': GEBCO_ATTRIBUTION}}
 
 
 def images_report(db):

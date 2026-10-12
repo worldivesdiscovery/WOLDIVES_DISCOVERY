@@ -2872,3 +2872,23 @@ tr.is-warn td{background:#fffaf0}
 .sync-cf{list-style:none;margin:0;padding:0;display:grid;gap:12px}.sync-cf li{display:grid;gap:4px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}.sync-cf small{color:var(--muted)}
 @media print{.wd-offline{display:none!important}}
 body.has-offline{padding-bottom:56px}
+/* v50.43 · Layer selector («Mapa», «Satélite», «Relieve»): same buttons on every map */
+.map-toolbar button{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.map-toolbar button .wd-icon{flex:none}
+.map-toolbar button:focus-visible{outline:2px solid var(--deep);outline-offset:2px}
+.map-toolbar button.is-off{cursor:not-allowed;color:#8a9aa3;background:#f4f6f7}
+.map-toolbar button.is-off small{font-size:10px;font-weight:600;color:#6b7c85}
+.wd-layer-ctl .map-toolbar.is-compact{position:static!important;margin:0!important;padding:4px;gap:4px;flex-wrap:wrap;max-width:calc(100vw - 80px);right:auto!important}
+.wd-layer-ctl .map-toolbar.is-compact button{padding:6px 8px;min-height:36px}
+.wd-layer-ctl .map-toolbar.is-compact button.is-off small{display:none}
+@media (pointer:coarse){.wd-layer-ctl .map-toolbar.is-compact button{min-height:44px}}
+.wd-relief-note{background:rgba(255,255,255,.95);border:1px solid rgba(21,49,66,.14);border-radius:8px;padding:6px 9px;font-size:11px;line-height:1.35;color:#35505d;max-width:min(360px,calc(100vw - 90px));box-shadow:0 4px 12px rgba(21,49,66,.1)}
+.wd-relief-note a{color:var(--deep);font-weight:700}
+@media (max-width:760px){
+  .map-wrap>.map-toolbar{overflow:visible;flex-wrap:nowrap}
+  .map-wrap>.map-toolbar button{flex:1 1 0;justify-content:center;padding:6px 6px;min-width:0}
+  .map-toolbar button.is-off{flex-direction:column;gap:0;line-height:1.15}
+  .map-toolbar button.is-off small{font-size:9px;white-space:normal;text-align:center}
+}
+.wd-layer-ctl .map-toolbar.is-compact button.is-off{flex-direction:row}
+.leaflet-bottomright .wd-relief-note{max-width:min(320px,calc(100vw - 40px));text-align:left}

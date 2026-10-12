@@ -26,6 +26,12 @@ Głębokości, poziomy, współrzędne i dojścia opierają się na informacjach
 
 Niczego nie dotykaj ani nie zabieraj, kontroluj pływalność, aby nie uszkodzić dna, i przestrzegaj zasad obowiązujących na obszarach chronionych.
 
+## Mapy i rzeźba dna morskiego
+
+Warstwa **«Rzeźba»** na mapach pokazuje siatkę batymetryczną GEBCO. Ma charakter **wyłącznie orientacyjny**: jej rozdzielczość jest ograniczona, może nie pokazywać mielizn, skał ani niedawnych zmian dna i **nie nadaje się do nawigacji ani do zapewnienia bezpieczeństwa na morzu**. Nie używaj jej do planowania trasy łodzi ani głębokości nurkowania: korzystaj z oficjalnych map morskich i zawsze stosuj się do wskazówek centrum i przewodnika.
+
+Imagery reproduced from the GEBCO_2026 Grid, GEBCO Compilation Group (2026) GEBCO 2026 Grid.
+
 ## W nagłym wypadku
 
 W Hiszpanii dzwoń pod numer **112**. W przypadku wypadków nurkowych centrum uruchomi swój plan postępowania w sytuacjach awaryjnych i skieruje Cię do najbliższej komory hiperbarycznej.

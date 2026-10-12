@@ -26,6 +26,12 @@ Profondità, livelli, coordinate e accessi si basano su informazioni pubbliche e
 
 Non toccare né portare via nulla, controlla l'assetto per non danneggiare il fondale e rispetta le norme delle aree protette.
 
+## Mappe e rilievo del fondale
+
+Il livello **«Rilievo»** delle mappe mostra la griglia batimetrica di GEBCO. È **indicativo**: ha una risoluzione limitata, può non mostrare secche, scogli o cambiamenti recenti del fondale e **non è adatto alla navigazione né alla sicurezza in mare**. Non usarlo per pianificare la rotta di un'imbarcazione né la profondità di un'immersione: usa le carte nautiche ufficiali e segui sempre le indicazioni del centro e della guida.
+
+Imagery reproduced from the GEBCO_2026 Grid, GEBCO Compilation Group (2026) GEBCO 2026 Grid.
+
 ## In caso di emergenza
 
 In Spagna, chiama il **112**. In caso di incidenti subacquei, il centro attiverà il proprio piano di emergenza e ti indirizzerà alla camera iperbarica più vicina.
