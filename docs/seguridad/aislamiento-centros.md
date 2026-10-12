@@ -32,6 +32,12 @@ editar y avisar. En este documento «centro» incluye al profesional freelance: 
   esas columnas, así que nunca puede contradecirlas.
 - En `service_slots` (salidas) la mantienen disparadores a partir del servicio; una salida no puede pasar a otro centro.
 - Las tablas nuevas (avisos, WhatsApp, ajustes) la tienen `NOT NULL REFERENCES providers(id)` desde su creación.
+- Los planes y las estadísticas diarias (`plan_payments`, `plan_exceptions`, `provider_stats_daily`) usan desde antes
+  el par numérico `provider_type` + `provider_id`, `NOT NULL` y con índice. No llevan clave foránea a `providers`
+  porque su `provider_id` es el número del centro o del usuario, no la clave `c:`/`f:`. Solo los escribe y los lee el
+  servidor, siempre con el centro de la sesión o de la tarea, y no contienen datos de clientes. Pasarlos a la clave
+  nueva queda dentro del **Pendiente de decisión** de la lista revisada (prueba estática).
+- La tabla la genera `scripts/seguridad/inventario_aislamiento.py --doc` leyendo el esquema real de una base nueva.
 - Las tablas «solo de centro» (tarifas, extras, promociones, QR, equipo…) ya tenían `center_id NOT NULL` con clave
   foránea; además llevan `provider_id` generada e indexada.
 - Una fila nueva sin centro la rechaza la propia base (`WOD: dato sin centro`). Las filas antiguas cuyo centro no se
@@ -62,20 +68,20 @@ migraciones:
 | `experience_bookings` | heredado: experiencia | — | — | — | 0 |
 | `info_requests` | `provider_id` (generada) | sí | sí → providers | sí | 4 |
 | `manifest_entries` | heredado: salida + reserva (disparador: misma empresa) | — | — | — | 2 |
-| `notice_batches` | `provider_id` (mantenida por disparador) | sí (disparador) | sí → providers | sí | 1 |
-| `notice_outbox` | `provider_id` (mantenida por disparador) | sí (disparador) | sí → providers | sí | 2 |
-| `notice_refunds` | `provider_id` (mantenida por disparador) | sí (disparador) | sí → providers | no | 1 |
+| `notice_batches` | `provider_id` (declarada) | sí | sí → providers | sí | 1 |
+| `notice_outbox` | `provider_id` (declarada) | sí | sí → providers | sí | 2 |
+| `notice_refunds` | `provider_id` (declarada) | sí | sí → providers | sí | 1 |
 | `payment_orders` | `provider_id` (generada) | sí | sí → providers | sí | 2 |
 | `payment_refunds` | heredado: pago | — | — | — | 0 |
-| `plan_exceptions` | `provider_id` (mantenida por disparador) | sí (disparador) | no | no | 0 |
-| `plan_payments` | `provider_id` (mantenida por disparador) | sí (disparador) | no | no | 0 |
+| `plan_exceptions` | `provider_type` + `provider_id` | sí | no (identificador numérico) | sí | 0 |
+| `plan_payments` | `provider_type` + `provider_id` | sí | no (identificador numérico) | sí | 0 |
 | `promotion_codes` | heredado: promoción | — | — | — | 0 |
 | `promotion_partners` | heredado: promoción (centros invitados) | — | — | — | 0 |
 | `promotion_redemptions` | heredado: promoción + centro | — | — | — | 0 |
 | `promotions` | `provider_id` (generada) | sí | sí → providers | sí | 0 |
 | `provider_services` | `provider_id` (generada) | sí | sí → providers | sí | 3 |
-| `provider_settings` | `provider_id` (mantenida por disparador) | sí (disparador) | sí → providers | sí | 0 |
-| `provider_stats_daily` | `provider_id` (mantenida por disparador) | sí (disparador) | no | no | 0 |
+| `provider_settings` | `provider_id` (declarada) | sí | sí → providers | sí | 0 |
+| `provider_stats_daily` | `provider_type` + `provider_id` | sí | no (identificador numérico) | sí | 0 |
 | `qr_codes` | `provider_id` (generada) | sí | sí → providers | sí | 0 |
 | `reschedule_requests` | heredado: reserva + salida destino (disparador) | — | — | — | 2 |
 | `resource_blocks` | heredado: recurso | — | — | — | 0 |
@@ -92,7 +98,7 @@ migraciones:
 | `waitlist_entries` | heredado: salida (pública) + buceador | — | — | — | 0 |
 | `waiver_signatures` | heredado: reserva | — | — | — | 0 |
 | `waiver_templates` | `provider_id` (generada) | sí | sí → providers | sí | 2 |
-| `whatsapp_accounts` | `provider_id` (mantenida por disparador) | sí (disparador) | sí → providers | sí | 0 |
+| `whatsapp_accounts` | `provider_id` (declarada) | sí | sí → providers | sí | 0 |
 | `whatsapp_webhook_events` | heredado: clave de evento (sin datos) | — | — | — | 0 |
 <!-- tablas:fin -->
 
@@ -153,19 +159,19 @@ Las líneas son de `app/server.py` en v50.47.
 
 | # | Gravedad | Dónde | Fallo y cómo se explotaba | Corrección (estado) |
 |---|---|---|---|---|
-| 1 | **ALTA** | `center_row` (l. 3668); rutas públicas `/api/centers`, `/api/centers/<id>`, `/api/dive-points/<id>/centers`, `/api/providers/<id>` | `SELECT c.*` salía al público casi entero: NIF, razón social, dirección fiscal, **fecha de nacimiento** del autónomo, seguro, plan y el **token del calendario iCal**. Con el token, `GET /ical/<token>.ics` daba el **calendario privado de reservas** del centro (nombres de clientes, referencias). Sin iniciar sesión. | Lista blanca de columnas públicas; cualquier columna nueva es privada por defecto. El equipo del centro ve además lo suyo (consentimiento del logo). **Corregido** (`test_8_public_stays_public…`). |
-| 2 | **ALTA** | `owns_service` (l. 3564); servicios, salidas, manifiesto (`manifest_slot`, l. 7286), cancelar salidas | La propiedad de un servicio era «de quien lo creó», para siempre. Un empleado despedido (ya cuenta de buceador) podía cancelar las salidas del centro con devolución automática en 1 h, leer manifiestos con teléfonos y contactos de emergencia, y tras entrar en otro centro editar o desactivar los servicios del anterior. | La propiedad es del **centro** (o del freelance sin centro), nunca del creador; las rutas comprueban el rol; lo de otro centro da 404. **Corregido** (`test_4_former_employee_of_b_keeps_nothing`). |
-| 3 | **ALTA** | Experiencias: `/api/travel-experiences/update` (l. 12684), `/api/provider/experience-bookings/status` (l. 12698), `/api/provider/experience-image` (l. 12419, sin control de rol), `GET /api/provider/experiences` | Misma causa: el creador de una experiencia del centro A, ya fuera de A, podía editarla, confirmar o cancelar las solicitudes y leer nombre, correo y teléfono de los clientes; como buceador podía borrar la foto. | `owns_service` por centro, control de rol en la foto, consulta por inquilino (`experience_scope`, l. 3573). **Corregido**. |
-| 4 | Media | `planning_scope` (l. 4530) | El freelance veía las reservas de servicios que creó para un centro (filtraba por creador sin `center_id IS NULL`). | Filtro por inquilino. **Corregido**. |
-| 5 | Media | `provider_ref` (l. 3083), `payee_of` (l. 6210), `/api/admin/users/role` (l. 12498) | Un freelance con `center_id` puesto por la administración actuaba **como propietario** del centro (datos fiscales, Stripe del centro, exportaciones de pagos, iCal) y, al revés, los pagos de sus propios servicios **se cobraban en la cuenta Stripe del centro** y podía devolverlos desde ella. | Un freelance es **siempre su propio inquilino**; la administración solo asigna centro a cuentas de centro; la migración deja sin centro a los freelance que lo tenían (queda anotado en `audit_log`). **Corregido**. |
-| 6 | Media | `POST /api/travel-experiences` (l. 12437) | Un freelance podía publicar una experiencia «del centro B» (mandando `center_id`): una vez aprobada, salía en la ficha de B y se cobraba en la cuenta de B. | El centro sale de la sesión; el campo se ignora y se registra. **Corregido**. |
-| 7 | Media (dentro de un centro) | `GET /api/payments/center` (l. 9750) | Alias de `/api/provider/payments` que no estaba en la lista «solo propietario»: recepción e instructores veían todos los pagos y los datos fiscales. | Añadido a `OWNER_ONLY_GET` (l. 3518) junto con `/api/provider/ical`. **Corregido**. |
-| 8 | Baja | `booking_notice_recipient` (l. 2539) | `None == None` dejaba a una cuenta de centro sin centro avisar a reservas de freelance. | Usa `can_manage_booking`; 404. **Corregido**. |
-| 9 | Baja | `is_guest_user` (l. 2746) | No comprobaba qué centro creó la ficha de invitado. | Se pasa el centro. **Corregido**. |
+| 1 | **ALTA** | `center_row` (l. 3669); rutas públicas `/api/centers`, `/api/centers/<id>`, `/api/dive-points/<id>/centers`, `/api/providers/<id>` | `SELECT c.*` salía al público casi entero: NIF, razón social, dirección fiscal, **fecha de nacimiento** del autónomo, seguro, plan y el **token del calendario iCal**. Con el token, `GET /ical/<token>.ics` daba el **calendario privado de reservas** del centro (nombres de clientes, referencias). Sin iniciar sesión. | Lista blanca de columnas públicas; cualquier columna nueva es privada por defecto. El equipo del centro ve además lo suyo (consentimiento del logo). **Corregido** (`test_8_public_stays_public…`). |
+| 2 | **ALTA** | `owns_service` (l. 3565); servicios, salidas, manifiesto (`manifest_slot`, l. 7293), cancelar salidas | La propiedad de un servicio era «de quien lo creó», para siempre. Un empleado despedido (ya cuenta de buceador) podía cancelar las salidas del centro con devolución automática en 1 h, leer manifiestos con teléfonos y contactos de emergencia, y tras entrar en otro centro editar o desactivar los servicios del anterior. | La propiedad es del **centro** (o del freelance sin centro), nunca del creador; las rutas comprueban el rol; lo de otro centro da 404. **Corregido** (`test_4_former_employee_of_b_keeps_nothing`). |
+| 3 | **ALTA** | Experiencias: `/api/travel-experiences/update` (l. 12723), `/api/provider/experience-bookings/status` (l. 12737), `/api/provider/experience-image` (l. 12458, sin control de rol), `GET /api/provider/experiences` | Misma causa: el creador de una experiencia del centro A, ya fuera de A, podía editarla, confirmar o cancelar las solicitudes y leer nombre, correo y teléfono de los clientes; como buceador podía borrar la foto. | `owns_service` por centro, control de rol en la foto, consulta por inquilino (`experience_scope`, l. 3574). **Corregido**. |
+| 4 | Media | `planning_scope` (l. 4531) | El freelance veía las reservas de servicios que creó para un centro (filtraba por creador sin `center_id IS NULL`). | Filtro por inquilino. **Corregido**. |
+| 5 | Media | `provider_ref` (l. 3084), `payee_of` (l. 6217), `/api/admin/users/role` (l. 12537) | Un freelance con `center_id` puesto por la administración actuaba **como propietario** del centro (datos fiscales, Stripe del centro, exportaciones de pagos, iCal) y, al revés, los pagos de sus propios servicios **se cobraban en la cuenta Stripe del centro** y podía devolverlos desde ella. | Un freelance es **siempre su propio inquilino**; la administración solo asigna centro a cuentas de centro; la migración deja sin centro a los freelance que lo tenían (queda anotado en `audit_log`). **Corregido**. |
+| 6 | Media | `POST /api/travel-experiences` (l. 12476) | Un freelance podía publicar una experiencia «del centro B» (mandando `center_id`): una vez aprobada, salía en la ficha de B y se cobraba en la cuenta de B. | El centro sale de la sesión; el campo se ignora y se registra. **Corregido**. |
+| 7 | Media (dentro de un centro) | `GET /api/payments/center` (l. 9789) | Alias de `/api/provider/payments` que no estaba en la lista «solo propietario»: recepción e instructores veían todos los pagos y los datos fiscales. | Añadido a `OWNER_ONLY_GET` (l. 3519) junto con `/api/provider/ical`. **Corregido**. |
+| 8 | Baja | `booking_notice_recipient` (l. 2540) | `None == None` dejaba a una cuenta de centro sin centro avisar a reservas de freelance. | Usa `can_manage_booking`; 404. **Corregido**. |
+| 9 | Baja | `is_guest_user` (l. 2747) | No comprobaba qué centro creó la ficha de invitado. | Se pasa el centro. **Corregido**. |
 | 10 | Baja | `/api/documents/file/<id>` | 403 para un id existente y 404 para uno inexistente: revelaba qué ids existen. | Siempre 404. **Corregido**. |
-| 11 | Baja | `DELETE` (l. ~13100) | Sin control de rol del equipo y devolvía el texto interno del error. | `team_gate` y mensaje genérico. **Corregido**. |
-| 12 | Baja | `/api/center/tariffs/save` (l. 10984), `/api/center/info-requests/read` (l. 11467) | Respondían 400 «no pertenece a tu centro» (revelaba que existe) y la segunda dejaba a un freelance marcar solicitudes de un centro que le nombraran. | 404 y filtro por inquilino. **Corregido** (detectado por la matriz). |
-| 13 | Baja | Refunds (`refund_payment`, l. 6433) | La devolución no comprobaba que el pago fuera del centro de la reserva (solo pasaba con el fallo 5). | `order_tenant_problem`: si no se puede probar, se bloquea y se avisa. **Corregido**. |
+| 11 | Baja | `DELETE` (l. 12946) | Sin control de rol del equipo y devolvía el texto interno del error. | `team_gate` y mensaje genérico. **Corregido**. |
+| 12 | Baja | `/api/center/tariffs/save` (l. 11023), `/api/center/info-requests/read` (l. 11506) | Respondían 400 «no pertenece a tu centro» (revelaba que existe) y la segunda dejaba a un freelance marcar solicitudes de un centro que le nombraran. | 404 y filtro por inquilino. **Corregido** (detectado por la matriz). |
+| 13 | Baja | Devoluciones (`refund_payment`, l. 6452; `order_tenant_problem`, l. 6440) | La devolución no comprobaba que el pago fuera del centro de la reserva (solo pasaba con el fallo 5). | `order_tenant_problem`: si no se puede probar, se bloquea y se avisa. **Corregido**. |
 | 14 | Baja | `is_center_client` | Contaba reservas abandonadas en el pago para enviar promociones. | Solo reservas que el centro ve. **Corregido**. |
 
 Bajas que **no** se tocan (no cruzan centros, se documentan): estadísticas de clics anónimos (`/api/stats/track`),

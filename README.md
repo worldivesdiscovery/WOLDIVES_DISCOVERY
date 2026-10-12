@@ -39,7 +39,10 @@ La contraseña se pide sin mostrarla, y la verificación en dos pasos se activa 
 
 Copia `.env.example` a `.env` y rellena lo que necesites. Todas las variables vienen vacías y comentadas: vacía
 significa «valor por defecto». **Claves y contraseñas solo en el `.env` del servidor**, nunca en el código ni en el
-repositorio. Para producción son obligatorias `WOD_ENV=production`, `WOD_PUBLIC_URL` (https) y `WOD_SECRET_KEY`.
+repositorio. Para producción son obligatorias `WOD_ENV=production`, `WOD_PUBLIC_URL` (https), `WOD_SECRET_KEY` y,
+desde v50.47, `WOD_DATA_KEY` (cifra los teléfonos y las credenciales de WhatsApp: guarda una copia fuera del servidor).
+Los avisos por WhatsApp de cada centro se activan con `WHATSAPP_ENABLED=1` y las claves de la app de Meta; los pasos
+están en `docs/notas-de-version/v50.47.md`, apartado «Para el titular».
 
 ## Dónde está cada cosa
 
@@ -49,7 +52,7 @@ repositorio. Para producción son obligatorias `WOD_ENV=production`, `WOD_PUBLIC
 | `public/` | La web: `index.html`, `js/`, `css/`, `idiomas/` (los 9 idiomas), `img/` (marca, portada, destinos, iconos), `fuentes/`, `lib/` (mapa) |
 | `data/seed/` | Datos iniciales: el catálogo de puntos |
 | `docs/` | Notas de versión, despliegue, legal, marca, estructura, mapas, pagos y seguridad |
-| `scripts/` | Crear el administrador, copias, generar los zips, crear la semilla y herramientas de marca e idiomas |
+| `scripts/` | Crear el administrador, copias, generar los zips, crear la semilla, herramientas de marca e idiomas y de seguridad (`scripts/seguridad/`) |
 | `tests/` | Pruebas automáticas (API y navegador) |
 
 Mientras la web funciona, crea `data/worldivesdiscovery.sqlite3`, `data/subidas/` (fotos de los centros), `storage/`
@@ -68,6 +71,7 @@ Mientras la web funciona, crea `data/worldivesdiscovery.sqlite3`, `data/subidas/
 | Estados de una reserva | `docs/estados-reserva.md` |
 | Documentos legales, inventario y guías | `docs/legal/` |
 | Seguridad | `docs/seguridad.md` |
+| Aislamiento entre centros: auditoría, tablas, rutas y fallos | `docs/seguridad/aislamiento-centros.md` |
 
 ## Base de datos
 
@@ -88,4 +92,6 @@ Usan el catálogo de demostración, que va en el zip de pruebas: ejecútalas des
 ```bash
 cd tests && python -m unittest discover -p 'test_*.py'      # API (siempre sobre una copia de la base)
 python tests/navegador/e2e_centers.py                         # navegador (Playwright)
+python tests/navegador/e2e_avisos.py                          # recorrido completo con avisos y capturas (v50.47)
+python scripts/seguridad/sql_centros.py                       # prueba estática: SQL de datos de centro sin filtro
 ```

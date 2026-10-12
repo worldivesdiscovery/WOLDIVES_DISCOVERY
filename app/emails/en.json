@@ -543,5 +543,8 @@
  "¡Tu reserva está confirmada!": "Your booking is confirmed!",
  "¿Qué tal con {center}?": "How was it with {center}?",
  "¿Qué tal tu inmersión?": "How was your dive?",
- "Únete al equipo de {center}": "Join the {center} team"
+ "Únete al equipo de {center}": "Join the {center} team",
+ "Mal tiempo": "Bad weather",
+ "Estado del mar": "Sea conditions",
+ "Otro motivo": "Another reason"
 }

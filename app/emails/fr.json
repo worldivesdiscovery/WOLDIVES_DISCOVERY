@@ -543,5 +543,8 @@
  "¡Tu reserva está confirmada!": "Votre réservation est confirmée !",
  "¿Qué tal con {center}?": "Comment s'est passée votre plongée avec {center} ?",
  "¿Qué tal tu inmersión?": "Comment s'est passée votre plongée ?",
- "Únete al equipo de {center}": "Rejoignez l'équipe de {center}"
+ "Únete al equipo de {center}": "Rejoignez l'équipe de {center}",
+ "Mal tiempo": "Mauvais temps",
+ "Estado del mar": "État de la mer",
+ "Otro motivo": "Autre motif"
 }

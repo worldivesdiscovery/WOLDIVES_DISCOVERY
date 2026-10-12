@@ -2325,7 +2325,8 @@ a.acc-kpi,button.acc-kpi{cursor:pointer}a.acc-kpi:hover,button.acc-kpi:hover{bor
 .acc-missing{margin:0 0 14px;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px}.acc-missing li{font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px;background:#fbf0dc;color:#8a6129}
 .acc-msgs{display:grid;gap:8px;max-height:430px;overflow:auto}
 .acc-msg{display:flex;gap:10px;justify-content:space-between;padding:11px 12px;border-radius:12px;border:1px solid var(--line)}.acc-msg.is-unread{border-color:var(--sea);background:var(--sea-soft)}
-.acc-msg p{margin:3px 0;font-size:13px;color:#4a5d64}.acc-msg small{color:var(--muted);font-size:11.5px}
+.acc-msg p{margin:3px 0;font-size:13px;color:#4a5d64;overflow-wrap:anywhere;white-space:pre-line}.acc-msg>div{min-width:0}
+.acc-msg-link{display:block;width:max-content;margin:2px 0 4px;font-size:13px;font-weight:700;color:var(--sea)}.acc-msg small{color:var(--muted);font-size:11.5px}
 .acc-mark{border:0;background:var(--surface);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:var(--sea);flex:none;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .acc-doc{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}.acc-doc:last-child{border-bottom:0}
 .acc-doc>span{display:flex;align-items:center;gap:10px;min-width:0}.acc-doc>span>.wd-icon{color:var(--sea);flex:none}.acc-doc strong,.acc-doc small{display:block}.acc-doc small{color:var(--muted);font-size:12px}
@@ -3020,6 +3021,8 @@ body.has-offline{padding-bottom:56px}
 .ns-unknown{background:#f6ecff;color:#5d3b80}
 .ns-hist{list-style:none;padding:0;margin:0;display:grid;gap:6px;font-size:14px}
 .nt-panel .cb-panel{min-width:0}
+.form-grid>.ph-field{grid-column:1/-1;align-self:start}
+.ph-row select{max-width:280px}
 .ph-row{display:flex;gap:8px;min-width:0}
 .ph-row select{flex:0 1 48%;min-width:0}
 .ph-row input{flex:1 1 52%;min-width:0}
@@ -3034,7 +3037,7 @@ body.has-offline{padding-bottom:56px}
 @media (max-width:640px){
   .nt-counts>span{flex:1 1 40%}
   .ph-row{flex-direction:column}
-  .ph-row select,.ph-row input{flex:1 1 auto;width:100%}
+  .ph-row select,.ph-row input{flex:1 1 auto;width:100%;max-width:none}
   .nt-people table thead{display:none}
   .nt-people tr,.ns-table tr{display:grid;grid-template-columns:1fr repeat(3,auto);gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
   .nt-people td,.ns-table td{border:0;padding:2px}

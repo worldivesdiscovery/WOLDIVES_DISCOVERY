@@ -543,5 +543,8 @@
  "¡Tu reserva está confirmada!": "你的预订已确认！",
  "¿Qué tal con {center}?": "在 {center} 的体验如何？",
  "¿Qué tal tu inmersión?": "这次潜水怎么样？",
- "Únete al equipo de {center}": "加入 {center} 的团队"
+ "Únete al equipo de {center}": "加入 {center} 的团队",
+ "Mal tiempo": "天气恶劣",
+ "Estado del mar": "海况不佳",
+ "Otro motivo": "其他原因"
 }

@@ -40,7 +40,7 @@ def build():
         trig = [x[0] for x in db.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name=?", (t,))]
         if 'provider_id' in cols:
             c = cols['provider_id']
-            if 'provider_type' in cols:       # plans and statistics: pair (provider_type, provider_id) of before v50.47
+            if 'provider_type' in cols and (c[2] or '').upper().startswith('INT'):   # plans and statistics: numeric pair of before v50.47
                 rows.append((t, '`provider_type` + `provider_id`', 'sí' if c[3] else 'no', 'no (identificador numérico)', 'sí' if 'provider_type' in indexed or 'provider_id' in indexed else 'no', len(trig)))
                 continue
             kind = 'generada' if c[6] in (2, 3) else ('mantenida por disparador' if t == 'service_slots' else 'declarada')

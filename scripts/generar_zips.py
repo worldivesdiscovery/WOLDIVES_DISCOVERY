@@ -34,7 +34,8 @@ DEMO_LIVE = 'data/pruebas/worldives.sqlite3'
 
 # Only in the test zip (or in none): demo data, test accounts, screenshots with demo data, the old brand archive.
 NOT_IN_PRODUCTION = ['docs/pruebas/*', 'data/demo/*', 'data/pruebas/*', 'scripts/crear_demo.py', 'scripts/reset_demo.*', 'iniciar-pruebas.*',
-                     'scripts/herramientas/demo_centros_ficticios.py', 'README-PRUEBAS.md']
+                     'scripts/herramientas/demo_centros_ficticios.py', 'README-PRUEBAS.md',
+                     'tests/navegador/e2e_avisos.py']   # v50.47: walks the site with the test accounts
 # In no zip: the archive of retired files, screenshots, repository files, runtime data, caches and temporary files.
 NOT_IN_ANY = ['_archivo/*', 'docs/capturas/*', '.github/*', '.gitignore', '.env', '.env.*', '*.pyc', '*/__pycache__/*', '*.log', 'logs/*',
               'storage/*', 'public/assets/*', 'data/subidas/*', 'data/backups/*', 'data/mail-outbox/*', 'data/tiles/*', 'dist/*',
@@ -120,6 +121,12 @@ def check_files(files: dict[str, Path], kind: str) -> list[str]:
             if need not in files: problems.append(f'falta {need}')
         if 'README.md' in files and '--create-admin' not in files['README.md'].read_text(encoding='utf-8'):
             problems.append('README.md: no explica cómo crear el administrador (--create-admin)')
+    # v50.47: the web asks for its JS and CSS with ?v=<version> and the service worker cache carries the version: if they
+    # stay on the previous one, a browser that already visited the site keeps the old code.
+    ver = app_version()
+    for rel, need in (('public/index.html', f'?v={ver}'), ('public/sw.js', f'?v={ver}'), ('public/sw.js', f"worldives-v{ver.replace('.', '-')}")):
+        if rel in files and need not in files[rel].read_text(encoding='utf-8'):
+            problems.append(f'{rel}: no lleva la versión {ver} ({need}); el navegador seguiría usando el código anterior')
     if kind == 'pruebas' and DEMO_LIVE in files and db_counts(files[DEMO_LIVE]).get('admins'):
         problems.append(f'{DEMO_LIVE}: la base de pruebas no debe traer cuentas de administración (las crea el titular)')
     if kind == 'pruebas':

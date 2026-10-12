@@ -1575,11 +1575,11 @@ def migrate_v50_47(db):
 
 
 NOTICES_SCHEMA = '''
-CREATE TABLE IF NOT EXISTS provider_settings (provider_id TEXT PRIMARY KEY REFERENCES providers(id),
+CREATE TABLE IF NOT EXISTS provider_settings (provider_id TEXT NOT NULL PRIMARY KEY REFERENCES providers(id),
   notice_policy TEXT NOT NULL DEFAULT 'choice' CHECK (notice_policy IN ('choice','refund')),
   reminder_enabled INTEGER NOT NULL DEFAULT 1, reminder_hour INTEGER NOT NULL DEFAULT 18 CHECK (reminder_hour BETWEEN 0 AND 23),
   reminder_bring TEXT, updated_at TEXT, updated_by INTEGER);
-CREATE TABLE IF NOT EXISTS whatsapp_accounts (provider_id TEXT PRIMARY KEY REFERENCES providers(id),
+CREATE TABLE IF NOT EXISTS whatsapp_accounts (provider_id TEXT NOT NULL PRIMARY KEY REFERENCES providers(id),
   status TEXT NOT NULL DEFAULT 'connected' CHECK (status IN ('connected','reconnect')),
   waba_id TEXT NOT NULL, phone_number_id TEXT NOT NULL, display_number TEXT NOT NULL, token TEXT NOT NULL,
   pnid_hash TEXT NOT NULL UNIQUE, number_hash TEXT NOT NULL UNIQUE, waba_hash TEXT, verified_name TEXT, coexistence INTEGER NOT NULL DEFAULT 0,
@@ -4833,9 +4833,11 @@ def reward_offer_row(row):
 # one function confirms a payment, whoever reports it first (Stripe webhook, return page or sweeper).
 # ---------------------------------------------------------------------------
 def stripe_secret():
-    # Demo deployments never take real payments (Fase 5.9): without a key every centre shows «pago en el centro».
-    if wcfg.demo_mode(): return ''
-    return os.environ.get('STRIPE_SECRET_KEY','').strip()
+    # Demo deployments never take real payments (Fase 5.9): only a Stripe TEST key works there (the 4242 card of
+    # README-PRUEBAS.md); without one every centre shows «pago en el centro». A live key stops the start (demo_guard).
+    key = os.environ.get('STRIPE_SECRET_KEY','').strip()
+    if wcfg.demo_mode() and not key.startswith(('sk_test_', 'rk_test_')): return ''
+    return key
 
 
 def stripe_module():
@@ -5110,7 +5112,7 @@ EMAIL_TEMPLATES = {
  'booking_cancelled_center': {'to': 'diver', 'subject': 'Reserva cancelada por el centro · {service}', 'pre': '{refund_short}', 'blocks': [
    ('h', '{center} ha cancelado tu reserva'),
    ('p', 'Hola {first_name}, el centro ha tenido que cancelar tu reserva del {date}. Suele deberse al estado del mar o a motivos de seguridad.'),
-   ('details', None), ('note', '{refund_note}'), ('button', ('Buscar otra fecha', 'center_url'))]},
+   ('p', '{cancel_reason_text}'), ('details', None), ('note', '{refund_note}'), ('button', ('Buscar otra fecha', 'center_url'))]},
  'booking_cancelled_diver': {'to': 'diver', 'subject': 'Has cancelado tu reserva · {service}', 'pre': '{refund_short}', 'blocks': [
    ('h', 'Reserva cancelada'),
    ('p', 'Hola {first_name}, hemos cancelado tu reserva con {center} del {date}.'),
@@ -5702,7 +5704,11 @@ def notify_booking(db, bid, event, extra=None):
                                               reject_reason_text=mail_t(lang_d, 'Esas fechas ya no están disponibles. Mira otras fechas de {center}.', center=ctx.get('center') or ''),
                                               center_url=f"{public_site_url()}/#/reservar-dias?service={ctx.get('service_id') or ''}"))
         elif event == 'cancelled_center':
-            to_diver('booking_cancelled_center', refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']))
+            # v50.47: the reason (a key of the notices or the centre's own words) and the centre's note reach the diver.
+            rk = str(extra.get('reason') or '').strip()
+            why = mail_t(lang_d, SLOT_CANCEL_REASONS[rk]) if rk in SLOT_CANCEL_REASONS else rk
+            parts = ([mail_t(lang_d, 'Motivo: {reason}', reason=why)] if why else []) + ([mail_t(lang_d, 'Nota del centro: {note}', note=extra['note'])] if extra.get('note') else [])
+            to_diver('booking_cancelled_center', dict(refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']), cancel_reason_text='. '.join(parts)))
         elif event == 'cancelled_diver':
             outcome = extra.get('refund', 'none_paid')
             to_diver('booking_cancelled_diver', refund_texts(lang_d, outcome, ctx.get('refund') or ctx['total']))
@@ -8094,7 +8100,7 @@ def send_notice_row(db, row):
         elif row['channel'] == 'email':
             before = db.execute('SELECT COALESCE(MAX(id),0) FROM email_outbox').fetchone()[0]
             if kind == 'slot_cancelled' and batch['policy'] == 'refund':
-                notify_booking(db, booking['id'], 'cancelled_center', {'refund': 'refund_pending' if paid > 0 else 'none_paid', 'reason': batch['reason']})
+                notify_booking(db, booking['id'], 'cancelled_center', {'refund': 'refund_pending' if paid > 0 else 'none_paid', 'reason': batch['reason'], 'note': batch['note']})
             elif kind == 'slot_cancelled':
                 offer = slot_offer_for(db, booking['id'])
                 notify_booking(db, booking['id'], 'slot_cancelled', {'reason_key': batch['reason'], 'note': batch['note'], 'paid_net': paid,
@@ -8119,7 +8125,8 @@ def send_notice_row(db, row):
             if wcfg.demo_mode():
                 wamid = 'wamid.pruebas.' + row['uid'][:16]
                 demo_notice_copy(row, {'canal': 'whatsapp', 'desde': wcif.mask_phone(wcif.decrypt_secret(acc['display_number'])), 'para': wcif.mask_phone(to),
-                                       'plantilla': name, 'idioma': wwa.META_LANG.get(lang, 'es'), 'texto': body, 'boton': f'{public_site_url()}/r/{link}'})
+                                       'plantilla': name, 'idioma': wwa.META_LANG.get(lang, 'es'), 'texto': body, 'boton_texto': wav.button_label(kind, lang),
+                                       'boton': f'{public_site_url()}/r/{link}'})
             else:
                 wamid = wwa.send_template(wcif.decrypt_secret(acc['token']), wcif.decrypt_secret(acc['phone_number_id']), to, name, lang, params, buttons)
             db.execute("UPDATE notice_outbox SET status='sent',wamid=?,sent_at=?,last_error=NULL,updated_at=? WHERE id=? AND provider_id=?", (wamid, now(), now(), row['id'], row['provider_id']))
@@ -8280,7 +8287,7 @@ def whatsapp_connect_demo(db, ctx, user, data):
                   VALUES(?,'connected',?,?,?,?,?,?,?,?,1,?,?,?,?)
                   ON CONFLICT(provider_id) DO UPDATE SET status='connected',phone_number_id=excluded.phone_number_id,display_number=excluded.display_number,token=excluded.token,
                   pnid_hash=excluded.pnid_hash,number_hash=excluded.number_hash,templates=excluded.templates,connected_at=excluded.connected_at,last_error=NULL,updated_at=excluded.updated_at''',
-               (ctx.key, wcif.encrypt_secret('pruebas-waba'), wcif.encrypt_secret(pnid), wcif.encrypt_secret(number), wcif.encrypt_secret('pruebas'), pnid_hash, number_hash,
+               (ctx.key, wcif.encrypt_secret('pruebas-' + ctx.key), wcif.encrypt_secret(pnid), wcif.encrypt_secret(number), wcif.encrypt_secret('pruebas'), pnid_hash, number_hash,
                 wcif.keyed_hash('waba', 'pruebas-' + ctx.key), 'WhatsApp de prueba', json.dumps(tpl), now(), user['id'], now()))
     audit(db, user['id'], 'whatsapp_connected', 'provider', None, {'provider': ctx.key, 'number': wcif.mask_phone(number), 'pruebas': True})
     db.commit()

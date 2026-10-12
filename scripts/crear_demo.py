@@ -198,7 +198,7 @@ def build(out: Path):
 
         # --- v50.47: a second centre with divers in common (isolation between centres, mass notices) ------------
         u, e, n = ACCOUNTS['center2']
-        center2 = c(); ok(center2.register(n, e, u, PASSWORD, account_type='center', center_name='Centro de Buceo Pruebas Dos', phone='+34 600 000 201',
+        center2 = c(); ok(center2.register(n, e, u, PASSWORD, account_type='center', center_name='Centro de Buceo Pruebas Dos', phone='+34 972 000 202',
                                            city="L'Estartit", website='https://centro2-pruebas.example.com'), 'registrar el segundo centro')
         approve(e, 'email_domain'); ok(center2.login(u, PASSWORD), 'entrar como segundo centro')
         cid2 = center2.me()['user']['center_id']
@@ -231,13 +231,13 @@ def build(out: Path):
             x = book(d_, key, k); ok(center.post(f'/api/bookings/{x}/status', {'status': 'confirmed'}), 'confirmar')
         # Simulated WhatsApp numbers of both centres (test environment: messages are saved, never sent)
         cif = cifrado_for(srv.env)
-        for key_, number in ((f'c:{cid}', '+34 600 000 101'), (f'c:{cid2}', '+34 600 000 201')):
+        for key_, number in ((f'c:{cid}', '+34 600 000 101'), (f'c:{cid2}', '+34 972 000 202')):   # different at a glance: +346…01 / +349…02
             pnid = 'pruebas-' + key_.replace(':', '-')
             tpl = {f'{t}:{l}': 'APPROVED' for t in ('worldives_salida_cancelada', 'worldives_cambio_salida', 'worldives_recordatorio')
                    for l in ('es', 'en', 'fr', 'de', 'it', 'pt_PT', 'nl', 'pl', 'zh_CN')}
             srv.sql('''INSERT INTO whatsapp_accounts(provider_id,status,waba_id,phone_number_id,display_number,token,pnid_hash,number_hash,waba_hash,verified_name,coexistence,
                        templates,connected_at,updated_at) VALUES(?,'connected',?,?,?,?,?,?,?,?,1,?,?,?)''',
-                    (key_, cif.encrypt_secret('pruebas-waba'), cif.encrypt_secret(pnid), cif.encrypt_secret(cif.normalize_phone(number)), cif.encrypt_secret('pruebas'),
+                    (key_, cif.encrypt_secret('pruebas-' + key_), cif.encrypt_secret(pnid), cif.encrypt_secret(cif.normalize_phone(number)), cif.encrypt_secret('pruebas'),
                      cif.keyed_hash('pnid', pnid), cif.fingerprint(number), cif.keyed_hash('waba', 'pruebas-' + key_), 'WhatsApp de prueba', __import__('json').dumps(tpl), now_s(), now_s()))
         srv.sql("INSERT OR REPLACE INTO provider_settings(provider_id,notice_policy,reminder_enabled,reminder_hour,reminder_bring,updated_at) VALUES(?,?,?,?,?,?)",
                 (f'c:{cid}', 'choice', 1, 18, 'Titulación, toalla y protector solar', now_s()))

@@ -6,7 +6,7 @@
 WORLDIVES/
 ├── README.md               qué es, cómo arrancar, dónde está cada cosa
 ├── .env.example            todas las variables, vacías y comentadas
-├── requirements.txt        stripe, qrcode, fonttools
+├── requirements.txt        stripe, qrcode, fonttools, cryptography (cifrado de teléfonos, v50.47)
 ├── iniciar.bat / iniciar.sh            un solo arranque por sistema (opciones --red-local y --depuracion)
 ├── iniciar-pruebas.bat / .sh           solo en el zip de pruebas (puerto 8100)
 ├── app/                    servidor
@@ -30,6 +30,8 @@ WORLDIVES/
 ├── data/demo/              catálogo de demostración para las pruebas (solo en el zip de pruebas)
 ├── docs/                   notas de versión, despliegue, legal, marca (con el kit en docs/marca/kit/), estructura…
 ├── scripts/                crear admin, copias, generar zips, crear la semilla, reset_demo, iniciar
+│   ├── seguridad/          aislamiento entre centros: prueba estática del SQL, inventario de tablas, recuentos
+│   │                       públicos y cambio de la clave de los datos cifrados (v50.47)
 │   ├── marca/              generar el logo y sus variantes
 │   ├── idiomas/            herramientas de traducción
 │   └── herramientas/       prueba de carga y utilidades del catálogo
@@ -88,23 +90,28 @@ Se separan **poco a poco, una zona por versión**, sin cambiar el comportamiento
 | `pointtext` | descripciones de los puntos |
 | `agenda` | motor de agenda (v50.44) |
 | `money` | importes y monedas para Stripe (v50.45) |
-| **`formato`** | fechas e importes en el idioma de cada persona (**v50.46**) |
-| **`estaticos`** | direcciones de los archivos de la web (**v50.46**) |
+| `formato` | fechas e importes en el idioma de cada persona (v50.46) |
+| `estaticos` | direcciones de los archivos de la web (v50.46) |
+| **`inquilinos`** | la capa por centro: de qué centro es cada dato, consultas siempre filtradas, 404 (**v50.47**) |
+| **`cifrado`** | teléfonos y credenciales cifrados (AES-GCM), huellas para buscar, prefijos E.164 (**v50.47**) |
+| **`avisos`** | textos de los avisos masivos en 9 idiomas y enlaces firmados (**v50.47**) |
+| **`whatsapp`** | WhatsApp Cloud API de cada centro: alta, plantillas, envío y webhooks (**v50.47**) |
 
 ### Siguientes pasos
 
 | Versión | Servidor (`app/wod/…`) | Web (`public/js/…`) |
 |---|---|---|
-| v50.47 | `payments.py`: Stripe Connect, checkout, webhooks, reembolsos | `wd-pagos.js`: cobros y reembolsos del panel |
-| v50.48 | `emails.py`: cola, plantillas, envío SMTP y a archivo | `wd-i18n.js`: traducción del DOM y patrones |
-| v50.49 | `catalog.py`: puntos, destinos, mapas | `wd-mapa.js`: mapa, capas y marcadores |
-| v50.50 | `providers.py`: centros, freelance, planes, equipo | `wd-panel.js`: panel del centro y del freelance |
-| v50.51 | `accounts.py`: registro, sesiones, perfil, privacidad | `wd-cuenta.js`: cuenta, Log Book y puntos |
-| v50.52 | `admin.py`: administración, denuncias y contacto | `wd-admin.js`: administración |
-| v50.53 | `routes.py`: tabla de rutas en lugar de la cadena de `if path==…` | `wd-app.js`: arranque y rutas |
+| v50.48 | `payments.py`: Stripe Connect, checkout, webhooks, reembolsos | `wd-pagos.js`: cobros y reembolsos del panel |
+| v50.49 | `emails.py`: cola, plantillas, envío SMTP y a archivo | `wd-i18n.js`: traducción del DOM y patrones |
+| v50.50 | `catalog.py`: puntos, destinos, mapas | `wd-mapa.js`: mapa, capas y marcadores |
+| v50.51 | `providers.py`: centros, freelance, planes, equipo | `wd-panel.js`: panel del centro y del freelance |
+| v50.52 | `accounts.py`: registro, sesiones, perfil, privacidad | `wd-cuenta.js`: cuenta, Log Book y puntos |
+| v50.53 | `admin.py`: administración, denuncias y contacto | `wd-admin.js`: administración |
+| v50.54 | `routes.py`: tabla de rutas en lugar de la cadena de `if path==…` | `wd-app.js`: arranque y rutas |
 
-**Pagos se aplaza de v50.46 a v50.47:** depende de muchas funciones del servidor (reservas, avisos, auditoría), y
-moverlo a la vez que se reorganizan las carpetas mezclaría dos cambios grandes en una entrega. En v50.46 se separan
-dos zonas sin dependencias: `formato` y `estaticos`.
+**Pagos se aplaza de v50.47 a v50.48:** v50.47 es el encargo de avisos masivos y aislamiento entre centros, que ya
+cambia reservas, devoluciones y la base de datos; mover a la vez los pagos a otro archivo mezclaría dos cambios
+grandes en una entrega. Lo nuevo de v50.47 ya nace separado en módulos (`inquilinos`, `cifrado`, `avisos`, `whatsapp`)
+y, al separar `payments.py`, las consultas de pagos pasarán por la capa `inquilinos`.
 
 La web seguirá sin compilación: cada archivo se carga con `<script defer>` en orden y se añade al `sw.js`.

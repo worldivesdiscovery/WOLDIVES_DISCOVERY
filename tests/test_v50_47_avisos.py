@@ -12,6 +12,7 @@ import re
 import sqlite3
 import time
 import unittest
+from pathlib import Path
 
 from helpers import ServerTestCase, Client
 from meta_mock import MetaMock
@@ -187,7 +188,7 @@ class Notices(ServerTestCase):
         time.sleep(0.5)
         self.assertTrue(self.server.sql("SELECT 1 FROM audit_log WHERE action='security_alert' AND entity_type='whatsapp_number_taken'"))
         # No phone in clear anywhere in the database file (profiles, bookings, notices, WhatsApp credentials)
-        raw = open(self.server.db, 'rb').read() + (open(str(self.server.db) + '-wal', 'rb').read() if __import__('os').path.exists(str(self.server.db) + '-wal') else b'')
+        wal = Path(str(self.server.db) + '-wal'); raw = Path(self.server.db).read_bytes() + (wal.read_bytes() if wal.exists() else b'')
         for phone in ['611100100', '611 100 100', '600000111'] + list(self.meta.tokens):   # (the mock's wamid contains «pnidA»: it is Meta's message id, not a credential)
             self.assertNotIn(phone.encode(), raw, phone)
         self.assertFalse(self.server.sql("SELECT 1 FROM user_profiles WHERE phone IS NOT NULL AND phone NOT LIKE 'wdx1:%'"))
@@ -265,7 +266,7 @@ class Notices(ServerTestCase):
                  'messages': [{'from': '34611000000', 'id': 'wamid.in.1', 'type': 'text', 'text': {'body': 'TEXTO-DE-RESPUESTA-SECRETO'}}]}}]}]}
         raw, sig = MetaMock.signed(reply)
         self.assertEqual(Client(self.server, origin=None).request('POST', '/api/whatsapp/webhook', raw=raw, content_type='application/json', headers={'X-Hub-Signature-256': sig}).status, 200)
-        self.assertNotIn(b'TEXTO-DE-RESPUESTA-SECRETO', open(self.server.db, 'rb').read())
+        self.assertNotIn(b'TEXTO-DE-RESPUESTA-SECRETO', Path(self.server.db).read_bytes())
         # webhook verification
         self.assertEqual(Client(self.server).get('/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=verificar-pruebas&hub.challenge=123').body, b'123')
         self.assertEqual(Client(self.server).get('/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=otro&hub.challenge=123').status, 403)
@@ -283,7 +284,7 @@ class Notices(ServerTestCase):
         self.assertEqual(sorted(m['lang'] for m in mine), sorted(META.values()))
         for l, d in ds.items():
             subj = [m['subject'] for m in d.get('/api/me/area').json['messages'] if m['kind'] == 'notice'][0]
-            expected = json.load(open(__import__('pathlib').Path(__file__).resolve().parents[1] / 'app' / 'data' / 'whatsapp_plantillas.json', encoding='utf-8'))['textos']['app_subject_slot_cancelled'][l].split('{')[0].strip()
+            expected = json.loads((Path(__file__).resolve().parents[1] / 'app' / 'data' / 'whatsapp_plantillas.json').read_text(encoding='utf-8'))['textos']['app_subject_slot_cancelled'][l].split('{')[0].strip()
             self.assertTrue(subj.startswith(expected), (l, subj))
         # the Meta templates exist in the 9 languages in each centre's account
         self.assertEqual(len([k for k in self.meta.templates['wabaA'] if k.startswith('worldives_salida_cancelada:')]), 9)

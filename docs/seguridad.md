@@ -1,5 +1,17 @@
 # WORLDIVES DISCOVERY — seguridad
 
+## Aislamiento entre centros y datos cifrados (v50.47)
+
+- **Cada dato privado lleva su centro.** El centro (o el freelance) de cada dato privado es obligatorio en la propia
+  base de datos, con clave foránea, disparadores de coherencia e índices.
+- **Una sola capa de consulta** (`app/wod/inquilinos.py`) que siempre filtra por el centro de la sesión.
+- **Lo de otro centro da 404.** Los campos de centro que mande el navegador se ignoran y quedan registrados.
+- **La administración da un motivo** para ver o cambiar datos de un centro, y queda registrado.
+- **Teléfonos y credenciales de WhatsApp cifrados** (AES-256-GCM, `WOD_DATA_KEY`), con búsqueda por huella HMAC. La
+  clave se cambia con `scripts/seguridad/rotar_clave_datos.py`.
+- **Detalle:** auditoría, inventario de tablas y rutas, fallos corregidos y cómo se comprueba en cada versión, en
+  `docs/seguridad/aislamiento-centros.md`.
+
 ## Medidas aplicadas (v50.31 a v50.38)
 
 - **Sesiones** en la tabla `sessions` con el token guardado como hash SHA-256, caducidad de 8 h (`WOD_SESSION_TTL_SECONDS`), cookie `HttpOnly`, `SameSite=Lax` y `Secure` con https. Se cierran al cambiar la contraseña, el email o el rol; las caducadas se borran cada 10 minutos.

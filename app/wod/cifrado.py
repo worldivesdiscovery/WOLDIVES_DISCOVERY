@@ -8,7 +8,7 @@ normalised number (fingerprint()).
 Format of a stored value:  wdx1:<key id>:<base64url(nonce 12 bytes + ciphertext + tag)>
 - <key id> is the first 8 hex characters of SHA-256 of the key, so a value can always be opened with the key that
   wrote it. Rotation: put the new key in WOD_DATA_KEY and the old one(s) in WOD_DATA_KEY_OLD (comma separated); values
-  are opened with any of them and rewritten with the new one by scripts/rotar_clave_datos.py.
+  are opened with any of them and rewritten with the new one by scripts/seguridad/rotar_clave_datos.py.
 - A value without the prefix is legacy plain text (before v50.47) and is returned as it is; the migration encrypts it.
 
 Without WOD_DATA_KEY (development and the test environment only) the key is derived from WOD_SECRET_KEY. In production
