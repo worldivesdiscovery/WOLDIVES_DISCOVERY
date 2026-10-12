@@ -162,7 +162,7 @@
   async function loadMeta(){ if(!state.meta) state.meta=await api('/api/meta'); return state.meta; }
   // Marca en la cabecera la sección en la que está el visitante.
   function markNav(name){ const section={punto:'puntos',centro:'centros',experiencia:'experiencias',experienciareserva:'experiencias',reservar:'centros','reservar-dias':'experiencias'}[name]||name; $$('#main-nav a').forEach(a=>{ const on=a.getAttribute('href')==='#/'+section; a.classList.toggle('active',on); if(on) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); }); }
-  function route(){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,verificacion:renderLoginCode,registro:renderRegister,reservar:renderBooking,'reservar-dias':renderDayBooking,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin,manifiesto:renderManifest,'salida-cancelada':renderSlotCancelChoice,barco:renderBoatDay}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); return Promise.resolve(fn(new URLSearchParams(qs||''))).catch(err=>{console.error(err);setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
+  function route(){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('r/')) return renderSignedLink(hash.slice(2).split('?')[0]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,verificacion:renderLoginCode,registro:renderRegister,reservar:renderBooking,'reservar-dias':renderDayBooking,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin,manifiesto:renderManifest,'salida-cancelada':renderSlotCancelChoice,barco:renderBoatDay}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); return Promise.resolve(fn(new URLSearchParams(qs||''))).catch(err=>{console.error(err);setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
   window.addEventListener('hashchange', route);
   // CSP (script-src 'self'): no inline handlers in the markup. These delegated listeners replace them.
   document.addEventListener('click',e=>{ if(e.target.closest?.('[data-reload]')) location.reload(); });
@@ -1337,7 +1337,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <div class="acc-grid"><div class="acc-col">
         <form id="profile-form" class="acc-form">
           <section class="acc-card"><div class="acc-card-head"><h2>${wdIcon('user',18)} Datos personales</h2><span class="acc-pct">${comp.pct}% completa</span></div><div class="form-grid">
-            ${f('p-fullname','Nombre y apellidos',u.fullname,'required maxlength="120" autocomplete="name"')}${f('p-phone','Teléfono',profile.phone,'type="tel" autocomplete="tel"')}
+            ${f('p-fullname','Nombre y apellidos',u.fullname,'required maxlength="120" autocomplete="name"')}${wdPhoneField('p-phone',profile.phone,profile.country,d.whatsapp||{})}
             ${f('p-country','País',profile.country,'autocomplete="country-name"')}${f('p-city','Ciudad',profile.city,'autocomplete="address-level2"')}
             <div class="field"><label for="p-dob">Fecha de nacimiento <span class="opt">(opcional)</span></label><input id="p-dob" type="date" value="${esc(profile.date_of_birth||'')}" aria-describedby="p-dob-help"><small id="p-dob-help">Algunos centros la necesitan para el seguro de la actividad y para comprobar la edad mínima de cada curso.</small></div>
             <div class="field"><label for="p-lang">Idioma preferido</label><select id="p-lang">${Object.entries(LANGS).map(([code,label])=>`<option value="${code}" ${profile.preferred_language===code||(!profile.preferred_language&&code==='es')?'selected':''}>${label}</option>`).join('')}</select></div></div></section>
@@ -1373,10 +1373,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         ${marketingCard(u)}${accountPrivacyCard(u)}
         ${['admin','center','freelance'].includes(u.role)?`<section class="acc-card"><div class="acc-card-head"><h2>${wdIcon('chart',18)} Gestión</h2></div><p class="acc-help">${u.role==='admin'?'Tu cuenta tiene acceso al panel de administración.':'Gestiona tus servicios, reservas y cobros.'}</p><a class="btn btn-primary" href="#/admin">Abrir el panel</a></section>`:''}
       </aside></div>`));
-    bindAccountPrivacy(); fillAccountLevel(); if(location.hash.includes('docs=1')) setTimeout(()=>$('#acc-docs')?.scrollIntoView({behavior:'smooth'}),200);
+    bindAccountPrivacy(); fillAccountLevel(); wdPhoneWatch('p-phone'); if(location.hash.includes('docs=1')) setTimeout(()=>$('#acc-docs')?.scrollIntoView({behavior:'smooth'}),200);
     $('#profile-form').onsubmit=async e=>{e.preventDefault(); const btn=e.target.querySelector('[type=submit]'); btn.disabled=true;
       try{ const name=$('#p-fullname').value.trim(); if(name&&name!==u.fullname){ await postJSON('/api/account/identity',{fullname:name}); }
-        await postJSON('/api/account/profile',{phone:$('#p-phone').value,country:$('#p-country').value,city:$('#p-city').value,preferred_language:$('#p-lang').value,certification_id:$('#p-cert').value||null,notes:$('#p-notes').value,date_of_birth:$('#p-dob').value,emergency_contact_name:$('#p-emergency-name').value,emergency_contact_phone:$('#p-emergency-phone').value,equipment_required:$('#p-equipment').value==='1',suit_type:$('#p-suit-type').value,suit_size:$('#p-suit-size').value,boot_size:$('#p-boot-size').value,bcd_size:$('#p-bcd-size').value,fin_size:$('#p-fin-size').value,mask_size:$('#p-mask-size').value,usual_weight_kg:$('#p-weight').value||null,tank_preference:$('#p-tank').value,computer_preference:$('#p-computer').value,equipment_notes:$('#p-equipment-notes').value});
+        await postJSON('/api/account/profile',{phone:wdPhoneValue('p-phone'),wa_consent:!!$('#p-wa')?.checked,lang:currentLanguage(),country:$('#p-country').value,city:$('#p-city').value,preferred_language:$('#p-lang').value,certification_id:$('#p-cert').value||null,notes:$('#p-notes').value,date_of_birth:$('#p-dob').value,emergency_contact_name:$('#p-emergency-name').value,emergency_contact_phone:$('#p-emergency-phone').value,equipment_required:$('#p-equipment').value==='1',suit_type:$('#p-suit-type').value,suit_size:$('#p-suit-size').value,boot_size:$('#p-boot-size').value,bcd_size:$('#p-bcd-size').value,fin_size:$('#p-fin-size').value,mask_size:$('#p-mask-size').value,usual_weight_kg:$('#p-weight').value||null,tank_preference:$('#p-tank').value,computer_preference:$('#p-computer').value,equipment_notes:$('#p-equipment-notes').value});
         toast('Ficha guardada.'); await loadMe(); renderAccountPage(); }catch(err){ toast(err.message); btn.disabled=false; } };
     $('#doc-form').onsubmit=async e=>{e.preventDefault(); const file=$('#doc-file').files[0]; if(file&&file.size>10*1024*1024){ toast('El archivo pesa demasiado. Máximo 10 MB.'); return; } if(/m[eé]dic|salud/i.test($('#doc-title').value)){ toast('No subas certificados médicos a WORLDIVES: entrégalos directamente al centro de buceo.'); return; } try{await api('/api/account/documents',{method:'POST',body:new FormData(e.target)});toast('Documento subido.');renderAccountPage();}catch(err){toast(err.message)}};
     bindAccountExtras(d); bindMarketingCard();
@@ -1569,7 +1569,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     async function submit(){ if(sending||!st.quote) return; keepLink(); st.notes=$('#dbk-notes').value;
       if(!state.me){ toast('Inicia sesión o crea tu cuenta para terminar. Guardamos los días que has elegido.'); goLogin(); return; }
       sending=true; const go=$('#dbk-go'); go.disabled=true; const label=go.textContent; go.textContent='Enviando…';
-      try{ const c=await postJSON('/api/bookings',{center_id:p.type==='center'?p.id:null,service_id:sid,days:st.quote.days,part:st.part,booking_date:st.quote.days[0],participants:st.pax,agenda_extras:[...st.extras],notes:st.notes});
+      try{ const c=await postJSON('/api/bookings',{...wdWaConsent(),center_id:p.type==='center'?p.id:null,service_id:sid,days:st.quote.days,part:st.part,booking_date:st.quote.days[0],participants:st.pax,agenda_extras:[...st.extras],notes:st.notes});
         if(c.checkout_url){ go.textContent='Abriendo el pago seguro…'; location.href=c.checkout_url; return; }
         toast(c.status==='confirmed'?'¡Reserva confirmada!':'Solicitud enviada. No se cobra nada hasta que te confirmen.'); location.hash='#/reserva?id='+c.id;
       }catch(err){ toast(err.message); sending=false; go.disabled=false; go.textContent=label; try{ Object.assign(st.states,(await api(`/api/agenda/public?service=${sid}&month=${st.month}`)).days); drawCal(); }catch{} } }
@@ -1698,6 +1698,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <button type="button" class="btn btn-primary bk-go" ${ready?'':'disabled'}>${esc(cta)}</button>
         ${modeTxt?`<p class="bk-mode"><b>${esc(modeTxt[0])}.</b> ${esc(modeTxt[1])}</p>`:''}${payPanel}
         ${policyText?`<div class="bk-policy">${wdIcon('calendar',15)}<p><b>Política de cancelación.</b> ${esc(policyText)}${policyNote?' '+esc(policyNote):''}</p></div>`:''}
+        ${wdWaConsentBox()}
         <div class="bk-legal"><p><b>Prestado por ${esc(center.legal_name||center.name)}${center.country?', '+esc(center.country):''}.</b> WORLDIVES DISCOVERY es la plataforma de reservas: no organiza ni presta la actividad.</p><p>Precio final fijado por el centro, impuestos incluidos.</p><p>Las actividades de ocio con fecha concreta no tienen derecho de desistimiento de 14 días (art. 103.l del TRLGDCU); se aplica la política de cancelación del centro.</p><p>Al reservar aceptas las <a href="#/legal/condiciones-reserva" target="_blank" rel="noopener">condiciones de reserva</a> y las <a href="#/legal/condiciones-buceadores" target="_blank" rel="noopener">condiciones de uso</a>.</p></div>
         <ul class="bk-trust"><li>${wdIcon('users',15)}Tus datos y tu certificación llegan al centro con la reserva.</li>${center.phone?`<li>${wdIcon('clock',15)}¿Dudas? <a href="tel:${esc(String(center.phone).replace(/\s+/g,''))}">${esc(center.phone)}</a></li>`:''}</ul>
       </div>`;
@@ -1735,7 +1736,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const codes=equipCodes(); const items=st.rent?equipment.filter(e=>st.qty[e.code]>0).map(e=>`${e.label} ×${st.qty[e.code]}`).join(', '):'';
       const point=(sl.points||[]).find(p=>Number(p.id)===st.point)||(sl.points||[])[0]||null;
       sending=true; $$('.bk-go').forEach(b=>{ b.disabled=true; b.dataset.label=b.textContent; b.textContent='Reservando…'; });
-      try{ const created=await postJSON('/api/bookings',{center_id:cid||null,service_id:s.id,slot_id:sl.id,dive_point_id:point?Number(point.id):null,dive_point_name:point?.name||'',booking_date:sl.slot_date,booking_time:sl.slot_time,participants:st.pax,
+      try{ const created=await postJSON('/api/bookings',{...wdWaConsent(),center_id:cid||null,service_id:s.id,slot_id:sl.id,dive_point_id:point?Number(point.id):null,dive_point_name:point?.name||'',booking_date:sl.slot_date,booking_time:sl.slot_time,participants:st.pax,
           needs_equipment:codes.length>0,equipment_items:items,equipment_codes:codes,equipment_notes:st.sizes,extra_ids:[...st.extras],needs_guide:st.guide,guide_notes:st.guideNotes,nitrox:st.nitrox,pickup:st.pickup,notes:st.notes});
         if(created.checkout_url){ $$('.bk-go').forEach(b=>{ b.textContent='Abriendo el pago seguro…'; }); location.href=created.checkout_url; return; }
         toast(created.status==='confirmed'?'¡Reserva confirmada!':'Solicitud enviada. No se cobra nada hasta que el centro acepte.'); location.hash='#/reserva?id='+created.id;
@@ -2040,40 +2041,210 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       translateTree(el); $('#bn-ok',el).onclick=()=>{ offEnqueue({slot_id:slotId,booking_id:b,seat:st,field:'note',base:baseOf(b,st,'note'),value:$('#bn-text',el).value.trim(),at:new Date().toISOString(),date,offline:!navigator.onLine}); close(); renderBoatDay(params).then(()=>offSync()); }; });
   }
   // ---------------------------------------------------------------- v50.41 · Encargo 2, puntos 2, 3 y 4
-  const SLOT_REASONS=[['weather','Mal tiempo'],['sea','Estado del mar'],['other','Otro motivo']];
+  const SLOT_REASONS=[['weather','Mal tiempo'],['sea','Estado del mar'],['boat','Avería del barco'],['other','Otro motivo']];
   const SLOT_EVENTS={cancelled:'Salida cancelada',choice_reschedule:'Cambio de fecha elegido',choice_refund:'Devolución elegida',auto_refund:'Devolución automática (sin respuesta)',
     booking_moved_in:'Reserva movida a esta salida',booking_moved_out:'Reserva movida a otra salida',reschedule_requested:'Solicitud de cambio de fecha',waitlist_joined:'Alta en la lista de espera',
     waitlist_notified:'Aviso de plaza libre',waitlist_booked:'Reserva desde la lista de espera',waitlist_expired:'Aviso caducado sin reservar',waitlist_left:'Baja de la lista de espera'};
-  // 2. Cancel a departure: list of affected people and what each one receives, before confirming.
-  async function openSlotCancel(slotId,after){
-    let p; try{ p=await postJSON('/api/provider-services/slot-cancel',{slot_id:slotId,preview:true}); }catch(err){ toast(err.message); return; }
-    const esc=escapeHtml, people=p.affected.filter(a=>a.receives!=='released'), divers=people.reduce((n,a)=>n+a.participants,0);
-    const line=a=>`<li><b>${esc(a.name||'Pago en curso')}</b>${a.participants>1?` <small>×${a.participants}</small>`:''}<span>${a.receives==='refund'?`Cambio de fecha o devolución íntegra de ${wdMoney(a.paid,a.currency)}`:a.receives==='no_charge'?'Cambio de fecha o anulación sin coste':'El pago en curso se anula y no se cobra'}</span>${a.receives!=='released'&&!a.alternatives?'<small class="muted">No hay otras salidas con plazas: solo podrá elegir la devolución o la anulación.</small>':''}</li>`;
-    const {el,close}=wdOpenModal({id:'slot-cancel',title:'Cancelar salida',subtitle:people.length?`Se avisará a ${people.length} ${people.length===1?'reserva':'reservas'} (${divers} ${divers===1?'buceador':'buceadores'}) por email.`:'No hay reservas en esta salida.',
-      body:`<form id="sc-form"><fieldset class="sc-reasons"><legend>Motivo</legend>${SLOT_REASONS.map(([k,l],i)=>`<label class="lg-check"><input type="radio" name="sc-reason" value="${k}" ${i===0?'checked':''}><span>${l}</span></label>`).join('')}</fieldset>
-        <div class="field"><label for="sc-note">Explicación para los buceadores (opcional)</label><textarea id="sc-note" rows="2" maxlength="300" placeholder="Ej. Viento de levante de 25 nudos"></textarea></div>
-        ${people.length?`<div class="field"><label for="sc-hours">Plazo para elegir (horas)</label><input id="sc-hours" type="number" min="1" max="168" value="${p.choice_hours}"><small>Si alguien no elige a tiempo, se le devuelve el importe automáticamente (o se anula sin coste si no había pagado).</small></div>
-        <h3 class="adl-h">Qué recibe cada uno</h3><ul class="sc-list">${p.affected.map(line).join('')}</ul>`:''}</form>`,
-      footer:'<button type="button" class="btn" data-modal-close>Volver</button><button type="button" class="btn danger" id="sc-ok">Cancelar salida y avisar</button>'});
+  // 2. Cancel a departure (v50.47: through the mass notices: WhatsApp, email and app, with undo and status panel).
+  function openSlotCancel(slotId,after){ return openSlotNotice(slotId,'slot_cancelled',after); }
+  // ---------------------------------------------------------------- v50.47 · Teléfono con prefijo y permiso de WhatsApp (parte C)
+  // The diver writes the number in their own profile with the country prefix; only with the consent box ticked do
+  // the centres they book with send them notices by WhatsApp (never to a number typed by a centre).
+  const DIAL=[['ES','+34'],['PT','+351'],['FR','+33'],['IT','+39'],['DE','+49'],['GB','+44'],['IE','+353'],['NL','+31'],['BE','+32'],['LU','+352'],['CH','+41'],['AT','+43'],['PL','+48'],
+    ['CZ','+420'],['SK','+421'],['HU','+36'],['SI','+386'],['HR','+385'],['GR','+30'],['MT','+356'],['CY','+357'],['RO','+40'],['BG','+359'],['DK','+45'],['SE','+46'],['NO','+47'],['FI','+358'],
+    ['IS','+354'],['US','+1'],['CA','+1'],['MX','+52'],['DO','+1'],['CU','+53'],['CO','+57'],['VE','+58'],['EC','+593'],['PE','+51'],['BR','+55'],['AR','+54'],['CL','+56'],['UY','+598'],['CR','+506'],
+    ['PA','+507'],['BZ','+501'],['HN','+504'],['MA','+212'],['EG','+20'],['ZA','+27'],['NG','+234'],['KE','+254'],['TZ','+255'],['MZ','+258'],['AE','+971'],['SA','+966'],['IL','+972'],['TR','+90'],
+    ['IN','+91'],['MV','+960'],['LK','+94'],['TH','+66'],['MY','+60'],['SG','+65'],['ID','+62'],['PH','+63'],['VN','+84'],['CN','+86'],['HK','+852'],['TW','+886'],['JP','+81'],['KR','+82'],
+    ['AU','+61'],['NZ','+64'],['FJ','+679'],['PF','+689']];
+  const E164=/^\+[1-9]\d{7,14}$/;
+  function wdRegionName(iso){ try{ return new Intl.DisplayNames([currentLanguage()],{type:'region'}).of(iso)||iso; }catch{ return iso; } }
+  function wdSplitPhone(value,country){ const v=String(value||'').replace(/[\s().\-\/]/g,'').replace(/^00/,'+');
+    if(v.startsWith('+')){ const m=DIAL.filter(([,c])=>v.startsWith(c)).sort((a,b)=>b[1].length-a[1].length)[0]; if(m) return {iso:m[0],code:m[1],num:v.slice(m[1].length)}; }
+    const iso=(DIAL.find(([i])=>i===String(country||'').toUpperCase())||DIAL[0])[0]; return {iso,code:DIAL.find(([i])=>i===iso)[1],num:v}; }
+  function wdPhoneField(id,value,country,wa){ const esc=escapeHtml, p=wdSplitPhone(value,country);
+    return `<div class="field ph-field"><label for="${id}-num">Teléfono móvil</label><div class="ph-row"><select id="${id}-cc" aria-label="${esc(translateString('Prefijo del país'))}">${DIAL.map(([iso,code])=>`<option value="${iso}" ${iso===p.iso?'selected':''}>${esc(wdRegionName(iso))} (${code})</option>`).join('')}</select>
+      <input id="${id}-num" type="tel" inputmode="tel" autocomplete="tel-national" maxlength="20" value="${esc(p.num)}" aria-describedby="${id}-warn"></div>
+      <small id="${id}-warn" class="ph-warn" aria-live="polite"></small>
+      <label class="lg-check ph-wa"><input type="checkbox" id="p-wa" ${wa.consent?'checked':''}> <span>Recibir por WhatsApp los avisos de mis reservas del centro</span></label>
+      <small>Solo de los centros con los que reserves (cancelaciones, cambios de hora y recordatorios). Puedes retirarlo cuando quieras. Sin este permiso, los avisos te llegan por correo y en la app.</small></div>`; }
+  function wdPhoneValue(id){ const cc=$('#'+id+'-cc'), n=$('#'+id+'-num'); if(!n) return ''; let num=n.value.replace(/[\s().\-\/]/g,''); if(!num) return '';
+    if(num.startsWith('+')||num.startsWith('00')) return num.replace(/^00/,'+'); const iso=cc?.value||'ES', code=(DIAL.find(([i])=>i===iso)||DIAL[0])[1];
+    if(num.startsWith('0')&&iso!=='IT') num=num.slice(1); return code+num; }
+  function wdPhoneWatch(id){ const n=$('#'+id+'-num'), cc=$('#'+id+'-cc'), w=$('#'+id+'-warn'); if(!n||!w) return;
+    const chk=()=>{ const v=wdPhoneValue(id); w.textContent=v&&!E164.test(v)?translateString('Revisa el número: sin prefijo no podrás recibir avisos por WhatsApp.'):''; };
+    n.addEventListener('input',chk); cc?.addEventListener('change',chk); chk(); }
+  function wdWaConsentBox(){ const me=state.me; if(!me?.authenticated||me.user?.role!=='recreational') return '';
+    return `<div class="bk-wa"><label class="lg-check"><input type="checkbox" id="bk-wa" ${me.whatsapp?.consent?'checked':''}> <span>${translateString('Recibir por WhatsApp los avisos de mis reservas del centro')}</span></label>
+      ${me.whatsapp?.phone_ok?'':`<small>${translateString('Añade tu móvil con prefijo en «Mi cuenta» para recibirlos.')}</small>`}</div>`; }
+  function wdWaConsent(){ const b=$('#bk-wa'); return b?{wa_consent:b.checked,lang:currentLanguage()}:{}; }
+  // ---------------------------------------------------------------- v50.47 · Avisos masivos (WhatsApp, correo y app)
+  // The centre never types a phone or a list of people: the server computes who is told from the bookings of the
+  // departure. Nothing leaves for a few seconds (Deshacer); then a status panel shows each diver and channel.
+  const NOTICE_REASONS=[['weather','Mal tiempo'],['sea','Estado del mar'],['boat','Avería del barco'],['other','Otro']];
+  const NOTICE_CH=[['whatsapp','WhatsApp'],['email','Correo'],['app','App']];
+  const NOTICE_ST={queued:'En cola',sending:'Enviando',sent:'Enviado',delivered:'Entregado',read:'Leído',failed:'Fallido',blocked:'Bloqueado por seguridad',skipped:'No se envía',unknown:'Sin confirmar'};
+  const NOTICE_LANGS={es:'Español',en:'English',fr:'Français',de:'Deutsch',it:'Italiano',pt:'Português',nl:'Nederlands',pl:'Polski',zh:'中文'};
+  async function openSlotNotice(slotId,kind,after){
+    const esc=escapeHtml, cancel=kind!=='slot_changed';
+    let cfg; try{ cfg=await api('/api/avisos/ajustes'); }catch(err){ toast(err.message); return; }
+    if(!cfg.can_send){ toast('Solo el propietario o el encargado del centro pueden enviar avisos a todos los clientes.'); return; }
+    const st={reason:'weather',note:'',policy:cfg.settings.notice_policy,new_time:'',meeting_point:'',lang:''};
+    const {el,close}=wdOpenModal({id:'notice-modal',size:'lg',title:cancel?'Cancelar salida y avisar a todos':'Cambio de hora o punto de encuentro',
+      body:`<form id="nt-form" class="nt-form" novalidate>
+        ${cancel?`<fieldset class="nt-reasons"><legend>Motivo</legend>${NOTICE_REASONS.map(([k,l],i)=>`<label class="nt-chip"><input type="radio" name="nt-reason" value="${k}" ${i===0?'checked':''}><span>${l}</span></label>`).join('')}</fieldset>`
+          :`<div class="form-grid"><div class="field"><label for="nt-time">Nueva hora</label><input id="nt-time" type="time"></div><div class="field"><label for="nt-point">Nuevo punto de encuentro</label><input id="nt-point" maxlength="160" placeholder="Ej. Puerto de Xàbia, pantalán 3"></div></div>`}
+        <div class="field"><label for="nt-note">Nota para los buceadores (opcional)</label><textarea id="nt-note" rows="2" maxlength="200" placeholder="${cancel?'Ej. Viento de levante de 25 nudos':'Ej. Llegad 15 minutos antes'}"></textarea><small class="nt-count"><span id="nt-n">0</span>/200</small></div>
+        ${cancel?`<fieldset class="nt-policy"><legend>Qué pasa con el dinero</legend>
+          <label class="lg-check"><input type="radio" name="nt-policy" value="choice" ${st.policy==='choice'?'checked':''}><span><b>Cada buceador elige</b> <small>Otra fecha o la devolución íntegra. Si no elige a tiempo, se le devuelve.</small></span></label>
+          <label class="lg-check"><input type="radio" name="nt-policy" value="refund" ${st.policy==='refund'?'checked':''}><span><b>Devolver ya a todos</b> <small>El importe pagado vuelve a su tarjeta desde tu cuenta de Stripe.</small></span></label></fieldset>`:''}
+        <div id="nt-preview" class="nt-preview" aria-live="polite"><p class="wd-loading">Calculando a quién se avisa…</p></div>
+      </form>`,
+      footer:'<button type="button" class="btn" data-modal-close>Volver</button><button type="button" class="btn danger" id="nt-ok" disabled></button>'});
     translateTree(el);
-    $('#sc-ok',el).onclick=async()=>{ const reason=$('input[name="sc-reason"]:checked',el).value, note=$('#sc-note',el).value.trim();
-      if(reason==='other'&&note.length<3){ toast('Explica brevemente el motivo.'); $('#sc-note',el).focus(); return; }
-      const b=$('#sc-ok',el); b.disabled=true;
-      try{ await postJSON('/api/provider-services/slot-cancel',{slot_id:slotId,reason,note,choice_hours:$('#sc-hours',el)?+$('#sc-hours',el).value:undefined}); close(); toast(people.length?'Salida cancelada. Hemos avisado a los buceadores.':'Salida cancelada.'); after&&after(); }
-      catch(err){ toast(err.message); b.disabled=false; } };
+    const ok=$('#nt-ok',el), pvBox=$('#nt-preview',el); ok.textContent=translateString(cancel?'Cancelar salida y avisar a todos':'Avisar del cambio a todos');
+    let pv=null, seq=0, tmo=null;
+    const read=()=>{ st.note=$('#nt-note',el).value; $('#nt-n',el).textContent=st.note.length;
+      if(cancel){ st.reason=$('input[name="nt-reason"]:checked',el)?.value||'weather'; st.policy=$('input[name="nt-policy"]:checked',el)?.value||'choice'; }
+      else { st.new_time=$('#nt-time',el).value; st.meeting_point=$('#nt-point',el).value.trim(); } };
+    const draw=()=>{ if(!pv) return; const c=pv.counts, langs=pv.previews.map(p=>p.lang); if(!st.lang||!langs.includes(st.lang)) st.lang=langs[0]||'';
+      const p=pv.previews.find(x=>x.lang===st.lang);
+      const yes=(on,why)=>on?`<span class="nt-yes" title="${esc(translateString('Se envía'))}">${wdIcon('check',14)}</span>`:`<span class="nt-no" title="${esc(translateString(why||'No se envía'))}">–</span>`;
+      pvBox.innerHTML=`<div class="nt-slot"><span class="eyebrow">${translateString('Salida')}</span><b>${esc(pv.slot.label)}</b></div>
+        ${pv.recipients?`<div class="nt-counts" role="list"><span role="listitem">${esc(translateString(pv.recipients===1?'{n} buceador':'{n} buceadores')).replace('{n}',`<b>${pv.recipients}</b>`)}</span>${NOTICE_CH.map(([k,l])=>`<span role="listitem" class="nt-c-${k}">${l} <b>${c[k]}</b></span>`).join('')}</div>`
+          :`<p class="notice">${translateString('No hay reservas activas en esta salida: no se avisa a nadie.')}</p>`}
+        ${!pv.whatsapp.connected?`<p class="nt-hint">${wdIcon('info',15)} <span>${translateString(pv.whatsapp.enabled?'Tu centro no tiene WhatsApp conectado: los avisos salen por correo y en la app.':'WhatsApp aún no está activado en WORLDIVES: los avisos salen por correo y en la app.')}</span></p>`
+          :`<p class="nt-hint">${wdIcon('whatsapp',15)} <span>${esc(translateString('WhatsApp sale desde tu número {number}; las respuestas te llegan a tu WhatsApp.')).replace('{number}',`<b translate="no">${esc(pv.whatsapp.number||'')}</b>`)}</span></p>`}
+        ${pv.people.length?`<div class="table-wrap nt-people"><table class="data-table"><thead><tr><th>${translateString('Buceador')}</th>${NOTICE_CH.map(([,l])=>`<th>${l}</th>`).join('')}${cancel?`<th>${translateString('Dinero')}</th>`:''}</tr></thead><tbody>
+          ${pv.people.map(x=>`<tr><td><b translate="no">${esc(x.name)}</b>${x.participants>1?` <small>×${x.participants}</small>`:''} <small class="nt-lang">${esc((x.lang||'').toUpperCase())}</small></td>${NOTICE_CH.map(([k])=>`<td>${yes(x.channels[k],x.why_not[k])}</td>`).join('')}${cancel?`<td>${x.paid>0?`${translateString(st.policy==='refund'?'Devolución de':'Otra fecha o devolución de')} ${wdMoney(x.paid,x.currency)}`:translateString(st.policy==='refund'?'Sin cobro':'Otra fecha o anulación sin coste')}</td>`:''}</tr>`).join('')}</tbody></table></div>`:''}
+        ${cancel&&pv.money.refund>0?`<p class="nt-money">${translateString(st.policy==='refund'?'Se devolverá en total':'Importe pagado que se puede devolver')}: <b>${wdMoney(pv.money.refund,pv.money.currency)}</b></p>`:''}
+        ${cancel&&pv.money.paying?`<p class="adl-det">${translateString('Pagos en curso que se anulan sin cobrar')}: ${pv.money.paying}</p>`:''}
+        ${p?`<div class="nt-msg"><div class="nt-msg-head"><h3>${translateString('Mensaje que recibe cada uno')}</h3>${langs.length>1?`<div class="nt-langs" role="tablist">${langs.map(l=>`<button type="button" role="tab" class="nt-lang-b ${l===st.lang?'is-on':''}" data-l="${l}" aria-selected="${l===st.lang}">${esc(NOTICE_LANGS[l]||l)}</button>`).join('')}</div>`:''}</div>
+          <div class="nt-bubble" lang="${esc(st.lang)}" translate="no"><p>${esc(p.whatsapp)}</p><span class="nt-btn">${esc(p.button)}</span></div><small class="adl-det">${translateString('El mismo texto llega por correo y en la app, en el idioma de cada buceador.')}</small></div>`:''}
+        <div class="field nt-confirm"><label for="nt-confirm">${esc(translateString('Para confirmar, escribe la fecha de la salida ({date}) o su nombre.')).replace('{date}',`<b translate="no">${esc(pv.confirm_hint.date)}</b>`)}</label><input id="nt-confirm" autocomplete="off" inputmode="text"></div>
+        <p class="adl-det">${esc(translateString('Tendrás {n} segundos para deshacer antes de que salga nada.').replace('{n}',pv.undo_seconds))}</p>`;
+      $$('.nt-lang-b',pvBox).forEach(b=>b.onclick=()=>{ st.lang=b.dataset.l; draw(); });
+      const ci=$('#nt-confirm',pvBox); const okNow=()=>{ const v=(ci.value||'').trim().toLowerCase().replace(/\s+/g,''); ok.disabled=!(v&&(v===pv.confirm_hint.date||v===pv.confirm_hint.iso||v===(pv.confirm_hint.name||'').toLowerCase().replace(/\s+/g,''))); };
+      ci.value=st.confirm||''; ci.oninput=()=>{ st.confirm=ci.value; okNow(); }; okNow(); };
+    const load=async()=>{ read(); const my=++seq;
+      try{ const r=await postJSON('/api/avisos/preview',{slot_id:slotId,kind:cancel?'slot_cancelled':'slot_changed',reason:st.reason,note:st.note,policy:st.policy,new_time:st.new_time,meeting_point:st.meeting_point});
+        if(my===seq){ pv=r; draw(); } }catch(err){ if(my===seq) pvBox.innerHTML=`<div class="notice">${esc(err.message)}</div>`; } };
+    $('#nt-form',el).addEventListener('input',e=>{ if(e.target.id==='nt-confirm') return; read(); clearTimeout(tmo); tmo=setTimeout(load,350); });
+    $('#nt-form',el).addEventListener('change',e=>{ if(e.target.name==='nt-reason'||e.target.name==='nt-policy') load(); });
+    load();
+    ok.onclick=async()=>{ read();
+      if(cancel&&st.reason==='other'&&st.note.trim().length<3){ toast('Explica el motivo en la nota.'); $('#nt-note',el).focus(); return; }
+      if(!cancel&&!st.new_time&&!st.meeting_point){ toast('Indica la nueva hora o el nuevo punto de encuentro.'); return; }
+      ok.disabled=true;
+      try{ const r=await postJSON(cancel?'/api/avisos/cancelar':'/api/avisos/cambio',{slot_id:slotId,reason:st.reason,note:st.note,policy:st.policy,new_time:st.new_time,meeting_point:st.meeting_point,confirm:st.confirm});
+        close(); openNoticeStatus(r.uid,after); }
+      catch(err){ toast(err.message); ok.disabled=false; } };
+  }
+  async function openNoticeStatus(uid,after){
+    const esc=escapeHtml; let timer=null, done=false;
+    const {el,close}=wdOpenModal({id:'notice-status',size:'lg',title:'Estado del aviso',body:'<div id="ns-body" aria-live="polite"><p class="wd-loading">Cargando…</p></div>',footer:'<button type="button" class="btn" data-modal-close>Cerrar</button>'});
+    translateTree(el); const box=$('#ns-body',el);
+    const chip=(c)=>c?`<span class="ns-chip ns-${esc(c.status)}" title="${esc(c.reason?translateString(c.reason):'')}">${esc(translateString(NOTICE_ST[c.status]||c.status))}</span>`:'<span class="ns-chip">—</span>';
+    const draw=async()=>{ if(!el.isConnected){ clearTimeout(timer); return; }
+      let s; try{ s=await api('/api/avisos/'+uid); }catch(err){ box.innerHTML=`<div class="notice">${esc(err.message)}</div>`; return; }
+      const sum=s.summary||{};
+      box.innerHTML=`<div class="nt-slot"><span class="eyebrow">${translateString(s.kind==='slot_cancelled'?'Salida cancelada':s.kind==='slot_changed'?'Cambio de la salida':'Recordatorio')}</span><b>${esc(s.slot.label)}</b></div>
+        ${s.status==='scheduled'?`<div class="ns-undo"><p>${esc(translateString('Todavía no ha salido nada. Sale en {n} s.')).replace('{n}',`<b id="ns-left">${s.undo_left}</b>`)}</p><button type="button" class="btn danger" id="ns-undo">${translateString('Deshacer')}</button></div>`
+          :s.status==='undone'?`<p class="notice success">${translateString('Deshecho: no se ha enviado nada y la salida sigue como estaba.')}</p>`
+          :s.status==='failed'||s.status==='blocked'?`<p class="notice">${translateString(s.status==='blocked'?'Bloqueado por seguridad: no se ha enviado nada. El administrador está avisado.':'No se ha podido hacer: no se ha cambiado nada.')}</p>`
+          :`<div class="nt-counts">${NOTICE_CH.map(([k,l])=>{ const x=sum[k]||{}; const okN=(x.sent||0)+(x.delivered||0)+(x.read||0); return `<span class="nt-c-${k}">${l} <b>${okN}</b>${x.failed?` · <i>${esc(translateString('{n} fallidos').replace('{n}',x.failed))}</i>`:''}${x.read?` · ${esc(translateString('{n} leídos').replace('{n}',x.read))}`:''}</span>`; }).join('')}</div>`}
+        ${(s.people||[]).length?`<div class="table-wrap"><table class="data-table ns-table"><thead><tr><th>${translateString('Buceador')}</th>${NOTICE_CH.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
+          ${s.people.map(p=>`<tr><td><b translate="no">${esc(p.name)}</b> <small class="nt-lang">${esc((p.lang||'').toUpperCase())}</small></td>${NOTICE_CH.map(([k])=>`<td>${chip(p.channels[k])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:''}
+        ${(s.refunds||[]).length?`<p class="adl-det">${esc(translateString('Devoluciones hechas: {a} de {b}').replace('{a}',s.refunds.filter(r=>r.status==='done').length).replace('{b}',s.refunds.length))}</p>`:''}`;
+      $('#ns-undo',box)?.addEventListener('click',async()=>{ try{ await postJSON(`/api/avisos/${uid}/deshacer`,{}); toast('Aviso deshecho: no ha salido nada.'); draw(); }catch(err){ toast(err.message); draw(); } });
+      if(['scheduled','running'].includes(s.status)) timer=setTimeout(draw,s.status==='scheduled'?1000:2500);
+      else if(!done){ done=true; after&&after(); } };
+    draw();
+  }
+  // History of the notices of a departure (manifest) or of the centre (Avisos y WhatsApp).
+  async function noticeHistory(mount,slotId){
+    const esc=escapeHtml; let d; try{ d=await api('/api/avisos'+(slotId?'?slot='+slotId:'')); }catch{ return; }
+    if(!d.items.length){ mount.innerHTML=`<p class="adl-det">${translateString('Todavía no se ha enviado ningún aviso.')}</p>`; return; }
+    const K={slot_cancelled:'Salida cancelada',slot_changed:'Cambio de hora o punto',reminder:'Recordatorio del día antes'}, S={scheduled:'Programado',undone:'Deshecho',running:'Enviando',done:'Enviado',failed:'No enviado',blocked:'Bloqueado por seguridad'};
+    mount.innerHTML=`<ul class="ns-hist">${d.items.map(x=>`<li><button type="button" class="btn-link" data-uid="${esc(x.uid)}">${esc(translateString(K[x.kind]||x.kind))}</button> · ${esc(wdLegalDate(x.created_at))} · <span class="ns-chip ns-${esc(x.status)}">${esc(translateString(S[x.status]||x.status))}</span>${x.counts?.destinatarios!=null?` · ${esc(translateString('{n} buceadores').replace('{n}',x.counts.destinatarios))}`:''}</li>`).join('')}</ul>`;
+    $$('[data-uid]',mount).forEach(b=>b.onclick=()=>openNoticeStatus(b.dataset.uid));
+  }
+  // «Avisos y WhatsApp» in the panel: the centre's WhatsApp Business number, the money policy and the reminder.
+  async function renderNoticesPanel(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let d; try{ d=await api('/api/avisos/ajustes'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    const w=d.whatsapp, s=d.settings, can=d.can_send;
+    const tpl=w.templates||{};
+    mount.innerHTML=`<section class="mm-module nt-panel"><div class="svc-head"><div><p class="eyebrow">Avisos</p><h2>Avisos a tus clientes y WhatsApp</h2>
+      <p>Si cancelas una salida o cambias la hora o el punto de encuentro, avisamos a todos los buceadores de esa salida por WhatsApp (desde tu número), correo y la app. Las respuestas te llegan a tu WhatsApp: WORLDIVES no las lee.</p></div></div>
+      <div class="cb-grid-2"><section class="cb-panel"><div class="cb-panel-head"><h3>${wdIcon('whatsapp',18)} WhatsApp Business</h3></div>
+        ${!w.enabled?`<p class="notice">WhatsApp aún no está activado en WORLDIVES. Mientras tanto, los avisos salen por correo y en la app.</p>`
+        :w.connected?`<p><b translate="no">${esc(w.number||'')}</b>${w.verified_name?` · <span translate="no">${esc(w.verified_name)}</span>`:''}</p>
+          ${w.status==='reconnect'?`<p class="notice">${esc(w.last_error||'El permiso de WhatsApp ha caducado: reconecta tu número. Mientras tanto, los avisos salen por correo y en la app.')}</p>`:`<p class="notice success">Conectado. Los avisos salen desde este número.</p>`}
+          <p class="adl-det" translate="no">${esc(translateString('Plantillas aprobadas por Meta: {a} de {b}').replace('{a}',tpl.approved||0).replace('{b}',tpl.total||0))}${tpl.pending?` · ${esc(translateString('{n} en revisión').replace('{n}',tpl.pending))}`:''}${tpl.rejected?` · ${esc(translateString('{n} rechazadas').replace('{n}',tpl.rejected))}`:''}</p>
+          ${can?`<div class="form-actions"><button type="button" class="btn" id="wa-refresh">Comprobar plantillas</button>${w.status==='reconnect'?'<button type="button" class="btn btn-primary" id="wa-connect">Reconectar</button>':''}<button type="button" class="btn danger" id="wa-off">Desconectar</button></div>`:''}`
+        :`<p>Conecta el número de WhatsApp Business de tu centro. Meta te cobra cada mensaje directamente a ti.</p>
+          ${w.coexistence_available?`<p class="adl-det">Puedes seguir usando la app WhatsApp Business en el móvil con el mismo número.</p>`:`<p class="notice">En tu país Meta todavía no permite usar el mismo número en la app WhatsApp Business y en los avisos automáticos. Te recomendamos un número aparte para los avisos.</p>`}
+          ${can?`<label class="lg-check"><input type="checkbox" id="wa-coex" ${w.coexistence_available?'':'disabled'}> <span>Ya uso este número en la app WhatsApp Business y quiero seguir usándola</span></label><div class="form-actions"><button type="button" class="btn btn-primary" id="wa-connect">${wdIcon('whatsapp',16)} Conectar mi WhatsApp Business</button></div>`:'<p class="adl-det">Solo el propietario o el encargado pueden conectarlo.</p>'}`}
+      </section>
+      <section class="cb-panel"><div class="cb-panel-head"><h3>${wdIcon('bell',18)} Ajustes de los avisos</h3></div>
+        <form id="nt-set" class="form-grid">
+          <fieldset class="full"><legend>Al cancelar una salida, por defecto</legend>
+            <label class="lg-check"><input type="radio" name="nt-pol" value="choice" ${s.notice_policy==='choice'?'checked':''} ${can?'':'disabled'}> <span>Cada buceador elige otra fecha o la devolución</span></label>
+            <label class="lg-check"><input type="radio" name="nt-pol" value="refund" ${s.notice_policy==='refund'?'checked':''} ${can?'':'disabled'}> <span>Devolver el importe a todos</span></label></fieldset>
+          <label class="lg-check full"><input type="checkbox" id="nt-rem" ${s.reminder_enabled?'checked':''} ${can?'':'disabled'}> <span>Enviar un recordatorio el día antes de cada salida</span></label>
+          <div class="field"><label for="nt-hour">Hora del recordatorio</label><select id="nt-hour" ${can?'':'disabled'}>${Array.from({length:24},(_,h)=>`<option value="${h}" ${h===+s.reminder_hour?'selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('')}</select></div>
+          <div class="field"><label for="nt-bring">Qué llevar (opcional)</label><input id="nt-bring" maxlength="120" value="${esc(s.reminder_bring||'')}" placeholder="Titulación, toalla y protector solar" ${can?'':'disabled'}></div>
+          ${can?'<div class="form-actions full"><button type="submit" class="btn btn-primary">Guardar</button></div>':''}</form>
+        <p class="adl-det" translate="no">${esc(translateString('Límite: {n} avisos masivos al día. Siempre tendrás {s} segundos para deshacer.').replace('{n}',d.max_per_day).replace('{s}',d.undo_seconds))}</p></section></div>
+      <section class="cb-panel"><div class="cb-panel-head"><h3>Últimos avisos</h3></div><div id="nt-hist"></div></section></section>`;
+    translateTree(mount); noticeHistory($('#nt-hist',mount));
+    $('#nt-set',mount)?.addEventListener('submit',async e=>{ e.preventDefault();
+      try{ await postJSON('/api/avisos/ajustes',{notice_policy:$('input[name="nt-pol"]:checked',mount).value,reminder_enabled:$('#nt-rem',mount).checked,reminder_hour:+$('#nt-hour',mount).value,reminder_bring:$('#nt-bring',mount).value}); toast('Ajustes guardados.'); }catch(err){ toast(err.message); } });
+    $('#wa-refresh',mount)?.addEventListener('click',async()=>{ try{ await postJSON('/api/whatsapp/templates/refresh',{}); renderNoticesPanel(mountId); }catch(err){ toast(err.message); } });
+    $('#wa-off',mount)?.addEventListener('click',async()=>{ if(!await wdConfirm({title:'Desconectar WhatsApp',text:'Se borran las credenciales de tu número en WORLDIVES. Los avisos seguirán saliendo por correo y en la app.',ok:'Desconectar',danger:true})) return;
+      try{ await postJSON('/api/whatsapp/disconnect',{}); toast('WhatsApp desconectado.'); renderNoticesPanel(mountId); }catch(err){ toast(err.message); } });
+    $('#wa-connect',mount)?.addEventListener('click',()=>whatsappSignup(w,!!$('#wa-coex',mount)?.checked,()=>renderNoticesPanel(mountId)));
+  }
+  // Meta's Embedded Signup (Facebook JS SDK, loaded only here and only when WhatsApp is enabled on the server).
+  function whatsappSignup(w,coex,done){
+    let info={}; const onMsg=ev=>{ if(!/^https:\/\/(www|web)\.facebook\.com$/.test(ev.origin)) return;
+      try{ const m=typeof ev.data==='string'?JSON.parse(ev.data):ev.data; if(m?.type==='WA_EMBEDDED_SIGNUP'&&m.data){ info={waba_id:m.data.waba_id,phone_number_id:m.data.phone_number_id,coexistence:/BUSINESS_APP/.test(m.event||'')||coex}; } }catch{} };
+    window.addEventListener('message',onMsg);
+    const go=()=>window.FB.login(resp=>{ window.removeEventListener('message',onMsg); const code=resp?.authResponse?.code; if(!code){ toast('No se ha completado la conexión con Meta.'); return; }
+        postJSON('/api/whatsapp/connect',{code,...info,coexistence:info.coexistence??coex}).then(()=>{ toast('WhatsApp conectado.'); done&&done(); }).catch(err=>toast(err.message)); },
+      {config_id:w.config_id,response_type:'code',override_default_response_type:true,extras:{setup:{},sessionInfoVersion:'3',...(coex?{featureType:'whatsapp_business_app_onboarding'}:{})}});
+    if(window.FB) return go();
+    window.fbAsyncInit=()=>{ window.FB.init({appId:w.app_id,autoLogAppEvents:true,xfbml:false,version:w.graph_version||'v23.0'}); go(); };
+    const s=document.createElement('script'); s.src='https://connect.facebook.net/es_ES/sdk.js'; s.async=true; s.defer=true; s.crossOrigin='anonymous';
+    s.onerror=()=>toast('No se ha podido cargar el acceso de Meta. Revisa tu conexión.'); document.head.appendChild(s);
+  }
+  // The link of a notice (WhatsApp button, email, app): opens only that booking, without signing in.
+  async function renderSignedLink(token){
+    const esc=escapeHtml; let d; try{ d=await api('/api/r/'+encodeURIComponent(token)); }catch(err){ setApp(authCard('Aviso del centro',`<div class="notice">${esc(err.message)}</div><p><a class="btn" href="#/area">Mis reservas</a></p>`)); return; }
+    const b=d.booking;
+    if(d.offer&&!d.offer.resolved_at){ return renderSlotCancelChoice(new URLSearchParams({l:token}),d); }
+    const head=d.kind==='slot_cancelled'?'Salida cancelada':d.kind==='slot_changed'?'Cambio en tu salida':'Tu salida de mañana';
+    setApp(authCard(head,`<p class="lead auth-lead"><b translate="no">${esc(b.service)}</b> · <span translate="no">${esc(b.center)}</span></p>
+      <ul class="sl-facts"><li>${wdIcon('calendar',16)} <span>${esc(wdLongDay(b.booking_date))}${b.booking_time?' · '+esc(b.booking_time):''}</span></li>
+        ${b.meeting_point?`<li>${wdIcon('pin',16)} <span translate="no">${esc(b.meeting_point)}</span> · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.meeting_point)}" target="_blank" rel="noopener">${translateString('Ver en el mapa')}</a></li>`:''}
+        <li>${wdIcon('user',16)} <span>${esc(translateString(b.participants===1?'{n} plaza':'{n} plazas').replace('{n}',b.participants))} · <span translate="no">${esc(b.ref)}</span></span></li></ul>
+      ${d.offer?.resolved_at?`<div class="notice success">${translateString('Ya elegiste una opción para esta reserva.')}</div>`:''}
+      <p class="auth-small">${translateString('¿Dudas? Escribe o llama al centro')}${b.center_phone?`: <a href="tel:${esc(b.center_phone)}" translate="no">${esc(b.center_phone)}</a>`:''}${b.center_email?` · <a href="mailto:${esc(b.center_email)}" translate="no">${esc(b.center_email)}</a>`:''}</p>
+      <p><a class="btn" href="#/area">${translateString('Ver todas mis reservas')}</a></p>`));
   }
   // 2. The diver's choice after a cancelled departure (link from the email; works without signing in).
-  async function renderSlotCancelChoice(params){
-    const bid=Number(params.get('b')||0), tok=params.get('t')||'', esc=escapeHtml;
-    let d; try{ d=await api(`/api/slot-cancel/${bid}${tok?'?t='+encodeURIComponent(tok):''}`); }catch(err){ setApp(authCard('Salida cancelada',`<div class="notice">${esc(err.message)}</div><p><a class="btn" href="#/area">Mis reservas</a></p>`)); return; }
+  async function renderSlotCancelChoice(params,pre){
+    // v50.47: also from the signed link of a notice (l), which opens only this booking and expires.
+    const bid=Number(params.get('b')||0), tok=params.get('t')||'', link=params.get('l')||'', esc=escapeHtml;
+    let d=pre; if(!d) try{ d=await api(link?`/api/r/${encodeURIComponent(link)}`:`/api/slot-cancel/${bid}${tok?'?t='+encodeURIComponent(tok):''}`); }catch(err){ setApp(authCard('Salida cancelada',`<div class="notice">${esc(err.message)}</div><p><a class="btn" href="#/area">Mis reservas</a></p>`)); return; }
     const b=d.booking, o=d.offer, reasonL=(SLOT_REASONS.find(r=>r[0]===o.reason)||[0,'Otro motivo'])[1];
-    if(o.resolved_at){ setApp(authCard('Salida cancelada',`<div class="notice success">${o.choice==='reschedule'?`Hecho: tu reserva pasa al ${esc(wdLongDay(b.booking_date))} a las ${esc(b.booking_time||'')}.`:'Hecho: la reserva está cancelada y el importe pagado se ha devuelto.'}</div><p><a class="btn" href="#/reserva?id=${b.id}">Ver mi reserva</a></p>`)); return; }
+    if(o.resolved_at){ setApp(authCard('Salida cancelada',`<div class="notice success">${o.choice==='reschedule'?`Hecho: tu reserva pasa al ${esc(wdLongDay(b.booking_date))} a las ${esc(b.booking_time||'')}.`:'Hecho: la reserva está cancelada y el importe pagado se ha devuelto.'}</div><p><a class="btn" href="${b.id?`#/reserva?id=${b.id}`:'#/area'}">Ver mi reserva</a></p>`)); return; }
     setApp(authCard('Salida cancelada',`<p class="lead auth-lead">${esc(`${b.center} ha cancelado tu salida de ${b.service} del ${wdLongDay(o.slot_date)} a las ${o.slot_time||''}.`)}</p>
       <p class="notice"><span>Motivo:</span> <span>${esc(reasonL)}</span>${o.note?`<span translate="no"> · ${esc(o.note)}</span>`:''}</p>
       <h3 class="adl-h">Pasar a otra fecha</h3>${d.alternatives.length?`<div class="sc-alts" role="radiogroup" aria-label="Otras fechas">${d.alternatives.map((a,i)=>`<label class="sc-alt"><input type="radio" name="sc-alt" value="${a.slot_id}" ${i===0?'checked':''}><span><b>${esc(wdLongDay(a.slot_date))}</b> · ${esc(a.slot_time)}<small>${a.spots_available} plazas libres</small></span></label>`).join('')}</div><button type="button" class="btn btn-primary" id="sc-move">Cambiar a esta fecha</button>`:'<p class="adl-det">Ahora mismo no hay otras salidas de este servicio con plazas suficientes.</p>'}
       <h3 class="adl-h">${d.paid>0?'O la devolución':'O anular la reserva'}</h3><p class="adl-det">${d.paid>0?`Te devolvemos ${wdMoney(d.paid,d.currency)} a tu tarjeta.`:'No habías pagado nada: se anula sin coste.'}</p><button type="button" class="btn" id="sc-refund">${d.paid>0?'Quiero la devolución íntegra':'Anular la reserva'}</button>
       <p class="auth-small">Si no eliges antes del ${esc(wdDeadline(o.deadline))}, ${d.paid>0?'te devolveremos el importe automáticamente':'la reserva se anulará sin coste'}.</p>`));
-    const send=async(body,confirmTxt)=>{ if(!await wdConfirm(confirmTxt)) return; try{ await postJSON(`/api/slot-cancel/${bid}`,{t:tok,...body}); toast('Hecho.'); renderSlotCancelChoice(params); }catch(err){ toast(err.message); } };
+    const send=async(body,confirmTxt)=>{ if(!await wdConfirm(confirmTxt)) return; try{ await postJSON(link?`/api/r/${encodeURIComponent(link)}`:`/api/slot-cancel/${bid}`,link?body:{t:tok,...body}); toast('Hecho.'); renderSlotCancelChoice(params); }catch(err){ toast(err.message); } };
     $('#sc-move')?.addEventListener('click',()=>{ const v=$('input[name="sc-alt"]:checked'); if(!v) return; const a=d.alternatives.find(x=>x.slot_id===+v.value);
       send({choice:'reschedule',slot_id:a.slot_id},{title:'Cambiar de fecha',text:`Tu reserva (${b.participants} ${b.participants===1?'plaza':'plazas'}) pasará al ${wdLongDay(a.slot_date)} a las ${a.slot_time}, con el mismo precio.`,ok:'Cambiar de fecha'}); });
     $('#sc-refund').addEventListener('click',()=>send({choice:'refund'},d.paid>0?{title:'Pedir la devolución',text:`La reserva se cancela y te devolvemos ${wdMoney(d.paid,d.currency)}.`,ok:'Pedir la devolución'}:{title:'Anular la reserva',text:'La reserva se anula sin ningún coste.',ok:'Anular la reserva'}));
@@ -2223,7 +2394,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const when=`${wdLongDay(s.slot_date)} · ${s.slot_time}`;
     setApp(`<section class="page mf-page"><div class="mf-screen"><div class="breadcrumb"><a href="#/admin?tab=planning">Planning</a> / Manifiesto</div>
       <div class="mf-head"><div><p class="eyebrow">Manifiesto de salida</p><h1>${esc(s.service_title)}</h1><p class="lead">${esc(when)}${d.points.length?' · '+esc(d.points.map(p=>p.name).join(', ')):''} · ${d.divers.length} ${d.divers.length===1?'buceador':'buceadores'}</p></div>
-        <div class="page-actions">${view==='board'?`${edit&&d.divers.length?`<button type="button" class="btn btn-primary" id="mf-suggest">${wdIcon('users',15)} Sugerir reparto</button>`:''}<a class="btn" href="#/manifiesto?slot=${s.id}&vista=barco">Vista para el barco</a>`:`<a class="btn" href="#/manifiesto?slot=${s.id}">Vista de reparto</a>`}<button type="button" class="btn" id="mf-print">${wdIcon('download',15)} Imprimir</button>${!d.cancelled&&s.slot_date>=wdToday()&&s.slot_date<=new Date(Date.now()+864e5).toISOString().slice(0,10)?`<a class="btn" href="#/barco?slot=${s.id}&fecha=${s.slot_date}">${wdIcon('check',15)} Check-in</a>`:''}${edit&&!d.cancelled?'<button type="button" class="btn" id="mf-cancel">Cancelar salida</button>':''}</div></div>
+        <div class="page-actions">${view==='board'?`${edit&&d.divers.length?`<button type="button" class="btn btn-primary" id="mf-suggest">${wdIcon('users',15)} Sugerir reparto</button>`:''}<a class="btn" href="#/manifiesto?slot=${s.id}&vista=barco">Vista para el barco</a>`:`<a class="btn" href="#/manifiesto?slot=${s.id}">Vista de reparto</a>`}<button type="button" class="btn" id="mf-print">${wdIcon('download',15)} Imprimir</button>${!d.cancelled&&s.slot_date>=wdToday()&&s.slot_date<=new Date(Date.now()+864e5).toISOString().slice(0,10)?`<a class="btn" href="#/barco?slot=${s.id}&fecha=${s.slot_date}">${wdIcon('check',15)} Check-in</a>`:''}${edit&&!d.cancelled?'<button type="button" class="btn" id="mf-change">Cambio de hora o punto</button><button type="button" class="btn danger" id="mf-cancel">Cancelar salida y avisar a todos</button>':''}</div></div>
       ${d.cancelled?`<div class="notice warn"><strong>Salida cancelada.</strong> <span>Motivo:</span> <span>${esc((SLOT_REASONS.find(r=>r[0]===d.cancelled.reason)||[0,'Otro motivo'])[1])}</span>${d.cancelled.note?`<span translate="no"> · ${esc(d.cancelled.note)}</span>`:''}</div>`:''}
       ${d.warnings.length?`<div class="notice warn mf-warn" role="status"><ul>${d.warnings.map(w=>`<li>${esc(w.text)}</li>`).join('')}</ul></div>`:''}
       ${!d.divers.length?'<div class="empty"><h2>Todavía no hay buceadores en esta salida</h2><p>Cuando lleguen reservas aparecerán aquí para repartirlas por barco, guía y grupo.</p></div>':view==='board'?`
@@ -2238,7 +2409,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         ${groupsForPrint.map(([g,list])=>`<h2>${g?esc(g.label)+' · '+esc(boatOf(g.boat_id)?.name||'Sin barco')+' · '+esc(g.guide||'Sin guía'):'Sin grupo'}</h2><table><thead><tr><th>Nombre</th><th>Nivel</th><th>Alquiler</th><th>Tallas</th><th>Nitrox</th><th>Emergencia</th><th>Descargo</th><th>A bordo</th></tr></thead><tbody>${printRows(list)}</tbody></table>`).join('')}</div></section>`);
     const reload=()=>renderManifest(params);
     $('#mf-print').onclick=()=>window.print();
-    $('#mf-cancel')?.addEventListener('click',()=>openSlotCancel(s.id,reload));
+    $('#mf-cancel')?.addEventListener('click',()=>openSlotNotice(s.id,'slot_cancelled',reload));
+    $('#mf-change')?.addEventListener('click',()=>openSlotNotice(s.id,'slot_changed',reload));
     if(!edit||view!=='board') return;
     const move=async(moves)=>{ try{ await postJSON(`/api/manifest/${s.id}/assign`,{moves}); reload(); }catch(err){ toast(err.message); } };
     $('#mf-max')?.addEventListener('change',async e=>{ try{ await postJSON(`/api/manifest/${s.id}/settings`,{max_per_guide:+e.target.value}); reload(); }catch(err){ toast(err.message); e.target.value=max; } });
@@ -2556,7 +2728,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   async function renderFreelancePanel(d){
     const u=d.user||{}, esc=escapeHtml; state.me=d;
     const tabs=[['dashboard','⌂','Resumen'],['bookings','☰','Reservas'],['planning','▦','Planning'],['agenda','▣','Mi agenda'],['services','◈','Servicios y tarifas'],['experiences','✈','Experiencias y solicitudes'],['payments','€','Cobros y pagos'],['profile','✦','Perfil público'],
-      ['requests','✉','Solicitudes de información'],['stats','◑','Estadísticas'],['tools','⇩','Herramientas'],['fiscal','§','Datos fiscales y seguro'],['plan','◆','Mi plan']];
+      ['avisos','✆','Avisos y WhatsApp'],['requests','✉','Solicitudes de información'],['stats','◑','Estadísticas'],['tools','⇩','Herramientas'],['fiscal','§','Datos fiscales y seguro'],['plan','◆','Mi plan']];
     setApp(`<section class="center-backoffice fl-office">
       <div class="cb-header"><div class="cb-header-id">${u.avatar_url?`<img class="center-logo fl-avatar" src="${esc(u.avatar_url)}" alt="">`:`<span class="acc-avatar fl-avatar-txt">${esc(initials(u.fullname||''))}</span>`}<div><p class="eyebrow">Panel del profesional</p><h1>${esc(u.fullname||'Profesional')}</h1><p>Instructor / guía freelance · tus salidas, experiencias y ficha pública en un solo panel.</p></div></div>
         <div class="cb-header-actions"><a class="btn" href="#/profesional?id=${u.id}">${wdIcon('eye',15)} Ver mi ficha pública</a><a class="btn" href="#/cuenta">${wdIcon('user',15)} Mi cuenta</a></div></div>
@@ -2577,6 +2749,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       else if(tab==='bookings'){ content.innerHTML='<div id="fl-bookings"></div>'; await renderCenterBookings('fl-bookings',{freelance:true}); }
       else if(tab==='payments'){ content.innerHTML='<div id="fl-payments"></div>'; await renderProviderPayments('fl-payments'); }
       else if(tab==='requests'){ content.innerHTML='<div id="fl-requests"></div>'; await renderInfoRequests('fl-requests'); }
+      else if(tab==='avisos'){ content.innerHTML='<div id="fl-avisos"></div>'; await renderNoticesPanel('fl-avisos'); }
       else if(tab==='stats'){ content.innerHTML='<div id="fl-stats"></div>'; await renderProviderStats('fl-stats'); }
       else if(tab==='tools'){ content.innerHTML='<div id="fl-tools"></div><div id="fl-waiver"></div>'; await renderProviderTools('fl-tools',false); await renderWaiverEditor('fl-waiver'); }
       else if(tab==='fiscal'){ content.innerHTML='<div id="fl-fiscal"></div>'; await renderFiscalCard('fl-fiscal'); }
@@ -2745,6 +2918,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     level:'<path d="M4 20h4v-6H4z"/><path d="M10 20h4V9h-4z"/><path d="M16 20h4V4h-4z"/>',
     pin:'<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
     search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+    whatsapp:'<path d="M4.5 19.5 5.6 16A8 8 0 1 1 8.4 18.6Z"/><path d="M9.3 8.9c.2 1.9 2.2 4.4 4.8 5.3l1.1-1.2 2 .9c-.3 1.2-1.3 1.8-2.4 1.6-3.4-.6-6.2-3.6-6.6-6.5-.1-1 .5-1.9 1.6-2.2l.9 2Z"/>',
+    bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15Z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
     map:'<path d="M9 4.5 3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2z"/><path d="M9 4.5v13M15 6.5v13"/>',
     mail:'<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/>',
     file:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
@@ -3770,7 +3945,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function centerWorkspaceShell(c,metrics){
     const m=metrics||{};
     return `<section class="center-backoffice">
-      <div class="cb-header ${c?.cover_url?'has-cover':''}" style="${c?.cover_url?`--cover:url('${escapeHtml(c.cover_url)}')`:''}"><div class="cb-header-id">${centerLogoMarkup(c||{},'58px')}<div><p class="eyebrow">Panel del centro</p><h1>${escapeHtml(c?.name||'Mi centro')}</h1>${c?.tagline?`<p>${escapeHtml(c.tagline)}</p>`:''}</div></div><div class="cb-header-actions"><a class="btn" href="#/centro?id=${c?.id||''}">Ver mi página</a><button class="btn btn-primary" id="cb-refresh">Actualizar</button></div></div>
+      <div class="cb-header ${c?.cover_url?'has-cover':''}" style="${c?.cover_url?`--cover:url('${escapeHtml(c.cover_url)}')`:''}"><div class="cb-header-id">${centerLogoMarkup(c||{},'58px')}<div><p class="eyebrow">Panel del centro</p><h1>${escapeHtml(c?.name||'Mi centro')}</h1>${c?.tagline?`<p>${escapeHtml(c.tagline)}</p>`:''}</div></div><div class="cb-header-actions">${(state.me?.centers||[]).length>1?`<label class="cb-switch"><span>Centro activo</span><select id="cb-switch">${state.me.centers.map(x=>`<option value="${x.id}" ${x.active?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></label>`:''}<a class="btn" href="#/centro?id=${c?.id||''}">Ver mi página</a><button class="btn btn-primary" id="cb-refresh">Actualizar</button></div></div>
       <div class="cb-layout"><aside class="cb-sidebar">
         <div class="cb-section-title">OPERACIONES</div>
         <button class="cb-nav active" data-cbtab="dashboard">⌂ <span>Resumen</span></button>
@@ -3789,6 +3964,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="cb-section-title">CONFIGURACIÓN</div>
         <button class="cb-nav" data-cbtab="center">✦ <span>Escaparate y datos</span></button>
         <button class="cb-nav" data-cbtab="rewards">★ <span>Recompensas</span></button>
+        <button class="cb-nav" data-cbtab="avisos">✆ <span>Avisos y WhatsApp</span></button>
         <div class="cb-section-title">MI CUENTA PROFESIONAL</div>
         <button class="cb-nav" data-cbtab="requests">✉ <span>Solicitudes de información</span></button>
         <button class="cb-nav" data-cbtab="stats">◑ <span>Estadísticas</span></button>
@@ -3957,7 +4133,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <div class="pl-slot-occ">${occBar(sl.taken,sl.spots_total)}<small>${sl.taken} de ${sl.spots_total} plazas ocupadas</small></div>
           ${act.length?`<ul class="pl-people">${act.map(b=>b.placeholder?`<li><span class="pl-person is-placeholder" title="Un buceador está pagando estas plazas. Si no completa el pago en unos minutos, se liberan solas."><span class="pl-avatar">…</span><span class="pl-pname">Pago en curso${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}</span></span></li>`:`<li><button type="button" class="pl-person" data-booking="${b.id}"><span class="pl-avatar">${esc(initials(b.fullname||'?'))}</span><span class="pl-pname">${esc(b.fullname||'Cliente')}${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}</span>${PL_PAY[b.payment_status]?`<span class="pl-tag ${PL_PAY[b.payment_status][1]}">${PL_PAY[b.payment_status][0]}</span>`:''}${(b.status==='requested'||b.status==='pending')?'<span class="pl-tag warn">Solicitud</span>':b.status==='accepted_pending_payment'?'<span class="pl-tag warn">Aceptada · pendiente de pago</span>':''}</button></li>`).join('')}</ul>`:'<p class="pl-nobody">Todavía sin reservas.</p>'}
           ${gone?`<p class="pl-gone">${gone} ${gone===1?'reserva cancelada':'reservas canceladas'}</p>`:''}
-          <div class="pl-slot-actions">${!past&&sl.status!=='closed'&&free>0?`${canBook?`<button type="button" class="btn pl-add" data-slot="${sl.id}" data-service="${sl.service_id}">+ Reserva</button>`:''}<button type="button" class="btn pl-poster" data-slot="${sl.id}">${wdIcon('image',15)} Crear cartel</button>`:''}${act.some(b=>!b.placeholder)?`<a class="btn pl-manifest" href="#/manifiesto?slot=${sl.id}">${wdIcon('users',15)} Manifiesto</a>`:''}${!past&&!sl.cancelled_at&&canBook?`<button type="button" class="btn pl-cancel" data-slot="${sl.id}">Cancelar salida</button>`:''}<button type="button" class="btn pl-manage">Gestionar</button></div>
+          <div class="pl-slot-actions">${!past&&sl.status!=='closed'&&free>0?`${canBook?`<button type="button" class="btn pl-add" data-slot="${sl.id}" data-service="${sl.service_id}">+ Reserva</button>`:''}<button type="button" class="btn pl-poster" data-slot="${sl.id}">${wdIcon('image',15)} Crear cartel</button>`:''}${act.some(b=>!b.placeholder)?`<a class="btn pl-manifest" href="#/manifiesto?slot=${sl.id}">${wdIcon('users',15)} Manifiesto</a>`:''}${!past&&!sl.cancelled_at&&canBook?`<button type="button" class="btn pl-change" data-slot="${sl.id}">Cambio de hora o punto</button><button type="button" class="btn pl-cancel" data-slot="${sl.id}">Cancelar salida y avisar a todos</button>`:''}<button type="button" class="btn pl-manage">Gestionar</button></div>
         </article>`; };
       const loose=f.other.filter(plActive);
       const html=`<div class="pl-pop" id="pl-pop" role="dialog" aria-label="${esc(wdLongDay(day))}">
@@ -3987,7 +4163,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       $$('.pl-add',pop).forEach(b=>b.onclick=()=>{ closePop(); openManualBooking({serviceId:+b.dataset.service,slotId:+b.dataset.slot,onSaved:reload}); });
       $$('.pl-poster',pop).forEach(b=>b.onclick=()=>{ const sl=f.slots.find(x=>String(x.id)===b.dataset.slot); closePop(); if(sl) openPosterStudio({center,slots:[sl]}); });
       $$('.pl-manage',pop).forEach(b=>b.onclick=()=>{ closePop(); onManage?.(); });
-      $$('.pl-cancel',pop).forEach(b=>b.onclick=()=>{ closePop(); openSlotCancel(+b.dataset.slot,reload); });
+      $$('.pl-cancel',pop).forEach(b=>b.onclick=()=>{ closePop(); openSlotNotice(+b.dataset.slot,'slot_cancelled',reload); });
+      $$('.pl-change',pop).forEach(b=>b.onclick=()=>{ closePop(); openSlotNotice(+b.dataset.slot,'slot_changed',reload); });
       pop.querySelector('.pl-day-add')?.addEventListener('click',()=>{ closePop(); openManualBooking({date:day,onSaved:reload}); });
       pop.querySelector('.pl-day-poster')?.addEventListener('click',()=>{ closePop(); openPosterStudio({center,slots:f.slots.filter(s=>s.status!=='closed'&&plFree(s)>0)}); });
     }
@@ -4340,6 +4517,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       else if(tab==='stats'){content.innerHTML='<div id="cb-stats"></div>'; await renderProviderStats('cb-stats');}
       else if(tab==='tools'){content.innerHTML='<div id="cb-tools"></div><div id="cb-waiver"></div>'; await renderProviderTools('cb-tools',true); await renderWaiverEditor('cb-waiver');}
       else if(tab==='team'){content.innerHTML='<div id="cb-team"></div>'; await renderTeam('cb-team');}
+      else if(tab==='avisos'){content.innerHTML='<div id="cb-avisos"></div>'; await renderNoticesPanel('cb-avisos');}
       else if(tab==='activity'){content.innerHTML='<div id="cb-activity"></div>'; await renderActivity('cb-activity');}
       else if(tab==='fiscal'){content.innerHTML='<div id="cb-fiscal"></div>'; await renderFiscalCard('cb-fiscal');}
       else if(tab==='plan'){content.innerHTML='<div id="cb-plan"></div>'; await renderMyPlan('cb-plan');}
@@ -4348,6 +4526,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if(state.me?.member_role==='instructor') $$('.cb-nav[data-cbtab="payments"],.cb-nav[data-cbtab="integration"],.cb-nav[data-cbtab="center"]').forEach(n=>n.remove());
     { const pl=state.me?.plan; if(pl&&pl.status!=='active'){ const host=$('#cb-content'); host?.insertAdjacentHTML('beforebegin',`<div class="pl-bar ${pl.status==='expired'||pl.code==='free'?'is-free':''}">${wdIcon('info',16)} ${pl.status==='trial'?`Prueba gratuita del plan ${escapeHtml(pl.name)} hasta el ${escapeHtml(wdLegalDate(pl.expires_at))}.`:pl.status==='expired'?'Tu plan ha terminado: tu ficha sigue como ficha gratuita y no recibe reservas online nuevas.':'Ficha gratuita: recibes solicitudes de información.'} <a href="#/admin?tab=plan">Mi plan</a></div>`); } }
     nav.forEach(n=>n.onclick=()=>loadTab(n.dataset.cbtab));
+    // v50.47 (B.6): someone who works for several centres changes the centre of this session explicitly.
+    $('#cb-switch')?.addEventListener('change',async e=>{ try{ await postJSON('/api/team/switch',{center:+e.target.value}); await loadMe(); location.hash='#/admin'; route(); toast('Ahora trabajas en este centro.'); }catch(err){ toast(err.message); } });
     content.addEventListener('click',async e=>{const g=e.target.closest('.cb-go'); if(g){e.preventDefault();loadTab(g.dataset.tab,{view:g.dataset.view});return;} if(e.target.closest('.db-new-booking')){openManualBooking({onSaved:async()=>{await reloadData(); if(currentTab==='dashboard')loadTab('dashboard');}});return;} const b=e.target.closest('.cb-booking-open'); if(b){location.hash='#/reserva?id='+b.dataset.id;}});
     $('#cb-refresh').onclick=()=>loadTab(currentTab);
     const requested=new URLSearchParams(location.hash.split('?')[1]||'').get('tab'); loadTab(requested && nav.some(n=>n.dataset.cbtab===requested)?requested:'dashboard');
@@ -4964,13 +5144,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let d; try{ d=await api('/api/center/team'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
     const me=state.me?.user?.id; const R=d.roles;
     mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Equipo</p><h2>Personas que gestionan el centro</h2>
-      <p><b>Propietario</b>: todo, incluidos cobros, plan y equipo. <b>Recepción</b>: reservas, clientes, servicios y salidas. <b>Instructor</b>: ve el planning y las reservas, sin cambiar nada.</p></div></div>
+      <p><b>Propietario</b>: todo, incluidos cobros, plan y equipo. <b>Encargado</b>: como recepción y, además, cancela salidas y envía avisos a todos los clientes. <b>Recepción</b>: reservas, clientes, servicios y salidas. <b>Instructor</b>: ve el planning y las reservas, sin cambiar nada.</p></div></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>Persona</th><th>Perfil</th><th></th></tr></thead><tbody>${d.members.map(m=>`<tr><td><b>${esc(m.fullname)}</b><div class="adl-det">${esc(m.email)}</div></td>
         <td><label class="sr-only" for="tm-r-${m.id}">Perfil de ${esc(m.fullname)}</label><select id="tm-r-${m.id}" class="tm-role" data-id="${m.id}" ${m.id===me?'disabled':''}>${Object.entries(R).map(([k,l])=>`<option value="${k}" ${k===m.member_role?'selected':''}>${esc(l)}</option>`).join('')}</select></td>
         <td>${m.id===me?'<small>Tú</small>':`<button type="button" class="btn tm-remove" data-id="${m.id}">Quitar</button>`}</td></tr>`).join('')}</tbody></table></div>
       ${d.invites.length?`<h3 class="adl-h">Invitaciones pendientes</h3><ul class="tm-inv">${d.invites.map(i=>`<li>${esc(i.email)} · ${esc(R[i.member_role])} · caduca ${esc(wdLegalDate(i.expires_at))} <button type="button" class="btn-link tm-revoke" data-id="${i.id}">Anular</button></li>`).join('')}</ul>`:''}
       ${d.team_feature?`<h3 class="adl-h">Invitar a alguien</h3><form id="tm-form" class="form-grid"><div class="field"><label for="tm-email">Email</label><input id="tm-email" type="email" required maxlength="160"></div>
-        <div class="field"><label for="tm-role">Perfil</label><select id="tm-role"><option value="reception">Recepción</option><option value="instructor">Instructor</option><option value="owner">Propietario</option></select></div>
+        <div class="field"><label for="tm-role">Perfil</label><select id="tm-role"><option value="reception">Recepción</option><option value="manager">Encargado</option><option value="instructor">Instructor</option><option value="owner">Propietario</option></select></div>
         <div class="form-actions full"><button class="btn btn-primary" type="submit">Enviar invitación</button></div></form><p class="adl-det">${d.limit?`Tu plan permite ${d.limit} personas.`:''}</p>`:'<p class="adl-det">El equipo está incluido en el plan Pro. <a href="#/planes">Ver planes</a></p>'}</section>`;
     $('#tm-form')?.addEventListener('submit',async e=>{ e.preventDefault(); try{ await postJSON('/api/center/team/invite',{email:$('#tm-email').value,member_role:$('#tm-role').value}); toast('Invitación enviada.'); renderTeam(mountId); }catch(err){ toast(err.message); } });
     $$('.tm-role',mount).forEach(x=>x.onchange=async()=>{ try{ await postJSON('/api/center/team/role',{user_id:+x.dataset.id,member_role:x.value}); toast('Perfil cambiado.'); }catch(err){ toast(err.message); renderTeam(mountId); } });

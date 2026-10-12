@@ -5814,7 +5814,8 @@ def spool_outbox_to_files(limit=150):
 def deliver_outbox_once(limit=150):
     """Sends a batch of queued emails over one SMTP connection. Returns how many were sent."""
     cfg = smtp_config()
-    if not cfg['enabled']: return spool_outbox_to_files(limit)
+    # The test environment never sends real emails (v50.47): they are written to files, whatever the .env says.
+    if not cfg['enabled'] or wcfg.demo_mode(): return spool_outbox_to_files(limit)
     db = None; sent = 0; conn = None
     try:
         db = connect()
@@ -5916,7 +5917,11 @@ def run_email_jobs(db, at=None):
         # Reminders 48 h and 24 h before (Fase 4). Bookings made after the 48 h mark only get the 24 h one.
         for r in db.execute(f"SELECT id FROM bookings WHERE status='confirmed' AND booking_date=? AND reminder48_sent_at IS NULL AND created_at<? AND {OPEN_OFFER_SQL}", (in2, (at - _timedelta(hours=12)).isoformat(timespec='seconds'))).fetchall():
             if db.execute('UPDATE bookings SET reminder48_sent_at=? WHERE id=? AND reminder48_sent_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'reminder_48h')
-        for r in db.execute(f"SELECT id FROM bookings WHERE status='confirmed' AND booking_date=? AND reminder_sent_at IS NULL AND {OPEN_OFFER_SQL}", (tomorrow,)).fetchall():
+        # v50.47: bookings of a departure whose centre has the day-before notice on get it from the notice queue
+        # (WhatsApp, email and app, at the hour the centre chose); the others keep this email.
+        for r in db.execute(f'''SELECT id FROM bookings WHERE status='confirmed' AND booking_date=? AND reminder_sent_at IS NULL AND {OPEN_OFFER_SQL}
+                                 AND NOT (slot_id IS NOT NULL AND COALESCE((SELECT ps.reminder_enabled FROM service_slots ss LEFT JOIN provider_settings ps ON ps.provider_id=ss.provider_id
+                                                                            WHERE ss.id=bookings.slot_id),1)=1)''', (tomorrow,)).fetchall():
             if db.execute('UPDATE bookings SET reminder_sent_at=? WHERE id=? AND reminder_sent_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'reminder')
         queue_document_alerts(db, today)
     for r in db.execute("SELECT id FROM bookings WHERE status IN ('confirmed','completed') AND booking_date BETWEEN ? AND ? AND review_asked_at IS NULL",
@@ -7823,7 +7828,7 @@ def create_notice_batch(db, handler, user, data, kind):
         if not new_time and not new_point: raise ValueError('Indica la nueva hora o el nuevo punto de encuentro.')
     if kind != 'reminder' and not confirm_matches(slot, data.get('confirm')):
         raise ValueError(f"Para confirmar, escribe la fecha de la salida ({confirm_words(slot)['date']}) o su nombre.")
-    existing = db.execute("SELECT * FROM notice_batches WHERE slot_id=? AND kind='slot_cancelled' AND status IN ('scheduled','running','done')", (slot['id'],)).fetchone() if kind == 'slot_cancelled' else None
+    existing = db.execute("SELECT * FROM notice_batches WHERE slot_id=? AND provider_id=? AND kind='slot_cancelled' AND status IN ('scheduled','running','done')", (slot['id'], ctx.key)).fetchone() if kind == 'slot_cancelled' else None
     if existing: return existing                     # a double click shows the same notice, never a second one
     if kind == 'slot_cancelled' and slot['cancelled_at']: raise ValueError('Esta salida ya está cancelada.')
     today = local_now().date().isoformat()
@@ -7831,7 +7836,7 @@ def create_notice_batch(db, handler, user, data, kind):
                             (ctx.key, today)).fetchone()[0]
     if sent_today >= NOTICE_MAX_PER_DAY:
         security_alert('notice_limit', {'provider': ctx.key, 'today': sent_today, 'limit': NOTICE_MAX_PER_DAY}, user['id'])
-        raise ValueError(f'Has llegado al límite de {NOTICE_MAX_PER_DAY} avisos masivos por día. Si es una emergencia, escribe a la administración.')
+        raise ValueError('Has llegado al límite de avisos masivos por día. Si es una emergencia, escribe a la administración.')
     pv = notice_preview(db, ctx, slot['id'], kind, reason=reason, note=note, policy=policy, new_time=new_time, new_point=new_point)
     uid = secrets.token_hex(16)
     run_after = (datetime.now(timezone.utc) + _timedelta(seconds=NOTICE_UNDO_SECONDS)).isoformat(timespec='seconds')
@@ -7841,7 +7846,7 @@ def create_notice_batch(db, handler, user, data, kind):
                    (uid, ctx.key, slot['id'], kind, reason, note or None, policy if kind == 'slot_cancelled' else None, new_time, new_point, run_after, user['id'],
                     wsec.ip_hash(handler.client_ip()) if handler else None, json.dumps({'previstos': pv['counts'], 'destinatarios': pv['recipients']}), now()))
     except sqlite3.IntegrityError:
-        again = db.execute("SELECT * FROM notice_batches WHERE slot_id=? AND kind=? AND status IN ('scheduled','running','done')", (slot['id'], kind)).fetchone()
+        again = db.execute("SELECT * FROM notice_batches WHERE slot_id=? AND provider_id=? AND kind=? AND status IN ('scheduled','running','done')", (slot['id'], ctx.key, kind)).fetchone()
         if again: return again
         raise
     audit(db, user['id'], 'notice_batch_created', 'notice_batch', None, {'uid': uid, 'kind': kind, 'slot': slot['id'], 'provider': ctx.key,
@@ -7852,7 +7857,7 @@ def create_notice_batch(db, handler, user, data, kind):
         n = db.execute("SELECT COUNT(*) FROM notice_batches WHERE provider_id=? AND kind='slot_cancelled' AND status<>'undone' AND substr(created_at,1,10)=?", (ctx.key, today)).fetchone()[0]
         if n >= NOTICE_ALERT_CANCELLATIONS:
             security_alert('notice_unusual', {'provider': ctx.key, 'cancellations_today': n, 'threshold': NOTICE_ALERT_CANCELLATIONS}, user['id'])
-    return db.execute('SELECT * FROM notice_batches WHERE uid=?', (uid,)).fetchone()
+    return db.execute('SELECT * FROM notice_batches WHERE uid=? AND provider_id=?', (uid, ctx.key)).fetchone()
 
 
 def notice_batch_of(db, ctx, uid):
@@ -7863,7 +7868,7 @@ def notice_batch_of(db, ctx, uid):
 
 def undo_notice_batch(db, ctx, user, uid):
     b = notice_batch_of(db, ctx, uid)
-    if db.execute("UPDATE notice_batches SET status='undone',finished_at=? WHERE id=? AND status='scheduled'", (now(), b['id'])).rowcount != 1:
+    if db.execute("UPDATE notice_batches SET status='undone',finished_at=? WHERE id=? AND provider_id=? AND status='scheduled'", (now(), b['id'], ctx.key)).rowcount != 1:
         raise ValueError('Ya no se puede deshacer: el aviso ha empezado a salir.')
     audit(db, user['id'], 'notice_batch_undone', 'notice_batch', b['id'], {'uid': uid})
     return True
@@ -7903,7 +7908,7 @@ def execute_notice_batch(db, batch):
     """ONE transaction: the change (cancellation, new time…), the refunds to make and one queued row per diver and
     channel. If anything fails, nothing at all is changed."""
     slot = db.execute('''SELECT ss.*, s.title AS service_title, s.center_id, s.provider_user_id, s.currency AS service_currency
-                           FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?''', (batch['slot_id'],)).fetchone()
+                           FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=? AND ss.provider_id=?''', (batch['slot_id'], batch['provider_id'])).fetchone()
     if not slot or slot['provider_id'] != batch['provider_id']:
         security_alert('notice_tenant_mismatch', {'batch': batch['uid'], 'provider': batch['provider_id'], 'slot': batch['slot_id']}, batch['created_by'])
         raise LookupError('la salida no es del centro del aviso')
@@ -7919,9 +7924,9 @@ def execute_notice_batch(db, batch):
         if slot['cancelled_at']: raise ValueError('la salida ya estaba cancelada')
         reason_es = SLOT_CANCEL_REASONS.get(batch['reason'], 'Otro motivo')
         if batch['policy'] == 'refund':
-            db.execute("UPDATE service_slots SET status='closed',cancelled_at=?,cancel_reason=?,cancel_note=?,cancelled_by=?,updated_at=? WHERE id=?",
-                       (now(), batch['reason'], batch['note'], actor['id'], now(), slot['id']))
-            for b in db.execute("SELECT * FROM bookings WHERE slot_id=? AND status='payment_in_progress'", (slot['id'],)).fetchall():
+            db.execute("UPDATE service_slots SET status='closed',cancelled_at=?,cancel_reason=?,cancel_note=?,cancelled_by=?,updated_at=? WHERE id=? AND provider_id=?",
+                       (now(), batch['reason'], batch['note'], actor['id'], now(), slot['id'], batch['provider_id']))
+            for b in db.execute("SELECT * FROM bookings WHERE slot_id=? AND provider_id=? AND status='payment_in_progress'", (slot['id'], batch['provider_id'])).fetchall():
                 expire_booking(db, b, 'slot_cancelled', notify=False)
             for b in rows:
                 provider_cancel_booking(db, b, reason_es + (f": {batch['note']}" if batch['note'] else ''), actor['id'], 'slot_cancel', notify=False, refund=False)
@@ -7935,10 +7940,10 @@ def execute_notice_batch(db, batch):
             cancel_slot(db, actor, slot, batch['reason'], batch['note'], service_choice_hours(db, slot), notify=False)
     elif kind == 'slot_changed':
         if batch['new_time']:
-            db.execute('UPDATE notice_batches SET old_time=? WHERE id=?', (slot['slot_time'], batch['id']))
-            db.execute('UPDATE service_slots SET slot_time=?,updated_at=? WHERE id=?', (batch['new_time'], now(), slot['id']))
-            for b in rows: db.execute('UPDATE bookings SET booking_time=?,updated_at=? WHERE id=?', (batch['new_time'], now(), b['id']))
-        if batch['new_meeting']: db.execute('UPDATE service_slots SET meeting_point=?,updated_at=? WHERE id=?', (batch['new_meeting'], now(), slot['id']))
+            db.execute('UPDATE notice_batches SET old_time=? WHERE id=? AND provider_id=?', (slot['slot_time'], batch['id'], batch['provider_id']))
+            db.execute('UPDATE service_slots SET slot_time=?,updated_at=? WHERE id=? AND provider_id=?', (batch['new_time'], now(), slot['id'], batch['provider_id']))
+            for b in rows: db.execute('UPDATE bookings SET booking_time=?,updated_at=? WHERE id=? AND provider_id=?', (batch['new_time'], now(), b['id'], batch['provider_id']))
+        if batch['new_meeting']: db.execute('UPDATE service_slots SET meeting_point=?,updated_at=? WHERE id=? AND provider_id=?', (batch['new_meeting'], now(), slot['id'], batch['provider_id']))
         slot_event(db, slot['id'], 'changed', actor['id'], new_time=batch['new_time'], meeting_point=batch['new_meeting'], note=batch['note'])
     wa = whatsapp_account(db, batch['provider_id'])
     origin = wa['pnid_hash'] if wa else None
@@ -7952,7 +7957,7 @@ def execute_notice_batch(db, batch):
                        (secrets.token_hex(16), batch['id'], batch['provider_id'], slot['id'], b['id'], event, ch, NOTICE_TEMPLATES[kind], contact['lang'],
                         'queued' if to else 'skipped', to, contact['name'] or None, origin if ch == 'whatsapp' else None, why or None, now(), now()))
             if to: queued[ch] += 1
-    db.execute('UPDATE notice_batches SET counts=?,result=? WHERE id=?', (json.dumps({'encolados': queued, 'destinatarios': len(rows)}), None, batch['id']))
+    db.execute('UPDATE notice_batches SET counts=?,result=? WHERE id=? AND provider_id=?', (json.dumps({'encolados': queued, 'destinatarios': len(rows)}), None, batch['id'], batch['provider_id']))
     return len(rows)
 
 
@@ -7961,36 +7966,40 @@ def run_notice_batches(db):
     for batch in due:
         if not batch['provider_id']:
             security_alert('job_without_tenant', {'batch': batch['uid']}); continue
-        if db.execute("UPDATE notice_batches SET status='running',started_at=? WHERE id=? AND status='scheduled'", (now(), batch['id'])).rowcount != 1:
+        if db.execute("UPDATE notice_batches SET status='running',started_at=? WHERE id=? AND provider_id=? AND status='scheduled'", (now(), batch['id'], batch['provider_id'])).rowcount != 1:
             db.commit(); continue
         db.commit()
         try:
+            t0 = time.perf_counter()
             n = execute_notice_batch(db, batch)
-            audit(db, batch['created_by'], 'notice_batch_started', 'notice_batch', batch['id'], {'uid': batch['uid'], 'recipients': n, 'provider': batch['provider_id']})
+            ms = int((time.perf_counter() - t0) * 1000)
+            c = json.loads(db.execute('SELECT counts FROM notice_batches WHERE id=? AND provider_id=?', (batch['id'], batch['provider_id'])).fetchone()['counts'] or '{}'); c['ms'] = ms
+            db.execute('UPDATE notice_batches SET counts=? WHERE id=? AND provider_id=?', (json.dumps(c), batch['id'], batch['provider_id']))
+            audit(db, batch['created_by'], 'notice_batch_started', 'notice_batch', batch['id'], {'uid': batch['uid'], 'recipients': n, 'provider': batch['provider_id'], 'ms': ms})
             db.commit()
         except Exception as exc:
             db.rollback()
             blocked = isinstance(exc, LookupError)
-            db.execute('UPDATE notice_batches SET status=?,result=?,finished_at=? WHERE id=?', ('blocked' if blocked else 'failed', str(exc)[:300], now(), batch['id']))
+            db.execute('UPDATE notice_batches SET status=?,result=?,finished_at=? WHERE id=? AND provider_id=?', ('blocked' if blocked else 'failed', str(exc)[:300], now(), batch['id'], batch['provider_id']))
             audit(db, batch['created_by'], 'notice_batch_failed', 'notice_batch', batch['id'], {'uid': batch['uid'], 'error': str(exc)[:200]})
             db.commit()
 
 
 def run_notice_refunds(db):
     for r in db.execute("SELECT * FROM notice_refunds WHERE status='pending' AND (next_try_at IS NULL OR next_try_at<=?) ORDER BY id LIMIT 20", (now(),)).fetchall():
-        b = db.execute('SELECT * FROM bookings WHERE id=?', (r['booking_id'],)).fetchone()
+        b = db.execute('SELECT * FROM bookings WHERE id=? AND provider_id=?', (r['booking_id'], r['provider_id'])).fetchone()
         if not b or b['provider_id'] != r['provider_id']:
-            db.execute("UPDATE notice_refunds SET status='blocked',last_error=? WHERE id=?", ('reserva de otro centro', r['id']))
+            db.execute("UPDATE notice_refunds SET status='blocked',last_error=? WHERE id=? AND provider_id=?", ('reserva de otro centro', r['id'], r['provider_id']))
             security_alert('refund_tenant_mismatch', {'notice_refund': r['id'], 'booking': r['booking_id'], 'provider': r['provider_id']}); db.commit(); continue
         if db.execute("UPDATE notice_refunds SET status='working',attempts=attempts+1 WHERE id=? AND status='pending'", (r['id'],)).rowcount != 1: db.commit(); continue
         db.commit()
         try:
             outcome = refund_booking(db, b['id'], r['amount'], 'requested_by_customer', None, 'Salida cancelada por el centro', 'slot_cancel')
             if outcome == 'refunded':
-                db.execute("UPDATE notice_refunds SET status='done',result=?,done_at=? WHERE id=?", (outcome, now(), r['id']))
+                db.execute("UPDATE notice_refunds SET status='done',result=?,done_at=? WHERE id=? AND provider_id=?", (outcome, now(), r['id'], r['provider_id']))
                 notify_booking(db, b['id'], 'refund_issued', {'amount': r['amount'], 'note': ''})
             elif outcome in ('none_paid', 'no_refund'):
-                db.execute("UPDATE notice_refunds SET status='done',result=?,done_at=? WHERE id=?", (outcome, now(), r['id']))
+                db.execute("UPDATE notice_refunds SET status='done',result=?,done_at=? WHERE id=? AND provider_id=?", (outcome, now(), r['id'], r['provider_id']))
             else:
                 att = int(r['attempts'] or 0) + 1
                 db.execute("UPDATE notice_refunds SET status=?,result=?,next_try_at=? WHERE id=?",
@@ -8005,10 +8014,11 @@ def run_notice_refunds(db):
 
 def notice_recheck(db, row):
     """Everything is checked again just before sending. Returns (problem, batch, booking, slot, account)."""
-    batch = db.execute('SELECT * FROM notice_batches WHERE id=?', (row['batch_id'],)).fetchone()
-    booking = db.execute('SELECT * FROM bookings WHERE id=?', (row['booking_id'],)).fetchone()
+    # Each object is read only as part of the tenant of the message: an object of another tenant simply is not found.
+    batch = db.execute('SELECT * FROM notice_batches WHERE id=? AND provider_id=?', (row['batch_id'], row['provider_id'])).fetchone()
+    booking = db.execute('SELECT * FROM bookings WHERE id=? AND provider_id=?', (row['booking_id'], row['provider_id'])).fetchone()
     slot = db.execute('''SELECT ss.*, s.title AS service_title, s.center_id, s.provider_user_id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
-                          WHERE ss.id=?''', (row['slot_id'],)).fetchone()
+                          WHERE ss.id=? AND ss.provider_id=?''', (row['slot_id'], row['provider_id'])).fetchone()
     acc = db.execute('SELECT * FROM whatsapp_accounts WHERE provider_id=?', (row['provider_id'],)).fetchone() if row['channel'] == 'whatsapp' else None
     key = row['provider_id']
     if not batch or not booking or not slot: return 'faltan datos del aviso', batch, booking, slot, acc
@@ -8024,10 +8034,10 @@ def notice_recheck(db, row):
 def _notice_retry(db, row, error, final=False):
     att = int(row['attempts'] or 0) + 1
     if final or att >= len(NOTICE_RETRY_MINUTES):
-        db.execute("UPDATE notice_outbox SET status='failed',last_error=?,updated_at=? WHERE id=?", (str(error)[:200], now(), row['id']))
+        db.execute("UPDATE notice_outbox SET status='failed',last_error=?,updated_at=? WHERE id=? AND provider_id=?", (str(error)[:200], now(), row['id'], row['provider_id']))
     else:
         nxt = (datetime.now(timezone.utc) + _timedelta(minutes=NOTICE_RETRY_MINUTES[att - 1])).isoformat(timespec='seconds')
-        db.execute("UPDATE notice_outbox SET status='queued',last_error=?,next_try_at=?,updated_at=? WHERE id=?", (str(error)[:200], nxt, now(), row['id']))
+        db.execute("UPDATE notice_outbox SET status='queued',last_error=?,next_try_at=?,updated_at=? WHERE id=? AND provider_id=?", (str(error)[:200], nxt, now(), row['id'], row['provider_id']))
 
 
 def demo_notice_copy(row, payload):
@@ -8038,15 +8048,15 @@ def demo_notice_copy(row, payload):
 
 
 def send_notice_row(db, row):
-    if db.execute("UPDATE notice_outbox SET status='sending',attempts=attempts+1,updated_at=? WHERE id=? AND status='queued'", (now(), row['id'])).rowcount != 1:
+    if db.execute("UPDATE notice_outbox SET status='sending',attempts=attempts+1,updated_at=? WHERE id=? AND provider_id=? AND status='queued'", (now(), row['id'], row['provider_id'])).rowcount != 1:
         db.commit(); return
     db.commit()
     problem, batch, booking, slot, acc = notice_recheck(db, row)
     if problem == 'whatsapp_off':
-        db.execute("UPDATE notice_outbox SET status='skipped',skip_reason=?,updated_at=? WHERE id=?",
-                   ('El centro ha desconectado WhatsApp o tiene que reconectarlo' if acc else 'El centro no tiene WhatsApp conectado', now(), row['id'])); db.commit(); return
+        db.execute("UPDATE notice_outbox SET status='skipped',skip_reason=?,updated_at=? WHERE id=? AND provider_id=?",
+                   ('El centro ha desconectado WhatsApp o tiene que reconectarlo' if acc else 'El centro no tiene WhatsApp conectado', now(), row['id'], row['provider_id'])); db.commit(); return
     if problem:
-        db.execute("UPDATE notice_outbox SET status='blocked',skip_reason=?,updated_at=? WHERE id=?", ('Bloqueado por seguridad', now(), row['id']))
+        db.execute("UPDATE notice_outbox SET status='blocked',skip_reason=?,updated_at=? WHERE id=? AND provider_id=?", ('Bloqueado por seguridad', now(), row['id'], row['provider_id']))
         security_alert('notice_tenant_mismatch', {'notice': row['uid'], 'provider': row['provider_id'], 'booking': row['booking_id'], 'channel': row['channel'], 'problem': problem})
         db.commit(); return
     kind = batch['kind']; lang = row['lang']
@@ -8067,7 +8077,7 @@ def send_notice_row(db, row):
             mid = db.execute('''INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind,contact_phone,contact_email,sender_name)
                                 VALUES(?,?,?,?,?,?,'notice',wod_cifrar(?),?,?)''',
                              (batch['created_by'] or booking['user_id'], booking['user_id'], booking['id'], subject, body + f"\n{public_site_url()}/r/{link}", now(), phone, email, name)).lastrowid
-            db.execute("UPDATE notice_outbox SET status='sent',message_id=?,sent_at=?,updated_at=? WHERE id=?", (mid, now(), now(), row['id']))
+            db.execute("UPDATE notice_outbox SET status='sent',message_id=?,sent_at=?,updated_at=? WHERE id=? AND provider_id=?", (mid, now(), now(), row['id'], row['provider_id']))
             if wcfg.demo_mode(): demo_notice_copy(row, {'canal': 'app', 'asunto': subject, 'texto': body})
         elif row['channel'] == 'email':
             before = db.execute('SELECT COALESCE(MAX(id),0) FROM email_outbox').fetchone()[0]
@@ -8083,15 +8093,15 @@ def send_notice_row(db, row):
             else:
                 notify_booking(db, booking['id'], 'reminder')
             eid = db.execute('SELECT MAX(id) FROM email_outbox WHERE id>? AND related_type=? AND related_id=?', (before, 'booking', booking['id'])).fetchone()[0]
-            db.execute("UPDATE notice_outbox SET status=?,email_id=?,sent_at=?,updated_at=? WHERE id=?", ('sent' if eid else 'skipped', eid, now(), now(), row['id']))
+            db.execute("UPDATE notice_outbox SET status=?,email_id=?,sent_at=?,updated_at=? WHERE id=? AND provider_id=?", ('sent' if eid else 'skipped', eid, now(), now(), row['id'], row['provider_id']))
             if wcfg.demo_mode(): demo_notice_copy(row, {'canal': 'correo', 'asunto': subject, 'texto': body})
         else:
             to = row['recipient']
             if not to or not wcif.normalize_phone(to):
-                db.execute("UPDATE notice_outbox SET status='skipped',skip_reason=?,updated_at=? WHERE id=?", ('Teléfono no válido', now(), row['id'])); db.commit(); return
+                db.execute("UPDATE notice_outbox SET status='skipped',skip_reason=?,updated_at=? WHERE id=? AND provider_id=?", ('Teléfono no válido', now(), row['id'], row['provider_id'])); db.commit(); return
             u = db.execute('SELECT up.phone, up.wa_consent FROM user_profiles up WHERE up.user_id=?', (booking['user_id'],)).fetchone()
             if not u or not u['wa_consent'] or wcif.fingerprint(u['phone']) != wcif.fingerprint(to):
-                db.execute("UPDATE notice_outbox SET status='skipped',skip_reason=?,updated_at=? WHERE id=?", ('El buceador ha retirado el permiso o cambiado el teléfono', now(), row['id'])); db.commit(); return
+                db.execute("UPDATE notice_outbox SET status='skipped',skip_reason=?,updated_at=? WHERE id=? AND provider_id=?", ('El buceador ha retirado el permiso o cambiado el teléfono', now(), row['id'], row['provider_id'])); db.commit(); return
             name = NOTICE_TEMPLATES[kind]
             buttons = [link] + ([quote(slot_meeting_point(db, slot) or center)] if kind == 'reminder' else [])
             if wcfg.demo_mode():
@@ -8100,7 +8110,7 @@ def send_notice_row(db, row):
                                        'plantilla': name, 'idioma': wwa.META_LANG.get(lang, 'es'), 'texto': body, 'boton': f'{public_site_url()}/r/{link}'})
             else:
                 wamid = wwa.send_template(wcif.decrypt_secret(acc['token']), wcif.decrypt_secret(acc['phone_number_id']), to, name, lang, params, buttons)
-            db.execute("UPDATE notice_outbox SET status='sent',wamid=?,sent_at=?,last_error=NULL,updated_at=? WHERE id=?", (wamid, now(), now(), row['id']))
+            db.execute("UPDATE notice_outbox SET status='sent',wamid=?,sent_at=?,last_error=NULL,updated_at=? WHERE id=? AND provider_id=?", (wamid, now(), now(), row['id'], row['provider_id']))
         db.commit()
     except wwa.GraphError as exc:
         db.rollback()
@@ -8138,11 +8148,11 @@ def run_notice_outbox(db, budget=200):
             per_origin[row['origin']] = n + 1
         send_notice_row(db, row)
     # Batches whose rows are all final are done.
-    for b in db.execute("SELECT id FROM notice_batches WHERE status='running'").fetchall():
-        if not db.execute("SELECT 1 FROM notice_outbox WHERE batch_id=? AND status IN ('queued','sending')", (b['id'],)).fetchone() and \
+    for b in db.execute("SELECT id, provider_id FROM notice_batches WHERE status='running'").fetchall():
+        if not db.execute("SELECT 1 FROM notice_outbox WHERE batch_id=? AND provider_id=? AND status IN ('queued','sending')", (b['id'], b['provider_id'])).fetchone() and \
            not db.execute("SELECT 1 FROM notice_refunds WHERE batch_id=? AND status IN ('pending','working')", (b['id'],)).fetchone():
-            summary = {r['channel'] + ':' + r['status']: r['n'] for r in db.execute('SELECT channel,status,COUNT(*) n FROM notice_outbox WHERE batch_id=? GROUP BY 1,2', (b['id'],)).fetchall()}
-            db.execute("UPDATE notice_batches SET status='done',finished_at=?,result=? WHERE id=?", (now(), json.dumps(summary), b['id']))
+            summary = {r['channel'] + ':' + r['status']: r['n'] for r in db.execute('SELECT channel,status,COUNT(*) n FROM notice_outbox WHERE batch_id=? AND provider_id=? GROUP BY 1,2', (b['id'], b['provider_id'])).fetchall()}
+            db.execute("UPDATE notice_batches SET status='done',finished_at=?,result=? WHERE id=? AND provider_id=?", (now(), json.dumps(summary), b['id'], b['provider_id']))
             audit(db, None, 'notice_batch_done', 'notice_batch', b['id'], summary)
     db.commit()
 
@@ -8281,8 +8291,8 @@ def whatsapp_webhook(handler, db):
         cur = WA_STATUS_ORDER.get(row['status'], 0)
         if status != 'failed' and WA_STATUS_ORDER[status] <= cur: continue
         col = {'delivered': 'delivered_at', 'read': 'read_at'}.get(status)
-        db.execute(f"UPDATE notice_outbox SET status=?,{col + '=?,' if col else ''}last_error=?,updated_at=? WHERE id=?",
-                   (status, *([now()] if col else []), (f'Meta: error {err}' if status == 'failed' and err else row['last_error']), now(), row['id']))
+        db.execute(f"UPDATE notice_outbox SET status=?,{col + '=?,' if col else ''}last_error=?,updated_at=? WHERE id=? AND provider_id=?",
+                   (status, *([now()] if col else []), (f'Meta: error {err}' if status == 'failed' and err else row['last_error']), now(), row['id'], row['provider_id']))
         applied += 1
     for waba, name, lang, st in wwa.template_updates_of(payload):
         acc = db.execute('SELECT provider_id,templates FROM whatsapp_accounts WHERE waba_hash=?', (wcif.keyed_hash('waba', waba),)).fetchone()
@@ -8303,7 +8313,7 @@ def signed_link_booking(db, token):
 
 def signed_link_view(db, b, kind):
     """What the link of a notice opens: only this booking (no other data of the diver or of the centre)."""
-    svc = db.execute('SELECT title FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    svc = db.execute('SELECT title FROM provider_services WHERE id=? AND provider_id=?', (b['service_id'], b['provider_id'])).fetchone() if b['service_id'] else None
     who = booking_payee(db, b)[1] or {}
     slot = db.execute('SELECT slot_date,slot_time,meeting_point,provider_id FROM service_slots WHERE id=?', (b['slot_id'],)).fetchone() if b['slot_id'] else None
     out = {'kind': kind, 'booking': {'ref': f"WOD-{b['id']:06d}", 'participants': b['participants'], 'status': b['status'], 'service': svc['title'] if svc else '',
@@ -8344,6 +8354,14 @@ def wa_profile_info(db, user_id):
 
 
 # ---- C.3: every view or export of phones by a centre is logged
+def count_phones(obj):
+    """Phones of clients inside an answer (the centre's own public phone does not count)."""
+    if isinstance(obj, dict):
+        return sum((1 if (isinstance(k, str) and 'phone' in k and k not in ('center_phone',) and v) else count_phones(v)) if not isinstance(v, (dict, list)) else count_phones(v) for k, v in obj.items())
+    if isinstance(obj, list): return sum(count_phones(x) for x in obj)
+    return 0
+
+
 def log_phone_access(db, user, what, count, ref=None):
     if not user or user['role'] not in ('center', 'freelance', 'admin') or not count: return
     audit(db, user['id'], 'phones_viewed' if not what.startswith('export') else 'phones_exported', what, ref, {'phones': count})
@@ -9208,6 +9226,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
                     col='center_id' if ref[0]=='center' else 'provider_user_id'
                     rows=[dict(r) for r in db.execute(f'SELECT id,name,email,phone,message,wanted_date,participants,lang,status,created_at,read_at FROM info_requests WHERE {col}=? ORDER BY id DESC LIMIT 300',(ref[1],)).fetchall()]
+                    log_phone_access(db,user,'info_requests',count_phones(rows))
                     self.send_json({'items':rows,'unread':sum(1 for r in rows if not r['read_at'])}); return
                 if path == '/api/center/export':
                     # CSV exports in EVERY plan: clients, bookings, services and payments (payments only for owners).
@@ -9216,6 +9235,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     kind=clean_text(query.get('kind',['bookings'])[0],20) or 'bookings'
                     if kind=='payments' and (member_role(db,user) or 'owner')!='owner': raise PermissionError('Solo el propietario del centro puede exportar los pagos.')
                     raw=provider_export(db,*ref,kind).encode('utf-8'); audit(db,user['id'],'provider_export',ref[0],ref[1],{'kind':kind}); db.commit()
+                    if kind in ('bookings','clients'): log_phone_access(db,user,f'export:{kind}',max(0,raw.count(b'\n')-1),ref[1])
                     self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8')
                     self.send_header('Content-Disposition',f'attachment; filename="worldives-{kind}-{_dt.date.today().isoformat()}.csv"')
                     self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
@@ -9538,6 +9558,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                          FROM experience_bookings eb JOIN travel_experiences e ON e.id=eb.travel_experience_id JOIN users u ON u.id=eb.user_id LEFT JOIN user_profiles up ON up.user_id=u.id
                                         WHERE {ew} ORDER BY CASE eb.status WHEN 'requested' THEN 0 ELSE 1 END, eb.created_at DESC LIMIT 500''',ea).fetchall()
                     offers=db.execute('SELECT id,title,region,kind FROM travel_offers WHERE active=1 ORDER BY title').fetchall()
+                    log_phone_access(db,user,'experience_requests',sum(1 for r in reqs if r['phone']))
                     self.send_json({'items':enrich_experiences(db,rows),'requests':[dict(r) for r in reqs],'destinations':[dict(o) for o in offers]}); return
                 if path == '/api/my-travel-experiences':
                     user=require_user(self,db)
@@ -9579,7 +9600,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         self.send_json({'authenticated': True, 'user': public_user(user), 'profile': profile, 'whatsapp': wa_profile_info(db, user['id']), 'documents': [dict(x) for x in docs], 'center_links':[dict(x) for x in links],
                                         'pro_request': dict(claim) if claim else None,
                                         'legal':dict(zip(('pending','upcoming'),legal_pending_for(db,user))),
-                                        'plan':provider_plan(db,*provider_ref(db,user)) if provider_ref(db,user) else None,'member_role':member_role(db,user),
+                                        'plan':provider_plan(db,*provider_ref(db,user)) if provider_ref(db,user) else None,'member_role':member_role(db,user),'centers':user_centers(db,user),
                                         'security':{'totp_enabled':bool(user.get('totp_enabled')),'totp_setup_required':user['role']=='admin' and admin_totp_required() and not user.get('totp_enabled'),
                                                     'recovery_left':len(json.loads(user.get('totp_recovery') or '[]')) if user.get('totp_enabled') else 0}})
                     return
@@ -10024,11 +10045,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); day=clean_text(query.get('date',[''])[0],10) or local_now().date().isoformat()
                     today=local_now().date()
                     if day not in (today.isoformat(),(today+_timedelta(days=1)).isoformat()): raise ValueError('Solo se puede preparar el manifiesto de hoy o de mañana.')
-                    slots=manifest_day(db,user,day); db.commit()
+                    slots=manifest_day(db,user,day); db.commit(); log_phone_access(db,user,'manifest_day',count_phones(slots))
                     self.send_json({'date':day,'generated_at':now(),'slots':slots}); return
                 if re.fullmatch(r'/api/manifest/\d+',path):
                     # Encargo 2, punto 1: the manifest of a departure (centre or professional that runs it; team members read it).
-                    user=require_user(self,db); d=manifest_data(db,user,int(path.rsplit('/',1)[1])); db.commit(); self.send_json(d); return
+                    user=require_user(self,db); d=manifest_data(db,user,int(path.rsplit('/',1)[1])); db.commit(); log_phone_access(db,user,'manifest',count_phones(d),d['slot']['id'] if isinstance(d.get('slot'),dict) else None); self.send_json(d); return
                 if path=='/api/provider/waiver':
                     user=require_user(self,db); kind,oid=provider_owner(user); w,a=owner_where(kind,oid)
                     rows=[dict(r) for r in db.execute(f'SELECT id,version,title,body,created_at,active FROM waiver_templates WHERE {w} ORDER BY version DESC',a).fetchall()]
@@ -10058,7 +10079,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if user['role'] in ('center','freelance') and b['user_id']!=user['id'] and not provider_can_see_user(db,b) and not is_guest_user(db,b['user_id'],b['center_id'] or -1):
                         raise PermissionError('Este cliente no ha compartido su ficha de buceador con tu centro.')
                     if user['role']=='admin': audit(db,user['id'],'diver_sheet_viewed','booking',bid); db.commit()
-                    raw=diver_sheet_pdf(db,bid,self.base_url()); self.send_bytes(raw,'application/pdf',f'WORLDIVES-ficha-buceador-{bid}.pdf'); return
+                    raw=diver_sheet_pdf(db,bid,self.base_url()); log_phone_access(db,user,'diver_sheet',1,bid); self.send_bytes(raw,'application/pdf',f'WORLDIVES-ficha-buceador-{bid}.pdf'); return
                 if path.startswith('/api/bookings/') and path.endswith('/qr.svg'):
                     user=require_user(self,db); bid=int(path.split('/')[3])
                     b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
@@ -10101,6 +10122,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     bd['cancellation_policy']=f"{_pol['free_hours']}h-{_pol['refund_pct']}"; bd['cancellation_text']=_pol['text']; bd['cancellation_note']=_pol['note']
                     bd['cancel_free_hours']=_pol['free_hours']; bd['cancel_refund_pct']=_pol['refund_pct']
                     bd.pop('public_token',None); bd['check_url']=booking_check_url(db,bid,self.base_url()) if (b['user_id']==user['id'] or can_manage_booking(user,b)) else None
+                    if b['user_id']!=user['id']: log_phone_access(db,user,'booking',count_phones({'booking':bd,'profile':dict(profile) if profile else {}}),bid)
                     self.send_json({'booking':bd,'payment':pay,'profile':dict(profile) if profile else {},'documents':[dict(x) for x in docs],'data_shared':bool(can_see)}); return
                 if path == '/api/bookings':
                     user=require_user(self,db)
@@ -10137,6 +10159,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         d=dict(r_); d.update(booking_view_status(r_)); d.pop('public_token',None) if user['role']!='recreational' else None
                         d['mode_label']=wbk.mode_label(d.get('booking_mode') or 'request')
                         items.append(d)
+                    if user['role']!='recreational': log_phone_access(db,user,'bookings',count_phones(items))
                     self.send_json({'items':items}); return
                 if path == '/api/center/requests':
                     # «Solicitudes pendientes»: requests to accept or reject, with the time left to answer.
@@ -10290,6 +10313,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if not d['data_shared']: d['phone']=db.execute('SELECT MAX(contact_phone) FROM bookings WHERE center_id=? AND user_id=?',(cid,d['id'])).fetchone()[0]
                         if str(d.get('email') or '').endswith('.local'): d['email']=db.execute("SELECT MAX(contact_email) FROM bookings WHERE center_id=? AND user_id=?",(cid,d['id'])).fetchone()[0] or ''
                         items.append(d)
+                    if user['role']!='recreational': log_phone_access(db,user,'clients',count_phones(items))
                     self.send_json({'items':items}); return
                 if path.startswith('/api/qr/'):
                     # Generate a real SVG QR for the current local origin.

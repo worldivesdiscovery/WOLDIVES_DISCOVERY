@@ -317,13 +317,20 @@ def content_security_policy() -> str:
     frames = sorted({'https://' + d.partition('/')[0] for d in config.embed_domains()} |
                     {'https://www.' + d.partition('/')[0] for d in config.embed_domains() if d.count('.') == 1})
     connect = ["'self'"] + [x.strip() for x in config.env('WOD_CSP_EXTRA_CONNECT').split(',') if x.strip()]
+    scripts = ["'self'"]
+    # v50.47: «Conectar mi WhatsApp Business» uses Meta's Embedded Signup (Facebook JS SDK). Allowed only when the owner
+    # has enabled WhatsApp in the .env; otherwise the policy stays exactly as before.
+    if config.env('WHATSAPP_ENABLED') in ('1', 'true', 'yes', 'on') and config.env('WHATSAPP_APP_ID'):
+        scripts.append('https://connect.facebook.net')
+        connect += ['https://graph.facebook.com', 'https://www.facebook.com', 'https://connect.facebook.net']
+        frames += ['https://www.facebook.com', 'https://web.facebook.com']
     pmtiles = config.env('WOD_PMTILES_URL')
     if pmtiles.startswith('https://'):
         p = urlparse(pmtiles)
         connect.append(f'{p.scheme}://{p.netloc}')
     return '; '.join([
         "default-src 'self'",
-        "script-src 'self'",
+        'script-src ' + ' '.join(scripts),
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https:",
         "font-src 'self'",
