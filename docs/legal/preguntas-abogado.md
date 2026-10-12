@@ -198,3 +198,22 @@ El código genera un informe anual por prestador y trimestre (`dac7_report()`, `
 | `docs/legal/cookies-terceros.md` | 12 bis |
 | `docs/legal/normas-resenas.md` | 11.1, 11.3, 11.6, 7 |
 | `docs/legal/politica-privacidad.md` | 1.1–1.7, 1.9–1.12, 2.2–2.3, 11.3, 13.1 |
+
+## 19. Encargo 2 (v50.39–v50.42): descargos, manifiesto, cambios y cancelaciones de salidas
+
+Ver `RELEASE_NOTES_v50_40.md` y siguientes.
+
+1. **Descargo firmado con firma dibujada** (`waiver_signatures`). Se guardan:
+   - versión, título y texto exacto;
+   - nombre completo y trazos de la firma;
+   - fecha y hora UTC;
+   - reserva y plaza;
+   - método («Mi reserva» o check-in);
+   - quién lo registró, la IP en hash y el navegador.
+
+   Se descarga en PDF. ¿Es suficiente como firma electrónica simple (Reglamento eIDAS, art. 25) para el fin que buscan los centros? ¿Hace falta enviar copia por email o un sellado de tiempo?
+2. **Validez de un descargo de responsabilidad frente a consumidores** (art. 86 TRLGDCU: cláusulas abusivas que excluyen la responsabilidad). ¿Qué puede y qué no puede decir el texto? ¿Conviene ofrecer a los centros un texto base revisado?
+3. **Cuestionario médico o preguntas de salud:** no hay ninguno. Está preparado y desactivado (`WAIVER_HEALTH_QUESTIONS = False`). ¿Se puede activar y con qué base jurídica (art. 9 RGPD), qué información previa y qué plazo de conservación?
+4. **Responsable de los descargos, las firmas y el manifiesto:** el centro, con WORLDIVES como encargado. ¿Hay que añadirlo al anexo de encargado y al registro de actividades? ¿Cuál es el plazo de conservación de las firmas? Hoy se conservan mientras exista la reserva.
+5. **Acompañantes menores de edad** en una reserva: ¿debe firmar el tutor?
+6. **Contacto de emergencia en el manifiesto:** solo se muestra si el buceador ha compartido su ficha con el centro (mismas reglas que la ficha del buceador). ¿Basta con lo que dice la política de privacidad?

@@ -51,7 +51,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.39'
+APP_VERSION = '50.40'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -653,6 +653,23 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(lower(email));
 CREATE INDEX IF NOT EXISTS idx_users_guest ON users(guest_center_id, guest_email);
 CREATE INDEX IF NOT EXISTS idx_virtual_experiences_point ON virtual_experiences(dive_point_id, active, id);
 CREATE INDEX IF NOT EXISTS idx_wallet_user_date ON wallet_transactions(user_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS boats (id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER REFERENCES centers(id) ON DELETE CASCADE, provider_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL, capacity INTEGER NOT NULL DEFAULT 10, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS slot_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, slot_id INTEGER NOT NULL REFERENCES service_slots(id) ON DELETE CASCADE, boat_id INTEGER REFERENCES boats(id) ON DELETE SET NULL,
+  guide_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, guide_name TEXT, label TEXT, sort INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS manifest_entries (booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE, seat INTEGER NOT NULL DEFAULT 1, slot_id INTEGER NOT NULL,
+  group_id INTEGER REFERENCES slot_groups(id) ON DELETE SET NULL, name TEXT, checked_in_at TEXT, no_show INTEGER NOT NULL DEFAULT 0, note TEXT, updated_at TEXT NOT NULL, updated_by INTEGER,
+  PRIMARY KEY(booking_id, seat));
+CREATE TABLE IF NOT EXISTS waiver_templates (id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER REFERENCES centers(id) ON DELETE CASCADE, provider_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, questions TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, created_by INTEGER);
+CREATE TABLE IF NOT EXISTS waiver_signatures (id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE, seat INTEGER NOT NULL DEFAULT 1,
+  template_id INTEGER NOT NULL REFERENCES waiver_templates(id), version INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, signer_name TEXT NOT NULL, strokes TEXT NOT NULL,
+  method TEXT NOT NULL, signed_by_user_id INTEGER, ip_hash TEXT, user_agent TEXT, signed_at TEXT NOT NULL, UNIQUE(booking_id, seat, template_id));
+CREATE INDEX IF NOT EXISTS idx_slot_groups_slot ON slot_groups(slot_id, sort);
+CREATE INDEX IF NOT EXISTS idx_manifest_entries_slot ON manifest_entries(slot_id);
+CREATE INDEX IF NOT EXISTS idx_boats_owner ON boats(center_id, provider_user_id);
+CREATE INDEX IF NOT EXISTS idx_waiver_templates_owner ON waiver_templates(center_id, provider_user_id, version);
+CREATE INDEX IF NOT EXISTS idx_waiver_signatures_booking ON waiver_signatures(booking_id);
 '''
 
 SCHEMA = '''
@@ -1331,6 +1348,8 @@ def bootstrap():
         db.commit()
         migrate_v50_38(db)
         db.commit()
+        migrate_v50_40(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1382,6 +1401,15 @@ def regenerate_point_texts(db, pid=None):
 def point_text(db, pid, lang):
     r = db.execute('SELECT description FROM dive_point_texts WHERE point_id=? AND lang=?', (pid, normalize_lang(lang))).fetchone()
     return r['description'] if r else None
+
+
+def migrate_v50_40(db):
+    """v50.40 (encargo 2, puntos 1 y 5): departure manifest (boats, groups, entries) and signed waivers. The tables
+    are in BASE_SCHEMA; here only the setting of divers per guide is added. Nothing is deleted."""
+    add_columns(db, 'centers', [('manifest_max_per_guide', 'INTEGER')])
+    add_columns(db, 'users', [('manifest_max_per_guide', 'INTEGER')])
+    if migration_done(db, '50.40'): return
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.40', now(), 'Encargo 2: manifiesto de salida y descargos firmados'))
 
 
 def migrate_v50_38(db):
@@ -3009,8 +3037,11 @@ TEAM_ROLES = {'owner': 'Propietario', 'reception': 'Recepción', 'instructor': '
 # What each role cannot do (POST). Owners can do everything; instructors only read (and manage their own account).
 OWNER_ONLY_PREFIXES = ('/api/payments/connect/', '/api/provider/payment-profile', '/api/provider/fiscal', '/api/provider/insurance', '/api/provider/cancellation-policy',
                        '/api/provider/plan', '/api/center/team', '/api/provider/center-update', '/api/provider/center-showcase', '/api/provider/center-cover',
-                       '/api/provider/center-gallery', '/api/center/integration', '/api/provider/ical', '/api/center/import', '/api/center/tariffs', '/api/bookings/refund')
+                       '/api/provider/center-gallery', '/api/center/integration', '/api/provider/ical', '/api/center/import', '/api/center/tariffs', '/api/bookings/refund',
+                       '/api/provider/waiver')
 INSTRUCTOR_POST_OK = ('/api/auth/', '/api/account/', '/api/legal/accept', '/api/reports', '/api/me', '/api/team/')
+# Instructors on the boat also take the signatures at check-in (encargo 2, punto 5).
+INSTRUCTOR_POST_RE = re.compile(r'/api/bookings/\d+/waiver/sign')
 OWNER_ONLY_GET = ('/api/provider/payments', '/api/provider/fiscal', '/api/provider/plan', '/api/center/team', '/api/center/activity')
 
 
@@ -3029,7 +3060,7 @@ def team_gate(db, user, path, method):
         if path.startswith(OWNER_ONLY_GET) or (path == '/api/center/export' and False):
             raise PermissionError('Solo el propietario del centro puede ver esto.')
         return
-    if role == 'instructor' and not path.startswith(INSTRUCTOR_POST_OK):
+    if role == 'instructor' and not path.startswith(INSTRUCTOR_POST_OK) and not INSTRUCTOR_POST_RE.fullmatch(path):
         raise PermissionError('Tu perfil de instructor es de solo lectura. Pide el cambio al propietario del centro.')
     if role == 'reception' and (path.startswith(OWNER_ONLY_PREFIXES) or (path.startswith('/api/bookings/') and path.endswith('/refund'))):
         raise PermissionError('Solo el propietario del centro puede hacer este cambio.')
@@ -6600,6 +6631,243 @@ def diver_sheet_pdf(db,booking_id,base_url="http://localhost:8000",lang="es"):
     return d.pdf()
 
 
+# ------------------------------------------------------------------ v50.40 · Encargo 2, puntos 1 y 5
+# Departure manifest: the divers of a departure split into boats, guides and groups, with what the crew needs
+# (level, rental equipment, sizes, nitrox and, only when the diver shares it, the emergency contact); and the
+# liability waiver each centre writes, signed by every diver before diving. No health questions (pending lawyer).
+from wod import manifest as wmf
+
+MANIFEST_STATES = ('requested', 'accepted_pending_payment', 'confirmed', 'completed')
+MANIFEST_DEFAULT_PER_GUIDE = 4
+# Prepared, switched off: health questions in the waiver only if the lawyer approves them (encargo 2, punto 5).
+WAIVER_HEALTH_QUESTIONS = False
+
+
+def provider_owner(user):
+    """('center', id) for a centre account (any team member), ('freelance', id) for a professional."""
+    if user['role'] == 'center' and user['center_id']: return 'center', int(user['center_id'])
+    if user['role'] == 'freelance': return 'freelance', int(user['id'])
+    raise PermissionError('Solo los centros y los profesionales gestionan salidas.')
+
+
+def owner_where(kind, oid, alias=''):
+    p = f'{alias}.' if alias else ''
+    return (f'{p}center_id=?', (oid,)) if kind == 'center' else (f'{p}center_id IS NULL AND {p}provider_user_id=?', (oid,))
+
+
+def manifest_slot(db, user, slot_id):
+    """The departure and its service, if this centre or professional manages it (admins too)."""
+    r = db.execute('''SELECT ss.*, s.title AS service_title, s.center_id, s.provider_user_id, s.service_type, s.duration_minutes
+                        FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?''', (slot_id,)).fetchone()
+    if not r: raise ValueError('Salida no encontrada.')
+    if user['role'] != 'admin' and not owns_service(user, r['provider_user_id'], r['center_id']):
+        raise PermissionError('Esta salida no es de tu centro.')
+    return r
+
+
+def slot_owner(slot):
+    return ('center', int(slot['center_id'])) if slot['center_id'] else ('freelance', int(slot['provider_user_id']))
+
+
+def manifest_settings(db, kind, oid):
+    row = db.execute('SELECT manifest_max_per_guide AS m FROM centers WHERE id=?' if kind == 'center' else 'SELECT manifest_max_per_guide AS m FROM users WHERE id=?', (oid,)).fetchone()
+    return {'max_per_guide': int(row['m']) if row and row['m'] else MANIFEST_DEFAULT_PER_GUIDE}
+
+
+def owner_boats(db, kind, oid, active_only=True):
+    w, a = owner_where(kind, oid)
+    return [dict(r) for r in db.execute(f"SELECT id,name,capacity,active FROM boats WHERE {w}{' AND active=1' if active_only else ''} ORDER BY name,id", a).fetchall()]
+
+
+def owner_guides(db, kind, oid):
+    """Who can guide: the owner and the instructors of the centre (team, Fase 6.6), or the professional himself."""
+    if kind == 'freelance':
+        u = db.execute('SELECT id,fullname FROM users WHERE id=?', (oid,)).fetchone()
+        return [{'user_id': u['id'], 'name': u['fullname']}] if u else []
+    rows = db.execute('''SELECT u.id,u.fullname,COALESCE(m.member_role,'owner') AS member_role FROM users u
+                           LEFT JOIN center_members m ON m.user_id=u.id AND m.center_id=u.center_id
+                          WHERE u.center_id=? AND u.role='center' ORDER BY CASE COALESCE(m.member_role,'owner') WHEN 'instructor' THEN 0 WHEN 'owner' THEN 1 ELSE 2 END, u.fullname''', (oid,)).fetchall()
+    return [{'user_id': r['id'], 'name': r['fullname'], 'member_role': r['member_role']} for r in rows if r['member_role'] in ('owner', 'instructor')]
+
+
+def booking_rental(b):
+    """Rental items of a booking from its price lines (Fase 1B): «Traje ×2», «Ordenador»… or the old free text."""
+    try: lines = json.loads(b['price_breakdown'] or '[]')
+    except (TypeError, ValueError): lines = []
+    items = []
+    for ln in lines if isinstance(lines, list) else []:
+        if isinstance(ln, dict) and ln.get('kind') == 'equipment':
+            q = int(ln.get('qty') or 1); items.append(f"{ln.get('label') or ''}{' ×' + str(q) if q > 1 else ''}".strip())
+    if not items and b['equipment_items']: items = [x.strip() for x in str(b['equipment_items']).split(',') if x.strip()]
+    return [x for x in items if x]
+
+
+def current_waiver(db, kind, oid):
+    w, a = owner_where(kind, oid)
+    r = db.execute(f'SELECT * FROM waiver_templates WHERE {w} AND active=1 ORDER BY version DESC LIMIT 1', a).fetchone()
+    return dict(r) if r else None
+
+
+def booking_signatures(db, booking_id):
+    return {r['seat']: dict(r) for r in db.execute('SELECT id,seat,version,signer_name,signed_at,method FROM waiver_signatures WHERE booking_id=? ORDER BY signed_at', (booking_id,)).fetchall()}
+
+
+def manifest_data(db, user, slot_id):
+    slot = manifest_slot(db, user, slot_id)
+    kind, oid = slot_owner(slot)
+    st = ','.join('?' * len(MANIFEST_STATES))
+    books = db.execute(f'''SELECT b.*, COALESCE(b.contact_name,u.fullname) AS diver_name, u.fullname AS user_fullname, up.phone AS profile_phone,
+                                  up.emergency_contact_name, up.emergency_contact_phone, up.suit_type, up.suit_size, up.boot_size, up.bcd_size, up.fin_size,
+                                  up.mask_size, up.usual_weight_kg, c.name AS certification_name
+                             FROM bookings b LEFT JOIN users u ON u.id=b.user_id LEFT JOIN user_profiles up ON up.user_id=b.user_id
+                             LEFT JOIN certifications c ON c.id=up.certification_id
+                            WHERE b.slot_id=? AND b.status IN ({st}) ORDER BY b.id''', (slot_id, *MANIFEST_STATES)).fetchall()
+    groups = [dict(g) for g in db.execute('SELECT * FROM slot_groups WHERE slot_id=? ORDER BY sort,id', (slot_id,)).fetchall()]
+    gids = {g['id'] for g in groups}
+    waiver = current_waiver(db, kind, oid)
+    divers = []
+    for b in books:
+        visible = provider_can_see_user(db, b) or is_guest_user(db, b['user_id'])
+        shared = bool(provider_can_see_user(db, b))
+        sigs = booking_signatures(db, b['id'])
+        for seat in range(1, max(1, int(b['participants'] or 1)) + 1):
+            e = db.execute('SELECT * FROM manifest_entries WHERE booking_id=? AND seat=?', (b['id'], seat)).fetchone()
+            if not e:
+                db.execute('INSERT INTO manifest_entries(booking_id,seat,slot_id,updated_at) VALUES(?,?,?,?)', (b['id'], seat, slot_id, now()))
+                e = db.execute('SELECT * FROM manifest_entries WHERE booking_id=? AND seat=?', (b['id'], seat)).fetchone()
+            main = seat == 1
+            row = {'booking_id': b['id'], 'seat': seat, 'participants': int(b['participants'] or 1), 'status': b['status'],
+                   'group_id': e['group_id'] if e['group_id'] in gids else None,
+                   'name': (e['name'] or (b['diver_name'] if main else '')) or '', 'companion_of': None if main else b['diver_name'],
+                   'level_name': b['certification_name'] if main and visible else None,
+                   'level': wmf.level_of(b['certification_name'] if main and visible else None),
+                   'nitrox': bool(b['nitrox']), 'rental': booking_rental(b) if main else [],
+                   'sizes': None, 'emergency': None, 'phone': None, 'shared': shared if main else False,
+                   'notes': b['notes'] if main else None, 'checked_in_at': e['checked_in_at'], 'no_show': bool(e['no_show']), 'note': e['note'],
+                   'signed': (sigs.get(seat) or {}).get('signed_at'), 'signature_id': (sigs.get(seat) or {}).get('id')}
+            if main and visible:
+                row['sizes'] = {k: b[k] for k in ('suit_type', 'suit_size', 'boot_size', 'bcd_size', 'fin_size', 'mask_size', 'usual_weight_kg') if b[k]}
+                row['phone'] = b['contact_phone'] or b['profile_phone']
+            if main and shared and (b['emergency_contact_name'] or b['emergency_contact_phone']):
+                row['emergency'] = {'name': b['emergency_contact_name'], 'phone': b['emergency_contact_phone']}
+            divers.append(row)
+    settings = manifest_settings(db, kind, oid)
+    boats = owner_boats(db, kind, oid, active_only=False)
+    guides = owner_guides(db, kind, oid)
+    gname = {g['user_id']: g['name'] for g in guides}
+    for i, g in enumerate(groups, 1):
+        g['label'] = g['label'] or f'Grupo {i}'
+        g['guide'] = gname.get(g['guide_user_id']) or g['guide_name'] or None
+        g['count'] = sum(1 for d in divers if d['group_id'] == g['id'])
+    warn = wmf.warnings(groups, boats, settings['max_per_guide'], sum(1 for d in divers if not d['group_id']))
+    if waiver:
+        unsigned = sum(1 for d in divers if not d['signed'])
+        if unsigned: warn.append({'kind': 'unsigned', 'ref': None, 'text': f"{unsigned} {'buceador sin firmar el descargo' if unsigned == 1 else 'buceadores sin firmar el descargo'}."})
+    can_edit = user['role'] == 'admin' or member_role(db, user) in (None, 'owner', 'reception')
+    return {'slot': {k: slot[k] for k in ('id', 'service_id', 'slot_date', 'slot_time', 'spots_total', 'spots_available', 'status', 'service_title', 'service_type', 'duration_minutes')},
+            'points': [dict(p) for p in db.execute('SELECT p.id,p.name FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id=? ORDER BY p.name', (slot_id,)).fetchall()],
+            'settings': settings, 'boats': boats, 'guides': guides, 'groups': groups, 'divers': divers, 'warnings': warn,
+            'waiver': {'id': waiver['id'], 'version': waiver['version'], 'title': waiver['title']} if waiver else None,
+            'can_edit': bool(can_edit), 'level_labels': wmf.LEVEL_LABELS}
+
+
+def manifest_require_edit(db, user, slot_id):
+    slot = manifest_slot(db, user, slot_id)
+    if user['role'] != 'admin' and member_role(db, user) not in (None, 'owner', 'reception'):
+        raise PermissionError('Tu perfil de instructor es de solo lectura. Pide el cambio al propietario del centro.')
+    return slot
+
+
+def manifest_suggest(db, user, slot_id, apply=False):
+    """The automatic split by level and qualification. With apply=False it only says what would be done."""
+    slot = manifest_require_edit(db, user, slot_id)
+    kind, oid = slot_owner(slot)
+    data = manifest_data(db, user, slot_id)
+    by_booking = {}
+    for d in data['divers']:
+        e = by_booking.setdefault(d['booking_id'], {'id': d['booking_id'], 'seats': [], 'level': d['level']})
+        e['seats'].append(d['seat'])
+    boats = [b for b in data['boats'] if b['active']]
+    groups = wmf.suggest(list(by_booking.values()), data['settings']['max_per_guide'], boats, data['guides'])
+    summary = {'divers': len(data['divers']), 'groups': len(groups), 'boats': len({g['boat_id'] for g in groups if g['boat_id']}),
+               'without_boat': sum(1 for g in groups if not g['boat_id']), 'without_guide': sum(1 for g in groups if not g['guide_user_id'])}
+    if not apply: return summary
+    db.execute('UPDATE manifest_entries SET group_id=NULL,updated_at=?,updated_by=? WHERE slot_id=?', (now(), user['id'], slot_id))
+    db.execute('DELETE FROM slot_groups WHERE slot_id=?', (slot_id,))
+    for i, g in enumerate(groups, 1):
+        gid = db.execute('INSERT INTO slot_groups(slot_id,boat_id,guide_user_id,guide_name,label,sort,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)',
+                         (slot_id, g['boat_id'], g['guide_user_id'], None, None, i, now(), now())).lastrowid
+        for bid, seat in g['members']:
+            db.execute('UPDATE manifest_entries SET group_id=?,updated_at=?,updated_by=? WHERE booking_id=? AND seat=?', (gid, now(), user['id'], bid, seat))
+    audit(db, user['id'], 'manifest_suggested', 'service_slot', slot_id, summary)
+    return summary
+
+
+def clean_strokes(raw):
+    """A drawn signature: up to 60 strokes of points (x, y) between 0 and 1. At least a real line is needed."""
+    try: strokes = json.loads(raw) if isinstance(raw, str) else raw
+    except ValueError: strokes = None
+    if not isinstance(strokes, list) or not strokes or len(strokes) > 60: raise ValueError('Dibuja tu firma en el recuadro.')
+    out, total = [], 0
+    for s in strokes:
+        if not isinstance(s, list): raise ValueError('Dibuja tu firma en el recuadro.')
+        pts = []
+        for p in s[:400]:
+            if not (isinstance(p, (list, tuple)) and len(p) == 2): raise ValueError('Dibuja tu firma en el recuadro.')
+            x, y = float(p[0]), float(p[1])
+            if not (0 <= x <= 1 and 0 <= y <= 1): raise ValueError('Dibuja tu firma en el recuadro.')
+            pts.append([round(x, 4), round(y, 4)])
+        if pts: out.append(pts); total += len(pts)
+    span = max((max(p[0] for p in s) - min(p[0] for p in s)) for s in out) if out else 0
+    if total < 8 or span < 0.08: raise ValueError('La firma es demasiado corta. Dibújala en el recuadro.')
+    return out
+
+
+def waiver_pdf(db, sig_id, lang='es'):
+    s = db.execute('''SELECT w.*, b.booking_date, b.booking_time, b.participants, b.center_id, b.provider_user_id, srv.title AS service_title,
+                             COALESCE(ce.name, pu.fullname) AS provider_name
+                        FROM waiver_signatures w JOIN bookings b ON b.id=w.booking_id LEFT JOIN provider_services srv ON srv.id=b.service_id
+                        LEFT JOIN centers ce ON ce.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id WHERE w.id=?''', (sig_id,)).fetchone()
+    if not s: return None
+    T = lambda x: mail_t(lang, x)
+    d = wpdf.Document(T('Descargo de responsabilidad'), lang)
+    ink, muted = (0.04, 0.17, 0.24), (0.38, 0.43, 0.46)
+    d.box(24, 748, 547, 70, (0.04, 0.17, 0.24), None, 16)
+    d.text(46, 790, 'WORLDIVES DISCOVERY', 21, (1, 1, 1)); d.text(46, 773, T('DESCARGO FIRMADO').upper(), 8, (0.78, 0.88, 0.91))
+    d.text(46, 722, d.fit(s['title'], 16, 500), 16, ink)
+    meta = [(T('Centro'), s['provider_name'] or '—'), (T('Reserva'), f"WOD-{s['booking_id']:06d}"), (T('Actividad'), s['service_title'] or '—'),
+            (T('Fecha'), mail_date(s['booking_date'], lang) + (' · ' + s['booking_time'] if s['booking_time'] else '')),
+            (T('Versión'), f"v{s['version']}"), (T('Plaza'), f"{s['seat']} / {s['participants']}")]
+    for i, (lab, val) in enumerate(meta):
+        x = 46 + (i % 3) * 170; y = 696 - (i // 3) * 30
+        d.text(x, y, lab.upper(), 7, muted); d.text(x, y - 13, d.fit(str(val), 9, 160), 9, ink)
+    y = 626
+    for para in str(s['body'] or '').split('\n'):
+        lines = d.wrap(para, 9.5, 500, max_lines=400) if para.strip() else ['']
+        for ln in lines:
+            if y < 230:
+                d.new_page(); y = 790
+            d.text(46, y, ln, 9.5, ink); y -= 13.5
+        y -= 4
+    if y < 240: d.new_page(); y = 790
+    top = y - 10
+    d.box(46, top - 150, 300, 140, None, (0.86, 0.89, 0.91), 10)
+    d.text(58, top - 24, T('FIRMA').upper(), 7, muted)
+    try: strokes = json.loads(s['strokes'] or '[]')
+    except ValueError: strokes = []
+    bx, by, bw, bh = 58, top - 140, 276, 100
+    for st in strokes:
+        for (x1, y1), (x2, y2) in zip(st, st[1:]):
+            d.line(bx + x1 * bw, by + (1 - y1) * bh, bx + x2 * bw, by + (1 - y2) * bh, ink, 1.4)
+    when = s['signed_at'][:19].replace('T', ' ')
+    info = [(T('Nombre completo'), s['signer_name']), (T('Firmado el'), when + ' UTC'), (T('Cómo'), T('En «Mi reserva»') if s['method'] == 'online' else T('En el check-in del centro'))]
+    for i, (lab, val) in enumerate(info):
+        yy = top - 24 - i * 34
+        d.text(366, yy, lab.upper(), 7, muted); d.text(366, yy - 13, d.fit(str(val), 9, 190), 9, ink)
+    d.text(46, 60, T('Documento generado por WORLDIVES DISCOVERY con el texto exacto que se firmó (versión y fecha).'), 7, muted)
+    return d.pdf()
+
+
 from wod import ops as wops
 
 CSP_HEADER = wsec.content_security_policy()
@@ -7749,6 +8017,31 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     d={k:b[k] for k in ('id','booking_date','booking_time','participants','status','payment_status','price','currency','center_name','center_city','point_name')}
                     d['customer']=short_name(b['fullname']); d['ref']=f"WOD-{b['id']:06d}"; d['status_label']=booking_status_label(b['status'])
                     self.send_json({'booking':d}); return
+                if re.fullmatch(r'/api/manifest/\d+',path):
+                    # Encargo 2, punto 1: the manifest of a departure (centre or professional that runs it; team members read it).
+                    user=require_user(self,db); d=manifest_data(db,user,int(path.rsplit('/',1)[1])); db.commit(); self.send_json(d); return
+                if path=='/api/provider/waiver':
+                    user=require_user(self,db); kind,oid=provider_owner(user); w,a=owner_where(kind,oid)
+                    rows=[dict(r) for r in db.execute(f'SELECT id,version,title,body,created_at,active FROM waiver_templates WHERE {w} ORDER BY version DESC',a).fetchall()]
+                    signed=db.execute(f'SELECT COUNT(*) FROM waiver_signatures ws JOIN waiver_templates t ON t.id=ws.template_id WHERE t.{w}',a).fetchone()[0]
+                    self.send_json({'current':rows[0] if rows and rows[0]['active'] else None,'versions':[{k:r[k] for k in ('id','version','title','created_at')} for r in rows],
+                                    'signed':int(signed or 0),'health_questions':WAIVER_HEALTH_QUESTIONS}); return
+                if re.fullmatch(r'/api/bookings/\d+/waiver',path):
+                    # Encargo 2, punto 5: the waiver of the booking's centre and who has signed it (the diver or the centre).
+                    user=require_user(self,db); bid=int(path.split('/')[3]); b=db.execute('SELECT * FROM bookings WHERE id=?',(bid,)).fetchone()
+                    if not b or (b['user_id']!=user['id'] and not can_manage_booking(user,b)): raise PermissionError('Reserva no encontrada.')
+                    kind,oid=('center',b['center_id']) if b['center_id'] else ('freelance',b['provider_user_id'])
+                    tpl=current_waiver(db,kind,oid) if oid else None
+                    sigs=booking_signatures(db,bid)
+                    open_state=b['status'] in MANIFEST_STATES and b['status']!='completed'
+                    self.send_json({'waiver':{k:tpl[k] for k in ('id','version','title','body','created_at')} if tpl else None,'participants':int(b['participants'] or 1),
+                                    'signatures':[{**v,'seat':k} for k,v in sorted(sigs.items())],'can_sign':bool(tpl and open_state),
+                                    'name':b['contact_name'] or (db.execute('SELECT fullname FROM users WHERE id=?',(b['user_id'],)).fetchone() or {'fullname':''})['fullname']}); return
+                if re.fullmatch(r'/api/waivers/\d+\.pdf',path):
+                    user=require_user(self,db); sid=int(path.rsplit('/',1)[1].split('.')[0])
+                    r=db.execute('SELECT ws.id,b.user_id,b.center_id,b.provider_user_id FROM waiver_signatures ws JOIN bookings b ON b.id=ws.booking_id WHERE ws.id=?',(sid,)).fetchone()
+                    if not r or (r['user_id']!=user['id'] and not can_manage_booking(user,r)): raise PermissionError('Documento no encontrado.')
+                    raw=waiver_pdf(db,sid,user_lang(db,user['id'])); self.send_bytes(raw,'application/pdf',f'WORLDIVES-descargo-{sid}.pdf'); return
                 if path.startswith('/api/bookings/') and path.endswith('/diver-sheet.pdf'):
                     user=require_user(self,db); bid=int(path.split('/')[3]); b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
@@ -8338,6 +8631,113 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     else:
                         db.execute('UPDATE users SET avatar_url=? WHERE id=?',(public_url,user['id']))
                     audit(db,user['id'],'provider_avatar_updated','center' if user['role']=='center' else 'user',user['center_id'] if user['role']=='center' else user['id']); db.commit(); self.send_json({'ok':True,'url':public_url}); return
+                if path.startswith('/api/manifest/'):
+                    # Encargo 2, punto 1: boats, groups, guides and the split of the divers of a departure.
+                    user=require_user(self,db); data=json_body(self); parts=path.strip('/').split('/')
+                    if path=='/api/manifest/boats/save':
+                        kind,oid=provider_owner(user)
+                        if member_role(db,user) not in (None,'owner','reception'): raise PermissionError('Tu perfil de instructor es de solo lectura. Pide el cambio al propietario del centro.')
+                        name=clean_text(data.get('name'),80); cap=int(data.get('capacity') or 0); bid=int(data.get('id') or 0)
+                        if not name: raise ValueError('Ponle un nombre al barco.')
+                        if not 1<=cap<=200: raise ValueError('La capacidad del barco debe estar entre 1 y 200 personas.')
+                        if bid:
+                            w,a=owner_where(kind,oid)
+                            if not db.execute(f'SELECT 1 FROM boats WHERE id=? AND {w}',(bid,*a)).fetchone(): raise PermissionError('Este barco no es de tu centro.')
+                            db.execute('UPDATE boats SET name=?,capacity=?,active=?,updated_at=? WHERE id=?',(name,cap,0 if data.get('active') is False else 1,now(),bid))
+                        else:
+                            bid=db.execute('INSERT INTO boats(center_id,provider_user_id,name,capacity,active,created_at,updated_at) VALUES(?,?,?,?,1,?,?)',
+                                           (oid if kind=='center' else None,oid if kind=='freelance' else None,name,cap,now(),now())).lastrowid
+                        audit(db,user['id'],'boat_saved','boat',bid,{'capacity':cap}); db.commit(); self.send_json({'ok':True,'id':bid}); return
+                    if len(parts)<4 or not parts[2].isdigit(): raise ValueError('Salida no válida.')
+                    slot_id=int(parts[2]); action='/'.join(parts[3:])
+                    slot=manifest_require_edit(db,user,slot_id); kind,oid=slot_owner(slot)
+                    if action=='settings':
+                        n=int(data.get('max_per_guide') or 0)
+                        if not 1<=n<=30: raise ValueError('El máximo de buceadores por guía debe estar entre 1 y 30.')
+                        db.execute('UPDATE centers SET manifest_max_per_guide=? WHERE id=?' if kind=='center' else 'UPDATE users SET manifest_max_per_guide=? WHERE id=?',(n,oid))
+                        audit(db,user['id'],'manifest_settings','service_slot',slot_id,{'max_per_guide':n}); db.commit(); self.send_json({'ok':True}); return
+                    if action=='suggest':
+                        summary=manifest_suggest(db,user,slot_id,bool(data.get('apply'))); db.commit(); self.send_json({'ok':True,**summary}); return
+                    if action=='groups/save':
+                        gid=int(data.get('id') or 0); boat=int(data.get('boat_id') or 0) or None; guide=int(data.get('guide_user_id') or 0) or None
+                        gname=clean_text(data.get('guide_name'),80); label=clean_text(data.get('label'),60)
+                        if boat:
+                            w,a=owner_where(kind,oid)
+                            if not db.execute(f'SELECT 1 FROM boats WHERE id=? AND {w}',(boat,*a)).fetchone(): raise PermissionError('Este barco no es de tu centro.')
+                        if guide and guide not in {g['user_id'] for g in owner_guides(db,kind,oid)}: raise PermissionError('Esa persona no es guía de tu centro.')
+                        if guide: gname=None
+                        if gid:
+                            if not db.execute('SELECT 1 FROM slot_groups WHERE id=? AND slot_id=?',(gid,slot_id)).fetchone(): raise PermissionError('Este grupo no es de esta salida.')
+                            db.execute('UPDATE slot_groups SET boat_id=?,guide_user_id=?,guide_name=?,label=?,updated_at=? WHERE id=?',(boat,guide,gname,label,now(),gid))
+                        else:
+                            sort=(db.execute('SELECT COALESCE(MAX(sort),0) FROM slot_groups WHERE slot_id=?',(slot_id,)).fetchone()[0] or 0)+1
+                            gid=db.execute('INSERT INTO slot_groups(slot_id,boat_id,guide_user_id,guide_name,label,sort,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)',(slot_id,boat,guide,gname,label,sort,now(),now())).lastrowid
+                        audit(db,user['id'],'manifest_group_saved','service_slot',slot_id,{'group':gid}); db.commit(); self.send_json({'ok':True,'id':gid}); return
+                    if action=='groups/delete':
+                        gid=int(data.get('id') or 0)
+                        if not db.execute('SELECT 1 FROM slot_groups WHERE id=? AND slot_id=?',(gid,slot_id)).fetchone(): raise PermissionError('Este grupo no es de esta salida.')
+                        db.execute('UPDATE manifest_entries SET group_id=NULL,updated_at=?,updated_by=? WHERE group_id=?',(now(),user['id'],gid))
+                        db.execute('DELETE FROM slot_groups WHERE id=?',(gid,))
+                        audit(db,user['id'],'manifest_group_deleted','service_slot',slot_id,{'group':gid}); db.commit(); self.send_json({'ok':True}); return
+                    if action=='assign':
+                        moves=data.get('moves') or []
+                        if not isinstance(moves,list) or not moves or len(moves)>300: raise ValueError('Nada que mover.')
+                        gids={r['id'] for r in db.execute('SELECT id FROM slot_groups WHERE slot_id=?',(slot_id,)).fetchall()}
+                        for m in moves:
+                            bid=int(m.get('booking_id') or 0); seat=int(m.get('seat') or 1); gid=int(m.get('group_id') or 0) or None
+                            if gid and gid not in gids: raise PermissionError('Este grupo no es de esta salida.')
+                            if db.execute('UPDATE manifest_entries SET group_id=?,updated_at=?,updated_by=? WHERE booking_id=? AND seat=? AND slot_id=?',(gid,now(),user['id'],bid,seat,slot_id)).rowcount!=1:
+                                raise PermissionError('Este buceador no está en esta salida.')
+                        audit(db,user['id'],'manifest_assigned','service_slot',slot_id,{'moves':len(moves)}); db.commit(); self.send_json({'ok':True}); return
+                    if action=='entry':
+                        bid=int(data.get('booking_id') or 0); seat=int(data.get('seat') or 1)
+                        if seat<2: raise ValueError('El nombre del titular de la reserva se cambia en su cuenta.')
+                        if db.execute('UPDATE manifest_entries SET name=?,updated_at=?,updated_by=? WHERE booking_id=? AND seat=? AND slot_id=?',(clean_text(data.get('name'),120),now(),user['id'],bid,seat,slot_id)).rowcount!=1:
+                            raise PermissionError('Este buceador no está en esta salida.')
+                        db.commit(); self.send_json({'ok':True}); return
+                    raise ValueError('Acción no válida.')
+                if path=='/api/provider/waiver':
+                    # Encargo 2, punto 5: every save is a new version; what was signed keeps its own text.
+                    user=require_user(self,db); kind,oid=provider_owner(user); data=json_body(self)
+                    if data.get('questions'): raise PermissionError('Las preguntas de salud no están disponibles: pendiente de la revisión del abogado.')
+                    w,a=owner_where(kind,oid)
+                    if data.get('disable'):
+                        db.execute(f'UPDATE waiver_templates SET active=0 WHERE {w}',a)
+                        audit(db,user['id'],'waiver_disabled','waiver',oid); db.commit(); self.send_json({'ok':True}); return
+                    title=clean_text(data.get('title'),160); body=str(data.get('body') or '').replace('\r\n','\n').strip()
+                    if not title or len(body)<40: raise ValueError('Escribe el título y el texto del descargo (al menos 40 caracteres).')
+                    if len(body)>20000: raise ValueError('El texto del descargo es demasiado largo (máximo 20 000 caracteres).')
+                    cur=db.execute(f'SELECT * FROM waiver_templates WHERE {w} ORDER BY version DESC LIMIT 1',a).fetchone()
+                    if cur and cur['active'] and cur['title']==title and cur['body']==body: self.send_json({'ok':True,'id':cur['id'],'version':cur['version'],'unchanged':True}); return
+                    ver=(cur['version'] if cur else 0)+1
+                    db.execute(f'UPDATE waiver_templates SET active=0 WHERE {w}',a)
+                    tid=db.execute('INSERT INTO waiver_templates(center_id,provider_user_id,version,title,body,active,created_at,created_by) VALUES(?,?,?,?,?,1,?,?)',
+                                   (oid if kind=='center' else None,oid if kind=='freelance' else None,ver,title,body,now(),user['id'])).lastrowid
+                    audit(db,user['id'],'waiver_saved','waiver',tid,{'version':ver}); db.commit(); self.send_json({'ok':True,'id':tid,'version':ver}); return
+                if re.fullmatch(r'/api/bookings/\d+/waiver/sign',path):
+                    user=require_user(self,db); bid=int(path.split('/')[3]); data=json_body(self)
+                    b=db.execute('SELECT * FROM bookings WHERE id=?',(bid,)).fetchone()
+                    if not b: raise PermissionError('Reserva no encontrada.')
+                    own=b['user_id']==user['id']; staff=can_manage_booking(user,b) and user['role']!='admin'
+                    if not (own or staff): raise PermissionError('Reserva no encontrada.')
+                    if b['status'] not in MANIFEST_STATES or b['status']=='completed': raise ValueError('Esta reserva ya no admite firmas.')
+                    kind,oid=('center',b['center_id']) if b['center_id'] else ('freelance',b['provider_user_id'])
+                    tpl=current_waiver(db,kind,oid)
+                    if not tpl: raise ValueError('Este centro no tiene descargo de responsabilidad.')
+                    if int(data.get('template_id') or 0)!=tpl['id']: raise ValueError('El centro ha cambiado el texto del descargo. Vuelve a leerlo antes de firmar.')
+                    seat=int(data.get('seat') or 1)
+                    if not 1<=seat<=int(b['participants'] or 1): raise ValueError('Plaza no válida.')
+                    if not data.get('accept'): raise ValueError('Marca la casilla para confirmar que has leído y aceptas el texto.')
+                    name=clean_text(data.get('signer_name'),120) or ''
+                    if len(name)<4 or ' ' not in name.strip(): raise ValueError('Escribe tu nombre completo (nombre y apellidos).')
+                    strokes=clean_strokes(data.get('strokes'))
+                    if db.execute('SELECT 1 FROM waiver_signatures WHERE booking_id=? AND seat=? AND template_id=?',(bid,seat,tpl['id'])).fetchone():
+                        raise ValueError('Esta plaza ya ha firmado el descargo.')
+                    method='online' if own else 'checkin'
+                    sid=db.execute('INSERT INTO waiver_signatures(booking_id,seat,template_id,version,title,body,signer_name,strokes,method,signed_by_user_id,ip_hash,user_agent,signed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                                   (bid,seat,tpl['id'],tpl['version'],tpl['title'],tpl['body'],name,json.dumps(strokes),method,user['id'],wsec.ip_hash(self.client_ip()),(self.headers.get('User-Agent') or '')[:200],now())).lastrowid
+                    audit(db,user['id'],'waiver_signed','booking',bid,{'seat':seat,'version':tpl['version'],'method':method}); db.commit()
+                    self.send_json({'ok':True,'id':sid,'pdf_url':f'/api/waivers/{sid}.pdf'}); return
                 if path.startswith('/api/centers/') and path.endswith('/reviews'):
                     user=require_user(self,db); require_switch(db,'reviews')
                     parts=path.strip('/').split('/')
