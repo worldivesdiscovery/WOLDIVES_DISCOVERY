@@ -10,7 +10,7 @@ Fecha: 12/10/2026 · Versión base: v50.43
 | 2 | Auditoría · Fases 1B, 1C y 1D | Ya estaba (v50.32-v50.33). Capas «Mapa», «Satélite» y «Relieve» en v50.43. |
 | 3 | `encargo-auditoria-experiencia-y-promesas.md` · Partes A y B | Documento redactado (`docs/encargos/`). Pendiente de programar: se puede hacer en paralelo. |
 | 4 | Auditoría · Fases 2 y 3 | Ya estaba (v50.34-v50.35) |
-| 5 | Encargo unificado · Bloque A, tanda 1 | **En curso:**<br>• A1 entregado y maquetas aprobadas (12/10/2026).<br>• **v50.44:** motor de agenda común, freelance por días y medias jornadas (A2) y parte de A4 (`RELEASE_NOTES_v50_44.md`).<br>• **Siguiente, v50.45:** cursos, instructores y barcos (A3) y lo pendiente de A4. |
+| 5 | Encargo unificado · Bloque A, tanda 1 | **En curso:**<br>• A1 entregado y maquetas aprobadas (12/10/2026).<br>• **v50.44:** motor de agenda común, freelance por días y medias jornadas (A2) y parte de A4 (`docs/notas-de-version/v50.44.md`).<br>• **Siguiente, v50.45:** cursos, instructores y barcos (A3) y lo pendiente de A4. |
 | 6 | Encargo unificado · Bloque B | B1 (revisión) entregado. El resto, después de la tanda 1. |
 | 7 | Auditoría · Fases 4 a 6 | Ya estaba (v50.35-v50.37) |
 | 8 | Encargo unificado · Bloque A, tanda 2 | Pendiente (después del bloque B). Parte de E7 y E14 ya existe (v50.41 y v50.42). |

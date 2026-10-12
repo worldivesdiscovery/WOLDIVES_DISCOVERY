@@ -1,7 +1,7 @@
 /* Maquetas A1 (no es código de la web): mismos colores, letra y componentes que world-dives-v8.css */
-@font-face{font-family:Inter;src:url(../../../public/assets/fonts/Inter-Regular.woff) format('woff');font-weight:400}
-@font-face{font-family:Inter;src:url(../../../public/assets/fonts/Inter-SemiBold.woff) format('woff');font-weight:600}
-@font-face{font-family:Inter;src:url(../../../public/assets/fonts/Inter-ExtraBold.woff) format('woff');font-weight:800}
+@font-face{font-family:Inter;src:url(../../../public/fuentes/Inter-Regular.woff) format('woff');font-weight:400}
+@font-face{font-family:Inter;src:url(../../../public/fuentes/Inter-SemiBold.woff) format('woff');font-weight:600}
+@font-face{font-family:Inter;src:url(../../../public/fuentes/Inter-ExtraBold.woff) format('woff');font-weight:800}
 :root{--ink:#123142;--muted:#5f717b;--line:#dfe6e7;--paper:#f5f3ee;--deep:#07364a;--sea:#0b7a89;--sea-soft:#e3f1f2;--busy:#c8463c;--busy-soft:#f6dcd9;--ok:#2f7a63;--warn:#8a6129;--warn-soft:#fbf0dc;--radius:18px}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 h1,h2{font-family:Georgia,serif;font-weight:500;margin:0 0 6px}h1{font-size:34px}h2{font-size:24px}h3{margin:0 0 8px;font-size:16px}

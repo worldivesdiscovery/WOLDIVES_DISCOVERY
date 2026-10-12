@@ -28,7 +28,7 @@ Los datos no están escritos en el texto. Son marcadores que se rellenan con *Ad
 
 Si un campo está vacío, la web muestra «[pendiente de completar]» (`legal_fill()`), en inglés «[to be completed]».
 
-**Pie de página.** `footerOwner()` en `public/assets/js/world-dives-v8.js` lee `/api/legal/info` (devuelve `owner_name`, `trade_name`, `nif`, `address`, `email`, `phone`) y escribe «© año · nombre comercial · titular · NIF · domicilio · email». Mientras no haya ningún dato, el pie solo dice «© WORLDIVES DISCOVERY» (`public/index.html`, `#footer-owner`). El pie **no** muestra el teléfono ni los datos registrales: están en el aviso legal, que se enlaza desde el pie. Es suficiente si el aviso legal es accesible de forma «permanente, fácil, directa y gratuita».
+**Pie de página.** `footerOwner()` en `public/js/world-dives-v8.js` lee `/api/legal/info` (devuelve `owner_name`, `trade_name`, `nif`, `address`, `email`, `phone`) y escribe «© año · nombre comercial · titular · NIF · domicilio · email». Mientras no haya ningún dato, el pie solo dice «© WORLDIVES DISCOVERY» (`public/index.html`, `#footer-owner`). El pie **no** muestra el teléfono ni los datos registrales: están en el aviso legal, que se enlaza desde el pie. Es suficiente si el aviso legal es accesible de forma «permanente, fácil, directa y gratuita».
 
 ## Cláusulas
 

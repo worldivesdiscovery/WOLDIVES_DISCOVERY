@@ -133,12 +133,12 @@ class Phase1Security(ServerTestCase):
     # ------------------------------------------------------------------ CSP / headers
     def test_csp_and_headers_everywhere(self):
         c = self.client()
-        for path in ('/', '/api/health', '/assets/js/world-dives-v8.js'):
+        for path in ('/', '/api/health', '/js/world-dives-v8.js'):
             r = c.get(path)
             self.assertIn("script-src 'self'", r.headers.get('Content-Security-Policy', ''), path)
             self.assertEqual(r.headers.get('X-Content-Type-Options'), 'nosniff')
-        etag = c.get('/assets/css/world-dives-v8.css').headers.get('ETag')
-        r = c.get('/assets/css/world-dives-v8.css', headers={'If-None-Match': etag})
+        etag = c.get('/css/world-dives-v8.css').headers.get('ETag')
+        r = c.get('/css/world-dives-v8.css', headers={'If-None-Match': etag})
         self.assertEqual(r.status, 304)
         self.assertIn('Content-Security-Policy', r.headers)
         index = c.get('/').body.decode()

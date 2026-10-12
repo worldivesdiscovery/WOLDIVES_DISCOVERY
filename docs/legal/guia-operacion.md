@@ -3,9 +3,9 @@
 Versión v50.38 · 11/10/2026
 Estado: borrador para revisión
 
-Tareas del titular o del administrador para mantener WORLDIVES DISCOVERY en marcha. Todo lo que aquí se cita existe en el código (`app/server.py`, `public/assets/js/world-dives-v8.js`, `tools/`). Si algo no existe, se dice.
+Tareas del titular o del administrador para mantener WORLDIVES DISCOVERY en marcha. Todo lo que aquí se cita existe en el código (`app/server.py`, `public/js/world-dives-v8.js`, `tools/`). Si algo no existe, se dice.
 
-Los comandos suponen la instalación de `docs/despliegue.md`:
+Los comandos suponen la instalación de `docs/despliegue/README.md`:
 
 - carpeta `/opt/worldives`;
 - usuario `worldives`;
@@ -133,7 +133,7 @@ La tarea `run_backup_jobs()` (cada minuto, dentro del proceso principal) hace:
 
 - **base de datos** cada `WOD_BACKUP_DB_MINUTES` (60), en `WOD_BACKUP_DIR/db/`, comprimida y comprobada;
 - **fotos y documentos privados** una vez al día, en `WOD_BACKUP_DIR/files/` (`.tar.gz`);
-- **copia externa** después de cada copia, con `WOD_BACKUP_COMMAND` (por ejemplo `deploy/backup-externo.sh` con rclone);
+- **copia externa** después de cada copia, con `WOD_BACKUP_COMMAND` (por ejemplo `scripts/copia_externa.sh` con rclone);
 - **rotación**: 48 copias horarias, una diaria durante 30 días y una mensual durante 12 meses (`WOD_BACKUP_KEEP_*`);
 - **`PRAGMA quick_check`** diario de la base en uso.
 
@@ -326,11 +326,11 @@ Al terminar, marca la incidencia como `resolved`.
   |---|---|
   | `python app/server.py --create-admin` | Crear otro administrador. Al entrar debe activar TOTP |
   | `python app/server.py --report-center-accounts` | Informe de cuentas de centro y sus solicitudes |
-  | `python3 tools/crear_base_produccion.py --source … --out …` | Solo para una instalación nueva |
-  | `python3 tools/demo_centros_ficticios.py <base> --yes` | Solo para la demo |
-  | `python3 tools/puntos_reescritos.py <base> > docs/legal/puntos-reescritos.md` | Regenerar la lista de descripciones reescritas |
-  | `python3 tools/prueba_carga.py --url https://pruebas.<dominio> --users 100 --seconds 60` | Prueba de carga, siempre contra pruebas |
-  | `tools/i18n_*.py` | Traducciones |
+  | `python3 scripts/crear_semilla.py --source … --out …` | Solo para una instalación nueva |
+  | `python3 scripts/herramientas/demo_centros_ficticios.py <base> --yes` | Solo para la demo |
+  | `python3 scripts/herramientas/puntos_reescritos.py <base> > docs/legal/puntos-reescritos.md` | Regenerar la lista de descripciones reescritas |
+  | `python3 scripts/herramientas/prueba_carga.py --url https://pruebas.<dominio> --users 100 --seconds 60` | Prueba de carga, siempre contra pruebas |
+  | `scripts/idiomas/*.py` | Traducciones |
 
 ---
 

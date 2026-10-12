@@ -7,7 +7,7 @@
 - External destination: WOD_BACKUP_COMMAND, run after each copy with the file path as its only argument
   (for example a script that calls «rclone copy» or «aws s3 cp»). Its failure is reported, never hidden.
 - Integrity: «PRAGMA quick_check» once a day; every copy is opened and checked before it is kept.
-Restore and the restore test are documented in docs/despliegue.md.
+Restore and the restore test are documented in docs/despliegue/README.md.
 """
 from __future__ import annotations
 

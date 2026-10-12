@@ -27,7 +27,7 @@ Si titular y técnico son la misma persona, lo hace todo ella, pero **siempre** 
 | **Administración → Operación** | Versión, integridad, últimas copias, cola de correos, errores recientes, disco libre, avisos de configuración | `admin_health()` |
 | **Registro de actividad** | Inicios de sesión (`login`, con `ip_hash`), fallos de TOTP (`totp_failed`), descargas y denegaciones de documentos (`document_downloaded`, `document_access_denied`), cambios de rol, exportaciones (`provider_export`, `dac7_exported`), importaciones (`clients_imported`), eliminaciones de cuenta | Tabla `audit_log`; *Administración → Actividad* (`/api/admin/audit`, últimas 300) |
 | **Registro de accesos** | Peticiones con IP truncada (/24 o /48), sin cadena de consulta; 14 días | `logs/access.log` (`access_logger()`); o el journal de systemd si `WOD_ACCESS_LOG=stdout` |
-| **Monitor externo** | La web no responde | `/api/health` (UptimeRobot, Better Stack…; `docs/despliegue.md`, apartado 8) |
+| **Monitor externo** | La web no responde | `/api/health` (UptimeRobot, Better Stack…; `docs/despliegue/README.md`, apartado 8) |
 | **Personas** | Un usuario, un centro, Stripe, el proveedor de hosting o de correo, un investigador de seguridad | {{email}}, {{dpo_email}} |
 
 Limitaciones a tener en cuenta:
@@ -208,7 +208,7 @@ La clave se lee una vez por proceso: hay que **reiniciar el servicio** tras camb
 - **Modo piloto** (mismo panel): solo entran profesionales con invitación.
 - **Cerrar el registro de cuentas:** `WOD_REGISTRATION_CLOSED=1` en `.env` y reiniciar.
 - **Quitar el rol** de centro o administrador a una cuenta comprometida (Administración → Usuarios).
-- **Parar el servidor:** `systemctl stop worldives` (unidad en `deploy/worldives.service`).
+- **Parar el servidor:** `systemctl stop worldives` (unidad en `docs/despliegue/worldives.service`).
 - No hay una función para **bloquear** una cuenta sin borrarla **[PENDIENTE TITULAR]**.
 
 ### Aviso en la web y a los centros
@@ -225,7 +225,7 @@ tar -xzf /var/backups/worldives/files/archivos-AAAAmmdd-HHMM.tar.gz -C /tmp/rest
 systemctl start worldives
 ```
 
-Elige una copia **anterior al incidente**. Los datos posteriores a esa copia se pierden: anótalo en el registro (puede ser en sí una brecha de disponibilidad). Detalle en `docs/despliegue.md`, apartado 7.
+Elige una copia **anterior al incidente**. Los datos posteriores a esa copia se pierden: anótalo en el registro (puede ser en sí una brecha de disponibilidad). Detalle en `docs/despliegue/README.md`, apartado 7.
 
 ## 8. Pendientes
 

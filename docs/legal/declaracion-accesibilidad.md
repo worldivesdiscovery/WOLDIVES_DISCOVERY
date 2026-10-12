@@ -7,7 +7,7 @@ Estado: borrador para revisión
 
 - Castellano (referencia): `app/legal/es/accesibilidad.md`. Inglés (oficial): `app/legal/en/accesibilidad.md`.
 - Ruta pública: `#/legal/accesibilidad`. Enlazada en el pie.
-- No necesita aceptación. Se creó en v50.36 (`RELEASE_NOTES_v50_36.md`, apartado 12; punto 5.12 del encargo).
+- No necesita aceptación. Se creó en v50.36 (`docs/notas-de-version/v50.36.md`, apartado 12; punto 5.12 del encargo).
 
 Esta ficha no repite el texto. Resume cada afirmación, indica en qué parte del código se apoya, separa lo hecho de lo no hecho y lista lo que falta revisar.
 
@@ -15,9 +15,9 @@ Esta ficha no repite el texto. Resume cada afirmación, indica en qué parte del
 
 | Afirmación del texto | Dónde se apoya en el código | Estado |
 |---|---|---|
-| Cada campo asociado a su etiqueta | `wdLinkLabels()` en `public/assets/js/world-dives-v8.js`: al dibujar cada pantalla (un `MutationObserver` lo lanza 60 ms después de cada cambio del DOM) enlaza cada `label` sin `for` con su campo (le da `id` `wdf-N` si no tiene) y da `aria-label` (del `placeholder` o `title`) a los campos que siguen sin etiqueta. Registro y reserva ya tenían etiquetas en el HTML | Hecho. Es una corrección en tiempo de ejecución: los formularios nuevos deberían escribir `for`/`id` en el HTML |
+| Cada campo asociado a su etiqueta | `wdLinkLabels()` en `public/js/world-dives-v8.js`: al dibujar cada pantalla (un `MutationObserver` lo lanza 60 ms después de cada cambio del DOM) enlaza cada `label` sin `for` con su campo (le da `id` `wdf-N` si no tiene) y da `aria-label` (del `placeholder` o `title`) a los campos que siguen sin etiqueta. Registro y reserva ya tenían etiquetas en el HTML | Hecho. Es una corrección en tiempo de ejecución: los formularios nuevos deberían escribir `for`/`id` en el HTML |
 | Mensajes de error en texto | `toast()` y los mensajes de error del servidor en texto; 12 regiones `role="status"`/`role="alert"`/`aria-live` | Parcial: no se ha comprobado que todos los errores se anuncien a lectores de pantalla |
-| Uso con teclado y foco siempre visible | Regla general `:focus-visible{outline:none;box-shadow:var(--ring)}` y reglas propias en `public/assets/css/world-dives-v8.css`; de los 13 `outline:none`, los 3 sin anillo se corrigieron (buscador, marcadores, alto contraste). `<main id="app" tabindex="-1">` en `public/index.html`. Diálogos con `aria-modal` y cierre con Escape | Hecho para el foco. Uso completo con teclado: **no verificado** pantalla a pantalla |
+| Uso con teclado y foco siempre visible | Regla general `:focus-visible{outline:none;box-shadow:var(--ring)}` y reglas propias en `public/css/world-dives-v8.css`; de los 13 `outline:none`, los 3 sin anillo se corrigieron (buscador, marcadores, alto contraste). `<main id="app" tabindex="-1">` en `public/index.html`. Diálogos con `aria-modal` y cierre con Escape | Hecho para el foco. Uso completo con teclado: **no verificado** pantalla a pantalla |
 | Modo de alto contraste de Windows | `@media (forced-colors:active)` con contorno `CanvasText` en el foco y los campos | Hecho |
 | Movimiento reducido | `@media (prefers-reduced-motion:reduce)` (4 bloques: transiciones, modales, carrusel, portada) | Hecho (el texto no lo menciona) |
 | Textos alternativos en imágenes y marcadores | Todas las `<img>` del JS y de `index.html` tienen `alt` (31 con `alt=""` como decorativas). Marcadores: `<span class="wd-pin" role="img" aria-label="…">` en el `L.divIcon` | Hecho. **No revisado** si cada `alt=""` es de verdad decorativa (p. ej. logotipos de centros) |

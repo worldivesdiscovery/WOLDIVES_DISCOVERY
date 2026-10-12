@@ -30,7 +30,7 @@ El servidor entrega el archivo con peticiones de rango HTTP (`Range`), que es co
 
 **Actualizar cada 3–6 meses:** repite el paso 3 con una compilación nueva en un archivo temporal y sustitúyelo con `mv` (es atómico). No hace falta reiniciar.
 
-**Estilo:** `public/assets/vendor/protomaps-leaflet/wd-flavor.js` (colores de mar y tierra de la web, nombres de lugar en el idioma del visitante).
+**Estilo:** `public/lib/protomaps-leaflet/wd-flavor.js` (colores de mar y tierra de la web, nombres de lugar en el idioma del visitante).
 
 ## 2. Satélite (Esri World Imagery)
 

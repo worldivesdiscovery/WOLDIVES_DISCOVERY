@@ -8,10 +8,10 @@ Requisito previo cumplido: Fase 1 (seguridad, v50.31) y Fase 1B (modos de reserv
 
 | Versión | Puntos | Notas |
 |---|---|---|
-| v50.39 | 7 · Inicio de sesión y registro más sencillos | `RELEASE_NOTES_v50_39.md` |
-| v50.40 | 1 · Manifiesto de salida · 5 · Formularios firmados | `RELEASE_NOTES_v50_40.md` |
-| v50.41 | 2 · Cancelar salida por mal tiempo · 3 · Cambio de fecha · 4 · Lista de espera | `RELEASE_NOTES_v50_41.md` |
-| v50.42 | 6 · Check-in en el barco sin cobertura | `RELEASE_NOTES_v50_42.md` |
+| v50.39 | 7 · Inicio de sesión y registro más sencillos | `docs/notas-de-version/v50.39.md` |
+| v50.40 | 1 · Manifiesto de salida · 5 · Formularios firmados | `docs/notas-de-version/v50.40.md` |
+| v50.41 | 2 · Cancelar salida por mal tiempo · 3 · Cambio de fecha · 4 · Lista de espera | `docs/notas-de-version/v50.41.md` |
+| v50.42 | 6 · Check-in en el barco sin cobertura | `docs/notas-de-version/v50.42.md` |
 
 Cada nota explica qué había antes, qué cambia, la migración (solo añade), el estado de cada parte, lo pendiente de decisión, lo que debe mirar el abogado y cómo se probó.
 

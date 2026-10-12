@@ -1,6 +1,6 @@
 # Agenda y reservas: cómo está hoy (v50.43)
 
-Revisión del encargo unificado, punto A1.1. No se ha cambiado código. Las referencias son a `app/server.py` (S:línea) y a `public/assets/js/world-dives-v8.js` (J:línea) de la v50.43.
+Revisión del encargo unificado, punto A1.1. No se ha cambiado código. Las referencias son a `app/server.py` (S:línea) y a `public/js/world-dives-v8.js` (J:línea) de la v50.43.
 
 ## 1. Piezas actuales
 

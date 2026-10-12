@@ -67,7 +67,7 @@ Para corregir o decidir antes de publicar el anexo:
 2. **El centro no puede borrar una ficha de cliente.** No hay ruta para suprimir o rectificar un cliente propio. Si un cliente del centro ejerce sus derechos, hoy solo lo puede hacer la administración a mano en la base.
 3. **No hay procedimiento de cierre de un centro en el código.** `delete_user_account()` anonimiza la cuenta de la persona, pero la ficha del centro, sus fichas de cliente (`guest_center_id`), sus reservas y sus `info_requests` se quedan. La supresión al terminar el encargo es hoy manual.
 4. **No hay plazo de borrado automático** para `info_requests`, fichas de cliente del centro ni reservas (`run_retention_jobs()` no las toca: «Bookings and payments are never deleted here»).
-5. **Las copias de seguridad no están cifradas en el servidor.** `backup.py` las comprime (gzip) con permisos `0600`. El cifrado solo existe si el destino externo lo aplica (recomendación de `docs/despliegue.md`: remoto `crypt` de rclone). La política de privacidad publicada dice «copias de seguridad cifradas». **[PENDIENTE TITULAR]**: cifrar en origen o corregir el texto.
+5. **Las copias de seguridad no están cifradas en el servidor.** `backup.py` las comprime (gzip) con permisos `0600`. El cifrado solo existe si el destino externo lo aplica (recomendación de `docs/despliegue/README.md`: remoto `crypt` de rclone). La política de privacidad publicada dice «copias de seguridad cifradas». **[PENDIENTE TITULAR]**: cifrar en origen o corregir el texto.
 6. **El secreto TOTP** (`users.totp_secret`) se guarda sin cifrar en la base. Los códigos de recuperación sí se guardan con hash.
 
 ---
@@ -158,9 +158,9 @@ El centro autoriza de forma general a WORLDIVES a recurrir a estos subencargados
 
 | Subencargado | Servicio | Datos | Ubicación |
 |---|---|---|---|
-| {{hosting}} | Servidor VPS (base de datos SQLite, archivos y copias locales) | Todos los de la cláusula 4 | UE (`docs/despliegue.md`, apartado 1) |
+| {{hosting}} | Servidor VPS (base de datos SQLite, archivos y copias locales) | Todos los de la cláusula 4 | UE (`docs/despliegue/README.md`, apartado 1) |
 | Proveedor SMTP **[pendiente de decisión del titular; recomendado Brevo]** | Envío de correos (`WOD_SMTP_HOST`, cola `email_outbox`) | Nombre, email y contenido del correo | Brevo: UE |
-| Almacenamiento externo de copias **[pendiente; recomendado en la UE con cifrado]** | Copia fuera del servidor (`WOD_BACKUP_COMMAND`, ejemplo `deploy/backup-externo.sh`) | Copia completa de la base y de los archivos | UE |
+| Almacenamiento externo de copias **[pendiente; recomendado en la UE con cifrado]** | Copia fuera del servidor (`WOD_BACKUP_COMMAND`, ejemplo `scripts/copia_externa.sh`) | Copia completa de la base y de los archivos | UE |
 | Stripe **[PENDIENTE ABOGADO]** | Cobros en la cuenta del centro | Ver A.3 | Irlanda (Stripe Payments Europe Ltd.), con transferencias a EE. UU. |
 
 No son subencargados porque **no reciben datos de los clientes del centro**:
@@ -194,7 +194,7 @@ Medidas que **ya están en el código** (v50.38):
 | Arranque bloqueado en producción sin https, sin `WOD_SECRET_KEY` de 32 caracteres, con `WOD_DEBUG` o sin TOTP de administradores | `check_production_settings()` |
 | Proxy de confianza explícito para leer la IP real | `WOD_TRUSTED_PROXIES`, `client_ip()` |
 
-Medidas organizativas: entorno de pruebas separado que nunca usa la base real (`docs/despliegue.md`, apartado 6) y procedimiento de brechas (`docs/legal/procedimiento-brechas.md`).
+Medidas organizativas: entorno de pruebas separado que nunca usa la base real (`docs/despliegue/README.md`, apartado 6) y procedimiento de brechas (`docs/legal/procedimiento-brechas.md`).
 
 Mejoras previstas (ver A.4): cifrado de las copias en origen y del secreto TOTP.
 

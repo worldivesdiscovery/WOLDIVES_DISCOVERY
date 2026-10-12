@@ -3,7 +3,7 @@
 - wod.money: smallest unit per currency (EUR, MXN, THB ×100; JPY ×1; KWD ×1000 ending in 0) and Stripe minimums.
 - With the Stripe simulator: a booking in JPY is charged 10 000 (not 1 000 000), the amount check accepts it and a
   refund of 3 000 JPY is sent as 3 000; a price under the Stripe minimum (MXN) is refused with a clear message.
-- Brand: the page, manifest and service worker only use /assets/brand/; the old logo files are not served; e-mails
+- Brand: the page, manifest and service worker only use /img/marca/; the old logo files are not served; e-mails
   and PDF carry the new icon; the brand colours are only written once (CSS variables).
 """
 from __future__ import annotations
@@ -87,16 +87,16 @@ class Brand(ServerTestCase):
     def test_page_manifest_and_service_worker_use_the_new_brand(self):
         c = self.client()
         html = c.get('/').body.decode('utf-8')
-        refs = set(re.findall(r'/assets/brand/[\w.-]+', html))
-        self.assertTrue({'/assets/brand/favicon.ico', '/assets/brand/apple-touch-icon-180.png', '/assets/brand/og-image-1200x630.png'} <= refs, refs)
-        for ref in refs | set(re.findall(r'/assets/brand/[\w.-]+', (ROOT / 'public' / 'manifest.webmanifest').read_text()) + re.findall(r'/assets/brand/[\w.-]+', (ROOT / 'public' / 'sw.js').read_text())):
+        refs = set(re.findall(r'/img/marca/[\w./-]+', html))
+        self.assertTrue({'/img/marca/favicon.ico', '/img/marca/apple-touch-icon-180.png', '/img/marca/og-image-1200x630.png'} <= refs, refs)
+        for ref in refs | set(re.findall(r'/img/marca/[\w./-]+', (ROOT / 'public' / 'manifest.webmanifest').read_text()) + re.findall(r'/img/marca/[\w./-]+', (ROOT / 'public' / 'sw.js').read_text())):
             self.assertEqual(c.get(ref).status, 200, ref)
         self.assertIn('content="#011C3C"', html)
         for old in ('/assets/images/wod-icon.png', '/assets/images/wod-icon-512.png', '/assets/images/world-dives-discovery-logo.png'):
             self.assertEqual(c.get(old).status, 404, old)
 
     def test_palette_written_once(self):
-        css = (ROOT / 'public' / 'assets' / 'css' / 'world-dives-v8.css').read_text()
+        css = (ROOT / 'public' / 'css' / 'world-dives-v8.css').read_text()
         for hexv in ('#011C3C', '#043D6C', '#076898', '#1CA5C7', '#87E2EF'):
             self.assertEqual(css.upper().count(hexv), 1, hexv)            # only in the definition of its variable
         for old in ('#07364a', '#0b7a89', '#12a5b5'):
@@ -106,12 +106,12 @@ class Brand(ServerTestCase):
         self.make_diver('marca')
         mails = self.server.sql("SELECT html FROM email_outbox WHERE html IS NOT NULL ORDER BY id DESC LIMIT 1")
         self.assertTrue(mails)
-        self.assertIn('/assets/brand/worldives-icono-correo-96.png', mails[0]['html'])
+        self.assertIn('/img/marca/worldives-icono-correo-96.png', mails[0]['html'])
         self.assertIn('#011C3C', mails[0]['html']); self.assertNotIn('wod-icon', mails[0]['html'])
         sys.path.insert(0, str(ROOT / 'app'))
         from wod import pdf as wpdf
         d = wpdf.Document('Prueba', 'es')
-        d.image_jpeg((ROOT / 'public' / 'assets' / 'brand' / 'worldives-icono-pdf.jpg').read_bytes(), 40, 760, 58, 58)
+        d.image_jpeg((ROOT / 'public' / 'img' / 'marca' / 'worldives-icono-pdf.jpg').read_bytes(), 40, 760, 58, 58)
         d.text(110, 800, 'WORLDIVES DISCOVERY', 17)
         out = d.pdf()
         self.assertIn(b'/Subtype /Image', out); self.assertIn(b'/DCTDecode', out); self.assertIn(b'/XObject', out)

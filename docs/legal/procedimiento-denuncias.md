@@ -33,7 +33,7 @@ WORLDIVES aloja contenidos de terceros y los difunde al público (fichas de cent
 
 ### Vías de entrada
 
-1. **Botón «Denunciar»** en el propio contenido. Abre `openReportModal()` (`public/assets/js/world-dives-v8.js`), que envía `target_type`, `target_id` y la URL de la página. Hoy hay botón en: reseña, centro, foto, punto de buceo y experiencia. **Promoción** y **perfil de profesional** se admiten en el servidor pero no tienen botón.
+1. **Botón «Denunciar»** en el propio contenido. Abre `openReportModal()` (`public/js/world-dives-v8.js`), que envía `target_type`, `target_id` y la URL de la página. Hoy hay botón en: reseña, centro, foto, punto de buceo y experiencia. **Promoción** y **perfil de profesional** se admiten en el servidor pero no tienen botón.
 2. **Formulario general** en `#/legal/denuncias` (`#rp-*`): motivo, URL, explicación, nombre, email y casilla de buena fe. Sin `target_type`.
 3. **Email** al punto de contacto. No entra en la base: quien modera debe darlo de alta a mano (ver 4.1).
 

@@ -1,6 +1,6 @@
 # Experiencias: cómo están hoy (v50.43)
 
-Revisión del encargo unificado, punto B1. No se ha cambiado código. Las referencias son a `app/server.py` (S:línea) y a `public/assets/js/world-dives-v8.js` (J:línea). Las capturas de la lista, la ficha, la reserva y el panel del organizador, en móvil y ordenador, están en `docs/capturas/experiencias-b1/`.
+Revisión del encargo unificado, punto B1. No se ha cambiado código. Las referencias son a `app/server.py` (S:línea) y a `public/js/world-dives-v8.js` (J:línea). Las capturas de la lista, la ficha, la reserva y el panel del organizador, en móvil y ordenador, están en `docs/capturas/experiencias-b1/`.
 
 ## Modelo
 - **`travel_offers`** (S:511): el **destino** (título, región, tipo, imagen y textos). Lo crea el administrador, o el organizador al escribir un destino nuevo.

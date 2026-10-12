@@ -1,0 +1,31 @@
+# systemd unit for WORLDIVES DISCOVERY (production). Copy to /etc/systemd/system/worldives.service, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now worldives
+# Logs: journalctl -u worldives -f
+[Unit]
+Description=WORLDIVES DISCOVERY
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=worldives
+Group=worldives
+WorkingDirectory=/opt/worldives
+# Secrets and settings: the server reads WorkingDirectory/.env itself (chmod 600, owner of the service; never in the
+# repository). Do not use EnvironmentFile: it would keep the «# comments» of .env.example inside the values.
+# EnvironmentFile=/opt/worldives/.env
+Environment=PYTHONUNBUFFERED=1
+Environment=WOD_ACCESS_LOG=stdout
+ExecStart=/opt/worldives/.venv/bin/python app/server.py
+Restart=always
+RestartSec=3
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/worldives/data /opt/worldives/storage /opt/worldives/logs /var/backups/worldives
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

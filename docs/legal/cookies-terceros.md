@@ -6,7 +6,7 @@ Estado: borrador para revisión
 ## Texto publicado
 
 - Castellano (referencia): `app/legal/es/cookies.md`. Inglés (oficial): `app/legal/en/cookies.md`.
-- Ruta pública: `#/legal/cookies`. Enlazada en el pie y desde el aviso de cookies (`cookieNotice()` en `public/assets/js/world-dives-v8.js`).
+- Ruta pública: `#/legal/cookies`. Enlazada en el pie y desde el aviso de cookies (`cookieNotice()` en `public/js/world-dives-v8.js`).
 - No necesita aceptación (no está en `LEGAL_ACCEPTANCE`): solo se usan cookies y almacenamiento técnicos (art. 22.2 LSSI-CE).
 
 Esta ficha no repite el texto. Comprueba cada cookie, cada clave de almacenamiento y cada tercero contra el código.
@@ -14,7 +14,7 @@ Esta ficha no repite el texto. Comprueba cada cookie, cada clave de almacenamien
 ## Método de comprobación
 
 - Cookies: `grep Set-Cookie app/server.py` y `document.cookie` en el JS (no aparece).
-- Almacenamiento: `grep localStorage|sessionStorage public/assets/js/*.js` (solo `world-dives-v8.js` lo usa) y `public/sw.js` (Cache Storage).
+- Almacenamiento: `grep localStorage|sessionStorage public/js/*.js` (solo `world-dives-v8.js` lo usa) y `public/sw.js` (Cache Storage).
 - Terceros: CSP en `content_security_policy()` (`app/wod/security.py`), configuración de mapas `map_config()` (`app/server.py`, `GET /api/map/config`), vídeos en `DEFAULT_EMBED_DOMAINS` (`app/wod/config.py`) y búsqueda de URLs `https://` en `public/index.html` y el JS.
 
 ## Cookies
@@ -51,7 +51,7 @@ Todas las lecturas y escrituras van dentro de `try…catch`: si el navegador blo
 
 | Directiva | Valor | Qué permite |
 |---|---|---|
-| `script-src` | `'self'` | Ningún script de terceros (Leaflet y Protomaps están en `/assets/vendor/`) |
+| `script-src` | `'self'` | Ningún script de terceros (Leaflet y Protomaps están en `/lib/`) |
 | `style-src` | `'self' 'unsafe-inline'` | Sin hojas de estilo externas |
 | `font-src` | `'self'` | Sin fuentes externas (no hay Google Fonts) |
 | `img-src` | `'self' data: blob: https:` | **Cualquier imagen https** (ver desajustes) |

@@ -26,7 +26,7 @@ Para no repetirlos en cada actividad:
 |---|---|---|---|
 | **HOST** | {{hosting}} (VPS) | Encargado | UE |
 | **SMTP** | Proveedor de correo **[pendiente; recomendado Brevo]** (`WOD_SMTP_HOST`) | Encargado | Brevo: UE. Otro proveedor: comprobar |
-| **BACKUP** | Almacenamiento externo de copias (`WOD_BACKUP_COMMAND`) **[pendiente]** | Encargado | Recomendado UE y cifrado (`docs/despliegue.md`, apartado 7) |
+| **BACKUP** | Almacenamiento externo de copias (`WOD_BACKUP_COMMAND`) **[pendiente]** | Encargado | Recomendado UE y cifrado (`docs/despliegue/README.md`, apartado 7) |
 | **STRIPE** | Stripe Payments Europe Ltd. | **[PENDIENTE ABOGADO]** (ver el anexo de encargo, A.3) | Irlanda, con transferencias a Stripe, Inc. (EE. UU.) bajo el Marco de Privacidad de Datos UE-EE. UU. y cláusulas tipo |
 | **CENTRO** | Centro o profesional con el que se reserva | Responsable independiente | Donde esté el centro (puede ser fuera del EEE: **[PENDIENTE ABOGADO]**, ver más abajo) |
 

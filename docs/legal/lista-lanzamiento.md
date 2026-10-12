@@ -7,9 +7,9 @@ Casillas para poner WORLDIVES DISCOVERY en producción. Cada punto se puede comp
 
 Guías de apoyo:
 
-- `docs/despliegue.md` (servidor, copias, correo y monitorización);
+- `docs/despliegue/README.md` (servidor, copias, correo y monitorización);
 - `docs/mapas.md`;
-- `RELEASE_NOTES_v50_31.md` … `RELEASE_NOTES_v50_38.md`;
+- `docs/notas-de-version/v50.31.md` … `docs/notas-de-version/v50.38.md`;
 - `docs/legal/inventario.md` (estado de cada punto y discrepancias).
 
 Marcas:
@@ -62,11 +62,11 @@ Rellena la fecha y quién lo hizo al marcar cada casilla.
 ## 4. Servidor y dominio
 
 - [ ] Contratar un VPS en la UE (Debian 12 o Ubuntu 24.04, mínimo 2 vCPU y 4 GB de RAM, SSD de 40 GB más el mapa base). Un alojamiento compartido no sirve.
-- [ ] Crear el usuario `worldives`, clonar en `/opt/worldives`, crear el `.venv` e instalar `requirements.txt` (`docs/despliegue.md` §1).
+- [ ] Crear el usuario `worldives`, clonar en `/opt/worldives`, crear el `.venv` e instalar `requirements.txt` (`docs/despliegue/README.md` §1).
 - [ ] Python 3.11 o superior: `python3 --version`.
 - [ ] Apuntar el DNS del dominio (A/AAAA) al VPS. Crear también `pruebas.<dominio>`.
-- [ ] Caddy (`deploy/Caddyfile`) o nginx con certbot (`deploy/nginx.conf`). Comprobar: `https://<dominio>` con certificado válido y `http://` redirige a https.
-- [ ] `/tiles/` sin compresión ni búfer en el proxy (está en los ejemplos de `deploy/`).
+- [ ] Caddy (`docs/despliegue/Caddyfile`) o nginx con certbot (`docs/despliegue/nginx.conf`). Comprobar: `https://<dominio>` con certificado válido y `http://` redirige a https.
+- [ ] `/tiles/` sin compresión ni búfer en el proxy (está en los ejemplos de `docs/despliegue/`).
 - [ ] `.env` en `/opt/worldives/.env` con `chmod 600` y propietario `worldives`. Mínimo:
   - `WOD_ENV=production`;
   - `WOD_PUBLIC_URL=https://…`;
@@ -75,10 +75,10 @@ Rellena la fecha y quién lo hizo al marcar cada casilla.
   - `WOD_TRUSTED_PROXIES=127.0.0.1`;
   - `WOD_WORKERS` = número de núcleos;
   - `WOD_DB_PATH`, `WOD_BACKUP_DIR`, `WOD_BACKUP_COMMAND`.
-- [ ] Servicio systemd: `deploy/worldives.service` con `systemctl enable --now worldives`. Comprobar: `systemctl status worldives` activo y `journalctl -u worldives` sin «No se puede arrancar en producción».
+- [ ] Servicio systemd: `docs/despliegue/worldives.service` con `systemctl enable --now worldives`. Comprobar: `systemctl status worldives` activo y `journalctl -u worldives` sin «No se puede arrancar en producción».
 - [ ] Revisar los avisos de arranque (`production_warnings()`): SMTP, Stripe, mapa base y satélite. Todos resueltos o aceptados.
   - Atención: el aviso de falta de `STRIPE_CONNECT_WEBHOOK_SECRET` solo aparece si hay `ARCGIS_API_KEY`. Compruébalo a mano.
-- [ ] Entorno de pruebas separado: `/opt/worldives-pruebas`, `deploy/worldives-pruebas.service`, `WOD_PORT=8001`, claves de **prueba** de Stripe y protección por contraseña.
+- [ ] Entorno de pruebas separado: `/opt/worldives-pruebas`, `docs/despliegue/worldives-pruebas.service`, `WOD_PORT=8001`, claves de **prueba** de Stripe y protección por contraseña.
 - [ ] Ajustar `WOD_SOCKET_TIMEOUT` y `WOD_MAX_CONCURRENT` solo si la prueba de carga lo aconseja.
 
 ## 5. Seguridad
@@ -150,22 +150,22 @@ Rellena la fecha y quién lo hizo al marcar cada casilla.
 
 ## 9. Base de producción y primer administrador con TOTP
 
-- [ ] Crear la base limpia: `sudo -u worldives .venv/bin/python tools/crear_base_produccion.py --source data/demo/catalogo-demo.sqlite3 --out /opt/worldives/data/worldives.sqlite3`.
+- [ ] Crear la base limpia: `sudo -u worldives .venv/bin/python scripts/crear_semilla.py --source data/demo/catalogo-demo.sqlite3 --out /opt/worldives/data/worldives.sqlite3`.
   - Comprobar con `sqlite3`: 0 usuarios, 0 centros, 0 reservas, 0 pagos y 0 mensajes.
 - [ ] Crear el primer admin: `sudo -u worldives .venv/bin/python app/server.py --create-admin`.
 - [ ] Entrar como admin y **activar la verificación en dos pasos** (obligatoria). Guardar los códigos de recuperación fuera del servidor (gestor de contraseñas).
 - [ ] Comprobar: sin TOTP, el admin no puede usar *Administración*.
 - [ ] Revisar *Administración → Funciones*: interruptores (Puntos, Promociones, Experiencias, Patrocinio, Reseñas y Pagos online) y **modo piloto** si el alta de centros va a ser solo por invitación.
 - [ ] Revisar los plazos de conservación en *Administración → Legal* (tarjeta de plazos, `/api/admin/retention`).
-- [ ] Producción **sin** `WOD_DEMO_MODE`. La demo pública, si la hay, va en el entorno de pruebas con `WOD_DEMO_MODE=1` y centros ficticios (`tools/demo_centros_ficticios.py`).
+- [ ] Producción **sin** `WOD_DEMO_MODE`. La demo pública, si la hay, va en el entorno de pruebas con `WOD_DEMO_MODE=1` y centros ficticios (`scripts/herramientas/demo_centros_ficticios.py`).
 
 ## 10. Copias y prueba de restauración
 
 - [ ] `WOD_BACKUP_DIR=/var/backups/worldives`, propiedad de `worldives`.
-- [ ] Copia externa: `WOD_BACKUP_COMMAND=/opt/worldives/deploy/backup-externo.sh` con rclone hacia un almacenamiento en la UE, con versiones o bloqueo de objetos y **cifrado** (remoto `crypt`).
+- [ ] Copia externa: `WOD_BACKUP_COMMAND=/opt/worldives/scripts/copia_externa.sh` con rclone hacia un almacenamiento en la UE, con versiones o bloqueo de objetos y **cifrado** (remoto `crypt`).
 - [ ] Primera copia manual: `python app/server.py --backup-now`. Debe decir «Copia creada … ok» y sin «Copia externa fallida».
 - [ ] *Administración → Operación* muestra la última copia de la base (cada hora) y de los archivos (cada día), y `quick_check` = ok.
-- [ ] **Prueba de restauración** en el entorno de pruebas (`docs/despliegue.md` §7):
+- [ ] **Prueba de restauración** en el entorno de pruebas (`docs/despliegue/README.md` §7):
   - `--verify-backup <copia>`;
   - con el servicio parado, `--restore <copia> --yes`;
   - descomprimir `files/archivos-….tar.gz`;
@@ -205,7 +205,7 @@ Rellena la fecha y quién lo hizo al marcar cada casilla.
 - [ ] Suite automática en verde en el servidor de pruebas: `python3 -m unittest discover -s tests -p 'test_*.py'`.
   - A 11/10/2026 (v50.38), las 143 pruebas pasan en el entorno de desarrollo, también `test_phase8_languages.py`. Falta repetirlas en el servidor de pruebas.
 - [ ] Recorridos en navegador: `tests/e2e_walk.py` (5 roles), `e2e_booking_modes.py`, `e2e_payments.py`, `e2e_points_email.py`, `e2e_legal_catalog.py`, `e2e_centers.py` y `e2e_markers.py`.
-- [ ] Prueba de carga en el **servidor real** (entorno de pruebas, misma máquina): `python3 tools/prueba_carga.py --url https://pruebas.<dominio> --users 100 --seconds 60`. Anotar los resultados en `docs/despliegue.md` §9.
+- [ ] Prueba de carga en el **servidor real** (entorno de pruebas, misma máquina): `python3 scripts/herramientas/prueba_carga.py --url https://pruebas.<dominio> --users 100 --seconds 60`. Anotar los resultados en `docs/despliegue/README.md` §9.
 - [ ] Recorrido manual completo en producción con cuentas reales de prueba (borrarlas después):
   - alta de buceador con verificación de email;
   - alta de centro, aprobación con método y nota, prueba gratuita;

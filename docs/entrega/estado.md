@@ -54,7 +54,7 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 |---|---|---|---|
 | 10 idiomas | Completado | es, en, fr, de, it, pt, pl, nl, zh, ru; nombres nativos en el selector. | `e2e_walk.py` y recorrido en pl/ru |
 | Retirar ja, ko, zt | Nuevo | Archivados en `archive/i18n/`; usuarios y correos en cola pasan a en/zh (`migrate_v50_33`). | `test_units` (normalize_lang) + migración |
-| Polaco y ruso | Nuevo | Web completa (3 812 frases + 426 patrones). Correos y textos legales completados en v50.38. | Validador de marcadores/etiquetas y `tools/i18n_report.py` |
+| Polaco y ruso | Nuevo | Web completa (3 812 frases + 426 patrones). Correos y textos legales completados en v50.38. | Validador de marcadores/etiquetas y `scripts/idiomas/report.py` |
 | Plurales | Nuevo | `Intl.PluralRules` con formas one/few/many/other. | Navegador (ru/pl) |
 | Formatos | Completado | Fechas, horas e importes por idioma en web y correos. | Navegador |
 | URL por idioma y hreflang | Nuevo | `?lang=`, `<html lang>`, `hreflang` + `x-default`. | `test_phase1d_languages` |
@@ -136,12 +136,12 @@ Pruebas: `tests/test_*.py` (servidor sobre una copia de la base) y `tests/e2e_wa
 
 | Punto | Estado | Qué se hizo | Cómo se probó |
 |---|---|---|---|
-| 1. Esquema completo y base limpia | Nuevo | `BASE_SCHEMA`; instalación limpia sin `.sqlite3`; `tools/crear_base_produccion.py`. | `Schema.*` |
+| 1. Esquema completo y base limpia | Nuevo | `BASE_SCHEMA`; instalación limpia sin `.sqlite3`; `scripts/crear_semilla.py`. | `Schema.*` |
 | 2. `.gitignore` | Completado | `data/*.sqlite3` fuera; catálogo de demo en `data/demo/`. | CI (`security-test.yml`) |
-| 3. Despliegue | Nuevo | `deploy/` (Caddy, nginx, systemd producción y pruebas), `.env` leído por el servidor, guía completa. | `test_env_file_with_inline_comments` |
+| 3. Despliegue | Nuevo | `docs/despliegue/` (Caddy, nginx, systemd producción y pruebas), `.env` leído por el servidor, guía completa. | `test_env_file_with_inline_comments` |
 | 4. Copias | Nuevo | Horaria + diaria, rotación, copia externa, `quick_check`, restauración documentada y probada. | `Backups.*` |
 | 5. Monitorización | Completado | Alertas de 500 (ya estaban), salud en Administración, aviso de mantenimiento con email a centros. | `test_health_and_banner` + navegador |
-| 6. Rendimiento | Nuevo | `tools/prueba_carga.py`, resultados y umbral de PostgreSQL en `docs/despliegue.md`. | prueba de carga (4 núcleos) |
+| 6. Rendimiento | Nuevo | `scripts/herramientas/prueba_carga.py`, resultados y umbral de PostgreSQL en `docs/despliegue/README.md`. | prueba de carga (4 núcleos) |
 | Prueba de carga en el servidor real | Pendiente | Repetir en el VPS. | — |
 
 ## Fase 8 · Documentos en `docs/legal/` (v50.38)
@@ -168,5 +168,5 @@ Todos redactados a partir del código; las marcas [PENDIENTE ABOGADO], [PENDIENT
 | 16. Lista de lanzamiento | Nuevo | `lista-lanzamiento.md` | Con casillas |
 | 17. Verificación de centros | Nuevo | `guia-verificacion-centros.md` | Flujo real de `center_claims` |
 | 18. Guía de operación | Nuevo | `guia-operacion.md` | Comandos reales de copias y restauración |
-| Desajustes que eran errores de código | Completado (v50.38) | Ver `RELEASE_NOTES_v50_38.md` § 8 | Pruebas en fases 1, 3, 5 y 6 |
-| Desajustes que necesitan decisión | Pendiente de decisión | Ver `RELEASE_NOTES_v50_38.md` | — |
+| Desajustes que eran errores de código | Completado (v50.38) | Ver `docs/notas-de-version/v50.38.md` § 8 | Pruebas en fases 1, 3, 5 y 6 |
+| Desajustes que necesitan decisión | Pendiente de decisión | Ver `docs/notas-de-version/v50.38.md` | — |

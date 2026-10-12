@@ -3,7 +3,7 @@
 Versión v50.38 · 11/10/2026
 Estado: borrador para revisión
 
-Dudas fiscales y contables de WORLDIVES DISCOVERY antes del lanzamiento. Cada pregunta explica primero qué hace hoy la web (con la parte del código en que se apoya) y luego qué hay que decidir. Reúne también los puntos «Para gestoría» de las notas de versión (`RELEASE_NOTES_v50_34.md` y `v50_37.md`) y los **[PENDIENTE GESTORÍA]** de `docs/legal/*.md`.
+Dudas fiscales y contables de WORLDIVES DISCOVERY antes del lanzamiento. Cada pregunta explica primero qué hace hoy la web (con la parte del código en que se apoya) y luego qué hay que decidir. Reúne también los puntos «Para gestoría» de las notas de versión (`docs/notas-de-version/v50.34.md` y `v50_37.md`) y los **[PENDIENTE GESTORÍA]** de `docs/legal/*.md`.
 
 Datos del titular: `{{owner_name}}`, NIF `{{nif}}`, domicilio `{{address}}` ([pendiente de completar]).
 
@@ -88,15 +88,15 @@ Los buceadores reciben un **justificante en PDF**, no una factura. Las condicion
 ## 8. Otros
 
 1. **Puntos de fidelización:** ¿alguna consecuencia fiscal para WORLDIVES? No tienen valor monetario ni los paga WORLDIVES; los canjes son ventajas de los centros.
-2. **Conversión del antiguo monedero a puntos 1:1** (`RELEASE_NOTES_v50_35.md`): no había dinero real detrás en la base entregada; confirmar que no hay nada que regularizar.
+2. **Conversión del antiguo monedero a puntos 1:1** (`docs/notas-de-version/v50.35.md`): no había dinero real detrás en la base entregada; confirmar que no hay nada que regularizar.
 3. **Patrocinios de centros** que a la vez pagan cuota: ¿una factura o dos?
 
 ## 9. Origen de cada punto
 
 | Origen | Puntos |
 |---|---|
-| `RELEASE_NOTES_v50_34.md` («Para abogado / gestoría») | 6.1 |
-| `RELEASE_NOTES_v50_37.md` («Para abogado / gestoría») | 2, 3, 4 |
+| `docs/notas-de-version/v50.34.md` («Para abogado / gestoría») | 6.1 |
+| `docs/notas-de-version/v50.37.md` («Para abogado / gestoría») | 2, 3, 4 |
 | `docs/legal/condiciones-centros.md` (desajuste 6 y puntos pendientes) | 2, 3, 4 |
 | `docs/legal/registro-actividades-tratamiento.md`, `docs/legal/politica-privacidad.md` | 4.7, 7.2 |
 | Encargo, Fase 8 punto 15 | 1, 2, 4 |

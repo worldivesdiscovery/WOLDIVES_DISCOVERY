@@ -5,13 +5,16 @@ never copied from a third party. When a point has extra facts checked by WORLDIV
 tip), they are added. Missing data are not invented: they are listed in `missing` so the owner or a centre can fill
 them in from Administración.
 
-Structure (the same in the 10 languages):
+Structure (the same in the 9 languages):
   1. Summary: where it is, type of dive, depth and recommended level.
   2. What you see (only when there are checked facts).
   3. Access and tips, ending with the reminder to check the conditions of the day with the centre.
 """
 
-LANGS = ('es', 'en', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'ru', 'zh')
+# Order of the per-language tables below. Russian (retired in v50.46) keeps its column so the tables stay aligned,
+# but it is not a language of the site any more.
+_ORDER = ('es', 'en', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'ru', 'zh')
+LANGS = tuple(l for l in _ORDER if l != 'ru')
 
 # Type of dive (catalogue values in Spanish) → canonical key.
 TYPE_KEYS = {
@@ -87,7 +90,7 @@ def _num(v):
 
 
 def _list(items, lang):
-    i = LANGS.index(lang)
+    i = _ORDER.index(lang)
     if lang == 'zh': return '、'.join(items)
     if len(items) < 2: return ''.join(items)
     return ', '.join(items[:-1]) + f' {_AND[i]} ' + items[-1]
@@ -122,7 +125,7 @@ def describe(p, lang='es', exact=None, extra=None):
     exact: the language pack (Spanish → language) used for country and region names.
     extra: {'see': {lang: text}, 'tips': {lang: text}} with checked facts."""
     lang = lang if lang in LANGS else 'es'
-    i = LANGS.index(lang); exact = exact or {}
+    i = _ORDER.index(lang); exact = exact or {}
     tr = lambda s: exact.get(s, s) if lang != 'es' and s else s
     region, country = (p.get('region') or '').strip(), (p.get('country') or '').strip()
     place = ('，' if lang == 'zh' else ', ').join(x for x in (tr(region), tr(country)) if x)

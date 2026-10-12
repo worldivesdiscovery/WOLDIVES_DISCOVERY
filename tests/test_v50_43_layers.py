@@ -4,7 +4,7 @@
   the exact 2026 credit; anything else in WOD_GEBCO_LAYER is ignored.
 - Without ARCGIS_API_KEY the satellite is disabled and our tile route never reaches Esri.
 - The content security policy lets the browser load the GEBCO images.
-- «Seguridad en el buceo» warns, in the 10 languages, that the GEBCO relief is not for navigation or safety at sea.
+- «Seguridad en el buceo» warns, in the 9 languages, that the GEBCO relief is not for navigation or safety at sea.
 - The web keeps no «Mundo» button and uses the same selector on every map.
 """
 from __future__ import annotations
@@ -17,7 +17,7 @@ from helpers import ServerTestCase
 
 ROOT = Path(__file__).resolve().parents[1]
 CREDIT = 'Imagery reproduced from the GEBCO_2026 Grid, GEBCO Compilation Group (2026) GEBCO 2026 Grid'
-LANGS = ['es', 'en', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'ru', 'zh']
+LANGS = ['es', 'en', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'zh']
 
 
 class LayersWithoutKey(ServerTestCase):
@@ -48,7 +48,7 @@ class LayersWithoutKey(ServerTestCase):
             self.assertIn(CREDIT, str(doc), lang)
 
     def test_same_selector_everywhere_without_mundo(self):
-        js = (ROOT / 'public' / 'assets' / 'js' / 'world-dives-v8.js').read_text(encoding='utf-8')
+        js = (ROOT / 'public' / 'js' / 'world-dives-v8.js').read_text(encoding='utf-8')
         self.assertNotIn('data-mapmode="world"', js)
         self.assertNotIn('Relieve marino', js)
         self.assertEqual(js.count('${wdLayerToolbar()}'), 2)          # portada and Explorar

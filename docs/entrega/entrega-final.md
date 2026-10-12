@@ -10,14 +10,14 @@ Este documento reúne los cinco puntos de la «Entrega final» del encargo y enl
 
 | Versión | Fase | Notas |
 |---|---|---|
-| v50.31 | Fase 1: seguridad urgente (G1–G12 y puntos 1–16) | `RELEASE_NOTES_v50_31.md` |
-| v50.32 | Fase 1B: modos de reserva | `RELEASE_NOTES_v50_32.md` |
-| v50.33 | Fase 1C: marcadores · Fase 1D: idiomas | `RELEASE_NOTES_v50_33.md` |
-| v50.34 | Fase 2: pagos directos sin comisión | `RELEASE_NOTES_v50_34.md` |
-| v50.35 | Fase 3: puntos · Fase 4: email y verificación en dos pasos | `RELEASE_NOTES_v50_35.md` |
-| v50.36 | Fase 5: legal y privacidad en la web, catálogo propio y mapas | `RELEASE_NOTES_v50_36.md` |
-| v50.37 | Fase 6: centros (datos fiscales, planes y herramientas) | `RELEASE_NOTES_v50_37.md` |
-| v50.38 | Fase 7: infraestructura · Fase 8: documentos legales · pasada final de idiomas | `RELEASE_NOTES_v50_38.md` |
+| v50.31 | Fase 1: seguridad urgente (G1–G12 y puntos 1–16) | `docs/notas-de-version/v50.31.md` |
+| v50.32 | Fase 1B: modos de reserva | `docs/notas-de-version/v50.32.md` |
+| v50.33 | Fase 1C: marcadores · Fase 1D: idiomas | `docs/notas-de-version/v50.33.md` |
+| v50.34 | Fase 2: pagos directos sin comisión | `docs/notas-de-version/v50.34.md` |
+| v50.35 | Fase 3: puntos · Fase 4: email y verificación en dos pasos | `docs/notas-de-version/v50.35.md` |
+| v50.36 | Fase 5: legal y privacidad en la web, catálogo propio y mapas | `docs/notas-de-version/v50.36.md` |
+| v50.37 | Fase 6: centros (datos fiscales, planes y herramientas) | `docs/notas-de-version/v50.37.md` |
+| v50.38 | Fase 7: infraestructura · Fase 8: documentos legales · pasada final de idiomas | `docs/notas-de-version/v50.38.md` |
 
 Cada nota tiene su tabla de estado, su lista «Pendiente de decisión», su lista para abogado o gestoría y cómo se probó.
 
@@ -132,7 +132,7 @@ Falta repetirla en el servidor real.
   - monitor externo.
 - **Datos legales del titular** en *Administración → Legal* y precios de los planes.
 - **Arranque de producción:**
-  - crear la base de producción (`tools/crear_base_produccion.py`);
+  - crear la base de producción (`scripts/crear_semilla.py`);
   - crear el primer administrador con verificación en dos pasos;
   - hacer la prueba de restauración.
 - **Revisiones y pruebas:**

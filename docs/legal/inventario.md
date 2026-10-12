@@ -3,7 +3,7 @@
 Versión v50.38 · 11/10/2026
 Estado: borrador para revisión
 
-Este documento parte de la «Parte 1 — Diagnóstico» del encargo (auditoría de la v50.29). Cada punto se ha comprobado en el código actual (`app/server.py`, `app/wod/*.py`, `public/assets/js/world-dives-v8.js`, `tests/`). Los números de línea son de la v50.38 y cambiarán con nuevas versiones: sirven de orientación, el nombre de la función o la ruta es lo que cuenta.
+Este documento parte de la «Parte 1 — Diagnóstico» del encargo (auditoría de la v50.29). Cada punto se ha comprobado en el código actual (`app/server.py`, `app/wod/*.py`, `public/js/world-dives-v8.js`, `tests/`). Los números de línea son de la v50.38 y cambiarán con nuevas versiones: sirven de orientación, el nombre de la función o la ruta es lo que cuenta.
 
 **Estados**
 
@@ -59,7 +59,7 @@ Las pruebas automáticas se ejecutan con `python3 -m unittest discover -s tests 
 
 | Punto | Estado | Versión | Dónde está en el código | Prueba automática |
 |---|---|---|---|---|
-| Origen PADI/SSI de centros y puntos | Completado (centros) · Pendiente (puntos) | v50.36–v50.38 | La producción empieza limpia: `tools/crear_base_produccion.py` no copia ningún centro. En la demo, `tools/demo_centros_ficticios.py` sustituye los 28 centros por centros ficticios. Los 215 puntos «PADI / WORLDIVES curated seed» siguen en el catálogo, con descripciones reescritas (`app/wod/pointtext.py`, tabla `dive_point_texts`). **[PENDIENTE ABOGADO]**: si la lista de nombres y coordenadas procede de una base protegida (derecho *sui generis*). Ver `docs/legal/catalogo-origen.md`. | `Schema.test_production_database_has_no_personal_data`, `test_point_descriptions_in_10_languages`, `DemoMode.test_demo_mode` |
+| Origen PADI/SSI de centros y puntos | Completado (centros) · Pendiente (puntos) | v50.36–v50.38 | La producción empieza limpia: `scripts/crear_semilla.py` no copia ningún centro. En la demo, `scripts/herramientas/demo_centros_ficticios.py` sustituye los 28 centros por centros ficticios. Los 215 puntos «PADI / WORLDIVES curated seed» siguen en el catálogo, con descripciones reescritas (`app/wod/pointtext.py`, tabla `dive_point_texts`). **[PENDIENTE ABOGADO]**: si la lista de nombres y coordenadas procede de una base protegida (derecho *sui generis*). Ver `docs/legal/catalogo-origen.md`. | `Schema.test_production_database_has_no_personal_data`, `test_point_descriptions_in_10_languages`, `DemoMode.test_demo_mode` |
 | Se presentaban como catálogo propio ocultando el origen | Completado | v50.36 | `point_row()` y `center_row()` siguen quitando `source_name` y `source_url` de la API pública (≈L3064, L3074). En producción no hay centros importados y las descripciones son propias. La página `#/legal/creditos` da las fuentes de los mapas. | `test_point_descriptions_in_10_languages` |
 | Portada «Centros que ya reservan con nosotros» | Corregido | v50.36 | La banda se llama ahora «Centros asociados» (JS ≈L731). `_build_promos()` (≈L4035) solo incluye centros con `verification_status='verified'`, `logo_consent=1` y logo. El consentimiento se da en el panel del centro (`logo_consent`, `logo_consent_at`). La banda tiene un mínimo de centros configurable (6 por defecto). | `test_associated_centres_band`, `test_logo_consent_from_the_centre_panel`, `test_only_verified_centres_are_public` |
 | Fichas no gestionadas parecían reservables | Parcial | v50.37 | Si el centro no tiene «reservas online» en su plan (`online_booking=false`, ≈L7592), el botón se convierte en «Solicitar información» (JS ≈L437). Hueco: un centro **con** plan de reservas pero **sin** servicios publicados sigue mostrando «Reservar con {centro}» en la columna lateral (JS ≈L419). La página dice entonces «Este centro todavía no ha publicado actividades». | `test_expired_plan_becomes_free_listing` |
@@ -81,7 +81,7 @@ Las pruebas automáticas se ejecutan con `python3 -m unittest discover -s tests 
 | Puntos automáticos | Completado en v50.35 | `sync_user_rewards()` y `ensure_reward_event()` (≈L4129) escriben en `points_ledger`. | `test_points_are_earned_by_diving` |
 | Organizador visible en Experiencias | Ya estaba · Completado en v50.36 | `enrich_experiences()`. Bloque legal de la reserva de experiencias (JS ≈L1130). | `test_experience_shows_provider_and_policy` |
 | Panel del centro | Ya estaba · Completado en v50.37 | Rutas `/api/center/*` y `/api/provider/*`. | `CentreTools.*`, `TeamAndSwitches.*` |
-| Fuente Inter alojada, sin analítica | Ya estaba | `public/assets/fonts/Inter-*`. En `public/index.html` no hay scripts de terceros. | `test_csp_and_headers_everywhere` (CSP `script-src 'self'`) |
+| Fuente Inter alojada, sin analítica | Ya estaba | `public/fuentes/inter-*`. En `public/index.html` no hay scripts de terceros. | `test_csp_and_headers_everywhere` (CSP `script-src 'self'`) |
 | localStorage mínimo; el Top 10 no guarda coordenadas | **Parcial** | Las claves son `wod-language`, `wd_cookie_notice`, `wd-i18n-debug` y `wd_top10`. Con GPS se guarda solo `{geo:true}`. Pero si el visitante elige un lugar en el mapa o lo busca, se guardan su latitud, longitud y nombre (`remember({pick:{lat,lon,label}})`, JS ≈L1092–1098). Se queda en el navegador y no se envía al servidor. | Sin prueba |
 | El service worker no guarda la API en caché | Ya estaba | `public/sw.js` deja fuera `/api/`, `/tiles/` y las peticiones con `Range`. | Sin prueba automática |
 | Accesibilidad parcial | Completado en v50.36 | `alt`, `lang` dinámico, `:focus-visible`, etiquetas enlazadas, página `#/legal/accesibilidad`. | Navegador (`tests/e2e_*.py`) |
@@ -119,8 +119,8 @@ Las pruebas automáticas se ejecutan con `python3 -m unittest discover -s tests 
 | `X-Forwarded-For` detrás del proxy | Corregido | v50.31 | `wsec.client_ip()` solo lo lee si el par TCP está en `WOD_TRUSTED_PROXIES`. | `test_units.SecurityUnits.test_trusted_proxy` |
 | Mapas: teselas públicas de OSM | **Parcial** | v50.36 | El mapa público usa PMTiles propio (`map_config()`, `/tiles/…` con `Range`). En producción y sin archivo, `type: 'none'` (sin fondo). **Hueco:** el editor de centros de *Administración → Centros* (`editCenterForm()`, JS ≈L3804) carga siempre `tile.openstreetmap.org`, también en producción. Es poco tráfico, pero contradice la política de OSM y `docs/mapas.md`. | `test_pmtiles_served_with_range`, `test_satellite_proxy_counter_and_limit` |
 | Mapas: atribuciones | Completado | v50.36 | `OSM_ATTRIBUTION`, `SAT_ATTRIBUTION` y `GEBCO_ATTRIBUTION`; página `#/legal/creditos`. | `test_pmtiles_served_with_range` (parcial) |
-| Leaflet desde unpkg sin SRI | Corregido | v50.31 | Alojado en `public/assets/vendor/leaflet/`, junto con markercluster y protomaps-leaflet. | `test_csp_and_headers_everywhere` |
-| Hosting: hace falta un VPS | Completado | v50.38 | `deploy/` (`Caddyfile`, `nginx.conf`, `worldives.service`, `worldives-pruebas.service` y `backup-externo.sh`), `docs/despliegue.md`. | `EnvFile.test_env_file_with_inline_comments` |
+| Leaflet desde unpkg sin SRI | Corregido | v50.31 | Alojado en `public/lib/leaflet/`, junto con markercluster y protomaps-leaflet. | `test_csp_and_headers_everywhere` |
+| Hosting: hace falta un VPS | Completado | v50.38 | `docs/despliegue/` (`Caddyfile`, `nginx.conf`, `worldives.service`, `worldives-pruebas.service` y `backup-externo.sh`), `docs/despliegue/README.md`. | `EnvFile.test_env_file_with_inline_comments` |
 
 ---
 
@@ -129,9 +129,9 @@ Las pruebas automáticas se ejecutan con `python3 -m unittest discover -s tests 
 1. **Sugerencia por teléfono (G2).** `docs/entrega/estado.md` (Fase 1, punto 2) y el texto de *Administración → Verificaciones* hablan de una «sugerencia» por teléfono. Desde la v50.36 el registro guarda siempre `suggested_center_id` vacío. Hay que actualizar el texto. **Corregido en v50.38:** texto de Verificaciones y `estado.md` actualizados; al rechazar se envía un correo al solicitante.
 2. **Teselas de OSM en producción.** `docs/mapas.md` dice que los mapas ya no usan los servidores públicos de OpenStreetMap. El editor de centros del admin sí los usa (`editCenterForm`). **Corregido en v50.38:** el editor usa `wdBaseLayer()`, el mismo mapa base que el resto.
 3. **Top 10 y localStorage.** El diagnóstico decía que las coordenadas no se guardan. Las de la ubicación GPS no se guardan, pero las de un lugar elegido en el mapa o buscado sí (`wd_top10`). Conviene mencionarlo en la política de cookies (almacenamiento local).
-4. **Certificado del seguro.** `RELEASE_NOTES_v50_37.md` dice que el certificado «solo lo ve la administración». Existe la ruta `/api/admin/insurance-doc?type=center&id=N`, pero **ninguna pantalla de Administración la enlaza**, y tampoco hay pantalla con los datos fiscales de un centro concreto: solo el CSV de DAC7.
+4. **Certificado del seguro.** `docs/notas-de-version/v50.37.md` dice que el certificado «solo lo ve la administración». Existe la ruta `/api/admin/insurance-doc?type=center&id=N`, pero **ninguna pantalla de Administración la enlaza**, y tampoco hay pantalla con los datos fiscales de un centro concreto: solo el CSV de DAC7.
 5. **Aviso de webhook de Connect.** En `production_warnings()`, el aviso de falta de `STRIPE_CONNECT_WEBHOOK_SECRET` está en un `elif` que depende de `ARCGIS_API_KEY`. Sin clave de ArcGIS, nunca sale. Es un fallo menor de lógica. **Corregido en v50.38:** el aviso ya no depende de la clave de ArcGIS.
-6. **Número de imágenes sin licencia.** `docs/legal/catalogo-origen.md` habla de 24 imágenes y `RELEASE_NOTES_v50_36.md` de 23. El informe real está en *Administración → Imágenes de la web* (`images_report`).
+6. **Número de imágenes sin licencia.** `docs/legal/catalogo-origen.md` habla de 24 imágenes y `docs/notas-de-version/v50.36.md` de 23. El informe real está en *Administración → Imágenes de la web* (`images_report`).
 7. **Baja de cuentas profesionales.** `/api/account/delete` solo admite cuentas `recreational`: centros, freelance y admins «se dan de baja escribiéndonos». No hay herramienta de administración para borrarlas: el admin solo puede cambiar el rol (`/api/admin/users/role`), y después la persona puede borrar la cuenta ella misma.
 8. **Pruebas que faltan.** No hay prueba automática de recuperación de contraseña, cambio de email, precio × participantes en experiencias ni cierre de sesiones al cambiar la contraseña. **Corregido en v50.38:** `tests/test_phase8_flows.py` cubre los cuatro casos.
 
@@ -219,7 +219,7 @@ Esquema completo en la constante `BASE_SCHEMA` de `app/server.py`.
 | **Protomaps (archivo PMTiles)** | Mapa base | Archivo propio servido en `/tiles/…` con `Range`, o URL https externa (CDN) | Nadie (si es local) o el CDN elegido | `WOD_PMTILES_URL`, `WOD_PMTILES_MAXZOOM`, `WOD_TILES_DIR` |
 | **OpenStreetMap (teselas públicas)** | Solo en desarrollo sin PMTiles (`osm-dev`), y en el editor de centros del admin (ver discrepancia 2) | Directo desde el navegador | IP del visitante o del admin | — |
 | **Proveedores de vídeo** (youtube-nocookie, Vimeo, Google Maps) | Recorridos virtuales, tras pulsar «Cargar vídeo» | iframe | IP del visitante | `WOD_EMBED_DOMAINS` |
-| **Copia externa** (rclone hacia B2, Hetzner…) | Copias fuera del servidor | `WOD_BACKUP_COMMAND` (`deploy/backup-externo.sh`) | La base completa y los archivos | Variables de rclone |
+| **Copia externa** (rclone hacia B2, Hetzner…) | Copias fuera del servidor | `WOD_BACKUP_COMMAND` (`scripts/copia_externa.sh`) | La base completa y los archivos | Variables de rclone |
 | **Monitor externo** (UptimeRobot, Better Stack…) | Disponibilidad | `/api/health` (solo `ok` y versión) | Nada personal | Fuera del código |
 
 ### 7.3 Roles

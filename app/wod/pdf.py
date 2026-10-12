@@ -2,7 +2,7 @@
 
 The old vouchers used the 14 built-in PDF fonts, which only know Western European letters: Polish, Russian or
 Chinese text came out as question marks. Here every text is written with Noto Sans / Noto Sans SC embedded as
-CID fonts (Identity-H), so any of the 10 languages of the site prints correctly, and the PDF keeps a ToUnicode map
+CID fonts (Identity-H), so any of the 9 languages of the site prints correctly, and the PDF keeps a ToUnicode map
 so the text can be searched and copied.
 
 Only the standard library is required. When fontTools is installed the fonts are subset to the glyphs used
@@ -15,7 +15,7 @@ import zlib
 from pathlib import Path
 
 FONT_DIR = Path(__file__).resolve().parents[1] / 'fonts'
-FAMILIES = {False: ('NotoSans-Regular.ttf', 'NotoSansSC-Regular.ttf'), True: ('NotoSans-Bold.ttf', 'NotoSansSC-Bold.ttf')}
+FAMILIES = {False: ('notosans-regular.ttf', 'notosanssc-regular.ttf'), True: ('notosans-bold.ttf', 'notosanssc-bold.ttf')}
 
 
 class TrueType:

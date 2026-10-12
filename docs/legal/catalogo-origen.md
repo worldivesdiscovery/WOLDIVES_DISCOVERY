@@ -33,12 +33,12 @@ Documento interno para el titular y su abogado. Explica de dónde viene cada dat
 
 - En producción la base empieza limpia: los centros aparecen únicamente cuando se dan de alta ellos mismos y la administración los aprueba (`verification_status='verified'`).
 - Se ha eliminado la lógica de «reclamar ficha por teléfono».
-- Para la demo, `tools/demo_centros_ficticios.py` sustituye los 28 centros reales por centros ficticios (nombres inventados, sin logo, teléfono, email, web ni redes), con copia de seguridad previa.
+- Para la demo, `scripts/herramientas/demo_centros_ficticios.py` sustituye los 28 centros reales por centros ficticios (nombres inventados, sin logo, teléfono, email, web ni redes), con copia de seguridad previa.
 - Los logos de los centros solo se muestran en la banda «Centros asociados» si el centro lo autoriza en su panel (`logo_consent`, con fecha).
 
 ## 3. Imágenes
 
-Las 24 imágenes de `public/assets/images` (portada, destinos, iconos) **no tienen origen ni licencia registrados**. Ver el informe «Imágenes sin origen» en *Administración → Medios* y `docs/legal/imagenes-origen.md`. Antes del lanzamiento hay que confirmar la licencia de cada una o sustituirla.
+Las 24 imágenes de la web (hoy en `public/img/`: portada, destinos, iconos) **no tienen origen ni licencia registrados**. Ver el informe «Imágenes sin origen» en *Administración → Medios* y `docs/legal/imagenes-origen.md`. Antes del lanzamiento hay que confirmar la licencia de cada una o sustituirla.
 
 ## 4. Mapas
 

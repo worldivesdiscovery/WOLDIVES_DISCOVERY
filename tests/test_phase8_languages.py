@@ -1,4 +1,4 @@
-"""Final translation pass (v50.38): the legal documents exist in the 10 languages with the same placeholders, links
+"""Final translation pass (v50.38): the legal documents exist in the 9 languages with the same placeholders, links
 and structure as the Spanish reference; every email text is translated into the 9 languages; the interface texts
 added since v50.34 are in every language pack; and a translated legal document is served with «prevalece el
 castellano»."""
@@ -10,7 +10,7 @@ from pathlib import Path
 
 from helpers import ServerTestCase, ROOT
 
-LANGS = ['en', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'ru', 'zh']
+LANGS = ['en', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'zh']
 LEGAL = ROOT / 'app' / 'legal'
 
 
@@ -36,8 +36,8 @@ class LegalTranslations(unittest.TestCase):
 
 class EmailTranslations(unittest.TestCase):
     def test_every_email_text_in_every_language(self):
-        sys.path.insert(0, str(ROOT / 'tools'))
-        import i18n_emails
+        sys.path.insert(0, str(ROOT / 'scripts' / 'idiomas'))
+        import emails as i18n_emails
         src = i18n_emails.sources()
         for lang in LANGS:
             pack = json.loads((ROOT / 'app' / 'emails' / f'{lang}.json').read_text(encoding='utf-8'))
@@ -51,10 +51,10 @@ class EmailTranslations(unittest.TestCase):
 class InterfaceTranslations(unittest.TestCase):
     def test_new_interface_texts_in_every_pack(self):
         ref = set()
-        for f in ('missing.json', 'missing_extra.json'):   # texts collected by tools/i18n_collect.py and from the code of v50.34-38
-            ref |= set(json.loads((ROOT / 'tools' / 'i18n' / f).read_text(encoding='utf-8')))
+        for f in ('missing.json', 'missing_extra.json'):   # texts collected by scripts/idiomas/collect.py and from the code of v50.34-38
+            ref |= set(json.loads((ROOT / 'scripts' / 'idiomas' / 'datos' / f).read_text(encoding='utf-8')))
         for lang in LANGS:
-            pack = json.loads((ROOT / 'public' / 'assets' / 'i18n' / f'{lang}.json').read_text(encoding='utf-8'))['exact']
+            pack = json.loads((ROOT / 'public' / 'idiomas' / f'{lang}.json').read_text(encoding='utf-8'))['exact']
             with self.subTest(lang=lang):
                 left = sorted(ref - set(pack))
                 self.assertEqual(left, [], f'{lang}: {len(left)} textos sin traducir')

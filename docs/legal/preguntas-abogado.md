@@ -3,7 +3,7 @@
 Versión v50.38 · 11/10/2026
 Estado: borrador para revisión
 
-Lista única de las dudas jurídicas de WORLDIVES DISCOVERY antes del lanzamiento. Cada pregunta explica primero qué hace hoy la web (con la parte del código en que se apoya) y luego qué hay que decidir. Reúne también todos los puntos «Para abogado» de las notas de versión (`RELEASE_NOTES_v50_31.md` … `v50_37.md`), de `docs/*.md` y los **[PENDIENTE ABOGADO]** de `docs/legal/*.md`.
+Lista única de las dudas jurídicas de WORLDIVES DISCOVERY antes del lanzamiento. Cada pregunta explica primero qué hace hoy la web (con la parte del código en que se apoya) y luego qué hay que decidir. Reúne también todos los puntos «Para abogado» de las notas de versión (`docs/notas-de-version/v50.31.md` … `v50_37.md`), de `docs/*.md` y los **[PENDIENTE ABOGADO]** de `docs/legal/*.md`.
 
 Los textos publicados están en `app/legal/es/*.md` (castellano, referencia) y `app/legal/en/*.md` (inglés, oficial). Cada uno tiene su ficha de revisión en `docs/legal/`.
 
@@ -182,10 +182,10 @@ El código genera un informe anual por prestador y trimestre (`dac7_report()`, `
 
 | Origen | Puntos de esta lista |
 |---|---|
-| `RELEASE_NOTES_v50_34.md` | 5.3, 5.4, 6.5, 17.4, cláusulas de cuota, cobros, devoluciones y disputas (6, 9) |
-| `RELEASE_NOTES_v50_35.md` | 15, 12.1 |
-| `RELEASE_NOTES_v50_36.md` | 1.11, 7, 11.3, 14.1, 14.4, 14.7, 17.2, 17.3 |
-| `RELEASE_NOTES_v50_37.md` | 1.3, 9, 10, 16 |
+| `docs/notas-de-version/v50.34.md` | 5.3, 5.4, 6.5, 17.4, cláusulas de cuota, cobros, devoluciones y disputas (6, 9) |
+| `docs/notas-de-version/v50.35.md` | 15, 12.1 |
+| `docs/notas-de-version/v50.36.md` | 1.11, 7, 11.3, 14.1, 14.4, 14.7, 17.2, 17.3 |
+| `docs/notas-de-version/v50.37.md` | 1.3, 9, 10, 16 |
 | `docs/mapas.md` | 14.7 |
 | `docs/legal/anexo-encargado-tratamiento.md` | 1.2–1.5, 1.8, 1.11, 1.13, 2.4, 10.2 |
 | `docs/legal/registro-actividades-tratamiento.md` | 1.9, 1.10, 1.12, 1.15, 2.3, 11.3, 12.3, 16.2 |
@@ -201,7 +201,7 @@ El código genera un informe anual por prestador y trimestre (`dac7_report()`, `
 
 ## 19. Encargo 2 (v50.39–v50.42): descargos, manifiesto, cambios y cancelaciones de salidas
 
-Ver `RELEASE_NOTES_v50_40.md` y siguientes.
+Ver `docs/notas-de-version/v50.40.md` y siguientes.
 
 1. **Descargo firmado con firma dibujada** (`waiver_signatures`). Se guardan:
    - versión, título y texto exacto;

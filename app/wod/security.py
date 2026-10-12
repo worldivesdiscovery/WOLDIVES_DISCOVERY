@@ -230,14 +230,23 @@ def clean_http_url(value, max_len: int = 500, https_only: bool = False) -> str |
     return v
 
 
+SITE_IMAGE_PREFIXES = ('/img/', '/assets/uploads/')
+
+
+def is_site_image(value) -> bool:
+    """Our own image paths (v50.46): the site images (/img/…) and the uploads (/assets/uploads/…)."""
+    v = str(value or '')
+    return v.startswith(SITE_IMAGE_PREFIXES) and '..' not in v and not _CTRL.search(v)
+
+
 def clean_local_or_http_url(value, max_len: int = 500) -> str | None:
-    """Image references: either our own /assets/… path or an http(s) URL."""
+    """Image references: either our own /img/… or /assets/uploads/… path or an http(s) URL."""
     if value is None:
         return None
     v = str(value).strip()[:max_len]
     if not v:
         return None
-    if v.startswith('/assets/') and '..' not in v and not _CTRL.search(v):
+    if is_site_image(v):
         return v
     return clean_http_url(v, max_len)
 

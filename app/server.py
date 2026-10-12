@@ -35,25 +35,28 @@ from wod import security as wsec
 from wod import bookings as wbk
 from wod import agenda as wag
 from wod import money as wmoney
+from wod.estaticos import STATIC_PREFIXES, legacy_asset_url, legacy_path_map
+from wod.formato import ES_DAYS, ES_MONTHS, es_long_date, mail_date, mail_datetime, mail_money, _DAYS, _MONTHS  # noqa: F401
 from wod import pdf as wpdf
 from wod import totp as wtotp
 from wod import pointtext as wpt
 from wod import backup as wbackup
-# Bundled pure-python dependencies (qrcode). Installed packages take precedence.
-if str(ROOT/'vendor') not in sys.path: sys.path.append(str(ROOT/'vendor'))
 PUBLIC = ROOT / 'public'
 DATA = Path(os.environ.get('WOD_DATA_DIR') or (ROOT / 'data'))
 STORAGE = Path(os.environ.get('WOD_STORAGE_DIR') or (ROOT / 'storage'))
 UPLOADS = STORAGE / 'documents'
 # Public images uploaded by centres and the administrator (served at /assets/uploads/…). Outside the code tree in
 # production (WOD_UPLOADS_DIR) so deployments and backups treat them as data, not as code.
-PHOTOS = Path(os.environ.get('WOD_UPLOADS_DIR') or (PUBLIC / 'assets' / 'uploads'))
+# v50.46: by default they live in data/subidas (outside public/). An older install that still has its photos in
+# public/assets/uploads keeps using that folder until WOD_UPLOADS_DIR says otherwise (nothing is moved or deleted).
+_OLD_PHOTOS = PUBLIC / 'assets' / 'uploads'
+PHOTOS = Path(os.environ.get('WOD_UPLOADS_DIR') or (_OLD_PHOTOS if _OLD_PHOTOS.is_dir() and any(_OLD_PHOTOS.iterdir()) else DATA / 'subidas'))
 DB_PATH = Path(os.environ.get('WOD_DB_PATH') or (DATA / 'worldivesdiscovery.sqlite3'))
 LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.45'
+APP_VERSION = '50.46'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -212,6 +215,8 @@ CREATE TABLE IF NOT EXISTS consent_log (id INTEGER PRIMARY KEY AUTOINCREMENT, us
         granted INTEGER NOT NULL, created_at TEXT NOT NULL, ip_hash TEXT);
 CREATE TABLE IF NOT EXISTS content_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, reason TEXT NOT NULL, target_url TEXT, details TEXT NOT NULL,
           reporter_name TEXT, reporter_email TEXT, user_id INTEGER, ip_hash TEXT, status TEXT NOT NULL DEFAULT 'open', resolution TEXT, resolved_by INTEGER, resolved_at TEXT, created_at TEXT NOT NULL, target_type TEXT, target_id INTEGER, affected_user_id INTEGER, affected_notified_at TEXT);
+CREATE TABLE IF NOT EXISTS contact_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, topic TEXT NOT NULL, name TEXT NOT NULL, email TEXT NOT NULL,
+          message TEXT NOT NULL, booking_ref TEXT, lang TEXT, user_id INTEGER, ip_hash TEXT, status TEXT NOT NULL DEFAULT 'open', done_by INTEGER, done_at TEXT, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS countries (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  name TEXT NOT NULL UNIQUE,
@@ -1111,8 +1116,6 @@ class _NullWriter:
 
 
 PUBLIC_ROOT_FILES = {'/sw.js':'application/javascript; charset=utf-8','/manifest.webmanifest':'application/manifest+json','/robots.txt':'text/plain; charset=utf-8'}
-
-
 def fold_text(value):
     if value is None: return ''
     return ''.join(ch for ch in unicodedata.normalize('NFKD', str(value).lower()) if not unicodedata.combining(ch))
@@ -1337,11 +1340,11 @@ def bootstrap():
         db.commit()
         if os.environ.get('WORLDIVES_SEED_DEMO') == '1' and db.execute('SELECT COUNT(*) FROM travel_offers').fetchone()[0] == 0:
             offers = [
-                ('Maldivas · Atolones centrales', 'Maldivas', 'Vida a bordo', '/assets/images/maldivas.webp', 'Corrientes, canales y arrecifes para una semana de inmersiones sin cambiar de base.'),
-                ('Mar Rojo · Sur del Sinaí', 'Egipto', 'Viaje', '/assets/images/egipto.webp', 'Paredes, pecios y arrecifes. Una referencia clásica para planificar una escapada de buceo.'),
-                ('Riviera Maya · Cenotes', 'México', 'Viaje', '/assets/images/mexico.webp', 'Cenotes y cavernas para una experiencia de buceo en agua dulce muy distinta.'),
-                ('Great Barrier Reef', 'Australia', 'Vida a bordo', '/assets/images/australia.webp', 'Grandes sistemas arrecifales y vida a bordo para varios días de exploración.'),
-                ('Galápagos', 'Ecuador', 'Viaje', '/assets/images/galapagos.webp', 'Un destino para buceadores que buscan fauna pelágica y condiciones cambiantes.'),
+                ('Maldivas · Atolones centrales', 'Maldivas', 'Vida a bordo', '/img/destinos/maldivas.webp', 'Corrientes, canales y arrecifes para una semana de inmersiones sin cambiar de base.'),
+                ('Mar Rojo · Sur del Sinaí', 'Egipto', 'Viaje', '/img/destinos/egipto.webp', 'Paredes, pecios y arrecifes. Una referencia clásica para planificar una escapada de buceo.'),
+                ('Riviera Maya · Cenotes', 'México', 'Viaje', '/img/destinos/mexico.webp', 'Cenotes y cavernas para una experiencia de buceo en agua dulce muy distinta.'),
+                ('Great Barrier Reef', 'Australia', 'Vida a bordo', '/img/destinos/australia.webp', 'Grandes sistemas arrecifales y vida a bordo para varios días de exploración.'),
+                ('Galápagos', 'Ecuador', 'Viaje', '/img/destinos/galapagos.webp', 'Un destino para buceadores que buscan fauna pelágica y condiciones cambiantes.'),
             ]
             db.executemany('INSERT INTO travel_offers(title,region,kind,image_path,summary) VALUES(?,?,?,?,?)', offers)
         db.commit()
@@ -1373,6 +1376,8 @@ def bootstrap():
         db.commit()
         migrate_v50_45(db)
         db.commit()
+        migrate_v50_46(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1390,19 +1395,19 @@ _PACKS = {}
 def lang_pack(lang):
     """Exact strings of a language pack (Spanish → language), cached; used for country and region names."""
     if lang not in _PACKS:
-        try: _PACKS[lang] = json.loads((ROOT / 'public' / 'assets' / 'i18n' / f'{lang}.json').read_text(encoding='utf-8')).get('exact', {})
+        try: _PACKS[lang] = json.loads((ROOT / 'public' / 'idiomas' / f'{lang}.json').read_text(encoding='utf-8')).get('exact', {})
         except (OSError, ValueError): _PACKS[lang] = {}
     return _PACKS[lang]
 
 
 def point_extras():
-    """Facts checked by WORLDIVES for some points (what you see, a practical tip), by point name, in 10 languages."""
+    """Facts checked by WORLDIVES for some points (what you see, a practical tip), by point name, in 9 languages."""
     try: return json.loads((ROOT / 'app' / 'data' / 'point_extras.json').read_text(encoding='utf-8'))
     except (OSError, ValueError): return {}
 
 
 def regenerate_point_texts(db, pid=None):
-    """Writes the own description of the points not yet reviewed (or of one point) in the 10 languages.
+    """Writes the own description of the points not yet reviewed (or of one point) in the 9 languages.
     The first time, the previous text is kept in description_legacy. Reviewed points are left alone."""
     extras = point_extras(); n = 0
     q = 'SELECT * FROM dive_points WHERE ' + ('id=?' if pid else 'COALESCE(description_reviewed,0)=0')
@@ -1450,11 +1455,56 @@ def reset_demo_database():
     try:
         res = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'crear_demo.py'), '--out', str(tmp)], capture_output=True, text=True, timeout=300)
         if res.returncode != 0 or not tmp.exists(): raise RuntimeError('No se ha podido crear la demo: ' + (res.stdout + res.stderr)[-400:])
-        src = sqlite3.connect(tmp); dst = sqlite3.connect(DB_PATH, timeout=30)
-        try: src.backup(dst)
-        finally: dst.close(); src.close()
+        # The administrator accounts created by the owner in the test environment are kept (with their password).
+        live = sqlite3.connect(DB_PATH, timeout=30); live.row_factory = sqlite3.Row
+        try:
+            cols = [r[1] for r in live.execute('PRAGMA table_info(users)')]
+            admins = [dict(r) for r in live.execute("SELECT * FROM users WHERE role='admin'").fetchall()]
+        finally: live.close()
+        src = sqlite3.connect(tmp)
+        try:
+            new_cols = {r[1] for r in src.execute('PRAGMA table_info(users)')}
+            for a in admins:
+                if src.execute('SELECT 1 FROM users WHERE lower(email)=lower(?) OR lower(username)=lower(?)', (a['email'], a['username'])).fetchone(): continue
+                keep = [c for c in cols if c in new_cols and c != 'id']
+                uid = src.execute(f'INSERT INTO users({",".join(keep)}) VALUES({",".join("?" * len(keep))})', [a[c] for c in keep]).lastrowid
+                src.execute('INSERT OR IGNORE INTO user_profiles(user_id,updated_at) VALUES(?,?)', (uid, now()))
+            src.commit()
+            dst = sqlite3.connect(DB_PATH, timeout=30)
+            try: src.backup(dst)
+            finally: dst.close()
+        finally: src.close()
     finally:
         shutil.rmtree(tmp.parent, ignore_errors=True)
+
+
+def migrate_v50_46(db):
+    """v50.46 (cambios del 12/10/2026): Russian is retired. Users who had it move to English, and so do the emails
+    still waiting in the queue (history untouched). Point texts and legal versions in Russian are kept, not served.
+    New: contact_messages (the form of the «Contacto» page)."""
+    db.execute("""CREATE TABLE IF NOT EXISTS contact_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, topic TEXT NOT NULL, name TEXT NOT NULL, email TEXT NOT NULL,
+          message TEXT NOT NULL, booking_ref TEXT, lang TEXT, user_id INTEGER, ip_hash TEXT, status TEXT NOT NULL DEFAULT 'open', done_by INTEGER, done_at TEXT, created_at TEXT NOT NULL)""")
+    db.execute("UPDATE user_profiles SET preferred_language='en' WHERE preferred_language='ru'")
+    db.execute("UPDATE email_outbox SET lang='en' WHERE lang='ru' AND status IN ('queued','sending','retry')")
+    if migration_done(db, '50.46'): return
+    # The web is ordered by type: the images the site ships move from /assets/images/ and /assets/brand/ to /img/….
+    # Every text column that still points to an old address is rewritten (a full copy is made first when there is
+    # activity). Uploads (/assets/uploads/…) keep their address. Nothing is deleted.
+    pairs = sorted(legacy_path_map().items(), key=lambda kv: -len(kv[0]))
+    backup = None
+    tables = [r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
+    for t in tables:
+        cols = [r[1] for r in db.execute(f'PRAGMA table_info("{t}")') if (r[2] or '').upper() in ('TEXT', '')]
+        for col in cols:
+            if not db.execute(f'SELECT 1 FROM "{t}" WHERE "{col}" LIKE ? LIMIT 1', ('%/assets/%',)).fetchone(): continue
+            if backup is None and db.execute('SELECT 1 FROM users LIMIT 1').fetchone(): backup = backup_database(db, 'v50_46') or ''
+            for rid, val in db.execute(f'SELECT rowid,"{col}" FROM "{t}" WHERE "{col}" LIKE ?', ('%/assets/%',)).fetchall():
+                if not isinstance(val, str): continue
+                out = val
+                for old, new in pairs: out = out.replace(old, new)
+                if out != val: db.execute(f'UPDATE "{t}" SET "{col}"=? WHERE rowid=?', (out, rid))
+    db.execute('INSERT INTO schema_migrations(version,applied_at,backup_path,notes) VALUES(?,?,?,?)',
+               ('50.46', now(), backup or None, 'Sin ruso (9 idiomas); imágenes de la web en /img/ y mensajes de contacto'))
 
 
 def migrate_v50_45(db):
@@ -1618,7 +1668,7 @@ def migrate_v50_36(db):
     add_columns(db, 'content_reports', [('target_type', 'TEXT'), ('target_id', 'INTEGER'), ('affected_user_id', 'INTEGER'), ('affected_notified_at', 'TEXT')])
     db.execute("CREATE TABLE IF NOT EXISTS account_deletion_requests (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, "
                "expires_at TEXT NOT NULL, created_at TEXT NOT NULL, used_at TEXT)")
-    # Dive points: own descriptions in 10 languages; the previous text stays in description_legacy until reviewed.
+    # Dive points: own descriptions in 9 languages; the previous text stays in description_legacy until reviewed.
     add_columns(db, 'dive_points', [('description_legacy', 'TEXT'), ('description_reviewed', 'INTEGER NOT NULL DEFAULT 0'), ('description_reviewed_at', 'TEXT'),
                                     ('description_missing', 'TEXT'), ('description_generated', 'INTEGER NOT NULL DEFAULT 0')])
     db.execute('CREATE TABLE IF NOT EXISTS dive_point_texts (point_id INTEGER NOT NULL REFERENCES dive_points(id) ON DELETE CASCADE, lang TEXT NOT NULL, '
@@ -1774,7 +1824,7 @@ def migrate_v50_34(db):
 
 
 def migrate_v50_33(db):
-    """v50.33 (Fase 1D): 10 languages. Users of retired languages move to English (ja, ko) or simplified Chinese (zt);
+    """v50.33 (Fase 1D): 9 languages. Users of retired languages move to English (ja, ko) or simplified Chinese (zt);
     the same for emails still waiting in the queue."""
     for old, new in (('ja', 'en'), ('ko', 'en'), ('zt', 'zh')):
         db.execute('UPDATE user_profiles SET preferred_language=? WHERE preferred_language=?', (new, old))
@@ -2076,8 +2126,10 @@ MEDICAL_WORDS = ('medic', 'médic', 'salud', 'health', 'medical')
 
 
 def setup_allowed():
-    """G9: the web installer (#/setup) and the «first user is admin» rule only exist with WOD_ALLOW_SETUP=1."""
-    return wcfg.env_flag('WOD_ALLOW_SETUP')
+    """G9: the web installer (#/setup) and the «first user is admin» rule only exist with WOD_ALLOW_SETUP=1.
+    v50.46: also in the TEST environment (WOD_DEMO_MODE=1, never on the real site), where the owner creates the
+    administrator account the first time instead of receiving one ready-made. Only while there is no administrator."""
+    return wcfg.env_flag('WOD_ALLOW_SETUP') or (wcfg.demo_mode() and not demo_guard())
 
 
 def registration_open():
@@ -2096,9 +2148,9 @@ def pro_signup_check(db, data):
 
 
 def normalize_lang(lang):
-    """Languages of the site (v50.33): retired ones fall back (ja/ko → en, zt → zh)."""
+    """Languages of the site (v50.33): retired ones fall back (ja/ko/ru → en, zt → zh)."""
     lang = (lang or 'es').lower()
-    lang = {'ja': 'en', 'ko': 'en', 'zt': 'zh'}.get(lang, lang)
+    lang = {'ja': 'en', 'ko': 'en', 'ru': 'en', 'zt': 'zh'}.get(lang, lang)
     return lang if lang in MAIL_LANGS else 'es'
 
 
@@ -2562,7 +2614,7 @@ def save_virtual_media(file_info, pid, etype):
 def center_gallery(row):
     try: items=json.loads(row['gallery_json'] or '[]') if row and 'gallery_json' in row.keys() else []
     except (TypeError,ValueError): items=[]
-    return [x for x in items if isinstance(x,str) and x.startswith('/assets/')][:MAX_GALLERY_IMAGES]
+    return [x for x in items if wsec.is_site_image(x)][:MAX_GALLERY_IMAGES]
 
 
 # ---------------------------------------------------------------------------------------------- Maps (Fase 5.10)
@@ -2661,15 +2713,16 @@ def images_report(db):
     known = {r['path']: dict(r) for r in db.execute('SELECT path,credit,origin,updated_at FROM image_origins').fetchall()}
     used = {}
     def add(path, where, credit='', origin=''):
-        if not path or not str(path).startswith('/assets/'): return
+        if not path or not wsec.is_site_image(str(path)): return
         e = used.setdefault(path, {'path': path, 'where': [], 'credit': '', 'origin': ''})
         if where not in e['where']: e['where'].append(where)
         e['credit'] = e['credit'] or (credit or ''); e['origin'] = e['origin'] or (origin or '')
-    for f in sorted((PUBLIC / 'assets' / 'images').glob('*')):
-        if f.is_file() and f.suffix.lower() in ('.webp', '.png', '.jpg', '.jpeg', '.svg'): add('/assets/images/' + f.name, 'Archivos de la web')
-    for f in sorted((PUBLIC / 'assets' / 'brand').glob('*')):       # v50.45: the brand (logo, icons) is our own
+    for folder in ('portada', 'destinos', 'iconos'):                  # v50.46: images ordered by type
+        for f in sorted((PUBLIC / 'img' / folder).glob('*')):
+            if f.is_file() and f.suffix.lower() in ('.webp', '.png', '.jpg', '.jpeg', '.svg'): add(f'/img/{folder}/' + f.name, 'Archivos de la web')
+    for f in sorted((PUBLIC / 'img' / 'marca').glob('*')):       # v50.45: the brand (logo, icons) is our own
         if f.is_file() and f.suffix.lower() in ('.webp', '.png', '.jpg', '.jpeg', '.svg', '.ico'):
-            add('/assets/brand/' + f.name, 'Marca', 'WORLDIVES DISCOVERY', 'Marca propia (docs/marca.md)')
+            add('/img/marca/' + f.name, 'Marca', 'WORLDIVES DISCOVERY', 'Marca propia (docs/marca/README.md)')
     for s_ in site_media_slots(): add(s_['default'], 'Imagen por defecto: ' + s_['label'])
     for r in db.execute('SELECT key,image_url,credit,origin FROM site_media').fetchall(): add(r['image_url'], 'Portada: ' + r['key'], r['credit'], r['origin'])
     for r in db.execute('SELECT key,image_url,credit,origin FROM site_theme_media').fetchall(): add(r['image_url'], 'Tema: ' + r['key'], r['credit'], r['origin'])
@@ -3185,7 +3238,7 @@ OWNER_ONLY_PREFIXES = ('/api/payments/connect/', '/api/provider/payment-profile'
                        '/api/provider/plan', '/api/center/team', '/api/provider/center-update', '/api/provider/center-showcase', '/api/provider/center-cover',
                        '/api/provider/center-gallery', '/api/center/integration', '/api/provider/ical', '/api/center/import', '/api/center/tariffs', '/api/bookings/refund',
                        '/api/provider/waiver')
-INSTRUCTOR_POST_OK = ('/api/auth/', '/api/account/', '/api/legal/accept', '/api/reports', '/api/me', '/api/team/')
+INSTRUCTOR_POST_OK = ('/api/auth/', '/api/account/', '/api/legal/accept', '/api/reports', '/api/contact', '/api/me', '/api/team/')
 # Instructors on the boat also take the signatures at check-in (encargo 2, punto 5).
 INSTRUCTOR_POST_RE = re.compile(r'/api/bookings/\d+/waiver/sign|/api/manifest/sync')
 OWNER_ONLY_GET = ('/api/provider/payments', '/api/provider/fiscal', '/api/provider/plan', '/api/center/team', '/api/center/activity')
@@ -3648,12 +3701,12 @@ def _build_points(db):
              pc AS (SELECT l.dive_point_id, COUNT(DISTINCT l.center_id) AS centers,
                            MAX(COALESCE(cr.avg_r,0)) AS rating_average, MAX(COALESCE(cr.n,0)) AS review_count
                       FROM links l JOIN centers ce ON ce.id=l.center_id AND """+public_center_sql('ce')+""" LEFT JOIN cr ON cr.center_id=l.center_id GROUP BY l.dive_point_id),
-             ph AS (SELECT dive_point_id, COUNT(*) AS n FROM dive_point_photos WHERE image_path NOT IN ('/assets/images/fondo1.webp','/assets/images/buceador1.png','/assets/images/buceador2.png') GROUP BY dive_point_id)
+             ph AS (SELECT dive_point_id, COUNT(*) AS n FROM dive_point_photos WHERE image_path NOT IN ('/img/portada/fondo1.webp','/img/iconos/buceador1.png','/img/iconos/buceador2.png') GROUP BY dive_point_id)
         SELECT p.id,p.name,p.country,p.region,p.zone,p.subregion,p.dive_type,p.difficulty,p.min_depth,p.max_depth,p.latitude,p.longitude,
                p.verification_status,p.description,
                COALESCE(pc.centers,0) AS centers_count, COALESCE(pc.rating_average,0) AS rating_average, COALESCE(pc.review_count,0) AS review_count,
                COALESCE(ph.n,0) AS photo_count,
-               (SELECT image_path FROM dive_point_photos x WHERE x.dive_point_id=p.id AND x.image_path NOT IN ('/assets/images/fondo1.webp','/assets/images/buceador1.png','/assets/images/buceador2.png') ORDER BY sort_order,id LIMIT 1) AS photo
+               (SELECT image_path FROM dive_point_photos x WHERE x.dive_point_id=p.id AND x.image_path NOT IN ('/img/portada/fondo1.webp','/img/iconos/buceador1.png','/img/iconos/buceador2.png') ORDER BY sort_order,id LIMIT 1) AS photo
           FROM dive_points p LEFT JOIN pc ON pc.dive_point_id=p.id LEFT JOIN ph ON ph.dive_point_id=p.id
          WHERE p.active=1""").fetchall()
     type_ids={}
@@ -3839,25 +3892,31 @@ def gzip_bytes(raw, level=5):
 # ---------------------------------------------------------------------------
 SITE_MEDIA_SLOTS = [
     # key, label, where it appears, default image, recommended size
-    ('hero:home', 'Portada de la web', 'Cabecera de la página de inicio', '/assets/images/portada-arrecife.webp', '2400 × 1350'),
-    ('hero:centros', 'Centros de buceo', 'Cabecera del directorio de centros', '/assets/images/BUCEADORES.webp', '2400 × 900'),
-    ('hero:puntos', 'Puntos de buceo', 'Cabecera del catálogo de puntos', '/assets/images/australia.webp', '2400 × 900'),
-    ('hero:tipos', 'Tipos de buceo', 'Cabecera de la página de tipos', '/assets/images/fondo.webp', '2400 × 900'),
-    ('hero:experiencias', 'Experiencias', 'Cabecera de viajes y vida a bordo', '/assets/images/maldivas.webp', '2400 × 900'),
-    ('hero:top10', 'Top 10', 'Cabecera del Top 10', '/assets/images/tailandia.webp', '2400 × 900'),
-    ('hero:explorar', 'Explorar el mapa', 'Cabecera del mapa de Explorar', '/assets/images/micronesia.webp', '2400 × 900'),
-    ('hero:auth', 'Iniciar sesión y registro', 'Foto junto al formulario de acceso', '/assets/images/logbook1.webp', '1600 × 2000 (vertical)'),
+    ('hero:home', 'Portada de la web', 'Cabecera de la página de inicio', '/img/portada/portada-arrecife.webp', '2400 × 1350'),
+    ('hero:centros', 'Centros de buceo', 'Cabecera del directorio de centros', '/img/portada/buceadores.webp', '2400 × 900'),
+    ('hero:puntos', 'Puntos de buceo', 'Cabecera del catálogo de puntos', '/img/destinos/australia.webp', '2400 × 900'),
+    ('hero:tipos', 'Tipos de buceo', 'Cabecera de la página de tipos', '/img/portada/fondo.webp', '2400 × 900'),
+    ('hero:experiencias', 'Experiencias', 'Cabecera de viajes y vida a bordo', '/img/destinos/maldivas.webp', '2400 × 900'),
+    ('hero:top10', 'Top 10', 'Cabecera del Top 10', '/img/destinos/tailandia.webp', '2400 × 900'),
+    ('hero:explorar', 'Explorar el mapa', 'Cabecera del mapa de Explorar', '/img/destinos/micronesia.webp', '2400 × 900'),
+    ('hero:auth', 'Iniciar sesión y registro', 'Foto junto al formulario de acceso', '/img/portada/logbook1.webp', '1600 × 2000 (vertical)'),
 ]
 SITE_MEDIA_TYPE_DEFAULTS = {'arrecifes':'fondosuperior','paredes':'australia','pecios-y-naufragios':'logbook1','cuevas-y-cavernas':'galapagos',
-    'cenotes':'mexico','muck':'tailandia','canales':'egipto','canones':'fondo','pinaculos':'BUCEADORES','corrientes-y-deriva':'fondo1',
-    'aguas-profundas':'california','nocturnas':'micronesia','lagos':'fondo','pilares':'BUCEADORES','playa-y-esnorquel':'maldivas'}
+    'cenotes':'mexico','muck':'tailandia','canales':'egipto','canones':'fondo','pinaculos':'buceadores','corrientes-y-deriva':'fondo1',
+    'aguas-profundas':'california','nocturnas':'micronesia','lagos':'fondo','pilares':'buceadores','playa-y-esnorquel':'maldivas'}
+PORTADA_IMAGES = {'portada-arrecife', 'fondosuperior', 'fondo1', 'fondo', 'logbook1', 'buceadores'}
+
+
+def site_image(name):
+    """/img/portada/<name>.webp or /img/destinos/<name>.webp (v50.46: images ordered by type)."""
+    return f"/img/{'portada' if name in PORTADA_IMAGES else 'destinos'}/{name}.webp"
 
 
 def site_media_slots():
     slots=[{'key':k,'label':l,'where':w,'default':d,'size':sz,'group':'Portadas de sección'} for k,l,w,d,sz in SITE_MEDIA_SLOTS]
     for c in DIVE_CATEGORIES:
         key=cat_key(c)
-        slots.append({'key':'type:'+key,'label':c['label'],'where':'Tarjeta y cabecera del tipo de buceo','default':f"/assets/images/{SITE_MEDIA_TYPE_DEFAULTS.get(key,'fondo')}.webp",'size':'1600 × 1000','group':'Tipos de buceo'})
+        slots.append({'key':'type:'+key,'label':c['label'],'where':'Tarjeta y cabecera del tipo de buceo','default':site_image(SITE_MEDIA_TYPE_DEFAULTS.get(key,'fondo')),'size':'1600 × 1000','group':'Tipos de buceo'})
     return slots
 
 
@@ -4194,8 +4253,7 @@ def center_planning(db, user, month):
 
 
 def qr_matrix(payload):
-    sys.path.insert(0, str(ROOT/'vendor'))
-    import qrcode
+    import qrcode   # requirements.txt (v50.46: no bundled copy in vendor/)
     qr=qrcode.QRCode(box_size=1,border=0,error_correction=qrcode.constants.ERROR_CORRECT_M); qr.add_data(payload); qr.make(fit=True)
     return [''.join('1' if v else '0' for v in row) for row in qr.get_matrix()]
 
@@ -4551,8 +4609,8 @@ from email.message import EmailMessage as _EmailMessage
 from email.utils import formataddr as _formataddr, make_msgid as _make_msgid
 from datetime import timedelta as _timedelta
 
-# The 10 languages of the site (v50.33). Retired: ja, ko → en and zt → zh (see normalize_lang).
-MAIL_LANGS = ('es', 'en', 'fr', 'de', 'it', 'pt', 'pl', 'nl', 'zh', 'ru')
+# The 9 languages of the site (v50.33, ru retired in v50.46). Retired: ja, ko, ru → en and zt → zh (see normalize_lang).
+MAIL_LANGS = ('es', 'en', 'fr', 'de', 'it', 'pt', 'pl', 'nl', 'zh')   # v50.46: Russian retired (no Stripe or cards there)
 HTML_LANG = {'zh': 'zh-Hans'}
 _EMAIL_I18N = {}
 
@@ -4605,62 +4663,6 @@ def legal_settings(db):
     return {k[6:]: (v or '').strip() for k, v in rows.items()}
 
 
-_MONTHS = {
-    'en': ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-    'fr': ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'],
-    'de': ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
-    'it': ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'],
-    'pt': ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
-    'nl': ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'],
-    'pl': ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'],
-    'ru': ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']}
-_DAYS = {
-    'en': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-    'fr': ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'],
-    'de': ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'],
-    'it': ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'],
-    'pt': ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo'],
-    'nl': ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'],
-    'zh': ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'],
-    'pl': ['poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota', 'niedziela'],
-    'ru': ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье']}
-
-
-def mail_date(value, lang='es'):
-    """Long date in the recipient's language («domingo, 11 de octubre de 2026», «Sunday 11 October 2026»…)."""
-    try: d = _dt.date.fromisoformat(str(value)[:10])
-    except Exception: return str(value or '')
-    if lang == 'es': return es_long_date(d.isoformat())
-    if lang == 'en': return f"{_DAYS['en'][d.weekday()]} {d.day} {_MONTHS['en'][d.month - 1]} {d.year}"
-    if lang == 'de': return f"{_DAYS['de'][d.weekday()]}, {d.day}. {_MONTHS['de'][d.month - 1]} {d.year}"
-    if lang in ('fr', 'it', 'nl'): return f"{_DAYS[lang][d.weekday()]} {d.day} {_MONTHS[lang][d.month - 1]} {d.year}"
-    if lang == 'pt': return f"{_DAYS['pt'][d.weekday()]}, {d.day} de {_MONTHS['pt'][d.month - 1]} de {d.year}"
-    if lang in ('pl', 'ru'): return f"{_DAYS[lang][d.weekday()]}, {d.day} {_MONTHS[lang][d.month - 1]} {d.year}" + (' г.' if lang == 'ru' else ' r.')
-    if lang == 'zh': return f"{d.year}年{d.month}月{d.day}日 {_DAYS['zh'][d.weekday()]}"
-    return d.strftime('%d/%m/%Y')
-
-
-def mail_datetime(value, lang='es'):
-    """«domingo, 11 de octubre de 2026, 18:30» in the recipient's language (deadlines)."""
-    if not value: return ''
-    try: d = datetime.fromisoformat(str(value))
-    except ValueError: return str(value)
-    return f"{mail_date(d.date().isoformat(), lang)}, {d.strftime('%H:%M')}"
-
-
-def mail_money(amount, currency='EUR', lang='es'):
-    cur = (currency or 'EUR').upper(); sym = {'EUR': '€', 'USD': '$', 'GBP': '£'}.get(cur)
-    v = float(amount or 0)
-    if lang in ('en', 'zh'):
-        txt = f'{v:,.2f}'.removesuffix('.00')
-        return f'{sym}{txt}' if sym else f'{txt} {cur}'
-    if lang in ('pl', 'ru'):  # 1 234,50 €  (narrow no-break space as thousands separator)
-        txt = f'{v:,.2f}'.replace(',', '\u202f').replace('.', ',').removesuffix(',00')
-        return f'{txt} {sym}' if sym else f'{txt} {cur}'
-    txt = f'{v:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.').removesuffix(',00')
-    return f'{txt} {sym}' if sym else f'{txt} {cur}'
-
-
 def user_lang(db, user_id):
     r = db.execute('SELECT preferred_language FROM user_profiles WHERE user_id=?', (user_id,)).fetchone()
     return normalize_lang((r['preferred_language'] if r else '') or 'es')
@@ -4668,7 +4670,8 @@ def user_lang(db, user_id):
 
 def mail_deliverable(email):
     e = str(email or '').strip().lower()
-    return bool(re.fullmatch(r'[^@\s]+@[^@\s]+\.[a-z]{2,}', e)) and not e.endswith('.local') and not e.endswith('.test') and not e.endswith('@example.com')
+    # The test environment writes its e-mails to a folder (never sent), also for the test accounts @example.com.
+    return bool(re.fullmatch(r'[^@\s]+@[^@\s]+\.[a-z]{2,}', e)) and not e.endswith('.local') and not e.endswith('.test') and (not e.endswith('@example.com') or wcfg.demo_mode())
 
 
 # Templates: subject + preheader + blocks. Texts are Spanish sources with {placeholders}, translated per language.
@@ -4978,6 +4981,13 @@ EMAIL_TEMPLATES = {
  'admin_content_report': {'to': 'admin', 'subject': 'Nueva denuncia de contenido · {reason}', 'pre': '{target}', 'blocks': [
    ('h', 'Nueva denuncia de contenido'), ('p', 'Motivo: {reason}'), ('p', 'Contenido: {target}'), ('note', '{details}'),
    ('p', 'Remitente: {reporter}'), ('button', ('Revisar denuncias', 'admin_legal_url'))]},
+ 'admin_contact_message': {'to': 'admin', 'subject': 'Nuevo mensaje de contacto · {topic}', 'pre': '{sender}', 'blocks': [
+   ('h', 'Nuevo mensaje de contacto'), ('p', 'Asunto: {topic}'), ('p', 'Remitente: {sender}'), ('note', '{message}'),
+   ('button', ('Ver mensajes', 'admin_legal_url'))]},
+ 'contact_received': {'to': 'any', 'subject': 'Hemos recibido tu mensaje · {ref}', 'pre': 'Te responderemos lo antes posible.', 'blocks': [
+   ('h', 'Hemos recibido tu mensaje'),
+   ('p', 'Hola {first_name}, gracias por escribirnos. Hemos registrado tu mensaje con la referencia {ref} (asunto: {topic}).'),
+   ('p', 'Respondemos en días laborables, normalmente en menos de 48 horas.')]},
  'report_received': {'to': 'any', 'subject': 'Hemos recibido tu denuncia · {ref}', 'pre': 'La revisaremos lo antes posible.', 'blocks': [
    ('h', 'Hemos recibido tu denuncia'),
    ('p', 'Hola {first_name}, gracias por avisarnos. Hemos registrado tu denuncia con la referencia {ref} (motivo: {reason}).'),
@@ -5027,7 +5037,8 @@ EMAIL_TEMPLATE_LABELS = {
  'document_expired': 'Documento caducado', 'legal_update': 'Cambio en un documento legal', 'plan_renewal': 'Centro: renovación de la cuota',
  'marketing': 'Comunicación comercial (con consentimiento)', 'refund_issued': 'Devolución hecha (buceador)', 'center_refund_reminder': 'Centro: devolución pendiente', 'center_dispute': 'Centro: disputa abierta',
  'admin_payment_review': 'Admin: pago en revisión', 'admin_refund_failed': 'Admin: devolución pendiente', 'admin_content_report': 'Admin: denuncia de contenido',
- 'report_received': 'Denuncia recibida', 'report_resolved': 'Resultado de la denuncia', 'test': 'Correo de prueba',
+ 'report_received': 'Denuncia recibida', 'report_resolved': 'Resultado de la denuncia',
+ 'contact_received': 'Mensaje de contacto recibido', 'admin_contact_message': 'Admin: mensaje de contacto', 'test': 'Correo de prueba',
  'booking_expired': 'Reserva caducada (buceador)', 'center_booking_expired': 'Centro: reserva caducada', 'center_payments_disabled': 'Centro: «Pago al reservar» sin cobros activos',
  'verify_email': 'Verificación de email', 'verify_email_change': 'Confirmación de cambio de email', 'booking_notice': 'Aviso del centro sobre una reserva',
  'medical_document_removed': 'Certificado médico eliminado', 'admin_error_alert': 'Admin: errores repetidos del servidor'}
@@ -5170,7 +5181,7 @@ def render_email(db, template, lang, ctx):
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2efe8"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(1,28,60,.08)">
 <tr><td style="background:#011C3C;padding:20px 28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td style="padding-right:12px"><img src="{_esc(base)}/assets/brand/worldives-icono-correo-96.png" width="44" height="44" alt="" style="display:block;border-radius:10px;background:#011C3C"></td>
+<td style="padding-right:12px"><img src="{_esc(base)}/img/marca/worldives-icono-correo-96.png" width="44" height="44" alt="" style="display:block;border-radius:10px;background:#011C3C"></td>
 <td><a href="{_esc(base)}" style="color:#ffffff;text-decoration:none;font-size:17px;font-weight:800;letter-spacing:.06em">WORLDIVES DISCOVERY</a><div style="height:3px;width:42px;background:#1CA5C7;margin-top:8px;border-radius:3px"></div></td></tr></table></td></tr>
 <tr><td style="padding:30px 28px 8px">{''.join(rows_html)}</td></tr>
 <tr><td style="padding:18px 28px 26px;border-top:1px solid #eef2f3;font-size:12px;line-height:1.55;color:#7d8d94">{_esc(t(who))}<br>{_esc(foot_addr)}<br>
@@ -6647,6 +6658,9 @@ REPORT_REASONS = {'illegal': 'Contenido ilegal', 'false': 'Información falsa o 
                   'ip': 'Uso no autorizado de fotos o textos', 'safety': 'Riesgo para la seguridad', 'privacy': 'Datos personales publicados sin permiso',
                   'fraud': 'Fraude o estafa', 'other': 'Otro motivo'}
 REPORT_LIMIT = {}
+# «Contacto» form (v50.46). The topics follow the table of the «Contacto» page.
+CONTACT_TOPICS = {'web': 'Dudas sobre la web o tu cuenta', 'booking': 'Un problema con una reserva', 'privacy': 'Protección de datos y tus derechos',
+                  'accessibility': 'Accesibilidad', 'center': 'Centros que quieren unirse', 'other': 'Otro asunto'}
 
 
 def report_rate_limited(ip):
@@ -6665,26 +6679,16 @@ def _qr_cmds(payload,x0,y0,size):
             if v:a.append(f'{x0+col*c:.2f} {y0+(n-1-r)*c:.2f} {c+.03:.2f} {c+.03:.2f} re f')
     a.append('Q'); return a
 
-ES_MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
-ES_DAYS = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo']
-
-
-def es_long_date(value):
-    try:
-        d=_dt.date.fromisoformat(str(value)[:10]); return f'{ES_DAYS[d.weekday()]}, {d.day} de {ES_MONTHS[d.month-1]} de {d.year}'
-    except Exception: return str(value or '')
-
-
-# Brand palette for the PDF documents (docs/marca.md), as RGB 0–1
+# Brand palette for the PDF documents (docs/marca/README.md), as RGB 0–1
 BRAND_PDF = {'abismo': (0.004, 0.110, 0.235), 'profundo': (0.016, 0.239, 0.424), 'oceano': (0.027, 0.408, 0.596),
              'turquesa': (0.110, 0.647, 0.780), 'agua': (0.529, 0.886, 0.937)}
 _PDF_ICON = []
 
 
 def pdf_brand_icon(doc, x, y, size):
-    """The app icon (public/assets/brand/worldives-icono-pdf.jpg) in the header of every document."""
+    """The app icon (public/img/marca/worldives-icono-pdf.jpg) in the header of every document."""
     if not _PDF_ICON:
-        p = PUBLIC / 'assets' / 'brand' / 'worldives-icono-pdf.jpg'
+        p = PUBLIC / 'img' / 'marca' / 'worldives-icono-pdf.jpg'
         _PDF_ICON.append(p.read_bytes() if p.exists() else None)
     if _PDF_ICON[0]: doc.image_jpeg(_PDF_ICON[0], x, y, size, size)
 
@@ -6692,7 +6696,7 @@ def pdf_brand_icon(doc, x, y, size):
 def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
     """«Justificante de reserva» (Fase 2.8): everything the diver needs at the dive centre, even without internet,
     who provides the service (with its fiscal data) and that WORLDIVES DISCOVERY is only the booking platform.
-    It is not an invoice. Any of the 10 languages prints correctly (fonts embedded, wod.pdf)."""
+    It is not an invoice. Any of the 9 languages prints correctly (fonts embedded, wod.pdf)."""
     b = db.execute("""SELECT b.*,u.fullname,u.email,up.phone AS customer_phone,p.name AS point_name,s.title AS service_title,s.duration_minutes
                         FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN user_profiles up ON up.user_id=u.id
                         LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?""", (booking_id,)).fetchone()
@@ -7975,7 +7979,12 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
             candidate=(PHOTOS/unquote(path)[len('/assets/uploads/'):]).resolve()
             if not candidate.is_relative_to(PHOTOS.resolve()): self.send_error(403); return
             self.send_file(candidate); return
-        if path.startswith('/assets/') or path in PUBLIC_ROOT_FILES:
+        if path.startswith('/assets/'):
+            target=legacy_asset_url(path)
+            if not target: self.send_error(404); return
+            self.send_response(301); self.send_header('Location',target+(('?'+parsed.query) if parsed.query else '')); self.send_header('Cache-Control','public, max-age=86400')
+            self.send_header('Content-Length','0'); self.security_headers(); self.end_headers(); return
+        if path.startswith(STATIC_PREFIXES) or path in PUBLIC_ROOT_FILES:
             candidate=(PUBLIC/unquote(path).lstrip('/')).resolve()
             if not candidate.is_relative_to(PUBLIC.resolve()): self.send_error(403); return
             self.send_file(candidate, PUBLIC_ROOT_FILES.get(path)); return
@@ -8050,7 +8059,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         docs_state.append({'slug':slug,'route':LEGAL_PUBLIC_SLUGS.get(slug,slug),'title':title,'version':legal_doc_version(db,slug),'langs':sorted(langs),'upcoming':dict(up) if up else None,
                                            'acceptance':LEGAL_ACCEPTANCE.get(slug),'notice_days':LEGAL_NOTICE_DAYS.get(slug,0)})
                     self.send_json({'settings':{k:st.get(k,'') for k in LEGAL_FIELDS},'fields':LEGAL_FIELDS,'docs':LEGAL_DOCS,'documents':docs_state,'version':legal_doc_version(db,'terminos'),'reports':reports,'reasons':REPORT_REASONS,
-                                    'open_reports':sum(1 for r in reports if r['status']=='open')}); return
+                                    'open_reports':sum(1 for r in reports if r['status']=='open'),
+                                    'contacts':[dict(r) for r in db.execute("SELECT id,topic,name,email,message,booking_ref,lang,status,done_at,created_at FROM contact_messages ORDER BY status='open' DESC, id DESC LIMIT 200").fetchall()],
+                                    'contact_topics':CONTACT_TOPICS}); return
                 if path == '/api/admin/retention':
                     user=require_user(self,db); require_role(user,{'admin'})
                     last=db.execute("SELECT value FROM site_settings WHERE key='retention_last_report'").fetchone()
@@ -9142,7 +9153,6 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     qr=db.execute('''SELECT q.*,c.name AS center_name FROM qr_codes q JOIN centers c ON c.id=q.center_id WHERE q.code=? AND q.active=1''',(code,)).fetchone()
                     if not qr: self.send_error(404); return
                     try:
-                        sys.path.insert(0, str(ROOT/'vendor'))
                         import qrcode
                         from qrcode.image.svg import SvgPathImage
                         payload=f'{self.base_url()}/#/checkin/{code}'
@@ -9195,7 +9205,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 self.send_json(payload,500)
 
     def serve_spa(self):
-        """index.html with the language of ?lang= in <html lang>, and hreflang alternates for the 10 languages (SEO)."""
+        """index.html with the language of ?lang= in <html lang>, and hreflang alternates for the 9 languages (SEO)."""
         lang=normalize_lang((parse_qs(urlparse(self.path).query).get('lang',['es'])[0] or 'es')[:5])
         raw=(PUBLIC/'index.html').read_text(encoding='utf-8')
         base=wcfg.public_url() or self.base_url()
@@ -9253,6 +9263,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                             audit(db,user['id'],'stripe_account_unlinked',payee['type'],payee['id'],{'account':payee['stripe_account_id']}); db.commit()
                             self.send_json({'ok':True}); return
                         account_id=payee['stripe_account_id']
+                        # Test environment: the sample account of the demo centre is replaced by a real Stripe account in test mode.
+                        if wcfg.demo_mode() and account_id=='acct_test_pruebas': account_id=None
                         if action=='onboard' and not account_id:
                             country=(payee.get('country') or 'ES').strip()
                             country=COUNTRY_ISO.get(country.lower(),country[:2].upper()) if len(country)!=2 else country.upper()
@@ -10100,7 +10112,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     audit(db,user['id'],'retention_settings','system',None,changed); db.commit(); self.send_json({'ok':True,'settings':retention_settings(db),'report':rep}); return
                 if path=='/api/admin/images':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); p=clean_text(data.get('path'),300) or ''
-                    if not p.startswith('/assets/') or '..' in p: raise ValueError('Imagen no válida.')
+                    if not wsec.is_site_image(p): raise ValueError('Imagen no válida.')
                     db.execute('INSERT INTO image_origins(path,credit,origin,updated_at,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(path) DO UPDATE SET credit=excluded.credit,origin=excluded.origin,updated_at=excluded.updated_at,updated_by=excluded.updated_by',
                                (p,clean_text(data.get('credit'),200) or '',clean_text(data.get('origin'),300) or '',now(),user['id']))
                     audit(db,user['id'],'image_origin_updated','image',None,{'path':p}); db.commit(); self.send_json({'ok':True}); return
@@ -10554,6 +10566,30 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if mail_deliverable(email):
                         queue_email(db,'report_received',email,name,{'first_name':(name or '').split(' ')[0],'ref':f'DEN-{rid:05d}','reason':mail_t(rlang,REPORT_REASONS[reason])},rlang,('report',rid))
                     audit(db,cu['id'] if cu else None,'content_reported','content_report',rid,{'reason':reason}); db.commit(); self.send_json({'ok':True,'id':rid,'ref':f'DEN-{rid:05d}'}); return
+                if path=='/api/contact':
+                    # «Contacto» form (v50.46): stored for the administration, which gets an email; the sender gets a receipt.
+                    data=json_body(self); ip=self.client_ip()
+                    if report_rate_limited('contact:'+ip): self.send_json({'error':'Has enviado muchos mensajes seguidos. Inténtalo más tarde.'},429); return
+                    topic=data.get('topic'); message=clean_text(data.get('message'),4000) or ''
+                    if topic not in CONTACT_TOPICS: raise ValueError('Elige el asunto de tu mensaje.')
+                    if len(message)<10: raise ValueError('Escribe tu mensaje (mínimo 10 caracteres).')
+                    cu=current_user(self,db)
+                    name=clean_text(data.get('name'),120) or ''; email=(clean_text(data.get('email'),160) or '').lower()
+                    if len(name)<2 or not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email): raise ValueError('Indica tu nombre y un email válido para poder responderte.')
+                    if not data.get('privacy'): raise ValueError('Acepta que usemos tus datos para responderte.')
+                    clang=normalize_lang(data.get('lang') or (user_lang(db,cu['id']) if cu else 'es'))
+                    ref_b=clean_text(data.get('booking_ref'),40) or None
+                    mid=db.execute('INSERT INTO contact_messages(topic,name,email,message,booking_ref,lang,user_id,ip_hash,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                                   (topic,name,email,message,ref_b,clang,cu['id'] if cu else None,wsec.ip_hash(ip),'open',now())).lastrowid
+                    ref=f'CON-{mid:05d}'
+                    notify_admins(db,'admin_contact_message',{'topic':CONTACT_TOPICS[topic],'sender':f'{name} · {email}'+(f' · {ref_b}' if ref_b else ''),'message':message},('contact',mid))
+                    if mail_deliverable(email):
+                        queue_email(db,'contact_received',email,name,{'first_name':name.split(' ')[0],'ref':ref,'topic':mail_t(clang,CONTACT_TOPICS[topic])},clang,('contact',mid))
+                    audit(db,cu['id'] if cu else None,'contact_message','contact_message',mid,{'topic':topic}); db.commit(); self.send_json({'ok':True,'id':mid,'ref':ref}); return
+                if path=='/api/admin/contact/done':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); mid=int(data.get('id') or 0); done=bool(data.get('done',True))
+                    if not db.execute('UPDATE contact_messages SET status=?,done_by=?,done_at=? WHERE id=?',('done' if done else 'open',user['id'] if done else None,now() if done else None,mid)).rowcount: raise ValueError('Mensaje no encontrado.')
+                    audit(db,user['id'],'contact_message_done' if done else 'contact_message_reopened','contact_message',mid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/admin/reports/resolve':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); rid=int(data.get('id') or 0); st=data.get('status')
                     if st not in ('open','actioned','dismissed'): raise ValueError('Estado no válido.')
@@ -11189,7 +11225,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/admin/demo/reset':
                     user=require_user(self,db); require_role(user,{'admin'})
                     if not wcfg.demo_mode(): self.send_json({'error':'Solo disponible en el entorno de pruebas.'},404); return
-                    db.commit(); reset_demo_database(); self.send_json({'ok':True,'message':'Datos de demostración restaurados. Vuelve a entrar con una cuenta de prueba.'}); return
+                    db.commit(); reset_demo_database(); self.send_json({'ok':True,'message':'Datos de demostración restaurados. Vuelve a entrar con tu cuenta de administración o con una cuenta de prueba.'}); return
                 if path=='/api/admin/travel-experiences/status':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); eid=int(data.get('id')); status=clean_text(data.get('status'),30)
                     if status not in {'published','rejected','pending'}: raise ValueError('Estado no válido.')
@@ -11881,7 +11917,7 @@ def check_production_settings():
 def production_warnings():
     """Settings that do not stop the server but should be fixed before real users arrive."""
     out = []
-    if not os.environ.get('WOD_SMTP_HOST', '').strip(): out.append('Sin WOD_SMTP_HOST: los correos esperan en la cola (72 h) hasta configurar el proveedor (docs/despliegue.md).')
+    if not os.environ.get('WOD_SMTP_HOST', '').strip(): out.append('Sin WOD_SMTP_HOST: los correos esperan en la cola (72 h) hasta configurar el proveedor (docs/despliegue/README.md).')
     if not os.environ.get('STRIPE_SECRET_KEY', '').strip(): out.append('Sin STRIPE_SECRET_KEY: los cobros online están desactivados.')
     p = pmtiles_path()
     if p and not p.exists(): out.append(f'Falta el mapa base {p} (Protomaps PMTiles): sin él los mapas no muestran fondo. Ver docs/mapas.md.')

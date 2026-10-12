@@ -301,7 +301,7 @@ class CatalogueAndMaps(ServerTestCase):
     def test_associated_centres_band(self):
         self.assertEqual(self.client().get('/api/site-promos').json['centers'], [])
         ids = [x['id'] for x in self.server.sql("SELECT id FROM centers WHERE source_name LIKE 'PADI%' LIMIT 6")]
-        self.server.sql(f"UPDATE centers SET verification_status='verified', logo_url='/assets/images/1.webp', logo_consent=1 WHERE id IN ({','.join('?' * 6)})", ids)
+        self.server.sql(f"UPDATE centers SET verification_status='verified', logo_url='/img/iconos/buceador1.png', logo_consent=1 WHERE id IN ({','.join('?' * 6)})", ids)
         self.assertEqual(self.admin.post('/api/admin/site-promos/settings', {'partners_email': '', 'partners_text': '', 'partners_min_centers': 6}).status, 200)
         band = self.client().get('/api/site-promos').json['centers']
         self.assertEqual(sorted(x['id'] for x in band), sorted(ids))
@@ -317,10 +317,10 @@ class CatalogueAndMaps(ServerTestCase):
         row = self.server.sql('SELECT logo_consent,logo_consent_at FROM centers WHERE id=?', (center.user['center_id'],))[0]
         self.assertEqual(row['logo_consent'], 1); self.assertTrue(row['logo_consent_at'])
 
-    def test_point_descriptions_in_10_languages(self):
+    def test_point_descriptions_in_9_languages(self):
         pid = self.server.sql("SELECT id FROM dive_points WHERE name='Cap Dor'")[0]['id']
         texts = self.server.sql('SELECT lang,description FROM dive_point_texts WHERE point_id=?', (pid,))
-        self.assertEqual(len(texts), 10)
+        self.assertEqual(len(texts), 9)   # v50.46: no Russian
         es = self.client().get(f'/api/dive-points/{pid}?lang=es').json['item']
         self.assertIn('Torre de Cap d', es['description']); self.assertNotIn('description_legacy', es)
         en = self.client().get(f'/api/dive-points/{pid}?lang=en').json['item']

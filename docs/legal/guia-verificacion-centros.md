@@ -28,7 +28,7 @@ Mientras está pendiente, la persona solo puede usar la web como buceador. No ve
 
 ### 1.2 Revisión
 
-- Pantalla: *Administración → Verificaciones* (`adminCenterClaims()` en `public/assets/js/world-dives-v8.js`).
+- Pantalla: *Administración → Verificaciones* (`adminCenterClaims()` en `public/js/world-dives-v8.js`).
 - Datos: GET `/api/admin/center-claims` lista las solicitudes pendientes con:
   - nombre de la cuenta, email y teléfono indicado;
   - ciudad, web y nota;

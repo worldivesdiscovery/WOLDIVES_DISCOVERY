@@ -63,7 +63,7 @@ class Schema(unittest.TestCase):
         db.execute("INSERT INTO site_settings(key,value,updated_at) VALUES('legal_owner_name','Titular SL','2026-01-01')")
         db.commit(); db.close()
         out = tmp / 'prod' / 'wd.sqlite3'
-        r = subprocess.run([sys.executable, 'tools/crear_base_produccion.py', '--source', str(src), '--out', str(out)], cwd=ROOT, capture_output=True, text=True)
+        r = subprocess.run([sys.executable, 'scripts/crear_semilla.py', '--source', str(src), '--out', str(out)], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         p = sqlite3.connect(out)
         for t in ('users', 'centers', 'bookings', 'sessions', 'audit_log', 'email_outbox', 'payment_orders', 'reward_offers'):
@@ -71,11 +71,11 @@ class Schema(unittest.TestCase):
         self.assertGreater(p.execute('SELECT COUNT(*) FROM dive_points').fetchone()[0], 250)
         self.assertEqual(p.execute('SELECT COUNT(*) FROM dive_points WHERE center_id IS NOT NULL').fetchone()[0], 0)
         n = p.execute('SELECT COUNT(*) FROM dive_points').fetchone()[0]
-        self.assertEqual(p.execute('SELECT COUNT(*) FROM dive_point_texts').fetchone()[0], n * 10)
+        self.assertEqual(p.execute('SELECT COUNT(*) FROM dive_point_texts').fetchone()[0], n * 9)   # 9 languages (v50.46)
         self.assertEqual(p.execute("SELECT value FROM site_settings WHERE key='legal_owner_name'").fetchone()[0], 'Titular SL')
         p.close()
         self.assertEqual(oct(out.stat().st_mode & 0o777), '0o600')
-        r = subprocess.run([sys.executable, 'tools/crear_base_produccion.py', '--source', str(src), '--out', str(out)], cwd=ROOT, capture_output=True, text=True)
+        r = subprocess.run([sys.executable, 'scripts/crear_semilla.py', '--source', str(src), '--out', str(out)], cwd=ROOT, capture_output=True, text=True)
         self.assertNotEqual(r.returncode, 0)   # never overwrites
 
 

@@ -1,137 +1,91 @@
-# WORLDIVES DISCOVERY (v50.45)
+# WORLDIVES DISCOVERY
 
-Plataforma de descubrimiento y reservas de buceo: catálogo de puntos y centros con mapa, reservas y cobros
-directos con Stripe Connect, ficha y Log Book del buceador, puntos, reseñas, panel de centros y profesionales
-con planes, y administración completa. **Python 3.11+ con la biblioteca estándar, SQLite y HTML/CSS/JavaScript
-sin compilar.** Dependencias mínimas: `stripe`, `qrcode` y `fonttools` (`requirements.txt`).
+Plataforma de descubrimiento y reservas de buceo:
+- catálogo de puntos y centros con mapa;
+- reservas y cobros directos con Stripe Connect (sin comisión por reserva);
+- ficha, Log Book y puntos del buceador;
+- panel de centros y profesionales con planes;
+- administración completa.
 
-## Entregas: dos zips por versión (desde v50.45)
+**Python 3.11+ con la biblioteca estándar, SQLite y HTML/CSS/JavaScript sin compilar.** Dependencias mínimas en
+`requirements.txt` (`stripe`, `qrcode`, `fonttools`): el arranque las instala si faltan.
 
-| Zip | Para qué | Qué lleva |
-|---|---|---|
-| `WORLDIVES-vXX.XX-produccion.zip` | El servidor real | Solo código, la semilla del catálogo (`data/seed/catalogo.sqlite3`) y `.env.example` con todo vacío. Sin personas, sin base de pruebas, sin subidas, registros, cachés ni `.env` |
-| `WORLDIVES-vXX.XX-pruebas.zip` | Probarlo todo en tu ordenador | El mismo código, la base de demostración, `CUENTAS-DE-PRUEBA.md` y `scripts/start_pruebas` (puerto 8100). **Nunca se sube al servidor real** |
+## Arrancar
 
-Los dos se crean con `python scripts/build_release.py`, que antes de escribir cada zip hace una **comprobación
-automática** y se para si encuentra cuentas o contraseñas de prueba, claves reales, una base que no sea la semilla,
-un `.env`, `WOD_DEMO_MODE=1` o archivos de caché y registros. El servidor se niega a arrancar en modo pruebas con la
-dirección del dominio real o con una clave real de Stripe. Estructura de carpetas y plan de separación en módulos:
-`docs/estructura.md`. Marca, logo y paleta: `docs/marca.md`.
+| Dónde | Qué hacer |
+|---|---|
+| Windows | Doble clic en `iniciar.bat` |
+| Mac o Linux | `./iniciar.sh` |
+| Desde otros dispositivos de tu red | `iniciar.bat --red-local` o `./iniciar.sh --red-local` |
+| Ver cada petición en la ventana | `--depuracion` |
+| Servidor real (VPS) | systemd, HTTPS y copias: `docs/despliegue/README.md` |
 
-### Primer arranque en producción
+Abre `http://localhost:8000`. La primera vez la base de datos se crea sola a partir de `data/seed/catalogo.sqlite3`:
+solo el catálogo de puntos, países, tipos, zonas, titulaciones, destinos y textos legales, **sin ninguna cuenta**.
 
-1. Copia `.env.example` a `.env` y rellena las variables (claves y contraseñas **solo** ahí).
-2. Arranca el servidor: la base se crea sola a partir de `data/seed/catalogo.sqlite3` (catálogo sin personas).
-3. Crea la primera cuenta de administración: `./scripts/crear_admin.sh --email tu@dominio --username admin --name "Tu Nombre"`
-   (Windows: `scripts\crear_admin.bat …`). La contraseña se pide sin mostrarla.
+## Crear el administrador (al instalar)
 
-## Arranque local
+El paquete de producción no trae ninguna cuenta, tampoco de administración. Créala en el servidor, en la carpeta de
+la web:
 
 ```bash
-pip install -r requirements.txt
-./start_unix.sh          # o start_windows.bat
+python app/server.py --create-admin --email tu@dominio.com --username admin --name "Tu Nombre"
 ```
 
-Abre `http://localhost:8000` (no abras `index.html` con doble clic). La primera vez se crea `data/worldivesdiscovery.sqlite3`
-a partir de la semilla del catálogo (`data/seed/`) o, en desarrollo, del catálogo de demostración (`data/demo/`). Crea el administrador con
-`python app/server.py --create-admin`. La configuración va en `.env` (plantilla: `.env.example`); el servidor la lee solo.
+La contraseña se pide sin mostrarla, y la verificación en dos pasos se activa al entrar por primera vez. Atajo:
+`scripts/crear_admin.sh` o `scripts\crear_admin.bat` con los mismos datos.
 
-## Roles
+## Configuración
 
-- **Visitante:** catálogo, mapa, fichas, «Solicitar información», denuncias.
-- **Buceador:** reservas, ficha y documentos, Log Book, puntos y ventajas, reseñas, privacidad (descarga ZIP y baja).
-- **Centro:** propietario, recepción o instructor, con planning, reservas, clientes, servicios, cobros, estadísticas,
-  herramientas (CSV, iCal, widget, importación), equipo, datos fiscales y plan.
-- **Profesional freelance sin centro:** como un centro, con su propia cuenta de cobros.
-- **Administración** (con verificación en dos pasos obligatoria): catálogo, centros, verificaciones, pagos,
-  denuncias, textos legales, planes, funciones, mapas, correos y operación.
+Copia `.env.example` a `.env` y rellena lo que necesites. Todas las variables vienen vacías y comentadas: vacía
+significa «valor por defecto». **Claves y contraseñas solo en el `.env` del servidor**, nunca en el código ni en el
+repositorio. Para producción son obligatorias `WOD_ENV=production`, `WOD_PUBLIC_URL` (https) y `WOD_SECRET_KEY`.
+
+## Dónde está cada cosa
+
+| Carpeta | Qué hay |
+|---|---|
+| `app/` | El servidor (`server.py`) y sus módulos por área (`app/wod/`), correos, textos legales y fuentes del PDF |
+| `public/` | La web: `index.html`, `js/`, `css/`, `idiomas/` (los 9 idiomas), `img/` (marca, portada, destinos, iconos), `fuentes/`, `lib/` (mapa) |
+| `data/seed/` | Datos iniciales: el catálogo de puntos |
+| `docs/` | Notas de versión, despliegue, legal, marca, estructura, mapas, pagos y seguridad |
+| `scripts/` | Crear el administrador, copias, generar los zips, crear la semilla y herramientas de marca e idiomas |
+| `tests/` | Pruebas automáticas (API y navegador) |
+
+Mientras la web funciona, crea `data/worldivesdiscovery.sqlite3`, `data/subidas/` (fotos de los centros), `storage/`
+(documentos privados) y `logs/`. Son datos: no se borran al actualizar y entran en las copias.
 
 ## Documentación
 
 | Tema | Dónde |
 |---|---|
-| Qué se ha hecho en cada versión, pendientes de decisión y temas para abogado y gestoría | `RELEASE_NOTES_v50_31.md` … `RELEASE_NOTES_v50_45.md` |
-| Entrega final: estado, pruebas (también permisos entre roles), lanzamiento, abogado y gestoría | `docs/entrega/entrega-final.md` (tabla completa en `docs/entrega/estado.md`) |
-| Encargo 2 (6 mejoras para centros y registro): estado, pruebas, capturas y pendientes | `docs/entrega/entrega-encargo2.md` (tabla en `docs/entrega/estado-encargo2.md`) |
-| Despliegue en VPS, HTTPS, systemd, copias, restauración, monitorización, rendimiento, correo | `docs/despliegue.md` y `deploy/` |
-| Mapas (Protomaps, satélite Esri, GEBCO) | `docs/mapas.md` |
+| Qué cambia en cada versión | `docs/notas-de-version/` (la más reciente: la de número más alto) |
+| Despliegue en el VPS, HTTPS, systemd, copias y restauración | `docs/despliegue/README.md` |
+| Estructura del proyecto y plan de módulos | `docs/estructura.md` |
+| Marca: logo, colores y contraste | `docs/marca/README.md` |
+| Pagos con Stripe Connect | `docs/pagos-stripe.md` |
+| Mapas | `docs/mapas.md` |
 | Estados de una reserva | `docs/estados-reserva.md` |
-| Documentos legales, inventario, lista de lanzamiento y guías | `docs/legal/` |
-| Seguridad | `SECURITY.md` |
+| Documentos legales, inventario y guías | `docs/legal/` |
+| Seguridad | `docs/seguridad.md` |
 
 ## Base de datos
 
-SQLite en modo WAL. El esquema completo está en el código (`BASE_SCHEMA` en `app/server.py`) y las migraciones se
-aplican solas al arrancar: solo añaden y transforman, y antes de reescribir datos hacen una copia completa. La base de
-producción **empieza limpia** con `tools/crear_base_produccion.py` (solo catálogo y textos legales). `data/*.sqlite3`
-nunca se sube al repositorio.
+SQLite en modo WAL. El esquema está en el código (`BASE_SCHEMA` en `app/server.py`). Las migraciones se aplican solas
+al arrancar: solo añaden y transforman, y antes de reescribir datos hacen una copia completa.
+
+## Entregas
+
+Cada versión se entrega en dos zips, que se crean con `python scripts/generar_zips.py` tras una comprobación
+automática:
+- **`WORLDIVES-vXX.XX-produccion.zip`**, para subirlo tal cual al VPS;
+- **`WORLDIVES-vXX.XX-pruebas.zip`**, para probarlo todo en tu ordenador (puerto 8100). Lleva cuentas y datos de demostración, y sus instrucciones en `README-PRUEBAS.md`. Nunca se sube al servidor real.
 
 ## Pruebas
 
-Las pruebas usan el catálogo de demostración, que solo va en el zip de pruebas: ejecútalas desde ese zip o desde el
-repositorio.
+Usan el catálogo de demostración, que va en el zip de pruebas: ejecútalas desde ese zip o desde el repositorio.
 
 ```bash
-cd tests && python -m unittest discover -p 'test_*.py'      # pruebas de API y de cada fase (siempre sobre una copia)
-python tests/e2e_centers.py                                  # pruebas en navegador (Playwright), una por fase
+cd tests && python -m unittest discover -p 'test_*.py'      # API (siempre sobre una copia de la base)
+python tests/navegador/e2e_centers.py                         # navegador (Playwright)
 ```
-
-## Pagos con Stripe Connect (v50.34)
-
-**WORLDIVES no cobra comisión por las reservas.** Su único ingreso es la cuota del plan anual de los centros. Los cobros online son **cargos directos**: el Checkout se crea en la cuenta de Stripe del centro (o del profesional freelance sin centro) con `stripe_account=…`, sin `application_fee_amount` ni `transfer_data`. El dinero va del buceador al prestador y nunca pasa por un saldo de WORLDIVES.
-
-### Variables de servidor
-
-Solo en el entorno del servidor (nunca en JavaScript, en el repositorio ni dentro del ZIP). Ver `.env.example`.
-
-```text
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...           # endpoint de la plataforma
-STRIPE_CONNECT_WEBHOOK_SECRET=whsec_...   # endpoint de Connect (eventos de las cuentas de los centros)
-WOD_PUBLIC_URL=https://tu-dominio.example
-# Configuración de las cuentas conectadas (valores por defecto = decisión del titular):
-WOD_STRIPE_DASHBOARD=full        # panel completo de Stripe para el centro
-WOD_STRIPE_FEES_PAYER=account    # las comisiones de Stripe las paga la cuenta del centro
-WOD_STRIPE_LOSSES=stripe         # Stripe responde de los saldos negativos
-WOD_STRIPE_CAPABILITIES=card_payments
-```
-
-### Alta de un centro o de un freelance
-
-Desde **Cobros y pagos** en su panel. WORLDIVES crea una cuenta conectada con **propiedades de controlador** (Accounts v1: `controller.stripe_dashboard.type=full`, `controller.fees.payer=account`, `controller.losses.payments=stripe`, `requirement_collection=stripe`) y solo la capacidad `card_payments`, y abre el alta alojada por Stripe (Account Link). Se guardan solo el identificador de la cuenta y sus estados. No se puede cobrar online hasta que Stripe indique `charges_enabled` y `payouts_enabled`; `account.updated` los mantiene al día. Con el panel completo, el centro entra en `dashboard.stripe.com` con su propio usuario.
-
-Las cuentas Express de prueba creadas con versiones anteriores no pueden cambiar de tipo: el administrador las desvincula (`POST /api/payments/connect/unlink`) y el centro conecta una nueva.
-
-### Pago de una reserva
-
-- «Pago al reservar»: Checkout al momento (total o **señal**), plazas bloqueadas 15 min, confirmación solo con el pago confirmado por Stripe.
-- «Bajo petición»: Checkout cuando el centro acepta, con plazo para pagar.
-- Señal: por servicio, porcentaje o importe por persona. La reserva guarda lo pagado (`amount_paid`) y lo pendiente (`amount_due`); el resto se registra con «Registrar cobro».
-
-La reserva solo se considera pagada cuando Stripe lo confirma (webhook firmado, o consulta directa a Stripe al volver del pago). Los eventos se registran por ID para no procesarlos dos veces.
-
-### Devoluciones
-
-Las hace el centro desde su panel (botón «Devolver», total o parcial) con `Refund.create` en su cuenta, o desde su panel de Stripe; ambas llegan al historial `payment_refunds`. Un reembolso parcial no cancela la reserva. Si el buceador cancela una reserva pagada, se propone al centro el importe de su política y se le recuerda a las 72 h. El administrador solo ve pagos y devoluciones y marca incidencias.
-
-### Webhooks
-
-```text
-POST https://tu-dominio.example/api/payments/webhook          (cuenta de la plataforma)
-POST https://tu-dominio.example/api/payments/webhook/connect  (Connect: «eventos de las cuentas conectadas»)
-```
-
-Eventos: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `payment_intent.payment_failed`, `charge.refunded`, `refund.created`, `refund.updated`, `charge.dispute.created`, `charge.dispute.closed`, `account.updated`, `account.application.deauthorized`. En el endpoint de Connect, un evento de una cuenta nunca puede tocar un pago de otra.
-
-### Importante antes de producción
-
-Antes de aceptar dinero real: HTTPS, secretos fuera del repositorio, copias de seguridad, términos y política de cancelación revisados por un abogado y configuración fiscal revisada por la gestoría (ver `docs/`).
-
-
-## Seguridad y GitHub
-
-La versión de distribución incluye `.gitignore` para evitar que secretos, configuraciones locales, almacenamiento privado y archivos WAL/SHM de SQLite terminen en GitHub. Usa `.env.example` como plantilla y define los secretos únicamente en el entorno donde se ejecuta el servidor.
-
-Para uso local: `start_unix.sh` (Linux/macOS) o `start_windows.bat` (Windows). Para acceso desde otros dispositivos de la misma LAN, usa `start_windows_lan.bat` conscientemente.
-
-Consulta `SECURITY.md` antes de publicar la aplicación.
