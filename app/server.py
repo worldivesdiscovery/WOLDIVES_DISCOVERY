@@ -33,6 +33,7 @@ if str(Path(__file__).resolve().parent) not in sys.path: sys.path.insert(0, str(
 from wod import config as wcfg
 from wod import security as wsec
 from wod import bookings as wbk
+from wod import agenda as wag
 from wod import pdf as wpdf
 from wod import totp as wtotp
 from wod import pointtext as wpt
@@ -51,7 +52,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.43'
+APP_VERSION = '50.44'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -1367,6 +1368,8 @@ def bootstrap():
         db.commit()
         migrate_v50_42(db)
         db.commit()
+        migrate_v50_44(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1418,6 +1421,46 @@ def regenerate_point_texts(db, pid=None):
 def point_text(db, pid, lang):
     r = db.execute('SELECT description FROM dive_point_texts WHERE point_id=? AND lang=?', (pid, normalize_lang(lang))).fetchone()
     return r['description'] if r else None
+
+
+def migrate_v50_44(db):
+    """v50.44 (encargo unificado, bloque A): common agenda engine and services booked by days or half days.
+    Only adds tables and columns; existing services keep booking_unit='slot' and work exactly as before."""
+    db.executescript('''
+      CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_center_id INTEGER REFERENCES centers(id) ON DELETE CASCADE,
+        owner_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, kind TEXT NOT NULL, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        boat_id INTEGER REFERENCES boats(id) ON DELETE SET NULL, service_id INTEGER REFERENCES provider_services(id) ON DELETE CASCADE,
+        name TEXT NOT NULL, capacity INTEGER NOT NULL DEFAULT 1, timezone TEXT NOT NULL DEFAULT 'Europe/Madrid', active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS resource_hours (resource_id INTEGER NOT NULL REFERENCES resources(id) ON DELETE CASCADE, weekday INTEGER NOT NULL,
+        start_time TEXT NOT NULL DEFAULT '00:00', end_time TEXT NOT NULL DEFAULT '24:00');
+      CREATE TABLE IF NOT EXISTS resource_closures (id INTEGER PRIMARY KEY AUTOINCREMENT, resource_id INTEGER NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+        date_from TEXT NOT NULL, date_to TEXT NOT NULL, label TEXT);
+      CREATE TABLE IF NOT EXISTS resource_blocks (id INTEGER PRIMARY KEY AUTOINCREMENT, resource_id INTEGER NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+        starts_at TEXT NOT NULL, ends_at TEXT NOT NULL, local_date_from TEXT NOT NULL, local_date_to TEXT NOT NULL, kind TEXT NOT NULL,
+        ref_type TEXT, ref_id INTEGER, status TEXT NOT NULL DEFAULT 'active', private_note TEXT, created_by INTEGER, created_at TEXT NOT NULL, released_at TEXT);
+      CREATE TABLE IF NOT EXISTS booking_days (booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE, local_date TEXT NOT NULL,
+        part TEXT NOT NULL DEFAULT 'full', PRIMARY KEY(booking_id, local_date));
+      CREATE INDEX IF NOT EXISTS idx_resources_owner ON resources(owner_center_id, owner_user_id, kind);
+      CREATE INDEX IF NOT EXISTS idx_resources_service ON resources(service_id);
+      CREATE INDEX IF NOT EXISTS idx_resource_hours ON resource_hours(resource_id, weekday);
+      CREATE INDEX IF NOT EXISTS idx_resource_blocks_span ON resource_blocks(resource_id, status, starts_at, ends_at);
+      CREATE INDEX IF NOT EXISTS idx_resource_blocks_month ON resource_blocks(resource_id, local_date_from);
+      CREATE INDEX IF NOT EXISTS idx_resource_blocks_ref ON resource_blocks(ref_type, ref_id, status);
+      CREATE INDEX IF NOT EXISTS idx_booking_days_date ON booking_days(local_date);
+    ''')
+    add_columns(db, 'provider_services', [('booking_unit', "TEXT NOT NULL DEFAULT 'slot'"), ('unit_rules', 'TEXT'), ('pricing', 'TEXT'), ('timezone', 'TEXT')])
+    add_columns(db, 'bookings', [('date_to', 'TEXT'), ('days_mode', 'TEXT')])
+    if migration_done(db, '50.44'): return
+    # Plans (decision of 12/10/2026): booking by days in «Motor de reservas» and «Pro». Changeable in Administración → Planes.
+    for code in ('booking', 'pro'):
+        r = db.execute('SELECT features FROM plans WHERE code=?', (code,)).fetchone()
+        if r:
+            feats = json.loads(r['features'] or '{}')
+            if 'agenda_days' not in feats:
+                feats['agenda_days'] = True
+                db.execute('UPDATE plans SET features=?,updated_at=? WHERE code=?', (json.dumps(feats), now(), code))
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.44', now(), 'Agenda común y servicios por días'))
 
 
 def migrate_v50_42(db):
@@ -2604,12 +2647,12 @@ PLAN_FEATURES = {
     'online_bookings': 'Reservas y solicitudes online', 'online_payments': 'Cobros online con Stripe', 'calendar_ical': 'Calendario iCal',
     'widget': 'Widget de reservas para tu web', 'import_csv': 'Importación de clientes (CSV)', 'team': 'Equipo (recepción e instructores)',
     'analytics': 'Informes completos', 'promotions': 'Promociones', 'experiences': 'Viajes y experiencias', 'rewards': 'Ventajas y puntos para clientes',
-    'integration': 'Conexión con tu web (API)'}
+    'integration': 'Conexión con tu web (API)', 'agenda_days': 'Servicios por días y medias jornadas con calendario'}
 PLAN_LIMITS = {'services_max': 'Servicios publicados', 'team_max': 'Personas en el equipo'}
 PLAN_DEFAULTS = [
     ('free', 'Ficha gratuita', 'Tu ficha en el catálogo, con «Solicitar información», estadísticas básicas y exportación de datos.', 0, {}, {'services_max': 10, 'team_max': 1}, 0),
     ('booking', 'Motor de reservas', 'Reservas y cobros online, calendario, widget e importación.', None,
-     {k: True for k in ('online_bookings', 'online_payments', 'calendar_ical', 'widget', 'import_csv', 'analytics', 'integration')}, {'services_max': 40, 'team_max': 3}, 1),
+     {k: True for k in ('online_bookings', 'online_payments', 'calendar_ical', 'widget', 'import_csv', 'analytics', 'integration', 'agenda_days')}, {'services_max': 40, 'team_max': 3}, 1),
     ('pro', 'Pro', 'Todo lo del motor de reservas más equipo, promociones, viajes y experiencias y ventajas para tus clientes.', None,
      {k: True for k in PLAN_FEATURES}, {'services_max': 0, 'team_max': 20}, 2)]
 FEATURE_SWITCHES = {'points': 'Puntos', 'promotions': 'Promociones', 'experiences': 'Viajes y experiencias', 'sponsorship': 'Patrocinio',
@@ -3021,6 +3064,17 @@ def provider_export(db, ptype, pid, kind):
                                     CASE WHEN o.booking_id THEN 'WOD-'||printf('%06d',o.booking_id) ELSE 'EXP-'||printf('%05d',o.experience_booking_id) END, o.payment_intent_id
                              FROM payment_orders o WHERE o.payee_type=? AND o.payee_id=? ORDER BY o.id DESC LIMIT 50000""", (ptype, pid)).fetchall()
         return csv_text(rows, ['Pedido', 'Fecha', 'Tipo', 'Importe', 'Devuelto', 'Moneda', 'Estado', 'Reserva', 'Pago Stripe'])
+    if kind == 'agenda':
+        # v50.44 (A4.2): the agenda (blocks of every resource of the provider), with what is behind each block.
+        rw = 'r.owner_center_id=?' if ptype == 'center' else 'r.owner_user_id=? AND r.owner_center_id IS NULL'
+        out = []
+        for r in db.execute(f'''SELECT r.name,r.timezone,bl.local_date_from,bl.local_date_to,bl.starts_at,bl.ends_at,bl.kind,bl.status,bl.ref_type,bl.ref_id,bl.private_note,bl.created_at,bl.released_at
+                                FROM resource_blocks bl JOIN resources r ON r.id=bl.resource_id WHERE {rw} ORDER BY bl.local_date_from DESC, bl.id DESC LIMIT 50000''', (pid,)).fetchall():
+            tz = wag.valid_tz(r['timezone']) or wag.DEFAULT_TZ
+            out.append((r['name'], r['local_date_from'], r['local_date_to'], wag.utc_to_local(r['starts_at'], tz).strftime('%H:%M'), wag.utc_to_local(r['ends_at'], tz).strftime('%H:%M'), tz,
+                        {'booking': 'Reserva', 'manual': 'Bloqueo', 'holiday': 'Vacaciones', 'unavailable': 'No disponible'}.get(r['kind'], r['kind']),
+                        'WOD-%06d' % r['ref_id'] if r['ref_type'] == 'booking' and r['ref_id'] else '', r['private_note'] or '', 'Activo' if r['status'] == 'active' else 'Liberado', r['created_at'], r['released_at'] or ''))
+        return csv_text(out, ['Recurso', 'Desde', 'Hasta', 'Hora inicio', 'Hora fin', 'Zona horaria', 'Tipo', 'Reserva', 'Nota privada', 'Estado', 'Creado', 'Liberado'])
     raise ValueError('Exportación no válida.')
 
 
@@ -4367,9 +4421,14 @@ def finalize_paid_order(db, order, session, source):
             reserved=int(b['slot_reserved'] or 0); st=wbk.normalize_state(b['status'])
             was_visible=st in ('requested','accepted_pending_payment','confirmed')
             late=st in ('expired','cancelled','rejected')
-            if b['slot_id'] and not reserved:
+            days_lost=False
+            if db.execute('SELECT 1 FROM booking_days WHERE booking_id=?',(b['id'],)).fetchone():
+                # v50.44: a late payment of a booking by days takes its days again if they are still free.
+                try: claim_booking_days(db,b)
+                except ValueError: days_lost=True
+            if (b['slot_id'] and not reserved) or days_lost:
                 # The hold was released (late payment): take the spots again if they are still there.
-                if reserve_slot_spots(db,b['slot_id'],max(1,int(b['participants'] or 1))): reserved=1
+                if not days_lost and reserve_slot_spots(db,b['slot_id'],max(1,int(b['participants'] or 1))): reserved=1
                 else:
                     # No spots left for a late payment: never a phantom booking. The payment goes to review/refund.
                     db.execute("UPDATE payment_orders SET status='review',updated_at=? WHERE id=?",(now(),order['id']))
@@ -4385,6 +4444,7 @@ def finalize_paid_order(db, order, session, source):
                   if deposit and due>0 else f'Hemos recibido tu pago de {received:.2f} {order["currency"] or "EUR"}. Tu reserva #{b["id"]} está confirmada.')
             db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?,'system')",(order['provider_user_id'] or b['user_id'],b['user_id'],b['id'],'Pago recibido · reserva confirmada',body,now()))
             notify_booking(db,b['id'],'paid',{'was_confirmed':st=='accepted_pending_payment' or (was_visible and st=='confirmed'),'late':late})
+            reject_overlapping_requests(db,b)
     if order['experience_booking_id']:
         db.execute("UPDATE experience_bookings SET status='confirmed',payment_status='paid',amount_paid=COALESCE(amount_paid,0)+?,updated_at=? WHERE id=?",(received,now(),order['experience_booking_id']))
     audit(db,order['user_id'],'payment_completed','payment_order',order['id'],{'provider':'stripe','source':source})
@@ -4948,7 +5008,8 @@ def booking_mail_ctx(db, bid, lang='es'):
             'deposit': mail_money(b['deposit_amount'], b['currency'], lang) if b['deposit_amount'] else '', 'amount_due': mail_money(b['amount_due'], b['currency'], lang) if b['amount_due'] else '',
             'paid': mail_money(paid_net, b['currency'], lang) if paid_net > 0 else '', 'refund': mail_money(b['refund_proposed'], b['currency'], lang) if b['refund_proposed'] else '',
             'refunded': mail_money(b['refunded_total'], b['currency'], lang) if b['refunded_total'] else '',
-            'service': b['service_title'] or mail_t(lang, 'Inmersión'), 'point': b['point_name'] or '', 'date': mail_date(b['booking_date'], lang),
+            'service': b['service_title'] or mail_t(lang, 'Inmersión'), 'point': b['point_name'] or '', 'service_id': b['service_id'],
+            'date': mail_date(b['booking_date'], lang) + (' – ' + mail_date(b['date_to'], lang) if b['date_to'] and b['date_to'] != b['booking_date'] else ''),
             'date_short': '/'.join(reversed(str(b['booking_date'] or '').split('-'))), 'time': b['booking_time'] or '', 'participants': int(b['participants'] or 1),
             'total': mail_money(b['price'], b['currency'], lang), 'price': float(b['price'] or 0), 'currency': b['currency'] or 'EUR', 'payment_status': b['payment_status'],
             'status': b['status'], 'equipment': b['equipment_items'] or '', 'notes': b['notes'] or '', 'booking_mode': b['booking_mode'], 'user_id': b['user_id'],
@@ -5205,6 +5266,11 @@ def notify_booking(db, bid, event, extra=None):
             reason = extra.get('reason') or ctx.get('reject_reason') or ''
             to_diver('booking_rejected', dict(refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']),
                                               reject_reason_text=mail_t(lang_d, 'Motivo indicado por el centro: {reason}', reason=reason) if reason else ''))
+        elif event == 'dates_taken':
+            # v50.44: another request for the same days was confirmed. Kind words and a link to the other dates.
+            to_diver('booking_rejected', dict(refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']),
+                                              reject_reason_text=mail_t(lang_d, 'Esas fechas ya no están disponibles. Mira otras fechas de {center}.', center=ctx.get('center') or ''),
+                                              center_url=f"{public_site_url()}/#/reservar-dias?service={ctx.get('service_id') or ''}"))
         elif event == 'cancelled_center':
             to_diver('booking_cancelled_center', refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']))
         elif event == 'cancelled_diver':
@@ -6032,6 +6098,7 @@ def provider_scope_sql(user, alias='b'):
 
 
 def release_booking_spots(db, b):
+    agenda_release(db, 'booking', b['id'])   # v50.44: days of a booking by days become free again
     if b['slot_id'] and b['slot_reserved']:
         release_slot_spots(db, b['slot_id'], max(1, int(b['participants'] or 1)))
         db.execute('UPDATE bookings SET slot_reserved=0 WHERE id=?', (b['id'],))
@@ -6099,6 +6166,7 @@ def booking_view_status(b):
 
 
 def reserve_or_fail(db, b):
+    claim_booking_days(db, b)   # v50.44: a booking by days takes its days (raises if they were taken meanwhile)
     if b['slot_id'] and not b['slot_reserved']:
         if not reserve_slot_spots(db, b['slot_id'], max(1, int(b['participants'] or 1))):
             raise ValueError('No quedan plazas suficientes en esa salida.')
@@ -6124,15 +6192,17 @@ def accept_booking(db, actor, b):
         db.execute("UPDATE bookings SET status='accepted_pending_payment',payment_status='required',payment_deadline=?,accepted_at=?,decided_by=?,updated_at=? WHERE id=?",
                    (local_iso(deadline), now(), actor['id'] if actor else None, now(), b['id']))
         notify_booking(db, b['id'], 'accepted_payment')
+        reject_overlapping_requests(db, b, actor)
         return 'accepted_pending_payment'
     pay = 'paid' if b['payment_status'] == 'paid' else ('at_center' if price > 0 else 'not_required')
     db.execute("UPDATE bookings SET status='confirmed',payment_status=?,accepted_at=?,confirmed_at=?,decided_by=?,updated_at=? WHERE id=?",
                (pay, now(), now(), actor['id'] if actor else None, now(), b['id']))
     notify_booking(db, b['id'], 'confirmed')
+    reject_overlapping_requests(db, b, actor)
     return 'confirmed'
 
 
-def reject_booking(db, actor, b, reason=''):
+def reject_booking(db, actor, b, reason='', event='rejected'):
     if b['status'] not in ('requested', 'pending', 'accepted_pending_payment'): raise ValueError('Esta solicitud ya no se puede rechazar.')
     release_booking_spots(db, b)
     db.execute("UPDATE bookings SET status='rejected',reject_reason=?,decided_by=?,cancelled_at=?,cancelled_by='center',updated_at=? WHERE id=?",
@@ -6140,7 +6210,7 @@ def reject_booking(db, actor, b, reason=''):
     for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (b['id'],)).fetchall():
         expire_checkout(o); db.execute("UPDATE payment_orders SET status='cancelled',updated_at=? WHERE id=?", (now(), o['id']))
     outcome = refund_booking(db, b['id'], None, 'requested_by_customer', actor['id'] if actor else None, 'Solicitud rechazada', 'reject')
-    notify_booking(db, b['id'], 'rejected', {'refund': outcome, 'reason': clean_text(reason, 500) or ''})
+    notify_booking(db, b['id'], event, {'refund': outcome, 'reason': clean_text(reason, 500) or ''})
     return outcome
 
 
@@ -7207,6 +7277,287 @@ def booking_token(db, bid):
     tok = wsec.random_token(); db.execute('UPDATE bookings SET public_token=? WHERE id=?', (tok, bid)); return tok
 
 
+# ------------------------------------------------------------------ v50.44 · Common agenda engine (encargo unificado, bloque A)
+# One engine for everybody: a *resource* (the freelance, and from v50.45 instructors and boats) is busy because of
+# *blocks*. A freelance's services booked by days or half days use his own resource, so two services can never be
+# booked for the same day. A centre's service booked by days has a resource of its own. Blocks are never deleted:
+# they are released (history). The public calendar only says free / busy / half day / not available per day.
+AGENDA_KINDS = {'booking', 'manual', 'holiday', 'unavailable'}
+
+
+class NotFound(LookupError):
+    """Something asked for does not exist (or is not public): 404."""
+
+
+def service_unit(svc):
+    try: u = svc['booking_unit']
+    except (KeyError, IndexError, TypeError): u = None
+    return u if u in wag.UNITS else 'slot'
+
+
+def service_tz(db, svc):
+    tz = wag.valid_tz(svc['timezone'] if 'timezone' in svc.keys() else None)
+    if tz: return tz
+    if svc['center_id']:
+        c = db.execute('SELECT country FROM centers WHERE id=?', (svc['center_id'],)).fetchone()
+        return wag.tz_for_country(c['country'] if c else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
+    r = db.execute('SELECT up.country FROM user_profiles up WHERE up.user_id=?', (svc['provider_user_id'],)).fetchone()
+    return wag.tz_for_country(r['country'] if r else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
+
+
+def person_resource(db, user_id, create=True):
+    """The freelance's own resource («yo»): every service he sells by days shares it."""
+    r = db.execute("SELECT * FROM resources WHERE kind='person' AND owner_user_id=? AND user_id=? AND owner_center_id IS NULL", (user_id, user_id)).fetchone()
+    if r or not create: return r
+    u = db.execute('SELECT u.fullname,up.country FROM users u LEFT JOIN user_profiles up ON up.user_id=u.id WHERE u.id=?', (user_id,)).fetchone()
+    tz = wag.tz_for_country(u['country'] if u else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
+    db.execute("INSERT INTO resources(owner_user_id,kind,user_id,name,capacity,timezone,active,created_at,updated_at) VALUES(?,'person',?,?,1,?,1,?,?)",
+               (user_id, user_id, (u['fullname'] if u else '') or 'Yo', tz, now(), now()))
+    return db.execute('SELECT * FROM resources WHERE id=last_insert_rowid()').fetchone()
+
+
+def service_resource(db, svc, create=True):
+    if not svc['center_id']: return person_resource(db, svc['provider_user_id'], create)
+    r = db.execute("SELECT * FROM resources WHERE kind='service' AND service_id=?", (svc['id'],)).fetchone()
+    if r or not create: return r
+    db.execute("INSERT INTO resources(owner_center_id,kind,service_id,name,capacity,timezone,active,created_at,updated_at) VALUES(?,'service',?,?,1,?,1,?,?)",
+               (svc['center_id'], svc['id'], svc['title'], service_tz(db, svc), now(), now()))
+    return db.execute('SELECT * FROM resources WHERE id=last_insert_rowid()').fetchone()
+
+
+def owner_resource(db, user):
+    """The resource whose agenda the signed-in provider manages (v50.44: the freelance's own)."""
+    if user['role'] == 'freelance': return person_resource(db, user['id'])
+    raise PermissionError('La agenda por días es, de momento, para profesionales. Los centros la tendrán con los cursos (v50.45).')
+
+
+def resource_hours(db, rid):
+    days = [r['weekday'] for r in db.execute('SELECT DISTINCT weekday FROM resource_hours WHERE resource_id=? ORDER BY weekday', (rid,)).fetchall()]
+    closures = [{'id': r['id'], 'from': r['date_from'], 'to': r['date_to'], 'label': r['label'] or ''}
+                for r in db.execute('SELECT * FROM resource_closures WHERE resource_id=? ORDER BY date_from', (rid,)).fetchall()]
+    return days or None, closures
+
+
+def active_blocks(db, rid, start_utc, end_utc):
+    return [dict(r) for r in db.execute("""SELECT * FROM resource_blocks WHERE resource_id=? AND status='active' AND starts_at<? AND ends_at>?
+                                           ORDER BY starts_at""", (rid, end_utc, start_utc)).fetchall()]
+
+
+def agenda_lock(db):
+    """Serialize every write that checks for overlaps (SQLite lets one writer at a time): of two confirmations of
+    the same days at the same moment, the second one sees the first and fails."""
+    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
+
+
+def agenda_claim(db, rid, spans, kind, ref_type, ref_id, actor=None, note=None):
+    """Blocks a resource for each (start_utc, end_utc, local_from, local_to). Raises ValueError on overlap."""
+    agenda_lock(db)
+    for s, e, lf, lt in spans:
+        clash = active_blocks(db, rid, s, e)
+        clash = [c for c in clash if not (c['ref_type'] == ref_type and c['ref_id'] == ref_id)]
+        if clash:
+            raise ValueError('Esos días acaban de ocuparse. Elige otras fechas.' if kind == 'booking' else 'Ya hay algo en esas fechas.')
+    for s, e, lf, lt in spans:
+        db.execute("""INSERT INTO resource_blocks(resource_id,starts_at,ends_at,local_date_from,local_date_to,kind,ref_type,ref_id,status,private_note,created_by,created_at)
+                      VALUES(?,?,?,?,?,?,?,?,'active',?,?,?)""", (rid, s, e, lf, lt, kind, ref_type, ref_id, note, actor, now()))
+
+
+def agenda_release(db, ref_type, ref_id):
+    db.execute("UPDATE resource_blocks SET status='released',released_at=? WHERE ref_type=? AND ref_id=? AND status='active'", (now(), ref_type, ref_id))
+
+
+def booking_day_rows(db, bid):
+    return [dict(r) for r in db.execute('SELECT local_date,part FROM booking_days WHERE booking_id=? ORDER BY local_date', (bid,)).fetchall()]
+
+
+def booking_spans(db, b, rows=None):
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    rows = rows if rows is not None else booking_day_rows(db, b['id'])
+    if not svc or not rows: return None, None, []
+    rules = wag.clean_rules(svc['unit_rules']); tz = service_tz(db, svc); part = rows[0]['part']
+    spans = []
+    for a, z in wag.ranges([r['local_date'] for r in rows]):
+        s, e = wag.block_span(a, z, part, rules, tz); spans.append((s, e, a, z))
+    return svc, service_resource(db, svc), spans
+
+
+def claim_booking_days(db, b):
+    """The days of a booking by days become busy (confirmation or «Pago al reservar»). Idempotent."""
+    svc, res, spans = booking_spans(db, b)
+    if not spans: return False
+    if db.execute("SELECT 1 FROM resource_blocks WHERE ref_type='booking' AND ref_id=? AND status='active'", (b['id'],)).fetchone(): return True
+    agenda_claim(db, res['id'], spans, 'booking', 'booking', b['id'])
+    return True
+
+
+def reject_overlapping_requests(db, b, actor=None):
+    """When days are confirmed, the other pending requests for those days are rejected with a kind notice and a
+    link to the other dates of the same provider."""
+    svc, res, spans = booking_spans(db, b)
+    if not spans: return 0
+    sids = [r['id'] for r in db.execute('SELECT id FROM provider_services WHERE active IN (0,1) AND ' + ('center_id IS NULL AND provider_user_id=?' if not svc['center_id'] else 'id=?'),
+                                        (svc['provider_user_id'] if not svc['center_id'] else svc['id'],)).fetchall()]
+    n = 0
+    for o in db.execute(f"""SELECT * FROM bookings WHERE id<>? AND service_id IN ({','.join('?' * len(sids))}) AND status IN ('requested','pending')
+                            AND EXISTS (SELECT 1 FROM booking_days d WHERE d.booking_id=bookings.id)""", (b['id'], *sids)).fetchall():
+        _s2, _r2, sp2 = booking_spans(db, o)
+        if any(wag.overlaps(a1, z1, a2, z2) for a1, z1, _x, _y in spans for a2, z2, _u, _v in sp2):
+            reject_booking(db, actor, o, '', event='dates_taken'); n += 1
+    return n
+
+
+def day_booking_selection(db, svc, data, participants):
+    """Validates the days chosen by the diver and prices them (single source: wag.quote)."""
+    unit = service_unit(svc); rules = wag.clean_rules(svc['unit_rules']); tz = service_tz(db, svc)
+    pricing = wag.clean_pricing(svc['pricing'], svc['price'])
+    days = wag.normalize_selection(data.get('days'), data.get('date_from'), data.get('date_to'))
+    part = data.get('part') if data.get('part') in wag.PARTS else 'full'
+    res = service_resource(db, svc)
+    states = public_day_states(db, svc, res, days, rules, tz, unit) if days else {}
+    err = wag.check_selection(days, part, unit, rules, states)
+    if err: raise ValueError(err)
+    price, lines = wag.quote(pricing, days, part, participants, as_list(data.get('agenda_extras')), svc['title'])
+    start_hhmm = rules['am'][0] if part in ('full', 'am') else rules['pm'][0]
+    return {'days': days, 'part': part, 'tz': tz, 'rules': rules, 'price': price, 'lines': lines, 'time': rules['full'][0] if part == 'full' else start_hhmm,
+            'start': wag.to_server_local(days[0], start_hhmm, tz)}
+
+
+def public_day_states(db, svc, res, days, rules, tz, unit):
+    if not days: return {}
+    s = wag.local_to_utc(days[0], '00:00', tz); e = wag.local_to_utc(days[-1], '24:00', tz)
+    blocks = active_blocks(db, res['id'], s, e)
+    work, closures = resource_hours(db, res['id'])
+    return wag.day_states(days, blocks, rules, tz, unit, work, closures)
+
+
+def agenda_public(db, sid, month):
+    """GET /api/agenda/public: one word per day. Never names, reasons, hours or references (A4.3)."""
+    svc = db.execute('SELECT * FROM provider_services WHERE id=? AND active=1', (sid,)).fetchone()
+    if not svc or service_unit(svc) not in wag.DAY_UNITS: raise NotFound('Servicio no encontrado.')
+    tz = service_tz(db, svc); month = wag.clean_month(month, tz); rules = wag.clean_rules(svc['unit_rules'])
+    res = service_resource(db, svc); db.commit()
+    days = wag.month_days(month)
+    states = public_day_states(db, svc, res, days, rules, tz, service_unit(svc))
+    pricing = wag.clean_pricing(svc['pricing'], svc['price'])
+    if svc['center_id']:
+        c = db.execute('SELECT id,name,logo_url,city,country FROM centers WHERE id=?', (svc['center_id'],)).fetchone()
+        prov = {'type': 'center', 'id': c['id'], 'name': c['name'], 'image': c['logo_url'] or '', 'place': ', '.join(x for x in (c['city'], c['country']) if x)}
+    else:
+        u = db.execute('SELECT u.id,u.fullname,u.avatar_url,up.city,up.country FROM users u LEFT JOIN user_profiles up ON up.user_id=u.id WHERE u.id=?', (svc['provider_user_id'],)).fetchone()
+        prov = {'type': 'freelance', 'id': u['id'], 'name': u['fullname'], 'image': u['avatar_url'] or '', 'place': ', '.join(x for x in (u['city'], u['country']) if x)}
+    info = service_mode_info(db, svc)
+    return {'service_id': sid, 'title': svc['title'], 'description': svc['description'] or '', 'service_type': svc['service_type'], 'provider': prov,
+            'booking_mode': info['booking_mode'], 'mode_label': info['mode_label'], 'bookable': info['bookable'], 'instant': info['instant'],
+            'unavailable_reason': info.get('unavailable_reason') or '', 'deposit_type': svc['deposit_type'], 'deposit_value': svc['deposit_value'],
+            'month': month, 'timezone': tz, 'today': wag.today_in(tz).isoformat(), 'unit': service_unit(svc), 'days': states,
+            'rules': {k: rules[k] for k in ('min_days', 'max_days', 'continuous', 'lead_hours', 'am', 'pm', 'full')}, 'pricing': pricing,
+            'currency': svc['currency'] or 'EUR', 'max_participants': svc['max_participants']}
+
+
+def agenda_mine(db, user, month):
+    """The provider's own agenda (A2.2): blocks with what is behind each one, pending requests and usual hours."""
+    res = owner_resource(db, user); db.commit()
+    tz = wag.valid_tz(res['timezone']) or wag.DEFAULT_TZ; month = wag.clean_month(month, tz); days = wag.month_days(month)
+    s = wag.local_to_utc(days[0], '00:00', tz); e = wag.local_to_utc(days[-1], '24:00', tz)
+    items = []
+    for bl in active_blocks(db, res['id'], s, e):
+        it = {'id': bl['id'], 'kind': bl['kind'], 'from': bl['local_date_from'], 'to': bl['local_date_to'],
+              'start': wag.utc_to_local(bl['starts_at'], tz).strftime('%H:%M'), 'end': wag.utc_to_local(bl['ends_at'], tz).strftime('%H:%M'), 'note': bl['private_note'] or ''}
+        if bl['ref_type'] == 'booking':
+            b = db.execute("""SELECT b.id,b.participants,b.status,b.payment_status,b.price,b.currency,b.notes,COALESCE(b.contact_name,u.fullname) AS client,s.title AS service
+                              FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id WHERE b.id=?""", (bl['ref_id'],)).fetchone()
+            if b: it['booking'] = dict(b)
+        items.append(it)
+    reqs = []
+    sids = [r['id'] for r in db.execute('SELECT id FROM provider_services WHERE provider_user_id=? AND center_id IS NULL', (user['id'],)).fetchall()] or [0]
+    for b in db.execute(f"""SELECT b.id,b.participants,b.status,b.response_deadline,b.price,b.currency,b.notes,COALESCE(b.contact_name,u.fullname) AS client,s.title AS service,
+                                   (SELECT MIN(local_date) FROM booking_days d WHERE d.booking_id=b.id) AS d_from,(SELECT MAX(local_date) FROM booking_days d WHERE d.booking_id=b.id) AS d_to,
+                                   (SELECT part FROM booking_days d WHERE d.booking_id=b.id LIMIT 1) AS part
+                            FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
+                            WHERE b.service_id IN ({','.join('?' * len(sids))}) AND b.status IN ('requested','pending') AND EXISTS (SELECT 1 FROM booking_days d WHERE d.booking_id=b.id)
+                            ORDER BY d_from""", sids).fetchall():
+        if b['d_to'] >= days[0] and b['d_from'] <= days[-1]: reqs.append(dict(b))
+    work, closures = resource_hours(db, res['id'])
+    return {'resource': {'id': res['id'], 'name': res['name'], 'timezone': tz}, 'month': month, 'today': wag.today_in(tz).isoformat(),
+            'blocks': items, 'requests': reqs, 'weekdays': work if work is not None else list(range(7)), 'closures': closures}
+
+
+def agenda_block_days(db, user, data):
+    res = owner_resource(db, user); tz = wag.valid_tz(res['timezone']) or wag.DEFAULT_TZ
+    days = wag.normalize_selection(None, data.get('date_from'), data.get('date_to'))
+    if not days: raise ValueError('Elige los días que quieres bloquear.')
+    part = data.get('part') if data.get('part') in wag.PARTS else 'full'
+    kind = data.get('kind') if data.get('kind') in ('manual', 'holiday') else 'manual'
+    rules = wag.DEFAULT_RULES
+    s1 = db.execute("SELECT unit_rules FROM provider_services WHERE provider_user_id=? AND center_id IS NULL AND booking_unit='half_day' AND active=1 LIMIT 1", (user['id'],)).fetchone()
+    if s1: rules = wag.clean_rules(s1['unit_rules'])
+    spans = []
+    for a, z in wag.ranges(days):
+        s, e = wag.block_span(a, z, part, rules, tz); spans.append((s, e, a, z))
+    ref = secrets.randbelow(2**31)
+    agenda_claim(db, res['id'], spans, kind, 'manual', ref, user['id'], clean_text(data.get('note'), 200))
+    audit(db, user['id'], 'agenda_blocked', 'resource', res['id'], {'from': days[0], 'to': days[-1], 'part': part, 'kind': kind})
+    return {'ok': True, 'days': len(days)}
+
+
+def agenda_unblock(db, user, data):
+    res = owner_resource(db, user); bid = int(data.get('id') or 0)
+    bl = db.execute("SELECT * FROM resource_blocks WHERE id=? AND resource_id=? AND status='active'", (bid, res['id'])).fetchone()
+    if not bl: raise NotFound('Bloqueo no encontrado.')
+    if bl['ref_type'] == 'booking': raise ValueError('Ese día está ocupado por una reserva: cancélala o cámbiale la fecha desde la reserva.')
+    db.execute("UPDATE resource_blocks SET status='released',released_at=? WHERE id=?", (now(), bid))
+    audit(db, user['id'], 'agenda_unblocked', 'resource', res['id'], {'block': bid})
+    return {'ok': True}
+
+
+def agenda_save_hours(db, user, data):
+    res = owner_resource(db, user)
+    wds = sorted({int(x) for x in (data.get('weekdays') or []) if str(x).isdigit() and 0 <= int(x) <= 6})
+    if not wds: raise ValueError('Marca al menos un día de trabajo.')
+    tz = wag.valid_tz(data.get('timezone')) or res['timezone']
+    db.execute('DELETE FROM resource_hours WHERE resource_id=?', (res['id'],))   # the usual week is replaced as a whole (it is a setting, not data)
+    db.executemany("INSERT INTO resource_hours(resource_id,weekday,start_time,end_time) VALUES(?,?,'00:00','24:00')", [(res['id'], d) for d in wds])
+    closures = []
+    for c in (data.get('closures') or [])[:20]:
+        a = wag.normalize_selection(None, (c or {}).get('from'), (c or {}).get('to'))
+        if a: closures.append((a[0], a[-1], clean_text((c or {}).get('label'), 80)))
+    db.execute('DELETE FROM resource_closures WHERE resource_id=?', (res['id'],))
+    db.executemany('INSERT INTO resource_closures(resource_id,date_from,date_to,label) VALUES(?,?,?,?)', [(res['id'], *x) for x in closures])
+    db.execute('UPDATE resources SET timezone=?,updated_at=? WHERE id=?', (tz, now(), res['id']))
+    audit(db, user['id'], 'agenda_hours', 'resource', res['id'], {'weekdays': wds, 'closures': len(closures), 'timezone': tz})
+    return {'ok': True}
+
+
+def save_service_agenda_options(db, user, sid, data):
+    """Service form: booking unit (por salida · por días · por días o medias jornadas), rules, prices and time zone."""
+    if 'booking_unit' not in data: return
+    unit = data.get('booking_unit') if data.get('booking_unit') in wag.UNITS else 'slot'
+    if unit in wag.DAY_UNITS:
+        ref = provider_ref(db, user)
+        if user['role'] != 'admin' and (not ref or not provider_has(db, ref[0], ref[1], 'agenda_days')): raise PlanRequired('agenda_days')
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (sid,)).fetchone()
+    rules = wag.clean_rules(data.get('unit_rules') or {}); pricing = wag.clean_pricing(data.get('pricing') or {}, svc['price'])
+    tz = wag.valid_tz(data.get('timezone')) or svc['timezone']
+    db.execute('UPDATE provider_services SET booking_unit=?,unit_rules=?,pricing=?,timezone=?,updated_at=? WHERE id=?',
+               (unit, json.dumps(rules), json.dumps(pricing, ensure_ascii=False), tz, now(), sid))
+    if unit in wag.DAY_UNITS:
+        db.execute('UPDATE provider_services SET price=? WHERE id=?', (pricing['day'], sid))   # «desde» in listings
+        res = service_resource(db, db.execute('SELECT * FROM provider_services WHERE id=?', (sid,)).fetchone())
+        if wag.valid_tz(data.get('timezone')) and res['timezone'] != data.get('timezone'):
+            db.execute('UPDATE resources SET timezone=?,updated_at=? WHERE id=?', (data.get('timezone'), now(), res['id']))   # the place where he works
+
+
+def agenda_quote(db, data):
+    sid = int(data.get('service_id') or 0)
+    svc = db.execute('SELECT * FROM provider_services WHERE id=? AND active=1', (sid,)).fetchone()
+    if not svc or service_unit(svc) not in wag.DAY_UNITS: raise NotFound('Servicio no encontrado.')
+    pax = max(1, int(data.get('participants') or 1))
+    if svc['max_participants'] and pax > int(svc['max_participants']): raise ValueError(f'Este servicio admite como máximo {svc["max_participants"]} personas.')
+    sel = day_booking_selection(db, svc, data, pax); db.commit()
+    deposit = deposit_for(svc, sel['price'], pax)
+    return {'ok': True, 'days': sel['days'], 'part': sel['part'], 'total': sel['price'], 'lines': sel['lines'], 'deposit': deposit, 'currency': svc['currency'] or 'EUR'}
+
+
 # ------------------------------------------------------------------ v50.42 · Encargo 2, punto 6: check-in without coverage
 # The staff app keeps the manifest of the day on the device (only the departures of that day, never documents) to
 # check divers in, mark «no se presentó» and write notes without connection; back online, the changes are sent and
@@ -7908,6 +8259,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         it['sponsor']=dict(sp) if sp else None
                     self.send_json({'items':items,'sponsorships':[dict(r) for r in db.execute('SELECT * FROM sponsorships ORDER BY id DESC LIMIT 300').fetchall()],
                                     'settings':{r['key']:r['value'] for r in db.execute("SELECT key,value FROM site_settings WHERE key LIKE 'partners_%'").fetchall()}}); return
+                if path == '/api/agenda/public':
+                    self.send_json(agenda_public(db,int(query.get('service',['0'])[0] or 0),query.get('month',[''])[0])); return
+                if path == '/api/agenda/mine':
+                    user=require_user(self,db); require_role(user,{'freelance'})
+                    self.send_json(agenda_mine(db,user,query.get('month',[''])[0])); return
                 if path == '/api/center/planning':
                     user=require_user(self,db); require_role(user,{'center','freelance'})
                     self.send_json(center_planning(db,user,query.get('month',[''])[0])); return
@@ -8755,6 +9111,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
             except ValueError as e:
                 db.rollback()  # never persist half-done work when a request fails
                 self.send_json({'error':str(e)},400)
+            except NotFound as e:
+                db.rollback()
+                self.send_json({'error':str(e)},404)
             except KeyError as e:
                 # A required field is missing in the request: the client's fault, not a server error.
                 db.rollback()
@@ -9413,6 +9772,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if center_id:
                         db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)',(center_id,sid,price,clean_text(data.get('currency'),3) or 'EUR',now()[:10],now(),now()))
                     sync_service_experience(db,user,sid,data)
+                    save_service_agenda_options(db,user,sid,data)
                     audit(db,user['id'],'service_created','provider_service',sid); db.commit(); self.send_json({'ok':True,'id':sid}); return
                 if path=='/api/provider-services/delete':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
@@ -9454,7 +9814,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         db.execute('UPDATE provider_services SET cancel_free_hours=?,cancel_refund_pct=? WHERE id=?',(pol_h,pol_pct,sid))
                     if 'publish_experience' in data: sync_service_experience(db,user,sid,data)
                     else: db.execute('UPDATE travel_experiences SET title=?,updated_at=? WHERE service_id=?',(clean_text(data.get('title'),180),now(),sid))
+                    save_service_agenda_options(db,user,sid,data)
                     audit(db,user['id'],'service_updated','provider_service',sid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/agenda/quote':
+                    self.send_json(agenda_quote(db,json_body(self))); return
+                if path in ('/api/agenda/block','/api/agenda/unblock','/api/agenda/hours'):
+                    user=require_user(self,db); require_role(user,{'freelance'}); data=json_body(self)
+                    out={'/api/agenda/block':agenda_block_days,'/api/agenda/unblock':agenda_unblock,'/api/agenda/hours':agenda_save_hours}[path](db,user,data)
+                    db.commit(); self.send_json(out); return
                 if path=='/api/provider-services/slot':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('service_id') or 0)
                     row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
@@ -10261,12 +10628,23 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if slot:
                         # La salida seleccionada es la fuente de verdad para fecha/hora.
                         data['booking_date']=slot['slot_date']; data['booking_time']=slot['slot_time']
+                    if service and service_unit(service) in wag.DAY_UNITS:
+                        first_day=wag.normalize_selection(data.get('days'),data.get('date_from'),data.get('date_to'))
+                        if not first_day: raise ValueError('Elige al menos un día.')
+                        data['booking_date']=first_day[0]
                     bdate=clean_text(data.get('booking_date'),20) or (slot['slot_date'] if slot else None)
                     if not bdate or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',bdate): raise ValueError('Elige la fecha de la actividad.')
                     btime=clean_text(data.get('booking_time'),20)
                     start=wbk.activity_start(bdate,btime)
                     if start and start<=local_now(): raise ValueError('Esa salida ya ha empezado o ha pasado. Elige otra fecha.')
                     price, service_currency, price_lines = booking_quote(db, center_id, service, participants, bdate, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
+                    day_sel=None
+                    if service and service_unit(service) in wag.DAY_UNITS:
+                        # v50.44: booked by days or half days. The days chosen are the source of truth; nothing is held
+                        # for a request until the provider confirms; «Pago al reservar» takes the days while paying.
+                        if slot_id: raise ValueError('Este servicio se reserva por días, no por salidas.')
+                        day_sel=day_booking_selection(db,service,data,participants)
+                        bdate=day_sel['days'][0]; btime=day_sel['time']; start=day_sel['start']; price=day_sel['price']; price_lines=day_sel['lines']
                     mode='payment' if service and service['booking_mode']=='payment' else 'request'
                     ready=service_payments_ready(db,service) if service else False
                     deadline=None; hold=None; slot_reserved=0
@@ -10297,6 +10675,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                     status,price,service['currency'] if service else 'EUR',payment_status,mode,deadline,hold,now() if status=='confirmed' else None,legal_doc_version(db,'reservas'),json.dumps(price_lines,ensure_ascii=False),
                                     deposit,price,pol['free_hours'],pol['refund_pct'],now(),now()))
                     bid=cur.lastrowid
+                    if day_sel:
+                        db.executemany('INSERT INTO booking_days(booking_id,local_date,part) VALUES(?,?,?)',[(bid,d,day_sel['part']) for d in day_sel['days']])
+                        db.execute('UPDATE bookings SET date_to=?,days_mode=? WHERE id=?',(day_sel['days'][-1],day_sel['part'],bid))
+                        if status in ('payment_in_progress','confirmed'): claim_booking_days(db,booking_row(db,bid))
+                        if status=='confirmed': reject_overlapping_requests(db,booking_row(db,bid))
                     if wl_hold: db.execute("UPDATE waitlist_entries SET status='booked',held=0,booking_id=?,updated_at=? WHERE id=?",(bid,now(),wl_hold['id'])); slot_event(db,slot_id,'waitlist_booked',user['id'],entry=wl_hold['id'],booking_id=bid)
                     audit(db,user['id'],'booking_created','booking',bid,{'mode':mode,'status':status})
                     if status=='payment_in_progress':
@@ -11132,6 +11515,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
             except ValueError as e:
                 db.rollback()  # never persist half-done work when a request fails
                 self.send_json({'error':str(e)},400)
+            except NotFound as e:
+                db.rollback()
+                self.send_json({'error':str(e)},404)
             except KeyError as e:
                 # A required field is missing in the request: the client's fault, not a server error.
                 db.rollback()

@@ -154,8 +154,8 @@
 
   async function loadMeta(){ if(!state.meta) state.meta=await api('/api/meta'); return state.meta; }
   // Marca en la cabecera la sección en la que está el visitante.
-  function markNav(name){ const section={punto:'puntos',centro:'centros',experiencia:'experiencias',experienciareserva:'experiencias',reservar:'centros'}[name]||name; $$('#main-nav a').forEach(a=>{ const on=a.getAttribute('href')==='#/'+section; a.classList.toggle('active',on); if(on) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); }); }
-  function route(){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,verificacion:renderLoginCode,registro:renderRegister,reservar:renderBooking,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin,manifiesto:renderManifest,'salida-cancelada':renderSlotCancelChoice,barco:renderBoatDay}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); return Promise.resolve(fn(new URLSearchParams(qs||''))).catch(err=>{console.error(err);setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
+  function markNav(name){ const section={punto:'puntos',centro:'centros',experiencia:'experiencias',experienciareserva:'experiencias',reservar:'centros','reservar-dias':'experiencias'}[name]||name; $$('#main-nav a').forEach(a=>{ const on=a.getAttribute('href')==='#/'+section; a.classList.toggle('active',on); if(on) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); }); }
+  function route(){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,verificacion:renderLoginCode,registro:renderRegister,reservar:renderBooking,'reservar-dias':renderDayBooking,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin,manifiesto:renderManifest,'salida-cancelada':renderSlotCancelChoice,barco:renderBoatDay}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); return Promise.resolve(fn(new URLSearchParams(qs||''))).catch(err=>{console.error(err);setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
   window.addEventListener('hashchange', route);
   // CSP (script-src 'self'): no inline handlers in the markup. These delegated listeners replace them.
   document.addEventListener('click',e=>{ if(e.target.closest?.('[data-reload]')) location.reload(); });
@@ -1405,6 +1405,169 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let t; $('#bk-pick-q').oninput=()=>{ clearTimeout(t); t=setTimeout(draw,120); }; draw(); $('#bk-pick-q').focus();
   }
 
+  // v50.44 · Services booked by days or half days (encargo unificado, A2.1). One block in the service form; the
+  // advanced prices stay folded in «Más opciones». The server cleans and checks everything again.
+  const WD_TZS=['Europe/Madrid','Atlantic/Canary','Europe/Lisbon','Europe/London','Europe/Paris','Europe/Rome','Europe/Athens','Africa/Cairo','America/Cancun','America/Mexico_City','America/Santo_Domingo','America/Havana','America/Bogota','America/Sao_Paulo','Asia/Bangkok','Asia/Makassar','Asia/Manila','Indian/Maldives','Australia/Brisbane'];
+  const wdJSON=v=>{ if(v&&typeof v==='object') return v; try{ return JSON.parse(v||'{}')||{}; }catch{ return {}; } };
+  function wdUnitFieldset(src){
+    const esc=escapeHtml, unit=['day','half_day'].includes(src.booking_unit)?src.booking_unit:'slot', r=wdJSON(src.unit_rules), p=wdJSON(src.pricing);
+    const am=r.am||['08:00','13:00'], pm=r.pm||['14:00','19:00'], full=r.full||['08:00','16:00'], tier=(p.tiers||[])[0]||{}, dsc=p.discount||{}, ex=(p.extras||[]).concat([{},{},{}]).slice(0,3);
+    const opt=(v,l,h)=>`<label class="svc-mode-option"><input type="radio" name="svc-unit" value="${v}" ${v===unit?'checked':''}><span><strong>${l}</strong><small>${h}</small></span></label>`;
+    return `<fieldset class="svc-fieldset" id="svc-unit-box"><legend>Unidad de reserva</legend><div class="svc-mode-grid">
+      ${opt('slot','Por salidas','Fecha y hora fijas, con plazas (como hasta ahora).')}${opt('day','Por días','El cliente elige los días en tu calendario.')}${opt('half_day','Por días o medias jornadas','Día completo, mañana o tarde.')}</div>
+      <div id="svc-day-box" hidden>
+        <div class="svc-form-row">
+          <div class="svc-field"><label for="svc-day-price">Precio por día</label><label class="svc-money"><input id="svc-day-price" type="number" min="0" step="0.01" value="${p.day??src.price??''}"><span>€</span></label></div>
+          <div class="svc-field svc-half-only"><label for="svc-half-price">Media jornada</label><label class="svc-money"><input id="svc-half-price" type="number" min="0" step="0.01" value="${p.half??''}"><span>€</span></label><small>Vacío: la mitad del día.</small></div>
+          <div class="svc-field"><label for="svc-per">El precio es</label><select id="svc-per"><option value="group" ${p.per!=='person'?'selected':''}>Por grupo</option><option value="person" ${p.per==='person'?'selected':''}>Por persona</option></select></div></div>
+        <div class="svc-form-row">
+          <div class="svc-field"><label for="svc-min-days">Días mínimos</label><input id="svc-min-days" type="number" min="1" max="60" value="${r.min_days??1}"></div>
+          <div class="svc-field"><label for="svc-max-days">Días máximos</label><input id="svc-max-days" type="number" min="1" max="90" value="${r.max_days??14}"></div>
+          <div class="svc-field"><label for="svc-lead">Antelación mínima</label><label class="svc-money"><input id="svc-lead" type="number" min="0" max="1440" value="${r.lead_hours??48}"><span>h</span></label></div></div>
+        <label class="svc-check"><input type="checkbox" id="svc-cont" ${r.continuous===false?'':'checked'}><span><strong>Días seguidos</strong><small>Desmárcalo para permitir días sueltos.</small></span></label>
+        <details class="svc-more"><summary>Más opciones</summary>
+          <div class="svc-form-row">
+            <div class="svc-field"><label for="svc-full-a">Día completo</label><span class="svc-hours"><input id="svc-full-a" type="time" value="${esc(full[0])}"> – <input id="svc-full-b" type="time" value="${esc(full[1])}"></span></div>
+            <div class="svc-field svc-half-only"><label for="svc-am-a">Por la mañana</label><span class="svc-hours"><input id="svc-am-a" type="time" value="${esc(am[0])}"> – <input id="svc-am-b" type="time" value="${esc(am[1])}"></span></div>
+            <div class="svc-field svc-half-only"><label for="svc-pm-a">Por la tarde</label><span class="svc-hours"><input id="svc-pm-a" type="time" value="${esc(pm[0])}"> – <input id="svc-pm-b" type="time" value="${esc(pm[1])}"></span></div></div>
+          <div class="svc-form-row">
+            <div class="svc-field"><label for="svc-tier-d">Precio especial desde</label><label class="svc-money"><input id="svc-tier-d" type="number" min="2" max="90" value="${tier.min_days??''}" placeholder="3"><span>días</span></label></div>
+            <div class="svc-field"><label for="svc-tier-p">Precio por día entonces</label><label class="svc-money"><input id="svc-tier-p" type="number" min="0" step="0.01" value="${tier.day??''}"><span>€</span></label></div>
+            <div class="svc-field"><label for="svc-dsc-d">O un descuento desde</label><label class="svc-money"><input id="svc-dsc-d" type="number" min="2" max="90" value="${dsc.min_days??''}" placeholder="3"><span>días</span></label></div>
+            <div class="svc-field"><label for="svc-dsc-p">Descuento</label><label class="svc-money"><input id="svc-dsc-p" type="number" min="1" max="90" value="${dsc.pct??''}" placeholder="10"><span>%</span></label></div></div>
+          <div class="svc-field"><label>Extras opcionales</label>${ex.map((x,i)=>`<div class="svc-extra-row"><input class="svc-ex-label" maxlength="80" placeholder="${i===0?'Ej. Fotos y vídeo':'Otro extra'}" value="${esc(x.label||'')}" aria-label="Extra ${i+1}"><label class="svc-money"><input class="svc-ex-price" type="number" min="0" step="0.01" value="${x.price??''}" aria-label="Precio del extra ${i+1}"><span>€</span></label><select class="svc-ex-per" aria-label="Se cobra"><option value="day" ${x.per!=='booking'?'selected':''}>por día</option><option value="booking" ${x.per==='booking'?'selected':''}>por reserva</option></select><label class="svc-ex-pp"><input type="checkbox" class="svc-ex-pers" ${x.per_person?'checked':''}> por persona</label></div>`).join('')}</div>
+          <div class="svc-field"><label for="svc-tz">Zona horaria del lugar</label><select id="svc-tz">${['',...WD_TZS].map(z=>`<option value="${z}" ${z===(src.timezone||'')?'selected':''}>${z?esc(z.replace('_',' ')):'La de mi país'}</option>`).join('')}</select><small>Tus días y horas se muestran siempre en la hora del lugar del servicio.</small></div>
+        </details>
+      </div></fieldset>`;
+  }
+  function wdBindUnitFieldset(el){
+    const sync=()=>{ const u=el.querySelector('input[name="svc-unit"]:checked')?.value||'slot'; el.querySelector('#svc-day-box').hidden=u==='slot';
+      $$('.svc-half-only',el).forEach(x=>x.hidden=u!=='half_day');
+      const maxL=el.querySelector('label[for="svc-max"]'); if(maxL) maxL.textContent=u==='slot'?'Plazas por salida':'Personas como máximo';
+      const pr=el.querySelector('#svc-price')?.closest('.svc-field'); if(pr) pr.hidden=u!=='slot'; };
+    $$('input[name="svc-unit"]',el).forEach(x=>x.addEventListener('change',sync)); sync();
+  }
+  function wdUnitData(el){
+    const u=el.querySelector('input[name="svc-unit"]:checked')?.value||'slot'; if(u==='slot') return {booking_unit:'slot'};
+    const v=q=>el.querySelector(q)?.value??''; const day=v('#svc-day-price');
+    if(day===''||Number(day)<0) return {error:'Indica el precio por día.'};
+    const extras=$$('.svc-extra-row',el).map((r,i)=>({id:'x'+(i+1),label:r.querySelector('.svc-ex-label').value.trim(),price:r.querySelector('.svc-ex-price').value,per:r.querySelector('.svc-ex-per').value,per_person:r.querySelector('.svc-ex-pers').checked})).filter(x=>x.label&&x.price!=='');
+    return {booking_unit:u,timezone:v('#svc-tz'),
+      unit_rules:{min_days:v('#svc-min-days'),max_days:v('#svc-max-days'),lead_hours:v('#svc-lead'),continuous:el.querySelector('#svc-cont').checked,full:[v('#svc-full-a'),v('#svc-full-b')],am:[v('#svc-am-a'),v('#svc-am-b')],pm:[v('#svc-pm-a'),v('#svc-pm-b')]},
+      pricing:{day,half:v('#svc-half-price'),per:v('#svc-per'),tiers:v('#svc-tier-d')&&v('#svc-tier-p')!==''?[{min_days:v('#svc-tier-d'),day:v('#svc-tier-p')}]:[],discount:v('#svc-dsc-d')&&v('#svc-dsc-p')?{min_days:v('#svc-dsc-d'),pct:v('#svc-dsc-p')}:null,extras}};
+  }  // v50.44 · Booking by days or half days (encargo unificado, A2.3): calendar with free / busy / half day / not
+  // available, range or loose days, total at once in a fixed bar. The selection lives in the link (#/reservar-dias?…)
+  // so it survives signing in and can be shared. Nothing else of the provider's agenda is ever shown.
+  const wdDots=(...xs)=>xs.filter(Boolean).map(x=>`<span>${escapeHtml(x)}</span>`).join(' · ');
+  const DAY_PART_LABEL={full:'Día completo',am:'Por la mañana',pm:'Por la tarde'};
+  function wdTzPlace(tz){ return String(tz||'').split('/').pop().replace(/_/g,' '); }
+  function wdDayCalendar(month,states,{sel=new Set(),part='full',from='',to='',unit='day'}={}){
+    const [y,m]=month.split('-').map(Number); const first=new Date(Date.UTC(y,m-1,1)); const n=new Date(Date.UTC(y,m,0)).getUTCDate(); const lead=(first.getUTCDay()+6)%7;
+    const fmt=d=>`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const wk=[1,2,3,4,5,6,7].map(i=>new Date(Date.UTC(2024,0,i)).toLocaleDateString(wdLocale(),{weekday:'narrow',timeZone:'UTC'}));
+    let h=`<table class="dcal" role="grid"><thead><tr>${wk.map(w=>`<th scope="col">${w}</th>`).join('')}</tr></thead><tbody><tr>`;
+    for(let i=0;i<lead;i++) h+='<td class="out" aria-hidden="true"></td>';
+    for(let d=1;d<=n;d++){ const iso=fmt(d), s=states[iso]||'off'; if((lead+d-1)%7===0&&d>1) h+='</tr><tr>';
+      const pick=part==='full'?s==='free':(part==='am'?['free','pm'].includes(s):['free','am'].includes(s));
+      const isSel=sel.has(iso), edge=isSel&&(iso===from||iso===to||!from);
+      const note=unit==='half_day'&&s==='am'?'solo tarde':(unit==='half_day'&&s==='pm'?'solo mañana':'');
+      const lbl=`${new Date(iso+'T12:00:00Z').toLocaleDateString(wdLocale(),{weekday:'long',day:'numeric',month:'long',timeZone:'UTC'})}: ${({free:'libre',busy:'ocupado',off:'no disponible',am:'mañana ocupada',pm:'tarde ocupada'})[s]}`;
+      h+=`<td class="${s}${isSel?(edge?' sel':' sel-mid'):''}"><button type="button" data-day="${iso}" ${pick||isSel?'':'aria-disabled="true"'} aria-pressed="${isSel}" aria-label="${escapeHtml(lbl)}">${d}${note?`<small>${note}</small>`:''}</button></td>`; }
+    return h+'</tr></tbody></table>';
+  }
+  async function renderDayBooking(params){
+    const esc=escapeHtml, sid=Number(params.get('service')||0);
+    const st={part:DAY_PART_LABEL[params.get('part')]?params.get('part'):'full', from:params.get('from')||'', to:params.get('to')||'', loose:new Set((params.get('d')||'').split(',').filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x))),
+      pax:Math.max(1,Number(params.get('pax')||1)), extras:new Set((params.get('x')||'').split(',').filter(Boolean)), states:{}, month:'', quote:null, msg:'', notes:''};
+    setApp(`<section class="page dbk-page"><div class="wd-loading">${wdIcon('calendar',22)} Preparando el calendario…</div></section>`);
+    let root=$('.dbk-page'); const alive=()=>document.body.contains(root);
+    const load=async month=>{ const d=await api(`/api/agenda/public?service=${sid}${month?'&month='+month:''}`); Object.assign(st.states,d.days); st.month=d.month; return d; };
+    let info; try{ info=await load(params.get('m')||(st.from||[...st.loose][0]||'').slice(0,7)); }catch(err){ if(alive()) setApp(`<section class="page"><div class="empty"><h2>Servicio no disponible</h2><p>${esc(err.message)}</p><a class="btn btn-primary" href="#/experiencias">Ver experiencias</a></div></section>`); return; }
+    if(!alive()) return;
+    const p=info.provider, unit=info.unit, rules=info.rules, pr=info.pricing, maxPax=Math.max(1,Math.min(30,Number(info.max_participants)||12));
+    st.pax=Math.min(st.pax,maxPax);
+    const provHref=p.type==='center'?`#/centro?id=${p.id}`:`#/profesional?id=${p.id}`;
+    const half=wdMoney(pr.half!=null?pr.half:pr.day/2,info.currency);
+    const priceText=[`Día completo ${rules.full[0]}–${rules.full[1]}: ${wdMoney(pr.day,info.currency)}`,
+      unit==='half_day'?`Por la mañana ${rules.am[0]}–${rules.am[1]}: ${half}`:'', unit==='half_day'?`Por la tarde ${rules.pm[0]}–${rules.pm[1]}: ${half}`:'',
+      ...(pr.tiers||[]).map(t=>`Desde ${t.min_days} días: ${wdMoney(t.day,info.currency)} por día`), pr.discount?`Desde ${pr.discount.min_days} días: −${pr.discount.pct} %`:'',
+      pr.per==='person'?'Precio por persona':`Precio por grupo, hasta ${maxPax} personas`].filter(Boolean);
+    setApp(`<section class="page dbk-page">
+      <a class="bk-back" href="${provHref}">← ${esc(p.name)}</a>
+      <header class="dbk-head">${p.image?`<img class="dbk-avatar" src="${esc(p.image)}" alt="">`:`<span class="dbk-avatar dbk-initial" aria-hidden="true">${esc((p.name||'?').trim()[0]||'?')}</span>`}
+        <div><p class="eyebrow"><span>${p.type==='center'?'Centro de buceo':'Profesional'}</span> · <a href="${provHref}">${esc(p.name)}</a></p><h1>${esc(info.title)}</h1>
+        <div class="dbk-chips"><span class="chip">A elegir fechas</span><span class="chip">${esc(info.mode_label)}</span>${p.place?`<span class="muted">${wdIcon('pin',14)} ${esc(p.place)}</span>`:''}<span class="muted">${esc('Horario de '+wdTzPlace(info.timezone))}</span></div></div></header>
+      <div class="dbk-layout">
+        <section class="dbk-card dbk-cal" id="dbk-pick" aria-labelledby="dbk-pick-h">
+          <div class="dbk-cal-head"><h2 id="dbk-pick-h">Elige tus días</h2><div class="dbk-nav"><button type="button" class="btn btn-sm" id="dbk-prev" aria-label="Mes anterior">‹</button><strong id="dbk-month" aria-live="polite"></strong><button type="button" class="btn btn-sm" id="dbk-next" aria-label="Mes siguiente">›</button></div></div>
+          ${unit==='half_day'?`<div class="dbk-parts" role="radiogroup" aria-label="Jornada">${Object.entries(DAY_PART_LABEL).map(([k,l])=>`<button type="button" role="radio" data-part="${k}" aria-checked="${st.part===k}">${l}</button>`).join('')}</div>`:''}
+          <div id="dbk-grid"></div>
+          <div class="dbk-legend"><span><i class="lg-free"></i>Libre</span><span><i class="lg-busy"></i>Ocupado</span>${unit==='half_day'?'<span><i class="lg-half"></i>Media jornada libre</span>':''}<span><i class="lg-off"></i>No disponible</span></div>
+          <p class="dbk-hint" id="dbk-hint"></p><div class="notice warning" id="dbk-msg" hidden></div>
+          <div class="dbk-row"><label for="dbk-pax">Personas</label><select id="dbk-pax">${Array.from({length:maxPax},(_,i)=>`<option value="${i+1}" ${i+1===st.pax?'selected':''}>${i+1}</option>`).join('')}</select></div>
+          ${(pr.extras||[]).length?`<fieldset class="dbk-extras"><legend>Extras</legend>${pr.extras.map(x=>`<label class="dbk-check"><input type="checkbox" value="${esc(x.id)}" ${st.extras.has(x.id)?'checked':''}> ${esc(x.label)} <small>${esc(`+${wdMoney(x.price,info.currency)} ${x.per==='day'?'por día':'por reserva'}${x.per_person?' y persona':''}`)}</small></label>`).join('')}</fieldset>`:''}
+          <label class="bk-field"><span>Nota para el organizador</span><textarea id="dbk-notes" rows="2" maxlength="1500" placeholder="Nivel, idioma, hotel, lo que quieras contar…"></textarea></label>
+        </section>
+        <div class="dbk-side">${info.description?`<section class="dbk-card"><h3>Qué incluye</h3><p>${esc(info.description)}</p></section>`:''}
+          <section class="dbk-card"><h3>Tarifas</h3><ul class="dbk-prices">${priceText.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></section>
+          <section class="dbk-card"><h3>Cómo funciona</h3><p><span>${info.booking_mode==='payment'?'Pagas al reservar y los días quedan reservados al momento.':'Envías la solicitud sin pagar nada. Cuando te la confirmen, si se paga online, te llega el enlace de pago.'}</span> <span>WORLDIVES no organiza ni presta este servicio.</span></p></section></div>
+      </div>
+      <div class="dbk-bar" id="dbk-bar"><div><strong id="dbk-total">Elige tus días</strong><small id="dbk-lines"></small></div><button type="button" class="btn btn-primary" id="dbk-go" disabled>${info.booking_mode==='payment'?'Reservar y pagar':'Solicitar reserva'}</button></div>
+    </section>`);
+    root=$('.dbk-page');
+    const selected=()=>{ if(st.part!=='full') return st.from?[st.from]:[];
+      if(!rules.continuous) return [...st.loose].sort();
+      if(!st.from) return []; const out=[]; const a=new Date(st.from+'T12:00:00Z'), b=new Date((st.to||st.from)+'T12:00:00Z'); for(let d=a; d<=b; d=new Date(d.getTime()+864e5)) out.push(d.toISOString().slice(0,10)); return out; };
+    const okDay=iso=>{ const s=st.states[iso]; return st.part==='full'?s==='free':(st.part==='am'?['free','pm'].includes(s):['free','am'].includes(s)); };
+    const keepLink=()=>{ const q=new URLSearchParams({service:sid}); if(st.part!=='full') q.set('part',st.part); if(st.from) q.set('from',st.from); if(st.to) q.set('to',st.to); if(st.loose.size) q.set('d',[...st.loose].join(',')); if(st.pax>1) q.set('pax',st.pax); if(st.extras.size) q.set('x',[...st.extras].join(',')); if(st.month) q.set('m',st.month); history.replaceState(null,'','#/reservar-dias?'+q.toString()); };
+    const drawCal=()=>{ const sel=new Set(selected()); $('#dbk-grid').innerHTML=wdDayCalendar(st.month,st.states,{sel,part:st.part,from:st.from,to:st.to||st.from,unit});
+      $('#dbk-month').textContent=wdMonthName(st.month);
+      $('#dbk-prev').disabled=st.month<=info.today.slice(0,7);
+      $('#dbk-hint').textContent=st.part!=='full'?'Toca el día que quieres.':(rules.continuous?(st.from&&!st.to?'Ahora toca el último día.':'Toca el primer y el último día.'):'Toca los días que quieres.');
+      const m=$('#dbk-msg'); m.hidden=!st.msg; m.textContent=st.msg; };
+    let qTimer=null, qSeq=0;
+    const requote=()=>{ clearTimeout(qTimer); const days=selected(); st.quote=null; drawBar();
+      if(!days.length) return; const rule=st.part==='full'&&days.length<rules.min_days; if(rule){ st.msg=`Elige como mínimo ${rules.min_days} días.`; drawCal(); return; }
+      const seq=++qSeq; qTimer=setTimeout(async()=>{ const before=st.msg; try{ const q=await postJSON('/api/agenda/quote',{service_id:sid,days,part:st.part,participants:st.pax,agenda_extras:[...st.extras]}); if(seq!==qSeq||!alive()) return; st.quote=q; if(st.qmsg){ st.msg=''; st.qmsg=false; } }catch(err){ if(seq!==qSeq) return; st.msg=err.message; st.qmsg=true; }
+        if(st.msg!==before) drawCal(); drawBar(); },120); };   // the calendar is only redrawn when the message changes, so a quick second tap is never lost
+    const drawBar=()=>{ const days=selected(), q=st.quote; const go=$('#dbk-go');
+      if(!q){ $('#dbk-total').textContent=days.length?'Calculando…':'Elige tus días'; $('#dbk-lines').textContent=''; go.disabled=true; return; }
+      const n=q.days.length, d0=new Date(q.days[0]+'T12:00:00Z'), d1=new Date(q.days[n-1]+'T12:00:00Z'), f=x=>x.toLocaleDateString(wdLocale(),{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'});
+      const what=st.part==='full'?`${n} ${n===1?'día':'días'}`:DAY_PART_LABEL[st.part];
+      $('#dbk-total').innerHTML=wdDots(what,`${st.pax} ${st.pax===1?'persona':'personas'}`,wdMoney(q.total,q.currency));
+      const lines=q.lines.map(l=>l.kind==='discount'?`Descuento desde ${pr.discount?.min_days} días: ${wdMoney(l.total,q.currency)}`:`${l.label}${l.qty>1?` ${l.qty} × ${wdMoney(l.unit,q.currency)}`:''} = ${wdMoney(l.total,q.currency)}`);
+      $('#dbk-lines').innerHTML=wdDots(n>1&&rules.continuous&&st.part==='full'?`${f(d0)} – ${f(d1)}`:(n>1?q.days.map(x=>new Date(x+'T12:00:00Z').getUTCDate()).join(', '):f(d0)),...lines,q.deposit&&q.deposit<q.total?`Señal al reservar: ${wdMoney(q.deposit,q.currency)}`:'');
+      go.disabled=info.bookable===false; };
+    root.addEventListener('click',async e=>{ const t=e.target.closest('button'); if(!t) return;
+      if(t.dataset.day){ const iso=t.dataset.day; st.msg='';
+        if(t.getAttribute('aria-disabled')==='true'&&!(selected().includes(iso))){ st.msg=({busy:'Ese día está ocupado.',off:'Ese día no está disponible.',am:'Ese día solo queda libre la tarde.',pm:'Ese día solo queda libre la mañana.'})[st.states[iso]]||'Ese día no está disponible.'; drawCal(); return; }
+        if(st.part!=='full'){ st.from=st.from===iso?'':iso; st.to=''; }
+        else if(!rules.continuous){ st.loose.has(iso)?st.loose.delete(iso):st.loose.add(iso); }
+        else if(!st.from||st.to||iso<st.from){ st.from=iso; st.to=''; }
+        else if(iso===st.from){ st.from=''; }
+        else { // the range can not jump over a busy day
+          const tmp={...st,to:iso}; let bad=null; const a=new Date(st.from+'T12:00:00Z'), b=new Date(iso+'T12:00:00Z');
+          for(let d=a; d<=b; d=new Date(d.getTime()+864e5)){ const x=d.toISOString().slice(0,10); if(!okDay(x)){ bad=x; break; } }
+          if(bad){ const bd=new Date(bad+'T12:00:00Z'); st.msg=`El ${bd.getUTCDate()} no está libre: elige hasta el día anterior o empieza después.`; }
+          else st.to=iso; }
+        drawCal(); keepLink(); requote(); return; }
+      if(t.dataset.part){ st.part=t.dataset.part; st.from=''; st.to=''; st.loose.clear(); st.msg=''; $$('[data-part]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.part===st.part))); drawCal(); keepLink(); requote(); return; }
+      if(t.id==='dbk-prev'||t.id==='dbk-next'){ const [y,m]=st.month.split('-').map(Number); const dt=new Date(Date.UTC(y,m-1+(t.id==='dbk-next'?1:-1),1)); const mm=dt.toISOString().slice(0,7);
+        try{ await load(mm); }catch(err){ toast(err.message); return; } if(!alive()) return; drawCal(); keepLink(); return; }
+      if(t.id==='dbk-go') submit();
+    });
+    root.addEventListener('change',e=>{ if(e.target.id==='dbk-pax'){ st.pax=Number(e.target.value); keepLink(); requote(); } if(e.target.closest('.dbk-extras')){ st.extras=new Set($$('.dbk-extras input:checked').map(x=>x.value)); keepLink(); requote(); } });
+    let sending=false;
+    async function submit(){ if(sending||!st.quote) return; keepLink(); st.notes=$('#dbk-notes').value;
+      if(!state.me){ toast('Inicia sesión o crea tu cuenta para terminar. Guardamos los días que has elegido.'); goLogin(); return; }
+      sending=true; const go=$('#dbk-go'); go.disabled=true; const label=go.textContent; go.textContent='Enviando…';
+      try{ const c=await postJSON('/api/bookings',{center_id:p.type==='center'?p.id:null,service_id:sid,days:st.quote.days,part:st.part,booking_date:st.quote.days[0],participants:st.pax,agenda_extras:[...st.extras],notes:st.notes});
+        if(c.checkout_url){ go.textContent='Abriendo el pago seguro…'; location.href=c.checkout_url; return; }
+        toast(c.status==='confirmed'?'¡Reserva confirmada!':'Solicitud enviada. No se cobra nada hasta que te confirmen.'); location.hash='#/reserva?id='+c.id;
+      }catch(err){ toast(err.message); sending=false; go.disabled=false; go.textContent=label; try{ Object.assign(st.states,(await api(`/api/agenda/public?service=${sid}&month=${st.month}`)).days); drawCal(); }catch{} } }
+    if(st.from) st.month=st.from.slice(0,7);
+    drawCal(); drawBar(); requote();
+  }
   async function renderBooking(params){
     const cid=Number(params.get('center')||0), providerId=Number(params.get('provider')||0);
     if(!cid&&!providerId) return renderBookingCenterPicker();
@@ -1433,6 +1596,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if(params.get('service')) st.service=Number(params.get('service'));
     if(params.get('slot')) st.slot=Number(params.get('slot'));
     if(!services.some(s=>s.id===st.service)) st.service=0;
+    if(['day','half_day'].includes(services.find(s=>s.id===st.service)?.booking_unit)){ location.replace('#/reservar-dias?service='+st.service); return; }
     const bookable=services.filter(s=>(s.slots||[]).some(sl=>Number(sl.spots_available)>0));
     if(!st.service&&bookable.length===1) st.service=bookable[0].id;
     const svc=()=>services.find(s=>s.id===st.service);
@@ -1471,11 +1635,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     </section>`);
     root=$('.bk-page');
     // ---- render pieces
-    const drawServices=()=>{ $('#bk-services').innerHTML=services.map(s=>{ const free=(s.slots||[]).filter(sl=>Number(sl.spots_available)>0); const next=free[0]; const ok=free.length&&s.bookable!==false;
+    const drawServices=()=>{ $('#bk-services').innerHTML=services.map(s=>{ const free=(s.slots||[]).filter(sl=>Number(sl.spots_available)>0); const next=free[0]; const byDays=['day','half_day'].includes(s.booking_unit); const ok=(byDays||free.length)&&s.bookable!==false;
         return `<button type="button" class="bk-svc ${s.id===st.service?'is-on':''}" data-id="${s.id}" ${ok?'':'disabled'} aria-pressed="${s.id===st.service}" style="--c:${esc(s.color||'#0b7a89')}">
           <span class="bk-svc-icon">${wdIcon(s.service_type,22)}</span>
-          <span class="bk-svc-txt"><strong>${esc(s.title)}</strong><small>${s.duration_minutes?esc(wdDuration(s.duration_minutes)):''}</small>${wdModeTag(s)}<small class="bk-svc-next">${s.bookable===false?'No admite reservas ahora mismo':next?`Próxima: ${esc(wdDay(next.slot_date))} · ${esc(next.slot_time)}`:'Sin salidas próximas'}</small></span>
-          <span class="bk-svc-price"><strong>${wdMoney(s.price,s.currency)}</strong><small>por persona</small></span></button>`; }).join('')||`<div class="bk-empty">Este centro todavía no ha publicado actividades con reserva online.${center.phone?` Llámales al <a href="tel:${esc(String(center.phone).replace(/\s+/g,''))}">${esc(center.phone)}</a>.`:''}</div>`; };
+          <span class="bk-svc-txt"><strong>${esc(s.title)}</strong><small>${s.duration_minutes?esc(wdDuration(s.duration_minutes)):''}</small>${wdModeTag(s)}<small class="bk-svc-next">${s.bookable===false?'No admite reservas ahora mismo':byDays?'A elegir fechas en su calendario':next?`Próxima: ${esc(wdDay(next.slot_date))} · ${esc(next.slot_time)}`:'Sin salidas próximas'}</small></span>
+          <span class="bk-svc-price"><strong>${wdMoney(s.price,s.currency)}</strong><small>${byDays?'por día':'por persona'}</small></span></button>`; }).join('')||`<div class="bk-empty">Este centro todavía no ha publicado actividades con reserva online.${center.phone?` Llámales al <a href="tel:${esc(String(center.phone).replace(/\s+/g,''))}">${esc(center.phone)}</a>.`:''}</div>`; };
     const drawPoints=()=>{ const used=new Map(); (svc()?.slots||[]).forEach(sl=>(sl.points||[]).forEach(p=>used.set(Number(p.id),p.name))); const box=$('#bk-points');
       if(used.size<2){ box.innerHTML=''; box.hidden=true; if(st.point&&!used.has(st.point)) st.point=0; return; }
       box.hidden=false; box.innerHTML=`<span class="bk-points-label">Punto:</span><button type="button" class="cd-chip" data-point="0" aria-pressed="${!st.point}">Todos</button>`+[...used].map(([id,n])=>`<button type="button" class="cd-chip" data-point="${id}" aria-pressed="${st.point===id}">${esc(n)}</button>`).join(''); };
@@ -1538,6 +1702,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const redraw=()=>{ drawServices(); drawPoints(); drawDates(); drawPax(); drawEquip(); drawSummary(); refreshQuote(); };
     // ---- events
     root.addEventListener('click',e=>{ const t=e.target.closest('button'); if(!t||!root.contains(t)) return;
+      if(t.matches('.bk-svc')&&['day','half_day'].includes(services.find(s=>s.id===+t.dataset.id)?.booking_unit)){ location.hash='#/reservar-dias?service='+t.dataset.id; return; }
       if(t.matches('.bk-svc')){ st.service=+t.dataset.id; st.slot=0; st.date=''; st.point=0; redraw(); if(window.innerWidth<900) $('[data-step="2"]').scrollIntoView({behavior:'smooth',block:'start'}); return; }
       if(t.matches('#bk-points .cd-chip')){ st.point=+t.dataset.point; st.slot=0; st.date=''; redraw(); return; }
       if(t.matches('.bk-date')){ st.date=t.dataset.date; st.slot=0; redraw(); return; }
@@ -2292,9 +2457,97 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     fillAccountLevel(d); if(location.hash.includes('promociones')) setTimeout(()=>$('#mis-promociones')?.scrollIntoView({behavior:'smooth'}),200);
     $$('.redeem-reward').forEach(b=>b.onclick=async()=>{ if(!confirm('¿Canjear tus puntos por esta ventaja?')) return; try{const r=await postJSON('/api/rewards/redeem',{offer_id:+b.dataset.id});toast('Canje hecho. Tu código: '+r.code+' (lo tienes en «Mis puntos»).');renderRewards();}catch(e){toast(e.message)}});
   }
+  // v50.44 · The freelance's agenda (encargo unificado, A2.2): month and list, confirmed days blocked on their own,
+  // a tap blocks or frees a day (no reason asked), pending requests with what confirming one means for the others,
+  // usual week, closed seasons and the time zone of the place.
+  async function renderFreelanceAgenda(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    const ui=renderFreelanceAgenda.ui||(renderFreelanceAgenda.ui={view:'month',month:'',day:''});
+    let d; try{ d=await api('/api/agenda/mine'+(ui.month?'?month='+ui.month:'')); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
+    if(!mount.isConnected) return;
+    ui.month=d.month; const tz=d.resource.timezone;
+    const days={}; const add=(a,b,fn)=>{ for(let x=new Date(a+'T12:00:00Z'); x<=new Date(b+'T12:00:00Z'); x=new Date(x.getTime()+864e5)) fn(x.toISOString().slice(0,10)); };
+    d.blocks.forEach(b=>add(b.from,b.to,iso=>(days[iso]??={blocks:[],reqs:[]}).blocks.push(b)));
+    d.requests.forEach(r=>add(r.d_from,r.d_to,iso=>(days[iso]??={blocks:[],reqs:[]}).reqs.push(r)));
+    const work=new Set(d.weekdays), closed=iso=>d.closures.some(c=>c.from<=iso&&iso<=c.to);
+    const first=n=>String(n||'').split(' ')[0];
+    const states={}, labels={}; wdMonthDays(d.month).forEach(iso=>{ const x=days[iso], wd=(new Date(iso+'T12:00:00Z').getUTCDay()+6)%7;
+      if(x?.blocks.some(b=>b.booking)){ const b=x.blocks.find(b=>b.booking); states[iso]='sel'; labels[iso]=`${first(b.booking.client)} · ${b.booking.participants}`; }
+      else if(x?.blocks.length){ states[iso]='blocked'; labels[iso]=x.blocks[0].kind==='holiday'?'vacaciones':'bloqueado'; }
+      else if(x?.reqs.length){ states[iso]='pend'; labels[iso]=x.reqs.length===1?'1 solicitud':`${x.reqs.length} solicitudes`; }
+      else if(!work.has(wd)||closed(iso)){ states[iso]='off'; labels[iso]=closed(iso)?'cerrado':''; }
+      else states[iso]='free'; });
+    const cal=()=>{ const [y,m]=d.month.split('-').map(Number); const lead=(new Date(Date.UTC(y,m-1,1)).getUTCDay()+6)%7; const all=wdMonthDays(d.month);
+      const wk=[1,2,3,4,5,6,7].map(i=>new Date(Date.UTC(2024,0,i)).toLocaleDateString(wdLocale(),{weekday:'narrow',timeZone:'UTC'}));
+      let h=`<table class="dcal"><thead><tr>${wk.map(w=>`<th>${w}</th>`).join('')}</tr></thead><tbody><tr>`+'<td class="out"></td>'.repeat(lead);
+      all.forEach((iso,i)=>{ if((lead+i)%7===0&&i) h+='</tr><tr>'; h+=`<td class="${states[iso]}${iso===d.today?' today':''}${iso===ui.day?' is-picked':''}"><button type="button" data-day="${iso}" aria-pressed="${iso===ui.day}">${i+1}${labels[iso]?`<small>${esc(labels[iso])}</small>`:''}</button></td>`; });
+      return h+'</tr></tbody></table>'; };
+    const money=(v,c)=>wdMoney(v,c||'EUR');
+    const reqCard=(r,i)=>{ const others=d.requests.filter(o=>o.id!==r.id&&o.d_from<=r.d_to&&r.d_from<=o.d_to);
+      return `<div class="ag-item">${wdDots(r.client,r.service||'').replace('<span>','<span class="ag-who">')}<br><span class="muted">${wdDots(wdRange(r.d_from,r.d_to),r.part&&r.part!=='full'?DAY_PART_LABEL[r.part]:'',`${r.participants} ${r.participants===1?'persona':'personas'}`,money(r.price,r.currency))}</span>
+        ${r.notes?`<p class="muted" style="margin:6px 0 0">«${esc(r.notes)}»</p>`:''}
+        ${others.length?`<div class="notice warning" style="margin-top:8px">${others.length===1?`Si confirmas esta solicitud, la de ${esc(others[0].client)} se rechazará sola con el aviso «Esas fechas ya no están disponibles».`:`Si confirmas esta solicitud, otras ${others.length} se rechazarán solas con el aviso «Esas fechas ya no están disponibles».`}</div>`:''}
+        <div class="row"><button type="button" class="btn btn-primary btn-sm" data-accept="${r.id}">Confirmar</button><button type="button" class="btn btn-sm" data-reject="${r.id}">Rechazar</button><a class="btn btn-sm" href="#/reserva?id=${r.id}">Ver solicitud</a></div>
+        ${r.response_deadline?`<small class="muted">${esc('Responde antes del '+wdDeadline(r.response_deadline))}</small>`:''}</div>`; };
+    const blockCard=b=>b.booking?`<div class="ag-item"><span class="ag-tag">${esc(b.booking.status==='confirmed'?'Confirmada':(BOOKING_STATUS[b.booking.status]||[b.booking.status])[0])}</span> <span class="ag-tag ${b.booking.payment_status==='paid'?'':'warn'}">${esc((PAYMENT_STATUS[b.booking.payment_status]||[b.booking.payment_status||''])[0])}</span>
+        <p style="margin:6px 0 0">${wdDots(b.booking.client,b.booking.service||'',`${b.booking.participants} ${b.booking.participants===1?'persona':'personas'}`,money(b.booking.price,b.booking.currency)).replace('<span>','<span class="ag-who">')}</p>
+        <span class="muted">${wdDots(wdRange(b.from,b.to),`${b.start}–${b.end==='00:00'?'24:00':b.end}`)}</span>${b.booking.notes?`<p class="muted" style="margin:6px 0 0">«${esc(b.booking.notes)}»</p>`:''}
+        <div class="row"><a class="btn btn-sm" href="#/reserva?id=${b.booking.id}">Ver reserva</a></div></div>`
+      :`<div class="ag-item"><span class="ag-tag busy">${b.kind==='holiday'?'Vacaciones':'Bloqueado por ti'}</span><p class="muted" style="margin:6px 0 0"><span>${esc(wdRange(b.from,b.to))}</span><br><span>El público solo ve «ocupado», nunca el motivo.</span></p><div class="row"><button type="button" class="btn btn-sm" data-unblock="${b.id}">Desbloquear</button></div></div>`;
+    const dayPanel=()=>{ const iso=ui.day; if(!iso) return `<section class="dbk-card"><h3>Toca un día</h3><p>Verás quién viene, las solicitudes o podrás bloquearlo.</p></section>`;
+      const x=days[iso]||{blocks:[],reqs:[]}; const head=`<p class="eyebrow">${esc(new Date(iso+'T12:00:00Z').toLocaleDateString(wdLocale(),{weekday:'long',day:'numeric',month:'long',timeZone:'UTC'}))}</p>`;
+      return `<section class="dbk-card">${head}${x.blocks.map(blockCard).join('')}${x.reqs.length?`<h3 style="margin-top:8px">Solicitudes</h3>${x.reqs.map(reqCard).join('')}`:''}
+        ${!x.blocks.length?`<div class="row" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-sm" data-block="${iso}">Bloquear este día</button><button type="button" class="btn btn-sm" data-range="${iso}">Bloquear varios días…</button></div>`:''}</section>`; };
+    const listView=()=>{ const items=[...d.blocks.map(b=>({k:b.from,h:blockCard(b)})),...d.requests.map(r=>({k:r.d_from,h:reqCard(r)}))].sort((a,b)=>a.k<b.k?-1:1);
+      return `<section class="dbk-card">${items.map(i=>i.h).join('')||'<p>Nada este mes.</p>'}</section>`; };
+    mount.innerHTML=`<div class="svc-head"><div><p class="eyebrow">Agenda</p><h2>Mi agenda</h2><p>${wdDots('Horario habitual: '+wdWeekText(d.weekdays),d.closures.length?'Cerrado: '+d.closures.map(c=>wdRange(c.from,c.to)).join(', '):'','Horario de '+wdTzPlace(tz))}</p></div>
+        <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><div class="dbk-parts" role="radiogroup" aria-label="Vista"><button type="button" role="radio" data-view="month" aria-checked="${ui.view==='month'}">Mes</button><button type="button" role="radio" data-view="list" aria-checked="${ui.view==='list'}">Lista</button></div><button type="button" class="btn" id="ag-hours">Horario y temporadas</button></div></div>
+      <div class="dbk-nav" style="margin:10px 0"><button type="button" class="btn btn-sm" id="ag-prev" aria-label="Mes anterior">‹</button><strong>${esc(wdMonthName(d.month))}</strong><button type="button" class="btn btn-sm" id="ag-next" aria-label="Mes siguiente">›</button></div>
+      ${ui.view==='list'?listView():`<div class="ag-layout"><section class="dbk-card">${cal()}<div class="dbk-legend"><span><i class="lg-book"></i>Reserva confirmada</span><span><i class="lg-block"></i>Bloqueado por ti</span><span><i class="lg-pend"></i>Solicitudes sin responder</span><span><i class="lg-off"></i>No trabajas</span></div></section><div class="ag-side">${dayPanel()}</div></div>`}`;
+    const again=()=>renderFreelanceAgenda(mountId);
+    mount.onclick=async e=>{ const t=e.target.closest('button'); if(!t) return;
+      try{
+        if(t.dataset.day){ ui.day=ui.day===t.dataset.day?'':t.dataset.day; return again(); }
+        if(t.dataset.view){ ui.view=t.dataset.view; return again(); }
+        if(t.id==='ag-prev'||t.id==='ag-next'){ const [y,m]=d.month.split('-').map(Number); ui.month=new Date(Date.UTC(y,m-1+(t.id==='ag-next'?1:-1),1)).toISOString().slice(0,7); ui.day=''; return again(); }
+        if(t.dataset.block){ await postJSON('/api/agenda/block',{date_from:t.dataset.block,date_to:t.dataset.block}); toast('Día bloqueado. El público lo ve como ocupado.'); return again(); }
+        if(t.dataset.unblock){ await postJSON('/api/agenda/unblock',{id:+t.dataset.unblock}); toast('Día libre otra vez.'); return again(); }
+        if(t.dataset.range) return openRange(t.dataset.range);
+        if(t.dataset.accept){ const r=d.requests.find(x=>x.id===+t.dataset.accept); const others=d.requests.filter(o=>o.id!==r.id&&o.d_from<=r.d_to&&r.d_from<=o.d_to);
+          if(!await wdConfirm({title:'Confirmar la reserva',text:`${r.client} · ${wdRange(r.d_from,r.d_to)}`,list:others.length?`<p class="wd-confirm-text">${esc(others.length===1?'La otra solicitud para esos días se rechazará sola, con un aviso amable y un enlace a tus otras fechas.':`Otras ${others.length} solicitudes para esos días se rechazarán solas, con un aviso amable y un enlace a tus otras fechas.`)}</p>`:'',ok:'Confirmar'})) return;
+          await postJSON(`/api/bookings/${r.id}/status`,{status:'confirmed'}); toast('Reserva confirmada. Los días quedan bloqueados.'); return again(); }
+        if(t.dataset.reject) return openReject(+t.dataset.reject);
+        if(t.id==='ag-hours') return openHours();
+      }catch(err){ toast(err.message); } };
+    const openReject=id=>{ const {el,close}=wdOpenModal({id:'ag-reject',size:'sm',title:'Rechazar la solicitud',subtitle:'El cliente recibe un aviso con un enlace a tus otras fechas.',
+        body:'<form id="ag-reject-f" class="svc-form"><div class="svc-field"><label for="ag-reason">Motivo (opcional, lo verá el cliente)</label><textarea id="ag-reason" rows="3" maxlength="500"></textarea></div></form>',
+        footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="submit" form="ag-reject-f" class="btn btn-primary">Rechazar</button>'});
+      el.querySelector('#ag-reject-f').onsubmit=async e=>{ e.preventDefault(); try{ await postJSON(`/api/bookings/${id}/status`,{status:'rejected',reason:el.querySelector('#ag-reason').value}); close(); toast('Solicitud rechazada.'); again(); }catch(err){ toast(err.message); } }; };
+    const openRange=iso=>{ const {el,close}=wdOpenModal({id:'ag-range',size:'sm',title:'Bloquear varios días',subtitle:'Vacaciones o trabajos fuera de WORLDIVES. No hace falta explicar el motivo.',
+        body:`<form id="ag-range-f" class="svc-form"><div class="svc-form-row"><div class="svc-field"><label for="ag-from">Desde</label><input id="ag-from" type="date" value="${iso}" required></div><div class="svc-field"><label for="ag-to">Hasta</label><input id="ag-to" type="date" value="${iso}" required></div></div>
+          <label class="svc-check"><input type="checkbox" id="ag-hol"><span><strong>Son vacaciones</strong><small>Solo para ti: el público ve «ocupado».</small></span></label></form>`,
+        footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="submit" form="ag-range-f" class="btn btn-primary">Bloquear</button>'});
+      el.querySelector('#ag-range-f').onsubmit=async e=>{ e.preventDefault(); try{ const r=await postJSON('/api/agenda/block',{date_from:el.querySelector('#ag-from').value,date_to:el.querySelector('#ag-to').value,kind:el.querySelector('#ag-hol').checked?'holiday':'manual'}); close(); toast(`${r.days} días bloqueados.`); again(); }catch(err){ toast(err.message); } }; };
+    const openHours=()=>{ const names=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+      const row=c=>`<div class="svc-extra-row ag-clo"><input type="date" class="ag-c-from" value="${esc(c.from||'')}" aria-label="Desde"><input type="date" class="ag-c-to" value="${esc(c.to||'')}" aria-label="Hasta"><input class="ag-c-label" maxlength="80" placeholder="Ej. Temporada de lluvias" value="${esc(c.label||'')}" aria-label="Nombre"><button type="button" class="btn btn-sm ag-c-del" aria-label="Quitar">×</button></div>`;
+      const {el,close}=wdOpenModal({id:'ag-hours-m',size:'lg',title:'Horario y temporadas',subtitle:'Los días que no trabajas y las temporadas cerradas salen como «no disponible».',
+        body:`<form id="ag-hours-f" class="svc-form"><fieldset class="svc-fieldset"><legend>Días que trabajas</legend><div class="ag-week">${names.map((n,i)=>`<label><input type="checkbox" value="${i}" ${d.weekdays.includes(i)?'checked':''}> ${n}</label>`).join('')}</div></fieldset>
+          <fieldset class="svc-fieldset"><legend>Temporadas cerradas</legend><div id="ag-clos">${(d.closures.length?d.closures:[{}]).map(row).join('')}</div><button type="button" class="svc-link" id="ag-c-add">+ Añadir temporada</button></fieldset>
+          <div class="svc-field"><label for="ag-tz">Zona horaria</label><select id="ag-tz">${WD_TZS.concat(WD_TZS.includes(tz)?[]:[tz]).map(z=>`<option value="${z}" ${z===tz?'selected':''}>${esc(z.replace('_',' '))}</option>`).join('')}</select><small>Tus días se muestran en la hora del lugar donde trabajas.</small></div></form>`,
+        footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="submit" form="ag-hours-f" class="btn btn-primary">Guardar</button>'});
+      el.querySelector('#ag-c-add').onclick=()=>el.querySelector('#ag-clos').insertAdjacentHTML('beforeend',row({}));
+      el.addEventListener('click',e=>{ if(e.target.closest('.ag-c-del')) e.target.closest('.ag-clo').remove(); });
+      el.querySelector('#ag-hours-f').onsubmit=async e=>{ e.preventDefault();
+        const closures=$$('.ag-clo',el).map(r=>({from:r.querySelector('.ag-c-from').value,to:r.querySelector('.ag-c-to').value||r.querySelector('.ag-c-from').value,label:r.querySelector('.ag-c-label').value})).filter(c=>c.from);
+        try{ await postJSON('/api/agenda/hours',{weekdays:$$('.ag-week input:checked',el).map(x=>+x.value),closures,timezone:el.querySelector('#ag-tz').value}); close(); toast('Horario guardado.'); again(); }catch(err){ toast(err.message); } }; };
+  }
+  function wdMonthName(month){ const t=new Date(month+'-15T12:00:00Z').toLocaleDateString(wdLocale(),{month:'long',year:'numeric',timeZone:'UTC'}); return t.charAt(0).toUpperCase()+t.slice(1); }
+  function wdMonthDays(month){ const [y,m]=month.split('-').map(Number); const n=new Date(Date.UTC(y,m,0)).getUTCDate(); return Array.from({length:n},(_,i)=>`${month}-${String(i+1).padStart(2,'0')}`); }
+  function wdRange(a,b){ const f=x=>new Date(x+'T12:00:00Z').toLocaleDateString(wdLocale(),{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'}); return !b||a===b?f(a):`${f(a)} – ${f(b)}`; }
+  function wdWeekText(wds){ const n=[1,2,3,4,5,6,7].map(i=>new Date(Date.UTC(2024,0,i)).toLocaleDateString(wdLocale(),{weekday:'short',timeZone:'UTC'})); if(wds.length===7) return translateString('todos los días'); const s=[...wds].sort(); const consec=s.every((x,i)=>!i||x===s[i-1]+1); return consec&&s.length>2?`${n[s[0]]} a ${n[s[s.length-1]]}`:s.map(i=>n[i]).join(', '); }
   async function renderFreelancePanel(d){
     const u=d.user||{}, esc=escapeHtml; state.me=d;
-    const tabs=[['dashboard','⌂','Resumen'],['bookings','☰','Reservas'],['planning','▦','Planning / agenda'],['services','◈','Servicios y tarifas'],['experiences','✈','Experiencias y solicitudes'],['payments','€','Cobros y pagos'],['profile','✦','Perfil público'],
+    const tabs=[['dashboard','⌂','Resumen'],['bookings','☰','Reservas'],['planning','▦','Planning'],['agenda','▣','Mi agenda'],['services','◈','Servicios y tarifas'],['experiences','✈','Experiencias y solicitudes'],['payments','€','Cobros y pagos'],['profile','✦','Perfil público'],
       ['requests','✉','Solicitudes de información'],['stats','◑','Estadísticas'],['tools','⇩','Herramientas'],['fiscal','§','Datos fiscales y seguro'],['plan','◆','Mi plan']];
     setApp(`<section class="center-backoffice fl-office">
       <div class="cb-header"><div class="cb-header-id">${u.avatar_url?`<img class="center-logo fl-avatar" src="${esc(u.avatar_url)}" alt="">`:`<span class="acc-avatar fl-avatar-txt">${esc(initials(u.fullname||''))}</span>`}<div><p class="eyebrow">Panel del profesional</p><h1>${esc(u.fullname||'Profesional')}</h1><p>Instructor / guía freelance · tus salidas, experiencias y ficha pública en un solo panel.</p></div></div>
@@ -2309,7 +2562,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     async function load(tab){
       nav.forEach(n=>n.classList.toggle('active',n.dataset.cbtab===tab));
       try{ history.replaceState(null,'','#/admin?tab='+tab); }catch{}
-      if(tab==='planning'){ content.innerHTML='<div id="fl-planning"></div>'; await renderCenterPlanning('fl-planning',{center:{name:u.fullname,city:'',cover_url:''},canBook:false,onManage:goServices}); }
+      if(tab==='agenda'){ content.innerHTML='<div id="fl-agenda"></div>'; await renderFreelanceAgenda('fl-agenda'); }
+      else if(tab==='planning'){ content.innerHTML='<div id="fl-planning"></div>'; await renderCenterPlanning('fl-planning',{center:{name:u.fullname,city:'',cover_url:''},canBook:false,onManage:goServices}); }
       else if(tab==='services'){ content.innerHTML='<div id="freelance-services-manager"></div>'; await renderProviderServicesManager(u.id,'freelance','freelance-services-manager'); }
       else if(tab==='experiences'){ content.innerHTML='<div id="freelance-experiences"></div>'; await renderProviderExperiences('freelance-experiences','freelance',{goServices}); loadExp(); }
       else if(tab==='bookings'){ content.innerHTML='<div id="fl-bookings"></div>'; await renderCenterBookings('fl-bookings',{freelance:true}); }
@@ -2369,6 +2623,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // Direct charges: the money goes from the diver to the provider's own Stripe account. WORLDIVES takes no commission.
   const PAY_ORDER_STATE={paid:['Cobrado','good'],pending:['En curso','warn'],review:['En revisión','bad'],refund_due:['Devolución pendiente','bad'],partially_refunded:['Devolución parcial','warn'],refunded:['Devuelto','muted'],expired:['Caducado','muted'],cancelled:['Cancelado','muted'],failed:['Fallido','bad']};
   function wdPolicyText(h,p){ h=Number(h||0); p=Number(p||0); const when=h>=48&&h%24===0?`${h/24} días`:`${h} horas`;
+
     if(!h&&!p) return 'Sin cancelación gratuita: no hay reembolso al cancelar.'; if(!h) return `Al cancelar se devuelve el ${p} % de lo pagado.`;
     return `Cancelación gratuita hasta ${when} antes de la actividad; ${p===0?'después no hay reembolso.':p<100?`después se devuelve el ${p} % de lo pagado.`:'después también se devuelve todo.'}`; }
   async function renderCenterPayments(centerId,mountId){ return renderProviderPayments(mountId,centerId); }
@@ -2615,7 +2870,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       // ---------- Services ----------
       const slotMini=(s,sl)=>`<button type="button" class="svc-slot slot-edit" data-id="${sl.id}" data-service="${s.id}" title="Editar salida"><span class="svc-slot-date">${esc(wdDay(sl.slot_date))}</span><span class="svc-slot-time">${esc(sl.slot_time)}</span><span class="svc-slot-bar"><i class="${capClass(sl)}" style="width:${capPct(sl)}%"></i></span><span class="svc-slot-cap ${capClass(sl)}">${Number(sl.spots_available||0)<=0?'Completa':Number(sl.spots_available)+' libres'}</span></button>`;
       const serviceCard=s=>{
-        const t=typeOf(s.service_type), m=modeOf(s.booking_mode), slots=s.slots||[], isRental=s.service_type==='alquiler_equipo';
+        const t=typeOf(s.service_type), m=modeOf(s.booking_mode), slots=s.slots||[], isRental=s.service_type==='alquiler_equipo', byDays=['day','half_day'].includes(s.booking_unit);
         const color=esc(s.color||'#2563eb'), dur=wdDuration(s.duration_minutes), nt=isCenter?nextTariff(s.id):null;
         const exp=s.experience&&s.experience.active?s.experience:null;
         return `<article class="svc-card ${s.active?'':'is-paused'}" style="--svc:${color}" data-service="${s.id}">
@@ -2625,7 +2880,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             <span class="svc-state ${s.active?'on':'off'}">${s.active?'A la venta':'En pausa'}</span>
           </div>
           <div class="svc-price-row">
-            <div><strong class="svc-price">${wdMoney(s.price,s.currency)}</strong><small>${isRental?'tarifa base':'por persona'}${nt?` · desde el ${esc(wdDay(nt.effective_from))}: ${wdMoney(nt.price,nt.currency)}`:''}</small></div>
+            <div><strong class="svc-price">${wdMoney(s.price,s.currency)}</strong><small>${isRental?'tarifa base':(byDays?(wdJSON(s.pricing).per==='person'?'por día y persona':'por día'):'por persona')}${nt?` · desde el ${esc(wdDay(nt.effective_from))}: ${wdMoney(nt.price,nt.currency)}`:''}</small></div>
             ${isCenter?`<button type="button" class="svc-link service-price" data-id="${s.id}">Cambiar tarifa</button>`:''}
           </div>
           <div class="svc-meta">
@@ -2633,12 +2888,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             ${s.max_participants&&!isRental?`<span>${wdIcon('users',15)}Hasta ${esc(String(s.max_participants))}</span>`:''}
             ${exp?`<span class="svc-meta-exp" title="Visible en Experiencias">${wdIcon('globe',15)}${exp.status==='published'?'En Experiencias':'Experiencia en revisión'}${destName(exp.travel_offer_id)?` · ${esc(destName(exp.travel_offer_id))}`:''}</span>`:''}
           </div>
-          ${isRental
+          ${byDays
+            ?`<div class="svc-rental-note"><span>${s.booking_unit==='half_day'?'Por días o medias jornadas: el cliente elige en tu calendario.':'Por días: el cliente elige en tu calendario.'}</span> <a class="svc-link" href="#/reservar-dias?service=${s.id}">Ver como cliente</a>${isCenter?'':' · <button type="button" class="svc-link" data-goto-agenda="1">Mi agenda</button>'}</div>`
+            :isRental
             ?`<div class="svc-rental-note">Sin agenda ni salidas.${isCenter?' Los precios por artículo están en <button type="button" class="svc-link" data-svc-tab="equipment">Alquiler de equipo</button>.':''}</div>`
             :`<div class="svc-next"><div class="svc-next-head"><span>Próximas salidas</span>${slots.length?`<button type="button" class="svc-link svc-open-agenda" data-id="${s.id}">Ver ${slots.length===1?'la salida':'las '+slots.length}</button>`:''}</div>
                ${slots.slice(0,3).map(sl=>slotMini(s,sl)).join('')||`<button type="button" class="svc-next-empty new-slot" data-service="${s.id}">Sin salidas programadas · <u>crear la primera</u></button>`}</div>`}
           <footer class="svc-card-actions">
-            ${isRental?'':`<button type="button" class="svc-btn svc-btn-primary new-slot" data-service="${s.id}">+ Salida</button><button type="button" class="svc-btn svc-open-agenda" data-id="${s.id}">Agenda</button>`}
+            ${isRental||byDays?'':`<button type="button" class="svc-btn svc-btn-primary new-slot" data-service="${s.id}">+ Salida</button><button type="button" class="svc-btn svc-open-agenda" data-id="${s.id}">Agenda</button>`}
             <button type="button" class="svc-btn service-edit" data-id="${s.id}">Editar</button>
             <details class="svc-more"><summary class="svc-iconbtn" aria-label="Más acciones">···</summary><div class="svc-menu">
               <button type="button" class="service-duplicate" data-id="${s.id}">Duplicar</button>
@@ -2709,6 +2966,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             <div class="svc-field svc-hide-rental"><label for="svc-duration">Duración</label><label class="svc-money"><input id="svc-duration" type="number" min="0" step="5" value="${src.duration_minutes||''}" placeholder="120"><span>min</span></label><small id="svc-duration-hint">${esc(wdDuration(src.duration_minutes))||'Opcional'}</small></div>
             <div class="svc-field svc-hide-rental"><label for="svc-max">Plazas por salida</label><label class="svc-money"><input id="svc-max" type="number" min="1" value="${src.max_participants||''}" placeholder="12"><span>pax</span></label><small>Valor inicial de cada salida.</small></div>
           </div>
+          ${wdUnitFieldset(src)}
           <fieldset class="svc-fieldset"><legend>Cómo se reserva</legend><div class="svc-mode-grid">${BOOKING_MODES.map(m=>{ const locked=m.value==='payment'&&!payReady&&curMode!=='payment'; return `<label class="svc-mode-option ${locked?'is-locked':''}"><input type="radio" name="svc-mode" value="${m.value}" ${m.value===curMode?'checked':''} ${locked?'disabled':''}><span><b>${wdIcon(m.icon,20)}</b><strong>${esc(m.label)}</strong><small>${esc(m.hint)}</small><em class="svc-mode-example">${esc(m.example)}</em>${locked?`<em class="svc-mode-lock">Activa los cobros online para usar esta opción. <a href="#/admin?tab=payments">Cobros y pagos</a></em>`:''}</span></label>`; }).join('')}</div>
             <div class="svc-form-row svc-mode-times" id="svc-mode-times">
               <div class="svc-field"><label for="svc-resp-hours">Plazo para responder</label><label class="svc-money"><input id="svc-resp-hours" type="number" min="1" max="168" step="1" value="${curResp}"><span>h</span></label><small>Si no respondes a tiempo, la solicitud caduca sola y avisamos al cliente. Nunca después del inicio de la salida.</small></div>
@@ -2755,7 +3013,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           if(e.target===pubChk){el.dataset.pubTouched='1'; syncPublish();}
           if(e.target===destSel) syncPublish();
           if(e.target.name==='svc-mode') syncMode();
-        }); syncType(); syncPublish(); syncMode();
+        }); syncType(); syncPublish(); syncMode(); wdBindUnitFieldset(el);
         durInput.oninput=()=>{el.querySelector('#svc-duration-hint').textContent=wdDuration(durInput.value)||'Opcional';};
         const formData=()=>({title:el.querySelector('#svc-title').value.trim(),service_type:form.querySelector('input[name="svc-type"]:checked')?.value||'inmersion',color:form.querySelector('input[name="svc-color"]:checked')?.value||SERVICE_COLOR_PALETTE[0].value,price:el.querySelector('#svc-price').value,duration_minutes:durInput.value,max_participants:el.querySelector('#svc-max').value,booking_mode:form.querySelector('input[name="svc-mode"]:checked')?.value||'request',response_hours:el.querySelector('#svc-resp-hours').value,payment_hours:el.querySelector('#svc-pay-hours').value,description:el.querySelector('#svc-description').value,
           deposit_type:el.querySelector('#svc-dep-type').value,deposit_value:el.querySelector('#svc-dep-value').value,
@@ -2777,11 +3035,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         el.querySelector('#svc-open-tariff')?.addEventListener('click',()=>openTariffForm(existing));
         form.onsubmit=async e=>{e.preventDefault();
           const data=formData(); if(!data.title){el.querySelector('#svc-title').focus();toast('Escribe el nombre del servicio.');return;}
-          if(!id&&(data.price===''||Number(data.price)<0)){el.querySelector('#svc-price').focus();toast('Indica el precio. Puede ser 0.');return;}
+          if(!id&&wdUnitData(el).booking_unit==='slot'&&(data.price===''||Number(data.price)<0)){el.querySelector('#svc-price').focus();toast('Indica el precio. Puede ser 0.');return;}
           const publish=pubChk.checked&&data.service_type!=='alquiler_equipo';
           if(publish&&!destSel.value){destSel.focus();toast('Elige el destino donde aparecerá en Experiencias.');return;}
           if(publish&&destSel.value==='new'&&!el.querySelector('#svc-dest-name').value.trim()){el.querySelector('#svc-dest-name').focus();toast('Escribe el nombre del nuevo destino.');return;}
-          const payload={id,...data,price:+data.price,active:id?el.querySelector('#svc-active').checked:true,publish_experience:publish,travel_offer_id:destSel.value&&destSel.value!=='new'?+destSel.value:0,new_destination:destSel.value==='new'?el.querySelector('#svc-dest-name').value.trim():''};
+          const unitData=wdUnitData(el); if(unitData.error){toast(unitData.error);return;} delete unitData.error;
+          const payload={id,...data,...unitData,price:unitData.booking_unit!=='slot'?+unitData.pricing.day:+data.price,active:id?el.querySelector('#svc-active').checked:true,publish_experience:publish,travel_offer_id:destSel.value&&destSel.value!=='new'?+destSel.value:0,new_destination:destSel.value==='new'?el.querySelector('#svc-dest-name').value.trim():''};
           const submit=el.querySelector('button[type="submit"]'); submit.disabled=true;
           try{const saved=await postJSON(id?'/api/provider-services/update':'/api/provider-services',payload); await postJSON('/api/provider-services/options',{id:id||saved.id,reschedule_mode:el.querySelector('#svc-resched').value,reschedule_hours:el.querySelector('#svc-resched-h').value,waitlist_enabled:el.querySelector('#svc-waitlist').checked});close();toast(id?'Cambios guardados.':(publish?'Servicio creado y publicado en Experiencias.':'Servicio creado.'));svcUi.tab='services';await refresh();}catch(err){toast(err.message);submit.disabled=false;}
         };
@@ -2887,6 +3146,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         const s=findService(btn.dataset.id||btn.dataset.service);
         if(btn.classList.contains('new-center-service')){e.preventDefault();openServiceForm();return;}
         if(btn.classList.contains('service-edit')){if(s)openServiceForm(s);return;}
+        if(btn.dataset.gotoAgenda){ $('.cb-nav[data-cbtab="agenda"]')?.click(); return; }
         if(btn.classList.contains('service-price')){if(s)openTariffForm(s);return;}
         if(btn.classList.contains('svc-open-agenda')){if(s)openAgenda(s);return;}
         if(btn.classList.contains('new-slot')){if(s)openSlotForm(s);return;}
@@ -4645,7 +4905,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const owner=(state.me?.member_role||'owner')==='owner';
     mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Herramientas</p><h2>Exportar, calendario, widget e importación</h2></div></div>
       <h3 class="adl-h">Exportar mis datos (CSV)</h3><p class="adl-det">Disponible siempre, en cualquier plan. Se abre en Excel, Numbers o Google Sheets.</p>
-      <div class="tl-row">${[['clients','Clientes'],['bookings','Reservas'],['services','Servicios'],...(owner?[['payments','Pagos']]:[])].map(([k,l])=>`<a class="btn" href="/api/center/export?kind=${k}" download>${wdIcon('download',15)} ${l}</a>`).join('')}</div>
+      <div class="tl-row">${[['clients','Clientes'],['bookings','Reservas'],['services','Servicios'],['agenda','Agenda'],...(owner?[['payments','Pagos']]:[])].map(([k,l])=>`<a class="btn" href="/api/center/export?kind=${k}" download>${wdIcon('download',15)} ${l}</a>`).join('')}</div>
       <h3 class="adl-h">Calendario (iCal)</h3>
       ${ical.error?`<p class="adl-det">${esc(ical.error)} ${ical.plan?'<a href="#/planes">Ver planes</a>':''}</p>`:`<p class="adl-det">Suscríbete desde Google Calendar, Apple Calendar u Outlook con esta dirección privada. Quien la tenga ve tu agenda: si la compartes por error, genera otra.</p>
         <div class="tl-row"><input id="tl-ical" readonly value="${esc(ical.url||'')}" placeholder="Genera tu dirección privada" aria-label="Dirección del calendario"><button type="button" class="btn" id="tl-ical-copy" ${ical.url?'':'hidden'}>Copiar</button>${owner?`<button type="button" class="btn" id="tl-ical-new">${ical.url?'Generar otra':'Generar dirección'}</button>`:''}</div>`}
