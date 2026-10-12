@@ -113,6 +113,9 @@ class Emails(ServerTestCase):
         r = self.center.post('/api/provider-services', {'title': 'Salida', 'price': 0, 'booking_mode': 'request'})
         sid = r.json['id']
         slot = self.center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': '2031-03-12', 'slot_time': '09:00', 'spots_total': 6}).json['slot_id']
+        # v50.47: with the centre's day-before notice on, the reminder of a departure goes through the notice queue
+        # (WhatsApp, email and app, at the centre's hour: tests/test_v50_47_avisos.py). Here the classic email is tested.
+        self.assertEqual(self.center.post('/api/avisos/ajustes', {'reminder_enabled': False}).status, 200)
         d = self.make_diver('recordatorio')
         bid = d.post('/api/bookings', {'center_id': self.cid, 'service_id': sid, 'slot_id': slot, 'participants': 1}).json['id']
         self.center.post(f'/api/bookings/{bid}/status', {'status': 'confirmed'})

@@ -101,6 +101,7 @@ class Server:
         c.row_factory = sqlite3.Row
         # v50.47: the same SQL functions as the server (phones are encrypted by the database guards).
         cif = cifrado_for(self.env)
+        c.row_factory = cif.row_factory          # encrypted values (phones, email bodies) come back in clear, as on the server
         c.create_function('wod_cifrar', 1, cif.sql_encrypt)
         c.create_function('wod_huella', 1, cif.sql_fingerprint)
         try:

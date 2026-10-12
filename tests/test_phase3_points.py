@@ -131,7 +131,7 @@ class Points(ServerTestCase):
         self.assertEqual(self.center.post('/api/provider/reward-offers', {'title': 'x', 'cost_points': '1.5'}).status, 400)
         self.assertEqual(self.center.post('/api/provider/reward-offers', {'title': 'x', 'cost_points': 5, 'reward_type': 'cash'}).status, 400)
         oid = self.offer(cost=12)
-        self.assertEqual(self.other.post('/api/provider/reward-offers', {'id': oid, 'title': 'robada', 'cost_points': 1}).status, 403)
+        self.assertEqual(self.other.post('/api/provider/reward-offers', {'id': oid, 'title': 'robada', 'cost_points': 1}).status, 404)  # v50.47 (B.3)
         self.assertEqual(self.diver.post('/api/provider/reward-offers', {'title': 'x', 'cost_points': 5}).status, 403)
         offers = self.diver.get('/api/rewards').json['offers']
         self.assertTrue(all(o['center_id'] for o in offers))

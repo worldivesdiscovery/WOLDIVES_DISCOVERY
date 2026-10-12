@@ -61,7 +61,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.46'
+APP_VERSION = '50.47'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -1611,6 +1611,7 @@ CREATE TABLE IF NOT EXISTS notice_refunds (id INTEGER PRIMARY KEY AUTOINCREMENT,
   provider_id TEXT NOT NULL REFERENCES providers(id), booking_id INTEGER NOT NULL REFERENCES bookings(id), amount REAL NOT NULL, currency TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','working','done','failed','blocked')), result TEXT, attempts INTEGER NOT NULL DEFAULT 0,
   next_try_at TEXT, last_error TEXT, created_at TEXT NOT NULL, done_at TEXT, UNIQUE (batch_id, booking_id));
+CREATE INDEX IF NOT EXISTS idx_notice_refunds_tenant ON notice_refunds(provider_id, status);
 CREATE TRIGGER IF NOT EXISTS wod_notice_refunds_tenant BEFORE INSERT ON notice_refunds BEGIN
   SELECT RAISE(ABORT, 'WOD: devolución de una reserva de otro centro') WHERE (SELECT provider_id FROM bookings WHERE id=NEW.booking_id) IS NOT NEW.provider_id; END;
 CREATE TRIGGER IF NOT EXISTS wod_notice_batches_tenant BEFORE INSERT ON notice_batches BEGIN
@@ -5568,8 +5569,10 @@ def queue_email(db, template, to_email, to_name, ctx, lang='es', related=None):
         subject, html_doc, text_doc = render_email(db, template, lang, ctx)
         status = 'queued' if mail_deliverable(to_email) else 'skipped'
         rel = related or (None, None)
+        # v50.47: the body of an email may carry a client's phone (emails to the centre): it is stored encrypted and
+        # opened only by the server when the email is sent or shown to the administrator.
         db.execute('INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at,unsubscribe_url) VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?)',
-                   (template, lang, (to_email or '').strip().lower(), to_name or '', subject, html_doc, text_doc, status, rel[0], rel[1], now(), (ctx or {}).get('unsubscribe_api')))
+                   (template, lang, (to_email or '').strip().lower(), to_name or '', subject, wcif.encrypt(html_doc), wcif.encrypt(text_doc), status, rel[0], rel[1], now(), (ctx or {}).get('unsubscribe_api')))
     except Exception as exc:
         sys.stderr.write(f'[correo] no se pudo preparar «{template}»: {exc}\n')
 
@@ -7668,6 +7671,12 @@ NOTICE_CHANNELS = ('whatsapp', 'email', 'app')
 NOTICE_TEMPLATES = wwa.TEMPLATE_NAMES
 
 
+def wa_enabled():
+    """WhatsApp is on when the owner enabled it in the .env, and always in the test environment, where it is simulated:
+    nothing goes to Meta and every message is written to data/pruebas/avisos/<centre>/whatsapp/."""
+    return wwa.enabled() or wcfg.demo_mode()
+
+
 def notice_actor_ctx(db, user):
     """The tenant of the session, for notices: owner or manager of a centre, or a freelance. Never the admin."""
     ctx = winq.ctx_from_user(db, user)
@@ -7688,7 +7697,7 @@ def tenant_parts(key):
 
 def whatsapp_account(db, key):
     """The connected WhatsApp number of THIS tenant (never another one). None when WhatsApp is off or not connected."""
-    if not wwa.enabled(): return None
+    if not wa_enabled(): return None
     return db.execute("SELECT * FROM whatsapp_accounts WHERE provider_id=? AND status='connected'", (key,)).fetchone()
 
 
@@ -7708,7 +7717,7 @@ def diver_contact(db, b):
 def notice_channels(contact, wa_acc):
     """{channel: (recipient or None, reason when skipped)}."""
     out = {}
-    if not wa_acc: out['whatsapp'] = (None, 'El centro no tiene WhatsApp conectado' if wwa.enabled() else 'WhatsApp no está activado en el servidor')
+    if not wa_acc: out['whatsapp'] = (None, 'El centro no tiene WhatsApp conectado' if wa_enabled() else 'WhatsApp no está activado en el servidor')
     elif contact['guest']: out['whatsapp'] = (None, 'Cliente sin cuenta: sin permiso de WhatsApp')
     elif not contact['consent']: out['whatsapp'] = (None, 'Sin permiso para avisos por WhatsApp')
     elif not contact['phone']: out['whatsapp'] = (None, 'Teléfono sin prefijo internacional')
@@ -7778,7 +7787,7 @@ def notice_preview(db, ctx, slot_id, kind, *, reason=None, note='', policy=None,
     return {'slot': {'id': slot['id'], 'uid': slot['uid'], 'label': slot_label(slot), 'date': slot['slot_date'], 'time': slot['slot_time'], 'service': slot['service_title'],
                      'cancelled': bool(slot['cancelled_at'])},
             'kind': kind, 'policy': policy, 'counts': counts, 'people': people, 'recipients': len(people), 'money': money, 'previews': previews,
-            'whatsapp': {'enabled': wwa.enabled(), 'connected': bool(wa), 'number': wcif.mask_phone(wcif.decrypt_secret(wa['display_number'])) if wa else None},
+            'whatsapp': {'enabled': wa_enabled(), 'connected': bool(wa), 'number': wcif.mask_phone(wcif.decrypt_secret(wa['display_number'])) if wa else None},
             'undo_seconds': NOTICE_UNDO_SECONDS, 'confirm_hint': confirm_words(slot)}
 
 
@@ -8028,6 +8037,8 @@ def notice_recheck(db, row):
     if row['channel'] == 'whatsapp':
         if not acc or acc['status'] != 'connected': return 'whatsapp_off', batch, booking, slot, acc
         if acc['provider_id'] != key or acc['pnid_hash'] != row['origin']: return 'el número de origen no es el del centro', batch, booking, slot, acc
+        # the credentials stored are really those of the number connected by this tenant (never another one's)
+        if wcif.keyed_hash('pnid', wcif.decrypt_secret(acc['phone_number_id'])) != acc['pnid_hash']: return 'credenciales de WhatsApp de otro número', batch, booking, slot, acc
     return '', batch, booking, slot, acc
 
 
@@ -8042,7 +8053,8 @@ def _notice_retry(db, row, error, final=False):
 
 def demo_notice_copy(row, payload):
     """Test environment: WhatsApp messages (and a copy of every notice) are written to a local folder per centre."""
-    folder = DATA / 'avisos-pruebas' / row['provider_id'].replace(':', '-') / row['channel']
+    base = Path(os.environ['WOD_MAIL_FILE_DIR']).parent if os.environ.get('WOD_MAIL_FILE_DIR') else DATA
+    folder = base / 'avisos' / row['provider_id'].replace(':', '-') / row['channel']
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"{row['created_at'][:10]}-{row['uid']}.json").write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding='utf-8')
 
@@ -8189,7 +8201,7 @@ def whatsapp_status(db, ctx):
     if ctx.kind == 'center':
         c = db.execute('SELECT country FROM centers WHERE id=?', (ctx.oid,)).fetchone(); country = country_iso(c['country']) if c else ''
     tpl = json.loads(acc['templates'] or '{}') if acc else {}
-    return {'enabled': wwa.enabled(), 'app_id': wcfg.env('WHATSAPP_APP_ID') if wwa.enabled() else '', 'config_id': wcfg.env('WHATSAPP_CONFIG_ID') if wwa.enabled() else '',
+    return {'enabled': wa_enabled(), 'demo': wcfg.demo_mode(), 'app_id': wcfg.env('WHATSAPP_APP_ID') if wwa.enabled() else '', 'config_id': wcfg.env('WHATSAPP_CONFIG_ID') if wa_enabled() else '',
             'graph_version': wcfg.env('WHATSAPP_GRAPH_VERSION') or 'v23.0', 'country': country, 'coexistence_available': not wwa.coex_unavailable(country),
             'connected': bool(acc), 'status': acc['status'] if acc else None, 'number': wcif.mask_phone(wcif.decrypt_secret(acc['display_number'])) if acc else None,
             'verified_name': acc['verified_name'] if acc else None, 'coexistence': bool(acc['coexistence']) if acc else None, 'connected_at': acc['connected_at'] if acc else None,
@@ -8215,7 +8227,8 @@ def whatsapp_connect(db, ctx, user, data):
     """Embedded Signup finished in the browser: the server exchanges the code, checks that the number belongs to the
     WhatsApp Business account the centre has just authorised and that no other centre uses it, subscribes the app,
     registers the number (not with coexistence) and creates the templates. Credentials are stored encrypted."""
-    if not wwa.enabled(): raise ValueError('WhatsApp todavía no está activado en WORLDIVES.')
+    if not wa_enabled(): raise ValueError('WhatsApp todavía no está activado en WORLDIVES.')
+    if wcfg.demo_mode(): return whatsapp_connect_demo(db, ctx, user, data)
     code = clean_text(data.get('code'), 600)
     if not code: raise ValueError('Falta la autorización de Meta: vuelve a pulsar «Conectar mi WhatsApp Business».')
     coex = bool(data.get('coexistence'))
@@ -8252,9 +8265,32 @@ def whatsapp_connect(db, ctx, user, data):
     return whatsapp_status(db, ctx)
 
 
+def whatsapp_connect_demo(db, ctx, user, data):
+    """Test environment only: a simulated WhatsApp number for the centre (no Meta account). Uniqueness between centres
+    is checked as in production."""
+    number = wcif.normalize_phone(data.get('number'))
+    if not number: raise ValueError('Escribe el número de WhatsApp con prefijo internacional, por ejemplo +34 600 000 101.')
+    pnid = 'pruebas-' + ctx.key.replace(':', '-')
+    number_hash = wcif.fingerprint(number); pnid_hash = wcif.keyed_hash('pnid', pnid)
+    if db.execute('SELECT 1 FROM whatsapp_accounts WHERE (number_hash=? OR pnid_hash=?) AND provider_id<>?', (number_hash, pnid_hash, ctx.key)).fetchone():
+        security_alert('whatsapp_number_taken', {'provider': ctx.key, 'number': wcif.mask_phone(number)}, user['id'])
+        raise ValueError('Ese número de WhatsApp ya está conectado en WORLDIVES. Si es tuyo, escribe a la administración.')
+    tpl = {f'{n}:{wwa.META_LANG[l]}': 'APPROVED' for n in wwa.TEMPLATE_NAMES.values() for l in wwa.META_LANG}
+    db.execute('''INSERT INTO whatsapp_accounts(provider_id,status,waba_id,phone_number_id,display_number,token,pnid_hash,number_hash,waba_hash,verified_name,coexistence,templates,connected_at,connected_by,updated_at)
+                  VALUES(?,'connected',?,?,?,?,?,?,?,?,1,?,?,?,?)
+                  ON CONFLICT(provider_id) DO UPDATE SET status='connected',phone_number_id=excluded.phone_number_id,display_number=excluded.display_number,token=excluded.token,
+                  pnid_hash=excluded.pnid_hash,number_hash=excluded.number_hash,templates=excluded.templates,connected_at=excluded.connected_at,last_error=NULL,updated_at=excluded.updated_at''',
+               (ctx.key, wcif.encrypt_secret('pruebas-waba'), wcif.encrypt_secret(pnid), wcif.encrypt_secret(number), wcif.encrypt_secret('pruebas'), pnid_hash, number_hash,
+                wcif.keyed_hash('waba', 'pruebas-' + ctx.key), 'WhatsApp de prueba', json.dumps(tpl), now(), user['id'], now()))
+    audit(db, user['id'], 'whatsapp_connected', 'provider', None, {'provider': ctx.key, 'number': wcif.mask_phone(number), 'pruebas': True})
+    db.commit()
+    return whatsapp_status(db, ctx)
+
+
 def whatsapp_refresh_templates(db, ctx):
     acc = db.execute("SELECT * FROM whatsapp_accounts WHERE provider_id=?", (ctx.key,)).fetchone()
     if not acc: raise NotFound('No tienes WhatsApp conectado.')
+    if wcfg.demo_mode(): return whatsapp_status(db, ctx)
     try:
         st = wwa.template_statuses(wcif.decrypt_secret(acc['token']), wcif.decrypt_secret(acc['waba_id']))
     except wwa.GraphError as exc:
@@ -10980,7 +11016,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/center/tariffs/save':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0); sid=int(data.get('service_id') or 0)
                     svc=db.execute('SELECT id,price,currency FROM provider_services WHERE id=? AND center_id=?',(sid,cid)).fetchone()
-                    if not svc: raise ValueError('El servicio no pertenece a tu centro.')
+                    if not svc: raise NotFound('Servicio no encontrado.')
                     price=max(0,float(data.get('price') or 0)); effective=clean_text(data.get('effective_from'),20) or now()[:10]
                     # Keep tariff history. A new tariff only replaces the price from its effective date.
                     db.execute('DELETE FROM center_tariffs WHERE center_id=? AND service_id=? AND effective_from=?',(cid,sid,effective))
@@ -11462,9 +11498,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     audit(db,cu['id'] if cu else None,'info_request_sent',ptype,pid_,{'id':rid}); db.commit(); self.send_json({'ok':True,'id':rid}); return
                 if path=='/api/center/info-requests/read':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
-                    col='center_id' if ref and ref[0]=='center' else 'provider_user_id'
+                    col='center_id' if ref and ref[0]=='center' else 'center_id IS NULL AND provider_user_id'
                     if not ref or not db.execute(f'UPDATE info_requests SET read_at=COALESCE(read_at,?),status=? WHERE id=? AND {col}=?',(now(),'answered' if data.get('answered') else 'read',int(data.get('id') or 0),ref[1])).rowcount:
-                        raise ValueError('Solicitud no encontrada.')
+                        raise NotFound('Solicitud no encontrada.')
                     db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/stats/track':
                     data=json_body(self); ev=data.get('event'); ptype=data.get('type'); pid_=int(data.get('id') or 0)
@@ -11914,7 +11950,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not r: raise ValueError('Correo no encontrado.')
                     if not mail_deliverable(r['to_email']): raise ValueError('Este destinatario no tiene un email real.')
                     db.execute("INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at) VALUES(?,?,?,?,?,?,?,'queued',?,?,0,?)",
-                               (r['template'],r['lang'],r['to_email'],r['to_name'],r['subject'],r['html'],r['text'],r['related_type'],r['related_id'],now()))
+                               (r['template'],r['lang'],r['to_email'],r['to_name'],r['subject'],wcif.encrypt(r['html']),wcif.encrypt(r['text']),r['related_type'],r['related_id'],now()))
                     audit(db,user['id'],'email_resent','email_outbox',eid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/bookings':
                     user=require_user(self,db); data=json_body(self)
@@ -13167,6 +13203,7 @@ def check_production_settings():
     if wcfg.env_flag('WOD_DEBUG'): problems.append('WOD_DEBUG no puede estar activo en producción.')
     if not admin_totp_required(): problems.append('WOD_ADMIN_TOTP_REQUIRED=0 no se permite en producción: los administradores usan verificación en dos pasos.')
     # v50.47: phones and WhatsApp credentials are encrypted with this key (never derived in production).
+    if wcfg.env('WOD_DATA_KEY') == wcif.DEMO_DATA_KEY: problems.append('WOD_DATA_KEY es la clave de los datos ficticios de pruebas: genera una propia.')
     if len(wcfg.env('WOD_DATA_KEY')) < 32: problems.append('Define WOD_DATA_KEY (clave de cifrado de teléfonos y credenciales) con al menos 32 caracteres aleatorios: python3 -c "import secrets;print(secrets.token_urlsafe(32))".')
     if wcfg.env_flag('WHATSAPP_ENABLED'):
         for k in ('WHATSAPP_APP_ID', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'WHATSAPP_CONFIG_ID'):

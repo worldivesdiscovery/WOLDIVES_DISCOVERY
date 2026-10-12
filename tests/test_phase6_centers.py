@@ -88,7 +88,7 @@ class Plans(ServerTestCase):
         items = c.get('/api/center/info-requests').json
         self.assertEqual(items['unread'], 1)
         self.assertEqual(c.post('/api/center/info-requests/read', {'id': items['items'][0]['id'], 'answered': True}).status, 200)
-        self.assertEqual(self.center.post('/api/center/info-requests/read', {'id': items['items'][0]['id']}).status, 400)  # other centre
+        self.assertEqual(self.center.post('/api/center/info-requests/read', {'id': items['items'][0]['id']}).status, 404)  # other centre (v50.47: 404)
         w = self.client().get(f'/widget/center/{self.cid(c)}')
         self.assertEqual(w.status, 200); self.assertIn('no tiene reserva online', w.body.decode())
 

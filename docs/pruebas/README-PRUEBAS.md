@@ -31,10 +31,11 @@ Todas usan la contraseña **`Worldives-Prueba-2026`**.
 | Papel | Usuario | Correo |
 |---|---|---|
 | Centro de buceo | `centro.prueba` | centro@example.com |
+| Segundo centro (para ver el aislamiento entre centros) | `centro2.prueba` | centro2@example.com |
 | Freelance | `freelance.prueba` | freelance@example.com |
 | Buceador | `buzo.prueba` | buzo@example.com |
 | Instructor del centro | `instructor.prueba` | instructor@example.com |
-| Buceadores extra (para Buddies, cuando esté hecho) | `buzo2.prueba` … `buzo6.prueba` | buzo2@example.com … buzo6@example.com |
+| Buceadores extra (algunos reservan en los dos centros) | `buzo2.prueba` … `buzo6.prueba` | buzo2@example.com … buzo6@example.com |
 
 ## 4. Qué probar con cada cuenta
 
@@ -57,6 +58,33 @@ Todas usan la contraseña **`Worldives-Prueba-2026`**.
   - en **Mi área → Mis reservas** (pestañas «Próximas» e «Historial») verás una reserva en cada estado: solicitada, aceptada pendiente de pago, confirmada, pagada, cancelada, rechazada, caducada y completada;
   - mira también el **Log Book** y **Mis puntos**;
   - reserva una «Doble inmersión en barco» (bajo petición).
+
+- **Segundo centro (`centro2.prueba`):** tiene 2 servicios en las Islas Medas y reservas de `buzo.prueba`,
+  `buzo2.prueba`, `buzo3.prueba` y `buzo4.prueba`, que también reservan en `centro.prueba`. Comprueba que cada centro
+  ve **solo sus reservas y sus clientes**: si pegas en la barra del navegador la dirección de una reserva del otro
+  centro, sale «Reserva no encontrada».
+
+## 4 bis. Avisos a todos los buceadores (WhatsApp, correo y app)
+
+En el entorno de pruebas el WhatsApp es **simulado**: los dos centros tienen un «WhatsApp de prueba» conectado y los
+mensajes **no salen**; se guardan en `data/pruebas/avisos/c-<número del centro>/whatsapp/`, uno por archivo (una
+carpeta por centro: así se ve que cada aviso sale del número de su centro). Los correos se guardan en
+`data/pruebas/correos/` y los avisos de la app aparecen en «Mi área → Avisos» de cada buceador.
+
+1. Entra como `centro.prueba` → **Planning** → abre una salida con buceadores (por ejemplo, la «Doble inmersión en
+   barco» de dentro de 4 días) → **Cancelar salida y avisar a todos**.
+2. Elige el motivo, escribe una nota si quieres y mira la confirmación: cuántos reciben cada canal, los nombres con
+   inicial, qué pasa con el dinero y el mensaje en el idioma de cada buceador. Para confirmar, escribe la fecha que
+   te indica (por ejemplo `16/10`).
+3. Tienes 10 segundos para **Deshacer**. Después verás el **estado** de cada buceador y canal.
+4. Prueba también **Cambio de hora o punto** en otra salida y, en **Avisos y WhatsApp**, la hora del recordatorio
+   del día antes.
+5. Entra como `buzo2.prueba`: en **Mi área → Avisos** está el aviso, con el enlace que abre solo esa reserva. Los
+   avisos de `centro2.prueba` no se ven afectados.
+
+Casos preparados: `buzo5.prueba` tiene el móvil **sin prefijo** (no recibe WhatsApp; su perfil le avisa) y
+`buzo6.prueba` **no ha dado permiso** de WhatsApp (recibe correo y app). En **Mi cuenta** de cualquier buceador puedes
+cambiar el prefijo y marcar o quitar «Recibir por WhatsApp los avisos de mis reservas del centro».
 
 ## 5. Pagar con la tarjeta de prueba de Stripe
 

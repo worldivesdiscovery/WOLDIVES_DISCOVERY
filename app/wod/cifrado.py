@@ -23,6 +23,9 @@ import os
 import re
 import secrets
 
+# Only for the FICTITIOUS data of the test environment («-pruebas» zip, WOD_DEMO_MODE=1): its database is built with
+# this key so that it opens on any computer. Production refuses demo mode and requires its own WOD_DATA_KEY.
+DEMO_DATA_KEY = 'worldives-pruebas:datos-ficticios-de-demostracion'
 PREFIX = 'wdx1'          # personal data: opened automatically when read on the server (row_factory)
 SECRET_PREFIX = 'wdk1'   # credentials (WhatsApp tokens…): opened only by the code that uses them, never by a SELECT
 _CACHE: dict = {}
@@ -49,11 +52,12 @@ def _keys():
     cur = os.environ.get('WOD_DATA_KEY', '').strip()
     old = os.environ.get('WOD_DATA_KEY_OLD', '').strip()
     secret = os.environ.get('WOD_SECRET_KEY', '').strip()
-    cache_key = (cur, old, secret)
+    cache_key = (cur, old, secret, os.environ.get('WOD_DEMO_MODE', ''))
     if cache_key in _CACHE: return _CACHE[cache_key]
     if not cur:
         # development and the test environment only (production refuses to start without WOD_DATA_KEY)
-        cur = 'derivada-de-WOD_SECRET_KEY:' + secret if secret else 'clave-de-desarrollo-sin-secreto'
+        if os.environ.get('WOD_DEMO_MODE', '').strip().lower() in ('1', 'true', 'yes', 'on'): cur = DEMO_DATA_KEY
+        else: cur = 'derivada-de-WOD_SECRET_KEY:' + secret if secret else 'clave-de-desarrollo-sin-secreto'
     keys = {}
     current = _key_bytes(cur)
     for k in [cur] + [x for x in old.split(',') if x.strip()]:

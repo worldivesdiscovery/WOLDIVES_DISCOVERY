@@ -245,7 +245,7 @@ class Payments(ServerTestCase):
         self.assertEqual((b['center_id'], b['provider_user_id'], b['status']), (None, self.pro.user['id'], 'confirmed'))
         self.assertIn(bid, [x['id'] for x in self.pro.get('/api/bookings').json['items']])
         self.assertNotIn(bid, [x['id'] for x in self.center.get('/api/bookings').json['items']])
-        self.assertEqual(self.center.get(f'/api/bookings/{bid}').status, 403)
+        self.assertEqual(self.center.get(f'/api/bookings/{bid}').status, 404)  # v50.47 (B.3)
         self.assertEqual(self.pro.get(f'/api/bookings/{bid}').status, 200)
         self.assertEqual(self.pro.post(f'/api/bookings/{bid}/refund', {'amount': 10}).status, 200)
         self.assertEqual(self.stripe.refunds[-1]['account'], 'acct_freelance')

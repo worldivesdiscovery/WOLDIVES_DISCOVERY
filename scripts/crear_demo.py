@@ -25,13 +25,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
-from helpers import Client, Server  # noqa: E402
+from helpers import Client, Server, cifrado_for  # noqa: E402
 
 PASSWORD = 'Worldives-Prueba-2026'
 ACCOUNTS = {'center': ('centro.prueba', 'centro@example.com', 'Ana Centro Pruebas'),
             'freelance': ('freelance.prueba', 'freelance@example.com', 'Tito Guía Pruebas'),
             'diver': ('buzo.prueba', 'buzo@example.com', 'Bea Buzo Pruebas'),
-            'instructor': ('instructor.prueba', 'instructor@example.com', 'Iván Instructor Pruebas')}
+            'instructor': ('instructor.prueba', 'instructor@example.com', 'Iván Instructor Pruebas'),
+            'center2': ('centro2.prueba', 'centro2@example.com', 'Carla Centro Dos Pruebas')}
 EXTRA_DIVERS = [(f'buzo{i}.prueba', f'buzo{i}@example.com', f'Buceador {i} Pruebas') for i in range(2, 7)]
 PENDING_CENTER = ('pendiente.prueba', 'pendiente@example.com', 'Otro Centro Pendiente')
 TEMP_ADMIN = 'generador-demo'
@@ -56,7 +57,10 @@ def ok(r, what):
 
 def build(out: Path):
     tmp_pass = secrets.token_urlsafe(18) + 'aA1!'
-    srv = Server({'WOD_ADMIN_PASSWORD': tmp_pass, 'WOD_MAINTENANCE_SECONDS': '3600'}).start()
+    # v50.47: the fictitious phones are encrypted with the key of the test environment (wod.cifrado.DEMO_DATA_KEY).
+    sys.path.insert(0, str(ROOT / 'app'))
+    from wod.cifrado import DEMO_DATA_KEY
+    srv = Server({'WOD_ADMIN_PASSWORD': tmp_pass, 'WOD_MAINTENANCE_SECONDS': '3600', 'WOD_DATA_KEY': DEMO_DATA_KEY}).start()
     now_s = lambda: dt.datetime.now().isoformat(timespec='seconds')
     try:
         c = lambda: Client(srv)
@@ -191,6 +195,52 @@ def build(out: Path):
         for k, site, depth in ((-8, 'Cabo de San Antonio', 18), (-35, 'Isla del Descubridor', 22), (-60, 'Cova Tallada', 12)):
             ok(buzo.post('/api/logbook', {'dive_date': day(k), 'site': site, 'country': 'España', 'depth': depth, 'duration': 48, 'dive_type': 'Barco',
                                           'notes': 'Inmersión de pruebas'}), 'apuntar en el Log Book')
+
+        # --- v50.47: a second centre with divers in common (isolation between centres, mass notices) ------------
+        u, e, n = ACCOUNTS['center2']
+        center2 = c(); ok(center2.register(n, e, u, PASSWORD, account_type='center', center_name='Centro de Buceo Pruebas Dos', phone='+34 600 000 201',
+                                           city="L'Estartit", website='https://centro2-pruebas.example.com'), 'registrar el segundo centro')
+        approve(e, 'email_domain'); ok(center2.login(u, PASSWORD), 'entrar como segundo centro')
+        cid2 = center2.me()['user']['center_id']
+        srv.sql("UPDATE centers SET plan_code='pro',plan_status='active',plan_started_at=?,plan_expires_at=?,country='España',logo_url='/img/iconos/buceador2.png',"
+                "cover_url='/img/destinos/maldivas.webp',tagline='Buceo en las Islas Medas',cancel_free_hours=24,cancel_refund_pct=100,"
+                "stripe_account_id='acct_test_pruebas2',stripe_charges_enabled=1,stripe_payouts_enabled=1 WHERE id=?", (day(0), until, cid2))
+        svc2 = {}
+        for key, data in (('medas', {'title': 'Inmersión en las Islas Medas', 'price': 55, 'max_participants': 12, 'booking_mode': 'request', 'service_type': 'inmersion',
+                                     'duration_minutes': 150, 'description': 'Inmersión guiada en la reserva marina de las Medas.'}),
+                          ('nocturna', {'title': 'Inmersión nocturna', 'price': 65, 'max_participants': 8, 'booking_mode': 'request', 'service_type': 'inmersion',
+                                        'duration_minutes': 120, 'description': 'Salida al atardecer con linterna incluida.'})):
+            svc2[key] = ok(center2.post('/api/provider-services', data), 'crear ' + data['title'])['id']
+        slots2 = {}
+        for k in (2, 3, 5, 9, 16):
+            slots2[('medas', k)] = ok(center2.post('/api/provider-services/slot', {'service_id': svc2['medas'], 'slot_date': day(k), 'slot_time': '10:00', 'spots_total': 12}), 'salida')['slot_id']
+            slots2[('nocturna', k)] = ok(center2.post('/api/provider-services/slot', {'service_id': svc2['nocturna'], 'slot_date': day(k), 'slot_time': '20:30', 'spots_total': 8}), 'salida')['slot_id']
+        ok(center2.post('/api/manifest/boats/save', {'name': 'Medusa', 'capacity': 12}), 'crear el barco del segundo centro')
+        # Phones with the country prefix and WhatsApp consent (one without prefix and one without consent, to see both cases)
+        for i, d_ in enumerate(divers):
+            body = {'phone': f'+34 611 000 {100 + i:03d}', 'wa_consent': True, 'preferred_language': ['es', 'en', 'fr', 'de', 'it', 'es'][i]}
+            if i == 4: body['phone'] = '611 000 104'          # sin prefijo: no recibe WhatsApp (aviso en su perfil)
+            if i == 5: body['wa_consent'] = False             # sin permiso: correo y app
+            if i == 0: body.pop('preferred_language'); body['phone'] = '+34 600 000 102'
+            ok(d_.post('/api/account/profile', body), 'teléfono y permiso de WhatsApp')
+        # Divers in common: the same people book with both centres (each centre only sees its own bookings)
+        for d_, key, k in ((buzo, 'medas', 5), (divers[1], 'medas', 5), (divers[2], 'medas', 5), (divers[3], 'nocturna', 9), (buzo, 'nocturna', 16)):
+            x = ok(d_.post('/api/bookings', {'center_id': cid2, 'service_id': svc2[key], 'slot_id': slots2[(key, k)], 'participants': 1}), 'reservar en el segundo centro')['id']
+            ok(center2.post(f'/api/bookings/{x}/status', {'status': 'confirmed'}), 'confirmar en el segundo centro')
+        for d_, key, k in ((divers[1], 'doble', 4), (divers[2], 'doble', 4)):          # and with the first centre on another day
+            x = book(d_, key, k); ok(center.post(f'/api/bookings/{x}/status', {'status': 'confirmed'}), 'confirmar')
+        # Simulated WhatsApp numbers of both centres (test environment: messages are saved, never sent)
+        cif = cifrado_for(srv.env)
+        for key_, number in ((f'c:{cid}', '+34 600 000 101'), (f'c:{cid2}', '+34 600 000 201')):
+            pnid = 'pruebas-' + key_.replace(':', '-')
+            tpl = {f'{t}:{l}': 'APPROVED' for t in ('worldives_salida_cancelada', 'worldives_cambio_salida', 'worldives_recordatorio')
+                   for l in ('es', 'en', 'fr', 'de', 'it', 'pt_PT', 'nl', 'pl', 'zh_CN')}
+            srv.sql('''INSERT INTO whatsapp_accounts(provider_id,status,waba_id,phone_number_id,display_number,token,pnid_hash,number_hash,waba_hash,verified_name,coexistence,
+                       templates,connected_at,updated_at) VALUES(?,'connected',?,?,?,?,?,?,?,?,1,?,?,?)''',
+                    (key_, cif.encrypt_secret('pruebas-waba'), cif.encrypt_secret(pnid), cif.encrypt_secret(cif.normalize_phone(number)), cif.encrypt_secret('pruebas'),
+                     cif.keyed_hash('pnid', pnid), cif.fingerprint(number), cif.keyed_hash('waba', 'pruebas-' + key_), 'WhatsApp de prueba', __import__('json').dumps(tpl), now_s(), now_s()))
+        srv.sql("INSERT OR REPLACE INTO provider_settings(provider_id,notice_policy,reminder_enabled,reminder_hour,reminder_bring,updated_at) VALUES(?,?,?,?,?,?)",
+                (f'c:{cid}', 'choice', 1, 18, 'Titulación, toalla y protector solar', now_s()))
 
         # --- administration inbox: a pending centre, an experience to review (above) and a report -------------
         ok(c().post('/api/reports', {'reason': 'false', 'details': 'Denuncia de pruebas: el precio que aparece no coincide con el del centro.', 'name': 'Persona de pruebas',
