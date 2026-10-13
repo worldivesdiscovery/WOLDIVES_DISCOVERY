@@ -92,6 +92,8 @@ class AppServer(ServerTestCase):
         _, b = self.slot(self.far, 1, '08:00', mode='request', price=60)
         _, full = self.slot(self.near, 1, '11:00', spots=2)
         self.server.sql('UPDATE service_slots SET spots_available=0 WHERE id=?', (full,))
+        rid = self.near.post('/api/provider-services', {'title': 'Alquiler de equipo', 'price': 25, 'service_type': 'alquiler_equipo'}).json['id']
+        rental = self.near.post('/api/provider-services/slot', {'service_id': rid, 'slot_date': day(1), 'slot_time': '08:00', 'spots_total': 9}).json['slot_id']
         _, later = self.slot(self.near, 10)
         _, outside = self.slot(self.near, 20)
         anon = Client(self.server, origin=None)
@@ -99,6 +101,7 @@ class AppServer(ServerTestCase):
         ids = [x['slot_id'] for x in items]
         self.assertEqual(ids[:2], [b, a])                        # no position: by date and hour
         self.assertNotIn(full, ids); self.assertNotIn(later, ids)
+        self.assertNotIn(rental, ids)                             # renting equipment is not a departure
         x = [i for i in items if i['slot_id'] == a][0]
         self.assertEqual((x['price'], x['spots_left'], x['booking_mode'], x['instant']), (45, 6, 'payment', True))
         self.assertEqual(x['provider_name'], 'Centro cerca')
@@ -193,8 +196,10 @@ class AppModeFiles(unittest.TestCase):
                 self.assertEqual(sorted(t for t in texts if t not in pack), [])
 
     def test_no_test_accounts_nor_keys_in_the_app_mode(self):
+        sys.path.insert(0, str(ROOT / 'scripts'))
+        from generar_zips import TEST_ACCOUNT   # the same pattern the production zip is checked with
         js = (ROOT / 'public' / 'js' / 'wd-app.js').read_text(encoding='utf-8')
-        self.assertIsNone(re.search(r'\b(?:admin|centro2?|freelance|instructor|buzo\d?)\.prueba\b|Worldives-Prueba-2026', js))
+        self.assertIsNone(TEST_ACCOUNT.search(js))
         self.assertNotRegex(js, r'sk_(?:live|test)_|pk_(?:live|test)_')
 
 

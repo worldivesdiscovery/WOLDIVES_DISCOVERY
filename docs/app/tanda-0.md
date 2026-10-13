@@ -124,6 +124,10 @@ responde 403. Se arregla en la próxima versión de la web.
 
 ## Pendiente de decisión del titular
 
+> **Decidido el 13/10 (después de esta entrega):** 1 → **Capacitor**; 2 → **3 idiomas** (español, inglés y francés)
+> de momento; 3 → **`com.worldives.app`** y **`com.worldives.app.pruebas`**. Las demás se aplican como se recomienda
+> aquí hasta que el titular diga otra cosa. Ver `docs/app/tanda-1.md`.
+
 **Las dos primeras chocan con lo decidido el 13/10 y cambian el trabajo de las tandas siguientes.**
 
 1. **Tecnología: ¿Capacitor o React Native?**

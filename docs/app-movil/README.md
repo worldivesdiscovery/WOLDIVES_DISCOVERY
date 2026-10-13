@@ -1,5 +1,11 @@
 # App WORLDIVES para iOS y Android (2027) · diseño previo
 
+> **Actualización del 13/10/2026:** el titular eligió **Capacitor** (la web dentro de una app nativa) para el encargo
+> «App móvil en 3 módulos». La app de React Native + Expo (APK 0.1) queda archivada en
+> `_archivo/app-movil-react-native/`. La app vigente está en `movil/` y sus notas en `docs/app/` (Tanda 0 y Tanda 1).
+> Este documento se conserva como diseño previo.
+
+
 Respuesta al encargo **«App de reservas de buceo — iOS y Android (2027)»**, en la parte «Antes de programar
 entrega».
 

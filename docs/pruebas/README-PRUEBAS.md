@@ -108,3 +108,46 @@ Thunderbird o Mail.
 - **Con el servidor parado:** `scripts\reset_demo.bat` (Windows) o `./scripts/reset_demo.sh` (Mac o Linux). En este caso también se borra tu cuenta de administración y la vuelves a crear en el paso 2.
 
 En los dos casos las fechas vuelven a empezar a partir de hoy. Si los datos tienen más de 7 días, se renuevan solos al arrancar.
+
+## 8. Probar la app en tu móvil Android (WORLDIVES Pruebas)
+
+La app de pruebas se instala al lado de la app normal (no la sustituye) y se conecta a **este** entorno de pruebas,
+que corre en tu ordenador. El móvil y el ordenador tienen que estar **en la misma wifi**.
+
+**En el ordenador**
+
+| Sistema | Qué hacer |
+|---|---|
+| Windows | Doble clic en **`iniciar-pruebas-movil.bat`**. Si Windows pregunta por el cortafuegos, pulsa **Permitir** (red privada) |
+| Mac o Linux | En una terminal, dentro de esta carpeta: **`./iniciar-pruebas-movil.sh`** |
+
+La ventana muestra una línea como esta: **«En el móvil (misma wifi), escribe: http://192.168.1.50:8100»**.
+Apunta esa dirección: es la de tu ordenador.
+
+**En el móvil, la primera vez**
+
+1. Descarga el archivo **`WORLDIVES-Pruebas-v50.48-….apk`** (el enlace llega con cada tanda) y ábrelo.
+2. Android avisa de que es una app de fuera de Google Play: pulsa **Configuración → Permitir de esta fuente**, vuelve
+   atrás y pulsa **Instalar**. Si Google Play Protect pregunta, pulsa **Instalar de todas formas**.
+3. Abre **WORLDIVES Pruebas** (icono con la franja naranja «TEST»).
+
+**Cada vez que pruebes**
+
+1. En el campo **Servidor de pruebas** escribe la dirección que te dio el ordenador (basta con `192.168.1.50`: el
+   `:8100` se pone solo) y pulsa **Probar la conexión**. Tiene que decir «Conectado».
+2. Pulsa una cuenta de **Entrar rápido**: Buceador, Centro, Segundo centro, Freelance, Instructor o Administración.
+   Entras sin escribir contraseña (solo en pruebas). También puedes **Entrar sin cuenta** para verla como visitante.
+3. La app recuerda el servidor y la sesión: la próxima vez se abre directamente.
+4. Para cambiar de cuenta o de servidor: **Mi área → Ajustes → Cambiar de servidor o de cuenta de prueba**.
+
+**Si algo falla:** pulsa **Reportar fallo** en la banda naranja de arriba (o **agita el móvil**). Escribe qué hacías
+y qué esperabas y pulsa **Enviar**. Llega a la carpeta **`data/pruebas/fallos/`** del ordenador, con la captura de la
+pantalla, la pantalla en la que estabas, la versión, el modelo del móvil y la hora.
+
+**Qué es distinto en la app de pruebas:** la banda naranja siempre visible, los pagos en modo test de Stripe
+(apartado 5: tarjeta `4242 4242 4242 4242`), WhatsApp que no se abre (enseña el mensaje que se enviaría) y correos
+que se guardan en `data/pruebas/correos/`.
+
+**Al instalar una versión nueva** encima de la anterior se conservan el servidor y la sesión. Solo si Android dice
+«La app no está instalada» o «conflicto de firma», desinstala WORLDIVES Pruebas y vuelve a instalarla (pasa si la
+clave de firma de pruebas se ha renovado).

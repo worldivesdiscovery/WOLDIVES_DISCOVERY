@@ -4225,7 +4225,7 @@ def salidas_cercanas(db, lat=None, lon=None, when='', limit=20):
                                  u.fullname AS provider_name, u.avatar_url
                           FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id JOIN users u ON u.id=s.provider_user_id
                           LEFT JOIN centers c ON c.id=s.center_id
-                          WHERE s.active=1 AND ss.status='open' AND ss.spots_available>0 AND ss.slot_date BETWEEN ? AND ?
+                          WHERE s.active=1 AND COALESCE(s.service_type,'')<>'alquiler_equipo' AND ss.status='open' AND ss.spots_available>0 AND ss.slot_date BETWEEN ? AND ?
                             AND (ss.slot_date > date('now') OR (ss.slot_date=date('now') AND ss.slot_time>=time('now')))
                             AND ((s.center_id IS NOT NULL AND {public_center_sql()}) OR (s.center_id IS NULL AND u.role='freelance'))
                           ORDER BY ss.slot_date, ss.slot_time LIMIT 400""", (d0.isoformat(), d1.isoformat())).fetchall()
@@ -4250,6 +4250,7 @@ def salidas_cercanas(db, lat=None, lon=None, when='', limit=20):
                       'provider_name': r['center_name'] or r['provider_name'], 'city': r['city'], 'logo_url': r['logo_url'] or (None if r['center_id'] else r['avatar_url']),
                       'cover_url': r['cover_url'], 'spots_left': r['spots_available'], 'spots_total': r['spots_total'], 'price': price, 'currency': currency or r['currency'] or 'EUR',
                       'booking_mode': mode['booking_mode'], 'mode_label': mode['mode_label'], 'instant': mode['instant'], 'bookable': mode['bookable'],
+                      'unavailable_reason': mode.get('unavailable_reason'),
                       'distance_km': dist, 'lat': r['lat'], 'lon': r['lon'], 'points': points.get(r['slot_id'], [])})
     if lat is not None and lon is not None:
         items.sort(key=lambda x: (x['distance_km'] is None, x['distance_km'] if x['distance_km'] is not None else 0, x['date'], x['time']))

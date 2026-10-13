@@ -120,6 +120,16 @@ def main():
     check('app · plugins nativos disponibles en la web', all(x in plugins for x in ('App', 'Browser', 'Device', 'Geolocation', 'Servidor', 'Share', 'SystemBars')), plugins)
     check('app · banda fija de pruebas', w.js("!!document.querySelector('.wda-banda')"))
     check('app · el usuario es Bea Buzo', 'Bea' in (w.js("document.querySelector('.cab').innerText") or ''))
+    # Layout on a real screen: the band under the status bar, the tabs above the gesture bar, nothing wider than the screen.
+    lay = w.js("""(() => { const cs = getComputedStyle(document.documentElement), b = document.querySelector('.wda-banda').getBoundingClientRect(),
+        t = document.querySelector('.wda-tabs').getBoundingClientRect();
+        return { w: innerWidth, h: innerHeight, top: cs.getPropertyValue('--safe-area-inset-top').trim(), bottom: cs.getPropertyValue('--safe-area-inset-bottom').trim(),
+                 banda: Math.round(b.top), tabs: Math.round(t.bottom), ancho: document.scrollingElement.scrollWidth, ua: navigator.userAgent }; })()""") or {}
+    print('   pantalla:', json.dumps(lay, ensure_ascii=False), flush=True)
+    top = float((lay.get('top') or '0px').replace('px', '') or 0)
+    check('diseño · la banda queda debajo de la barra de estado', lay.get('banda', -1) >= top - 1, lay)
+    check('diseño · las pestañas caben en la pantalla', 0 < lay.get('tabs', 0) <= lay.get('h', 0) + 1, lay)
+    check('diseño · nada más ancho que la pantalla', lay.get('ancho', 9999) <= lay.get('w', 0), lay)
     w.until("document.querySelectorAll('#wda-salidas .tarjeta-salida').length > 0", 15)
     check('inicio · salidas con plazas del entorno de pruebas', (w.js("document.querySelectorAll('#wda-salidas .tarjeta-salida').length") or 0) > 0)
     captura('03-inicio')

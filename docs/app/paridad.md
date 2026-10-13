@@ -5,6 +5,14 @@ Encargo «App móvil en 3 módulos», apartado 8 · Tanda 0. El titular revisa e
 Inventario de **todo lo que la web hace hoy** para cada perfil, leído del código, y dónde iría en la app.
 Leído de la web v50.47 (13/10/2026). No se ha cambiado código para hacerlo.
 
+> **Tanda 1 (v50.48):** las 69 funciones del buceador están en la app. Las pantallas nuevas del modo app son
+> Inicio, Explorar, Buscar, la reserva rápida, Reservas, Buddies, Mi área y Ajustes. El resto son las páginas de la
+> web abiertas dentro de la app, con sus mismas reglas.
+> - Buddies sigue «Pendiente»: no existe en el servidor.
+> - Centro y freelance usan su panel de la web dentro de la app hasta las tandas 2 y 3.
+>
+> Detalle en `docs/app/tanda-1.md`.
+
 ## Resumen en cifras
 
 | Perfil | Funciones | Igual | Simplificada | Disponible en la web |

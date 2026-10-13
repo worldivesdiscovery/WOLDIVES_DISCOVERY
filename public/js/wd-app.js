@@ -221,6 +221,7 @@
     tabActual = TAB_DE[nombre] || (nombre === 'home' ? '#/' : tabActual);
     let nav = $('#wda-tabs');
     if (!nav) { nav = document.createElement('nav'); nav.id = 'wda-tabs'; nav.className = 'wda-tabs'; nav.setAttribute('aria-label', T('Secciones')); document.body.appendChild(nav); }
+    const banda = $('.wda-banda'); if (banda && !banda.dataset.traducida && W.currentLanguage() !== 'es') { W.translateTree(banda); banda.dataset.traducida = '1'; }
     nav.innerHTML = tabs.map(([href, icono, txt]) => {
       const n = href === '#/reservas' ? cuenta.reservas : 0;
       return `<a class="wda-tab" href="${href}" ${href === tabActual ? 'aria-current="page"' : ''}><span class="wda-tab-ic">${ic(icono, '')}</span><span>${T(txt)}</span>${n ? `<span class="cont" aria-label="${n} ${T('pendientes de pago')}">${n}</span>` : ''}</a>`;
@@ -233,7 +234,7 @@
   const nombreRuta = () => (location.hash.replace(/^#\/?/, '').split('?')[0] || 'home');
   function banda() {
     if (!APP.pruebas || $('.wda-banda')) return;
-    document.body.insertAdjacentHTML('afterbegin', `<div class="wda-banda" role="note"><span>${T('Pruebas')} · <span translate="no">${esc(location.host)}</span></span><button type="button" id="wda-fallo">${T('Reportar fallo')}</button></div>`);
+    document.body.insertAdjacentHTML('afterbegin', `<div class="wda-banda" role="note"><span><span>Pruebas</span> · <span translate="no">${esc(location.host)}</span></span><button type="button" id="wda-fallo">Reportar fallo</button></div>`);
     $('#wda-fallo').onclick = () => reportarFallo();
   }
   // Android back button: close the sheet, then go back; on Inicio the app goes to the background.
@@ -308,7 +309,8 @@
       <div class="fila-entre"><span class="eti num">${esc(cuando(s.date))} · ${esc(s.time || '')}</span>${s.distance_km != null ? `<span class="peq suave num">${km(s.distance_km)}</span>` : ''}</div>
       <h3 translate="no">${esc(s.title)}</h3><p class="suave peq">${donde}</p><div class="wtags">${modoTag(s)}</div>
       <div class="fila-entre"><span class="peq"><b class="num">${s.spots_left}</b> <span>${s.spots_left === 1 ? 'plaza libre' : 'plazas libres'}</span></span>${s.price ? `<span><span class="peq suave">desde</span> <span class="precio">${dinero(s.price, s.currency)}</span></span>` : ''}</div>
-      <button class="wbtn ancho" type="button" data-reservar="${s.slot_id}"${s.bookable === false ? ' disabled' : ''}>Reservar</button></div></article>`;
+      <button class="wbtn ancho" type="button" data-reservar="${s.slot_id}"${s.bookable === false ? ' disabled' : ''}>Reservar</button>
+      ${s.bookable === false && s.unavailable_reason ? `<p class="suave peq">${esc(s.unavailable_reason)}</p>` : ''}</div></article>`;
   }
   function anillo(n) {
     const v = Math.max(0.04, 1 - Math.min(n, 30) / 30), r = 32, c = 2 * Math.PI * r;
@@ -526,7 +528,7 @@
       $('#wda-capas-sitio', capa).appendChild(sel); W.translateTree(sel);
     };
     $('#wda-yo', root).onclick = async () => {
-      try { W.toast('Buscando dónde estás…'); mem.pos = await posicion(); map.setView([mem.pos.lat, mem.pos.lon], 11); setTimeout(() => zona(), 400); }
+      try { W.toast('Buscando dónde estás…'); mem.pos = await posicion(); solo(() => map.setView([mem.pos.lat, mem.pos.lon], 11)); setTimeout(() => zona(), 400); }
       catch (e) { W.toast(e.message); }
     };
     // The sheet: three heights, dragged or with its handle; «Ver lista / Ver mapa» always does it with one tap.
@@ -541,9 +543,11 @@
       if (y0 == null) return; const dy = e.changedTouches[0].clientY - y0; y0 = null; if (Math.abs(dy) < 40) return;
       const i = ALTURAS.indexOf(a0); altura(ALTURAS[Math.max(0, Math.min(2, i + (dy < 0 ? 1 : -1)))]);
     });
-    // «Buscar en esta zona»: appears when the person moves the map.
-    let movido = false;
-    map.on('dragstart zoomstart', () => { movido = true; });
+    // «Buscar en esta zona»: appears when the person moves the map (not when the app moves it).
+    let movido = false, auto = 0;
+    const solo = (fn) => { auto = Date.now(); fn(); };
+    map.on('dragstart', () => { movido = true; });
+    map.on('zoomstart', () => { if (Date.now() - auto > 900) movido = true; });
     map.on('moveend', () => { if (movido) $('#wda-zona', root).hidden = false; });
     $('#wda-zona', root).onclick = () => { zona(); };
     function zona() { $('#wda-zona', root).hidden = true; movido = false; listar(); }
@@ -552,7 +556,7 @@
     async function cargar(encuadrar) {
       ex.sync = null; $('#wda-carrusel', root).hidden = true;
       if (ex.capa) { map.removeLayer(ex.capa); ex.capa = null; } ex.marcas.clear();
-      $('#wda-cuenta', root).textContent = T('Cargando…');
+      $('#wda-cuenta', root).textContent = T('Cargando…'); ex.sinSitio = [];
       try {
         if (ex.ver === 'centros') {
           const d = await api('/api/centers');
@@ -561,6 +565,8 @@
           const q = new URLSearchParams({ limite: '50' }); if (mem.pos) { q.set('lat', mem.pos.lat.toFixed(3)); q.set('lon', mem.pos.lon.toFixed(3)); }
           const d = await api('/api/salidas-cercanas?' + q);
           (d.items || []).forEach((s) => mem.salidas.set(String(s.slot_id), s));
+          // Departures of a centre that has not placed itself on the map: in the list, never on the map.
+          ex.sinSitio = (d.items || []).filter((s) => s.lat == null || s.lon == null);
           ex.todos = (d.items || []).filter((s) => s.lat != null && s.lon != null).map((s) => ({ k: 's' + s.slot_id, tipo: 'salida', id: s.slot_id, nombre: s.title, lat: +s.lat, lon: +s.lon, sal: s,
             sub: `${cuando(s.date)} · ${s.time || ''} · ${s.provider_name || ''}`, href: s.center_id ? `#/centro?id=${s.center_id}` : `#/profesional?id=${s.provider_id}` }));
         } else {
@@ -584,7 +590,7 @@
       });
       ex.capa = capa.addTo(map);
       // Room for the search box on top and the sheet at the bottom.
-      if (encuadrar && ex.todos.length && ex.todos.length < 400) { try { map.fitBounds(L.latLngBounds(ex.todos.map((x) => [x.lat, x.lon])), { paddingTopLeft: [40, 170], paddingBottomRight: [90, 140], maxZoom: 11 }); } catch { /* nothing */ } }
+      if (encuadrar && ex.todos.length && ex.todos.length < 400) { try { solo(() => map.fitBounds(L.latLngBounds(ex.todos.map((x) => [x.lat, x.lon])), { paddingTopLeft: [40, 170], paddingBottomRight: [90, 140], maxZoom: 11 })); } catch { /* nothing */ } }
       setTimeout(listar, 50);
     }
     function listar() {
@@ -597,6 +603,9 @@
       const lista = $('#wda-lista', root);
       lista.innerHTML = ex.vis.slice(0, 80).map((x) => `<a class="lista-fila" href="${x.href}">${x.tipo === 'punto' ? ic('pin') : x.tipo === 'centro' ? ic('tienda') : ic('barco')}<div class="crece pila"><b translate="no">${esc(x.nombre)}</b><span class="suave peq" translate="no">${esc(x.sub || '')}</span></div>${x.tipo === 'salida' && x.sal.price ? `<span class="peq num">${dinero(x.sal.price, x.sal.currency)}</span>` : ic('chev', 'chev')}</a>`).join('')
         || `<div class="vacio"><p>${esc(T('Nada en esta zona. Aleja el mapa o cambia el filtro.'))}</p></div>`;
+      if (ex.ver === 'salidas' && ex.sinSitio?.length) {
+        lista.insertAdjacentHTML('beforeend', `<p class="eti" style="padding:12px 14px 4px">${esc(T('Sin ubicación en el mapa'))}</p>` + ex.sinSitio.slice(0, 40).map((x) => `<button type="button" class="lista-fila" data-reservar="${x.slot_id}">${ic('barco')}<div class="crece pila"><b translate="no">${esc(x.title)}</b><span class="suave peq">${esc(cuando(x.date))} · ${esc(x.time || '')} · <span translate="no">${esc(x.provider_name || '')}</span></span></div>${x.price ? `<span class="peq num">${dinero(x.price, x.currency)}</span>` : ''}</button>`).join(''));
+      }
       if (ex.sync && !ex.vis.some((x) => x.k === ex.sync)) { ex.sync = null; $('#wda-carrusel', root).hidden = true; }
     }
     // A marker and its card: tapping one moves the other.
@@ -617,7 +626,7 @@
       // The marker stays in sight: between the search box on top and the card at the bottom.
       try {
         const pt = map.latLngToContainerPoint([it.lat, it.lon]), alto = map.getSize().y, abajo = alto - 360, arriba = 190;
-        if (pt.y > abajo) map.panBy([0, pt.y - abajo], { animate: true }); else if (pt.y < arriba) map.panBy([0, pt.y - arriba], { animate: true });
+        if (pt.y > abajo) solo(() => map.panBy([0, pt.y - abajo], { animate: true })); else if (pt.y < arriba) solo(() => map.panBy([0, pt.y - arriba], { animate: true }));
       } catch { /* nothing */ }
       const card = car.querySelector(`[data-k="${k}"]`);
       if (card && desdeMapa) car.scrollTo({ left: card.offsetLeft - 24, behavior: 'smooth' });
@@ -633,7 +642,7 @@
         let best = null, dist = 1e9; car.querySelectorAll('[data-k]').forEach((c) => { const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid); if (d < dist) { dist = d; best = c; } });
         if (!best || best.dataset.k === ex.sync) return;
         ex.sync = best.dataset.k; marcar(ex.sync);
-        const it = ex.todos.find((x) => x.k === ex.sync); if (it) map.panTo([it.lat, it.lon], { animate: true });
+        const it = ex.todos.find((x) => x.k === ex.sync); if (it) solo(() => map.panTo([it.lat, it.lon], { animate: true }));
       }, 140);
     }, { passive: true });
     map.on('click', () => { ex.sync = null; $('#wda-carrusel', root).hidden = true; marcar(null); });
@@ -764,7 +773,7 @@
     const fila = (href, icono, a, b = '') => `<a class="lista-fila" href="${href}">${ic(icono)}<div class="crece pila"><b>${a}</b>${b ? `<span class="suave peq">${b}</span>` : ''}</div>${ic('chev', 'chev')}</a>`;
     const root = pintar(`<header class="cab"><div class="cab-fila"><div class="wavatar" style="width:64px;height:64px;font-size:var(--t-l)">${esc(W.initials(u.fullname))}</div><div class="crece pila"><h1 style="font-size:var(--t-l)" translate="no">${esc(u.fullname)}</h1>
         <span class="suave peq">${me.profile?.certification_name ? `<span translate="no">${esc(me.profile.certification_name)}</span>` : `<span>${perfil}</span>`}</span></div></div>
-        ${buzo ? '<div class="cifras"><div class="tarjeta cifra"><b id="wda-c-puntos">—</b><span>puntos</span></div><div class="tarjeta cifra"><b id="wda-c-log">—</b><span>inmersiones en el Log Book</span></div></div>' : ''}</header>
+        ${buzo ? '<div class="cifras"><div class="tarjeta cifra"><b id="wda-c-puntos">—</b><span>Puntos disponibles</span></div><div class="tarjeta cifra"><b id="wda-c-log">—</b><span>inmersiones en el Log Book</span></div></div>' : ''}</header>
       <div class="cuerpo"><p class="eti">Perfil: <span>${perfil}</span></p>
         <div class="tarjeta plana lista">${buzo ? fila('#/logbook', 'libro', 'Log Book', 'Tus inmersiones') + fila('#/mis-puntos', 'puntos', 'Mis puntos', 'Cómo se ganan y se canjean') + fila('#/recompensas', 'regalo', 'Recompensas', 'Ventajas de cada centro')
           + fila('#/area', 'avisos', 'Avisos y documentos', 'Mensajes de los centros, titulación y seguro') : fila('#/admin', 'agenda', u.role === 'admin' ? 'Administración' : 'Mi panel', 'En la web, dentro de la app')}

@@ -100,7 +100,8 @@ def build(out: Path):
         # --- centre: logo, photos, 5 services in both modes, departures, a boat, an instructor -----------------
         gallery = '["/img/portada/buceadores.webp","/img/portada/fondosuperior.webp","/img/destinos/maldivas.webp"]'
         srv.sql("""UPDATE centers SET logo_url='/img/iconos/buceador1.png',logo_consent=1,cover_url='/img/portada/portada-arrecife.webp',gallery_json=?,
-                   country='España',tagline='Buceo en la reserva marina del Cabo de San Antonio',cancel_free_hours=48,cancel_refund_pct=50 WHERE id=?""", (gallery, cid))
+                   country='España',tagline='Buceo en la reserva marina del Cabo de San Antonio',cancel_free_hours=48,cancel_refund_pct=50,
+                   address='Puerto de Xàbia, pantalán 3',latitude=38.7955,longitude=0.1876 WHERE id=?""", (gallery, cid))   # v50.48: on the app's map
         # «Pago al reservar» needs online payments: in the test environment the centre has a test Stripe account
         # (to really pay with the 4242 card, connect your own Stripe account in test mode: README-PRUEBAS.md).
         srv.sql("UPDATE centers SET stripe_account_id='acct_test_pruebas',stripe_charges_enabled=1,stripe_payouts_enabled=1 WHERE id=?", (cid,))
@@ -204,6 +205,7 @@ def build(out: Path):
         cid2 = center2.me()['user']['center_id']
         srv.sql("UPDATE centers SET plan_code='pro',plan_status='active',plan_started_at=?,plan_expires_at=?,country='España',logo_url='/img/iconos/buceador2.png',"
                 "cover_url='/img/destinos/maldivas.webp',tagline='Buceo en las Islas Medas',cancel_free_hours=24,cancel_refund_pct=100,"
+                "address='Passeig Marítim, L''Estartit',latitude=42.0530,longitude=3.2050,"
                 "stripe_account_id='acct_test_pruebas2',stripe_charges_enabled=1,stripe_payouts_enabled=1 WHERE id=?", (day(0), until, cid2))
         svc2 = {}
         for key, data in (('medas', {'title': 'Inmersión en las Islas Medas', 'price': 55, 'max_participants': 12, 'booking_mode': 'request', 'service_type': 'inmersion',
