@@ -165,7 +165,41 @@ Leyenda:
 ## Pendiente de decisión del titular
 
 1. **Buddies:** hay que programarlo primero en el servidor (encargo de Buddies). ¿Lo metemos antes de la Tanda 4?
-2. **Roles del personal y borrado de cuenta de centros y freelance:** decisiones 4 y 5 de la Tanda 0, se necesitan
-   para la Tanda 2.
+2. **Reservas futuras al cerrar la cuenta de un centro o freelance** (ver la decisión 5 de abajo).
+   - Recomiendo que no se pueda cerrar mientras queden reservas futuras.
+   - La app las enseña con un botón «Cancelar y avisar a todos», con devolución completa a cada cliente.
 3. **Más idiomas en la app:** cuando quieras, los textos de `scripts/idiomas/datos/app.json` se traducen a los otros
    seis idiomas de la web y se activan.
+
+## Decisiones del titular después de la entrega (13/10)
+
+**4. Roles del personal: los decide cada centro.**
+- En la web, el panel del centro tendrá una opción para crear y cambiar roles («Instructor máster», «Manager»,
+  «Recepción»…) y elegir qué puede hacer cada uno. A cada persona del equipo se le da su rol.
+- La app no tiene ajustes de roles propios: lee del servidor lo que puede hacer cada persona. Lo que se cambie en la
+  web se ve en la app solo.
+- Se programa en la Tanda 2.
+- Roles que trae cada centro de entrada (cada centro los puede cambiar):
+  - **Propietario:** todo.
+  - **Encargado:** todo lo demás, como dice el encargo.
+  - **Recepción:** reservas, solicitudes, check-in y avisos; sin cobros ni ajustes.
+  - **Instructor:** sus salidas, la lista del barco y el check-in.
+- Por seguridad, tres cosas son solo del propietario y no se pueden dar a otro rol:
+  - cambiar los roles;
+  - la cuenta de Stripe a la que llega el dinero;
+  - borrar la cuenta del centro.
+
+**5. Borrar la cuenta de centros y freelance: sencillo.**
+- Un botón **«Borrar mi cuenta para siempre»** abajo, en la parte de privacidad, en la web y en la app.
+- Al confirmarlo, la cuenta se cierra:
+  - deja de verse y no se puede reservar;
+  - nadie del equipo puede entrar.
+- WORLDIVES guarda todo **6 meses**. Si vuelve en ese plazo y entra con su email y su contraseña, la app le pregunta
+  «Tu cuenta está cerrada. ¿Quieres reabrirla?» y vuelve tal como estaba.
+- Pasados los 6 meses se borra todo. La excepción es lo que la ley obliga a guardar más tiempo:
+  - los pagos;
+  - la declaración DAC7 a Hacienda.
+
+  Eso se guarda solo con los datos imprescindibles. El plazo exacto conviene confirmarlo con el gestor.
+- Los buceadores siguen como ahora: borran su cuenta con su contraseña y se borra enseguida.
+- Se programa en la Tanda 2.
