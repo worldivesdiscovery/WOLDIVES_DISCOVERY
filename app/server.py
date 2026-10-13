@@ -65,7 +65,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.48'
+APP_VERSION = '50.49'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -9346,8 +9346,8 @@ def manifest_pdf(db, user, slot_id, lang='es'):
     T = lambda x: mail_t(lang, x)
     gname = {g['id']: (g['label'] + (f" · {g['guide']}" if g.get('guide') else '')) for g in d['groups']}
     rows = [(gname.get(x['group_id'], T('Sin grupo')), x['name'] or '—', x.get('level_name') or '', 'Nx' if x.get('nitrox') else '',
-             ', '.join(x.get('rental') or []), ('sí' if x.get('signed') else 'no') if d['waiver'] else '',
-             'sí' if x.get('checked_in_at') else ('no vino' if x.get('no_show') else ''))
+             ', '.join(x.get('rental') or []), (T('Sí') if x.get('signed') else T('No')) if d['waiver'] else '',
+             T('Sí') if x.get('checked_in_at') else (T('No vino') if x.get('no_show') else ''))
             for x in d['divers']]
     import hashlib as _h
     payload = json.dumps({'slot': s['id'], 'date': s['slot_date'], 'time': s['slot_time'], 'rows': rows}, ensure_ascii=False, sort_keys=True)

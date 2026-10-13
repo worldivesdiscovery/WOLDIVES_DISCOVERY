@@ -32,6 +32,7 @@ ACCOUNTS = {'center': ('centro.prueba', 'centro@example.com', 'Ana Centro Prueba
             'freelance': ('freelance.prueba', 'freelance@example.com', 'Tito Guía Pruebas'),
             'diver': ('buzo.prueba', 'buzo@example.com', 'Bea Buzo Pruebas'),
             'instructor': ('instructor.prueba', 'instructor@example.com', 'Iván Instructor Pruebas'),
+            'master': ('master.prueba', 'master@example.com', 'Marta Máster Pruebas'),
             'center2': ('centro2.prueba', 'centro2@example.com', 'Carla Centro Dos Pruebas')}
 EXTRA_DIVERS = [(f'buzo{i}.prueba', f'buzo{i}@example.com', f'Buceador {i} Pruebas') for i in range(2, 7)]
 PENDING_CENTER = ('pendiente.prueba', 'pendiente@example.com', 'Otro Centro Pendiente')
@@ -134,6 +135,13 @@ def build(out: Path):
         mail = srv.sql("SELECT html FROM email_outbox WHERE template='team_invite' AND to_email=? ORDER BY id DESC LIMIT 1", (e,))[0]['html']
         token = re.search(r'#/equipo\?token=([A-Za-z0-9_-]+)', mail).group(1)
         ok(c().post('/api/team/join', {'token': token, 'fullname': n, 'username': u, 'password': PASSWORD, 'accept_terms': True}), 'dar de alta al instructor')
+        # v50.49: a role of the centre made in the web (Equipo) and a person with it
+        master_role = ok(center.post('/api/center/team/roles/save', {'name': 'Instructor máster', 'permissions': ['checkin', 'todas_salidas', 'barco', 'estadisticas']}), 'crear el perfil')['key']
+        u, e, n = ACCOUNTS['master']
+        ok(center.post('/api/center/team/invite', {'email': e, 'member_role': master_role}), 'invitar a la instructora máster')
+        mail = srv.sql("SELECT html FROM email_outbox WHERE template='team_invite' AND to_email=? ORDER BY id DESC LIMIT 1", (e,))[0]['html']
+        token = re.search(r'#/equipo\?token=([A-Za-z0-9_-]+)', mail).group(1)
+        ok(c().post('/api/team/join', {'token': token, 'fullname': n, 'username': u, 'password': PASSWORD, 'accept_terms': True}), 'dar de alta a la instructora máster')
 
         # --- freelance: photo, 3 services (days, half days, photo session), calendar -------------------------
         srv.sql("UPDATE users SET avatar_url='/img/portada/logbook1.webp',provider_bio='Guía e instructor en los cenotes de la Riviera Maya desde 2012.' WHERE id=?", (pro_id,))
@@ -193,6 +201,20 @@ def build(out: Path):
         srv.sql("UPDATE bookings SET status='completed',booking_date=?,confirmed_at=? WHERE id=?", (day(-8), now_s(), b_done))
         for d_, key, k in ((divers[3], 'doble', 2), (divers[4], 'doble', 2), (divers[5], 'doble', 3), (divers[3], 'alquiler', 3)):
             x = book(d_, key, k); ok(center.post(f'/api/bookings/{x}/status', {'status': 'confirmed'}), 'confirmar')
+        # v50.49 (app Centro PRO): an evening dive every day of the week with divers, so «Hoy» has a boat list whatever
+        # day the tester opens the app (the demo is rebuilt every 7 days), and a request that expires soon.
+        late = dt.datetime.now().hour < 21
+        tarde = ok(center.post('/api/provider-services', {'title': 'Inmersión al atardecer', 'price': 50, 'max_participants': 10, 'booking_mode': 'request', 'service_type': 'inmersion',
+                                                          'duration_minutes': 120, 'description': 'Una inmersión cuando baja el sol. Linterna incluida.'}), 'crear la inmersión al atardecer')['id']
+        for k in range(0 if late else 1, 8):
+            sl = ok(center.post('/api/provider-services/slot', {'service_id': tarde, 'slot_date': day(k), 'slot_time': '21:30' if k == 0 else '18:30', 'spots_total': 10}),
+                    'crear la salida del atardecer')['slot_id']
+            for d_ in divers[1:2 + k % 4]:
+                x = ok(d_.post('/api/bookings', {'center_id': cid, 'service_id': tarde, 'slot_id': sl, 'participants': 1 + (k % 2)}), 'reservar al atardecer')['id']
+                ok(center.post(f'/api/bookings/{x}/status', {'status': 'confirmed'}), 'confirmar')
+            if k == 1:
+                x = ok(divers[5].post('/api/bookings', {'center_id': cid, 'service_id': tarde, 'slot_id': sl, 'participants': 2, 'notes': 'Solicitud de pruebas para la app'}), 'solicitar')['id']
+                srv.sql('UPDATE bookings SET response_deadline=? WHERE id=?', ((dt.datetime.now() + dt.timedelta(hours=2)).isoformat(timespec='minutes'), x))
         for k, site, depth in ((-8, 'Cabo de San Antonio', 18), (-35, 'Isla del Descubridor', 22), (-60, 'Cova Tallada', 12)):
             ok(buzo.post('/api/logbook', {'dive_date': day(k), 'site': site, 'country': 'España', 'depth': depth, 'duration': 48, 'dive_type': 'Barco',
                                           'notes': 'Inmersión de pruebas'}), 'apuntar en el Log Book')

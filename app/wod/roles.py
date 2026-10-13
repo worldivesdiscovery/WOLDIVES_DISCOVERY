@@ -6,8 +6,9 @@ through /api/me and shows only what that person can use. The server is the one t
 
 Fixed rules:
 - the owner can do everything; what only the owner can do never goes into a role (SOLO_PROPIETARIO);
-- the four roles of before (owner, manager, reception, instructor) keep their key and, until the centre changes them,
-  exactly the permissions they had;
+- the four roles of before keep their key; until the centre changes them: the manager can do everything except what
+  only the owner can do (owner's decision, 13/10), reception what it could do before (without mass notices, as the
+  notices brief of v50.47 says) and the instructor the check-in of the boat;
 - a role the centre created is stored as 'r' + 8 hex characters in center_members.member_role;
 - a key that is neither a built-in role nor a role of that centre has no permissions (read only): an unknown value is
   never «owner».
@@ -34,7 +35,8 @@ SOLO_PROPIETARIO = ('El equipo y sus perfiles', 'La cuenta de Stripe y los datos
 
 BASE = {'owner': 'Propietario', 'manager': 'Encargado', 'reception': 'Recepción', 'instructor': 'Instructor'}
 POR_DEFECTO = {
-    'manager': ('checkin', 'todas_salidas', 'barco', 'reservas', 'salidas', 'avisos', 'estadisticas'),
+    # «Encargado: todo lo demás» (decisión del titular, 13/10): everything except what only the owner can do.
+    'manager': CLAVES,
     'reception': ('checkin', 'todas_salidas', 'barco', 'reservas', 'salidas', 'estadisticas'),
     'instructor': ('checkin',),
 }

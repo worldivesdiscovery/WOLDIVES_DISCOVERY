@@ -65,6 +65,9 @@ class Roles(ProBase):
         self.assertIn('El plan', d['owner_only'])
         inst = [r for r in d['role_list'] if r['key'] == 'instructor'][0]
         self.assertEqual(inst['permissions'], ['checkin'])
+        by = {r['key']: r['permissions'] for r in d['role_list']}
+        self.assertEqual(len(by['manager']), len(d['permissions']))                 # «Encargado: todo lo demás» (13/10)
+        self.assertNotIn('avisos', by['reception'])                                  # as in v50.47
         me = self.center.me()
         self.assertEqual(me['member_role'], 'owner'); self.assertIn('cobros', me['permissions']); self.assertIsNone(me['account_closed'])
 

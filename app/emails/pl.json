@@ -525,5 +525,18 @@
  "Estado del mar": "Stan morza",
  "Otro motivo": "Inny powód",
  "Ha cerrado su cuenta en WORLDIVES y ha cancelado todas sus próximas reservas": "Zamknął konto w WORLDIVES i anulował wszystkie nadchodzące rezerwacje",
- "Toca para verlo en la app.": "Dotknij, aby zobaczyć w aplikacji."
+ "Toca para verlo en la app.": "Dotknij, aby zobaczyć w aplikacji.",
+ "Resumen para el barco": "Podsumowanie dla łodzi",
+ "Llegados": "Przybyli",
+ "Puntos": "Miejsca nurkowe",
+ "Grupo": "Grupa",
+ "Buceador": "Nurek",
+ "Nivel": "Poziom",
+ "Alquiler": "Wypożyczenie",
+ "Firma": "Podpis",
+ "Llegó": "Przybył",
+ "Sin grupo": "Bez grupy",
+ "Generado el {at} por {who}": "Wygenerowano {at} przez {who}",
+ "No": "Nie",
+ "No vino": "Nie przyszedł"
 }

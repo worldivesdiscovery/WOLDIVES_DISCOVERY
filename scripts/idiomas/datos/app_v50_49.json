@@ -1,234 +1,942 @@
 {
- "Abrir la cámara": ["Open the camera", "Ouvrir l’appareil photo"],
- "Aceptada. El buceador recibe el aviso.": ["Accepted. The diver gets the notice.", "Acceptée. Le plongeur reçoit l’avis."],
- "Aceptar las elegidas": ["Accept the selected ones", "Accepter la sélection"],
- "Aceptar varias": ["Accept several", "Accepter plusieurs"],
- "Acompañante": ["Companion", "Accompagnant"],
- "Actívalo en los ajustes del móvil (Aplicaciones › WORLDIVES › Permisos) o escribe el código.": ["Turn it on in the phone’s settings (Apps › WORLDIVES › Permissions) or type the code.", "Activez-la dans les réglages du téléphone (Applications › WORLDIVES › Autorisations) ou saisissez le code."],
- "Anotado: paga al llegar.": ["Noted: pays on arrival.", "Noté : paie à l’arrivée."],
- "Apunta al QR de la reserva": ["Point at the booking’s QR code", "Visez le QR de la réservation"],
- "Avisos en cola. Salen en": ["Notices queued. They go out in", "Avis en file d’attente. Ils partent dans"],
- "Avisos enviados.": ["Notices sent.", "Avis envoyés."],
- "Avisos y WhatsApp Business": ["Notices and WhatsApp Business", "Avis et WhatsApp Business"],
- "Añadir buceador": ["Add a diver", "Ajouter un plongeur"],
- "Barcos, grupos y guías": ["Boats, groups and guides", "Bateaux, groupes et guides"],
- "Bloqueado.": ["Blocked.", "Bloqué."],
- "Borrar mi cuenta para siempre": ["Delete my account forever", "Supprimer mon compte définitivement"],
- "Buscar reservas": ["Search bookings", "Rechercher des réservations"],
- "Buscar, cobrar, cambiar": ["Search, charge, change", "Rechercher, encaisser, modifier"],
- "Calendario (iCal), cartel, exportar": ["Calendar (iCal), poster, export", "Calendrier (iCal), affiche, export"],
- "Cambiada. El buceador recibe el aviso.": ["Changed. The diver gets the notice.", "Modifiée. Le plongeur reçoit l’avis."],
- "Cambiar de centro": ["Switch centre", "Changer de centre"],
- "Cambiar la hora y avisar": ["Change the time and notify", "Changer l’heure et prévenir"],
- "Cambiar y avisar": ["Change and notify", "Changer et prévenir"],
- "Cancelar la salida y avisar a todos": ["Cancel the departure and notify everyone", "Annuler la sortie et prévenir tout le monde"],
- "Cancelar y avisar": ["Cancel and notify", "Annuler et prévenir"],
- "Cancelar y avisar a todos": ["Cancel and notify everyone", "Annuler et prévenir tout le monde"],
- "Cerrar mi cuenta": ["Close my account", "Fermer mon compte"],
- "Cobrar en el centro": ["Charge at the centre", "Encaisser au centre"],
- "Cobrar en el centro y marcar": ["Charge at the centre and check in", "Encaisser au centre et pointer"],
- "Cobro anotado. Plaza confirmada.": ["Payment recorded. Place confirmed.", "Paiement noté. Place confirmée."],
- "Compartir el resumen": ["Share the summary", "Partager le résumé"],
- "Contar a bordo": ["Count on board", "Compter à bord"],
- "Cuenta cerrada": ["Account closed", "Compte fermé"],
- "Datos, contraseña e idioma": ["Details, password and language", "Données, mot de passe et langue"],
- "Del mismo servicio, con plazas": ["Same service, with places", "Même service, avec des places"],
- "Desbloqueado.": ["Unblocked.", "Débloqué."],
- "Desde la reserva, en este móvil": ["From the booking, on this phone", "Depuis la réservation, sur ce téléphone"],
- "Deshecho: no se ha avisado a nadie.": ["Undone: nobody has been notified.", "Annulé : personne n’a été prévenu."],
- "Después de cada buceador la cámara se abre otra vez.": ["After each diver the camera opens again.", "Après chaque plongeur, l’appareil photo se rouvre."],
- "Después la borraremos para siempre.": ["After that we will delete it forever.", "Ensuite, nous le supprimerons définitivement."],
- "Disponible en la web": ["Available on the website", "Disponible sur le site"],
- "Día anterior": ["Previous day", "Jour précédent"],
- "Día siguiente": ["Next day", "Jour suivant"],
- "El PDF lleva su huella SHA-256 y quién lo generó: la copia impresa se puede comprobar con el servidor.": ["The PDF carries its SHA-256 fingerprint and who generated it: a printed copy can be checked against the server.", "Le PDF porte son empreinte SHA-256 et le nom de qui l’a généré : la copie imprimée peut être vérifiée auprès du serveur."],
- "El QR de la reserva del buceador o un código de promoción.": ["The QR of the diver’s booking or a promotion code.", "Le QR de la réservation du plongeur ou un code de promotion."],
- "El buceador recibe el motivo. No se le cobra nada.": ["The diver gets the reason. Nothing is charged.", "Le plongeur reçoit le motif. Rien ne lui est facturé."],
- "El centro te ofrece esta salida.": ["The centre offers you this departure.", "Le centre vous propose cette sortie."],
- "El propietario del centro ha cerrado la cuenta. Solo él puede reabrirla.": ["The centre’s owner has closed the account. Only the owner can reopen it.", "Le propriétaire du centre a fermé le compte. Lui seul peut le rouvrir."],
- "Elegir": ["Select", "Choisir"],
- "Elige al menos una.": ["Select at least one.", "Choisissez-en au moins une."],
- "Enviadas las marcas guardadas sin conexión.": ["Check-ins saved offline have been sent.", "Les pointages enregistrés hors connexion ont été envoyés."],
- "Equipo y perfiles": ["Team and roles", "Équipe et profils"],
- "Escanear otro": ["Scan another", "Scanner un autre"],
- "Escribir código": ["Type a code", "Saisir un code"],
- "Escribir por WhatsApp": ["Write on WhatsApp", "Écrire sur WhatsApp"],
- "Esta promoción no se puede usar.": ["This promotion cannot be used.", "Cette promotion ne peut pas être utilisée."],
- "Esta reserva es de otra salida.": ["This booking is for another departure.", "Cette réservation est pour une autre sortie."],
- "Esta reserva es de otro día.": ["This booking is for another day.", "Cette réservation est pour un autre jour."],
- "Esta reserva es una solicitud que todavía no has aceptado.": ["This booking is a request you have not accepted yet.", "Cette réservation est une demande que vous n’avez pas encore acceptée."],
- "Esta reserva está aceptada pero falta el pago.": ["This booking is accepted but not paid yet.", "Cette réservation est acceptée mais le paiement manque."],
- "Esta reserva está cancelada.": ["This booking is cancelled.", "Cette réservation est annulée."],
- "Esta reserva no es de tu centro.": ["This booking is not for your centre.", "Cette réservation n’est pas pour votre centre."],
- "Esta reserva no tiene un teléfono válido.": ["This booking has no valid phone number.", "Cette réservation n’a pas de numéro de téléphone valide."],
- "Esta reserva ya estaba marcada como llegada.": ["This booking was already checked in.", "Cette réservation était déjà pointée."],
- "Este código no es de una reserva de WORLDIVES o está mal escrito.": ["This code is not a WORLDIVES booking or it is mistyped.", "Ce code n’est pas une réservation WORLDIVES ou il est mal saisi."],
- "Está debajo del QR de la reserva, por ejemplo 1234-A1B2C3, o es el código de una promoción.": ["It is under the booking’s QR, for example 1234-A1B2C3, or it is a promotion code.", "Il est sous le QR de la réservation, par exemple 1234-A1B2C3, ou c’est un code de promotion."],
- "Están todos.": ["Everyone is here.", "Tout le monde est là."],
- "Explícaselo (opcional)": ["Explain it (optional)", "Expliquez-le (facultatif)"],
- "Falta el pago": ["Payment missing", "Paiement manquant"],
- "Faltan": ["Missing", "Manquent"],
- "Ficha del centro": ["Centre profile", "Fiche du centre"],
- "Filtro": ["Filter", "Filtre"],
- "Firmar el descargo": ["Sign the waiver", "Signer la décharge"],
- "Grupos, barcos y guías": ["Groups, boats and guides", "Groupes, bateaux et guides"],
- "Guardamos todo durante 6 meses": ["We keep everything for 6 months", "Nous gardons tout pendant 6 mois"],
- "Guardar la reserva": ["Save the booking", "Enregistrer la réservation"],
- "Guías tú": ["You guide", "Vous guidez"],
- "Ha llegado": ["Arrived", "Arrivé"],
- "Hay plazas": ["Places available", "Places disponibles"],
- "Horario y días de cierre": ["Hours and closing days", "Horaires et jours de fermeture"],
- "Hoy no hay salidas.": ["No departures today.", "Pas de sortie aujourd’hui."],
- "Hoy no tienes trabajos por días.": ["You have no day jobs today.", "Vous n’avez pas de travail à la journée aujourd’hui."],
- "La cámara solo se abre dentro de la app. Escribe el código.": ["The camera only opens inside the app. Type the code.", "L’appareil photo ne s’ouvre que dans l’application. Saisissez le code."],
- "La guardamos hasta el": ["We keep it until", "Nous le gardons jusqu’au"],
- "La plaza queda confirmada.": ["The place is confirmed.", "La place est confirmée."],
- "La reserva se cambia a la salida que elijas y el buceador recibe el aviso.": ["The booking moves to the departure you choose and the diver gets the notice.", "La réservation passe à la sortie choisie et le plongeur reçoit l’avis."],
- "Las llegadas se marcan en esta salida.": ["Arrivals are checked in on this departure.", "Les arrivées sont pointées sur cette sortie."],
- "Lastre (kg)": ["Weights (kg)", "Lest (kg)"],
- "Lista del barco": ["Boat list", "Liste du bateau"],
- "Llegada deshecha.": ["Check-in undone.", "Pointage annulé."],
- "Llegada marcada.": ["Checked in.", "Arrivée pointée."],
- "Lo cambió antes": ["Changed earlier by", "Modifié auparavant par"],
- "Lo cobrado y las devoluciones pendientes": ["Payments received and pending refunds", "Encaissements et remboursements en attente"],
- "Marcar llegada": ["Check in", "Pointer l’arrivée"],
- "Media de los centros de": ["Average of the centres in", "Moyenne des centres de"],
- "Mi ficha pública": ["My public profile", "Ma fiche publique"],
- "Nada todavía": ["Nothing yet", "Rien pour l’instant"],
- "Nadie la ve ni puede reservar.": ["Nobody sees it or can book.", "Personne ne le voit ni ne peut réserver."],
- "Nivel insuficiente para esta inmersión": ["Level not enough for this dive", "Niveau insuffisant pour cette plongée"],
- "No hay otras salidas de este servicio con plazas.": ["There are no other departures of this service with places.", "Il n’y a pas d’autre sortie de ce service avec des places."],
- "No hay reservas con este filtro.": ["No bookings with this filter.", "Aucune réservation avec ce filtre."],
- "No hay reservas esperando el pago.": ["No bookings waiting for payment.", "Aucune réservation en attente de paiement."],
- "No quedan plazas": ["No places left", "Plus de places"],
- "No repetir": ["Do not repeat", "Ne pas répéter"],
- "No se ha podido crear.": ["It could not be created.", "Impossible de la créer."],
- "No se ha podido leer el código.": ["The code could not be read.", "Le code n’a pas pu être lu."],
- "No tienes solicitudes por contestar.": ["You have no requests to answer.", "Vous n’avez aucune demande à traiter."],
- "No vino": ["No-show", "Absent"],
- "Nombre del cliente": ["Client’s name", "Nom du client"],
- "Nombre, email o nº de reserva": ["Name, email or booking no.", "Nom, e-mail ou n° de réservation"],
- "Nota (solo la ves tú)": ["Note (only you see it)", "Note (vous seul la voyez)"],
- "Nota para el barco": ["Note for the boat", "Note pour le bateau"],
- "Ofrecer otra salida": ["Offer another departure", "Proposer une autre sortie"],
- "PDF firmado": ["Signed PDF", "PDF signé"],
- "Paga al llegar": ["Pays on arrival", "Paie à l’arrivée"],
- "Pagará al llegar": ["Will pay on arrival", "Paiera à l’arrivée"],
- "Para confirmar, escribe la fecha de la salida": ["To confirm, type the date of the departure", "Pour confirmer, saisissez la date de la sortie"],
- "Para el cartel o las fotos de la salida, usa la web (Herramientas).": ["For the poster or the departure’s photos, use the website (Tools).", "Pour l’affiche ou les photos de la sortie, utilisez le site (Outils)."],
- "Pendientes de pago": ["Awaiting payment", "En attente de paiement"],
- "Periodo": ["Period", "Période"],
- "Por contestar": ["To answer", "À traiter"],
- "Por teléfono o en el mostrador": ["By phone or at the desk", "Par téléphone ou au comptoir"],
- "Primero crea una actividad en la web (Servicios).": ["First create an activity on the website (Services).", "Créez d’abord une activité sur le site (Services)."],
- "Promoción válida": ["Valid promotion", "Promotion valide"],
- "Prueba gratuita del plan": ["Free trial of the plan", "Essai gratuit de l’offre"],
- "Punto de encuentro (opcional)": ["Meeting point (optional)", "Point de rendez-vous (facultatif)"],
- "Quitar «No vino»": ["Remove “No-show”", "Retirer « Absent »"],
- "Quién entra y qué puede hacer": ["Who signs in and what they can do", "Qui se connecte et ce qu’il peut faire"],
- "Recordar por WhatsApp": ["Remind on WhatsApp", "Relancer sur WhatsApp"],
- "Repetir cada semana": ["Repeat every week", "Répéter chaque semaine"],
- "Reserva correcta. Esta actividad no tiene lista de barco.": ["Valid booking. This activity has no boat list.", "Réservation valide. Cette activité n’a pas de liste de bateau."],
- "Resumen barco": ["Boat summary", "Résumé bateau"],
- "Ráfaga": ["Burst", "Rafale"],
- "Salida completa": ["Departure full", "Sortie complète"],
- "Salida en 45 minutos": ["Departure in 45 minutes", "Sortie dans 45 minutes"],
- "Salidas de hoy": ["Today’s departures", "Sorties du jour"],
- "Se cancelan": ["This cancels", "Seront annulées"],
- "Semana anterior": ["Previous week", "Semaine précédente"],
- "Semana siguiente": ["Next week", "Semaine suivante"],
- "Servicios y precios": ["Services and prices", "Services et prix"],
- "Sin conexión. Busca a la persona en la lista del barco: allí se guarda en el móvil.": ["Offline. Look for the person in the boat list: it is kept on the phone.", "Hors connexion. Cherchez la personne dans la liste du bateau : elle est gardée sur le téléphone."],
- "Sin conexión. Lo que ya estaba guardado en el móvil sigue aquí.": ["Offline. What was already saved on the phone is still here.", "Hors connexion. Ce qui était déjà enregistré sur le téléphone est toujours là."],
- "Sin conexión: datos guardados en el móvil a las": ["Offline: data saved on the phone at", "Hors connexion : données enregistrées sur le téléphone à"],
- "Sin conexión: el recuento no se ha guardado en el historial.": ["Offline: the count has not been saved in the history.", "Hors connexion : le comptage n’a pas été enregistré dans l’historique."],
- "Sin conexión: guardado en el móvil.": ["Offline: saved on the phone.", "Hors connexion : enregistré sur le téléphone."],
- "Sin guía disponible": ["No guide available", "Pas de guide disponible"],
- "Sin permiso para la cámara.": ["No permission for the camera.", "Pas d’autorisation pour l’appareil photo."],
- "Sin salidas": ["No departures", "Aucune sortie"],
- "Sin salidas este día.": ["No departures this day.", "Aucune sortie ce jour-là."],
- "Sin salidas: se guarda con la fecha de hoy": ["No departures: saved with today’s date", "Aucune sortie : enregistrée à la date du jour"],
- "Sin tocar:": ["Not tapped:", "Non touchés :"],
- "Sobran": ["Extra", "En trop"],
- "Solicitud por contestar": ["Request to answer", "Demande à traiter"],
- "Solo la mañana": ["Morning only", "Le matin seulement"],
- "Solo la tarde": ["Afternoon only", "L’après-midi seulement"],
- "Solo la ve el equipo": ["Only the team sees it", "Seule l’équipe la voit"],
- "Sí, cancelar y avisar": ["Yes, cancel and notify", "Oui, annuler et prévenir"],
- "Tarde": ["Afternoon", "Après-midi"],
- "Tarjeta (datáfono)": ["Card (terminal)", "Carte (terminal)"],
- "Tema y tamaño del texto": ["Theme and text size", "Thème et taille du texte"],
- "Tienes": ["You have", "Vous avez"],
- "Toca a cada persona que ves en el barco, o cuenta con + y −.": ["Tap each person you see on the boat, or count with + and −.", "Touchez chaque personne que vous voyez sur le bateau, ou comptez avec + et −."],
- "Toca «Aceptar» o elige varias.": ["Tap “Accept” or select several.", "Touchez « Accepter » ou choisissez-en plusieurs."],
- "Todavía no hay buceadores en esta salida.": ["No divers on this departure yet.", "Pas encore de plongeurs sur cette sortie."],
- "Todavía no hay cobros online.": ["No online payments yet.", "Pas encore de paiements en ligne."],
- "Todo el día": ["All day", "Toute la journée"],
- "Todo en la web: Stripe, facturas y exportar": ["Everything on the website: Stripe, invoices and export", "Tout sur le site : Stripe, factures et export"],
- "Trabajo diario": ["Daily work", "Travail au quotidien"],
- "Trabajos de hoy": ["Today’s jobs", "Travaux du jour"],
- "Tu cuenta está cerrada": ["Your account is closed", "Votre compte est fermé"],
- "Tu cuenta se cierra ahora: deja de verse y nadie puede reservar.": ["Your account closes now: it is no longer shown and nobody can book.", "Votre compte se ferme maintenant : il n’est plus visible et personne ne peut réserver."],
- "Tu cuenta se ha cerrado. Puedes reabrirla hasta el": ["Your account is closed. You can reopen it until", "Votre compte est fermé. Vous pouvez le rouvrir jusqu’au"],
- "Tu cuenta vuelve a estar abierta, con todo como estaba.": ["Your account is open again, with everything as it was.", "Votre compte est de nouveau ouvert, avec tout comme avant."],
- "Tu perfil no permite pasar lista.": ["Your role does not allow check-in.", "Votre profil ne permet pas de pointer."],
- "Tu plan ha terminado: tu ficha sigue visible con lo básico.": ["Your plan has ended: your profile stays visible with the basics.", "Votre offre est terminée : votre fiche reste visible avec l’essentiel."],
- "Una menos": ["One less", "Une de moins"],
- "Una más": ["One more", "Une de plus"],
- "Uno menos": ["One less", "Un de moins"],
- "Uno más": ["One more", "Un de plus"],
- "Urgente": ["Urgent", "Urgent"],
- "Ver a quién avisamos": ["See who gets notified", "Voir qui sera prévenu"],
- "Ver la reserva": ["See the booking", "Voir la réservation"],
- "Ver la reserva completa": ["See the full booking", "Voir la réservation complète"],
- "Ver semana": ["See the week", "Voir la semaine"],
- "Ver solicitudes": ["See requests", "Voir les demandes"],
- "Visitas, clics en «Reservar» y solicitudes": ["Visits, clicks on “Book” and requests", "Visites, clics sur « Réserver » et demandes"],
- "WORLDIVES Pruebas: no se abre WhatsApp. Texto:": ["WORLDIVES Testing: WhatsApp does not open. Text:", "WORLDIVES Tests : WhatsApp ne s’ouvre pas. Texte :"],
- "WhatsApp en su idioma": ["WhatsApp in their language", "WhatsApp dans sa langue"],
- "Ya ha pagado": ["Already paid", "A déjà payé"],
- "a bordo.": ["on board.", "à bord."],
- "aceptada.": ["accepted.", "acceptée."],
- "aceptadas.": ["accepted.", "acceptées."],
- "buceador recibe el aviso": ["diver gets the notice", "plongeur reçoit l’avis"],
- "buceadores reciben el aviso": ["divers get the notice", "plongeurs reçoivent l’avis"],
- "clics en «Reservar».": ["clicks on “Book”.", "clics sur « Réserver »."],
- "cobros online, netos de devoluciones": ["online payments, net of refunds", "paiements en ligne, nets des remboursements"],
- "con alquiler": ["with rental", "avec location"],
- "conectado": ["connected", "connecté"],
- "confirmados": ["confirmed", "confirmés"],
- "de": ["of", "sur"],
- "desde el": ["since", "depuis le"],
- "devoluciones por hacer. Se hacen desde la reserva.": ["refunds to make. They are made from the booking.", "remboursements à faire. Ils se font depuis la réservation."],
- "han llegado": ["have arrived", "sont arrivés"],
- "libres": ["free", "libres"],
- "llena": ["full", "pleine"],
- "marcas guardadas en el móvil: se envían al volver la cobertura.": ["check-ins saved on the phone: they are sent when coverage comes back.", "pointages enregistrés sur le téléphone : ils partent au retour du réseau."],
- "no se aplicaron porque alguien las cambió antes.": ["were not applied because someone changed them before.", "n’ont pas été appliqués car quelqu’un les avait modifiés avant."],
- "otra persona": ["someone else", "une autre personne"],
- "pagado": ["paid", "payé"],
- "por WhatsApp, email y la app.": ["by WhatsApp, email and the app.", "par WhatsApp, e-mail et l’application."],
- "por aceptar": ["to accept", "à accepter"],
- "por email y la app.": ["by email and the app.", "par e-mail et l’application."],
- "que han llegado": ["who have arrived", "arrivés"],
- "reserva próxima. Antes de cerrar hay que resolverla.": ["upcoming booking. It must be resolved before closing.", "réservation à venir. Il faut la régler avant de fermer."],
- "reservas canceladas. Hemos avisado a todos.": ["bookings cancelled. Everyone has been notified.", "réservations annulées. Tout le monde a été prévenu."],
- "reservas próximas. Antes de cerrar hay que resolverlas.": ["upcoming bookings. They must be resolved before closing.", "réservations à venir. Il faut les régler avant de fermer."],
- "reservas y se devuelve todo lo pagado. No se puede deshacer.": ["bookings and everything paid is refunded. It cannot be undone.", "réservations et tout ce qui a été payé est remboursé. C’est irréversible."],
- "salida creada.": ["departure created.", "sortie créée."],
- "salida hoy": ["departure today", "sortie aujourd’hui"],
- "salidas creadas.": ["departures created.", "sorties créées."],
- "salidas hoy": ["departures today", "sorties aujourd’hui"],
- "semana más": ["more week", "semaine de plus"],
- "semanas más": ["more weeks", "semaines de plus"],
- "si en ese tiempo entras y pulsas «Reabrir mi cuenta», lo recuperas tal como estaba. Pasados los 6 meses lo borramos todo, salvo los pagos y los datos fiscales que la ley obliga a guardar.": ["if you sign in during that time and tap “Reopen my account”, you get it back as it was. After 6 months we delete everything, except the payments and tax data the law requires us to keep.", "si vous vous connectez pendant ce temps et touchez « Rouvrir mon compte », vous le retrouvez tel quel. Au bout de 6 mois, nous supprimons tout, sauf les paiements et les données fiscales que la loi oblige à conserver."],
- "sin conectar: los avisos salen por email y en la app.": ["not connected: notices go out by email and in the app.", "non connecté : les avis partent par e-mail et dans l’application."],
- "sin firmar": ["unsigned", "non signés"],
- "sin firmar el descargo. Pueden firmar en la lista del barco.": ["without the waiver signed. They can sign in the boat list.", "sans décharge signée. Ils peuvent signer dans la liste du bateau."],
- "solicitudes": ["requests", "demandes"],
- "visitas y": ["visits and", "visites et"],
- "y avisa a cada buceador por email y en la app, en su idioma.": ["and notifies each diver by email and in the app, in their language.", "et prévient chaque plongeur par e-mail et dans l’application, dans sa langue."],
- "«Cancelar y avisar a todos» cancela todas, devuelve lo pagado completo": ["“Cancel and notify everyone” cancels them all, refunds everything paid", "« Annuler et prévenir tout le monde » les annule toutes, rembourse l’intégralité"],
- "¿Cancelar todas las reservas?": ["Cancel all bookings?", "Annuler toutes les réservations ?"],
- "Últimos cobros": ["Latest payments", "Derniers encaissements"]
+ "Abrir la cámara": [
+  "Open the camera",
+  "Ouvrir l’appareil photo"
+ ],
+ "Aceptada. El buceador recibe el aviso.": [
+  "Accepted. The diver gets the notice.",
+  "Acceptée. Le plongeur reçoit l’avis."
+ ],
+ "Aceptar las elegidas": [
+  "Accept the selected ones",
+  "Accepter la sélection"
+ ],
+ "Aceptar varias": [
+  "Accept several",
+  "Accepter plusieurs"
+ ],
+ "Acompañante": [
+  "Companion",
+  "Accompagnant"
+ ],
+ "Actívalo en los ajustes del móvil (Aplicaciones › WORLDIVES › Permisos) o escribe el código.": [
+  "Turn it on in the phone’s settings (Apps › WORLDIVES › Permissions) or type the code.",
+  "Activez-la dans les réglages du téléphone (Applications › WORLDIVES › Autorisations) ou saisissez le code."
+ ],
+ "Anotado: paga al llegar.": [
+  "Noted: pays on arrival.",
+  "Noté : paie à l’arrivée."
+ ],
+ "Apunta al QR de la reserva": [
+  "Point at the booking’s QR code",
+  "Visez le QR de la réservation"
+ ],
+ "Avisos en cola. Salen en": [
+  "Notices queued. They go out in",
+  "Avis en file d’attente. Ils partent dans"
+ ],
+ "Avisos enviados.": [
+  "Notices sent.",
+  "Avis envoyés."
+ ],
+ "Avisos y WhatsApp Business": [
+  "Notices and WhatsApp Business",
+  "Avis et WhatsApp Business"
+ ],
+ "Añadir buceador": [
+  "Add a diver",
+  "Ajouter un plongeur"
+ ],
+ "Barcos, grupos y guías": [
+  "Boats, groups and guides",
+  "Bateaux, groupes et guides"
+ ],
+ "Bloqueado.": [
+  "Blocked.",
+  "Bloqué."
+ ],
+ "Borrar mi cuenta para siempre": [
+  "Delete my account forever",
+  "Supprimer mon compte définitivement"
+ ],
+ "Buscar reservas": [
+  "Search bookings",
+  "Rechercher des réservations"
+ ],
+ "Buscar, cobrar, cambiar": [
+  "Search, charge, change",
+  "Rechercher, encaisser, modifier"
+ ],
+ "Calendario (iCal), cartel, exportar": [
+  "Calendar (iCal), poster, export",
+  "Calendrier (iCal), affiche, export"
+ ],
+ "Cambiada. El buceador recibe el aviso.": [
+  "Changed. The diver gets the notice.",
+  "Modifiée. Le plongeur reçoit l’avis."
+ ],
+ "Cambiar de centro": [
+  "Switch centre",
+  "Changer de centre"
+ ],
+ "Cambiar la hora y avisar": [
+  "Change the time and notify",
+  "Changer l’heure et prévenir"
+ ],
+ "Cambiar y avisar": [
+  "Change and notify",
+  "Changer et prévenir"
+ ],
+ "Cancelar la salida y avisar a todos": [
+  "Cancel the departure and notify everyone",
+  "Annuler la sortie et prévenir tout le monde"
+ ],
+ "Cancelar y avisar": [
+  "Cancel and notify",
+  "Annuler et prévenir"
+ ],
+ "Cancelar y avisar a todos": [
+  "Cancel and notify everyone",
+  "Annuler et prévenir tout le monde"
+ ],
+ "Cerrar mi cuenta": [
+  "Close my account",
+  "Fermer mon compte"
+ ],
+ "Cobrar en el centro": [
+  "Charge at the centre",
+  "Encaisser au centre"
+ ],
+ "Cobrar en el centro y marcar": [
+  "Charge at the centre and check in",
+  "Encaisser au centre et pointer"
+ ],
+ "Cobro anotado. Plaza confirmada.": [
+  "Payment recorded. Place confirmed.",
+  "Paiement noté. Place confirmée."
+ ],
+ "Compartir el resumen": [
+  "Share the summary",
+  "Partager le résumé"
+ ],
+ "Contar a bordo": [
+  "Count on board",
+  "Compter à bord"
+ ],
+ "Cuenta cerrada": [
+  "Account closed",
+  "Compte fermé"
+ ],
+ "Datos, contraseña e idioma": [
+  "Details, password and language",
+  "Données, mot de passe et langue"
+ ],
+ "Del mismo servicio, con plazas": [
+  "Same service, with places",
+  "Même service, avec des places"
+ ],
+ "Desbloqueado.": [
+  "Unblocked.",
+  "Débloqué."
+ ],
+ "Desde la reserva, en este móvil": [
+  "From the booking, on this phone",
+  "Depuis la réservation, sur ce téléphone"
+ ],
+ "Deshecho: no se ha avisado a nadie.": [
+  "Undone: nobody has been notified.",
+  "Annulé : personne n’a été prévenu."
+ ],
+ "Después de cada buceador la cámara se abre otra vez.": [
+  "After each diver the camera opens again.",
+  "Après chaque plongeur, l’appareil photo se rouvre."
+ ],
+ "Después la borraremos para siempre.": [
+  "After that we will delete it forever.",
+  "Ensuite, nous le supprimerons définitivement."
+ ],
+ "Disponible en la web": [
+  "Available on the website",
+  "Disponible sur le site"
+ ],
+ "Día anterior": [
+  "Previous day",
+  "Jour précédent"
+ ],
+ "Día siguiente": [
+  "Next day",
+  "Jour suivant"
+ ],
+ "El PDF lleva su huella SHA-256 y quién lo generó: la copia impresa se puede comprobar con el servidor.": [
+  "The PDF carries its SHA-256 fingerprint and who generated it: a printed copy can be checked against the server.",
+  "Le PDF porte son empreinte SHA-256 et le nom de qui l’a généré : la copie imprimée peut être vérifiée auprès du serveur."
+ ],
+ "El QR de la reserva del buceador o un código de promoción.": [
+  "The QR of the diver’s booking or a promotion code.",
+  "Le QR de la réservation du plongeur ou un code de promotion."
+ ],
+ "El buceador recibe el motivo. No se le cobra nada.": [
+  "The diver gets the reason. Nothing is charged.",
+  "Le plongeur reçoit le motif. Rien ne lui est facturé."
+ ],
+ "El centro te ofrece esta salida.": [
+  "The centre offers you this departure.",
+  "Le centre vous propose cette sortie."
+ ],
+ "El propietario del centro ha cerrado la cuenta. Solo él puede reabrirla.": [
+  "The centre’s owner has closed the account. Only the owner can reopen it.",
+  "Le propriétaire du centre a fermé le compte. Lui seul peut le rouvrir."
+ ],
+ "Elegir": [
+  "Select",
+  "Choisir"
+ ],
+ "Elige al menos una.": [
+  "Select at least one.",
+  "Choisissez-en au moins une."
+ ],
+ "Enviadas las marcas guardadas sin conexión.": [
+  "Check-ins saved offline have been sent.",
+  "Les pointages enregistrés hors connexion ont été envoyés."
+ ],
+ "Equipo y perfiles": [
+  "Team and roles",
+  "Équipe et profils"
+ ],
+ "Escanear otro": [
+  "Scan another",
+  "Scanner un autre"
+ ],
+ "Escribir código": [
+  "Type a code",
+  "Saisir un code"
+ ],
+ "Escribir por WhatsApp": [
+  "Write on WhatsApp",
+  "Écrire sur WhatsApp"
+ ],
+ "Esta promoción no se puede usar.": [
+  "This promotion cannot be used.",
+  "Cette promotion ne peut pas être utilisée."
+ ],
+ "Esta reserva es de otra salida.": [
+  "This booking is for another departure.",
+  "Cette réservation est pour une autre sortie."
+ ],
+ "Esta reserva es de otro día.": [
+  "This booking is for another day.",
+  "Cette réservation est pour un autre jour."
+ ],
+ "Esta reserva es una solicitud que todavía no has aceptado.": [
+  "This booking is a request you have not accepted yet.",
+  "Cette réservation est une demande que vous n’avez pas encore acceptée."
+ ],
+ "Esta reserva está aceptada pero falta el pago.": [
+  "This booking is accepted but not paid yet.",
+  "Cette réservation est acceptée mais le paiement manque."
+ ],
+ "Esta reserva está cancelada.": [
+  "This booking is cancelled.",
+  "Cette réservation est annulée."
+ ],
+ "Esta reserva no es de tu centro.": [
+  "This booking is not for your centre.",
+  "Cette réservation n’est pas pour votre centre."
+ ],
+ "Esta reserva no tiene un teléfono válido.": [
+  "This booking has no valid phone number.",
+  "Cette réservation n’a pas de numéro de téléphone valide."
+ ],
+ "Esta reserva ya estaba marcada como llegada.": [
+  "This booking was already checked in.",
+  "Cette réservation était déjà pointée."
+ ],
+ "Este código no es de una reserva de WORLDIVES o está mal escrito.": [
+  "This code is not a WORLDIVES booking or it is mistyped.",
+  "Ce code n’est pas une réservation WORLDIVES ou il est mal saisi."
+ ],
+ "Está debajo del QR de la reserva, por ejemplo 1234-A1B2C3, o es el código de una promoción.": [
+  "It is under the booking’s QR, for example 1234-A1B2C3, or it is a promotion code.",
+  "Il est sous le QR de la réservation, par exemple 1234-A1B2C3, ou c’est un code de promotion."
+ ],
+ "Están todos.": [
+  "Everyone is here.",
+  "Tout le monde est là."
+ ],
+ "Explícaselo (opcional)": [
+  "Explain it (optional)",
+  "Expliquez-le (facultatif)"
+ ],
+ "Falta el pago": [
+  "Payment missing",
+  "Paiement manquant"
+ ],
+ "Faltan": [
+  "Missing",
+  "Manquent"
+ ],
+ "Ficha del centro": [
+  "Centre profile",
+  "Fiche du centre"
+ ],
+ "Filtro": [
+  "Filter",
+  "Filtre"
+ ],
+ "Firmar el descargo": [
+  "Sign the waiver",
+  "Signer la décharge"
+ ],
+ "Grupos, barcos y guías": [
+  "Groups, boats and guides",
+  "Groupes, bateaux et guides"
+ ],
+ "Guardamos todo durante 6 meses": [
+  "We keep everything for 6 months",
+  "Nous gardons tout pendant 6 mois"
+ ],
+ "Guardar la reserva": [
+  "Save the booking",
+  "Enregistrer la réservation"
+ ],
+ "Guías tú": [
+  "You guide",
+  "Vous guidez"
+ ],
+ "Ha llegado": [
+  "Arrived",
+  "Arrivé"
+ ],
+ "Hay plazas": [
+  "Places available",
+  "Places disponibles"
+ ],
+ "Horario y días de cierre": [
+  "Hours and closing days",
+  "Horaires et jours de fermeture"
+ ],
+ "Hoy no hay salidas.": [
+  "No departures today.",
+  "Pas de sortie aujourd’hui."
+ ],
+ "Hoy no tienes trabajos por días.": [
+  "You have no day jobs today.",
+  "Vous n’avez pas de travail à la journée aujourd’hui."
+ ],
+ "La cámara solo se abre dentro de la app. Escribe el código.": [
+  "The camera only opens inside the app. Type the code.",
+  "L’appareil photo ne s’ouvre que dans l’application. Saisissez le code."
+ ],
+ "La guardamos hasta el": [
+  "We keep it until",
+  "Nous le gardons jusqu’au"
+ ],
+ "La plaza queda confirmada.": [
+  "The place is confirmed.",
+  "La place est confirmée."
+ ],
+ "La reserva se cambia a la salida que elijas y el buceador recibe el aviso.": [
+  "The booking moves to the departure you choose and the diver gets the notice.",
+  "La réservation passe à la sortie choisie et le plongeur reçoit l’avis."
+ ],
+ "Las llegadas se marcan en esta salida.": [
+  "Arrivals are checked in on this departure.",
+  "Les arrivées sont pointées sur cette sortie."
+ ],
+ "Lastre (kg)": [
+  "Weights (kg)",
+  "Lest (kg)"
+ ],
+ "Lista del barco": [
+  "Boat list",
+  "Liste du bateau"
+ ],
+ "Llegada deshecha.": [
+  "Check-in undone.",
+  "Pointage annulé."
+ ],
+ "Llegada marcada.": [
+  "Checked in.",
+  "Arrivée pointée."
+ ],
+ "Lo cambió antes": [
+  "Changed earlier by",
+  "Modifié auparavant par"
+ ],
+ "Lo cobrado y las devoluciones pendientes": [
+  "Payments received and pending refunds",
+  "Encaissements et remboursements en attente"
+ ],
+ "Marcar llegada": [
+  "Check in",
+  "Pointer l’arrivée"
+ ],
+ "Media de los centros de": [
+  "Average of the centres in",
+  "Moyenne des centres de"
+ ],
+ "Mi ficha pública": [
+  "My public profile",
+  "Ma fiche publique"
+ ],
+ "Nada todavía": [
+  "Nothing yet",
+  "Rien pour l’instant"
+ ],
+ "Nadie la ve ni puede reservar.": [
+  "Nobody sees it or can book.",
+  "Personne ne le voit ni ne peut réserver."
+ ],
+ "Nivel insuficiente para esta inmersión": [
+  "Level not enough for this dive",
+  "Niveau insuffisant pour cette plongée"
+ ],
+ "No hay otras salidas de este servicio con plazas.": [
+  "There are no other departures of this service with places.",
+  "Il n’y a pas d’autre sortie de ce service avec des places."
+ ],
+ "No hay reservas con este filtro.": [
+  "No bookings with this filter.",
+  "Aucune réservation avec ce filtre."
+ ],
+ "No hay reservas esperando el pago.": [
+  "No bookings waiting for payment.",
+  "Aucune réservation en attente de paiement."
+ ],
+ "No quedan plazas": [
+  "No places left",
+  "Plus de places"
+ ],
+ "No repetir": [
+  "Do not repeat",
+  "Ne pas répéter"
+ ],
+ "No se ha podido crear.": [
+  "It could not be created.",
+  "Impossible de la créer."
+ ],
+ "No se ha podido leer el código.": [
+  "The code could not be read.",
+  "Le code n’a pas pu être lu."
+ ],
+ "No tienes solicitudes por contestar.": [
+  "You have no requests to answer.",
+  "Vous n’avez aucune demande à traiter."
+ ],
+ "No vino": [
+  "No-show",
+  "Absent"
+ ],
+ "Nombre del cliente": [
+  "Client’s name",
+  "Nom du client"
+ ],
+ "Nombre, email o nº de reserva": [
+  "Name, email or booking no.",
+  "Nom, e-mail ou n° de réservation"
+ ],
+ "Nota (solo la ves tú)": [
+  "Note (only you see it)",
+  "Note (vous seul la voyez)"
+ ],
+ "Nota para el barco": [
+  "Note for the boat",
+  "Note pour le bateau"
+ ],
+ "Ofrecer otra salida": [
+  "Offer another departure",
+  "Proposer une autre sortie"
+ ],
+ "PDF firmado": [
+  "Signed PDF",
+  "PDF signé"
+ ],
+ "Paga al llegar": [
+  "Pays on arrival",
+  "Paie à l’arrivée"
+ ],
+ "Pagará al llegar": [
+  "Will pay on arrival",
+  "Paiera à l’arrivée"
+ ],
+ "Para confirmar, escribe la fecha de la salida": [
+  "To confirm, type the date of the departure",
+  "Pour confirmer, saisissez la date de la sortie"
+ ],
+ "Para el cartel o las fotos de la salida, usa la web (Herramientas).": [
+  "For the poster or the departure’s photos, use the website (Tools).",
+  "Pour l’affiche ou les photos de la sortie, utilisez le site (Outils)."
+ ],
+ "Pendientes de pago": [
+  "Awaiting payment",
+  "En attente de paiement"
+ ],
+ "Periodo": [
+  "Period",
+  "Période"
+ ],
+ "Por contestar": [
+  "To answer",
+  "À traiter"
+ ],
+ "Por teléfono o en el mostrador": [
+  "By phone or at the desk",
+  "Par téléphone ou au comptoir"
+ ],
+ "Primero crea una actividad en la web (Servicios).": [
+  "First create an activity on the website (Services).",
+  "Créez d’abord une activité sur le site (Services)."
+ ],
+ "Promoción válida": [
+  "Valid promotion",
+  "Promotion valide"
+ ],
+ "Prueba gratuita del plan": [
+  "Free trial of the plan",
+  "Essai gratuit de l’offre"
+ ],
+ "Punto de encuentro (opcional)": [
+  "Meeting point (optional)",
+  "Point de rendez-vous (facultatif)"
+ ],
+ "Quitar «No vino»": [
+  "Remove “No-show”",
+  "Retirer « Absent »"
+ ],
+ "Quién entra y qué puede hacer": [
+  "Who signs in and what they can do",
+  "Qui se connecte et ce qu’il peut faire"
+ ],
+ "Recordar por WhatsApp": [
+  "Remind on WhatsApp",
+  "Relancer sur WhatsApp"
+ ],
+ "Repetir cada semana": [
+  "Repeat every week",
+  "Répéter chaque semaine"
+ ],
+ "Reserva correcta. Esta actividad no tiene lista de barco.": [
+  "Valid booking. This activity has no boat list.",
+  "Réservation valide. Cette activité n’a pas de liste de bateau."
+ ],
+ "Resumen barco": [
+  "Boat summary",
+  "Résumé bateau"
+ ],
+ "Ráfaga": [
+  "Burst",
+  "Rafale"
+ ],
+ "Salida completa": [
+  "Departure full",
+  "Sortie complète"
+ ],
+ "Salida en 45 minutos": [
+  "Departure in 45 minutes",
+  "Sortie dans 45 minutes"
+ ],
+ "Salidas de hoy": [
+  "Today’s departures",
+  "Sorties du jour"
+ ],
+ "Se cancelan": [
+  "This cancels",
+  "Seront annulées"
+ ],
+ "Semana anterior": [
+  "Previous week",
+  "Semaine précédente"
+ ],
+ "Semana siguiente": [
+  "Next week",
+  "Semaine suivante"
+ ],
+ "Servicios y precios": [
+  "Services and prices",
+  "Services et prix"
+ ],
+ "Sin conexión. Busca a la persona en la lista del barco: allí se guarda en el móvil.": [
+  "Offline. Look for the person in the boat list: it is kept on the phone.",
+  "Hors connexion. Cherchez la personne dans la liste du bateau : elle est gardée sur le téléphone."
+ ],
+ "Sin conexión. Lo que ya estaba guardado en el móvil sigue aquí.": [
+  "Offline. What was already saved on the phone is still here.",
+  "Hors connexion. Ce qui était déjà enregistré sur le téléphone est toujours là."
+ ],
+ "Sin conexión: datos guardados en el móvil a las": [
+  "Offline: data saved on the phone at",
+  "Hors connexion : données enregistrées sur le téléphone à"
+ ],
+ "Sin conexión: el recuento no se ha guardado en el historial.": [
+  "Offline: the count has not been saved in the history.",
+  "Hors connexion : le comptage n’a pas été enregistré dans l’historique."
+ ],
+ "Sin conexión: guardado en el móvil.": [
+  "Offline: saved on the phone.",
+  "Hors connexion : enregistré sur le téléphone."
+ ],
+ "Sin guía disponible": [
+  "No guide available",
+  "Pas de guide disponible"
+ ],
+ "Sin permiso para la cámara.": [
+  "No permission for the camera.",
+  "Pas d’autorisation pour l’appareil photo."
+ ],
+ "Sin salidas": [
+  "No departures",
+  "Aucune sortie"
+ ],
+ "Sin salidas este día.": [
+  "No departures this day.",
+  "Aucune sortie ce jour-là."
+ ],
+ "Sin salidas: se guarda con la fecha de hoy": [
+  "No departures: saved with today’s date",
+  "Aucune sortie : enregistrée à la date du jour"
+ ],
+ "Sin tocar:": [
+  "Not tapped:",
+  "Non touchés :"
+ ],
+ "Sobran": [
+  "Extra",
+  "En trop"
+ ],
+ "Solicitud por contestar": [
+  "Request to answer",
+  "Demande à traiter"
+ ],
+ "Solo la mañana": [
+  "Morning only",
+  "Le matin seulement"
+ ],
+ "Solo la tarde": [
+  "Afternoon only",
+  "L’après-midi seulement"
+ ],
+ "Solo la ve el equipo": [
+  "Only the team sees it",
+  "Seule l’équipe la voit"
+ ],
+ "Sí, cancelar y avisar": [
+  "Yes, cancel and notify",
+  "Oui, annuler et prévenir"
+ ],
+ "Tarde": [
+  "Afternoon",
+  "Après-midi"
+ ],
+ "Tarjeta (datáfono)": [
+  "Card (terminal)",
+  "Carte (terminal)"
+ ],
+ "Tema y tamaño del texto": [
+  "Theme and text size",
+  "Thème et taille du texte"
+ ],
+ "Tienes": [
+  "You have",
+  "Vous avez"
+ ],
+ "Toca a cada persona que ves en el barco, o cuenta con + y −.": [
+  "Tap each person you see on the boat, or count with + and −.",
+  "Touchez chaque personne que vous voyez sur le bateau, ou comptez avec + et −."
+ ],
+ "Toca «Aceptar» o elige varias.": [
+  "Tap “Accept” or select several.",
+  "Touchez « Accepter » ou choisissez-en plusieurs."
+ ],
+ "Todavía no hay buceadores en esta salida.": [
+  "No divers on this departure yet.",
+  "Pas encore de plongeurs sur cette sortie."
+ ],
+ "Todavía no hay cobros online.": [
+  "No online payments yet.",
+  "Pas encore de paiements en ligne."
+ ],
+ "Todo el día": [
+  "All day",
+  "Toute la journée"
+ ],
+ "Todo en la web: Stripe, facturas y exportar": [
+  "Everything on the website: Stripe, invoices and export",
+  "Tout sur le site : Stripe, factures et export"
+ ],
+ "Trabajo diario": [
+  "Daily work",
+  "Travail au quotidien"
+ ],
+ "Trabajos de hoy": [
+  "Today’s jobs",
+  "Travaux du jour"
+ ],
+ "Tu cuenta está cerrada": [
+  "Your account is closed",
+  "Votre compte est fermé"
+ ],
+ "Tu cuenta se cierra ahora: deja de verse y nadie puede reservar.": [
+  "Your account closes now: it is no longer shown and nobody can book.",
+  "Votre compte se ferme maintenant : il n’est plus visible et personne ne peut réserver."
+ ],
+ "Tu cuenta se ha cerrado. Puedes reabrirla hasta el": [
+  "Your account is closed. You can reopen it until",
+  "Votre compte est fermé. Vous pouvez le rouvrir jusqu’au"
+ ],
+ "Tu cuenta vuelve a estar abierta, con todo como estaba.": [
+  "Your account is open again, with everything as it was.",
+  "Votre compte est de nouveau ouvert, avec tout comme avant."
+ ],
+ "Tu perfil no permite pasar lista.": [
+  "Your role does not allow check-in.",
+  "Votre profil ne permet pas de pointer."
+ ],
+ "Tu plan ha terminado: tu ficha sigue visible con lo básico.": [
+  "Your plan has ended: your profile stays visible with the basics.",
+  "Votre offre est terminée : votre fiche reste visible avec l’essentiel."
+ ],
+ "Una menos": [
+  "One less",
+  "Une de moins"
+ ],
+ "Una más": [
+  "One more",
+  "Une de plus"
+ ],
+ "Uno menos": [
+  "One less",
+  "Un de moins"
+ ],
+ "Uno más": [
+  "One more",
+  "Un de plus"
+ ],
+ "Urgente": [
+  "Urgent",
+  "Urgent"
+ ],
+ "Ver a quién avisamos": [
+  "See who gets notified",
+  "Voir qui sera prévenu"
+ ],
+ "Ver la reserva": [
+  "See the booking",
+  "Voir la réservation"
+ ],
+ "Ver la reserva completa": [
+  "See the full booking",
+  "Voir la réservation complète"
+ ],
+ "Ver semana": [
+  "See the week",
+  "Voir la semaine"
+ ],
+ "Ver solicitudes": [
+  "See requests",
+  "Voir les demandes"
+ ],
+ "Visitas, clics en «Reservar» y solicitudes": [
+  "Visits, clicks on “Book” and requests",
+  "Visites, clics sur « Réserver » et demandes"
+ ],
+ "WORLDIVES Pruebas: no se abre WhatsApp. Texto:": [
+  "WORLDIVES Testing: WhatsApp does not open. Text:",
+  "WORLDIVES Tests : WhatsApp ne s’ouvre pas. Texte :"
+ ],
+ "WhatsApp en su idioma": [
+  "WhatsApp in their language",
+  "WhatsApp dans sa langue"
+ ],
+ "Ya ha pagado": [
+  "Already paid",
+  "A déjà payé"
+ ],
+ "a bordo.": [
+  "on board.",
+  "à bord."
+ ],
+ "aceptada.": [
+  "accepted.",
+  "acceptée."
+ ],
+ "aceptadas.": [
+  "accepted.",
+  "acceptées."
+ ],
+ "buceador recibe el aviso": [
+  "diver gets the notice",
+  "plongeur reçoit l’avis"
+ ],
+ "buceadores reciben el aviso": [
+  "divers get the notice",
+  "plongeurs reçoivent l’avis"
+ ],
+ "clics en «Reservar».": [
+  "clicks on “Book”.",
+  "clics sur « Réserver »."
+ ],
+ "cobros online, netos de devoluciones": [
+  "online payments, net of refunds",
+  "paiements en ligne, nets des remboursements"
+ ],
+ "con alquiler": [
+  "with rental",
+  "avec location"
+ ],
+ "conectado": [
+  "connected",
+  "connecté"
+ ],
+ "confirmados": [
+  "confirmed",
+  "confirmés"
+ ],
+ "de": [
+  "of",
+  "sur"
+ ],
+ "desde el": [
+  "since",
+  "depuis le"
+ ],
+ "devoluciones por hacer. Se hacen desde la reserva.": [
+  "refunds to make. They are made from the booking.",
+  "remboursements à faire. Ils se font depuis la réservation."
+ ],
+ "han llegado": [
+  "have arrived",
+  "sont arrivés"
+ ],
+ "libres": [
+  "free",
+  "libres"
+ ],
+ "llena": [
+  "full",
+  "pleine"
+ ],
+ "marcas guardadas en el móvil: se envían al volver la cobertura.": [
+  "check-ins saved on the phone: they are sent when coverage comes back.",
+  "pointages enregistrés sur le téléphone : ils partent au retour du réseau."
+ ],
+ "no se aplicaron porque alguien las cambió antes.": [
+  "were not applied because someone changed them before.",
+  "n’ont pas été appliqués car quelqu’un les avait modifiés avant."
+ ],
+ "otra persona": [
+  "someone else",
+  "une autre personne"
+ ],
+ "pagado": [
+  "paid",
+  "payé"
+ ],
+ "por WhatsApp, email y la app.": [
+  "by WhatsApp, email and the app.",
+  "par WhatsApp, e-mail et l’application."
+ ],
+ "por aceptar": [
+  "to accept",
+  "à accepter"
+ ],
+ "por email y la app.": [
+  "by email and the app.",
+  "par e-mail et l’application."
+ ],
+ "que han llegado": [
+  "who have arrived",
+  "arrivés"
+ ],
+ "reserva próxima. Antes de cerrar hay que resolverla.": [
+  "upcoming booking. It must be resolved before closing.",
+  "réservation à venir. Il faut la régler avant de fermer."
+ ],
+ "reservas canceladas. Hemos avisado a todos.": [
+  "bookings cancelled. Everyone has been notified.",
+  "réservations annulées. Tout le monde a été prévenu."
+ ],
+ "reservas próximas. Antes de cerrar hay que resolverlas.": [
+  "upcoming bookings. They must be resolved before closing.",
+  "réservations à venir. Il faut les régler avant de fermer."
+ ],
+ "reservas y se devuelve todo lo pagado. No se puede deshacer.": [
+  "bookings and everything paid is refunded. It cannot be undone.",
+  "réservations et tout ce qui a été payé est remboursé. C’est irréversible."
+ ],
+ "salida creada.": [
+  "departure created.",
+  "sortie créée."
+ ],
+ "salida hoy": [
+  "departure today",
+  "sortie aujourd’hui"
+ ],
+ "salidas creadas.": [
+  "departures created.",
+  "sorties créées."
+ ],
+ "salidas hoy": [
+  "departures today",
+  "sorties aujourd’hui"
+ ],
+ "semana más": [
+  "more week",
+  "semaine de plus"
+ ],
+ "semanas más": [
+  "more weeks",
+  "semaines de plus"
+ ],
+ "si en ese tiempo entras y pulsas «Reabrir mi cuenta», lo recuperas tal como estaba. Pasados los 6 meses lo borramos todo, salvo los pagos y los datos fiscales que la ley obliga a guardar.": [
+  "if you sign in during that time and tap “Reopen my account”, you get it back as it was. After 6 months we delete everything, except the payments and tax data the law requires us to keep.",
+  "si vous vous connectez pendant ce temps et touchez « Rouvrir mon compte », vous le retrouvez tel quel. Au bout de 6 mois, nous supprimons tout, sauf les paiements et les données fiscales que la loi oblige à conserver."
+ ],
+ "sin conectar: los avisos salen por email y en la app.": [
+  "not connected: notices go out by email and in the app.",
+  "non connecté : les avis partent par e-mail et dans l’application."
+ ],
+ "sin firmar": [
+  "unsigned",
+  "non signés"
+ ],
+ "sin firmar el descargo. Pueden firmar en la lista del barco.": [
+  "without the waiver signed. They can sign in the boat list.",
+  "sans décharge signée. Ils peuvent signer dans la liste du bateau."
+ ],
+ "solicitudes": [
+  "requests",
+  "demandes"
+ ],
+ "visitas y": [
+  "visits and",
+  "visites et"
+ ],
+ "y avisa a cada buceador por email y en la app, en su idioma.": [
+  "and notifies each diver by email and in the app, in their language.",
+  "et prévient chaque plongeur par e-mail et dans l’application, dans sa langue."
+ ],
+ "«Cancelar y avisar a todos» cancela todas, devuelve lo pagado completo": [
+  "“Cancel and notify everyone” cancels them all, refunds everything paid",
+  "« Annuler et prévenir tout le monde » les annule toutes, rembourse l’intégralité"
+ ],
+ "¿Cancelar todas las reservas?": [
+  "Cancel all bookings?",
+  "Annuler toutes les réservations ?"
+ ],
+ "Últimos cobros": [
+  "Latest payments",
+  "Derniers encaissements"
+ ],
+ "Tu QR para el barco": [
+  "Your QR for the boat",
+  "Votre QR pour le bateau"
+ ],
+ "Funciona sin conexión: está guardado en este móvil.": [
+  "Works offline: it is saved on this phone.",
+  "Fonctionne hors connexion : il est enregistré sur ce téléphone."
+ ],
+ "Solo el propietario del centro puede cerrar la cuenta del centro.": [
+  "Only the centre’s owner can close the centre’s account.",
+  "Seul le propriétaire du centre peut fermer le compte du centre."
+ ]
 }

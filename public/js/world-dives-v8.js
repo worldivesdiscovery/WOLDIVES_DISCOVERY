@@ -26,7 +26,7 @@
   // «exact»: frase completa → traducción. «patterns»: frases con partes variables ({n} número, {x} texto).
   // Todo lo que se pinta en la página (también lo que llega después: ventanas, avisos, listas) se traduce al vuelo.
   // ---------------------------------------------------------------------------
-  const WD_I18N_VERSION='50.48';
+  const WD_I18N_VERSION='50.49';
   const WD_LOCALES={es:'es-ES',en:'en-GB',fr:'fr-FR',de:'de-DE',it:'it-IT',pt:'pt-PT',pl:'pl-PL',nl:'nl-NL',zh:'zh-CN'};
   // Plural forms (Polish has several): a translation may be {one,few,many,other}.
   const wdPlural=(tpl,n)=>{ if(typeof tpl!=='object'||!tpl) return tpl; let k='other'; try{ k=new Intl.PluralRules(wdLocale()).select(Number(String(n).replace(/[^\d.-]/g,''))||0); }catch{} return tpl[k]??tpl.other??Object.values(tpl)[0]; };
@@ -4946,26 +4946,26 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // v50.49: centres (owner) and freelance close their account: six months to come back with everything, then deleted.
   function wdOwnsProvider(){ const m=state.me; return !!m&&(m.user?.role==='freelance'||(m.user?.role==='center'&&(m.member_role||'owner')==='owner')); }
   function wdClosedCard(){ const c=state.me?.account_closed; if(!c) return '';
-    return `<div class="cx-summary is-late" id="acc-closed">${wdIcon('alert',20)}<div><p><b>Tu cuenta está cerrada</b> desde el ${escapeHtml(wdLegalDate(c.closed_at))}. Nadie la ve ni puede reservar.</p>
-      <p>La guardamos hasta el ${escapeHtml(wdLegalDate(c.purge_after))} (${c.days_left===1?'queda 1 día':`quedan ${c.days_left} días`}). Después la borraremos para siempre.</p>
+    return `<div class="cx-summary is-late" id="acc-closed">${wdIcon('alert',20)}<div><p><b>Tu cuenta está cerrada</b> <span>desde el</span> <span translate="no">${escapeHtml(wdLegalDate(c.closed_at))}</span>. <span>Nadie la ve ni puede reservar.</span></p>
+      <p><span>La guardamos hasta el</span> <b translate="no">${escapeHtml(wdLegalDate(c.purge_after))}</b> (<span class="num">${c.days_left}</span> <span>${c.days_left===1?'día':'días'}</span>). <span>Después la borraremos para siempre.</span></p>
       <button type="button" class="btn btn-primary" id="acc-reopen">Reabrir mi cuenta</button></div></div>`; }
   async function wdCloseAccountFlow(){
     const esc=escapeHtml; let st; try{ st=await api('/api/provider/cuenta'); }catch(err){ toast(err.message); return; }
     const money=(v,c)=>wdMoney(v,c||'EUR');
-    const futureHtml=()=>`<div class="cx-summary is-late">${wdIcon('alert',20)}<p>Tienes <b>${st.future_count===1?'1 reserva próxima':`${st.future_count} reservas próximas`}</b>. Antes de cerrar hay que resolverlas: cámbialas o cancélalas desde tus reservas, o cancélalas todas aquí.</p></div>
-      <ul class="acc-close-list">${st.future.slice(0,12).map(b=>`<li><b>${esc(wdLegalDate(b.booking_date))}${b.booking_time?' · '+esc(b.booking_time):''}</b> · ${esc(b.service_title||'Reserva')} · ${esc(b.name||'')} · ${b.participants} ${b.participants===1?'persona':'personas'}${b.paid>0?` · pagado ${esc(money(b.paid,b.currency))}`:''}</li>`).join('')}${st.future.length>12?`<li>… y ${st.future.length-12} más</li>`:''}</ul>
-      <p class="adl-det">«Cancelar y avisar a todos» cancela todas, devuelve lo pagado completo${st.refund_total>0?` (${esc(money(st.refund_total))} en total)`:''} y avisa a cada buceador por email y en la app, en su idioma.</p>`;
-    const closeHtml=()=>`<div class="cx-summary">${wdIcon('info',20)}<p>Tu ${st.kind==='center'?'centro':'perfil'} deja de verse ahora y nadie podrá reservar. <b>Guardamos todo durante 6 meses</b>: si en ese tiempo entras y pulsas «Reabrir mi cuenta», lo recuperas tal como estaba. Pasados los 6 meses lo borramos todo, salvo los pagos y los datos fiscales que la ley obliga a guardar.</p></div>
+    const futureHtml=()=>`<div class="cx-summary is-late">${wdIcon('alert',20)}<p><span>Tienes</span> <b class="num">${st.future_count}</b> <span>${st.future_count===1?'reserva próxima. Antes de cerrar hay que resolverla.':'reservas próximas. Antes de cerrar hay que resolverlas.'}</span> <span>Cámbialas o cancélalas desde tus reservas, o cancélalas todas aquí.</span></p></div>
+      <ul class="acc-close-list" translate="no">${st.future.slice(0,12).map(b=>`<li><b>${esc(wdLegalDate(b.booking_date))}${b.booking_time?' · '+esc(b.booking_time):''}</b> · ${esc(b.service_title||'')} · ${esc(b.name||'')} · ${b.participants} · ${b.paid>0?esc(money(b.paid,b.currency)):''}</li>`).join('')}${st.future.length>12?`<li>… +${st.future.length-12}</li>`:''}</ul>
+      <p class="adl-det"><span>«Cancelar y avisar a todos» cancela todas, devuelve lo pagado completo</span>${st.refund_total>0?` (<span class="num" translate="no">${esc(money(st.refund_total))}</span>)`:''} <span>y avisa a cada buceador por email y en la app, en su idioma.</span></p>`;
+    const closeHtml=()=>`<div class="cx-summary">${wdIcon('info',20)}<p><span>Tu cuenta se cierra ahora: deja de verse y nadie puede reservar.</span> <b>Guardamos todo durante 6 meses</b>: <span>si en ese tiempo entras y pulsas «Reabrir mi cuenta», lo recuperas tal como estaba. Pasados los 6 meses lo borramos todo, salvo los pagos y los datos fiscales que la ley obliga a guardar.</span></p></div>
       <p style="margin:0 0 10px"><a href="/api/center/export?kind=bookings" download>Descarga antes tus reservas (CSV)</a></p>
       <div class="field"><label for="close-pw">Escribe tu contraseña para confirmar</label><input id="close-pw" type="password" autocomplete="current-password" required></div>`;
     const {el,close}=wdOpenModal({id:'close-account',title:'Borrar mi cuenta para siempre',subtitle:esc(st.name||''),
       body:`<div id="close-body">${st.future_count?futureHtml():closeHtml()}</div>`,
       footer:`<button type="button" class="btn" data-modal-close>No, volver</button>${st.future_count?'<button type="button" class="btn danger" id="close-cancel-all">Cancelar y avisar a todos</button>':'<button type="button" class="btn danger" id="close-ok">Cerrar mi cuenta</button>'}`});
-    $('#close-cancel-all',el)?.addEventListener('click',async e=>{ if(!confirm(`Se van a cancelar ${st.future_count} reservas y se devolverá todo lo pagado. ¿Seguro?`)) return; e.target.disabled=true;
-      try{ const r=await postJSON('/api/provider/cuenta/cancelar-todo',{confirm:true}); close(); toast(`${r.result.cancelled} reservas canceladas. Hemos avisado a todos.`); wdCloseAccountFlow(); }catch(err){ e.target.disabled=false; toast(err.message); } });
+    $('#close-cancel-all',el)?.addEventListener('click',async e=>{ if(!confirm(translateString('¿Cancelar todas las reservas? Se devuelve todo lo pagado y no se puede deshacer.'))) return; e.target.disabled=true;
+      try{ const r=await postJSON('/api/provider/cuenta/cancelar-todo',{confirm:true}); close(); toast(`${r.result.cancelled} · ${translateString('reservas canceladas. Hemos avisado a todos.')}`); wdCloseAccountFlow(); }catch(err){ e.target.disabled=false; toast(err.message); } });
     $('#close-ok',el)?.addEventListener('click',async e=>{ e.target.disabled=true;
       try{ const r=await postJSON('/api/provider/cuenta/cerrar',{password:$('#close-pw',el).value}); close(); state.me=null; renderAccount();
-        toast(`Tu cuenta se ha cerrado. Puedes reabrirla hasta el ${wdLegalDate(r.purge_after)}.`); location.hash='#/'; }
+        toast(`${translateString('Tu cuenta se ha cerrado. Puedes reabrirla hasta el')} ${wdLegalDate(r.purge_after)}.`); location.hash='#/'; }
       catch(err){ e.target.disabled=false; toast(err.message); } });
   }
   function bindAccountPrivacy(){
@@ -5210,8 +5210,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="field"><label for="tm-role">Perfil</label><select id="tm-role">${opts('reception')}</select></div>
         <div class="form-actions full"><button class="btn btn-primary" type="submit">Enviar invitación</button></div></form><p class="adl-det">${d.limit?`Tu plan permite ${d.limit} personas.`:''}</p>`:'<p class="adl-det">El equipo está incluido en el plan Pro. <a href="#/planes">Ver planes</a></p>'}
       <h3 class="adl-h" id="tr-h">Perfiles y lo que puede hacer cada uno</h3>
-      <p class="adl-det">Solo tú, como propietario, puedes: ${(d.owner_only||[]).map(esc).join(' · ')}.</p>
-      <div class="tr-list">${RL.map(r=>`<details class="tr-role" data-key="${esc(r.key)}"><summary><b>${esc(r.name)}</b> <small>${r.members===1?'1 persona':`${r.members} personas`}${r.builtin?'':' · perfil de tu centro'}${r.builtin&&r.changed?' · cambiado':''}</small></summary>
+      <p class="adl-det"><span>Solo tú, como propietario, puedes:</span> ${(d.owner_only||[]).map(x=>`<span>${esc(x)}</span>`).join(' · ')}.</p>
+      <div class="tr-list">${RL.map(r=>`<details class="tr-role" data-key="${esc(r.key)}"><summary><b>${esc(r.name)}</b> <small><span class="num">${r.members}</span> <span>${r.members===1?'persona':'personas'}</span>${r.builtin?'':' · <span>perfil de tu centro</span>'}${r.builtin&&r.changed?' · <span>cambiado</span>':''}</small></summary>
         ${r.owner?'<p class="adl-det">El propietario siempre puede hacerlo todo.</p>':`<form class="tr-form" data-key="${esc(r.key)}">${r.builtin?'':`<div class="field"><label for="tr-n-${esc(r.key)}">Nombre del perfil</label><input id="tr-n-${esc(r.key)}" class="tr-name" maxlength="40" value="${esc(r.name)}" required></div>`}
           <fieldset class="tr-perms"><legend class="sr-only">Qué puede hacer ${esc(r.name)}</legend>${checks(r,'tr-'+r.key)}</fieldset>
           <div class="form-actions"><button type="submit" class="btn btn-primary">Guardar</button>${r.builtin&&r.changed?`<button type="button" class="btn tr-reset">Volver a lo de siempre</button>`:''}${r.builtin?'':`<button type="button" class="btn tr-del">Borrar perfil</button>`}</div></form>`}</details>`).join('')}
@@ -5553,7 +5553,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   navMobile();
   initLanguage();
   // v50.48 · App mode: what /js/wd-app.js uses from this file. Only inside the app (or with «?app=1»).
-  const WD_APP_ASSETS='50.48';
+  const WD_APP_ASSETS='50.49';
   function wdLoadApp(){
     window.WD={app:WD_APP,state,$,$$,escapeHtml,api,postJSON,toast,setApp,route,loadMe,currentLanguage,translateString,translateTree,applyLanguage,
       wdIcon,wdLocale,fmtDate,wdMoney,wdLongDay,wdToday,daysUntil,wdDeadline,bookingStatus,experienceStatus,initials,goLogin,wdOpenCheckout,wdAppPay,

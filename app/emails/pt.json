@@ -548,5 +548,18 @@
  "Estado del mar": "Estado do mar",
  "Otro motivo": "Outro motivo",
  "Ha cerrado su cuenta en WORLDIVES y ha cancelado todas sus próximas reservas": "Encerrou a sua conta na WORLDIVES e cancelou todas as próximas reservas",
- "Toca para verlo en la app.": "Toque para ver na app."
+ "Toca para verlo en la app.": "Toque para ver na app.",
+ "Resumen para el barco": "Resumo para o barco",
+ "Llegados": "Chegados",
+ "Puntos": "Pontos de mergulho",
+ "Grupo": "Grupo",
+ "Buceador": "Mergulhador",
+ "Nivel": "Nível",
+ "Alquiler": "Aluguer",
+ "Firma": "Assinado",
+ "Llegó": "Chegou",
+ "Sin grupo": "Sem grupo",
+ "Generado el {at} por {who}": "Gerado em {at} por {who}",
+ "No": "Não",
+ "No vino": "Não compareceu"
 }

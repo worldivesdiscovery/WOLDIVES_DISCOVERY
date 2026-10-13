@@ -548,5 +548,18 @@
  "Estado del mar": "海况不佳",
  "Otro motivo": "其他原因",
  "Ha cerrado su cuenta en WORLDIVES y ha cancelado todas sus próximas reservas": "已关闭其 WORLDIVES 账户，并取消了所有即将进行的预订",
- "Toca para verlo en la app.": "点按即可在应用中查看。"
+ "Toca para verlo en la app.": "点按即可在应用中查看。",
+ "Resumen para el barco": "船上名单摘要",
+ "Llegados": "已到达",
+ "Puntos": "潜点",
+ "Grupo": "小组",
+ "Buceador": "潜水员",
+ "Nivel": "级别",
+ "Alquiler": "租赁",
+ "Firma": "签名",
+ "Llegó": "到达",
+ "Sin grupo": "未分组",
+ "Generado el {at} por {who}": "由 {who} 于 {at} 生成",
+ "No": "否",
+ "No vino": "未到"
 }
