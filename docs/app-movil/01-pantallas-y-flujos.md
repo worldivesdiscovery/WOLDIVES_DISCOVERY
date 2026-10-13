@@ -35,7 +35,7 @@ Un solo binario y tres «caras», según el tipo de cuenta:
 
 | Rol | Barra inferior (4 pestañas) |
 |---|---|
-| Buceador e invitado | Inicio · Explorar (mapa) · Reservas · Perfil |
+| Buceador (y quien aún no tiene cuenta) | Inicio · Explorar (mapa) · Reservas · Perfil |
 | Centro | Hoy · Agenda · Clientes · Más |
 | Freelance | Hoy · Agenda · Trabajos · Cobros |
 
@@ -53,10 +53,10 @@ Abrir app ─► Inicio ──(toque 1: la salida)──► Hoja de la salida �
 | # | Pantalla | Qué se ve | Toques desde Inicio | En la web hoy |
 |---|---|---|---|---|
 | B1 | **Inicio** | Arriba, «Tu próxima inmersión» (cuenta atrás, punto de encuentro, QR) o una sugerencia según nivel, ubicación e historial. Chips **Hoy · Mañana · Finde · Elegir**. Lista de salidas con hora, punto, nivel exigido, plazas libres al momento, precio final y estado del mar | 0 | Explorar y fichas de centro (`/api/provider-services`, `/api/center-directory`) |
-| B2 | **Hoja de la salida** (sobre el Inicio, no es pantalla nueva) | Foto o vídeo corto del punto, hora y punto de encuentro, «Apto para tu Advanced» o, si no hay datos, «Exige Advanced: lo confirmas al pagar», personas (+/−), equipo con **tallas guardadas**, precio total sin sorpresas, política de cancelación en una línea. Botón **Reservar con Apple Pay / Google Pay**. Debajo, en pequeño: «Pagar señal de X €» o «Pagar en el centro» si el centro lo permite | 1 | Reserva y presupuesto (`/api/booking-quote`, `POST /api/bookings`) |
-| B3 | **Monedero** | Hoja de Apple Pay o Google Pay con el importe y el nombre del centro | 2 | Pago con Stripe en el navegador (Checkout) |
+| B2 | **Hoja de la salida** (sobre el Inicio, no es pantalla nueva) | Foto o vídeo corto del punto, hora y punto de encuentro, «Apto para tu Advanced» o, si no hay datos, «Exige Advanced: lo confirmas al pagar», personas (+/−), equipo con **tallas guardadas**, precio total sin sorpresas, política de cancelación en una línea. Botón **Reservar con Apple Pay / Google Pay**. Debajo, en pequeño: «Pagar señal de X €» o «Pagar en el centro» si el centro lo permite. Sin cuenta: una línea «Se crea tu cuenta con Apple / Google» sobre el botón, y «Llamar al centro» | 1 | Reserva y presupuesto (`/api/booking-quote`, `POST /api/bookings`) |
+| B3 | **Monedero** | Hoja de Apple Pay o Google Pay con el importe y el nombre del centro. La primera vez va precedida del «Continuar con Apple / Google» del sistema, que crea la cuenta | 2 | Pago con Stripe en el navegador (Checkout) |
 | B4 | **Reserva confirmada** | Animación, vibración, «Añadir a Wallet / Calendario», QR de la reserva y aviso suave: «Firma el descargo antes de llegar (1 min)» | — | Página «pago-ok» y correo |
-| B5 | **Después de pagar** | Descargo, cuestionario médico, titulación y seguro. Se hace cuando quiera, antes de la salida. **Nunca bloquea la reserva** | desde B4 o un aviso | Descargo firmado (v50.40), documentos de la cuenta |
+| B5 | **Después de pagar** | Descargo, titulación, seguro y tallas (sin cuestionario médico: decisión del 13/10). Se hace cuando quiera, antes de la salida. **Nunca bloquea la reserva** | desde B4 o un aviso | Descargo firmado (v50.40), documentos de la cuenta |
 
 **Modos de reserva que ya tiene la web** (el centro elige el de cada servicio):
 - **Pago al reservar:** es el flujo de arriba.
@@ -65,15 +65,16 @@ Abrir app ─► Inicio ──(toque 1: la salida)──► Hoja de la salida �
 - **Señal o pago en el centro:** son variantes del botón en B2.
 
 **Reglas que hacen posible el medio minuto:**
-- **Sin registro antes de reservar.** El invitado paga con el monedero, y de ahí salen su nombre, su correo y su
-  teléfono. La cuenta se crea sola, sin contraseña, y la confirma después con una passkey o el enlace del correo.
+- **Sin pantalla de registro antes de reservar.** Sin cuenta solo se ve la información del centro y su teléfono
+  (decisión del 13/10). La primera vez, el botón de pago abre primero «Continuar con Apple» o «Continuar con Google»
+  del sistema, que crea la cuenta con nombre y correo sin formularios. Justo después se abre el monedero. Es el mismo
+  toque; el sistema pide una confirmación más (Face ID, o elegir la cuenta de Google).
 - **Nivel:** con titulación guardada, el Inicio solo muestra salidas aptas, y un interruptor «Ver todas» enseña el
-  resto marcadas «No apta». Para un invitado, la hoja dice qué exige la salida y el pago incluye la declaración
+  resto marcadas «No apta». En la primera reserva, la hoja dice qué exige la salida y el pago incluye la declaración
   «Tengo esa titulación». El centro la comprueba en el check-in. Si no la tiene, cambio a una salida apta o
   devolución íntegra.
 - **Se guarda una sola vez:** datos, titulación, tallas y seguro. La web ya los guarda en la ficha del buceador.
-- **El cuestionario médico y el descargo van después de pagar** (ver la decisión pendiente sobre datos médicos en el
-  README).
+- **El descargo va después de pagar.** No hay cuestionario médico en la app (decisión del 13/10).
 
 ### Resto de pantallas del buceador
 
@@ -84,8 +85,8 @@ Abrir app ─► Inicio ──(toque 1: la salida)──► Hoja de la salida �
 | B8 | **Cambiar o cancelar** | Según la política del centro: «Cambiar a otra fecha» o «Cancelar y devolver X €», con la devolución automática | 2 desde la reserva | `/api/bookings/<id>/cancel`, `/change-date` |
 | B9 | **Explorar** (mapa) | Puntos de buceo con filtros: nivel, profundidad, barco, costa, nocturna. Tocar un punto lleva a sus salidas | 1 | Mapa y fichas de puntos (`/api/dive-points/map`) |
 | B10 | **Ficha del punto** | Fotos, profundidad, nivel recomendado, centros y sus salidas, valoraciones | 2 | Ficha del punto |
-| B11 | **Ficha del centro** | Servicios, salidas, valoraciones de quien buceó, contacto (WhatsApp del centro) | 2–3 | Ficha del centro |
-| B12 | **Perfil** | Datos, titulaciones (foto o verificación), tallas, seguro, idioma, privacidad, puntos | 1 | Mi cuenta |
+| B11 | **Ficha del centro** | Servicios, salidas, valoraciones de quien buceó. Botones **«WhatsApp del centro»** y **«Llamar»**. Es lo que ve quien no tiene cuenta | 2–3 | Ficha del centro |
+| B12 | **Perfil** | Datos, titulaciones (foto o verificación), tallas, seguro, idioma (español, inglés o francés), privacidad, puntos | 1 | Mi cuenta |
 | B13 | **Logbook** | Inmersiones con fecha, punto, profundidad, tiempo y firma del guía. Número de inmersiones | 2 | Log Book |
 | B14 | **Avisos** | Cancelaciones, cambios y recordatorios, con «Ver mi reserva» | 1 (campana) | Mi área → Avisos (v50.47) |
 | B15 | **Asistente** (fase 3) | «¿Qué buceo me recomiendas mañana?» Responde solo con salidas reales: nivel, plazas y estado del mar | 1 | No existe |
@@ -113,7 +114,7 @@ Abrir app ─► Inicio ──(toque 1: la salida)──► Hoja de la salida �
 | C6 | **Cancelar por meteo** | El flujo de v50.47: motivo, quién recibe cada canal (push, WhatsApp, correo), dinero (devolver o elegir otra fecha), escribir la fecha, 10 s para deshacer y panel de estado | 2 | Avisos masivos (v50.47) |
 | C7 | **Asignar personal** | Personal del centro y freelance disponibles ese día. Tocar asigna u ofrece el trabajo | 2 | Grupos del manifiesto (`slot_groups.guide_user_id`); ofertas a freelance: nuevo |
 | C8 | **Clientes** | Buscador, recurrentes, nivel y última inmersión | 1 | Panel → Clientes |
-| C9 | **Mensajes** | Ver la decisión pendiente «Mensajería» en el README | — | Avisos de una reserva; sin chat |
+| C9 | **Contacto con clientes** | Sin chat (decisión del 13/10). Desde la ficha de cada buceador, «WhatsApp» y «Llamar»; los clientes escriben al WhatsApp del centro. Notas internas por salida para el personal | 2 | Avisos de una reserva; sin chat |
 | C10 | **Estadísticas** | Ocupación, ingresos, clientes recurrentes, valoraciones | 2 (Más → Estadísticas) | Analítica e informes |
 | C11 | **Ajustes** | Cobros (Stripe), WhatsApp, avisos y recordatorio, calendario (iCal o Google Calendar), equipo y roles | 2 | Panel (v50.34 a v50.47) |
 

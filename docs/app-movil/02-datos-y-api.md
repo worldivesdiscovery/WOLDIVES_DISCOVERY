@@ -54,12 +54,10 @@ Las migraciones siguen la regla de siempre: **añaden y transforman, nunca borra
 | `app_tokens` | `token_hash`, `device_id`, `user_id`, `kind` (acceso o renovación), `expires_at`, `rotated_from` | Token de acceso corto (15 min) y de renovación (60 días) con rotación. Al detectar la reutilización de uno ya usado se revoca toda la cadena |
 | `passkeys` | `credential_id`, `user_id`, `public_key`, `sign_count`, `transports`, `name`, `created_at`, `last_used_at` | Entrar con passkey (WebAuthn) |
 | `auth_identities` | `provider` (apple, google), `subject`, `user_id`, `email_verified`, `created_at` | Sign in with Apple y Google |
-| `users.claimed_at` | — | Cuenta creada al pagar como invitado. Vale solo para ver y gestionar esa reserva hasta que el buceador la confirma (passkey o enlace del correo) |
 | `cert_levels` y columnas en `certifications` | `agency` (PADI, SSI, CMAS/FEDAS…), `level_rank` (0 sin titulación, 1 Open Water, 2 Advanced, 3 Rescue, 4 Divemaster o más), `specialties` (nitrox, profunda, nocturna) | Comparar niveles de distintas agencias. Hoy las titulaciones son solo nombres |
 | `provider_services.min_level_rank` y `requires_specialty` | — | Validación automática del nivel |
 | `sea_conditions` | `dive_point_id`, `hour`, `wave_m`, `period_s`, `wind_kmh`, `wind_dir`, `water_c`, `source`, `fetched_at` | Estado del mar por punto, en caché por horas |
 | `job_offers` | `uid`, `provider_id` (centro), `slot_id` o rango de fechas, `role` (guía o instructor), `fee`, `currency`, `freelance_user_id`, `status` (ofrecida, aceptada, rechazada, caducada, cancelada), `responded_at` | Ofertas de trabajo de centros a freelance. Al aceptar, la persona queda asignada en `slot_groups` |
-| `medical_answers` | `booking_id`, `seat`, `result` (apto o necesita certificado), `answers` (cifradas), `version`, `signed_at`, `delete_after` | **Solo si se aprueba la decisión sobre datos médicos** (README) |
 | `notice_outbox.channel` | se añade `push` | Cancelación por meteo y cambios, también por push |
 | `funnel_metrics` | `day`, `platform`, `app_version`, `step`, `count`, percentiles p50/p90/p99 | Embudo y tiempo hasta reservar, **agregado, sin datos de personas** |
 | Valoraciones | `center_reviews` exige una reserva de ese centro con check-in y fecha ya pasada | «Solo quien ha buceado» |
@@ -95,11 +93,11 @@ Las migraciones siguen la regla de siempre: **añaden y transforman, nunca borra
 | `GET /slots?date&near&level&type` | Buscar salidas |
 | `GET /slots/{uid}` | La hoja de la salida: precio desglosado, política y si es apta para el usuario |
 | `POST /bookings/quote` | Precio exacto con personas y equipo (la misma función que `/api/booking-quote`) |
-| `POST /bookings` (con `Idempotency-Key`) | Crea la reserva, aparta la plaza y devuelve los datos de pago: `client_secret` del PaymentIntent **en la cuenta del centro**, `stripe_account`, `ephemeral_key` y cliente. Para un invitado, la cuenta sale de los datos del monedero |
+| `POST /bookings` (con `Idempotency-Key`) | Crea la reserva, aparta la plaza y devuelve los datos de pago: `client_secret` del PaymentIntent **en la cuenta del centro**, `stripe_account`, `ephemeral_key` y cliente. **Exige cuenta**: sin ella responde 401 y la app abre «Continuar con Apple / Google» antes del monedero, con el mismo toque |
 | `GET /bookings`, `GET /bookings/{uid}` | Próximas e historial; QR firmado para usarlo sin conexión |
 | `POST /bookings/{uid}/cancel`, `POST /bookings/{uid}/change` | Con la política del centro y la devolución automática |
 | `POST /bookings/{uid}/repeat` | La misma salida en la próxima fecha libre, directa a la hoja |
-| `POST /bookings/{uid}/waiver`, `POST /bookings/{uid}/medical` | Después de pagar |
+| `POST /bookings/{uid}/waiver` | Descargo, después de pagar (sin cuestionario médico) |
 | `GET/PUT /me/profile`, `POST /me/certifications`, `POST /me/documents` | Ficha, tallas, titulaciones y seguro |
 | `GET /me/logbook`, `POST /me/logbook` | Logbook |
 | `GET /points/map`, `GET /points/{uid}` | Mapa y fichas (público) |
@@ -139,9 +137,10 @@ Las migraciones siguen la regla de siempre: **añaden y transforman, nunca borra
 - **Stripe PaymentSheet** en la app: Apple Pay y Google Pay como botón principal, y tarjeta como alternativa. Los
   servicios de buceo se consumen fuera de la app, así que no se usa el sistema de compras de Apple ni de Google.
 - **Cobro directo en la cuenta Stripe del centro o del freelance** (como la web desde v50.34): el dinero no pasa por
-  WORLDIVES y no hay comisión.
-  - Repartir pagos entre un centro y un freelance (Connect con transferencias) solo hace falta si un mismo pago tiene
-    que ir a los dos. Es una decisión pendiente (README).
+  WORLDIVES y no hay comisión (decisión del 13/10).
+  - La comisión de Stripe la paga el centro o el freelance, como hoy. No se añade un recargo al cliente por pagar
+    con tarjeta: en la UE no está permitido con tarjetas de particulares (PSD2). Cada centro decide su precio final.
+  - Sin reparto de pagos entre centro y freelance: lo que un centro paga a un freelance va fuera de la app.
 - **Pago completo, señal o pago en el centro:** como ya está en `provider_services`.
 - **Bajo petición:** sin cobro hasta que el centro acepta; después, «Pagar» con un toque desde el aviso.
 - **La confirmación llega por el webhook de Stripe**, que ya existe, no por la app. Así, si el móvil se queda sin
@@ -172,11 +171,14 @@ Las migraciones siguen la regla de siempre: **añaden y transforman, nunca borra
 
 ## Idiomas
 
-- La web ya está en **9 idiomas** (es, en, fr, de, it, pt, nl, pl, zh) y los correos también. Propuesta: la app nace
-  con los mismos 9 y no solo con 5 (decisión en el README).
+- **La app va en español, inglés y francés** (decisión del 13/10). La web sigue con sus 9 idiomas.
+- **Idioma de la app:** se detecta por el idioma del teléfono y, si no es uno de los tres, la app se abre en inglés.
+  El buceador puede cambiarlo en Perfil.
+- **Idioma de los avisos:**
+  - los push van en el idioma de la app;
+  - los correos y los WhatsApp, en el idioma de la cuenta, igual que desde la web (9 idiomas).
 - Los textos de la app van en archivos por idioma, como `public/idiomas/*.json`, y comparten glosario con la web
   para que «salida», «señal» o «descargo» se digan igual en todas partes.
-- Detección automática por el idioma del teléfono. El buceador puede cambiarlo, y los avisos le llegan en su idioma.
 
 ## Seguridad y RGPD
 
@@ -185,7 +187,7 @@ Las migraciones siguen la regla de siempre: **añaden y transforman, nunca borra
 - **Teléfonos y credenciales** cifrados en el servidor (v50.47, `WOD_DATA_KEY`).
 - **Documentos** (titulación, seguro): almacenamiento privado del servidor, servidos solo al titular y al centro con
   reserva viva.
-- **Cuestionario médico:** decisión pendiente (README), con el abogado: son datos de salud (art. 9 RGPD).
+- **Sin datos de salud:** no hay cuestionario médico en la app (decisión del 13/10); la app no pide ni guarda datos médicos.
 - **Analítica del embudo sin rastreo:**
   - la app manda al servidor «paso alcanzado» con milisegundos desde la apertura y un identificador de sesión que
     vive solo en memoria;

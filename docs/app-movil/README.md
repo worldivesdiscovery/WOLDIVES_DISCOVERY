@@ -16,8 +16,9 @@ de la fase 0. Las pantallas se pasan a Figma al empezar esa fase.
 
 **Qué hay en el lienzo:**
 - **Buceador:**
-  - reserva cronometrada (interactiva): con cuenta o por primera vez, iOS o Android, tema oscuro o claro;
-  - Reservas, «Después de pagar» y Perfil.
+  - reserva cronometrada (interactiva): con cuenta o por primera vez (la cuenta se crea con el botón de pago), iOS o
+    Android, tema oscuro o claro;
+  - Reservas (con «WhatsApp del centro»), «Después de pagar» (sin cuestionario médico) y Perfil.
 - **Centro:**
   - «Hoy» cronometrado (interactivo): quién bucea mañana y qué equipo preparar;
   - check-in sin cobertura y cancelar por meteo.
@@ -33,8 +34,10 @@ La app es **otra cara de la misma web**:
 - misma base de datos y mismas reglas de precios, plazas, pagos y aislamiento entre centros;
 - una API versionada (`/api/v1/`) que primero usa la app y después la web.
 
-Reservar cuesta **2 toques más la confirmación del monedero** (3 si se ajusta algo), en unos 18–28 s. El centro ve su
-día al abrir la app y sabe quién bucea mañana, y con qué equipo, con 1 o 2 toques.
+Reservar cuesta **2 toques más la confirmación del monedero** (3 si se ajusta algo), en unos 18–28 s. La primera vez,
+el mismo botón de pago crea la cuenta con Apple o Google (Face ID o la cuenta de Google del teléfono) y paga a
+continuación: no hay pantalla de registro. El centro ve su día al abrir la app y sabe quién bucea mañana, y con qué
+equipo, con 1 o 2 toques.
 
 ## Stack recomendado
 
@@ -44,8 +47,8 @@ Activities.
   Expressive en Android vienen de Apple y de Google y se actualizan con cada versión del sistema.
 - **Flutter dibuja sus propios componentes:** imitar Liquid Glass y Material 3 Expressive sería trabajo nuestro, y
   siempre iría un paso por detrás.
-- **Mismo lenguaje que la web** (JavaScript): se comparten los textos de los 9 idiomas, los formatos de fecha e
-  importe y los tipos de la API.
+- **Mismo lenguaje que la web** (JavaScript): se comparten los textos (la app va en español, inglés y francés), los
+  formatos de fecha e importe y los tipos de la API.
 - **Si el equipo que se contrate domina Flutter**, también es viable. El resto del diseño (API, datos, flujos) no
   cambia.
 
@@ -53,32 +56,36 @@ El servidor sigue siendo el actual (Python + SQLite). No hace falta Supabase ni 
 - **Firebase solo para enviar push en Android (FCM).** Es lo que exige Google.
 - **El tiempo real va con SSE** desde el mismo servidor.
 
-## Decisiones que necesito de ti
+## Decisiones tomadas (13/10/2026)
 
-Algunas chocan con decisiones ya tomadas para la web. No he cambiado nada: te propongo una opción en cada caso.
+| Tema | Decisión | Cómo queda |
+|---|---|---|
+| **Mensajería** | No hay chat. El botón **«WhatsApp del centro»** abre el WhatsApp del centro de buceo | Sigue la decisión de la web (v50.47). Las respuestas a los avisos también llegan al WhatsApp del centro. Para el personal, notas por salida dentro de la app |
+| **Idiomas de la app** | **Español, inglés y francés** | Si el teléfono está en otro idioma, la app se abre en inglés. Los avisos push van en el idioma de la app. **La web sigue con sus 9 idiomas** salvo que digas lo contrario |
+| **Cuestionario médico** | **Nada de cuestionarios médicos** en la app | No se piden ni se guardan datos de salud. Después de pagar solo quedan el descargo, la titulación, el seguro y las tallas. Si un centro necesita el cuestionario, lo hace en papel en el muelle, como hasta ahora |
+| **Sin cuenta (invitado)** | Sin cuenta solo se ve la información del centro (salidas, precios, cómo llegar) y el **teléfono para llamar** | No hay reserva sin cuenta. Para no perder los 30 s, el botón de pago crea la cuenta con Apple o Google y paga después, sin formularios. Quien no quiera cuenta tiene «Llamar al centro» en la hoja de la salida y en la ficha |
+| **Comisiones** | **Sin comisión** de WORLDIVES de momento | Como hoy (v50.34): cobro directo en la cuenta Stripe del centro o del freelance, que paga la comisión de Stripe. **Cobrar al cliente la comisión de Stripe como recargo por pagar con tarjeta no está permitido** con tarjetas de particulares en la UE (directiva de servicios de pago, PSD2). Lo legal es que cada centro ponga su precio final ya con eso incluido, sin línea aparte. Si algún día se quiere unos «gastos de gestión» visibles, iguales para cualquier forma de pago y dentro del precio final desde el principio, primero lo revisa el abogado |
+| **Pagos a freelance** | Sin reparto de pagos por ahora | Lo que un centro paga a un freelance por un trabajo va fuera de la app (con factura) y la app lo registra en «Cobros» |
 
-| # | Tema | Conflicto o duda | Recomendación |
-|---|---|---|---|
-| 1 | **Stack** | Flutter o React Native | React Native + Expo (arriba) |
-| 2 | **Mensajería con clientes y personal** | El encargo la pide. La decisión vigente es **«No hay chat en la web»**: los avisos salen del WhatsApp de cada centro y las respuestas le llegan a su WhatsApp (v50.47) | **Mantener sin chat**: botón «Escribir al centro» que abre su WhatsApp, más los avisos (push, WhatsApp, correo). Para el personal, notas por salida dentro de la app. Un chat propio supone moderación, guardar conversaciones (RGPD) y unas 4–6 semanas más |
-| 3 | **Idiomas** | El encargo dice ES, EN, FR, DE e IT. La web ya está en **9** (también PT, NL, PL y ZH) | **Los 9 desde el primer día**: los textos y los correos ya existen y añadir 4 idiomas a la app cuesta poco |
-| 4 | **Cuestionario médico** | El encargo pide guardarlo de forma segura. La web dice hoy «No subas certificados médicos»: son datos de salud (art. 9 RGPD) | Firmarlo en la app después de pagar y guardar **solo el resultado** («apto» o «necesita certificado médico») más las respuestas cifradas, visibles solo para el centro de esa reserva y **borradas a los 30 días** de la inmersión. Necesita consentimiento explícito y una evaluación de impacto (EIPD): **abogado** |
-| 5 | **Reserva como invitado** | Hoy la web exige cuenta para reservar | Cuenta creada al pagar con los datos del monedero, sin contraseña. Sirve solo para esa reserva hasta que el buceador la confirma con una passkey o con el enlace del correo. **El invitado no puede elegir «pagar en el centro»**: paga la reserva o la señal, para evitar plazas fantasma |
-| 6 | **Nivel exigido a un invitado** | Validar el nivel sin pedir datos rompería los 30 s | La hoja dice qué exige la salida y al pagar declara que lo tiene. El centro lo comprueba en el check-in. Si no lo tiene, cambio a una salida apta o devolución íntegra |
-| 7 | **Estado del mar** | Hoy la web no tiene datos de oleaje ni viento | **Puertos del Estado** para España y **Copernicus Marine** para el resto (se pueden usar citando la fuente), en caché por horas. Un proveedor comercial único es más cómodo, pero tiene coste anual |
-| 8 | **Pagos a freelance que trabajan para un centro** | El encargo pide repartir pagos con Stripe Connect. Hoy cada reserva se cobra directamente en la cuenta del centro o del freelance, sin comisión (v50.34) | Mantener el cobro directo. Lo que el centro paga al freelance por un trabajo va fuera de la app al principio (con factura) y la app lo registra en «Cobros». Repartir un mismo pago entre dos cuentas, solo si hace falta, en una fase posterior |
-| 9 | **Analítica del embudo** | El encargo pide medir el tiempo hasta reservar. La web no usa analítica ni cookies de terceros | Medirlo en el servidor, con totales por día y sin guardar nada en el móvil ni usar SDK de terceros (doc. 2). **Abogado:** confirmar si hace falta consentimiento |
-| 10 | **Cuentas de desarrollador** | Hacen falta para publicar, para Apple Pay y para las passkeys | Darlas de alta **como empresa** en Apple y Google (número D-U-N-S). Sin ellas no se puede empezar la fase 0 |
+## Decisiones que siguen pendientes
+
+| # | Tema | Recomendación |
+|---|---|---|
+| 1 | **Stack** | React Native + Expo (arriba) |
+| 2 | **Nivel exigido en la primera reserva** | La hoja dice qué exige la salida y, al pagar, el buceador declara que tiene esa titulación. El centro lo comprueba en el check-in. Si no la tiene, cambio a una salida apta o devolución íntegra. Así no hace falta un toque más |
+| 3 | **Estado del mar** | **Puertos del Estado** para España y **Copernicus Marine** para el resto (se pueden usar citando la fuente), en caché por horas |
+| 4 | **Analítica del embudo** | Medirla en el servidor, con totales por día, sin guardar nada en el móvil ni usar SDK de terceros (doc. 2). **Abogado:** confirmar si hace falta consentimiento |
+| 5 | **Cuentas de desarrollador** | Darlas de alta **como empresa** en Apple y Google (número D-U-N-S). Sin ellas no se puede empezar la fase 0 |
 
 ## Lo que no he hecho todavía, a propósito
 
 - **No he escrito código de la app:** el encargo pide estos cuatro entregables antes de programar.
-- **No he tocado la web.** Los cambios de servidor que hacen falta (API v1, tokens, push, invitado, niveles) están
-  listados en el doc. 2 y empiezan en la fase 1.
+- **No he tocado la web.** Los cambios de servidor que hacen falta (API v1, tokens, push, niveles) están listados en
+  el doc. 2 y empiezan en la fase 1.
 
 ## Siguiente paso
 
-1. Respondes a las 10 decisiones.
+1. Respondes a las 5 decisiones pendientes.
 2. **Fase 0** (4 semanas):
    - Figma completo a partir del lienzo;
    - prueba del prototipo con 5 personas reales y un centro, cronometrada;
