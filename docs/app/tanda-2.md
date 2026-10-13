@@ -123,8 +123,8 @@ En la web (Mi cuenta → Privacidad y datos) y en la app (Más). Solo el propiet
 |---|---|
 | Pruebas del servidor de perfiles, cierre de cuenta, Hoy, escáner, contar, WhatsApp, PDF, reserva manual, push (`tests/test_v50_49_pro.py`) | 13 de 13 |
 | Recorrido en navegador del Centro PRO, instructor, freelance, en/fr, 360 px y cerrar la cuenta (`tests/navegador/e2e_app_pro.py`) | 63 de 63 |
-| Todas las pruebas del servidor | Correctas (ver notas de la v50.49) |
-| APK y emulador Android con las cuentas de prueba del centro y del instructor | Ver notas de la v50.49 |
+| Todas las pruebas del servidor | 249 de 249 |
+| APK y emulador Android con las cuentas de prueba del centro y del instructor | 32 de 32 |
 
 ## Limitaciones conocidas
 

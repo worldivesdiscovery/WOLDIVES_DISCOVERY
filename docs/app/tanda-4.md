@@ -41,7 +41,7 @@ automáticas comprueban:
 
 | Promesa | Medida |
 |---|---|
-| «Hoy» en menos de 5 s | Navegador (servidor local): menos de 1 s. Emulador de GitHub (sin aceleración gráfica, mucho más lento que un móvil): ver notas de la v50.49 |
+| «Hoy» en menos de 5 s | Navegador (servidor local): menos de 1 s. Emulador Android 14 de GitHub (sin aceleración gráfica, más lento que un móvil): 73 ms |
 | Nueva reserva por teléfono en menos de 45 s | Recorrido automático: unos 2 s (una persona necesita escribir el nombre y el teléfono) |
 | Pasar lista sin deslizar, botones de 56 px | Comprobado en el navegador y en la pantalla del emulador |
 
