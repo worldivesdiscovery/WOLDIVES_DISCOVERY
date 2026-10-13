@@ -128,7 +128,7 @@ class RestoreDemo(unittest.TestCase):
             out = Path(d) / 'demo.sqlite3'
             r = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'crear_demo.py'), '--out', str(out)], capture_output=True, text=True, timeout=300)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertEqual(br.db_counts(out)['admins'], 1)                             # v50.51: admin.prueba (CUENTAS-DEMO.txt)
+            self.assertEqual(br.db_counts(out)['admins'], 1)                             # v50.51: the demo administrator (CUENTAS-DEMO.txt)
 
     def test_no_setup_screen_and_no_reset_outside_demo(self):
         srv = Server({'WOD_ADMIN_PASSWORD': 'Admin-Local-2026!'}).start()

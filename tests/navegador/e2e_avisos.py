@@ -158,7 +158,7 @@ def main():
             shot(pg, 'escritorio-centro-confirmacion-cancelar')
             txt = pg.locator('#nt-preview').inner_text()
             check('Confirmación: salida, recuento por canal, nombres con inicial, dinero y mensaje por idioma',
-                  all(s in txt for s in ('WhatsApp', 'Correo', 'App', 'Bea B.', 'Devolución de', 'Mensaje que recibe')), txt[:300])
+                  all(s in txt for s in ('WhatsApp', 'Correo', 'App', 'Bea N.', 'Devolución de', 'Mensaje que recibe')), txt[:300])
             check('El botón queda desactivado hasta escribir la fecha', pg.locator('#nt-ok').is_disabled())
             hint = pg.locator('#nt-preview .nt-confirm b').inner_text()
             pg.fill('#nt-confirm', hint); pg.wait_for_timeout(200)

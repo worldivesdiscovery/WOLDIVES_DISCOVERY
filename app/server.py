@@ -18,6 +18,7 @@ import random
 import sqlite3
 import unicodedata
 import sys
+import queue
 import threading
 import time
 from datetime import datetime, timezone
@@ -1109,17 +1110,54 @@ def now() -> str:
 
 
 class _ClosingConnection(sqlite3.Connection):
-    """`with connect() as db:` commits or rolls back AND closes the connection at the end of the request."""
+    """`with connect() as db:` commits or rolls back AND gives the connection back to the pool (or closes it) at the end
+    of the request."""
+    _pooled = False
+
     def __exit__(self, exc_type, exc, tb):
         try:
             return super().__exit__(exc_type, exc, tb)
         finally:
-            self.close()
+            if not (self._pooled and _pool_release(self)): self.close()
+
+
+# v50.51 (load test): connections are reused. Opening one makes SQLite read the whole schema (~360 objects), about 4 ms
+# of CPU per request: a quarter to a half of the server's CPU. Each process (WOD_WORKERS forks) has its own pool.
+_POOL = None
+_POOL_PID = None
+
+
+def _pool_release(db):
+    if _POOL is None or _POOL_PID != os.getpid() or db.in_transaction: return False
+    try:
+        db.row_factory = wcif.row_factory
+        db.execute('PRAGMA foreign_keys=ON')
+        _POOL.put_nowait(db); return True
+    except (queue.Full, sqlite3.Error):
+        return False
+
+
+def pool_drain():
+    """Closes the pooled connections. Called before fork() (WOD_WORKERS): a SQLite connection must never pass to another
+    process (closing it there releases the file locks: «disk I/O error»)."""
+    global _POOL, _POOL_PID
+    while _POOL is not None:
+        try: _POOL.get_nowait().close()
+        except queue.Empty: break
+    _POOL = None; _POOL_PID = None
 
 
 def connect():
+    global _POOL, _POOL_PID
+    if _POOL_PID != os.getpid():
+        _POOL = queue.LifoQueue(wcfg.env_int('WOD_DB_POOL', 32, 1, 256)); _POOL_PID = os.getpid()
+    try:
+        return _POOL.get_nowait()
+    except queue.Empty:
+        pass
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(DB_PATH, factory=_ClosingConnection)
+    db = sqlite3.connect(DB_PATH, factory=_ClosingConnection, check_same_thread=False)   # one request at a time (the pool)
+    db._pooled = True
     # v50.47 (parte C): phones are stored encrypted; rows come back with them in clear for the server code only.
     db.row_factory = wcif.row_factory
     db.execute('PRAGMA foreign_keys=ON')
@@ -1586,6 +1624,10 @@ def migrate_v50_51(db):
     themselves in every language of the web (center_texts). Nothing is deleted."""
     db.execute("UPDATE species SET photo_widths='128,640' WHERE photo_base LIKE '/img/especies/%' AND COALESCE(photo_widths,'')<>'128,640'")
     db.execute(CENTER_TEXTS_SCHEMA)
+    # Load test: the sign-in looks the person up by lower(email) or lower(username); upcoming departures by date.
+    db.execute('CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users(lower(email))')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_users_username_lower ON users(lower(username))')
+    db.execute("CREATE INDEX IF NOT EXISTS idx_service_slots_open_date ON service_slots(slot_date, slot_time) WHERE status='open' AND spots_available>0")
     # Security review (A02-1): the authenticator secrets of the two-step verification are stored encrypted.
     ucols = {r['name'] for r in db.execute('PRAGMA table_info(users)')}
     if wcif.configured():
@@ -2222,8 +2264,14 @@ def hash_password(password: str) -> str:
     return wsec.hash_password(password)
 
 
+PASSWORD_HASHING = threading.BoundedSemaphore(max(1, os.cpu_count() or 2))   # v50.51 (load test)
+
+
 def verify_password(password: str, stored: str) -> bool:
-    return wsec.verify_password(password, stored)
+    """PBKDF2 with 600 000 iterations is ~0.4 s of CPU: at most one per core at a time, so a wave of logins waits in line
+    instead of slowing down every other page."""
+    with PASSWORD_HASHING:
+        return wsec.verify_password(password, stored)
 
 
 def check_new_password(password: str):
@@ -5356,8 +5404,9 @@ def finalize_paid_order(db, order, session, source):
             receipt=_obj(ch,'receipt_url'); card=_obj(_obj(ch,'payment_method_details') or {},'card') or {}
             brand=_obj(card,'brand'); last4=_obj(card,'last4')
     received=(wmoney.from_minor(total,order['currency']) if total is not None else float(order['amount'] or 0))
-    db.execute("UPDATE payment_orders SET status='paid',provider_payment_id=COALESCE(?,provider_payment_id),payment_intent_id=COALESCE(?,payment_intent_id),paid_at=?,amount_received=?,receipt_url=COALESCE(?,receipt_url),card_brand=COALESCE(?,card_brand),card_last4=COALESCE(?,card_last4),updated_at=? WHERE id=?",
-               (_obj(session,'id'),pi_id,now(),received,receipt,brand,last4,now(),order['id']))
+    if db.execute("UPDATE payment_orders SET status='paid',provider_payment_id=COALESCE(?,provider_payment_id),payment_intent_id=COALESCE(?,payment_intent_id),paid_at=?,amount_received=?,receipt_url=COALESCE(?,receipt_url),card_brand=COALESCE(?,card_brand),card_last4=COALESCE(?,card_last4),updated_at=? WHERE id=? AND status<>'paid'",
+               (_obj(session,'id'),pi_id,now(),received,receipt,brand,last4,now(),order['id'])).rowcount==0:
+        return True,'already'   # otra petición (webhook, vuelta de Stripe, revisión periódica) lo confirmó a la vez
     deposit=(order['payment_kind'] if 'payment_kind' in order.keys() else 'full')=='deposit'
     if order['booking_id']:
         b=db.execute('SELECT * FROM bookings WHERE id=?',(order['booking_id'],)).fetchone()
@@ -12215,6 +12264,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     db.commit(); self.send_json(out); return
                 if path=='/api/provider-services/slot':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('service_id') or 0)
+                    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')   # v50.51: occupied seats read and written with no booking in between
                     row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
                     if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise NotFound('Servicio no encontrado.')
                     date=clean_text(data.get('slot_date'),20); tm=clean_text(data.get('slot_time'),10); total=max(1,int(data.get('spots_total') or 1))
@@ -12240,6 +12290,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     audit(db,user['id'],'service_slot_updated','service_slot',slot_id,{'spots_total':total,'spots_available':available,'dive_point_ids':point_ids}); db.commit(); self.send_json({'ok':True,'slot_id':slot_id,'spots_available':available}); return
                 if path=='/api/provider-services/slot-update':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); slot_id=int(data.get('id') or 0)
+                    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')   # v50.51: occupied seats read and written with no booking in between
                     slot=db.execute('SELECT ss.*,s.provider_user_id,s.center_id AS service_center_id FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=?',(slot_id,)).fetchone()
                     if not slot or not owns_service(user,slot['provider_user_id'],slot['service_center_id']): raise NotFound('Salida no encontrada.')
                     date=clean_text(data.get('slot_date'),20) or slot['slot_date']; tm=clean_text(data.get('slot_time'),10) or slot['slot_time']; total=max(1,int(data.get('spots_total') or slot['spots_total']))
@@ -13094,6 +13145,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     audit(db,user['id'],'email_resent','email_outbox',eid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/bookings':
                     user=require_user(self,db); data=json_body(self)
+                    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')   # v50.51: checked and created atomically (no double booking)
                     center_id=int(data.get('center_id') or 0) or None
                     point_id=int(data.get('dive_point_id') or 0) or None
                     if point_id and not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(point_id,)).fetchone(): raise ValueError('Punto de buceo no válido.')
@@ -13117,6 +13169,21 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     participants=max(1,int(data.get('participants') or 1))
                     if service and service['max_participants'] and participants>int(service['max_participants']): raise ValueError(f'Este servicio admite como máximo {service["max_participants"]} participantes por reserva.')
                     slot_id=int(data.get('slot_id') or 0) or None
+                    # v50.51 (load test): a double click or a retry of the same booking gives back the one just made
+                    if slot_id:
+                        dup=db.execute("SELECT * FROM bookings WHERE user_id=? AND slot_id=? AND participants=? AND status IN ('requested','pending','payment_in_progress','accepted_pending_payment','confirmed') AND created_at>=? ORDER BY id DESC LIMIT 1",
+                                       (user['id'],slot_id,participants,(datetime.now(timezone.utc)-_timedelta(minutes=2)).isoformat(timespec='seconds'))).fetchone()
+                        if dup:
+                            out={'ok':True,'id':dup['id'],'status':dup['status'],'duplicate':True,'payment_required':dup['status']=='payment_in_progress','price':dup['price'],'booking_mode':dup['booking_mode']}
+                            if dup['status']=='payment_in_progress':
+                                db.commit(); o=None
+                                for _ in range(25):
+                                    o=_open_order(db,'booking_id=?',(dup['id'],))
+                                    if o: break
+                                    time.sleep(0.2)
+                                if not o: self.send_json({'error':'Tu reserva ya se está procesando. Mírala en «Mis reservas».','id':dup['id']},409); return
+                                out['checkout_url']=o['checkout_url']
+                            self.send_json(out); return
                     slot=None; wl_hold=None
                     if slot_id:
                         slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(slot_id,service_id)).fetchone()
@@ -13225,6 +13292,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'admin','center','freelance'}); bid=int(path.split('/')[-2]); data=json_body(self); status=clean_text(data.get('status'),30)
                     if status=='accepted': status='confirmed'
                     if status not in {'confirmed','rejected','completed','cancelled'}: raise ValueError('Estado no válido.')
+                    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')   # leer el estado y cambiarlo, sin otra petición en medio
                     row=booking_row(db,bid)
                     if not row: self.send_json({'error':'Reserva no encontrada'},404); return
                     require_booking_provider(user,row)
@@ -13985,6 +14053,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path.startswith('/api/bookings/') and path.endswith('/payment'):
                     # The center records a payment taken at the desk (cash, card terminal, transfer).
                     user=require_user(self,db); require_role(user,{'center','freelance','admin'}); bid=int(path.split('/')[-2]); data=json_body(self)
+                    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')   # v50.51: read and change it with no other request in between
                     row=db.execute('SELECT * FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not row: self.send_json({'error':'Reserva no encontrada'},404); return
                     require_booking_provider(user,row)
@@ -14557,6 +14626,7 @@ def main():
     workers=max(1,int(os.environ.get('WOD_WORKERS','1') or 1))
     reuse=workers>1 and hasattr(os,'fork') and hasattr(socket,'SO_REUSEPORT')
     if workers>1 and not reuse: print('WOD_WORKERS solo está disponible en Linux/macOS; se usa un único proceso.')
+    pool_drain()   # no connection opened before fork() passes to the child processes
     if reuse:
         WodHTTPServer.allow_reuse_port=True
         for _ in range(workers-1):
