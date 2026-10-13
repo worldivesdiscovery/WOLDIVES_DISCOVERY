@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Builds the two delivery zips of a version (encargo 2b · bloque 1; v50.46: final production package for the VPS):
 
-    python scripts/generar_zips.py              → dist/WORLDIVES-v<APP_VERSION>-produccion.zip
-                                                   dist/WORLDIVES-v<APP_VERSION>-pruebas.zip
+    python scripts/generar_zips.py              → dist/worldives-v<APP_VERSION>-PRODUCCION.zip
+                                                   dist/worldives-v<APP_VERSION>-DEMO.zip   (v50.51: new names)
 
 -produccion  ready to upload as it is to the VPS: clean code, no data (no users, not even an administrator, no
              bookings, no test accounts or test database, no uploads, logs, caches, temporary files or .env) and no
              files that are not used. The database is created on the first start from data/seed/catalogo.sqlite3
              (countries, types, zones, certifications, points, destinations and legal texts). The administrator is
              created when installing: python app/server.py --create-admin (README.md).
--pruebas     the same code + the demonstration database, README-PRUEBAS.md and iniciar-pruebas (port 8100). It has
-             no administrator: the owner creates it the first time. It is NEVER uploaded to the real server.
+-DEMO        the same code + the demonstration database (two invented centres with months of activity, v50.51),
+             README-PRUEBAS.md, CUENTAS-DEMO.txt (the demo accounts and their password, admin included) and
+             iniciar-pruebas (port 8100). It is NEVER uploaded to the real server.
 
 Before writing each zip it runs an automatic check (check_production / check_pruebas). If anything is wrong the zip
 is not created and the script ends with an error listing every problem.
@@ -34,6 +35,7 @@ DEMO_LIVE = 'data/pruebas/worldives.sqlite3'
 
 # Only in the test zip (or in none): demo data, test accounts, screenshots with demo data, the old brand archive.
 NOT_IN_PRODUCTION = ['docs/pruebas/*', 'data/demo/*', 'data/pruebas/*', 'scripts/crear_demo.py', 'scripts/reset_demo.*', 'iniciar-pruebas.*', 'iniciar-pruebas-movil.*',
+                     'scripts/demo/*', 'public/img/demo/*', 'CUENTAS-DEMO.txt',          # v50.51: the invented centres and their accounts
                      'scripts/herramientas/demo_centros_ficticios.py', 'README-PRUEBAS.md',
                      'tests/navegador/e2e_avisos.py']   # v50.47: walks the site with the test accounts
 # In no zip: the archive of retired files, screenshots, repository files, runtime data, caches and temporary files.
@@ -45,7 +47,7 @@ NOT_IN_ANY = ['_archivo/*', 'docs/capturas/*', '.github/*', '.gitignore', '.env'
 ALLOWED_ENV = {'.env.example'}
 
 # What must never be inside the production zip
-TEST_ACCOUNT = re.compile(r'\b(?:admin|centro2?|freelance|instructor|master|pendiente|buzo\d?)\.prueba\b|Worldives-Prueba-2026', re.I)
+TEST_ACCOUNT = re.compile(r'\b(?:admin|centro\d?|freelance\d?|instructor\d?|master|recepcion|pendiente|buzo\d{0,2})\.prueba\b|Worldives-Prueba-2026', re.I)
 SECRETS = [(re.compile(r'sk_live_[A-Za-z0-9]{8,}'), 'clave real de Stripe (sk_live_)'),
            (re.compile(r'rk_live_[A-Za-z0-9]{8,}'), 'clave restringida real de Stripe (rk_live_)'),
            (re.compile(r'sk_test_[A-Za-z0-9]{20,}'), 'clave de Stripe en modo test (sk_test_ de verdad)'),
@@ -54,7 +56,7 @@ SECRETS = [(re.compile(r'sk_live_[A-Za-z0-9]{8,}'), 'clave real de Stripe (sk_li
            (re.compile(r'\bAKIA[0-9A-Z]{16}\b'), 'clave de AWS'),
            (re.compile(r'\bAAP[KT][A-Za-z0-9_\-]{30,}'), 'clave de ArcGIS'),
            (re.compile(r'\bxkeysib-[a-f0-9]{30,}'), 'clave de Brevo')]
-SECRET_VARS = ('WOD_SECRET_KEY', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_CONNECT_WEBHOOK_SECRET', 'WOD_SMTP_PASSWORD',
+SECRET_VARS = ('WOD_SECRET_KEY', 'WOD_DATA_KEY', 'WOD_DATA_KEY_OLD', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'WOD_BACKUP_KEY', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_CONNECT_WEBHOOK_SECRET', 'WOD_SMTP_PASSWORD',
                'WOD_SMTP_USER', 'ARCGIS_API_KEY', 'WOD_ADMIN_PASSWORD', 'VAPID_PRIVATE_KEY')
 CONFIG_FILES = ('*.sh', '*.bat', '*.service', '*.env.example', '.env.example', 'docs/despliegue/*', '*.conf', 'Caddyfile', '*.toml', '*.ini')
 TEXT_EXT = {'.py', '.js', '.css', '.html', '.md', '.txt', '.json', '.webmanifest', '.sh', '.bat', '.example', '.conf', '.service',
@@ -128,10 +130,10 @@ def check_files(files: dict[str, Path], kind: str) -> list[str]:
     for rel, need in (('public/index.html', f'?v={ver}'), ('public/sw.js', f'?v={ver}'), ('public/sw.js', f"worldives-v{ver.replace('.', '-')}")):
         if rel in files and need not in files[rel].read_text(encoding='utf-8'):
             problems.append(f'{rel}: no lleva la versión {ver} ({need}); el navegador seguiría usando el código anterior')
-    if kind == 'pruebas' and DEMO_LIVE in files and db_counts(files[DEMO_LIVE]).get('admins'):
-        problems.append(f'{DEMO_LIVE}: la base de pruebas no debe traer cuentas de administración (las crea el titular)')
+    if kind == 'pruebas' and DEMO_LIVE in files and db_counts(files[DEMO_LIVE]).get('admins') != 1:
+        problems.append(f'{DEMO_LIVE}: la base de demostración trae solo su cuenta de administración de demostración (CUENTAS-DEMO.txt)')
     if kind == 'pruebas':
-        for need in ('README-PRUEBAS.md', 'iniciar-pruebas.sh', 'iniciar-pruebas.bat', DEMO_LIVE):
+        for need in ('README-PRUEBAS.md', 'CUENTAS-DEMO.txt', 'iniciar-pruebas.sh', 'iniciar-pruebas.bat', DEMO_LIVE):
             if need not in files: problems.append(f'falta {need}')
     return problems
 
@@ -147,11 +149,11 @@ def make_seed(tmp: Path) -> Path:
     return out
 
 
-def make_demo(tmp: Path) -> Path:
-    out = tmp / 'demo.sqlite3'
-    res = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'crear_demo.py'), '--out', str(out)], capture_output=True, text=True)
-    if res.returncode != 0: raise SystemExit('No se ha podido crear la base de pruebas:\n' + res.stdout + res.stderr)
-    return out
+def make_demo(tmp: Path) -> tuple[Path, Path]:
+    out, accounts = tmp / 'demo.sqlite3', tmp / 'CUENTAS-DEMO.txt'
+    res = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'crear_demo.py'), '--out', str(out), '--cuentas', str(accounts)], capture_output=True, text=True)
+    if res.returncode != 0: raise SystemExit('No se ha podido crear la base de demostración:\n' + res.stdout + res.stderr)
+    return out, accounts
 
 
 def write_zip(path: Path, top: str, files: dict[str, Path]):
@@ -173,11 +175,12 @@ def main():
         seed = make_seed(tmp)
         prod = {p: ROOT / p for p in tracked if not match(p, NOT_IN_ANY + NOT_IN_PRODUCTION) or p in ALLOWED_ENV}
         prod[SEED] = seed
-        demo = make_demo(tmp)
+        demo, accounts = make_demo(tmp)
         pruebas = {p: ROOT / p for p in tracked if not match(p, NOT_IN_ANY) or p in ALLOWED_ENV}
         pruebas[SEED] = seed
         pruebas[DEMO_LIVE] = demo
         pruebas['README-PRUEBAS.md'] = ROOT / 'docs' / 'pruebas' / 'README-PRUEBAS.md'
+        pruebas['CUENTAS-DEMO.txt'] = accounts
         report = {}
         for kind, files in (('produccion', prod), ('pruebas', pruebas)):
             problems = check_files(files, kind)
@@ -186,8 +189,9 @@ def main():
                 raise SystemExit(1)
             print(f'Comprobación {kind}: correcta ({len(files)} archivos).')
             if not a.solo_comprobar:
-                z = out / f'WORLDIVES-v{ver}-{kind}.zip'
-                write_zip(z, f'WORLDIVES-v{ver}-{kind}', files)
+                name = f"worldives-v{ver}-{'PRODUCCION' if kind == 'produccion' else 'DEMO'}"
+                z = out / f'{name}.zip'
+                write_zip(z, name, files)
                 report[kind] = (z, z.stat().st_size, len(files))
         for kind, (z, size, n) in report.items():
             print(f'{z}  ·  {size / 1048576:.1f} MB  ·  {n} archivos')

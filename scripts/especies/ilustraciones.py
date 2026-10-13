@@ -5,7 +5,7 @@ They are WORLDIVES DISCOVERY's own work (licence «Ilustración propia»), made 
 photos from the internet without a licence. On the real server the administrator can replace each one by a free photo
 of Wikimedia Commons (Administración → Vida marina y vídeos → Especies → Editar → «Buscar una foto libre…»).
 
-    python scripts/especies/ilustraciones.py            → public/img/especies/<clave>-320|640|1280.webp (4:3)
+    python scripts/especies/ilustraciones.py            → public/img/especies/<clave>-128|640.webp (4:3)
     python scripts/especies/ilustraciones.py --svg DIR  → also keeps the SVG files in DIR
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'public' / 'img' / 'especies'
-WIDTHS = (320, 640, 1280)   # the same sizes as an uploaded species photo (wod.vidamarina.SPECIES_WIDTHS)
+WIDTHS = (128, 640)   # the same sizes as an uploaded species photo (wod.vidamarina.SPECIES_WIDTHS)
 W, H = 800, 600
 
 
@@ -289,12 +289,159 @@ def napoleon():
     return scene('napoleon', f, tropical=True, floor='reef', seed=29)
 
 
+# --- v50.51: more Mediterranean species (so every demo dive site has 8–15) -----------------------------------------
+def castanuela():
+    out = []
+    for i, (cx, cy, L) in enumerate(((300, 250, 150), (480, 210, 130), (560, 340, 140), (380, 380, 120), (200, 360, 110), (640, 250, 100), (450, 300, 160))):
+        out.append(f'<g opacity="{1 - i * .07:.2f}">' + fish(f'ca{i}', cx, cy, L, L * .45, '#3b2a22', '#5a4434', '#2e211b', tail='forked', dorsal='long') + '</g>')
+    return scene('castanuela', ''.join(out), floor='rocks', seed=41)
+
+
+def pez_verde():
+    lines = (''.join(f'<path d="M{x} 170 l-10 260" stroke="#c0392b" stroke-width="7" opacity=".55"/>' for x in range(300, 560, 40))
+             + '<path d="M160 270 C260 250 420 252 640 280" stroke="#2f7fd1" stroke-width="10" fill="none" opacity=".7"/>'
+             + '<path d="M180 300 C300 290 460 296 640 310" stroke="#e85f4f" stroke-width="7" fill="none" opacity=".6"/>')
+    f = fish('pv', 400, 300, 430, 150, '#2f9a6a', '#7fd0a8', '#2e8c64', tail='lunate', dorsal='long', pattern=lines)
+    return scene('pez-verde', f, floor='rocks', seed=43)
+
+
+def sargo():
+    bars = ''.join(f'<path d="M{x} 150 l-6 300" stroke="#2c3338" stroke-width="{14 if i % 2 == 0 else 7}" opacity=".55"/>' for i, x in enumerate(range(250, 600, 40)))
+    spot = '<ellipse cx="612" cy="300" rx="22" ry="30" fill="#151a1d"/>'
+    f = fish('sg', 400, 300, 420, 230, '#9aa7ad', '#e6ecee', '#7f8c92', tail='forked', dorsal='spiny', pattern=bars + spot)
+    return scene('sargo', f, floor='rocks', seed=45)
+
+
+def serrano():
+    bars = ''.join(f'<path d="M{x} 160 l-8 290" stroke="#4a2c1f" stroke-width="18" opacity=".45"/>' for x in range(240, 620, 52))
+    blue = '<ellipse cx="440" cy="370" rx="58" ry="34" fill="#3a6fd8" opacity=".75"/>'
+    script = ''.join(f'<path d="M{x} {y} q10 -10 20 0 q10 10 20 0" stroke="#2a6db6" stroke-width="3" fill="none" opacity=".8"/>' for x, y in ((180, 280), (200, 300), (190, 320)))
+    f = fish('sr', 400, 300, 400, 190, '#b46a3c', '#efc58f', '#a65e33', tail='round', dorsal='spiny', pattern=bars + blue, extra=script)
+    return scene('serrano', f, floor='rocks', seed=47)
+
+
+def corvina():
+    f = fish('cv', 400, 290, 430, 250, '#4b3b2f', '#8a6f55', '#2a1f18', tail='round', dorsal='spiny', pattern=spots(random.Random(49), 200, 620, 180, 400, 20, 4, 9, '#c9a46a', .35))
+    return scene('corvina', shadow(400, 520, 160, 16) + f, floor='rocks', seed=49)
+
+
+def denton():
+    teeth = '<path d="M180 306 l6 10 l6 -10 l6 10 l6 -10" stroke="#fff" stroke-width="3" fill="none"/>'
+    dots = spots(random.Random(51), 220, 600, 190, 330, 26, 3, 6, '#3a5e88', .6)
+    f = fish('dt', 400, 300, 450, 200, '#8f7f86', '#efe1df', '#9b7f8a', tail='forked', dorsal='spiny', pattern=dots, lips=True, extra=teeth)
+    return scene('denton', f, floor='none', seed=51)
+
+
+def salpa():
+    out = []
+    for i, (cx, cy, L) in enumerate(((320, 230, 260), (520, 300, 230), (300, 390, 220), (560, 170, 180), (150, 300, 170))):
+        stripes = ''.join(f'<path d="M{cx - L * .5} {cy - L * .12 + k * L * .05} C{cx} {cy - L * .16 + k * L * .05} {cx + L * .3} {cy - L * .1 + k * L * .05} {cx + L * .55} {cy - L * .04 + k * L * .03}" stroke="#f1c232" stroke-width="3.5" fill="none" opacity=".9"/>' for k in range(5))
+        out.append(f'<g opacity="{1 - i * .1:.2f}">' + fish(f'sl{i}', cx, cy, L, L * .4, '#9fb0b3', '#e8eef0', '#8fa0a3', tail='forked', dorsal='soft', pattern=stripes) + '</g>')
+    return scene('salpa', ''.join(out), floor='rocks', seed=53)
+
+
+def cabracho():
+    rnd = random.Random(55)
+    mottle = spots(rnd, 200, 600, 190, 420, 40, 6, 18, '#7a1f17', .55) + spots(rnd, 200, 600, 190, 420, 25, 4, 10, '#f3c4a8', .5)
+    flaps = ''.join(f'<path d="M{x} {y} q-8 -18 6 -26 q4 14 -6 26" fill="#b5442f"/>' for x, y in ((210, 250), (240, 236), (270, 232), (226, 330)))
+    f = fish('cb', 400, 310, 420, 220, '#c4472f', '#efa07e', '#b23b26', tail='round', dorsal='spiny', pattern=mottle, lips=True, extra=flaps)
+    return scene('cabracho', f, floor='rocks', seed=55)
+
+
+def pez_ballesta():
+    body = 'M210 300 C250 200 380 160 470 190 C540 214 600 260 620 300 C600 340 540 386 470 410 C380 440 250 400 210 300 Z'
+    tail = 'M612 300 L690 240 C676 280 676 320 690 360 Z'
+    dors = 'M420 196 C470 120 540 150 560 230 Z M440 404 C490 470 550 450 566 372 Z'
+    spine = '<path d="M330 190 L350 110 L366 190" fill="#5e6a70"/>'
+    body_ = (f'<defs>{grad("pb", "#7d8a8f", "#c9d1d4")}</defs>' + shadow(430, 520, 200, 18) + f'<path d="{tail}" fill="#6c787d"/><path d="{dors}" fill="#6c787d"/>{spine}'
+             + f'<path d="{body}" fill="url(#pb)" stroke="#00000030" stroke-width="2"/>' + spots(random.Random(57), 260, 580, 220, 380, 22, 4, 10, '#4f5b60', .35)
+             + '<path d="M214 300 q10 8 20 2" stroke="#2a2a2a" stroke-width="3" fill="none"/>' + eye(300, 262, 13, '#121212', '#e6eae9'))
+    return scene('pez-ballesta', body_, floor='none', seed=57)
+
+
+def estrella():
+    pts = []
+    for k in range(10):
+        a = math.radians(-90 + k * 36); r = 190 if k % 2 == 0 else 62
+        pts.append(f'{400 + math.cos(a) * r:.0f},{330 + math.sin(a) * r * .8:.0f}')
+    bumps = spots(random.Random(59), 260, 540, 200, 460, 70, 2.5, 5, '#ffd2b8', .6)
+    body = (f'<defs>{grad("st", "#e2532f", "#a8261a")}<clipPath id="stc"><polygon points="{" ".join(pts)}"/></clipPath></defs>' + shadow(410, 470, 180, 20)
+            + f'<polygon points="{" ".join(pts)}" fill="url(#st)" stroke="#7d1d12" stroke-width="4" stroke-linejoin="round"/><g clip-path="url(#stc)">{bumps}</g>')
+    return scene('estrella-roja', body, floor='rocks', seed=59)
+
+
+def flabelina():
+    rnd = random.Random(61)
+    body = 'M210 360 C260 330 420 320 560 330 C620 334 640 350 640 362 C600 372 420 380 250 378 Z'
+    cerata = ''.join(f'<path d="M{x} {352 - (x % 3) * 2} C{x - 10} {300 - (i % 4) * 10} {x + 6} {270 - (i % 3) * 12} {x + 2} {256 - (i % 5) * 8}" stroke="#b56ad6" stroke-width="11" fill="none" stroke-linecap="round"/>'
+                     f'<circle cx="{x + 2}" cy="{256 - (i % 5) * 8}" r="5" fill="#f6ecff"/>' for i, x in enumerate(range(280, 600, 22)))
+    rhino = '<path d="M226 350 C214 310 206 290 200 276" stroke="#c98ae0" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M238 348 C232 308 230 288 230 270" stroke="#c98ae0" stroke-width="7" fill="none" stroke-linecap="round"/>'
+    body_ = (f'<defs>{grad("fl", "#d7a6ea", "#9d58c4")}</defs>' + '<ellipse cx="420" cy="420" rx="260" ry="40" fill="#2f5c4a" opacity=".7"/>' + shadow(430, 400, 200, 12)
+             + cerata + f'<path d="{body}" fill="url(#fl)"/>' + rhino + spots(rnd, 260, 600, 340, 372, 20, 1.5, 3, '#ffffff', .6))
+    return scene('flabelina', body_, floor='rocks', seed=61)
+
+
+def langosta():
+    seg = ''.join(f'<path d="M{400 + k * 34} 268 C{410 + k * 34} 258 {426 + k * 34} 258 {434 + k * 34} 268 L{434 + k * 34} 330 C{426 + k * 34} 340 {410 + k * 34} 340 {400 + k * 34} 330 Z" fill="#b5502f" stroke="#7a2e19" stroke-width="2"/>' for k in range(5))
+    tail = '<path d="M570 270 L640 236 L652 300 L640 362 L570 328 Z" fill="#c76a3f" stroke="#7a2e19" stroke-width="2"/>'
+    cara = '<path d="M250 300 C250 250 300 236 400 244 L404 352 C300 362 250 350 250 300 Z" fill="url(#lg)" stroke="#7a2e19" stroke-width="3"/>'
+    spines = ''.join(f'<path d="M{x} {y} l6 -14 l6 14" fill="#f3d7a2"/>' for x, y in ((280, 260), (320, 250), (360, 246), (300, 340), (340, 346)))
+    ant = ('<path d="M260 280 C200 220 120 160 40 120" stroke="#9c4126" stroke-width="12" fill="none" stroke-linecap="round"/>'
+           '<path d="M262 318 C200 380 120 430 50 470" stroke="#9c4126" stroke-width="12" fill="none" stroke-linecap="round"/>'
+           '<path d="M258 292 C220 270 190 250 170 240" stroke="#d8955a" stroke-width="4" fill="none"/><path d="M258 306 C220 330 190 350 170 360" stroke="#d8955a" stroke-width="4" fill="none"/>')
+    legs = ''.join(f'<path d="M{x} 350 l-16 60 l-14 20" stroke="#a24a2a" stroke-width="6" fill="none" stroke-linecap="round"/>' for x in range(300, 420, 24))
+    body = (f'<defs>{grad("lg", "#c25a33", "#e7a066")}</defs>' + shadow(420, 520, 220, 18) + legs + ant + seg + tail + cara + spines + eye(272, 276, 8, '#111', '#f0d9a8'))
+    return scene('langosta', body, floor='rocks', seed=63)
+
+
+def gorgonia():
+    rnd = random.Random(65)
+    def branch(x, y, a, length, w, depth):
+        if depth == 0 or length < 12: return ''
+        x2, y2 = x + math.cos(a) * length, y + math.sin(a) * length
+        col = '#c2185b' if depth > 3 else '#e5527a'
+        s = f'<path d="M{x:.0f} {y:.0f} L{x2:.0f} {y2:.0f}" stroke="{col}" stroke-width="{w:.1f}" stroke-linecap="round"/>'
+        for d in (-.42, .38):
+            s += branch(x2, y2, a + d + rnd.uniform(-.12, .12), length * rnd.uniform(.68, .8), w * .72, depth - 1)
+        return s
+    fans = branch(400, 590, -math.pi / 2, 120, 16, 7) + branch(180, 600, -math.pi / 2 - .25, 90, 11, 6) + branch(640, 600, -math.pi / 2 + .2, 95, 12, 6)
+    polyps = spots(rnd, 120, 700, 120, 520, 120, 1.5, 3, '#ffd6e4', .7)
+    return scene('gorgonia-roja', fans + polyps, floor='none', seed=65)
+
+
+def posidonia():
+    rnd = random.Random(67)
+    blades = []
+    for i in range(70):
+        x = rnd.randint(-20, 820); h = rnd.randint(220, 460); bend = rnd.randint(-80, 80); w = rnd.uniform(7, 12)
+        col = rnd.choice(('#3f8a4f', '#4d9b5a', '#2f7444', '#5aa864', '#7a8f45'))
+        blades.append(f'<path d="M{x} 610 C{x + bend * .2} {600 - h * .5} {x + bend * .7} {600 - h * .8} {x + bend} {600 - h}" stroke="{col}" stroke-width="{w:.1f}" fill="none" stroke-linecap="round" opacity=".92"/>')
+    fishes = fish('pz', 560, 190, 120, 50, '#9fb0b3', '#e8eef0', '#8fa0a3', tail='forked')
+    return scene('posidonia', fishes + ''.join(blades), floor='sand', seed=67)
+
+
+def anemona():
+    rnd = random.Random(69)
+    tent = []
+    for i in range(46):
+        a = math.radians(rnd.uniform(-170, -10)); L = rnd.randint(110, 220)
+        x2, y2 = 400 + math.cos(a) * L, 440 + math.sin(a) * L
+        cx, cy = 400 + math.cos(a + rnd.uniform(-.5, .5)) * L * .6, 440 + math.sin(a) * L * .4
+        tent.append(f'<path d="M400 440 Q{cx:.0f} {cy:.0f} {x2:.0f} {y2:.0f}" stroke="#7fbf6a" stroke-width="{rnd.uniform(8, 13):.1f}" fill="none" stroke-linecap="round"/>'
+                    f'<circle cx="{x2:.0f}" cy="{y2:.0f}" r="6" fill="#c45ab3"/>')
+    base = '<ellipse cx="400" cy="470" rx="80" ry="34" fill="#5e8f4e"/>'
+    return scene('anemona', shadow(400, 500, 140, 16) + base + ''.join(tent), floor='rocks', seed=69)
+
+
 SPECIES = {
     'mero': mero, 'pulpo': pulpo, 'morena': morena, 'caballito': caballito, 'sepia': sepia, 'pez-luna': pez_luna,
     'tortuga-boba': lambda: tortuga('tortuga-boba', '#b0703a', '#6d4122', '#c99a6a', 1.15, 31),
     'espeton': espeton, 'tiburon-ballena': tiburon_ballena, 'manta': manta,
     'tortuga-verde': lambda: tortuga('tortuga-verde', '#6f7f3e', '#3d4a24', '#a7a77b', .95, 33),
     'pez-payaso': payaso, 'pez-leon': pez_leon, 'tiburon-puntas-blancas': tiburon_puntas, 'raya-aguila': raya_aguila, 'napoleon': napoleon,
+    'castanuela': castanuela, 'pez-verde': pez_verde, 'sargo': sargo, 'serrano': serrano, 'corvina': corvina, 'denton': denton, 'salpa': salpa,
+    'cabracho': cabracho, 'pez-ballesta': pez_ballesta, 'estrella-roja': estrella, 'flabelina': flabelina, 'langosta': langosta,
+    'gorgonia-roja': gorgonia, 'posidonia': posidonia, 'anemona': anemona,
 }
 
 

@@ -1,7 +1,8 @@
-# WORLDIVES DISCOVERY · Entorno de pruebas
+# WORLDIVES DISCOVERY · Versión de demostración (paquete DEMO)
 
 Este paquete sirve **solo para probar en tu ordenador**. No se sube nunca al servidor real: si detecta el dominio de
-producción, se niega a arrancar.
+producción, se niega a arrancar. Todo lo que verás es **inventado**: los dos centros, las personas, las reseñas y las
+reservas. Los pagos son de prueba y los correos no salen de tu ordenador.
 
 ## 1. Arrancar
 
@@ -10,60 +11,63 @@ producción, se niega a arrancar.
 | Windows | Doble clic en **`iniciar-pruebas.bat`** |
 | Mac o Linux | En una terminal, dentro de esta carpeta: **`./iniciar-pruebas.sh`** |
 
-Se abre solo el navegador en **http://localhost:8100**. Arriba verás la banda «Entorno de pruebas».
+Se abre solo el navegador en **http://localhost:8100**. Arriba verás un aviso discreto: «Versión de demostración».
 Necesitas Python 3.11 o superior; lo que falte se instala solo la primera vez.
 
-## 2. Crear tu cuenta de administración (la primera vez)
+## 2. Cuentas
 
-El entorno de pruebas no trae cuenta de administración: la creas tú.
+Las cuentas y su contraseña están en **`CUENTAS-DEMO.txt`**, en esta misma carpeta (no en el código de la web).
+Hay una cuenta de **administración**, una por cada **centro** (y su equipo), **dos freelance** y **veinte
+buceadores**. Se entra con el usuario o con el email.
 
-1. Abre **http://localhost:8100/#/setup**. También hay un enlace en «Iniciar sesión».
-2. Escribe tu nombre, email, usuario y una contraseña de 10 caracteres o más.
-3. Entrarás directamente en **Administración**.
+## 3. Qué trae la demo
 
-Esta pantalla solo existe en el entorno de pruebas. En el servidor real el administrador se crea con
-`python app/server.py --create-admin`.
+Dos centros inventados que llevan meses funcionando:
 
-## 3. Cuentas de prueba
-
-Todas usan la contraseña **`Worldives-Prueba-2026`**.
-
-| Papel | Usuario | Correo |
+| | Bahía Coralina Centro de Buceo | Escafandra Medes |
 |---|---|---|
-| Centro de buceo | `centro.prueba` | centro@example.com |
-| Segundo centro (para ver el aislamiento entre centros) | `centro2.prueba` | centro2@example.com |
-| Freelance | `freelance.prueba` | freelance@example.com |
-| Buceador | `buzo.prueba` | buzo@example.com |
-| Instructor del centro (solo pasa lista y escanea) | `instructor.prueba` | instructor@example.com |
-| Instructora máster (perfil propio del centro: pasa lista, ve todas las salidas, organiza barcos y grupos, ve estadísticas) | `master.prueba` | master@example.com |
-| Buceadores extra (algunos reservan en los dos centros) | `buzo2.prueba` … `buzo6.prueba` | buzo2@example.com … buzo6@example.com |
+| Dónde | Xàbia (Alicante), Cabo de San Antonio | L'Estartit (Girona), Islas Medes |
+| Cuenta | `centro.prueba` | `centro2.prueba` |
+| Equipo | instructor e instructora máster (perfil hecho en la web) | instructor y recepción |
+| Servicios | inmersión simple y doble, bautizo, Open Water, Nitrox, alquiler, atardecer | Medas, nocturna, bautizo, Advanced, snorkel |
+| Puntos | 6 (Cabo San Antonio, Portitxol, Cabo San Martín, Pared Negra…) | 4 (Medes, La Vaca, Carall Bernat, Tascons) |
+
+- **Perfil en los 9 idiomas** de la web: cambia el idioma arriba y abre la página de cada centro.
+- **Precios de temporada**: temporada baja desde enero, alta desde el 15 de junio, baja desde octubre y la próxima
+  alta ya anunciada (*Panel del centro → Servicios → Tarifas*).
+- **Planificación** de los dos próximos meses y **cinco meses de historial** (más de mil inmersiones con pase de
+  lista, algún «no se presentó» y alguna cancelación).
+- **Reseñas** verificadas con respuestas del centro, **promociones**, un **bono de 10 inmersiones** con usos ya
+  descontados, una **promoción conjunta** de los dos centros, **puntos** y ventajas para canjear.
+- **Estadísticas** de visitas, clics en «Reservar» y peticiones de información de cinco meses.
+- **Vida marina**: entre 8 y 15 especies en cada punto de los dos centros (31 especies con ilustraciones propias).
+- **Dos freelance**: un guía de cenotes en México (por días y medio día, otra zona horaria) y una guía y fotógrafa
+  en Xàbia (medio día y curso de foto de dos días).
 
 ## 4. Qué probar con cada cuenta
 
-- **Administración (tu cuenta):**
-  - en **Verificaciones**, aprueba el centro pendiente;
+- **Administración (`admin.prueba`):**
+  - en **Verificaciones**, aprueba el centro pendiente («Arrecife Azul Dénia»);
   - en **Experiencias**, revisa «Semana de cenotes y cavernas»;
-  - en **Legal**, mira la denuncia.
+  - en **Legal**, mira la denuncia;
+  - en **Vida marina y vídeos → Pendientes**, la propuesta de Bahía Coralina (caballito de mar en Piedras Rotas);
+  - en **Operación**, el **Estado del sistema** y el botón **Restaurar demo**.
 - **Centro (`centro.prueba`):**
-  - en **Reservas**, acepta la solicitud;
-  - en **Planning**, crea una salida nueva;
-  - abre el **manifiesto** de una salida con buceadores.
-
-  Tiene 5 servicios (inmersión simple, doble, bautizo, curso Open Water y alquiler de equipo) con los dos modos de reserva, salidas esta semana, la próxima y el mes que viene, un barco y un instructor.
-- **Freelance (`freelance.prueba`):**
+  - en **Reservas**, acepta las solicitudes;
+  - en **Planning**, crea una salida nueva y abre el **manifiesto** de una salida con buceadores;
+  - en **Estadísticas**, los meses de actividad; en **Promociones**, el bono y sus usos;
+  - en **Escaparate**, «En otros idiomas»: la presentación en cada idioma.
+- **Freelance (`freelance.prueba` y `freelance2.prueba`):**
   - en **Mi agenda**, acepta los días que te piden;
   - mira los días ocupados, el medio día reservado y las vacaciones.
-
-  Tiene 3 servicios: guía por días, medio día y sesión de fotos y vídeo.
 - **Buceador (`buzo.prueba`):**
-  - en **Mi área → Mis reservas** (pestañas «Próximas» e «Historial») verás una reserva en cada estado: solicitada, aceptada pendiente de pago, confirmada, pagada, cancelada, rechazada, caducada y completada;
-  - mira también el **Log Book** y **Mis puntos**;
+  - en **Mi área → Mis reservas** (pestañas «Próximas» e «Historial») verás una reserva en cada estado: solicitada,
+    aceptada pendiente de pago, confirmada, pagada, cancelada, rechazada, caducada y completada;
+  - mira también el **Log Book**, **Mis puntos** y **Recompensas** (tiene el bono de 10 inmersiones);
   - reserva una «Doble inmersión en barco» (bajo petición).
-
-- **Segundo centro (`centro2.prueba`):** tiene 2 servicios en las Islas Medas y reservas de `buzo.prueba`,
-  `buzo2.prueba`, `buzo3.prueba` y `buzo4.prueba`, que también reservan en `centro.prueba`. Comprueba que cada centro
-  ve **solo sus reservas y sus clientes**: si pegas en la barra del navegador la dirección de una reserva del otro
-  centro, sale «Reserva no encontrada».
+- **Los dos centros a la vez:** muchos buceadores reservan en los dos. Comprueba que cada centro ve **solo sus
+  reservas y sus clientes**: si pegas en la barra del navegador la dirección de una reserva del otro centro, sale
+  «Reserva no encontrada».
 
 ## 4 bis. Avisos a todos los buceadores (WhatsApp, correo y app)
 
@@ -105,10 +109,12 @@ Thunderbird o Mail.
 
 ## 7. Dejarlo todo como nuevo
 
-- **Con el servidor en marcha:** Administración → Operación → **«Restaurar demo»**. Tu cuenta de administración se conserva.
-- **Con el servidor parado:** `scripts\reset_demo.bat` (Windows) o `./scripts/reset_demo.sh` (Mac o Linux). En este caso también se borra tu cuenta de administración y la vuelves a crear en el paso 2.
+- **Con el servidor en marcha:** Administración → Operación → **«Restaurar demo»** (tarda menos de un minuto). Si
+  creaste otras cuentas de administración, se conservan.
+- **Con el servidor parado:** `scripts\reset_demo.bat` (Windows) o `./scripts/reset_demo.sh` (Mac o Linux).
 
-En los dos casos las fechas vuelven a empezar a partir de hoy. Si los datos tienen más de 7 días, se renuevan solos al arrancar.
+En los dos casos las fechas vuelven a empezar a partir de hoy. Al arrancar, los datos se renuevan solos si tienen más
+de 7 días **o si los hizo otra versión** (por eso, al descomprimir una versión nueva encima, la demo se pone al día).
 
 ## 8. Probar la app en tu móvil Android (WORLDIVES Pruebas)
 
@@ -180,39 +186,34 @@ siempre una lista del barco, y una solicitud que caduca pronto.
 - **Buceador (`buzo.prueba`)**: en **Reservas**, «Ver QR» funciona también sin cobertura.
 
 
-## 9. Vida marina y vídeos de la ruta (v50.50)
+## 9. Vida marina y vídeos de la ruta (v50.51)
 
-La demo trae 16 especies de ejemplo (ilustraciones propias) en cinco puntos:
-- Islas Medes, Costa Brava;
-- Medes – La Vaca;
-- Cabo San Antonio;
-- Similan – Richelieu Rock;
-- Bonaire Marine Park.
+Cada punto de los dos centros trae entre 8 y 15 especies (ilustraciones propias, con su autor y licencia).
 
-**No trae vídeos**: para probarlos hacen falta enlaces reales. Los añades tú con tu ordenador conectado a internet.
+- **Cualquiera, sin cuenta:** abre Puntos de buceo → «Islas Medes, Costa Brava» o «Cabo San Antonio».
+  - Justo encima de **Recorrido virtual** está la franja **«Vida marina en esta inmersión»** con el número de
+    especies: fotos pequeñas y redondas que se mueven despacio. Se para al pasar el ratón o al tocarla; en el móvil
+    se desliza con el dedo. Si cabe entera, o si tienes activado «reducir movimiento», se queda quieta.
+  - Pulsa una especie: se abre un **bocadillo** junto a la foto (en el móvil, un panel pequeño desde abajo) con la
+    foto grande, el nombre común, el científico, si es habitual, ocasional o rara en esta inmersión, la mejor época
+    y su crédito. Se cierra con la X, tocando fuera o con Esc. También funciona con el teclado.
+  - Cambia de idioma arriba y mira los nombres.
+- **Vídeos del recorrido virtual:** la demo **no trae vídeos**, porque harían falta enlaces reales y no me invento
+  enlaces. Si quieres que la demo los traiga, escribe sus enlaces en `data/demo/videos-demo.json`, por ejemplo:
 
-- **Cualquiera, sin cuenta:** abre Puntos de buceo → «Islas Medes, Costa Brava».
-  - **Vida marina que puedes ver**: el carrusel avanza solo y se para con el ratón encima.
-  - Las especies fuera de temporada salen más apagadas y con «Mejor época».
-  - Toca una especie para ver la ficha. Cambia de idioma arriba y mira los nombres.
-  - En el móvil, desliza con el dedo.
-  - Abre otro punto sin especies (por ejemplo, «Medes – Carall Bernat»): no sale ninguna sección vacía.
-- **Administración (tu cuenta):**
-  - **Vida marina y vídeos → Pendientes**: aprueba o rechaza, con un motivo, la propuesta del centro de pruebas
-    (pez luna en Cabo San Antonio).
-  - **Especies**:
-    - busca «krake» o «真蛸» y encontrarás el pulpo;
-    - **Editar** abre los 9 idiomas, la foto, su autor y su licencia;
-    - **Buscar una foto libre en Wikimedia Commons** necesita internet: elige una foto libre y se guarda con su autor
-      y su licencia.
-  - **Puntos → Editar** un punto → «Vídeos de la ruta y vida marina»:
-    - pega un enlace de YouTube, Vimeo, Dailymotion o TikTok y pulsa **Comprobar**: verás el título y la miniatura;
-    - prueba también un enlace de Facebook, uno de Twitch y uno no válido (por ejemplo, un `bit.ly`);
-    - añade el vídeo, mira la ficha del punto y pulsa **Reproducir**.
-- **Centro (`centro.prueba`) y freelance (`freelance.prueba`):**
-  - Panel → **Vídeos y vida marina**: elige un punto y propón un vídeo y una especie.
-  - Quedan «Pendientes de aprobación» hasta que los apruebes con tu cuenta; después salen en la ficha con «Aportado
-    por…».
-  - **Instructor (`instructor.prueba`)**: su perfil no tiene «Ficha del centro y ajustes», así que no ve esa pestaña y
-    el servidor no le deja proponer.
+  ```json
+  [{"point": "Islas Medes, Costa Brava", "url": "https://www.youtube.com/watch?v=…", "kind": "360", "title": "Ruta por La Vaca"}]
+  ```
+
+  y pulsa **Restaurar demo** (con internet: el servidor descarga la miniatura). También puedes añadirlos a mano:
+  *Administración → Puntos → Editar* un punto → «Vídeos de la ruta y vida marina» → pega el enlace → **Comprobar** →
+  añadir. Después, en la ficha del punto, sale en **Recorrido virtual** con su miniatura: «Entrar en el recorrido» lo
+  abre en el visor (se carga solo al pulsar «Cargar vídeo») o, si la plataforma no deja insertarlo, «Abrir en …» en
+  una pestaña nueva.
+- **Administración (`admin.prueba`):** *Vida marina y vídeos → Especies*: busca «krake» o «真蛸» y encontrarás el
+  pulpo; **Editar** abre los 9 idiomas, la foto, su autor y su licencia; **Buscar una foto libre en Wikimedia
+  Commons** necesita internet.
+- **Centros y freelance:** Panel → **Vídeos y vida marina**: proponen vídeos y especies; quedan «Pendientes de
+  aprobación» hasta que la administración los apruebe, y luego salen con «Aportado por…». El instructor no ve esa
+  pestaña (su perfil no tiene «Ficha del centro y ajustes»).
 - **Buceador (`buzo.prueba`)**: no ve nada para añadir vídeos o especies.

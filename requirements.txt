@@ -4,6 +4,6 @@ qrcode>=7.4,<9
 # Optional but recommended: vouchers embed only the letters they use (a few KB instead of the whole font).
 fonttools>=4.50,<5
 # v50.47: phones and WhatsApp credentials encrypted at rest (AES-GCM).
-cryptography>=42
+cryptography>=42.0.4
 # v50.50: preview images of the linked videos and species photos, optimised as WebP in several sizes.
-Pillow>=10.0
+Pillow>=10.3.0

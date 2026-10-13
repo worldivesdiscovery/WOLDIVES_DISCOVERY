@@ -69,7 +69,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.50'
+APP_VERSION = '50.51'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -1061,6 +1061,23 @@ CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen);
 # Rate limits: thread-safe and bounded in size (wod.security.RateLimiter).
 LOGIN_LIMIT = wsec.RateLimiter(LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_SECONDS)
 LOGIN_IP_LIMIT = wsec.RateLimiter(LOGIN_MAX_ATTEMPTS * 5, LOGIN_WINDOW_SECONDS)
+LOGIN_ACCOUNT_LIMIT = wsec.RateLimiter(LOGIN_MAX_ATTEMPTS * 3, LOGIN_WINDOW_SECONDS)
+_DUMMY_HASH = []
+def dummy_password_hash():
+    if not _DUMMY_HASH: _DUMMY_HASH.append(wsec.hash_password(secrets.token_urlsafe(16)))
+    return _DUMMY_HASH[0]
+PASSWORD_CHECK_LIMIT = wsec.RateLimiter(10, 900)
+
+
+def current_password_ok(user_id, password, stored):
+    """The «current password» asked to a signed-in person before a sensitive change: at most 10 wrong ones every 15
+    minutes (v50.51, security review), so a session left open cannot be used to guess it."""
+    key = f'pw:{user_id}'
+    if PASSWORD_CHECK_LIMIT.blocked(key): raise PermissionError('Demasiados intentos con la contraseña. Espera unos minutos.')
+    if verify_password(password, stored): return True
+    PASSWORD_CHECK_LIMIT.hit(key); return False
+
+
 NOTICE_LIMIT = wsec.RateLimiter(60, 3600)
 REGISTER_LIMIT = wsec.RateLimiter(wcfg.env_int('WOD_REGISTER_MAX_PER_HOUR', 10, 1), 3600)
 FORGOT_LIMIT = wsec.RateLimiter(5, 900)
@@ -1406,6 +1423,8 @@ def bootstrap():
         db.commit()
         migrate_v50_50(db)
         db.commit()
+        migrate_v50_51(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1533,6 +1552,49 @@ def install_phone_guards(db):
                     db.execute(f'''CREATE TRIGGER IF NOT EXISTS wod_{t}_{col}_huella_{name} {when} ON {t} WHEN {cond} BEGIN
                         UPDATE {t} SET {hcol}=wod_huella(NEW.{col}) WHERE rowid=NEW.rowid AND {hcol} IS NOT wod_huella(NEW.{col}); END''')
                 db.execute(f'CREATE INDEX IF NOT EXISTS idx_{t}_{hcol} ON {t}({hcol}) WHERE {hcol} IS NOT NULL')
+
+
+# v50.51: the presentation of a centre in the other languages of the web, written by the centre (Escaparate). The texts
+# of `centers` (tagline, description) stay the main ones; a visitor whose language has its own text sees that one.
+CENTER_TEXTS_SCHEMA = '''CREATE TABLE IF NOT EXISTS center_texts (center_id INTEGER NOT NULL REFERENCES centers(id) ON DELETE CASCADE, lang TEXT NOT NULL,
+  tagline TEXT, description TEXT, updated_at TEXT NOT NULL, PRIMARY KEY(center_id, lang))'''
+CENTER_TEXT_LANGS = ('es', 'en', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'zh')
+
+
+def center_texts(db, cid) -> dict:
+    return {r['lang']: {'tagline': r['tagline'] or '', 'description': r['description'] or ''}
+            for r in db.execute('SELECT lang,tagline,description FROM center_texts WHERE center_id=? ORDER BY lang', (cid,)).fetchall()}
+
+
+def save_center_texts(db, cid, texts):
+    """{lang: {tagline, description}} from the Escaparate: an empty language is removed."""
+    if not isinstance(texts, dict): raise ValueError('Los textos por idioma no son válidos.')
+    for lang in CENTER_TEXT_LANGS:
+        t = texts.get(lang) if isinstance(texts.get(lang), dict) else {}
+        tag, desc = clean_text(t.get('tagline'), 160) or '', clean_text(t.get('description'), 5000) or ''
+        if tag or desc:
+            db.execute('''INSERT INTO center_texts(center_id,lang,tagline,description,updated_at) VALUES(?,?,?,?,?)
+                          ON CONFLICT(center_id,lang) DO UPDATE SET tagline=excluded.tagline,description=excluded.description,updated_at=excluded.updated_at''',
+                       (cid, lang, tag, desc, now()))
+        else:
+            db.execute('DELETE FROM center_texts WHERE center_id=? AND lang=?', (cid, lang))
+
+
+def migrate_v50_51(db):
+    """v50.51. The example species images now come in two sizes (128 px for the round photo of the carousel and 640 px
+    for the bubble): their rows say so. Uploaded photos keep the sizes they were stored with. Centres can present
+    themselves in every language of the web (center_texts). Nothing is deleted."""
+    db.execute("UPDATE species SET photo_widths='128,640' WHERE photo_base LIKE '/img/especies/%' AND COALESCE(photo_widths,'')<>'128,640'")
+    db.execute(CENTER_TEXTS_SCHEMA)
+    # Security review (A02-1): the authenticator secrets of the two-step verification are stored encrypted.
+    ucols = {r['name'] for r in db.execute('PRAGMA table_info(users)')}
+    if wcif.configured():
+        for col in ('totp_secret', 'totp_pending_secret'):
+            if col not in ucols: continue
+            for uid, val in db.execute(f"SELECT id,{col} FROM users WHERE {col} IS NOT NULL AND {col}<>''").fetchall():
+                if not wcif.is_secret(val): db.execute(f'UPDATE users SET {col}=? WHERE id=?', (wcif.encrypt_secret(val), uid))
+    if migration_done(db, '50.51'): return
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.51', now(), 'Carrusel de vida marina, auditoría y paquetes DEMO y PRODUCCIÓN'))
 
 
 def migrate_v50_50(db):
@@ -2637,7 +2699,7 @@ def check_totp_or_recovery(db, user, code):
     """True if code is a valid authenticator code (never reused) or an unused recovery code (then consumed)."""
     code = str(code or '').strip()
     if not code or not user['totp_secret']: return False
-    step = wtotp.verify(user['totp_secret'], code, user['totp_last_step'] if 'totp_last_step' in user.keys() else None)
+    step = wtotp.verify(wcif.decrypt_secret(user['totp_secret']) or user['totp_secret'], code, user['totp_last_step'] if 'totp_last_step' in user.keys() else None)
     if step is not None:
         db.execute('UPDATE users SET totp_last_step=? WHERE id=?', (step, user['id'])); return True
     try: rec = json.loads(user['totp_recovery'] or '[]')
@@ -2872,6 +2934,17 @@ def save_public_image(file_info, prefix):
         if content.startswith(sig): ext=e
     if content[:4]==b'RIFF' and content[8:12]==b'WEBP': ext='.webp'
     if not ext: raise ValueError('Formato no admitido. Usa una foto JPG, PNG o WEBP.')
+    try:
+        from PIL import Image
+        Image.MAX_IMAGE_PIXELS = 40_000_000
+        im = Image.open(io.BytesIO(content)); im.load()
+        out = io.BytesIO(); fmt = {'.jpg': 'JPEG', '.png': 'PNG', '.webp': 'WEBP'}[ext]
+        if fmt == 'JPEG' and im.mode not in ('RGB', 'L'): im = im.convert('RGB')
+        im.save(out, fmt, **({'quality': 90} if fmt != 'PNG' else {})); content = out.getvalue()
+    except ImportError:
+        pass
+    except Exception:
+        pass   # not decodable: kept as it came (only its first bytes were checked)
     PHOTOS.mkdir(parents=True,exist_ok=True)
     name=f'{prefix}_{secrets.token_hex(8)}{ext}'
     (PHOTOS/name).write_bytes(content)
@@ -3019,7 +3092,8 @@ def marina_withdraw(db, user, table, item_id):
 
 def marina_add_species_link(db, user, data):
     pid = int(data.get('point_id') or 0); point = marina_point(db, pid)
-    ckind, prov, cname = marina_contributor(db, user); marina_rate(user['id'])
+    ckind, prov, cname = marina_contributor(db, user)
+    if user['role'] != 'admin': marina_rate(user['id'])   # v50.51: proposals only (it asks no other website; the admin fills whole sites)
     sid = int(data.get('species_id') or 0)
     if not db.execute('SELECT 1 FROM species WHERE id=? AND active=1', (sid,)).fetchone(): raise ValueError('Elige una especie del catálogo.')
     freq = data.get('frequency') if data.get('frequency') in wmarina.FREQUENCIES else 'common'
@@ -3199,6 +3273,11 @@ def marina_load_examples(db, user):
     """The example species (own illustrations by WORLDIVES DISCOVERY, public/img/especies/<clave>-<width>.webp): only
     those not already in the catalogue."""
     require_role(user, {'admin'})
+    return load_example_species(db, user['id'])
+
+
+def load_example_species(db, user_id=None):
+    """Also on the first start of a new installation (v50.51): the production package brings the catalogue."""
     added = 0
     for ex in wmarina.examples():
         if db.execute('SELECT 1 FROM species WHERE lower(scientific_name)=lower(?) AND active=1', (ex['cientifico'],)).fetchone(): continue
@@ -3206,10 +3285,10 @@ def marina_load_examples(db, user):
         if not widths: continue
         sid = db.execute('''INSERT INTO species(scientific_name,photo_base,photo_widths,photo_ratio,photo_author,photo_license,example_key,created_by_user_id,created_at,updated_at)
                             VALUES(?,?,?,?,?,?,?,?,?,?)''', (ex['cientifico'], f"/img/especies/{ex['clave']}", ','.join(map(str, widths)), round(4 / 3, 4),
-                                                       ex['autor'], wmarina.clean_license(ex['licencia']), ex['clave'], user['id'], now(), now())).lastrowid
+                                                       ex['autor'], wmarina.clean_license(ex['licencia']), ex['clave'], user_id, now(), now())).lastrowid
         wmarina.save_texts(db, sid, ex['textos'])
         added += 1
-    audit(db, user['id'], 'species_examples_loaded', 'species', None, {'added': added})
+    audit(db, user_id, 'species_examples_loaded', 'species', None, {'added': added})
     return added
 
 
@@ -7457,7 +7536,7 @@ CLOSE_KEEP_DAYS = 183
 CLOSE_STATES = ('requested', 'accepted_pending_payment', 'confirmed', 'payment_in_progress', 'pending')
 CLOSED_WRITE_OK = ('/api/auth/', '/api/provider/cuenta/reabrir', '/api/account/', '/api/legal/accept', '/api/team/switch', '/api/me', '/api/reports', '/api/contact')
 CENTER_PURGE_TABLES = ('center_tariffs', 'center_extras', 'center_equipment', 'center_integrations', 'center_links', 'data_shares', 'team_invites',
-                       'center_roles', 'center_point_links', 'qr_codes', 'promotion_partners')
+                       'center_roles', 'center_point_links', 'qr_codes', 'promotion_partners', 'center_texts')
 PROVIDER_PURGE_TABLES = ('notice_outbox', 'notice_batches', 'info_requests', 'whatsapp_accounts', 'provider_settings')
 CENTER_ANON_COLS = ('region', 'city', 'address', 'website', 'phone', 'email', 'description', 'specialties', 'latitude', 'longitude', 'source_name', 'source_url',
                     'logo_url', 'logo_source', 'instagram_url', 'facebook_url', 'twitter_url', 'youtube_url', 'tiktok_url', 'cover_url', 'tagline', 'gallery_json',
@@ -7683,17 +7762,14 @@ def report_target(db, ttype, tid):
 REPORT_REASONS = {'illegal': 'Contenido ilegal', 'false': 'Información falsa o engañosa', 'fake_review': 'Reseña falsa o no auténtica',
                   'ip': 'Uso no autorizado de fotos o textos', 'safety': 'Riesgo para la seguridad', 'privacy': 'Datos personales publicados sin permiso',
                   'fraud': 'Fraude o estafa', 'other': 'Otro motivo'}
-REPORT_LIMIT = {}
+REPORT_LIMIT = wsec.RateLimiter(10, 3600)            # v50.51: bounded in size like the other limits (security review)
 # «Contacto» form (v50.46). The topics follow the table of the «Contacto» page.
 CONTACT_TOPICS = {'web': 'Dudas sobre la web o tu cuenta', 'booking': 'Un problema con una reserva', 'privacy': 'Protección de datos y tus derechos',
                   'accessibility': 'Accesibilidad', 'center': 'Centros que quieren unirse', 'other': 'Otro asunto'}
 
 
 def report_rate_limited(ip):
-    current = time.time(); row = REPORT_LIMIT.get(ip)
-    if not row or current - row[0] > 3600: REPORT_LIMIT[ip] = [current, 1]; return False
-    row[1] += 1
-    return row[1] > 10
+    return REPORT_LIMIT.hit(ip)
 
 
 def _qr_cmds(payload,x0,y0,size):
@@ -9744,6 +9820,10 @@ ERROR_MONITOR = wops.ErrorMonitor(_alert_errors)
 
 class Handler(BaseHTTPRequestHandler):
     server_version = 'WORLDIVES'
+    sys_version = ''
+
+    def version_string(self):
+        return self.server_version
     # A connection that stops sending data is dropped after 30 s instead of holding a worker forever.
     timeout = int(os.environ.get('WOD_SOCKET_TIMEOUT', '30'))
 
@@ -9753,6 +9833,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             line = fmt % args
             if '?' in line: line = re.sub(r'\?[^\s"]*', '', line)
+            line = re.sub(r'(/ical/)[^/\s"]+(\.ics)', r'\1***\2', line)
+            line = re.sub(r'(/(?:api/)?r/)[^/\s"]+', r'\1***', line)
             ACCESS_LOG.info('%s - %s', wsec.log_ip(self.client_ip()), line)
         except Exception:
             pass
@@ -10336,7 +10418,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'admin'})
                     r=db.execute('SELECT * FROM email_outbox WHERE id=?',(int(path.rsplit('/',1)[1]),)).fetchone()
                     if not r: self.send_json({'error':'Correo no encontrado'},404); return
-                    self.send_json({'item':dict(r)}); return
+                    it=dict(r)
+                    for k in ('text','html'): it[k]=re.sub(r'([?&](?:t|token)=)[A-Za-z0-9_\-]{12,}', r'\1***', it.get(k) or '')
+                    self.send_json({'item':it}); return
                 if path == '/api/admin/email-preview':
                     user=require_user(self,db); require_role(user,{'admin'})
                     tpl=clean_text(query.get('template',[''])[0],40) or ''; lang=clean_text(query.get('lang',['es'])[0],5) or 'es'
@@ -10820,6 +10904,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                                  AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))
                                                ORDER BY e.id DESC LIMIT 12''',(cid,)).fetchall()
                         _ci=center_row(row,member=bool(current and current['role']=='center' and current['center_id']==cid)); _ci['cancellation_policy']=cancellation_policy_key(row['cancellation_policy']); _ci['cancellation_text']=cancellation_policy_text(row['cancellation_policy']); _ci['cancellation_note']=row['cancellation_note'] or ''
+                        _ci['texts']=center_texts(db,cid); lang_=query.get('lang',[''])[0]
+                        if lang_ and (_t:=_ci['texts'].get(normalize_lang(lang_))):   # v50.51: the centre's own text in the visitor's language
+                            if _t['tagline']: _ci['tagline']=_t['tagline']
+                            if _t['description']: _ci['description']=_t['description']
+                            _ci['text_lang']=normalize_lang(lang_)
                         _ci['online_booking']=provider_has(db,'center',cid,'online_bookings'); stat_bump(db,'center',cid,'views',self.client_ip()); db.commit()
                         if not feature_switch(db,'reviews'): review_payload=[]; can_review=False; _ci['reviews_off']=True
                         self.send_json({'item':_ci,'points':[point_row(r) for r in points],'services':service_out,'experiences':enrich_experiences(db,exp_rows), 'reviews':review_payload, 'review':{'can_review':can_review,'reason':review_reason,'current':current_review,'can_reply':bool(current and current['role']=='center' and current['center_id']==cid),'is_admin':bool(current and current['role']=='admin')}}); return
@@ -10926,9 +11015,13 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     lang=normalize_lang(query.get('lang',['es'])[0]); loc=point_text(db,pid,lang)
                     if loc: item['description']=loc; item['description_lang']=lang
                     if item.get('description_generated'): item['access_info']=''   # the access is already in the text
-                    # v50.50: the species and the route videos come with the site (one indexed query each, never one per item).
+                    # v50.50/51: species, linked route videos and the old virtual tours come with the site (one indexed query
+                    # each, never one request per item). Old tours copied to route videos are not repeated.
+                    legacy=db.execute('''SELECT v.id,v.dive_point_id,v.title,v.experience_type,v.provider,v.url,v.media_path,v.description FROM virtual_experiences v
+                                         WHERE v.dive_point_id=? AND v.active=1 AND NOT EXISTS(SELECT 1 FROM route_videos r WHERE r.legacy_virtual_id=v.id) ORDER BY v.id''',(pid,)).fetchall()
                     self.send_json({'item':item,'photos':[dict(x) for x in photos],'nearby':near,'types':snap_row.get('types',[]),
-                                    'species':wmarina.point_species(db,pid,lang),'videos':wmarina.point_videos(db,pid)})
+                                    'species':wmarina.point_species(db,pid,lang),'videos':wmarina.point_videos(db,pid),
+                                    'virtual':[virtual_public_row(r) for r in legacy]})
                     return
                 if path == '/api/center-directory':
                     self.send_json(center_directory(db, query)); return
@@ -11573,11 +11666,16 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     data=json_body(self); login=(clean_text(data.get('login'),160) or '').lower(); password=str(data.get('password',''))[:256]
                     ip=self.client_ip(); rate_key=f'{ip}:{login}'; ip_key=f'ip:{ip}'
                     # Per account+IP (8 per 15 min) and per IP (5x that), so one address cannot try many accounts.
-                    if login_rate_limited(rate_key) or LOGIN_IP_LIMIT.blocked(ip_key):
+                    acct_key='acct:'+login
+                    if login_rate_limited(rate_key) or LOGIN_IP_LIMIT.blocked(ip_key) or LOGIN_ACCOUNT_LIMIT.blocked(acct_key):
                         self.send_json({'error':'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.'},429); return
                     user=db.execute('SELECT * FROM users WHERE lower(email)=? OR lower(username)=?',(login,login)).fetchone()
-                    if not user or not verify_password(password,user['password_hash']):
-                        record_login_failure(rate_key); LOGIN_IP_LIMIT.hit(ip_key); self.send_json({'error':'Usuario o contraseña incorrectos.'},401); return
+                    ok_pw=verify_password(password,user['password_hash'] if user else dummy_password_hash())
+                    if not user or not ok_pw:
+                        record_login_failure(rate_key); LOGIN_IP_LIMIT.hit(ip_key)
+                        if LOGIN_ACCOUNT_LIMIT.hit(acct_key): security_alert('login_bruteforce', {'account': wsec.ip_hash(login)})
+                        if user: audit(db,user['id'],'login_failed',details={'ip':wsec.ip_hash(ip)}); db.commit()
+                        self.send_json({'error':'Usuario o contraseña incorrectos.'},401); return
                     clear_login_failures(rate_key)
                     if wsec.needs_rehash(user['password_hash']):
                         # Accounts from before v50.31 move to PBKDF2 with 600 000 iterations on their next login.
@@ -11591,24 +11689,24 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); data=json_body(self); action=path.rsplit('/',1)[1]
                     u=db.execute('SELECT * FROM users WHERE id=?',(user['id'],)).fetchone()
                     if action=='setup':
-                        if not verify_password(str(data.get('password') or ''),u['password_hash']): raise PermissionError('La contraseña no es correcta.')
+                        if not current_password_ok(user['id'],str(data.get('password') or ''),u['password_hash']): raise PermissionError('La contraseña no es correcta.')
                         if u['totp_enabled']: raise ValueError('La verificación en dos pasos ya está activada.')
-                        sec=wtotp.new_secret(); db.execute('UPDATE users SET totp_pending_secret=? WHERE id=?',(sec,u['id'])); db.commit()
+                        sec=wtotp.new_secret(); db.execute('UPDATE users SET totp_pending_secret=? WHERE id=?',(wcif.encrypt_secret(sec),u['id'])); db.commit()
                         uri=wtotp.otpauth_uri(sec,u['email'] or u['username'])
                         self.send_json({'ok':True,'secret':sec,'uri':uri,'qr_svg':qr_svg(uri).decode('utf-8')}); return
                     if action=='enable':
-                        sec=u['totp_pending_secret']
+                        sec=wcif.decrypt_secret(u['totp_pending_secret']) or u['totp_pending_secret']
                         if not sec: raise ValueError('Empieza de nuevo la activación.')
                         if TOTP_LIMIT.blocked(f"totp:{u['id']}"): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
                         step=wtotp.verify(sec,data.get('code'))
                         if step is None: TOTP_LIMIT.hit(f"totp:{u['id']}"); raise ValueError('El código no es correcto. Comprueba la hora de tu móvil y vuelve a probar.')
                         codes=wtotp.recovery_codes()
-                        db.execute('UPDATE users SET totp_secret=?,totp_pending_secret=NULL,totp_enabled=1,totp_enabled_at=?,totp_last_step=?,totp_recovery=? WHERE id=?',(sec,now(),step,json.dumps([wtotp.hash_recovery(c) for c in codes]),u['id']))
+                        db.execute('UPDATE users SET totp_secret=?,totp_pending_secret=NULL,totp_enabled=1,totp_enabled_at=?,totp_last_step=?,totp_recovery=? WHERE id=?',(wcif.encrypt_secret(sec),now(),step,json.dumps([wtotp.hash_recovery(c) for c in codes]),u['id']))
                         db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(u['id'],self.session_hash() or ''))  # other devices sign in again with the code
                         audit(db,u['id'],'totp_enabled'); notify_user(db,u['id'],'totp_enabled',{'when':now()[:16].replace('T',' ')},('user',u['id'])); db.commit()
                         self.send_json({'ok':True,'recovery_codes':codes}); return
                     if not u['totp_enabled']: raise ValueError('La verificación en dos pasos no está activada.')
-                    if not verify_password(str(data.get('password') or ''),u['password_hash']): raise PermissionError('La contraseña no es correcta.')
+                    if not current_password_ok(user['id'],str(data.get('password') or ''),u['password_hash']): raise PermissionError('La contraseña no es correcta.')
                     if not check_totp_or_recovery(db,u,data.get('code')): db.commit(); raise PermissionError('El código de verificación no es correcto.')
                     if action=='disable':
                         if u['role']=='admin' and admin_totp_required(): raise PermissionError('Los administradores no pueden desactivar la verificación en dos pasos.')
@@ -11679,7 +11777,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); data=json_body(self); new=(clean_text(data.get('email'),160) or '').lower()
                     if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',new) or not mail_deliverable(new): raise ValueError('Escribe un email válido.')
                     row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
-                    if not verify_password(str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
+                    if not current_password_ok(user['id'],str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
                     if db.execute('SELECT 1 FROM users WHERE lower(email)=? AND id<>?',(new,user['id'])).fetchone(): raise ValueError('Ese email ya lo usa otra cuenta.')
                     if FORGOT_LIMIT.hit(f"email-change:{user['id']}"): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
                     send_email_verification(db,user['id'],new); audit(db,user['id'],'email_change_requested','user',user['id']); db.commit(); self.send_json({'ok':True}); return
@@ -12601,7 +12699,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         r=provider_cancel_all(db,user,*ref,note=data.get('note') or ''); db.commit()
                         self.send_json({'ok':True,'result':r,**provider_account_status(db,*ref)}); return
                     row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
-                    if not verify_password(str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
+                    if not current_password_ok(user['id'],str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
                     fut=provider_future_bookings(db,*ref)
                     if fut: self.send_json({'error':f'Tienes {len(fut)} reservas próximas. Resuélvelas o pulsa «Cancelar y avisar a todos» antes de cerrar la cuenta.','future':fut,'future_count':len(fut)},409); return
                     purge=provider_close(db,user,*ref); db.commit()
@@ -12698,7 +12796,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if not name or len(name)<2: raise ValueError('Escribe tu nombre.')
                         if not re.fullmatch(r'[a-z0-9_.-]{3,40}',username): raise ValueError('El usuario solo admite letras, números, punto, guion y guion bajo (3–40).')
                         if db.execute('SELECT 1 FROM users WHERE lower(username)=?',(username,)).fetchone(): raise ValueError('Ese nombre de usuario ya existe.')
-                        if len(pw)<10: raise ValueError('La contraseña debe tener al menos 10 caracteres.')
+                        if (problem:=wsec.password_problem(pw)): raise ValueError(problem)   # v50.51: the same rules as the registration
                         if not data.get('accept_terms'): raise ValueError('Acepta las condiciones para centros y la política de privacidad.')
                         uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at,email_verified_at) VALUES(?,?,?,?,?,?,?)',(name,inv['email'],username,hash_password(pw),'recreational',now(),now())).lastrowid
                         db.execute('INSERT INTO user_profiles(user_id,updated_at) VALUES(?,?)',(uid,now()))
@@ -12746,7 +12844,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); data=json_body(self)
                     if user['role']!='recreational': raise PermissionError('Las cuentas de centro, profesional o administración se dan de baja escribiéndonos: así no se pierden reservas de clientes.')
                     row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
-                    if not verify_password(str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
+                    if not current_password_ok(user['id'],str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
                     future=db.execute("SELECT COUNT(*) FROM bookings WHERE user_id=? AND status IN ('pending','confirmed') AND booking_date>=?",(user['id'],_dt.date.today().isoformat())).fetchone()[0]
                     if future: raise ValueError(f'Tienes {future} reserva(s) próxima(s). Cancélalas antes de eliminar tu cuenta.')
                     if request_account_deletion(db,user):
@@ -12876,6 +12974,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     cu=current_user(self,db)
                     name=clean_text(data.get('name'),120) or (cu['fullname'] if cu else ''); email=(clean_text(data.get('email'),160) or (cu['email'] if cu else '') or '').lower()
                     target=clean_text(data.get('target_url'),500) or ''
+                    # v50.51 (security review A04-1): a page of this web (absolute http(s) address or path) and nothing else
+                    if target and not (target.startswith(('#/','/')) and not target.startswith('//')) and not re.match(r'https?://[^\s/]+',target,re.I):
+                        raise ValueError('El enlace del contenido no es válido: copia la dirección de la página.')
                     if not data.get('good_faith'): raise ValueError('Confirma que la información es exacta y que la envías de buena fe.')
                     # DSA art. 16.2: the notice identifies who sends it (name and email), so we can answer with the decision.
                     if len(name)<2 or not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email): raise ValueError('Indica tu nombre y un email válido para comunicarte la decisión.')
@@ -13182,7 +13283,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/account/password':
                     user=require_user(self,db); data=json_body(self); new=str(data.get('new_password') or '')
                     row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
-                    if not verify_password(str(data.get('current_password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña actual no es correcta.')
+                    if not current_password_ok(user['id'],str(data.get('current_password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña actual no es correcta.')
                     check_new_password(new)
                     db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(new),user['id']))
                     tok=''
@@ -13832,6 +13933,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     cover=row['cover_url']
                     if data.get('remove_cover'): removed.append(cover); cover=None
                     db.execute('UPDATE centers SET tagline=?,languages=?,opening_hours=?,gallery_json=?,cover_url=?,updated_at=? WHERE id=?',(clean_text(data.get('tagline'),160),clean_text(data.get('languages'),160),clean_text(data.get('opening_hours'),300),json.dumps(gallery),cover,now(),cid))
+                    if 'texts' in data: save_center_texts(db,cid,data.get('texts'))
                     audit(db,user['id'],'center_showcase_updated','center',cid); db.commit()
                     for u in removed: delete_public_image(u)
                     self.send_json({'ok':True}); return
@@ -13962,7 +14064,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 self.send_json({'error':'Endpoint no encontrado'},404)
             except sqlite3.IntegrityError as e:
                 db.rollback()  # never persist half-done work when a request fails
-                self.send_json({'error':'El dato ya existe o no cumple una regla de integridad.','detail':str(e)},409)
+                log_exception(self, e); self.send_json({'error':'El dato ya existe o no cumple una regla de integridad.'},409)
             except (BrokenPipeError, ConnectionResetError):
                 return
             except PermissionError as e:
@@ -14254,7 +14356,74 @@ def admin_health(db):
             'quick_check': q('ops_quick_check'), 'backup_db': q('backup_last_db'), 'backup_files': q('backup_last_files'),
             'backup_external': bool(wcfg.env('WOD_BACKUP_COMMAND')), 'backup_enabled': wcfg.env('WOD_BACKUP', 'on').lower() != 'off',
             'email_queue': counts, 'errors_recent': len(getattr(ERROR_MONITOR, '_events', [])), 'disk': disk, 'workers': wcfg.env_int('WOD_WORKERS', 1, 1, 64),
-            'production': wcfg.is_production(), 'warnings': production_warnings(), 'banner': site_banner(db)}
+            'production': wcfg.is_production(), 'warnings': production_warnings(), 'banner': site_banner(db), 'services': system_status(db)}
+
+
+def system_status(db):
+    """«Estado del sistema» (v50.51): every external service and key, configured / pending / error, what stops working
+    while it is missing and the .env variable that switches it on (read when the server starts)."""
+    env = lambda k: (os.environ.get(k) or '').strip()
+    q = lambda k: json.loads(ops_setting(db, k) or 'null')
+    out = []
+
+    def add(key, name, state, detail, needs=(), effect=''):
+        out.append({'key': key, 'name': name, 'state': state, 'detail': detail, 'env': list(needs), 'effect': effect})
+    url = wcfg.public_url()
+    add('domain', 'Dominio y HTTPS', 'ok' if url.startswith('https://') else ('error' if wcfg.is_production() else 'pending'),
+        url or 'Sin dirección pública.', ('WOD_PUBLIC_URL',), 'Enlaces de los correos, de los pagos y de los avisos.')
+    add('session_key', 'Clave de las sesiones', 'ok' if len(env('WOD_SECRET_KEY')) >= 32 else 'error',
+        'Configurada.' if len(env('WOD_SECRET_KEY')) >= 32 else 'Falta o es demasiado corta (32 caracteres o más).', ('WOD_SECRET_KEY',))
+    dk = env('WOD_DATA_KEY')
+    add('data_key', 'Clave de cifrado de datos', 'ok' if len(dk) >= 32 and (dk != wcif.DEMO_DATA_KEY or wcfg.demo_mode()) else 'error',
+        'Teléfonos, credenciales y códigos de verificación cifrados.' if len(dk) >= 32 else 'Falta: no se pueden guardar teléfonos ni credenciales.', ('WOD_DATA_KEY',))
+    failed = db.execute("SELECT COUNT(*) FROM email_outbox WHERE status='failed' AND created_at>=?", ((_dt.datetime.now() - _timedelta(days=1)).isoformat(timespec='seconds'),)).fetchone()[0]
+    if wcfg.demo_mode(): mail = ('ok', 'Versión de demostración: los correos se guardan en archivos y no salen del ordenador.')
+    elif not env('WOD_SMTP_HOST'): mail = ('pending', 'Sin proveedor de correo: los correos esperan en la cola 72 horas.')
+    elif failed: mail = ('error', f'{failed} correos no se han podido enviar en las últimas 24 horas. Revisa el usuario y la contraseña del proveedor.')
+    else: mail = ('ok', f"Envío por {env('WOD_SMTP_HOST')}.")
+    add('mail', 'Correo', *mail, ('WOD_SMTP_HOST', 'WOD_SMTP_USER', 'WOD_SMTP_PASSWORD', 'WOD_MAIL_FROM'), 'Confirmaciones, avisos y recuperación de contraseña.')
+    sk = env('STRIPE_SECRET_KEY')
+    if not sk: pay = ('pending', 'Cobros online desactivados: se reserva bajo petición y se paga en el centro.')
+    elif not env('STRIPE_CONNECT_WEBHOOK_SECRET'): pay = ('pending', 'Cobros activos, pero sin el aviso de Stripe (webhook): los pagos se confirman al volver de Stripe y en la revisión periódica.')
+    else: pay = ('ok', 'Modo de prueba (tarjeta 4242…).' if sk.startswith(('sk_test_', 'rk_test_')) else 'Cobros reales activos, directos a cada centro, sin comisión.')
+    add('payments', 'Pagos online (Stripe)', *pay, ('STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_CONNECT_WEBHOOK_SECRET'), '«Pago al reservar» y devoluciones automáticas.')
+    p = pmtiles_path()
+    if bool(p and p.exists()) or pmtiles_url().startswith('https://'): basemap = ('ok', 'Mapa base propio (Protomaps).')
+    elif wcfg.environment() == 'production': basemap = ('error', 'Falta el archivo del mapa base: los mapas se ven sin fondo (docs/mapas.md).')
+    else: basemap = ('pending', 'En pruebas se usa el mapa de OpenStreetMap; en producción hace falta el archivo del mapa base (docs/mapas.md).')
+    add('basemap', 'Mapa base', *basemap, ('WOD_PMTILES_URL',), 'Fondo de los mapas.')
+    add('satellite', 'Vista satélite', 'ok' if arcgis_key() else 'pending', 'Disponible.' if arcgis_key() else 'No aparece el botón «Satélite»; el resto del mapa funciona.', ('ARCGIS_API_KEY',))
+    wa_need = ('WHATSAPP_ENABLED', 'WHATSAPP_APP_ID', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'WHATSAPP_CONFIG_ID')
+    if wcfg.demo_mode(): wa = ('ok', 'Simulado: los mensajes se guardan y no se envían.')
+    elif not wcfg.env_flag('WHATSAPP_ENABLED'): wa = ('pending', 'Desactivado: los avisos a los buceadores salen por correo y en la app.')
+    else: wa = ('ok', 'Cada centro conecta su propio número.') if all(env(k) for k in wa_need[1:]) else ('error', 'Faltan datos de la app de Meta.')
+    add('whatsapp', 'WhatsApp', *wa, wa_need, 'Avisos de cambios y cancelaciones por WhatsApp.')
+    push_ok = bool(env('WOD_FCM_PROJECT_ID') and env('WOD_FCM_CREDENTIALS'))
+    if push_ok and not Path(env('WOD_FCM_CREDENTIALS')).is_file(): push = ('error', 'No se encuentra el archivo de credenciales de Firebase.')
+    else: push = ('ok', 'Avisos en el móvil activos.') if push_ok else ('pending', 'Sin avisos en el móvil: la app muestra los avisos al abrirla.')
+    add('push', 'Avisos en el móvil (app)', *push, ('WOD_FCM_PROJECT_ID', 'WOD_FCM_CREDENTIALS'))
+    last = q('backup_last_db'); enabled = wcfg.env('WOD_BACKUP', 'on').lower() != 'off'
+    age_h = None
+    if last and last.get('at'):
+        try: age_h = (_dt.datetime.now() - _dt.datetime.fromisoformat(last['at'][:19])).total_seconds() / 3600
+        except ValueError: age_h = None
+    if not enabled: bk = ('error', 'Las copias diarias están desactivadas (WOD_BACKUP=off).')
+    elif age_h is None: bk = ('pending', 'Todavía no se ha hecho la primera copia (se hace cada hora).')
+    elif age_h > 30: bk = ('error', f'La última copia es de hace {int(age_h)} horas.')
+    else: bk = ('ok', f"Última copia: {last['at'][:16].replace('T', ' ')}.")
+    add('backup', 'Copias de seguridad', *bk, ('WOD_BACKUP', 'WOD_BACKUP_DIR', 'WOD_BACKUP_DB_MINUTES'))
+    add('backup_key', 'Cifrado de las copias', 'ok' if env('WOD_BACKUP_KEY') else 'pending',
+        'Las copias se guardan cifradas.' if env('WOD_BACKUP_KEY') else 'Las copias se guardan sin cifrar: no las saques del servidor sin cifrarlas.', ('WOD_BACKUP_KEY',))
+    add('backup_offsite', 'Copia fuera del servidor', 'ok' if env('WOD_BACKUP_COMMAND') else 'pending',
+        'Se envía una copia cada día a otro sitio.' if env('WOD_BACKUP_COMMAND') else 'Las copias solo están en este servidor.', ('WOD_BACKUP_COMMAND',))
+    try:
+        du = shutil.disk_usage(DB_PATH.parent); free = du.free / 1e9; pct = du.used * 100 / du.total
+        add('disk', 'Espacio en disco', 'error' if free < 2 or pct > 90 else 'ok', f'{free:.1f} GB libres ({pct:.0f} % usado).')
+    except OSError:
+        add('disk', 'Espacio en disco', 'error', 'No se puede leer el espacio libre.')
+    add('admin_2fa', 'Verificación en dos pasos (administración)', 'ok' if admin_totp_required() else ('error' if wcfg.is_production() else 'pending'),
+        'Obligatoria para administradores.' if admin_totp_required() else 'Desactivada (solo se permite en pruebas).', ('WOD_ADMIN_TOTP_REQUIRED',))
+    return out
 
 
 def check_production_settings():
@@ -14364,6 +14533,7 @@ def main():
         for w in production_warnings(): print('Aviso: ' + w)
     demo_problem = demo_guard()
     if demo_problem: print('No se puede arrancar: ' + demo_problem); raise SystemExit(2)
+    new_install = False
     if not DB_PATH.exists() and not os.environ.get('WOD_EMPTY_DB'):
         # v50.45 (encargo 2b · bloque 1): the base is created on the first start. The production zip carries the
         # catalogue of dive points (without centres, users or bookings) in data/seed/; development uses the demo.
@@ -14374,7 +14544,13 @@ def main():
             import shutil
             DB_PATH.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(src, DB_PATH)
             print(f'Base nueva {DB_PATH} creada a partir de {src.relative_to(ROOT)}.')
+            new_install = True
     bootstrap()
+    if new_install:
+        # v50.51: a new installation starts with the catalogue of species (own illustrations, licence «Ilustración propia»).
+        with connect() as _db:
+            if not _db.execute('SELECT 1 FROM species LIMIT 1').fetchone():
+                print(f'Catálogo de especies: {load_example_species(_db)} especies de ejemplo.'); _db.commit()
     print(f'WORLDIVES DISCOVERY v{APP_VERSION} -> http://127.0.0.1:{PORT}')
     # Optional multi-process mode (Linux/macOS): WOD_WORKERS=4 starts 4 processes sharing the port.
     # Sessions live in the database, so any process can serve any user.

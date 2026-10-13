@@ -88,8 +88,7 @@ class SignIn(ServerTestCase):
 
     def test_second_step_is_a_separate_request(self):
         diver = self.make_diver('dospasos7')
-        diver.post('/api/account/totp/setup', {'password': PW})
-        secret = self.server.sql("SELECT totp_pending_secret FROM users WHERE username='diver_dospasos7'")[0]['totp_pending_secret']
+        secret = diver.post('/api/account/totp/setup', {'password': PW}).json['secret']   # v50.51: stored encrypted
         r = diver.post('/api/account/totp/enable', {'code': totp.code_at(secret, totp.current_step())})
         self.assertEqual(r.status, 200, r)
         c = self.client()

@@ -24,6 +24,60 @@ from pathlib import Path
 from . import config
 
 
+MAGIC = b'WODBK1\n'
+CHUNK = 4 * 1024 * 1024
+
+
+def _backup_key():
+    """32-byte key from WOD_BACKUP_KEY (never the data key): None when not configured (development only)."""
+    import hashlib
+    raw = config.env('WOD_BACKUP_KEY')
+    return hashlib.sha256(raw.encode('utf-8')).digest() if raw else None
+
+
+def encrypt_file(path: Path) -> None:
+    """Encrypts a finished copy in place with AES-256-GCM, chunk by chunk (each chunk authenticates its number and
+    whether it is the last one, so a copy cannot be cut or reordered)."""
+    key = _backup_key()
+    if not key: return
+    import secrets, struct
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    aes = AESGCM(key); tmp = path.with_name(path.name + '.enc-tmp')
+    with open(path, 'rb') as fi, open(tmp, 'wb') as fo:
+        fo.write(MAGIC); n = 0; block = fi.read(CHUNK)
+        while True:
+            nxt = fi.read(CHUNK); last = not nxt; nonce = secrets.token_bytes(12)
+            ct = aes.encrypt(nonce, block, struct.pack('>Q?', n, last))
+            fo.write(struct.pack('>I', len(ct)) + nonce + ct); n += 1
+            if last: break
+            block = nxt
+    os.replace(tmp, path); os.chmod(path, 0o600)
+
+
+def _plain_copy(path: Path, out: Path) -> None:
+    """Writes the decrypted (and still gzip-compressed if it was) content of a copy to out."""
+    import struct
+    with open(path, 'rb') as fi:
+        head = fi.read(len(MAGIC))
+        if head != MAGIC:
+            fi.seek(0)
+            with open(out, 'wb') as fo: shutil.copyfileobj(fi, fo)
+            return
+        key = _backup_key()
+        if not key: raise RuntimeError('Esta copia está cifrada: falta WOD_BACKUP_KEY.')
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        aes = AESGCM(key); n = 0
+        with open(out, 'wb') as fo:
+            while True:
+                size = fi.read(4)
+                if not size: raise RuntimeError('Copia cifrada incompleta.')
+                ln = struct.unpack('>I', size)[0]; nonce = fi.read(12); ct = fi.read(ln)
+                peek = fi.read(1); last = not peek
+                if peek: fi.seek(-1, 1)
+                fo.write(aes.decrypt(nonce, ct, struct.pack('>Q?', n, last))); n += 1
+                if last: break
+
+
 def backup_dir(db_path: Path) -> Path:
     return Path(config.env('WOD_BACKUP_DIR') or (db_path.parent / 'backups'))
 
@@ -52,6 +106,7 @@ def backup_db(db_path: Path) -> Path:
         shutil.copyfileobj(fi, fo, 1024 * 1024)
     tmp.unlink(missing_ok=True)
     os.chmod(out, 0o600)
+    encrypt_file(out)
     return out
 
 
@@ -66,6 +121,7 @@ def backup_files(folders: list[Path], db_path: Path) -> Path | None:
         for f in existing:
             tar.add(f, arcname=f.name)
     os.chmod(out, 0o600)
+    encrypt_file(out)
     return out
 
 
@@ -102,12 +158,14 @@ def ship(path: Path) -> str:
 
 def verify(path: Path) -> str:
     """Opens a backup (.sqlite3 or .sqlite3.gz) in a temporary file and runs integrity_check: the restore test."""
-    tmp = Path(str(path) + f'.verify-{os.getpid()}.sqlite3')
+    tmp = Path(str(path) + f'.verify-{os.getpid()}.sqlite3'); plain = Path(str(path) + f'.plain-{os.getpid()}')
     try:
+        _plain_copy(path, plain)
         if str(path).endswith('.gz'):
-            with gzip.open(path, 'rb') as fi, open(tmp, 'wb') as fo: shutil.copyfileobj(fi, fo)
+            with gzip.open(plain, 'rb') as fi, open(tmp, 'wb') as fo: shutil.copyfileobj(fi, fo)
         else:
-            shutil.copy2(path, tmp)
+            shutil.copy2(plain, tmp)
+        plain.unlink(missing_ok=True)
         db = sqlite3.connect(tmp)
         try:
             res = db.execute('PRAGMA integrity_check').fetchone()[0]
@@ -116,7 +174,7 @@ def verify(path: Path) -> str:
             db.close()
         return f'{res} · {tables} tablas'
     finally:
-        tmp.unlink(missing_ok=True)
+        tmp.unlink(missing_ok=True); plain.unlink(missing_ok=True)
 
 
 def restore(path: Path, db_path: Path) -> Path:
@@ -129,9 +187,12 @@ def restore(path: Path, db_path: Path) -> Path:
         for side in ('-wal', '-shm'):
             p = Path(str(db_path) + side)
             if p.exists(): p.unlink()
+    plain = Path(str(db_path) + '.plain')
+    _plain_copy(path, plain)
     if str(path).endswith('.gz'):
-        with gzip.open(path, 'rb') as fi, open(db_path, 'wb') as fo: shutil.copyfileobj(fi, fo)
+        with gzip.open(plain, 'rb') as fi, open(db_path, 'wb') as fo: shutil.copyfileobj(fi, fo)
     else:
-        shutil.copy2(path, db_path)
+        shutil.copy2(plain, db_path)
+    plain.unlink(missing_ok=True)
     os.chmod(db_path, 0o600)
     return aside

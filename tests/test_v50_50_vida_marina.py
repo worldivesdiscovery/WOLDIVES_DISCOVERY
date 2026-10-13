@@ -199,7 +199,8 @@ class VidaMarina(ServerTestCase):
         sid = self.species('Octopus vulgaris', '{"es":{"name":"Pulpo común"},"en":{"name":"Common octopus"},"de":{"name":"Gemeiner Krake"}}')
         item = self.admin.get(f'/api/admin/marina/especie/{sid}').json['item']
         self.assertEqual(sorted(item['texts']), ['de', 'en', 'es'])
-        self.assertEqual(item['photo']['srcset'].count('.webp'), 3, item['photo'])
+        self.assertEqual(item['photo']['srcset'].count('.webp'), 2, item['photo'])   # v50.51: 128 px (carousel) and 640 px (bubble)
+        self.assertIn('-128.webp 128w', item['photo']['srcset']); self.assertIn('-640.webp 640w', item['photo']['srcset'])
         img = self.client().get(item['photo']['src'])
         from PIL import Image
         im = Image.open(io.BytesIO(img.body)); self.assertEqual(im.format, 'WEBP'); self.assertNotIn('exif', im.info)

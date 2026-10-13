@@ -66,8 +66,7 @@ def main():
         base = srv.base
         # --- the owner creates the administrator (only in the test environment) --------------------------------
         adm = Client(srv)
-        check('Crear la cuenta de administración (pantalla de pruebas)', adm.post('/api/setup', {'fullname': 'Titular', 'email': 'titular@example.com', 'username': 'titular',
-                                                                                              'password': 'Clave-Titular-2026!'}).status == 200)
+        check('Entrar con la cuenta de administración de la demo (CUENTAS-DEMO.txt)', adm.login('admin.prueba', PASSWORD).status == 200)
         center, center2, buzo, buzo2, buzo3 = (Client(srv) for _ in range(5))
         for c, u in ((center, 'centro.prueba'), (center2, 'centro2.prueba'), (buzo, 'buzo.prueba'), (buzo2, 'buzo2.prueba'), (buzo3, 'buzo3.prueba')):
             assert c.login(u, PASSWORD).status == 200, u
@@ -248,7 +247,7 @@ def main():
             check('Justificante PDF de otro centro: 404', center2.get(f"/api/bookings/{rb.json['id']}/receipt.pdf").status == 404)
 
             # --- administration (with the mandatory reason) ---------------------------------------------------------
-            ctx, pg = new('escritorio', ('titular', 'Clave-Titular-2026!'))
+            ctx, pg = new('escritorio', ('admin.prueba', PASSWORD))
             visit(pg, '#/admin?tab=claims', '.page, main', name='escritorio-admin-verificaciones')
             visit(pg, '#/admin?tab=bookings', '.page, main', name='escritorio-admin-reservas-con-motivo', settle=2000)
             logged = srv.sql("SELECT details FROM audit_log WHERE action='admin_center_access' ORDER BY id DESC LIMIT 1")

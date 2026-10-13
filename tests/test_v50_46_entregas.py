@@ -114,19 +114,21 @@ class RestoreDemo(unittest.TestCase):
             for role in ('center', 'freelance', 'diver', 'instructor'):
                 self.assertEqual(Client(srv).login(ACCOUNTS[role][0], PASSWORD).status, 200, role)
             self.assertEqual(Client(srv).login('titular', 'Clave-Titular-2026!').status, 200)   # the owner's administrator is kept
-            self.assertEqual([r['username'] for r in srv.sql("SELECT username FROM users WHERE role='admin'")], ['titular'])
+            # v50.51: the demo brings its own administrator (CUENTAS-DEMO.txt); the owner's one is kept too
+            self.assertEqual(sorted(r['username'] for r in srv.sql("SELECT username FROM users WHERE role='admin'")), [ACCOUNTS['admin'][0], 'titular'])
+            self.assertEqual(Client(srv).login(ACCOUNTS['admin'][0], PASSWORD).status, 200)
             states = {x['status'] for x in srv.sql('SELECT status FROM bookings')}
             self.assertTrue({'requested', 'confirmed', 'accepted_pending_payment', 'cancelled', 'rejected', 'expired', 'completed'} <= states, states)
             self.assertGreaterEqual(srv.sql('SELECT COUNT(*) n FROM provider_services WHERE center_id IS NOT NULL')[0]['n'], 5)
         finally:
             srv.stop()
 
-    def test_demo_database_has_no_administrator(self):
+    def test_demo_database_has_only_the_demo_administrator(self):
         with tempfile.TemporaryDirectory() as d:
             out = Path(d) / 'demo.sqlite3'
             r = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'crear_demo.py'), '--out', str(out)], capture_output=True, text=True, timeout=300)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertEqual(br.db_counts(out)['admins'], 0)
+            self.assertEqual(br.db_counts(out)['admins'], 1)                             # v50.51: admin.prueba (CUENTAS-DEMO.txt)
 
     def test_no_setup_screen_and_no_reset_outside_demo(self):
         srv = Server({'WOD_ADMIN_PASSWORD': 'Admin-Local-2026!'}).start()

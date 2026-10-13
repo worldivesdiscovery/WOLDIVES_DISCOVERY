@@ -1,31 +1,37 @@
-# Vida marina y vídeos de la ruta (v50.50)
+# Vida marina y vídeos de la ruta (v50.50, revisado en v50.51)
 
-Encargo «Vídeos enlazados y carrusel de vida marina en los puntos de inmersión».
+Encargo «Vídeos enlazados y carrusel de vida marina en los pun## Qué ve el buceador en la ficha de un punto (v50.51)
 
-## Qué ve el buceador en la ficha de un punto
+La ficha tiene **la misma distribución, orden y aspecto que en la v50.49**: foto y datos del punto, descripción,
+formación recomendada, fotos, **Recorrido virtual**, centros que bucean aquí y puntos cercanos. Lo nuevo va dentro de
+ese orden, sin cambiar el aspecto:
 
-1. Foto principal y datos del punto, como antes: descripción, formación recomendada y fotos.
-2. **Vida marina que puedes ver**: un carrusel de especies.
-   - Cada tarjeta lleva la foto, el nombre común en el idioma del visitante, el nombre científico y la frecuencia
-     (Habitual, Ocasional o Rara). El crédito de la foto va en pequeño sobre la propia foto.
-   - Van primero las especies habituales y las que son de temporada este mes.
-   - Las que están fuera de temporada se ven más apagadas y con «Mejor época: junio–septiembre». Los meses salen en el
-     idioma del visitante.
-   - Avanza solo cada 4,5 segundos. Se para con el ratón encima, al tocarlo, al usar el teclado, fuera de la pantalla y
-     con la ventana de una especie abierta.
-   - Con «reducir movimiento» activado en el teléfono o el ordenador, no avanza solo.
-   - En el ordenador tiene flechas discretas; en el móvil se desliza con el dedo.
-   - Al tocar una tarjeta se abre una ventana pequeña: foto grande, frase breve, temporada, autor y licencia de la foto.
-3. **Vídeos de la ruta**: las tarjetas de vídeo, todas con el mismo diseño.
-   - Cada tarjeta lleva la miniatura a todo el ancho, el botón de reproducir, el título, la etiqueta «360°» o «VR» si
-     corresponde, el logotipo pequeño de la plataforma y quién lo aportó.
-   - Si la plataforma deja insertar su reproductor, el vídeo se ve dentro de la ficha al pulsar «Reproducir».
-   - Si no lo deja, se abre en una pestaña nueva, con un icono de enlace externo junto al título.
-   - En el móvil sale además «Abrir en la app de YouTube» (o de la plataforma que sea).
-   - Si un vídeo no tiene miniatura, se ve la foto del punto con el botón de reproducir y el nombre de la plataforma.
-4. Centros que bucean aquí y el botón de reservar, como antes.
+1. **Vida marina en esta inmersión**, justo encima de «Recorrido virtual»: un título pequeño con el número de especies
+   y una franja de fotos pequeñas y redondas (60 px en el ordenador, 52 px en el móvil) con el nombre común debajo.
+   - Se mueve despacio y sin parar, en bucle, con los bordes difuminados.
+   - Se para al pasar el ratón, al tocarla, con el teclado, con una especie abierta y fuera de la pantalla. En el
+     móvil también se desliza con el dedo.
+   - Se queda quieta si caben todas o si el teléfono u ordenador tiene «reducir movimiento» (entonces se desplaza a mano).
+   - Van primero las especies de temporada y las habituales.
+   - Si el punto no tiene especies, no aparece.
+2. **Bocadillo de cada especie**: al pulsar una foto se abre junto a ella (en el móvil, un panel pequeño desde abajo),
+   sin salir de la página: foto más grande, nombre común, nombre científico en cursiva, frecuencia en esta inmersión
+   (Habitual, Ocasional o Rara), mejor época, dos o tres líneas de información y el crédito de la foto. Se cierra con
+   la X, tocando fuera o con Esc; solo hay uno abierto; es un diálogo accesible con el teclado y el lector de pantalla.
+3. **Recorrido virtual** («Ruta 360»), con el aspecto de siempre (tarjetas con el cuadro de 58 px y el botón).
+   - Los **vídeos enlazados** aprobados por la administración salen aquí, con su miniatura dentro del cuadro y la
+     etiqueta «360°» o «VR» si corresponde, el logotipo de la plataforma y quién lo aportó.
+   - Si la plataforma deja insertar su reproductor: «Entrar en el recorrido» abre el visor del recorrido virtual, con
+     el aviso de privacidad sobre la miniatura; el vídeo solo se carga al pulsar «Cargar vídeo».
+   - Si no lo deja: «Abrir en …» en una pestaña nueva, con el icono de enlace externo.
+   - Los recorridos antiguos (panorámicas, Street View) siguen saliendo igual que antes.
+   - Sin nada que enseñar, el mensaje de siempre: «Este punto aún no tiene recorrido 360°…».
 
-Si un punto no tiene especies o vídeos, esa sección no aparece. No hay huecos vacíos ni «próximamente».
+**Por qué «no se veía» en la v50.50:** el lanzador de pruebas conservaba la base de datos de la v50.49 si tenía menos
+de 7 días, y esa base no traía especies vinculadas. Desde la v50.51 la demo se regenera también cuando cambia la
+versión, y cada punto de los dos centros de la demo trae entre 8 y 15 especies.
+
+ni «próximamente».
 
 ## Privacidad
 
@@ -84,7 +90,8 @@ Para no insertar el reproductor de una plataforma (sus vídeos se abrirían en u
   - el nombre común y una frase breve en cada idioma de la web (el español es obligatorio);
   - una foto con su autor, su licencia y, si quieres, la página de origen.
 - **Las fotos**:
-  - Se guardan en WebP en 320, 640 y 1280 px, sin los datos ocultos de la cámara, y se cargan en diferido.
+  - Se guardan en WebP en dos tamaños (v50.51): 128 px para la foto redonda de la franja y 640 px para el bocadillo,
+    sin los datos ocultos de la cámara, y se cargan en diferido.
   - Licencias admitidas: propia, ilustración propia, cedida por el autor, banco de imágenes, CC0, dominio público,
     CC BY y CC BY-SA.
   - Se rechazan las licencias no comerciales (NC) y las que prohíben modificar (ND).
@@ -117,19 +124,17 @@ Para no insertar el reproductor de una plataforma (sus vídeos se abrirían en u
 
 ## Rendimiento
 
-- La ficha del punto trae las especies y los vídeos **en la misma petición**, con una consulta indexada para cada cosa.
-  Nunca se hace una petición por especie o por vídeo.
+- La ficha del punto trae las especies, los vídeos y los recorridos antiguos **en la misma petición**, con una
+  consulta indexada para cada cosa. Nunca se hace una petición por especie o por vídeo.
 - Índices: por punto (`point_species`, `route_videos`), por especie y por estado (la cola de aprobación).
-- Medido en el navegador con 30 especies en un móvil con la CPU 4 veces más lenta: fotograma mediano de 16,7 ms al
-  deslizar (60 por segundo).
+- Medido en el navegador con 30 especies moviéndose en un móvil con la CPU 4 veces más lenta: fotograma mediano y
+  p95 de 16,7 ms (60 por segundo). La franja se mueve con `transform` (sin recalcular la página).
 
 ## Los recorridos 360° antiguos
 
-- Antes, la ficha tenía «Recorrido virtual» (panorámicas, vídeo 360° subido, Street View y enlaces). Ahora:
-  - **Los vídeos de YouTube y Vimeo** que había se copiaron a «Vídeos de la ruta», publicados.
-  - **Todo lo demás** se guarda tal como estaba, pero ya no sale en la ficha. Está en Administración → «Vida marina y
-    vídeos» → «Recorridos antiguos» (solo aparece si hay alguno).
-- **No se pueden subir archivos de vídeo**: las direcciones antiguas responden que los vídeos se añaden como enlace.
+- Los vídeos de YouTube y Vimeo que había se copiaron en la v50.50 a vídeos enlazados (salen en «Recorrido virtual»).
+- Todo lo demás (panorámicas, Street View) sale en «Recorrido virtual» como antes de la v50.50.
+- **No se pueden subir archivos de vídeo**: los vídeos se añaden como enlace.
 
 ## Archivos
 
@@ -139,5 +144,5 @@ Para no insertar el reproductor de una plataforma (sus vídeos se abrirían en u
 - `public/css/world-dives-v8.css`.
 - Especies de ejemplo: `app/data/especies/especies.json` e imágenes `public/img/especies/`
   (`scripts/especies/ilustraciones.py`). Detalle en `especies-de-ejemplo.md`.
-- Pruebas: `tests/test_v50_50_vida_marina.py` y `tests/navegador/e2e_vida_marina.py`. Las plataformas y Commons están
-  simulados en `tests/media_mock.py`.
+- Pruebas: `tests/test_v50_50_vida_marina.py`, `tests/test_v50_51.py`, `tests/navegador/e2e_vida_marina.py` y
+  `tests/navegador/e2e_demo_v50_51.py`. Las plataformas y Commons están simulados en `tests/media_mock.py`.

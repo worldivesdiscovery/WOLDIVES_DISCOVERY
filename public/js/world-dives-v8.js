@@ -26,7 +26,7 @@
   // «exact»: frase completa → traducción. «patterns»: frases con partes variables ({n} número, {x} texto).
   // Todo lo que se pinta en la página (también lo que llega después: ventanas, avisos, listas) se traduce al vuelo.
   // ---------------------------------------------------------------------------
-  const WD_I18N_VERSION='50.50';
+  const WD_I18N_VERSION='50.51';
   const WD_LOCALES={es:'es-ES',en:'en-GB',fr:'fr-FR',de:'de-DE',it:'it-IT',pt:'pt-PT',pl:'pl-PL',nl:'nl-NL',zh:'zh-CN'};
   // Plural forms (Polish has several): a translation may be {one,few,many,other}.
   const wdPlural=(tpl,n)=>{ if(typeof tpl!=='object'||!tpl) return tpl; let k='other'; try{ k=new Intl.PluralRules(wdLocale()).select(Number(String(n).replace(/[^\d.-]/g,''))||0); }catch{} return tpl[k]??tpl.other??Object.values(tpl)[0]; };
@@ -374,6 +374,7 @@
     return `<section class="notice certification-guidance" style="margin-top:20px"><p class="eyebrow">FORMACIÓN Y ADECUACIÓN</p><h3>${escapeHtml(label)}</h3><div class="data-grid" style="margin-top:12px"><div class="data-item"><span>Orientación</span><strong>${escapeHtml(rec)}</strong></div><div class="data-item"><span>Dificultad del punto</span><strong>${escapeHtml(p.difficulty||'Por confirmar')}</strong></div></div><p style="margin-top:12px">${escapeHtml(note)}</p>${personal}</section>`;
   }
 async function renderVirtual(params){
+  if(params.get('video')) return renderRouteVideo(Number(params.get('video')),Number(params.get('point')||0));
   const id=Number(params.get('experience')||0); const pointId=Number(params.get('point')||0); const data=pointId?await api('/api/dive-points/'+pointId+'/virtual').catch(()=>({items:[]})):{items:[]}; const v=(data.items||[]).find(x=>x.id===id);
   if(!v){setApp('<section class="page"><div class="empty"><h2>Recorrido no encontrado</h2><p>Esta experiencia todavía no está disponible.</p><a class="btn btn-primary" href="#/puntos">Volver a puntos</a></div></section>');return;}
   const type=v.experience_type;
@@ -381,7 +382,7 @@ async function renderVirtual(params){
   // «Cargar vídeo» (the provider receives the visitor's IP and may set its own cookies).
   const embedOk=wdEmbedAllowed(v.url,data.embed_domains);
   let body='';
-  if(type==='video360' && embedOk){ body=`<div class="virtual-frame virtual-consent" id="virtual-consent"><div class="virtual-consent-box"><div class="virtual-empty-icon">360°</div><h2>Vídeo de un servicio externo</h2><p>Al cargarlo te conectarás con <strong>${escapeHtml(wdHost(v.url))}</strong>, que recibirá tu dirección IP y puede usar sus propias cookies. <a href="#/legal/cookies">Más información</a>.</p><button class="btn btn-primary" type="button" id="virtual-load">Cargar vídeo</button></div></div>`; }
+  if(type==='video360' && embedOk){ body=`<div class="virtual-frame virtual-consent" id="virtual-consent"><div class="virtual-consent-box"><div class="virtual-empty-icon">360°</div><h2>Vídeo de un servicio externo</h2><p><span>Al cargarlo te conectarás con ${escapeHtml(wdHost(v.url))}, que recibirá tu dirección IP y puede usar sus propias cookies.</span> <a href="#/legal/cookies">Más información</a></p><button class="btn btn-primary" type="button" id="virtual-load">Cargar vídeo</button></div></div>`; }
   else if(type==='streetview' && embedOk){ body=`<div class="virtual-frame virtual-link-card"><p class="eyebrow">STREET VIEW</p><h2>Visita virtual</h2><p>Esta experiencia se abre en el visor del proveedor (${escapeHtml(wdHost(v.url))}), en una pestaña nueva.</p><a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="${escapeHtml(v.url)}">Abrir Street View</a></div>`; }
   else if(v.media_path && type==='video360'){ body=`<div class="virtual-frame"><video src="${escapeHtml(v.media_path)}" controls playsinline preload="metadata" class="virtual-video" title="${escapeHtml(v.title)}"></video></div>`; }
   else if(v.media_path){ body=`<div class="virtual-frame"><img src="${escapeHtml(v.media_path)}" alt="${escapeHtml(v.title)}" class="panorama-placeholder"></div>`; }
@@ -430,7 +431,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   async function renderCenterDetail(params){
     const id=Number(params?.get?.('id')||params||0);
     if(!id){setApp('<section class="page"><div class="empty"><h2>Centro no encontrado</h2><a class="btn btn-primary" href="#/centros">Volver a centros</a></div></section>');return;}
-    const still=navGuard(); const d=await api('/api/centers/'+id),c=d.item; if(!still()) return;
+    const still=navGuard(); const d=await api('/api/centers/'+id+'?lang='+currentLanguage()),c=d.item; if(!still()) return;
+    const own=c.text_lang?` translate="no" lang="${escapeHtml(c.text_lang)}"`:'';   // v50.51: the centre's own text in the visitor's language
     const reviews=d.reviews||[]; const reviewInfo=d.review||{};
     const reviewSummary=centerRatingMarkup(c);
     const reviewForm=reviewInfo.can_review ? `<form id="center-review-form" class="review-form"><div class="field"><label>Tu valoración</label><div class="star-picker" id="review-stars" role="radiogroup" aria-label="Selecciona una valoración">${[1,2,3,4,5].map(n=>`<button type="button" class="pick-star" data-rating="${n}" aria-label="${n} estrellas">★</button>`).join('')}</div></div><div class="field"><label for="review-title">Título <span>(opcional)</span></label><input id="review-title" maxlength="120" value="${escapeHtml(reviewInfo.current?.title||'')}" placeholder="¿Qué destacarías de tu experiencia?"></div><div class="field"><label for="review-body">Tu reseña <span>(opcional)</span></label><textarea id="review-body" maxlength="1200" placeholder="Cuéntale a otros buceadores cómo fue la experiencia.">${escapeHtml(reviewInfo.current?.body||'')}</textarea></div><div class="form-actions"><button class="btn btn-primary" type="submit">${reviewInfo.current?'Actualizar mi reseña':'Publicar reseña'}</button></div></form>` : `<div class="review-gate"><strong>${escapeHtml(reviewInfo.reason||'Podrás dejar una reseña verificada cuando tengas una reserva pagada o confirmada con este centro.')}</strong>${reviewInfo.current?`<p>Ya tienes una reseña publicada. Si vuelves a esta sección podrás editarla.</p>`:''}</div>`;
@@ -447,14 +449,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <div class="cp-hero ${c.cover_url?'has-cover':''}" style="${c.cover_url?`--cover:url('${esc(c.cover_url)}')`:''}">
         <div class="cp-hero-inner">
           <div class="breadcrumb cp-crumb"><a href="#/centros">Centros</a> / ${esc(c.name)}</div>
-          <div class="cp-id">${centerLogoMarkup(c,'88px')}<div><h1>${esc(c.name)}</h1>${c.tagline?`<p class="cp-tagline">${esc(c.tagline)}</p>`:''}<div class="cp-hero-meta">${reviewSummary}${c.city||c.country?`<span>${wdIcon('globe',15)}${esc([c.city,c.region,c.country].filter(Boolean).join(', '))}</span>`:''}</div></div></div>
+          <div class="cp-id">${centerLogoMarkup(c,'88px')}<div><h1>${esc(c.name)}</h1>${c.tagline?`<p class="cp-tagline"${own}>${esc(c.tagline)}</p>`:''}<div class="cp-hero-meta">${reviewSummary}${c.city||c.country?`<span>${wdIcon('globe',15)}${esc([c.city,c.region,c.country].filter(Boolean).join(', '))}</span>`:''}</div></div></div>
           <div class="cp-hero-actions"><a class="btn btn-primary" href="#/reservar?center=${c.id}">Reservar</a>${c.phone?`<a class="btn cp-ghost" href="tel:${esc(String(c.phone).replace(/\s+/g,''))}">Llamar</a>`:''}${c.email?`<a class="btn cp-ghost" href="mailto:${esc(c.email)}">Escribir</a>`:''}</div>
         </div>
       </div>
       <div class="cp-facts">${[['Idiomas',c.languages],['Horario',c.opening_hours],['Especialidades',c.specialties],['Puntos de buceo',d.points.length?String(d.points.length):'']].filter(x=>x[1]).map(x=>`<div><span>${x[0]}</span><strong>${esc(x[1])}</strong></div>`).join('')}</div>
       <div class="cp-layout">
         <article class="cp-main">
-          ${c.description?`<section class="cp-section"><h2>Sobre el centro</h2><p class="cp-about">${esc(c.description)}</p></section>`:''}
+          ${c.description?`<section class="cp-section"><h2>Sobre el centro</h2><p class="cp-about"${own}>${esc(c.description)}</p></section>`:''}
           <section class="cp-section"><h2>Actividades y precios</h2>${services.length?`<div class="cp-services">${services.map(svcCard).join('')}</div>`:'<div class="empty">Este centro todavía no ha publicado actividades. Puedes contactar directamente para reservar.</div>'}</section>
           ${exps.length?`<section class="cp-section"><h2>Viajes y experiencias</h2><div class="cp-exps">${exps.map(e=>`<a class="cp-exp" href="#/experiencia?id=${e.travel_offer_id}"><span>${esc(e.destination_title||'')}</span><strong>${esc(e.title)}</strong><small>${e.start_date?esc(wdDay(e.start_date))+' · ':''}${e.price!=null?wdMoney(e.price,e.currency):'Precio a consultar'}</small></a>`).join('')}</div></section>`:''}
           ${gallery.length?`<section class="cp-section"><h2>Galería</h2><div class="cp-gallery">${gallery.map((u,i)=>`<button type="button" class="cp-photo" data-i="${i}"><img src="${esc(u)}" alt="Foto ${i+1} de ${esc(c.name)}" loading="lazy"></button>`).join('')}</div></section>`:''}
@@ -934,7 +936,6 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     otra:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#0c4a6e"/><path d="M10 8.2l6 3.8-6 3.8z" fill="#fff"/></svg>'
   };
   const wdPlatformLogo=k=>WD_PLATFORM_LOGOS[k]||WD_PLATFORM_LOGOS.otra;
-  const WD_PLAY_SVG='<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="rgba(4,24,40,.62)" stroke="rgba(255,255,255,.9)" stroke-width="2"/><path d="M26 20.5L45 32 26 43.5z" fill="#fff"/></svg>';
   const WD_FREQ={common:'Habitual',occasional:'Ocasional',rare:'Rara'};
   const WD_FREQ_RANK={common:0,occasional:1,rare:2};
   const WD_VIDEO_KINDS={normal:'Ruta normal','360':'Ruta 360°',vr:'Realidad virtual'};
@@ -947,96 +948,127 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     return out.join(', ');
   }
   const wdInSeason=(list,m)=>!list||!list.length||list.map(Number).includes(m);
-  function wdPicture(photo,{sizes='100vw',alt='',cls='',eager=false}={}){
-    if(!photo) return '';
-    return `<img${cls?` class="${cls}"`:''} src="${escapeHtml(photo.src)}"${photo.srcset?` srcset="${escapeHtml(photo.srcset)}" sizes="${sizes}"`:''} alt="${escapeHtml(alt)}" loading="${eager?'eager':'lazy'}" decoding="async">`;
-  }
-  const wdCredit=c=>c?`<span class="mv-credit"><span translate="no">${escapeHtml(c.author)}</span> · <span>${escapeHtml(c.license)}</span></span>`:'';
 
-  // Carrusel «Vida marina que puedes ver»: habitual and in-season species first; the rest, dimmed, with their best months.
-  function marineSection(species){
+  // v50.51 · «Vida marina en esta inmersión»: a subtle strip of small round photos, just above the virtual tour.
+  // Slow continuous loop with faded edges; it stops on hover, touch, keyboard focus, with a species open, off-screen
+  // and with «reduce motion»; it stays still when every species fits. Touching a photo opens a small bubble.
+  const PM_SPEED=22;   // px per second
+  function marineStrip(species){
     if(!species?.length) return '';
     const m=new Date().getMonth()+1;
     const list=[...species].sort((a,b)=>(wdInSeason(a.months,m)?0:1)-(wdInSeason(b.months,m)?0:1)||(WD_FREQ_RANK[a.frequency]??3)-(WD_FREQ_RANK[b.frequency]??3)||String(a.name).localeCompare(String(b.name),wdLocale()));
-    marineSection.list=list;
-    const card=(s,i)=>{ const off=!wdInSeason(s.months,m), when=off?wdMonthsText(s.months):'';
-      return `<li class="mv-item"><button type="button" class="mv-card${off?' is-off':''}" data-i="${i}">
-        <span class="mv-photo">${s.photo?wdPicture(s.photo,{sizes:'(max-width: 640px) 44vw, 210px'}):`<span class="mv-nophoto">${wdIcon('fish',34)}</span>`}<span class="mv-freq mv-${escapeHtml(s.frequency||'common')}">${WD_FREQ[s.frequency]||''}</span>${wdCredit(s.credit)}</span>
-        <span class="mv-text"><strong class="mv-name" translate="no"${s.name_lang?` lang="${escapeHtml(s.name_lang)}"`:''}>${escapeHtml(s.name)}</strong><em class="mv-sci" translate="no">${escapeHtml(s.scientific)}</em>${when?`<small class="mv-season">Mejor época: ${escapeHtml(when)}</small>`:''}</span></button></li>`; };
-    return `<section class="tp-block mv-block" aria-labelledby="mv-title"><div class="tp-block-head"><h2 id="mv-title">Vida marina que puedes ver</h2>
-      <span class="mv-nav"><button type="button" class="mv-arrow" data-dir="-1" aria-label="Anterior">${wdIcon('arrow',18)}</button><button type="button" class="mv-arrow" data-dir="1" aria-label="Siguiente">${wdIcon('arrow',18)}</button></span></div>
-      <ul class="mv-track" id="mv-track" aria-label="Especies que se pueden ver en este punto">${list.map(card).join('')}</ul></section>`;
+    marineStrip.list=list;
+    const item=(s,i)=>`<li><button type="button" class="pm-item" data-i="${i}" aria-haspopup="dialog" aria-expanded="false">${s.photo?`<img class="pm-photo" src="${escapeHtml(s.photo.src)}"${s.photo.srcset?` srcset="${escapeHtml(s.photo.srcset)}" sizes="64px"`:''} alt="" loading="lazy" decoding="async" width="60" height="60">`:`<span class="pm-photo pm-nophoto">${wdIcon('fish',24)}</span>`}<span class="pm-name" translate="no"${s.name_lang?` lang="${escapeHtml(s.name_lang)}"`:''}>${escapeHtml(s.name)}</span></button></li>`;
+    return `<section class="pm-block" aria-labelledby="pm-title"><div class="pm-head"><h2 class="pm-title" id="pm-title">Vida marina en esta inmersión</h2><span class="pm-count">${list.length===1?'1 especie':`${list.length} especies`}</span></div>
+      <div class="pm-viewport" id="pm-viewport"><ul class="pm-track" id="pm-track">${list.map(item).join('')}</ul></div></section>`;
   }
-  function bindMarineCarousel(){
-    const track=$('#mv-track'); if(!track) return;
+  function bindMarineStrip(){
+    const vp=$('#pm-viewport'), track=$('#pm-track'); if(!vp||!track) return;
     const reduce=window.matchMedia?window.matchMedia('(prefers-reduced-motion: reduce)'):null;
-    let paused=false, hold=0, visible=true;
-    const step=()=>{ const li=track.querySelector('.mv-item'); const gap=parseFloat(getComputedStyle(track).columnGap)||0; return li?li.getBoundingClientRect().width+gap:track.clientWidth*.8; };
-    const go=dir=>{ const max=track.scrollWidth-track.clientWidth-2; let x=track.scrollLeft+dir*step(); if(dir>0&&track.scrollLeft>=max) x=0; else if(dir<0&&track.scrollLeft<=1) x=max;
-      track.scrollTo({left:x,behavior:reduce?.matches?'auto':'smooth'}); };
-    $$('.mv-arrow').forEach(b=>b.onclick=()=>{ go(+b.dataset.dir); hold=Date.now()+8000; });
-    const auto=()=>!(reduce&&reduce.matches);
-    track.dataset.auto=auto()?'on':'off'; reduce?.addEventListener?.('change',()=>{ track.dataset.auto=auto()?'on':'off'; });
-    const timer=setInterval(()=>{
-      if(!track.isConnected){ clearInterval(timer); return; }
-      if(!auto()||paused||!visible||document.hidden||Date.now()<hold||$('#mv-modal')||track.scrollWidth<=track.clientWidth+4) return;
-      go(1);
-    },4500);
-    track.addEventListener('pointerenter',()=>{ paused=true; }); track.addEventListener('pointerleave',()=>{ paused=false; });
-    track.addEventListener('focusin',()=>{ paused=true; }); track.addEventListener('focusout',()=>{ paused=false; });
-    track.addEventListener('touchstart',()=>{ hold=Date.now()+12000; },{passive:true});
-    track.addEventListener('wheel',()=>{ hold=Date.now()+8000; },{passive:true});
-    if('IntersectionObserver' in window) new IntersectionObserver(es=>{ visible=es[0].isIntersecting; }).observe(track);
-    track.querySelectorAll('.mv-card').forEach(b=>b.onclick=()=>marineModal(marineSection.list[+b.dataset.i],b));
+    const st={offset:0,width:0,looping:false,hover:false,focus:false,touchUntil:0,visible:true,drag:null,raf:0,last:0,noClickUntil:0};
+    const firstSet=()=>[...track.children].filter(li=>!li.hasAttribute('data-copy'));
+    const setWidth=()=>{ const items=firstSet(); if(!items.length) return 0; const gap=parseFloat(getComputedStyle(track).columnGap)||0; return items[items.length-1].offsetLeft+items[items.length-1].offsetWidth-items[0].offsetLeft+gap; };
+    const render=()=>{ track.style.transform=st.looping?`translate3d(${-st.offset}px,0,0)`:''; };
+    const paused=()=>st.hover||st.focus||Date.now()<st.touchUntil||!st.visible||document.hidden||!!st.drag||!!$('#pm-pop');
+    const tick=now=>{ st.raf=0; if(!vp.isConnected||!st.looping) return;
+      const dt=Math.min(.1,(now-(st.last||now))/1000); st.last=now;
+      if(!paused()){ st.offset=(st.offset+PM_SPEED*dt)%st.width; render(); }
+      st.raf=requestAnimationFrame(tick); };
+    const layout=()=>{
+      track.querySelectorAll('[data-copy]').forEach(li=>li.remove()); st.looping=false; vp.classList.remove('is-moving','is-scroll'); render();
+      const w=setWidth(), fits=w<=vp.clientWidth+1;
+      if(fits) return;                                                   // everything fits: still
+      if(reduce&&reduce.matches){ vp.classList.add('is-scroll'); return; } // reduce motion: still, scrolled by hand
+      firstSet().forEach(li=>{ const c=li.cloneNode(true); c.setAttribute('data-copy',''); c.setAttribute('aria-hidden','true'); c.querySelector('button').tabIndex=-1; track.appendChild(c); });
+      st.width=w; st.looping=true; st.offset%=w; vp.classList.add('is-moving'); render();
+      if(!st.raf){ st.last=0; st.raf=requestAnimationFrame(tick); }
+    };
+    const relayout=()=>{ if(!vp.isConnected) return; layout(); vp.dataset.state=st.looping?'moving':vp.classList.contains('is-scroll')?'scroll':'still'; };
+    relayout(); bindMarineStrip.relayout=relayout;
+    if(!bindMarineStrip.wired){ bindMarineStrip.wired=true; let rt=null;   // once per page load: the current strip re-measures
+      window.addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(()=>bindMarineStrip.relayout?.(),200); });
+      reduce?.addEventListener?.('change',()=>bindMarineStrip.relayout?.()); }
+    vp.addEventListener('pointerenter',e=>{ if(e.pointerType==='mouse') st.hover=true; });
+    vp.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse') st.hover=false; });
+    vp.addEventListener('focusin',e=>{ st.focus=true; const b=e.target.closest('.pm-item'); if(b&&st.looping){ const x=b.parentElement.offsetLeft; if(x-st.offset<8||x-st.offset+b.offsetWidth>vp.clientWidth-8){ st.offset=Math.max(0,x-24)%st.width; render(); } } });
+    vp.addEventListener('focusout',()=>{ st.focus=false; });
+    // Swipe with the finger (or drag with the mouse) while it moves; a short tap still opens the species.
+    vp.addEventListener('pointerdown',e=>{ if(!st.looping||(e.pointerType==='mouse'&&e.button!==0)) return; st.drag={x:e.clientX,o:st.offset,moved:false,id:e.pointerId}; st.touchUntil=Date.now()+3000; });
+    vp.addEventListener('pointermove',e=>{ const d=st.drag; if(!d||d.id!==e.pointerId) return; const dx=e.clientX-d.x; if(!d.moved&&Math.abs(dx)>5){ d.moved=true; try{ vp.setPointerCapture(e.pointerId); }catch{} }
+      if(d.moved){ st.offset=((d.o-dx)%st.width+st.width)%st.width; render(); } });
+    const endDrag=e=>{ const d=st.drag; if(!d||d.id!==e.pointerId) return; st.drag=null; st.touchUntil=Date.now()+(e.pointerType==='mouse'?600:3000); if(d.moved) st.noClickUntil=Date.now()+350; };
+    vp.addEventListener('pointerup',endDrag); vp.addEventListener('pointercancel',endDrag);
+    if('IntersectionObserver' in window) new IntersectionObserver(es=>{ st.visible=es[0].isIntersecting; }).observe(vp);
+    track.addEventListener('click',e=>{ const b=e.target.closest('.pm-item'); if(!b||Date.now()<st.noClickUntil) return; marinePopover(marineStrip.list[+b.dataset.i],b); });
   }
-  function marineModal(s,from){
-    if(!s) return; $('#mv-modal')?.remove();
+  // The bubble of a species: next to its photo (on a phone, a small panel from the bottom). One at a time; it closes
+  // with ×, a tap outside or Esc, and gives the focus back to the photo.
+  function marinePopover(s,trigger){
+    const was=$('#pm-pop')?.dataset.i; closeMarinePopover(false);
+    if(!s||was===trigger.dataset.i) { trigger.focus(); return; }
+    const sheet=window.matchMedia('(max-width: 640px)').matches;
     const when=wdMonthsText(s.months), c=s.credit;
-    document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop mv-modal" id="mv-modal" role="dialog" aria-modal="true" aria-labelledby="mv-m-title"><div class="modal-card mv-modal-card">
-      <button class="modal-close" type="button" id="mv-close" aria-label="Cerrar">×</button>
-      <div class="mv-modal-photo">${s.photo?wdPicture(s.photo,{sizes:'(max-width: 640px) 92vw, 560px',alt:s.name,eager:true}):`<span class="mv-nophoto">${wdIcon('fish',56)}</span>`}</div>
-      <div class="mv-modal-body"><span class="mv-freq mv-${escapeHtml(s.frequency||'common')}">${WD_FREQ[s.frequency]||''}</span>
-        <h2 id="mv-m-title" translate="no">${escapeHtml(s.name)}</h2><p class="mv-sci" translate="no">${escapeHtml(s.scientific)}</p>
-        ${s.blurb?`<p class="mv-blurb" translate="no">${escapeHtml(s.blurb)}</p>`:''}
-        <p class="mv-when">${wdIcon('calendar',16)} <span>${when?`Se ve: ${escapeHtml(when)}`:'Se ve todo el año'}</span></p>
-        ${c?`<p class="mv-credit-full"><span>Imagen:</span> <span translate="no">${escapeHtml(c.author)}</span> · ${c.license_url?`<a href="${escapeHtml(c.license_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(c.license)}</a>`:`<span>${escapeHtml(c.license)}</span>`}${c.source?` · <a href="${escapeHtml(c.source)}" target="_blank" rel="noopener noreferrer">Origen de la foto</a>`:''}</p>`:''}
-      </div></div></div>`);
-    const box=$('#mv-modal');
-    const close=()=>{ box.remove(); document.removeEventListener('keydown',key); from?.focus?.(); };
-    const key=e=>{ if(e.key==='Escape') close(); if(e.key==='Tab'){ const f=[...box.querySelectorAll('button,a[href]')]; if(!f.length) return; const first=f[0], last=f[f.length-1]; if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); } else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); } } };
-    document.addEventListener('keydown',key); $('#mv-close').onclick=close; box.onclick=e=>{ if(e.target===box) close(); }; $('#mv-close').focus();
+    const html=`${sheet?'<div class="pm-backdrop" id="pm-backdrop"></div>':''}<div class="pm-pop${sheet?' is-sheet':''}" id="pm-pop" data-i="${trigger.dataset.i}" role="dialog" aria-modal="true" aria-labelledby="pm-pop-title">
+      ${sheet?'':'<span class="pm-pop-arrow" aria-hidden="true"></span>'}<button type="button" class="pm-pop-x" id="pm-pop-x" aria-label="Cerrar">×</button>
+      <div class="pm-pop-photo">${s.photo?`<img src="${escapeHtml(s.photo.src.replace(/-\d+\.webp$/,'-640.webp'))}"${s.photo.srcset?` srcset="${escapeHtml(s.photo.srcset)}" sizes="${sheet?'100vw':'320px'}"`:''} alt="${escapeHtml(s.name)}" translate="no">`:`<span class="pm-nophoto">${wdIcon('fish',48)}</span>`}</div>
+      <div class="pm-pop-body"><h3 id="pm-pop-title" translate="no">${escapeHtml(s.name)}</h3><p class="pm-pop-sci"><em translate="no">${escapeHtml(s.scientific)}</em></p>
+        <dl class="pm-pop-facts"><div><dt>En esta inmersión</dt><dd><span class="pm-freq pm-${escapeHtml(s.frequency||'common')}">${WD_FREQ[s.frequency]||''}</span></dd></div><div><dt>Mejor época</dt><dd>${when?`<span translate="no">${escapeHtml(when)}</span>`:'Todo el año'}</dd></div></dl>
+        ${s.blurb?`<p class="pm-pop-info" translate="no">${escapeHtml(s.blurb)}</p>`:''}
+        ${c?`<p class="pm-pop-credit"><span>Imagen:</span> <span translate="no">${escapeHtml(c.author)}</span> · ${c.license_url?`<a href="${escapeHtml(c.license_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(c.license)}</a>`:`<span>${escapeHtml(c.license)}</span>`}${c.source?` · <a href="${escapeHtml(c.source)}" target="_blank" rel="noopener noreferrer">Origen de la foto</a>`:''}</p>`:''}
+      </div></div>`;
+    document.body.insertAdjacentHTML('beforeend',html);
+    const pop=$('#pm-pop'); trigger.setAttribute('aria-expanded','true'); marinePopover.trigger=trigger;
+    if(!sheet){ const place=()=>{ if(!pop.isConnected) return; const r=trigger.getBoundingClientRect(), w=pop.offsetWidth, h=pop.offsetHeight, vw=document.documentElement.clientWidth;
+        const left=Math.min(Math.max(12,r.left+r.width/2-w/2),vw-w-12), below=r.bottom+12+h<=innerHeight||r.top-12-h<0;
+        pop.classList.toggle('is-above',!below); pop.style.left=(left+scrollX)+'px'; pop.style.top=((below?r.bottom+12:r.top-12-h)+scrollY)+'px';
+        const a=pop.querySelector('.pm-pop-arrow'); if(a) a.style.left=(r.left+r.width/2-left-7)+'px'; };
+      place(); pop.querySelector('img')?.addEventListener('load',place); marinePopover.place=place; window.addEventListener('resize',place); }
+    const outside=e=>{ if(!pop.contains(e.target)&&!trigger.contains(e.target)) closeMarinePopover(true); };
+    const key=e=>{ if(e.key==='Escape'){ e.preventDefault(); closeMarinePopover(true); }
+      else if(e.key==='Tab'){ const f=[...pop.querySelectorAll('button,a[href]')]; const first=f[0], last=f[f.length-1]; if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); } else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); } } };
+    marinePopover.off=()=>{ document.removeEventListener('pointerdown',outside,true); document.removeEventListener('keydown',key); window.removeEventListener('hashchange',marinePopover.hash); if(marinePopover.place) window.removeEventListener('resize',marinePopover.place); marinePopover.place=null; };
+    marinePopover.hash=()=>closeMarinePopover(false);
+    setTimeout(()=>{ document.addEventListener('pointerdown',outside,true); },0);
+    document.addEventListener('keydown',key); window.addEventListener('hashchange',marinePopover.hash);
+    $('#pm-pop-x').onclick=()=>closeMarinePopover(true); $('#pm-pop-x').focus({preventScroll:true});
+  }
+  function closeMarinePopover(refocus){
+    const pop=$('#pm-pop'); if(!pop) return;
+    pop.remove(); $('#pm-backdrop')?.remove(); marinePopover.off?.();
+    const t=marinePopover.trigger; if(t){ t.setAttribute('aria-expanded','false'); if(refocus&&t.isConnected) t.focus({preventScroll:true}); }
   }
 
-  // «Vídeos de la ruta»: only our own preview image until the visitor presses «Reproducir» (nothing of the platform loads before).
-  function videosSection(videos,cover){
-    if(!videos?.length) return '';
-    videosSection.list=videos;
-    const touch=window.matchMedia?.('(pointer: coarse)')?.matches;
-    const card=(v,i)=>{
-      const tag=v.kind==='360'?'360°':v.kind==='vr'?'VR':'';
-      const media=v.thumb?wdPicture(v.thumb,{sizes:'(max-width: 760px) 100vw, 440px',cls:'rv-img'})
-        :`<img class="rv-img rv-fallback" src="${escapeHtml(cover)}" alt="" loading="lazy" decoding="async"><span class="rv-fb-name" translate="no">${escapeHtml(v.platform_name)}</span>`;
-      const inner=`${media}<span class="rv-play">${WD_PLAY_SVG}</span>${tag?`<span class="rv-kind" translate="no">${tag}</span>`:''}`;
-      const area=v.insertable?`<button type="button" class="rv-media" data-play="${i}">${inner}<span class="sr-only">Reproducir el vídeo</span></button>`
-        :`<a class="rv-media" href="${escapeHtml(v.url)}" target="_blank" rel="noopener noreferrer">${inner}<span class="sr-only">Abrir el vídeo en una pestaña nueva</span></a>`;
-      return `<article class="rv-card${v.vertical?' is-vertical':''}" data-v="${v.id}">${area}<div class="rv-body">
-        <h3>${v.title?`<span translate="no">${escapeHtml(v.title)}</span>`:'<span>Vídeo de la ruta</span>'}${v.insertable?'':` <span class="rv-ext" title="Se abre en otra pestaña">${wdIcon('external',15)}</span>`}</h3>
-        <p class="rv-meta"><span class="rv-logo">${wdPlatformLogo(v.platform)}<span translate="no">${escapeHtml(v.platform_name)}</span></span><span class="rv-by">Aportado por ${escapeHtml(v.contributor)}</span></p>
-        ${v.insertable?`<p class="rv-privacy">Al pulsar «Reproducir» se conecta con ${escapeHtml(v.platform_name)}. <a href="#/legal/cookies">Más información</a></p>`:''}
-        ${touch?`<a class="rv-app" href="${escapeHtml(v.url)}" target="_blank" rel="noopener noreferrer">${wdIcon('external',14)} <span>Abrir en la app de ${escapeHtml(v.platform_name)}</span></a>`:''}
-      </div></article>`; };
-    return `<section class="tp-block rv-block" aria-labelledby="rv-title"><div class="tp-block-head"><h2 id="rv-title">Vídeos de la ruta</h2></div><div class="rv-grid">${videos.map(card).join('')}</div></section>`;
+  // «Recorrido virtual» (the look of v50.49): the linked route videos — approved by the administration, with their
+  // preview inside the square — and the old tours (panoramas, Street View…). Nothing of a platform loads here.
+  function virtualSection(p,videos,legacy){
+    const labels={panorama:'360° interactivo',video360:'Vídeo 360°',streetview:'Street View',external360:'Experiencia 360°'};
+    const vids=(videos||[]).map(v=>{ const tag=v.kind==='360'?'360°':v.kind==='vr'?'VR':'';
+      const mark=v.thumb?`<span class="pp-virtual-mark pp-virtual-thumb"><img src="${escapeHtml(v.thumb.src.replace(/-\d+\.webp$/,'-400.webp'))}" alt="" loading="lazy" decoding="async">${tag?`<b translate="no">${tag}</b>`:''}</span>`:`<span class="pp-virtual-mark" translate="no">${tag||'▶'}</span>`;
+      const ext=!v.insertable, href=ext?v.url:`#/virtual?video=${v.id}&point=${p.id}`;
+      return `<article class="pp-virtual">${mark}<div><p class="eyebrow">${WD_VIDEO_KINDS[v.kind]||'Vídeo de la ruta'}</p><h3>${v.title?`<span translate="no">${escapeHtml(v.title)}</span>`:'<span>Vídeo de la ruta</span>'}${ext?` <span class="rv-ext" title="Se abre en otra pestaña">${wdIcon('external',15)}</span>`:''}</h3>
+        <p><span class="rv-logo">${wdPlatformLogo(v.platform)}<span translate="no">${escapeHtml(v.platform_name)}</span></span> · <span>Aportado por ${escapeHtml(v.contributor)}</span></p>
+        <a class="btn btn-primary" href="${escapeHtml(href)}"${ext?' target="_blank" rel="noopener noreferrer"':''}>${ext?`Abrir en ${escapeHtml(v.platform_name)}`:'Entrar en el recorrido'}</a></div></article>`; });
+    const old=(legacy||[]).map(v=>{ const ext=v.experience_type==='streetview'; const href=ext?(v.url||'#'):`#/virtual?experience=${v.id}&point=${p.id}`;
+      return `<article class="pp-virtual"><span class="pp-virtual-mark">360°</span><div><p class="eyebrow">${escapeHtml(labels[v.experience_type]||'Recorrido virtual')}</p><h3>${escapeHtml(v.title)}</h3><p>${escapeHtml(v.description||'Recorre esta inmersión antes de entrar al agua.')}</p><a class="btn btn-primary" href="${escapeHtml(href)}" ${ext?'target="_blank" rel="noopener"':''}>${ext?'Abrir Street View':'Entrar en el recorrido'}</a></div></article>`; });
+    const vt=vids.concat(old).join('');
+    return `<section class="tp-block pp-virtual-block"><h2>Recorrido virtual</h2>${vt?`<div class="pp-virtuals">${vt}</div>`:'<div class="pp-empty"><span class="pp-virtual-mark">360°</span><p>Este punto aún no tiene recorrido 360°. Cuando un centro lo publique, podrás visitarlo antes de reservar.</p></div>'}</section>`;
   }
-  function bindRouteVideos(){
-    $$('.rv-media[data-play]').forEach(b=>b.onclick=()=>{
-      const v=videosSection.list[+b.dataset.play]; if(!v||!v.player) return;
-      const f=document.createElement('iframe');
-      f.src=v.player; f.title=v.title||v.platform_name; f.className='rv-frame';
-      f.allow='autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; xr-spatial-tracking; clipboard-write';
-      f.allowFullscreen=true; f.referrerPolicy='strict-origin-when-cross-origin';
-      f.setAttribute('sandbox','allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox');
-      const box=document.createElement('div'); box.className='rv-media rv-playing'; box.appendChild(f); b.replaceWith(box); f.focus?.();
-    });
+  // #/virtual?video=<id>&point=<id>: a linked route video in the viewer of the virtual tour (the same consent box as
+  // before: the platform's player loads only after «Cargar vídeo»).
+  async function renderRouteVideo(videoId,pointId){
+    let d; try{ d=await api('/api/dive-points/'+pointId+'?lang='+currentLanguage()); }catch{ d=null; }
+    const v=d&&(d.videos||[]).find(x=>x.id===videoId);
+    if(!v||!v.player){ setApp('<section class="page"><div class="empty"><h2>Recorrido no encontrado</h2><p>Esta experiencia todavía no está disponible.</p><a class="btn btn-primary" href="#/puntos">Volver a puntos</a></div></section>'); return; }
+    const bg=v.thumb?` style="--virtual-bg:url('${escapeHtml(v.thumb.src.replace(/-\d+\.webp$/,'-1280.webp'))}')"`:'';
+    const touch=window.matchMedia?.('(pointer: coarse)')?.matches;
+    setApp(`<section class="page virtual-view-page"><div class="breadcrumb"><a href="#/punto?id=${pointId}">Volver a ${escapeHtml(d.item.name)}</a></div><p class="eyebrow">WORLDIVES DISCOVERY · RECORRIDO VIRTUAL</p>
+      <h1>${v.title?`<span translate="no">${escapeHtml(v.title)}</span>`:'Vídeo de la ruta'}</h1><p class="lead"><span>${WD_VIDEO_KINDS[v.kind]||''}</span> · <span>Aportado por ${escapeHtml(v.contributor)}</span></p>
+      <div class="virtual-frame virtual-consent${v.thumb?' has-thumb':''}${v.vertical?' is-vertical':''}" id="virtual-consent"${bg}><div class="virtual-consent-box"><div class="virtual-empty-icon">${wdPlatformLogo(v.platform)}</div><h2>Vídeo de un servicio externo</h2><p><span>Al cargarlo te conectarás con ${escapeHtml(v.platform_name)}, que recibirá tu dirección IP y puede usar sus propias cookies.</span> <a href="#/legal/cookies">Más información</a></p><button class="btn btn-primary" type="button" id="virtual-load">Cargar vídeo</button></div></div>
+      ${touch?`<p><a class="rv-app" href="${escapeHtml(v.url)}" target="_blank" rel="noopener noreferrer">${wdIcon('external',14)} <span>Abrir en la app de ${escapeHtml(v.platform_name)}</span></a></p>`:''}</section>`);
+    $('#virtual-load').onclick=()=>{ const box=$('#virtual-consent'); const f=document.createElement('iframe');
+      f.src=v.player; f.title=v.title||v.platform_name; f.allow='autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; xr-spatial-tracking';
+      f.allowFullscreen=true; f.referrerPolicy='strict-origin-when-cross-origin'; f.setAttribute('sandbox','allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox');
+      box.classList.remove('virtual-consent'); box.innerHTML=''; box.appendChild(f); };
   }
 
   // Editor of a dive site's videos and species: the administrator publishes; a centre or freelance proposes.
@@ -1185,7 +1217,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       load();
     } else if(sub==='antiguos'){
       const types={panorama:'360° interactivo',video360:'Vídeo 360°',streetview:'Street View',external360:'Experiencia 360° externa'};
-      pane.innerHTML=`<div class="notice warning"><strong>Recorridos de antes de la v50.50</strong><p>Panorámicas, Street View y archivos subidos que no son enlaces de YouTube o Vimeo. Se guardan tal como estaban, pero ya no se ven en la ficha del punto. Decide si los sustituyes por un vídeo enlazado.</p></div>
+      pane.innerHTML=`<div class="notice"><strong>Recorridos de antes de la v50.50</strong><p>Panorámicas, Street View y archivos subidos que no son enlaces de YouTube o Vimeo. Siguen saliendo en «Recorrido virtual» de la ficha del punto, como siempre. Si quieres, sustitúyelos por un vídeo enlazado.</p></div>
         <div class="mk-list">${old.items.map(v=>`<div class="mk-row"><span class="mk-thumb mk-type">360°</span><span class="mk-main"><strong translate="no">${escapeHtml(v.title)}</strong><small><span>${types[v.experience_type]||''}</span> · <a href="#/admin?tab=points&edit=${v.dive_point_id}" translate="no">${escapeHtml(v.point_name)}</a></small></span><span class="mk-actions"><a class="btn btn-sm" href="#/virtual?experience=${v.id}&point=${v.dive_point_id}">Ver</a></span></div>`).join('')}</div>`;
     }
   }
@@ -1254,8 +1286,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <section class="tp-block"><h2>Sobre el punto</h2>${p.description_lang?`<div class="tp-body" translate="no" lang="${escapeHtml(p.description_lang)}">${String(p.description).split(/\n{2,}/).map(x=>`<p>${escapeHtml(x)}</p>`).join('')}</div>`:`<p class="tp-body">${escapeHtml(pointAbout(p))}</p>`}${p.access_info&&!/pendientes? de completar/i.test(p.access_info)?`<div class="tp-note"><h3>Acceso y condiciones</h3><p>${escapeHtml(p.access_info)}</p></div>`:''}</section>
           <section class="tp-block pp-cert">${certificationGuidance(p,currentCert)}</section>
           ${photos.length>1?`<section class="tp-block"><h2>Fotos</h2><div class="pp-gallery">${photos.map(ph=>`<a href="${escapeHtml(ph.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(ph.image_path)}" alt="${escapeHtml(ph.caption||p.name)}" loading="lazy"></a>`).join('')}</div></section>`:''}
-          ${marineSection(d.species)}
-          ${videosSection(d.videos,cover)}
+          ${marineStrip(d.species)}
+          ${virtualSection(p,d.videos,d.virtual)}
           <section class="tp-block" id="pp-centers"><div class="tp-block-head"><h2>${pc.mode==='exact'?'Centros que bucean aquí':'Centros cercanos'}</h2>${centers.length?`<a href="#/centros?point=${p.id}">Ver en el directorio →</a>`:''}</div>
             ${pc.mode!=='exact'&&centers.length?'<p class="tp-scope">Ningún centro tiene todavía este punto en su operativa; estos trabajan a menos de 60 km.</p>':''}
             ${centers.length?`<div class="pp-centers">${centers.map(centerRowHtml).join('')}</div>`:'<div class="empty"><p>Todavía no hay centros en esta zona.</p><a class="btn" href="#/registro">¿Tienes un centro? Únete a WORLDIVES</a></div>'}</section>
@@ -1269,7 +1301,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       </div>
     </section>`);
     $$('[data-scroll]').forEach(a=>a.onclick=e=>{ e.preventDefault(); document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:'smooth',block:'start'}); });
-    bindMarineCarousel(); bindRouteVideos();
+    bindMarineStrip();
     if(hasGeo && window.L){ try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:true,scrollWheelZoom:false,attributionControl:true}))).setView([lat,lng],12); wdLayerControl(m); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } }
     else if(hasGeo){ $('#pp-map').innerHTML=`<div class="map-fallback"><strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong></div>`; }
     $('#suggest-pos')?.addEventListener('click',()=>{ $('#suggest-form').innerHTML=`<div class="form-grid pp-suggest"><div class="field"><label>Latitud</label><input id="s-lat" type="number" step="0.000001" value="${hasGeo?lat:''}"></div><div class="field"><label>Longitud</label><input id="s-lon" type="number" step="0.000001" value="${hasGeo?lng:''}"></div><div class="field full"><label>Motivo</label><textarea id="s-note" placeholder="Qué ves en el mapa y por qué propones moverlo…"></textarea></div></div><button class="btn btn-primary" id="s-save" type="button">Enviar propuesta</button>`; $('#s-save').onclick=async()=>{ try{ await postJSON('/api/dive-points/'+id+'/suggest',{latitude:+$('#s-lat').value,longitude:+$('#s-lon').value,note:$('#s-note').value}); toast('Propuesta enviada.'); $('#suggest-form').innerHTML='<div class="notice">Propuesta registrada y pendiente de revisión.</div>'; }catch(e){ toast(e.message); } }; });
@@ -2234,7 +2266,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const body=clients.length?`<div class="pr-assign-tools"><input id="pa-q" type="search" placeholder="Buscar cliente" aria-label="Buscar cliente"><label class="pr-all"><input type="checkbox" id="pa-all"> Seleccionar todos los visibles</label></div>
       <div class="pr-clients" id="pa-list">${clients.map(c=>`<label class="pr-client" data-s="${esc(`${c.fullname||''} ${c.email||''} ${c.phone||''}`.toLowerCase())}"><input type="checkbox" value="${c.id}"><span class="pl-avatar">${esc(initials(c.fullname||'?'))}</span><span><strong>${esc(c.fullname||'—')}</strong><small>${real(c.email)?esc(c.email):''}${c.bookings_count?` · ${c.bookings_count} reserva${c.bookings_count>1?'s':''}`:''}</small></span></label>`).join('')}</div>`
       :`<div class="empty"><h3>Todavía no tienes clientes</h3><p>Los clientes aparecen cuando reservan contigo o hacen check-in con tu QR.</p></div>`;
-    const {el,close}=wdOpenModal({id:'promo-assign',size:'lg',title:`Dar «${p.title}»`,subtitle:'Cada cliente elegido recibe su QR personal y un aviso en su buzón',body,footer:`<span class="pa-count" id="pa-count">0 seleccionados</span><button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="pa-go" ${clients.length?'':'disabled'}>Enviar promoción</button>`});
+    const {el,close}=wdOpenModal({id:'promo-assign',size:'lg',title:`Dar «${escapeHtml(p.title)}»`,subtitle:'Cada cliente elegido recibe su QR personal y un aviso en su buzón',body,footer:`<span class="pa-count" id="pa-count">0 seleccionados</span><button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="pa-go" ${clients.length?'':'disabled'}>Enviar promoción</button>`});
     const count=()=>{ const n=$$('#pa-list input:checked',el).length; $('#pa-count',el).textContent=`${n} seleccionado${n===1?'':'s'}`; };
     el.addEventListener('change',count);
     $('#pa-q',el)?.addEventListener('input',e=>{ const v=e.target.value.trim().toLowerCase(); $$('.pr-client',el).forEach(r=>r.hidden=!!v&&!r.dataset.s.includes(v)); });
@@ -2246,7 +2278,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let d; try{ d=await api(`/api/center/promotions/${p.id}/codes`); }catch(err){ toast(err.message); return; }
     const esc=escapeHtml;
     const body=d.items.length?`<div class="pr-codes">${d.items.map(c=>`<div class="pr-code-row" data-code="${esc(c.code)}"><span><strong>${esc(c.fullname||'—')}</strong><small>Entregado el ${esc(new Date(c.created_at).toLocaleDateString(wdLocale()))}${c.last_used?` · último uso ${esc(new Date(c.last_used).toLocaleDateString(wdLocale()))}`:''}</small></span><code>${esc(promoCode(c.code))}</code><span>${Number(c.uses)}/${p.uses_per_code}</span>${promoPill(c.state)}<span class="pr-code-act"><a class="btn" href="#/promo/${esc(c.code)}">Abrir</a>${c.state==='active'?'<button type="button" class="btn pr-revoke">Anular</button>':''}</span></div>`).join('')}</div>`:'<div class="empty"><h3>Nadie tiene esta promoción todavía</h3><p>Usa «Dar a clientes» para enviarla.</p></div>';
-    const {el,close}=wdOpenModal({id:'promo-codes',size:'lg',title:`Códigos de «${p.title}»`,subtitle:`${d.items.length} cliente${d.items.length===1?'':'s'}`,body,footer:'<button type="button" class="btn btn-primary" data-modal-close>Cerrar</button>'});
+    const {el,close}=wdOpenModal({id:'promo-codes',size:'lg',title:`Códigos de «${escapeHtml(p.title)}»`,subtitle:`${d.items.length} cliente${d.items.length===1?'':'s'}`,body,footer:'<button type="button" class="btn btn-primary" data-modal-close>Cerrar</button>'});
     $$('.pr-code-row a',el).forEach(a=>a.addEventListener('click',()=>close()));
     $$('.pr-revoke',el).forEach(b=>b.onclick=async()=>{ const code=b.closest('.pr-code-row').dataset.code; if(!confirm('¿Anular este código? El cliente ya no podrá usarlo.')) return; try{ await postJSON(`/api/center/promo-codes/${code}/revoke`,{}); toast('Código anulado.'); close(); onDone(); openPromoCodes(p,onDone); }catch(err){ toast(err.message); } });
   }
@@ -4068,7 +4100,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <div class="mm-preview"><img src="${escapeHtml(own?.url||s.default)}" alt="" loading="lazy"><span class="mm-badge ${own?'is-custom':''}">${own?'Del tema':'Normal'}</span></div>
       <div class="mm-body"><strong>${escapeHtml(s.label)}</strong><small>${escapeHtml(s.where)} · ${escapeHtml(s.size)} px</small>
         <div class="mm-actions"><label class="btn btn-primary mm-file">${own?'Cambiar':'Subir foto'}<input type="file" accept="image/jpeg,image/png,image/webp" hidden></label>${own?'<button type="button" class="btn mm-reset">Quitar</button>':''}</div></div></article>`; }).join('')}</div>`;
-    const {el,close}=wdOpenModal({id:'theme-photos',size:'lg',title:`Fotos de «${t.name}»`,subtitle:'Portadas que cambian mientras el tema está activo',body,footer:'<button type="button" class="btn btn-primary" data-modal-close>Hecho</button>'});
+    const {el,close}=wdOpenModal({id:'theme-photos',size:'lg',title:`Fotos de «${escapeHtml(t.name)}»`,subtitle:'Portadas que cambian mientras el tema está activo',body,footer:'<button type="button" class="btn btn-primary" data-modal-close>Hecho</button>'});
     const send=async(key,fields,file,msg)=>{ try{ const r=await uploadForm('/api/admin/site-theme-media',{theme_id:t.id,key,...fields},file); t.media=t.media||{}; if(fields.reset) delete t.media[key]; else t.media[key]={url:r.url}; await loadSiteMedia(); toast(msg); close(); onDone(); openThemePhotos(t,d,onDone); }catch(err){ toast(err.message); } };
     $$('.mm-card',el).forEach(c=>{ const key=c.dataset.key;
       $('.mm-file input',c).onchange=e=>{ const f=e.target.files[0]; if(f) send(key,{},f,'Foto del tema guardada.'); };
@@ -4092,7 +4124,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const body=`<p class="pm-hint">Sube fotos reales de este punto: aparecen en su ficha pública y en el catálogo. ${IMG_HINT}</p>
       <div class="pp-photos">${photos.map(ph=>`<figure><img src="${escapeHtml(ph.image_path)}" alt=""><figcaption>${escapeHtml(ph.caption||'')}</figcaption>${(admin||ph.uploaded_by===mine)?`<button type="button" class="btn pp-photo-del" data-id="${ph.id}">Quitar</button>`:''}</figure>`).join('')||'<div class="pm-empty">Este punto todavía no tiene fotos propias.</div>'}</div>
       <label class="field"><span>Pie de foto (opcional)</span><input id="pp-caption" maxlength="300" placeholder="Ej. Gorgonias en la pared norte, 25 m"></label>`;
-    const {el,close}=wdOpenModal({id:'point-photos',size:'lg',title:`Fotos · ${point.name}`,subtitle:'Máximo 24 fotos por punto',body,footer:'<button type="button" class="btn" data-modal-close>Cerrar</button><label class="btn btn-primary pm-pick">Añadir foto<input type="file" accept="image/jpeg,image/png,image/webp" hidden></label>'});
+    const {el,close}=wdOpenModal({id:'point-photos',size:'lg',title:`Fotos · ${escapeHtml(point.name)}`,subtitle:'Máximo 24 fotos por punto',body,footer:'<button type="button" class="btn" data-modal-close>Cerrar</button><label class="btn btn-primary pm-pick">Añadir foto<input type="file" accept="image/jpeg,image/png,image/webp" hidden></label>'});
     el.querySelector('.pm-pick input').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ await uploadForm(`/api/dive-points/${point.id}/photos`,{caption:el.querySelector('#pp-caption').value},f); toast('Foto añadida.'); close(); openPointPhotos(point); }catch(err){ toast(err.message); } };
     $$('.pp-photo-del',el).forEach(b=>b.onclick=async()=>{ if(!confirm('¿Quitar esta foto?')) return; try{ await postJSON(`/api/dive-points/${point.id}/photos/delete`,{photo_id:+b.dataset.id}); toast('Foto quitada.'); close(); openPointPhotos(point); }catch(err){ toast(err.message); } });
   }
@@ -4161,7 +4193,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const refresh=()=>renderCenterShowcaseEditor(mountId,centerId);
     let c;
     try{ c=(await api('/api/centers/'+centerId)).item; }catch(err){mount.innerHTML=`<div class="empty"><h3>No se ha podido cargar tu centro</h3><p>${escapeHtml(err.message)}</p></div>`;return;}
-    const esc=escapeHtml; const gallery=c.gallery||[];
+    const esc=escapeHtml; const gallery=c.gallery||[]; const texts=JSON.parse(JSON.stringify(c.texts||{}));
     const upload=async(url,file)=>{const fd=new FormData();fd.append('file',file);return api(url,{method:'POST',body:fd});};
     mount.innerHTML=`<section class="sc-module">
       <div class="svc-head"><div><p class="eyebrow">Tu página pública</p><h2>Escaparate</h2><p>Así ven tu centro los buceadores. Cambia la portada, las fotos y los textos cuando quieras.</p></div><a class="btn" href="#/centro?id=${c.id}">Ver mi página</a></div>
@@ -4176,6 +4208,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <section class="sc-card"><h3>Presentación</h3>
           <div class="svc-field"><label for="sc-tagline">Frase de presentación</label><input id="sc-tagline" maxlength="160" value="${esc(c.tagline||'')}" placeholder="Buceo en barco en la reserva marina de Tabarca desde 1998"></div>
           <div class="svc-field"><label for="mc-desc">Sobre el centro</label><textarea id="mc-desc" rows="5" maxlength="5000" placeholder="Quiénes sois, cómo trabajáis, qué hace especial bucear con vosotros…">${esc(c.description||'')}</textarea></div>
+          <div class="sc-langs"><div class="sc-langs-head"><h4>En otros idiomas</h4><label class="sr-only" for="sc-lang">Idioma</label><select id="sc-lang">${Object.entries(LANGS).map(([k,n])=>`<option value="${k}" translate="no">${n}${texts[k]?' ✓':''}</option>`).join('')}</select></div>
+            <p class="sc-hint">Escribe tu presentación en cada idioma que hables. Quien visite tu página en ese idioma la verá así; en los demás idiomas se ve el texto principal.</p>
+            <div class="svc-field"><label for="sc-l-tagline">Frase de presentación</label><input id="sc-l-tagline" maxlength="160"></div>
+            <div class="svc-field"><label for="sc-l-desc">Sobre el centro</label><textarea id="sc-l-desc" rows="4" maxlength="5000"></textarea></div></div>
           <div class="svc-form-row"><div class="svc-field"><label for="mc-spec">Especialidades</label><input id="mc-spec" value="${esc(c.specialties||'')}" placeholder="Nitrox, cursos PADI, fotografía"></div><div class="svc-field"><label for="sc-languages">Idiomas</label><input id="sc-languages" maxlength="160" value="${esc(c.languages||'')}" placeholder="Español, inglés, francés"></div><div class="svc-field"><label for="sc-hours">Horario</label><input id="sc-hours" maxlength="300" value="${esc(c.opening_hours||'')}" placeholder="Todos los días de 8:00 a 19:00"></div></div>
         </section>
         <section class="sc-card"><h3>Galería <small>${gallery.length} de 12 fotos</small></h3>
@@ -4194,6 +4230,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       </form>
     </section>`;
     mount.querySelector('#sc-tagline').oninput=e=>{mount.querySelector('#sc-tagline-preview').textContent=e.target.value||'Añade una frase que presente tu centro';};
+    // v50.51: the presentation in each language (the selector keeps what was typed in the others until «Guardar»)
+    const langSel=mount.querySelector('#sc-lang'), lTag=mount.querySelector('#sc-l-tagline'), lDesc=mount.querySelector('#sc-l-desc');
+    const keepLang=()=>{ const k=langSel.dataset.cur; if(!k) return; const tg=lTag.value.trim(), ds=lDesc.value.trim(); if(tg||ds) texts[k]={tagline:tg,description:ds}; else delete texts[k];
+      const o=langSel.querySelector(`option[value="${k}"]`); if(o) o.textContent=LANGS[k]+(texts[k]?' ✓':''); };
+    const showLang=()=>{ const k=langSel.value; langSel.dataset.cur=k; lTag.value=texts[k]?.tagline||''; lDesc.value=texts[k]?.description||''; };
+    langSel.value=currentLanguage()!=='es'&&LANGS[currentLanguage()]?currentLanguage():'en'; showLang();
+    langSel.onchange=()=>{ keepLang(); showLang(); };
     mount.querySelector('#sc-cover').onchange=async e=>{const f=e.target.files[0]; if(!f)return; try{toast('Subiendo portada…');await upload('/api/provider/center-cover',f);toast('Portada actualizada.');refresh();}catch(err){toast(err.message)}};
     mount.querySelector('#sc-logo').onchange=async e=>{const f=e.target.files[0]; if(!f)return; try{await upload('/api/provider/avatar',f);toast('Logo actualizado.');refresh();}catch(err){toast(err.message)}};
     mount.querySelector('#sc-cover-remove')?.addEventListener('click',async()=>{if(!confirm('¿Quitar la portada?'))return; try{await postJSON('/api/provider/center-showcase',{tagline:c.tagline||'',languages:c.languages||'',opening_hours:c.opening_hours||'',remove_cover:true});toast('Portada quitada.');refresh();}catch(err){toast(err.message)}});
@@ -4204,7 +4247,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const btn=e.target.querySelector('button[type=submit]'); btn.disabled=true;
       try{
         await postJSON('/api/provider/center-update',{logo_consent:!!mount.querySelector('#sc-logo-consent')?.checked,name:v('mc-name'),country:v('mc-country'),region:v('mc-region'),city:v('mc-city'),phone:v('mc-phone'),website:v('mc-web'),email:v('mc-email'),address:v('mc-address'),specialties:v('mc-spec'),description:v('mc-desc'),latitude:v('mc-lat'),longitude:v('mc-lng'),instagram_url:v('mc-instagram_url'),facebook_url:v('mc-facebook_url'),twitter_url:v('mc-twitter_url'),youtube_url:v('mc-youtube_url'),tiktok_url:v('mc-tiktok_url')});
-        await postJSON('/api/provider/center-showcase',{tagline:v('sc-tagline'),languages:v('sc-languages'),opening_hours:v('sc-hours')});
+        keepLang(); await postJSON('/api/provider/center-showcase',{tagline:v('sc-tagline'),languages:v('sc-languages'),opening_hours:v('sc-hours'),texts});
         toast('Escaparate guardado.'); refresh();
       }catch(err){toast(err.message);btn.disabled=false;}
     };
@@ -5160,7 +5203,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // Demo deployments (WOD_DEMO_MODE=1): a fixed ribbon on every page.
   async function demoRibbon(){ let st; try{ st=await api('/api/setup/status'); }catch{ return; } if(!st.demo||$('#demo-ribbon')) return;
     document.body.classList.add('is-demo');
-    document.body.insertAdjacentHTML('afterbegin','<div class="demo-ribbon" id="demo-ribbon" role="note"><strong>Entorno de pruebas:</strong> los centros y reservas que ves son ejemplos. No se hacen pagos reales.</div>');
+    document.body.insertAdjacentHTML('afterbegin','<div class="demo-ribbon" id="demo-ribbon" role="note"><strong>Versión de demostración</strong> <span>Centros, personas y reservas inventados. Pagos de prueba; los correos no salen.</span></div>');
     translateTree($('#demo-ribbon')); }
   // Footer: the owner's identification (LSSI-CE art. 10) as soon as it is filled in at Administración → Legal.
   async function footerOwner(){ const el=$('#footer-owner'); if(!el) return; const o=(await legalInfo()).owner||{};
@@ -5573,6 +5616,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         ${accKpi('mail',(q.queued||0)+(q.retry||0),'Correos en cola · '+(q.failed||0)+' fallidos')}
         ${accKpi('alert',h.errors_recent,'Errores 500 recientes')}
         ${h.disk?accKpi('chart',h.disk.free_gb+' GB','Disco libre ('+h.disk.used_pct+' % usado)',null,h.disk.used_pct>85):''}</div>
+      ${(h.services||[]).length?`<h3 class="adl-h" id="ops-status">Estado del sistema</h3>
+      <p class="adl-det">Si falta una clave, solo se desactiva esa función; el resto de la web sigue funcionando. Las claves van en el archivo <code>.env</code> del servidor y se aplican al reiniciarlo.</p>
+      <div class="table-wrap"><table class="ops-status"><thead><tr><th>Servicio</th><th>Estado</th><th>Detalle</th><th>Variable del .env</th></tr></thead><tbody>${h.services.map(x=>`<tr data-service="${esc(x.key)}">
+        <td><strong>${esc(x.name)}</strong>${x.effect?`<small>${esc(x.effect)}</small>`:''}</td>
+        <td><span class="status ${x.state==='ok'?'good':x.state==='error'?'bad':'warn'}">${x.state==='ok'?'Configurado':x.state==='error'?'Error':'Pendiente'}</span></td>
+        <td>${esc(x.detail)}</td><td translate="no">${x.env.map(v=>`<code>${esc(v)}</code>`).join(' ')||'—'}</td></tr>`).join('')}</tbody></table></div>`:''}
       <h3 class="adl-h">Aviso de mantenimiento o incidencia</h3>
       ${h.banner?`<div class="notice">Aviso activo hasta ${ago(h.banner.until)}: «${esc(h.banner.text)}» <button type="button" class="btn-link" id="ops-off">Quitar</button></div>`:''}
       <form id="ops-banner" class="form-grid"><div class="field full"><label for="ops-text">Texto que verá todo el mundo arriba de la web</label><input id="ops-text" maxlength="300" placeholder="Ej.: El domingo de 7:00 a 8:00 haremos mantenimiento; las reservas pueden tardar en confirmarse."></div>
@@ -5857,7 +5906,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   navMobile();
   initLanguage();
   // v50.48 · App mode: what /js/wd-app.js uses from this file. Only inside the app (or with «?app=1»).
-  const WD_APP_ASSETS='50.50';
+  const WD_APP_ASSETS='50.51';
   function wdLoadApp(){
     window.WD={app:WD_APP,state,$,$$,escapeHtml,api,postJSON,toast,setApp,route,loadMe,currentLanguage,translateString,translateTree,applyLanguage,
       wdIcon,wdLocale,fmtDate,wdMoney,wdLongDay,wdToday,daysUntil,wdDeadline,bookingStatus,experienceStatus,initials,goLogin,wdOpenCheckout,wdAppPay,

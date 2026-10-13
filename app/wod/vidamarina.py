@@ -25,7 +25,7 @@ LANGS = ('es', 'en', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'zh')
 FREQUENCIES = ('common', 'occasional', 'rare')
 FREQ_RANK = {'common': 0, 'occasional': 1, 'rare': 2}
 STATUSES = ('pending', 'approved', 'rejected')
-SPECIES_WIDTHS = (320, 640, 1280)
+SPECIES_WIDTHS = (128, 640)        # v50.51: the round photo of the carousel (64 px at 2×) and the bubble
 VIDEO_WIDTHS = (400, 800, 1280)
 EXAMPLES = Path(__file__).resolve().parents[1] / 'data' / 'especies'
 

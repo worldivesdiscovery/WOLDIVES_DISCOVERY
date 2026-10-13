@@ -1,8 +1,9 @@
-"""v50.50 · Recorrido en un navegador real: vida marina (carrusel) y vídeos de la ruta en la ficha del punto, el editor
-de la administración, las propuestas de un centro y los 9 idiomas, en ordenador y en móvil.
+"""v50.51 · Recorrido en un navegador real: la ficha del punto como en v50.49, el carrusel sutil «Vida marina en esta
+inmersión» con su bocadillo, el «Recorrido virtual» con los vídeos enlazados, el editor de la administración, las
+propuestas de un centro y los 9 idiomas, en ordenador y en móvil.
 
 Las plataformas de vídeo y Wikimedia Commons están simuladas (tests/media_mock.py): nada sale del ordenador, y el
-navegador corta cualquier petición a otra web para comprobar que nada externo se carga antes de «Reproducir».
+navegador corta cualquier petición a otra web para comprobar que nada externo se carga antes de «Cargar vídeo».
 
     python tests/navegador/e2e_vida_marina.py [CARPETA_DE_CAPTURAS]
 """
@@ -22,12 +23,12 @@ from playwright.sync_api import sync_playwright  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 PW = 'buceo-seguro-2026'
-LANG_CHECK = {   # heading of the carousel, the octopus and «Habitual» in each language
-    'es': ('Vida marina que puedes ver', 'Pulpo común', 'Habitual'), 'en': ('Marine life you can see', 'Common octopus', 'Common'),
-    'fr': ('Vie marine à observer', 'Poulpe commun', 'Fréquente'), 'de': ('Meereslebewesen, die du sehen kannst', 'Gemeiner Krake', 'Häufig'),
-    'it': ('Vita marina che puoi vedere', 'Polpo comune', 'Frequente'), 'pt': ('Vida marinha que pode ver', 'Polvo-comum', 'Habitual'),
-    'nl': ('Zeeleven dat je kunt zien', 'Gewone octopus', 'Vaak'), 'pl': ('Życie morskie, które zobaczysz', 'Ośmiornica zwyczajna', 'Częsty'),
-    'zh': ('可以看到的海洋生物', '真蛸', '常见'),
+LANG_CHECK = {   # title of the strip, «8 species», the octopus and «Habitual» (in the bubble) in each language
+    'es': ('Vida marina en esta inmersión', '8 especies', 'Pulpo común', 'Habitual'), 'en': ('Marine life on this dive', '8 species', 'Common octopus', 'Common'),
+    'fr': ('Vie marine de cette plongée', '8 espèces', 'Poulpe commun', 'Fréquente'), 'de': ('Meeresleben bei diesem Tauchgang', '8 Arten', 'Gemeiner Krake', 'Häufig'),
+    'it': ('Vita marina in questa immersione', '8 specie', 'Polpo comune', 'Frequente'), 'pt': ('Vida marinha neste mergulho', '8 espécies', 'Polvo-comum', 'Habitual'),
+    'nl': ('Zeeleven tijdens deze duik', '8 soorten', 'Gewone octopus', 'Vaak'), 'pl': ('Życie morskie podczas tego nurkowania', '8 gatunków', 'Ośmiornica zwyczajna', 'Częsty'),
+    'zh': ('本次潜水可见的海洋生物', '8 个物种', '真蛸', '常见'),
 }
 
 
@@ -102,119 +103,194 @@ def run(shots: Path | None):
             def login(page, user, pw=PW):
                 go(page, '#/login', 600); page.fill('#login', user); page.fill('#password', pw); page.click('#login-form button[type=submit]'); page.wait_for_timeout(1500)
 
-            sl = lambda page: page.evaluate("document.getElementById('mv-track').scrollLeft")
+            sv = '#pm-viewport'
+            offset = lambda page: page.evaluate("(() => { const m = getComputedStyle(document.getElementById('pm-track')).transform; return m === 'none' ? 0 : -new DOMMatrix(m).m41; })()")
+            items = '#pm-track > li:not([data-copy]) .pm-item'
+            virtual_block = '.pp-virtual-block'
+            route_cards = f'{virtual_block} .pp-virtual:has(.rv-logo)'
+            platforms = lambda page: [u for u in page.outside if 'tile.openstreetmap.org' not in u]   # the map's tiles are not video platforms
 
             # ------------------------------------------------------------------------- ficha del punto (ordenador)
             page = page_for(DESK)
             go(page, f'#/punto?id={PID}', 1500)
-            order = page.evaluate("""() => { const y = s => { const e = document.querySelector(s); return e ? e.getBoundingClientRect().top + scrollY : null; };
-                                      return [y('.mv-block'), y('.rv-block'), y('#pp-centers')]; }""")
-            check('ficha · orden: datos, vida marina, vídeos, centros', None not in order and order[0] < order[1] < order[2], order)
-            check('ficha · sin «Recorrido virtual» ni huecos de 360°', 'Recorrido virtual' not in page.inner_text('#app') and 'aún no tiene recorrido' not in page.inner_text('#app'))
-            cards = page.locator('.mv-card')
-            check('carrusel · 8 especies', cards.count() == 8, cards.count())
-            first = page.evaluate("[...document.querySelectorAll('.mv-card')].map(c => [c.classList.contains('is-off'), c.querySelector('.mv-freq').textContent.trim()])")
-            n_off = sum(1 for o, _ in first if o)
-            check('carrusel · primero las habituales y de temporada; las de fuera de temporada al final', not first[0][0] and first[0][1] == 'Habitual'
-                  and all(o for o, _ in first[-n_off:]) and n_off == 3, first)
-            seasons = page.evaluate("[...document.querySelectorAll('.mv-card.is-off .mv-season')].map(e => e.textContent)")
-            check('carrusel · «Mejor época: …» en las que no son de temporada', len(seasons) == 3 and all(s.startswith('Mejor época: ') and '–' in s for s in seasons), seasons)
-            check('carrusel · nombres como texto (buscadores) y nombre científico', 'Pulpo común' in page.inner_text('.mv-block') and 'Octopus vulgaris' in page.inner_text('.mv-block'))
-            check('carrusel · crédito de la foto sobre cada foto', page.locator('.mv-card .mv-credit').count() == 8)
-            check('carrusel · fotos WebP con varios tamaños y carga diferida', page.evaluate("[...document.querySelectorAll('.mv-card img')].every(i => i.loading === 'lazy' && i.srcset.split(',').length === 3 && i.src.endsWith('.webp'))"))
-            page.locator('#mv-track').scroll_into_view_if_needed(); page.mouse.move(5, 5); page.wait_for_timeout(300)
-            a = sl(page); page.wait_for_timeout(6000); b = sl(page)
-            check('carrusel · avanza solo, despacio', b > a, (a, b))
-            page.locator('#mv-track').hover(); a = sl(page); page.wait_for_timeout(6000)
-            check('carrusel · se para con el ratón encima', sl(page) == a, (a, sl(page)))
-            page.mouse.move(5, 5)
-            check('carrusel · flechas en el ordenador', page.locator('.mv-arrow').first.is_visible())
-            page.evaluate("document.getElementById('mv-track').scrollTo({left:0,behavior:'auto'})"); page.wait_for_timeout(300)
-            page.locator('.mv-arrow[data-dir="1"]').click(); page.wait_for_timeout(900)
-            check('carrusel · la flecha avanza', sl(page) > 0, sl(page))
-            shot(page, 'ordenador-carrusel', el='.mv-block')
-            page.locator('.mv-card').first.click(); page.wait_for_timeout(500)
-            modal = page.locator('#mv-modal')
-            check('carrusel · al pulsar, ventana con la foto grande y la frase', modal.count() == 1 and modal.locator('.mv-blurb').count() == 1 and modal.locator('.mv-modal-photo img').count() == 1)
-            shot(page, 'ordenador-especie')
-            page.keyboard.press('Escape'); page.wait_for_timeout(300)
-            check('carrusel · Escape cierra la ventana', page.locator('#mv-modal').count() == 0)
-            # videos
-            check('vídeos · 4 vídeos de la ruta', page.locator('.rv-card').count() == 4, page.locator('.rv-card').count())
-            platforms = lambda: [u for u in page.outside if 'tile.openstreetmap.org' not in u]   # the map's tiles are not video platforms
-            check('vídeos · nada de las plataformas se carga antes de «Reproducir»', platforms() == [], platforms())
-            thumbs = page.evaluate("[...document.querySelectorAll('.rv-card img.rv-img:not(.rv-fallback)')].map(i => i.currentSrc || i.src)")
-            check('vídeos · miniaturas guardadas en el servidor (WebP)', len(thumbs) == 3 and all('/assets/uploads/videos/' in x and x.endswith('.webp') for x in thumbs), thumbs)
-            fb = page.locator('.rv-card', has=page.locator('.rv-fallback'))
-            check('vídeos · sin miniatura: foto del punto, botón y nombre de la plataforma', fb.count() == 1 and fb.locator('.rv-play').count() == 1 and 'YouTube' in fb.locator('.rv-fb-name').inner_text())
-            check('vídeos · etiqueta 360° y VR', page.locator('.rv-kind', has_text='360°').count() == 1 and page.locator('.rv-kind', has_text='VR').count() == 1)
-            tw = page.locator('.rv-card', has_text='Twitch')
-            check('vídeos · plataforma no insertable: pestaña nueva e icono de enlace externo',
-                  tw.locator('a.rv-media[target=_blank][rel*=noopener]').count() == 1 and tw.locator('.rv-ext').count() == 1)
-            check('vídeos · logotipo pequeño de la plataforma y quién lo aportó', page.locator('.rv-logo svg').count() == 4 and page.locator('.rv-by').first.inner_text().startswith('Aportado por'))
-            shot(page, 'ordenador-videos', el='.rv-block')
-            page.locator('.rv-media[data-play="0"]').click(); page.wait_for_timeout(800)
-            src = page.evaluate("document.querySelector('.rv-frame')?.src || ''")
-            check('vídeos · al pulsar se carga el reproductor de YouTube sin cookies', src.startswith('https://www.youtube-nocookie.com/embed/Ab360Ef6hI9'), src)
-            check('vídeos · solo entonces se pide algo a la plataforma', platforms() and all('youtube-nocookie.com' in u for u in platforms()), platforms())
+            order = page.evaluate("""() => { const y = e => e ? e.getBoundingClientRect().top + scrollY : null;
+                const h2 = t => [...document.querySelectorAll('.tp-main h2')].find(h => h.textContent.trim() === t)?.closest('section');
+                return [y(h2('Sobre el punto')), y(document.querySelector('.pm-block')), y(h2('Recorrido virtual')), y(document.getElementById('pp-centers'))]; }""")
+            check('ficha · orden de v50.49: datos, vida marina justo encima del recorrido virtual, centros', None not in order and order[0] < order[1] < order[2] < order[3], order)
+            gap = page.evaluate("(() => { const a = document.querySelector('.pm-block').getBoundingClientRect(), b = document.querySelector('.pm-block').nextElementSibling; return [b.querySelector('h2')?.textContent.trim(), b.getBoundingClientRect().top - a.bottom]; })()")
+            check('ficha · el carrusel va pegado al «Recorrido virtual»', gap[0] == 'Recorrido virtual' and 0 <= gap[1] <= 40, gap)
+            check('ficha · sin las secciones de v50.50 (carrusel grande y «Vídeos de la ruta»)', page.locator('.mv-block, .rv-block, .rv-card').count() == 0 and 'Vídeos de la ruta' not in page.inner_text('#app'))
+            check('carrusel · título pequeño y número de especies', page.inner_text('.pm-title').strip() == 'Vida marina en esta inmersión' and page.inner_text('.pm-count').strip() == '8 especies'
+                  and page.evaluate("parseFloat(getComputedStyle(document.querySelector('.pm-title')).fontSize) <= 15"))
+            check('carrusel · 8 especies', page.locator(items).count() == 8, page.locator(items).count())
+            size = page.evaluate("document.querySelector('.pm-photo').getBoundingClientRect().width")
+            check('carrusel · fotos pequeñas y redondas (56–64 px en ordenador)', 56 <= size <= 64 and page.evaluate("getComputedStyle(document.querySelector('.pm-photo')).borderRadius") == '50%', size)
+            names = page.evaluate(f"[...document.querySelectorAll('{items} .pm-name')].map(e => e.textContent)")
+            check('carrusel · nombre común debajo de cada foto, en pequeño', len(names) == 8 and 'Pulpo común' in names and page.evaluate("parseFloat(getComputedStyle(document.querySelector('.pm-name')).fontSize) <= 12"), names)
+            check('carrusel · primero las de temporada y habituales', names[0] in ('Mero', 'Morena', 'Pulpo común') and names[-1] in ('Pez luna', 'Tortuga boba', 'Sepia común'), names)
+            check('carrusel · fotos WebP en dos tamaños con carga diferida', page.evaluate(f"[...document.querySelectorAll('{items} img')].every(i => i.loading === 'lazy' && i.srcset.split(',').length === 2 && /-128\\.webp 128w/.test(i.srcset) && /-640\\.webp 640w/.test(i.srcset))"))
+            check('carrusel · quieto en el ordenador porque caben todas', page.get_attribute(sv, 'data-state') == 'still' and offset(page) == 0, page.get_attribute(sv, 'data-state'))
+            shot(page, 'ordenador-carrusel', el='.pm-block')
+            # bubble
+            first = page.locator(items).first
+            first.click(); page.wait_for_timeout(400)
+            pop = page.locator('#pm-pop')
+            check('bocadillo · se abre sin salir de la página', pop.count() == 1 and '#/punto' in page.url)
+            geo = page.evaluate("""() => { const p = document.getElementById('pm-pop').getBoundingClientRect(), t = document.querySelector('.pm-item[aria-expanded=true]').getBoundingClientRect();
+                return {gap: Math.min(Math.abs(p.top - t.bottom), Math.abs(t.top - p.bottom)), overlap: p.left < t.right && p.right > t.left, w: p.width,
+                        img: document.querySelector('#pm-pop .pm-pop-photo img')?.getBoundingClientRect().width || 0}; }""")
+            check('bocadillo · junto a la foto, con la foto más grande', geo['gap'] <= 20 and geo['overlap'] and geo['img'] >= 200, geo)
+            body = pop.inner_text()
+            check('bocadillo · nombre común, científico en cursiva, frecuencia, mejor época, información y crédito',
+                  pop.locator('h3').inner_text().strip() == names[0] and pop.locator('.pm-pop-sci em').count() == 1 and pop.locator('.pm-freq').inner_text().strip() == 'Habitual'
+                  and 'Mejor época' in body and pop.locator('.pm-pop-info').count() == 1 and pop.locator('.pm-pop-credit').count() == 1, body)
+            check('bocadillo · accesible (diálogo con título, el foco va a «Cerrar»)', page.evaluate("document.activeElement.id") == 'pm-pop-x'
+                  and pop.get_attribute('role') == 'dialog' and pop.get_attribute('aria-labelledby') == 'pm-pop-title' and first.get_attribute('aria-expanded') == 'true')
+            shot(page, 'ordenador-bocadillo')
+            page.locator(items).nth(1).click(); page.wait_for_timeout(400)
+            check('bocadillo · solo uno abierto a la vez', page.locator('#pm-pop').count() == 1 and page.locator('#pm-pop h3').inner_text().strip() == names[1])
+            page.keyboard.press('Escape'); page.wait_for_timeout(250)
+            check('bocadillo · Esc lo cierra y el foco vuelve a la foto', page.locator('#pm-pop').count() == 0 and page.evaluate("document.activeElement.classList.contains('pm-item')"))
+            page.locator(items).nth(2).click(); page.wait_for_timeout(300); page.mouse.click(5, 300); page.wait_for_timeout(250)
+            check('bocadillo · se cierra tocando fuera', page.locator('#pm-pop').count() == 0)
+            page.locator(items).nth(2).click(); page.wait_for_timeout(300); page.click('#pm-pop-x'); page.wait_for_timeout(250)
+            check('bocadillo · se cierra con la X', page.locator('#pm-pop').count() == 0)
+            page.locator(items).nth(3).focus(); page.keyboard.press('Enter'); page.wait_for_timeout(300)
+            check('bocadillo · con el teclado (Intro abre)', page.locator('#pm-pop').count() == 1)
+            page.keyboard.press('Tab'); page.keyboard.press('Tab'); page.keyboard.press('Tab'); page.wait_for_timeout(100)
+            check('bocadillo · el foco no se escapa con Tab', page.evaluate("!!document.activeElement.closest('#pm-pop')"))
+            page.keyboard.press('Escape')
+            # recorrido virtual
+            check('recorrido virtual · el aspecto de v50.49 (tarjetas con el cuadro de 58 px)', page.locator(f'{virtual_block} .pp-virtuals').count() == 1
+                  and page.evaluate(f"""(() => {{ const r = document.querySelector('{route_cards} .pp-virtual-mark').getBoundingClientRect(); return r.width === 58 && r.height === 58; }})()"""))
+            check('recorrido virtual · los 4 vídeos aprobados', page.locator(route_cards).count() == 4, page.locator(route_cards).count())
+            thumbs = page.evaluate(f"""[...document.querySelectorAll("{route_cards} .pp-virtual-thumb img")].map(i => i.currentSrc || i.src)""")
+            check('recorrido virtual · miniatura guardada en el servidor (WebP) dentro del cuadro', len(thumbs) == 3 and all('/assets/uploads/videos/' in x and x.endswith('.webp') for x in thumbs), thumbs)
+            check('recorrido virtual · etiqueta 360° y VR', page.locator(f'{route_cards} .pp-virtual-mark b', has_text='360°').count() == 1 and page.locator(f'{route_cards} .pp-virtual-mark', has_text='VR').count() == 1)
+            tw = page.locator(route_cards, has_text='Twitch')
+            check('recorrido virtual · plataforma no insertable: «Abrir en Twitch» en pestaña nueva con icono externo',
+                  tw.locator('a.btn[target=_blank][rel*=noopener]', has_text='Abrir en Twitch').count() == 1 and tw.locator('.rv-ext').count() == 1)
+            check('recorrido virtual · logotipo de la plataforma y quién lo aportó', page.locator(f'{route_cards} .rv-logo svg').count() == 4 and 'Aportado por' in page.locator(route_cards).first.inner_text())
+            check('recorrido virtual · nada de las plataformas se carga en la ficha', platforms(page) == [], platforms(page))
+            shot(page, 'ordenador-recorrido-virtual', el=virtual_block)
             check('ficha · sin errores de JavaScript', not page.errors, page.errors)
+            page.locator(route_cards, has_text='YouTube').filter(has=page.locator('.pp-virtual-mark b', has_text='360°')).locator('a.btn', has_text='Entrar en el recorrido').click(); page.wait_for_timeout(1200)
+            check('recorrido virtual · «Entrar en el recorrido» abre el visor con el aviso y la miniatura de fondo', '#/virtual?video=' in page.url and page.locator('#virtual-consent.has-thumb').count() == 1 and platforms(page) == [])
+            shot(page, 'ordenador-recorrido-aviso')
+            page.click('#virtual-load'); page.wait_for_timeout(800)
+            src = page.evaluate("document.querySelector('.virtual-frame iframe')?.src || ''")
+            check('recorrido virtual · «Cargar vídeo» trae el reproductor de YouTube sin cookies', src.startswith('https://www.youtube-nocookie.com/embed/Ab360Ef6hI9'), src)
+            check('recorrido virtual · solo entonces se pide algo a la plataforma', platforms(page) and all('youtube-nocookie.com' in u for u in platforms(page)), platforms(page))
             page.context.close()
             page = page_for(DESK); go(page, f'#/punto?id={PID}', 1500); shot(page, 'ordenador-ficha-punto-completa', full=True)
+            page.locator(items).first.scroll_into_view_if_needed(); page.locator(items).first.click(); page.wait_for_timeout(500)
+            shot(page, 'ordenador-ficha-con-bocadillo'); page.context.close()
+
+            # ------------------------------------------------------------------------- 30 especies: se mueve, se para
+            page = page_for(DESK)
+            go(page, f'#/punto?id={BIG}', 1800); page.locator(sv).scroll_into_view_if_needed(); page.mouse.move(5, 5); page.wait_for_timeout(400)
+            check('30 especies · se mueve solo porque no caben', page.get_attribute(sv, 'data-state') == 'moving')
+            a = offset(page); page.wait_for_timeout(2000); b = offset(page)
+            check('30 especies · movimiento lento y continuo (≈ 20 px/s)', 25 <= b - a <= 70, (a, b))
+            mask = page.evaluate("getComputedStyle(document.getElementById('pm-viewport')).maskImage || getComputedStyle(document.getElementById('pm-viewport')).webkitMaskImage")
+            check('30 especies · bordes difuminados', 'linear-gradient' in mask, mask)
+            page.locator(sv).hover(); page.wait_for_timeout(300); a = offset(page); page.wait_for_timeout(1500)
+            check('30 especies · se para con el ratón encima', offset(page) == a, (a, offset(page)))
+            page.mouse.move(5, 5); page.wait_for_timeout(1200)
+            check('30 especies · sigue al quitar el ratón', offset(page) != a)
+            vis = page.evaluate("""(() => { const v = document.getElementById('pm-viewport').getBoundingClientRect();
+                return [...document.querySelectorAll('#pm-track .pm-item')].findIndex(b => { const r = b.getBoundingClientRect(); return r.left > v.left + 50 && r.right < v.right - 50; }); })()""")
+            bb = page.locator('#pm-track .pm-item').nth(vis).bounding_box()
+            page.mouse.move(bb['x'] + bb['width'] / 2, bb['y'] + 20); page.wait_for_timeout(150); page.mouse.down(); page.mouse.up()   # as a person: the pointer stops it, then the click
+            page.wait_for_timeout(200); page.mouse.move(5, 5); page.wait_for_timeout(200); a = offset(page); page.wait_for_timeout(1500)
+            check('30 especies · se para con una especie abierta', page.locator('#pm-pop').count() == 1 and offset(page) == a, (a, offset(page)))
+            page.keyboard.press('Escape'); page.mouse.move(5, 5)
+            check('30 especies · las copias del bucle no se leen ni se enfocan', page.evaluate("[...document.querySelectorAll('#pm-track > li[data-copy]')].every(li => li.getAttribute('aria-hidden') === 'true' && li.querySelector('button').tabIndex === -1)"))
+            check('30 especies · sin errores de JavaScript', not page.errors, page.errors)
+            shot(page, 'ordenador-carrusel-30', el='.pm-block')
             page.context.close()
 
             # ------------------------------------------------------------------------- reducir movimiento
             page = page_for(DESK, reduced='reduce')
-            go(page, f'#/punto?id={PID}', 1500); page.locator('#mv-track').scroll_into_view_if_needed(); page.mouse.move(5, 5)
-            a = sl(page); page.wait_for_timeout(6500)
-            check('reducir movimiento · el carrusel no avanza solo', sl(page) == a and page.get_attribute('#mv-track', 'data-auto') == 'off', (a, sl(page)))
+            go(page, f'#/punto?id={BIG}', 1800); page.locator(sv).scroll_into_view_if_needed(); page.mouse.move(5, 5)
+            a = offset(page); page.wait_for_timeout(1500)
+            check('reducir movimiento · quieto (se puede desplazar a mano)', page.get_attribute(sv, 'data-state') == 'scroll' and offset(page) == a == 0
+                  and page.evaluate("(() => { const v = document.getElementById('pm-viewport'); v.scrollLeft = 200; return v.scrollLeft > 0; })()"))
             page.context.close()
 
-            # ------------------------------------------------------------------------- punto sin vídeos ni especies
+            # ------------------------------------------------------------------------- punto sin especies
             page = page_for(DESK)
             go(page, f'#/punto?id={EMPTY}', 1500)
             txt = page.inner_text('#app')
-            check('punto vacío · no aparecen las secciones (ni «próximamente»)', page.locator('.mv-block, .rv-block').count() == 0 and 'próximamente' not in txt.lower()
-                  and 'Vídeos de la ruta' not in txt and 'Vida marina' not in txt)
+            check('punto sin especies · el carrusel no aparece', page.locator('.pm-block').count() == 0 and 'Vida marina' not in txt)
+            check('punto sin vídeos · «Recorrido virtual» como en v50.49', 'Recorrido virtual' in txt and page.locator('.pp-empty .pp-virtual-mark').count() == 1)
             page.context.close()
 
             # ------------------------------------------------------------------------- móvil
             page = page_for(PHONE)
             go(page, f'#/punto?id={PID}', 1500)
             check('móvil · nada más ancho que la pantalla', page.evaluate('document.scrollingElement.scrollWidth <= innerWidth + 1'), page.evaluate('document.scrollingElement.scrollWidth'))
-            check('móvil · sin flechas (se desliza con el dedo)', not page.locator('.mv-arrow').first.is_visible())
-            check('móvil · se ve que hay más tarjetas a la derecha', page.evaluate("(() => { const t = document.getElementById('mv-track'); return t.scrollWidth > t.clientWidth + 100; })()"))
-            page.evaluate("document.getElementById('mv-track').scrollTo({left:300,behavior:'auto'})"); page.wait_for_timeout(300)
-            check('móvil · el carrusel se desliza', sl(page) > 0)
-            check('móvil · «Abrir en la app de YouTube»', page.locator('.rv-app', has_text='Abrir en la app de YouTube').count() == 2)
-            shot(page, 'movil-carrusel', el='.mv-block'); shot(page, 'movil-videos', el='.rv-block')
-            page.locator('.mv-card').nth(1).click(); page.wait_for_timeout(500); shot(page, 'movil-especie'); page.keyboard.press('Escape')
+            size = page.evaluate("document.querySelector('.pm-photo').getBoundingClientRect().width")
+            check('móvil · fotos de 48–56 px', 48 <= size <= 56, size)
+            page.locator(sv).scroll_into_view_if_needed(); page.wait_for_timeout(500)
+            check('móvil · se mueve porque no caben', page.get_attribute(sv, 'data-state') == 'moving')
+            box = page.locator(sv).bounding_box(); cdp = page.context.new_cdp_session(page)
+            y = box['y'] + box['height'] / 2; x0 = box['x'] + box['width'] - 40
+            a = offset(page)
+            cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': x0, 'y': y}]})
+            for k in range(1, 11): cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': x0 - k * 18, 'y': y}]}); page.wait_for_timeout(16)
+            cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []}); page.wait_for_timeout(100)
+            moved = offset(page) - a
+            check('móvil · se desliza con el dedo', moved > 120, moved)
+            check('móvil · deslizar no abre ninguna especie', page.locator('#pm-pop').count() == 0)
+            a = offset(page); page.wait_for_timeout(1500)
+            check('móvil · se para un rato después de tocarlo', offset(page) == a, (a, offset(page)))
+            shot(page, 'movil-carrusel', el='.pm-block')
+            vis = page.evaluate("""(() => { const v = document.getElementById('pm-viewport').getBoundingClientRect();
+                return [...document.querySelectorAll('#pm-track .pm-item')].findIndex(b => { const r = b.getBoundingClientRect(); return r.left > v.left + 30 && r.right < v.right - 30; }); })()""")
+            page.locator('#pm-track .pm-item').nth(vis).tap(); page.wait_for_timeout(500)
+            sheet = page.evaluate("(() => { const p = document.getElementById('pm-pop'); if (!p) return null; const r = p.getBoundingClientRect(); return {sheet: p.classList.contains('is-sheet'), bottom: Math.round(r.bottom), h: innerHeight, w: r.width}; })()")
+            check('móvil · el bocadillo es un panel pequeño desde abajo', sheet and sheet['sheet'] and abs(sheet['bottom'] - sheet['h']) <= 1 and sheet['w'] >= 389, sheet)
+            shot(page, 'movil-bocadillo')
+            page.locator('#pm-backdrop').tap(position={'x': 30, 'y': 40}); page.wait_for_timeout(300)
+            check('móvil · se cierra tocando fuera', page.locator('#pm-pop').count() == 0)
             shot(page, 'movil-ficha-punto-completa', full=True)
+            page.context.close()
+            page = page_for(PHONE); go(page, f'#/punto?id={PID}', 1500)
+            page.locator(sv).scroll_into_view_if_needed(); page.wait_for_timeout(300)
+            page.evaluate("document.querySelector('#pm-track .pm-item').click()"); page.wait_for_timeout(500)
+            shot(page, 'movil-ficha-con-bocadillo')
+            vid = page.evaluate(f"""document.querySelector("{route_cards} a.btn[href*='video=']").getAttribute('href')""")
+            go(page, vid, 1200)
+            check('móvil · el visor del recorrido ofrece «Abrir en la app de YouTube»', page.locator('.rv-app', has_text='Abrir en la app de YouTube').count() == 1)
+            check('móvil · sin errores de JavaScript', not page.errors, page.errors)
             page.context.close()
 
             # ------------------------------------------------------------------------- 30 especies en un móvil lento
             page = page_for(PHONE)
             cdp = page.context.new_cdp_session(page); cdp.send('Emulation.setCPUThrottlingRate', {'rate': 4})
-            go(page, f'#/punto?id={BIG}', 2500)
-            check('30 especies · las 30 tarjetas', page.locator('.mv-card').count() == 30)
-            frames = page.evaluate("""() => new Promise(done => { const t = document.getElementById('mv-track'); const ts = []; let last = performance.now();
+            go(page, f'#/punto?id={BIG}', 2500); page.locator(sv).scroll_into_view_if_needed(); page.wait_for_timeout(500)
+            check('30 especies en el móvil · las 30', page.locator(items).count() == 30)
+            frames = page.evaluate("""() => new Promise(done => { const ts = []; let last = performance.now();
                 const tick = now => { ts.push(now - last); last = now; if (ts.length < 150) requestAnimationFrame(tick); else done(ts.slice(5)); };
-                requestAnimationFrame(tick); let x = 0; const step = () => { x += 9; t.scrollLeft = x; if (ts.length < 150) setTimeout(step, 16); }; step(); })""")
+                requestAnimationFrame(tick); })""")
             p95 = sorted(frames)[int(len(frames) * .95)]; med = statistics.median(frames); long_ = sum(1 for f in frames if f > 50)
-            print(f'   medida · 30 especies, CPU 4× más lenta: fotograma mediano {med:.1f} ms, p95 {p95:.1f} ms, {long_} de {len(frames)} por encima de 50 ms', flush=True)
-            check('30 especies · desliza fluido en un móvil lento (p95 < 50 ms)', p95 < 50 and long_ <= len(frames) * .05, (med, p95, long_))
-            shot(page, 'movil-30-especies', el='.mv-block')
+            print(f'   medida · 30 especies en movimiento, CPU 4× más lenta: fotograma mediano {med:.1f} ms, p95 {p95:.1f} ms, {long_} de {len(frames)} por encima de 50 ms', flush=True)
+            check('30 especies en el móvil · movimiento fluido con la CPU 4× más lenta (p95 < 50 ms)', p95 < 50 and long_ <= len(frames) * .05, (med, p95, long_))
             page.context.close()
 
             # ------------------------------------------------------------------------- 9 idiomas
-            for lang, (head, octo, freq) in LANG_CHECK.items():
+            for lang, (head, count, octo, freq) in LANG_CHECK.items():
                 page = page_for(DESK)
                 page.add_init_script("try{localStorage.setItem('wd-i18n-debug','1')}catch(e){}")
                 go(page, f'?lang={lang}#/punto?id={PID}', 1800)
-                h = page.inner_text('#mv-title').strip(); names = page.inner_text('.mv-block')
-                misses = page.evaluate("""() => { const t = [...document.querySelectorAll('.mv-block, .rv-block')].map(e => e.innerText).join('\\n');
+                h = page.inner_text('.pm-title').strip(); c = page.inner_text('.pm-count').strip(); names = page.inner_text('.pm-block')
+                page.locator(items, has_text=octo).click(); page.wait_for_timeout(400)
+                f = page.inner_text('#pm-pop .pm-freq').strip() if page.locator('#pm-pop').count() else ''
+                misses = page.evaluate("""() => { const t = [...document.querySelectorAll('.pm-block, #pm-pop, .pp-virtuals')].map(e => e.innerText).join('\\n');
                                           return [...(window.__wdI18nMisses || [])].filter(m => t.includes(m)); }""")
-                check(f'idioma {lang} · título, nombres de las especies y etiquetas', h == head and octo in names and freq in names and not misses, (h, misses))
-                if lang in ('en', 'zh'): shot(page, f'ordenador-carrusel-{lang}', el='.mv-block')
+                check(f'idioma {lang} · título, número, nombres y bocadillo', h == head and c == count and octo in names and f == freq and not misses, (h, c, f, misses))
+                if lang in ('en', 'zh'): shot(page, f'ordenador-bocadillo-{lang}')
                 page.context.close()
 
             # ------------------------------------------------------------------------- centro: proponer, administración: aprobar
@@ -233,7 +309,7 @@ def run(shots: Path | None):
             check('centro · «Tus propuestas» con el estado', 'Pendiente de aprobación' in page.inner_text('.mk-panel'))
             shot(page, 'ordenador-panel-centro')
             pub = page_for(DESK); go(pub, f'#/punto?id={PID}', 1500)
-            check('pendiente · no se publica hasta que lo apruebe la administración', 'Ruta del pecio · hB3dEf6hI9k' not in pub.inner_text('.rv-block')); pub.context.close()
+            check('pendiente · no se publica hasta que lo apruebe la administración', 'Ruta del pecio' not in pub.inner_text('.pp-virtuals')); pub.context.close()
             page.context.close()
 
             page = page_for(DESK)
@@ -257,7 +333,7 @@ def run(shots: Path | None):
             page.context.close()
 
             page = page_for(DESK); go(page, f'#/punto?id={PID}', 1500)
-            card = page.locator('.rv-card', has_text='Ruta del pecio')
+            card = page.locator('.pp-virtual', has_text='Ruta del pecio')
             check('aprobado · ya se ve en la ficha con quién lo aportó', card.count() == 1 and 'Centro marinae2e' in card.inner_text())
             page.context.close()
 

@@ -148,7 +148,8 @@ REGLAS_POST = (
     ('avisos', _P('/api/provider-services/slot-cancel', '/api/avisos/', '/api/whatsapp/')),
     ('barco', _P('/api/manifest/')),
     ('cobros', _P('/api/bookings/refund', re.compile(r'/api/bookings/\d+/refund'))),
-    ('centro', _P('/api/provider/insurance', '/api/provider/cancellation-policy', '/api/provider/center-update', '/api/provider/center-showcase',
+    ('centro', _P('/api/provider/insurance', '/api/provider/cancellation-policy', '/api/center/cancellation-policy', '/api/center/profile',
+                  '/api/provider/profile', '/api/provider/avatar', '/api/provider/center-update', '/api/provider/center-showcase',
                   '/api/provider/center-cover', '/api/provider/center-gallery', '/api/center/integration', '/api/provider/ical', '/api/center/import',
                   '/api/center/tariffs', '/api/provider/waiver', '/api/marina/')),
     ('salidas', _P('/api/provider-services', '/api/service-templates/', '/api/agenda/')),
@@ -157,7 +158,7 @@ REGLAS_GET = (
     (None, _P('/api/provider/fiscal', '/api/provider/plan', '/api/center/team', '/api/center/activity', '/api/provider/cuenta')),
     ('cobros', _P('/api/provider/payments', '/api/payments/center')),
     ('centro', _P('/api/provider/ical',)),
-    ('estadisticas', _P('/api/provider/stats',)),
+    ('estadisticas', _P('/api/provider/stats', '/api/center/analytics')),
 )
 
 

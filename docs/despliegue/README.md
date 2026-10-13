@@ -2,6 +2,7 @@
 
 Guía para poner la web en un servidor propio (VPS) con HTTPS, reinicio automático, copias de seguridad y avisos.
 Los archivos de ejemplo están en `docs/despliegue/`. Los mapas tienen su propia guía: `docs/mapas.md`.
+**Instalación paso a paso con el zip de producción: `docs/despliegue/GUIA-VPS.md`** (v50.51).
 
 ## 1. Servidor
 
@@ -41,11 +42,14 @@ Con `WOD_ENV=production` el servidor **no arranca** si falta algo esencial (URL 
 
 ```bash
 cd /opt/worldives
-sudo -u worldives .venv/bin/python scripts/crear_semilla.py --source data/demo/catalogo-demo.sqlite3 --out /opt/worldives/data/worldives.sqlite3
 sudo -u worldives .venv/bin/python app/server.py --create-admin
 ```
 
-La base de producción lleva solo el catálogo (puntos con sus descripciones propias en 9 idiomas, zonas, tipos, países y titulaciones), los textos legales y los datos del titular. **No lleva usuarios, centros, reservas, mensajes, pagos ni registros.** Los centros importados de PADI/SSI se quedan en la demo. El primer administrador se crea con `--create-admin` y debe activar la verificación en dos pasos al entrar.
+La base se crea sola en el primer arranque a partir de `data/seed/catalogo.sqlite3`: puntos con sus descripciones
+propias en 9 idiomas, zonas, tipos, países, titulaciones, textos legales y (v50.51) el catálogo de 31 especies con
+ilustraciones propias. **No lleva usuarios, centros, reservas, mensajes, pagos ni registros.** El primer
+administrador se crea con `--create-admin` y debe activar la verificación en dos pasos al entrar. En la web real no
+hay pantalla de alta de administradores.
 
 ## 4. HTTPS y proxy
 
@@ -80,6 +84,9 @@ Automáticas, sin cron:
 **Rotación:** se guardan las últimas 48 copias horarias, una por día durante 30 días y una por mes durante 12 meses (`WOD_BACKUP_KEEP_*`). Si una copia o su envío fuera falla, los administradores reciben un email (máximo uno al día por motivo) y queda en *Administración → Operación*.
 
 **Destino externo recomendado:** un almacenamiento en la UE con versiones o bloqueo de objetos (Backblaze B2 en Ámsterdam, Hetzner Storage Box, Scaleway…). Las copias contienen datos personales: cifra el destino (por ejemplo, un remoto `crypt` de rclone) y limita quién tiene acceso.
+
+**Cifrado (v50.51):** con `WOD_BACKUP_KEY` en el `.env`, cada copia se guarda cifrada (AES-256-GCM). `--verify-backup`
+y `--restore` la descifran solos con esa clave. Guárdala también fuera del servidor: sin ella no se puede restaurar.
 
 **Copia manual:** `python app/server.py --backup-now`.
 

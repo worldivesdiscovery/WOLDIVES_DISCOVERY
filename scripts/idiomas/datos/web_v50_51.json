@@ -1,0 +1,246 @@
+{
+ "exact": {
+  "Vida marina en esta inmersión": {
+   "en": "Marine life on this dive",
+   "fr": "Vie marine de cette plongée",
+   "de": "Meeresleben bei diesem Tauchgang",
+   "it": "Vita marina in questa immersione",
+   "pt": "Vida marinha neste mergulho",
+   "nl": "Zeeleven tijdens deze duik",
+   "pl": "Życie morskie podczas tego nurkowania",
+   "zh": "本次潜水可见的海洋生物"
+  },
+  "1 especie": {
+   "en": "1 species",
+   "fr": "1 espèce",
+   "de": "1 Art",
+   "it": "1 specie",
+   "pt": "1 espécie",
+   "nl": "1 soort",
+   "pl": "1 gatunek",
+   "zh": "1 个物种"
+  },
+  "En esta inmersión": {
+   "en": "On this dive",
+   "fr": "Dans cette plongée",
+   "de": "Bei diesem Tauchgang",
+   "it": "In questa immersione",
+   "pt": "Neste mergulho",
+   "nl": "Tijdens deze duik",
+   "pl": "Podczas tego nurkowania",
+   "zh": "本次潜水"
+  },
+  "Mejor época": {
+   "en": "Best season",
+   "fr": "Meilleure période",
+   "de": "Beste Zeit",
+   "it": "Periodo migliore",
+   "pt": "Melhor época",
+   "nl": "Beste periode",
+   "pl": "Najlepszy okres",
+   "zh": "最佳季节"
+  },
+  "Entrar en el recorrido": {
+   "en": "Start the tour",
+   "fr": "Commencer la visite",
+   "de": "Tour starten",
+   "it": "Inizia il percorso",
+   "pt": "Entrar no percurso",
+   "nl": "Start de rondleiding",
+   "pl": "Rozpocznij wycieczkę",
+   "zh": "进入导览"
+  },
+  "Vídeo de un servicio externo": {
+   "en": "Video from an external service",
+   "fr": "Vidéo d’un service externe",
+   "de": "Video eines externen Dienstes",
+   "it": "Video di un servizio esterno",
+   "pt": "Vídeo de um serviço externo",
+   "nl": "Video van een externe dienst",
+   "pl": "Film z zewnętrznego serwisu",
+   "zh": "来自外部服务的视频"
+  },
+  "Cargar vídeo": {
+   "en": "Load video",
+   "fr": "Charger la vidéo",
+   "de": "Video laden",
+   "it": "Carica video",
+   "pt": "Carregar vídeo",
+   "nl": "Video laden",
+   "pl": "Wczytaj film",
+   "zh": "加载视频"
+  },
+  "Versión de demostración": {
+   "en": "Demo version",
+   "fr": "Version de démonstration",
+   "de": "Demoversion",
+   "it": "Versione dimostrativa",
+   "pt": "Versão de demonstração",
+   "nl": "Demoversie",
+   "pl": "Wersja demonstracyjna",
+   "zh": "演示版"
+  },
+  "Centros, personas y reservas inventados. Pagos de prueba; los correos no salen.": {
+   "en": "Invented centres, people and bookings. Test payments; no emails are sent.",
+   "fr": "Centres, personnes et réservations inventés. Paiements de test ; aucun e-mail n’est envoyé.",
+   "de": "Erfundene Tauchbasen, Personen und Buchungen. Testzahlungen; es werden keine E-Mails verschickt.",
+   "it": "Centri, persone e prenotazioni inventati. Pagamenti di prova; le e-mail non vengono inviate.",
+   "pt": "Centros, pessoas e reservas inventados. Pagamentos de teste; os e-mails não são enviados.",
+   "nl": "Verzonnen centra, personen en boekingen. Testbetalingen; er worden geen e-mails verstuurd.",
+   "pl": "Wymyślone centra, osoby i rezerwacje. Płatności testowe; e-maile nie są wysyłane.",
+   "zh": "中心、人物和预订均为虚构。测试付款；不会发送电子邮件。"
+  },
+  "En otros idiomas": {
+   "en": "In other languages",
+   "fr": "Dans d’autres langues",
+   "de": "In anderen Sprachen",
+   "it": "In altre lingue",
+   "pt": "Noutros idiomas",
+   "nl": "In andere talen",
+   "pl": "W innych językach",
+   "zh": "其他语言"
+  },
+  "Escribe tu presentación en cada idioma que hables. Quien visite tu página en ese idioma la verá así; en los demás idiomas se ve el texto principal.": {
+   "en": "Write your presentation in each language you speak. Visitors in that language will see it; in the others they see the main text.",
+   "fr": "Rédigez votre présentation dans chaque langue que vous parlez. Les visiteurs dans cette langue la verront ; dans les autres, ils voient le texte principal.",
+   "de": "Schreibe deine Vorstellung in jeder Sprache, die du sprichst. Besucher in dieser Sprache sehen sie so; in den anderen Sprachen erscheint der Haupttext.",
+   "it": "Scrivi la tua presentazione in ogni lingua che parli. Chi visita la pagina in quella lingua la vedrà così; nelle altre si vede il testo principale.",
+   "pt": "Escreva a sua apresentação em cada idioma que fala. Quem visitar a página nesse idioma vê-a assim; nos outros vê o texto principal.",
+   "nl": "Schrijf je presentatie in elke taal die je spreekt. Bezoekers in die taal zien hem zo; in de andere talen zien ze de hoofdtekst.",
+   "pl": "Napisz prezentację w każdym języku, którym mówisz. Odwiedzający w tym języku zobaczą ją tak; w pozostałych widać tekst główny.",
+   "zh": "用你会说的每种语言撰写介绍。使用该语言的访客会看到它；其他语言显示主要文本。"
+  },
+  "Demasiados intentos con la contraseña. Espera unos minutos.": {
+   "en": "Too many password attempts. Please wait a few minutes.",
+   "fr": "Trop de tentatives de mot de passe. Patientez quelques minutes.",
+   "de": "Zu viele Passwortversuche. Bitte warte ein paar Minuten.",
+   "it": "Troppi tentativi con la password. Attendi qualche minuto.",
+   "pt": "Demasiadas tentativas com a palavra-passe. Aguarde alguns minutos.",
+   "nl": "Te veel wachtwoordpogingen. Wacht een paar minuten.",
+   "pl": "Zbyt wiele prób hasła. Odczekaj kilka minut.",
+   "zh": "密码尝试次数过多，请几分钟后再试。"
+  },
+  "Estado del sistema": {
+   "en": "System status",
+   "fr": "État du système",
+   "de": "Systemstatus",
+   "it": "Stato del sistema",
+   "pt": "Estado do sistema",
+   "nl": "Systeemstatus",
+   "pl": "Stan systemu",
+   "zh": "系统状态"
+  },
+  "Detalle": {
+   "en": "Details",
+   "fr": "Détail",
+   "de": "Details",
+   "it": "Dettaglio",
+   "pt": "Detalhe",
+   "nl": "Details",
+   "pl": "Szczegóły",
+   "zh": "详情"
+  },
+  "Variable del .env": {
+   "en": ".env variable",
+   "fr": "Variable du .env",
+   "de": ".env-Variable",
+   "it": "Variabile del .env",
+   "pt": "Variável do .env",
+   "nl": ".env-variabele",
+   "pl": "Zmienna .env",
+   "zh": ".env 变量"
+  },
+  "Configurado": {
+   "en": "Configured",
+   "fr": "Configuré",
+   "de": "Eingerichtet",
+   "it": "Configurato",
+   "pt": "Configurado",
+   "nl": "Ingesteld",
+   "pl": "Skonfigurowano",
+   "zh": "已配置"
+  },
+  "Error": {
+   "en": "Error",
+   "fr": "Erreur",
+   "de": "Fehler",
+   "it": "Errore",
+   "pt": "Erro",
+   "nl": "Fout",
+   "pl": "Błąd",
+   "zh": "错误"
+  },
+  "Si falta una clave, solo se desactiva esa función; el resto de la web sigue funcionando. Las claves van en el archivo": {
+   "en": "If a key is missing, only that function is switched off; the rest of the website keeps working. Keys go in the file",
+   "fr": "S’il manque une clé, seule cette fonction est désactivée ; le reste du site continue de fonctionner. Les clés vont dans le fichier",
+   "de": "Fehlt ein Schlüssel, wird nur diese Funktion abgeschaltet; der Rest der Website funktioniert weiter. Die Schlüssel stehen in der Datei",
+   "it": "Se manca una chiave, si disattiva solo quella funzione; il resto del sito continua a funzionare. Le chiavi vanno nel file",
+   "pt": "Se faltar uma chave, só essa função é desativada; o resto do site continua a funcionar. As chaves vão no ficheiro",
+   "nl": "Ontbreekt een sleutel, dan wordt alleen die functie uitgeschakeld; de rest van de website blijft werken. De sleutels staan in het bestand",
+   "pl": "Jeśli brakuje klucza, wyłącza się tylko ta funkcja; reszta strony działa dalej. Klucze są w pliku",
+   "zh": "缺少某个密钥时，只会关闭该功能；网站其余部分照常运行。密钥写在服务器的文件"
+  },
+  "del servidor y se aplican al reiniciarlo.": {
+   "en": "on the server and are applied when it restarts.",
+   "fr": "du serveur et s’appliquent au redémarrage.",
+   "de": "auf dem Server und gelten nach einem Neustart.",
+   "it": "del server e si applicano al riavvio.",
+   "pt": "do servidor e aplicam-se ao reiniciá-lo.",
+   "nl": "op de server en worden toegepast na een herstart.",
+   "pl": "na serwerze i działają po ponownym uruchomieniu.",
+   "zh": "中，重启后生效。"
+  },
+  "Panorámicas, Street View y archivos subidos que no son enlaces de YouTube o Vimeo. Siguen saliendo en «Recorrido virtual» de la ficha del punto, como siempre. Si quieres, sustitúyelos por un vídeo enlazado.": {
+   "en": "Panoramas, Street View and uploaded files that aren't YouTube or Vimeo links. They still appear under «Virtual tour» on the dive site page, as always. If you like, replace them with a linked video.",
+   "fr": "Panoramas, Street View et fichiers envoyés qui ne sont pas des liens YouTube ou Vimeo. Ils apparaissent toujours dans « Visite virtuelle » de la fiche du site. Si vous le souhaitez, remplacez-les par une vidéo liée.",
+   "de": "Panoramen, Street View und hochgeladene Dateien, die keine YouTube- oder Vimeo-Links sind. Sie erscheinen wie bisher unter „Virtuelle Tour“ auf der Seite des Tauchplatzes. Wenn du willst, ersetze sie durch ein verlinktes Video.",
+   "it": "Panoramiche, Street View e file caricati che non sono link di YouTube o Vimeo. Continuano ad apparire in «Percorso virtuale» nella scheda del punto. Se vuoi, sostituiscili con un video collegato.",
+   "pt": "Panorâmicas, Street View e ficheiros enviados que não são ligações do YouTube ou Vimeo. Continuam a aparecer em «Percurso virtual» na ficha do ponto. Se quiser, substitua-os por um vídeo ligado.",
+   "nl": "Panorama's, Street View en geüploade bestanden die geen YouTube- of Vimeo-links zijn. Ze staan zoals altijd onder ‘Virtuele tour’ op de pagina van de duikstek. Vervang ze desgewenst door een gekoppelde video.",
+   "pl": "Panoramy, Street View i przesłane pliki, które nie są linkami do YouTube ani Vimeo. Nadal widać je w „Wirtualnej wycieczce” na stronie miejsca. Jeśli chcesz, zastąp je podlinkowanym filmem.",
+   "zh": "不是 YouTube 或 Vimeo 链接的全景图、街景和上传文件。它们照常显示在潜点页面的“虚拟导览”中。如有需要，可以用链接视频替换。"
+  }
+ },
+ "patterns": {
+  "{n} especies": {
+   "en": "{n} species",
+   "fr": "{n} espèces",
+   "de": "{n} Arten",
+   "it": "{n} specie",
+   "pt": "{n} espécies",
+   "nl": "{n} soorten",
+   "pl": "{n} gatunków",
+   "zh": "{n} 个物种"
+  },
+  "Abrir en {x}": {
+   "en": "Open on {x}",
+   "fr": "Ouvrir sur {x}",
+   "de": "Auf {x} öffnen",
+   "it": "Apri su {x}",
+   "pt": "Abrir no {x}",
+   "nl": "Openen op {x}",
+   "pl": "Otwórz w {x}",
+   "zh": "在 {x} 中打开"
+  },
+  "Volver a {x}": {
+   "en": "Back to {x}",
+   "fr": "Retour à {x}",
+   "de": "Zurück zu {x}",
+   "it": "Torna a {x}",
+   "pt": "Voltar a {x}",
+   "nl": "Terug naar {x}",
+   "pl": "Wróć do {x}",
+   "zh": "返回 {x}"
+  },
+  "Al cargarlo te conectarás con {x}, que recibirá tu dirección IP y puede usar sus propias cookies.": {
+   "en": "Loading it connects you to {x}, which will receive your IP address and may use its own cookies.",
+   "fr": "En la chargeant, vous vous connecterez à {x}, qui recevra votre adresse IP et peut utiliser ses propres cookies.",
+   "de": "Beim Laden verbindest du dich mit {x}; der Dienst erhält deine IP-Adresse und kann eigene Cookies verwenden.",
+   "it": "Caricandolo ti collegherai a {x}, che riceverà il tuo indirizzo IP e può usare i propri cookie.",
+   "pt": "Ao carregá-lo, ligar-se-á a {x}, que receberá o seu endereço IP e pode usar os seus próprios cookies.",
+   "nl": "Bij het laden maak je verbinding met {x}, dat je IP-adres ontvangt en eigen cookies kan gebruiken.",
+   "pl": "Po wczytaniu połączysz się z {x}, który otrzyma Twój adres IP i może używać własnych plików cookie.",
+   "zh": "加载后你将连接到 {x}，它会收到你的 IP 地址，并可能使用自己的 Cookie。"
+  }
+ }
+}
