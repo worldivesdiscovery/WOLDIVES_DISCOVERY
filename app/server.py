@@ -62,7 +62,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.47'
+APP_VERSION = '50.48'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES

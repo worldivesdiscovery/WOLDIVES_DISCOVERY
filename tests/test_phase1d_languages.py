@@ -49,9 +49,12 @@ class Languages(ServerTestCase):
         """Every language has every reference text, and keeps the same {n}/{x} markers and HTML tags."""
         ref = json.loads((ROOT / 'public' / 'idiomas' / 'en.json').read_text(encoding='utf-8'))
         ref_pat = [p[0] for p in ref['patterns']]
+        # v50.48: the texts of the app's own screens exist only in the app's languages (es, en, fr: decision of the
+        # owner, «de momento la aplicación únicamente en tres idiomas»); test_v50_48_app checks them in en and fr.
+        app_only = set(json.loads((ROOT / 'scripts' / 'idiomas' / 'datos' / 'app.json').read_text(encoding='utf-8')))
         for lang in LANGS[1:]:
             d = json.loads((ROOT / 'public' / 'idiomas' / f'{lang}.json').read_text(encoding='utf-8'))
-            missing = [k for k in ref['exact'] if k not in d['exact']]
+            missing = [k for k in ref['exact'] if k not in d['exact'] and not (lang not in ('en', 'fr') and k in app_only)]
             self.assertFalse(missing, f'{lang}: faltan {len(missing)}, p. ej. {missing[:3]}')
             pats = {p[0]: p[1] for p in d['patterns']}
             self.assertFalse([k for k in ref_pat if k not in pats], lang)

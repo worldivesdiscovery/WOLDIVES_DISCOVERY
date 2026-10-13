@@ -6,12 +6,15 @@
   past and hidden (centre not verified) departures are left out; the windows hoy / mañana / finde.
 - Paying from the app: Stripe gets /app/vuelta?esquema=… as success and cancel addresses (only our two schemes).
 - Test environment only: quick entry with a test account and «Reportar fallo». Outside it both addresses are 404.
+- The files of «modo app» (public/js/wd-app.js, public/css/wd-app.css): loaded only inside the app, cached by the
+  service worker with the version of the web, every text of the app screens in English and French.
 """
 from __future__ import annotations
 
 import base64
 import datetime as dt
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -162,6 +165,37 @@ class AppTestEnvironment(ServerTestCase):
         self.assertEqual((saved['pantalla'], saved['cuenta']), ('Centro · Hoy', 'probador.prueba'))
         self.assertTrue((folder / saved['captura']).exists())
         self.assertEqual(self.client().post('/api/pruebas/fallo', {'texto': ''}).status, 400)
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class AppModeFiles(unittest.TestCase):
+    def test_loaded_only_in_the_app_and_cached_with_the_version(self):
+        version = re.search(r"^APP_VERSION = '([^']+)'", (ROOT / 'app' / 'server.py').read_text(encoding='utf-8'), re.M).group(1)
+        index = (ROOT / 'public' / 'index.html').read_text(encoding='utf-8')
+        self.assertNotIn('wd-app', index)                      # the normal web does not download them
+        main = (ROOT / 'public' / 'js' / 'world-dives-v8.js').read_text(encoding='utf-8')
+        self.assertIn(f"const WD_APP_ASSETS='{version}';", main)
+        self.assertIn('WD_APP?wdLoadApp():null', main)
+        sw = (ROOT / 'public' / 'sw.js').read_text(encoding='utf-8')
+        self.assertIn(f"const CACHE='worldives-v{version.replace('.', '-')}';", sw)
+        for f in (f'/js/wd-app.js?v={version}', f'/css/wd-app.css?v={version}', f'/js/world-dives-v8.js?v={version}'):
+            self.assertIn(f"'{f}'", sw)
+        self.assertIn(f'/js/world-dives-v8.js?v={version}', index)
+
+    def test_app_texts_in_english_and_french(self):
+        texts = json.loads((ROOT / 'scripts' / 'idiomas' / 'datos' / 'app.json').read_text(encoding='utf-8'))
+        self.assertGreater(len(texts), 100)
+        for lang in ('en', 'fr'):
+            pack = json.loads((ROOT / 'public' / 'idiomas' / f'{lang}.json').read_text(encoding='utf-8'))['exact']
+            with self.subTest(lang=lang):
+                self.assertEqual(sorted(t for t in texts if t not in pack), [])
+
+    def test_no_test_accounts_nor_keys_in_the_app_mode(self):
+        js = (ROOT / 'public' / 'js' / 'wd-app.js').read_text(encoding='utf-8')
+        self.assertIsNone(re.search(r'\b(?:admin|centro2?|freelance|instructor|buzo\d?)\.prueba\b|Worldives-Prueba-2026', js))
+        self.assertNotRegex(js, r'sk_(?:live|test)_|pk_(?:live|test)_')
 
 
 if __name__ == '__main__':

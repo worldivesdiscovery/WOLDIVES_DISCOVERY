@@ -77,7 +77,9 @@ def main():
     ip = None
     if a.red_local:
         env['WOD_HOST'] = '0.0.0.0'
-        ip = lan_ip()
+        # WOD_IP_MOVIL: the address the phone uses when it is not this computer's wifi address (the Android emulator of
+        # the automatic checks reaches the computer at 10.0.2.2).
+        ip = env.get('WOD_IP_MOVIL') or lan_ip()
         if a.pruebas and ip:
             # v50.48: the phone (WORLDIVES Pruebas) uses http://<ip>:8100. Links, payments and the check of where each
             # request comes from use that address; the browser of this computer keeps working with localhost.

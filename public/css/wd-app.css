@@ -1,0 +1,356 @@
+/* WORLDIVES · modo app (v50.48, encargo «App móvil en 3 módulos», Tanda 1).
+   Only loaded inside the app WORLDIVES / WORLDIVES Pruebas (or with «?app=1»): html.wd-app. Same look as the Tanda 0
+   prototype (docs/app/prototipo): brand colours --wd-*, Inter, status with colour + icon + text, 48 px buttons.
+   Themes: Clásico (light, the default for everyone), Noche (sober dark) and Automático. Text: Normal, Grande, Enorme.
+   The app's own screens live in .wda; the web pages reused inside the app keep their own styles. */
+
+html.wd-app {
+  --e: 1;
+  --t-xs: calc(13px * var(--e)); --t-s: calc(14px * var(--e)); --t-b: calc(16px * var(--e)); --t-m: calc(18px * var(--e));
+  --t-l: calc(22px * var(--e)); --t-xl: calc(28px * var(--e));
+  --r: 14px; --r-s: 10px;
+  --fondo: #F3F7FA; --sup: #FFFFFF; --sup2: #E8F1F6; --linea: #D2E0E9; --texto: #0A2239; --suave: #465E71;
+  --marca: var(--wd-profundo, #043D6C); --sobre-marca: #FFFFFF; --acento: var(--wd-oceano, #076898); --acento-suave: #DCEFF6; --turquesa: #1CA5C7;
+  --ok-t: #12663F; --ok-f: #E2F3E9; --ok-s: #1E8A55;
+  --pend-t: #8A4300; --pend-f: #FFEFD9; --pend-s: #D97706;
+  --sol-t: #0B4F96; --sol-f: #E1EDFB; --sol-s: #2F6FC0;
+  --canc-t: #5B6670; --canc-f: #ECEFF2;
+  --urg-t: #A51C12; --urg-f: #FDE7E4; --urg-s: #D92D20;
+  --sombra: 0 1px 2px rgba(1, 28, 60, .06), 0 4px 14px rgba(1, 28, 60, .07);
+  --sombra-hoja: 0 -6px 30px rgba(1, 28, 60, .18);
+  --velo: rgba(1, 28, 60, .38);
+  --cab-fondo: #E5F0F6;
+  --wa: #0D7A40; --sobre-wa: #FFFFFF;
+  --fuente: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --arriba: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --abajo: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --banda: 0px;
+  --barra: 68px;
+  color-scheme: light;
+}
+html.wd-app-pruebas { --banda: 30px; }
+html.wd-app[data-wda-tamano="grande"] { --e: 1.125; }
+html.wd-app[data-wda-tamano="enorme"] { --e: 1.25; }
+html.wd-app[data-wda-tema="noche"] {
+  --fondo: #011C3C; --sup: #06294D; --sup2: #0B355F; --linea: #1B4A73; --texto: #FFFFFF; --suave: #A7C3D8;
+  --marca: #1CA5C7; --sobre-marca: #011C3C; --acento: #87E2EF; --acento-suave: #0F4268;
+  --ok-t: #86E3B0; --ok-f: #0F3A2C; --ok-s: #3CC67F; --pend-t: #FFC877; --pend-f: #3D2A0E; --pend-s: #F0A030;
+  --sol-t: #A6CDFF; --sol-f: #13325C; --sol-s: #5B9BEA; --canc-t: #A3B0BC; --canc-f: #1A2E44; --urg-t: #FFA399; --urg-f: #4A1712; --urg-s: #F0574A;
+  --sombra: 0 1px 2px rgba(0, 0, 0, .3); --sombra-hoja: 0 -6px 30px rgba(0, 0, 0, .5); --velo: rgba(0, 8, 20, .6);
+  --cab-fondo: #04254A; --wa: #1FA463; --sobre-wa: #011C3C; color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  html.wd-app[data-wda-tema="auto"] {
+    --fondo: #011C3C; --sup: #06294D; --sup2: #0B355F; --linea: #1B4A73; --texto: #FFFFFF; --suave: #A7C3D8;
+    --marca: #1CA5C7; --sobre-marca: #011C3C; --acento: #87E2EF; --acento-suave: #0F4268;
+    --ok-t: #86E3B0; --ok-f: #0F3A2C; --ok-s: #3CC67F; --pend-t: #FFC877; --pend-f: #3D2A0E; --pend-s: #F0A030;
+    --sol-t: #A6CDFF; --sol-f: #13325C; --sol-s: #5B9BEA; --canc-t: #A3B0BC; --canc-f: #1A2E44; --urg-t: #FFA399; --urg-f: #4A1712; --urg-s: #F0574A;
+    --sombra: 0 1px 2px rgba(0, 0, 0, .3); --sombra-hoja: 0 -6px 30px rgba(0, 0, 0, .5); --velo: rgba(0, 8, 20, .6);
+    --cab-fondo: #04254A; --wa: #1FA463; --sobre-wa: #011C3C; color-scheme: dark;
+  }
+}
+
+/* ---------- the web inside the app: no site header or footer; space for the tabs, the system bars and the band */
+html.wd-app .site-header, html.wd-app .site-footer, html.wd-app .skip-link, html.wd-app .mobile-menu { display: none !important; }
+html.wd-app-pruebas .demo-ribbon { display: none !important; }
+html.wd-app body { padding-top: calc(var(--arriba) + var(--banda)); padding-bottom: calc(var(--barra) + var(--abajo)); overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
+html.wd-app.wda-sin-tabs body { padding-bottom: var(--abajo); }
+html.wd-app #app { min-height: calc(100vh - var(--barra) - var(--abajo) - var(--arriba) - var(--banda)); }
+html.wd-app #toast { bottom: calc(var(--barra) + var(--abajo) + 12px); z-index: 1200; }
+/* the cookie notice is a card at the top of Inicio in the app (wd-app.js), never floating over the tabs or the map */
+html.wd-app .ck-bar { display: none !important; }
+html.wd-app .global-back { position: sticky; top: calc(var(--arriba) + var(--banda)); z-index: 30; }
+/* the PDF receipt needs the web session, which the in-app browser does not have: the booking page shows the QR */
+html.wd-app a[href*="/receipt.pdf"] { display: none !important; }
+
+/* ---------- WORLDIVES Pruebas band: fixed, always visible */
+.wda-banda { position: fixed; z-index: 1000; left: 0; right: 0; top: var(--arriba); height: 30px; display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: #E07B00; color: #1F1300; font: 700 12.5px/1 var(--fuente); letter-spacing: .04em; padding: 0 8px; }
+.wda-banda::before { content: ''; position: fixed; left: 0; right: 0; top: 0; height: var(--arriba); background: #E07B00; }
+.wda-banda span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.wda-banda button { flex: none; font: 700 12.5px/1 var(--fuente); color: #1F1300; background: rgba(255, 255, 255, .35); border: 0; border-radius: 99px; padding: 5px 10px; min-height: 24px; cursor: pointer; }
+
+/* ---------- bottom tabs per module: icon with its text under it, always */
+.wda-tabs { position: fixed; z-index: 900; left: 0; right: 0; bottom: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+  background: var(--sup); border-top: 1px solid var(--linea); padding: 6px 4px calc(6px + var(--abajo)); font-family: var(--fuente); }
+.wda-tab { display: grid; justify-items: center; gap: 2px; padding: 4px 2px; border: 0; background: none; cursor: pointer; color: var(--suave); font-size: 12.5px; font-weight: 600;
+  position: relative; min-height: 54px; text-decoration: none; text-align: center; line-height: 1.15; }
+.wda-tab svg { width: 24px; height: 24px; }
+.wda-tab-ic { width: 52px; height: 30px; border-radius: 99px; display: grid; place-items: center; }
+.wda-tab[aria-current="page"] { color: var(--acento); }
+.wda-tab[aria-current="page"] .wda-tab-ic { background: var(--acento-suave); }
+.wda-tab .cont { position: absolute; top: 0; left: calc(50% + 6px); min-width: 20px; height: 20px; padding: 0 5px; border-radius: 99px; background: var(--urg-s); color: #FFFFFF;
+  font-size: 12px; font-weight: 700; display: grid; place-items: center; border: 2px solid var(--sup); }
+html.wd-app.wda-sin-tabs .wda-tabs { display: none; }
+
+/* ---------- the app's own screens */
+.wda { background: var(--fondo); color: var(--texto); font-family: var(--fuente); font-size: var(--t-b); line-height: 1.4; min-height: inherit; -webkit-font-smoothing: antialiased; }
+.wda *, .wda *::before, .wda *::after, .wda-capa *, .wda-capa *::before, .wda-capa *::after { box-sizing: border-box; }
+:where(.wda, .wda-capa) :where(button, input, select, textarea) { font: inherit; color: inherit; }
+.wda [hidden], .wda-capa [hidden] { display: none !important; }
+:where(.wda, .wda-capa) svg.ic { width: 22px; height: 22px; flex: none; }
+:where(.wda, .wda-capa) svg.i { width: 1.15em; height: 1.15em; vertical-align: -.2em; flex: none; }
+.wda :focus-visible, .wda-capa :focus-visible, .wda-tabs :focus-visible { outline: 3px solid var(--turquesa); outline-offset: 2px; }
+.wda img, .wda-capa img { display: block; max-width: 100%; }
+:where(.wda, .wda-capa) :is(h1, h2, h3, p) { margin: 0; font-family: var(--fuente); color: inherit; letter-spacing: normal; }
+:where(.wda, .wda-capa) h1 { font-size: var(--t-xl); font-weight: 700; line-height: 1.15; letter-spacing: -.01em; text-wrap: balance; }
+:where(.wda, .wda-capa) h2 { font-size: var(--t-m); font-weight: 600; line-height: 1.25; text-wrap: balance; }
+:where(.wda, .wda-capa) h3 { font-size: var(--t-b); font-weight: 600; }
+.wda .suave, .wda-capa .suave { color: var(--suave); }
+.wda .peq, .wda-capa .peq { font-size: var(--t-s); }
+.wda .num, .wda-capa .num { font-variant-numeric: tabular-nums; }
+.wda .eti, .wda-capa .eti { font-size: var(--t-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); }
+.wda .cuerpo { padding: 12px 16px 28px; display: grid; gap: 18px; }
+.wda .cuerpo > * { min-width: 0; }
+.wda .cab { padding: 14px 16px 18px; display: grid; gap: 12px; background: var(--cab-fondo); background-image: var(--wda-bati); background-size: 360px 180px; }
+.wda .cab-fila { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.wda .cab-fila > .crece { flex: 1; min-width: 0; }
+
+/* cards and rows */
+.wda .tarjeta, .wda-capa .tarjeta { background: var(--sup); border: 1px solid var(--linea); border-radius: var(--r); box-shadow: var(--sombra); min-width: 0; color: var(--texto); }
+.wda .tarjeta.pad, .wda-capa .tarjeta.pad { padding: 14px; }
+.wda .tarjeta.plana, .wda-capa .tarjeta.plana { box-shadow: none; }
+:where(.wda, .wda-capa) .fila { display: flex; align-items: center; gap: 12px; min-width: 0; }
+:where(.wda, .wda-capa) .fila > .crece { flex: 1; min-width: 0; }
+:where(.wda, .wda-capa) .fila-entre { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; }
+:where(.wda, .wda-capa) .pila { display: grid; gap: 4px; min-width: 0; }
+:where(.wda, .wda-capa) .pila-8 { display: grid; gap: 8px; min-width: 0; }
+:where(.wda, .wda-capa) .pila-12 { display: grid; gap: 12px; min-width: 0; }
+:where(.wda, .wda-capa) .lista { display: grid; }
+:where(.wda, .wda-capa) .lista > * + * { border-top: 1px solid var(--linea); }
+:where(.wda, .wda-capa) .lista-fila { display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 56px; background: none; border: 0; width: 100%; text-align: left; cursor: pointer; color: var(--texto); text-decoration: none; }
+:where(.wda, .wda-capa) .lista-fila .crece { flex: 1; min-width: 0; }
+:where(.wda, .wda-capa) .lista-fila b { font-weight: 600; }
+:where(.wda, .wda-capa) .lista-fila svg.ic { color: var(--acento); }
+:where(.wda, .wda-capa) svg.chev { width: 18px; height: 18px; color: var(--suave); flex: none; }
+:where(.wda, .wda-capa) .foto { width: 100%; height: 120px; object-fit: cover; border-radius: var(--r) var(--r) 0 0; background: var(--sup2); }
+:where(.wda, .wda-capa) .wavatar { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: var(--t-s); background: var(--acento-suave); color: var(--acento); flex: none; overflow: hidden; }
+:where(.wda, .wda-capa) .wavatar img { width: 100%; height: 100%; object-fit: cover; }
+:where(.wda, .wda-capa) .logo-c { width: 44px; height: 44px; border-radius: 12px; background: #FFFFFF; border: 1px solid var(--linea); object-fit: contain; flex: none; }
+:where(.wda, .wda-capa) .separa { height: 1px; background: var(--linea); }
+
+/* buttons: 48 px minimum, the main action at the bottom */
+:where(.wda, .wda-capa) .wbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 10px 18px; border-radius: 12px; border: 0;
+  background: var(--marca); color: var(--sobre-marca); font-weight: 600; font-size: var(--t-b); cursor: pointer; text-align: center; text-decoration: none; line-height: 1.2; }
+:where(.wda, .wda-capa) .wbtn svg { width: 20px; height: 20px; flex: none; }
+:where(.wda, .wda-capa) .wbtn.ancho { width: 100%; }
+:where(.wda, .wda-capa) .wbtn.grande { min-height: 56px; font-size: var(--t-m); }
+:where(.wda, .wda-capa) .wbtn.sec { background: var(--sup); color: var(--texto); border: 1.5px solid var(--linea); }
+:where(.wda, .wda-capa) .wbtn.suave { background: var(--acento-suave); color: var(--texto); }
+:where(.wda, .wda-capa) .wbtn.peligro { background: var(--sup); color: var(--urg-t); border: 1.5px solid var(--urg-s); }
+:where(.wda, .wda-capa) .wbtn.wa { background: var(--wa); color: var(--sobre-wa); }
+:where(.wda, .wda-capa) .wbtn.texto { background: none; color: var(--acento); padding: 8px 6px; min-height: 44px; }
+:where(.wda, .wda-capa) .wbtn.mini { min-height: 44px; padding: 6px 14px; font-size: var(--t-s); }
+:where(.wda, .wda-capa) .wbtn[disabled] { opacity: .45; cursor: not-allowed; }
+:where(.wda, .wda-capa) .btn-fila { display: flex; gap: 8px; }
+:where(.wda, .wda-capa) .btn-fila > * { flex: 1; min-width: 0; }
+:where(.wda, .wda-capa) .acciones { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+:where(.wda, .wda-capa) .acciones.tres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+:where(.wda, .wda-capa) .acciones.dos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+:where(.wda, .wda-capa) .accion { display: grid; justify-items: center; gap: 4px; padding: 10px 4px; min-height: 64px; border-radius: 12px; border: 1px solid var(--linea); background: var(--sup);
+  color: var(--texto); font-size: var(--t-xs); font-weight: 600; cursor: pointer; text-align: center; line-height: 1.2; text-decoration: none; }
+:where(.wda, .wda-capa) .accion svg { width: 22px; height: 22px; color: var(--acento); }
+:where(.wda, .wda-capa) .accion span { overflow-wrap: break-word; min-width: 0; max-width: 100%; }
+:where(.wda, .wda-capa) .accion.wa svg { color: var(--wa); }
+:where(.wda, .wda-capa) .accion[aria-disabled="true"] { opacity: .45; }
+
+/* chips and segmented control */
+:where(.wda, .wda-capa) .wchips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 0 16px 2px; margin: 0 -16px; }
+:where(.wda, .wda-capa) .wchips::-webkit-scrollbar { display: none; }
+:where(.wda, .wda-capa) .wchip { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 14px; border-radius: 99px; border: 1px solid var(--linea); background: var(--sup);
+  color: var(--texto); font-size: var(--t-s); font-weight: 600; cursor: pointer; white-space: nowrap; text-decoration: none; }
+:where(.wda, .wda-capa) .wchip svg { width: 16px; height: 16px; color: var(--acento); }
+:where(.wda, .wda-capa) .wchip[aria-pressed="true"] { background: var(--marca); border-color: var(--marca); color: var(--sobre-marca); }
+:where(.wda, .wda-capa) .wchip[aria-pressed="true"] svg { color: var(--sobre-marca); }
+:where(.wda, .wda-capa) .seg { display: flex; padding: 4px; gap: 4px; border-radius: 12px; background: var(--sup2); }
+:where(.wda, .wda-capa) .seg button { flex: 1; min-width: 0; min-height: 42px; border: 0; border-radius: 9px; background: none; font-weight: 600; font-size: var(--t-s); cursor: pointer; color: var(--suave); padding: 4px 6px; }
+:where(.wda, .wda-capa) .seg button[aria-pressed="true"] { background: var(--sup); color: var(--texto); box-shadow: var(--sombra); }
+html.wd-app[data-wda-tema="noche"] :where(.wda, .wda-capa) .seg button[aria-pressed="true"] { background: var(--marca); color: var(--sobre-marca); }
+@media (prefers-color-scheme: dark) { html.wd-app[data-wda-tema="auto"] :where(.wda, .wda-capa) .seg button[aria-pressed="true"] { background: var(--marca); color: var(--sobre-marca); } }
+
+/* status: colour + icon + text, never colour alone */
+:where(.wda, .wda-capa) .wtag { max-width: 100%; display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 99px; font-size: var(--t-xs); font-weight: 600; line-height: 1.3; }
+:where(.wda, .wda-capa) .wtag svg { width: 14px; height: 14px; flex: none; }
+:where(.wda, .wda-capa) .wtag.ok { background: var(--ok-f); color: var(--ok-t); }
+:where(.wda, .wda-capa) .wtag.pend { background: var(--pend-f); color: var(--pend-t); }
+:where(.wda, .wda-capa) .wtag.sol { background: var(--sol-f); color: var(--sol-t); }
+:where(.wda, .wda-capa) .wtag.canc { background: var(--canc-f); color: var(--canc-t); text-decoration: line-through; }
+:where(.wda, .wda-capa) .wtag.urg { background: var(--urg-f); color: var(--urg-t); }
+:where(.wda, .wda-capa) .wtag.neutro { background: var(--sup2); color: var(--texto); }
+:where(.wda, .wda-capa) .wtags { display: flex; flex-wrap: wrap; gap: 6px; }
+:where(.wda, .wda-capa) .aviso { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; font-size: var(--t-s); line-height: 1.4; }
+:where(.wda, .wda-capa) .aviso svg { width: 20px; height: 20px; flex: none; margin-top: 1px; }
+:where(.wda, .wda-capa) .aviso.pend { background: var(--pend-f); color: var(--pend-t); }
+:where(.wda, .wda-capa) .aviso.sol { background: var(--sol-f); color: var(--sol-t); }
+:where(.wda, .wda-capa) .aviso.ok { background: var(--ok-f); color: var(--ok-t); }
+:where(.wda, .wda-capa) .aviso.urg { background: var(--urg-f); color: var(--urg-t); }
+:where(.wda, .wda-capa) .aviso.neutro { background: var(--sup2); color: var(--texto); }
+:where(.wda, .wda-capa) .pendiente { border: 1.5px dashed var(--pend-s); border-radius: 12px; padding: 12px 14px; font-size: var(--t-s); color: var(--pend-t); background: var(--pend-f); line-height: 1.45; }
+:where(.wda, .wda-capa) .pendiente b { font-weight: 700; }
+:where(.wda, .wda-capa) .cifras { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+:where(.wda, .wda-capa) .cifra { padding: 12px 14px; display: grid; gap: 2px; }
+:where(.wda, .wda-capa) .cifra b { font-size: var(--t-xl); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+:where(.wda, .wda-capa) .cifra span { font-size: var(--t-s); color: var(--suave); line-height: 1.3; }
+:where(.wda, .wda-capa) .seccion-cab { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+:where(.wda, .wda-capa) .precio { font-size: var(--t-m); font-weight: 700; font-variant-numeric: tabular-nums; }
+:where(.wda, .wda-capa) .centrado { text-align: center; }
+:where(.wda, .wda-capa) .version { text-align: center; font-size: var(--t-xs); color: var(--suave); }
+
+/* ring (only in 2-3 places: here, the next dive) */
+:where(.wda) .anillo { position: relative; width: 76px; height: 76px; flex: none; }
+:where(.wda) .anillo svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+:where(.wda) .anillo .pista { stroke: var(--sup2); }
+:where(.wda) .anillo .valor { stroke: var(--acento); stroke-linecap: round; }
+:where(.wda) .anillo b { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; font-size: var(--t-m); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.05; text-align: center; }
+:where(.wda) .anillo b small { display: block; font-size: 11px; font-weight: 600; color: var(--suave); }
+
+/* search box */
+:where(.wda, .wda-capa) .buscador { display: flex; align-items: center; gap: 8px; background: var(--sup); border: 1px solid var(--linea); border-radius: 14px; padding: 4px 6px 4px 12px; box-shadow: var(--sombra);
+  min-height: 52px; width: 100%; color: var(--suave); text-align: left; cursor: text; font-size: var(--t-b); }
+:where(.wda, .wda-capa) .buscador svg { width: 20px; height: 20px; color: var(--suave); flex: none; }
+:where(.wda, .wda-capa) .buscador input { flex: 1; min-width: 0; width: 100%; border: 0; background: none; font-size: var(--t-b); padding: 8px 0; outline: none; color: var(--texto); }
+
+/* departures */
+:where(.wda) .carrusel-h { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 2px 16px 8px; scrollbar-width: none; }
+:where(.wda) .carrusel-h::-webkit-scrollbar { display: none; }
+:where(.wda) .carrusel-h > * { flex: 0 0 82%; scroll-snap-align: start; }
+:where(.wda) .tarjeta-salida { overflow: hidden; display: flex; flex-direction: column; }
+:where(.wda) .tarjeta-salida .pad { padding: 12px 14px 14px; display: grid; gap: 6px; flex: 1; align-content: start; }
+:where(.wda) .tarjeta-salida .foto { height: 110px; border-radius: 0; }
+:where(.wda) .foto-vacia { height: 110px; background: var(--cab-fondo); background-image: var(--wda-bati); background-size: 360px 180px; display: grid; place-items: center; }
+:where(.wda) .foto-vacia .logo-c { width: 64px; height: 64px; }
+:where(.wda) .foto-vacia > svg { width: 44px; height: 44px; color: var(--acento); }
+:where(.wda) .aviso.ck { font-size: var(--t-xs); }
+:where(.wda) .aviso.ck .ck-acc { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+:where(.wda) .aviso.ck a { color: var(--acento); font-weight: 600; }
+:where(.wda) .salida { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; padding: 14px; cursor: pointer; background: none; border: 0; width: 100%; text-align: left; color: var(--texto); }
+:where(.wda) .salida .hora { font-size: var(--t-l); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+:where(.wda) .salida .hora small { display: block; font-size: var(--t-xs); font-weight: 600; color: var(--suave); }
+:where(.wda) .vacio { padding: 20px 16px; text-align: center; display: grid; gap: 10px; justify-items: center; }
+:where(.wda) .esqueleto { background: linear-gradient(90deg, var(--sup2), var(--sup), var(--sup2)); background-size: 200% 100%; animation: wda-carga 1.2s linear infinite; border-radius: var(--r); min-height: 220px; border: 0; box-shadow: none; }
+@keyframes wda-carga { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { :where(.wda) .esqueleto { animation: none; } }
+
+/* bookings */
+:where(.wda) .fecha-b { width: 54px; flex: none; text-align: center; border-radius: 12px; background: var(--acento-suave); color: var(--acento); padding: 6px 0; line-height: 1.05; }
+:where(.wda) .fecha-b b { display: block; font-size: var(--t-l); font-weight: 700; font-variant-numeric: tabular-nums; }
+:where(.wda) .fecha-b small { display: block; font-size: 11.5px; font-weight: 700; text-transform: uppercase; }
+
+/* ---------- bottom sheets (never popups when a screen opens) */
+.wda-capa { position: fixed; inset: 0; z-index: 1100; pointer-events: none; font-family: var(--fuente); color: var(--texto); font-size: var(--t-b); line-height: 1.4; }
+.wda-capa .velo { position: absolute; inset: 0; background: var(--velo); opacity: 0; transition: opacity .2s; }
+.wda-capa.abierta { pointer-events: auto; }
+.wda-capa.abierta .velo { opacity: 1; }
+.wda-capa .hoja { position: absolute; left: 0; right: 0; bottom: 0; max-height: calc(100% - var(--arriba) - var(--banda) - 24px); background: var(--sup); border-radius: 20px 20px 0 0; box-shadow: var(--sombra-hoja);
+  transform: translateY(105%); transition: transform .26s cubic-bezier(.2, .8, .2, 1); display: flex; flex-direction: column; }
+.wda-capa.abierta .hoja { transform: translateY(0); }
+.wda-capa .hoja-asa { flex: none; display: grid; place-items: center; height: 22px; }
+.wda-capa .hoja-asa::before { content: ''; width: 40px; height: 5px; border-radius: 3px; background: var(--linea); }
+.wda-capa .hoja-cab { flex: none; display: flex; align-items: flex-start; gap: 10px; padding: 0 16px 10px; }
+.wda-capa .hoja-cab > div { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.wda-capa .hoja-cab h2 { font-size: var(--t-l); }
+.wda-capa .hoja-cerrar { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--sup2); display: grid; place-items: center; cursor: pointer; flex: none; color: var(--texto); }
+.wda-capa .hoja-cerrar svg { width: 20px; height: 20px; }
+.wda-capa .hoja-cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 16px; display: grid; gap: 14px; align-content: start; overscroll-behavior: contain; }
+.wda-capa .hoja-pie { flex: none; padding: 10px 16px calc(14px + var(--abajo)); border-top: 1px solid var(--linea); display: grid; gap: 8px; background: var(--sup); }
+@media (prefers-reduced-motion: reduce) { .wda-capa .hoja, .wda-capa .velo, .wda .mapa-hoja { transition: none !important; } }
+.wda-capa .linea-res { display: flex; align-items: center; gap: 12px; padding: 12px 0; min-height: 56px; }
+.wda-capa .bloque-res + .bloque-res { border-top: 1px solid var(--linea); }
+.wda-capa .linea-res svg.ic { color: var(--acento); }
+.wda-capa .linea-res .crece { flex: 1; min-width: 0; }
+.wda-capa .linea-res .wbtn.texto { flex: none; }
+.wda-capa .editor { background: var(--sup2); border-radius: 12px; padding: 12px; display: grid; gap: 10px; margin-bottom: 12px; }
+.wda-capa .contador { display: flex; align-items: center; gap: 12px; }
+.wda-capa .contador button { width: 48px; height: 48px; border-radius: 50%; border: 1.5px solid var(--linea); background: var(--sup); display: grid; place-items: center; cursor: pointer; }
+.wda-capa .contador button svg { width: 20px; height: 20px; }
+.wda-capa .contador b { font-size: var(--t-l); min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; }
+:where(.wda, .wda-capa) .campo { display: grid; gap: 6px; }
+:where(.wda, .wda-capa) .campo label { font-size: var(--t-s); font-weight: 600; }
+:where(.wda, .wda-capa) .campo input, :where(.wda, .wda-capa) .campo select, :where(.wda, .wda-capa) .campo textarea { min-height: 48px; border-radius: 10px; border: 1.5px solid var(--linea); background: var(--sup); padding: 10px 12px; font-size: var(--t-b); width: 100%; color: var(--texto); }
+:where(.wda, .wda-capa) .campo textarea { min-height: 96px; resize: vertical; }
+:where(.wda, .wda-capa) .campo .ayuda { font-size: var(--t-xs); color: var(--suave); }
+:where(.wda, .wda-capa) .interruptor { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; cursor: pointer; }
+:where(.wda, .wda-capa) .interruptor input { appearance: none; -webkit-appearance: none; width: 52px; height: 32px; border-radius: 99px; background: var(--linea); position: relative; cursor: pointer; flex: none; transition: background .15s; margin: 0; }
+:where(.wda, .wda-capa) .interruptor input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: left .15s; }
+:where(.wda, .wda-capa) .interruptor input:checked { background: var(--acento); }
+:where(.wda, .wda-capa) .interruptor input:checked::after { left: 23px; }
+:where(.wda, .wda-capa) .marcar { display: flex; align-items: center; gap: 12px; min-height: 48px; cursor: pointer; }
+:where(.wda, .wda-capa) .marcar input { width: 24px; height: 24px; accent-color: var(--acento); flex: none; margin: 0; }
+:where(.wda, .wda-capa) .marcar .crece { flex: 1; min-width: 0; }
+.wda-capa .check-grande { width: 84px; height: 84px; border-radius: 50%; background: var(--ok-s); color: #FFFFFF; display: grid; place-items: center; margin: 4px auto 0; }
+.wda-capa .check-grande svg { width: 46px; height: 46px; }
+.wda-capa .burbuja { background: #DCF8C6; color: #111B21; border-radius: 12px 12px 4px 12px; padding: 10px 12px; font-size: var(--t-s); line-height: 1.45; white-space: pre-wrap; justify-self: end; max-width: 100%;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, .12); width: 100%; min-height: 96px; border: 0; resize: vertical; font: inherit; }
+.wda-capa .chat-fondo { background: #EAE3D9; border-radius: 12px; padding: 14px; display: grid; }
+html.wd-app[data-wda-tema="noche"] .wda-capa .chat-fondo { background: #0B1C26; }
+html.wd-app[data-wda-tema="noche"] .wda-capa .burbuja { background: #005C4B; color: #E9EDEF; }
+.wda-capa .captura-mini > svg { width: 28px; height: 28px; color: var(--suave); }
+.wda-capa .captura-mini { width: 72px; height: 128px; border-radius: 10px; background: var(--sup2); object-fit: cover; object-position: top; flex: none; border: 1px solid var(--linea); display: grid; place-items: center; }
+.wda-capa .datos { display: grid; gap: 6px 12px; margin: 0; }
+.wda-capa .datos div { display: grid; gap: 1px; min-width: 0; }
+.wda-capa .datos dt { font-size: var(--t-xs); color: var(--suave); font-weight: 600; }
+.wda-capa .datos dd { margin: 0; font-weight: 600; font-size: var(--t-s); overflow-wrap: anywhere; }
+
+/* ---------- Explorar: full-screen map with a bottom sheet of three heights */
+.wda.wda-mapa { position: relative; height: calc(100vh - var(--barra) - var(--abajo) - var(--arriba) - var(--banda)); min-height: 0; overflow: hidden; }
+.wda .mapa-lienzo { position: absolute; inset: 0; background: #CDE8F1; }
+.wda .mapa-lienzo .leaflet-control-attribution { font-size: 10px; }
+/* the attribution (© OpenStreetMap…) and the relief note stay visible above the sheet */
+.wda .mapa-lienzo .leaflet-bottom { bottom: 96px; }
+.wda .mapa-sup { position: absolute; left: 12px; right: 12px; top: 10px; z-index: 600; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.wda .mapa-sup > * { min-width: 0; }
+.wda .mapa-sup .wchips { margin: 0 -12px; padding: 0 12px 4px; }
+.wda .mapa-sup .wchip { box-shadow: var(--sombra); }
+.wda .mapa-lado { position: absolute; right: 12px; top: 128px; z-index: 600; display: grid; gap: 8px; }
+.wda .mapa-lado button { width: 60px; min-height: 60px; border-radius: 14px; border: 1px solid var(--linea); background: var(--sup); box-shadow: var(--sombra); display: grid; justify-items: center; align-content: center; gap: 2px;
+  font-size: 11px; font-weight: 600; cursor: pointer; color: var(--texto); padding: 4px 2px; line-height: 1.1; }
+.wda .mapa-lado svg { width: 22px; height: 22px; color: var(--acento); }
+.wda .zona-btn { position: absolute; left: 50%; top: 128px; transform: translateX(-50%); z-index: 600; box-shadow: var(--sombra); border-radius: 99px; white-space: nowrap; min-height: 44px; padding: 8px 16px; font-size: var(--t-s); }
+.wda .mapa-hoja { position: absolute; left: 0; right: 0; bottom: 0; z-index: 650; background: var(--sup); border-radius: 20px 20px 0 0; box-shadow: var(--sombra-hoja);
+  transition: height .26s cubic-bezier(.2, .8, .2, 1); display: flex; flex-direction: column; overflow: hidden; touch-action: pan-y; }
+.wda .mapa-hoja[data-altura="asomada"] { height: 96px; }
+.wda .mapa-hoja[data-altura="media"] { height: 50%; }
+.wda .mapa-hoja[data-altura="completa"] { height: calc(100% - 8px); }
+.wda .mapa-hoja .hoja-asa { flex: none; display: grid; place-items: center; height: 24px; cursor: grab; border: 0; background: none; width: 100%; }
+.wda .mapa-hoja .hoja-asa::before { content: ''; width: 40px; height: 5px; border-radius: 3px; background: var(--linea); }
+.wda .mapa-hoja .hoja-cab { flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px 8px; }
+.wda .mapa-hoja .hoja-cab > div { flex: 1; min-width: 0; }
+.wda .mapa-hoja .hoja-cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 80px; overscroll-behavior: contain; }
+/* «Ver lista / Ver mapa» floats just above the sheet (or above the card), never over its text */
+.wda .ver-lista { position: absolute; left: 50%; transform: translateX(-50%); bottom: 124px; z-index: 700; box-shadow: 0 6px 18px rgba(1, 28, 60, .25); border-radius: 99px; min-height: 44px; padding: 8px 16px; font-size: var(--t-s); white-space: nowrap; }
+.wda .mapa-hoja[data-altura="media"] ~ .ver-lista { bottom: calc(50% + 12px); }
+.wda .mapa-hoja[data-altura="completa"] ~ .ver-lista { bottom: 16px; }
+.wda .carrusel:not([hidden]) ~ .ver-lista { bottom: 300px; }
+.wda .carrusel { position: absolute; left: 0; right: 0; bottom: 108px; z-index: 640; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 0 24px 4px; scrollbar-width: none; }
+.wda .carrusel::-webkit-scrollbar { display: none; }
+.wda .carrusel > .tarjeta { flex: 0 0 calc(100% - 48px); scroll-snap-align: center; }
+.wda .mini { display: flex; gap: 12px; padding: 12px 12px 8px; align-items: flex-start; }
+.wda .mini .crece { flex: 1; min-width: 0; display: grid; gap: 2px; align-content: start; }
+.wda .mini .crece b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wda .mini .crece > span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.wda .mini-acc { padding: 0 12px 12px; }
+.wda .marca-c { width: 34px; height: 34px; border-radius: 10px; background: var(--wd-profundo, #043D6C); color: #FFFFFF; border: 2px solid #FFFFFF; display: grid; place-items: center; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
+.wda .marca-c svg { width: 18px; height: 18px; }
+.wda .wd-pin-wrap.is-sync .wd-pin, .wda .marca-c.is-sync { outline: 3px solid var(--turquesa); outline-offset: 2px; border-radius: 50%; }
+.wda .marca-c.is-sync { border-radius: 10px; }
+.wda-capa .capas-sel .map-toolbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; position: static; box-shadow: none; background: none; padding: 0; }
+.wda-capa .capas-sel .map-toolbar button { min-height: 64px; border-radius: 12px; border: 1.5px solid var(--linea); background: var(--sup); color: var(--texto); display: grid; justify-items: center; align-content: center; gap: 4px; font-weight: 600; font-size: var(--t-s); }
+.wda-capa .capas-sel .map-toolbar button.active { border-color: var(--acento); background: var(--acento-suave); }
+
+/* ---------- fichas of the web inside the app: the four actions and the fixed «Desde X € · Reservar» bar */
+.wda.wda-ficha { font-family: var(--fuente); padding: 12px 16px; background: var(--fondo); min-height: 0; }
+.wda.wda-barra { min-height: 0; }
+.wda-barra { position: fixed; z-index: 800; left: 0; right: 0; bottom: calc(var(--barra) + var(--abajo)); background: var(--sup); border-top: 1px solid var(--linea); padding: 10px 16px; display: flex; align-items: center; gap: 12px;
+  font-family: var(--fuente); color: var(--texto); box-shadow: 0 -4px 14px rgba(1, 28, 60, .08); }
+.wda-barra .crece { flex: 1; min-width: 0; }
+.wda-barra .suave { color: var(--suave); font-size: var(--t-s); }
+html.wd-app.wda-con-barra body { padding-bottom: calc(var(--barra) + var(--abajo) + 76px); }
+
+/* ---------- small screens and big text: nothing goes out of the screen */
+@media (max-width: 360px) {
+  :where(.wda, .wda-capa) .acciones { gap: 6px; }
+  :where(.wda, .wda-capa) .accion { font-size: 12px; }
+  .wda-tab { font-size: 11.5px; }
+}
+html.wd-app[data-wda-tamano="enorme"] :where(.wda, .wda-capa) .acciones { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+html.wd-app[data-wda-tamano="enorme"] .wda-tab span:last-child { font-size: 11.5px; }
