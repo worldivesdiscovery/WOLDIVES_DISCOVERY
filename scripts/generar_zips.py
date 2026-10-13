@@ -33,7 +33,7 @@ SEED = 'data/seed/catalogo.sqlite3'
 DEMO_LIVE = 'data/pruebas/worldives.sqlite3'
 
 # Only in the test zip (or in none): demo data, test accounts, screenshots with demo data, the old brand archive.
-NOT_IN_PRODUCTION = ['docs/pruebas/*', 'data/demo/*', 'data/pruebas/*', 'scripts/crear_demo.py', 'scripts/reset_demo.*', 'iniciar-pruebas.*',
+NOT_IN_PRODUCTION = ['docs/pruebas/*', 'data/demo/*', 'data/pruebas/*', 'scripts/crear_demo.py', 'scripts/reset_demo.*', 'iniciar-pruebas.*', 'iniciar-pruebas-movil.*',
                      'scripts/herramientas/demo_centros_ficticios.py', 'README-PRUEBAS.md',
                      'tests/navegador/e2e_avisos.py']   # v50.47: walks the site with the test accounts
 # In no zip: the archive of retired files, screenshots, repository files, runtime data, caches and temporary files.

@@ -3,6 +3,8 @@
 
     iniciar                 the web on http://localhost:8000
     iniciar --red-local     also reachable from other devices of the same network (WOD_HOST=0.0.0.0)
+    iniciar --pruebas --red-local   the test environment for the WORLDIVES Pruebas app: the phone opens
+                            http://<IP of this computer>:8100 (v50.48; also iniciar-pruebas-movil.bat / .sh)
     iniciar --depuracion    every request is written in this window (WOD_ACCESS_LOG=stdout), no browser
     iniciar --pruebas       TEST ENVIRONMENT (zip «-pruebas»): port 8100, «Entorno de pruebas» band, test accounts,
                             emails saved in data/pruebas/correos, demonstration data with dates from today
@@ -37,6 +39,18 @@ def ensure_requirements():
         print('No se han podido instalar las dependencias. Ejecuta a mano:  python -m pip install -r requirements.txt'); sys.exit(1)
 
 
+def lan_ip():
+    """The address of this computer in its local network (wifi), or None. Nothing is sent: a UDP «connect» only asks
+    the system which interface it would use."""
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(('10.255.255.255', 1)); ip = s.getsockname()[0]
+        return None if ip.startswith('127.') else ip
+    except OSError:
+        return None
+
+
 def main():
     ap = argparse.ArgumentParser(description='Arranca WORLDIVES DISCOVERY.')
     ap.add_argument('--pruebas', action='store_true', help='entorno de pruebas (puerto 8100, cuentas y datos de prueba)')
@@ -60,13 +74,24 @@ def main():
         (p / 'correos').mkdir(parents=True, exist_ok=True)
         r = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'reset_demo.py'), '--si-hace-falta'], env=env)
         if r.returncode != 0: print('No se han podido preparar los datos de prueba.'); sys.exit(1)
-    if a.red_local: env['WOD_HOST'] = '0.0.0.0'
+    ip = None
+    if a.red_local:
+        env['WOD_HOST'] = '0.0.0.0'
+        ip = lan_ip()
+        if a.pruebas and ip:
+            # v50.48: the phone (WORLDIVES Pruebas) uses http://<ip>:8100. Links, payments and the check of where each
+            # request comes from use that address; the browser of this computer keeps working with localhost.
+            local = f'http://localhost:{port},http://127.0.0.1:{port}'
+            extra = env.get('WOD_ALLOWED_ORIGINS', '')
+            env.update({'WOD_PUBLIC_URL': f'http://{ip}:{port}', 'WOD_ALLOWED_ORIGINS': ','.join(x for x in (extra, local) if x)})
     if a.depuracion: env['WOD_ACCESS_LOG'] = 'stdout'
     url = f'http://localhost:{port}'
     print('=' * 64)
     print('  WORLDIVES DISCOVERY' + ('  ·  ENTORNO DE PRUEBAS' if a.pruebas else ''))
     print(f'  Abre {url}' + ('   (cuentas en README-PRUEBAS.md)' if a.pruebas else ''))
-    if a.red_local: print(f'  Desde otro dispositivo de tu red: http://<IP de este ordenador>:{port}')
+    if a.red_local:
+        if ip: print(f'  En el móvil (misma wifi), escribe:  http://{ip}:{port}')
+        else: print(f'  Desde otro dispositivo de tu red: http://<IP de este ordenador>:{port}')
     print('  Para pararlo: Ctrl+C')
     print('=' * 64)
     if not (a.depuracion or a.sin_navegador):

@@ -43,6 +43,7 @@ from wod import pointtext as wpt
 from wod import backup as wbackup
 from wod import inquilinos as winq
 from wod import cifrado as wcif
+from wod import movil as wmovil
 from wod import whatsapp as wwa
 from wod import avisos as wav
 from wod.inquilinos import NotFound
@@ -4212,6 +4213,49 @@ def top_dives(db, lat, lon, radius_km):
 # ---------------------------------------------------------------------------
 # Experiences directory: destinations with what is published in each (cached one minute).
 # ---------------------------------------------------------------------------
+
+def salidas_cercanas(db, lat=None, lon=None, when='', limit=20):
+    """v50.48 (app, Inicio of the diver): «Salidas con plazas cerca de ti». The next departures with free places of the
+    public centres and freelances, the closest first when the phone gives its position (only when the person taps
+    «Cerca de mí»). Public data only: what any visitor already sees on each centre's page."""
+    d0, d1 = wmovil.departures_window(when)
+    rows = db.execute(f"""SELECT ss.id AS slot_id, ss.slot_date, ss.slot_time, ss.spots_total, ss.spots_available, s.id AS service_id, s.title,
+                                 s.service_type, s.booking_mode, s.response_hours, s.center_id, s.provider_user_id, s.currency,
+                                 c.name AS center_name, c.city, c.latitude AS lat, c.longitude AS lon, c.logo_url, c.cover_url,
+                                 u.fullname AS provider_name, u.avatar_url
+                          FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id JOIN users u ON u.id=s.provider_user_id
+                          LEFT JOIN centers c ON c.id=s.center_id
+                          WHERE s.active=1 AND ss.status='open' AND ss.spots_available>0 AND ss.slot_date BETWEEN ? AND ?
+                            AND (ss.slot_date > date('now') OR (ss.slot_date=date('now') AND ss.slot_time>=time('now')))
+                            AND ((s.center_id IS NOT NULL AND {public_center_sql()}) OR (s.center_id IS NULL AND u.role='freelance'))
+                          ORDER BY ss.slot_date, ss.slot_time LIMIT 400""", (d0.isoformat(), d1.isoformat())).fetchall()
+    points = {}
+    ids = [r['slot_id'] for r in rows]
+    for chunk in [ids[i:i + 500] for i in range(0, len(ids), 500)]:
+        for pp in db.execute(f"SELECT sp.slot_id,p.id,p.name FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id IN ({','.join('?' * len(chunk))}) AND p.active=1 ORDER BY p.name", chunk).fetchall():
+            points.setdefault(pp['slot_id'], []).append({'id': pp['id'], 'name': pp['name']})
+    items, tariffs, ready = [], {}, {}
+    for r in rows:
+        if r['service_id'] not in tariffs: tariffs[r['service_id']] = effective_service_tariff(db, r['service_id'])
+        price, currency, _ = tariffs[r['service_id']]
+        key = (r['center_id'], r['provider_user_id'] if not r['center_id'] else None)
+        if key not in ready: ready[key] = service_payments_ready(db, r)
+        mode = service_mode_info(db, r, price, ready[key])
+        dist = None
+        if lat is not None and lon is not None and r['lat'] is not None and r['lon'] is not None:
+            try: dist = round(haversine_km(lat, lon, float(r['lat']), float(r['lon'])), 1)
+            except (TypeError, ValueError): dist = None
+        items.append({'slot_id': r['slot_id'], 'service_id': r['service_id'], 'date': r['slot_date'], 'time': r['slot_time'], 'title': r['title'],
+                      'service_type': r['service_type'], 'center_id': r['center_id'], 'provider_id': None if r['center_id'] else r['provider_user_id'],
+                      'provider_name': r['center_name'] or r['provider_name'], 'city': r['city'], 'logo_url': r['logo_url'] or (None if r['center_id'] else r['avatar_url']),
+                      'cover_url': r['cover_url'], 'spots_left': r['spots_available'], 'spots_total': r['spots_total'], 'price': price, 'currency': currency or r['currency'] or 'EUR',
+                      'booking_mode': mode['booking_mode'], 'mode_label': mode['mode_label'], 'instant': mode['instant'], 'bookable': mode['bookable'],
+                      'distance_km': dist, 'lat': r['lat'], 'lon': r['lon'], 'points': points.get(r['slot_id'], [])})
+    if lat is not None and lon is not None:
+        items.sort(key=lambda x: (x['distance_km'] is None, x['distance_km'] if x['distance_km'] is not None else 0, x['date'], x['time']))
+    return {'items': items[:max(1, min(int(limit or 20), 50))], 'from': d0.isoformat(), 'to': d1.isoformat()}
+
+
 def travel_directory(db):
     return TRAVEL.get(db)
 
@@ -6835,7 +6879,7 @@ def self_payee(db, user, data):
 
 
 def create_stripe_checkout(db, user, *, amount, currency, title, payee, booking_id=None, experience_booking_id=None, provider_user_id=None,
-                           service_id=None, slot_id=None, cancel_url, hold_reserved=False, kind='full', description=None):
+                           service_id=None, slot_id=None, cancel_url, hold_reserved=False, kind='full', description=None, success_url=None):
     """Creates the payment order and its Stripe Checkout Session as a DIRECT charge on the provider's connected
     account (no application fee, no transfer: WORLDIVES takes no commission). Raises ValueError when it cannot."""
     if amount <= 0: raise ValueError('Esta reserva no tiene un importe que pagar online.')
@@ -6859,7 +6903,7 @@ def create_stripe_checkout(db, user, *, amount, currency, title, payee, booking_
             mode='payment',
             line_items=[{'price_data': {'currency': currency.lower(), 'product_data': {'name': title[:250], 'description': (description or f'{ref} · {payee["name"]}')[:500]},
                                         'unit_amount': wmoney.to_minor(amount, currency)}, 'quantity': 1}],
-            success_url=f'{base}/#/pago-ok?session_id={{CHECKOUT_SESSION_ID}}',
+            success_url=success_url or f'{base}/#/pago-ok?session_id={{CHECKOUT_SESSION_ID}}',
             cancel_url=cancel_url,
             metadata=meta,
             payment_intent_data={'description': f'{ref} · {payee["name"]}'[:500], 'metadata': meta},
@@ -6879,8 +6923,9 @@ def create_stripe_checkout(db, user, *, amount, currency, title, payee, booking_
     return {'checkout_url': session.url, 'order_id': oid}
 
 
-def start_checkout(db, user, b):
-    """Opens the payment of a booking in its two legal moments (Fase 1B): the whole price or the deposit (Fase 2.5)."""
+def start_checkout(db, user, b, app=None):
+    """Opens the payment of a booking in its two legal moments (Fase 1B): the whole price or the deposit (Fase 2.5).
+    From the app (v50.48), Stripe sends the person back into the app (app = its scheme)."""
     st = wbk.normalize_state(b['status'])
     if b['payment_status'] in ('paid', 'deposit_paid'): raise ValueError('Esta reserva ya está pagada.')
     if st == 'payment_in_progress':
@@ -6903,7 +6948,8 @@ def start_checkout(db, user, b):
     return create_stripe_checkout(db, user, amount=amount, currency=currency, title=title, payee=payee, kind=kind,
                                   provider_user_id=svc['provider_user_id'] if svc else None, booking_id=b['id'],
                                   service_id=b['service_id'], slot_id=b['slot_id'], hold_reserved=bool(b['slot_reserved']),
-                                  cancel_url=f"{public_site_url()}/#/reserva?id={b['id']}&pago=cancelado")
+                                  cancel_url=wmovil.return_urls(public_site_url(), app, b['id'])[1] if app else f"{public_site_url()}/#/reserva?id={b['id']}&pago=cancelado",
+                                  success_url=wmovil.return_urls(public_site_url(), app)[0] if app else None)
 
 
 def start_experience_checkout(db, user, eb):
@@ -9156,6 +9202,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
             candidate=(PUBLIC/unquote(path).lstrip('/')).resolve()
             if not candidate.is_relative_to(PUBLIC.resolve()): self.send_error(403); return
             self.send_file(candidate, PUBLIC_ROOT_FILES.get(path)); return
+        if path == '/app/vuelta':
+            # v50.48: after paying in the browser tab (Stripe), back into the app with its own scheme.
+            q = {k: v[0] for k, v in query.items()}
+            scheme = wmovil.app_scheme(q.get('esquema'))
+            if not scheme: self.send_error(404); return
+            body = wmovil.return_page(scheme, q).encode('utf-8')
+            self.send_response(200); self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Cache-Control', 'no-store')
+            self.send_header('Content-Length', str(len(body))); self.security_headers(); self.end_headers(); self.wfile.write(body); return
         with connect() as db:
             try:
                 if path.startswith('/storage/'):
@@ -9964,6 +10018,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         nearby.sort(key=lambda x:(x[0],x[1]['name']))
                         self.send_json({'mode':mode,'items':[with_booking_flags(db,dict(center_row(c),distance_km=km)) for km,c in nearby[:12]]}); return
                     self.send_json({'mode':mode,'items':[with_booking_flags(db,center_row(r)) for r in rows]}); return
+                if path == '/api/salidas-cercanas':
+                    try:
+                        lat = float(query.get('lat', [''])[0]); lon = float(query.get('lon', [''])[0])
+                        if not (-90 <= lat <= 90 and -180 <= lon <= 180): raise ValueError
+                    except (TypeError, ValueError):
+                        lat = lon = None
+                    when = clean_text(query.get('cuando', [''])[0], 10)
+                    self.send_json(salidas_cercanas(db, lat, lon, when if when in ('hoy', 'manana', 'finde') else '', int(query.get('limite', ['20'])[0] or 20))); return
                 if path == '/api/top-dives':
                     try:
                         lat = float(query.get('lat',[''])[0]); lon = float(query.get('lon',[''])[0])
@@ -10583,6 +10645,24 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         notify_admins(db,'admin_new_pro',{'pro_name':fullname,'pro_email':email,'pro_type':'centro de buceo' if requested=='center' else 'profesional freelance','center':requested_center_name or fullname},('user',uid))
                     audit(db,uid,'register','user',uid,{'requested_role':requested,'center_claim_id':claim_id,'suggested_center_id':suggested['id'] if suggested else None,'ip':wsec.ip_hash(self.client_ip())}); db.commit()
                     self.login_user(uid,db,{'ok':True,'role':'recreational','requested_role':requested,'provider_verification':'pending' if requested in {'center','freelance'} else None}); return
+                if path in ('/api/pruebas/entrar', '/api/pruebas/fallo'):
+                    # v50.48, WORLDIVES Pruebas only: these addresses do not exist outside the test environment.
+                    if not wcfg.demo_mode(): self.send_json({'error': 'No encontrado'}, 404); return
+                    data = json_body(self)
+                    if path == '/api/pruebas/entrar':
+                        login = (clean_text(data.get('cuenta'), 60) or '').lower()
+                        if not wmovil.TEST_ACCOUNT_RE.fullmatch(login): raise ValueError('Cuenta de prueba no válida.')
+                        user = db.execute('SELECT * FROM users WHERE lower(username)=?', (login,)).fetchone()
+                        if not user: self.send_json({'error': 'Esa cuenta de prueba no existe en este servidor.'}, 404); return
+                        old_token = self.session_hash()
+                        if old_token: db.execute('DELETE FROM sessions WHERE token_hash=?', (old_token,))
+                        db.execute('UPDATE users SET last_login=? WHERE id=?', (now(), user['id'])); audit(db, user['id'], 'login', details={'pruebas_app': True}); db.commit()
+                        self.login_user(user['id'], db, {'ok': True, 'role': user['role']}); return
+                    report, image = wmovil.clean_report(data)
+                    who = current_user(self, db)
+                    name = wmovil.save_report(DB_PATH.parent / 'fallos', report, image, who['username'] if who else 'sin sesión')
+                    sys.stderr.write(f'[pruebas] fallo reportado: {name}\n')
+                    self.send_json({'ok': True, 'id': name}); return
                 if path=='/api/auth/login':
                     data=json_body(self); login=(clean_text(data.get('login'),160) or '').lower(); password=str(data.get('password',''))[:256]
                     ip=self.client_ip(); rate_key=f'{ip}:{login}'; ip_key=f'ip:{ip}'
@@ -11179,7 +11259,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if booking_id:
                         b0=db.execute('SELECT * FROM bookings WHERE id=? AND user_id=?',(booking_id,user['id'])).fetchone()
                         if not b0: raise PermissionError('Reserva no válida.')
-                        pay=start_checkout(db,user,b0)
+                        pay=start_checkout(db,user,b0,app=wmovil.app_scheme(data.get('app')))
                     elif experience_booking_id:
                         eb=db.execute('SELECT * FROM experience_bookings WHERE id=? AND user_id=?',(experience_booking_id,user['id'])).fetchone()
                         if not eb: raise PermissionError('Solicitud de experiencia no válida.')
@@ -12081,7 +12161,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         # The booking is not visible to the centre until Stripe confirms the payment.
                         db.commit()
                         try:
-                            pay=start_checkout(db,user,booking_row(db,bid))
+                            pay=start_checkout(db,user,booking_row(db,bid),app=wmovil.app_scheme(data.get('app')))
                         except ValueError:
                             expire_booking(db,booking_row(db,bid),'checkout_failed',notify=False); db.commit(); raise
                         self.send_json({'ok':True,'id':bid,'status':status,'payment_required':True,'checkout_url':pay['checkout_url'],'hold_expires_at':hold,'price':price,'deposit':deposit,'currency':service_currency,'booking_mode':mode}); return
