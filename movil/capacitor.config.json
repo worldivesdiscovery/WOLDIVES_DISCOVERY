@@ -1,0 +1,18 @@
+{
+  "appId": "com.worldives.app",
+  "appName": "WORLDIVES",
+  "webDir": "www",
+  "backgroundColor": "#011C3C",
+  "appendUserAgent": "WorldivesApp/1.0",
+  "server": {
+    "url": "https://worldives.com",
+    "errorPath": "sin-conexion.html"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 800, "launchAutoHide": true, "backgroundColor": "#011C3C", "showSpinner": false }
+  }
+}

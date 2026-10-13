@@ -1,13 +1,16 @@
-name: App Android (APK de pruebas)
+name: App Android (Capacitor)
 
-# Builds the test APK of the mobile app (app-movil/) on every push that touches it, or by hand from the Actions
-# tab. Sample data and simulated payments; signed with the Expo template's debug key, so each new APK installs
-# over the previous one. Not for Google Play: that build will use its own upload key, kept outside the repository.
+# The WORLDIVES app for Android (encargo «App móvil en 3 módulos»): the web inside a native app (Capacitor 8).
+# Builds two APKs from movil/:
+#  · WORLDIVES Pruebas (com.worldives.app.pruebas): signed with the test key, to install and test. It is the artifact.
+#  · WORLDIVES (com.worldives.app): built unsigned only to check that it carries nothing of the test variant.
+# The test key is made here the first time and kept in the Actions cache (never in the repository). If the cache
+# expires (7 days without builds), a new key is made and the test app has to be uninstalled once before installing.
 
 on:
   push:
     paths:
-      - 'app-movil/**'
+      - 'movil/**'
       - '.github/workflows/app-android.yml'
   workflow_dispatch:
 
@@ -18,10 +21,7 @@ concurrency:
 jobs:
   apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    defaults:
-      run:
-        working-directory: app-movil
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -29,40 +29,69 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: app-movil/package-lock.json
+          cache-dependency-path: movil/package-lock.json
 
-      - name: Install dependencies
+      - name: Install Capacitor
+        working-directory: movil
         run: npm ci
 
-      - name: Check types and translations (es, en, fr)
-        run: npx tsc --noEmit && node scripts/textos.mjs
+      - name: Copy the local pages into the Android project
+        working-directory: movil
+        run: npx cap sync android
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
-
-      - name: Generate the Android project
-        run: npx expo prebuild --platform android --no-install
+          java-version: 21
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build the APK for real phones (arm64 and armv7)
-        working-directory: app-movil/android
-        run: |
-          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g/' gradle.properties
-          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a --no-daemon
+      - name: Test key (from the cache)
+        id: clave
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.worldives-claves
+          key: worldives-pruebas-keystore-v1
 
-      - name: Name the APK after the app version
+      - name: Make the test key (first time only)
+        if: steps.clave.outputs.cache-hit != 'true'
         run: |
-          V=$(node -p "require('./app.json').expo.version")
-          mkdir -p ../apk
-          cp android/app/build/outputs/apk/release/app-release.apk "../apk/WORLDIVES-$V-pruebas.apk"
-          ls -l ../apk
+          mkdir -p ~/.worldives-claves
+          PASS=$(openssl rand -hex 24)
+          keytool -genkeypair -v -keystore ~/.worldives-claves/pruebas.jks -alias worldives-pruebas -keyalg RSA -keysize 4096 \
+            -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "CN=WORLDIVES Pruebas, O=WORLDIVES DISCOVERY, C=ES"
+          printf '%s' "$PASS" > ~/.worldives-claves/clave.txt
+          echo "::warning::Clave de pruebas nueva: desinstala WORLDIVES Pruebas del móvil antes de instalar esta versión."
+
+      - name: Keep the test key
+        if: steps.clave.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.worldives-claves
+          key: worldives-pruebas-keystore-v1
+
+      - name: Build both APKs
+        working-directory: movil/android
+        run: |
+          export WD_PRUEBAS_KEYSTORE=~/.worldives-claves/pruebas.jks
+          export WD_PRUEBAS_KEYSTORE_PASSWORD=$(cat ~/.worldives-claves/clave.txt)
+          export WD_VERSION_CODE=${{ github.run_number }}
+          export WD_VERSION_NAME=1.0.${{ github.run_number }}
+          ./gradlew assemblePruebasRelease assembleProduccionRelease --no-daemon
+
+      - name: Check that the production APK carries nothing of the test variant
+        run: python3 movil/scripts/comprobar_apk.py movil/android/app/build/outputs/apk/produccion/release/*.apk movil/android/app/build/outputs/apk/pruebas/release/*.apk
+
+      - name: Name the test APK after the web version
+        run: |
+          V=$(sed -n "s/^APP_VERSION = '\(.*\)'/\1/p" app/server.py)
+          mkdir -p apk
+          cp movil/android/app/build/outputs/apk/pruebas/release/app-pruebas-release.apk "apk/WORLDIVES-Pruebas-v$V-${{ github.run_number }}.apk"
+          ls -l apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: WORLDIVES-apk-pruebas
+          name: WORLDIVES-Pruebas-apk
           path: apk/*.apk
           if-no-files-found: error
           retention-days: 30

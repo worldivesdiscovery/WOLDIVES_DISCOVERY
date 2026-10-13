@@ -1,0 +1,23 @@
+{
+  "name": "worldives-movil",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WORLDIVES para Android e iOS: la web de WORLDIVES dentro de una app nativa (Capacitor).",
+  "scripts": {
+    "sync": "cap sync android",
+    "comprobar": "node scripts/comprobar.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/browser": "8.0.5",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/device": "8.0.3",
+    "@capacitor/share": "8.0.3",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

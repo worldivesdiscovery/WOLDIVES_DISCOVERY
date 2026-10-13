@@ -41,7 +41,7 @@ NOT_IN_ANY = ['_archivo/*', 'docs/capturas/*', '.github/*', '.gitignore', '.env'
               'storage/*', 'public/assets/*', 'data/subidas/*', 'data/backups/*', 'data/mail-outbox/*', 'data/tiles/*', 'dist/*',
               '*.sqlite3-wal', '*.sqlite3-shm', '.git/*', '*.tmp', '*.swp', '*~', '.DS_Store', 'Thumbs.db', '*.lock', '*/capturas/*',
               'data/avisos/*', 'data/pruebas/avisos/*',
-              'app-movil/*', 'docs/app/prototipo/*']  # the mobile app and its prototype are not part of the server
+              'movil/*', 'docs/app/prototipo/*']  # the mobile app (built on GitHub) and its prototype are not part of the server
 ALLOWED_ENV = {'.env.example'}
 
 # What must never be inside the production zip

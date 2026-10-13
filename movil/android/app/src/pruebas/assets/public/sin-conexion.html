@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sin conexión · WORLDIVES Pruebas</title><link rel="stylesheet" href="estilos.css"></head>
+<body>
+<div class="banda" role="note">ENTORNO DE PRUEBAS</div>
+<main>
+  <img class="logo" src="logo.webp" alt="WORLDIVES" style="width:180px">
+  <h1>No se puede conectar</h1>
+  <p class="suave" style="text-align:center">La app no encuentra el servidor de pruebas <b id="url"></b>.</p>
+  <ol class="peq">
+    <li>En el ordenador, comprueba que está abierta la ventana de <b>iniciar-pruebas-movil</b>.</li>
+    <li>El móvil y el ordenador tienen que estar en la misma wifi.</li>
+    <li>Si el ordenador ha cambiado de dirección, toca «Cambiar servidor».</li>
+  </ol>
+  <button class="btn" id="reintentar" type="button">Reintentar</button>
+  <button class="btn sec" id="cambiar" type="button">Cambiar servidor</button>
+</main>
+<script>
+(function () {
+  var S = ((window.Capacitor || {}).Plugins || {}).Servidor;
+  if (S) S.actual().then(function (r) { document.getElementById('url').textContent = r.url || ''; });
+  document.getElementById('reintentar').onclick = function () { location.replace('/'); };
+  document.getElementById('cambiar').onclick = function () { if (S) S.olvidar(); };
+})();
+</script>
+</body>
+</html>

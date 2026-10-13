@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sin conexión · WORLDIVES</title><link rel="stylesheet" href="estilos.css"></head>
+<body><main>
+  <img class="logo" src="logo.webp" alt="WORLDIVES">
+  <h1 id="t">No hay conexión</h1>
+  <p class="suave" id="p" style="text-align:center">WORLDIVES necesita internet para abrirse. Comprueba los datos móviles o la wifi y vuelve a intentarlo.</p>
+  <button class="btn" id="reintentar" type="button">Reintentar</button>
+</main>
+<script>
+  // The same text in the three languages of the app (es, en, fr).
+  var L = (navigator.language || 'es').slice(0, 2), T = {
+    en: ['No connection', 'WORLDIVES needs the internet to open. Check your mobile data or wifi and try again.', 'Try again'],
+    fr: ['Pas de connexion', 'WORLDIVES a besoin d’internet pour s’ouvrir. Vérifiez vos données mobiles ou le wifi et réessayez.', 'Réessayer'] };
+  if (T[L]) { document.documentElement.lang = L; t.textContent = T[L][0]; p.textContent = T[L][1]; reintentar.textContent = T[L][2]; }
+  reintentar.onclick = function () { location.replace('/'); };
+</script></body>
+</html>
