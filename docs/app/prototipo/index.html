@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prototipo app WORLDIVES</title>
+<link rel="stylesheet" href="prototipo.css">
+</head>
+<body>
+<div class="proto">
+  <nav class="proto-indice" id="indice" aria-label="Pantallas del prototipo">
+    <div class="fila-entre" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><h1>Prototipo app WORLDIVES</h1><button id="cerrar-indice" class="proto-ctl" style="border:0;background:none;color:inherit;font:inherit;cursor:pointer" aria-label="Cerrar el índice">✕</button></div>
+    <p>Tanda 0 · para aprobar antes de programar. Datos de ejemplo del entorno de pruebas.</p>
+    <div data-lista></div>
+  </nav>
+  <div class="proto-escena">
+    <div class="proto-barra-movil"><button id="abrir-indice">Pantallas</button><span id="titulo-movil"></span><button id="abrir-notas">Notas</button></div>
+    <div class="proto-ctl" role="group" aria-label="Controles del prototipo">
+      <button data-ctl="tema:clasico">Clásico</button><button data-ctl="tema:futurista">Futurista</button><button data-ctl="tema:auto">Automático</button>
+      <button data-ctl="tam:normal">Texto normal</button><button data-ctl="tam:grande">Grande</button><button data-ctl="tam:enorme">Enorme</button>
+      <button data-ctl="ancho:390">390 × 844</button><button data-ctl="ancho:360">360 × 800</button>
+    </div>
+    <div class="marco"><div class="tel" data-tema="clasico" data-tamano="normal"></div></div>
+  </div>
+  <aside class="proto-notas" id="notas" aria-label="Notas de la pantalla"><div id="notas-pantalla"></div>
+    <h3>Cómo leer el prototipo</h3><p>Todo es de ejemplo y no envía nada. Lo marcado <span class="proto-falta">Pendiente</span> no existe hoy en la web o espera una decisión. Los controles de arriba cambian tema, tamaño de texto y ancho.</p></aside>
+</div>
+<script src="lib/qrcode.js"></script>
+<script src="prototipo.js"></script>
+<script src="pantallas-buceador.js"></script>
+<script src="pantallas-centro.js"></script>
+<script src="pantallas-freelance.js"></script>
+<script src="notas-paridad.js"></script>
+<script>P.arrancar();</script>
+</body>
+</html>
