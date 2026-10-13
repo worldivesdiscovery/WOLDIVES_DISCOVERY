@@ -4,12 +4,12 @@ conflicts when someone else changed the same thing meanwhile. Team roles (instru
 import datetime as dt
 import unittest
 
-from helpers import ServerTestCase
+from helpers import MiddayClock, ServerTestCase
 
 DAY = lambda n: (dt.date.today() + dt.timedelta(days=n)).isoformat()
 
 
-class OfflineCheckin(ServerTestCase):
+class OfflineCheckin(MiddayClock, ServerTestCase):   # «today» at 23:59 must still be ahead
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

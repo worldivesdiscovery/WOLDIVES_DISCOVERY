@@ -25,6 +25,25 @@ ROOT = Path(__file__).resolve().parents[1]
 SEED_DB = ROOT / 'data' / 'demo' / 'catalogo-demo.sqlite3'   # demo catalogue (never real data)
 
 
+class MiddayClock:
+    """Mixin for a test class that needs a departure «later today»: the class and its server run on a clock around
+    midday, whatever the hour of the machine (otherwise it fails late at night). Put it before ServerTestCase."""
+    @classmethod
+    def setUpClass(cls):
+        cls._tz_before = os.environ.get('TZ')
+        off = (12 - time.gmtime().tm_hour) % 24
+        if off > 12: off -= 24
+        os.environ['TZ'] = f'WOD{-off:+d}'; time.tzset()   # POSIX: «WOD-5» is UTC+5
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        if cls._tz_before is None: os.environ.pop('TZ', None)
+        else: os.environ['TZ'] = cls._tz_before
+        time.tzset()
+
+
 def free_port() -> int:
     s = socket.socket()
     s.bind(('127.0.0.1', 0))

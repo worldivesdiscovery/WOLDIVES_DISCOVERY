@@ -6,7 +6,7 @@ import datetime as dt
 import time
 import unittest
 
-from helpers import ServerTestCase, Client
+from helpers import Client, MiddayClock, ServerTestCase
 from stripe_mock import StripeMock
 
 CONNECT_SECRET = 'whsec_connect_local'
@@ -235,7 +235,7 @@ class CloseAccount(ProBase):
 
 
 
-class ProApp(ProBase):
+class ProApp(MiddayClock, ProBase):   # «today» at 23:30 must still be ahead
     """What the professional app asks the server: Hoy, agenda, QR scan, headcount, WhatsApp and the boat summary."""
     @classmethod
     def setUpClass(cls):
