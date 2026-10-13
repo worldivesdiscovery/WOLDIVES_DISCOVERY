@@ -19,13 +19,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+try:
+    from . import roles as wroles
+except ImportError:   # loaded as a top-level module (tests of the module alone)
+    import roles as wroles
+
 
 class NotFound(LookupError):
     """Something asked for does not exist, is not public or belongs to another centre: 404."""
 
 
-# Roles inside a centre. Only the owner and the manager can cancel departures and send mass notices.
-TEAM_ROLES = {'owner': 'Propietario', 'manager': 'Encargado', 'reception': 'Recepción', 'instructor': 'Instructor'}
+# Roles inside a centre. v50.49: each centre can add its own roles and change what each one can do (wod.roles);
+# cancelling departures and sending mass notices needs the permission «avisos» (by default, owner and manager).
+TEAM_ROLES = dict(wroles.BASE)
 NOTICE_ROLES = ('owner', 'manager')
 # Booking states that still involve the diver (recipients of a notice of a departure)
 ACTIVE_STATES = ('requested', 'accepted_pending_payment', 'confirmed')
@@ -38,7 +44,8 @@ class Ctx:
     role: str                       # users.role of the person: center, freelance or admin
     kind: str
     oid: int
-    member_role: str = 'owner'      # inside a centre: owner, manager, reception or instructor
+    member_role: str = 'owner'      # inside a centre: owner, manager, reception, instructor or a role of the centre ('r…')
+    permisos: frozenset = field(default_factory=lambda: frozenset(wroles.CLAVES), compare=False)
     admin_reason: str = ''          # only for an administrator looking at a centre's data with a stated reason
     extra: dict = field(default_factory=dict, compare=False)
 
@@ -49,7 +56,10 @@ class Ctx:
 
     @property
     def can_send_notices(self) -> bool:
-        return self.role in ('center', 'freelance') and (self.kind == 'freelance' or self.member_role in NOTICE_ROLES)
+        return self.role in ('center', 'freelance') and (self.kind == 'freelance' or 'avisos' in self.permisos)
+
+    def puede(self, permiso) -> bool:
+        return self.kind == 'freelance' or self.member_role == 'owner' or permiso in self.permisos
 
 
 def tenant_key(kind, oid) -> str:
@@ -57,15 +67,18 @@ def tenant_key(kind, oid) -> str:
 
 
 def member_role(db, center_id, user_id) -> str:
+    """The role of a person in a centre. No row: the account that created the centre (owner, as always). A value that is
+    not a role any more keeps its key and has no permissions: it is never taken as «owner» (v50.49)."""
     r = db.execute('SELECT member_role FROM center_members WHERE center_id=? AND user_id=?', (center_id, user_id)).fetchone()
-    return (r['member_role'] if r and r['member_role'] in TEAM_ROLES else 'owner')
+    return (r['member_role'] or '') if r else 'owner'
 
 
 def ctx_from_user(db, user):
     """The tenant of the signed-in person, from the session only. None for divers and administrators."""
     if not user: return None
     if user['role'] == 'center' and user.get('center_id'):
-        return Ctx(int(user['id']), 'center', 'center', int(user['center_id']), member_role(db, int(user['center_id']), int(user['id'])))
+        mr = member_role(db, int(user['center_id']), int(user['id']))
+        return Ctx(int(user['id']), 'center', 'center', int(user['center_id']), mr, wroles.permisos(db, int(user['center_id']), mr))
     if user['role'] == 'freelance':
         # A freelance professional is always a tenant of their own (v50.47: before, a freelance «attached» to a centre
         # by the administration acted as the owner of that centre in some screens and as freelance in others).
@@ -84,7 +97,7 @@ def admin_ctx(user, kind, oid, reason) -> Ctx:
     reason = (reason or '').strip()
     if len(reason) < 5: raise PermissionError('Indica el motivo para ver los datos de este centro (queda registrado).')
     if kind not in ('center', 'freelance'): raise NotFound('Centro no encontrado.')
-    return Ctx(int(user['id']), 'admin', kind, int(oid), 'admin', reason[:300])
+    return Ctx(int(user['id']), 'admin', kind, int(oid), 'admin', admin_reason=reason[:300])
 
 
 # ------------------------------------------------------------------------------------------- SQL of the tenant

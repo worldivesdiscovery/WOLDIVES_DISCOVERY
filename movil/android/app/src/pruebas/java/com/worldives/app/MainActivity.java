@@ -24,6 +24,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(ServidorPlugin.class);
+        registerPlugin(PushListoPlugin.class);
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         String server = prefs.getString(KEY_SERVER, null);
         if (server != null) {

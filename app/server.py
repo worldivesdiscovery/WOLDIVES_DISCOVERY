@@ -31,6 +31,9 @@ from urllib.parse import parse_qs, urlparse, unquote, quote
 ROOT = Path(__file__).resolve().parents[1]
 if str(Path(__file__).resolve().parent) not in sys.path: sys.path.insert(0, str(Path(__file__).resolve().parent))
 from wod import config as wcfg
+from wod import roles as wroles
+from wod import pro as wpro
+from wod import push as wpush
 from wod import security as wsec
 from wod import bookings as wbk
 from wod import agenda as wag
@@ -1395,6 +1398,8 @@ def bootstrap():
         db.commit()
         migrate_v50_47(db)
         db.commit()
+        migrate_v50_49(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1522,6 +1527,25 @@ def install_phone_guards(db):
                     db.execute(f'''CREATE TRIGGER IF NOT EXISTS wod_{t}_{col}_huella_{name} {when} ON {t} WHEN {cond} BEGIN
                         UPDATE {t} SET {hcol}=wod_huella(NEW.{col}) WHERE rowid=NEW.rowid AND {hcol} IS NOT wod_huella(NEW.{col}); END''')
                 db.execute(f'CREATE INDEX IF NOT EXISTS idx_{t}_{hcol} ON {t}({hcol}) WHERE {hcol} IS NOT NULL')
+
+
+def migrate_v50_49(db):
+    """v50.49 (app, tandas 2 a 4). Only adds tables and columns; nothing is deleted:
+    - center_roles: the roles each centre creates and the permissions of each role (wod.roles);
+    - provider_closures: centres and freelance professionals that closed their account (six months to come back);
+    - app_devices and push_outbox: push notifications to the app (only with Firebase configured in the .env)."""
+    db.execute(wroles.SCHEMA)
+    db.execute(PROVIDER_CLOSURES_SCHEMA)
+    db.execute('CREATE INDEX IF NOT EXISTS idx_provider_closures_ref ON provider_closures(provider_kind, provider_oid)')
+    # Phones with the app installed (push, only when Firebase is configured) and the pushes waiting to go out.
+    db.execute('''CREATE TABLE IF NOT EXISTS app_devices (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                  token TEXT NOT NULL UNIQUE, platform TEXT, app TEXT, created_at TEXT NOT NULL, last_seen_at TEXT, active INTEGER NOT NULL DEFAULT 1)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS push_outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL REFERENCES app_devices(id) ON DELETE CASCADE,
+                  title TEXT NOT NULL, body TEXT, route TEXT, status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL,
+                  sent_at TEXT, error TEXT)''')
+    db.execute("CREATE INDEX IF NOT EXISTS idx_push_outbox_status ON push_outbox(status, id)")
+    if migration_done(db, '50.49'): return
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.49', now(), 'App Centro PRO y Freelance PRO: perfiles del equipo por centro'))
 
 
 def migrate_v50_47(db):
@@ -2741,7 +2765,8 @@ def find_or_create_customer(db, fullname, email, phone, center_id=None):
     placeholder=f'cliente-{secrets.token_hex(8)}@sin-email.worldives.local'
     uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at,guest_center_id,guest_email) VALUES(?,?,?,?,?,?,?,?)',
                    (clean_text(fullname,180) or 'Cliente',placeholder,'cliente_'+secrets.token_hex(6),'!','recreational',now(),center_id,email or None)).lastrowid
-    db.execute('INSERT OR IGNORE INTO user_profiles(user_id,phone,updated_at) VALUES(?,?,?)',(uid,clean_text(phone,60),now()))
+    # v50.49: the phone is stored encrypted, as everywhere since v50.47 (before, a phone typed here was refused by the database).
+    db.execute('INSERT OR IGNORE INTO user_profiles(user_id,phone,updated_at) VALUES(?,wod_cifrar(?),?)',(uid,clean_text(phone,60) or None,now()))
     return uid
 
 
@@ -3506,41 +3531,42 @@ def import_clients(db, center_id, text, dry_run=True, actor=None):
 
 
 # ------------------------------------------------------------------------------- Team of a centre (Fase 6.6)
-TEAM_ROLES = winq.TEAM_ROLES   # v50.47: owner, manager (encargado), reception, instructor
-# What each role cannot do (POST). Owners can do everything; instructors only read (and manage their own account).
-OWNER_ONLY_PREFIXES = ('/api/payments/connect/', '/api/provider/payment-profile', '/api/provider/fiscal', '/api/provider/insurance', '/api/provider/cancellation-policy',
-                       '/api/provider/plan', '/api/center/team', '/api/provider/center-update', '/api/provider/center-showcase', '/api/provider/center-cover',
-                       '/api/provider/center-gallery', '/api/center/integration', '/api/provider/ical', '/api/center/import', '/api/center/tariffs', '/api/bookings/refund',
-                       '/api/provider/waiver')
-# v50.47: cancelling departures and mass notices: owner and manager only.
-NOTICE_ONLY_PREFIXES = ('/api/provider-services/slot-cancel', '/api/avisos/', '/api/whatsapp/')
-INSTRUCTOR_POST_OK = ('/api/auth/', '/api/account/', '/api/legal/accept', '/api/reports', '/api/contact', '/api/me', '/api/team/')
-# Instructors on the boat also take the signatures at check-in (encargo 2, punto 5).
-INSTRUCTOR_POST_RE = re.compile(r'/api/bookings/\d+/waiver/sign|/api/manifest/sync')
-OWNER_ONLY_GET = ('/api/provider/payments', '/api/payments/center', '/api/provider/fiscal', '/api/provider/plan', '/api/center/team', '/api/center/activity', '/api/provider/ical')
+TEAM_ROLES = winq.TEAM_ROLES   # the four built-in roles; v50.49: each centre adds its own (wod.roles)
 
 
 def member_role(db, user):
     if not user or user['role'] != 'center' or not user['center_id']: return None
     r = db.execute('SELECT member_role FROM center_members WHERE center_id=? AND user_id=?', (user['center_id'], user['id'])).fetchone()
-    return r['member_role'] if r else 'owner'
+    return (r['member_role'] or '') if r else 'owner'
+
+
+def user_perms(db, user):
+    """What the person signed in can do in the panel (v50.49). Freelance and owners: everything."""
+    if not user: return frozenset()
+    if user['role'] == 'freelance': return frozenset(wroles.CLAVES)
+    role = member_role(db, user)
+    if role is None: return frozenset(wroles.CLAVES) if user['role'] == 'admin' else frozenset()
+    return wroles.permisos(db, user['center_id'], role)
+
+
+def user_can(db, user, perm):
+    if not user: return False
+    if user['role'] in ('admin', 'freelance'): return True
+    role = member_role(db, user)
+    return role in (None, 'owner') or perm in wroles.permisos(db, user['center_id'], role)
 
 
 def team_gate(db, user, path, method):
-    """Team roles of a centre: reception cannot touch settings, payments, plan or team; instructors only read.
-    Exports of payments are for owners only."""
+    """Team of a centre (v50.49): what each role can do comes from the permissions the centre gave it (wod.roles).
+    The owner does everything; what only the owner can do never goes into a role. Reading is free except payments,
+    statistics and the owner's screens; writing needs «reservas» unless a more specific permission applies."""
+    closed_gate(db, user, path, method)
     role = member_role(db, user)
     if not role or role == 'owner': return
-    if method == 'GET':
-        if path.startswith(OWNER_ONLY_GET) or (path == '/api/center/export' and False):
-            raise PermissionError('Solo el propietario del centro puede ver esto.')
-        return
-    if role == 'instructor' and not path.startswith(INSTRUCTOR_POST_OK) and not INSTRUCTOR_POST_RE.fullmatch(path):
-        raise PermissionError('Tu perfil de instructor es de solo lectura. Pide el cambio al propietario del centro.')
-    if role in ('reception', 'manager') and (path.startswith(OWNER_ONLY_PREFIXES) or (path.startswith('/api/bookings/') and path.endswith('/refund'))):
-        raise PermissionError('Solo el propietario del centro puede hacer este cambio.')
-    if role == 'reception' and path.startswith(NOTICE_ONLY_PREFIXES):
-        raise PermissionError('Solo el propietario o el encargado del centro pueden cancelar salidas y enviar avisos a todos los clientes.')
+    need = wroles.necesita(path, method)
+    if need == '': return
+    if need is None or need not in wroles.permisos(db, user['center_id'], role):
+        raise PermissionError(wroles.NO_PUEDE.get(need, wroles.NO_PUEDE[None]))
 
 
 def plan_payment_paid(db, pp_id, source):
@@ -5620,8 +5646,39 @@ def queue_email(db, template, to_email, to_name, ctx, lang='es', related=None):
         # opened only by the server when the email is sent or shown to the administrator.
         db.execute('INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at,unsubscribe_url) VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?)',
                    (template, lang, (to_email or '').strip().lower(), to_name or '', subject, wcif.encrypt(html_doc), wcif.encrypt(text_doc), status, rel[0], rel[1], now(), (ctx or {}).get('unsubscribe_api')))
+        push_from_email(db, to_email, subject, lang, rel)
     except Exception as exc:
         sys.stderr.write(f'[correo] no se pudo preparar «{template}»: {exc}\n')
+
+
+PUSH_ROUTES = {'booking': '#/reserva?id={id}', 'service_slot': '#/salida?id={id}'}
+
+
+def push_from_email(db, to_email, subject, lang, rel):
+    """v50.49: an email about a booking also reaches the person's phones with the app, as a push with the same
+    subject (already in their language). Only when Firebase is configured (wod.push)."""
+    if not wpush.enabled() or not to_email or not subject: return
+    route = PUSH_ROUTES.get(rel[0] or '', '#/').format(id=rel[1] or '')
+    for d in db.execute('''SELECT d.id FROM app_devices d JOIN users u ON u.id=d.user_id WHERE lower(u.email)=? AND d.active=1''', ((to_email or '').strip().lower(),)).fetchall():
+        db.execute('INSERT INTO push_outbox(device_id,title,body,route,created_at) VALUES(?,?,?,?,?)', (d['id'], subject[:120], mail_t(lang, 'Toca para verlo en la app.'), route, now()))
+
+
+def run_push_jobs(db):
+    """Every minute: the pushes waiting go out (five tries; a phone that uninstalled the app is switched off)."""
+    if not wpush.enabled(): return 0
+    sent = 0
+    for p in db.execute('''SELECT p.*, d.token FROM push_outbox p JOIN app_devices d ON d.id=p.device_id WHERE p.status='queued' AND d.active=1
+                           ORDER BY p.id LIMIT 100''').fetchall():
+        r = wpush.send(p['token'], p['title'], p['body'], {'ruta': p['route'] or '#/'})
+        if r == 'ok':
+            db.execute("UPDATE push_outbox SET status='sent',sent_at=?,attempts=attempts+1 WHERE id=?", (now(), p['id'])); sent += 1
+        elif r == 'gone':
+            db.execute("UPDATE push_outbox SET status='failed',error='gone',attempts=attempts+1 WHERE id=?", (p['id'],))
+            db.execute('UPDATE app_devices SET active=0 WHERE id=?', (p['device_id'],))
+        else:
+            db.execute("UPDATE push_outbox SET attempts=attempts+1,status=CASE WHEN attempts+1>=5 THEN 'failed' ELSE 'queued' END,error='retry' WHERE id=?", (p['id'],))
+        db.commit()
+    return sent
 
 
 def user_mail_ctx(db, user_id):
@@ -5751,7 +5808,7 @@ def notify_booking(db, bid, event, extra=None):
         elif event == 'cancelled_center':
             # v50.47: the reason (a key of the notices or the centre's own words) and the centre's note reach the diver.
             rk = str(extra.get('reason') or '').strip()
-            why = mail_t(lang_d, SLOT_CANCEL_REASONS[rk]) if rk in SLOT_CANCEL_REASONS else rk
+            why = mail_t(lang_d, SLOT_CANCEL_REASONS[rk]) if rk in SLOT_CANCEL_REASONS else mail_t(lang_d, PROVIDER_CLOSED_REASON) if rk == 'provider_closed' else rk
             parts = ([mail_t(lang_d, 'Motivo: {reason}', reason=why)] if why else []) + ([mail_t(lang_d, 'Nota del centro: {note}', note=extra['note'])] if extra.get('note') else [])
             to_diver('booking_cancelled_center', dict(refund_texts(lang_d, extra.get('refund', 'none_paid'), ctx['total']), cancel_reason_text='. '.join(parts)))
         elif event == 'cancelled_diver':
@@ -7070,6 +7127,207 @@ def delete_user_account(db, user):
     audit(db, uid, 'account_deleted', 'user', uid)
 
 
+# ------------------------------------------------------------- v50.49 · closing the account of a centre or a freelance
+# Decision of the owner (13/10/2026): «borrar cuenta para siempre» closes the account at once; everything is kept
+# CLOSE_KEEP_DAYS (six months) so the centre can come back with all its data by signing in and pressing «Reabrir»;
+# after that everything is deleted except what the law obliges us to keep (payments, refunds, the amounts and dates of
+# the bookings, the tax data for DAC7 and the security log), which keeps its own retention period.
+CLOSE_KEEP_DAYS = 183
+CLOSE_STATES = ('requested', 'accepted_pending_payment', 'confirmed', 'payment_in_progress', 'pending')
+CLOSED_WRITE_OK = ('/api/auth/', '/api/provider/cuenta/reabrir', '/api/account/', '/api/legal/accept', '/api/team/switch', '/api/me', '/api/reports', '/api/contact')
+CENTER_PURGE_TABLES = ('center_tariffs', 'center_extras', 'center_equipment', 'center_integrations', 'center_links', 'data_shares', 'team_invites',
+                       'center_roles', 'center_point_links', 'qr_codes', 'promotion_partners')
+PROVIDER_PURGE_TABLES = ('notice_outbox', 'notice_batches', 'info_requests', 'whatsapp_accounts', 'provider_settings')
+CENTER_ANON_COLS = ('region', 'city', 'address', 'website', 'phone', 'email', 'description', 'specialties', 'latitude', 'longitude', 'source_name', 'source_url',
+                    'logo_url', 'logo_source', 'instagram_url', 'facebook_url', 'twitter_url', 'youtube_url', 'tiktok_url', 'cover_url', 'tagline', 'gallery_json',
+                    'languages', 'opening_hours', 'cancellation_note', 'insurance_company', 'insurance_policy', 'insurance_doc', 'insurance_alerts', 'ical_token', 'licences_note')
+PROVIDER_CLOSURES_SCHEMA = '''CREATE TABLE IF NOT EXISTS provider_closures (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_kind TEXT NOT NULL, provider_oid INTEGER NOT NULL,
+  closed_at TEXT NOT NULL, closed_by INTEGER, purge_after TEXT NOT NULL, restore TEXT NOT NULL DEFAULT '{}', reopened_at TEXT, reopened_by INTEGER,
+  purged_at TEXT, purge_report TEXT)'''
+
+
+def provider_of_user(user):
+    """('center', centre id) or ('freelance', user id) of a professional account; None otherwise."""
+    if not user: return None
+    if user['role'] == 'center' and user.get('center_id'): return ('center', int(user['center_id']))
+    if user['role'] == 'freelance': return ('freelance', int(user['id']))
+    return None
+
+
+def provider_closure(db, kind, oid):
+    return db.execute('''SELECT * FROM provider_closures WHERE provider_kind=? AND provider_oid=? AND reopened_at IS NULL AND purged_at IS NULL
+                         ORDER BY id DESC LIMIT 1''', (kind, int(oid))).fetchone()
+
+
+def provider_future_bookings(db, kind, oid):
+    """Bookings that still involve a diver: requests, accepted, confirmed or being paid, from today on."""
+    w, a = winq.owner_filter(winq.Ctx(0, kind, kind, int(oid)), 'b')
+    q = f'''SELECT b.id,b.booking_date,b.booking_time,b.date_to,b.participants,b.status,b.payment_status,b.currency,b.price,
+                  COALESCE(b.contact_name,u.fullname) AS name,ps.title AS service_title FROM bookings b LEFT JOIN users u ON u.id=b.user_id
+                  LEFT JOIN provider_services ps ON ps.id=b.service_id
+            WHERE {w} AND b.status IN ({','.join('?' * len(CLOSE_STATES))}) AND COALESCE(b.date_to,b.booking_date)>=? ORDER BY b.booking_date,b.booking_time,b.id'''
+    out = []
+    for r in db.execute(q, (*a, *CLOSE_STATES, local_now().date().isoformat())).fetchall():
+        paid_, refunded_, _o = booking_paid_online(db, r['id'])
+        out.append({**dict(r), 'paid': round(paid_ - refunded_, 2)})
+    return out
+
+
+def provider_account_status(db, kind, oid):
+    c = provider_closure(db, kind, oid)
+    fut = provider_future_bookings(db, kind, oid) if not c else []
+    closed = None
+    if c:
+        left = max(0, (_dt.date.fromisoformat(c['purge_after'][:10]) - local_now().date()).days)
+        closed = {'closed_at': c['closed_at'], 'purge_after': c['purge_after'][:10], 'days_left': left}
+    return {'kind': kind, 'name': provider_label(db, kind, oid), 'closed': closed, 'keep_days': CLOSE_KEEP_DAYS, 'future': fut, 'future_count': len(fut),
+            'refund_total': round(sum(x['paid'] for x in fut), 2), 'can_close': not c and not fut}
+
+
+def provider_cancel_all(db, user, kind, oid, note=''):
+    """«Cancelar y avisar a todos»: every future booking is cancelled with the full refund of what was paid and its diver
+    is told (email and the app, in their language). Returns {cancelled, refunded, amount}."""
+    rep = {'cancelled': 0, 'refunded': 0, 'refund_pending': 0, 'amount': 0.0}
+    for x in provider_future_bookings(db, kind, oid):
+        b = booking_row(db, x['id'])
+        if b['status'] == 'payment_in_progress':
+            if expire_booking(db, b, 'provider_closed', notify=False) != 'paid': continue
+            b = booking_row(db, x['id'])
+        outcome, amount = provider_cancel_booking(db, b, 'provider_closed', user['id'], 'provider_closed', notify=True, refund=True)
+        rep['cancelled'] += 1; rep['amount'] = round(rep['amount'] + (amount if outcome == 'refunded' else 0), 2)
+        if outcome == 'refunded': rep['refunded'] += 1
+        elif outcome not in ('none_paid',): rep['refund_pending'] += 1
+    audit(db, user['id'], 'provider_cancel_all', kind, oid, {**rep, 'note': clean_text(note, 300) or None})
+    return rep
+
+
+def provider_close(db, user, kind, oid):
+    if provider_closure(db, kind, oid): raise ValueError('Esta cuenta ya está cerrada.')
+    fut = provider_future_bookings(db, kind, oid)
+    if fut: raise ValueError(f'Tienes {len(fut)} reservas próximas. Resuélvelas o pulsa «Cancelar y avisar a todos» antes de cerrar la cuenta.')
+    restore = {'services': [r['id'] for r in db.execute(f"SELECT id FROM provider_services WHERE active=1 AND {'center_id=?' if kind == 'center' else 'provider_user_id=? AND center_id IS NULL'}", (oid,))],
+               'experiences': [r['id'] for r in db.execute(f"SELECT id FROM travel_experiences WHERE active=1 AND {'center_id=?' if kind == 'center' else 'provider_user_id=? AND center_id IS NULL'}", (oid,))]}
+    if kind == 'center':
+        restore['center_active'] = db.execute('SELECT active FROM centers WHERE id=?', (oid,)).fetchone()['active']
+        db.execute('UPDATE centers SET active=0,updated_at=? WHERE id=?', (now(), oid))
+    key = winq.tenant_key(kind, oid)
+    for sid in restore['services']: db.execute('UPDATE provider_services SET active=0 WHERE id=? AND provider_id=?', (sid, key))
+    for eid in restore['experiences']: db.execute('UPDATE travel_experiences SET active=0 WHERE id=? AND provider_id=?', (eid, key))
+    purge = (datetime.now(timezone.utc) + _timedelta(days=CLOSE_KEEP_DAYS)).isoformat(timespec='seconds')
+    db.execute('INSERT INTO provider_closures(provider_kind,provider_oid,closed_at,closed_by,purge_after,restore) VALUES(?,?,?,?,?,?)',
+               (kind, oid, now(), user['id'], purge, json.dumps(restore)))
+    # Everybody of that centre is signed out (the owner signs in again to reopen it).
+    ids = [user['id']] if kind == 'freelance' else [r['user_id'] for r in db.execute('SELECT user_id FROM center_members WHERE center_id=?', (oid,))] + \
+        [r['id'] for r in db.execute("SELECT id FROM users WHERE center_id=? AND role='center'", (oid,))]
+    for uid in set(ids): db.execute('DELETE FROM sessions WHERE user_id=?', (uid,))
+    audit(db, user['id'], 'provider_closed', kind, oid, {'purge_after': purge[:10], 'services': len(restore['services'])})
+    return purge[:10]
+
+
+def provider_reopen(db, user, kind, oid):
+    c = provider_closure(db, kind, oid)
+    if not c: raise ValueError('Esta cuenta no está cerrada.')
+    restore = json.loads(c['restore'] or '{}')
+    if kind == 'center' and restore.get('center_active') is not None: db.execute('UPDATE centers SET active=?,updated_at=? WHERE id=?', (restore['center_active'], now(), oid))
+    key = winq.tenant_key(kind, oid)
+    for sid in restore.get('services', []): db.execute('UPDATE provider_services SET active=1 WHERE id=? AND provider_id=?', (sid, key))
+    for eid in restore.get('experiences', []): db.execute('UPDATE travel_experiences SET active=1 WHERE id=? AND provider_id=?', (eid, key))
+    db.execute('UPDATE provider_closures SET reopened_at=?,reopened_by=? WHERE id=?', (now(), user['id'], c['id']))
+    audit(db, user['id'], 'provider_reopened', kind, oid, {'closed_at': c['closed_at']})
+
+
+CLOSED_PRIVATE_GET = ('/api/bookings', '/api/center/', '/api/provider/', '/api/provider-services', '/api/manifest/', '/api/pro/', '/api/avisos', '/api/agenda/', '/api/messages',
+                      '/api/payments/center', '/api/whatsapp', '/api/boats', '/api/service-templates')
+
+
+def closed_gate(db, user, path, method):
+    """A closed account: its owner reads (history, exports) but changes nothing until reopening it; the rest of its team
+    does not see the centre's private data any more."""
+    ref = provider_of_user(user)
+    if not ref or path.startswith(CLOSED_WRITE_OK) or (method == 'GET' and not path.startswith(CLOSED_PRIVATE_GET)): return
+    if not provider_closure(db, *ref): return
+    if method == 'GET' and (ref[0] == 'freelance' or member_role(db, user) == 'owner'): return
+    raise PermissionError('Esta cuenta está cerrada. El propietario puede reabrirla desde «Mi cuenta» antes de que se borre.')
+
+
+def purge_provider(db, kind, oid):
+    """Six months after closing: deletes the data of a centre or freelance. Kept by law: payments and refunds, the
+    amounts and dates of the bookings (without names, emails, phones or notes), the tax data (DAC7) and the security
+    log. Every step is independent: what fails is written in the report and retried the next day."""
+    key = winq.tenant_key(kind, oid); rep = {}; errors = []
+    def step(name, fn):
+        try: rep[name] = fn()
+        except Exception as exc: errors.append(f'{name}: {exc}'[:200])
+    w, a = winq.owner_filter(winq.Ctx(0, kind, kind, int(oid)), 'b')
+    bids = f'SELECT b.id FROM bookings b WHERE {w}'
+    step('manifest', lambda: db.execute(f'DELETE FROM manifest_entries WHERE booking_id IN ({bids})', a).rowcount)
+    step('signatures', lambda: db.execute(f'DELETE FROM waiver_signatures WHERE booking_id IN ({bids})', a).rowcount)
+    step('messages', lambda: db.execute(f'DELETE FROM messages WHERE booking_id IN ({bids})', a).rowcount)
+    step('bookings_anonymised', lambda: db.execute(f'''UPDATE bookings SET contact_name=NULL,contact_email=NULL,contact_phone=NULL,contact_phone_hash=NULL,notes=NULL,
+                                                  internal_notes=NULL,equipment_notes=NULL,guide_notes=NULL,external_ref=NULL WHERE id IN ({bids})''', a).rowcount)
+    step('guides', lambda: db.execute('UPDATE slot_groups SET guide_name=NULL WHERE slot_id IN (SELECT id FROM service_slots WHERE provider_id=?)', (key,)).rowcount)
+    for t in PROVIDER_PURGE_TABLES:
+        step(t, lambda t=t: db.execute(f'DELETE FROM {t} WHERE provider_id=?', (key,)).rowcount)
+    people = []
+    if kind == 'center':
+        for t in CENTER_PURGE_TABLES:
+            step(t, lambda t=t: db.execute(f'DELETE FROM {t} WHERE center_id=?', (oid,)).rowcount)
+        def photos():
+            urls = [r['image_path'] for r in db.execute('SELECT image_path FROM center_photos WHERE center_id=?', (oid,))]
+            c = db.execute('SELECT logo_url,cover_url,gallery_json,insurance_doc FROM centers WHERE id=?', (oid,)).fetchone()
+            if c:
+                urls += [c['logo_url'], c['cover_url']]
+                try: urls += [g if isinstance(g, str) else (g or {}).get('url') for g in json.loads(c['gallery_json'] or '[]')]
+                except (ValueError, TypeError): pass
+                if c['insurance_doc']: delete_document_file(c['insurance_doc'])
+            for u in urls: delete_public_image(u)
+            db.execute('DELETE FROM center_photos WHERE center_id=?', (oid,)); return len([u for u in urls if u])
+        step('photos', photos)
+        team = {r['user_id'] for r in db.execute('SELECT user_id FROM center_members WHERE center_id=?', (oid,))} | \
+               {r['id'] for r in db.execute("SELECT id FROM users WHERE center_id=? AND role='center'", (oid,))}
+        step('members', lambda: db.execute('DELETE FROM center_members WHERE center_id=?', (oid,)).rowcount)
+        for uid in team:
+            other = db.execute('SELECT center_id FROM center_members WHERE user_id=? ORDER BY created_at LIMIT 1', (uid,)).fetchone()
+            if other: db.execute("UPDATE users SET center_id=? WHERE id=? AND center_id=?", (other['center_id'], uid, oid))
+            else: people.append(uid)
+        people += [r['id'] for r in db.execute('SELECT id FROM users WHERE guest_center_id=?', (oid,))]
+        def center_row_():
+            cols = {r['name'] for r in db.execute('PRAGMA table_info(centers)')}
+            sets = ', '.join(f'{c}=NULL' for c in CENTER_ANON_COLS if c in cols)
+            db.execute(f"UPDATE centers SET name='Centro eliminado', active=0, {sets}, updated_at=? WHERE id=?", (now(), oid)); return 1
+        step('center', center_row_)
+    else:
+        step('templates', lambda: db.execute('DELETE FROM service_templates WHERE provider_user_id=?', (oid,)).rowcount)
+        people.append(oid)
+    def accounts():
+        n = 0
+        for uid in people:
+            u = db.execute('SELECT * FROM users WHERE id=?', (uid,)).fetchone()
+            if not u or u['password_hash'] == '!' and (u['email'] or '').startswith('eliminado-'): continue
+            try: delete_user_account(db, dict(u))
+            except ValueError:   # the person also books as a diver: their diver account stays, without the centre
+                db.execute("UPDATE users SET role='recreational',center_id=NULL,requested_role='recreational' WHERE id=? AND role='center'", (uid,))
+            n += 1
+        return n
+    step('accounts', accounts)
+    return rep, errors
+
+
+def run_closure_jobs(db, at=None):
+    """Daily: accounts closed more than CLOSE_KEEP_DAYS ago are deleted (a copy of the database is made first)."""
+    at = at or datetime.now(timezone.utc)
+    due = db.execute('SELECT * FROM provider_closures WHERE reopened_at IS NULL AND purged_at IS NULL AND purge_after<=? LIMIT 20', (at.isoformat(timespec='seconds'),)).fetchall()
+    if not due: return 0
+    backup_database(db, 'antes_de_borrar_cuentas_cerradas')
+    for c in due:
+        rep, errors = purge_provider(db, c['provider_kind'], c['provider_oid'])
+        if errors: rep['errors'] = errors
+        db.execute('UPDATE provider_closures SET purged_at=?,purge_report=? WHERE id=?', (None if errors else now(), json.dumps(rep), c['id']))
+        audit(db, None, 'provider_purged' if not errors else 'provider_purge_incomplete', c['provider_kind'], c['provider_oid'], rep)
+        db.commit()
+    return len(due)
+
+
 REPORT_TARGETS = ('review', 'center', 'point', 'experience', 'photo', 'promotion', 'profile')
 
 
@@ -7368,7 +7626,9 @@ def owner_guides(db, kind, oid):
     rows = db.execute('''SELECT u.id,u.fullname,COALESCE(m.member_role,'owner') AS member_role FROM users u
                            LEFT JOIN center_members m ON m.user_id=u.id AND m.center_id=u.center_id
                           WHERE u.center_id=? AND u.role='center' ORDER BY CASE COALESCE(m.member_role,'owner') WHEN 'instructor' THEN 0 WHEN 'owner' THEN 1 ELSE 2 END, u.fullname''', (oid,)).fetchall()
-    return [{'user_id': r['id'], 'name': r['fullname'], 'member_role': r['member_role']} for r in rows if r['member_role'] in ('owner', 'instructor')]
+    # v50.49: also the roles the centre created that can do the check-in on the boat («Instructor máster»…).
+    return [{'user_id': r['id'], 'name': r['fullname'], 'member_role': r['member_role']} for r in rows
+            if r['member_role'] in ('owner', 'instructor') or (wroles.CLAVE_PROPIA.fullmatch(r['member_role'] or '') and 'checkin' in wroles.permisos(db, oid, r['member_role']))]
 
 
 def booking_rental(b):
@@ -7444,7 +7704,7 @@ def manifest_data(db, user, slot_id):
     if waiver:
         unsigned = sum(1 for d in divers if not d['signed'])
         if unsigned: warn.append({'kind': 'unsigned', 'ref': None, 'text': f"{unsigned} {'buceador sin firmar el descargo' if unsigned == 1 else 'buceadores sin firmar el descargo'}."})
-    can_edit = user['role'] == 'admin' or member_role(db, user) in (None, 'owner', 'reception')
+    can_edit = user_can(db, user, 'barco')
     return {'slot': {k: slot[k] for k in ('id', 'service_id', 'slot_date', 'slot_time', 'spots_total', 'spots_available', 'status', 'service_title', 'service_type', 'duration_minutes')},
             'points': [dict(p) for p in db.execute('SELECT p.id,p.name FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id=? ORDER BY p.name', (slot_id,)).fetchall()],
             'settings': settings, 'boats': boats, 'guides': guides, 'groups': groups, 'divers': divers, 'warnings': warn,
@@ -7459,8 +7719,7 @@ def manifest_data(db, user, slot_id):
 
 def manifest_require_edit(db, user, slot_id):
     slot = manifest_slot(db, user, slot_id)
-    if user['role'] != 'admin' and member_role(db, user) not in (None, 'owner', 'manager', 'reception'):
-        raise PermissionError('Tu perfil de instructor es de solo lectura. Pide el cambio al propietario del centro.')
+    if not user_can(db, user, 'barco'): raise PermissionError(wroles.NO_PUEDE['barco'])
     return slot
 
 
@@ -7561,6 +7820,7 @@ def waiver_pdf(db, sig_id, lang='es'):
 # 4. Waiting list on full departures: when a spot frees up, the first person who fits gets it kept for 2 h (never
 #    after the start); without a booking it goes to the next one.
 SLOT_CANCEL_REASONS = {'weather': 'Mal tiempo', 'sea': 'Estado del mar', 'boat': 'Avería del barco', 'other': 'Otro motivo'}
+PROVIDER_CLOSED_REASON = 'Ha cerrado su cuenta en WORLDIVES y ha cancelado todas sus próximas reservas'
 SLOT_CHOICE_HOURS_DEFAULT = 48
 RESCHEDULE_HOURS_DEFAULT = 48
 RESCHEDULE_MODES = ('none', 'direct', 'approval')
@@ -7734,7 +7994,7 @@ def notice_actor_ctx(db, user):
     """The tenant of the session, for notices: owner or manager of a centre, or a freelance. Never the admin."""
     ctx = winq.ctx_from_user(db, user)
     if not ctx: raise PermissionError('Solo los centros y profesionales envían avisos a sus clientes.')
-    if not ctx.can_send_notices: raise PermissionError('Solo el propietario o el encargado del centro pueden cancelar salidas y enviar avisos a todos los clientes.')
+    if not ctx.can_send_notices: raise PermissionError(wroles.NO_PUEDE['avisos'])
     return ctx
 
 
@@ -8900,6 +9160,248 @@ def manifest_sync(db, user, changes):
     return applied, conflicts
 
 
+# =================================================================== v50.49 · the professional app (Centro PRO / Freelance PRO)
+PRO_URGENT_MINUTES = 180      # requests and payments that expire within 3 hours go to the top of «Hoy»
+PRO_AGENDA_MAX_DAYS = 42
+
+
+def pro_slots(db, user, day):
+    """The departures of one day, with what the staff needs at a glance: spots, people, who arrived, unsigned forms and
+    guides. Without «todas_salidas» a person sees the departures where they guide a group and those without guides."""
+    kind, oid = provider_owner(user)
+    w, a = owner_where(kind, oid, 's')
+    st = ','.join('?' * len(MANIFEST_STATES))
+    see_all = user_can(db, user, 'todas_salidas')
+    waiver = current_waiver(db, kind, oid)
+    key = winq.tenant_key(kind, oid)
+    out = []
+    for r in db.execute(f"""SELECT ss.id, ss.slot_date, ss.slot_time, ss.spots_total, ss.spots_available, ss.status, ss.cancelled_at, ss.meeting_point,
+                                   s.id AS service_id, s.title AS service_title, s.color AS service_color, s.service_type, s.duration_minutes
+                              FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
+                             WHERE {w} AND ss.slot_date=? ORDER BY ss.slot_time, ss.id""", (*a, day)).fetchall():
+        bk = db.execute(f"""SELECT COALESCE(SUM(CASE WHEN status IN ('confirmed','completed') THEN participants ELSE 0 END),0) AS ok,
+                                   COALESCE(SUM(CASE WHEN status='accepted_pending_payment' THEN participants ELSE 0 END),0) AS pay,
+                                   COALESCE(SUM(CASE WHEN status='requested' THEN participants ELSE 0 END),0) AS req, COUNT(*) AS n
+                              FROM bookings WHERE slot_id=? AND provider_id=? AND status IN ({st})""", (r['id'], key, *MANIFEST_STATES)).fetchone()
+        me = db.execute(f"""SELECT COALESCE(SUM(CASE WHEN m.checked_in_at IS NOT NULL THEN 1 ELSE 0 END),0) AS present, COALESCE(SUM(m.no_show),0) AS no_show
+                              FROM manifest_entries m JOIN bookings b ON b.id=m.booking_id WHERE m.slot_id=? AND b.provider_id=? AND b.status IN ({st})""",
+                        (r['id'], key, *MANIFEST_STATES)).fetchone()
+        groups = db.execute('''SELECT g.label, g.guide_user_id, COALESCE(u.fullname, g.guide_name) AS guide FROM slot_groups g JOIN service_slots x ON x.id=g.slot_id AND x.provider_id=?
+                               LEFT JOIN users u ON u.id=g.guide_user_id WHERE g.slot_id=? ORDER BY g.sort, g.id''', (key, r['id'])).fetchall()
+        mine = any(g['guide_user_id'] == user['id'] for g in groups)
+        if not see_all and any(g['guide'] for g in groups) and not mine: continue
+        unsigned = 0
+        if waiver:
+            people = int(bk['ok'] or 0)
+            signed = db.execute("SELECT COUNT(*) FROM waiver_signatures ws JOIN bookings bb ON bb.id=ws.booking_id WHERE bb.slot_id=? AND bb.provider_id=? AND bb.status IN ('confirmed','completed')", (r['id'], key)).fetchone()[0]
+            unsigned = people - int(signed or 0)
+        out.append({'slot_id': r['id'], 'date': r['slot_date'], 'time': r['slot_time'], 'service_id': r['service_id'], 'service': r['service_title'],
+                    'color': r['service_color'], 'type': r['service_type'], 'duration': r['duration_minutes'], 'meeting_point': r['meeting_point'],
+                    'status': 'cancelled' if r['cancelled_at'] else r['status'], 'spots_total': int(r['spots_total'] or 0),
+                    'spots_available': int(r['spots_available'] or 0), 'confirmed': int(bk['ok']), 'pending_payment': int(bk['pay']), 'requested': int(bk['req']),
+                    'present': int(me['present']), 'no_show': int(me['no_show']), 'unsigned': max(0, int(unsigned)), 'mine': mine,
+                    'guides': [g['guide'] for g in groups if g['guide']]})
+    return out
+
+
+def pro_today(db, user):
+    """«Hoy» of the professional app: four numbers, what is urgent, today's departures and tomorrow's (folded)."""
+    today = local_now().date(); tomorrow = today + _timedelta(days=1)
+    sal = pro_slots(db, user, today.isoformat()); man = pro_slots(db, user, tomorrow.isoformat())
+    res = {'date': today.isoformat(), 'tomorrow': tomorrow.isoformat(), 'now': local_now().isoformat(timespec='minutes'),
+           'slots': sal, 'tomorrow_slots': man, 'urgent': [], 'requests': None, 'awaiting_payment': None,
+           'counts': {'slots': len([x for x in sal if x['status'] != 'cancelled']), 'divers': sum(x['confirmed'] + x['pending_payment'] for x in sal),
+                      'present': sum(x['present'] for x in sal)}}
+    if user['role'] == 'freelance':
+        # Work booked by days or half days (no departure): today's and tomorrow's, with the client.
+        jobs = []
+        for b in db.execute('''SELECT b.id,b.status,b.participants,b.payment_status,b.price,b.currency,b.notes,b.dive_point_id,COALESCE(b.contact_name,u.fullname) AS client,
+                                      s.title AS service,d.local_date,d.part,p.name AS point_name,p.latitude,p.longitude
+                                 FROM booking_days d JOIN bookings b ON b.id=d.booking_id JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
+                                 LEFT JOIN dive_points p ON p.id=b.dive_point_id
+                                WHERE b.center_id IS NULL AND b.provider_user_id=? AND d.local_date IN (?,?) AND b.status IN ('accepted_pending_payment','confirmed','completed')
+                                ORDER BY d.local_date,b.id''', (user['id'], today.isoformat(), tomorrow.isoformat())).fetchall():
+            jobs.append(dict(b))
+        res['jobs'] = jobs
+    if user_can(db, user, 'reservas'):
+        scope, sargs = provider_scope_sql(user)
+        now_l = local_now(); urgent = []
+        q = f"""SELECT b.id,b.status,b.booking_date,b.booking_time,b.participants,b.response_deadline,b.payment_deadline,
+                       COALESCE(b.contact_name,u.fullname) AS name,s.title AS service
+                  FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
+                 WHERE {scope} AND b.status IN ('requested','pending','accepted_pending_payment')"""
+        for b in db.execute(q, sargs).fetchall():
+            dl = parse_local(b['payment_deadline'] if b['status'] == 'accepted_pending_payment' else b['response_deadline'])
+            left = int((dl - now_l).total_seconds() // 60) if dl else None
+            if left is not None and left <= PRO_URGENT_MINUTES:
+                urgent.append({'booking_id': b['id'], 'kind': 'pago' if b['status'] == 'accepted_pending_payment' else 'solicitud', 'name': b['name'],
+                               'service': b['service'], 'date': b['booking_date'], 'time': b['booking_time'], 'participants': b['participants'], 'minutes_left': max(0, left)})
+        res['urgent'] = sorted(urgent, key=lambda x: x['minutes_left'])[:8]
+        res['requests'] = db.execute(f"SELECT COUNT(*) FROM bookings b WHERE {scope} AND b.status IN ('requested','pending')", sargs).fetchone()[0]
+        res['awaiting_payment'] = db.execute(f"SELECT COUNT(*) FROM bookings b WHERE {scope} AND b.status='accepted_pending_payment'", sargs).fetchone()[0]
+    return res
+
+
+def pro_agenda(db, user, start, days):
+    """Departures of several days (week and month views of the app), one entry per day."""
+    try: d0 = _dt.date.fromisoformat(str(start)[:10])
+    except ValueError: d0 = local_now().date()
+    days = max(1, min(PRO_AGENDA_MAX_DAYS, int(days or 7)))
+    out = []
+    for i in range(days):
+        d = (d0 + _timedelta(days=i)).isoformat(); sl = pro_slots(db, user, d)
+        live = [x for x in sl if x['status'] != 'cancelled']
+        cap = sum(x['spots_total'] for x in live); people = sum(x['confirmed'] + x['pending_payment'] for x in live)
+        out.append({'date': d, 'slots': sl, 'people': people, 'capacity': cap, 'occupancy': round(people / cap, 2) if cap else 0})
+    return {'from': d0.isoformat(), 'days': out, 'today': local_now().date().isoformat()}
+
+
+SCAN_TEXT = {
+    'ok': 'Llegada marcada.', 'usado': 'Esta reserva ya estaba marcada como llegada.', 'otra_salida': 'Esta reserva es de otra salida.',
+    'otro_dia': 'Esta reserva es de otro día.', 'otro_centro': 'Esta reserva no es de tu centro.', 'anulada': 'Esta reserva está cancelada.',
+    'sin_aceptar': 'Esta reserva es una solicitud que todavía no has aceptado.', 'pendiente_pago': 'Esta reserva está aceptada pero falta el pago.',
+    'no_valido': 'Este código no es de una reserva de WORLDIVES o está mal escrito.', 'sin_lista': 'Reserva correcta. Esta actividad no tiene lista de barco.',
+}
+
+
+def pro_scan(db, user, data):
+    """The staff scans the QR of a booking (or types its code). Only bookings of the session's centre are described;
+    the check-in is written exactly as the boat list does (manifest_entries)."""
+    parsed = wpro.parse_code(data.get('code'))
+    if not parsed: return {'result': 'no_valido', 'message': SCAN_TEXT['no_valido']}
+    bid, tok, how = parsed
+    b = db.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b or not wpro.token_matches(b['public_token'], tok, how): return {'result': 'no_valido', 'message': SCAN_TEXT['no_valido']}
+    if not can_manage_booking(user, b):
+        audit(db, user['id'], 'scan_other_tenant', 'booking', None, {'how': how})
+        return {'result': 'otro_centro', 'message': SCAN_TEXT['otro_centro']}
+    u = db.execute('SELECT fullname FROM users WHERE id=?', (b['user_id'],)).fetchone()
+    svc = db.execute('SELECT title FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    paid_, refunded_, _o = booking_paid_online(db, b['id'])
+    card = {'booking_id': b['id'], 'code': wpro.booking_code(b['id'], b['public_token']), 'name': b['contact_name'] or (u['fullname'] if u else ''),
+            'participants': int(b['participants'] or 1), 'service': svc['title'] if svc else None, 'date': b['booking_date'], 'date_to': b['date_to'],
+            'time': b['booking_time'], 'status': b['status'], 'payment_status': b['payment_status'], 'slot_id': b['slot_id'],
+            'paid': round(paid_ - refunded_, 2), 'amount_due': b['amount_due'], 'currency': b['currency'] or 'EUR', 'seats': [], 'unsigned': 0}
+    def res(kind, **extra): return {'result': kind, 'message': SCAN_TEXT[kind], 'booking': card, **extra}
+    if b['status'] in ('cancelled', 'rejected', 'expired'): return res('anulada')
+    if b['status'] in ('requested', 'pending'): return res('sin_aceptar')
+    today = local_now().date().isoformat()
+    if not (b['booking_date'] <= today <= (b['date_to'] or b['booking_date'])): return res('otro_dia')
+    want = int(data.get('slot_id') or 0)
+    if want and b['slot_id'] and want != int(b['slot_id']): return res('otra_salida')
+    if not b['slot_id']: return res('sin_lista' if b['status'] != 'accepted_pending_payment' else 'pendiente_pago')
+    d = manifest_data(db, user, int(b['slot_id']))
+    seats = [x for x in d['divers'] if x['booking_id'] == b['id']]
+    card['seats'] = [{'seat': x['seat'], 'name': x['name'], 'present': bool(x['checked_in_at']), 'signed': bool(x['signed'])} for x in seats]
+    card['unsigned'] = sum(1 for x in seats if not x['signed']) if d['waiver'] else 0
+    if seats and all(x['checked_in_at'] for x in seats): return res('usado')
+    if b['status'] == 'accepted_pending_payment' and not data.get('force'): return res('pendiente_pago')
+    if data.get('mark') is False: return res('ok', marked=False)
+    changes = [{'slot_id': b['slot_id'], 'booking_id': b['id'], 'seat': x['seat'], 'field': 'status', 'base': '', 'value': 'present', 'force': True}
+               for x in seats if not x['checked_in_at']]
+    manifest_sync(db, user, changes)
+    slot_event(db, b['slot_id'], 'qr_checkin', user['id'], booking_id=b['id'], seats=len(changes), how=how)
+    for x in card['seats']: x['present'] = True
+    return res('ok', marked=True)
+
+
+def pro_headcount(db, user, slot_id, count):
+    """«Contar a bordo»: the number counted on the boat against the people marked as arrived. It is kept in the
+    history of the departure."""
+    slot = manifest_slot(db, user, slot_id)
+    st = ','.join('?' * len(MANIFEST_STATES))
+    present = db.execute(f"""SELECT COUNT(*) FROM manifest_entries m JOIN bookings b ON b.id=m.booking_id WHERE m.slot_id=? AND m.checked_in_at IS NOT NULL
+                             AND b.provider_id=? AND b.status IN ({st})""", (slot['id'], winq.tenant_key(*slot_owner(slot)), *MANIFEST_STATES)).fetchone()[0]
+    count = max(0, min(999, int(count or 0)))
+    slot_event(db, slot['id'], 'headcount', user['id'], counted=count, present=present)
+    return {'counted': count, 'present': present, 'match': count == present, 'diff': count - present, 'at': now()}
+
+
+def booking_whatsapp(db, user, bid, kind, base):
+    """A wa.me link with the text in the client's language, opened from the professional's own phone (no message
+    leaves WORLDIVES). Only for the centre of the booking and when the client's phone is visible to it."""
+    b = db.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+    if not b or not can_manage_booking(user, b): raise NotFound('Reserva no encontrada.')
+    visible = provider_can_see_user(db, b) or is_guest_user(db, b['user_id'], b['center_id'] or -1)
+    prof = db.execute('SELECT phone FROM user_profiles WHERE user_id=?', (b['user_id'],)).fetchone()
+    phone = (b['contact_phone'] or (prof['phone'] if prof else None)) if visible else None
+    e164 = wcif.normalize_phone(phone) if phone else None
+    lang = user_lang(db, b['user_id'])
+    u = db.execute('SELECT fullname FROM users WHERE id=?', (b['user_id'],)).fetchone()
+    name = str(b['contact_name'] or (u['fullname'] if u else '') or '').split(' ')[0]
+    svc = db.execute('SELECT title FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    owner = ('center', b['center_id']) if b['center_id'] else ('freelance', b['provider_user_id'])
+    text = wpro.wa_text('pago' if kind == 'pago' else 'reserva', lang, name=name, center=provider_label(db, *owner), service=svc['title'] if svc else '',
+                        date=mail_date(b['booking_date'], lang), time=b['booking_time'], link=f"{base}/#/reserva?id={b['id']}")
+    if e164: log_phone_access(db, user, 'whatsapp_link', 1, bid)
+    return {'lang': lang, 'text': text, 'phone_ok': bool(e164), 'url': wpro.wa_url(e164, text) if e164 else None, 'tel': f'tel:{e164}' if e164 else None,
+            'reason': None if e164 else ('El cliente no ha compartido su teléfono con tu centro.' if not visible else 'Esta reserva no tiene un teléfono válido.')}
+
+
+def manifest_pdf(db, user, slot_id, lang='es'):
+    """«Resumen para el barco»: the list of a departure, with a SHA-256 fingerprint of its content and who generated it,
+    so a printed copy can be checked against the server."""
+    d = manifest_data(db, user, slot_id); s = d['slot']
+    kind, oid = slot_owner(manifest_slot(db, user, slot_id))
+    T = lambda x: mail_t(lang, x)
+    gname = {g['id']: (g['label'] + (f" · {g['guide']}" if g.get('guide') else '')) for g in d['groups']}
+    rows = [(gname.get(x['group_id'], T('Sin grupo')), x['name'] or '—', x.get('level_name') or '', 'Nx' if x.get('nitrox') else '',
+             ', '.join(x.get('rental') or []), ('sí' if x.get('signed') else 'no') if d['waiver'] else '',
+             'sí' if x.get('checked_in_at') else ('no vino' if x.get('no_show') else ''))
+            for x in d['divers']]
+    import hashlib as _h
+    payload = json.dumps({'slot': s['id'], 'date': s['slot_date'], 'time': s['slot_time'], 'rows': rows}, ensure_ascii=False, sort_keys=True)
+    digest = _h.sha256(payload.encode('utf-8')).hexdigest()
+    doc = wpdf.Document(T('Resumen para el barco'), lang)
+    ink, muted = (0.04, 0.17, 0.24), (0.38, 0.43, 0.46)
+    doc.box(24, 748, 547, 70, BRAND_PDF['abismo'], None, 16); pdf_brand_icon(doc, 40, 756, 54)
+    doc.text(104, 790, 'WORLDIVES DISCOVERY', 21, (1, 1, 1)); doc.text(104, 773, T('Resumen para el barco').upper(), 8, BRAND_PDF['agua'])
+    meta = [(T('Centro'), provider_label(db, kind, oid)), (T('Actividad'), s['service_title'] or '—'), (T('Fecha'), when_text(s['slot_date'], s['slot_time'], lang)),
+            (T('Buceadores'), str(len(d['divers']))), (T('Llegados'), str(sum(1 for x in d['divers'] if x.get('checked_in_at')))),
+            (T('Puntos'), ', '.join(p['name'] for p in d['points']) or '—')]
+    for i, (lab, val) in enumerate(meta):
+        x = 46 + (i % 3) * 170; y = 722 - (i // 3) * 30
+        doc.text(x, y, lab.upper(), 7, muted); doc.text(x, y - 13, doc.fit(str(val), 9, 160), 9, ink)
+    cols = [(46, T('Grupo'), 110), (160, T('Buceador'), 130), (294, T('Nivel'), 80), (378, 'Nx', 18), (400, T('Alquiler'), 96), (500, T('Firma'), 30), (532, T('Llegó'), 40)]
+    y = [650]
+    def head():
+        for x, lab, _w in cols: doc.text(x, y[0], lab.upper(), 7, muted)
+        y[0] -= 16
+    head()
+    for r in rows:
+        if y[0] < 90:
+            doc.new_page(); y[0] = 790; head()
+        for (x, _lab, wdt), val in zip(cols, r): doc.text(x, y[0], doc.fit(str(val), 8.5, wdt), 8.5, ink)
+        y[0] -= 14
+    by = db.execute('SELECT fullname FROM users WHERE id=?', (user['id'],)).fetchone()
+    doc.text(46, 60, doc.fit(T('Generado el {at} por {who}').replace('{at}', now()[:16].replace('T', ' ') + ' UTC').replace('{who}', by['fullname'] if by else ''), 7, 500), 7, muted)
+    doc.text(46, 48, f'SHA-256 {digest}', 6.5, muted)
+    slot_event(db, s['id'], 'boat_summary', user['id'], sha256=digest)
+    return doc.pdf(), digest
+
+
+BOAT_PDF_LINK_SECONDS = 600
+
+
+def boat_pdf_token(slot_id, user_id, at=None):
+    """A link to the boat summary that works for 10 minutes without the session (the app opens PDFs in the phone's
+    browser, which does not share the app's cookie). It names the person: the server checks again that they still
+    work for that centre."""
+    exp = int((at or time.time()) + BOAT_PDF_LINK_SECONDS)
+    payload = f'{int(slot_id)}.{int(user_id)}.{exp}'
+    sig = hmac.new(wsec.secret_key(), ('boat-pdf:' + payload).encode(), hashlib.sha256).hexdigest()[:32]
+    return f'{payload}.{sig}'
+
+
+def boat_pdf_user(db, slot_id, token):
+    try: sid, uid, exp, sig = str(token or '').split('.')
+    except ValueError: return None
+    good = hmac.new(wsec.secret_key(), f'boat-pdf:{sid}.{uid}.{exp}'.encode(), hashlib.sha256).hexdigest()[:32]
+    if not hmac.compare_digest(good, sig) or int(sid) != int(slot_id) or int(exp) < time.time(): return None
+    u = db.execute('SELECT * FROM users WHERE id=?', (int(uid),)).fetchone()
+    return dict(u) if u and u['role'] in ('center', 'freelance') else None
+
+
 from wod import ops as wops
 
 CSP_HEADER = wsec.content_security_policy()
@@ -9331,7 +9833,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
                     if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
                     kind=clean_text(query.get('kind',['bookings'])[0],20) or 'bookings'
-                    if kind=='payments' and (member_role(db,user) or 'owner')!='owner': raise PermissionError('Solo el propietario del centro puede exportar los pagos.')
+                    if kind=='payments' and not user_can(db,user,'cobros'): raise PermissionError(wroles.NO_PUEDE['cobros'])
                     raw=provider_export(db,*ref,kind).encode('utf-8'); audit(db,user['id'],'provider_export',ref[0],ref[1],{'kind':kind}); db.commit()
                     if kind in ('bookings','clients'): log_phone_access(db,user,f'export:{kind}',max(0,raw.count(b'\n')-1),ref[1])
                     self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8')
@@ -9390,7 +9892,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     members=[dict(r) for r in db.execute('''SELECT u.id,u.fullname,u.email,COALESCE(m.member_role,'owner') member_role,m.created_at FROM users u LEFT JOIN center_members m ON m.user_id=u.id AND m.center_id=?
                                                              WHERE u.role='center' AND (u.center_id=? OR m.user_id IS NOT NULL) ORDER BY m.member_role='owner' DESC,u.fullname''',(user['center_id'],user['center_id'])).fetchall()]
                     inv=[dict(r) for r in db.execute('SELECT id,email,member_role,created_at,expires_at FROM team_invites WHERE center_id=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>=? ORDER BY id DESC',(user['center_id'],now())).fetchall()]
-                    self.send_json({'members':members,'invites':inv,'roles':TEAM_ROLES,'limit':plan_limit(db,'center',user['center_id'],'team_max'),'team_feature':provider_has(db,'center',user['center_id'],'team')}); return
+                    rl=wroles.lista(db,user['center_id'])
+                    self.send_json({'members':members,'invites':inv,'roles':{r['key']:r['name'] for r in rl},'role_list':rl,**wroles.catalogo(),
+                                    'limit':plan_limit(db,'center',user['center_id'],'team_max'),'team_feature':provider_has(db,'center',user['center_id'],'team')}); return
+                if path == '/api/provider/cuenta':
+                    # v50.49: «Borrar mi cuenta para siempre» (only the owner: team_gate). State, future bookings, days left.
+                    user=require_user(self,db); ref=provider_of_user(user)
+                    if not ref: raise PermissionError('Solo los centros y profesionales tienen esta opción.')
+                    self.send_json(provider_account_status(db,*ref)); return
                 if path == '/api/center/activity':
                     user=require_user(self,db); require_role(user,{'center'})
                     rows=[dict(r) for r in db.execute('''SELECT a.id,a.action,a.entity_type,a.entity_id,a.created_at,u.fullname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id
@@ -9398,9 +9907,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     self.send_json({'items':rows}); return
                 if path == '/api/team/invite':
                     tok=clean_text(query.get('token',[''])[0],100) or ''
-                    r=db.execute('SELECT t.email,t.member_role,t.expires_at,t.used_at,t.revoked_at,c.name FROM team_invites t JOIN centers c ON c.id=t.center_id WHERE t.token_hash=?',(hashlib.sha256(tok.encode()).hexdigest(),)).fetchone()
+                    r=db.execute('SELECT t.center_id,t.email,t.member_role,t.expires_at,t.used_at,t.revoked_at,c.name FROM team_invites t JOIN centers c ON c.id=t.center_id WHERE t.token_hash=?',(hashlib.sha256(tok.encode()).hexdigest(),)).fetchone()
                     if not r or r['used_at'] or r['revoked_at'] or r['expires_at']<now(): self.send_json({'error':'La invitación no es válida o ha caducado.'},404); return
-                    self.send_json({'email':r['email'],'member_role':r['member_role'],'role_label':TEAM_ROLES.get(r['member_role']),'center':r['name']}); return
+                    self.send_json({'email':r['email'],'member_role':r['member_role'],'role_label':wroles.nombre(db,r['center_id'],r['member_role']),'center':r['name']}); return
                 if path == '/api/admin/plans':
                     user=require_user(self,db); require_role(user,{'admin'})
                     plans=[plan_row(db,r['code']) for r in db.execute('SELECT code FROM plans ORDER BY sort_order,code').fetchall()]
@@ -9699,13 +10208,16 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                         'pro_request': dict(claim) if claim else None,
                                         'legal':dict(zip(('pending','upcoming'),legal_pending_for(db,user))),
                                         'plan':provider_plan(db,*provider_ref(db,user)) if provider_ref(db,user) else None,'member_role':member_role(db,user),'centers':user_centers(db,user),
+                                        'member_role_name':wroles.nombre(db,user['center_id'],member_role(db,user)) if member_role(db,user) else None,
+                                        'permissions':sorted(user_perms(db,user),key=wroles.CLAVES.index) if user['role'] in ('center','freelance') else [],
+                                        'account_closed':(provider_account_status(db,*provider_of_user(user))['closed'] if provider_of_user(user) and provider_closure(db,*provider_of_user(user)) else None),
                                         'security':{'totp_enabled':bool(user.get('totp_enabled')),'totp_setup_required':user['role']=='admin' and admin_totp_required() and not user.get('totp_enabled'),
                                                     'recovery_left':len(json.loads(user.get('totp_recovery') or '[]')) if user.get('totp_enabled') else 0}})
                     return
                 if path.startswith('/api/providers/'):
                     provider_id=int(path.rsplit('/',1)[1])
                     u=db.execute("SELECT id,fullname,role,provider_bio,avatar_url,center_id,instagram_url,facebook_url,twitter_url,youtube_url,tiktok_url FROM users WHERE id=? AND role IN ('center','freelance')",(provider_id,)).fetchone()
-                    if not u: self.send_json({'error':'Profesional no encontrado'},404); return
+                    if not u or (u['role']=='freelance' and provider_closure(db,'freelance',u['id'])): self.send_json({'error':'Profesional no encontrado'},404); return
                     if u['role']=='freelance' and not u['center_id']: stat_bump(db,'freelance',u['id'],'views',self.client_ip()); db.commit()
                     result={'online_booking':provider_has(db,'freelance',u['id'],'online_bookings') if u['role']=='freelance' and not u['center_id'] else None,'id':u['id'],'fullname':u['fullname'],'role':u['role'],'provider_bio':u['provider_bio'] or '', 'avatar_url':u['avatar_url'] or '', 'socials': {k:(u[k] or '') for k in ('instagram_url','facebook_url','twitter_url','youtube_url','tiktok_url')}}
                     if u['role']=='center' and u['center_id']:
@@ -10153,6 +10665,22 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if day not in (today.isoformat(),(today+_timedelta(days=1)).isoformat()): raise ValueError('Solo se puede preparar el manifiesto de hoy o de mañana.')
                     slots=manifest_day(db,user,day); db.commit(); log_phone_access(db,user,'manifest_day',count_phones(slots))
                     self.send_json({'date':day,'generated_at':now(),'slots':slots}); return
+                if path=='/api/app/push':
+                    # v50.49: is push on? (the app asks for the permission only then)
+                    self.send_json({'enabled':wpush.enabled()}); return
+                if path=='/api/pro/hoy':
+                    # v50.49: «Hoy» of the professional app.
+                    user=require_user(self,db); d=pro_today(db,user); db.commit(); self.send_json(d); return
+                if path=='/api/pro/agenda':
+                    user=require_user(self,db)
+                    d=pro_agenda(db,user,clean_text(query.get('desde',[''])[0],10),int(query.get('dias',['7'])[0] or 7)); db.commit(); self.send_json(d); return
+                if re.fullmatch(r'/api/manifest/\d+/resumen\.pdf',path):
+                    sid_=int(path.split('/')[3]); tok_=query.get('t',[''])[0]
+                    user=boat_pdf_user(db,sid_,tok_) if tok_ else require_user(self,db)
+                    if not user: raise PermissionError('El enlace ha caducado. Vuelve a abrir el resumen desde la app.')
+                    team_gate(db,user,path,'GET')
+                    raw,digest=manifest_pdf(db,user,sid_,user_lang(db,user['id'])); db.commit()
+                    log_phone_access(db,user,'boat_summary',0); self.send_bytes(raw,'application/pdf',f'WORLDIVES-barco-{path.split("/")[3]}.pdf'); return
                 if re.fullmatch(r'/api/manifest/\d+',path):
                     # Encargo 2, punto 1: the manifest of a departure (centre or professional that runs it; team members read it).
                     user=require_user(self,db); d=manifest_data(db,user,int(path.rsplit('/',1)[1])); db.commit(); log_phone_access(db,user,'manifest',count_phones(d),d['slot']['id'] if isinstance(d.get('slot'),dict) else None); self.send_json(d); return
@@ -10186,6 +10714,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         raise PermissionError('Este cliente no ha compartido su ficha de buceador con tu centro.')
                     if user['role']=='admin': audit(db,user['id'],'diver_sheet_viewed','booking',bid); db.commit()
                     raw=diver_sheet_pdf(db,bid,self.base_url()); log_phone_access(db,user,'diver_sheet',1,bid); self.send_bytes(raw,'application/pdf',f'WORLDIVES-ficha-buceador-{bid}.pdf'); return
+                if re.fullmatch(r'/api/bookings/\d+/whatsapp',path):
+                    user=require_user(self,db); d=booking_whatsapp(db,user,int(path.split('/')[3]),clean_text(query.get('tipo',['reserva'])[0],10),self.base_url())
+                    db.commit(); self.send_json(d); return
                 if path.startswith('/api/bookings/') and path.endswith('/qr.svg'):
                     user=require_user(self,db); bid=int(path.split('/')[3])
                     b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
@@ -10228,6 +10759,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     bd['cancellation_policy']=f"{_pol['free_hours']}h-{_pol['refund_pct']}"; bd['cancellation_text']=_pol['text']; bd['cancellation_note']=_pol['note']
                     bd['cancel_free_hours']=_pol['free_hours']; bd['cancel_refund_pct']=_pol['refund_pct']
                     bd.pop('public_token',None); bd['check_url']=booking_check_url(db,bid,self.base_url()) if (b['user_id']==user['id'] or can_manage_booking(user,b)) else None
+                    bd['check_code']=wpro.booking_code(bid,db.execute('SELECT public_token FROM bookings WHERE id=?',(bid,)).fetchone()['public_token']) if bd['check_url'] else None
                     if b['user_id']!=user['id']: log_phone_access(db,user,'booking',count_phones({'booking':bd,'profile':dict(profile) if profile else {}}),bid)
                     self.send_json({'booking':bd,'payment':pay,'profile':dict(profile) if profile else {},'documents':[dict(x) for x in docs],'data_shared':bool(can_see)}); return
                 if path == '/api/bookings':
@@ -10283,7 +10815,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         items.append(d)
                     awaiting=db.execute(f"SELECT COUNT(*) FROM bookings b WHERE {scope} AND b.status='accepted_pending_payment'",sargs).fetchone()[0]
                     refunds=db.execute(f"SELECT COUNT(*) FROM bookings b WHERE {scope} AND b.refund_status IN ('proposed','failed')",sargs).fetchone()[0]
-                    self.send_json({'items':items,'count':len(items),'awaiting_payment':awaiting,'pending_refunds':refunds}); return
+                    # v50.49: the app also lists the accepted bookings waiting for the payment, with the time left.
+                    aw=[]
+                    for r_ in db.execute(f'''SELECT b.id,b.booking_date,b.booking_time,b.participants,b.price,b.amount_due,b.currency,b.payment_deadline,b.accepted_at,
+                                                    COALESCE(b.contact_name,u.fullname) AS fullname,s.title AS service_title
+                                               FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
+                                              WHERE {scope} AND b.status='accepted_pending_payment' ORDER BY COALESCE(b.payment_deadline,'9999'),b.id LIMIT 200''',sargs).fetchall():
+                        d=dict(r_); dl=parse_local(d['payment_deadline']); d['minutes_left']=max(0,int((dl-now_l).total_seconds()//60)) if dl else None; aw.append(d)
+                    self.send_json({'items':items,'count':len(items),'awaiting_payment':awaiting,'awaiting_items':aw,'pending_refunds':refunds}); return
                 if path == '/api/account/documents':
                     user=require_user(self,db)
                     rows=db.execute('SELECT id,document_type,title,original_name,expires_at,status,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(user['id'],)).fetchall()
@@ -10906,6 +11445,24 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     db.execute("INSERT INTO waitlist_entries(slot_id,user_id,participants,status,created_at,updated_at) VALUES(?,?,?,'waiting',?,?)",(slot_id,user['id'],pax,now(),now()))
                     slot_event(db,slot_id,'waitlist_joined',user['id'],participants=pax)
                     db.commit(); self.send_json({'ok':True,**waitlist_for_slots(db,user['id'],[slot_id]).get(slot_id,{})}); return
+                if re.fullmatch(r'/api/manifest/\d+/resumen-enlace',path):
+                    user=require_user(self,db); sid_=int(path.split('/')[3]); manifest_slot(db,user,sid_)
+                    self.send_json({'url':f'{self.base_url()}/api/manifest/{sid_}/resumen.pdf?t={boat_pdf_token(sid_,user["id"])}','seconds':BOAT_PDF_LINK_SECONDS}); return
+                if path in ('/api/app/push/register','/api/app/push/unregister'):
+                    user=require_user(self,db); data=json_body(self); tok=clean_text(data.get('token'),400)
+                    if not tok: raise ValueError('Falta el identificador del móvil.')
+                    if path.endswith('/unregister'):
+                        db.execute('UPDATE app_devices SET active=0 WHERE token=? AND user_id=?',(tok,user['id'])); db.commit(); self.send_json({'ok':True}); return
+                    if not wpush.enabled(): self.send_json({'ok':False,'enabled':False}); return
+                    db.execute('''INSERT INTO app_devices(user_id,token,platform,app,created_at,last_seen_at,active) VALUES(?,?,?,?,?,?,1)
+                                  ON CONFLICT(token) DO UPDATE SET user_id=excluded.user_id,platform=excluded.platform,app=excluded.app,last_seen_at=excluded.last_seen_at,active=1''',
+                               (user['id'],tok,clean_text(data.get('platform'),20) or 'android',clean_text(data.get('app'),60),now(),now()))
+                    db.commit(); self.send_json({'ok':True,'enabled':True}); return
+                if path=='/api/pro/escanear':
+                    # v50.49: QR (or typed code) of a booking at the door or on the boat (permission «checkin»: team_gate).
+                    user=require_user(self,db); r=pro_scan(db,user,json_body(self)); db.commit(); self.send_json(r); return
+                if path=='/api/pro/contar':
+                    user=require_user(self,db); data=json_body(self); r=pro_headcount(db,user,int(data.get('slot_id') or 0),data.get('count')); db.commit(); self.send_json(r); return
                 if path=='/api/manifest/sync':
                     user=require_user(self,db); data=json_body(self); changes=data.get('changes')
                     if not isinstance(changes,list): raise ValueError('Cambio no válido.')
@@ -10917,7 +11474,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); data=json_body(self); parts=path.strip('/').split('/')
                     if path=='/api/manifest/boats/save':
                         kind,oid=provider_owner(user)
-                        if member_role(db,user) not in (None,'owner','reception'): raise PermissionError('Tu perfil de instructor es de solo lectura. Pide el cambio al propietario del centro.')
+                        if not user_can(db,user,'barco'): raise PermissionError(wroles.NO_PUEDE['barco'])
                         name=clean_text(data.get('name'),80); cap=int(data.get('capacity') or 0); bid=int(data.get('id') or 0)
                         if not name: raise ValueError('Ponle un nombre al barco.')
                         if not 1<=cap<=200: raise ValueError('La capacidad del barco debe estar entre 1 y 200 personas.')
@@ -11627,7 +12184,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
                     require_feature(db,user,'team')
                     role=data.get('member_role')
-                    if role not in TEAM_ROLES: raise ValueError('Elige el perfil: propietario, encargado, recepción o instructor.')
+                    if not wroles.existe(db,cid,role): raise ValueError('Elige el perfil: propietario, encargado, recepción, instructor o uno de los perfiles de tu centro.')
                     email=(clean_text(data.get('email'),160) or '').lower()
                     if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email): raise ValueError('Email no válido.')
                     count=db.execute("SELECT COUNT(*) FROM users WHERE center_id=? AND role='center'",(cid,)).fetchone()[0]+db.execute('SELECT COUNT(*) FROM team_invites WHERE center_id=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>=?',(cid,now())).fetchone()[0]
@@ -11641,7 +12198,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     db.execute('INSERT INTO team_invites(center_id,email,member_role,token_hash,created_by,created_at,expires_at) VALUES(?,?,?,?,?,?,?)',
                                (cid,email,role,hashlib.sha256(tok.encode()).hexdigest(),user['id'],now(),(datetime.now(timezone.utc)+_timedelta(days=7)).isoformat(timespec='seconds')))
                     cname=provider_label(db,'center',cid)
-                    queue_email(db,'team_invite',email,'',{'first_name':'','center':cname,'inviter':user['fullname'],'member_role':mail_t('es',TEAM_ROLES[role]),
+                    queue_email(db,'team_invite',email,'',{'first_name':'','center':cname,'inviter':user['fullname'],'member_role':mail_t('es',TEAM_ROLES[role]) if role in TEAM_ROLES else wroles.nombre(db,cid,role),
                                 'join_url':f'{public_site_url()}/#/equipo?token={tok}'},'es',('center',cid))
                     audit(db,user['id'],'team_invited','center',cid,{'email':email,'role':role}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center/team/invite/revoke':
@@ -11650,11 +12207,39 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     audit(db,user['id'],'team_invite_revoked','center',user['center_id']); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center/team/role':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']; uid=int(data.get('user_id') or 0); role=data.get('member_role')
-                    if role not in TEAM_ROLES: raise ValueError('Perfil no válido.')
+                    if not wroles.existe(db,cid,role): raise ValueError('Perfil no válido.')
                     if not is_team_member(db,cid,uid): raise NotFound('Esa persona no es del equipo.')
                     if uid==user['id'] and role!='owner': raise ValueError('No puedes quitarte a ti mismo el perfil de propietario.')
                     db.execute("INSERT INTO center_members(center_id,user_id,member_role,created_at,created_by) VALUES(?,?,?,?,?) ON CONFLICT(center_id,user_id) DO UPDATE SET member_role=excluded.member_role",(cid,uid,role,now(),user['id']))
                     audit(db,user['id'],'team_role_changed','user',uid,{'role':role}); db.commit(); self.send_json({'ok':True}); return
+                if path in ('/api/center/team/roles/save','/api/center/team/roles/delete'):
+                    # v50.49: the roles of the centre and what each one can do (only the owner: team_gate).
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']
+                    if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    if path.endswith('/save'):
+                        key=wroles.guardar(db,cid,data,user['id'],now())
+                        audit(db,user['id'],'team_role_saved','center',cid,{'role':key,'name':wroles.nombre(db,cid,key),'permissions':sorted(wroles.permisos(db,cid,key))})
+                    else:
+                        key=str(data.get('key') or ''); name=wroles.nombre(db,cid,key); wroles.borrar(db,cid,key)
+                        audit(db,user['id'],'team_role_deleted','center',cid,{'role':key,'name':name})
+                    db.commit(); self.send_json({'ok':True,'key':key,'role_list':wroles.lista(db,cid)}); return
+                if path in ('/api/provider/cuenta/cancelar-todo','/api/provider/cuenta/cerrar','/api/provider/cuenta/reabrir'):
+                    # v50.49: closing the account of a centre or freelance (only the owner: team_gate).
+                    user=require_user(self,db); data=json_body(self); ref=provider_of_user(user)
+                    if not ref: raise PermissionError('Solo los centros y profesionales tienen esta opción.')
+                    if path.endswith('/reabrir'):
+                        provider_reopen(db,user,*ref); db.commit(); self.send_json({'ok':True,**provider_account_status(db,*ref)}); return
+                    if provider_closure(db,*ref): raise ValueError('Esta cuenta ya está cerrada.')
+                    if path.endswith('/cancelar-todo'):
+                        if data.get('confirm') is not True: self.send_json({'error':'confirm_required',**provider_account_status(db,*ref)},409); return
+                        r=provider_cancel_all(db,user,*ref,note=data.get('note') or ''); db.commit()
+                        self.send_json({'ok':True,'result':r,**provider_account_status(db,*ref)}); return
+                    row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
+                    if not verify_password(str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
+                    fut=provider_future_bookings(db,*ref)
+                    if fut: self.send_json({'error':f'Tienes {len(fut)} reservas próximas. Resuélvelas o pulsa «Cancelar y avisar a todos» antes de cerrar la cuenta.','future':fut,'future_count':len(fut)},409); return
+                    purge=provider_close(db,user,*ref); db.commit()
+                    self.send_json({'ok':True,'purge_after':purge,'keep_days':CLOSE_KEEP_DAYS}); return
                 if path=='/api/center/team/remove':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']; uid=int(data.get('user_id') or 0)
                     if uid==user['id']: raise ValueError('No puedes quitarte a ti mismo del equipo.')
@@ -13187,11 +13772,13 @@ def run_retention_jobs(db, at=None, force=False):
         rep['audit_deleted'] = db.execute('DELETE FROM audit_log WHERE created_at < ? AND id < ?', (_months_ago(at, st['audit_months']).isoformat(timespec='seconds'), keep['id'])).rowcount
     for k, v in (('retention_last_run', day), ('retention_last_report', json.dumps(rep))):
         db.execute('INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at', (k, v, now()))
+    rep['closed_accounts_deleted'] = run_closure_jobs(db, at)
     if any(rep[k] for k in rep if k != 'date'): audit(db, None, 'retention_run', 'system', None, rep)
     return rep
 
 
 MAINTENANCE_JOBS.append(run_retention_jobs)
+MAINTENANCE_JOBS.append(run_push_jobs)
 
 
 def run_daily_plan_jobs(db):

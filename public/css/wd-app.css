@@ -346,6 +346,113 @@ html.wd-app[data-wda-tema="noche"] .wda-capa .burbuja { background: #005C4B; col
 .wda-barra .suave { color: var(--suave); font-size: var(--t-s); }
 html.wd-app.wda-con-barra body { padding-bottom: calc(var(--barra) + var(--abajo) + 76px); }
 
+/* ---------- Centro PRO and Freelance PRO (Tandas 2 and 3), the same look as the prototype */
+:where(.wda) .cab-centro { display: flex; align-items: center; gap: 10px; min-width: 0; }
+:where(.wda) .selector-perfil { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; border: 1px solid var(--linea); background: var(--sup); border-radius: 99px;
+  padding: 6px 12px 6px 6px; font-size: var(--t-s); font-weight: 600; cursor: pointer; color: var(--texto); min-height: 44px; }
+:where(.wda) .selector-perfil .logo-c { width: 30px; height: 30px; border-radius: 50%; }
+:where(.wda) .selector-perfil span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+:where(.wda, .wda-capa) .cifra.alerta b { color: var(--pend-t); }
+:where(.wda, .wda-capa) .cifra.urgente b { color: var(--urg-t); }
+:where(.wda, .wda-capa) button.cifra, :where(.wda, .wda-capa) a.cifra { text-align: left; cursor: pointer; text-decoration: none; color: var(--texto); font: inherit; }
+/* seats of the boat drawn as seats */
+:where(.wda, .wda-capa) .asientos { display: flex; flex-wrap: wrap; gap: 4px; }
+:where(.wda, .wda-capa) .asiento { width: 18px; height: 20px; border-radius: 5px 5px 3px 3px; border: 1.5px solid var(--linea); background: var(--sup); }
+:where(.wda, .wda-capa) .asiento.ok { background: var(--ok-s); border-color: var(--ok-s); }
+:where(.wda, .wda-capa) .asiento.pend { background: var(--pend-f); border-color: var(--pend-s); border-style: dashed; }
+:where(.wda, .wda-capa) .leyenda { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--t-xs); color: var(--suave); align-items: center; }
+:where(.wda, .wda-capa) .leyenda i { display: inline-block; width: 12px; height: 13px; border-radius: 3px; margin-right: 4px; vertical-align: -2px; border: 1.5px solid var(--linea); background: var(--sup); }
+:where(.wda, .wda-capa) .leyenda i.ok { background: var(--ok-s); border-color: var(--ok-s); }
+:where(.wda, .wda-capa) .leyenda i.pend { background: var(--pend-f); border-color: var(--pend-s); border-style: dashed; }
+:where(.wda) .anillo.urg .valor { stroke: var(--urg-s); }
+:where(.wda) .anillo.pend .valor { stroke: var(--pend-s); }
+:where(.wda) .anillo.peq { width: 56px; height: 56px; }
+:where(.wda) .anillo.peq b { font-size: var(--t-s); }
+/* agenda: month coloured like a depth chart, week bars, day timeline */
+:where(.wda) .mes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+:where(.wda) .mes .dsem { font-size: 12px; font-weight: 600; color: var(--suave); text-align: center; padding: 2px 0 4px; }
+:where(.wda) .dia { position: relative; aspect-ratio: 1 / 1.08; border-radius: 9px; border: 1px solid var(--linea); background: var(--sup); display: grid; align-content: start; justify-items: center;
+  padding-top: 4px; cursor: pointer; font-size: var(--t-s); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--texto); min-width: 0; }
+:where(.wda) .dia.fuera { opacity: .35; }
+:where(.wda) .dia.hoy { outline: 2.5px solid var(--turquesa); outline-offset: 1px; }
+:where(.wda) .dia[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--acento); }
+:where(.wda) .dia[data-p="1"] { background: #D6EEF5; color: #0A2239; border-color: transparent; }
+:where(.wda) .dia[data-p="2"] { background: #9FD6E8; color: #0A2239; border-color: transparent; }
+:where(.wda) .dia[data-p="3"] { background: #4EAACB; color: #0A2239; border-color: transparent; }
+:where(.wda) .dia[data-p="4"] { background: #076898; color: #FFFFFF; border-color: transparent; }
+:where(.wda) .dia[data-p="5"] { background: #011C3C; color: #FFFFFF; border-color: transparent; }
+html.wd-app[data-wda-tema="noche"] :where(.wda) .dia[data-p="1"] { background: #0E3A60; color: #FFFFFF; }
+html.wd-app[data-wda-tema="noche"] :where(.wda) .dia[data-p="2"] { background: #135A86; color: #FFFFFF; }
+html.wd-app[data-wda-tema="noche"] :where(.wda) .dia[data-p="3"] { background: #1A82AD; color: #FFFFFF; }
+html.wd-app[data-wda-tema="noche"] :where(.wda) .dia[data-p="4"] { background: #3FB6D6; color: #011C3C; }
+html.wd-app[data-wda-tema="noche"] :where(.wda) .dia[data-p="5"] { background: #A6E9F3; color: #011C3C; }
+:where(.wda) .dia .puntos { position: absolute; bottom: 4px; display: flex; gap: 2px; }
+:where(.wda) .dia .puntos i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .85; }
+:where(.wda) .dia.bloqueado { background: repeating-linear-gradient(135deg, var(--sup2) 0 6px, var(--sup) 6px 12px); color: var(--suave); }
+:where(.wda) .escala-prof { display: flex; align-items: center; gap: 4px; font-size: var(--t-xs); color: var(--suave); flex-wrap: wrap; }
+:where(.wda) .escala-prof i { width: 22px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid var(--linea); }
+:where(.wda) .semana-dia { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; min-height: 64px; width: 100%; background: none; border: 0; text-align: left; color: var(--texto); cursor: pointer; }
+:where(.wda) .semana-dia .nd { font-weight: 700; font-size: var(--t-m); line-height: 1.05; font-variant-numeric: tabular-nums; }
+:where(.wda) .semana-dia .nd small { display: block; font-size: var(--t-xs); color: var(--suave); font-weight: 600; text-transform: uppercase; }
+:where(.wda) .mini-barras { display: grid; gap: 4px; min-width: 0; }
+:where(.wda) .mini-barra { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 6px; align-items: center; font-size: var(--t-xs); font-variant-numeric: tabular-nums; }
+:where(.wda) .mini-barra .pista { height: 8px; border-radius: 4px; background: var(--sup2); overflow: hidden; }
+:where(.wda) .mini-barra .pista i { display: block; height: 100%; border-radius: 4px; background: var(--acento); }
+/* requests with countdown ring */
+:where(.wda) .solicitud { padding: 14px; display: grid; gap: 12px; }
+:where(.wda) .solicitud .btn-fila .wbtn { min-height: 56px; }
+/* boat list: 56 px check-in buttons, nothing depends on swiping */
+:where(.wda) .buceador-fila { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 14px; }
+:where(.wda) .buceador-fila .meta { font-size: var(--t-xs); color: var(--suave); line-height: 1.35; }
+:where(.wda) .marca-check { width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--linea); display: grid; place-items: center; flex: none; color: var(--suave); background: var(--sup); cursor: pointer; }
+:where(.wda) .marca-check.si { background: var(--ok-s); border-color: var(--ok-s); color: #FFFFFF; }
+html.wd-app[data-wda-tema="noche"] :where(.wda) .marca-check.si { color: #011C3C; }
+:where(.wda) .marca-check svg { width: 26px; height: 26px; }
+:where(.wda) .contar-cifra { font-size: 64px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; text-align: center; }
+:where(.wda) .contar-btn { min-height: 64px; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; border: 2px solid var(--linea); background: var(--sup); width: 100%;
+  cursor: pointer; text-align: left; font-size: var(--t-m); font-weight: 600; color: var(--texto); }
+:where(.wda) .contar-btn[aria-pressed="true"] { border-color: var(--ok-s); background: var(--ok-f); color: var(--ok-t); }
+:where(.wda) .resumen-barco { font-size: calc(20px * var(--e)); line-height: 1.35; }
+:where(.wda) .resumen-barco .rb-fila { padding: 12px 0; border-top: 1px solid var(--linea); display: grid; gap: 2px; }
+:where(.wda) .resumen-barco .rb-fila b { font-size: calc(22px * var(--e)); }
+/* scanner result */
+:where(.wda, .wda-capa) .ficha-tit { display: grid; gap: 12px; padding: 16px; border-radius: 16px; background: var(--sup); border: 2px solid var(--ok-s); }
+:where(.wda, .wda-capa) .ficha-tit.urg { border-color: var(--urg-s); }
+:where(.wda, .wda-capa) .ficha-tit.pend { border-color: var(--pend-s); }
+:where(.wda, .wda-capa) .datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin: 0; }
+:where(.wda, .wda-capa) .datos div { display: grid; gap: 1px; min-width: 0; }
+:where(.wda, .wda-capa) .datos dt { font-size: var(--t-xs); color: var(--suave); font-weight: 600; }
+:where(.wda, .wda-capa) .datos dd { margin: 0; font-weight: 600; font-size: var(--t-s); overflow-wrap: anywhere; }
+:where(.wda) .escaner-cab { display: grid; place-items: center; gap: 12px; padding: 28px 16px; border-radius: 16px; background: #0B141D; color: #FFFFFF; text-align: center; }
+:where(.wda) .escaner-cab svg.ic { width: 64px; height: 64px; color: #87E2EF; }
+/* toast with «Deshacer» */
+.wda-deshacer { position: fixed; left: 12px; right: 12px; bottom: calc(var(--barra) + var(--abajo) + 12px); z-index: 1250; background: #0A2239; color: #FFFFFF; border-radius: 14px; padding: 10px 14px;
+  display: flex; align-items: center; gap: 12px; font: 600 var(--t-s)/1.35 var(--fuente); box-shadow: 0 8px 24px rgba(0, 0, 0, .3); }
+.wda-deshacer .crece { flex: 1; min-width: 0; }
+.wda-deshacer button { background: none; border: 0; color: #87E2EF; font: 700 var(--t-s)/1 var(--fuente); min-height: 44px; padding: 0 6px; cursor: pointer; }
+html.wd-app[data-wda-tema="noche"] .wda-deshacer { background: #E8F6FA; color: #011C3C; }
+html.wd-app[data-wda-tema="noche"] .wda-deshacer button { color: #076898; }
+/* charts (Estadísticas) */
+:where(.wda) .grafica { width: 100%; height: auto; display: block; overflow: visible; }
+:where(.wda) .grafica text { fill: var(--suave); font-size: 11px; font-family: var(--fuente); }
+:where(.wda) .grafica .barra { fill: var(--acento); }
+:where(.wda) .grafica .rejilla { stroke: var(--linea); stroke-width: 1; }
+
+:where(.wda) .ic-mini { width: 14px; height: 14px; vertical-align: -2px; }
+:where(.wda) .graf-barras { display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid var(--linea); }
+:where(.wda) .graf-barras span { flex: 1; min-width: 2px; background: var(--acento); border-radius: 3px 3px 0 0; }
+:where(.wda) .sol-sel { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
+:where(.wda) .sol-sel[hidden] { display: none; }
+:where(.wda) .fecha-b.hora { width: auto; min-width: 64px; padding: 8px; }
+:where(.wda) .fecha-b.hora b { font-size: var(--t-m); }
+:where(.wda) .solicitud .btn-fila [data-mas] { flex: 0 0 56px; padding: 0; }
+:where(.wda) .escaner-cab h1 { color: #FFFFFF; margin: 0; }
+:where(.wda) .escaner-cab p { color: #B8DCE8; margin: 0; }
+:where(.wda) .campo.fila { display: flex; gap: 8px; align-items: stretch; }
+:where(.wda) .campo.fila input { min-width: 0; }
+/* an icon without its own size (inside a title, a list button…) is as tall as its text */
+:where(.wda, .wda-capa) svg[class=""] { width: 1.25em; height: 1.25em; flex: none; vertical-align: -0.2em; }
+:where(.wda) .contar-btn svg, :where(.wda) .selector-perfil svg { width: 24px; height: 24px; flex: none; }
 /* ---------- small screens and big text: nothing goes out of the screen */
 @media (max-width: 360px) {
   :where(.wda, .wda-capa) .acciones { gap: 6px; }

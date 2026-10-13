@@ -2757,6 +2757,17 @@ tr.is-warn td{background:#fffaf0}
 .tl-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 12px}.tl-row input,.tl-row textarea{flex:1;min-width:220px;border:1px solid #cfd9db;border-radius:10px;padding:9px 11px;font:inherit;background:#fff}
 .tl-row textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
 .tm-inv{margin:0 0 10px;padding-left:18px;font-size:14px}
+.bk-code{display:inline-block;margin:6px 0 2px;padding:4px 10px;border-radius:8px;background:#fff;border:1px solid var(--line);font-size:17px;letter-spacing:.08em;font-weight:700}
+.acc-close-list{margin:0 0 10px;padding-left:18px;font-size:14px;max-height:220px;overflow:auto}#acc-closed p{margin:0 0 8px}
+/* v50.49: roles of the team and their permissions */
+.tr-list{display:grid;gap:10px}
+.tr-role{border:1px solid var(--line,#d9e2ea);border-radius:12px;padding:10px 14px;background:var(--card,#fff)}
+.tr-role>summary{cursor:pointer;min-height:40px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tr-role>summary small{color:var(--muted,#5b6b7a)}
+.tr-perms{border:0;margin:8px 0;padding:0;display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.tr-perm{display:flex;gap:10px;align-items:flex-start;padding:8px;border-radius:10px;background:var(--soft,#f3f6f9);cursor:pointer}
+.tr-perm input{width:20px;height:20px;margin-top:2px;flex:none}
+.tr-perm span{display:grid;gap:2px}.tr-perm small{color:var(--muted,#5b6b7a);font-size:13px;line-height:1.35}
 /* Feature switches (Administración → Funciones) */
 .feat-off-points a[href^="#/mis-puntos"],.feat-off-points a[href^="#/como-funcionan-los-puntos"],.feat-off-points a[href="#/recompensas"],.feat-off-points .cb-nav[data-cbtab="rewards"]{display:none!important}
 .feat-off-experiences a[href^="#/experiencias"],.feat-off-experiences .cb-nav[data-cbtab="experiences"],.feat-off-experiences .cp-exps{display:none!important}

@@ -10,7 +10,8 @@
      and the fixed «Desde X € · Reservar» bar, quick booking in a sheet, Reservas, Buddies (pending: not on the server
      yet), Mi área and Ajustes.
    - Visitante: Inicio, Explorar and Entrar; booking asks for the session at the end.
-   - Centro PRO and Freelance PRO arrive in Tandas 2 and 3: until then their web panel opens inside the app.
+   - Centro PRO and Freelance PRO (v50.49, Tandas 2 to 4) live in wd-app-pro.js, downloaded only by centres and
+     freelance professionals; the web panel still opens inside the app for what is «Disponible en la web».
    Payments: Stripe Checkout opens in a browser tab (Google Pay works there) and comes back to the app by its link
    scheme (com.worldives.app://pago?…), see app/wod/movil.py. Only data the server already has: nothing is invented. */
 (() => {
@@ -33,6 +34,21 @@
     hoy: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>',
     agenda: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
     entrar: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16l4-4-4-4M14 12H4"/>',
+    escanear: '<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M7 12h10"/>',
+    solicitudes: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/>',
+    mas: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+    mover: '<path d="M4 8h14l-3-3M20 16H6l3 3"/>',
+    lapiz: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+    linterna: '<path d="M8 3h8v4l-2 3v11h-4V10L8 7z"/><path d="M8 7h8"/>',
+    teclado: '<rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 15h10"/>',
+    graficas: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    cartel: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+    equipo: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/>',
+    resena: '<path d="M4 5h16v11H9l-5 4z"/><path d="m12 7.5.9 1.9 2 .3-1.4 1.4.3 2-1.8-1-1.8 1 .3-2-1.4-1.4 2-.3z"/>',
+    descargar: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    bloquear: '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
+    copiar: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+    atras: '<path d="m15 6-6 6 6 6"/>',
     buscar: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     ubicacion: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
     capas: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
@@ -204,8 +220,10 @@
   const TABS = {
     visitante: [['#/', 'inicio', 'Inicio'], ['#/explorar', 'explorar', 'Explorar'], ['#/login', 'entrar', 'Entrar']],
     buceador: [['#/', 'inicio', 'Inicio'], ['#/explorar', 'explorar', 'Explorar'], ['#/reservas', 'reservas', 'Reservas'], ['#/buddies', 'buddies', 'Buddies'], ['#/mi-area', 'area', 'Mi área']],
-    centro: [['#/', 'hoy', 'Inicio'], ['#/admin', 'agenda', 'Mi panel'], ['#/explorar', 'explorar', 'Explorar'], ['#/mi-area', 'area', 'Mi área']],
-    freelance: [['#/', 'hoy', 'Inicio'], ['#/admin', 'agenda', 'Mi panel'], ['#/explorar', 'explorar', 'Explorar'], ['#/mi-area', 'area', 'Mi área']],
+    // Centro PRO and Freelance PRO (encargo §3.2): Hoy · Agenda · Escanear (central) · Solicitudes · Más. wd-app-pro.js
+    // removes what each person's role does not allow (an instructor has no Solicitudes).
+    centro: [['#/', 'hoy', 'Hoy'], ['#/agenda', 'agenda', 'Agenda'], ['#/escanear', 'escanear', 'Escanear', 'central'], ['#/solicitudes', 'solicitudes', 'Solicitudes'], ['#/mas', 'mas', 'Más']],
+    freelance: [['#/', 'hoy', 'Hoy'], ['#/agenda', 'agenda', 'Agenda'], ['#/escanear', 'escanear', 'Escanear', 'central'], ['#/solicitudes', 'solicitudes', 'Solicitudes'], ['#/mas', 'mas', 'Más']],
     admin: [['#/', 'inicio', 'Inicio'], ['#/explorar', 'explorar', 'Explorar'], ['#/mi-area', 'area', 'Mi área']],
   };
   const TAB_DE = { home: '#/', explorar: '#/explorar', buscar: '#/explorar', punto: '#/explorar', puntos: '#/explorar', centro: '#/explorar', centros: '#/explorar', profesional: '#/explorar',
@@ -213,18 +231,24 @@
     reservas: '#/reservas', reserva: '#/reservas', 'pago-ok': '#/reservas', verificarreserva: '#/reservas', buddies: '#/buddies',
     'mi-area': '#/mi-area', ajustes: '#/mi-area', area: '#/mi-area', cuenta: '#/mi-area', logbook: '#/mi-area', 'mis-puntos': '#/mi-area', recompensas: '#/mi-area', 'como-funcionan-los-puntos': '#/mi-area', legal: '#/mi-area',
     login: '#/login', registro: '#/login', verificacion: '#/login', recuperar: '#/login', restablecer: '#/login', admin: '#/admin' };
+  // Tabs of the PRO modules (the same route names mean their own screens there).
+  const TAB_PRO = { home: '#/', agenda: '#/agenda', salida: '#/agenda', barco: '#/agenda', manifiesto: '#/agenda', escanear: '#/escanear', solicitudes: '#/solicitudes',
+    mas: '#/mas', admin: '#/mas', reservas: '#/mas', reserva: '#/mas', ajustes: '#/mas', cuenta: '#/mas', 'mi-area': '#/mas', 'cerrar-cuenta': '#/mas', legal: '#/mas', explorar: '#/mas', equipo: '#/mas' };
+  const esPro = () => ['centro', 'freelance'].includes(modulo());
   // The web pages of each tab's «home»: no «Volver» there.
-  const RAICES = ['home', 'explorar', 'reservas', 'buddies', 'mi-area', 'login', 'admin'];
-  let tabActual = '#/', cuenta = { reservas: 0 };
+  const RAICES = ['home', 'explorar', 'reservas', 'buddies', 'mi-area', 'login', 'admin', 'agenda', 'escanear', 'solicitudes', 'mas'];
+  let tabActual = '#/', cuenta = { reservas: 0, solicitudes: 0 };
   function pintarTabs(nombre) {
-    const mod = modulo(); const tabs = TABS[mod] || TABS.visitante;
-    tabActual = TAB_DE[nombre] || (nombre === 'home' ? '#/' : tabActual);
+    const mod = modulo(); let tabs = TABS[mod] || TABS.visitante;
+    if (esPro() && WDA.filtrarTabs) tabs = WDA.filtrarTabs(tabs);
+    tabActual = (esPro() ? TAB_PRO[nombre] : TAB_DE[nombre]) || (nombre === 'home' ? '#/' : tabActual);
     let nav = $('#wda-tabs');
     if (!nav) { nav = document.createElement('nav'); nav.id = 'wda-tabs'; nav.className = 'wda-tabs'; nav.setAttribute('aria-label', T('Secciones')); document.body.appendChild(nav); }
     const banda = $('.wda-banda'); if (banda && !banda.dataset.traducida && W.currentLanguage() !== 'es') { W.translateTree(banda); banda.dataset.traducida = '1'; }
-    nav.innerHTML = tabs.map(([href, icono, txt]) => {
-      const n = href === '#/reservas' ? cuenta.reservas : 0;
-      return `<a class="wda-tab" href="${href}" ${href === tabActual ? 'aria-current="page"' : ''}><span class="wda-tab-ic">${ic(icono, '')}</span><span>${T(txt)}</span>${n ? `<span class="cont" aria-label="${n} ${T('pendientes de pago')}">${n}</span>` : ''}</a>`;
+    nav.innerHTML = tabs.map(([href, icono, txt, central]) => {
+      const n = href === '#/reservas' ? cuenta.reservas : href === '#/solicitudes' ? cuenta.solicitudes : 0;
+      const que = href === '#/reservas' ? 'pendientes de pago' : 'pendientes';
+      return `<a class="wda-tab${central ? ' central' : ''}" href="${href}" ${href === tabActual ? 'aria-current="page"' : ''}><span class="wda-tab-ic">${ic(icono, '')}</span><span>${T(txt)}</span>${n ? `<span class="cont" aria-label="${n} ${T(que)}">${n}</span>` : ''}</a>`;
     }).join('');
   }
   function contadores() {
@@ -250,7 +274,7 @@
   const TIPOS = [['arrecifes', 'Arrecifes'], ['pecios-y-naufragios', 'Pecios'], ['cuevas-y-cavernas', 'Cuevas y cenotes'], ['paredes', 'Paredes'], ['muck', 'Muck']];
   async function inicio() {
     const mod = modulo();
-    if (mod === 'centro' || mod === 'freelance' || mod === 'admin') return inicioProfesional(mod);
+    if (mod === 'admin') return inicioProfesional(mod);
     const me = state.me, nombre = me?.user?.fullname?.split(' ')[0] || '';
     const chip = (v, t, icono = '') => `<button type="button" class="wchip" data-cuando="${v}" aria-pressed="${mem.cuando === v}">${icono ? ic(icono, '') : ''}${t}</button>`;
     const root = pintar(`<header class="cab"><div class="cab-fila"><div class="wavatar">${me ? esc(W.initials(me.user.fullname)) : ic('area', '')}</div>
@@ -355,11 +379,7 @@
   }
   function inicioProfesional(mod) {
     const me = state.me, nombre = me?.user?.fullname?.split(' ')[0] || '';
-    const textos = {
-      centro: ['Centro PRO llega a la app en la Tanda 2.', 'Mientras tanto, el panel de tu centro funciona aquí dentro: agenda, reservas, solicitudes, barco y cobros.', 'Abrir el panel del centro'],
-      freelance: ['Freelance PRO llega a la app en la Tanda 3.', 'Mientras tanto, tu panel de la web funciona aquí dentro: servicios, días, solicitudes y cobros.', 'Abrir mi panel'],
-      admin: ['La administración se queda en la web.', 'La app es para buceadores, centros y freelance. Puedes abrir la administración aquí o en un ordenador.', 'Abrir la administración'],
-    }[mod];
+    const textos = { admin: ['La administración se queda en la web.', 'La app es para buceadores, centros y freelance. Puedes abrir la administración aquí o en un ordenador.', 'Abrir la administración'] }[mod];
     pintar(`<header class="cab"><div class="cab-fila"><div class="wavatar">${esc(W.initials(me?.user?.fullname || ''))}</div><div class="crece"><p class="suave peq"><span>Hola</span><span translate="no">, ${esc(nombre)}</span></p></div></div><h1>${mod === 'admin' ? 'Administración' : 'Tu día'}</h1></header>
       <div class="cuerpo"><div class="aviso sol">${ic('info')}<div><b>${textos[0]}</b> ${textos[1]}</div></div>
         <a class="wbtn ancho grande" href="#/admin">${textos[2]}</a>
@@ -731,10 +751,19 @@
     if (!state.me) { pintar(pedirEntrar(T('Reservas'), T('Entra para ver tus reservas, pagar las pendientes y enseñar el QR en el barco.'))); return; }
     if (rol() !== 'recreational') { location.replace('#/admin'); return; }
     const root = pintar(`<div class="cuerpo"><h1>Reservas</h1><div class="seg" role="group" aria-label="Reservas"><button type="button" data-seg="prox" aria-pressed="true">Próximas</button><button type="button" data-seg="hist" aria-pressed="false">Historial</button></div><div id="wda-res" class="pila-12">${esqueleto(2)}</div></div>`);
-    let d;
-    try { d = await miArea(true); } catch (e) { $('#wda-res', root).innerHTML = `<div class="tarjeta vacio"><p>${esc(e.message)}</p></div>`; return; }
+    let d, viejo = null;
+    const clave = 'wda-res:' + state.me.user.id;
+    try { d = await miArea(true); try { localStorage.setItem(clave, JSON.stringify({ at: Date.now(), d: { bookings: d.bookings || [], experience_bookings: d.experience_bookings || [] } })); } catch { /* storage full */ } }
+    catch (e) {
+      // v50.49: without coverage (on the boat) the bookings and their QR codes saved on this phone are shown.
+      let c = null; try { c = !e.status ? JSON.parse(localStorage.getItem(clave) || 'null') : null; } catch { /* nothing */ }
+      if (!c) { $('#wda-res', root).innerHTML = `<div class="tarjeta vacio"><p>${esc(e.message)}</p></div>`; return; }
+      d = c.d; viejo = c.at;
+    }
     if (!vivo(root)) return;
+    if (viejo) $('#wda-res', root).insertAdjacentHTML('beforebegin', `<div class="aviso pend">${ic('alerta')}<div><span>${T('Sin conexión: datos guardados en el móvil a las')}</span> <span class="num">${new Date(viejo).toLocaleTimeString(W.wdLocale(), { hour: '2-digit', minute: '2-digit' })}</span>.</div></div>`);
     const todas = d.bookings || [];
+    if (!viejo) todas.filter((b) => vigente(b) && !porPagar(b)).slice(0, 6).forEach(guardarQR);
     const prox = todas.filter(vigente).sort((a, b) => String(a.booking_date + a.booking_time).localeCompare(String(b.booking_date + b.booking_time)));
     const hist = todas.filter((b) => !vigente(b));
     const fila = (b) => {
@@ -742,7 +771,7 @@
       return `<article class="tarjeta pad pila-12"><a class="fila" href="#/reserva?id=${b.id}" style="color:inherit;text-decoration:none"><div class="fecha-b"><b class="num">${dt.getDate()}</b><small translate="no">${esc(dt.toLocaleDateString(W.wdLocale(), { month: 'short' }).replace('.', ''))}</small></div>
         <div class="crece pila"><b${b.service_title ? ' translate="no"' : ''}>${esc(b.service_title || 'Inmersión')}</b><span class="suave peq"><span translate="no">${esc(b.center_name || '')}</span>${b.booking_time ? ' · ' + esc(b.booking_time) : ''} · <span class="num">${b.participants || 1}</span> <span>${Number(b.participants) === 1 ? 'buceador' : 'buceadores'}</span></span>
         <div class="wtags">${estadoTag(b)}${Number(b.price) > 0 && b.payment_status === 'paid' ? `<span class="wtag ok">${ic('cobrar', '')}Pagada</span>` : ''}</div></div>${ic('chev', 'chev')}</a>
-        ${vigente(b) ? `<div class="btn-fila">${porPagar(b) ? `<a class="wbtn mini" href="#/reserva?id=${b.id}">${ic('cobrar', '')}Pagar ahora</a>` : `<a class="wbtn sec mini" href="#/reserva?id=${b.id}">${ic('qr', '')}Ver QR</a>`}<button class="wbtn sec mini" type="button" data-wa="${b.id}">${ic('wa', '')}WhatsApp</button></div>` : ''}</article>`;
+        ${vigente(b) ? `<div class="btn-fila">${porPagar(b) ? `<a class="wbtn mini" href="#/reserva?id=${b.id}">${ic('cobrar', '')}Pagar ahora</a>` : `<button class="wbtn sec mini" type="button" data-qr="${b.id}">${ic('qr', '')}Ver QR</button>`}<button class="wbtn sec mini" type="button" data-wa="${b.id}">${ic('wa', '')}WhatsApp</button></div>` : ''}</article>`;
     };
     const pintarLista = (k) => {
       const lista = k === 'prox' ? prox : hist, box = $('#wda-res', root);
@@ -751,11 +780,33 @@
       if (k === 'prox' && exps.length) box.insertAdjacentHTML('beforeend', `<h2>Viajes y vida a bordo</h2><div class="tarjeta plana lista">${exps.map((e) => `<div class="lista-fila">${ic('barco')}<div class="crece pila"><b translate="no">${esc(e.title)}</b><span class="suave peq">${esc(e.start_date ? fecha(e.start_date, { day: 'numeric', month: 'short', year: 'numeric' }) : '')}</span></div><span class="wtag neutro">${esc(W.experienceStatus(e.status)[0])}</span></div>`).join('')}</div>`);
       W.translateTree(box);
       $$('[data-wa]', box).forEach((b) => { b.onclick = () => { const x = todas.find((y) => String(y.id) === b.dataset.wa); whatsappCentro({ nombre: x.center_name, telefono: x.center_phone, reserva: x }); }; });
+      $$('[data-qr]', box).forEach((b) => { b.onclick = () => verQR(todas.find((y) => String(y.id) === b.dataset.qr)); });
     };
     $$('[data-seg]', root).forEach((b) => { b.onclick = () => { $$('[data-seg]', root).forEach((x) => x.setAttribute('aria-pressed', String(x === b))); pintarLista(b.dataset.seg); }; });
     $('[data-seg="prox"]', root).insertAdjacentHTML('beforeend', ` <span class="num">${prox.length}</span>`);
     $('[data-seg="hist"]', root).insertAdjacentHTML('beforeend', ` <span class="num">${hist.length}</span>`);
     pintarLista('prox');
+  }
+
+  // The QR of a booking and its code, kept on the phone: they are shown on the boat without coverage.
+  async function guardarQR(b) {
+    const k = 'wda-qr-' + b.id;
+    try { if (JSON.parse(localStorage.getItem(k) || 'null')) return; } catch { /* nothing */ }
+    try {
+      const [svg, det] = await Promise.all([fetch(`/api/bookings/${b.id}/qr.svg`, { credentials: 'same-origin' }).then((r) => (r.ok ? r.text() : null)), api('/api/bookings/' + b.id)]);
+      const code = det?.check_code || det?.booking?.check_code || '';
+      if (svg && svg.startsWith('<')) localStorage.setItem(k, JSON.stringify({ svg, code, at: Date.now() }));
+    } catch { /* tried again next time */ }
+  }
+  async function verQR(b) {
+    if (!b) return;
+    let c = null; try { c = JSON.parse(localStorage.getItem('wda-qr-' + b.id) || 'null'); } catch { /* nothing */ }
+    if (!c) { await guardarQR(b); try { c = JSON.parse(localStorage.getItem('wda-qr-' + b.id) || 'null'); } catch { /* nothing */ } }
+    if (!c) { location.hash = '#/reserva?id=' + b.id; return; }
+    abrirHoja({ titulo: T('Tu QR para el barco'), sub: `<span translate="no">${esc(b.service_title || '')} · ${esc(b.center_name || '')}</span>`,
+      html: `<div class="pila-12" style="text-align:center"><img alt="${T('QR de la reserva')}" src="data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(c.svg)))}" style="width:min(280px,80vw);background:#fff;padding:12px;border-radius:16px;margin:0 auto">
+        ${c.code ? `<p><span>${T('Código')}</span>: <b class="num" translate="no" style="font-size:22px;letter-spacing:.08em">${esc(c.code)}</b></p>` : ''}<p class="suave peq">${T('Funciona sin conexión: está guardado en este móvil.')}</p>
+        <a class="wbtn sec ancho" href="#/reserva?id=${b.id}">${T('Ver la reserva completa')}</a></div>` });
   }
 
   /* ---------------------------------------------------------------- Buddies: not on the server yet */
@@ -786,6 +837,9 @@
     }
   }
   async function salir() {
+    let t = null; try { t = localStorage.getItem('wda-push'); } catch { /* nothing */ }
+    if (t) await postJSON('/api/app/push/unregister', { token: t }).catch(() => {});
+    pushHecho = false;
     try { await postJSON('/api/auth/logout', {}); } catch { /* the session ends anyway */ }
     state.me = null; mem.area = null; cuenta.reservas = 0; await W.loadMe(); location.hash = '#/';
   }
@@ -826,11 +880,9 @@
     if (v) v.textContent = info.version;
   }
   function borrarCuenta() {
-    if (rol() !== 'recreational') {
-      abrirHoja({ titulo: T('Borrar la cuenta'), html: `<div class="pendiente"><b>${T('Pendiente de decisión.')}</b> ${T('Las cuentas de centros y freelance se borran hoy escribiendo a WORLDIVES, porque pueden tener reservas de clientes. La propuesta es una solicitud de baja desde la app con un plazo para resolver las reservas futuras.')}</div>`,
-        pie: `<button class="wbtn sec ancho" type="button" data-cerrar>${T('Volver')}</button>` });
-      return;
-    }
+    // v50.49: centres (their owner) and freelance close the account in «Más» (six months to come back).
+    if (rol() === 'freelance' || (rol() === 'center' && (state.me?.member_role || 'owner') === 'owner')) { location.hash = '#/cerrar-cuenta'; return; }
+    if (rol() !== 'recreational') { W.toast(T('Solo el propietario del centro puede cerrar la cuenta del centro.')); return; }
     const capa = abrirHoja({ titulo: T('¿Borrar tu cuenta?'), sub: T('Esta acción no se puede deshacer.'),
       html: `<div class="aviso urg">${ic('alerta')}<div>${T('Borraremos tu ficha, tu documentación, tu Log Book, tus mensajes y tus recompensas. Las reservas pasadas se conservan sin tu nombre, porque la ley obliga a guardar los datos de los pagos. Si tienes reservas próximas, cancélalas antes.')}</div></div>
         <div class="campo"><label for="wda-del-pw">${T('Escribe tu contraseña para confirmar')}</label><input id="wda-del-pw" type="password" autocomplete="current-password"></div>`,
@@ -899,12 +951,28 @@
 
   /* ---------------------------------------------------------------- router hooks (called from world-dives-v8.js) */
   const PROPIAS = { home: inicio, explorar, buscar, reservas, buddies, 'mi-area': miAreaPantalla, ajustes, 'pruebas-entrar': entrarPrueba };
+  // Centro PRO and Freelance PRO live in /js/wd-app-pro.js: only centres and freelance download it.
+  const PRO_RUTAS = ['home', 'agenda', 'escanear', 'solicitudes', 'mas', 'salida', 'reservas', 'nueva-reserva', 'resumen-barco', 'contar', 'estadisticas',
+    'cobros-app', 'cerrar-cuenta', 'ajustes', 'mi-area'];
+  let proCargado = null;
+  function cargarPro() {
+    if (!proCargado) proCargado = new Promise((ok) => { const js = document.createElement('script'); js.src = '/js/wd-app-pro.js?v=' + (W.APP_ASSETS || ''); js.onload = js.onerror = () => ok(); document.body.appendChild(js); setTimeout(ok, 8000); });
+    return proCargado;
+  }
   window.WDApp = {
     route(nombre, params) {
       cerrarHoja(true); quitarBarra();
       if (nombre === 'pruebas-entrar' && !APP.pruebas) return null;
-      const fn = PROPIAS[nombre]; pintarTabs(nombre);
       document.documentElement.classList.remove('wda-sin-tabs');
+      // Own screens of Centro PRO / Freelance PRO; any other page (#/admin, #/reserva…) is drawn by the web inside the app.
+      if (esPro() && PRO_RUTAS.includes(nombre)) {
+        return cargarPro().then(() => {
+          pintarTabs(nombre);
+          const fn = WDA.rutasPro[nombre] || PROPIAS[nombre];
+          return Promise.resolve(fn ? fn(params) : null).then(() => despues(nombre));
+        });
+      }
+      const fn = PROPIAS[nombre]; pintarTabs(nombre);
       return fn ? Promise.resolve(fn(params)).then(() => despues(nombre)) : null;
     },
     after(nombre, params) {
@@ -916,10 +984,35 @@
     },
     failed(err) { pintar(`<div class="cuerpo"><div class="tarjeta vacio"><h2>${esc(T('No se ha podido abrir esta sección'))}</h2><p>${esc(err?.message || '')}</p><button class="wbtn" type="button" data-reload>${esc(T('Reintentar'))}</button></div></div>`); },
   };
+  /* ---------------------------------------------------------------- push (v50.49): only when the server has Firebase and this build carries it */
+  let pushHecho = false;
+  async function activarPush() {
+    const P = plugin('PushNotifications'), L = plugin('PushListo');
+    if (!P || !L || !state.me || pushHecho) return;
+    pushHecho = true;
+    try {
+      if (!(await L.estado()).firebase || !(await api('/api/app/push')).enabled) return;
+      let perm = await P.checkPermissions();
+      if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') perm = await P.requestPermissions();
+      if (perm.receive !== 'granted') return;
+      await P.addListener('registration', (t) => { try { localStorage.setItem('wda-push', t.value); } catch { /* nothing */ } postJSON('/api/app/push/register', { token: t.value, platform: 'android', app: APP.scheme }).catch(() => {}); });
+      await P.addListener('pushNotificationActionPerformed', (e) => { const r = e?.notification?.data?.ruta; if (r && r.startsWith('#/')) location.hash = r; });
+      await P.createChannel?.({ id: 'avisos', name: T('Avisos'), importance: 4 }).catch(() => {});
+      await P.register();
+    } catch { /* without push: the emails and the notices in the app still arrive */ }
+  }
   function despues(nombre) {
+    if (state.me) activarPush();
     // A booking chosen before signing in: back on any screen with the session open, the sheet opens again.
     if (state.me && nombre !== 'login') { const p = pendiente(); if (p) setTimeout(() => abrirReserva(p), 300); }
   }
+
+  /* ---------------------------------------------------------------- what wd-app-pro.js uses from here */
+  const WDA = window.WDA = {
+    W, APP, I, ic, esc, T, plugin, pintar, abrirHoja, cerrarHoja, abrirFuera, compartir, mapsDestino, dinero, fecha, cuando, km, anillo, estadoTag, modoTag,
+    telefonoWa, esqueleto, vivo, rol, modulo, mem, cuenta, pintarTabs, nombreRuta, infoApp, salir, borrarCuenta, reportarFallo, pref, guardarPref, aplicarAspecto,
+    rutasPro: {}, filtrarTabs: null, ajustes, miAreaPantalla, explorar, buscar,
+  };
 
   /* ---------------------------------------------------------------- start */
   aplicarAspecto();
