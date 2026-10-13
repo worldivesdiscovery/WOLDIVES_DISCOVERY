@@ -179,3 +179,40 @@ siempre una lista del barco, y una solicitud que caduca pronto.
   (todo el día, mañana o tarde).
 - **Buceador (`buzo.prueba`)**: en **Reservas**, «Ver QR» funciona también sin cobertura.
 
+
+## 9. Vida marina y vídeos de la ruta (v50.50)
+
+La demo trae 16 especies de ejemplo (ilustraciones propias) en cinco puntos:
+- Islas Medes, Costa Brava;
+- Medes – La Vaca;
+- Cabo San Antonio;
+- Similan – Richelieu Rock;
+- Bonaire Marine Park.
+
+**No trae vídeos**: para probarlos hacen falta enlaces reales. Los añades tú con tu ordenador conectado a internet.
+
+- **Cualquiera, sin cuenta:** abre Puntos de buceo → «Islas Medes, Costa Brava».
+  - **Vida marina que puedes ver**: el carrusel avanza solo y se para con el ratón encima.
+  - Las especies fuera de temporada salen más apagadas y con «Mejor época».
+  - Toca una especie para ver la ficha. Cambia de idioma arriba y mira los nombres.
+  - En el móvil, desliza con el dedo.
+  - Abre otro punto sin especies (por ejemplo, «Medes – Carall Bernat»): no sale ninguna sección vacía.
+- **Administración (tu cuenta):**
+  - **Vida marina y vídeos → Pendientes**: aprueba o rechaza, con un motivo, la propuesta del centro de pruebas
+    (pez luna en Cabo San Antonio).
+  - **Especies**:
+    - busca «krake» o «真蛸» y encontrarás el pulpo;
+    - **Editar** abre los 9 idiomas, la foto, su autor y su licencia;
+    - **Buscar una foto libre en Wikimedia Commons** necesita internet: elige una foto libre y se guarda con su autor
+      y su licencia.
+  - **Puntos → Editar** un punto → «Vídeos de la ruta y vida marina»:
+    - pega un enlace de YouTube, Vimeo, Dailymotion o TikTok y pulsa **Comprobar**: verás el título y la miniatura;
+    - prueba también un enlace de Facebook, uno de Twitch y uno no válido (por ejemplo, un `bit.ly`);
+    - añade el vídeo, mira la ficha del punto y pulsa **Reproducir**.
+- **Centro (`centro.prueba`) y freelance (`freelance.prueba`):**
+  - Panel → **Vídeos y vida marina**: elige un punto y propón un vídeo y una especie.
+  - Quedan «Pendientes de aprobación» hasta que los apruebes con tu cuenta; después salen en la ficha con «Aportado
+    por…».
+  - **Instructor (`instructor.prueba`)**: su perfil no tiene «Ficha del centro y ajustes», así que no ve esa pestaña y
+    el servidor no le deja proponer.
+- **Buceador (`buzo.prueba`)**: no ve nada para añadir vídeos o especies.

@@ -23,7 +23,7 @@ Hoewel zij geen cookies gebruiken, ontvangen sommige diensten die in uw browser 
 | **Basiskaart** | Telkens wanneer u een kaart bekijkt | Niets: deze wordt vanaf onze server aangeboden (gegevens van © OpenStreetMap contributors) |
 | **Satellietweergave (Esri)** | Alleen als u „Satelliet” kiest | Niets: de beelden lopen via onze server |
 | **Bathymetrie (GEBCO)** | Alleen als u de dieptelaag kiest | Uw IP-adres bereikt de servers van GEBCO / British Oceanographic Data Centre |
-| **Ingesloten video's en kaarten** (YouTube zonder cookies, Vimeo, Google Maps) | Alleen als u op „Video laden” klikt | Uw IP-adres en wat die dienst verzamelt; raadpleeg het beleid van die dienst |
+| **Video's van de routes** (YouTube in privacyverbeterde modus, Vimeo zonder tracking, Dailymotion, TikTok, Facebook en Instagram) en **ingesloten kaarten** (Google Maps) | Alleen als u bij die video op „Afspelen” klikt; tot dan ziet u een miniatuur die op onze server staat | Uw IP-adres en wat die dienst verzamelt, inclusief eigen cookies; raadpleeg het beleid van die dienst. Video's van andere platforms openen in een nieuw tabblad |
 | **Betaling (Stripe)** | Bij het betalen | De pagina van Stripe wordt geopend, met eigen cookies ter voorkoming van fraude |
 
 Geen enkele video of content van derden wordt geladen zonder dat u daarom vraagt.

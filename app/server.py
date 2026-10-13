@@ -42,6 +42,10 @@ from wod.estaticos import STATIC_PREFIXES, legacy_asset_url, legacy_path_map
 from wod.formato import ES_DAYS, ES_MONTHS, es_long_date, mail_date, mail_datetime, mail_money, _DAYS, _MONTHS  # noqa: F401
 from wod import pdf as wpdf
 from wod import totp as wtotp
+from wod import videos as wvideos
+from wod import vidamarina as wmarina
+from wod import imagenes as wimg
+from wod import remoto as wremoto
 from wod import pointtext as wpt
 from wod import backup as wbackup
 from wod import inquilinos as winq
@@ -65,7 +69,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.49'
+APP_VERSION = '50.50'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -1400,6 +1404,8 @@ def bootstrap():
         db.commit()
         migrate_v50_49(db)
         db.commit()
+        migrate_v50_50(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1527,6 +1533,27 @@ def install_phone_guards(db):
                     db.execute(f'''CREATE TRIGGER IF NOT EXISTS wod_{t}_{col}_huella_{name} {when} ON {t} WHEN {cond} BEGIN
                         UPDATE {t} SET {hcol}=wod_huella(NEW.{col}) WHERE rowid=NEW.rowid AND {hcol} IS NOT wod_huella(NEW.{col}); END''')
                 db.execute(f'CREATE INDEX IF NOT EXISTS idx_{t}_{hcol} ON {t}({hcol}) WHERE {hcol} IS NOT NULL')
+
+
+def migrate_v50_50(db):
+    """v50.50 (vídeos enlazados y vida marina). Only adds tables and indexes (wod.vidamarina); nothing is deleted.
+    The videos of the old «recorridos virtuales» that are YouTube or Vimeo links are copied to the new list of route
+    videos, published. Everything else of the old tours (panoramas, Street View, uploaded files) stays in its table as
+    it was and is listed in Administración → Vida marina y vídeos → «Recorridos antiguos»."""
+    wmarina.install(db)
+    if migration_done(db, '50.50'): return
+    copied = 0
+    for r in db.execute('SELECT * FROM virtual_experiences WHERE active=1 AND url IS NOT NULL').fetchall():
+        link = wvideos.legacy_to_link(r['url'])
+        if not link or db.execute('SELECT 1 FROM route_videos WHERE legacy_virtual_id=?', (r['id'],)).fetchone(): continue
+        if db.execute("SELECT 1 FROM route_videos WHERE dive_point_id=? AND url=? AND active=1 AND status<>'rejected'", (r['dive_point_id'], link['url'])).fetchone(): continue
+        kind = '360' if r['experience_type'] in ('video360', 'external360') else 'normal'
+        db.execute('''INSERT INTO route_videos(dive_point_id,url,platform,platform_name,video_ref,kind,title,thumb_tries,sort_order,status,contributor_kind,
+                      contributor_name,created_by_user_id,reviewed_at,legacy_virtual_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,0,?,'approved','admin',?,?,?,?,?,?)''',
+                   (r['dive_point_id'], link['url'], link['platform'], wvideos.BY_KEY[link['platform']].name, link['ref'], kind, r['title'], r['id'],
+                    clean_text(r['provider'], 100) or 'WORLDIVES DISCOVERY', r['created_by_user_id'], now(), r['id'], r['created_at'] or now(), '2000-01-01T00:00:00+00:00'))
+        copied += 1
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.50', now(), f'Vídeos enlazados y vida marina ({copied} vídeos de recorridos antiguos copiados)'))
 
 
 def migrate_v50_49(db):
@@ -2860,9 +2887,6 @@ def delete_public_image(url):
         except OSError: pass
 
 
-VIRTUAL_TYPES = {'panorama', 'video360', 'streetview', 'external360'}
-
-
 def virtual_public_row(row):
     """G3: a stored link is only handed to browsers when it is an allowed https embed (older rows are re-checked)."""
     d = dict(row)
@@ -2871,42 +2895,334 @@ def virtual_public_row(row):
     return d
 
 
-def can_manage_virtual(db, user, pid):
-    row = db.execute('SELECT center_id FROM dive_points WHERE id=?', (pid,)).fetchone()
-    if not row: raise ValueError('Punto no encontrado.')
-    if user['role'] == 'center' and row['center_id'] != user['center_id']:
-        raise PermissionError('No puedes gestionar el recorrido virtual de este punto.')
-    return row
+# ---------------------------------------------------------------------------------------------------------------------
+# v50.50 · Vídeos de la ruta (enlaces, nunca archivos) y vida marina de los puntos de buceo (wod.videos, wod.vidamarina).
+# Administrator: publishes at once. Centres (profile «Ficha del centro y ajustes») and freelance: proposals that wait for
+# the administrator. Divers: nothing. What a centre or freelance proposed keeps its name («Aportado por …»).
+# ---------------------------------------------------------------------------------------------------------------------
+MARINA_RATE = {}
 
 
-def clean_virtual_payload(data, has_file=False):
-    """Validates a virtual tour (server side; the browser checks the same rules). The URL must be https:// on one of
-    the providers in WOD_EMBED_DOMAINS (youtube-nocookie.com, player.vimeo.com, google.com/maps by default)."""
-    etype = clean_text(data.get('experience_type'), 40) or 'panorama'
-    if etype not in VIRTUAL_TYPES: raise ValueError('Tipo de experiencia no válido.')
-    url = wsec.clean_embed_url(clean_text(data.get('url'), 1000))
-    if etype in {'video360', 'streetview', 'external360'} and not url and not has_file:
-        raise ValueError('Añade una URL o un archivo para esta experiencia.')
-    try: duration = int(data.get('duration_seconds') or 0) or None
-    except (TypeError, ValueError): duration = None
-    if duration is not None and not 0 < duration < 24 * 3600: duration = None
-    return {'type': etype, 'url': url, 'title': clean_text(data.get('title'), 180) or 'Recorrido virtual',
-            'provider': clean_text(data.get('provider'), 100), 'description': clean_text(data.get('description'), 2000), 'duration': duration}
+def marina_rate(user_id, limit=60, window=600):
+    """At most 60 checks or proposals every 10 minutes per person (each one may ask another website)."""
+    t = int(time.time() // window); row = MARINA_RATE.get(user_id)
+    if not row or row[0] != t:
+        if len(MARINA_RATE) > 5000: MARINA_RATE.clear()
+        MARINA_RATE[user_id] = [t, 1]; return
+    row[1] += 1
+    if row[1] > limit: raise PermissionError('Demasiadas comprobaciones seguidas. Espera unos minutos.')
 
 
-def save_virtual_media(file_info, pid, etype):
-    """Panorama images or 360° videos for a dive site: type checked by content and size limited (WOD_MAX_VIRTUAL_UPLOAD_MB)."""
-    content = file_info.get('content') or b''
-    if len(content) > wcfg.MAX_VIRTUAL_UPLOAD_BYTES:
-        raise ValueError(f'El archivo pesa demasiado. Máximo {wcfg.MAX_VIRTUAL_UPLOAD_BYTES // (1024*1024)} MB.')
-    image = wsec.sniff_document(content); video = wsec.sniff_video(content)
-    if image == '.pdf': image = None
-    ext = image if etype == 'panorama' else video if etype == 'video360' else (image or video)
-    if not ext: raise ValueError('Formato no admitido para este tipo de recorrido.')
-    folder = PHOTOS / 'virtual'; folder.mkdir(parents=True, exist_ok=True)
-    out = folder / f'virtual_{pid}_{secrets.token_hex(8)}{ext}'
-    out.write_bytes(content)
-    return '/assets/uploads/virtual/' + out.name
+def marina_contributor(db, user):
+    """(kind, provider, name to show) of whoever adds something; divers cannot add anything."""
+    if user['role'] == 'admin': return 'admin', None, 'WORLDIVES DISCOVERY'
+    ctx = winq.ctx_from_user(db, user)
+    if not ctx: raise PermissionError('Los buceadores no pueden añadir vídeos ni especies.')
+    if ctx.kind == 'center':
+        r = db.execute('SELECT name FROM centers WHERE id=?', (ctx.oid,)).fetchone()
+        return 'center', ctx.key, (r['name'] if r else 'Centro')
+    r = db.execute('SELECT fullname FROM users WHERE id=?', (ctx.oid,)).fetchone()
+    return 'freelance', ctx.key, (r['fullname'] if r else 'Profesional')
+
+
+def marina_point(db, pid):
+    r = db.execute('SELECT id,name FROM dive_points WHERE id=? AND active=1', (pid,)).fetchone()
+    if not r: raise ValueError('Punto no encontrado.')
+    return r
+
+
+def marina_thumb(info):
+    """The preview image of a link, downloaded once and stored as WebP in three sizes (16:9). (None, None) when the
+    platform has none or does not answer: the web then shows the dive site's photo with the play button."""
+    name = wvideos.thumb_name(info['url']); folder = PHOTOS / 'videos'
+    have = sorted(int(f.stem.rsplit('-', 1)[1]) for f in folder.glob(name + '-*.webp') if f.stem.rsplit('-', 1)[1].isdigit()) if folder.is_dir() else []
+    if have: return f'/assets/uploads/videos/{name}', ','.join(map(str, have))
+    body = wvideos.fetch_thumbnail(info)
+    if not body: return None, None
+    try:
+        res = wimg.variants(body, folder, name, wmarina.VIDEO_WIDTHS, aspect=16 / 9)
+    except ValueError:
+        return None, None
+    if res.get('original'): return f"/assets/uploads/videos/{res['original']}", ''
+    return f'/assets/uploads/videos/{name}', ','.join(map(str, res['widths']))
+
+
+def marina_preview(db, user, url):
+    marina_contributor(db, user); marina_rate(user['id'])
+    try:
+        info = wvideos.inspect(url)
+    except wvideos.LinkError as e:
+        raise ValueError(str(e)) from None
+    base, widths = marina_thumb(info)
+    return {'url': info['url'], 'platform': info['platform'], 'platform_name': info['platform_name'], 'insertable': info['insertable'],
+            'title': info['title'], 'author': info['author'], 'kind_guess': info['kind_guess'], 'thumb': wimg.srcset(base, widths)}
+
+
+def marina_add_video(db, user, data):
+    pid = int(data.get('point_id') or 0); point = marina_point(db, pid)
+    ckind, prov, cname = marina_contributor(db, user); marina_rate(user['id'])
+    kind = data.get('kind') if data.get('kind') in wvideos.KINDS else 'normal'
+    try:
+        info = wvideos.inspect(data.get('url'))
+    except wvideos.LinkError as e:
+        raise ValueError(str(e)) from None
+    dup = db.execute("SELECT status FROM route_videos WHERE dive_point_id=? AND url=? AND active=1 AND status<>'rejected'", (pid, info['url'])).fetchone()
+    if dup: raise ValueError('Este vídeo ya está en el punto.' if dup['status'] == 'approved' else 'Este vídeo ya está propuesto y espera la aprobación.')
+    base, widths = marina_thumb(info)
+    admin = ckind == 'admin'
+    order = db.execute('SELECT COALESCE(MAX(sort_order),0)+1 FROM route_videos WHERE dive_point_id=? AND active=1', (pid,)).fetchone()[0] if admin else 0
+    cur = db.execute('''INSERT INTO route_videos(dive_point_id,url,platform,platform_name,video_ref,kind,title,source_title,source_author,thumb_base,thumb_widths,
+                        thumb_tries,sort_order,status,contributor_kind,contributor_provider,contributor_name,created_by_user_id,reviewed_by_user_id,reviewed_at,
+                        created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                     (pid, info['url'], info['platform'], info['platform_name'][:60] or None, info['ref'], kind, clean_text(data.get('title'), 180) or None,
+                      info['title'] or None, info['author'] or None, base, widths, 0 if base else 1, order, 'approved' if admin else 'pending', ckind, prov,
+                      cname, user['id'], user['id'] if admin else None, now() if admin else None, now(), now()))
+    audit(db, user['id'], 'route_video_added' if admin else 'route_video_proposed', 'route_video', cur.lastrowid, {'point': point['name'], 'url': info['url']})
+    return cur.lastrowid
+
+
+def marina_own(db, user, row):
+    """The administrator may change anything; a centre or freelance only what it proposed itself."""
+    if user['role'] == 'admin': return True
+    ctx = winq.ctx_from_user(db, user)
+    if not ctx or row['contributor_provider'] != ctx.key: raise PermissionError('Solo puedes cambiar lo que has propuesto tú.')
+    return False
+
+
+def marina_edit_video(db, user, vid, data):
+    row = db.execute('SELECT * FROM route_videos WHERE id=? AND active=1', (vid,)).fetchone()
+    if not row: raise ValueError('Vídeo no encontrado.')
+    admin = marina_own(db, user, row)
+    if not admin and row['status'] != 'pending': raise PermissionError('Ya está revisado: para cambiarlo, retíralo y proponlo de nuevo.')
+    kind = data.get('kind') if data.get('kind') in wvideos.KINDS else row['kind']
+    title = clean_text(data.get('title'), 180) if 'title' in data else row['title']
+    order = row['sort_order']
+    if admin and data.get('move') in ('up', 'down'):
+        rows = db.execute("SELECT id FROM route_videos WHERE dive_point_id=? AND active=1 AND status='approved' ORDER BY sort_order,id", (row['dive_point_id'],)).fetchall()
+        ids = [r['id'] for r in rows]
+        if vid in ids:
+            i = ids.index(vid); j = i - 1 if data['move'] == 'up' else i + 1
+            if 0 <= j < len(ids): ids[i], ids[j] = ids[j], ids[i]
+            for n, x in enumerate(ids, start=1): db.execute('UPDATE route_videos SET sort_order=? WHERE id=?', (n, x))
+            order = ids.index(vid) + 1
+    db.execute('UPDATE route_videos SET kind=?,title=?,sort_order=?,updated_at=? WHERE id=?', (kind, title or None, order, now(), vid))
+    audit(db, user['id'], 'route_video_edited', 'route_video', vid)
+
+
+def marina_withdraw(db, user, table, item_id):
+    row = db.execute(f'SELECT * FROM {table} WHERE id=? AND active=1', (item_id,)).fetchone()
+    if not row: raise ValueError('No encontrado.')
+    marina_own(db, user, row)
+    db.execute(f'UPDATE {table} SET active=0,updated_at=? WHERE id=?', (now(), item_id))
+    audit(db, user['id'], 'marina_withdrawn', table, item_id)
+
+
+def marina_add_species_link(db, user, data):
+    pid = int(data.get('point_id') or 0); point = marina_point(db, pid)
+    ckind, prov, cname = marina_contributor(db, user); marina_rate(user['id'])
+    sid = int(data.get('species_id') or 0)
+    if not db.execute('SELECT 1 FROM species WHERE id=? AND active=1', (sid,)).fetchone(): raise ValueError('Elige una especie del catálogo.')
+    freq = data.get('frequency') if data.get('frequency') in wmarina.FREQUENCIES else 'common'
+    mask = wmarina.months_mask(data.get('months') or [])
+    dup = db.execute("SELECT status FROM point_species WHERE dive_point_id=? AND species_id=? AND active=1 AND status<>'rejected'", (pid, sid)).fetchone()
+    if dup: raise ValueError('Esta especie ya está en el punto.' if dup['status'] == 'approved' else 'Esta especie ya está propuesta y espera la aprobación.')
+    admin = ckind == 'admin'
+    cur = db.execute('''INSERT INTO point_species(dive_point_id,species_id,frequency,months,status,contributor_kind,contributor_provider,contributor_name,
+                        created_by_user_id,reviewed_by_user_id,reviewed_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                     (pid, sid, freq, mask, 'approved' if admin else 'pending', ckind, prov, cname, user['id'], user['id'] if admin else None,
+                      now() if admin else None, now(), now()))
+    audit(db, user['id'], 'point_species_added' if admin else 'point_species_proposed', 'point_species', cur.lastrowid, {'point': point['name'], 'species': sid})
+    return cur.lastrowid
+
+
+def marina_edit_species_link(db, user, lid, data):
+    row = db.execute('SELECT * FROM point_species WHERE id=? AND active=1', (lid,)).fetchone()
+    if not row: raise ValueError('No encontrado.')
+    if not marina_own(db, user, row) and row['status'] != 'pending': raise PermissionError('Ya está revisado: para cambiarlo, retíralo y proponlo de nuevo.')
+    freq = data.get('frequency') if data.get('frequency') in wmarina.FREQUENCIES else row['frequency']
+    mask = wmarina.months_mask(data['months']) if 'months' in data else row['months']
+    db.execute('UPDATE point_species SET frequency=?,months=?,updated_at=? WHERE id=?', (freq, mask, now(), lid))
+    audit(db, user['id'], 'point_species_edited', 'point_species', lid)
+
+
+def marina_review(db, user, data):
+    require_role(user, {'admin'})
+    table = {'video': 'route_videos', 'especie': 'point_species'}.get(data.get('type'))
+    if not table: raise ValueError('Tipo no válido.')
+    item_id = int(data.get('id') or 0); decision = data.get('decision')
+    if decision not in ('approve', 'reject'): raise ValueError('Decisión no válida.')
+    row = db.execute(f"SELECT * FROM {table} WHERE id=? AND active=1", (item_id,)).fetchone()
+    if not row: raise ValueError('No encontrado.')
+    if row['status'] != 'pending': raise ValueError('Ya estaba revisado.')
+    note = clean_text(data.get('note'), 300)
+    if decision == 'reject' and not note: raise ValueError('Escribe el motivo del rechazo: lo verá quien lo propuso.')
+    status = 'approved' if decision == 'approve' else 'rejected'
+    if table == 'route_videos' and status == 'approved':
+        order = db.execute('SELECT COALESCE(MAX(sort_order),0)+1 FROM route_videos WHERE dive_point_id=? AND active=1', (row['dive_point_id'],)).fetchone()[0]
+        db.execute('UPDATE route_videos SET sort_order=? WHERE id=?', (order, item_id))
+    db.execute(f'UPDATE {table} SET status=?,review_note=?,reviewed_by_user_id=?,reviewed_at=?,updated_at=? WHERE id=?', (status, note or None, user['id'], now(), now(), item_id))
+    audit(db, user['id'], f'marina_{status}', table, item_id, {'note': note} if note else None)
+
+
+def marina_queue(db, lang='es'):
+    """Everything waiting for the administrator, oldest first."""
+    vids = [dict(r) for r in db.execute('''SELECT v.*, p.name AS point_name FROM route_videos v JOIN dive_points p ON p.id=v.dive_point_id
+                                           WHERE v.status='pending' AND v.active=1 ORDER BY v.created_at, v.id LIMIT 300''').fetchall()]
+    links = db.execute(f'''SELECT ps.id, ps.dive_point_id, ps.frequency, ps.months, ps.contributor_name, ps.created_at, p.name AS point_name, s.scientific_name,
+                                  s.photo_base, s.photo_widths, {wmarina._NAME_COLS}
+                           FROM point_species ps JOIN dive_points p ON p.id=ps.dive_point_id JOIN species s ON s.id=ps.species_id {wmarina._NAMES}
+                           WHERE ps.status='pending' AND ps.active=1 ORDER BY ps.created_at, ps.id LIMIT 300''', (lang,)).fetchall()
+    return {'videos': [{**wvideos.public_row(v), 'point_id': v['dive_point_id'], 'point_name': v['point_name'], 'created_at': v['created_at'],
+                        'source_title': v['source_title'] or ''} for v in vids],
+            'species': [{'id': r['id'], 'point_id': r['dive_point_id'], 'point_name': r['point_name'], 'frequency': r['frequency'],
+                         'months': wmarina.months_list(r['months']), 'contributor': r['contributor_name'], 'created_at': r['created_at'],
+                         'scientific': r['scientific_name'], 'name': r['common_name'] or r['scientific_name'],
+                         'photo': wimg.srcset(r['photo_base'], r['photo_widths'])} for r in links]}
+
+
+def marina_pending_count(db):
+    return db.execute("SELECT (SELECT COUNT(*) FROM route_videos WHERE status='pending' AND active=1)+(SELECT COUNT(*) FROM point_species WHERE status='pending' AND active=1)").fetchone()[0]
+
+
+def marina_mine(db, user, lang='es'):
+    """What a centre or freelance has proposed, with its state (pendiente, aprobada, rechazada y el motivo)."""
+    ctx = winq.require_ctx(db, user)
+    vids = db.execute('''SELECT v.*, p.name AS point_name FROM route_videos v JOIN dive_points p ON p.id=v.dive_point_id
+                         WHERE v.contributor_provider=? AND v.active=1 ORDER BY v.created_at DESC LIMIT 200''', (ctx.key,)).fetchall()
+    links = db.execute(f'''SELECT ps.*, p.name AS point_name, s.scientific_name, {wmarina._NAME_COLS} FROM point_species ps JOIN dive_points p ON p.id=ps.dive_point_id
+                           JOIN species s ON s.id=ps.species_id {wmarina._NAMES} WHERE ps.contributor_provider=? AND ps.active=1 ORDER BY ps.created_at DESC LIMIT 200''',
+                       (lang, ctx.key)).fetchall()
+    items = [{'type': 'video', 'id': v['id'], 'point_id': v['dive_point_id'], 'point_name': v['point_name'], 'label': v['title'] or v['source_title'] or v['url'],
+              'detail': wvideos.KIND_LABELS.get(v['kind'], ''), 'platform_name': v['platform_name'] or '', 'status': v['status'], 'note': v['review_note'] or '',
+              'created_at': v['created_at']} for v in vids]
+    items += [{'type': 'especie', 'id': r['id'], 'point_id': r['dive_point_id'], 'point_name': r['point_name'], 'label': r['common_name'] or r['scientific_name'],
+               'detail': r['scientific_name'], 'frequency': r['frequency'], 'months': wmarina.months_list(r['months']), 'status': r['status'],
+               'note': r['review_note'] or '', 'created_at': r['created_at']} for r in links]
+    items.sort(key=lambda x: x['created_at'], reverse=True)
+    return items
+
+
+def marina_my_points(db, user):
+    """The dive sites of a centre (linked, created or used in its departures) or of a freelance (its departures and bookings)."""
+    ctx = winq.require_ctx(db, user)
+    cid = ctx.oid if ctx.kind == 'center' else -1
+    rows = db.execute('''SELECT p.id, p.name, p.country FROM dive_points p WHERE p.active=1 AND p.id IN (
+                             SELECT dive_point_id FROM center_point_links WHERE center_id=?
+                             UNION SELECT id FROM dive_points WHERE center_id=?
+                             UNION SELECT sp.dive_point_id FROM service_slot_points sp JOIN service_slots s ON s.id=sp.slot_id WHERE s.provider_id=?
+                             UNION SELECT dive_point_id FROM bookings WHERE provider_id=? AND dive_point_id IS NOT NULL)
+                         ORDER BY p.name LIMIT 300''', (cid, cid, ctx.key, ctx.key)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def marina_point_editor(db, user, pid, lang='es'):
+    """A site's videos and species for its editor: everything for the administrator; for a centre or freelance, what is
+    published plus its own proposals (pending or rejected, with the reason)."""
+    point = marina_point(db, pid)
+    if user['role'] == 'admin':
+        vids = wmarina.point_videos(db, pid, ('approved', 'pending'), False); sp = wmarina.point_species(db, pid, lang, ('approved', 'pending'), False)
+    else:
+        ctx = winq.require_ctx(db, user)
+        vids = [v for v in wmarina.point_videos(db, pid, ('approved', 'pending', 'rejected'), False) if v['status'] == 'approved' or v['contributor_provider'] == ctx.key]
+        sp = [s for s in wmarina.point_species(db, pid, lang, ('approved', 'pending', 'rejected'), False) if s['status'] == 'approved' or s['contributor_provider'] == ctx.key]
+    key = None if user['role'] == 'admin' else winq.ctx_from_user(db, user).key
+    for x in vids + sp:
+        x['mine'] = user['role'] == 'admin' or x.get('contributor_provider') == key
+        x.pop('contributor_provider', None)
+    return {'point': {'id': point['id'], 'name': point['name']}, 'videos': vids, 'species': sp}
+
+
+def marina_species_photo(db, sid, content, author, license_, license_url=None, source=None):
+    """Stores a species photo as WebP (320, 640 and 1280 px) with its author and licence; the previous files go."""
+    author = clean_text(author, 160); license_ = wmarina.clean_license(license_)
+    if not author: raise ValueError('Indica el autor de la foto (aparece en pequeño sobre la foto).')
+    source = wmarina.https_or_none(source); license_url = wmarina.https_or_none(license_url)
+    if len(content or b'') > MAX_IMAGE_BYTES * 2: raise ValueError('La foto pesa demasiado. Máximo 12 MB.')
+    old = db.execute('SELECT photo_base,photo_widths FROM species WHERE id=?', (sid,)).fetchone()
+    name = f's{sid}-{secrets.token_hex(5)}'
+    res = wimg.variants(content, PHOTOS / 'especies', name, wmarina.SPECIES_WIDTHS)
+    base, widths = (f"/assets/uploads/especies/{res['original']}", '') if res.get('original') else (f'/assets/uploads/especies/{name}', ','.join(map(str, res['widths'])))
+    db.execute('''UPDATE species SET photo_base=?,photo_widths=?,photo_ratio=?,photo_author=?,photo_license=?,photo_license_url=?,photo_source_url=?,updated_at=?
+                  WHERE id=?''', (base, widths, res.get('ratio'), author, license_, license_url, source, now(), sid))
+    if old and old['photo_base'] and old['photo_base'].startswith('/assets/uploads/especies/'):
+        stem = old['photo_base'].rsplit('/', 1)[1]
+        for f in (PHOTOS / 'especies').glob(stem + '*'):
+            try: f.unlink()
+            except OSError: pass
+
+
+def marina_save_species(db, user, sid, fields, file=None):
+    require_role(user, {'admin'})
+    sci = ' '.join(str(fields.get('scientific_name') or '').split())[:120]
+    if not re.fullmatch(r"[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .()\-'×]{2,119}", sci or ''): raise ValueError('Escribe el nombre científico (por ejemplo, Epinephelus marginatus).')
+    clash = db.execute('SELECT id FROM species WHERE lower(scientific_name)=lower(?) AND active=1 AND id<>?', (sci, sid or 0)).fetchone()
+    if clash: raise ValueError('Ya hay una especie con ese nombre científico en el catálogo.')
+    try:
+        texts = json.loads(fields.get('texts') or '{}') if isinstance(fields.get('texts'), str) else (fields.get('texts') or {})
+    except ValueError:
+        raise ValueError('Nombres no válidos.') from None
+    if not isinstance(texts, dict): raise ValueError('Nombres no válidos.')
+    if sid:
+        if not db.execute('SELECT 1 FROM species WHERE id=? AND active=1', (sid,)).fetchone(): raise ValueError('Especie no encontrada.')
+        db.execute('UPDATE species SET scientific_name=?,updated_at=? WHERE id=?', (sci, now(), sid))
+    else:
+        if not (file and file.get('content')): raise ValueError('Añade la foto de la especie (propia o con una licencia que permita usarla).')
+        sid = db.execute('INSERT INTO species(scientific_name,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?)', (sci, user['id'], now(), now())).lastrowid
+    wmarina.save_texts(db, sid, texts)
+    if file and file.get('content'):
+        marina_species_photo(db, sid, file['content'], fields.get('photo_author'), fields.get('photo_license'), fields.get('photo_license_url'), fields.get('photo_source_url'))
+    elif any(k in fields for k in ('photo_author', 'photo_license')):
+        row = db.execute('SELECT photo_base FROM species WHERE id=?', (sid,)).fetchone()
+        if row and row['photo_base']:
+            author = clean_text(fields.get('photo_author'), 160)
+            if not author: raise ValueError('Indica el autor de la foto.')
+            db.execute('UPDATE species SET photo_author=?,photo_license=?,photo_license_url=?,photo_source_url=?,updated_at=? WHERE id=?',
+                       (author, wmarina.clean_license(fields.get('photo_license')), wmarina.https_or_none(fields.get('photo_license_url')),
+                        wmarina.https_or_none(fields.get('photo_source_url')), now(), sid))
+    audit(db, user['id'], 'species_saved', 'species', sid, {'scientific_name': sci})
+    return sid
+
+
+def marina_species_commons(db, user, sid, title):
+    require_role(user, {'admin'}); marina_rate(user['id'])
+    if not db.execute('SELECT 1 FROM species WHERE id=? AND active=1', (sid,)).fetchone(): raise ValueError('Especie no encontrada.')
+    try:
+        item = wmarina.commons_file(title)
+        body = wremoto.fetch_image(item['download'], 12 * 1024 * 1024)
+    except wremoto.FetchError:
+        raise ValueError('No se ha podido descargar la foto de Wikimedia Commons. Inténtalo más tarde.') from None
+    marina_species_photo(db, sid, body, item['author'], item['license'], item['license_url'] or None, item['page'] or None)
+    audit(db, user['id'], 'species_photo_commons', 'species', sid, {'file': item['title'], 'license': item['license']})
+
+
+def marina_load_examples(db, user):
+    """The example species (own illustrations by WORLDIVES DISCOVERY, public/img/especies/<clave>-<width>.webp): only
+    those not already in the catalogue."""
+    require_role(user, {'admin'})
+    added = 0
+    for ex in wmarina.examples():
+        if db.execute('SELECT 1 FROM species WHERE lower(scientific_name)=lower(?) AND active=1', (ex['cientifico'],)).fetchone(): continue
+        widths = [w for w in wmarina.SPECIES_WIDTHS if (PUBLIC / 'img' / 'especies' / f"{ex['clave']}-{w}.webp").is_file()]
+        if not widths: continue
+        sid = db.execute('''INSERT INTO species(scientific_name,photo_base,photo_widths,photo_ratio,photo_author,photo_license,example_key,created_by_user_id,created_at,updated_at)
+                            VALUES(?,?,?,?,?,?,?,?,?,?)''', (ex['cientifico'], f"/img/especies/{ex['clave']}", ','.join(map(str, widths)), round(4 / 3, 4),
+                                                       ex['autor'], wmarina.clean_license(ex['licencia']), ex['clave'], user['id'], now(), now())).lastrowid
+        wmarina.save_texts(db, sid, ex['textos'])
+        added += 1
+    audit(db, user['id'], 'species_examples_loaded', 'species', None, {'added': added})
+    return added
+
+
+def run_marina_jobs(db):
+    """Preview images that could not be downloaded when the link was added are tried again (3 times, 10 minutes apart)."""
+    limit = (datetime.now(timezone.utc) - _timedelta(minutes=10)).isoformat(timespec='seconds')
+    for r in db.execute("SELECT id,url FROM route_videos WHERE thumb_base IS NULL AND thumb_tries<3 AND active=1 AND updated_at<? ORDER BY id LIMIT 5", (limit,)).fetchall():
+        base = widths = None
+        try:
+            base, widths = marina_thumb(wvideos.inspect(r['url']))
+        except (wvideos.LinkError, ValueError, OSError):
+            pass
+        db.execute('UPDATE route_videos SET thumb_base=?,thumb_widths=?,thumb_tries=thumb_tries+1,updated_at=? WHERE id=?', (base, widths, now(), r['id']))
 
 
 def center_gallery(row):
@@ -3021,6 +3337,11 @@ def images_report(db):
     for f in sorted((PUBLIC / 'img' / 'marca').glob('*')):       # v50.45: the brand (logo, icons) is our own
         if f.is_file() and f.suffix.lower() in ('.webp', '.png', '.jpg', '.jpeg', '.svg', '.ico'):
             add('/img/marca/' + f.name, 'Marca', 'WORLDIVES DISCOVERY', 'Marca propia (docs/marca/README.md)')
+    # v50.50: species photos of the marine life catalogue, with the author and licence stored with each one.
+    for r in db.execute("SELECT s.photo_base,s.photo_widths,s.photo_author,s.photo_license,s.photo_source_url,COALESCE(t.common_name,s.scientific_name) AS name "
+                        "FROM species s LEFT JOIN species_texts t ON t.species_id=s.id AND t.lang='es' WHERE s.active=1 AND s.photo_base IS NOT NULL").fetchall():
+        add((wimg.srcset(r['photo_base'], r['photo_widths']) or {}).get('src'), 'Especie: ' + r['name'], r['photo_author'] or '',
+            ' · '.join(x for x in (r['photo_license'], r['photo_source_url']) if x))
     for s_ in site_media_slots(): add(s_['default'], 'Imagen por defecto: ' + s_['label'])
     for r in db.execute('SELECT key,image_url,credit,origin FROM site_media').fetchall(): add(r['image_url'], 'Portada: ' + r['key'], r['credit'], r['origin'])
     for r in db.execute('SELECT key,image_url,credit,origin FROM site_theme_media').fetchall(): add(r['image_url'], 'Tema: ' + r['key'], r['credit'], r['origin'])
@@ -10502,6 +10823,49 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         _ci['online_booking']=provider_has(db,'center',cid,'online_bookings'); stat_bump(db,'center',cid,'views',self.client_ip()); db.commit()
                         if not feature_switch(db,'reviews'): review_payload=[]; can_review=False; _ci['reviews_off']=True
                         self.send_json({'item':_ci,'points':[point_row(r) for r in points],'services':service_out,'experiences':enrich_experiences(db,exp_rows), 'reviews':review_payload, 'review':{'can_review':can_review,'reason':review_reason,'current':current_review,'can_reply':bool(current and current['role']=='center' and current['center_id']==cid),'is_admin':bool(current and current['role']=='admin')}}); return
+                # v50.50 · vídeos de la ruta y vida marina (wod.videos, wod.vidamarina)
+                if path.startswith('/api/marina/') or path.startswith('/api/admin/marina/'):
+                    user=require_user(self,db); lang_=normalize_lang(query.get('lang',['es'])[0])
+                    if user['role']=='admin' or path.startswith('/api/admin/'): require_role(user,{'admin'})
+                    else: marina_contributor(db,user)
+                    q_=clean_text(query.get('q',[''])[0],100)
+                    if path=='/api/marina/especies': self.send_json({'items':wmarina.search_species(db,q_,lang_,30)}); return
+                    if path=='/api/marina/mias': self.send_json({'items':marina_mine(db,user,lang_) if user['role']!='admin' else []}); return
+                    if path=='/api/marina/mis-puntos': self.send_json({'items':marina_my_points(db,user) if user['role']!='admin' else []}); return
+                    if path=='/api/marina/puntos':
+                        rows=db.execute("SELECT id,name,country FROM dive_points WHERE active=1 AND (name LIKE ? OR region LIKE ? OR country LIKE ?) ORDER BY name LIMIT 20",(f'%{q_}%',)*3).fetchall() if len(q_)>=2 else []
+                        self.send_json({'items':[dict(r) for r in rows]}); return
+                    if re.fullmatch(r'/api/marina/punto/\d+',path): self.send_json(marina_point_editor(db,user,int(path.rsplit('/',1)[1]),lang_)); return
+                    if path=='/api/marina/plataformas': self.send_json({'items':wvideos.platform_names()}); return
+                    if path=='/api/admin/marina/pendientes': self.send_json({**marina_queue(db,lang_),'count':marina_pending_count(db)}); return
+                    if path=='/api/admin/marina/especies':
+                        key_=wmarina.search_key(q_)
+                        flt_="AND (s.id IN (SELECT species_id FROM species_texts WHERE search_key LIKE ?) OR lower(s.scientific_name) LIKE ?)" if key_ else ''
+                        rows=db.execute(f"SELECT s.*, {wmarina._NAME_COLS}, (SELECT COUNT(*) FROM point_species ps WHERE ps.species_id=s.id AND ps.active=1 AND ps.status='approved') AS points, "
+                                        f"(SELECT group_concat(lang) FROM species_texts x WHERE x.species_id=s.id) AS langs FROM species s {wmarina._NAMES} WHERE s.active=1 {flt_} "
+                                        "ORDER BY common_name LIMIT 1000",(lang_,*((f'%{key_}%',)*2 if key_ else ()))).fetchall()
+                        ex_=wmarina.examples(); have_={r_['scientific_name'].lower() for r_ in db.execute('SELECT scientific_name FROM species WHERE active=1').fetchall()}
+                        self.send_json({'items':[{**wmarina.species_public(r),'points':r['points'],'langs':sorted((r['langs'] or '').split(',')),'example':bool(r['example_key'])} for r in rows],
+                                        'examples_missing':sum(1 for e in ex_ if e['cientifico'].lower() not in have_),'langs':list(wmarina.LANGS)}); return
+                    if re.fullmatch(r'/api/admin/marina/especie/\d+',path):
+                        d_=wmarina.species_full(db,int(path.rsplit('/',1)[1]))
+                        if not d_: self.send_json({'error':'Especie no encontrada.'},404); return
+                        self.send_json({'item':d_}); return
+                    if path=='/api/admin/marina/videos':
+                        st_=query.get('estado',['approved'])[0]; st_=st_ if st_ in wmarina.STATUSES else 'approved'
+                        rows=db.execute("SELECT v.*, p.name AS point_name FROM route_videos v JOIN dive_points p ON p.id=v.dive_point_id WHERE v.active=1 AND v.status=? "
+                                        "AND (?='' OR p.name LIKE ? OR v.title LIKE ? OR v.source_title LIKE ?) ORDER BY v.updated_at DESC, v.id DESC LIMIT 500",
+                                        (st_,q_,f'%{q_}%',f'%{q_}%',f'%{q_}%')).fetchall()
+                        self.send_json({'items':[{**wvideos.public_row(dict(r)),'point_id':r['dive_point_id'],'point_name':r['point_name'],'status':r['status'],
+                                                  'source_title':r['source_title'] or '','review_note':r['review_note'] or ''} for r in rows]}); return
+                    if path=='/api/admin/marina/commons':
+                        try: self.send_json({'items':wmarina.commons_search(q_)}); return
+                        except wremoto.FetchError: raise ValueError('No se ha podido consultar Wikimedia Commons ahora. Inténtalo más tarde.') from None
+                    if path=='/api/admin/marina/antiguos':
+                        rows=db.execute("SELECT v.id,v.dive_point_id,v.title,v.experience_type,v.url,v.media_path,v.provider,v.created_at,p.name AS point_name FROM virtual_experiences v "
+                                        "JOIN dive_points p ON p.id=v.dive_point_id WHERE v.active=1 AND NOT EXISTS(SELECT 1 FROM route_videos r WHERE r.legacy_virtual_id=v.id) ORDER BY v.id").fetchall()
+                        self.send_json({'items':[{**virtual_public_row(r),'point_name':r['point_name']} for r in rows]}); return
+                    self.send_json({'error':'No encontrado'},404); return
                 if path.startswith('/api/dive-points/') and path.endswith('/virtual'):
                     pid=int(path.split('/')[3])
                     if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone():
@@ -10562,7 +10926,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     lang=normalize_lang(query.get('lang',['es'])[0]); loc=point_text(db,pid,lang)
                     if loc: item['description']=loc; item['description_lang']=lang
                     if item.get('description_generated'): item['access_info']=''   # the access is already in the text
-                    self.send_json({'item':item,'photos':[dict(x) for x in photos],'nearby':near,'types':snap_row.get('types',[])})
+                    # v50.50: the species and the route videos come with the site (one indexed query each, never one per item).
+                    self.send_json({'item':item,'photos':[dict(x) for x in photos],'nearby':near,'types':snap_row.get('types',[]),
+                                    'species':wmarina.point_species(db,pid,lang),'videos':wmarina.point_videos(db,pid)})
                     return
                 if path == '/api/center-directory':
                     self.send_json(center_directory(db, query)); return
@@ -12868,20 +13234,43 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     center_id=data.get('center_id') or (user['center_id'] if user['role']=='center' else None)
                     if user['role']=='center' and center_id!=user['center_id']: raise PermissionError('Solo puedes crear puntos de tu centro.')
                     cur=db.execute('''INSERT INTO dive_points(name,country,region,dive_type,latitude,longitude,difficulty,min_depth,max_depth,description,access_info,center_id,verification_status,created_by_user_id,updated_by_user_id,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('dive_type'),100),float(data.get('latitude')),float(data.get('longitude')),clean_text(data.get('difficulty'),50),data.get('min_depth') or None,data.get('max_depth') or None,clean_text(data.get('description'),5000),clean_text(data.get('access_info'),3000),center_id,'verified' if user['role']=='admin' else 'pending_center',user['id'],user['id'],1,now(),now())); audit(db,user['id'],'dive_point_created','dive_point',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
-                if path.startswith('/api/dive-points/') and path.endswith('/virtual/upload'):
-                    user=require_user(self,db); require_role(user,{'admin','center'}); pid=int(path.split('/')[3])
-                    can_manage_virtual(db,user,pid)
-                    fields,files=parse_multipart(self); file=files.get('file')
-                    v=clean_virtual_payload(fields,has_file=bool(file))
-                    media_path=save_virtual_media(file,pid,v['type']) if file else None
-                    cur=db.execute('INSERT INTO virtual_experiences(dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(pid,v['title'],v['type'],v['provider'],v['url'],media_path,v['description'],v['duration'],1,user['id'],now(),now()))
-                    audit(db,user['id'],'virtual_experience_created','virtual_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid,'media_path':media_path}); return
-                if path.startswith('/api/dive-points/') and path.endswith('/virtual'):
-                    user=require_user(self,db); require_role(user,{'admin','center'}); pid=int(path.split('/')[3])
-                    can_manage_virtual(db,user,pid)
-                    v=clean_virtual_payload(json_body(self))
-                    cur=db.execute('INSERT INTO virtual_experiences(dive_point_id,title,experience_type,provider,url,media_path,description,duration_seconds,active,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(pid,v['title'],v['type'],v['provider'],v['url'],None,v['description'],v['duration'],1,user['id'],now(),now()))
-                    audit(db,user['id'],'virtual_experience_created','virtual_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                # v50.50 · vídeos de la ruta y vida marina. Videos are links, never files: the old «recorrido virtual»
+                # uploads and links are closed (what exists stays and is listed in Administración → Vida marina y vídeos).
+                if path.startswith('/api/dive-points/') and (path.endswith('/virtual/upload') or path.endswith('/virtual')):
+                    require_user(self,db)
+                    self.send_json({'error':'Los recorridos se añaden ahora como «Vídeos de la ruta»: pega el enlace del vídeo (YouTube, Vimeo…). No se suben archivos de vídeo.'},410); return
+                if path.startswith('/api/marina/') or path.startswith('/api/admin/marina/'):
+                    user=require_user(self,db)
+                    if path.startswith('/api/admin/'): require_role(user,{'admin'})
+                    m_=re.fullmatch(r'/api/admin/marina/especie(?:/(\d+))?(/borrar|/commons)?',path)
+                    if m_:
+                        sid_=int(m_.group(1) or 0); act_=m_.group(2) or ''
+                        if act_=='/borrar':
+                            if not sid_: raise ValueError('Especie no encontrada.')
+                            db.execute('UPDATE species SET active=0,updated_at=? WHERE id=? AND active=1',(now(),sid_)); audit(db,user['id'],'species_deleted','species',sid_)
+                            db.commit(); self.send_json({'ok':True}); return
+                        if act_=='/commons':
+                            marina_species_commons(db,user,sid_,json_body(self).get('title')); db.commit(); self.send_json({'ok':True,'item':wmarina.species_full(db,sid_)}); return
+                        ctype_=(self.headers.get('Content-Type') or '').lower()
+                        if ctype_.startswith('multipart/'): fields_,files_=parse_multipart(self); file_=files_.get('file')
+                        else: fields_,file_=json_body(self),None
+                        sid_=marina_save_species(db,user,sid_,fields_,file_); db.commit(); self.send_json({'ok':True,'id':sid_,'item':wmarina.species_full(db,sid_)}); return
+                    data=json_body(self)
+                    if path=='/api/marina/video/comprobar': self.send_json(marina_preview(db,user,data.get('url'))); return
+                    if path=='/api/marina/video':
+                        vid_=marina_add_video(db,user,data); db.commit(); self.send_json({'ok':True,'id':vid_,'status':'approved' if user['role']=='admin' else 'pending'}); return
+                    m_=re.fullmatch(r'/api/marina/(video|especie-punto)/(\d+)(/retirar)?',path)
+                    if m_:
+                        table_='route_videos' if m_.group(1)=='video' else 'point_species'; id_=int(m_.group(2))
+                        if m_.group(3): marina_withdraw(db,user,table_,id_)
+                        elif table_=='route_videos': marina_edit_video(db,user,id_,data)
+                        else: marina_edit_species_link(db,user,id_,data)
+                        db.commit(); self.send_json({'ok':True}); return
+                    if path=='/api/marina/especie-punto':
+                        lid_=marina_add_species_link(db,user,data); db.commit(); self.send_json({'ok':True,'id':lid_,'status':'approved' if user['role']=='admin' else 'pending'}); return
+                    if path=='/api/admin/marina/revisar': marina_review(db,user,data); db.commit(); self.send_json({'ok':True,'count':marina_pending_count(db)}); return
+                    if path=='/api/admin/marina/ejemplos': n_=marina_load_examples(db,user); db.commit(); self.send_json({'ok':True,'added':n_}); return
+                    self.send_json({'error':'Endpoint no encontrado'},404); return
                 if path.startswith('/api/dive-points/') and path.endswith('/photos/delete'):
                     user=require_user(self,db); pid=int(path.split('/')[3]); data=json_body(self); phid=int(data.get('photo_id') or 0)
                     ph=db.execute('SELECT * FROM dive_point_photos WHERE id=? AND dive_point_id=?',(phid,pid)).fetchone()

@@ -314,8 +314,10 @@ DOCUMENT_TYPES = {'.pdf': 'application/pdf', '.jpg': 'image/jpeg', '.png': 'imag
 # allowed embed providers and only after the visitor clicks «Cargar vídeo».
 # ---------------------------------------------------------------------------
 def content_security_policy() -> str:
+    from . import videos   # v50.50: the players of the insertable video platforms (wod.videos.PLATFORMS)
     frames = sorted({'https://' + d.partition('/')[0] for d in config.embed_domains()} |
-                    {'https://www.' + d.partition('/')[0] for d in config.embed_domains() if d.count('.') == 1})
+                    {'https://www.' + d.partition('/')[0] for d in config.embed_domains() if d.count('.') == 1} |
+                    {'https://' + h for h in videos.frame_hosts()})
     connect = ["'self'"] + [x.strip() for x in config.env('WOD_CSP_EXTRA_CONNECT').split(',') if x.strip()]
     scripts = ["'self'"]
     # v50.47: «Conectar mi WhatsApp Business» uses Meta's Embedded Signup (Facebook JS SDK). Allowed only when the owner

@@ -15,7 +15,7 @@ Esta ficha no repite el texto. Comprueba cada cookie, cada clave de almacenamien
 
 - Cookies: `grep Set-Cookie app/server.py` y `document.cookie` en el JS (no aparece).
 - Almacenamiento: `grep localStorage|sessionStorage public/js/*.js` (solo `world-dives-v8.js` lo usa) y `public/sw.js` (Cache Storage).
-- Terceros: CSP en `content_security_policy()` (`app/wod/security.py`), configuración de mapas `map_config()` (`app/server.py`, `GET /api/map/config`), vídeos en `DEFAULT_EMBED_DOMAINS` (`app/wod/config.py`) y búsqueda de URLs `https://` en `public/index.html` y el JS.
+- Terceros: CSP en `content_security_policy()` (`app/wod/security.py`), configuración de mapas `map_config()` (`app/server.py`, `GET /api/map/config`), vídeos en `DEFAULT_EMBED_DOMAINS` (`app/wod/config.py`) y, desde la v50.50, en `PLATFORMS` (`app/wod/videos.py`) y búsqueda de URLs `https://` en `public/index.html` y el JS.
 
 ## Cookies
 
@@ -56,7 +56,7 @@ Todas las lecturas y escrituras van dentro de `try…catch`: si el navegador blo
 | `font-src` | `'self'` | Sin fuentes externas (no hay Google Fonts) |
 | `img-src` | `'self' data: blob: https:` | **Cualquier imagen https** (ver desajustes) |
 | `connect-src` | `'self'` + `WOD_CSP_EXTRA_CONNECT` + el origen de `WOD_PMTILES_URL` si es `https://` | Peticiones solo a nuestro servidor, salvo que se configure un CDN para el mapa |
-| `frame-src` | Dominios de `WOD_EMBED_DOMAINS` (por defecto `youtube-nocookie.com`, `player.vimeo.com`, `google.com/maps`, y su variante `www.`) | Solo esos `iframe` |
+| `frame-src` | Dominios de `WOD_EMBED_DOMAINS` (por defecto `youtube-nocookie.com`, `player.vimeo.com`, `google.com/maps`, y su variante `www.`) y, desde la v50.50, los reproductores de las plataformas insertables de `app/wod/videos.py` (`www.youtube-nocookie.com`, `player.vimeo.com`, `www.dailymotion.com`, `www.tiktok.com`, `www.facebook.com`, `www.instagram.com`; `WOD_VIDEO_EMBED_OFF` quita los que se indiquen) | Solo esos `iframe`, y solo después de pulsar «Reproducir» |
 | `form-action`, `frame-ancestors`, `object-src` | `'self'`, `'none'`, `'none'` | — |
 
 ### Servicios que se cargan en el navegador
@@ -100,3 +100,17 @@ El texto de cookies no menciona Nominatim. Como no recibe datos personales, bast
 - **[PENDIENTE ABOGADO]** GEBCO (servidores del British Oceanographic Data Centre, Reino Unido): la IP sale al cargar la capa, que el visitante elige. Confirmar que basta con informar (decisión adecuada de la Comisión para el Reino Unido).
 - **[PENDIENTE ABOGADO]** Vídeos tras clic: si el botón «Cargar vídeo» con el aviso actual vale como consentimiento para las cookies que pongan Vimeo o Google Maps (YouTube se usa en su modo sin cookies).
 - **[PENDIENTE ABOGADO]** Cookies de Stripe en su página de pago: responsabilidad de Stripe; confirmar que basta con mencionarlo.
+
+
+## Actualización v50.50 (vídeos de la ruta)
+
+- **Vídeos de la ruta** (`docs/vida-marina/README.md`):
+  - la ficha del punto solo enseña una miniatura guardada en nuestro servidor;
+  - el reproductor de la plataforma se carga al pulsar «Reproducir»;
+  - YouTube va con `youtube-nocookie.com` y Vimeo con `dnt=1`.
+- La fila de vídeos del texto público (`app/legal/*/cookies.md`, 9 idiomas) nombra ahora todas las plataformas
+  insertables y el botón «Reproducir».
+- **La política de privacidad no se ha cambiado.**
+  - Hoy nombra YouTube, Vimeo y Google Maps como ejemplos.
+  - Si se cambia, todos los usuarios tienen que aceptarla otra vez (`LEGAL_ACCEPTANCE`).
+  - **Pendiente de decisión** (notas de la v50.50).

@@ -23,7 +23,7 @@ Even though they do not use cookies, some services loaded in your browser receiv
 | **Base map** | Whenever you view a map | Nothing: it is served from our server (data © OpenStreetMap contributors) |
 | **Satellite view (Esri)** | Only if you choose «Satellite» | Nothing: the images pass through our server |
 | **Bathymetry (GEBCO)** | Only if you choose the depth layer | Your IP reaches the servers of GEBCO / British Oceanographic Data Centre |
-| **Embedded videos and maps** (cookie-free YouTube, Vimeo, Google Maps) | Only if you tap «Load video» | Your IP and whatever that service collects; see its policy |
+| **Route videos** (YouTube in privacy-enhanced mode, Vimeo without tracking, Dailymotion, TikTok, Facebook and Instagram) and **embedded maps** (Google Maps) | Only if you press «Play» on that video; until then you see a thumbnail stored on our server | Your IP and whatever that service collects, including its own cookies; see its policy. Videos from other platforms open in a new tab |
 | **Payment (Stripe)** | When you pay | Stripe's page opens, with its own cookies to prevent fraud |
 
 No video or third-party content is loaded unless you ask for it.

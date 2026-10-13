@@ -150,7 +150,7 @@ REGLAS_POST = (
     ('cobros', _P('/api/bookings/refund', re.compile(r'/api/bookings/\d+/refund'))),
     ('centro', _P('/api/provider/insurance', '/api/provider/cancellation-policy', '/api/provider/center-update', '/api/provider/center-showcase',
                   '/api/provider/center-cover', '/api/provider/center-gallery', '/api/center/integration', '/api/provider/ical', '/api/center/import',
-                  '/api/center/tariffs', '/api/provider/waiver')),
+                  '/api/center/tariffs', '/api/provider/waiver', '/api/marina/')),
     ('salidas', _P('/api/provider-services', '/api/service-templates/', '/api/agenda/')),
 )
 REGLAS_GET = (

@@ -1,0 +1,1976 @@
+{
+ "exact": {
+  "Vida marina que puedes ver": {
+   "en": "Marine life you can see",
+   "fr": "Vie marine à observer",
+   "de": "Meereslebewesen, die du sehen kannst",
+   "it": "Vita marina che puoi vedere",
+   "pt": "Vida marinha que pode ver",
+   "nl": "Zeeleven dat je kunt zien",
+   "pl": "Życie morskie, które zobaczysz",
+   "zh": "可以看到的海洋生物"
+  },
+  "Especies que se pueden ver en este punto": {
+   "en": "Species you can see at this site",
+   "fr": "Espèces visibles sur ce site",
+   "de": "Arten, die man an diesem Tauchplatz sehen kann",
+   "it": "Specie che si possono vedere in questo punto",
+   "pt": "Espécies que se podem ver neste ponto",
+   "nl": "Soorten die je op deze duikstek kunt zien",
+   "pl": "Gatunki, które można zobaczyć w tym miejscu",
+   "zh": "在此潜点可以看到的物种"
+  },
+  "Habitual": {
+   "en": "Common",
+   "fr": "Fréquente",
+   "de": "Häufig",
+   "it": "Frequente",
+   "pt": "Habitual",
+   "nl": "Vaak",
+   "pl": "Częsty",
+   "zh": "常见"
+  },
+  "Ocasional": {
+   "en": "Occasional",
+   "fr": "Occasionnelle",
+   "de": "Gelegentlich",
+   "it": "Occasionale",
+   "pt": "Ocasional",
+   "nl": "Soms",
+   "pl": "Okazjonalny",
+   "zh": "偶见"
+  },
+  "Rara": {
+   "en": "Rare",
+   "fr": "Rare",
+   "de": "Selten",
+   "it": "Rara",
+   "pt": "Rara",
+   "nl": "Zeldzaam",
+   "pl": "Rzadki",
+   "zh": "罕见"
+  },
+  "Se ve todo el año": {
+   "en": "Seen all year round",
+   "fr": "Visible toute l'année",
+   "de": "Das ganze Jahr zu sehen",
+   "it": "Si vede tutto l'anno",
+   "pt": "Vê-se todo o ano",
+   "nl": "Het hele jaar te zien",
+   "pl": "Widoczny przez cały rok",
+   "zh": "全年可见"
+  },
+  "Todo el año": {
+   "en": "All year",
+   "fr": "Toute l'année",
+   "de": "Ganzjährig",
+   "it": "Tutto l'anno",
+   "pt": "Todo o ano",
+   "nl": "Het hele jaar",
+   "pl": "Cały rok",
+   "zh": "全年"
+  },
+  "Imagen:": {
+   "en": "Image:",
+   "fr": "Image :",
+   "de": "Bild:",
+   "it": "Immagine:",
+   "pt": "Imagem:",
+   "nl": "Afbeelding:",
+   "pl": "Zdjęcie:",
+   "zh": "图片："
+  },
+  "Origen de la foto": {
+   "en": "Photo source",
+   "fr": "Source de la photo",
+   "de": "Quelle des Fotos",
+   "it": "Origine della foto",
+   "pt": "Origem da foto",
+   "nl": "Bron van de foto",
+   "pl": "Źródło zdjęcia",
+   "zh": "照片来源"
+  },
+  "Vídeos de la ruta": {
+   "en": "Route videos",
+   "fr": "Vidéos du parcours",
+   "de": "Videos der Route",
+   "it": "Video del percorso",
+   "pt": "Vídeos do percurso",
+   "nl": "Video's van de route",
+   "pl": "Filmy z trasy",
+   "zh": "路线视频"
+  },
+  "Vídeo de la ruta": {
+   "en": "Route video",
+   "fr": "Vidéo du parcours",
+   "de": "Video der Route",
+   "it": "Video del percorso",
+   "pt": "Vídeo do percurso",
+   "nl": "Video van de route",
+   "pl": "Film z trasy",
+   "zh": "路线视频"
+  },
+  "Reproducir el vídeo": {
+   "en": "Play the video",
+   "fr": "Lire la vidéo",
+   "de": "Video abspielen",
+   "it": "Riproduci il video",
+   "pt": "Reproduzir o vídeo",
+   "nl": "Video afspelen",
+   "pl": "Odtwórz film",
+   "zh": "播放视频"
+  },
+  "Abrir el vídeo en una pestaña nueva": {
+   "en": "Open the video in a new tab",
+   "fr": "Ouvrir la vidéo dans un nouvel onglet",
+   "de": "Video in einem neuen Tab öffnen",
+   "it": "Apri il video in una nuova scheda",
+   "pt": "Abrir o vídeo num novo separador",
+   "nl": "Video openen in een nieuw tabblad",
+   "pl": "Otwórz film w nowej karcie",
+   "zh": "在新标签页中打开视频"
+  },
+  "Se abre en otra pestaña": {
+   "en": "Opens in another tab",
+   "fr": "S'ouvre dans un autre onglet",
+   "de": "Öffnet sich in einem anderen Tab",
+   "it": "Si apre in un'altra scheda",
+   "pt": "Abre noutro separador",
+   "nl": "Opent in een ander tabblad",
+   "pl": "Otwiera się w innej karcie",
+   "zh": "在其他标签页中打开"
+  },
+  "Ruta normal": {
+   "en": "Standard route",
+   "fr": "Parcours normal",
+   "de": "Normale Route",
+   "it": "Percorso normale",
+   "pt": "Percurso normal",
+   "nl": "Gewone route",
+   "pl": "Zwykła trasa",
+   "zh": "普通路线"
+  },
+  "Ruta 360°": {
+   "en": "360° route",
+   "fr": "Parcours 360°",
+   "de": "360°-Route",
+   "it": "Percorso 360°",
+   "pt": "Percurso 360°",
+   "nl": "360°-route",
+   "pl": "Trasa 360°",
+   "zh": "360° 路线"
+  },
+  "Realidad virtual": {
+   "en": "Virtual reality",
+   "fr": "Réalité virtuelle",
+   "de": "Virtuelle Realität",
+   "it": "Realtà virtuale",
+   "pt": "Realidade virtual",
+   "nl": "Virtual reality",
+   "pl": "Wirtualna rzeczywistość",
+   "zh": "虚拟现实"
+  },
+  "Publicado": {
+   "en": "Published",
+   "fr": "Publié",
+   "de": "Veröffentlicht",
+   "it": "Pubblicato",
+   "pt": "Publicado",
+   "nl": "Gepubliceerd",
+   "pl": "Opublikowane",
+   "zh": "已发布"
+  },
+  "Publicado.": {
+   "en": "Published.",
+   "fr": "Publié.",
+   "de": "Veröffentlicht.",
+   "it": "Pubblicato.",
+   "pt": "Publicado.",
+   "nl": "Gepubliceerd.",
+   "pl": "Opublikowano.",
+   "zh": "已发布。"
+  },
+  "Pendiente de aprobación": {
+   "en": "Awaiting approval",
+   "fr": "En attente d'approbation",
+   "de": "Wartet auf Freigabe",
+   "it": "In attesa di approvazione",
+   "pt": "A aguardar aprovação",
+   "nl": "Wacht op goedkeuring",
+   "pl": "Czeka na zatwierdzenie",
+   "zh": "等待审核"
+  },
+  "Rechazado": {
+   "en": "Rejected",
+   "fr": "Refusé",
+   "de": "Abgelehnt",
+   "it": "Rifiutato",
+   "pt": "Rejeitado",
+   "nl": "Afgewezen",
+   "pl": "Odrzucone",
+   "zh": "已拒绝"
+  },
+  "Rechazado.": {
+   "en": "Rejected.",
+   "fr": "Refusé.",
+   "de": "Abgelehnt.",
+   "it": "Rifiutato.",
+   "pt": "Rejeitado.",
+   "nl": "Afgewezen.",
+   "pl": "Odrzucono.",
+   "zh": "已拒绝。"
+  },
+  "Publicados": {
+   "en": "Published",
+   "fr": "Publiées",
+   "de": "Veröffentlicht",
+   "it": "Pubblicati",
+   "pt": "Publicados",
+   "nl": "Gepubliceerd",
+   "pl": "Opublikowane",
+   "zh": "已发布"
+  },
+  "Rechazados": {
+   "en": "Rejected",
+   "fr": "Refusées",
+   "de": "Abgelehnt",
+   "it": "Rifiutati",
+   "pt": "Rejeitados",
+   "nl": "Afgewezen",
+   "pl": "Odrzucone",
+   "zh": "已拒绝"
+  },
+  "pendientes": {
+   "en": "pending",
+   "fr": "en attente",
+   "de": "offen",
+   "it": "in attesa",
+   "pt": "pendentes",
+   "nl": "in afwachting",
+   "pl": "oczekujące",
+   "zh": "待审核"
+  },
+  "aprobadas": {
+   "en": "approved",
+   "fr": "approuvées",
+   "de": "freigegeben",
+   "it": "approvate",
+   "pt": "aprovadas",
+   "nl": "goedgekeurd",
+   "pl": "zatwierdzone",
+   "zh": "已通过"
+  },
+  "rechazadas": {
+   "en": "rejected",
+   "fr": "refusées",
+   "de": "abgelehnt",
+   "it": "rifiutate",
+   "pt": "rejeitadas",
+   "nl": "afgewezen",
+   "pl": "odrzucone",
+   "zh": "已拒绝"
+  },
+  "Retirar": {
+   "en": "Withdraw",
+   "fr": "Retirer",
+   "de": "Zurückziehen",
+   "it": "Ritira",
+   "pt": "Retirar",
+   "nl": "Intrekken",
+   "pl": "Wycofaj",
+   "zh": "撤回"
+  },
+  "Subir": {
+   "en": "Move up",
+   "fr": "Monter",
+   "de": "Nach oben",
+   "it": "Sposta su",
+   "pt": "Subir",
+   "nl": "Omhoog",
+   "pl": "W górę",
+   "zh": "上移"
+  },
+  "Bajar": {
+   "en": "Move down",
+   "fr": "Descendre",
+   "de": "Nach unten",
+   "it": "Sposta giù",
+   "pt": "Descer",
+   "nl": "Omlaag",
+   "pl": "W dół",
+   "zh": "下移"
+  },
+  "Vídeo": {
+   "en": "Video",
+   "fr": "Vidéo",
+   "de": "Video",
+   "it": "Video",
+   "pt": "Vídeo",
+   "nl": "Video",
+   "pl": "Film",
+   "zh": "视频"
+  },
+  "Vídeos": {
+   "en": "Videos",
+   "fr": "Vidéos",
+   "de": "Videos",
+   "it": "Video",
+   "pt": "Vídeos",
+   "nl": "Video's",
+   "pl": "Filmy",
+   "zh": "视频"
+  },
+  "Especie": {
+   "en": "Species",
+   "fr": "Espèce",
+   "de": "Art",
+   "it": "Specie",
+   "pt": "Espécie",
+   "nl": "Soort",
+   "pl": "Gatunek",
+   "zh": "物种"
+  },
+  "Especies": {
+   "en": "Species",
+   "fr": "Espèces",
+   "de": "Arten",
+   "it": "Specie",
+   "pt": "Espécies",
+   "nl": "Soorten",
+   "pl": "Gatunki",
+   "zh": "物种"
+  },
+  "Se reproduce en la ficha": {
+   "en": "Plays on the page",
+   "fr": "Se lit sur la fiche",
+   "de": "Wird auf der Seite abgespielt",
+   "it": "Si riproduce nella scheda",
+   "pt": "Reproduz-se na ficha",
+   "nl": "Speelt af op de pagina",
+   "pl": "Odtwarza się na stronie",
+   "zh": "在页面内播放"
+  },
+  "Este punto todavía no tiene vídeos.": {
+   "en": "This site has no videos yet.",
+   "fr": "Ce site n'a pas encore de vidéos.",
+   "de": "Dieser Tauchplatz hat noch keine Videos.",
+   "it": "Questo punto non ha ancora video.",
+   "pt": "Este ponto ainda não tem vídeos.",
+   "nl": "Deze duikstek heeft nog geen video's.",
+   "pl": "To miejsce nie ma jeszcze filmów.",
+   "zh": "此潜点暂无视频。"
+  },
+  "Este punto todavía no tiene especies.": {
+   "en": "This site has no species yet.",
+   "fr": "Ce site n'a pas encore d'espèces.",
+   "de": "Dieser Tauchplatz hat noch keine Arten.",
+   "it": "Questo punto non ha ancora specie.",
+   "pt": "Este ponto ainda não tem espécies.",
+   "nl": "Deze duikstek heeft nog geen soorten.",
+   "pl": "To miejsce nie ma jeszcze gatunków.",
+   "zh": "此潜点暂无物种。"
+  },
+  "Enlace del vídeo": {
+   "en": "Video link",
+   "fr": "Lien de la vidéo",
+   "de": "Link zum Video",
+   "it": "Link del video",
+   "pt": "Ligação do vídeo",
+   "nl": "Link naar de video",
+   "pl": "Link do filmu",
+   "zh": "视频链接"
+  },
+  "YouTube, Vimeo, Dailymotion, TikTok, Facebook, reels de Instagram o cualquier otra plataforma de vídeo. Se guarda el enlace, nunca el archivo.": {
+   "en": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram reels or any other video platform. The link is stored, never the file.",
+   "fr": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, reels Instagram ou toute autre plateforme vidéo. On enregistre le lien, jamais le fichier.",
+   "de": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram-Reels oder jede andere Videoplattform. Gespeichert wird der Link, nie die Datei.",
+   "it": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, reel di Instagram o qualsiasi altra piattaforma video. Si salva il link, mai il file.",
+   "pt": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, reels do Instagram ou qualquer outra plataforma de vídeo. Guarda-se a ligação, nunca o ficheiro.",
+   "nl": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram-reels of elk ander videoplatform. De link wordt bewaard, nooit het bestand.",
+   "pl": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, rolki z Instagrama lub dowolna inna platforma wideo. Zapisujemy link, nigdy plik.",
+   "zh": "YouTube、Vimeo、Dailymotion、TikTok、Facebook、Instagram 短视频或其他任何视频平台。只保存链接，从不保存文件。"
+  },
+  "Tipo de vídeo": {
+   "en": "Video type",
+   "fr": "Type de vidéo",
+   "de": "Videotyp",
+   "it": "Tipo di video",
+   "pt": "Tipo de vídeo",
+   "nl": "Soort video",
+   "pl": "Rodzaj filmu",
+   "zh": "视频类型"
+  },
+  "Título (opcional)": {
+   "en": "Title (optional)",
+   "fr": "Titre (facultatif)",
+   "de": "Titel (optional)",
+   "it": "Titolo (facoltativo)",
+   "pt": "Título (opcional)",
+   "nl": "Titel (optioneel)",
+   "pl": "Tytuł (opcjonalnie)",
+   "zh": "标题（可选）"
+  },
+  "Añadir vídeo": {
+   "en": "Add video",
+   "fr": "Ajouter la vidéo",
+   "de": "Video hinzufügen",
+   "it": "Aggiungi video",
+   "pt": "Adicionar vídeo",
+   "nl": "Video toevoegen",
+   "pl": "Dodaj film",
+   "zh": "添加视频"
+  },
+  "Proponer vídeo": {
+   "en": "Propose video",
+   "fr": "Proposer la vidéo",
+   "de": "Video vorschlagen",
+   "it": "Proponi video",
+   "pt": "Propor vídeo",
+   "nl": "Video voorstellen",
+   "pl": "Zaproponuj film",
+   "zh": "提议视频"
+  },
+  "Comprobando el enlace…": {
+   "en": "Checking the link…",
+   "fr": "Vérification du lien…",
+   "de": "Link wird geprüft…",
+   "it": "Verifica del link…",
+   "pt": "A verificar a ligação…",
+   "nl": "Link wordt gecontroleerd…",
+   "pl": "Sprawdzanie linku…",
+   "zh": "正在检查链接…"
+  },
+  "Se reproducirá dentro de la ficha.": {
+   "en": "It will play inside the page.",
+   "fr": "Elle sera lue dans la fiche.",
+   "de": "Es wird auf der Seite abgespielt.",
+   "it": "Verrà riprodotto nella scheda.",
+   "pt": "Será reproduzido dentro da ficha.",
+   "nl": "Hij wordt op de pagina afgespeeld.",
+   "pl": "Będzie odtwarzany na stronie.",
+   "zh": "将在页面内播放。"
+  },
+  "Esta plataforma no deja insertarlo: se abrirá en una pestaña nueva.": {
+   "en": "This platform doesn't allow embedding: it will open in a new tab.",
+   "fr": "Cette plateforme ne permet pas de l'intégrer : elle s'ouvrira dans un nouvel onglet.",
+   "de": "Diese Plattform erlaubt kein Einbetten: Es öffnet sich in einem neuen Tab.",
+   "it": "Questa piattaforma non consente l'incorporamento: si aprirà in una nuova scheda.",
+   "pt": "Esta plataforma não permite incorporá-lo: abrirá num novo separador.",
+   "nl": "Dit platform staat insluiten niet toe: hij opent in een nieuw tabblad.",
+   "pl": "Ta platforma nie pozwala na osadzenie: otworzy się w nowej karcie.",
+   "zh": "该平台不允许嵌入：将在新标签页中打开。"
+  },
+  "Sin miniatura: se usará la foto del punto con el botón de reproducir.": {
+   "en": "No thumbnail: the site's photo will be used with the play button.",
+   "fr": "Pas de miniature : la photo du site sera utilisée avec le bouton de lecture.",
+   "de": "Kein Vorschaubild: Das Foto des Tauchplatzes wird mit dem Play-Button verwendet.",
+   "it": "Nessuna miniatura: verrà usata la foto del punto con il pulsante di riproduzione.",
+   "pt": "Sem miniatura: será usada a foto do ponto com o botão de reprodução.",
+   "nl": "Geen miniatuur: de foto van de duikstek wordt gebruikt met de afspeelknop.",
+   "pl": "Brak miniatury: użyjemy zdjęcia miejsca z przyciskiem odtwarzania.",
+   "zh": "没有缩略图：将使用潜点照片加播放按钮。"
+  },
+  "Buscar una especie del catálogo": {
+   "en": "Search for a species in the catalogue",
+   "fr": "Chercher une espèce du catalogue",
+   "de": "Eine Art im Katalog suchen",
+   "it": "Cerca una specie nel catalogo",
+   "pt": "Procurar uma espécie do catálogo",
+   "nl": "Een soort in de catalogus zoeken",
+   "pl": "Szukaj gatunku w katalogu",
+   "zh": "在目录中搜索物种"
+  },
+  "Nombre común en cualquier idioma o nombre científico": {
+   "en": "Common name in any language or scientific name",
+   "fr": "Nom commun dans n'importe quelle langue ou nom scientifique",
+   "de": "Trivialname in jeder Sprache oder wissenschaftlicher Name",
+   "it": "Nome comune in qualsiasi lingua o nome scientifico",
+   "pt": "Nome comum em qualquer língua ou nome científico",
+   "nl": "Gewone naam in elke taal of wetenschappelijke naam",
+   "pl": "Nazwa zwyczajowa w dowolnym języku lub nazwa naukowa",
+   "zh": "任意语言的俗名或学名"
+  },
+  "¿Con qué frecuencia se ve?": {
+   "en": "How often is it seen?",
+   "fr": "À quelle fréquence la voit-on ?",
+   "de": "Wie oft ist sie zu sehen?",
+   "it": "Quanto spesso si vede?",
+   "pt": "Com que frequência se vê?",
+   "nl": "Hoe vaak is hij te zien?",
+   "pl": "Jak często można go zobaczyć?",
+   "zh": "多久能看到一次？"
+  },
+  "Temporada (opcional)": {
+   "en": "Season (optional)",
+   "fr": "Saison (facultatif)",
+   "de": "Saison (optional)",
+   "it": "Stagione (facoltativo)",
+   "pt": "Época (opcional)",
+   "nl": "Seizoen (optioneel)",
+   "pl": "Sezon (opcjonalnie)",
+   "zh": "季节（可选）"
+  },
+  "Meses en que se ve": {
+   "en": "Months when it is seen",
+   "fr": "Mois où on la voit",
+   "de": "Monate, in denen sie zu sehen ist",
+   "it": "Mesi in cui si vede",
+   "pt": "Meses em que se vê",
+   "nl": "Maanden waarin hij te zien is",
+   "pl": "Miesiące, w których można go zobaczyć",
+   "zh": "可见月份"
+  },
+  "Si no marcas ningún mes, se ve todo el año.": {
+   "en": "If you don't mark any month, it is seen all year round.",
+   "fr": "Si vous ne cochez aucun mois, elle est visible toute l'année.",
+   "de": "Wenn du keinen Monat markierst, ist sie das ganze Jahr zu sehen.",
+   "it": "Se non selezioni alcun mese, si vede tutto l'anno.",
+   "pt": "Se não marcar nenhum mês, vê-se todo o ano.",
+   "nl": "Als je geen maand aanvinkt, is hij het hele jaar te zien.",
+   "pl": "Jeśli nie zaznaczysz żadnego miesiąca, jest widoczny przez cały rok.",
+   "zh": "如果不选择任何月份，则表示全年可见。"
+  },
+  "Añadir especie": {
+   "en": "Add species",
+   "fr": "Ajouter l'espèce",
+   "de": "Art hinzufügen",
+   "it": "Aggiungi specie",
+   "pt": "Adicionar espécie",
+   "nl": "Soort toevoegen",
+   "pl": "Dodaj gatunek",
+   "zh": "添加物种"
+  },
+  "Proponer especie": {
+   "en": "Propose species",
+   "fr": "Proposer l'espèce",
+   "de": "Art vorschlagen",
+   "it": "Proponi specie",
+   "pt": "Propor espécie",
+   "nl": "Soort voorstellen",
+   "pl": "Zaproponuj gatunek",
+   "zh": "提议物种"
+  },
+  "Especie añadida.": {
+   "en": "Species added.",
+   "fr": "Espèce ajoutée.",
+   "de": "Art hinzugefügt.",
+   "it": "Specie aggiunta.",
+   "pt": "Espécie adicionada.",
+   "nl": "Soort toegevoegd.",
+   "pl": "Dodano gatunek.",
+   "zh": "物种已添加。"
+  },
+  "Vídeo publicado.": {
+   "en": "Video published.",
+   "fr": "Vidéo publiée.",
+   "de": "Video veröffentlicht.",
+   "it": "Video pubblicato.",
+   "pt": "Vídeo publicado.",
+   "nl": "Video gepubliceerd.",
+   "pl": "Film opublikowany.",
+   "zh": "视频已发布。"
+  },
+  "Propuesta enviada: el equipo de WORLDIVES la revisará antes de publicarla.": {
+   "en": "Proposal sent: the WORLDIVES team will review it before publishing it.",
+   "fr": "Proposition envoyée : l'équipe WORLDIVES la vérifiera avant de la publier.",
+   "de": "Vorschlag gesendet: Das WORLDIVES-Team prüft ihn vor der Veröffentlichung.",
+   "it": "Proposta inviata: il team di WORLDIVES la controllerà prima di pubblicarla.",
+   "pt": "Proposta enviada: a equipa da WORLDIVES vai revê-la antes de a publicar.",
+   "nl": "Voorstel verzonden: het WORLDIVES-team bekijkt het voordat het wordt gepubliceerd.",
+   "pl": "Propozycja wysłana: zespół WORLDIVES sprawdzi ją przed publikacją.",
+   "zh": "提议已发送：WORLDIVES 团队会在发布前审核。"
+  },
+  "No está en el catálogo. Créala en Vida marina y vídeos → Especies.": {
+   "en": "It's not in the catalogue. Create it in Marine life and videos → Species.",
+   "fr": "Elle n'est pas dans le catalogue. Créez-la dans Vie marine et vidéos → Espèces.",
+   "de": "Sie ist nicht im Katalog. Lege sie unter Meeresleben und Videos → Arten an.",
+   "it": "Non è nel catalogo. Creala in Vita marina e video → Specie.",
+   "pt": "Não está no catálogo. Crie-a em Vida marinha e vídeos → Espécies.",
+   "nl": "Hij staat niet in de catalogus. Maak hem aan bij Zeeleven en video's → Soorten.",
+   "pl": "Nie ma go w katalogu. Utwórz go w Życie morskie i filmy → Gatunki.",
+   "zh": "目录中没有该物种。请在“海洋生物与视频 → 物种”中创建。"
+  },
+  "No está en el catálogo. Pide al equipo de WORLDIVES que la añada.": {
+   "en": "It's not in the catalogue. Ask the WORLDIVES team to add it.",
+   "fr": "Elle n'est pas dans le catalogue. Demandez à l'équipe WORLDIVES de l'ajouter.",
+   "de": "Sie ist nicht im Katalog. Bitte das WORLDIVES-Team, sie hinzuzufügen.",
+   "it": "Non è nel catalogo. Chiedi al team di WORLDIVES di aggiungerla.",
+   "pt": "Não está no catálogo. Peça à equipa da WORLDIVES que a adicione.",
+   "nl": "Hij staat niet in de catalogus. Vraag het WORLDIVES-team om hem toe te voegen.",
+   "pl": "Nie ma go w katalogu. Poproś zespół WORLDIVES o dodanie.",
+   "zh": "目录中没有该物种。请联系 WORLDIVES 团队添加。"
+  },
+  "Lo que propones lo revisa el equipo de WORLDIVES antes de publicarlo. En la ficha aparecerá tu nombre.": {
+   "en": "What you propose is reviewed by the WORLDIVES team before it is published. Your name will appear on the page.",
+   "fr": "Ce que vous proposez est vérifié par l'équipe WORLDIVES avant publication. Votre nom apparaîtra sur la fiche.",
+   "de": "Deine Vorschläge prüft das WORLDIVES-Team vor der Veröffentlichung. Auf der Seite erscheint dein Name.",
+   "it": "Quello che proponi viene controllato dal team di WORLDIVES prima della pubblicazione. Nella scheda comparirà il tuo nome.",
+   "pt": "O que propõe é revisto pela equipa da WORLDIVES antes de ser publicado. O seu nome aparecerá na ficha.",
+   "nl": "Wat je voorstelt, wordt door het WORLDIVES-team bekeken voordat het wordt gepubliceerd. Je naam verschijnt op de pagina.",
+   "pl": "Twoje propozycje sprawdza zespół WORLDIVES przed publikacją. Na stronie pojawi się Twoja nazwa.",
+   "zh": "你提议的内容会在发布前由 WORLDIVES 团队审核，页面上会显示你的名称。"
+  },
+  "Motivo del rechazo (lo verá quien lo propuso):": {
+   "en": "Reason for rejecting it (the proposer will see it):",
+   "fr": "Motif du refus (la personne qui l'a proposé le verra) :",
+   "de": "Grund der Ablehnung (die vorschlagende Person sieht ihn):",
+   "it": "Motivo del rifiuto (lo vedrà chi l'ha proposto):",
+   "pt": "Motivo da rejeição (quem o propôs vai vê-lo):",
+   "nl": "Reden van afwijzing (de indiener ziet dit):",
+   "pl": "Powód odrzucenia (zobaczy go osoba, która to zaproponowała):",
+   "zh": "拒绝原因（提议者会看到）："
+  },
+  "¿Quitar este vídeo del punto?": {
+   "en": "Remove this video from the site?",
+   "fr": "Retirer cette vidéo du site ?",
+   "de": "Dieses Video vom Tauchplatz entfernen?",
+   "it": "Rimuovere questo video dal punto?",
+   "pt": "Retirar este vídeo do ponto?",
+   "nl": "Deze video van de duikstek verwijderen?",
+   "pl": "Usunąć ten film z miejsca?",
+   "zh": "要从潜点移除此视频吗？"
+  },
+  "¿Quitar esta especie del punto?": {
+   "en": "Remove this species from the site?",
+   "fr": "Retirer cette espèce du site ?",
+   "de": "Diese Art vom Tauchplatz entfernen?",
+   "it": "Rimuovere questa specie dal punto?",
+   "pt": "Retirar esta espécie do ponto?",
+   "nl": "Deze soort van de duikstek verwijderen?",
+   "pl": "Usunąć ten gatunek z miejsca?",
+   "zh": "要从潜点移除此物种吗？"
+  },
+  "¿Retirar esta propuesta?": {
+   "en": "Withdraw this proposal?",
+   "fr": "Retirer cette proposition ?",
+   "de": "Diesen Vorschlag zurückziehen?",
+   "it": "Ritirare questa proposta?",
+   "pt": "Retirar esta proposta?",
+   "nl": "Dit voorstel intrekken?",
+   "pl": "Wycofać tę propozycję?",
+   "zh": "要撤回此提议吗？"
+  },
+  "Vídeos y vida marina": {
+   "en": "Videos and marine life",
+   "fr": "Vidéos et vie marine",
+   "de": "Videos und Meeresleben",
+   "it": "Video e vita marina",
+   "pt": "Vídeos e vida marinha",
+   "nl": "Video's en zeeleven",
+   "pl": "Filmy i życie morskie",
+   "zh": "视频与海洋生物"
+  },
+  "VIDA MARINA Y VÍDEOS": {
+   "en": "MARINE LIFE AND VIDEOS",
+   "fr": "VIE MARINE ET VIDÉOS",
+   "de": "MEERESLEBEN UND VIDEOS",
+   "it": "VITA MARINA E VIDEO",
+   "pt": "VIDA MARINHA E VÍDEOS",
+   "nl": "ZEELEVEN EN VIDEO'S",
+   "pl": "ŻYCIE MORSKIE I FILMY",
+   "zh": "海洋生物与视频"
+  },
+  "Vida marina y vídeos": {
+   "en": "Marine life and videos",
+   "fr": "Vie marine et vidéos",
+   "de": "Meeresleben und Videos",
+   "it": "Vita marina e video",
+   "pt": "Vida marinha e vídeos",
+   "nl": "Zeeleven en video's",
+   "pl": "Życie morskie i filmy",
+   "zh": "海洋生物与视频"
+  },
+  "Vídeos y vida marina de tus puntos": {
+   "en": "Videos and marine life of your sites",
+   "fr": "Vidéos et vie marine de vos sites",
+   "de": "Videos und Meeresleben deiner Tauchplätze",
+   "it": "Video e vita marina dei tuoi punti",
+   "pt": "Vídeos e vida marinha dos seus pontos",
+   "nl": "Video's en zeeleven van je duikstekken",
+   "pl": "Filmy i życie morskie Twoich miejsc",
+   "zh": "你的潜点的视频与海洋生物"
+  },
+  "Propón vídeos de la ruta (enlaces de YouTube, Vimeo u otras plataformas) y las especies que se ven en tus puntos. El equipo de WORLDIVES los revisa antes de publicarlos y en la ficha aparece tu nombre.": {
+   "en": "Propose route videos (links from YouTube, Vimeo or other platforms) and the species seen at your sites. The WORLDIVES team reviews them before publishing and your name appears on the page.",
+   "fr": "Proposez des vidéos du parcours (liens YouTube, Vimeo ou d'autres plateformes) et les espèces visibles sur vos sites. L'équipe WORLDIVES les vérifie avant de les publier et votre nom apparaît sur la fiche.",
+   "de": "Schlage Videos der Route (Links von YouTube, Vimeo oder anderen Plattformen) und die Arten deiner Tauchplätze vor. Das WORLDIVES-Team prüft sie vor der Veröffentlichung, und auf der Seite erscheint dein Name.",
+   "it": "Proponi video del percorso (link di YouTube, Vimeo o altre piattaforme) e le specie che si vedono nei tuoi punti. Il team di WORLDIVES li controlla prima di pubblicarli e nella scheda compare il tuo nome.",
+   "pt": "Proponha vídeos do percurso (ligações do YouTube, Vimeo ou outras plataformas) e as espécies que se veem nos seus pontos. A equipa da WORLDIVES revê-os antes de os publicar e o seu nome aparece na ficha.",
+   "nl": "Stel video's van de route voor (links van YouTube, Vimeo of andere platforms) en de soorten die je op je duikstekken ziet. Het WORLDIVES-team bekijkt ze voor publicatie en je naam staat op de pagina.",
+   "pl": "Zaproponuj filmy z trasy (linki z YouTube, Vimeo lub innych platform) i gatunki widoczne w Twoich miejscach. Zespół WORLDIVES sprawdza je przed publikacją, a na stronie pojawia się Twoja nazwa.",
+   "zh": "提议路线视频（YouTube、Vimeo 或其他平台的链接）以及你的潜点可见的物种。WORLDIVES 团队会在发布前审核，页面上会显示你的名称。"
+  },
+  "Tus propuestas": {
+   "en": "Your proposals",
+   "fr": "Vos propositions",
+   "de": "Deine Vorschläge",
+   "it": "Le tue proposte",
+   "pt": "As suas propostas",
+   "nl": "Je voorstellen",
+   "pl": "Twoje propozycje",
+   "zh": "你的提议"
+  },
+  "Todavía no has propuesto nada.": {
+   "en": "You haven't proposed anything yet.",
+   "fr": "Vous n'avez encore rien proposé.",
+   "de": "Du hast noch nichts vorgeschlagen.",
+   "it": "Non hai ancora proposto nulla.",
+   "pt": "Ainda não propôs nada.",
+   "nl": "Je hebt nog niets voorgesteld.",
+   "pl": "Jeszcze nic nie zaproponowałeś.",
+   "zh": "你还没有提议任何内容。"
+  },
+  "Proponer en un punto": {
+   "en": "Propose for a site",
+   "fr": "Proposer pour un site",
+   "de": "Für einen Tauchplatz vorschlagen",
+   "it": "Proponi per un punto",
+   "pt": "Propor para um ponto",
+   "nl": "Voorstellen voor een duikstek",
+   "pl": "Zaproponuj dla miejsca",
+   "zh": "为潜点提议"
+  },
+  "Elige uno de tus puntos o busca otro.": {
+   "en": "Choose one of your sites or search for another.",
+   "fr": "Choisissez l'un de vos sites ou cherchez-en un autre.",
+   "de": "Wähle einen deiner Tauchplätze oder suche einen anderen.",
+   "it": "Scegli uno dei tuoi punti o cercane un altro.",
+   "pt": "Escolha um dos seus pontos ou procure outro.",
+   "nl": "Kies een van je duikstekken of zoek een andere.",
+   "pl": "Wybierz jedno ze swoich miejsc lub wyszukaj inne.",
+   "zh": "选择你的潜点之一，或搜索其他潜点。"
+  },
+  "Buscar otro punto": {
+   "en": "Search for another site",
+   "fr": "Chercher un autre site",
+   "de": "Anderen Tauchplatz suchen",
+   "it": "Cerca un altro punto",
+   "pt": "Procurar outro ponto",
+   "nl": "Andere duikstek zoeken",
+   "pl": "Szukaj innego miejsca",
+   "zh": "搜索其他潜点"
+  },
+  "Nombre del punto, zona o país": {
+   "en": "Site name, area or country",
+   "fr": "Nom du site, zone ou pays",
+   "de": "Name des Tauchplatzes, Gebiet oder Land",
+   "it": "Nome del punto, zona o paese",
+   "pt": "Nome do ponto, zona ou país",
+   "nl": "Naam van de duikstek, gebied of land",
+   "pl": "Nazwa miejsca, obszar lub kraj",
+   "zh": "潜点名称、区域或国家"
+  },
+  "Ningún punto con ese nombre.": {
+   "en": "No site with that name.",
+   "fr": "Aucun site avec ce nom.",
+   "de": "Kein Tauchplatz mit diesem Namen.",
+   "it": "Nessun punto con questo nome.",
+   "pt": "Nenhum ponto com esse nome.",
+   "nl": "Geen duikstek met die naam.",
+   "pl": "Brak miejsca o tej nazwie.",
+   "zh": "没有该名称的潜点。"
+  },
+  "Vida marina y vídeos de los puntos": {
+   "en": "Marine life and videos of the sites",
+   "fr": "Vie marine et vidéos des sites",
+   "de": "Meeresleben und Videos der Tauchplätze",
+   "it": "Vita marina e video dei punti",
+   "pt": "Vida marinha e vídeos dos pontos",
+   "nl": "Zeeleven en video's van de duikstekken",
+   "pl": "Życie morskie i filmy miejsc",
+   "zh": "潜点的海洋生物与视频"
+  },
+  "Catálogo de especies (nombre en cada idioma, foto con su autor y licencia) y vídeos de las rutas enlazados desde YouTube, Vimeo y otras plataformas. Lo que proponen los centros y los freelance espera aquí tu aprobación.": {
+   "en": "Species catalogue (name in each language, photo with its author and licence) and route videos linked from YouTube, Vimeo and other platforms. What centres and freelancers propose waits here for your approval.",
+   "fr": "Catalogue des espèces (nom dans chaque langue, photo avec son auteur et sa licence) et vidéos des parcours liées depuis YouTube, Vimeo et d'autres plateformes. Ce que proposent les centres et les freelances attend ici votre approbation.",
+   "de": "Artenkatalog (Name in jeder Sprache, Foto mit Urheber und Lizenz) und Videos der Routen, verlinkt von YouTube, Vimeo und anderen Plattformen. Vorschläge von Zentren und Freelancern warten hier auf deine Freigabe.",
+   "it": "Catalogo delle specie (nome in ogni lingua, foto con autore e licenza) e video dei percorsi collegati da YouTube, Vimeo e altre piattaforme. Ciò che propongono centri e freelance attende qui la tua approvazione.",
+   "pt": "Catálogo de espécies (nome em cada língua, foto com o autor e a licença) e vídeos dos percursos ligados do YouTube, Vimeo e outras plataformas. O que os centros e os freelancers propõem aguarda aqui a sua aprovação.",
+   "nl": "Soortencatalogus (naam in elke taal, foto met maker en licentie) en video's van de routes, gelinkt vanaf YouTube, Vimeo en andere platforms. Voorstellen van centra en freelancers wachten hier op je goedkeuring.",
+   "pl": "Katalog gatunków (nazwa w każdym języku, zdjęcie z autorem i licencją) oraz filmy z tras podlinkowane z YouTube, Vimeo i innych platform. Propozycje centrów i freelancerów czekają tutaj na Twoje zatwierdzenie.",
+   "zh": "物种目录（各语言名称、带作者和许可的照片）以及链接自 YouTube、Vimeo 等平台的路线视频。潜水中心和自由职业者的提议在此等待你的审核。"
+  },
+  "No hay nada pendiente de aprobar.": {
+   "en": "Nothing is waiting for approval.",
+   "fr": "Rien n'attend d'approbation.",
+   "de": "Nichts wartet auf Freigabe.",
+   "it": "Nulla in attesa di approvazione.",
+   "pt": "Não há nada pendente de aprovação.",
+   "nl": "Er wacht niets op goedkeuring.",
+   "pl": "Nic nie czeka na zatwierdzenie.",
+   "zh": "没有待审核的内容。"
+  },
+  "Ver en la plataforma": {
+   "en": "View on the platform",
+   "fr": "Voir sur la plateforme",
+   "de": "Auf der Plattform ansehen",
+   "it": "Vedi sulla piattaforma",
+   "pt": "Ver na plataforma",
+   "nl": "Bekijken op het platform",
+   "pl": "Zobacz na platformie",
+   "zh": "在平台上查看"
+  },
+  "Buscar por nombre en cualquier idioma o nombre científico": {
+   "en": "Search by name in any language or scientific name",
+   "fr": "Chercher par nom dans n'importe quelle langue ou nom scientifique",
+   "de": "Nach Namen in jeder Sprache oder wissenschaftlichem Namen suchen",
+   "it": "Cerca per nome in qualsiasi lingua o nome scientifico",
+   "pt": "Procurar por nome em qualquer língua ou nome científico",
+   "nl": "Zoeken op naam in elke taal of wetenschappelijke naam",
+   "pl": "Szukaj po nazwie w dowolnym języku lub nazwie naukowej",
+   "zh": "按任意语言名称或学名搜索"
+  },
+  "+ Nueva especie": {
+   "en": "+ New species",
+   "fr": "+ Nouvelle espèce",
+   "de": "+ Neue Art",
+   "it": "+ Nuova specie",
+   "pt": "+ Nova espécie",
+   "nl": "+ Nieuwe soort",
+   "pl": "+ Nowy gatunek",
+   "zh": "+ 新物种"
+  },
+  "Nueva especie": {
+   "en": "New species",
+   "fr": "Nouvelle espèce",
+   "de": "Neue Art",
+   "it": "Nuova specie",
+   "pt": "Nova espécie",
+   "nl": "Nieuwe soort",
+   "pl": "Nowy gatunek",
+   "zh": "新物种"
+  },
+  "Editar especie": {
+   "en": "Edit species",
+   "fr": "Modifier l'espèce",
+   "de": "Art bearbeiten",
+   "it": "Modifica specie",
+   "pt": "Editar espécie",
+   "nl": "Soort bewerken",
+   "pl": "Edytuj gatunek",
+   "zh": "编辑物种"
+  },
+  "El catálogo está vacío.": {
+   "en": "The catalogue is empty.",
+   "fr": "Le catalogue est vide.",
+   "de": "Der Katalog ist leer.",
+   "it": "Il catalogo è vuoto.",
+   "pt": "O catálogo está vazio.",
+   "nl": "De catalogus is leeg.",
+   "pl": "Katalog jest pusty.",
+   "zh": "目录为空。"
+  },
+  "Nombre común": {
+   "en": "Common name",
+   "fr": "Nom commun",
+   "de": "Trivialname",
+   "it": "Nome comune",
+   "pt": "Nome comum",
+   "nl": "Gewone naam",
+   "pl": "Nazwa zwyczajowa",
+   "zh": "俗名"
+  },
+  "Nombre científico": {
+   "en": "Scientific name",
+   "fr": "Nom scientifique",
+   "de": "Wissenschaftlicher Name",
+   "it": "Nome scientifico",
+   "pt": "Nome científico",
+   "nl": "Wetenschappelijke naam",
+   "pl": "Nazwa naukowa",
+   "zh": "学名"
+  },
+  "Licencia de la foto": {
+   "en": "Photo licence",
+   "fr": "Licence de la photo",
+   "de": "Lizenz des Fotos",
+   "it": "Licenza della foto",
+   "pt": "Licença da foto",
+   "nl": "Licentie van de foto",
+   "pl": "Licencja zdjęcia",
+   "zh": "照片许可"
+  },
+  "Buscar por punto o título": {
+   "en": "Search by site or title",
+   "fr": "Chercher par site ou titre",
+   "de": "Nach Tauchplatz oder Titel suchen",
+   "it": "Cerca per punto o titolo",
+   "pt": "Procurar por ponto ou título",
+   "nl": "Zoeken op duikstek of titel",
+   "pl": "Szukaj po miejscu lub tytule",
+   "zh": "按潜点或标题搜索"
+  },
+  "No hay vídeos con este filtro.": {
+   "en": "No videos with this filter.",
+   "fr": "Aucune vidéo avec ce filtre.",
+   "de": "Keine Videos mit diesem Filter.",
+   "it": "Nessun video con questo filtro.",
+   "pt": "Não há vídeos com este filtro.",
+   "nl": "Geen video's met dit filter.",
+   "pl": "Brak filmów z tym filtrem.",
+   "zh": "此筛选条件下没有视频。"
+  },
+  "Para añadir un vídeo, abre el punto en Puntos → Editar → «Vídeos de la ruta y vida marina».": {
+   "en": "To add a video, open the site in Sites → Edit → “Route videos and marine life”.",
+   "fr": "Pour ajouter une vidéo, ouvrez le site dans Sites → Modifier → « Vidéos du parcours et vie marine ».",
+   "de": "Um ein Video hinzuzufügen, öffne den Tauchplatz unter Tauchplätze → Bearbeiten → „Videos der Route und Meeresleben“.",
+   "it": "Per aggiungere un video, apri il punto in Punti → Modifica → «Video del percorso e vita marina».",
+   "pt": "Para adicionar um vídeo, abra o ponto em Pontos → Editar → «Vídeos do percurso e vida marinha».",
+   "nl": "Om een video toe te voegen, open je de duikstek via Duikstekken → Bewerken → ‘Video's van de route en zeeleven’.",
+   "pl": "Aby dodać film, otwórz miejsce w Miejsca → Edytuj → „Filmy z trasy i życie morskie”.",
+   "zh": "要添加视频，请在“潜点 → 编辑 → 路线视频与海洋生物”中打开潜点。"
+  },
+  "Recorridos de antes de la v50.50": {
+   "en": "Tours from before v50.50",
+   "fr": "Parcours d'avant la v50.50",
+   "de": "Rundgänge aus der Zeit vor v50.50",
+   "it": "Percorsi precedenti alla v50.50",
+   "pt": "Percursos anteriores à v50.50",
+   "nl": "Rondleidingen van vóór v50.50",
+   "pl": "Trasy sprzed wersji v50.50",
+   "zh": "v50.50 之前的导览"
+  },
+  "Panorámicas, Street View y archivos subidos que no son enlaces de YouTube o Vimeo. Se guardan tal como estaban, pero ya no se ven en la ficha del punto. Decide si los sustituyes por un vídeo enlazado.": {
+   "en": "Panoramas, Street View and uploaded files that aren't YouTube or Vimeo links. They are kept as they were, but no longer appear on the site page. Decide whether to replace them with a linked video.",
+   "fr": "Panoramiques, Street View et fichiers téléversés qui ne sont pas des liens YouTube ou Vimeo. Ils sont conservés tels quels, mais n'apparaissent plus sur la fiche du site. Décidez si vous les remplacez par une vidéo liée.",
+   "de": "Panoramen, Street View und hochgeladene Dateien, die keine YouTube- oder Vimeo-Links sind. Sie bleiben unverändert gespeichert, erscheinen aber nicht mehr auf der Seite des Tauchplatzes. Entscheide, ob du sie durch ein verlinktes Video ersetzt.",
+   "it": "Panoramiche, Street View e file caricati che non sono link di YouTube o Vimeo. Sono conservati com'erano, ma non compaiono più nella scheda del punto. Decidi se sostituirli con un video collegato.",
+   "pt": "Panorâmicas, Street View e ficheiros carregados que não são ligações do YouTube ou Vimeo. Guardam-se tal como estavam, mas já não aparecem na ficha do ponto. Decida se os substitui por um vídeo ligado.",
+   "nl": "Panorama's, Street View en geüploade bestanden die geen YouTube- of Vimeo-links zijn. Ze blijven bewaard zoals ze waren, maar staan niet meer op de pagina van de duikstek. Beslis of je ze vervangt door een gelinkte video.",
+   "pl": "Panoramy, Street View i przesłane pliki, które nie są linkami do YouTube ani Vimeo. Są zachowane w niezmienionej postaci, ale nie pojawiają się już na stronie miejsca. Zdecyduj, czy zastąpić je podlinkowanym filmem.",
+   "zh": "不是 YouTube 或 Vimeo 链接的全景图、街景和上传文件。它们按原样保存，但不再显示在潜点页面上。请决定是否用链接视频替换。"
+  },
+  "Experiencia 360° externa": {
+   "en": "External 360° experience",
+   "fr": "Expérience 360° externe",
+   "de": "Externes 360°-Erlebnis",
+   "it": "Esperienza 360° esterna",
+   "pt": "Experiência 360° externa",
+   "nl": "Externe 360°-ervaring",
+   "pl": "Zewnętrzne doświadczenie 360°",
+   "zh": "外部 360° 体验"
+  },
+  "360° interactivo": {
+   "en": "Interactive 360°",
+   "fr": "360° interactif",
+   "de": "Interaktives 360°",
+   "it": "360° interattivo",
+   "pt": "360° interativo",
+   "nl": "Interactieve 360°",
+   "pl": "Interaktywne 360°",
+   "zh": "交互式 360°"
+  },
+  "Vídeo 360°": {
+   "en": "360° video",
+   "fr": "Vidéo 360°",
+   "de": "360°-Video",
+   "it": "Video 360°",
+   "pt": "Vídeo 360°",
+   "nl": "360°-video",
+   "pl": "Film 360°",
+   "zh": "360° 视频"
+  },
+  "Nombre común y frase breve en cada idioma": {
+   "en": "Common name and short sentence in each language",
+   "fr": "Nom commun et phrase courte dans chaque langue",
+   "de": "Trivialname und kurzer Satz in jeder Sprache",
+   "it": "Nome comune e frase breve in ogni lingua",
+   "pt": "Nome comum e frase breve em cada língua",
+   "nl": "Gewone naam en korte zin in elke taal",
+   "pl": "Nazwa zwyczajowa i krótkie zdanie w każdym języku",
+   "zh": "各语言的俗名和简短介绍"
+  },
+  "El español es obligatorio. Si falta un idioma, se muestra el inglés o el español.": {
+   "en": "Spanish is required. If a language is missing, English or Spanish is shown.",
+   "fr": "L'espagnol est obligatoire. S'il manque une langue, l'anglais ou l'espagnol s'affiche.",
+   "de": "Spanisch ist Pflicht. Fehlt eine Sprache, wird Englisch oder Spanisch angezeigt.",
+   "it": "Lo spagnolo è obbligatorio. Se manca una lingua, si mostra l'inglese o lo spagnolo.",
+   "pt": "O espanhol é obrigatório. Se faltar uma língua, mostra-se o inglês ou o espanhol.",
+   "nl": "Spaans is verplicht. Ontbreekt een taal, dan wordt Engels of Spaans getoond.",
+   "pl": "Hiszpański jest wymagany. Jeśli brakuje języka, wyświetla się angielski lub hiszpański.",
+   "zh": "西班牙语为必填。缺少某种语言时，显示英语或西班牙语。"
+  },
+  "Frase breve": {
+   "en": "Short sentence",
+   "fr": "Phrase courte",
+   "de": "Kurzer Satz",
+   "it": "Frase breve",
+   "pt": "Frase breve",
+   "nl": "Korte zin",
+   "pl": "Krótkie zdanie",
+   "zh": "简短介绍"
+  },
+  "Solo fotos propias, cedidas por su autor o con una licencia que permita usarlas (Creative Commons con atribución, dominio público o banco de imágenes). Nunca fotos de internet sin licencia.": {
+   "en": "Only your own photos, photos given by their author or with a licence that allows their use (Creative Commons with attribution, public domain or image bank). Never photos from the internet without a licence.",
+   "fr": "Uniquement des photos personnelles, cédées par leur auteur ou sous une licence qui en permet l'usage (Creative Commons avec attribution, domaine public ou banque d'images). Jamais de photos d'internet sans licence.",
+   "de": "Nur eigene Fotos, vom Urheber überlassene oder mit einer Lizenz, die die Nutzung erlaubt (Creative Commons mit Namensnennung, gemeinfrei oder Bildagentur). Nie Fotos aus dem Internet ohne Lizenz.",
+   "it": "Solo foto proprie, cedute dall'autore o con una licenza che ne consenta l'uso (Creative Commons con attribuzione, pubblico dominio o banca immagini). Mai foto da internet senza licenza.",
+   "pt": "Só fotos próprias, cedidas pelo autor ou com uma licença que permita usá-las (Creative Commons com atribuição, domínio público ou banco de imagens). Nunca fotos da internet sem licença.",
+   "nl": "Alleen eigen foto's, foto's die de maker heeft afgestaan of met een licentie die gebruik toestaat (Creative Commons met naamsvermelding, publiek domein of beeldbank). Nooit foto's van internet zonder licentie.",
+   "pl": "Tylko własne zdjęcia, udostępnione przez autora lub z licencją pozwalającą na ich użycie (Creative Commons z uznaniem autorstwa, domena publiczna lub bank zdjęć). Nigdy zdjęcia z internetu bez licencji.",
+   "zh": "只能使用自有照片、作者授权的照片或许可允许使用的照片（署名 Creative Commons、公有领域或图库）。切勿使用没有许可的网络照片。"
+  },
+  "Cambiar la foto": {
+   "en": "Change the photo",
+   "fr": "Changer la photo",
+   "de": "Foto ändern",
+   "it": "Cambia la foto",
+   "pt": "Mudar a foto",
+   "nl": "Foto wijzigen",
+   "pl": "Zmień zdjęcie",
+   "zh": "更换照片"
+  },
+  "Archivo (JPG, PNG o WEBP)": {
+   "en": "File (JPG, PNG or WEBP)",
+   "fr": "Fichier (JPG, PNG ou WEBP)",
+   "de": "Datei (JPG, PNG oder WEBP)",
+   "it": "File (JPG, PNG o WEBP)",
+   "pt": "Ficheiro (JPG, PNG ou WEBP)",
+   "nl": "Bestand (JPG, PNG of WEBP)",
+   "pl": "Plik (JPG, PNG lub WEBP)",
+   "zh": "文件（JPG、PNG 或 WEBP）"
+  },
+  "Autor": {
+   "en": "Author",
+   "fr": "Auteur",
+   "de": "Urheber",
+   "it": "Autore",
+   "pt": "Autor",
+   "nl": "Maker",
+   "pl": "Autor",
+   "zh": "作者"
+  },
+  "Licencia": {
+   "en": "Licence",
+   "fr": "Licence",
+   "de": "Lizenz",
+   "it": "Licenza",
+   "pt": "Licença",
+   "nl": "Licentie",
+   "pl": "Licencja",
+   "zh": "许可"
+  },
+  "Página de origen (opcional)": {
+   "en": "Source page (optional)",
+   "fr": "Page d'origine (facultatif)",
+   "de": "Quellseite (optional)",
+   "it": "Pagina di origine (facoltativo)",
+   "pt": "Página de origem (opcional)",
+   "nl": "Bronpagina (optioneel)",
+   "pl": "Strona źródłowa (opcjonalnie)",
+   "zh": "来源页面（可选）"
+  },
+  "Enlace a la licencia (opcional)": {
+   "en": "Link to the licence (optional)",
+   "fr": "Lien vers la licence (facultatif)",
+   "de": "Link zur Lizenz (optional)",
+   "it": "Link alla licenza (facoltativo)",
+   "pt": "Ligação para a licença (opcional)",
+   "nl": "Link naar de licentie (optioneel)",
+   "pl": "Link do licencji (opcjonalnie)",
+   "zh": "许可链接（可选）"
+  },
+  "Buscar una foto libre en Wikimedia Commons": {
+   "en": "Search for a free photo on Wikimedia Commons",
+   "fr": "Chercher une photo libre sur Wikimedia Commons",
+   "de": "Ein freies Foto auf Wikimedia Commons suchen",
+   "it": "Cerca una foto libera su Wikimedia Commons",
+   "pt": "Procurar uma foto livre no Wikimedia Commons",
+   "nl": "Een vrije foto zoeken op Wikimedia Commons",
+   "pl": "Szukaj wolnego zdjęcia w Wikimedia Commons",
+   "zh": "在 Wikimedia Commons 搜索免费照片"
+  },
+  "Después de guardarla podrás buscar una foto libre en Wikimedia Commons.": {
+   "en": "After saving it you can search for a free photo on Wikimedia Commons.",
+   "fr": "Après l'avoir enregistrée, vous pourrez chercher une photo libre sur Wikimedia Commons.",
+   "de": "Nach dem Speichern kannst du ein freies Foto auf Wikimedia Commons suchen.",
+   "it": "Dopo averla salvata potrai cercare una foto libera su Wikimedia Commons.",
+   "pt": "Depois de a guardar poderá procurar uma foto livre no Wikimedia Commons.",
+   "nl": "Na het opslaan kun je een vrije foto zoeken op Wikimedia Commons.",
+   "pl": "Po zapisaniu możesz wyszukać wolne zdjęcie w Wikimedia Commons.",
+   "zh": "保存后即可在 Wikimedia Commons 搜索免费照片。"
+  },
+  "Borrar la especie": {
+   "en": "Delete the species",
+   "fr": "Supprimer l'espèce",
+   "de": "Art löschen",
+   "it": "Elimina la specie",
+   "pt": "Apagar a espécie",
+   "nl": "Soort verwijderen",
+   "pl": "Usuń gatunek",
+   "zh": "删除物种"
+  },
+  "Especie guardada.": {
+   "en": "Species saved.",
+   "fr": "Espèce enregistrée.",
+   "de": "Art gespeichert.",
+   "it": "Specie salvata.",
+   "pt": "Espécie guardada.",
+   "nl": "Soort opgeslagen.",
+   "pl": "Gatunek zapisany.",
+   "zh": "物种已保存。"
+  },
+  "Especie borrada.": {
+   "en": "Species deleted.",
+   "fr": "Espèce supprimée.",
+   "de": "Art gelöscht.",
+   "it": "Specie eliminata.",
+   "pt": "Espécie apagada.",
+   "nl": "Soort verwijderd.",
+   "pl": "Gatunek usunięty.",
+   "zh": "物种已删除。"
+  },
+  "¿Borrar esta especie del catálogo? Deja de verse en todos los puntos.": {
+   "en": "Delete this species from the catalogue? It will no longer appear at any site.",
+   "fr": "Supprimer cette espèce du catalogue ? Elle ne sera plus visible sur aucun site.",
+   "de": "Diese Art aus dem Katalog löschen? Sie erscheint dann an keinem Tauchplatz mehr.",
+   "it": "Eliminare questa specie dal catalogo? Non comparirà più in nessun punto.",
+   "pt": "Apagar esta espécie do catálogo? Deixa de aparecer em todos os pontos.",
+   "nl": "Deze soort uit de catalogus verwijderen? Hij verschijnt dan bij geen enkele duikstek meer.",
+   "pl": "Usunąć ten gatunek z katalogu? Przestanie być widoczny we wszystkich miejscach.",
+   "zh": "要从目录中删除此物种吗？它将不再显示在任何潜点。"
+  },
+  "Buscando en Wikimedia Commons…": {
+   "en": "Searching Wikimedia Commons…",
+   "fr": "Recherche sur Wikimedia Commons…",
+   "de": "Suche auf Wikimedia Commons…",
+   "it": "Ricerca su Wikimedia Commons…",
+   "pt": "A procurar no Wikimedia Commons…",
+   "nl": "Zoeken op Wikimedia Commons…",
+   "pl": "Wyszukiwanie w Wikimedia Commons…",
+   "zh": "正在搜索 Wikimedia Commons…"
+  },
+  "Usar esta foto": {
+   "en": "Use this photo",
+   "fr": "Utiliser cette photo",
+   "de": "Dieses Foto verwenden",
+   "it": "Usa questa foto",
+   "pt": "Usar esta foto",
+   "nl": "Deze foto gebruiken",
+   "pl": "Użyj tego zdjęcia",
+   "zh": "使用此照片"
+  },
+  "No hay fotos con ese nombre. Prueba con el nombre científico.": {
+   "en": "No photos with that name. Try the scientific name.",
+   "fr": "Aucune photo avec ce nom. Essayez le nom scientifique.",
+   "de": "Keine Fotos mit diesem Namen. Versuche es mit dem wissenschaftlichen Namen.",
+   "it": "Nessuna foto con questo nome. Prova con il nome scientifico.",
+   "pt": "Não há fotos com esse nome. Experimente o nome científico.",
+   "nl": "Geen foto's met die naam. Probeer de wetenschappelijke naam.",
+   "pl": "Brak zdjęć o tej nazwie. Spróbuj nazwy naukowej.",
+   "zh": "没有该名称的照片。请尝试使用学名。"
+  },
+  "Foto guardada con su autor y licencia.": {
+   "en": "Photo saved with its author and licence.",
+   "fr": "Photo enregistrée avec son auteur et sa licence.",
+   "de": "Foto mit Urheber und Lizenz gespeichert.",
+   "it": "Foto salvata con autore e licenza.",
+   "pt": "Foto guardada com o autor e a licença.",
+   "nl": "Foto opgeslagen met maker en licentie.",
+   "pl": "Zdjęcie zapisane z autorem i licencją.",
+   "zh": "照片已连同作者和许可一起保存。"
+  },
+  "Especies y vídeos de las rutas": {
+   "en": "Species and route videos",
+   "fr": "Espèces et vidéos des parcours",
+   "de": "Arten und Videos der Routen",
+   "it": "Specie e video dei percorsi",
+   "pt": "Espécies e vídeos dos percursos",
+   "nl": "Soorten en video's van de routes",
+   "pl": "Gatunki i filmy z tras",
+   "zh": "物种与路线视频"
+  },
+  "propuestas pendientes de aprobar.": {
+   "en": "proposals awaiting approval.",
+   "fr": "propositions en attente d'approbation.",
+   "de": "Vorschläge warten auf Freigabe.",
+   "it": "proposte in attesa di approvazione.",
+   "pt": "propostas a aguardar aprovação.",
+   "nl": "voorstellen wachten op goedkeuring.",
+   "pl": "propozycji czeka na zatwierdzenie.",
+   "zh": "条提议待审核。"
+  },
+  "Catálogo de especies, vídeos enlazados y propuestas de centros y freelance.": {
+   "en": "Species catalogue, linked videos and proposals from centres and freelancers.",
+   "fr": "Catalogue des espèces, vidéos liées et propositions des centres et freelances.",
+   "de": "Artenkatalog, verlinkte Videos und Vorschläge von Zentren und Freelancern.",
+   "it": "Catalogo delle specie, video collegati e proposte di centri e freelance.",
+   "pt": "Catálogo de espécies, vídeos ligados e propostas de centros e freelancers.",
+   "nl": "Soortencatalogus, gelinkte video's en voorstellen van centra en freelancers.",
+   "pl": "Katalog gatunków, podlinkowane filmy i propozycje centrów oraz freelancerów.",
+   "zh": "物种目录、链接视频以及潜水中心和自由职业者的提议。"
+  },
+  "Vídeos de la ruta y vida marina": {
+   "en": "Route videos and marine life",
+   "fr": "Vidéos du parcours et vie marine",
+   "de": "Videos der Route und Meeresleben",
+   "it": "Video del percorso e vita marina",
+   "pt": "Vídeos do percurso e vida marinha",
+   "nl": "Video's van de route en zeeleven",
+   "pl": "Filmy z trasy i życie morskie",
+   "zh": "路线视频与海洋生物"
+  },
+  "Ilustración propia": {
+   "en": "Own illustration",
+   "fr": "Illustration originale",
+   "de": "Eigene Illustration",
+   "it": "Illustrazione propria",
+   "pt": "Ilustração própria",
+   "nl": "Eigen illustratie",
+   "pl": "Własna ilustracja",
+   "zh": "原创插图"
+  },
+  "Propia": {
+   "en": "Own work",
+   "fr": "Œuvre propre",
+   "de": "Eigenes Werk",
+   "it": "Opera propria",
+   "pt": "Própria",
+   "nl": "Eigen werk",
+   "pl": "Własna",
+   "zh": "原创"
+  },
+  "Cedida por el autor": {
+   "en": "Given by the author",
+   "fr": "Cédée par l'auteur",
+   "de": "Vom Urheber überlassen",
+   "it": "Ceduta dall'autore",
+   "pt": "Cedida pelo autor",
+   "nl": "Afgestaan door de maker",
+   "pl": "Udostępniona przez autora",
+   "zh": "作者授权"
+  },
+  "Dominio público": {
+   "en": "Public domain",
+   "fr": "Domaine public",
+   "de": "Gemeinfrei",
+   "it": "Pubblico dominio",
+   "pt": "Domínio público",
+   "nl": "Publiek domein",
+   "pl": "Domena publiczna",
+   "zh": "公有领域"
+  },
+  "Cambiar": {
+   "en": "Change",
+   "fr": "Modifier",
+   "de": "Ändern",
+   "it": "Modifica",
+   "pt": "Alterar",
+   "nl": "Wijzigen",
+   "pl": "Zmień",
+   "zh": "更改"
+  },
+  "Este enlace no es de un vídeo.": {
+   "en": "This link is not a video.",
+   "fr": "Ce lien n'est pas une vidéo.",
+   "de": "Dieser Link ist kein Video.",
+   "it": "Questo link non è un video.",
+   "pt": "Esta ligação não é de um vídeo.",
+   "nl": "Deze link is geen video.",
+   "pl": "Ten link nie prowadzi do filmu.",
+   "zh": "此链接不是视频。"
+  },
+  "Pega el enlace del vídeo.": {
+   "en": "Paste the link of the video.",
+   "fr": "Collez le lien de la vidéo.",
+   "de": "Füge den Link des Videos ein.",
+   "it": "Incolla il link del video.",
+   "pt": "Cole a ligação do vídeo.",
+   "nl": "Plak de link van de video.",
+   "pl": "Wklej link do filmu.",
+   "zh": "请粘贴视频链接。"
+  },
+  "El enlace no es válido.": {
+   "en": "The link is not valid.",
+   "fr": "Le lien n'est pas valide.",
+   "de": "Der Link ist ungültig.",
+   "it": "Il link non è valido.",
+   "pt": "A ligação não é válida.",
+   "nl": "De link is ongeldig.",
+   "pl": "Link jest nieprawidłowy.",
+   "zh": "链接无效。"
+  },
+  "Solo se admiten enlaces seguros, que empiezan por https://.": {
+   "en": "Only secure links starting with https:// are accepted.",
+   "fr": "Seuls les liens sécurisés commençant par https:// sont acceptés.",
+   "de": "Nur sichere Links, die mit https:// beginnen, sind erlaubt.",
+   "it": "Sono accettati solo link sicuri che iniziano con https://.",
+   "pt": "Só se aceitam ligações seguras, que começam por https://.",
+   "nl": "Alleen veilige links die met https:// beginnen, worden geaccepteerd.",
+   "pl": "Akceptujemy tylko bezpieczne linki zaczynające się od https://.",
+   "zh": "仅接受以 https:// 开头的安全链接。"
+  },
+  "Este enlace parece sospechoso y no se admite.": {
+   "en": "This link looks suspicious and is not accepted.",
+   "fr": "Ce lien semble suspect et n'est pas accepté.",
+   "de": "Dieser Link wirkt verdächtig und wird nicht akzeptiert.",
+   "it": "Questo link sembra sospetto e non è accettato.",
+   "pt": "Esta ligação parece suspeita e não é aceite.",
+   "nl": "Deze link lijkt verdacht en wordt niet geaccepteerd.",
+   "pl": "Ten link wygląda podejrzanie i nie jest akceptowany.",
+   "zh": "此链接看起来可疑，不被接受。"
+  },
+  "Usa el enlace completo del vídeo, no un enlace acortado.": {
+   "en": "Use the full link of the video, not a shortened link.",
+   "fr": "Utilisez le lien complet de la vidéo, pas un lien raccourci.",
+   "de": "Verwende den vollständigen Link des Videos, keinen gekürzten Link.",
+   "it": "Usa il link completo del video, non un link abbreviato.",
+   "pt": "Use a ligação completa do vídeo, não uma ligação encurtada.",
+   "nl": "Gebruik de volledige link van de video, geen verkorte link.",
+   "pl": "Użyj pełnego linku do filmu, nie skróconego.",
+   "zh": "请使用视频的完整链接，而不是短链接。"
+  },
+  "Enlaza la página del vídeo en su plataforma, no el archivo de vídeo.": {
+   "en": "Link the video's page on its platform, not the video file.",
+   "fr": "Liez la page de la vidéo sur sa plateforme, pas le fichier vidéo.",
+   "de": "Verlinke die Seite des Videos auf seiner Plattform, nicht die Videodatei.",
+   "it": "Collega la pagina del video sulla sua piattaforma, non il file video.",
+   "pt": "Ligue a página do vídeo na sua plataforma, não o ficheiro de vídeo.",
+   "nl": "Link naar de pagina van de video op het platform, niet naar het videobestand.",
+   "pl": "Podlinkuj stronę filmu na jego platformie, a nie plik wideo.",
+   "zh": "请链接视频在其平台上的页面，而不是视频文件。"
+  },
+  "No hemos podido abrir ese enlace para comprobar que es un vídeo. Revisa que la página sea pública.": {
+   "en": "We couldn't open that link to check that it is a video. Check that the page is public.",
+   "fr": "Nous n'avons pas pu ouvrir ce lien pour vérifier qu'il s'agit d'une vidéo. Vérifiez que la page est publique.",
+   "de": "Wir konnten den Link nicht öffnen, um zu prüfen, ob es ein Video ist. Prüfe, ob die Seite öffentlich ist.",
+   "it": "Non siamo riusciti ad aprire il link per verificare che sia un video. Controlla che la pagina sia pubblica.",
+   "pt": "Não conseguimos abrir essa ligação para verificar que é um vídeo. Verifique se a página é pública.",
+   "nl": "We konden die link niet openen om te controleren of het een video is. Controleer of de pagina openbaar is.",
+   "pl": "Nie udało się otworzyć linku, aby sprawdzić, czy to film. Sprawdź, czy strona jest publiczna.",
+   "zh": "无法打开该链接以确认是否为视频。请确认页面是公开的。"
+  },
+  "Ese enlace no es de un vídeo (la página no dice que tenga un vídeo).": {
+   "en": "That link is not a video (the page doesn't say it has a video).",
+   "fr": "Ce lien n'est pas une vidéo (la page n'indique pas contenir de vidéo).",
+   "de": "Dieser Link ist kein Video (die Seite gibt nicht an, ein Video zu enthalten).",
+   "it": "Questo link non è un video (la pagina non indica di contenere un video).",
+   "pt": "Essa ligação não é de um vídeo (a página não indica que tenha um vídeo).",
+   "nl": "Die link is geen video (de pagina geeft niet aan dat er een video op staat).",
+   "pl": "Ten link nie prowadzi do filmu (strona nie podaje, że zawiera film).",
+   "zh": "该链接不是视频（页面未表明包含视频）。"
+  },
+  "Mes no válido.": {
+   "en": "Invalid month.",
+   "fr": "Mois non valide.",
+   "de": "Ungültiger Monat.",
+   "it": "Mese non valido.",
+   "pt": "Mês inválido.",
+   "nl": "Ongeldige maand.",
+   "pl": "Nieprawidłowy miesiąc.",
+   "zh": "月份无效。"
+  },
+  "Indica la licencia de la foto (propia, cedida, banco de imágenes o Creative Commons).": {
+   "en": "State the photo's licence (own, given, image bank or Creative Commons).",
+   "fr": "Indiquez la licence de la photo (personnelle, cédée, banque d'images ou Creative Commons).",
+   "de": "Gib die Lizenz des Fotos an (eigenes, überlassenes, Bildagentur oder Creative Commons).",
+   "it": "Indica la licenza della foto (propria, ceduta, banca immagini o Creative Commons).",
+   "pt": "Indique a licença da foto (própria, cedida, banco de imagens ou Creative Commons).",
+   "nl": "Geef de licentie van de foto op (eigen, afgestaan, beeldbank of Creative Commons).",
+   "pl": "Podaj licencję zdjęcia (własne, udostępnione, bank zdjęć lub Creative Commons).",
+   "zh": "请注明照片许可（原创、授权、图库或 Creative Commons）。"
+  },
+  "Esa licencia no permite usar la foto en la web (no comercial o sin modificaciones).": {
+   "en": "That licence doesn't allow using the photo on the website (non-commercial or no derivatives).",
+   "fr": "Cette licence ne permet pas d'utiliser la photo sur le site (non commerciale ou sans modification).",
+   "de": "Diese Lizenz erlaubt die Nutzung auf der Website nicht (nicht kommerziell oder keine Bearbeitung).",
+   "it": "Questa licenza non consente di usare la foto sul sito (non commerciale o senza modifiche).",
+   "pt": "Essa licença não permite usar a foto no site (não comercial ou sem modificações).",
+   "nl": "Die licentie staat gebruik op de website niet toe (niet-commercieel of geen bewerkingen).",
+   "pl": "Ta licencja nie pozwala używać zdjęcia na stronie (niekomercyjna lub bez utworów zależnych).",
+   "zh": "该许可不允许在网站上使用此照片（非商业或禁止演绎）。"
+  },
+  "Licencia no admitida. Usa «Propia», «Cedida por el autor», «Banco de imágenes», CC0, dominio público, CC BY o CC BY-SA.": {
+   "en": "Licence not accepted. Use “Own work”, “Given by the author”, “Image bank”, CC0, public domain, CC BY or CC BY-SA.",
+   "fr": "Licence non acceptée. Utilisez « Œuvre propre », « Cédée par l'auteur », « Banque d'images », CC0, domaine public, CC BY ou CC BY-SA.",
+   "de": "Lizenz nicht zulässig. Verwende „Eigenes Werk“, „Vom Urheber überlassen“, „Bildagentur“, CC0, gemeinfrei, CC BY oder CC BY-SA.",
+   "it": "Licenza non ammessa. Usa «Opera propria», «Ceduta dall'autore», «Banca immagini», CC0, pubblico dominio, CC BY o CC BY-SA.",
+   "pt": "Licença não admitida. Use «Própria», «Cedida pelo autor», «Banco de imagens», CC0, domínio público, CC BY ou CC BY-SA.",
+   "nl": "Licentie niet toegestaan. Gebruik ‘Eigen werk’, ‘Afgestaan door de maker’, ‘Beeldbank’, CC0, publiek domein, CC BY of CC BY-SA.",
+   "pl": "Licencja niedozwolona. Użyj „Własna”, „Udostępniona przez autora”, „Bank zdjęć”, CC0, domena publiczna, CC BY lub CC BY-SA.",
+   "zh": "不接受该许可。请使用“原创”“作者授权”“图库”、CC0、公有领域、CC BY 或 CC BY-SA。"
+  },
+  "El enlace del origen de la foto debe empezar por https://.": {
+   "en": "The photo's source link must start with https://.",
+   "fr": "Le lien de la source de la photo doit commencer par https://.",
+   "de": "Der Link zur Quelle des Fotos muss mit https:// beginnen.",
+   "it": "Il link all'origine della foto deve iniziare con https://.",
+   "pt": "A ligação da origem da foto deve começar por https://.",
+   "nl": "De bronlink van de foto moet met https:// beginnen.",
+   "pl": "Link do źródła zdjęcia musi zaczynać się od https://.",
+   "zh": "照片来源链接必须以 https:// 开头。"
+  },
+  "Escribe al menos el nombre común en español.": {
+   "en": "Write at least the common name in Spanish.",
+   "fr": "Écrivez au moins le nom commun en espagnol.",
+   "de": "Schreibe mindestens den Trivialnamen auf Spanisch.",
+   "it": "Scrivi almeno il nome comune in spagnolo.",
+   "pt": "Escreva pelo menos o nome comum em espanhol.",
+   "nl": "Schrijf ten minste de gewone naam in het Spaans.",
+   "pl": "Wpisz przynajmniej nazwę zwyczajową po hiszpańsku.",
+   "zh": "请至少填写西班牙语俗名。"
+  },
+  "Escribe al menos 3 letras (mejor el nombre científico).": {
+   "en": "Type at least 3 letters (preferably the scientific name).",
+   "fr": "Saisissez au moins 3 lettres (de préférence le nom scientifique).",
+   "de": "Gib mindestens 3 Buchstaben ein (am besten den wissenschaftlichen Namen).",
+   "it": "Scrivi almeno 3 lettere (meglio il nome scientifico).",
+   "pt": "Escreva pelo menos 3 letras (de preferência o nome científico).",
+   "nl": "Typ ten minste 3 letters (bij voorkeur de wetenschappelijke naam).",
+   "pl": "Wpisz co najmniej 3 litery (najlepiej nazwę naukową).",
+   "zh": "请至少输入 3 个字母（最好是学名）。"
+  },
+  "Elige una foto de la lista.": {
+   "en": "Choose a photo from the list.",
+   "fr": "Choisissez une photo dans la liste.",
+   "de": "Wähle ein Foto aus der Liste.",
+   "it": "Scegli una foto dall'elenco.",
+   "pt": "Escolha uma foto da lista.",
+   "nl": "Kies een foto uit de lijst.",
+   "pl": "Wybierz zdjęcie z listy.",
+   "zh": "请从列表中选择照片。"
+  },
+  "No se ha encontrado esa foto en Wikimedia Commons.": {
+   "en": "That photo wasn't found on Wikimedia Commons.",
+   "fr": "Cette photo est introuvable sur Wikimedia Commons.",
+   "de": "Dieses Foto wurde auf Wikimedia Commons nicht gefunden.",
+   "it": "Questa foto non è stata trovata su Wikimedia Commons.",
+   "pt": "Essa foto não foi encontrada no Wikimedia Commons.",
+   "nl": "Die foto is niet gevonden op Wikimedia Commons.",
+   "pl": "Nie znaleziono tego zdjęcia w Wikimedia Commons.",
+   "zh": "在 Wikimedia Commons 上找不到该照片。"
+  },
+  "Dirección de la foto no admitida.": {
+   "en": "Photo address not accepted.",
+   "fr": "Adresse de la photo non acceptée.",
+   "de": "Adresse des Fotos nicht zulässig.",
+   "it": "Indirizzo della foto non ammesso.",
+   "pt": "Endereço da foto não admitido.",
+   "nl": "Adres van de foto niet toegestaan.",
+   "pl": "Adres zdjęcia niedozwolony.",
+   "zh": "不接受该照片地址。"
+  },
+  "La foto no indica su autor.": {
+   "en": "The photo doesn't state its author.",
+   "fr": "La photo n'indique pas son auteur.",
+   "de": "Das Foto nennt keinen Urheber.",
+   "it": "La foto non indica l'autore.",
+   "pt": "A foto não indica o autor.",
+   "nl": "De foto vermeldt geen maker.",
+   "pl": "Zdjęcie nie podaje autora.",
+   "zh": "该照片未注明作者。"
+  },
+  "Demasiadas comprobaciones seguidas. Espera unos minutos.": {
+   "en": "Too many checks in a row. Wait a few minutes.",
+   "fr": "Trop de vérifications à la suite. Attendez quelques minutes.",
+   "de": "Zu viele Prüfungen hintereinander. Warte ein paar Minuten.",
+   "it": "Troppi controlli di seguito. Attendi qualche minuto.",
+   "pt": "Demasiadas verificações seguidas. Aguarde alguns minutos.",
+   "nl": "Te veel controles achter elkaar. Wacht een paar minuten.",
+   "pl": "Zbyt wiele sprawdzeń z rzędu. Odczekaj kilka minut.",
+   "zh": "连续检查次数过多。请稍等几分钟。"
+  },
+  "Los buceadores no pueden añadir vídeos ni especies.": {
+   "en": "Divers cannot add videos or species.",
+   "fr": "Les plongeurs ne peuvent pas ajouter de vidéos ni d'espèces.",
+   "de": "Taucher können keine Videos oder Arten hinzufügen.",
+   "it": "I subacquei non possono aggiungere video né specie.",
+   "pt": "Os mergulhadores não podem adicionar vídeos nem espécies.",
+   "nl": "Duikers kunnen geen video's of soorten toevoegen.",
+   "pl": "Nurkowie nie mogą dodawać filmów ani gatunków.",
+   "zh": "潜水员不能添加视频或物种。"
+  },
+  "Este vídeo ya está en el punto.": {
+   "en": "This video is already on the site.",
+   "fr": "Cette vidéo est déjà sur le site.",
+   "de": "Dieses Video ist schon beim Tauchplatz.",
+   "it": "Questo video è già nel punto.",
+   "pt": "Este vídeo já está no ponto.",
+   "nl": "Deze video staat al bij de duikstek.",
+   "pl": "Ten film jest już w tym miejscu.",
+   "zh": "该视频已在此潜点。"
+  },
+  "Este vídeo ya está propuesto y espera la aprobación.": {
+   "en": "This video has already been proposed and is awaiting approval.",
+   "fr": "Cette vidéo a déjà été proposée et attend son approbation.",
+   "de": "Dieses Video wurde schon vorgeschlagen und wartet auf Freigabe.",
+   "it": "Questo video è già stato proposto ed è in attesa di approvazione.",
+   "pt": "Este vídeo já foi proposto e aguarda aprovação.",
+   "nl": "Deze video is al voorgesteld en wacht op goedkeuring.",
+   "pl": "Ten film został już zaproponowany i czeka na zatwierdzenie.",
+   "zh": "该视频已被提议，正在等待审核。"
+  },
+  "Solo puedes cambiar lo que has propuesto tú.": {
+   "en": "You can only change what you proposed yourself.",
+   "fr": "Vous ne pouvez modifier que ce que vous avez proposé.",
+   "de": "Du kannst nur ändern, was du selbst vorgeschlagen hast.",
+   "it": "Puoi modificare solo ciò che hai proposto tu.",
+   "pt": "Só pode alterar o que propôs.",
+   "nl": "Je kunt alleen wijzigen wat je zelf hebt voorgesteld.",
+   "pl": "Możesz zmieniać tylko to, co sam zaproponowałeś.",
+   "zh": "你只能修改自己提议的内容。"
+  },
+  "Ya está revisado: para cambiarlo, retíralo y proponlo de nuevo.": {
+   "en": "It has already been reviewed: to change it, withdraw it and propose it again.",
+   "fr": "Déjà vérifié : pour le modifier, retirez-le et proposez-le à nouveau.",
+   "de": "Schon geprüft: Um es zu ändern, zieh es zurück und schlage es erneut vor.",
+   "it": "Già controllato: per modificarlo, ritiralo e proponilo di nuovo.",
+   "pt": "Já foi revisto: para o alterar, retire-o e proponha-o de novo.",
+   "nl": "Al beoordeeld: trek het in en stel het opnieuw voor om het te wijzigen.",
+   "pl": "Już sprawdzone: aby to zmienić, wycofaj i zaproponuj ponownie.",
+   "zh": "已审核：如需修改，请撤回后重新提议。"
+  },
+  "Vídeo no encontrado.": {
+   "en": "Video not found.",
+   "fr": "Vidéo introuvable.",
+   "de": "Video nicht gefunden.",
+   "it": "Video non trovato.",
+   "pt": "Vídeo não encontrado.",
+   "nl": "Video niet gevonden.",
+   "pl": "Nie znaleziono filmu.",
+   "zh": "找不到视频。"
+  },
+  "Elige una especie del catálogo.": {
+   "en": "Choose a species from the catalogue.",
+   "fr": "Choisissez une espèce du catalogue.",
+   "de": "Wähle eine Art aus dem Katalog.",
+   "it": "Scegli una specie dal catalogo.",
+   "pt": "Escolha uma espécie do catálogo.",
+   "nl": "Kies een soort uit de catalogus.",
+   "pl": "Wybierz gatunek z katalogu.",
+   "zh": "请从目录中选择物种。"
+  },
+  "Esta especie ya está en el punto.": {
+   "en": "This species is already on the site.",
+   "fr": "Cette espèce est déjà sur le site.",
+   "de": "Diese Art ist schon beim Tauchplatz.",
+   "it": "Questa specie è già nel punto.",
+   "pt": "Esta espécie já está no ponto.",
+   "nl": "Deze soort staat al bij de duikstek.",
+   "pl": "Ten gatunek jest już w tym miejscu.",
+   "zh": "该物种已在此潜点。"
+  },
+  "Esta especie ya está propuesta y espera la aprobación.": {
+   "en": "This species has already been proposed and is awaiting approval.",
+   "fr": "Cette espèce a déjà été proposée et attend son approbation.",
+   "de": "Diese Art wurde schon vorgeschlagen und wartet auf Freigabe.",
+   "it": "Questa specie è già stata proposta ed è in attesa di approvazione.",
+   "pt": "Esta espécie já foi proposta e aguarda aprovação.",
+   "nl": "Deze soort is al voorgesteld en wacht op goedkeuring.",
+   "pl": "Ten gatunek został już zaproponowany i czeka na zatwierdzenie.",
+   "zh": "该物种已被提议，正在等待审核。"
+  },
+  "Ya estaba revisado.": {
+   "en": "It had already been reviewed.",
+   "fr": "Déjà vérifié.",
+   "de": "Wurde schon geprüft.",
+   "it": "Era già stato controllato.",
+   "pt": "Já tinha sido revisto.",
+   "nl": "Was al beoordeeld.",
+   "pl": "Było już sprawdzone.",
+   "zh": "已经审核过。"
+  },
+  "Escribe el motivo del rechazo: lo verá quien lo propuso.": {
+   "en": "Write the reason for the rejection: the proposer will see it.",
+   "fr": "Écrivez le motif du refus : la personne qui l'a proposé le verra.",
+   "de": "Schreibe den Grund der Ablehnung: Die vorschlagende Person sieht ihn.",
+   "it": "Scrivi il motivo del rifiuto: lo vedrà chi l'ha proposto.",
+   "pt": "Escreva o motivo da rejeição: quem o propôs vai vê-lo.",
+   "nl": "Schrijf de reden van afwijzing: de indiener ziet die.",
+   "pl": "Napisz powód odrzucenia: zobaczy go osoba, która to zaproponowała.",
+   "zh": "请填写拒绝原因：提议者会看到。"
+  },
+  "Indica el autor de la foto (aparece en pequeño sobre la foto).": {
+   "en": "State the photo's author (shown small on the photo).",
+   "fr": "Indiquez l'auteur de la photo (affiché en petit sur la photo).",
+   "de": "Gib den Urheber des Fotos an (erscheint klein auf dem Foto).",
+   "it": "Indica l'autore della foto (compare in piccolo sulla foto).",
+   "pt": "Indique o autor da foto (aparece em pequeno sobre a foto).",
+   "nl": "Geef de maker van de foto op (staat klein op de foto).",
+   "pl": "Podaj autora zdjęcia (pojawia się małym drukiem na zdjęciu).",
+   "zh": "请注明照片作者（以小字显示在照片上）。"
+  },
+  "Indica el autor de la foto.": {
+   "en": "State the photo's author.",
+   "fr": "Indiquez l'auteur de la photo.",
+   "de": "Gib den Urheber des Fotos an.",
+   "it": "Indica l'autore della foto.",
+   "pt": "Indique o autor da foto.",
+   "nl": "Geef de maker van de foto op.",
+   "pl": "Podaj autora zdjęcia.",
+   "zh": "请注明照片作者。"
+  },
+  "La foto pesa demasiado. Máximo 12 MB.": {
+   "en": "The photo is too large. Maximum 12 MB.",
+   "fr": "La photo est trop lourde. Maximum 12 Mo.",
+   "de": "Das Foto ist zu groß. Maximal 12 MB.",
+   "it": "La foto è troppo pesante. Massimo 12 MB.",
+   "pt": "A foto é demasiado pesada. Máximo 12 MB.",
+   "nl": "De foto is te groot. Maximaal 12 MB.",
+   "pl": "Zdjęcie jest za duże. Maksymalnie 12 MB.",
+   "zh": "照片过大。最大 12 MB。"
+  },
+  "Escribe el nombre científico (por ejemplo, Epinephelus marginatus).": {
+   "en": "Write the scientific name (for example, Epinephelus marginatus).",
+   "fr": "Écrivez le nom scientifique (par exemple, Epinephelus marginatus).",
+   "de": "Schreibe den wissenschaftlichen Namen (zum Beispiel Epinephelus marginatus).",
+   "it": "Scrivi il nome scientifico (ad esempio, Epinephelus marginatus).",
+   "pt": "Escreva o nome científico (por exemplo, Epinephelus marginatus).",
+   "nl": "Schrijf de wetenschappelijke naam (bijvoorbeeld Epinephelus marginatus).",
+   "pl": "Wpisz nazwę naukową (na przykład Epinephelus marginatus).",
+   "zh": "请填写学名（例如 Epinephelus marginatus）。"
+  },
+  "Ya hay una especie con ese nombre científico en el catálogo.": {
+   "en": "There is already a species with that scientific name in the catalogue.",
+   "fr": "Il existe déjà une espèce avec ce nom scientifique dans le catalogue.",
+   "de": "Im Katalog gibt es schon eine Art mit diesem wissenschaftlichen Namen.",
+   "it": "Nel catalogo esiste già una specie con questo nome scientifico.",
+   "pt": "Já existe uma espécie com esse nome científico no catálogo.",
+   "nl": "Er staat al een soort met die wetenschappelijke naam in de catalogus.",
+   "pl": "W katalogu jest już gatunek o tej nazwie naukowej.",
+   "zh": "目录中已有该学名的物种。"
+  },
+  "Nombres no válidos.": {
+   "en": "Invalid names.",
+   "fr": "Noms non valides.",
+   "de": "Ungültige Namen.",
+   "it": "Nomi non validi.",
+   "pt": "Nomes inválidos.",
+   "nl": "Ongeldige namen.",
+   "pl": "Nieprawidłowe nazwy.",
+   "zh": "名称无效。"
+  },
+  "Especie no encontrada.": {
+   "en": "Species not found.",
+   "fr": "Espèce introuvable.",
+   "de": "Art nicht gefunden.",
+   "it": "Specie non trovata.",
+   "pt": "Espécie não encontrada.",
+   "nl": "Soort niet gevonden.",
+   "pl": "Nie znaleziono gatunku.",
+   "zh": "找不到物种。"
+  },
+  "Añade la foto de la especie (propia o con una licencia que permita usarla).": {
+   "en": "Add the photo of the species (your own or with a licence that allows its use).",
+   "fr": "Ajoutez la photo de l'espèce (personnelle ou sous une licence qui en permet l'usage).",
+   "de": "Füge das Foto der Art hinzu (eigenes oder mit einer Lizenz, die die Nutzung erlaubt).",
+   "it": "Aggiungi la foto della specie (propria o con una licenza che ne consenta l'uso).",
+   "pt": "Adicione a foto da espécie (própria ou com uma licença que permita usá-la).",
+   "nl": "Voeg de foto van de soort toe (eigen foto of met een licentie die gebruik toestaat).",
+   "pl": "Dodaj zdjęcie gatunku (własne lub z licencją pozwalającą na użycie).",
+   "zh": "请添加物种照片（原创或许可允许使用的照片）。"
+  },
+  "No se ha podido descargar la foto de Wikimedia Commons. Inténtalo más tarde.": {
+   "en": "The photo couldn't be downloaded from Wikimedia Commons. Try again later.",
+   "fr": "Impossible de télécharger la photo depuis Wikimedia Commons. Réessayez plus tard.",
+   "de": "Das Foto konnte nicht von Wikimedia Commons geladen werden. Versuche es später erneut.",
+   "it": "Impossibile scaricare la foto da Wikimedia Commons. Riprova più tardi.",
+   "pt": "Não foi possível descarregar a foto do Wikimedia Commons. Tente mais tarde.",
+   "nl": "De foto kon niet van Wikimedia Commons worden gedownload. Probeer het later opnieuw.",
+   "pl": "Nie udało się pobrać zdjęcia z Wikimedia Commons. Spróbuj później.",
+   "zh": "无法从 Wikimedia Commons 下载照片。请稍后再试。"
+  },
+  "No se ha podido consultar Wikimedia Commons ahora. Inténtalo más tarde.": {
+   "en": "Wikimedia Commons couldn't be searched right now. Try again later.",
+   "fr": "Impossible de consulter Wikimedia Commons pour le moment. Réessayez plus tard.",
+   "de": "Wikimedia Commons ist gerade nicht erreichbar. Versuche es später erneut.",
+   "it": "Impossibile consultare Wikimedia Commons ora. Riprova più tardi.",
+   "pt": "Não foi possível consultar o Wikimedia Commons agora. Tente mais tarde.",
+   "nl": "Wikimedia Commons kan nu niet worden geraadpleegd. Probeer het later opnieuw.",
+   "pl": "Nie można teraz przeszukać Wikimedia Commons. Spróbuj później.",
+   "zh": "目前无法查询 Wikimedia Commons。请稍后再试。"
+  },
+  "Los recorridos se añaden ahora como «Vídeos de la ruta»: pega el enlace del vídeo (YouTube, Vimeo…). No se suben archivos de vídeo.": {
+   "en": "Tours are now added as “Route videos”: paste the link of the video (YouTube, Vimeo…). Video files are not uploaded.",
+   "fr": "Les parcours s'ajoutent désormais comme « Vidéos du parcours » : collez le lien de la vidéo (YouTube, Vimeo…). Aucun fichier vidéo n'est téléversé.",
+   "de": "Rundgänge werden jetzt als „Videos der Route“ hinzugefügt: Füge den Link des Videos ein (YouTube, Vimeo…). Videodateien werden nicht hochgeladen.",
+   "it": "I percorsi ora si aggiungono come «Video del percorso»: incolla il link del video (YouTube, Vimeo…). I file video non si caricano.",
+   "pt": "Os percursos adicionam-se agora como «Vídeos do percurso»: cole a ligação do vídeo (YouTube, Vimeo…). Não se carregam ficheiros de vídeo.",
+   "nl": "Rondleidingen voeg je nu toe als ‘Video's van de route’: plak de link van de video (YouTube, Vimeo…). Videobestanden worden niet geüpload.",
+   "pl": "Trasy dodaje się teraz jako „Filmy z trasy”: wklej link do filmu (YouTube, Vimeo…). Nie przesyłamy plików wideo.",
+   "zh": "导览现在以“路线视频”形式添加：请粘贴视频链接（YouTube、Vimeo…）。不上传视频文件。"
+  },
+  "El archivo no es una imagen JPG, PNG, WEBP o GIF.": {
+   "en": "The file is not a JPG, PNG, WEBP or GIF image.",
+   "fr": "Le fichier n'est pas une image JPG, PNG, WEBP ou GIF.",
+   "de": "Die Datei ist kein JPG-, PNG-, WEBP- oder GIF-Bild.",
+   "it": "Il file non è un'immagine JPG, PNG, WEBP o GIF.",
+   "pt": "O ficheiro não é uma imagem JPG, PNG, WEBP ou GIF.",
+   "nl": "Het bestand is geen JPG-, PNG-, WEBP- of GIF-afbeelding.",
+   "pl": "Plik nie jest obrazem JPG, PNG, WEBP ani GIF.",
+   "zh": "该文件不是 JPG、PNG、WEBP 或 GIF 图片。"
+  },
+  "La imagen no se puede leer o es demasiado grande.": {
+   "en": "The image can't be read or is too large.",
+   "fr": "L'image est illisible ou trop grande.",
+   "de": "Das Bild kann nicht gelesen werden oder ist zu groß.",
+   "it": "L'immagine non si può leggere o è troppo grande.",
+   "pt": "A imagem não pode ser lida ou é demasiado grande.",
+   "nl": "De afbeelding kan niet worden gelezen of is te groot.",
+   "pl": "Nie można odczytać obrazu lub jest za duży.",
+   "zh": "无法读取图片或图片过大。"
+  },
+  "La imagen es demasiado grande.": {
+   "en": "The image is too large.",
+   "fr": "L'image est trop grande.",
+   "de": "Das Bild ist zu groß.",
+   "it": "L'immagine è troppo grande.",
+   "pt": "A imagem é demasiado grande.",
+   "nl": "De afbeelding is te groot.",
+   "pl": "Obraz jest za duży.",
+   "zh": "图片过大。"
+  },
+  "La imagen es demasiado pequeña.": {
+   "en": "The image is too small.",
+   "fr": "L'image est trop petite.",
+   "de": "Das Bild ist zu klein.",
+   "it": "L'immagine è troppo piccola.",
+   "pt": "A imagem é demasiado pequena.",
+   "nl": "De afbeelding is te klein.",
+   "pl": "Obraz jest za mały.",
+   "zh": "图片过小。"
+  },
+  "En YouTube, copia el enlace del vídeo (youtube.com/watch?v=… o youtu.be/…).": {
+   "en": "On YouTube, copy the link of the video (youtube.com/watch?v=… or youtu.be/…).",
+   "fr": "Sur YouTube, copiez le lien de la vidéo (youtube.com/watch?v=… ou youtu.be/…).",
+   "de": "Kopiere auf YouTube den Link des Videos (youtube.com/watch?v=… oder youtu.be/…).",
+   "it": "Su YouTube, copia il link del video (youtube.com/watch?v=… o youtu.be/…).",
+   "pt": "No YouTube, copie a ligação do vídeo (youtube.com/watch?v=… ou youtu.be/…).",
+   "nl": "Kopieer op YouTube de link van de video (youtube.com/watch?v=… of youtu.be/…).",
+   "pl": "Na YouTube skopiuj link do filmu (youtube.com/watch?v=… lub youtu.be/…).",
+   "zh": "在 YouTube 上复制视频链接（youtube.com/watch?v=… 或 youtu.be/…）。"
+  },
+  "Este enlace no es de un vídeo. En YouTube, copia el enlace del vídeo (youtube.com/watch?v=… o youtu.be/…).": {
+   "en": "This link is not a video. On YouTube, copy the link of the video (youtube.com/watch?v=… or youtu.be/…).",
+   "fr": "Ce lien n'est pas une vidéo. Sur YouTube, copiez le lien de la vidéo (youtube.com/watch?v=… ou youtu.be/…).",
+   "de": "Dieser Link ist kein Video. Kopiere auf YouTube den Link des Videos (youtube.com/watch?v=… oder youtu.be/…).",
+   "it": "Questo link non è un video. Su YouTube, copia il link del video (youtube.com/watch?v=… o youtu.be/…).",
+   "pt": "Esta ligação não é de um vídeo. No YouTube, copie a ligação do vídeo (youtube.com/watch?v=… ou youtu.be/…).",
+   "nl": "Deze link is geen video. Kopieer op YouTube de link van de video (youtube.com/watch?v=… of youtu.be/…).",
+   "pl": "Ten link nie prowadzi do filmu. Na YouTube skopiuj link do filmu (youtube.com/watch?v=… lub youtu.be/…).",
+   "zh": "此链接不是视频。 在 YouTube 上复制视频链接（youtube.com/watch?v=… 或 youtu.be/…）。"
+  },
+  "En Vimeo, copia el enlace del vídeo (vimeo.com/123456789).": {
+   "en": "On Vimeo, copy the link of the video (vimeo.com/123456789).",
+   "fr": "Sur Vimeo, copiez le lien de la vidéo (vimeo.com/123456789).",
+   "de": "Kopiere auf Vimeo den Link des Videos (vimeo.com/123456789).",
+   "it": "Su Vimeo, copia il link del video (vimeo.com/123456789).",
+   "pt": "No Vimeo, copie a ligação do vídeo (vimeo.com/123456789).",
+   "nl": "Kopieer op Vimeo de link van de video (vimeo.com/123456789).",
+   "pl": "Na Vimeo skopiuj link do filmu (vimeo.com/123456789).",
+   "zh": "在 Vimeo 上复制视频链接（vimeo.com/123456789）。"
+  },
+  "Este enlace no es de un vídeo. En Vimeo, copia el enlace del vídeo (vimeo.com/123456789).": {
+   "en": "This link is not a video. On Vimeo, copy the link of the video (vimeo.com/123456789).",
+   "fr": "Ce lien n'est pas une vidéo. Sur Vimeo, copiez le lien de la vidéo (vimeo.com/123456789).",
+   "de": "Dieser Link ist kein Video. Kopiere auf Vimeo den Link des Videos (vimeo.com/123456789).",
+   "it": "Questo link non è un video. Su Vimeo, copia il link del video (vimeo.com/123456789).",
+   "pt": "Esta ligação não é de um vídeo. No Vimeo, copie a ligação do vídeo (vimeo.com/123456789).",
+   "nl": "Deze link is geen video. Kopieer op Vimeo de link van de video (vimeo.com/123456789).",
+   "pl": "Ten link nie prowadzi do filmu. Na Vimeo skopiuj link do filmu (vimeo.com/123456789).",
+   "zh": "此链接不是视频。 在 Vimeo 上复制视频链接（vimeo.com/123456789）。"
+  },
+  "En Dailymotion, copia el enlace del vídeo (dailymotion.com/video/…).": {
+   "en": "On Dailymotion, copy the link of the video (dailymotion.com/video/…).",
+   "fr": "Sur Dailymotion, copiez le lien de la vidéo (dailymotion.com/video/…).",
+   "de": "Kopiere auf Dailymotion den Link des Videos (dailymotion.com/video/…).",
+   "it": "Su Dailymotion, copia il link del video (dailymotion.com/video/…).",
+   "pt": "No Dailymotion, copie a ligação do vídeo (dailymotion.com/video/…).",
+   "nl": "Kopieer op Dailymotion de link van de video (dailymotion.com/video/…).",
+   "pl": "Na Dailymotion skopiuj link do filmu (dailymotion.com/video/…).",
+   "zh": "在 Dailymotion 上复制视频链接（dailymotion.com/video/…）。"
+  },
+  "Este enlace no es de un vídeo. En Dailymotion, copia el enlace del vídeo (dailymotion.com/video/…).": {
+   "en": "This link is not a video. On Dailymotion, copy the link of the video (dailymotion.com/video/…).",
+   "fr": "Ce lien n'est pas une vidéo. Sur Dailymotion, copiez le lien de la vidéo (dailymotion.com/video/…).",
+   "de": "Dieser Link ist kein Video. Kopiere auf Dailymotion den Link des Videos (dailymotion.com/video/…).",
+   "it": "Questo link non è un video. Su Dailymotion, copia il link del video (dailymotion.com/video/…).",
+   "pt": "Esta ligação não é de um vídeo. No Dailymotion, copie a ligação do vídeo (dailymotion.com/video/…).",
+   "nl": "Deze link is geen video. Kopieer op Dailymotion de link van de video (dailymotion.com/video/…).",
+   "pl": "Ten link nie prowadzi do filmu. Na Dailymotion skopiuj link do filmu (dailymotion.com/video/…).",
+   "zh": "此链接不是视频。 在 Dailymotion 上复制视频链接（dailymotion.com/video/…）。"
+  },
+  "En TikTok, copia el enlace completo del vídeo (tiktok.com/@usuario/video/…).": {
+   "en": "On TikTok, copy the full link of the video (tiktok.com/@user/video/…).",
+   "fr": "Sur TikTok, copiez le lien complet de la vidéo (tiktok.com/@utilisateur/video/…).",
+   "de": "Kopiere auf TikTok den vollständigen Link des Videos (tiktok.com/@nutzer/video/…).",
+   "it": "Su TikTok, copia il link completo del video (tiktok.com/@utente/video/…).",
+   "pt": "No TikTok, copie a ligação completa do vídeo (tiktok.com/@utilizador/video/…).",
+   "nl": "Kopieer op TikTok de volledige link van de video (tiktok.com/@gebruiker/video/…).",
+   "pl": "Na TikToku skopiuj pełny link do filmu (tiktok.com/@użytkownik/video/…).",
+   "zh": "在 TikTok 上复制视频的完整链接（tiktok.com/@用户/video/…）。"
+  },
+  "Este enlace no es de un vídeo. En TikTok, copia el enlace completo del vídeo (tiktok.com/@usuario/video/…).": {
+   "en": "This link is not a video. On TikTok, copy the full link of the video (tiktok.com/@user/video/…).",
+   "fr": "Ce lien n'est pas une vidéo. Sur TikTok, copiez le lien complet de la vidéo (tiktok.com/@utilisateur/video/…).",
+   "de": "Dieser Link ist kein Video. Kopiere auf TikTok den vollständigen Link des Videos (tiktok.com/@nutzer/video/…).",
+   "it": "Questo link non è un video. Su TikTok, copia il link completo del video (tiktok.com/@utente/video/…).",
+   "pt": "Esta ligação não é de um vídeo. No TikTok, copie a ligação completa do vídeo (tiktok.com/@utilizador/video/…).",
+   "nl": "Deze link is geen video. Kopieer op TikTok de volledige link van de video (tiktok.com/@gebruiker/video/…).",
+   "pl": "Ten link nie prowadzi do filmu. Na TikToku skopiuj pełny link do filmu (tiktok.com/@użytkownik/video/…).",
+   "zh": "此链接不是视频。 在 TikTok 上复制视频的完整链接（tiktok.com/@用户/video/…）。"
+  },
+  "En Facebook, copia el enlace del vídeo (facebook.com/…/videos/… o facebook.com/watch/?v=…).": {
+   "en": "On Facebook, copy the link of the video (facebook.com/…/videos/… or facebook.com/watch/?v=…).",
+   "fr": "Sur Facebook, copiez le lien de la vidéo (facebook.com/…/videos/… ou facebook.com/watch/?v=…).",
+   "de": "Kopiere auf Facebook den Link des Videos (facebook.com/…/videos/… oder facebook.com/watch/?v=…).",
+   "it": "Su Facebook, copia il link del video (facebook.com/…/videos/… o facebook.com/watch/?v=…).",
+   "pt": "No Facebook, copie a ligação do vídeo (facebook.com/…/videos/… ou facebook.com/watch/?v=…).",
+   "nl": "Kopieer op Facebook de link van de video (facebook.com/…/videos/… of facebook.com/watch/?v=…).",
+   "pl": "Na Facebooku skopiuj link do filmu (facebook.com/…/videos/… lub facebook.com/watch/?v=…).",
+   "zh": "在 Facebook 上复制视频链接（facebook.com/…/videos/… 或 facebook.com/watch/?v=…）。"
+  },
+  "Este enlace no es de un vídeo. En Facebook, copia el enlace del vídeo (facebook.com/…/videos/… o facebook.com/watch/?v=…).": {
+   "en": "This link is not a video. On Facebook, copy the link of the video (facebook.com/…/videos/… or facebook.com/watch/?v=…).",
+   "fr": "Ce lien n'est pas une vidéo. Sur Facebook, copiez le lien de la vidéo (facebook.com/…/videos/… ou facebook.com/watch/?v=…).",
+   "de": "Dieser Link ist kein Video. Kopiere auf Facebook den Link des Videos (facebook.com/…/videos/… oder facebook.com/watch/?v=…).",
+   "it": "Questo link non è un video. Su Facebook, copia il link del video (facebook.com/…/videos/… o facebook.com/watch/?v=…).",
+   "pt": "Esta ligação não é de um vídeo. No Facebook, copie a ligação do vídeo (facebook.com/…/videos/… ou facebook.com/watch/?v=…).",
+   "nl": "Deze link is geen video. Kopieer op Facebook de link van de video (facebook.com/…/videos/… of facebook.com/watch/?v=…).",
+   "pl": "Ten link nie prowadzi do filmu. Na Facebooku skopiuj link do filmu (facebook.com/…/videos/… lub facebook.com/watch/?v=…).",
+   "zh": "此链接不是视频。 在 Facebook 上复制视频链接（facebook.com/…/videos/… 或 facebook.com/watch/?v=…）。"
+  },
+  "En Instagram, copia el enlace de un reel (instagram.com/reel/…): las fotos no son vídeos.": {
+   "en": "On Instagram, copy the link of a reel (instagram.com/reel/…): photos aren't videos.",
+   "fr": "Sur Instagram, copiez le lien d'un reel (instagram.com/reel/…) : les photos ne sont pas des vidéos.",
+   "de": "Kopiere auf Instagram den Link eines Reels (instagram.com/reel/…): Fotos sind keine Videos.",
+   "it": "Su Instagram, copia il link di un reel (instagram.com/reel/…): le foto non sono video.",
+   "pt": "No Instagram, copie a ligação de um reel (instagram.com/reel/…): as fotos não são vídeos.",
+   "nl": "Kopieer op Instagram de link van een reel (instagram.com/reel/…): foto's zijn geen video's.",
+   "pl": "Na Instagramie skopiuj link do rolki (instagram.com/reel/…): zdjęcia to nie filmy.",
+   "zh": "在 Instagram 上复制短视频（instagram.com/reel/…）的链接：照片不是视频。"
+  },
+  "Este enlace no es de un vídeo. En Instagram, copia el enlace de un reel (instagram.com/reel/…): las fotos no son vídeos.": {
+   "en": "This link is not a video. On Instagram, copy the link of a reel (instagram.com/reel/…): photos aren't videos.",
+   "fr": "Ce lien n'est pas une vidéo. Sur Instagram, copiez le lien d'un reel (instagram.com/reel/…) : les photos ne sont pas des vidéos.",
+   "de": "Dieser Link ist kein Video. Kopiere auf Instagram den Link eines Reels (instagram.com/reel/…): Fotos sind keine Videos.",
+   "it": "Questo link non è un video. Su Instagram, copia il link di un reel (instagram.com/reel/…): le foto non sono video.",
+   "pt": "Esta ligação não é de um vídeo. No Instagram, copie a ligação de um reel (instagram.com/reel/…): as fotos não são vídeos.",
+   "nl": "Deze link is geen video. Kopieer op Instagram de link van een reel (instagram.com/reel/…): foto's zijn geen video's.",
+   "pl": "Ten link nie prowadzi do filmu. Na Instagramie skopiuj link do rolki (instagram.com/reel/…): zdjęcia to nie filmy.",
+   "zh": "此链接不是视频。 在 Instagram 上复制短视频（instagram.com/reel/…）的链接：照片不是视频。"
+  },
+  "En Twitch, copia el enlace de un vídeo o de un clip.": {
+   "en": "On Twitch, copy the link of a video or a clip.",
+   "fr": "Sur Twitch, copiez le lien d'une vidéo ou d'un clip.",
+   "de": "Kopiere auf Twitch den Link eines Videos oder Clips.",
+   "it": "Su Twitch, copia il link di un video o di una clip.",
+   "pt": "No Twitch, copie a ligação de um vídeo ou de um clipe.",
+   "nl": "Kopieer op Twitch de link van een video of clip.",
+   "pl": "Na Twitchu skopiuj link do filmu lub klipu.",
+   "zh": "在 Twitch 上复制视频或片段的链接。"
+  },
+  "Este enlace no es de un vídeo. En Twitch, copia el enlace de un vídeo o de un clip.": {
+   "en": "This link is not a video. On Twitch, copy the link of a video or a clip.",
+   "fr": "Ce lien n'est pas une vidéo. Sur Twitch, copiez le lien d'une vidéo ou d'un clip.",
+   "de": "Dieser Link ist kein Video. Kopiere auf Twitch den Link eines Videos oder Clips.",
+   "it": "Questo link non è un video. Su Twitch, copia il link di un video o di una clip.",
+   "pt": "Esta ligação não é de um vídeo. No Twitch, copie a ligação de um vídeo ou de um clipe.",
+   "nl": "Deze link is geen video. Kopieer op Twitch de link van een video of clip.",
+   "pl": "Ten link nie prowadzi do filmu. Na Twitchu skopiuj link do filmu lub klipu.",
+   "zh": "此链接不是视频。 在 Twitch 上复制视频或片段的链接。"
+  }
+ },
+ "patterns": {
+  "Mejor época: {x}": {
+   "en": "Best season: {x}",
+   "fr": "Meilleure période : {x}",
+   "de": "Beste Zeit: {x}",
+   "it": "Periodo migliore: {x}",
+   "pt": "Melhor época: {x}",
+   "nl": "Beste periode: {x}",
+   "pl": "Najlepszy okres: {x}",
+   "zh": "最佳季节：{x}"
+  },
+  "Se ve: {x}": {
+   "en": "Seen: {x}",
+   "fr": "Visible : {x}",
+   "de": "Zu sehen: {x}",
+   "it": "Si vede: {x}",
+   "pt": "Vê-se: {x}",
+   "nl": "Te zien: {x}",
+   "pl": "Widoczny: {x}",
+   "zh": "可见：{x}"
+  },
+  "Aportado por {x}": {
+   "en": "Contributed by {x}",
+   "fr": "Proposé par {x}",
+   "de": "Beitrag von {x}",
+   "it": "Fornito da {x}",
+   "pt": "Contributo de {x}",
+   "nl": "Bijgedragen door {x}",
+   "pl": "Dodane przez {x}",
+   "zh": "由 {x} 提供"
+  },
+  "Al pulsar «Reproducir» se conecta con {x}.": {
+   "en": "Pressing “Play” connects to {x}.",
+   "fr": "En appuyant sur « Lire », vous vous connectez à {x}.",
+   "de": "Mit „Abspielen“ wird eine Verbindung zu {x} hergestellt.",
+   "it": "Premendo «Riproduci» ti colleghi a {x}.",
+   "pt": "Ao carregar em «Reproduzir» liga-se a {x}.",
+   "nl": "Als je op ‘Afspelen’ drukt, wordt verbinding gemaakt met {x}.",
+   "pl": "Po naciśnięciu „Odtwórz” nastąpi połączenie z {x}.",
+   "zh": "点击“播放”后将连接到 {x}。"
+  },
+  "Abrir en la app de {x}": {
+   "en": "Open in the {x} app",
+   "fr": "Ouvrir dans l'application {x}",
+   "de": "In der {x}-App öffnen",
+   "it": "Apri nell'app di {x}",
+   "pt": "Abrir na app do {x}",
+   "nl": "Openen in de {x}-app",
+   "pl": "Otwórz w aplikacji {x}",
+   "zh": "在 {x} 应用中打开"
+  },
+  "Motivo: {x}": {
+   "en": "Reason: {x}",
+   "fr": "Motif : {x}",
+   "de": "Grund: {x}",
+   "it": "Motivo: {x}",
+   "pt": "Motivo: {x}",
+   "nl": "Reden: {x}",
+   "pl": "Powód: {x}",
+   "zh": "原因：{x}"
+  },
+  "Pendientes ({n})": {
+   "en": "Pending ({n})",
+   "fr": "En attente ({n})",
+   "de": "Offen ({n})",
+   "it": "In attesa ({n})",
+   "pt": "Pendentes ({n})",
+   "nl": "In afwachting ({n})",
+   "pl": "Oczekujące ({n})",
+   "zh": "待审核（{n}）"
+  },
+  "Recorridos antiguos ({n})": {
+   "en": "Old tours ({n})",
+   "fr": "Anciens parcours ({n})",
+   "de": "Alte Rundgänge ({n})",
+   "it": "Percorsi vecchi ({n})",
+   "pt": "Percursos antigos ({n})",
+   "nl": "Oude rondleidingen ({n})",
+   "pl": "Stare trasy ({n})",
+   "zh": "旧导览（{n}）"
+  },
+  "Cargar las especies de ejemplo ({n})": {
+   "en": "Load the example species ({n})",
+   "fr": "Charger les espèces d'exemple ({n})",
+   "de": "Beispielarten laden ({n})",
+   "it": "Carica le specie di esempio ({n})",
+   "pt": "Carregar as espécies de exemplo ({n})",
+   "nl": "Voorbeeldsoorten laden ({n})",
+   "pl": "Wczytaj przykładowe gatunki ({n})",
+   "zh": "加载示例物种（{n}）"
+  },
+  "{n} especies añadidas.": {
+   "en": "{n} species added.",
+   "fr": "{n} espèces ajoutées.",
+   "de": "{n} Arten hinzugefügt.",
+   "it": "{n} specie aggiunte.",
+   "pt": "{n} espécies adicionadas.",
+   "nl": "{n} soorten toegevoegd.",
+   "pl": "Dodano gatunki: {n}.",
+   "zh": "已添加 {n} 个物种。"
+  }
+ }
+}

@@ -108,26 +108,22 @@ class Phase1Security(ServerTestCase):
 
     # ------------------------------------------------------------------ G3
     def test_g3_virtual_urls(self):
+        """v50.50: route videos are links checked by wod.videos (test_v50_50_vida_marina); the old «recorrido virtual»
+        accepts nothing new, and old rows with a bad URL are still never handed out."""
         pid = self.server.sql('SELECT id FROM dive_points WHERE active=1 LIMIT 1')[0]['id']
-        for bad in ('javascript:alert(1)', 'http://www.youtube-nocookie.com/embed/x', 'https://evil.example.com/x', 'https://youtube-nocookie.com.evil.org/embed/x', 'data:text/html,hi'):
-            r = self.admin.post(f'/api/dive-points/{pid}/virtual', {'title': 't', 'experience_type': 'video360', 'url': bad})
+        for bad in ('javascript:alert(1)', 'http://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https://evil.example.com/x.mp4', 'https://www.youtube.com.evil.org/watch?v=dQw4w9WgXcQ', 'data:text/html,hi'):
+            r = self.admin.post('/api/marina/video/comprobar', {'url': bad})
             self.assertEqual(r.status, 400, bad)
         r = self.admin.post(f'/api/dive-points/{pid}/virtual', {'title': 'ok', 'experience_type': 'video360', 'url': 'https://www.youtube-nocookie.com/embed/abc'})
-        self.assertEqual(r.status, 200, r)
-        # Old rows with a bad URL are never handed out.
+        self.assertEqual(r.status, 410, r)
         self.server.sql("INSERT INTO virtual_experiences(dive_point_id,title,experience_type,url,active,created_at,updated_at) VALUES(?,?,?,?,1,'x','x')", (pid, 'viejo', 'video360', 'javascript:alert(1)'))
         items = self.client().get(f'/api/dive-points/{pid}/virtual').json['items']
         self.assertFalse(any(i.get('url') and i['url'].startswith('javascript') for i in items))
-        # Upload limit for virtual tours.
-        try:
-            r = self.admin.upload(f'/api/dive-points/{pid}/virtual/upload', {'title': 'big', 'experience_type': 'panorama'}, 'p.png', PNG_BYTES + b'0' * (16 * 1024 * 1024))
-            self.assertIn(r.status, (400, 413))
-        except OSError:
-            pass  # the server refused the body before reading it (413 + connection closed)
-        r = self.admin.upload(f'/api/dive-points/{pid}/virtual/upload', {'title': 'fake', 'experience_type': 'panorama'}, 'p.png', b'<svg onload=alert(1)>')
+        # Uploads of video files are closed; species photos are checked by their content (SVG refused).
+        r = self.admin.upload(f'/api/dive-points/{pid}/virtual/upload', {'title': 'v', 'experience_type': 'video360'}, 'v.mp4', b'\x00\x00\x00\x18ftypmp42' + b'0' * 64)
+        self.assertEqual(r.status, 410)
+        r = self.admin.upload('/api/admin/marina/especie', {'scientific_name': 'Falsa especie', 'texts': '{"es":{"name":"Falsa"}}', 'photo_author': 'A', 'photo_license': 'Propia'}, 'p.png', b'<svg onload=alert(1)>')
         self.assertEqual(r.status, 400)
-        r = self.admin.upload(f'/api/dive-points/{pid}/virtual/upload', {'title': 'pano', 'experience_type': 'panorama'}, 'p.png', PNG_BYTES)
-        self.assertEqual(r.status, 200, r)
 
 
     # ------------------------------------------------------------------ CSP / headers

@@ -5,3 +5,5 @@ qrcode>=7.4,<9
 fonttools>=4.50,<5
 # v50.47: phones and WhatsApp credentials encrypted at rest (AES-GCM).
 cryptography>=42
+# v50.50: preview images of the linked videos and species photos, optimised as WebP in several sizes.
+Pillow>=10.0

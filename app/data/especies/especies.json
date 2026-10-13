@@ -1,0 +1,709 @@
+{
+ "origen": "Ilustraciones propias de WORLDIVES DISCOVERY en public/img/especies/<clave>-320|640|1280.webp (scripts/especies/ilustraciones.py). Ver docs/vida-marina/especies-de-ejemplo.md.",
+ "especies": [
+  {
+   "clave": "mero",
+   "cientifico": "Epinephelus marginatus",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Mero",
+     "blurb": "Gran pez de roca, curioso y protegido en las reservas marinas: a menudo se acerca a mirar a los buceadores."
+    },
+    "en": {
+     "name": "Dusky grouper",
+     "blurb": "A big, curious rock fish, protected in marine reserves: it often comes close to look at divers."
+    },
+    "fr": {
+     "name": "Mérou brun",
+     "blurb": "Grand poisson de roche, curieux et protégé dans les réserves marines : il s'approche souvent pour observer les plongeurs."
+    },
+    "de": {
+     "name": "Brauner Zackenbarsch",
+     "blurb": "Großer, neugieriger Felsenfisch, in Meeresschutzgebieten geschützt: Er kommt oft nah heran, um Taucher zu beobachten."
+    },
+    "it": {
+     "name": "Cernia bruna",
+     "blurb": "Grande pesce di scoglio, curioso e protetto nelle riserve marine: spesso si avvicina a guardare i subacquei."
+    },
+    "pt": {
+     "name": "Mero",
+     "blurb": "Grande peixe de rocha, curioso e protegido nas reservas marinhas: muitas vezes aproxima-se para observar os mergulhadores."
+    },
+    "nl": {
+     "name": "Tandbaars",
+     "blurb": "Grote, nieuwsgierige rotsvis, beschermd in zeereservaten: hij komt vaak dichtbij om duikers te bekijken."
+    },
+    "pl": {
+     "name": "Granik",
+     "blurb": "Duża, ciekawska ryba skalna, chroniona w rezerwatach morskich: często podpływa, by przyjrzeć się nurkom."
+    },
+    "zh": {
+     "name": "石斑鱼",
+     "blurb": "体型大、好奇心强的岩礁鱼，在海洋保护区受到保护，常游近观察潜水员。"
+    }
+   }
+  },
+  {
+   "clave": "pulpo",
+   "cientifico": "Octopus vulgaris",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Pulpo común",
+     "blurb": "Maestro del camuflaje: cambia de color y de textura en un instante. Búscalo en grietas y madrigueras."
+    },
+    "en": {
+     "name": "Common octopus",
+     "blurb": "A master of camouflage that changes colour and texture in an instant. Look for it in cracks and dens."
+    },
+    "fr": {
+     "name": "Poulpe commun",
+     "blurb": "Maître du camouflage : il change de couleur et de texture en un instant. Cherchez-le dans les failles et les terriers."
+    },
+    "de": {
+     "name": "Gemeiner Krake",
+     "blurb": "Meister der Tarnung: Er wechselt in Sekunden Farbe und Struktur. Suche ihn in Spalten und Höhlen."
+    },
+    "it": {
+     "name": "Polpo comune",
+     "blurb": "Maestro del mimetismo: cambia colore e consistenza in un istante. Cercalo nelle fessure e nelle tane."
+    },
+    "pt": {
+     "name": "Polvo-comum",
+     "blurb": "Mestre da camuflagem: muda de cor e de textura num instante. Procure-o em fendas e tocas."
+    },
+    "nl": {
+     "name": "Gewone octopus",
+     "blurb": "Meester in camouflage: hij verandert in een oogwenk van kleur en textuur. Zoek hem in spleten en holen."
+    },
+    "pl": {
+     "name": "Ośmiornica zwyczajna",
+     "blurb": "Mistrzyni kamuflażu: w mgnieniu oka zmienia kolor i fakturę. Szukaj jej w szczelinach i norach."
+    },
+    "zh": {
+     "name": "真蛸",
+     "blurb": "伪装大师，能在瞬间改变颜色和质感。可以在岩缝和洞穴中寻找它。"
+    }
+   }
+  },
+  {
+   "clave": "morena",
+   "cientifico": "Muraena helena",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Morena",
+     "blurb": "Asoma la cabeza desde las grietas; abre y cierra la boca para respirar, no para amenazar."
+    },
+    "en": {
+     "name": "Mediterranean moray",
+     "blurb": "It peeks out of cracks and opens and closes its mouth to breathe, not to threaten."
+    },
+    "fr": {
+     "name": "Murène de Méditerranée",
+     "blurb": "Elle sort la tête des failles ; elle ouvre et ferme la bouche pour respirer, pas pour menacer."
+    },
+    "de": {
+     "name": "Mittelmeer-Muräne",
+     "blurb": "Sie schaut aus Felsspalten heraus und öffnet und schließt das Maul zum Atmen, nicht als Drohung."
+    },
+    "it": {
+     "name": "Murena",
+     "blurb": "Si affaccia dalle fessure; apre e chiude la bocca per respirare, non per minacciare."
+    },
+    "pt": {
+     "name": "Moreia",
+     "blurb": "Espreita das fendas; abre e fecha a boca para respirar, não para ameaçar."
+    },
+    "nl": {
+     "name": "Murene",
+     "blurb": "Ze steekt haar kop uit spleten en opent en sluit haar bek om te ademen, niet om te dreigen."
+    },
+    "pl": {
+     "name": "Murena",
+     "blurb": "Wygląda ze szczelin; otwiera i zamyka pysk, by oddychać, a nie by grozić."
+    },
+    "zh": {
+     "name": "海鳝",
+     "blurb": "常从岩缝中探出头来；它张合嘴巴是为了呼吸，而不是威胁。"
+    }
+   }
+  },
+  {
+   "clave": "caballito",
+   "cientifico": "Hippocampus guttulatus",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Caballito de mar narigudo",
+     "blurb": "Pequeño y difícil de ver: se agarra con la cola a las algas y a la posidonia."
+    },
+    "en": {
+     "name": "Long-snouted seahorse",
+     "blurb": "Small and hard to spot: it holds on to seaweed and seagrass with its tail."
+    },
+    "fr": {
+     "name": "Hippocampe moucheté",
+     "blurb": "Petit et difficile à repérer : il s'accroche aux algues et aux herbiers avec sa queue."
+    },
+    "de": {
+     "name": "Langschnäuziges Seepferdchen",
+     "blurb": "Klein und schwer zu entdecken: Es hält sich mit dem Schwanz an Algen und Seegras fest."
+    },
+    "it": {
+     "name": "Cavalluccio marino",
+     "blurb": "Piccolo e difficile da vedere: si aggrappa con la coda alle alghe e alla posidonia."
+    },
+    "pt": {
+     "name": "Cavalo-marinho-de-focinho-comprido",
+     "blurb": "Pequeno e difícil de ver: agarra-se com a cauda às algas e às pradarias marinhas."
+    },
+    "nl": {
+     "name": "Langsnuitzeepaardje",
+     "blurb": "Klein en moeilijk te zien: het houdt zich met zijn staart vast aan wier en zeegras."
+    },
+    "pl": {
+     "name": "Konik morski",
+     "blurb": "Mały i trudny do wypatrzenia: ogonem trzyma się glonów i trawy morskiej."
+    },
+    "zh": {
+     "name": "海马",
+     "blurb": "体型小、不易发现，用尾巴缠住海藻和海草。"
+    }
+   }
+  },
+  {
+   "clave": "sepia",
+   "cientifico": "Sepia officinalis",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Sepia común",
+     "blurb": "Pariente del pulpo que flota sobre la arena y cambia de color con rayas que parecen moverse."
+    },
+    "en": {
+     "name": "Common cuttlefish",
+     "blurb": "A relative of the octopus that hovers over the sand and changes colour in moving stripes."
+    },
+    "fr": {
+     "name": "Seiche commune",
+     "blurb": "Cousine du poulpe, elle flotte au-dessus du sable et change de couleur en rayures mouvantes."
+    },
+    "de": {
+     "name": "Gemeiner Tintenfisch",
+     "blurb": "Ein Verwandter des Kraken, der über dem Sand schwebt und in wandernden Streifen die Farbe wechselt."
+    },
+    "it": {
+     "name": "Seppia comune",
+     "blurb": "Parente del polpo, fluttua sopra la sabbia e cambia colore con strisce che sembrano muoversi."
+    },
+    "pt": {
+     "name": "Choco-vulgar",
+     "blurb": "Parente do polvo que flutua sobre a areia e muda de cor com riscas que parecem mexer-se."
+    },
+    "nl": {
+     "name": "Zeekat",
+     "blurb": "Familie van de octopus die boven het zand zweeft en van kleur verandert in bewegende strepen."
+    },
+    "pl": {
+     "name": "Mątwa zwyczajna",
+     "blurb": "Krewniaczka ośmiornicy, która unosi się nad piaskiem i zmienia barwę w ruchome pasy."
+    },
+    "zh": {
+     "name": "乌贼",
+     "blurb": "章鱼的近亲，悬浮在沙地上方，身上会变换出流动的条纹。"
+    }
+   }
+  },
+  {
+   "clave": "pez-luna",
+   "cientifico": "Mola mola",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Pez luna",
+     "blurb": "Uno de los peces óseos más pesados del mundo; a veces sube desde aguas profundas para que lo limpien otros peces."
+    },
+    "en": {
+     "name": "Ocean sunfish",
+     "blurb": "One of the heaviest bony fish in the world; it sometimes comes up from the deep to be cleaned by other fish."
+    },
+    "fr": {
+     "name": "Poisson-lune",
+     "blurb": "L'un des poissons osseux les plus lourds du monde ; il remonte parfois des profondeurs pour se faire nettoyer par d'autres poissons."
+    },
+    "de": {
+     "name": "Mondfisch",
+     "blurb": "Einer der schwersten Knochenfische der Welt; manchmal steigt er aus der Tiefe auf, um sich von anderen Fischen putzen zu lassen."
+    },
+    "it": {
+     "name": "Pesce luna",
+     "blurb": "Uno dei pesci ossei più pesanti del mondo; a volte risale dalle profondità per farsi pulire da altri pesci."
+    },
+    "pt": {
+     "name": "Peixe-lua",
+     "blurb": "Um dos peixes ósseos mais pesados do mundo; às vezes sobe das profundezas para ser limpo por outros peixes."
+    },
+    "nl": {
+     "name": "Maanvis",
+     "blurb": "Een van de zwaarste beenvissen ter wereld; soms komt hij uit de diepte omhoog om zich door andere vissen te laten poetsen."
+    },
+    "pl": {
+     "name": "Samogłów",
+     "blurb": "Jedna z najcięższych ryb kostnoszkieletowych świata; czasem wypływa z głębin, by inne ryby go oczyściły."
+    },
+    "zh": {
+     "name": "翻车鱼",
+     "blurb": "世界上最重的硬骨鱼之一，有时会从深海上浮，让其他鱼为它清洁身体。"
+    }
+   }
+  },
+  {
+   "clave": "tortuga-boba",
+   "cientifico": "Caretta caretta",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Tortuga boba",
+     "blurb": "Tortuga marina de cabeza grande que recorre el Mediterráneo y el Atlántico. Mírala sin tocarla."
+    },
+    "en": {
+     "name": "Loggerhead sea turtle",
+     "blurb": "A big-headed sea turtle that travels the Mediterranean and the Atlantic. Watch it without touching."
+    },
+    "fr": {
+     "name": "Tortue caouanne",
+     "blurb": "Tortue marine à grosse tête qui parcourt la Méditerranée et l'Atlantique. Observez-la sans la toucher."
+    },
+    "de": {
+     "name": "Unechte Karettschildkröte",
+     "blurb": "Großköpfige Meeresschildkröte, die durch Mittelmeer und Atlantik zieht. Nur ansehen, nicht berühren."
+    },
+    "it": {
+     "name": "Tartaruga comune",
+     "blurb": "Tartaruga marina dalla testa grande che attraversa il Mediterraneo e l'Atlantico. Guardala senza toccarla."
+    },
+    "pt": {
+     "name": "Tartaruga-comum",
+     "blurb": "Tartaruga marinha de cabeça grande que percorre o Mediterrâneo e o Atlântico. Observe-a sem lhe tocar."
+    },
+    "nl": {
+     "name": "Dikkopschildpad",
+     "blurb": "Zeeschildpad met een grote kop die door de Middellandse Zee en de Atlantische Oceaan trekt. Kijk, maar raak haar niet aan."
+    },
+    "pl": {
+     "name": "Żółw karetta",
+     "blurb": "Żółw morski z dużą głową, wędrujący po Morzu Śródziemnym i Atlantyku. Podziwiaj go, nie dotykając."
+    },
+    "zh": {
+     "name": "蠵龟",
+     "blurb": "头部硕大的海龟，往返于地中海和大西洋。请观赏，切勿触碰。"
+    }
+   }
+  },
+  {
+   "clave": "espeton",
+   "cientifico": "Sphyraena sphyraena",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Espetón",
+     "blurb": "La barracuda del Mediterráneo: nada en bancos plateados a media agua."
+    },
+    "en": {
+     "name": "European barracuda",
+     "blurb": "The Mediterranean barracuda: it swims in silvery schools in mid-water."
+    },
+    "fr": {
+     "name": "Bécune européenne",
+     "blurb": "Le barracuda de Méditerranée : il nage en bancs argentés entre deux eaux."
+    },
+    "de": {
+     "name": "Europäischer Barrakuda",
+     "blurb": "Der Barrakuda des Mittelmeers: Er schwimmt in silbrigen Schwärmen im Freiwasser."
+    },
+    "it": {
+     "name": "Luccio di mare",
+     "blurb": "Il barracuda del Mediterraneo: nuota in banchi argentati a mezz'acqua."
+    },
+    "pt": {
+     "name": "Bicuda",
+     "blurb": "A barracuda do Mediterrâneo: nada em cardumes prateados a meia água."
+    },
+    "nl": {
+     "name": "Barracuda",
+     "blurb": "De barracuda van de Middellandse Zee: hij zwemt in zilveren scholen in het open water."
+    },
+    "pl": {
+     "name": "Barakuda",
+     "blurb": "Barakuda Morza Śródziemnego: pływa w srebrzystych ławicach w toni wodnej."
+    },
+    "zh": {
+     "name": "金梭鱼",
+     "blurb": "地中海的梭鱼，成群结队地在中层水域游动，闪着银光。"
+    }
+   }
+  },
+  {
+   "clave": "tiburon-ballena",
+   "cientifico": "Rhincodon typus",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Tiburón ballena",
+     "blurb": "El pez más grande del mundo; se alimenta de plancton y es inofensivo para las personas."
+    },
+    "en": {
+     "name": "Whale shark",
+     "blurb": "The largest fish in the world; it feeds on plankton and is harmless to people."
+    },
+    "fr": {
+     "name": "Requin-baleine",
+     "blurb": "Le plus grand poisson du monde ; il se nourrit de plancton et est inoffensif pour l'homme."
+    },
+    "de": {
+     "name": "Walhai",
+     "blurb": "Der größte Fisch der Welt; er frisst Plankton und ist für Menschen harmlos."
+    },
+    "it": {
+     "name": "Squalo balena",
+     "blurb": "Il pesce più grande del mondo; si nutre di plancton ed è innocuo per le persone."
+    },
+    "pt": {
+     "name": "Tubarão-baleia",
+     "blurb": "O maior peixe do mundo; alimenta-se de plâncton e é inofensivo para as pessoas."
+    },
+    "nl": {
+     "name": "Walvishaai",
+     "blurb": "De grootste vis ter wereld; hij eet plankton en is ongevaarlijk voor mensen."
+    },
+    "pl": {
+     "name": "Rekin wielorybi",
+     "blurb": "Największa ryba świata; żywi się planktonem i jest niegroźny dla ludzi."
+    },
+    "zh": {
+     "name": "鲸鲨",
+     "blurb": "世界上最大的鱼类，以浮游生物为食，对人类无害。"
+    }
+   }
+  },
+  {
+   "clave": "manta",
+   "cientifico": "Mobula birostris",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Manta gigante",
+     "blurb": "Raya enorme que se alimenta de plancton; a veces pasa por estaciones de limpieza del arrecife."
+    },
+    "en": {
+     "name": "Giant manta ray",
+     "blurb": "A huge ray that feeds on plankton; it sometimes visits cleaning stations on the reef."
+    },
+    "fr": {
+     "name": "Raie manta géante",
+     "blurb": "Raie immense qui se nourrit de plancton ; elle passe parfois par les stations de nettoyage du récif."
+    },
+    "de": {
+     "name": "Riesenmanta",
+     "blurb": "Ein riesiger Rochen, der Plankton frisst; manchmal besucht er Putzerstationen am Riff."
+    },
+    "it": {
+     "name": "Manta gigante",
+     "blurb": "Razza enorme che si nutre di plancton; a volte passa dalle stazioni di pulizia della barriera."
+    },
+    "pt": {
+     "name": "Raia-manta-gigante",
+     "blurb": "Raia enorme que se alimenta de plâncton; às vezes passa pelas estações de limpeza do recife."
+    },
+    "nl": {
+     "name": "Reuzenmanta",
+     "blurb": "Een enorme rog die plankton eet; soms bezoekt hij poetsstations op het rif."
+    },
+    "pl": {
+     "name": "Manta olbrzymia",
+     "blurb": "Ogromna płaszczka żywiąca się planktonem; czasem odwiedza stacje czyszczenia na rafie."
+    },
+    "zh": {
+     "name": "蝠鲼",
+     "blurb": "以浮游生物为食的巨型鳐鱼，有时会到珊瑚礁的清洁站接受清洁。"
+    }
+   }
+  },
+  {
+   "clave": "tortuga-verde",
+   "cientifico": "Chelonia mydas",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Tortuga verde",
+     "blurb": "Tortuga marina que come algas y pastos marinos; a menudo descansa sobre el arrecife."
+    },
+    "en": {
+     "name": "Green sea turtle",
+     "blurb": "A sea turtle that eats algae and seagrass; it often rests on the reef."
+    },
+    "fr": {
+     "name": "Tortue verte",
+     "blurb": "Tortue marine qui mange des algues et des herbiers ; elle se repose souvent sur le récif."
+    },
+    "de": {
+     "name": "Suppenschildkröte",
+     "blurb": "Meeresschildkröte, die Algen und Seegras frisst; sie ruht oft auf dem Riff."
+    },
+    "it": {
+     "name": "Tartaruga verde",
+     "blurb": "Tartaruga marina che mangia alghe e praterie marine; spesso riposa sulla barriera."
+    },
+    "pt": {
+     "name": "Tartaruga-verde",
+     "blurb": "Tartaruga marinha que come algas e ervas marinhas; descansa muitas vezes no recife."
+    },
+    "nl": {
+     "name": "Soepschildpad",
+     "blurb": "Zeeschildpad die algen en zeegras eet; ze rust vaak op het rif."
+    },
+    "pl": {
+     "name": "Żółw zielony",
+     "blurb": "Żółw morski, który je glony i trawy morskie; często odpoczywa na rafie."
+    },
+    "zh": {
+     "name": "绿海龟",
+     "blurb": "以藻类和海草为食的海龟，常在珊瑚礁上休息。"
+    }
+   }
+  },
+  {
+   "clave": "pez-payaso",
+   "cientifico": "Amphiprion ocellaris",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Pez payaso",
+     "blurb": "Vive entre los tentáculos de una anémona que lo protege. Míralo sin tocar la anémona."
+    },
+    "en": {
+     "name": "Clown anemonefish",
+     "blurb": "It lives among the tentacles of an anemone that protects it. Watch it without touching the anemone."
+    },
+    "fr": {
+     "name": "Poisson-clown",
+     "blurb": "Il vit entre les tentacules d'une anémone qui le protège. Observez-le sans toucher l'anémone."
+    },
+    "de": {
+     "name": "Falscher Clownfisch",
+     "blurb": "Er lebt zwischen den Tentakeln einer Anemone, die ihn schützt. Anschauen, ohne die Anemone zu berühren."
+    },
+    "it": {
+     "name": "Pesce pagliaccio",
+     "blurb": "Vive tra i tentacoli di un anemone che lo protegge. Guardalo senza toccare l'anemone."
+    },
+    "pt": {
+     "name": "Peixe-palhaço",
+     "blurb": "Vive entre os tentáculos de uma anémona que o protege. Observe-o sem tocar na anémona."
+    },
+    "nl": {
+     "name": "Clownvis",
+     "blurb": "Hij leeft tussen de tentakels van een anemoon die hem beschermt. Kijk zonder de anemoon aan te raken."
+    },
+    "pl": {
+     "name": "Błazenek",
+     "blurb": "Żyje wśród czułków ukwiału, który go chroni. Podziwiaj go, nie dotykając ukwiału."
+    },
+    "zh": {
+     "name": "小丑鱼",
+     "blurb": "生活在海葵的触手之间，受海葵保护。观赏时请勿触碰海葵。"
+    }
+   }
+  },
+  {
+   "clave": "pez-leon",
+   "cientifico": "Pterois volitans",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Pez león",
+     "blurb": "Precioso pero con espinas venenosas: mantén la distancia. En el Caribe es una especie invasora."
+    },
+    "en": {
+     "name": "Red lionfish",
+     "blurb": "Beautiful but with venomous spines: keep your distance. In the Caribbean it is an invasive species."
+    },
+    "fr": {
+     "name": "Rascasse volante",
+     "blurb": "Magnifique mais avec des épines venimeuses : gardez vos distances. Dans les Caraïbes, c'est une espèce invasive."
+    },
+    "de": {
+     "name": "Rotfeuerfisch",
+     "blurb": "Wunderschön, aber mit giftigen Stacheln: Abstand halten. In der Karibik ist er eine invasive Art."
+    },
+    "it": {
+     "name": "Pesce leone",
+     "blurb": "Bellissimo ma con spine velenose: mantieni le distanze. Nei Caraibi è una specie invasiva."
+    },
+    "pt": {
+     "name": "Peixe-leão",
+     "blurb": "Lindo, mas com espinhos venenosos: mantenha a distância. Nas Caraíbas é uma espécie invasora."
+    },
+    "nl": {
+     "name": "Koraalduivel",
+     "blurb": "Prachtig, maar met giftige stekels: houd afstand. In het Caribisch gebied is het een invasieve soort."
+    },
+    "pl": {
+     "name": "Skrzydlica pstra",
+     "blurb": "Piękna, ale z jadowitymi kolcami: zachowaj dystans. Na Karaibach to gatunek inwazyjny."
+    },
+    "zh": {
+     "name": "魔鬼蓑鲉",
+     "blurb": "外形美丽，但鳍棘有毒，请保持距离。在加勒比海是入侵物种。"
+    }
+   }
+  },
+  {
+   "clave": "tiburon-puntas-blancas",
+   "cientifico": "Triaenodon obesus",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Tiburón de puntas blancas de arrecife",
+     "blurb": "Tiburón tranquilo que de día descansa en cuevas y bajo los salientes del arrecife."
+    },
+    "en": {
+     "name": "Whitetip reef shark",
+     "blurb": "A calm shark that rests in caves and under reef ledges during the day."
+    },
+    "fr": {
+     "name": "Requin corail",
+     "blurb": "Requin paisible qui se repose le jour dans les grottes et sous les surplombs du récif."
+    },
+    "de": {
+     "name": "Weißspitzen-Riffhai",
+     "blurb": "Ruhiger Hai, der tagsüber in Höhlen und unter Riffüberhängen ruht."
+    },
+    "it": {
+     "name": "Squalo pinna bianca del reef",
+     "blurb": "Squalo tranquillo che di giorno riposa nelle grotte e sotto le sporgenze della barriera."
+    },
+    "pt": {
+     "name": "Tubarão-de-pontas-brancas-de-recife",
+     "blurb": "Tubarão tranquilo que de dia descansa em grutas e debaixo das saliências do recife."
+    },
+    "nl": {
+     "name": "Witpuntrifhaai",
+     "blurb": "Rustige haai die overdag in grotten en onder overhangende riffen rust."
+    },
+    "pl": {
+     "name": "Rekin rafowy",
+     "blurb": "Spokojny rekin, który w dzień odpoczywa w jaskiniach i pod półkami rafy."
+    },
+    "zh": {
+     "name": "灰三齿鲨",
+     "blurb": "性情温和的鲨鱼，白天在洞穴和珊瑚礁的突岩下休息。"
+    }
+   }
+  },
+  {
+   "clave": "raya-aguila",
+   "cientifico": "Aetobatus narinari",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Raya águila moteada",
+     "blurb": "Raya con manchas blancas que planea sobre la arena en busca de moluscos."
+    },
+    "en": {
+     "name": "Spotted eagle ray",
+     "blurb": "A white-spotted ray that glides over the sand looking for shellfish."
+    },
+    "fr": {
+     "name": "Raie léopard",
+     "blurb": "Raie tachetée de blanc qui plane au-dessus du sable à la recherche de coquillages."
+    },
+    "de": {
+     "name": "Gefleckter Adlerrochen",
+     "blurb": "Weiß gefleckter Rochen, der auf der Suche nach Muscheln über den Sand gleitet."
+    },
+    "it": {
+     "name": "Aquila di mare maculata",
+     "blurb": "Razza a macchie bianche che plana sopra la sabbia in cerca di molluschi."
+    },
+    "pt": {
+     "name": "Raia-pintada",
+     "blurb": "Raia com manchas brancas que plana sobre a areia à procura de moluscos."
+    },
+    "nl": {
+     "name": "Gevlekte adelaarsrog",
+     "blurb": "Wit gevlekte rog die boven het zand zweeft op zoek naar schelpdieren."
+    },
+    "pl": {
+     "name": "Orleń plamisty",
+     "blurb": "Płaszczka w białe plamki, która szybuje nad piaskiem w poszukiwaniu mięczaków."
+    },
+    "zh": {
+     "name": "纳氏鹞鲼",
+     "blurb": "身上有白色斑点的鳐鱼，在沙地上方滑翔，寻找贝类。"
+    }
+   }
+  },
+  {
+   "clave": "napoleon",
+   "cientifico": "Cheilinus undulatus",
+   "autor": "WORLDIVES DISCOVERY",
+   "licencia": "Ilustración propia",
+   "textos": {
+    "es": {
+     "name": "Pez napoleón",
+     "blurb": "Gran pez de arrecife con una joroba en la frente; está protegido y en peligro."
+    },
+    "en": {
+     "name": "Humphead wrasse",
+     "blurb": "A large reef fish with a hump on its forehead; it is protected and endangered."
+    },
+    "fr": {
+     "name": "Napoléon",
+     "blurb": "Grand poisson de récif avec une bosse sur le front ; il est protégé et menacé."
+    },
+    "de": {
+     "name": "Napoleon-Lippfisch",
+     "blurb": "Großer Rifffisch mit einem Höcker auf der Stirn; er ist geschützt und gefährdet."
+    },
+    "it": {
+     "name": "Pesce Napoleone",
+     "blurb": "Grande pesce di barriera con una gobba sulla fronte; è protetto e in pericolo."
+    },
+    "pt": {
+     "name": "Peixe-napoleão",
+     "blurb": "Grande peixe de recife com uma bossa na testa; está protegido e ameaçado."
+    },
+    "nl": {
+     "name": "Napoleonvis",
+     "blurb": "Grote rifvis met een bult op zijn voorhoofd; hij is beschermd en bedreigd."
+    },
+    "pl": {
+     "name": "Wargacz garbogłowy",
+     "blurb": "Duża ryba rafowa z garbem na czole; jest chroniona i zagrożona."
+    },
+    "zh": {
+     "name": "苏眉鱼",
+     "blurb": "额头有隆起的大型珊瑚礁鱼，受到保护且濒临灭绝。"
+    }
+   }
+  }
+ ]
+}

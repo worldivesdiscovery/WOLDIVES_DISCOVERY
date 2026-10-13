@@ -8,7 +8,7 @@ Plataforma de descubrimiento y reservas de buceo:
 - administración completa.
 
 **Python 3.11+ con la biblioteca estándar, SQLite y HTML/CSS/JavaScript sin compilar.** Dependencias mínimas en
-`requirements.txt` (`stripe`, `qrcode`, `fonttools`): el arranque las instala si faltan.
+`requirements.txt` (`stripe`, `qrcode`, `fonttools`, `cryptography` y, desde la v50.50, `Pillow`): el arranque las instala si faltan.
 
 ## Arrancar
 

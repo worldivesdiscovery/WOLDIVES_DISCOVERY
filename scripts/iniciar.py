@@ -9,7 +9,7 @@
     iniciar --pruebas       TEST ENVIRONMENT (zip «-pruebas»): port 8100, «Entorno de pruebas» band, test accounts,
                             emails saved in data/pruebas/correos, demonstration data with dates from today
 
-The first time it installs what requirements.txt asks for (stripe, qrcode, fonttools) if it is missing.
+The first time it installs what requirements.txt asks for (stripe, qrcode, fonttools, cryptography, Pillow) if it is missing.
 On the real server (VPS) the web is started by systemd: see docs/despliegue/README.md.
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ import webbrowser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-NEEDED = {'stripe': 'stripe', 'qrcode': 'qrcode', 'fontTools': 'fonttools', 'cryptography': 'cryptography'}
+NEEDED = {'stripe': 'stripe', 'qrcode': 'qrcode', 'fontTools': 'fonttools', 'cryptography': 'cryptography', 'PIL': 'Pillow'}
 
 
 def ensure_requirements():

@@ -267,6 +267,25 @@ def build(out: Path):
         srv.sql("INSERT OR REPLACE INTO provider_settings(provider_id,notice_policy,reminder_enabled,reminder_hour,reminder_bring,updated_at) VALUES(?,?,?,?,?,?)",
                 (f'c:{cid}', 'choice', 1, 18, 'Titulación, toalla y protector solar', now_s()))
 
+        # --- v50.50: marine life of some dive sites (example species: own illustrations, docs/vida-marina) -------
+        # Only species that really live there. No route videos: they would need real links (README-PRUEBAS, 9).
+        ok(admin.post('/api/admin/marina/ejemplos', {}), 'cargar las especies de ejemplo')
+        sp = {x['scientific']: x['id'] for x in ok(admin.get('/api/admin/marina/especies'), 'leer el catálogo de especies')['items']}
+        med = (('Epinephelus marginatus', 'common', []), ('Octopus vulgaris', 'common', []), ('Muraena helena', 'common', []),
+               ('Sphyraena sphyraena', 'occasional', []), ('Sepia officinalis', 'occasional', [3, 4, 5, 6]), ('Hippocampus guttulatus', 'rare', []),
+               ('Mola mola', 'rare', [5, 6, 7, 8]), ('Caretta caretta', 'rare', [6, 7, 8, 9]))
+        andaman = (('Amphiprion ocellaris', 'common', []), ('Pterois volitans', 'common', []), ('Triaenodon obesus', 'occasional', []),
+                   ('Chelonia mydas', 'occasional', []), ('Cheilinus undulatus', 'rare', []), ('Mobula birostris', 'rare', [2, 3, 4]), ('Rhincodon typus', 'rare', [2, 3, 4]))
+        caribe = (('Chelonia mydas', 'common', []), ('Pterois volitans', 'common', []), ('Aetobatus narinari', 'occasional', []), ('Caretta caretta', 'rare', [4, 5, 6, 7, 8, 9]))
+        for name, plan in (('Islas Medes, Costa Brava', med), ('Medes – La Vaca', med[:5]), ('Cabo San Antonio', med[:5]), ('Similan – Richelieu Rock', andaman),
+                           ('Bonaire Marine Park', caribe)):
+            row = srv.sql('SELECT id FROM dive_points WHERE name=? AND active=1', (name,))
+            for sci, freq, months in (plan if row else ()):
+                ok(admin.post('/api/marina/especie-punto', {'point_id': row[0]['id'], 'species_id': sp[sci], 'frequency': freq, 'months': months}), 'vincular ' + sci)
+        cabo = srv.sql("SELECT id FROM dive_points WHERE name='Cabo San Antonio' AND active=1")
+        if cabo:   # a proposal of the first centre that waits for the administrator (Vida marina y vídeos → Pendientes)
+            ok(center.post('/api/marina/especie-punto', {'point_id': cabo[0]['id'], 'species_id': sp['Mola mola'], 'frequency': 'rare', 'months': [5, 6, 7, 8]}), 'proponer una especie')
+
         # --- administration inbox: a pending centre, an experience to review (above) and a report -------------
         ok(c().post('/api/reports', {'reason': 'false', 'details': 'Denuncia de pruebas: el precio que aparece no coincide con el del centro.', 'name': 'Persona de pruebas',
                                      'email': 'denuncia@example.com', 'good_faith': True, 'target_url': f'/#/centro?id={cid}'}), 'enviar la denuncia')
