@@ -209,8 +209,9 @@ def build(out: Path):
         for k in range(0 if late else 1, 8):
             sl = ok(center.post('/api/provider-services/slot', {'service_id': tarde, 'slot_date': day(k), 'slot_time': '21:30' if k == 0 else '18:30', 'spots_total': 10}),
                     'crear la salida del atardecer')['slot_id']
-            for d_ in divers[1:2 + k % 4]:
-                x = ok(d_.post('/api/bookings', {'center_id': cid, 'service_id': tarde, 'slot_id': sl, 'participants': 1 + (k % 2)}), 'reservar al atardecer')['id']
+            # Today: three divers (four seats), so there is always someone left to mark on the boat list.
+            for i, d_ in enumerate(divers[1:4] if k == 0 else divers[1:2 + k % 4]):
+                x = ok(d_.post('/api/bookings', {'center_id': cid, 'service_id': tarde, 'slot_id': sl, 'participants': 1 + ((k + i) % 2)}), 'reservar al atardecer')['id']
                 ok(center.post(f'/api/bookings/{x}/status', {'status': 'confirmed'}), 'confirmar')
             if k == 1:
                 x = ok(divers[5].post('/api/bookings', {'center_id': cid, 'service_id': tarde, 'slot_id': sl, 'participants': 2, 'notes': 'Solicitud de pruebas para la app'}), 'solicitar')['id']

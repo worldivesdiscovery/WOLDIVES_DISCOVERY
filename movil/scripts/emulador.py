@@ -192,7 +192,7 @@ def main():
         adb('shell', 'cmd', 'connectivity', 'airplane-mode', 'enable'); time.sleep(4)
         offline = c.js("fetch('/api/health', {cache: 'no-store'}).then(() => false).catch(() => true)")
         if offline:
-            c.js("document.querySelector('.marca-check:not(.si)')?.click()", 1)
+            c.js("(document.querySelector('.marca-check:not(.si)') || document.querySelector('.marca-check'))?.click()", 1)
             c.until("JSON.parse(localStorage.getItem('wda-pro-cola') || '[]').length === 1", 30)
             queued = c.js("JSON.parse(localStorage.getItem('wda-pro-cola') || '[]').length")
             check('sin conexión · la marca queda guardada en el móvil', queued == 1, (queued, c.js("navigator.onLine")))
