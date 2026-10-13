@@ -133,7 +133,7 @@ Leyenda:
 |---|---|---|
 | Pruebas del servidor de la app | **Nuevo** | `tests/test_v50_48_app.py`: 11 pruebas |
 | Recorrido en navegador a tamaño de móvil (390 y 360), es/en/fr, Clásico y Noche, Normal y Enorme | **Nuevo** | `tests/navegador/e2e_app.py`: 78 comprobaciones, todas correctas |
-| La APK de verdad en un emulador Android | **Nuevo** | `movil/scripts/emulador.py` en GitHub Actions (resultado en la entrega) |
+| La APK de verdad en un emulador Android | **Nuevo** | `movil/scripts/emulador.py` en GitHub Actions: **21 de 21** (Android 14, pantalla de 320 px): entrada, servidor, entrada rápida, plugins nativos, botón atrás, captura y «Reportar fallo» guardado en el ordenador, vuelta al lanzador y que todo cabe en la pantalla |
 | Medir las promesas (reserva ≤ 30 s y ≤ 5 toques, «Hoy» ≤ 5 s, arranque ≤ 2 s) | **Tanda 4** | Primera medida: ver abajo |
 
 ## Promesas: primera medida
@@ -142,9 +142,9 @@ Leyenda:
   - en el recorrido automático, de «Reservar» a la página de pago tarda unos 6 s, con dos cambios por el camino;
   - el camino corto son 3 toques: «Reservar» → «Reservar y pagar» → Google Pay.
 - **Arranque en frío:**
-  - el emulador de GitHub lo mide (`arranque.txt` en las capturas del emulador);
-  - un emulador sin aceleración gráfica es mucho más lento que un móvil, así que la medida buena se hace en la
-    Tanda 4 con móviles reales.
+  - en el emulador de GitHub, 5,6 s hasta la pantalla de entrada (`arranque.txt` en las capturas del emulador);
+  - ese emulador no tiene aceleración gráfica y es mucho más lento que un móvil, así que la medida buena se hace en
+    la Tanda 4 con móviles reales.
 
 ## Limitaciones conocidas
 
