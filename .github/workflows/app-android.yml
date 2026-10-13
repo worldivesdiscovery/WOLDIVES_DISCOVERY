@@ -47,7 +47,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build the APK (real phones: arm64 and armv7)
+      - name: Build the APK for real phones (arm64 and armv7)
         working-directory: app-movil/android
         run: |
           sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g/' gradle.properties
