@@ -122,6 +122,7 @@ def run(shots: Path | None):
             check('hoy · contador de solicitudes en la pestaña', page.locator('.wda-tab[href="#/solicitudes"] .cont').inner_text() == '2' if page.locator('.wda-tab[href="#/solicitudes"] .cont').count() else False)
             t_hoy = page.evaluate('window.WDAMedidas && window.WDAMedidas.hoy')
             check('hoy · se ve en menos de 5 s', t_hoy is not None and t_hoy < 5000, t_hoy)
+            print(f'   medida · «Hoy» en {t_hoy} ms', flush=True)
             shot(page, '01-hoy')
 
             # ---------------------------------------------------------------- the boat list
@@ -221,12 +222,13 @@ def run(shots: Path | None):
             nb = srv.sql("SELECT b.participants,b.slot_id FROM bookings b JOIN users u ON u.id=b.user_id WHERE u.fullname='Marta Cliente Teléfono' ORDER BY b.id DESC LIMIT 1")
             check('nueva reserva · guardada en la salida (2 personas)', nb and nb[0]['participants'] == 2 and nb[0]['slot_id'] == sl_man, (nb, page.inner_text('#toast')))
             check('nueva reserva · menos de 45 s', secs < 45, round(secs, 1))
+            print(f'   medida · nueva reserva en {secs:.1f} s (recorrido automático)', flush=True)
             check('nueva reserva · abre la lista del barco', page.evaluate('location.hash') == f'#/salida?id={sl_man}')
 
             # ---------------------------------------------------------------- Más
             go(page, '#/mas', 1300)
             m = page.inner_text('#app')
-            check('más · «Disponible en la web», equipo y borrar la cuenta', all(x in m for x in ('Disponible en la web', 'Equipo y perfiles', 'Borrar mi cuenta para siempre', 'Cobros', 'Estadísticas')), m[:400])
+            check('más · «Disponible en la web», equipo y borrar la cuenta', all(x.lower() in m.lower() for x in ('Disponible en la web', 'Equipo y perfiles', 'Borrar mi cuenta para siempre', 'Cobros', 'Estadísticas')), m[:400])
             shot(page, '10-mas')
             go(page, '#/estadisticas', 1200)
             check('estadísticas · cifras', page.locator('.cifra').count() == 3)
@@ -280,7 +282,9 @@ def run(shots: Path | None):
                 go(page, '#/agenda?vista=semana', 1200); misses |= set(page.evaluate('window.__wdI18nMisses ? [...window.__wdI18nMisses] : []'))
                 go(page, '#/agenda?vista=dia', 1200); misses |= set(page.evaluate('window.__wdI18nMisses ? [...window.__wdI18nMisses] : []'))
                 shot(page, f'13-hoy-{lang}') if lang == 'en' else None
-                check(f'idioma {lang} · pestañas traducidas', tabs(page)[0] in ('Today', "Aujourd'hui", 'Aujourd’hui'), tabs(page))
+                pack = json.loads((Path(__file__).resolve().parents[2] / 'public' / 'idiomas' / f'{lang}.json').read_text(encoding='utf-8'))['exact']
+                want = [pack.get(x) for x in ('Hoy', 'Agenda', 'Escanear', 'Solicitudes', 'Más')]
+                check(f'idioma {lang} · las cinco pestañas traducidas', None not in want and tabs(page) == want, (tabs(page), want))
                 check(f'idioma {lang} · todo traducido en las pantallas PRO', not misses, json.dumps(sorted(misses), ensure_ascii=False))
                 ctx.close()
 

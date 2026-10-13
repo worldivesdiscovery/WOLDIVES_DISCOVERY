@@ -99,7 +99,7 @@ def run(shots: Path | None):
             def login(page, user):
                 go(page, '#/login', 600); page.fill('#login', user); page.fill('#password', PW); page.click('#login-form button[type=submit]'); page.wait_for_timeout(1200)
 
-            tabs = lambda page: page.eval_on_selector_all('.wda-tab span:last-child', 'els => els.map(e => e.textContent.trim())')
+            tabs = lambda page: page.eval_on_selector_all('.wda-tab > span:nth-child(2)', 'els => els.map(e => e.textContent.trim())')
 
             # ---------------------------------------------------------------- visitor in the browser preview (?app=1)
             ctx, page, errors = phone(ua=None)
@@ -213,7 +213,8 @@ def run(shots: Path | None):
             check('ficha · sin móvil con prefijo: WhatsApp desactivado', page.get_attribute('.wda-ficha [data-wa]', 'aria-disabled') == 'true')
             # Ajustes: theme, size, languages
             go(page, '#/ajustes', 1000)
-            check('ajustes · versión visible', 'web v50.48' in page.inner_text('#wda-version'), page.inner_text('#wda-version'))
+            version = __import__('re').search(r"^APP_VERSION = '([^']+)'", (Path(__file__).resolve().parents[2] / 'app' / 'server.py').read_text(encoding='utf-8'), __import__('re').M).group(1)
+            check('ajustes · versión visible', f'web v{version}' in page.inner_text('#wda-version'), page.inner_text('#wda-version'))
             page.click('[data-tema="noche"]'); page.click('[data-tamano="enorme"]'); page.wait_for_timeout(300)
             check('ajustes · tema Noche y texto Enorme', page.evaluate("document.documentElement.dataset.wdaTema") == 'noche' and page.evaluate("document.documentElement.dataset.wdaTamano") == 'enorme')
             shot(page, '14-ajustes-noche-enorme')
@@ -292,14 +293,14 @@ def run(shots: Path | None):
             check('sin errores de JavaScript (nativo simulado)', not errors, errors[:3])
             ctx.close()
 
-            # ---------------------------------------------------------------- a centre in Tanda 1: its web panel inside the app
+            # ---------------------------------------------------------------- a centre: Centro PRO (v50.49; tests/navegador/e2e_app_pro.py goes further)
             ctx, page, errors = phone()
-            login(page, 'center_cerca'); go(page, '#/', 1200)
-            check('centro · aviso «Centro PRO llega a la app en la Tanda 2»', 'Tanda 2' in page.inner_text('#app'))
-            check('centro · pestañas Inicio, Mi panel, Explorar, Mi área', tabs(page) == ['Inicio', 'Mi panel', 'Explorar', 'Mi área'], tabs(page))
+            login(page, 'center_cerca'); go(page, '#/', 1500)
+            check('centro · «Hoy» del Centro PRO', 'Tu día' in page.inner_text('#app'))
+            check('centro · pestañas Hoy, Agenda, Escanear, Solicitudes, Más', tabs(page) == ['Hoy', 'Agenda', 'Escanear', 'Solicitudes', 'Más'], tabs(page))
             shot(page, '19-centro-inicio')
             go(page, '#/admin', 2200)
-            check('centro · el panel de la web se abre dentro de la app', page.locator('.wda-tab[aria-current="page"]').inner_text().strip() == 'Mi panel' and len(page.inner_text('#app')) > 200)
+            check('centro · el panel de la web se abre dentro de la app («Disponible en la web»)', page.locator('.wda-tab[aria-current="page"] > span:nth-child(2)').inner_text().strip() == 'Más' and len(page.inner_text('#app')) > 200)
             shot(page, '20-centro-panel-web')
             check('sin errores de JavaScript (centro)', not errors, errors[:3])
             ctx.close()

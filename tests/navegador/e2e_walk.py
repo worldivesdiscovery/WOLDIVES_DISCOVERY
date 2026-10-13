@@ -40,7 +40,8 @@ def walk(shots: Path | None = None, extra_routes=None):
         base = ServerTestCase.server.base
         with sync_playwright() as p:
             exe = next((str(x) for x in (Path('/opt/pw-browsers/chromium-1194/chrome-linux/chrome'), Path('/opt/pw-browsers/chromium')) if x.exists() and x.is_file()), None)
-            browser = p.chromium.launch(executable_path=exe) if exe else p.chromium.launch()
+            from e2e_markers import chromium   # answers the administrator's reason (v50.47 B.9)
+            browser = chromium(p)
             for role, creds in accounts.items():
                 for viewport in ({'width': 1366, 'height': 900}, {'width': 390, 'height': 844}):
                     ctx = browser.new_context(viewport=viewport, locale='es-ES')

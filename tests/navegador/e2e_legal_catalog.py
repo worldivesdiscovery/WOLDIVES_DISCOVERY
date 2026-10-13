@@ -21,9 +21,7 @@ LABELS_JS = """() => [...document.querySelectorAll('label')].filter(l => !l.html
                  && l.offsetParent !== null).map(l => l.textContent.trim().slice(0, 40))"""
 
 
-def chromium(p):
-    exe = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
-    return p.chromium.launch(executable_path=exe) if Path(exe).exists() else p.chromium.launch()
+from e2e_markers import chromium  # noqa: E402  (answers the administrator's reason, v50.47 B.9)
 
 
 def run(shots: Path | None):

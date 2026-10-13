@@ -30,9 +30,24 @@ MAP_TILE = png(256, 256, lambda x, y: (170, 211, 223) if (x * 7 + y * 3) % 211 >
 SAT_TILE = png(256, 256, lambda x, y: (20 + (x * y) % 30, 45 + (x + y) % 40, 60 + (x * 3) % 50))
 
 
+# v50.47 (B.9): an administrator gives a reason before seeing a centre's data (header X-Admin-Reason; the web asks for
+# it with prompt()). In the automatic walks every request carries the reason, so the administration pages open as they
+# do for a person who wrote it; for anybody else the header is ignored by the server.
+ADMIN_REASON = 'Revision de las pruebas automaticas'
+
+
+def _with_reason(ctx):
+    ctx.route('**/api/**', lambda r: r.continue_(headers={**r.request.headers, 'x-admin-reason': ADMIN_REASON}))
+    return ctx
+
+
 def chromium(p):
     exe = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
-    return p.chromium.launch(executable_path=exe) if Path(exe).exists() else p.chromium.launch()
+    b = p.chromium.launch(executable_path=exe) if Path(exe).exists() else p.chromium.launch()
+    new_context = b.new_context
+    b.new_context = lambda *a, **k: _with_reason(new_context(*a, **k))
+    b.new_page = lambda *a, **k: b.new_context(*a, **k).new_page()
+    return b
 
 
 def shoot(base, shots: Path, tag: str, results: list):

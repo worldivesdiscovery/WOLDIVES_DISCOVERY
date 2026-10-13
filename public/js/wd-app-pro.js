@@ -553,12 +553,14 @@
     x.checked_in_at = valor === 'present' ? cambio.at : null; x.no_show = valor === 'no_show';
     if (btn) { btn.classList.toggle('si', valor === 'present'); btn.setAttribute('aria-pressed', String(valor === 'present')); btn.innerHTML = ic(valor === 'present' ? 'check' : valor === 'no_show' ? 'x' : 'area', ''); }
     vibrar(valor === 'present' ? 'SUCCESS' : 'WARNING');
+    const aCola = () => { const c = cola().filter((y) => !(y.slot_id === cambio.slot_id && y.booking_id === cambio.booking_id && y.seat === cambio.seat && y.field === 'status')); c.push(cambio); guardarCola(c); guardado.escribir('man:' + d.slot.id, d); W.toast(T('Sin conexión: guardado en el móvil.')); };
+    if (navigator.onLine === false) { aCola(); return; }
     try {
       const r = await postJSON('/api/manifest/sync', { changes: [cambio] });
       if (r.conflicts?.length) { const c = r.conflicts[0]; W.toast(`${T('Lo cambió antes')} ${c.server_by || T('otra persona')}.`); }
       guardado.escribir('man:' + d.slot.id, d);
     } catch (e) {
-      if (sinRed(e)) { const c = cola().filter((y) => !(y.slot_id === cambio.slot_id && y.booking_id === cambio.booking_id && y.seat === cambio.seat && y.field === 'status')); c.push(cambio); guardarCola(c); guardado.escribir('man:' + d.slot.id, d); W.toast(T('Sin conexión: guardado en el móvil.')); }
+      if (sinRed(e)) aCola();
       else W.toast(e.message);
     }
   }

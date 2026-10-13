@@ -13,6 +13,16 @@ Leído de la web v50.47 (13/10/2026). No se ha cambiado código para hacerlo.
 >
 > Detalle en `docs/app/tanda-1.md`.
 
+## Estado tras la v50.49 (Tandas 2, 3 y 4)
+
+La app tiene ya los tres módulos. En los perfiles de centro y freelance, lo que hace falta en el barco y en el
+mostrador tiene **pantalla propia** en la app (Hoy, Agenda, Escanear, Solicitudes, lista del barco, contar a bordo,
+resumen del barco, Reservas, Nueva reserva, Estadísticas, Cobros, cerrar la cuenta). La gestión de despacho
+(servicios y precios, barcos y grupos, avisos y WhatsApp Business, equipo y perfiles, ficha, herramientas, plan,
+horario del freelance) se abre **en la web dentro de la app** («Disponible en la web», en Más). Detalle y tabla de
+estado: `tanda-2.md`, `tanda-3.md` y `tanda-4.md`. Las tablas de abajo son el inventario de la Tanda 0 y se
+mantienen como referencia.
+
 ## Resumen en cifras
 
 | Perfil | Funciones | Igual | Simplificada | Disponible en la web |

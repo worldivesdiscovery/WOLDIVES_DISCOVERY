@@ -165,9 +165,9 @@ Leyenda:
 ## Pendiente de decisión del titular
 
 1. **Buddies:** hay que programarlo primero en el servidor (encargo de Buddies). ¿Lo metemos antes de la Tanda 4?
-2. **Reservas futuras al cerrar la cuenta de un centro o freelance** (ver la decisión 5 de abajo).
-   - Recomiendo que no se pueda cerrar mientras queden reservas futuras.
-   - La app las enseña con un botón «Cancelar y avisar a todos», con devolución completa a cada cliente.
+2. ~~Reservas futuras al cerrar la cuenta de un centro o freelance~~ **Decidido el 13/10 y hecho en la v50.49:** no se
+   puede cerrar mientras queden reservas futuras; «Cancelar y avisar a todos» las cancela con devolución completa
+   (`tanda-2.md`).
 3. **Más idiomas en la app:** cuando quieras, los textos de `scripts/idiomas/datos/app.json` se traducen a los otros
    seis idiomas de la web y se activan.
 
@@ -203,3 +203,5 @@ Leyenda:
   Eso se guarda solo con los datos imprescindibles. El plazo exacto conviene confirmarlo con el gestor.
 - Los buceadores siguen como ahora: borran su cuenta con su contraseña y se borra enseguida.
 - Se programa en la Tanda 2.
+
+**Hecho en la v50.49** (Tandas 2, 3 y 4 juntas): las decisiones 4 y 5 están programadas. Ver `tanda-2.md`.

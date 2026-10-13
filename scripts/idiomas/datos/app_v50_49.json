@@ -938,5 +938,21 @@
  "Solo el propietario del centro puede cerrar la cuenta del centro.": [
   "Only the centre’s owner can close the centre’s account.",
   "Seul le propriétaire du centre peut fermer le compte du centre."
+ ],
+ "Escanear": [
+  "Scan",
+  "Scanner"
+ ],
+ "Más": [
+  "More",
+  "Plus"
+ ],
+ "Cobros": [
+  "Payments",
+  "Encaissements"
+ ],
+ "Día": [
+  "Day",
+  "Jour"
  ]
 }

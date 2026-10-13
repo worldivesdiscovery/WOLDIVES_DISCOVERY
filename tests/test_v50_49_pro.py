@@ -427,5 +427,24 @@ class PushOff(ProBase):
         self.assertTrue(admin)
 
 
+
+class StaticChecks(unittest.TestCase):
+    def test_pro_script_is_cached_and_clean(self):
+        import re
+        import sys
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[1]
+        version = re.search(r"^APP_VERSION = '([^']+)'", (root / 'app' / 'server.py').read_text(encoding='utf-8'), re.M).group(1)
+        sw = (root / 'public' / 'sw.js').read_text(encoding='utf-8')
+        self.assertIn(f"'/js/wd-app-pro.js?v={version}'", sw)
+        sys.path.insert(0, str(root / 'scripts'))
+        from generar_zips import TEST_ACCOUNT
+        for f in ('wd-app-pro.js', 'wd-app.js'):
+            js = (root / 'public' / 'js' / f).read_text(encoding='utf-8')
+            self.assertIsNone(TEST_ACCOUNT.search(js), f)
+            self.assertNotRegex(js, r'sk_(?:live|test)_|pk_(?:live|test)_|AIza[0-9A-Za-z_-]{20}')
+        self.assertFalse(list((root / 'movil').rglob('google-services.json')), 'el archivo de Firebase no va en el repositorio')
+
+
 if __name__ == '__main__':
     unittest.main()
