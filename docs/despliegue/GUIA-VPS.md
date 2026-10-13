@@ -14,11 +14,14 @@ rendimiento) están en `docs/despliegue/README.md`; los mapas, en `docs/mapas.md
 
 | Uso | VPS recomendado |
 |---|---|
-| Lanzamiento y primeros meses | **4 vCPU, 8 GB de RAM, 80 GB SSD (NVMe)**, en la UE (Debian 12 o Ubuntu 24.04) |
+| Lanzamiento y primeros meses (cientos de personas a la vez) | **4 vCPU, 8 GB de RAM, 80 GB SSD (NVMe)**, en la UE (Debian 12 o Ubuntu 24.04), `WOD_WORKERS=4` |
+| 10.000 personas a la vez navegando con normalidad | 8 vCPU, 16 GB de RAM, NVMe, `WOD_WORKERS=8` |
+| 10.000 personas a la vez con uso intenso | 32 vCPU, 32 GB de RAM, NVMe, `WOD_WORKERS=32` (16 vCPU dedicadas como mínimo, sin margen) |
 | Mínimo para probar | 2 vCPU, 4 GB de RAM, 40 GB SSD |
 
-El tamaño sale de la prueba de carga de esta versión (informe en `docs/auditoria/v50.51/`): allí está cuánta gente
-aguanta cada tamaño y cuándo conviene crecer o pasar a PostgreSQL.
+`WOD_WORKERS` = número de núcleos. El cálculo sale de la prueba de carga de esta versión
+(`docs/auditoria/v50.51/carga.md`): cuánta CPU gasta cada petición, cuándo conviene crecer y cuándo pasar a
+PostgreSQL (solo para repartir la web en varios servidores).
 
 ## 2. Dominio
 

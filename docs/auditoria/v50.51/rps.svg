@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" width="640" height="300" font-family="Inter,Arial,sans-serif" font-size="12">
+<rect width="640" height="300" fill="#fff"/><text x="64" y="18" font-size="14" font-weight="700" fill="#0b2f40">Peticiones por segundo atendidas</text>
+<line x1="64" x2="620" y1="256.0" y2="256.0" stroke="#e3e7e6"/><text x="56" y="260.0" text-anchor="end" fill="#5d6f77">0</text>
+<line x1="64" x2="620" y1="218.3" y2="218.3" stroke="#e3e7e6"/><text x="56" y="222.3" text-anchor="end" fill="#5d6f77">100</text>
+<line x1="64" x2="620" y1="180.7" y2="180.7" stroke="#e3e7e6"/><text x="56" y="184.7" text-anchor="end" fill="#5d6f77">200</text>
+<line x1="64" x2="620" y1="143.0" y2="143.0" stroke="#e3e7e6"/><text x="56" y="147.0" text-anchor="end" fill="#5d6f77">300</text>
+<line x1="64" x2="620" y1="105.3" y2="105.3" stroke="#e3e7e6"/><text x="56" y="109.3" text-anchor="end" fill="#5d6f77">400</text>
+<line x1="64" x2="620" y1="67.7" y2="67.7" stroke="#e3e7e6"/><text x="56" y="71.7" text-anchor="end" fill="#5d6f77">500</text>
+<line x1="64" x2="620" y1="30.0" y2="30.0" stroke="#e3e7e6"/><text x="56" y="34.0" text-anchor="end" fill="#5d6f77">600</text>
+<text x="64.0" y="274" text-anchor="middle" fill="#5d6f77">100</text>
+<text x="203.0" y="274" text-anchor="middle" fill="#5d6f77">250</text>
+<text x="342.0" y="274" text-anchor="middle" fill="#5d6f77">500</text>
+<text x="481.0" y="274" text-anchor="middle" fill="#5d6f77">1.000</text>
+<text x="620.0" y="274" text-anchor="middle" fill="#5d6f77">1.500</text>
+<text x="342" y="294" text-anchor="middle" fill="#35505d">usuarios simultáneos</text><text x="14" y="143" transform="rotate(-90 14 143)" text-anchor="middle" fill="#35505d">r/s</text>
+<polyline fill="none" stroke="#0c4a6e" stroke-width="2.5" points="64.0,239.4 203.0,213.5 342.0,172.7 481.0,99.1 620.0,58.2"/>
+<circle cx="64.0" cy="239.4" r="3.5" fill="#0c4a6e"/>
+<circle cx="203.0" cy="213.5" r="3.5" fill="#0c4a6e"/>
+<circle cx="342.0" cy="172.7" r="3.5" fill="#0c4a6e"/>
+<circle cx="481.0" cy="99.1" r="3.5" fill="#0c4a6e"/>
+<circle cx="620.0" cy="58.2" r="3.5" fill="#0c4a6e"/>
+<rect x="74" y="32" width="12" height="4" fill="#0c4a6e"/><text x="92" y="38" fill="#35505d">Páginas</text>
+<polyline fill="none" stroke="#e9775f" stroke-width="2.5" points="64.0,255.3 203.0,254.1 342.0,251.7 481.0,249.5 620.0,249.4"/>
+<circle cx="64.0" cy="255.3" r="3.5" fill="#e9775f"/>
+<circle cx="203.0" cy="254.1" r="3.5" fill="#e9775f"/>
+<circle cx="342.0" cy="251.7" r="3.5" fill="#e9775f"/>
+<circle cx="481.0" cy="249.5" r="3.5" fill="#e9775f"/>
+<circle cx="620.0" cy="249.4" r="3.5" fill="#e9775f"/>
+<rect x="244" y="32" width="12" height="4" fill="#e9775f"/><text x="262" y="38" fill="#35505d">Reservas y panel</text>
+</svg>

@@ -199,6 +199,26 @@
    "nl": "Panorama's, Street View en geüploade bestanden die geen YouTube- of Vimeo-links zijn. Ze staan zoals altijd onder ‘Virtuele tour’ op de pagina van de duikstek. Vervang ze desgewenst door een gekoppelde video.",
    "pl": "Panoramy, Street View i przesłane pliki, które nie są linkami do YouTube ani Vimeo. Nadal widać je w „Wirtualnej wycieczce” na stronie miejsca. Jeśli chcesz, zastąp je podlinkowanym filmem.",
    "zh": "不是 YouTube 或 Vimeo 链接的全景图、街景和上传文件。它们照常显示在潜点页面的“虚拟导览”中。如有需要，可以用链接视频替换。"
+  },
+  "Escribe al menos dos letras": {
+   "en": "Type at least two letters",
+   "fr": "Tapez au moins deux lettres",
+   "de": "Gib mindestens zwei Buchstaben ein",
+   "it": "Scrivi almeno due lettere",
+   "pt": "Escreve pelo menos duas letras",
+   "pl": "Wpisz co najmniej dwie litery",
+   "nl": "Typ minstens twee letters",
+   "zh": "请至少输入两个字"
+  },
+  "El nombre de un punto, una ciudad, una isla o un centro de buceo.": {
+   "en": "The name of a dive site, a town, an island or a dive centre.",
+   "fr": "Le nom d'un site, d'une ville, d'une île ou d'un centre de plongée.",
+   "de": "Der Name eines Tauchplatzes, einer Stadt, einer Insel oder einer Tauchbasis.",
+   "it": "Il nome di un punto d'immersione, una città, un'isola o un centro sub.",
+   "pt": "O nome de um ponto de mergulho, uma cidade, uma ilha ou um centro de mergulho.",
+   "pl": "Nazwa miejsca nurkowego, miasta, wyspy lub centrum nurkowego.",
+   "nl": "De naam van een duikstek, een plaats, een eiland of een duikcentrum.",
+   "zh": "潜点、城市、岛屿或潜水中心的名称。"
   }
  },
  "patterns": {

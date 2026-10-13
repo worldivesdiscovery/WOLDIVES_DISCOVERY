@@ -2260,18 +2260,40 @@ def migrate_v50_31(db):
         except Exception: pass
 
 
+def _password_slots():
+    """PBKDF2 with 600 000 iterations is ~0.4 s of CPU. v50.51 (load test): at most half of the cores compute passwords
+    at the same time, counted for the whole server (the WOD_WORKERS processes share this semaphore, created before
+    fork()), so a wave of logins waits in line and every other page keeps the other half of the CPU."""
+    n = max(1, (os.cpu_count() or 2) // 2)
+    try:
+        import multiprocessing
+        return multiprocessing.get_context('fork').BoundedSemaphore(n)
+    except (ImportError, ValueError, OSError):   # no fork() (Windows): a single process
+        return threading.BoundedSemaphore(n)
+
+
+PASSWORD_HASHING = _password_slots()
+
+
+class ServerBusy(Exception):
+    """Too many people signing in at the same moment: the request answers 503 and the person tries again."""
+
+
+def _with_password_slot(fn, *args):
+    # Waiting is bounded. Computing anyway after the wait would make all the waiting logins compute together and take
+    # the whole CPU again (load test, 1.000 people arriving in 20 s).
+    if not PASSWORD_HASHING.acquire(timeout=60):
+        raise ServerBusy('Ahora mismo está entrando mucha gente a la vez. Vuelve a intentarlo en unos segundos.')
+    try: return fn(*args)
+    finally: PASSWORD_HASHING.release()
+
+
 def hash_password(password: str) -> str:
-    return wsec.hash_password(password)
-
-
-PASSWORD_HASHING = threading.BoundedSemaphore(max(1, os.cpu_count() or 2))   # v50.51 (load test)
+    return _with_password_slot(wsec.hash_password, password)
 
 
 def verify_password(password: str, stored: str) -> bool:
-    """PBKDF2 with 600 000 iterations is ~0.4 s of CPU: at most one per core at a time, so a wave of logins waits in line
-    instead of slowing down every other page."""
-    with PASSWORD_HASHING:
-        return wsec.verify_password(password, stored)
+    return _with_password_slot(wsec.verify_password, password, stored)
 
 
 def check_new_password(password: str):
@@ -11266,6 +11288,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     _pol=booking_policy(db,b)
                     bd['cancellation_policy']=f"{_pol['free_hours']}h-{_pol['refund_pct']}"; bd['cancellation_text']=_pol['text']; bd['cancellation_note']=_pol['note']
                     bd['cancel_free_hours']=_pol['free_hours']; bd['cancel_refund_pct']=_pol['refund_pct']
+                    # v50.51: the page asks for the «salida cancelada» choice only when there is one open (no 400 otherwise).
+                    if b['user_id']==user['id']: _so=slot_offer_for(db,bid); bd['slot_cancel_open']=bool(_so and not _so['resolved_at'])
                     bd.pop('public_token',None); bd['check_url']=booking_check_url(db,bid,self.base_url()) if (b['user_id']==user['id'] or can_manage_booking(user,b)) else None
                     bd['check_code']=wpro.booking_code(bid,db.execute('SELECT public_token FROM bookings WHERE id=?',(bid,)).fetchone()['public_token']) if bd['check_url'] else None
                     if b['user_id']!=user['id']: log_phone_access(db,user,'booking',count_phones({'booking':bd,'profile':dict(profile) if profile else {}}),bid)
@@ -14145,6 +14169,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
             except NotFound as e:
                 db.rollback()
                 self.send_json({'error':str(e)},404)
+            except ServerBusy as e:
+                db.rollback()
+                self.send_json({'error':str(e)},503)
             except KeyError as e:
                 # A required field is missing in the request: the client's fault, not a server error.
                 db.rollback()

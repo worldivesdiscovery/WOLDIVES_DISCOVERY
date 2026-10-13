@@ -82,6 +82,7 @@ class SlotCancel(ServerTestCase):
         tok = re.search(r'salida-cancelada\?b=(\d+)&t=([A-Za-z0-9_\-]+)', mails[0]['text'])
         self.assertEqual(int(tok.group(1)), b1)
         self.assertEqual(c.post('/api/provider-services/slot-cancel', {'slot_id': self.A, 'reason': 'weather'}).status, 400)   # already cancelled
+        self.assertTrue(self.d1.get(f'/api/bookings/{b1}').json['booking']['slot_cancel_open'])   # v50.51: the booking page asks only then
         # Diver 1 chooses another date from the email link, without signing in
         anon = self.client()
         self.assertEqual(anon.get(f'/api/slot-cancel/{b1}?t=falso').status, 404)  # v50.47 (B.3)
@@ -94,6 +95,7 @@ class SlotCancel(ServerTestCase):
         bk = self.server.sql('SELECT slot_id,status,booking_date FROM bookings WHERE id=?', (b1,))[0]
         self.assertEqual((bk['slot_id'], bk['status'], bk['booking_date']), (self.B, 'confirmed', DAY(6)))
         self.assertEqual(self.spots(self.B), before - 2)
+        self.assertFalse(self.d1.get(f'/api/bookings/{b1}').json['booking']['slot_cancel_open'])
         self.assertEqual(anon.post(f'/api/slot-cancel/{b1}', {'t': tok.group(2), 'choice': 'refund'}).status, 400)   # only once
         self.assertTrue(self.server.sql("SELECT 1 FROM email_outbox WHERE template='booking_date_changed' AND to_email='lluvia1@diver.example.org'"))
         # Diver 2 asks for the refund (signed in)

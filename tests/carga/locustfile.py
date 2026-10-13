@@ -532,7 +532,8 @@ class Centro(Web):
             self.pensar(1, 3)
             if it.get('enough_spots', True):
                 self.post(f'/api/bookings/{it["id"]}/status', {'status': 'confirmed'}, '/api/bookings/[id]/status (aceptar)',
-                          negocio=('ya no está pendiente', 'plazas', 'plazo', 'no se puede confirmar', 'pagando'))
+                          negocio=('ya no está pendiente', 'plazas', 'plazo', 'no se puede confirmar', 'pagando',
+                                   'espera el pago'))   # another person of the same centre accepted it a moment before
             else:
                 self.post(f'/api/bookings/{it["id"]}/status', {'status': 'rejected', 'reason': 'No quedan plazas en esa salida'},
                           '/api/bookings/[id]/status (rechazar)', negocio=('ya no se puede rechazar', 'ya no está pendiente'))

@@ -22,6 +22,11 @@ def _nice(v):
     return v / 5
 
 
+def _ms(v):
+    """Logins happen when each simulated person arrives (during the ramp): in the stable window there may be none."""
+    return '—' if v is None else f'{v:.0f}'
+
+
 def line_chart(title, xs, series, unit, limit=None, limit_label=''):
     """series: [(label, [y…])]. A dashed horizontal line marks the target (limit)."""
     ys = [y for _, s in series for y in s if y is not None] + ([limit] if limit else [])
@@ -73,7 +78,7 @@ def main():
     for p in pasos:
         s = p.get('servidor') or {}; lg = p.get('log_servidor') or {}
         rows.append(f"| {p['usuarios']:,} | {g(p, 'pag', 'rps') or 0:.0f} | {g(p, 'pag', 'media_ms') or 0:.0f} / {g(p, 'pag', 'p95_ms') or 0:.0f} | "
-                    f"{g(p, 'res', 'media_ms') or 0:.0f} / {g(p, 'res', 'p95_ms') or 0:.0f} | {g(p, 'ses', 'p95_ms') or 0:.0f} | "
+                    f"{g(p, 'res', 'media_ms') or 0:.0f} / {g(p, 'res', 'p95_ms') or 0:.0f} | {_ms(g(p, 'ses', 'p95_ms'))} | "
                     f"{max(g(p, k, 'error_pct') or 0 for k in ('pag', 'res', 'ses')):.2f} % | {srv(p, 'srv_cpu_pct') or 0:.0f} % | "
                     f"{(s.get('srv_rss_mb') or {}).get('max') or 0:.0f} MB | {lg.get('bloqueos_sqlite', 0)} / {lg.get('errores_500', 0)} | "
                     f"{'; '.join(p.get('rotura') or []) or 'correcto'} |".replace(',', '.'))

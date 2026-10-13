@@ -217,3 +217,16 @@ Cada punto de los dos centros trae entre 8 y 15 especies (ilustraciones propias,
   aprobación» hasta que la administración los apruebe, y luego salen con «Aportado por…». El instructor no ve esa
   pestaña (su perfil no tiene «Ficha del centro y ajustes»).
 - **Buceador (`buzo.prueba`)**: no ve nada para añadir vídeos o especies.
+
+## 10. Repetir la auditoría (v50.51)
+
+El informe está en `docs/auditoria/v50.51/`. Las herramientas van solo en este paquete (usan las cuentas de la demo):
+
+- **Botones de cada pantalla y papel** (unos 30 minutos; necesita Chromium y `pip install playwright`):
+  `python3 tests/navegador/inventario_botones.py --paralelo 4 --salida <carpeta>`. Abre un navegador real con cada
+  cuenta, pulsa cada botón, enlace y formulario, y escribe el inventario con «Funciona», «Depende de clave pendiente»
+  o el fallo encontrado.
+- **Carga** (necesita `pip install locust psutil`): preparar una base de carga aparte con
+  `python3 tests/carga/preparar.py construir --dir <carpeta>` y medir por escalones con
+  `python3 tests/carga/medir.py --dir <carpeta> --arrancar --workers 4 --pasos 100,250,500,1000`. Nunca contra la web
+  real: arranca su propio servidor con una copia.

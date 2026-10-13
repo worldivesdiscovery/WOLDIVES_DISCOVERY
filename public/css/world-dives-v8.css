@@ -1468,6 +1468,9 @@ a.pp-tag:hover{background:rgba(255,255,255,.24)}
 .pp-map{height:220px;border-radius:12px;overflow:hidden;background:#dceef0;margin-bottom:12px}
 .pp-map .map-fallback{min-height:220px}
 .pp-mapcard .btn{width:100%;text-align:center}
+/* v50.51: the zoom sits bottom-left; the map credits keep to the right of it */
+.pp-map .leaflet-bottom.leaflet-right{max-width:calc(100% - 52px)}
+.pp-map .leaflet-control-attribution{white-space:normal;line-height:1.3}
 .pp-small{color:var(--muted);font-size:13.5px;margin:0 0 12px}
 .pp-suggest{margin:14px 0 10px}
 
@@ -2929,6 +2932,7 @@ body.has-offline{padding-bottom:56px}
 }
 .wd-layer-ctl .map-toolbar.is-compact button.is-off{flex-direction:row}
 .leaflet-bottomright .wd-relief-note{max-width:min(320px,calc(100vw - 40px));text-align:left}
+.wd-relief-note.is-inline{box-shadow:none;max-width:none;margin:-4px 0 12px}
 /* v50.44 · Booking by days (#/reservar-dias) and the freelance agenda (#/admin?tab=agenda) */
 :root{--day-busy:#f6dcd9;--day-busy-line:#ecb9b3;--day-busy-ink:#a3372d;--day-off:#eef1f1}
 .dbk-page{padding-bottom:120px}
