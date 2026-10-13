@@ -148,6 +148,36 @@ Las migraciones siguen la regla de siempre: **añaden y transforman, nunca borra
 - **Botones de Apple Pay y Google Pay** con su aspecto oficial (negro o blanco, según sus guías). El color de acento
   de la app es para el resto de acciones.
 
+## Estado del mar: de dónde salen los datos
+
+Decisión del 13/10/2026: **boyas de Puertos del Estado** y, si no hay dato, la fuente más fiable que haya.
+
+**Fuente principal: Puertos del Estado.**
+- Organismo público. Tiene boyas en aguas profundas y en la costa, y predicción de oleaje para el litoral español.
+- Publica los datos en un servidor THREDDS/OPeNDAP (`opendap.puertos.es`), en NetCDF. El servidor los descarga; la
+  app nunca habla con Puertos del Estado.
+- **Boya:** lo medido ahora (altura y periodo del oleaje, temperatura del agua) en la boya más cercana al punto de
+  buceo. La app dice de qué boya es y a cuántos km está.
+- **Predicción:** para las horas de la salida se usa la predicción de oleaje de Puertos del Estado en el punto de
+  buceo, porque la boya solo mide lo que pasa ahora y en un sitio.
+- **Pendiente antes de la 0.2:** leer el aviso legal de reutilización de `puertos.es` y confirmar que el uso en una app
+  comercial está permitido citando la fuente. Desde este entorno no he podido conectar con `opendap.puertos.es`, así
+  que la descarga se prueba en el servidor.
+
+**Si no hay dato** (boya en mantenimiento, punto fuera de España o predicción caída):
+1. **Copernicus Marine** (servicio de la UE): predicción de oleaje y temperatura del agua en todo el mundo. Es
+   gratuito con registro y se puede usar en una app comercial citando la fuente.
+2. **Si hace falta un proveedor comercial**, el más sencillo de integrar es **Open-Meteo Marine** (plan de pago para
+   uso comercial). Solo si fallan los dos anteriores.
+
+**Cómo llega a la app:**
+- El servidor descarga cada 1–3 horas y guarda en `sea_conditions` con `source` y `fetched_at`.
+- La app muestra la fuente y la hora: «Puertos del Estado · boya a 12 km · hace 40 min».
+- Si el dato tiene más de 6 horas, no se muestra la cifra: sale «Sin datos recientes del mar».
+- El viento sale del mismo modelo de predicción o, si no lo trae, de AEMET (también pública).
+- **La decisión de cancelar es siempre del centro.** La app enseña datos; nunca dice «se puede bucear» ni
+  «no se puede».
+
 ## Sin conexión (en el barco)
 
 | Qué | Dónde se guarda | Cómo se sincroniza |

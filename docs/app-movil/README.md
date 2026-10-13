@@ -39,7 +39,7 @@ el mismo botón de pago crea la cuenta con Apple o Google (Face ID o la cuenta d
 continuación: no hay pantalla de registro. El centro ve su día al abrir la app y sabe quién bucea mañana, y con qué
 equipo, con 1 o 2 toques.
 
-## Stack recomendado
+## Stack (decidido el 13/10: React Native + Expo)
 
 **React Native + Expo (TypeScript)**, con una parte nativa pequeña en Swift y Kotlin para los widgets y las Live
 Activities.
@@ -66,28 +66,34 @@ El servidor sigue siendo el actual (Python + SQLite). No hace falta Supabase ni 
 | **Sin cuenta (invitado)** | Sin cuenta solo se ve la información del centro (salidas, precios, cómo llegar) y el **teléfono para llamar** | No hay reserva sin cuenta. Para no perder los 30 s, el botón de pago crea la cuenta con Apple o Google y paga después, sin formularios. Quien no quiera cuenta tiene «Llamar al centro» en la hoja de la salida y en la ficha |
 | **Comisiones** | **Sin comisión** de WORLDIVES de momento | Como hoy (v50.34): cobro directo en la cuenta Stripe del centro o del freelance, que paga la comisión de Stripe. **Cobrar al cliente la comisión de Stripe como recargo por pagar con tarjeta no está permitido** con tarjetas de particulares en la UE (directiva de servicios de pago, PSD2). Lo legal es que cada centro ponga su precio final ya con eso incluido, sin línea aparte. Si algún día se quiere unos «gastos de gestión» visibles, iguales para cualquier forma de pago y dentro del precio final desde el principio, primero lo revisa el abogado |
 | **Pagos a freelance** | Sin reparto de pagos por ahora | Lo que un centro paga a un freelance por un trabajo va fuera de la app (con factura) y la app lo registra en «Cobros» |
+| **Tecnología** | **React Native + Expo** (TypeScript) | La versión 0.1 ya está hecha con ella, en `app-movil/` |
+| **Estado del mar** | **Boyas de Puertos del Estado** y, si no hay dato, la fuente más fiable disponible | Detalle en el doc. 2, «Estado del mar: de dónde salen los datos». La 0.1 enseña datos de ejemplo |
+| **Cuentas de desarrollador** | Todavía no hay número D-U-N-S | Se empieza con un **APK de pruebas para Android** que se instala fuera de Google Play. Cuando llegue el D-U-N-S se dan de alta las cuentas de Apple y Google como empresa |
 
 ## Decisiones que siguen pendientes
 
 | # | Tema | Recomendación |
 |---|---|---|
-| 1 | **Stack** | React Native + Expo (arriba) |
-| 2 | **Nivel exigido en la primera reserva** | La hoja dice qué exige la salida y, al pagar, el buceador declara que tiene esa titulación. El centro lo comprueba en el check-in. Si no la tiene, cambio a una salida apta o devolución íntegra. Así no hace falta un toque más |
-| 3 | **Estado del mar** | **Puertos del Estado** para España y **Copernicus Marine** para el resto (se pueden usar citando la fuente), en caché por horas |
-| 4 | **Analítica del embudo** | Medirla en el servidor, con totales por día, sin guardar nada en el móvil ni usar SDK de terceros (doc. 2). **Abogado:** confirmar si hace falta consentimiento |
-| 5 | **Cuentas de desarrollador** | Darlas de alta **como empresa** en Apple y Google (número D-U-N-S). Sin ellas no se puede empezar la fase 0 |
+| 1 | **Nivel exigido en la primera reserva** | La hoja dice qué exige la salida y, al pagar, el buceador declara que tiene esa titulación. El centro lo comprueba en el check-in. Si no la tiene, cambio a una salida apta o devolución íntegra. Así no hace falta un toque más. **Es lo que hace la 0.1** |
+| 2 | **Analítica del embudo** | Medirla en el servidor, con totales por día, sin guardar nada en el móvil ni usar SDK de terceros (doc. 2). **Abogado:** confirmar si hace falta consentimiento |
+| 3 | **D-U-N-S y cuentas de Apple y Google** | Pedir el D-U-N-S (gratuito; puede tardar varios días laborables) y dar de alta las dos cuentas **como empresa**. Sin ellas no hay TestFlight, ni prueba interna en Google Play, ni Apple Pay real |
 
-## Lo que no he hecho todavía, a propósito
+## Versión de pruebas 0.1 (APK para Android)
 
-- **No he escrito código de la app:** el encargo pide estos cuatro entregables antes de programar.
-- **No he tocado la web.** Los cambios de servidor que hacen falta (API v1, tokens, push, niveles) están listados en
-  el doc. 2 y empiezan en la fase 1.
+Está en `app-movil/` (instrucciones en `app-movil/README.md`).
+- **Qué es:** las pantallas de los tres perfiles, en español, inglés y francés, con datos de ejemplo, pagos e inicio de
+  sesión simulados (las hojas de Apple y Google dicen «Simulado») y el cronómetro de las pruebas de 30 s y 10 s.
+- **Qué funciona de verdad:** la cámara para leer el QR en el check-in, la firma con el dedo, abrir WhatsApp, llamar,
+  cómo llegar, y que los cambios se guarden en el móvil.
+- **Cómo se consigue el APK:** GitHub lo compila solo en cada cambio de `app-movil/` (flujo «App Android (APK de
+  pruebas)») y lo deja para descargar 30 días.
+- **No toca la web ni el servidor:** la web no cambia y los zips de la web no llevan la app.
 
 ## Siguiente paso
 
-1. Respondes a las 5 decisiones pendientes.
-2. **Fase 0** (4 semanas):
-   - Figma completo a partir del lienzo;
-   - prueba del prototipo con 5 personas reales y un centro, cronometrada;
-   - contrato OpenAPI de `/api/v1/`;
-   - cuentas de Apple, Google y Stripe preparadas.
+1. **Probar el APK** con 5 personas y un centro, con las pruebas cronometradas de la pantalla de inicio. Los
+   resultados quedan en el propio móvil (Perfil o Más).
+2. **Versión 0.2:** empezar la API `/api/v1/` en el servidor (doc. 2) y conectar la app: salidas, reservas y check-in
+   reales, y el estado del mar de las boyas.
+3. **Con el D-U-N-S:** cuentas de Apple y Google, Stripe con Apple Pay y Google Pay reales, y la primera versión en
+   TestFlight y en prueba interna de Google Play.

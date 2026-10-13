@@ -40,7 +40,8 @@ NOT_IN_PRODUCTION = ['docs/pruebas/*', 'data/demo/*', 'data/pruebas/*', 'scripts
 NOT_IN_ANY = ['_archivo/*', 'docs/capturas/*', '.github/*', '.gitignore', '.env', '.env.*', '*.pyc', '*/__pycache__/*', '*.log', 'logs/*',
               'storage/*', 'public/assets/*', 'data/subidas/*', 'data/backups/*', 'data/mail-outbox/*', 'data/tiles/*', 'dist/*',
               '*.sqlite3-wal', '*.sqlite3-shm', '.git/*', '*.tmp', '*.swp', '*~', '.DS_Store', 'Thumbs.db', '*.lock', '*/capturas/*',
-              'data/avisos/*', 'data/pruebas/avisos/*']
+              'data/avisos/*', 'data/pruebas/avisos/*',
+              'app-movil/*']  # the mobile app is built on its own (GitHub Actions); the server does not need it
 ALLOWED_ENV = {'.env.example'}
 
 # What must never be inside the production zip

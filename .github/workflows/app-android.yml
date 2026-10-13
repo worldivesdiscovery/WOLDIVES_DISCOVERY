@@ -1,0 +1,68 @@
+name: App Android (APK de pruebas)
+
+# Builds the test APK of the mobile app (app-movil/) on every push that touches it, or by hand from the Actions
+# tab. Sample data and simulated payments; signed with the Expo template's debug key, so each new APK installs
+# over the previous one. Not for Google Play: that build will use its own upload key, kept outside the repository.
+
+on:
+  push:
+    paths:
+      - 'app-movil/**'
+      - '.github/workflows/app-android.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: app-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: app-movil
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app-movil/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check types and translations (es, en, fr)
+        run: npx tsc --noEmit && node scripts/textos.mjs
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Generate the Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the APK (real phones: arm64 and armv7)
+        working-directory: app-movil/android
+        run: |
+          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g/' gradle.properties
+          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a --no-daemon
+
+      - name: Name the APK after the app version
+        run: |
+          V=$(node -p "require('./app.json').expo.version")
+          mkdir -p ../apk
+          cp android/app/build/outputs/apk/release/app-release.apk "../apk/WORLDIVES-$V-pruebas.apk"
+          ls -l ../apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WORLDIVES-apk-pruebas
+          path: apk/*.apk
+          if-no-files-found: error
+          retention-days: 30
