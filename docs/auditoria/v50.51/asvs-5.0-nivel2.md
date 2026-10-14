@@ -47,7 +47,7 @@ El titular revisó este informe y decidió: servidor Hostinger KVM 2 en Alemania
 ## Pendiente de decisión y aplazado
 
 - **V13.3.1** · Decisión del titular del 14/10: después del lanzamiento (gestor de secretos). Mientras, `.env` con permisos 600 y propietario del servicio, comprobado por `comprobar_lanzamiento.py`; ciclo de vida de cada secreto en `claves.md`; el token de Better Stack en su propio archivo 600.
-- **V15.1.2** · Decisión del titular del 14/10: SBOM y hashes después del lanzamiento. Inventario de dependencias con versiones en `docs/seguridad.md`; falta la versión exacta de Leaflet.markercluster (el proxy de este entorno bloquea `cdn.jsdelivr.net`).
+- **V15.1.2** · Decisión del titular del 14/10: SBOM y hashes después del lanzamiento. Inventario de dependencias con versiones en `docs/seguridad.md`; Leaflet.markercluster identificado: 1.5.3 (idéntico byte a byte al publicado en npm).
 - **V13.2.1** · Decisión del titular del 14/10: después del lanzamiento. Caducidad de la clave de integración de los centros y rotación de las claves de Stripe y SMTP con aviso (hoy se desactivan o regeneran a mano).
 - **V14.2.1** · Decisión del titular del 14/10: pasar la invitación al equipo de la consulta a un POST, después del lanzamiento. Los testigos de la URL no llegan a ningún registro (aplicación, proxy ni Better Stack).
 
@@ -353,7 +353,7 @@ El titular revisó este informe y decidió: servidor Hostinger KVM 2 en Alemania
 | Requisito | Nivel | Qué pide (resumen) | Estado | Detalle |
 |---|---|---|---|---|
 | V15.1.1 | 1 | Verify that application documentation defines risk based remediation time frames for 3rd party component versions with vulnerabilities and for updatin… | Completado | Plazos de corrección por gravedad y responsable en `docs/seguridad.md` («Dependencias»). |
-| V15.1.2 | 2 | Verify that an inventory catalog, such as software bill of materials (SBOM), is maintained of all third-party libraries in use, including verifying th… | Aplazado (decisión del titular) | Decisión del titular del 14/10: SBOM y hashes después del lanzamiento. Inventario de dependencias con versiones en `docs/seguridad.md`; falta la versión exacta de Leaflet.markercluster (el proxy de este entorno bloquea `cdn.jsdelivr.net`). |
+| V15.1.2 | 2 | Verify that an inventory catalog, such as software bill of materials (SBOM), is maintained of all third-party libraries in use, including verifying th… | Aplazado (decisión del titular) | Decisión del titular del 14/10: SBOM y hashes después del lanzamiento. Inventario de dependencias con versiones en `docs/seguridad.md`; Leaflet.markercluster identificado: 1.5.3 (idéntico byte a byte al publicado en npm). |
 | V15.1.3 | 2 | Verify that the application documentation identifies functionality which is time-consuming or resource-demanding. This must include how to prevent a l… | Corregido | Tabla de funciones costosas en `docs/validacion.md`; el proxy espera 75 s, más que la aplicación. |
 | V15.2.1 | 1 | Verify that the application only contains components which have not breached the documented update and remediation time frames. | Corregido | El servidor instala exactamente las versiones revisadas cada semana. |
 | V15.2.2 | 2 | Verify that the application has implemented defenses against loss of availability due to functionality which is time-consuming or resource-demanding, … | Corregido | El buscador de lugares ya no espera con el candado cogido: cola de 2 s como mucho y 503. |

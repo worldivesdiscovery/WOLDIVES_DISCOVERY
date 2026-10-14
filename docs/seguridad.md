@@ -23,7 +23,7 @@ Documentos de referencia que pide ASVS:
 | App del móvil (Capacitor) | `movil/package-lock.json` | npm | `npm audit` en el mismo flujo semanal |
 | Leaflet | 1.9.4 | leafletjs.com, copiado en `public/lib/leaflet` | A mano en cada versión (avisos de seguridad de Leaflet) |
 | protomaps-leaflet | 5.1.0 (BSD-3) | github.com/protomaps, `public/lib/protomaps-leaflet` | A mano en cada versión |
-| Leaflet.markercluster | Sin anotar en el archivo: **pendiente de comprobar** (desde este entorno no se pudo descargar la versión publicada para compararla) | `public/lib/markercluster` | A mano en cada versión |
+| Leaflet.markercluster | 1.5.3 (MIT): `leaflet.markercluster.js` y `MarkerCluster.css` son idénticos byte a byte a los de npm (el `.js` es el mismo en 1.5.2 y 1.5.3; 1.5.3 es la última). SHA-256 del `.js`: `1e4e1d22972a3926f48598e0caf14e3fe7049835d428a344fed4f9e3665b3508` | github.com/Leaflet/Leaflet.markercluster, `public/lib/markercluster` | A mano en cada versión |
 
 **Plazos de corrección** desde que se publica el aviso: crítica, 7 días; alta, 30 días; media y baja, en la versión
 siguiente. Responsable: el titular del proyecto (o quien mantenga el servidor). Una dependencia sin mantenimiento se

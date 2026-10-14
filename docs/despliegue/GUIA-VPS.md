@@ -210,9 +210,16 @@ echo | openssl s_client -connect worldivesdiscovery.com:443 -servername worldive
 
 ```bash
 sudo systemctl enable --now clamav-freshclam      # descarga las firmas (la primera vez tarda unos minutos)
+ls /var/lib/clamav                                # espera a ver main, daily y bytecode (.cvd o .cld)
 sudo systemctl enable --now clamav-daemon         # clamd: unos 1–1,5 GB de RAM (con 8 GB hay margen)
+sudo systemctl restart clamav-daemon              # Ubuntu no arranca clamd mientras no hay firmas
 sudo systemctl restart worldives
 ```
+
+Si `ls` no muestra las firmas pasados unos minutos, mira `sudo journalctl -u clamav-freshclam -n 30`. Un «403» o
+«cool-down» quiere decir que el servidor oficial de ClamAV (`database.clamav.net`) ha frenado las descargas desde esa
+IP durante un tiempo: freshclam lo vuelve a intentar solo. Espera y no lo cambies por un espejo no oficial. El
+cortafuegos del paso 7 ya deja salir por el puerto 443, que es el que usa.
 
 `WOD_AV_COMMAND` ya está en el `.env` (paso 8). Cada documento que suben buceadores y centros pasa por el antivirus
 antes de guardarse; si encuentra algo, se rechaza y la administración recibe un aviso de seguridad.
