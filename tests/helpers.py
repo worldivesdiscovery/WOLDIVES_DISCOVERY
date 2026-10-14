@@ -27,12 +27,18 @@ SEED_DB = ROOT / 'data' / 'demo' / 'catalogo-demo.sqlite3'   # demo catalogue (n
 
 class MiddayClock:
     """Mixin for a test class that needs a departure «later today»: the class and its server run on a clock around
-    midday, whatever the hour of the machine (otherwise it fails late at night). Put it before ServerTestCase."""
+    midday, whatever the hour of the machine (otherwise it fails late at night). Put it before ServerTestCase.
+    Since v50.51 the server reads a departure's time in its centre's zone (Spain for the test centres), so the midday
+    is taken on the date it is in Madrid: between 22:00 and 24:00 UTC Madrid is already on the next day."""
     @classmethod
     def setUpClass(cls):
+        from datetime import datetime, timedelta, timezone
+        from zoneinfo import ZoneInfo
         cls._tz_before = os.environ.get('TZ')
-        off = (12 - time.gmtime().tm_hour) % 24
-        if off > 12: off -= 24
+        now = datetime.now(timezone.utc)
+        place_day = now.astimezone(ZoneInfo('Europe/Madrid')).date()
+        off = min((o for o in range(-12, 15) if (now + timedelta(hours=o)).date() == place_day),
+                  key=lambda o: abs((now + timedelta(hours=o)).hour - 12))
         os.environ['TZ'] = f'WOD{-off:+d}'; time.tzset()   # POSIX: «WOD-5» is UTC+5
         super().setUpClass()
 

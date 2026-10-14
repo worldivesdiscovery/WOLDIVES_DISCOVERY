@@ -39,6 +39,7 @@ NOT_IN_PRODUCTION = ['docs/pruebas/*', 'data/demo/*', 'data/pruebas/*', 'scripts
                      'scripts/herramientas/demo_centros_ficticios.py', 'README-PRUEBAS.md',
                      'tests/navegador/e2e_avisos.py',   # v50.47: walks the site with the test accounts
                      'tests/navegador/e2e_demo_v50_51.py', 'tests/navegador/inventario_botones.py', 'tests/carga/*',   # v50.51: on the demo database
+                     'tests/navegador/e2e_v50_54_moderacion.py', 'tests/navegador/e2e_v50_54_velocidad.py',   # v50.54: they sign in with the demo accounts
                      'docs/auditoria/*/botones-inventario.md']   # v50.51: element by element, with the demo accounts
 # In no zip: the archive of retired files, screenshots, repository files, runtime data, caches and temporary files.
 NOT_IN_ANY = ['_archivo/*', 'docs/capturas/*', '.github/*', '.gitignore', '.env', '.env.*', '*.pyc', '*/__pycache__/*', '*.log', 'logs/*',
