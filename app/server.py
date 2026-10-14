@@ -5180,11 +5180,21 @@ def points_box_fetch(db):
 
 
 def visitor_position(query):
-    """(lat, lon) rounded to about 1 km, or None. Only used to sort; never stored or logged (the query string never
-    reaches the access log)."""
+    """(lat, lon) rounded to about 100 m, or None. Only used to sort and measure; never stored or logged (the query
+    string never reaches the access log)."""
     lat=wgeo.coord((query.get('lat') or [''])[0],'lat'); lon=wgeo.coord((query.get('lon') or [''])[0],'lon')
     if lat is None or lon is None: return None
     return wgeo.round_coord(lat), wgeo.round_coord(lon)
+
+
+def distances_shown(query):
+    """v50.54: kilometres only for the visitor's own position with a known accuracy of 1 km or better (acc, metres).
+    A zone, a locality, a point of the map or an approximate position sorts by closeness without kilometres."""
+    return wgeo.precise((query.get('acc') or [''])[0])
+
+
+def without_km(items):
+    return [dict(x, distance_km=None) if isinstance(x, dict) and 'distance_km' in x else x for x in items]
 
 
 def point_directory(db, query):
@@ -5230,15 +5240,15 @@ def point_directory(db, query):
         page_rows=[(snap['by_id'][pid],km) for km,pid in found[(page-1)*per:page*per] if pid in snap['by_id']]
     else:
         page_rows=[(r,None) for r in rows[(page-1)*per:page*per]]
-    items=[]
+    items=[]; show_km=bool(here) and distances_shown(query)
     for r,km in page_rows:
         d=public_point_row(r)
         if here:
             if km is None and r['latitude'] is not None and r['longitude'] is not None: km=wgeo.haversine_km(here[0],here[1],r['latitude'],r['longitude'])
-            d['distance_km']=round(km,1) if km is not None else None
+            d['distance_km']=wgeo.shown_km(km,r['latitude'],r['longitude']) if km is not None and show_km else None
         if sort=='area': d['group']=point_group(r,home)
         items.append(d)
-    return {'items':items,'total':total,'page':page,'per_page':per,'pages':(total+per-1)//per,'sort':sort,'located':bool(here),'home_country':home,
+    return {'items':items,'total':total,'page':page,'per_page':per,'pages':(total+per-1)//per,'sort':sort,'located':bool(here),'distances':show_km,'home_country':home,
             'zones':[{'name':k,'count':v} for k,v in sorted(zf.items(),key=lambda x:-x[1])],
             'countries':[{'name':k,'count':v} for k,v in sorted(cf.items(),key=lambda x:(-x[1],x[0] or ''))]}
 
@@ -12170,7 +12180,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     except (TypeError, ValueError):
                         lat = lon = None
                     when = clean_text(query.get('cuando', [''])[0], 10)
-                    self.send_json(salidas_cercanas(db, lat, lon, when if when in ('hoy', 'manana', 'finde') else '', int(query.get('limite', ['20'])[0] or 20))); return
+                    out = salidas_cercanas(db, lat, lon, when if when in ('hoy', 'manana', 'finde') else '', int(query.get('limite', ['20'])[0] or 20))
+                    out['distances'] = lat is not None and distances_shown(query)
+                    if not out['distances']: out['items'] = without_km(out['items'])   # v50.54: sorted, but no km
+                    else: out['items'] = [dict(x, distance_km=wgeo.shown_km(x['distance_km'], x['lat'], x['lon'])) if x['distance_km'] is not None else x for x in out['items']]
+                    self.send_json(out); return
                 if path == '/api/top-dives':
                     # v50.53: «scope=home» is the Top 10 of the launch country (no location shared); otherwise the best
                     # dives near a position, by default among the closest ones («radius=auto»).
@@ -12180,7 +12194,12 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     raw=query.get('radius',['auto'])[0] or 'auto'
                     try: radius_km=None if raw=='auto' else max(5.0,min(float(TOP_RADII[-1]),float(raw)))
                     except (TypeError, ValueError): radius_km=None
-                    self.send_json(top_dives(db,here[0],here[1],radius_km)); return
+                    out=top_dives(db,here[0],here[1],radius_km)
+                    if distances_shown(query):
+                        out=dict(out,distances=True,items=[dict(x,distance_km=wgeo.shown_km(x['distance_km'],x['latitude'],x['longitude'])) for x in out['items']])
+                    else:   # v50.54: the same ranking, without kilometres (the cached answer is not modified)
+                        out=dict(out,distances=False,items=without_km(out['items']),nearest=without_km([out['nearest']])[0] if out.get('nearest') else None)
+                    self.send_json(out); return
                 if path == '/api/dive-areas':
                     self.send_json(dive_areas_payload(db)); return
                 if path.startswith('/api/dive-points/'):

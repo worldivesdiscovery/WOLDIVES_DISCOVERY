@@ -726,18 +726,23 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // ---------------------------------------------------------------------------
   // v50.53 · One location service for Explorar, «Puntos de buceo», Top 10 and the app (web, app mode and the Android
   // app through its Geolocation plugin). The position is asked only when the visitor presses a button or opens a
-  // section that needs it (Top 10), never when the web opens; it is rounded to about 1 km, kept in memory a few minutes
-  // and sent only to sort results (the server never stores it). Remembering that the visitor said no ('wd_loc' in this
+  // section that needs it (Top 10), never when the web opens; it is rounded to about 100 m, kept in memory a few minutes
+  // and sent only to sort results (the server never stores it). v50.54: kilometres are shown only when the position is
+  // precise (accuracy of 1 km or better, sent as «acc»); an approximate one (by IP, «ubicación aproximada») sorts
+  // without kilometres. A cached position older than one minute is not used. Remembering that the visitor said no ('wd_loc' in this
   // browser) is technical data, so we do not ask again on every visit; nothing else is kept.
   // ---------------------------------------------------------------------------
   const wdLocation=(()=>{
-    const KEY='wd_loc', FRESH_MS=5*60000;
+    const KEY='wd_loc', FRESH_MS=5*60000, PRECISE_M=1000;
     let last=null, lastAt=0, pending=null;
     const remember=v=>{ try{ v?localStorage.setItem(KEY,v):localStorage.removeItem(KEY); }catch{} };
     const remembered=()=>{ try{ return localStorage.getItem(KEY)||''; }catch{ return ''; } };
     const nativeGeo=()=>{ try{ return WD_APP?.native&&window.Capacitor?.Plugins?.Geolocation||null; }catch{ return null; } };
     const fail=code=>Object.assign(new Error(code),{code});
-    const keep=(lat,lon,acc)=>{ remember(''); last={lat:Math.round(lat*100)/100,lon:Math.round(lon*100)/100,accuracy:Math.round(Number(acc)||0)}; lastAt=Date.now(); return last; };
+    const keep=(lat,lon,acc)=>{ remember(''); last={lat:Math.round(lat*1000)/1000,lon:Math.round(lon*1000)/1000,accuracy:Math.round(Number(acc)||0)}; lastAt=Date.now(); return last; };
+    const precise=p=>!!p&&p.accuracy>0&&p.accuracy<=PRECISE_M;
+    // What the server needs to sort (lat, lon) and to know whether it may give kilometres (acc, metres).
+    const params=p=>p?{lat:String(p.lat),lon:String(p.lon),...(p.accuracy>0?{acc:String(p.accuracy)}:{})}:{};
     // 'granted' | 'prompt' | 'denied' (by the browser or remembered) | 'insecure' (http) | 'unsupported'
     async function permission(){
       const G=nativeGeo();
@@ -762,19 +767,22 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         if(G){ (async()=>{ let r=await G.checkPermissions().catch(()=>({}));
             if(![r.location,r.coarseLocation].includes('granted')) r=await G.requestPermissions({permissions:['location','coarseLocation']}).catch(()=>({}));
             if(![r.location,r.coarseLocation].includes('granted')){ bad('denied'); return; }
-            const p=await G.getCurrentPosition({enableHighAccuracy:false,timeout:Math.max(timeout,15000),maximumAge:600000}); good(p.coords.latitude,p.coords.longitude,p.coords.accuracy);
+            const p=await G.getCurrentPosition({enableHighAccuracy:true,timeout:Math.max(timeout,15000),maximumAge:60000}); good(p.coords.latitude,p.coords.longitude,p.coords.accuracy);
           })().catch(()=>bad('unavailable')); return; }
         if(!('geolocation' in navigator)){ bad('unsupported'); return; }
         if(window.isSecureContext===false){ bad('insecure'); return; }   // browsers only give the location over https (or localhost)
         navigator.geolocation.getCurrentPosition(p=>good(p.coords.latitude,p.coords.longitude,p.coords.accuracy),
           e=>bad(e&&e.code===1?'denied':e&&e.code===3?'timeout':'unavailable'),
-          {enableHighAccuracy:false,maximumAge:600000,timeout:Math.max(timeout,20000)});
+          {enableHighAccuracy:true,maximumAge:60000,timeout:Math.max(timeout,20000)});
       }).finally(()=>{ pending=null; });
       return pending;
     }
     const message=code=>({denied:'Has denegado el permiso de ubicación. Puedes activarlo en los ajustes del navegador.',insecure:'La ubicación solo funciona en una conexión segura (https).',unsupported:'Este navegador no permite obtener la ubicación.',timeout:'Tu ubicación está tardando demasiado.',unavailable:'No hemos podido obtener tu ubicación.'})[code]||'No hemos podido obtener tu ubicación.';
-    return {permission,get,message,forget:()=>remember(''),current:()=>(last&&Date.now()-lastAt<FRESH_MS?last:null)};
+    return {permission,get,message,precise,params,forget:()=>{ remember(''); last=null; },current:()=>(last&&Date.now()-lastAt<FRESH_MS?last:null)};
   })();
+  // The visitor on a map: a dot when the position is precise; an area as large as its error when it is approximate (v50.54).
+  const wdMeMarker=pos=>wdLocation.precise(pos)?L.circleMarker([pos.lat,pos.lon],{radius:7,color:'#fff',weight:2,fillColor:'#1a73e8',fillOpacity:1}).bindTooltip(translateString('Tu ubicación'))
+    :L.circle([pos.lat,pos.lon],{radius:Math.max(pos.accuracy||0,1000),color:'#1a73e8',weight:1,fillColor:'#1a73e8',fillOpacity:.12,interactive:true}).bindTooltip(translateString('Tu ubicación aproximada'));
   const wdKm=km=>km==null?'':`${Number(km).toLocaleString(wdLocale(),{maximumFractionDigits:km<10?1:0})} km`;
 
   // ---------------------------------------------------------------------------
@@ -812,7 +820,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if(place){ const d=await api('/api/point-directory?'+new URLSearchParams({sort:'distance',lat:place.lat,lon:place.lon,per_page:per})).catch(()=>null);
       if(d?.items?.length) return {title:`Los más cercanos a ${place.label}`,items:d.items,place}; }
     const me=wdLocation.current();
-    if(me){ const d=await api('/api/point-directory?'+new URLSearchParams({sort:'distance',lat:me.lat,lon:me.lon,per_page:per})).catch(()=>null);
+    if(me){ const d=await api('/api/point-directory?'+new URLSearchParams({sort:'distance',...wdLocation.params(me),per_page:per})).catch(()=>null);
       if(d?.items?.length) return {title:'Los más cercanos a ti',items:d.items,place:null}; }
     const d=await api('/api/point-directory?'+new URLSearchParams({sort:'area',per_page:per})).catch(()=>null);
     return {title:d?.home_country?`Puntos de buceo en ${d.home_country}`:'Puntos de buceo',items:d?.items||[],place:null};
@@ -834,7 +842,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         if(fit&&pts.length){ try{ map.fitBounds(L.latLngBounds(pts),{paddingTopLeft:[32,84],paddingBottomRight:[56,40],maxZoom:11}); }catch{} } },
       // Where the visitor is (rounded) and the searched place, drawn apart from the numbered points.
       mark({me:pos=null,place:pl=null}={}){ here=pos; place=pl; extra.clearLayers();
-        if(pos) L.circleMarker([pos.lat,pos.lon],{radius:7,color:'#fff',weight:2,fillColor:'#1a73e8',fillOpacity:1}).bindTooltip(translateString('Tu ubicación')).addTo(extra);
+        if(pos) wdMeMarker(pos).addTo(extra);
         if(pl) L.circleMarker([pl.lat,pl.lon],{radius:8,color:'#076898',weight:2,fillColor:'#fff',fillOpacity:1}).bindTooltip(escapeHtml(pl.label||'')).addTo(extra); },
       invalidate(){ setTimeout(()=>map.invalidateSize(),80); }};
   }
@@ -973,7 +981,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let layer; try{ layer=await loadMapLayer(); }catch(err){ $('#explore-map').innerHTML=`<div class="map-fallback"><strong>No se ha podido cargar el mapa</strong><span>${escapeHtml(err.message)}</span></div>`; return; }
     // v50.53: the map opens on the launch country; on the visitor when the location was already allowed.
     state.points=layer.items; setupZones($('#explore-zones'),layer.items); initMap('explore-map',layer.items,[40.2,-3.5],5);
-    let meMark=null; const goMe=pos=>{ if(!state.map||!window.L) return; meMark?.remove(); meMark=L.circleMarker([pos.lat,pos.lon],{radius:7,color:'#fff',weight:2,fillColor:'#1a73e8',fillOpacity:1}).bindTooltip(translateString('Tu ubicación')).addTo(state.map); state.map.flyTo([pos.lat,pos.lon],8,{duration:.8}); };
+    let meMark=null; const goMe=pos=>{ if(!state.map||!window.L) return; meMark?.remove(); meMark=wdMeMarker(pos).addTo(state.map); state.map.flyTo([pos.lat,pos.lon],8,{duration:.8}); };
     $('#ex-near').onclick=async e=>{ const b=e.currentTarget; b.disabled=true; wdLocation.forget();
       try{ goMe(await wdLocation.get()); }catch(err){ toast(wdLocation.message(err.code)); } b.disabled=false; };
     if(await wdLocation.permission()==='granted') wdLocation.get().then(goMe).catch(()=>{});
@@ -1048,7 +1056,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(p.group&&p.group!==lastGroup){ lastGroup=p.group; head=`<h3 class="pt-group">${escapeHtml(p.group)}</h3>`; }
       shown.push(p); return head+pointCard(p,shown.length); }).join('');
     const paintLocbar=(d,msg)=>{
-      if(st.here&&d?.located) locbar.innerHTML=`<p>${wdIcon('pin',16)}<span>Ordenados de más cerca a más lejos de tu ubicación.</span></p><button type="button" class="btn btn-sm" id="pt-by-area">Ver por zonas</button>`;
+      if(st.here&&d?.located) locbar.innerHTML=`<p>${wdIcon('pin',16)}<span>${d.distances?'Ordenados de más cerca a más lejos de tu ubicación.':'Ordenados por cercanía. Tu ubicación es aproximada: no mostramos distancias.'}</span></p><button type="button" class="btn btn-sm" id="pt-by-area">Ver por zonas</button>`;
       else locbar.innerHTML=`<p>${wdIcon('pin',16)}<span>${escapeHtml(translateString(msg||'Activa la ubicación para ver primero los más cercanos.'))}</span></p><button type="button" class="btn btn-sm btn-primary" id="pt-locate">Activar ubicación</button>`;
       translateTree(locbar);
       $('#pt-locate')?.addEventListener('click',locate); $('#pt-by-area')?.addEventListener('click',()=>{ st.sort='area'; load(); });
@@ -1058,7 +1066,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(!append){ st.page=1; shown=[]; lastGroup=''; grid.innerHTML=skeleton(6); more.hidden=true; count.textContent=translateString('Buscando puntos…'); }
       more.disabled=true;
       const qs=new URLSearchParams({q:st.q,zone:st.zone,country:st.country,type:st.type,level:st.level,only:st.only,sort:st.sort,page:String(st.page),per_page:'12'});
-      if(st.here){ qs.set('lat',st.here.lat); qs.set('lon',st.here.lon); }
+      if(st.here) Object.entries(wdLocation.params(st.here)).forEach(([k,v])=>qs.set(k,v));
       for(const k of [...qs.keys()]) if(!qs.get(k)) qs.delete(k);
       let d;
       try{ d=await fetchPointDirectory(qs); }
@@ -1625,15 +1633,16 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const radius=radiusSel.value;
       loading(label?`Top 10 cerca de ${label}`:'Top 10 cerca de ti');
       try{
-        const d=await api('/api/top-dives?'+new URLSearchParams({lat,lon,radius}));
+        const d=await api('/api/top-dives?'+new URLSearchParams({lat,lon,radius,...(acc>0?{acc}:{})}));
         if(mine!==seq||!alive()) return;
         const items=d.items||[];
         title.textContent=translateString(label?`Top 10 cerca de ${label}`:'Top 10 cerca de ti');
-        sub.textContent=translateString(d.auto?`Los mejores buceos a menos de ${d.radius_km} km`:`Hasta ${radius} km a la redonda`)+(acc&&acc>5000?' · '+translateString(`tu ubicación es aproximada (± ${Math.round(acc/1000)} km)`):'')+'.';
+        // v50.54: an approximate position (more than 1 km of error) still sorts, but shows no kilometres.
+        sub.textContent=translateString(d.auto?`Los mejores buceos a menos de ${d.radius_km} km`:`Hasta ${radius} km a la redonda`)+(acc>0&&!d.distances?' · '+translateString(`tu ubicación es aproximada (± ${wdKm(acc/1000)}): no mostramos distancias`):'')+'.';
         status.innerHTML=items.length?escapeHtml(translateString(d.has_reviews?'Ordenado por la valoración de los centros que bucean en cada punto y por cercanía.':'Aún no hay reseñas en esta zona: el orden combina el catálogo y la cercanía.')):'';
         const nx=d.nearest;
         list.removeAttribute('aria-busy');
-        list.innerHTML=items.length?items.map(top10Card).join(''):`<div class="empty cd-empty"><h3>No hay puntos a menos de ${radius} km</h3>${nx?`<p>El punto de buceo más cercano es <a href="${pointHref(nx.id)}">${escapeHtml(nx.name)}</a> (${escapeHtml([nx.subregion||nx.region,nx.country].filter(Boolean).join(', '))}), a ${escapeHtml(wdKm(nx.distance_km))}.</p>`:''}<button type="button" class="btn btn-primary" id="tt-auto">Ver lo más cerca</button></div>`;
+        list.innerHTML=items.length?items.map(top10Card).join(''):`<div class="empty cd-empty"><h3>No hay puntos a menos de ${radius} km</h3>${nx?`<p>El punto de buceo más cercano es <a href="${pointHref(nx.id)}">${escapeHtml(nx.name)}</a> (${escapeHtml([nx.subregion||nx.region,nx.country].filter(Boolean).join(', '))})${nx.distance_km!=null?`, a ${escapeHtml(wdKm(nx.distance_km))}`:''}.</p>`:''}<button type="button" class="btn btn-primary" id="tt-auto">Ver lo más cerca</button></div>`;
         $('#tt-auto')?.addEventListener('click',()=>{ radiusSel.value='auto'; load(lat,lon,label,acc); });
         translateTree(list);
       }catch(e){ if(mine===seq&&alive()) failed(e.message); }

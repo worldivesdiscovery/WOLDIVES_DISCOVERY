@@ -105,9 +105,12 @@ class AppServer(ServerTestCase):
         x = [i for i in items if i['slot_id'] == a][0]
         self.assertEqual((x['price'], x['spots_left'], x['booking_mode'], x['instant']), (45, 6, 'payment', True))
         self.assertEqual(x['provider_name'], 'Centro cerca')
-        items = anon.get('/api/salidas-cercanas?cuando=manana&lat=38.80&lon=0.17').json['items']
+        items = anon.get('/api/salidas-cercanas?cuando=manana&lat=38.80&lon=0.17&acc=25').json['items']
         self.assertEqual([i['slot_id'] for i in items][:2], [a, b])     # with a position: the closest first
         self.assertLess(items[0]['distance_km'], 5); self.assertGreater(items[1]['distance_km'], 300)
+        # v50.54: an approximate position (or none said) sorts the same, without kilometres
+        rough = anon.get('/api/salidas-cercanas?cuando=manana&lat=38.80&lon=0.17&acc=8000').json['items']
+        self.assertEqual([i['slot_id'] for i in rough][:2], [a, b]); self.assertIsNone(rough[0]['distance_km'])
         default = [i['slot_id'] for i in anon.get('/api/salidas-cercanas').json['items']]
         self.assertIn(later, default); self.assertNotIn(outside, default)   # default: the next 14 days
         # a centre that is no longer public disappears from the list

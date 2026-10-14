@@ -6,7 +6,12 @@ enough. Areas («Costa Brava», «Canarias»…) are rows of the dive_areas tabl
 needs no change here.
 
 The visitor's position is used to sort and nothing else: it is never stored, never linked to the account and arrives
-already rounded to about one kilometre (round_coord).
+already rounded (round_coord).
+
+v50.54 (owner's brief, point 5: «from Jávea, Cabo San Antonio at 556 km»): a distance is shown only when it can be
+trusted. The browser sends the accuracy of the position it got (acc, in metres); kilometres are given only when it is
+PRECISE_M or better. An approximate position (by IP, «ubicación aproximada» of Android, an old cached one), a zone, a
+locality or a point picked on the map still sorts by closeness, but without kilometres.
 """
 from __future__ import annotations
 
@@ -33,9 +38,36 @@ def coord(value, kind: str) -> float | None:
     return v if -limit <= v <= limit else None
 
 
-def round_coord(value: float, places: int = 2) -> float:
-    """About 1 km at 2 decimals: enough to sort by distance, not enough to say where someone is."""
+def round_coord(value: float, places: int = 3) -> float:
+    """About 100 m at 3 decimals (v50.54; 2 decimals, about 1 km, made «0,4 km» wrong by up to 0,8 km). It is used to
+    sort and to measure, never stored."""
     return round(float(value), places)
+
+
+PRECISE_M = 1000.0   # a position with a larger error (or none) never gives kilometres
+
+
+def coarse(lat, lon) -> bool:
+    """Coordinates written with 2 decimals or fewer (about 1 km of error): many catalogue sites are like that."""
+    def places(v):
+        t = repr(float(v))
+        return len(t.split('.')[1].rstrip('0')) if '.' in t and 'e' not in t else 0
+    try: return min(places(lat), places(lon)) <= 2
+    except (TypeError, ValueError): return True
+
+
+def shown_km(km, lat, lon):
+    """The distance as shown: whole kilometres when the site's own coordinates are coarse (never «2,4 km» when it
+    may be 1,7 or 3,1), one decimal otherwise."""
+    if km is None: return None
+    return float(round(km)) if coarse(lat, lon) else round(km, 1)
+
+
+def precise(accuracy) -> bool:
+    """True when the browser said how accurate the position is and it is PRECISE_M or better."""
+    try: a = float(accuracy)
+    except (TypeError, ValueError): return False
+    return math.isfinite(a) and 0 < a <= PRECISE_M
 
 
 def box(lat: float, lon: float, km: float) -> tuple[float, float, list[tuple[float, float]]]:

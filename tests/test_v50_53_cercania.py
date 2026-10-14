@@ -89,18 +89,22 @@ class Cercania(ServerTestCase):
     def test_with_position_closest_first_with_km(self):
         everything = self.active_points()
         for lat, lon in (MADRID, VALENCIA, TENERIFE):
-            d = self.directory(f'lat={lat}&lon={lon}&per_page=24')
+            d = self.directory(f'lat={lat}&lon={lon}&acc=20&per_page=24')
             self.assertEqual((d['sort'], d['located']), ('distance', True))
             km = [x['distance_km'] for x in d['items']]
-            self.assertEqual(km, sorted(km))
-            want = [round(k, 1) for k, _ in brute(everything, lat, lon)[:24]]
+            # v50.54: shown in whole km when the site's coordinates have 2 decimals or fewer (no false decimals), so the
+            # shown numbers may step back by less than 1 km; the order is the one of the real distances.
+            self.assertTrue(all(b >= a - 1 for a, b in zip(km, km[1:])), km)
+            coords = {pid: (la, lo) for pid, la, lo in everything}
+            want = [geo.shown_km(k, *coords[pid]) for k, pid in brute(everything, lat, lon)[:24]]
             self.assertEqual(km, want, (lat, lon))
-            d2 = self.directory(f'lat={lat}&lon={lon}&per_page=24&page=2')
-            self.assertGreaterEqual(d2['items'][0]['distance_km'], km[-1])
+            self.assertEqual([x['id'] for x in d['items']], [pid for _, pid in brute(everything, lat, lon)[:24]])
+            d2 = self.directory(f'lat={lat}&lon={lon}&acc=20&per_page=24&page=2')
+            self.assertGreaterEqual(d2['items'][0]['distance_km'], km[-1] - 1)
             self.assertFalse({x['id'] for x in d['items']} & {x['id'] for x in d2['items']})
         # From Tenerife the closest are in the Canaries; from Valencia, on its coast.
-        self.assertLess(self.directory('lat=28.29&lon=-16.63&per_page=3')['items'][0]['distance_km'], 60)
-        self.assertLess(self.directory('lat=39.47&lon=-0.38&per_page=3')['items'][0]['distance_km'], 120)
+        self.assertLess(self.directory('lat=28.29&lon=-16.63&acc=20&per_page=3')['items'][0]['distance_km'], 60)
+        self.assertLess(self.directory('lat=39.47&lon=-0.38&acc=20&per_page=3')['items'][0]['distance_km'], 120)
 
     def test_without_position_spain_first_by_area(self):
         d = self.directory('per_page=60')
@@ -156,17 +160,17 @@ class Cercania(ServerTestCase):
         self.assertNotIn('-3.70', logs)
 
     def test_top10_with_permission(self):
-        madrid = self.c.get('/api/top-dives?lat=40.42&lon=-3.70').json
+        madrid = self.c.get('/api/top-dives?lat=40.42&lon=-3.70&acc=20').json
         self.assertEqual((madrid['scope'], madrid['auto']), ('near', True))
         self.assertIn(madrid['radius_km'], (25, 50, 100, 250, 500, 1000, 2500))
         self.assertEqual(len(madrid['items']), 10)
         self.assertTrue(all(x['distance_km'] <= madrid['radius_km'] for x in madrid['items']))
-        valencia = self.c.get('/api/top-dives?lat=39.47&lon=-0.38&radius=auto').json
+        valencia = self.c.get('/api/top-dives?lat=39.47&lon=-0.38&radius=auto&acc=20').json
         self.assertLess(valencia['radius_km'], madrid['radius_km'])       # the coast has dive sites closer
-        canarias = self.c.get('/api/top-dives?lat=28.29&lon=-16.63').json
+        canarias = self.c.get('/api/top-dives?lat=28.29&lon=-16.63&acc=20').json
         self.assertTrue(canarias['items'] and all(x['country'] == 'España' for x in canarias['items']))
         # Same zone of about 11 km: the same answer (kept per snapshot).
-        self.assertEqual(self.c.get('/api/top-dives?lat=40.43&lon=-3.71').json['items'], madrid['items'])
+        self.assertEqual(self.c.get('/api/top-dives?lat=40.43&lon=-3.71&acc=20').json['items'], madrid['items'])
 
     def test_top10_without_permission_is_spain(self):
         home = self.c.get('/api/top-dives?scope=home').json
@@ -175,7 +179,7 @@ class Cercania(ServerTestCase):
         self.assertTrue(all(x['country'] == 'España' and 'distance_km' not in x for x in home['items']))
 
     def test_top10_fixed_radius_with_nothing_inside(self):
-        d = self.c.get(f'/api/top-dives?lat={PACIFICO[0]}&lon={PACIFICO[1]}&radius=25').json
+        d = self.c.get(f'/api/top-dives?lat={PACIFICO[0]}&lon={PACIFICO[1]}&radius=25&acc=20').json
         self.assertEqual((d['items'], d['radius_km']), ([], 25.0))
         self.assertTrue(d['nearest'] and d['nearest']['distance_km'] > 25)
 

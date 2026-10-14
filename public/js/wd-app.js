@@ -306,7 +306,7 @@
     box.innerHTML = esqueleto(2);
     const q = new URLSearchParams({ limite: '12' });
     if (mem.cuando && mem.cuando !== 'cerca') q.set('cuando', mem.cuando);
-    if (mem.pos) { q.set('lat', mem.pos.lat.toFixed(3)); q.set('lon', mem.pos.lon.toFixed(3)); }
+    if (mem.pos) Object.entries(W.wdLocation.params(mem.pos)).forEach(([k, v]) => q.set(k, v));   // v50.54: km only if precise
     let d;
     try { d = await api('/api/salidas-cercanas?' + q); } catch (e) { if (vivo(box)) box.innerHTML = `<div class="tarjeta vacio"><p>${esc(T('No se han podido cargar las salidas.'))}</p><button class="wbtn sec mini" type="button" data-reintentar>${T('Reintentar')}</button></div>`; $('[data-reintentar]', box)?.addEventListener('click', () => cargarSalidas(root)); return; }
     if (!vivo(box)) return;
@@ -571,7 +571,7 @@
           const d = await api('/api/centers');
           ex.todos = (d.items || []).filter((c) => c.latitude != null && c.longitude != null).map((c) => ({ k: 'c' + c.id, tipo: 'centro', id: c.id, nombre: c.name, lat: +c.latitude, lon: +c.longitude, sub: [c.city, c.country].filter(Boolean).join(' · '), logo: c.logo_url, href: `#/centro?id=${c.id}` }));
         } else if (ex.ver === 'salidas') {
-          const q = new URLSearchParams({ limite: '50' }); if (mem.pos) { q.set('lat', mem.pos.lat.toFixed(3)); q.set('lon', mem.pos.lon.toFixed(3)); }
+          const q = new URLSearchParams({ limite: '50' }); if (mem.pos) Object.entries(W.wdLocation.params(mem.pos)).forEach(([k, v]) => q.set(k, v));
           const d = await api('/api/salidas-cercanas?' + q);
           (d.items || []).forEach((s) => mem.salidas.set(String(s.slot_id), s));
           // Departures of a centre that has not placed itself on the map: in the list, never on the map.

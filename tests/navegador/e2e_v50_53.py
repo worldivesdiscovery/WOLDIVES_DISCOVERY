@@ -132,7 +132,7 @@ def run(shots: Path | None):
             def session(width=1366, mobile=False, geo=None, grant=False, init=None, lang='es-ES', scheme='light'):
                 kw = {'viewport': {'width': width, 'height': 900 if width > 500 else 780}, 'locale': lang, 'color_scheme': scheme}
                 if mobile: kw.update(is_mobile=True, has_touch=True, device_scale_factor=2)
-                if geo: kw['geolocation'] = {'latitude': geo[0], 'longitude': geo[1]}
+                if geo: kw['geolocation'] = {'latitude': geo[0], 'longitude': geo[1], 'accuracy': 20}   # v50.54: km only when precise
                 kw['permissions'] = ['geolocation'] if grant else []
                 ctx = browser.new_context(**kw)
                 ctx.add_init_script("try{localStorage.setItem('wd_cookie_notice',String(Date.now()))}catch(e){}")
@@ -180,7 +180,7 @@ def run(shots: Path | None):
                 shot(pg, f'top10-{name}')
                 go(pg, '#/puntos', 3000); d = puntos(pg)
                 kms = [float(re.sub(r'[^\d,.]', '', c['km']).replace(',', '.') or 0) for c in d['cards']]
-                check(f'puntos {name}: del más cercano al más lejano, km en cada tarjeta', d['sort'] == 'distance' and kms and kms == sorted(kms) and all(c['km'] for c in d['cards']), d['cards'][:4])
+                check(f'puntos {name}: del más cercano al más lejano, km en cada tarjeta', d['sort'] == 'distance' and kms and all(b >= a - 1 for a, b in zip(kms, kms[1:])) and all(c['km'] for c in d['cards']), d['cards'][:4])
                 check(f'puntos {name}: mapa y lista con los mismos puntos y el mismo orden', [c['n'] for c in d['cards']] == d['markers'][:len(d['cards'])] and len(d['markers']) == len(d['cards']),
                       ([c['n'] for c in d['cards']][:6], d['markers'][:6]))
                 shot(pg, f'puntos-{name}')
