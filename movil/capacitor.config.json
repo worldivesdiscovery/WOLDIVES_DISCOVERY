@@ -5,7 +5,7 @@
   "backgroundColor": "#011C3C",
   "appendUserAgent": "WorldivesApp/1.0",
   "server": {
-    "url": "https://worlddivesdiscovery.com",
+    "url": "https://worldivesdiscovery.com",
     "errorPath": "sin-conexion.html"
   },
   "android": {

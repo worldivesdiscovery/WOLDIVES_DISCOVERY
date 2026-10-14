@@ -1,6 +1,6 @@
 # Instalar WORLDIVES DISCOVERY en Hostinger (VPS KVM 2, paquete de PRODUCCIÓN, v50.52)
 
-Guía paso a paso para poner la web en **https://worlddivesdiscovery.com** con el zip
+Guía paso a paso para poner la web en **https://worldivesdiscovery.com** con el zip
 `worldives-v50.52-PRODUCCION.zip`, según el encargo de despliegue del 14/10/2026. Cada paso termina con una
 **comprobación**. Al final, `scripts/despliegue/comprobar_lanzamiento.py` revisa en el propio servidor toda la lista de
 antes de abrir (paso 14).
@@ -11,7 +11,7 @@ código, en el repositorio, en un correo ni en un chat.**
 
 ## 0. Antes de empezar
 
-- La cuenta de Hostinger donde está el dominio `worlddivesdiscovery.com` (se queda en Hostinger; solo se cambian sus DNS).
+- La cuenta de Hostinger donde está el dominio `worldivesdiscovery.com` (se queda en Hostinger; solo se cambian sus DNS).
 - Un **gestor de contraseñas** (Bitwarden, 1Password, KeePassXC…) para las claves del servidor.
 - Una **clave SSH** en tu ordenador. Si no tienes, créala (Windows 10/11, macOS y Linux):
 
@@ -42,7 +42,7 @@ En hPanel → **VPS** → contratar **KVM 2** (2 vCPU, 8 GB de RAM, 100 GB NVMe)
 
 ## 2. DNS del dominio (en Hostinger)
 
-hPanel → **Dominios** → `worlddivesdiscovery.com` → **DNS / Nameservers**. Borra los registros `A`/`AAAA` antiguos de
+hPanel → **Dominios** → `worldivesdiscovery.com` → **DNS / Nameservers**. Borra los registros `A`/`AAAA` antiguos de
 `@` y `www` (los del alojamiento web o de «aparcado») y crea:
 
 | Tipo | Nombre | Valor | TTL |
@@ -56,8 +56,8 @@ hPanel → **Dominios** → `worlddivesdiscovery.com` → **DNS / Nameservers**.
 No toques los registros del correo (MX, SPF, DKIM, DMARC): son del proveedor de correo (`docs/despliegue/README.md`,
 apartado 10).
 
-**Comprobación** (desde tu ordenador, puede tardar de minutos a unas horas): `nslookup worlddivesdiscovery.com`,
-`nslookup www.worlddivesdiscovery.com` y `nslookup pruebas.worlddivesdiscovery.com` devuelven la IP del VPS.
+**Comprobación** (desde tu ordenador, puede tardar de minutos a unas horas): `nslookup worldivesdiscovery.com`,
+`nslookup www.worldivesdiscovery.com` y `nslookup pruebas.worldivesdiscovery.com` devuelven la IP del VPS.
 
 ## 3. Acceso solo con clave SSH, sin root
 
@@ -164,7 +164,7 @@ una copia. Lo mínimo del `.env`:
 
 ```ini
 WOD_ENV=production
-WOD_PUBLIC_URL=https://worlddivesdiscovery.com
+WOD_PUBLIC_URL=https://worldivesdiscovery.com
 WOD_SECRET_KEY=<clave 1>
 WOD_DATA_KEY=<clave 2>
 WOD_BACKUP_KEY=<clave 3>
@@ -191,19 +191,19 @@ sudo cp docs/despliegue/Caddyfile /etc/caddy/Caddyfile
 sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
 ```
 
-El bloque `pruebas.worlddivesdiscovery.com` del `Caddyfile` lleva un hash de ejemplo: hasta el paso 13 esa dirección
+El bloque `pruebas.worldivesdiscovery.com` del `Caddyfile` lleva un hash de ejemplo: hasta el paso 13 esa dirección
 pide una contraseña que nadie tiene, que es lo correcto.
 
-Entra en https://worlddivesdiscovery.com con el administrador: lo primero es activar la **verificación en dos pasos**
+Entra en https://worldivesdiscovery.com con el administrador: lo primero es activar la **verificación en dos pasos**
 (obligatoria; sin ella solo llega a «Mi cuenta»). Guarda los códigos de recuperación en el gestor.
 
 **Comprobación:**
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' http://worlddivesdiscovery.com/api/health      # 403 (la API nunca por http)
-curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://www.worlddivesdiscovery.com/centros   # 301 https://worlddivesdiscovery.com/centros
-curl -s https://worlddivesdiscovery.com/api/health                                        # {"ok": true, "version": "50.52"}
-echo | openssl s_client -connect worlddivesdiscovery.com:443 -servername worlddivesdiscovery.com 2>/dev/null | openssl x509 -noout -issuer   # Let's Encrypt
+curl -s -o /dev/null -w '%{http_code}\n' http://worldivesdiscovery.com/api/health      # 403 (la API nunca por http)
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://www.worldivesdiscovery.com/centros   # 301 https://worldivesdiscovery.com/centros
+curl -s https://worldivesdiscovery.com/api/health                                        # {"ok": true, "version": "50.52"}
+echo | openssl s_client -connect worldivesdiscovery.com:443 -servername worldivesdiscovery.com 2>/dev/null | openssl x509 -noout -issuer   # Let's Encrypt
 ```
 
 ## 10. Antivirus (ClamAV, V5.4.3)
@@ -254,9 +254,9 @@ Así los registros quedan fuera del VPS y quien entrara en él no podría borrar
    |---|---|---|
    | Varios errores 500 seguidos | `servicio = caddy` y `estado >= 500`: 5 o más en 10 minutos | Para el servicio (`sudo systemctl stop worldives`): Caddy responde 502; vuelve a arrancarlo |
    | Pico de inicios de sesión fallidos o bloqueos | `tipo = login_failed`: 20 o más en 5 minutos; o `tipo` en `login_blocked`, `login_bruteforce` | Falla la contraseña varias veces desde el móvil con datos |
-   | Firmas falsas de Stripe o WhatsApp | `tipo` en `stripe_bad_signature`, `webhook_bad_signature`, `integration_bad_key`: 1 o más | `curl -X POST https://worlddivesdiscovery.com/api/payments/webhook -H 'Stripe-Signature: t=1,v1=00' -d '{}'` |
+   | Firmas falsas de Stripe o WhatsApp | `tipo` en `stripe_bad_signature`, `webhook_bad_signature`, `integration_bad_key`: 1 o más | `curl -X POST https://worldivesdiscovery.com/api/payments/webhook -H 'Stripe-Signature: t=1,v1=00' -d '{}'` |
    | Accesos denegados repetidos de una cuenta | `tipo = access_denied` agrupado por `datos.usuario`: 10 o más en 10 minutos | Con una cuenta de buceador de prueba, abre varias veces `/api/admin/health` |
-   | La web no responde | Monitor de disponibilidad (*Uptime*) sobre `https://worlddivesdiscovery.com/api/health`, cada 3 minutos, que espere 200 y la palabra `ok` | Para el servicio un momento |
+   | La web no responde | Monitor de disponibilidad (*Uptime*) sobre `https://worldivesdiscovery.com/api/health`, cada 3 minutos, que espere 200 y la palabra `ok` | Para el servicio un momento |
 
 **Comprobación:** en *Live tail* de la fuente aparecen líneas `servicio: caddy` al abrir la web y `tipo: login_failed`
 al fallar una contraseña; cada alerta de la tabla ha enviado su correo.
@@ -283,7 +283,7 @@ reservas tiene, y lo anota en `/var/log/worldives/restauracion.log`. Repítela u
 **Comprobación:** el script termina con «Prueba de restauración correcta» y el *Estado del sistema* muestra la copia
 externa en verde.
 
-## 13. Entorno de pruebas: https://pruebas.worlddivesdiscovery.com
+## 13. Entorno de pruebas: https://pruebas.worldivesdiscovery.com
 
 Con el **mismo zip de PRODUCCIÓN** (nunca el de DEMO: el servidor se niega a arrancar en modo demo con este dominio o
 sus subdominios), su propio usuario, carpeta, base, `.env` y copias, y detrás de una contraseña.
@@ -297,7 +297,7 @@ cd /opt/worldives-pruebas && sudo -u worldives-pruebas python3 -m venv .venv && 
 sudo -u worldives-pruebas cp .env.example .env && sudo chmod 600 .env && sudo -u worldives-pruebas nano .env
 ```
 
-En su `.env`: `WOD_ENV=production`, `WOD_PUBLIC_URL=https://pruebas.worlddivesdiscovery.com`, `WOD_PORT=8001`,
+En su `.env`: `WOD_ENV=production`, `WOD_PUBLIC_URL=https://pruebas.worldivesdiscovery.com`, `WOD_PORT=8001`,
 **claves nuevas propias** (no las de producción), `WOD_BACKUP_DIR=/var/backups/worldives-pruebas`,
 `WOD_AV_COMMAND` como en producción y **Stripe solo con claves de prueba** (`sk_test_…`). Después:
 
@@ -309,7 +309,7 @@ sudo nano /etc/caddy/Caddyfile                     # bloque pruebas: «equipo <h
 sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
 ```
 
-**Comprobación:** `curl -s -o /dev/null -w '%{http_code}\n' https://pruebas.worlddivesdiscovery.com/` → `401`; con
+**Comprobación:** `curl -s -o /dev/null -w '%{http_code}\n' https://pruebas.worldivesdiscovery.com/` → `401`; con
 la contraseña, la web de pruebas. **Nunca se copian ahí datos reales.**
 
 ## 14. Comprobar la lista de antes de abrir

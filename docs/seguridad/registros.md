@@ -70,4 +70,4 @@ Por correo al titular, que es quien las atiende (procedimiento de brechas: `docs
 | Pico de inicios de sesión fallidos o bloqueos | `login_failed`: 20 o más en 5 minutos; o cualquier `login_blocked` / `login_bruteforce` |
 | Firmas falsas de Stripe o de WhatsApp | Cualquier `stripe_bad_signature`, `webhook_bad_signature` o `integration_bad_key` |
 | Accesos denegados repetidos de una misma cuenta | `access_denied` de un mismo número de persona: 10 o más en 10 minutos |
-| La web no responde | Monitor de disponibilidad sobre `https://worlddivesdiscovery.com/api/health` cada 3 minutos |
+| La web no responde | Monitor de disponibilidad sobre `https://worldivesdiscovery.com/api/health` cada 3 minutos |

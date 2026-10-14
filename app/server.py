@@ -1573,7 +1573,7 @@ def point_text(db, pid, lang):
     return r['description'] if r else None
 
 
-PRODUCTION_DOMAIN = 'worlddivesdiscovery.com'   # v50.52: the real site; www and pruebas are subdomains of it
+PRODUCTION_DOMAIN = 'worldivesdiscovery.com'   # v50.52: the real site; www and pruebas are subdomains of it
 
 
 def demo_guard():
@@ -15221,7 +15221,7 @@ def system_status(db):
 def check_production_settings():
     """WOD_ENV=production refuses to start with unsafe settings."""
     problems = []
-    if not wcfg.public_url(): problems.append('WOD_PUBLIC_URL es obligatorio en producción (por ejemplo https://worlddivesdiscovery.com).')
+    if not wcfg.public_url(): problems.append('WOD_PUBLIC_URL es obligatorio en producción (por ejemplo https://worldivesdiscovery.com).')
     elif not wcfg.public_url().startswith('https://'): problems.append('WOD_PUBLIC_URL debe empezar por https:// en producción.')
     if wcfg.env_flag('WOD_ALLOW_SETUP'): problems.append('WOD_ALLOW_SETUP=1 no se permite en producción: crea el administrador con --create-admin.')
     if len(wcfg.env('WOD_SECRET_KEY')) < 32: problems.append('Define WOD_SECRET_KEY con al menos 32 caracteres aleatorios.')

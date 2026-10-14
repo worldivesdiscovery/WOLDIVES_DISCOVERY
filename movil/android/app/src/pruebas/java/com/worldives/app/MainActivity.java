@@ -13,7 +13,7 @@ import org.json.JSONObject;
 /**
  * WORLDIVES Pruebas. Without a saved server it opens the entry screen packed in the app (assets/public/index.html),
  * where the tester writes the address of the test server (the computer that runs the «pruebas» zip). With a saved
- * server, the app loads that server, like the production app loads https://worlddivesdiscovery.com.
+ * server, the app loads that server, like the production app loads https://worldivesdiscovery.com.
  */
 public class MainActivity extends BridgeActivity {
 

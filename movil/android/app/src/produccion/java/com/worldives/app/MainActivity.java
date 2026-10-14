@@ -3,7 +3,7 @@ package com.worldives.app;
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
 
-/** WORLDIVES: the web of WORLDIVES (https://worlddivesdiscovery.com) inside the app, with the native plugins. */
+/** WORLDIVES: the web of WORLDIVES (https://worldivesdiscovery.com) inside the app, with the native plugins. */
 public class MainActivity extends BridgeActivity {
 
     @Override

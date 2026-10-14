@@ -25,7 +25,7 @@ Copia `.env.example` a `/opt/worldives/.env`, rellénalo y protégelo (`chmod 60
 
 ```ini
 WOD_ENV=production
-WOD_PUBLIC_URL=https://worlddivesdiscovery.com
+WOD_PUBLIC_URL=https://worldivesdiscovery.com
 WOD_SECRET_KEY=<64 caracteres aleatorios: python3 -c "import secrets;print(secrets.token_urlsafe(48))">
 WOD_HOST=127.0.0.1
 WOD_PORT=8000
@@ -70,7 +70,7 @@ journalctl -u worldives -f          # registro
 
 ## 6. Entorno de pruebas separado
 
-Otra carpeta (`/opt/worldives-pruebas`) con el **mismo zip de PRODUCCIÓN**, otro usuario, otra base, otro `.env` (`WOD_PORT=8001`, claves propias, **claves de prueba de Stripe**) y otro servicio (`docs/despliegue/worldives-pruebas.service`), en `pruebas.worlddivesdiscovery.com` con contraseña (bloque del `Caddyfile`). El paquete DEMO nunca va al servidor real: el servidor se niega a arrancar con `WOD_DEMO_MODE=1` en `worlddivesdiscovery.com` y en cualquiera de sus subdominios (v50.52). **Nunca se prueba con la base real**: para reproducir algo, se restaura una copia en pruebas y se anonimiza.
+Otra carpeta (`/opt/worldives-pruebas`) con el **mismo zip de PRODUCCIÓN**, otro usuario, otra base, otro `.env` (`WOD_PORT=8001`, claves propias, **claves de prueba de Stripe**) y otro servicio (`docs/despliegue/worldives-pruebas.service`), en `pruebas.worldivesdiscovery.com` con contraseña (bloque del `Caddyfile`). El paquete DEMO nunca va al servidor real: el servidor se niega a arrancar con `WOD_DEMO_MODE=1` en `worldivesdiscovery.com` y en cualquiera de sus subdominios (v50.52). **Nunca se prueba con la base real**: para reproducir algo, se restaura una copia en pruebas y se anonimiza.
 
 ## 7. Copias de seguridad
 
@@ -112,7 +112,7 @@ Anota en la lista de lanzamiento la fecha de la última prueba de restauración.
 
 ## 8. Monitorización y avisos
 
-- **Monitor externo**: Better Stack (región UE) contra `https://worlddivesdiscovery.com/api/health` cada 3 minutos, con aviso por correo, junto con los registros y las alertas (`GUIA-VPS.md`, paso 11).
+- **Monitor externo**: Better Stack (región UE) contra `https://worldivesdiscovery.com/api/health` cada 3 minutos, con aviso por correo, junto con los registros y las alertas (`GUIA-VPS.md`, paso 11).
 - **Errores 500 repetidos:** si hay 5 en 10 minutos (`WOD_ALERT_ERRORS`, `WOD_ALERT_WINDOW_MIN`), se envía un email a los administradores (como mucho uno por hora).
 - **Administración → Operación:** versión, tiempo en marcha, integridad de la base, últimas copias, cola de correos, errores recientes, disco libre y ajustes pendientes.
 - **Aviso de mantenimiento o incidencia:** en *Administración → Operación* se publica un texto que aparece arriba en toda la web durante las horas que elijas. Opcionalmente se envía un email a todos los centros y profesionales.
@@ -129,7 +129,7 @@ Las migraciones solo añaden y transforman, sin borrar datos; las que reescriben
 **Prueba de carga** (`scripts/herramientas/prueba_carga.py`): visitantes simultáneos que navegan por la portada, el mapa, el directorio de centros, la lista de puntos y las fichas. **Repítela en el servidor real** (en el entorno de pruebas, con la misma máquina):
 
 ```bash
-python3 scripts/herramientas/prueba_carga.py --url https://pruebas.worlddivesdiscovery.com --users 100 --seconds 60
+python3 scripts/herramientas/prueba_carga.py --url https://pruebas.worldivesdiscovery.com --users 100 --seconds 60
 ```
 
 Resultados de referencia, medidos en una máquina de 4 núcleos con el cliente en la misma máquina (orientativos; el servidor real dará otras cifras):

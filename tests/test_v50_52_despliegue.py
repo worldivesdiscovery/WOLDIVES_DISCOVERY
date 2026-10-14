@@ -1,4 +1,4 @@
-"""v50.52 · despliegue en Hostinger KVM 2 (encargo del 14/10/2026): dominio worlddivesdiscovery.com, proxy, cortafuegos,
+"""v50.52 · despliegue en Hostinger KVM 2 (encargo del 14/10/2026): dominio worldivesdiscovery.com, proxy, cortafuegos,
 antivirus comprobado de verdad, registros para Better Stack y el comprobador de la lista de lanzamiento. Lo que necesita
 programas del VPS (caddy, ufw, clamd, vector, systemd) se prueba cuando están instalados y se salta si no."""
 import importlib.util
@@ -47,7 +47,7 @@ To                         Action      From
 
 
 class Dominio(unittest.TestCase):
-    """El dominio real es worlddivesdiscovery.com; www va a la raíz y pruebas.* está aparte y con contraseña."""
+    """El dominio real es worldivesdiscovery.com; www va a la raíz y pruebas.* está aparte y con contraseña."""
 
     def test_no_reference_to_the_old_domain_where_it_matters(self):
         places = [ROOT / 'app' / 'server.py', ROOT / '.env.example', ROOT / 'movil' / 'capacitor.config.json',
@@ -56,13 +56,13 @@ class Dominio(unittest.TestCase):
         for p in places:
             if p.is_file():
                 self.assertNotRegex(p.read_text(encoding='utf-8', errors='replace'), r'(?<![a-z])worldives\.com', str(p))
-        self.assertIn('"url": "https://worlddivesdiscovery.com"', (ROOT / 'movil' / 'capacitor.config.json').read_text(encoding='utf-8'))
+        self.assertIn('"url": "https://worldivesdiscovery.com"', (ROOT / 'movil' / 'capacitor.config.json').read_text(encoding='utf-8'))
 
     def test_caddyfile(self):
         c = (DESPLIEGUE / 'Caddyfile').read_text(encoding='utf-8')
-        self.assertRegex(c, r'(?m)^www\.worlddivesdiscovery\.com \{\n[^}]*redir https://worlddivesdiscovery\.com\{uri\} permanent')
-        self.assertRegex(c, r'(?m)^pruebas\.worlddivesdiscovery\.com \{[\s\S]*?basic_auth[\s\S]*?reverse_proxy 127\.0\.0\.1:8001')
-        self.assertIn('http://pruebas.worlddivesdiscovery.com', c)                      # /api by http: 403 there too
+        self.assertRegex(c, r'(?m)^www\.worldivesdiscovery\.com \{\n[^}]*redir https://worldivesdiscovery\.com\{uri\} permanent')
+        self.assertRegex(c, r'(?m)^pruebas\.worldivesdiscovery\.com \{[\s\S]*?basic_auth[\s\S]*?reverse_proxy 127\.0\.0\.1:8001')
+        self.assertIn('http://pruebas.worldivesdiscovery.com', c)                      # /api by http: 403 there too
         caddy = shutil.which('caddy')
         if not caddy: self.skipTest('caddy no está instalado aquí')
         r = subprocess.run([caddy, 'validate', '--config', str(DESPLIEGUE / 'Caddyfile'), '--adapter', 'caddyfile'], capture_output=True, text=True)

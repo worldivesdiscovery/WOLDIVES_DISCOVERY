@@ -31,7 +31,7 @@ def main(prod, test):
             if busca(p, n): problems.append(f'producción: {que} ({n.decode()}) en {", ".join(busca(p, n))}')
     cp, ct = config(p), config(t)
     srv = cp.get('server', {})
-    if srv.get('url') != 'https://worlddivesdiscovery.com': problems.append(f'producción: server.url debe ser https://worlddivesdiscovery.com, es {srv.get("url")!r}')
+    if srv.get('url') != 'https://worldivesdiscovery.com': problems.append(f'producción: server.url debe ser https://worldivesdiscovery.com, es {srv.get("url")!r}')
     if srv.get('cleartext') or cp.get('android', {}).get('allowMixedContent') or cp.get('android', {}).get('webContentsDebuggingEnabled'):
         problems.append('producción: HTTP sin cifrar, contenido mixto o depuración activados')
     # the test APK must have them (otherwise the check above proves nothing)

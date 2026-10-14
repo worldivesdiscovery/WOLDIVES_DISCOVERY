@@ -2,7 +2,7 @@
 
 Fecha: 14/10/2026. Motivo: el encargo de despliegue del titular (servidor Hostinger KVM 2 en la UE, registros externos
 en Better Stack región UE, verificación en dos pasos obligatoria con cobros online y dominio
-`worlddivesdiscovery.com`). Los textos **no se publican** hasta que el abogado los revise.
+`worldivesdiscovery.com`). Los textos **no se publican** hasta que el abogado los revise.
 
 **Comprobación previa (pedida en el encargo):** ningún texto menciona la comisión del 10 %. Se buscó «comisión»,
 «commission», «10 %» y sus equivalentes en los 9 idiomas de `app/legal/` y en `docs/legal/`: solo aparecen frases que

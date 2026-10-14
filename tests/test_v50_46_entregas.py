@@ -38,7 +38,7 @@ def start_code(env):
 class DemoGuard(unittest.TestCase):
     def test_refuses_production_address(self):
         # v50.52: the real domain and every subdomain of it, the test site pruebas.* included
-        for url in ('https://worlddivesdiscovery.com', 'https://www.worlddivesdiscovery.com', 'https://pruebas.worlddivesdiscovery.com'):
+        for url in ('https://worldivesdiscovery.com', 'https://www.worldivesdiscovery.com', 'https://pruebas.worldivesdiscovery.com'):
             code, out = start_code({'WOD_DEMO_MODE': '1', 'WOD_PUBLIC_URL': url})
             self.assertEqual(code, 2, (url, out)); self.assertIn('WOD_DEMO_MODE=1 no se permite', out)
 

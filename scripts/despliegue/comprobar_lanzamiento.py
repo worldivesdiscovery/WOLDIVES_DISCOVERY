@@ -138,7 +138,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--app', default='/opt/worldives', help='carpeta de producción')
     ap.add_argument('--pruebas', default='/opt/worldives-pruebas', help='carpeta del entorno de pruebas')
-    ap.add_argument('--dominio', default='worlddivesdiscovery.com')
+    ap.add_argument('--dominio', default='worldivesdiscovery.com')
     ap.add_argument('--usuario', default='worldives', help='usuario del servicio')
     ap.add_argument('--restauracion-log', default='/var/log/worldives/restauracion.log')
     ap.add_argument('--sin-red', action='store_true', help='no prueba las direcciones públicas (HTTPS, certificado, www)')

@@ -39,7 +39,7 @@ que sí está hecho es todo lo que se necesita para marcarlas, probado.
 - [ ] **NTP sincronizado** — paso 5. Se comprueba: `timedatectl show -p NTPSynchronized --value` → `yes` (comprobador).
 - [ ] **`.env` con permisos 600 y claves nuevas de producción; copia de las claves fuera del servidor** — paso 8. Se
   comprueba: permisos 600 y propietario `worldives`, las tres claves de 32 caracteres o más, distintas entre sí, de las
-  de pruebas y de las de la demo, `WOD_ENV=production` y `WOD_PUBLIC_URL=https://worlddivesdiscovery.com`
+  de pruebas y de las de la demo, `WOD_ENV=production` y `WOD_PUBLIC_URL=https://worldivesdiscovery.com`
   (comprobador). La copia en el gestor de contraseñas: A MANO.
 - [ ] **Instalado desde el zip de PRODUCCIÓN, sin `.git`, base limpia, admin creado con `--create-admin`** — pasos 6
   y 9. Preparado: el zip `worldives-v50.52-PRODUCCION.zip` pasa su comprobación automática (sin cuentas, claves ni
@@ -71,7 +71,7 @@ que sí está hecho es todo lo que se necesita para marcarlas, probado.
   plazo de 14 días con aviso y correo, Stripe no se conecta sin ella, no se desactiva con cobros, registro en la
   actividad y producción se niega a apagarla. En un navegador real (`tests/navegador/e2e_cobros_2fa.py`): 20/20.
 - [ ] **Batería completa en verde en un servidor de pruebas igual al real** — en este entorno, en verde (cifras en
-  `docs/notas-de-version/v50.52.md`, «Comprobado»). Falta repetirla en `pruebas.worlddivesdiscovery.com` cuando
+  `docs/notas-de-version/v50.52.md`, «Comprobado»). Falta repetirla en `pruebas.worldivesdiscovery.com` cuando
   exista: `cd /opt/worldives-pruebas/tests && sudo -u worldives-pruebas ../.venv/bin/python -m unittest discover` y
   `../.venv/bin/python -m pytest test_v50_51_asvs.py`.
 - [ ] **Prueba de carga en el VPS real** — contra pruebas, con `tests/carga/` (`docs/auditoria/v50.51/carga.md`).

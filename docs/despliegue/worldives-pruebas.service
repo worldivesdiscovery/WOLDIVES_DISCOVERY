@@ -1,6 +1,6 @@
-# systemd unit for the TEST site of WORLDIVES (https://pruebas.worlddivesdiscovery.com), next to production on the
+# systemd unit for the TEST site of WORLDIVES (https://pruebas.worldivesdiscovery.com), next to production on the
 # same VPS: the PRODUCTION package in /opt/worldives-pruebas, its own system user, database, .env (WOD_PORT=8001,
-# WOD_PUBLIC_URL=https://pruebas.worlddivesdiscovery.com, Stripe TEST keys) and backups. Never the DEMO package.
+# WOD_PUBLIC_URL=https://pruebas.worldivesdiscovery.com, Stripe TEST keys) and backups. Never the DEMO package.
 # Copy to /etc/systemd/system/worldives-pruebas.service, then:
 #   sudo systemctl daemon-reload && sudo systemctl enable --now worldives-pruebas
 # Logs: journalctl -u worldives-pruebas -f

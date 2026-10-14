@@ -1,6 +1,6 @@
 # Caddy: HTTPS automático (Let's Encrypt) delante de WORLDIVES. /etc/caddy/Caddyfile
-# En el .env de producción: WOD_PUBLIC_URL=https://worlddivesdiscovery.com y WOD_TRUSTED_PROXIES=127.0.0.1
-# En el .env de pruebas:    WOD_PUBLIC_URL=https://pruebas.worlddivesdiscovery.com, WOD_PORT=8001
+# En el .env de producción: WOD_PUBLIC_URL=https://worldivesdiscovery.com y WOD_TRUSTED_PROXIES=127.0.0.1
+# En el .env de pruebas:    WOD_PUBLIC_URL=https://pruebas.worldivesdiscovery.com, WOD_PORT=8001
 # Comprobar: caddy validate --config /etc/caddy/Caddyfile
 
 # Access log: 14 days, without tokens, coordinates or searches of the address, without the integration key and with
@@ -38,26 +38,26 @@
 
 # http: the API answers 403 (a client with http:// must fail, not be redirected with its key in clear, ASVS V4.1.2);
 # the rest goes to https, and www straight to the root domain.
-http://worlddivesdiscovery.com, http://www.worlddivesdiscovery.com, http://pruebas.worlddivesdiscovery.com {
+http://worldivesdiscovery.com, http://www.worldivesdiscovery.com, http://pruebas.worldivesdiscovery.com {
 	handle /api/* {
 		respond "Usa https://" 403
 	}
-	@pruebas host pruebas.worlddivesdiscovery.com
+	@pruebas host pruebas.worldivesdiscovery.com
 	handle @pruebas {
-		redir https://pruebas.worlddivesdiscovery.com{uri} permanent
+		redir https://pruebas.worldivesdiscovery.com{uri} permanent
 	}
 	handle {
-		redir https://worlddivesdiscovery.com{uri} permanent
+		redir https://worldivesdiscovery.com{uri} permanent
 	}
 }
 
 # www → the root domain (the certificate covers both names).
-www.worlddivesdiscovery.com {
+www.worldivesdiscovery.com {
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
-	redir https://worlddivesdiscovery.com{uri} permanent
+	redir https://worldivesdiscovery.com{uri} permanent
 }
 
-worlddivesdiscovery.com {
+worldivesdiscovery.com {
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
 	# Compressed answers, except the map tiles (read by byte ranges).
@@ -80,7 +80,7 @@ worlddivesdiscovery.com {
 # Test environment: the PRODUCTION package in /opt/worldives-pruebas, with its own service (worldives-pruebas,
 # port 8001), its own database and .env and Stripe test keys. Never the DEMO package (the server refuses
 # WOD_DEMO_MODE=1 on this domain and its subdomains).
-pruebas.worlddivesdiscovery.com {
+pruebas.worldivesdiscovery.com {
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	header X-Robots-Tag "noindex, nofollow"
 	basic_auth {

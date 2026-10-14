@@ -239,7 +239,7 @@ class CobrosDosPasos(ServerTestCase):
     def test_v6_3_3_status_row_and_production_refuses_turning_it_off(self):
         rows = {r['key']: r for r in self.admin.get('/api/admin/health').json['services']}
         self.assertEqual(rows['payments_2fa']['state'], 'ok')
-        env = dict(os.environ, WOD_ENV='production', WOD_PUBLIC_URL='https://worlddivesdiscovery.example.org', WOD_SECRET_KEY='y' * 40,
+        env = dict(os.environ, WOD_ENV='production', WOD_PUBLIC_URL='https://worldivesdiscovery.example.org', WOD_SECRET_KEY='y' * 40,
                    WOD_DATA_KEY='z' * 40, WOD_PAYMENTS_TOTP_REQUIRED='0', WOD_NO_ENV_FILE='1', WOD_PORT='1',
                    WOD_DB_PATH=str(self.server.tmp / 'prod.sqlite3'), WOD_LOG_DIR=str(self.server.tmp), WOD_STORAGE_DIR=str(self.server.tmp))
         env.pop('WOD_DEMO_MODE', None)
