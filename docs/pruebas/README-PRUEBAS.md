@@ -102,6 +102,10 @@ Sin claves de Stripe, el pago online aparece desactivado. Para probar un pago co
 4. Entra como `buzo.prueba`, reserva la «Inmersión simple en barco» (pago al reservar) y paga con la tarjeta
    **`4242 4242 4242 4242`**, cualquier fecha futura y cualquier CVC.
 
+En la demo **no se pide la verificación en dos pasos** para conectar Stripe ni para la administración, para que puedas
+probarlo todo sin un móvil. En el servidor real es obligatoria: para la administración y para los centros y freelance
+con cobros online (y para quien de su equipo tenga el permiso «Cobros»).
+
 ## 6. Correos
 
 No se envía ningún correo real. Se guardan como archivos `.eml` en `data/pruebas/correos/`; se abren con Outlook,
