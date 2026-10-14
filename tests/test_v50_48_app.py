@@ -158,11 +158,13 @@ class AppTestEnvironment(ServerTestCase):
         self.assertEqual(self.client().post('/api/pruebas/entrar', {'cuenta': 'nadie.prueba'}).status, 404)
         self.assertEqual(self.client().post('/api/pruebas/entrar', {'cuenta': 'admin'}).status, 400)   # only *.prueba accounts
         self.assertEqual(Client(self.server, origin='https://otra-web.example').post('/api/pruebas/entrar', {'cuenta': 'probador.prueba'}).status, 403)
-        # ASVS 5.0 V6.3.2: never the administration without its password
+        # v50.54 (owner's brief): «Acceso rápido a la demostración» includes the administration of the demo. It exists
+        # only with WOD_DEMO_MODE=1, which never starts on the real domain (test_v50_46_entregas, demo_guard).
         res = self.server.run_cli('--create-admin', '--email', 'jefe@example.org', '--username', 'jefe', '--name', 'Jefe', env={'WOD_ADMIN_PASSWORD': 'jefe-seguro-2026'})
         self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
         self.server.sql("UPDATE users SET username='jefe.prueba' WHERE username='jefe'")
-        r = self.client().post('/api/pruebas/entrar', {'cuenta': 'jefe.prueba'}); self.assertEqual(r.status, 403, r)
+        c = self.client(); r = c.post('/api/pruebas/entrar', {'cuenta': 'jefe.prueba'}); self.assertEqual(r.status, 200, r)
+        self.assertEqual(c.me()['user']['role'], 'admin')
 
     def test_bug_report_is_saved_in_the_test_folder(self):
         r = self.tester.post('/api/pruebas/fallo', {'texto': 'El contador de Solicitudes no baja', 'pantalla': 'Centro · Hoy', 'version': '1.0.7 (7)',

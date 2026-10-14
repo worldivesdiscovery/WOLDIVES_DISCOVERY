@@ -1739,7 +1739,24 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       try{ const body={login:$('#login').value.trim(),password:$('#password').value}; const r=await postJSON('/api/auth/login',body);
         if(r.totp_required){ pendingLogin=body; location.hash='#/verificacion'; return; }
         await loadMe(); afterLogin(r);
-      }catch(err){ toast(err.message); btn.disabled=false; } }; }
+      }catch(err){ toast(err.message); btn.disabled=false; } };
+    if(st.demo) demoQuickAccess($('#login-form')); }
+  // v50.54 · Only in the test package (WOD_DEMO_MODE=1): one-click access with the demo accounts. The list comes from the
+  // server, which answers only in demo mode; on the real site the block does not exist.
+  async function demoQuickAccess(form){
+    let d; try{ d=await api('/api/pruebas/cuentas'); }catch{ return; }
+    if(!d?.items?.length||!form?.isConnected) return;
+    const icon={admin:'shield',center:'home',freelance:'user',diver:'fish'};
+    form.insertAdjacentHTML('afterend',`<section class="demo-quick" aria-labelledby="demo-quick-h"><h2 id="demo-quick-h">${wdIcon('bolt',16)} Acceso rápido a la demostración</h2>
+      <p>Solo en la versión de demostración. Un clic y entras con esa cuenta (contraseñas en CUENTAS-DEMO.txt).</p>
+      <div class="demo-quick-grid">${d.items.map(a=>`<button type="button" class="btn demo-quick-btn" data-demo-login="${escapeHtml(a.cuenta)}">${wdIcon(icon[a.kind]||'user',16)}<span><strong>${escapeHtml(a.label)}</strong>${a.detail?`<small translate="no">${escapeHtml(a.detail)}</small>`:''}</span></button>`).join('')}</div></section>`);
+    const box=form.nextElementSibling; translateTree(box);
+    $$('[data-demo-login]',box).forEach(b=>b.onclick=async()=>{ $$('[data-demo-login]',box).forEach(x=>x.disabled=true);
+      try{ const r=await postJSON('/api/pruebas/entrar',{cuenta:b.dataset.demoLogin}); await loadMe();
+        try{ if(!sessionStorage.getItem('wd_after_login')) sessionStorage.setItem('wd_after_login',r.role==='recreational'?'#/area':'#/admin'); }catch{}   // straight to its panel
+        afterLogin(r); }
+      catch(err){ toast(err.message); $$('[data-demo-login]',box).forEach(x=>x.disabled=false); } });
+  }
   async function renderLoginCode(){
     if(!pendingLogin){ location.replace('#/login'); return; }
     setApp(authCard('Verificación en dos pasos',`<p class="lead auth-lead">Escribe el código de 6 cifras de tu aplicación de verificación. Si no tienes el teléfono a mano, usa uno de tus códigos de recuperación.</p><form id="totp-form"><div class="field"><label for="totp">Código</label><input id="totp" required inputmode="numeric" autocomplete="one-time-code" maxlength="20" autocapitalize="none" spellcheck="false"></div><div class="form-actions"><button class="btn btn-primary" type="submit">Verificar y entrar</button></div><p class="auth-small"><a href="#/login">Volver a iniciar sesión</a></p></form>`));

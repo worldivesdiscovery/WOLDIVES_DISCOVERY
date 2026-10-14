@@ -183,8 +183,77 @@ actives (las explica `.env.example`).
 
 ## 9. Administrador, servicio y HTTPS
 
+### 9.1 Crear el administrador
+
+Se hace **antes de arrancar el servicio** y siempre con el usuario del servicio (`worldives`), desde la carpeta de la
+web. El comando lee el mismo `.env` y usa la misma base de datos que el servidor; si la base todavía no existe, la crea
+con el catálogo de puntos de buceo (v50.54).
+
 ```bash
-cd /opt/worldives && sudo -u worldives .venv/bin/python app/server.py --create-admin    # email, usuario, nombre y contraseña
+cd /opt/worldives
+sudo -u worldives .venv/bin/python app/server.py --create-admin
+```
+
+Te pregunta el email, el usuario (propone la parte del email antes de la @; pulsa Intro para aceptarlo), el nombre y la
+contraseña dos veces (no se ve al escribirla). La contraseña: **al menos 10 caracteres**, mejor una frase de cuatro
+palabras («Coral-Faro-Morena-2026»); las muy conocidas o con el nombre de la web se rechazan. Debe salir algo así:
+
+```text
+WORLDIVES DISCOVERY · crear la cuenta de administración
+Configuración: /opt/worldives/.env
+Base de datos: /opt/worldives/data/worldivesdiscovery.sqlite3
+Base nueva /opt/worldives/data/worldivesdiscovery.sqlite3 creada a partir de data/seed/catalogo.sqlite3.
+Catálogo de especies: 31 especies de ejemplo.
+Email del administrador: tu@worldivesdiscovery.com
+Usuario para entrar [tu]:
+Nombre y apellidos [Administración]: Tu Nombre
+Contraseña (mínimo 10 caracteres; mejor una frase de varias palabras):
+Repite la contraseña:
+Hecho. Administrador creado: usuario «tu», email tu@worldivesdiscovery.com.
+Siguiente paso: entra en https://worldivesdiscovery.com/#/login y activa la verificación en dos pasos (obligatoria para la administración).
+```
+
+También se puede dar todo en la misma línea (la contraseña se sigue pidiendo aparte):
+`sudo -u worldives .venv/bin/python app/server.py --create-admin --email tu@worldivesdiscovery.com --username tu --name "Tu Nombre"`.
+
+**Comprueba** que las dos primeras líneas dicen `/opt/worldives/.env` y la base de `/opt/worldives/data/`: si no, no
+estás en la carpeta de la web o el `.env` no está en su sitio (paso 8).
+
+### 9.2 Si da error
+
+Si algo falla, el comando lo dice en una frase que empieza por «No se ha creado…» y **no cambia nada**. Repítelo
+después de corregir el problema.
+
+| Mensaje | Qué hacer |
+|---|---|
+| `No puedo abrir ni crear la base de datos (Permission denied…)` | Lo has ejecutado sin `sudo -u worldives` o la carpeta `data` no es de `worldives`: `sudo chown -R worldives: /opt/worldives/data` y repite con `sudo -u worldives`. |
+| `el email no es válido` | Escribe el email completo, por ejemplo `tu@worldivesdiscovery.com`. |
+| `el usuario debe tener de 3 a 40 letras…` | Usa solo letras, números, `.`, `_` o `-`, sin espacios. |
+| `Las dos contraseñas no coinciden` | Repite el comando y escribe la misma dos veces. |
+| `La contraseña debe tener al menos 10 caracteres` / `…demasiado fácil de adivinar` | Elige una frase larga que no uses en otro sitio. |
+| `ya existe el administrador «…»` | Ya está creado: entra con él. Si no recuerdas la contraseña, usa el apartado 9.3. |
+| `ya hay una cuenta (no administradora) con ese email o usuario` | Usa otro email o usuario para la administración. |
+| `Aviso: esta base no tiene el catálogo de puntos de buceo` | La base se creó con `--create-admin` de una versión anterior (hasta v50.53), antes del primer arranque. Si todavía no hay datos reales, apártala **sin borrarla** y repite: `sudo -u worldives mv data/worldivesdiscovery.sqlite3 data/worldivesdiscovery.sqlite3.sin-catalogo` y otra vez `--create-admin`. Si ya tiene datos reales, no la toques y escríbenos. |
+| `No such file or directory: '.venv/bin/python'` | Falta el paso 6 (entorno de Python) o no estás en `/opt/worldives`. |
+
+### 9.3 He olvidado la contraseña del administrador
+
+En el servidor, con el mismo usuario:
+
+```bash
+cd /opt/worldives
+sudo -u worldives .venv/bin/python app/server.py --reset-admin-password                      # si solo hay un administrador
+sudo -u worldives .venv/bin/python app/server.py --reset-admin-password --email tu@worldivesdiscovery.com   # si hay varios
+```
+
+Pide la contraseña nueva dos veces, cierra las sesiones abiertas de esa cuenta, quita el bloqueo por intentos fallidos
+y queda anotado en el registro de actividad (`admin_password_reset_cli`). No hace falta parar el servicio. La
+verificación en dos pasos sigue activa: al entrar te pide el código de la aplicación o uno de los códigos de
+recuperación.
+
+### 9.4 Servicio y HTTPS
+
+```bash
 sudo cp docs/despliegue/worldives.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now worldives
 sudo cp docs/despliegue/Caddyfile /etc/caddy/Caddyfile

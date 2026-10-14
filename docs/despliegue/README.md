@@ -47,11 +47,13 @@ cd /opt/worldives
 sudo -u worldives .venv/bin/python app/server.py --create-admin
 ```
 
-La base se crea sola en el primer arranque a partir de `data/seed/catalogo.sqlite3`: puntos con sus descripciones
+La base se crea en el primer uso (el primer arranque o `--create-admin`, lo que llegue antes; v50.54) a partir de
+`data/seed/catalogo.sqlite3`: puntos con sus descripciones
 propias en 9 idiomas, zonas, tipos, países, titulaciones, textos legales y (v50.51) el catálogo de 31 especies con
 ilustraciones propias. **No lleva usuarios, centros, reservas, mensajes, pagos ni registros.** El primer
 administrador se crea con `--create-admin` y debe activar la verificación en dos pasos al entrar. En la web real no
-hay pantalla de alta de administradores.
+hay pantalla de alta de administradores. Si da error o se olvida la contraseña (`--reset-admin-password`): pasos 9.2 y
+9.3 de `GUIA-VPS.md`.
 
 ## 4. HTTPS y proxy
 

@@ -3279,3 +3279,11 @@ html.wd-app[data-wda-tema="noche"] .svc2 :is(.svc2-kicker,.svc2-desc,.svc2-price
 .cp-points-more{margin-top:10px}
 .review-reply.is-folded .review-reply-txt{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden}
 .review-reply-toggle{margin-top:4px}
+
+/* v50.54 · «Acceso rápido a la demostración» (login page, test package only) */
+.demo-quick{margin-top:22px;padding:16px;border:1px dashed #d8c99e;border-radius:14px;background:#fbf7ec}
+.demo-quick h2{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-family:inherit;font-size:15px;font-weight:800;color:#5d4a1f}
+.demo-quick p{margin:0 0 12px;font-size:13px;color:#6b5a2f}
+.demo-quick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.demo-quick-btn{display:flex;align-items:center;gap:10px;justify-content:flex-start;text-align:left;min-height:48px;padding:8px 12px;background:#fff}
+.demo-quick-btn span{display:flex;flex-direction:column;line-height:1.2}.demo-quick-btn small{font-size:11px;color:var(--muted);font-weight:600}

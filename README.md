@@ -32,8 +32,13 @@ la web:
 python app/server.py --create-admin --email tu@dominio.com --username admin --name "Tu Nombre"
 ```
 
-La contraseña se pide sin mostrarla, y la verificación en dos pasos se activa al entrar por primera vez. Atajo:
+Usa el mismo `.env` y la misma base que el servidor y, si la base aún no existe, la crea con el catálogo de puntos.
+La contraseña se pide dos veces sin mostrarla (mínimo 10 caracteres), y la verificación en dos pasos se activa al
+entrar por primera vez. Si sale un error, el mensaje dice qué ha fallado y no cambia nada. Atajo:
 `scripts/crear_admin.sh` o `scripts\crear_admin.bat` con los mismos datos.
+
+¿Contraseña olvidada? En el servidor: `python app/server.py --reset-admin-password` (o `--email tu@dominio.com` si hay
+varios administradores). Paso a paso y qué hacer con cada error: `docs/despliegue/GUIA-VPS.md`, paso 9.
 
 ## Configuración
 

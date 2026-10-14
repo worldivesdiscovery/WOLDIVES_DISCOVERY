@@ -1579,6 +1579,7 @@ def point_text(db, pid, lang):
 
 DEMO_RIBBON_HTML = ('<div class="demo-ribbon" id="demo-ribbon" role="note"><strong>Versión de demostración</strong> '
                     '<span>Centros, personas y reservas inventados. Pagos de prueba; los correos no salen.</span></div>')
+LOOPBACK_HOSTS = {'localhost', '127.0.0.1', '::1', '[::1]'}
 PRODUCTION_DOMAIN = 'worldivesdiscovery.com'   # v50.52: the real site; www and pruebas are subdomains of it
 
 
@@ -1593,6 +1594,25 @@ def demo_guard():
     if any(os.environ.get(k, '').strip().startswith(('sk_live_', 'rk_live_')) for k in ('STRIPE_SECRET_KEY', 'STRIPE_RESTRICTED_KEY')):
         return 'El entorno de pruebas solo admite claves de Stripe en modo test (sk_test_…). Quita la clave real del .env de pruebas.'
     return ''
+
+
+def demo_quick_accounts(db):
+    """The one-click accounts of the demo: its administration, the owners of its first two centres, a freelance and a
+    diver. Read from the database (the fixed «*.prueba» accounts), never written in the code of the real site."""
+    rows = db.execute("SELECT u.id,u.username,u.role,u.center_id,c.name AS center,COALESCE(m.member_role,'owner') AS member_role FROM users u "
+                      "LEFT JOIN centers c ON c.id=u.center_id LEFT JOIN center_members m ON m.center_id=u.center_id AND m.user_id=u.id "
+                      "WHERE lower(u.username) LIKE ? ORDER BY u.id", ('%.prueba',)).fetchall()
+    out, centres = [], []
+    first = lambda role: next((r for r in rows if r['role'] == role), None)
+    if (a := first('admin')): out.append({'cuenta': a['username'], 'label': 'Administrador', 'kind': 'admin'})
+    for r in rows:
+        if r['role'] == 'center' and r['member_role'] == 'owner' and r['center_id'] and r['center_id'] not in [c['center_id'] for c in centres]: centres.append(r)
+        if len(centres) == 2: break
+    for i, r in enumerate(centres, 1):
+        out.append({'cuenta': r['username'], 'label': f'Centro de buceo {i}', 'detail': r['center'] or '', 'kind': 'center'})
+    if (f := first('freelance')): out.append({'cuenta': f['username'], 'label': 'Freelance', 'kind': 'freelance'})
+    if (d := first('recreational')): out.append({'cuenta': d['username'], 'label': 'Buceador', 'kind': 'diver'})
+    return out
 
 
 def reset_demo_database():
@@ -11029,6 +11049,12 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
             if allowed:
                 target = urlparse(allowed)
                 allowed_origins.add(f'{target.scheme}://{target.netloc}'.lower())
+                # v50.54: on this computer «localhost» and «127.0.0.1» are the same place. The test package opens the
+                # browser at http://localhost:8100 while its public address is http://127.0.0.1:8100, and every sign-in
+                # was refused as «origen no autorizado». Only loopback addresses, same scheme and port.
+                if (target.hostname or '').lower() in LOOPBACK_HOSTS:
+                    port = f':{target.port}' if target.port else ''
+                    allowed_origins.update(f'{target.scheme}://{h}{port}'.lower() for h in ('localhost', '127.0.0.1', '[::1]'))
             else:
                 host = self.headers.get('Host', '')
                 allowed_origins.add(f"{wsec.request_scheme(self.client_address[0], self.headers)}://{host}".lower())
@@ -11250,6 +11276,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     # Public health check (uptime monitors): only ok + version (G15). Details: /api/admin/health.
                     db.execute('SELECT 1').fetchone()
                     self.send_json({'ok': True, 'version': APP_VERSION}); return
+                if path == '/api/pruebas/cuentas':
+                    # v50.54 · «Acceso rápido a la demostración» (login page): only in the test package. Outside
+                    # WOD_DEMO_MODE this address does not exist, so the block cannot be switched on from outside.
+                    if not wcfg.demo_mode() or demo_guard(): self.send_json({'error': 'No encontrado'}, 404); return
+                    self.send_json({'items': demo_quick_accounts(db)}); return
                 if path == '/api/setup/status':
                     # The installation screen only exists while WOD_ALLOW_SETUP=1 and there is no administrator (G9).
                     has_admin = bool(db.execute("SELECT 1 FROM users WHERE role='admin' LIMIT 1").fetchone())
@@ -12827,11 +12858,12 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if not wmovil.TEST_ACCOUNT_RE.fullmatch(login): raise ValueError('Cuenta de prueba no válida.')
                         user = db.execute('SELECT * FROM users WHERE lower(username)=?', (login,)).fetchone()
                         if not user: self.send_json({'error': 'Esa cuenta de prueba no existe en este servidor.'}, 404); return
-                        # Never the administration without its password and code (ASVS 5.0 V6.3.2).
-                        if user['role'] == 'admin': self.send_json({'error': 'La administración entra con su contraseña.'}, 403); return
+                        # v50.54: «Acceso rápido a la demostración» includes the administration of the demo. Only with
+                        # WOD_DEMO_MODE=1, which never starts on the real domain (demo_guard), and only for the fixed
+                        # «*.prueba» accounts whose password is public in CUENTAS-DEMO.txt.
                         old_token = self.session_hash()
                         if old_token: db.execute('DELETE FROM sessions WHERE token_hash=?', (old_token,))
-                        db.execute('UPDATE users SET last_login=? WHERE id=?', (now(), user['id'])); audit(db, user['id'], 'login', details={'pruebas_app': True}); db.commit()
+                        db.execute('UPDATE users SET last_login=? WHERE id=?', (now(), user['id'])); audit(db, user['id'], 'login', details={'pruebas_app': True, 'acceso_rapido': True}); db.commit()
                         self.login_user(user['id'], db, {'ok': True, 'role': user['role']}); return
                     report, image = wmovil.clean_report(data)
                     who = current_user(self, db)
@@ -15812,38 +15844,167 @@ def production_warnings():
     return out
 
 
+def prepare_database():
+    """The database of WOD_DB_PATH (read from the same .env as the server), created with the catalogue of dive points
+    the first time it is used: by the server or by --create-admin, whichever comes first. Returns True when it was new."""
+    new_install = False
+    if not DB_PATH.exists() and not os.environ.get('WOD_EMPTY_DB'):
+        # v50.45 (encargo 2b · bloque 1): the base is created on the first use. The production zip carries the
+        # catalogue of dive points (without centres, users or bookings) in data/seed/; development uses the demo.
+        seed = ROOT / 'data' / 'seed' / 'catalogo.sqlite3'
+        demo = ROOT / 'data' / 'demo' / 'catalogo-demo.sqlite3'
+        src = seed if seed.exists() else (demo if demo.exists() and not wcfg.is_production() else None)
+        if src:
+            import shutil
+            DB_PATH.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(src, DB_PATH)
+            print(f'Base nueva {DB_PATH} creada a partir de {src.relative_to(ROOT)}.')
+            new_install = True
+    bootstrap()
+    if new_install:
+        # v50.51: a new installation starts with the catalogue of species (own illustrations, licence «Ilustración propia»).
+        with connect() as _db:
+            if not _db.execute('SELECT 1 FROM species LIMIT 1').fetchone():
+                print(f'Catálogo de especies: {load_example_species(_db)} especies de ejemplo.'); _db.commit()
+    return new_install
+
+
+def _cli_arg(argv, flag):
+    if flag in argv:
+        i = argv.index(flag)
+        if i + 1 < len(argv): return argv[i + 1]
+    return None
+
+
+def _cli_where():
+    """Which settings and which database the command uses: the same as the server (WOD_ENV_FILE or .env, WOD_DB_PATH)."""
+    env_file = Path(os.environ.get('WOD_ENV_FILE') or (ROOT / '.env'))
+    print(f"Configuración: {env_file if env_file.is_file() else 'sin archivo .env (variables del sistema)'}")
+    print(f'Base de datos: {DB_PATH.resolve()}')
+
+
+def _cli_password(label='Contraseña'):
+    """(password, problem). WOD_ADMIN_PASSWORD for automated installs; otherwise asked twice without showing it."""
+    import getpass
+    pw = os.environ.get('WOD_ADMIN_PASSWORD')
+    if not pw:
+        try:
+            pw = getpass.getpass(f'{label} (mínimo 10 caracteres; mejor una frase de varias palabras): ')
+            if getpass.getpass('Repite la contraseña: ') != pw: return None, 'las dos contraseñas no coinciden. No se ha cambiado nada.'
+        except (EOFError, KeyboardInterrupt):
+            return None, 'cancelado. No se ha cambiado nada.'
+    problem = wsec.password_problem(pw)
+    return (None, problem + ' Elige otra (por ejemplo, una frase de cuatro palabras).') if problem else (pw, None)
+
+
+def _cli_open_database():
+    """(db, problem): the server's database, created with the catalogue when it does not exist yet."""
+    try:
+        prepare_database()
+        return connect(), None
+    except PermissionError as e:
+        return None, (f'No puedo abrir ni crear la base de datos ({e}). Ejecuta el comando con el mismo usuario que el servicio, '
+                      'por ejemplo: sudo -u worldives .venv/bin/python app/server.py --create-admin')
+    except (OSError, sqlite3.Error) as e:
+        return None, f'No puedo abrir la base de datos: {e}'
+
+
+def _cli_catalogue_warning(db):
+    """A base created by --create-admin before v50.54 (before the first start) has no catalogue: say how to fix it."""
+    seed = ROOT / 'data' / 'seed' / 'catalogo.sqlite3'
+    try:
+        countries = db.execute('SELECT COUNT(*) FROM countries').fetchone()[0]   # the seed has them; bootstrap() alone does not
+    except sqlite3.Error:
+        return
+    if countries == 0 and seed.exists():
+        print('Aviso: esta base no tiene el catálogo de puntos de buceo (se creó con una versión anterior antes del primer '
+              'arranque). Si todavía no tiene datos reales, apártala sin borrarla y repite el comando: '
+              f'mv {DB_PATH} {DB_PATH}.sin-catalogo  (docs/despliegue/GUIA-VPS.md, paso 9).')
+
+
 def create_admin_cli(argv):
     """python app/server.py --create-admin [--email E] [--username U] [--name N]
-    The password is asked on the terminal (or read from WOD_ADMIN_PASSWORD for automated installs)."""
-    import getpass
-    def arg(flag):
-        if flag in argv:
-            i = argv.index(flag)
-            if i + 1 < len(argv): return argv[i + 1]
-        return None
-    bootstrap()
-    email = (arg('--email') or input('Email del administrador: ')).strip().lower()
-    username = (arg('--username') or input('Usuario: ')).strip()
-    name = (arg('--name') or input('Nombre y apellidos: ')).strip()
-    password = os.environ.get('WOD_ADMIN_PASSWORD') or getpass.getpass('Contraseña (mínimo 10 caracteres): ')
-    if not os.environ.get('WOD_ADMIN_PASSWORD') and getpass.getpass('Repite la contraseña: ') != password:
-        print('Las contraseñas no coinciden.'); return 1
-    problem = wsec.password_problem(password)
-    if problem: print(problem); return 1
-    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email) or not username or not name:
-        print('Email, usuario y nombre son obligatorios.'); return 1
-    db = connect()
+    Uses the same .env and database as the server and creates the database (with the catalogue) if it does not exist yet.
+    The password is asked twice without showing it (or read from WOD_ADMIN_PASSWORD for automated installs).
+    Exit code 0 when the administrator was created; 1 with a clear message otherwise."""
+    print('WORLDIVES DISCOVERY · crear la cuenta de administración'); _cli_where()
+    db, problem = _cli_open_database()
+    if problem: print('No se ha creado el administrador. ' + problem); return 1
     try:
-        if db.execute('SELECT 1 FROM users WHERE lower(email)=? OR lower(username)=lower(?)', (email, username)).fetchone():
-            print('Ya existe una cuenta con ese email o usuario.'); return 1
+        _cli_catalogue_warning(db)
+        try:
+            email = (_cli_arg(argv, '--email') or input('Email del administrador: ')).strip().lower()
+            if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
+                print('No se ha creado el administrador: el email no es válido (por ejemplo, tu@worldivesdiscovery.com).'); return 1
+            suggested = re.sub(r'[^a-z0-9._-]+', '', email.split('@')[0])[:40]
+            suggested = suggested if len(suggested) >= 3 else 'admin'
+            username = (_cli_arg(argv, '--username') or input(f'Usuario para entrar [{suggested}]: ').strip() or suggested).strip()
+            name = (_cli_arg(argv, '--name') or input('Nombre y apellidos [Administración]: ').strip() or 'Administración').strip()
+        except (EOFError, KeyboardInterrupt):
+            print('\nCancelado. No se ha creado nada.'); return 1
+        if not re.fullmatch(r'[A-Za-z0-9._-]{3,40}', username):
+            print('No se ha creado el administrador: el usuario debe tener de 3 a 40 letras o números, sin espacios (puede llevar . _ -).'); return 1
+        other = db.execute('SELECT username,email,role FROM users WHERE lower(email)=? OR lower(username)=lower(?)', (email, username)).fetchone()
+        if other:
+            if other['role'] == 'admin':
+                print(f"No se ha creado: ya existe el administrador «{other['username']}» con ese email o usuario. Si has olvidado su "
+                      f"contraseña: python app/server.py --reset-admin-password --email {other['email']}")
+            else:
+                print('No se ha creado: ya hay una cuenta (no administradora) con ese email o usuario. Usa otro email o usuario.')
+            return 1
+        password, problem = _cli_password()
+        if problem: print('No se ha creado el administrador: ' + problem); return 1
         uid = db.execute("INSERT INTO users(fullname,email,username,password_hash,role,requested_role,created_at,email_verified_at) VALUES(?,?,?,?,'admin','admin',?,?)",
                          (name, email, username, hash_password(password), now(), now())).lastrowid
         db.execute('INSERT OR IGNORE INTO user_profiles(user_id,updated_at) VALUES(?,?)', (uid, now()))
         record_acceptances(db, uid, ['terminos', 'privacidad', 'centros'])
         audit(db, uid, 'admin_created_cli', 'user', uid); db.commit()
+    except sqlite3.Error as e:
+        print(f'No se ha creado el administrador: error de la base de datos ({e}).'); return 1
     finally:
         db.close()
-    print(f'Administrador creado: {username} <{email}>. Entra en la web y activa la verificación en dos pasos.')
+    site = wcfg.public_url() or f'http://127.0.0.1:{PORT}'
+    print(f'Hecho. Administrador creado: usuario «{username}», email {email}.')
+    print(f'Siguiente paso: entra en {site}/#/login y activa la verificación en dos pasos (obligatoria para la administración).')
+    return 0
+
+
+def reset_admin_password_cli(argv):
+    """python app/server.py --reset-admin-password [--email E | --username U]
+    New password for an administrator who has forgotten it (run on the server, with the same user as the service).
+    Closes its open sessions. Two-step verification stays as it was: sign in with the app code or a recovery code."""
+    print('WORLDIVES DISCOVERY · nueva contraseña para la administración'); _cli_where()
+    if not DB_PATH.exists():
+        print(f'No se ha cambiado nada: no hay ninguna base de datos en {DB_PATH}. ¿Estás en la carpeta de la web (/opt/worldives) '
+              'y con su .env? Si es una instalación nueva, crea el administrador con: python app/server.py --create-admin'); return 1
+    db, problem = _cli_open_database()
+    if problem: print('No se ha cambiado la contraseña. ' + problem); return 1
+    try:
+        admins = db.execute("SELECT id,username,email FROM users WHERE role='admin' ORDER BY id").fetchall()
+        if not admins: print('No hay ninguna cuenta de administración. Créala con: python app/server.py --create-admin'); return 1
+        who = (_cli_arg(argv, '--email') or _cli_arg(argv, '--username') or '').strip().lower()
+        if not who:
+            if len(admins) == 1: who = admins[0]['email'].lower()
+            else:
+                print('Hay varias cuentas de administración: ' + ', '.join(f"{a['username']} <{a['email']}>" for a in admins))
+                try: who = input('Email o usuario de la que quieres cambiar: ').strip().lower()
+                except (EOFError, KeyboardInterrupt): print('\nCancelado. No se ha cambiado nada.'); return 1
+        admin = next((a for a in admins if who in ((a['email'] or '').lower(), (a['username'] or '').lower())), None)
+        if not admin:
+            print(f'No se ha cambiado nada: no hay ninguna cuenta de administración «{who}». Las que hay: ' + ', '.join(a['username'] for a in admins)); return 1
+        print(f"Cuenta: {admin['username']} <{admin['email']}>")
+        password, problem = _cli_password('Nueva contraseña')
+        if problem: print('No se ha cambiado la contraseña: ' + problem); return 1
+        db.execute('UPDATE users SET password_hash=? WHERE id=?', (hash_password(password), admin['id']))
+        closed = db.execute('DELETE FROM sessions WHERE user_id=?', (admin['id'],)).rowcount
+        LOGIN_ACCOUNT_LIMIT.reset(f"acct:{admin['id']}")   # whoever holds the server unlocks the account (counters in a file)
+        audit(db, admin['id'], 'admin_password_reset_cli', 'user', admin['id'], {'sesiones_cerradas': closed}); db.commit()
+    except sqlite3.Error as e:
+        print(f'No se ha cambiado la contraseña: error de la base de datos ({e}).'); return 1
+    finally:
+        db.close()
+    print(f"Hecho. Nueva contraseña guardada para «{admin['username']}»; sesiones abiertas cerradas: {closed}.")
+    print('La cuenta queda desbloqueada. Al entrar te pedirá el código de la verificación en dos pasos (o un código de '
+          'recuperación). Si desde tu conexión aún ves «Demasiados intentos», espera 15 minutos.')
     return 0
 
 
@@ -15870,6 +16031,7 @@ def report_center_accounts():
 
 def main():
     if '--create-admin' in sys.argv: raise SystemExit(create_admin_cli(sys.argv))
+    if '--reset-admin-password' in sys.argv: raise SystemExit(reset_admin_password_cli(sys.argv))
     if '--report-center-accounts' in sys.argv: raise SystemExit(report_center_accounts())
     if '--backup-now' in sys.argv:
         out = wbackup.backup_db(DB_PATH); print(f'Copia creada: {out} ({wbackup.verify(out)})'); err = wbackup.ship(out)
@@ -15889,24 +16051,7 @@ def main():
         for w in production_warnings(): print('Aviso: ' + w)
     demo_problem = demo_guard()
     if demo_problem: print('No se puede arrancar: ' + demo_problem); raise SystemExit(2)
-    new_install = False
-    if not DB_PATH.exists() and not os.environ.get('WOD_EMPTY_DB'):
-        # v50.45 (encargo 2b · bloque 1): the base is created on the first start. The production zip carries the
-        # catalogue of dive points (without centres, users or bookings) in data/seed/; development uses the demo.
-        seed = ROOT / 'data' / 'seed' / 'catalogo.sqlite3'
-        demo = ROOT / 'data' / 'demo' / 'catalogo-demo.sqlite3'
-        src = seed if seed.exists() else (demo if demo.exists() and not wcfg.is_production() else None)
-        if src:
-            import shutil
-            DB_PATH.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(src, DB_PATH)
-            print(f'Base nueva {DB_PATH} creada a partir de {src.relative_to(ROOT)}.')
-            new_install = True
-    bootstrap()
-    if new_install:
-        # v50.51: a new installation starts with the catalogue of species (own illustrations, licence «Ilustración propia»).
-        with connect() as _db:
-            if not _db.execute('SELECT 1 FROM species LIMIT 1').fetchone():
-                print(f'Catálogo de especies: {load_example_species(_db)} especies de ejemplo.'); _db.commit()
+    prepare_database()
     print(f'WORLDIVES DISCOVERY v{APP_VERSION} -> http://127.0.0.1:{PORT}')
     # Optional multi-process mode (Linux/macOS): WOD_WORKERS=4 starts 4 processes sharing the port.
     # Sessions live in the database, so any process can serve any user.

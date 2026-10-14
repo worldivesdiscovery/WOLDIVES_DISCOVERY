@@ -401,7 +401,11 @@ def build(out: Path):
             if i % 5: ok(center2.post(f'/api/bookings/{x}/status', {'status': 'confirmed'}), 'confirmar en el segundo centro')   # some wait for an answer
         # v50.49 (app Centro PRO): an evening dive every day of the week with divers, so «Hoy» has a boat list whatever
         # day the tester opens the app (the demo is rebuilt every 7 days), and a request that expires soon.
-        late = dt.datetime.now().hour < 21
+        # v50.54: the hour of the centre (Spain), not of the computer: at 20:00 UTC the 21:30 departure of Xàbia has
+        # already started (UTC+2) and the demo could not be built in the evening.
+        from zoneinfo import ZoneInfo
+        local = dt.datetime.now(ZoneInfo('Europe/Madrid'))
+        late = local.hour < 21 and local.date() == dt.date.today()
         tarde = ok(center.post('/api/provider-services', {'title': 'Inmersión al atardecer', 'price': 50, 'max_participants': 10, 'booking_mode': 'request', 'service_type': 'inmersion',
                                                           'duration_minutes': 120, 'description': 'Una inmersión cuando baja el sol. Linterna incluida.'}), 'crear la inmersión al atardecer')['id']
         for k in range(0 if late else 1, 8):
