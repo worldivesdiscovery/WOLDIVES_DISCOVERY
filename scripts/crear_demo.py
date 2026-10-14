@@ -130,6 +130,10 @@ def ok(r, what):
 def build(out: Path):
     rnd = random.Random(5051)
     tmp_pass = secrets.token_urlsafe(18) + 'aA1!'
+    # The accounts are made with a random password through the web, as anybody would; the documented password of the
+    # test environment (CUENTAS-DEMO.txt) is put at the end: the server refuses it for real accounts because it is easy
+    # to guess (it has the name of the web, ASVS 5.0 V6.2.11), and these accounts only exist in the test environment.
+    pw = 'Construir-' + secrets.token_urlsafe(12)
     # v50.47: the fictitious phones are encrypted with the key of the test environment (wod.cifrado.DEMO_DATA_KEY).
     sys.path.insert(0, str(ROOT / 'app'))
     from wod.cifrado import DEMO_DATA_KEY
@@ -140,9 +144,9 @@ def build(out: Path):
         c = lambda: Client(srv)
         # --- the demo administrator (its password is in CUENTAS-DEMO.txt) ------------------------------------
         u, e, n = ACCOUNTS['admin']
-        res = srv.run_cli('--create-admin', '--email', e, '--username', u, '--name', n, env={'WOD_ADMIN_PASSWORD': PASSWORD})
+        res = srv.run_cli('--create-admin', '--email', e, '--username', u, '--name', n, env={'WOD_ADMIN_PASSWORD': pw})
         if res.returncode != 0: raise SystemExit(res.stdout + res.stderr)
-        admin = c(); ok(admin.login(u, PASSWORD), 'entrar como administración')
+        admin = c(); ok(admin.login(u, pw), 'entrar como administración')
 
         def approve(email, method):
             claim = [x for x in admin.get('/api/admin/center-claims').json['items'] if x['email'] == email][0]
@@ -152,27 +156,27 @@ def build(out: Path):
         # --- the two centres, the two freelance instructors and the divers --------------------------------------
         bahia, medes = DATA['bahia'], DATA['medes']
         u, e, n = ACCOUNTS['center']
-        center = c(); ok(center.register(n, e, u, PASSWORD, account_type='center', center_name=bahia['name'], phone='+34 600 000 101',
+        center = c(); ok(center.register(n, e, u, pw, account_type='center', center_name=bahia['name'], phone='+34 600 000 101',
                                          city='Xàbia', website='https://bahiacoralina.example.com'), 'registrar el primer centro')
-        approve(e, 'email_domain'); ok(center.login(u, PASSWORD), 'entrar como primer centro')
+        approve(e, 'email_domain'); ok(center.login(u, pw), 'entrar como primer centro')
         cid = center.me()['user']['center_id']
         u, e, n = ACCOUNTS['center2']
-        center2 = c(); ok(center2.register(n, e, u, PASSWORD, account_type='center', center_name=medes['name'], phone='+34 972 000 202',
+        center2 = c(); ok(center2.register(n, e, u, pw, account_type='center', center_name=medes['name'], phone='+34 972 000 202',
                                            city="L'Estartit", website='https://escafandramedes.example.com'), 'registrar el segundo centro')
-        approve(e, 'email_domain'); ok(center2.login(u, PASSWORD), 'entrar como segundo centro')
+        approve(e, 'email_domain'); ok(center2.login(u, pw), 'entrar como segundo centro')
         cid2 = center2.me()['user']['center_id']
         u, e, n = ACCOUNTS['freelance']
-        pro = c(); ok(pro.register(n, e, u, PASSWORD, account_type='freelance', phone='+52 998 000 0101', certification_text='Instructor y guía de cenotes'), 'registrar el freelance')
-        approve(e, 'document'); ok(pro.login(u, PASSWORD), 'entrar como freelance')
+        pro = c(); ok(pro.register(n, e, u, pw, account_type='freelance', phone='+52 998 000 0101', certification_text='Instructor y guía de cenotes'), 'registrar el freelance')
+        approve(e, 'document'); ok(pro.login(u, pw), 'entrar como freelance')
         pro_id = pro.me()['user']['id']
         u, e, n = ACCOUNTS['freelance2']
-        pro2 = c(); ok(pro2.register(n, e, u, PASSWORD, account_type='freelance', phone='+34 611 222 333', certification_text='Instructora y fotógrafa submarina'), 'registrar la freelance')
-        approve(e, 'document'); ok(pro2.login(u, PASSWORD), 'entrar como freelance')
+        pro2 = c(); ok(pro2.register(n, e, u, pw, account_type='freelance', phone='+34 611 222 333', certification_text='Instructora y fotógrafa submarina'), 'registrar la freelance')
+        approve(e, 'document'); ok(pro2.login(u, pw), 'entrar como freelance')
         pro2_id = pro2.me()['user']['id']
         divers, diver_ids = [], []
         u, e, n = ACCOUNTS['diver']
         for u, e, n in [(u, e, n)] + [(x[0], x[1], x[2]) for x in EXTRA_DIVERS]:
-            d = c(); ok(d.register(n, e, u, PASSWORD), 'registrar ' + u); ok(d.login(u, PASSWORD), 'entrar como ' + u)
+            d = c(); ok(d.register(n, e, u, pw), 'registrar ' + u); ok(d.login(u, pw), 'entrar como ' + u)
             divers.append(d); diver_ids.append(d.me()['user']['id'])
         buzo = divers[0]
         ok(buzo.post('/api/account/profile', {'certification_id': 2, 'emergency_contact_name': 'Carlos Navarro', 'emergency_contact_phone': '+34 600 000 999',
@@ -286,7 +290,7 @@ def build(out: Path):
             ok(cl.post('/api/center/team/invite', {'email': e, 'member_role': role}), 'invitar a ' + n)
             mail = srv.sql("SELECT html FROM email_outbox WHERE template='team_invite' AND to_email=? ORDER BY id DESC LIMIT 1", (e,))[0]['html']
             token = re.search(r'#/equipo\?token=([A-Za-z0-9_-]+)', mail).group(1)
-            ok(c().post('/api/team/join', {'token': token, 'fullname': n, 'username': u, 'password': PASSWORD, 'accept_terms': True}), 'dar de alta a ' + n)
+            ok(c().post('/api/team/join', {'token': token, 'fullname': n, 'username': u, 'password': pw, 'accept_terms': True}), 'dar de alta a ' + n)
         join(center, 'instructor', 'instructor')
         master_role = ok(center.post('/api/center/team/roles/save', {'name': 'Instructor máster', 'permissions': ['checkin', 'todas_salidas', 'barco', 'estadisticas']}), 'crear el perfil')['key']
         join(center, 'master', master_role)
@@ -527,7 +531,7 @@ def build(out: Path):
         ok(c().post('/api/reports', {'reason': 'false', 'details': 'El precio que aparece en la ficha no coincide con el que me dijeron por teléfono.', 'name': 'Persona de la demo',
                                      'email': 'denuncia@example.com', 'good_faith': True, 'target_url': f'/#/centro?id={cid}'}), 'enviar la denuncia')
         u, e, n = PENDING_CENTER
-        ok(c().register(n, e, u, PASSWORD, account_type='center', center_name='Arrecife Azul Dénia', phone='+34 600 000 103', city='Dénia',
+        ok(c().register(n, e, u, pw, account_type='center', center_name='Arrecife Azul Dénia', phone='+34 600 000 103', city='Dénia',
                         website='https://arrecifeazul.example.com'), 'registrar el centro pendiente')
 
         # --- finishing touches ----------------------------------------------------------------------------------------
@@ -537,6 +541,8 @@ def build(out: Path):
         srv.sql('DELETE FROM email_outbox')                                             # nothing waits to be sent in a fresh demo
         srv.sql("INSERT OR REPLACE INTO site_settings(key,value,updated_at) VALUES('demo_generated_on',?,?)", (day(0), now_s()))
         srv.sql("INSERT OR REPLACE INTO site_settings(key,value,updated_at) VALUES('demo_generated_version',?,?)", (app_version(), now_s()))
+        from wod.security import hash_password
+        srv.sql("UPDATE users SET password_hash=? WHERE username LIKE '%.prueba'", (hash_password(PASSWORD),))
         admins = [r['username'] for r in srv.sql("SELECT username FROM users WHERE role='admin'")]
         if admins != [ACCOUNTS['admin'][0]]: raise SystemExit(f'La demo solo trae su cuenta de administración de demostración: {admins}')
     except BaseException:

@@ -21,7 +21,7 @@ import sys
 import queue
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from email import policy
 from email.parser import BytesParser
@@ -1114,6 +1114,15 @@ def clear_login_failures(key):
     LOGIN_LIMIT.reset(key)
 
 
+def known_network(db, user_id, ip):
+    """True when this person signed in successfully from this network (the same IPv4 address, or IPv6 /64) in the last
+    90 days. Someone guessing from elsewhere then cannot lock the owner out (ASVS 5.0 V6.3.1, malicious lockout)."""
+    mark = wsec.ip_hash(wsec.ip_group(ip))
+    since = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat(timespec='seconds')
+    rows = db.execute("SELECT details FROM audit_log WHERE user_id=? AND action='login' AND created_at>=? ORDER BY id DESC LIMIT 30", (user_id, since)).fetchall()
+    return any(mark in (r['details'] or '') for r in rows)
+
+
 def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec='seconds')
 
@@ -1640,6 +1649,8 @@ def migrate_v50_51(db):
     # ASVS 5.0 (V7.5.2): each session remembers its browser and a fingerprint of the address, so the person can see where
     # it is open and close the others.
     add_columns(db, 'sessions', [('user_agent', 'TEXT'), ('ip_hash', 'TEXT')])
+    # ASVS 5.0 (V6.3.1): the networks a person signed in from are looked up by account (known_network).
+    db.execute('CREATE INDEX IF NOT EXISTS idx_audit_user_action ON audit_log(user_id, action, id DESC)')
     # Security review (A02-1): the authenticator secrets of the two-step verification are stored encrypted.
     ucols = {r['name'] for r in db.execute('PRAGMA table_info(users)')}
     if wcif.configured():
@@ -7994,8 +8005,8 @@ CONTACT_TOPICS = {'web': 'Dudas sobre la web o tu cuenta', 'booking': 'Un proble
                   'accessibility': 'Accesibilidad', 'center': 'Centros que quieren unirse', 'other': 'Otro asunto'}
 
 
-def report_rate_limited(ip):
-    return REPORT_LIMIT.hit(ip)
+def report_rate_limited(key):
+    return REPORT_LIMIT.hit(key)
 
 
 def _qr_cmds(payload,x0,y0,size):
@@ -8673,7 +8684,12 @@ def notice_link(bid, kind, slot_date):
     try: until = datetime.fromisoformat(f'{slot_date}T23:59:59').replace(tzinfo=timezone.utc).timestamp() + 2 * 86400
     except (TypeError, ValueError): until = 0
     exp = int(max(time.time() + NOTICE_LINK_DAYS * 86400, until))
-    return wav.sign_link(wcfg.env('WOD_SECRET_KEY') or 'desarrollo', bid, kind, exp)
+    return wav.sign_link(notice_link_secret(), bid, kind, exp)
+
+
+def notice_link_secret():
+    """WOD_SECRET_KEY (required in production); without it, random per process, never a fixed text (ASVS 5.0 V9.1.3)."""
+    return wcfg.env('WOD_SECRET_KEY') or wsec.secret_key().hex()
 
 
 def notice_texts(db, kind, slot, booking, lang, *, center, reason=None, note=None, policy='choice', paid=0.0, new_time=None, new_point=None, bring=None, meeting=None):
@@ -9279,7 +9295,7 @@ def whatsapp_webhook(handler, db):
 
 # ---- signed links of the notices (D.2.4)
 def signed_link_booking(db, token):
-    got = wav.verify_link(wcfg.env('WOD_SECRET_KEY') or 'desarrollo', token)
+    got = wav.verify_link(notice_link_secret(), token)
     b = booking_row(db, got[0]) if got else None
     if not b: raise NotFound('El enlace no es válido o ha caducado.')
     return b, got[1]
@@ -10828,7 +10844,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     # third party, results are cached and the provider's usage policy (1 request/s, identified client) is respected.
                     q=clean_text(query.get('q',[''])[0],120) or ''
                     if len(q)<2: self.send_json({'items':[]}); return
-                    if GEOCODE_LIMIT.hit('geo:'+self.client_ip()): self.send_json({'error':'Demasiadas búsquedas seguidas. Espera un momento.'},429); return
+                    if GEOCODE_LIMIT.hit('geo:'+wsec.ip_group(self.client_ip())): self.send_json({'error':'Demasiadas búsquedas seguidas. Espera un momento.'},429); return
                     self.send_json({'items':geocode_search(q,clean_text(query.get('lang',['es'])[0],5) or 'es')}); return
                 if path == '/api/me':
                     user = current_user(self, db)
@@ -11811,7 +11827,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not setup_allowed(): self.send_json({'error':'La instalación desde la web está desactivada. Crea el administrador con «python app/server.py --create-admin».'},403); return
                     if db.execute("SELECT 1 FROM users WHERE role='admin' LIMIT 1").fetchone():
                         self.send_json({'error':'La instalación ya está configurada.'},400); return
-                    if REGISTER_LIMIT.hit('setup:'+self.client_ip()): self.send_json({'error':'Demasiados intentos. Espera un poco.'},429); return
+                    if REGISTER_LIMIT.hit('setup:'+wsec.ip_group(self.client_ip())): self.send_json({'error':'Demasiados intentos. Espera un poco.'},429); return
                     data=json_body(self)
                     fullname=clean_text(data.get('fullname'),120); email=(clean_text(data.get('email'),160) or '').lower(); username=clean_text(data.get('username'),80); password=str(data.get('password',''))
                     if not fullname or not email or not username: raise ValueError('Completa nombre, email, usuario y contraseña.')
@@ -11825,7 +11841,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     # domain, a phone call to the public number or a document) and only then grants the role.
                     # A phone number that matches a centre is stored as a SUGGESTION for the administrator, never as a link.
                     if not registration_open(): raise PermissionError('El registro de cuentas nuevas no está abierto en esta versión.')
-                    if REGISTER_LIMIT.hit('register:'+self.client_ip()): self.send_json({'error':'Demasiados registros desde esta conexión. Inténtalo más tarde.'},429); return
+                    if REGISTER_LIMIT.hit('register:'+wsec.ip_group(self.client_ip())): self.send_json({'error':'Demasiados registros desde esta conexión. Inténtalo más tarde.'},429); return
                     data=json_body(self); fullname=clean_text(data.get('fullname'),120); email=(clean_text(data.get('email'),160) or '').lower(); username=clean_text(data.get('username'),80); password=str(data.get('password',''))
                     requested=clean_text(data.get('account_type'),30) or 'recreational'
                     phone=clean_text(data.get('phone'),60); requested_center_name=clean_text(data.get('center_name'),180); city=clean_text(data.get('city'),100); center_note=clean_text(data.get('center_note'),2000)
@@ -11889,6 +11905,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if not wmovil.TEST_ACCOUNT_RE.fullmatch(login): raise ValueError('Cuenta de prueba no válida.')
                         user = db.execute('SELECT * FROM users WHERE lower(username)=?', (login,)).fetchone()
                         if not user: self.send_json({'error': 'Esa cuenta de prueba no existe en este servidor.'}, 404); return
+                        # Never the administration without its password and code (ASVS 5.0 V6.3.2).
+                        if user['role'] == 'admin': self.send_json({'error': 'La administración entra con su contraseña.'}, 403); return
                         old_token = self.session_hash()
                         if old_token: db.execute('DELETE FROM sessions WHERE token_hash=?', (old_token,))
                         db.execute('UPDATE users SET last_login=? WHERE id=?', (now(), user['id'])); audit(db, user['id'], 'login', details={'pruebas_app': True}); db.commit()
@@ -11899,14 +11917,18 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     sys.stderr.write(f'[pruebas] fallo reportado: {name}\n')
                     self.send_json({'ok': True, 'id': name}); return
                 if path=='/api/auth/login':
-                    data=json_body(self); login=(clean_text(data.get('login'),160) or '').lower(); password=str(data.get('password',''))[:256]
-                    ip=self.client_ip(); rate_key=f'{ip}:{login}'; ip_key=f'ip:{ip}'
-                    # Per account+IP (8 per 15 min) and per IP (5x that), so one address cannot try many accounts.
-                    acct_key='acct:'+login
-                    if login_rate_limited(rate_key) or LOGIN_IP_LIMIT.blocked(ip_key) or LOGIN_ACCOUNT_LIMIT.blocked(acct_key):
-                        self.send_json({'error':'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.'},429); return
+                    data=json_body(self); login=(clean_text(data.get('login'),160) or '').lower(); password=str(data.get('password',''))
+                    ip=self.client_ip(); net=wsec.ip_group(ip); rate_key=f'{net}:{login}'; ip_key=f'ip:{net}'
                     user=db.execute('SELECT * FROM users WHERE lower(email)=? OR lower(username)=?',(login,login)).fetchone()
-                    ok_pw=verify_password(password,user['password_hash'] if user else dummy_password_hash())
+                    # Per account+IP (8 per 15 min), per IP (5x that), so one address cannot try many accounts, and per
+                    # account (3x, by its id: the username and the email share it). The account limit does not lock out
+                    # its owner from a network where they signed in before (ASVS 5.0 V6.3.1, docs/seguridad/autenticacion.md).
+                    acct_key=f"acct:{user['id']}" if user else 'acct:'+login
+                    account_locked=LOGIN_ACCOUNT_LIMIT.blocked(acct_key) and not (user and known_network(db,user['id'],ip))
+                    if login_rate_limited(rate_key) or LOGIN_IP_LIMIT.blocked(ip_key) or account_locked:
+                        self.send_json({'error':'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.'},429); return
+                    # No stored password is longer than 256 characters (password_problem): a longer one is simply wrong.
+                    ok_pw=len(password)<=256 and verify_password(password,user['password_hash'] if user else dummy_password_hash())
                     if not user or not ok_pw:
                         record_login_failure(rate_key); LOGIN_IP_LIMIT.hit(ip_key)
                         if LOGIN_ACCOUNT_LIMIT.hit(acct_key): security_alert('login_bruteforce', {'account': wsec.ip_hash(login)})
@@ -11918,7 +11940,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(password),user['id']))
                     second=login_second_factor(db,user,data,ip)
                     if second: db.commit(); self.send_json(second[0],second[1]); return
-                    db.execute('UPDATE users SET last_login=?,inactive_warned_at=NULL WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login',details={'ip':wsec.ip_hash(ip),'totp':bool(user['totp_enabled'])}); db.commit()
+                    db.execute('UPDATE users SET last_login=?,inactive_warned_at=NULL WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login',details={'ip':wsec.ip_hash(ip),'red':wsec.ip_hash(net),'totp':bool(user['totp_enabled'])}); db.commit()
                     self.login_user(user['id'],db,{'ok':True,'totp_setup_required':user['role']=='admin' and admin_totp_required() and not user['totp_enabled']}); return
                 if path in ('/api/account/totp/setup','/api/account/totp/enable','/api/account/totp/disable','/api/account/totp/recovery'):
                     # Fase 4: two-step verification, optional for everybody and mandatory for administrators.
@@ -11991,7 +12013,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     self.send_json({'ok':True,'recipients':n,'test':test_only}); return
                 if path=='/api/auth/verify-email':
                     token=str(json_body(self).get('token') or '')[:200]
-                    if FORGOT_LIMIT.hit('verify:'+self.client_ip()): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
+                    if FORGOT_LIMIT.hit('verify:'+wsec.ip_group(self.client_ip())): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
                     th=hashlib.sha256(token.encode()).hexdigest()
                     row=db.execute('SELECT * FROM email_verifications WHERE token_hash=?',(th,)).fetchone()
                     if not row or row['used_at'] or row['expires_at']<now(): raise ValueError('El enlace no es válido o ha caducado. Pide uno nuevo desde «Mi cuenta».')
@@ -12639,9 +12661,13 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not row: self.send_json({'error':'Mensaje no encontrado'},404); return
                     db.execute('UPDATE messages SET read_at=? WHERE id=?',(now(),mid)); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/auth/forgot':
-                    data=json_body(self); email=(clean_text(data.get('email'),160) or '').strip().lower()
-                    if FORGOT_LIMIT.hit(f'forgot:{self.client_ip()}') or (email and FORGOT_LIMIT.hit(f'forgot-mail:{email}')): self.send_json({'error':'Demasiadas solicitudes. Espera unos minutos.'},429); return
+                    data=json_body(self); email=(clean_text(data.get('email'),160) or '').strip().lower(); ip=self.client_ip()
+                    if FORGOT_LIMIT.hit(f'forgot:{wsec.ip_group(ip)}'): self.send_json({'error':'Demasiadas solicitudes. Espera unos minutos.'},429); return
                     u=db.execute("SELECT id FROM users WHERE (lower(email)=? OR lower(username)=?) AND password_hash<>'!'",(email,email)).fetchone() if email else None
+                    # At most 5 emails per account every 15 minutes, except from a network where its owner signed in
+                    # before (someone else cannot stop the owner from asking for the link, ASVS 5.0 V6.3.1).
+                    if email and FORGOT_LIMIT.hit(f"forgot-mail:{u['id'] if u else email}") and not (u and known_network(db,u['id'],ip)):
+                        self.send_json({'error':'Demasiadas solicitudes. Espera unos minutos.'},429); return
                     if u:
                         token=new_password_reset(db,u['id'])
                         notify_user(db,u['id'],'password_reset',{'reset_url':f'{public_site_url()}/#/restablecer?token={token}'},('user',u['id']))
@@ -12651,7 +12677,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     self.send_json({'ok':True}); return
                 if path=='/api/auth/reset':
                     data=json_body(self); token=str(data.get('token') or '')[:200]; new=str(data.get('password') or '')
-                    if FORGOT_LIMIT.hit(f'reset:{self.client_ip()}'): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
+                    if FORGOT_LIMIT.hit(f'reset:{wsec.ip_group(self.client_ip())}'): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
                     check_new_password(new)
                     th=hashlib.sha256(token.encode()).hexdigest()
                     r=db.execute('SELECT * FROM password_resets WHERE token_hash=?',(th,)).fetchone()
@@ -12659,6 +12685,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if db.execute('UPDATE password_resets SET used_at=? WHERE token_hash=? AND used_at IS NULL',(now(),th)).rowcount!=1: raise ValueError('El enlace ya se ha utilizado.')
                     db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(new),r['user_id']))
                     db.execute('DELETE FROM sessions WHERE user_id=?',(r['user_id'],))
+                    LOGIN_ACCOUNT_LIMIT.reset(f"acct:{r['user_id']}")   # whoever reads the account's email unlocks it (ASVS V6.3.1)
                     notify_user(db,r['user_id'],'password_changed',{'when':datetime.now().strftime('%d/%m/%Y %H:%M')},('user',r['user_id']))
                     audit(db,r['user_id'],'password_reset_done','user',r['user_id']); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/account/language':
@@ -12839,7 +12866,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/info-requests':
                     # «Solicitar información» for providers without online booking (and for any provider): email + panel.
                     data=json_body(self); ip=self.client_ip()
-                    if report_rate_limited('info:'+ip): self.send_json({'error':'Has enviado muchas solicitudes seguidas. Inténtalo más tarde.'},429); return
+                    if report_rate_limited('info:'+wsec.ip_group(ip)): self.send_json({'error':'Has enviado muchas solicitudes seguidas. Inténtalo más tarde.'},429); return
                     cid=int(data.get('center_id') or 0) or None; puid=int(data.get('provider_user_id') or 0) or None
                     if cid:
                         if not db.execute(f'SELECT 1 FROM centers c WHERE c.id=? AND {public_center_sql()}',(cid,)).fetchone(): raise ValueError('Centro no válido.')
@@ -13023,6 +13050,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if re.fullmatch(r'/api/r/[0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
                     # The diver's choice from the signed link of a notice (no session needed; the link opens only that booking).
                     b,kind=signed_link_booking(db,path.rsplit('/',1)[1]); data=json_body(self)
+                    # Only the link of the «departure cancelled» notice chooses (ASVS 5.0 V9.2.2).
+                    if kind!='slot_cancelled': raise PermissionError('Este enlace no sirve para esta acción.')
                     offer=slot_offer_for(db,b['id'])
                     if not offer: raise ValueError('Esta reserva no tiene ninguna salida cancelada.')
                     if offer['resolved_at']: raise ValueError('Ya habías elegido una opción para esta reserva.')
@@ -13230,7 +13259,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     audit(db,user['id'],'payment_incident_marked','payment_order',oid,{'incident':kind}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/reports':
                     data=json_body(self); ip=self.client_ip()
-                    if report_rate_limited(ip): self.send_json({'error':'Has enviado muchas denuncias seguidas. Inténtalo más tarde.'},429); return
+                    if report_rate_limited(wsec.ip_group(ip)): self.send_json({'error':'Has enviado muchas denuncias seguidas. Inténtalo más tarde.'},429); return
                     reason=data.get('reason'); details=clean_text(data.get('details'),3000) or ''
                     if reason not in REPORT_REASONS: raise ValueError('Elige el motivo de la denuncia.')
                     if len(details)<20: raise ValueError('Explica con un poco más de detalle qué ocurre (mínimo 20 caracteres).')
@@ -13258,7 +13287,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/contact':
                     # «Contacto» form (v50.46): stored for the administration, which gets an email; the sender gets a receipt.
                     data=json_body(self); ip=self.client_ip()
-                    if report_rate_limited('contact:'+ip): self.send_json({'error':'Has enviado muchos mensajes seguidos. Inténtalo más tarde.'},429); return
+                    if report_rate_limited('contact:'+wsec.ip_group(ip)): self.send_json({'error':'Has enviado muchos mensajes seguidos. Inténtalo más tarde.'},429); return
                     topic=data.get('topic'); message=clean_text(data.get('message'),4000) or ''
                     if topic not in CONTACT_TOPICS: raise ValueError('Elige el asunto de tu mensaje.')
                     if len(message)<10: raise ValueError('Escribe tu mensaje (mínimo 10 caracteres).')

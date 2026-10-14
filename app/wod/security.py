@@ -12,6 +12,8 @@ import sqlite3
 import sys
 import threading
 import time
+import unicodedata
+from pathlib import Path
 from urllib.parse import urlparse
 
 from . import config
@@ -68,13 +70,46 @@ def needs_rehash(stored: str | None) -> bool:
         return True
 
 
+# Words of this web and of diving that make a password easy to guess (ASVS 5.0 V6.1.2 and V6.2.11). Documented in
+# docs/seguridad/autenticacion.md; compared without accents, capitals, digits or symbols.
+CONTEXT_WORDS = ('worldivesdiscovery', 'worldives', 'worlddives', 'woldives', 'discovery', 'buceadora', 'buceador', 'bucear',
+                 'buceo', 'scuba', 'diving', 'diver', 'padi', 'instructora', 'instructor', 'centro', 'freelance', 'administrador',
+                 'admin', 'prueba', 'demo', 'contrasena', 'password')
+_COMMON: frozenset | None = None
+
+
+def common_passwords() -> frozenset:
+    """The 20 000 most frequent leaked passwords of 10+ characters (app/wod/contrasenas-comunes.txt), loaded once."""
+    global _COMMON
+    if _COMMON is None:
+        try:
+            lines = (Path(__file__).with_name('contrasenas-comunes.txt')).read_text(encoding='utf-8').splitlines()
+        except OSError:
+            lines = []
+        _COMMON = frozenset(x.strip() for x in lines if x.strip() and not x.startswith('#'))
+    return _COMMON
+
+
+def _letters(text: str) -> str:
+    plain = unicodedata.normalize('NFKD', text.lower())
+    return ''.join(ch for ch in plain if ch.isalpha() and not unicodedata.combining(ch))
+
+
 def password_problem(password: str) -> str | None:
     """Minimum rules shared by registration, reset and change. Returns an error text or None."""
     if len(password) < 10:
         return 'La contraseña debe tener al menos 10 caracteres.'
     if len(password) > 256:
         return 'La contraseña es demasiado larga.'
-    if password.lower() in {'1234567890', 'contraseña', 'contrasena1', 'password12', 'worldives1', 'qwertyuiop'}:
+    low = password.lower()
+    common = common_passwords()
+    if low in common or re.sub(r'[\W\d_]+$', '', low) in common or low in {'contraseña', 'contrasena1', 'worldives1'}:
+        return 'Esa contraseña es demasiado fácil de adivinar.'
+    letters = _letters(password)
+    rest = letters
+    for word in CONTEXT_WORDS:
+        rest = rest.replace(word, '')
+    if rest != letters and len(rest) < 5:   # only the name of the web or of diving, plus digits or symbols
         return 'Esa contraseña es demasiado fácil de adivinar.'
     return None
 
@@ -277,6 +312,20 @@ def client_ip(peer_ip: str, headers) -> str:
             return part
     real = (headers.get('X-Real-IP') or '').strip()
     return real or peer_ip
+
+
+def ip_group(ip: str) -> str:
+    """The address used in rate limits: an IPv6 /64 counts as one address (a single connection usually gets a whole
+    /64, so per-address limits would be endless), IPv4 as itself (ASVS 5.0 V6.3.1)."""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip
+    if addr.version == 6:
+        if addr.ipv4_mapped:
+            return str(addr.ipv4_mapped)
+        return str(ipaddress.ip_network(f'{addr}/64', strict=False))
+    return str(addr)
 
 
 def request_scheme(peer_ip: str, headers) -> str:

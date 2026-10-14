@@ -3,6 +3,7 @@ Cada prueba nombra el requisito que comprueba."""
 import concurrent.futures as cf
 import datetime as dt
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -156,6 +157,80 @@ class AdministradorSin2FA(ServerTestCase):
         self.assertEqual(a.get('/api/bookings').json['items'], [])                                   # before: every booking
         r = a.get('/api/admin/users'); self.assertEqual(r.status, 403); self.assertIn('verificación en dos pasos', r.json['error'])
         self.assertEqual(a.post('/api/account/totp/setup', {'password': 'admin-seguro-2026'}).status, 200)   # and can turn it on
+
+
+class ContrasenasYBloqueo(ServerTestCase):
+    """V6.2 y V6.3: contraseñas filtradas o del contexto, contraseñas largas, bloqueo malicioso de cuentas, IPv6 y
+    enlaces firmados de los avisos (V9)."""
+    extra_env = {'WOD_TRUSTED_PROXIES': '127.0.0.1'}
+
+    def ip(self, value):
+        return {'X-Forwarded-For': value}
+
+    def test_v6_2_4_v6_2_11_leaked_and_context_passwords_are_refused(self):
+        weak = ['password123', 'password1234', 'qwerty1234', '1q2w3e4r5t', '12345678910', 'iloveyou12', 'aaaaaaaaaa',
+                'worldives2026', 'worldivesdiscovery', 'Worldives-Prueba-2026', 'buceo123456', 'scubadiving', 'qwertyuiop!!']
+        for i, pw in enumerate(weak):
+            r = self.client().request('POST', '/api/auth/register', {'fullname': 'Prueba Débil', 'email': f'debil{i}@diver.example.org', 'username': f'debil{i}',
+                                                                      'password': pw, 'account_type': 'recreational', 'accept_terms': True, 'accept_privacy': True},
+                                       headers=self.ip(f'203.0.113.{i + 1}'))
+            self.assertEqual(r.status, 400, (pw, r)); self.assertIn('fácil de adivinar', r.json['error'])
+        d = self.make_diver('fuerte1')   # 'buceo-seguro-2026': the name of the sport plus other words is fine
+        self.assertEqual(d.post('/api/account/password', {'current_password': 'buceo-seguro-2026', 'new_password': 'password1234'}).status, 400)
+
+    def test_v6_2_8_a_longer_password_is_not_cut(self):
+        pw = ('Mar-de-fondo-' * 20)[:256]
+        c = self.client()
+        r = c.register('Buceador Largo', 'largo@diver.example.org', 'diver_largo', password=pw)
+        self.assertEqual(r.status, 200, r)
+        self.assertEqual(self.client().request('POST', '/api/auth/login', {'login': 'diver_largo', 'password': pw + 'EXTRA'}, headers=self.ip('203.0.113.50')).status, 401)
+        self.assertEqual(self.client().request('POST', '/api/auth/login', {'login': 'diver_largo', 'password': pw}, headers=self.ip('203.0.113.50')).status, 200)
+
+    def test_v6_3_1_nobody_can_lock_the_owner_out(self):
+        self.make_diver('cerrojo')
+        login = lambda who, pw, ip: self.client().request('POST', '/api/auth/login', {'login': who, 'password': pw}, headers=self.ip(ip))
+        self.assertEqual(login('diver_cerrojo', 'buceo-seguro-2026', '198.51.100.70').status, 200)       # the owner, at home
+        # 24 wrong passwords from three addresses, with the username and with the email (one account, one counter)
+        for n in range(3):
+            for k in range(8):
+                who = 'diver_cerrojo' if k % 2 else 'cerrojo@diver.example.org'
+                self.assertEqual(login(who, f'no-es-la-clave-{k}', f'192.0.2.{n + 1}').status, 401)
+        self.assertEqual(login('diver_cerrojo', 'buceo-seguro-2026', '192.0.2.200').status, 429)          # an unknown place: locked
+        self.assertEqual(login('cerrojo@diver.example.org', 'buceo-seguro-2026', '192.0.2.201').status, 429)
+        self.assertEqual(login('diver_cerrojo', 'buceo-seguro-2026', '198.51.100.70').status, 200)        # the owner still gets in
+        # ... and the owner can always ask for the link from home, and resetting the password unlocks the account
+        anon = self.client()
+        for _ in range(6):
+            r = anon.request('POST', '/api/auth/forgot', {'email': 'cerrojo@diver.example.org'}, headers=self.ip('192.0.2.77'))
+        self.assertEqual(r.status, 429)
+        r = anon.request('POST', '/api/auth/forgot', {'email': 'cerrojo@diver.example.org'}, headers=self.ip('198.51.100.70'))
+        self.assertEqual(r.status, 200, r)
+        mail = self.server.sql("SELECT text FROM email_outbox WHERE template='password_reset' AND to_email='cerrojo@diver.example.org' ORDER BY id DESC")[0]['text']
+        token = re.search(r'restablecer\?token=([A-Za-z0-9_\-]+)', mail).group(1)
+        self.assertEqual(anon.request('POST', '/api/auth/reset', {'token': token, 'password': 'nueva-clave-segura-8'}, headers=self.ip('198.51.100.71')).status, 200)
+        self.assertEqual(login('diver_cerrojo', 'nueva-clave-segura-8', '192.0.2.202').status, 200)
+
+    def test_v6_3_1_an_ipv6_network_counts_as_one_address(self):
+        self.make_diver('seisv')
+        for k in range(8):
+            r = self.client().request('POST', '/api/auth/login', {'login': 'diver_seisv', 'password': 'no-es-la-clave'}, headers=self.ip(f'2001:db8:77:1::{k + 1:x}'))
+            self.assertEqual(r.status, 401)
+        r = self.client().request('POST', '/api/auth/login', {'login': 'diver_seisv', 'password': 'no-es-la-clave'}, headers=self.ip('2001:db8:77:1:ffff::9'))
+        self.assertEqual(r.status, 429)      # before: every address of the /64 had its own 8 attempts
+
+    def test_v9_2_2_a_reminder_link_cannot_choose_a_refund(self):
+        from wod import avisos
+        d = self.make_diver('enlace1')
+        t = dt.datetime.now().isoformat()
+        self.server.sql("INSERT INTO centers(name,country,city,active,created_at,updated_at) VALUES('Centro Enlace','España','Xàbia',1,?,?)", (t, t))
+        cid = self.server.sql("SELECT id FROM centers WHERE name='Centro Enlace'")[0]['id']
+        self.server.sql("INSERT INTO bookings(user_id,center_id,booking_date,participants,status,created_at,updated_at) VALUES(?,?,?,1,'confirmed',?,?)",
+                        (d.user['id'], cid, '2031-01-10', t, t))
+        bid = self.server.sql('SELECT id FROM bookings WHERE center_id=?', (cid,))[0]['id']
+        token = avisos.sign_link('x' * 40, bid, 'reminder', int(time.time()) + 3600)
+        self.assertEqual(self.client().get('/api/r/' + token).status, 200)                  # it opens the booking
+        r = self.client().post('/api/r/' + token, {'choice': 'refund'})
+        self.assertEqual(r.status, 403, r); self.assertIn('no sirve', r.json['error'])
 
 
 if __name__ == '__main__':

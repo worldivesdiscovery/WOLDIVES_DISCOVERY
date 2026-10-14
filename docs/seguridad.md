@@ -1,5 +1,13 @@
 # WORLDIVES DISCOVERY — seguridad
 
+## OWASP ASVS 5.0, nivel 2 (v50.51)
+
+Revisión de los 253 requisitos de nivel 1 y 2 y arreglos: [`docs/auditoria/v50.51/asvs-5.0-nivel2.md`](auditoria/v50.51/asvs-5.0-nivel2.md).
+Documentos de referencia que pide ASVS:
+
+- [`seguridad/autenticacion.md`](seguridad/autenticacion.md): vías de autenticación, política de contraseñas, límites
+  de intentos, bloqueo malicioso, sesiones y verificación en dos pasos.
+
 ## Aislamiento entre centros y datos cifrados (v50.47)
 
 - **Cada dato privado lleva su centro.** El centro (o el freelance) de cada dato privado es obligatorio en la propia
