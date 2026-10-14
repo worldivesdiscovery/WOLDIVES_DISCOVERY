@@ -169,7 +169,7 @@ class ContrasenasYBloqueo(ServerTestCase):
 
     def test_v6_2_4_v6_2_11_leaked_and_context_passwords_are_refused(self):
         weak = ['password123', 'password1234', 'qwerty1234', '1q2w3e4r5t', '12345678910', 'iloveyou12', 'aaaaaaaaaa',
-                'worldives2026', 'worldivesdiscovery', 'Worldives-Prueba-2026', 'buceo123456', 'scubadiving', 'qwertyuiop!!']
+                'worldives2026', 'worldivesdiscovery', 'Worldives-Demo-2026', 'buceo123456', 'scubadiving', 'qwertyuiop!!']
         for i, pw in enumerate(weak):
             r = self.client().request('POST', '/api/auth/register', {'fullname': 'Prueba Débil', 'email': f'debil{i}@diver.example.org', 'username': f'debil{i}',
                                                                       'password': pw, 'account_type': 'recreational', 'accept_terms': True, 'accept_privacy': True},
