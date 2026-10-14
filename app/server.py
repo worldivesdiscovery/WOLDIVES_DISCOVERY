@@ -4109,7 +4109,38 @@ def team_gate(db, user, path, method):
     need = wroles.necesita(path, method)
     if need == '': return
     if need is None or need not in wroles.permisos(db, user['center_id'], role):
+        if method == 'GET' and need == 'reservas': raise PermissionError(wroles.NO_VE_RESERVAS)
         raise PermissionError(wroles.NO_PUEDE.get(need, wroles.NO_PUEDE[None]))
+
+
+# Booking fields about money: only with «cobros» or «reservas» (it includes charging at the centre). Internal notes: only
+# with «reservas» (ASVS 5.0 V8.2.3).
+BOOKING_MONEY_FIELDS = ('amount_paid', 'amount_due', 'refunded_total', 'refund_amount', 'refund_proposed', 'deposit_amount', 'price_breakdown',
+                        'payment_method', 'paid_online', 'refunded_online', 'refundable', 'refunds')
+
+
+def team_booking_view(db, user, d):
+    """What a team member without «cobros» or «reservas» reads of a booking of the centre (the owner reads all)."""
+    if user['role'] not in ('center', 'freelance'): return d
+    if not team_sees_money(db, user):
+        for k in BOOKING_MONEY_FIELDS: d.pop(k, None)
+    if not user_can(db, user, 'reservas'): d.pop('internal_notes', None)
+    return d
+
+
+def team_sees_money(db, user):
+    return user_can(db, user, 'cobros') or user_can(db, user, 'reservas')
+
+
+def slot_visible(db, user, slot_id):
+    """«Ver todas las salidas» (v50.49): without it a team member sees only the departures where they guide a group
+    and those without guides. The same rule for the agenda, the manifest, the day sheets and the boat summary
+    (ASVS 5.0 V8.2.2)."""
+    if user_can(db, user, 'todas_salidas'): return True
+    key = winq.tenant_key(*provider_owner(user))
+    groups = db.execute('''SELECT g.guide_user_id, COALESCE(u.fullname, g.guide_name) AS guide FROM slot_groups g JOIN service_slots x ON x.id=g.slot_id AND x.provider_id=?
+                           LEFT JOIN users u ON u.id=g.guide_user_id WHERE g.slot_id=?''', (key, int(slot_id))).fetchall()
+    return not any(g['guide'] for g in groups) or any(g['guide_user_id'] == user['id'] for g in groups)
 
 
 def plan_payment_paid(db, pp_id, source):
@@ -8287,8 +8318,9 @@ def booking_signatures(db, booking_id):
     return {r['seat']: dict(r) for r in db.execute('SELECT id,seat,version,signer_name,signed_at,method FROM waiver_signatures WHERE booking_id=? ORDER BY signed_at', (booking_id,)).fetchall()}
 
 
-def manifest_data(db, user, slot_id):
+def manifest_data(db, user, slot_id, for_reading=True):
     slot = manifest_slot(db, user, slot_id)
+    if for_reading and not slot_visible(db, user, slot_id): raise NotFound('Salida no encontrada.')
     kind, oid = slot_owner(slot)
     st = ','.join('?' * len(MANIFEST_STATES))
     books = db.execute(f'''SELECT b.*, COALESCE(b.contact_name,u.fullname) AS diver_name, u.fullname AS user_fullname, up.phone AS profile_phone,
@@ -9760,6 +9792,7 @@ def manifest_day(db, user, day):
                            WHERE {w} AND ss.slot_date=? AND ss.cancelled_at IS NULL AND ss.status IN ('open','full','closed') ORDER BY ss.slot_time""", (*a, day)).fetchall()
     out = []
     for r in slots:
+        if not slot_visible(db, user, r['id']): continue
         d = manifest_data(db, user, r['id'])
         if not d['divers']: continue
         divers = []
@@ -9932,7 +9965,7 @@ def pro_scan(db, user, data):
     want = int(data.get('slot_id') or 0)
     if want and b['slot_id'] and want != int(b['slot_id']): return res('otra_salida')
     if not b['slot_id']: return res('sin_lista' if b['status'] != 'accepted_pending_payment' else 'pendiente_pago')
-    d = manifest_data(db, user, int(b['slot_id']))
+    d = manifest_data(db, user, int(b['slot_id']), for_reading=False)
     seats = [x for x in d['divers'] if x['booking_id'] == b['id']]
     card['seats'] = [{'seat': x['seat'], 'name': x['name'], 'present': bool(x['checked_in_at']), 'signed': bool(x['signed'])} for x in seats]
     card['unsigned'] = sum(1 for x in seats if not x['signed']) if d['waiver'] else 0
@@ -10482,6 +10515,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
                     kind=clean_text(query.get('kind',['bookings'])[0],20) or 'bookings'
                     if kind=='payments' and not user_can(db,user,'cobros'): raise PermissionError(wroles.NO_PUEDE['cobros'])
+                    if kind in ('bookings','clients') and not user_can(db,user,'reservas'): raise PermissionError(wroles.NO_VE_RESERVAS)   # ASVS V8.2.1
                     raw=provider_export(db,*ref,kind).encode('utf-8'); audit(db,user['id'],'provider_export',ref[0],ref[1],{'kind':kind}); db.commit()
                     if kind in ('bookings','clients'): log_phone_access(db,user,f'export:{kind}',max(0,raw.count(b'\n')-1),ref[1])
                     self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8')
@@ -11301,6 +11335,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
                     if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise NotFound('Reserva no encontrada.')
+                    if b['user_id']!=user['id'] and user['role'] in ('center','freelance') and not team_sees_money(db,user): raise PermissionError(wroles.NO_PUEDE['cobros'])   # it shows what was paid (ASVS V8.2.3)
                     lang=normalize_lang(clean_text(query.get('lang',[''])[0],5) or user_lang(db,user['id']))
                     raw=booking_pdf(db,bid,self.base_url(),lang)
                     if raw is None: self.send_json({'error':'Reserva no encontrada'},404); return
@@ -11470,7 +11505,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     bd['tz']=place_tz(db,b['service_id'],b['center_id'])
                     bd.pop('public_token',None); bd['check_url']=booking_check_url(db,bid,self.base_url()) if (b['user_id']==user['id'] or can_manage_booking(user,b)) else None
                     bd['check_code']=wpro.booking_code(bid,db.execute('SELECT public_token FROM bookings WHERE id=?',(bid,)).fetchone()['public_token']) if bd['check_url'] else None
-                    if b['user_id']!=user['id']: log_phone_access(db,user,'booking',count_phones({'booking':bd,'profile':dict(profile) if profile else {}}),bid)
+                    if b['user_id']!=user['id']:
+                        log_phone_access(db,user,'booking',count_phones({'booking':bd,'profile':dict(profile) if profile else {}}),bid)
+                        team_booking_view(db,user,bd)
+                        if user['role'] in ('center','freelance') and not team_sees_money(db,user): pay=None
                     self.send_json({'booking':bd,'payment':pay,'profile':dict(profile) if profile else {},'documents':[dict(x) for x in docs],'data_shared':bool(can_see)}); return
                 if path == '/api/bookings':
                     user=require_user(self,db)
@@ -11507,7 +11545,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         d=dict(r_); d.update(booking_view_status(r_)); d.pop('public_token',None) if user['role']!='recreational' else None
                         d['mode_label']=wbk.mode_label(d.get('booking_mode') or 'request')
                         d['tz']=place_tz(db,d.get('service_id'),d.get('center_id'))   # the time of the activity is the local time of this zone
-                        items.append(d)
+                        items.append(team_booking_view(db,user,d))
                     if user['role']!='recreational': log_phone_access(db,user,'bookings',count_phones(items))
                     self.send_json({'items':items}); return
                 if path == '/api/center/requests':
@@ -12194,6 +12232,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     db.commit(); self.send_json({'ok':True,**waitlist_for_slots(db,user['id'],[slot_id]).get(slot_id,{})}); return
                 if re.fullmatch(r'/api/manifest/\d+/resumen-enlace',path):
                     user=require_user(self,db); sid_=int(path.split('/')[3]); manifest_slot(db,user,sid_)
+                    if not slot_visible(db,user,sid_): raise NotFound('Salida no encontrada.')
                     self.send_json({'url':f'{self.base_url()}/api/manifest/{sid_}/resumen.pdf?t={boat_pdf_token(sid_,user["id"])}','seconds':BOAT_PDF_LINK_SECONDS}); return
                 if path in ('/api/app/push/register','/api/app/push/unregister'):
                     user=require_user(self,db); data=json_body(self); tok=clean_text(data.get('token'),400)
@@ -12860,7 +12899,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if data.get('revoke'):
                         db.execute("UPDATE pro_invites SET expires_at=? WHERE id=? AND used_at IS NULL",((_dt.date.today()-_timedelta(days=1)).isoformat(),int(data['revoke'])))
                         audit(db,user['id'],'pro_invite_revoked','pro_invite',int(data['revoke'])); db.commit(); self.send_json({'ok':True}); return
-                    days=max(1,min(365,int(data.get('days') or 30))); code='WOD-'+secrets.token_hex(4).upper()
+                    days=max(1,min(365,int(data.get('days') or 30))); code='WOD-'+secrets.token_hex(16).upper()   # 128 bits (ASVS 5.0 V11.5.1)
                     db.execute('INSERT INTO pro_invites(code,note,created_by,created_at,expires_at) VALUES(?,?,?,?,?)',(code,clean_text(data.get('note'),200) or '',user['id'],now(),(_dt.date.today()+_timedelta(days=days)).isoformat()))
                     audit(db,user['id'],'pro_invite_created','pro_invite',None,{'code':code}); db.commit(); self.send_json({'ok':True,'code':code}); return
                 if path=='/api/info-requests':

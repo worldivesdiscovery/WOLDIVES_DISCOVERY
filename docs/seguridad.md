@@ -7,6 +7,8 @@ Documentos de referencia que pide ASVS:
 
 - [`seguridad/autenticacion.md`](seguridad/autenticacion.md): vías de autenticación, política de contraseñas, límites
   de intentos, bloqueo malicioso, sesiones y verificación en dos pasos.
+- [`seguridad/permisos.md`](seguridad/permisos.md): qué puede leer y cambiar cada papel y cada perfil del equipo, y
+  quién ve cada dato sensible.
 
 ## Aislamiento entre centros y datos cifrados (v50.47)
 

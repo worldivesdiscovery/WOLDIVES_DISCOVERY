@@ -2303,8 +2303,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const canPay=own&&!!b.can_pay_online; const payRec=d.payment||null;const p=d.profile||{};const docs=d.documents||[];
     if(centerView){
       const docRows=docs.map(doc=>`<div class="doc-card"><div><strong>${escapeHtml(doc.title)}</strong><div style="font-size:12px;color:var(--muted)">${escapeHtml(doc.document_type)}${doc.expires_at?' · vence '+escapeHtml(doc.expires_at):''}</div></div><a class="btn" href="/api/documents/file/${doc.id}" target="_blank" rel="noopener">Abrir</a></div>`).join('');
-      setApp(`<section class="page diver-sheet-page"><div class="breadcrumb"><a href="#/admin?tab=bookings">Reservas</a> / Ficha del buceador</div><p class="eyebrow">FICHA OPERATIVA · USO INTERNO</p><div class="diver-sheet-head"><div><h1>${escapeHtml(b.fullname)}</h1><p class="lead">Documentación y datos operativos del buceador.</p></div><div class="page-actions"><a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Justificante PDF + QR</a>${d.data_shared?`<a class="btn btn-primary" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a>`:''}<button class="btn" type="button" id="center-notice">Enviar aviso al cliente</button>${Number(b.refundable||0)>0?'<button class="btn" type="button" id="center-refund">Devolver</button>':''}${['requested','confirmed','accepted_pending_payment'].includes(b.status)&&b.service_id?'<button class="btn" type="button" id="center-reschedule">Cambiar fecha u hora</button>':''}${['confirmed','accepted_pending_payment'].includes(b.status)?'<button class="btn danger" type="button" id="center-cancel">Cancelar reserva</button>':''}</div></div>
-      ${bookingPaymentCard(b,d.payment||null,{own:false,canPay:false})}
+      setApp(`<section class="page diver-sheet-page"><div class="breadcrumb"><a href="#/admin?tab=bookings">Reservas</a> / Ficha del buceador</div><p class="eyebrow">FICHA OPERATIVA · USO INTERNO</p><div class="diver-sheet-head"><div><h1>${escapeHtml(b.fullname)}</h1><p class="lead">Documentación y datos operativos del buceador.</p></div><div class="page-actions">${wdCan('cobros')||wdCan('reservas')?`<a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Justificante PDF + QR</a>`:''}${d.data_shared?`<a class="btn btn-primary" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a>`:''}<button class="btn" type="button" id="center-notice">Enviar aviso al cliente</button>${Number(b.refundable||0)>0?'<button class="btn" type="button" id="center-refund">Devolver</button>':''}${['requested','confirmed','accepted_pending_payment'].includes(b.status)&&b.service_id?'<button class="btn" type="button" id="center-reschedule">Cambiar fecha u hora</button>':''}${['confirmed','accepted_pending_payment'].includes(b.status)?'<button class="btn danger" type="button" id="center-cancel">Cancelar reserva</button>':''}</div></div>
+      ${wdCan('cobros')||wdCan('reservas')?bookingPaymentCard(b,d.payment||null,{own:false,canPay:false}):''}
       <div id="bk-change"></div><div id="bk-waiver"></div>
       <div class="bk-state-bar">${wdStatus(b.status,b.status_label)}<span class="wd-mode">${escapeHtml(b.mode_label||'')}</span>${b.status==='requested'&&b.response_deadline?`<span class="acc-due">${wdIcon('clock',13)} Responde antes del ${escapeHtml(wdDeadline(b.response_deadline))}</span>`:''}${b.status==='accepted_pending_payment'&&b.payment_deadline?`<span class="acc-due">${wdIcon('clock',13)} El cliente paga antes del ${escapeHtml(wdDeadline(b.payment_deadline))}</span>`:''}
         ${b.status==='requested'?`<button class="btn btn-primary" type="button" id="center-confirm-booking">Aceptar</button><button class="btn danger" type="button" id="center-reject-booking">Rechazar</button>`:''}</div>
@@ -2942,7 +2942,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // Centre panel: its advantages, validating codes at the desk and granting points to its clients.
   async function renderRewardsManager(mountId,{isAdmin=false,centers=[],centerId=null}={}){
     const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml; const refresh=()=>renderRewardsManager(mountId,{isAdmin,centers,centerId});
-    const [offers,codes,clients]=await Promise.all([api('/api/provider/reward-offers').then(r=>r.items||[]).catch(()=>[]),isAdmin?[]:api('/api/center/redemptions').then(r=>r.items||[]).catch(()=>[]),isAdmin?[]:api('/api/center/clients').then(r=>r.items||[]).catch(()=>[])]);
+    const [offers,codes,clients]=await Promise.all([api('/api/provider/reward-offers').then(r=>r.items||[]).catch(()=>[]),isAdmin?[]:api('/api/center/redemptions').then(r=>r.items||[]).catch(()=>[]),isAdmin||!wdCan('reservas')?[]:api('/api/center/clients').then(r=>r.items||[]).catch(()=>[])]);
     const cs=isAdmin?centers.filter(c=>c.active!==0):[];
     mount.innerHTML=`<section class="rw-manager">
       <div class="svc-head"><div><p class="eyebrow">PUNTOS WORLDIVES</p><h2>${isAdmin?'Ventajas de los centros':'Ventajas y puntos'}</h2><p>Los buceadores canjean sus puntos por las ventajas que tu centro define y paga. Los puntos no son dinero: WORLDIVES no los vende ni financia las ventajas.</p></div></div>
@@ -3756,7 +3756,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const refresh=()=>renderCenterBookings(mountId,ctx);
     if(!mount.querySelector('.bk-module')) mount.innerHTML='<p class="wd-loading">Cargando reservas…</p>';
     try{
-      const [list,pend,unpaid,svc]=await Promise.all([api('/api/bookings?'+bkQuery()),api('/api/center/requests'),api('/api/bookings?payment=required&limit=500'),api('/api/provider-services?provider_id='+(state.me?.user?.id||0)+'&include_inactive=1')]);
+      const [list,pend,unpaid,svc]=await Promise.all([api('/api/bookings?'+bkQuery()),wdCan('reservas')?api('/api/center/requests'):Promise.resolve({items:[],count:0}),api('/api/bookings?payment=required&limit=500'),api('/api/provider-services?provider_id='+(state.me?.user?.id||0)+'&include_inactive=1')]);
       const items=list.items||[], services=svc.items||[]; const esc=escapeHtml; const t=wdToday();
       const reqById=Object.fromEntries((pend.items||[]).map(x=>[x.id,x]));
       const pendingCount=pend.count||0, unpaidCount=(unpaid.items||[]).filter(b=>!['cancelled','rejected','expired'].includes(b.status)).length;
@@ -4877,7 +4877,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // v50.51: a team profile without «estadisticas» (or a plan without analytics) still opens the panel, with empty figures.
   const centerAnalytics=()=>{ const none=()=>({metrics:{},by_day:[],by_service:[],channels:{}}); return wdCan('estadisticas')?api('/api/center/analytics').catch(none):Promise.resolve(none()); };
   async function renderCenterWorkspace(d){
-    const [centerRes,bookingsRes,servicesRes,clientsRes,analyticsRes,expRes]=await Promise.all([api('/api/centers/'+d.user.center_id),api('/api/bookings'),api('/api/provider-services?provider_id='+d.user.id),api('/api/center/clients'),centerAnalytics(),api('/api/provider/experiences').catch(()=>({requests:[]}))]);
+    const [centerRes,bookingsRes,servicesRes,clientsRes,analyticsRes,expRes]=await Promise.all([api('/api/centers/'+d.user.center_id),api('/api/bookings'),api('/api/provider-services?provider_id='+d.user.id),wdCan('reservas')?api('/api/center/clients'):Promise.resolve({items:[]}),centerAnalytics(),api('/api/provider/experiences').catch(()=>({requests:[]}))]);
     const center=centerRes.item; let bookings=bookingsRes.items; let services=servicesRes.items; let clients=clientsRes.items; let analytics=analyticsRes; analytics.client_count=clients.length; let currentTab='dashboard';
     // Without statistics the «Reservas» badge counts the pending requests from the bookings themselves.
     const pendingOf=list=>list.filter(b=>['requested','pending'].includes(b.status)).length;
@@ -4919,7 +4919,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     };
     // v50.49: each person sees the tabs their role allows (the server refuses the rest anyway).
     if((state.me?.member_role||'owner')!=='owner'){ $$('.cb-nav[data-owner]').forEach(n=>n.remove());
-      Object.entries({payments:'cobros',integration:'centro',center:'centro',marina:'centro',analytics:'estadisticas',stats:'estadisticas'}).forEach(([t,p])=>{ if(!wdCan(p)) $$(`.cb-nav[data-cbtab="${t}"]`).forEach(n=>n.remove()); }); }
+      Object.entries({payments:'cobros',integration:'centro',center:'centro',marina:'centro',analytics:'estadisticas',stats:'estadisticas',clients:'reservas',requests:'reservas'}).forEach(([t,p])=>{ if(!wdCan(p)) $$(`.cb-nav[data-cbtab="${t}"]`).forEach(n=>n.remove()); }); }
     { const pl=state.me?.plan; if(pl&&pl.status!=='active'){ const host=$('#cb-content'); host?.insertAdjacentHTML('beforebegin',`<div class="pl-bar ${pl.status==='expired'||pl.code==='free'?'is-free':''}">${wdIcon('info',16)} ${pl.status==='trial'?`Prueba gratuita del plan ${escapeHtml(pl.name)} hasta el ${escapeHtml(wdLegalDate(pl.expires_at))}.`:pl.status==='expired'?'Tu plan ha terminado: tu ficha sigue como ficha gratuita y no recibe reservas online nuevas.':'Ficha gratuita: recibes solicitudes de información.'} <a href="#/admin?tab=plan">Mi plan</a></div>`); } }
     nav.forEach(n=>n.onclick=()=>loadTab(n.dataset.cbtab));
     // v50.47 (B.6): someone who works for several centres changes the centre of this session explicitly.
@@ -4945,7 +4945,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const suggestions=isAdmin?(await api('/api/admin/suggestions')).items:(await api('/api/my/position-suggestions')).items;
     const claims=isAdmin?(await api('/api/admin/center-claims')).items:[];
     const mapsInfo=isAdmin?await api('/api/admin/maps').catch(()=>null):null;
-    const clients=!isAdmin?(await api('/api/center/clients')).items:[];
+    const clients=!isAdmin&&wdCan('reservas')?(await api('/api/center/clients').catch(()=>({items:[]}))).items:[];
     const users=isAdmin?(await api('/api/admin/users')).items:[];
     const travelExperiences=isAdmin?(await api('/api/admin/travel-experiences')).items:[];
     const marinaPending=isAdmin?((await api('/api/admin/marina/pendientes').catch(()=>({count:0}))).count||0):0;
@@ -5568,13 +5568,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
   async function renderProviderTools(mountId,isCenter){
     const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
-    const [ical,widget]=await Promise.all([api('/api/provider/ical').catch(e=>({error:e.message,plan:e.data?.plan_required})),api('/api/provider/widget').catch(()=>null)]);
-    const owner=wdCan('centro'), cobros=wdCan('cobros');
+    // v50.51 (ASVS V8): each profile sees the exports and the calendar it may read.
+    const owner=wdCan('centro'), cobros=wdCan('cobros'), reservas=wdCan('reservas');
+    const [ical,widget]=await Promise.all([owner?api('/api/provider/ical').catch(e=>({error:e.message,plan:e.data?.plan_required})):Promise.resolve(null),api('/api/provider/widget').catch(()=>null)]);
     mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Herramientas</p><h2>Exportar, calendario, widget e importación</h2></div></div>
       <h3 class="adl-h">Exportar mis datos (CSV)</h3><p class="adl-det">Disponible siempre, en cualquier plan. Se abre en Excel, Numbers o Google Sheets.</p>
-      <div class="tl-row">${[['clients','Clientes'],['bookings','Reservas'],['services','Servicios'],['agenda','Agenda'],...(cobros?[['payments','Pagos']]:[])].map(([k,l])=>`<a class="btn" href="/api/center/export?kind=${k}" download>${wdIcon('download',15)} ${l}</a>`).join('')}</div>
-      <h3 class="adl-h">Calendario (iCal)</h3>
-      ${ical.error?`<p class="adl-det">${esc(ical.error)} ${ical.plan?'<a href="#/planes">Ver planes</a>':''}</p>`:`<p class="adl-det">Suscríbete desde Google Calendar, Apple Calendar u Outlook con esta dirección privada. Quien la tenga ve tu agenda: si la compartes por error, genera otra.</p>
+      <div class="tl-row">${[...(reservas?[['clients','Clientes'],['bookings','Reservas']]:[]),['services','Servicios'],['agenda','Agenda'],...(cobros?[['payments','Pagos']]:[])].map(([k,l])=>`<a class="btn" href="/api/center/export?kind=${k}" download>${wdIcon('download',15)} ${l}</a>`).join('')}</div>
+      ${!ical?'':`<h3 class="adl-h">Calendario (iCal)</h3>`}
+      ${!ical?'':ical.error?`<p class="adl-det">${esc(ical.error)} ${ical.plan?'<a href="#/planes">Ver planes</a>':''}</p>`:`<p class="adl-det">Suscríbete desde Google Calendar, Apple Calendar u Outlook con esta dirección privada. Quien la tenga ve tu agenda: si la compartes por error, genera otra.</p>
         <div class="tl-row"><input id="tl-ical" readonly value="${esc(ical.url||'')}" placeholder="Genera tu dirección privada" aria-label="Dirección del calendario"><button type="button" class="btn" id="tl-ical-copy" ${ical.url?'':'hidden'}>Copiar</button>${owner?`<button type="button" class="btn" id="tl-ical-new">${ical.url?'Generar otra':'Generar dirección'}</button>`:''}</div>`}
       ${widget?`<h3 class="adl-h">Reservas desde tu web y redes</h3>
         <div class="field"><label for="tl-link">Enlace directo (Instagram, Google, tu web)</label><div class="tl-row"><input id="tl-link" readonly value="${esc(widget.link)}"><button type="button" class="btn tl-copy" data-src="tl-link">Copiar</button><a class="btn" href="${esc(widget.whatsapp)}" target="_blank" rel="noopener">Compartir por WhatsApp</a></div></div>

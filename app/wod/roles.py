@@ -157,6 +157,8 @@ REGLAS_POST = (
 REGLAS_GET = (
     (None, _P('/api/provider/fiscal', '/api/provider/plan', '/api/center/team', '/api/center/activity', '/api/provider/cuenta')),
     ('cobros', _P('/api/provider/payments', '/api/payments/center')),
+    # ASVS 5.0 V8.2.1: requests, clients and their contact details (the exports are checked by kind in the route).
+    ('reservas', _P('/api/center/requests', '/api/center/clients', '/api/center/info-requests')),
     ('centro', _P('/api/provider/ical',)),
     ('estadisticas', _P('/api/provider/stats', '/api/center/analytics')),
 )
@@ -168,7 +170,9 @@ def _coincide(path, pats):
 
 def necesita(path, method):
     """The permission a request needs: None (owner only), '' (anyone of the team) or a permission key.
-    Reading (GET) is free except the listed paths; writing needs «reservas» when nothing more specific applies."""
+    Reading (GET) is free except the listed paths (and what each route filters: departures by guide, amounts and
+    internal notes, exports by kind; docs/seguridad/permisos.md); writing needs «reservas» when nothing more specific
+    applies."""
     reglas = REGLAS_GET if method == 'GET' else REGLAS_POST
     for perm, pats in reglas:
         if _coincide(path, pats): return perm
@@ -186,3 +190,5 @@ NO_PUEDE = {
     'estadisticas': 'Tu perfil no permite ver las estadísticas. Pídeselo al propietario del centro.',
     'reservas': 'Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.',
 }
+# Reading what needs «reservas» (requests, clients, their exports).
+NO_VE_RESERVAS = 'Tu perfil no permite ver las solicitudes ni los clientes. Pídeselo al propietario del centro.'

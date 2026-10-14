@@ -233,5 +233,98 @@ class ContrasenasYBloqueo(ServerTestCase):
         self.assertEqual(r.status, 403, r); self.assertIn('no sirve', r.json['error'])
 
 
+class PermisosDelEquipo(ServerTestCase):
+    """V8.2: lo que un perfil del equipo sin «Reservas», «Cobros» o «Ver todas las salidas» puede leer."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        t = cls('run')
+        cls.admin = t.make_admin()
+        cls.owner = t.make_center(cls.admin, 'v8a', phone='+34 600 580 001')
+        cid = cls.cid = cls.owner.user['center_id']
+        cls.ins = cls.member(t, cid, 'v8ins', 'instructor')       # only «Pasar lista»
+        cls.ins2 = cls.member(t, cid, 'v8ins2', 'instructor')
+        cls.rec = cls.member(t, cid, 'v8rec', 'reception')        # «Reservas» (charges at the desk), without «Cobros»
+        day = cls.day = cls.owner.get('/api/pro/hoy').json['tomorrow']   # «tomorrow» where the centre is
+        sid = cls.owner.post('/api/provider-services', {'title': 'Salida V8', 'price': 40, 'booking_mode': 'request'}).json['id']
+        cls.slot_other = cls.owner.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': day, 'slot_time': '09:00', 'spots_total': 8}).json['slot_id']
+        cls.slot_mine = cls.owner.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': day, 'slot_time': '15:00', 'spots_total': 8}).json['slot_id']
+        diver = t.make_diver('v8d')
+        bids = []
+        for slot in (cls.slot_other, cls.slot_mine):
+            r = diver.post('/api/bookings', {'center_id': cid, 'service_id': sid, 'slot_id': slot, 'participants': 1})
+            assert r.status == 200, r
+            bids.append(r.json['id'])
+            assert cls.owner.post(f"/api/bookings/{r.json['id']}/status", {'status': 'confirmed'}).status == 200
+        cls.bid = bids[0]
+        s = cls.server
+        s.sql("UPDATE bookings SET internal_notes='Nota solo del centro', amount_paid=40, payment_status='paid' WHERE id=?", (cls.bid,))
+        ts = dt.datetime.now().isoformat()
+        s.sql("INSERT INTO slot_groups(slot_id,guide_user_id,label,sort,created_at,updated_at) VALUES(?,?,?,?,?,?)", (cls.slot_other, cls.ins2.user['id'], 'Grupo 1', 0, ts, ts))
+        s.sql("INSERT INTO slot_groups(slot_id,guide_user_id,label,sort,created_at,updated_at) VALUES(?,?,?,?,?,?)", (cls.slot_mine, cls.ins.user['id'], 'Grupo 1', 0, ts, ts))
+
+    @classmethod
+    def member(cls, t, center_id, tag, role):
+        c = t.make_diver(tag); uid = c.user['id']
+        cls.server.sql("UPDATE users SET role='center',center_id=? WHERE id=?", (center_id, uid))
+        cls.server.sql('INSERT OR REPLACE INTO center_members(center_id,user_id,member_role,created_at) VALUES(?,?,?,?)', (center_id, uid, role, '2026-01-01'))
+        assert c.login(f'diver_{tag}').status == 200
+        c.user = c.me()['user']
+        return c
+
+    def test_v8_2_1_requests_clients_and_exports_need_reservas(self):
+        for path in ('/api/center/requests', '/api/center/clients', '/api/center/info-requests', '/api/center/export?kind=clients', '/api/center/export?kind=bookings'):
+            self.assertEqual(self.ins.get(path).status, 403, path)
+            self.assertEqual(self.owner.get(path).status, 200, path)
+        self.assertEqual(self.ins.get('/api/center/export?kind=payments').status, 403)
+        self.assertEqual(self.ins.get('/api/center/export?kind=services').status, 200)
+
+    def test_v8_2_2_a_departure_guided_by_someone_else_is_not_readable(self):
+        self.assertEqual(self.ins.get(f'/api/manifest/{self.slot_other}').status, 404)        # before: 200 with phones
+        self.assertEqual(self.ins.get(f'/api/manifest/{self.slot_mine}').status, 200)
+        self.assertEqual(self.ins2.get(f'/api/manifest/{self.slot_other}').status, 200)
+        self.assertEqual(self.owner.get(f'/api/manifest/{self.slot_other}').status, 200)
+        day = self.ins.get(f'/api/manifest/day?date={self.day}')
+        self.assertEqual(day.status, 200, day)
+        self.assertEqual({x['slot']['id'] for x in day.json['slots']}, {self.slot_mine})
+        self.assertEqual(self.ins.get(f'/api/manifest/{self.slot_other}/resumen.pdf').status, 404)
+
+    def test_v8_2_3_amounts_and_internal_notes_need_their_permission(self):
+        mine = [b for b in self.ins.get('/api/bookings').json['items'] if b['id'] == self.bid][0]
+        for k in ('amount_paid', 'amount_due', 'refunded_total', 'price_breakdown', 'payment_method', 'internal_notes'):
+            self.assertNotIn(k, mine)
+        d = self.ins.get(f'/api/bookings/{self.bid}').json
+        self.assertIsNone(d['payment']); self.assertNotIn('internal_notes', d['booking']); self.assertNotIn('paid_online', d['booking'])
+        own = self.owner.get(f'/api/bookings/{self.bid}').json
+        self.assertEqual(own['booking']['internal_notes'], 'Nota solo del centro'); self.assertIn('paid_online', own['booking'])
+        self.assertEqual([b for b in self.owner.get('/api/bookings').json['items'] if b['id'] == self.bid][0]['amount_paid'], 40)
+        self.assertEqual(self.ins.get(f'/api/bookings/{self.bid}/receipt.pdf').status, 403)                  # it shows what was paid
+        # reception charges at the desk: it needs what was already paid
+        self.assertEqual([b for b in self.rec.get('/api/bookings').json['items'] if b['id'] == self.bid][0]['amount_paid'], 40)
+        self.assertIn('paid_online', self.rec.get(f'/api/bookings/{self.bid}').json['booking'])
+        self.assertEqual(self.rec.get(f'/api/bookings/{self.bid}/receipt.pdf').status, 200)
+
+
+class DocumentoDePermisos(unittest.TestCase):
+    """V8.1.1: la matriz de docs/seguridad/permisos.md dice lo mismo que app/wod/roles.py."""
+
+    def test_permissions_doc_matches_the_rules(self):
+        from wod import roles
+        doc = (ROOT / 'docs' / 'seguridad' / 'permisos.md').read_text(encoding='utf-8')
+        for key, name, _ in roles.PERMISOS:
+            self.assertIn(f'| `{key}` | {name} |', doc)
+        for role, perms in roles.POR_DEFECTO.items():
+            if role != 'manager':
+                for p in perms: self.assertIn(f'`{p}`', doc)
+        for rules in (roles.REGLAS_GET, roles.REGLAS_POST):
+            for _perm, pats in rules:
+                for pat in pats:
+                    if isinstance(pat, str): self.assertIn(f'`{pat}`', doc, pat)
+        flat = ' '.join(doc.split()).lower()
+        for what in roles.SOLO_PROPIETARIO:
+            self.assertIn(what[1:].lower(), flat, what)
+
+
 if __name__ == '__main__':
     unittest.main()
