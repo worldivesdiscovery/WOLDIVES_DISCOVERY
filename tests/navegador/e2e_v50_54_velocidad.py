@@ -4,7 +4,10 @@
 1. Una página sin mapa (Tipos) no descarga las librerías del mapa; cada mapa sigue funcionando cuando se abre
    (Inicio, Explorar, ficha del punto, vista «Mapa» de Puntos, Top 10 «Elegir en el mapa», editores de punto y centro).
 2. En un móvil la portada baja la copia ligera de la foto (640 o 960 px), no el original.
-3. CLS medido en el navegador (móvil, con la conexión 4G lenta que simula Lighthouse) por debajo de 0,1 en Inicio, Puntos, ficha del punto, Tipos, Top 10 y Centros.
+3. CLS medido en el navegador (móvil, con la conexión 4G lenta que simula Lighthouse) por debajo de 0,1 en Inicio,
+   Puntos, ficha del punto, Tipos, Top 10, Centros y ficha del centro.
+4. INP: cada interacción principal (regiones y Lista/Mapa de Puntos, menú, filtros de Tipos, chips de Centros)
+   responde en menos de 200 ms en un móvil con la CPU cuatro veces más lenta (Event Timing API del navegador).
 
     python3 tests/navegador/e2e_v50_54_velocidad.py [carpeta-de-capturas]
 """
@@ -29,6 +32,7 @@ CLS = "window.__cls=0;try{new PerformanceObserver(l=>{for(const e of l.getEntrie
 # Slow 4G as Lighthouse simulates it (150 ms, 1.6 Mbit/s): on a fast local connection everything arrives at once and
 # no jump would show.
 SLOW_4G = {'offline': False, 'latency': 150, 'downloadThroughput': 1_600_000 / 8, 'uploadThroughput': 750_000 / 8}
+INP = "window.__inp=[];try{new PerformanceObserver(l=>{for(const e of l.getEntries()) if(e.interactionId) window.__inp.push(Math.round(e.duration))}).observe({type:'event',buffered:true,durationThreshold:16})}catch(e){}"
 MOBILE = dict(viewport={'width': 412, 'height': 823}, device_scale_factor=1.75, is_mobile=True, has_touch=True, locale='es-ES')
 
 
@@ -112,6 +116,25 @@ def main():
                 check(f'CLS en móvil por debajo de 0,1 ({name}: {cls:.3f})', cls < 0.1, cls)
                 pg.screenshot(path=str(out / f'movil-{name}.png'))
                 ctx.close()
+            # 4. interactions on a phone four times slower
+            ctx, pg = page(MOBILE); pg.add_init_script(INP)
+            ctx.new_cdp_session(pg).send('Emulation.setCPUThrottlingRate', {'rate': 4})
+
+            def inp(label, act):
+                pg.evaluate('window.__inp=[]'); act(); pg.wait_for_timeout(900)
+                worst = max(pg.evaluate('window.__inp') or [0])
+                check(f'INP por debajo de 200 ms: {label} ({worst} ms)', worst < 200, worst)
+            pg.goto(srv.base + '/#/puntos'); pg.wait_for_selector('#pt-grid .pt-card:not(.is-skeleton)'); pg.wait_for_timeout(1200)
+            inp('Puntos, una región', lambda: pg.locator('#pt-regions [data-area]').nth(1).tap())
+            inp('Puntos, vista Mapa', lambda: pg.locator('.pt-view [data-view="map"]').tap()); pg.wait_for_timeout(2000)
+            inp('Puntos, vista Lista', lambda: pg.locator('.pt-view [data-view="list"]').tap())
+            inp('menú del móvil', lambda: pg.locator('#mobile-menu').tap())
+            pg.goto(srv.base + '/#/tipos'); pg.wait_for_selector('.tp54'); pg.wait_for_timeout(1200)
+            inp('Tipos, filtro de nivel', lambda: pg.locator('.tp-filter button, .tp-filter a').nth(1).tap())
+            inp('Tipos, elegir un tipo', lambda: pg.locator('.tp54 a.tp-card, .tp54 [data-type]').first.tap())
+            pg.goto(srv.base + '/#/centros'); pg.wait_for_selector('.cd-card'); pg.wait_for_timeout(1200)
+            inp('Centros, un filtro', lambda: pg.locator('.cd-chips .cd-chip').nth(1).tap())
+            ctx.close()
             browser.close()
             check('Sin errores en la página', not errors, errors[:4])
     finally:
@@ -120,7 +143,7 @@ def main():
     print(f'Capturas en {out}')
     if problems:
         print('PROBLEMAS:\n - ' + '\n - '.join(problems)); sys.exit(1)
-    print('OK: mapas solo donde hacen falta, fotos ligeras en el móvil y sin saltos.')
+    print('OK: mapas solo donde hacen falta, fotos ligeras en el móvil, sin saltos y respuesta rápida.')
 
 
 if __name__ == '__main__':

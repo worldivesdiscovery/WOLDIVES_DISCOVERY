@@ -1,0 +1,105 @@
+{
+ "exact": {
+  "Acceso a datos personales": {
+   "en": "Access to personal data",
+   "fr": "Accès aux données personnelles",
+   "de": "Zugriff auf personenbezogene Daten",
+   "it": "Accesso ai dati personali",
+   "pt": "Acesso a dados pessoais",
+   "pl": "Dostęp do danych osobowych",
+   "nl": "Toegang tot persoonsgegevens",
+   "zh": "访问个人数据"
+  },
+  "Permisos de datos personales cambiados": {
+   "en": "Personal data permissions changed",
+   "fr": "Autorisations des données personnelles modifiées",
+   "de": "Berechtigungen für personenbezogene Daten geändert",
+   "it": "Permessi sui dati personali modificati",
+   "pt": "Permissões de dados pessoais alteradas",
+   "pl": "Zmieniono uprawnienia do danych osobowych",
+   "nl": "Rechten voor persoonsgegevens gewijzigd",
+   "zh": "个人数据权限已更改"
+  },
+  "Contenido ocultado con un motivo": {
+   "en": "Content hidden with a reason",
+   "fr": "Contenu masqué avec un motif",
+   "de": "Inhalt mit Begründung ausgeblendet",
+   "it": "Contenuto nascosto con un motivo",
+   "pt": "Conteúdo ocultado com um motivo",
+   "pl": "Treść ukryta z podaniem powodu",
+   "nl": "Inhoud verborgen met een reden",
+   "zh": "已附原因隐藏内容"
+  },
+  "Corrección enviada a revisión": {
+   "en": "Correction sent for review",
+   "fr": "Correction envoyée en révision",
+   "de": "Korrektur zur Prüfung gesendet",
+   "it": "Correzione inviata in revisione",
+   "pt": "Correção enviada para revisão",
+   "pl": "Poprawka wysłana do weryfikacji",
+   "nl": "Correctie ter controle gestuurd",
+   "zh": "修改已提交审核"
+  },
+  "Sigue oculto tras la revisión": {
+   "en": "Still hidden after review",
+   "fr": "Toujours masqué après révision",
+   "de": "Nach der Prüfung weiter ausgeblendet",
+   "it": "Ancora nascosto dopo la revisione",
+   "pt": "Continua oculto após a revisão",
+   "pl": "Nadal ukryte po weryfikacji",
+   "nl": "Blijft verborgen na controle",
+   "zh": "审核后仍隐藏"
+  },
+  "Publicado de nuevo tras la revisión": {
+   "en": "Published again after review",
+   "fr": "Republié après révision",
+   "de": "Nach der Prüfung wieder veröffentlicht",
+   "it": "Ripubblicato dopo la revisione",
+   "pt": "Publicado de novo após a revisão",
+   "pl": "Ponownie opublikowane po weryfikacji",
+   "nl": "Opnieuw gepubliceerd na controle",
+   "zh": "审核后重新发布"
+  },
+  "Condiciones del punto cambiadas": {
+   "en": "Dive site conditions changed",
+   "fr": "Conditions du site modifiées",
+   "de": "Bedingungen des Tauchplatzes geändert",
+   "it": "Condizioni del punto modificate",
+   "pt": "Condições do ponto alteradas",
+   "pl": "Zmieniono warunki miejsca nurkowego",
+   "nl": "Omstandigheden van de duikstek gewijzigd",
+   "zh": "潜点条件已更改"
+  },
+  "Administrador creado desde la consola": {
+   "en": "Administrator created from the console",
+   "fr": "Administrateur créé depuis la console",
+   "de": "Administrator über die Konsole erstellt",
+   "it": "Amministratore creato dalla console",
+   "pt": "Administrador criado a partir da consola",
+   "pl": "Administrator utworzony z konsoli",
+   "nl": "Beheerder aangemaakt via de console",
+   "zh": "通过控制台创建管理员"
+  },
+  "Contraseña de administración restablecida desde la consola": {
+   "en": "Administrator password reset from the console",
+   "fr": "Mot de passe administrateur réinitialisé depuis la console",
+   "de": "Administratorpasswort über die Konsole zurückgesetzt",
+   "it": "Password di amministrazione reimpostata dalla console",
+   "pt": "Palavra-passe de administração reposta a partir da consola",
+   "pl": "Hasło administratora zresetowane z konsoli",
+   "nl": "Beheerderswachtwoord opnieuw ingesteld via de console",
+   "zh": "通过控制台重置管理员密码"
+  },
+  "Nivel": {
+   "en": "Level",
+   "fr": "Niveau",
+   "de": "Niveau",
+   "it": "Livello",
+   "pt": "Nível",
+   "pl": "Poziom",
+   "nl": "Niveau",
+   "zh": "级别"
+  }
+ },
+ "patterns": {}
+}

@@ -5,6 +5,7 @@
 2. La ficha pública desaparece. El centro entra y ve el aviso con el motivo; lo envía a revisión con una nota.
 3. Administración → Moderación: el caso aparece «Enviado a revisión» con la nota; «Volver a publicar». La ficha vuelve.
 4. Administración → Datos personales: casillas con «PENDIENTE DE ABOGADO»; guardar pide un motivo.
+5. Administración → Actividad: cada paso con su nombre, quién, cuándo y el motivo.
 
     python3 tests/navegador/e2e_v50_54_moderacion.py [carpeta-de-capturas]
 """
@@ -93,6 +94,12 @@ def main():
             txt = pg.inner_text('#admin-privacy')
             check('Datos personales: casillas y PENDIENTE DE ABOGADO', 'PENDIENTE DE ABOGADO' in txt and pg.locator('#privacy-form input[type=checkbox]').count() == 6)
             pg.screenshot(path=str(out / 'admin-datos-personales.png'))
+            # 5. the activity log tells who, when and why, with readable names
+            pg.goto(srv.base + '/#/admin?tab=audit'); pg.wait_for_selector('#admin-content table'); pg.wait_for_timeout(300)
+            log = pg.inner_text('#admin-content')
+            check('Actividad: los pasos con su nombre y el motivo', all(x in log for x in ('Contenido ocultado con un motivo', 'Corrección enviada a revisión',
+                                                                                         'Publicado de nuevo tras la revisión', REASON)), log[:400])
+            pg.screenshot(path=str(out / 'admin-actividad.png'))
             ctx.close()
             pub = browser.new_page(); pub.goto(srv.base + f'/#/centro?id={cid}'); pub.wait_for_timeout(1500)
             check('La ficha pública vuelve a verse', 'Bahía Coralina' in pub.inner_text('#app'))

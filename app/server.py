@@ -11830,6 +11830,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     total=db.execute(f'SELECT COUNT(*) FROM email_outbox{sql_where}',args).fetchone()[0]
                     counts={r['status']:r['n'] for r in db.execute('SELECT status,COUNT(*) AS n FROM email_outbox GROUP BY status').fetchall()}
                     cfg=smtp_config()
+                    if rows: admin_data_log(db,self,user,f'lista de correos ({len(rows)}, destinatarios)')   # v50.54: recipients are personal data
                     self.send_json({'items':[dict(r) for r in rows],'total':total,'page':page,'counts':counts,
                                     'smtp':{'enabled':cfg['enabled'],'host':cfg['host'],'port':cfg['port'],'security':cfg['security'],'from':cfg['from'],'from_name':cfg['from_name'],'reply_to':cfg['reply_to'],'user_set':bool(cfg['user'])},
                                     'templates':[{'key':k,'label':EMAIL_TEMPLATE_LABELS.get(k,k),'audience':EMAIL_AUDIENCE[v.get('to','any')]} for k,v in EMAIL_TEMPLATES.items()],
@@ -11909,7 +11910,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     proposed=[dict(r) for r in db.execute('''SELECT b.id AS booking_id,b.refund_proposed,b.refund_status,b.refund_proposed_at,b.currency,COALESCE(c.name,pu.fullname) AS center_name
                                                               FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id
                                                              WHERE b.refund_status IN ('proposed','failed') ORDER BY b.refund_proposed_at LIMIT 200''').fetchall()]
-                    self.send_json({'items':[dict(r) for r in rows],'summary':sums,'income':income,'refunds':refunds,'pending_refunds':proposed,'stripe_ready':bool(stripe_secret()),
+                    # v50.54: who paid is personal data: under the «Nombre y email de quien reserva» switch, and each read logged.
+                    pay_rows=[admin_booking_view(db,dict(r)) for r in rows]
+                    if pay_rows and admin_may_see(db,'contacto_reservas'): admin_data_log(db,self,user,f'lista de pagos ({len(pay_rows)}, nombre y email de quien paga)')
+                    self.send_json({'items':pay_rows,'summary':sums,'income':income,'refunds':refunds,'pending_refunds':proposed,'stripe_ready':bool(stripe_secret()),
                                     'webhook_ready':bool(os.environ.get('STRIPE_WEBHOOK_SECRET','').strip()),'connect_webhook_ready':bool(os.environ.get('STRIPE_CONNECT_WEBHOOK_SECRET','').strip())}); return
                 if path == '/api/admin/site-themes':
                     user=require_user(self,db); require_role(user,{'admin'}); snap=_build_site_media(db)
@@ -12486,6 +12490,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if loc: item['description']=loc; item['description_lang']=lang
                     if item.get('description_generated'): item['access_info']=''   # the access is already in the text
                     item['recommended_cert']=recommended_cert(r['recommended_certification_name'],snap_row.get('types',[]))
+                    item['level']=point_level(r['difficulty'])   # v50.54: the same three levels as the filter and the cards
                     # v50.50/51: species, linked route videos and the old virtual tours come with the site (one indexed query
                     # each, never one request per item). Old tours copied to route videos are not repeated.
                     legacy=db.execute('''SELECT v.id,v.dive_point_id,v.title,v.experience_type,v.provider,v.url,v.media_path,v.description FROM virtual_experiences v
@@ -12707,6 +12712,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if b['user_id']!=user['id']:
                         log_phone_access(db,user,'booking',count_phones({'booking':bd,'profile':dict(profile) if profile else {}}),bid)
                         team_booking_view(db,user,bd)
+                        # v50.54: the contact of whoever booked is personal data too: the administration's read is logged.
+                        if user['role']=='admin' and not can_see and admin_may_see(db,'contacto_reservas'): admin_data_log(db,self,user,f'reserva {bid} (nombre y email de quien reserva)')
                         if user['role'] in ('center','freelance') and not team_sees_money(db,user): pay=None
                     self.send_json({'booking':bd,'payment':pay,'profile':dict(profile) if profile else {},'documents':[dict(x) for x in docs],'data_shared':bool(can_see)}); return
                 if path == '/api/bookings':
@@ -12746,6 +12753,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         d['tz']=place_tz(db,d.get('service_id'),d.get('center_id'))   # the time of the activity is the local time of this zone
                         items.append(team_booking_view(db,user,d))
                     if user['role']!='recreational': log_phone_access(db,user,'bookings',count_phones(items))
+                    if user['role']=='admin' and items and admin_may_see(db,'contacto_reservas'):   # v50.54: logged, like every personal data read
+                        admin_data_log(db,self,user,f'lista de reservas ({len(items)}, nombre y email de quien reserva)')
                     self.send_json({'items':items}); return
                 if path == '/api/center/requests':
                     # «Solicitudes pendientes»: requests to accept or reject, with the time left to answer.

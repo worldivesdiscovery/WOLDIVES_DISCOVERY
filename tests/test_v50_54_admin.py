@@ -175,6 +175,37 @@ class PermisosAdministracion(ServerTestCase):
         self.assertIn('lista de cuentas', json.loads(after[-2]['details'])['what'])
         self.assertEqual(self.center.post('/api/admin/data-permissions', {'allowed': {'telefonos': True}, 'reason': 'Un centro no puede.'}).status, 403)
 
+    def test_reading_booking_contacts_is_logged(self):
+        # the name and email of whoever booked (open by default for support) are personal data: each read is logged
+        before = len(self.audit('admin_personal_data'))
+        self.admin.admin_reason = 'Incidencia de pago de la reserva'
+        self.admin.get('/api/bookings'); self.admin.get(f'/api/bookings/{self.bid}')
+        rows = self.audit('admin_personal_data')[before:]
+        whats = [json.loads(r['details'])['what'] for r in rows]
+        self.assertEqual(len(rows), 2, whats)
+        self.assertIn('lista de reservas', whats[0]); self.assertIn(f'reserva {self.bid}', whats[1])
+        self.assertEqual(json.loads(rows[1]['details'])['reason'], 'Incidencia de pago de la reserva')
+        # the centre reading its own bookings is not an administration access
+        self.center.get('/api/bookings')
+        self.assertEqual(len(self.audit('admin_personal_data')), before + 2)
+
+    def test_payments_and_email_lists_follow_the_rules(self):
+        self.server.sql("INSERT INTO payment_orders(user_id,booking_id,amount,currency,status,created_at,updated_at,payee_type,payee_id) "
+                        "VALUES((SELECT user_id FROM bookings WHERE id=?),?,42,'EUR','paid',datetime('now'),datetime('now'),'center',?)", (self.bid, self.bid, self.cid))
+        before = len(self.audit('admin_personal_data'))
+        items = self.admin.get('/api/admin/payments').json['items']
+        self.assertTrue(items and items[0].get('email'))                       # open by default (support and payments)…
+        self.admin.get('/api/admin/emails')
+        whats = [json.loads(r['details'])['what'] for r in self.audit('admin_personal_data')[before:]]
+        self.assertTrue(any('lista de pagos' in w for w in whats), whats)         # …and logged
+        r = self.admin.post('/api/admin/data-permissions', {'allowed': {'contacto_reservas': False}, 'reason': 'Prueba de privacidad de pagos.'})
+        self.assertEqual(r.status, 200, r)
+        try:
+            item = self.admin.get('/api/admin/payments').json['items'][0]
+            self.assertNotIn('email', item); self.assertLessEqual(len(item['fullname'].split()), 2)   # closed: first name and initial
+        finally:
+            self.admin.post('/api/admin/data-permissions', {'allowed': {'contacto_reservas': True}, 'reason': 'Vuelve a como estaba.'})
+
 
 if __name__ == '__main__':
     unittest.main()

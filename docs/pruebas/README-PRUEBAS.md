@@ -258,3 +258,28 @@ El informe está en `docs/auditoria/v50.51/`. Las herramientas van solo en este 
   - con «Subir mi propia foto» hay que marcar la casilla de derechos;
   - la vista previa sale en claro y en oscuro, y el punto focal se elige tocando la foto o con las flechas;
   - «Volver a la foto de la plantilla» borra la tuya.
+
+## 12. Acceso rápido, distancias, Puntos, Tipos y moderación (v50.54)
+
+- **Entrar:** en «Iniciar sesión», el recuadro «Acceso rápido a la demostración» entra con un clic como
+  Administrador, Centro de buceo 1, Centro de buceo 2, Freelance o Buceador. El formulario normal también funciona,
+  abras la demo en `http://localhost:8100` o en `http://127.0.0.1:8100`. Ese recuadro solo existe en esta demo.
+- **Distancias** (sin cuenta):
+  - con la ubicación precisa, el Top 10 y «Puntos de buceo» dan los km;
+  - con una ubicación aproximada, ordenan igual pero sin km, y avisan.
+
+  Para probar Jávea en Chrome: F12 → tres puntos → *More tools* → *Sensors* → *Location*. Elige *Other…*, latitud
+  `38.7893` y longitud `0.1662`. Cabo San Antonio sale a 3,2 km.
+- **Puntos de buceo:**
+  - la barra de filtros se queda fija al bajar, y cada región, tipo, nivel y profundidad lleva su número;
+  - «Mapa» enseña todos los puntos filtrados;
+  - entra en un punto y pulsa «Volver»: vuelves a la misma posición con los mismos filtros.
+- **Tipos de buceo:** elige un tipo. La página baja a sus puntos sin recargarse, y «Atrás» vuelve a como estaba.
+- **Moderación (`admin.prueba`):**
+  1. En *Centros*, «Ocultar…» en Bahía Coralina, con un motivo.
+  2. Entra como `centro.prueba`: el aviso sale arriba del panel. Escribe qué has corregido y «Enviar a revisión».
+  3. Vuelve como administración: *Moderación* → «Volver a publicar».
+  4. *Actividad* enseña cada paso con su motivo.
+- **Datos personales (`admin.prueba`):** son casillas, cada una con su explicación. Marca «Teléfonos de clientes»,
+  guarda con un motivo y abre una reserva: ahora sí se ven los teléfonos. Cada consulta queda en *Actividad* como
+  «Acceso a datos personales».

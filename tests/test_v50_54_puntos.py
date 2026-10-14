@@ -78,6 +78,13 @@ class Ficha(ServerTestCase):
         own = self.server.sql('SELECT name FROM certifications ORDER BY id LIMIT 1')[0]['name']
         self.assertEqual(self.client().get(f'/api/dive-points/{pid}').json['item']['recommended_cert'], own)
 
+    def test_level_named_like_the_filter(self):
+        # v50.54 (revisión UX): «Moderado», «Intermedia» or «Fácil» in the source are one of the three levels of the filter
+        for word, key in (('Moderado', 'mid'), ('Intermedia', 'mid'), ('Fácil', 'start'), ('Avanzado', 'adv'), ('', '')):
+            pid = self.server.sql("SELECT id FROM dive_points ORDER BY id LIMIT 1")[0]['id']
+            self.server.sql('UPDATE dive_points SET difficulty=? WHERE id=?', (word or None, pid))
+            self.assertEqual(self.client().get(f'/api/dive-points/{pid}').json['item']['level'], key, word)
+
     def test_conditions_edited_and_checked(self):
         pid, p = self.point()
         self.assertIsNone(p.get('best_months')); self.assertIsNone(p.get('water_temp_min'))

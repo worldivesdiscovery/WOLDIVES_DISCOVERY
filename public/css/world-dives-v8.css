@@ -3474,3 +3474,14 @@ html.wd-app[data-wda-tema="noche"] .svc2 :is(.svc2-kicker,.svc2-desc,.svc2-price
 /* v50.54 · The language selector and the account button appear together when the page knows who is visiting: the
    header does not move when the button arrives (CLS). renderAccount() shows them; at most 4 s later anyway. */
 .header-tools:not(.is-ready){visibility:hidden}
+/* v50.54 · UX review: the centre's breadcrumb over its photo in white (a later rule painted it dark blue), and on a
+   phone the two directory selects one under the other so «Cualquier tipo de buceo» is read whole, not cut. */
+.cp-hero .cp-crumb a{color:#fff;text-decoration:underline;text-underline-offset:3px}
+@media (max-width:520px){.cd-tools{grid-template-columns:minmax(0,1fr)}}
+/* v50.54 · Top 10 on a phone: «Buscar» keeps its own width; the rule that makes buttons full-width under 480 px left the
+   locality field 34 px wide (it already happened in v50.53). */
+.tt-search .btn{width:auto;flex:0 0 auto}
+/* v50.54 · Contrast (WCAG AA 4.5:1, found by Lighthouse): the same greys, a little darker. */
+.cd-rating.is-new,.wd-pay-muted{color:#5f7078}
+.cd-fact .muted,.result-row .muted{color:#5f7078}
+.pp-empty .pp-virtual-mark{color:#4d5e65}
