@@ -457,6 +457,15 @@ def build(out: Path):
         ok(pro2.post(f"/api/bookings/{x['id']}/status", {'status': 'confirmed'}), 'confirmar la guía')
         ok(divers[10].post('/api/bookings', {'service_id': fotos, 'days': workdays(15, 2), 'part': 'full', 'participants': 1, 'notes': 'Tengo una cámara compacta con carcasa'}), 'reservar el curso')
 
+        # v50.53: every demo service starts from its template (the same rule the migration uses for existing services),
+        # so its card shows the template's photo and changes with it.
+        sys.path.insert(0, str(ROOT / 'app'))
+        from wod.plantillas import guess_slug
+        slug_id = {r['slug']: r['id'] for r in srv.sql('SELECT id,slug FROM service_catalog')}
+        for r in srv.sql('SELECT id,title,service_type FROM provider_services WHERE template_id IS NULL'):
+            tid = slug_id.get(guess_slug(r['title'], r['service_type']))
+            if tid: srv.sql('UPDATE provider_services SET template_id=? WHERE id=?', (tid, r['id']))
+
         # --- experiences: published and one waiting for review ----------------------------------------------------
         ok(center2.post('/api/travel-experiences', {'new_destination': 'Islas Medas', 'new_destination_region': 'España', 'title': 'Fin de semana en las Medas',
                                                     'start_date': day(23), 'end_date': day(24), 'price': 240, 'spots_total': 8, 'spots_available': 8,

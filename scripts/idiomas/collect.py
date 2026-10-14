@@ -30,7 +30,7 @@ CENTER_TABS = ['dashboard', 'planning', 'bookings', 'clients', 'services', 'expe
                'rewards', 'requests', 'stats', 'tools', 'team', 'activity', 'fiscal', 'plan']
 FREE_TABS = ['dashboard', 'bookings', 'planning', 'services', 'experiences', 'payments', 'profile', 'requests', 'stats', 'tools', 'fiscal', 'plan']
 ADMIN_TABS = ['overview', 'adminpay', 'emails', 'legal', 'pointtexts', 'maps', 'plans', 'features', 'ops', 'media', 'promos', 'virtual', 'audit',
-              'destinations', 'experiences', 'users', 'centers', 'claims', 'suggestions', 'qr', 'rewards', 'bookings', 'points']
+              'destinations', 'experiences', 'users', 'centers', 'claims', 'suggestions', 'qr', 'rewards', 'bookings', 'points', 'svctemplates']
 
 
 def chromium(p):
@@ -95,12 +95,14 @@ def main():
                 ctx.close()
             ctx, page = ctx_for('center_i18n')
             for tab in CENTER_TABS: visit(page, f'#/admin?tab={tab}', 1200)
+            visit(page, '#/admin?tab=services', 1400, click=['#new-center-service'])
             ctx.close()
             ctx, page = ctx_for('pro_i18npro')
             for tab in FREE_TABS: visit(page, f'#/admin?tab={tab}', 1200)
             ctx.close()
             ctx, page = ctx_for('admin', 'admin-seguro-2026')
             for tab in ADMIN_TABS: visit(page, f'#/admin?tab={tab}', 1400)
+            visit(page, '#/admin?tab=svctemplates', 1400, click=['.st-edit'])
             visit(page, '#/admin?tab=legal', 1400, click=['.adl-edit'])
             visit(page, '#/admin?tab=plans', 1400, click=['.ap-manage'])
             ctx.close()

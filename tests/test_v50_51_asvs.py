@@ -544,9 +544,11 @@ class RegistrosYSalidas(ServerTestCase):
     def test_v15_2_2_v16_5_2_a_broken_geocoder_answers_at_once(self):
         statuses = []
         for i in range(5):
-            t0 = time.time(); r = self.client().get(f'/api/geocode?q=lugar{i}'); statuses.append((r.status, round(time.time() - t0, 1)))
-        self.assertEqual(statuses[-1][0], 503, statuses)          # after three failures it does not wait any more
-        self.assertLess(statuses[-1][1], 0.5, statuses)
+            t0 = time.time(); r = self.client().get(f'/api/geocode?q=lugar{i}'); statuses.append((r.status, (r.json or {}).get('unavailable'), round(time.time() - t0, 1)))
+        # v50.53: the provider being down is said in the answer ({'unavailable': true}), not with a 503 that would leave
+        # an error in the visitor's console; it still answers at once after three failures.
+        self.assertEqual(statuses[-1][:2], (200, True), statuses)
+        self.assertLess(statuses[-1][2], 0.5, statuses)
 
     def test_v14_2_4_old_bookings_lose_their_contact_details(self):
         admin = self.make_admin('ret@worldives.test', 'admin_ret')

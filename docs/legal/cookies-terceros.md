@@ -30,7 +30,8 @@ No hay ninguna otra cookie propia. El JS no lee ni escribe `document.cookie`.
 | Clave | Tipo | Qué guarda | Línea del JS | ¿En el texto? |
 |---|---|---|---|---|
 | `wod-language` (`LANG_KEY`) | localStorage | Idioma elegido | `LANG_KEY = 'wod-language'` | Sí («Idioma y filtros») |
-| `wd_top10` | localStorage | `{geo:true}` si se usó «Usar mi ubicación» (sin coordenadas), o `{pick:{lat,lon,label}}` si se eligió un punto en el mapa o se buscó una localidad | `remember()` en el Top 10 | Sí, pero dice «ubicación y radio»: **el radio no se guarda** |
+| `wd_top10` | localStorage | Desde la v50.53, solo la **zona o localidad que el visitante eligió a mano** en el Top 10: `{area:"Costa Brava"}` o `{place:{name,lat,lon}}` (el centro de esa localidad, no su posición). **Nunca** la posición del GPS ni el radio | `remember()` en el Top 10 | Sí, pero dice «ubicación y radio»: texto propuesto en `cambios-v50.53-para-abogado.md` (**Pendiente de decisión**) |
+| `wd_loc` | localStorage | Desde la v50.53, la palabra `denied` si el visitante **denegó** el permiso de ubicación, para no volver a preguntarle (se borra al conceder el permiso). Dato técnico: sin posición, sin cuenta, sin perfilado | servicio de ubicación `wdLocation` | **No**: texto propuesto en `cambios-v50.53-para-abogado.md` (**Pendiente de decisión**) |
 | `wd_cookie_notice` | localStorage | Fecha en que se cerró el aviso; el aviso vuelve a salir pasado 1 año | `cookieNotice()` | Sí |
 | `wd_booking_draft` | sessionStorage | Reserva a medio hacer (centro y selección) para retomarla tras iniciar sesión; se borra al usarse | formulario de reserva | Sí |
 | `wd_after_login` | sessionStorage | Página a la que volver tras iniciar sesión o registrarse | `renderLogin()`, `renderRegister()` | **No** |

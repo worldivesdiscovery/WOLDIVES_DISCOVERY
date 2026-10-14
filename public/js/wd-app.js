@@ -158,20 +158,10 @@
     } catch { /* closed without sharing */ }
   }
   // Where the phone is: only when the person taps «Cerca de mí» or «Mi ubicación» (never when the app opens).
+  // v50.53: the same location service as the web (W.wdLocation), which also uses the Android app's Geolocation plugin.
   async function posicion() {
-    const G = plugin('Geolocation');
-    if (G) {
-      let p = await G.checkPermissions().catch(() => ({}));
-      if (p.location !== 'granted' && p.coarseLocation !== 'granted') p = await G.requestPermissions({ permissions: ['location', 'coarseLocation'] }).catch(() => ({}));
-      if (p.location !== 'granted' && p.coarseLocation !== 'granted') throw new Error(T('Sin permiso de ubicación. Puedes buscar por zona en el mapa.'));
-      const r = await G.getCurrentPosition({ enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 });
-      return { lat: r.coords.latitude, lon: r.coords.longitude };
-    }
-    return new Promise((ok, ko) => {
-      if (!navigator.geolocation) { ko(new Error(T('Este móvil no da la ubicación.'))); return; }
-      navigator.geolocation.getCurrentPosition((r) => ok({ lat: r.coords.latitude, lon: r.coords.longitude }),
-        () => ko(new Error(T('Sin permiso de ubicación. Puedes buscar por zona en el mapa.'))), { timeout: 12000, maximumAge: 300000 });
-    });
+    try { return await W.wdLocation.get({ timeout: 12000 }); }
+    catch (e) { throw new Error(T(e.code === 'denied' ? 'Sin permiso de ubicación. Puedes buscar por zona en el mapa.' : W.wdLocation.message(e.code))); }
   }
   const mem = { pos: null, cuando: '', salidas: new Map(), area: null, areaAt: 0 };
   async function miArea(fresca) {
@@ -325,16 +315,15 @@
       : `<div class="tarjeta vacio"><p>No hay salidas con plazas en estas fechas.</p><a class="wbtn sec mini" href="#/explorar">Ver el mapa</a></div>`;
     W.translateTree(box);
   }
+  // v50.53: the same service card as the web (W.wdServiceCard), with the photo of the service (own, template's or neutral).
   function tarjetaSalida(s) {
-    const foto = s.cover_url ? `<img class="foto" src="${esc(s.cover_url)}" alt="" loading="lazy">`
-      : `<div class="foto-vacia">${s.logo_url ? `<img class="logo-c" src="${esc(s.logo_url)}" alt="" loading="lazy">` : ic('ola2', '')}</div>`;
     const donde = [s.provider_name, ...(s.points || []).slice(0, 2).map((p) => p.name)].filter(Boolean).map((x) => `<span translate="no">${esc(x)}</span>`).join(' · ');
-    return `<article class="tarjeta tarjeta-salida">${foto}<div class="pad">
-      <div class="fila-entre"><span class="eti num">${esc(cuando(s.date))} · ${esc(s.time || '')}</span>${s.distance_km != null ? `<span class="peq suave num">${km(s.distance_km)}</span>` : ''}</div>
-      <h3 translate="no">${esc(s.title)}</h3><p class="suave peq">${donde}</p><div class="wtags">${modoTag(s)}</div>
-      <div class="fila-entre"><span class="peq"><b class="num">${s.spots_left}</b> <span>${s.spots_left === 1 ? 'plaza libre' : 'plazas libres'}</span></span>${s.price ? `<span><span class="peq suave">desde</span> <span class="precio">${dinero(s.price, s.currency)}</span></span>` : ''}</div>
-      <button class="wbtn ancho" type="button" data-reservar="${s.slot_id}"${s.bookable === false ? ' disabled' : ''}>Reservar</button>
-      ${s.bookable === false && s.unavailable_reason ? `<p class="suave peq">${esc(s.unavailable_reason)}</p>` : ''}</div></article>`;
+    return W.wdServiceCard(s, {
+      kicker: `<span class="num">${esc(cuando(s.date))} · ${esc(s.time || '')}</span>${s.distance_km != null ? ` · <span class="num">${km(s.distance_km)}</span>` : ''}`,
+      meta: `${modoTag(s)}`, body: `<p class="svc2-note">${donde}</p><p class="svc2-note"><b class="num">${s.spots_left}</b> <span>${s.spots_left === 1 ? 'plaza libre' : 'plazas libres'}</span></p>`,
+      price: s.price ? `<small>desde</small><strong>${dinero(s.price, s.currency)}</strong>` : '',
+      actions: `<button class="wbtn" type="button" data-reservar="${s.slot_id}"${s.bookable === false ? ' disabled' : ''}>Reservar</button>${s.bookable === false && s.unavailable_reason ? `<p class="svc2-note">${esc(s.unavailable_reason)}</p>` : ''}`,
+      cls: 'tarjeta-salida' });
   }
   function anillo(n) {
     const v = Math.max(0.04, 1 - Math.min(n, 30) / 30), r = 32, c = 2 * Math.PI * r;

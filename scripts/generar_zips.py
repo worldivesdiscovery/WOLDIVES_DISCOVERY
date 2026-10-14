@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Builds the two delivery zips of a version (encargo 2b · bloque 1; v50.46: final production package for the VPS):
 
-    python scripts/generar_zips.py              → dist/worldives-v<APP_VERSION>-PRODUCCION.zip
-                                                   dist/worldives-v<APP_VERSION>-DEMO.zip   (v50.51: new names)
+    python scripts/generar_zips.py              → dist/worldives-v<APP_VERSION>-produccion.zip
+                                                   dist/worldives-v<APP_VERSION>-pruebas.zip   (v50.53: names of the owner's brief)
 
 -produccion  ready to upload as it is to the VPS: clean code, no data (no users, not even an administrator, no
              bookings, no test accounts or test database, no uploads, logs, caches, temporary files or .env) and no
              files that are not used. The database is created on the first start from data/seed/catalogo.sqlite3
              (countries, types, zones, certifications, points, destinations and legal texts). The administrator is
              created when installing: python app/server.py --create-admin (README.md).
--DEMO        the same code + the demonstration database (two invented centres with months of activity, v50.51),
+-pruebas     the same code + the demonstration database (two invented centres with months of activity, v50.51),
              README-PRUEBAS.md, CUENTAS-DEMO.txt (the demo accounts and their password, admin included) and
              iniciar-pruebas (port 8100). It is NEVER uploaded to the real server.
 
@@ -191,7 +191,7 @@ def main():
                 raise SystemExit(1)
             print(f'Comprobación {kind}: correcta ({len(files)} archivos).')
             if not a.solo_comprobar:
-                name = f"worldives-v{ver}-{'PRODUCCION' if kind == 'produccion' else 'DEMO'}"
+                name = f'worldives-v{ver}-{kind}'
                 z = out / f'{name}.zip'
                 write_zip(z, name, files)
                 report[kind] = (z, z.stat().st_size, len(files))

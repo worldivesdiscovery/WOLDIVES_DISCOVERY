@@ -57,6 +57,8 @@ from wod import cifrado as wcif
 from wod import movil as wmovil
 from wod import whatsapp as wwa
 from wod import avisos as wav
+from wod import geo as wgeo
+from wod import plantillas as wtpl
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -77,7 +79,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.52'
+APP_VERSION = '50.53'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -1520,6 +1522,8 @@ def bootstrap():
         db.commit()
         migrate_v50_52(db)
         db.commit()
+        migrate_v50_53(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1573,6 +1577,8 @@ def point_text(db, pid, lang):
     return r['description'] if r else None
 
 
+DEMO_RIBBON_HTML = ('<div class="demo-ribbon" id="demo-ribbon" role="note"><strong>Versión de demostración</strong> '
+                    '<span>Centros, personas y reservas inventados. Pagos de prueba; los correos no salen.</span></div>')
 PRODUCTION_DOMAIN = 'worldivesdiscovery.com'   # v50.52: the real site; www and pruebas are subdomains of it
 
 
@@ -1674,6 +1680,42 @@ def save_center_texts(db, cid, texts):
                        (cid, lang, tag, desc, now()))
         else:
             db.execute('DELETE FROM center_texts WHERE center_id=? AND lang=?', (cid, lang))
+
+
+DIVE_AREAS_SCHEMA = '''CREATE TABLE IF NOT EXISTS dive_areas (id INTEGER PRIMARY KEY AUTOINCREMENT, country TEXT NOT NULL, name TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0, lat_min REAL NOT NULL, lat_max REAL NOT NULL, lon_min REAL NOT NULL, lon_max REAL NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1, UNIQUE(country, name))'''
+
+
+def migrate_v50_53(db):
+    """v50.53. Dive sites by distance (computed in the server inside a box of coordinates, with its index) and the areas
+    of the launch country for visitors who do not share their location; service templates with their photo, and the
+    photo of each service (its template's or its own). Nothing is deleted."""
+    db.execute('CREATE INDEX IF NOT EXISTS idx_dive_points_geo ON dive_points(latitude, longitude)')
+    db.execute(DIVE_AREAS_SCHEMA)
+    db.execute(wtpl.SCHEMA)
+    add_columns(db, 'provider_services', [('template_id', 'INTEGER'), ('photo_mode', "TEXT NOT NULL DEFAULT 'template'"), ('photo_base', 'TEXT'),
+                                          ('photo_widths', 'TEXT'), ('photo_jpg', 'INTEGER'), ('photo_focal', 'TEXT'), ('photo_veil_light', 'REAL'),
+                                          ('photo_veil_dark', 'REAL'), ('photo_status', 'TEXT'), ('photo_by', 'INTEGER'), ('photo_at', 'TEXT'),
+                                          ('photo_rights_at', 'TEXT'), ('photo_note', 'TEXT')])
+    add_columns(db, 'service_templates', [('template_id', 'INTEGER')])
+    if migration_done(db, '50.53'): return
+    # Once: what the administration may change afterwards (areas, templates, veil) and the link of the services that
+    # already existed. A service created later «Sin plantilla» keeps that choice after a restart.
+    for i, (name, la0, la1, lo0, lo1) in enumerate(wgeo.SPAIN_AREAS):
+        db.execute('INSERT OR IGNORE INTO dive_areas(country,name,sort_order,lat_min,lat_max,lon_min,lon_max) VALUES(?,?,?,?,?,?,?)',
+                   ('España', name, (i + 1) * 10, la0, la1, lo0, lo1))
+    db.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('home_country','España')")
+    wtpl.seed(db, now())
+    slugs = {r['slug']: r['id'] for r in db.execute('SELECT id,slug FROM service_catalog').fetchall()}
+    linked = 0
+    for r in db.execute('SELECT id,title,service_type FROM provider_services WHERE template_id IS NULL').fetchall():
+        slug = wtpl.guess_slug(r['title'], r['service_type'])
+        if slug in slugs:
+            db.execute('UPDATE provider_services SET template_id=? WHERE id=?', (slugs[slug], r['id'])); linked += 1
+    db.execute("INSERT OR IGNORE INTO site_settings(key,value) VALUES('card_veil','0.8')")
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)',
+               ('50.53', now(), f'Puntos por cercanía, zonas de España y plantillas de servicios con foto ({linked} servicios vinculados a su plantilla)'))
 
 
 def migrate_v50_52(db):
@@ -3235,7 +3277,7 @@ def clean_service_template(data):
     if color and not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color=None
     return {'name':name,'service_type':stype,'title':clean_text(data.get('title'),180),'description':clean_text(data.get('description'),5000),
             'duration_minutes':pos_int(data.get('duration_minutes')),'max_participants':pos_int(data.get('max_participants')),
-            'booking_mode':mode,'color':color,'price':price,'response_hours':resp,'payment_hours':payh}
+            'booking_mode':mode,'color':color,'price':price,'response_hours':resp,'payment_hours':payh,'template_id':pos_int(data.get('template_id'))}
 
 
 def effective_service_tariff(db, service_id, target_date=None):
@@ -3367,19 +3409,45 @@ def sync_service_experience(db, user, service_id, data):
                    (tid,svc['title'],user['id'],svc['center_id'],'center' if user['role']=='center' else 'freelance',summary,svc['description'],price,currency,status,1,service_id,now(),now()))
 
 
+REVIEWS_FIRST = 3          # v50.53: reviews shown when a centre's page opens
+REVIEWS_MORE = 5           # … and how many more each «Ver más reseñas»
+REVIEWS_PAGE_MAX = 20
+
+
+def center_reviews_page(db, cid, offset, limit):
+    """A page of a centre's public reviews, most recent first. Only the author's first name leaves the server."""
+    rows=db.execute('''SELECT cr.id,cr.rating,cr.title,cr.body,cr.verified,cr.created_at,cr.updated_at,cr.reply_body,cr.reply_at,u.fullname
+                         FROM center_reviews cr JOIN users u ON u.id=cr.user_id
+                        WHERE cr.center_id=? AND cr.active=1 ORDER BY cr.created_at DESC,cr.id DESC LIMIT ? OFFSET ?''',(cid,limit,offset)).fetchall()
+    return [{**dict(r),'fullname':((r['fullname'] or '').split(' ')[0] or None)} for r in rows]
+
+
 def enrich_experiences(db, rows):
-    """Experiences linked to a service show live price and upcoming departures from that service."""
-    out=[]
-    for r in rows:
-        d=dict(r)
+    """Experiences linked to a service show live price and upcoming departures from that service (one query for all
+    of them), and every experience the photo of its card (v50.53): the service's, its own or its kind's template."""
+    rows=[dict(r) for r in rows]
+    sids=sorted({d['service_id'] for d in rows if d.get('service_id')})
+    slots={}; svc={}
+    if sids:
+        marks=','.join('?'*len(sids))
+        for x in db.execute(f"""SELECT * FROM (SELECT id,service_id,slot_date,slot_time,spots_total,spots_available,ROW_NUMBER() OVER (PARTITION BY service_id ORDER BY slot_date,slot_time) AS rn
+                                 FROM service_slots WHERE service_id IN ({marks}) AND status IN ('open','full') AND slot_date>=date('now')) WHERE rn<=12 ORDER BY service_id,slot_date,slot_time""",sids).fetchall():
+            slots.setdefault(x['service_id'],[]).append({k:x[k] for k in ('id','slot_date','slot_time','spots_total','spots_available')})
+        svc={r['id']:dict(r) for r in db.execute(f'SELECT * FROM provider_services WHERE id IN ({marks})',sids).fetchall()}
+    cat=SERVICE_CATALOG.get(db); out=[]
+    for d in rows:
         if d.get('service_id'):
             price,currency,_=effective_service_tariff(db,d['service_id'])
             d['price']=price; d['currency']=currency
-            slots=db.execute("SELECT id,slot_date,slot_time,spots_total,spots_available FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date>=date('now') ORDER BY slot_date,slot_time LIMIT 12",(d['service_id'],)).fetchall()
-            d['departures']=[dict(x) for x in slots]
-            if slots:
-                d['start_date']=slots[0]['slot_date']; d['spots_available']=slots[0]['spots_available']; d['spots_total']=slots[0]['spots_total']
+            sl=slots.get(d['service_id'],[])
+            d['departures']=sl
+            if sl:
+                d['start_date']=sl[0]['slot_date']; d['spots_available']=sl[0]['spots_available']; d['spots_total']=sl[0]['spots_total']
             d['book_url']=f"#/reservar?center={d.get('center_id') or ''}&service={d['service_id']}"
+        # Photo: the linked service's own photo, else the trip's own image, else the service's template, else its kind's.
+        s_=svc.get(d.get('service_id')) or {}
+        own_svc=s_.get('photo_mode')=='own' and s_.get('photo_status')=='ready'
+        d['photo']=service_card_photo(cat,s_) if own_svc or (s_.get('template_id') and not d.get('image_url')) else experience_card_photo(db,d)
         out.append(d)
     return out
 
@@ -4620,91 +4688,91 @@ def center_row(row, member=False):
 # `match` lists accent-free fragments searched in the folded dive_type (and name/description when noted).
 # ---------------------------------------------------------------------------
 DIVE_CATEGORIES = [
-    {'slug':'arrecifes','label':'Arrecifes','depth':(5,25),'level':'Todos los niveles','cert':'Open Water','tone':'reef',
+    {'slug':'arrecifes','label':'Arrecifes','level':'Todos los niveles','cert':'Open Water','tone':'reef',
      'summary':'Fondos coralinos o rocosos llenos de vida, ideales para empezar y para volver siempre.',
      'body':'El arrecife es la inmersión más versátil: fondos rocosos o de coral con peces de colores, nudibranquios, morenas y gorgonias. Se adapta a todos los niveles porque suele permitir elegir la profundidad.',
      'need':'Certificación básica. Flotabilidad controlada para no tocar el fondo.',
      'tip':'Las mañanas suelen tener mejor visibilidad y menos oleaje.',
      'where':"(fold(p.dive_type) LIKE '%arrecif%' AND fold(p.dive_type) NOT LIKE '%pecio%')"},
-    {'slug':'paredes','label':'Paredes','depth':(10,40),'level':'Intermedio','cert':'Advanced Open Water','tone':'wall',
+    {'slug':'paredes','label':'Paredes','level':'Intermedio','cert':'Advanced Open Water','tone':'wall',
      'summary':'Caídas verticales hacia el azul, con gorgonias, esponjas y sensación de vacío.',
      'body':'En una pared se bucea a lo largo de un acantilado submarino que cae hacia la profundidad. La vida se concentra en grietas y salientes, y el azul abierto ofrece encuentros con pelágicos.',
      'need':'Buen control de flotabilidad y de la profundidad: el fondo puede estar muy lejos.',
      'tip':'Lleva el ordenador siempre a la vista; es fácil bajar sin darse cuenta.',
      'where':"(fold(p.dive_type) LIKE '%pared%' OR fold(p.dive_type) LIKE '%wall%')"},
-    {'slug':'pecios y naufragios','label':'Pecios y naufragios','depth':(12,40),'level':'Intermedio','cert':'Advanced + especialidad de pecios','tone':'wreck',
+    {'slug':'pecios y naufragios','label':'Pecios y naufragios','level':'Intermedio','cert':'Advanced + especialidad de pecios','tone':'wreck',
      'summary':'Barcos, aviones y estructuras hundidas convertidas en arrecifes artificiales.',
      'body':'Un pecio mezcla historia y vida marina: cascos colonizados por corales, bancos de peces y rincones con mucha luz o ninguna. Recorrerlo por fuera es accesible; entrar dentro exige formación específica.',
      'need':'Certificación avanzada. Para penetrar en el pecio, especialidad y equipo adecuados.',
      'tip':'Pregunta al centro por la corriente sobre el pecio y por el plan de penetración.',
      'where':"(fold(p.dive_type) LIKE '%pecio%' OR fold(p.dive_type) LIKE '%naufrag%' OR fold(p.dive_type) LIKE '%wreck%' OR fold(p.name) LIKE '%wreck%' OR fold(p.description) LIKE '%naufrag%')"},
-    {'slug':'cuevas y cavernas','label':'Cuevas y cavernas','depth':(5,30),'level':'Formación específica','cert':'Cavern / Cave','tone':'cave',
+    {'slug':'cuevas y cavernas','label':'Cuevas y cavernas','level':'Formación específica','cert':'Cavern / Cave','tone':'cave',
      'summary':'Túneles, arcos y cavidades donde la luz entra a rayos.',
      'body':'Las cavernas permiten bucear con la salida a la vista; las cuevas van más allá de la luz natural. Son inmersiones espectaculares por la luz y la roca, y muy exigentes en procedimientos.',
      'need':'Para cavernas, especialidad; para cuevas, formación técnica de cueva y guía.',
      'tip':'No entres nunca en una cavidad sin línea guía ni sin la formación que exige.',
      'where':"((fold(p.dive_type) LIKE '%cueva%' OR fold(p.dive_type) LIKE '%caverna%' OR fold(p.dive_type) LIKE '%tunel%') AND fold(p.name) NOT LIKE '%cenote%' AND fold(p.description) NOT LIKE '%cenote%')"},
-    {'slug':'cenotes','label':'Cenotes','depth':(5,40),'level':'Formación específica','cert':'Cavern para la zona iluminada','tone':'cenote',
+    {'slug':'cenotes','label':'Cenotes','level':'Formación específica','cert':'Cavern para la zona iluminada','tone':'cenote',
      'summary':'Pozos de agua dulce cristalina con haloclinas y haces de luz.',
      'body':'Los cenotes son sistemas de agua dulce y salada conectados bajo tierra. Visibilidad casi infinita, haloclinas que parecen espejos y rayos de luz que atraviesan el agua.',
      'need':'Para la zona de caverna basta con Open Water y guía; para cueva, formación técnica.',
      'tip':'Evita protector solar y repelente antes de entrar: el agua se contamina con facilidad.',
      'where':"(fold(p.dive_type) LIKE '%cenote%' OR fold(p.name) LIKE '%cenote%' OR fold(p.description) LIKE '%cenote%')"},
-    {'slug':'muck','label':'Muck','depth':(3,20),'level':'Todos los niveles','cert':'Open Water','tone':'muck',
+    {'slug':'muck','label':'Muck','level':'Todos los niveles','cert':'Open Water','tone':'muck',
      'summary':'Fondos de arena y limo para buscar criaturas raras y macrofotografía.',
      'body':'El muck diving consiste en explorar despacio fondos aparentemente vacíos donde viven pulpos mimo, caballitos de mar, peces rana y nudibranquios. Es el paraíso de la fotografía macro.',
      'need':'Flotabilidad muy fina para no levantar sedimento.',
      'tip':'Un buen guía local multiplica lo que verás.',
      'where':"(fold(p.dive_type) LIKE '%muck%' OR fold(p.description) LIKE '%muck%' OR fold(p.description) LIKE '%lodo%')"},
-    {'slug':'canales','label':'Canales','depth':(10,30),'level':'Intermedio','cert':'Advanced Open Water','tone':'channel',
+    {'slug':'canales','label':'Canales','level':'Intermedio','cert':'Advanced Open Water','tone':'channel',
      'summary':'Pasos entre arrecifes donde el agua se concentra y llegan los grandes peces.',
      'body':'Los canales conectan una laguna con el mar abierto. Con la marea entrante atraen tiburones, mantas y bancos de peces, y la inmersión suele planificarse con la corriente.',
      'need':'Experiencia con corriente y uso de boya de superficie.',
      'tip':'Pregunta al centro a qué hora entra la marea: cambia por completo la inmersión.',
      'where':"(fold(p.dive_type) LIKE '%canal%' OR fold(p.dive_type) LIKE '%channel%')"},
-    {'slug':'cañones','label':'Cañones','depth':(15,40),'level':'Avanzado','cert':'Advanced Open Water','tone':'canyon',
+    {'slug':'cañones','label':'Cañones','level':'Avanzado','cert':'Advanced Open Water','tone':'canyon',
      'summary':'Corredores encajados entre paredes de roca.',
      'body':'Un cañón submarino es un valle estrecho con paredes a ambos lados. Ofrece relieve espectacular, juegos de luz y a menudo vida pelágica en su boca.',
      'need':'Control de profundidad y de la orientación.',
      'tip':'Planifica bien el punto de giro: es fácil seguir bajando.',
      'where':"(fold(p.dive_type) LIKE '%canon%' OR fold(p.dive_type) LIKE '%canyon%')"},
-    {'slug':'pináculos','label':'Pináculos','depth':(8,35),'level':'Intermedio','cert':'Advanced Open Water','tone':'pinnacle',
+    {'slug':'pináculos','label':'Pináculos','level':'Intermedio','cert':'Advanced Open Water','tone':'pinnacle',
      'summary':'Agujas de roca que suben desde el fondo y concentran la vida a su alrededor.',
      'body':'Los pináculos y bajos son montañas submarinas aisladas. Al recibir corriente por todas partes reúnen bancos de peces, depredadores y mucho color.',
      'need':'Experiencia con corriente y descensos en azul.',
      'tip':'Baja por el cabo del barco y rodea el pináculo en espiral ascendente.',
      'where':"(fold(p.dive_type) LIKE '%pinnacle%' OR fold(p.dive_type) LIKE '%pinaculo%' OR fold(p.dive_type) LIKE '%pico%')"},
-    {'slug':'corrientes y deriva','label':'Corrientes y deriva','depth':(10,30),'level':'Avanzado','cert':'Advanced + especialidad de deriva','tone':'drift',
+    {'slug':'corrientes y deriva','label':'Corrientes y deriva','level':'Avanzado','cert':'Advanced + especialidad de deriva','tone':'drift',
      'summary':'Déjate llevar por la corriente y recorre kilómetros sin aletear.',
      'body':'En una deriva el barco te sigue mientras la corriente te transporta. Es una sensación parecida a volar y permite ver mucha más superficie de arrecife.',
      'need':'Boya de superficie, descensos rápidos y buena coordinación con el grupo.',
      'tip':'Mantente cerca del guía y lleva siempre señalización de superficie.',
      'where':"(fold(p.dive_type) LIKE '%corriente%' OR fold(p.dive_type) LIKE '%deriva%' OR fold(p.dive_type) LIKE '%drift%')"},
-    {'slug':'aguas profundas','label':'Aguas profundas','depth':(30,40),'level':'Avanzado','cert':'Advanced Open Water / Deep','tone':'deep',
+    {'slug':'aguas profundas','label':'Aguas profundas','level':'Avanzado','cert':'Advanced Open Water / Deep','tone':'deep',
      'summary':'Puntos que alcanzan los 30 metros o más, para buceadores con experiencia.',
      'body':'Las inmersiones profundas dan acceso a paisajes y especies que no se ven cerca de la superficie. Requieren más gas, más planificación y atención a la narcosis y a la descompresión.',
      'need':'Certificación avanzada o especialidad de profundidad, según el límite del punto.',
      'tip':'Valora el nitrox para alargar el tiempo sin descompresión.',
      'where':"(p.max_depth IS NOT NULL AND CAST(p.max_depth AS REAL) >= 30)"},
-    {'slug':'nocturnas','label':'Nocturnas','depth':(3,18),'level':'Intermedio','cert':'Open Water + especialidad nocturna','tone':'night',
+    {'slug':'nocturnas','label':'Nocturnas','level':'Intermedio','cert':'Open Water + especialidad nocturna','tone':'night',
      'summary':'El mismo arrecife, otra vida: la que sale cuando se apaga el sol.',
      'body':'De noche aparecen cazadores, crustáceos y plancton bioluminiscente. Una zona que conoces de día se convierte en otra inmersión.',
      'need':'Linterna principal y de respaldo; el centro suele exigir especialidad o experiencia.',
      'tip':'Apaga la linterna un momento para ver la bioluminiscencia.',
      'where':"(fold(p.dive_type) LIKE '%nocturn%' OR fold(p.dive_type) LIKE '%night%')"},
-    {'slug':'lagos','label':'Lagos','depth':(3,30),'level':'Todos los niveles','cert':'Open Water','tone':'lake',
+    {'slug':'lagos','label':'Lagos','level':'Todos los niveles','cert':'Open Water','tone':'lake',
      'summary':'Agua dulce, paisajes sumergidos y temperatura muy distinta al mar.',
      'body':'Bucear en un lago es distinto: no hay sal, la flotabilidad cambia y aparecen bosques sumergidos, restos y fauna de agua dulce.',
      'need':'Ajustar el lastre (en agua dulce se flota menos) y protección térmica.',
      'tip':'Si el lago está en altura, la tabla de inmersión cambia: pregunta al centro.',
      'where':"(fold(p.dive_type) LIKE '%lago%' OR fold(p.dive_type) LIKE '%lake%')"},
-    {'slug':'pilares','label':'Pilares','depth':(5,25),'level':'Todos los niveles','cert':'Open Water','tone':'pillar',
+    {'slug':'pilares','label':'Pilares','level':'Todos los niveles','cert':'Open Water','tone':'pillar',
      'summary':'Columnas y formaciones verticales que sostienen mucha vida.',
      'body':'Pilares naturales o estructuras como muelles crean refugio para peces y fauna fija. Son inmersiones fotogénicas y fáciles de orientar.',
      'need':'Certificación básica.',
      'tip':'Mira hacia arriba: las siluetas a contraluz dan las mejores fotos.',
      'where':"(fold(p.dive_type) LIKE '%pilar%' OR fold(p.dive_type) LIKE '%pillar%')"},
-    {'slug':'playa y esnórquel','label':'Playa y esnórquel','depth':(0,10),'level':'Iniciación','cert':'Sin certificación (esnórquel) / Open Water','tone':'beach',
+    {'slug':'playa y esnórquel','label':'Playa y esnórquel','level':'Iniciación','cert':'Sin certificación (esnórquel) / Open Water','tone':'beach',
      'summary':'Entradas desde la orilla y puntos para disfrutar con tubo y aletas.',
      'body':'Sin barco ni horarios: se entra caminando desde la playa. Perfecto para iniciarse, para bautizos y para quien prefiere el esnórquel.',
      'need':'Nada especial para esnórquel; para buceo, certificación básica.',
@@ -4730,7 +4798,8 @@ def dive_category(value):
 
 
 def dive_category_public(c):
-    return {k:c[k] for k in ('slug','label','summary','body','need','tip','level','cert','tone')} | {'key':fold_text(c['slug']).replace(' ','-'),'depth_min':c['depth'][0],'depth_max':c['depth'][1]}
+    # v50.53: no «profundidad habitual» (it depends on each site: each dive site has its own depth).
+    return {k:c[k] for k in ('slug','label','summary','body','need','tip','level','cert','tone')} | {'key':fold_text(c['slug']).replace(' ','-')}
 
 
 class Snapshot:
@@ -5002,6 +5071,7 @@ def _build_points(db):
                (SELECT image_path FROM dive_point_photos x WHERE x.dive_point_id=p.id AND x.image_path NOT IN ('/img/portada/fondo1.webp','/img/iconos/buceador1.png','/img/iconos/buceador2.png') ORDER BY sort_order,id LIMIT 1) AS photo
           FROM dive_points p LEFT JOIN pc ON pc.dive_point_id=p.id LEFT JOIN ph ON ph.dive_point_id=p.id
          WHERE p.active=1""").fetchall()
+    areas=[dict(r) for r in db.execute('SELECT * FROM dive_areas WHERE active=1 ORDER BY sort_order,id').fetchall()]
     type_ids={}
     for cat in DIVE_CATEGORIES:
         for (pid,) in db.execute(f"SELECT p.id FROM dive_points p WHERE p.active=1 AND {cat['where']}"):
@@ -5020,6 +5090,8 @@ def _build_points(db):
         d['level']=point_level(d.get('difficulty'))
         d['_text']=fold_text(' '.join(str(x or '') for x in (d['name'],d['country'],d['region'],d['zone'],d['subregion'],d['dive_type'],desc)))
         d['_name']=fold_text(d['name'])
+        a=wgeo.area_of(d['latitude'],d['longitude'],d['country'],areas)
+        d['area']=a['name'] if a else None; d['_area_order']=a['sort_order'] if a else 10**6
         out.append(d); by_id[d['id']]=d
     zones={}
     for d in out:
@@ -5030,7 +5102,14 @@ def _build_points(db):
     links=[(r[0],r[1]) for r in db.execute('''SELECT l.center_id, l.dive_point_id FROM (SELECT center_id, dive_point_id FROM center_point_links
                                                    UNION SELECT center_id, id FROM dive_points WHERE center_id IS NOT NULL AND active=1) l
                                                JOIN centers c ON c.id=l.center_id AND '''+public_center_sql()+''' ''')]
-    return {'rows':out,'by_id':by_id,'facets':facets,'links':links}
+    return {'rows':out,'by_id':by_id,'facets':facets,'links':links,'home_country':home_country(db),'areas':areas}
+
+
+def home_country(db):
+    """The launch country (v50.53): its dive sites come first, grouped by area, when the visitor has not shared the
+    location. A setting (site_settings.home_country), not code."""
+    r=db.execute("SELECT value FROM site_settings WHERE key='home_country'").fetchone()
+    return (r['value'] if r else '') or 'España'
 
 
 def public_point_row(d):
@@ -5044,16 +5123,53 @@ POINT_SORTS={
     'depth':lambda r:(r['max_depth'] is None,-(r['max_depth'] or 0),r['_name']),
     'shallow':lambda r:(r['max_depth'] is None,(r['max_depth'] or 0),r['_name']),
 }
+# v50.53: «Más cercanos» (needs the visitor's position) and «Por zonas» (the launch country first, area by area).
+POINT_GEO_SORTS=('distance','area')
+
+
+def _sorted_points(snap, sort):
+    """Rows pre-sorted once per snapshot and sort key; filters keep that order (no sort per request)."""
+    cache=snap.setdefault('_sorted',{})
+    if sort not in cache:
+        if sort=='area':
+            home=snap['home_country']; rec=POINT_SORTS['recommended']
+            cache[sort]=sorted(snap['rows'],key=lambda r:(r['country']!=home,r['_area_order'],r['area'] is None,r['country'] or '',rec(r)))
+        else:
+            cache[sort]=sorted(snap['rows'],key=POINT_SORTS[sort])
+    return cache[sort]
+
+
+def point_group(r, home):
+    """Heading under which a point is listed in «Por zonas»: its area, the rest of the launch country, or its country."""
+    if r['country']==home: return r['area'] or f'Otras zonas de {home}'
+    return r['country'] or 'Otros'
+
+
+def points_box_fetch(db):
+    """The active dive sites inside a box of coordinates (index idx_dive_points_geo)."""
+    def fetch(lat0, lat1, ranges):
+        where,args=wgeo.sql_box(lat0,lat1,ranges)
+        return db.execute(f'SELECT id,latitude,longitude FROM dive_points WHERE active=1 AND {where}',args).fetchall()
+    return fetch
+
+
+def visitor_position(query):
+    """(lat, lon) rounded to about 1 km, or None. Only used to sort; never stored or logged (the query string never
+    reaches the access log)."""
+    lat=wgeo.coord((query.get('lat') or [''])[0],'lat'); lon=wgeo.coord((query.get('lon') or [''])[0],'lon')
+    if lat is None or lon is None: return None
+    return wgeo.round_coord(lat), wgeo.round_coord(lon)
 
 
 def point_directory(db, query):
     g=lambda k,d='': (query.get(k,[d])[0] or d)
-    snap=points_snapshot(db)
-    # Rows are pre-sorted once per snapshot and sort key; filters below keep that order (no sort per request).
-    sort=g('sort','recommended'); sort=sort if sort in POINT_SORTS else 'recommended'
-    cache=snap.setdefault('_sorted',{})
-    if sort not in cache: cache[sort]=sorted(snap['rows'],key=POINT_SORTS[sort])
-    rows=cache[sort]
+    snap=points_snapshot(db); home=snap['home_country']
+    here=visitor_position(query)
+    sort=g('sort','')
+    if sort not in POINT_SORTS and sort not in POINT_GEO_SORTS: sort=''
+    if sort=='distance' and not here: sort=''
+    if not sort: sort='distance' if here else 'area'
+    rows=_sorted_points(snap,'recommended' if sort=='distance' else sort)
     q=fold_text(clean_text(g('q'),120) or '').strip()
     if q:
         words=q.split(); rows=[r for r in rows if all(w in r['_text'] for w in words)]
@@ -5069,7 +5185,7 @@ def point_directory(db, query):
         ids={x[0] for x in db.execute('SELECT DISTINCT dive_point_id FROM center_point_links WHERE center_id IN (%s)'%(','.join('?'*len(inst)) or 'NULL'),list(inst)).fetchall()} if inst else set()
         rows=[r for r in rows if r['id'] in ids]
     # Facets are computed before the geographic filters so the visitor can always switch zone or country.
-    zone=clean_text(g('zone'),120); sub=clean_text(g('subregion'),120); country=clean_text(g('country'),120)
+    zone=clean_text(g('zone'),120); sub=clean_text(g('subregion'),120); country=clean_text(g('country'),120); area=clean_text(g('area'),120)
     zf={}; cf={}
     for r in rows:
         zf[r['zone'] or 'Otros']=zf.get(r['zone'] or 'Otros',0)+1
@@ -5077,10 +5193,26 @@ def point_directory(db, query):
     for r in rows: cf[r['country']]=cf.get(r['country'],0)+1
     if country: rows=[r for r in rows if r['country']==country]
     if sub: rows=[r for r in rows if (r['subregion'] or r['region'] or r['country'])==sub]
+    if area: rows=[r for r in rows if point_group(r,home)==area]
     try: per=max(1,min(60,int(g('per_page','24')))); page=max(1,min(10000,int(g('page','1'))))
     except ValueError: per,page=24,1
     total=len(rows)
-    return {'items':[public_point_row(r) for r in rows[(page-1)*per:page*per]],'total':total,'page':page,'per_page':per,'pages':(total+per-1)//per,
+    if sort=='distance':
+        # Closest first, computed here: the browser gets one page, never the whole catalogue.
+        allowed={r['id'] for r in rows}
+        found=wgeo.nearest(points_box_fetch(db),here[0],here[1],min(total,page*per),accept=lambda i:i in allowed) if total else []
+        page_rows=[(snap['by_id'][pid],km) for km,pid in found[(page-1)*per:page*per] if pid in snap['by_id']]
+    else:
+        page_rows=[(r,None) for r in rows[(page-1)*per:page*per]]
+    items=[]
+    for r,km in page_rows:
+        d=public_point_row(r)
+        if here:
+            if km is None and r['latitude'] is not None and r['longitude'] is not None: km=wgeo.haversine_km(here[0],here[1],r['latitude'],r['longitude'])
+            d['distance_km']=round(km,1) if km is not None else None
+        if sort=='area': d['group']=point_group(r,home)
+        items.append(d)
+    return {'items':items,'total':total,'page':page,'per_page':per,'pages':(total+per-1)//per,'sort':sort,'located':bool(here),'home_country':home,
             'zones':[{'name':k,'count':v} for k,v in sorted(zf.items(),key=lambda x:-x[1])],
             'countries':[{'name':k,'count':v} for k,v in sorted(cf.items(),key=lambda x:(-x[1],x[0] or ''))]}
 
@@ -5100,45 +5232,91 @@ def points_map_payload(db):
     return cached
 
 
-def haversine_km(lat1, lon1, lat2, lon2):
-    p1,p2=math.radians(lat1),math.radians(lat2); dp=math.radians(lat2-lat1); dl=math.radians(lon2-lon1)
-    a=math.sin(dp/2)**2+math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
-    return 6371.0088*2*math.atan2(math.sqrt(a),math.sqrt(max(0,1-a)))
+haversine_km=wgeo.haversine_km
 
 
 def nearby_points(db, lat, lon, radius_km, exclude=None, limit=6):
-    snap=points_snapshot(db); dlat=radius_km/111.0; out=[]
-    for r in snap['rows']:
-        if r['id']==exclude or r['latitude'] is None or r['longitude'] is None: continue
-        if abs(r['latitude']-lat)>dlat: continue  # cheap box filter before the exact distance
-        km=haversine_km(lat,lon,r['latitude'],r['longitude'])
-        if km<=radius_km: out.append((km,r))
-    out.sort(key=lambda x:x[0])
-    return [dict(public_point_row(r),distance_km=round(km,1)) for km,r in out[:limit]]
+    snap=points_snapshot(db); ok=set(snap['by_id'])-{exclude}
+    found=wgeo.nearest(points_box_fetch(db),lat,lon,limit,accept=lambda i:i in ok,start_km=radius_km)
+    return [dict(public_point_row(snap['by_id'][pid]),distance_km=round(km,1)) for km,pid in found if km<=radius_km]
 
 
-def top_dives(db, lat, lon, radius_km):
-    snap=points_snapshot(db); dlat=radius_km/111.0; ranked=[]
+def dive_areas_payload(db):
+    """Zones to choose from without sharing the location (Top 10, «Puntos de buceo»): the areas of the launch country
+    and the countries with most dive sites, each with its centre and count, plus the places (subregions) so a typed
+    locality is found without a geocoder. Small and kept per snapshot: never the whole list of points."""
+    snap=points_snapshot(db)
+    if snap.get('_areas'): return snap['_areas']
+    home=snap['home_country']; groups={}; places={}
     for r in snap['rows']:
-        if r['latitude'] is None or r['longitude'] is None or abs(r['latitude']-lat)>dlat: continue
-        km=haversine_km(lat,lon,r['latitude'],r['longitude'])
-        if km>radius_km: continue
-        rating=float(r['rating_average'] or 0); reviews=int(r['review_count'] or 0)
-        # Until point-level reviews exist, centre reviews are the strongest available social signal.
-        # Proximity is deliberately secondary so the list stays a "best dives" list, not a nearest-points list.
-        social=(rating/5.0)*0.78+min(reviews,20)/20.0*0.22 if reviews else 0.45
-        score=social*0.82+max(0.0,1.0-(km/radius_km))*0.18
-        ranked.append(dict(public_point_row(r),distance_km=round(km,1),top_score=round(score,4)))
-    ranked.sort(key=lambda x:(-x['top_score'],x['distance_km'],x['name'].lower()))
-    out={'items':ranked[:10],'radius_km':radius_km,'has_reviews':any(x['review_count'] for x in ranked),'candidates':len(ranked),'nearest':None}
-    if not ranked:
-        # Nothing inside the radius: tell the visitor where the closest dive site is, so the page never looks broken.
-        best=None
-        for r in snap['rows']:
-            if r['latitude'] is None or r['longitude'] is None: continue
-            km=haversine_km(lat,lon,r['latitude'],r['longitude'])
-            if best is None or km<best[0]: best=(km,r)
-        if best: out['nearest']=dict(public_point_row(best[1]),distance_km=round(best[0],1))
+        if r['latitude'] is None or r['longitude'] is None: continue
+        k=point_group(r,home); a=groups.setdefault(k,{'name':k,'country':r['country'],'home':r['country']==home,'order':r['_area_order'] if r['country']==home else 10**7,'lat':0.0,'lon':0.0,'count':0})
+        a['lat']+=r['latitude']; a['lon']+=r['longitude']; a['count']+=1
+        for part in str(r['subregion'] or '').split('·'):
+            part=part.strip()
+            if not part: continue
+            pl=places.setdefault(part,{'name':part,'lat':0.0,'lon':0.0,'count':0}); pl['lat']+=r['latitude']; pl['lon']+=r['longitude']; pl['count']+=1
+    out=[]
+    for a in groups.values():
+        a['lat']=round(a['lat']/a['count'],4); a['lon']=round(a['lon']/a['count'],4); out.append(a)
+    out.sort(key=lambda a:(not a['home'],a['order'],-a['count'],a['name']))
+    pls=[{'name':p['name'],'lat':round(p['lat']/p['count'],4),'lon':round(p['lon']/p['count'],4)} for p in places.values()]
+    pls.sort(key=lambda p:fold_text(p['name']))
+    snap['_areas']={'home_country':home,'areas':[{k:v for k,v in a.items() if k!='order'} for a in out],'places':pls}
+    return snap['_areas']
+
+
+TOP_RADII=(25,50,100,250,500,1000,2500)
+TOP_CACHE_MAX=2000
+
+
+def _top_social(r):
+    rating=float(r['rating_average'] or 0); reviews=int(r['review_count'] or 0)
+    # Until point-level reviews exist, centre reviews are the strongest available social signal.
+    return (rating/5.0)*0.78+min(reviews,20)/20.0*0.22 if reviews else 0.45
+
+
+def top_dives(db, lat=None, lon=None, radius_km=None, scope=''):
+    """Top 10 (v50.53). Near a position: the best dives among the closest ones (radius_km None = «lo más cerca»: the
+    smallest of TOP_RADII that holds at least ten sites). scope='home': the best of the launch country, for a visitor
+    who has not shared the location. Answers are kept per snapshot and per zone of about 11 km."""
+    snap=points_snapshot(db); home=snap['home_country']
+    cache=snap.setdefault('_top',{})
+    key=('home',) if scope=='home' else (round(lat,1),round(lon,1),radius_km)
+    hit=cache.get(key)
+    if hit is not None: return hit
+    if scope=='home':
+        rows=[r for r in snap['rows'] if r['country']==home]
+        rows.sort(key=lambda r:(-_top_social(r),-r['centers_count'],-(r['photo_count']>0),r['_name']))
+        out={'items':[public_point_row(r) for r in rows[:10]],'scope':'home','home_country':home,'radius_km':None,'auto':False,
+             'has_reviews':any(r['review_count'] for r in rows[:10]),'candidates':len(rows),'nearest':None}
+    else:
+        fetch=points_box_fetch(db); ok=set(snap['by_id'])
+        if radius_km is None:
+            ten=wgeo.nearest(fetch,lat,lon,10,accept=lambda i:i in ok)
+            far=ten[-1][0] if ten else 0
+            radius=next((x for x in TOP_RADII if x>=far),int(math.ceil(far/500.0)*500) or TOP_RADII[0])
+        else:
+            radius=radius_km
+        lat0,lat1,ranges=wgeo.box(lat,lon,radius); near=[]
+        for pid,plat,plon in fetch(lat0,lat1,ranges):
+            if pid not in ok: continue
+            km=wgeo.haversine_km(lat,lon,plat,plon)
+            if km<=radius: near.append((km,snap['by_id'][pid]))
+        ranked=[]
+        for km,r in near:
+            # Proximity is deliberately secondary so the list stays a «best dives» list, not a nearest-points list.
+            score=_top_social(r)*0.82+max(0.0,1.0-(km/radius))*0.18
+            ranked.append(dict(public_point_row(r),distance_km=round(km,1),top_score=round(score,4)))
+        ranked.sort(key=lambda x:(-x['top_score'],x['distance_km'],x['name'].lower()))
+        out={'items':ranked[:10],'scope':'near','home_country':home,'radius_km':radius,'auto':radius_km is None,
+             'has_reviews':any(x['review_count'] for x in ranked[:10]),'candidates':len(ranked),'nearest':None}
+        if not ranked:
+            # A fixed radius with nothing inside: say where the closest dive site is, so the page never looks broken.
+            one=wgeo.nearest(fetch,lat,lon,1,accept=lambda i:i in ok)
+            if one: out['nearest']=dict(public_point_row(snap['by_id'][one[0][1]]),distance_km=round(one[0][0],1))
+    if len(cache)>=TOP_CACHE_MAX: cache.clear()
+    cache[key]=out
     return out
 
 
@@ -5153,6 +5331,7 @@ def salidas_cercanas(db, lat=None, lon=None, when='', limit=20):
     d0, d1 = wmovil.departures_window(when)
     rows = db.execute(f"""SELECT ss.id AS slot_id, ss.slot_date, ss.slot_time, ss.spots_total, ss.spots_available, s.id AS service_id, s.title,
                                  s.service_type, s.booking_mode, s.response_hours, s.center_id, s.provider_user_id, s.currency,
+                                 s.template_id, s.photo_mode, s.photo_base, s.photo_widths, s.photo_jpg, s.photo_focal, s.photo_veil_light, s.photo_veil_dark, s.photo_status,
                                  c.name AS center_name, c.city, c.latitude AS lat, c.longitude AS lon, c.logo_url, c.cover_url,
                                  u.fullname AS provider_name, u.avatar_url
                           FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id JOIN users u ON u.id=s.provider_user_id
@@ -5167,6 +5346,7 @@ def salidas_cercanas(db, lat=None, lon=None, when='', limit=20):
         for pp in db.execute(f"SELECT sp.slot_id,p.id,p.name FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id IN ({','.join('?' * len(chunk))}) AND p.active=1 ORDER BY p.name", chunk).fetchall():
             points.setdefault(pp['slot_id'], []).append({'id': pp['id'], 'name': pp['name']})
     items, tariffs, ready = [], {}, {}
+    cat = SERVICE_CATALOG.get(db)
     for r in rows:
         if r['service_id'] not in tariffs: tariffs[r['service_id']] = effective_service_tariff(db, r['service_id'])
         price, currency, _ = tariffs[r['service_id']]
@@ -5183,7 +5363,8 @@ def salidas_cercanas(db, lat=None, lon=None, when='', limit=20):
                       'cover_url': r['cover_url'], 'spots_left': r['spots_available'], 'spots_total': r['spots_total'], 'price': price, 'currency': currency or r['currency'] or 'EUR',
                       'booking_mode': mode['booking_mode'], 'mode_label': mode['mode_label'], 'instant': mode['instant'], 'bookable': mode['bookable'],
                       'unavailable_reason': mode.get('unavailable_reason'),
-                      'distance_km': dist, 'lat': r['lat'], 'lon': r['lon'], 'points': points.get(r['slot_id'], [])})
+                      'distance_km': dist, 'lat': r['lat'], 'lon': r['lon'], 'points': points.get(r['slot_id'], []),
+                      'photo': service_card_photo(cat, dict(r)), 'template': template_label(cat, r['template_id'], 'es')})
     if lat is not None and lon is not None:
         items.sort(key=lambda x: (x['distance_km'] is None, x['distance_km'] if x['distance_km'] is not None else 0, x['date'], x['time']))
     return {'items': items[:max(1, min(int(limit or 20), 50))], 'from': d0.isoformat(), 'to': d1.isoformat()}
@@ -5251,6 +5432,9 @@ def site_image(name):
 
 def site_media_slots():
     slots=[{'key':k,'label':l,'where':w,'default':d,'size':sz,'group':'Portadas de sección'} for k,l,w,d,sz in SITE_MEDIA_SLOTS]
+    # v50.53: the photo behind a service card that has neither a template with photo nor a photo of its own.
+    slots.append({'key':SERVICE_NEUTRAL_KEY,'label':'Foto neutra de los servicios','where':'Fondo de las tarjetas de servicio sin plantilla ni foto propia',
+                  'default':SERVICE_NEUTRAL_DEFAULT,'size':'1600 × 1000','group':'Tarjetas de servicio'})
     for c in DIVE_CATEGORIES:
         key=cat_key(c)
         slots.append({'key':'type:'+key,'label':c['label'],'where':'Tarjeta y cabecera del tipo de buceo','default':site_image(SITE_MEDIA_TYPE_DEFAULTS.get(key,'fondo')),'size':'1600 × 1000','group':'Tipos de buceo'})
@@ -5268,6 +5452,7 @@ def site_media_key_ok(key):
 
 def _build_site_media(db):
     custom={r['key']:dict(r) for r in db.execute('SELECT key,image_url,credit,updated_at FROM site_media').fetchall()}
+    veil=card_veil_setting(db)
     items={}
     for s in site_media_slots():
         c=custom.get(s['key']) or {}
@@ -5277,7 +5462,7 @@ def _build_site_media(db):
     for r in db.execute('SELECT theme_id,key,image_url,credit FROM site_theme_media').fetchall():
         tm.setdefault(r['theme_id'],{})[r['key']]={'url':r['image_url'],'credit':r['credit'] or ''}
     for t in themes: t['media']=tm.get(t['id'],{})
-    return {'items':items,'themes':themes}
+    return {'items':items,'themes':themes,'card_veil':veil}
 
 
 # ---------------------------------------------------------------------------
@@ -5482,7 +5667,7 @@ def resolve_site_media(snap, hemi='north', preview=None, today=None):
         items=dict(items)
         for k,v in theme['media'].items():
             if k in items: items[k]={**items[k],'url':v['url'],'credit':v['credit'] or items[k]['credit'],'theme':True}
-    out={'items':items,'theme':None}
+    out={'items':items,'theme':None,'card_veil':snap.get('card_veil',CARD_VEIL_DEFAULT)}
     if theme: out['theme']={'id':theme['id'],'name':theme['name'],'accent':theme['accent'],'ribbon':theme.get('ribbon') or '','preview':bool(preview)}
     return out
 
@@ -5671,12 +5856,272 @@ def _invalidate_after_post(path):
             for n in names: globals()[n].invalidate()
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# v50.53 · Plantillas de servicios (Administración) y fotos de las tarjetas de servicio (wod.plantillas, wod.imagenes).
+# A service shows its own photo (when the centre uploaded one and it is ready), else its template's, else the neutral
+# photo of «Imágenes de la web». The photo is resolved when the page is asked for: changing a template's photo changes it
+# at once in every service that uses it. Uploads are checked here and resized in the background (CARD_WORKER).
+# ---------------------------------------------------------------------------------------------------------------------
+CARD_WORKER = wimg.Worker('tarjetas')
+CARD_PHOTO_BYTES = 6 * 1024 * 1024
+CARD_VEIL_DEFAULT = 0.8
+CARD_DEFAULT_VEIL = {'light': 0.86, 'dark': 0.82}      # an image we have not measured: safe for any photo
+SERVICE_NEUTRAL_KEY = 'servicio:neutra'
+SERVICE_NEUTRAL_DEFAULT = '/img/portada/fondo.webp'
+PENDING_PHOTOS = STORAGE / 'fotos-pendientes'
+CARD_FOLDERS = {'service': 'servicios', 'template': 'plantillas'}
+CARD_SMALL_MESSAGE = wimg.CARD_SMALL_MESSAGE
+SERVICE_PHOTO_SET = ("photo_mode='own',photo_base=?,photo_widths=?,photo_jpg=?,photo_focal=?,photo_veil_light=?,photo_veil_dark=?,"
+                     "photo_status='ready',photo_by=?,photo_at=?,photo_note=NULL,updated_at=?")
+TEMPLATE_PHOTO_SET = ("photo_base=?,photo_widths=?,photo_jpg=?,photo_focal=?,photo_veil_light=?,photo_veil_dark=?,photo_status='ready',"
+                      "photo_by=?,photo_at=?,updated_at=?")
+SERVICE_PHOTO_RAW = ('photo_base', 'photo_widths', 'photo_jpg', 'photo_veil_light', 'photo_veil_dark', 'photo_by', 'photo_rights_at')
+SERVICE_PHOTO_CLEAR = ("photo_mode='template',photo_base=NULL,photo_widths=NULL,photo_jpg=NULL,photo_focal=NULL,photo_veil_light=NULL,"
+                       "photo_veil_dark=NULL,photo_status=NULL,photo_rights_at=NULL")
+
+
+def card_veil_setting(db):
+    """The administration's veil (0.5–0.95) over the photo of every service card; each photo may need more for AA."""
+    r = db.execute("SELECT value FROM site_settings WHERE key='card_veil'").fetchone()
+    try: v = float(r['value']) if r else CARD_VEIL_DEFAULT
+    except (TypeError, ValueError): v = CARD_VEIL_DEFAULT
+    return round(min(0.95, max(0.5, v)), 2)
+
+
+def local_image_path(url):
+    u = str(url or '')
+    if u.startswith('/assets/uploads/'):
+        p = (PHOTOS / u[len('/assets/uploads/'):]).resolve()
+        return p if p.is_relative_to(PHOTOS.resolve()) else None
+    if u.startswith('/img/'):
+        base = (ROOT / 'public').resolve(); p = (base / u.lstrip('/')).resolve()
+        return p if p.is_relative_to(base) else None
+    return None
+
+
+_VEIL_CACHE = {}
+
+
+def image_veil(url):
+    """Minimum veil of an image that did not go through card_photo (the neutral photo, an experience's own photo):
+    measured once per file and kept in memory."""
+    path = local_image_path(url)
+    if not path or not path.exists(): return dict(CARD_DEFAULT_VEIL)
+    key = (str(path), path.stat().st_mtime)
+    if key not in _VEIL_CACHE:
+        try:
+            from PIL import Image
+            with Image.open(path) as im: _VEIL_CACHE[key] = wimg.veil_needed(im)
+        except Exception:
+            _VEIL_CACHE[key] = dict(CARD_DEFAULT_VEIL)
+    return _VEIL_CACHE[key]
+
+
+def plain_photo(url, source):
+    return {'src': url, 'srcset': '', 'jpg': None, 'focal': '50,50', 'veil': image_veil(url), 'own': False, 'source': source} if url else None
+
+
+def _build_service_catalog(db):
+    rows = [dict(r) for r in db.execute('SELECT * FROM service_catalog ORDER BY sort_order,id').fetchall()]
+    for r in rows:
+        base = f"/assets/uploads/{CARD_FOLDERS['template']}/{r['photo_base']}" if r['photo_base'] else None
+        r['photo'] = wtpl.photo_payload(base, r['photo_widths'], r['photo_jpg'], r['photo_focal'], r['photo_veil_light'], r['photo_veil_dark'], source='template')
+    row = db.execute('SELECT image_url FROM site_media WHERE key=?', (SERVICE_NEUTRAL_KEY,)).fetchone()
+    neutral = plain_photo((row['image_url'] if row else None) or SERVICE_NEUTRAL_DEFAULT, 'neutral')
+    return {'rows': rows, 'by_id': {r['id']: r for r in rows}, 'by_slug': {r['slug']: r for r in rows}, 'neutral': neutral}
+
+
+def service_card_photo(cat, row):
+    """The photo of a service's card: its own (uploaded and ready), its template's, or the neutral one."""
+    if row.get('photo_mode') == 'own' and row.get('photo_base') and row.get('photo_status') == 'ready':
+        p = wtpl.photo_payload(f"/assets/uploads/{CARD_FOLDERS['service']}/{row['photo_base']}", row.get('photo_widths'), row.get('photo_jpg'),
+                               row.get('photo_focal'), row.get('photo_veil_light'), row.get('photo_veil_dark'), own=True, source='own')
+        if p: return p
+    t = cat['by_id'].get(row.get('template_id'))
+    if t and t['active'] and t['photo']: return t['photo']
+    return cat['neutral']
+
+
+def template_label(cat, template_id, lang):
+    t = cat['by_id'].get(template_id)
+    if not t: return None
+    name, pending = wtpl.text_in(t['names'], lang)
+    return {'id': t['id'], 'slug': t['slug'], 'name': name, 'pending_translation': pending}
+
+
+def card_fields(db, row, lang='es'):
+    """What the shared service card needs besides the service itself (photo and template), for any list."""
+    cat = SERVICE_CATALOG.get(db); row = dict(row)
+    return {'photo': service_card_photo(cat, row), 'template': template_label(cat, row.get('template_id'), lang),
+            'photo_mode': row.get('photo_mode') or 'template', 'photo_status': (row.get('photo_status') or '').split(':', 1)[0] or None}
+
+
+def experience_card_photo(db, e):
+    """A trip or liveaboard: its own photo, else the template of its kind (Viaje / Vida a bordo), else the neutral one."""
+    cat = SERVICE_CATALOG.get(db)
+    if e.get('image_url') and str(e['image_url']).startswith(('/assets/uploads/', '/img/')): return plain_photo(e['image_url'], 'own')
+    kind = fold_text(e.get('kind') or e.get('offer_kind') or '')
+    t = cat['by_slug'].get('vida-a-bordo' if 'bordo' in kind else 'viaje')
+    return (t['photo'] if t and t['active'] and t['photo'] else None) or cat['neutral']
+
+
+def delete_card_files(kind, base):
+    """Remove every size of a card photo from the disk (a photo that is no longer used)."""
+    if not base or not re.fullmatch(r'[a-z0-9-]{4,90}', str(base)): return
+    for f in (PHOTOS / CARD_FOLDERS[kind]).glob(f'{base}-*'):
+        try: f.unlink()
+        except OSError: pass
+
+
+def check_card_upload(file_info):
+    """A photo for a card: JPG, PNG or WEBP of at most 6 MB that opens as an image and passes the antivirus."""
+    if not file_info: raise ValueError('Adjunta una foto.')
+    content = file_info.get('content') or b''
+    if not content: raise ValueError('La foto está vacía.')
+    if len(content) > CARD_PHOTO_BYTES: raise ValueError('La foto pesa demasiado. Máximo 6 MB.')
+    if wimg.sniff(content) not in ('.jpg', '.png', '.webp'): raise ValueError('Formato no admitido. Usa una foto JPG, PNG o WEBP.')
+    try:
+        from PIL import Image
+        Image.MAX_IMAGE_PIXELS = wimg.MAX_PIXELS
+        with Image.open(io.BytesIO(content)) as im:
+            size = im.size; im.verify()
+    except ImportError:
+        size = None
+    except Exception:
+        raise ValueError('La foto está dañada o no se puede leer. Prueba con otra JPG, PNG o WEBP.')
+    # Checked here (not only in the background job) so the centre gets the answer at once; either orientation.
+    if size and (max(size) < 320 or min(size) < 180): raise ValueError(CARD_SMALL_MESSAGE)
+    antivirus_check(content)
+    return content
+
+
+def queue_card_photo(db, kind, obj_id, content, focal, user_id):
+    """Keep the upload in a private folder and resize it in the background; the row says «processing» meanwhile."""
+    table = 'provider_services' if kind == 'service' else 'service_catalog'
+    PENDING_PHOTOS.mkdir(parents=True, exist_ok=True)
+    token = secrets.token_hex(12); tmp = PENDING_PHOTOS / f'{token}.bin'; tmp.write_bytes(content)
+    try: os.chmod(tmp, 0o600)
+    except OSError: pass
+    db.execute(f'UPDATE {table} SET photo_status=? WHERE id=?', ('processing:' + token, obj_id)); db.commit()
+    if not CARD_WORKER.submit(process_card_photo, kind, obj_id, token, wtpl.clean_focal(focal), user_id):
+        tmp.unlink(missing_ok=True); db.execute(f'UPDATE {table} SET photo_status=NULL WHERE id=?', (obj_id,)); db.commit()
+        raise ServiceBusy('Ahora mismo hay muchas fotos en cola. Prueba dentro de un momento.')
+
+
+def process_card_photo(kind, obj_id, token, focal, user_id):
+    """Background job: WebP sizes + JPG, no EXIF/GPS, fingerprint in the name, minimum veil for AA. A newer upload of
+    the same card (another token) wins; the photo it replaces is deleted from the disk."""
+    tmp = PENDING_PHOTOS / f'{token}.bin'; table = 'provider_services' if kind == 'service' else 'service_catalog'
+    db = connect()
+    try:
+        row = db.execute(f'SELECT * FROM {table} WHERE id=?', (obj_id,)).fetchone()
+        if not row or row['photo_status'] != 'processing:' + token or not tmp.exists(): return
+        prefix = f's{obj_id}' if kind == 'service' else 't-' + re.sub(r'[^a-z0-9-]+', '-', row['slug'])[:40]
+        try:
+            res = wimg.card_photo(tmp.read_bytes(), PHOTOS / CARD_FOLDERS[kind], prefix)
+        except ValueError as exc:
+            db.execute(f'UPDATE {table} SET photo_status=? WHERE id=? AND photo_status=?', ('error:' + str(exc)[:200], obj_id, 'processing:' + token))
+            db.commit(); return
+        values = (res['base'], ','.join(str(w) for w in res['widths']), res['jpg'], focal, res['veil']['light'], res['veil']['dark'], user_id, now(), now())
+        sets = SERVICE_PHOTO_SET if kind == 'service' else TEMPLATE_PHOTO_SET
+        cur = db.execute(f'UPDATE {table} SET {sets} WHERE id=? AND photo_status=?', values + (obj_id, 'processing:' + token))
+        db.commit()
+        if cur.rowcount:
+            if row['photo_base'] and row['photo_base'] != res['base']: delete_card_files(kind, row['photo_base'])
+            if kind == 'template': SERVICE_CATALOG.invalidate()
+        else:
+            delete_card_files(kind, res['base'])
+    finally:
+        tmp.unlink(missing_ok=True); db.close()
+
+
+def clear_service_photo(db, sid, note=None):
+    """Back to the template's photo. Returns the base name of the own photo, to delete it from the disk after commit."""
+    row = db.execute('SELECT photo_base FROM provider_services WHERE id=?', (sid,)).fetchone()
+    db.execute(f'UPDATE provider_services SET {SERVICE_PHOTO_CLEAR},photo_note=?,updated_at=? WHERE id=?', (note, now(), sid))
+    return row['photo_base'] if row else None
+
+
+def admin_service_catalog(db):
+    """«Administración → Plantillas de servicios»: every template with its texts in the 9 languages and how many
+    services use it (and how many of them show its photo), plus the own photos of the centres to review."""
+    use = {r['template_id']: (r['n'], r['tpl']) for r in db.execute(
+        "SELECT template_id,COUNT(*) AS n,SUM(CASE WHEN COALESCE(photo_mode,'template')<>'own' THEN 1 ELSE 0 END) AS tpl "
+        "FROM provider_services WHERE template_id IS NOT NULL GROUP BY template_id").fetchall()}
+    cat = SERVICE_CATALOG.get(db); out = []
+    for r in cat['rows']:
+        d = {k: r[k] for k in ('id', 'slug', 'service_type', 'duration_minutes', 'max_participants', 'booking_mode', 'color', 'sort_order', 'active', 'photo_credit', 'photo_at')}
+        d['names'] = json.loads(r['names'] or '{}'); d['descriptions'] = json.loads(r['descriptions'] or '{}')
+        d['photo'] = r['photo']; d['photo_focal'] = r['photo_focal'] or '50,50'
+        st = r['photo_status'] or ''
+        d['photo_status'] = st.split(':', 1)[0] or None; d['photo_error'] = st.split(':', 1)[1] if st.startswith('error:') else None
+        d['services'], d['services_with_photo'] = use.get(r['id'], (0, 0))
+        d['missing_langs'] = [lang for lang in wtpl.LANGS if not d['names'].get(lang) or not d['descriptions'].get(lang)]
+        out.append(d)
+    own = db.execute(
+        "SELECT s.id,s.title,s.photo_mode,s.photo_base,s.photo_widths,s.photo_jpg,s.photo_focal,s.photo_veil_light,s.photo_veil_dark,s.photo_at,s.photo_status,"
+        "COALESCE(c.name,u.fullname) AS provider FROM provider_services s JOIN users u ON u.id=s.provider_user_id LEFT JOIN centers c ON c.id=s.center_id "
+        "WHERE s.photo_mode='own' AND s.photo_base IS NOT NULL ORDER BY s.photo_at DESC LIMIT 200").fetchall()
+    own_out = [{'id': r['id'], 'title': r['title'], 'provider': r['provider'], 'photo_at': r['photo_at'], 'photo': service_card_photo(cat, dict(r))} for r in own]
+    return {'items': out, 'veil': card_veil_setting(db), 'neutral': cat['neutral'], 'own_photos': own_out, 'langs': list(wtpl.LANGS)}
+
+
+def public_service_catalog(db, lang):
+    """The templates a centre or freelance can start from, in the language of the page."""
+    cat = SERVICE_CATALOG.get(db); out = []
+    for r in cat['rows']:
+        if not r['active']: continue
+        name, pn = wtpl.text_in(r['names'], lang); desc, pd = wtpl.text_in(r['descriptions'], lang)
+        out.append({'id': r['id'], 'slug': r['slug'], 'service_type': r['service_type'], 'name': name, 'description': desc, 'pending_translation': pn or pd,
+                    'duration_minutes': r['duration_minutes'], 'max_participants': r['max_participants'], 'booking_mode': r['booking_mode'],
+                    'color': r['color'], 'photo': r['photo'] or cat['neutral'], 'has_photo': bool(r['photo'])})
+    return {'items': out, 'neutral': cat['neutral'], 'veil': card_veil_setting(db)}
+
+
+def save_catalog_template(db, user, data):
+    """Create or change a template (administration). Spanish name required; the rest of languages optional."""
+    tid = int(data.get('id') or 0)
+    names = wtpl.clean_texts(data.get('names'), 80); descs = wtpl.clean_texts(data.get('descriptions'), 600)
+    if not names.get('es'): raise ValueError('Escribe al menos el nombre en castellano.')
+    stype = clean_text(data.get('service_type'), 40) or 'inmersion'
+    if stype not in SERVICE_TYPES: raise ValueError('Tipo de servicio no válido.')
+    mode = data.get('booking_mode') if data.get('booking_mode') in ('auto', 'request', 'payment') else 'auto'
+    duration = clean_int(data.get('duration_minutes'), 0, 60 * 24 * 60, 0, 'La duración no es válida.') or None
+    places = clean_int(data.get('max_participants'), 0, 999, 0, 'El número de plazas no es válido.') or None
+    color = clean_text(data.get('color'), 20) or None
+    if color and not re.fullmatch(r'#[0-9a-fA-F]{6}', color): color = None
+    order = clean_int(data.get('sort_order'), 0, 100000, 0, 'El orden no es válido.')
+    active = 0 if data.get('active') in (0, '0', False, 'false') else 1
+    vals = (stype, json.dumps(names, ensure_ascii=False), json.dumps(descs, ensure_ascii=False), duration, places, mode, color, order, active,
+            clean_text(data.get('photo_credit'), 200), now(), user['id'])
+    if tid:
+        if not db.execute('SELECT 1 FROM service_catalog WHERE id=?', (tid,)).fetchone(): raise NotFound('Plantilla no encontrada.')
+        db.execute('UPDATE service_catalog SET service_type=?,names=?,descriptions=?,duration_minutes=?,max_participants=?,booking_mode=?,color=?,sort_order=?,'
+                   'active=?,photo_credit=?,updated_at=?,updated_by=? WHERE id=?', vals + (tid,))
+    else:
+        slug = re.sub(r'[^a-z0-9]+', '-', fold_text(names['es'])).strip('-')[:40] or 'plantilla'
+        base, n = slug, 2
+        while db.execute('SELECT 1 FROM service_catalog WHERE slug=?', (slug,)).fetchone(): slug = f'{base}-{n}'; n += 1
+        tid = db.execute('INSERT INTO service_catalog(service_type,names,descriptions,duration_minutes,max_participants,booking_mode,color,sort_order,active,'
+                         'photo_credit,updated_at,updated_by,slug,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', vals + (slug, now())).lastrowid
+    audit(db, user['id'], 'service_template_catalog_saved', 'service_catalog', tid)
+    return tid
+
+
+def valid_template_id(db, value):
+    """A template a service may use (active), or None."""
+    try: tid = int(value or 0)
+    except (TypeError, ValueError): return None
+    return tid if tid and db.execute('SELECT 1 FROM service_catalog WHERE id=? AND active=1', (tid,)).fetchone() else None
+
+
 POINTS=Snapshot('points',_build_points)
 DIRECTORY=Snapshot('directory',_build_directory)
 DIVE_TYPES=Snapshot('dive-types',_build_dive_types)
 TRAVEL=Snapshot('travel',_build_travel)
 SITE_MEDIA=Snapshot('site-media',_build_site_media)
 PROMOS=Snapshot('promos',_build_promos)
+SERVICE_CATALOG=Snapshot('service-catalog',_build_service_catalog)
 
 
 # ---------------------------------------------------------------------------
@@ -11185,6 +11630,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     try: matrix=qr_matrix(url)
                     except ImportError: matrix=None  # the poster is still generated, without the QR code
                     self.send_json({'url':url,'matrix':matrix}); return
+                if path == '/api/service-catalog':
+                    # v50.53: the templates a centre or freelance can start a service from (name and text in the page's language).
+                    self.send_json(public_service_catalog(db,normalize_lang(query.get('lang',['es'])[0]))); return
+                if path == '/api/admin/service-catalog':
+                    user=require_user(self,db); require_role(user,{'admin'}); self.send_json(admin_service_catalog(db)); return
                 if path == '/api/admin/site-media':
                     user=require_user(self,db); require_role(user,{'admin'})
                     self.send_json({'slots':site_media_slots(),'items':_build_site_media(db)['items']}); return
@@ -11202,7 +11652,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                       FROM travel_experiences e LEFT JOIN users u ON u.id=e.provider_user_id LEFT JOIN centers c ON c.id=e.center_id
                                       WHERE e.travel_offer_id=? AND e.active=1 AND e.status='published'
                                         AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1)) ORDER BY COALESCE(e.start_date,'9999-12-31'), e.id DESC''',(tid,)).fetchall()
-                    self.send_json({'offer':dict(offer),'experiences':enrich_experiences(db,rows)}); return
+                    self.send_json({'offer':dict(offer),'experiences':enrich_experiences(db,[dict(r,offer_kind=offer['kind']) for r in rows])}); return
                 if path.startswith('/api/travel-experiences/') and path.rsplit('/',1)[1].isdigit():
                     eid=int(path.rsplit('/',1)[1])
                     row=db.execute('''SELECT e.*, u.fullname AS provider_name, c.name AS center_name, c.logo_url AS center_logo, t.title AS destination_title, t.region AS destination_region
@@ -11259,8 +11709,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     q=clean_text(query.get('q',[''])[0],120) or ''
                     if len(q)<2: self.send_json({'items':[]}); return
                     if GEOCODE_LIMIT.hit('geo:'+wsec.ip_group(self.client_ip())): self.send_json({'error':'Demasiadas búsquedas seguidas. Espera un momento.'},429); return
+                    # v50.53: the provider being down is an answer, not a failed request (no error in the visitor's console):
+                    # the page says it could not search and offers the zones and the map.
                     try: self.send_json({'items':geocode_search(q,clean_text(query.get('lang',['es'])[0],5) or 'es')})
-                    except ServiceBusy as e: self.send_json({'error':str(e)},503)
+                    except ServiceBusy as e: self.send_json({'items':[],'unavailable':True,'error':str(e)})
                     return
                 if path == '/api/me':
                     user = current_user(self, db)
@@ -11395,6 +11847,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         pol_=provider_policy(payee_cache[rk],r); d['policy']={'free_hours':pol_['free_hours'],'refund_pct':pol_['refund_pct'],'text':pol_['text'],'note':pol_['note'],'own':r['cancel_free_hours'] is not None}
                         d['provider_name']=(payee_cache[rk] or {}).get('name') or d.get('center_name') or d.get('provider_name')
                         if include_inactive: d['experience']=exp_by_service.get(r['id'])
+                        d.update(card_fields(db,r,normalize_lang(query.get('lang',['es'])[0])))
+                        for k_ in SERVICE_PHOTO_RAW: d.pop(k_,None)
+                        if not include_inactive: d.pop('photo_note',None)
+                        elif str(r['photo_status'] or '').startswith('error:'): d['photo_error']=str(r['photo_status']).split(':',1)[1]
                         d['slots']=slots_by_service.get(r['id'],[])
                         for sd in d['slots']:
                             sd['points']=points_by_slot.get(sd['id'],[])
@@ -11533,6 +11989,15 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     rows = db.execute('''SELECT p.*, c.name AS center_name, rc.name AS recommended_certification_name FROM dive_points p LEFT JOIN centers c ON c.id=p.center_id LEFT JOIN certifications rc ON rc.id=p.recommended_certification_id WHERE '''+' AND '.join(where)+' ORDER BY p.zone,p.subregion,p.country,p.name', args).fetchall()
                     self.send_json({'items':[point_row(r) for r in rows]})
                     return
+                if path.startswith('/api/centers/') and path.endswith('/reviews') and path.count('/')==4:
+                    cid=int(path.split('/')[3]) if path.split('/')[3].isdigit() else 0
+                    if not cid or not db.execute('SELECT 1 FROM centers c WHERE c.id=? AND '+public_center_sql(),(cid,)).fetchone(): self.send_json({'error':'Centro no encontrado'},404); return
+                    if not feature_switch(db,'reviews'): self.send_json({'items':[],'total':0,'has_more':False}); return
+                    try: offset=max(0,int(query.get('offset',['0'])[0] or 0)); limit=max(1,min(REVIEWS_PAGE_MAX,int(query.get('limit',[str(REVIEWS_MORE)])[0] or REVIEWS_MORE)))
+                    except ValueError: offset,limit=0,REVIEWS_MORE
+                    total=db.execute('SELECT COUNT(*) FROM center_reviews WHERE center_id=? AND active=1',(cid,)).fetchone()[0]
+                    items=center_reviews_page(db,cid,offset,limit)
+                    self.send_json({'items':items,'total':total,'has_more':offset+len(items)<total}); return
                 if path.startswith('/api/centers/') and path.count('/')==3:
                     cid_txt=path.rsplit('/',1)[1]
                     if cid_txt.isdigit():
@@ -11544,11 +12009,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                             FROM centers c WHERE c.id=? AND '''+public_center_sql()+'''''',(cid,)).fetchone()
                         if not row: self.send_json({'error':'Centro no encontrado'},404); return
                         points=db.execute('SELECT p.* FROM center_point_links cpl JOIN dive_points p ON p.id=cpl.dive_point_id WHERE cpl.center_id=? AND p.active=1 ORDER BY p.name',(cid,)).fetchall()
-                        services=db.execute('SELECT s.* FROM provider_services s WHERE s.center_id=? AND s.active=1 ORDER BY s.title',(cid,)).fetchall(); reviews=db.execute('''SELECT cr.id,cr.rating,cr.title,cr.body,cr.verified,cr.created_at,cr.updated_at,cr.reply_body,cr.reply_at,u.fullname
-                                               FROM center_reviews cr JOIN users u ON u.id=cr.user_id
-                                               WHERE cr.center_id=? AND cr.active=1 ORDER BY cr.created_at DESC,cr.id DESC LIMIT 50''',(cid,)).fetchall()
-                        # Only the author's first name leaves the server (the page never showed more).
-                        review_payload=[{**dict(r),'fullname':((r['fullname'] or '').split(' ')[0] or None)} for r in reviews]
+                        services=db.execute('SELECT s.* FROM provider_services s WHERE s.center_id=? AND s.active=1 ORDER BY s.title',(cid,)).fetchall()
+                        # v50.53: the 3 most recent reviews; «Ver más reseñas» asks for the next ones (/api/centers/<id>/reviews).
+                        review_payload=center_reviews_page(db,cid,0,REVIEWS_FIRST)
                         current_review=None; can_review=False; review_reason='Podrás dejar una reseña verificada cuando tengas una reserva pagada o confirmada con este centro.'
                         current=current_user(self,db)
                         if current:
@@ -11558,13 +12021,20 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                             can_review=bool(completed_booking) and current['role'] not in {'center','admin'}
                             if can_review: review_reason='Puedes valorar tu experiencia. Tu reseña aparece como verificada porque tienes una reserva con este centro.'
                             elif current['role'] in {'center','admin'}: review_reason='Las cuentas profesionales y administrativas no pueden valorar centros.'
-                        service_out=[]; c_ready=center_payments_ready(row)
+                        service_out=[]; c_ready=center_payments_ready(row); lang_=normalize_lang(query.get('lang',['es'])[0])
+                        next_slots={}
+                        sids_=[sv['id'] for sv in services]
+                        if sids_:
+                            for x in db.execute(f"""SELECT * FROM (SELECT id,service_id,slot_date,slot_time,spots_available,spots_total,ROW_NUMBER() OVER (PARTITION BY service_id ORDER BY slot_date,slot_time) AS rn
+                                                       FROM service_slots WHERE service_id IN ({','.join('?'*len(sids_))}) AND status IN ('open','full') AND slot_date>=date('now')) WHERE rn<=3""",sids_).fetchall():
+                                next_slots.setdefault(x['service_id'],[]).append({k:x[k] for k in ('id','slot_date','slot_time','spots_available','spots_total')})
                         for sv in services:
                             sd=dict(sv); sd['price'],sd['currency'],_=effective_service_tariff(db,sv['id'])
-                            sd.update(service_mode_info(db,sv,sd['price'],c_ready))
-                            sd['next_slots']=[dict(x) for x in db.execute("SELECT id,slot_date,slot_time,spots_available,spots_total FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date>=date('now') ORDER BY slot_date,slot_time LIMIT 3",(sv['id'],)).fetchall()]
+                            sd.update(service_mode_info(db,sv,sd['price'],c_ready)); sd.update(card_fields(db,sv,lang_))
+                            for k_ in SERVICE_PHOTO_RAW+('photo_note',): sd.pop(k_,None)
+                            sd['next_slots']=next_slots.get(sv['id'],[])
                             service_out.append(sd)
-                        exp_rows=db.execute('''SELECT e.*, t.title AS destination_title FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id
+                        exp_rows=db.execute('''SELECT e.*, t.title AS destination_title, t.kind AS offer_kind FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id
                                                WHERE e.center_id=? AND e.active=1 AND e.status='published'
                                                  AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))
                                                ORDER BY e.id DESC LIMIT 12''',(cid,)).fetchall()
@@ -11576,7 +12046,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                             _ci['text_lang']=normalize_lang(lang_)
                         _ci['tz']=place_tz(db,center_id=cid)   # departures are shown in this local time
                         _ci['online_booking']=provider_has(db,'center',cid,'online_bookings'); stat_bump(db,'center',cid,'views',self.client_ip()); db.commit()
-                        if not feature_switch(db,'reviews'): review_payload=[]; can_review=False; _ci['reviews_off']=True
+                        _ci['review_total']=row['review_count']
+                        if not feature_switch(db,'reviews'): review_payload=[]; can_review=False; _ci['reviews_off']=True; _ci['review_total']=0
                         self.send_json({'item':_ci,'points':[point_row(r) for r in points],'services':service_out,'experiences':enrich_experiences(db,exp_rows), 'reviews':review_payload, 'review':{'can_review':can_review,'reason':review_reason,'current':current_review,'can_reply':bool(current and current['role']=='center' and current['center_id']==cid),'is_admin':bool(current and current['role']=='admin')}}); return
                 # v50.50 · vídeos de la ruta y vida marina (wod.videos, wod.vidamarina)
                 if path.startswith('/api/marina/') or path.startswith('/api/admin/marina/'):
@@ -11659,13 +12130,17 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     when = clean_text(query.get('cuando', [''])[0], 10)
                     self.send_json(salidas_cercanas(db, lat, lon, when if when in ('hoy', 'manana', 'finde') else '', int(query.get('limite', ['20'])[0] or 20))); return
                 if path == '/api/top-dives':
-                    try:
-                        lat = float(query.get('lat',[''])[0]); lon = float(query.get('lon',[''])[0])
-                    except (TypeError, ValueError):
-                        self.send_json({'error':'Necesitamos una ubicación válida para calcular el top 10.'},400); return
-                    try: radius_km = max(5.0, min(500.0, float(query.get('radius',['80'])[0])))
-                    except (TypeError, ValueError): radius_km = 80.0
-                    self.send_json(top_dives(db, lat, lon, radius_km)); return
+                    # v50.53: «scope=home» is the Top 10 of the launch country (no location shared); otherwise the best
+                    # dives near a position, by default among the closest ones («radius=auto»).
+                    if query.get('scope',[''])[0]=='home': self.send_json(top_dives(db,scope='home')); return
+                    here=visitor_position(query)
+                    if not here: self.send_json({'error':'Necesitamos una ubicación válida para calcular el top 10.'},400); return
+                    raw=query.get('radius',['auto'])[0] or 'auto'
+                    try: radius_km=None if raw=='auto' else max(5.0,min(float(TOP_RADII[-1]),float(raw)))
+                    except (TypeError, ValueError): radius_km=None
+                    self.send_json(top_dives(db,here[0],here[1],radius_km)); return
+                if path == '/api/dive-areas':
+                    self.send_json(dive_areas_payload(db)); return
                 if path.startswith('/api/dive-points/'):
                     pid = int(path.rsplit('/',1)[1])
                     r = db.execute('''SELECT p.*, c.name AS center_name, rc.name AS recommended_certification_name FROM dive_points p LEFT JOIN centers c ON c.id=p.center_id LEFT JOIN certifications rc ON rc.id=p.recommended_certification_id WHERE p.id=? AND p.active=1''',(pid,)).fetchone()
@@ -12165,6 +12640,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         alts+=f'<link rel="alternate" hreflang="x-default" href="{html.escape(base)}/">'
         if wcfg.demo_mode(): alts+='<meta name="robots" content="noindex,nofollow">'
         raw=raw.replace('<html lang="es">',f'<html lang="{HTML_LANG.get(lang,lang)}">',1).replace('<!--hreflang-->',alts,1)
+        if wcfg.demo_mode():
+            # v50.53: the demo ribbon comes in the page itself, so nothing jumps when it appears (CLS).
+            raw=raw.replace('<body>','<body class="is-demo">'+DEMO_RIBBON_HTML,1)
         body=raw.encode('utf-8')
         self.send_bytes(body,'text/html; charset=utf-8',cache='no-cache',inline=True)
 
@@ -12885,6 +13363,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if (pol_h is None)!=(pol_pct is None): raise ValueError('Indica las horas y el porcentaje de la política de cancelación del servicio, o deja los dos vacíos.')
                     cur=db.execute('''INSERT INTO provider_services(provider_user_id,center_id,service_type,title,description,duration_minutes,price,currency,max_participants,booking_mode,response_hours,payment_hours,active,color,deposit_type,deposit_value,cancel_free_hours,cancel_refund_pct,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?,?)''',(user['id'],center_id,stype,title,clean_text(data.get('description'),5000),duration,price,currency,maxp,mode,resp_h,pay_h,color,dep_kind,dep_value,pol_h,pol_pct,now(),now()))
                     sid=cur.lastrowid
+                    db.execute('UPDATE provider_services SET template_id=? WHERE id=?',(valid_template_id(db,data.get('template_id')),sid))
                     if center_id:
                         db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)',(center_id,sid,price,clean_text(data.get('currency'),3) or 'EUR',now()[:10],now(),now()))
                     sync_service_experience(db,user,sid,data)
@@ -12892,7 +13371,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     audit(db,user['id'],'service_created','provider_service',sid); db.commit(); self.send_json({'ok':True,'id':sid}); return
                 if path=='/api/provider-services/delete':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
-                    row=db.execute('SELECT provider_user_id,center_id,title FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    row=db.execute('SELECT provider_user_id,center_id,title,photo_base FROM provider_services WHERE id=?',(sid,)).fetchone()
                     if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise NotFound('Servicio no encontrado.')
                     # Do not destroy a service that already has bookings: historical reservations must keep their context.
                     bookings_count=db.execute('SELECT COUNT(*) FROM bookings WHERE service_id=?',(sid,)).fetchone()[0]
@@ -12901,7 +13380,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     db.execute('UPDATE travel_experiences SET active=0,service_id=NULL,updated_at=? WHERE service_id=?',(now(),sid))
                     db.execute('DELETE FROM provider_services WHERE id=?',(sid,))
                     audit(db,user['id'],'service_deleted','provider_service',sid,{'title':row['title']})
-                    db.commit(); self.send_json({'ok':True,'id':sid}); return
+                    db.commit(); delete_card_files('service',row['photo_base']); self.send_json({'ok':True,'id':sid}); return
                 if path=='/api/provider-services/update':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
                     row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
@@ -12923,6 +13402,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     color=clean_text(data.get('color'),20) or '#2563eb'
                     if not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color='#2563eb'
                     db.execute('''UPDATE provider_services SET service_type=?,title=?,description=?,duration_minutes=?,max_participants=?,booking_mode=?,response_hours=?,payment_hours=?,active=?,color=?,updated_at=? WHERE id=?''',(stype,title,clean_text(data.get('description'),5000),duration,maxp,mode,resp_h,pay_h,1 if data.get('active',True) else 0,color,now(),sid))
+                    if 'template_id' in data: db.execute('UPDATE provider_services SET template_id=? WHERE id=?',(valid_template_id(db,data.get('template_id')),sid))
                     if 'deposit_type' in data:
                         dep_kind,dep_value=clean_deposit(data,cur_price); db.execute('UPDATE provider_services SET deposit_type=?,deposit_value=? WHERE id=?',(dep_kind,dep_value,sid))
                     if 'cancel_free_hours' in data or 'cancel_refund_pct' in data:
@@ -14341,6 +14821,67 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     audit(db,user['id'],'site_theme_media','site_theme',tid,key); db.commit()
                     if old and old!=url: delete_public_image(old)
                     SITE_MEDIA.invalidate(); self.send_json({'ok':True,'url':url}); return
+                # v50.53 · Plantillas de servicios (administración) y foto de cada tarjeta de servicio
+                if path=='/api/admin/service-catalog/save':
+                    user=require_user(self,db); require_role(user,{'admin'}); tid=save_catalog_template(db,user,json_body(self))
+                    db.commit(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True,'id':tid}); return
+                if path=='/api/admin/service-catalog/photo':
+                    user=require_user(self,db); require_role(user,{'admin'}); fields,files=parse_multipart(self); tid=int(fields.get('id') or 0)
+                    if not db.execute('SELECT 1 FROM service_catalog WHERE id=?',(tid,)).fetchone(): raise NotFound('Plantilla no encontrada.')
+                    content=check_card_upload(files.get('file'))
+                    if 'credit' in fields: db.execute('UPDATE service_catalog SET photo_credit=? WHERE id=?',(clean_text(fields.get('credit'),200),tid))
+                    queue_card_photo(db,'template',tid,content,fields.get('focal'),user['id'])
+                    audit(db,user['id'],'service_template_photo','service_catalog',tid); db.commit(); SERVICE_CATALOG.invalidate()
+                    self.send_json({'ok':True,'status':'processing'}); return
+                if path=='/api/admin/service-catalog/photo-reset':
+                    user=require_user(self,db); require_role(user,{'admin'}); tid=int(json_body(self).get('id') or 0)
+                    row=db.execute('SELECT photo_base FROM service_catalog WHERE id=?',(tid,)).fetchone()
+                    if not row: raise NotFound('Plantilla no encontrada.')
+                    db.execute('UPDATE service_catalog SET photo_base=NULL,photo_widths=NULL,photo_jpg=NULL,photo_focal=NULL,photo_veil_light=NULL,photo_veil_dark=NULL,'
+                               'photo_status=NULL,photo_at=?,updated_at=?,updated_by=? WHERE id=?',(now(),now(),user['id'],tid))
+                    audit(db,user['id'],'service_template_photo_reset','service_catalog',tid); db.commit()
+                    delete_card_files('template',row['photo_base']); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True}); return
+                if path=='/api/admin/service-catalog/focal':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); tid=int(data.get('id') or 0)
+                    if not db.execute('UPDATE service_catalog SET photo_focal=?,updated_at=? WHERE id=?',(wtpl.clean_focal(data.get('focal')),now(),tid)).rowcount: raise NotFound('Plantilla no encontrada.')
+                    db.commit(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True}); return
+                if path=='/api/admin/service-card-veil':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    try: v=round(min(0.95,max(0.5,float(data.get('value')))),2)
+                    except (TypeError,ValueError): raise ValueError('La intensidad debe estar entre 50 % y 95 %.')
+                    db.execute("INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES('card_veil',?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by",(str(v),now(),user['id']))
+                    audit(db,user['id'],'service_card_veil','site_settings',None,{'value':v}); db.commit(); SITE_MEDIA.invalidate(); self.send_json({'ok':True,'value':v}); return
+                if path=='/api/admin/service-photo/remove':
+                    # An own photo that is not suitable: the service goes back to its template's photo, the file is deleted and
+                    # the centre or freelance sees why in its panel.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); sid=int(data.get('id') or 0)
+                    reason=clean_text(data.get('reason'),300) or ''
+                    if len(reason)<5: raise ValueError('Escribe el motivo (lo verá el centro).')
+                    row=db.execute("SELECT id FROM provider_services WHERE id=? AND photo_mode='own'",(sid,)).fetchone()
+                    if not row: raise NotFound('Ese servicio no tiene foto propia.')
+                    base=clear_service_photo(db,sid,'La administración ha retirado la foto: '+reason)
+                    audit(db,user['id'],'service_photo_removed','provider_service',sid,{'reason':reason}); db.commit()
+                    delete_card_files('service',base); self.send_json({'ok':True}); return
+                if path=='/api/provider-services/photo':
+                    # The centre's or freelance's own photo: rights declared, at most 6 MB, resized in the background.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); fields,files=parse_multipart(self); sid=int(fields.get('id') or 0)
+                    row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise NotFound('Servicio no encontrado.')
+                    if fields.get('rights')!='1': raise ValueError('Marca la casilla: declaras que tienes los derechos de la imagen y que las personas que aparecen han dado su consentimiento.')
+                    content=check_card_upload(files.get('file'))
+                    db.execute('UPDATE provider_services SET photo_rights_at=?,photo_by=? WHERE id=?',(now(),user['id'],sid))
+                    queue_card_photo(db,'service',sid,content,fields.get('focal'),user['id'])
+                    audit(db,user['id'],'service_photo_uploaded','provider_service',sid); db.commit(); self.send_json({'ok':True,'status':'processing'}); return
+                if path in ('/api/provider-services/photo-template','/api/provider-services/photo-focal'):
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
+                    row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise NotFound('Servicio no encontrado.')
+                    if path.endswith('focal'):
+                        db.execute("UPDATE provider_services SET photo_focal=?,updated_at=? WHERE id=? AND photo_mode='own'",(wtpl.clean_focal(data.get('focal')),now(),sid)); db.commit()
+                        self.send_json({'ok':True}); return
+                    base=clear_service_photo(db,sid)
+                    audit(db,user['id'],'service_photo_template','provider_service',sid); db.commit()
+                    delete_card_files('service',base); self.send_json({'ok':True}); return
                 if path=='/api/admin/site-media':
                     user=require_user(self,db); require_role(user,{'admin'}); fields,files=parse_multipart(self)
                     key=clean_text(fields.get('key'),80) or ''
@@ -14349,16 +14890,16 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     old=row['image_url'] if row else None
                     if fields.get('reset')=='1':
                         db.execute('DELETE FROM site_media WHERE key=?',(key,)); audit(db,user['id'],'site_media_reset','site_media',None,key); db.commit()
-                        delete_public_image(old); SITE_MEDIA.invalidate(); self.send_json({'ok':True}); return
+                        delete_public_image(old); SITE_MEDIA.invalidate(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True}); return
                     url=save_public_image(files.get('file'),'site_'+re.sub(r'[^a-z0-9]+','_',key)) if files.get('file') else old
                     credit=clean_text(fields.get('credit'),200) if 'credit' in fields else (row['credit'] if row else '')
                     if not url and not credit:
-                        if row: db.execute('DELETE FROM site_media WHERE key=?',(key,)); db.commit(); SITE_MEDIA.invalidate(); self.send_json({'ok':True}); return
+                        if row: db.execute('DELETE FROM site_media WHERE key=?',(key,)); db.commit(); SITE_MEDIA.invalidate(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True}); return
                         raise ValueError('Adjunta una foto.')
                     db.execute('INSERT INTO site_media(key,image_url,credit,updated_at,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET image_url=excluded.image_url,credit=excluded.credit,updated_at=excluded.updated_at,updated_by=excluded.updated_by',(key,url,credit,now(),user['id']))
                     audit(db,user['id'],'site_media_updated','site_media',None,key); db.commit()
                     if old and old!=url: delete_public_image(old)
-                    SITE_MEDIA.invalidate(); self.send_json({'ok':True,'url':url}); return
+                    SITE_MEDIA.invalidate(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True,'url':url}); return
                 if path=='/api/admin/travel-offer-image':
                     user=require_user(self,db); require_role(user,{'admin'}); fields,files=parse_multipart(self); tid=int(fields.get('id') or 0)
                     row=db.execute('SELECT image_path FROM travel_offers WHERE id=?',(tid,)).fetchone()

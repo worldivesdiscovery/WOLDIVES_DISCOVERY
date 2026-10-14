@@ -234,3 +234,27 @@ El informe está en `docs/auditoria/v50.51/`. Las herramientas van solo en este 
   `python3 tests/carga/preparar.py construir --dir <carpeta>` y medir por escalones con
   `python3 tests/carga/medir.py --dir <carpeta> --arrancar --workers 4 --pasos 100,250,500,1000`. Nunca contra la web
   real: arranca su propio servidor con una copia.
+
+## 11. Cercanía, Top 10 y tarjetas de servicio (v50.53)
+
+- **Cualquiera, sin cuenta:**
+  - **Top 10 buceos:** pulsa «Permitir» cuando el navegador lo pida y verás los mejores buceos cerca de ti con su
+    distancia. Si pulsas «Bloquear», o el navegador no contesta en 8 segundos, sale el Top 10 de España con un botón
+    para usar tu ubicación. Si ya lo bloqueaste antes, no vuelve a preguntarte.
+  - **Puntos de buceo:** con la ubicación, del más cercano al más lejano con los km. Sin ella, España por zonas
+    (Costa Brava, Comunidad Valenciana…). El mapa enseña los mismos puntos con el mismo número. Busca «Hawaii»: sale
+    «Todavía no hay puntos de buceo en «Hawaii»» y debajo los más cercanos que existen.
+  - **Ficha de Bahía Coralina:** las actividades con su foto de fondo, «Puntos de buceo del centro» y las reseñas de
+    tres en tres («Ver más reseñas»). En el móvil, cada título cabe en una o dos líneas.
+  - **Probar otra ubicación en Chrome:** pulsa F12, luego los tres puntos → *More tools* → *Sensors* y elige
+    *Location*.
+- **Administración (`admin.prueba`):** *Plantillas de servicios*:
+  - sube una foto a una plantilla y abre la ficha del centro: los servicios de esa plantilla la llevan al momento,
+    salvo los que tienen foto propia;
+  - con el control de intensidad de la capa ves la tarjeta en claro y en oscuro;
+  - abajo, en «Fotos propias de los centros», puedes retirar una con su motivo.
+- **Centro (`centro.prueba`):** *Servicios → Nuevo servicio*:
+  - elige una plantilla y se rellenan el nombre, el texto, la duración y la foto;
+  - con «Subir mi propia foto» hay que marcar la casilla de derechos;
+  - la vista previa sale en claro y en oscuro, y el punto focal se elige tocando la foto o con las flechas;
+  - «Volver a la foto de la plantilla» borra la tuya.

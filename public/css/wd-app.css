@@ -214,9 +214,7 @@ html.wd-app[data-wda-tema="noche"] :where(.wda, .wda-capa) .seg button[aria-pres
 :where(.wda) .carrusel-h { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 2px 16px 8px; scrollbar-width: none; }
 :where(.wda) .carrusel-h::-webkit-scrollbar { display: none; }
 :where(.wda) .carrusel-h > * { flex: 0 0 82%; scroll-snap-align: start; }
-:where(.wda) .tarjeta-salida { overflow: hidden; display: flex; flex-direction: column; }
-:where(.wda) .tarjeta-salida .pad { padding: 12px 14px 14px; display: grid; gap: 6px; flex: 1; align-content: start; }
-:where(.wda) .tarjeta-salida .foto { height: 110px; border-radius: 0; }
+:where(.wda) .tarjeta-salida.svc2 { min-height: 250px; }   /* v50.53: the web's service card (.svc2) */
 :where(.wda) .foto-vacia { height: 110px; background: var(--cab-fondo); background-image: var(--wda-bati); background-size: 360px 180px; display: grid; place-items: center; }
 :where(.wda) .foto-vacia .logo-c { width: 64px; height: 64px; }
 :where(.wda) .foto-vacia > svg { width: 44px; height: 44px; color: var(--acento); }

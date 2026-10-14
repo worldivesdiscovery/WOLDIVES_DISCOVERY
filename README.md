@@ -82,8 +82,8 @@ al arrancar: solo añaden y transforman, y antes de reescribir datos hacen una c
 
 Cada versión se entrega en dos zips, que se crean con `python scripts/generar_zips.py` tras una comprobación
 automática:
-- **`worldives-vXX.XX-PRODUCCION.zip`**, para subirlo tal cual al VPS (guía: `docs/despliegue/GUIA-VPS.md`);
-- **`worldives-vXX.XX-DEMO.zip`**, para probarlo todo en tu ordenador (puerto 8100). Lleva dos centros inventados con meses de actividad, las cuentas de demostración en `CUENTAS-DEMO.txt` y las instrucciones en `README-PRUEBAS.md`. Nunca se sube al servidor real.
+- **`worldives-vXX.XX-produccion.zip`**, para subirlo tal cual al VPS (guía: `docs/despliegue/GUIA-VPS.md`);
+- **`worldives-vXX.XX-pruebas.zip`**, para probarlo todo en tu ordenador (puerto 8100). Lleva dos centros inventados con meses de actividad, las cuentas de demostración en `CUENTAS-DEMO.txt` y las instrucciones en `README-PRUEBAS.md`. Nunca se sube al servidor real.
 
 ## Pruebas
 

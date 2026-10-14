@@ -52,7 +52,7 @@ class LayersWithoutKey(ServerTestCase):
         self.assertNotIn('data-mapmode="world"', js)
         self.assertNotIn('Relieve marino', js)
         self.assertEqual(js.count('${wdLayerToolbar()}'), 2)          # portada and Explorar
-        self.assertEqual(js.count('wdLayerControl('), 5)              # definition + point page, 2 editors, «elegir en el mapa»
+        self.assertEqual(js.count('wdLayerControl('), 6)              # definition + point page, 2 editors, «elegir en el mapa», «Puntos de buceo» (v50.53)
         self.assertNotIn('wdBaseLayer().addTo', js)                   # no map without the selector
         self.assertIn("transparent:false", js)
 

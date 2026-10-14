@@ -96,6 +96,9 @@ def run(shots: Path | None):
             pg = page_for(DESK, 'de-DE')
             go(pg, f'?lang=de#/centro?id={cid}')
             check('centro · su presentación en alemán', 'Bootstauchen am Kap San Antonio' in pg.inner_text('#app'))
+            # v50.53: 3 reviews when the page opens, 5 more with «Ver más reseñas»
+            check('centro · 3 reseñas al entrar', pg.locator('.review-card').count() == 3)
+            if pg.locator('#cp-reviews-more').count(): pg.click('#cp-reviews-more'); pg.wait_for_timeout(1500)
             check('centro · reseñas con respuestas del centro', pg.locator('.review-card').count() >= 5 and pg.locator('.review-reply').count() >= 2)
             shot(pg, 'ordenador-centro-aleman', full=True)
             pg.context.close()

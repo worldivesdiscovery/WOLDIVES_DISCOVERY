@@ -26,7 +26,7 @@
   // «exact»: frase completa → traducción. «patterns»: frases con partes variables ({n} número, {x} texto).
   // Todo lo que se pinta en la página (también lo que llega después: ventanas, avisos, listas) se traduce al vuelo.
   // ---------------------------------------------------------------------------
-  const WD_I18N_VERSION='50.52';
+  const WD_I18N_VERSION='50.53';
   const WD_LOCALES={es:'es-ES',en:'en-GB',fr:'fr-FR',de:'de-DE',it:'it-IT',pt:'pt-PT',pl:'pl-PL',nl:'nl-NL',zh:'zh-CN'};
   // Plural forms (Polish has several): a translation may be {one,few,many,other}.
   const wdPlural=(tpl,n)=>{ if(typeof tpl!=='object'||!tpl) return tpl; let k='other'; try{ k=new Intl.PluralRules(wdLocale()).select(Number(String(n).replace(/[^\d.-]/g,''))||0); }catch{} return tpl[k]??tpl.other??Object.values(tpl)[0]; };
@@ -148,7 +148,7 @@
   }
   async function loadSiteMedia(){
     const pv=themePreviewId();
-    try{ const d=await api('/api/site-media?h='+visitorHemisphere()+(pv?'&theme='+encodeURIComponent(pv):'')); state.media=d.items||{}; state.theme=d.theme||null; }catch{ state.media=state.media||{}; }
+    try{ const d=await api('/api/site-media?h='+visitorHemisphere()+(pv?'&theme='+encodeURIComponent(pv):'')); state.media=d.items||{}; state.theme=d.theme||null; state.cardVeil=Number(d.card_veil)||0.8; }catch{ state.media=state.media||{}; }
     if(document.body) applySiteTheme(); return state.media; }
   const media=(key,fallback)=>state.media?.[key]?.url||fallback||MEDIA_DEFAULTS[key]||'/img/portada/fondo.webp';
   const mediaCredit=key=>state.media?.[key]?.credit||'';
@@ -156,12 +156,16 @@
   // Una página que tarda en cargar no debe pintar encima de la siguiente si el visitante ya se ha ido.
   const navGuard=()=>{ const h=location.hash; return ()=>location.hash===h; };
   function goLogin(){ const h=location.hash||'#/'; location.hash=/^#\/(login|registro)/.test(h)?'#/login':'#/login?next='+encodeURIComponent(h); }
-  function wdSearchClears(root){
-    $$('.cd-field input[type=search]',root).forEach(inp=>{ if(inp.nextElementSibling?.classList.contains('cd-x')) return;
-      const b=document.createElement('button'); b.type='button'; b.className='cd-x'; b.setAttribute('aria-label','Borrar búsqueda'); b.textContent='×'; b.hidden=!inp.value;
-      inp.after(b); inp.addEventListener('input',()=>{ b.hidden=!inp.value; });
-      b.onclick=()=>{ inp.value=''; b.hidden=true; inp.dispatchEvent(new Event('input',{bubbles:true})); inp.focus(); }; });
+  // v50.53 · Our own «×» to clear any search field placed in a label (the browser's own clear button is hidden by CSS):
+  // it appears only while there is text, inside the field, and clearing it searches again (an «input» event).
+  function wdSearchClear(inp){
+    const box=inp.parentElement; if(!box||box.tagName!=='LABEL'||box.querySelector('.cd-x,.search-clear')) return;
+    const b=document.createElement('button'); b.type='button'; b.className='cd-x'; b.setAttribute('aria-label',translateString('Borrar búsqueda')); b.innerHTML=wdIcon('close',16); b.hidden=!inp.value;
+    box.classList.add('wd-has-x'); inp.after(b); inp.addEventListener('input',()=>{ b.hidden=!inp.value; });
+    b.onclick=()=>{ inp.value=''; b.hidden=true; inp.dispatchEvent(new Event('input',{bubbles:true})); inp.focus(); };
   }
+  function wdSearchClears(root){ $$('label input[type=search]',root).forEach(wdSearchClear); }
+  document.addEventListener('input',e=>{ const t=e.target; if(t?.matches?.('label input[type=search]')&&!t.parentElement.classList.contains('wd-has-x')){ wdSearchClear(t); t.nextElementSibling?.classList.contains('cd-x')&&(t.nextElementSibling.hidden=!t.value); } },true);
   function setApp(html){ const current=(location.hash||'').replace(/^#\/?/,'').split('?')[0]; const showBack=!!current && !['home','admin','area','cuenta','logbook','recompensas','mis-puntos'].includes(current); const back=showBack?`<button class="global-back" type="button" id="global-back" aria-label="Volver a la pantalla anterior"><span aria-hidden="true">←</span><span>Volver</span></button>`:''; $('#app').innerHTML=back+html; wdSearchClears($('#app')); translateTree($('#app')); $('#app').focus({preventScroll:true}); window.scrollTo(0,0); const backBtn=$('#global-back'); if(backBtn) backBtn.onclick=()=>{ if(history.length>1) history.back(); else location.hash='#/'; }; }
   function cardImg(country){ const map={España:'/img/portada/fondo1.webp',Egipto:'/img/destinos/egipto.webp',Australia:'/img/destinos/australia.webp',México:'/img/destinos/mexico.webp',Maldivas:'/img/destinos/maldivas.webp',Ecuador:'/img/destinos/galapagos.webp','Costa Rica':'/img/destinos/california.webp'}; return map[country] || '/img/portada/fondo.webp'; }
   function centerLogo(c){ const u=String(c?.logo_url||'').trim(); if(!u || /^https?:\/\/[^/]+\/?$/i.test(u)) return ''; return u; }
@@ -341,15 +345,15 @@
   const listFilterTemplate=(title,copy,fields)=>`<section class="page"><div class="breadcrumb"><a href="#/">Inicio</a> / ${escapeHtml(title)}</div><p class="eyebrow">WORLDIVES DISCOVERY</p><h1>${escapeHtml(title)}</h1><p class="lead">${escapeHtml(copy)}</p><div class="list-layout" style="margin-top:28px"><aside class="filter-panel"><h3>Filtrar</h3>${fields}<button id="apply-filter" class="btn btn-primary" style="width:100%">Aplicar filtros</button><button id="clear-filter" class="btn" style="width:100%;margin-top:7px">Limpiar</button></aside><div><div id="result-list" class="result-list"></div></div></div></section>`;
   // Tipos de buceo: el servidor es la fuente (/api/dive-types). Esta lista solo sirve de respaldo
   // si el servidor que responde es anterior a la v50.23 (por ejemplo, no se ha reiniciado tras actualizar).
-  const DIVE_TYPE_FALLBACK=[['Arrecifes','Todos los niveles',5,25],['Paredes','Intermedio',10,40],['Pecios y naufragios','Intermedio',12,40],['Cuevas y cavernas','Formación específica',5,30],['Cenotes','Formación específica',5,40],['Muck','Todos los niveles',3,20],['Canales','Intermedio',10,30],['Cañones','Avanzado',15,40],['Pináculos','Intermedio',8,35],['Corrientes y deriva','Avanzado',10,30],['Aguas profundas','Avanzado',30,40],['Nocturnas','Intermedio',3,18],['Lagos','Todos los niveles',3,30],['Pilares','Todos los niveles',5,25],['Playa y esnórquel','Iniciación',0,10]];
+  const DIVE_TYPE_FALLBACK=[['Arrecifes','Todos los niveles'],['Paredes','Intermedio'],['Pecios y naufragios','Intermedio'],['Cuevas y cavernas','Formación específica'],['Cenotes','Formación específica'],['Muck','Todos los niveles'],['Canales','Intermedio'],['Cañones','Avanzado'],['Pináculos','Intermedio'],['Corrientes y deriva','Avanzado'],['Aguas profundas','Avanzado'],['Nocturnas','Intermedio'],['Lagos','Todos los niveles'],['Pilares','Todos los niveles'],['Playa y esnórquel','Iniciación']];
   const wdKey=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/\s+/g,'-');
   const wdFold=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   function warnOutdatedServer(){ console.warn('WORLDIVES: el servidor no tiene las rutas de la v50.23. Reinicia app/server.py tras copiar la actualización.'); if(['admin','center'].includes(state.me?.user?.role) && !window.__wdOutdatedWarned){ window.__wdOutdatedWarned=true; toast('Aviso: el servidor sigue con la versión anterior. Detén y vuelve a arrancar app/server.py para activar la v50.23.'); } }
   async function legacyDiveTypes(){
     const lists=await Promise.all(DIVE_TYPE_FALLBACK.map(([label])=>api('/api/dive-points?'+new URLSearchParams({type:label})).then(d=>d.items||[]).catch(()=>[])));
     const all=(await api('/api/dive-points').catch(()=>({items:[]}))).items||[];
-    const items=DIVE_TYPE_FALLBACK.map(([label,level,dmin,dmax],i)=>{ const pts=lists[i]; const byC={}; pts.forEach(p=>byC[p.country]=(byC[p.country]||0)+1); const top=Object.entries(byC).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,4).map(([name,count])=>({name,count}));
-      return {key:wdKey(label),slug:label.toLowerCase(),label,level,cert:'',depth_min:dmin,depth_max:dmax,summary:`Puntos del catálogo clasificados como «${label}».`,count:pts.length,countries:Object.keys(byC).length,centers:0,top_countries:top}; });
+    const items=DIVE_TYPE_FALLBACK.map(([label,level],i)=>{ const pts=lists[i]; const byC={}; pts.forEach(p=>byC[p.country]=(byC[p.country]||0)+1); const top=Object.entries(byC).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,4).map(([name,count])=>({name,count}));
+      return {key:wdKey(label),slug:label.toLowerCase(),label,level,cert:'',summary:`Puntos del catálogo clasificados como «${label}».`,count:pts.length,countries:Object.keys(byC).length,centers:0,top_countries:top}; });
     return {items,totals:{points:all.length,countries:new Set(all.map(p=>p.country)).size},legacy:true};
   }
   let __legacyCenters=null;
@@ -407,14 +411,18 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const rounded=Math.round(avg); const stars='★★★★★'.split('').map((_,i)=>`<span class="star ${i<rounded?'filled':''}">★</span>`).join('');
     return `<span class="center-rating" aria-label="${avg.toFixed(1)} de 5 estrellas, ${count} reseñas"><span class="stars">${stars}</span><strong>${avg.toFixed(1)}</strong><span>${count} ${count===1?'reseña':'reseñas'}</span></span>`;
   }
+  // A long reply of the centre opens and closes under its review (v50.53).
+  document.addEventListener('click',e=>{ const b=e.target.closest?.('.review-reply-toggle'); if(!b) return; const box=b.closest('.review-reply'); const open=box.classList.toggle('is-folded')===false;
+    b.setAttribute('aria-expanded',String(open)); b.textContent=translateString(open?'Ocultar la respuesta':'Leer la respuesta completa'); });
   function reviewCard(r,ri={}){
     const rating=Math.max(1,Math.min(5,Number(r.rating||0))); const stars='★★★★★'.split('').map((_,i)=>`<span class="star ${i<rating?'filled':''}">★</span>`).join('');
     const date=r.created_at?new Date(r.created_at).toLocaleDateString(wdLocale(),{day:'numeric',month:'short',year:'numeric'}):'';
-    const reply=r.reply_body?`<div class="review-reply"><p class="review-reply-h">${wdIcon('message',14)} Respuesta del centro${r.reply_at?` · <time>${escapeHtml(new Date(r.reply_at).toLocaleDateString(wdLocale(),{day:'numeric',month:'short',year:'numeric'}))}</time>`:''}</p><p>${escapeHtml(r.reply_body)}</p></div>`:'';
+    const long=String(r.reply_body||'').length>220;
+    const reply=r.reply_body?`<div class="review-reply ${long?'is-folded':''}"><p class="review-reply-h">${wdIcon('message',14)} Respuesta del centro${r.reply_at?` · <time>${escapeHtml(new Date(r.reply_at).toLocaleDateString(wdLocale(),{day:'numeric',month:'short',year:'numeric'}))}</time>`:''}</p><p class="review-reply-txt" id="rr-txt-${r.id}">${escapeHtml(r.reply_body)}</p>${long?`<button type="button" class="btn-link review-reply-toggle" aria-expanded="false" aria-controls="rr-txt-${r.id}">Leer la respuesta completa</button>`:''}</div>`:'';
     const acts=[ri.can_reply?`<button type="button" class="btn-link rv-reply" data-id="${r.id}">${r.reply_body?'Editar respuesta':'Responder'}</button>`:'',
       ri.is_admin?`<button type="button" class="btn-link rv-hide" data-id="${r.id}">Ocultar reseña</button>`:'',
       `<button type="button" class="wd-report" data-report="review" data-report-id="${r.id}">${wdIcon('alert',13)} Denunciar</button>`].filter(Boolean).join('');
-    return `<article class="review-card" id="review-${r.id}"><div class="review-head"><div><strong>${escapeHtml((r.fullname||'Buceador').split(' ')[0])}</strong>${r.verified?'<span class="verified-review">✓ Inmersión verificada</span>':''}</div><time>${escapeHtml(date)}</time></div><div class="review-stars">${stars}</div>${r.title?`<h4>${escapeHtml(r.title)}</h4>`:''}${r.body?`<p>${escapeHtml(r.body)}</p>`:''}${reply}<div class="review-actions">${acts}</div></article>`;
+    return `<article class="review-card" id="review-${r.id}"><div class="review-head"><div><strong>${escapeHtml((r.fullname||'Buceador').split(' ')[0])}</strong>${r.verified?'<span class="verified-review">✓ Inmersión verificada</span>':''}</div><time>${escapeHtml(date)}</time></div><div class="review-stars">${stars}</div>${r.title?`<h3>${escapeHtml(r.title)}</h3>`:''}${r.body?`<p>${escapeHtml(r.body)}</p>`:''}${reply}<div class="review-actions">${acts}</div></article>`;
   }
   // «Denunciar»: any button with data-report="review|center|point|experience|photo|promotion|profile" and data-report-id.
   async function openReportModal(type,id,label){
@@ -446,12 +454,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const esc=escapeHtml; const services=(d.services||[]).slice().sort((a,b)=>(a.service_type==='alquiler_equipo')-(b.service_type==='alquiler_equipo')||((b.next_slots||[]).length>0)-((a.next_slots||[]).length>0)||String(a.title).localeCompare(String(b.title),'es')); const exps=d.experiences||[]; const gallery=c.gallery||[];
     const socials=[['instagram_url','Instagram'],['facebook_url','Facebook'],['youtube_url','YouTube'],['tiktok_url','TikTok'],['twitter_url','X']].filter(x=>c[x[0]]);
     const typeLabel=v=>(SERVICE_TYPES.find(x=>x.value===v)||{label:'Actividad'}).label;
-    const svcCard=s=>{const isRental=s.service_type==='alquiler_equipo'; const slots=s.next_slots||[];
-      const off=s.bookable===false;
-      return `<article class="cp-service" style="--svc:${esc(s.color||'#076898')}"><div class="cp-service-head"><span class="cp-service-icon">${wdIcon(s.service_type,22)}</span><div><h3>${esc(s.title)}</h3><p>${esc(typeLabel(s.service_type))}${s.duration_minutes?' · '+esc(wdDuration(s.duration_minutes)):''}</p>${isRental?'':wdModeTag(s)}</div><div class="cp-price"><strong>${wdMoney(s.price,s.currency)}</strong><small>${isRental?'tarifa base':'por persona'}</small></div></div>
-        ${s.description?`<p class="cp-service-desc">${esc(s.description)}</p>`:''}
-        ${isRental||off?'':`<div class="cp-slots">${slots.length?slots.map(sl=>`${Number(sl.spots_available)<=0?`<span class="cp-slot is-full" aria-disabled="true"><strong>${esc(wdDay(sl.slot_date))}</strong><span>${esc(sl.slot_time)}</span><small>Completa</small></span>`:`<a class="cp-slot" href="#/reservar?center=${c.id}&service=${s.id}&slot=${sl.id}"><strong>${esc(wdDay(sl.slot_date))}</strong><span>${esc(sl.slot_time)}</span><small>${sl.spots_available} plazas</small></a>`}`).join(''):'<span class="cp-slots-empty">Próximas fechas por anunciar. Puedes solicitarla igualmente.</span>'}</div>`}
-        ${off?`<span class="btn cp-book is-disabled" aria-disabled="true">No admite reservas ahora mismo</span>`:`<a class="btn ${isRental?'':'btn-primary'} cp-book" href="#/reservar?center=${c.id}&service=${s.id}">${isRental?'Añadir a una reserva':s.booking_mode==='payment'?(Number(s.price)>0?'Reservar y pagar':'Reservar'):'Enviar solicitud'}</a>`}</article>`;};
+    const svcCard=s=>{ const isRental=s.service_type==='alquiler_equipo', slots=s.next_slots||[], off=s.bookable===false;
+      const slotsHtml=isRental||off?'':`<div class="cp-slots">${slots.length?slots.map(sl=>`${Number(sl.spots_available)<=0?`<span class="cp-slot is-full" aria-disabled="true"><strong>${esc(wdDay(sl.slot_date))}</strong><span>${esc(sl.slot_time)}</span><small>Completa</small></span>`:`<a class="cp-slot" href="#/reservar?center=${c.id}&service=${s.id}&slot=${sl.id}"><strong>${esc(wdDay(sl.slot_date))}</strong><span>${esc(sl.slot_time)}</span><small>${sl.spots_available} plazas</small></a>`}`).join(''):'<span class="cp-slots-empty">Próximas fechas por anunciar. Puedes solicitarla igualmente.</span>'}</div>`;
+      const cta=off?`<span class="btn cp-book is-disabled" aria-disabled="true">No admite reservas ahora mismo</span>`:`<a class="btn ${isRental?'':'btn-primary'} cp-book" href="#/reservar?center=${c.id}&service=${s.id}">${isRental?'Añadir a una reserva':s.booking_mode==='payment'?(Number(s.price)>0?'Reservar y pagar':'Reservar'):'Enviar solicitud'}</a>`;
+      return wdServiceCard(s,{kicker:wdServiceKicker(s,typeLabel(s.service_type)),meta:isRental?'':wdModeTag(s),desc:s.description,body:slotsHtml,price:wdPriceBlock(s.price,s.currency,isRental?'tarifa base':'por persona'),actions:cta}); };
+    const expCard=e=>wdServiceCard({...e,service_type:/bordo/i.test(e.offer_kind||'')?'vida_a_bordo':'viaje'},{kicker:[e.destination_title,e.start_date?wdDay(e.start_date):''].filter(Boolean).map(esc).join(' · '),desc:e.summary,href:`#/experiencia?id=${e.travel_offer_id}`,price:wdPriceBlock(e.price,e.currency,'por persona'),actions:`<a class="btn btn-primary" href="#/experiencia?id=${e.travel_offer_id}">Ver viaje</a>`});
     setApp(`<section class="cp">
       <div class="cp-hero ${c.cover_url?'has-cover':''}" style="${c.cover_url?`--cover:url('${esc(c.cover_url)}')`:''}">
         <div class="cp-hero-inner">
@@ -465,9 +472,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <article class="cp-main">
           ${c.description?`<section class="cp-section"><h2>Sobre el centro</h2><p class="cp-about"${own}>${esc(c.description)}</p></section>`:''}
           <section class="cp-section"><h2>Actividades y precios</h2>${services.length?`<div class="cp-services">${services.map(svcCard).join('')}</div>`:'<div class="empty">Este centro todavía no ha publicado actividades. Puedes contactar directamente para reservar.</div>'}</section>
-          ${exps.length?`<section class="cp-section"><h2>Viajes y experiencias</h2><div class="cp-exps">${exps.map(e=>`<a class="cp-exp" href="#/experiencia?id=${e.travel_offer_id}"><span>${esc(e.destination_title||'')}</span><strong>${esc(e.title)}</strong><small>${e.start_date?esc(wdDay(e.start_date))+' · ':''}${e.price!=null?wdMoney(e.price,e.currency):'Precio a consultar'}</small></a>`).join('')}</div></section>`:''}
+          <section class="cp-section" id="cp-points"><h2>Puntos de buceo del centro</h2><p class="cp-sub">Puntos donde este centro organiza inmersiones</p>${d.points.length?`<ul class="cp-points">${d.points.map((p,i)=>`<li class="cp-point" ${i>=8?'hidden':''}><span class="wd-pin" aria-hidden="true"></span><span class="cp-point-txt"><strong>${esc(p.name)}</strong><small>${esc(placeText(p)||p.region||p.country||'')}</small></span><a class="btn btn-sm" href="${pointHref(p.id)}">Ver punto</a></li>`).join('')}</ul>${d.points.length>8?`<button type="button" class="btn btn-sm cp-points-more" id="cp-points-more">Ver todos los puntos (${d.points.length})</button>`:''}`:'<p class="cp-muted">Este centro aún no ha indicado sus puntos habituales.</p>'}</section>
+          ${exps.length?`<section class="cp-section"><h2>Viajes y experiencias</h2><div class="cp-services">${exps.map(expCard).join('')}</div></section>`:''}
           ${gallery.length?`<section class="cp-section"><h2>Galería</h2><div class="cp-gallery">${gallery.map((u,i)=>`<button type="button" class="cp-photo" data-i="${i}"><img src="${esc(u)}" alt="Foto ${i+1} de ${esc(c.name)}" loading="lazy"></button>`).join('')}</div></section>`:''}
-          <section class="reviews-section cp-section" id="cp-reviews"><div class="reviews-head"><div><h2>Reseñas</h2><p>Opiniones de buceadores que han completado una inmersión con este centro.</p></div><div class="review-summary-box">${reviewSummary}</div></div>${reviewForm}<div class="reviews-list">${reviews.length?reviews.map(r=>reviewCard(r,reviewInfo)).join(''):'<div class="empty"><h3>Aún no hay reseñas</h3><p>Cuando los primeros buceadores completen una inmersión y compartan su experiencia, aparecerán aquí.</p></div>'}</div></section>
+          <section class="reviews-section cp-section" id="cp-reviews"><div class="reviews-head"><div><h2>Reseñas</h2><p>Opiniones de buceadores que han completado una inmersión con este centro.</p></div><div class="review-summary-box">${reviewSummary}</div></div>${reviewForm}<div class="reviews-list" id="cp-reviews-list">${reviews.length?reviews.map(r=>reviewCard(r,reviewInfo)).join(''):'<div class="empty"><h3>Aún no hay reseñas</h3><p>Cuando los primeros buceadores completen una inmersión y compartan su experiencia, aparecerán aquí.</p></div>'}</div>${Number(c.review_total||0)>reviews.length?`<div class="cd-more"><button type="button" class="btn" id="cp-reviews-more">Ver más reseñas</button></div>`:''}</section>
         </article>
         <aside class="cp-side">
           <section class="cp-card"><h3>Contacto</h3><dl>${c.phone?`<div><dt>Teléfono</dt><dd><a href="tel:${esc(String(c.phone).replace(/\s+/g,''))}">${esc(c.phone)}</a></dd></div>`:''}${c.email?`<div><dt>Email</dt><dd><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></dd></div>`:''}${c.website?`<div><dt>Web</dt><dd><a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(String(c.website).replace(/^https?:\/\//,'').replace(/\/$/,''))}</a></dd></div>`:''}${c.address?`<div><dt>Dirección</dt><dd>${esc(c.address)}</dd></div>`:''}</dl>
@@ -475,22 +483,31 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             ${socials.length?`<div class="cp-socials">${socials.map(x=>`<a href="${esc(c[x[0]])}" target="_blank" rel="noopener noreferrer">${x[1]}</a>`).join('')}</div>`:''}
             ${services.length?`<a class="btn btn-primary cp-side-book" href="#/reservar?center=${c.id}">Reservar con ${esc(c.name)}</a>`:''}
             <button type="button" class="wd-report" data-report="center" data-report-id="${c.id}" data-report-label="${esc(c.name)}">${wdIcon('alert',13)} Denunciar contenido</button></section>
-          <section class="cp-card"><h3>Dónde bucea</h3>${d.points.length?`<ul class="cp-points">${d.points.slice(0,10).map(p=>`<li><a href="#/punto?id=${p.id}">${esc(p.name)}</a><span>${esc(p.region||p.country||'')}</span></li>`).join('')}</ul>`:'<p class="cp-muted">Este centro aún no ha indicado sus puntos habituales.</p>'}</section>
         </aside>
       </div>
     </section>`);
     $$('.cp-photo').forEach(b=>b.onclick=()=>{let i=+b.dataset.i; const show=()=>{const {el}=wdOpenModal({id:'cp-lightbox',size:'lg',title:esc(c.name),subtitle:`Foto ${i+1} de ${gallery.length}`,body:`<img class="cp-lightbox-img" src="${esc(gallery[i])}" alt="">`,footer:`<button type="button" class="wd-report" data-report="photo" data-report-id="${c.id}" data-report-label="Foto ${i+1} de ${esc(c.name)}">${wdIcon('alert',13)} Denunciar foto</button>`+(gallery.length>1?`<button type="button" class="btn" id="cp-prev">Anterior</button><button type="button" class="btn" id="cp-next">Siguiente</button>`:'')}); el.querySelector('#cp-prev')?.addEventListener('click',()=>{i=(i-1+gallery.length)%gallery.length;show();}); el.querySelector('#cp-next')?.addEventListener('click',()=>{i=(i+1)%gallery.length;show();});}; show();});
-    $$('.rv-reply').forEach(b=>b.onclick=()=>{ const r=reviews.find(x=>x.id===+b.dataset.id)||{};
+    $('#cp-points-more')?.addEventListener('click',e=>{ $$('#cp-points .cp-point[hidden]').forEach(x=>x.hidden=false); e.currentTarget.remove(); });
+    const bindReviews=scope=>{
+    $$('.rv-reply',scope).forEach(b=>b.onclick=()=>{ const r=reviews.find(x=>x.id===+b.dataset.id)||{};
       const {el,close}=wdOpenModal({id:'review-reply',title:'Responder a la reseña',subtitle:'Una única respuesta pública. Puedes editarla o borrarla.',
         body:`<div class="field"><label for="rr-body">Tu respuesta</label><textarea id="rr-body" rows="5" maxlength="1000">${esc(r.reply_body||'')}</textarea><small>Sé respetuoso y no incluyas datos personales del cliente.</small></div>`,
         footer:`${r.reply_body?'<button type="button" class="btn danger" id="rr-del">Borrar respuesta</button>':''}<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="rr-save">Publicar respuesta</button>`});
       const save=async body=>{ try{ await postJSON(`/api/reviews/${r.id}/reply`,{body}); delete el.dataset.dirty; close(); toast(body?'Respuesta publicada.':'Respuesta borrada.'); renderCenterDetail(new URLSearchParams({id:String(id)})); }catch(err){ toast(err.message); } };
       $('#rr-save',el).onclick=()=>save($('#rr-body',el).value); $('#rr-del',el)?.addEventListener('click',()=>save('')); });
-    $$('.rv-hide').forEach(b=>b.onclick=()=>{
+    $$('.rv-hide',scope).forEach(b=>b.onclick=()=>{
       const {el,close}=wdOpenModal({id:'review-hide',title:'Ocultar reseña',subtitle:'Se enviará el motivo a quien la escribió.',
         body:`<div class="field"><label for="rh-why">Motivo</label><textarea id="rh-why" rows="4" maxlength="1000" required placeholder="Qué norma incumple y por qué."></textarea></div>`,
         footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn danger" id="rh-ok">Ocultar</button>'});
       $('#rh-ok',el).onclick=async()=>{ try{ await postJSON(`/api/admin/reviews/${b.dataset.id}/moderate`,{active:false,reason:$('#rh-why',el).value}); delete el.dataset.dirty; close(); toast('Reseña ocultada.'); renderCenterDetail(new URLSearchParams({id:String(id)})); }catch(err){ toast(err.message); } }; });
+    }; bindReviews(document);
+    const moreBtn=$('#cp-reviews-more');
+    if(moreBtn) moreBtn.onclick=async()=>{ moreBtn.disabled=true; moreBtn.textContent=translateString('Cargando reseñas…');
+      try{ const r=await api(`/api/centers/${id}/reviews?`+new URLSearchParams({offset:reviews.length,limit:5}));
+        const list=$('#cp-reviews-list'), box=document.createElement('div'); box.className='reviews-batch';
+        box.innerHTML=(r.items||[]).map(x=>reviewCard(x,reviewInfo)).join(''); reviews.push(...(r.items||[])); list.appendChild(box); translateTree(box); bindReviews(box);
+        if(r.has_more){ moreBtn.disabled=false; moreBtn.textContent=translateString('Ver más reseñas'); } else moreBtn.closest('.cd-more').remove(); }
+      catch(err){ moreBtn.disabled=false; moreBtn.textContent=translateString('Ver más reseñas'); toast(err.message); } };
     if(c.online_booking===false){
       $$('.cp-page a[href^="#/reservar"], .cp a[href^="#/reservar"]').forEach(a=>{ const b=document.createElement('button'); b.type='button'; b.className=a.className.replace('cp-slot','btn cp-book'); b.textContent=translateString('Solicitar información'); b.onclick=()=>openInfoRequest({center_id:c.id,name:c.name}); a.replaceWith(b); });
       $$('.cp-slots').forEach(x=>x.remove());
@@ -626,14 +643,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const typeImg=t=>{ const n=TYPE_IMAGES[t.key]||'fondo'; return media('type:'+t.key,`/img/${WD_PORTADA.has(n)?'portada':'destinos'}/${n}.webp`); };
   const TYPE_LEVELS=[['all','Todos'],['start','Para empezar'],['mid','Con experiencia'],['adv','Avanzado y técnico']];
   const typeLevel=t=>/todos los niveles|iniciaci/i.test(t.level)?'start':/intermedio/i.test(t.level)?'mid':'adv';
-  const typeDepth=t=>`${t.depth_min}–${t.depth_max}${t.depth_max>=40?'+':''} m`;
-  function typeDepthBar(t){ const max=40, a=Math.min(max,t.depth_min)/max*100, b=Math.min(max,t.depth_max)/max*100; return `<span class="tp-depth" title="Profundidad habitual: ${typeDepth(t)}"><span class="tp-depth-track"><span style="left:${a}%;width:${Math.max(4,b-a)}%"></span></span><small>${typeDepth(t)}</small></span>`; }
   function typeCard(t){
     return `<a class="tp-card ${t.count?'':'is-empty'}" href="#/tipos?t=${encodeURIComponent(t.key)}" data-level="${typeLevel(t)}">
       <span class="tp-card-media"><img src="${typeImg(t)}" alt="" loading="lazy"></span>
       <span class="tp-card-level">${escapeHtml(t.level)}</span>
       <span class="tp-card-body"><strong>${escapeHtml(t.label)}</strong><span class="tp-card-sum">${escapeHtml(t.summary)}</span>
-        <span class="tp-card-meta"><span>${t.count?`${t.count} ${t.count===1?'punto':'puntos'} · ${t.countries} ${t.countries===1?'país':'países'}`:'Aún sin puntos en el catálogo'}</span>${typeDepthBar(t)}</span></span>
+        <span class="tp-card-meta"><span>${t.count?`${t.count} ${t.count===1?'punto':'puntos'} · ${t.countries} ${t.countries===1?'país':'países'}`:'Aún sin puntos en el catálogo'}</span></span></span>
     </a>`;
   }
   async function renderTypes(params){
@@ -678,7 +693,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <h1>${escapeHtml(t.label)}</h1><p class="lead">${escapeHtml(t.summary)}</p>
         <div class="tp-actions">${t.count?`<a class="btn btn-primary" href="${pointsLink}">Ver ${t.count===1?'el punto':`los ${t.count} puntos`}</a>`:''}<a class="btn btn-light" href="#/centros?type=${encodeURIComponent(t.key)}">Buscar centros</a></div>
       </div></header>
-      <div class="tp-facts"><div><small>Nivel</small><strong>${escapeHtml(t.level)}</strong></div><div><small>Certificación recomendada</small><strong>${escapeHtml(t.cert)}</strong></div><div><small>Profundidad habitual</small><strong>${typeDepth(t)}</strong></div><div><small>En el catálogo</small><strong>${t.count?`${t.count} ${t.count===1?'punto':'puntos'} · ${t.countries} ${t.countries===1?'país':'países'}`:'Próximamente'}</strong></div></div>
+      <div class="tp-facts"><div><small>Nivel</small><strong>${escapeHtml(t.level)}</strong></div><div><small>Certificación recomendada</small><strong>${escapeHtml(t.cert)}</strong></div><div><small>En el catálogo</small><strong>${t.count?`${t.count} ${t.count===1?'punto':'puntos'} · ${t.countries} ${t.countries===1?'país':'países'}`:'Próximamente'}</strong></div></div>
       <div class="tp-wrap tp-dbody">
         <div class="tp-main">
           <section class="tp-block"><h2>Cómo es</h2><p class="tp-body">${escapeHtml(t.body)}</p>
@@ -691,7 +706,6 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         </div>
         <aside class="tp-side">
           ${(t.top_countries||[]).length?`<div class="tp-side-card"><h3>Países con más puntos</h3><ol class="tp-countries">${t.top_countries.map(c=>`<li><a href="${pointsLink}&country=${encodeURIComponent(c.name)}">${escapeHtml(c.name)}</a><span>${c.count}</span></li>`).join('')}</ol></div>`:''}
-          <div class="tp-side-card"><h3>Profundidad habitual</h3><div class="tp-gauge" aria-hidden="true"><span class="tp-gauge-band" style="top:${Math.min(40,t.depth_min)/40*100}%;height:${Math.max(4,(Math.min(40,t.depth_max)-Math.min(40,t.depth_min))/40*100)}%"></span>${[0,10,20,30,40].map(m=>`<i style="top:${m/40*100}%">${m} m</i>`).join('')}</div><p class="tp-gauge-label">${typeDepth(t)}</p></div>
         </aside>
       </div>
       ${(d.related||[]).length?`<section class="tp-wrap tp-related"><h2>Otros tipos de buceo</h2><div class="tp-grid is-small">${d.related.map(typeCard).join('')}</div></section>`:''}
@@ -708,6 +722,122 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const pointHref=id=>`#/punto?id=${encodeURIComponent(id)}`;
   const depthText=p=>p.max_depth?`${p.min_depth!=null&&p.min_depth!==''?Math.round(p.min_depth)+'–':''}${Math.round(p.max_depth)} m`:'';
   const placeText=p=>[p.subregion||p.region,p.country].filter((x,i,a)=>x&&a.indexOf(x)===i).join(' · ');
+
+  // ---------------------------------------------------------------------------
+  // v50.53 · One location service for Explorar, «Puntos de buceo», Top 10 and the app (web, app mode and the Android
+  // app through its Geolocation plugin). The position is asked only when the visitor presses a button or opens a
+  // section that needs it (Top 10), never when the web opens; it is rounded to about 1 km, kept in memory a few minutes
+  // and sent only to sort results (the server never stores it). Remembering that the visitor said no ('wd_loc' in this
+  // browser) is technical data, so we do not ask again on every visit; nothing else is kept.
+  // ---------------------------------------------------------------------------
+  const wdLocation=(()=>{
+    const KEY='wd_loc', FRESH_MS=5*60000;
+    let last=null, lastAt=0, pending=null;
+    const remember=v=>{ try{ v?localStorage.setItem(KEY,v):localStorage.removeItem(KEY); }catch{} };
+    const remembered=()=>{ try{ return localStorage.getItem(KEY)||''; }catch{ return ''; } };
+    const nativeGeo=()=>{ try{ return WD_APP?.native&&window.Capacitor?.Plugins?.Geolocation||null; }catch{ return null; } };
+    const fail=code=>Object.assign(new Error(code),{code});
+    const keep=(lat,lon,acc)=>{ remember(''); last={lat:Math.round(lat*100)/100,lon:Math.round(lon*100)/100,accuracy:Math.round(Number(acc)||0)}; lastAt=Date.now(); return last; };
+    // 'granted' | 'prompt' | 'denied' (by the browser or remembered) | 'insecure' (http) | 'unsupported'
+    async function permission(){
+      const G=nativeGeo();
+      if(G){ try{ const r=await G.checkPermissions(); const v=[r.location,r.coarseLocation]; return v.includes('granted')?'granted':v.includes('denied')||remembered()==='denied'?'denied':'prompt'; }catch{ return 'prompt'; } }
+      if(!('geolocation' in navigator)) return 'unsupported';
+      if(window.isSecureContext===false) return 'insecure';
+      let st=''; try{ st=(await navigator.permissions?.query?.({name:'geolocation'}))?.state||''; }catch{}
+      if(st==='granted'){ remember(''); return 'granted'; }
+      if(st==='denied') return 'denied';
+      return remembered()==='denied'?'denied':'prompt';
+    }
+    // Resolves {lat,lon,accuracy}; rejects with .code 'denied' | 'timeout' | 'unavailable' | 'insecure' | 'unsupported'.
+    // A position that arrives after the timeout (the visitor took long to answer) still reaches onLate.
+    function get({timeout=8000,onLate=null}={}){
+      if(last&&Date.now()-lastAt<FRESH_MS) return Promise.resolve(last);
+      if(pending) return pending;
+      pending=new Promise((ok,ko)=>{
+        let done=false; const timer=setTimeout(()=>{ if(!done){ done=true; ko(fail('timeout')); } },timeout);
+        const good=(lat,lon,acc)=>{ const v=keep(lat,lon,acc); if(done){ onLate?.(v); return; } done=true; clearTimeout(timer); ok(v); };
+        const bad=code=>{ if(code==='denied') remember('denied'); if(done) return; done=true; clearTimeout(timer); ko(fail(code)); };
+        const G=nativeGeo();
+        if(G){ (async()=>{ let r=await G.checkPermissions().catch(()=>({}));
+            if(![r.location,r.coarseLocation].includes('granted')) r=await G.requestPermissions({permissions:['location','coarseLocation']}).catch(()=>({}));
+            if(![r.location,r.coarseLocation].includes('granted')){ bad('denied'); return; }
+            const p=await G.getCurrentPosition({enableHighAccuracy:false,timeout:Math.max(timeout,15000),maximumAge:600000}); good(p.coords.latitude,p.coords.longitude,p.coords.accuracy);
+          })().catch(()=>bad('unavailable')); return; }
+        if(!('geolocation' in navigator)){ bad('unsupported'); return; }
+        if(window.isSecureContext===false){ bad('insecure'); return; }   // browsers only give the location over https (or localhost)
+        navigator.geolocation.getCurrentPosition(p=>good(p.coords.latitude,p.coords.longitude,p.coords.accuracy),
+          e=>bad(e&&e.code===1?'denied':e&&e.code===3?'timeout':'unavailable'),
+          {enableHighAccuracy:false,maximumAge:600000,timeout:Math.max(timeout,20000)});
+      }).finally(()=>{ pending=null; });
+      return pending;
+    }
+    const message=code=>({denied:'Has denegado el permiso de ubicación. Puedes activarlo en los ajustes del navegador.',insecure:'La ubicación solo funciona en una conexión segura (https).',unsupported:'Este navegador no permite obtener la ubicación.',timeout:'Tu ubicación está tardando demasiado.',unavailable:'No hemos podido obtener tu ubicación.'})[code]||'No hemos podido obtener tu ubicación.';
+    return {permission,get,message,forget:()=>remember(''),current:()=>(last&&Date.now()-lastAt<FRESH_MS?last:null)};
+  })();
+  const wdKm=km=>km==null?'':`${Number(km).toLocaleString(wdLocale(),{maximumFractionDigits:km<10?1:0})} km`;
+
+  // ---------------------------------------------------------------------------
+  // v50.53 · The one service card: «Actividades y precios» and «Viajes y experiencias» of a centre, the freelance page,
+  // the trips of a destination, the head of the booking page and the app. Its photo (the centre's own, its template's
+  // or the neutral one) fills the card from the focal point under a veil: the administration sets its strength and a
+  // photo that needs more to keep WCAG AA contrast gets more (photo.veil, measured by the server). The title takes the
+  // whole width, two lines at most («…»); price, duration and button go below it.
+  // ---------------------------------------------------------------------------
+  function wdCardPhoto(ph,{sizes='(max-width: 720px) 100vw, 560px',eager=false}={}){
+    if(!ph||!(ph.src||ph.jpg)) return '';
+    const [fx,fy]=String(ph.focal||'50,50').split(',').map(Number);
+    return `<picture class="svc2-bg" aria-hidden="true">${ph.srcset?`<source type="image/webp" srcset="${escapeHtml(ph.srcset)}" sizes="${sizes}">`:''}<img src="${escapeHtml(ph.jpg||ph.src)}" alt="" ${eager?'fetchpriority="high"':'loading="lazy"'} decoding="async" style="object-position:${Number.isFinite(fx)?fx:50}% ${Number.isFinite(fy)?fy:50}%"></picture>`;
+  }
+  function wdVeilStyle(ph){ const g=Number(state.cardVeil)||0.8; const l=Math.max(g,Number(ph?.veil?.light)||0), d=Math.max(g,Number(ph?.veil?.dark)||0); return `--veil:${l.toFixed(2)};--veil-d:${d.toFixed(2)}`; }
+  function wdServiceCard(s,{kicker='',meta='',desc='',body='',price='',actions='',href='',heading='h3',cls='',eager=false}={}){
+    const title=String(s.title||''), color=/^#[0-9a-f]{6}$/i.test(s.color||'')?s.color:'#076898';
+    return `<article class="svc2 ${cls}" style="${wdVeilStyle(s.photo)};--svc:${color}">${wdCardPhoto(s.photo,{eager})}
+      <div class="svc2-in">
+        <header class="svc2-head"><span class="svc2-icon" aria-hidden="true">${wdIcon(s.service_type||'inmersion',20)}</span><div class="svc2-titles">${kicker?`<p class="svc2-kicker">${kicker}</p>`:''}<${heading} class="svc2-title" title="${escapeHtml(title)}">${href?`<a href="${href}">${escapeHtml(title)}</a>`:escapeHtml(title)}</${heading}></div></header>
+        ${meta?`<div class="svc2-meta">${meta}</div>`:''}${desc?`<p class="svc2-desc">${escapeHtml(desc)}</p>`:''}${body}
+        ${price||actions?`<footer class="svc2-foot">${price?`<div class="svc2-price">${price}</div>`:''}${actions}</footer>`:''}
+      </div></article>`;
+  }
+  // v50.53: the focal point of a card photo also with the keyboard (the arrows move it 5 %), not only by tapping the photo.
+  function wdFocalKeys(el,get,set){ if(!el) return; el.tabIndex=0; el.addEventListener('keydown',e=>{ const d={ArrowLeft:[-5,0],ArrowRight:[5,0],ArrowUp:[0,-5],ArrowDown:[0,5]}[e.key]; if(!d) return;
+    e.preventDefault(); const [x,y]=String(get()||'50,50').split(',').map(Number), c=v=>Math.max(0,Math.min(100,Math.round(v))); set(`${c(x+d[0])},${c(y+d[1])}`); }); }
+  const wdServiceKicker=(s,typeLabel)=>[s.template?.name||typeLabel||'',s.duration_minutes?wdDuration(s.duration_minutes):''].filter(Boolean).map(escapeHtml).join(' · ');
+  const wdPriceBlock=(price,currency,note)=>price!=null&&price!==''?`<strong>${wdMoney(price,currency)}</strong>${note?`<small>${escapeHtml(note)}</small>`:''}`:'<strong>Precio a consultar</strong>';
+
+  // Search with no results (Puntos de buceo, Explorar): the closest dive sites to the searched place when it can be
+  // located, otherwise to the visitor (if already shared), otherwise those of the launch country. Never an empty page.
+  async function wdPointSuggestions(q,{per=6}={}){
+    let place=null; try{ place=q?await wdGeocode(q):null; }catch{}
+    if(place){ const d=await api('/api/point-directory?'+new URLSearchParams({sort:'distance',lat:place.lat,lon:place.lon,per_page:per})).catch(()=>null);
+      if(d?.items?.length) return {title:`Los más cercanos a ${place.label}`,items:d.items,place}; }
+    const me=wdLocation.current();
+    if(me){ const d=await api('/api/point-directory?'+new URLSearchParams({sort:'distance',lat:me.lat,lon:me.lon,per_page:per})).catch(()=>null);
+      if(d?.items?.length) return {title:'Los más cercanos a ti',items:d.items,place:null}; }
+    const d=await api('/api/point-directory?'+new URLSearchParams({sort:'area',per_page:per})).catch(()=>null);
+    return {title:d?.home_country?`Puntos de buceo en ${d.home_country}`:'Puntos de buceo',items:d?.items||[],place:null};
+  }
+
+  // A small map that shows exactly the points of a list, numbered in the same order as the cards (Puntos de buceo).
+  function wdListMap(el){
+    if(!el||!window.L){ if(el) el.innerHTML='<div class="map-fallback"><strong>El mapa no está disponible ahora mismo</strong><span>La lista muestra los mismos puntos.</span></div>'; return null; }
+    wdTileDefaults(); const map=wdLimitMap(L.map(el,{zoomControl:false,scrollWheelZoom:false,zoomSnap:.25})).setView([40.2,-3.5],5);
+    map.addControl(L.control.zoom({position:'bottomright'})); wdLayerControl(map);
+    const layer=L.layerGroup().addTo(map), extra=L.layerGroup().addTo(map); let here=null, place=null;
+    const icon=n=>L.divIcon({className:'pt-num-wrap',html:`<span class="pt-num">${n}</span>`,iconSize:[28,28],iconAnchor:[14,14]});
+    return {map,
+      show(items,{fit=true}={}){ layer.clearLayers(); const pts=[];
+        items.forEach((p,i)=>{ if(p.latitude==null||p.longitude==null) return; const m=L.marker([p.latitude,p.longitude],{icon:icon(i+1),title:`${i+1}. ${p.name}`,alt:`${i+1}. ${p.name}`,keyboard:true,riseOnHover:true});
+          m.on('click',()=>{ const card=document.getElementById('pt-card-'+p.id); if(card){ card.scrollIntoView({behavior:'smooth',block:'center'}); card.classList.add('is-flash'); setTimeout(()=>card.classList.remove('is-flash'),1600); } });
+          m.addTo(layer); pts.push([p.latitude,p.longitude]); });
+        if(here) pts.push([here.lat,here.lon]); if(place) pts.push([place.lat,place.lon]);
+        if(fit&&pts.length){ try{ map.fitBounds(L.latLngBounds(pts),{paddingTopLeft:[32,84],paddingBottomRight:[56,40],maxZoom:11}); }catch{} } },
+      // Where the visitor is (rounded) and the searched place, drawn apart from the numbered points.
+      mark({me:pos=null,place:pl=null}={}){ here=pos; place=pl; extra.clearLayers();
+        if(pos) L.circleMarker([pos.lat,pos.lon],{radius:7,color:'#fff',weight:2,fillColor:'#1a73e8',fillOpacity:1}).bindTooltip(translateString('Tu ubicación')).addTo(extra);
+        if(pl) L.circleMarker([pl.lat,pl.lon],{radius:8,color:'#076898',weight:2,fillColor:'#fff',fillOpacity:1}).bindTooltip(escapeHtml(pl.label||'')).addTo(extra); },
+      invalidate(){ setTimeout(()=>map.invalidateSize(),80); }};
+  }
 
   // Capa ligera del mapa (todos los puntos con coordenadas) compartida por portada, Explorar y Top 10.
   let __mapLayer=null, __mapLayerAt=0;
@@ -747,11 +877,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const depth=depthText(p); const where=placeText(p)||p.country||'';
     return `${p.dive_type?p.dive_type+' en ':'Punto de buceo en '}${where}.${depth?` Profundidad entre ${depth}.`:''}${p.difficulty?` Nivel ${String(p.difficulty).toLowerCase()}.`:''} Consulta con el centro las condiciones del día antes de reservar.`;
   }
-  function pointCard(p){
+  // n: its number in the list (the same number as its marker on the map); p.distance_km when the visitor shared the location.
+  function pointCard(p,n){
     const types=(p.types||[]).slice(0,2).map(typeLabelByKey), depth=depthText(p);
     const pending=p.verification_status && p.verification_status!=='verified';
-    return `<article class="cd-card pt-card">
-      <a class="cd-media" href="${pointHref(p.id)}" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(p.photo||pointImg(p))}" alt="" loading="lazy">
+    return `<article class="cd-card pt-card" id="pt-card-${escapeHtml(String(p.id))}">
+      <a class="cd-media" href="${pointHref(p.id)}" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(p.photo||pointImg(p))}" alt="" loading="lazy" width="400" height="225">
+        ${n?`<span class="pt-num" aria-hidden="true">${n}</span>`:''}${p.distance_km!=null?`<span class="pt-dist">${wdIcon('pin',13)}${escapeHtml(wdKm(p.distance_km))}</span>`:''}
         <span class="cd-badges">${types.map(t=>`<span class="cd-badge">${escapeHtml(t)}</span>`).join('')}</span></a>
       <div class="cd-body pt-body">
         <h3><a href="${pointHref(p.id)}">${escapeHtml(p.name)}</a></h3>
@@ -826,8 +958,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <aside class="ex-side">
         <div class="ex-side-head"><h2>Filtra el mapa</h2><p>Busca por nombre, zona o país, o elige un tipo de inmersión.</p></div>
         <label class="cd-field ex-filter">${wdIcon('search',18)}<span class="sr-only">Buscar en el mapa</span><input id="ex-q" type="search" placeholder="Filtrar puntos del mapa" autocomplete="off"></label>
+        <button type="button" class="btn ex-near" id="ex-near">${wdIcon('target',16)} Cerca de mí</button>
         <div class="ex-types" id="ex-types"></div>
         <p class="ex-count" id="ex-count" aria-live="polite"></p>
+        <div class="ex-none" id="ex-none" hidden></div>
         <p class="ex-legend"><span class="wd-pin" aria-hidden="true"></span>Punto de buceo · toca para ver la ficha</p>
         <div class="ex-zones-head">Zonas</div>
         <div id="explore-zones" class="zone-list"></div>
@@ -837,7 +971,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   async function renderExplorer(params){
     setApp(explorerTemplate());
     let layer; try{ layer=await loadMapLayer(); }catch(err){ $('#explore-map').innerHTML=`<div class="map-fallback"><strong>No se ha podido cargar el mapa</strong><span>${escapeHtml(err.message)}</span></div>`; return; }
-    state.points=layer.items; setupZones($('#explore-zones'),layer.items); initMap('explore-map',layer.items,[30,-10],3); 
+    // v50.53: the map opens on the launch country; on the visitor when the location was already allowed.
+    state.points=layer.items; setupZones($('#explore-zones'),layer.items); initMap('explore-map',layer.items,[40.2,-3.5],5);
+    let meMark=null; const goMe=pos=>{ if(!state.map||!window.L) return; meMark?.remove(); meMark=L.circleMarker([pos.lat,pos.lon],{radius:7,color:'#fff',weight:2,fillColor:'#1a73e8',fillOpacity:1}).bindTooltip(translateString('Tu ubicación')).addTo(state.map); state.map.flyTo([pos.lat,pos.lon],8,{duration:.8}); };
+    $('#ex-near').onclick=async e=>{ const b=e.currentTarget; b.disabled=true; wdLocation.forget();
+      try{ goMe(await wdLocation.get()); }catch(err){ toast(wdLocation.message(err.code)); } b.disabled=false; };
+    if(await wdLocation.permission()==='granted') wdLocation.get().then(goMe).catch(()=>{});
     const nf=v=>Number(v).toLocaleString(wdLocale()); $('#ex-stat-points').textContent=nf(layer.items.length); $('#ex-stat-countries').textContent=nf(new Set(layer.items.map(p=>p.country).filter(Boolean)).size); $('#ex-stat-zones').textContent=nf(new Set(layer.items.map(p=>p.zone).filter(Boolean)).size);
     const fixed=[['','Todos'],['arrecifes','Arrecifes'],['paredes','Paredes'],['pecios-y-naufragios','Pecios'],['cuevas-y-cavernas','Cuevas'],['muck','Muck'],['pinaculos','Pináculos'],['aguas-profundas','Profundas']];
     let active='';
@@ -845,7 +984,18 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const apply=()=>{ const q=wdFold($('#ex-q').value).trim(); const words=q?q.split(/\s+/):[];
       const pts=state.points.filter(p=>{ const t=wdFold([p.name,p.country,p.region,p.subregion,p.zone,p.dive_type].join(' ')); return words.every(w=>t.includes(w)) && (!active || !p.types || p.types.includes(active)); });
       $('#ex-count').textContent=`${pts.length.toLocaleString(wdLocale())} ${pts.length===1?'punto':'puntos'} en el mapa`;
+      const none=$('#ex-none'); none.hidden=true;
+      if(!pts.length&&q){ showNone(q); return; }
       try{ focusMapPoints(pts); if(state.map && pts.length && pts.length<state.points.length && window.L){ state.map.fitBounds(L.latLngBounds(pts.map(p=>[p.latitude,p.longitude])),{padding:[50,50],maxZoom:11,animate:true}); } }catch(e){ console.warn('mapa',e); } };
+    // A search with nothing (for example «Hawaii»): say so and show the closest dive sites that do exist.
+    let noneSeq=0;
+    const showNone=async q=>{ const mine=++noneSeq, none=$('#ex-none'); const raw=$('#ex-q').value.trim();
+      none.hidden=false; none.innerHTML=`<p class="ex-none-title">${escapeHtml(translateString('Todavía no hay puntos de buceo en {x}').replace('{x}',`«${raw}»`))}</p><p class="muted">Buscando los más cercanos…</p>`;
+      const sug=await wdPointSuggestions(raw); if(mine!==noneSeq||!none.isConnected) return;
+      none.innerHTML=`<p class="ex-none-title">${escapeHtml(translateString('Todavía no hay puntos de buceo en {x}').replace('{x}',`«${raw}»`))}</p><p class="ex-none-sub">${escapeHtml(sug.title)}</p><ul class="ex-none-list">${sug.items.map(p=>`<li><a href="${pointHref(p.id)}"><span class="wd-pin" aria-hidden="true"></span><span><strong>${escapeHtml(p.name)}</strong><small>${escapeHtml(placeText(p))}${p.distance_km!=null?' · '+escapeHtml(wdKm(p.distance_km)):''}</small></span></a></li>`).join('')}</ul>`;
+      translateTree(none);
+      try{ const ids=new Set(sug.items.map(p=>String(p.id))); const keep=state.points.filter(p=>ids.has(String(p.id))); focusMapPoints(keep);
+        const b=keep.map(p=>[p.latitude,p.longitude]); if(sug.place) b.push([sug.place.lat,sug.place.lon]); if(state.map&&b.length&&window.L) state.map.fitBounds(L.latLngBounds(b),{padding:[50,50],maxZoom:9,animate:true}); }catch(e){ console.warn('mapa',e); } };
     let timer=null; $('#ex-q').addEventListener('input',()=>{ clearTimeout(timer); timer=setTimeout(apply,250); });
     $$('#ex-types .cd-chip').forEach(b=>b.onclick=()=>{ $$('#ex-types .cd-chip').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); active=b.dataset.t; apply(); });
     $('#ex-count').textContent=`${state.points.length.toLocaleString(wdLocale())} puntos en el mapa`;
@@ -854,12 +1004,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   // ---------------------------------------------------------------- Puntos de buceo
   const PT_LEVELS=[['start','Para empezar'],['mid','Intermedio'],['adv','Avanzado']];
-  const PT_SORTS=[['recommended','Recomendados'],['name','Nombre A-Z'],['depth','Más profundos'],['shallow','Menos profundos'],['rating','Mejor valorados']];
+  const PT_SORTS=[['distance','Más cercanos'],['area','Por zonas'],['recommended','Recomendados'],['name','Nombre A-Z'],['depth','Más profundos'],['shallow','Menos profundos'],['rating','Mejor valorados']];
   async function renderPoints(params){
     params=params instanceof URLSearchParams?params:new URLSearchParams();
     if(params.get('point')){ location.replace('#/punto?id='+encodeURIComponent(params.get('point'))); return; }
     const rawType=params.get('type')||''; const typeKey=rawType?(DIVE_TYPE_FALLBACK.some(t=>wdKey(t[0])===rawType)?rawType:wdKey(rawType)):'';
-    const st={q:params.get('q')||'',zone:params.get('zone')||'',country:params.get('country')||'',type:typeKey,level:PT_LEVELS.some(l=>l[0]===params.get('level'))?params.get('level'):'',only:params.get('only')==='centers'?'centers':'',sort:PT_SORTS.some(s=>s[0]===params.get('sort'))?params.get('sort'):'recommended',page:1};
+    // sort '' = the server decides: «Más cercanos» with the location, «Por zonas» (the launch country first) without it.
+    const st={q:params.get('q')||'',zone:params.get('zone')||'',country:params.get('country')||'',type:typeKey,level:PT_LEVELS.some(l=>l[0]===params.get('level'))?params.get('level'):'',only:params.get('only')==='centers'?'centers':'',sort:PT_SORTS.some(s=>s[0]===params.get('sort'))?params.get('sort'):'',page:1,here:null};
     setApp(`<section class="cd-page pt-page">
       <header class="tp-hero pt-hero">${heroImg('hero:puntos')}<div class="tp-hero-in">
         <p class="eyebrow">Catálogo</p><h1>Puntos de buceo</h1>
@@ -876,40 +1027,71 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <div class="cd-tools">
             <label><span class="sr-only">Tipo de buceo</span><select id="pt-type"><option value="">Cualquier tipo</option>${DIVE_TYPE_FALLBACK.map(([l])=>`<option value="${wdKey(l)}" ${wdKey(l)===st.type?'selected':''}>${escapeHtml(l)}</option>`).join('')}</select></label>
             <label><span class="sr-only">País</span><select id="pt-country"><option value="">Todos los países</option></select></label>
-            <label><span class="sr-only">Ordenar</span><select id="pt-sort">${PT_SORTS.map(([k,l])=>`<option value="${k}" ${k===st.sort?'selected':''}>${l}</option>`).join('')}</select></label><a class="sort-why" href="#/legal/clasificacion">¿Cómo ordenamos?</a>
+            <label><span class="sr-only">Ordenar</span><select id="pt-sort">${PT_SORTS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label><a class="sort-why" href="#/legal/clasificacion">¿Cómo ordenamos?</a>
           </div>
         </div>
-        <div class="cd-results-head"><p id="pt-count" aria-live="polite">Buscando puntos…</p><button type="button" class="cd-clear" id="pt-clear" hidden>Quitar filtros</button></div>
-        <div class="cd-grid" id="pt-grid"></div>
-        <div class="cd-more"><button class="btn" type="button" id="pt-more" hidden>Mostrar más puntos</button></div>
+        <div class="pt-locbar" id="pt-locbar" aria-live="polite"></div>
+        <div class="cd-results-head"><p id="pt-count" aria-live="polite">Buscando puntos…</p><button type="button" class="cd-clear" id="pt-clear" hidden>Quitar filtros</button><button type="button" class="btn pt-map-toggle" id="pt-map-toggle" aria-controls="pt-mapcol" aria-expanded="false">${wdIcon('map',16)} Ver en el mapa</button></div>
+        <div class="pt-split">
+          <div class="pt-listcol"><div class="cd-grid pt-grid" id="pt-grid"></div><div class="cd-more"><button class="btn" type="button" id="pt-more" hidden>Mostrar más puntos</button></div></div>
+          <aside class="pt-mapcol" id="pt-mapcol" aria-label="Mapa de los puntos de la lista"><div class="map-wrap"><div id="pt-map" class="map-card pt-map"></div></div><p class="pt-map-note">El mapa enseña los mismos puntos que la lista, con el mismo número.</p></aside>
+        </div>
       </div>
     </section>`);
-    const grid=$('#pt-grid'), more=$('#pt-more'), count=$('#pt-count'), clear=$('#pt-clear');
-    let seq=0, loaded=0;
+    const grid=$('#pt-grid'), more=$('#pt-more'), count=$('#pt-count'), clear=$('#pt-clear'), locbar=$('#pt-locbar'), sortSel=$('#pt-sort');
+    let seq=0, shown=[], lastGroup='', map=null;
+    const ensureMap=()=>{ if(!map){ map=wdListMap($('#pt-map')); } return map; };
     const skeleton=n=>Array.from({length:n},()=>'<div class="cd-card is-skeleton" aria-hidden="true"><div class="cd-media"></div><div class="cd-body"><i></i><i></i><i></i></div></div>').join('');
     const hasFilters=()=>!!(st.q||st.zone||st.country||st.type||st.level||st.only);
     const fillSelect=(sel,list,current,allLabel)=>{ sel.innerHTML=`<option value="">${allLabel}</option>`+(list||[]).map(x=>`<option value="${escapeHtml(x.name)}" ${x.name===current?'selected':''}>${escapeHtml(x.name)} (${x.count})</option>`).join('')+(current&&!(list||[]).some(x=>x.name===current)?`<option selected value="${escapeHtml(current)}">${escapeHtml(current)}</option>`:''); };
+    const cardsHtml=items=>items.map(p=>{ let head='';
+      if(p.group&&p.group!==lastGroup){ lastGroup=p.group; head=`<h3 class="pt-group">${escapeHtml(p.group)}</h3>`; }
+      shown.push(p); return head+pointCard(p,shown.length); }).join('');
+    const paintLocbar=(d,msg)=>{
+      if(st.here&&d?.located) locbar.innerHTML=`<p>${wdIcon('pin',16)}<span>Ordenados de más cerca a más lejos de tu ubicación.</span></p><button type="button" class="btn btn-sm" id="pt-by-area">Ver por zonas</button>`;
+      else locbar.innerHTML=`<p>${wdIcon('pin',16)}<span>${escapeHtml(translateString(msg||'Activa la ubicación para ver primero los más cercanos.'))}</span></p><button type="button" class="btn btn-sm btn-primary" id="pt-locate">Activar ubicación</button>`;
+      translateTree(locbar);
+      $('#pt-locate')?.addEventListener('click',locate); $('#pt-by-area')?.addEventListener('click',()=>{ st.sort='area'; load(); });
+    };
     const load=async(append=false)=>{
       const mine=++seq;
-      if(!append){ st.page=1; loaded=0; grid.innerHTML=skeleton(6); more.hidden=true; }
+      if(!append){ st.page=1; shown=[]; lastGroup=''; grid.innerHTML=skeleton(6); more.hidden=true; count.textContent=translateString('Buscando puntos…'); }
       more.disabled=true;
       const qs=new URLSearchParams({q:st.q,zone:st.zone,country:st.country,type:st.type,level:st.level,only:st.only,sort:st.sort,page:String(st.page),per_page:'12'});
+      if(st.here){ qs.set('lat',st.here.lat); qs.set('lon',st.here.lon); }
       for(const k of [...qs.keys()]) if(!qs.get(k)) qs.delete(k);
       let d;
       try{ d=await fetchPointDirectory(qs); }
-      catch(err){ if(mine!==seq||!grid.isConnected) return; grid.innerHTML=`<div class="empty cd-empty"><h3>No hemos podido cargar los puntos</h3><p>${escapeHtml(err.message)}</p><button class="btn" type="button" id="pt-retry">Reintentar</button></div>`; $('#pt-retry').onclick=()=>load(); count.textContent=''; return; }
+      catch(err){ if(mine!==seq||!grid.isConnected) return; grid.innerHTML=`<div class="empty cd-empty"><h3>No hemos podido cargar los puntos</h3><p>${escapeHtml(navigator.onLine===false?translateString('Sin conexión. Comprueba tu conexión y vuelve a intentarlo.'):err.message)}</p><button class="btn" type="button" id="pt-retry">Reintentar</button></div>`; $('#pt-retry').onclick=()=>load(); count.textContent=''; return; }
       if(mine!==seq||!grid.isConnected) return;
       if(!append){ fillSelect($('#pt-zone'),d.zones,st.zone,'Todo el mundo'); fillSelect($('#pt-country'),d.countries,st.country,'Todos los países'); }
-      const html=(d.items||[]).map(pointCard).join('');
+      sortSel.value=d.sort||st.sort||'area'; [...sortSel.options].find(o=>o.value==='distance').disabled=!st.here;
+      const html=cardsHtml(d.items||[]);
       if(append) grid.insertAdjacentHTML('beforeend',html); else grid.innerHTML=html;
-      loaded+=(d.items||[]).length;
-      if(!d.total){ grid.innerHTML=`<div class="empty cd-empty"><h3>No hay puntos con estos filtros</h3><p>Prueba con otra zona o quita algún filtro.</p>${hasFilters()?'<button class="btn btn-primary" type="button" id="pt-empty-clear">Quitar filtros</button>':''}</div>`; $('#pt-empty-clear')?.addEventListener('click',reset); }
+      if(!d.total){ await paintEmpty(mine); }
+      else ensureMap()?.show(shown,{fit:!append});
+      if(!append&&d.total) ensureMap()?.mark({me:st.here});
       count.innerHTML=d.total?`<strong>${d.total.toLocaleString(wdLocale())}</strong> ${d.total===1?'punto':'puntos'}${st.type?' · '+escapeHtml(typeLabelByKey(st.type)):''}${st.country?' en '+escapeHtml(st.country):st.zone?' en '+escapeHtml(st.zone):''}`:'';
-      more.hidden=loaded>=d.total; more.disabled=false; more.textContent=`Mostrar más puntos (${(d.total-loaded).toLocaleString(wdLocale())})`;
-      clear.hidden=!hasFilters();
-      const url=new URLSearchParams(qs); url.delete('page'); url.delete('per_page'); if(url.get('sort')==='recommended') url.delete('sort');
+      more.hidden=shown.length>=d.total; more.disabled=false; more.textContent=`Mostrar más puntos (${(d.total-shown.length).toLocaleString(wdLocale())})`;
+      clear.hidden=!hasFilters(); paintLocbar(d); translateTree(grid);
+      const url=new URLSearchParams(qs); ['page','per_page','lat','lon'].forEach(k=>url.delete(k)); if(!st.sort) url.delete('sort');
       try{ history.replaceState(null,'','#/puntos'+(url.toString()?'?'+url:'')); }catch{}
     };
+    // Nothing matches: say so, and show the closest dive sites that do exist (never an empty page).
+    const paintEmpty=async mine=>{
+      if(!st.q){ grid.innerHTML=`<div class="empty cd-empty"><h3>No hay puntos con estos filtros</h3><p>Prueba con otra zona o quita algún filtro.</p>${hasFilters()?'<button class="btn btn-primary" type="button" id="pt-empty-clear">Quitar filtros</button>':''}</div>`; $('#pt-empty-clear')?.addEventListener('click',reset); ensureMap()?.show([]); return; }
+      grid.innerHTML=`<div class="empty cd-empty pt-none"><h3>${escapeHtml(translateString('Todavía no hay puntos de buceo en {x}').replace('{x}',`«${st.q}»`))}</h3><p>Te enseñamos los más cercanos que sí existen.</p></div>${skeleton(3)}`;
+      const sug=await wdPointSuggestions(st.q); if(mine!==seq||!grid.isConnected) return;
+      shown=[]; lastGroup='';
+      grid.querySelectorAll('.is-skeleton').forEach(x=>x.remove());
+      grid.insertAdjacentHTML('beforeend',`<h3 class="pt-group">${escapeHtml(sug.title)}</h3>`+sug.items.map(p=>{ shown.push(p); return pointCard(p,shown.length); }).join(''));
+      const m=ensureMap(); m?.mark({me:st.here,place:sug.place}); m?.show(shown);
+      translateTree(grid);
+    };
+    const locate=async()=>{ const b=$('#pt-locate'); if(b){ b.disabled=true; b.textContent=translateString('Buscando tu ubicación…'); }
+      wdLocation.forget();
+      try{ st.here=await wdLocation.get(); st.sort='distance'; load(); }
+      catch(e){ paintLocbar(null,wdLocation.message(e.code)); } };
     const reset=()=>{ Object.assign(st,{q:'',zone:'',country:'',type:'',level:'',only:''}); $('#pt-q').value=''; $('#pt-type').value=''; $$('.pt-page .cd-chip').forEach(b=>b.setAttribute('aria-pressed','false')); load(); };
     let timer=null;
     $('#pt-q').addEventListener('input',e=>{ clearTimeout(timer); timer=setTimeout(()=>{ st.q=e.target.value.trim(); load(); },350); });
@@ -917,10 +1099,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $('#pt-zone').onchange=e=>{ st.zone=e.target.value; st.country=''; load(); };
     $('#pt-country').onchange=e=>{ st.country=e.target.value; load(); };
     $('#pt-type').onchange=e=>{ st.type=e.target.value; load(); };
-    $('#pt-sort').onchange=e=>{ st.sort=e.target.value; load(); };
+    sortSel.onchange=e=>{ st.sort=e.target.value; load(); };
     $$('.pt-page [data-level]').forEach(b=>b.onclick=()=>{ st.level=st.level===b.dataset.level?'':b.dataset.level; $$('.pt-page [data-level]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.level===st.level))); load(); });
     $$('.pt-page [data-only]').forEach(b=>b.onclick=e=>{ const k=e.currentTarget.dataset.only; st.only=st.only===k?'':k; $$('.pt-page [data-only]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.only===st.only))); load(); });
     clear.onclick=reset; more.onclick=()=>{ st.page+=1; load(true); };
+    $('#pt-map-toggle').onclick=e=>{ const open=!$('.pt-page').classList.contains('is-map-open'); $('.pt-page').classList.toggle('is-map-open',open); e.currentTarget.setAttribute('aria-expanded',String(open)); ensureMap()?.invalidate(); };
+    // The location is used only if the visitor already allowed it; otherwise a discreet notice offers to turn it on.
+    if(await wdLocation.permission()==='granted'){ try{ st.here=await wdLocation.get(); }catch{} }
     await load();
   }
 
@@ -1365,22 +1550,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const org=e.provider_type==='center'||e.center_id?(e.center_name||e.provider_name||'Centro de buceo'):(e.provider_name||'Profesional independiente');
     const dates=e.departures?(e.departures.length?e.departures.slice(0,3).map(x=>escapeHtml(wdDay(x.slot_date))).join(' · '):'Por anunciar'):(e.start_date?escapeHtml(wdFullDate(e.start_date))+(e.end_date?' – '+escapeHtml(wdFullDate(e.end_date)):''):'Por confirmar');
     const spots=e.spots_available!=null?Number(e.spots_available):null;
-    return `<article class="ex-trip">
-      ${e.image_url?`<img class="ex-trip-img" src="${escapeHtml(e.image_url)}" alt="" loading="lazy">`:''}
-      <div class="ex-trip-main">
-        <p class="eyebrow">${e.provider_type==='freelance'?'Profesional independiente':'Centro de buceo'} · <a href="${e.center_id?`#/centro?id=${e.center_id}`:`#/profesional?id=${e.provider_user_id}`}">${escapeHtml(org)}</a></p>
-        <h3>${escapeHtml(e.title)}</h3>
-        ${e.summary||e.description?`<p class="ex-trip-desc">${escapeHtml(e.summary||e.description)}</p>`:''}
-        ${e.includes?`<p class="ex-trip-inc"><strong>Incluye:</strong> ${escapeHtml(e.includes)}</p>`:''}
-      </div>
-      <div class="ex-trip-side">
-        <div class="cd-fact"><small>${e.departures?'Próximas salidas':'Fechas'}</small><strong>${dates}</strong></div>
-        <div class="cd-fact"><small>Precio</small><strong>${e.price!=null&&e.price!==''?wdMoney(e.price,e.currency):'<span class="muted">Consultar</span>'}</strong></div>
-        <div class="cd-fact"><small>Plazas</small><strong>${spots!=null?(spots>0?`${spots} libres`:'<span class="muted">Completo</span>'):'<span class="muted">Consultar</span>'}</strong></div>
-        ${e.book_url?`<a class="btn btn-primary" href="${escapeHtml(e.book_url)}">Reservar plaza</a>`:spots===0?'<span class="btn" aria-disabled="true">Completo</span>':`<button class="btn btn-primary book-experience" type="button" data-id="${e.id}">Solicitar plaza</button>`}
-        <button type="button" class="wd-report" data-report="experience" data-report-id="${e.id}" data-report-label="${escapeHtml(e.title)}">${wdIcon('alert',13)} Denunciar</button>
-      </div>
-    </article>`;
+    const who=`${e.provider_type==='freelance'?'Profesional independiente':'Centro de buceo'} · <a href="${e.center_id?`#/centro?id=${e.center_id}`:`#/profesional?id=${e.provider_user_id}`}">${escapeHtml(org)}</a>`;
+    const body=`${e.includes?`<p class="svc2-desc ex-trip-inc"><strong>Incluye:</strong> ${escapeHtml(e.includes)}</p>`:''}
+      <div class="svc2-facts"><div><small>${e.departures?'Próximas salidas':'Fechas'}</small><strong>${dates}</strong></div><div><small>Plazas</small><strong>${spots!=null?(spots>0?`${spots} libres`:'<span class="muted">Completo</span>'):'<span class="muted">Consultar</span>'}</strong></div></div>`;
+    const actions=`${e.book_url?`<a class="btn btn-primary" href="${escapeHtml(e.book_url)}">Reservar plaza</a>`:spots===0?'<span class="btn" aria-disabled="true">Completo</span>':`<button class="btn btn-primary book-experience" type="button" data-id="${e.id}">Solicitar plaza</button>`}
+      <button type="button" class="wd-report" data-report="experience" data-report-id="${e.id}" data-report-label="${escapeHtml(e.title)}">${wdIcon('alert',13)} Denunciar</button>`;
+    return wdServiceCard({...e,service_type:/bordo/i.test(e.offer_kind||'')?'vida_a_bordo':'viaje'},{kicker:who,desc:e.summary||e.description,body,price:wdPriceBlock(e.price,e.currency,'por persona'),actions});
   }
   async function renderExperienceDetail(params){
     const id=Number(params.get('id')||0); if(!id){ location.replace('#/experiencias'); return; }
@@ -1417,7 +1592,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <p class="cd-place">${wdIcon('pin',14)}${escapeHtml(placeText(p))}</p>
         <div class="pt-facts">${depth?`<span>${wdIcon('depth',14)}${escapeHtml(depth)}</span>`:''}${p.difficulty?`<span>${wdIcon('level',14)}${escapeHtml(p.difficulty)}</span>`:''}${reviews?`<span class="cd-rating"><span class="cd-star">★</span><strong>${rating.toFixed(1)}</strong>(${reviews})</span>`:''}${p.centers_count?`<span>${p.centers_count} ${p.centers_count==1?'centro':'centros'}</span>`:''}</div>
       </div>
-      <div class="tt-side"><span class="tt-dist">${Number(p.distance_km||0).toLocaleString(wdLocale(),{maximumFractionDigits:1})} km</span><a class="btn btn-primary" href="${pointHref(p.id)}">Ver inmersión</a></div>
+      <div class="tt-side">${p.distance_km!=null?`<span class="tt-dist">${escapeHtml(wdKm(p.distance_km))}</span>`:''}<a class="btn btn-primary" href="${pointHref(p.id)}">Ver inmersión</a></div>
     </article>`;
   }
   async function renderTop10(params){
@@ -1426,91 +1601,104 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <header class="tp-hero">${heroImg('hero:top10')}<div class="tp-hero-in">
         <p class="eyebrow">Top 10</p><h1>¿Te apetece bucear?</h1>
         <p class="lead">Los 10 mejores puntos de buceo cerca de ti, ordenados por valoración y distancia.</p>
-        <div class="tt-locate"><div class="tt-loc-text"><strong id="tt-title">Usa tu ubicación o elige una zona</strong><small id="tt-sub">Tu ubicación solo se usa para calcular este ranking: no la guardamos.</small></div>
-          <label class="tt-radius"><span>Radio</span><select id="tt-radius"><option value="25">25 km</option><option value="50">50 km</option><option value="100" selected>100 km</option><option value="250">250 km</option><option value="500">500 km</option></select></label>
+        <div class="tt-locate"><div class="tt-loc-text"><strong id="tt-title">Buscando los mejores buceos…</strong><small id="tt-sub">Tu ubicación solo se usa para calcular este ranking: no la guardamos.</small></div>
+          <label class="tt-radius"><span>Radio</span><select id="tt-radius"><option value="auto" selected>Lo más cerca</option><option value="25">25 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="250">250 km</option><option value="500">500 km</option></select></label>
           <div class="tt-btns"><button id="tt-locate" class="btn btn-primary" type="button">${wdIcon('target',16)} Usar mi ubicación</button><button id="tt-pick" class="btn tt-pick" type="button">${wdIcon('map',16)} Elegir en el mapa</button></div></div>
-        <form class="tt-search" id="tt-search" role="search"><label class="cd-field">${wdIcon('search',18)}<span class="sr-only">Buscar una localidad</span><input id="tt-q" type="search" placeholder="O escribe una localidad: Dénia, Jávea, Cartagena…" list="tt-places" autocomplete="off" required></label><datalist id="tt-places"></datalist><button class="btn btn-primary" type="submit">Buscar</button></form>
+        <form class="tt-search" id="tt-search" role="search"><label class="cd-field">${wdIcon('search',18)}<span class="sr-only">Buscar una localidad</span><input id="tt-q" type="search" placeholder="O escribe una localidad: Dénia, Jávea, Cartagena…" autocomplete="off" required></label><button class="btn btn-primary" type="submit">Buscar</button></form>
       </div></header>
       <div class="cd-wrap">
         <div class="tt-zones"><span>O elige una zona:</span><div class="cd-chips" id="tt-zones"></div></div>
         <div id="tt-status" class="tt-status" aria-live="polite"></div>
-        <div id="tt-list" class="tt-list"></div>
+        <div id="tt-list" class="tt-list" aria-busy="true"></div>
       </div></section>`);
-    const status=$('#tt-status'), list=$('#tt-list'), title=$('#tt-title'), sub=$('#tt-sub');
-    let last=null;
-    const remember=v=>{ try{ localStorage.setItem('wd_top10',JSON.stringify(v)); }catch{} };
+    const status=$('#tt-status'), list=$('#tt-list'), title=$('#tt-title'), sub=$('#tt-sub'), radiusSel=$('#tt-radius');
+    const alive=()=>list.isConnected;
+    let last=null, seq=0, userChose=false;
+    // Only an explicit choice (a zone or a named locality) is remembered in this browser; never the visitor's position.
+    const remember=v=>{ try{ v?localStorage.setItem('wd_top10',JSON.stringify(v)):localStorage.removeItem('wd_top10'); }catch{} };
+    const pressZone=name=>$$('#tt-zones .cd-chip').forEach(x=>x.setAttribute('aria-pressed',String(!!name&&x.dataset.name===name)));
+    const loading=(t,sb)=>{ title.textContent=translateString(t); if(sb!=null) sub.textContent=translateString(sb); status.innerHTML=''; list.setAttribute('aria-busy','true'); list.innerHTML=Array.from({length:3},()=>'<div class="tt-card is-skeleton" aria-hidden="true"></div>').join(''); };
+    const failed=msg=>{ list.removeAttribute('aria-busy'); list.innerHTML=`<div class="empty cd-empty"><h3>No hemos podido calcular el Top 10</h3><p>${escapeHtml(navigator.onLine===false?translateString('Sin conexión. Comprueba tu conexión y vuelve a intentarlo.'):msg)}</p><button class="btn" type="button" id="tt-retry">Reintentar</button></div>`; translateTree(list); $('#tt-retry').onclick=()=>last?.retry?.(); };
+    // Near a position (the visitor's, a zone, a locality or a point of the map).
     const load=async(lat,lon,label,acc)=>{
-      last={lat,lon,label,acc}; const radius=$('#tt-radius').value;
-      title.textContent=label?`Top 10 cerca de ${label}`:'Top 10 cerca de ti'; sub.textContent=`Hasta ${radius} km a la redonda`+(acc?` · precisión de tu ubicación: ${acc>=1000?'± '+Math.round(acc/1000)+' km':'± '+Math.round(acc)+' m'}.`:'.');
-      list.innerHTML=Array.from({length:3},()=>'<div class="tt-card is-skeleton"></div>').join(''); status.innerHTML='';
+      const mine=++seq; last={retry:()=>load(lat,lon,label,acc)};
+      const radius=radiusSel.value;
+      loading(label?`Top 10 cerca de ${label}`:'Top 10 cerca de ti');
       try{
         const d=await api('/api/top-dives?'+new URLSearchParams({lat,lon,radius}));
+        if(mine!==seq||!alive()) return;
         const items=d.items||[];
-        status.innerHTML=items.length?(d.has_reviews?'Ordenado por la valoración de los centros que bucean en cada punto y por cercanía.':'Aún no hay reseñas en esta zona: el orden combina el catálogo y la cercanía.'):'';
-        const nx=d.nearest; const bigger=[...$('#tt-radius').options].map(o=>+o.value).find(v=>nx&&v>=nx.distance_km);
-        list.innerHTML=items.length?items.map(top10Card).join(''):`<div class="empty cd-empty"><h3>No hay puntos a menos de ${radius} km</h3>${nx?`<p>El punto de buceo más cercano es <a href="${pointHref(nx.id)}">${escapeHtml(nx.name)}</a> (${escapeHtml([nx.subregion||nx.region,nx.country].filter(Boolean).join(', '))}), a ${Math.round(nx.distance_km).toLocaleString(wdLocale())} km.</p>${bigger?`<button type="button" class="btn btn-primary" id="tt-widen" data-r="${bigger}">Ver el Top 10 a ${bigger} km</button>`:''}`:'<p>Amplía el radio o elige otra zona.</p>'}</div>`;
-        $('#tt-widen')?.addEventListener('click',e=>{ $('#tt-radius').value=e.target.dataset.r; load(last.lat,last.lon,last.label,last.acc); });
-      }catch(e){ list.innerHTML=`<div class="empty cd-empty"><h3>No hemos podido calcular el Top 10</h3><p>${escapeHtml(e.message)}</p></div>`; }
+        title.textContent=translateString(label?`Top 10 cerca de ${label}`:'Top 10 cerca de ti');
+        sub.textContent=translateString(d.auto?`Los mejores buceos a menos de ${d.radius_km} km`:`Hasta ${radius} km a la redonda`)+(acc&&acc>5000?' · '+translateString(`tu ubicación es aproximada (± ${Math.round(acc/1000)} km)`):'')+'.';
+        status.innerHTML=items.length?escapeHtml(translateString(d.has_reviews?'Ordenado por la valoración de los centros que bucean en cada punto y por cercanía.':'Aún no hay reseñas en esta zona: el orden combina el catálogo y la cercanía.')):'';
+        const nx=d.nearest;
+        list.removeAttribute('aria-busy');
+        list.innerHTML=items.length?items.map(top10Card).join(''):`<div class="empty cd-empty"><h3>No hay puntos a menos de ${radius} km</h3>${nx?`<p>El punto de buceo más cercano es <a href="${pointHref(nx.id)}">${escapeHtml(nx.name)}</a> (${escapeHtml([nx.subregion||nx.region,nx.country].filter(Boolean).join(', '))}), a ${escapeHtml(wdKm(nx.distance_km))}.</p>`:''}<button type="button" class="btn btn-primary" id="tt-auto">Ver lo más cerca</button></div>`;
+        $('#tt-auto')?.addEventListener('click',()=>{ radiusSel.value='auto'; load(lat,lon,label,acc); });
+        translateTree(list);
+      }catch(e){ if(mine===seq&&alive()) failed(e.message); }
     };
-    $('#tt-radius').onchange=()=>{ if(last) load(last.lat,last.lon,last.label,last.acc); };
-    // Ubicación precisa: se escucha el GPS unos segundos y se queda la lectura más precisa. Si el navegador solo da una
-    // posición aproximada (por la conexión a internet, típica en ordenadores), no se calcula un ranking engañoso: se avisa.
-    let watchId=null;
-    const stopWatch=()=>{ if(watchId!=null){ try{ navigator.geolocation.clearWatch(watchId); }catch{} watchId=null; } };
-    const kmTxt=m=>m>=1000?`${Math.round(m/1000).toLocaleString(wdLocale())} km`:`${Math.round(m)} m`;
-    const imprecise=(pos)=>{ const {latitude:la,longitude:lo,accuracy:acc}=pos.coords;
-      title.textContent='Tu ubicación no es precisa'; sub.textContent=`Tu navegador solo sabe dónde estás con un margen de ± ${kmTxt(acc)}.`;
-      list.innerHTML=''; status.innerHTML=`<div class="tt-warn">${wdIcon('alert',20)}<div><strong>Así no podemos saber qué tienes cerca.</strong><p>Tu navegador ha calculado una ubicación aproximada (± ${kmTxt(acc)}), seguramente a partir de tu conexión a internet y no del GPS. Pasa a menudo en ordenadores. Para ver de verdad los puntos más cercanos, elige tu posición en el mapa o escribe tu localidad.</p>
-        <div class="tt-warn-actions"><button type="button" class="btn btn-primary" id="tt-warn-pick">${wdIcon('map',15)} Elegir en el mapa</button><button type="button" class="btn" id="tt-warn-search">${wdIcon('search',15)} Escribir mi localidad</button><button type="button" class="btn tt-warn-anyway" id="tt-warn-anyway">Usar igualmente</button></div></div></div>`;
-      translateTree(status);
-      $('#tt-warn-pick').onclick=()=>pick({lat:la,lon:lo}); $('#tt-warn-search').onclick=()=>{ $('#tt-q').focus(); $('#tt-q').scrollIntoView({behavior:'smooth',block:'center'}); };
-      $('#tt-warn-anyway').onclick=()=>load(la,lo,'',acc);
+    // The best of the launch country: for a visitor who did not share the location (or it failed or took too long).
+    const loadHome=async note=>{
+      const mine=++seq; last={retry:()=>loadHome(note)}; pressZone('');
+      loading('Top 10 de España','');
+      try{
+        const d=await api('/api/top-dives?scope=home');
+        if(mine!==seq||!alive()) return;
+        title.textContent=translateString(`Top 10 de ${d.home_country||'España'}`);
+        sub.textContent=translateString('Los mejores buceos según la valoración de los centros que bucean en cada punto.');
+        status.innerHTML=`<div class="tt-note">${wdIcon('pin',18)}<p>${escapeHtml(translateString(note||'Activa la ubicación para ver los mejores buceos cerca de ti.'))}</p><button type="button" class="btn btn-sm btn-primary" id="tt-note-locate">Usar mi ubicación</button></div>`;
+        $('#tt-note-locate').onclick=()=>{ wdLocation.forget(); locate(); };
+        list.removeAttribute('aria-busy');
+        list.innerHTML=(d.items||[]).length?d.items.map(top10Card).join(''):'<div class="empty cd-empty"><h3>Todavía no hay puntos de buceo</h3></div>';
+        translateTree(status); translateTree(list);
+      }catch(e){ if(mine===seq&&alive()) failed(e.message); }
     };
-    const locate=()=>{
-      if(!navigator.geolocation){ status.textContent='Tu navegador no permite obtener la ubicación. Elige en el mapa o escribe tu localidad.'; return; }
-      stopWatch(); title.textContent='Buscando tu ubicación…'; sub.textContent='Puede tardar unos segundos. Si te lo pide, permite el acceso a la ubicación.';
-      $$('#tt-zones .cd-chip').forEach(x=>x.setAttribute('aria-pressed','false'));
-      let best=null, done=false;
-      const finish=()=>{ if(done) return; done=true; stopWatch(); clearTimeout(timer);
-        if(!best){ title.textContent='Ubicación no disponible'; sub.textContent='No se ha podido obtener. Elige en el mapa o escribe tu localidad.'; return; }
-        remember({geo:true}); const acc=best.coords.accuracy;
-        if(acc>20000) imprecise(best); else load(best.coords.latitude,best.coords.longitude,'',acc);
-      };
-      const timer=setTimeout(finish,12000);
-      watchId=navigator.geolocation.watchPosition(pos=>{ if(!best||pos.coords.accuracy<best.coords.accuracy) best=pos; sub.textContent=`Afinando tu ubicación… ± ${kmTxt(best.coords.accuracy)}`; if(pos.coords.accuracy<=100) finish(); },
-        err=>{ if(best){ finish(); return; } done=true; stopWatch(); clearTimeout(timer); title.textContent='Ubicación no disponible'; sub.textContent=err&&err.code===1?'Has denegado el permiso de ubicación. Elige en el mapa o escribe tu localidad.':'No se ha podido obtener. Elige en el mapa o escribe tu localidad.'; },
-        {enableHighAccuracy:true,maximumAge:0,timeout:12000});
+    // The visitor's position: allowed → nearby Top 10; denied, failed or more than 8 seconds → the country's Top 10.
+    // If the answer arrives after those 8 seconds, the nearby Top 10 replaces it.
+    const locate=async()=>{
+      remember(null); pressZone(''); userChose=false;
+      loading('Buscando tu ubicación…','Si te lo pide, permite el acceso a la ubicación. Tu ubicación solo se usa para calcular este ranking: no la guardamos.');
+      const mine=seq;
+      try{ const pos=await wdLocation.get({timeout:8000,onLate:pos=>{ if(alive()&&!userChose) load(pos.lat,pos.lon,'',pos.accuracy); }});
+        if(alive()&&mine===seq) load(pos.lat,pos.lon,'',pos.accuracy); }
+      catch(e){ if(alive()&&mine===seq) loadHome(e.code==='timeout'?'Tu ubicación está tardando demasiado. Mientras, estos son los mejores de España: pulsa «Usar mi ubicación» para volver a intentarlo.':e.code==='denied'?'Activa la ubicación para ver los mejores buceos cerca de ti.':wdLocation.message(e.code)); }
     };
-    let layerItems=[];
-    const pick=start=>wdPickOnMap({start:start||last,onPick:(la,lo)=>{ const np=wdNearestPlace(layerItems,la,lo); const lab=np&&np.km<40?np.name:''; remember({pick:{lat:la,lon:lo,label:lab}}); $$('#tt-zones .cd-chip').forEach(x=>x.setAttribute('aria-pressed','false')); load(la,lo,lab); }});
-    $('#tt-locate').onclick=locate; $('#tt-pick').onclick=()=>pick();
+    const choose=fn=>{ userChose=true; fn(); };
+    radiusSel.onchange=()=>last?.retry?.();
+    $('#tt-locate').onclick=()=>{ wdLocation.forget(); locate(); };
+    $('#tt-pick').onclick=()=>wdPickOnMap({start:wdLocation.current(),onPick:(la,lo)=>choose(()=>{ pressZone(''); load(la,lo,translateString('el punto elegido')); })});
+    // Zones and localities come from the server (small list), not from the whole catalogue.
+    let areas=[], places=[];
+    try{ const z=await api('/api/dive-areas'); areas=(z.areas||[]).slice(0,12); places=z.places||[]; }catch{}
+    if(!alive()) return;
+    $('#tt-zones').innerHTML=areas.map(a=>`<button type="button" class="cd-chip" data-name="${escapeHtml(a.name)}" aria-pressed="false">${escapeHtml(a.name)}</button>`).join('');
+    $$('#tt-zones .cd-chip').forEach(b=>b.onclick=()=>{ const a=areas.find(x=>x.name===b.dataset.name); if(!a) return; choose(()=>{ remember({area:a.name}); pressZone(a.name); load(a.lat,a.lon,a.name); }); });
     $('#tt-search').onsubmit=async e=>{ e.preventDefault(); const q=$('#tt-q').value.trim(); if(!q) return; const f=wdFold(q);
       const local=places.find(p=>wdFold(p.name)===f)||places.find(p=>wdFold(p.name).startsWith(f));
-      if(local){ remember({pick:{lat:local.lat,lon:local.lon,label:local.name}}); load(local.lat,local.lon,local.name); return; }
-      try{ title.textContent='Buscando la localidad…'; const g=await wdGeocode(q); if(!g){ title.textContent='No hemos encontrado esa localidad'; sub.textContent='Prueba con otro nombre o elige en el mapa.'; return; }
-        remember({pick:g}); load(g.lat,g.lon,g.label); }catch(err){ title.textContent='No se ha podido buscar'; sub.textContent='Comprueba la conexión o elige en el mapa.'; } };
-    let places=[];
-    // Zonas: centro de cada subzona con más puntos, calculado de la capa del mapa.
-    let areas=[];
-    try{ const layer=await loadMapLayer(); layerItems=layer.items; const by={}; layer.items.forEach(p=>{ const k=p.subregion||p.region||p.country; if(!k) return; const a=by[k]??={name:k,lat:0,lon:0,n:0}; a.lat+=Number(p.latitude); a.lon+=Number(p.longitude); a.n++; }); areas=Object.values(by).filter(a=>a.n>=3).sort((a,b)=>b.n-a.n).slice(0,10).map(a=>({name:a.name,lat:a.lat/a.n,lon:a.lon/a.n}));
-      const pl={}; layer.items.forEach(p=>{ String(p.subregion||'').split('·').map(s=>s.trim()).filter(Boolean).forEach(k=>{ const a=pl[k]??={name:k,lat:0,lon:0,n:0}; a.lat+=Number(p.latitude); a.lon+=Number(p.longitude); a.n++; }); });
-      places=Object.values(pl).map(a=>({name:a.name,lat:a.lat/a.n,lon:a.lon/a.n})).sort((a,b)=>a.name.localeCompare(b.name));
-      $('#tt-places').innerHTML=places.map(p=>`<option value="${escapeHtml(p.name)}"></option>`).join(''); }catch{}
-    $('#tt-zones').innerHTML=areas.map((a,i)=>`<button type="button" class="cd-chip" data-i="${i}" aria-pressed="false">${escapeHtml(a.name)}</button>`).join('');
-    $$('#tt-zones .cd-chip').forEach(b=>b.onclick=()=>{ const a=areas[+b.dataset.i]; $$('#tt-zones .cd-chip').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); remember({area:a.name}); load(a.lat,a.lon,a.name); });
+      if(local){ choose(()=>{ remember({place:{name:local.name,lat:local.lat,lon:local.lon}}); pressZone(''); load(local.lat,local.lon,local.name); }); return; }
+      loading('Buscando la localidad…');
+      try{ const g=await wdGeocode(q); if(!g){ title.textContent=translateString('No hemos encontrado esa localidad'); sub.textContent=translateString('Prueba con otro nombre o elige en el mapa.'); list.innerHTML=''; list.removeAttribute('aria-busy'); return; }
+        choose(()=>{ remember({place:{name:g.label,lat:g.lat,lon:g.lon}}); pressZone(''); load(g.lat,g.lon,g.label); }); }
+      catch{ title.textContent=translateString('No se ha podido buscar'); sub.textContent=translateString('Comprueba la conexión o elige en el mapa.'); list.innerHTML=''; list.removeAttribute('aria-busy'); } };
     let saved=null; try{ saved=JSON.parse(localStorage.getItem('wd_top10')||'null'); }catch{}
     const lat=Number(params.get('lat')), lon=Number(params.get('lon'));
-    if(Number.isFinite(lat)&&Number.isFinite(lon)&&params.get('lat')) load(lat,lon,params.get('label')||'');
-    else if(saved?.area){ const i=areas.findIndex(a=>a.name===saved.area); if(i>=0) $$('#tt-zones .cd-chip')[i].click(); }
-    else if(saved?.pick&&Number.isFinite(+saved.pick.lat)) load(+saved.pick.lat,+saved.pick.lon,saved.pick.label||'');
-    else if(saved?.geo) locate();
-    else if(areas[0]){ status.textContent='Pulsa «Usar mi ubicación» o elige una zona para ver su Top 10.'; }
+    if(params.get('lat')&&Number.isFinite(lat)&&Number.isFinite(lon)) choose(()=>load(lat,lon,params.get('label')||''));
+    else if(saved?.area&&areas.some(a=>a.name===saved.area)) $$('#tt-zones .cd-chip').find(x=>x.dataset.name===saved.area)?.click();
+    else if(saved?.place&&Number.isFinite(+saved.place.lat)) choose(()=>load(+saved.place.lat,+saved.place.lon,saved.place.name||''));
+    else{
+      // This section needs the location: it is asked here, unless the visitor already said no (then the button stays).
+      const perm=await wdLocation.permission(); if(!alive()) return;
+      if(perm==='granted'||perm==='prompt') locate();
+      else loadHome(perm==='denied'?'Activa la ubicación para ver los mejores buceos cerca de ti.':wdLocation.message(perm));
+    }
   }
 
   async function renderProfessional(params){ const id=Number(params.get('id')||0); if(!id){setApp('<section class="page"><div class="empty"><h2>Profesional no encontrado</h2></div></section>');return;} const p=await api('/api/providers/'+id); const c=p.center||{}; const socialSource=p.role==='freelance'?p.socials:c; const socials=[['instagram_url','Instagram','◎'],['facebook_url','Facebook','f'],['twitter_url','X / Twitter','𝕏'],['youtube_url','YouTube','▶'],['tiktok_url','TikTok','♪']].filter(x=>socialSource&&socialSource[x[0]]); setApp(`<section class="page"><div class="breadcrumb"><a href="#/experiencias">Experiencias</a> / Profesional</div><div class="detail"><article class="detail-main"><p class="eyebrow">${p.role==='center'?'CENTRO DE BUCEO':'PROFESIONAL / FREELANCE'}</p><div style="display:flex;align-items:center;gap:16px">${p.role==='center'?centerLogoMarkup(c,'84px'):(p.avatar_url?`<img src="${escapeHtml(p.avatar_url)}" alt="" style="width:84px;height:84px;object-fit:cover;border-radius:50%">`: '')}<h1>${escapeHtml(c.name||p.fullname)}</h1></div>${c.city?`<div class="point-meta"><span class="meta-badge">${escapeHtml(c.city)}</span><span class="meta-badge">${escapeHtml(c.country||'')}</span></div>`:''}<p class="lead">${escapeHtml(c.description||p.provider_bio||'Profesional de buceo en WORLDIVES DISCOVERY.')}</p>${socials.length?`<div class="provider-socials">${socials.map(x=>`<a class="social-chip" href="${escapeHtml(socialSource[x[0]])}" target="_blank" rel="noopener noreferrer"><span>${x[2]}</span>${x[1]}</a>`).join('')}</div>`:''}<div class="data-grid"><div class="data-item"><span>Especialidad</span><strong>${escapeHtml(c.specialties||'Buceo y experiencias')}</strong></div><div class="data-item"><span>Web</span><strong>${c.website?`<a href="${escapeHtml(c.website)}" target="_blank" rel="noopener">Visitar</a>`:'—'}</strong></div><div class="data-item"><span>Contacto</span><strong>${escapeHtml(c.email||c.phone||'Disponible a través de WORLDIVES DISCOVERY')}</strong></div></div><div id="pro-services"></div><div class="page-actions"><a class="btn" href="#\/experiencias">Volver a experiencias</a></div></article></div></section>`);
     // Fase 2.7: a freelance professional without a centre takes bookings (and online payments) for his own services.
-    if(p.role==='freelance'){ try{ const sv=(await api('/api/provider-services?provider_id='+id)).items.filter(x=>!x.center_id&&x.service_type!=='alquiler_equipo'); const m=$('#pro-services');
-      if(m&&sv.length){ m.innerHTML=`<h2 style="margin-top:26px">Servicios</h2><div class="cp-services">${sv.map(x=>`<article class="cp-service"><div><strong>${escapeHtml(x.title)}</strong><small>${escapeHtml(x.mode_label||'')}</small>${x.description?`<p>${escapeHtml(x.description)}</p>`:''}</div><div class="cp-service-side"><b>${wdMoney(x.price,x.currency)}</b><small>por persona</small>${(x.slots||[]).length&&x.bookable!==false?`<a class="btn btn-primary cp-book" href="#/reservar?provider=${id}&service=${x.id}">${x.booking_mode==='payment'?'Reservar y pagar':'Enviar solicitud'}</a>`:'<small>Sin salidas programadas</small>'}</div></article>`).join('')}</div>`; translateTree(m); } }catch{}
+    if(p.role==='freelance'){ try{ const sv=(await api('/api/provider-services?provider_id='+id+'&lang='+currentLanguage())).items.filter(x=>!x.center_id&&x.service_type!=='alquiler_equipo'); const m=$('#pro-services');
+      if(m&&sv.length){ m.innerHTML=`<h2 style="margin-top:26px">Servicios</h2><div class="cp-services">${sv.map(x=>wdServiceCard(x,{kicker:wdServiceKicker(x,''),meta:wdModeTag(x),desc:x.description,price:wdPriceBlock(x.price,x.currency,['day','half_day'].includes(x.booking_unit)?'por día':'por persona'),
+          actions:(x.slots||[]).length&&x.bookable!==false?`<a class="btn btn-primary cp-book" href="#/reservar?provider=${id}&service=${x.id}">${x.booking_mode==='payment'?'Reservar y pagar':'Enviar solicitud'}</a>`:'<small class="svc2-note">Sin salidas programadas</small>'})).join('')}</div>`; translateTree(m); } }catch{}
       const m=$('#pro-services');
       if(p.online_booking===false&&m){ m.querySelectorAll('a.cp-book').forEach(x=>x.remove()); m.insertAdjacentHTML('beforeend',`<div class="notice" style="margin-top:16px">${wdIcon('info',16)} Este profesional todavía no tiene reserva online en WORLDIVES. <button type="button" class="btn btn-primary" id="pro-info">Solicitar información</button></div>`); translateTree(m);
         $('#pro-info').onclick=()=>openInfoRequest({provider_user_id:id,name:p.fullname}); }
@@ -1947,7 +2135,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let root=$('.bk-page'); const alive=()=>document.body.contains(root);
     const none=Promise.resolve({items:[]});
     // A freelance professional without a centre (Fase 2.7) is booked like a centre without equipment or extras.
-    const [cR,sR,eR,xR]=await Promise.allSettled(cid?[api('/api/centers/'+cid),api('/api/provider-services?provider_id=0&center_id='+cid),api('/api/center-equipment?center_id='+cid),api('/api/center-extras?center_id='+cid)]
+    const [cR,sR,eR,xR]=await Promise.allSettled(cid?[api('/api/centers/'+cid),api('/api/provider-services?provider_id=0&center_id='+cid+'&lang='+currentLanguage()),api('/api/center-equipment?center_id='+cid),api('/api/center-extras?center_id='+cid)]
       :[api('/api/providers/'+providerId).then(p=>({item:{id:0,name:p.fullname,city:'',country:'',logo_url:p.avatar_url||'',cover_url:'',freelance:true,online_booking:p.online_booking}})),api('/api/provider-services?provider_id='+providerId),none,none]);
     if(!alive()) return;
     if(cR.status!=='fulfilled'){ setApp(`<section class="page"><div class="empty"><h2>Centro no encontrado</h2><p>Puede que ya no esté publicado.</p><a class="btn btn-primary" href="#/reservar">Elegir otro centro</a></div></section>`); return; }
@@ -1983,6 +2171,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       </div></header>
       <div class="bk-layout">
         <div class="bk-main">
+          <div id="bk-svc-head" aria-live="polite"></div>
           <section class="bk-step" data-step="1"><header><span class="bk-num">1</span><div><h2>Elige la actividad</h2><p>Precio por persona.</p></div></header><div class="bk-services" id="bk-services"></div></section>
           <section class="bk-step" data-step="2"><header><span class="bk-num">2</span><div><h2>Fecha y hora</h2><p id="bk-date-hint">Elige primero la actividad.</p></div></header>
             <div class="bk-points" id="bk-points"></div><div class="bk-dates-wrap"><button type="button" class="bk-scroll" data-dir="-1" aria-label="Fechas anteriores">‹</button><div class="bk-dates" id="bk-dates"></div><button type="button" class="bk-scroll" data-dir="1" aria-label="Más fechas">›</button></div><div class="bk-times" id="bk-times"></div></section>
@@ -2071,7 +2260,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const refreshQuote=()=>{ clearTimeout(qTimer); qTimer=setTimeout(async()=>{ const s=svc(); if(!s){ quote=null; drawSummary(); return; } const my=++qSeq;
       const q=new URLSearchParams({center_id:String(cid||0),service_id:String(s.id),slot_id:String(st.slot||0),participants:String(st.pax),extras:[...st.extras].join(','),equipment:equipCodes().join(',')});
       try{ const r=await api('/api/booking-quote?'+q); if(my!==qSeq||!alive()) return; quote=r; }catch{ quote=null; } drawSummary(); },120); };
-    const redraw=()=>{ drawServices(); drawPoints(); drawDates(); drawPax(); drawEquip(); drawSummary(); refreshQuote(); };
+    // v50.53: the chosen activity at the head of the page, with its photo and its whole name (the cards cut it at two lines).
+    const drawHead=()=>{ const s=svc(), box=$('#bk-svc-head'); if(!box) return;
+      box.innerHTML=s?wdServiceCard(s,{kicker:wdServiceKicker(s,(SERVICE_TYPES.find(x=>x.value===s.service_type)||{}).label),meta:wdModeTag(s),desc:s.description,heading:'h2',cls:'is-head',eager:true,
+        price:wdPriceBlock(s.price,s.currency,['day','half_day'].includes(s.booking_unit)?'por día':'por persona')}):''; if(s) translateTree(box); };
+    const redraw=()=>{ drawHead(); drawServices(); drawPoints(); drawDates(); drawPax(); drawEquip(); drawSummary(); refreshQuote(); };
     // ---- events
     root.addEventListener('click',e=>{ const t=e.target.closest('button'); if(!t||!root.contains(t)) return;
       if(t.matches('.bk-svc')&&['day','half_day'].includes(services.find(s=>s.id===+t.dataset.id)?.booking_unit)){ location.hash='#/reservar-dias?service='+t.dataset.id; return; }
@@ -3307,7 +3500,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     file:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
     target:'<circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
     card:'<rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19M6.5 15h4"/>',
-    relief:'<path d="m2.5 17 5.5-7 4 4.5 3-3.5 6.5 6"/><path d="M2.5 20.5c2 0 2-1 4-1s2 1 4 1 2-1 4-1 2 1 4 1 2-1 3-1"/>'
+    relief:'<path d="m2.5 17 5.5-7 4 4.5 3-3.5 6.5 6"/><path d="M2.5 20.5c2 0 2-1 4-1s2 1 4 1 2-1 4-1 2 1 4 1 2-1 3-1"/>',
+    close:'<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'
   };
   const wdIcon=(name,size=20)=>`<svg class="wd-icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${WD_ICON_PATHS[name]||WD_ICON_PATHS.extra}</svg>`;
   const SERVICE_TYPES=[
@@ -3327,17 +3521,6 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const wdModeLabel=(mode,hours)=>mode==='payment'?'Pago al reservar · confirmación inmediata':`Bajo petición · el centro responde en ${Number(hours)||24} h`;
   const wdModeTag=s=>{ if(!s) return ''; const pay=s.booking_mode==='payment'; const off=s.bookable===false; return `<span class="wd-mode ${pay?'is-pay':'is-req'} ${off?'is-off':''}" title="${escapeHtml(off?(s.unavailable_reason||'No se puede reservar ahora mismo'):'')}">${wdIcon(pay?'card':'inbox',13)}${escapeHtml(s.mode_label||wdModeLabel(s.booking_mode,s.response_hours))}${off?' · no disponible':''}</span>`; };
   const TRIP_TYPES=new Set(['viaje','vida_a_bordo']);
-  // Default templates: «Pago al reservar» where it makes sense and the provider has online payments, otherwise «Bajo petición»
-  // (booking_mode 'auto' is resolved when the template is used).
-  const SERVICE_TEMPLATES=[
-    {name:'Buceo simple',title:'Buceo simple',service_type:'inmersion',duration_minutes:120,max_participants:12,booking_mode:'auto',color:'#0891b2'},
-    {name:'Buceo doble',title:'Buceo doble',service_type:'inmersion',duration_minutes:240,max_participants:12,booking_mode:'auto',color:'#2563eb'},
-    {name:'Bautizo de buceo',title:'Bautizo de buceo',service_type:'experiencia',duration_minutes:150,max_participants:4,booking_mode:'request',color:'#059669'},
-    {name:'Curso Open Water',title:'Curso Open Water',service_type:'curso',duration_minutes:0,max_participants:4,booking_mode:'auto',color:'#d97706'},
-    {name:'Curso Advanced',title:'Curso Advanced',service_type:'curso',duration_minutes:0,max_participants:4,booking_mode:'auto',color:'#ea580c'},
-    {name:'Viaje de buceo',title:'Viaje de buceo',service_type:'viaje',duration_minutes:0,max_participants:10,booking_mode:'request',color:'#7c3aed'},
-    {name:'Alquiler de equipo',title:'Alquiler de equipo',service_type:'alquiler_equipo',duration_minutes:0,max_participants:0,booking_mode:'request',color:'#475569'}
-  ];
   const svcUi={tab:'services',q:'',type:'all'};
 
   // Shared formatting for the professional panel.
@@ -3381,7 +3564,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     try{
       const isCenter=role==='center';
       const centerId=isCenter?(state.me?.user?.center_id||0):0;
-      const [d, assignedResult, tariffResult, extrasResult, equipmentResult, ownTplResult, expResult, payResult]=await Promise.all([
+      const [d, assignedResult, tariffResult, extrasResult, equipmentResult, ownTplResult, expResult, payResult, catResult]=await Promise.all([
         api('/api/provider-services?provider_id='+providerId+'&include_inactive=1'),
         isCenter?api('/api/center-points?center_id='+centerId):{items:[]},
         isCenter?api('/api/center/tariffs'):{items:[]},
@@ -3389,9 +3572,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         isCenter?api('/api/center-equipment?center_id='+centerId):{items:[]},
         api('/api/service-templates').catch(()=>({items:[]})),
         api('/api/provider/experiences').catch(()=>({destinations:[]})),
-        api('/api/payments/connect-status').catch(()=>({ready:false}))
+        api('/api/payments/connect-status').catch(()=>({ready:false})),
+        api('/api/service-catalog?lang='+currentLanguage()).catch(()=>({items:[],neutral:null}))
       ]);
-      const payReady=!!payResult.ready;
+      // The same rule as the server (center_payments_ready): the centre's Stripe account AND the platform's keys.
+      const payReady=!!(payResult.ready&&payResult.platform_ready);
+      // v50.53: the templates of «Administración → Plantillas de servicios» (name, text, duration and photo).
+      const catalog=catResult.items||[], neutralPhoto=catResult.neutral||null;
       const resolveMode=m=>m==='auto'||m==='instant'?(payReady?'payment':'request'):(m==='payment'&&!payReady?'request':m);
       const items=(d.items||[]).slice().sort((a,b)=>(Number(b.active)-Number(a.active))||String(a.title).localeCompare(String(b.title),'es'));
       const assigned=assignedResult.items||[], tariffs=tariffResult.items||[], extras=extrasResult.items||[], equipment=equipmentResult.items||[];
@@ -3471,7 +3658,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           </footer>
         </article>`;
       };
-      const allTemplates=()=>[...ownTemplates.map(t=>({...t,own:true})),...SERVICE_TEMPLATES];
+      const allTemplates=()=>[...ownTemplates.map(t=>({...t,own:true})),...catalog.map(t=>({name:t.name,title:t.name,service_type:t.service_type,description:t.description,duration_minutes:t.duration_minutes,max_participants:t.max_participants,booking_mode:t.booking_mode,color:t.color,template_id:t.id}))];
       const emptyServices=()=>`<div class="svc-empty"><span class="svc-empty-icon">${wdIcon('inmersion',30)}</span><h3>Crea tu primer servicio</h3><p>Un servicio es lo que vendes: un buceo, un bautizo, un curso, un viaje o el alquiler de equipo. Después le añades salidas con fecha, hora y plazas.</p><button type="button" class="btn btn-primary new-center-service">+ Crear servicio</button><div class="svc-empty-templates"><small>O empieza con una plantilla</small><div>${allTemplates().map((t,i)=>`<button type="button" class="svc-template" data-template="${i}">${wdIcon(t.service_type,16)}${esc(t.name)}</button>`).join('')}</div></div></div>`;
       const filtered=()=>{const q=svcUi.q.trim().toLowerCase(); return items.filter(s=>(svcUi.type==='all'||s.service_type===svcUi.type)&&(!q||`${s.title} ${s.description||''} ${typeOf(s.service_type).label}`.toLowerCase().includes(q)));};
       const presentTypes=[...new Set(items.map(s=>s.service_type))];
@@ -3552,6 +3739,22 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             <label class="svc-check"><input type="checkbox" id="svc-waitlist" ${src.waitlist_enabled===0?'':'checked'}><span><strong>Lista de espera en las salidas completas</strong><small>Si queda una plaza, se le guarda 2 horas a la primera persona de la lista.</small></span></label></fieldset>
           <fieldset class="svc-fieldset"><legend>Color en el planning <em id="svc-color-name">${esc((SERVICE_COLOR_PALETTE.find(c=>c.value===curColor)||SERVICE_COLOR_PALETTE[0]).label)}</em></legend><div class="svc-swatches">${SERVICE_COLOR_PALETTE.map(c=>`<label class="svc-swatch" title="${esc(c.label)}"><input type="radio" name="svc-color" value="${c.value}" ${c.value===curColor?'checked':''} aria-label="${esc(c.label)}"><span style="background:${c.value}"></span></label>`).join('')}</div></fieldset>
           <div class="svc-field"><label for="svc-description">Descripción para el cliente</label><textarea id="svc-description" rows="3" maxlength="5000" placeholder="Qué incluye, nivel necesario, punto de encuentro…">${esc(src.description||'')}</textarea></div>
+          <fieldset class="svc-fieldset svc-photo" id="svc-photo"><legend>Foto de la tarjeta</legend>
+            ${existing?.photo_note?`<div class="notice svc-photo-note">${wdIcon('alert',16)} ${esc(existing.photo_note)}</div>`:''}
+            ${existing?.photo_error?`<div class="notice svc-photo-note">${wdIcon('alert',16)} ${esc(translateString('La foto no se ha podido preparar: {x}').replace('{x}',translateString(existing.photo_error)))}</div>`:''}
+            <div class="svc-field"><label for="svc-template">Plantilla</label><select id="svc-template"><option value="">Sin plantilla (foto neutra)</option>${catalog.map(t=>`<option value="${t.id}" ${Number(src.template_id||existing?.template?.id||0)===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select><small>La foto de la plantilla la elige la administración: si la cambia, tu tarjeta cambia con ella.</small></div>
+            <div class="svc-photo-modes" role="radiogroup" aria-label="Foto de la tarjeta">
+              <label class="svc-check"><input type="radio" name="svc-photo-mode" value="template" ${existing?.photo_mode==='own'?'':'checked'}><span><strong>Usar la foto de la plantilla</strong><small>Recomendado.</small></span></label>
+              <label class="svc-check"><input type="radio" name="svc-photo-mode" value="own" ${existing?.photo_mode==='own'?'checked':''}><span><strong>Subir mi propia foto</strong><small>JPG, PNG o WEBP de hasta 6 MB. Quitamos los datos ocultos de la cámara (ubicación GPS incluida).</small></span></label>
+            </div>
+            <div class="svc-photo-own" id="svc-photo-own" hidden>
+              <div class="svc-field"><label for="svc-photo-file">Tu foto</label><input type="file" id="svc-photo-file" accept="image/jpeg,image/png,image/webp">${existing?.photo_status==='processing'?'<small>Estamos preparando tu foto: aparecerá en unos segundos.</small>':''}</div>
+              <label class="svc-check"><input type="checkbox" id="svc-photo-rights"><span>Declaro que tengo los derechos de esta imagen y que las personas que aparecen han dado su consentimiento.</span></label>
+              <small class="svc-photo-hint">Toca la vista previa o usa las flechas para elegir el punto de la foto que debe verse siempre.</small>
+              ${existing?.photo_mode==='own'?'<button type="button" class="btn btn-sm" id="svc-photo-back">Volver a la foto de la plantilla</button>':''}
+            </div>
+            <div class="svc-preview" role="group" aria-label="Vista previa de la tarjeta"><div><small>Tema claro</small><div id="svc-prev-light"></div></div><div><small>Tema oscuro</small><div id="svc-prev-dark"></div></div></div>
+          </fieldset>
           <div class="svc-publish ${publishDefault?'is-on':''}" id="svc-publish">
             <label class="svc-check"><input type="checkbox" id="svc-publish-exp" ${publishDefault?'checked':''}><span><strong>Publicar también en Experiencias</strong><small>Aparecerá en el destino que elijas con su precio y sus fechas, siempre actualizados desde aquí. Ideal para viajes y vida a bordo.</small></span></label>
             <div class="svc-publish-fields">
@@ -3579,11 +3782,34 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           if(e.target===destSel) syncPublish();
           if(e.target.name==='svc-mode') syncMode();
         }); syncType(); syncPublish(); syncMode(); wdBindUnitFieldset(el);
+        // v50.53 · Photo of the card: the template's (default) or the centre's own; preview in both looks before saving.
+        const tplSel=el.querySelector('#svc-template'), ownBox=el.querySelector('#svc-photo-own'), fileIn=el.querySelector('#svc-photo-file');
+        let localUrl='', focal=existing?.photo?.own?existing.photo.focal:'50,50', backToTemplate=false;
+        const photoMode=()=>form.querySelector('input[name="svc-photo-mode"]:checked')?.value||'template';
+        const previewPhoto=()=>{ if(photoMode()==='own'){ if(localUrl) return {src:localUrl,srcset:'',jpg:null,focal,veil:{light:0.86,dark:0.82}}; if(existing?.photo?.own&&!backToTemplate) return {...existing.photo,focal}; }
+          const t=catalog.find(x=>x.id===Number(tplSel.value)); return t?.photo||neutralPhoto; };
+        const drawPreview=()=>{ const t=catalog.find(x=>x.id===Number(tplSel.value)); const type=form.querySelector('input[name="svc-type"]:checked')?.value||'inmersion';
+          const s0={title:el.querySelector('#svc-title').value.trim()||translateString('Nombre del servicio'),service_type:type,color:form.querySelector('input[name="svc-color"]:checked')?.value,duration_minutes:durInput.value,template:t?{name:t.name}:null,photo:previewPhoto()};
+          const opts={kicker:wdServiceKicker(s0,(SERVICE_TYPES.find(x=>x.value===type)||{}).label),desc:el.querySelector('#svc-description').value.trim(),price:wdPriceBlock(el.querySelector('#svc-price')?.value||existing?.price||0,existing?.currency,'por persona'),actions:'<span class="btn btn-primary" aria-hidden="true">Reservar</span>'};
+          el.querySelector('#svc-prev-light').innerHTML=wdServiceCard(s0,opts); el.querySelector('#svc-prev-dark').innerHTML=wdServiceCard(s0,{...opts,cls:'is-dark'}); translateTree(el.querySelector('.svc-preview')); };
+        const syncPhoto=()=>{ ownBox.hidden=photoMode()!=='own'; drawPreview(); };
+        form.addEventListener('change',e=>{ if(e.target.name==='svc-photo-mode'||e.target===tplSel) syncPhoto(); else if(['svc-type','svc-color'].includes(e.target.name)) drawPreview(); });
+        ['#svc-title','#svc-description','#svc-duration'].forEach(q=>el.querySelector(q)?.addEventListener('input',()=>{ clearTimeout(drawPreview.t); drawPreview.t=setTimeout(drawPreview,200); }));
+        fileIn.onchange=()=>{ const f=fileIn.files[0]; if(localUrl){ URL.revokeObjectURL(localUrl); localUrl=''; }
+          if(f&&f.size>6*1024*1024){ toast('La foto pesa demasiado. Máximo 6 MB.'); fileIn.value=''; }
+          else if(f&&!/^image\/(jpeg|png|webp)$/.test(f.type)){ toast('Formato no admitido. Usa una foto JPG, PNG o WEBP.'); fileIn.value=''; }
+          else if(f){ localUrl=URL.createObjectURL(f); focal='50,50'; backToTemplate=false; }
+          drawPreview(); };
+        el.querySelector('#svc-photo-back')?.addEventListener('click',()=>{ backToTemplate=true; form.querySelector('input[name="svc-photo-mode"][value="template"]').checked=true; syncPhoto(); });
+        el.querySelector('.svc-preview').addEventListener('click',e=>{ const card=e.target.closest('.svc2'); if(!card||photoMode()!=='own') return; const r=card.getBoundingClientRect();
+          focal=`${Math.round((e.clientX-r.left)/r.width*100)},${Math.round((e.clientY-r.top)/r.height*100)}`; drawPreview(); });
+        wdFocalKeys(el.querySelector('.svc-preview'),()=>focal,v=>{ if(photoMode()!=='own') return; focal=v; drawPreview(); });
+        syncPhoto();
         durInput.oninput=()=>{el.querySelector('#svc-duration-hint').textContent=wdDuration(durInput.value)||'Opcional';};
         const formData=()=>({title:el.querySelector('#svc-title').value.trim(),service_type:form.querySelector('input[name="svc-type"]:checked')?.value||'inmersion',color:form.querySelector('input[name="svc-color"]:checked')?.value||SERVICE_COLOR_PALETTE[0].value,price:el.querySelector('#svc-price').value,duration_minutes:durInput.value,max_participants:el.querySelector('#svc-max').value,booking_mode:form.querySelector('input[name="svc-mode"]:checked')?.value||'request',response_hours:el.querySelector('#svc-resp-hours').value,payment_hours:el.querySelector('#svc-pay-hours').value,description:el.querySelector('#svc-description').value,
           deposit_type:el.querySelector('#svc-dep-type').value,deposit_value:el.querySelector('#svc-dep-value').value,
           cancel_free_hours:el.querySelector('#svc-pol-own').checked?el.querySelector('#svc-pol-h').value:'',cancel_refund_pct:el.querySelector('#svc-pol-own').checked?el.querySelector('#svc-pol-p').value:''});
-        const applyTemplate=t=>{ if(!t)return; if(t.title)el.querySelector('#svc-title').value=t.title; const ty=form.querySelector(`input[name="svc-type"][value="${t.service_type}"]`); if(ty)ty.checked=true; const mo=form.querySelector(`input[name="svc-mode"][value="${resolveMode(t.booking_mode)}"]`); if(mo&&!mo.disabled)mo.checked=true; if(t.response_hours)el.querySelector('#svc-resp-hours').value=t.response_hours; if(t.payment_hours)el.querySelector('#svc-pay-hours').value=t.payment_hours; syncMode(); const c=form.querySelector(`input[name="svc-color"][value="${t.color}"]`); if(c){c.checked=true; el.querySelector('#svc-color-name').textContent=SERVICE_COLOR_PALETTE.find(x=>x.value===t.color)?.label||'';} durInput.value=t.duration_minutes||''; durInput.oninput(); el.querySelector('#svc-max').value=t.max_participants||''; const pr=el.querySelector('#svc-price'); if(pr.type!=='hidden'&&t.price!=null&&t.price!=='')pr.value=t.price; if(t.description!=null)el.querySelector('#svc-description').value=t.description||''; syncType(); if(!el.dataset.pubTouched){pubChk.checked=TRIP_TYPES.has(t.service_type); syncPublish();} el.dataset.dirty='1'; };
+        const applyTemplate=t=>{ if(!t)return; if(t.template_id&&tplSel){ tplSel.value=String(t.template_id); } if(t.title)el.querySelector('#svc-title').value=t.title; const ty=form.querySelector(`input[name="svc-type"][value="${t.service_type}"]`); if(ty)ty.checked=true; const mo=form.querySelector(`input[name="svc-mode"][value="${resolveMode(t.booking_mode)}"]`); if(mo&&!mo.disabled)mo.checked=true; if(t.response_hours)el.querySelector('#svc-resp-hours').value=t.response_hours; if(t.payment_hours)el.querySelector('#svc-pay-hours').value=t.payment_hours; syncMode(); const c=form.querySelector(`input[name="svc-color"][value="${t.color}"]`); if(c){c.checked=true; el.querySelector('#svc-color-name').textContent=SERVICE_COLOR_PALETTE.find(x=>x.value===t.color)?.label||'';} durInput.value=t.duration_minutes||''; durInput.oninput(); el.querySelector('#svc-max').value=t.max_participants||''; const pr=el.querySelector('#svc-price'); if(pr.type!=='hidden'&&t.price!=null&&t.price!=='')pr.value=t.price; if(t.description!=null)el.querySelector('#svc-description').value=t.description||''; syncType(); if(!el.dataset.pubTouched){pubChk.checked=TRIP_TYPES.has(t.service_type); syncPublish();} el.dataset.dirty='1'; drawPreview(); };
         const tplBar=el.querySelector('#svc-tpl-bar');
         const bindTplBar=()=>{ if(!tplBar)return; tplBar.innerHTML=tplChips();
           $$('.svc-tpl-use',tplBar).forEach(b=>b.onclick=()=>{ $$('.svc-tpl',tplBar).forEach(x=>x.classList.remove('is-active')); b.parentElement.classList.add('is-active'); applyTemplate(allTemplates()[+b.dataset.template]); el.querySelector('#svc-price')?.focus(); });
@@ -3605,9 +3831,17 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           if(publish&&!destSel.value){destSel.focus();toast('Elige el destino donde aparecerá en Experiencias.');return;}
           if(publish&&destSel.value==='new'&&!el.querySelector('#svc-dest-name').value.trim()){el.querySelector('#svc-dest-name').focus();toast('Escribe el nombre del nuevo destino.');return;}
           const unitData=wdUnitData(el); if(unitData.error){toast(unitData.error);return;} delete unitData.error;
-          const payload={id,...data,...unitData,price:unitData.booking_unit!=='slot'?+unitData.pricing.day:+data.price,active:id?el.querySelector('#svc-active').checked:true,publish_experience:publish,travel_offer_id:destSel.value&&destSel.value!=='new'?+destSel.value:0,new_destination:destSel.value==='new'?el.querySelector('#svc-dest-name').value.trim():''};
+          const newPhoto=photoMode()==='own'?fileIn.files[0]:null;
+          if(photoMode()==='own'&&!newPhoto&&!existing?.photo?.own){ fileIn.focus(); toast('Elige tu foto o usa la foto de la plantilla.'); return; }
+          if(newPhoto&&!el.querySelector('#svc-photo-rights').checked){ el.querySelector('#svc-photo-rights').focus(); toast('Marca la casilla de los derechos de la imagen.'); return; }
+          const payload={template_id:tplSel.value||'',id,...data,...unitData,price:unitData.booking_unit!=='slot'?+unitData.pricing.day:+data.price,active:id?el.querySelector('#svc-active').checked:true,publish_experience:publish,travel_offer_id:destSel.value&&destSel.value!=='new'?+destSel.value:0,new_destination:destSel.value==='new'?el.querySelector('#svc-dest-name').value.trim():''};
           const submit=el.querySelector('button[type="submit"]'); submit.disabled=true;
-          try{const saved=await postJSON(id?'/api/provider-services/update':'/api/provider-services',payload); await postJSON('/api/provider-services/options',{id:id||saved.id,reschedule_mode:el.querySelector('#svc-resched').value,reschedule_hours:el.querySelector('#svc-resched-h').value,waitlist_enabled:el.querySelector('#svc-waitlist').checked});close();toast(id?'Cambios guardados.':(publish?'Servicio creado y publicado en Experiencias.':'Servicio creado.'));svcUi.tab='services';await refresh();}catch(err){toast(err.message);submit.disabled=false;}
+          try{const saved=await postJSON(id?'/api/provider-services/update':'/api/provider-services',payload); const sid=id||saved.id; await postJSON('/api/provider-services/options',{id:sid,reschedule_mode:el.querySelector('#svc-resched').value,reschedule_hours:el.querySelector('#svc-resched-h').value,waitlist_enabled:el.querySelector('#svc-waitlist').checked});
+            if(newPhoto){ await uploadForm('/api/provider-services/photo',{id:sid,rights:'1',focal},newPhoto); toast('Foto recibida: la verás en la tarjeta en unos segundos.'); }
+            else if(photoMode()==='own'&&existing?.photo?.own&&focal!==existing.photo.focal) await postJSON('/api/provider-services/photo-focal',{id:sid,focal});
+            else if(photoMode()==='template'&&existing?.photo_mode==='own') await postJSON('/api/provider-services/photo-template',{id:sid});
+            if(localUrl) URL.revokeObjectURL(localUrl);
+            close();toast(id?'Cambios guardados.':(publish?'Servicio creado y publicado en Experiencias.':'Servicio creado.'));svcUi.tab='services';await refresh();}catch(err){toast(err.message);submit.disabled=false;}
         };
       };
       const openSaveTemplate=service=>{
@@ -4058,6 +4292,91 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       $('.mm-save-credit',c).onclick=()=>send(key,{credit:credit()},null,'Crédito guardado.');
       $('.mm-reset',c)?.addEventListener('click',()=>{ if(confirm('¿Volver a la foto original?')) send(key,{reset:'1'},null,'Foto original restaurada.'); });
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // v50.53 · «Administración → Plantillas de servicios»: the templates centres and freelances start from (name and text
+  // in the 9 languages, duration, places, photo with its focal point), the strength of the veil of every service card
+  // (with a preview) and the centres' own photos, which the administration can withdraw.
+  // ---------------------------------------------------------------------------
+  const SVC_TPL_LANGS={es:'Castellano',en:'English',fr:'Français',de:'Deutsch',it:'Italiano',pt:'Português',pl:'Polski',nl:'Nederlands',zh:'中文'};
+  async function renderAdminServiceTemplates(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return;
+    const refresh=()=>renderAdminServiceTemplates(mountId);
+    mount.innerHTML='<div class="wd-loading">Cargando plantillas…</div>';
+    let d; try{ d=await api('/api/admin/service-catalog'); }catch(err){ mount.innerHTML=`<div class="empty"><h3>No se han podido cargar las plantillas</h3><p>${escapeHtml(err.message)}</p><button class="btn" type="button" id="st-retry">Reintentar</button></div>`; $('#st-retry',mount).onclick=refresh; return; }
+    const esc=escapeHtml, typeLabel=v=>(SERVICE_TYPES.find(x=>x.value===v)||{label:v}).label;
+    const sample=(t,extra='')=>wdServiceCard({title:t.names?.es||'Plantilla',service_type:t.service_type,color:t.color,duration_minutes:t.duration_minutes,photo:t.photo||d.neutral,template:{name:typeLabel(t.service_type)}},
+      {kicker:wdServiceKicker({duration_minutes:t.duration_minutes,template:{name:typeLabel(t.service_type)}},''),desc:t.descriptions?.es||'',price:'<strong>45 €</strong><small>por persona</small>',actions:'<span class="btn btn-primary" aria-hidden="true">Reservar</span>',cls:extra});
+    const veilDemo=d.items.find(t=>t.photo)||{names:{es:'Doble inmersión'},service_type:'inmersion',duration_minutes:240};
+    const card=t=>`<article class="st-card ${t.active?'':'is-off'}" data-id="${t.id}">
+      <div class="st-prev" title="Toca la foto o usa las flechas para elegir su punto focal" aria-label="Toca la foto o usa las flechas para elegir su punto focal">${sample(t)}</div>
+      <div class="st-body"><strong>${esc(t.names.es||t.slug)}</strong><small>${esc(typeLabel(t.service_type))}${t.duration_minutes?' · '+esc(wdDuration(t.duration_minutes)):''}${t.max_participants?' · '+t.max_participants+' plazas':''}</small>
+        <small>${t.services} ${t.services===1?'servicio la usa':'servicios la usan'}${t.services?` (${t.services_with_photo} con su foto)`:''}</small>
+        ${t.photo_status==='processing'?'<span class="wd-pill wd-pill-warn">Procesando la foto…</span>':t.photo_error?`<span class="wd-pill wd-pill-bad">${esc(t.photo_error)}</span>`:t.photo?'':'<span class="wd-pill wd-pill-muted">Sin foto: usa la foto neutra</span>'}
+        ${t.missing_langs.length?`<span class="wd-pill wd-pill-warn" title="${esc(t.missing_langs.map(l=>SVC_TPL_LANGS[l]).join(', '))}">Pendiente de traducción: ${t.missing_langs.length} ${t.missing_langs.length===1?'idioma':'idiomas'}</span>`:''}
+        ${t.active?'':'<span class="wd-pill wd-pill-muted">Desactivada</span>'}
+        <div class="st-actions"><button type="button" class="btn btn-sm st-edit">Editar</button><label class="btn btn-sm btn-primary st-file">${t.photo?'Cambiar foto':'Poner foto'}<input type="file" accept="image/jpeg,image/png,image/webp" hidden></label>${t.photo?'<button type="button" class="btn btn-sm st-reset">Quitar foto</button>':''}</div></div></article>`;
+    mount.innerHTML=`<section class="mm-module st-module"><div class="svc-head"><div><p class="eyebrow">Servicios</p><h2>Plantillas de servicios</h2><p>Los centros y freelance crean sus servicios desde estas plantillas: el nombre, el texto, la duración y la foto se rellenan solos. Si cambias la foto de una plantilla, cambia al momento en todos los servicios que la usan (no en los que tienen foto propia).</p></div><button type="button" class="btn btn-primary" id="st-new">+ Nueva plantilla</button></div>
+      <div class="ex-tip">${wdIcon('bolt',18)}<p>${IMG_HINT} Fotos horizontales de al menos 1600 × 1000 px. Se guardan en WEBP con JPG de reserva y sin datos de la cámara. Toca la foto de una plantilla para elegir el punto que debe verse siempre.</p></div>
+      <section class="st-veil"><h3>Intensidad de la capa sobre las fotos</h3><p class="muted">Para que el texto de las tarjetas se lea bien. Si una foto necesita más para el contraste mínimo (WCAG AA), se refuerza sola.</p>
+        <label class="st-veil-row"><span>Más foto</span><input type="range" id="st-veil" min="50" max="95" step="1" value="${Math.round(d.veil*100)}" aria-label="Intensidad de la capa"><span>Más texto</span><output id="st-veil-out">${Math.round(d.veil*100)} %</output></label>
+        <div class="st-veil-prev"><div><small>Tema claro</small><div id="st-veil-light"></div></div><div><small>Tema oscuro</small><div id="st-veil-dark"></div></div></div>
+        <button type="button" class="btn btn-primary" id="st-veil-save">Guardar intensidad</button></section>
+      <div class="st-grid">${d.items.map(card).join('')}</div>
+      <section class="st-own"><h3>Fotos propias de los centros</h3>${d.own_photos.length?`<p class="muted">Si una no es adecuada, retírala: el servicio vuelve a la foto de su plantilla y el centro ve el motivo.</p><div class="st-own-grid">${d.own_photos.map(o=>`<article class="st-own-card" data-id="${o.id}">${wdServiceCard({title:o.title,photo:o.photo,service_type:'inmersion'},{kicker:esc(o.provider)})}<button type="button" class="btn btn-sm danger st-withdraw">Retirar foto</button></article>`).join('')}</div>`:'<p class="muted">Ningún centro ha subido una foto propia todavía.</p>'}</section>
+    </section>`;
+    translateTree(mount);
+    // The veil: preview at once, saved when asked.
+    const veilIn=$('#st-veil',mount);
+    const drawVeil=()=>{ const v=Number(veilIn.value)/100; const old=state.cardVeil; state.cardVeil=v; $('#st-veil-out',mount).textContent=`${veilIn.value} %`;
+      $('#st-veil-light',mount).innerHTML=sample(veilDemo); $('#st-veil-dark',mount).innerHTML=sample(veilDemo,'is-dark'); state.cardVeil=old; };
+    veilIn.oninput=drawVeil; drawVeil();
+    $('#st-veil-save',mount).onclick=async()=>{ try{ const r=await postJSON('/api/admin/service-card-veil',{value:Number(veilIn.value)/100}); state.cardVeil=r.value; toast('Intensidad guardada.'); }catch(err){ toast(err.message); } };
+    // Wait for the photo being resized in the background, then show it.
+    const waitPhoto=async id=>{ for(let i=0;i<30;i++){ await new Promise(r=>setTimeout(r,1000)); const x=(await api('/api/admin/service-catalog').catch(()=>({items:[]}))).items.find(t=>t.id===id); if(!x||x.photo_status!=='processing') break; } if(mount.isConnected) refresh(); };
+    $$('.st-card',mount).forEach(c=>{ const id=Number(c.dataset.id), t=d.items.find(x=>x.id===id);
+      $('.st-edit',c).onclick=()=>openTemplateForm(t);
+      $('.st-file input',c).onchange=async e=>{ const f=e.target.files[0]; if(!f) return; if(f.size>6*1024*1024){ toast('La foto pesa demasiado. Máximo 6 MB.'); return; }
+        try{ await uploadForm('/api/admin/service-catalog/photo',{id,focal:'50,50'},f); toast('Foto recibida: la estamos preparando.'); c.querySelector('.st-body').insertAdjacentHTML('beforeend','<span class="wd-pill wd-pill-warn">Procesando la foto…</span>'); waitPhoto(id); }catch(err){ toast(err.message); } };
+      $('.st-reset',c)?.addEventListener('click',async()=>{ if(!await wdConfirm({title:'¿Quitar la foto de esta plantilla?',text:'Sus servicios pasarán a la foto neutra (los que tienen foto propia no cambian).',ok:'Quitar foto',danger:true})) return;
+        try{ await postJSON('/api/admin/service-catalog/photo-reset',{id}); toast('Foto quitada.'); refresh(); }catch(err){ toast(err.message); } });
+      $('.st-prev',c).onclick=async e=>{ const cardEl=e.target.closest('.svc2'); if(!cardEl||!t.photo) return; const r=cardEl.getBoundingClientRect();
+        const focal=`${Math.round((e.clientX-r.left)/r.width*100)},${Math.round((e.clientY-r.top)/r.height*100)}`;
+        try{ await postJSON('/api/admin/service-catalog/focal',{id,focal}); t.photo.focal=focal; $('.st-prev',c).innerHTML=sample(t); toast('Punto focal guardado.'); }catch(err){ toast(err.message); } };
+      let focalTimer; wdFocalKeys($('.st-prev',c),()=>t.photo?.focal,v=>{ if(!t.photo) return; t.photo.focal=v; $('.st-prev',c).innerHTML=sample(t); clearTimeout(focalTimer);
+        focalTimer=setTimeout(async()=>{ try{ await postJSON('/api/admin/service-catalog/focal',{id,focal:v}); toast('Punto focal guardado.'); }catch(err){ toast(err.message); } },700); });
+    });
+    $$('.st-own-card',mount).forEach(c=>{ $('.st-withdraw',c).onclick=()=>{
+      const {el,close}=wdOpenModal({id:'st-withdraw',title:'Retirar la foto propia',subtitle:'El servicio vuelve a la foto de su plantilla. El centro verá el motivo.',
+        body:'<div class="field"><label for="stw-why">Motivo</label><textarea id="stw-why" rows="3" maxlength="300" required placeholder="Por ejemplo: aparecen personas sin consentimiento o tiene texto encima."></textarea></div>',
+        footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn danger" id="stw-ok">Retirar foto</button>'});
+      $('#stw-ok',el).onclick=async()=>{ try{ await postJSON('/api/admin/service-photo/remove',{id:Number(c.dataset.id),reason:$('#stw-why',el).value}); delete el.dataset.dirty; close(); toast('Foto retirada.'); refresh(); }catch(err){ toast(err.message); } }; }; });
+    $('#st-new',mount).onclick=()=>openTemplateForm(null);
+    function openTemplateForm(t){
+      const v=t||{names:{},descriptions:{},service_type:'inmersion',booking_mode:'auto',active:1,sort_order:(d.items.length+1)*10};
+      const {el,close}=wdOpenModal({id:'st-form',size:'lg',title:t?'Editar plantilla':'Nueva plantilla',subtitle:'El castellano es obligatorio; los idiomas sin texto muestran el castellano y quedan como «Pendiente de traducción».',
+        body:`<form id="stf" class="svc-form" novalidate>
+          <div class="svc-form-row"><div class="svc-field"><label for="stf-type">Tipo</label><select id="stf-type">${SERVICE_TYPES.map(x=>`<option value="${x.value}" ${x.value===v.service_type?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>
+            <div class="svc-field"><label for="stf-mode">Cómo se reserva</label><select id="stf-mode"><option value="auto" ${v.booking_mode==='auto'?'selected':''}>Pago al reservar si el centro cobra online</option><option value="request" ${v.booking_mode==='request'?'selected':''}>Bajo petición</option><option value="payment" ${v.booking_mode==='payment'?'selected':''}>Pago al reservar</option></select></div></div>
+          <div class="svc-form-row"><div class="svc-field"><label for="stf-dur">Duración orientativa (min)</label><input id="stf-dur" type="number" min="0" step="5" value="${v.duration_minutes||''}"><small>${v.duration_minutes?esc(wdDuration(v.duration_minutes)):'1 día = 1440 min'}</small></div>
+            <div class="svc-field"><label for="stf-max">Plazas orientativas</label><input id="stf-max" type="number" min="0" value="${v.max_participants||''}"></div>
+            <div class="svc-field"><label for="stf-order">Orden</label><input id="stf-order" type="number" min="0" value="${v.sort_order||0}"></div>
+            <div class="svc-field"><label for="stf-color">Color</label><input id="stf-color" type="color" value="${esc(v.color||'#0891b2')}"></div></div>
+          <div class="svc-field"><label for="stf-credit">Crédito de la foto</label><input id="stf-credit" maxlength="200" value="${esc(v.photo_credit||'')}" placeholder="Foto: autor / licencia"></div>
+          <div class="st-langs">${Object.entries(SVC_TPL_LANGS).map(([l,name])=>`<fieldset class="svc-fieldset"><legend>${esc(name)}${l==='es'?' *':''}</legend>
+            <div class="svc-field"><label for="stf-n-${l}">Nombre</label><input id="stf-n-${l}" maxlength="80" lang="${l}" value="${esc(v.names[l]||'')}" ${l==='es'?'required':''}></div>
+            <div class="svc-field"><label for="stf-d-${l}">Descripción base</label><textarea id="stf-d-${l}" rows="2" maxlength="600" lang="${l}">${esc(v.descriptions[l]||'')}</textarea></div></fieldset>`).join('')}</div>
+          <label class="svc-check"><input type="checkbox" id="stf-active" ${v.active?'checked':''}><span><strong>Activa</strong><small>Los centros pueden elegirla al crear un servicio.</small></span></label>
+        </form>`,
+        footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="submit" form="stf" class="btn btn-primary">Guardar plantilla</button>'});
+      $('#stf',el).onsubmit=async e=>{ e.preventDefault();
+        const names={}, descriptions={}; Object.keys(SVC_TPL_LANGS).forEach(l=>{ names[l]=$('#stf-n-'+l,el).value.trim(); descriptions[l]=$('#stf-d-'+l,el).value.trim(); });
+        if(!names.es){ $('#stf-n-es',el).focus(); toast('Escribe al menos el nombre en castellano.'); return; }
+        try{ await postJSON('/api/admin/service-catalog/save',{id:t?.id||0,service_type:$('#stf-type',el).value,booking_mode:$('#stf-mode',el).value,duration_minutes:$('#stf-dur',el).value,max_participants:$('#stf-max',el).value,
+            sort_order:$('#stf-order',el).value,color:$('#stf-color',el).value,photo_credit:$('#stf-credit',el).value,active:$('#stf-active',el).checked,names,descriptions});
+          delete el.dataset.dirty; close(); toast('Plantilla guardada.'); refresh(); }catch(err){ toast(err.message); } };
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -4968,7 +5287,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     setApp(`<section class="page provider-page"><div class="provider-topbar"><div><p class="eyebrow">${isAdmin?'CUENTA ADMINISTRADOR':'PANEL PROFESIONAL · CENTRO DE BUCEO'}</p><h1>${isAdmin?'Centro de control de WORLDIVES':escapeHtml(myCenter?.name||'Panel del centro')}</h1><p class="lead">${isAdmin?'Control administrativo de WORLDIVES DISCOVERY.':'Tu centro de operaciones: reservas, salidas, clientes, pagos y catálogo.'}</p></div>${!isAdmin&&myCenter?`<div class="provider-status"><span class="status good">● Centro activo</span><a href="#/admin?tab=center">Gestionar ficha</a></div>`:''}</div>
       ${isAdmin&&mapsInfo&&!mapsInfo.key_configured?'<div class="notice warning" id="admin-sat-notice" style="margin-top:18px"><strong>Añade la clave de ArcGIS para activar el satélite.</strong><p style="margin:6px 0 0">Mientras no esté, «Satélite» aparece desactivado en los mapas. <a href="#/admin?tab=maps">Ver Mapas</a></p></div>':''}${isAdmin?'<div class="notice" style="margin-top:18px"><strong>Control total activado</strong><p style="margin:6px 0 0">Las acciones importantes quedan registradas en el historial de actividad.</p></div>':''}
       ${!isAdmin?`<div class="provider-mini-summary"><span><strong>${points.length}</strong> puntos activos</span><span><strong>${bookings.length}</strong> reservas</span><span><strong>${centerPending.length}</strong> por confirmar</span><span><strong>${centerConfirmed.length}</strong> confirmadas</span><span><strong>${centerPaid.length}</strong> pagadas</span></div>`:''}
-      <div class="tabs provider-tabs">${isAdmin?'<button class="tab active" data-tab="overview">Inicio</button>':'<button class="tab active" data-tab="overview">Resumen</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="services">Servicios y salidas</button><button class="tab" data-tab="clients">Clientes</button><button class="tab" data-tab="points">Puntos de buceo</button><button class="tab" data-tab="rewards">Recompensas</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR / Check-in</button><button class="tab" data-tab="center">Mi centro</button><button class="tab" data-tab="payments">Cobros y pagos</button>'}${isAdmin?'<button class="tab" data-tab="points">Puntos</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="adminpay">Pagos</button><button class="tab" data-tab="emails">Correos</button><button class="tab" data-tab="legal">Legal</button><button class="tab" data-tab="pointtexts">Descripciones de puntos</button><button class="tab" data-tab="maps">Mapas</button><button class="tab" data-tab="plans">Planes</button><button class="tab" data-tab="features">Funciones</button><button class="tab" data-tab="ops">Operación</button><button class="tab" data-tab="marina">Vida marina y vídeos</button><button class="tab" data-tab="experiences">Experiencias</button><button class="tab" data-tab="destinations">Destinos</button><button class="tab" data-tab="media">Imágenes de la web</button><button class="tab" data-tab="promos">Patrocinio</button><button class="tab" data-tab="users">Usuarios</button><button class="tab" data-tab="centers">Centros</button><button class="tab" data-tab="claims">Verificaciones</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR</button><button class="tab" data-tab="audit">Actividad</button><button class="tab" data-tab="rewards">Recompensas</button>':''}</div><div id="admin-content"></div></section>`);
+      <div class="tabs provider-tabs">${isAdmin?'<button class="tab active" data-tab="overview">Inicio</button>':'<button class="tab active" data-tab="overview">Resumen</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="services">Servicios y salidas</button><button class="tab" data-tab="clients">Clientes</button><button class="tab" data-tab="points">Puntos de buceo</button><button class="tab" data-tab="rewards">Recompensas</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR / Check-in</button><button class="tab" data-tab="center">Mi centro</button><button class="tab" data-tab="payments">Cobros y pagos</button>'}${isAdmin?'<button class="tab" data-tab="points">Puntos</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="adminpay">Pagos</button><button class="tab" data-tab="emails">Correos</button><button class="tab" data-tab="legal">Legal</button><button class="tab" data-tab="pointtexts">Descripciones de puntos</button><button class="tab" data-tab="maps">Mapas</button><button class="tab" data-tab="plans">Planes</button><button class="tab" data-tab="features">Funciones</button><button class="tab" data-tab="ops">Operación</button><button class="tab" data-tab="marina">Vida marina y vídeos</button><button class="tab" data-tab="experiences">Experiencias</button><button class="tab" data-tab="destinations">Destinos</button><button class="tab" data-tab="media">Imágenes de la web</button><button class="tab" data-tab="svctemplates">Plantillas de servicios</button><button class="tab" data-tab="promos">Patrocinio</button><button class="tab" data-tab="users">Usuarios</button><button class="tab" data-tab="centers">Centros</button><button class="tab" data-tab="claims">Verificaciones</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR</button><button class="tab" data-tab="audit">Actividad</button><button class="tab" data-tab="rewards">Recompensas</button>':''}</div><div id="admin-content"></div></section>`);
     const tabs=$$('.tab');
     async function show(t){
       tabs.forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
@@ -4984,6 +5303,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t==='experiences') c.innerHTML=adminTravelExperiences(travelExperiences);
       if(t==='destinations') c.innerHTML=adminDestinations(meta.travel);
       if(t==='media'&&isAdmin){ c.innerHTML='<div id="site-theme-manager"></div><div id="site-media-manager"></div><div id="image-origins"></div>'; renderThemeManager('site-theme-manager'); renderSiteMediaManager('site-media-manager'); renderImageOrigins('image-origins'); }
+      if(t==='svctemplates'&&isAdmin){ c.innerHTML='<div id="admin-svc-templates"></div>'; renderAdminServiceTemplates('admin-svc-templates'); }
       if(t==='adminpay'&&isAdmin){ c.innerHTML='<div id="admin-payments"></div>'; renderAdminPayments('admin-payments'); }
       if(t==='emails'&&isAdmin){ c.innerHTML='<div id="admin-emails"></div>'; renderAdminEmails('admin-emails'); }
       if(t==='legal'&&isAdmin){ c.innerHTML='<div id="admin-legal"></div>'; renderAdminLegal('admin-legal'); }
@@ -5246,7 +5566,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // Administración → Funciones: what is switched off disappears from menus and pages (the server refuses it too).
   function applyFeatureSwitches(){ const f=state.meta?.features||{}; Object.keys(f).forEach(k=>document.body.classList.toggle('feat-off-'+k,f[k]===false)); }
   // Demo deployments (WOD_DEMO_MODE=1): a fixed ribbon on every page.
-  async function demoRibbon(){ let st; try{ st=await api('/api/setup/status'); }catch{ return; } if(!st.demo||$('#demo-ribbon')) return;
+  async function demoRibbon(){ const sent=$('#demo-ribbon'); if(sent){ document.body.classList.add('is-demo'); translateTree(sent); return; }   // v50.53: the server already puts it in the page
+    let st; try{ st=await api('/api/setup/status'); }catch{ return; } if(!st.demo||$('#demo-ribbon')) return;
     document.body.classList.add('is-demo');
     document.body.insertAdjacentHTML('afterbegin','<div class="demo-ribbon" id="demo-ribbon" role="note"><strong>Versión de demostración</strong> <span>Centros, personas y reservas inventados. Pagos de prueba; los correos no salen.</span></div>');
     translateTree($('#demo-ribbon')); }
@@ -5943,12 +6264,6 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
 
   // ---------------------------------------------------------------- v50.30 · Top 10: precise location
-  function wdNearestPlace(items,lat,lon){
-    let best=null; for(const p of items||[]){ const la=+p.latitude, lo=+p.longitude; if(!Number.isFinite(la)||!Number.isFinite(lo)) continue;
-      const dx=(lo-lon)*Math.cos(lat*Math.PI/180), dy=la-lat, d=dx*dx+dy*dy; if(!best||d<best.d) best={d,p}; }
-    if(!best) return null; const km=Math.sqrt(best.d)*111; const name=String(best.p.subregion||best.p.region||best.p.country||'').split('·').pop().trim();
-    return {name,km};
-  }
   function wdPickOnMap({start,onPick}){
     const {el,close}=wdOpenModal({id:'tt-map',size:'lg',title:'Elige tu ubicación',subtitle:'Toca el mapa donde estás (o donde quieres bucear) y pulsa «Ver el Top 10 aquí».',
       body:'<div id="tt-pick-map" class="tt-pick-map"></div><p class="tt-pick-coords" id="tt-pick-coords">Todavía no has elegido ningún punto.</p>',
@@ -5966,7 +6281,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
   async function wdGeocode(q){
     // Through our own server (/api/geocode): the visitor's IP is not sent to a third party and the provider's usage policy is respected.
-    const d=await api('/api/geocode?'+new URLSearchParams({q,lang:currentLanguage()})); const it=(d.items||[])[0]; if(!it) return null;
+    const d=await api('/api/geocode?'+new URLSearchParams({q,lang:currentLanguage()})); if(d.unavailable) throw new Error(d.error||'No se ha podido buscar.');
+    const it=(d.items||[])[0]; if(!it) return null;
     return {lat:+it.lat,lon:+it.lon,label:String(it.name||q).split(',')[0]};
   }
 
@@ -5978,12 +6294,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   navMobile();
   initLanguage();
   // v50.48 · App mode: what /js/wd-app.js uses from this file. Only inside the app (or with «?app=1»).
-  const WD_APP_ASSETS='50.52';
+  const WD_APP_ASSETS='50.53';
   function wdLoadApp(){
     window.WD={app:WD_APP,state,$,$$,escapeHtml,api,postJSON,toast,setApp,route,loadMe,currentLanguage,translateString,translateTree,applyLanguage,
       wdIcon,wdLocale,fmtDate,wdMoney,wdLongDay,wdToday,daysUntil,wdDeadline,bookingStatus,experienceStatus,initials,goLogin,wdOpenCheckout,wdAppPay,
       loadMapLayer,loadMapConfig,wdTileDefaults,wdMapLayers,wdLayerToolbar,wdLimitMap,pointIcon,wdMarkerLayer,wdFold,centerLogoMarkup,
-      LANGS,APP_LANGS:WD_APP_LANGS,LANG_KEY,APP_ASSETS:WD_APP_ASSETS,wdConfirm};
+      LANGS,APP_LANGS:WD_APP_LANGS,LANG_KEY,APP_ASSETS:WD_APP_ASSETS,wdConfirm,wdLocation,wdServiceCard};
     document.documentElement.classList.add('wd-app'); if(WD_APP.pruebas) document.documentElement.classList.add('wd-app-pruebas');
     const css=document.createElement('link'); css.rel='stylesheet'; css.href='/css/wd-app.css?v='+WD_APP_ASSETS; document.head.appendChild(css);
     return new Promise(done=>{ const js=document.createElement('script'); js.src='/js/wd-app.js?v='+WD_APP_ASSETS; js.onload=js.onerror=()=>done(); document.body.appendChild(js); setTimeout(done,6000); });
