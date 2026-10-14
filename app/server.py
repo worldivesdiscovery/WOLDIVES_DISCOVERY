@@ -1094,6 +1094,11 @@ FORGOT_LIMIT = wsec.SharedRateLimiter('recuperar', 5, 900)
 TOTP_LIMIT = wsec.SharedRateLimiter('dos-pasos', 6, 900)
 GEOCODE_LIMIT = wsec.SharedRateLimiter('geocodificar', 30, 60)
 INFO_LIMIT = wsec.SharedRateLimiter('informacion', 10, 3600)
+# ASVS 5.0 V2.4.1: bookings and requests per person and hour, unfinished payments holding spots, Log Book entries a day.
+BOOKING_LIMIT = wsec.SharedRateLimiter('reservas', wcfg.env_int('WOD_BOOKING_MAX_PER_HOUR', 20, 1), 3600)
+BOOKING_LIMIT_TEXT = 'Has hecho muchas reservas seguidas. Espera un poco o escribe al centro.'
+PENDING_PAYMENTS_MAX = 3
+LOGBOOK_LIMIT = wsec.SharedRateLimiter('logbook', 60, 86400)
 
 PRIVATE_USER_FIELDS = ('password_hash', 'totp_secret', 'totp_pending_secret', 'email_verify_token', 'totp_recovery', 'totp_last_step', 'marketing_token')
 
@@ -2340,10 +2345,21 @@ def audit(db, user_id, action, entity_type=None, entity_id=None, details=None):
                    (user_id, action, entity_type, entity_id, json.dumps(details, ensure_ascii=False) if details else None, now()))
 
 
+_CONTROL_CHARS = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
+
+
 def clean_text(value, max_len=5000):
+    """A text from the request: no control characters (line breaks and tabs stay), a list of plain values becomes
+    «a, b», an object is refused (ASVS 5.0 V1.3.3 and V2.2.1)."""
     if value is None:
         return None
-    return str(value).strip()[:max_len]
+    if isinstance(value, (list, tuple)):
+        if any(isinstance(x, (dict, list, tuple)) for x in value): raise ValueError('Los datos enviados no son válidos.')
+        value = ', '.join(str(x) for x in value if x is not None)
+    elif isinstance(value, dict):
+        raise ValueError('Los datos enviados no son válidos.')
+    text = str(value).replace('\r\n', '\n').replace('\r', '\n')
+    return _CONTROL_CHARS.sub('', text).strip()[:max_len]
 
 
 class BodyTooLarge(ValueError):
@@ -2360,6 +2376,10 @@ def body_length(handler, limit):
     return length
 
 
+def _no_json_constant(name):
+    raise ValueError('El cuerpo de la petición no es un JSON válido.')
+
+
 def json_body(handler):
     """The JSON body of the request (read once and cached: several helpers may ask for it)."""
     cached = getattr(handler, '_json_cache', None)
@@ -2368,7 +2388,7 @@ def json_body(handler):
     raw = handler.rfile.read(length) if length else b''
     if not raw:
         handler._json_cache = {}; return handler._json_cache
-    try: data = json.loads(raw.decode('utf-8'))
+    try: data = json.loads(raw.decode('utf-8'), parse_constant=_no_json_constant)   # NaN and Infinity are not JSON
     except (UnicodeDecodeError, json.JSONDecodeError): raise ValueError('El cuerpo de la petición no es un JSON válido.')
     if not isinstance(data, dict): raise ValueError('El cuerpo de la petición debe ser un objeto JSON.')
     handler._json_cache = data
@@ -2670,11 +2690,65 @@ def clean_lng(v):
     return x if -180 <= x <= 180 and x != 0 else None
 
 
+def clean_coord(v, check):
+    """Latitude or longitude of a form: in range, or 0 when it is empty (ASVS V2.2.1)."""
+    if v in (None, '', 0, '0'): return 0
+    x = check(v)
+    if x is None: raise ValueError('Las coordenadas no son válidas.')
+    return x
+
+
 def clean_date(v):
     v = (clean_text(v, 10) or '').strip()
     if not v: return None
     try: return _dt.date.fromisoformat(v).isoformat()
     except ValueError: raise ValueError('La fecha no es válida (usa el formato AAAA-MM-DD).')
+
+
+# Validation of numbers, amounts and times sent by the browser (ASVS 5.0 V2.2.1; rules in docs/validacion.md).
+MONEY_MAX = 1_000_000
+
+
+def clean_experience_numbers(data):
+    """Dates, price and spots of a travel experience (ASVS 5.0 V2.2.3)."""
+    start, end = clean_date(data.get('start_date')), clean_date(data.get('end_date'))
+    if start and end and end < start: raise ValueError('La fecha de fin no puede ser anterior a la de inicio.')
+    total = clean_int(data.get('spots_total'), 0, 10000, None, 'Las plazas no son válidas.')
+    free = clean_int(data.get('spots_available'), 0, 10000, None, 'Las plazas no son válidas.')
+    if total is not None and free is not None and free > total: raise ValueError('Las plazas libres no pueden superar las plazas totales.')
+    return start, end, clean_money(data.get('price'), allow_none=True), total, free
+
+
+def clean_money(v, allow_none=False):
+    """An amount: a finite number from 0 to 1 000 000, in cents. Empty → 0 (or None with allow_none)."""
+    if v in (None, ''): return None if allow_none else 0.0
+    try: x = float(str(v).replace(',', '.')) if isinstance(v, str) else float(v)
+    except (TypeError, ValueError, OverflowError): raise ValueError('El importe no es válido.')
+    if isinstance(v, bool) or not math.isfinite(x) or not 0 <= x <= MONEY_MAX: raise ValueError('El importe no es válido.')
+    return round(x, 2)
+
+
+def clean_int(v, lo, hi, default=None, message='El número no es válido.'):
+    """A whole number within [lo, hi]. Empty → default."""
+    if v in (None, ''): return default
+    try: x = float(str(v).replace(',', '.')) if isinstance(v, str) else float(v)
+    except (TypeError, ValueError, OverflowError): raise ValueError(message)
+    if isinstance(v, bool) or not math.isfinite(x) or x != int(x) or not lo <= x <= hi: raise ValueError(message)
+    return int(x)
+
+
+_TIME_RE = re.compile(r'([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?')
+
+
+def clean_time(v):
+    """A time of day «HH:MM». Empty → None."""
+    t = (clean_text(v, 8) or '').strip()
+    if not t: return None
+    if not _TIME_RE.fullmatch(t): raise ValueError('La hora no es válida (usa el formato HH:MM).')
+    return t[:5]
+
+
+PARTICIPANTS_MAX = 99
 
 
 def clean_document_type(v):
@@ -2906,9 +2980,7 @@ def clean_service_template(data):
         try: v=int(float(v or 0))
         except (TypeError,ValueError): return None
         return v if v>0 else None
-    price=data.get('price')
-    try: price=None if price in (None,'') else max(0.0,float(price))
-    except (TypeError,ValueError): price=None
+    price=clean_money(data.get('price'),allow_none=True)
     color=clean_text(data.get('color'),20)
     if color and not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color=None
     return {'name':name,'service_type':stype,'title':clean_text(data.get('title'),180),'description':clean_text(data.get('description'),5000),
@@ -3931,7 +4003,7 @@ def dac7_report(db, year):
 
 # -------------------------------------------------------------------------------- iCal feed (Fase 6.5)
 def ical_escape(s):
-    return str(s or '').replace('\\', '\\\\').replace(';', '\\;').replace(',', '\\,').replace('\n', '\\n')
+    return str(s or '').replace('\\', '\\\\').replace(';', '\\;').replace(',', '\\,').replace('\r', '').replace('\n', '\\n')
 
 
 def ical_feed(db, ptype, pid):
@@ -5099,7 +5171,9 @@ def clean_logbook(data):
     """Validated Log Book fields: a real date, a site name and plausible depth/time."""
     d=clean_text(data.get('dive_date'),10) or ''
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',d): raise ValueError('Indica la fecha de la inmersión.')
+    d=clean_date(d)   # a real day (ASVS V2.2.1)
     if d>_dt.date.today().isoformat(): raise ValueError('La fecha de la inmersión no puede ser futura.')
+    if d<'1950-01-01': raise ValueError('La fecha de la inmersión no es válida.')
     site=clean_text(data.get('site'),200)
     if not site: raise ValueError('Indica el punto de buceo.')
     def num(k,lo,hi,label):
@@ -5399,6 +5473,7 @@ def ensure_reward_event(db, user_id, event_key, title, description, points=0):
 
 
 LOGBOOK_POINTS_PER_DAY = 4
+LOGBOOK_POINTS_PER_ENTRY_DAY = 10
 
 
 def logbook_reverse_points(db, user_id, entry_id):
@@ -5419,15 +5494,19 @@ def sync_user_rewards(db, user_id):
     if profile and profile['phone'] and profile['city'] and profile['certification_id']:
         ensure_reward_event(db, user_id, 'profile_complete', 'Perfil preparado',
                             'Has completado los datos esenciales de tu perfil de buceador.', 50)
-    dives = db.execute('SELECT id, dive_date FROM logbook_entries WHERE user_id=? AND (dive_date IS NULL OR dive_date<=?) ORDER BY id', (user_id, _dt.date.today().isoformat())).fetchall()
+    dives = db.execute('SELECT id, dive_date, created_at FROM logbook_entries WHERE user_id=? AND (dive_date IS NULL OR dive_date<=?) ORDER BY id', (user_id, _dt.date.today().isoformat())).fetchall()
     dive_count = len(dives)
     # Every real logbook entry gives a modest amount of progression; no monetary credit per dive. At most
     # LOGBOOK_POINTS_PER_DAY entries of the same day give points (nobody does more dives a day), and deleting an
     # entry takes its points back (logbook_reverse_points), so the Log Book cannot be used to farm points.
-    per_day = {}
+    # ASVS 5.0 V2.3.2: the date of the dive is chosen by the diver, so points also stop after
+    # LOGBOOK_POINTS_PER_ENTRY_DAY entries added the same day (an old Log Book is copied over several days).
+    per_day, per_entry_day = {}, {}
     for dive in dives:
         per_day[dive['dive_date']] = per_day.get(dive['dive_date'], 0) + 1
-        if per_day[dive['dive_date']] > LOGBOOK_POINTS_PER_DAY: continue
+        added = (dive['created_at'] or '')[:10]
+        per_entry_day[added] = per_entry_day.get(added, 0) + 1
+        if per_day[dive['dive_date']] > LOGBOOK_POINTS_PER_DAY or per_entry_day[added] > LOGBOOK_POINTS_PER_ENTRY_DAY: continue
         ensure_reward_event(db, user_id, f'logbook:dive:{dive[0]}', 'Inmersión registrada',
                             'Has añadido una inmersión a tu Log Book.', 10)
     milestones = [
@@ -7162,6 +7241,7 @@ def clean_deposit(data, price):
     if kind != 'none':
         try: value = round(float(str(data.get('deposit_value') or '0').replace(',', '.')), 2)
         except ValueError: raise ValueError('La señal debe ser un número.')
+        if not math.isfinite(value) or value > MONEY_MAX: raise ValueError('La señal debe ser un número.')   # ASVS V2.2.1
         if kind == 'percent' and not 0 < value < 100: raise ValueError('La señal en porcentaje debe estar entre 1 y 99 %.')
         if kind == 'fixed' and not 0 < value: raise ValueError('Indica el importe de la señal por persona.')
         if kind == 'fixed' and price and value >= price: raise ValueError('La señal por persona debe ser menor que el precio.')
@@ -11747,6 +11827,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
             except ValueError as e:
                 db.rollback()  # never persist half-done work when a request fails
                 self.send_json({'error':str(e)},400)
+            except OverflowError:
+                db.rollback(); self.send_json({'error':'Un número es demasiado grande.'},400)   # ASVS V1.4.2
             except NotFound as e:
                 db.rollback()
                 self.send_json({'error':str(e)},404)
@@ -12400,7 +12482,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/center-equipment':
                     user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); center_id=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0)
                     defaults={'fins':'Aletas','mask':'Máscara','wetsuit':'Traje de neopreno','regulator':'Regulador','bcd':'Chaleco BCD','tank':'Botella','computer':'Ordenador de buceo','full_kit':'Equipo completo'}
-                    code=clean_text(data.get('code'),40); label=clean_text(data.get('label'),120) or defaults.get(code,code); price=data.get('price'); price=None if price in (None,'') else max(0,float(price))
+                    code=clean_text(data.get('code'),40); label=clean_text(data.get('label'),120) or defaults.get(code,code); price=clean_money(data.get('price'),allow_none=True)
                     if code not in defaults: raise ValueError('Equipo no válido.')
                     db.execute('''INSERT INTO center_equipment(center_id,code,label,price,active,sort_order,updated_at) VALUES(?,?,?,?,1,?,?) ON CONFLICT(center_id,code) DO UPDATE SET label=excluded.label,price=excluded.price,active=1,updated_at=excluded.updated_at''',(center_id,code,label,price,list(defaults).index(code),now())); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center/integration/regenerate':
@@ -12437,7 +12519,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if not slot or participants>slot['spots_available']: raise ValueError('La salida seleccionada no tiene plazas suficientes.')
                     bdate=slot['slot_date'] if slot else clean_text(data.get('booking_date'),20); btime=slot['slot_time'] if slot else clean_text(data.get('booking_time'),20)
                     if not bdate: raise ValueError('Falta booking_date.')
-                    point_id=int(data.get('dive_point_id') or 0) or None; price=float(data.get('price') if data.get('price') not in (None,'') else (service['price'] if service else 0) or 0); status=clean_text(data.get('status'),30) or 'requested'; status='requested' if status in {'pending','requested'} else ('confirmed' if status=='confirmed' else 'requested'); reserved=0
+                    point_id=int(data.get('dive_point_id') or 0) or None; price=clean_money(data.get('price')) if data.get('price') not in (None,'') else float((service['price'] if service else 0) or 0); status=clean_text(data.get('status'),30) or 'requested'; status='requested' if status in {'pending','requested'} else ('confirmed' if status=='confirmed' else 'requested'); reserved=0
                     if slot and status=='confirmed':
                         changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(participants,participants,now(),slot_id,participants)).rowcount
                         if changed!=1: raise ValueError('Las plazas acaban de cambiar.')
@@ -12448,7 +12530,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0); sid=int(data.get('service_id') or 0)
                     svc=db.execute('SELECT id,price,currency FROM provider_services WHERE id=? AND center_id=?',(sid,cid)).fetchone()
                     if not svc: raise NotFound('Servicio no encontrado.')
-                    price=max(0,float(data.get('price') or 0)); effective=clean_text(data.get('effective_from'),20) or now()[:10]
+                    price=clean_money(data.get('price')); effective=clean_date(data.get('effective_from')) or now()[:10]
                     # Keep tariff history. A new tariff only replaces the price from its effective date.
                     db.execute('DELETE FROM center_tariffs WHERE center_id=? AND service_id=? AND effective_from=?',(cid,sid,effective))
                     db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)',(cid,sid,price,svc['currency'] or 'EUR',effective,now(),now()))
@@ -12470,7 +12552,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if n_>=lim: raise PlanRequired('services_max',f'Tu plan permite {lim} servicios publicados. Desactiva alguno o cambia de plan.')
                     title=clean_text(data.get('title'),180)
                     if not title: raise ValueError('El nombre del servicio es obligatorio.')
-                    price=max(0.0,float(data.get('price') or 0)); duration=int(data.get('duration_minutes') or 0) or None; maxp=int(data.get('max_participants') or 0) or None
+                    price=clean_money(data.get('price')); duration=clean_int(data.get('duration_minutes'),0,60*24*30,0,'La duración no es válida.') or None
+                    maxp=clean_int(data.get('max_participants'),0,999,0,'El número máximo de personas no es válido.') or None
                     stype=clean_text(data.get('service_type'),60) or 'inmersion'
                     if stype not in SERVICE_TYPES: stype='inmersion'
                     mode,resp_h,pay_h=clean_booking_mode(db,user,data,price)
@@ -12503,7 +12586,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
                     row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
                     if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise NotFound('Servicio no encontrado.')
-                    duration=int(data.get('duration_minutes') or 0) or None; maxp=int(data.get('max_participants') or 0) or None
+                    duration=clean_int(data.get('duration_minutes'),0,60*24*30,0,'La duración no es válida.') or None
+                    maxp=clean_int(data.get('max_participants'),0,999,0,'El número máximo de personas no es válido.') or None
                     title=clean_text(data.get('title'),180)
                     if not title: raise ValueError('El nombre del servicio es obligatorio.')
                     stype=clean_text(data.get('service_type'),60) or 'inmersion'
@@ -13446,7 +13530,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not (provider_has(db,'center',center_id,'online_bookings') if center_id else provider_has(db,'freelance',provider_user_id,'online_bookings')):
                         e_=PermissionError('Este centro todavía no tiene reserva online en WORLDIVES. Puedes enviarle una solicitud de información y te contestará directamente.')
                         e_.extra={'no_online_booking':True}; raise e_
-                    participants=max(1,int(data.get('participants') or 1))
+                    participants=clean_int(data.get('participants'),1,PARTICIPANTS_MAX,1,'El número de personas no es válido.')
                     if service and service['max_participants'] and participants>int(service['max_participants']): raise ValueError(f'Este servicio admite como máximo {service["max_participants"]} participantes por reserva.')
                     slot_id=int(data.get('slot_id') or 0) or None
                     # v50.51 (load test): a double click or a retry of the same booking gives back the one just made
@@ -13507,7 +13591,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         data['booking_date']=first_day[0]
                     bdate=clean_text(data.get('booking_date'),20) or (slot['slot_date'] if slot else None)
                     if not bdate or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',bdate): raise ValueError('Elige la fecha de la actividad.')
-                    btime=clean_text(data.get('booking_time'),20)
+                    bdate=clean_date(bdate)   # a real day (not 31 February)
+                    btime=clean_time(data.get('booking_time')) if not slot else clean_text(data.get('booking_time'),20)
                     start=on_server_clock(db,wbk.activity_start(bdate,btime),service['id'] if service else None,center_id)
                     if start and start<=local_now(): raise ValueError('Esa salida ya ha empezado o ha pasado. Elige otra fecha.')
                     price, service_currency, price_lines = booking_quote(db, center_id, service, participants, bdate, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
@@ -13522,6 +13607,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     ready=service_payments_ready(db,service) if service else False
                     deadline=None; hold=None; slot_reserved=0
                     payee=payee_of(db,center_id,provider_user_id)
+                    if price<0: raise ValueError('El importe no es válido.')   # never «free» because of a wrong extra (ASVS V2.2.3)
+                    # ASVS 5.0 V2.4.1: at most BOOKING_MAX_PER_HOUR bookings an hour and PENDING_PAYMENTS_MAX unfinished payments per person.
+                    if BOOKING_LIMIT.blocked(f"u:{user['id']}"): self.send_json({'error':BOOKING_LIMIT_TEXT},429); return
+                    if mode=='payment' and db.execute("SELECT COUNT(*) FROM bookings WHERE user_id=? AND status='payment_in_progress' AND hold_expires_at>=?",(user['id'],local_iso(local_now()))).fetchone()[0]>=PENDING_PAYMENTS_MAX:
+                        raise ValueError('Tienes varios pagos sin terminar. Termínalos o espera unos minutos.')
                     pol=provider_policy(payee,service)  # the policy shown before paying is the one that applies
                     deposit=deposit_for(service,price,participants)
                     if mode=='payment':
@@ -13547,7 +13637,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                    (user['id'],center_id,provider_user_id,point_id,service_id,slot_id,slot_reserved,bdate,btime,participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),
                                     status,price,service['currency'] if service else 'EUR',payment_status,mode,deadline,hold,now() if status=='confirmed' else None,legal_doc_version(db,'reservas'),json.dumps(price_lines,ensure_ascii=False),
                                     deposit,price,pol['free_hours'],pol['refund_pct'],now(),now()))
-                    bid=cur.lastrowid
+                    bid=cur.lastrowid; BOOKING_LIMIT.hit(f"u:{user['id']}")
                     if day_sel:
                         db.executemany('INSERT INTO booking_days(booking_id,local_date,part) VALUES(?,?,?)',[(bid,d,day_sel['part']) for d in day_sel['days']])
                         db.execute('UPDATE bookings SET date_to=?,days_mode=? WHERE id=?',(day_sel['days'][-1],day_sel['part'],bid))
@@ -13615,6 +13705,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/logbook':
                     user=require_user(self,db); data=json_body(self)
                     v=clean_logbook(data)
+                    if LOGBOOK_LIMIT.hit(f"u:{user['id']}"): self.send_json({'error':'Has añadido muchas inmersiones hoy. Vuelve mañana.'},429); return
                     cur=db.execute('INSERT INTO logbook_entries(user_id,dive_date,site,country,depth,duration,dive_type,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(user['id'],v['dive_date'],v['site'],v['country'],v['depth'],v['duration'],v['dive_type'],v['notes'],now())); audit(db,user['id'],'logbook_created','logbook',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
                 if path=='/api/logbook/update':
                     user=require_user(self,db); data=json_body(self); lid=int(data.get('id') or 0); v=clean_logbook(data)
@@ -13654,8 +13745,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     current=db.execute('SELECT latitude,longitude,logo_url FROM centers WHERE id=?',(cid,)).fetchone()
                     if not clean_text(data.get('name'),180): raise ValueError('El nombre del centro es obligatorio.')
                     # Keep the map position unless the form explicitly sends a new one.
-                    lat=float(data['latitude']) if data.get('latitude') not in (None,'') else current['latitude']
-                    lng=float(data['longitude']) if data.get('longitude') not in (None,'') else current['longitude']
+                    lat=clean_coord(data['latitude'],clean_lat) if data.get('latitude') not in (None,'') else current['latitude']
+                    lng=clean_coord(data['longitude'],clean_lng) if data.get('longitude') not in (None,'') else current['longitude']
                     db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=?,logo_source='provider_uploaded',updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),lat,lng,wsec.clean_local_or_http_url(data.get('logo_url'),500) if 'logo_url' in data else current['logo_url'],clean_url_field(data.get('instagram_url')),clean_url_field(data.get('facebook_url')),clean_url_field(data.get('twitter_url')),clean_url_field(data.get('youtube_url')),clean_url_field(data.get('tiktok_url')),now(),cid))
                     if 'logo_consent' in data:
                         db.execute('UPDATE centers SET logo_consent=?,logo_consent_at=? WHERE id=?',(1 if data.get('logo_consent') else 0,now() if data.get('logo_consent') else None,cid))
@@ -13988,7 +14079,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if user['role']=='freelance' and data.get('center_id'): ignored_tenant_fields(db,user,path,['center_id'])
                     # Verified centers publish directly (the admin can still hide it); freelance proposals are reviewed.
                     status='published' if user['role'] in {'admin','center'} else 'pending'
-                    cur=db.execute('''INSERT INTO travel_experiences(travel_offer_id,title,provider_user_id,center_id,provider_type,summary,description,start_date,end_date,price,currency,spots_total,spots_available,includes,conditions,status,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(tid,clean_text(data.get('title'),180),user['id'],center_id,provider_type,clean_text(data.get('summary'),500),clean_text(data.get('description'),5000),clean_text(data.get('start_date'),30),clean_text(data.get('end_date'),30),float(data.get('price')) if data.get('price') not in (None,'') else None,clean_text(data.get('currency'),8) or 'EUR',int(data.get('spots_total')) if data.get('spots_total') not in (None,'') else None,int(data.get('spots_available')) if data.get('spots_available') not in (None,'') else None,clean_text(data.get('includes'),3000),clean_text(data.get('conditions'),3000),status,1,now(),now())); audit(db,user['id'],'travel_experience_created','travel_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid,'status':status}); return
+                    _xn=clean_experience_numbers(data)
+                    cur=db.execute('''INSERT INTO travel_experiences(travel_offer_id,title,provider_user_id,center_id,provider_type,summary,description,start_date,end_date,price,currency,spots_total,spots_available,includes,conditions,status,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(tid,clean_text(data.get('title'),180),user['id'],center_id,provider_type,clean_text(data.get('summary'),500),clean_text(data.get('description'),5000),*_xn[:3],clean_text(data.get('currency'),8) or 'EUR',*_xn[3:],clean_text(data.get('includes'),3000),clean_text(data.get('conditions'),3000),status,1,now(),now())); audit(db,user['id'],'travel_experience_created','travel_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid,'status':status}); return
                 if path=='/api/admin/travel-offers':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
                     tid=int(data.get('id') or 0)
@@ -14002,14 +14094,19 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         cur=db.execute('INSERT INTO travel_offers(title,region,kind,image_path,summary,description,active) VALUES(?,?,?,?,?,?,1)',vals); tid=cur.lastrowid; audit(db,user['id'],'travel_destination_created','travel_offer',tid)
                     db.commit(); self.send_json({'ok':True,'id':tid}); return
                 if path=='/api/experience-bookings':
-                    user=require_user(self,db); data=json_body(self); eid=int(data.get('travel_experience_id') or 0); participants=max(1,int(data.get('participants') or 1))
+                    user=require_user(self,db); data=json_body(self); eid=int(data.get('travel_experience_id') or 0)
+                    participants=clean_int(data.get('participants'),1,PARTICIPANTS_MAX,1,'El número de personas no es válido.')
                     require_switch(db,'experiences')
+                    if BOOKING_LIMIT.blocked(f"u:{user['id']}"): self.send_json({'error':BOOKING_LIMIT_TEXT},429); return
+                    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')   # ASVS V2.3.4: checked and taken atomically
                     exp=db.execute('SELECT * FROM travel_experiences WHERE id=? AND active=1 AND status=\'published\'',(eid,)).fetchone()
                     if not exp: self.send_json({'error':'Experiencia no disponible.'},404); return
                     if exp['spots_available'] is not None and participants>exp['spots_available']: raise ValueError('No hay suficientes plazas disponibles.')
                     cur=db.execute('INSERT INTO experience_bookings(travel_experience_id,user_id,participants,notes,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',(eid,user['id'],participants,clean_text(data.get('notes'),2000),'requested',now(),now()))
                     ebid=cur.lastrowid
-                    if exp['spots_available'] is not None: db.execute('UPDATE travel_experiences SET spots_available=spots_available-?,updated_at=? WHERE id=?',(participants,now(),eid))
+                    if exp['spots_available'] is not None and db.execute('UPDATE travel_experiences SET spots_available=spots_available-?,updated_at=? WHERE id=? AND spots_available>=?',(participants,now(),eid,participants)).rowcount!=1:
+                        raise ValueError('No hay suficientes plazas disponibles.')
+                    BOOKING_LIMIT.hit(f"u:{user['id']}")
                     price=float(exp['price'] or 0)
                     notify_user(db,user['id'],'experience_request',{'experience':exp['title'],'participants':participants},('experience_booking',ebid))
                     _pctx={'experience':exp['title'],'participants':participants,'diver_name':user['fullname'],'notes':clean_text(data.get('notes'),2000) or '','panel_exp_url':public_site_url()+'/#/admin?tab=experiences'}
@@ -14029,11 +14126,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     db.execute('UPDATE travel_experiences SET status=?,updated_at=? WHERE id=?',(status,now(),eid)); audit(db,user['id'],'travel_experience_status','travel_experience',eid,{'status':status}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/centers':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
-                    cur=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),1,now(),now())); audit(db,user['id'],'center_created','center',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                    cur=db.execute('''INSERT INTO centers(name,country,region,city,address,website,phone,email,description,specialties,latitude,longitude,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),clean_coord(data.get('latitude'),clean_lat),clean_coord(data.get('longitude'),clean_lng),1,now(),now())); audit(db,user['id'],'center_created','center',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
                 if path=='/api/centers/update':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); cid=int(data.get('id') or 0)
                     if not db.execute('SELECT 1 FROM centers WHERE id=?',(cid,)).fetchone(): raise ValueError('Centro no encontrado.')
-                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),wsec.clean_local_or_http_url(data.get('logo_url'),500) or None,now(),cid))
+                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),clean_coord(data.get('latitude'),clean_lat),clean_coord(data.get('longitude'),clean_lng),wsec.clean_local_or_http_url(data.get('logo_url'),500) or None,now(),cid))
                     audit(db,user['id'],'center_updated','center',cid); db.commit(); self.send_json({'ok':True,'id':cid}); return
                 if path=='/api/admin/users/role':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
@@ -14152,13 +14249,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/center/profile':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); target=int(user['center_id'] or 0)
                     if not target: raise ValueError('La cuenta aún no tiene un centro aprobado.')
-                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),float(data.get('latitude') or 0),float(data.get('longitude') or 0),now(),target)); audit(db,user['id'],'center_profile_updated','center',target); db.commit(); self.send_json({'ok':True}); return
+                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),clean_coord(data.get('latitude'),clean_lat),clean_coord(data.get('longitude'),clean_lng),now(),target)); audit(db,user['id'],'center_profile_updated','center',target); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/rewards/seed':
                     user=require_user(self,db); sync_user_rewards(db,user['id']); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/rewards/redeem':
                     # The diver exchanges points for an advantage of a centre: a code to show at the centre.
                     user=require_user(self,db); data=json_body(self); offer_id=int(data.get('offer_id') or 0)
                     require_switch(db,'points')
+                    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')   # balance and stock checked and taken atomically
                     offer=db.execute('SELECT ro.* FROM reward_offers ro JOIN centers c ON c.id=ro.center_id AND c.active=1 WHERE ro.id=? AND ro.active=1',(offer_id,)).fetchone()
                     if not offer: raise ValueError('Ventaja no disponible.')
                     if offer['stock'] is not None and offer['stock']<=0: raise ValueError('Esta ventaja ya no tiene disponibilidad.')
@@ -14170,7 +14268,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     exp=(datetime.now(timezone.utc)+_timedelta(days=POINTS_CODE_DAYS)).isoformat(timespec='seconds')
                     rid=db.execute('INSERT INTO reward_redemptions(offer_id,user_id,code,cost_wallet,cost_points,status,expires_at,created_at) VALUES(?,?,?,0,?,?,?,?)',(offer_id,user['id'],code,cost,'issued',exp,now())).lastrowid
                     points_add(db,user['id'],-cost,'redeemed','Canje: '+offer['title'],'reward_redemption',rid,offer['center_id'])
-                    if offer['stock'] is not None: db.execute('UPDATE reward_offers SET stock=stock-1,updated_at=? WHERE id=?',(now(),offer_id))
+                    if offer['stock'] is not None and db.execute('UPDATE reward_offers SET stock=stock-1,updated_at=? WHERE id=? AND stock>0',(now(),offer_id)).rowcount!=1:
+                        raise ValueError('Esta ventaja ya no tiene disponibilidad.')
                     audit(db,user['id'],'reward_redeemed','reward_offer',offer_id,{'code':code,'points':cost}); db.commit()
                     self.send_json({'ok':True,'code':code,'balance':balance-cost,'expires_at':exp}); return
                 if path=='/api/points/codes/cancel':
@@ -14193,7 +14292,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if r['status']!='issued':
                         raise ValueError({'redeemed':f"Este código ya se usó el {(r['redeemed_at'] or '')[:10]}.",'expired':'Este código ha caducado.','cancelled':'El cliente anuló este código.'}.get(r['status'],'Código no válido.'))
                     if r['expires_at'] and r['expires_at']<now(): raise ValueError('Este código ha caducado.')
-                    db.execute("UPDATE reward_redemptions SET status='redeemed',redeemed_at=?,redeemed_by=?,redeemed_center_id=? WHERE id=? AND status='issued'",(now(),user['id'],cid,r['id']))
+                    if db.execute("UPDATE reward_redemptions SET status='redeemed',redeemed_at=?,redeemed_by=?,redeemed_center_id=? WHERE id=? AND status='issued'",(now(),user['id'],cid,r['id'])).rowcount!=1:
+                        raise ValueError('Código no válido.')   # used or cancelled at the same moment
                     audit(db,user['id'],'reward_code_validated','reward_redemption',r['id'],{'code':code}); db.commit()
                     self.send_json({'ok':True,'title':r['title'],'status':'redeemed'}); return
                 if path=='/api/provider/wallet-grant':
@@ -14203,6 +14303,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     # A centre grants points to one of its clients, with a monthly limit per client and per centre.
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0)
                     require_switch(db,'points'); require_feature(db,user,'rewards')
+                    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')   # the monthly limits are read and used atomically
                     target_id=int(data.get('user_id') or 0)
                     try: pts=int(str(data.get('points') or '0'))
                     except ValueError: raise ValueError('Los puntos son un número entero.')
@@ -14230,10 +14331,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         db.execute('UPDATE travel_experiences SET active=0,updated_at=? WHERE id=?',(now(),eid)); audit(db,user['id'],'travel_experience_hidden','travel_experience',eid); db.commit(); self.send_json({'ok':True}); return
                     if exp['service_id']: raise ValueError('Esta experiencia se edita desde su servicio en «Servicios y tarifas».')
                     tid=resolve_travel_offer(db,data) or exp['travel_offer_id']
-                    num=lambda v,f: f(v) if v not in (None,'') else None
+                    xs,xe,xp,xt,xf=clean_experience_numbers(data)
                     status='published' if user['role']=='center' else exp['status']
                     db.execute('UPDATE travel_experiences SET travel_offer_id=?,title=?,summary=?,description=?,start_date=?,end_date=?,price=?,spots_total=?,spots_available=?,includes=?,conditions=?,status=?,active=1,updated_at=? WHERE id=?',
-                               (tid,clean_text(data.get('title'),180) or exp['title'],clean_text(data.get('summary'),500),clean_text(data.get('description'),5000),clean_text(data.get('start_date'),30),clean_text(data.get('end_date'),30),num(data.get('price'),float),num(data.get('spots_total'),int),num(data.get('spots_available'),int),clean_text(data.get('includes'),3000),clean_text(data.get('conditions'),3000),status,now(),eid))
+                               (tid,clean_text(data.get('title'),180) or exp['title'],clean_text(data.get('summary'),500),clean_text(data.get('description'),5000),xs,xe,xp,xt,xf,clean_text(data.get('includes'),3000),clean_text(data.get('conditions'),3000),status,now(),eid))
                     audit(db,user['id'],'travel_experience_updated','travel_experience',eid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/provider/experience-bookings/status':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); rid=int(data.get('id') or 0); status=clean_text(data.get('status'),20)
@@ -14378,9 +14479,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if eid:
                         row=db.execute('SELECT id FROM center_extras WHERE id=? AND center_id=?',(eid,cid)).fetchone()
                         if not row: raise PermissionError('Extra no válido.')
-                        db.execute('UPDATE center_extras SET name=?,description=?,price=?,active=?,updated_at=? WHERE id=?',(clean_text(data.get('name'),120),clean_text(data.get('description'),500),float(data.get('price') or 0),1 if data.get('active',1) else 0,now(),eid))
+                        db.execute('UPDATE center_extras SET name=?,description=?,price=?,active=?,updated_at=? WHERE id=?',(clean_text(data.get('name'),120),clean_text(data.get('description'),500),clean_money(data.get('price')),1 if data.get('active',1) else 0,now(),eid))
                     else:
-                        db.execute('INSERT INTO center_extras(center_id,name,description,price,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',(cid,clean_text(data.get('name'),120),clean_text(data.get('description'),500),float(data.get('price') or 0),1,now(),now()))
+                        db.execute('INSERT INTO center_extras(center_id,name,description,price,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',(cid,clean_text(data.get('name'),120),clean_text(data.get('description'),500),clean_money(data.get('price')),1,now(),now()))
                     db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center/extras/delete':
                     user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); cid=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0); eid=int(data.get('id') or 0); db.execute('DELETE FROM center_extras WHERE id=? AND center_id=?',(eid,cid)); db.commit(); self.send_json({'ok':True}); return
@@ -14419,6 +14520,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
             except ValueError as e:
                 db.rollback()  # never persist half-done work when a request fails
                 self.send_json({'error':str(e)},400)
+            except OverflowError:
+                db.rollback(); self.send_json({'error':'Un número es demasiado grande.'},400)   # ASVS V1.4.2
             except NotFound as e:
                 db.rollback()
                 self.send_json({'error':str(e)},404)

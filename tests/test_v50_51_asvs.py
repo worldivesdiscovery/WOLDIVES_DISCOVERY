@@ -326,5 +326,104 @@ class DocumentoDePermisos(unittest.TestCase):
             self.assertIn(what[1:].lower(), flat, what)
 
 
+class ValidacionYLimites(ServerTestCase):
+    """V1.4.2, V2.2, V2.3 y V2.4: importes finitos, fechas y horas reales, personas, coordenadas, límites por persona y
+    operaciones de puntos y plazas sin carreras."""
+    extra_env = {'WOD_BOOKING_MAX_PER_HOUR': '4'}
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        t = cls('run')
+        cls.admin = t.make_admin()
+        cls.owner = t.make_center(cls.admin, 'v2a', phone='+34 600 590 001')
+        cls.cid = cls.owner.user['center_id']
+        cls.sid = cls.owner.post('/api/provider-services', {'title': 'Salida V2', 'price': 30, 'booking_mode': 'request'}).json['id']
+        day = (dt.date.today() + dt.timedelta(days=20)).isoformat()
+        cls.slots = [cls.owner.post('/api/provider-services/slot', {'service_id': cls.sid, 'slot_date': day, 'slot_time': f'{9 + i:02d}:00', 'spots_total': 8}).json['slot_id'] for i in range(6)]
+
+    def raw(self, c, path, body):
+        return c.request('POST', path, raw=body.encode(), content_type='application/json')
+
+    def test_v2_2_1_amounts_are_finite_and_not_negative(self):
+        for price in ('inf', 'nan', '-5', 1e9, '1e400'):
+            r = self.owner.post('/api/provider-services', {'title': 'Precio raro', 'price': price, 'booking_mode': 'request'})
+            self.assertEqual(r.status, 400, (price, r)); self.assertIn('importe', r.json['error'])
+        self.assertEqual(self.owner.post('/api/center/extras/save', {'name': 'Extra negativo', 'price': -80}).status, 400)
+        self.assertEqual(self.raw(self.owner, '/api/center/extras/save', '{"name": "Extra", "price": NaN}').status, 400)
+        self.assertEqual(self.raw(self.owner, '/api/center/extras/save', '{"name": "Extra", "price": Infinity}').status, 400)
+        self.assertEqual(self.owner.post('/api/center/extras/save', {'name': 'Extra bueno', 'price': '12,50'}).status, 200)
+        self.assertEqual(self.client().get('/api/center-directory').status, 200)
+
+    def test_v2_2_1_dates_times_people_and_places(self):
+        d = self.make_diver('v2fechas')
+        base = {'center_id': self.cid, 'service_id': self.sid, 'participants': 1}
+        r = d.post('/api/bookings', {**base, 'booking_date': '2031-02-31'}); self.assertEqual(r.status, 400, r); self.assertIn('fecha', r.json['error'])
+        r = d.post('/api/bookings', {**base, 'booking_date': '2031-03-03', 'booking_time': '<b>99:99</b>'}); self.assertEqual(r.status, 400, r); self.assertIn('hora', r.json['error'])
+        for n in (0, 5000, 10 ** 30, 'muchos', 2.5):
+            r = d.post('/api/bookings', {**base, 'slot_id': self.slots[0], 'participants': n}); self.assertEqual(r.status, 400, (n, r))
+        r = d.post('/api/logbook/update', {'id': 10 ** 30, 'dive_date': '2020-01-01', 'site': 'Cala'})   # V1.4.2: before, 500
+        self.assertEqual(r.status, 400, r); self.assertIn('demasiado grande', r.json['error'])
+        for day in ('2025-02-31', '1999-99-99', '0001-01-01', '1949-12-31'):
+            self.assertEqual(d.post('/api/logbook', {'dive_date': day, 'site': 'Cala', 'country': 'España'}).status, 400, day)
+        self.assertEqual(d.post('/api/logbook', {'dive_date': '1998-07-14', 'site': 'Cala', 'country': 'España'}).status, 200)
+        self.assertEqual(d.post('/api/account/identity', {'fullname': {'x': 1}}).status, 400)
+        r = self.owner.post('/api/center/profile', {'name': 'Centro v2a', 'country': 'España', 'city': 'Xàbia', 'latitude': 123, 'longitude': 5})
+        self.assertEqual(r.status, 400, r); self.assertIn('coordenadas', r.json['error'])
+        self.assertEqual(self.owner.post('/api/provider-services', {'title': 'Duración rara', 'price': 10, 'duration_minutes': -30, 'booking_mode': 'request'}).status, 400)
+
+    def test_v2_4_1_bookings_per_person_and_hour(self):
+        d = self.make_diver('v2limite')
+        for i in range(4):
+            r = d.post('/api/bookings', {'center_id': self.cid, 'service_id': self.sid, 'slot_id': self.slots[1 + i], 'participants': 1})
+            self.assertEqual(r.status, 200, r)
+        r = d.post('/api/bookings', {'center_id': self.cid, 'service_id': self.sid, 'slot_id': self.slots[5], 'participants': 1})
+        self.assertEqual(r.status, 429, r); self.assertIn('muchas reservas', r.json['error'])
+
+    def test_v2_3_2_logbook_points_stop_after_ten_entries_a_day(self):
+        d = self.make_diver('v2granja')
+        for i in range(14):
+            self.assertEqual(d.post('/api/logbook', {'dive_date': (dt.date(2020, 1, 1) + dt.timedelta(days=i)).isoformat(), 'site': f'Punto {i}', 'country': 'España'}).status, 200)
+        d.get('/api/points')
+        n = self.server.sql("SELECT COUNT(*) n FROM reward_events WHERE user_id=? AND event_key LIKE 'logbook:dive:%'", (d.user['id'],))[0]['n']
+        self.assertEqual(n, 10)      # before: 14 (one per date chosen by the diver)
+
+
+@unittest.skipUnless(hasattr(os, 'fork') and os.path.isdir('/proc'), 'WOD_WORKERS necesita Linux')
+class PuntosYPlazasVariosProcesos(ServerTestCase):
+    """V2.3.4: con cuatro procesos a la vez, un saldo da un solo código y una plaza se vende una sola vez."""
+    extra_env = {'WOD_WORKERS': '4'}
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        t = cls('run')
+        cls.admin = t.make_admin()
+        cls.owner = t.make_center(cls.admin, 'v2p', phone='+34 600 590 101')
+
+    def test_v2_3_4_one_point_balance_one_code(self):
+        for rnd in range(3):
+            d = self.make_diver(f'v2canje{rnd}')
+            oid = self.owner.post('/api/provider/reward-offers', {'title': f'Botella gratis {rnd}', 'reward_type': 'discount', 'cost_points': 100, 'value_text': 'Una botella', 'stock': 1}).json['id']
+            self.server.sql("INSERT INTO points_ledger(user_id,points,kind,description,created_at) VALUES(?,?,'adjust','test',datetime('now'))", (d.user['id'], 100 - d.get('/api/points').json['balance']))
+            with cf.ThreadPoolExecutor(12) as ex:
+                res = list(ex.map(lambda _: d.post('/api/rewards/redeem', {'offer_id': oid}).status, range(12)))
+            self.assertEqual(res.count(200), 1, res)
+            self.assertEqual(d.get('/api/points').json['balance'], 0)
+            self.assertEqual(self.server.sql('SELECT stock FROM reward_offers WHERE id=?', (oid,))[0]['stock'], 0)
+
+    def test_v2_3_4_the_last_spot_of_an_experience_is_sold_once(self):
+        start = (dt.date.today() + dt.timedelta(days=40)).isoformat()
+        for rnd in range(3):
+            r = self.owner.post('/api/travel-experiences', {'title': f'Viaje a Medes {rnd}', 'summary': 'Dos días', 'start_date': start, 'end_date': start,
+                                                            'price': 0, 'spots_total': 1, 'spots_available': 1, 'new_destination': 'Islas Medes'})
+            self.assertEqual(r.status, 200, r); eid = r.json['id']
+            divers = [self.make_diver(f'v2viaje{rnd}x{i}') for i in range(6)]
+            with cf.ThreadPoolExecutor(6) as ex:
+                res = list(ex.map(lambda c: c.post('/api/experience-bookings', {'travel_experience_id': eid, 'participants': 1}).status, divers))
+            self.assertEqual(res.count(200), 1, res)
+            self.assertEqual(self.server.sql('SELECT spots_available FROM travel_experiences WHERE id=?', (eid,))[0]['spots_available'], 0)
+
+
 if __name__ == '__main__':
     unittest.main()
