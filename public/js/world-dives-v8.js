@@ -1084,7 +1084,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <label class="pt-sel"><span>Tipo</span><select id="pt-type"><option value="">Cualquier tipo</option></select></label>
           <label class="pt-sel"><span>Nivel</span><select id="pt-level"><option value="">Cualquier nivel</option></select></label>
           <label class="pt-sel"><span>Profundidad</span><select id="pt-depth"><option value="">Cualquier profundidad</option></select></label>
-          <button type="button" class="cd-chip pt-only" data-only="centers" aria-pressed="${st.only==='centers'}">Con centro</button>
+          <button type="button" class="cd-chip pt-only" data-only="centers" aria-pressed="${st.only==='centers'}">Con centro</button><button type="button" class="cd-chip pt-only" data-only="instant" aria-pressed="${st.only==='instant'}">Confirmación inmediata</button>
           <label class="pt-sel pt-sort"><span>Ordenar</span><select id="pt-sort">${PT_SORTS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>
           <button type="button" class="cd-clear" id="pt-clear" hidden>Quitar filtros</button>
         </div>

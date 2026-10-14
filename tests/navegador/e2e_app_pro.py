@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 
 sys.path[:0] = [str(Path(__file__).resolve().parent), str(Path(__file__).resolve().parents[1])]
-from helpers import ServerTestCase, Server  # noqa: E402
+from helpers import ServerTestCase, Server, midday_clock  # noqa: E402
 from e2e_markers import chromium  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
@@ -41,6 +41,7 @@ def run(shots: Path | None):
     def check(name, ok, detail=''):
         checks.append((name, bool(ok), detail))
 
+    zone = midday_clock()   # «today at 23:30» ahead whatever the hour (tests/helpers.py)
     ServerTestCase.server = Server().start(); srv = ServerTestCase.server
     try:
         t = ServerTestCase('run')
@@ -54,6 +55,7 @@ def run(shots: Path | None):
         sl_hoy = c.post('/api/provider-services/slot', {'service_id': s1, 'slot_date': day(0), 'slot_time': hoy_t, 'spots_total': 12}).json['slot_id']
         sl_man = c.post('/api/provider-services/slot', {'service_id': s1, 'slot_date': day(1), 'slot_time': '09:00', 'spots_total': 10}).json['slot_id']
         so = other.post('/api/provider-services', {'title': 'Islas Medes', 'price': 60}).json['id']
+        srv.sql('UPDATE provider_services SET timezone=? WHERE id IN (?,?)', (zone, s1, so))
         sl_o = other.post('/api/provider-services/slot', {'service_id': so, 'slot_date': day(0), 'slot_time': hoy_t, 'spots_total': 8}).json['slot_id']
 
         def booking(diver, center, service, slot, status, n=1, **extra):

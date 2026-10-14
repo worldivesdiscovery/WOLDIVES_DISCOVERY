@@ -68,7 +68,7 @@ Web Vitals, y entregar la lista de problemas con su corrección.
 | # | Problema | Corrección | Estado |
 |---|---|---|---|
 | 12 | La cabecera grande empujaba la lista fuera del primer pantallazo | Título, buscador y Lista/Mapa en una sola franja | Corregido |
-| 13 | Filtros que se perdían al bajar | Barra fija con región, tipo, nivel, profundidad, «Con centro» y orden | Nuevo |
+| 13 | Filtros que se perdían al bajar | Barra fija con región, tipo, nivel, profundidad, «Con centro», «Confirmación inmediata» y orden | Nuevo |
 | 14 | Regiones sin número, y algunas vacías | Píldoras con su número, calculado con los demás filtros; una región vacía no aparece | Nuevo |
 | 15 | Rejilla y tarjeta | 3–4 columnas en el ordenador y lista de una en el móvil. La tarjeta lleva foto, nombre, región, profundidad, nivel y número de centros. No dice «Por confirmar»: lo que no hay, no sale | Corregido |
 | 16 | El mapa del listado no enseñaba lo filtrado | Lista/Mapa en la misma página; el mapa enseña todos los puntos filtrados | Nuevo |

@@ -66,7 +66,7 @@ def main():
                 btn = pg.locator('#pt-near, [data-near], button:has-text("Cerca de mí"), button:has-text("Usar mi ubicación")').first
                 if btn.count(): btn.click()
                 pg.wait_for_timeout(1500)
-                cards = pg.evaluate("[...document.querySelectorAll('.pt-card')].map(c=>({name:(c.querySelector('h3,h2')?.textContent||'').trim(),km:c.querySelector('.pt-dist')?.textContent||''}))")
+                cards = pg.evaluate("[...document.querySelectorAll('.pt-card')].map(c=>({name:(c.querySelector('.pt-name,h3,h2')?.textContent||'').trim(),km:c.querySelector('.pt-dist')?.textContent||''}))")
                 note = pg.evaluate("document.querySelector('#pt-locbar,.pt-locbar')?.textContent||''")
                 if shot: pg.screenshot(path=str(out / shot))
                 ctx.close(); return cards, note

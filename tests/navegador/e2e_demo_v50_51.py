@@ -69,7 +69,10 @@ def run(shots: Path | None):
 
             def open_first_species(pg):
                 pg.locator('#pm-viewport').scroll_into_view_if_needed(); pg.wait_for_timeout(300)
-                bb = pg.locator('#pm-track .pm-item').first.bounding_box()
+                # the strip moves by itself: the first species fully on screen (not one already gone by the edge)
+                vis = pg.evaluate("""(() => { const v = document.getElementById('pm-viewport').getBoundingClientRect();
+                    return [...document.querySelectorAll('#pm-track .pm-item')].findIndex(b => { const r = b.getBoundingClientRect(); return r.left > v.left + 50 && r.right < v.right - 50; }); })()""")
+                bb = pg.locator('#pm-track .pm-item').nth(max(vis, 0)).bounding_box()
                 pg.mouse.move(bb['x'] + bb['width'] / 2, bb['y'] + 20); pg.wait_for_timeout(150); pg.mouse.down(); pg.mouse.up(); pg.wait_for_timeout(500)
 
             # ordenador · ficha de Cabo San Antonio (Bahía Coralina)

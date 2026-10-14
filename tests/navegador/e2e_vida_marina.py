@@ -113,10 +113,10 @@ def run(shots: Path | None):
             # ------------------------------------------------------------------------- ficha del punto (ordenador)
             page = page_for(DESK)
             go(page, f'#/punto?id={PID}', 1500)
-            order = page.evaluate("""() => { const y = e => e ? e.getBoundingClientRect().top + scrollY : null;
-                const h2 = t => [...document.querySelectorAll('.tp-main h2')].find(h => h.textContent.trim() === t)?.closest('section');
-                return [y(h2('Sobre el punto')), y(document.querySelector('.pm-block')), y(h2('Recorrido virtual')), y(document.getElementById('pp-centers'))]; }""")
-            check('ficha · orden de v50.49: datos, vida marina justo encima del recorrido virtual, centros', None not in order and order[0] < order[1] < order[2] < order[3], order)
+            # v50.54 (encargo, punto 3): descripción, vida marina, recorrido virtual, centros, mapa — the same in every site
+            order = page.evaluate("""() => { const y = s => { const e = document.querySelector(s); return e ? e.getBoundingClientRect().top + scrollY : null; };
+                return [y('#pp-about'), y('.pm-block'), y('.pp-virtual-block'), y('#pp-centers'), y('#pp-where')]; }""")
+            check('ficha · orden: descripción, vida marina, recorrido virtual, centros y mapa', None not in order and order == sorted(order), order)
             gap = page.evaluate("(() => { const a = document.querySelector('.pm-block').getBoundingClientRect(), b = document.querySelector('.pm-block').nextElementSibling; return [b.querySelector('h2')?.textContent.trim(), b.getBoundingClientRect().top - a.bottom]; })()")
             check('ficha · el carrusel va pegado al «Recorrido virtual»', gap[0] == 'Recorrido virtual' and 0 <= gap[1] <= 40, gap)
             check('ficha · sin las secciones de v50.50 (carrusel grande y «Vídeos de la ruta»)', page.locator('.mv-block, .rv-block, .rv-card').count() == 0 and 'Vídeos de la ruta' not in page.inner_text('#app'))

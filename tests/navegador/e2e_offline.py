@@ -11,10 +11,11 @@ import sys
 from pathlib import Path
 
 sys.path[:0] = [str(Path(__file__).resolve().parent), str(Path(__file__).resolve().parents[1])]   # tests/navegador and tests (helpers)
-from helpers import ServerTestCase, Server  # noqa: E402
+from helpers import ServerTestCase, Server, midday_clock  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 PW = 'buceo-seguro-2026'
+ZONE = midday_clock()   # «today at 23:58» ahead whatever the hour (tests/helpers.py)
 TODAY = datetime.date.today().isoformat()
 
 
@@ -37,6 +38,7 @@ def run(shots: Path | None):
         center = t.make_center(admin, 'sincob', phone='+34 600 480 001')
         cid = center.user['center_id']
         sid = center.post('/api/provider-services', {'title': 'Salida a las Medas', 'price': 50, 'booking_mode': 'request'}).json['id']
+        srv.sql('UPDATE provider_services SET timezone=? WHERE id=?', (ZONE, sid))
         slot = center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': TODAY, 'slot_time': '23:58', 'spots_total': 8}).json['slot_id']
         diver = t.make_diver('marinero6')
         diver.post('/api/account/profile', {'certification_id': 2, 'emergency_contact_name': 'Juan Marinero', 'emergency_contact_phone': '+34 600 222 111', 'suit_size': 'L'})
@@ -45,7 +47,7 @@ def run(shots: Path | None):
         base = srv.base
         with sync_playwright() as p:
             browser = chromium(p)
-            ctx = browser.new_context(viewport={'width': 390, 'height': 844}, locale='es-ES', has_touch=True, service_workers='allow')
+            ctx = browser.new_context(viewport={'width': 390, 'height': 844}, locale='es-ES', has_touch=True, service_workers='allow', timezone_id=ZONE)
             ctx.add_init_script("try{localStorage.setItem('wd_cookie_notice',String(Date.now()))}catch(e){}")
             page = ctx.new_page(); errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))

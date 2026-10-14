@@ -25,22 +25,29 @@ ROOT = Path(__file__).resolve().parents[1]
 SEED_DB = ROOT / 'data' / 'demo' / 'catalogo-demo.sqlite3'   # demo catalogue (never real data)
 
 
+def midday_clock():
+    """A clock around midday for this process (and the servers and browsers it starts), on the date it is in Madrid:
+    a departure «later today» is ahead whatever the hour of the machine. Since v50.51 the server reads a departure's
+    time in its centre's zone (Spain for the test centres): between 22:00 and 24:00 UTC Madrid is already on the next
+    day. Returns the same clock as a zone name: services put in it (at_midday) keep «today at 23:30» ahead even when it
+    is 23:45 in Madrid, and the centre's «Hoy» still lists them (same date)."""
+    from datetime import datetime, timedelta, timezone
+    from zoneinfo import ZoneInfo
+    now = datetime.now(timezone.utc)
+    place_day = now.astimezone(ZoneInfo('Europe/Madrid')).date()
+    off = min((o for o in range(-12, 15) if (now + timedelta(hours=o)).date() == place_day),
+              key=lambda o: abs((now + timedelta(hours=o)).hour - 12))
+    os.environ['TZ'] = f'WOD{-off:+d}'; time.tzset()   # POSIX: «WOD-5» is UTC+5
+    return f'Etc/GMT{-off:+d}'                         # the same clock as a zone name («Etc/GMT-5» is UTC+5)
+
+
 class MiddayClock:
-    """Mixin for a test class that needs a departure «later today»: the class and its server run on a clock around
-    midday, whatever the hour of the machine (otherwise it fails late at night). Put it before ServerTestCase.
-    Since v50.51 the server reads a departure's time in its centre's zone (Spain for the test centres), so the midday
-    is taken on the date it is in Madrid: between 22:00 and 24:00 UTC Madrid is already on the next day."""
+    """Mixin for a test class that needs a departure «later today»: the class and its server run on midday_clock().
+    Put it before ServerTestCase, and put the class's services in that clock with at_midday()."""
     @classmethod
     def setUpClass(cls):
-        from datetime import datetime, timedelta, timezone
-        from zoneinfo import ZoneInfo
         cls._tz_before = os.environ.get('TZ')
-        now = datetime.now(timezone.utc)
-        place_day = now.astimezone(ZoneInfo('Europe/Madrid')).date()
-        off = min((o for o in range(-12, 15) if (now + timedelta(hours=o)).date() == place_day),
-                  key=lambda o: abs((now + timedelta(hours=o)).hour - 12))
-        os.environ['TZ'] = f'WOD{-off:+d}'; time.tzset()   # POSIX: «WOD-5» is UTC+5
-        cls.midday_zone = f'Etc/GMT{-off:+d}'              # the same clock as a zone name («Etc/GMT-5» is UTC+5)
+        cls.midday_zone = midday_clock()
         super().setUpClass()
 
     @classmethod
