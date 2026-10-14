@@ -161,5 +161,70 @@ class DemoVersion(unittest.TestCase):
         self.assertEqual(mod.generated(Path('/no/existe.sqlite3')), (None, None))
 
 
+class LimitesCompartidos(ServerTestCase):
+    """The limits of attempts are the same with several processes (WOD_WORKERS): before, each process counted on its
+    own, so with 4 processes a person could try up to 4 times more passwords or two-step codes."""
+    extra_env = {'WOD_WORKERS': '4'}
+
+    @classmethod
+    def tearDownClass(cls):
+        import os, signal
+        from test_v50_51_concurrencia import child_pids
+        for k in (child_pids(cls.server.proc.pid) if cls.server.proc else []):
+            try: os.kill(k, signal.SIGTERM)
+            except ProcessLookupError: pass
+        super().tearDownClass()
+
+    def test_login_limit_counts_every_process(self):
+        self.make_diver('limite4')
+        seen = []
+        for _ in range(8):                       # WOD_LOGIN_MAX_ATTEMPTS: 8 per account and address every 15 minutes
+            seen.append(self.client().post('/api/auth/login', {'login': 'diver_limite4', 'password': 'no-es-esta-1'}).status)
+        self.assertEqual(seen, [401] * 8)
+        # each request is a new connection: the kernel spreads them over the 4 processes, and all of them say no now
+        self.assertEqual([self.client().post('/api/auth/login', {'login': 'diver_limite4', 'password': 'buceo-seguro-2026'}).status
+                          for _ in range(6)], [429] * 6)
+
+
+class LimitadorCompartido(unittest.TestCase):
+    """wod.security.SharedRateLimiter: the same fixed window as RateLimiter, counted in one file for every process."""
+
+    def setUp(self):
+        from wod import security as wsec
+        self.wsec = wsec; self.tmp = tempfile.TemporaryDirectory()
+        wsec.configure_shared_limits(Path(self.tmp.name) / 'limites.sqlite3')
+
+    def tearDown(self):
+        self.wsec.configure_shared_limits(None); self.tmp.cleanup()
+
+    def test_window_reset_and_no_clear_keys(self):
+        lim = self.wsec.SharedRateLimiter('prueba', 3, 3600)
+        self.assertEqual([lim.hit('10.0.0.1') for _ in range(4)], [False, False, False, True])
+        self.assertTrue(lim.blocked('10.0.0.1')); self.assertFalse(lim.blocked('10.0.0.2'))
+        lim.reset('10.0.0.1'); self.assertFalse(lim.blocked('10.0.0.1'))
+        self.assertFalse(self.wsec.SharedRateLimiter('otro', 3, 3600).blocked('10.0.0.1'))   # each limit on its own
+        lim.hit('10.0.0.9')
+        raw = sqlite3.connect(Path(self.tmp.name) / 'limites.sqlite3').execute('SELECT group_concat(key) FROM hits').fetchone()[0]
+        self.assertNotIn('10.0.0.9', raw)                                                    # addresses are not stored
+        short = self.wsec.SharedRateLimiter('corto', 1, 1)
+        short.hit('k'); short.hit('k'); self.assertTrue(short.blocked('k'))
+        import time; time.sleep(1.1); self.assertFalse(short.blocked('k'))                  # the window ends
+
+    def test_exact_count_across_processes(self):
+        import os
+        lim = self.wsec.SharedRateLimiter('procesos', 1000, 3600)
+        kids = []
+        for _ in range(4):
+            pid = os.fork()
+            if pid == 0:
+                try:
+                    for _ in range(25): lim.hit('misma-clave')
+                finally: os._exit(0)
+            kids.append(pid)
+        for pid in kids: os.waitpid(pid, 0)
+        self.assertFalse(lim.hit('misma-clave'))
+        n = sqlite3.connect(Path(self.tmp.name) / 'limites.sqlite3').execute("SELECT count FROM hits WHERE name='procesos'").fetchone()[0]
+        self.assertEqual(n, 101)                                                             # 4 × 25 + 1, none lost
+
 if __name__ == '__main__':
     unittest.main()

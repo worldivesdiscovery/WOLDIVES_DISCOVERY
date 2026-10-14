@@ -512,8 +512,8 @@ class Seguridad(ServerTestCase):
             self.client().request('POST', '/api/auth/login', {'login': login, 'password': 'no-es-la-clave'}, headers={'X-Forwarded-For': f'192.0.2.{n}'})
             return time.perf_counter() - t0
         known, unknown = [], []
-        for i in range(7):
-            known.append(timed('diver_s51d', 10 + i)); unknown.append(timed(f'nadie-{uuid.uuid4().hex[:8]}@x.example', 30 + i))
+        for i in range(15):   # 15 of each, interleaved: one slow request (a disk write) does not move the median
+            known.append(timed('diver_s51d', 10 + i)); unknown.append(timed(f'nadie-{uuid.uuid4().hex[:8]}@x.example', 40 + i))
         # Cost of one password check with the iterations of this test server, measured here.
         t0 = time.perf_counter(); hashlib.pbkdf2_hmac('sha256', b'x', b'0' * 16, int(self.server.env['WOD_PBKDF2_ITERATIONS'])); t_hash = time.perf_counter() - t0
         gap = statistics.median(known) - statistics.median(unknown)

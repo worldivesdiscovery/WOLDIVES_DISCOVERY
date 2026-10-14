@@ -144,6 +144,8 @@ Resultados de referencia, medidos en una máquina de 4 núcleos con el cliente e
 
 Con 1 proceso la web va sobrada hasta unos 50 visitantes navegando a la vez. Por encima, el procesador se satura y conviene **`WOD_WORKERS` = número de núcleos**: con 4 procesos, 200 visitantes simultáneos responden en milisegundos. Como referencia, 200 visitantes a la vez equivalen a varios miles de visitas al día.
 
+Los procesos comparten las sesiones (en la base de datos) y los límites de intentos (en `data/<base>-limites.sqlite3`, junto a la base). Ese archivo solo guarda contadores de los últimos minutos: no hace falta copiarlo y se puede borrar con el servidor parado.
+
 **Cuándo migrar a PostgreSQL.** SQLite en modo WAL admite muchas lecturas simultáneas, pero **una sola escritura a la vez**. Las escrituras de WORLDIVES son pocas y cortas (reservas, pagos, inicios de sesión, estadísticas). Conviene empezar a preparar la migración cuando se cumpla **cualquiera** de estas condiciones de forma sostenida:
 
 - más de **50 escrituras por segundo** en hora punta (equivale a unas **20 000 reservas o solicitudes al día**), o errores «database is locked» en el registro;

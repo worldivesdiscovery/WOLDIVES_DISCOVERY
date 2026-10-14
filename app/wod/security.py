@@ -8,6 +8,8 @@ import ipaddress
 import os
 import re
 import secrets
+import sqlite3
+import sys
 import threading
 import time
 from urllib.parse import urlparse
@@ -125,6 +127,107 @@ class RateLimiter:
 
     def __len__(self):
         return len(self._hits)
+
+
+class SharedRateLimiter(RateLimiter):
+    """The same fixed window as RateLimiter, but counted once for the whole server: the counters live in a small SQLite
+    file next to the database, so the WOD_WORKERS processes share them (v50.51: in memory, each process counted on its
+    own and the real limit grew with the number of processes). Keys are stored hashed with WOD_SECRET_KEY (no IP or
+    email in clear). If the file cannot be used, the limit falls back to the memory of the process."""
+    _path = None
+    _conn = None
+    _pid = None
+    _glock = threading.Lock()
+    _warned = False
+
+    def __init__(self, name: str, limit: int, window_seconds: int, max_keys: int = 20000):
+        super().__init__(limit, window_seconds, max_keys)
+        self.name = name
+        self._writes = 0
+
+    @classmethod
+    def _db(cls):
+        if cls._path is None: return None
+        if cls._conn is None or cls._pid != os.getpid():   # never use a connection opened before fork()
+            cls._path.parent.mkdir(parents=True, exist_ok=True)
+            c = sqlite3.connect(str(cls._path), timeout=5, isolation_level=None, check_same_thread=False)
+            c.execute('PRAGMA journal_mode=WAL'); c.execute('PRAGMA synchronous=NORMAL')
+            c.execute('CREATE TABLE IF NOT EXISTS hits(name TEXT NOT NULL, key TEXT NOT NULL, start REAL NOT NULL, '
+                      'count INTEGER NOT NULL, PRIMARY KEY(name, key)) WITHOUT ROWID')
+            cls._conn, cls._pid = c, os.getpid()
+        return cls._conn
+
+    @classmethod
+    def _failed(cls, exc):
+        cls._conn = None
+        if not cls._warned:
+            cls._warned = True
+            print(f'[límites] no se puede usar {cls._path} ({exc}); cada proceso cuenta por su cuenta', file=sys.stderr)
+
+    def _k(self, key: str) -> str:
+        pepper = config.env('WOD_SECRET_KEY', 'worldives')
+        return hashlib.sha256(f'{pepper}|{self.name}|{key}'.encode()).hexdigest()[:32]
+
+    def blocked(self, key: str) -> bool:
+        with self._glock:
+            try:
+                c = self._db()
+                if c is None: return super().blocked(key)
+                row = c.execute('SELECT start, count FROM hits WHERE name=? AND key=?', (self.name, self._k(key))).fetchone()
+            except sqlite3.Error as e:
+                self._failed(e); return super().blocked(key)
+        if not row or time.time() - row[0] >= self.window: return False
+        return row[1] >= self.limit
+
+    def hit(self, key: str) -> bool:
+        """Counts one attempt. Returns True when the key is now over the limit."""
+        now, k = time.time(), self._k(key)
+        with self._glock:
+            try:
+                c = self._db()
+                if c is None: return super().hit(key)
+                c.execute('BEGIN IMMEDIATE')   # read and count in one step for every process
+                try:
+                    row = c.execute('SELECT start, count FROM hits WHERE name=? AND key=?', (self.name, k)).fetchone()
+                    if not row or now - row[0] >= self.window:
+                        count = 1; c.execute('INSERT OR REPLACE INTO hits VALUES(?,?,?,1)', (self.name, k, now))
+                    else:
+                        count = row[1] + 1; c.execute('UPDATE hits SET count=? WHERE name=? AND key=?', (count, self.name, k))
+                    self._writes += 1
+                    if self._writes % 500 == 1:   # expired windows are removed on the first count and every 500
+                        c.execute('DELETE FROM hits WHERE name=? AND start<?', (self.name, now - self.window))
+                    c.execute('COMMIT')
+                except BaseException:
+                    c.execute('ROLLBACK'); raise
+            except sqlite3.Error as e:
+                self._failed(e); return super().hit(key)
+        return count > self.limit
+
+    def reset(self, key: str):
+        with self._glock:
+            try:
+                c = self._db()
+                if c is not None: c.execute('DELETE FROM hits WHERE name=? AND key=?', (self.name, self._k(key)))
+            except sqlite3.Error as e:
+                self._failed(e)
+        super().reset(key)
+
+    def __len__(self):
+        with self._glock:
+            try:
+                c = self._db()
+                if c is not None: return c.execute('SELECT COUNT(*) FROM hits WHERE name=?', (self.name,)).fetchone()[0]
+            except sqlite3.Error as e:
+                self._failed(e)
+        return super().__len__()
+
+
+def configure_shared_limits(path):
+    """Where the shared counters live (the server sets it next to its database); None = memory of each process."""
+    from pathlib import Path
+    with SharedRateLimiter._glock:
+        SharedRateLimiter._path = Path(path) if path else None
+        SharedRateLimiter._conn = None; SharedRateLimiter._pid = None
 
 
 # ---------------------------------------------------------------------------

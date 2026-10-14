@@ -1,7 +1,7 @@
 # WORLDIVES DISCOVERY v50.51 · Auditoría de seguridad (OWASP Top 10, 2021)
 
 Revisión hecha el 13/10/2026 sobre la v50.50 y corregida en la v50.51. Pruebas: `tests/test_v50_51_seguridad.py`
-(46) y `tests/test_v50_51.py` (clase `SeguridadExtra`). **Las 49 pasan en la v50.51.**
+(46) y `tests/test_v50_51.py` (clases `SeguridadExtra`, `LimitesCompartidos` y `LimitadorCompartido`). **Las 52 pasan en la v50.51.**
 
 ## Estado de cada hallazgo en la v50.51
 
@@ -19,6 +19,7 @@ Revisión hecha el 13/10/2026 sobre la v50.50 y corregida en la v50.51. Pruebas:
 | A05-3 | baja | La comprobación de los zips no vigilaba todas las claves | **Corregido**: también `WOD_DATA_KEY`, `WOD_DATA_KEY_OLD`, `WOD_BACKUP_KEY` y las de WhatsApp |
 | A06-1 | baja | Versiones mínimas de Pillow y cryptography con fallos conocidos | **Corregido**: Pillow ≥ 10.3.0 y cryptography ≥ 42.0.4. Fijar versiones con hash: **Pendiente de decisión** (exige un archivo de versiones por sistema operativo) |
 | A07-2 | baja | Se podía saber si un email tenía cuenta por el tiempo de respuesta | **Corregido**: se comprueba siempre una contraseña |
+| A07-3 | media | Con varios procesos (`WOD_WORKERS`) cada proceso contaba sus propios intentos: el límite real de contraseñas, códigos de dos pasos, recuperación y registro se multiplicaba por el número de procesos (encontrado después de la auditoría, al revisar el escalado) | **Corregido**: los contadores se guardan en un archivo SQLite junto a la base, compartido por todos los procesos, con las claves guardadas como huella (hash con `WOD_SECRET_KEY`: sin IP ni email en claro). Prueba con 4 procesos |
 | A09-1 | baja | Tokens de iCal y enlaces cortos en el registro de accesos | **Corregido**: se guardan como `***` |
 | A09-2 | baja | Inicios de sesión fallidos sin registro | **Corregido**: quedan en el registro de auditoría |
 | A09-3 | baja | Enlaces de un solo uso legibles en Administración → Correos | **Corregido**: se muestran como `***` |

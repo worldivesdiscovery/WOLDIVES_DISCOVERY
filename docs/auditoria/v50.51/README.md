@@ -6,7 +6,7 @@ esta versión salvo lo marcado como **Pendiente de decisión**.
 | Parte | Informe | Resultado en una línea |
 |---|---|---|
 | Carga | [`carga.md`](carga.md), con gráficos | En un equipo de 4 núcleos, 1.000 usuarios a la vez con páginas p95 33 ms y reservas p95 210 ms. Para 10.000: VPS de 32 vCPU (uso intenso) u 8 vCPU (normal); SQLite basta. 4 errores de concurrencia corregidos |
-| Seguridad (OWASP Top 10) | [`seguridad.md`](seguridad.md) | 15 hallazgos (3 de gravedad media) y 3 menores: **todos corregidos**. 49 pruebas automáticas |
+| Seguridad (OWASP Top 10) | [`seguridad.md`](seguridad.md) | 16 hallazgos (4 de gravedad media) y 3 menores: **todos corregidos**. 52 pruebas automáticas |
 | Botones por pantalla y papel | [`botones.md`](botones.md) y el detalle en [`botones-inventario.md`](botones-inventario.md) (solo en el paquete DEMO y en el repositorio: nombra las cuentas de la demo) | 5.065 elementos en 345 pantallas y 6 papeles: 4.998 «Funciona», 21 «Depende de clave pendiente», 46 desactivados a propósito con explicación, **0 errores**. 9 fallos corregidos |
 
 ## Lista de correcciones
@@ -23,7 +23,7 @@ esta versión salvo lo marcado como **Pendiente de decisión**.
 
 **Seguridad**
 - Permisos del equipo: recepción ya no cambia la ficha del centro y un instructor no ve los ingresos.
-- Límite de intentos por cuenta (fuerza bruta desde muchas IP) y por «contraseña actual».
+- Límite de intentos por cuenta (fuerza bruta desde muchas IP) y por «contraseña actual», el mismo para todos los procesos.
 - Copias de seguridad cifradas (`WOD_BACKUP_KEY`); secretos de la verificación en dos pasos cifrados.
 - Fotos públicas sin datos de ubicación (EXIF/GPS).
 - Títulos escapados, denuncias sin enlaces `javascript:`, errores internos que ya no se envían, cabecera `Server`

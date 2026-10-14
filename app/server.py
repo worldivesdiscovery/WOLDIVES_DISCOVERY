@@ -1059,15 +1059,17 @@ CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen);
 
 
 
-# Rate limits: thread-safe and bounded in size (wod.security.RateLimiter).
-LOGIN_LIMIT = wsec.RateLimiter(LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_SECONDS)
-LOGIN_IP_LIMIT = wsec.RateLimiter(LOGIN_MAX_ATTEMPTS * 5, LOGIN_WINDOW_SECONDS)
-LOGIN_ACCOUNT_LIMIT = wsec.RateLimiter(LOGIN_MAX_ATTEMPTS * 3, LOGIN_WINDOW_SECONDS)
+# Rate limits: the same for every process of the server (WOD_WORKERS), counted in a small file next to the database
+# (wod.security.SharedRateLimiter, v50.51).
+wsec.configure_shared_limits(DB_PATH.with_name(DB_PATH.stem + '-limites.sqlite3'))
+LOGIN_LIMIT = wsec.SharedRateLimiter('login', LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_SECONDS)
+LOGIN_IP_LIMIT = wsec.SharedRateLimiter('login-ip', LOGIN_MAX_ATTEMPTS * 5, LOGIN_WINDOW_SECONDS)
+LOGIN_ACCOUNT_LIMIT = wsec.SharedRateLimiter('login-cuenta', LOGIN_MAX_ATTEMPTS * 3, LOGIN_WINDOW_SECONDS)
 _DUMMY_HASH = []
 def dummy_password_hash():
     if not _DUMMY_HASH: _DUMMY_HASH.append(wsec.hash_password(secrets.token_urlsafe(16)))
     return _DUMMY_HASH[0]
-PASSWORD_CHECK_LIMIT = wsec.RateLimiter(10, 900)
+PASSWORD_CHECK_LIMIT = wsec.SharedRateLimiter('contrasena-actual', 10, 900)
 
 
 def current_password_ok(user_id, password, stored):
@@ -1079,12 +1081,12 @@ def current_password_ok(user_id, password, stored):
     PASSWORD_CHECK_LIMIT.hit(key); return False
 
 
-NOTICE_LIMIT = wsec.RateLimiter(60, 3600)
-REGISTER_LIMIT = wsec.RateLimiter(wcfg.env_int('WOD_REGISTER_MAX_PER_HOUR', 10, 1), 3600)
-FORGOT_LIMIT = wsec.RateLimiter(5, 900)
-TOTP_LIMIT = wsec.RateLimiter(6, 900)
-GEOCODE_LIMIT = wsec.RateLimiter(30, 60)
-INFO_LIMIT = wsec.RateLimiter(10, 3600)
+NOTICE_LIMIT = wsec.SharedRateLimiter('avisos', 60, 3600)
+REGISTER_LIMIT = wsec.SharedRateLimiter('registro', wcfg.env_int('WOD_REGISTER_MAX_PER_HOUR', 10, 1), 3600)
+FORGOT_LIMIT = wsec.SharedRateLimiter('recuperar', 5, 900)
+TOTP_LIMIT = wsec.SharedRateLimiter('dos-pasos', 6, 900)
+GEOCODE_LIMIT = wsec.SharedRateLimiter('geocodificar', 30, 60)
+INFO_LIMIT = wsec.SharedRateLimiter('informacion', 10, 3600)
 
 PRIVATE_USER_FIELDS = ('password_hash', 'totp_secret', 'totp_pending_secret', 'email_verify_token', 'totp_recovery', 'totp_last_step', 'marketing_token')
 
@@ -7833,7 +7835,7 @@ def report_target(db, ttype, tid):
 REPORT_REASONS = {'illegal': 'Contenido ilegal', 'false': 'Información falsa o engañosa', 'fake_review': 'Reseña falsa o no auténtica',
                   'ip': 'Uso no autorizado de fotos o textos', 'safety': 'Riesgo para la seguridad', 'privacy': 'Datos personales publicados sin permiso',
                   'fraud': 'Fraude o estafa', 'other': 'Otro motivo'}
-REPORT_LIMIT = wsec.RateLimiter(10, 3600)            # v50.51: bounded in size like the other limits (security review)
+REPORT_LIMIT = wsec.SharedRateLimiter('denuncias', 10, 3600)            # v50.51: bounded in size like the other limits (security review)
 # «Contacto» form (v50.46). The topics follow the table of the «Contacto» page.
 CONTACT_TOPICS = {'web': 'Dudas sobre la web o tu cuenta', 'booking': 'Un problema con una reserva', 'privacy': 'Protección de datos y tus derechos',
                   'accessibility': 'Accesibilidad', 'center': 'Centros que quieren unirse', 'other': 'Otro asunto'}
