@@ -25,7 +25,7 @@ PERMISOS = (
     ('reservas', 'Reservas, solicitudes y clientes', 'Acepta o rechaza solicitudes, crea y cambia reservas, cobra en el centro y escribe a los clientes.'),
     ('salidas', 'Salidas y servicios', 'Crea, cambia y cierra salidas y servicios.'),
     ('avisos', 'Cancelar salidas y avisar a todos', 'Cancela o cambia una salida y envía el aviso a todos sus buceadores.'),
-    ('cobros', 'Cobros y devoluciones', 'Ve los cobros, exporta los pagos y devuelve dinero.'),
+    ('cobros', 'Cobros y devoluciones', 'Ve los cobros, exporta los pagos y devuelve dinero. Si el centro cobra online, pide la verificación en dos pasos.'),
     ('centro', 'Ficha del centro y ajustes', 'Ficha pública, fotos, tarifas, seguro, política de cancelación, descargo, integraciones e importar clientes.'),
     ('estadisticas', 'Estadísticas', 'Ve las estadísticas del centro.'),
 )

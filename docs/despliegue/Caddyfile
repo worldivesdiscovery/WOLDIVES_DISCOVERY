@@ -1,20 +1,64 @@
 # Caddy: HTTPS automático (Let's Encrypt) delante de WORLDIVES. /etc/caddy/Caddyfile
-# En el .env del servidor: WOD_PUBLIC_URL=https://worldives.com y WOD_TRUSTED_PROXIES=127.0.0.1
-# http: the API answers 403 (a client with http:// must fail, not be redirected with its key in clear, ASVS V4.1.2);
-# the rest goes to https.
-http://worldives.com, http://www.worldives.com {
-	handle /api/* {
-		respond "Usa https://worldives.com" 403
-	}
-	handle {
-		redir https://worldives.com{uri} permanent
+# En el .env de producción: WOD_PUBLIC_URL=https://worlddivesdiscovery.com y WOD_TRUSTED_PROXIES=127.0.0.1
+# En el .env de pruebas:    WOD_PUBLIC_URL=https://pruebas.worlddivesdiscovery.com, WOD_PORT=8001
+# Comprobar: caddy validate --config /etc/caddy/Caddyfile
+
+# Access log: 14 days, without tokens, coordinates or searches of the address, without the integration key and with
+# the address cut to /24 (IPv4) or /48 (IPv6), like the application's own log (ASVS V16.2.5). Better Stack reads
+# /var/log/caddy/worldives.log (docs/despliegue/vector.yaml).
+(registro) {
+	log {
+		output file /var/log/caddy/{args[0]}.log {
+			roll_keep_for 336h
+		}
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					delete t
+					delete token
+					delete lat
+					delete lon
+					delete q
+				}
+				request>headers>X-Worldives-Api-Key delete
+				request>headers>Authorization delete
+				request>remote_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>client_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+			}
+		}
 	}
 }
 
-worldives.com, www.worldives.com {
+# http: the API answers 403 (a client with http:// must fail, not be redirected with its key in clear, ASVS V4.1.2);
+# the rest goes to https, and www straight to the root domain.
+http://worlddivesdiscovery.com, http://www.worlddivesdiscovery.com, http://pruebas.worlddivesdiscovery.com {
+	handle /api/* {
+		respond "Usa https://" 403
+	}
+	@pruebas host pruebas.worlddivesdiscovery.com
+	handle @pruebas {
+		redir https://pruebas.worlddivesdiscovery.com{uri} permanent
+	}
+	handle {
+		redir https://worlddivesdiscovery.com{uri} permanent
+	}
+}
+
+# www → the root domain (the certificate covers both names).
+www.worlddivesdiscovery.com {
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
-	@www host www.worldives.com
-	redir @www https://worldives.com{uri} permanent
+	redir https://worlddivesdiscovery.com{uri} permanent
+}
+
+worlddivesdiscovery.com {
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
 	# Compressed answers, except the map tiles (read by byte ranges).
 	@compress not path /tiles/*
@@ -30,41 +74,26 @@ worldives.com, www.worldives.com {
 	request_body {
 		max_size 60MB
 	}
-	# 14 days, without tokens, coordinates or searches of the address, without the integration key and with the
-	# address cut to /24 (IPv4) or /48 (IPv6), like the application's own log (ASVS V16.2.5).
-	log {
-		output file /var/log/caddy/worldives.log {
-			roll_keep_for 336h
-		}
-		format filter {
-			wrap json
-			fields {
-				request>uri query {
-					delete t
-					delete token
-					delete lat
-					delete lon
-					delete q
-				}
-				request>headers>X-Worldives-Api-Key delete
-				request>remote_ip ip_mask {
-					ipv4 24
-					ipv6 48
-				}
-				request>client_ip ip_mask {
-					ipv4 24
-					ipv6 48
-				}
-			}
-		}
-	}
+	import registro worldives
 }
 
-# Test environment (separate service, database and Stripe test keys)
-pruebas.worldives.com {
+# Test environment: the PRODUCTION package in /opt/worldives-pruebas, with its own service (worldives-pruebas,
+# port 8001), its own database and .env and Stripe test keys. Never the DEMO package (the server refuses
+# WOD_DEMO_MODE=1 on this domain and its subdomains).
+pruebas.worlddivesdiscovery.com {
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	header X-Robots-Tag "noindex, nofollow"
 	basic_auth {
-		# caddy hash-password  → pon aquí el usuario y el hash
+		# caddy hash-password  → pon aquí el usuario y el hash (docs/despliegue/GUIA-VPS.md, paso 11)
 		equipo $2a$14$CAMBIAR_POR_EL_HASH
 	}
-	reverse_proxy 127.0.0.1:8001
+	@compress not path /tiles/*
+	encode @compress gzip
+	reverse_proxy 127.0.0.1:8001 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+	request_body {
+		max_size 60MB
+	}
+	import registro pruebas
 }

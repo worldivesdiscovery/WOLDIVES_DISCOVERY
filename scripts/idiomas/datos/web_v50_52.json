@@ -1,0 +1,175 @@
+{
+ "exact": {
+  "Tu perfil tiene el permiso «Cobros».": {
+   "en": "Your profile has the «Payments» permission.",
+   "fr": "Votre profil a l’autorisation « Encaissements ».",
+   "de": "Dein Profil hat die Berechtigung „Zahlungen“.",
+   "it": "Il tuo profilo ha il permesso «Incassi».",
+   "pt": "O teu perfil tem a permissão «Cobranças».",
+   "pl": "Twój profil ma uprawnienie „Płatności”.",
+   "nl": "Je profiel heeft de bevoegdheid ‘Betalingen’.",
+   "zh": "你的角色拥有“收款”权限。"
+  },
+  "Tu cuenta tiene los cobros online activados.": {
+   "en": "Your account has online payments switched on.",
+   "fr": "Votre compte a les paiements en ligne activés.",
+   "de": "Bei deinem Konto sind Online-Zahlungen aktiviert.",
+   "it": "Il tuo account ha gli incassi online attivati.",
+   "pt": "A tua conta tem as cobranças online ativadas.",
+   "pl": "Twoje konto ma włączone płatności online.",
+   "nl": "Je account heeft online betalingen ingeschakeld.",
+   "zh": "你的账户已开通在线收款。"
+  },
+  "Para proteger el dinero y los datos de pago de tus clientes, el panel pide un código de tu aplicación de verificación además de tu contraseña. Las reservas y los pagos de tus clientes siguen funcionando con normalidad.": {
+   "en": "To protect your clients’ money and payment data, the dashboard asks for a code from your authenticator app as well as your password. Your clients’ bookings and payments keep working as usual.",
+   "fr": "Pour protéger l’argent et les données de paiement de vos clients, le tableau de bord demande un code de votre application d’authentification en plus de votre mot de passe. Les réservations et les paiements de vos clients continuent de fonctionner normalement.",
+   "de": "Zum Schutz des Geldes und der Zahlungsdaten deiner Kunden verlangt das Dashboard zusätzlich zu deinem Passwort einen Code aus deiner Authenticator-App. Buchungen und Zahlungen deiner Kunden funktionieren weiterhin normal.",
+   "it": "Per proteggere il denaro e i dati di pagamento dei tuoi clienti, il pannello chiede un codice della tua app di autenticazione oltre alla password. Le prenotazioni e i pagamenti dei tuoi clienti continuano a funzionare normalmente.",
+   "pt": "Para proteger o dinheiro e os dados de pagamento dos teus clientes, o painel pede um código da tua aplicação de autenticação além da palavra-passe. As reservas e os pagamentos dos teus clientes continuam a funcionar normalmente.",
+   "pl": "Aby chronić pieniądze i dane płatnicze Twoich klientów, panel prosi oprócz hasła o kod z aplikacji uwierzytelniającej. Rezerwacje i płatności Twoich klientów działają normalnie.",
+   "nl": "Om het geld en de betaalgegevens van je klanten te beschermen, vraagt het dashboard naast je wachtwoord een code uit je authenticator-app. Boekingen en betalingen van je klanten blijven gewoon werken.",
+   "zh": "为保护客户的资金和支付数据，面板除密码外还需要验证器应用中的验证码。客户的预订和付款照常进行。"
+  },
+  "Activa la verificación en dos pasos antes del {fecha}": {
+   "en": "Turn on two-step verification before {fecha}",
+   "fr": "Activez la vérification en deux étapes avant le {fecha}",
+   "de": "Aktiviere die Zwei-Faktor-Verifizierung vor dem {fecha}",
+   "it": "Attiva la verifica in due passaggi entro il {fecha}",
+   "pt": "Ativa a verificação em dois passos antes de {fecha}",
+   "pl": "Włącz weryfikację dwuetapową przed {fecha}",
+   "nl": "Schakel tweestapsverificatie in vóór {fecha}",
+   "zh": "请在 {fecha} 之前开启两步验证"
+  },
+  "Es obligatoria en las cuentas con cobros online. Después de esa fecha, mientras no la actives, solo podrás entrar en «Mi cuenta». Las reservas y los pagos de tus clientes seguirán funcionando.": {
+   "en": "It is mandatory for accounts with online payments. After that date, until you turn it on, you will only be able to open «My account». Your clients’ bookings and payments will keep working.",
+   "fr": "Elle est obligatoire pour les comptes avec paiements en ligne. Après cette date, tant que vous ne l’activez pas, vous ne pourrez accéder qu’à « Mon compte ». Les réservations et les paiements de vos clients continueront de fonctionner.",
+   "de": "Sie ist für Konten mit Online-Zahlungen Pflicht. Nach diesem Datum kannst du, solange du sie nicht aktivierst, nur „Mein Konto“ öffnen. Buchungen und Zahlungen deiner Kunden funktionieren weiter.",
+   "it": "È obbligatoria per gli account con incassi online. Dopo questa data, finché non la attivi, potrai entrare solo in «Il mio account». Le prenotazioni e i pagamenti dei tuoi clienti continueranno a funzionare.",
+   "pt": "É obrigatória nas contas com cobranças online. Depois dessa data, enquanto não a ativares, só poderás entrar em «A minha conta». As reservas e os pagamentos dos teus clientes continuarão a funcionar.",
+   "pl": "Jest obowiązkowa dla kont z płatnościami online. Po tej dacie, dopóki jej nie włączysz, będziesz mieć dostęp tylko do „Moje konto”. Rezerwacje i płatności Twoich klientów będą działać dalej.",
+   "nl": "Het is verplicht voor accounts met online betalingen. Na die datum kun je, zolang je het niet inschakelt, alleen ‘Mijn account’ openen. Boekingen en betalingen van je klanten blijven werken.",
+   "zh": "开通在线收款的账户必须开启。该日期之后，在开启前你只能进入“我的账户”。客户的预订和付款仍会正常进行。"
+  },
+  "Es obligatoria porque tu perfil tiene el permiso «Cobros».": {
+   "en": "It is mandatory because your profile has the «Payments» permission.",
+   "fr": "Elle est obligatoire car votre profil a l’autorisation « Encaissements ».",
+   "de": "Sie ist Pflicht, weil dein Profil die Berechtigung „Zahlungen“ hat.",
+   "it": "È obbligatoria perché il tuo profilo ha il permesso «Incassi».",
+   "pt": "É obrigatória porque o teu perfil tem a permissão «Cobranças».",
+   "pl": "Jest obowiązkowa, ponieważ Twój profil ma uprawnienie „Płatności”.",
+   "nl": "Het is verplicht omdat je profiel de bevoegdheid ‘Betalingen’ heeft.",
+   "zh": "由于你的角色拥有“收款”权限，必须开启。"
+  },
+  "Es obligatoria porque tu cuenta tiene cobros online.": {
+   "en": "It is mandatory because your account has online payments.",
+   "fr": "Elle est obligatoire car votre compte a des paiements en ligne.",
+   "de": "Sie ist Pflicht, weil dein Konto Online-Zahlungen hat.",
+   "it": "È obbligatoria perché il tuo account ha incassi online.",
+   "pt": "É obrigatória porque a tua conta tem cobranças online.",
+   "pl": "Jest obowiązkowa, ponieważ Twoje konto ma płatności online.",
+   "nl": "Het is verplicht omdat je account online betalingen heeft.",
+   "zh": "由于你的账户开通了在线收款，必须开启。"
+  },
+  "Tienes hasta el {fecha}.": {
+   "en": "You have until {fecha}.",
+   "fr": "Vous avez jusqu’au {fecha}.",
+   "de": "Du hast Zeit bis zum {fecha}.",
+   "it": "Hai tempo fino al {fecha}.",
+   "pt": "Tens até {fecha}.",
+   "pl": "Masz czas do {fecha}.",
+   "nl": "Je hebt tot {fecha}.",
+   "zh": "截止日期为 {fecha}。"
+  },
+  "Activa antes la verificación en dos pasos": {
+   "en": "Turn on two-step verification first",
+   "fr": "Activez d’abord la vérification en deux étapes",
+   "de": "Aktiviere zuerst die Zwei-Faktor-Verifizierung",
+   "it": "Attiva prima la verifica in due passaggi",
+   "pt": "Ativa primeiro a verificação em dois passos",
+   "pl": "Najpierw włącz weryfikację dwuetapową",
+   "nl": "Schakel eerst tweestapsverificatie in",
+   "zh": "请先开启两步验证"
+  },
+  "Es obligatoria para quien cobra online: protege el dinero y los datos de pago de tus clientes. Actívala en «Mi cuenta» y vuelve aquí para conectar Stripe.": {
+   "en": "It is mandatory for anyone who takes payments online: it protects your clients’ money and payment data. Turn it on in «My account» and come back here to connect Stripe.",
+   "fr": "Elle est obligatoire pour qui encaisse en ligne : elle protège l’argent et les données de paiement de vos clients. Activez-la dans « Mon compte » puis revenez ici pour connecter Stripe.",
+   "de": "Sie ist Pflicht für alle, die online kassieren: Sie schützt das Geld und die Zahlungsdaten deiner Kunden. Aktiviere sie in „Mein Konto“ und komm dann zurück, um Stripe zu verbinden.",
+   "it": "È obbligatoria per chi incassa online: protegge il denaro e i dati di pagamento dei tuoi clienti. Attivala in «Il mio account» e torna qui per collegare Stripe.",
+   "pt": "É obrigatória para quem cobra online: protege o dinheiro e os dados de pagamento dos teus clientes. Ativa-a em «A minha conta» e volta aqui para ligar o Stripe.",
+   "pl": "Jest obowiązkowa dla każdego, kto przyjmuje płatności online: chroni pieniądze i dane płatnicze Twoich klientów. Włącz ją w „Moje konto” i wróć tutaj, aby połączyć Stripe.",
+   "nl": "Het is verplicht voor wie online betalingen ontvangt: het beschermt het geld en de betaalgegevens van je klanten. Schakel het in bij ‘Mijn account’ en kom terug om Stripe te koppelen.",
+   "zh": "在线收款者必须开启：它能保护客户的资金和支付数据。请在“我的账户”中开启，然后回到这里连接 Stripe。"
+  },
+  "Ir a «Mi cuenta»": {
+   "en": "Go to «My account»",
+   "fr": "Aller à « Mon compte »",
+   "de": "Zu „Mein Konto“",
+   "it": "Vai a «Il mio account»",
+   "pt": "Ir para «A minha conta»",
+   "pl": "Przejdź do „Moje konto”",
+   "nl": "Naar ‘Mijn account’",
+   "zh": "前往“我的账户”"
+  },
+  "Es obligatoria para quien puede cobrar o ver los pagos. Las reservas y los pagos de tus clientes siguen funcionando con normalidad.": {
+   "en": "It is mandatory for anyone who can take or see payments. Your clients’ bookings and payments keep working as usual.",
+   "fr": "Elle est obligatoire pour qui peut encaisser ou voir les paiements. Les réservations et les paiements de vos clients continuent de fonctionner normalement.",
+   "de": "Sie ist Pflicht für alle, die Zahlungen annehmen oder sehen können. Buchungen und Zahlungen deiner Kunden funktionieren weiterhin normal.",
+   "it": "È obbligatoria per chi può incassare o vedere i pagamenti. Le prenotazioni e i pagamenti dei tuoi clienti continuano a funzionare normalmente.",
+   "pt": "É obrigatória para quem pode cobrar ou ver os pagamentos. As reservas e os pagamentos dos teus clientes continuam a funcionar normalmente.",
+   "pl": "Jest obowiązkowa dla każdego, kto może przyjmować lub widzieć płatności. Rezerwacje i płatności Twoich klientów działają normalnie.",
+   "nl": "Het is verplicht voor wie betalingen kan ontvangen of zien. Boekingen en betalingen van je klanten blijven gewoon werken.",
+   "zh": "能收款或查看付款的人必须开启。客户的预订和付款照常进行。"
+  },
+  "Obligatoria": {
+   "en": "Mandatory",
+   "fr": "Obligatoire",
+   "de": "Pflicht",
+   "it": "Obbligatoria",
+   "pt": "Obrigatória",
+   "pl": "Obowiązkowa",
+   "nl": "Verplicht",
+   "zh": "必须开启"
+  },
+  "Activa la verificación en dos pasos en «Mi cuenta» para seguir usando el panel: es obligatoria para quien puede cobrar o ver los pagos.": {
+   "en": "Turn on two-step verification in «My account» to keep using the dashboard: it is mandatory for anyone who can take or see payments.",
+   "fr": "Activez la vérification en deux étapes dans « Mon compte » pour continuer à utiliser le tableau de bord : elle est obligatoire pour qui peut encaisser ou voir les paiements.",
+   "de": "Aktiviere die Zwei-Faktor-Verifizierung in „Mein Konto“, um das Dashboard weiter zu nutzen: Sie ist Pflicht für alle, die Zahlungen annehmen oder sehen können.",
+   "it": "Attiva la verifica in due passaggi in «Il mio account» per continuare a usare il pannello: è obbligatoria per chi può incassare o vedere i pagamenti.",
+   "pt": "Ativa a verificação em dois passos em «A minha conta» para continuares a usar o painel: é obrigatória para quem pode cobrar ou ver os pagamentos.",
+   "pl": "Włącz weryfikację dwuetapową w „Moje konto”, aby dalej korzystać z panelu: jest obowiązkowa dla każdego, kto może przyjmować lub widzieć płatności.",
+   "nl": "Schakel tweestapsverificatie in bij ‘Mijn account’ om het dashboard te blijven gebruiken: het is verplicht voor wie betalingen kan ontvangen of zien.",
+   "zh": "请在“我的账户”中开启两步验证以继续使用面板：能收款或查看付款的人必须开启。"
+  },
+  "Antes de activar los cobros online, activa la verificación en dos pasos en «Mi cuenta». Es obligatoria para quien cobra online.": {
+   "en": "Before turning on online payments, turn on two-step verification in «My account». It is mandatory for anyone who takes payments online.",
+   "fr": "Avant d’activer les paiements en ligne, activez la vérification en deux étapes dans « Mon compte ». Elle est obligatoire pour qui encaisse en ligne.",
+   "de": "Bevor du Online-Zahlungen aktivierst, aktiviere die Zwei-Faktor-Verifizierung in „Mein Konto“. Sie ist Pflicht für alle, die online kassieren.",
+   "it": "Prima di attivare gli incassi online, attiva la verifica in due passaggi in «Il mio account». È obbligatoria per chi incassa online.",
+   "pt": "Antes de ativares as cobranças online, ativa a verificação em dois passos em «A minha conta». É obrigatória para quem cobra online.",
+   "pl": "Zanim włączysz płatności online, włącz weryfikację dwuetapową w „Moje konto”. Jest obowiązkowa dla każdego, kto przyjmuje płatności online.",
+   "nl": "Schakel tweestapsverificatie in bij ‘Mijn account’ voordat je online betalingen inschakelt. Het is verplicht voor wie online betalingen ontvangt.",
+   "zh": "开通在线收款前，请先在“我的账户”中开启两步验证。在线收款者必须开启。"
+  },
+  "No puedes desactivar la verificación en dos pasos mientras tu cuenta tenga cobros online o tu perfil tenga el permiso «Cobros».": {
+   "en": "You cannot turn off two-step verification while your account has online payments or your profile has the «Payments» permission.",
+   "fr": "Vous ne pouvez pas désactiver la vérification en deux étapes tant que votre compte a des paiements en ligne ou que votre profil a l’autorisation « Encaissements ».",
+   "de": "Du kannst die Zwei-Faktor-Verifizierung nicht deaktivieren, solange dein Konto Online-Zahlungen hat oder dein Profil die Berechtigung „Zahlungen“ hat.",
+   "it": "Non puoi disattivare la verifica in due passaggi finché il tuo account ha incassi online o il tuo profilo ha il permesso «Incassi».",
+   "pt": "Não podes desativar a verificação em dois passos enquanto a tua conta tiver cobranças online ou o teu perfil tiver a permissão «Cobranças».",
+   "pl": "Nie możesz wyłączyć weryfikacji dwuetapowej, dopóki Twoje konto ma płatności online lub Twój profil ma uprawnienie „Płatności”.",
+   "nl": "Je kunt tweestapsverificatie niet uitschakelen zolang je account online betalingen heeft of je profiel de bevoegdheid ‘Betalingen’ heeft.",
+   "zh": "只要你的账户开通了在线收款，或你的角色拥有“收款”权限，就不能关闭两步验证。"
+  },
+  "Ve los cobros, exporta los pagos y devuelve dinero. Si el centro cobra online, pide la verificación en dos pasos.": {
+   "en": "Sees payments, exports them and refunds money. If the centre takes payments online, two-step verification is required.",
+   "fr": "Voit les encaissements, exporte les paiements et rembourse. Si le centre encaisse en ligne, la vérification en deux étapes est exigée.",
+   "de": "Sieht die Zahlungen, exportiert sie und erstattet Geld. Wenn das Zentrum online kassiert, ist die Zwei-Faktor-Verifizierung nötig.",
+   "it": "Vede gli incassi, esporta i pagamenti e rimborsa. Se il centro incassa online, serve la verifica in due passaggi.",
+   "pt": "Vê as cobranças, exporta os pagamentos e devolve dinheiro. Se o centro cobra online, é exigida a verificação em dois passos.",
+   "pl": "Widzi płatności, eksportuje je i zwraca pieniądze. Jeśli centrum przyjmuje płatności online, wymagana jest weryfikacja dwuetapowa.",
+   "nl": "Ziet betalingen, exporteert ze en betaalt terug. Als het centrum online betalingen ontvangt, is tweestapsverificatie vereist.",
+   "zh": "查看收款、导出付款并退款。如果中心开通在线收款，则需要两步验证。"
+  }
+ },
+ "patterns": {}
+}

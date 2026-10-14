@@ -539,5 +539,12 @@
  "Generado el {at} por {who}": "Wygenerowano {at} przez {who}",
  "No": "Nie",
  "No vino": "Nie przyszedł",
- "(hora local)": "(czas lokalny)"
+ "(hora local)": "(czas lokalny)",
+ "Activa la verificación en dos pasos": "Włącz weryfikację dwuetapową",
+ "Activa la verificación en dos pasos antes del {totp_deadline}": "Włącz weryfikację dwuetapową przed {totp_deadline}",
+ "Activarla ahora": "Włącz teraz",
+ "Es obligatoria en las cuentas con cobros online.": "Jest obowiązkowa dla kont z płatnościami online.",
+ "Hola {first_name}, tu cuenta tiene los cobros online activados. Para proteger el dinero y los datos de pago de tus clientes, la verificación en dos pasos es obligatoria para quien puede cobrar o ver los pagos.": "Cześć {first_name}, Twoje konto ma włączone płatności online. Aby chronić pieniądze i dane płatnicze Twoich klientów, weryfikacja dwuetapowa jest obowiązkowa dla każdego, kto może przyjmować lub widzieć płatności.",
+ "Necesitas una aplicación de verificación en el móvil (por ejemplo Google Authenticator, Microsoft Authenticator o Aegis). Guarda los códigos de recuperación en un lugar seguro.": "Potrzebujesz aplikacji uwierzytelniającej w telefonie (na przykład Google Authenticator, Microsoft Authenticator lub Aegis). Przechowuj kody odzyskiwania w bezpiecznym miejscu.",
+ "Tienes hasta el {totp_deadline} para activarla en «Mi cuenta». Después, mientras no la actives, solo podrás entrar en «Mi cuenta». Las reservas y los pagos de tus clientes seguirán funcionando con normalidad.": "Masz czas do {totp_deadline}, aby włączyć ją w „Moje konto”. Potem, dopóki jej nie włączysz, będziesz mieć dostęp tylko do „Moje konto”. Rezerwacje i płatności Twoich klientów będą działać normalnie."
 }

@@ -1,0 +1,89 @@
+# Registros fuera del servidor: Vector → Better Stack (región de datos Europa). ASVS 5.0 V16.4.2 y V16.4.3.
+# Copiar a /etc/vector/vector.yaml (docs/despliegue/GUIA-VPS.md, paso 9). Comprobar: vector validate /etc/vector/vector.yaml
+#
+# El token de envío y el host de recepción de la fuente de Better Stack NO van aquí ni en el .env de la aplicación:
+# van en /etc/vector/betterstack.env (root:root, chmod 600), que lee el servicio de Vector:
+#   BETTERSTACK_TOKEN=<token de la fuente>
+#   BETTERSTACK_HOST=<«Ingesting host» de la fuente, tal como lo muestra Better Stack>
+#
+# Qué se envía (docs/seguridad/registros.md), tal como ya sale del servidor y nada más:
+#   1. de la aplicación, solo los sucesos de seguridad ([seguridad] …) y los inicios de sesión fallidos ([evento] …):
+#      tipo, número de persona o centro, huella de la IP, ruta y método. Nunca nombres, emails, teléfonos ni testigos;
+#      los errores con su traza se quedan en el servidor (journalctl).
+#   2. el registro de accesos de Caddy: hora (UTC), método, ruta sin la consulta, estado, duración e IP recortada (/24, /48).
+
+data_dir: /var/lib/vector
+
+sources:
+  worldives_app:
+    type: journald
+    include_units: [worldives.service]
+    current_boot_only: false
+  caddy_accesos:
+    type: file
+    include: [/var/log/caddy/worldives.log]
+    read_from: end
+
+transforms:
+  app_sucesos:
+    type: remap
+    inputs: [worldives_app]
+    drop_on_abort: true
+    source: |
+      linea = string!(.message)
+      partes, err = parse_regex(linea, r'^\[(?P<canal>seguridad|evento)\] (?P<tipo>[a-z0-9_]+)(?: (?P<datos>\{.*\}))?$')
+      if err != null { abort }
+      datos = {}
+      if partes.datos != null {
+        datos = object(parse_json(partes.datos) ?? {}) ?? {}
+      }
+      . = {
+        "dt": format_timestamp!(.timestamp, format: "%+"),
+        "servicio": "worldives",
+        "canal": partes.canal,
+        "tipo": partes.tipo,
+        "datos": datos
+      }
+
+  caddy_lineas:
+    type: remap
+    inputs: [caddy_accesos]
+    drop_on_abort: true
+    source: |
+      p, err = parse_json(.message)
+      if err != null { abort }
+      p = object!(p)
+      peticion = object(p.request) ?? {}
+      ts = float(p.ts) ?? 0.0
+      . = {
+        "dt": format_timestamp!(from_unix_timestamp!(to_int(ts * 1000.0), unit: "milliseconds"), format: "%+"),
+        "servicio": "caddy",
+        "estado": p.status,
+        "metodo": peticion.method,
+        "ruta": peticion.uri,
+        "ip": peticion.client_ip,
+        "duracion": p.duration
+      }
+
+sinks:
+  betterstack:
+    type: http
+    inputs: [app_sucesos, caddy_lineas]
+    uri: "https://${BETTERSTACK_HOST}"
+    method: post
+    encoding:
+      codec: json
+    compression: gzip
+    auth:
+      strategy: bearer
+      token: "${BETTERSTACK_TOKEN}"
+    tls:
+      verify_certificate: true
+      verify_hostname: true
+    batch:
+      max_events: 500
+      timeout_secs: 5
+    buffer:
+      type: disk
+      max_size: 268435488
+      when_full: drop_newest

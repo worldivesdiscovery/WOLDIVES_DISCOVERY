@@ -2,13 +2,15 @@
 
 Referencia: OWASP ASVS 5.0, capítulos V6 (autenticación) y V7 (sesiones). Informe completo en
 [`docs/auditoria/v50.51/asvs-5.0-nivel2.md`](../auditoria/v50.51/asvs-5.0-nivel2.md). Todo lo que se describe aquí lo
-comprueba `tests/test_v50_51_asvs.py` (y las pruebas anteriores de inicio de sesión).
+comprueban `tests/test_v50_51_asvs.py`, `tests/test_v50_52_cobros_2fa.py` (verificación en dos pasos con cobros, v50.52)
+y las pruebas anteriores de inicio de sesión.
 
 ## Vías de autenticación
 
 Cada forma de entrar o de actuar sin contraseña, con su fuerza y quién la comprueba (todas en `app/server.py`). La
 verificación en dos pasos obligatoria de la administración (`WOD_ADMIN_TOTP_REQUIRED=1`) vale en todas: una cuenta de
-administración sin ella solo llega a «Mi cuenta» (`current_user` la trata como `admin_sin_2fa`).
+administración sin ella solo llega a «Mi cuenta» (`current_user` la trata como `admin_sin_2fa`). Desde la v50.52 pasa lo
+mismo con quien cobra online (ver «Verificación en dos pasos»): `center_sin_2fa` / `freelance_sin_2fa`.
 
 | Vía | Quién | Factores | Caducidad | Límite de intentos | Dónde |
 |---|---|---|---|---|---|
@@ -96,16 +98,36 @@ contraseña. Se puede bajar con `WOD_SESSION_IDLE_SECONDS`.
 
 - Autenticador (TOTP, RFC 6238, 30 s, ±1 paso); cada código vale una sola vez, también con varios intentos a la vez.
 - 8 códigos de recuperación de 120 bits, de un solo uso, guardados con hash.
-- Obligatoria para la administración con `WOD_ADMIN_TOTP_REQUIRED=1` (recomendado en producción). Para centros,
-  freelance y buceadores es opcional: **Pendiente de decisión** hacerla obligatoria para los centros (manejan datos de
-  clientes y cobros). Mientras tanto la compensan los límites de intentos, el aviso de inicio de sesión fallido en la
-  actividad, la lista de sesiones abiertas y la contraseña + código para los cambios sensibles.
+- Obligatoria para la administración con `WOD_ADMIN_TOTP_REQUIRED=1` (en producción no se puede apagar).
+- **Obligatoria con cobros online** (v50.52, decisión del titular del 14/10/2026, ASVS V6.3.3), con
+  `WOD_PAYMENTS_TOTP_REQUIRED=1` (en producción no se puede apagar; solo el entorno de pruebas lo apaga):
+
+  | Quién | Cuándo se le exige | Sin ella |
+  |---|---|---|
+  | Cuenta de centro (propietario) o freelance con **Stripe Connect conectado o en proceso** (`stripe_account_id`) | Antes de conectar Stripe: sin ella, «Activar los cobros online» responde 403 y no se crea la cuenta en Stripe. Si ya tenía cobros: **14 días** desde que el servidor lo detecta (aviso en el panel y por correo, `totp_required_payments`) | Pasado el plazo, solo «Mi cuenta» |
+  | Miembro del equipo de un centro con cobros online que tenga el permiso **«Cobros»** (también el «Encargado», que lo tiene todo) | En su siguiente uso del panel, sin plazo | Solo «Mi cuenta» |
+  | Centros sin cobros online, sus equipos y los buceadores | Nunca: opcional, recomendada en el panel | — |
+
+  «Solo «Mi cuenta»» quiere decir: `/api/me`, cerrar sesión, `/api/account/…` (su propia cuenta, incluida la activación),
+  aceptar los textos legales y cambiar de centro (`PROVIDER_WITHOUT_2FA_PATHS`). Cualquier ruta del panel (reservas,
+  clientes, cobros, exportaciones, manifiesto, agenda, avisos, equipo…) responde 403 con «Activa la verificación en dos
+  pasos en «Mi cuenta»…» (`PROVIDER_PANEL_PREFIXES`), y la web y la app profesional enseñan esa pantalla. Las reservas y
+  los pagos de sus clientes siguen funcionando: los avisos de Stripe (webhooks) no usan sesión.
+- **No se puede desactivar** mientras la cuenta tenga cobros online o el perfil tenga «Cobros» (403 y suceso
+  `totp_disable_refused`). Sin cobros se puede desactivar como antes.
+- **Registro** (en la actividad): `totp_enabled`, `totp_disabled`, `totp_recovery_regenerated`, `totp_deadline_set`
+  (empieza el plazo de 14 días), `stripe_connect_needs_totp` (intento de conectar Stripe sin ella) y los sucesos de
+  seguridad `totp_required_block` (petición frenada por no tenerla, uno por minuto como mucho) y `totp_disable_refused`.
+- Para el resto (buceadores y centros sin cobros) la compensan los límites de intentos, el aviso de inicio de sesión
+  fallido en la actividad, la lista de sesiones abiertas y la contraseña + código para los cambios sensibles.
 
 **Si alguien pierde el autenticador y los códigos.** No hay ruta automática. La administración:
 
 1. pide a la persona que escriba desde el email de la cuenta (y, para centros y freelance, la misma comprobación que en
-   la revisión de su solicitud: documento o dominio del centro);
+   la revisión de su solicitud: documento o dominio del centro; con cobros online, además, que confirme desde su panel de
+   Stripe un dato que solo tiene el titular, por ejemplo los cuatro últimos dígitos de la cuenta bancaria de cobro);
 2. con esa prueba, desactiva la verificación en dos pasos desde la línea de órdenes del servidor
    (`sqlite3 <base> "UPDATE users SET totp_enabled=0,totp_secret=NULL,totp_recovery=NULL,totp_last_step=NULL WHERE id=<n>"`)
    y cierra sus sesiones (*Administración → Usuarios → Cerrar sesiones*);
-3. lo anota en el registro de incidencias con la prueba de identidad usada. La persona la vuelve a activar en «Mi cuenta».
+3. lo anota en el registro de incidencias con la prueba de identidad usada. La persona la vuelve a activar en «Mi cuenta»
+   (con cobros online, el panel no se abre hasta que lo haga: la cuenta queda protegida mientras tanto).

@@ -562,5 +562,12 @@
  "Generado el {at} por {who}": "Gemaakt op {at} door {who}",
  "No": "Nee",
  "No vino": "Niet verschenen",
- "(hora local)": "(lokale tijd)"
+ "(hora local)": "(lokale tijd)",
+ "Activa la verificación en dos pasos": "Schakel tweestapsverificatie in",
+ "Activa la verificación en dos pasos antes del {totp_deadline}": "Schakel tweestapsverificatie in vóór {totp_deadline}",
+ "Activarla ahora": "Nu inschakelen",
+ "Es obligatoria en las cuentas con cobros online.": "Het is verplicht voor accounts met online betalingen.",
+ "Hola {first_name}, tu cuenta tiene los cobros online activados. Para proteger el dinero y los datos de pago de tus clientes, la verificación en dos pasos es obligatoria para quien puede cobrar o ver los pagos.": "Hallo {first_name}, je account heeft online betalingen ingeschakeld. Om het geld en de betaalgegevens van je klanten te beschermen, is tweestapsverificatie verplicht voor wie betalingen kan ontvangen of zien.",
+ "Necesitas una aplicación de verificación en el móvil (por ejemplo Google Authenticator, Microsoft Authenticator o Aegis). Guarda los códigos de recuperación en un lugar seguro.": "Je hebt een authenticator-app op je telefoon nodig (bijvoorbeeld Google Authenticator, Microsoft Authenticator of Aegis). Bewaar de herstelcodes op een veilige plek.",
+ "Tienes hasta el {totp_deadline} para activarla en «Mi cuenta». Después, mientras no la actives, solo podrás entrar en «Mi cuenta». Las reservas y los pagos de tus clientes seguirán funcionando con normalidad.": "Je hebt tot {totp_deadline} om het in te schakelen bij ‘Mijn account’. Daarna kun je, zolang je het niet inschakelt, alleen ‘Mijn account’ openen. Boekingen en betalingen van je klanten blijven gewoon werken."
 }

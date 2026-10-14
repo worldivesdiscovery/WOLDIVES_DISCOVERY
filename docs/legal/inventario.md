@@ -219,15 +219,22 @@ Esquema completo en la constante `BASE_SCHEMA` de `app/server.py`.
 | **Protomaps (archivo PMTiles)** | Mapa base | Archivo propio servido en `/tiles/…` con `Range`, o URL https externa (CDN) | Nadie (si es local) o el CDN elegido | `WOD_PMTILES_URL`, `WOD_PMTILES_MAXZOOM`, `WOD_TILES_DIR` |
 | **OpenStreetMap (teselas públicas)** | Solo en desarrollo sin PMTiles (`osm-dev`), y en el editor de centros del admin (ver discrepancia 2) | Directo desde el navegador | IP del visitante o del admin | — |
 | **Proveedores de vídeo** (youtube-nocookie, Vimeo, Google Maps) | Recorridos virtuales, tras pulsar «Cargar vídeo» | iframe | IP del visitante | `WOD_EMBED_DOMAINS` |
-| **Copia externa** (rclone hacia B2, Hetzner…) | Copias fuera del servidor | `WOD_BACKUP_COMMAND` (`scripts/copia_externa.sh`) | La base completa y los archivos | Variables de rclone |
-| **Monitor externo** (UptimeRobot, Better Stack…) | Disponibilidad | `/api/health` (solo `ok` y versión) | Nada personal | Fuera del código |
+| **Hostinger** (VPS KVM 2, v50.52) | Alojamiento de la web, la base de datos y los archivos | Es el servidor: Alemania (Frankfurt) o Francia, elegido al contratar (no se cambia sin reinstalar) | Todo lo que guarda la web | hPanel; `docs/despliegue/GUIA-VPS.md` |
+| **Copia externa** (rclone; proveedor en la UE fuera de Hostinger: **Pendiente de decisión**) | Copias fuera del servidor | `WOD_BACKUP_COMMAND` (`scripts/copia_externa.sh`), https | La base completa y los archivos, **cifrados** con `WOD_BACKUP_KEY` antes de salir | Remoto `externo` de rclone (`GUIA-VPS.md`, paso 12) |
+| **Better Stack** (registros, región de datos Europa, v50.52) | Registros fuera del servidor y alertas | Vector en el VPS, https con el token en `/etc/vector/betterstack.env` (`docs/despliegue/vector.yaml`) | Sucesos de seguridad e inicios de sesión fallidos (número de persona, huella de la IP, ruta) y el registro de accesos de Caddy (IP recortada, sin consulta). 30 días (plan Nano UE) | `docs/seguridad/registros.md` |
+| **Better Stack Uptime** (monitor) | Disponibilidad | Pide `/api/health` cada 3 minutos (solo `ok` y versión) | Nada personal | Fuera del código (`GUIA-VPS.md`, paso 11) |
+| **ClamAV** (firmas, `database.clamav.net`) | Antivirus de los documentos | `freshclam` descarga las firmas por https; los documentos **no salen** del servidor (clamd local) | Nada | `WOD_AV_COMMAND` |
 | **Meta Graph API** (WhatsApp Cloud) | Avisos por WhatsApp de cada centro | Por el servidor, https a `graph.facebook.com`, sin seguir redirecciones (`wod/whatsapp.py`) | Teléfono del buceador (con su permiso) y el texto del aviso | `WHATSAPP_*` |
 | **Firebase** (`oauth2.googleapis.com`, `fcm.googleapis.com`) | Avisos en el móvil | Por el servidor, https, sin seguir redirecciones (`wod/push.py`) | El identificador del móvil y el texto del aviso | `WOD_FCM_CREDENTIALS` |
 | **Plataformas de vídeo** (oEmbed de YouTube, Vimeo, Dailymotion, TikTok) | Título y miniatura de un vídeo enlazado | Por el servidor, https (`wod/videos.py`, `wod/remoto.py`) | El enlace del vídeo | Lista `PLATFORMS` |
 | **Página que indique quien enlaza un vídeo de otra plataforma** | Comprobar que es un vídeo y leer su título e imagen | Por el servidor, solo https y solo direcciones públicas, cada salto comprobado, tamaño y tiempo limitados (`wod/videos.inspect`, `wod/remoto.fetch`). **La dirección la da el usuario** (centros, freelance y administración) | El enlace | — |
 | **Wikimedia Commons** (`commons.wikimedia.org`, `upload.wikimedia.org`) | Buscar e importar fotos de especies con licencia libre | https desde el servidor, solo esos dos dominios (`wod/vidamarina.py`) | El nombre de la especie buscada | — |
 
-Todas las conexiones salientes del servidor van por https (puerto 443), salvo el correo (587 o 465 con TLS comprobado).
+Todas las conexiones salientes del servidor van por https (puerto 443), salvo el correo (587 o 465 con TLS comprobado),
+el DNS (53), la hora (123), DHCP (67) y los repositorios de Ubuntu por http (80, paquetes firmados). El cortafuegos del
+VPS solo deja salir por esos puertos y entrar por 22 (desde IPs conocidas), 80 y 443
+(`scripts/despliegue/cortafuegos.sh`, ASVS V13.2.5); el servicio de la web, además, no puede conectarse a la red interna
+del proveedor (`IPAddressDeny` en `worldives.service`).
 
 ### 7.3 Roles
 

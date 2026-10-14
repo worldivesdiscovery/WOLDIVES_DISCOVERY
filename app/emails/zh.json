@@ -562,5 +562,12 @@
  "Generado el {at} por {who}": "由 {who} 于 {at} 生成",
  "No": "否",
  "No vino": "未到",
- "(hora local)": "（当地时间）"
+ "(hora local)": "（当地时间）",
+ "Activa la verificación en dos pasos": "开启两步验证",
+ "Activa la verificación en dos pasos antes del {totp_deadline}": "请在 {totp_deadline} 之前开启两步验证",
+ "Activarla ahora": "立即开启",
+ "Es obligatoria en las cuentas con cobros online.": "开通在线收款的账户必须开启。",
+ "Hola {first_name}, tu cuenta tiene los cobros online activados. Para proteger el dinero y los datos de pago de tus clientes, la verificación en dos pasos es obligatoria para quien puede cobrar o ver los pagos.": "{first_name}，你好！你的账户已开通在线收款。为保护客户的资金和支付数据，能收款或查看付款的人必须开启两步验证。",
+ "Necesitas una aplicación de verificación en el móvil (por ejemplo Google Authenticator, Microsoft Authenticator o Aegis). Guarda los códigos de recuperación en un lugar seguro.": "你需要在手机上安装验证器应用（例如 Google Authenticator、Microsoft Authenticator 或 Aegis）。请将恢复码保存在安全的地方。",
+ "Tienes hasta el {totp_deadline} para activarla en «Mi cuenta». Después, mientras no la actives, solo podrás entrar en «Mi cuenta». Las reservas y los pagos de tus clientes seguirán funcionando con normalidad.": "请在 {totp_deadline} 之前在“我的账户”中开启。之后在开启前你只能进入“我的账户”。客户的预订和付款仍会正常进行。"
 }

@@ -86,7 +86,7 @@ def main():
         env.update({'WOD_DEMO_MODE': '1', 'WOD_ENV': 'demo', 'WOD_PORT': port, 'WOD_PUBLIC_URL': f'http://127.0.0.1:{port}',
                     'WOD_DB_PATH': str(p / 'worldives.sqlite3'), 'WOD_STORAGE_DIR': str(p / 'storage'), 'WOD_LOG_DIR': str(p / 'logs'),
                     'WOD_UPLOADS_DIR': str(p / 'subidas'), 'WOD_MAIL_FILE_DIR': str(p / 'correos'), 'WOD_BACKUP_DIR': str(p / 'copias'),
-                    'WOD_ADMIN_TOTP_REQUIRED': '0', 'WOD_SMTP_HOST': ''})
+                    'WOD_ADMIN_TOTP_REQUIRED': '0', 'WOD_PAYMENTS_TOTP_REQUIRED': '0', 'WOD_SMTP_HOST': ''})
         (p / 'correos').mkdir(parents=True, exist_ok=True)
         r = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'reset_demo.py'), '--si-hace-falta'], env=env)
         if r.returncode != 0: print('No se han podido preparar los datos de prueba.'); sys.exit(1)

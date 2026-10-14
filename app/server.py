@@ -1518,6 +1518,8 @@ def bootstrap():
         db.commit()
         migrate_v50_51(db)
         db.commit()
+        migrate_v50_52(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1571,15 +1573,16 @@ def point_text(db, pid, lang):
     return r['description'] if r else None
 
 
-PRODUCTION_HOSTS = {'worldives.com', 'www.worldives.com'}
+PRODUCTION_DOMAIN = 'worlddivesdiscovery.com'   # v50.52: the real site; www and pruebas are subdomains of it
 
 
 def demo_guard():
     """The test environment (WOD_DEMO_MODE=1, fixed test accounts) never runs as the real site."""
     if not wcfg.demo_mode(): return ''
-    hosts = PRODUCTION_HOSTS | {h.strip().lower() for h in os.environ.get('WOD_PRODUCTION_HOSTS', '').split(',') if h.strip()}
-    host = (urlparse(wcfg.public_url()).hostname or '').lower()
-    if wcfg.is_production() or host in hosts:
+    hosts = {PRODUCTION_DOMAIN} | {h.strip().lower() for h in os.environ.get('WOD_PRODUCTION_HOSTS', '').split(',') if h.strip()}
+    host = (urlparse(wcfg.public_url()).hostname or '').lower().rstrip('.')
+    # The domain and every subdomain (www, pruebas…): the test package never runs on the real server (v50.52).
+    if wcfg.is_production() or any(host == h or host.endswith('.' + h) for h in hosts):
         return f'WOD_DEMO_MODE=1 no se permite en producción ni con la dirección pública {host or "de producción"}. El entorno de pruebas usa otra dirección (por ejemplo http://127.0.0.1:8100).'
     if any(os.environ.get(k, '').strip().startswith(('sk_live_', 'rk_live_')) for k in ('STRIPE_SECRET_KEY', 'STRIPE_RESTRICTED_KEY')):
         return 'El entorno de pruebas solo admite claves de Stripe en modo test (sk_test_…). Quita la clave real del .env de pruebas.'
@@ -1671,6 +1674,12 @@ def save_center_texts(db, cid, texts):
                        (cid, lang, tag, desc, now()))
         else:
             db.execute('DELETE FROM center_texts WHERE center_id=? AND lang=?', (cid, lang))
+
+
+def migrate_v50_52(db):
+    """v50.52. Two-step verification mandatory with online payments (ASVS 5.0 V6.3.3): the end of the grace period of
+    each account holder that already had payments. Nothing is deleted."""
+    add_columns(db, 'users', [('totp_deadline', 'TEXT')])
 
 
 def migrate_v50_51(db):
@@ -2488,6 +2497,29 @@ def antivirus_check(content: bytes):
         raise ValueError('Ahora mismo no se pueden comprobar los archivos. Prueba dentro de unos minutos.')
 
 
+# The standard antivirus test file (EICAR), kept encoded and reversed so this source file never carries it.
+_AV_TEST = 'KkgrSCQhRUxJRi1UU0VULVNVUklWSVROQS1EUkFETkFUUy1SQUNJRSR9NylDQzcpXlAoNDVYWlBcNFtQQUAlUCFPNVg='
+_AV_SELFTEST = {'at': 0.0, 'result': None}
+
+
+def antivirus_selftest(max_age=600):
+    """«Estado del sistema» (v50.52): the antivirus must catch the EICAR test file, not only be configured. Returns
+    ('ok' | 'error' | 'pending', detail); cached for max_age seconds."""
+    cmd = wcfg.env('WOD_AV_COMMAND')
+    if not cmd: return 'pending', 'Sin antivirus: los documentos solo se comprueban por su contenido.'
+    if _AV_SELFTEST['result'] and time.time() - _AV_SELFTEST['at'] < max_age: return _AV_SELFTEST['result']
+    sample = base64.b64decode(_AV_TEST)[::-1]
+    try:
+        r = subprocess.run(shlex.split(cmd), input=sample, capture_output=True, timeout=20)
+        res = ('ok', 'Comprobado: detecta el archivo de prueba EICAR; cada documento pasa por el antivirus antes de guardarse.') if r.returncode == 1 \
+            else ('error', 'El antivirus responde pero no detecta el archivo de prueba EICAR: revisa que sus firmas estén al día (freshclam).') if r.returncode == 0 \
+            else ('error', f'El antivirus no responde bien (código {r.returncode}): revisa que clamd esté en marcha.')
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        res = ('error', f'No se puede ejecutar el antivirus: {type(exc).__name__}. Revisa WOD_AV_COMMAND y clamd.')
+    _AV_SELFTEST.update(at=time.time(), result=res)
+    return res
+
+
 def save_upload(user_id: int, file_info: dict, prefix: str, tenant: str | None = None) -> str:
     """Private document (G1/G8): type checked by its first bytes, at most WOD_MAX_DOCUMENT_MB, stored outside /public.
     Returns the path relative to STORAGE (never served directly). With tenant ('c:12'), it goes to the private folder
@@ -2545,7 +2577,16 @@ SECURITY_ALERT_EMAIL_MINUTES = 15
 def security_alert(kind, details=None, user_id=None, center_id=None, notify=True):
     safe = {k: v for k, v in (details or {}).items() if 'phone' not in k and 'token' not in k}   # never a phone or a token in clear
     _SECURITY_ALERTS.append((kind, safe, user_id, center_id, now(), notify))
-    sys.stderr.write(f'[seguridad] {kind} {json.dumps(safe, ensure_ascii=False)[:300]}\n')
+    # One line per event (Better Stack reads these, docs/despliegue/vector.yaml): the person and the centre only by number.
+    line = {**safe, **({'usuario': user_id} if user_id else {}), **({'centro': center_id} if center_id else {})}
+    sys.stderr.write(log_safe(f'[seguridad] {kind} {json.dumps(line, ensure_ascii=False)[:400]}') + '\n')
+
+
+def log_event(kind, **details):
+    """A line for the external log without an entry in the activity (v50.52: failed sign-ins, so a peak can raise an
+    alert in Better Stack). No names, emails, phones or tokens: numbers and fingerprints only."""
+    try: sys.stderr.write(log_safe(f'[evento] {kind} {json.dumps(details, ensure_ascii=False)[:300]}') + '\n')
+    except Exception: pass
 
 
 _SECURITY_EVENT_LAST = {}
@@ -2609,6 +2650,8 @@ SECURITY_ALERT_LABELS = {
     'notice_unusual': 'Aviso masivo fuera de lo normal',
     'tenant_conflict': 'Dato con centro dudoso',
     'job_without_tenant': 'Tarea sin centro: no se ha ejecutado',
+    'totp_required_block': 'Panel bloqueado: falta la verificación en dos pasos (cobros)',
+    'totp_disable_refused': 'Intento de desactivar la verificación en dos pasos con cobros',
 }
 
 
@@ -2634,6 +2677,16 @@ def request_session_token(handler):
 # What an administrator without two-step verification can still do (when it is mandatory): see «Mi cuenta», turn it on
 # and sign out. Everything else answers «Activa la verificación en dos pasos» (ASVS V6.3.3).
 ADMIN_WITHOUT_2FA_PATHS = ('/api/me', '/api/auth/logout', '/api/account/totp/setup', '/api/account/totp/enable')
+# v50.52 (V6.3.3): a centre or freelance account with online payments, or a team member with «Cobros», without two-step
+# verification: only «Mi cuenta» (its own account), signing out and switching to another centre of the team.
+PROVIDER_WITHOUT_2FA_PATHS = ADMIN_WITHOUT_2FA_PATHS + ('/api/team/switch', '/api/legal/accept')
+PROVIDER_WITHOUT_2FA_PREFIXES = ('/api/account/',)
+# The routes of the panels: blocked with a clear message (anything else of the site answers as for a visitor).
+PROVIDER_PANEL_PREFIXES = ('/api/bookings', '/api/center', '/api/provider', '/api/pro/', '/api/manifest', '/api/payments/', '/api/agenda',
+                           '/api/avisos', '/api/whatsapp', '/api/team/', '/api/experience-bookings', '/api/service-templates', '/api/redemptions',
+                           '/api/rewards/validate', '/api/dive-points/virtual', '/api/marina/', '/api/reports/center')
+PROVIDER_2FA_MESSAGE = ('Activa la verificación en dos pasos en «Mi cuenta» para seguir usando el panel: es obligatoria '
+                        'para quien puede cobrar o ver los pagos.')
 
 
 def current_user(handler, db):
@@ -2666,6 +2719,13 @@ def current_user(handler, db):
     if user['role'] == 'admin' and admin_totp_required() and not user.get('totp_enabled') \
             and urlparse(getattr(handler, 'path', '') or '').path not in ADMIN_WITHOUT_2FA_PATHS:
         user['role'] = 'admin_sin_2fa'
+    if user['role'] in ('center', 'freelance') and not user.get('totp_enabled') and payments_totp_required():
+        state = payments_totp_state(db, user)
+        req_path = urlparse(getattr(handler, 'path', '') or '').path
+        if state and state['blocked'] and req_path not in PROVIDER_WITHOUT_2FA_PATHS and not req_path.startswith(PROVIDER_WITHOUT_2FA_PREFIXES):
+            user['role'] += '_sin_2fa'
+            if req_path.startswith('/api/') and hasattr(handler, 'client_ip'):
+                security_event('totp_required_block', handler, user['id'], motivo=state['reason'])
     return user
 
 
@@ -2694,6 +2754,8 @@ def require_user(handler, db):
 def require_role(user, roles):
     if user['role'] == 'admin_sin_2fa':
         raise PermissionError('Activa la verificación en dos pasos en «Mi cuenta» para usar la administración.')
+    if user['role'] in ('center_sin_2fa', 'freelance_sin_2fa'):
+        raise PermissionError(PROVIDER_2FA_MESSAGE)
     if user['role'] not in roles:
         raise PermissionError('No tienes permisos para realizar esta acción.')
     if user['role'] == 'admin' and admin_totp_required() and not user.get('totp_enabled'):
@@ -2982,6 +3044,95 @@ def send_booking_notice(db, user, recipient_id, booking_id, experience_booking_i
 def admin_totp_required():
     """Two-step verification is mandatory for administrators (WOD_ADMIN_TOTP_REQUIRED, on by default)."""
     return wcfg.env_flag('WOD_ADMIN_TOTP_REQUIRED', True)
+
+
+# v50.52 · ASVS 5.0 V6.3.3 (decision of the owner, 14/10/2026): two-step verification is mandatory for whoever can move
+# money or see payment data: centre and freelance accounts with online payments (Stripe Connect connected or being
+# set up) and the team members of those centres with the permission «Cobros». Centres without online payments and
+# divers keep it optional. Accounts that already had payments get PAYMENTS_TOTP_GRACE_DAYS (panel and email); a team
+# member with «Cobros» has to turn it on the next time they sign in. Without it, only «Mi cuenta» (like the
+# administration). Bookings and payments of their clients go on working (Stripe webhooks need no session).
+PAYMENTS_TOTP_GRACE_DAYS = 14
+
+
+def payments_totp_required():
+    """WOD_PAYMENTS_TOTP_REQUIRED (on by default; only the test environment may turn it off)."""
+    return wcfg.env_flag('WOD_PAYMENTS_TOTP_REQUIRED', True)
+
+
+def payments_totp_reason(db, user):
+    """'pagos' (the account holder of a centre or freelance with online payments), 'cobros' (a team member with that
+    permission in a centre with online payments) or None (optional for this person)."""
+    if not user or not payments_totp_required(): return None
+    role = str(user.get('role') or '').replace('_sin_2fa', '')
+    if role == 'freelance':
+        row = db.execute('SELECT stripe_account_id FROM users WHERE id=?', (user['id'],)).fetchone()
+        return 'pagos' if row and (row['stripe_account_id'] or '').strip() else None
+    if role != 'center' or not user.get('center_id'): return None
+    c = db.execute('SELECT stripe_account_id FROM centers WHERE id=?', (user['center_id'],)).fetchone()
+    if not c or not (c['stripe_account_id'] or '').strip(): return None
+    mrole = member_role(db, dict(user, role='center'))
+    if mrole == 'owner': return 'pagos'
+    return 'cobros' if 'cobros' in wroles.permisos(db, user['center_id'], mrole) else None
+
+
+def payments_totp_state(db, user):
+    """None when the verification is optional for this person; else {'reason', 'deadline', 'blocked'}."""
+    reason = payments_totp_reason(db, user)
+    if not reason: return None
+    state = {'reason': reason, 'deadline': None, 'blocked': False}
+    if user.get('totp_enabled'): return state
+    if reason == 'cobros':
+        state['blocked'] = True              # «debe activarla en su siguiente inicio de sesión»
+        return state
+    deadline = user.get('totp_deadline') or payments_totp_start(db, user['id'])
+    state['deadline'] = deadline
+    state['blocked'] = bool(deadline) and deadline <= now()
+    return state
+
+
+def totp_setup_required(db, user):
+    """True when this person must turn on two-step verification before using their panel (administration, or online
+    payments / «Cobros» once the grace period is over)."""
+    user = dict(user)
+    if user.get('totp_enabled'): return False
+    if user['role'] == 'admin': return admin_totp_required()
+    st = payments_totp_state(db, user) if user['role'] in ('center', 'freelance') else None
+    return bool(st and st['blocked'])
+
+
+def payments_totp_start(db, user_id):
+    """First time an account holder with online payments has no two-step verification: the grace period starts, it
+    is written in the activity and an email tells them until when. Returns the deadline (ISO, UTC)."""
+    deadline = (datetime.now(timezone.utc).replace(hour=23, minute=59, second=59, microsecond=0)
+                + _timedelta(days=PAYMENTS_TOTP_GRACE_DAYS)).isoformat(timespec='seconds')
+    own_tx = not db.in_transaction    # inside a caller's transaction, the caller commits
+    cur = db.execute('UPDATE users SET totp_deadline=? WHERE id=? AND totp_deadline IS NULL AND COALESCE(totp_enabled,0)=0', (deadline, user_id))
+    if cur.rowcount:
+        audit(db, user_id, 'totp_deadline_set', 'user', user_id, {'hasta': deadline, 'motivo': 'pagos'})
+        lang = user_lang(db, user_id)
+        notify_user(db, user_id, 'totp_required_payments', {'totp_deadline': mail_date(deadline[:10], lang),
+                    'security_url': f'{public_site_url()}/#/cuenta?seguridad=1'}, ('user', user_id))
+        if own_tx: db.commit()
+        return deadline
+    row = db.execute('SELECT totp_deadline FROM users WHERE id=?', (user_id,)).fetchone()
+    return row['totp_deadline'] if row else deadline
+
+
+def run_payments_totp_notices(db):
+    """Maintenance: the account holders with online payments and without two-step verification get their deadline
+    and the email even if they do not sign in (v50.52)."""
+    if not payments_totp_required(): return
+    ids = [r['id'] for r in db.execute("""SELECT u.id FROM users u WHERE u.role='freelance' AND COALESCE(u.stripe_account_id,'')<>''
+                                            AND COALESCE(u.totp_enabled,0)=0 AND u.totp_deadline IS NULL
+                                          UNION
+                                          SELECT u.id FROM users u JOIN centers c ON c.id=u.center_id
+                                           WHERE u.role='center' AND COALESCE(c.stripe_account_id,'')<>'' AND COALESCE(u.totp_enabled,0)=0
+                                             AND u.totp_deadline IS NULL
+                                             AND NOT EXISTS(SELECT 1 FROM center_members m WHERE m.center_id=c.id AND m.user_id=u.id
+                                                            AND COALESCE(m.member_role,'')<>'owner')""").fetchall()]
+    for uid in ids[:500]:
+        payments_totp_start(db, uid)
 
 
 def check_totp_or_recovery(db, user, code):
@@ -4282,6 +4433,8 @@ def team_gate(db, user, path, method):
     """Team of a centre (v50.49): what each role can do comes from the permissions the centre gave it (wod.roles).
     The owner does everything; what only the owner can do never goes into a role. Reading is free except payments,
     statistics and the owner's screens; writing needs «reservas» unless a more specific permission applies."""
+    if user and user['role'] in ('center_sin_2fa', 'freelance_sin_2fa') and path.startswith(PROVIDER_PANEL_PREFIXES):
+        raise PermissionError(PROVIDER_2FA_MESSAGE)      # v50.52 (V6.3.3): a clear answer on every route of the panel
     closed_gate(db, user, path, method)
     role = member_role(db, user)
     if not role or role == 'owner': return
@@ -6146,6 +6299,12 @@ EMAIL_TEMPLATES = {
    ('p', 'Hola {first_name}, desde ahora te pediremos un código de tu aplicación de verificación al iniciar sesión ({when}).'),
    ('p', 'Guarda los códigos de recuperación en un lugar seguro. Si no has sido tú, cambia tu contraseña y escríbenos.'),
    ('button', ('Ir a mi cuenta', 'account_url'))]},
+ 'totp_required_payments': {'to': 'pro', 'subject': 'Activa la verificación en dos pasos antes del {totp_deadline}', 'pre': 'Es obligatoria en las cuentas con cobros online.', 'blocks': [
+   ('h', 'Activa la verificación en dos pasos'),
+   ('p', 'Hola {first_name}, tu cuenta tiene los cobros online activados. Para proteger el dinero y los datos de pago de tus clientes, la verificación en dos pasos es obligatoria para quien puede cobrar o ver los pagos.'),
+   ('p', 'Tienes hasta el {totp_deadline} para activarla en «Mi cuenta». Después, mientras no la actives, solo podrás entrar en «Mi cuenta». Las reservas y los pagos de tus clientes seguirán funcionando con normalidad.'),
+   ('note', 'Necesitas una aplicación de verificación en el móvil (por ejemplo Google Authenticator, Microsoft Authenticator o Aegis). Guarda los códigos de recuperación en un lugar seguro.'),
+   ('button', ('Activarla ahora', 'security_url'))]},
  'reminder_48h': {'to': 'diver', 'subject': 'En 2 días buceas con {center} · {date_short}', 'pre': 'Tu inmersión se acerca.', 'blocks': [
    ('h', 'Tu inmersión es pasado mañana'),
    ('p', 'Hola {first_name}, te recordamos tu reserva con {center} del {date}.'),
@@ -6250,7 +6409,7 @@ EMAIL_TEMPLATE_LABELS = {
  'monthly_stats': 'Centro: estadísticas del mes', 'team_invite': 'Invitación al equipo de un centro', 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
  'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'slot_cancelled': 'Salida cancelada por el centro (buceador)', 'center_slot_choice': 'Centro: respuesta a una salida cancelada', 'booking_date_changed': 'Nueva fecha de la reserva (buceador)', 'center_booking_date_changed': 'Centro: el cliente ha cambiado la fecha', 'center_reschedule_request': 'Centro: solicitud de cambio de fecha', 'reschedule_approved': 'Cambio de fecha aceptado', 'reschedule_rejected': 'Cambio de fecha no aceptado', 'waitlist_spot': 'Lista de espera: ha quedado una plaza', 'center_rejected': 'Profesional: verificación no completada', 'admin_new_pro': 'Admin: nueva cuenta profesional',
- 'totp_enabled': 'Verificación en dos pasos activada', 'reminder_48h': 'Recordatorio 48 h antes', 'booking_changed': 'Cambio de fecha u hora', 'document_expiring': 'Documento a punto de caducar',
+ 'totp_enabled': 'Verificación en dos pasos activada', 'totp_required_payments': 'Verificación en dos pasos obligatoria (cobros)', 'reminder_48h': 'Recordatorio 48 h antes', 'booking_changed': 'Cambio de fecha u hora', 'document_expiring': 'Documento a punto de caducar',
  'document_expired': 'Documento caducado', 'legal_update': 'Cambio en un documento legal', 'plan_renewal': 'Centro: renovación de la cuota',
  'marketing': 'Comunicación comercial (con consentimiento)', 'refund_issued': 'Devolución hecha (buceador)', 'center_refund_reminder': 'Centro: devolución pendiente', 'center_dispute': 'Centro: disputa abierta',
  'admin_payment_review': 'Admin: pago en revisión', 'admin_refund_failed': 'Admin: devolución pendiente', 'admin_content_report': 'Admin: denuncia de contenido',
@@ -6863,7 +7022,7 @@ def sample_email_ctx(template, lang='es'):
          'booking_url': f'{base}/#/reserva?id=123', 'pdf_url': f'{base}/api/bookings/123/receipt.pdf', 'center_url': f'{base}/#/centros', 'review_url': f'{base}/#/centros',
          'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings', 'panel_planning_url': f'{base}/#/admin?tab=planning',
          'account_url': f'{base}/#/cuenta', 'panel_url': f'{base}/#/admin', 'reset_url': f'{base}/#/restablecer?token=ejemplo', 'forgot_url': f'{base}/#/recuperar',
-         'when': '17/10/2026 18:30', 'pay_note': t('Pagarás directamente en el centro el día de la actividad.'),
+         'when': '17/10/2026 18:30', 'totp_deadline': mail_date('2026-10-28', lang), 'security_url': f'{base}/#/cuenta?seguridad=1', 'pay_note': t('Pagarás directamente en el centro el día de la actividad.'),
          'promo_title': 'Curso Open Water + 1 año de equipo', 'promo_value': 'Equipo completo gratis durante 12 meses', 'valid_until': '30/06/2027',
          'promo_url': f'{base}/#/recompensas', 'experience': 'Semana en las Islas Medas', 'area_url': f'{base}/#/area', 'status_title': t('Solicitud confirmada'),
          'status_text': mail_t(lang, 'tu plaza en «{experience}» está confirmada. El organizador te contactará con los detalles.', experience='Semana en las Islas Medas'),
@@ -11117,7 +11276,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                         'member_role_name':wroles.nombre(db,user['center_id'],member_role(db,user)) if member_role(db,user) else None,
                                         'permissions':sorted(user_perms(db,user),key=wroles.CLAVES.index) if user['role'] in ('center','freelance') else [],
                                         'account_closed':(provider_account_status(db,*provider_of_user(user))['closed'] if provider_of_user(user) and provider_closure(db,*provider_of_user(user)) else None),
-                                        'security':{'totp_enabled':bool(user.get('totp_enabled')),'totp_setup_required':user['role']=='admin' and admin_totp_required() and not user.get('totp_enabled'),
+                                        'security':{'totp_enabled':bool(user.get('totp_enabled')),'totp_setup_required':totp_setup_required(db,user),
+                                                    **(lambda st:{'totp_required':st['reason'] if st else None,'totp_deadline':(st or {}).get('deadline'),'totp_blocked':bool(st and st['blocked'])})(payments_totp_state(db,user) if user['role'] in ('center','freelance') else None),
                                                     'recovery_left':len(json.loads(user.get('totp_recovery') or '[]')) if user.get('totp_enabled') else 0}})
                     return
                 if path.startswith('/api/providers/'):
@@ -12045,6 +12205,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     table=payee_table(payee); base=public_site_url(); back=f'{base}/#/pagos?stripe='
                     action=path.rsplit('/',1)[1]
                     if action=='onboard' and user['role']!='admin': require_switch(db,'online_payments'); require_feature(db,user,'online_payments')
+                    if action in ('onboard','refresh') and user['role']!='admin' and payments_totp_required() and not user.get('totp_enabled'):
+                        # v50.52 (V6.3.3): two-step verification before opening the connection with Stripe.
+                        audit(db,user['id'],'stripe_connect_needs_totp',payee['type'],payee['id']); db.commit()
+                        self.send_json({'error':'Antes de activar los cobros online, activa la verificación en dos pasos en «Mi cuenta». Es obligatoria para quien cobra online.','totp_required':True},403); return
                     try:
                         stripe=stripe_module()
                         if action=='unlink':
@@ -12200,6 +12364,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if LOGIN_ACCOUNT_LIMIT.hit(acct_key): security_alert('login_bruteforce', {'account': wsec.ip_hash(login)})
                         if user: audit(db,user['id'],'login_failed',details={'ip':wsec.ip_hash(ip)}); db.commit()
                         else: security_event('login_unknown_account', self, cuenta=wsec.ip_hash(login))   # ASVS V16.3.1
+                        log_event('login_failed', usuario=user['id'] if user else None, ip=wsec.ip_hash(ip))
                         self.send_json({'error':'Usuario o contraseña incorrectos.'},401); return
                     clear_login_failures(rate_key)
                     if wsec.needs_rehash(user['password_hash']):
@@ -12208,7 +12373,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     second=login_second_factor(db,user,data,ip)
                     if second: db.commit(); self.send_json(second[0],second[1]); return
                     db.execute('UPDATE users SET last_login=?,inactive_warned_at=NULL WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login',details={'ip':wsec.ip_hash(ip),'red':wsec.ip_hash(net),'totp':bool(user['totp_enabled'])}); db.commit()
-                    self.login_user(user['id'],db,{'ok':True,'totp_setup_required':user['role']=='admin' and admin_totp_required() and not user['totp_enabled']}); return
+                    self.login_user(user['id'],db,{'ok':True,'totp_setup_required':totp_setup_required(db,user)}); return
                 if path in ('/api/account/totp/setup','/api/account/totp/enable','/api/account/totp/disable','/api/account/totp/recovery'):
                     # Fase 4: two-step verification, optional for everybody and mandatory for administrators.
                     user=require_user(self,db); data=json_body(self); action=path.rsplit('/',1)[1]
@@ -12235,6 +12400,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not check_totp_or_recovery(db,u,data.get('code')): db.commit(); raise PermissionError('El código de verificación no es correcto.')
                     if action=='disable':
                         if u['role']=='admin' and admin_totp_required(): raise PermissionError('Los administradores no pueden desactivar la verificación en dos pasos.')
+                        if payments_totp_reason(db,user):
+                            # v50.52 (V6.3.3): not while the account has online payments or the person has «Cobros».
+                            security_event('totp_disable_refused',self,u['id'],motivo=payments_totp_reason(db,user))
+                            raise PermissionError('No puedes desactivar la verificación en dos pasos mientras tu cuenta tenga cobros online o tu perfil tenga el permiso «Cobros».')
                         db.execute('UPDATE users SET totp_enabled=0,totp_secret=NULL,totp_recovery=NULL,totp_last_step=NULL WHERE id=?',(u['id'],))
                         db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(u['id'],self.session_hash() or ''))   # ASVS V7.4.3
                         audit(db,u['id'],'totp_disabled'); db.commit(); self.send_json({'ok':True}); return
@@ -14812,7 +14981,7 @@ def maintenance_loop():
         time.sleep(wcfg.env_int('WOD_MAINTENANCE_SECONDS', 60, 5, 3600))
 
 
-MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs, run_slot_cancel_jobs]
+MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs, run_slot_cancel_jobs, run_payments_totp_notices]
 
 
 RETENTION_DEFAULTS = {'inactive_months': 36, 'expired_docs_months': 12, 'notices_months': 24, 'audit_months': 12, 'audit_keep': 300}
@@ -14987,10 +15156,8 @@ def system_status(db):
         url or 'Sin dirección pública.', ('WOD_PUBLIC_URL',), 'Enlaces de los correos, de los pagos y de los avisos.')
     add('session_key', 'Clave de las sesiones', 'ok' if len(env('WOD_SECRET_KEY')) >= 32 else 'error',
         'Configurada.' if len(env('WOD_SECRET_KEY')) >= 32 else 'Falta o es demasiado corta (32 caracteres o más).', ('WOD_SECRET_KEY',))
-    av = env('WOD_AV_COMMAND')
-    add('antivirus', 'Antivirus de los documentos', 'ok' if av else 'pending',
-        'Cada documento pasa por el antivirus antes de guardarse.' if av else 'Sin antivirus: los documentos solo se comprueban por su contenido.',
-        ('WOD_AV_COMMAND',), 'Documentos que suben buceadores y centros (ASVS 5.0 V5.4.3).')
+    av_state, av_detail = antivirus_selftest()
+    add('antivirus', 'Antivirus de los documentos', av_state, av_detail, ('WOD_AV_COMMAND',), 'Documentos que suben buceadores y centros (ASVS 5.0 V5.4.3).')
     dk = env('WOD_DATA_KEY')
     add('data_key', 'Clave de cifrado de datos', 'ok' if len(dk) >= 32 and (dk != wcif.DEMO_DATA_KEY or wcfg.demo_mode()) else 'error',
         'Teléfonos, credenciales y códigos de verificación cifrados.' if len(dk) >= 32 else 'Falta: no se pueden guardar teléfonos ni credenciales.', ('WOD_DATA_KEY',))
@@ -15041,18 +15208,22 @@ def system_status(db):
         add('disk', 'Espacio en disco', 'error', 'No se puede leer el espacio libre.')
     add('admin_2fa', 'Verificación en dos pasos (administración)', 'ok' if admin_totp_required() else ('error' if wcfg.is_production() else 'pending'),
         'Obligatoria para administradores.' if admin_totp_required() else 'Desactivada (solo se permite en pruebas).', ('WOD_ADMIN_TOTP_REQUIRED',))
+    add('payments_2fa', 'Verificación en dos pasos (cobros)', 'ok' if payments_totp_required() else ('error' if wcfg.is_production() else 'pending'),
+        'Obligatoria para centros y freelance con cobros online y para quien tenga el permiso «Cobros».' if payments_totp_required()
+        else 'Desactivada (solo se permite en pruebas).', ('WOD_PAYMENTS_TOTP_REQUIRED',))
     return out
 
 
 def check_production_settings():
     """WOD_ENV=production refuses to start with unsafe settings."""
     problems = []
-    if not wcfg.public_url(): problems.append('WOD_PUBLIC_URL es obligatorio en producción (por ejemplo https://worldives.com).')
+    if not wcfg.public_url(): problems.append('WOD_PUBLIC_URL es obligatorio en producción (por ejemplo https://worlddivesdiscovery.com).')
     elif not wcfg.public_url().startswith('https://'): problems.append('WOD_PUBLIC_URL debe empezar por https:// en producción.')
     if wcfg.env_flag('WOD_ALLOW_SETUP'): problems.append('WOD_ALLOW_SETUP=1 no se permite en producción: crea el administrador con --create-admin.')
     if len(wcfg.env('WOD_SECRET_KEY')) < 32: problems.append('Define WOD_SECRET_KEY con al menos 32 caracteres aleatorios.')
     if wcfg.env_flag('WOD_DEBUG'): problems.append('WOD_DEBUG no puede estar activo en producción.')
     if not admin_totp_required(): problems.append('WOD_ADMIN_TOTP_REQUIRED=0 no se permite en producción: los administradores usan verificación en dos pasos.')
+    if not payments_totp_required(): problems.append('WOD_PAYMENTS_TOTP_REQUIRED=0 no se permite en producción: quien cobra online usa verificación en dos pasos.')
     # v50.47: phones and WhatsApp credentials are encrypted with this key (never derived in production).
     if wcfg.env('WOD_DATA_KEY') == wcif.DEMO_DATA_KEY: problems.append('WOD_DATA_KEY es la clave de los datos ficticios de pruebas: genera una propia.')
     if len(wcfg.env('WOD_DATA_KEY')) < 32: problems.append('Define WOD_DATA_KEY (clave de cifrado de teléfonos y credenciales) con al menos 32 caracteres aleatorios: python3 -c "import secrets;print(secrets.token_urlsafe(32))".')

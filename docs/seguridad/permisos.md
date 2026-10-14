@@ -31,12 +31,17 @@ Cada centro da a cada perfil los permisos que quiera (*Equipo → Perfiles*). Po
 | `reservas` | Reservas, solicitudes y clientes | Aceptar o rechazar solicitudes, crear y cambiar reservas, cobrar en el centro y escribir a los clientes. **Leer** las solicitudes, los clientes, las solicitudes de información, las exportaciones de reservas y clientes, las notas internas de las reservas y lo pagado en cada reserva (para cobrar el resto) |
 | `salidas` | Salidas y servicios | Crear, cambiar y cerrar salidas y servicios |
 | `avisos` | Cancelar salidas y avisar a todos | Cancelar o cambiar una salida y avisar a todos sus buceadores; WhatsApp |
-| `cobros` | Cobros y devoluciones | Ver los cobros del centro (listado, ingresos, recibos), exportar los pagos y devolver dinero; también lo pagado en cada reserva |
+| `cobros` | Cobros y devoluciones | Ver los cobros del centro (listado, ingresos, recibos), exportar los pagos y devolver dinero; también lo pagado en cada reserva. **Si el centro cobra online, exige la verificación en dos pasos** (v50.52) |
 | `centro` | Ficha del centro y ajustes | Ficha pública, fotos, tarifas, seguro, política de cancelación, descargo, integraciones, calendario e importar clientes |
 | `estadisticas` | Estadísticas | Estadísticas del centro |
 
 **Solo el propietario:** el equipo y sus perfiles, la cuenta de Stripe y los datos de cobro, los datos fiscales, el
 plan, el registro de actividad y cerrar la cuenta del centro.
+
+**Verificación en dos pasos obligatoria con cobros** (v50.52, ASVS V6.3.3): el propietario o freelance con Stripe
+Connect conectado o en proceso y los miembros con `cobros` de esos centros solo llegan a «Mi cuenta» hasta activarla
+(el propietario o freelance que ya cobraba tiene 14 días). No se puede conectar Stripe sin ella ni desactivarla con
+cobros. Detalle en [`autenticacion.md`](autenticacion.md#verificación-en-dos-pasos).
 
 ## Rutas del panel que piden un permiso
 

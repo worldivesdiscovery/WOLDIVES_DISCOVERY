@@ -424,7 +424,7 @@ class RoleCrawler:
         from helpers import Server
         if self.srv:
             self.srv.stop()
-        env = {'WOD_ADMIN_TOTP_REQUIRED': '0', 'HTTPS_PROXY': '', 'HTTP_PROXY': '', 'https_proxy': '', 'http_proxy': '', 'ALL_PROXY': '', 'all_proxy': ''}
+        env = {'WOD_ADMIN_TOTP_REQUIRED': '0', 'WOD_PAYMENTS_TOTP_REQUIRED': '0', 'HTTPS_PROXY': '', 'HTTP_PROXY': '', 'https_proxy': '', 'http_proxy': '', 'ALL_PROXY': '', 'all_proxy': ''}
         self.srv = Server(env, seed=self.demo).start()
         self.base = self.srv.base
         self.writes = 0

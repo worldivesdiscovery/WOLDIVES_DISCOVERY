@@ -93,7 +93,7 @@ def server_env(run_dir: Path, db: Path, port: int, host: str, public_host: str, 
         'WOD_DB_PATH': str(db), 'WOD_STORAGE_DIR': str(run_dir / 'storage'), 'WOD_LOG_DIR': str(run_dir / 'logs'), 'WOD_DATA_DIR': str(run_dir),
         'WOD_UPLOADS_DIR': str(run_dir / 'uploads'), 'WOD_MAIL_FILE_DIR': str(run_dir / 'mail'), 'WOD_PORT': str(port), 'WOD_HOST': host,
         'WOD_PUBLIC_URL': f'http://{public_host}:{port}', 'WOD_ENV': 'development', 'WOD_SECRET_KEY': SECRET_KEY, 'WOD_DATA_KEY': demo_data_key(),
-        'WOD_ADMIN_TOTP_REQUIRED': '0', 'WOD_PBKDF2_ITERATIONS': str(iterations), 'WOD_REGISTER_MAX_PER_HOUR': '10000000',
+        'WOD_ADMIN_TOTP_REQUIRED': '0', 'WOD_PAYMENTS_TOTP_REQUIRED': '0', 'WOD_PBKDF2_ITERATIONS': str(iterations), 'WOD_REGISTER_MAX_PER_HOUR': '10000000',
         'WOD_NO_ENV_FILE': '1', 'PYTHONDONTWRITEBYTECODE': '1', 'WOD_WORKERS': str(workers), 'PYTHONUNBUFFERED': '1',
         # Como detrás de nginx: el generador manda X-Forwarded-For con una IP distinta por usuario simulado, así los
         # límites por IP, las visitas únicas (stat_bump) y los registros funcionan como con visitantes reales.

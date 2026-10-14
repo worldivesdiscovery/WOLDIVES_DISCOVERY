@@ -23,7 +23,7 @@ La Tanda 1 entrega:
 ## Cómo es la app por dentro
 
 La app es la web de WORLDIVES dentro de una app nativa (**Capacitor 8**, opción A, decidida por el titular).
-- **WORLDIVES** (`com.worldives.app`) abre https://worldives.com.
+- **WORLDIVES** (`com.worldives.app`) abre https://worlddivesdiscovery.com.
 - **WORLDIVES Pruebas** (`com.worldives.app.pruebas`) abre primero una pantalla para elegir el servidor de pruebas.
   Las dos se pueden tener instaladas a la vez.
 

@@ -18,7 +18,7 @@ android {
         }
     }
     // Two apps from one project (encargo «App móvil en 3 módulos», apartado 9):
-    //  · produccion  com.worldives.app          «WORLDIVES», loads https://worldives.com
+    //  · produccion  com.worldives.app          «WORLDIVES», loads https://worlddivesdiscovery.com
     //  · pruebas     com.worldives.app.pruebas  «WORLDIVES Pruebas», orange TEST icon, server chosen on the phone,
     //                plain HTTP allowed (only this variant). Both can be installed at the same time.
     flavorDimensions = ["variante"]

@@ -562,5 +562,12 @@
  "Generado el {at} por {who}": "Generato il {at} da {who}",
  "No": "No",
  "No vino": "Non presentato",
- "(hora local)": "(ora locale)"
+ "(hora local)": "(ora locale)",
+ "Activa la verificación en dos pasos": "Attiva la verifica in due passaggi",
+ "Activa la verificación en dos pasos antes del {totp_deadline}": "Attiva la verifica in due passaggi entro il {totp_deadline}",
+ "Activarla ahora": "Attivala ora",
+ "Es obligatoria en las cuentas con cobros online.": "È obbligatoria per gli account con incassi online.",
+ "Hola {first_name}, tu cuenta tiene los cobros online activados. Para proteger el dinero y los datos de pago de tus clientes, la verificación en dos pasos es obligatoria para quien puede cobrar o ver los pagos.": "Ciao {first_name}, il tuo account ha gli incassi online attivati. Per proteggere il denaro e i dati di pagamento dei tuoi clienti, la verifica in due passaggi è obbligatoria per chi può incassare o vedere i pagamenti.",
+ "Necesitas una aplicación de verificación en el móvil (por ejemplo Google Authenticator, Microsoft Authenticator o Aegis). Guarda los códigos de recuperación en un lugar seguro.": "Ti serve un’app di autenticazione sul telefono (ad esempio Google Authenticator, Microsoft Authenticator o Aegis). Conserva i codici di recupero in un luogo sicuro.",
+ "Tienes hasta el {totp_deadline} para activarla en «Mi cuenta». Después, mientras no la actives, solo podrás entrar en «Mi cuenta». Las reservas y los pagos de tus clientes seguirán funcionando con normalidad.": "Hai tempo fino al {totp_deadline} per attivarla in «Il mio account». Dopo, finché non la attivi, potrai entrare solo in «Il mio account». Le prenotazioni e i pagamenti dei tuoi clienti continueranno a funzionare normalmente."
 }

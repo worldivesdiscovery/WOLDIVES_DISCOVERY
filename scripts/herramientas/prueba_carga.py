@@ -2,7 +2,7 @@
 """Load test (Fase 7.6): simulated visitors browsing the catalogue and some divers signing in and booking.
 
 Run it against the REAL server (or the test environment), never against production with real users online:
-    python3 scripts/herramientas/prueba_carga.py --url https://pruebas.worldives.com --users 50 --seconds 60
+    python3 scripts/herramientas/prueba_carga.py --url https://pruebas.worlddivesdiscovery.com --users 50 --seconds 60
 Optional: --login usuario:contraseña --book CENTER_ID:SERVICE_ID:SLOT_ID (makes real booking requests: test only).
 Prints requests per second, latency percentiles per route and errors. Only the standard library is used.
 """

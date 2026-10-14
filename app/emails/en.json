@@ -562,5 +562,12 @@
  "Generado el {at} por {who}": "Generated on {at} by {who}",
  "No": "No",
  "No vino": "No-show",
- "(hora local)": "(local time)"
+ "(hora local)": "(local time)",
+ "Activa la verificación en dos pasos": "Turn on two-step verification",
+ "Activa la verificación en dos pasos antes del {totp_deadline}": "Turn on two-step verification before {totp_deadline}",
+ "Activarla ahora": "Turn it on now",
+ "Es obligatoria en las cuentas con cobros online.": "It is mandatory for accounts with online payments.",
+ "Hola {first_name}, tu cuenta tiene los cobros online activados. Para proteger el dinero y los datos de pago de tus clientes, la verificación en dos pasos es obligatoria para quien puede cobrar o ver los pagos.": "Hello {first_name}, your account has online payments switched on. To protect your clients’ money and payment data, two-step verification is mandatory for anyone who can take or see payments.",
+ "Necesitas una aplicación de verificación en el móvil (por ejemplo Google Authenticator, Microsoft Authenticator o Aegis). Guarda los códigos de recuperación en un lugar seguro.": "You need an authenticator app on your phone (for example Google Authenticator, Microsoft Authenticator or Aegis). Keep the recovery codes somewhere safe.",
+ "Tienes hasta el {totp_deadline} para activarla en «Mi cuenta». Después, mientras no la actives, solo podrás entrar en «Mi cuenta». Las reservas y los pagos de tus clientes seguirán funcionando con normalidad.": "You have until {totp_deadline} to turn it on in «My account». After that, until you turn it on, you will only be able to open «My account». Your clients’ bookings and payments will keep working as usual."
 }

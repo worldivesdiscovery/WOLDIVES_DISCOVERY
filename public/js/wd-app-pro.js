@@ -66,6 +66,14 @@
 
   /* ---------------------------------------------------------------- account closed */
   function cuentaCerrada() {
+    // v50.52 (ASVS V6.3.3): with online payments or «Cobros», two-step verification first (only «Mi cuenta» meanwhile).
+    if (state.me?.security?.totp_blocked) {
+      pintar(`<div class="cuerpo"><h1>${T('Activa la verificación en dos pasos')}</h1><div class="aviso urg">${ic('alerta')}<div>${T('Es obligatoria para quien puede cobrar o ver los pagos. Las reservas y los pagos de tus clientes siguen funcionando con normalidad.')}</div></div>
+        <a class="wbtn ancho grande" href="#/cuenta?seguridad=1">${ic('check', '')}${T('Activarla ahora')}</a>
+        <div class="tarjeta plana lista"><button class="lista-fila" type="button" id="wda-salir2">${ic('salir')}<span class="crece">${T('Cerrar sesión')}</span></button></div></div>`);
+      $('#wda-salir2')?.addEventListener('click', A.salir);
+      return true;
+    }
     const c = state.me?.account_closed; if (!c) return false;
     pintar(`<div class="cuerpo"><h1>Cuenta cerrada</h1><div class="aviso urg">${ic('alerta')}<div><b>${T('Tu cuenta está cerrada')}</b> <span>${T('desde el')}</span> <span class="num">${fd(corto(c.closed_at.slice(0, 10)))}</span>. ${T('Nadie la ve ni puede reservar.')}
         <p>${T('La guardamos hasta el')} <b class="num">${fd(corto(c.purge_after))}</b> (${plural(c.days_left, 'día', 'días')}). ${T('Después la borraremos para siempre.')}</p></div></div>

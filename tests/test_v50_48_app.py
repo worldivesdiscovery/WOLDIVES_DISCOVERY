@@ -37,8 +37,8 @@ class MovilUnits(unittest.TestCase):
         self.assertEqual(wmovil.app_scheme('com.worldives.app.pruebas'), 'com.worldives.app.pruebas')
         for bad in ('javascript', 'com.otra.app', 'https', '', None):
             self.assertIsNone(wmovil.app_scheme(bad))
-        ok, ko = wmovil.return_urls('https://worldives.com', 'com.worldives.app', 41)
-        self.assertEqual(ok, 'https://worldives.com/app/vuelta?esquema=com.worldives.app&session_id={CHECKOUT_SESSION_ID}')
+        ok, ko = wmovil.return_urls('https://worlddivesdiscovery.com', 'com.worldives.app', 41)
+        self.assertEqual(ok, 'https://worlddivesdiscovery.com/app/vuelta?esquema=com.worldives.app&session_id={CHECKOUT_SESSION_ID}')
         self.assertIn('pago=cancelado', ko); self.assertIn('reserva=41', ko)
         page = wmovil.return_page('com.worldives.app', {'session_id': 'cs_test_1', 'evil': '"><script>', 'pago': '<x>'})
         self.assertIn('com.worldives.app://pago?session_id=cs_test_1', page)

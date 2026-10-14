@@ -37,8 +37,10 @@ def start_code(env):
 
 class DemoGuard(unittest.TestCase):
     def test_refuses_production_address(self):
-        code, out = start_code({'WOD_DEMO_MODE': '1', 'WOD_PUBLIC_URL': 'https://www.worldives.com'})
-        self.assertEqual(code, 2, out); self.assertIn('WOD_DEMO_MODE=1 no se permite', out)
+        # v50.52: the real domain and every subdomain of it, the test site pruebas.* included
+        for url in ('https://worlddivesdiscovery.com', 'https://www.worlddivesdiscovery.com', 'https://pruebas.worlddivesdiscovery.com'):
+            code, out = start_code({'WOD_DEMO_MODE': '1', 'WOD_PUBLIC_URL': url})
+            self.assertEqual(code, 2, (url, out)); self.assertIn('WOD_DEMO_MODE=1 no se permite', out)
 
     def test_refuses_extra_production_host_and_real_stripe_key(self):
         code, out = start_code({'WOD_DEMO_MODE': '1', 'WOD_PUBLIC_URL': 'https://reservas.example.org', 'WOD_PRODUCTION_HOSTS': 'reservas.example.org'})

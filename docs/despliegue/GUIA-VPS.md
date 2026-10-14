@@ -1,159 +1,338 @@
-# Instalar WORLDIVES DISCOVERY en un VPS (paquete de PRODUCCIÓN, v50.51)
+# Instalar WORLDIVES DISCOVERY en Hostinger (VPS KVM 2, paquete de PRODUCCIÓN, v50.52)
 
-Guía paso a paso con el zip `worldives-v50.51-PRODUCCION.zip`. Los detalles de cada parte (proxy, copias, correo,
-rendimiento) están en `docs/despliegue/README.md`; los mapas, en `docs/mapas.md`.
+Guía paso a paso para poner la web en **https://worlddivesdiscovery.com** con el zip
+`worldives-v50.52-PRODUCCION.zip`, según el encargo de despliegue del 14/10/2026. Cada paso termina con una
+**comprobación**. Al final, `scripts/despliegue/comprobar_lanzamiento.py` revisa en el propio servidor toda la lista de
+antes de abrir (paso 14).
 
-**Antes de empezar necesitas:**
-- el dominio (por ejemplo `worldives.com`), con acceso a su DNS;
-- un VPS Linux (tamaño en el paso 1);
-- las claves de los servicios que quieras activar ya (correo, Stripe, ArcGIS…). Ninguna es obligatoria para
-  arrancar: lo que falte queda desactivado y aparece como «Pendiente» en *Administración → Operación → Estado del
-  sistema*.
+Las órdenes que empiezan por `sudo` se escriben en el VPS (conectado por SSH). Lo que va entre `<…>` lo cambias tú.
+**Claves y contraseñas: solo en los archivos del servidor que se indican y en tu gestor de contraseñas. Nunca en el
+código, en el repositorio, en un correo ni en un chat.**
 
-## 1. Servidor
+## 0. Antes de empezar
 
-| Uso | VPS recomendado |
+- La cuenta de Hostinger donde está el dominio `worlddivesdiscovery.com` (se queda en Hostinger; solo se cambian sus DNS).
+- Un **gestor de contraseñas** (Bitwarden, 1Password, KeePassXC…) para las claves del servidor.
+- Una **clave SSH** en tu ordenador. Si no tienes, créala (Windows 10/11, macOS y Linux):
+
+  ```bash
+  ssh-keygen -t ed25519 -C "titular-worldives"      # Enter para la ruta; pon una frase de paso y guárdala en el gestor
+  cat ~/.ssh/id_ed25519.pub                           # esta es la parte PÚBLICA: la que se pega en Hostinger
+  ```
+
+- La IP desde la que te conectarás (casa, oficina o VPN): la verás en https://ifconfig.me. El SSH solo se abrirá a ella.
+- Más adelante: cuenta de **Better Stack** (paso 11) y un **destino de copias en la UE** fuera de Hostinger (paso 12;
+  **Pendiente de decisión**: qué proveedor).
+
+## 1. Contratar el VPS (KVM 2 en la UE)
+
+En hPanel → **VPS** → contratar **KVM 2** (2 vCPU, 8 GB de RAM, 100 GB NVMe). En la configuración inicial:
+
+| Opción | Qué elegir |
 |---|---|
-| Lanzamiento y primeros meses (cientos de personas a la vez) | **4 vCPU, 8 GB de RAM, 80 GB SSD (NVMe)**, en la UE (Debian 12 o Ubuntu 24.04), `WOD_WORKERS=4` |
-| 10.000 personas a la vez navegando con normalidad | 8 vCPU, 16 GB de RAM, NVMe, `WOD_WORKERS=8` |
-| 10.000 personas a la vez con uso intenso | 32 vCPU, 32 GB de RAM, NVMe, `WOD_WORKERS=32` (16 vCPU dedicadas como mínimo, sin margen) |
-| Mínimo para probar | 2 vCPU, 4 GB de RAM, 40 GB SSD |
+| **Ubicación** | **Alemania (Frankfurt)** o **Francia**. Nada en Reino Unido ni fuera de la UE. **No se puede cambiar después sin reinstalar**: revísalo antes de confirmar |
+| Sistema | **Ubuntu 24.04 LTS** «limpio» (sin panel de control ni aplicaciones preinstaladas) |
+| Clave SSH | Pega tu clave **pública** (`id_ed25519.pub`) |
+| Contraseña de root | Una larga y aleatoria, guardada en el gestor (luego el acceso de root por SSH queda cerrado) |
 
-`WOD_WORKERS` = número de núcleos. El cálculo sale de la prueba de carga de esta versión
-(`docs/auditoria/v50.51/carga.md`): cuánta CPU gasta cada petición, cuándo conviene crecer y cuándo pasar a
-PostgreSQL (solo para repartir la web en varios servidores).
+**Comprobación:** hPanel → VPS → *Información general* muestra la ubicación elegida y la IP del VPS. Apunta la IP.
 
-## 2. Dominio
+> Hostinger reduce la CPU de un VPS con uso alto sostenido. Si en la prueba de carga (paso 15) se nota, se sube a
+> **KVM 4** desde hPanel sin perder datos.
 
-En el panel de tu proveedor de dominio crea dos registros que apunten a la IP del VPS:
+## 2. DNS del dominio (en Hostinger)
 
-| Tipo | Nombre | Valor |
-|---|---|---|
-| A | `@` (worldives.com) | IP del VPS |
-| A | `www` | IP del VPS |
+hPanel → **Dominios** → `worlddivesdiscovery.com` → **DNS / Nameservers**. Borra los registros `A`/`AAAA` antiguos de
+`@` y `www` (los del alojamiento web o de «aparcado») y crea:
 
-(Y los mismos con `AAAA` si el VPS tiene IPv6.) Los cambios de DNS tardan de minutos a unas horas.
+| Tipo | Nombre | Valor | TTL |
+|---|---|---|---|
+| A | `@` | IP del VPS | 3600 |
+| A | `www` | IP del VPS | 3600 |
+| A | `pruebas` | IP del VPS | 3600 |
+| AAAA | `@`, `www`, `pruebas` | IPv6 del VPS (si la tiene) | 3600 |
+| CAA | `@` | `0 issue "letsencrypt.org"` | 3600 |
 
-## 3. Instalar
+No toques los registros del correo (MX, SPF, DKIM, DMARC): son del proveedor de correo (`docs/despliegue/README.md`,
+apartado 10).
 
-Conectado al VPS por SSH:
+**Comprobación** (desde tu ordenador, puede tardar de minutos a unas horas): `nslookup worlddivesdiscovery.com`,
+`nslookup www.worlddivesdiscovery.com` y `nslookup pruebas.worlddivesdiscovery.com` devuelven la IP del VPS.
+
+## 3. Acceso solo con clave SSH, sin root
 
 ```bash
-sudo apt update && sudo apt install -y python3 python3-venv unzip caddy
+ssh root@<IP-del-VPS>                                         # la primera vez, con tu clave
+adduser <tu-usuario>                                          # tu usuario de administración (contraseña larga, al gestor)
+usermod -aG sudo <tu-usuario>
+rsync --archive --chown=<tu-usuario>:<tu-usuario> ~/.ssh /home/<tu-usuario>   # tu clave pasa a tu usuario
+```
+
+Abre **otra** terminal y comprueba que entras con `ssh <tu-usuario>@<IP-del-VPS>` y que `sudo -v` funciona. Solo
+entonces cierra el acceso con contraseña y el de root:
+
+```bash
+sudo tee /etc/ssh/sshd_config.d/10-worldives.conf >/dev/null <<'EOF'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+PubkeyAuthentication yes
+EOF
+sudo sshd -t && sudo systemctl restart ssh
+```
+
+**Comprobación:** `sudo sshd -T | grep -E '^(passwordauthentication|permitrootlogin|kbdinteractiveauthentication)'`
+dice `no` en las tres, y `ssh root@<IP>` desde tu ordenador es rechazado.
+
+## 4. Actualizaciones de seguridad automáticas
+
+```bash
+sudo apt update && sudo apt full-upgrade -y
+sudo apt install -y unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades                # responde «Sí»
+```
+
+**Comprobación:** `cat /etc/apt/apt.conf.d/20auto-upgrades` muestra `APT::Periodic::Unattended-Upgrade "1";`.
+
+## 5. Hora exacta y diario del sistema
+
+```bash
+sudo timedatectl set-timezone UTC          # el servidor en UTC; la web usa WOD_TIMEZONE para los centros
+sudo timedatectl set-ntp true
+sudo sed -i 's/^#\?MaxRetentionSec=.*/MaxRetentionSec=30day/' /etc/systemd/journald.conf && sudo systemctl restart systemd-journald
+```
+
+**Comprobación:** `timedatectl` dice `System clock synchronized: yes` y `NTP service: active` (ASVS V16.2.2).
+
+## 6. Programas y la aplicación (desde el zip, nunca con `git clone`)
+
+**Caddy desde su repositorio oficial**: el Caddy de Ubuntu 24.04 es la versión 2.6, que **no acepta** nuestro
+`Caddyfile` (comprobado: falla en `basic_auth`); hace falta la 2.8 o posterior. Las órdenes son las de
+https://caddyserver.com/docs/install#debian-ubuntu-raspbian (compruébalas allí):
+
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy python3 python3-venv unzip rclone clamav clamav-daemon
+caddy version                                                  # 2.8 o posterior
+```
+
+La aplicación (sube el zip desde tu ordenador con `scp worldives-v50.52-PRODUCCION.zip <tu-usuario>@<IP>:`):
+
+```bash
 sudo adduser --system --group --home /opt/worldives worldives
-sudo mkdir -p /var/backups/worldives && sudo chown worldives: /var/backups/worldives
-# Sube el zip al servidor (por ejemplo con scp) y descomprímelo:
-sudo unzip worldives-v50.51-PRODUCCION.zip -d /opt/ && sudo mv /opt/worldives-v50.51-PRODUCCION/* /opt/worldives/ && sudo chown -R worldives: /opt/worldives
-cd /opt/worldives
-sudo -u worldives python3 -m venv .venv && sudo -u worldives .venv/bin/pip install -r requirements.txt
+sudo mkdir -p /var/backups/worldives /var/log/worldives && sudo chown worldives: /var/backups/worldives
+sudo unzip ~/worldives-v50.52-PRODUCCION.zip -d /opt/ && sudo mv /opt/worldives-v50.52-PRODUCCION/* /opt/worldives/
+sudo rmdir /opt/worldives-v50.52-PRODUCCION && sudo chown -R worldives: /opt/worldives
+cd /opt/worldives && sudo -u worldives python3 -m venv .venv && sudo -u worldives .venv/bin/pip install -r requirements.txt
 ```
 
-## 4. Configuración (`.env`)
+**Comprobación:** `ls -a /opt/worldives` no tiene `.git` ni `CUENTAS-DEMO.txt` (V13.4.1).
+
+## 7. Cortafuegos de entrada y salida (V13.2.5)
 
 ```bash
-sudo -u worldives cp .env.example .env && sudo chmod 600 .env && sudo -u worldives nano .env
+sudo SSH_DESDE="<tu-IP>" SMTP_PUERTO=587 bash /opt/worldives/scripts/despliegue/cortafuegos.sh
 ```
 
-Cada variable del archivo lleva su explicación. Lo mínimo:
+- Entrada: **22** (solo desde `SSH_DESDE`; puedes poner varias IP o redes separadas por espacios), **80** y **443**.
+- Salida: **53** (DNS), **123** (hora), **67** (DHCP), **443** (Stripe, Better Stack, geocodificador, satélite,
+  Meta/WhatsApp, Firebase, copias, Let's Encrypt, firmas del antivirus, actualizaciones), **80** (repositorios de Ubuntu,
+  paquetes firmados) y el del **correo** (587 o 465). Qué datos recibe cada servicio: `docs/legal/inventario.md` §7.2.
+- ufw filtra por puerto, no por nombre (las IP de Stripe o Meta cambian sin aviso). Además, el servicio de la web no
+  puede conectarse a la red interna del proveedor (`IPAddressDeny` en `worldives.service`) y la web solo sale a
+  direcciones públicas (`wod/remoto.py`).
+
+**Mantén abierta la sesión SSH** y entra desde otra terminal antes de cerrarla. Si cambias de IP y te quedas fuera:
+hPanel → VPS → *Terminal del navegador*, y vuelve a ejecutar el script con la IP nueva.
+
+**Comprobación:** `sudo ufw status verbose` dice `Status: active` y `Default: deny (incoming), deny (outgoing)`.
+
+## 8. Claves y `.env` (permisos 600)
+
+```bash
+cd /opt/worldives
+sudo -u worldives cp .env.example .env && sudo chmod 600 .env && sudo chown worldives: .env
+for k in WOD_SECRET_KEY WOD_DATA_KEY WOD_BACKUP_KEY; do echo "$k=$(python3 -c 'import secrets;print(secrets.token_urlsafe(48))')"; done
+sudo -u worldives nano .env
+```
+
+Pega las tres claves que salen (nuevas, aleatorias, de 64 caracteres, distintas de las de pruebas) y **guárdalas en el
+gestor de contraseñas**: sin `WOD_DATA_KEY` y `WOD_BACKUP_KEY` no se pueden abrir los teléfonos cifrados ni restaurar
+una copia. Lo mínimo del `.env`:
 
 ```ini
 WOD_ENV=production
-WOD_PUBLIC_URL=https://worldives.com
-WOD_SECRET_KEY=        # python3 -c "import secrets;print(secrets.token_urlsafe(48))"
-WOD_DATA_KEY=          # python3 -c "import secrets;print(secrets.token_urlsafe(32))"
-WOD_BACKUP_KEY=        # python3 -c "import secrets;print(secrets.token_urlsafe(32))"
+WOD_PUBLIC_URL=https://worlddivesdiscovery.com
+WOD_SECRET_KEY=<clave 1>
+WOD_DATA_KEY=<clave 2>
+WOD_BACKUP_KEY=<clave 3>
 WOD_TRUSTED_PROXIES=127.0.0.1
-WOD_WORKERS=4
+WOD_WORKERS=2                      # = vCPU del KVM 2
 WOD_BACKUP_DIR=/var/backups/worldives
-WOD_TIMEZONE=Europe/Madrid    # el VPS suele ir en UTC: así las salidas y los plazos usan la hora de los centros
+WOD_TIMEZONE=Europe/Madrid
+WOD_AV_COMMAND=clamdscan --no-summary --fdpass -
 ```
 
-**Guarda `WOD_DATA_KEY` y `WOD_BACKUP_KEY` también fuera del servidor** (en un gestor de contraseñas): sin ellas no
-se pueden abrir los teléfonos cifrados ni restaurar una copia. Las claves y contraseñas solo van en este archivo,
-nunca en el código ni en el chat.
+`WOD_ADMIN_TOTP_REQUIRED` y `WOD_PAYMENTS_TOTP_REQUIRED` se dejan vacías (valen 1; en producción no se pueden apagar).
+Correo, Stripe, satélite (`ARCGIS_API_KEY`), WhatsApp y avisos en el móvil: cada uno con sus variables cuando lo
+actives (las explica `.env.example`).
 
-Para activar más tarde cualquier servicio (correo, Stripe, satélite, WhatsApp, avisos en el móvil), rellena sus
-variables y reinicia: `sudo systemctl restart worldives`.
+**Comprobación:** `sudo stat -c '%a %U' /opt/worldives/.env` → `600 worldives`.
 
-## 5. Primera puesta en marcha y administrador
-
-```bash
-sudo -u worldives .venv/bin/python app/server.py --create-admin
-```
-
-Pide email, usuario, nombre y contraseña. La base de datos se crea sola la primera vez, a partir de
-`data/seed/catalogo.sqlite3`, con el catálogo de puntos, los textos legales, los 9 idiomas y el catálogo de especies.
-**No trae usuarios, centros ni reservas.** En la web real no hay pantalla para crear administradores: solo este
-comando. Al entrar por primera vez, el administrador activa la verificación en dos pasos (obligatoria).
-
-## 6. HTTPS con Let's Encrypt
-
-Caddy obtiene y renueva el certificado solo:
+## 9. Administrador, servicio y HTTPS
 
 ```bash
-sudo cp docs/despliegue/Caddyfile /etc/caddy/Caddyfile     # cambia worldives.com por tu dominio y borra el bloque de pruebas
-sudo systemctl reload caddy
-```
-
-Si prefieres nginx, `docs/despliegue/nginx.conf` con `certbot --nginx`.
-
-## 7. Arranque automático
-
-```bash
+cd /opt/worldives && sudo -u worldives .venv/bin/python app/server.py --create-admin    # email, usuario, nombre y contraseña
 sudo cp docs/despliegue/worldives.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now worldives
-journalctl -u worldives -f        # ver qué pasa (Ctrl+C para salir)
+sudo cp docs/despliegue/Caddyfile /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
 ```
 
-El servicio se reinicia solo si se cae y al reiniciar el VPS.
+El bloque `pruebas.worlddivesdiscovery.com` del `Caddyfile` lleva un hash de ejemplo: hasta el paso 13 esa dirección
+pide una contraseña que nadie tiene, que es lo correcto.
 
-### Seguridad del servidor (ASVS 5.0)
+Entra en https://worlddivesdiscovery.com con el administrador: lo primero es activar la **verificación en dos pasos**
+(obligatoria; sin ella solo llega a «Mi cuenta»). Guarda los códigos de recuperación en el gestor.
+
+**Comprobación:**
 
 ```bash
-# Hora exacta (los registros van en UTC y los plazos dependen de ella): debe decir «System clock synchronized: yes»
-timedatectl
-# Cortafuegos de entrada: solo SSH, http y https
-sudo apt install -y ufw && sudo ufw allow OpenSSH && sudo ufw allow 80,443/tcp && sudo ufw enable
-# Registros del sistema (errores y avisos de seguridad del servidor): 30 días
-sudo sed -i 's/^#\?MaxRetentionSec=.*/MaxRetentionSec=30day/' /etc/systemd/journald.conf && sudo systemctl restart systemd-journald
-# Antivirus de los documentos que suben buceadores y centros
-sudo apt install -y clamav-daemon && sudo systemctl enable --now clamav-daemon
+curl -s -o /dev/null -w '%{http_code}\n' http://worlddivesdiscovery.com/api/health      # 403 (la API nunca por http)
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://www.worlddivesdiscovery.com/centros   # 301 https://worlddivesdiscovery.com/centros
+curl -s https://worlddivesdiscovery.com/api/health                                        # {"ok": true, "version": "50.52"}
+echo | openssl s_client -connect worlddivesdiscovery.com:443 -servername worlddivesdiscovery.com 2>/dev/null | openssl x509 -noout -issuer   # Let's Encrypt
 ```
 
-Y en el `.env`: `WOD_AV_COMMAND=clamdscan --no-summary --fdpass -` (cada documento pasa por el antivirus antes de
-guardarse; si encuentra algo, se rechaza y la administración recibe un aviso de seguridad). Sin esa variable los
-documentos solo se comprueban por su contenido, y el *Estado del sistema* lo indica.
-
-**Salidas del servidor.** La web solo necesita salir a internet por el puerto 443 (Stripe, Meta, Google, Esri,
-OpenStreetMap, plataformas de vídeo) y por el del correo (587 o 465). Si el proveedor del VPS tiene cortafuegos de
-salida, deja solo esos puertos y el 53 (DNS) y el 123 (hora).
-
-**Registros fuera del servidor.** Para que nadie pueda borrar el rastro si el servidor se viera comprometido, conviene
-enviar el diario del sistema a un servicio externo en la UE (por ejemplo con `systemd-journal-upload` o rsyslog con
-TLS). **Pendiente de decisión**: qué servicio usar.
-
-Abre `https://worldives.com`, entra con el administrador y mira *Administración → Operación → Estado del sistema*:
-cada servicio sale como **Configurado**, **Pendiente** (falta su clave; esa función está desactivada) o **Error**.
-
-## 8. Copias de seguridad
-
-Automáticas, sin configurar nada más:
-- **base de datos cada hora**, comprobada y cifrada con `WOD_BACKUP_KEY`;
-- **fotos y documentos cada día**;
-- se guardan 48 copias horarias, una diaria durante 30 días y una mensual durante 12 meses, en `/var/backups/worldives`.
-
-**Muy recomendable: una copia fuera del servidor.** Configura `rclone` con un almacenamiento en la UE y pon en el
-`.env` `WOD_BACKUP_COMMAND=/opt/worldives/scripts/copia_externa.sh` (instrucciones dentro del script).
-
-**Prueba de restauración (una vez al mes):**
+## 10. Antivirus (ClamAV, V5.4.3)
 
 ```bash
-sudo -u worldives .venv/bin/python app/server.py --verify-backup /var/backups/worldives/db/<copia>.sqlite3.gz
+sudo systemctl enable --now clamav-freshclam      # descarga las firmas (la primera vez tarda unos minutos)
+sudo systemctl enable --now clamav-daemon         # clamd: unos 1–1,5 GB de RAM (con 8 GB hay margen)
+sudo systemctl restart worldives
 ```
 
-Restaurar de verdad: apartado 7 de `docs/despliegue/README.md`.
+`WOD_AV_COMMAND` ya está en el `.env` (paso 8). Cada documento que suben buceadores y centros pasa por el antivirus
+antes de guardarse; si encuentra algo, se rechaza y la administración recibe un aviso de seguridad.
 
-## 9. Actualizar sin perder datos
+**Comprobación:** *Administración → Operación → Estado del sistema*, fila **Antivirus de los documentos** en verde con
+«Comprobado: detecta el archivo de prueba EICAR». Desde la v50.52 la fila prueba el antivirus de verdad con el archivo
+de prueba estándar (EICAR, inofensivo): si clamd está parado o sin firmas, sale en rojo.
+
+## 11. Registros fuera del servidor: Better Stack (región UE, V16.4.2 y V16.4.3)
+
+Así los registros quedan fuera del VPS y quien entrara en él no podría borrar sus huellas.
+
+1. **Cuenta** en https://betterstack.com a nombre de la SL (mientras no esté constituida, del titular), con la
+   **verificación en dos pasos** activada. Plan gratuito para montarlo; **plan Nano en región UE (30 días)** antes de
+   abrir al público.
+2. **Fuente** (*Telemetry → Sources → Connect source*): nombre «WORLDIVES producción», plataforma **Vector**, región de
+   datos **Europa (DE)**. Apunta el **token** de la fuente y su **«Ingesting host»**.
+3. **Vector** en el VPS. Instálalo con el repositorio oficial de Vector (https://vector.dev/docs/setup/installation/package-managers/apt/;
+   Better Stack también muestra las órdenes al crear la fuente) y configúralo:
+
+   ```bash
+   sudo install -m 600 -o root -g root /dev/null /etc/vector/betterstack.env
+   sudo nano /etc/vector/betterstack.env          # BETTERSTACK_TOKEN=<token>  y  BETTERSTACK_HOST=<ingesting host>
+   sudo mkdir -p /etc/systemd/system/vector.service.d
+   # El token, desde su archivo; y permiso para LEER (no escribir) el registro de Caddy, que Caddy crea con permisos 600
+   printf '[Service]\nEnvironmentFile=/etc/vector/betterstack.env\nAmbientCapabilities=CAP_DAC_READ_SEARCH\n' | sudo tee /etc/systemd/system/vector.service.d/betterstack.conf
+   sudo cp /opt/worldives/docs/despliegue/vector.yaml /etc/vector/vector.yaml
+   sudo usermod -aG systemd-journal vector          # leer el diario del servicio worldives
+   sudo systemctl daemon-reload && sudo systemctl enable --now vector && sudo systemctl restart vector
+   ```
+
+   El token va en su propio archivo con permisos 600, **no** en el `.env` de la aplicación. Qué se envía (y nada más):
+   los sucesos de seguridad y los inicios de sesión fallidos de la aplicación, y el registro de accesos de Caddy, tal
+   como ya salen (UTC, sin testigos ni consultas, IP recortada). Detalle en `docs/seguridad/registros.md`.
+4. **Alertas** (*Alerts* / *Monitors*, aviso por correo al titular). En el buscador de la fuente, cada una con su
+   condición:
+
+   | Alerta | Condición | Cómo probarla |
+   |---|---|---|
+   | Varios errores 500 seguidos | `servicio = caddy` y `estado >= 500`: 5 o más en 10 minutos | Para el servicio (`sudo systemctl stop worldives`): Caddy responde 502; vuelve a arrancarlo |
+   | Pico de inicios de sesión fallidos o bloqueos | `tipo = login_failed`: 20 o más en 5 minutos; o `tipo` en `login_blocked`, `login_bruteforce` | Falla la contraseña varias veces desde el móvil con datos |
+   | Firmas falsas de Stripe o WhatsApp | `tipo` en `stripe_bad_signature`, `webhook_bad_signature`, `integration_bad_key`: 1 o más | `curl -X POST https://worlddivesdiscovery.com/api/payments/webhook -H 'Stripe-Signature: t=1,v1=00' -d '{}'` |
+   | Accesos denegados repetidos de una cuenta | `tipo = access_denied` agrupado por `datos.usuario`: 10 o más en 10 minutos | Con una cuenta de buceador de prueba, abre varias veces `/api/admin/health` |
+   | La web no responde | Monitor de disponibilidad (*Uptime*) sobre `https://worlddivesdiscovery.com/api/health`, cada 3 minutos, que espere 200 y la palabra `ok` | Para el servicio un momento |
+
+**Comprobación:** en *Live tail* de la fuente aparecen líneas `servicio: caddy` al abrir la web y `tipo: login_failed`
+al fallar una contraseña; cada alerta de la tabla ha enviado su correo.
+
+## 12. Copias fuera del servidor y restauración de prueba
+
+Las copias se hacen solas (base de datos cada hora y archivos cada día, cifradas con `WOD_BACKUP_KEY`). Falta
+mandarlas **fuera de Hostinger, en la UE**: el proveedor está **Pendiente de decisión** (por ejemplo Hetzner Storage Box
+en Alemania o Finlandia, Backblaze B2 en Ámsterdam o Scaleway en Francia; mejor con versiones o bloqueo de objetos). No
+te fíes solo de las copias semanales de Hostinger: están en el mismo proveedor.
+
+```bash
+sudo -u worldives rclone config                  # crea el remoto «externo» con los datos del proveedor
+sudo -u worldives nano /opt/worldives/.env       # WOD_BACKUP_COMMAND=/opt/worldives/scripts/copia_externa.sh
+sudo systemctl restart worldives
+sudo -u worldives /opt/worldives/.venv/bin/python /opt/worldives/app/server.py --backup-now   # copia y envío ahora
+sudo bash /opt/worldives/scripts/despliegue/restauracion_prueba.sh                         # restauración de prueba
+```
+
+La restauración de prueba descarga la última copia **del destino externo**, la descifra, la comprueba y la restaura en
+una carpeta temporal (nunca sobre la base en uso, y sin arrancar nada con ella), compara cuántos usuarios, centros y
+reservas tiene, y lo anota en `/var/log/worldives/restauracion.log`. Repítela una vez al mes.
+
+**Comprobación:** el script termina con «Prueba de restauración correcta» y el *Estado del sistema* muestra la copia
+externa en verde.
+
+## 13. Entorno de pruebas: https://pruebas.worlddivesdiscovery.com
+
+Con el **mismo zip de PRODUCCIÓN** (nunca el de DEMO: el servidor se niega a arrancar en modo demo con este dominio o
+sus subdominios), su propio usuario, carpeta, base, `.env` y copias, y detrás de una contraseña.
+
+```bash
+sudo adduser --system --group --home /opt/worldives-pruebas worldives-pruebas
+sudo mkdir -p /var/backups/worldives-pruebas && sudo chown worldives-pruebas: /var/backups/worldives-pruebas
+sudo unzip ~/worldives-v50.52-PRODUCCION.zip -d /tmp/wp && sudo mv /tmp/wp/worldives-v50.52-PRODUCCION/* /opt/worldives-pruebas/
+sudo chown -R worldives-pruebas: /opt/worldives-pruebas
+cd /opt/worldives-pruebas && sudo -u worldives-pruebas python3 -m venv .venv && sudo -u worldives-pruebas .venv/bin/pip install -r requirements.txt
+sudo -u worldives-pruebas cp .env.example .env && sudo chmod 600 .env && sudo -u worldives-pruebas nano .env
+```
+
+En su `.env`: `WOD_ENV=production`, `WOD_PUBLIC_URL=https://pruebas.worlddivesdiscovery.com`, `WOD_PORT=8001`,
+**claves nuevas propias** (no las de producción), `WOD_BACKUP_DIR=/var/backups/worldives-pruebas`,
+`WOD_AV_COMMAND` como en producción y **Stripe solo con claves de prueba** (`sk_test_…`). Después:
+
+```bash
+sudo -u worldives-pruebas .venv/bin/python app/server.py --create-admin
+sudo cp docs/despliegue/worldives-pruebas.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now worldives-pruebas
+caddy hash-password                                # escribe la contraseña del equipo (guárdala en el gestor) y copia el hash
+sudo nano /etc/caddy/Caddyfile                     # bloque pruebas: «equipo <hash>»
+sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+```
+
+**Comprobación:** `curl -s -o /dev/null -w '%{http_code}\n' https://pruebas.worlddivesdiscovery.com/` → `401`; con
+la contraseña, la web de pruebas. **Nunca se copian ahí datos reales.**
+
+## 14. Comprobar la lista de antes de abrir
+
+```bash
+sudo python3 /opt/worldives/scripts/despliegue/comprobar_lanzamiento.py --markdown /root/lista-lanzamiento.md
+```
+
+Revisa en el servidor cada casilla del encargo (SSH, cortafuegos, HTTPS, antivirus, hora, `.env`, instalación limpia,
+verificación en dos pasos del administrador, actualizaciones, copias externas, restauración, Better Stack, entorno de
+pruebas y salida a internet del servicio) y marca **OK**, **FALLO** (con lo que falta) o **A MANO** (lo que no se puede
+ver desde el servidor: ubicación del VPS, copia de las claves en el gestor, alertas, abogado, SL…). El archivo
+`/root/lista-lanzamiento.md` es la lista con cómo se comprobó cada casilla. **No se abre el piloto hasta que no quede
+ningún FALLO y todas las «A MANO» estén hechas** (`docs/despliegue/lista-lanzamiento.md`).
+
+## 15. Prueba de carga y pago real
+
+- **Carga** (contra pruebas, nunca contra producción): `tests/carga/` (`docs/auditoria/v50.51/carga.md`). Si el VPS se
+  frena con la carga sostenida, KVM 4.
+- **Pago real pequeño**: con Stripe en modo real en producción, un servicio de 1 €, reservar y pagar con una tarjeta
+  propia, devolverlo desde la reserva y comprobar el aviso en *Administración → Pagos*.
+
+## 16. Actualizar a una versión nueva sin perder datos
 
 Los datos viven en `data/` (base de datos y fotos), `storage/` (documentos privados) y `.env`. El código nuevo nunca
 los toca, y las migraciones solo añaden y transforman (guardan antes una copia completa si reescriben algo).
@@ -166,22 +345,9 @@ sudo systemctl stop worldives
 sudo cp -a /opt/worldives /opt/worldives-anterior                  # para volver atrás si hiciera falta
 sudo rsync -a --exclude data/ --exclude storage/ --exclude .env --exclude .venv/ /opt/nueva/worldives-v<nueva>-PRODUCCION/ /opt/worldives/
 sudo chown -R worldives: /opt/worldives
-sudo -u worldives /opt/worldives/.venv/bin/pip install -r /opt/worldives/requirements.txt   # versiones exactas: las mismas que revisa cada semana .github/workflows/dependencias.yml
+sudo -u worldives /opt/worldives/.venv/bin/pip install -r /opt/worldives/requirements.txt
 sudo systemctl start worldives                                     # las migraciones se aplican solas al arrancar
 ```
 
-Comprueba la web y el *Estado del sistema*. Si algo va mal: `sudo systemctl stop worldives`, vuelve a poner
-`/opt/worldives-anterior` en su sitio y arranca de nuevo.
-
-## 10. Lista antes de abrir al público
-
-- [ ] Dominio con HTTPS y redirección de `www`.
-- [ ] Administrador creado, con la verificación en dos pasos activada.
-- [ ] *Estado del sistema*: sin «Error»; los «Pendiente» son los que has decidido dejar para más tarde.
-- [ ] Correo configurado y autenticado (SPF, DKIM y DMARC: `docs/despliegue/README.md`, apartado 10).
-- [ ] Stripe en modo real (`sk_live_…`) y los dos webhooks.
-- [ ] Copia fuera del servidor y una prueba de restauración hecha.
-- [ ] Textos legales revisados por el abogado y datos del titular en *Administración → Legal*.
-- [ ] Monitor externo contra `https://worldives.com/api/health`.
-- [ ] `timedatectl` sincronizado, `ufw` activo, antivirus (`WOD_AV_COMMAND`) y diario del sistema a 30 días (apartado 7).
-- [ ] `WOD_BACKUP_COMMAND` configurado: sin copia fuera del servidor no se abre al público.
+Primero en pruebas (`/opt/worldives-pruebas`), luego en producción. Si algo va mal: `sudo systemctl stop worldives`,
+vuelve a poner `/opt/worldives-anterior` en su sitio y arranca de nuevo.

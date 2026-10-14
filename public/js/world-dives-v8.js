@@ -3220,7 +3220,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       renderCancelPolicyCard(pf,$('#cancel-policy-card',mount));
       translateTree(mount);
       $('#pay-profile',mount).onsubmit=async e=>{ e.preventDefault(); try{ await postJSON('/api/provider/payment-profile',{legal_name:$('#pp-legal',mount).value,tax_id:$('#pp-tax',mount).value,fiscal_address:$('#pp-addr',mount).value}); toast('Datos guardados. Saldrán en los justificantes.'); }catch(err){ toast(err.message); } };
-      $('#stripe-onboard',mount)?.addEventListener('click',async()=>{try{const r=await postJSON('/api/payments/connect/onboard',body);location.href=r.url;}catch(e){toast(e.message)}});
+      $('#stripe-onboard',mount)?.addEventListener('click',async()=>{
+        // v50.52 (V6.3.3): without two-step verification, Stripe is not connected.
+        if(!state.me?.security?.totp_enabled){ if(await wdConfirm({title:'Activa antes la verificación en dos pasos',text:'Es obligatoria para quien cobra online: protege el dinero y los datos de pago de tus clientes. Actívala en «Mi cuenta» y vuelve aquí para conectar Stripe.',ok:'Ir a «Mi cuenta»'})) location.hash='#/cuenta?seguridad=1'; return; }
+        try{const r=await postJSON('/api/payments/connect/onboard',body);location.href=r.url;}catch(e){toast(e.message)}});
       $('#stripe-sync',mount)?.addEventListener('click',async()=>{try{await postJSON('/api/payments/connect/sync',body);toast('Estado actualizado.');renderProviderPayments(mountId,centerId);}catch(e){toast(e.message)}});
       $('#stripe-dashboard',mount)?.addEventListener('click',async()=>{try{const r=await postJSON('/api/payments/connect/login',body);window.open(r.url,'_blank','noopener');}catch(e){toast(e.message)}});
     }catch(err){mount.innerHTML=`<div class="empty"><h3>No se pudo cargar la sección de cobros</h3><p>${escapeHtml(err.message)}</p></div>`;}
@@ -4936,9 +4939,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if(!state.me){goLogin();return;}
     const d=await api('/api/me');
     if(d.account_closed){ state.me=d; setApp(`<section class="page"><div class="acc-card">${wdClosedCard()||''}<p class="adl-det">${(d.member_role||'owner')==='owner'||d.user.role==='freelance'?'Mientras está cerrada puedes ver tus reservas y descargar tus datos desde «Mi cuenta».':'El propietario del centro ha cerrado la cuenta. Solo él puede reabrirla.'}</p></div></section>`); if((d.member_role||'owner')!=='owner'&&d.user.role!=='freelance') $('#acc-reopen')?.remove(); bindAccountPrivacy(); return; }
-    if(d.user.role==='center') return renderCenterWorkspace(d);
+    // v50.52 (ASVS V6.3.3): with online payments or «Cobros», the panel asks for two-step verification.
+    if(d.security?.totp_blocked&&['center','freelance'].includes(d.user.role)){ state.me=d; setApp(`<section class="page"><div class="empty"><h2>Activa la verificación en dos pasos</h2><p><b>${d.security.totp_required==='cobros'?'Tu perfil tiene el permiso «Cobros».':'Tu cuenta tiene los cobros online activados.'}</b></p><p>Para proteger el dinero y los datos de pago de tus clientes, el panel pide un código de tu aplicación de verificación además de tu contraseña. Las reservas y los pagos de tus clientes siguen funcionando con normalidad.</p><a class="btn btn-primary" href="#/cuenta?seguridad=1">Activarla ahora</a></div></section>`); return; }
+    const grace=()=>wdTotpGrace(d.security);
+    if(d.user.role==='center') return Promise.resolve(renderCenterWorkspace(d)).then(grace);
     if(!['admin','freelance'].includes(d.user.role)){setApp('<section class="page"><div class="empty">Tu cuenta no tiene acceso a gestión.</div></section>');return;}
-    if(d.user.role==='freelance') return renderFreelancePanel(d);
+    if(d.user.role==='freelance') return Promise.resolve(renderFreelancePanel(d)).then(grace);
     const isAdmin=d.user.role==='admin';
     if(isAdmin&&d.security?.totp_setup_required){ setApp(`<section class="page"><div class="empty"><h2>Activa la verificación en dos pasos</h2><p>Para usar la administración necesitas un código de tu aplicación de verificación además de tu contraseña.</p><a class="btn btn-primary" href="#/cuenta?seguridad=1">Activarla ahora</a></div></section>`); return; }
     let points=(await api('/api/dive-points')).items;
@@ -5868,11 +5874,20 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
   const EMAIL_AUD={diver:'Buceador',pro:'Profesional',center:'Centro',admin:'Administración',any:'Cualquier usuario',marketing:'Con consentimiento comercial'};
   // ---------------------------------------------------------------- v50.35 · Fase 4: two-step verification, marketing consent
+  // v50.52: the days left to turn on two-step verification, on top of the panel (centres and freelance with online payments).
+  const wdLongDate=s=>s?wdParseDate(String(s).slice(0,10)).toLocaleDateString(wdLocale(),{day:'numeric',month:'long',year:'numeric'}):'';
+  function wdTotpGrace(sec){
+    if(!sec||sec.totp_enabled||sec.totp_blocked||!sec.totp_deadline||$('#totp-grace')) return;
+    const page=$('#app .page')||$('#app'); if(!page) return;
+    const box=document.createElement('div'); box.className='notice warn'; box.id='totp-grace';
+    box.innerHTML=`<strong>${escapeHtml(translateString('Activa la verificación en dos pasos antes del {fecha}').replace('{fecha}',wdLongDate(sec.totp_deadline)))}</strong><p>${escapeHtml(translateString('Es obligatoria en las cuentas con cobros online. Después de esa fecha, mientras no la actives, solo podrás entrar en «Mi cuenta». Las reservas y los pagos de tus clientes seguirán funcionando.'))}</p><a class="btn btn-primary" href="#/cuenta?seguridad=1">${escapeHtml(translateString('Activarla ahora'))}</a>`;
+    page.prepend(box);
+  }
   function totpCard(u){
-    const sec=state.me?.security||{}; const on=!!sec.totp_enabled;
-    return `<section class="acc-card" id="acc-totp"><div class="acc-card-head"><h2>${wdIcon('lock',18)} Verificación en dos pasos</h2>${on?'<span class="status good">Activada</span>':sec.totp_setup_required?'<span class="status bad">Obligatoria</span>':'<span class="status warn">Desactivada</span>'}</div>
-      <p class="acc-help">${on?`Al iniciar sesión te pedimos además un código de tu aplicación de verificación. Te quedan ${Number(sec.recovery_left||0)} códigos de recuperación.`:'Protege tu cuenta con un código de 6 cifras de una aplicación como Google Authenticator, Microsoft Authenticator o Aegis.'}${sec.totp_setup_required?' <b>Los administradores deben activarla para usar la administración.</b>':''}</p>
-      <div id="totp-box">${on?`<div class="acc-privacy-actions"><button type="button" class="btn" id="totp-recovery">Nuevos códigos de recuperación</button>${u.role==='admin'?'':'<button type="button" class="btn danger" id="totp-off">Desactivar</button>'}</div>`
+    const sec=state.me?.security||{}; const on=!!sec.totp_enabled; const forced=!!sec.totp_required;
+    return `<section class="acc-card" id="acc-totp"><div class="acc-card-head"><h2>${wdIcon('lock',18)} Verificación en dos pasos</h2>${on?'<span class="status good">Activada</span>':sec.totp_setup_required||forced?'<span class="status bad">Obligatoria</span>':'<span class="status warn">Desactivada</span>'}</div>
+      <p class="acc-help">${on?`Al iniciar sesión te pedimos además un código de tu aplicación de verificación. Te quedan ${Number(sec.recovery_left||0)} códigos de recuperación.`:'Protege tu cuenta con un código de 6 cifras de una aplicación como Google Authenticator, Microsoft Authenticator o Aegis.'}${u.role==='admin'&&sec.totp_setup_required?' <b>Los administradores deben activarla para usar la administración.</b>':''}${forced?` <b>${sec.totp_required==='cobros'?'Es obligatoria porque tu perfil tiene el permiso «Cobros».':'Es obligatoria porque tu cuenta tiene cobros online.'}</b>${!on&&sec.totp_deadline&&!sec.totp_blocked?' <b>'+escapeHtml(translateString('Tienes hasta el {fecha}.').replace('{fecha}',wdLongDate(sec.totp_deadline)))+'</b>':''}`:''}</p>
+      <div id="totp-box">${on?`<div class="acc-privacy-actions"><button type="button" class="btn" id="totp-recovery">Nuevos códigos de recuperación</button>${u.role==='admin'||forced?'':'<button type="button" class="btn danger" id="totp-off">Desactivar</button>'}</div>`
         :`<form id="totp-start" class="acc-pw"><div class="field"><label for="totp-pw">Tu contraseña</label><input id="totp-pw" type="password" autocomplete="current-password" required></div><button class="btn btn-primary">Activar</button></form>`}</div></section>`;
   }
   function bindTotpCard(d){

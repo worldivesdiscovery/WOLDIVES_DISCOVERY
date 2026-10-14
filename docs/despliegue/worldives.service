@@ -24,6 +24,10 @@ RestartSec=3
 NoNewPrivileges=true
 UMask=0027
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# The application only talks to public addresses: never to the provider's internal network or to the metadata
+# address of the VPS (ASVS 5.0 V13.2.5, defence against SSRF). DNS goes through systemd-resolved (127.0.0.53).
+# scripts/despliegue/comprobar_lanzamiento.py checks that DNS and the outbound HTTPS still work with this setting.
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
