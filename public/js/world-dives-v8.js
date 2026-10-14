@@ -26,7 +26,7 @@
   // «exact»: frase completa → traducción. «patterns»: frases con partes variables ({n} número, {x} texto).
   // Todo lo que se pinta en la página (también lo que llega después: ventanas, avisos, listas) se traduce al vuelo.
   // ---------------------------------------------------------------------------
-  const WD_I18N_VERSION='50.53';
+  const WD_I18N_VERSION='50.54';
   const WD_LOCALES={es:'es-ES',en:'en-GB',fr:'fr-FR',de:'de-DE',it:'it-IT',pt:'pt-PT',pl:'pl-PL',nl:'nl-NL',zh:'zh-CN'};
   // Plural forms (Polish has several): a translation may be {one,few,many,other}.
   const wdPlural=(tpl,n)=>{ if(typeof tpl!=='object'||!tpl) return tpl; let k='other'; try{ k=new Intl.PluralRules(wdLocale()).select(Number(String(n).replace(/[^\d.-]/g,''))||0); }catch{} return tpl[k]??tpl.other??Object.values(tpl)[0]; };
@@ -150,9 +150,19 @@
     const pv=themePreviewId();
     try{ const d=await api('/api/site-media?h='+visitorHemisphere()+(pv?'&theme='+encodeURIComponent(pv):'')); state.media=d.items||{}; state.theme=d.theme||null; state.cardVeil=Number(d.card_veil)||0.8; }catch{ state.media=state.media||{}; }
     if(document.body) applySiteTheme(); return state.media; }
+  // v50.54 · The photos that come with the web have lighter copies 640, 960 and 1440 px wide (scripts/imagenes_ligeras.py):
+  // the browser downloads the one that fits the screen. Photos uploaded by centres or the administration are left as they are.
+  const WD_IMG_W={'portada/buceadores':600,'portada/fondo':2200,'portada/fondo1':2200,'portada/fondosuperior':2200,'portada/logbook1':2200,'portada/portada-arrecife':1682,'destinos/australia':1650,'destinos/california':1228,'destinos/egipto':1323,'destinos/galapagos':1760,'destinos/maldivas':1920,'destinos/mexico':1760,'destinos/micronesia':2200,'destinos/tailandia':2200};
+  const WD_IMG_COPIES=[640,960,1440];
+  const wdImgBase=url=>{ const m=/^\/img\/((?:portada|destinos)\/[a-z0-9-]+)\.webp$/.exec(String(url||'')); return m&&WD_IMG_W[m[1]]?[m[1],WD_IMG_W[m[1]]]:null; };
+  // <img> attributes: src, plus srcset and sizes when the photo has lighter copies.
+  function wdImgAttrs(url,sizes='100vw'){ const b=wdImgBase(url); const set=b?WD_IMG_COPIES.filter(x=>x<b[1]).map(x=>`/img/${b[0]}-${x}.webp ${x}w`).concat(`${url} ${b[1]}w`):[];
+    return `src="${escapeHtml(url||'')}"`+(set.length>1?` srcset="${escapeHtml(set.join(', '))}" sizes="${sizes}"`:''); }
+  // A CSS background: the smallest copy as wide as the box on this screen.
+  function wdImgFit(url,cssWidth=window.innerWidth){ const b=wdImgBase(url); if(!b) return url; const need=cssWidth*(window.devicePixelRatio||1); const x=WD_IMG_COPIES.find(x=>x<b[1]&&x>=need); return x?`/img/${b[0]}-${x}.webp`:url; }
   const media=(key,fallback)=>state.media?.[key]?.url||fallback||MEDIA_DEFAULTS[key]||'/img/portada/fondo.webp';
   const mediaCredit=key=>state.media?.[key]?.credit||'';
-  const heroImg=(key,fallback)=>`<img class="tp-hero-img" src="${escapeHtml(media(key,fallback))}" alt="">${mediaCredit(key)?`<span class="hero-credit">${escapeHtml(mediaCredit(key))}</span>`:''}`;
+  const heroImg=(key,fallback)=>`<img class="tp-hero-img" ${wdImgAttrs(media(key,fallback))} alt="" fetchpriority="high">${mediaCredit(key)?`<span class="hero-credit">${escapeHtml(mediaCredit(key))}</span>`:''}`;
   // Una página que tarda en cargar no debe pintar encima de la siguiente si el visitante ya se ha ido.
   const navGuard=()=>{ const h=location.hash; return ()=>location.hash===h; };
   function goLogin(){ const h=location.hash||'#/'; location.hash=/^#\/(login|registro)/.test(h)?'#/login':'#/login?next='+encodeURIComponent(h); }
@@ -173,7 +183,8 @@
 
   async function loadMe(){ try{ const d=await api('/api/me'); state.me=d.authenticated?d:null; renderAccount(); setTimeout(legalAcceptGate,400); return d; }catch{state.me=null; renderAccount();}}
   function closeTransientMenus(){ const menu=$('#account-dropdown'), toggle=$('#account-toggle'); menu?.classList.remove('open'); toggle?.setAttribute('aria-expanded','false'); $('#main-nav')?.classList.remove('open'); }
-  function renderAccount(){ const slot=$('#account-slot'); if(!slot) return; if(!state.me&&!navigator.onLine){ slot.innerHTML=''; return; } if(!state.me){ slot.innerHTML='<a class="account-link" href="#/login"><span>Iniciar sesión</span></a>'; translateTree(slot); return; } const u=state.me.user; const role=u.role; const management=role==='admin'?'<a href="#/admin">👑 Administración</a>':role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':role==='freelance'?'<a href="#/admin">🧭 Gestionar mis servicios</a>':''; const personalLinks=role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':`<a href="#/area">${wdIcon('home',16)}Mi área</a>`; slot.innerHTML=`<div class="account-menu"><button class="account-link account-toggle" id="account-toggle" type="button" aria-expanded="false"><span class="avatar">${escapeHtml(initials(u.fullname))}</span><span class="label" translate="no">${escapeHtml(u.fullname.split(' ')[0])}</span><span class="account-chevron">⌄</span></button><div class="account-dropdown" id="account-dropdown"><div class="account-dropdown-head"><strong>${escapeHtml(u.fullname)}</strong><small>${escapeHtml(role==='admin'?'Administrador':role==='center'?'Centro de buceo':role==='freelance'?'Profesional / freelance':'Buceador / cliente')}</small></div>${personalLinks}<a href="#/cuenta">${wdIcon('user',16)}Mi cuenta</a><a href="#/logbook">${wdIcon('book',16)}Log Book</a><a href="#/recompensas">${wdIcon('gift',16)}Recompensas</a><a href="#/mis-puntos">${wdIcon('star',16)}Mis puntos</a>${management && role!=='center'?management:''}<button type="button" id="account-logout">Cerrar sesión</button></div></div>`; const toggle=$('#account-toggle'),menu=$('#account-dropdown'); toggle.onclick=e=>{e.stopPropagation(); const open=menu.classList.toggle('open'); toggle.setAttribute('aria-expanded',open?'true':'false');}; if(!window.__wdAccountClickBound){ document.addEventListener('click',()=>closeTransientMenus()); window.__wdAccountClickBound=true; } $('#account-logout').onclick=async()=>{closeTransientMenus();await postJSON('/api/auth/logout',{});await loadMe();location.hash='#/';}; translateTree(slot); }
+  // v50.54: the language selector and the account button appear together, already in place (no jump of the header, CLS).
+  function renderAccount(){ const slot=$('#account-slot'); if(!slot) return; $('.header-tools')?.classList.add('is-ready'); if(!state.me&&!navigator.onLine){ slot.innerHTML=''; return; } if(!state.me){ slot.innerHTML='<a class="account-link" href="#/login"><span>Iniciar sesión</span></a>'; translateTree(slot); return; } const u=state.me.user; const role=u.role; const management=role==='admin'?'<a href="#/admin">👑 Administración</a>':role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':role==='freelance'?'<a href="#/admin">🧭 Gestionar mis servicios</a>':''; const personalLinks=role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':`<a href="#/area">${wdIcon('home',16)}Mi área</a>`; slot.innerHTML=`<div class="account-menu"><button class="account-link account-toggle" id="account-toggle" type="button" aria-expanded="false"><span class="avatar">${escapeHtml(initials(u.fullname))}</span><span class="label" translate="no">${escapeHtml(u.fullname.split(' ')[0])}</span><span class="account-chevron">⌄</span></button><div class="account-dropdown" id="account-dropdown"><div class="account-dropdown-head"><strong>${escapeHtml(u.fullname)}</strong><small>${escapeHtml(role==='admin'?'Administrador':role==='center'?'Centro de buceo':role==='freelance'?'Profesional / freelance':'Buceador / cliente')}</small></div>${personalLinks}<a href="#/cuenta">${wdIcon('user',16)}Mi cuenta</a><a href="#/logbook">${wdIcon('book',16)}Log Book</a><a href="#/recompensas">${wdIcon('gift',16)}Recompensas</a><a href="#/mis-puntos">${wdIcon('star',16)}Mis puntos</a>${management && role!=='center'?management:''}<button type="button" id="account-logout">Cerrar sesión</button></div></div>`; const toggle=$('#account-toggle'),menu=$('#account-dropdown'); toggle.onclick=e=>{e.stopPropagation(); const open=menu.classList.toggle('open'); toggle.setAttribute('aria-expanded',open?'true':'false');}; if(!window.__wdAccountClickBound){ document.addEventListener('click',()=>closeTransientMenus()); window.__wdAccountClickBound=true; } $('#account-logout').onclick=async()=>{closeTransientMenus();await postJSON('/api/auth/logout',{});await loadMe();location.hash='#/';}; translateTree(slot); }
   function navMobile(){ $('#mobile-menu')?.addEventListener('click',()=>$('#main-nav').classList.toggle('open')); $$('#main-nav a').forEach(a=>a.addEventListener('click',()=>$('#main-nav').classList.remove('open'))); }
 
   async function loadMeta(){ if(!state.meta) state.meta=await api('/api/meta'); return state.meta; }
@@ -228,6 +239,19 @@
       map.whenReady(fit); map.on('resize',fit); setTimeout(fit,0);
     }catch(e){ console.warn('mapa',e); }
     return map;
+  }
+  // v50.54 · The map libraries (≈90 KB compressed, 300 KB of code) are downloaded only when a screen draws a map, not with
+  // every page: the first screen of the pages without a map appears sooner (LCP). In order, downloaded in parallel.
+  const WD_MAP_CSS=['/lib/leaflet/leaflet.css','/lib/markercluster/MarkerCluster.css'];
+  const WD_MAP_JS=['/lib/leaflet/leaflet.js','/lib/markercluster/leaflet.markercluster.js','/lib/protomaps-leaflet/protomaps-leaflet.js','/lib/protomaps-leaflet/wd-flavor.js'];
+  function wdMaps(){
+    if(window.L&&window.protomapsL) return Promise.resolve(true);
+    if(wdMaps.p) return wdMaps.p;
+    const add=(tag,props)=>new Promise(done=>{ const n=document.createElement(tag); Object.assign(n,props); n.onload=()=>done(true); n.onerror=()=>done(false); document.head.appendChild(n); });
+    const css=WD_MAP_CSS.filter(href=>!document.querySelector(`link[href="${href}"]`)).map(href=>add('link',{rel:'stylesheet',href}));
+    const js=WD_MAP_JS.map(src=>add('script',{src,async:false}));
+    wdMaps.p=Promise.all([...css,...js]).then(()=>{ if(!window.L) wdMaps.p=null; return !!window.L; });
+    return wdMaps.p;
   }
   function wdTileDefaults(){ if(!window.L||wdTileDefaults.done) return; wdTileDefaults.done=true; try{ L.TileLayer.prototype.options.noWrap=true; L.TileLayer.prototype.options.bounds=L.latLngBounds(WD_WORLD); }catch(e){} }
   // Maps (v50.36): own base map (Protomaps PMTiles, © OpenStreetMap contributors) served by our server; the satellite
@@ -460,7 +484,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       return wdServiceCard(s,{kicker:wdServiceKicker(s,typeLabel(s.service_type)),meta:isRental?'':wdModeTag(s),desc:s.description,body:slotsHtml,price:wdPriceBlock(s.price,s.currency,isRental?'tarifa base':'por persona'),actions:cta}); };
     const expCard=e=>wdServiceCard({...e,service_type:/bordo/i.test(e.offer_kind||'')?'vida_a_bordo':'viaje'},{kicker:[e.destination_title,e.start_date?wdDay(e.start_date):''].filter(Boolean).map(esc).join(' · '),desc:e.summary,href:`#/experiencia?id=${e.travel_offer_id}`,price:wdPriceBlock(e.price,e.currency,'por persona'),actions:`<a class="btn btn-primary" href="#/experiencia?id=${e.travel_offer_id}">Ver viaje</a>`});
     setApp(`<section class="cp">
-      <div class="cp-hero ${c.cover_url?'has-cover':''}" style="${c.cover_url?`--cover:url('${esc(c.cover_url)}')`:''}">
+      <div class="cp-hero ${c.cover_url?'has-cover':''}" style="${c.cover_url?`--cover:url('${esc(wdImgFit(c.cover_url))}')`:''}">
         <div class="cp-hero-inner">
           <div class="breadcrumb cp-crumb"><a href="#/centros">Centros</a> / ${esc(c.name)}</div>
           <div class="cp-id">${centerLogoMarkup(c,'88px')}<div><h1>${esc(c.name)}</h1>${c.tagline?`<p class="cp-tagline"${own}>${esc(c.tagline)}</p>`:''}<div class="cp-hero-meta">${reviewSummary}${c.city||c.country?`<span>${wdIcon('globe',15)}${esc([c.city,c.region,c.country].filter(Boolean).join(', '))}</span>`:''}</div></div></div>
@@ -546,7 +570,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const place=[c.city,c.country].filter(Boolean).map(escapeHtml).join(' · ');
     const rating=reviews?`<span class="cd-rating"><span class="cd-star">★</span><strong>${Number(c.rating_average||0).toFixed(1)}</strong><span>(${reviews})</span></span>`:'<span class="cd-rating is-new">Sin reseñas aún</span>';
     return `<article class="cd-card">
-      <a class="cd-media" href="#/centro?id=${id}" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(centerCoverImg(c))}" alt="" loading="lazy">
+      <a class="cd-media" href="#/centro?id=${id}" tabindex="-1" aria-hidden="true"><img ${wdImgAttrs(centerCoverImg(c),'(max-width:760px) 100vw, 420px')} alt="" loading="lazy">
         <span class="cd-badges">${c.instant?'<span class="cd-badge is-live">Confirmación inmediata</span>':online?'<span class="cd-badge">Bajo petición</span>':''}${Number(c.spots_week||0)>0?'<span class="cd-badge">Plazas esta semana</span>':''}</span></a>
       <div class="cd-body">
         <div class="cd-id"><span class="cd-logo">${centerLogoMarkup(c,'48px')}</span><div><h3><a href="#/centro?id=${id}">${escapeHtml(c.name)}</a></h3><p class="cd-place">${wdIcon('pin',14)}${place||'Ubicación por confirmar'}</p></div></div>
@@ -648,7 +672,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // Each type shows how many dive sites it has; a type with none cannot be chosen. A choice with nothing to show says why
   // and suggests similar types that do have dive sites.
   function typeCard(t){
-    const inner=`<span class="tp-card-media"><img src="${typeImg(t)}" alt="" loading="lazy" decoding="async"></span>
+    const inner=`<span class="tp-card-media"><img ${wdImgAttrs(typeImg(t),'(max-width:760px) 50vw, 320px')} alt="" loading="lazy" decoding="async"></span>
       <span class="tp-card-level">${escapeHtml(t.level)}</span>
       <span class="tp-card-body"><strong>${escapeHtml(t.label)}</strong><span class="tp-card-sum">${escapeHtml(t.summary)}</span>
         <span class="tp-card-meta"><span>${t.count?`${t.count} ${t.count===1?'punto':'puntos'} · ${t.countries} ${t.countries===1?'país':'países'}`:'Aún sin puntos en el catálogo'}</span></span></span>`;
@@ -890,7 +914,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const depth=depthText(p), type=(p.types||[]).slice(0,1).map(typeLabelByKey)[0]||'', level=p.difficulty||LEVEL_LABELS[p.level]||'';
     const where=placeText(p)||p.country||'', n=Number(p.centers_count||0);
     return `<article class="pt-card" id="pt-card-${escapeHtml(String(p.id))}"><a class="pt-link" href="${pointHref(p.id)}">
-      <span class="pt-media"><img src="${escapeHtml(p.photo||pointImg(p))}" alt="" loading="lazy" decoding="async" width="400" height="300">
+      <span class="pt-media"><img ${wdImgAttrs(p.photo||pointImg(p),'(max-width:760px) 116px, 360px')} alt="" loading="lazy" decoding="async" width="400" height="300">
         ${type?`<span class="pt-type">${escapeHtml(type)}</span>`:''}${p.distance_km!=null?`<span class="pt-dist">${wdIcon('pin',13)}${escapeHtml(wdKm(p.distance_km))}</span>`:''}</span>
       <span class="pt-info"><strong class="pt-name">${escapeHtml(p.name)}</strong>
         ${where?`<span class="pt-where">${escapeHtml(where)}</span>`:''}
@@ -929,7 +953,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // The visitor may leave before a block arrives: only paint into this page while it is on screen.
     const root=$('.hm-page'); const alive=()=>document.body.contains(root); const put=(sel,html)=>{ if(!alive()) return; const el=$(sel); if(el) el.innerHTML=html; };
     // Each block loads on its own: one slow or failed block never leaves the page empty.
-    loadMapLayer().then(layer=>{ if(!alive()) return; state.points=layer.items; setupZones($('#home-zones'),layer.items); initMap('home-map',layer.items,[20,0],2); }).catch(err=>put('#home-map',`<div class="map-fallback"><strong>No se ha podido cargar el mapa</strong><span>${escapeHtml(err.message)}</span></div>`));
+    Promise.all([loadMapLayer(),wdMaps()]).then(([layer])=>{ if(!alive()) return; state.points=layer.items; setupZones($('#home-zones'),layer.items); initMap('home-map',layer.items,[20,0],2); }).catch(err=>put('#home-map',`<div class="map-fallback"><strong>No se ha podido cargar el mapa</strong><span>${escapeHtml(err.message)}</span></div>`));
     api('/api/dive-types').then(d=>{
       const t=d.totals||{}; put('#hm-stats',`<span><strong>${Number(t.points||0).toLocaleString(wdLocale())}</strong> puntos de buceo</span><span><strong>${t.countries||0}</strong> países</span><span><strong>${t.centers||0}</strong> centros</span>`);
       put('#hm-types',(d.items||[]).filter(x=>x.count>0).sort((a,b)=>b.count-a.count).slice(0,6).map(typeCard).join(''));
@@ -969,7 +993,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     </div></div></section>`}
   async function renderExplorer(params){
     setApp(explorerTemplate());
-    let layer; try{ layer=await loadMapLayer(); }catch(err){ $('#explore-map').innerHTML=`<div class="map-fallback"><strong>No se ha podido cargar el mapa</strong><span>${escapeHtml(err.message)}</span></div>`; return; }
+    let layer; try{ [layer]=await Promise.all([loadMapLayer(),wdMaps()]); }catch(err){ $('#explore-map').innerHTML=`<div class="map-fallback"><strong>No se ha podido cargar el mapa</strong><span>${escapeHtml(err.message)}</span></div>`; return; }
     // v50.53: the map opens on the launch country; on the visitor when the location was already allowed.
     state.points=layer.items; setupZones($('#explore-zones'),layer.items); initMap('explore-map',layer.items,[40.2,-3.5],5);
     let meMark=null; const goMe=pos=>{ if(!state.map||!window.L) return; meMark?.remove(); meMark=wdMeMarker(pos).addTo(state.map); state.map.flyTo([pos.lat,pos.lon],8,{duration:.8}); };
@@ -1038,6 +1062,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       view:params.get('view')==='map'?'map':'list',page:1,here:null,total:0,loading:false,regionsOpen:false};
     let back=null; try{ back=JSON.parse(sessionStorage.getItem('wd_pt_back')||'null'); sessionStorage.removeItem('wd_pt_back'); }catch{}
     if(back&&back.url!==location.hash) back=null;
+    // v50.54 · The grid starts with placeholder cards so nothing below jumps when the points arrive (CLS).
+    const skeleton=n=>Array.from({length:n},()=>'<div class="pt-card is-skeleton" aria-hidden="true"><span class="pt-media"></span><span class="pt-info"><i></i><i></i></span></div>').join('');
     setApp(`<section class="pt-page pt54" data-view="${st.view}">
       <header class="pt-band"><div class="pt-band-in">
         <div class="pt-band-title"><p class="eyebrow">Catálogo</p><h1>Puntos de buceo</h1></div>
@@ -1060,7 +1086,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       </div></div>
       <div class="cd-wrap pt-main">
         <div class="pt-results-head"><p id="pt-count" class="pt-count" aria-live="polite">Buscando puntos…</p><div class="pt-locbar" id="pt-locbar" aria-live="polite"></div></div>
-        <div class="pt-grid" id="pt-grid"></div>
+        <div class="pt-grid" id="pt-grid">${st.view==='map'?'':skeleton(8)}</div>
         <div class="cd-more pt-morebox"><button class="btn" type="button" id="pt-more" hidden>Ver más puntos</button></div>
         <div class="pt-mapview" id="pt-mapview" hidden><div class="map-wrap"><div id="pt-map" class="map-card pt-map"></div></div><p class="pt-map-note" id="pt-map-note"></p></div>
       </div>
@@ -1068,7 +1094,6 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const page=$('.pt-page'), grid=$('#pt-grid'), more=$('#pt-more'), count=$('#pt-count'), clear=$('#pt-clear'), locbar=$('#pt-locbar'), sortSel=$('#pt-sort');
     wdHeaderHeight();
     let seq=0, shown=[], map=null, facets=null;
-    const skeleton=n=>Array.from({length:n},()=>'<div class="pt-card is-skeleton" aria-hidden="true"><span class="pt-media"></span><span class="pt-info"><i></i><i></i></span></div>').join('');
     const hasFilters=()=>!!(st.q||st.area||st.zone||st.type||st.level||st.depth||st.only);
     const query=(extra={})=>{ const qs=new URLSearchParams({q:st.q,area:st.area,zone:st.zone,type:st.type,level:st.level,depth:st.depth,only:st.only,sort:st.sort,...extra});
       if(st.here) Object.entries(wdLocation.params(st.here)).forEach(([k,v])=>qs.set(k,v));
@@ -1123,7 +1148,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       let d; try{ d=await api('/api/point-directory?'+query({view:'map'})); }catch(err){ if(mine===seq) count.textContent=err.message; return; }
       if(mine!==seq||!grid.isConnected) return;
       st.total=d.total||0; paintFacets(d.facets); paintCount(d); clear.hidden=!hasFilters();
-      if(!map) map=wdPointsMap($('#pt-map'));
+      if(!map){ await wdMaps(); if(mine!==seq||!grid.isConnected) return; map=wdPointsMap($('#pt-map')); }
       map?.invalidate(); map?.show(d.items||[],{me:st.here});
       $('#pt-map-note').textContent=translateString(d.total?'Toca un punto para ver su ficha.':'No hay puntos con estos filtros. Quita alguno para ver más.');
       saveUrl();
@@ -1168,6 +1193,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     grid.addEventListener('click',e=>{ const a=e.target.closest('a[href^="#/punto"]'); if(!a) return;
       try{ sessionStorage.setItem('wd_pt_back',JSON.stringify({url:location.hash,pages:st.page,y:Math.round(window.scrollY)})); }catch{} });
     // The location is used only if the visitor already allowed it; otherwise a discreet line offers to turn it on.
+    // v50.54: that line is drawn at once (not when the points arrive), so the grid below does not jump (CLS).
+    if(!st.here) paintLocbar(null);
     if(await wdLocation.permission()==='granted'){ try{ st.here=await wdLocation.get(); }catch{} }
     if(!grid.isConnected) return;
     if(st.view==='map'){ setView('map'); return; }
@@ -1538,7 +1565,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const keys=[['depth','Profundidad',depth],['level','Nivel',p.difficulty||''],['book','Titulación recomendada',p.recommended_cert||''],['inmersion','Tipo',typeText],
       ['calendar','Mejor época',wdMonthsText(months)],['temp','Temperatura del agua',range(p.water_temp_min,p.water_temp_max,'°C')],['eye','Visibilidad',range(p.visibility_min,p.visibility_max,'m')]].filter(k=>k[2]);
     setApp(`<section class="tp-page pp-page pp54">
-      <header class="tp-hero tp-dhero pp-hero"><img class="tp-hero-img" src="${escapeHtml(cover)}" alt="" fetchpriority="high"><div class="tp-hero-in">
+      <header class="tp-hero tp-dhero pp-hero"><img class="tp-hero-img" ${wdImgAttrs(cover)} alt="" fetchpriority="high"><div class="tp-hero-in">
         <nav class="tp-crumbs"><a href="#/puntos">Puntos de buceo</a><span>/</span>${p.zone?`<a href="#/puntos?zone=${encodeURIComponent(p.zone)}">${escapeHtml(p.zone)}</a><span>/</span>`:''}${escapeHtml(p.name)}</nav>
         <h1>${escapeHtml(p.name)}</h1>
         <p class="lead pp-place">${wdIcon('pin',16)} ${escapeHtml(placeText(p)||p.country||'')}</p>
@@ -1564,8 +1591,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     </section>`);
     $$('[data-scroll]').forEach(a=>a.onclick=e=>{ e.preventDefault(); document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:'smooth',block:'start'}); });
     bindMarineStrip();
-    if(hasGeo && window.L){ try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:false,scrollWheelZoom:false,attributionControl:true}))).setView([lat,lng],12); L.control.zoom({position:'bottomleft'}).addTo(m); wdLayerControl(m,{noteEl:$('#pp-map-note')}); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } }
-    else if(hasGeo){ $('#pp-map').innerHTML=`<div class="map-fallback"><strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong></div>`; }
+    if(hasGeo) wdMaps().then(ok=>{ if(!$('#pp-map')) return; if(!ok){ $('#pp-map').innerHTML=`<div class="map-fallback"><strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong></div>`; return; } try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:false,scrollWheelZoom:false,attributionControl:true}))).setView([lat,lng],12); L.control.zoom({position:'bottomleft'}).addTo(m); wdLayerControl(m,{noteEl:$('#pp-map-note')}); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } });
     $('#suggest-pos')?.addEventListener('click',()=>{ $('#suggest-form').innerHTML=`<div class="form-grid pp-suggest"><div class="field"><label>Latitud</label><input id="s-lat" type="number" step="0.000001" value="${hasGeo?lat:''}"></div><div class="field"><label>Longitud</label><input id="s-lon" type="number" step="0.000001" value="${hasGeo?lng:''}"></div><div class="field full"><label>Motivo</label><textarea id="s-note" placeholder="Qué ves en el mapa y por qué propones moverlo…"></textarea></div></div><button class="btn btn-primary" id="s-save" type="button">Enviar propuesta</button>`; $('#s-save').onclick=async()=>{ try{ await postJSON('/api/dive-points/'+id+'/suggest',{latitude:+$('#s-lat').value,longitude:+$('#s-lon').value,note:$('#s-note').value}); toast('Propuesta enviada.'); $('#suggest-form').innerHTML='<div class="notice">Propuesta registrada y pendiente de revisión.</div>'; }catch(e){ toast(e.message); } }; });
   }
 
@@ -1580,7 +1606,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function destinationCard(o){
     const n=o.experiences;
     return `<article class="cd-card dst-card">
-      <a class="cd-media" href="#/experiencia?id=${o.id}" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(o.image_path||WD_COUNTRY_IMAGES[o.region]||'/img/portada/fondo.webp')}" alt="" loading="lazy"><span class="cd-badges">${o.kind?`<span class="cd-badge">${escapeHtml(o.kind)}</span>`:''}${n?`<span class="cd-badge is-live">${n} ${n===1?'experiencia':'experiencias'}</span>`:''}</span></a>
+      <a class="cd-media" href="#/experiencia?id=${o.id}" tabindex="-1" aria-hidden="true"><img ${wdImgAttrs(o.image_path||WD_COUNTRY_IMAGES[o.region]||'/img/portada/fondo.webp','(max-width:760px) 100vw, 420px')} alt="" loading="lazy"><span class="cd-badges">${o.kind?`<span class="cd-badge">${escapeHtml(o.kind)}</span>`:''}${n?`<span class="cd-badge is-live">${n} ${n===1?'experiencia':'experiencias'}</span>`:''}</span></a>
       <div class="cd-body dst-body"><h3><a href="#/experiencia?id=${o.id}">${escapeHtml(o.title)}</a></h3><p class="cd-place">${wdIcon('globe',14)}${escapeHtml(o.region||'')}</p><p class="cd-desc">${escapeHtml(o.summary||o.description||'Experiencias de buceo organizadas por centros y profesionales.')}</p></div>
       <div class="cd-foot"><div class="cd-fact"><small>Desde</small><strong>${o.price_from?wdMoney(o.price_from,o.currency):'<span class="muted">Consultar</span>'}</strong></div><div class="cd-fact"><small>Próxima salida</small><strong>${o.next_date?escapeHtml(wdDay(o.next_date)):'<span class="muted">Por anunciar</span>'}</strong></div><a class="btn ${n?'btn-primary':''} cd-cta" href="#/experiencia?id=${o.id}">${n?'Ver viajes':'Ver destino'}</a></div>
     </article>`;
@@ -1633,7 +1659,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if(!still()) return; const o=d.offer, items=d.experiences||[];
     const prices=items.map(e=>Number(e.price)).filter(n=>n>0);
     setApp(`<section class="tp-page">
-      <header class="tp-hero tp-dhero"><img class="tp-hero-img" src="${escapeHtml(o.image_path||'/img/portada/fondo.webp')}" alt=""><div class="tp-hero-in">
+      <header class="tp-hero tp-dhero"><img class="tp-hero-img" ${wdImgAttrs(o.image_path||'/img/portada/fondo.webp')} alt="" fetchpriority="high"><div class="tp-hero-in">
         <nav class="tp-crumbs"><a href="#/experiencias">Experiencias</a><span>/</span>${escapeHtml(o.title)}</nav>
         <h1>${escapeHtml(o.title)}</h1><p class="lead">${escapeHtml(o.summary||o.description||'Experiencias de buceo en este destino.')}</p>
       </div></header>
@@ -1655,7 +1681,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const rating=Number(p.rating_average||0), reviews=Number(p.review_count||0), depth=depthText(p);
     return `<article class="tt-card">
       <span class="tt-rank" aria-label="Puesto ${index+1}">${index+1}</span>
-      <a class="tt-media" href="${pointHref(p.id)}" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(p.photo||pointImg(p))}" alt="" loading="lazy"></a>
+      <a class="tt-media" href="${pointHref(p.id)}" tabindex="-1" aria-hidden="true"><img ${wdImgAttrs(p.photo||pointImg(p),'(max-width:760px) 100vw, 150px')} alt="" loading="lazy"></a>
       <div class="tt-main">
         <p class="eyebrow">${escapeHtml((p.types||[]).map(typeLabelByKey)[0]||p.dive_type||'Punto de buceo')}</p>
         <h3><a href="${pointHref(p.id)}">${escapeHtml(p.name)}</a></h3>
@@ -1910,7 +1936,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const u=state.me?.user||{}, esc=escapeHtml, pro=['center','freelance','admin'].includes(u.role);
     const tabs=ACC_TABS.map(([k,l,i])=>{ const href=k==='area'&&pro?'#/admin':'#/'+k; const label=k==='area'&&pro?(u.role==='admin'?'Administración':u.role==='center'?'Mi centro':'Mi panel'):l;
       return `<a class="acc-tab ${k===active?'is-on':''}" href="${href}" ${k===active?'aria-current="page"':''}>${wdIcon(i,17)}<span>${label}</span></a>`; }).join('');
-    return `<section class="acc-page"><header class="acc-hero" style="--acc-img:url('${esc(media('hero:centros'))}')"><div class="acc-hero-in">
+    return `<section class="acc-page"><header class="acc-hero" style="--acc-img:url('${esc(wdImgFit(media('hero:centros')))}')"><div class="acc-hero-in">
         <div class="acc-id"><span class="acc-avatar" translate="no">${esc(initials(u.fullname||''))}</span><div><strong translate="no">${esc(u.fullname||'')}</strong><small>${esc(ROLE_LABEL[u.role]||'Buceador')}</small>${u.email&&!String(u.email).endsWith('.local')?`<small translate="no">${esc(u.email)}</small>`:''}</div></div>
         <a class="acc-level" id="acc-level" href="#/recompensas" hidden></a></div>
         <nav class="acc-tabs" aria-label="Secciones de mi cuenta">${tabs}</nav></header>
@@ -4269,7 +4295,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     return `<div class="hm-marquee-track" style="--dur:${dur}s"><div class="hm-marquee-row">${row}</div><div class="hm-marquee-row" aria-hidden="true">${row.replace(/<a /g,'<a tabindex="-1" ')}</div></div>`;
   }
   function offerCard(o){ const attrs=promoLinkAttrs(o.url); const tag=attrs?'a':'div';
-    return `<${tag} class="hm-offer" ${attrs}><div class="hm-offer-media"><img src="${escapeHtml(o.image_path)}" alt="" loading="lazy"><span class="hm-offer-label">Patrocinado</span></div><div class="hm-offer-body"><h3>${escapeHtml(o.title)}</h3>${o.subtitle?`<p>${escapeHtml(o.subtitle)}</p>`:''}${attrs?'<span class="hm-offer-go">Ver oferta →</span>':''}</div></${tag}>`; }
+    return `<${tag} class="hm-offer" ${attrs}><div class="hm-offer-media"><img ${wdImgAttrs(o.image_path,'(max-width:760px) 100vw, 420px')} alt="" loading="lazy"><span class="hm-offer-label">Patrocinado</span></div><div class="hm-offer-body"><h3>${escapeHtml(o.title)}</h3>${o.subtitle?`<p>${escapeHtml(o.subtitle)}</p>`:''}${attrs?'<span class="hm-offer-go">Ver oferta →</span>':''}</div></${tag}>`; }
 
   async function renderPromosManager(mountId){
     const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml; const refresh=()=>renderPromosManager(mountId);
@@ -4745,7 +4771,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function centerWorkspaceShell(c,metrics){
     const m=metrics||{};
     return `<section class="center-backoffice">
-      <div class="cb-header ${c?.cover_url?'has-cover':''}" style="${c?.cover_url?`--cover:url('${escapeHtml(c.cover_url)}')`:''}"><div class="cb-header-id">${centerLogoMarkup(c||{},'58px')}<div><p class="eyebrow">Panel del centro</p><h1>${escapeHtml(c?.name||'Mi centro')}</h1>${c?.tagline?`<p>${escapeHtml(c.tagline)}</p>`:''}</div></div><div class="cb-header-actions">${(state.me?.centers||[]).length>1?`<label class="cb-switch"><span>Centro activo</span><select id="cb-switch">${state.me.centers.map(x=>`<option value="${x.id}" ${x.active?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></label>`:''}<a class="btn" href="#/centro?id=${c?.id||''}">Ver mi página</a><button class="btn btn-primary" id="cb-refresh">Actualizar</button></div></div>
+      <div class="cb-header ${c?.cover_url?'has-cover':''}" style="${c?.cover_url?`--cover:url('${escapeHtml(wdImgFit(c.cover_url))}')`:''}"><div class="cb-header-id">${centerLogoMarkup(c||{},'58px')}<div><p class="eyebrow">Panel del centro</p><h1>${escapeHtml(c?.name||'Mi centro')}</h1>${c?.tagline?`<p>${escapeHtml(c.tagline)}</p>`:''}</div></div><div class="cb-header-actions">${(state.me?.centers||[]).length>1?`<label class="cb-switch"><span>Centro activo</span><select id="cb-switch">${state.me.centers.map(x=>`<option value="${x.id}" ${x.active?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></label>`:''}<a class="btn" href="#/centro?id=${c?.id||''}">Ver mi página</a><button class="btn btn-primary" id="cb-refresh">Actualizar</button></div></div>
       <div class="cb-layout"><aside class="cb-sidebar">
         <div class="cb-section-title">OPERACIONES</div>
         <button class="cb-nav active" data-cbtab="dashboard">⌂ <span>Resumen</span></button>
@@ -5552,10 +5578,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       renderMarinaPointEditor('marina-point-editor',id);
       $('#point-photo-form').onsubmit=async e=>{e.preventDefault(); const pid=e.target.dataset.pointId; try{await api('/api/dive-points/'+pid+'/photos',{method:'POST',body:new FormData(e.target)}); toast('Fotografía subida.'); editPointForm(+pid);}catch(err){toast(err.message)}};
     }
-    if(window.L && $('#point-editor-map')){ const emap=(wdTileDefaults(),wdLimitMap(L.map('point-editor-map',{zoomControl:true}))).setView([+p.latitude,+p.longitude],15); wdLayerControl(emap); const mk=L.marker([+p.latitude,+p.longitude],{draggable:true,icon:pointIcon(p,{active:true}),title:p.name||'Nuevo punto',alt:p.name||'Nuevo punto'}).addTo(emap); const sync=ll=>{ $('#p-lat').value=ll.lat.toFixed(6); $('#p-lon').value=ll.lng.toFixed(6); mk.setLatLng(ll); }; mk.on('dragend',e=>sync(e.target.getLatLng())); emap.on('click',e=>sync(e.latlng)); }
+    if($('#point-editor-map')) wdMaps().then(()=>{ if(!window.L||!$('#point-editor-map')) return; const emap=(wdTileDefaults(),wdLimitMap(L.map('point-editor-map',{zoomControl:true}))).setView([+p.latitude,+p.longitude],15); wdLayerControl(emap); const mk=L.marker([+p.latitude,+p.longitude],{draggable:true,icon:pointIcon(p,{active:true}),title:p.name||'Nuevo punto',alt:p.name||'Nuevo punto'}).addTo(emap); const sync=ll=>{ $('#p-lat').value=ll.lat.toFixed(6); $('#p-lon').value=ll.lng.toFixed(6); mk.setLatLng(ll); }; mk.on('dragend',e=>sync(e.target.getLatLng())); emap.on('click',e=>sync(e.latlng)); });
   }
   async function editDestinationForm(id){ const meta=await loadMeta(); let t={title:'',region:'',kind:'Viaje',image_path:'',summary:'',description:''}; if(id) t=meta.travel.find(x=>x.id===id)||t; setApp(`<section class="page"><div class="breadcrumb"><a href="#/admin?tab=destinations">Gestión</a> / ${id?'Editar destino':'Nuevo destino'}</div><p class="eyebrow">EXPERIENCIAS</p><h1>${id?'Editar destino':'Nuevo destino'}</h1><form id="destination-form" style="margin-top:28px"><div class="form-grid"><div class="field full"><label>Nombre del destino</label><input id="td-title" value="${escapeHtml(t.title)}" required></div><div class="field"><label>Región / país</label><input id="td-region" value="${escapeHtml(t.region||'')}" required></div><div class="field"><label>Tipo</label><input id="td-kind" value="${escapeHtml(t.kind||'Viaje')}" required></div><div class="field full"><label>Foto del destino</label><div class="td-photo"><div class="td-photo-preview" id="td-photo-preview">${t.image_path?`<img src="${escapeHtml(t.image_path)}" alt="">`:'<span>Sin foto</span>'}</div><div><input id="td-file" type="file" accept="image/jpeg,image/png,image/webp"><small>${IMG_HINT}</small>${t.image_path?'<label class="td-remove"><input type="checkbox" id="td-remove"> Quitar la foto actual</label>':''}</div></div></div><div class="field full"><label>Resumen</label><textarea id="td-summary">${escapeHtml(t.summary||'')}</textarea></div><div class="field full"><label>Descripción</label><textarea id="td-description">${escapeHtml(t.description||'')}</textarea></div></div><div class="form-actions"><a class="btn" href="#/admin?tab=destinations">Cancelar</a><button class="btn btn-primary">Guardar destino</button></div></form></section>`); $('#td-file').onchange=e=>{ const f=e.target.files[0]; if(f) $('#td-photo-preview').innerHTML=`<img src="${URL.createObjectURL(f)}" alt="">`; }; $('#destination-form').onsubmit=async e=>{e.preventDefault();try{const r=await postJSON('/api/admin/travel-offers',{id:id||null,title:$('#td-title').value,region:$('#td-region').value,kind:$('#td-kind').value,summary:$('#td-summary').value,description:$('#td-description').value}); const tid=r.id||id; const f=$('#td-file').files[0]; if(f) await uploadForm('/api/admin/travel-offer-image',{id:tid},f); else if($('#td-remove')?.checked) await uploadForm('/api/admin/travel-offer-image',{id:tid,remove:'1'}); __travel=null; try{ state.meta=null; }catch{} toast('Destino guardado.');location.hash='#/admin?tab=destinations';}catch(err){toast(err.message)}}; }
-  async function editCenterForm(id){ const meta=await loadMeta(); let c={name:'',country:'España',region:'',city:'',address:'',phone:'',email:'',website:'',specialties:'',latitude:38.54,longitude:-0.12,description:'',logo_url:''}; if(id){c=(await api('/api/centers/'+id)).item;} setApp(`<section class="page"><div class="breadcrumb"><a href="#/admin?tab=centers">Gestión</a> / ${id?'Editar centro':'Nuevo centro'}</div><p class="eyebrow">CENTROS</p><h1>${id?'Editar centro':'Nuevo centro'}</h1><form id="center-form" style="margin-top:28px"><div class="form-grid"><div class="field full"><label>Nombre</label><input id="c-name" value="${escapeHtml(c.name||'')}" required></div><div class="field"><label>País</label><select id="c-country">${meta.countries.map(x=>`<option ${x.name===c.country?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></div><div class="field"><label>Región</label><input id="c-region" value="${escapeHtml(c.region||'')}"></div><div class="field"><label>Ciudad</label><input id="c-city" value="${escapeHtml(c.city||'')}"></div><div class="field"><label>Dirección</label><input id="c-address" value="${escapeHtml(c.address||'')}"></div><div class="field"><label>Teléfono</label><input id="c-phone" value="${escapeHtml(c.phone||'')}"></div><div class="field"><label>Email</label><input id="c-email" type="email" value="${escapeHtml(c.email||'')}"></div><div class="field"><label>Web</label><input id="c-web" value="${escapeHtml(c.website||'')}"></div><div class="field full"><label>Logo URL</label><input id="c-logo" value="${escapeHtml(c.logo_url||'')}" placeholder="URL del logotipo oficial"></div><div class="field full"><label>Especialidades</label><input id="c-spec" value="${escapeHtml(c.specialties||'')}" placeholder="Cuevas, técnico, sidemount…"></div><div class="field"><label>Latitud</label><input id="c-lat" type="number" step="0.000001" value="${c.latitude||0}"></div><div class="field"><label>Longitud</label><input id="c-lon" type="number" step="0.000001" value="${c.longitude||0}"></div><div class="field full"><label>Descripción</label><textarea id="c-desc">${escapeHtml(c.description||'')}</textarea></div></div><div class="notice" style="margin-top:18px"><strong>Ubicación del centro</strong><br><small>Arrastra el marcador o haz clic en el mapa.</small><div id="center-editor-map" class="map-card" style="height:300px;margin-top:12px"></div></div><div class="form-actions"><a class="btn" href="#/admin?tab=centers">Cancelar</a><button class="btn btn-primary">Guardar centro</button></div></form></section>`); $('#center-form').onsubmit=async e=>{e.preventDefault();try{const data={id:id||null,name:$('#c-name').value,country:$('#c-country').value,region:$('#c-region').value,city:$('#c-city').value,address:$('#c-address').value,phone:$('#c-phone').value,email:$('#c-email').value,website:$('#c-web').value,specialties:$('#c-spec').value,latitude:+$('#c-lat').value,longitude:+$('#c-lon').value,description:$('#c-desc').value,logo_url:$('#c-logo').value};await postJSON(id?'/api/centers/update':'/api/centers',data);toast(id?'Centro actualizado.':'Centro creado.');location.hash='#/admin?tab=centers';}catch(err){toast(err.message)}}; if(window.L && $('#center-editor-map')){ const cm=(wdTileDefaults(),wdLimitMap(L.map('center-editor-map'))).setView([+$('#c-lat').value||38.54,+$('#c-lon').value||-0.12],13); wdLayerControl(cm); const mk=L.marker([+$('#c-lat').value||38.54,+$('#c-lon').value||-0.12],{draggable:true}).addTo(cm); const sync=ll=>{ $('#c-lat').value=ll.lat.toFixed(6); $('#c-lon').value=ll.lng.toFixed(6); mk.setLatLng(ll); }; mk.on('dragend',e=>sync(e.target.getLatLng())); cm.on('click',e=>sync(e.latlng)); } }
+  async function editCenterForm(id){ const meta=await loadMeta(); let c={name:'',country:'España',region:'',city:'',address:'',phone:'',email:'',website:'',specialties:'',latitude:38.54,longitude:-0.12,description:'',logo_url:''}; if(id){c=(await api('/api/centers/'+id)).item;} setApp(`<section class="page"><div class="breadcrumb"><a href="#/admin?tab=centers">Gestión</a> / ${id?'Editar centro':'Nuevo centro'}</div><p class="eyebrow">CENTROS</p><h1>${id?'Editar centro':'Nuevo centro'}</h1><form id="center-form" style="margin-top:28px"><div class="form-grid"><div class="field full"><label>Nombre</label><input id="c-name" value="${escapeHtml(c.name||'')}" required></div><div class="field"><label>País</label><select id="c-country">${meta.countries.map(x=>`<option ${x.name===c.country?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></div><div class="field"><label>Región</label><input id="c-region" value="${escapeHtml(c.region||'')}"></div><div class="field"><label>Ciudad</label><input id="c-city" value="${escapeHtml(c.city||'')}"></div><div class="field"><label>Dirección</label><input id="c-address" value="${escapeHtml(c.address||'')}"></div><div class="field"><label>Teléfono</label><input id="c-phone" value="${escapeHtml(c.phone||'')}"></div><div class="field"><label>Email</label><input id="c-email" type="email" value="${escapeHtml(c.email||'')}"></div><div class="field"><label>Web</label><input id="c-web" value="${escapeHtml(c.website||'')}"></div><div class="field full"><label>Logo URL</label><input id="c-logo" value="${escapeHtml(c.logo_url||'')}" placeholder="URL del logotipo oficial"></div><div class="field full"><label>Especialidades</label><input id="c-spec" value="${escapeHtml(c.specialties||'')}" placeholder="Cuevas, técnico, sidemount…"></div><div class="field"><label>Latitud</label><input id="c-lat" type="number" step="0.000001" value="${c.latitude||0}"></div><div class="field"><label>Longitud</label><input id="c-lon" type="number" step="0.000001" value="${c.longitude||0}"></div><div class="field full"><label>Descripción</label><textarea id="c-desc">${escapeHtml(c.description||'')}</textarea></div></div><div class="notice" style="margin-top:18px"><strong>Ubicación del centro</strong><br><small>Arrastra el marcador o haz clic en el mapa.</small><div id="center-editor-map" class="map-card" style="height:300px;margin-top:12px"></div></div><div class="form-actions"><a class="btn" href="#/admin?tab=centers">Cancelar</a><button class="btn btn-primary">Guardar centro</button></div></form></section>`); $('#center-form').onsubmit=async e=>{e.preventDefault();try{const data={id:id||null,name:$('#c-name').value,country:$('#c-country').value,region:$('#c-region').value,city:$('#c-city').value,address:$('#c-address').value,phone:$('#c-phone').value,email:$('#c-email').value,website:$('#c-web').value,specialties:$('#c-spec').value,latitude:+$('#c-lat').value,longitude:+$('#c-lon').value,description:$('#c-desc').value,logo_url:$('#c-logo').value};await postJSON(id?'/api/centers/update':'/api/centers',data);toast(id?'Centro actualizado.':'Centro creado.');location.hash='#/admin?tab=centers';}catch(err){toast(err.message)}}; if($('#center-editor-map')) wdMaps().then(()=>{ if(!window.L||!$('#center-editor-map')) return; const cm=(wdTileDefaults(),wdLimitMap(L.map('center-editor-map'))).setView([+$('#c-lat').value||38.54,+$('#c-lon').value||-0.12],13); wdLayerControl(cm); const mk=L.marker([+$('#c-lat').value||38.54,+$('#c-lon').value||-0.12],{draggable:true}).addTo(cm); const sync=ll=>{ $('#c-lat').value=ll.lat.toFixed(6); $('#c-lon').value=ll.lng.toFixed(6); mk.setLatLng(ll); }; mk.on('dragend',e=>sync(e.target.getLatLng())); cm.on('click',e=>sync(e.latlng)); }); }
 
   async function renderCheckin(code){ const d=await api('/api/me'); setApp(`<section class="page auth"><div class="auth-card"><p class="eyebrow">WORLDIVES DISCOVERY · CHECK-IN</p><h1 style="font-size:42px">Check-in en el centro</h1><p class="lead" style="font-size:15px">Con el check-in, el centro podrá ver tu ficha de buceador (titulación, tallas, contacto de emergencia y documentos) para prepararte la actividad. Puedes dejar de compartirla cuando quieras desde «Mi cuenta».</p>${d.authenticated?`<label class="lg-check" for="checkin-consent"><input type="checkbox" id="checkin-consent"><span id="checkin-consent-text">Compartir mis datos con este centro</span></label><div class="form-actions"><button id="checkin-btn" class="btn btn-primary" type="button" disabled>Compartir mis datos y hacer check-in</button></div>`:`<p class="notice">Primero <a href="#/login?next=/checkin/${code}" style="font-weight:800">inicia sesión</a> o <a href="#/registro?next=/checkin/${code}" style="font-weight:800">crea tu cuenta</a>.</p>`}<div id="checkin-msg" style="margin-top:16px"></div></div></section>`);
     if(!d.authenticated) return;
@@ -6427,10 +6453,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
 
   // ---------------------------------------------------------------- v50.30 · Top 10: precise location
-  function wdPickOnMap({start,onPick}){
+  async function wdPickOnMap({start,onPick}){
     const {el,close}=wdOpenModal({id:'tt-map',size:'lg',title:'Elige tu ubicación',subtitle:'Toca el mapa donde estás (o donde quieres bucear) y pulsa «Ver el Top 10 aquí».',
       body:'<div id="tt-pick-map" class="tt-pick-map"></div><p class="tt-pick-coords" id="tt-pick-coords">Todavía no has elegido ningún punto.</p>',
       footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="tt-pick-ok" disabled>Ver el Top 10 aquí</button>'});
+    await wdMaps(); if(!el.isConnected) return;
     if(!window.L){ $('#tt-pick-map',el).innerHTML='<div class="map-fallback"><strong>El mapa no está disponible ahora mismo</strong><span>Busca tu localidad en el buscador.</span></div>'; return; }
     wdTileDefaults(); const m=L.map($('#tt-pick-map',el),{zoomControl:true,attributionControl:true}).setView(start?[start.lat,start.lon]:[39.4,-0.4],start?9:6);
     wdLayerControl(m);
@@ -6455,11 +6482,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   });
 
   navMobile();
+  setTimeout(()=>$('.header-tools')?.classList.add('is-ready'),4000);   // never hidden for long if the server is slow
   window.addEventListener('resize',()=>wdHeaderHeight(),{passive:true}); wdHeaderHeight();
   document.addEventListener('click',e=>{ const b=e.target.closest('.mod-hide-btn'); if(b) wdModerationHide(b.dataset.modType,b.dataset.id,b.dataset.label,()=>route()); });
   initLanguage();
   // v50.48 · App mode: what /js/wd-app.js uses from this file. Only inside the app (or with «?app=1»).
-  const WD_APP_ASSETS='50.53';
+  const WD_APP_ASSETS='50.54';
   function wdLoadApp(){
     window.WD={app:WD_APP,state,$,$$,escapeHtml,api,postJSON,toast,setApp,route,loadMe,currentLanguage,translateString,translateTree,applyLanguage,
       wdIcon,wdLocale,fmtDate,wdMoney,wdLongDay,wdToday,daysUntil,wdDeadline,bookingStatus,experienceStatus,initials,goLogin,wdOpenCheckout,wdAppPay,
@@ -6467,7 +6495,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       LANGS,APP_LANGS:WD_APP_LANGS,LANG_KEY,APP_ASSETS:WD_APP_ASSETS,wdConfirm,wdLocation,wdServiceCard};
     document.documentElement.classList.add('wd-app'); if(WD_APP.pruebas) document.documentElement.classList.add('wd-app-pruebas');
     const css=document.createElement('link'); css.rel='stylesheet'; css.href='/css/wd-app.css?v='+WD_APP_ASSETS; document.head.appendChild(css);
-    return new Promise(done=>{ const js=document.createElement('script'); js.src='/js/wd-app.js?v='+WD_APP_ASSETS; js.onload=js.onerror=()=>done(); document.body.appendChild(js); setTimeout(done,6000); });
+    return Promise.all([wdMaps(),new Promise(done=>{ const js=document.createElement('script'); js.src='/js/wd-app.js?v='+WD_APP_ASSETS; js.onload=js.onerror=()=>done(); document.body.appendChild(js); setTimeout(done,6000); })]);
   }
   window.addEventListener('DOMContentLoaded',async()=>{ await Promise.all([loadMe(),loadMeta().catch(()=>{}),loadSiteMedia(),loadLanguagePack(),loadMapConfig(),WD_APP?wdLoadApp():null]); applyLanguage(); applyFeatureSwitches(); siteBanner(); route(); cookieNotice(); footerOwner(); demoRibbon(); offPurge(); offSync(); });
 })();

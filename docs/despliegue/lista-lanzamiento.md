@@ -42,7 +42,7 @@ que sí está hecho es todo lo que se necesita para marcarlas, probado.
   de pruebas y de las de la demo, `WOD_ENV=production` y `WOD_PUBLIC_URL=https://worldivesdiscovery.com`
   (comprobador). La copia en el gestor de contraseñas: A MANO.
 - [ ] **Instalado desde el zip de PRODUCCIÓN, sin `.git`, base limpia, admin creado con `--create-admin`** — pasos 6
-  y 9. Preparado: el zip `worldives-v50.53-produccion.zip` pasa su comprobación automática (sin cuentas, claves ni
+  y 9. Preparado: el zip `worldives-v50.54-PRODUCCION.zip` pasa su comprobación automática (sin cuentas, claves ni
   datos de prueba). Se comprueba: sin `.git` ni restos de la demo, ninguna cuenta de prueba en la base y al menos un
   administrador (comprobador).
 - [ ] **Verificación en dos pasos activada en la cuenta de administración** — paso 9. Se comprueba: todos los

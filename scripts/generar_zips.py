@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Builds the two delivery zips of a version (encargo 2b · bloque 1; v50.46: final production package for the VPS):
 
-    python scripts/generar_zips.py              → dist/worldives-v<APP_VERSION>-produccion.zip
-                                                   dist/worldives-v<APP_VERSION>-pruebas.zip   (v50.53: names of the owner's brief)
+    python scripts/generar_zips.py              → dist/worldives-v<APP_VERSION>-PRODUCCION.zip
+                                                   dist/worldives-v<APP_VERSION>-DEMO.zip   (v50.54: names of the owner's brief)
 
 -produccion  ready to upload as it is to the VPS: clean code, no data (no users, not even an administrator, no
              bookings, no test accounts or test database, no uploads, logs, caches, temporary files or .env) and no
@@ -191,7 +191,7 @@ def main():
                 raise SystemExit(1)
             print(f'Comprobación {kind}: correcta ({len(files)} archivos).')
             if not a.solo_comprobar:
-                name = f'worldives-v{ver}-{kind}'
+                name = f"worldives-v{ver}-{ {'produccion': 'PRODUCCION', 'pruebas': 'DEMO'}[kind] }"
                 z = out / f'{name}.zip'
                 write_zip(z, name, files)
                 report[kind] = (z, z.stat().st_size, len(files))

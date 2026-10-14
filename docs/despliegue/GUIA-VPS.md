@@ -1,7 +1,7 @@
 # Instalar WORLDIVES DISCOVERY en Hostinger (VPS KVM 2, paquete de PRODUCCIÓN, v50.52)
 
 Guía paso a paso para poner la web en **https://worldivesdiscovery.com** con el zip
-`worldives-v50.53-produccion.zip`, según el encargo de despliegue del 14/10/2026. Cada paso termina con una
+`worldives-v50.54-PRODUCCION.zip`, según el encargo de despliegue del 14/10/2026. Cada paso termina con una
 **comprobación**. Al final, `scripts/despliegue/comprobar_lanzamiento.py` revisa en el propio servidor toda la lista de
 antes de abrir (paso 14).
 
@@ -118,13 +118,13 @@ sudo apt update && sudo apt install -y caddy python3 python3-venv unzip rclone c
 caddy version                                                  # 2.8 o posterior
 ```
 
-La aplicación (sube el zip desde tu ordenador con `scp worldives-v50.53-produccion.zip <tu-usuario>@<IP>:`):
+La aplicación (sube el zip desde tu ordenador con `scp worldives-v50.54-PRODUCCION.zip <tu-usuario>@<IP>:`):
 
 ```bash
 sudo adduser --system --group --home /opt/worldives worldives
 sudo mkdir -p /var/backups/worldives /var/log/worldives && sudo chown worldives: /var/backups/worldives
-sudo unzip ~/worldives-v50.53-produccion.zip -d /opt/ && sudo mv /opt/worldives-v50.53-produccion/* /opt/worldives/
-sudo rmdir /opt/worldives-v50.53-produccion && sudo chown -R worldives: /opt/worldives
+sudo unzip ~/worldives-v50.54-PRODUCCION.zip -d /opt/ && sudo mv /opt/worldives-v50.54-PRODUCCION/* /opt/worldives/
+sudo rmdir /opt/worldives-v50.54-PRODUCCION && sudo chown -R worldives: /opt/worldives
 cd /opt/worldives && sudo -u worldives python3 -m venv .venv && sudo -u worldives .venv/bin/pip install -r requirements.txt
 ```
 
@@ -367,7 +367,7 @@ sus subdominios), su propio usuario, carpeta, base, `.env` y copias, y detrás d
 ```bash
 sudo adduser --system --group --home /opt/worldives-pruebas worldives-pruebas
 sudo mkdir -p /var/backups/worldives-pruebas && sudo chown worldives-pruebas: /var/backups/worldives-pruebas
-sudo unzip ~/worldives-v50.53-produccion.zip -d /tmp/wp && sudo mv /tmp/wp/worldives-v50.53-produccion/* /opt/worldives-pruebas/
+sudo unzip ~/worldives-v50.54-PRODUCCION.zip -d /tmp/wp && sudo mv /tmp/wp/worldives-v50.54-PRODUCCION/* /opt/worldives-pruebas/
 sudo chown -R worldives-pruebas: /opt/worldives-pruebas
 cd /opt/worldives-pruebas && sudo -u worldives-pruebas python3 -m venv .venv && sudo -u worldives-pruebas .venv/bin/pip install -r requirements.txt
 sudo -u worldives-pruebas cp .env.example .env && sudo chmod 600 .env && sudo -u worldives-pruebas nano .env
@@ -416,10 +416,10 @@ los toca, y las migraciones solo añaden y transforman (guardan antes una copia 
 ```bash
 cd /opt
 sudo -u worldives /opt/worldives/.venv/bin/python /opt/worldives/app/server.py --backup-now     # copia antes de actualizar
-sudo unzip worldives-v<nueva>-produccion.zip -d /opt/nueva
+sudo unzip worldives-v<nueva>-PRODUCCION.zip -d /opt/nueva
 sudo systemctl stop worldives
 sudo cp -a /opt/worldives /opt/worldives-anterior                  # para volver atrás si hiciera falta
-sudo rsync -a --exclude data/ --exclude storage/ --exclude .env --exclude .venv/ /opt/nueva/worldives-v<nueva>-produccion/ /opt/worldives/
+sudo rsync -a --exclude data/ --exclude storage/ --exclude .env --exclude .venv/ /opt/nueva/worldives-v<nueva>-PRODUCCION/ /opt/worldives/
 sudo chown -R worldives: /opt/worldives
 sudo -u worldives /opt/worldives/.venv/bin/pip install -r /opt/worldives/requirements.txt
 sudo systemctl start worldives                                     # las migraciones se aplican solas al arrancar

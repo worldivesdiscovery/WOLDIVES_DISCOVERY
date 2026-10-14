@@ -3468,3 +3468,9 @@ html.wd-app[data-wda-tema="noche"] .svc2 :is(.svc2-kicker,.svc2-desc,.svc2-price
 .privacy-row{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer}
 .privacy-row input{margin-top:4px;width:18px;height:18px}.privacy-row strong{display:block}.privacy-row small{display:block;color:var(--muted);margin-top:2px}
 .wd-pill-info{background:#e6f1f8;color:#0b5c86}
+
+/* v50.54 · Room kept for the region pills before they arrive: the list below does not jump (CLS). */
+.pt54 .pt-regions:empty{min-height:34px}
+/* v50.54 · The language selector and the account button appear together when the page knows who is visiting: the
+   header does not move when the button arrives (CLS). renderAccount() shows them; at most 4 s later anyway. */
+.header-tools:not(.is-ready){visibility:hidden}

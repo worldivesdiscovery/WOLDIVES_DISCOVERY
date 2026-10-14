@@ -79,7 +79,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.53'
+APP_VERSION = '50.54'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -2901,6 +2901,21 @@ def normalize_lang(lang):
     lang = (lang or 'es').lower()
     lang = {'ja': 'en', 'ko': 'en', 'ru': 'en', 'zt': 'zh'}.get(lang, lang)
     return lang if lang in MAIL_LANGS else 'es'
+
+
+def page_language_guess(query_lang, accept_language, user_agent=''):
+    """v50.54 · The language the page will start in, as world-dives-v8.js decides it on a first visit: ?lang= first,
+    then the browser's languages in order (zh-TW/HK/Hant → zh, ja/ko/ru → en). Used only to start downloading the
+    language pack together with the page (LCP); the app chooses its own language, so it gets no hint."""
+    if 'WorldivesApp/' in (user_agent or ''): return 'es'
+    if query_lang: return normalize_lang(query_lang[:5])
+    for part in (accept_language or '').split(',')[:12]:
+        tag = part.split(';')[0].strip().lower()
+        if not tag: continue
+        base = 'zt' if tag.startswith(('zh-tw', 'zh-hk', 'zh-hant')) else tag.split('-')[0]
+        lang = {'ja': 'en', 'ko': 'en', 'ru': 'en', 'zt': 'zh'}.get(base, base)
+        if lang in MAIL_LANGS: return lang
+    return 'es'
 
 
 def clean_url_field(value, max_len=500):
@@ -11446,12 +11461,13 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         self.end_headers()
         self.wfile.write(raw)
 
-    def send_bytes(self, raw: bytes, content_type: str, filename: str | None = None, cache: str = 'no-store', inline: bool = False):
+    def send_bytes(self, raw: bytes, content_type: str, filename: str | None = None, cache: str = 'no-store', inline: bool = False, vary: str = ''):
         """Generated files (PDF, SVG, CSV, ICS…) with the same security headers as every other answer."""
         self.send_response(200)
         self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(raw)))
         self.send_header('Cache-Control', cache)
+        if vary: self.send_header('Vary', vary)
         if filename:
             safe = re.sub(r'[^A-Za-z0-9._-]+', '_', filename)[:120]
             self.send_header('Content-Disposition', f"{'inline' if inline else 'attachment'}; filename=\"{safe}\"")
@@ -12978,18 +12994,23 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
 
     def serve_spa(self):
         """index.html with the language of ?lang= in <html lang>, and hreflang alternates for the 9 languages (SEO)."""
-        lang=normalize_lang((parse_qs(urlparse(self.path).query).get('lang',['es'])[0] or 'es')[:5])
+        qlang=(parse_qs(urlparse(self.path).query).get('lang',[''])[0] or '')
+        lang=normalize_lang((qlang or 'es')[:5])
         raw=(PUBLIC/'index.html').read_text(encoding='utf-8')
         base=wcfg.public_url() or self.base_url()
         alts=''.join(f'<link rel="alternate" hreflang="{HTML_LANG.get(l,l)}" href="{html.escape(base)}/?lang={l}">' for l in MAIL_LANGS)
         alts+=f'<link rel="alternate" hreflang="x-default" href="{html.escape(base)}/">'
         if wcfg.demo_mode(): alts+='<meta name="robots" content="noindex,nofollow">'
+        # v50.54: a visitor in another language downloads their language pack together with the page, not after the main
+        # script has run: the first screen appears sooner (LCP). Same address as loadLanguagePack() in world-dives-v8.js.
+        pack=page_language_guess(qlang,self.headers.get('Accept-Language'),self.headers.get('User-Agent'))
+        if pack!='es': alts+=f'<link rel="preload" href="/idiomas/{pack}.json?v={APP_VERSION}" as="fetch" crossorigin="anonymous">'
         raw=raw.replace('<html lang="es">',f'<html lang="{HTML_LANG.get(lang,lang)}">',1).replace('<!--hreflang-->',alts,1)
         if wcfg.demo_mode():
             # v50.53: the demo ribbon comes in the page itself, so nothing jumps when it appears (CLS).
             raw=raw.replace('<body>','<body class="is-demo">'+DEMO_RIBBON_HTML,1)
         body=raw.encode('utf-8')
-        self.send_bytes(body,'text/html; charset=utf-8',cache='no-cache',inline=True)
+        self.send_bytes(body,'text/html; charset=utf-8',cache='no-cache',inline=True,vary='Accept-Language')
 
     def precheck_write(self):
         """Runs before any state-changing request: CSRF origin check (G10), maintenance mode and the body size

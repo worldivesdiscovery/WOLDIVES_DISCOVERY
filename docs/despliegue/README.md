@@ -14,7 +14,7 @@ Los archivos de ejemplo están en `docs/despliegue/`. Los mapas tienen su propia
 sudo adduser --system --group --home /opt/worldives worldives
 # Con el zip de PRODUCCIÓN (docs/despliegue/GUIA-VPS.md, apartado 3), nunca con «git clone»: la carpeta .git (todo el
 # historial) no debe quedar en el servidor (ASVS 5.0 V13.4.1).
-sudo unzip worldives-v<versión>-produccion.zip -d /opt/ && sudo mv /opt/worldives-v<versión>-produccion/* /opt/worldives/ && sudo chown -R worldives: /opt/worldives
+sudo unzip worldives-v<versión>-PRODUCCION.zip -d /opt/ && sudo mv /opt/worldives-v<versión>-PRODUCCION/* /opt/worldives/ && sudo chown -R worldives: /opt/worldives
 cd /opt/worldives && sudo -u worldives python3 -m venv .venv && sudo -u worldives .venv/bin/pip install -r requirements.txt
 sudo mkdir -p /var/backups/worldives && sudo chown worldives: /var/backups/worldives
 ```
