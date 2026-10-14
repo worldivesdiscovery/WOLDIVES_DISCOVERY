@@ -2133,6 +2133,17 @@ def migrate_v50_36(db):
     # v50.54 (owner's brief, point 3): optional conditions of a dive site, shown in its key data only when known.
     add_columns(db, 'dive_points', [('best_months', 'TEXT'), ('water_temp_min', 'REAL'), ('water_temp_max', 'REAL'),
                                     ('visibility_min', 'REAL'), ('visibility_max', 'REAL')])
+    # v50.54 (owner's brief, point 8): the administration moderates the content of centres and freelances, it never
+    # edits it. A case hides something with a reason; the owner is told, corrects it and asks for a review; the
+    # administration publishes it again or keeps it hidden. Every step is a row of audit_log.
+    add_columns(db, 'centers', [('moderation_status', 'TEXT')])
+    add_columns(db, 'users', [('moderation_status', 'TEXT')])
+    db.execute('''CREATE TABLE IF NOT EXISTS moderation_cases (id INTEGER PRIMARY KEY AUTOINCREMENT, target_type TEXT NOT NULL, target_id INTEGER NOT NULL,
+                  center_id INTEGER, provider_user_id INTEGER, title TEXT, status TEXT NOT NULL, reason TEXT NOT NULL, prev_state TEXT,
+                  created_by INTEGER NOT NULL, created_at TEXT NOT NULL, resubmit_note TEXT, resubmitted_by INTEGER, resubmitted_at TEXT,
+                  decision_note TEXT, decided_by INTEGER, decided_at TEXT)''')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_moderation_target ON moderation_cases(target_type, target_id, status)')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_moderation_owner ON moderation_cases(center_id, provider_user_id, status)')
     db.execute('CREATE TABLE IF NOT EXISTS dive_point_texts (point_id INTEGER NOT NULL REFERENCES dive_points(id) ON DELETE CASCADE, lang TEXT NOT NULL, '
                'description TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(point_id, lang))')
     if not migration_done(db, '50.36-points'):
@@ -3423,6 +3434,7 @@ def sync_service_experience(db, user, service_id, data):
     tid=resolve_travel_offer(db,data) or (existing['travel_offer_id'] if existing else 0)
     if not tid: raise ValueError('Elige el destino donde aparecerá la experiencia.')
     status='published' if user['role'] in {'center','admin'} else (existing['status'] if existing and existing['status']=='published' else 'pending')
+    if existing and moderation_open(db,'experience',existing['id']): status='hidden'   # v50.54
     price,currency,_=effective_service_tariff(db,service_id)
     summary=(svc['description'] or '')[:300]
     if existing:
@@ -4548,8 +4560,55 @@ BOOKING_MONEY_FIELDS = ('amount_paid', 'amount_due', 'refunded_total', 'refund_a
                         'payment_method', 'paid_online', 'refunded_online', 'refundable', 'refunds')
 
 
+# v50.54 (owner's brief, point 8): what personal data the administration may see, as switches in Administración →
+# «Datos personales», never in code. PENDIENTE DE ABOGADO: the exact list under the RGPD. Defaults: only what support
+# and payments need (who booked and the emails sent); every other category is closed until the lawyer says otherwise.
+ADMIN_DATA_PERMS = {
+    'contacto_reservas': ('Nombre y email de quien reserva', 'Para atender incidencias de reservas y de pagos.', True),
+    'telefonos': ('Teléfonos de clientes y contactos de emergencia', 'Solo si hace falta llamar a un cliente por seguridad.', False),
+    'clientes_centro': ('Ficha del buceador y clientes de cada centro', 'Perfil, fecha de nacimiento, tallas, hoja de embarque y lista de clientes.', False),
+    'notas_internas': ('Notas internas de los centros', 'Lo que el centro escribe para su equipo sobre una reserva.', False),
+    'formularios_firmados': ('Formularios firmados, fichas de buceador y documentos', 'Descargos firmados, ficha en PDF y documentos subidos por el buceador.', False),
+    'correos': ('Contenido de los correos enviados', 'Para comprobar o reenviar un correo que no llegó.', True),
+}
+
+
+def admin_may_see(db, key):
+    r = db.execute('SELECT value FROM site_settings WHERE key=?', ('admin_datos_' + key,)).fetchone()
+    return ADMIN_DATA_PERMS[key][2] if not r or r['value'] in (None, '') else r['value'] == '1'
+
+
+def admin_data_gate(db, handler, user, key, what):
+    """Personal data the administration opens: allowed by its switch, and always written in the activity log with who,
+    when, what and why (the reason the administrator gives, X-Admin-Reason)."""
+    if user['role'] != 'admin': return
+    if not admin_may_see(db, key):
+        raise PermissionError(f'La configuración de privacidad no permite a la administración ver: {ADMIN_DATA_PERMS[key][0].lower()}. Se cambia en Administración → Datos personales.')
+    reason = unquote(handler.headers.get('X-Admin-Reason') or '')[:300]
+    audit(db, user['id'], 'admin_personal_data', 'request', None, {'what': what, 'permiso': key, 'path': handler.path.split('?')[0], 'reason': reason or None})
+
+
+def admin_data_log(db, handler, user, what):
+    """Lists the administration needs to run the site (accounts, requests, reports): not switchable, always logged."""
+    reason = unquote(handler.headers.get('X-Admin-Reason') or '')[:300]
+    audit(db, user['id'], 'admin_personal_data', 'request', None, {'what': what, 'path': handler.path.split('?')[0], 'reason': reason or None}); db.commit()
+
+
+def admin_booking_view(db, d):
+    """A booking as the administration reads it, under the switches of ADMIN_DATA_PERMS."""
+    if not admin_may_see(db, 'notas_internas'): d.pop('internal_notes', None)
+    if not admin_may_see(db, 'telefonos'):
+        for k in ('contact_phone', 'phone', 'emergency_contact_phone'): d.pop(k, None)
+    if not admin_may_see(db, 'contacto_reservas'):
+        for k in ('email', 'contact_email', 'username'): d.pop(k, None)
+        for k in ('fullname', 'contact_name'):
+            if d.get(k): d[k] = str(d[k]).split()[0] + ' ' + ''.join(w[0] + '.' for w in str(d[k]).split()[1:2])
+    return d
+
+
 def team_booking_view(db, user, d):
     """What a team member without «cobros» or «reservas» reads of a booking of the centre (the owner reads all)."""
+    if user['role'] == 'admin': return admin_booking_view(db, d)
     if user['role'] not in ('center', 'freelance'): return d
     if not team_sees_money(db, user):
         for k in BOOKING_MONEY_FIELDS: d.pop(k, None)
@@ -4662,11 +4721,112 @@ def tenant_guard(handler, db, path):
     ignored_tenant_fields(db, user, path, found); db.commit()
 
 
-def public_center_sql(alias='c'):
-    """Centres shown to the public: active and verified by the administration. In demo mode (WOD_DEMO_MODE=1) the
-    example centres are shown too."""
+def public_center_sql(alias='c', include_hidden=False):
+    """Centres shown to the public: active, verified by the administration and not hidden by moderation (v50.54). In
+    demo mode (WOD_DEMO_MODE=1) the example centres are shown too. include_hidden: for the centre's own team."""
     p = f'{alias}.' if alias else ''
-    return f"{p}active=1" + ('' if wcfg.demo_mode() else f" AND {p}verification_status='verified'")
+    return f"{p}active=1" + ('' if include_hidden else f" AND {p}moderation_status IS NULL") + ('' if wcfg.demo_mode() else f" AND {p}verification_status='verified'")
+
+
+def public_freelance_sql(alias='u'):
+    """Freelance professionals shown to the public (v50.54: not hidden by moderation)."""
+    p = f'{alias}.' if alias else ''
+    return f"{p}role='freelance' AND {p}moderation_status IS NULL"
+
+
+ADMIN_CONTENT_MSG = ('Este contenido es del centro o del profesional: la administración no lo modifica. Si incumple las normas, '
+                     'ocúltalo con un motivo desde «Moderación»; el titular recibe el aviso, lo corrige y lo envía a revisión.')
+
+
+def center_has_owner(db, center_id):
+    """A centre run by its own account (a centre user, an owner in its team). A directory centre nobody has claimed
+    yet is platform content and the administration keeps editing it."""
+    return bool(db.execute("SELECT 1 FROM users WHERE center_id=? AND role='center' UNION SELECT 1 FROM center_members WHERE center_id=? AND member_role='owner' LIMIT 1",
+                           (center_id, center_id)).fetchone())
+
+
+def admin_content_guard(db, user, center_id=None, provider_user_id=None):
+    """v50.54 (owner's brief, point 8): the administration edits platform content (home, banners, dive points, types,
+    species…) but never the content of a centre or a freelance: it moderates it (moderation_cases)."""
+    if user['role'] != 'admin': return
+    if provider_user_id and not center_id: raise PermissionError(ADMIN_CONTENT_MSG)
+    if center_id and center_has_owner(db, int(center_id)): raise PermissionError(ADMIN_CONTENT_MSG)
+
+
+MODERATION_TARGETS = {'center': 'la ficha del centro', 'freelance': 'el perfil profesional', 'service': 'el servicio', 'experience': 'la experiencia'}
+
+
+def moderation_open(db, target_type, target_id):
+    """The open case of an item (hidden, or waiting for review), or None."""
+    return db.execute("SELECT * FROM moderation_cases WHERE target_type=? AND target_id=? AND status IN ('open','resubmitted') ORDER BY id DESC LIMIT 1",
+                      (target_type, int(target_id))).fetchone()
+
+
+def moderation_target(db, target_type, target_id):
+    """(title, center_id, provider_user_id) of what is moderated; NotFound when it does not exist."""
+    tid = int(target_id or 0)
+    if target_type == 'center':
+        r = db.execute('SELECT id,name FROM centers WHERE id=?', (tid,)).fetchone()
+        if r: return r['name'], r['id'], None
+    elif target_type == 'freelance':
+        r = db.execute("SELECT id,fullname FROM users WHERE id=? AND role='freelance'", (tid,)).fetchone()
+        if r: return r['fullname'], None, r['id']
+    elif target_type == 'service':
+        r = db.execute('SELECT id,title,center_id,provider_user_id FROM provider_services WHERE id=?', (tid,)).fetchone()
+        if r: return r['title'], r['center_id'], None if r['center_id'] else r['provider_user_id']
+    elif target_type == 'experience':
+        r = db.execute('SELECT id,title,center_id,provider_user_id,provider_type FROM travel_experiences WHERE id=?', (tid,)).fetchone()
+        if r: return r['title'], r['center_id'], None if r['center_id'] else r['provider_user_id']
+    raise NotFound('Ese contenido no existe.')
+
+
+def moderation_apply(db, target_type, target_id, hide, prev=None):
+    """Hides an item (returns what is needed to show it again) or shows it again as it was."""
+    tid = int(target_id)
+    if target_type == 'center':
+        db.execute('UPDATE centers SET moderation_status=? WHERE id=?', ('hidden' if hide else None, tid))
+    elif target_type == 'freelance':
+        db.execute('UPDATE users SET moderation_status=? WHERE id=?', ('hidden' if hide else None, tid))
+    elif target_type == 'service':
+        if hide:
+            r = db.execute('SELECT active FROM provider_services WHERE id=?', (tid,)).fetchone()
+            db.execute('UPDATE provider_services SET active=0,updated_at=? WHERE id=?', (now(), tid)); return {'active': r['active'] if r else 1}
+        db.execute('UPDATE provider_services SET active=?,updated_at=? WHERE id=?', (int((prev or {}).get('active', 1)), now(), tid))
+    elif target_type == 'experience':
+        if hide:
+            r = db.execute('SELECT status FROM travel_experiences WHERE id=?', (tid,)).fetchone()
+            db.execute("UPDATE travel_experiences SET status='hidden',updated_at=? WHERE id=?", (now(), tid)); return {'status': r['status'] if r else 'published'}
+        st = (prev or {}).get('status') or 'published'
+        db.execute('UPDATE travel_experiences SET status=?,updated_at=? WHERE id=?', ('published' if st == 'hidden' else st, now(), tid))
+    return {}
+
+
+def moderation_owner_ids(db, center_id, provider_user_id):
+    """The accounts that see and answer a case: the centre's managers, or the freelance."""
+    if center_id:
+        return [r['id'] for r in db.execute('''SELECT id FROM users u WHERE u.role='center' AND (u.center_id=? OR EXISTS(SELECT 1 FROM center_members m
+                                               WHERE m.center_id=? AND m.user_id=u.id AND m.member_role='owner'))''', (center_id, center_id)).fetchall()]
+    return [provider_user_id] if provider_user_id else []
+
+
+def moderation_notify(db, case, template, subject, body, admin_id):
+    """The owner is told in «Avisos» (inside the web) and by email, in its language."""
+    for uid in moderation_owner_ids(db, case['center_id'], case['provider_user_id']):
+        db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,'system')", (admin_id, uid, subject, body, now()))
+        item = f"{mail_t(user_lang(db, uid), MODERATION_TARGETS.get(case['target_type'], 'el contenido'))} «{case['title'] or ''}»"
+        notify_user(db, uid, template, {'item': item, 'reason': case['reason'], 'note': case['decision_note'] or '', 'panel_url': f'{public_site_url()}/#/admin'},
+                    ('moderation_case', case['id']))
+
+
+def moderation_case_row(db, r):
+    d = dict(r)
+    d['target_label'] = MODERATION_TARGETS.get(r['target_type'], r['target_type'])
+    if r['center_id']:
+        c = db.execute('SELECT name FROM centers WHERE id=?', (r['center_id'],)).fetchone(); d['owner'] = c['name'] if c else ''
+    elif r['provider_user_id']:
+        u = db.execute('SELECT fullname FROM users WHERE id=?', (r['provider_user_id'],)).fetchone(); d['owner'] = u['fullname'] if u else ''
+    d.pop('prev_state', None)
+    return d
 
 
 CATEGORY_LEVEL_RANK={'todos los niveles':0,'iniciacion':0,'intermedio':1,'avanzado':2,'formacion especifica':3}
@@ -5450,7 +5610,7 @@ def salidas_cercanas(db, lat=None, lon=None, when='', limit=20):
                           LEFT JOIN centers c ON c.id=s.center_id
                           WHERE s.active=1 AND COALESCE(s.service_type,'')<>'alquiler_equipo' AND ss.status='open' AND ss.spots_available>0 AND ss.slot_date BETWEEN ? AND ?
                             AND (ss.slot_date > date('now') OR (ss.slot_date=date('now') AND ss.slot_time>=time('now')))
-                            AND ((s.center_id IS NOT NULL AND {public_center_sql()}) OR (s.center_id IS NULL AND u.role='freelance'))
+                            AND ((s.center_id IS NOT NULL AND {public_center_sql()}) OR (s.center_id IS NULL AND {public_freelance_sql()}))
                           ORDER BY ss.slot_date, ss.slot_time LIMIT 400""", (d0.isoformat(), d1.isoformat())).fetchall()
     points = {}
     ids = [r['slot_id'] for r in rows]
@@ -5491,7 +5651,7 @@ def _build_travel(db):
     exps=db.execute('''SELECT e.*, u.fullname AS provider_name, c.name AS center_name FROM travel_experiences e
                          LEFT JOIN users u ON u.id=e.provider_user_id LEFT JOIN centers c ON c.id=e.center_id
                         WHERE e.active=1 AND e.status='published'
-                          AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))''').fetchall()
+                          AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1)) AND c.moderation_status IS NULL AND (e.center_id IS NOT NULL OR u.moderation_status IS NULL)''').fetchall()
     by_offer={}
     for e in enrich_experiences(db,exps): by_offer.setdefault(e['travel_offer_id'],[]).append(e)
     today=datetime.now().date().isoformat(); items=[]
@@ -6701,6 +6861,17 @@ EMAIL_TEMPLATES = {
    ('h', '{status_title}'), ('p', 'Hola {first_name}, {status_text}'), ('button', ('Ver mis viajes', 'area_url'))]},
  'admin_ops_alert': {'to': 'admin', 'subject': 'WORLDIVES · {subject}', 'pre': 'Aviso de operación.', 'blocks': [
    ('h', '{subject}'), ('note', '{detail}'), ('p', 'Revisa Administración → Operación y el registro del servidor.')]},
+ 'moderation_hidden': {'to': 'center', 'subject': 'Retirado de la web: {item}', 'pre': 'Corrígelo y envíalo a revisión.', 'blocks': [
+   ('h', 'Hemos retirado {item}'), ('p', 'Hola {first_name}, la administración de WORLDIVES ha retirado {item} de la web por este motivo:'), ('note', '{reason}'),
+   ('p', 'Nadie ha cambiado tu contenido: solo está oculto. Corrígelo desde tu panel y pulsa «Enviar a revisión». Si está bien, volverá a publicarse.'),
+   ('button', ('Abrir mi panel', 'panel_url'))]},
+ 'moderation_kept': {'to': 'center', 'subject': 'Sigue retirado: {item}', 'pre': 'Revisa la nota de la administración.', 'blocks': [
+   ('h', 'Sigue retirado'), ('p', 'Hola {first_name}, hemos revisado {item} y todavía no puede publicarse:'), ('note', '{note}'),
+   ('p', 'Corrígelo y vuelve a enviarlo a revisión desde tu panel.'), ('button', ('Abrir mi panel', 'panel_url'))]},
+ 'moderation_restored': {'to': 'center', 'subject': 'Publicado de nuevo: {item}', 'pre': 'Ya está visible en la web.', 'blocks': [
+   ('h', 'Publicado de nuevo'), ('p', 'Hola {first_name}, {item} vuelve a estar publicado. Gracias por corregirlo.'), ('button', ('Abrir mi panel', 'panel_url'))]},
+ 'moderation_resubmitted': {'to': 'admin', 'subject': 'Revisión pedida: {item}', 'pre': 'El titular dice que ya lo ha corregido.', 'blocks': [
+   ('h', 'Revisión pedida'), ('p', 'El titular de {item} dice que ya lo ha corregido:'), ('note', '{note}'), ('button', ('Abrir Moderación', 'admin_moderation_url'))]},
  'service_notice': {'to': 'center', 'subject': 'Aviso de WORLDIVES: {notice_title}', 'pre': '{notice_text}', 'blocks': [
    ('h', '{notice_title}'), ('p', 'Hola {first_name},'), ('p', '{notice_text}'),
    ('note', 'Las reservas ya hechas se mantienen. Te avisaremos cuando todo funcione con normalidad.')]},
@@ -6966,7 +7137,7 @@ EMAIL_TEMPLATE_LABELS = {
  'payment_review': 'Pago en revisión', 'booking_rejected': 'Solicitud rechazada', 'booking_cancelled_center': 'Cancelada por el centro',
  'booking_cancelled_diver': 'Cancelada por el buceador', 'reminder': 'Recordatorio del día anterior', 'review_request': 'Petición de reseña',
  'promotion_received': 'Promoción recibida', 'experience_request': 'Solicitud de viaje enviada', 'experience_status': 'Respuesta a solicitud de viaje',
- 'admin_ops_alert': 'Admin: aviso de operación (copias, integridad)', 'service_notice': 'Centro: aviso de mantenimiento o incidencia', 'plan_expired': 'Centro: plan terminado', 'plan_paid': 'Centro: plan pagado', 'info_request': 'Centro: solicitud de información',
+ 'admin_ops_alert': 'Admin: aviso de operación (copias, integridad)', 'service_notice': 'Centro: aviso de mantenimiento o incidencia', 'moderation_hidden': 'Centro: contenido retirado por moderación', 'moderation_kept': 'Centro: sigue retirado tras la revisión', 'moderation_restored': 'Centro: contenido publicado de nuevo', 'moderation_resubmitted': 'Admin: un centro pide revisión', 'plan_expired': 'Centro: plan terminado', 'plan_paid': 'Centro: plan pagado', 'info_request': 'Centro: solicitud de información',
  'info_request_copy': 'Copia de la solicitud de información', 'insurance_expiring': 'Centro: seguro a punto de caducar', 'insurance_expired': 'Centro: seguro caducado',
  'monthly_stats': 'Centro: estadísticas del mes', 'team_invite': 'Invitación al equipo de un centro', 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
@@ -11407,6 +11578,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
                 if path == '/api/admin/legal':
                     user=require_user(self,db); require_role(user,{'admin'}); st=legal_settings(db)
+                    admin_data_log(db,self,user,'denuncias y mensajes de contacto (datos de quien escribe)')
                     reports=[dict(r) for r in db.execute('SELECT id,reason,target_url,target_type,target_id,affected_notified_at,details,reporter_name,reporter_email,status,resolution,resolved_at,created_at FROM content_reports ORDER BY status=\'open\' DESC, id DESC LIMIT 200').fetchall()]
                     docs_state=[]
                     for slug,title in LEGAL_DOCS.items():
@@ -11650,6 +11822,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'admin'})
                     r=db.execute('SELECT * FROM email_outbox WHERE id=?',(int(path.rsplit('/',1)[1]),)).fetchone()
                     if not r: self.send_json({'error':'Correo no encontrado'},404); return
+                    admin_data_gate(db,self,user,'correos',f'correo {r["id"]} a {r["to_email"]}'); db.commit()
                     it=dict(r)
                     for k in ('text','html'): it[k]=re.sub(r'([?&](?:t|token)=)[A-Za-z0-9_\-]{12,}', r'\1***', it.get(k) or '')
                     self.send_json({'item':it}); return
@@ -11779,14 +11952,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     rows=db.execute('''SELECT e.*, u.fullname AS provider_name, u.role AS provider_role, c.name AS center_name
                                       FROM travel_experiences e LEFT JOIN users u ON u.id=e.provider_user_id LEFT JOIN centers c ON c.id=e.center_id
                                       WHERE e.travel_offer_id=? AND e.active=1 AND e.status='published'
-                                        AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1)) ORDER BY COALESCE(e.start_date,'9999-12-31'), e.id DESC''',(tid,)).fetchall()
+                                        AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1)) AND c.moderation_status IS NULL AND (e.center_id IS NOT NULL OR u.moderation_status IS NULL) ORDER BY COALESCE(e.start_date,'9999-12-31'), e.id DESC''',(tid,)).fetchall()
                     self.send_json({'offer':dict(offer),'experiences':enrich_experiences(db,[dict(r,offer_kind=offer['kind']) for r in rows])}); return
                 if path.startswith('/api/travel-experiences/') and path.rsplit('/',1)[1].isdigit():
                     eid=int(path.rsplit('/',1)[1])
                     row=db.execute('''SELECT e.*, u.fullname AS provider_name, c.name AS center_name, c.logo_url AS center_logo, t.title AS destination_title, t.region AS destination_region
                                       FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id LEFT JOIN users u ON u.id=e.provider_user_id LEFT JOIN centers c ON c.id=e.center_id
                                       WHERE e.id=? AND e.active=1 AND e.status='published'
-                                        AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))''',(eid,)).fetchone()
+                                        AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1)) AND c.moderation_status IS NULL AND (e.center_id IS NOT NULL OR u.moderation_status IS NULL)''',(eid,)).fetchone()
                     if not row: self.send_json({'error':'Experiencia no disponible.'},404); return
                     item=enrich_experiences(db,[row])[0]
                     # Who provides it and on what terms (shown before the request, Fase 5).
@@ -11866,8 +12039,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     return
                 if path.startswith('/api/providers/'):
                     provider_id=int(path.rsplit('/',1)[1])
-                    u=db.execute("SELECT id,fullname,role,provider_bio,avatar_url,center_id,instagram_url,facebook_url,twitter_url,youtube_url,tiktok_url FROM users WHERE id=? AND role IN ('center','freelance')",(provider_id,)).fetchone()
-                    if not u or (u['role']=='freelance' and provider_closure(db,'freelance',u['id'])): self.send_json({'error':'Profesional no encontrado'},404); return
+                    u=db.execute("SELECT id,fullname,role,provider_bio,avatar_url,center_id,instagram_url,facebook_url,twitter_url,youtube_url,tiktok_url,moderation_status FROM users WHERE id=? AND role IN ('center','freelance')",(provider_id,)).fetchone()
+                    if not u or (u['role']=='freelance' and (provider_closure(db,'freelance',u['id']) or u['moderation_status'])): self.send_json({'error':'Profesional no encontrado'},404); return
                     if u['role']=='freelance' and not u['center_id']: stat_bump(db,'freelance',u['id'],'views',self.client_ip()); db.commit()
                     result={'online_booking':provider_has(db,'freelance',u['id'],'online_bookings') if u['role']=='freelance' and not u['center_id'] else None,'id':u['id'],'fullname':u['fullname'],'role':u['role'],'provider_bio':u['provider_bio'] or '', 'avatar_url':u['avatar_url'] or '', 'socials': {k:(u[k] or '') for k in ('instagram_url','facebook_url','twitter_url','youtube_url','tiktok_url')}}
                     if u['role']=='center' and u['center_id']:
@@ -12130,11 +12303,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     cid_txt=path.rsplit('/',1)[1]
                     if cid_txt.isdigit():
                         cid=int(cid_txt)
+                        # v50.54: its own team (and the administration) still open a centre hidden by moderation.
+                        _viewer=current_user(self,db)
+                        _own=bool(_viewer and (_viewer['role']=='admin' or (_viewer['role']=='center' and _viewer['center_id']==cid)))
                         row=db.execute('''SELECT c.*,
                             (SELECT COUNT(*) FROM center_point_links cpl JOIN dive_points dp ON dp.id=cpl.dive_point_id WHERE cpl.center_id=c.id AND dp.active=1) AS point_count,
                             COALESCE((SELECT ROUND(AVG(cr.rating),1) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1),0) AS rating_average,
                             (SELECT COUNT(*) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1) AS review_count
-                            FROM centers c WHERE c.id=? AND '''+public_center_sql()+'''''',(cid,)).fetchone()
+                            FROM centers c WHERE c.id=? AND '''+public_center_sql(include_hidden=_own)+'''''',(cid,)).fetchone()
                         if not row: self.send_json({'error':'Centro no encontrado'},404); return
                         points=db.execute('SELECT p.* FROM center_point_links cpl JOIN dive_points p ON p.id=cpl.dive_point_id WHERE cpl.center_id=? AND p.active=1 ORDER BY p.name',(cid,)).fetchall()
                         services=db.execute('SELECT s.* FROM provider_services s WHERE s.center_id=? AND s.active=1 ORDER BY s.title',(cid,)).fetchall()
@@ -12326,7 +12502,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                       COALESCE((SELECT ROUND(AVG(cr.rating),1) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1),0) AS rating_average,
                                       (SELECT COUNT(*) FROM center_reviews cr WHERE cr.center_id=c.id AND cr.active=1) AS review_count
                                       FROM centers c WHERE '''+' AND '.join(where)+' ORDER BY '+order,args).fetchall()
-                    self.send_json({'items':[center_row(r) for r in rows]}); return
+                    items=[center_row(r) for r in rows]
+                    viewer=current_user(self,db)
+                    if viewer and viewer['role']=='admin':   # v50.54: a centre with an owner is moderated, never edited
+                        for it in items: it['has_owner']=center_has_owner(db,it['id'])
+                    self.send_json({'items':items}); return
                 if path.startswith('/api/bookings/') and (path.endswith('/receipt') or path.endswith('/receipt.pdf')):
                     user=require_user(self,db); bid=int(path.split('/')[3])
                     b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
@@ -12417,12 +12597,12 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     sid_=int(path.split('/')[3]); tok_=query.get('t',[''])[0]
                     user=boat_pdf_user(db,sid_,tok_) if tok_ else require_user(self,db)
                     if not user: raise PermissionError('El enlace ha caducado. Vuelve a abrir el resumen desde la app.')
-                    team_gate(db,user,path,'GET')
+                    team_gate(db,user,path,'GET'); admin_data_gate(db,self,user,'clientes_centro',f'resumen del barco de la salida {sid_}')
                     raw,digest=manifest_pdf(db,user,sid_,user_lang(db,user['id'])); db.commit()
                     log_phone_access(db,user,'boat_summary',0); self.send_bytes(raw,'application/pdf',f'WORLDIVES-barco-{path.split("/")[3]}.pdf'); return
                 if re.fullmatch(r'/api/manifest/\d+',path):
                     # Encargo 2, punto 1: the manifest of a departure (centre or professional that runs it; team members read it).
-                    user=require_user(self,db); d=manifest_data(db,user,int(path.rsplit('/',1)[1])); db.commit(); log_phone_access(db,user,'manifest',count_phones(d),d['slot']['id'] if isinstance(d.get('slot'),dict) else None); self.send_json(d); return
+                    user=require_user(self,db); admin_data_gate(db,self,user,'clientes_centro',f'hoja de embarque de la salida {path.rsplit("/",1)[1]}'); d=manifest_data(db,user,int(path.rsplit('/',1)[1])); db.commit(); log_phone_access(db,user,'manifest',count_phones(d),d['slot']['id'] if isinstance(d.get('slot'),dict) else None); self.send_json(d); return
                 if path=='/api/provider/waiver':
                     user=require_user(self,db); kind,oid=provider_owner(user); w,a=owner_where(kind,oid)
                     rows=[dict(r) for r in db.execute(f'SELECT id,version,title,body,created_at,active FROM waiver_templates WHERE {w} ORDER BY version DESC',a).fetchall()]
@@ -12433,6 +12613,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     # Encargo 2, punto 5: the waiver of the booking's centre and who has signed it (the diver or the centre).
                     user=require_user(self,db); bid=int(path.split('/')[3]); b=db.execute('SELECT * FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b or (b['user_id']!=user['id'] and not can_manage_booking(user,b)): raise NotFound('Reserva no encontrada.')
+                    admin_data_gate(db,self,user,'formularios_firmados',f'formulario de la reserva {bid}')
                     kind,oid=('center',b['center_id']) if b['center_id'] else ('freelance',b['provider_user_id'])
                     tpl=current_waiver(db,kind,oid) if oid else None
                     sigs=booking_signatures(db,bid)
@@ -12444,11 +12625,13 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); sid=int(path.rsplit('/',1)[1].split('.')[0])
                     r=db.execute('SELECT ws.id,b.user_id,b.center_id,b.provider_user_id FROM waiver_signatures ws JOIN bookings b ON b.id=ws.booking_id WHERE ws.id=?',(sid,)).fetchone()
                     if not r or (r['user_id']!=user['id'] and not can_manage_booking(user,r)): raise NotFound('Documento no encontrado.')
+                    admin_data_gate(db,self,user,'formularios_firmados',f'formulario firmado {sid}')
                     raw=waiver_pdf(db,sid,user_lang(db,user['id'])); self.send_bytes(raw,'application/pdf',f'WORLDIVES-descargo-{sid}.pdf'); return
                 if path.startswith('/api/bookings/') and path.endswith('/diver-sheet.pdf'):
                     user=require_user(self,db); bid=int(path.split('/')[3]); b=db.execute('SELECT user_id,center_id,provider_user_id FROM bookings WHERE id=?',(bid,)).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
                     if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise NotFound('Reserva no encontrada.')
+                    admin_data_gate(db,self,user,'formularios_firmados',f'ficha en PDF de la reserva {bid}')
                     if user['role'] in ('center','freelance') and b['user_id']!=user['id'] and not provider_can_see_user(db,b) and not is_guest_user(db,b['user_id'],b['center_id'] or -1):
                         raise PermissionError('Este cliente no ha compartido su ficha de buceador con tu centro.')
                     if user['role']=='admin': audit(db,user['id'],'diver_sheet_viewed','booking',bid); db.commit()
@@ -12471,7 +12654,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
                     if b['user_id']!=user['id'] and not can_manage_booking(user,b): raise NotFound('Reserva no encontrada.')
                     # G1/G5: the centre sees the diver's profile and documents only when the diver booked or shared them.
-                    can_see=user['role']=='admin' or b['user_id']==user['id'] or provider_can_see_user(db,b) or is_guest_user(db,b['user_id'],b['center_id'] or -1)
+                    # v50.54: the administration sees it only when «Datos personales» allows it (and the access is logged).
+                    if user['role']=='admin': can_see=admin_may_see(db,'clientes_centro')
+                    else: can_see=b['user_id']==user['id'] or provider_can_see_user(db,b) or is_guest_user(db,b['user_id'],b['center_id'] or -1)
+                    if user['role']=='admin' and can_see: admin_data_gate(db,self,user,'clientes_centro',f'ficha del buceador de la reserva {bid}')
                     docs=db.execute('SELECT id,document_type,title,expires_at,status,original_name,uploaded_at FROM user_documents WHERE user_id=? ORDER BY expires_at IS NULL, expires_at',(b['user_id'],)).fetchall() if can_see else []
                     profile=None if not can_see else db.execute('''SELECT up.phone,up.country,up.city,up.preferred_language,up.notes,up.date_of_birth,up.emergency_contact_name,up.emergency_contact_phone,up.equipment_required,up.suit_type,up.suit_size,up.boot_size,up.bcd_size,up.fin_size,up.mask_size,up.usual_weight_kg,up.tank_preference,up.computer_preference,up.equipment_notes,c.name AS certification_name FROM user_profiles up LEFT JOIN certifications c ON c.id=up.certification_id WHERE up.user_id=?''',(b['user_id'],)).fetchone()
                     po=db.execute("SELECT id,status,amount,currency,created_at,paid_at,amount_received,receipt_url,card_brand,card_last4,provider_payment_id FROM payment_orders WHERE booking_id=? ORDER BY CASE status WHEN 'paid' THEN 0 ELSE 1 END, id DESC LIMIT 1",(bid,)).fetchone()
@@ -12580,7 +12766,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not doc: self.send_json({'error':'Documento no encontrado'},404); return
                     own=doc['user_id']==user['id']
                     if not own:
-                        if user['role']=='admin': pass
+                        if user['role']=='admin': admin_data_gate(db,self,user,'formularios_firmados',f'documento {did} de un buceador')
                         elif user['role']=='center' and user['center_id'] and center_can_see_user(db,user['center_id'],doc['user_id']): pass
                         else:
                             audit(db,user['id'],'document_access_denied','user_document',did,{'owner':doc['user_id']}); db.commit()
@@ -12653,6 +12839,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     self.send_json({'items':[dict(r) for r in rows]}); return
                 if path == '/api/admin/center-claims':
                     user=require_user(self,db); require_role(user,{'admin'})
+                    admin_data_log(db,self,user,'solicitudes de alta de centros (contacto del solicitante)')
                     rows=db.execute('''SELECT cc.*,u.fullname,u.email,u.username,c.name AS matched_center_name,c.website AS draft_website,
                                               sc.name AS suggested_center_name,sc.city AS suggested_center_city,sc.phone AS suggested_center_phone,sc.website AS suggested_center_website
                                          FROM center_claims cc JOIN users u ON u.id=cc.user_id LEFT JOIN centers c ON c.id=cc.center_id LEFT JOIN centers sc ON sc.id=cc.suggested_center_id
@@ -12665,10 +12852,12 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     self.send_json({'items':items,'methods':VERIFICATION_METHODS}); return
                 if path == '/api/admin/users':
                     user=require_user(self,db); require_role(user,{'admin'})
+                    admin_data_log(db,self,user,'lista de cuentas (nombre y email)')
                     rows=db.execute('''SELECT u.id,u.fullname,u.email,u.username,u.role,u.center_id,u.created_at,u.last_login,c.name AS center_name FROM users u LEFT JOIN centers c ON c.id=u.center_id ORDER BY u.created_at DESC''').fetchall()
                     self.send_json({'items':[dict(r) for r in rows]}); return
                 if path == '/api/admin/suggestions':
                     user=require_user(self,db); require_role(user,{'admin'})
+                    admin_data_log(db,self,user,'propuestas de posición (nombre y email de quien propone)')
                     rows=db.execute('''SELECT s.*, p.name AS point_name, u.fullname, u.email FROM point_position_suggestions s JOIN dive_points p ON p.id=s.dive_point_id JOIN users u ON u.id=s.user_id WHERE s.status='pending' ORDER BY s.created_at DESC''').fetchall()
                     self.send_json({'items':[dict(r) for r in rows]}); return
                 if path == '/api/admin/qr':
@@ -12679,6 +12868,23 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'admin'})
                     rows=db.execute('''SELECT v.*, p.name AS point_name, p.country, p.region, u.fullname AS created_by_name FROM virtual_experiences v JOIN dive_points p ON p.id=v.dive_point_id LEFT JOIN users u ON u.id=v.created_by_user_id WHERE v.active=1 ORDER BY v.updated_at DESC, v.id DESC''').fetchall()
                     self.send_json({'items':[dict(r) for r in rows]}); return
+                if path == '/api/admin/moderation':
+                    # v50.54: cases hidden by the administration, newest first; «resubmitted» first when filtering.
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    st=clean_text(query.get('status',[''])[0],20)
+                    rows=db.execute('SELECT * FROM moderation_cases'+(' WHERE status=?' if st else '')+" ORDER BY CASE status WHEN 'resubmitted' THEN 0 WHEN 'open' THEN 1 ELSE 2 END, id DESC LIMIT 300",
+                                    (st,) if st else ()).fetchall()
+                    self.send_json({'items':[moderation_case_row(db,r) for r in rows]}); return
+                if path == '/api/admin/data-permissions':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    self.send_json({'items':[{'key':k,'label':v[0],'help':v[1],'default':v[2],'allowed':admin_may_see(db,k)} for k,v in ADMIN_DATA_PERMS.items()],
+                                    'pending_lawyer':True}); return
+                if path == '/api/provider/moderation':
+                    # What the administration has hidden of this centre or freelance, with its reason, and what to do.
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    if user['role']=='center' and user['center_id']: rows=db.execute("SELECT * FROM moderation_cases WHERE center_id=? ORDER BY id DESC LIMIT 100",(user['center_id'],)).fetchall()
+                    else: rows=db.execute("SELECT * FROM moderation_cases WHERE provider_user_id=? AND center_id IS NULL ORDER BY id DESC LIMIT 100",(user['id'],)).fetchall()
+                    self.send_json({'items':[moderation_case_row(db,r) for r in rows]}); return
                 if path == '/api/admin/audit':
                     user=require_user(self,db); require_role(user,{'admin'})
                     rows=db.execute('''SELECT a.*, u.fullname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.id DESC LIMIT 300''').fetchall()
@@ -12687,6 +12893,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'center','admin'})
                     cid = user['center_id'] if user['role']=='center' else int(query.get('center_id',['0'])[0] or 0)
                     if not cid: self.send_json({'items':[]}); return
+                    admin_data_gate(db,self,user,'clientes_centro',f'clientes del centro {cid}')
                     # A client is anyone who booked with the center or checked in with its QR.
                     rows=db.execute('''WITH b AS (SELECT user_id, COUNT(*) AS bookings_count, MAX(booking_date) AS last_booking, MIN(booking_date) AS first_booking,
                                                      SUM(CASE WHEN payment_status='paid' THEN price ELSE 0 END) AS total_paid, MAX(contact_phone) AS phone
@@ -13409,15 +13616,18 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/center-points/assign':
                     user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); center_id=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0); pid=int(data.get('dive_point_id') or 0)
                     if not center_id or not pid: raise ValueError('Centro y punto son obligatorios.')
+                    admin_content_guard(db,user,center_id)
                     if not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(center_id,)).fetchone(): raise ValueError('Centro no válido.')
                     if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone(): raise ValueError('Punto no válido.')
                     db.execute('INSERT OR IGNORE INTO center_point_links(center_id,dive_point_id,created_at) VALUES(?,?,?)',(center_id,pid,now())); audit(db,user['id'],'center_point_assigned','center_point',pid,{'center_id':center_id}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center-points/unassign':
                     user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); center_id=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0); pid=int(data.get('dive_point_id') or 0)
                     if not center_id or not pid: raise ValueError('Centro y punto son obligatorios.')
+                    admin_content_guard(db,user,center_id)
                     db.execute('DELETE FROM center_point_links WHERE center_id=? AND dive_point_id=?',(center_id,pid)); audit(db,user['id'],'center_point_unassigned','center_point',pid,{'center_id':center_id}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center-equipment':
                     user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); center_id=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0)
+                    admin_content_guard(db,user,center_id)
                     defaults={'fins':'Aletas','mask':'Máscara','wetsuit':'Traje de neopreno','regulator':'Regulador','bcd':'Chaleco BCD','tank':'Botella','computer':'Ordenador de buceo','full_kit':'Equipo completo'}
                     code=clean_text(data.get('code'),40); label=clean_text(data.get('label'),120) or defaults.get(code,code); price=clean_money(data.get('price'),allow_none=True)
                     if code not in defaults: raise ValueError('Equipo no válido.')
@@ -13541,6 +13751,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     color=clean_text(data.get('color'),20) or '#2563eb'
                     if not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color='#2563eb'
                     db.execute('''UPDATE provider_services SET service_type=?,title=?,description=?,duration_minutes=?,max_participants=?,booking_mode=?,response_hours=?,payment_hours=?,active=?,color=?,updated_at=? WHERE id=?''',(stype,title,clean_text(data.get('description'),5000),duration,maxp,mode,resp_h,pay_h,1 if data.get('active',True) else 0,color,now(),sid))
+                    if moderation_open(db,'service',sid): db.execute('UPDATE provider_services SET active=0 WHERE id=? AND provider_user_id=?',(sid,row['provider_user_id']))   # v50.54: hidden until reviewed
                     if 'template_id' in data: db.execute('UPDATE provider_services SET template_id=? WHERE id=?',(valid_template_id(db,data.get('template_id')),sid))
                     if 'deposit_type' in data:
                         dep_kind,dep_value=clean_deposit(data,cur_price); db.execute('UPDATE provider_services SET deposit_type=?,deposit_value=? WHERE id=?',(dep_kind,dep_value,sid))
@@ -14404,6 +14615,70 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         notify_user(db,r['user_id'],'review_replied',{'center_name':db.execute('SELECT name FROM centers WHERE id=?',(r['center_id'],)).fetchone()['name'],
                                     'reply':body,'center_url':f"{public_site_url()}/#/centro?id={r['center_id']}"},('center_review',rid))
                     audit(db,user['id'],'review_reply_saved' if body else 'review_reply_deleted','center_review',rid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/moderation/hide':
+                    # v50.54 (owner's brief, point 8): hide a centre, a freelance profile, a service or an experience with a
+                    # reason. Nothing of it is changed: only hidden. The owner is told and can ask for a review.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    ttype=clean_text(data.get('target_type'),20); tid=int(data.get('target_id') or 0); reason=clean_text(data.get('reason'),1000) or ''
+                    if ttype not in MODERATION_TARGETS: raise ValueError('Elige qué quieres ocultar.')
+                    if len(reason)<10: raise ValueError('Explica el motivo (al menos 10 caracteres): el centro lo recibe tal cual.')
+                    title,cid,puid=moderation_target(db,ttype,tid)
+                    if moderation_open(db,ttype,tid): raise ValueError('Ya está oculto y pendiente de corrección.')
+                    prev=moderation_apply(db,ttype,tid,True)
+                    case_id=db.execute('INSERT INTO moderation_cases(target_type,target_id,center_id,provider_user_id,title,status,reason,prev_state,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                                       (ttype,tid,cid,puid,title,'open',reason,json.dumps(prev),user['id'],now())).lastrowid
+                    case=db.execute('SELECT * FROM moderation_cases WHERE id=?',(case_id,)).fetchone()
+                    moderation_notify(db,case,'moderation_hidden',f'Retirado de la web: {title}',f'La administración ha retirado {MODERATION_TARGETS[ttype]} «{title}». Motivo: {reason}\n\nCorrígelo y pulsa «Enviar a revisión» en tu panel.',user['id'])
+                    audit(db,user['id'],'moderation_hidden',ttype,tid,{'case':case_id,'reason':reason,'center_id':cid,'provider_user_id':puid}); db.commit()
+                    self.send_json({'ok':True,'id':case_id}); return
+                if path=='/api/admin/data-permissions':
+                    # v50.54: which personal data the administration may open, changed here and not in code. Every change
+                    # is logged with what was before and the reason.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    reason=clean_text(data.get('reason'),300) or ''
+                    if len(reason)<10: raise ValueError('Explica el motivo del cambio (al menos 10 caracteres): queda en el registro.')
+                    changes={}
+                    for k in ADMIN_DATA_PERMS:
+                        if k in (data.get('allowed') or {}):
+                            new=bool(data['allowed'][k]); old=admin_may_see(db,k)
+                            if new!=old:
+                                db.execute('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by',
+                                           ('admin_datos_'+k,'1' if new else '0',now(),user['id'])); changes[k]={'antes':old,'ahora':new}
+                    audit(db,user['id'],'admin_data_permissions','site_settings',None,{'cambios':changes,'reason':reason}); db.commit()
+                    self.send_json({'ok':True,'changes':changes}); return
+                if path in ('/api/admin/moderation/restore','/api/admin/moderation/keep'):
+                    # Publish again (as it was before) or keep it hidden with a note the owner receives.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    case=db.execute('SELECT * FROM moderation_cases WHERE id=?',(int(data.get('id') or 0),)).fetchone()
+                    if not case or case['status'] not in ('open','resubmitted'): raise NotFound('Caso no encontrado o ya cerrado.')
+                    note=clean_text(data.get('note'),1000) or ''
+                    if path.endswith('/keep'):
+                        if len(note)<10: raise ValueError('Explica qué falta por corregir (al menos 10 caracteres).')
+                        db.execute("UPDATE moderation_cases SET status='open',decision_note=?,decided_by=?,decided_at=? WHERE id=?",(note,user['id'],now(),case['id']))
+                        case=db.execute('SELECT * FROM moderation_cases WHERE id=?',(case['id'],)).fetchone()
+                        moderation_notify(db,case,'moderation_kept',f'Sigue retirado: {case["title"]}',f'La administración ha revisado «{case["title"]}» y sigue retirado. {note}',user['id'])
+                        audit(db,user['id'],'moderation_kept',case['target_type'],case['target_id'],{'case':case['id'],'note':note,'center_id':case['center_id']})
+                    else:
+                        moderation_apply(db,case['target_type'],case['target_id'],False,json.loads(case['prev_state'] or '{}'))
+                        db.execute("UPDATE moderation_cases SET status='restored',decision_note=?,decided_by=?,decided_at=? WHERE id=?",(note or None,user['id'],now(),case['id']))
+                        case=db.execute('SELECT * FROM moderation_cases WHERE id=?',(case['id'],)).fetchone()
+                        moderation_notify(db,case,'moderation_restored',f'Publicado de nuevo: {case["title"]}',f'«{case["title"]}» vuelve a estar publicado. {note}'.strip(),user['id'])
+                        audit(db,user['id'],'moderation_restored',case['target_type'],case['target_id'],{'case':case['id'],'note':note,'center_id':case['center_id']})
+                    db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/provider/moderation/resubmit':
+                    # The owner says it is corrected: the administration reviews it (it stays hidden until then).
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
+                    case=db.execute('SELECT * FROM moderation_cases WHERE id=?',(int(data.get('id') or 0),)).fetchone()
+                    mine=case and ((user['role']=='center' and case['center_id'] and case['center_id']==user['center_id']) or (not case['center_id'] and case['provider_user_id']==user['id']))
+                    if not mine: raise NotFound('Caso no encontrado.')
+                    if case['status']!='open': raise ValueError('Ya está enviado a revisión.' if case['status']=='resubmitted' else 'Este caso ya está cerrado.')
+                    note=clean_text(data.get('note'),1000) or ''
+                    if len(note)<5: raise ValueError('Cuenta qué has corregido (al menos 5 caracteres).')
+                    db.execute("UPDATE moderation_cases SET status='resubmitted',resubmit_note=?,resubmitted_by=?,resubmitted_at=? WHERE id=?",(note,user['id'],now(),case['id']))
+                    notify_admins(db,'moderation_resubmitted',{'item':f"{MODERATION_TARGETS.get(case['target_type'],'')} «{case['title']}»",'note':note,
+                                                                'admin_moderation_url':f'{public_site_url()}/#/admin?tab=moderation'},('moderation_case',case['id']))
+                    audit(db,user['id'],'moderation_resubmitted',case['target_type'],case['target_id'],{'case':case['id'],'note':note}); db.commit()
+                    self.send_json({'ok':True}); return
                 if path.startswith('/api/admin/reviews/') and path.endswith('/moderate'):
                     # Administration hides or restores a review and tells the author why.
                     user=require_user(self,db); require_role(user,{'admin'}); rid=int(path.split('/')[-2]); data=json_body(self)
@@ -14456,7 +14731,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     service=None; provider_user_id=None
                     if service_id and not center_id:
                         # Fase 2.7: services of a freelance professional without a centre.
-                        service=db.execute("SELECT s.* FROM provider_services s JOIN users u ON u.id=s.provider_user_id WHERE s.id=? AND s.active=1 AND s.center_id IS NULL AND u.role='freelance'",(service_id,)).fetchone()
+                        service=db.execute(f"SELECT s.* FROM provider_services s JOIN users u ON u.id=s.provider_user_id WHERE s.id=? AND s.active=1 AND s.center_id IS NULL AND {public_freelance_sql()}",(service_id,)).fetchone()
                         if not service: raise ValueError('Servicio no válido.')
                         provider_user_id=service['provider_user_id']
                     else:
@@ -15051,6 +15326,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'admin','center','freelance'}); fields,files=parse_multipart(self); eid=int(fields.get('id') or 0)
                     exp=db.execute('SELECT * FROM travel_experiences WHERE id=?',(eid,)).fetchone()
                     if not exp or not (user['role']=='admin' or owns_service(user,exp['provider_user_id'],exp['center_id'])): raise NotFound('Experiencia no encontrada.')
+                    if user['role']=='admin': admin_content_guard(db,user,exp['center_id'],exp['provider_user_id'] if exp['provider_type']=='freelance' else None)
                     url=None if fields.get('remove')=='1' else save_public_image(files.get('file'),f'experience_{eid}')
                     db.execute('UPDATE travel_experiences SET image_url=?,updated_at=? WHERE id=?',(url,now(),eid)); audit(db,user['id'],'travel_experience_image','travel_experience',eid); db.commit()
                     if exp['image_url']!=url: delete_public_image(exp['image_url'])
@@ -15088,6 +15364,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     # v50.47: a centre publishes for its own centre and a freelance for itself (never for another centre).
                     center_id=user['center_id'] if user['role']=='center' else ((int(data.get('center_id') or 0) or None) if user['role']=='admin' else None)
                     if user['role']=='freelance' and data.get('center_id'): ignored_tenant_fields(db,user,path,['center_id'])
+                    if user['role']=='admin': admin_content_guard(db,user,center_id,None if center_id else user['id'])   # v50.54: never in a centre's name
                     # Verified centers publish directly (the admin can still hide it); freelance proposals are reviewed.
                     status='published' if user['role'] in {'admin','center'} else 'pending'
                     _xn=clean_experience_numbers(data)
@@ -15134,6 +15411,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/admin/travel-experiences/status':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); eid=int(data.get('id')); status=clean_text(data.get('status'),30)
                     if status not in {'published','rejected','pending'}: raise ValueError('Estado no válido.')
+                    if moderation_open(db,'experience',eid): raise ValueError('Esta experiencia está retirada por moderación: se vuelve a publicar desde «Moderación».')
                     db.execute('UPDATE travel_experiences SET status=?,updated_at=? WHERE id=?',(status,now(),eid)); audit(db,user['id'],'travel_experience_status','travel_experience',eid,{'status':status}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/centers':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
@@ -15141,6 +15419,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/centers/update':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); cid=int(data.get('id') or 0)
                     if not db.execute('SELECT 1 FROM centers WHERE id=?',(cid,)).fetchone(): raise ValueError('Centro no encontrado.')
+                    admin_content_guard(db,user,cid)
                     db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),clean_coord(data.get('latitude'),clean_lat),clean_coord(data.get('longitude'),clean_lng),wsec.clean_local_or_http_url(data.get('logo_url'),500) or None,now(),cid))
                     audit(db,user['id'],'center_updated','center',cid); db.commit(); self.send_json({'ok':True,'id':cid}); return
                 if path=='/api/admin/users/role':
@@ -15157,6 +15436,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 if path=='/api/qr/create':
                     user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self); cid=int(data.get('center_id') or user['center_id'])
                     if user['role']=='center' and cid!=user['center_id']: raise PermissionError('No puedes crear QR para otro centro.')
+                    admin_content_guard(db,user,cid)
                     if not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(cid,)).fetchone(): raise ValueError('Centro no válido.')
                     purpose=clean_text(data.get('purpose'),40) or 'center'
                     allowed={'center','diver','dive','booking'}
@@ -15344,6 +15624,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     tid=resolve_travel_offer(db,data) or exp['travel_offer_id']
                     xs,xe,xp,xt,xf=clean_experience_numbers(data)
                     status='published' if user['role']=='center' else exp['status']
+                    if moderation_open(db,'experience',eid): status='hidden'   # v50.54: hidden by the administration until reviewed
                     db.execute('UPDATE travel_experiences SET travel_offer_id=?,title=?,summary=?,description=?,start_date=?,end_date=?,price=?,spots_total=?,spots_available=?,includes=?,conditions=?,status=?,active=1,updated_at=? WHERE id=?',
                                (tid,clean_text(data.get('title'),180) or exp['title'],clean_text(data.get('summary'),500),clean_text(data.get('description'),5000),xs,xe,xp,xt,xf,clean_text(data.get('includes'),3000),clean_text(data.get('conditions'),3000),status,now(),eid))
                     audit(db,user['id'],'travel_experience_updated','travel_experience',eid); db.commit(); self.send_json({'ok':True}); return
@@ -15487,6 +15768,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     audit(db,user['id'],'service_template_deleted','service_template',tid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center/extras/save':
                     user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); cid=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0); eid=int(data.get('id') or 0)
+                    admin_content_guard(db,user,cid)
                     if eid:
                         row=db.execute('SELECT id FROM center_extras WHERE id=? AND center_id=?',(eid,cid)).fetchone()
                         if not row: raise PermissionError('Extra no válido.')
@@ -15495,13 +15777,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         db.execute('INSERT INTO center_extras(center_id,name,description,price,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',(cid,clean_text(data.get('name'),120),clean_text(data.get('description'),500),clean_money(data.get('price')),1,now(),now()))
                     db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center/extras/delete':
-                    user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); cid=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0); eid=int(data.get('id') or 0); db.execute('DELETE FROM center_extras WHERE id=? AND center_id=?',(eid,cid)); db.commit(); self.send_json({'ok':True}); return
+                    user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); cid=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0); eid=int(data.get('id') or 0); admin_content_guard(db,user,cid); db.execute('DELETE FROM center_extras WHERE id=? AND center_id=?',(eid,cid)); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/provider/reward-offers':
                     # Advantages that each centre defines and pays for, exchanged for points (Fase 3). Never money.
                     user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self)
                     require_switch(db,'points'); require_feature(db,user,'rewards')
                     cid=int(data.get('center_id') or user['center_id'] or 0) if user['role']=='admin' else int(user['center_id'] or 0)
                     if not cid: raise ValueError('Selecciona un centro.')
+                    admin_content_guard(db,user,cid)
                     if not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(cid,)).fetchone(): raise ValueError('Centro no válido.')
                     title=clean_text(data.get('title'),180)
                     if not title: raise ValueError('El nombre de la ventaja es obligatorio.')

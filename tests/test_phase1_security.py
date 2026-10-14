@@ -70,10 +70,16 @@ class Phase1Security(ServerTestCase):
         self.assertEqual(self.center_a.get(f'/api/documents/file/{did}').status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
         # Another diver: denied.
         self.assertEqual(self.diver2.get(f'/api/documents/file/{did}').status, 404)  # v50.47 (B.3)
-        # The administrator: allowed and logged.
-        self.assertEqual(self.admin.get(f'/api/documents/file/{did}').status, 200)
+        # The administrator (v50.54, owner's brief point 8): only when «Datos personales» allows it, and logged.
+        self.assertEqual(self.admin.get(f'/api/documents/file/{did}').status, 403)
+        self.assertEqual(self.admin.post('/api/admin/data-permissions', {'allowed': {'formularios_firmados': True}, 'reason': 'Prueba de la descarga de documentos.'}).status, 200)
+        try:
+            self.assertEqual(self.admin.get(f'/api/documents/file/{did}').status, 200)
+        finally:
+            self.admin.post('/api/admin/data-permissions', {'allowed': {'formularios_firmados': False}, 'reason': 'Vuelta a la configuración inicial.'})
         logged = self.server.sql("SELECT * FROM audit_log WHERE action='document_downloaded' AND entity_id=?", (did,))
         self.assertGreaterEqual(len(logged), 2)
+        self.assertTrue(self.server.sql("SELECT 1 FROM audit_log WHERE action='admin_personal_data' AND details LIKE ?", (f'%documento {did}%',)))
         # The diver books with centre A himself -> centre A can see it; centre B still cannot.
         cid = self.center_a.user['center_id']
         r = d.post('/api/bookings', {'center_id': cid, 'booking_date': '2030-06-01', 'participants': 1})

@@ -216,7 +216,7 @@ def run(shots: Path | None):
             ctx, pg = session()
             go(pg, '#/puntos', 2000); pg.fill('#pt-q', 'Hawaii'); pg.press('#pt-q', 'Enter'); pg.wait_for_timeout(3500)
             h = pg.evaluate("()=>({h:document.querySelector('.pt-none h3')?.textContent||'',cards:document.querySelectorAll('#pt-grid .pt-card').length,m:document.querySelectorAll('#pt-map .pt-num').length})")
-            check('puntos «Hawaii»: «Todavía no hay puntos de buceo en «Hawaii»» y los más cercanos debajo', 'Todavía no hay puntos de buceo en' in h['h'] and h['cards'] > 0 and h['m'] == h['cards'], h)
+            check('puntos «Hawaii»: «Todavía no hay puntos de buceo en «Hawaii»» y los más cercanos debajo', 'Todavía no hay puntos de buceo en' in h['h'] and h['cards'] > 0, h)   # v50.54: no side map in the list view
             shot(pg, 'puntos-hawaii', full=True)
             go(pg, '#/explorar', 2500); pg.fill('#ex-q', 'Hawaii'); pg.wait_for_timeout(3500)
             ex = pg.inner_text('#ex-none') if pg.locator('#ex-none:visible').count() else ''

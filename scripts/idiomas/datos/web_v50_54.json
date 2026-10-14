@@ -1,0 +1,506 @@
+{
+ "exact": {
+  "Acceso rápido a la demostración": {
+   "en": "Quick access to the demo",
+   "fr": "Accès rapide à la démo",
+   "de": "Schnellzugang zur Demo",
+   "it": "Accesso rapido alla demo",
+   "pt": "Acesso rápido à demonstração",
+   "pl": "Szybki dostęp do wersji demo",
+   "nl": "Snelle toegang tot de demo",
+   "zh": "演示版快速入口"
+  },
+  "Solo en la versión de demostración. Un clic y entras con esa cuenta (contraseñas en CUENTAS-DEMO.txt).": {
+   "en": "Demo version only. One click and you are signed in with that account (passwords in CUENTAS-DEMO.txt).",
+   "fr": "Uniquement dans la version de démonstration. Un clic et vous êtes connecté avec ce compte (mots de passe dans CUENTAS-DEMO.txt).",
+   "de": "Nur in der Demoversion. Ein Klick und du bist mit diesem Konto angemeldet (Passwörter in CUENTAS-DEMO.txt).",
+   "it": "Solo nella versione demo. Un clic ed entri con quell'account (password in CUENTAS-DEMO.txt).",
+   "pt": "Apenas na versão de demonstração. Um clique e entra com essa conta (palavras-passe em CUENTAS-DEMO.txt).",
+   "pl": "Tylko w wersji demo. Jedno kliknięcie i logujesz się na to konto (hasła w CUENTAS-DEMO.txt).",
+   "nl": "Alleen in de demoversie. Eén klik en je bent ingelogd met dat account (wachtwoorden in CUENTAS-DEMO.txt).",
+   "zh": "仅限演示版。点击一下即可用该账户登录（密码见 CUENTAS-DEMO.txt）。"
+  },
+  "Buscar un punto": {
+   "en": "Search for a dive site",
+   "fr": "Rechercher un site",
+   "de": "Tauchplatz suchen",
+   "it": "Cerca un punto",
+   "pt": "Procurar um ponto",
+   "pl": "Szukaj miejsca",
+   "nl": "Zoek een duikstek",
+   "zh": "搜索潜点"
+  },
+  "Con centro": {
+   "en": "With a centre",
+   "fr": "Avec un centre",
+   "de": "Mit Tauchbasis",
+   "it": "Con centro",
+   "pt": "Com centro",
+   "pl": "Z centrum",
+   "nl": "Met centrum",
+   "zh": "有潜水中心"
+  },
+  "Cualquier nivel": {
+   "en": "Any level",
+   "fr": "Tous niveaux",
+   "de": "Jedes Level",
+   "it": "Qualsiasi livello",
+   "pt": "Qualquer nível",
+   "pl": "Dowolny poziom",
+   "nl": "Elk niveau",
+   "zh": "任意级别"
+  },
+  "Cualquier profundidad": {
+   "en": "Any depth",
+   "fr": "Toute profondeur",
+   "de": "Jede Tiefe",
+   "it": "Qualsiasi profondità",
+   "pt": "Qualquer profundidade",
+   "pl": "Dowolna głębokość",
+   "nl": "Elke diepte",
+   "zh": "任意深度"
+  },
+  "Hasta 18 m": {
+   "en": "Up to 18 m",
+   "fr": "Jusqu'à 18 m",
+   "de": "Bis 18 m",
+   "it": "Fino a 18 m",
+   "pt": "Até 18 m",
+   "pl": "Do 18 m",
+   "nl": "Tot 18 m",
+   "zh": "18 米以内"
+  },
+  "18–30 m": {
+   "en": "18–30 m",
+   "fr": "18–30 m",
+   "de": "18–30 m",
+   "it": "18–30 m",
+   "pt": "18–30 m",
+   "pl": "18–30 m",
+   "nl": "18–30 m",
+   "zh": "18–30 米"
+  },
+  "Más de 30 m": {
+   "en": "Over 30 m",
+   "fr": "Plus de 30 m",
+   "de": "Über 30 m",
+   "it": "Oltre 30 m",
+   "pt": "Mais de 30 m",
+   "pl": "Ponad 30 m",
+   "nl": "Meer dan 30 m",
+   "zh": "30 米以上"
+  },
+  "Cómo es, qué necesitas y un consejo": {
+   "en": "What it is like, what you need and a tip",
+   "fr": "À quoi ça ressemble, ce qu'il faut et un conseil",
+   "de": "Wie es ist, was du brauchst und ein Tipp",
+   "it": "Com'è, cosa ti serve e un consiglio",
+   "pt": "Como é, o que precisas e um conselho",
+   "pl": "Jak jest, czego potrzebujesz i wskazówka",
+   "nl": "Hoe het is, wat je nodig hebt en een tip",
+   "zh": "特点、所需条件和建议"
+  },
+  "Datos clave": {
+   "en": "Key facts",
+   "fr": "Données clés",
+   "de": "Eckdaten",
+   "it": "Dati chiave",
+   "pt": "Dados principais",
+   "pl": "Najważniejsze dane",
+   "nl": "Belangrijkste gegevens",
+   "zh": "关键信息"
+  },
+  "Elige un tipo de buceo y te mostramos dónde hacerlo, qué nivel necesitas y qué centros te llevan.": {
+   "en": "Choose a type of dive and we show you where to do it, which level you need and which centres take you there.",
+   "fr": "Choisissez un type de plongée : nous vous montrons où la faire, le niveau requis et les centres qui vous y emmènent.",
+   "de": "Wähle eine Tauchart und wir zeigen dir, wo du sie machen kannst, welches Level du brauchst und welche Basen dich hinbringen.",
+   "it": "Scegli un tipo di immersione e ti mostriamo dove farla, che livello serve e quali centri ti portano.",
+   "pt": "Escolhe um tipo de mergulho e mostramos-te onde fazê-lo, que nível precisas e que centros te levam.",
+   "pl": "Wybierz rodzaj nurkowania, a pokażemy, gdzie je zrobić, jaki poziom jest potrzebny i które centra cię zabiorą.",
+   "nl": "Kies een soort duik en wij laten zien waar je die kunt maken, welk niveau je nodig hebt en welke centra je meenemen.",
+   "zh": "选择一种潜水类型，我们会告诉你在哪里潜、需要什么级别以及哪些中心可以带你去。"
+  },
+  "Elige uno de estos:": {
+   "en": "Choose one of these:",
+   "fr": "Choisissez-en un :",
+   "de": "Wähle eine davon:",
+   "it": "Scegline uno:",
+   "pt": "Escolhe um destes:",
+   "pl": "Wybierz jeden z nich:",
+   "nl": "Kies er een:",
+   "zh": "请选择其中之一："
+  },
+  "No conocemos ese tipo de buceo": {
+   "en": "We do not know that type of dive",
+   "fr": "Nous ne connaissons pas ce type de plongée",
+   "de": "Diese Tauchart kennen wir nicht",
+   "it": "Non conosciamo questo tipo di immersione",
+   "pt": "Não conhecemos esse tipo de mergulho",
+   "pl": "Nie znamy tego rodzaju nurkowania",
+   "nl": "Die soort duik kennen we niet",
+   "zh": "我们不认识这种潜水类型"
+  },
+  "Ordenados por cercanía. Tu ubicación es aproximada: no mostramos distancias.": {
+   "en": "Sorted by closeness. Your location is approximate: we do not show distances.",
+   "fr": "Triés par proximité. Votre position est approximative : nous n'affichons pas les distances.",
+   "de": "Nach Nähe sortiert. Dein Standort ist ungefähr: Wir zeigen keine Entfernungen.",
+   "it": "Ordinati per vicinanza. La tua posizione è approssimativa: non mostriamo le distanze.",
+   "pt": "Ordenados por proximidade. A tua localização é aproximada: não mostramos distâncias.",
+   "pl": "Posortowane według odległości. Twoja lokalizacja jest przybliżona: nie pokazujemy odległości.",
+   "nl": "Gesorteerd op nabijheid. Je locatie is bij benadering: we tonen geen afstanden.",
+   "zh": "按距离排序。你的位置是大致位置：不显示距离。"
+  },
+  "Ordenados por cercanía a ti.": {
+   "en": "Sorted by how close they are to you.",
+   "fr": "Triés selon leur proximité.",
+   "de": "Nach Nähe zu dir sortiert.",
+   "it": "Ordinati per vicinanza a te.",
+   "pt": "Ordenados pela proximidade a ti.",
+   "pl": "Posortowane według odległości od ciebie.",
+   "nl": "Gesorteerd op afstand tot jou.",
+   "zh": "按与你的距离排序。"
+  },
+  "Ordenar por cercanía": {
+   "en": "Sort by closeness",
+   "fr": "Trier par proximité",
+   "de": "Nach Nähe sortieren",
+   "it": "Ordina per vicinanza",
+   "pt": "Ordenar por proximidade",
+   "pl": "Sortuj według odległości",
+   "nl": "Sorteren op nabijheid",
+   "zh": "按距离排序"
+  },
+  "Temperatura del agua": {
+   "en": "Water temperature",
+   "fr": "Température de l'eau",
+   "de": "Wassertemperatur",
+   "it": "Temperatura dell'acqua",
+   "pt": "Temperatura da água",
+   "pl": "Temperatura wody",
+   "nl": "Watertemperatuur",
+   "zh": "水温"
+  },
+  "Titulación recomendada": {
+   "en": "Recommended certification",
+   "fr": "Niveau recommandé",
+   "de": "Empfohlenes Brevet",
+   "it": "Brevetto consigliato",
+   "pt": "Certificação recomendada",
+   "pl": "Zalecany stopień",
+   "nl": "Aanbevolen brevet",
+   "zh": "建议证书"
+  },
+  "Toca un punto para ver su ficha.": {
+   "en": "Tap a site to see its page.",
+   "fr": "Touchez un site pour voir sa fiche.",
+   "de": "Tippe auf einen Tauchplatz, um ihn anzusehen.",
+   "it": "Tocca un punto per vedere la sua scheda.",
+   "pt": "Toca num ponto para ver a sua ficha.",
+   "pl": "Dotknij miejsca, aby zobaczyć jego kartę.",
+   "nl": "Tik op een duikstek om de pagina te zien.",
+   "zh": "点击潜点查看详情。"
+  },
+  "No hay puntos con estos filtros. Quita alguno para ver más.": {
+   "en": "No dive sites with these filters. Remove one to see more.",
+   "fr": "Aucun site avec ces filtres. Retirez-en un pour en voir davantage.",
+   "de": "Keine Tauchplätze mit diesen Filtern. Entferne einen, um mehr zu sehen.",
+   "it": "Nessun punto con questi filtri. Togline uno per vederne di più.",
+   "pt": "Não há pontos com estes filtros. Retira algum para ver mais.",
+   "pl": "Brak miejsc z tymi filtrami. Usuń któryś, aby zobaczyć więcej.",
+   "nl": "Geen duikstekken met deze filters. Haal er een weg om meer te zien.",
+   "zh": "没有符合这些筛选条件的潜点。去掉一个条件可查看更多。"
+  },
+  "Prueba con otra región o quita algún filtro.": {
+   "en": "Try another region or remove a filter.",
+   "fr": "Essayez une autre région ou retirez un filtre.",
+   "de": "Versuche eine andere Region oder entferne einen Filter.",
+   "it": "Prova un'altra regione o togli un filtro.",
+   "pt": "Experimenta outra região ou retira algum filtro.",
+   "pl": "Spróbuj innego regionu lub usuń filtr.",
+   "nl": "Probeer een andere regio of haal een filter weg.",
+   "zh": "试试其他地区或去掉某个筛选条件。"
+  },
+  "Todavía no hay puntos de este tipo": {
+   "en": "No dive sites of this type yet",
+   "fr": "Pas encore de sites de ce type",
+   "de": "Noch keine Tauchplätze dieser Art",
+   "it": "Ancora nessun punto di questo tipo",
+   "pt": "Ainda não há pontos deste tipo",
+   "pl": "Brak jeszcze miejsc tego rodzaju",
+   "nl": "Nog geen duikstekken van dit type",
+   "zh": "暂无此类型的潜点"
+  },
+  "Todavía no hay puntos de este tipo en el catálogo.": {
+   "en": "There are no dive sites of this type in the catalogue yet.",
+   "fr": "Le catalogue n'a pas encore de site de ce type.",
+   "de": "Im Katalog gibt es noch keine Tauchplätze dieser Art.",
+   "it": "Nel catalogo non ci sono ancora punti di questo tipo.",
+   "pt": "Ainda não há pontos deste tipo no catálogo.",
+   "pl": "W katalogu nie ma jeszcze miejsc tego rodzaju.",
+   "nl": "Er staan nog geen duikstekken van dit type in de catalogus.",
+   "zh": "目录中暂无此类型的潜点。"
+  },
+  "Todavía no hay puntos de este nivel. Prueba con «Todos».": {
+   "en": "No dive sites of this level yet. Try “All”.",
+   "fr": "Pas encore de sites de ce niveau. Essayez « Tous ».",
+   "de": "Noch keine Tauchplätze dieses Levels. Versuche „Alle“.",
+   "it": "Ancora nessun punto di questo livello. Prova «Tutti».",
+   "pt": "Ainda não há pontos deste nível. Experimenta «Todos».",
+   "pl": "Brak jeszcze miejsc na tym poziomie. Spróbuj „Wszystkie”.",
+   "nl": "Nog geen duikstekken van dit niveau. Probeer ‘Alle’.",
+   "zh": "暂无此级别的潜点。试试“全部”。"
+  },
+  "Tu ubicación aproximada": {
+   "en": "Your approximate location",
+   "fr": "Votre position approximative",
+   "de": "Dein ungefährer Standort",
+   "it": "La tua posizione approssimativa",
+   "pt": "A tua localização aproximada",
+   "pl": "Twoja przybliżona lokalizacja",
+   "nl": "Je locatie bij benadering",
+   "zh": "你的大致位置"
+  },
+  "Ver centros que lo ofrecen": {
+   "en": "See centres that offer it",
+   "fr": "Voir les centres qui la proposent",
+   "de": "Basen ansehen, die es anbieten",
+   "it": "Vedi i centri che lo offrono",
+   "pt": "Ver centros que o oferecem",
+   "pl": "Zobacz centra, które to oferują",
+   "nl": "Bekijk centra die het aanbieden",
+   "zh": "查看提供此项的中心"
+  },
+  "Ver como": {
+   "en": "View as",
+   "fr": "Afficher en",
+   "de": "Ansicht",
+   "it": "Vedi come",
+   "pt": "Ver como",
+   "pl": "Pokaż jako",
+   "nl": "Weergeven als",
+   "zh": "显示方式"
+  },
+  "Ver más puntos": {
+   "en": "See more dive sites",
+   "fr": "Voir plus de sites",
+   "de": "Mehr Tauchplätze ansehen",
+   "it": "Vedi altri punti",
+   "pt": "Ver mais pontos",
+   "pl": "Zobacz więcej miejsc",
+   "nl": "Meer duikstekken bekijken",
+   "zh": "查看更多潜点"
+  },
+  "Prueba con:": {
+   "en": "Try:",
+   "fr": "Essayez :",
+   "de": "Versuche:",
+   "it": "Prova con:",
+   "pt": "Experimenta:",
+   "pl": "Spróbuj:",
+   "nl": "Probeer:",
+   "zh": "试试："
+  },
+  "Reservas bajo petición": {
+   "en": "Bookings on request",
+   "fr": "Réservations sur demande",
+   "de": "Buchungen auf Anfrage",
+   "it": "Prenotazioni su richiesta",
+   "pt": "Reservas a pedido",
+   "pl": "Rezerwacje na zapytanie",
+   "nl": "Boekingen op aanvraag",
+   "zh": "按需预订"
+  },
+  "Tu cuenta tiene acceso al panel de administración.": {
+   "en": "Your account has access to the administration panel.",
+   "fr": "Votre compte a accès au panneau d'administration.",
+   "de": "Dein Konto hat Zugang zum Verwaltungsbereich.",
+   "it": "Il tuo account ha accesso al pannello di amministrazione.",
+   "pt": "A tua conta tem acesso ao painel de administração.",
+   "pl": "Twoje konto ma dostęp do panelu administracyjnego.",
+   "nl": "Je account heeft toegang tot het beheerpaneel.",
+   "zh": "你的账户可以访问管理面板。"
+  },
+  "mín.": {
+   "en": "min.",
+   "fr": "min.",
+   "de": "min.",
+   "it": "min.",
+   "pt": "mín.",
+   "pl": "min.",
+   "nl": "min.",
+   "zh": "最低"
+  },
+  "máx.": {
+   "en": "max.",
+   "fr": "max.",
+   "de": "max.",
+   "it": "max.",
+   "pt": "máx.",
+   "pl": "maks.",
+   "nl": "max.",
+   "zh": "最高"
+  },
+  "Condiciones del punto": {
+   "en": "Dive site conditions",
+   "fr": "Conditions du site",
+   "de": "Bedingungen am Tauchplatz",
+   "it": "Condizioni del punto",
+   "pt": "Condições do ponto",
+   "pl": "Warunki w miejscu",
+   "nl": "Omstandigheden van de duikstek",
+   "zh": "潜点条件"
+  },
+  "Opcional. Lo que se deja vacío no aparece en la ficha.": {
+   "en": "Optional. Anything left empty does not appear on the dive site page.",
+   "fr": "Facultatif. Ce qui reste vide n'apparaît pas sur la fiche.",
+   "de": "Optional. Was leer bleibt, erscheint nicht auf der Seite.",
+   "it": "Facoltativo. Ciò che resta vuoto non compare nella scheda.",
+   "pt": "Opcional. O que fica vazio não aparece na ficha.",
+   "pl": "Opcjonalne. To, co zostanie puste, nie pojawi się na karcie.",
+   "nl": "Optioneel. Wat leeg blijft, verschijnt niet op de pagina.",
+   "zh": "选填。留空的内容不会显示在潜点页面上。"
+  },
+  "Temperatura del agua mínima (°C)": {
+   "en": "Minimum water temperature (°C)",
+   "fr": "Température de l'eau minimale (°C)",
+   "de": "Minimale Wassertemperatur (°C)",
+   "it": "Temperatura minima dell'acqua (°C)",
+   "pt": "Temperatura mínima da água (°C)",
+   "pl": "Minimalna temperatura wody (°C)",
+   "nl": "Minimale watertemperatuur (°C)",
+   "zh": "最低水温（°C）"
+  },
+  "Temperatura del agua máxima (°C)": {
+   "en": "Maximum water temperature (°C)",
+   "fr": "Température de l'eau maximale (°C)",
+   "de": "Maximale Wassertemperatur (°C)",
+   "it": "Temperatura massima dell'acqua (°C)",
+   "pt": "Temperatura máxima da água (°C)",
+   "pl": "Maksymalna temperatura wody (°C)",
+   "nl": "Maximale watertemperatuur (°C)",
+   "zh": "最高水温（°C）"
+  },
+  "Visibilidad mínima (m)": {
+   "en": "Minimum visibility (m)",
+   "fr": "Visibilité minimale (m)",
+   "de": "Minimale Sicht (m)",
+   "it": "Visibilità minima (m)",
+   "pt": "Visibilidade mínima (m)",
+   "pl": "Minimalna widoczność (m)",
+   "nl": "Minimaal zicht (m)",
+   "zh": "最低能见度（米）"
+  },
+  "Visibilidad máxima (m)": {
+   "en": "Maximum visibility (m)",
+   "fr": "Visibilité maximale (m)",
+   "de": "Maximale Sicht (m)",
+   "it": "Visibilità massima (m)",
+   "pt": "Visibilidade máxima (m)",
+   "pl": "Maksymalna widoczność (m)",
+   "nl": "Maximaal zicht (m)",
+   "zh": "最高能见度（米）"
+  },
+  "Guardar condiciones": {
+   "en": "Save conditions",
+   "fr": "Enregistrer les conditions",
+   "de": "Bedingungen speichern",
+   "it": "Salva condizioni",
+   "pt": "Guardar condições",
+   "pl": "Zapisz warunki",
+   "nl": "Omstandigheden opslaan",
+   "zh": "保存条件"
+  },
+  "Condiciones guardadas.": {
+   "en": "Conditions saved.",
+   "fr": "Conditions enregistrées.",
+   "de": "Bedingungen gespeichert.",
+   "it": "Condizioni salvate.",
+   "pt": "Condições guardadas.",
+   "pl": "Warunki zapisane.",
+   "nl": "Omstandigheden opgeslagen.",
+   "zh": "条件已保存。"
+  },
+  "Los meses deben ser números del 1 al 12.": {
+   "en": "Months must be numbers from 1 to 12.",
+   "fr": "Les mois doivent être des nombres de 1 à 12.",
+   "de": "Monate müssen Zahlen von 1 bis 12 sein.",
+   "it": "I mesi devono essere numeri da 1 a 12.",
+   "pt": "Os meses devem ser números de 1 a 12.",
+   "pl": "Miesiące muszą być liczbami od 1 do 12.",
+   "nl": "Maanden moeten getallen van 1 tot 12 zijn.",
+   "zh": "月份必须是 1 到 12 的数字。"
+  },
+  "La temperatura mínima no puede ser mayor que la máxima.": {
+   "en": "The minimum temperature cannot be higher than the maximum.",
+   "fr": "La température minimale ne peut pas dépasser la maximale.",
+   "de": "Die Mindesttemperatur darf nicht höher als die Höchsttemperatur sein.",
+   "it": "La temperatura minima non può superare la massima.",
+   "pt": "A temperatura mínima não pode ser maior do que a máxima.",
+   "pl": "Temperatura minimalna nie może być wyższa niż maksymalna.",
+   "nl": "De minimumtemperatuur kan niet hoger zijn dan de maximumtemperatuur.",
+   "zh": "最低温度不能高于最高温度。"
+  },
+  "La visibilidad mínima no puede ser mayor que la máxima.": {
+   "en": "The minimum visibility cannot be greater than the maximum.",
+   "fr": "La visibilité minimale ne peut pas dépasser la maximale.",
+   "de": "Die Mindestsicht darf nicht größer als die Höchstsicht sein.",
+   "it": "La visibilità minima non può superare la massima.",
+   "pt": "A visibilidade mínima não pode ser maior do que a máxima.",
+   "pl": "Widoczność minimalna nie może być większa niż maksymalna.",
+   "nl": "Het minimale zicht kan niet groter zijn dan het maximale.",
+   "zh": "最低能见度不能高于最高能见度。"
+  },
+  "Abrir en OpenStreetMap →": {
+   "en": "Open in OpenStreetMap →",
+   "fr": "Ouvrir dans OpenStreetMap →",
+   "de": "In OpenStreetMap öffnen →",
+   "it": "Apri in OpenStreetMap →",
+   "pt": "Abrir no OpenStreetMap →",
+   "pl": "Otwórz w OpenStreetMap →",
+   "nl": "Openen in OpenStreetMap →",
+   "zh": "在 OpenStreetMap 中打开 →"
+  }
+ },
+ "patterns": {
+  "Centro de buceo {n}": {
+   "en": "Dive centre {n}",
+   "fr": "Centre de plongée {n}",
+   "de": "Tauchbasis {n}",
+   "it": "Centro immersioni {n}",
+   "pt": "Centro de mergulho {n}",
+   "pl": "Centrum nurkowe {n}",
+   "nl": "Duikcentrum {n}",
+   "zh": "潜水中心 {n}"
+  },
+  "+ {n} regiones": {
+   "en": "+ {n} regions",
+   "fr": "+ {n} régions",
+   "de": "+ {n} Regionen",
+   "it": "+ {n} regioni",
+   "pt": "+ {n} regiões",
+   "pl": "+ {n} regionów",
+   "nl": "+ {n} regio's",
+   "zh": "+ {n} 个地区"
+  },
+  "tu ubicación es aproximada (± {x}): no mostramos distancias": {
+   "en": "your location is approximate (± {x}): we do not show distances",
+   "fr": "votre position est approximative (± {x}) : nous n'affichons pas les distances",
+   "de": "dein Standort ist ungefähr (± {x}): Wir zeigen keine Entfernungen",
+   "it": "la tua posizione è approssimativa (± {x}): non mostriamo le distanze",
+   "pt": "a tua localização é aproximada (± {x}): não mostramos distâncias",
+   "pl": "twoja lokalizacja jest przybliżona (± {x}): nie pokazujemy odległości",
+   "nl": "je locatie is bij benadering (± {x}): we tonen geen afstanden",
+   "zh": "你的位置是大致位置（± {x}）：不显示距离"
+  },
+  "Ver los {n} puntos con filtros por región, nivel y profundidad →": {
+   "en": "See the {n} dive sites with filters by region, level and depth →",
+   "fr": "Voir les {n} sites avec des filtres par région, niveau et profondeur →",
+   "de": "Die {n} Tauchplätze mit Filtern nach Region, Level und Tiefe ansehen →",
+   "it": "Vedi i {n} punti con filtri per regione, livello e profondità →",
+   "pt": "Ver os {n} pontos com filtros por região, nível e profundidade →",
+   "pl": "Zobacz {n} miejsc z filtrami według regionu, poziomu i głębokości →",
+   "nl": "Bekijk de {n} duikstekken met filters op regio, niveau en diepte →",
+   "zh": "查看 {n} 个潜点，可按地区、级别和深度筛选 →"
+  }
+ }
+}
