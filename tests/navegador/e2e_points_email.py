@@ -46,6 +46,8 @@ def run(shots: Path | None):
                 ctx = browser.new_context(viewport={'width': width, 'height': 900}, locale='es-ES')
                 page = ctx.new_page(); errors = []
                 page.on('pageerror', lambda e: errors.append(str(e)))
+                # The administration gives a reason to see a centre's data (v50.47): the test answers the question.
+                page.on('dialog', lambda d: d.accept('Revisión de correos de la prueba') if d.type == 'prompt' else d.accept())
                 page.goto(base + '/#/login'); page.wait_for_selector('#login'); page.fill('#login', login); page.fill('#password', pw)
                 page.click('#login-form button[type=submit]'); page.wait_for_timeout(900)
                 return ctx, page, errors
@@ -82,7 +84,7 @@ def run(shots: Path | None):
             check('cuenta: verificación en dos pasos', page.locator('#acc-totp').count() == 1)
             check('cuenta: novedades y ofertas', page.locator('#acc-mkt').count() == 1)
             page.fill('#totp-pw', PW); page.click('#totp-start button'); page.wait_for_timeout(900)
-            secret = srv.sql("SELECT totp_pending_secret FROM users WHERE username='diver_e2epts'")[0]['totp_pending_secret']
+            secret = page.inner_text('.totp-steps code').replace(' ', '')   # the key shown to type by hand (in the database it is encrypted)
             check('cuenta: QR de activación', page.locator('.totp-qr svg').count() == 1)
             page.fill('#totp-code', totp.code_at(secret, totp.current_step())); page.click('#totp-confirm button'); page.wait_for_timeout(1000)
             check('cuenta: códigos de recuperación', page.locator('.totp-codes').count() == 1)

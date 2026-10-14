@@ -425,5 +425,65 @@ class PuntosYPlazasVariosProcesos(ServerTestCase):
             self.assertEqual(self.server.sql('SELECT spots_available FROM travel_experiences WHERE id=?', (eid,))[0]['spots_available'], 0)
 
 
+class ArchivosYCabeceras(ServerTestCase):
+    """V3.2.1, V3.4.3, V4.1.1, V4.2.1, V5.2.2, V5.3.2, V5.4.1 y V5.4.3: lo que se sube se comprueba de verdad y lo que
+    se sirve no puede ejecutar nada."""
+    extra_env = {'WOD_AV_COMMAND': sys.executable + " -c \"import sys; sys.exit(1 if b'EICAR-PRUEBA' in sys.stdin.buffer.read() else 0)\""}
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        t = cls('run')
+        cls.admin = t.make_admin()
+        cls.A = t.make_center(cls.admin, 'v5a', phone='+34 600 595 001')
+        cls.B = t.make_center(cls.admin, 'v5b', phone='+34 600 595 002')
+
+    def test_v5_2_2_images_and_pdfs_must_really_be_what_they_say(self):
+        from helpers import PDF_BYTES, PNG_BYTES
+        fake = b'\x89PNG\r\n\x1a\n<html><script>alert(1)</script></html>'
+        r = self.A.upload('/api/provider/avatar', {}, 'logo.png', fake); self.assertEqual(r.status, 400, r)   # before: stored as it came
+        self.assertEqual(self.A.upload('/api/provider/avatar', {}, 'logo.png', PNG_BYTES).status, 200)
+        d = self.make_diver('v5doc')
+        self.assertEqual(d.upload('/api/account/documents', {'document_type': 'Seguro', 'title': 'roto'}, 'x.png', fake).status, 400)
+        self.assertEqual(d.upload('/api/account/documents', {'document_type': 'Seguro', 'title': 'cortado'}, 'x.pdf', b'%PDF-1.4\n1 0 obj<<>>endobj\n').status, 400)
+        self.assertEqual(d.upload('/api/account/documents', {'document_type': 'Seguro', 'title': 'bueno'}, 'x.pdf', PDF_BYTES).status, 200)
+
+    def test_v5_4_3_the_antivirus_stops_an_infected_file(self):
+        d = self.make_diver('v5virus')
+        r = d.upload('/api/account/documents', {'document_type': 'Seguro', 'title': 'virus'}, 'x.pdf', b'%PDF-1.4\nEICAR-PRUEBA\n%%EOF\n')
+        self.assertEqual(r.status, 400, r); self.assertIn('antivirus', r.json['error'])
+
+    def test_v5_4_1_v3_2_1_documents_keep_their_real_type_and_run_nothing(self):
+        from helpers import PDF_BYTES, PNG_BYTES
+        d = self.make_diver('v5nombre')
+        self.assertEqual(d.upload('/api/account/documents', {'document_type': 'Seguro', 'title': 'Seguro'}, 'seguro.html', PDF_BYTES).status, 200)
+        self.assertEqual(d.upload('/api/account/documents', {'document_type': 'Titulación', 'title': 'Foto'}, 'foto.svg', PNG_BYTES).status, 200)
+        docs = {x['title']: x['id'] for x in d.get('/api/account/documents').json['items']}
+        r = d.get(f"/api/documents/file/{docs['Seguro']}")
+        self.assertIn('seguro.pdf', r.headers['Content-Disposition']); self.assertNotIn('.html', r.headers['Content-Disposition'])
+        r = d.get(f"/api/documents/file/{docs['Foto']}")
+        self.assertTrue(r.headers['Content-Disposition'].endswith('foto.png') or 'foto.png' in r.headers['Content-Disposition'])
+        self.assertIn('sandbox', r.headers['Content-Security-Policy'])
+
+    def test_v5_3_2_a_centre_cannot_take_another_centres_file_as_logo(self):
+        from helpers import PNG_BYTES
+        self.assertEqual(self.B.upload('/api/provider/avatar', {}, 'b.png', PNG_BYTES).status, 200)
+        logo_b = self.server.sql('SELECT logo_url FROM centers WHERE id=?', (self.B.user['center_id'],))[0]['logo_url']
+        self.assertTrue(logo_b.startswith('/assets/uploads/'))
+        r = self.A.post('/api/provider/center-update', {'name': 'Centro v5a', 'country': 'España', 'city': 'Xàbia', 'logo_url': logo_b}); self.assertEqual(r.status, 400, r); self.assertIn('logo', r.json['error'])
+        r = self.A.post('/api/provider/center-update', {'name': 'Centro v5a', 'country': 'España', 'city': 'Xàbia', 'logo_url': 'https://centro-v5a.example.org/logo.png'}); self.assertEqual(r.status, 200, r)
+        r = self.client().get(logo_b); self.assertEqual(r.status, 200); self.assertIn('sandbox', r.headers['Content-Security-Policy'])
+
+    def test_v3_4_3_v4_1_1_v4_2_1_headers(self):
+        page = self.client().get('/')
+        self.assertIn("base-uri 'none'", page.headers['Content-Security-Policy'])
+        self.assertIn('charset=utf-8', self.client().get('/js/world-dives-v8.js').headers['Content-Type'])
+        import http.client
+        conn = http.client.HTTPConnection('127.0.0.1', self.server.port, timeout=10)
+        conn.putrequest('POST', '/api/contact'); conn.putheader('Origin', self.server.base); conn.putheader('Content-Type', 'application/json')
+        conn.putheader('Transfer-Encoding', 'chunked'); conn.endheaders(); conn.send(b'2\r\n{}\r\n0\r\n\r\n')
+        self.assertEqual(conn.getresponse().status, 400)
+
+
 if __name__ == '__main__':
     unittest.main()

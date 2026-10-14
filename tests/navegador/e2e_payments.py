@@ -60,6 +60,8 @@ def run(shots: Path | None):
                 ctx = browser.new_context(viewport={'width': width, 'height': 900}, locale='es-ES')
                 page = ctx.new_page(); errors = []
                 page.on('pageerror', lambda e: errors.append(str(e)))
+                # The administration gives a reason to see a centre's data (v50.47): the test answers the question.
+                page.on('dialog', lambda d: d.accept('Revisión de cobros de la prueba') if d.type == 'prompt' else d.accept())
                 page.route('https://checkout.stripe.test/**', lambda route: route.fulfill(status=200, body='<h1>Stripe Checkout (simulado)</h1>', content_type='text/html'))
                 page.goto(base + '/#/login'); page.wait_for_selector('#login'); page.fill('#login', login)
                 page.fill('#password', 'admin-seguro-2026' if login == 'admin' else PW); page.click('#login-form button[type=submit]'); page.wait_for_timeout(900)

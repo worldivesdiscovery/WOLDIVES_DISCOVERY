@@ -130,7 +130,7 @@ class Emails(ServerTestCase):
 
     def test_document_expiry_alerts(self):
         d = self.make_diver('caduca')
-        r = d.upload('/api/account/documents', {'document_type': 'Seguro', 'title': 'Seguro DAN', 'expires_at': '2031-04-30'}, 'seguro.pdf', b'%PDF-1.4\n%test\n')
+        r = d.upload('/api/account/documents', {'document_type': 'Seguro', 'title': 'Seguro DAN', 'expires_at': '2031-04-30'}, 'seguro.pdf', b'%PDF-1.4\n%test\n%%EOF\n')
         self.assertEqual(r.status, 200, r)
         self.run_jobs('2031-04-05T10:00:00')  # 25 days before → 30-day alert
         self.run_jobs('2031-04-06T10:00:00')  # nothing new

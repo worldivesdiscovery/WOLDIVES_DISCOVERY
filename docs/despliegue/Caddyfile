@@ -1,15 +1,24 @@
 # Caddy: HTTPS automático (Let's Encrypt) delante de WORLDIVES. /etc/caddy/Caddyfile
 # En el .env del servidor: WOD_PUBLIC_URL=https://worldives.com y WOD_TRUSTED_PROXIES=127.0.0.1
+# http: the API answers 403 (a client with http:// must fail, not be redirected with its key in clear, ASVS V4.1.2);
+# the rest goes to https.
+http://worldives.com, http://www.worldives.com {
+	handle /api/* {
+		respond "Usa https://worldives.com" 403
+	}
+	handle {
+		redir https://worldives.com{uri} permanent
+	}
+}
+
 worldives.com, www.worldives.com {
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	@www host www.worldives.com
 	redir @www https://worldives.com{uri} permanent
 
-	encode {
-		gzip
-		match {
-			not path /tiles/*
-		}
-	}
+	# Compressed answers, except the map tiles (read by byte ranges).
+	@compress not path /tiles/*
+	encode @compress gzip
 	# Map tiles are read by byte ranges: no compression, no buffering.
 	@tiles path /tiles/*
 	reverse_proxy @tiles 127.0.0.1:8000 {
@@ -21,11 +30,33 @@ worldives.com, www.worldives.com {
 	request_body {
 		max_size 60MB
 	}
+	# 14 days, without tokens, coordinates or searches of the address, without the integration key and with the
+	# address cut to /24 (IPv4) or /48 (IPv6), like the application's own log (ASVS V16.2.5).
 	log {
 		output file /var/log/caddy/worldives.log {
 			roll_keep_for 336h
 		}
-		format json
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					delete t
+					delete token
+					delete lat
+					delete lon
+					delete q
+				}
+				request>headers>X-Worldives-Api-Key delete
+				request>remote_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>client_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+			}
+		}
 	}
 }
 

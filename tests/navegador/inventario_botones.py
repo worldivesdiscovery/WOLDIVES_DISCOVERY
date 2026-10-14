@@ -98,8 +98,7 @@ KEY_RX = [
     ('Wikimedia Commons', re.compile(r'wikimedia|commons[^.]{0,30}(no|inténtalo)', re.I)),
     ('servicio sin configurar', re.compile(r'no est[aá]n? configurad|sin configurar|pendiente de configurar|falta la clave|añade la clave', re.I)),
 ]
-PNG1 = (b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00'
-        b'\rIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa7\x35\x81\x84\x00\x00\x00\x00IEND\xaeB`\x82')
+from helpers import PNG_BYTES as PNG1  # noqa: E402  (a real image: uploads are opened and checked)
 
 
 VALIDATION_ES = [('Please fill out this field', 'campo obligatorio'), ('Please select an item in the list', 'elige una opción de la lista'),

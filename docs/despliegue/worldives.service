@@ -15,12 +15,15 @@ WorkingDirectory=/opt/worldives
 # repository). Do not use EnvironmentFile: it would keep the «# comments» of .env.example inside the values.
 # EnvironmentFile=/opt/worldives/.env
 Environment=PYTHONUNBUFFERED=1
-Environment=WOD_ACCESS_LOG=stdout
+# The access log goes to logs/access.log, rotated daily and kept WOD_LOG_RETENTION_DAYS (14) as the privacy policy says.
+Environment=WOD_ACCESS_LOG=file
 ExecStart=/opt/worldives/.venv/bin/python app/server.py
 Restart=always
 RestartSec=3
 # Hardening
 NoNewPrivileges=true
+UMask=0027
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true

@@ -107,6 +107,31 @@ journalctl -u worldives -f        # ver qué pasa (Ctrl+C para salir)
 
 El servicio se reinicia solo si se cae y al reiniciar el VPS.
 
+### Seguridad del servidor (ASVS 5.0)
+
+```bash
+# Hora exacta (los registros van en UTC y los plazos dependen de ella): debe decir «System clock synchronized: yes»
+timedatectl
+# Cortafuegos de entrada: solo SSH, http y https
+sudo apt install -y ufw && sudo ufw allow OpenSSH && sudo ufw allow 80,443/tcp && sudo ufw enable
+# Registros del sistema (errores y avisos de seguridad del servidor): 30 días
+sudo sed -i 's/^#\?MaxRetentionSec=.*/MaxRetentionSec=30day/' /etc/systemd/journald.conf && sudo systemctl restart systemd-journald
+# Antivirus de los documentos que suben buceadores y centros
+sudo apt install -y clamav-daemon && sudo systemctl enable --now clamav-daemon
+```
+
+Y en el `.env`: `WOD_AV_COMMAND=clamdscan --no-summary --fdpass -` (cada documento pasa por el antivirus antes de
+guardarse; si encuentra algo, se rechaza y la administración recibe un aviso de seguridad). Sin esa variable los
+documentos solo se comprueban por su contenido, y el *Estado del sistema* lo indica.
+
+**Salidas del servidor.** La web solo necesita salir a internet por el puerto 443 (Stripe, Meta, Google, Esri,
+OpenStreetMap, plataformas de vídeo) y por el del correo (587 o 465). Si el proveedor del VPS tiene cortafuegos de
+salida, deja solo esos puertos y el 53 (DNS) y el 123 (hora).
+
+**Registros fuera del servidor.** Para que nadie pueda borrar el rastro si el servidor se viera comprometido, conviene
+enviar el diario del sistema a un servicio externo en la UE (por ejemplo con `systemd-journal-upload` o rsyslog con
+TLS). **Pendiente de decisión**: qué servicio usar.
+
 Abre `https://worldives.com`, entra con el administrador y mira *Administración → Operación → Estado del sistema*:
 cada servicio sale como **Configurado**, **Pendiente** (falta su clave; esa función está desactivada) o **Error**.
 
@@ -141,7 +166,7 @@ sudo systemctl stop worldives
 sudo cp -a /opt/worldives /opt/worldives-anterior                  # para volver atrás si hiciera falta
 sudo rsync -a --exclude data/ --exclude storage/ --exclude .env --exclude .venv/ /opt/nueva/worldives-v<nueva>-PRODUCCION/ /opt/worldives/
 sudo chown -R worldives: /opt/worldives
-sudo -u worldives /opt/worldives/.venv/bin/pip install -r /opt/worldives/requirements.txt
+sudo -u worldives /opt/worldives/.venv/bin/pip install -r /opt/worldives/requirements.txt   # versiones exactas: las mismas que revisa cada semana .github/workflows/dependencias.yml
 sudo systemctl start worldives                                     # las migraciones se aplican solas al arrancar
 ```
 
@@ -158,3 +183,5 @@ Comprueba la web y el *Estado del sistema*. Si algo va mal: `sudo systemctl stop
 - [ ] Copia fuera del servidor y una prueba de restauración hecha.
 - [ ] Textos legales revisados por el abogado y datos del titular en *Administración → Legal*.
 - [ ] Monitor externo contra `https://worldives.com/api/health`.
+- [ ] `timedatectl` sincronizado, `ufw` activo, antivirus (`WOD_AV_COMMAND`) y diario del sistema a 30 días (apartado 7).
+- [ ] `WOD_BACKUP_COMMAND` configurado: sin copia fuera del servidor no se abre al público.

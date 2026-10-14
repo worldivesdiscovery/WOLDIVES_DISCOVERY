@@ -15,7 +15,7 @@ from stripe_mock import StripeMock
 PLATFORM_SECRET = 'whsec_plat_local'
 CONNECT_SECRET = 'whsec_connect_local'
 # 1×1 transparent PNG
-PNG = bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082')
+from helpers import PNG_BYTES as PNG  # noqa: E402  (a real image: uploads are opened and checked, ASVS 5.0 V5.2.2)
 
 
 class Payments(ServerTestCase):

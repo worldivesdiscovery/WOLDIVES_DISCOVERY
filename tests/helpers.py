@@ -218,7 +218,14 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 PDF_BYTES = b'%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n'
-PNG_BYTES = b'\x89PNG\r\n\x1a\n' + b'\x00' * 64
+def _png(w=2, h=2):
+    import struct, zlib
+    chunk = lambda t, d: struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+    raw = b''.join(b'\x00' + b'\x30\x80\xc0' * w for _ in range(h))
+    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+
+
+PNG_BYTES = _png()   # a real image: uploads are opened and checked (ASVS 5.0 V5.2.2)
 
 
 class ServerTestCase(unittest.TestCase):

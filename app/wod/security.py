@@ -494,7 +494,7 @@ def content_security_policy() -> str:
         "worker-src 'self'",
         "manifest-src 'self'",
         "object-src 'none'",
-        "base-uri 'self'",
+        "base-uri 'none'",   # ASVS 5.0 V3.4.3
         "form-action 'self'",
         "frame-ancestors 'none'",
     ] + (['upgrade-insecure-requests'] if config.public_url().startswith('https://') else []))

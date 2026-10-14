@@ -17,6 +17,8 @@ import shutil
 import random
 import sqlite3
 import unicodedata
+import shlex
+import subprocess
 import sys
 import queue
 import threading
@@ -1064,6 +1066,10 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen);
 '''
 
+
+
+# Files uploaded by people (images): shown as images, never run anything (ASVS 5.0 V3.2.1).
+UPLOAD_CSP = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox"
 
 
 # Rate limits: the same for every process of the server (WOD_WORKERS), counted in a small file next to the database
@@ -2368,6 +2374,7 @@ class BodyTooLarge(ValueError):
 
 def body_length(handler, limit):
     """Content-Length checked BEFORE reading anything (G7). Bodies above the limit are never read into memory."""
+    if handler.headers.get('Transfer-Encoding'): raise ValueError('Transfer-Encoding no admitido.')   # ASVS V4.2.1
     raw = handler.headers.get('Content-Length', '0') or '0'
     try: length = int(raw)
     except ValueError: raise ValueError('Cabecera Content-Length no válida.')
@@ -2417,6 +2424,44 @@ def parse_multipart(handler):
     return fields, files
 
 
+def check_document(content: bytes) -> str:
+    """The extension of a private document after checking what it really is (ASVS 5.0 V5.2.2): an image must open
+    with Pillow, a PDF must be whole (header and end); then the antivirus of WOD_AV_COMMAND, when configured (V5.4.3)."""
+    ext = wsec.sniff_document(content)
+    if not ext: raise ValueError('Formato no admitido. Usa un PDF o una imagen JPG, PNG o WEBP.')
+    if ext == '.pdf':
+        if b'%%EOF' not in content[-2048:]: raise ValueError('El PDF está incompleto o dañado. Vuelve a guardarlo y súbelo otra vez.')
+    else:
+        try:
+            from PIL import Image
+            Image.MAX_IMAGE_PIXELS = 40_000_000
+            with Image.open(io.BytesIO(content)) as im: im.verify()
+        except ImportError:
+            pass
+        except Exception:
+            raise ValueError('La imagen está dañada o no se puede leer. Prueba con otra foto JPG, PNG o WEBP.')
+    antivirus_check(content)
+    return ext
+
+
+def antivirus_check(content: bytes):
+    """WOD_AV_COMMAND (for example «clamdscan --no-summary --fdpass -»): the file goes by standard input; exit code 1
+    means it has a virus. Without the variable nothing is checked (a warning in Estado del sistema)."""
+    cmd = wcfg.env('WOD_AV_COMMAND')
+    if not cmd: return
+    try:
+        r = subprocess.run(shlex.split(cmd), input=content, capture_output=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        sys.stderr.write(f'[antivirus] no se ha podido comprobar el archivo: {exc}\n')
+        raise ValueError('Ahora mismo no se pueden comprobar los archivos. Prueba dentro de unos minutos.')
+    if r.returncode == 1:
+        security_alert('upload_malware', {'bytes': len(content)})
+        raise ValueError('El archivo no ha superado el control antivirus.')
+    if r.returncode != 0:
+        sys.stderr.write(f'[antivirus] respuesta inesperada ({r.returncode})\n')
+        raise ValueError('Ahora mismo no se pueden comprobar los archivos. Prueba dentro de unos minutos.')
+
+
 def save_upload(user_id: int, file_info: dict, prefix: str, tenant: str | None = None) -> str:
     """Private document (G1/G8): type checked by its first bytes, at most WOD_MAX_DOCUMENT_MB, stored outside /public.
     Returns the path relative to STORAGE (never served directly). With tenant ('c:12'), it goes to the private folder
@@ -2425,8 +2470,7 @@ def save_upload(user_id: int, file_info: dict, prefix: str, tenant: str | None =
         content = file_info.get('content') or b''
         if not content: raise ValueError('El archivo está vacío.')
         if len(content) > wcfg.MAX_DOCUMENT_BYTES: raise ValueError(f'El archivo pesa demasiado. Máximo {wcfg.MAX_DOCUMENT_BYTES // (1024*1024)} MB.')
-        ext = wsec.sniff_document(content)
-        if not ext: raise ValueError('Formato no admitido. Usa un PDF o una imagen JPG, PNG o WEBP.')
+        ext = check_document(content)
         rel = tenant_dir(tenant) + '/' + secrets.token_hex(16) + ext
         out = document_file_path(rel); out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(content)
@@ -2436,8 +2480,7 @@ def save_upload(user_id: int, file_info: dict, prefix: str, tenant: str | None =
     content = file_info.get('content') or b''
     if not content: raise ValueError('El archivo está vacío.')
     if len(content) > wcfg.MAX_DOCUMENT_BYTES: raise ValueError(f'El archivo pesa demasiado. Máximo {wcfg.MAX_DOCUMENT_BYTES // (1024*1024)} MB.')
-    ext = wsec.sniff_document(content)
-    if not ext: raise ValueError('Formato no admitido. Usa un PDF o una imagen JPG, PNG o WEBP.')
+    ext = check_document(content)
     UPLOADS.mkdir(parents=True, exist_ok=True)
     filename = f'{prefix}_{user_id}_{secrets.token_hex(12)}{ext}'
     out = UPLOADS / filename
@@ -3159,18 +3202,26 @@ def save_public_image(file_info, prefix):
     except ImportError:
         pass
     except Exception:
-        pass   # not decodable: kept as it came (only its first bytes were checked)
+        raise ValueError('La imagen está dañada o no se puede leer. Prueba con otra foto JPG, PNG o WEBP.')   # ASVS V5.2.2
     PHOTOS.mkdir(parents=True,exist_ok=True)
     name=f'{prefix}_{secrets.token_hex(8)}{ext}'
     (PHOTOS/name).write_bytes(content)
     return '/assets/uploads/'+name
 
 
+def own_logo(value, current):
+    """A logo chosen by a centre: an http(s) link or the file it already has; never another file of /assets/uploads
+    (it could be another centre's, and closing the account would delete it, ASVS 5.0 V5.3.2)."""
+    url = wsec.clean_local_or_http_url(value, 500)
+    if url and url.startswith('/') and url != current: raise ValueError('Sube el logo con «Cambiar logo» o pega un enlace https.')
+    return url
+
+
 def delete_public_image(url):
     """Remove a file previously stored by save_public_image (never anything outside /assets/uploads)."""
     if not url or not str(url).startswith('/assets/uploads/'): return
     target=(PHOTOS/str(url)[len('/assets/uploads/'):]).resolve()
-    if str(target).startswith(str(PHOTOS.resolve())) and target.exists():
+    if target.is_relative_to(PHOTOS.resolve()) and target != PHOTOS.resolve() and target.exists():
         try: target.unlink()
         except OSError: pass
 
@@ -10252,6 +10303,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         self.send_header('Cache-Control', 'public, max-age=300'); self.send_header('X-Content-Type-Options', 'nosniff'); self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
         # Embeddable anywhere, but nothing runs inside: no scripts, no forms.
         self.send_header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; frame-ancestors *; base-uri 'none'; form-action 'none'")
+        if os.environ.get('WOD_PUBLIC_URL', '').strip().lower().startswith('https://'): self.send_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')   # ASVS V3.4.1
         self._sec_sent = True; self.end_headers(); self.wfile.write(raw)
 
     def security_headers(self, csp=True):
@@ -10365,11 +10417,13 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
             self.send_error(404)
             return
         ct = content_type or mimetypes.guess_type(path.name)[0] or 'application/octet-stream'
+        if (ct.startswith('text/') or ct.endswith(('+xml', '/xml', '/javascript', '/json', '+json'))) and 'charset' not in ct: ct += '; charset=utf-8'   # ASVS V4.1.1
         st = path.stat()
         etag = f'"{int(st.st_mtime_ns):x}-{st.st_size:x}"'
         # Images and uploads change name when they change, so browsers may keep them a week;
         # code, styles and the page are revalidated on every visit (cheap 304 thanks to the ETag).
         cache = 'public, max-age=604800' if ct.startswith(('image/','font/')) else 'no-cache'
+        uploaded = str(path).startswith(str(PHOTOS)) or str(path).startswith(str(UPLOADS))
         if self.headers.get('If-None-Match') == etag:
             self.send_response(304)
             self.send_header('ETag', etag)
@@ -10394,7 +10448,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         self.send_header('Content-Length', str(len(raw)))
         self.send_header('ETag', etag)
         self.send_header('Cache-Control', cache)
-        self.security_headers()
+        self.security_headers(csp=not uploaded)
+        if uploaded: self.send_header('Content-Security-Policy', UPLOAD_CSP)   # ASVS V3.2.1
         self.end_headers()
         self.wfile.write(raw)
 
@@ -10402,15 +10457,19 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         """Private documents (G8): never cached by browsers or proxies, always with Content-Disposition."""
         raw = path.read_bytes()
         ct = wsec.DOCUMENT_TYPES.get(path.suffix.lower(), 'application/octet-stream')
-        safe = re.sub(r'[^A-Za-z0-9._-]+', '_', download_name or path.name)[:120] or path.name
+        # The name offered keeps the real extension of the file, never the one it was uploaded with (ASVS V5.4.1).
+        download_name = (Path(download_name or path.name).stem[:100] or 'documento') + path.suffix.lower()
+        safe = re.sub(r'[^A-Za-z0-9._-]+', '_', download_name)[:120] or path.name
         self.send_response(200)
         self.send_header('Content-Type', ct)
         self.send_header('Content-Length', str(len(raw)))
         self.send_header('Cache-Control', 'private, no-store, max-age=0')
         self.send_header('Pragma', 'no-cache')
-        self.send_header('Content-Disposition', f"{'inline' if inline else 'attachment'}; filename=\"{safe}\"; filename*=UTF-8''{quote(download_name or path.name)}")
+        self.send_header('Content-Disposition', f"{'inline' if inline else 'attachment'}; filename=\"{safe}\"; filename*=UTF-8''{quote(download_name)}")
         self.send_header('X-Robots-Tag', 'noindex')
-        self.security_headers()
+        # An image uploaded by somebody runs nothing on our address, even opened on its own (ASVS V3.2.1).
+        self.security_headers(csp=not ct.startswith('image/'))
+        if ct.startswith('image/'): self.send_header('Content-Security-Policy', UPLOAD_CSP)
         self.end_headers()
         self.wfile.write(raw)
 
@@ -10705,7 +10764,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     r=db.execute(f'SELECT insurance_doc FROM {provider_table(ptype)} WHERE id=?',(pid,)).fetchone()
                     fp=document_file_path(r['insurance_doc']) if r and r['insurance_doc'] else None
                     if not fp or not fp.exists(): self.send_json({'error':'Sin documento'},404); return
-                    audit(db,user['id'],'insurance_doc_viewed',ptype,pid); db.commit(); self.send_file(fp); return
+                    audit(db,user['id'],'insurance_doc_viewed',ptype,pid); db.commit()
+                    self.send_private_file(fp,f'seguro-{ptype}-{pid}{fp.suffix}',inline=fp.suffix.lower()!='.pdf'); return   # ASVS V5.4.1
                 if path == '/api/map/config':
                     self.send_json(map_config(db)); return
                 if path.startswith('/api/tiles/satellite/'):
@@ -11671,7 +11731,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     file_path=document_file_path(doc['file_path'])
                     if not file_path or not file_path.exists(): self.send_json({'error':'El archivo ya no está disponible.'},404); return
                     audit(db,user['id'],'document_downloaded','user_document',did,{'owner':doc['user_id'],'as':'owner' if own else user['role'],'center_id':user.get('center_id') if user['role']=='center' else None}); db.commit()
-                    self.send_private_file(file_path,doc['original_name'] or file_path.name,inline=query.get('download',['0'])[0]!='1'); return
+                    inline=query.get('download',['0'])[0]!='1' and (own or file_path.suffix.lower()!='.pdf')   # ASVS V3.2.1
+                    self.send_private_file(file_path,doc['original_name'] or file_path.name,inline=inline); return
                 if path == '/api/logbook':
                     user=require_user(self,db)
                     rows=db.execute('SELECT * FROM logbook_entries WHERE user_id=? ORDER BY dive_date DESC,id DESC',(user['id'],)).fetchall()
@@ -13747,7 +13808,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     # Keep the map position unless the form explicitly sends a new one.
                     lat=clean_coord(data['latitude'],clean_lat) if data.get('latitude') not in (None,'') else current['latitude']
                     lng=clean_coord(data['longitude'],clean_lng) if data.get('longitude') not in (None,'') else current['longitude']
-                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=?,logo_source='provider_uploaded',updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),lat,lng,wsec.clean_local_or_http_url(data.get('logo_url'),500) if 'logo_url' in data else current['logo_url'],clean_url_field(data.get('instagram_url')),clean_url_field(data.get('facebook_url')),clean_url_field(data.get('twitter_url')),clean_url_field(data.get('youtube_url')),clean_url_field(data.get('tiktok_url')),now(),cid))
+                    db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,instagram_url=?,facebook_url=?,twitter_url=?,youtube_url=?,tiktok_url=?,logo_source='provider_uploaded',updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),lat,lng,own_logo(data.get('logo_url'),current['logo_url']) if 'logo_url' in data else current['logo_url'],clean_url_field(data.get('instagram_url')),clean_url_field(data.get('facebook_url')),clean_url_field(data.get('twitter_url')),clean_url_field(data.get('youtube_url')),clean_url_field(data.get('tiktok_url')),now(),cid))
                     if 'logo_consent' in data:
                         db.execute('UPDATE centers SET logo_consent=?,logo_consent_at=? WHERE id=?',(1 if data.get('logo_consent') else 0,now() if data.get('logo_consent') else None,cid))
                     audit(db,user['id'],'center_profile_updated','center',cid,{'logo_consent':data.get('logo_consent')}); db.commit(); self.send_json({'ok':True}); return
@@ -14824,6 +14885,10 @@ def system_status(db):
         url or 'Sin dirección pública.', ('WOD_PUBLIC_URL',), 'Enlaces de los correos, de los pagos y de los avisos.')
     add('session_key', 'Clave de las sesiones', 'ok' if len(env('WOD_SECRET_KEY')) >= 32 else 'error',
         'Configurada.' if len(env('WOD_SECRET_KEY')) >= 32 else 'Falta o es demasiado corta (32 caracteres o más).', ('WOD_SECRET_KEY',))
+    av = env('WOD_AV_COMMAND')
+    add('antivirus', 'Antivirus de los documentos', 'ok' if av else 'pending',
+        'Cada documento pasa por el antivirus antes de guardarse.' if av else 'Sin antivirus: los documentos solo se comprueban por su contenido.',
+        ('WOD_AV_COMMAND',), 'Documentos que suben buceadores y centros (ASVS 5.0 V5.4.3).')
     dk = env('WOD_DATA_KEY')
     add('data_key', 'Clave de cifrado de datos', 'ok' if len(dk) >= 32 and (dk != wcif.DEMO_DATA_KEY or wcfg.demo_mode()) else 'error',
         'Teléfonos, credenciales y códigos de verificación cifrados.' if len(dk) >= 32 else 'Falta: no se pueden guardar teléfonos ni credenciales.', ('WOD_DATA_KEY',))

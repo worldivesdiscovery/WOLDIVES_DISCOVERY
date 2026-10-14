@@ -66,3 +66,15 @@ la web y la app repiten algunas comprobaciones solo para avisar antes. Pruebas: 
 Pasado un límite por tiempo se responde 429 con un texto que dice cuánto esperar; un límite de cantidad responde 400
 con lo que hay que hacer (por ejemplo, borrar una plantilla). Todos los límites por tiempo son comunes a todos los
 procesos del servidor.
+
+## Archivos subidos
+
+| Qué | Quién | Tipos | Máximo | Cómo se comprueba | Cómo se guarda y se sirve |
+|---|---|---|---|---|---|
+| Logo, portada y galería del centro, foto de perfil del freelance, fotos de puntos, promociones, temas, destinos y experiencias | Centro, freelance, administración | JPG, PNG, WEBP | 6 MB, 40 Mpx | Firma del archivo y **se abre y se vuelve a guardar** con Pillow (sin metadatos ni GPS); si no se puede abrir, se rechaza | Nombre aleatorio en `data/fotos` (`/assets/uploads/…`); se sirve como imagen con `nosniff` y una política que no ejecuta nada (`sandbox`) |
+| Fotos de especies | Centro, freelance, administración | JPG, PNG, WEBP | 12 MB, 40 Mpx | Igual; se guardan como WebP en tres tamaños | Igual |
+| Documentos privados del buceador (titulación, seguro…) y seguro del centro o del freelance | Buceador, centro, freelance | PDF, JPG, PNG, WEBP | 10 MB (`WOD_MAX_DOCUMENT_MB`), 30 por persona | Firma del archivo; una imagen tiene que abrirse; un PDF tiene que estar entero (cabecera y final); antivirus si está configurado (`WOD_AV_COMMAND`) | Fuera de la web (`storage/`), permisos 600, nombre aleatorio. Solo los ve su dueño, el centro mientras tenga una reserva viva o la ficha compartida, y la administración (cada vista queda registrada). Nunca en caché; el nombre de la descarga lleva la extensión real; un PDF de otra persona se descarga en vez de abrirse |
+| Captura de «Reportar fallo» | Solo el entorno de pruebas | JPG, PNG | 1,5 MB | Firma del archivo | Carpeta `fallos/` del entorno de pruebas |
+
+Un archivo que no pasa una comprobación se rechaza con un 400 que explica qué hacer; uno con virus, además, deja un
+aviso de seguridad para la administración.

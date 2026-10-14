@@ -12,7 +12,9 @@ Los archivos de ejemplo están en `docs/despliegue/`. Los mapas tienen su propia
 
 ```bash
 sudo adduser --system --group --home /opt/worldives worldives
-sudo -u worldives git clone <repositorio> /opt/worldives
+# Con el zip de PRODUCCIÓN (docs/despliegue/GUIA-VPS.md, apartado 3), nunca con «git clone»: la carpeta .git (todo el
+# historial) no debe quedar en el servidor (ASVS 5.0 V13.4.1).
+sudo unzip worldives-v<versión>-PRODUCCION.zip -d /opt/ && sudo mv /opt/worldives-v<versión>-PRODUCCION/* /opt/worldives/ && sudo chown -R worldives: /opt/worldives
 cd /opt/worldives && sudo -u worldives python3 -m venv .venv && sudo -u worldives .venv/bin/pip install -r requirements.txt
 sudo mkdir -p /var/backups/worldives && sudo chown worldives: /var/backups/worldives
 ```
@@ -117,11 +119,8 @@ Anota en la lista de lanzamiento la fecha de la última prueba de restauración.
 
 ### Actualizar a una versión nueva
 
-```bash
-cd /opt/worldives && sudo -u worldives git pull && sudo -u worldives .venv/bin/pip install -r requirements.txt
-sudo -u worldives .venv/bin/python app/server.py --backup-now
-sudo systemctl restart worldives          # las migraciones se aplican solas al arrancar
-```
+Con el zip nuevo, como explica `docs/despliegue/GUIA-VPS.md`, apartado 9 (copia antes, sin tocar `data/`, `storage/` ni
+`.env`, y con la carpeta anterior guardada para volver atrás).
 
 Las migraciones solo añaden y transforman, sin borrar datos; las que reescriben una tabla o textos guardan antes una copia completa de la base. Además, haz `--backup-now` antes de cada actualización, como arriba.
 
