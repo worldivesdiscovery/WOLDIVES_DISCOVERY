@@ -65,6 +65,7 @@ WOD_BACKUP_KEY=        # python3 -c "import secrets;print(secrets.token_urlsafe(
 WOD_TRUSTED_PROXIES=127.0.0.1
 WOD_WORKERS=4
 WOD_BACKUP_DIR=/var/backups/worldives
+WOD_TIMEZONE=Europe/Madrid    # el VPS suele ir en UTC: así las salidas y los plazos usan la hora de los centros
 ```
 
 **Guarda `WOD_DATA_KEY` y `WOD_BACKUP_KEY` también fuera del servidor** (en un gestor de contraseñas): sin ellas no

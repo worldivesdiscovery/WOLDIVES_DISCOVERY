@@ -22,6 +22,7 @@ import queue
 import threading
 import time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from email import policy
 from email.parser import BytesParser
 from http import HTTPStatus
@@ -55,6 +56,10 @@ from wod import movil as wmovil
 from wod import whatsapp as wwa
 from wod import avisos as wav
 from wod.inquilinos import NotFound
+# v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
+# happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
+if wag.valid_tz(wcfg.env('WOD_TIMEZONE')) and hasattr(time, 'tzset'):
+    os.environ['TZ'] = wcfg.env('WOD_TIMEZONE'); time.tzset()
 PUBLIC = ROOT / 'public'
 DATA = Path(os.environ.get('WOD_DATA_DIR') or (ROOT / 'data'))
 STORAGE = Path(os.environ.get('WOD_STORAGE_DIR') or (ROOT / 'storage'))
@@ -6751,6 +6756,28 @@ def notify_legal_change(db, slug, version, effective_at, summary):
                     ('legal', None))
 
 
+_TZ_CACHE = {}
+
+
+def on_server_clock(db, wall, service_id=None, center_id=None):
+    """The date and time of an activity are those of the place where it happens (the time zone of its service, or of its
+    centre); the server compares them with its own clock (local_now). v50.51: before, both were taken as the same clock,
+    so a server on UTC, or a centre in another time zone, moved departures and cancellation deadlines by hours."""
+    if wall is None: return None
+    key = (service_id or 0, center_id or 0); hit = _TZ_CACHE.get(key)
+    if hit and hit[1] > time.time(): tz = hit[0]
+    else:
+        svc = db.execute('SELECT * FROM provider_services WHERE id=?', (service_id,)).fetchone() if service_id else None
+        if svc: tz = service_tz(db, svc)
+        else:
+            c = db.execute('SELECT country FROM centers WHERE id=?', (center_id,)).fetchone() if center_id else None
+            tz = wag.tz_for_country(c['country'] if c else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
+        if len(_TZ_CACHE) > 5000: _TZ_CACHE.clear()
+        _TZ_CACHE[key] = (tz, time.time() + 60)   # a change of time zone applies within a minute
+    try: return wall.replace(tzinfo=ZoneInfo(tz)).astimezone().replace(tzinfo=None)
+    except Exception: return wall
+
+
 def booking_start(b):
     """Local date and time of the activity (09:00 when the centre has not set a time)."""
     try:
@@ -6938,12 +6965,13 @@ def booking_paid_online(db, bid):
 def booking_cancel_terms(db, b):
     """What happens if the diver cancels now: refund proposed by the provider's policy and the free-cancellation deadline."""
     pol = booking_policy(db, b); hours = pol['free_hours']
-    start = booking_start(b); left = (start - datetime.now()).total_seconds() / 3600 if start else 0
+    wall = booking_start(b); start = on_server_clock(db, wall, b['service_id'], b['center_id'])
+    left = (start - local_now()).total_seconds() / 3600 if start else 0
     paid, refunded, orders = booking_paid_online(db, b['id'])
     net = max(0.0, paid - refunded)
     free = left >= hours
     amount = net if free else round(net * pol['refund_pct'] / 100, 2)
-    deadline = (start - _timedelta(hours=hours)).isoformat(timespec='minutes') if start else None
+    deadline = (wall - _timedelta(hours=hours)).isoformat(timespec='minutes') if wall else None   # the centre's time
     return {'policy': f'{hours}h-{pol["refund_pct"]}', 'policy_hours': hours, 'refund_pct': pol['refund_pct'], 'hours_left': round(left, 1), 'free': free,
             'paid_online': bool(orders), 'refund_amount': round(amount, 2), 'paid_amount': round(net, 2), 'deadline': deadline,
             'started': left <= 0, 'policy_text': pol['text']}
@@ -7221,7 +7249,7 @@ def accept_booking(db, actor, b):
     ready = service_payments_ready(db, svc) if svc else center_payments_ready(db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?', (b['center_id'],)).fetchone())
     if price > 0 and ready and b['payment_status'] != 'paid':
         hours = wbk.clamp_hours(svc['payment_hours'] if svc else None, wbk.DEFAULT_PAYMENT_HOURS)
-        deadline = wbk.deadline_before_start(local_now(), hours, wbk.activity_start(b['booking_date'], b['booking_time']))
+        deadline = wbk.deadline_before_start(local_now(), hours, on_server_clock(db, wbk.activity_start(b['booking_date'], b['booking_time']), b['service_id'], b['center_id']))
         db.execute("UPDATE bookings SET status='accepted_pending_payment',payment_status='required',payment_deadline=?,accepted_at=?,decided_by=?,updated_at=? WHERE id=?",
                    (local_iso(deadline), now(), actor['id'] if actor else None, now(), b['id']))
         notify_booking(db, b['id'], 'accepted_payment')
@@ -8302,8 +8330,9 @@ def slot_event(db, slot_id, kind, user_id=None, **details):
     db.execute('INSERT INTO slot_events(slot_id,kind,details,user_id,created_at) VALUES(?,?,?,?,?)', (slot_id, kind, json.dumps(details, ensure_ascii=False), user_id, now()))
 
 
-def slot_start(slot):
-    return wbk.activity_start(slot['slot_date'], slot['slot_time'])
+def slot_start(db, slot):
+    """Start of a departure on the server's clock (see on_server_clock)."""
+    return on_server_clock(db, wbk.activity_start(slot['slot_date'], slot['slot_time']), slot['service_id'])
 
 
 def move_booking(db, b, slot):
@@ -8330,7 +8359,7 @@ def target_slots(db, b, exclude=None):
     pax = max(1, int(b['participants'] or 1)); out = []
     for s in db.execute("SELECT * FROM service_slots WHERE service_id=? AND status IN ('open','full') AND id<>? AND slot_date>=? ORDER BY slot_date,slot_time LIMIT 200",
                         (b['service_id'], exclude or b['slot_id'] or 0, local_now().date().isoformat())).fetchall():
-        st = slot_start(s)
+        st = slot_start(db, s)
         if st and st <= local_now(): continue
         if int(s['spots_available'] or 0) < pax: continue
         out.append(s)
@@ -8426,8 +8455,8 @@ def run_slot_cancel_jobs(db):
         except Exception as exc:
             db.rollback(); audit(db, None, 'slot_cancel_auto_failed', 'booking', o['booking_id'], {'error': str(exc)[:200]}); db.commit()
     # Point 3: change requests whose original departure has started are closed.
-    for r in db.execute("SELECT r.*, b.booking_date, b.booking_time FROM reschedule_requests r JOIN bookings b ON b.id=r.booking_id WHERE r.status='pending' LIMIT 200").fetchall():
-        st = wbk.activity_start(r['booking_date'], r['booking_time'])
+    for r in db.execute("SELECT r.*, b.booking_date, b.booking_time, b.service_id AS b_service, b.center_id AS b_center FROM reschedule_requests r JOIN bookings b ON b.id=r.booking_id WHERE r.status='pending' LIMIT 200").fetchall():
+        st = on_server_clock(db, wbk.activity_start(r['booking_date'], r['booking_time']), r['b_service'], r['b_center'])
         if st and st <= local_now():
             db.execute("UPDATE reschedule_requests SET status='expired',decided_at=? WHERE id=?", (now(), r['id'])); db.commit()
     run_waitlist_jobs(db)
@@ -8603,7 +8632,7 @@ def create_notice_batch(db, handler, user, data, kind):
     ctx = notice_actor_ctx(db, user)
     slot = winq.get_slot(db, ctx, data.get('slot_id'))
     if kind in ('slot_cancelled', 'slot_changed'):
-        st = slot_start(slot)
+        st = slot_start(db, slot)
         if slot['cancelled_at'] and kind == 'slot_changed': raise ValueError('Esta salida está cancelada.')
         if st and st <= local_now(): raise ValueError('Esta salida ya ha empezado.')
     reason = data.get('reason') if kind == 'slot_cancelled' else None
@@ -9214,13 +9243,14 @@ def reschedule_options(db, b, user):
     """What «Cambiar fecha» offers to the diver for a booking: whether it is allowed, until when, and the departures."""
     mode, hours = reschedule_policy(db, b)
     start = wbk.activity_start(b['booking_date'], b['booking_time'])
-    until = start - _timedelta(hours=hours) if start else None
+    until = start - _timedelta(hours=hours) if start else None   # the centre's time (shown)
+    until_here = on_server_clock(db, until, b['service_id'], b['center_id'])
     pending = db.execute("SELECT r.*, ss.slot_date, ss.slot_time FROM reschedule_requests r JOIN service_slots ss ON ss.id=r.to_slot_id WHERE r.booking_id=? AND r.status='pending'", (b['id'],)).fetchone()
     why = None
     if mode == 'none': why = 'Este centro no permite cambiar la fecha desde la web. Escríbele si lo necesitas.'
     elif b['status'] not in ('requested', 'accepted_pending_payment', 'confirmed') or not b['slot_id']: why = 'Esta reserva ya no se puede cambiar de fecha.'
     elif db.execute(f"SELECT 1 FROM slot_cancel_offers WHERE booking_id=? AND resolved_at IS NULL", (b['id'],)).fetchone(): why = 'El centro ha cancelado esta salida: elige la nueva fecha desde el aviso de cancelación.'
-    elif until and local_now() > until: why = 'El plazo para cambiar la fecha ha terminado.'
+    elif until_here and local_now() > until_here: why = 'El plazo para cambiar la fecha ha terminado.'
     opts = []
     if not why:
         pax = max(1, int(b['participants'] or 1)); old_total = float(b['price'] or 0)
@@ -9239,7 +9269,7 @@ def waitlist_offer(db, slot_id):
     s = db.execute('''SELECT ss.*, ps.waitlist_enabled, ps.title AS service_title, ps.center_id, ps.provider_user_id FROM service_slots ss JOIN provider_services ps ON ps.id=ss.service_id
                       WHERE ss.id=?''', (slot_id,)).fetchone()
     if not s or s['status'] not in ('open', 'full') or s['cancelled_at'] or not (s['waitlist_enabled'] if s['waitlist_enabled'] is not None else 1): return
-    start = slot_start(s)
+    start = slot_start(db, s)
     if not start or start <= local_now(): return
     for w in db.execute("SELECT * FROM waitlist_entries WHERE slot_id=? AND status='waiting' ORDER BY created_at, id", (slot_id,)).fetchall():
         free = db.execute('SELECT spots_available FROM service_slots WHERE id=?', (slot_id,)).fetchone()['spots_available']
@@ -9272,8 +9302,8 @@ def run_waitlist_jobs(db):
         slot_event(db, w['slot_id'], 'waitlist_expired', None, entry=w['id'])
         if w['held']: release_slot_spots(db, w['slot_id'], w['held'])   # → next person of the list
         db.commit()
-    for w in db.execute("SELECT w.id, ss.slot_date, ss.slot_time FROM waitlist_entries w JOIN service_slots ss ON ss.id=w.slot_id WHERE w.status='waiting' LIMIT 500").fetchall():
-        st = wbk.activity_start(w['slot_date'], w['slot_time'])
+    for w in db.execute("SELECT w.id, ss.slot_date, ss.slot_time, ss.service_id FROM waitlist_entries w JOIN service_slots ss ON ss.id=w.slot_id WHERE w.status='waiting' LIMIT 500").fetchall():
+        st = slot_start(db, w)
         if st and st <= local_now(): db.execute("UPDATE waitlist_entries SET status='expired',updated_at=? WHERE id=?", (now(), w['id']))
     db.commit()
 
@@ -11877,7 +11907,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); data=json_body(self); slot_id=int(data.get('slot_id') or 0)
                     slot=manifest_require_edit(db,user,slot_id)
                     if slot['cancelled_at'] or slot['status'] not in ('open','full','closed'): raise ValueError('Esta salida ya está cancelada.')
-                    st=slot_start(slot)
+                    st=slot_start(db, slot)
                     if st and st<=local_now(): raise ValueError('Esta salida ya ha empezado.')
                     hours=int(data['choice_hours']) if data.get('choice_hours') not in (None,'') else service_choice_hours(db,slot)
                     if not 1<=hours<=168: raise ValueError('El plazo para elegir debe estar entre 1 y 168 horas.')
@@ -11940,7 +11970,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     note=clean_text(data.get('note'),300) or ''
                     if data.get('approve'):
                         if b['status'] not in ('requested','accepted_pending_payment','confirmed'): raise ValueError('Esta reserva ya no se puede cambiar de fecha.')
-                        if not ns or ns['status'] not in ('open','full') or (slot_start(ns) and slot_start(ns)<=local_now()): raise ValueError('Esa salida ya no está disponible. Rechaza la solicitud.')
+                        if not ns or ns['status'] not in ('open','full') or (slot_start(db,ns) and slot_start(db,ns)<=local_now()): raise ValueError('Esa salida ya no está disponible. Rechaza la solicitud.')
                         od,ot=move_booking(db,b,ns)
                         db.execute("UPDATE reschedule_requests SET status='approved',decided_at=?,decided_by=?,note=? WHERE id=?",(now(),user['id'],note,r['id']))
                         notify_booking(db,bid,'reschedule_decided',{'approved':True,'note':note})
@@ -11975,7 +12005,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     s=db.execute('SELECT ss.*, ps.waitlist_enabled, ps.max_participants FROM service_slots ss JOIN provider_services ps ON ps.id=ss.service_id WHERE ss.id=? AND ps.active=1',(slot_id,)).fetchone()
                     if not s or s['status'] not in ('open','full') or s['cancelled_at']: raise ValueError('Esta salida ya no está disponible.')
                     if s['waitlist_enabled']==0: raise ValueError('Esta salida no tiene lista de espera.')
-                    st=slot_start(s)
+                    st=slot_start(db, s)
                     if not st or st<=local_now(): raise ValueError('Esta salida ya ha empezado.')
                     pax=max(1,int(data.get('participants') or 1))
                     if pax>int(s['spots_total'] or 1) or (s['max_participants'] and pax>int(s['max_participants'])): raise ValueError('Demasiadas personas para esta salida.')
@@ -13006,7 +13036,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(sid,b['service_id'])).fetchone() if b['service_id'] else None
                     if not slot: raise ValueError('Elige otra salida del mismo servicio.')
                     if slot['id']==b['slot_id']: raise ValueError('La reserva ya está en esa salida.')
-                    start=wbk.activity_start(slot['slot_date'],slot['slot_time'])
+                    start=slot_start(db,slot)
                     if start and start<=local_now(): raise ValueError('Esa salida ya ha empezado.')
                     old_when=f"{b['booking_date']} {b['booking_time'] or ''}".strip()
                     move_booking(db,b,slot)
@@ -13254,7 +13284,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     bdate=clean_text(data.get('booking_date'),20) or (slot['slot_date'] if slot else None)
                     if not bdate or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',bdate): raise ValueError('Elige la fecha de la actividad.')
                     btime=clean_text(data.get('booking_time'),20)
-                    start=wbk.activity_start(bdate,btime)
+                    start=on_server_clock(db,wbk.activity_start(bdate,btime),service['id'] if service else None,center_id)
                     if start and start<=local_now(): raise ValueError('Esa salida ya ha empezado o ha pasado. Elige otra fecha.')
                     price, service_currency, price_lines = booking_quote(db, center_id, service, participants, bdate, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
                     day_sel=None

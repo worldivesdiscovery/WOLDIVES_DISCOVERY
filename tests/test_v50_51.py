@@ -226,5 +226,51 @@ class LimitadorCompartido(unittest.TestCase):
         n = sqlite3.connect(Path(self.tmp.name) / 'limites.sqlite3').execute("SELECT count FROM hits WHERE name='procesos'").fetchone()[0]
         self.assertEqual(n, 101)                                                             # 4 × 25 + 1, none lost
 
+class ZonasHorarias(ServerTestCase):
+    """Each departure is compared with the time of the place where it happens, whatever the clock of the machine (here
+    UTC, like many VPS): in Spain, one that began 30 minutes ago is closed; in Cancún, one that starts in an hour is
+    open; the free cancellation counts the hours of the centre."""
+    extra_env = {'TZ': 'UTC'}
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        t = cls('run'); admin = t.make_admin('adm-tz@worldives.test', 'admtz')
+        cls.es = t.make_center(admin, 'zonaes', phone='+34 600 515 001')
+        cls.mx = t.make_center(admin, 'zonamx', phone='+34 600 515 002')
+        cls.server.sql("UPDATE centers SET country='México' WHERE id=?", (cls.mx.user['center_id'],))
+        cls.diver = t.make_diver('zonas1')
+
+    def departure(self, center, tz, delta):
+        from zoneinfo import ZoneInfo
+        sid = center.post('/api/provider-services', {'title': f'Salida {tz}', 'price': 40, 'booking_mode': 'request'}).json['id']
+        later = (dt.date.today() + dt.timedelta(days=10)).isoformat()
+        slot = center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': later, 'slot_time': '09:00', 'spots_total': 8}).json['slot_id']
+        when = dt.datetime.now(ZoneInfo(tz)) + delta
+        self.server.sql('UPDATE service_slots SET slot_date=?, slot_time=? WHERE id=?', (when.date().isoformat(), when.strftime('%H:%M'), slot))
+        return sid, slot
+
+    def book(self, center, sid, slot):
+        return self.diver.post('/api/bookings', {'center_id': center.user['center_id'], 'service_id': sid, 'slot_id': slot, 'participants': 1})
+
+    def test_started_in_spain_is_closed_on_a_utc_server(self):
+        r = self.book(self.es, *self.departure(self.es, 'Europe/Madrid', dt.timedelta(minutes=-30)))
+        self.assertEqual(r.status, 400, r); self.assertIn('ya ha empezado', r.json['error'])
+
+    def test_ahead_in_cancun_is_open(self):
+        r = self.book(self.mx, *self.departure(self.mx, 'America/Cancun', dt.timedelta(minutes=60)))
+        self.assertEqual(r.status, 200, r)
+
+    def test_free_cancellation_counts_the_hours_of_the_centre(self):
+        from zoneinfo import ZoneInfo
+        bid = self.book(self.es, *self.departure(self.es, 'Europe/Madrid', dt.timedelta(days=5))).json['id']
+        hours = self.diver.post(f'/api/bookings/{bid}/cancel', {'preview': True}).json['terms']['policy_hours']
+        self.assertGreaterEqual(hours, 2)
+        when = dt.datetime.now(ZoneInfo('Europe/Madrid')) + dt.timedelta(hours=hours - 1)
+        self.server.sql('UPDATE bookings SET booking_date=?, booking_time=? WHERE id=?', (when.date().isoformat(), when.strftime('%H:%M'), bid))
+        t = self.diver.post(f'/api/bookings/{bid}/cancel', {'preview': True}).json['terms']
+        self.assertFalse(t['free'], t); self.assertAlmostEqual(t['hours_left'], hours - 1, delta=0.2)
+        self.assertEqual(t['deadline'][11:16], (when - dt.timedelta(hours=hours)).strftime('%H:%M'))   # shown in the centre's time
+
 if __name__ == '__main__':
     unittest.main()
