@@ -36,8 +36,7 @@ def run(shots: Path | None):
     try:
         admin = t.make_admin()
         dos = t.make_diver('dospasosweb')
-        dos.post('/api/account/totp/setup', {'password': PW})
-        secret = srv.sql("SELECT totp_pending_secret FROM users WHERE username='diver_dospasosweb'")[0]['totp_pending_secret']
+        secret = dos.post('/api/account/totp/setup', {'password': PW}).json['secret']     # (in the database it is encrypted)
         dos.post('/api/account/totp/enable', {'code': totp.code_at(secret, totp.current_step())})
         cid = srv.sql('SELECT id FROM certifications WHERE active=1 ORDER BY id LIMIT 1')[0]['id']
         with sync_playwright() as p:

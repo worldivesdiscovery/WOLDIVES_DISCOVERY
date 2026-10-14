@@ -112,7 +112,8 @@ class Notices(ServerTestCase):
         self.assertEqual(pv['recipients'], 12); self.assertEqual(pv['counts'], {'whatsapp': 12, 'email': 12, 'app': 12})
         self.assertTrue(all(p['name'] == 'Buceador d.' for p in pv['people']), pv['people'])                # first name + initial only
         self.assertEqual(pv['money']['refund'], 160.0)
-        self.assertNotIn('611', json.dumps(pv))                                                         # no diver phone in the preview
+        no_uid = {**pv, 'slot': {k: v for k, v in pv['slot'].items() if k != 'uid'}}                     # (the slot uid is random hex: it can contain «611»)
+        self.assertNotIn('611', json.dumps(no_uid))                                                     # no diver phone in the preview
         refunds0 = len(self.stripe.refunds); sent0 = len(self.meta.sent)
         uid = self.cancel(self.A, slA, policy='refund')
         self.assertEqual(self.cancel(self.A, slA, policy='refund'), uid)                                  # double click: the same notice

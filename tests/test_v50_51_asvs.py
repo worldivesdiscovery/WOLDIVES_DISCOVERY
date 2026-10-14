@@ -280,6 +280,16 @@ class PermisosDelEquipo(ServerTestCase):
         self.assertEqual(self.ins.get('/api/center/export?kind=payments').status, 403)
         self.assertEqual(self.ins.get('/api/center/export?kind=services').status, 200)
 
+    def test_v8_2_1_rewards_check_a_code_but_not_validate_or_grant(self):
+        # The web shows an instructor only what the server lets him do in «Recompensas» (inventory of 14/10)
+        diver = self.server.sql("SELECT id FROM users WHERE username='diver_v8d'")[0]['id']
+        self.assertEqual(self.ins.post('/api/provider/points-grant', {'user_id': diver, 'points': 5}).status, 403)
+        self.assertEqual(self.ins.post('/api/center/redemptions/validate', {'code': 'WOD-NOEXISTE'}).status, 403)
+        self.assertNotEqual(self.ins.get('/api/center/redemptions?code=WOD-NOEXISTE').status, 403)
+        js = self.client().get('/js/world-dives-v8.js').body.decode('utf-8')
+        self.assertIn("const write=isAdmin||wdCan('reservas');", js)
+        self.assertIn("r.status==='issued'&&write?", js)
+
     def test_v8_2_2_a_departure_guided_by_someone_else_is_not_readable(self):
         self.assertEqual(self.ins.get(f'/api/manifest/{self.slot_other}').status, 404)        # before: 200 with phones
         self.assertEqual(self.ins.get(f'/api/manifest/{self.slot_mine}').status, 200)

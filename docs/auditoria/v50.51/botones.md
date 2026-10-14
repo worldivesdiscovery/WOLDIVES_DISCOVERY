@@ -1,6 +1,6 @@
 # WORLDIVES DISCOVERY v50.51 · Inventario de botones
 
-Fecha: 13/10/2026. Herramienta: `tests/navegador/inventario_botones.py` (Chromium real, escritorio 1366×900, es-ES).
+Fecha: 13/10/2026; **repetido entero el 14/10/2026 con la versión final** (después de los arreglos de OWASP ASVS 5.0). Herramienta: `tests/navegador/inventario_botones.py` (Chromium real, escritorio 1366×900, es-ES).
 Inventario completo, pantalla por pantalla y elemento por elemento: `botones-inventario.md` (en el paquete DEMO y en
 el repositorio; no va en el de PRODUCCIÓN porque nombra las cuentas de la demo).
 
@@ -26,12 +26,17 @@ el repositorio; no va en el de PRODUCCIÓN porque nombra las cuentas de la demo)
 | Papel | Pantallas | Elementos | Funciona | Depende de clave pendiente | Desactivado (correcto) | Error | Sin efecto |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Visitante (sin sesión) | 34 | 632 | 624 | 3 | 5 | 0 | 0 |
-| Buceador | 47 | 762 | 754 | 3 | 5 | 0 | 0 |
-| Centro propietario | 75 | 1.006 | 991 | 5 | 10 | 0 | 0 |
-| Instructor del centro | 66 | 930 | 917 | 3 | 10 | 0 | 0 |
-| Freelance | 61 | 843 | 831 | 4 | 8 | 0 | 0 |
-| Administración | 62 | 892 | 881 | 3 | 8 | 0 | 0 |
-| **Total** | **345** | **5.065** | **4.998** | **21** | **46** | **0** | **0** |
+| Buceador | 47 | 763 | 755 | 3 | 5 | 0 | 0 |
+| Centro propietario | 75 | 1.005 | 990 | 5 | 10 | 0 | 0 |
+| Instructor del centro | 64 | 886 | 873 | 3 | 10 | 0 | 0 |
+| Freelance | 61 | 842 | 830 | 4 | 8 | 0 | 0 |
+| Administración | 62 | 897 | 886 | 3 | 8 | 0 | 0 |
+| **Total** | **343** | **5.025** | **4.958** | **21** | **46** | **0** | **0** |
+
+Respecto a la pasada del 13/10 (5.065 elementos en 345 pantallas), el instructor tiene 2 pantallas y 44 elementos menos:
+con ASVS 5.0 (V8.2) ya no ve *Solicitudes*, *Clientes* ni las exportaciones de clientes y reservas, que su perfil no
+puede leer. La administración tiene 5 elementos más (cerrar las sesiones de una persona) y el buceador uno («Cerrar las
+demás sesiones»).
 
 **Antes de los arreglos** (primera pasada, misma herramienta): 23 «Error», 17 «Sin efecto» y 2 pantallas que no se
 abrían; el instructor solo llegaba a 36 pantallas porque su panel no abría. **Después: 0, 0 y 0**, y el instructor
@@ -52,6 +57,7 @@ abajo están marcados como **Corregido**.
 | 8 | Detalle de cada reserva (buceador) | Pedía siempre la «salida cancelada» aunque no la hubiera, y el navegador mostraba un error en rojo en la consola | Solo la pide cuando hay una salida cancelada pendiente de elegir | **Corregido** |
 | 9 | Instructor › *Resumen* del panel | Salía «Cobrado 34.573,44 €» y, al pulsarlo, intentaba abrir las estadísticas, que su perfil no permite; también los gráficos de ventas, vacíos | El resumen solo enseña los accesos a pestañas que ese perfil tiene, y los gráficos de ventas solo con «Estadísticas» | **Corregido** |
 | 10 | Mapa del buceo (`#/explorar`) | El inventario vio un grupo de puntos («2») «debajo» del panel lateral | Comprobado con una captura: el grupo está fuera del área visible del mapa, recortado por su borde; nadie lo ve ni lo pulsa. Al mover el mapa aparece y se puede pulsar. El inventario ya no cuenta como «tapado» lo que está recortado | **No es un fallo** |
+| 11 | **Instructor** › *Recompensas* (pasada del 14/10) | Tras los arreglos de ASVS el instructor ya no lee la lista de clientes, y el desplegable «Cliente» de *Conceder puntos* salía vacío («Todavía no tienes clientes»). Además, conceder puntos, validar un código y crear ventajas ya los negaba el servidor a ese perfil | Un perfil sin «Reservas» puede **comprobar** un código, y lee por qué no puede validarlo, conceder puntos ni cambiar las ventajas; los botones que el servidor le negaría ya no salen | **Corregido** |
 
 ## Depende de una clave pendiente
 

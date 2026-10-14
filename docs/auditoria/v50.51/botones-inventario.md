@@ -1,6 +1,6 @@
 # Inventario de botones, enlaces y formularios
 
-Generado el 13/10/2026 23:09 con `tests/navegador/inventario_botones.py` en Chromium (escritorio 1366×900, es-ES).
+Generado el 14/10/2026 10:39 con `tests/navegador/inventario_botones.py` en Chromium (escritorio 1366×900, es-ES).
 Cada papel usa su propio servidor con una copia nueva de la base de demostración (`scripts/crear_demo.py`), sin claves externas (Stripe, WhatsApp/Meta, SMTP, ArcGIS, Firebase) y sin salida a internet.
 
 ## Cómo se ha probado
@@ -22,12 +22,12 @@ Cada papel usa su propio servidor con una copia nueva de la base de demostració
 | Papel | Pantallas | Pantallas con error al abrir | Elementos | Funciona | Depende de clave pendiente | Sin efecto | Error | Desactivado (correcto) | Desactivado (sin explicación) | No probado |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | Visitante (sin sesión) | 34 | 0 | 632 | 624 | 3 | 0 | 0 | 5 | 0 | 0 |
-| Buceador (buzo.prueba) | 47 | 0 | 762 | 754 | 3 | 0 | 0 | 5 | 0 | 0 |
-| Centro propietario (centro.prueba) | 75 | 0 | 1006 | 991 | 5 | 0 | 0 | 10 | 0 | 0 |
-| Instructor del centro (instructor.prueba) | 66 | 0 | 930 | 917 | 3 | 0 | 0 | 10 | 0 | 0 |
-| Freelance (freelance.prueba) | 61 | 0 | 843 | 831 | 4 | 0 | 0 | 8 | 0 | 0 |
-| Administración (cuenta creada para la prueba) | 62 | 0 | 892 | 881 | 3 | 0 | 0 | 8 | 0 | 0 |
-| **Total** | 345 | 0 | 5065 | **4998** | **21** | **0** | **0** | **46** | **0** | **0** |
+| Buceador (buzo.prueba) | 47 | 0 | 763 | 755 | 3 | 0 | 0 | 5 | 0 | 0 |
+| Centro propietario (centro.prueba) | 75 | 0 | 1005 | 990 | 5 | 0 | 0 | 10 | 0 | 0 |
+| Instructor del centro (instructor.prueba) | 64 | 0 | 886 | 873 | 3 | 0 | 0 | 10 | 0 | 0 |
+| Freelance (freelance.prueba) | 61 | 0 | 842 | 830 | 4 | 0 | 0 | 8 | 0 | 0 |
+| Administración (cuenta creada para la prueba) | 62 | 0 | 897 | 886 | 3 | 0 | 0 | 8 | 0 | 0 |
+| **Total** | 343 | 0 | 5025 | **4958** | **21** | **0** | **0** | **46** | **0** | **0** |
 
 ## Hallazgos: «Error» y «Sin efecto»
 
@@ -82,7 +82,7 @@ Ninguno.
 
 ### Visitante (sin sesión)
 
-34 pantallas, 632 elementos probados en 10 min 34 s.
+34 pantallas, 632 elementos probados en 10 min 52 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -140,9 +140,9 @@ Ninguno.
 | Encuentra tu próxima inmersión | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | Encuentra tu próxima inmersión | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (18 elementos): «Leaflet» |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (19 elementos): «2» · hay 15 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (7 elementos): «Rainbow Reef» |
-| Encuentra tu próxima inmersión | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» · hay 1 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | Tofo – Manta Reef | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» |
+| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Cambia class en div.leaflet-pane.leaflet-map-pane.leaflet-pan-anim (leaflet-pane leaflet-map-pane → leaflet-pane leaflet-map-pane ) |
+| Encuentra tu próxima inmersión | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (134 elementos): «×» · hay 1 más iguales en la lista (no se prueban todos) |
+| Encuentra tu próxima inmersión | Tofo – Manta Reef | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (146 elementos): «×» |
 | Encuentra tu próxima inmersión | Zoom in | Enlace | Funciona | Muestra contenido nuevo (64 elementos): «2» |
 | Encuentra tu próxima inmersión | Zoom out | Enlace | Funciona | Cambia su estado (class: leaflet-control-zoom-out → leaflet-control-zoom-out leaflet-disabled) · Cambia la pantalla (4 elementos nuevos, 0 quitados) |
 | Encuentra tu próxima inmersión | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
@@ -169,7 +169,7 @@ Ninguno.
 | El mapa del buceo | Pináculos | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (27 elementos): «7» |
 | El mapa del buceo | Profundas | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (59 elementos): «2» |
 | El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (40 elementos): «2» |
-| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (22 elementos): «2» |
+| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (20 elementos): «2» |
 | El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (15 elementos): «2» |
 | El mapa del buceo | 04 África y Mar Rojo 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (25 elementos): «2» |
 | El mapa del buceo | 05 Oceanía 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (31 elementos): «2» |
@@ -650,7 +650,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Reservar | Enlace | Funciona | Mismo enlace (#/reservar?center=31) que «Reservar» en «Centros de buceo»: Abre #/reservar?center=31 |
 | Bahía Coralina Centro de Buceo | Llamar | Enlace externo | Funciona | Teléfono +34600000101 |
 | Bahía Coralina Centro de Buceo | Escribir | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
-| Bahía Coralina Centro de Buceo | Lun, 19 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 200 · hay 11 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo | Mar, 20 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 200 · hay 11 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Enviar solicitud | Enlace | Funciona | Abre #/reservar?center=31&service=7 · POST /api/stats/track → 200 · hay 3 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Añadir a una reserva | Enlace | Funciona | Abre #/reservar?center=31&service=8 · POST /api/stats/track → 200 |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · hay 6 más iguales en la lista (no se prueban todos) |
@@ -676,7 +676,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Curso Open Water (3 días) | Botón | Funciona | Muestra contenido nuevo (14 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Curso de Nitrox | Botón | Funciona | Muestra contenido nuevo (13 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Doble inmersión en barco | Botón | Funciona | Muestra contenido nuevo (26 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
-| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (17 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
+| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (18 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Inmersión simple en barco | Botón | Desactivado (correcto) | Desactivado; la pantalla explica: «No admite reservas ahora mismo» |
 | Bahía Coralina Centro de Buceo | Una persona menos | Botón | Desactivado (correcto) | Desactivado: es el límite del calendario o de la lista («Una persona menos») |
 | Bahía Coralina Centro de Buceo | Una persona más | Botón | Desactivado (correcto) | No responde al ratón (pointer-events: none) y se ve atenuado; la pantalla explica: «Elige primero la actividad.» |
@@ -892,7 +892,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 
 ### Buceador (buzo.prueba)
 
-47 pantallas, 762 elementos probados en 11 min 45 s.
+47 pantallas, 763 elementos probados en 11 min 44 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -906,7 +906,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Encuentra tu próxima inmersión · cabecera | Tipos de buceo | Enlace | Funciona | Abre #/tipos |
 | Encuentra tu próxima inmersión · cabecera | Experiencias | Enlace | Funciona | Abre #/experiencias |
 | Encuentra tu próxima inmersión · cabecera | Top 10 buceos | Enlace | Funciona | Abre #/top10 |
-| Encuentra tu próxima inmersión · cabecera | Seleccionar idioma | Desplegable | Funciona | Recarga la página con /?lang=en |
+| Encuentra tu próxima inmersión · cabecera | Seleccionar idioma | Desplegable | Funciona | Recarga la página con /?lang=en · POST /api/account/language → 200 |
 | Encuentra tu próxima inmersión · cabecera | BN Bea ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
 | Encuentra tu próxima inmersión · pie de página | Explorar el mapa | Enlace | Funciona | Mismo enlace (#/explorar) que «Explorar» en «Encuentra tu próxima inmersión»: Abre #/explorar |
 | Encuentra tu próxima inmersión · pie de página | Top 10 cerca de ti | Enlace | Funciona | Mismo enlace (#/top10) que «Top 10 buceos» en «Encuentra tu próxima inmersión»: Abre #/top10 |
@@ -949,9 +949,9 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Encuentra tu próxima inmersión | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | Encuentra tu próxima inmersión | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (18 elementos): «Leaflet» |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (19 elementos): «2» · hay 15 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (7 elementos): «Rainbow Reef» |
-| Encuentra tu próxima inmersión | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (146 elementos): «×» · hay 1 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | Tofo – Manta Reef | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» |
+| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (6 elementos): «Rainbow Reef» |
+| Encuentra tu próxima inmersión | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (138 elementos): «×» · hay 1 más iguales en la lista (no se prueban todos) |
+| Encuentra tu próxima inmersión | Tofo – Manta Reef | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (137 elementos): «×» |
 | Encuentra tu próxima inmersión | Zoom in | Enlace | Funciona | Muestra contenido nuevo (64 elementos): «2» |
 | Encuentra tu próxima inmersión | Zoom out | Enlace | Funciona | Cambia su estado (class: leaflet-control-zoom-out → leaflet-control-zoom-out leaflet-disabled) · Cambia la pantalla (4 elementos nuevos, 0 quitados) |
 | Encuentra tu próxima inmersión | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
@@ -988,7 +988,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | El mapa del buceo | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (26 elementos): «Leaflet» |
 | El mapa del buceo | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (31 elementos): «2» · clic forzado (otro elemento lo tapa) · hay 29 más iguales en la lista (no se prueban todos) |
 | El mapa del buceo | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (14 elementos): «Rainbow Reef» |
-| El mapa del buceo | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (126 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
+| El mapa del buceo | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
 | El mapa del buceo | Tofo – Manta Reef | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» |
 | El mapa del buceo | Seguridad en el buceo | Enlace | Funciona | Abre #/legal/seguridad |
 | El mapa del buceo | Zoom in | Enlace | Funciona | Muestra contenido nuevo (87 elementos): «2» |
@@ -1438,7 +1438,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Reservar | Enlace | Funciona | Mismo enlace (#/reservar?center=31) que «Reservar» en «Centros de buceo»: Abre #/reservar?center=31 |
 | Bahía Coralina Centro de Buceo | Llamar | Enlace externo | Funciona | Teléfono +34600000101 |
 | Bahía Coralina Centro de Buceo | Escribir | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
-| Bahía Coralina Centro de Buceo | Lun, 19 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 200 · hay 11 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo | Mar, 20 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 200 · hay 11 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Enviar solicitud | Enlace | Funciona | Abre #/reservar?center=31&service=7 · POST /api/stats/track → 200 · hay 3 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Añadir a una reserva | Enlace | Funciona | Abre #/reservar?center=31&service=8 · POST /api/stats/track → 200 |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · hay 6 más iguales en la lista (no se prueban todos) |
@@ -1467,7 +1467,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Curso Open Water (3 días) | Botón | Funciona | Muestra contenido nuevo (14 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Curso de Nitrox | Botón | Funciona | Muestra contenido nuevo (13 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Doble inmersión en barco | Botón | Funciona | Muestra contenido nuevo (26 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
-| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (17 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
+| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (18 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Inmersión simple en barco | Botón | Desactivado (correcto) | Desactivado; la pantalla explica: «No admite reservas ahora mismo» |
 | Bahía Coralina Centro de Buceo | Una persona menos | Botón | Desactivado (correcto) | Desactivado: es el límite del calendario o de la lista («Una persona menos») |
 | Bahía Coralina Centro de Buceo | Una persona más | Botón | Desactivado (correcto) | No responde al ratón (pointer-events: none) y se ve atenuado; la pantalla explica: «Elige primero la actividad.» |
@@ -1685,22 +1685,22 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Hola, Bea | Leyenda 8500 puntos | Enlace | Funciona | Abre #/recompensas |
+| Hola, Bea | Leyenda 6610 puntos | Enlace | Funciona | Abre #/recompensas |
 | Hola, Bea | Mi área | Enlace | Funciona | Ya estaba seleccionado: pulsarlo otra vez no cambia nada (correcto) |
 | Hola, Bea | Log Book | Enlace | Funciona | Abre #/logbook |
-| Hola, Bea | Recompensas | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 8500 puntos» en «Hola, Bea»: Abre #/recompensas |
+| Hola, Bea | Recompensas | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 6610 puntos» en «Hola, Bea»: Abre #/recompensas |
 | Hola, Bea | Mis puntos | Enlace | Funciona | Abre #/mis-puntos |
 | Hola, Bea | Mi cuenta | Enlace | Funciona | Abre #/cuenta |
 | Hola, Bea | Reservar una inmersión | Enlace | Funciona | Abre #/centros |
 | Hola, Bea | 6 próximas reservas | Botón | Funciona | Desplaza la página |
 | Hola, Bea | 3 avisos sin leer | Botón | Funciona | Desplaza la página |
 | Hola, Bea | 0 documentos | Enlace | Funciona | Abre #/cuenta?docs=1 |
-| Hola, Bea | Ver reserva y QR | Enlace | Funciona | Abre #/reserva?id=1231 |
-| Hola, Bea | PDF sin conexión | Enlace | Funciona | Descarga /api/bookings/1231/receipt.pdf (200, application/pdf) |
+| Hola, Bea | Ver reserva y QR | Enlace | Funciona | Abre #/reserva?id=1262 |
+| Hola, Bea | PDF sin conexión | Enlace | Funciona | Descarga /api/bookings/1262/receipt.pdf (200, application/pdf) |
 | Hola, Bea | Cómo llegar | Enlace externo | Funciona | Enlace externo a www.google.com (no se abre: dirección https válida) |
 | Hola, Bea | Próximas 6 | Botón | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) · Cambia el texto: «Ver las 6 reservas» |
-| Hola, Bea | Historial 120 | Botón | Funciona | Cambia su estado (class: sin atributo → is-on) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Hola, Bea | 17 | Enlace | Funciona | Mismo enlace (#/reserva?id=1231) que «Ver reserva y QR» en «Hola, Bea»: Abre #/reserva?id=1231 |
+| Hola, Bea | Historial 104 | Botón | Funciona | Cambia su estado (class: sin atributo → is-on) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
+| Hola, Bea | 18 | Enlace | Funciona | Mismo enlace (#/reserva?id=1262) que «Ver reserva y QR» en «Hola, Bea»: Abre #/reserva?id=1262 |
 | Hola, Bea | Explorar | Enlace | Funciona | Abre #/experiencias |
 | Hola, Bea | Completar mi ficha | Enlace | Funciona | Mismo enlace (#/cuenta) que «Mi cuenta» en «Hola, Bea»: Abre #/cuenta |
 | Hola, Bea | Marcar como leído | Botón | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) · POST /api/messages/read → 200 · hay 1 más iguales en la lista (no se prueban todos) |
@@ -1712,14 +1712,14 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Hola, Bea › Historial | 1 avisos sin leer | Botón | Funciona | Desplaza la página |
-| Hola, Bea › Historial | 9 | Enlace | Funciona | Abre #/reserva?id=1236 · hay 5 más iguales en la lista (no se prueban todos) |
-| Hola, Bea › Historial | Ver las 120 reservas | Botón | Funciona | Cambia su estado (hidden: sin atributo → vacío) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
+| Hola, Bea › Historial | 10 | Enlace | Funciona | Abre #/reserva?id=1267 · hay 5 más iguales en la lista (no se prueban todos) |
+| Hola, Bea › Historial | Ver las 104 reservas | Botón | Funciona | Cambia su estado (hidden: sin atributo → vacío) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 
 #### Tu ficha de buceador · `#/cuenta`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Tu ficha de buceador | Leyenda 8500 puntos | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 8500 puntos» en «Hola, Bea»: Abre #/recompensas |
+| Tu ficha de buceador | Leyenda 6610 puntos | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 6610 puntos» en «Hola, Bea»: Abre #/recompensas |
 | Tu ficha de buceador | Datos personales | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Nombre y apellidos» (campo obligatorio) |
 | Tu ficha de buceador | Prefijo del país | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Tu ficha de buceador | Idioma preferido | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
@@ -1728,10 +1728,11 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Tu ficha de buceador | Tipo de traje | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Tu ficha de buceador | Documentación | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Título» (campo obligatorio) · El navegador no deja enviarlo: «Archivo (PDF o imagen, máximo 10 MB)» (falta el archivo) |
 | Tu ficha de buceador | Tipo | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
-| Tu ficha de buceador | Bahía Coralina Centro de Buceo Xàbia, España Última visita 10/10/2026 | Enlace | Funciona | Abre #/centro?id=31 |
-| Tu ficha de buceador | Escafandra Medes L'Estartit, España Última visita 10/10/2026 | Enlace | Funciona | Abre #/centro?id=32 |
+| Tu ficha de buceador | Escafandra Medes L'Estartit, España Última visita 11/10/2026 | Enlace | Funciona | Abre #/centro?id=32 |
+| Tu ficha de buceador | Bahía Coralina Centro de Buceo Xàbia, España Última visita 29/9/2026 | Enlace | Funciona | Abre #/centro?id=31 |
 | Tu ficha de buceador | Seguridad | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Contraseña actual» (campo obligatorio) · El navegador no deja enviarlo: «Nueva contraseña» (campo obligatorio) |
 | Tu ficha de buceador | Activar | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Tu contraseña» (campo obligatorio) |
+| Tu ficha de buceador | Cerrar las demás sesiones | Botón | Funciona | Abre la ventana «Cerrar las demás sesiones» |
 | Tu ficha de buceador | Descargar mis datos (ZIP) | Enlace | Funciona | Descarga /api/account/export?format=zip (200, application/zip) |
 | Tu ficha de buceador | Privacidad | Enlace | Funciona | Abre #/legal/privacidad |
 | Tu ficha de buceador | Condiciones de uso | Enlace | Funciona | Abre #/legal/condiciones-buceadores |
@@ -1744,23 +1745,23 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Log Book | Leyenda 8500 puntos | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 8500 puntos» en «Hola, Bea»: Abre #/recompensas |
+| Log Book | Leyenda 6610 puntos | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 6610 puntos» en «Hola, Bea»: Abre #/recompensas |
 | Log Book | Exportar CSV | Botón | Funciona | Descarga «logbook-worldives.csv» |
 | Log Book | Nueva inmersión | Botón | Funciona | Abre la ventana «Nueva inmersión» |
 | Log Book | Editar | Botón | Funciona | Abre la ventana «Editar inmersión» · hay 23 más iguales en la lista (no se prueban todos) |
 | Log Book | Editar | Botón | Funciona | Abre la ventana «Editar inmersión» |
 | Log Book | Borrar inmersión | Botón | Funciona | Pide confirmación «¿Borrar la inmersión en Cabo San Antonio?» (cancelado) |
 | Log Book | Borrar inmersión | Botón | Funciona | Pide confirmación «¿Borrar la inmersión en Portitxol Norte?» (cancelado) |
-| Log Book | Ver las 120 inmersiones | Botón | Funciona | Cambia su estado (hidden: sin atributo → vacío) |
+| Log Book | Ver las 102 inmersiones | Botón | Funciona | Cambia su estado (hidden: sin atributo → vacío) |
 
 #### Recompensas · `#/recompensas`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Recompensas | Leyenda 8500 puntos | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 8500 puntos» en «Hola, Bea»: Abre #/recompensas |
-| Recompensas | Ver promoción Nocturna a mitad de precio | Enlace | Funciona | Abre #/promo/R2NVR7SFW6 |
-| Recompensas | Ver promoción Bono 10 inmersiones | Enlace | Funciona | Abre #/promo/5DVQ44NMUP |
-| Recompensas | Ver promoción 10 % en tu próxima inmersión | Enlace | Funciona | Abre #/promo/MNTUER6N2R |
+| Recompensas | Leyenda 6610 puntos | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 6610 puntos» en «Hola, Bea»: Abre #/recompensas |
+| Recompensas | Ver promoción Nocturna a mitad de precio | Enlace | Funciona | Abre #/promo/MWX8QE9T9M |
+| Recompensas | Ver promoción Bono 10 inmersiones | Enlace | Funciona | Abre #/promo/G2VQFYHCGQ |
+| Recompensas | Ver promoción 10 % en tu próxima inmersión | Enlace | Funciona | Abre #/promo/6LP7H4C63Y |
 | Recompensas | Cómo funcionan | Enlace | Funciona | Abre #/como-funcionan-los-puntos |
 | Recompensas | Canjear | Botón | Funciona | Pide confirmación «¿Canjear tus puntos por esta ventaja?» (cancelado) · hay 2 más iguales en la lista (no se prueban todos) |
 | Recompensas | Canjear | Botón | Funciona | Pide confirmación «¿Canjear tus puntos por esta ventaja?» (cancelado) |
@@ -1769,135 +1770,135 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Mis puntos | Leyenda 8500 puntos | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 8500 puntos» en «Hola, Bea»: Abre #/recompensas |
-| Mis puntos | Ver ventajas | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 8500 puntos» en «Hola, Bea»: Abre #/recompensas |
+| Mis puntos | Leyenda 6610 puntos | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 6610 puntos» en «Hola, Bea»: Abre #/recompensas |
+| Mis puntos | Ver ventajas | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 6610 puntos» en «Hola, Bea»: Abre #/recompensas |
 | Mis puntos | Más información sobre los puntos | Enlace | Funciona | Mismo enlace (#/como-funcionan-los-puntos) que «Cómo funcionan» en «Recompensas»: Abre #/como-funcionan-los-puntos |
 
 #### WORLDIVES DISCOVERY · `#/admin`
 
 Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla).
 
-#### Bahía Coralina Centro de Buceo · `#/reserva?id=1231`
+#### Bahía Coralina Centro de Buceo · `#/reserva?id=1262`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
 | Bahía Coralina Centro de Buceo | Mi área | Enlace | Funciona | Abre #/area |
-| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1231/receipt.pdf (200, application/pdf) |
+| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1262/receipt.pdf (200, application/pdf) |
 | Bahía Coralina Centro de Buceo | Bahía Coralina Centro de Buceo | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Bahía Coralina Centro de Buceo Xàbia, Es» en «Tu ficha de buceador»: Abre #/centro?id=31 |
 | Bahía Coralina Centro de Buceo | +34 600 000 101 | Enlace externo | Funciona | Teléfono +34 600 000 101 |
 | Bahía Coralina Centro de Buceo | hola@bahiacoralina.example.com | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
 | Bahía Coralina Centro de Buceo | Cambiar fecha | Botón | Funciona | Abre la ventana «Cambiar fecha» |
 | Bahía Coralina Centro de Buceo | Escribir reseña | Enlace | Funciona | Abre #/centro?id=31&resena=1 |
 | Bahía Coralina Centro de Buceo | Condiciones de reserva | Enlace | Funciona | Mismo enlace (#/legal/condiciones-reserva) que «Condiciones de reserva» en «Tu ficha de buceador»: Abre #/legal/condiciones-reserva |
-| Bahía Coralina Centro de Buceo | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1231/cancel → 200 |
+| Bahía Coralina Centro de Buceo | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1262/cancel → 200 |
 
-#### Escafandra Medes · `#/reserva?id=1251`
+#### Escafandra Medes · `#/reserva?id=1281`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Escafandra Medes | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
 | Escafandra Medes | Mi área | Enlace | Funciona | Mismo enlace (#/area) que «Mi área» en «Bahía Coralina Centro de Buceo»: Abre #/area |
-| Escafandra Medes | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1251/receipt.pdf (200, application/pdf) |
+| Escafandra Medes | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1281/receipt.pdf (200, application/pdf) |
 | Escafandra Medes | Escafandra Medes | Enlace | Funciona | Mismo enlace (#/centro?id=32) que «Escafandra Medes L'Estartit, España Últi» en «Tu ficha de buceador»: Abre #/centro?id=32 |
 | Escafandra Medes | +34 972 000 202 | Enlace externo | Funciona | Teléfono +34 972 000 202 |
 | Escafandra Medes | hola@escafandramedes.example.com | Enlace externo | Funciona | Correo hola@escafandramedes.example.com |
 | Escafandra Medes | Cambiar fecha | Botón | Funciona | Abre la ventana «Cambiar fecha» |
 | Escafandra Medes | Condiciones de reserva | Enlace | Funciona | Mismo enlace (#/legal/condiciones-reserva) que «Condiciones de reserva» en «Tu ficha de buceador»: Abre #/legal/condiciones-reserva |
-| Escafandra Medes | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1251/cancel → 200 |
+| Escafandra Medes | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1281/cancel → 200 |
 
-#### Bahía Coralina Centro de Buceo · `#/reserva?id=1235`
+#### Bahía Coralina Centro de Buceo · `#/reserva?id=1266`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
 | Bahía Coralina Centro de Buceo | Mi área | Enlace | Funciona | Mismo enlace (#/area) que «Mi área» en «Bahía Coralina Centro de Buceo»: Abre #/area |
-| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1235/receipt.pdf (200, application/pdf) |
+| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1266/receipt.pdf (200, application/pdf) |
 | Bahía Coralina Centro de Buceo | Bahía Coralina Centro de Buceo | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Bahía Coralina Centro de Buceo Xàbia, Es» en «Tu ficha de buceador»: Abre #/centro?id=31 |
 | Bahía Coralina Centro de Buceo | +34 600 000 101 | Enlace externo | Funciona | Teléfono +34 600 000 101 |
 | Bahía Coralina Centro de Buceo | hola@bahiacoralina.example.com | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
-| Bahía Coralina Centro de Buceo | Justificante PDF | Enlace | Funciona | Descarga /api/bookings/1235/receipt.pdf (200, application/pdf) |
+| Bahía Coralina Centro de Buceo | Justificante PDF | Enlace | Funciona | Descarga /api/bookings/1266/receipt.pdf (200, application/pdf) |
 | Bahía Coralina Centro de Buceo | Cambiar fecha | Botón | Funciona | Abre la ventana «Cambiar fecha» |
 | Bahía Coralina Centro de Buceo | Escribir reseña | Enlace | Funciona | Mismo enlace (#/centro?id=31&resena=1) que «Escribir reseña» en «Bahía Coralina Centro de Buceo»: Abre #/centro?id=31&resena=1 |
 | Bahía Coralina Centro de Buceo | Condiciones de reserva | Enlace | Funciona | Mismo enlace (#/legal/condiciones-reserva) que «Condiciones de reserva» en «Tu ficha de buceador»: Abre #/legal/condiciones-reserva |
-| Bahía Coralina Centro de Buceo | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1235/cancel → 200 |
+| Bahía Coralina Centro de Buceo | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1266/cancel → 200 |
 
-#### Bahía Coralina Centro de Buceo · `#/reserva?id=1230`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Bahía Coralina Centro de Buceo | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Bahía Coralina Centro de Buceo | Mi área | Enlace | Funciona | Mismo enlace (#/area) que «Mi área» en «Bahía Coralina Centro de Buceo»: Abre #/area |
-| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1230/receipt.pdf (200, application/pdf) |
-| Bahía Coralina Centro de Buceo | Bahía Coralina Centro de Buceo | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Bahía Coralina Centro de Buceo Xàbia, Es» en «Tu ficha de buceador»: Abre #/centro?id=31 |
-| Bahía Coralina Centro de Buceo | +34 600 000 101 | Enlace externo | Funciona | Teléfono +34 600 000 101 |
-| Bahía Coralina Centro de Buceo | hola@bahiacoralina.example.com | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
-| Bahía Coralina Centro de Buceo | Cambiar fecha | Botón | Funciona | Abre la ventana «Cambiar fecha» |
-| Bahía Coralina Centro de Buceo | Condiciones de reserva | Enlace | Funciona | Mismo enlace (#/legal/condiciones-reserva) que «Condiciones de reserva» en «Tu ficha de buceador»: Abre #/legal/condiciones-reserva |
-| Bahía Coralina Centro de Buceo | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1230/cancel → 200 |
-
-#### Bahía Coralina Centro de Buceo · `#/reserva?id=1232`
+#### Bahía Coralina Centro de Buceo · `#/reserva?id=1261`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
 | Bahía Coralina Centro de Buceo | Mi área | Enlace | Funciona | Mismo enlace (#/area) que «Mi área» en «Bahía Coralina Centro de Buceo»: Abre #/area |
-| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1232/receipt.pdf (200, application/pdf) |
+| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1261/receipt.pdf (200, application/pdf) |
 | Bahía Coralina Centro de Buceo | Bahía Coralina Centro de Buceo | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Bahía Coralina Centro de Buceo Xàbia, Es» en «Tu ficha de buceador»: Abre #/centro?id=31 |
 | Bahía Coralina Centro de Buceo | +34 600 000 101 | Enlace externo | Funciona | Teléfono +34 600 000 101 |
 | Bahía Coralina Centro de Buceo | hola@bahiacoralina.example.com | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
 | Bahía Coralina Centro de Buceo | Cambiar fecha | Botón | Funciona | Abre la ventana «Cambiar fecha» |
 | Bahía Coralina Centro de Buceo | Condiciones de reserva | Enlace | Funciona | Mismo enlace (#/legal/condiciones-reserva) que «Condiciones de reserva» en «Tu ficha de buceador»: Abre #/legal/condiciones-reserva |
-| Bahía Coralina Centro de Buceo | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1232/cancel → 200 |
+| Bahía Coralina Centro de Buceo | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1261/cancel → 200 |
 
-#### Diego Arenas · `#/reserva?id=1285`
+#### Bahía Coralina Centro de Buceo · `#/reserva?id=1263`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Bahía Coralina Centro de Buceo | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Bahía Coralina Centro de Buceo | Mi área | Enlace | Funciona | Mismo enlace (#/area) que «Mi área» en «Bahía Coralina Centro de Buceo»: Abre #/area |
+| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1263/receipt.pdf (200, application/pdf) |
+| Bahía Coralina Centro de Buceo | Bahía Coralina Centro de Buceo | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Bahía Coralina Centro de Buceo Xàbia, Es» en «Tu ficha de buceador»: Abre #/centro?id=31 |
+| Bahía Coralina Centro de Buceo | +34 600 000 101 | Enlace externo | Funciona | Teléfono +34 600 000 101 |
+| Bahía Coralina Centro de Buceo | hola@bahiacoralina.example.com | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
+| Bahía Coralina Centro de Buceo | Cambiar fecha | Botón | Funciona | Abre la ventana «Cambiar fecha» |
+| Bahía Coralina Centro de Buceo | Condiciones de reserva | Enlace | Funciona | Mismo enlace (#/legal/condiciones-reserva) que «Condiciones de reserva» en «Tu ficha de buceador»: Abre #/legal/condiciones-reserva |
+| Bahía Coralina Centro de Buceo | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1263/cancel → 200 |
+
+#### Diego Arenas · `#/reserva?id=1318`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Diego Arenas | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
 | Diego Arenas | Mi área | Enlace | Funciona | Mismo enlace (#/area) que «Mi área» en «Bahía Coralina Centro de Buceo»: Abre #/area |
-| Diego Arenas | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1285/receipt.pdf (200, application/pdf) |
+| Diego Arenas | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1318/receipt.pdf (200, application/pdf) |
 | Diego Arenas | Diego Arenas | Enlace | Funciona | Abre #/centro?id=null |
 | Diego Arenas | diego.arenas@example.com | Enlace externo | Funciona | Correo diego.arenas@example.com |
 | Diego Arenas | Condiciones de reserva | Enlace | Funciona | Mismo enlace (#/legal/condiciones-reserva) que «Condiciones de reserva» en «Tu ficha de buceador»: Abre #/legal/condiciones-reserva |
-| Diego Arenas | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1285/cancel → 200 |
+| Diego Arenas | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» · POST /api/bookings/1318/cancel → 200 |
 
-#### Bahía Coralina Centro de Buceo · `#/reserva?id=1236`
+#### Bahía Coralina Centro de Buceo · `#/reserva?id=1267`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
 | Bahía Coralina Centro de Buceo | Mi área | Enlace | Funciona | Mismo enlace (#/area) que «Mi área» en «Bahía Coralina Centro de Buceo»: Abre #/area |
-| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1236/receipt.pdf (200, application/pdf) |
+| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1267/receipt.pdf (200, application/pdf) |
 | Bahía Coralina Centro de Buceo | Bahía Coralina Centro de Buceo | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Bahía Coralina Centro de Buceo Xàbia, Es» en «Tu ficha de buceador»: Abre #/centro?id=31 |
 | Bahía Coralina Centro de Buceo | +34 600 000 101 | Enlace externo | Funciona | Teléfono +34 600 000 101 |
 | Bahía Coralina Centro de Buceo | hola@bahiacoralina.example.com | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
 
-#### Bahía Coralina Centro de Buceo · `#/reserva?id=1234`
+#### Bahía Coralina Centro de Buceo · `#/reserva?id=1265`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
 | Bahía Coralina Centro de Buceo | Mi área | Enlace | Funciona | Mismo enlace (#/area) que «Mi área» en «Bahía Coralina Centro de Buceo»: Abre #/area |
-| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1234/receipt.pdf (200, application/pdf) |
+| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1265/receipt.pdf (200, application/pdf) |
 | Bahía Coralina Centro de Buceo | Bahía Coralina Centro de Buceo | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Bahía Coralina Centro de Buceo Xàbia, Es» en «Tu ficha de buceador»: Abre #/centro?id=31 |
 | Bahía Coralina Centro de Buceo | +34 600 000 101 | Enlace externo | Funciona | Teléfono +34 600 000 101 |
 | Bahía Coralina Centro de Buceo | hola@bahiacoralina.example.com | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
 
-#### Bahía Coralina Centro de Buceo · `#/reserva?id=1233`
+#### Bahía Coralina Centro de Buceo · `#/reserva?id=1264`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
 | Bahía Coralina Centro de Buceo | Mi área | Enlace | Funciona | Mismo enlace (#/area) que «Mi área» en «Bahía Coralina Centro de Buceo»: Abre #/area |
-| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1233/receipt.pdf (200, application/pdf) |
+| Bahía Coralina Centro de Buceo | Descargar esta reserva en PDF | Enlace | Funciona | Descarga /api/bookings/1264/receipt.pdf (200, application/pdf) |
 | Bahía Coralina Centro de Buceo | Bahía Coralina Centro de Buceo | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Bahía Coralina Centro de Buceo Xàbia, Es» en «Tu ficha de buceador»: Abre #/centro?id=31 |
 | Bahía Coralina Centro de Buceo | +34 600 000 101 | Enlace externo | Funciona | Teléfono +34 600 000 101 |
 | Bahía Coralina Centro de Buceo | hola@bahiacoralina.example.com | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
 
 ### Centro propietario (centro.prueba)
 
-75 pantallas, 1006 elementos probados en 20 min 1 s.
+75 pantallas, 1005 elementos probados en 20 min 52 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -1954,8 +1955,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Encuentra tu próxima inmersión | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | Encuentra tu próxima inmersión | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (18 elementos): «Leaflet» |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (19 elementos): «2» · hay 15 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (18 elementos): «2» · clic forzado (otro elemento lo tapa) |
-| Encuentra tu próxima inmersión | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (143 elementos): «×» · hay 1 más iguales en la lista (no se prueban todos) |
+| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (7 elementos): «Rainbow Reef» |
+| Encuentra tu próxima inmersión | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» · hay 1 más iguales en la lista (no se prueban todos) |
 | Encuentra tu próxima inmersión | Tofo – Manta Reef | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» |
 | Encuentra tu próxima inmersión | Zoom in | Enlace | Funciona | Muestra contenido nuevo (64 elementos): «2» |
 | Encuentra tu próxima inmersión | Zoom out | Enlace | Funciona | Cambia su estado (class: leaflet-control-zoom-out → leaflet-control-zoom-out leaflet-disabled) · Cambia la pantalla (4 elementos nuevos, 0 quitados) |
@@ -2443,7 +2444,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Reservar | Enlace | Funciona | Mismo enlace (#/reservar?center=31) que «Reservar» en «Centros de buceo»: Abre #/reservar?center=31 |
 | Bahía Coralina Centro de Buceo | Llamar | Enlace externo | Funciona | Teléfono +34600000101 |
 | Bahía Coralina Centro de Buceo | Escribir | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
-| Bahía Coralina Centro de Buceo | Lun, 19 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 200 · hay 11 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo | Mar, 20 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 200 · hay 11 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Enviar solicitud | Enlace | Funciona | Abre #/reservar?center=31&service=7 · POST /api/stats/track → 200 · hay 3 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Añadir a una reserva | Enlace | Funciona | Abre #/reservar?center=31&service=8 · POST /api/stats/track → 200 |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · hay 6 más iguales en la lista (no se prueban todos) |
@@ -2473,7 +2474,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Curso Open Water (3 días) | Botón | Funciona | Muestra contenido nuevo (14 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Curso de Nitrox | Botón | Funciona | Muestra contenido nuevo (13 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Doble inmersión en barco | Botón | Funciona | Muestra contenido nuevo (26 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
-| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (17 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
+| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (18 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Inmersión simple en barco | Botón | Desactivado (correcto) | Desactivado; la pantalla explica: «No admite reservas ahora mismo» |
 | Bahía Coralina Centro de Buceo | Una persona menos | Botón | Desactivado (correcto) | Desactivado: es el límite del calendario o de la lista («Una persona menos») |
 | Bahía Coralina Centro de Buceo | Una persona más | Botón | Desactivado (correcto) | No responde al ratón (pointer-events: none) y se ve atenuado; la pantalla explica: «Elige primero la actividad.» |
@@ -2692,8 +2693,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Ver mi página | Enlace | Funciona | Abre #/centro?id=31 |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Miércoles, 14 de octubre Buenos días. Hoy tienes 4 reservas con 6 buceadores. + Nueva reserva Abrir planning Hoy 4 6 per» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | ⌂ Resumen | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Miércoles, 14 de octubre Buenos días. Hoy tienes 4 reservas con 6 buceadores. + Nueva reserva Abrir planning Hoy 4 6 per» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Miércoles, 14 de octubre Buenos días. Hoy tienes 3 reservas con 4 buceadores. + Nueva reserva Abrir planning Hoy 3 4 per» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | ⌂ Resumen | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Miércoles, 14 de octubre Buenos días. Hoy tienes 3 reservas con 4 buceadores. + Nueva reserva Abrir planning Hoy 3 4 per» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ▦ Planning / agenda | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando el planning…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ▣ Reservas 2 | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ♙ Clientes | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (1 elementos): «Base de clientes Clientes Todas las personas que han reservado con tu centro o han hecho check-in con tu QR. 20 clientes» |
@@ -2712,18 +2713,18 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ◑ Estadísticas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Estadísticas Cómo te encuentran los buceadores Datos agregados, sin datos personales. Disponibles en todos los planes. P» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ⇩ Herramientas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (4 elementos): «Herramientas Exportar, calendario, widget e importación Exportar mis datos (CSV) Disponible siempre, en cualquier plan. » |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ☺ Equipo | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Equipo Personas que gestionan el centro Cada persona tiene un perfil. Abajo puedes cambiar lo que puede hacer cada perfi» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | ☷ Registro de actividad | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Registro de actividad Quién ha hecho qué en el centro FECHA PERSONA ACCIÓN 2026-10-13 22:33 Marta Llorens login 2026-10-» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | ☷ Registro de actividad | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Registro de actividad Quién ha hecho qué en el centro FECHA PERSONA ACCIÓN 2026-10-14 09:49 Marta Llorens login 2026-10-» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | § Datos fiscales y seguro | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Datos fiscales y verificación Datos del prestador (DAC7) y seguro La normativa europea DAC7 obliga a las plataformas a i» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | ◆ Mi plan | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Mi plan Pro Activo Activo hasta el 13 de octubre de 2027. Las reservas que ya tienes se atienden siempre y puedes export» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | ◆ Mi plan | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Mi plan Pro Activo Activo hasta el 14 de octubre de 2027. Las reservas que ya tienes se atienden siempre y puedes export» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | + Nueva reserva | Botón | Funciona | Abre la ventana «Nueva reserva» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Abrir planning | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando el planning…» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | Hoy 4 6 personas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | Hoy 3 4 personas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Solicitudes pendientes 2 Necesitan respuesta | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Por cobrar 390 € 1 reserva | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | Próximos 7 días 30 reservas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | Cobrado 34.573,44 € total registrado | Botón | Funciona | Muestra contenido nuevo (1 elementos): «ANALÍTICA Informes y rendimiento Datos operativos del centro, calculados a partir de las reservas reales. Exportar CSV I» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | Próximos 7 días 31 reservas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | Cobrado 33.039,52 € total registrado | Botón | Funciona | Muestra contenido nuevo (1 elementos): «ANALÍTICA Informes y rendimiento Datos operativos del centro, calculados a partir de las reservas reales. Exportar CSV I» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Ver la semana | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | 08:00 | Enlace | Funciona | Abre #/reserva?id=1250 · hay 10 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | 21:30 Hoy Giulia Romano Inmersión al atardecer · 1 persona Confirmada | Enlace | Funciona | Abre #/reserva?id=1295 · hay 10 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Ir a reservas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Programar salidas | Botón | Funciona | Muestra contenido nuevo (11 elementos): «Cargando catálogo…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Publicar un viaje | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando experiencias…» |
@@ -2750,6 +2751,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Tu ficha de buceador | Tipo | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Tu ficha de buceador | Seguridad | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Contraseña actual» (campo obligatorio) · El navegador no deja enviarlo: «Nueva contraseña» (campo obligatorio) |
 | Tu ficha de buceador | Activar | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Tu contraseña» (campo obligatorio) |
+| Tu ficha de buceador | Cerrar las demás sesiones | Botón | Funciona | Abre la ventana «Cerrar las demás sesiones» |
 | Tu ficha de buceador | Descargar mis datos (ZIP) | Enlace | Funciona | Descarga /api/account/export?format=zip (200, application/zip) |
 | Tu ficha de buceador | Privacidad | Enlace | Funciona | Abre #/legal/privacidad |
 | Tu ficha de buceador | Condiciones de uso | Enlace | Funciona | Abre #/legal/condiciones-buceadores |
@@ -2785,133 +2787,133 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Mis puntos | Ver ventajas | Enlace | Funciona | Mismo enlace (#/recompensas) que «Explorador 0 puntos» en «Tu ficha de buceador»: Abre #/recompensas |
 | Mis puntos | Más información sobre los puntos | Enlace | Funciona | Mismo enlace (#/como-funcionan-los-puntos) que «Cómo funcionan» en «Recompensas»: Abre #/como-funcionan-los-puntos |
 
-#### Hannah Weber · `#/reserva?id=1250`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Hannah Weber | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Hannah Weber | Reservas | Enlace | Funciona | Abre #/admin?tab=bookings |
-| Hannah Weber | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1250/receipt.pdf (200, application/pdf) |
-| Hannah Weber | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1250/diver-sheet.pdf (200, application/pdf) |
-| Hannah Weber | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Hannah Weber | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Hannah Weber | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Hannah Weber | PDF | Enlace | Funciona | Descarga /api/bookings/1250/diver-sheet.pdf (200, application/pdf) |
-| Hannah Weber | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Emily Clarke · `#/reserva?id=1265`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Emily Clarke | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Emily Clarke | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Emily Clarke | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1265/receipt.pdf (200, application/pdf) |
-| Emily Clarke | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1265/diver-sheet.pdf (200, application/pdf) |
-| Emily Clarke | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Emily Clarke | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Emily Clarke | Aceptar | Botón | Funciona | Aviso: «Reserva confirmada.» · Muestra contenido nuevo (2 elementos): «← Volver» · POST /api/bookings/1265/status → 200 |
-| Emily Clarke | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
-| Emily Clarke | PDF | Enlace | Funciona | Descarga /api/bookings/1265/diver-sheet.pdf (200, application/pdf) |
-| Emily Clarke | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Chloé Martin · `#/reserva?id=1264`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Chloé Martin | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Chloé Martin | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Chloé Martin | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1264/receipt.pdf (200, application/pdf) |
-| Chloé Martin | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1264/diver-sheet.pdf (200, application/pdf) |
-| Chloé Martin | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Chloé Martin | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Chloé Martin | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Chloé Martin | PDF | Enlace | Funciona | Descarga /api/bookings/1264/diver-sheet.pdf (200, application/pdf) |
-| Chloé Martin | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Lukas Becker · `#/reserva?id=1263`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Lukas Becker | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Lukas Becker | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Lukas Becker | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1263/receipt.pdf (200, application/pdf) |
-| Lukas Becker | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1263/diver-sheet.pdf (200, application/pdf) |
-| Lukas Becker | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Lukas Becker | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Lukas Becker | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Lukas Becker | PDF | Enlace | Funciona | Descarga /api/bookings/1263/diver-sheet.pdf (200, application/pdf) |
-| Lukas Becker | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Hannah Weber · `#/reserva?id=1249`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Hannah Weber | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Hannah Weber | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Hannah Weber | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1249/receipt.pdf (200, application/pdf) |
-| Hannah Weber | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1249/diver-sheet.pdf (200, application/pdf) |
-| Hannah Weber | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Hannah Weber | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Hannah Weber | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Hannah Weber | PDF | Enlace | Funciona | Descarga /api/bookings/1249/diver-sheet.pdf (200, application/pdf) |
-| Hannah Weber | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### João Silva · `#/reserva?id=1244`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| João Silva | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| João Silva | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| João Silva | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1244/receipt.pdf (200, application/pdf) |
-| João Silva | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1244/diver-sheet.pdf (200, application/pdf) |
-| João Silva | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| João Silva | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| João Silva | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| João Silva | PDF | Enlace | Funciona | Descarga /api/bookings/1244/diver-sheet.pdf (200, application/pdf) |
-| João Silva | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Tom Jansen · `#/reserva?id=1239`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Tom Jansen | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Tom Jansen | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Tom Jansen | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1239/receipt.pdf (200, application/pdf) |
-| Tom Jansen | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1239/diver-sheet.pdf (200, application/pdf) |
-| Tom Jansen | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Tom Jansen | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Tom Jansen | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Tom Jansen | PDF | Enlace | Funciona | Descarga /api/bookings/1239/diver-sheet.pdf (200, application/pdf) |
-| Tom Jansen | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Giulia Romano · `#/reserva?id=1268`
+#### Giulia Romano · `#/reserva?id=1295`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Giulia Romano | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Giulia Romano | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Giulia Romano | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1268/receipt.pdf (200, application/pdf) |
-| Giulia Romano | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1268/diver-sheet.pdf (200, application/pdf) |
+| Giulia Romano | Reservas | Enlace | Funciona | Abre #/admin?tab=bookings |
+| Giulia Romano | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1295/receipt.pdf (200, application/pdf) |
+| Giulia Romano | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1295/diver-sheet.pdf (200, application/pdf) |
 | Giulia Romano | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
 | Giulia Romano | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
 | Giulia Romano | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Giulia Romano | PDF | Enlace | Funciona | Descarga /api/bookings/1268/diver-sheet.pdf (200, application/pdf) |
-| Giulia Romano | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
+| Giulia Romano | PDF | Enlace | Funciona | Descarga /api/bookings/1295/diver-sheet.pdf (200, application/pdf) |
+| Giulia Romano | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
 
-#### Bea Navarro · `#/reserva?id=1230`
+#### Chloé Martin · `#/reserva?id=1294`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Chloé Martin | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Chloé Martin | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Chloé Martin | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1294/receipt.pdf (200, application/pdf) |
+| Chloé Martin | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1294/diver-sheet.pdf (200, application/pdf) |
+| Chloé Martin | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Chloé Martin | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Chloé Martin | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| Chloé Martin | PDF | Enlace | Funciona | Descarga /api/bookings/1294/diver-sheet.pdf (200, application/pdf) |
+| Chloé Martin | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Lukas Becker · `#/reserva?id=1293`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Lukas Becker | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Lukas Becker | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Lukas Becker | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1293/receipt.pdf (200, application/pdf) |
+| Lukas Becker | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1293/diver-sheet.pdf (200, application/pdf) |
+| Lukas Becker | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Lukas Becker | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Lukas Becker | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| Lukas Becker | PDF | Enlace | Funciona | Descarga /api/bookings/1293/diver-sheet.pdf (200, application/pdf) |
+| Lukas Becker | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### João Silva · `#/reserva?id=1277`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| João Silva | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| João Silva | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| João Silva | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1277/receipt.pdf (200, application/pdf) |
+| João Silva | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1277/diver-sheet.pdf (200, application/pdf) |
+| João Silva | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| João Silva | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| João Silva | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| João Silva | PDF | Enlace | Funciona | Descarga /api/bookings/1277/diver-sheet.pdf (200, application/pdf) |
+| João Silva | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Tom Jansen · `#/reserva?id=1273`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Tom Jansen | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Tom Jansen | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Tom Jansen | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1273/receipt.pdf (200, application/pdf) |
+| Tom Jansen | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1273/diver-sheet.pdf (200, application/pdf) |
+| Tom Jansen | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Tom Jansen | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Tom Jansen | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| Tom Jansen | PDF | Enlace | Funciona | Descarga /api/bookings/1273/diver-sheet.pdf (200, application/pdf) |
+| Tom Jansen | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Emily Clarke · `#/reserva?id=1298`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Emily Clarke | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Emily Clarke | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Emily Clarke | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1298/receipt.pdf (200, application/pdf) |
+| Emily Clarke | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1298/diver-sheet.pdf (200, application/pdf) |
+| Emily Clarke | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Emily Clarke | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Emily Clarke | Aceptar | Botón | Funciona | Aviso: «Reserva confirmada.» · Muestra contenido nuevo (2 elementos): «← Volver» · POST /api/bookings/1298/status → 200 |
+| Emily Clarke | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
+| Emily Clarke | PDF | Enlace | Funciona | Descarga /api/bookings/1298/diver-sheet.pdf (200, application/pdf) |
+| Emily Clarke | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Chloé Martin · `#/reserva?id=1297`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Chloé Martin | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Chloé Martin | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Chloé Martin | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1297/receipt.pdf (200, application/pdf) |
+| Chloé Martin | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1297/diver-sheet.pdf (200, application/pdf) |
+| Chloé Martin | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Chloé Martin | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Chloé Martin | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| Chloé Martin | PDF | Enlace | Funciona | Descarga /api/bookings/1297/diver-sheet.pdf (200, application/pdf) |
+| Chloé Martin | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Lukas Becker · `#/reserva?id=1296`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Lukas Becker | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Lukas Becker | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Lukas Becker | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1296/receipt.pdf (200, application/pdf) |
+| Lukas Becker | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1296/diver-sheet.pdf (200, application/pdf) |
+| Lukas Becker | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Lukas Becker | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Lukas Becker | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| Lukas Becker | PDF | Enlace | Funciona | Descarga /api/bookings/1296/diver-sheet.pdf (200, application/pdf) |
+| Lukas Becker | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Bea Navarro · `#/reserva?id=1261`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bea Navarro | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Bea Navarro | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Bea Navarro | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1230/receipt.pdf (200, application/pdf) |
-| Bea Navarro | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1230/diver-sheet.pdf (200, application/pdf) |
+| Bea Navarro | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Bea Navarro | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1261/receipt.pdf (200, application/pdf) |
+| Bea Navarro | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1261/diver-sheet.pdf (200, application/pdf) |
 | Bea Navarro | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
 | Bea Navarro | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Bea Navarro | Aceptar | Botón | Funciona | Aviso: «Reserva confirmada.» · Muestra contenido nuevo (2 elementos): «← Volver» · POST /api/bookings/1230/status → 200 |
+| Bea Navarro | Aceptar | Botón | Funciona | Aviso: «Reserva confirmada.» · Muestra contenido nuevo (2 elementos): «← Volver» · POST /api/bookings/1261/status → 200 |
 | Bea Navarro | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
-| Bea Navarro | PDF | Enlace | Funciona | Descarga /api/bookings/1230/diver-sheet.pdf (200, application/pdf) |
-| Bea Navarro | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
+| Bea Navarro | PDF | Enlace | Funciona | Descarga /api/bookings/1261/diver-sheet.pdf (200, application/pdf) |
+| Bea Navarro | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
 
 #### Bahía Coralina Centro de Buceo · ▦ Planning / agenda · `#/admin?tab=planning`
 
@@ -2926,26 +2928,26 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ▦ Planning / agenda | + Reserva | Botón | Funciona | Abre la ventana «Nueva reserva» |
 | Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Crear cartel | Botón | Funciona | Abre la ventana «Crear cartel para redes» |
 | Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Abr | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» · hay 4 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | May 34 | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Oct 75 | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | May 36 | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Oct 86 | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
 | Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Nov | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» · hay 3 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Dic | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Jueves, 1 de octubre | Botón | Funciona | Abre la ventana «Jueves, 1 de octubre» · Cambia su estado (class: pl-cell  is-past  → pl-cell is-past is-open) · hay 2 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Viernes, 2 de octubre | Botón | Funciona | Abre la ventana «Viernes, 2 de octubre» · Cambia su estado (class: pl-cell  is-past  → pl-cell is-past is-open) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Sábado, 3 de octubre: 3 salidas, 4 buceadores | Botón | Funciona | Abre la ventana «Sábado, 3 de octubre» · Cambia su estado (class: pl-cell  is-past has-events → pl-cell is-past has-events is-open) · hay 6 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Domingo, 4 de octubre: 1 salidas, 3 buceadores | Botón | Funciona | Abre la ventana «Domingo, 4 de octubre» · Cambia su estado (class: pl-cell  is-past has-events → pl-cell is-past has-events is-open) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Martes, 13 de octubre | Botón | Funciona | Abre la ventana «Martes, 13 de octubre» · Cambia su estado (class: pl-cell is-today   → pl-cell is-today is-open) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Miércoles, 14 de octubre: 5 salidas, 7 buceadores | Botón | Funciona | Abre la ventana «Miércoles, 14 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) · hay 10 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Jueves, 15 de octubre: 5 salidas, 7 buceadores | Botón | Funciona | Abre la ventana «Jueves, 15 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Sábado, 24 de octubre | Botón | Funciona | Abre la ventana «Sábado, 24 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) · hay 4 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Domingo, 25 de octubre | Botón | Funciona | Abre la ventana «Domingo, 25 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Jueves, 1 de octubre: 1 salidas, 1 buceadores | Botón | Funciona | Abre la ventana «Jueves, 1 de octubre» · Cambia su estado (class: pl-cell  is-past has-events → pl-cell is-past has-events is-open) · hay 7 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Viernes, 2 de octubre | Botón | Funciona | Abre la ventana «Viernes, 2 de octubre» · Cambia su estado (class: pl-cell  is-past  → pl-cell is-past is-open) · hay 2 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Sábado, 3 de octubre: 3 salidas, 6 buceadores | Botón | Funciona | Abre la ventana «Sábado, 3 de octubre» · Cambia su estado (class: pl-cell  is-past has-events → pl-cell is-past has-events is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Lunes, 5 de octubre | Botón | Funciona | Abre la ventana «Lunes, 5 de octubre» · Cambia su estado (class: pl-cell  is-past  → pl-cell is-past is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Miércoles, 14 de octubre: 1 salidas, 4 buceadores | Botón | Funciona | Abre la ventana «Miércoles, 14 de octubre» · Cambia su estado (class: pl-cell is-today  has-events → pl-cell is-today has-events is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Jueves, 15 de octubre: 5 salidas, 8 buceadores | Botón | Funciona | Abre la ventana «Jueves, 15 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) · hay 10 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Viernes, 16 de octubre: 5 salidas, 5 buceadores | Botón | Funciona | Abre la ventana «Viernes, 16 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Domingo, 25 de octubre | Botón | Funciona | Abre la ventana «Domingo, 25 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) · hay 3 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Lunes, 26 de octubre | Botón | Funciona | Abre la ventana «Lunes, 26 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) |
 
 #### Bahía Coralina Centro de Buceo · ▦ Planning / agenda › Lista · `#/admin?tab=planning` (1 clic en subpestaña)
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda › Lista | 3 | Botón | Funciona | Abre la ventana «Sábado, 3 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) · hay 18 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda › Lista | 4 | Botón | Funciona | Abre la ventana «Domingo, 4 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda › Lista | 1 Jue Jueves, 1 de octubre 1 salida · 1 buceadores · 9 plazas libres › | Botón | Funciona | Abre la ventana «Jueves, 1 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) · hay 20 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda › Lista | 3 | Botón | Funciona | Abre la ventana «Sábado, 3 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) |
 
 #### Bahía Coralina Centro de Buceo · ▣ Reservas · `#/admin?tab=bookings`
 
@@ -2961,11 +2963,11 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Todas las próximas | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Historial | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Actividad | Desplegable | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» |
-| Bahía Coralina Centro de Buceo · ▣ Reservas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» · hay 26 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▣ Reservas | Completar | Botón | Funciona | Aviso: «Solo puedes marcar como completada una reserva cuya fecha ya ha llegado.» · POST /api/bookings/1250/status → 400 «Solo puedes marcar como completada una reserva cuya fecha ya ha llegado.» · hay 1 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▣ Reservas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» · hay 27 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▣ Reservas | Completar | Botón | Funciona | Aviso: «Reserva completada.» · Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» · POST /api/bookings/1293/status → 200 · hay 1 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» |
-| Bahía Coralina Centro de Buceo · ▣ Reservas | Completar | Botón | Funciona | Aviso: «Solo puedes marcar como completada una reserva cuya fecha ya ha llegado.» · POST /api/bookings/1263/status → 400 «Solo puedes marcar como completada una reserva cuya fecha ya ha llegado.» |
-| Bahía Coralina Centro de Buceo · ▣ Reservas | Aceptar | Botón | Funciona | Aviso: «Reserva aceptada.» · Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» · POST /api/bookings/1265/status → 200 |
+| Bahía Coralina Centro de Buceo · ▣ Reservas | Completar | Botón | Funciona | Aviso: «Reserva completada.» · Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» · POST /api/bookings/1294/status → 200 |
+| Bahía Coralina Centro de Buceo · ▣ Reservas | Aceptar | Botón | Funciona | Aviso: «Reserva aceptada.» · Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» · POST /api/bookings/1298/status → 200 |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
 
 #### Bahía Coralina Centro de Buceo · ▣ Reservas › Historial · `#/admin?tab=bookings` (1 clic en subpestaña)
@@ -2976,10 +2978,10 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Aceptar | Botón | Funciona | Aviso: «Reserva aceptada.» · Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» · POST /api/bookings/1230/status → 200 |
-| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
-| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» · hay 32 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» · hay 34 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» |
+| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Aceptar | Botón | Funciona | Aviso: «Reserva aceptada.» · Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» · POST /api/bookings/1261/status → 200 |
+| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
 
 #### Bahía Coralina Centro de Buceo · ▣ Reservas › Por cobrar · `#/admin?tab=bookings` (1 clic en subpestaña)
 
@@ -3003,25 +3005,25 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ♙ Clientes | Ver mi página | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Ver mi página» en «Bahía Coralina Centro de Buceo · ⌂ Resum»: Abre #/centro?id=31 |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Base de clientes Clientes Todas las personas que han reservado con tu centro o han hecho check-in con tu QR. 20 clientes» |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | bea.navarro@example.com | Enlace externo | Funciona | Correo bea.navarro@example.com |
+| Bahía Coralina Centro de Buceo · ♙ Clientes | giulia.romano@example.com | Enlace externo | Funciona | Correo giulia.romano@example.com |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | wei.chen@example.com | Enlace externo | Funciona | Correo wei.chen@example.com |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | pierre.lambert@example.com | Enlace externo | Funciona | Correo pierre.lambert@example.com |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | kasia.nowak@example.com | Enlace externo | Funciona | Correo kasia.nowak@example.com |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | nuria.costa@example.com | Enlace externo | Funciona | Correo nuria.costa@example.com |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | lukas.becker@example.com | Enlace externo | Funciona | Correo lukas.becker@example.com |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | chloe.martin@example.com | Enlace externo | Funciona | Correo chloe.martin@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | giulia.romano@example.com | Enlace externo | Funciona | Correo giulia.romano@example.com |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | tom.jansen@example.com | Enlace externo | Funciona | Correo tom.jansen@example.com |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | emily.clarke@example.com | Enlace externo | Funciona | Correo emily.clarke@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | alvaro.ruiz@example.com | Enlace externo | Funciona | Correo alvaro.ruiz@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | joao.silva@example.com | Enlace externo | Funciona | Correo joao.silva@example.com |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | hannah.weber@example.com | Enlace externo | Funciona | Correo hannah.weber@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | sofie.devries@example.com | Enlace externo | Funciona | Correo sofie.devries@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | raul.ortega@example.com | Enlace externo | Funciona | Correo raul.ortega@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | lucia.prieto@example.com | Enlace externo | Funciona | Correo lucia.prieto@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | anna.kowalska@example.com | Enlace externo | Funciona | Correo anna.kowalska@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | marco.bianchi@example.com | Enlace externo | Funciona | Correo marco.bianchi@example.com |
+| Bahía Coralina Centro de Buceo · ♙ Clientes | joao.silva@example.com | Enlace externo | Funciona | Correo joao.silva@example.com |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | james.walker@example.com | Enlace externo | Funciona | Correo james.walker@example.com |
+| Bahía Coralina Centro de Buceo · ♙ Clientes | lucia.prieto@example.com | Enlace externo | Funciona | Correo lucia.prieto@example.com |
+| Bahía Coralina Centro de Buceo · ♙ Clientes | marco.bianchi@example.com | Enlace externo | Funciona | Correo marco.bianchi@example.com |
 | Bahía Coralina Centro de Buceo · ♙ Clientes | li.na@example.com | Enlace externo | Funciona | Correo li.na@example.com |
+| Bahía Coralina Centro de Buceo · ♙ Clientes | raul.ortega@example.com | Enlace externo | Funciona | Correo raul.ortega@example.com |
+| Bahía Coralina Centro de Buceo · ♙ Clientes | alvaro.ruiz@example.com | Enlace externo | Funciona | Correo alvaro.ruiz@example.com |
+| Bahía Coralina Centro de Buceo · ♙ Clientes | sofie.devries@example.com | Enlace externo | Funciona | Correo sofie.devries@example.com |
+| Bahía Coralina Centro de Buceo · ♙ Clientes | anna.kowalska@example.com | Enlace externo | Funciona | Correo anna.kowalska@example.com |
 
 #### Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas · `#/admin?tab=services`
 
@@ -3044,8 +3046,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Editar | Botón | Funciona | Abre la ventana «Editar servicio» · hay 5 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Cambiar tarifa | Botón | Funciona | Abre la ventana «Tarifa» |
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Ver las 16 | Botón | Funciona | Abre la ventana «Salidas de Bautizo de buceo» · hay 4 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Mié, 14 oct 16:00 6 libres | Botón | Funciona | Abre la ventana «Editar salida» · hay 16 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Jue, 15 oct 16:00 6 libres | Botón | Funciona | Abre la ventana «Editar salida» |
+| Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Jue, 15 oct 16:00 6 libres | Botón | Funciona | Abre la ventana «Editar salida» · hay 16 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Vie, 16 oct 16:00 6 libres | Botón | Funciona | Abre la ventana «Editar salida» |
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | + Salida | Botón | Funciona | Abre la ventana «Nueva salida» · hay 4 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Agenda | Botón | Funciona | Abre la ventana «Salidas de Bautizo de buceo» · hay 4 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Editar | Botón | Funciona | Abre la ventana «Editar servicio» |
@@ -3087,7 +3089,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ▤ Cobros y pagos | Moderada Gratis hasta 48 h antes | Botón | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) · Cambia el texto: «Cancelación gratuita hasta 2 días antes de la actividad; después no hay reembolso.» · Cambia el valor de «Después se devuelve (%)» (50 → 0) |
 | Bahía Coralina Centro de Buceo · ▤ Cobros y pagos | Estricta Gratis hasta 7 días antes | Botón | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) · Cambia el texto: «Cancelación gratuita hasta 7 días antes de la actividad; después no hay reembolso.» · Cambia el valor de «Cancelación gratuita hasta (horas antes)» (48 → 168) |
 | Bahía Coralina Centro de Buceo · ▤ Cobros y pagos | Guardar política | Botón | Funciona | Aviso: «Política de cancelación guardada. Se aplica a las reservas nuevas.» · POST /api/provider/cancellation-policy → 200 |
-| Bahía Coralina Centro de Buceo · ▤ Cobros y pagos | Condiciones para centros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=212#/legal/condiciones-centros |
+| Bahía Coralina Centro de Buceo · ▤ Cobros y pagos | Condiciones para centros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=213#/legal/condiciones-centros |
 
 #### Bahía Coralina Centro de Buceo · ◔ Analítica e informes · `#/admin?tab=analytics`
 
@@ -3103,7 +3105,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo · ↔ Web e integraciones | Ver mi página | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Ver mi página» en «Bahía Coralina Centro de Buceo · ⌂ Resum»: Abre #/centro?id=31 |
 | Bahía Coralina Centro de Buceo · ↔ Web e integraciones | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «CONECTIVIDAD Web, API y sincronización Conecta el motor de reservas de la web del centro para que las reservas entren di» |
-| Bahía Coralina Centro de Buceo · ↔ Web e integraciones | Generar API Key | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Guarda esta clave ahora. wod_tgu7UDSr_fg-bre3tBlWZVCpVQGGrPYSLpmQAqnQ8-g Por seguridad WORLDIVES no vuelve a mostrarla c» · POST /api/center/integration/regenerate → 200 |
+| Bahía Coralina Centro de Buceo · ↔ Web e integraciones | Generar API Key | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Guarda esta clave ahora. wod_p2S_0vBPNMm75dwg5zGZuMFN0BTiodrVD4YhiN2d9tg Por seguridad WORLDIVES no vuelve a mostrarla c» · POST /api/center/integration/regenerate → 200 |
 
 #### Bahía Coralina Centro de Buceo · ⌖ Puntos de buceo · `#/admin?tab=points`
 
@@ -3162,8 +3164,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🏪 Centro Identificar el centro y hacer check-in | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🤿 Buceador Identificar al cliente al llegar | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) · Cambia el valor de «Nombre del QR» (Identificación del centro → Check-in del buceador) |
-| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🌊 Inmersión Compartir los datos de una salida con el Log Book | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) · Muestra contenido nuevo (78 elementos): «2026-10-14 · 08:00 · Alquiler de equipo completo» · Cambia el valor de «Nombre del QR» (Identificación del centro → Inmersión) |
-| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🎫 Reserva Identificar una reserva concreta | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) · Muestra contenido nuevo (150 elementos): «#1236 · 2026-11-09 · Doble inmersión en barco» · Cambia el valor de «Nombre del QR» (Identificación del centro → Reserva) |
+| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🌊 Inmersión Compartir los datos de una salida con el Log Book | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) · Muestra contenido nuevo (79 elementos): «2026-10-15 · 08:00 · Alquiler de equipo completo» · Cambia el valor de «Nombre del QR» (Identificación del centro → Inmersión) |
+| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🎫 Reserva Identificar una reserva concreta | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) · Muestra contenido nuevo (150 elementos): «#1267 · 2026-11-10 · Doble inmersión en barco» · Cambia el valor de «Nombre del QR» (Identificación del centro → Reserva) |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | Check-in / QR | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Nombre del QR» (campo obligatorio) |
 
 #### Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › Validar un código · `#/admin?tab=qr` (1 clic en subpestaña)
@@ -3207,8 +3209,6 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ✆ Avisos y WhatsApp | Actualizar | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Avisos Avisos a tus clientes y WhatsApp Si cancelas una salida o cambias la hora o el punto de encuentro, avisamos a tod» |
 | Bahía Coralina Centro de Buceo · ✆ Avisos y WhatsApp | Al cancelar una salida, por defecto | Formulario | Funciona | Enviado vacío · Aviso: «Ajustes guardados.» · POST /api/avisos/ajustes → 200 |
 | Bahía Coralina Centro de Buceo · ✆ Avisos y WhatsApp | Hora del recordatorio | Desplegable | Funciona | Campo: el cambio se aplica al pulsar «Guardar» (sin efecto inmediato, correcto) |
-| Bahía Coralina Centro de Buceo · ✆ Avisos y WhatsApp | Recordatorio del día antes | Botón | Funciona | Abre la ventana «Estado del aviso» |
-| Bahía Coralina Centro de Buceo · ✆ Avisos y WhatsApp | Recordatorio del día antes | Botón | Funciona | Abre la ventana «Estado del aviso» |
 
 #### Bahía Coralina Centro de Buceo · ✉ Solicitudes de información · `#/admin?tab=requests`
 
@@ -3263,7 +3263,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo · ☷ Registro de actividad | Ver mi página | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Ver mi página» en «Bahía Coralina Centro de Buceo · ⌂ Resum»: Abre #/centro?id=31 |
-| Bahía Coralina Centro de Buceo · ☷ Registro de actividad | Actualizar | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Registro de actividad Quién ha hecho qué en el centro FECHA PERSONA ACCIÓN 2026-10-13 22:45 Marta Llorens Perfil del equ» |
+| Bahía Coralina Centro de Buceo · ☷ Registro de actividad | Actualizar | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Registro de actividad Quién ha hecho qué en el centro FECHA PERSONA ACCIÓN 2026-10-14 10:01 Marta Llorens Perfil del equ» |
 
 #### Bahía Coralina Centro de Buceo · § Datos fiscales y seguro · `#/admin?tab=fiscal`
 
@@ -3279,12 +3279,12 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo · ◆ Mi plan | Ver mi página | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Ver mi página» en «Bahía Coralina Centro de Buceo · ⌂ Resum»: Abre #/centro?id=31 |
-| Bahía Coralina Centro de Buceo · ◆ Mi plan | Actualizar | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Mi plan Pro Activo Activo hasta el 13 de octubre de 2027. Las reservas que ya tienes se atienden siempre y puedes export» |
+| Bahía Coralina Centro de Buceo · ◆ Mi plan | Actualizar | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Mi plan Pro Activo Activo hasta el 14 de octubre de 2027. Las reservas que ya tienes se atienden siempre y puedes export» |
 | Bahía Coralina Centro de Buceo · ◆ Mi plan | Comparar planes | Enlace | Funciona | Abre #/planes |
 
 ### Instructor del centro (instructor.prueba)
 
-66 pantallas, 930 elementos probados en 16 min 25 s.
+64 pantallas, 886 elementos probados en 11 min 57 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -3341,8 +3341,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Encuentra tu próxima inmersión | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | Encuentra tu próxima inmersión | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (18 elementos): «Leaflet» |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (19 elementos): «2» · hay 15 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (7 elementos): «Rainbow Reef» |
-| Encuentra tu próxima inmersión | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (145 elementos): «×» · hay 1 más iguales en la lista (no se prueban todos) |
+| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (6 elementos): «Rainbow Reef» |
+| Encuentra tu próxima inmersión | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (146 elementos): «×» · hay 1 más iguales en la lista (no se prueban todos) |
 | Encuentra tu próxima inmersión | Tofo – Manta Reef | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» |
 | Encuentra tu próxima inmersión | Zoom in | Enlace | Funciona | Muestra contenido nuevo (64 elementos): «2» |
 | Encuentra tu próxima inmersión | Zoom out | Enlace | Funciona | Cambia su estado (class: leaflet-control-zoom-out → leaflet-control-zoom-out leaflet-disabled) · Cambia la pantalla (4 elementos nuevos, 0 quitados) |
@@ -3830,17 +3830,17 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Reservar | Enlace | Funciona | Mismo enlace (#/reservar?center=31) que «Reservar» en «Centros de buceo»: Abre #/reservar?center=31 |
 | Bahía Coralina Centro de Buceo | Llamar | Enlace externo | Funciona | Teléfono +34600000101 |
 | Bahía Coralina Centro de Buceo | Escribir | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
-| Bahía Coralina Centro de Buceo | Lun, 19 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · hay 11 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo | Mar, 20 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · hay 11 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Enviar solicitud | Enlace | Funciona | Abre #/reservar?center=31&service=7 · POST /api/stats/track → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · hay 3 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Añadir a una reserva | Enlace | Funciona | Abre #/reservar?center=31&service=8 · POST /api/stats/track → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · hay 6 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Foto 1 de Bahía Coralina Centro de Buceo | Botón | Funciona | Abre la ventana «Bahía Coralina Centro de Buceo» · hay 2 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Foto 2 de Bahía Coralina Centro de Buceo | Botón | Funciona | Abre la ventana «Bahía Coralina Centro de Buceo» |
-| Bahía Coralina Centro de Buceo | Responder | Botón | Funciona | Abre la ventana «Responder a la reseña» · hay 1 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» · hay 7 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Editar respuesta | Botón | Funciona | Abre la ventana «Responder a la reseña» · hay 4 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» |
+| Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» · hay 7 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Editar respuesta | Botón | Funciona | Abre la ventana «Responder a la reseña» |
+| Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» |
+| Bahía Coralina Centro de Buceo | Responder | Botón | Funciona | Abre la ventana «Responder a la reseña» · hay 1 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Responder | Botón | Funciona | Abre la ventana «Responder a la reseña» |
 | Bahía Coralina Centro de Buceo | +34 600 000 101 | Enlace externo | Funciona | Teléfono +34600000101 |
 | Bahía Coralina Centro de Buceo | hola@bahiacoralina.example.com | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
@@ -3860,7 +3860,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Curso Open Water (3 días) | Botón | Funciona | Muestra contenido nuevo (14 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Curso de Nitrox | Botón | Funciona | Muestra contenido nuevo (13 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Doble inmersión en barco | Botón | Funciona | Muestra contenido nuevo (26 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
-| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (17 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
+| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (18 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Inmersión simple en barco | Botón | Desactivado (correcto) | Desactivado; la pantalla explica: «No admite reservas ahora mismo» |
 | Bahía Coralina Centro de Buceo | Una persona menos | Botón | Desactivado (correcto) | Desactivado: es el límite del calendario o de la lista («Una persona menos») |
 | Bahía Coralina Centro de Buceo | Una persona más | Botón | Desactivado (correcto) | No responde al ratón (pointer-events: none) y se ve atenuado; la pantalla explica: «Elige primero la actividad.» |
@@ -4079,31 +4079,28 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Ver mi página | Enlace | Funciona | Abre #/centro?id=31 |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Miércoles, 14 de octubre Buenos días. Hoy tienes 4 reservas con 6 buceadores. + Nueva reserva Abrir planning Hoy 4 6 per» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | ⌂ Resumen | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Miércoles, 14 de octubre Buenos días. Hoy tienes 4 reservas con 6 buceadores. + Nueva reserva Abrir planning Hoy 4 6 per» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Miércoles, 14 de octubre Buenos días. Hoy tienes 3 reservas con 4 buceadores. + Nueva reserva Abrir planning Hoy 3 4 per» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | ⌂ Resumen | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Miércoles, 14 de octubre Buenos días. Hoy tienes 3 reservas con 4 buceadores. + Nueva reserva Abrir planning Hoy 3 4 per» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ▦ Planning / agenda | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando el planning…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ▣ Reservas 2 | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | ♙ Clientes | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (1 elementos): «Base de clientes Clientes Todas las personas que han reservado con tu centro o han hecho check-in con tu QR. 20 clientes» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ◈ Servicios y tarifas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (11 elementos): «Cargando catálogo…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ✈ Experiencias | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando experiencias…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ⌖ Puntos de buceo | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (22 elementos): «CENTRO · PUNTOS Mis puntos de buceo Asocia aquí los lugares a los que suele ir tu centro. No necesitas crear el punto de» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ▣ Check-in / QR y promociones | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Promociones Validar un código QR de check-in» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ★ Recompensas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «PUNTOS WORLDIVES Ventajas y puntos Los buceadores canjean sus puntos por las ventajas que tu centro define y paga. Los p» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | ✆ Avisos y WhatsApp | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Avisos Avisos a tus clientes y WhatsApp Si cancelas una salida o cambias la hora o el punto de encuentro, avisamos a tod» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | ✉ Solicitudes de información | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Solicitudes de información Mensajes de buceadores interesados Contesta directamente por email o teléfono. Te llegan tamb» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | ⇩ Herramientas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (4 elementos): «Herramientas Exportar, calendario, widget e importación Exportar mis datos (CSV) Disponible siempre, en cualquier plan. » · GET /api/provider/ical → 403 «Tu perfil no permite cambiar la ficha ni los ajustes del centro. Pídeselo al propietario del centro.» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | ⇩ Herramientas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (4 elementos): «Herramientas Exportar, calendario, widget e importación Exportar mis datos (CSV) Disponible siempre, en cualquier plan. » |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | + Nueva reserva | Botón | Funciona | Abre la ventana «Nueva reserva» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Abrir planning | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando el planning…» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | Hoy 4 6 personas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | Hoy 3 4 personas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Solicitudes pendientes 2 Necesitan respuesta | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Por cobrar 390 € 1 reserva | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | Próximos 7 días 30 reservas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | Próximos 7 días 31 reservas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Ver la semana | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | 08:00 | Enlace | Funciona | Abre #/reserva?id=1250 · hay 10 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ⌂ Resumen | 21:30 Hoy Giulia Romano Inmersión al atardecer · 1 persona Confirmada | Enlace | Funciona | Abre #/reserva?id=1295 · hay 10 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Ir a reservas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Programar salidas | Botón | Funciona | Muestra contenido nuevo (11 elementos): «Cargando catálogo…» |
 | Bahía Coralina Centro de Buceo · ⌂ Resumen | Publicar un viaje | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando experiencias…» |
-| Bahía Coralina Centro de Buceo · ⌂ Resumen | Ver clientes | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Base de clientes Clientes Todas las personas que han reservado con tu centro o han hecho check-in con tu QR. 20 clientes» |
 
 #### Tu ficha de buceador · `#/cuenta`
 
@@ -4125,6 +4122,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Tu ficha de buceador | Tipo | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Tu ficha de buceador | Seguridad | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Contraseña actual» (campo obligatorio) · El navegador no deja enviarlo: «Nueva contraseña» (campo obligatorio) |
 | Tu ficha de buceador | Activar | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Tu contraseña» (campo obligatorio) |
+| Tu ficha de buceador | Cerrar las demás sesiones | Botón | Funciona | Abre la ventana «Cerrar las demás sesiones» |
 | Tu ficha de buceador | Descargar mis datos (ZIP) | Enlace | Funciona | Descarga /api/account/export?format=zip (200, application/zip) |
 | Tu ficha de buceador | Privacidad | Enlace | Funciona | Abre #/legal/privacidad |
 | Tu ficha de buceador | Condiciones de uso | Enlace | Funciona | Abre #/legal/condiciones-buceadores |
@@ -4159,133 +4157,124 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Mis puntos | Ver ventajas | Enlace | Funciona | Mismo enlace (#/recompensas) que «Explorador 0 puntos» en «Tu ficha de buceador»: Abre #/recompensas |
 | Mis puntos | Más información sobre los puntos | Enlace | Funciona | Mismo enlace (#/como-funcionan-los-puntos) que «Cómo funcionan» en «Recompensas»: Abre #/como-funcionan-los-puntos |
 
-#### Hannah Weber · `#/reserva?id=1250`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Hannah Weber | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Hannah Weber | Reservas | Enlace | Funciona | Abre #/admin?tab=bookings |
-| Hannah Weber | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1250/receipt.pdf (200, application/pdf) |
-| Hannah Weber | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1250/diver-sheet.pdf (200, application/pdf) |
-| Hannah Weber | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Hannah Weber | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Hannah Weber | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Hannah Weber | PDF | Enlace | Funciona | Descarga /api/bookings/1250/diver-sheet.pdf (200, application/pdf) |
-| Hannah Weber | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Emily Clarke · `#/reserva?id=1265`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Emily Clarke | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Emily Clarke | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Emily Clarke | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1265/receipt.pdf (200, application/pdf) |
-| Emily Clarke | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1265/diver-sheet.pdf (200, application/pdf) |
-| Emily Clarke | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Emily Clarke | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Emily Clarke | Aceptar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1265/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
-| Emily Clarke | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
-| Emily Clarke | PDF | Enlace | Funciona | Descarga /api/bookings/1265/diver-sheet.pdf (200, application/pdf) |
-| Emily Clarke | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Chloé Martin · `#/reserva?id=1264`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Chloé Martin | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Chloé Martin | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Chloé Martin | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1264/receipt.pdf (200, application/pdf) |
-| Chloé Martin | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1264/diver-sheet.pdf (200, application/pdf) |
-| Chloé Martin | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Chloé Martin | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Chloé Martin | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Chloé Martin | PDF | Enlace | Funciona | Descarga /api/bookings/1264/diver-sheet.pdf (200, application/pdf) |
-| Chloé Martin | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Lukas Becker · `#/reserva?id=1263`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Lukas Becker | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Lukas Becker | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Lukas Becker | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1263/receipt.pdf (200, application/pdf) |
-| Lukas Becker | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1263/diver-sheet.pdf (200, application/pdf) |
-| Lukas Becker | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Lukas Becker | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Lukas Becker | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Lukas Becker | PDF | Enlace | Funciona | Descarga /api/bookings/1263/diver-sheet.pdf (200, application/pdf) |
-| Lukas Becker | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Hannah Weber · `#/reserva?id=1249`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Hannah Weber | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Hannah Weber | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Hannah Weber | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1249/receipt.pdf (200, application/pdf) |
-| Hannah Weber | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1249/diver-sheet.pdf (200, application/pdf) |
-| Hannah Weber | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Hannah Weber | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Hannah Weber | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Hannah Weber | PDF | Enlace | Funciona | Descarga /api/bookings/1249/diver-sheet.pdf (200, application/pdf) |
-| Hannah Weber | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### João Silva · `#/reserva?id=1244`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| João Silva | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| João Silva | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| João Silva | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1244/receipt.pdf (200, application/pdf) |
-| João Silva | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1244/diver-sheet.pdf (200, application/pdf) |
-| João Silva | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| João Silva | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| João Silva | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| João Silva | PDF | Enlace | Funciona | Descarga /api/bookings/1244/diver-sheet.pdf (200, application/pdf) |
-| João Silva | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Tom Jansen · `#/reserva?id=1239`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Tom Jansen | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Tom Jansen | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Tom Jansen | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1239/receipt.pdf (200, application/pdf) |
-| Tom Jansen | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1239/diver-sheet.pdf (200, application/pdf) |
-| Tom Jansen | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
-| Tom Jansen | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Tom Jansen | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Tom Jansen | PDF | Enlace | Funciona | Descarga /api/bookings/1239/diver-sheet.pdf (200, application/pdf) |
-| Tom Jansen | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-
-#### Giulia Romano · `#/reserva?id=1268`
+#### Giulia Romano · `#/reserva?id=1295`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Giulia Romano | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Giulia Romano | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Giulia Romano | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1268/receipt.pdf (200, application/pdf) |
-| Giulia Romano | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1268/diver-sheet.pdf (200, application/pdf) |
+| Giulia Romano | Reservas | Enlace | Funciona | Abre #/admin?tab=bookings |
+| Giulia Romano | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1295/diver-sheet.pdf (200, application/pdf) |
 | Giulia Romano | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
 | Giulia Romano | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
 | Giulia Romano | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Giulia Romano | PDF | Enlace | Funciona | Descarga /api/bookings/1268/diver-sheet.pdf (200, application/pdf) |
-| Giulia Romano | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
+| Giulia Romano | PDF | Enlace | Funciona | Descarga /api/bookings/1295/diver-sheet.pdf (200, application/pdf) |
+| Giulia Romano | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
 
-#### Bea Navarro · `#/reserva?id=1230`
+#### Chloé Martin · `#/reserva?id=1294`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Chloé Martin | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Chloé Martin | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Chloé Martin | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1294/diver-sheet.pdf (200, application/pdf) |
+| Chloé Martin | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Chloé Martin | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Chloé Martin | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| Chloé Martin | PDF | Enlace | Funciona | Descarga /api/bookings/1294/diver-sheet.pdf (200, application/pdf) |
+| Chloé Martin | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Lukas Becker · `#/reserva?id=1293`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Lukas Becker | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Lukas Becker | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Lukas Becker | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1293/diver-sheet.pdf (200, application/pdf) |
+| Lukas Becker | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Lukas Becker | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Lukas Becker | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| Lukas Becker | PDF | Enlace | Funciona | Descarga /api/bookings/1293/diver-sheet.pdf (200, application/pdf) |
+| Lukas Becker | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### João Silva · `#/reserva?id=1277`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| João Silva | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| João Silva | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| João Silva | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1277/diver-sheet.pdf (200, application/pdf) |
+| João Silva | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| João Silva | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| João Silva | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| João Silva | PDF | Enlace | Funciona | Descarga /api/bookings/1277/diver-sheet.pdf (200, application/pdf) |
+| João Silva | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Tom Jansen · `#/reserva?id=1273`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Tom Jansen | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Tom Jansen | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Tom Jansen | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1273/diver-sheet.pdf (200, application/pdf) |
+| Tom Jansen | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Tom Jansen | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Tom Jansen | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| Tom Jansen | PDF | Enlace | Funciona | Descarga /api/bookings/1273/diver-sheet.pdf (200, application/pdf) |
+| Tom Jansen | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Emily Clarke · `#/reserva?id=1298`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Emily Clarke | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Emily Clarke | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Emily Clarke | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1298/diver-sheet.pdf (200, application/pdf) |
+| Emily Clarke | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Emily Clarke | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Emily Clarke | Aceptar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1298/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
+| Emily Clarke | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
+| Emily Clarke | PDF | Enlace | Funciona | Descarga /api/bookings/1298/diver-sheet.pdf (200, application/pdf) |
+| Emily Clarke | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Chloé Martin · `#/reserva?id=1297`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Chloé Martin | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Chloé Martin | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Chloé Martin | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1297/diver-sheet.pdf (200, application/pdf) |
+| Chloé Martin | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Chloé Martin | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Chloé Martin | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| Chloé Martin | PDF | Enlace | Funciona | Descarga /api/bookings/1297/diver-sheet.pdf (200, application/pdf) |
+| Chloé Martin | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Lukas Becker · `#/reserva?id=1296`
+
+| Pantalla | Elemento | Tipo | Resultado | Detalle |
+|---|---|---|---|---|
+| Lukas Becker | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
+| Lukas Becker | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Lukas Becker | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1296/diver-sheet.pdf (200, application/pdf) |
+| Lukas Becker | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
+| Lukas Becker | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
+| Lukas Becker | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
+| Lukas Becker | PDF | Enlace | Funciona | Descarga /api/bookings/1296/diver-sheet.pdf (200, application/pdf) |
+| Lukas Becker | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+
+#### Bea Navarro · `#/reserva?id=1261`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bea Navarro | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
-| Bea Navarro | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
-| Bea Navarro | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1230/receipt.pdf (200, application/pdf) |
-| Bea Navarro | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1230/diver-sheet.pdf (200, application/pdf) |
+| Bea Navarro | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
+| Bea Navarro | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1261/diver-sheet.pdf (200, application/pdf) |
 | Bea Navarro | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
 | Bea Navarro | Cambiar fecha u hora | Botón | Funciona | Abre la ventana «Cambiar fecha u hora» |
-| Bea Navarro | Aceptar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1230/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
+| Bea Navarro | Aceptar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1261/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
 | Bea Navarro | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
-| Bea Navarro | PDF | Enlace | Funciona | Descarga /api/bookings/1230/diver-sheet.pdf (200, application/pdf) |
-| Bea Navarro | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Hannah Weber»: Abre #/admin?tab=bookings |
+| Bea Navarro | PDF | Enlace | Funciona | Descarga /api/bookings/1261/diver-sheet.pdf (200, application/pdf) |
+| Bea Navarro | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Giulia Romano»: Abre #/admin?tab=bookings |
 
 #### Bahía Coralina Centro de Buceo · ▦ Planning / agenda · `#/admin?tab=planning`
 
@@ -4300,26 +4289,26 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ▦ Planning / agenda | + Reserva | Botón | Funciona | Abre la ventana «Nueva reserva» |
 | Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Crear cartel | Botón | Funciona | Abre la ventana «Crear cartel para redes» |
 | Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Abr | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» · hay 4 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | May 34 | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Oct 75 | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | May 36 | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Oct 86 | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
 | Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Nov | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» · hay 3 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Dic | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Jueves, 1 de octubre | Botón | Funciona | Abre la ventana «Jueves, 1 de octubre» · Cambia su estado (class: pl-cell  is-past  → pl-cell is-past is-open) · hay 2 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Viernes, 2 de octubre | Botón | Funciona | Abre la ventana «Viernes, 2 de octubre» · Cambia su estado (class: pl-cell  is-past  → pl-cell is-past is-open) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Sábado, 3 de octubre: 3 salidas, 4 buceadores | Botón | Funciona | Abre la ventana «Sábado, 3 de octubre» · Cambia su estado (class: pl-cell  is-past has-events → pl-cell is-past has-events is-open) · hay 6 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Domingo, 4 de octubre: 1 salidas, 3 buceadores | Botón | Funciona | Abre la ventana «Domingo, 4 de octubre» · Cambia su estado (class: pl-cell  is-past has-events → pl-cell is-past has-events is-open) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Martes, 13 de octubre | Botón | Funciona | Abre la ventana «Martes, 13 de octubre» · Cambia su estado (class: pl-cell is-today   → pl-cell is-today is-open) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Miércoles, 14 de octubre: 5 salidas, 7 buceadores | Botón | Funciona | Abre la ventana «Miércoles, 14 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) · hay 10 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Jueves, 15 de octubre: 5 salidas, 7 buceadores | Botón | Funciona | Abre la ventana «Jueves, 15 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Sábado, 24 de octubre | Botón | Funciona | Abre la ventana «Sábado, 24 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) · hay 4 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Domingo, 25 de octubre | Botón | Funciona | Abre la ventana «Domingo, 25 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Jueves, 1 de octubre: 1 salidas, 1 buceadores | Botón | Funciona | Abre la ventana «Jueves, 1 de octubre» · Cambia su estado (class: pl-cell  is-past has-events → pl-cell is-past has-events is-open) · hay 7 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Viernes, 2 de octubre | Botón | Funciona | Abre la ventana «Viernes, 2 de octubre» · Cambia su estado (class: pl-cell  is-past  → pl-cell is-past is-open) · hay 2 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Sábado, 3 de octubre: 3 salidas, 6 buceadores | Botón | Funciona | Abre la ventana «Sábado, 3 de octubre» · Cambia su estado (class: pl-cell  is-past has-events → pl-cell is-past has-events is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Lunes, 5 de octubre | Botón | Funciona | Abre la ventana «Lunes, 5 de octubre» · Cambia su estado (class: pl-cell  is-past  → pl-cell is-past is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Miércoles, 14 de octubre: 1 salidas, 4 buceadores | Botón | Funciona | Abre la ventana «Miércoles, 14 de octubre» · Cambia su estado (class: pl-cell is-today  has-events → pl-cell is-today has-events is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Jueves, 15 de octubre: 5 salidas, 8 buceadores | Botón | Funciona | Abre la ventana «Jueves, 15 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) · hay 10 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Viernes, 16 de octubre: 5 salidas, 5 buceadores | Botón | Funciona | Abre la ventana «Viernes, 16 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Domingo, 25 de octubre | Botón | Funciona | Abre la ventana «Domingo, 25 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) · hay 3 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda | Lunes, 26 de octubre | Botón | Funciona | Abre la ventana «Lunes, 26 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) |
 
 #### Bahía Coralina Centro de Buceo · ▦ Planning / agenda › Lista · `#/admin?tab=planning` (1 clic en subpestaña)
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda › Lista | 3 | Botón | Funciona | Abre la ventana «Sábado, 3 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) · hay 18 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▦ Planning / agenda › Lista | 4 | Botón | Funciona | Abre la ventana «Domingo, 4 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda › Lista | 1 Jue Jueves, 1 de octubre 1 salida · 1 buceadores · 9 plazas libres › | Botón | Funciona | Abre la ventana «Jueves, 1 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) · hay 20 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▦ Planning / agenda › Lista | 3 | Botón | Funciona | Abre la ventana «Sábado, 3 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) |
 
 #### Bahía Coralina Centro de Buceo · ▣ Reservas · `#/admin?tab=bookings`
 
@@ -4330,16 +4319,16 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ▣ Reservas | + Nueva reserva | Botón | Funciona | Abre la ventana «Nueva reserva» |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Hoy | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Próximos 7 días | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» |
-| Bahía Coralina Centro de Buceo · ▣ Reservas | Solicitudes pendientes 2 | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» |
+| Bahía Coralina Centro de Buceo · ▣ Reservas | Solicitudes pendientes | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Por cobrar 1 | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Todas las próximas | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Historial | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Actividad | Desplegable | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Todas las reservas del centro en un sitio: las de WORLDIVES, las de tu web y las que apunta» |
-| Bahía Coralina Centro de Buceo · ▣ Reservas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» · hay 26 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ▣ Reservas | Completar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1250/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · hay 1 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▣ Reservas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» · hay 27 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▣ Reservas | Completar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1293/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · hay 1 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» |
-| Bahía Coralina Centro de Buceo · ▣ Reservas | Completar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1263/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
-| Bahía Coralina Centro de Buceo · ▣ Reservas | Aceptar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1265/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
+| Bahía Coralina Centro de Buceo · ▣ Reservas | Completar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1294/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
+| Bahía Coralina Centro de Buceo · ▣ Reservas | Aceptar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1298/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
 | Bahía Coralina Centro de Buceo · ▣ Reservas | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
 
 #### Bahía Coralina Centro de Buceo · ▣ Reservas › Historial · `#/admin?tab=bookings` (1 clic en subpestaña)
@@ -4350,10 +4339,10 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Aceptar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1230/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
-| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
-| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» · hay 32 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» · hay 34 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» |
+| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Aceptar | Botón | Funciona | Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/bookings/1261/status → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
+| Bahía Coralina Centro de Buceo · ▣ Reservas › Todas las próximas | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
 
 #### Bahía Coralina Centro de Buceo · ▣ Reservas › Por cobrar · `#/admin?tab=bookings` (1 clic en subpestaña)
 
@@ -4366,33 +4355,6 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 #### Bahía Coralina Centro de Buceo · ▣ Reservas › Hoy · `#/admin?tab=bookings` (1 clic en subpestaña)
 
 Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla).
-
-#### Bahía Coralina Centro de Buceo · ♙ Clientes · `#/admin?tab=clients`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Bahía Coralina Centro de Buceo · ♙ Clientes | Ver mi página | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Ver mi página» en «Bahía Coralina Centro de Buceo · ⌂ Resum»: Abre #/centro?id=31 |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Base de clientes Clientes Todas las personas que han reservado con tu centro o han hecho check-in con tu QR. 20 clientes» |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | bea.navarro@example.com | Enlace externo | Funciona | Correo bea.navarro@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | wei.chen@example.com | Enlace externo | Funciona | Correo wei.chen@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | pierre.lambert@example.com | Enlace externo | Funciona | Correo pierre.lambert@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | kasia.nowak@example.com | Enlace externo | Funciona | Correo kasia.nowak@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | nuria.costa@example.com | Enlace externo | Funciona | Correo nuria.costa@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | lukas.becker@example.com | Enlace externo | Funciona | Correo lukas.becker@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | chloe.martin@example.com | Enlace externo | Funciona | Correo chloe.martin@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | giulia.romano@example.com | Enlace externo | Funciona | Correo giulia.romano@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | tom.jansen@example.com | Enlace externo | Funciona | Correo tom.jansen@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | emily.clarke@example.com | Enlace externo | Funciona | Correo emily.clarke@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | alvaro.ruiz@example.com | Enlace externo | Funciona | Correo alvaro.ruiz@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | joao.silva@example.com | Enlace externo | Funciona | Correo joao.silva@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | hannah.weber@example.com | Enlace externo | Funciona | Correo hannah.weber@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | sofie.devries@example.com | Enlace externo | Funciona | Correo sofie.devries@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | raul.ortega@example.com | Enlace externo | Funciona | Correo raul.ortega@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | lucia.prieto@example.com | Enlace externo | Funciona | Correo lucia.prieto@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | anna.kowalska@example.com | Enlace externo | Funciona | Correo anna.kowalska@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | marco.bianchi@example.com | Enlace externo | Funciona | Correo marco.bianchi@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | james.walker@example.com | Enlace externo | Funciona | Correo james.walker@example.com |
-| Bahía Coralina Centro de Buceo · ♙ Clientes | li.na@example.com | Enlace externo | Funciona | Correo li.na@example.com |
 
 #### Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas · `#/admin?tab=services`
 
@@ -4415,8 +4377,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Editar | Botón | Funciona | Abre la ventana «Editar servicio» · hay 5 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Cambiar tarifa | Botón | Funciona | Abre la ventana «Tarifa» |
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Ver las 16 | Botón | Funciona | Abre la ventana «Salidas de Bautizo de buceo» · hay 4 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Mié, 14 oct 16:00 6 libres | Botón | Funciona | Abre la ventana «Editar salida» · hay 16 más iguales en la lista (no se prueban todos) |
-| Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Jue, 15 oct 16:00 6 libres | Botón | Funciona | Abre la ventana «Editar salida» |
+| Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Jue, 15 oct 16:00 6 libres | Botón | Funciona | Abre la ventana «Editar salida» · hay 16 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Vie, 16 oct 16:00 6 libres | Botón | Funciona | Abre la ventana «Editar salida» |
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | + Salida | Botón | Funciona | Abre la ventana «Nueva salida» · hay 4 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Agenda | Botón | Funciona | Abre la ventana «Salidas de Bautizo de buceo» · hay 4 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo · ◈ Servicios y tarifas | Editar | Botón | Funciona | Abre la ventana «Editar servicio» |
@@ -4469,11 +4431,11 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Validar un código | Botón | Funciona | Cambia su estado (class: pr-tab → pr-tab is-on) · Muestra contenido nuevo (1 elementos): «VALIDAR Comprobar un código promocional Escanea el QR del cliente con la cámara del móvil (se abre esta misma comprobaci» |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | QR de check-in | Botón | Funciona | Cambia su estado (class: pr-tab → pr-tab is-on) · Muestra contenido nuevo (1 elementos): «IDENTIFICACIÓN DIGITAL Check-in / QR El centro ya está seleccionado automáticamente: Bahía Coralina Centro de Buceo. No » |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Nueva promoción | Botón | Funciona | Abre la ventana «Nueva promoción» |
-| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Dar a clientes | Botón | Funciona | Abre la ventana «Dar «Bono 10 inmersiones»» |
+| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Dar a clientes | Botón | Funciona | Aviso: «Tu perfil no permite ver las solicitudes ni los clientes. Pídeselo al propietario del centro.» · GET /api/center/clients → 403 «Tu perfil no permite ver las solicitudes ni los clientes. Pídeselo al propietario del centro.» |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Ver códigos | Botón | Funciona | Abre la ventana «Códigos de «Bono 10 inmersiones»» |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Editar | Botón | Funciona | Abre la ventana «Editar promoción» |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Finalizar | Botón | Funciona | Pide confirmación «¿Finalizar la promoción? Sus códigos dejarán de ser válidos.» (cancelado) |
-| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Dar a clientes | Botón | Funciona | Abre la ventana «Dar «10 % en tu próxima inmersión»» |
+| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Dar a clientes | Botón | Funciona | Aviso: «Tu perfil no permite ver las solicitudes ni los clientes. Pídeselo al propietario del centro.» · GET /api/center/clients → 403 «Tu perfil no permite ver las solicitudes ni los clientes. Pídeselo al propietario del centro.» |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Ver códigos | Botón | Funciona | Abre la ventana «Códigos de «10 % en tu próxima inmersión»» |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Editar | Botón | Funciona | Abre la ventana «Editar promoción» |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones | Finalizar | Botón | Funciona | Pide confirmación «¿Finalizar la promoción? Sus códigos dejarán de ser válidos.» (cancelado) |
@@ -4484,8 +4446,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🏪 Centro Identificar el centro y hacer check-in | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🤿 Buceador Identificar al cliente al llegar | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) · Cambia el valor de «Nombre del QR» (Identificación del centro → Check-in del buceador) |
-| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🌊 Inmersión Compartir los datos de una salida con el Log Book | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) · Muestra contenido nuevo (78 elementos): «2026-10-14 · 08:00 · Alquiler de equipo completo» · Cambia el valor de «Nombre del QR» (Identificación del centro → Inmersión) |
-| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🎫 Reserva Identificar una reserva concreta | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) · Muestra contenido nuevo (150 elementos): «#1236 · 2026-11-09 · Doble inmersión en barco» · Cambia el valor de «Nombre del QR» (Identificación del centro → Reserva) |
+| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🌊 Inmersión Compartir los datos de una salida con el Log Book | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) · Muestra contenido nuevo (79 elementos): «2026-10-15 · 08:00 · Alquiler de equipo completo» · Cambia el valor de «Nombre del QR» (Identificación del centro → Inmersión) |
+| Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | 🎫 Reserva Identificar una reserva concreta | Botón | Funciona | Cambia su estado (class: cb-qr-purpose → cb-qr-purpose active) · Muestra contenido nuevo (150 elementos): «#1267 · 2026-11-10 · Doble inmersión en barco» · Cambia el valor de «Nombre del QR» (Identificación del centro → Reserva) |
 | Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › QR de check-in | Check-in / QR | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Nombre del QR» (campo obligatorio) |
 
 #### Bahía Coralina Centro de Buceo · ▣ Check-in / QR y promociones › Validar un código · `#/admin?tab=qr` (1 clic en subpestaña)
@@ -4502,11 +4464,6 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ★ Recompensas | Actualizar | Botón | Funciona | Muestra contenido nuevo (2 elementos): «PUNTOS WORLDIVES Ventajas y puntos Los buceadores canjean sus puntos por las ventajas que tu centro define y paga. Los p» |
 | Bahía Coralina Centro de Buceo · ★ Recompensas | Validar un código | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «WOD-XXXXXXXX» (campo obligatorio) |
 | Bahía Coralina Centro de Buceo · ★ Recompensas | Escanear | Botón | Funciona | Aviso: «Este navegador no puede escanear: escribe el código.» |
-| Bahía Coralina Centro de Buceo · ★ Recompensas | Conceder puntos | Formulario | Funciona | Enviado vacío · Aviso: «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» · POST /api/provider/points-grant → 403 «Tu perfil es de solo lectura para esto. Pídeselo al propietario del centro.» |
-| Bahía Coralina Centro de Buceo · ★ Recompensas | Cliente | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
-| Bahía Coralina Centro de Buceo · ★ Recompensas | + Nueva ventaja | Botón | Funciona | Abre la ventana «Nueva ventaja» |
-| Bahía Coralina Centro de Buceo · ★ Recompensas | Editar | Botón | Funciona | Abre la ventana «Editar ventaja» |
-| Bahía Coralina Centro de Buceo · ★ Recompensas | Editar | Botón | Funciona | Abre la ventana «Editar ventaja» |
 
 #### Bahía Coralina Centro de Buceo · ✆ Avisos y WhatsApp · `#/admin?tab=avisos`
 
@@ -4516,26 +4473,13 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · ✆ Avisos y WhatsApp | Actualizar | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Avisos Avisos a tus clientes y WhatsApp Si cancelas una salida o cambias la hora o el punto de encuentro, avisamos a tod» |
 | Bahía Coralina Centro de Buceo · ✆ Avisos y WhatsApp | Al cancelar una salida, por defecto | Formulario | Funciona | Enviado vacío · Aviso: «Tu perfil no permite cancelar salidas ni avisar a todos los clientes. Pídeselo al propietario del centro.» · POST /api/avisos/ajustes → 403 «Tu perfil no permite cancelar salidas ni avisar a todos los clientes. Pídeselo al propietario del centro.» |
 | Bahía Coralina Centro de Buceo · ✆ Avisos y WhatsApp | Hora del recordatorio | Desplegable | Desactivado (correcto) | Desactivado; la pantalla explica: «Cada buceador elige otra fecha o la devolución» |
-| Bahía Coralina Centro de Buceo · ✆ Avisos y WhatsApp | Recordatorio del día antes | Botón | Funciona | Abre la ventana «Estado del aviso» |
-| Bahía Coralina Centro de Buceo · ✆ Avisos y WhatsApp | Recordatorio del día antes | Botón | Funciona | Abre la ventana «Estado del aviso» |
-
-#### Bahía Coralina Centro de Buceo · ✉ Solicitudes de información · `#/admin?tab=requests`
-
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Bahía Coralina Centro de Buceo · ✉ Solicitudes de información | Ver mi página | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Ver mi página» en «Bahía Coralina Centro de Buceo · ⌂ Resum»: Abre #/centro?id=31 |
-| Bahía Coralina Centro de Buceo · ✉ Solicitudes de información | Actualizar | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Solicitudes de información Mensajes de buceadores interesados Contesta directamente por email o teléfono. Te llegan tamb» |
 
 #### Bahía Coralina Centro de Buceo · ⇩ Herramientas · `#/admin?tab=tools`
-
-Al abrirla, el servidor responde con error a: `GET /api/provider/ical → 403` (la pantalla se ve bien; revisar si sobran esas llamadas).
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bahía Coralina Centro de Buceo · ⇩ Herramientas | Ver mi página | Enlace | Funciona | Mismo enlace (#/centro?id=31) que «Ver mi página» en «Bahía Coralina Centro de Buceo · ⌂ Resum»: Abre #/centro?id=31 |
-| Bahía Coralina Centro de Buceo · ⇩ Herramientas | Actualizar | Botón | Funciona | Muestra contenido nuevo (4 elementos): «Herramientas Exportar, calendario, widget e importación Exportar mis datos (CSV) Disponible siempre, en cualquier plan. » · GET /api/provider/ical → 403 «Tu perfil no permite cambiar la ficha ni los ajustes del centro. Pídeselo al propietario del centro.» |
-| Bahía Coralina Centro de Buceo · ⇩ Herramientas | Clientes | Enlace | Funciona | Descarga /api/center/export?kind=clients (200, text/csv) |
-| Bahía Coralina Centro de Buceo · ⇩ Herramientas | Reservas | Enlace | Funciona | Descarga /api/center/export?kind=bookings (200, text/csv) |
+| Bahía Coralina Centro de Buceo · ⇩ Herramientas | Actualizar | Botón | Funciona | Muestra contenido nuevo (4 elementos): «Herramientas Exportar, calendario, widget e importación Exportar mis datos (CSV) Disponible siempre, en cualquier plan. » |
 | Bahía Coralina Centro de Buceo · ⇩ Herramientas | Servicios | Enlace | Funciona | Descarga /api/center/export?kind=services (200, text/csv) |
 | Bahía Coralina Centro de Buceo · ⇩ Herramientas | Agenda | Enlace | Funciona | Descarga /api/center/export?kind=agenda (200, text/csv) |
 | Bahía Coralina Centro de Buceo · ⇩ Herramientas | Copiar | Botón | Funciona | Aviso: «Copiado.» |
@@ -4553,7 +4497,7 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 
 ### Freelance (freelance.prueba)
 
-61 pantallas, 843 elementos probados en 10 min 6 s.
+61 pantallas, 842 elementos probados en 10 min 31 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -4610,7 +4554,7 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | Encuentra tu próxima inmersión | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | Encuentra tu próxima inmersión | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (18 elementos): «Leaflet» |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (19 elementos): «2» · hay 15 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (7 elementos): «Rainbow Reef» |
+| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Cambia class en div.leaflet-pane.leaflet-map-pane.leaflet-pan-anim (leaflet-pane leaflet-map-pane → leaflet-pane leaflet-map-pane ) |
 | Encuentra tu próxima inmersión | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» · hay 1 más iguales en la lista (no se prueban todos) |
 | Encuentra tu próxima inmersión | Tofo – Manta Reef | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» |
 | Encuentra tu próxima inmersión | Zoom in | Enlace | Funciona | Muestra contenido nuevo (64 elementos): «2» |
@@ -4640,7 +4584,7 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | El mapa del buceo | Profundas | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (59 elementos): «2» |
 | El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (40 elementos): «2» |
 | El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (22 elementos): «2» |
-| El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (15 elementos): «2» |
+| El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (14 elementos): «2» |
 | El mapa del buceo | 04 África y Mar Rojo 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (25 elementos): «2» |
 | El mapa del buceo | 05 Oceanía 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (31 elementos): «2» |
 | El mapa del buceo | 06 Caribe 17 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (32 elementos): «2» |
@@ -4648,7 +4592,7 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | El mapa del buceo | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | El mapa del buceo | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (26 elementos): «Leaflet» |
 | El mapa del buceo | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (31 elementos): «2» · clic forzado (otro elemento lo tapa) · hay 29 más iguales en la lista (no se prueban todos) |
-| El mapa del buceo | 2 | Elemento div (role=button) | Funciona | Cambia la pantalla (8 elementos nuevos, 4 quitados) |
+| El mapa del buceo | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (14 elementos): «Rainbow Reef» |
 | El mapa del buceo | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
 | El mapa del buceo | Tofo – Manta Reef | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» |
 | El mapa del buceo | Seguridad en el buceo | Enlace | Funciona | Abre #/legal/seguridad |
@@ -5099,7 +5043,7 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | Bahía Coralina Centro de Buceo | Reservar | Enlace | Funciona | Mismo enlace (#/reservar?center=31) que «Reservar» en «Centros de buceo»: Abre #/reservar?center=31 |
 | Bahía Coralina Centro de Buceo | Llamar | Enlace externo | Funciona | Teléfono +34600000101 |
 | Bahía Coralina Centro de Buceo | Escribir | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
-| Bahía Coralina Centro de Buceo | Lun, 19 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 200 · hay 11 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo | Mar, 20 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 200 · hay 11 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Enviar solicitud | Enlace | Funciona | Abre #/reservar?center=31&service=7 · POST /api/stats/track → 200 · hay 3 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Añadir a una reserva | Enlace | Funciona | Abre #/reservar?center=31&service=8 · POST /api/stats/track → 200 |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · hay 6 más iguales en la lista (no se prueban todos) |
@@ -5125,7 +5069,7 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | Bahía Coralina Centro de Buceo | Curso Open Water (3 días) | Botón | Funciona | Muestra contenido nuevo (14 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Curso de Nitrox | Botón | Funciona | Muestra contenido nuevo (13 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Doble inmersión en barco | Botón | Funciona | Muestra contenido nuevo (26 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
-| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (17 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
+| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (18 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Inmersión simple en barco | Botón | Desactivado (correcto) | Desactivado; la pantalla explica: «No admite reservas ahora mismo» |
 | Bahía Coralina Centro de Buceo | Una persona menos | Botón | Desactivado (correcto) | Desactivado: es el límite del calendario o de la lista («Una persona menos») |
 | Bahía Coralina Centro de Buceo | Una persona más | Botón | Desactivado (correcto) | No responde al ratón (pointer-events: none) y se ve atenuado; la pantalla explica: «Elige primero la actividad.» |
@@ -5410,6 +5354,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Tu ficha de buceador | Tipo | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Tu ficha de buceador | Seguridad | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Contraseña actual» (campo obligatorio) · El navegador no deja enviarlo: «Nueva contraseña» (campo obligatorio) |
 | Tu ficha de buceador | Activar | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Tu contraseña» (campo obligatorio) |
+| Tu ficha de buceador | Cerrar las demás sesiones | Botón | Funciona | Abre la ventana «Cerrar las demás sesiones» |
 | Tu ficha de buceador | Descargar mis datos (ZIP) | Enlace | Funciona | Descarga /api/account/export?format=zip (200, application/zip) |
 | Tu ficha de buceador | Privacidad | Enlace | Funciona | Abre #/legal/privacidad |
 | Tu ficha de buceador | Condiciones de uso | Enlace | Funciona | Abre #/legal/condiciones-buceadores |
@@ -5459,8 +5404,6 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Diego Arenas · ☰ Reservas | Historial | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Las reservas y solicitudes de tus servicios. Hoy Próximos 7 días Solicitudes pendientes 2 P» |
 | Diego Arenas · ☰ Reservas | Actividad | Desplegable | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Las reservas y solicitudes de tus servicios. Hoy Próximos 7 días Solicitudes pendientes 2 P» |
 | Diego Arenas · ☰ Reservas | Registrar cobro | Botón | Funciona | Abre la ventana «Registrar pago» |
-| Diego Arenas · ☰ Reservas | Aceptar | Botón | Funciona | Aviso: «Reserva aceptada.» · Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Las reservas y solicitudes de tus servicios. Hoy Próximos 7 días Solicitudes pendientes 1 P» · POST /api/bookings/1284/status → 200 |
-| Diego Arenas · ☰ Reservas | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
 
 #### Diego Arenas · ☰ Reservas › Historial · `#/admin?tab=bookings` (1 clic en subpestaña)
 
@@ -5472,15 +5415,14 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Diego Arenas · ☰ Reservas › Todas las próximas | Aceptar | Botón | Funciona | Aviso: «Reserva aceptada.» · Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Las reservas y solicitudes de tus servicios. Hoy Próximos 7 días Solicitudes pendientes 1 P» · POST /api/bookings/1285/status → 200 |
+| Diego Arenas · ☰ Reservas › Todas las próximas | Aceptar | Botón | Funciona | Aviso: «Reserva aceptada.» · Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Las reservas y solicitudes de tus servicios. Hoy Próximos 7 días Solicitudes pendientes 1 P» · POST /api/bookings/1317/status → 200 |
+| Diego Arenas · ☰ Reservas › Todas las próximas | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
+| Diego Arenas · ☰ Reservas › Todas las próximas | Aceptar | Botón | Funciona | Aviso: «Reserva aceptada.» · Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Las reservas y solicitudes de tus servicios. Hoy Próximos 7 días Solicitudes pendientes Por» · POST /api/bookings/1318/status → 200 |
 | Diego Arenas · ☰ Reservas › Todas las próximas | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
 
 #### Diego Arenas · ☰ Reservas › Por cobrar · `#/admin?tab=bookings` (1 clic en subpestaña)
 
-| Pantalla | Elemento | Tipo | Resultado | Detalle |
-|---|---|---|---|---|
-| Diego Arenas · ☰ Reservas › Por cobrar | ☰ Reservas 1 | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
-| Diego Arenas · ☰ Reservas › Por cobrar | Solicitudes pendientes 1 | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Gestión de reservas Reservas Las reservas y solicitudes de tus servicios. Hoy Próximos 7 días Solicitudes pendientes 1 P» |
+Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla).
 
 #### Diego Arenas · ☰ Reservas › Solicitudes pendientes · `#/admin?tab=bookings` (1 clic en subpestaña)
 
@@ -5506,20 +5448,20 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Diego Arenas · ▦ Planning | Oct 3 | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
 | Diego Arenas · ▦ Planning | Nov 2 | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» · hay 3 más iguales en la lista (no se prueban todos) |
 | Diego Arenas · ▦ Planning | Dic | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Cargando el planning…» |
-| Diego Arenas · ▦ Planning | Jueves, 1 de octubre | Botón | Funciona | Abre la ventana «Jueves, 1 de octubre» · Cambia su estado (class: pl-cell  is-past  → pl-cell is-past is-open) · hay 10 más iguales en la lista (no se prueban todos) |
+| Diego Arenas · ▦ Planning | Jueves, 1 de octubre | Botón | Funciona | Abre la ventana «Jueves, 1 de octubre» · Cambia su estado (class: pl-cell  is-past  → pl-cell is-past is-open) · hay 11 más iguales en la lista (no se prueban todos) |
 | Diego Arenas · ▦ Planning | Viernes, 2 de octubre | Botón | Funciona | Abre la ventana «Viernes, 2 de octubre» · Cambia su estado (class: pl-cell  is-past  → pl-cell is-past is-open) |
-| Diego Arenas · ▦ Planning | Martes, 13 de octubre | Botón | Funciona | Abre la ventana «Martes, 13 de octubre» · Cambia su estado (class: pl-cell is-today   → pl-cell is-today is-open) |
-| Diego Arenas · ▦ Planning | Miércoles, 14 de octubre | Botón | Funciona | Abre la ventana «Miércoles, 14 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) · hay 11 más iguales en la lista (no se prueban todos) |
-| Diego Arenas · ▦ Planning | Jueves, 15 de octubre | Botón | Funciona | Abre la ventana «Jueves, 15 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) |
-| Diego Arenas · ▦ Planning | Viernes, 16 de octubre: 0 salidas, 2 buceadores | Botón | Funciona | Abre la ventana «Viernes, 16 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) · hay 3 más iguales en la lista (no se prueban todos) |
-| Diego Arenas · ▦ Planning | Sábado, 17 de octubre: 1 salidas, 0 buceadores | Botón | Funciona | Abre la ventana «Sábado, 17 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) |
+| Diego Arenas · ▦ Planning | Miércoles, 14 de octubre | Botón | Funciona | Abre la ventana «Miércoles, 14 de octubre» · Cambia su estado (class: pl-cell is-today   → pl-cell is-today is-open) |
+| Diego Arenas · ▦ Planning | Jueves, 15 de octubre | Botón | Funciona | Abre la ventana «Jueves, 15 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) · hay 11 más iguales en la lista (no se prueban todos) |
+| Diego Arenas · ▦ Planning | Viernes, 16 de octubre | Botón | Funciona | Abre la ventana «Viernes, 16 de octubre» · Cambia su estado (class: pl-cell    → pl-cell is-open) |
+| Diego Arenas · ▦ Planning | Domingo, 18 de octubre: 1 salidas, 0 buceadores | Botón | Funciona | Abre la ventana «Domingo, 18 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) · hay 2 más iguales en la lista (no se prueban todos) |
+| Diego Arenas · ▦ Planning | Lunes, 19 de octubre: 0 salidas, 2 buceadores | Botón | Funciona | Abre la ventana «Lunes, 19 de octubre» · Cambia su estado (class: pl-cell   has-events → pl-cell has-events is-open) |
 
 #### Diego Arenas · ▦ Planning › Lista · `#/admin?tab=planning` (1 clic en subpestaña)
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Diego Arenas · ▦ Planning › Lista | 16 Vie Viernes, 16 de octubre 0 salidas · 2 buceadores › | Botón | Funciona | Abre la ventana «Viernes, 16 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) · hay 3 más iguales en la lista (no se prueban todos) |
-| Diego Arenas · ▦ Planning › Lista | 17 | Botón | Funciona | Abre la ventana «Sábado, 17 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) |
+| Diego Arenas · ▦ Planning › Lista | 18 | Botón | Funciona | Abre la ventana «Domingo, 18 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) · hay 2 más iguales en la lista (no se prueban todos) |
+| Diego Arenas · ▦ Planning › Lista | 19 Lun Lunes, 19 de octubre 0 salidas · 2 buceadores › | Botón | Funciona | Abre la ventana «Lunes, 19 de octubre» · Cambia su estado (class: pl-lday-head → pl-lday-head is-open) |
 
 #### Diego Arenas · ▣ Mi agenda · `#/admin?tab=agenda`
 
@@ -5552,8 +5494,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Diego Arenas · ◈ Servicios y tarifas | Mi agenda | Botón | Funciona | Abre #/admin?tab=agenda |
 | Diego Arenas · ◈ Servicios y tarifas | Editar | Botón | Funciona | Abre la ventana «Editar servicio» |
 | Diego Arenas · ◈ Servicios y tarifas | Ver las 4 | Botón | Funciona | Abre la ventana «Salidas de Sesión de fotos y vídeo bajo el agua» |
-| Diego Arenas · ◈ Servicios y tarifas | Sáb, 17 oct 11:00 2 libres | Botón | Funciona | Abre la ventana «Editar salida» · hay 1 más iguales en la lista (no se prueban todos) |
-| Diego Arenas · ◈ Servicios y tarifas | Sáb, 24 oct 11:00 2 libres | Botón | Funciona | Abre la ventana «Editar salida» |
+| Diego Arenas · ◈ Servicios y tarifas | Dom, 18 oct 11:00 2 libres | Botón | Funciona | Abre la ventana «Editar salida» · hay 1 más iguales en la lista (no se prueban todos) |
+| Diego Arenas · ◈ Servicios y tarifas | Dom, 25 oct 11:00 2 libres | Botón | Funciona | Abre la ventana «Editar salida» |
 | Diego Arenas · ◈ Servicios y tarifas | + Salida | Botón | Funciona | Abre la ventana «Nueva salida» |
 | Diego Arenas · ◈ Servicios y tarifas | Agenda | Botón | Funciona | Abre la ventana «Salidas de Sesión de fotos y vídeo bajo el agua» |
 | Diego Arenas · ◈ Servicios y tarifas | + Nuevo servicio Inmersión, curso, bautizo, viaje… | Botón | Funciona | Abre la ventana «Nuevo servicio» |
@@ -5585,7 +5527,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Diego Arenas · € Cobros y pagos | Moderada Gratis hasta 48 h antes | Botón | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) · Cambia el texto: «Cancelación gratuita hasta 2 días antes de la actividad; después no hay reembolso.» |
 | Diego Arenas · € Cobros y pagos | Estricta Gratis hasta 7 días antes | Botón | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) · Cambia el texto: «Cancelación gratuita hasta 7 días antes de la actividad; después no hay reembolso.» · Cambia el valor de «Cancelación gratuita hasta (horas antes)» (48 → 168) |
 | Diego Arenas · € Cobros y pagos | Guardar política | Botón | Funciona | Aviso: «Política de cancelación guardada. Se aplica a las reservas nuevas.» · POST /api/provider/cancellation-policy → 200 |
-| Diego Arenas · € Cobros y pagos | Condiciones para centros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=129#/legal/condiciones-centros |
+| Diego Arenas · € Cobros y pagos | Condiciones para centros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=128#/legal/condiciones-centros |
 
 #### Diego Arenas · ✦ Perfil público · `#/admin?tab=profile`
 
@@ -5661,53 +5603,53 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Diego Arenas · ◆ Mi plan | Mi cuenta | Enlace | Funciona | Mismo enlace (#/cuenta) que «Mi cuenta» en «Diego Arenas · ⌂ Resumen»: Abre #/cuenta |
 | Diego Arenas · ◆ Mi plan | Comparar planes | Enlace | Funciona | Abre #/planes |
 
-#### Lukas Becker · `#/reserva?id=1283`
+#### Lukas Becker · `#/reserva?id=1316`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Lukas Becker | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
 | Lukas Becker | Reservas | Enlace | Funciona | Abre #/admin?tab=bookings |
-| Lukas Becker | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1283/receipt.pdf (200, application/pdf) |
-| Lukas Becker | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1283/diver-sheet.pdf (200, application/pdf) |
+| Lukas Becker | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1316/receipt.pdf (200, application/pdf) |
+| Lukas Becker | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1316/diver-sheet.pdf (200, application/pdf) |
 | Lukas Becker | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
 | Lukas Becker | Cambiar fecha u hora | Botón | Funciona | Aviso: «No hay otras salidas de este servicio. Programa una nueva salida antes de cambiar la reserva.» |
 | Lukas Becker | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Lukas Becker | PDF | Enlace | Funciona | Descarga /api/bookings/1283/diver-sheet.pdf (200, application/pdf) |
+| Lukas Becker | PDF | Enlace | Funciona | Descarga /api/bookings/1316/diver-sheet.pdf (200, application/pdf) |
 | Lukas Becker | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Lukas Becker»: Abre #/admin?tab=bookings |
 
-#### Chloé Martin · `#/reserva?id=1284`
+#### Chloé Martin · `#/reserva?id=1317`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Chloé Martin | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
 | Chloé Martin | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Lukas Becker»: Abre #/admin?tab=bookings |
-| Chloé Martin | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1284/receipt.pdf (200, application/pdf) |
-| Chloé Martin | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1284/diver-sheet.pdf (200, application/pdf) |
+| Chloé Martin | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1317/receipt.pdf (200, application/pdf) |
+| Chloé Martin | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1317/diver-sheet.pdf (200, application/pdf) |
 | Chloé Martin | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
 | Chloé Martin | Cambiar fecha u hora | Botón | Funciona | Aviso: «No hay otras salidas de este servicio. Programa una nueva salida antes de cambiar la reserva.» |
-| Chloé Martin | Aceptar | Botón | Funciona | Aviso: «Reserva confirmada.» · Muestra contenido nuevo (2 elementos): «← Volver» · POST /api/bookings/1284/status → 200 |
+| Chloé Martin | Aceptar | Botón | Funciona | Aviso: «Reserva confirmada.» · Muestra contenido nuevo (2 elementos): «← Volver» · POST /api/bookings/1317/status → 200 |
 | Chloé Martin | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
-| Chloé Martin | PDF | Enlace | Funciona | Descarga /api/bookings/1284/diver-sheet.pdf (200, application/pdf) |
+| Chloé Martin | PDF | Enlace | Funciona | Descarga /api/bookings/1317/diver-sheet.pdf (200, application/pdf) |
 | Chloé Martin | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Lukas Becker»: Abre #/admin?tab=bookings |
 
-#### Bea Navarro · `#/reserva?id=1285`
+#### Bea Navarro · `#/reserva?id=1318`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Bea Navarro | Volver a la pantalla anterior | Botón | Funciona | Vuelve a la página anterior |
 | Bea Navarro | Reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Lukas Becker»: Abre #/admin?tab=bookings |
-| Bea Navarro | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1285/receipt.pdf (200, application/pdf) |
-| Bea Navarro | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1285/diver-sheet.pdf (200, application/pdf) |
+| Bea Navarro | Justificante PDF + QR | Enlace | Funciona | Descarga /api/bookings/1318/receipt.pdf (200, application/pdf) |
+| Bea Navarro | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1318/diver-sheet.pdf (200, application/pdf) |
 | Bea Navarro | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
 | Bea Navarro | Cambiar fecha u hora | Botón | Funciona | Aviso: «No hay otras salidas de este servicio. Programa una nueva salida antes de cambiar la reserva.» |
-| Bea Navarro | Aceptar | Botón | Funciona | Aviso: «Reserva confirmada.» · Muestra contenido nuevo (2 elementos): «← Volver» · POST /api/bookings/1285/status → 200 |
+| Bea Navarro | Aceptar | Botón | Funciona | Aviso: «Reserva confirmada.» · Muestra contenido nuevo (2 elementos): «← Volver» · POST /api/bookings/1318/status → 200 |
 | Bea Navarro | Rechazar | Botón | Funciona | Abre la ventana «Rechazar la solicitud» |
-| Bea Navarro | PDF | Enlace | Funciona | Descarga /api/bookings/1285/diver-sheet.pdf (200, application/pdf) |
+| Bea Navarro | PDF | Enlace | Funciona | Descarga /api/bookings/1318/diver-sheet.pdf (200, application/pdf) |
 | Bea Navarro | ← Volver a reservas | Enlace | Funciona | Mismo enlace (#/admin?tab=bookings) que «Reservas» en «Lukas Becker»: Abre #/admin?tab=bookings |
 
 ### Administración (cuenta creada para la prueba)
 
-62 pantallas, 892 elementos probados en 12 min 4 s.
+62 pantallas, 897 elementos probados en 12 min 53 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -5764,9 +5706,9 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Encuentra tu próxima inmersión | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | Encuentra tu próxima inmersión | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (18 elementos): «Leaflet» |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (19 elementos): «2» · hay 15 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (7 elementos): «Rainbow Reef» |
-| Encuentra tu próxima inmersión | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (139 elementos): «×» · hay 1 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | Tofo – Manta Reef | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» |
+| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (6 elementos): «Rainbow Reef» |
+| Encuentra tu próxima inmersión | Mauritius – Cathedral | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» · hay 1 más iguales en la lista (no se prueban todos) |
+| Encuentra tu próxima inmersión | Tofo – Manta Reef | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (148 elementos): «×» |
 | Encuentra tu próxima inmersión | Zoom in | Enlace | Funciona | Muestra contenido nuevo (64 elementos): «2» |
 | Encuentra tu próxima inmersión | Zoom out | Enlace | Funciona | Cambia su estado (class: leaflet-control-zoom-out → leaflet-control-zoom-out leaflet-disabled) · Cambia la pantalla (4 elementos nuevos, 0 quitados) |
 | Encuentra tu próxima inmersión | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
@@ -6253,7 +6195,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Reservar | Enlace | Funciona | Mismo enlace (#/reservar?center=31) que «Reservar» en «Centros de buceo»: Abre #/reservar?center=31 |
 | Bahía Coralina Centro de Buceo | Llamar | Enlace externo | Funciona | Teléfono +34600000101 |
 | Bahía Coralina Centro de Buceo | Escribir | Enlace externo | Funciona | Correo hola@bahiacoralina.example.com |
-| Bahía Coralina Centro de Buceo | Lun, 19 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 200 · hay 11 más iguales en la lista (no se prueban todos) |
+| Bahía Coralina Centro de Buceo | Mar, 20 oct 10:00 6 plazas | Enlace | Funciona | Abre #/reservar?center=31&service=7&slot=22 · POST /api/stats/track → 200 · hay 11 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Enviar solicitud | Enlace | Funciona | Abre #/reservar?center=31&service=7 · POST /api/stats/track → 200 · hay 3 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Añadir a una reserva | Enlace | Funciona | Abre #/reservar?center=31&service=8 · POST /api/stats/track → 200 |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · hay 6 más iguales en la lista (no se prueban todos) |
@@ -6281,7 +6223,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Curso Open Water (3 días) | Botón | Funciona | Muestra contenido nuevo (14 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Curso de Nitrox | Botón | Funciona | Muestra contenido nuevo (13 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Doble inmersión en barco | Botón | Funciona | Muestra contenido nuevo (26 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
-| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (17 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
+| Bahía Coralina Centro de Buceo | Inmersión al atardecer | Botón | Funciona | Muestra contenido nuevo (18 elementos): «Bautizo de buceo 2 h 30 min Pago al reservar · confirmación inmediata · no disponible No admite reservas ahora mismo 55 » |
 | Bahía Coralina Centro de Buceo | Inmersión simple en barco | Botón | Desactivado (correcto) | Desactivado; la pantalla explica: «No admite reservas ahora mismo» |
 | Bahía Coralina Centro de Buceo | Una persona menos | Botón | Desactivado (correcto) | Desactivado: es el límite del calendario o de la lista («Una persona menos») |
 | Bahía Coralina Centro de Buceo | Una persona más | Botón | Desactivado (correcto) | No responde al ratón (pointer-events: none) y se ve atenuado; la pantalla explica: «Elige primero la actividad.» |
@@ -6502,7 +6444,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Centro de control de WORLDIVES · Inicio | Ver Mapas | Enlace | Funciona | Abre #/admin?tab=maps |
 | Centro de control de WORLDIVES · Inicio | Inicio | Botón | Funciona | Muestra contenido nuevo (1 elementos): «CATÁLOGO Gestionar puntos de buceo 293 puntos activos. Crear, editar, archivar y corregir ubicaciones. VIDA MARINA Y VÍD» |
 | Centro de control de WORLDIVES · Inicio | Puntos | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (2 elementos): «Nuevo punto» |
-| Centro de control de WORLDIVES · Inicio | Reservas | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (2 elementos): «FECHA CLIENTE CENTRO SERVICIO / PUNTO ESTADO Lun, 9 nov 08:30 Bea Navarro bea.navarro@example.com Bahía Coralina Centro » |
+| Centro de control de WORLDIVES · Inicio | Reservas | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (2 elementos): «FECHA CLIENTE CENTRO SERVICIO / PUNTO ESTADO Mar, 10 nov 08:30 Bea Navarro bea.navarro@example.com Bahía Coralina Centro» |
 | Centro de control de WORLDIVES · Inicio | Pagos | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (2 elementos): «Seguridad de cobros Pagos online Cada cobro va directamente a la cuenta de Stripe del centro o profesional (cargo direct» |
 | Centro de control de WORLDIVES · Inicio | Correos | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (3 elementos): «Correos automáticos Correos de la plataforma Cada reserva, pago, cancelación o aviso genera su correo en el idioma del d» |
 | Centro de control de WORLDIVES · Inicio | Legal | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (6 elementos): «Legal Datos del titular y documentos legales Estos datos se insertan en el aviso legal, la privacidad, las condiciones y» |
@@ -6510,11 +6452,11 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Centro de control de WORLDIVES · Inicio | Mapas | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (2 elementos): «Mapas Mapa base, satélite y batimetría El mapa base se sirve desde nuestro servidor. La vista satélite pasa por nuestro » |
 | Centro de control de WORLDIVES · Inicio | Planes | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (2 elementos): «Planes Planes, cuotas y excepciones El precio es la cuota anual (pendiente de confirmar con la gestoría si se muestra co» |
 | Centro de control de WORLDIVES · Inicio | Funciones | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (2 elementos): «Funciones Activar u ocultar funciones de la web Al desactivar una función desaparece de la web y el servidor rechaza su » |
-| Centro de control de WORLDIVES · Inicio | Operación | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (2 elementos): «Operación Estado del servidor, copias y avisos Versión 50.51 · en marcha desde hace 0 h · 1 proceso(s) · base de 5.12 MB» |
+| Centro de control de WORLDIVES · Inicio | Operación | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (2 elementos): «Operación Estado del servidor, copias y avisos Versión 50.51 · en marcha desde hace 0 h · 1 proceso(s) · base de 5.19 MB» |
 | Centro de control de WORLDIVES · Inicio | Vida marina y vídeos | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (3 elementos): «Vida marina y vídeos de los puntos Catálogo de especies (nombre en cada idioma, foto con su autor y licencia) y vídeos d» |
 | Centro de control de WORLDIVES · Inicio | Experiencias | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (2 elementos): «Experiencias de viaje Los centros y profesionales pueden proponer viajes. Desde aquí el administrador puede publicar o r» |
 | Centro de control de WORLDIVES · Inicio | Destinos | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (3 elementos): «Destinos de Experiencias Estos destinos alimentan la sección Experiencias. Puedes crear nuevos destinos desde aquí.» |
-| Centro de control de WORLDIVES · Inicio | Imágenes de la web | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (6 elementos): «Apariencia Temas de temporada Cambia las fotos y el color de la web según la época del año o la zona del visitante. Fuer» |
+| Centro de control de WORLDIVES · Inicio | Imágenes de la web | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (6 elementos): «Escaparate Imágenes de la web Portadas de cada sección y foto de cada tipo de buceo. Los cambios se ven al momento. Foto» |
 | Centro de control de WORLDIVES · Inicio | Patrocinio | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (3 elementos): «Portada Patrocinio y colaboradores Lo que pongas aquí aparece en la parte baja de la portada: la banda de logos que se d» |
 | Centro de control de WORLDIVES · Inicio | Usuarios | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (1 elementos): «NOMBRE EMAIL ROL CENTRO ALTA Admin Inventario admin@inventario.example.org Recreativo Centro Freelance Administrador — B» |
 | Centro de control de WORLDIVES · Inicio | Centros | Botón | Funciona | Cambia su estado (class: tab → tab active) · Muestra contenido nuevo (2 elementos): «Nuevo centro» |
@@ -6573,6 +6515,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Tu ficha de buceador | Tipo | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Tu ficha de buceador | Seguridad | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Contraseña actual» (campo obligatorio) · El navegador no deja enviarlo: «Nueva contraseña» (campo obligatorio) |
 | Tu ficha de buceador | Activar | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Tu contraseña» (campo obligatorio) |
+| Tu ficha de buceador | Cerrar las demás sesiones | Botón | Funciona | Abre la ventana «Cerrar las demás sesiones» |
 | Tu ficha de buceador | Descargar mis datos (ZIP) | Enlace | Funciona | Descarga /api/account/export?format=zip (200, application/zip) |
 | Tu ficha de buceador | Privacidad | Enlace | Funciona | Abre #/legal/privacidad |
 | Tu ficha de buceador | Condiciones de uso | Enlace | Funciona | Abre #/legal/condiciones-buceadores |
@@ -6735,6 +6678,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Centro de control de WORLDIVES · Usuarios | CENTRO · Clara Vidal | Desplegable | Funciona | Campo: el cambio se aplica al pulsar «Guardar» (sin efecto inmediato, correcto) |
 | Centro de control de WORLDIVES · Usuarios | ROL · Rosa Domènech | Desplegable | Funciona | Campo: el cambio se aplica al pulsar «Guardar» (sin efecto inmediato, correcto) |
 | Centro de control de WORLDIVES · Usuarios | CENTRO · Rosa Domènech | Desplegable | Funciona | Campo: el cambio se aplica al pulsar «Guardar» (sin efecto inmediato, correcto) |
+| Centro de control de WORLDIVES · Usuarios | Cerrar sesiones | Botón | Funciona | [probado al final del papel] Abre la ventana «Cerrar las sesiones de Admin Inventario» · hay 29 más iguales en la lista (no se prueban todos) |
+| Centro de control de WORLDIVES · Usuarios | Cerrar sesiones | Botón | Funciona | [probado al final del papel] Abre la ventana «Cerrar las sesiones de Nerea Galván» |
 
 #### Centro de control de WORLDIVES · Centros · `#/admin?tab=centers`
 
@@ -6750,10 +6695,12 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Centro de control de WORLDIVES · Reservas | Ver Mapas | Enlace | Funciona | Mismo enlace (#/admin?tab=maps) que «Ver Mapas» en «Centro de control de WORLDIVES · Inicio»: Abre #/admin?tab=maps |
-| Centro de control de WORLDIVES · Reservas | Ver ficha | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Mi área / Reserva WOD-001236 WORLDIVES DISCOVERY · RESERVA DEL CENTRO Bahía Coralina Centro de Buceo 9/11/2026 · 08:30 C» · hay 498 más iguales en la lista (no se prueban todos) |
-| Centro de control de WORLDIVES · Reservas | Ver ficha | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Mi área / Reserva WOD-001285 WORLDIVES DISCOVERY · RESERVA DEL CENTRO Diego Arenas 2/11/2026 · 08:00 Solicitada TU INMER» |
-| Centro de control de WORLDIVES · Reservas | Cancelar | Botón | Funciona | Aviso: «Estado actualizado.» · Muestra contenido nuevo (3 elementos): «CUENTA ADMINISTRADOR Centro de control de WORLDIVES Control administrativo de WORLDIVES DISCOVERY. Añade la clave de Arc» · POST /api/bookings/1262/status → 200 · hay 43 más iguales en la lista (no se prueban todos) |
-| Centro de control de WORLDIVES · Reservas | Cancelar | Botón | Funciona | Aviso: «Estado actualizado.» · Muestra contenido nuevo (3 elementos): «CUENTA ADMINISTRADOR Centro de control de WORLDIVES Control administrativo de WORLDIVES DISCOVERY. Añade la clave de Arc» · POST /api/bookings/1255/status → 200 |
+| Centro de control de WORLDIVES · Reservas | Ver ficha | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Mi área / Reserva WOD-001267 WORLDIVES DISCOVERY · RESERVA DEL CENTRO Bahía Coralina Centro de Buceo 10/11/2026 · 08:30 » · hay 498 más iguales en la lista (no se prueban todos) |
+| Centro de control de WORLDIVES · Reservas | Ver ficha | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Mi área / Reserva WOD-001265 WORLDIVES DISCOVERY · RESERVA DEL CENTRO Bahía Coralina Centro de Buceo 3/11/2026 · 08:00 R» |
+| Centro de control de WORLDIVES · Reservas | Cancelar | Botón | Funciona | Aviso: «Estado actualizado.» · Muestra contenido nuevo (3 elementos): «CUENTA ADMINISTRADOR Centro de control de WORLDIVES Control administrativo de WORLDIVES DISCOVERY. Añade la clave de Arc» · POST /api/bookings/1292/status → 200 · hay 45 más iguales en la lista (no se prueban todos) |
+| Centro de control de WORLDIVES · Reservas | Cancelar | Botón | Funciona | Aviso: «Estado actualizado.» · Muestra contenido nuevo (3 elementos): «CUENTA ADMINISTRADOR Centro de control de WORLDIVES Control administrativo de WORLDIVES DISCOVERY. Añade la clave de Arc» · POST /api/bookings/1285/status → 200 |
+| Centro de control de WORLDIVES · Reservas | Completar | Botón | Funciona | Aviso: «Estado actualizado.» · Muestra contenido nuevo (3 elementos): «CUENTA ADMINISTRADOR Centro de control de WORLDIVES Control administrativo de WORLDIVES DISCOVERY. Añade la clave de Arc» · POST /api/bookings/1295/status → 200 · hay 1 más iguales en la lista (no se prueban todos) |
+| Centro de control de WORLDIVES · Reservas | Completar | Botón | Funciona | Aviso: «Estado actualizado.» · Muestra contenido nuevo (3 elementos): «CUENTA ADMINISTRADOR Centro de control de WORLDIVES Control administrativo de WORLDIVES DISCOVERY. Añade la clave de Arc» · POST /api/bookings/1294/status → 200 |
 
 #### Centro de control de WORLDIVES · Actividad · `#/admin?tab=audit`
 
@@ -6783,11 +6730,11 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Centro de control de WORLDIVES · Correos | Enviar prueba | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «tu@email.com» (campo obligatorio) |
 | Centro de control de WORLDIVES · Correos | 0 En cola | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Correos automáticos Correos de la plataforma Cada reserva, pago, cancelación o aviso genera su correo en el idioma del d» |
 | Centro de control de WORLDIVES · Correos | 0 Enviando | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Correos automáticos Correos de la plataforma Cada reserva, pago, cancelación o aviso genera su correo en el idioma del d» |
-| Centro de control de WORLDIVES · Correos | 1 Enviado | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Correos automáticos Correos de la plataforma Cada reserva, pago, cancelación o aviso genera su correo en el idioma del d» |
+| Centro de control de WORLDIVES · Correos | 0 Enviado | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Correos automáticos Correos de la plataforma Cada reserva, pago, cancelación o aviso genera su correo en el idioma del d» |
 | Centro de control de WORLDIVES · Correos | 0 Fallido | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Correos automáticos Correos de la plataforma Cada reserva, pago, cancelación o aviso genera su correo en el idioma del d» |
 | Centro de control de WORLDIVES · Correos | 0 Sin email real | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Correos automáticos Correos de la plataforma Cada reserva, pago, cancelación o aviso genera su correo en el idioma del d» |
 | Centro de control de WORLDIVES · Correos | 0 Caducado | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Correos automáticos Correos de la plataforma Cada reserva, pago, cancelación o aviso genera su correo en el idioma del d» |
-| Centro de control de WORLDIVES · Correos | 1 Todos | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Correos automáticos Correos de la plataforma Cada reserva, pago, cancelación o aviso genera su correo en el idioma del d» |
+| Centro de control de WORLDIVES · Correos | 0 Todos | Botón | Funciona | Muestra contenido nuevo (2 elementos): «Correos automáticos Correos de la plataforma Cada reserva, pago, cancelación o aviso genera su correo en el idioma del d» |
 | Centro de control de WORLDIVES · Correos | Plantilla | Desplegable | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Centro de control de WORLDIVES · Correos | Idioma | Desplegable | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Centro de control de WORLDIVES · Correos | Comunicación comercial | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Asunto» (campo obligatorio) · El navegador no deja enviarlo: «Texto» (campo obligatorio) |
@@ -6801,22 +6748,22 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Centro de control de WORLDIVES · Legal | Datos del titular y documentos legales | Formulario | Funciona | Enviado vacío · Aviso: «Datos legales guardados.» · Muestra contenido nuevo (5 elementos): «Legal Datos del titular y documentos legales Estos datos se insertan en el aviso legal, la privacidad, las condiciones y» · POST /api/admin/legal → 200 |
 | Centro de control de WORLDIVES · Legal | Conservación de datos | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Cuentas de buceador sin actividad (meses)» (campo obligatorio) · El navegador no deja enviarlo: «Documentos caducados (meses)» (campo obligatorio) |
 | Centro de control de WORLDIVES · Legal | Guardar y aplicar ahora | Botón | Funciona | Pide confirmación «Se borrarán ahora los datos que hayan superado los plazos. ¿Continuar?» (cancelado) |
-| Centro de control de WORLDIVES · Legal | Aviso legal | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=183#/legal/aviso-legal |
+| Centro de control de WORLDIVES · Legal | Aviso legal | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=186#/legal/aviso-legal |
 | Centro de control de WORLDIVES · Legal | Editar | Botón | Funciona | Abre la ventana «Editar «Aviso legal»» · hay 12 más iguales en la lista (no se prueban todos) |
 | Centro de control de WORLDIVES · Legal | Condiciones de uso para buceadores | Enlace | Funciona | Mismo enlace (#/legal/condiciones-buceadores) que «Condiciones de uso» en «Tu ficha de buceador»: Abre #/legal/condiciones-buceadores |
 | Centro de control de WORLDIVES · Legal | Editar | Botón | Funciona | Abre la ventana «Editar «Condiciones de uso para buceadores»» |
-| Centro de control de WORLDIVES · Legal | Condiciones de reserva, pago y cancelación | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=186#/legal/reservas |
+| Centro de control de WORLDIVES · Legal | Condiciones de reserva, pago y cancelación | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=189#/legal/reservas |
 | Centro de control de WORLDIVES · Legal | Política de privacidad | Enlace | Funciona | Mismo enlace (#/legal/privacidad) que «Privacidad» en «Tu ficha de buceador»: Abre #/legal/privacidad |
 | Centro de control de WORLDIVES · Legal | Política de cookies y servicios de terceros | Enlace | Funciona | Mismo enlace (#/legal/cookies) que «Cookies» en «Tu ficha de buceador»: Abre #/legal/cookies |
-| Centro de control de WORLDIVES · Legal | Condiciones para centros y profesionales | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=187#/legal/condiciones-centros |
-| Centro de control de WORLDIVES · Legal | Normas de las reseñas | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=188#/legal/normas-resenas |
-| Centro de control de WORLDIVES · Legal | Cómo ordenamos los resultados | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=189#/legal/clasificacion |
-| Centro de control de WORLDIVES · Legal | Denunciar contenido | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=190#/legal/denuncias |
-| Centro de control de WORLDIVES · Legal | Seguridad en el buceo | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=191#/legal/seguridad |
-| Centro de control de WORLDIVES · Legal | Puntos WORLDIVES | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=192#/legal/puntos |
-| Centro de control de WORLDIVES · Legal | Declaración de accesibilidad | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=193#/legal/accesibilidad |
-| Centro de control de WORLDIVES · Legal | Contacto | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=194#/legal/contacto |
-| Centro de control de WORLDIVES · Legal | Créditos y licencias de terceros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=195#/legal/creditos |
+| Centro de control de WORLDIVES · Legal | Condiciones para centros y profesionales | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=190#/legal/condiciones-centros |
+| Centro de control de WORLDIVES · Legal | Normas de las reseñas | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=191#/legal/normas-resenas |
+| Centro de control de WORLDIVES · Legal | Cómo ordenamos los resultados | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=192#/legal/clasificacion |
+| Centro de control de WORLDIVES · Legal | Denunciar contenido | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=193#/legal/denuncias |
+| Centro de control de WORLDIVES · Legal | Seguridad en el buceo | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=194#/legal/seguridad |
+| Centro de control de WORLDIVES · Legal | Puntos WORLDIVES | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=195#/legal/puntos |
+| Centro de control de WORLDIVES · Legal | Declaración de accesibilidad | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=196#/legal/accesibilidad |
+| Centro de control de WORLDIVES · Legal | Contacto | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=197#/legal/contacto |
+| Centro de control de WORLDIVES · Legal | Créditos y licencias de terceros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=198#/legal/creditos |
 | Centro de control de WORLDIVES · Legal | Abrir | Enlace | Funciona | Abre en otra pestaña /#/centro?id=31 (200, text/html) |
 | Centro de control de WORLDIVES · Legal | Resolver | Botón | Funciona | Abre la ventana «Resolver denuncia» |
 
@@ -6851,14 +6798,14 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 |---|---|---|---|---|
 | Centro de control de WORLDIVES · Funciones | Ver Mapas | Enlace | Funciona | Mismo enlace (#/admin?tab=maps) que «Ver Mapas» en «Centro de control de WORLDIVES · Inicio»: Abre #/admin?tab=maps |
 | Centro de control de WORLDIVES · Funciones | Activar u ocultar funciones de la web | Formulario | Funciona | Enviado vacío · Aviso: «Funciones guardadas.» · POST /api/admin/features → 200 |
-| Centro de control de WORLDIVES · Funciones | Activar u ocultar funciones de la web | Formulario | Funciona | Enviado vacío · Aviso: «Invitación WOD-840A303E creada.» · Muestra contenido nuevo (1 elementos): «Funciones Activar u ocultar funciones de la web Al desactivar una función desaparece de la web y el servidor rechaza su » · POST /api/admin/invites → 200 |
+| Centro de control de WORLDIVES · Funciones | Activar u ocultar funciones de la web | Formulario | Funciona | Enviado vacío · Aviso: «Invitación WOD-C1E6A600F42CE37F75E6F3244E7E37AE creada.» · Muestra contenido nuevo (1 elementos): «Funciones Activar u ocultar funciones de la web Al desactivar una función desaparece de la web y el servidor rechaza su » · POST /api/admin/invites → 200 |
 
 #### Centro de control de WORLDIVES · Operación · `#/admin?tab=ops`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Centro de control de WORLDIVES · Operación | Ver Mapas | Enlace | Funciona | Mismo enlace (#/admin?tab=maps) que «Ver Mapas» en «Centro de control de WORLDIVES · Inicio»: Abre #/admin?tab=maps |
-| Centro de control de WORLDIVES · Operación | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Operación Estado del servidor, copias y avisos Versión 50.51 · en marcha desde hace 0 h · 1 proceso(s) · base de 5.12 MB» |
+| Centro de control de WORLDIVES · Operación | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Operación Estado del servidor, copias y avisos Versión 50.51 · en marcha desde hace 0 h · 1 proceso(s) · base de 5.19 MB» |
 | Centro de control de WORLDIVES · Operación | Estado del servidor, copias y avisos | Formulario | Funciona | Enviado vacío · Aviso: «Escribe el texto del aviso.» |
 | Centro de control de WORLDIVES · Operación | Tipo | Desplegable | Funciona | Campo: el cambio se aplica al pulsar «Publicar aviso» (sin efecto inmediato, correcto) |
 
@@ -6903,7 +6850,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Centro de control de WORLDIVES · QR | Ver Mapas | Enlace | Funciona | Mismo enlace (#/admin?tab=maps) que «Ver Mapas» en «Centro de control de WORLDIVES · Inicio»: Abre #/admin?tab=maps |
-| Centro de control de WORLDIVES · QR | Crear QR | Formulario | Funciona | Enviado vacío · Aviso: «QR creado.» · Muestra contenido nuevo (1 elementos): «http://127.0.0.1:45553/#/checkin/UWLVDZSN2UVT Copiar enlace» · POST /api/qr/create → 200 |
+| Centro de control de WORLDIVES · QR | Crear QR | Formulario | Funciona | Enviado vacío · Aviso: «QR creado.» · Muestra contenido nuevo (1 elementos): «http://127.0.0.1:60125/#/checkin/V78YEFER0Q Copiar enlace» · POST /api/qr/create → 200 |
 | Centro de control de WORLDIVES · QR | Centro | Desplegable | Funciona | Campo: el cambio se aplica al pulsar «Crear QR» (sin efecto inmediato, correcto) |
 
 #### Centro de control de WORLDIVES · Recompensas · `#/admin?tab=rewards`

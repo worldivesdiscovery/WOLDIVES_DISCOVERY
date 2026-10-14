@@ -70,7 +70,7 @@ def run(shots: Path | None):
             shot(page, 'mis-puntos')
             go(page, '#/recompensas', 1200)
             check('recompensas: ventaja del centro en puntos', 'Botella de nitrox gratis' in page.inner_text('body') and '50 puntos' in page.inner_text('body'))
-            page.once('dialog', lambda d: d.accept())
+            # the confirm is accepted by the session's dialog handler
             page.locator(f'.redeem-reward[data-id="{oid}"]').click(); page.wait_for_timeout(1200)
             code = srv.sql('SELECT code FROM reward_redemptions WHERE user_id=?', (diver.user['id'],))[0]['code']
             go(page, '#/mis-puntos', 1000)

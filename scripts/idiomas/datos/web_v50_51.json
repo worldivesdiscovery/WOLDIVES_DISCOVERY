@@ -839,6 +839,16 @@
    "nl": "Interne serverfout.",
    "pl": "Wewnętrzny błąd serwera.",
    "zh": "服务器内部错误。"
+  },
+  "Tu perfil puede comprobar un código, pero no validarlo, conceder puntos ni cambiar las ventajas. Pídeselo al propietario del centro.": {
+   "en": "Your profile can check a code, but not validate it, grant points or change the rewards. Ask the centre owner.",
+   "fr": "Votre profil peut vérifier un code, mais pas le valider, accorder des points ni modifier les avantages. Demandez-le au propriétaire du centre.",
+   "de": "Dein Profil kann einen Code prüfen, ihn aber nicht einlösen, keine Punkte vergeben und die Vorteile nicht ändern. Frag den Inhaber des Zentrums.",
+   "it": "Il tuo profilo può controllare un codice, ma non convalidarlo, assegnare punti né modificare i vantaggi. Chiedilo al titolare del centro.",
+   "pt": "O teu perfil pode verificar um código, mas não validá-lo, atribuir pontos nem alterar as vantagens. Pede-o ao proprietário do centro.",
+   "nl": "Je profiel kan een code controleren, maar niet valideren, geen punten toekennen en de voordelen niet wijzigen. Vraag het aan de eigenaar van het centrum.",
+   "pl": "Twój profil może sprawdzić kod, ale nie może go zatwierdzić, przyznać punktów ani zmienić korzyści. Poproś właściciela centrum.",
+   "zh": "你的角色可以查看代码，但不能核销、发放积分或修改优惠。请联系潜水中心的所有者。"
   }
  },
  "patterns": {

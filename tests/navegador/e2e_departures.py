@@ -25,7 +25,7 @@ def chromium(p):
 
 
 def run(shots: Path | None):
-    ServerTestCase.server = Server().start()
+    ServerTestCase.server = Server({'WOD_AVISOS_DESHACER_SEGUNDOS': '3', 'WOD_AVISOS_SEGUNDOS': '1', 'WOD_MAINTENANCE_SECONDS': '2'}).start()
     srv = ServerTestCase.server
     t = ServerTestCase('run')
     checks = []
@@ -73,13 +73,21 @@ def run(shots: Path | None):
             # ---- 2. The centre cancels departure A (computer)
             ctx, page, errors = session('center_salidas')
             go(page, f'#/manifiesto?slot={A}')
-            page.click('#mf-cancel'); page.wait_for_timeout(800)
-            txt = page.inner_text('#slot-cancel')
-            check('cancelar: resumen «Se avisará a 2 reservas (3 buceadores)»', 'Se avisará a 2 reservas (3 buceadores)' in txt, txt[:160])
-            check('cancelar: qué recibe cada uno', txt.count('Cambio de fecha o anulación sin coste') == 2)
+            # Since v50.47 a departure is cancelled with «Cancelar salida y avisar a todos» (the mass notice)
+            page.click('#mf-cancel'); page.wait_for_selector('#nt-confirm', timeout=15000)
+            page.check('input[name="nt-reason"][value="sea"]'); page.fill('#nt-note', 'Mar de fondo de 2 metros')
+            page.check('input[name="nt-policy"][value="choice"]'); page.wait_for_timeout(1200)
+            txt = page.inner_text('#nt-preview')
+            check('cancelar: se avisa a los 2 buceadores de las 2 reservas', page.locator('#nt-preview .nt-counts b').first.inner_text() == '2', txt[:160])
+            check('cancelar: qué recibe cada uno', txt.count('Otra fecha o anulación sin coste') == 2, txt[:300])
             shot(page, 'cancelar-salida-ordenador', False)
-            page.check('input[name="sc-reason"][value="sea"]'); page.fill('#sc-note', 'Mar de fondo de 2 metros')
-            page.click('#sc-ok'); page.wait_for_timeout(1400)
+            page.fill('#nt-confirm', page.locator('#nt-preview .nt-confirm b').inner_text()); page.click('#nt-ok')
+            page.wait_for_selector('#ns-undo', timeout=10000)
+            for _ in range(60):   # nothing leaves until the undo time is over
+                if srv.sql('SELECT cancelled_at FROM service_slots WHERE id=?', (A,))[0]['cancelled_at'] and len(srv.sql("SELECT 1 FROM email_outbox WHERE template='slot_cancelled'")) == 2:
+                    break
+                page.wait_for_timeout(500)
+            go(page, f'#/manifiesto?slot={A}')
             check('salida cancelada y aviso en el manifiesto', 'Salida cancelada' in page.inner_text('.mf-page') and srv.sql('SELECT cancelled_at FROM service_slots WHERE id=?', (A,))[0]['cancelled_at'])
             check('historial de la salida', 'Salida cancelada' in (page.locator('.mf-hist').text_content() or ''))
             check('correos a los dos buceadores', len(srv.sql("SELECT 1 FROM email_outbox WHERE template='slot_cancelled'")) == 2)
@@ -95,7 +103,7 @@ def run(shots: Path | None):
 
             # ---- 2. Diver 1 chooses another date from the email link, on a phone, without signing in
             mail = srv.sql("SELECT text FROM email_outbox WHERE template='slot_cancelled' AND to_email='viento1@diver.example.org'")[0]['text']
-            link = re.search(r'#/salida-cancelada\?b=\d+&t=[A-Za-z0-9_\-]+', mail).group(0)
+            link = '#/r/' + re.search(r'/r/([0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+)', mail).group(1)   # the notice's signed link (v50.47)
             ctx, page, errors = session(width=390)
             go(page, link)
             check('elección: otras fechas con plazas', page.locator('input[name="sc-alt"]').count() >= 2)
