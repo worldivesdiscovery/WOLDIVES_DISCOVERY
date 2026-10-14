@@ -79,7 +79,9 @@ APP_VERSION = '50.51'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
-SESSION_TTL_SECONDS = int(os.environ.get('WOD_SESSION_TTL_SECONDS', '28800'))
+SESSION_TTL_SECONDS = int(os.environ.get('WOD_SESSION_TTL_SECONDS', '28800'))          # absolute: 8 h after signing in
+# v50.51 (ASVS V7.3.1): a session not used for this long ends before the absolute limit (4 h by default).
+SESSION_IDLE_SECONDS = min(SESSION_TTL_SECONDS, int(os.environ.get('WOD_SESSION_IDLE_SECONDS', '14400')))
 LOGIN_WINDOW_SECONDS = int(os.environ.get('WOD_LOGIN_WINDOW_SECONDS', '900'))
 LOGIN_MAX_ATTEMPTS = int(os.environ.get('WOD_LOGIN_MAX_ATTEMPTS', '8'))
 # Sessions are stored in the database (table sessions) so they survive restarts and work with several server processes.
@@ -1635,6 +1637,9 @@ def migrate_v50_51(db):
     db.execute('CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users(lower(email))')
     db.execute('CREATE INDEX IF NOT EXISTS idx_users_username_lower ON users(lower(username))')
     db.execute("CREATE INDEX IF NOT EXISTS idx_service_slots_open_date ON service_slots(slot_date, slot_time) WHERE status='open' AND spots_available>0")
+    # ASVS 5.0 (V7.5.2): each session remembers its browser and a fingerprint of the address, so the person can see where
+    # it is open and close the others.
+    add_columns(db, 'sessions', [('user_agent', 'TEXT'), ('ip_hash', 'TEXT')])
     # Security review (A02-1): the authenticator secrets of the two-step verification are stored encrypted.
     ucols = {r['name'] for r in db.execute('PRAGMA table_info(users)')}
     if wcif.configured():
@@ -2485,14 +2490,32 @@ SECURITY_ALERT_LABELS = {
 }
 
 
-def current_user(handler, db):
-    cookie = handler.headers.get('Cookie','')
-    token = None
-    for item in cookie.split(';'):
+def secure_cookies():
+    return wcfg.env_flag('WOD_SECURE_COOKIES') or wcfg.env('WOD_PUBLIC_URL').lower().startswith('https://')
+
+
+def session_cookie_name():
+    """On https the session cookie is «__Host-wd_session»: the browser accepts it only from this exact host, Secure and
+    with Path=/, so no subdomain can plant one (ASVS V3.3.1). On plain http (development) it stays «wd_session»."""
+    return '__Host-' + COOKIE if secure_cookies() else COOKIE
+
+
+def request_session_token(handler):
+    """The session token of a request: always the FIRST cookie with our name (every request, login and logout agree)."""
+    name = session_cookie_name()
+    for item in (handler.headers.get('Cookie', '') or '').split(';'):
         k, _, v = item.strip().partition('=')
-        if k == COOKIE:
-            token = v
-            break
+        if k == name and v: return v
+    return None
+
+
+# What an administrator without two-step verification can still do (when it is mandatory): see «Mi cuenta», turn it on
+# and sign out. Everything else answers «Activa la verificación en dos pasos» (ASVS V6.3.3).
+ADMIN_WITHOUT_2FA_PATHS = ('/api/me', '/api/auth/logout', '/api/account/totp/setup', '/api/account/totp/enable')
+
+
+def current_user(handler, db):
+    token = request_session_token(handler)
     if not token:
         return None
     token_hash = hashlib.sha256(token.encode()).hexdigest()
@@ -2500,7 +2523,7 @@ def current_user(handler, db):
     if not session:
         return None
     current = time.time()
-    if current - session['last_seen'] > SESSION_TTL_SECONDS or current - session['created_at'] > SESSION_TTL_SECONDS:
+    if current - session['last_seen'] > SESSION_IDLE_SECONDS or current - session['created_at'] > SESSION_TTL_SECONDS:
         db.execute('DELETE FROM sessions WHERE token_hash=?', (token_hash,)); db.commit()
         return None
     # Sliding expiry, written at most once a minute per session to keep writes cheap.
@@ -2518,6 +2541,9 @@ def current_user(handler, db):
             user['home_center_id'] = user['center_id']; user['center_id'] = active; user['center_name'] = c['name'] if c else ''
         else:
             db.execute('UPDATE sessions SET active_center_id=NULL WHERE token_hash=?', (token_hash,)); db.commit()
+    if user['role'] == 'admin' and admin_totp_required() and not user.get('totp_enabled') \
+            and urlparse(getattr(handler, 'path', '') or '').path not in ADMIN_WITHOUT_2FA_PATHS:
+        user['role'] = 'admin_sin_2fa'
     return user
 
 
@@ -2544,6 +2570,8 @@ def require_user(handler, db):
 
 
 def require_role(user, roles):
+    if user['role'] == 'admin_sin_2fa':
+        raise PermissionError('Activa la verificación en dos pasos en «Mi cuenta» para usar la administración.')
     if user['role'] not in roles:
         raise PermissionError('No tienes permisos para realizar esta acción.')
     if user['role'] == 'admin' and admin_totp_required() and not user.get('totp_enabled'):
@@ -2778,14 +2806,41 @@ def check_totp_or_recovery(db, user, code):
     if not code or not user['totp_secret']: return False
     step = wtotp.verify(wcif.decrypt_secret(user['totp_secret']) or user['totp_secret'], code, user['totp_last_step'] if 'totp_last_step' in user.keys() else None)
     if step is not None:
-        db.execute('UPDATE users SET totp_last_step=? WHERE id=?', (step, user['id'])); return True
+        # ASVS V6.5.1: one code, one use, even with simultaneous requests (only the first UPDATE changes the row)
+        return db.execute('UPDATE users SET totp_last_step=? WHERE id=? AND (totp_last_step IS NULL OR totp_last_step<?)',
+                          (step, user['id'], step)).rowcount == 1
     try: rec = json.loads(user['totp_recovery'] or '[]')
     except ValueError: rec = []
     h = wtotp.hash_recovery(code)
     if h in rec:
-        rec.remove(h); db.execute('UPDATE users SET totp_recovery=? WHERE id=?', (json.dumps(rec), user['id']))
+        rec.remove(h)
+        if db.execute('UPDATE users SET totp_recovery=? WHERE id=? AND totp_recovery=?', (json.dumps(rec), user['id'], user['totp_recovery'])).rowcount != 1:
+            return False   # another request used a code a moment before
         audit(db, user['id'], 'totp_recovery_code_used', details={'left': len(rec)}); return True
     return False
+
+
+def require_second_factor(db, user_id, data):
+    """ASVS V7.5.1: with two-step verification on, changing the email or the password also asks for a code."""
+    u = db.execute('SELECT * FROM users WHERE id=?', (user_id,)).fetchone()
+    if not (u and u['totp_enabled']): return
+    if TOTP_LIMIT.blocked(f"totp:{user_id}"): raise PermissionError('Demasiados intentos con el código. Espera unos minutos.')
+    if not check_totp_or_recovery(db, u, data.get('totp_code') or data.get('code')):
+        TOTP_LIMIT.hit(f"totp:{user_id}")
+        raise ValueError('Escribe el código de tu aplicación de verificación (o uno de recuperación).')
+
+
+def session_list(db, user_id, current_hash):
+    """The sessions open with this account: where (browser) and when, the current one first (ASVS V7.5.2)."""
+    out = []
+    for r in db.execute('SELECT * FROM sessions WHERE user_id=? ORDER BY last_seen DESC', (user_id,)).fetchall():
+        ua = (r['user_agent'] if 'user_agent' in r.keys() else '') or ''
+        browser = next((n for k, n in (('Edg/', 'Edge'), ('OPR/', 'Opera'), ('Firefox/', 'Firefox'), ('Chrome/', 'Chrome'), ('Safari/', 'Safari')) if k in ua), 'Navegador')
+        system = next((n for k, n in (('Android', 'Android'), ('iPhone', 'iPhone'), ('iPad', 'iPad'), ('Windows', 'Windows'), ('Mac OS', 'Mac'), ('Linux', 'Linux')) if k in ua), '')
+        out.append({'id': r['token_hash'][:16], 'current': r['token_hash'] == current_hash, 'device': f'{browser} · {system}' if system else browser,
+                    'created_at': datetime.fromtimestamp(r['created_at'], timezone.utc).isoformat(timespec='minutes'),
+                    'last_seen': datetime.fromtimestamp(r['last_seen'], timezone.utc).isoformat(timespec='minutes')})
+    return sorted(out, key=lambda x: not x['current'])
 
 
 def login_second_factor(db, user, data, ip=''):
@@ -6344,11 +6399,17 @@ def notify_booking(db, bid, event, extra=None):
 
 
 def _smtp_open(cfg):
+    # ASVS V12.3.2: the certificate of the mail server is always verified (before v50.51 it was not, so whoever took its
+    # place received the SMTP password and the reset links). Without TLS only outside production.
+    import ssl as _ssl
+    ctx = _ssl.create_default_context()
+    if cfg['security'] not in ('ssl', 'starttls') and wcfg.is_production():
+        raise RuntimeError('WOD_SMTP_SECURITY debe ser starttls o ssl en producción.')
     if cfg['security'] == 'ssl':
-        s = _smtplib.SMTP_SSL(cfg['host'], cfg['port'], timeout=20)
+        s = _smtplib.SMTP_SSL(cfg['host'], cfg['port'], timeout=20, context=ctx)
     else:
         s = _smtplib.SMTP(cfg['host'], cfg['port'], timeout=20)
-        if cfg['security'] == 'starttls': s.starttls()
+        if cfg['security'] != 'none': s.starttls(context=ctx)   # anything but «none» means encrypted
     if cfg['user']: s.login(cfg['user'], cfg['password'])
     return s
 
@@ -10756,6 +10817,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         'banner': site_banner(db),
                     })
                     return
+                if path == '/api/account/sessions':
+                    user=require_user(self,db); self.send_json({'items':session_list(db,user['id'],self.session_hash())}); return
                 if path == '/api/account/shares':
                     user=require_user(self,db)
                     rows=db.execute('SELECT ds.center_id,ds.source,ds.granted_at,c.name AS center_name,c.city FROM data_shares ds JOIN centers c ON c.id=ds.center_id WHERE ds.user_id=? AND ds.revoked_at IS NULL ORDER BY ds.granted_at DESC',(user['id'],)).fetchall()
@@ -11884,9 +11947,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if action=='disable':
                         if u['role']=='admin' and admin_totp_required(): raise PermissionError('Los administradores no pueden desactivar la verificación en dos pasos.')
                         db.execute('UPDATE users SET totp_enabled=0,totp_secret=NULL,totp_recovery=NULL,totp_last_step=NULL WHERE id=?',(u['id'],))
+                        db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(u['id'],self.session_hash() or ''))   # ASVS V7.4.3
                         audit(db,u['id'],'totp_disabled'); db.commit(); self.send_json({'ok':True}); return
                     codes=wtotp.recovery_codes()
                     db.execute('UPDATE users SET totp_recovery=? WHERE id=?',(json.dumps([wtotp.hash_recovery(c) for c in codes]),u['id']))
+                    db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(u['id'],self.session_hash() or ''))   # ASVS V7.4.3
                     audit(db,u['id'],'totp_recovery_regenerated'); db.commit(); self.send_json({'ok':True,'recovery_codes':codes}); return
                 if path=='/api/marketing/unsubscribe':
                     # Fase 4.3: one click, from the link in the email or from the mail client (RFC 8058 List-Unsubscribe-Post).
@@ -11945,12 +12010,35 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if user.get('email_verified_at'): self.send_json({'ok':True,'already':True}); return
                     if FORGOT_LIMIT.hit(f"resend:{user['id']}"): self.send_json({'error':'Ya te hemos enviado varios correos. Espera unos minutos.'},429); return
                     send_email_verification(db,user['id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/account/sessions/close':
+                    # ASVS V7.5.2: close every other session of this account (with the password, and the code if 2FA is on).
+                    user=require_user(self,db); data=json_body(self)
+                    row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
+                    if not current_password_ok(user['id'],str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
+                    require_second_factor(db,user['id'],data)
+                    n=db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(user['id'],self.session_hash() or '')).rowcount
+                    audit(db,user['id'],'sessions_closed','user',user['id'],{'closed':n}); db.commit(); self.send_json({'ok':True,'closed':n}); return
+                if path=='/api/admin/sessions/close':
+                    # ASVS V7.4.5: the administration ends the sessions of one person, or of everybody but itself, with a reason.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    reason=clean_text(data.get('reason'),300) or ''
+                    if len(reason)<5: raise ValueError('Escribe el motivo (queda en el registro).')
+                    if data.get('all'):
+                        n=db.execute('DELETE FROM sessions WHERE user_id<>?',(user['id'],)).rowcount; target=None
+                    else:
+                        target=int(data.get('user_id') or 0)
+                        if not target or not db.execute('SELECT 1 FROM users WHERE id=?',(target,)).fetchone(): raise NotFound('Usuario no encontrado.')
+                        n=db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(target,self.session_hash() or '')).rowcount
+                    audit(db,user['id'],'admin_sessions_closed','user',target,{'closed':n,'all':bool(data.get('all')),'reason':reason})
+                    security_alert('admin_sessions_closed',{'closed':n,'all':bool(data.get('all'))})
+                    db.commit(); self.send_json({'ok':True,'closed':n}); return
                 if path=='/api/account/email':
                     # Change of email (Fase 5): confirmed from the NEW address before it is applied.
                     user=require_user(self,db); data=json_body(self); new=(clean_text(data.get('email'),160) or '').lower()
                     if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',new) or not mail_deliverable(new): raise ValueError('Escribe un email válido.')
                     row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
                     if not current_password_ok(user['id'],str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
+                    require_second_factor(db,user['id'],data)
                     if db.execute('SELECT 1 FROM users WHERE lower(email)=? AND id<>?',(new,user['id'])).fetchone(): raise ValueError('Ese email ya lo usa otra cuenta.')
                     if FORGOT_LIMIT.hit(f"email-change:{user['id']}"): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
                     send_email_verification(db,user['id'],new); audit(db,user['id'],'email_change_requested','user',user['id']); db.commit(); self.send_json({'ok':True}); return
@@ -13476,13 +13564,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); data=json_body(self); new=str(data.get('new_password') or '')
                     row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
                     if not current_password_ok(user['id'],str(data.get('current_password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña actual no es correcta.')
+                    require_second_factor(db,user['id'],data)
                     check_new_password(new)
                     db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(new),user['id']))
-                    tok=''
-                    for item in self.headers.get('Cookie','').split(';'):
-                        k,_,v_=item.strip().partition('=')
-                        if k==COOKIE: tok=v_
-                    db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(user['id'],hashlib.sha256(tok.encode()).hexdigest()))
+                    db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(user['id'],self.session_hash() or ''))
                     notify_user(db,user['id'],'password_changed',{'when':datetime.now().strftime('%d/%m/%Y %H:%M')},('user',user['id']))
                     audit(db,user['id'],'password_changed','user',user['id']); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/account/identity':
@@ -14316,10 +14401,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
 
     def session_hash(self):
         """Hash of the current session cookie (to keep this session when the others are closed)."""
-        for item in (self.headers.get('Cookie', '') or '').split(';'):
-            k, _, v = item.strip().partition('=')
-            if k == COOKIE and v: return hashlib.sha256(v.encode()).hexdigest()
-        return None
+        tok = request_session_token(self)
+        return hashlib.sha256(tok.encode()).hexdigest() if tok else None
 
     def login_user(self, uid, db=None, payload=None):
         """Create a persistent session and answer the request (one response only)."""
@@ -14327,25 +14410,26 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         own = db is None
         conn = connect() if own else db
         try:
-            conn.execute('DELETE FROM sessions WHERE last_seen<?',(now_ts-SESSION_TTL_SECONDS,))
-            conn.execute('INSERT INTO sessions(token_hash,user_id,created_at,last_seen) VALUES(?,?,?,?)',(token_hash,uid,now_ts,now_ts)); conn.commit()
+            conn.execute('DELETE FROM sessions WHERE last_seen<? OR created_at<?',(now_ts-SESSION_IDLE_SECONDS,now_ts-SESSION_TTL_SECONDS))
+            old = self.session_hash()   # ASVS V7.2.4: signing in again ends the session this browser had
+            if old: conn.execute('DELETE FROM sessions WHERE token_hash=?',(old,))
+            ua = (self.headers.get('User-Agent') or '')[:160]
+            conn.execute('INSERT INTO sessions(token_hash,user_id,created_at,last_seen,user_agent,ip_hash) VALUES(?,?,?,?,?,?)',(token_hash,uid,now_ts,now_ts,ua,wsec.ip_hash(self.client_ip()))); conn.commit()
         finally:
             if own: conn.close()
-        secure = '; Secure' if os.environ.get('WOD_SECURE_COOKIES','').strip().lower() in {'1','true','yes','on'} or os.environ.get('WOD_PUBLIC_URL','').lower().startswith('https://') else ''
+        secure = '; Secure' if secure_cookies() else ''
         body=json.dumps(payload or {'ok':True},ensure_ascii=False).encode('utf-8')
-        self.send_response(200); self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Set-Cookie',f'{COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax{secure}'); self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(body)
+        self.send_response(200); self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Set-Cookie',f'{session_cookie_name()}={token}; Path=/; HttpOnly; SameSite=Lax{secure}'); self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(body)
 
     def logout_user(self):
-        cookie=self.headers.get('Cookie',''); token=None
-        for item in cookie.split(';'):
-            k,_,v=item.strip().partition('=')
-            if k==COOKIE: token=v
+        token=request_session_token(self)
         if token:
             with connect() as conn:
                 conn.execute('DELETE FROM sessions WHERE token_hash=?',(hashlib.sha256(token.encode()).hexdigest(),)); conn.commit()
-        secure = '; Secure' if os.environ.get('WOD_SECURE_COOKIES','').strip().lower() in {'1','true','yes','on'} or os.environ.get('WOD_PUBLIC_URL','').lower().startswith('https://') else ''
+        secure = '; Secure' if secure_cookies() else ''
         body=b'{"ok":true}'
-        self.send_response(200); self.send_header('Content-Type','application/json'); self.send_header('Set-Cookie',f'{COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax{secure}'); self.send_header('Content-Length',str(len(body))); self.security_headers(); self.end_headers(); self.wfile.write(body)
+        # ASVS V14.3.1: the browser also forgets what it cached for this person (the app removes its own offline data).
+        self.send_response(200); self.send_header('Content-Type','application/json'); self.send_header('Clear-Site-Data','"cache"'); self.send_header('Set-Cookie',f'{session_cookie_name()}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax{secure}'); self.send_header('Content-Length',str(len(body))); self.security_headers(); self.end_headers(); self.wfile.write(body)
 
 
 class WodHTTPServer(ThreadingHTTPServer):
@@ -14389,7 +14473,7 @@ def maintenance_loop():
         db = None
         try:
             db = connect()
-            db.execute('DELETE FROM sessions WHERE last_seen<? OR created_at<?', (time.time() - SESSION_TTL_SECONDS, time.time() - SESSION_TTL_SECONDS))
+            db.execute('DELETE FROM sessions WHERE last_seen<? OR created_at<?', (time.time() - SESSION_IDLE_SECONDS, time.time() - SESSION_TTL_SECONDS))
             db.commit()
             for job in MAINTENANCE_JOBS:
                 try: job(db); db.commit()
@@ -14634,6 +14718,13 @@ def check_production_settings():
     # v50.47: phones and WhatsApp credentials are encrypted with this key (never derived in production).
     if wcfg.env('WOD_DATA_KEY') == wcif.DEMO_DATA_KEY: problems.append('WOD_DATA_KEY es la clave de los datos ficticios de pruebas: genera una propia.')
     if len(wcfg.env('WOD_DATA_KEY')) < 32: problems.append('Define WOD_DATA_KEY (clave de cifrado de teléfonos y credenciales) con al menos 32 caracteres aleatorios: python3 -c "import secrets;print(secrets.token_urlsafe(32))".')
+    # v50.51 (ASVS 5.0): mail always encrypted, a real key for the copies, no test hooks pointing at local simulators.
+    if wcfg.env('WOD_SMTP_HOST') and (wcfg.env('WOD_SMTP_SECURITY') or 'starttls').lower() not in ('starttls', 'ssl'):
+        problems.append('WOD_SMTP_SECURITY debe ser starttls o ssl en producción (el correo nunca viaja sin cifrar).')
+    if wcfg.env('WOD_BACKUP_KEY') and len(wcfg.env('WOD_BACKUP_KEY')) < 32:
+        problems.append('WOD_BACKUP_KEY debe tener al menos 32 caracteres aleatorios: python3 -c "import secrets;print(secrets.token_urlsafe(32))".')
+    for k in sorted(k for k in os.environ if k.endswith('_API_BASE') and k.startswith(('WOD_', 'STRIPE_', 'WHATSAPP_'))):
+        if wcfg.env(k): problems.append(f'{k} es solo para pruebas (apunta a un simulador): quítala del .env de producción.')
     if wcfg.env_flag('WHATSAPP_ENABLED'):
         for k in ('WHATSAPP_APP_ID', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'WHATSAPP_CONFIG_ID'):
             if not wcfg.env(k): problems.append(f'WHATSAPP_ENABLED=1 necesita {k} en el .env (ver docs/notas-de-version/v50.47.md).')

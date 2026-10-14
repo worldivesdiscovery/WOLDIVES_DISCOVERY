@@ -49,8 +49,13 @@ def otpauth_uri(secret: str, account: str, issuer: str = 'WORLDIVES DISCOVERY') 
     return f'otpauth://totp/{quote(issuer)}:{quote(account)}?secret={secret}&issuer={quote(issuer)}&algorithm=SHA1&digits={DIGITS}&period={STEP}'
 
 
+RECOVERY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'   # 32 symbols without O/0, I/1
+
+
 def recovery_codes(n: int = 8) -> list[str]:
-    return ['-'.join(secrets.token_hex(2).upper() for _ in range(3)) for _ in range(n)]
+    """Recovery codes of 120 bits (4 groups of 6 symbols): above the 112 bits ASVS 5.0 (V6.5.2) asks for codes stored
+    with a fast hash. Codes issued before v50.51 (48 bits) keep working until the person makes new ones."""
+    return ['-'.join(''.join(secrets.choice(RECOVERY_ALPHABET) for _ in range(6)) for _ in range(4)) for _ in range(n)]
 
 
 def hash_recovery(code: str) -> str:
