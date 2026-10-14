@@ -44,7 +44,9 @@ Nie podejmujemy zautomatyzowanych decyzji, które w istotny sposób na Ciebie wp
 
 - **Centrum lub profesjonalista, u którego dokonujesz rezerwacji:** otrzymuje dane rezerwacji i Twoje dane kontaktowe. Widzi Twój profil nurka i Twoje dokumenty **tylko wtedy, gdy sam dokonałeś u niego rezerwacji** (dopóki rezerwacja jest w toku) **lub gdy udostępnisz mu swoje dane**, meldując się za pomocą jego kodu QR. Możesz zakończyć udostępnianie w „Moje konto → Centra, które widzą Twój profil”.
 - **Stripe Payments Europe Ltd.** (Irlandia): przetwarza płatność **na koncie Stripe centrum** oraz zwroty. Stripe jest administratorem przetwarzanych przez siebie danych płatniczych.
-- **Dostawca hostingu:** {{hosting}}, na terenie Europejskiego Obszaru Gospodarczego.
+- **Dostawca hostingu:** {{hosting}}. Serwer znajduje się w {{hosting_location}}, na terenie Unii Europejskiej.
+- **Kopie zapasowe:** przechowywane w formie zaszyfrowanej na naszym własnym serwerze oraz u {{backup_provider}}, na terenie Unii Europejskiej, jako podmiot przetwarzający.
+- **Dzienniki techniczne i bezpieczeństwa:** Better Stack (z siedzibą w Pradze), z danymi w regionie Europa, jako podmiot przetwarzający. Otrzymuje wyłącznie dzienniki bezpieczeństwa (nieudane lub zablokowane próby logowania, odmowy dostępu, ostrzeżenia o fałszywych podpisach) oraz dziennik dostępu do serwisu, z Twoim adresem IP skróconym lub zamienionym na odcisk i bez Twojego imienia i nazwiska, adresu e-mail czy telefonu. Służą do wykrywania ataków i awarii oraz do tego, aby nikt nie mógł usunąć tego śladu z naszego serwera.
 - **Dostawca poczty elektronicznej:** usługa SMTP wysyłająca nasze e-maile, jako podmiot przetwarzający.
 - **Usługi map:** mapa bazowa jest dostarczana z naszego własnego serwera. Widok satelitarny (Esri) jest pobierany za pośrednictwem naszego serwera, który nie przekazuje Twojego adresu IP do Esri. Warstwa batymetryczna GEBCO jest pobierana bezpośrednio z serwerów GEBCO, które otrzymują Twój adres IP. Szczegóły w [Polityce plików cookie i usług podmiotów trzecich](#/legal/cookies).
 - **Osadzone filmy** (YouTube, Vimeo, Google Maps): są ładowane tylko wtedy, gdy klikniesz „Załaduj film”. Od tego momentu dostawca otrzymuje Twój adres IP.
@@ -61,7 +63,8 @@ Niektórzy z tych dostawców mogą przetwarzać dane poza Europejskim Obszarem G
 | Rezerwacje i płatności | 6 lat, bez Twojego imienia i nazwiska, jeśli usuniesz konto (obowiązki handlowe i podatkowe centrum oraz nasze) |
 | Powiadomienia od centrów | Domyślnie 24 miesiące |
 | Sesje | Do wylogowania lub po 8 godzinach bezczynności |
-| Dzienniki bezpieczeństwa z adresem IP | 14 dni; dziennik aktywności 12 miesięcy, z wyjątkiem ostatnich 300 wpisów |
+| Dzienniki bezpieczeństwa i dostępu ze skróconym adresem IP | 14 dni na naszym serwerze i 30 dni w Better Stack; dziennik aktywności 12 miesięcy, z wyjątkiem ostatnich 300 wpisów |
+| Kopie zapasowe | Zaszyfrowane: godzinowe 48 godzin, dzienne 30 dni, miesięczne 12 miesięcy. To, co usuniesz, znika z kopii po upływie tych terminów |
 | Akceptacje dokumentów prawnych i zgody | Dopóki posiadasz konto i do 5 lat później |
 
 ## 6. Twoje prawa
@@ -78,7 +81,7 @@ Jeśli nie zgadzasz się z naszą odpowiedzią, możesz wnieść skargę do **hi
 
 ## 7. Bezpieczeństwo
 
-Szyfrowane połączenie (HTTPS), szyfrowane hasła, opcjonalna weryfikacja dwuetapowa (obowiązkowa dla administratorów), rejestrowany i ograniczony dostęp do dokumentów oraz szyfrowane kopie zapasowe. Jeśli kiedykolwiek dojdzie do naruszenia bezpieczeństwa, które Cię dotyczy, powiadomimy Cię zgodnie z prawem.
+Szyfrowane połączenie (HTTPS), szyfrowane hasła, opcjonalna weryfikacja dwuetapowa (obowiązkowa dla administratorów oraz dla każdego, kto przyjmuje płatności online lub widzi płatności centrum), rejestrowany i ograniczony dostęp do dokumentów, ochrona antywirusowa przesyłanych dokumentów, dzienniki bezpieczeństwa przechowywane poza serwerem oraz szyfrowane kopie zapasowe. Jeśli kiedykolwiek dojdzie do naruszenia bezpieczeństwa, które Cię dotyczy, powiadomimy Cię zgodnie z prawem.
 
 ## 8. Osoby niepełnoletnie
 

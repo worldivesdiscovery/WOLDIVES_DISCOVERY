@@ -77,7 +77,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.51'
+APP_VERSION = '50.52'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -7065,7 +7065,10 @@ LEGAL_NOTICE_DAYS = {'centros': 15}  # changes for centres are announced 15 days
 LEGAL_OFFICIAL_LANGS = ('es', 'en')
 LEGAL_FIELDS = {'owner_name': 'Titular (nombre y apellidos o razón social)', 'trade_name': 'Nombre comercial', 'nif': 'NIF / CIF',
                 'address': 'Domicilio', 'email': 'Email de contacto', 'phone': 'Teléfono', 'registry': 'Datos registrales (si es sociedad)',
-                'dpo_email': 'Email para protección de datos', 'hosting': 'Proveedor de alojamiento'}
+                'dpo_email': 'Email para protección de datos', 'hosting': 'Proveedor de alojamiento',
+                # v50.52: where the server really is and where the external copies go (until filled in: «pendiente de completar»)
+                'hosting_location': 'Ubicación del servidor (país y ciudad del centro de datos)',
+                'backup_provider': 'Copias de seguridad fuera del servidor (proveedor y país)'}
 
 
 def legal_slug(slug):
@@ -11278,6 +11281,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                         'account_closed':(provider_account_status(db,*provider_of_user(user))['closed'] if provider_of_user(user) and provider_closure(db,*provider_of_user(user)) else None),
                                         'security':{'totp_enabled':bool(user.get('totp_enabled')),'totp_setup_required':totp_setup_required(db,user),
                                                     **(lambda st:{'totp_required':st['reason'] if st else None,'totp_deadline':(st or {}).get('deadline'),'totp_blocked':bool(st and st['blocked'])})(payments_totp_state(db,user) if user['role'] in ('center','freelance') else None),
+                                                    'stripe_needs_totp':user['role'] in ('center','freelance') and payments_totp_required() and not user.get('totp_enabled'),
                                                     'recovery_left':len(json.loads(user.get('totp_recovery') or '[]')) if user.get('totp_enabled') else 0}})
                     return
                 if path.startswith('/api/providers/'):

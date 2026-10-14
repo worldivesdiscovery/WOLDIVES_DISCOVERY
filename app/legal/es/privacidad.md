@@ -44,7 +44,9 @@ No tomamos decisiones automatizadas que te afecten de forma significativa. El or
 
 - **El centro o profesional con el que reservas:** recibe los datos de la reserva y tu contacto. Ve tu ficha de buceador y tus documentos **solo si reservaste tú con él** (mientras la reserva siga en curso) **o si compartes tus datos con él** al hacer check-in con su QR. Puedes dejar de compartirlos en «Mi cuenta → Centros que ven tu ficha».
 - **Stripe Payments Europe Ltd.** (Irlanda): procesa el pago **en la cuenta de Stripe del centro** y las devoluciones. Stripe es responsable de los datos de pago que trata.
-- **Proveedor de alojamiento:** {{hosting}}, dentro del Espacio Económico Europeo.
+- **Proveedor de alojamiento:** {{hosting}}. El servidor está en {{hosting_location}}, dentro de la Unión Europea.
+- **Copias de seguridad:** se guardan cifradas en el propio servidor y en {{backup_provider}}, dentro de la Unión Europea, como encargado del tratamiento.
+- **Registros técnicos y de seguridad:** Better Stack (con sede en Praga), con los datos en su región de Europa, como encargado del tratamiento. Recibe solo los registros de seguridad (intentos de acceso fallidos o bloqueados, accesos denegados, avisos de firmas falsas) y el registro de accesos de la web, con tu IP recortada o convertida en una huella y sin tu nombre, tu email ni tu teléfono. Sirven para detectar ataques y fallos y para que nadie pueda borrar ese rastro desde nuestro servidor.
 - **Proveedor de correo electrónico:** el servicio SMTP que envía nuestros emails, como encargado del tratamiento.
 - **Servicios de mapas:** el mapa base se sirve desde nuestro propio servidor. La vista satélite (Esri) se pide a través de nuestro servidor, que no envía tu IP a Esri. La capa batimétrica de GEBCO se descarga directamente de sus servidores, que reciben tu IP. Detalles en la [Política de cookies y servicios de terceros](#/legal/cookies).
 - **Vídeos integrados** (YouTube, Vimeo, Google Maps): solo se cargan si pulsas «Cargar vídeo». A partir de ese momento, el proveedor recibe tu IP.
@@ -61,7 +63,8 @@ Algunos de estos proveedores pueden tratar datos fuera del Espacio Económico Eu
 | Reservas y pagos | 6 años, sin tu nombre si eliminas tu cuenta (obligaciones mercantiles y fiscales del centro y nuestras) |
 | Avisos de los centros | 24 meses por defecto |
 | Sesiones | Hasta cerrar sesión o 8 horas sin actividad |
-| Registros de seguridad con IP | 14 días; el registro de actividad, 12 meses, salvo las últimas 300 entradas |
+| Registros de seguridad y de accesos con IP recortada | 14 días en nuestro servidor y 30 días en Better Stack; el registro de actividad, 12 meses, salvo las últimas 300 entradas |
+| Copias de seguridad | Cifradas: las horarias, 48 horas; las diarias, 30 días; las mensuales, 12 meses. Lo que borres desaparece de las copias al cumplirse esos plazos |
 | Aceptaciones de documentos legales y consentimientos | Mientras tengas la cuenta y hasta 5 años después |
 
 ## 6. Tus derechos
@@ -78,7 +81,7 @@ Si no estás de acuerdo con nuestra respuesta, puedes reclamar ante la **Agencia
 
 ## 7. Seguridad
 
-Conexión cifrada (HTTPS), contraseñas cifradas, verificación en dos pasos opcional (obligatoria para los administradores), accesos a documentos registrados y limitados, y copias de seguridad cifradas. Si alguna vez hubiera una brecha de seguridad que te afecte, te avisaremos según la ley.
+Conexión cifrada (HTTPS), contraseñas cifradas, verificación en dos pasos opcional (obligatoria para los administradores y para quien cobra online o ve los pagos de un centro), accesos a documentos registrados y limitados, antivirus para los documentos que se suben, registros de seguridad guardados fuera del servidor y copias de seguridad cifradas. Si alguna vez hubiera una brecha de seguridad que te afecte, te avisaremos según la ley.
 
 ## 8. Menores
 

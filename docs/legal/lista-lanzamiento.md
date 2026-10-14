@@ -5,6 +5,8 @@ Estado: borrador para revisión
 
 Casillas para poner WORLDIVES DISCOVERY en producción. Cada punto se puede comprobar: dice **qué** hacer y **cómo** saber que está hecho.
 
+**Piloto v50.52 (Hostinger KVM 2, Better Stack, verificación en dos pasos con cobros):** la lista del encargo de despliegue del 14/10/2026, con el estado de cada casilla y cómo se comprueba en el servidor, está en `docs/despliegue/lista-lanzamiento.md`.
+
 Guías de apoyo:
 
 - `docs/despliegue/README.md` (servidor, copias, correo y monitorización);

@@ -27,13 +27,14 @@ Si titular y técnico son la misma persona, lo hace todo ella, pero **siempre** 
 | **Administración → Operación** | Versión, integridad, últimas copias, cola de correos, errores recientes, disco libre, avisos de configuración | `admin_health()` |
 | **Registro de actividad** | Inicios de sesión (`login`, con `ip_hash`), fallos de TOTP (`totp_failed`), descargas y denegaciones de documentos (`document_downloaded`, `document_access_denied`), cambios de rol, exportaciones (`provider_export`, `dac7_exported`), importaciones (`clients_imported`), eliminaciones de cuenta | Tabla `audit_log`; *Administración → Actividad* (`/api/admin/audit`, últimas 300) |
 | **Registro de accesos** | Peticiones con IP truncada (/24 o /48), sin cadena de consulta; 14 días | `logs/access.log` (`access_logger()`); o el journal de systemd si `WOD_ACCESS_LOG=stdout` |
-| **Monitor externo** | La web no responde | `/api/health` (UptimeRobot, Better Stack…; `docs/despliegue/README.md`, apartado 8) |
+| **Alertas de Better Stack** (v50.52) | Por correo **al titular**, que es quien las atiende (y avisa al técnico): varios errores 500 seguidos, pico de inicios de sesión fallidos o bloqueos, firmas falsas de Stripe o de WhatsApp, accesos denegados repetidos de una misma cuenta y la web caída (monitor sobre `/api/health`). Los registros están **fuera del servidor**: quien entrara en el VPS no puede borrarlos | Better Stack, región UE (`docs/seguridad/registros.md`, «Alertas»; `docs/despliegue/GUIA-VPS.md`, paso 11) |
 | **Personas** | Un usuario, un centro, Stripe, el proveedor de hosting o de correo, un investigador de seguridad | {{email}}, {{dpo_email}} |
 
 Limitaciones a tener en cuenta:
 
-- No hay alerta automática por **accesos anómalos** (muchas descargas de documentos, muchos inicios de sesión fallidos). Se revisan a mano en `audit_log`.
-- Los límites de intentos guardan sus contadores **en memoria** y se pierden al reiniciar.
+- Desde la v50.52 hay alerta por picos de inicios de sesión fallidos y por accesos denegados repetidos (Better Stack). Las descargas anómalas de documentos se siguen revisando a mano en `audit_log`.
+- **Quién atiende las alertas:** el titular las recibe por correo (cuenta de Better Stack con verificación en dos pasos) y abre la brecha (paso 1) si no es una falsa alarma. **[PENDIENTE TITULAR: segundo destinatario para cuando el titular no esté disponible.]**
+- Los límites de intentos guardan sus contadores en un archivo compartido entre procesos (`data/<base>-limites.sqlite3`) que solo guarda los últimos minutos.
 - El registro de accesos guarda la IP truncada: sirve para ver patrones, no para identificar a una persona.
 - `audit_log` se purga a los **12 meses** (salvo las últimas 300 entradas). Si hay una brecha, **exporta antes el registro** (paso 2).
 
@@ -58,6 +59,10 @@ cp -a logs/ /root/brecha-AAAAMMDD/logs/
 ```
 
 (Ajusta la ruta de la base si usas `WOD_DB_PATH`.) Guarda las pruebas fuera de la carpeta de la web y con permisos restringidos.
+
+**Better Stack (v50.52):** descarga también los registros de la fuente «WORLDIVES producción» del periodo afectado
+(*Live tail* → exportar). Allí se guardan 30 días y no se pueden borrar desde el servidor, así que son la prueba más
+fiable si el VPS estuviera comprometido.
 
 ### Paso 3 · Contener
 

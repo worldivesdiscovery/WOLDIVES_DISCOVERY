@@ -44,7 +44,9 @@ Nous ne prenons pas de décisions automatisées qui vous affectent de manière s
 
 - **Le centre ou le professionnel auprès duquel vous réservez :** il reçoit les données de la réservation et vos coordonnées. Il voit votre fiche de plongeur et vos documents **uniquement si vous avez réservé vous-même chez lui** (tant que la réservation est en cours) **ou si vous partagez vos données avec lui** lors de l'enregistrement avec son QR code. Vous pouvez cesser de les partager dans « Mon compte → Centres qui voient votre fiche ».
 - **Stripe Payments Europe Ltd.** (Irlande) : traite le paiement **sur le compte Stripe du centre** ainsi que les remboursements. Stripe est responsable des données de paiement qu'il traite.
-- **Hébergeur :** {{hosting}}, au sein de l'Espace économique européen.
+- **Hébergeur :** {{hosting}}. Le serveur se trouve à {{hosting_location}}, dans l'Union européenne.
+- **Sauvegardes :** conservées chiffrées sur notre propre serveur et chez {{backup_provider}}, dans l'Union européenne, en tant que sous-traitant.
+- **Journaux techniques et de sécurité :** Better Stack (basé à Prague), avec les données dans sa région Europe, en tant que sous-traitant. Il ne reçoit que les journaux de sécurité (tentatives de connexion échouées ou bloquées, accès refusés, alertes de signatures falsifiées) et le journal d'accès du site, avec votre adresse IP tronquée ou transformée en empreinte, sans votre nom, votre e-mail ni votre téléphone. Ils servent à détecter les attaques et les pannes, et à ce que personne ne puisse effacer cette trace depuis notre serveur.
 - **Fournisseur de messagerie électronique :** le service SMTP qui envoie nos e-mails, en tant que sous-traitant.
 - **Services cartographiques :** la carte de base est servie depuis notre propre serveur. La vue satellite (Esri) est demandée via notre serveur, qui n'envoie pas votre IP à Esri. La couche bathymétrique de GEBCO est téléchargée directement depuis ses serveurs, qui reçoivent votre IP. Détails dans la [Politique en matière de cookies et de services tiers](#/legal/cookies).
 - **Vidéos intégrées** (YouTube, Vimeo, Google Maps) : elles ne sont chargées que si vous cliquez sur « Charger la vidéo ». À partir de ce moment, le fournisseur reçoit votre IP.
@@ -61,7 +63,8 @@ Certains de ces fournisseurs peuvent traiter des données en dehors de l'Espace 
 | Réservations et paiements | 6 ans, sans votre nom si vous supprimez votre compte (obligations commerciales et fiscales du centre et les nôtres) |
 | Notifications des centres | 24 mois par défaut |
 | Sessions | Jusqu'à la déconnexion ou 8 heures d'inactivité |
-| Journaux de sécurité avec IP | 14 jours ; le journal d'activité, 12 mois, sauf les 300 dernières entrées |
+| Journaux de sécurité et d'accès avec IP tronquée | 14 jours sur notre serveur et 30 jours chez Better Stack ; le journal d'activité, 12 mois, sauf les 300 dernières entrées |
+| Sauvegardes | Chiffrées : les horaires, 48 heures ; les quotidiennes, 30 jours ; les mensuelles, 12 mois. Ce que vous supprimez disparaît des sauvegardes à l'échéance de ces délais |
 | Acceptations des documents juridiques et consentements | Tant que vous avez le compte et jusqu'à 5 ans après |
 
 ## 6. Vos droits
@@ -78,7 +81,7 @@ Si vous n'êtes pas d'accord avec notre réponse, vous pouvez introduire une ré
 
 ## 7. Sécurité
 
-Connexion chiffrée (HTTPS), mots de passe chiffrés, vérification en deux étapes facultative (obligatoire pour les administrateurs), accès aux documents journalisés et limités, et sauvegardes chiffrées. En cas de violation de sécurité vous concernant, nous vous en informerons conformément à la loi.
+Connexion chiffrée (HTTPS), mots de passe chiffrés, vérification en deux étapes facultative (obligatoire pour les administrateurs et pour toute personne qui encaisse en ligne ou voit les paiements d'un centre), accès aux documents journalisés et limités, antivirus pour les documents envoyés, journaux de sécurité conservés hors du serveur et sauvegardes chiffrées. En cas de violation de sécurité vous concernant, nous vous en informerons conformément à la loi.
 
 ## 8. Mineurs
 

@@ -44,7 +44,9 @@ We do not make automated decisions that significantly affect you. The order of r
 
 - **The centre or professional you book with:** receives the booking details and your contact details. It can see your diver profile and your documents **only if you booked with it** (while the booking is still in progress) **or if you share your data with it** when checking in with its QR code. You can stop sharing them in «My account → Centres that can see your profile».
 - **Stripe Payments Europe Ltd.** (Ireland): processes the payment **into the centre's Stripe account** and any refunds. Stripe is the controller of the payment data it processes.
-- **Hosting provider:** {{hosting}}, within the European Economic Area.
+- **Hosting provider:** {{hosting}}. The server is in {{hosting_location}}, within the European Union.
+- **Backups:** stored encrypted on our own server and with {{backup_provider}}, within the European Union, as processor.
+- **Technical and security logs:** Better Stack (based in Prague), with the data in its European region, as processor. It only receives the security logs (failed or blocked sign-in attempts, denied access, warnings about forged signatures) and the access log of the website, with your IP shortened or turned into a fingerprint and without your name, email or phone. They are used to detect attacks and failures and so that nobody can erase that trail from our server.
 - **Email provider:** the SMTP service that sends our emails, as processor.
 - **Map services:** the base map is served from our own server. The satellite view (Esri) is requested through our server, which does not send your IP to Esri. The GEBCO bathymetric layer is downloaded directly from its servers, which receive your IP. Details in the [Cookies and third-party services policy](#/legal/cookies).
 - **Embedded videos** (YouTube, Vimeo, Google Maps): these only load if you tap «Load video». From that moment, the provider receives your IP.
@@ -61,7 +63,8 @@ Some of these providers may process data outside the European Economic Area with
 | Bookings and payments | 6 years, without your name if you delete your account (commercial and tax obligations of the centre and of us) |
 | Notices from centres | 24 months by default |
 | Sessions | Until you log out or after 8 hours of inactivity |
-| Security logs with IP | 14 days; the activity log, 12 months, except for the last 300 entries |
+| Security and access logs with shortened IP | 14 days on our server and 30 days at Better Stack; the activity log, 12 months, except for the last 300 entries |
+| Backups | Encrypted: hourly copies, 48 hours; daily copies, 30 days; monthly copies, 12 months. What you delete disappears from the backups when those periods end |
 | Acceptance of legal documents and consents | For as long as you have the account and up to 5 years afterwards |
 
 ## 6. Your rights
@@ -78,7 +81,7 @@ If you disagree with our reply, you can lodge a complaint with the **Spanish Dat
 
 ## 7. Security
 
-Encrypted connection (HTTPS), encrypted passwords, optional two-step verification (mandatory for administrators), logged and restricted access to documents, and encrypted backups. If there is ever a security breach affecting you, we will notify you as required by law.
+Encrypted connection (HTTPS), encrypted passwords, optional two-step verification (mandatory for administrators and for anyone who takes online payments or sees a centre's payments), logged and restricted access to documents, antivirus scanning of uploaded documents, security logs kept outside the server, and encrypted backups. If there is ever a security breach affecting you, we will notify you as required by law.
 
 ## 8. Minors
 

@@ -1,6 +1,6 @@
 # Anexo de encargo del tratamiento (art. 28 RGPD) entre el centro y WORLDIVES
 
-Versión v50.38 · 11/10/2026
+Versión v50.52 · 14/10/2026 (subencargados y medidas al día)
 Estado: borrador para revisión
 
 Este documento tiene dos partes:
@@ -154,20 +154,30 @@ WORLDIVES se compromete a:
 
 ### 7. Subencargados
 
-El centro autoriza de forma general a WORLDIVES a recurrir a estos subencargados. WORLDIVES avisará de cualquier cambio con **[15 días — PENDIENTE TITULAR]** de antelación para que el centro pueda oponerse.
+El centro autoriza de forma general a WORLDIVES a recurrir a estos subencargados. WORLDIVES avisará al centro por
+email de cualquier subencargado nuevo o de cualquier cambio **con 15 días de antelación** (el mismo plazo que los
+cambios de las condiciones para centros, `LEGAL_NOTICE_DAYS`) para que pueda oponerse; si se opone y no hay
+alternativa, puede terminar el encargo y exportar sus datos. **[PENDIENTE ABOGADO: confirmar el plazo y el efecto de la
+oposición]**.
 
-| Subencargado | Servicio | Datos | Ubicación |
-|---|---|---|---|
-| {{hosting}} | Servidor VPS (base de datos SQLite, archivos y copias locales) | Todos los de la cláusula 4 | UE (`docs/despliegue/README.md`, apartado 1) |
-| Proveedor SMTP **[pendiente de decisión del titular; recomendado Brevo]** | Envío de correos (`WOD_SMTP_HOST`, cola `email_outbox`) | Nombre, email y contenido del correo | Brevo: UE |
-| Almacenamiento externo de copias **[pendiente; recomendado en la UE con cifrado]** | Copia fuera del servidor (`WOD_BACKUP_COMMAND`, ejemplo `scripts/copia_externa.sh`) | Copia completa de la base y de los archivos | UE |
-| Stripe **[PENDIENTE ABOGADO]** | Cobros en la cuenta del centro | Ver A.3 | Irlanda (Stripe Payments Europe Ltd.), con transferencias a EE. UU. |
+Lista al día (v50.52, 14/10/2026):
+
+| Subencargado | Servicio | Datos | Ubicación | Cuándo |
+|---|---|---|---|---|
+| **Hostinger** ({{hosting}}) | Servidor VPS KVM 2: base de datos, archivos, copias locales | Todos los de la cláusula 4 | UE: el centro de datos de {{hosting_location}} (Alemania o Francia, decisión del titular del 14/10) | Siempre |
+| **Better Stack** (sede en Praga) | Registros técnicos y de seguridad fuera del servidor y alertas | Sucesos de seguridad (número de usuario, huella de la IP, ruta) y registro de accesos (IP recortada, sin consulta); nunca nombres, emails, teléfonos ni contenido | Región de datos Europa (DE). 30 días | Siempre (desde la v50.52) |
+| Proveedor SMTP **[pendiente de decisión del titular; recomendado Brevo]** | Envío de correos (`WOD_SMTP_HOST`, cola `email_outbox`) | Nombre, email y contenido del correo | Brevo: UE | Siempre |
+| Almacenamiento externo de copias: {{backup_provider}} **[pendiente de decisión del titular: proveedor en la UE fuera de Hostinger]** | Copia fuera del servidor (`WOD_BACKUP_COMMAND`, `scripts/copia_externa.sh`) | Copia completa de la base y de los archivos, **cifrada antes de salir** (AES-256-GCM, `WOD_BACKUP_KEY`) | UE | Siempre |
+| Stripe **[PENDIENTE ABOGADO: encargado o responsable independiente]** | Cobros en la cuenta del centro | Ver A.3 | Irlanda (Stripe Payments Europe Ltd.), con transferencias a EE. UU. | Si el centro activa los cobros online |
+| Meta Platforms Ireland (WhatsApp Cloud API) | Avisos por WhatsApp del centro a sus clientes | Teléfono del cliente (con su permiso) y texto del aviso | Irlanda / EE. UU. | Solo si el centro conecta su WhatsApp y el titular activa `WHATSAPP_ENABLED` |
+| Google (Firebase Cloud Messaging) | Avisos en el móvil de la app | Identificador del móvil y texto del aviso | EE. UU. / UE | Solo si el titular activa `WOD_FCM_CREDENTIALS` |
 
 No son subencargados porque **no reciben datos de los clientes del centro**:
 
 - Esri (vista satélite): las teselas se piden desde el servidor, sin la IP del visitante.
 - Nominatim/OpenStreetMap (`/api/geocode`): recibe solo el texto de búsqueda de una localidad, desde el servidor.
-- El monitor externo de disponibilidad (`/api/health`): solo comprueba que la web responde.
+- El monitor de disponibilidad de Better Stack (`/api/health`): solo comprueba que la web responde.
+- ClamAV: el antivirus funciona dentro del servidor; solo descarga las firmas.
 
 ### 8. Medidas de seguridad
 
@@ -178,7 +188,7 @@ Medidas que **ya están en el código** (v50.38):
 | Contraseñas con PBKDF2-SHA256, 600 000 iteraciones, sal aleatoria y prefijo de versión; actualización automática al entrar | `app/wod/security.py` (`hash_password`, `needs_rehash`), `WOD_PBKDF2_ITERATIONS` |
 | Sesiones guardadas como hash SHA-256 del token, cookie HttpOnly y SameSite=Lax (Secure con https), caducidad a las 8 h, borrado periódico | `current_user()`, tabla `sessions`, `SESSION_TTL_SECONDS`, `maintenance_loop()` |
 | Cierre de las demás sesiones al cambiar contraseña, rol, email o activar el segundo factor | rutas con `DELETE FROM sessions WHERE user_id=?` |
-| Verificación en dos pasos (TOTP, RFC 6238) opcional para todos y **obligatoria para administradores** en producción | `app/wod/totp.py`, `WOD_ADMIN_TOTP_REQUIRED`, `check_production_settings()` |
+| Verificación en dos pasos (TOTP, RFC 6238) opcional para todos y **obligatoria** para los administradores y, desde la v50.52, para los centros y freelance **con cobros online** y los miembros de su equipo con el permiso «Cobros» (sin ella solo llegan a «Mi cuenta»; no se puede conectar Stripe sin ella) | `app/wod/totp.py`, `WOD_ADMIN_TOTP_REQUIRED`, `WOD_PAYMENTS_TOTP_REQUIRED`, `payments_totp_state()`, `check_production_settings()`; pruebas `tests/test_v50_52_cobros_2fa.py` |
 | Límites de intentos en inicio de sesión, registro, recuperación y TOTP | `RateLimiter` en `security.py` |
 | Protección CSRF: se rechaza todo POST/DELETE sin `Origin` ni `Referer` válidos (salvo webhooks firmados y la API de reservas con clave) | `CSRF_EXEMPT` en `Handler` |
 | Content-Security-Policy estricta (sin scripts en línea ni de terceros, `frame-ancestors 'none'` salvo el widget) y cabeceras `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS | `content_security_policy()`, `security_headers()` |
@@ -194,9 +204,17 @@ Medidas que **ya están en el código** (v50.38):
 | Arranque bloqueado en producción sin https, sin `WOD_SECRET_KEY` de 32 caracteres, con `WOD_DEBUG` o sin TOTP de administradores | `check_production_settings()` |
 | Proxy de confianza explícito para leer la IP real | `WOD_TRUSTED_PROXIES`, `client_ip()` |
 
-Medidas organizativas: entorno de pruebas separado que nunca usa la base real (`docs/despliegue/README.md`, apartado 6) y procedimiento de brechas (`docs/legal/procedimiento-brechas.md`).
+Desde la v50.51-v50.52 además: copias cifradas en origen y secretos del autenticador cifrados; antivirus de los
+documentos (ClamAV); registros de seguridad enviados fuera del servidor (Better Stack, región UE); cortafuegos de
+entrada y salida del VPS; servidor en la UE (Hostinger KVM 2, Alemania o Francia).
 
-Mejoras previstas (ver A.4): cifrado de las copias en origen y del secreto TOTP.
+**Referencia completa de las medidas técnicas:** la revisión de los 253 requisitos de OWASP ASVS 5.0 nivel 2, requisito
+por requisito, en `docs/auditoria/v50.51/asvs-5.0-nivel2.md` (actualizada en la v50.52). El anexo puede remitir a ese
+informe en lugar de enumerar las medidas, y entregarlo al centro que lo pida (cláusula 11).
+
+Medidas organizativas: entorno de pruebas separado que nunca usa la base real (`docs/despliegue/README.md`, apartado 6),
+procedimiento de brechas con las alertas de Better Stack (`docs/legal/procedimiento-brechas.md`) y restauración de
+prueba mensual de las copias (`scripts/despliegue/restauracion_prueba.sh`).
 
 ### 9. Ejercicio de derechos
 

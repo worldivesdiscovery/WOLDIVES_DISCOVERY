@@ -187,12 +187,14 @@ class CobrosDosPasos(ServerTestCase):
 
     def test_v6_3_3_stripe_is_not_connected_without_it(self):
         c = self.make_center(self.admin, 'conecta2fa', phone='+34 600 520 005')
+        self.assertTrue(c.me()['security']['stripe_needs_totp'])            # the web asks for it before opening Stripe
         before = len([x for x in self.stripe.calls if x['path'] == '/v1/accounts' and x['method'] == 'POST'])
         r = c.post('/api/payments/connect/onboard', {})
         self.assertEqual(r.status, 403, r); self.assertTrue(r.json.get('totp_required'))
         self.assertEqual(len([x for x in self.stripe.calls if x['path'] == '/v1/accounts' and x['method'] == 'POST']), before)
         self.assertFalse(self.server.sql('SELECT stripe_account_id FROM centers WHERE id=?', (c.user['center_id'],))[0]['stripe_account_id'])
         self.enable_totp(c)
+        self.assertFalse(c.me()['security']['stripe_needs_totp'])
         r = c.post('/api/payments/connect/onboard', {})
         self.assertEqual(r.status, 200, r)
 

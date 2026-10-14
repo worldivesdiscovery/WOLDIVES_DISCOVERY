@@ -26,7 +26,7 @@
   // «exact»: frase completa → traducción. «patterns»: frases con partes variables ({n} número, {x} texto).
   // Todo lo que se pinta en la página (también lo que llega después: ventanas, avisos, listas) se traduce al vuelo.
   // ---------------------------------------------------------------------------
-  const WD_I18N_VERSION='50.51';
+  const WD_I18N_VERSION='50.52';
   const WD_LOCALES={es:'es-ES',en:'en-GB',fr:'fr-FR',de:'de-DE',it:'it-IT',pt:'pt-PT',pl:'pl-PL',nl:'nl-NL',zh:'zh-CN'};
   // Plural forms (Polish has several): a translation may be {one,few,many,other}.
   const wdPlural=(tpl,n)=>{ if(typeof tpl!=='object'||!tpl) return tpl; let k='other'; try{ k=new Intl.PluralRules(wdLocale()).select(Number(String(n).replace(/[^\d.-]/g,''))||0); }catch{} return tpl[k]??tpl.other??Object.values(tpl)[0]; };
@@ -3222,7 +3222,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       $('#pay-profile',mount).onsubmit=async e=>{ e.preventDefault(); try{ await postJSON('/api/provider/payment-profile',{legal_name:$('#pp-legal',mount).value,tax_id:$('#pp-tax',mount).value,fiscal_address:$('#pp-addr',mount).value}); toast('Datos guardados. Saldrán en los justificantes.'); }catch(err){ toast(err.message); } };
       $('#stripe-onboard',mount)?.addEventListener('click',async()=>{
         // v50.52 (V6.3.3): without two-step verification, Stripe is not connected.
-        if(!state.me?.security?.totp_enabled){ if(await wdConfirm({title:'Activa antes la verificación en dos pasos',text:'Es obligatoria para quien cobra online: protege el dinero y los datos de pago de tus clientes. Actívala en «Mi cuenta» y vuelve aquí para conectar Stripe.',ok:'Ir a «Mi cuenta»'})) location.hash='#/cuenta?seguridad=1'; return; }
+        if(state.me?.security?.stripe_needs_totp){ if(await wdConfirm({title:'Activa antes la verificación en dos pasos',text:'Es obligatoria para quien cobra online: protege el dinero y los datos de pago de tus clientes. Actívala en «Mi cuenta» y vuelve aquí para conectar Stripe.',ok:'Ir a «Mi cuenta»'})) location.hash='#/cuenta?seguridad=1'; return; }
         try{const r=await postJSON('/api/payments/connect/onboard',body);location.href=r.url;}catch(e){toast(e.message)}});
       $('#stripe-sync',mount)?.addEventListener('click',async()=>{try{await postJSON('/api/payments/connect/sync',body);toast('Estado actualizado.');renderProviderPayments(mountId,centerId);}catch(e){toast(e.message)}});
       $('#stripe-dashboard',mount)?.addEventListener('click',async()=>{try{const r=await postJSON('/api/payments/connect/login',body);window.open(r.url,'_blank','noopener');}catch(e){toast(e.message)}});
@@ -5978,7 +5978,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   navMobile();
   initLanguage();
   // v50.48 · App mode: what /js/wd-app.js uses from this file. Only inside the app (or with «?app=1»).
-  const WD_APP_ASSETS='50.51';
+  const WD_APP_ASSETS='50.52';
   function wdLoadApp(){
     window.WD={app:WD_APP,state,$,$$,escapeHtml,api,postJSON,toast,setApp,route,loadMe,currentLanguage,translateString,translateTree,applyLanguage,
       wdIcon,wdLocale,fmtDate,wdMoney,wdLongDay,wdToday,daysUntil,wdDeadline,bookingStatus,experienceStatus,initials,goLogin,wdOpenCheckout,wdAppPay,

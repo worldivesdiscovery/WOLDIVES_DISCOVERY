@@ -24,9 +24,10 @@ Para no repetirlos en cada actividad:
 
 | Código | Destinatario | Papel | Ubicación y garantías |
 |---|---|---|---|
-| **HOST** | {{hosting}} (VPS) | Encargado | UE |
+| **HOST** | Hostinger, {{hosting}} (VPS KVM 2) | Encargado | UE: {{hosting_location}} (Alemania o Francia, decisión del titular del 14/10/2026) |
+| **LOGS** | Better Stack (sede en Praga), registros técnicos y de seguridad (v50.52) | Encargado | Región de datos Europa (DE) **[PENDIENTE ABOGADO: confirmar la entidad que firma el DPA y si hay transferencias fuera del EEE por soporte o subencargados]** |
 | **SMTP** | Proveedor de correo **[pendiente; recomendado Brevo]** (`WOD_SMTP_HOST`) | Encargado | Brevo: UE. Otro proveedor: comprobar |
-| **BACKUP** | Almacenamiento externo de copias (`WOD_BACKUP_COMMAND`) **[pendiente]** | Encargado | Recomendado UE y cifrado (`docs/despliegue/README.md`, apartado 7) |
+| **BACKUP** | Almacenamiento externo de copias (`WOD_BACKUP_COMMAND`): {{backup_provider}} **[pendiente de decisión: proveedor en la UE fuera de Hostinger]** | Encargado | UE; las copias salen ya cifradas (AES-256-GCM) |
 | **STRIPE** | Stripe Payments Europe Ltd. | **[PENDIENTE ABOGADO]** (ver el anexo de encargo, A.3) | Irlanda, con transferencias a Stripe, Inc. (EE. UU.) bajo el Marco de Privacidad de Datos UE-EE. UU. y cláusulas tipo |
 | **CENTRO** | Centro o profesional con el que se reserva | Responsable independiente | Donde esté el centro (puede ser fuera del EEE: **[PENDIENTE ABOGADO]**, ver más abajo) |
 
@@ -229,10 +230,10 @@ Nota: las cuentas profesionales y de administrador no se borran por inactividad 
 | Finalidad | Seguridad de la web, prevención del fraude, investigación de incidentes, trazabilidad de acciones de administración y de los equipos de los centros |
 | Base jurídica | Interés legítimo (art. 6.1.f); aceptaciones legales: obligación legal / prueba |
 | Interesados | Todas las personas usuarias y visitantes |
-| Datos | `logs/access.log`: fecha, **IP truncada** (/24 IPv4, /48 IPv6), método y ruta **sin cadena de consulta**, estado. `audit_log`: usuario, acción, entidad, detalles (algunos con `ip_hash`), `center_id`. `legal_acceptances` (documento, versión, fecha, `ip_hash`). Contadores de intentos en memoria |
-| Destinatarios | HOST |
-| Transferencias | No |
-| Plazo | Registro de accesos: **14 días** (`WOD_LOG_RETENTION_DAYS`). Registro de actividad: **12 meses**, conservando siempre las **últimas 300 entradas** (`audit_months`, `audit_keep`). Aceptaciones: sin borrado en el código (la privacidad dice «hasta 5 años después») |
+| Datos | `logs/access.log`: fecha, **IP truncada** (/24 IPv4, /48 IPv6), método y ruta **sin cadena de consulta**, estado. Registro de accesos del proxy (Caddy), con los mismos filtros. `audit_log`: usuario, acción, entidad, detalles (algunos con `ip_hash`), `center_id`. `legal_acceptances` (documento, versión, fecha, `ip_hash`). **Enviado a Better Stack (v50.52):** sucesos de seguridad e inicios de sesión fallidos (tipo, número de usuario, `ip_hash`, ruta, método) y el registro de accesos del proxy; nunca nombres, emails, teléfonos, testigos ni trazas de error |
+| Destinatarios | HOST, LOGS |
+| Transferencias | Según LOGS |
+| Plazo | Registro de accesos: **14 días** en el servidor (`WOD_LOG_RETENTION_DAYS`, Caddy `roll_keep_for 336h`). En Better Stack: **30 días** (plan Nano UE; 3 días con el plan gratuito, solo para montarlo). Registro de actividad: **12 meses**, conservando siempre las **últimas 300 entradas** (`audit_months`, `audit_keep`). Aceptaciones: sin borrado en el código (la privacidad dice «hasta 5 años después») |
 | Seguridad | `WOD_LOG_IP=truncated` por defecto; IP real solo desde proxies de confianza |
 
 ## 16. Copias de seguridad
@@ -246,7 +247,7 @@ Nota: las cuentas profesionales y de administrador no se borran por inactividad 
 | Destinatarios | HOST, BACKUP |
 | Transferencias | Según BACKUP |
 | Plazo | Rotación: **48 copias horarias, 30 diarias y 12 mensuales** (`WOD_BACKUP_KEEP_HOURLY/_DAILY/_MONTHLY`). Un dato borrado puede seguir en las copias hasta **12 meses**. Copias previas a migraciones (`backup_database()`): **sin rotación** **[PENDIENTE TITULAR]** |
-| Seguridad | Permisos `0600`; comprobación `quick_check` de cada copia; aviso si falla la copia o la copia externa. **No están cifradas en origen** (ver el anexo, A.4) |
+| Seguridad | Permisos `0600`; comprobación `quick_check` de cada copia; aviso si falla la copia o la copia externa; **cifradas en origen** (AES-256-GCM con `WOD_BACKUP_KEY`, desde la v50.51); restauración de prueba mensual desde la copia externa (`scripts/despliegue/restauracion_prueba.sh`) |
 
 ## 17. Mapas y búsqueda de localidades
 

@@ -44,7 +44,9 @@ Wir treffen keine automatisierten Entscheidungen, die Sie erheblich beeinträcht
 
 - **Das Zentrum oder der Profi, bei dem Sie buchen:** erhält die Buchungsdaten und Ihre Kontaktdaten. Es bzw. er sieht Ihr Taucherprofil und Ihre Dokumente **nur, wenn Sie selbst dort gebucht haben** (solange die Buchung läuft), **oder wenn Sie Ihre Daten** beim Check-in mit seinem QR-Code **freigeben**. Sie können die Freigabe unter „Mein Konto → Zentren, die Ihr Profil sehen“ beenden.
 - **Stripe Payments Europe Ltd.** (Irland): wickelt die Zahlung **auf dem Stripe-Konto des Zentrums** sowie Erstattungen ab. Stripe ist für die von ihm verarbeiteten Zahlungsdaten verantwortlich.
-- **Hosting-Anbieter:** {{hosting}}, innerhalb des Europäischen Wirtschaftsraums.
+- **Hosting-Anbieter:** {{hosting}}. Der Server steht in {{hosting_location}}, innerhalb der Europäischen Union.
+- **Sicherungskopien:** werden verschlüsselt auf unserem eigenen Server und bei {{backup_provider}}, innerhalb der Europäischen Union, als Auftragsverarbeiter aufbewahrt.
+- **Technische und Sicherheitsprotokolle:** Better Stack (mit Sitz in Prag), mit den Daten in seiner Region Europa, als Auftragsverarbeiter. Erhält nur die Sicherheitsprotokolle (fehlgeschlagene oder gesperrte Anmeldeversuche, verweigerte Zugriffe, Warnungen zu gefälschten Signaturen) und das Zugriffsprotokoll der Website, mit gekürzter oder in einen Fingerabdruck umgewandelter IP-Adresse und ohne Ihren Namen, Ihre E-Mail-Adresse oder Telefonnummer. Sie dienen dazu, Angriffe und Störungen zu erkennen und zu verhindern, dass jemand diese Spur von unserem Server aus löscht.
 - **E-Mail-Anbieter:** der SMTP-Dienst, der unsere E-Mails versendet, als Auftragsverarbeiter.
 - **Kartendienste:** Die Basiskarte wird von unserem eigenen Server ausgeliefert. Die Satellitenansicht (Esri) wird über unseren Server abgerufen, der Ihre IP nicht an Esri übermittelt. Die bathymetrische Ebene von GEBCO wird direkt von dessen Servern geladen, die Ihre IP erhalten. Einzelheiten in der [Cookie-Richtlinie und Dienste Dritter](#/legal/cookies).
 - **Eingebettete Videos** (YouTube, Vimeo, Google Maps): Sie werden nur geladen, wenn Sie auf „Video laden“ klicken. Ab diesem Moment erhält der Anbieter Ihre IP.
@@ -61,7 +63,8 @@ Einige dieser Anbieter können Daten außerhalb des Europäischen Wirtschaftsrau
 | Buchungen und Zahlungen | 6 Jahre, ohne Ihren Namen, wenn Sie Ihr Konto löschen (handels- und steuerrechtliche Pflichten des Zentrums und unsere) |
 | Mitteilungen der Zentren | Standardmäßig 24 Monate |
 | Sitzungen | Bis zur Abmeldung oder nach 8 Stunden Inaktivität |
-| Sicherheitsprotokolle mit IP | 14 Tage; das Aktivitätsprotokoll 12 Monate, mit Ausnahme der letzten 300 Einträge |
+| Sicherheits- und Zugriffsprotokolle mit gekürzter IP | 14 Tage auf unserem Server und 30 Tage bei Better Stack; das Aktivitätsprotokoll 12 Monate, mit Ausnahme der letzten 300 Einträge |
+| Sicherungskopien | Verschlüsselt: stündliche 48 Stunden, tägliche 30 Tage, monatliche 12 Monate. Was Sie löschen, verschwindet nach Ablauf dieser Fristen aus den Sicherungskopien |
 | Annahme rechtlicher Dokumente und Einwilligungen | Solange Sie das Konto haben und bis zu 5 Jahre danach |
 
 ## 6. Ihre Rechte
@@ -78,7 +81,7 @@ Wenn Sie mit unserer Antwort nicht einverstanden sind, können Sie Beschwerde be
 
 ## 7. Sicherheit
 
-Verschlüsselte Verbindung (HTTPS), verschlüsselte Passwörter, optionale Zwei-Faktor-Authentifizierung (für Administratoren verpflichtend), protokollierte und beschränkte Zugriffe auf Dokumente sowie verschlüsselte Sicherungskopien. Sollte es jemals eine Sicherheitsverletzung geben, die Sie betrifft, informieren wir Sie gemäß den gesetzlichen Vorschriften.
+Verschlüsselte Verbindung (HTTPS), verschlüsselte Passwörter, optionale Zwei-Faktor-Authentifizierung (verpflichtend für Administratoren und für alle, die online kassieren oder die Zahlungen eines Zentrums sehen), protokollierte und beschränkte Zugriffe auf Dokumente, Virenprüfung hochgeladener Dokumente, außerhalb des Servers aufbewahrte Sicherheitsprotokolle sowie verschlüsselte Sicherungskopien. Sollte es jemals eine Sicherheitsverletzung geben, die Sie betrifft, informieren wir Sie gemäß den gesetzlichen Vorschriften.
 
 ## 8. Minderjährige
 

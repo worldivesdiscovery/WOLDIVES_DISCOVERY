@@ -44,7 +44,9 @@ Wij nemen geen geautomatiseerde besluiten die u in aanmerkelijke mate treffen. D
 
 - **Het centrum of de professional bij wie u boekt:** ontvangt de boekingsgegevens en uw contactgegevens. Het ziet uw duikersprofiel en uw documenten **alleen als u zelf bij hem hebt geboekt** (zolang de boeking loopt) **of als u uw gegevens met hem deelt** door in te checken met zijn QR-code. U kunt het delen stopzetten via „Mijn account → Centra die uw profiel zien”.
 - **Stripe Payments Europe Ltd.** (Ierland): verwerkt de betaling **op het Stripe-account van het centrum** en de terugbetalingen. Stripe is verwerkingsverantwoordelijke voor de betalingsgegevens die het verwerkt.
-- **Hostingprovider:** {{hosting}}, binnen de Europese Economische Ruimte.
+- **Hostingprovider:** {{hosting}}. De server staat in {{hosting_location}}, binnen de Europese Unie.
+- **Back-ups:** versleuteld bewaard op onze eigen server en bij {{backup_provider}}, binnen de Europese Unie, als verwerker.
+- **Technische en beveiligingslogboeken:** Better Stack (gevestigd in Praag), met de gegevens in de regio Europa, als verwerker. Ontvangt alleen de beveiligingslogboeken (mislukte of geblokkeerde inlogpogingen, geweigerde toegang, waarschuwingen over vervalste handtekeningen) en het toegangslogboek van de website, met uw IP-adres ingekort of omgezet in een vingerafdruk en zonder uw naam, e-mailadres of telefoonnummer. Ze dienen om aanvallen en storingen op te sporen en ervoor te zorgen dat niemand dat spoor vanaf onze server kan wissen.
 - **E-mailprovider:** de SMTP-dienst die onze e-mails verstuurt, als verwerker.
 - **Kaartdiensten:** de basiskaart wordt vanaf onze eigen server geleverd. De satellietweergave (Esri) wordt via onze server opgevraagd, die uw IP-adres niet aan Esri doorgeeft. De bathymetrische laag van GEBCO wordt rechtstreeks van de servers van GEBCO gedownload, die uw IP-adres ontvangen. Details in het [Beleid inzake cookies en diensten van derden](#/legal/cookies).
 - **Ingesloten video's** (YouTube, Vimeo, Google Maps): worden alleen geladen als u op „Video laden” klikt. Vanaf dat moment ontvangt de aanbieder uw IP-adres.
@@ -61,7 +63,8 @@ Sommige van deze aanbieders kunnen gegevens buiten de Europese Economische Ruimt
 | Boekingen en betalingen | 6 jaar, zonder uw naam als u uw account verwijdert (handels- en fiscale verplichtingen van het centrum en van ons) |
 | Berichten van de centra | Standaard 24 maanden |
 | Sessies | Tot u uitlogt of na 8 uur inactiviteit |
-| Beveiligingslogboeken met IP-adres | 14 dagen; het activiteitenlogboek 12 maanden, met uitzondering van de laatste 300 vermeldingen |
+| Beveiligings- en toegangslogboeken met ingekort IP-adres | 14 dagen op onze server en 30 dagen bij Better Stack; het activiteitenlogboek 12 maanden, met uitzondering van de laatste 300 vermeldingen |
+| Back-ups | Versleuteld: per uur 48 uur, dagelijks 30 dagen, maandelijks 12 maanden. Wat u verwijdert, verdwijnt uit de back-ups na afloop van die termijnen |
 | Aanvaarding van juridische documenten en toestemmingen | Zolang u het account hebt en tot 5 jaar daarna |
 
 ## 6. Uw rechten
@@ -78,7 +81,7 @@ Als u het niet eens bent met ons antwoord, kunt u een klacht indienen bij de **S
 
 ## 7. Beveiliging
 
-Versleutelde verbinding (HTTPS), versleutelde wachtwoorden, optionele tweestapsverificatie (verplicht voor beheerders), geregistreerde en beperkte toegang tot documenten, en versleutelde back-ups. Mocht er ooit een beveiligingsincident plaatsvinden dat u treft, dan stellen wij u overeenkomstig de wet op de hoogte.
+Versleutelde verbinding (HTTPS), versleutelde wachtwoorden, optionele tweestapsverificatie (verplicht voor beheerders en voor wie online betalingen ontvangt of de betalingen van een centrum ziet), geregistreerde en beperkte toegang tot documenten, antivirus voor geüploade documenten, beveiligingslogboeken buiten de server bewaard en versleutelde back-ups. Mocht er ooit een beveiligingsincident plaatsvinden dat u treft, dan stellen wij u overeenkomstig de wet op de hoogte.
 
 ## 8. Minderjarigen
 
