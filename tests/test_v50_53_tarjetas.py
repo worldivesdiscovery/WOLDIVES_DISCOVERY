@@ -231,8 +231,13 @@ class Tarjetas(ServerTestCase):
     def test_without_template_the_neutral_photo(self):
         sid = self.new_service(title='Sesión de fotos y vídeo bajo el agua', template=None)
         p = self.card(sid)['photo']
-        self.assertEqual((p['source'], p['src']), ('neutral', '/img/portada/fondo.webp'))
-        self.assertTrue(p['veil']['light'] >= 0.5 and p['veil']['dark'] >= 0.5)
+        # Our own drawn background, in the card sizes (no third-party rights; small to decode on a phone).
+        self.assertEqual((p['source'], p['src']), ('neutral', '/img/servicios/neutra-960.webp'))
+        self.assertIn('/img/servicios/neutra-480.webp 480w', p['srcset'])
+        self.assertEqual(self.client().get(p['jpg']).status, 200)
+        report = {x['path']: x for x in self.admin.get('/api/admin/images').json['items']}
+        self.assertFalse(report['/img/servicios/neutra-960.webp']['missing'])               # origin recorded: our own image
+        self.assertTrue(all(0 <= p['veil'][k] <= 0.95 for k in ('light', 'dark')), p['veil'])   # measured; the card uses max(global veil, this)
 
     def test_veil_setting(self):
         self.assertEqual(self.admin.post('/api/admin/service-card-veil', {'value': 0.7}).json['value'], 0.7)

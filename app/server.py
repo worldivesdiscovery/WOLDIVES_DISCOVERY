@@ -3954,6 +3954,12 @@ def images_report(db):
     for folder in ('portada', 'destinos', 'iconos'):                  # v50.46: images ordered by type
         for f in sorted((PUBLIC / 'img' / folder).glob('*')):
             if f.is_file() and f.suffix.lower() in ('.webp', '.png', '.jpg', '.jpeg', '.svg'): add(f'/img/{folder}/' + f.name, 'Archivos de la web')
+    for f in sorted((PUBLIC / 'img' / 'servicios').glob('*')):   # v50.53: neutral background of the service cards, drawn by the program
+        if f.is_file() and f.suffix.lower() in ('.webp', '.jpg'):
+            add('/img/servicios/' + f.name, 'Tarjetas de servicio (foto neutra)', 'WORLDIVES DISCOVERY', 'Imagen propia: degradado dibujado por el programa, sin derechos de terceros')
+    # v50.53: the photos of «Plantillas de servicios», with the credit written by the administration.
+    for r in db.execute('SELECT slug,names,photo_base,photo_credit FROM service_catalog WHERE photo_base IS NOT NULL').fetchall():
+        add(f"/assets/uploads/{CARD_FOLDERS['template']}/{r['photo_base']}-960.webp", 'Plantilla de servicio: ' + wtpl.text_in(r['names'], 'es')[0], r['photo_credit'] or '')
     for f in sorted((PUBLIC / 'img' / 'marca').glob('*')):       # v50.45: the brand (logo, icons) is our own
         if f.is_file() and f.suffix.lower() in ('.webp', '.png', '.jpg', '.jpeg', '.svg', '.ico'):
             add('/img/marca/' + f.name, 'Marca', 'WORLDIVES DISCOVERY', 'Marca propia (docs/marca/README.md)')
@@ -5867,7 +5873,8 @@ CARD_PHOTO_BYTES = 6 * 1024 * 1024
 CARD_VEIL_DEFAULT = 0.8
 CARD_DEFAULT_VEIL = {'light': 0.86, 'dark': 0.82}      # an image we have not measured: safe for any photo
 SERVICE_NEUTRAL_KEY = 'servicio:neutra'
-SERVICE_NEUTRAL_DEFAULT = '/img/portada/fondo.webp'
+SERVICE_NEUTRAL_BASE = '/img/servicios/neutra'                # our own drawn deep-water background, in the card sizes
+SERVICE_NEUTRAL_DEFAULT = SERVICE_NEUTRAL_BASE + '-960.webp'
 PENDING_PHOTOS = STORAGE / 'fotos-pendientes'
 CARD_FOLDERS = {'service': 'servicios', 'template': 'plantillas'}
 CARD_SMALL_MESSAGE = wimg.CARD_SMALL_MESSAGE
@@ -5927,7 +5934,11 @@ def _build_service_catalog(db):
         base = f"/assets/uploads/{CARD_FOLDERS['template']}/{r['photo_base']}" if r['photo_base'] else None
         r['photo'] = wtpl.photo_payload(base, r['photo_widths'], r['photo_jpg'], r['photo_focal'], r['photo_veil_light'], r['photo_veil_dark'], source='template')
     row = db.execute('SELECT image_url FROM site_media WHERE key=?', (SERVICE_NEUTRAL_KEY,)).fetchone()
-    neutral = plain_photo((row['image_url'] if row else None) or SERVICE_NEUTRAL_DEFAULT, 'neutral')
+    chosen = row['image_url'] if row and row['image_url'] and row['image_url'] != SERVICE_NEUTRAL_DEFAULT else None
+    if chosen: neutral = plain_photo(chosen, 'neutral')
+    else:
+        veil = image_veil(SERVICE_NEUTRAL_DEFAULT)
+        neutral = wtpl.photo_payload(SERVICE_NEUTRAL_BASE, '480,960,1440', 960, '50,50', veil['light'], veil['dark'], source='neutral')
     return {'rows': rows, 'by_id': {r['id']: r for r in rows}, 'by_slug': {r['slug']: r for r in rows}, 'neutral': neutral}
 
 
