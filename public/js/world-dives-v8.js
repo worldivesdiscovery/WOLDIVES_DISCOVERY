@@ -643,73 +643,88 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const typeImg=t=>{ const n=TYPE_IMAGES[t.key]||'fondo'; return media('type:'+t.key,`/img/${WD_PORTADA.has(n)?'portada':'destinos'}/${n}.webp`); };
   const TYPE_LEVELS=[['all','Todos'],['start','Para empezar'],['mid','Con experiencia'],['adv','Avanzado y técnico']];
   const typeLevel=t=>/todos los niveles|iniciaci/i.test(t.level)?'start':/intermedio/i.test(t.level)?'mid':'adv';
+  // v50.54 (owner's brief, point 4): a type of dive is chosen on the same page. The address changes (#/tipos?t=…, so it
+  // can be shared and «Atrás» works), the page does not reload nor jump to the top: only a smooth scroll to the results.
+  // Each type shows how many dive sites it has; a type with none cannot be chosen. A choice with nothing to show says why
+  // and suggests similar types that do have dive sites.
   function typeCard(t){
-    return `<a class="tp-card ${t.count?'':'is-empty'}" href="#/tipos?t=${encodeURIComponent(t.key)}" data-level="${typeLevel(t)}">
-      <span class="tp-card-media"><img src="${typeImg(t)}" alt="" loading="lazy"></span>
+    const inner=`<span class="tp-card-media"><img src="${typeImg(t)}" alt="" loading="lazy" decoding="async"></span>
       <span class="tp-card-level">${escapeHtml(t.level)}</span>
       <span class="tp-card-body"><strong>${escapeHtml(t.label)}</strong><span class="tp-card-sum">${escapeHtml(t.summary)}</span>
-        <span class="tp-card-meta"><span>${t.count?`${t.count} ${t.count===1?'punto':'puntos'} · ${t.countries} ${t.countries===1?'país':'países'}`:'Aún sin puntos en el catálogo'}</span></span></span>
-    </a>`;
+        <span class="tp-card-meta"><span>${t.count?`${t.count} ${t.count===1?'punto':'puntos'} · ${t.countries} ${t.countries===1?'país':'países'}`:'Aún sin puntos en el catálogo'}</span></span></span>`;
+    return t.count?`<a class="tp-card" href="#/tipos?t=${encodeURIComponent(t.key)}" data-key="${escapeHtml(t.key)}" data-level="${typeLevel(t)}">${inner}</a>`
+      :`<span class="tp-card is-empty" aria-disabled="true" data-key="${escapeHtml(t.key)}" data-level="${typeLevel(t)}" title="${escapeHtml(translateString('Todavía no hay puntos de este tipo'))}">${inner}</span>`;
   }
   async function renderTypes(params){
     params=params instanceof URLSearchParams?params:new URLSearchParams();
-    if(params.get('t')) return renderTypeDetail(params.get('t'));
+    const key=params.get('t')||'';
+    // Already on «Tipos de buceo» (a click on a type, «Atrás» or «Adelante»): only the results change.
+    if($('#app .tp54[data-tipos]')){ await typeResults(key,{scroll:true}); return; }
     let d; try{ d=await api('/api/dive-types'); } catch(err){ if(err.status!==404) throw err; warnOutdatedServer(); d=await legacyDiveTypes(); }
     const items=d.items||[], totals=d.totals||{};
+    renderTypes.items=items;
     const ordered=[...items.filter(t=>t.count>0),...items.filter(t=>!t.count)];
     const byLevel=k=>ordered.filter(t=>typeLevel(t)===k&&t.count>0);
     const guide=[['start','Primeras inmersiones','Con el Open Water ya puedes disfrutar de estas inmersiones.'],['mid','Con algo de experiencia','Recomendable el Advanced y unas cuantas inmersiones registradas.'],['adv','Avanzado y técnico','Exigen formación específica, más gas o procedimientos especiales.']];
-    setApp(`<section class="tp-page">
-      <header class="tp-hero">${heroImg('hero:tipos')}<div class="tp-hero-in">
+    setApp(`<section class="tp-page tp54" data-tipos>
+      <header class="tp-hero tp54-hero">${heroImg('hero:tipos')}<div class="tp-hero-in">
         <p class="eyebrow">Tipos de buceo</p><h1>¿Qué inmersión te apetece?</h1>
-        <p class="lead">Arrecifes, pecios, cuevas, derivas… Elige un tipo de buceo y te mostramos dónde hacerlo, qué nivel necesitas y qué centros te llevan.</p>
+        <p class="lead">Elige un tipo de buceo y te mostramos dónde hacerlo, qué nivel necesitas y qué centros te llevan.</p>
         <div class="tp-hero-stats"><span><strong>${Number(totals.points||0).toLocaleString(wdLocale())}</strong> puntos</span><span><strong>${totals.countries||0}</strong> países</span><span><strong>${items.filter(t=>t.count>0).length}</strong> tipos con puntos</span></div>
       </div></header>
       <div class="tp-wrap">
-        <div class="tp-filter" role="group" aria-label="Filtrar por nivel">${TYPE_LEVELS.map(([k,l],i)=>`<button type="button" class="cd-chip" data-level="${k}" aria-pressed="${i===0}">${l}</button>`).join('')}</div>
+        <div class="tp-filter" role="group" aria-label="Filtrar por nivel">${TYPE_LEVELS.map(([k,l],i)=>`<button type="button" class="cd-chip" data-level="${k}" aria-pressed="${i===0}">${l} <span class="pt-n">${k==='all'?items.filter(t=>t.count).length:byLevel(k).length}</span></button>`).join('')}</div>
         <div class="tp-grid" id="tp-grid">${ordered.map(typeCard).join('')}</div>
+        <p class="tp-level-empty" id="tp-level-empty" hidden></p>
+        <section class="tp-results" id="tp-results" tabindex="-1" aria-live="polite" hidden></section>
         <section class="tp-guide"><div class="tp-guide-head"><p class="eyebrow">Según tu nivel</p><h2>¿Por dónde empiezo?</h2></div>
           <div class="tp-guide-grid">${guide.map(([k,title,txt])=>`<div class="tp-guide-col"><h3>${title}</h3><p>${txt}</p><ul>${byLevel(k).map(t=>`<li><a href="#/tipos?t=${encodeURIComponent(t.key)}">${escapeHtml(t.label)}</a><span>${t.count}</span></li>`).join('')||'<li class="muted">Próximamente</li>'}</ul></div>`).join('')}</div>
         </section>
       </div>
     </section>`);
-    $$('.tp-filter .cd-chip').forEach(b=>b.onclick=()=>{ $$('.tp-filter .cd-chip').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); const k=b.dataset.level; $$('#tp-grid .tp-card').forEach(c=>{ c.hidden=k!=='all'&&c.dataset.level!==k; }); });
+    $$('.tp-filter .cd-chip').forEach(b=>b.onclick=()=>{ $$('.tp-filter .cd-chip').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); const k=b.dataset.level;
+      let shown=0; $$('#tp-grid .tp-card').forEach(c=>{ c.hidden=k!=='all'&&c.dataset.level!==k; if(!c.hidden&&!c.classList.contains('is-empty')) shown++; });
+      const empty=$('#tp-level-empty'); empty.hidden=shown>0; if(!shown) empty.textContent=translateString('Todavía no hay puntos de este nivel. Prueba con «Todos».'); });
+    if(key) await typeResults(key,{scroll:true,first:true});
+  }
+  // The results of one type, under the grid: what it is, its dive sites and the centres that take you there.
+  async function typeResults(key,{scroll=false,first=false}={}){
+    const box=$('#tp-results'); if(!box) return;
+    $$('#tp-grid .tp-card').forEach(c=>c.toggleAttribute('aria-current',c.dataset.key===key));
+    if(!key){ box.hidden=true; box.innerHTML=''; return; }
+    box.hidden=false; box.setAttribute('aria-busy','true');
+    box.innerHTML=`<div class="tp-res-head"><h2>${escapeHtml(typeLabelByKey(key))}</h2><p class="muted">${escapeHtml(translateString('Buscando puntos…'))}</p></div><div class="pt54"><div class="pt-grid">${'<div class="pt-card is-skeleton" aria-hidden="true"><span class="pt-media"></span><span class="pt-info"><i></i><i></i></span></div>'.repeat(4)}</div></div>`;
+    const go=()=>{ if(!scroll) return; const y=box.getBoundingClientRect().top+window.scrollY-(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--wd-hdr'))||0)-12;
+      window.scrollTo({top:Math.max(0,y),behavior:first?'auto':'smooth'}); box.focus({preventScroll:true}); };
+    go();
+    const still=navGuard(); let d;
+    try{ d=await api('/api/dive-types/'+encodeURIComponent(key)); }
+    catch(err){ if(!still()||!box.isConnected) return; box.removeAttribute('aria-busy');
+      const others=(renderTypes.items||[]).filter(t=>t.count>0).slice(0,6);
+      box.innerHTML=`<div class="empty tp-res-empty"><h2>No conocemos ese tipo de buceo</h2><p>Elige uno de estos:</p><div class="cd-chips">${others.map(t=>`<a class="cd-chip" href="#/tipos?t=${encodeURIComponent(t.key)}">${escapeHtml(t.label)} <span class="pt-n">${t.count}</span></a>`).join('')}</div></div>`; translateTree(box); return; }
+    if(!still()||!box.isConnected) return;
+    const t=d.item, pts=d.points||[], centers=d.centers||[], all=`#/puntos?type=${encodeURIComponent(t.key)}`;
+    box.removeAttribute('aria-busy');
+    if(!t.count){
+      const sug=(d.related||[]).filter(r=>r.count>0);
+      box.innerHTML=`<div class="empty tp-res-empty"><h2>${escapeHtml(t.label)}</h2><p>${escapeHtml(translateString('Todavía no hay puntos de este tipo en el catálogo.'))} ${escapeHtml(t.summary||'')}</p>
+        ${sug.length?`<p><strong>Prueba con:</strong></p><div class="cd-chips">${sug.map(r=>`<a class="cd-chip" href="#/tipos?t=${encodeURIComponent(r.key)}">${escapeHtml(r.label)} <span class="pt-n">${r.count}</span></a>`).join('')}</div>`:''}
+        <div class="page-actions" style="justify-content:center">${centers.length?`<a class="btn btn-primary" href="#/centros?type=${encodeURIComponent(t.key)}">Ver centros que lo ofrecen</a>`:''}<a class="btn" href="#/puntos">Ver todos los puntos</a></div></div>`;
+      translateTree(box); return;
+    }
+    const scopeNote=d.centers_scope==='country'?'Todavía ningún centro ha marcado este tipo de inmersión; estos centros trabajan en los países donde se hace.':d.centers_scope==='mixed'?'Incluye centros que trabajan en los mismos países donde se practica.':'';
+    box.innerHTML=`<div class="tp-res-head"><div><p class="eyebrow">${escapeHtml(t.level)} · ${escapeHtml(t.cert)}</p><h2>${escapeHtml(t.label)}</h2><p class="tp-res-sum">${escapeHtml(t.summary)}</p></div>
+        <div class="tp-res-actions"><a class="btn btn-primary" href="${all}">Ver ${t.count===1?'el punto':`los ${t.count} puntos`}</a><a class="btn" href="#/centros?type=${encodeURIComponent(t.key)}">Buscar centros</a></div></div>
+      <div class="pt54"><div class="pt-grid">${pts.slice(0,8).map(pointCard).join('')}</div></div>
+      ${t.count>8?`<p class="tp-res-more"><a href="${all}">Ver los ${t.count} puntos con filtros por región, nivel y profundidad →</a></p>`:''}
+      <details class="tp-res-about"><summary>Cómo es, qué necesitas y un consejo</summary><p>${escapeHtml(t.body)}</p><div class="tp-two"><div class="tp-note"><h3>Qué necesitas</h3><p>${escapeHtml(t.need)}</p></div><div class="tp-note is-tip"><h3>Consejo</h3><p>${escapeHtml(t.tip)}</p></div></div></details>
+      ${centers.length?`<div class="tp-block-head tp-res-centers"><h3>Centros que te llevan</h3><a href="#/centros?type=${encodeURIComponent(t.key)}">Ver todos →</a></div>${scopeNote?`<p class="tp-scope">${scopeNote}</p>`:''}<div class="cd-grid is-compact">${centers.slice(0,3).map(centerCard).join('')}</div>`:''}`;
+    translateTree(box);
   }
   function typePointCard(p){
     const depth=p.max_depth?`${p.min_depth?Math.round(p.min_depth)+'–':''}${Math.round(p.max_depth)} m`:'';
     const where=[p.region&&p.region!==p.country?p.region:'',p.country].filter(Boolean).map(escapeHtml).join(' · ');
     return `<a class="tp-point" href="${pointHref(p.id)}"><img src="${escapeHtml((p.photo&&!PLACEHOLDER_IMG.test(p.photo)?p.photo:"")||WD_COUNTRY_IMAGES[p.country]||WD_SEA_IMAGES[Math.abs(Number(p.id||0))%WD_SEA_IMAGES.length])}" alt="" loading="lazy"><span><strong>${escapeHtml(p.name)}</strong><small>${where}</small><small class="tp-point-meta">${[depth,p.difficulty].filter(Boolean).map(escapeHtml).join(' · ')}</small></span></a>`;
-  }
-  async function renderTypeDetail(key){
-    let d;
-    const still=navGuard(); try{ d=await api('/api/dive-types/'+encodeURIComponent(key)); }
-    catch(err){ if(!still()) return; const legacy=err.status===404 && DIVE_TYPE_FALLBACK.find(t=>wdKey(t[0])===key); if(legacy && /Endpoint/.test(err.message)){ warnOutdatedServer(); location.hash='#/puntos?type='+encodeURIComponent(legacy[0]); return; } setApp(`<section class="page"><div class="empty"><h2>Tipo de buceo no encontrado</h2><p>${escapeHtml(err.message)}</p><a class="btn btn-primary" href="#/tipos">Ver todos los tipos</a></div></section>`); return; }
-    if(!still()) return; const t=d.item, pts=d.points||[], centers=d.centers||[];
-    const scopeNote=d.centers_scope==='country'?'Todavía ningún centro ha marcado este tipo de inmersión; estos centros trabajan en los países donde se hace.':d.centers_scope==='mixed'?'Incluye centros que trabajan en los mismos países donde se practica.':'';
-    const pointsLink=`#/puntos?type=${encodeURIComponent(t.label)}`;
-    setApp(`<section class="tp-page tp-detail">
-      <header class="tp-hero tp-dhero"><img class="tp-hero-img" src="${typeImg(t)}" alt=""><div class="tp-hero-in">
-        <nav class="tp-crumbs"><a href="#/tipos">Tipos de buceo</a><span>/</span>${escapeHtml(t.label)}</nav>
-        <h1>${escapeHtml(t.label)}</h1><p class="lead">${escapeHtml(t.summary)}</p>
-        <div class="tp-actions">${t.count?`<a class="btn btn-primary" href="${pointsLink}">Ver ${t.count===1?'el punto':`los ${t.count} puntos`}</a>`:''}<a class="btn btn-light" href="#/centros?type=${encodeURIComponent(t.key)}">Buscar centros</a></div>
-      </div></header>
-      <div class="tp-facts"><div><small>Nivel</small><strong>${escapeHtml(t.level)}</strong></div><div><small>Certificación recomendada</small><strong>${escapeHtml(t.cert)}</strong></div><div><small>En el catálogo</small><strong>${t.count?`${t.count} ${t.count===1?'punto':'puntos'} · ${t.countries} ${t.countries===1?'país':'países'}`:'Próximamente'}</strong></div></div>
-      <div class="tp-wrap tp-dbody">
-        <div class="tp-main">
-          <section class="tp-block"><h2>Cómo es</h2><p class="tp-body">${escapeHtml(t.body)}</p>
-            <div class="tp-two"><div class="tp-note"><h3>Qué necesitas</h3><p>${escapeHtml(t.need)}</p></div><div class="tp-note is-tip"><h3>Consejo</h3><p>${escapeHtml(t.tip)}</p></div></div></section>
-          <section class="tp-block"><div class="tp-block-head"><h2>Dónde hacerlo</h2>${t.count>9?`<a href="${pointsLink}">Ver los ${t.count} puntos →</a>`:''}</div>
-            ${pts.length?`<div class="tp-points">${pts.slice(0,9).map(typePointCard).join('')}</div>`:'<div class="empty">Aún no hay puntos catalogados de este tipo. Los centros pueden proponer nuevos puntos desde su panel.</div>'}</section>
-          <section class="tp-block"><div class="tp-block-head"><h2>Centros que te llevan</h2>${centers.length?`<a href="#/centros?type=${encodeURIComponent(t.key)}">Ver todos →</a>`:''}</div>
-            ${scopeNote?`<p class="tp-scope">${scopeNote}</p>`:''}
-            ${centers.length?`<div class="cd-grid is-compact">${centers.slice(0,6).map(centerCard).join('')}</div>`:'<div class="empty"><p>Todavía no hay centros en esta zona.</p><a class="btn" href="#/registro">¿Tienes un centro? Únete a WORLDIVES</a></div>'}</section>
-        </div>
-        <aside class="tp-side">
-          ${(t.top_countries||[]).length?`<div class="tp-side-card"><h3>Países con más puntos</h3><ol class="tp-countries">${t.top_countries.map(c=>`<li><a href="${pointsLink}&country=${encodeURIComponent(c.name)}">${escapeHtml(c.name)}</a><span>${c.count}</span></li>`).join('')}</ol></div>`:''}
-        </aside>
-      </div>
-      ${(d.related||[]).length?`<section class="tp-wrap tp-related"><h2>Otros tipos de buceo</h2><div class="tp-grid is-small">${d.related.map(typeCard).join('')}</div></section>`:''}
-    </section>`);
   }
   // ===========================================================================
   // Páginas públicas v50.24 — portada, Explorar, Puntos, ficha de punto,
@@ -783,6 +798,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // The visitor on a map: a dot when the position is precise; an area as large as its error when it is approximate (v50.54).
   const wdMeMarker=pos=>wdLocation.precise(pos)?L.circleMarker([pos.lat,pos.lon],{radius:7,color:'#fff',weight:2,fillColor:'#1a73e8',fillOpacity:1}).bindTooltip(translateString('Tu ubicación'))
     :L.circle([pos.lat,pos.lon],{radius:Math.max(pos.accuracy||0,1000),color:'#1a73e8',weight:1,fillColor:'#1a73e8',fillOpacity:.12,interactive:true}).bindTooltip(translateString('Tu ubicación aproximada'));
+  // v50.54: the height of the sticky header, for what sticks below it (the filters of «Puntos») and for scrolling to a result.
+  function wdHeaderHeight(){ const h=document.querySelector('.site-header'); if(!h) return; const fixed=getComputedStyle(h).position==='sticky';
+    document.documentElement.style.setProperty('--wd-hdr',`${fixed?Math.round(h.getBoundingClientRect().height):0}px`); }
+  const wdNum=n=>Number(n).toLocaleString(wdLocale(),{maximumFractionDigits:1});
   const wdKm=km=>km==null?'':`${Number(km).toLocaleString(wdLocale(),{maximumFractionDigits:km<10?1:0})} km`;
 
   // ---------------------------------------------------------------------------
@@ -826,27 +845,6 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     return {title:d?.home_country?`Puntos de buceo en ${d.home_country}`:'Puntos de buceo',items:d?.items||[],place:null};
   }
 
-  // A small map that shows exactly the points of a list, numbered in the same order as the cards (Puntos de buceo).
-  function wdListMap(el){
-    if(!el||!window.L){ if(el) el.innerHTML='<div class="map-fallback"><strong>El mapa no está disponible ahora mismo</strong><span>La lista muestra los mismos puntos.</span></div>'; return null; }
-    wdTileDefaults(); const map=wdLimitMap(L.map(el,{zoomControl:false,scrollWheelZoom:false,zoomSnap:.25})).setView([40.2,-3.5],5);
-    map.addControl(L.control.zoom({position:'bottomright'})); wdLayerControl(map);
-    const layer=L.layerGroup().addTo(map), extra=L.layerGroup().addTo(map); let here=null, place=null;
-    const icon=n=>L.divIcon({className:'pt-num-wrap',html:`<span class="pt-num">${n}</span>`,iconSize:[28,28],iconAnchor:[14,14]});
-    return {map,
-      show(items,{fit=true}={}){ layer.clearLayers(); const pts=[];
-        items.forEach((p,i)=>{ if(p.latitude==null||p.longitude==null) return; const m=L.marker([p.latitude,p.longitude],{icon:icon(i+1),title:`${i+1}. ${p.name}`,alt:`${i+1}. ${p.name}`,keyboard:true,riseOnHover:true});
-          m.on('click',()=>{ const card=document.getElementById('pt-card-'+p.id); if(card){ card.scrollIntoView({behavior:'smooth',block:'center'}); card.classList.add('is-flash'); setTimeout(()=>card.classList.remove('is-flash'),1600); } });
-          m.addTo(layer); pts.push([p.latitude,p.longitude]); });
-        if(here) pts.push([here.lat,here.lon]); if(place) pts.push([place.lat,place.lon]);
-        if(fit&&pts.length){ try{ map.fitBounds(L.latLngBounds(pts),{paddingTopLeft:[32,84],paddingBottomRight:[56,40],maxZoom:11}); }catch{} } },
-      // Where the visitor is (rounded) and the searched place, drawn apart from the numbered points.
-      mark({me:pos=null,place:pl=null}={}){ here=pos; place=pl; extra.clearLayers();
-        if(pos) wdMeMarker(pos).addTo(extra);
-        if(pl) L.circleMarker([pl.lat,pl.lon],{radius:8,color:'#076898',weight:2,fillColor:'#fff',fillOpacity:1}).bindTooltip(escapeHtml(pl.label||'')).addTo(extra); },
-      invalidate(){ setTimeout(()=>map.invalidateSize(),80); }};
-  }
-
   // Capa ligera del mapa (todos los puntos con coordenadas) compartida por portada, Explorar y Top 10.
   let __mapLayer=null, __mapLayerAt=0;
   async function loadMapLayer(){
@@ -885,26 +883,19 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const depth=depthText(p); const where=placeText(p)||p.country||'';
     return `${p.dive_type?p.dive_type+' en ':'Punto de buceo en '}${where}.${depth?` Profundidad entre ${depth}.`:''}${p.difficulty?` Nivel ${String(p.difficulty).toLowerCase()}.`:''} Consulta con el centro las condiciones del día antes de reservar.`;
   }
-  // n: its number in the list (the same number as its marker on the map); p.distance_km when the visitor shared the location.
-  function pointCard(p,n){
-    const types=(p.types||[]).slice(0,2).map(typeLabelByKey), depth=depthText(p);
-    const pending=p.verification_status && p.verification_status!=='verified';
-    return `<article class="cd-card pt-card" id="pt-card-${escapeHtml(String(p.id))}">
-      <a class="cd-media" href="${pointHref(p.id)}" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(p.photo||pointImg(p))}" alt="" loading="lazy" width="400" height="225">
-        ${n?`<span class="pt-num" aria-hidden="true">${n}</span>`:''}${p.distance_km!=null?`<span class="pt-dist">${wdIcon('pin',13)}${escapeHtml(wdKm(p.distance_km))}</span>`:''}
-        <span class="cd-badges">${types.map(t=>`<span class="cd-badge">${escapeHtml(t)}</span>`).join('')}</span></a>
-      <div class="cd-body pt-body">
-        <h3><a href="${pointHref(p.id)}">${escapeHtml(p.name)}</a></h3>
-        <p class="cd-place">${wdIcon('pin',14)}${escapeHtml(placeText(p)||p.country||'')}</p>
-        <div class="pt-facts">${p.difficulty?`<span>${wdIcon('level',14)}${escapeHtml(p.difficulty)}</span>`:''}${p.dive_type?`<span>${escapeHtml(p.dive_type)}</span>`:''}${pending?'<span class="muted">Ubicación por verificar</span>':''}</div>
-        ${p.excerpt?`<p class="cd-desc">${escapeHtml(p.excerpt)}</p>`:''}
-      </div>
-      <div class="cd-foot pt-foot">
-        <div class="cd-fact"><small>Profundidad</small><strong>${depth?escapeHtml(depth):'<span class="muted">Por confirmar</span>'}</strong></div>
-        <div class="cd-fact"><small>Centros</small><strong>${p.centers_count?`${p.centers_count} ${p.centers_count==1?'centro':'centros'}`:'<span class="muted">Por asociar</span>'}</strong></div>
-        <a class="btn cd-cta" href="${pointHref(p.id)}">Ver punto</a>
-      </div>
-    </article>`;
+  // v50.54 (owner's brief, point 2): one compact card for «Puntos de buceo», Explorar and the suggestions. Photo, name,
+  // region, depth, level and number of centres; missing data is left out (never «Por confirmar»). The whole card is
+  // one link. p.distance_km only when the visitor's position is precise.
+  function pointCard(p){
+    const depth=depthText(p), type=(p.types||[]).slice(0,1).map(typeLabelByKey)[0]||'', level=p.difficulty||LEVEL_LABELS[p.level]||'';
+    const where=placeText(p)||p.country||'', n=Number(p.centers_count||0);
+    return `<article class="pt-card" id="pt-card-${escapeHtml(String(p.id))}"><a class="pt-link" href="${pointHref(p.id)}">
+      <span class="pt-media"><img src="${escapeHtml(p.photo||pointImg(p))}" alt="" loading="lazy" decoding="async" width="400" height="300">
+        ${type?`<span class="pt-type">${escapeHtml(type)}</span>`:''}${p.distance_km!=null?`<span class="pt-dist">${wdIcon('pin',13)}${escapeHtml(wdKm(p.distance_km))}</span>`:''}</span>
+      <span class="pt-info"><strong class="pt-name">${escapeHtml(p.name)}</strong>
+        ${where?`<span class="pt-where">${escapeHtml(where)}</span>`:''}
+        <span class="pt-facts">${depth?`<span>${wdIcon('depth',14)}${escapeHtml(depth)}</span>`:''}${level?`<span>${wdIcon('level',14)}${escapeHtml(level)}</span>`:''}${n?`<span>${wdIcon('home',14)}${n} ${n===1?'centro':'centros'}</span>`:''}</span></span>
+    </a></article>`;
   }
 
   function sectionHead(eyebrow,title,link,linkText){ return `<div class="hm-head"><div><p class="eyebrow">${eyebrow}</p><h2>${title}</h2></div>${link?`<a class="hm-link" href="${link}">${linkText} →</a>`:''}</div>`; }
@@ -1012,109 +1003,176 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   // ---------------------------------------------------------------- Puntos de buceo
   const PT_LEVELS=[['start','Para empezar'],['mid','Intermedio'],['adv','Avanzado']];
+  const PT_DEPTHS=[['d18','Hasta 18 m'],['d30','18–30 m'],['d40','Más de 30 m']];
   const PT_SORTS=[['distance','Más cercanos'],['area','Por zonas'],['recommended','Recomendados'],['name','Nombre A-Z'],['depth','Más profundos'],['shallow','Menos profundos'],['rating','Mejor valorados']];
+  const PT_REGIONS_SHOWN=12;
+  // Every dive site of the filtered list on one map (view «Mapa»): a pin each, its card in a popup.
+  function wdPointsMap(el){
+    if(!el||!window.L){ if(el) el.innerHTML='<div class="map-fallback"><strong>El mapa no está disponible ahora mismo</strong><span>La lista muestra los mismos puntos.</span></div>'; return null; }
+    wdTileDefaults(); const map=wdLimitMap(L.map(el,{zoomControl:false,scrollWheelZoom:true,zoomSnap:.25})).setView([40.2,-3.5],5);
+    map.addControl(L.control.zoom({position:'bottomright'})); wdLayerControl(map);
+    const layer=L.layerGroup().addTo(map), extra=L.layerGroup().addTo(map);
+    const pin=L.divIcon({className:'pt-pin-wrap',html:'<span class="wd-pin" aria-hidden="true"></span>',iconSize:[22,22],iconAnchor:[11,20],popupAnchor:[0,-18]});
+    return {map,
+      show(items,{me=null}={}){ layer.clearLayers(); extra.clearLayers(); const pts=[];
+        items.forEach(p=>{ if(p.latitude==null||p.longitude==null) return; const depth=depthText(p);
+          L.marker([p.latitude,p.longitude],{icon:pin,title:p.name,alt:p.name,keyboard:true,riseOnHover:true})
+            .bindPopup(`<div class="pt-pop"><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(p.area||'')}</span>${depth||p.level?`<span>${[depth,LEVEL_LABELS[p.level]].filter(Boolean).map(escapeHtml).join(' · ')}</span>`:''}<a class="btn btn-sm btn-primary" href="${pointHref(p.id)}">Ver punto</a></div>`)
+            .addTo(layer); pts.push([p.latitude,p.longitude]); });
+        if(me) wdMeMarker(me).addTo(extra);
+        if(pts.length){ try{ map.fitBounds(L.latLngBounds(pts),{padding:[36,36],maxZoom:11}); }catch{} } },
+      invalidate(){ setTimeout(()=>map.invalidateSize(),60); }};
+  }
+  // v50.54 (owner's brief, point 2): «Puntos de buceo» with title, search and the Lista/Mapa switch in one band; a
+  // sticky bar with region (pills with counts; an empty region is not offered), type, level and depth; a compact
+  // grid (4 columns on a computer, a list on the phone); «Ver más» that also loads by itself on scrolling; and, coming
+  // back from a dive site, the same filters, the same number of pages and the same scroll position.
   async function renderPoints(params){
     params=params instanceof URLSearchParams?params:new URLSearchParams();
     if(params.get('point')){ location.replace('#/punto?id='+encodeURIComponent(params.get('point'))); return; }
     const rawType=params.get('type')||''; const typeKey=rawType?(DIVE_TYPE_FALLBACK.some(t=>wdKey(t[0])===rawType)?rawType:wdKey(rawType)):'';
+    const pick=(list,v)=>list.some(x=>x[0]===v)?v:'';
     // sort '' = the server decides: «Más cercanos» with the location, «Por zonas» (the launch country first) without it.
-    const st={q:params.get('q')||'',zone:params.get('zone')||'',country:params.get('country')||'',type:typeKey,level:PT_LEVELS.some(l=>l[0]===params.get('level'))?params.get('level'):'',only:params.get('only')==='centers'?'centers':'',sort:PT_SORTS.some(s=>s[0]===params.get('sort'))?params.get('sort'):'',page:1,here:null};
-    setApp(`<section class="cd-page pt-page">
-      <header class="tp-hero pt-hero">${heroImg('hero:puntos')}<div class="tp-hero-in">
-        <p class="eyebrow">Catálogo</p><h1>Puntos de buceo</h1>
-        <p class="lead">Arrecifes, pecios, cuevas y paredes de todo el mundo, con su profundidad, su nivel y los centros que te llevan.</p>
-        <form class="cd-search" id="pt-search" role="search">
-          <label class="cd-field cd-field-q">${wdIcon('search',18)}<span class="sr-only">Buscar</span><input id="pt-q" type="search" autocomplete="off" placeholder="Punto, isla, zona o país" value="${escapeHtml(st.q)}"></label>
-          <label class="cd-field">${wdIcon('globe',18)}<span class="sr-only">Zona</span><select id="pt-zone"><option value="">Todo el mundo</option>${st.zone?`<option selected>${escapeHtml(st.zone)}</option>`:''}</select></label>
+    const st={q:params.get('q')||'',area:params.get('area')||params.get('country')||'',zone:params.get('zone')||'',type:typeKey,level:pick(PT_LEVELS,params.get('level')),
+      depth:pick(PT_DEPTHS,params.get('depth')),only:['centers','instant'].includes(params.get('only'))?params.get('only'):'',sort:pick(PT_SORTS,params.get('sort')),
+      view:params.get('view')==='map'?'map':'list',page:1,here:null,total:0,loading:false,regionsOpen:false};
+    let back=null; try{ back=JSON.parse(sessionStorage.getItem('wd_pt_back')||'null'); sessionStorage.removeItem('wd_pt_back'); }catch{}
+    if(back&&back.url!==location.hash) back=null;
+    setApp(`<section class="pt-page pt54" data-view="${st.view}">
+      <header class="pt-band"><div class="pt-band-in">
+        <div class="pt-band-title"><p class="eyebrow">Catálogo</p><h1>Puntos de buceo</h1></div>
+        <form class="pt-band-search" id="pt-search" role="search">
+          <label class="cd-field">${wdIcon('search',18)}<span class="sr-only">Buscar un punto</span><input id="pt-q" type="search" autocomplete="off" placeholder="Punto, isla, zona o país" value="${escapeHtml(st.q)}"></label>
           <button class="btn btn-primary" type="submit">Buscar</button>
         </form>
+        <div class="pt-view" role="group" aria-label="Ver como"><button type="button" data-view="list" aria-pressed="${st.view==='list'}">${wdIcon('file',16)}Lista</button><button type="button" data-view="map" aria-pressed="${st.view==='map'}">${wdIcon('map',16)}Mapa</button></div>
       </div></header>
-      <div class="cd-wrap">
-        <div class="cd-toolbar">
-          <div class="cd-chips" role="group" aria-label="Nivel">${PT_LEVELS.map(([k,l])=>`<button type="button" class="cd-chip" data-level="${k}" aria-pressed="${st.level===k}">${l}</button>`).join('')}<button type="button" class="cd-chip" data-only="centers" aria-pressed="${st.only==='centers'}">Con centro que lo ofrece</button><button type="button" class="cd-chip" data-only="instant" aria-pressed="${st.only==='instant'}">Confirmación inmediata</button></div>
-          <div class="cd-tools">
-            <label><span class="sr-only">Tipo de buceo</span><select id="pt-type"><option value="">Cualquier tipo</option>${DIVE_TYPE_FALLBACK.map(([l])=>`<option value="${wdKey(l)}" ${wdKey(l)===st.type?'selected':''}>${escapeHtml(l)}</option>`).join('')}</select></label>
-            <label><span class="sr-only">País</span><select id="pt-country"><option value="">Todos los países</option></select></label>
-            <label><span class="sr-only">Ordenar</span><select id="pt-sort">${PT_SORTS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label><a class="sort-why" href="#/legal/clasificacion">¿Cómo ordenamos?</a>
-          </div>
+      <div class="pt-filters" id="pt-filters"><div class="pt-filters-in">
+        <div class="pt-regions" id="pt-regions" role="group" aria-label="Región"></div>
+        <div class="pt-selects">
+          <label class="pt-sel"><span>Tipo</span><select id="pt-type"><option value="">Cualquier tipo</option></select></label>
+          <label class="pt-sel"><span>Nivel</span><select id="pt-level"><option value="">Cualquier nivel</option></select></label>
+          <label class="pt-sel"><span>Profundidad</span><select id="pt-depth"><option value="">Cualquier profundidad</option></select></label>
+          <button type="button" class="cd-chip pt-only" data-only="centers" aria-pressed="${st.only==='centers'}">Con centro</button>
+          <label class="pt-sel pt-sort"><span>Ordenar</span><select id="pt-sort">${PT_SORTS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>
+          <button type="button" class="cd-clear" id="pt-clear" hidden>Quitar filtros</button>
         </div>
-        <div class="pt-locbar" id="pt-locbar" aria-live="polite"></div>
-        <div class="cd-results-head"><p id="pt-count" aria-live="polite">Buscando puntos…</p><button type="button" class="cd-clear" id="pt-clear" hidden>Quitar filtros</button><button type="button" class="btn pt-map-toggle" id="pt-map-toggle" aria-controls="pt-mapcol" aria-expanded="false">${wdIcon('map',16)} Ver en el mapa</button></div>
-        <div class="pt-split">
-          <div class="pt-listcol"><div class="cd-grid pt-grid" id="pt-grid"></div><div class="cd-more"><button class="btn" type="button" id="pt-more" hidden>Mostrar más puntos</button></div></div>
-          <aside class="pt-mapcol" id="pt-mapcol" aria-label="Mapa de los puntos de la lista"><div class="map-wrap"><div id="pt-map" class="map-card pt-map"></div></div><p class="pt-map-note">El mapa enseña los mismos puntos que la lista, con el mismo número.</p></aside>
-        </div>
+      </div></div>
+      <div class="cd-wrap pt-main">
+        <div class="pt-results-head"><p id="pt-count" class="pt-count" aria-live="polite">Buscando puntos…</p><div class="pt-locbar" id="pt-locbar" aria-live="polite"></div></div>
+        <div class="pt-grid" id="pt-grid"></div>
+        <div class="cd-more pt-morebox"><button class="btn" type="button" id="pt-more" hidden>Ver más puntos</button></div>
+        <div class="pt-mapview" id="pt-mapview" hidden><div class="map-wrap"><div id="pt-map" class="map-card pt-map"></div></div><p class="pt-map-note" id="pt-map-note"></p></div>
       </div>
     </section>`);
-    const grid=$('#pt-grid'), more=$('#pt-more'), count=$('#pt-count'), clear=$('#pt-clear'), locbar=$('#pt-locbar'), sortSel=$('#pt-sort');
-    let seq=0, shown=[], lastGroup='', map=null;
-    const ensureMap=()=>{ if(!map){ map=wdListMap($('#pt-map')); } return map; };
-    const skeleton=n=>Array.from({length:n},()=>'<div class="cd-card is-skeleton" aria-hidden="true"><div class="cd-media"></div><div class="cd-body"><i></i><i></i><i></i></div></div>').join('');
-    const hasFilters=()=>!!(st.q||st.zone||st.country||st.type||st.level||st.only);
-    const fillSelect=(sel,list,current,allLabel)=>{ sel.innerHTML=`<option value="">${allLabel}</option>`+(list||[]).map(x=>`<option value="${escapeHtml(x.name)}" ${x.name===current?'selected':''}>${escapeHtml(x.name)} (${x.count})</option>`).join('')+(current&&!(list||[]).some(x=>x.name===current)?`<option selected value="${escapeHtml(current)}">${escapeHtml(current)}</option>`:''); };
-    const cardsHtml=items=>items.map(p=>{ let head='';
-      if(p.group&&p.group!==lastGroup){ lastGroup=p.group; head=`<h3 class="pt-group">${escapeHtml(p.group)}</h3>`; }
-      shown.push(p); return head+pointCard(p,shown.length); }).join('');
-    const paintLocbar=(d,msg)=>{
-      if(st.here&&d?.located) locbar.innerHTML=`<p>${wdIcon('pin',16)}<span>${d.distances?'Ordenados de más cerca a más lejos de tu ubicación.':'Ordenados por cercanía. Tu ubicación es aproximada: no mostramos distancias.'}</span></p><button type="button" class="btn btn-sm" id="pt-by-area">Ver por zonas</button>`;
-      else locbar.innerHTML=`<p>${wdIcon('pin',16)}<span>${escapeHtml(translateString(msg||'Activa la ubicación para ver primero los más cercanos.'))}</span></p><button type="button" class="btn btn-sm btn-primary" id="pt-locate">Activar ubicación</button>`;
-      translateTree(locbar);
-      $('#pt-locate')?.addEventListener('click',locate); $('#pt-by-area')?.addEventListener('click',()=>{ st.sort='area'; load(); });
-    };
-    const load=async(append=false)=>{
-      const mine=++seq;
-      if(!append){ st.page=1; shown=[]; lastGroup=''; grid.innerHTML=skeleton(6); more.hidden=true; count.textContent=translateString('Buscando puntos…'); }
-      more.disabled=true;
-      const qs=new URLSearchParams({q:st.q,zone:st.zone,country:st.country,type:st.type,level:st.level,only:st.only,sort:st.sort,page:String(st.page),per_page:'12'});
+    const page=$('.pt-page'), grid=$('#pt-grid'), more=$('#pt-more'), count=$('#pt-count'), clear=$('#pt-clear'), locbar=$('#pt-locbar'), sortSel=$('#pt-sort');
+    wdHeaderHeight();
+    let seq=0, shown=[], map=null, facets=null;
+    const skeleton=n=>Array.from({length:n},()=>'<div class="pt-card is-skeleton" aria-hidden="true"><span class="pt-media"></span><span class="pt-info"><i></i><i></i></span></div>').join('');
+    const hasFilters=()=>!!(st.q||st.area||st.zone||st.type||st.level||st.depth||st.only);
+    const query=(extra={})=>{ const qs=new URLSearchParams({q:st.q,area:st.area,zone:st.zone,type:st.type,level:st.level,depth:st.depth,only:st.only,sort:st.sort,...extra});
       if(st.here) Object.entries(wdLocation.params(st.here)).forEach(([k,v])=>qs.set(k,v));
-      for(const k of [...qs.keys()]) if(!qs.get(k)) qs.delete(k);
+      for(const k of [...qs.keys()]) if(!qs.get(k)) qs.delete(k); return qs; };
+    const saveUrl=()=>{ const url=query(); ['lat','lon','acc'].forEach(k=>url.delete(k)); if(st.view==='map') url.set('view','map');
+      try{ history.replaceState(null,'','#/puntos'+(url.toString()?'?'+url:'')); }catch{} };
+    const fillSelect=(sel,all,list,current)=>{ sel.innerHTML=`<option value="">${escapeHtml(translateString(all))}</option>`+list.map(x=>`<option value="${escapeHtml(x.key)}" ${x.key===current?'selected':''} ${x.count||x.key===current?'':'disabled'}>${escapeHtml(translateString(x.label))} (${x.count})</option>`).join(''); };
+    const paintFacets=f=>{ if(!f) return; facets=f;
+      const regions=f.areas||[], open=st.regionsOpen||regions.findIndex(a=>a.name===st.area)>=PT_REGIONS_SHOWN;
+      const list=open?regions:regions.slice(0,PT_REGIONS_SHOWN), total=regions.reduce((a,x)=>a+x.count,0);
+      $('#pt-regions').innerHTML=`<button type="button" class="cd-chip" data-area="" aria-pressed="${!st.area}">Todas <span class="pt-n">${total.toLocaleString(wdLocale())}</span></button>`
+        +list.map(a=>`<button type="button" class="cd-chip" data-area="${escapeHtml(a.name)}" aria-pressed="${a.name===st.area}">${escapeHtml(a.name)} <span class="pt-n">${a.count.toLocaleString(wdLocale())}</span></button>`).join('')
+        +(st.area&&!regions.some(a=>a.name===st.area)?`<button type="button" class="cd-chip" data-area="${escapeHtml(st.area)}" aria-pressed="true">${escapeHtml(st.area)} <span class="pt-n">0</span></button>`:'')
+        +(!open&&regions.length>PT_REGIONS_SHOWN?`<button type="button" class="cd-chip pt-more-regions" id="pt-more-regions" aria-expanded="false">+ ${regions.length-PT_REGIONS_SHOWN} regiones</button>`:'');
+      $$('#pt-regions [data-area]').forEach(b=>b.onclick=()=>{ st.area=b.dataset.area===st.area?'':b.dataset.area; st.zone=''; refresh(); });
+      $('#pt-more-regions')?.addEventListener('click',()=>{ st.regionsOpen=true; paintFacets(facets); });
+      fillSelect($('#pt-type'),'Cualquier tipo',(f.types||[]).filter(t=>t.count||t.key===st.type).sort((a,b)=>b.count-a.count),st.type);
+      fillSelect($('#pt-level'),'Cualquier nivel',PT_LEVELS.map(([k,l])=>({key:k,label:l,count:(f.levels||[]).find(x=>x.key===k)?.count||0})),st.level);
+      fillSelect($('#pt-depth'),'Cualquier profundidad',PT_DEPTHS.map(([k,l])=>({key:k,label:l,count:(f.depths||[]).find(x=>x.key===k)?.count||0})),st.depth);
+      translateTree($('#pt-regions'));
+    };
+    const paintLocbar=(d,msg)=>{
+      if(st.here&&d?.located) locbar.innerHTML=`<p>${wdIcon('pin',15)}<span>${d.distances?'Ordenados por cercanía a ti.':'Ordenados por cercanía. Tu ubicación es aproximada: no mostramos distancias.'}</span></p><button type="button" class="pt-linkbtn" id="pt-by-area">Ver por zonas</button>`;
+      else locbar.innerHTML=`<p>${wdIcon('pin',15)}<span>${escapeHtml(translateString(msg||'Activa la ubicación para ver primero los más cercanos.'))}</span></p><button type="button" class="pt-linkbtn" id="pt-locate">${wdIcon('target',15)} Ordenar por cercanía</button>`;
+      translateTree(locbar);
+      $('#pt-locate')?.addEventListener('click',locate); $('#pt-by-area')?.addEventListener('click',()=>{ st.sort='area'; refresh(); });
+    };
+    const paintCount=d=>{ const bits=[st.area,st.type?typeLabelByKey(st.type):'',st.level?LEVEL_LABELS[st.level]:'',st.depth?PT_DEPTHS.find(x=>x[0]===st.depth)?.[1]:''].filter(Boolean);
+      count.innerHTML=d.total?`<strong>${d.total.toLocaleString(wdLocale())}</strong> ${d.total===1?'punto':'puntos'}${bits.length?' · '+bits.map(x=>escapeHtml(translateString(x))).join(' · '):''}`:''; };
+    // The list: one page of 12 (or, coming back from a dive site, all the pages that were open).
+    const load=async(append=false,pages=1)=>{
+      const mine=++seq; st.loading=true;
+      if(!append){ st.page=pages; shown=[]; grid.innerHTML=skeleton(8); more.hidden=true; count.textContent=translateString('Buscando puntos…'); }
+      const qs=query(append?{page:String(st.page),per_page:'12'}:{page:'1',per_page:String(12*pages)});
       let d;
       try{ d=await fetchPointDirectory(qs); }
-      catch(err){ if(mine!==seq||!grid.isConnected) return; grid.innerHTML=`<div class="empty cd-empty"><h3>No hemos podido cargar los puntos</h3><p>${escapeHtml(navigator.onLine===false?translateString('Sin conexión. Comprueba tu conexión y vuelve a intentarlo.'):err.message)}</p><button class="btn" type="button" id="pt-retry">Reintentar</button></div>`; $('#pt-retry').onclick=()=>load(); count.textContent=''; return; }
+      catch(err){ st.loading=false; if(mine!==seq||!grid.isConnected) return; grid.innerHTML=`<div class="empty cd-empty"><h3>No hemos podido cargar los puntos</h3><p>${escapeHtml(navigator.onLine===false?translateString('Sin conexión. Comprueba tu conexión y vuelve a intentarlo.'):err.message)}</p><button class="btn" type="button" id="pt-retry">Reintentar</button></div>`; $('#pt-retry').onclick=()=>load(); count.textContent=''; return; }
       if(mine!==seq||!grid.isConnected) return;
-      if(!append){ fillSelect($('#pt-zone'),d.zones,st.zone,'Todo el mundo'); fillSelect($('#pt-country'),d.countries,st.country,'Todos los países'); }
+      st.loading=false; st.total=d.total||0;
+      if(!append) paintFacets(d.facets);
       sortSel.value=d.sort||st.sort||'area'; [...sortSel.options].find(o=>o.value==='distance').disabled=!st.here;
-      const html=cardsHtml(d.items||[]);
+      const html=(d.items||[]).map(p=>{ shown.push(p); return pointCard(p); }).join('');
       if(append) grid.insertAdjacentHTML('beforeend',html); else grid.innerHTML=html;
-      if(!d.total){ await paintEmpty(mine); }
-      else ensureMap()?.show(shown,{fit:!append});
-      if(!append&&d.total) ensureMap()?.mark({me:st.here});
-      count.innerHTML=d.total?`<strong>${d.total.toLocaleString(wdLocale())}</strong> ${d.total===1?'punto':'puntos'}${st.type?' · '+escapeHtml(typeLabelByKey(st.type)):''}${st.country?' en '+escapeHtml(st.country):st.zone?' en '+escapeHtml(st.zone):''}`:'';
-      more.hidden=shown.length>=d.total; more.disabled=false; more.textContent=`Mostrar más puntos (${(d.total-shown.length).toLocaleString(wdLocale())})`;
-      clear.hidden=!hasFilters(); paintLocbar(d); translateTree(grid);
-      const url=new URLSearchParams(qs); ['page','per_page','lat','lon'].forEach(k=>url.delete(k)); if(!st.sort) url.delete('sort');
-      try{ history.replaceState(null,'','#/puntos'+(url.toString()?'?'+url:'')); }catch{}
+      if(!d.total) await paintEmpty(mine);
+      paintCount(d);
+      more.hidden=shown.length>=st.total||!st.total; more.textContent=`${translateString('Ver más puntos')} (${(st.total-shown.length).toLocaleString(wdLocale())})`;
+      clear.hidden=!hasFilters(); paintLocbar(d); translateTree(grid); saveUrl();
+      if(append) near.after?.();
     };
+    const loadMap=async()=>{
+      const mine=++seq; count.textContent=translateString('Buscando puntos…');
+      let d; try{ d=await api('/api/point-directory?'+query({view:'map'})); }catch(err){ if(mine===seq) count.textContent=err.message; return; }
+      if(mine!==seq||!grid.isConnected) return;
+      st.total=d.total||0; paintFacets(d.facets); paintCount(d); clear.hidden=!hasFilters();
+      if(!map) map=wdPointsMap($('#pt-map'));
+      map?.invalidate(); map?.show(d.items||[],{me:st.here});
+      $('#pt-map-note').textContent=translateString(d.total?'Toca un punto para ver su ficha.':'No hay puntos con estos filtros. Quita alguno para ver más.');
+      saveUrl();
+    };
+    const refresh=()=>st.view==='map'?loadMap():load();
+    const setView=v=>{ st.view=v; page.dataset.view=v; $$('.pt-view [data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===v)));
+      $('#pt-mapview').hidden=v!=='map'; grid.hidden=v==='map'; $('.pt-morebox').hidden=v==='map'; refresh(); };
     // Nothing matches: say so, and show the closest dive sites that do exist (never an empty page).
     const paintEmpty=async mine=>{
-      if(!st.q){ grid.innerHTML=`<div class="empty cd-empty"><h3>No hay puntos con estos filtros</h3><p>Prueba con otra zona o quita algún filtro.</p>${hasFilters()?'<button class="btn btn-primary" type="button" id="pt-empty-clear">Quitar filtros</button>':''}</div>`; $('#pt-empty-clear')?.addEventListener('click',reset); ensureMap()?.show([]); return; }
-      grid.innerHTML=`<div class="empty cd-empty pt-none"><h3>${escapeHtml(translateString('Todavía no hay puntos de buceo en {x}').replace('{x}',`«${st.q}»`))}</h3><p>Te enseñamos los más cercanos que sí existen.</p></div>${skeleton(3)}`;
+      if(!st.q){ grid.innerHTML=`<div class="empty cd-empty"><h3>No hay puntos con estos filtros</h3><p>Prueba con otra región o quita algún filtro.</p>${hasFilters()?'<button class="btn btn-primary" type="button" id="pt-empty-clear">Quitar filtros</button>':''}</div>`; $('#pt-empty-clear')?.addEventListener('click',reset); return; }
+      grid.innerHTML=`<div class="empty cd-empty pt-none"><h3>${escapeHtml(translateString('Todavía no hay puntos de buceo en {x}').replace('{x}',`«${st.q}»`))}</h3><p>Te enseñamos los más cercanos que sí existen.</p></div>${skeleton(4)}`;
       const sug=await wdPointSuggestions(st.q); if(mine!==seq||!grid.isConnected) return;
-      shown=[]; lastGroup='';
       grid.querySelectorAll('.is-skeleton').forEach(x=>x.remove());
-      grid.insertAdjacentHTML('beforeend',`<h3 class="pt-group">${escapeHtml(sug.title)}</h3>`+sug.items.map(p=>{ shown.push(p); return pointCard(p,shown.length); }).join(''));
-      const m=ensureMap(); m?.mark({me:st.here,place:sug.place}); m?.show(shown);
+      grid.insertAdjacentHTML('beforeend',`<h3 class="pt-group">${escapeHtml(sug.title)}</h3>`+sug.items.map(pointCard).join(''));
       translateTree(grid);
     };
     const locate=async()=>{ const b=$('#pt-locate'); if(b){ b.disabled=true; b.textContent=translateString('Buscando tu ubicación…'); }
       wdLocation.forget();
-      try{ st.here=await wdLocation.get(); st.sort='distance'; load(); }
+      try{ st.here=await wdLocation.get(); st.sort='distance'; refresh(); }
       catch(e){ paintLocbar(null,wdLocation.message(e.code)); } };
-    const reset=()=>{ Object.assign(st,{q:'',zone:'',country:'',type:'',level:'',only:''}); $('#pt-q').value=''; $('#pt-type').value=''; $$('.pt-page .cd-chip').forEach(b=>b.setAttribute('aria-pressed','false')); load(); };
+    const reset=()=>{ Object.assign(st,{q:'',area:'',zone:'',type:'',level:'',depth:'',only:''}); $('#pt-q').value=''; $$('.pt-page [data-only]').forEach(b=>b.setAttribute('aria-pressed','false')); refresh(); };
     let timer=null;
-    $('#pt-q').addEventListener('input',e=>{ clearTimeout(timer); timer=setTimeout(()=>{ st.q=e.target.value.trim(); load(); },350); });
-    $('#pt-search').onsubmit=e=>{ e.preventDefault(); clearTimeout(timer); st.q=$('#pt-q').value.trim(); load(); };
-    $('#pt-zone').onchange=e=>{ st.zone=e.target.value; st.country=''; load(); };
-    $('#pt-country').onchange=e=>{ st.country=e.target.value; load(); };
-    $('#pt-type').onchange=e=>{ st.type=e.target.value; load(); };
-    sortSel.onchange=e=>{ st.sort=e.target.value; load(); };
-    $$('.pt-page [data-level]').forEach(b=>b.onclick=()=>{ st.level=st.level===b.dataset.level?'':b.dataset.level; $$('.pt-page [data-level]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.level===st.level))); load(); });
-    $$('.pt-page [data-only]').forEach(b=>b.onclick=e=>{ const k=e.currentTarget.dataset.only; st.only=st.only===k?'':k; $$('.pt-page [data-only]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.only===st.only))); load(); });
-    clear.onclick=reset; more.onclick=()=>{ st.page+=1; load(true); };
-    $('#pt-map-toggle').onclick=e=>{ const open=!$('.pt-page').classList.contains('is-map-open'); $('.pt-page').classList.toggle('is-map-open',open); e.currentTarget.setAttribute('aria-expanded',String(open)); ensureMap()?.invalidate(); };
-    // The location is used only if the visitor already allowed it; otherwise a discreet notice offers to turn it on.
+    $('#pt-q').addEventListener('input',e=>{ clearTimeout(timer); timer=setTimeout(()=>{ st.q=e.target.value.trim(); refresh(); },350); });
+    $('#pt-search').onsubmit=e=>{ e.preventDefault(); clearTimeout(timer); st.q=$('#pt-q').value.trim(); refresh(); };
+    $('#pt-type').onchange=e=>{ st.type=e.target.value; refresh(); };
+    $('#pt-level').onchange=e=>{ st.level=e.target.value; refresh(); };
+    $('#pt-depth').onchange=e=>{ st.depth=e.target.value; refresh(); };
+    sortSel.onchange=e=>{ st.sort=e.target.value; refresh(); };
+    $$('.pt-page [data-only]').forEach(b=>b.onclick=e=>{ const k=e.currentTarget.dataset.only; st.only=st.only===k?'':k; $$('.pt-page [data-only]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.only===st.only))); refresh(); });
+    $$('.pt-view [data-view]').forEach(b=>b.onclick=()=>{ if(b.dataset.view!==st.view) setView(b.dataset.view); });
+    clear.onclick=reset;
+    const next=()=>{ if(st.loading||shown.length>=st.total||st.view!=='list') return; st.page+=1; load(true); };
+    more.onclick=next;
+    // Progressive loading: the next page arrives by itself when «Ver más» comes within 400 px of the screen (checked on
+    // scrolling and again after each page, so a tall screen fills up); the button stays for the keyboard.
+    let ticking=false;
+    const near=()=>{ ticking=false; if(!grid.isConnected){ window.removeEventListener('scroll',onScroll); return; }
+      if(!more.hidden&&more.getBoundingClientRect().top<innerHeight+400) next(); };
+    const onScroll=()=>{ if(!ticking){ ticking=true; requestAnimationFrame(near); } };
+    window.addEventListener('scroll',onScroll,{passive:true}); near.after=()=>requestAnimationFrame(near);
+    // Leaving for a dive site: remember the filters (already in the address), the pages open and the scroll.
+    grid.addEventListener('click',e=>{ const a=e.target.closest('a[href^="#/punto"]'); if(!a) return;
+      try{ sessionStorage.setItem('wd_pt_back',JSON.stringify({url:location.hash,pages:st.page,y:Math.round(window.scrollY)})); }catch{} });
+    // The location is used only if the visitor already allowed it; otherwise a discreet line offers to turn it on.
     if(await wdLocation.permission()==='granted'){ try{ st.here=await wdLocation.get(); }catch{} }
-    await load();
+    if(!grid.isConnected) return;
+    if(st.view==='map'){ setView('map'); return; }
+    await load(false,back?Math.max(1,Math.min(20,Number(back.pages)||1)):1);
+    if(back&&grid.isConnected) requestAnimationFrame(()=>window.scrollTo({top:Number(back.y)||0,behavior:'instant'}));
   }
 
   // ---------------------------------------------------------------- Ficha de punto
@@ -1471,33 +1529,37 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const osm=hasGeo?`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=15/${lat}/${lng}`:'';
     const centers=pc.items||[];
     const centerRowHtml=c=>`<article class="pp-center"><span class="pp-center-logo">${centerLogoMarkup(c,'48px')}</span><div class="pp-center-main"><a href="#/centro?id=${c.id}"><strong>${escapeHtml(c.name)}</strong></a><small>${escapeHtml([c.city,c.country].filter(Boolean).join(' · '))}${c.distance_km!=null?' · a '+Number(c.distance_km).toLocaleString(wdLocale(),{maximumFractionDigits:1})+' km':''}</small>${centerRatingMarkup(c)}${c.instant?'<span class="wd-mode is-pay">Confirmación inmediata disponible</span>':Number(c.services_count)>0?'<span class="wd-mode is-req">Reservas bajo petición</span>':''}</div><div class="pp-center-actions"><a class="btn" href="#/centro?id=${c.id}">Ver centro</a>${Number(c.services_count)>0?`<a class="btn btn-primary" href="#/reservar?center=${c.id}">Reservar</a>`:''}</div></article>`;
-    setApp(`<section class="tp-page pp-page">
-      <header class="tp-hero tp-dhero"><img class="tp-hero-img" src="${escapeHtml(cover)}" alt=""><div class="tp-hero-in">
+    // v50.54 (owner's brief, point 3): the key data first, always in the same order and only what is known (never «Por
+    // confirmar»); then, for every dive site in the same order: description, marine life, virtual tour, centres with
+    // «Reservar» and the map. Photos, «¿Tu titulación es suficiente?» and nearby sites come after.
+    const months=String(p.best_months||'').split(',').map(Number).filter(m=>m>=1&&m<=12);
+    const range=(a,b,unit)=>a!=null&&b!=null?(a===b?`${wdNum(a)} ${unit}`:`${wdNum(a)}–${wdNum(b)} ${unit}`):a!=null?`${translateString('desde')} ${wdNum(a)} ${unit}`:b!=null?`${translateString('hasta')} ${wdNum(b)} ${unit}`:'';
+    const typeText=types.length?types.slice(0,2).map(typeLabelByKey).join(' · '):(p.dive_type||'');
+    const keys=[['depth','Profundidad',depth],['level','Nivel',p.difficulty||''],['book','Titulación recomendada',p.recommended_cert||''],['inmersion','Tipo',typeText],
+      ['calendar','Mejor época',wdMonthsText(months)],['temp','Temperatura del agua',range(p.water_temp_min,p.water_temp_max,'°C')],['eye','Visibilidad',range(p.visibility_min,p.visibility_max,'m')]].filter(k=>k[2]);
+    setApp(`<section class="tp-page pp-page pp54">
+      <header class="tp-hero tp-dhero pp-hero"><img class="tp-hero-img" src="${escapeHtml(cover)}" alt="" fetchpriority="high"><div class="tp-hero-in">
         <nav class="tp-crumbs"><a href="#/puntos">Puntos de buceo</a><span>/</span>${p.zone?`<a href="#/puntos?zone=${encodeURIComponent(p.zone)}">${escapeHtml(p.zone)}</a><span>/</span>`:''}${escapeHtml(p.name)}</nav>
         <h1>${escapeHtml(p.name)}</h1>
         <p class="lead pp-place">${wdIcon('pin',16)} ${escapeHtml(placeText(p)||p.country||'')}</p>
-        <div class="pp-tags">${types.map(k=>`<a class="pp-tag" href="#/tipos?t=${encodeURIComponent(k)}">${escapeHtml(typeLabelByKey(k))}</a>`).join('')||(p.dive_type?`<span class="pp-tag">${escapeHtml(p.dive_type)}</span>`:'')}</div>
-        <div class="tp-actions">${centers.length?`<a class="btn btn-primary" href="#pp-centers" data-scroll="pp-centers">${pc.mode==='exact'?'Centros que te llevan':'Centros cercanos'}</a>`:''}${osm?`<a class="btn btn-light" href="${osm}" target="_blank" rel="noopener">Abrir en el mapa</a>`:''}</div>
+        <div class="tp-actions">${centers.length?`<a class="btn btn-primary" href="#pp-centers" data-scroll="pp-centers">${pc.mode==='exact'?'Centros que te llevan':'Centros cercanos'}</a>`:''}${hasGeo?`<a class="btn btn-light" href="#pp-where" data-scroll="pp-where">${wdIcon('map',16)} Ver en el mapa</a>`:''}</div>
       </div></header>
-      <div class="tp-facts"><div><small>Profundidad</small><strong>${depth||'Por confirmar'}</strong></div><div><small>Nivel</small><strong>${escapeHtml(p.difficulty||'Por confirmar')}</strong></div><div><small>Tipo</small><strong>${escapeHtml(p.dive_type||'—')}</strong></div><div><small>Coordenadas</small><strong>${hasGeo?`${lat.toFixed(4)}, ${lng.toFixed(4)}`:'—'}</strong></div></div>
-      <div class="tp-wrap tp-dbody">
-        <div class="tp-main">
-          ${pending?'<div class="notice warning pp-notice"><strong>Posición de referencia.</strong> La coordenada de este punto está pendiente de verificación local. Un centro o el equipo de WORLDIVES puede confirmarla.</div>':''}
-          <section class="tp-block"><h2>Sobre el punto</h2>${p.description_lang?`<div class="tp-body" translate="no" lang="${escapeHtml(p.description_lang)}">${String(p.description).split(/\n{2,}/).map(x=>`<p>${escapeHtml(x)}</p>`).join('')}</div>`:`<p class="tp-body">${escapeHtml(pointAbout(p))}</p>`}${p.access_info&&!/pendientes? de completar/i.test(p.access_info)?`<div class="tp-note"><h3>Acceso y condiciones</h3><p>${escapeHtml(p.access_info)}</p></div>`:''}</section>
-          <section class="tp-block pp-cert">${certificationGuidance(p,currentCert)}</section>
-          ${photos.length>1?`<section class="tp-block"><h2>Fotos</h2><div class="pp-gallery">${photos.map(ph=>`<a href="${escapeHtml(ph.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(ph.image_path)}" alt="${escapeHtml(ph.caption||p.name)}" loading="lazy"></a>`).join('')}</div></section>`:''}
-          ${marineStrip(d.species)}
-          ${virtualSection(p,d.videos,d.virtual)}
-          <section class="tp-block" id="pp-centers"><div class="tp-block-head"><h2>${pc.mode==='exact'?'Centros que bucean aquí':'Centros cercanos'}</h2>${centers.length?`<a href="#/centros?point=${p.id}">Ver en el directorio →</a>`:''}</div>
-            ${pc.mode!=='exact'&&centers.length?'<p class="tp-scope">Ningún centro tiene todavía este punto en su operativa; estos trabajan a menos de 60 km.</p>':''}
-            ${centers.length?`<div class="pp-centers">${centers.map(centerRowHtml).join('')}</div>`:'<div class="empty"><p>Todavía no hay centros en esta zona.</p><a class="btn" href="#/registro">¿Tienes un centro? Únete a WORLDIVES</a></div>'}</section>
-          ${nearby.length?`<section class="tp-block"><div class="tp-block-head"><h2>Puntos cercanos</h2></div><div class="tp-points">${nearby.map(n=>typePointCard(n).replace('</small></span></a>',`</small><small class="tp-point-meta">a ${Number(n.distance_km).toLocaleString(wdLocale(),{maximumFractionDigits:1})} km</small></span></a>`)).join('')}</div></section>`:''}
-        </div>
-        <aside class="tp-side">
-          <div class="tp-side-card pp-mapcard"><h3>Ubicación</h3><div id="pp-map" class="pp-map">${hasGeo?'':'<div class="map-fallback">Sin coordenadas</div>'}</div><p id="pp-map-note" class="wd-relief-note is-inline" hidden></p>${osm?`<a class="btn" href="${osm}" target="_blank" rel="noopener">Abrir en OpenStreetMap</a>`:''}</div>
-          <div class="tp-side-card"><h3>¿La posición no es exacta?</h3><p class="pp-small">Propón una corrección: pasa a revisión antes de publicarse.</p>${state.me?'<button id="suggest-pos" class="btn btn-primary" type="button">Proponer nueva posición</button>':`<a class="btn btn-primary" href="#/login?next=${encodeURIComponent(location.hash)}">Inicia sesión para proponerla</a>`}<div id="suggest-form"></div></div>
-          <button type="button" class="wd-report" data-report="point" data-report-id="${p.id}" data-report-label="${escapeHtml(p.name)}">${wdIcon('alert',13)} Denunciar contenido</button>
-        </aside>
+      ${keys.length?`<dl class="pp-keys" aria-label="Datos clave">${keys.map(([ic,label,val])=>`<div class="pp-key">${wdIcon(ic,18)}<dt>${label}</dt><dd>${escapeHtml(val)}</dd></div>`).join('')}</dl>`:''}
+      <div class="pp-body">
+        ${pending?'<div class="notice warning pp-notice"><strong>Posición de referencia.</strong> La coordenada de este punto está pendiente de verificación local. Un centro o el equipo de WORLDIVES puede confirmarla.</div>':''}
+        <section class="tp-block pp-about" id="pp-about"><h2>Sobre el punto</h2>${p.description_lang?`<div class="tp-body" translate="no" lang="${escapeHtml(p.description_lang)}">${String(p.description).split(/\n{2,}/).map(x=>`<p>${escapeHtml(x)}</p>`).join('')}</div>`:`<p class="tp-body">${escapeHtml(pointAbout(p))}</p>`}${p.access_info&&!/pendientes? de completar/i.test(p.access_info)?`<div class="tp-note"><h3>Acceso y condiciones</h3><p>${escapeHtml(p.access_info)}</p></div>`:''}</section>
+        ${marineStrip(d.species)}
+        ${virtualSection(p,d.videos,d.virtual)}
+        <section class="tp-block" id="pp-centers"><div class="tp-block-head"><h2>${pc.mode==='exact'?'Centros que bucean aquí':'Centros cercanos'}</h2>${centers.length?`<a href="#/centros?point=${p.id}">Ver en el directorio →</a>`:''}</div>
+          ${pc.mode!=='exact'&&centers.length?'<p class="tp-scope">Ningún centro tiene todavía este punto en su operativa; estos trabajan a menos de 60 km.</p>':''}
+          ${centers.length?`<div class="pp-centers">${centers.map(centerRowHtml).join('')}</div>`:'<div class="empty"><p>Todavía no hay centros en esta zona.</p><a class="btn" href="#/registro">¿Tienes un centro? Únete a WORLDIVES</a></div>'}</section>
+        <section class="tp-block pp-where" id="pp-where"><div class="tp-block-head"><h2>Ubicación</h2>${osm?`<a href="${osm}" target="_blank" rel="noopener">Abrir en OpenStreetMap →</a>`:''}</div>
+          <div id="pp-map" class="pp-map">${hasGeo?'':'<div class="map-fallback">Sin coordenadas</div>'}</div><p id="pp-map-note" class="wd-relief-note is-inline" hidden></p>
+          <details class="pp-suggest-box"><summary>¿La posición no es exacta?</summary><p class="pp-small">Propón una corrección: pasa a revisión antes de publicarse.</p>${state.me?'<button id="suggest-pos" class="btn" type="button">Proponer nueva posición</button>':`<a class="btn" href="#/login?next=${encodeURIComponent(location.hash)}">Inicia sesión para proponerla</a>`}<div id="suggest-form"></div></details></section>
+        ${photos.length>1?`<section class="tp-block"><h2>Fotos</h2><div class="pp-gallery">${photos.map(ph=>`<a href="${escapeHtml(ph.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(ph.image_path)}" alt="${escapeHtml(ph.caption||p.name)}" loading="lazy"></a>`).join('')}</div></section>`:''}
+        <section class="tp-block pp-cert">${certificationGuidance(p,currentCert)}</section>
+        ${nearby.length?`<section class="tp-block"><div class="tp-block-head"><h2>Puntos cercanos</h2></div><div class="tp-points">${nearby.map(n=>typePointCard(n).replace('</small></span></a>',`</small><small class="tp-point-meta">a ${escapeHtml(wdKm(n.distance_km))}</small></span></a>`)).join('')}</div></section>`:''}
+        <p class="pp-report"><button type="button" class="wd-report" data-report="point" data-report-id="${p.id}" data-report-label="${escapeHtml(p.name)}">${wdIcon('alert',13)} Denunciar contenido</button></p>
       </div>
     </section>`);
     $$('[data-scroll]').forEach(a=>a.onclick=e=>{ e.preventDefault(); document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:'smooth',block:'start'}); });
@@ -3515,7 +3577,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     globe:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.6 3.6 5.4 3.6 8.5s-1 5.9-3.6 8.5c-2.6-2.6-3.6-5.4-3.6-8.5s1-5.9 3.6-8.5z"/>',
     bolt:'<path d="M13 2.5 5 13.5h6l-1 8 8-11h-6z"/>',
     inbox:'<path d="M3.5 13.5 6 5h12l2.5 8.5V19a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 13.5h5l1.2 2.5h4.6l1.2-2.5h5"/>',
-    depth:'<path d="M12 3v14"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/>',
+    depth:'<path d="M12 3v14"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/>',temp:'<path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v7"/>',
     level:'<path d="M4 20h4v-6H4z"/><path d="M10 20h4V9h-4z"/><path d="M16 20h4V4h-4z"/>',
     pin:'<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
     search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
@@ -5405,13 +5467,30 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="as-ok">Cerrar sesiones</button>'});
       $('#as-ok',el).onclick=async()=>{ try{ const r=await postJSON('/api/admin/sessions/close',{user_id:+b.dataset.id,reason:$('#as-reason',el).value}); close(); toast(`Sesiones cerradas: ${r.closed}.`); }catch(e){ toast(e.message); } }; }); if(tab==='suggestions') $$('.review-s').forEach(b=>b.onclick=async()=>{try{await postJSON('/api/admin/suggestions/review',{id:+b.dataset.id,decision:b.dataset.decision});toast('Revisión guardada.');renderAdmin();}catch(e){toast(e.message)}}); $$('.review-claim').forEach(b=>b.onclick=async()=>{ const card=b.closest('[data-claim]'); const link=card?.querySelector('.claim-link'); try{await postJSON('/api/admin/center-claims/review',{id:+b.dataset.id,decision:b.dataset.decision,verification_method:card?.querySelector('.claim-method')?.value||'',verification_note:card?.querySelector('.claim-note')?.value||'',center_id:link?.checked?+link.value:null});toast('Verificación guardada.');renderAdmin();}catch(e){toast(e.message)}}); $$('.review-point').forEach(b=>b.onclick=async()=>{try{await postJSON('/api/admin/dive-points/review',{id:+b.dataset.id,decision:b.dataset.decision});toast('Revisión del punto guardada.');renderAdmin();}catch(e){toast(e.message)}}); if(tab==='suggestions') $$('.review-s[data-decision="reject"]').forEach(b=>b.onclick=async()=>{try{await postJSON('/api/admin/suggestions/review',{id:+b.dataset.id,decision:'reject'});toast('Rechazada.');renderAdmin();}catch(e){toast(e.message)}}); if(tab==='centers'){ $('#new-center')?.addEventListener('click',()=>editCenterForm()); $$('.edit-center').forEach(b=>b.onclick=()=>editCenterForm(+b.dataset.id)); } if(tab==='qr') loadQRCenters(); }
   async function loadQRCenters(){const cs=(await api('/api/centers')).items; $('#qr-center').innerHTML=cs.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join(''); $('#qr-form').onsubmit=async e=>{e.preventDefault();try{const r=await postJSON('/api/qr/create',{center_id:+$('#qr-center').value,label:$('#qr-label').value}); const base=location.origin; $('#qr-output').innerHTML=`<div class="qr-box"><p><strong>${escapeHtml($('#qr-label').value)}</strong></p><img src="/api/qr/${r.code}" alt="Código QR"><p style="font-size:12px;color:var(--muted)">${base}/#/checkin/${r.code}</p><button class="btn" type="button" id="qr-copy">Copiar enlace</button></div>`; $('#qr-copy').onclick=()=>navigator.clipboard?.writeText(`${base}/#/checkin/${r.code}`);toast('QR creado.');}catch(e){toast(e.message)}}; }
+  // v50.54: best season, water temperature and visibility of a dive site (all optional; empty = not shown on its page).
+  function pointConditionsForm(p){
+    const months=new Set(String(p.best_months||'').split(',').map(Number));
+    const v=x=>x==null?'':escapeHtml(String(x));
+    return `<form class="notice pc-form" id="point-conditions" style="margin-top:18px"><strong>Condiciones del punto</strong><p class="muted" style="margin:4px 0 10px">Opcional. Lo que se deja vacío no aparece en la ficha.</p>
+      <fieldset class="pc-months"><legend>Mejor época</legend>${Array.from({length:12},(_,i)=>`<label><input type="checkbox" name="pc-month" value="${i+1}" ${months.has(i+1)?'checked':''}> ${escapeHtml(wdMes(i+1,'short'))}</label>`).join('')}</fieldset>
+      <div class="form-grid"><div class="field"><label for="pc-tmin">Temperatura del agua mínima (°C)</label><input id="pc-tmin" type="number" min="0" max="40" step="0.5" value="${v(p.water_temp_min)}"></div><div class="field"><label for="pc-tmax">Temperatura del agua máxima (°C)</label><input id="pc-tmax" type="number" min="0" max="40" step="0.5" value="${v(p.water_temp_max)}"></div>
+      <div class="field"><label for="pc-vmin">Visibilidad mínima (m)</label><input id="pc-vmin" type="number" min="0" max="80" step="1" value="${v(p.visibility_min)}"></div><div class="field"><label for="pc-vmax">Visibilidad máxima (m)</label><input id="pc-vmax" type="number" min="0" max="80" step="1" value="${v(p.visibility_max)}"></div></div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">Guardar condiciones</button></div></form>`;
+  }
+  function bindPointConditions(id){
+    const f=$('#point-conditions'); if(!f) return;
+    f.onsubmit=async e=>{ e.preventDefault();
+      try{ await postJSON('/api/dive-points/conditions',{id,best_months:$$('[name=pc-month]:checked',f).map(x=>+x.value),water_temp_min:$('#pc-tmin').value,water_temp_max:$('#pc-tmax').value,visibility_min:$('#pc-vmin').value,visibility_max:$('#pc-vmax').value}); toast('Condiciones guardadas.'); }
+      catch(err){ toast(err.message); } };
+  }
   async function editPointForm(id){
     let p={name:'',country:'España',region:'',dive_type:'Arrecifes',latitude:38.5,longitude:-0.13,difficulty:'Intermedio',min_depth:'',max_depth:'',description:'',access_info:'',center_id:''};
     if(id){p=(await api('/api/dive-points/'+id)).item;} else if(state.me?.user?.role==='center'){p.center_id=state.me.user.center_id;}
     const meta=await loadMeta(); const cs=(await api('/api/centers')).items;
-    setApp(`<section class="page"><div class="breadcrumb"><a href="#/admin">Gestión</a> / ${id?'Editar punto':'Nuevo punto'}</div><p class="eyebrow">CATÁLOGO</p><h1>${id?'Editar punto':'Nuevo punto'}</h1><p class="lead">La posición se puede introducir manualmente o seleccionando una localización en el mapa detallado.</p><form id="point-form" style="margin-top:28px"><div class="form-grid"><div class="field full"><label>Nombre</label><input id="p-name" value="${escapeHtml(p.name)}" required></div><div class="field"><label>País</label><select id="p-country">${meta.countries.map(x=>`<option ${x.name===p.country?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></div><div class="field"><label>Región / referencia</label><input id="p-region" value="${escapeHtml(p.region||'')}"></div><div class="field"><label>Tipo</label><select id="p-type">${meta.types.map(x=>`<option ${x.name===p.dive_type?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></div><div class="field"><label>Dificultad</label><select id="p-diff"><option ${p.difficulty==='Iniciación'?'selected':''}>Iniciación</option><option ${p.difficulty==='Intermedio'?'selected':''}>Intermedio</option><option ${p.difficulty==='Avanzado'?'selected':''}>Avanzado</option></select></div><div class="field"><label>Latitud</label><input id="p-lat" type="number" step="0.000001" value="${p.latitude}"></div><div class="field"><label>Longitud</label><input id="p-lon" type="number" step="0.000001" value="${p.longitude}"></div><div class="field"><label>Profundidad mínima</label><input id="p-min" type="number" step="0.1" value="${p.min_depth??''}"></div><div class="field"><label>Profundidad máxima</label><input id="p-max" type="number" step="0.1" value="${p.max_depth??''}"></div><div class="field"><label>Centro asociado</label>${state.me?.user?.role==='center'?`<input value="${escapeHtml(cs.find(c=>String(c.id)===String(state.me.user.center_id))?.name||'Mi centro')}" disabled><input id="p-center" type="hidden" value="${state.me.user.center_id}">`:`<select id="p-center"><option value="">Sin asignar</option>${cs.map(c=>`<option value="${c.id}" ${String(c.id)===String(p.center_id||'')?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select>`}</div><div class="field"><label>Orientación de titulación</label><select id="p-cert"><option value="">Automática según dificultad/tipo</option>${meta.certifications.map(c=>`<option value="${c.id}" ${String(c.id)===String(p.recommended_certification_id||'')?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select></div><div class="field full"><label>Descripción</label><textarea id="p-desc">${escapeHtml(p.description||'')}</textarea></div><div class="field full"><label>Acceso / notas operativas</label><textarea id="p-access">${escapeHtml(p.access_info||'')}</textarea></div></div><div class="notice" style="margin-top:18px"><strong>Ajustar ubicación en el mapa</strong><br><small>Arrastra el marcador o haz clic en otra posición. Las coordenadas se actualizan automáticamente.</small><div id="point-editor-map" class="map-card" style="height:320px;margin-top:12px"></div></div><div class="form-actions"><a class="btn" href="#/admin">Cancelar</a><button class="btn btn-primary">Guardar punto</button></div></form>${id?`<div class="notice mk-notice" style="margin-top:18px"><strong>Vídeos de la ruta y vida marina</strong><div id="marina-point-editor"></div></div><div class="notice" style="margin-top:18px"><strong>Material de apoyo del punto</strong><form id="point-photo-form" data-point-id="${id}" enctype="multipart/form-data" style="margin-top:10px"><div class="field"><label>Imagen</label><input name="file" type="file" accept=".jpg,.jpeg,.png,.webp" required></div><div class="field"><label>Descripción</label><input name="caption"></div><button class="btn" type="submit">Subir fotografía</button></form></div>`:''}</section>`);
+    setApp(`<section class="page"><div class="breadcrumb"><a href="#/admin">Gestión</a> / ${id?'Editar punto':'Nuevo punto'}</div><p class="eyebrow">CATÁLOGO</p><h1>${id?'Editar punto':'Nuevo punto'}</h1><p class="lead">La posición se puede introducir manualmente o seleccionando una localización en el mapa detallado.</p><form id="point-form" style="margin-top:28px"><div class="form-grid"><div class="field full"><label>Nombre</label><input id="p-name" value="${escapeHtml(p.name)}" required></div><div class="field"><label>País</label><select id="p-country">${meta.countries.map(x=>`<option ${x.name===p.country?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></div><div class="field"><label>Región / referencia</label><input id="p-region" value="${escapeHtml(p.region||'')}"></div><div class="field"><label>Tipo</label><select id="p-type">${meta.types.map(x=>`<option ${x.name===p.dive_type?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></div><div class="field"><label>Dificultad</label><select id="p-diff"><option ${p.difficulty==='Iniciación'?'selected':''}>Iniciación</option><option ${p.difficulty==='Intermedio'?'selected':''}>Intermedio</option><option ${p.difficulty==='Avanzado'?'selected':''}>Avanzado</option></select></div><div class="field"><label>Latitud</label><input id="p-lat" type="number" step="0.000001" value="${p.latitude}"></div><div class="field"><label>Longitud</label><input id="p-lon" type="number" step="0.000001" value="${p.longitude}"></div><div class="field"><label>Profundidad mínima</label><input id="p-min" type="number" step="0.1" value="${p.min_depth??''}"></div><div class="field"><label>Profundidad máxima</label><input id="p-max" type="number" step="0.1" value="${p.max_depth??''}"></div><div class="field"><label>Centro asociado</label>${state.me?.user?.role==='center'?`<input value="${escapeHtml(cs.find(c=>String(c.id)===String(state.me.user.center_id))?.name||'Mi centro')}" disabled><input id="p-center" type="hidden" value="${state.me.user.center_id}">`:`<select id="p-center"><option value="">Sin asignar</option>${cs.map(c=>`<option value="${c.id}" ${String(c.id)===String(p.center_id||'')?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select>`}</div><div class="field"><label>Orientación de titulación</label><select id="p-cert"><option value="">Automática según dificultad/tipo</option>${meta.certifications.map(c=>`<option value="${c.id}" ${String(c.id)===String(p.recommended_certification_id||'')?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select></div><div class="field full"><label>Descripción</label><textarea id="p-desc">${escapeHtml(p.description||'')}</textarea></div><div class="field full"><label>Acceso / notas operativas</label><textarea id="p-access">${escapeHtml(p.access_info||'')}</textarea></div></div><div class="notice" style="margin-top:18px"><strong>Ajustar ubicación en el mapa</strong><br><small>Arrastra el marcador o haz clic en otra posición. Las coordenadas se actualizan automáticamente.</small><div id="point-editor-map" class="map-card" style="height:320px;margin-top:12px"></div></div><div class="form-actions"><a class="btn" href="#/admin">Cancelar</a><button class="btn btn-primary">Guardar punto</button></div></form>${id?pointConditionsForm(p):''}${id?`<div class="notice mk-notice" style="margin-top:18px"><strong>Vídeos de la ruta y vida marina</strong><div id="marina-point-editor"></div></div><div class="notice" style="margin-top:18px"><strong>Material de apoyo del punto</strong><form id="point-photo-form" data-point-id="${id}" enctype="multipart/form-data" style="margin-top:10px"><div class="field"><label>Imagen</label><input name="file" type="file" accept=".jpg,.jpeg,.png,.webp" required></div><div class="field"><label>Descripción</label><input name="caption"></div><button class="btn" type="submit">Subir fotografía</button></form></div>`:''}</section>`);
     $('#point-form').onsubmit=async e=>{e.preventDefault();const data={id,name:$('#p-name').value,country:$('#p-country').value,region:$('#p-region').value,dive_type:$('#p-type').value,latitude:+$('#p-lat').value,longitude:+$('#p-lon').value,difficulty:$('#p-diff').value,min_depth:$('#p-min').value,max_depth:$('#p-max').value,center_id:+($('#p-center').value||0)||null,description:$('#p-desc').value,access_info:$('#p-access').value}; try{if(id) await postJSON('/api/dive-points/update',data,'POST'); else await postJSON('/api/dive-points',data);toast('Punto guardado.');location.hash=state.me?.user?.role==='center'?'#/admin?tab=points':'#/admin';}catch(err){toast(err.message)}};
     if(id){
+      bindPointConditions(id);
       renderMarinaPointEditor('marina-point-editor',id);
       $('#point-photo-form').onsubmit=async e=>{e.preventDefault(); const pid=e.target.dataset.pointId; try{await api('/api/dive-points/'+pid+'/photos',{method:'POST',body:new FormData(e.target)}); toast('Fotografía subida.'); editPointForm(+pid);}catch(err){toast(err.message)}};
     }
@@ -6318,6 +6397,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   });
 
   navMobile();
+  window.addEventListener('resize',()=>wdHeaderHeight(),{passive:true}); wdHeaderHeight();
   initLanguage();
   // v50.48 · App mode: what /js/wd-app.js uses from this file. Only inside the app (or with «?app=1»).
   const WD_APP_ASSETS='50.53';

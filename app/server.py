@@ -2130,6 +2130,9 @@ def migrate_v50_36(db):
     # Dive points: own descriptions in 9 languages; the previous text stays in description_legacy until reviewed.
     add_columns(db, 'dive_points', [('description_legacy', 'TEXT'), ('description_reviewed', 'INTEGER NOT NULL DEFAULT 0'), ('description_reviewed_at', 'TEXT'),
                                     ('description_missing', 'TEXT'), ('description_generated', 'INTEGER NOT NULL DEFAULT 0')])
+    # v50.54 (owner's brief, point 3): optional conditions of a dive site, shown in its key data only when known.
+    add_columns(db, 'dive_points', [('best_months', 'TEXT'), ('water_temp_min', 'REAL'), ('water_temp_max', 'REAL'),
+                                    ('visibility_min', 'REAL'), ('visibility_max', 'REAL')])
     db.execute('CREATE TABLE IF NOT EXISTS dive_point_texts (point_id INTEGER NOT NULL REFERENCES dive_points(id) ON DELETE CASCADE, lang TEXT NOT NULL, '
                'description TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(point_id, lang))')
     if not migration_done(db, '50.36-points'):
@@ -4666,6 +4669,41 @@ def public_center_sql(alias='c'):
     return f"{p}active=1" + ('' if wcfg.demo_mode() else f" AND {p}verification_status='verified'")
 
 
+CATEGORY_LEVEL_RANK={'todos los niveles':0,'iniciacion':0,'intermedio':1,'avanzado':2,'formacion especifica':3}
+
+
+def recommended_cert(own, type_keys):
+    """v50.54: the certification shown in a dive site's key data: its own when the administration set one, otherwise
+    the one of its most demanding type of dive (catalogue text, the same as «Tipos de buceo»). None when neither."""
+    if own: return own
+    cats=[c for c in (DIVE_CATEGORY_BY_KEY.get(k) or dive_category(k) for k in type_keys or []) if c]
+    if not cats: return None
+    return max(cats,key=lambda c:CATEGORY_LEVEL_RANK.get(fold_text(c['level']),0))['cert']
+
+
+def point_conditions(data):
+    """v50.54: the optional conditions of a dive site, checked. Months 1–12; water 0–40 °C; visibility 0–80 m; a
+    range may give only one end; the lower end never above the upper one."""
+    months=data.get('best_months')
+    if isinstance(months,str): months=[x for x in re.split(r'[\s,;]+',months) if x]
+    try: months=sorted({int(m) for m in (months or [])})
+    except (TypeError,ValueError): raise ValueError('Los meses deben ser números del 1 al 12.')
+    if any(m<1 or m>12 for m in months): raise ValueError('Los meses deben ser números del 1 al 12.')
+    def num(key,lo,hi,label):
+        v=data.get(key)
+        if v in (None,''): return None
+        try: v=float(v)
+        except (TypeError,ValueError): raise ValueError(f'{label}: escribe un número.')
+        if not (lo<=v<=hi): raise ValueError(f'{label}: entre {lo:g} y {hi:g}.')
+        return round(v,1)
+    out={'best_months':','.join(map(str,months)) if months and len(months)<12 else None,
+         'water_temp_min':num('water_temp_min',0,40,'Temperatura mínima'),'water_temp_max':num('water_temp_max',0,40,'Temperatura máxima'),
+         'visibility_min':num('visibility_min',0,80,'Visibilidad mínima'),'visibility_max':num('visibility_max',0,80,'Visibilidad máxima')}
+    for a,b,label in (('water_temp_min','water_temp_max','temperatura'),('visibility_min','visibility_max','visibilidad')):
+        if out[a] is not None and out[b] is not None and out[a]>out[b]: raise ValueError(f'La {label} mínima no puede ser mayor que la máxima.')
+    return out
+
+
 def point_row(row):
     if not row:
         return None
@@ -5069,6 +5107,16 @@ def migrate_center_directory_data(db):
 # those pages scan or aggregate the database on every visit.
 # ---------------------------------------------------------------------------
 POINT_LEVELS={'start':('principiante','iniciacion','facil'),'mid':('intermedio','intermedia','moderado'),'adv':('avanzado',)}
+# v50.54: depth filter of «Puntos de buceo», by the deepest part of each site (unknown depth: in no band).
+DEPTH_BANDS={'d18':('Hasta 18 m',None,18.0),'d30':('18–30 m',18.0,30.0),'d40':('Más de 30 m',30.0,None)}
+
+
+def depth_band(r):
+    m=r.get('max_depth')
+    if m is None: return ''
+    for k,(_,lo,hi) in DEPTH_BANDS.items():
+        if (lo is None or m>lo) and (hi is None or m<=hi): return k
+    return ''
 
 
 def point_level(difficulty):
@@ -5209,19 +5257,39 @@ def point_directory(db, query):
     q=fold_text(clean_text(g('q'),120) or '').strip()
     if q:
         words=q.split(); rows=[r for r in rows if all(w in r['_text'] for w in words)]
-    cat=dive_category(g('type'))
-    if cat:
-        key=fold_text(cat['slug']).replace(' ','-'); rows=[r for r in rows if key in r['types']]
-    level=g('level')
-    if level in POINT_LEVELS: rows=[r for r in rows if r['level']==level]
     if g('only')=='centers': rows=[r for r in rows if r['centers_count']>0]
     if g('only')=='instant' or g('instant')=='1':
         # «Confirmación inmediata»: dive sites where at least one centre offers «Pago al reservar» bookable now.
         inst={x['id'] for x in directory_snapshot(db)['rows'] if x.get('instant')}
         ids={x[0] for x in db.execute('SELECT DISTINCT dive_point_id FROM center_point_links WHERE center_id IN (%s)'%(','.join('?'*len(inst)) or 'NULL'),list(inst)).fetchall()} if inst else set()
         rows=[r for r in rows if r['id'] in ids]
+    # v50.54 (owner's brief, point 2): region, type, level and depth filters, each with its counts computed with the
+    # other filters applied, so a choice never leads to an empty list and an empty region is not offered.
+    cat=dive_category(g('type')); tkey=fold_text(cat['slug']).replace(' ','-') if cat else ''
+    level=g('level') if g('level') in POINT_LEVELS else ''
+    depth=g('depth') if g('depth') in DEPTH_BANDS else ''
+    area=clean_text(g('area'),120)
+    keep={'type':lambda r:tkey in r['types'],'level':lambda r:r['level']==level,'depth':lambda r:depth_band(r)==depth,
+          'area':lambda r:point_group(r,home)==area}
+    active={k for k,v in (('type',tkey),('level',level),('depth',depth),('area',area)) if v}
+    def without(skip):
+        return [r for r in rows if all(keep[k](r) for k in active if k!=skip)]
+    facet_areas={}
+    for r in without('area'):
+        k=point_group(r,home); a=facet_areas.setdefault(k,{'name':k,'count':0,'_o':(0,r['_area_order']) if r['country']==home else (1,0)}); a['count']+=1
+    facet_types={}
+    for r in without('type'):
+        for t in r['types']: facet_types[t]=facet_types.get(t,0)+1
+    facet_levels={}
+    for r in without('level'):
+        if r['level']: facet_levels[r['level']]=facet_levels.get(r['level'],0)+1
+    facet_depths={}
+    for r in without('depth'):
+        b=depth_band(r)
+        if b: facet_depths[b]=facet_depths.get(b,0)+1
+    rows=without(None)
     # Facets are computed before the geographic filters so the visitor can always switch zone or country.
-    zone=clean_text(g('zone'),120); sub=clean_text(g('subregion'),120); country=clean_text(g('country'),120); area=clean_text(g('area'),120)
+    zone=clean_text(g('zone'),120); sub=clean_text(g('subregion'),120); country=clean_text(g('country'),120)
     zf={}; cf={}
     for r in rows:
         zf[r['zone'] or 'Otros']=zf.get(r['zone'] or 'Otros',0)+1
@@ -5229,7 +5297,15 @@ def point_directory(db, query):
     for r in rows: cf[r['country']]=cf.get(r['country'],0)+1
     if country: rows=[r for r in rows if r['country']==country]
     if sub: rows=[r for r in rows if (r['subregion'] or r['region'] or r['country'])==sub]
-    if area: rows=[r for r in rows if point_group(r,home)==area]
+    facets={'areas':[{'name':a['name'],'count':a['count']} for a in sorted(facet_areas.values(),key=lambda a:(a['_o'],-a['count'],a['name']))],
+            'types':[{'key':fold_text(c['slug']).replace(' ','-'),'label':c['label'],'count':facet_types.get(fold_text(c['slug']).replace(' ','-'),0)} for c in DIVE_CATEGORIES],
+            'levels':[{'key':k,'count':facet_levels.get(k,0)} for k in POINT_LEVELS],
+            'depths':[{'key':k,'label':v[0],'count':facet_depths.get(k,0)} for k,v in DEPTH_BANDS.items()]}
+    if g('view')=='map':
+        # «Mapa» of the list: every matching dive site (few fields), not one page.
+        pts=[{'id':r['id'],'name':r['name'],'latitude':r['latitude'],'longitude':r['longitude'],'area':point_group(r,home),'level':r['level'],
+              'min_depth':r['min_depth'],'max_depth':r['max_depth'],'types':r['types'][:2]} for r in rows[:5000] if r['latitude'] is not None and r['longitude'] is not None]
+        return {'items':pts,'total':len(rows),'facets':facets,'home_country':home}
     try: per=max(1,min(60,int(g('per_page','24')))); page=max(1,min(10000,int(g('page','1'))))
     except ValueError: per,page=24,1
     total=len(rows)
@@ -5248,7 +5324,7 @@ def point_directory(db, query):
             d['distance_km']=wgeo.shown_km(km,r['latitude'],r['longitude']) if km is not None and show_km else None
         if sort=='area': d['group']=point_group(r,home)
         items.append(d)
-    return {'items':items,'total':total,'page':page,'per_page':per,'pages':(total+per-1)//per,'sort':sort,'located':bool(here),'distances':show_km,'home_country':home,
+    return {'items':items,'total':total,'page':page,'per_page':per,'pages':(total+per-1)//per,'sort':sort,'located':bool(here),'distances':show_km,'home_country':home,'facets':facets,
             'zones':[{'name':k,'count':v} for k,v in sorted(zf.items(),key=lambda x:-x[1])],
             'countries':[{'name':k,'count':v} for k,v in sorted(cf.items(),key=lambda x:(-x[1],x[0] or ''))]}
 
@@ -12217,6 +12293,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     lang=normalize_lang(query.get('lang',['es'])[0]); loc=point_text(db,pid,lang)
                     if loc: item['description']=loc; item['description_lang']=lang
                     if item.get('description_generated'): item['access_info']=''   # the access is already in the text
+                    item['recommended_cert']=recommended_cert(r['recommended_certification_name'],snap_row.get('types',[]))
                     # v50.50/51: species, linked route videos and the old virtual tours come with the site (one indexed query
                     # each, never one request per item). Old tours copied to route videos are not repeated.
                     legacy=db.execute('''SELECT v.id,v.dive_point_id,v.title,v.experience_type,v.provider,v.url,v.media_path,v.description FROM virtual_experiences v
@@ -14982,6 +15059,17 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); pid=int(path.split('/')[3]); data=json_body(self)
                     if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone(): self.send_json({'error':'Punto no encontrado'},404); return
                     cur=db.execute('INSERT INTO point_position_suggestions(dive_point_id,user_id,latitude,longitude,note,status,created_at) VALUES(?,?,?,?,?,?,?)',(pid,user['id'],float(data.get('latitude')),float(data.get('longitude')),clean_text(data.get('note'),2000),'pending',now())); audit(db,user['id'],'position_suggested','point_position_suggestion',cur.lastrowid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/dive-points/conditions':
+                    # v50.54: best season, water temperature and visibility of a dive site (all optional; empty = unknown).
+                    user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self); pid=int(data.get('id') or 0)
+                    row=db.execute('SELECT id,center_id FROM dive_points WHERE id=?',(pid,)).fetchone()
+                    if not row: self.send_json({'error':'Punto no encontrado'},404); return
+                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes modificar este punto.')
+                    vals=point_conditions(data)
+                    db.execute('UPDATE dive_points SET best_months=?,water_temp_min=?,water_temp_max=?,visibility_min=?,visibility_max=?,updated_by_user_id=?,updated_at=? WHERE id=?',
+                               (vals['best_months'],vals['water_temp_min'],vals['water_temp_max'],vals['visibility_min'],vals['visibility_max'],user['id'],now(),pid))
+                    audit(db,user['id'],'dive_point_conditions','dive_point',pid,vals); db.commit()
+                    self.send_json({'ok':True,**vals}); return
                 if path=='/api/dive-points/update':
                     user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self); pid=int(data['id']); row=db.execute('SELECT * FROM dive_points WHERE id=?',(pid,)).fetchone()
                     if not row: self.send_json({'error':'Punto no encontrado'},404); return

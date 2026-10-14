@@ -165,9 +165,8 @@ def run(shots: Path | None):
 
             def puntos(pg):
                 return pg.evaluate("""()=>({sort:document.querySelector('#pt-sort')?.value,loc:document.querySelector('#pt-locbar')?.innerText||'',
-                    groups:[...document.querySelectorAll('#pt-grid .pt-group')].map(x=>x.textContent.trim()),
-                    cards:[...document.querySelectorAll('#pt-grid .pt-card')].map(c=>({id:c.id,n:c.querySelector('.pt-num')?.textContent.trim(),km:c.querySelector('.pt-dist')?.textContent||''})),
-                    markers:[...document.querySelectorAll('#pt-map .pt-num')].map(m=>m.textContent.trim())})""")
+                    groups:[...document.querySelectorAll('#pt-regions [data-area]')].map(x=>x.dataset.area).filter(Boolean),
+                    cards:[...document.querySelectorAll('#pt-grid .pt-card')].map(c=>({id:c.id,km:c.querySelector('.pt-dist')?.textContent||''}))})""")
 
             # ---- 1. Top 10 and «Puntos de buceo» with the location allowed in three places --------------------------
             radii = {}
@@ -181,8 +180,7 @@ def run(shots: Path | None):
                 go(pg, '#/puntos', 3000); d = puntos(pg)
                 kms = [float(re.sub(r'[^\d,.]', '', c['km']).replace(',', '.') or 0) for c in d['cards']]
                 check(f'puntos {name}: del más cercano al más lejano, km en cada tarjeta', d['sort'] == 'distance' and kms and all(b >= a - 1 for a, b in zip(kms, kms[1:])) and all(c['km'] for c in d['cards']), d['cards'][:4])
-                check(f'puntos {name}: mapa y lista con los mismos puntos y el mismo orden', [c['n'] for c in d['cards']] == d['markers'][:len(d['cards'])] and len(d['markers']) == len(d['cards']),
-                      ([c['n'] for c in d['cards']][:6], d['markers'][:6]))
+                # v50.54: the list and the map are two views of the same page (checked in e2e_v50_54_puntos_tipos.py).
                 shot(pg, f'puntos-{name}')
                 done(pg, f'top10/puntos {name}'); ctx.close()
             check('top10: desde Valencia el radio es menor que desde Madrid (costa)', radii['valencia'] < radii['madrid'], radii)
@@ -195,7 +193,7 @@ def run(shots: Path | None):
             go(pg, '#/puntos', 3000); d = puntos(pg)
             order = ['Costa Brava', 'Comunidad Valenciana', 'Murcia', 'Andalucía', 'Baleares', 'Canarias', 'Cantábrico', 'Galicia']
             seen = [g for g in d['groups'] if g in order]
-            check('puntos denegada: España agrupada por zonas, en orden', d['sort'] == 'area' and seen and seen == sorted(seen, key=order.index), d['groups'])
+            check('puntos denegada: las zonas de España primero y en orden (v50.54: en la barra de regiones)', d['sort'] == 'area' and seen and seen == sorted(seen, key=order.index), d['groups'])
             check('puntos denegada: aviso «Activa la ubicación para ver primero los más cercanos»', 'Activa la ubicación' in d['loc'], d['loc'])
             shot(pg, 'puntos-denegada')
             done(pg, 'denegada'); ctx.close()

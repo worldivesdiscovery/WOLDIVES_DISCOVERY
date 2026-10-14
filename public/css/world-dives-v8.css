@@ -212,7 +212,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:12px 13px
    Mobile-first refinements for phones, tablets and desktop.
    ========================================================= */
 img,svg,video,iframe{max-width:100%}
-html,body{width:100%;overflow-x:hidden}
+html,body{width:100%;overflow-x:hidden;overflow-x:clip}
 button,.btn,.zone-btn,.zone-country-btn,.main-nav a{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 input,select,textarea{font-size:16px} /* prevents iOS/Android zoom on focus */
 .page,.hero,.map-section,.discovery{width:100%}
@@ -393,8 +393,8 @@ input,select,textarea{font-size:16px} /* prevents iOS/Android zoom on focus */
 @media(max-width:720px){.calendar-grid{gap:3px}.calendar-day{min-height:70px;padding:5px}.calendar-event{font-size:9px}.point-select-grid{grid-template-columns:1fr}.slot-row{align-items:flex-start;flex-direction:column}}
 
 /* v30 · Responsive system — phone, tablet, laptop and touch */
-html{overflow-x:hidden}
-body{overflow-x:hidden;-webkit-text-size-adjust:100%;text-rendering:optimizeLegibility}
+html{overflow-x:hidden;overflow-x:clip}
+body{overflow-x:hidden;overflow-x:clip;-webkit-text-size-adjust:100%;text-rendering:optimizeLegibility}
 img,video,canvas,iframe{max-width:100%}
 button,input,select,textarea{max-width:100%;font:inherit}
 input,select,textarea{min-width:0}
@@ -3287,3 +3287,153 @@ html.wd-app[data-wda-tema="noche"] .svc2 :is(.svc2-kicker,.svc2-desc,.svc2-price
 .demo-quick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .demo-quick-btn{display:flex;align-items:center;gap:10px;justify-content:flex-start;text-align:left;min-height:48px;padding:8px 12px;background:#fff}
 .demo-quick-btn span{display:flex;flex-direction:column;line-height:1.2}.demo-quick-btn small{font-size:11px;color:var(--muted);font-weight:600}
+
+/* v50.54: «clip», not «hidden», on html/body (above): «hidden» turned body into a scroll box and no «sticky» worked, not
+   even the site header. */
+/* v50.54 · «Puntos de buceo» (owner's brief, point 2): title, search and Lista/Mapa in one band; a sticky filter bar;
+   a compact grid (4 columns on a computer, a list on the phone). The colours, type and photos of the brand stay. */
+.pt54{--pt-gap:18px}
+.pt54 .pt-band{background:linear-gradient(120deg,var(--deep) 0%,#0b4566 70%,#0e5c80 100%);color:#fff}
+.pt54 .pt-band-in{max-width:1240px;margin:0 auto;padding:20px 24px 18px;display:grid;grid-template-columns:auto minmax(260px,1fr) auto;gap:14px 24px;align-items:center}
+.pt54 .pt-band-title .eyebrow{color:#a9d6e5;margin:0 0 2px}
+.pt54 .pt-band-title h1{margin:0;font-size:clamp(28px,3.2vw,40px);line-height:1.05;color:#fff}
+.pt54 .pt-band-search{display:flex;gap:8px;background:#fff;border-radius:14px;padding:5px;box-shadow:0 8px 26px rgba(0,0,0,.18)}
+.pt54 .pt-band-search .cd-field{flex:1;border:0;background:transparent;min-height:42px}
+.pt54 .pt-band-search .btn{min-height:42px}
+.pt54 .pt-view{display:inline-flex;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:12px;padding:3px}
+.pt54 .pt-view button{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:#e7f3f7;font-weight:700;font-size:14px;padding:9px 14px;border-radius:9px;min-height:40px}
+.pt54 .pt-view button[aria-pressed=true]{background:#fff;color:var(--deep)}
+.pt54 .pt-filters{position:sticky;top:var(--wd-hdr,72px);z-index:900;background:rgba(246,243,236,.97);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.pt54 .pt-filters-in{max-width:1240px;margin:0 auto;padding:10px 24px;display:flex;flex-direction:column;gap:8px}
+.pt54 .pt-regions,.pt54 .pt-selects{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pt54 .pt-regions .cd-chip{padding:6px 11px;font-size:13px;min-height:34px}
+.pt54 .pt-n{color:var(--muted);font-weight:600;margin-left:3px;font-variant-numeric:tabular-nums}
+.pt54 .cd-chip[aria-pressed=true] .pt-n{color:inherit;opacity:.85}
+.pt54 .pt-more-regions{border-style:dashed;color:var(--sea)}
+.pt54 .pt-sel{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:0 4px 0 10px;min-height:36px}
+.pt54 .pt-sel span{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.pt54 .pt-sel select{border:0;background:transparent;font-size:14px;font-weight:600;color:var(--ink);padding:7px 4px;max-width:210px}
+.pt54 .pt-sort{margin-left:auto}
+.pt54 .pt-only{min-height:36px;padding:6px 12px;font-size:13px}
+.pt54 .cd-clear{min-height:36px}
+.pt54 .pt-main{padding-top:14px;padding-bottom:40px}
+.pt54 .pt-results-head{display:flex;align-items:center;justify-content:space-between;gap:10px 18px;flex-wrap:wrap;margin:0 0 12px}
+.pt54 .pt-count{margin:0;font-size:14px;color:var(--muted)}.pt54 .pt-count strong{color:var(--ink)}
+.pt54 .pt-locbar{display:flex;align-items:center;gap:10px;margin:0;padding:0;background:none;border:0;font-size:13.5px}
+.pt54 .pt-locbar p{font-size:13.5px}
+.pt54 .pt-linkbtn{display:inline-flex;align-items:center;gap:5px;border:0;background:none;color:var(--sea);font-weight:700;padding:6px 2px;text-decoration:underline;text-underline-offset:3px}
+.pt54 .pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:var(--pt-gap)}
+.pt54 .pt-card{background:#fff;border:1px solid #e3e7e6;border-radius:16px;overflow:hidden;min-width:0;transition:box-shadow .2s,transform .2s}
+.pt54 .pt-card:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.pt54 .pt-link{display:flex;flex-direction:column;height:100%;color:inherit}
+.pt54 .pt-link:focus-visible{outline:3px solid var(--sea);outline-offset:-3px;border-radius:16px}
+.pt54 .pt-media{position:relative;display:block;aspect-ratio:4/3;background:#dfe9ec;overflow:hidden}
+.pt54 .pt-media img{width:100%;height:100%;object-fit:cover;display:block}
+.pt54 .pt-type{position:absolute;left:10px;top:10px;background:rgba(1,28,60,.78);color:#fff;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:999px;letter-spacing:.02em}
+.pt54 .pt-dist{position:absolute;right:10px;top:10px}
+.pt54 .pt-info{display:flex;flex-direction:column;gap:4px;padding:12px 14px 14px}
+.pt54 .pt-name{font-size:16px;line-height:1.25;color:var(--deep);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pt54 .pt-where{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt54 .pt-facts{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:13px;color:#3d5260}
+.pt54 .pt-facts>span{display:inline-flex;align-items:center;gap:5px}
+.pt54 .pt-facts .wd-icon{color:var(--sea)}
+.pt54 .pt-card.is-skeleton .pt-media{background:linear-gradient(90deg,#e7ecec,#f3f5f4,#e7ecec);background-size:200% 100%;animation:wd-shimmer 1.2s infinite}
+.pt54 .pt-card.is-skeleton .pt-info i{display:block;height:12px;border-radius:6px;background:#eef1f1;margin:6px 0}
+.pt54 .pt-card.is-skeleton .pt-info i:last-child{width:60%}
+.pt54 .pt-group,.pt54 .pt-none,.pt54 .cd-empty{grid-column:1/-1}
+.pt54 .pt-morebox{display:flex;justify-content:center;padding:18px 0 4px}
+.pt54 .pt-morebox[hidden]{display:none}
+.pt54 .pt-mapview .pt-map{height:calc(100vh - var(--wd-hdr,72px) - 190px);min-height:420px;border-radius:18px}
+.pt54 .pt-map-note{margin:8px 2px 0;font-size:12.5px;color:var(--muted)}
+.pt-pin-wrap{background:transparent;border:0;cursor:pointer}
+.pt-pop{display:flex;flex-direction:column;gap:3px;min-width:170px}.pt-pop strong{font-size:14px;color:var(--deep)}.pt-pop span{font-size:12.5px;color:var(--muted)}.pt-pop .btn{margin-top:6px;align-self:flex-start;color:#fff}
+@keyframes wd-shimmer{to{background-position:-200% 0}}
+@media (max-width:980px){
+  .pt54 .pt-band-in{grid-template-columns:1fr auto;padding:14px 16px}
+  .pt54 .pt-band-search{grid-column:1/-1;order:3}
+  .pt54 .pt-filters-in{padding:8px 16px}
+  .pt54 .pt-regions,.pt54 .pt-selects{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+  .pt54 .pt-regions::-webkit-scrollbar,.pt54 .pt-selects::-webkit-scrollbar{display:none}
+  .pt54 .pt-regions .cd-chip,.pt54 .pt-sel,.pt54 .pt-only,.pt54 .cd-clear{flex:0 0 auto;white-space:nowrap}
+  .pt54 .pt-sort{margin-left:0}
+}
+@media (max-width:640px){
+  .pt54 .pt-band-title .eyebrow{display:none}
+  .pt54 .pt-view button{padding:8px 10px}
+  .pt54 .pt-main{padding-left:16px;padding-right:16px}
+  .pt54 .pt-grid{grid-template-columns:1fr;gap:10px}
+  .pt54 .pt-link{flex-direction:row}
+  .pt54 .pt-media{flex:0 0 116px;aspect-ratio:auto;min-height:104px}
+  .pt54 .pt-type{left:6px;top:6px;font-size:10.5px;padding:3px 7px}
+  .pt54 .pt-dist{right:auto;left:6px;top:auto;bottom:6px;font-size:11.5px;padding:3px 7px}
+  .pt54 .pt-info{padding:10px 12px;justify-content:center}
+  .pt54 .pt-name{font-size:15px}
+  .pt54 .pt-facts{font-size:12.5px;gap:2px 10px}
+  .pt54 .pt-mapview .pt-map{height:calc(100vh - var(--wd-hdr,64px) - 210px);min-height:360px}
+}
+/* v50.54 · Puntos: room for the global «Volver» on the band; the search keeps its width on the phone; a short location line */
+.pt54 .pt-band-in{padding-right:150px}
+.pt54 .pt-band-search .btn{flex:0 0 auto;width:auto;padding:10px 20px}
+.pt54 .pt-band-search input{min-width:0;width:100%}
+@media (max-width:760px){
+  .pt54 .pt-band-in{padding-right:16px}
+  .pt54 .pt-view{margin-right:58px}
+  .pt54 .pt-band-title h1{font-size:26px}
+  .pt54 .pt-band-search{padding:4px}
+  .pt54 .pt-band-search .btn{padding:9px 14px}
+  .pt54 .pt-results-head{margin-bottom:10px}
+  .pt54 .pt-locbar p{display:none}
+}
+/* v50.54 · Ficha del punto (owner's brief, point 3): a shorter photo, the key data in one strip in a fixed order, and one
+   reading column with the same sections in the same order for every dive site. */
+.pp54 .pp-hero{min-height:300px}
+.pp54 .pp-keys{position:relative;z-index:2;max-width:1100px;margin:-30px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));background:#fff;border:1px solid #e3e7e6;border-radius:18px;box-shadow:0 14px 34px rgba(1,28,60,.10);padding:4px 6px}
+.pp54 .pp-key{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:9px;align-items:center;padding:12px 12px;border-right:1px solid #eef1f1;min-width:0}
+.pp54 .pp-key:last-child{border-right:0}
+.pp54 .pp-key .wd-icon{grid-row:1/3;color:var(--sea)}
+.pp54 .pp-key dt{margin:0;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.pp54 .pp-key dd{margin:0;font-size:15px;font-weight:700;color:var(--deep);line-height:1.25}
+.pp54 .pp-body{max-width:920px;margin:0 auto;padding:30px 24px 50px}
+.pp54 .pp-body>.tp-block,.pp54 .pp-body>.pm-block,.pp54 .pp-body>section{margin-top:30px}
+.pp54 .pp-body>.tp-block:first-child,.pp54 .pp-body>.pp-notice+.tp-block{margin-top:0}
+.pp54 .pp-where .pp-map{height:340px;border-radius:16px;margin-bottom:10px}
+.pp54 .pp-suggest-box{margin-top:6px;font-size:14px;color:#35505d}
+.pp54 .pp-suggest-box summary{cursor:pointer;color:var(--sea);font-weight:700;padding:6px 0}
+.pp54 .pp-report{margin:28px 0 0;text-align:right}
+@media (max-width:760px){
+  .pp54 .pp-hero{min-height:230px}
+  .pp54 .pp-keys{margin:-22px 16px 0;grid-template-columns:repeat(2,minmax(0,1fr));padding:2px}
+  .pp54 .pp-key{padding:10px;border-right:0;border-bottom:1px solid #eef1f1}
+  .pp54 .pp-key:nth-child(odd){border-right:1px solid #eef1f1}
+  .pp54 .pp-key dd{font-size:14px}
+  .pp54 .pp-body{padding:22px 16px 40px}
+  .pp54 .pp-where .pp-map{height:260px}
+}
+@media (max-width:760px){
+  .pp54 .pp-hero .tp-actions{display:flex;flex-direction:row;gap:8px}
+  .pp54 .pp-hero .tp-actions .btn{flex:1 1 0;width:auto;padding:10px 12px;font-size:14px;min-height:44px}
+  .pp54 .pp-hero .tp-crumbs{display:none}
+  .pp54 .pp-key dt{font-size:10.5px}
+}
+.pc-months{display:flex;flex-wrap:wrap;gap:6px 14px;border:0;padding:0;margin:0 0 12px}.pc-months legend{font-weight:700;font-size:13px;margin-bottom:6px;padding:0}.pc-months label{display:inline-flex;align-items:center;gap:5px;font-size:14px;text-transform:capitalize}
+/* v50.54 · Tipos de buceo (owner's brief, point 4): the results of the chosen type appear under the grid, in place. */
+.tp54 .tp54-hero{min-height:280px}
+.tp54 .tp-card.is-empty{opacity:.55;cursor:not-allowed;filter:grayscale(.35)}
+.tp54 .tp-card[aria-current]{outline:3px solid var(--sea);outline-offset:2px}
+.tp54 .tp-level-empty{margin:14px 0;color:var(--muted)}
+.tp54 .tp-results{scroll-margin-top:calc(var(--wd-hdr,72px) + 12px);margin:30px 0 10px;padding:24px;background:#fff;border:1px solid #e3e7e6;border-radius:20px;box-shadow:0 10px 30px rgba(1,28,60,.06);outline:none}
+.tp54 .tp-res-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px 24px;flex-wrap:wrap;margin-bottom:16px}
+.tp54 .tp-res-head h2{margin:2px 0 4px;font-size:clamp(26px,3vw,36px)}
+.tp54 .tp-res-head .eyebrow{margin:0}
+.tp54 .tp-res-sum{margin:0;color:#35505d;max-width:640px}
+.tp54 .tp-res-actions{display:flex;gap:8px;flex-wrap:wrap}
+.tp54 .tp-res-more{margin:14px 0 0;font-weight:700}.tp54 .tp-res-more a{color:var(--sea)}
+.tp54 .tp-res-about{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+.tp54 .tp-res-about summary{cursor:pointer;font-weight:700;color:var(--sea)}
+.tp54 .tp-res-centers{margin-top:20px}
+.tp54 .tp-res-empty{border:0;background:none;padding:10px}
+.tp54 .tp-res-empty .cd-chips{justify-content:center;margin:8px 0 14px}
+@media (max-width:760px){.tp54 .tp54-hero{min-height:220px}.tp54 .tp-results{padding:16px;margin-top:22px}.tp54 .tp-res-actions .btn{flex:1 1 auto}}
+/* v50.54: on the phone the header (two rows) scrolls away; what sticks is each page's own bar (the filters of «Puntos»). */
+@media (max-width:760px){.site-header{position:relative}}
+.tp54 .tp-results .pt-type{display:none}
