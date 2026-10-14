@@ -40,7 +40,14 @@ class MiddayClock:
         off = min((o for o in range(-12, 15) if (now + timedelta(hours=o)).date() == place_day),
                   key=lambda o: abs((now + timedelta(hours=o)).hour - 12))
         os.environ['TZ'] = f'WOD{-off:+d}'; time.tzset()   # POSIX: «WOD-5» is UTC+5
+        cls.midday_zone = f'Etc/GMT{-off:+d}'              # the same clock as a zone name («Etc/GMT-5» is UTC+5)
         super().setUpClass()
+
+    @classmethod
+    def at_midday(cls, *service_ids):
+        """The departures of these services in the midday zone: «today at 23:30» is ahead even when it is 23:45 in
+        Madrid (the date is still Madrid's, so the centre's «Hoy» lists them)."""
+        for sid in service_ids: cls.server.sql('UPDATE provider_services SET timezone=? WHERE id=?', (cls.midday_zone, sid))
 
     @classmethod
     def tearDownClass(cls):

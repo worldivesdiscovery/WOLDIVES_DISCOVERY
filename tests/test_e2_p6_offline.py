@@ -19,6 +19,7 @@ class OfflineCheckin(MiddayClock, ServerTestCase):   # «today» at 23:59 must s
         cls.other = t.make_center(cls.admin, 'otrobarco', phone='+34 600 470 002')
         cls.cid = cls.center.user['center_id']
         sid = cls.center.post('/api/provider-services', {'title': 'Salida', 'price': 30, 'booking_mode': 'request'}).json['id']
+        cls.at_midday(sid)
         cls.today = cls.center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': DAY(0), 'slot_time': '23:59', 'spots_total': 8}).json['slot_id']
         cls.later = cls.center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': DAY(5), 'slot_time': '09:00', 'spots_total': 8}).json['slot_id']
         cls.diver = t.make_diver('barco6')

@@ -248,6 +248,7 @@ class ProApp(MiddayClock, ProBase):   # «today» at 23:30 must still be ahead
         cls.server.sql("UPDATE centers SET plan_code='pro',plan_status='active' WHERE id IN (?,?)", (cls.cidA, cls.cidB))
         cls.sA = cls.A.post('/api/provider-services', {'title': 'Doble mañana', 'price': 45}).json['id']
         cls.sB = cls.B.post('/api/provider-services', {'title': 'Doble B', 'price': 30}).json['id']
+        cls.at_midday(cls.sA, cls.sB)
 
     def token(self, bid):
         return self.server.sql('SELECT public_token FROM bookings WHERE id=?', (bid,))[0]['public_token']
