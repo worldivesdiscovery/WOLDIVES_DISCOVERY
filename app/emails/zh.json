@@ -561,5 +561,6 @@
  "Sin grupo": "未分组",
  "Generado el {at} por {who}": "由 {who} 于 {at} 生成",
  "No": "否",
- "No vino": "未到"
+ "No vino": "未到",
+ "(hora local)": "（当地时间）"
 }

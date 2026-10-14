@@ -1,0 +1,44 @@
+name: Dependencias (vulnerabilidades conocidas)
+
+# Cada lunes y cada vez que cambian las dependencias: busca vulnerabilidades conocidas en las librerías del servidor
+# (requirements.txt, también las indirectas) y en las que van dentro de la app móvil (movil/package-lock.json).
+# Si encuentra alguna, el trabajo falla y GitHub avisa por correo a la cuenta del repositorio.
+# Arreglo habitual: subir la versión indicada en requirements.txt (o movil/package.json), pasar las pruebas y desplegar.
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'requirements.txt'
+      - 'movil/package.json'
+      - 'movil/package-lock.json'
+      - '.github/workflows/dependencias.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  servidor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Vulnerabilidades conocidas en requirements.txt
+        run: python -m pip install pip-audit==2.10.1 && python -m pip_audit -r requirements.txt --desc on
+
+  app-movil:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Librerías que van dentro de la app
+        working-directory: movil
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: Herramientas de compilación (solo informa, no van en la app)
+        working-directory: movil
+        run: npm audit || true

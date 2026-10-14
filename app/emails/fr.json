@@ -561,5 +561,6 @@
  "Sin grupo": "Sans groupe",
  "Generado el {at} por {who}": "Généré le {at} par {who}",
  "No": "Non",
- "No vino": "Absent"
+ "No vino": "Absent",
+ "(hora local)": "(heure locale)"
 }

@@ -765,7 +765,10 @@ class Estatico(unittest.TestCase):
         10.3.0) lo conserva, y el servidor abre imágenes WebP subidas por los centros (wod/imagenes.py).
         Corrección: Pillow>=10.3.0, cryptography>=42.0.4 y fijar versiones con hashes (pip-compile --generate-hashes)."""
         req = (ROOT / 'requirements.txt').read_text(encoding='utf-8')
-        mins = {m.group(1).lower(): tuple(int(x) for x in m.group(2).split('.')) for m in re.finditer(r'^([A-Za-z0-9_.-]+)\s*>=\s*([\d.]+)', req, re.M)}
+        # v50.51 (ASVS V15): every dependency with its exact tested version, never a range
+        deps = [l.split('#')[0].strip() for l in req.splitlines() if l.split('#')[0].strip()]
+        self.assertEqual([d for d in deps if not re.fullmatch(r'[A-Za-z0-9_.-]+==[\d.]+', d)], [], 'dependencias sin versión exacta')
+        mins = {m.group(1).lower(): tuple(int(x) for x in m.group(2).split('.')) for m in re.finditer(r'^([A-Za-z0-9_.-]+)\s*(?:>=|==)\s*([\d.]+)', req, re.M)}
         need = {'pillow': (10, 3, 0), 'cryptography': (42, 0, 4)}
         low = {k: mins.get(k) for k, v in need.items() if mins.get(k, (0,)) + (0,) * (3 - len(mins.get(k, (0,)))) < v}
         self.assertEqual(low, {}, f'versiones mínimas por debajo de las corregidas: {low}')

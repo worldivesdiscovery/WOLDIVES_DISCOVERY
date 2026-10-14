@@ -561,5 +561,6 @@
  "Sin grupo": "Zonder groep",
  "Generado el {at} por {who}": "Gemaakt op {at} door {who}",
  "No": "Nee",
- "No vino": "Niet verschenen"
+ "No vino": "Niet verschenen",
+ "(hora local)": "(lokale tijd)"
 }

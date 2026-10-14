@@ -219,6 +219,16 @@
    "pl": "Nazwa miejsca nurkowego, miasta, wyspy lub centrum nurkowego.",
    "nl": "De naam van een duikstek, een plaats, een eiland of een duikcentrum.",
    "zh": "潜点、城市、岛屿或潜水中心的名称。"
+  },
+  "hora local": {
+   "en": "local time",
+   "fr": "heure locale",
+   "de": "Ortszeit",
+   "it": "ora locale",
+   "pt": "hora local",
+   "pl": "czas lokalny",
+   "nl": "lokale tijd",
+   "zh": "当地时间"
   }
  },
  "patterns": {

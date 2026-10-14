@@ -9,7 +9,8 @@
     iniciar --pruebas       TEST ENVIRONMENT (zip «-pruebas»): port 8100, «Entorno de pruebas» band, test accounts,
                             emails saved in data/pruebas/correos, demonstration data with dates from today
 
-The first time it installs what requirements.txt asks for (stripe, qrcode, fonttools, cryptography, Pillow) if it is missing.
+The first time it installs what requirements.txt asks for (stripe, qrcode, fonttools, cryptography, Pillow) if it is missing,
+and again whenever an installed version is not the one fixed there.
 On the real server (VPS) the web is started by systemd: see docs/despliegue/README.md.
 """
 from __future__ import annotations
@@ -28,10 +29,25 @@ ROOT = Path(__file__).resolve().parents[1]
 NEEDED = {'stripe': 'stripe', 'qrcode': 'qrcode', 'fontTools': 'fonttools', 'cryptography': 'cryptography', 'PIL': 'Pillow'}
 
 
+def pinned():
+    """{package: version} from requirements.txt (every line is «package==version»)."""
+    out = {}
+    for line in (ROOT / 'requirements.txt').read_text(encoding='utf-8').splitlines():
+        line = line.split('#')[0].strip()
+        if '==' in line:
+            name, ver = line.split('==', 1); out[name.strip().lower()] = ver.strip()
+    return out
+
+
 def ensure_requirements():
-    missing = [pkg for mod, pkg in NEEDED.items() if importlib.util.find_spec(mod) is None]
+    from importlib import metadata
+    want = pinned()
+    def wrong(pkg):
+        try: return metadata.version(pkg) != want.get(pkg.lower(), metadata.version(pkg))
+        except metadata.PackageNotFoundError: return True
+    missing = [pkg for mod, pkg in NEEDED.items() if importlib.util.find_spec(mod) is None or wrong(pkg)]
     if not missing: return
-    print(f'Instalando lo que falta ({", ".join(missing)}) desde requirements.txt…')
+    print(f'Instalando las versiones de requirements.txt ({", ".join(missing)})…')
     r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--user', '-r', str(ROOT / 'requirements.txt')])
     if r.returncode != 0:
         r = subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', str(ROOT / 'requirements.txt')])

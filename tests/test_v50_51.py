@@ -272,5 +272,25 @@ class ZonasHorarias(ServerTestCase):
         self.assertFalse(t['free'], t); self.assertAlmostEqual(t['hours_left'], hours - 1, delta=0.2)
         self.assertEqual(t['deadline'][11:16], (when - dt.timedelta(hours=hours)).strftime('%H:%M'))   # shown in the centre's time
 
+    def test_deadlines_are_exact_instants_and_today_is_the_centres(self):
+        """Seen from anywhere: deadlines go out with their offset (each browser shows them in its own time), bookings say
+        the time zone of their departure, the e-mail says «(hora local)» and «Hoy» is the centre's day."""
+        import re
+        from zoneinfo import ZoneInfo
+        sid, slot = self.departure(self.mx, 'America/Cancun', dt.timedelta(days=3))
+        bid = self.book(self.mx, sid, slot).json['id']
+        b = self.diver.get(f'/api/bookings/{bid}').json['booking']
+        self.assertEqual(b['tz'], 'America/Cancun')
+        self.assertRegex(b['response_deadline'], r'T\d\d:\d\d[+-]\d\d:\d\d$')
+        mine = [x for x in self.diver.get('/api/bookings').json['items'] if x['id'] == bid][0]
+        self.assertEqual(mine['tz'], 'America/Cancun'); self.assertRegex(mine['response_deadline'], r'[+-]\d\d:\d\d$')
+        terms = self.diver.post(f'/api/bookings/{bid}/cancel', {'preview': True}).json['terms']
+        self.assertTrue(terms['deadline'].endswith('-05:00'), terms['deadline'])                 # Cancún, all year
+        mail = self.server.sql("SELECT text FROM email_outbox WHERE template='booking_request' ORDER BY id DESC LIMIT 1")[0]['text']
+        self.assertIn('(hora local)', mail)
+        hoy = self.mx.get('/api/pro/hoy').json
+        self.assertEqual((hoy['date'], hoy['tz']), (dt.datetime.now(ZoneInfo('America/Cancun')).date().isoformat(), 'America/Cancun'))
+        self.assertEqual(self.mx.get(f"/api/centers/{self.mx.user['center_id']}").json['item']['tz'], 'America/Cancun')
+
 if __name__ == '__main__':
     unittest.main()

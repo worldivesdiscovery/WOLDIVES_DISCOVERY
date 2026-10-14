@@ -1,9 +1,9 @@
-# WORLDIVES DISCOVERY v50.38
-stripe>=12.0.0,<13
-qrcode>=7.4,<9
-# Optional but recommended: vouchers embed only the letters they use (a few KB instead of the whole font).
-fonttools>=4.50,<5
-# v50.47: phones and WhatsApp credentials encrypted at rest (AES-GCM).
-cryptography>=42.0.4
-# v50.50: preview images of the linked videos and species photos, optimised as WebP in several sizes.
-Pillow>=10.3.0
+# WORLDIVES DISCOVERY · dependencias del servidor con la versión exacta probada (v50.51).
+# Se revisan cada semana contra las vulnerabilidades conocidas (.github/workflows/dependencias.yml).
+# Para actualizar: cambia la versión aquí, pasa las pruebas (tests/) y despliega con pip install -r requirements.txt.
+# Python 3.11 o superior (Debian 12 trae 3.11; Ubuntu 24.04, 3.12).
+stripe==12.5.1          # pagos (Stripe Connect)
+qrcode==8.2             # códigos QR de reservas y check-in
+fonttools==4.66.1       # recorta la fuente de los bonos en PDF a las letras que usan
+cryptography==50.0.2    # teléfonos, secretos y copias cifrados (AES-GCM)
+Pillow==12.3.0          # miniaturas de vídeos y fotos de especies en WebP

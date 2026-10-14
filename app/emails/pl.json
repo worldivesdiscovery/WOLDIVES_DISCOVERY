@@ -538,5 +538,6 @@
  "Sin grupo": "Bez grupy",
  "Generado el {at} por {who}": "Wygenerowano {at} przez {who}",
  "No": "Nie",
- "No vino": "Nie przyszedł"
+ "No vino": "Nie przyszedł",
+ "(hora local)": "(czas lokalny)"
 }

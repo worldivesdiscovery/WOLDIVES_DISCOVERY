@@ -5155,7 +5155,7 @@ def center_planning(db, user, month):
         m=_shift_month(t0,i).isoformat()[:7]; e=trend.get(m,{})
         months.append({'month':m,'slots':e.get('slots',0),'offered':e.get('offered',0),'taken':e.get('taken',0),'bookings':e.get('bookings',0),'divers':e.get('divers',0),'revenue':e.get('revenue',0)})
     pf=_shift_month(first,-1); pl=first-_dt.timedelta(days=1)
-    return {'month':start[:7],'start':start,'end':end,'today':_dt.date.today().isoformat(),
+    return {'month':start[:7],'start':start,'end':end,'today':(place_now(provider_tz(db,user)).date() if user['role'] in ('center','freelance') else _dt.date.today()).isoformat(),
             'prev':pf.isoformat()[:7],'next':_shift_month(first,1).isoformat()[:7],
             'slots':slots,'other':other,'stats':_planning_figures(db,svc_where,svc_args,bk_where,bk_args,start,end),
             'prev_stats':_planning_figures(db,svc_where,svc_args,bk_where,bk_args,pf.isoformat(),pl.isoformat()),'trend':months}
@@ -5968,6 +5968,14 @@ EMAIL_AUDIENCE = {'diver': 'Buceador', 'pro': 'Profesional', 'center': 'Centro',
 def _esc(v): return html.escape(str(v if v is not None else ''), quote=True)
 
 
+def mail_deadline(db, server_value, lang, service_id=None, center_id=None):
+    """A deadline in an email: the person may read it anywhere, so it is written in the time of the place of the activity
+    and says so («… 18:30 (hora local)»)."""
+    if not server_value: return ''
+    wall = place_clock(db, server_value, service_id, center_id)
+    return f"{mail_datetime(local_iso(wall) if wall else server_value, lang)} {mail_t(lang, '(hora local)')}"
+
+
 def booking_mail_ctx(db, bid, lang='es'):
     b = db.execute('''SELECT b.*, u.fullname, u.email, up.phone AS diver_phone, p.name AS point_name, s.title AS service_title, s.response_hours
                         FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN user_profiles up ON up.user_id=u.id
@@ -5994,7 +6002,8 @@ def booking_mail_ctx(db, bid, lang='es'):
             'card': (f"{(po['card_brand'] or '').title()} ···· {po['card_last4']}" if po and po['card_last4'] else ''), 'pay_ref': f"PAY-{po['id']:05d}" if po else '',
             'policy': booking_policy(db, b, lang)['text'],
             'status_label': mail_t(lang, wbk.state_label(b['status'])), 'mode_label': mail_t(lang, wbk.mode_label(b['booking_mode'] or 'request', b['response_hours'])),
-            'payment_deadline': mail_datetime(b['payment_deadline'], lang), 'response_deadline': mail_datetime(b['response_deadline'], lang),
+            'payment_deadline': mail_deadline(db, b['payment_deadline'], lang, b['service_id'], b['center_id']),
+            'response_deadline': mail_deadline(db, b['response_deadline'], lang, b['service_id'], b['center_id']),
             'reject_reason': b['reject_reason'] or '',
             'booking_url': f'{base}/#/reserva?id={bid}', 'pdf_url': f'{base}/api/bookings/{bid}/receipt.pdf', 'center_url': prov_url,
             'review_url': f"{base}/#/centro?id={b['center_id']}&resena=1" if b['center_id'] else prov_url, 'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings',
@@ -6303,7 +6312,7 @@ def notify_booking(db, bid, event, extra=None):
         elif event == 'slot_cancelled':
             base = public_site_url(); paid = float(extra.get('paid_net') or 0)
             reason = mail_t(lang_d, SLOT_CANCEL_REASONS.get(extra.get('reason_key'), 'Otro motivo')) + (f": {extra['note']}" if extra.get('note') else '')
-            dl = mail_datetime(extra.get('deadline_iso'), lang_d)
+            bk_ = booking_row(db, bid); dl = mail_deadline(db, extra.get('deadline_iso'), lang_d, bk_['service_id'] if bk_ else None, bk_['center_id'] if bk_ else None)
             to_diver('slot_cancelled', {'cancel_reason': reason, 'choice_url': extra.get('link') or f"{base}/#/salida-cancelada?b={bid}&t={booking_token(db, bid)}",
                      'choice_text': mail_t(lang_d, 'Puedes pasar a otra fecha del mismo servicio o pedir la devolución íntegra de {amount}.', amount=mail_money(paid, ctx['currency'], lang_d)) if paid > 0 else mail_t(lang_d, 'Puedes pasar a otra fecha del mismo servicio o anular la reserva sin ningún coste.'),
                      'deadline_text': mail_t(lang_d, 'Si no eliges antes del {deadline}, te devolveremos el importe automáticamente.', deadline=dl) if paid > 0 else mail_t(lang_d, 'Si no eliges antes del {deadline}, la reserva se anulará sin coste.', deadline=dl)})
@@ -6759,23 +6768,78 @@ def notify_legal_change(db, slug, version, effective_at, summary):
 _TZ_CACHE = {}
 
 
+def place_tz(db, service_id=None, center_id=None):
+    """Time zone of the place where an activity happens: the one of its service, or the country of its centre."""
+    key = (service_id or 0, center_id or 0); hit = _TZ_CACHE.get(key)
+    if hit and hit[1] > time.time(): return hit[0]
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (service_id,)).fetchone() if service_id else None
+    if svc: tz = service_tz(db, svc)
+    else:
+        c = db.execute('SELECT country FROM centers WHERE id=?', (center_id,)).fetchone() if center_id else None
+        tz = wag.tz_for_country(c['country'] if c else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
+    if len(_TZ_CACHE) > 5000: _TZ_CACHE.clear()
+    _TZ_CACHE[key] = (tz, time.time() + 60)   # a change of time zone applies within a minute
+    return tz
+
+
+def provider_tz(db, user):
+    """Time zone of a professional's work: the country of the active centre, or of the freelance."""
+    if user['role'] == 'center' and user['center_id']: return place_tz(db, center_id=user['center_id'])
+    r = db.execute('SELECT country FROM user_profiles WHERE user_id=?', (user['id'],)).fetchone()
+    return wag.tz_for_country(r['country'] if r else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
+
+
+def place_now(tz):
+    """The current wall-clock time of a place (its «today» and «now»)."""
+    try: return datetime.now(ZoneInfo(tz)).replace(tzinfo=None, microsecond=0)
+    except Exception: return local_now()
+
+
 def on_server_clock(db, wall, service_id=None, center_id=None):
     """The date and time of an activity are those of the place where it happens (the time zone of its service, or of its
     centre); the server compares them with its own clock (local_now). v50.51: before, both were taken as the same clock,
     so a server on UTC, or a centre in another time zone, moved departures and cancellation deadlines by hours."""
     if wall is None: return None
-    key = (service_id or 0, center_id or 0); hit = _TZ_CACHE.get(key)
-    if hit and hit[1] > time.time(): tz = hit[0]
-    else:
-        svc = db.execute('SELECT * FROM provider_services WHERE id=?', (service_id,)).fetchone() if service_id else None
-        if svc: tz = service_tz(db, svc)
-        else:
-            c = db.execute('SELECT country FROM centers WHERE id=?', (center_id,)).fetchone() if center_id else None
-            tz = wag.tz_for_country(c['country'] if c else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
-        if len(_TZ_CACHE) > 5000: _TZ_CACHE.clear()
-        _TZ_CACHE[key] = (tz, time.time() + 60)   # a change of time zone applies within a minute
-    try: return wall.replace(tzinfo=ZoneInfo(tz)).astimezone().replace(tzinfo=None)
+    try: return wall.replace(tzinfo=ZoneInfo(place_tz(db, service_id, center_id))).astimezone().replace(tzinfo=None)
     except Exception: return wall
+
+
+def place_clock(db, server_value, service_id=None, center_id=None):
+    """The other way round: a date and time of the server's clock (a stored deadline) on the wall clock of the place."""
+    try:
+        d = server_value if isinstance(server_value, datetime) else datetime.fromisoformat(str(server_value)[:19])
+        return d.astimezone().astimezone(ZoneInfo(place_tz(db, service_id, center_id))).replace(tzinfo=None)
+    except Exception: return None
+
+
+def server_instant(value):
+    """A stored deadline of the server's clock («2026-10-15T18:00») as an exact instant with its offset
+    («2026-10-15T18:00+02:00»), so that each browser shows it in the time of the person who looks at it."""
+    if not isinstance(value, str) or len(value) < 16 or value[10:11] != 'T' or value.endswith('Z') or re.search(r'[+-]\d\d:?\d\d$', value[16:]): return value
+    try: return datetime.fromisoformat(value[:19]).astimezone().isoformat(timespec='minutes')
+    except ValueError: return value
+
+
+def place_instant(wall, tz):
+    """A wall-clock time of a place as an exact instant with that place's offset."""
+    try: return wall.replace(tzinfo=ZoneInfo(tz)).isoformat(timespec='minutes') if wall else None
+    except Exception: return local_iso(wall)
+
+
+SERVER_CLOCK_KEYS = ('payment_deadline', 'response_deadline', 'hold_expires_at')
+
+
+def with_instants(payload, depth=0):
+    """Every stored deadline of the server's clock in an API answer goes out as an instant (see server_instant)."""
+    if depth > 8: return payload
+    if isinstance(payload, dict):
+        for k, v in payload.items():
+            if k in SERVER_CLOCK_KEYS: payload[k] = server_instant(v)
+            elif isinstance(v, (dict, list)): with_instants(v, depth + 1)
+    elif isinstance(payload, list):
+        for v in payload:
+            if isinstance(v, (dict, list)): with_instants(v, depth + 1)
+    return payload
 
 
 def booking_start(b):
@@ -6965,13 +7029,13 @@ def booking_paid_online(db, bid):
 def booking_cancel_terms(db, b):
     """What happens if the diver cancels now: refund proposed by the provider's policy and the free-cancellation deadline."""
     pol = booking_policy(db, b); hours = pol['free_hours']
-    wall = booking_start(b); start = on_server_clock(db, wall, b['service_id'], b['center_id'])
+    wall = booking_start(b); tz = place_tz(db, b['service_id'], b['center_id']); start = on_server_clock(db, wall, b['service_id'], b['center_id'])
     left = (start - local_now()).total_seconds() / 3600 if start else 0
     paid, refunded, orders = booking_paid_online(db, b['id'])
     net = max(0.0, paid - refunded)
     free = left >= hours
     amount = net if free else round(net * pol['refund_pct'] / 100, 2)
-    deadline = (wall - _timedelta(hours=hours)).isoformat(timespec='minutes') if wall else None   # the centre's time
+    deadline = place_instant(wall - _timedelta(hours=hours), tz) if wall else None   # exact instant: each person sees it in their time
     return {'policy': f'{hours}h-{pol["refund_pct"]}', 'policy_hours': hours, 'refund_pct': pol['refund_pct'], 'hours_left': round(left, 1), 'free': free,
             'paid_online': bool(orders), 'refund_amount': round(amount, 2), 'paid_amount': round(net, 2), 'deadline': deadline,
             'started': left <= 0, 'policy_text': pol['text']}
@@ -8209,7 +8273,7 @@ def manifest_data(db, user, slot_id):
             'waiver': {'id': waiver['id'], 'version': waiver['version'], 'title': waiver['title']} if waiver else None,
             'can_edit': bool(can_edit), 'level_labels': wmf.LEVEL_LABELS,
             'cancelled': {'at': slot['cancelled_at'], 'reason': slot['cancel_reason'], 'note': slot['cancel_note']} if slot['cancelled_at'] else None,
-            'waitlist': [dict(r) for r in db.execute('''SELECT w.id,w.participants,w.status,w.created_at,w.expires_at,u.fullname FROM waitlist_entries w JOIN users u ON u.id=w.user_id
+            'waitlist': [{**dict(r), 'expires_at': server_instant(r['expires_at'])} for r in db.execute('''SELECT w.id,w.participants,w.status,w.created_at,w.expires_at,u.fullname FROM waitlist_entries w JOIN users u ON u.id=w.user_id
                                                         WHERE w.slot_id=? AND w.status IN ('waiting','notified') ORDER BY w.created_at,w.id''', (slot_id,)).fetchall()],
             'waitlist_enabled': (db.execute('SELECT waitlist_enabled FROM provider_services WHERE id=?', (slot['service_id'],)).fetchone()['waitlist_enabled'] != 0),
             'events': [{**dict(e), 'details': json.loads(e['details'] or '{}')} for e in db.execute('SELECT e.kind,e.details,e.created_at,u.fullname AS who FROM slot_events e LEFT JOIN users u ON u.id=e.user_id WHERE e.slot_id=? ORDER BY e.id DESC LIMIT 100', (slot_id,)).fetchall()]}
@@ -9243,7 +9307,7 @@ def reschedule_options(db, b, user):
     """What «Cambiar fecha» offers to the diver for a booking: whether it is allowed, until when, and the departures."""
     mode, hours = reschedule_policy(db, b)
     start = wbk.activity_start(b['booking_date'], b['booking_time'])
-    until = start - _timedelta(hours=hours) if start else None   # the centre's time (shown)
+    until = start - _timedelta(hours=hours) if start else None   # wall time of the place
     until_here = on_server_clock(db, until, b['service_id'], b['center_id'])
     pending = db.execute("SELECT r.*, ss.slot_date, ss.slot_time FROM reschedule_requests r JOIN service_slots ss ON ss.id=r.to_slot_id WHERE r.booking_id=? AND r.status='pending'", (b['id'],)).fetchone()
     why = None
@@ -9259,7 +9323,7 @@ def reschedule_options(db, b, user):
             base_old = effective_service_tariff(db, b['service_id'], b['booking_date'])[0]
             diff = round((float(unit or 0) - float(base_old or 0)) * pax, 2)
             opts.append({'slot_id': s['id'], 'slot_date': s['slot_date'], 'slot_time': s['slot_time'], 'spots_available': s['spots_available'], 'price_diff': diff})
-    return {'allowed': not why, 'reason': why, 'mode': mode, 'hours': hours, 'until': local_iso(until) if until else None, 'options': opts, 'currency': b['currency'] or 'EUR',
+    return {'allowed': not why, 'reason': why, 'mode': mode, 'hours': hours, 'until': place_instant(until, place_tz(db, b['service_id'], b['center_id'])) if until else None, 'options': opts, 'currency': b['currency'] or 'EUR',
             'pending': {'id': pending['id'], 'slot_date': pending['slot_date'], 'slot_time': pending['slot_time'], 'price_diff': pending['price_diff']} if pending else None}
 
 
@@ -9283,7 +9347,7 @@ def waitlist_offer(db, slot_id):
             lang = user_lang(db, u['id']); base = public_site_url()
             who = s['center_id'] and db.execute('SELECT name FROM centers WHERE id=?', (s['center_id'],)).fetchone()
             ctx = {'first_name': (u['fullname'] or '').split(' ')[0], 'service': s['service_title'], 'center': (who['name'] if who else '') or '',
-                   'when': when_text(s['slot_date'], s['slot_time'], lang), 'deadline': mail_datetime(local_iso(until), lang), 'participants': w['participants'],
+                   'when': when_text(s['slot_date'], s['slot_time'], lang), 'deadline': mail_deadline(db, until, lang, s['service_id'], s['center_id']), 'participants': w['participants'],
                    'book_url': f"{base}/#/reservar?{'center=' + str(s['center_id']) if s['center_id'] else 'provider=' + str(s['provider_user_id'])}&service={s['service_id']}&slot={slot_id}"}
             queue_email(db, 'waitlist_spot', u['email'], u['fullname'], ctx, lang, ('service_slot', slot_id))
         slot_event(db, slot_id, 'waitlist_notified', None, entry=w['id'], participants=w['participants'], until=local_iso(until))
@@ -9314,7 +9378,7 @@ def waitlist_for_slots(db, user_id, slot_ids):
     for chunk in [slot_ids[i:i + 500] for i in range(0, len(slot_ids), 500)]:
         for w in db.execute(f"SELECT * FROM waitlist_entries WHERE user_id=? AND status IN ('waiting','notified') AND slot_id IN ({','.join('?' * len(chunk))})", (user_id, *chunk)).fetchall():
             pos = db.execute("SELECT COUNT(*) FROM waitlist_entries WHERE slot_id=? AND status='waiting' AND (created_at<? OR (created_at=? AND id<=?))", (w['slot_id'], w['created_at'], w['created_at'], w['id'])).fetchone()[0]
-            out[w['slot_id']] = {'status': w['status'], 'participants': w['participants'], 'held': w['held'] or 0, 'expires_at': w['expires_at'], 'position': pos if w['status'] == 'waiting' else None}
+            out[w['slot_id']] = {'status': w['status'], 'participants': w['participants'], 'held': w['held'] or 0, 'expires_at': server_instant(w['expires_at']), 'position': pos if w['status'] == 'waiting' else None}
     return out
 
 
@@ -9706,9 +9770,10 @@ def pro_slots(db, user, day):
 
 def pro_today(db, user):
     """«Hoy» of the professional app: four numbers, what is urgent, today's departures and tomorrow's (folded)."""
-    today = local_now().date(); tomorrow = today + _timedelta(days=1)
+    tz = provider_tz(db, user); here = place_now(tz)   # the centre's «today», wherever the server is
+    today = here.date(); tomorrow = today + _timedelta(days=1)
     sal = pro_slots(db, user, today.isoformat()); man = pro_slots(db, user, tomorrow.isoformat())
-    res = {'date': today.isoformat(), 'tomorrow': tomorrow.isoformat(), 'now': local_now().isoformat(timespec='minutes'),
+    res = {'date': today.isoformat(), 'tomorrow': tomorrow.isoformat(), 'now': here.isoformat(timespec='minutes'), 'tz': tz,
            'slots': sal, 'tomorrow_slots': man, 'urgent': [], 'requests': None, 'awaiting_payment': None,
            'counts': {'slots': len([x for x in sal if x['status'] != 'cancelled']), 'divers': sum(x['confirmed'] + x['pending_payment'] for x in sal),
                       'present': sum(x['present'] for x in sal)}}
@@ -9745,7 +9810,7 @@ def pro_today(db, user):
 def pro_agenda(db, user, start, days):
     """Departures of several days (week and month views of the app), one entry per day."""
     try: d0 = _dt.date.fromisoformat(str(start)[:10])
-    except ValueError: d0 = local_now().date()
+    except ValueError: d0 = place_now(provider_tz(db, user)).date()
     days = max(1, min(PRO_AGENDA_MAX_DAYS, int(days or 7)))
     out = []
     for i in range(days):
@@ -9753,7 +9818,7 @@ def pro_agenda(db, user, start, days):
         live = [x for x in sl if x['status'] != 'cancelled']
         cap = sum(x['spots_total'] for x in live); people = sum(x['confirmed'] + x['pending_payment'] for x in live)
         out.append({'date': d, 'slots': sl, 'people': people, 'capacity': cap, 'occupancy': round(people / cap, 2) if cap else 0})
-    return {'from': d0.isoformat(), 'days': out, 'today': local_now().date().isoformat()}
+    return {'from': d0.isoformat(), 'days': out, 'today': place_now(provider_tz(db, user)).date().isoformat()}
 
 
 SCAN_TEXT = {
@@ -9785,7 +9850,7 @@ def pro_scan(db, user, data):
     def res(kind, **extra): return {'result': kind, 'message': SCAN_TEXT[kind], 'booking': card, **extra}
     if b['status'] in ('cancelled', 'rejected', 'expired'): return res('anulada')
     if b['status'] in ('requested', 'pending'): return res('sin_aceptar')
-    today = local_now().date().isoformat()
+    today = place_now(place_tz(db, b['service_id'], b['center_id'])).date().isoformat()   # the day where the dive is
     if not (b['booking_date'] <= today <= (b['date_to'] or b['booking_date'])): return res('otro_dia')
     want = int(data.get('slot_id') or 0)
     if want and b['slot_id'] and want != int(b['slot_id']): return res('otra_salida')
@@ -10061,7 +10126,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         self.wfile.write(body)
 
     def send_json(self, payload, status=200):
-        raw = json.dumps(payload, ensure_ascii=False, separators=(',',':')).encode('utf-8')
+        raw = json.dumps(with_instants(payload), ensure_ascii=False, separators=(',',':')).encode('utf-8')
         gz = len(raw) > 1400 and self.accepts_gzip()
         if gz: raw = gzip_bytes(raw)
         self.send_response(status)
@@ -11012,6 +11077,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                             if _t['tagline']: _ci['tagline']=_t['tagline']
                             if _t['description']: _ci['description']=_t['description']
                             _ci['text_lang']=normalize_lang(lang_)
+                        _ci['tz']=place_tz(db,center_id=cid)   # departures are shown in this local time
                         _ci['online_booking']=provider_has(db,'center',cid,'online_bookings'); stat_bump(db,'center',cid,'views',self.client_ip()); db.commit()
                         if not feature_switch(db,'reviews'): review_payload=[]; can_review=False; _ci['reviews_off']=True
                         self.send_json({'item':_ci,'points':[point_row(r) for r in points],'services':service_out,'experiences':enrich_experiences(db,exp_rows), 'reviews':review_payload, 'review':{'can_review':can_review,'reason':review_reason,'current':current_review,'can_reply':bool(current and current['role']=='center' and current['center_id']==cid),'is_admin':bool(current and current['role']=='admin')}}); return
@@ -11206,7 +11272,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     alts=[{'slot_id':x['id'],'slot_date':x['slot_date'],'slot_time':x['slot_time'],'spots_available':x['spots_available']} for x in target_slots(db,b,offer['slot_id'])] if not offer['resolved_at'] else []
                     self.send_json({'booking':{'id':bid,'ref':f"WOD-{bid:06d}",'participants':b['participants'],'status':b['status'],'service':svc['title'] if svc else '','center':who.get('name') or '',
                                                'booking_date':b['booking_date'],'booking_time':b['booking_time']},
-                                    'offer':{'slot_date':offer['slot_date'],'slot_time':offer['slot_time'],'reason':offer['cancel_reason'],'note':offer['cancel_note'],'deadline':offer['deadline'],
+                                    'offer':{'slot_date':offer['slot_date'],'slot_time':offer['slot_time'],'reason':offer['cancel_reason'],'note':offer['cancel_note'],'deadline':server_instant(offer['deadline']),
                                              'choice':offer['choice'],'resolved_at':offer['resolved_at']},'paid':net_,'currency':b['currency'] or 'EUR','alternatives':alts}); return
                 if re.fullmatch(r'/api/bookings/\d+/reschedule-options',path):
                     user=require_user(self,db); bid=int(path.split('/')[3]); b=booking_row(db,bid)
@@ -11219,11 +11285,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     require_booking_provider(user,b)
                     r=db.execute("SELECT r.*, ss.slot_date, ss.slot_time, ss.spots_available FROM reschedule_requests r JOIN service_slots ss ON ss.id=r.to_slot_id WHERE r.booking_id=? AND r.status='pending' ORDER BY r.id DESC LIMIT 1",(bid,)).fetchone()
                     o=slot_offer_for(db,bid)
-                    self.send_json({'request':dict(r) if r else None,'slot_offer':{k:o[k] for k in ('deadline','choice','resolved_at','cancel_reason')} if o else None}); return
+                    self.send_json({'request':dict(r) if r else None,'slot_offer':{**{k:o[k] for k in ('choice','resolved_at','cancel_reason')},'deadline':server_instant(o['deadline'])} if o else None}); return
                 if path=='/api/manifest/day':
                     # Encargo 2, punto 6: the manifests of one day (today or tomorrow) to keep on the staff device.
-                    user=require_user(self,db); day=clean_text(query.get('date',[''])[0],10) or local_now().date().isoformat()
-                    today=local_now().date()
+                    user=require_user(self,db); today=place_now(provider_tz(db,user)).date() if user['role'] in ('center','freelance') else local_now().date()
+                    day=clean_text(query.get('date',[''])[0],10) or today.isoformat()
                     if day not in (today.isoformat(),(today+_timedelta(days=1)).isoformat()): raise ValueError('Solo se puede preparar el manifiesto de hoy o de mañana.')
                     slots=manifest_day(db,user,day); db.commit(); log_phone_access(db,user,'manifest_day',count_phones(slots))
                     self.send_json({'date':day,'generated_at':now(),'slots':slots}); return
@@ -11322,6 +11388,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     bd['cancel_free_hours']=_pol['free_hours']; bd['cancel_refund_pct']=_pol['refund_pct']
                     # v50.51: the page asks for the «salida cancelada» choice only when there is one open (no 400 otherwise).
                     if b['user_id']==user['id']: _so=slot_offer_for(db,bid); bd['slot_cancel_open']=bool(_so and not _so['resolved_at'])
+                    bd['tz']=place_tz(db,b['service_id'],b['center_id'])
                     bd.pop('public_token',None); bd['check_url']=booking_check_url(db,bid,self.base_url()) if (b['user_id']==user['id'] or can_manage_booking(user,b)) else None
                     bd['check_code']=wpro.booking_code(bid,db.execute('SELECT public_token FROM bookings WHERE id=?',(bid,)).fetchone()['public_token']) if bd['check_url'] else None
                     if b['user_id']!=user['id']: log_phone_access(db,user,'booking',count_phones({'booking':bd,'profile':dict(profile) if profile else {}}),bid)
@@ -11360,6 +11427,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     for r_ in rows:
                         d=dict(r_); d.update(booking_view_status(r_)); d.pop('public_token',None) if user['role']!='recreational' else None
                         d['mode_label']=wbk.mode_label(d.get('booking_mode') or 'request')
+                        d['tz']=place_tz(db,d.get('service_id'),d.get('center_id'))   # the time of the activity is the local time of this zone
                         items.append(d)
                     if user['role']!='recreational': log_phone_access(db,user,'bookings',count_phones(items))
                     self.send_json({'items':items}); return

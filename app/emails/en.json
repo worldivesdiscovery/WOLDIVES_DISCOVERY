@@ -561,5 +561,6 @@
  "Sin grupo": "No group",
  "Generado el {at} por {who}": "Generated on {at} by {who}",
  "No": "No",
- "No vino": "No-show"
+ "No vino": "No-show",
+ "(hora local)": "(local time)"
 }
