@@ -2333,7 +2333,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const CHECK_LABEL={present:'Presente',no_show:'No se presentó','':'Sin marcar'};
   function offPurge(){ const today=wdToday(); lsKeys().filter(k=>k.startsWith(OFF_DAY)&&k.slice(OFF_DAY.length)<today).forEach(lsDel);
     const q=(lsGet(OFF_Q)||[]).filter(x=>(x.date||today)>=today); lsSet(OFF_Q,q); }
-  function offClear(){ lsKeys().filter(k=>k.startsWith(OFF_DAY)).forEach(lsDel); lsDel(OFF_Q); offIndicator(); }
+  // v50.51 (ASVS V14.3.1): signing out also forgets what the app kept on this device (bookings, QR codes, lists).
+  function offClear(){ lsKeys().filter(k=>k.startsWith(OFF_DAY)||k.startsWith('wda-res:')||k.startsWith('wda-qr-')||k.startsWith('wda-pro-')).forEach(lsDel); lsDel(OFF_Q); offIndicator(); }
+  window.wdForgetDevice=offClear;
   const offQueue=()=>lsGet(OFF_Q)||[];
   const offKey=x=>`${x.slot_id}:${x.booking_id}:${x.seat}:${x.field}`;
   function offEnqueue(ch){ const q=offQueue(), i=q.findIndex(x=>offKey(x)===offKey(ch)); if(i>=0){ q[i].value=ch.value; q[i].at=ch.at; q[i].force=ch.force||q[i].force; } else q.push(ch); lsSet(OFF_Q,q); offIndicator(); }
@@ -5965,7 +5967,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     window.WD={app:WD_APP,state,$,$$,escapeHtml,api,postJSON,toast,setApp,route,loadMe,currentLanguage,translateString,translateTree,applyLanguage,
       wdIcon,wdLocale,fmtDate,wdMoney,wdLongDay,wdToday,daysUntil,wdDeadline,bookingStatus,experienceStatus,initials,goLogin,wdOpenCheckout,wdAppPay,
       loadMapLayer,loadMapConfig,wdTileDefaults,wdMapLayers,wdLayerToolbar,wdLimitMap,pointIcon,wdMarkerLayer,wdFold,centerLogoMarkup,
-      LANGS,APP_LANGS:WD_APP_LANGS,LANG_KEY,APP_ASSETS:WD_APP_ASSETS};
+      LANGS,APP_LANGS:WD_APP_LANGS,LANG_KEY,APP_ASSETS:WD_APP_ASSETS,wdConfirm};
     document.documentElement.classList.add('wd-app'); if(WD_APP.pruebas) document.documentElement.classList.add('wd-app-pruebas');
     const css=document.createElement('link'); css.rel='stylesheet'; css.href='/css/wd-app.css?v='+WD_APP_ASSETS; document.head.appendChild(css);
     return new Promise(done=>{ const js=document.createElement('script'); js.src='/js/wd-app.js?v='+WD_APP_ASSETS; js.onload=js.onerror=()=>done(); document.body.appendChild(js); setTimeout(done,6000); });

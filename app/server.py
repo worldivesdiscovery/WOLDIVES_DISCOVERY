@@ -1091,7 +1091,7 @@ def current_password_ok(user_id, password, stored):
     key = f'pw:{user_id}'
     if PASSWORD_CHECK_LIMIT.blocked(key): raise PermissionError('Demasiados intentos con la contraseña. Espera unos minutos.')
     if verify_password(password, stored): return True
-    PASSWORD_CHECK_LIMIT.hit(key); return False
+    PASSWORD_CHECK_LIMIT.hit(key); security_event('current_password_failed', None, user_id); return False
 
 
 NOTICE_LIMIT = wsec.SharedRateLimiter('avisos', 60, 3600)
@@ -1206,11 +1206,37 @@ def wire_connection(db):
     return db
 
 
+_PYTHON_TEXTS = ('invalid literal', 'could not convert', 'cannot convert', 'not enough values', 'too many values', 'unpack',
+                 'invalid isoformat', 'is not a valid', 'out of range', 'object has no', 'unhashable', 'must be', 'argument')
+
+
+def public_error(exc):
+    """The text of a ValueError for the visitor: ours are written for people; Python's are replaced (ASVS V16.5.1)."""
+    text = str(exc)
+    if not text or any(k in text for k in _PYTHON_TEXTS) or text[:1].islower():
+        return 'Algún dato enviado no tiene el formato esperado.'
+    return text
+
+
+def denied(handler, db, exc):
+    """A signed-in person asked for something they may not: kept in the activity log (ASVS V16.3.2)."""
+    try:
+        who = current_user(handler, db)
+        if who: security_event('access_denied', handler, who['id'])
+    except Exception:
+        pass
+
+
+def log_safe(text):
+    """Control characters written as \\xNN, so a request cannot forge lines or colours in the logs (ASVS V16.4.1)."""
+    return re.sub(r'[\x00-\x1f\x7f]', lambda m: '\\x%02x' % ord(m.group()), str(text))
+
+
 def log_exception(handler, exc):
     """Unexpected errors go to stderr with the request line (without the query string: it may hold searches or
     coordinates) so they can be traced in production logs. Repeated errors raise an alert (see wod.ops)."""
     import traceback
-    try: sys.stderr.write(f"[{datetime.now().isoformat(timespec='seconds')}] {handler.command} {urlparse(handler.path).path} -> {type(exc).__name__}: {exc}\n" + ''.join(traceback.format_exception(exc)[-3:]))
+    try: sys.stderr.write(log_safe(f"[{datetime.now(timezone.utc).isoformat(timespec='seconds')}] {handler.command} {urlparse(handler.path).path} -> {type(exc).__name__}: {exc}") + '\n' + ''.join(traceback.format_exception(exc)[-3:]))
     except Exception: pass
     try: ERROR_MONITOR.record(urlparse(handler.path).path, exc)
     except Exception: pass
@@ -2516,10 +2542,31 @@ _SECURITY_ALERT_SENT: dict = {}
 SECURITY_ALERT_EMAIL_MINUTES = 15
 
 
-def security_alert(kind, details=None, user_id=None, center_id=None):
+def security_alert(kind, details=None, user_id=None, center_id=None, notify=True):
     safe = {k: v for k, v in (details or {}).items() if 'phone' not in k and 'token' not in k}   # never a phone or a token in clear
-    _SECURITY_ALERTS.append((kind, safe, user_id, center_id, now()))
+    _SECURITY_ALERTS.append((kind, safe, user_id, center_id, now(), notify))
     sys.stderr.write(f'[seguridad] {kind} {json.dumps(safe, ensure_ascii=False)[:300]}\n')
+
+
+_SECURITY_EVENT_LAST = {}
+
+
+def security_event(kind, handler=None, user_id=None, **details):
+    """An attempt to get round an automatic control (CSRF, limits, signatures, keys, access denied): kept in the
+    activity log as a security alert without emailing anybody, at most once a minute per kind, person and address,
+    so a flood cannot fill the log (ASVS 5.0 V16.3.1–V16.3.3)."""
+    try:
+        ip = handler.client_ip() if handler else ''
+        key = (kind, user_id, wsec.ip_group(ip) if ip else '', details.get('ruta') or (urlparse(handler.path).path if handler else ''))
+        t = time.time()
+        if t - _SECURITY_EVENT_LAST.get(key, 0) < 60: return
+        if len(_SECURITY_EVENT_LAST) > 5000: _SECURITY_EVENT_LAST.clear()
+        _SECURITY_EVENT_LAST[key] = t
+        if handler:
+            details.setdefault('ip', wsec.ip_hash(ip)); details.setdefault('ruta', urlparse(handler.path).path); details.setdefault('metodo', handler.command)
+        security_alert(kind, details, user_id, notify=False)
+    except Exception:
+        pass
 
 
 def flush_security_alerts():
@@ -2532,9 +2579,10 @@ def flush_security_alerts():
     try:
         db = connect()
         mail = []
-        for kind, details, uid, cid, at in items:
+        for kind, details, uid, cid, at, *rest in items:
             db.execute('INSERT INTO audit_log(user_id,action,entity_type,entity_id,details,created_at,center_id) VALUES(?,?,?,?,?,?,?)',
                        (uid, 'security_alert', kind, None, json.dumps(details, ensure_ascii=False), at, cid))
+            if rest and not rest[0]: continue          # a security event: in the log, no email
             last = _SECURITY_ALERT_SENT.get(kind, 0)
             if time.time() - last > SECURITY_ALERT_EMAIL_MINUTES * 60:
                 _SECURITY_ALERT_SENT[kind] = time.time(); mail.append((kind, details, at))
@@ -2731,6 +2779,14 @@ def clean_lng(v):
     try: x = float(v)
     except (TypeError, ValueError): return None
     return x if -180 <= x <= 180 and x != 0 else None
+
+
+def json_bool(v):
+    """A yes/no of the request: true/false (also 1/0, «true»/«false», «sí»/«no»); anything else is an error."""
+    if isinstance(v, bool): return v
+    if v in (None, '', 0, '0', 'false', 'False', 'no', 'off'): return False
+    if v in (1, '1', 'true', 'True', 'yes', 'si', 'sí', 'on'): return True
+    raise ValueError('Los datos enviados no son válidos.')
 
 
 def clean_coord(v, check):
@@ -5129,6 +5185,12 @@ def public_base(handler):
 _GEOCODE_CACHE = {}
 _GEOCODE_LOCK = threading.Lock()
 _GEOCODE_LAST = [0.0]
+_GEOCODE_DOWN = [0.0, 0]          # [not called until, failures in a row]
+_SAT_DOWN = [0.0, 0]
+
+
+class ServiceBusy(Exception):
+    """An outside service is saturated or down: 503 with a clear text, nothing waits."""
 
 
 def geocode_search(q, lang='es'):
@@ -5141,17 +5203,25 @@ def geocode_search(q, lang='es'):
     import urllib.request
     base = wcfg.env('WOD_GEOCODER_URL', 'https://nominatim.openstreetmap.org/search')
     url = f"{base}?format=jsonv2&limit=6&addressdetails=0&accept-language={quote(lang)}&q={quote(q)}"
+    # One request a second for the whole process, as Nominatim asks. The turn is taken under the lock and waited
+    # outside it; more than 2 s of queue, or a service that failed 3 times in a row (for a minute), answers «busy»
+    # at once instead of keeping threads waiting (ASVS 5.0 V15.2.2 and V16.5.2).
+    if time.time() < _GEOCODE_DOWN[0]: raise ServiceBusy('El buscador de lugares no responde. Prueba dentro de un minuto.')
     with _GEOCODE_LOCK:
-        wait = 1.05 - (time.time() - _GEOCODE_LAST[0])
-        if wait > 0: time.sleep(wait)
-        _GEOCODE_LAST[0] = time.time()
+        turn = max(time.time(), _GEOCODE_LAST[0] + 1.05)
+        if turn - time.time() > 2: raise ServiceBusy('El buscador de lugares está ocupado. Prueba en unos segundos.')
+        _GEOCODE_LAST[0] = turn
+    if turn > time.time(): time.sleep(turn - time.time())
     try:
         req = urllib.request.Request(url, headers={'User-Agent': f'WORLDIVES-DISCOVERY/{APP_VERSION} ({public_site_url()})', 'Accept': 'application/json'})
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with wremoto.open_once(req, timeout=8) as resp:
             raw = json.loads(resp.read(512 * 1024).decode('utf-8'))
         items = [{'name': clean_text(x.get('display_name'), 200), 'lat': float(x['lat']), 'lon': float(x['lon'])} for x in raw if x.get('lat') and x.get('lon')][:6]
+        _GEOCODE_DOWN[1] = 0
     except Exception as exc:
-        sys.stderr.write(f'[geocode] {type(exc).__name__}: {exc}\n')
+        _GEOCODE_DOWN[1] += 1
+        if _GEOCODE_DOWN[1] >= 3: _GEOCODE_DOWN[0] = time.time() + 60
+        sys.stderr.write(f'[geocode] {urlparse(base).hostname}: {type(exc).__name__}: {str(exc)[:200]}\n')
         return []
     if len(_GEOCODE_CACHE) > 5000: _GEOCODE_CACHE.clear()
     _GEOCODE_CACHE[key] = (time.time(), items)
@@ -7708,7 +7778,8 @@ def stripe_webhook(handler, db, secret_env, connect):
     try:
         event = stripe_module().Webhook.construct_event(raw, handler.headers.get('Stripe-Signature', ''), secret)
     except ImportError: handler.send_json({'error': 'Falta instalar stripe.'}, 500); return
-    except Exception: handler.send_json({'error': 'Firma de webhook no válida.'}, 400); return
+    except Exception:
+        security_event('stripe_bad_signature', handler); handler.send_json({'error': 'Firma de webhook no válida.'}, 400); return
     if hasattr(event, 'to_dict_recursive'): event = event.to_dict_recursive()
     elif hasattr(event, 'to_dict'): event = event.to_dict()
     out = handle_stripe_event(db, event, connect)
@@ -7921,7 +7992,8 @@ def delete_user_account(db, user):
                 "UPDATE center_claims SET status='withdrawn', phone=NULL, note=NULL, email=NULL, reviewed_at=COALESCE(reviewed_at,?) WHERE user_id=? AND status='pending'",
                 "UPDATE reward_redemptions SET status='cancelled', cancelled_at=? WHERE user_id=? AND status='issued'",
                 'DELETE FROM account_deletion_requests WHERE user_id=?',
-                'UPDATE bookings SET contact_phone=NULL, notes=NULL, equipment_notes=NULL, guide_notes=NULL WHERE user_id=?'):
+                'UPDATE bookings SET contact_phone=NULL, contact_phone_hash=NULL, contact_email=NULL, contact_name=NULL, notes=NULL, equipment_notes=NULL, guide_notes=NULL WHERE user_id=?',
+                'DELETE FROM info_requests WHERE user_id=?'):
         db.execute(sql, (now(), uid) if sql.count('?') == 2 else (uid,))
     audit(db, uid, 'account_deleted', 'user', uid)
 
@@ -10244,7 +10316,7 @@ class Handler(BaseHTTPRequestHandler):
             if '?' in line: line = re.sub(r'\?[^\s"]*', '', line)
             line = re.sub(r'(/ical/)[^/\s"]+(\.ics)', r'\1***\2', line)
             line = re.sub(r'(/(?:api/)?r/)[^/\s"]+', r'\1***', line)
-            ACCESS_LOG.info('%s - %s', wsec.log_ip(self.client_ip()), line)
+            ACCESS_LOG.info('%s - %s', wsec.log_ip(self.client_ip()), log_safe(line))
         except Exception:
             pass
 
@@ -10547,7 +10619,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not r or not provider_has(db,ptype,r['id'],'calendar_ical'): self.send_error(404); return
                     raw=ical_feed(db,ptype,r['id']).encode('utf-8')
                     self.send_response(200); self.send_header('Content-Type','text/calendar; charset=utf-8'); self.send_header('Content-Length',str(len(raw)))
-                    self.send_header('Cache-Control','private, max-age=300'); self.send_header('X-Robots-Tag','noindex'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
+                    self.send_header('Cache-Control','no-store'); self.send_header('X-Robots-Tag','noindex'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return   # names of clients: never in a cache (ASVS V14.3.2)
                 if path.startswith('/widget/'):
                     self.serve_widget(db,path,query); return
                 if re.fullmatch(r'/r/[0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
@@ -10776,13 +10848,19 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not sat_available(db): self.send_json({'error':'Vista satélite no disponible.'},404); return
                     if sat_rate_limited(self.client_ip()): self.send_json({'error':'Demasiadas peticiones.'},429); return
                     import urllib.request, urllib.error
+                    if time.time()<_SAT_DOWN[0]: self.send_error(503); return   # ASVS V16.5.2: a broken service waits a minute
                     url=SAT_UPSTREAM.format(z=z,y=y,x=x)+'?token='+quote(arcgis_key(),safe='')
                     try:
-                        with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'WORLDIVES-DISCOVERY/'+APP_VERSION}),timeout=10) as up:
+                        with wremoto.open_once(urllib.request.Request(url,headers={'User-Agent':'WORLDIVES-DISCOVERY/'+APP_VERSION}),timeout=10) as up:
                             raw=up.read(2*1024*1024); ct=up.headers.get('Content-Type','image/jpeg')
+                        _SAT_DOWN[1]=0
                     except urllib.error.HTTPError as exc:
+                        if exc.code not in (400,404): sys.stderr.write(f'[satelite] {urlparse(SAT_UPSTREAM).hostname}: HTTP {exc.code}\n')
                         self.send_error(404 if exc.code in (400,404) else 502); return
-                    except (urllib.error.URLError,OSError,TimeoutError):
+                    except (urllib.error.URLError,OSError,TimeoutError) as exc:
+                        _SAT_DOWN[1]+=1
+                        if _SAT_DOWN[1]>=3: _SAT_DOWN[0]=time.time()+60
+                        sys.stderr.write(f'[satelite] {urlparse(SAT_UPSTREAM).hostname}: {type(exc).__name__}: {str(exc)[:200]}\n')
                         self.send_error(502); return
                     if not ct.startswith('image/'): self.send_error(502); return
                     sat_count(db); db.commit()
@@ -11019,7 +11097,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     q=clean_text(query.get('q',[''])[0],120) or ''
                     if len(q)<2: self.send_json({'items':[]}); return
                     if GEOCODE_LIMIT.hit('geo:'+wsec.ip_group(self.client_ip())): self.send_json({'error':'Demasiadas búsquedas seguidas. Espera un momento.'},429); return
-                    self.send_json({'items':geocode_search(q,clean_text(query.get('lang',['es'])[0],5) or 'es')}); return
+                    try: self.send_json({'items':geocode_search(q,clean_text(query.get('lang',['es'])[0],5) or 'es')})
+                    except ServiceBusy as e: self.send_json({'error':str(e)},503)
+                    return
                 if path == '/api/me':
                     user = current_user(self, db)
                     if not user:
@@ -11884,10 +11964,13 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 return
             except PermissionError as e:
                 db.rollback()  # never persist half-done work when a request fails
-                self.send_json({'error':str(e),**getattr(e,'extra',{})},403)
+                if getattr(e,'errno',None) is not None:   # a file the server cannot read or write: internal error, never its path
+                    log_exception(self,e); self.send_json({'error':'Error interno del servidor.'},500)
+                else:
+                    denied(self,db,e); self.send_json({'error':str(e),**getattr(e,'extra',{})},403)
             except ValueError as e:
                 db.rollback()  # never persist half-done work when a request fails
-                self.send_json({'error':str(e)},400)
+                self.send_json({'error':public_error(e)},400)
             except OverflowError:
                 db.rollback(); self.send_json({'error':'Un número es demasiado grande.'},400)   # ASVS V1.4.2
             except NotFound as e:
@@ -11930,6 +12013,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         except (BrokenPipeError, ConnectionResetError):
             return False
         except PermissionError as e:
+            security_event('csrf_blocked', self, origen=(self.headers.get('Origin') or self.headers.get('Referer') or '')[:120])
             self.send_json({'error':str(e)},403); return False
         ctype=(self.headers.get('Content-Type') or '').lower()
         limit=MAX_UPLOAD if ctype.startswith('multipart/') else (wcfg.MAX_WEBHOOK_BYTES if path.startswith(('/api/payments/webhook','/api/whatsapp/webhook')) else MAX_BODY)
@@ -12059,7 +12143,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         center_note='Titulación: '+cert_name+('\n'+center_note if center_note else '')
                     record_acceptances(db,uid,['terminos','privacidad'],self.client_ip())
                     if requested in {'center','freelance'}: record_acceptances(db,uid,['centros'],self.client_ip())
-                    set_marketing_consent(db,uid,bool(data.get('accept_marketing')),self.client_ip())
+                    set_marketing_consent(db,uid,json_bool(data.get('accept_marketing')),self.client_ip())
                     claim_id=None; suggested=None
                     if requested in {'center','freelance'}:
                         # v50.36: there are no imported listings to claim (G2 removed): every sign-up is a new centre pending approval.
@@ -12107,6 +12191,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     acct_key=f"acct:{user['id']}" if user else 'acct:'+login
                     account_locked=LOGIN_ACCOUNT_LIMIT.blocked(acct_key) and not (user and known_network(db,user['id'],ip))
                     if login_rate_limited(rate_key) or LOGIN_IP_LIMIT.blocked(ip_key) or account_locked:
+                        security_event('login_blocked', self, user['id'] if user else None, cuenta=wsec.ip_hash(login))
                         self.send_json({'error':'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.'},429); return
                     # No stored password is longer than 256 characters (password_problem): a longer one is simply wrong.
                     ok_pw=len(password)<=256 and verify_password(password,user['password_hash'] if user else dummy_password_hash())
@@ -12114,6 +12199,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         record_login_failure(rate_key); LOGIN_IP_LIMIT.hit(ip_key)
                         if LOGIN_ACCOUNT_LIMIT.hit(acct_key): security_alert('login_bruteforce', {'account': wsec.ip_hash(login)})
                         if user: audit(db,user['id'],'login_failed',details={'ip':wsec.ip_hash(ip)}); db.commit()
+                        else: security_event('login_unknown_account', self, cuenta=wsec.ip_hash(login))   # ASVS V16.3.1
                         self.send_json({'error':'Usuario o contraseña incorrectos.'},401); return
                     clear_login_failures(rate_key)
                     if wsec.needs_rehash(user['password_hash']):
@@ -12171,7 +12257,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if u['marketing_consent']: set_marketing_consent(db,u['id'],False,self.client_ip()); audit(db,u['id'],'marketing_unsubscribed')
                     db.commit(); self.send_json({'ok':True,'unsubscribed':True}); return
                 if path=='/api/account/marketing':
-                    user=require_user(self,db); consent=bool(json_body(self).get('consent'))
+                    user=require_user(self,db); consent=json_bool(json_body(self).get('consent'))
                     set_marketing_consent(db,user['id'],consent,self.client_ip()); db.commit(); self.send_json({'ok':True,'consent':consent}); return
                 if path=='/api/admin/marketing/send':
                     # Commercial emails: only to users who gave their consent, each with its one-click unsubscribe link.
@@ -12180,7 +12266,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not subject or not body: raise ValueError('Escribe el asunto y el texto.')
                     button=clean_text(data.get('button'),60) or 'Ver en WORLDIVES'; url=clean_promo_url(data.get('url')) or public_site_url()
                     if url.startswith('#/'): url=public_site_url()+'/'+url
-                    test_only=bool(data.get('test'))
+                    test_only=json_bool(data.get('test'))
                     rows=[db.execute('SELECT id,fullname,email,marketing_token FROM users WHERE id=?',(user['id'],)).fetchone()] if test_only else db.execute(
                         "SELECT id,fullname,email,marketing_token FROM users WHERE marketing_consent=1 AND email_verified_at IS NOT NULL AND guest_center_id IS NULL").fetchall()
                     n=0; base=public_site_url()
@@ -12327,7 +12413,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not r: raise ValueError('No hay ninguna solicitud de cambio pendiente.')
                     ns=db.execute('SELECT * FROM service_slots WHERE id=?',(r['to_slot_id'],)).fetchone(); lang=user_lang(db,b['user_id'])
                     note=clean_text(data.get('note'),300) or ''
-                    if data.get('approve'):
+                    if json_bool(data.get('approve')):
                         if b['status'] not in ('requested','accepted_pending_payment','confirmed'): raise ValueError('Esta reserva ya no se puede cambiar de fecha.')
                         if not ns or ns['status'] not in ('open','full') or (slot_start(db,ns) and slot_start(db,ns)<=local_now()): raise ValueError('Esa salida ya no está disponible. Rechaza la solicitud.')
                         od,ot=move_booking(db,b,ns)
@@ -12336,7 +12422,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     else:
                         db.execute("UPDATE reschedule_requests SET status='rejected',decided_at=?,decided_by=?,note=? WHERE id=?",(now(),user['id'],note,r['id']))
                         notify_booking(db,bid,'reschedule_decided',{'approved':False,'note':note,'new_when':when_text(ns['slot_date'],ns['slot_time'],lang) if ns else ''})
-                    audit(db,user['id'],'booking_reschedule_decided','booking',bid,{'request':r['id'],'approved':bool(data.get('approve'))}); db.commit()
+                    audit(db,user['id'],'booking_reschedule_decided','booking',bid,{'request':r['id'],'approved':json_bool(data.get('approve'))}); db.commit()
                     self.send_json({'ok':True}); return
                 if path=='/api/provider-services/options':
                     # Per service: change of date by the diver (none / direct / with approval, deadline) and waiting list.
@@ -12562,7 +12648,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     key=self.headers.get('X-WORLDIVES-API-Key','').strip(); data=json_body(self)
                     if not key: raise PermissionError('Falta la API Key de WORLDIVES.')
                     digest=hashlib.sha256(key.encode()).hexdigest(); integ=db.execute('SELECT * FROM center_integrations WHERE api_key_hash=? AND enabled=1',(digest,)).fetchone()
-                    if not integ: raise PermissionError('API Key no válida o integración desactivada.')
+                    if not integ: security_event('integration_bad_key', self); raise PermissionError('API Key no válida o integración desactivada.')
                     cid=int(integ['center_id']); ext=clean_text(data.get('external_ref') or data.get('reservation_id'),180)
                     if ext:
                         old=db.execute('SELECT id,status FROM bookings WHERE center_id=? AND external_ref=?',(cid,ext)).fetchone()
@@ -12809,7 +12895,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                      float(data.get('usual_weight_kg')) if data.get('usual_weight_kg') not in (None,'') else None,
                      clean_text(data.get('tank_preference'),120),clean_text(data.get('computer_preference'),120),
                      clean_text(data.get('equipment_notes'),2000),now()))
-                    if 'wa_consent' in data: set_wa_consent(db,user['id'],bool(data.get('wa_consent')),data.get('lang') or user_lang(db,user['id']),'perfil',self.client_ip())
+                    if 'wa_consent' in data: set_wa_consent(db,user['id'],json_bool(data.get('wa_consent')),data.get('lang') or user_lang(db,user['id']),'perfil',self.client_ip())
                     audit(db,user['id'],'profile_updated','user',user['id']); sync_user_rewards(db,user['id']); db.commit()
                     # v50.47 (C.1): a number without an international prefix is saved, with a warning (no WhatsApp notices).
                     self.send_json({'ok':True,'whatsapp':wa_profile_info(db,user['id']),'phone_warning':wcif.phone_problem(clean_text(data.get('phone'),50))}); return
@@ -13707,7 +13793,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if wl_hold: db.execute("UPDATE waitlist_entries SET status='booked',held=0,booking_id=?,updated_at=? WHERE id=?",(bid,now(),wl_hold['id'])); slot_event(db,slot_id,'waitlist_booked',user['id'],entry=wl_hold['id'],booking_id=bid)
                     audit(db,user['id'],'booking_created','booking',bid,{'mode':mode,'status':status})
                     # v50.47 (C.5): «Recibir por WhatsApp los avisos de mis reservas del centro», marked at booking time.
-                    if data.get('wa_consent') is not None: set_wa_consent(db,user['id'],bool(data.get('wa_consent')),data.get('lang') or user_lang(db,user['id']),'reserva',self.client_ip())
+                    if data.get('wa_consent') is not None: set_wa_consent(db,user['id'],json_bool(data.get('wa_consent')),data.get('lang') or user_lang(db,user['id']),'reserva',self.client_ip())
                     if status=='payment_in_progress':
                         # The booking is not visible to the centre until Stripe confirms the payment.
                         db.commit()
@@ -14577,10 +14663,13 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 return
             except PermissionError as e:
                 db.rollback()  # never persist half-done work when a request fails
-                self.send_json({'error':str(e),**getattr(e,'extra',{})},403)
+                if getattr(e,'errno',None) is not None:   # a file the server cannot read or write: internal error, never its path
+                    log_exception(self,e); self.send_json({'error':'Error interno del servidor.'},500)
+                else:
+                    denied(self,db,e); self.send_json({'error':str(e),**getattr(e,'extra',{})},403)
             except ValueError as e:
                 db.rollback()  # never persist half-done work when a request fails
-                self.send_json({'error':str(e)},400)
+                self.send_json({'error':public_error(e)},400)
             except OverflowError:
                 db.rollback(); self.send_json({'error':'Un número es demasiado grande.'},400)   # ASVS V1.4.2
             except NotFound as e:
@@ -14657,7 +14746,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         token=request_session_token(self)
         if token:
             with connect() as conn:
-                conn.execute('DELETE FROM sessions WHERE token_hash=?',(hashlib.sha256(token.encode()).hexdigest(),)); conn.commit()
+                th=hashlib.sha256(token.encode()).hexdigest()
+                row=conn.execute('SELECT user_id FROM sessions WHERE token_hash=?',(th,)).fetchone()
+                conn.execute('DELETE FROM sessions WHERE token_hash=?',(th,))
+                if row: audit(conn,row['user_id'],'logout',details={'ip':wsec.ip_hash(self.client_ip())})   # ASVS V16.3.1
+                conn.commit()
         secure = '; Secure' if secure_cookies() else ''
         body=b'{"ok":true}'
         # ASVS V14.3.1: the browser also forgets what it cached for this person (the app removes its own offline data).
@@ -14741,6 +14834,9 @@ def _months_ago(at, months):
     return (at - _timedelta(days=round(months * 30.44)))
 
 
+BOOKING_RETENTION_YEARS = 6
+
+
 def run_retention_jobs(db, at=None, force=False):
     """Once a day: the retention periods of the privacy policy (configurable in Administración → Legal).
     - Inactive accounts (divers): warned by email, deleted 30 days later if nobody signs in.
@@ -14770,6 +14866,12 @@ def run_retention_jobs(db, at=None, force=False):
         db.execute('DELETE FROM document_alerts WHERE document_id=?', (d['id'],)); db.execute('DELETE FROM user_documents WHERE id=?', (d['id'],))
         rep['documents_deleted'] += 1
     rep['notices_deleted'] = db.execute('DELETE FROM messages WHERE created_at < ?', (_months_ago(at, st['notices_months']).isoformat(timespec='seconds'),)).rowcount
+    # Bookings older than BOOKING_RETENTION_YEARS (the 6 years of the privacy policy): amounts and dates stay for the
+    # accounts, without the contact details or the notes of anybody (ASVS 5.0 V14.2.4).
+    old = (at.date().replace(year=at.year - BOOKING_RETENTION_YEARS) if not (at.month == 2 and at.day == 29) else at.date().replace(year=at.year - BOOKING_RETENTION_YEARS, day=28)).isoformat()
+    rep['bookings_anonymised'] = db.execute('''UPDATE bookings SET contact_phone=NULL, contact_phone_hash=NULL, contact_email=NULL, contact_name=NULL, notes=NULL,
+                                                equipment_notes=NULL, guide_notes=NULL, internal_notes=NULL WHERE booking_date < ? AND (contact_phone IS NOT NULL OR contact_email IS NOT NULL
+                                                OR contact_name IS NOT NULL OR notes IS NOT NULL OR internal_notes IS NOT NULL)''', (old,)).rowcount
     keep = db.execute('SELECT id FROM audit_log ORDER BY id DESC LIMIT 1 OFFSET ?', (st['audit_keep'] - 1,)).fetchone()
     if keep:
         rep['audit_deleted'] = db.execute('DELETE FROM audit_log WHERE created_at < ? AND id < ?', (_months_ago(at, st['audit_months']).isoformat(timespec='seconds'), keep['id'])).rowcount
@@ -14961,6 +15063,10 @@ def check_production_settings():
         problems.append('WOD_BACKUP_KEY debe tener al menos 32 caracteres aleatorios: python3 -c "import secrets;print(secrets.token_urlsafe(32))".')
     for k in sorted(k for k in os.environ if k.endswith('_API_BASE') and k.startswith(('WOD_', 'STRIPE_', 'WHATSAPP_'))):
         if wcfg.env(k): problems.append(f'{k} es solo para pruebas (apunta a un simulador): quítala del .env de producción.')
+    for k in ('WHATSAPP_GRAPH_BASE', 'WOD_ARCGIS_TILE_URL', 'WOD_MEDIA_FETCH_BASE'):   # ASVS V15.2.3: hooks of the tests
+        if wcfg.env(k): problems.append(f'{k} es solo para pruebas (apunta a un simulador): quítala del .env de producción.')
+    if wcfg.env('WOD_GEOCODER_URL') and not wcfg.env('WOD_GEOCODER_URL').startswith('https://'):
+        problems.append('WOD_GEOCODER_URL tiene que empezar por https:// en producción.')
     if wcfg.env_flag('WHATSAPP_ENABLED'):
         for k in ('WHATSAPP_APP_ID', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'WHATSAPP_CONFIG_ID'):
             if not wcfg.env(k): problems.append(f'WHATSAPP_ENABLED=1 necesita {k} en el .env (ver docs/notas-de-version/v50.47.md).')

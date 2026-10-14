@@ -9,6 +9,26 @@ Documentos de referencia que pide ASVS:
   de intentos, bloqueo malicioso, sesiones y verificación en dos pasos.
 - [`seguridad/permisos.md`](seguridad/permisos.md): qué puede leer y cambiar cada papel y cada perfil del equipo, y
   quién ve cada dato sensible.
+- [`validacion.md`](validacion.md): formato de cada dato, coherencia, límites de negocio y archivos subidos.
+- [`seguridad/claves.md`](seguridad/claves.md): inventario criptográfico y cómo se generan, guardan y cambian las claves.
+- [`seguridad/registros.md`](seguridad/registros.md): qué se registra y dónde, sucesos de seguridad y niveles de
+  protección de los datos.
+
+## Dependencias
+
+| Componente | Versión | De dónde sale | Cómo se revisa |
+|---|---|---|---|
+| Python | 3.11 o superior (la de Debian 12 / Ubuntu 24.04) | Paquetes del sistema | Actualizaciones de seguridad del sistema (`unattended-upgrades`) |
+| Librerías de Python | Versiones exactas en `requirements.txt` (stripe, qrcode, fonttools, cryptography, Pillow) | PyPI | `pip-audit` cada lunes y en cada cambio (`.github/workflows/dependencias.yml`); el servidor instala exactamente esas versiones |
+| App del móvil (Capacitor) | `movil/package-lock.json` | npm | `npm audit` en el mismo flujo semanal |
+| Leaflet | 1.9.4 | leafletjs.com, copiado en `public/lib/leaflet` | A mano en cada versión (avisos de seguridad de Leaflet) |
+| protomaps-leaflet | 5.1.0 (BSD-3) | github.com/protomaps, `public/lib/protomaps-leaflet` | A mano en cada versión |
+| Leaflet.markercluster | Sin anotar en el archivo: **pendiente de comprobar** (desde este entorno no se pudo descargar la versión publicada para compararla) | `public/lib/markercluster` | A mano en cada versión |
+
+**Plazos de corrección** desde que se publica el aviso: crítica, 7 días; alta, 30 días; media y baja, en la versión
+siguiente. Responsable: el titular del proyecto (o quien mantenga el servidor). Una dependencia sin mantenimiento se
+sustituye. Fijar también los hashes de las librerías (archivo de bloqueo) y generar un SBOM con cada paquete queda
+como **Pendiente de decisión** (más seguridad en la cadena de suministro a cambio de un paso más al actualizar).
 
 ## Aislamiento entre centros y datos cifrados (v50.47)
 

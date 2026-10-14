@@ -28,10 +28,10 @@ MAGIC = b'WODBK1\n'
 CHUNK = 4 * 1024 * 1024
 
 
-def _backup_key():
+def _backup_key(name='WOD_BACKUP_KEY'):
     """32-byte key from WOD_BACKUP_KEY (never the data key): None when not configured (development only)."""
     import hashlib
-    raw = config.env('WOD_BACKUP_KEY')
+    raw = config.env(name)
     return hashlib.sha256(raw.encode('utf-8')).digest() if raw else None
 
 
@@ -63,19 +63,27 @@ def _plain_copy(path: Path, out: Path) -> None:
             fi.seek(0)
             with open(out, 'wb') as fo: shutil.copyfileobj(fi, fo)
             return
-        key = _backup_key()
-        if not key: raise RuntimeError('Esta copia está cifrada: falta WOD_BACKUP_KEY.')
+        # After changing the key, WOD_BACKUP_KEY_OLD still opens the copies made before (ASVS 5.0 V11.2.2).
+        keys = [k for k in (_backup_key(), _backup_key('WOD_BACKUP_KEY_OLD')) if k]
+        if not keys: raise RuntimeError('Esta copia está cifrada: falta WOD_BACKUP_KEY.')
+        from cryptography.exceptions import InvalidTag
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-        aes = AESGCM(key); n = 0
-        with open(out, 'wb') as fo:
-            while True:
-                size = fi.read(4)
-                if not size: raise RuntimeError('Copia cifrada incompleta.')
-                ln = struct.unpack('>I', size)[0]; nonce = fi.read(12); ct = fi.read(ln)
-                peek = fi.read(1); last = not peek
-                if peek: fi.seek(-1, 1)
-                fo.write(aes.decrypt(nonce, ct, struct.pack('>Q?', n, last))); n += 1
-                if last: break
+        start = fi.tell()
+        for i, key in enumerate(keys):
+            fi.seek(start); aes = AESGCM(key); n = 0
+            try:
+                with open(out, 'wb') as fo:
+                    while True:
+                        size = fi.read(4)
+                        if not size: raise RuntimeError('Copia cifrada incompleta.')
+                        ln = struct.unpack('>I', size)[0]; nonce = fi.read(12); ct = fi.read(ln)
+                        peek = fi.read(1); last = not peek
+                        if peek: fi.seek(-1, 1)
+                        fo.write(aes.decrypt(nonce, ct, struct.pack('>Q?', n, last))); n += 1
+                        if last: break
+                return
+            except InvalidTag:
+                if n or i == len(keys) - 1: raise RuntimeError('La clave de las copias no abre esta copia (o la copia está dañada).')
 
 
 def backup_dir(db_path: Path) -> Path:
@@ -150,7 +158,9 @@ def ship(path: Path) -> str:
     cmd = config.env('WOD_BACKUP_COMMAND')
     if not cmd or not path: return ''
     try:
-        r = subprocess.run([*cmd.split(), str(path)], capture_output=True, text=True, timeout=1800)
+        # Only what rclone needs: never the keys of the .env (ASVS 5.0 V13.3.2).
+        env = {k: v for k, v in os.environ.items() if k in ('PATH', 'HOME', 'LANG', 'LC_ALL', 'TZ', 'TMPDIR', 'USER', 'LOGNAME') or k.startswith('RCLONE_')}
+        r = subprocess.run([*cmd.split(), str(path)], capture_output=True, text=True, timeout=1800, env=env)
         return '' if r.returncode == 0 else (r.stderr or r.stdout or f'código {r.returncode}')[-500:]
     except (OSError, subprocess.TimeoutExpired) as exc:
         return str(exc)[-500:]

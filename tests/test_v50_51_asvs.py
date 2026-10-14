@@ -485,5 +485,146 @@ class ArchivosYCabeceras(ServerTestCase):
         self.assertEqual(conn.getresponse().status, 400)
 
 
+class RegistrosYSalidas(ServerTestCase):
+    """V12–V16: sucesos de seguridad en la actividad, textos de Python que no llegan al visitante, registros sin
+    caracteres de control y en UTC, sí/no estrictos, buscador de lugares que no bloquea, retención y copias."""
+    extra_env = {'WOD_TRUSTED_PROXIES': '127.0.0.1', 'WOD_GEOCODER_URL': 'http://127.0.0.1:9/buscar', 'WOD_ACCESS_LOG': 'file'}
+
+    def alerts(self, kind, wait=8):
+        end = time.time() + wait
+        while time.time() < end:
+            rows = self.server.sql("SELECT user_id,details FROM audit_log WHERE action='security_alert' AND entity_type=?", (kind,))
+            if rows: return rows
+            time.sleep(0.3)
+        return []
+
+    def test_v16_3_security_events_are_recorded(self):
+        d = self.make_diver('v16ev')
+        self.assertEqual(d.get('/api/admin/users').status, 403)
+        self.assertEqual(Client(self.server, origin='https://otra-web.example').post('/api/contact', {}).status, 403)
+        self.assertEqual(self.client().request('POST', '/api/auth/login', {'login': 'nadie-existe', 'password': 'x' * 12}, headers={'X-Forwarded-For': '192.0.2.99'}).status, 401)
+        self.assertEqual(self.client().request('POST', '/api/payments/webhook', raw=b'{}', content_type='application/json', headers={'Stripe-Signature': 't=1,v1=falsa'}).status in (400, 503), True)
+        self.assertEqual(d.post('/api/auth/logout', {}).status, 200)
+        self.assertTrue(self.alerts('access_denied')); self.assertEqual(self.alerts('access_denied')[0]['user_id'], d.user['id'])
+        self.assertTrue(self.alerts('csrf_blocked')); self.assertTrue(self.alerts('login_unknown_account'))
+        self.assertTrue(self.server.sql("SELECT 1 FROM audit_log WHERE action='logout' AND user_id=?", (d.user['id'],)))
+
+    def test_v16_5_1_python_texts_never_reach_the_visitor(self):
+        d = self.make_diver('v16texto')
+        r = d.post('/api/bookings', {'center_id': 'abc'})
+        self.assertEqual(r.status, 400); self.assertNotIn('invalid literal', r.body.decode()); self.assertIn('formato esperado', r.json['error'])
+
+    def test_v15_3_5_false_means_no(self):
+        d = self.make_diver('v15bool')
+        self.assertEqual(d.post('/api/account/marketing', {'consent': 'false'}).status, 200)
+        self.assertEqual(self.server.sql('SELECT marketing_consent FROM users WHERE id=?', (d.user['id'],))[0]['marketing_consent'], 0)   # before: 1
+        self.assertEqual(d.post('/api/account/marketing', {'consent': 'quizá'}).status, 400)
+
+    def test_v16_4_1_v16_2_2_log_lines_are_safe_and_in_utc(self):
+        import socket
+        s = socket.create_connection(('127.0.0.1', self.server.port), timeout=5)
+        s.sendall(b'GET /nada\x1b[31mROJO HTTP/1.0\r\nHost: x\r\n\r\n'); s.recv(100); s.close()
+        log = self.server.tmp / 'logs' / 'access.log'
+        end = time.time() + 5
+        while time.time() < end and (not log.exists() or 'ROJO' not in log.read_text(encoding='utf-8', errors='replace')): time.sleep(0.2)
+        line = [x for x in log.read_text(encoding='utf-8', errors='replace').splitlines() if 'ROJO' in x][-1]
+        self.assertNotIn('\x1b', line); self.assertIn('\\x1b', line)
+        self.assertRegex(line, r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z ')
+
+    def test_v15_2_2_v16_5_2_a_broken_geocoder_answers_at_once(self):
+        statuses = []
+        for i in range(5):
+            t0 = time.time(); r = self.client().get(f'/api/geocode?q=lugar{i}'); statuses.append((r.status, round(time.time() - t0, 1)))
+        self.assertEqual(statuses[-1][0], 503, statuses)          # after three failures it does not wait any more
+        self.assertLess(statuses[-1][1], 0.5, statuses)
+
+    def test_v14_2_4_old_bookings_lose_their_contact_details(self):
+        admin = self.make_admin('ret@worldives.test', 'admin_ret')
+        d = self.make_diver('v14viejo')
+        t = dt.datetime.now().isoformat()
+        self.server.sql("INSERT INTO centers(name,country,city,active,created_at,updated_at) VALUES('Centro Viejo','España','Xàbia',1,?,?)", (t, t))
+        cid = self.server.sql("SELECT id FROM centers WHERE name='Centro Viejo'")[0]['id']
+        old = (dt.date.today() - dt.timedelta(days=365 * 7)).isoformat(); new = (dt.date.today() - dt.timedelta(days=30)).isoformat()
+        for day in (old, new):
+            self.server.sql("INSERT INTO bookings(user_id,center_id,booking_date,participants,status,contact_name,contact_email,notes,created_at,updated_at) VALUES(?,?,?,1,'completed','Ana Vieja','ana@example.org','Alérgica',?,?)",
+                            (d.user['id'], cid, day, t, t))
+        r = admin.post('/api/admin/retention', {'run_now': True}); self.assertEqual(r.status, 200, r)
+        rows = {x['booking_date']: x for x in self.server.sql('SELECT booking_date,contact_name,contact_email,notes FROM bookings WHERE center_id=?', (cid,))}
+        self.assertEqual((rows[old]['contact_name'], rows[old]['contact_email'], rows[old]['notes']), (None, None, None))
+        self.assertEqual(rows[new]['contact_name'], 'Ana Vieja')
+        # a deleted account takes its information requests and the contact details of its bookings with it
+        gone = self.make_diver('v14borrado')
+        self.server.sql("INSERT INTO info_requests(center_id,user_id,name,email,message,created_at) VALUES(?,?,?,?,?,?)", (cid, gone.user['id'], 'Borrado', 'b@example.org', 'Hola', t))
+        self.server.sql("INSERT INTO bookings(user_id,center_id,booking_date,participants,status,contact_name,contact_email,created_at,updated_at) VALUES(?,?,?,1,'completed','Borrado','b@example.org',?,?)",
+                        (gone.user['id'], cid, new, t, t))
+        long_ago = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1200)).isoformat(timespec='seconds')
+        self.server.sql('UPDATE users SET last_login=?, created_at=? WHERE id=?', (long_ago, long_ago, gone.user['id']))
+        admin.post('/api/admin/retention', {'run_now': True})
+        self.server.sql('UPDATE users SET inactive_warned_at=? WHERE id=?', ((dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=40)).isoformat(timespec='seconds'), gone.user['id']))
+        admin.post('/api/admin/retention', {'run_now': True})
+        self.assertEqual(self.server.sql('SELECT fullname FROM users WHERE id=?', (gone.user['id'],))[0]['fullname'], 'Usuario eliminado')
+        self.assertFalse(self.server.sql('SELECT 1 FROM info_requests WHERE user_id=?', (gone.user['id'],)))
+        self.assertEqual(self.server.sql('SELECT contact_name,contact_email FROM bookings WHERE user_id=?', (gone.user['id'],))[0]['contact_name'], None)
+
+
+class CopiasYConexiones(unittest.TestCase):
+    """V11.2.2, V13.3.2, V15.3.2 y V15.3.4 sin servidor."""
+
+    def test_v11_2_2_the_old_backup_key_still_opens_old_copies(self):
+        from wod import backup
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / 'copia.sqlite3'; f.write_bytes(b'SQLite format 3\x00' + b'datos' * 1000)
+            old_env = {k: os.environ.get(k) for k in ('WOD_BACKUP_KEY', 'WOD_BACKUP_KEY_OLD')}
+            try:
+                os.environ['WOD_BACKUP_KEY'] = 'a' * 40; os.environ.pop('WOD_BACKUP_KEY_OLD', None)
+                backup.encrypt_file(f)
+                os.environ['WOD_BACKUP_KEY'] = 'b' * 40
+                with self.assertRaises(RuntimeError): backup._plain_copy(f, Path(d) / 'x')
+                os.environ['WOD_BACKUP_KEY_OLD'] = 'a' * 40
+                backup._plain_copy(f, Path(d) / 'y'); self.assertTrue((Path(d) / 'y').read_bytes().startswith(b'SQLite format 3'))
+            finally:
+                for k, v in old_env.items():
+                    if v is None: os.environ.pop(k, None)
+                    else: os.environ[k] = v
+
+    def test_v13_3_2_the_offsite_copy_gets_no_keys(self):
+        from wod import backup
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / 'env.txt'; script = Path(d) / 'copia.py'
+            script.write_text(f"import os,sys; open({str(out)!r},'w').write(' '.join(sorted(os.environ)))")
+            old = {k: os.environ.get(k) for k in ('WOD_BACKUP_COMMAND', 'STRIPE_SECRET_KEY')}
+            try:
+                os.environ['WOD_BACKUP_COMMAND'] = f'{sys.executable} {script}'; os.environ['STRIPE_SECRET_KEY'] = 'sk_test_no_debe_salir'
+                self.assertEqual(backup.ship(Path(d) / 'copia.sqlite3'), '')
+                names = out.read_text().split()
+                self.assertIn('PATH', names); self.assertNotIn('STRIPE_SECRET_KEY', names); self.assertNotIn('WOD_BACKUP_COMMAND', names)
+            finally:
+                for k, v in old.items():
+                    if v is None: os.environ.pop(k, None)
+                    else: os.environ[k] = v
+
+    def test_v15_3_2_no_redirects_for_our_own_calls(self):
+        import http.server, threading, urllib.error, urllib.request
+        from wod import remoto
+
+        class R(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(302); self.send_header('Location', 'http://127.0.0.1:9/robado'); self.end_headers()
+            def log_message(self, *a): pass
+        srv = http.server.HTTPServer(('127.0.0.1', 0), R); threading.Thread(target=srv.handle_request, daemon=True).start()
+        with self.assertRaises(urllib.error.HTTPError) as e:
+            remoto.open_once(urllib.request.Request(f'http://127.0.0.1:{srv.server_port}/x', headers={'Authorization': 'Bearer secreto'}), timeout=5)
+        self.assertEqual(e.exception.code, 302); srv.server_close()
+
+    def test_v15_3_4_x_real_ip_must_be_an_address(self):
+        from wod import security as wsec
+        os.environ['WOD_TRUSTED_PROXIES'] = '127.0.0.1'
+        try:
+            self.assertEqual(wsec.client_ip('127.0.0.1', {'X-Real-IP': 'no-soy-una-ip'}), '127.0.0.1')
+            self.assertEqual(wsec.client_ip('127.0.0.1', {'X-Real-IP': '203.0.113.7'}), '203.0.113.7')
+        finally:
+            os.environ.pop('WOD_TRUSTED_PROXIES', None)
+
+
 if __name__ == '__main__':
     unittest.main()

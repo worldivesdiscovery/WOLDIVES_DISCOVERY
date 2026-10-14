@@ -221,6 +221,13 @@ Esquema completo en la constante `BASE_SCHEMA` de `app/server.py`.
 | **Proveedores de vídeo** (youtube-nocookie, Vimeo, Google Maps) | Recorridos virtuales, tras pulsar «Cargar vídeo» | iframe | IP del visitante | `WOD_EMBED_DOMAINS` |
 | **Copia externa** (rclone hacia B2, Hetzner…) | Copias fuera del servidor | `WOD_BACKUP_COMMAND` (`scripts/copia_externa.sh`) | La base completa y los archivos | Variables de rclone |
 | **Monitor externo** (UptimeRobot, Better Stack…) | Disponibilidad | `/api/health` (solo `ok` y versión) | Nada personal | Fuera del código |
+| **Meta Graph API** (WhatsApp Cloud) | Avisos por WhatsApp de cada centro | Por el servidor, https a `graph.facebook.com`, sin seguir redirecciones (`wod/whatsapp.py`) | Teléfono del buceador (con su permiso) y el texto del aviso | `WHATSAPP_*` |
+| **Firebase** (`oauth2.googleapis.com`, `fcm.googleapis.com`) | Avisos en el móvil | Por el servidor, https, sin seguir redirecciones (`wod/push.py`) | El identificador del móvil y el texto del aviso | `WOD_FCM_CREDENTIALS` |
+| **Plataformas de vídeo** (oEmbed de YouTube, Vimeo, Dailymotion, TikTok) | Título y miniatura de un vídeo enlazado | Por el servidor, https (`wod/videos.py`, `wod/remoto.py`) | El enlace del vídeo | Lista `PLATFORMS` |
+| **Página que indique quien enlaza un vídeo de otra plataforma** | Comprobar que es un vídeo y leer su título e imagen | Por el servidor, solo https y solo direcciones públicas, cada salto comprobado, tamaño y tiempo limitados (`wod/videos.inspect`, `wod/remoto.fetch`). **La dirección la da el usuario** (centros, freelance y administración) | El enlace | — |
+| **Wikimedia Commons** (`commons.wikimedia.org`, `upload.wikimedia.org`) | Buscar e importar fotos de especies con licencia libre | https desde el servidor, solo esos dos dominios (`wod/vidamarina.py`) | El nombre de la especie buscada | — |
+
+Todas las conexiones salientes del servidor van por https (puerto 443), salvo el correo (587 o 465 con TLS comprobado).
 
 ### 7.3 Roles
 

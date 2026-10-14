@@ -11,12 +11,14 @@ booking in the app. Only the standard library and «cryptography» (already requ
 """
 import base64
 import json
+import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
 from . import config as wcfg
+from .remoto import open_once
 
 _TOKEN = {'v': None, 'exp': 0}
 
@@ -48,7 +50,7 @@ def _access_token():
     sig = _b64(key.sign(f'{head}.{claims}'.encode(), padding.PKCS1v15(), hashes.SHA256()))
     body = urllib.parse.urlencode({'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer', 'assertion': f'{head}.{claims}.{sig}'}).encode()
     req = urllib.request.Request(uri, data=body, headers={'Content-Type': 'application/x-www-form-urlencoded'})
-    with urllib.request.urlopen(req, timeout=15) as r:
+    with open_once(req, timeout=15) as r:
         d = json.loads(r.read())
     _TOKEN.update(v=d['access_token'], exp=now + int(d.get('expires_in', 3600)))
     return _TOKEN['v']
@@ -63,11 +65,13 @@ def send(token, title, body, data=None) -> str:
     try:
         req = urllib.request.Request(f"{base}/v1/projects/{urllib.parse.quote(wcfg.env('WOD_FCM_PROJECT_ID'))}/messages:send", data=json.dumps(msg).encode(),
                                      headers={'Authorization': 'Bearer ' + _access_token(), 'Content-Type': 'application/json'})
-        with urllib.request.urlopen(req, timeout=15):
+        with open_once(req, timeout=15):
             return 'ok'
     except urllib.error.HTTPError as e:
         txt = e.read().decode('utf-8', 'replace')
         if e.code == 404 or 'UNREGISTERED' in txt: return 'gone'
+        sys.stderr.write(f'[push] {urllib.parse.urlparse(base).hostname}: HTTP {e.code}\n')   # ASVS V16.3.4
         return 'retry'
-    except (OSError, ValueError, KeyError):
+    except (OSError, ValueError, KeyError) as e:
+        sys.stderr.write(f'[push] {urllib.parse.urlparse(base).hostname}: {type(e).__name__}: {str(e)[:160]}\n')
         return 'retry'

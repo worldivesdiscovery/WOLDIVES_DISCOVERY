@@ -7,6 +7,7 @@ esta versión salvo lo marcado como **Pendiente de decisión**.
 |---|---|---|
 | Carga | [`carga.md`](carga.md), con gráficos | En un equipo de 4 núcleos, 1.000 usuarios a la vez con páginas p95 33 ms y reservas p95 210 ms. Para 10.000: VPS de 32 vCPU (uso intenso) u 8 vCPU (normal); SQLite basta. 4 errores de concurrencia corregidos |
 | Seguridad (OWASP Top 10) | [`seguridad.md`](seguridad.md) | 16 hallazgos (4 de gravedad media) y 3 menores: **todos corregidos**. 52 pruebas automáticas |
+| Seguridad (OWASP ASVS 5.0, nivel 2) | [`asvs-5.0-nivel2.md`](asvs-5.0-nivel2.md), requisito por requisito | 253 requisitos: 84 ya se cumplían, 61 no aplican; de los 106 que no se cumplían del todo, 73 corregidos, 18 completados con la documentación que pide ASVS, 8 corregidos en parte, 6 aceptados con justificación y 2 pendientes de decisión (más 1 que depende del despliegue). La única de gravedad alta (correo sin comprobar el certificado) y 20 de las 22 medias, corregidas. 40 pruebas automáticas nuevas |
 | Botones por pantalla y papel | [`botones.md`](botones.md) y el detalle en [`botones-inventario.md`](botones-inventario.md) (solo en el paquete DEMO y en el repositorio: nombra las cuentas de la demo) | 5.065 elementos en 345 pantallas y 6 papeles: 4.998 «Funciona», 21 «Depende de clave pendiente», 46 desactivados a propósito con explicación, **0 errores**. 9 fallos corregidos |
 
 ## Lista de correcciones
@@ -45,7 +46,7 @@ esta versión salvo lo marcado como **Pendiente de decisión**.
 |---|---|
 | Carga | `python3 tests/carga/medir.py --dir <carpeta> --arrancar --workers 4 --pasos 100,250,500,1000` (base con `tests/carga/preparar.py construir`); informe con `tests/carga/informe.py` |
 | Concurrencia (reservas dobles, plazas) | `python3 -m pytest tests/test_v50_51_concurrencia.py` |
-| Seguridad | `python3 -m pytest tests/test_v50_51_seguridad.py tests/test_v50_51.py` |
+| Seguridad | `python3 -m pytest tests/test_v50_51_seguridad.py tests/test_v50_51.py tests/test_v50_51_asvs.py` |
 | Botones | `python3 tests/navegador/inventario_botones.py --paralelo 4 --salida <carpeta>` |
 
 Las herramientas de carga y de botones usan las cuentas de la demo y no van en el paquete de PRODUCCIÓN.

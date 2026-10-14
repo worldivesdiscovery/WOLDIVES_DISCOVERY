@@ -78,3 +78,19 @@ procesos del servidor.
 
 Un archivo que no pasa una comprobación se rechaza con un 400 que explica qué hacer; uno con virus, además, deja un
 aviso de seguridad para la administración.
+
+## Funciones costosas
+
+| Función | Qué cuesta | Cómo se defiende |
+|---|---|---|
+| Iniciar sesión, registrarse, cambiar la contraseña | PBKDF2 de 600.000 vueltas (unos 0,3 s de CPU) | Límites de intentos; como mucho la mitad de los núcleos calculando a la vez para todos los procesos; si hay que esperar más de 60 s, 503 enseguida |
+| Buscar lugares (`/api/geocode`) | Una llamada a Nominatim, una por segundo | Caché de 24 h; 30 por minuto y dirección; si la cola pasa de 2 s, 503; tras 3 fallos seguidos no se llama durante un minuto |
+| Vista satélite (`/api/tiles/satellite`) | Una llamada a ArcGIS por tesela | Solo con clave; límite por dirección y contador mensual; 10 s como mucho; tras 3 fallos seguidos, 503 durante un minuto |
+| Comprobar vídeos y fotos de especies | Hasta 4 saltos de 8 s a otra web | Solo centros, freelance y administración; solo direcciones públicas por https; tamaño máximo |
+| Fotos | Pillow (hasta 40 Mpx) | 6 MB (12 MB las especies); se rechazan imágenes más grandes en píxeles |
+| PDF (justificante, manifiesto, resumen del barco, ficha) | Generarlos | Con sesión y permiso; el del barco con enlace de 10 minutos |
+| Exportaciones (CSV, ZIP de mis datos) | Consultas grandes | Con sesión y el permiso de cada tipo |
+| Avisos masivos | Muchos correos o mensajes | 60 por hora y persona, límite diario por centro, cola en segundo plano |
+| Copias de seguridad | Disco y CPU | En segundo plano, con la API de copia de SQLite, sin bloquear la web |
+
+El proxy espera 75 s (`proxy_read_timeout` de nginx), más que la espera más larga de la aplicación (60 s).

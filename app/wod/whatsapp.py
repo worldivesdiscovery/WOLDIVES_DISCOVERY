@@ -24,6 +24,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from .remoto import open_once
+
 # Meta language codes of the 9 languages of the site
 META_LANG = {'es': 'es', 'en': 'en', 'fr': 'fr', 'de': 'de', 'it': 'it', 'pt': 'pt_PT', 'nl': 'nl', 'pl': 'pl', 'zh': 'zh_CN'}
 # Countries where Meta does not offer coexistence with the WhatsApp Business app (third-party sources, Oct 2026; Meta
@@ -68,7 +70,7 @@ def _request(method, path, token=None, params=None, body=None, timeout=20):
     if token: req.add_header('Authorization', 'Bearer ' + token)
     if data is not None: req.add_header('Content-Type', 'application/json')
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with open_once(req, timeout=timeout) as r:
             return json.loads(r.read().decode() or '{}')
     except urllib.error.HTTPError as e:
         try: err = json.loads(e.read().decode() or '{}').get('error') or {}

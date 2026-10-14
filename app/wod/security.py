@@ -311,7 +311,11 @@ def client_ip(peer_ip: str, headers) -> str:
         if not is_trusted_proxy(part):
             return part
     real = (headers.get('X-Real-IP') or '').strip()
-    return real or peer_ip
+    try:
+        ipaddress.ip_address(real)
+    except ValueError:
+        return peer_ip
+    return real
 
 
 def ip_group(ip: str) -> str:

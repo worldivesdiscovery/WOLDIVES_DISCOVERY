@@ -837,10 +837,14 @@
     }
   }
   async function salir() {
+    // Check-ins made without coverage and not sent yet would be lost with the session (they are forgotten below).
+    let pend = 0; try { pend = (JSON.parse(localStorage.getItem('wda-pro-cola') || '[]') || []).length; } catch { /* nothing */ }
+    if (pend && !await W.wdConfirm({ title: 'Cerrar sesión', text: 'Hay cambios de check-in sin enviar. Si cierras sesión ahora, se perderán.', ok: 'Cerrar sesión', danger: true })) return;
     let t = null; try { t = localStorage.getItem('wda-push'); } catch { /* nothing */ }
     if (t) await postJSON('/api/app/push/unregister', { token: t }).catch(() => {});
     pushHecho = false;
     try { await postJSON('/api/auth/logout', {}); } catch { /* the session ends anyway */ }
+    window.wdForgetDevice?.();   // ASVS V14.3.1: bookings, QR codes and lists kept on the phone go with the session
     state.me = null; mem.area = null; cuenta.reservas = 0; await W.loadMe(); location.hash = '#/';
   }
   let webVersion = null;

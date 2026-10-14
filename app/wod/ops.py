@@ -33,7 +33,9 @@ def access_logger(log_dir: Path) -> logging.Logger:
             h = logging.handlers.TimedRotatingFileHandler(log_dir / 'access.log', when='midnight', backupCount=config.env_int('WOD_LOG_RETENTION_DAYS', 14, 1, 365), encoding='utf-8')
         except OSError:
             h = logging.StreamHandler(sys.stdout)
-    h.setFormatter(logging.Formatter('%(asctime)s %(message)s', '%Y-%m-%dT%H:%M:%S'))
+    fmt = logging.Formatter('%(asctime)s %(message)s', '%Y-%m-%dT%H:%M:%SZ')
+    fmt.converter = time.gmtime          # UTC, whatever WOD_TIMEZONE says (ASVS V16.2.2)
+    h.setFormatter(fmt)
     log.addHandler(h)
     return log
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -71,6 +72,12 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 _OPENER = urllib.request.build_opener(_NoRedirect)
 
 
+def open_once(req, timeout: float):
+    """urlopen for the services WORLDIVES calls itself (geocoder, satellite, WhatsApp, push): a redirection is an
+    error, so a key or a token is never sent to another address (ASVS 5.0 V15.3.2)."""
+    return _OPENER.open(req, timeout=timeout)
+
+
 def fetch(url: str, *, kinds: tuple[str, ...], max_bytes: int, accept: str = '*/*') -> tuple[str, str, bytes]:
     """GET url and return (final address, content type, body). kinds: accepted content types (prefixes)."""
     test = _test_base()
@@ -89,6 +96,7 @@ def fetch(url: str, *, kinds: tuple[str, ...], max_bytes: int, accept: str = '*/
                 current = urllib.parse.urljoin(current, e.headers['Location']); continue
             raise FetchError(f'La web respondió {e.code}.') from None
         except (urllib.error.URLError, OSError, ValueError) as e:
+            sys.stderr.write(f'[remoto] {urllib.parse.urlparse(current).hostname}: {type(e).__name__}: {str(e)[:160]}\n')   # ASVS V16.3.4
             raise FetchError('No se ha podido conectar con la web.') from None
         with resp:
             ctype = (resp.headers.get('Content-Type') or '').split(';')[0].strip().lower()
