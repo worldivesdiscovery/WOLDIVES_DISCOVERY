@@ -24,6 +24,8 @@ Vous recevrez un e-mail à chaque étape : demande envoyée, place confirmée, p
 - Si le centre n'encaisse pas en ligne, vous paierez directement au centre, selon les modalités qu'il accepte.
 - Vous recevrez un justificatif par e-mail et pourrez le télécharger en PDF depuis votre réservation.
 
+**Paiement en personne au professionnel.** Certains professionnels indépendants sont payés directement par leurs clients. Pour leurs services, vous envoyez une demande, le prix est celui publié et, une fois la demande acceptée, vous convenez du paiement avec le professionnel par WhatsApp. {{trade_name}} n'encaisse rien, ne rembourse rien et ne gère ni les annulations ni les incidents de ces services. Voir [Paiement en personne au professionnel](#/legal/pago-en-persona).
+
 ## 4. Pas de droit de rétractation de 14 jours
 
 Les activités de loisirs fournies à une date ou pendant une période déterminée (plongées, cours, baptêmes, sorties et voyages) **ne bénéficient pas du droit de rétractation**, conformément à l'article 103.l) du texte refondu de la loi générale espagnole pour la défense des consommateurs et usagers (TRLGDCU). C'est la **politique d'annulation du centre**, que vous voyez avant de réserver, qui s'applique à la place.

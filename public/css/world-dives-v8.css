@@ -3485,3 +3485,37 @@ html.wd-app[data-wda-tema="noche"] .svc2 :is(.svc2-kicker,.svc2-desc,.svc2-price
 .cd-rating.is-new,.wd-pay-muted{color:#5f7078}
 .cd-fact .muted,.result-row .muted{color:#5f7078}
 .pp-empty .pp-virtual-mark{color:#4d5e65}
+
+/* v50.55 · «Pago en persona al profesional»: the label of the cards, the notice with its box, the WhatsApp button,
+   the private marks and the «Forma de cobro» of the freelance's service form. ------------------------------------- */
+.wd-pay-chip{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;line-height:1.3;background:#fff4e0;color:#7a4f10;width:fit-content}
+.svc2-meta .wd-pay-chip{margin-left:6px}
+.wd-pay-person{color:#7a4f10;font-weight:700}.wd-pay-mark{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:#e7f3ee;color:#1f5f4c;font-size:12px;font-weight:700}
+.wd-ip{margin:14px 0;padding:14px 16px;border-radius:14px;background:#fff8eb;border:1px solid #f0d9ae;color:#3d3420}
+.wd-ip-title{display:flex;align-items:center;gap:8px;margin:0 0 6px;color:#7a4f10}
+.wd-ip-text{margin:0 0 8px;font-size:14px;line-height:1.55}
+.wd-ip-methods{margin:0 0 8px;font-size:14px}.wd-ip-methods small{display:block;color:#6b5a3a;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.wd-ip-ack{display:flex;gap:8px;align-items:flex-start;margin:6px 0 8px;font-weight:600}.wd-ip-ack input{width:20px;height:20px;flex:0 0 auto;margin-top:1px}
+.wd-ip-more{font-size:13px;color:#076898}
+.btn.btn-wa{background:#1f7a52;border-color:#1f7a52;color:#fff;display:inline-flex;align-items:center;gap:8px}.btn.btn-wa:hover{background:#196444}
+.acc-row-tags .btn-wa{padding:6px 12px;font-size:13px;min-height:0}
+.pay-card.is-person .pay-card-icon{background:#fff4e0;color:#7a4f10}
+.pro-mark .page-actions .btn{min-width:130px}
+.svc-ip{display:grid;gap:12px;margin-top:12px}.svc-ip[hidden]{display:none}
+.svc-ip-checks{display:flex;flex-wrap:wrap;gap:8px 16px;margin:6px 0}.svc-ip-check{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.svc-ip-check input{width:18px;height:18px}
+#svc-ip-other{margin-top:6px;max-width:320px}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .wd-ip{background:#2a2316;border-color:#5a4826;color:#f3e7cf}
+  :root:not([data-theme="light"]) .wd-ip-title,:root:not([data-theme="light"]) .wd-pay-person{color:#f0c779}
+  :root:not([data-theme="light"]) .wd-ip-methods small{color:#d9c49b}
+  :root:not([data-theme="light"]) .wd-ip-more{color:#7cc6e6}
+  :root:not([data-theme="light"]) .wd-pay-chip,:root:not([data-theme="light"]) .pay-card.is-person .pay-card-icon{background:#3a2e17;color:#f0c779}
+  :root:not([data-theme="light"]) .wd-pay-mark{background:#173a2f;color:#bfe8d6}
+}
+:root[data-theme="dark"] .wd-ip{background:#2a2316;border-color:#5a4826;color:#f3e7cf}
+:root[data-theme="dark"] .wd-ip-title,:root[data-theme="dark"] .wd-pay-person{color:#f0c779}
+:root[data-theme="dark"] .wd-ip-methods small{color:#d9c49b}
+:root[data-theme="dark"] .wd-ip-more{color:#7cc6e6}
+:root[data-theme="dark"] .wd-pay-chip,:root[data-theme="dark"] .pay-card.is-person .pay-card-icon{background:#3a2e17;color:#f0c779}
+:root[data-theme="dark"] .wd-pay-mark{background:#173a2f;color:#bfe8d6}

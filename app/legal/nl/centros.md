@@ -59,6 +59,8 @@ Als uw abonnement of proefperiode afloopt en u niet verlengt, gaat uw centrum ov
 - {{trade_name}} beheert uw geld niet en voert geen terugbetalingen namens u uit.
 - De boekingsbewijzen die het platform afgeeft, **zijn geen facturen**. Als uw activiteit dat vereist, stelt u zelf de factuur op.
 
+**Persoonlijke betaling (zelfstandige professionals).** Als zelfstandige professional kun je je voor een dienst of ervaring rechtstreeks door je klanten laten betalen met "Persoonlijke betaling". Dat werkt alleen "Op aanvraag", met een gepubliceerde prijs en een WhatsApp-contactnummer dat de klant ziet zodra je accepteert. Je bent dan als enige verantwoordelijk voor je betalingen, je fiscale en socialezekerheidsverplichtingen en je verzekering, en je aanvaardt dat door bij het inschakelen een vakje aan te vinken. De volledige regels staan in [Persoonlijke betaling aan de professional](#/legal/pago-en-persona).
+
 ## 7. Annuleringsbeleid
 
 U kiest uw beleid in **Dashboard → Betalingen en uitbetalingen**: tot hoeveel uur van tevoren annuleren gratis is en welk percentage u daarna terugbetaalt. U kunt voor elke dienst een ander beleid instellen. Het wordt vóór de boeking aan de klant getoond, bij elke boeking opgeslagen en wijzigingen gelden alleen voor nieuwe boekingen.

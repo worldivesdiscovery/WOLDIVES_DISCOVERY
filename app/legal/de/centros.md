@@ -59,6 +59,8 @@ Wenn Ihr Tarif oder Ihr Testzeitraum endet und Sie nicht verlängern, wechselt I
 - {{trade_name}} bewegt Ihr Geld nicht und nimmt keine Erstattungen in Ihrem Namen vor.
 - Die von der Plattform ausgestellten Buchungsbelege **sind keine Rechnungen**. Wenn Ihre Tätigkeit dies erfordert, stellen Sie die Rechnung selbst aus.
 
+**Zahlung vor Ort (unabhängige Profis).** Als unabhängiger Profi kannst du dir eine Leistung oder ein Erlebnis mit „Zahlung vor Ort“ direkt von deinen Kunden bezahlen lassen. Das funktioniert nur „Auf Anfrage“, mit einem veröffentlichten Preis und einer WhatsApp-Kontaktnummer, die der Kunde sieht, sobald du annimmst. Dann bist du allein für deine Zahlungen, deine steuerlichen und sozialversicherungsrechtlichen Pflichten und deine Versicherung verantwortlich und akzeptierst das beim Aktivieren mit einem Häkchen. Die vollständigen Regeln stehen unter [Zahlung vor Ort an den Profi](#/legal/pago-en-persona).
+
 ## 7. Stornierungsrichtlinie
 
 Sie wählen Ihre Richtlinie unter **Dashboard → Zahlungen und Auszahlungen**: bis wie viele Stunden vorher die Stornierung kostenlos ist und welchen Prozentsatz Sie danach erstatten. Sie können für jede Leistung eine andere Richtlinie festlegen. Sie wird dem Kunden vor der Buchung angezeigt und mit jeder Buchung gespeichert. Änderungen gelten nur für neue Buchungen.

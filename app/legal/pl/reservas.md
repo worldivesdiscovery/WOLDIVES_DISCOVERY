@@ -24,6 +24,8 @@ Na każdym etapie otrzymasz e-mail: zapytanie wysłane, miejsce potwierdzone, p�
 - Jeśli centrum nie przyjmuje płatności online, zapłacisz bezpośrednio w centrum w akceptowanej przez nie formie.
 - Otrzymasz potwierdzenie e-mailem i będziesz mógł pobrać je w formacie PDF ze strony rezerwacji.
 
+**Płatność osobiście u profesjonalisty.** Niektórzy niezależni profesjonaliści otrzymują zapłatę bezpośrednio od klientów. W ich usługach wysyłasz zapytanie, cena jest ceną opublikowaną, a po przyjęciu rezerwacji uzgadniasz płatność z profesjonalistą przez WhatsApp. {{trade_name}} nie pobiera pieniędzy, nie dokonuje zwrotów i nie obsługuje anulacji ani incydentów w tych usługach. Zobacz [Płatność osobiście u profesjonalisty](#/legal/pago-en-persona).
+
 ## 4. Brak 14-dniowego prawa odstąpienia od umowy
 
 W przypadku usług związanych z wypoczynkiem świadczonych w określonym dniu lub okresie (nurkowania, kursy, nurkowania próbne, wypłynięcia i wyjazdy) **prawo odstąpienia od umowy nie przysługuje**, zgodnie z art. 103 lit. l) tekstu jednolitego hiszpańskiej Ustawy ogólnej o ochronie konsumentów i użytkowników (TRLGDCU). Zamiast tego obowiązuje **polityka anulowania centrum**, którą widzisz przed dokonaniem rezerwacji.

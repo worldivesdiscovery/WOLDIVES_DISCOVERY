@@ -24,6 +24,8 @@ Riceverai un'email a ogni passaggio: richiesta inviata, posto confermato, pagame
 - Se il centro non incassa online, pagherai direttamente presso il centro, secondo le modalità da esso accettate.
 - Riceverai una ricevuta via email e potrai scaricarla in PDF dalla tua prenotazione.
 
+**Pagamento di persona al professionista.** Alcuni professionisti indipendenti vengono pagati direttamente dai clienti. Per i loro servizi invii una richiesta, il prezzo è quello pubblicato e, quando il professionista accetta, concordi con lui il pagamento su WhatsApp. {{trade_name}} non incassa, non rimborsa e non gestisce cancellazioni né incidenti per questi servizi. Vedi [Pagamento di persona al professionista](#/legal/pago-en-persona).
+
 ## 4. Non è previsto il diritto di recesso di 14 giorni
 
 Le attività ricreative prestate in una data o in un periodo determinati (immersioni, corsi, battesimi, uscite e viaggi) **non sono soggette al diritto di recesso**, ai sensi dell'articolo 103, lettera l), del testo consolidato della Legge generale spagnola per la tutela dei consumatori e degli utenti (TRLGDCU). Al suo posto si applica la **politica di cancellazione del centro**, che puoi consultare prima di prenotare.

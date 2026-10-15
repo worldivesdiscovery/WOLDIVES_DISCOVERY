@@ -195,7 +195,7 @@ class Payments(ServerTestCase):
 
     def test_policy_is_copied_into_the_booking(self):
         self.center.post('/api/provider/cancellation-policy', {'cancel_free_hours': 24, 'cancel_refund_pct': 0})
-        sid, slot = self.service(self.center, 0, mode='request')
+        sid, slot = self.service(self.center, 20, mode='request')
         bid = self.book(self.diver, sid, slot, self.cid, 1).json['id']
         self.assertEqual((self.bk(bid)['cancel_free_hours'], self.bk(bid)['cancel_refund_pct']), (24, 0))
         self.center.post('/api/provider/cancellation-policy', {'cancel_free_hours': 168, 'cancel_refund_pct': 10})

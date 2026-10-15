@@ -24,6 +24,8 @@ Receberá um email em cada etapa: pedido enviado, lugar confirmado, pagamento re
 - Se o centro não cobrar online, pagará diretamente no centro, pelo meio que este aceitar.
 - Receberá um comprovativo por email e poderá descarregá-lo em PDF a partir da sua reserva.
 
+**Pagamento presencial ao profissional.** Alguns profissionais independentes são pagos diretamente pelos clientes. Nos seus serviços envias um pedido, o preço é o publicado e, quando o profissional aceita, combinas com ele o pagamento por WhatsApp. O {{trade_name}} não cobra, não devolve e não gere cancelamentos nem incidências nesses serviços. Consulta [Pagamento presencial ao profissional](#/legal/pago-en-persona).
+
 ## 4. Não existe direito de livre resolução de 14 dias
 
 As atividades de lazer prestadas numa data ou num período determinados (mergulhos, cursos, batismos, saídas e viagens) **não conferem direito de livre resolução**, nos termos do artigo 103.º, alínea l), do texto consolidado da Lei Geral espanhola para a Defesa dos Consumidores e Utilizadores (TRLGDCU). Em vez disso, aplica-se a **política de cancelamento do centro**, que pode consultar antes de reservar.

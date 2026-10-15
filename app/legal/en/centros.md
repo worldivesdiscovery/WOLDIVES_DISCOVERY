@@ -59,6 +59,8 @@ If your plan or your trial ends and you do not renew, your centre moves to the *
 - {{trade_name}} does not move your money or make refunds on your behalf.
 - Booking vouchers issued by the platform **are not invoices**. If your activity requires one, you issue the invoice.
 
+**Payment in person (independent professionals).** If you are an independent professional you can be paid for a service or an experience directly by your customers with "Payment in person". It only works with "On request", with a published price and with a contact WhatsApp number that the customer sees once you accept. In that case you are solely responsible for your payments, your tax and social security obligations and your insurance, and you accept this by ticking a box when you switch it on. The full rules are in [Payment in person to the professional](#/legal/pago-en-persona).
+
 ## 7. Cancellation policy
 
 Choose your policy in **Dashboard → Payments**: until how many hours before the activity cancellation is free and what percentage you refund afterwards. You can set a different policy for each service. It is shown to customers before booking, stored with each booking, and changes only affect new bookings.

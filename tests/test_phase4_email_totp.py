@@ -110,7 +110,7 @@ class Emails(ServerTestCase):
         self.assertTrue(self.server.sql("SELECT 1 FROM email_outbox WHERE delivery='file' AND to_email='archivo@diver.example.org'"))
 
     def test_reminders_48h_and_24h(self):
-        r = self.center.post('/api/provider-services', {'title': 'Salida', 'price': 0, 'booking_mode': 'request'})
+        r = self.center.post('/api/provider-services', {'title': 'Salida', 'price': 30, 'booking_mode': 'request'})
         sid = r.json['id']
         slot = self.center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': '2031-03-12', 'slot_time': '09:00', 'spots_total': 6}).json['slot_id']
         # v50.47: with the centre's day-before notice on, the reminder of a departure goes through the notice queue
@@ -140,7 +140,7 @@ class Emails(ServerTestCase):
         self.assertEqual([r['template'] for r in rows], ['document_expiring', 'document_expiring', 'document_expired'])
 
     def test_booking_change_by_the_provider(self):
-        sid = self.center.post('/api/provider-services', {'title': 'Doble', 'price': 0, 'booking_mode': 'request'}).json['id']
+        sid = self.center.post('/api/provider-services', {'title': 'Doble', 'price': 30, 'booking_mode': 'request'}).json['id']
         s1 = self.center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': '2031-07-01', 'slot_time': '09:00', 'spots_total': 4}).json['slot_id']
         s2 = self.center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': '2031-07-02', 'slot_time': '11:00', 'spots_total': 4}).json['slot_id']
         d = self.make_diver('cambio')

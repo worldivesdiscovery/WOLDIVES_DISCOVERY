@@ -23,6 +23,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED_DB = ROOT / 'data' / 'demo' / 'catalogo-demo.sqlite3'   # demo catalogue (never real data)
+# v50.55: a freelance without online payments publishes his services with «Pago en persona» (WhatsApp, ways of paying
+# and the acceptance of its conditions the first time).
+IN_PERSON = {'pay_way': 'in_person', 'pay_methods': ['cash', 'bizum'], 'pay_whatsapp': '+34 611 000 000', 'accept_in_person_terms': True}
 
 
 def midday_clock():

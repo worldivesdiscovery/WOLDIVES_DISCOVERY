@@ -59,6 +59,8 @@ Si votre formule ou votre essai prend fin et que vous ne renouvelez pas, votre c
 - {{trade_name}} ne déplace pas votre argent et n'effectue pas de remboursements en votre nom.
 - Les justificatifs de réservation émis par la plateforme **ne sont pas des factures**. Si votre activité l'exige, c'est vous qui émettez la facture.
 
+**Paiement en personne (professionnels indépendants).** Si vous êtes professionnel indépendant, vous pouvez être payé pour un service ou une expérience directement par vos clients avec le « Paiement en personne ». Il fonctionne uniquement « Sur demande », avec un prix publié et un numéro WhatsApp de contact que le client voit lorsque vous acceptez. Dans ce cas, vous êtes seul responsable de vos encaissements, de vos obligations fiscales et de sécurité sociale et de votre assurance, et vous l'acceptez en cochant une case lors de l'activation. Les règles complètes figurent dans [Paiement en personne au professionnel](#/legal/pago-en-persona).
+
 ## 7. Politique d'annulation
 
 Vous choisissez votre politique dans **Tableau de bord → Encaissements et paiements** : jusqu'à combien d'heures avant l'activité l'annulation est gratuite et quel pourcentage vous remboursez ensuite. Vous pouvez fixer une politique différente pour chaque service. Elle est affichée au client avant la réservation et enregistrée avec chaque réservation. Les modifications ne concernent que les nouvelles réservations.

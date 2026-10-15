@@ -59,6 +59,7 @@ from wod import whatsapp as wwa
 from wod import avisos as wav
 from wod import geo as wgeo
 from wod import plantillas as wtpl
+from wod import presencial as wpres
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -79,7 +80,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.54'
+APP_VERSION = '50.55'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -1306,6 +1307,7 @@ def bootstrap():
         base_tables = [x for x in BASE_SCHEMA.split(';\n') if x.strip().startswith('CREATE TABLE')]
         db.executescript(';\n'.join(base_tables) + ';')
         db.executescript(SCHEMA)
+        db.execute(PAY_CONTACTS_SCHEMA)   # v50.55: before any migration walks PHONE_COLUMNS
         # Reviews are tied to a real completed booking at the center.
         db.execute('CREATE INDEX IF NOT EXISTS idx_center_reviews_user ON center_reviews(user_id, center_id)')
         # Migrations for the evolving WORLDIVES DISCOVERY prototype.
@@ -1524,6 +1526,8 @@ def bootstrap():
         db.commit()
         migrate_v50_53(db)
         db.commit()
+        migrate_v50_55(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1655,6 +1659,7 @@ PHONE_COLUMNS = {
     'info_requests': [('phone', None)],
     'center_claims': [('phone', None)],
     'messages': [('contact_phone', None)],
+    'pay_contacts': [('phone', 'phone_hash')],   # v50.55: the WhatsApp of a «Pago en persona» service, never public
 }
 WHATSAPP_CONSENT_VERSION = '2026-10-12'
 
@@ -1705,6 +1710,45 @@ def save_center_texts(db, cid, texts):
 DIVE_AREAS_SCHEMA = '''CREATE TABLE IF NOT EXISTS dive_areas (id INTEGER PRIMARY KEY AUTOINCREMENT, country TEXT NOT NULL, name TEXT NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0, lat_min REAL NOT NULL, lat_max REAL NOT NULL, lon_min REAL NOT NULL, lon_max REAL NOT NULL,
   active INTEGER NOT NULL DEFAULT 1, UNIQUE(country, name))'''
+
+
+PAY_CONTACTS_SCHEMA = """CREATE TABLE IF NOT EXISTS pay_contacts (kind TEXT NOT NULL, ref_id INTEGER NOT NULL, phone TEXT, phone_hash TEXT,
+  updated_at TEXT NOT NULL, PRIMARY KEY(kind, ref_id))"""
+
+
+def migrate_v50_55(db):
+    """v50.55. «Pago en persona» for freelance professionals (the way each service and experience is paid, the ways
+    of paying accepted, the professional's own policy and his WhatsApp, kept apart and encrypted), and the private
+    marks «Cobrado» / «No se presentó». Nothing is deleted."""
+    db.execute(PAY_CONTACTS_SCHEMA)
+    for t in ('provider_services', 'travel_experiences'):
+        add_columns(db, t, [('pay_way', "TEXT NOT NULL DEFAULT 'online'"), ('pay_methods', 'TEXT'), ('pay_other', 'TEXT'), ('pay_policy', 'TEXT')])
+    add_columns(db, 'bookings', [('pay_way', 'TEXT'), ('in_person_ack_at', 'TEXT'), ('pro_mark', 'TEXT'), ('pro_mark_at', 'TEXT')])
+    add_columns(db, 'experience_bookings', [('pay_way', 'TEXT'), ('in_person_ack_at', 'TEXT'), ('pro_mark', 'TEXT'), ('pro_mark_at', 'TEXT'),
+                                            ('price', 'REAL'), ('currency', 'TEXT')])
+    install_phone_guards(db)
+    if migration_done(db, '50.55'): return
+    # Plans: «Pago en persona» goes where reservations already are (the owner moves it in Administración → Planes).
+    for r in db.execute('SELECT code,features FROM plans').fetchall():
+        try: feats = json.loads(r['features'] or '{}')
+        except ValueError: feats = {}
+        if feats.get('online_bookings') and 'in_person_payments' not in feats:
+            feats['in_person_payments'] = True
+            db.execute('UPDATE plans SET features=?,updated_at=? WHERE code=?', (json.dumps(feats), now(), r['code']))
+    # The freelance «Bajo petición» services of a professional without online payments were already paid to him
+    # directly («Pagas en el centro»): they become «Pago en persona», with his profile phone as WhatsApp when it has one
+    # (copied encrypted, never in clear). The ways of paying are left for him to mark: nothing is invented.
+    moved = 0
+    for r in db.execute("""SELECT s.id,s.provider_user_id FROM provider_services s JOIN users u ON u.id=s.provider_user_id
+                           WHERE s.center_id IS NULL AND s.booking_mode='request' AND COALESCE(s.pay_way,'online')='online'
+                           AND NOT (COALESCE(u.stripe_account_id,'')<>'' AND COALESCE(u.stripe_charges_enabled,0)=1 AND COALESCE(u.stripe_payouts_enabled,0)=1)""").fetchall():
+        db.execute("UPDATE provider_services SET pay_way='in_person' WHERE id=? AND center_id IS NULL AND provider_user_id=?", (r['id'], r['provider_user_id']))
+        up = db.execute('SELECT phone FROM user_profiles WHERE user_id=?', (r['provider_user_id'],)).fetchone()
+        e164 = wcif.normalize_phone(up['phone']) if up and up['phone'] else None   # only a number with its country code
+        if e164: save_pay_contact(db, 'service', r['id'], e164)
+        moved += 1
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)',
+               ('50.55', now(), f'Pago en persona para freelance ({moved} servicios de freelance sin cobros online pasan a «Pago en persona»)'))
 
 
 def migrate_v50_53(db):
@@ -2968,7 +3012,32 @@ def clean_experience_numbers(data):
     total = clean_int(data.get('spots_total'), 0, 10000, None, 'Las plazas no son válidas.')
     free = clean_int(data.get('spots_available'), 0, 10000, None, 'Las plazas no son válidas.')
     if total is not None and free is not None and free > total: raise ValueError('Las plazas libres no pueden superar las plazas totales.')
-    return start, end, clean_money(data.get('price'), allow_none=True), total, free
+    price = clean_money(data.get('price'))
+    if price <= 0: raise ValueError('Indica el precio por persona: es obligatorio y se publica tal cual (sin «a consultar»).')   # v50.55
+    return start, end, price, total, free
+
+
+def experience_pay_source(db, e):
+    """The row that decides how an experience is paid: its service when it is linked to one, else itself."""
+    if row_get(e, 'service_id'):
+        svc = db.execute('SELECT * FROM provider_services WHERE id=?', (e['service_id'],)).fetchone()
+        if svc: return svc, 'service', svc['id']
+    return e, 'experience', e['id']
+
+
+def experience_in_person(db, eb, e, lang='es'):
+    """v50.55. «Pago en persona» data of an experience booking for its client (WhatsApp only once confirmed)."""
+    if row_get(eb, 'pay_way') != 'in_person': return {'pay_way': 'online'}
+    src, kind, ref = experience_pay_source(db, e)
+    out = {'pay_way': 'in_person', 'pay_label': wpres.LABEL, 'pay_notice': wpres.NOTICE, 'price_label': wpres.PRICE_LABEL,
+           'policy_title': wpres.POLICY_TITLE, 'pay_methods': pay_methods_of(src), 'pay_other': row_get(src, 'pay_other') or '',
+           'pay_policy': row_get(src, 'pay_policy') or '', 'status_label': wpres.CONFIRMED_LABEL if eb['status'] == 'confirmed' else None}
+    if eb['status'] == 'confirmed':
+        e164 = pay_contact(db, kind, ref)
+        if e164:
+            when = mail_date(e['start_date'], lang) if row_get(e, 'start_date') else ''
+            out['pro_whatsapp'] = wpres.wa_link(e164, wpres.wa_message(lang, f"EXP-{int(eb['id']):06d}", e['title'], when))
+    return out
 
 
 def clean_money(v, allow_none=False):
@@ -3498,6 +3567,7 @@ def enrich_experiences(db, rows):
         s_=svc.get(d.get('service_id')) or {}
         own_svc=s_.get('photo_mode')=='own' and s_.get('photo_status')=='ready'
         d['photo']=service_card_photo(cat,s_) if own_svc or (s_.get('template_id') and not d.get('image_url')) else experience_card_photo(db,d)
+        d.update(service_pay_info(s_ or d))   # v50.55: «Pago en persona al profesional» on the card, as on the service
         out.append(d)
     return out
 
@@ -4042,12 +4112,13 @@ PLAN_FEATURES = {
     'online_bookings': 'Reservas y solicitudes online', 'online_payments': 'Cobros online con Stripe', 'calendar_ical': 'Calendario iCal',
     'widget': 'Widget de reservas para tu web', 'import_csv': 'Importación de clientes (CSV)', 'team': 'Equipo (recepción e instructores)',
     'analytics': 'Informes completos', 'promotions': 'Promociones', 'experiences': 'Viajes y experiencias', 'rewards': 'Ventajas y puntos para clientes',
-    'integration': 'Conexión con tu web (API)', 'agenda_days': 'Servicios por días y medias jornadas con calendario'}
+    'integration': 'Conexión con tu web (API)', 'agenda_days': 'Servicios por días y medias jornadas con calendario',
+    'in_person_payments': 'Pago en persona al profesional'}   # v50.55: «Pago online» is online_payments
 PLAN_LIMITS = {'services_max': 'Servicios publicados', 'team_max': 'Personas en el equipo'}
 PLAN_DEFAULTS = [
     ('free', 'Ficha gratuita', 'Tu ficha en el catálogo, con «Solicitar información», estadísticas básicas y exportación de datos.', 0, {}, {'services_max': 10, 'team_max': 1}, 0),
     ('booking', 'Motor de reservas', 'Reservas y cobros online, calendario, widget e importación.', None,
-     {k: True for k in ('online_bookings', 'online_payments', 'calendar_ical', 'widget', 'import_csv', 'analytics', 'integration', 'agenda_days')}, {'services_max': 40, 'team_max': 3}, 1),
+     {k: True for k in ('online_bookings', 'online_payments', 'calendar_ical', 'widget', 'import_csv', 'analytics', 'integration', 'agenda_days', 'in_person_payments')}, {'services_max': 40, 'team_max': 3}, 1),
     ('pro', 'Pro', 'Todo lo del motor de reservas más equipo, promociones, viajes y experiencias y ventajas para tus clientes.', None,
      {k: True for k in PLAN_FEATURES}, {'services_max': 0, 'team_max': 20}, 2)]
 FEATURE_SWITCHES = {'points': 'Puntos', 'promotions': 'Promociones', 'experiences': 'Viajes y experiencias', 'sponsorship': 'Patrocinio',
@@ -4380,6 +4451,36 @@ def dac7_report(db, year):
                      'fecha_nacimiento': f.get('birth_date') or '', 'direccion': f.get('fiscal_address') or '', 'cuenta_cobro': f.get('payout_account') or '',
                      'moneda': cur, **{f'importe_t{i + 1}': round(a['q'][i], 2) for i in range(4)}, **{f'actividades_t{i + 1}': a['n'][i] for i in range(4)},
                      'comisiones': 0, 'impuestos_retenidos': 0, 'datos_incompletos': ', '.join(f['missing'])})
+    return rows
+
+
+def dac7_in_person(db, year):
+    """v50.55 · [PENDIENTE GESTORÍA] Whether the services paid in person to the professional go in modelo 238 (DAC7) is
+    for the gestoría to decide. Meanwhile the data are kept apart, so they can be reported: per professional and quarter,
+    the published price of the confirmed or completed bookings and experiences with «Pago en persona» (money that
+    never went through WORLDIVES)."""
+    agg = {}
+    q = """SELECT b.provider_user_id AS pid, b.booking_date AS day, b.price, b.currency FROM bookings b
+             WHERE b.pay_way='in_person' AND b.status IN ('confirmed','completed') AND substr(b.booking_date,1,4)=?
+             UNION ALL
+             SELECT e.provider_user_id, COALESCE(e.start_date,substr(eb.created_at,1,10)), eb.price, eb.currency FROM experience_bookings eb
+             JOIN travel_experiences e ON e.id=eb.travel_experience_id
+             WHERE eb.pay_way='in_person' AND eb.status IN ('confirmed','completed') AND substr(COALESCE(e.start_date,eb.created_at),1,4)=?"""
+    for r in db.execute(q, (str(year), str(year))).fetchall():
+        if not r['pid']: continue
+        a = agg.setdefault((r['pid'], r['currency'] or 'EUR'), {'q': [0.0] * 4, 'n': [0] * 4})
+        try: qi = (int(str(r['day'])[5:7]) - 1) // 3
+        except ValueError: qi = 0
+        a['q'][qi] += float(r['price'] or 0); a['n'][qi] += 1
+    rows = []
+    for (pid, cur), a in sorted(agg.items()):
+        f = provider_fiscal(db, 'freelance', pid)
+        rows.append({'tipo_prestador': 'profesional', 'id': pid, 'nombre': provider_label(db, 'freelance', pid), 'forma_de_cobro': 'pago en persona',
+                     'razon_social': f.get('legal_name') or '', 'persona': {'company': 'jurídica', 'individual': 'física'}.get(f.get('entity_type') or '', ''),
+                     'nif_tin': f.get('tax_id') or '', 'pais_emisor': f.get('tax_id_country') or '', 'fecha_nacimiento': f.get('birth_date') or '',
+                     'direccion': f.get('fiscal_address') or '', 'moneda': cur, **{f'precio_publicado_t{i + 1}': round(a['q'][i], 2) for i in range(4)},
+                     **{f'actividades_t{i + 1}': a['n'][i] for i in range(4)}, 'comisiones': 0, 'datos_incompletos': ', '.join(f['missing']),
+                     'nota': 'PENDIENTE GESTORÍA: decidir si se declara en el modelo 238.'})
     return rows
 
 
@@ -5618,7 +5719,7 @@ def salidas_cercanas(db, lat=None, lon=None, when='', limit=20):
     d0, d1 = wmovil.departures_window(when)
     rows = db.execute(f"""SELECT ss.id AS slot_id, ss.slot_date, ss.slot_time, ss.spots_total, ss.spots_available, s.id AS service_id, s.title,
                                  s.service_type, s.booking_mode, s.response_hours, s.center_id, s.provider_user_id, s.currency,
-                                 s.template_id, s.photo_mode, s.photo_base, s.photo_widths, s.photo_jpg, s.photo_focal, s.photo_veil_light, s.photo_veil_dark, s.photo_status,
+                                 s.pay_way, s.pay_methods, s.pay_other, s.pay_policy, s.template_id, s.photo_mode, s.photo_base, s.photo_widths, s.photo_jpg, s.photo_focal, s.photo_veil_light, s.photo_veil_dark, s.photo_status,
                                  c.name AS center_name, c.city, c.latitude AS lat, c.longitude AS lon, c.logo_url, c.cover_url,
                                  u.fullname AS provider_name, u.avatar_url
                           FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id JOIN users u ON u.id=s.provider_user_id
@@ -5649,7 +5750,7 @@ def salidas_cercanas(db, lat=None, lon=None, when='', limit=20):
                       'provider_name': r['center_name'] or r['provider_name'], 'city': r['city'], 'logo_url': r['logo_url'] or (None if r['center_id'] else r['avatar_url']),
                       'cover_url': r['cover_url'], 'spots_left': r['spots_available'], 'spots_total': r['spots_total'], 'price': price, 'currency': currency or r['currency'] or 'EUR',
                       'booking_mode': mode['booking_mode'], 'mode_label': mode['mode_label'], 'instant': mode['instant'], 'bookable': mode['bookable'],
-                      'unavailable_reason': mode.get('unavailable_reason'),
+                      'unavailable_reason': mode.get('unavailable_reason'), 'pay_way': mode['pay_way'], 'pay_label': mode.get('pay_label'),
                       'distance_km': dist, 'lat': r['lat'], 'lon': r['lon'], 'points': points.get(r['slot_id'], []),
                       'photo': service_card_photo(cat, dict(r)), 'template': template_label(cat, r['template_id'], 'es')})
     if lat is not None and lon is not None:
@@ -6811,7 +6912,7 @@ EMAIL_TEMPLATES = {
  'booking_request': {'to': 'diver', 'subject': 'Solicitud enviada: {service} · {date_short}', 'pre': '{center} responderá antes de {response_deadline}.', 'blocks': [
    ('h', 'Hemos enviado tu solicitud'),
    ('p', 'Hola {first_name}, {center} ha recibido tu solicitud ({mode_label}). Te avisaremos por correo en cuanto la acepte o la rechace, y como muy tarde el {response_deadline}.'),
-   ('details', None), ('note', '{pay_note}'), ('policy', None), ('button', ('Ver mi reserva', 'booking_url'))]},
+   ('details', None), ('note', '{pay_note}'), ('in_person', None), ('policy', None), ('button', ('Ver mi reserva', 'booking_url'))]},
  'booking_confirmed': {'to': 'diver', 'subject': 'Reserva confirmada: {service} · {date_short}', 'pre': 'Tu plaza con {center} está confirmada.', 'blocks': [
    ('h', '¡Tu reserva está confirmada!'),
    ('p', 'Hola {first_name}, {center} te espera. Aquí tienes todos los detalles de tu reserva.'),
@@ -7211,7 +7312,18 @@ def booking_mail_ctx(db, bid, lang='es'):
             'reject_reason': b['reject_reason'] or '',
             'booking_url': f'{base}/#/reserva?id={bid}', 'pdf_url': f'{base}/api/bookings/{bid}/receipt.pdf', 'center_url': prov_url,
             'review_url': f"{base}/#/centro?id={b['center_id']}&resena=1" if b['center_id'] else prov_url, 'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings',
-            'panel_planning_url': f'{base}/#/admin?tab=planning', 'admin_pay_url': f'{base}/#/admin?tab=adminpay'}
+            'panel_planning_url': f'{base}/#/admin?tab=planning', 'admin_pay_url': f'{base}/#/admin?tab=adminpay', **booking_mail_in_person(db, b, lang)}
+
+
+def booking_mail_in_person(db, b, lang):
+    """v50.55. E-mail data of a booking with «Pago en persona»: the notice, the professional's policy and ways of paying,
+    and the WhatsApp link once accepted. The professional's phone is never in these e-mails."""
+    if booking_pay_way(b) != 'in_person': return {'in_person': False}
+    ip = booking_in_person(db, b, lang)
+    methods = ' · '.join(mail_t(lang, wpres.METHOD_LABELS[m]) for m in ip['pay_methods'] if m != 'other')
+    if 'other' in ip['pay_methods'] and ip['pay_other']: methods = ' · '.join(x for x in (methods, ip['pay_other']) if x)
+    return {'in_person': True, 'center_phone': '', 'pro_whatsapp': ip.get('pro_whatsapp') or '', 'pay_methods_text': methods,
+            'pay_policy': ip['pay_policy'], 'status_label': mail_t(lang, booking_view_status(b)['status_label'])}
 
 
 def render_email(db, template, lang, ctx):
@@ -7258,6 +7370,23 @@ def render_email(db, template, lang, ctx):
                          f'<td style="padding:9px 12px;border-bottom:1px solid #e6eef0;font-size:14px;font-weight:600;color:#011C3C">{_esc(v)}</td></tr>' for k, v in rws)
             rows_html.append(f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 18px;border:1px solid #e6eef0;border-radius:10px;border-collapse:separate;overflow:hidden">{tr}</table>')
             text += [f'{k}: {v}' for k, v in rws] + ['']
+        elif kind == 'in_person':
+            if ctx.get('in_person'):
+                s = t(wpres.NOTICE)
+                rows_html.append(f'<div style="margin:4px 0 18px;padding:14px 16px;border-radius:10px;background:#fff7e6;border-left:4px solid #a86b12;font-size:14px;line-height:1.55;color:#2b3f48">{_esc(s)}</div>')
+                text += ['» ' + s, '']
+        elif kind == 'payment' and ctx.get('in_person'):
+            # v50.55: «Pago en persona al profesional» (price published, notice, ways of paying, WhatsApp once accepted)
+            para(t('Pago en persona al profesional: {total} (precio publicado).', total=ctx.get('total')), 'margin:0 0 10px;font-size:14px;line-height:1.5;color:#1f6b52;font-weight:600')
+            if ctx.get('pay_methods_text'): para(t('Formas de pago que acepta: {methods}', methods=ctx['pay_methods_text']), 'margin:0 0 12px;font-size:13px;line-height:1.5;color:#2b3f48')
+            s = t(wpres.NOTICE)
+            rows_html.append(f'<div style="margin:4px 0 18px;padding:14px 16px;border-radius:10px;background:#fff7e6;border-left:4px solid #a86b12;font-size:14px;line-height:1.55;color:#2b3f48">{_esc(s)}</div>')
+            text += ['» ' + s, '']
+            if ctx.get('pro_whatsapp'):
+                lab = t('Hablar por WhatsApp')
+                rows_html.append(f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr><td style="border-radius:999px;background:#1f6b52">'
+                                 f'<a href="{_esc(ctx["pro_whatsapp"])}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px">{_esc(lab)}</a></td></tr></table>')
+                text += [f'{lab}: {ctx["pro_whatsapp"]}', '']
         elif kind == 'payment':
             ps = ctx.get('payment_status'); s = ''
             if ctx.get('price', 0) <= 0: s = t('Actividad sin coste.')
@@ -7271,6 +7400,10 @@ def render_email(db, template, lang, ctx):
             elif ps == 'partially_refunded': s = t('Pagado: {paid} · devuelto: {refunded}.', paid=ctx.get('total'), refunded=ctx.get('refunded'))
             if ps in ('required', 'pending') and ctx.get('deposit'): s = t('Señal a pagar online: {deposit}. El resto, {due}, se paga en el centro.', deposit=ctx['deposit'], due=ctx.get('amount_due'))
             if s: para(s, 'margin:0 0 16px;font-size:14px;line-height:1.5;color:#1f6b52;font-weight:600')
+        elif kind == 'policy' and ctx.get('in_person'):
+            para(t('Política del profesional: {policy}', policy=ctx['pay_policy']) if ctx.get('pay_policy') else
+                 t('Este profesional no ha publicado una política de cancelación. WORLDIVES no gestiona cancelaciones ni devoluciones en este servicio.'),
+                 'margin:0 0 14px;font-size:13px;line-height:1.5;color:#65747d')
         elif kind == 'policy':
             if ctx.get('policy'): para(t('Política de cancelación del centro: {policy}', policy=ctx['policy']), 'margin:0 0 14px;font-size:13px;line-height:1.5;color:#65747d')
         elif kind == 'bring':
@@ -7460,7 +7593,8 @@ def notify_booking(db, bid, event, extra=None):
                 to_diver('booking_confirmed')
                 to_center('center_new_booking', {'action_title': 'Nueva reserva confirmada', 'action_short': 'Reserva confirmada', 'action_button': 'Ver la reserva'})
             else:
-                pay_note = ('No se cobra nada hasta que el centro acepte. Si acepta, pagarás directamente en el centro el día de la actividad.' if ctx['payment_status'] == 'at_center' else
+                pay_note = ('No se cobra nada a través de WORLDIVES. Si el profesional acepta, verás el botón «Hablar por WhatsApp» para acordar con él la forma de pago.' if ctx.get('in_person') else
+                            'No se cobra nada hasta que el centro acepte. Si acepta, pagarás directamente en el centro el día de la actividad.' if ctx['payment_status'] == 'at_center' else
                             'No se cobra nada hasta que el centro acepte. Si acepta, te avisaremos para pagar online antes del plazo que te indiquemos.' if ctx['payment_status'] == 'required' else
                             'No se cobra nada hasta que el centro acepte.')
                 to_diver('booking_request', {'pay_note': mail_t(lang_d, pay_note)})
@@ -7804,7 +7938,7 @@ LEGAL_DOCS = {
     'privacidad': 'Política de privacidad', 'cookies': 'Política de cookies y servicios de terceros', 'centros': 'Condiciones para centros y profesionales',
     'resenas': 'Normas de las reseñas', 'clasificacion': 'Cómo ordenamos los resultados', 'denuncias': 'Denunciar contenido',
     'seguridad': 'Seguridad en el buceo', 'puntos': 'Puntos WORLDIVES', 'accesibilidad': 'Declaración de accesibilidad',
-    'contacto': 'Contacto', 'creditos': 'Créditos y licencias de terceros'}
+    'contacto': 'Contacto', 'creditos': 'Créditos y licencias de terceros', 'pago-en-persona': 'Pago en persona al profesional'}
 LEGAL_ALIASES = {'condiciones-buceadores': 'terminos', 'condiciones-centros': 'centros', 'normas-resenas': 'resenas', 'condiciones-reserva': 'reservas'}
 LEGAL_PUBLIC_SLUGS = {v: k for k, v in LEGAL_ALIASES.items() if k != 'condiciones-reserva'}  # internal → route name
 # Who has to accept each document (and accept it again when a new version comes into force).
@@ -8220,6 +8354,11 @@ def provider_policy(payee, svc=None):
 
 def booking_policy(db, b, lang='es'):
     """The policy of an existing booking (its own copy; old bookings without a copy use the provider's)."""
+    if booking_pay_way(b) == 'in_person':
+        # v50.55: no policy managed by WORLDIVES; the professional's own text, if he wrote one.
+        svc = db.execute('SELECT pay_policy FROM provider_services WHERE id=? AND center_id IS NULL AND provider_user_id=?', (b['service_id'], b['provider_user_id'])).fetchone() if b['service_id'] else None
+        return {'free_hours': None, 'refund_pct': None, 'in_person': True, 'note': '',
+                'text': (svc['pay_policy'] if svc else '') or mail_t(lang, 'Este profesional no ha publicado una política de cancelación. WORLDIVES no gestiona cancelaciones ni devoluciones en este servicio.')}
     keys = b.keys()
     if 'cancel_free_hours' in keys and b['cancel_free_hours'] is not None:
         hours, pct = int(b['cancel_free_hours']), int(b['cancel_refund_pct'] or 0)
@@ -8241,6 +8380,14 @@ def booking_paid_online(db, bid):
 
 def booking_cancel_terms(db, b):
     """What happens if the diver cancels now: refund proposed by the provider's policy and the free-cancellation deadline."""
+    if booking_pay_way(b) == 'in_person':
+        # v50.55: cancelling only frees the agenda and tells the other side; no money moves through WORLDIVES.
+        svc = db.execute('SELECT pay_policy FROM provider_services WHERE id=? AND center_id IS NULL AND provider_user_id=?', (b['service_id'], b['provider_user_id'])).fetchone() if b['service_id'] else None
+        wall = booking_start(b); start = on_server_clock(db, wall, b['service_id'], b['center_id'])
+        left = (start - local_now()).total_seconds() / 3600 if start else 0
+        return {'policy': 'in_person', 'in_person': True, 'policy_hours': None, 'refund_pct': None, 'hours_left': round(left, 1), 'free': True,
+                'paid_online': False, 'refund_amount': 0.0, 'paid_amount': 0.0, 'deadline': None, 'started': left <= 0,
+                'policy_title': wpres.POLICY_TITLE, 'policy_text': (svc['pay_policy'] if svc else '') or ''}
     pol = booking_policy(db, b); hours = pol['free_hours']
     wall = booking_start(b); tz = place_tz(db, b['service_id'], b['center_id']); start = on_server_clock(db, wall, b['service_id'], b['center_id'])
     left = (start - local_now()).total_seconds() / 3600 if start else 0
@@ -8491,7 +8638,134 @@ def service_mode_info(db, svc, price=None, ready=None):
             'instant': mode == 'payment' and bool(ready)}
     if mode == 'payment' and not ready:
         info.update(bookable=False, unavailable_reason='Este servicio se reserva pagando online y ahora mismo no admite reservas.')
+    # v50.55: no publishing without a price («a consultar» is not a price).
+    if price is not None and float(price or 0) <= 0 and info['bookable']:
+        info.update(bookable=False, unavailable_reason=NO_PRICE_TEXT)
+    pay = service_pay_info(svc)
+    info.update(pay)
+    if pay['pay_way'] == 'online' and not row_get(svc, 'center_id') and not ready and info['bookable']:
+        # A freelance «Pago online» service whose Stripe account stopped working: never silently «pay him directly».
+        info.update(bookable=False, unavailable_reason='Este profesional no admite reservas ahora mismo. Prueba más tarde.')
     return info
+
+
+# ------------------------------------------------------------------ v50.55 · «Pago en persona» (freelance)
+# A freelance professional chooses, per service and per experience, how he is paid: «Pago online» (his own Stripe,
+# Fase 2.7) or «Pago en persona» (the client pays him directly; WORLDIVES is only the search, the showcase and the
+# agenda). The rules and texts are in wod/presencial.py; the WhatsApp of each service is in pay_contacts, encrypted,
+# and only reaches a client whose booking the professional has accepted.
+NO_PRICE_TEXT = 'Este servicio todavía no tiene precio publicado.'
+IN_PERSON_MODE_TEXT = ('«Pago en persona» solo funciona con «Bajo petición»: el cliente te envía una solicitud y tú la aceptas. '
+                       '«Pago al reservar» no es posible con pago en persona.')
+IN_PERSON_ACK_TEXT = 'Marca la casilla del aviso: este profesional cobra directamente, no a través de WORLDIVES.'
+
+
+class NeedsAcceptance(ValueError):
+    """A 400 that also tells the web which document has to be accepted first."""
+    def __init__(self, message, doc):
+        super().__init__(message)
+        self.extra = {'terms_required': doc, 'terms_url': f'#/legal/{doc}'}
+
+
+def row_get(row, key, default=None):
+    if row is None: return default
+    if isinstance(row, dict): return row.get(key, default)
+    try: return row[key] if key in row.keys() else default
+    except (IndexError, KeyError): return default
+
+
+def service_pay_way(svc):
+    """'in_person' for a freelance service (or experience) paid directly to the professional, else 'online'."""
+    if svc is None or row_get(svc, 'center_id'): return 'online'
+    return 'in_person' if row_get(svc, 'pay_way') == 'in_person' else 'online'
+
+
+def pay_methods_of(svc):
+    try: raw = json.loads(row_get(svc, 'pay_methods') or '[]')
+    except ValueError: raw = []
+    return [m for m in wpres.METHODS if m in (raw if isinstance(raw, list) else [])]
+
+
+def service_pay_info(svc):
+    """What anybody may see about how a service is paid (never the WhatsApp)."""
+    if service_pay_way(svc) != 'in_person': return {'pay_way': 'online'}
+    methods = pay_methods_of(svc)
+    return {'pay_way': 'in_person', 'pay_label': wpres.LABEL, 'pay_methods': methods,
+            'pay_other': (row_get(svc, 'pay_other') or '') if 'other' in methods else '',
+            'pay_policy': row_get(svc, 'pay_policy') or '', 'pay_notice': wpres.NOTICE, 'pay_notice_version': wpres.NOTICE_VERSION}
+
+
+def pay_contact(db, kind, ref_id):
+    """The WhatsApp (E.164) of a «Pago en persona» service or experience, or None. Never public."""
+    if not ref_id: return None
+    r = db.execute('SELECT phone FROM pay_contacts WHERE kind=? AND ref_id=?', (kind, int(ref_id))).fetchone()
+    return wcif.normalize_phone(r['phone']) if r and r['phone'] else None
+
+
+def save_pay_contact(db, kind, ref_id, e164):
+    db.execute('''INSERT INTO pay_contacts(kind,ref_id,phone,updated_at) VALUES(?,?,wod_cifrar(?),?)
+                  ON CONFLICT(kind,ref_id) DO UPDATE SET phone=excluded.phone,updated_at=excluded.updated_at''', (kind, int(ref_id), e164, now()))
+
+
+def in_person_terms_accepted(db, user_id):
+    return bool(db.execute('SELECT 1 FROM legal_acceptances WHERE user_id=? AND document=? AND version=?',
+                           (user_id, wpres.TERMS_DOC, legal_doc_version(db, wpres.TERMS_DOC))).fetchone())
+
+
+def clean_pay_settings(db, user, data, mode, current=None, kind='service', ip=''):
+    """«Forma de cobro» of a freelance service or experience. Returns the columns to save plus the WhatsApp
+    ('whatsapp'), or None when there is nothing to change (a centre, or an edit that does not send it)."""
+    if user['role'] != 'freelance': return None
+    cur_way = row_get(current, 'pay_way') or None
+    way = clean_text(data.get('pay_way'), 20)
+    ready = service_payments_ready(db, {'center_id': None, 'provider_user_id': user['id']})
+    if not way:
+        if current is not None:   # an edit that does not touch the way of paying: the booking mode still has to fit
+            if cur_way == 'in_person' and mode != 'request': raise ValueError(IN_PERSON_MODE_TEXT)
+            return None
+        if not ready: raise ValueError('Elige la forma de cobro: «Pago online» (necesita tus cobros online activos) o «Pago en persona».')
+        way = 'online'
+    if way not in wpres.WAYS: raise ValueError('Forma de cobro no válida.')
+    if way == 'online':
+        if not ready and cur_way != 'online':
+            raise ValueError('«Pago online» necesita tus cobros online activos (Panel → Cobros y pagos). Mientras tanto puedes elegir «Pago en persona».')
+        return {'pay_way': 'online'}
+    if mode != 'request': raise ValueError(IN_PERSON_MODE_TEXT)
+    if not provider_has(db, 'freelance', user['id'], 'in_person_payments'): raise PlanRequired('in_person_payments')
+    methods, other = wpres.clean_methods(data.get('pay_methods'), data.get('pay_other'))
+    raw = data.get('pay_whatsapp')
+    e164 = wcif.normalize_phone(raw) if raw not in (None, '') else (pay_contact(db, kind, current['id']) if current is not None else None)
+    if not e164:
+        raise ValueError('Escribe tu WhatsApp con el prefijo del país (por ejemplo, +34 600 123 456). Es obligatorio con «Pago en persona» '
+                         'y el cliente solo lo ve cuando aceptas su reserva.')
+    policy = wpres.clean_policy(data.get('pay_policy')) if 'pay_policy' in data or current is None else (row_get(current, 'pay_policy') or '')
+    if not in_person_terms_accepted(db, user['id']):
+        if not json_bool(data.get('accept_in_person_terms')):
+            raise NeedsAcceptance('Para activar «Pago en persona» acepta sus condiciones: eres el único responsable de tus cobros, de tus '
+                                  'obligaciones fiscales y de Seguridad Social y de tu seguro.', wpres.TERMS_DOC)
+        record_acceptances(db, user['id'], [wpres.TERMS_DOC], ip)
+        audit(db, user['id'], 'in_person_terms_accepted', 'user', user['id'], {'version': legal_doc_version(db, wpres.TERMS_DOC)})
+    return {'pay_way': 'in_person', 'pay_methods': json.dumps(methods), 'pay_other': other or None, 'pay_policy': policy or None, 'whatsapp': e164}
+
+
+def save_pay_settings(db, table, kind, ref_id, settings):
+    if not settings: return
+    cols = [k for k in ('pay_way', 'pay_methods', 'pay_other', 'pay_policy') if k in settings]
+    db.execute(f"UPDATE {table} SET {','.join(k + '=?' for k in cols)} WHERE id=?", [settings[k] for k in cols] + [ref_id])
+    if settings.get('whatsapp'): save_pay_contact(db, kind, ref_id, settings['whatsapp'])
+
+
+def clean_service_price(value, unit='slot'):
+    """v50.55: every service has a price (> 0). No «a consultar»."""
+    price = clean_money(value)
+    if price <= 0:
+        raise ValueError('Indica el precio del servicio: es obligatorio y se publica tal cual (sin «a consultar»).' if unit == 'slot'
+                         else 'Indica el precio por día: es obligatorio y se publica tal cual (sin «a consultar»).')
+    return price
+
+
+def booking_pay_way(b):
+    return 'in_person' if row_get(b, 'pay_way') == 'in_person' else 'online'
 
 
 def booking_view_status(b):
@@ -8501,7 +8775,28 @@ def booking_view_status(b):
     if d['status'] == 'expired':
         d['status_label'] = {'hold_expired': 'Caducada · no pagada', 'payment_cancelled': 'Caducada · no pagada', 'checkout_failed': 'Caducada · no pagada',
                              'no_response': 'Caducada · el centro no respondió a tiempo', 'not_paid': 'Caducada · no se pagó a tiempo'}.get(reason, 'Caducada')
+    if d['status'] == 'confirmed' and booking_pay_way(b) == 'in_person': d['status_label'] = wpres.CONFIRMED_LABEL   # v50.55
     return d
+
+
+def booking_in_person(db, b, lang='es', for_client=True):
+    """v50.55. What a booking with «Pago en persona» adds: the notice, the professional's ways of paying and policy, the
+    price as «Precio publicado» and, only once the professional has accepted, the «Hablar por WhatsApp» link."""
+    if booking_pay_way(b) != 'in_person': return {'pay_way': 'online'}
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if row_get(b, 'service_id') else None
+    out = {'pay_way': 'in_person', 'pay_label': wpres.LABEL, 'pay_notice': wpres.NOTICE, 'pay_notice_version': wpres.NOTICE_VERSION,
+           'price_label': wpres.PRICE_LABEL, 'policy_title': wpres.POLICY_TITLE, 'in_person_ack_at': row_get(b, 'in_person_ack_at'),
+           'pay_methods': pay_methods_of(svc) if svc else [], 'pay_other': (row_get(svc, 'pay_other') or '') if svc else '',
+           'pay_policy': (row_get(svc, 'pay_policy') or '') if svc else ''}
+    if for_client and wbk.normalize_state(b['status']) in ('confirmed', 'completed'):
+        e164 = pay_contact(db, 'service', row_get(b, 'service_id'))
+        if e164:
+            when = (mail_date(b['booking_date'], lang) + (f", {str(b['booking_time'])[:5]}" if row_get(b, 'booking_time') else '')) if b['booking_date'] else ''
+            out['pro_whatsapp'] = wpres.wa_link(e164, wpres.wa_message(lang, f"WOD-{int(b['id']):06d}", svc['title'] if svc else '', when))
+    return out
+
+
+PRO_ONLY_FIELDS = ('pro_mark', 'pro_mark_at')   # «Cobrado» / «No se presentó»: only for the professional's own control
 
 
 def reserve_or_fail(db, b):
@@ -8525,6 +8820,7 @@ def accept_booking(db, actor, b):
     svc = db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
     price = float(b['price'] or 0)
     ready = service_payments_ready(db, svc) if svc else center_payments_ready(db.execute('SELECT stripe_account_id,stripe_charges_enabled,stripe_payouts_enabled FROM centers WHERE id=?', (b['center_id'],)).fetchone())
+    if booking_pay_way(b) == 'in_person': ready = False   # v50.55: paid directly to the professional, never online
     if price > 0 and ready and b['payment_status'] != 'paid':
         hours = wbk.clamp_hours(svc['payment_hours'] if svc else None, wbk.DEFAULT_PAYMENT_HOURS)
         deadline = wbk.deadline_before_start(local_now(), hours, on_server_clock(db, wbk.activity_start(b['booking_date'], b['booking_time']), b['service_id'], b['center_id']))
@@ -8765,6 +9061,7 @@ def start_checkout(db, user, b, app=None):
     """Opens the payment of a booking in its two legal moments (Fase 1B): the whole price or the deposit (Fase 2.5).
     From the app (v50.48), Stripe sends the person back into the app (app = its scheme)."""
     st = wbk.normalize_state(b['status'])
+    if booking_pay_way(b) == 'in_person': raise ValueError('Esta reserva se paga en persona al profesional, no a través de WORLDIVES.')
     if b['payment_status'] in ('paid', 'deposit_paid'): raise ValueError('Esta reserva ya está pagada.')
     if st == 'payment_in_progress':
         hold = parse_local(b['hold_expires_at'])
@@ -8795,6 +9092,7 @@ def start_experience_checkout(db, user, eb):
     The price is per person (price × participants). Centres and freelance professionals alike."""
     if eb['status'] not in ('confirmed', 'accepted_pending_payment'): raise ValueError('El organizador todavía no ha aceptado tu solicitud.')
     if (eb['payment_status'] if 'payment_status' in eb.keys() else None) == 'paid': raise ValueError('Esta experiencia ya está pagada.')
+    if row_get(eb, 'pay_way') == 'in_person': raise ValueError('Esta experiencia se paga en persona al profesional, no a través de WORLDIVES.')
     e = db.execute('SELECT * FROM travel_experiences WHERE id=?', (eb['travel_experience_id'],)).fetchone()
     if not e: raise ValueError('Experiencia no disponible.')
     reuse = _open_order(db, 'experience_booking_id=?', (eb['id'],))
@@ -9192,6 +9490,8 @@ def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
     WARN = (0.66, 0.42, 0.07); BAD = (0.61, 0.25, 0.22); GOOD = (0.184, 0.478, 0.388)
     tone = {'confirmed': GOOD, 'completed': SEA, 'requested': WARN, 'accepted_pending_payment': WARN, 'payment_in_progress': WARN, 'expired': MUTED, 'rejected': BAD, 'cancelled': BAD}
     state = wbk.normalize_state(b['status'])
+    in_person = booking_pay_way(b) == 'in_person'   # v50.55
+    ipd = booking_in_person(db, b, lang) if in_person else {}
     PAY = {'paid': ('Pagado', GOOD), 'deposit_paid': ('Señal pagada', GOOD), 'required': ('Pago pendiente', WARN), 'pending': ('Pago en curso', WARN),
            'at_center': ('Pago en el centro', SEA), 'not_required': ('Sin cobro', SEA), 'review': ('Pago en revisión', WARN), 'refunded': ('Devuelto', MUTED),
            'partially_refunded': ('Devolución parcial', MUTED), 'not_paid': ('No pagado', MUTED)}
@@ -9209,7 +9509,8 @@ def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
     pg.text(555, 768, t('Emitido: {when}', when=_dt.datetime.now().strftime('%d/%m/%Y %H:%M')), 7.5, (0.70, 0.82, 0.86), align='right')
     # Status pills
     y = 708; x = 40
-    for label, col in ((t(wbk.state_label(state)), tone.get(state, MUTED)), (t(PAY.get(b['payment_status'], (b['payment_status'] or '', MUTED))[0]), PAY.get(b['payment_status'], ('', MUTED))[1])):
+    if in_person: PAY['at_center'] = (wpres.LABEL, SEA)
+    for label, col in ((t(booking_view_status(b)['status_label']), tone.get(state, MUTED)), (t(PAY.get(b['payment_status'], (b['payment_status'] or '', MUTED))[0]), PAY.get(b['payment_status'], ('', MUTED))[1])):
         if not label: continue
         w = pg.width(label.upper(), 8, True) + 26
         pg.box(x, y - 6, w, 22, col, None, 11); pg.text(x + 13, y + 1.5, label.upper(), 8, WHITE, True); x += w + 8
@@ -9249,7 +9550,7 @@ def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
         how = f"{(po['card_brand'] or '').title()} ···· {po['card_last4']}" if po and po['card_last4'] else (b['payment_method'] or '')
         extra_rows.append((t('Señal pagada') if b['payment_status'] == 'deposit_paid' else t('Pagado'), money(paid), how))
     if due > 0.005 and state not in ('cancelled', 'rejected', 'expired'):
-        extra_rows.append((t('Pendiente de pago en el centro') if b['payment_status'] in ('deposit_paid', 'at_center') else t('Pendiente de pago'), money(due), ''))
+        extra_rows.append((t('A pagar en persona al profesional') if in_person else t('Pendiente de pago en el centro') if b['payment_status'] in ('deposit_paid', 'at_center') else t('Pendiente de pago'), money(due), ''))
     if refunded > 0: extra_rows.append((t('Devuelto'), money(refunded), ''))
     h = 92 + len(lines) * 18 + len(extra_rows) * 16
     pg.box(40, y0 - h, 515, h, WHITE, LINE, 12)
@@ -9260,8 +9561,8 @@ def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
         pg.text(400, yy, f"{l.get('qty') or 1} × {money(l.get('unit'))}", 8.5, MUTED, align='right')
         pg.text(539, yy, money(l.get('total')), 9.5, INK, align='right'); yy -= 18
     pg.line(56, yy + 8, 539, yy + 8)
-    pg.text(56, yy - 8, t('Total'), 11, INK, True); pg.text(539, yy - 8, money(b['price']), 13, INK, True, align='right')
-    pg.text(56, yy - 22, t('Precio final fijado por el centro, impuestos incluidos.'), 7.5, MUTED)
+    pg.text(56, yy - 8, t(wpres.PRICE_LABEL) if in_person else t('Total'), 11, INK, True); pg.text(539, yy - 8, money(b['price']), 13, INK, True, align='right')
+    pg.text(56, yy - 22, pg.fit(t('Lo pagas directamente al profesional: WORLDIVES no cobra ni gestiona este pago.') if in_person else t('Precio final fijado por el centro, impuestos incluidos.'), 7.5, 483), 7.5, MUTED)
     yy -= 40
     for lab, val, how in extra_rows:
         pg.text(56, yy, lab, 9, INK, True); pg.text(539, yy, val, 9, INK, True, align='right')
@@ -9274,7 +9575,11 @@ def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
     pg.text(56, y1 - 37, pg.fit(prov.get('legal_name') or prov['name'], 11, 220, True), 11, INK, True)
     cy = y1 - 53
     addr = prov.get('fiscal_address') or ', '.join(x for x in (prov.get('address'), prov.get('city'), prov.get('country')) if x)
-    for lab, val in ((t('NIF'), prov.get('tax_id') or t('pendiente de completar por el prestador')), (t('Dirección'), addr), (t('Teléfono'), prov.get('phone')), (t('Email'), prov.get('email'))):
+    phone_ = prov.get('phone')
+    if in_person:   # v50.55: the professional's contact is his WhatsApp, and only once he has accepted
+        e164_ = pay_contact(db, 'service', b['service_id']) if state in ('confirmed', 'completed') else None
+        phone_ = f'WhatsApp {e164_}' if e164_ else None
+    for lab, val in ((t('NIF'), prov.get('tax_id') or t('pendiente de completar por el prestador')), (t('Dirección'), addr), (t('Teléfono'), phone_), (t('Email'), prov.get('email'))):
         if not val: continue
         wl = pg.wrap(val, 8.5, 150, False, 2)
         pg.text(56, cy, lab, 7, MUTED, True)
@@ -9284,16 +9589,23 @@ def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
     plat = ' · '.join(x for x in (legal.get('owner_name'), legal.get('nif')) if x)
     pg.text(56, y1 - hb + 26, pg.fit(t('WORLDIVES DISCOVERY: plataforma de reservas.'), 7.5, 220, True), 7.5, SEA, True)
     if plat: pg.text(56, y1 - hb + 14, pg.fit(plat, 7, 220), 7, MUTED)
-    pg.text(318, y1 - 20, t('Política de cancelación').upper(), 7.5, MUTED, True)
-    pol = booking_policy(db, b, lang)
-    ty = y1 - 38
-    for ln in pg.wrap(pol['text'], 8.5, 222, False, 4): pg.text(318, ty, ln, 8.5, INK); ty -= 11
+    if in_person:
+        # v50.55: the professional's own policy and the notice (no cancellation managed by WORLDIVES).
+        pg.text(318, y1 - 20, t(wpres.POLICY_TITLE).upper(), 7.5, MUTED, True); ty = y1 - 36
+        for ln in pg.wrap(ipd.get('pay_policy') or t('Sin política publicada por el profesional.'), 8, 222, False, 3): pg.text(318, ty, ln, 8, INK); ty -= 10
+        ty -= 6; pg.text(318, ty, t(wpres.LABEL).upper(), 7.5, WARN, True); ty -= 13
+        for ln in pg.wrap(t(wpres.NOTICE), 7.5, 222, False, 8): pg.text(318, ty, ln, 7.5, INK); ty -= 9.5
+    pol = booking_policy(db, b, lang) if not in_person else {'text': '', 'note': ''}
+    if not in_person: pg.text(318, y1 - 20, t('Política de cancelación').upper(), 7.5, MUTED, True)
+    ty = y1 - 38 if not in_person else ty
+    for ln in pg.wrap(pol['text'], 8.5, 222, False, 4) if pol['text'] else []: pg.text(318, ty, ln, 8.5, INK); ty -= 11
     if pol['note']:
         for ln in pg.wrap(pol['note'], 7.5, 222, False, 2): pg.text(318, ty, ln, 7.5, MUTED); ty -= 10
-    ty -= 8
-    pg.text(318, ty, t('Antes de bucear').upper(), 7.5, MUTED, True); ty -= 16
-    for tip in (t('Llega 15–20 minutos antes de la hora.'), t('Lleva tu titulación y el seguro de buceo.'), t('Documento de identidad o pasaporte.')):
-        pg.check(318, ty - 1, GOOD); pg.text(332, ty, pg.fit(tip, 8, 210), 8, INK); ty -= 14
+    if not in_person:
+        ty -= 8
+        pg.text(318, ty, t('Antes de bucear').upper(), 7.5, MUTED, True); ty -= 16
+        for tip in (t('Llega 15–20 minutos antes de la hora.'), t('Lleva tu titulación y el seguro de buceo.'), t('Documento de identidad o pasaporte.')):
+            pg.check(318, ty - 1, GOOD); pg.text(332, ty, pg.fit(tip, 8, 210), 8, INK); ty -= 14
     # Footer
     pg.line(40, 62, 555, 62)
     pg.text(40, 46, pg.fit(t('Este documento no es una factura.') + ' ' + t('Escanea el QR para comprobar el estado actualizado de la reserva.'), 7, 515), 7, MUTED)
@@ -10778,6 +11090,7 @@ def agenda_public(db, sid, month):
     return {'service_id': sid, 'title': svc['title'], 'description': svc['description'] or '', 'service_type': svc['service_type'], 'provider': prov,
             'booking_mode': info['booking_mode'], 'mode_label': info['mode_label'], 'bookable': info['bookable'], 'instant': info['instant'],
             'unavailable_reason': info.get('unavailable_reason') or '', 'deposit_type': svc['deposit_type'], 'deposit_value': svc['deposit_value'],
+            **{k: v for k, v in info.items() if k.startswith('pay_')},
             'month': month, 'timezone': tz, 'today': wag.today_in(tz).isoformat(), 'unit': service_unit(svc), 'days': states,
             'rules': {k: rules[k] for k in ('min_days', 'max_days', 'continuous', 'lead_hours', 'am', 'pm', 'full')}, 'pricing': pricing,
             'currency': svc['currency'] or 'EUR', 'max_participants': svc['max_participants']}
@@ -10866,6 +11179,7 @@ def save_service_agenda_options(db, user, sid, data):
         if user['role'] != 'admin' and (not ref or not provider_has(db, ref[0], ref[1], 'agenda_days')): raise PlanRequired('agenda_days')
     svc = db.execute('SELECT * FROM provider_services WHERE id=?', (sid,)).fetchone()
     rules = wag.clean_rules(data.get('unit_rules') or {}); pricing = wag.clean_pricing(data.get('pricing') or {}, svc['price'])
+    if unit in wag.DAY_UNITS and float(pricing['day'] or 0) <= 0: clean_service_price(0, unit)   # v50.55: raises «Indica el precio por día»
     tz = wag.valid_tz(data.get('timezone')) or svc['timezone']
     db.execute('UPDATE provider_services SET booking_unit=?,unit_rules=?,pricing=?,timezone=?,updated_at=? WHERE id=?',
                (unit, json.dumps(rules), json.dumps(pricing, ensure_ascii=False), tz, now(), sid))
@@ -11741,13 +12055,23 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     year=int(query.get('year',[str(_dt.date.today().year-1)])[0] or 0)
                     if not 2020<=year<=2100: raise ValueError('Año no válido.')
                     rows=dac7_report(db,year)
+                    if query.get('part',[''])[0]=='in_person':
+                        # v50.55 · PENDIENTE GESTORÍA: «Pago en persona», kept apart from what went through the platform.
+                        ip_rows=dac7_in_person(db,year)
+                        if query.get('format',[''])[0]=='csv':
+                            head=['tipo_prestador','id','nombre','forma_de_cobro','razon_social','persona','nif_tin','pais_emisor','fecha_nacimiento','direccion','moneda',
+                                  'precio_publicado_t1','precio_publicado_t2','precio_publicado_t3','precio_publicado_t4','actividades_t1','actividades_t2','actividades_t3','actividades_t4','comisiones','datos_incompletos','nota']
+                            raw=csv_text([[r[h] for h in head] for r in ip_rows],head).encode('utf-8'); audit(db,user['id'],'dac7_exported','system',None,{'year':year,'part':'in_person'}); db.commit()
+                            self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8'); self.send_header('Content-Disposition',f'attachment; filename="dac7-{year}-pago-en-persona.csv"')
+                            self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
+                        self.send_json({'year':year,'items':ip_rows,'pending':'gestoria'}); return
                     if query.get('format',[''])[0]=='csv':
                         head=['tipo_prestador','id','nombre','razon_social','persona','nif_tin','pais_emisor','registro_mercantil','fecha_nacimiento','direccion','cuenta_cobro','moneda',
                               'importe_t1','importe_t2','importe_t3','importe_t4','actividades_t1','actividades_t2','actividades_t3','actividades_t4','comisiones','impuestos_retenidos','datos_incompletos']
                         raw=csv_text([[r[h] for h in head] for r in rows],head).encode('utf-8'); audit(db,user['id'],'dac7_exported','system',None,{'year':year}); db.commit()
                         self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8'); self.send_header('Content-Disposition',f'attachment; filename="dac7-{year}.csv"')
                         self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
-                    self.send_json({'year':year,'items':rows}); return
+                    self.send_json({'year':year,'items':rows,'in_person_items':len(dac7_in_person(db,year))}); return
                 if path == '/api/admin/features':
                     user=require_user(self,db); require_role(user,{'admin'})
                     inv=[dict(r) for r in db.execute('SELECT id,code,note,created_at,expires_at,used_at FROM pro_invites ORDER BY id DESC LIMIT 200').fetchall()]
@@ -12167,7 +12491,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if rk not in payee_cache: payee_cache[rk]=payee_of(db,r['center_id'],r['provider_user_id'])
                         pol_=provider_policy(payee_cache[rk],r); d['policy']={'free_hours':pol_['free_hours'],'refund_pct':pol_['refund_pct'],'text':pol_['text'],'note':pol_['note'],'own':r['cancel_free_hours'] is not None}
                         d['provider_name']=(payee_cache[rk] or {}).get('name') or d.get('center_name') or d.get('provider_name')
-                        if include_inactive: d['experience']=exp_by_service.get(r['id'])
+                        if include_inactive:
+                            d['experience']=exp_by_service.get(r['id'])
+                            if d.get('pay_way')=='in_person': d['pay_whatsapp']=pay_contact(db,'service',r['id'])   # v50.55: only to its owner
                         d.update(card_fields(db,r,normalize_lang(query.get('lang',['es'])[0])))
                         for k_ in SERVICE_PHOTO_RAW: d.pop(k_,None)
                         if not include_inactive: d.pop('photo_note',None)
@@ -12544,6 +12870,10 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                           FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id
                                           WHERE b.user_id=? ORDER BY b.booking_date DESC,b.booking_time DESC,b.id DESC''',(uid,)).fetchall()
                     bookings=[dict(dict(x),**booking_view_status(x),mode_label=wbk.mode_label(x['booking_mode'] or 'request',x['response_hours'])) for x in bookings]
+                    alang=normalize_lang(query.get('lang',[''])[0] or user_lang(db,uid))
+                    for bx in bookings:
+                        for k_ in PRO_ONLY_FIELDS: bx.pop(k_,None)
+                        if bx.get('pay_way')=='in_person': bx.update(booking_in_person(db,bx,alang)); bx.pop('center_phone',None)
                     exps=db.execute('''SELECT eb.*,e.title,e.summary,e.start_date,e.end_date,e.price,e.currency,e.includes,e.conditions,
                                               t.title AS destination_title,c.name AS center_name,c.city,c.phone AS center_phone,c.email AS center_email,
                                               u.fullname AS provider_name
@@ -12555,7 +12885,15 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                        FROM messages m JOIN users u ON u.id=m.sender_user_id LEFT JOIN bookings b ON b.id=m.booking_id
                                        LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id WHERE m.recipient_user_id=? ORDER BY m.created_at DESC,m.id DESC''',(uid,)).fetchall()
                     unread=sum(1 for m in msgs if not m['read_at'])
-                    self.send_json({'bookings':bookings,'experience_bookings':[dict(x) for x in exps],'messages':[dict(x) for x in msgs],'unread_messages':unread}); return
+                    exp_out=[]
+                    for x in exps:
+                        xd=dict(x)
+                        for k_ in PRO_ONLY_FIELDS: xd.pop(k_,None)
+                        if xd.get('pay_way')=='in_person':
+                            xd.update({k:v for k,v in experience_in_person(db,x,db.execute('SELECT * FROM travel_experiences WHERE id=?',(x['travel_experience_id'],)).fetchone(),alang).items() if v is not None})
+                            xd.pop('center_phone',None)
+                        exp_out.append(xd)
+                    self.send_json({'bookings':bookings,'experience_bookings':exp_out,'messages':[dict(x) for x in msgs],'unread_messages':unread}); return
                 if path == '/api/messages':
                     user=require_user(self,db); rows=db.execute('''SELECT m.*,u.fullname AS sender_name FROM messages m JOIN users u ON u.id=m.sender_user_id WHERE m.recipient_user_id=? ORDER BY m.created_at DESC,m.id DESC''',(user['id'],)).fetchall(); self.send_json({'items':[dict(x) for x in rows]}); return
                 if path.startswith('/api/public/bookings/') and path.count('/')==4:
@@ -12688,6 +13026,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                     'address':payee.get('fiscal_address') or ', '.join(x for x in (payee.get('address'),payee.get('city'),payee.get('country')) if x)} if payee else None
                     if not b['center_id'] and payee: bd['center_phone']=payee.get('phone'); bd['center_city']=payee.get('city')
                     is_provider=can_manage_booking(user,b) and b['user_id']!=user['id']
+                    bd.update(booking_in_person(db,b,normalize_lang(query.get('lang',[''])[0] or user_lang(db,user['id'])),for_client=b['user_id']==user['id']))
+                    if bd['pay_way']=='in_person' and not is_provider:
+                        bd.pop('center_phone',None)   # v50.55: the professional's contact is the WhatsApp button, once he has accepted
+                    if not is_provider:
+                        for k_ in PRO_ONLY_FIELDS: bd.pop(k_,None)
                     paid_,refunded_,orders_=booking_paid_online(db,bid)
                     bd['paid_online']=paid_; bd['refunded_online']=refunded_; bd['refundable']=round(max(0.0,paid_-refunded_),2)
                     if is_provider or user['role']=='admin' or b['user_id']==user['id']:
@@ -12702,7 +13045,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if wbk.normalize_state(b['status']) in wbk.CANCELLABLE: bd['cancel']=booking_cancel_terms(db,b)
                     bd.update(booking_view_status(b)); bd['mode_label']=wbk.mode_label(b['booking_mode'] or 'request',b['response_hours'] if 'response_hours' in b.keys() else None)
                     _pol=booking_policy(db,b)
-                    bd['cancellation_policy']=f"{_pol['free_hours']}h-{_pol['refund_pct']}"; bd['cancellation_text']=_pol['text']; bd['cancellation_note']=_pol['note']
+                    bd['cancellation_policy']='in_person' if _pol.get('in_person') else f"{_pol['free_hours']}h-{_pol['refund_pct']}"; bd['cancellation_text']=_pol['text']; bd['cancellation_note']=_pol['note']
                     bd['cancel_free_hours']=_pol['free_hours']; bd['cancel_refund_pct']=_pol['refund_pct']
                     # v50.51: the page asks for the «salida cancelada» choice only when there is one open (no 400 otherwise).
                     if b['user_id']==user['id']: _so=slot_offer_for(db,bid); bd['slot_cancel_open']=bool(_so and not _so['resolved_at'])
@@ -12979,7 +13322,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     denied(self,db,e); self.send_json({'error':str(e),**getattr(e,'extra',{})},403)
             except ValueError as e:
                 db.rollback()  # never persist half-done work when a request fails
-                self.send_json({'error':public_error(e)},400)
+                self.send_json({'error':public_error(e),**getattr(e,'extra',{})},400)
             except OverflowError:
                 db.rollback(); self.send_json({'error':'Un número es demasiado grande.'},400)   # ASVS V1.4.2
             except NotFound as e:
@@ -13707,7 +14050,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0); sid=int(data.get('service_id') or 0)
                     svc=db.execute('SELECT id,price,currency FROM provider_services WHERE id=? AND center_id=?',(sid,cid)).fetchone()
                     if not svc: raise NotFound('Servicio no encontrado.')
-                    price=clean_money(data.get('price')); effective=clean_date(data.get('effective_from')) or now()[:10]
+                    price=clean_service_price(data.get('price')); effective=clean_date(data.get('effective_from')) or now()[:10]
                     # Keep tariff history. A new tariff only replaces the price from its effective date.
                     db.execute('DELETE FROM center_tariffs WHERE center_id=? AND service_id=? AND effective_from=?',(cid,sid,effective))
                     db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)',(cid,sid,price,svc['currency'] or 'EUR',effective,now(),now()))
@@ -13729,11 +14072,17 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if n_>=lim: raise PlanRequired('services_max',f'Tu plan permite {lim} servicios publicados. Desactiva alguno o cambia de plan.')
                     title=clean_text(data.get('title'),180)
                     if not title: raise ValueError('El nombre del servicio es obligatorio.')
-                    price=clean_money(data.get('price')); duration=clean_int(data.get('duration_minutes'),0,60*24*30,0,'La duración no es válida.') or None
+                    unit_=data.get('booking_unit') if data.get('booking_unit') in wag.UNITS else 'slot'
+                    if unit_ in wag.DAY_UNITS and not provider_has(db,*(ref or ('center',0)),'agenda_days'): raise PlanRequired('agenda_days')
+                    _day=(data.get('pricing') or {}).get('day') if isinstance(data.get('pricing'),dict) else None
+                    price=clean_service_price(data.get('price') if data.get('price') not in (None,'') or unit_=='slot' else _day,unit_)   # v50.55: always a price
+                    duration=clean_int(data.get('duration_minutes'),0,60*24*30,0,'La duración no es válida.') or None
                     maxp=clean_int(data.get('max_participants'),0,999,0,'El número máximo de personas no es válido.') or None
                     stype=clean_text(data.get('service_type'),60) or 'inmersion'
                     if stype not in SERVICE_TYPES: stype='inmersion'
+                    if data.get('pay_way')=='in_person' and clean_text(data.get('booking_mode'),30) in ('payment','instant','payment_keep'): raise ValueError(IN_PERSON_MODE_TEXT)
                     mode,resp_h,pay_h=clean_booking_mode(db,user,data,price)
+                    pay_set=clean_pay_settings(db,user,data,mode,None,'service',self.client_ip())   # v50.55: «Forma de cobro» of a freelance
                     color=clean_text(data.get('color'),20) or '#2563eb'
                     if not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color='#2563eb'
                     currency=(clean_text(data.get('currency'),3) or 'EUR').upper()
@@ -13742,6 +14091,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if (pol_h is None)!=(pol_pct is None): raise ValueError('Indica las horas y el porcentaje de la política de cancelación del servicio, o deja los dos vacíos.')
                     cur=db.execute('''INSERT INTO provider_services(provider_user_id,center_id,service_type,title,description,duration_minutes,price,currency,max_participants,booking_mode,response_hours,payment_hours,active,color,deposit_type,deposit_value,cancel_free_hours,cancel_refund_pct,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?,?)''',(user['id'],center_id,stype,title,clean_text(data.get('description'),5000),duration,price,currency,maxp,mode,resp_h,pay_h,color,dep_kind,dep_value,pol_h,pol_pct,now(),now()))
                     sid=cur.lastrowid
+                    save_pay_settings(db,'provider_services','service',sid,pay_set)
                     db.execute('UPDATE provider_services SET template_id=? WHERE id=?',(valid_template_id(db,data.get('template_id')),sid))
                     if center_id:
                         db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)',(center_id,sid,price,clean_text(data.get('currency'),3) or 'EUR',now()[:10],now(),now()))
@@ -13771,16 +14121,25 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     stype=clean_text(data.get('service_type'),60) or 'inmersion'
                     if stype not in SERVICE_TYPES: stype='inmersion'
                     cur_price,_,_=effective_service_tariff(db,sid)
-                    cur_svc=db.execute('SELECT booking_mode,response_hours,payment_hours FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    cur_svc=db.execute('SELECT * FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    if user['role']=='freelance' and data.get('price') not in (None,'') and (data.get('booking_unit') or service_unit(cur_svc))=='slot':
+                        # v50.55: a freelance has no tariff history; he changes his price here (always a price).
+                        cur_price=clean_service_price(data.get('price'))
+                        db.execute('UPDATE provider_services SET price=?,updated_at=? WHERE id=?',(cur_price,now(),sid))
+                    if data.get('active',True) and cur_price<=0 and (data.get('booking_unit') or service_unit(cur_svc))=='slot':
+                        raise ValueError('Este servicio no tiene precio. Añádelo para ponerlo a la venta (sin precio no se publica).')
+                    if data.get('pay_way')=='in_person' and clean_text(data.get('booking_mode'),30) in ('payment','instant'): raise ValueError(IN_PERSON_MODE_TEXT)
                     for k in ('booking_mode','response_hours','payment_hours'):
                         if data.get(k) in (None,''): data[k]=cur_svc[k]
                     if data.get('booking_mode')=='payment' and cur_svc['booking_mode']=='payment' and not service_payments_ready(db,{'center_id':row['center_id'],'provider_user_id':user['id']}):
                         data['booking_mode']='payment_keep'
                     # Changing the mode never touches bookings already in progress: each booking keeps its own mode.
                     mode,resp_h,pay_h=clean_booking_mode(db,user,data,cur_price)
+                    pay_set=clean_pay_settings(db,user,data,mode,cur_svc,'service',self.client_ip())   # v50.55 (bookings keep their own way)
                     color=clean_text(data.get('color'),20) or '#2563eb'
                     if not re.fullmatch(r'#[0-9a-fA-F]{6}',color): color='#2563eb'
                     db.execute('''UPDATE provider_services SET service_type=?,title=?,description=?,duration_minutes=?,max_participants=?,booking_mode=?,response_hours=?,payment_hours=?,active=?,color=?,updated_at=? WHERE id=?''',(stype,title,clean_text(data.get('description'),5000),duration,maxp,mode,resp_h,pay_h,1 if data.get('active',True) else 0,color,now(),sid))
+                    save_pay_settings(db,'provider_services','service',sid,pay_set)
                     if moderation_open(db,'service',sid): db.execute('UPDATE provider_services SET active=0 WHERE id=? AND provider_user_id=?',(sid,row['provider_user_id']))   # v50.54: hidden until reviewed
                     if 'template_id' in data: db.execute('UPDATE provider_services SET template_id=? WHERE id=?',(valid_template_id(db,data.get('template_id')),sid))
                     if 'deposit_type' in data:
@@ -14852,12 +15211,24 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     deadline=None; hold=None; slot_reserved=0
                     payee=payee_of(db,center_id,provider_user_id)
                     if price<0: raise ValueError('El importe no es válido.')   # never «free» because of a wrong extra (ASVS V2.2.3)
+                    if service and price<=0: raise ValueError(NO_PRICE_TEXT)   # v50.55: no booking of a service without a published price
+                    pay_way=service_pay_way(service)
+                    if pay_way=='in_person':
+                        # v50.55: the client is paid by the professional directly; he reads the notice and ticks the box.
+                        if mode!='request' or not provider_has(db,'freelance',provider_user_id,'in_person_payments'):
+                            raise ValueError('Este profesional no admite reservas ahora mismo. Prueba más tarde.')
+                        if not json_bool(data.get('in_person_ack')):
+                            e_=ValueError(IN_PERSON_ACK_TEXT); e_.extra={'in_person_ack_required':True,'notice':wpres.NOTICE}; raise e_
+                        ready=False
+                    elif service and not service['center_id'] and not ready and mode=='request':
+                        raise ValueError('Este profesional no admite reservas ahora mismo. Prueba más tarde.')
                     # ASVS 5.0 V2.4.1: at most BOOKING_MAX_PER_HOUR bookings an hour and PENDING_PAYMENTS_MAX unfinished payments per person.
                     if BOOKING_LIMIT.blocked(f"u:{user['id']}"): self.send_json({'error':BOOKING_LIMIT_TEXT},429); return
                     if mode=='payment' and db.execute("SELECT COUNT(*) FROM bookings WHERE user_id=? AND status='payment_in_progress' AND hold_expires_at>=?",(user['id'],local_iso(local_now()))).fetchone()[0]>=PENDING_PAYMENTS_MAX:
                         raise ValueError('Tienes varios pagos sin terminar. Termínalos o espera unos minutos.')
                     pol=provider_policy(payee,service)  # the policy shown before paying is the one that applies
                     deposit=deposit_for(service,price,participants)
+                    if pay_way=='in_person': pol={**pol,'free_hours':None,'refund_pct':None}; deposit=None   # v50.55: no deposit, no managed policy
                     if mode=='payment':
                         # «Pago al reservar»: the diver pays to book. Never silently turned into «pay at the centre».
                         if not ready: raise ValueError('Este servicio se reserva pagando online y ahora mismo el centro no tiene los cobros activos. Prueba más tarde o contacta con el centro.')
@@ -14882,6 +15253,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                     status,price,service['currency'] if service else 'EUR',payment_status,mode,deadline,hold,now() if status=='confirmed' else None,legal_doc_version(db,'reservas'),json.dumps(price_lines,ensure_ascii=False),
                                     deposit,price,pol['free_hours'],pol['refund_pct'],now(),now()))
                     bid=cur.lastrowid; BOOKING_LIMIT.hit(f"u:{user['id']}")
+                    if pay_way=='in_person':
+                        db.execute("UPDATE bookings SET pay_way='in_person',in_person_ack_at=? WHERE id=? AND user_id=?",(now(),bid,user['id']))
+                        audit(db,user['id'],'in_person_notice_accepted','booking',bid,{'notice_version':wpres.NOTICE_VERSION})
                     if day_sel:
                         db.executemany('INSERT INTO booking_days(booking_id,local_date,part) VALUES(?,?,?)',[(bid,d,day_sel['part']) for d in day_sel['days']])
                         db.execute('UPDATE bookings SET date_to=?,days_mode=? WHERE id=?',(day_sel['days'][-1],day_sel['part'],bid))
@@ -14900,7 +15274,27 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                             expire_booking(db,booking_row(db,bid),'checkout_failed',notify=False); db.commit(); raise
                         self.send_json({'ok':True,'id':bid,'status':status,'payment_required':True,'checkout_url':pay['checkout_url'],'hold_expires_at':hold,'price':price,'deposit':deposit,'currency':service_currency,'booking_mode':mode}); return
                     notify_booking(db,bid,'created')
-                    db.commit(); self.send_json({'ok':True,'id':bid,'status':status,'payment_required':False,'price':price,'currency':service_currency,'booking_mode':mode,'response_deadline':deadline}); return
+                    db.commit(); self.send_json({'ok':True,'id':bid,'status':status,'payment_required':False,'price':price,'currency':service_currency,'booking_mode':mode,'response_deadline':deadline,'pay_way':pay_way}); return
+                if path=='/api/pro-mark':
+                    # v50.55: «Cobrado» / «No se presentó» on a booking or experience with «Pago en persona». Only for the
+                    # professional's own control: the client never sees it and no money moves.
+                    user=require_user(self,db); require_role(user,{'freelance'}); data=json_body(self)
+                    kind=clean_text(data.get('kind'),20) or 'booking'; rid=int(data.get('id') or 0); mark=clean_text(data.get('mark'),20) or ''
+                    if mark and mark not in wpres.MARKS: raise ValueError('Marca no válida: «Cobrado» o «No se presentó».')
+                    if kind=='booking':
+                        row=booking_row(db,rid)
+                        if not row: raise NotFound('Reserva no encontrada.')
+                        require_booking_provider(user,row); state_=wbk.normalize_state(row['status']); way_=booking_pay_way(row); table_='bookings'
+                    elif kind=='experience':
+                        row=db.execute('SELECT eb.*,e.provider_user_id,e.center_id FROM experience_bookings eb JOIN travel_experiences e ON e.id=eb.travel_experience_id WHERE eb.id=? AND e.center_id IS NULL AND e.provider_user_id=?',(rid,user['id'])).fetchone()
+                        if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise NotFound('Solicitud no encontrada.')
+                        state_=row['status']; way_=row_get(row,'pay_way') or 'online'; table_='experience_bookings'
+                    else: raise ValueError('Tipo no válido.')
+                    if way_!='in_person': raise ValueError('Solo las reservas con «Pago en persona» se marcan a mano. Los cobros online los registra Stripe.')
+                    if state_ not in ('confirmed','completed'): raise ValueError('Solo puedes marcar reservas confirmadas.')
+                    db.execute(f'UPDATE {table_} SET pro_mark=?,pro_mark_at=? WHERE id=?',(mark or None,now() if mark else None,rid))
+                    audit(db,user['id'],'pro_mark','booking' if kind=='booking' else 'experience_booking',rid,{'mark':mark or None})
+                    db.commit(); self.send_json({'ok':True,'mark':mark or None,'label':wpres.MARK_LABELS.get(mark,'')}); return
                 if path.startswith('/api/bookings/') and path.endswith('/status'):
                     # Provider decisions on a booking (Fase 1B): accept / reject a request (optional reason), cancel, complete.
                     user=require_user(self,db); require_role(user,{'admin','center','freelance'}); bid=int(path.split('/')[-2]); data=json_body(self); status=clean_text(data.get('status'),30)
@@ -15398,7 +15792,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     # Verified centers publish directly (the admin can still hide it); freelance proposals are reviewed.
                     status='published' if user['role'] in {'admin','center'} else 'pending'
                     _xn=clean_experience_numbers(data)
-                    cur=db.execute('''INSERT INTO travel_experiences(travel_offer_id,title,provider_user_id,center_id,provider_type,summary,description,start_date,end_date,price,currency,spots_total,spots_available,includes,conditions,status,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(tid,clean_text(data.get('title'),180),user['id'],center_id,provider_type,clean_text(data.get('summary'),500),clean_text(data.get('description'),5000),*_xn[:3],clean_text(data.get('currency'),8) or 'EUR',*_xn[3:],clean_text(data.get('includes'),3000),clean_text(data.get('conditions'),3000),status,1,now(),now())); audit(db,user['id'],'travel_experience_created','travel_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid,'status':status}); return
+                    pay_set=clean_pay_settings(db,user,data,'request',None,'experience',self.client_ip())   # v50.55: experiences are always on request
+                    cur=db.execute('''INSERT INTO travel_experiences(travel_offer_id,title,provider_user_id,center_id,provider_type,summary,description,start_date,end_date,price,currency,spots_total,spots_available,includes,conditions,status,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(tid,clean_text(data.get('title'),180),user['id'],center_id,provider_type,clean_text(data.get('summary'),500),clean_text(data.get('description'),5000),*_xn[:3],clean_text(data.get('currency'),8) or 'EUR',*_xn[3:],clean_text(data.get('includes'),3000),clean_text(data.get('conditions'),3000),status,1,now(),now())); save_pay_settings(db,'travel_experiences','experience',cur.lastrowid,pay_set); audit(db,user['id'],'travel_experience_created','travel_experience',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid,'status':status}); return
                 if path=='/api/admin/travel-offers':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
                     tid=int(data.get('id') or 0)
@@ -15420,8 +15815,15 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     exp=db.execute('SELECT * FROM travel_experiences WHERE id=? AND active=1 AND status=\'published\'',(eid,)).fetchone()
                     if not exp: self.send_json({'error':'Experiencia no disponible.'},404); return
                     if exp['spots_available'] is not None and participants>exp['spots_available']: raise ValueError('No hay suficientes plazas disponibles.')
-                    cur=db.execute('INSERT INTO experience_bookings(travel_experience_id,user_id,participants,notes,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',(eid,user['id'],participants,clean_text(data.get('notes'),2000),'requested',now(),now()))
+                    _src,_k,_r=experience_pay_source(db,exp); x_way=service_pay_way(_src)
+                    if float(exp['price'] or 0)<=0: raise ValueError(NO_PRICE_TEXT)   # v50.55
+                    if x_way=='in_person' and not json_bool(data.get('in_person_ack')):
+                        e_=ValueError(IN_PERSON_ACK_TEXT); e_.extra={'in_person_ack_required':True,'notice':wpres.NOTICE}; raise e_
+                    x_total=round(float(exp['price'] or 0)*participants,2)   # v50.55: the published total stays with the request
+                    cur=db.execute('INSERT INTO experience_bookings(travel_experience_id,user_id,participants,notes,status,created_at,updated_at,price,currency,pay_way,in_person_ack_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                                   (eid,user['id'],participants,clean_text(data.get('notes'),2000),'requested',now(),now(),x_total,exp['currency'] or 'EUR',x_way,now() if x_way=='in_person' else None))
                     ebid=cur.lastrowid
+                    if x_way=='in_person': audit(db,user['id'],'in_person_notice_accepted','experience_booking',ebid,{'notice_version':wpres.NOTICE_VERSION})
                     if exp['spots_available'] is not None and db.execute('UPDATE travel_experiences SET spots_available=spots_available-?,updated_at=? WHERE id=? AND spots_available>=?',(participants,now(),eid,participants)).rowcount!=1:
                         raise ValueError('No hay suficientes plazas disponibles.')
                     BOOKING_LIMIT.hit(f"u:{user['id']}")
@@ -15433,7 +15835,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         _pu=db.execute('SELECT id,fullname,email FROM users WHERE id=?',(exp['provider_user_id'],)).fetchone()
                         if _pu: _rcp=[(_pu['email'],_pu['fullname'],user_lang(db,_pu['id']))]
                     for _em,_nm,_lg in _rcp: queue_email(db,'center_experience_request',_em,_nm,_pctx,_lg,('experience_booking',ebid))
-                    audit(db,user['id'],'experience_booking_requested','experience_booking',ebid,{'experience_id':eid,'participants':participants}); db.commit(); self.send_json({'ok':True,'id':ebid,'payment_required':price>0,'price':price,'currency':exp['currency'] or 'EUR'}); return
+                    audit(db,user['id'],'experience_booking_requested','experience_booking',ebid,{'experience_id':eid,'participants':participants}); db.commit(); self.send_json({'ok':True,'id':ebid,'payment_required':price>0 and x_way!='in_person','price':price,'total':x_total,'currency':exp['currency'] or 'EUR','pay_way':x_way}); return
                 if path=='/api/admin/demo/reset':
                     user=require_user(self,db); require_role(user,{'admin'})
                     if not wcfg.demo_mode(): self.send_json({'error':'Solo disponible en el entorno de pruebas.'},404); return
@@ -15653,6 +16055,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if exp['service_id']: raise ValueError('Esta experiencia se edita desde su servicio en «Servicios y tarifas».')
                     tid=resolve_travel_offer(db,data) or exp['travel_offer_id']
                     xs,xe,xp,xt,xf=clean_experience_numbers(data)
+                    save_pay_settings(db,'travel_experiences','experience',eid,clean_pay_settings(db,user,data,'request',exp,'experience',self.client_ip()))
                     status='published' if user['role']=='center' else exp['status']
                     if moderation_open(db,'experience',eid): status='hidden'   # v50.54: hidden by the administration until reviewed
                     db.execute('UPDATE travel_experiences SET travel_offer_id=?,title=?,summary=?,description=?,start_date=?,end_date=?,price=?,spots_total=?,spots_available=?,includes=?,conditions=?,status=?,active=1,updated_at=? WHERE id=?',
@@ -15846,7 +16249,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     denied(self,db,e); self.send_json({'error':str(e),**getattr(e,'extra',{})},403)
             except ValueError as e:
                 db.rollback()  # never persist half-done work when a request fails
-                self.send_json({'error':public_error(e)},400)
+                self.send_json({'error':public_error(e),**getattr(e,'extra',{})},400)
             except OverflowError:
                 db.rollback(); self.send_json({'error':'Un número es demasiado grande.'},400)   # ASVS V1.4.2
             except NotFound as e:

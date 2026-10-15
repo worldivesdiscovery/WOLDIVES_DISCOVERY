@@ -59,6 +59,8 @@ Jeśli Twój plan lub okres próbny wygaśnie, a Ty go nie odnowisz, Twoje centr
 - {{trade_name}} nie obraca Twoimi pieniędzmi ani nie dokonuje zwrotów w Twoim imieniu.
 - Potwierdzenia rezerwacji wystawiane przez platformę **nie są fakturami**. Jeśli Twoja działalność tego wymaga, fakturę wystawiasz samodzielnie.
 
+**Płatność osobiście (niezależni profesjonaliści).** Jako niezależny profesjonalista możesz pobierać opłatę za usługę lub doświadczenie bezpośrednio od klientów dzięki opcji „Płatność osobiście”. Działa ona tylko „Na zapytanie”, z opublikowaną ceną i numerem WhatsApp do kontaktu, który klient widzi po przyjęciu rezerwacji. W takim przypadku odpowiadasz wyłącznie Ty za swoje płatności, obowiązki podatkowe i ubezpieczenie społeczne oraz ubezpieczenie, co akceptujesz, zaznaczając pole przy włączaniu. Pełne zasady znajdziesz w dokumencie [Płatność osobiście u profesjonalisty](#/legal/pago-en-persona).
+
 ## 7. Polityka anulowania
 
 Swoją politykę wybierasz w **Panel → Płatności i wypłaty**: do ilu godzin przed usługą anulowanie jest bezpłatne i jaki procent zwracasz później. Dla każdej usługi możesz ustalić inną politykę. Jest ona wyświetlana klientowi przed rezerwacją, zapisywana przy każdej rezerwacji, a zmiany dotyczą wyłącznie nowych rezerwacji.

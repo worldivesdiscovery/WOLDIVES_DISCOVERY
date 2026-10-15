@@ -24,6 +24,8 @@ U ontvangt bij elke stap een e-mail: aanvraag verzonden, plaats bevestigd, betal
 - Als het centrum niet online int, betaalt u rechtstreeks in het centrum, op de wijze die het centrum aanvaardt.
 - U ontvangt een boekingsbewijs per e-mail en kunt het als pdf downloaden vanuit uw boeking.
 
+**Persoonlijke betaling aan de professional.** Sommige zelfstandige professionals worden rechtstreeks door hun klanten betaald. Voor hun diensten stuur je een aanvraag, de prijs is de gepubliceerde en zodra de professional accepteert, spreek je de betaling met hem of haar af via WhatsApp. {{trade_name}} int niets, betaalt niets terug en regelt geen annuleringen of incidenten voor die diensten. Zie [Persoonlijke betaling aan de professional](#/legal/pago-en-persona).
+
 ## 4. Geen herroepingsrecht van 14 dagen
 
 Voor vrijetijdsactiviteiten die op een specifieke datum of in een specifieke periode worden verleend (duiken, cursussen, introductieduiken, uitstapjes en reizen) **geldt geen herroepingsrecht**, overeenkomstig artikel 103, onder l), van de geconsolideerde tekst van de Spaanse Algemene Wet ter bescherming van consumenten en gebruikers (TRLGDCU). In plaats daarvan geldt het **annuleringsbeleid van het centrum**, dat u vóór de boeking ziet.

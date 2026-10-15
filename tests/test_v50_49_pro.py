@@ -6,7 +6,7 @@ import datetime as dt
 import time
 import unittest
 
-from helpers import Client, MiddayClock, ServerTestCase
+from helpers import Client, MiddayClock, ServerTestCase, IN_PERSON
 from stripe_mock import StripeMock
 
 CONNECT_SECRET = 'whsec_connect_local'
@@ -222,7 +222,7 @@ class CloseAccount(ProBase):
 
     def test_freelance_close_and_reopen(self):
         f = self.make_freelance(self.admin, 'libre9')
-        sid = f.post('/api/provider-services', {'title': 'Bautizo libre', 'price': 60}).json['id']
+        sid = f.post('/api/provider-services', {'title': 'Bautizo libre', 'price': 60, **IN_PERSON}).json['id']
         self.assertEqual(self.client().get(f"/api/providers/{f.user['id']}").status, 200)
         self.assertEqual(f.get('/api/provider/cuenta').json['future_count'], 0)
         self.assertEqual(f.post('/api/provider/cuenta/cerrar', {'password': 'buceo-seguro-2026'}).status, 200)

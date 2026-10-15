@@ -426,7 +426,7 @@ class PuntosYPlazasVariosProcesos(ServerTestCase):
         start = (dt.date.today() + dt.timedelta(days=40)).isoformat()
         for rnd in range(3):
             r = self.owner.post('/api/travel-experiences', {'title': f'Viaje a Medes {rnd}', 'summary': 'Dos días', 'start_date': start, 'end_date': start,
-                                                            'price': 0, 'spots_total': 1, 'spots_available': 1, 'new_destination': 'Islas Medes'})
+                                                            'price': 120, 'spots_total': 1, 'spots_available': 1, 'new_destination': 'Islas Medes'})
             self.assertEqual(r.status, 200, r); eid = r.json['id']
             divers = [self.make_diver(f'v2viaje{rnd}x{i}') for i in range(6)]
             with cf.ThreadPoolExecutor(6) as ex:

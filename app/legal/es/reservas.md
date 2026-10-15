@@ -24,6 +24,8 @@ Recibirás un email en cada paso: solicitud enviada, plaza confirmada, pago reci
 - Si el centro no cobra online, pagarás directamente en el centro, en la forma que este acepte.
 - Recibirás un justificante por email y podrás descargarlo en PDF desde tu reserva.
 
+**Pago en persona al profesional.** Algunos profesionales independientes cobran directamente a sus clientes. En sus servicios envías una solicitud, el precio es el publicado y, cuando el profesional acepta, acuerdas con él el pago por WhatsApp. {{trade_name}} no cobra, no devuelve y no gestiona cancelaciones ni incidencias en esos servicios. Lo explicamos en [Pago en persona al profesional](#/legal/pago-en-persona).
+
 ## 4. No hay derecho de desistimiento de 14 días
 
 Las actividades de ocio que se prestan en una fecha o un periodo concretos (inmersiones, cursos, bautizos, salidas y viajes) **no tienen derecho de desistimiento**, según el artículo 103.l) del texto refundido de la Ley General para la Defensa de los Consumidores y Usuarios. En su lugar, se aplica la **política de cancelación del centro**, que ves antes de reservar.

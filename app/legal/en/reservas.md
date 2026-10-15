@@ -24,6 +24,8 @@ You will receive an email at each step: request sent, place confirmed, payment r
 - If the centre does not take online payments, you will pay directly at the centre, by whatever method it accepts.
 - You will receive a booking voucher by email and can download it as a PDF from your booking.
 
+**Payment in person to the professional.** Some independent professionals are paid directly by their customers. For their services you send a request, the price is the published one and, once the professional accepts, you agree the payment with him or her on WhatsApp. {{trade_name}} does not collect money, make refunds or handle cancellations or incidents for those services. See [Payment in person to the professional](#/legal/pago-en-persona).
+
 ## 4. No 14-day right of withdrawal
 
 Leisure activities provided on a specific date or during a specific period (dives, courses, try dives, outings and trips) **do not carry a right of withdrawal**, under article 103.l) of the consolidated text of the General Law for the Defence of Consumers and Users (TRLGDCU). Instead, the **centre's cancellation policy** applies, which you see before booking.

@@ -24,6 +24,8 @@ Sie erhalten bei jedem Schritt eine E-Mail: Anfrage gesendet, Platz bestätigt, 
 - Wenn das Zentrum keine Online-Zahlungen annimmt, bezahlen Sie direkt im Zentrum auf die von ihm akzeptierte Weise.
 - Sie erhalten einen Beleg per E-Mail und können ihn als PDF in Ihrer Buchung herunterladen.
 
+**Zahlung vor Ort an den Profi.** Einige unabhängige Profis werden direkt von ihren Kunden bezahlt. Bei ihren Leistungen sendest du eine Anfrage, der Preis ist der veröffentlichte, und sobald der Profi annimmt, vereinbarst du die Zahlung mit ihm per WhatsApp. {{trade_name}} kassiert nichts, erstattet nichts und übernimmt bei diesen Leistungen weder Stornierungen noch Vorfälle. Siehe [Zahlung vor Ort an den Profi](#/legal/pago-en-persona).
+
 ## 4. Kein 14-tägiges Widerrufsrecht
 
 Für Freizeitaktivitäten, die zu einem bestimmten Termin oder in einem bestimmten Zeitraum erbracht werden (Tauchgänge, Kurse, Schnuppertauchgänge, Ausfahrten und Reisen), **besteht kein Widerrufsrecht** gemäß Artikel 103 Buchstabe l des spanischen Verbraucherschutzgesetzes in seiner Neufassung (TRLGDCU). Stattdessen gilt die **Stornierungsrichtlinie des Zentrums**, die Sie vor der Buchung sehen.

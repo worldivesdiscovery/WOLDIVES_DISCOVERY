@@ -59,6 +59,8 @@ Se il tuo piano o la tua prova scadono e non rinnovi, il tuo centro passa alla *
 - {{trade_name}} non movimenta il tuo denaro né effettua rimborsi per tuo conto.
 - Le ricevute di prenotazione emesse dalla piattaforma **non sono fatture**. Se la tua attività lo richiede, la fattura la emetti tu.
 
+**Pagamento di persona (professionisti indipendenti).** Se sei un professionista indipendente puoi farti pagare un servizio o un'esperienza direttamente dai clienti con il «Pagamento di persona». Funziona solo «Su richiesta», con un prezzo pubblicato e un numero WhatsApp di contatto che il cliente vede quando accetti. In tal caso sei l'unico responsabile dei tuoi incassi, dei tuoi obblighi fiscali e previdenziali e della tua assicurazione, e lo accetti spuntando una casella quando lo attivi. Le regole complete sono in [Pagamento di persona al professionista](#/legal/pago-en-persona).
+
 ## 7. Politica di cancellazione
 
 Scegli la tua politica in **Pannello → Incassi e pagamenti**: fino a quante ore prima la cancellazione è gratuita e quale percentuale rimborsi successivamente. Puoi stabilire una politica diversa per ciascun servizio. La politica viene mostrata al cliente prima della prenotazione, è salvata con ogni prenotazione e le modifiche si applicano solo alle nuove prenotazioni.

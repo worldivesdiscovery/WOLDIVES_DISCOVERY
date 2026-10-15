@@ -59,6 +59,8 @@ Si tu plan o tu prueba terminan y no renuevas, tu centro pasa a la **ficha gratu
 - {{trade_name}} no mueve tu dinero ni hace devoluciones en tu nombre.
 - Los justificantes de reserva que emite la plataforma **no son facturas**. Si tu actividad lo exige, la factura la emites tú.
 
+**Pago en persona (profesionales independientes).** Si eres profesional independiente puedes cobrar un servicio o una experiencia directamente a tus clientes con «Pago en persona». Solo funciona con «Bajo petición», con un precio publicado y con un WhatsApp de contacto que el cliente ve cuando aceptas. En ese caso eres el único responsable de tus cobros, de tus obligaciones fiscales y de Seguridad Social y de tu seguro, y lo aceptas con una casilla al activarlo. Las reglas completas están en [Pago en persona al profesional](#/legal/pago-en-persona).
+
 ## 7. Política de cancelación
 
 Eliges tu política en **Panel → Cobros y pagos**: hasta cuántas horas antes la cancelación es gratuita y qué porcentaje devuelves después. Puedes fijar una política distinta en cada servicio. Se muestra al cliente antes de reservar, se guarda con cada reserva y los cambios solo afectan a las reservas nuevas.

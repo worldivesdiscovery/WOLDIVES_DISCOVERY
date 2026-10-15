@@ -138,7 +138,7 @@ class AgendaServer(ServerTestCase):
         self.assertEqual(set(pub['days'].values()) - {'free', 'busy', 'am', 'pm', 'off'}, set())
         self.assertEqual(pub['timezone'], 'America/Cancun')
         self.assertEqual(self.client().get('/api/agenda/public?service=999999').status, 404)
-        slot_sid = self.other.post('/api/provider-services', {'title': 'Salida normal', 'price': 50}).json['id']
+        slot_sid = self.pro.post('/api/provider-services', {'title': 'Salida normal', 'price': 50}).json['id']   # v50.55: «other» may be on the free plan by now
         self.assertEqual(self.client().get(f'/api/agenda/public?service={slot_sid}').status, 404)
 
     def test_request_does_not_block_confirm_rejects_overlaps(self):

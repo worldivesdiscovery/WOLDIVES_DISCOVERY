@@ -132,7 +132,17 @@
   const ESTADO = { requested: ['sol', 'sobre'], pending: ['sol', 'sobre'], accepted_pending_payment: ['pend', 'reloj'], payment_in_progress: ['pend', 'reloj'], confirmed: ['ok', 'check'],
     completed: ['neutro', 'check'], rejected: ['canc', 'x'], cancelled: ['canc', 'x'], expired: ['canc', 'reloj'] };
   function estadoTag(b) { const [cls, icono] = ESTADO[b.status] || ['neutro', 'info']; return `<span class="wtag ${cls}">${ic(icono, '')}${esc(W.bookingStatus(b.status, b.status_label)[0])}</span>`; }
-  function modoTag(s) { return s.instant ? `<span class="wtag ok">${ic('cobrar', '')}${esc(s.mode_label || 'Pago al reservar')}</span>` : `<span class="wtag sol">${ic('sobre', '')}${esc(s.mode_label || 'Bajo petición')}</span>`; }
+  // v50.55: a freelance service paid in person to the professional carries its label everywhere.
+  const enPersona = (x) => !!x && x.pay_way === 'in_person';
+  const personaTag = (x) => enPersona(x) ? `<span class="wtag pend">${ic('cobrar', '')}${esc(T('Pago en persona al profesional'))}</span>` : '';
+  const AVISO_PERSONA = 'Este profesional cobra directamente, no a través de WORLDIVES. El precio es el publicado aquí. Acuerda con él la forma de pago y los detalles por WhatsApp. En este servicio WORLDIVES no gestiona pagos, devoluciones, cancelaciones ni incidencias.';
+  const FORMAS = { cash: 'Efectivo', bizum: 'Bizum', transfer: 'Transferencia', other: 'Otra' };
+  // The professional's WhatsApp of a booking paid in person: only once he has accepted (the server sends it then).
+  function whatsappReserva(b) {
+    if (enPersona(b)) { if (b.pro_whatsapp) abrirFuera(b.pro_whatsapp); else W.toast(T('El botón «Hablar por WhatsApp» aparece cuando el profesional acepta tu solicitud.')); return; }
+    whatsappCentro({ nombre: b.center_name, telefono: b.center_phone, reserva: b });
+  }
+  function modoTag(s) { return (enPersona(s) ? personaTag(s) + ' ' : '') + (s.instant ? `<span class="wtag ok">${ic('cobrar', '')}${esc(s.mode_label || 'Pago al reservar')}</span>` : `<span class="wtag sol">${ic('sobre', '')}${esc(s.mode_label || 'Bajo petición')}</span>`); }
   const pedirEntrar = (titulo, texto) => `<div class="cuerpo"><h1>${titulo}</h1><div class="tarjeta pad pila-12"><p>${texto}</p><a class="wbtn ancho grande" href="#/login?next=${encodeURIComponent(location.hash || '#/')}">Entrar</a><a class="wbtn sec ancho" href="#/registro">Crear cuenta</a></div></div>`;
 
   function pintar(html, clase = '') {
@@ -339,14 +349,14 @@
       box.innerHTML = `<div class="tarjeta pad pila-12" aria-label="Próxima inmersión"><div class="fila">${anillo(n)}<div class="crece pila"><span class="eti">Próxima inmersión</span><h2${b.service_title ? ' translate="no"' : ''}>${esc(b.service_title || 'Inmersión')}</h2>
         <p class="peq"><b class="num">${esc(W.wdLongDay(b.booking_date))}${b.booking_time ? ' · ' + esc(b.booking_time) : ''}</b></p>
         <p class="suave peq"><span translate="no">${esc(b.center_name || '')}</span>${b.point_name ? ` · <span translate="no">${esc(b.point_name)}</span>` : ''}</p></div></div>
-        <div class="wtags">${estadoTag(b)}</div>
+        <div class="wtags">${estadoTag(b)}${personaTag(b)}</div>
         <div class="acciones tres"><button class="accion" type="button" data-llegar>${ic('ruta')}<span>Cómo llegar</span></button><a class="accion" href="#/reserva?id=${b.id}">${ic('qr')}<span>Ver reserva y QR</span></a>
         <button class="accion wa" type="button" data-wa>${ic('wa')}<span>WhatsApp al centro</span></button></div></div>`;
       W.translateTree(box);
       const llegar = mapsDestino({ direccion: [b.center_address, b.city].filter(Boolean).join(', ') });
       const bl = $('[data-llegar]', box); if (!llegar) bl.setAttribute('aria-disabled', 'true');
       bl.onclick = () => llegar ? abrirFuera(llegar) : W.toast('El centro no ha publicado su dirección.');
-      $('[data-wa]', box).onclick = () => whatsappCentro({ nombre: b.center_name, telefono: b.center_phone, reserva: b });
+      $('[data-wa]', box).onclick = () => whatsappReserva(b);
     }
     // «Repetir»: the centres where this diver has already booked.
     const vistos = new Map();
@@ -404,7 +414,7 @@
   function pendiente() { try { const v = JSON.parse(sessionStorage.getItem(PENDIENTE) || 'null'); sessionStorage.removeItem(PENDIENTE); return v; } catch { return null; } }
   async function abrirReserva(sal) {
     if (!sal) return;
-    const st = { sal, pax: 1, abierta: '', equipo: new Set(), extras: new Set(), nota: '', quote: null, enviando: false, otras: null, equipos: [], extrasList: [] };
+    const st = { sal, pax: 1, abierta: '', equipo: new Set(), extras: new Set(), nota: '', quote: null, enviando: false, otras: null, equipos: [], extrasList: [], aviso: false };
     const me = state.me, perfil = me?.profile || {};
     const cid = sal.center_id || 0;
     // Equipment and extras of the centre (a freelance has none) and the other departures of the same service.
@@ -414,6 +424,11 @@
     st.extrasList = (ex.status === 'fulfilled' ? ex.value.items || [] : []).filter((e) => e.active !== 0);
     const serv = cat.status === 'fulfilled' ? (cat.value.items || []).find((s) => String(s.id) === String(sal.service_id)) : null;
     st.otras = (serv?.slots || []).filter((x) => x.status === 'open' && Number(x.spots_available) > 0).slice(0, 12);
+    const persona = enPersona(sal) || enPersona(serv), info = serv || sal;
+    const avisoPersona = () => !persona ? '' : `<div class="aviso pend">${ic('cobrar')}<div class="pila"><b>${esc(T('Pago en persona al profesional'))}</b><span>${esc(T(info.pay_notice || AVISO_PERSONA))}</span>
+      ${(info.pay_methods || []).length ? `<span class="peq"><b>${esc(T('Formas de pago que acepta'))}:</b> ${esc(info.pay_methods.map((m) => m === 'other' ? (info.pay_other || '') : T(FORMAS[m] || m)).filter(Boolean).join(' · '))}</span>` : ''}
+      <span class="peq"><b>${esc(T('Política del profesional'))}:</b> ${esc(info.pay_policy || T('Este profesional no ha publicado una política de cancelación. WORLDIVES no gestiona cancelaciones ni devoluciones en este servicio.'))}</span>
+      <label class="marcar"><input type="checkbox" id="wda-aviso" ${st.aviso ? 'checked' : ''}><span class="crece">${esc(T('He leído el aviso: pago en persona al profesional'))}</span></label></div></div>`;
     const tallas = [['Traje', perfil.suit_size], ['Escarpines', perfil.boot_size], ['Chaleco', perfil.bcd_size], ['Aletas', perfil.fin_size]].filter((x) => x[1]);
     const linea = (k, icono, titulo, sub, editor) => `<div class="bloque-res"><div class="linea-res">${ic(icono)}<div class="crece"><p style="font-weight:600">${titulo}</p>${sub ? `<p class="suave peq">${sub}</p>` : ''}</div>
       ${editor ? `<button class="wbtn texto" type="button" data-cambiar="${k}" aria-expanded="${st.abierta === k}">${st.abierta === k ? T('Listo') : T('Cambiar')}</button>` : ''}</div>${editor && st.abierta === k ? `<div class="editor">${editor}</div>` : ''}</div>`;
@@ -433,6 +448,7 @@
           st.extrasList.map((e) => `<label class="marcar"><input type="checkbox" data-extra="${e.id}" ${st.extras.has(String(e.id)) ? 'checked' : ''}><span class="crece" translate="no">${esc(e.name)}</span><span class="peq num">+${dinero(e.price, s.currency)}</span></label>`).join('')) : '')
         + linea('nota', 'documento', st.nota ? esc(st.nota.slice(0, 60)) : esc(T('Sin nota para el centro')), '', `<div class="campo"><label for="wda-nota">${T('Nota para el centro')}</label><textarea id="wda-nota" maxlength="500">${esc(st.nota)}</textarea></div>`)
         + (rol() === 'recreational' ? `<label class="interruptor"><span><b>${T('Avisos de esta reserva por WhatsApp')}</b><br><span class="suave peq">${T(me.whatsapp?.phone_ok ? 'El centro te escribe a tu móvil.' : 'Añade tu móvil con prefijo en «Mi cuenta» para recibirlos.')}</span></span><input type="checkbox" id="wda-wa" ${me.whatsapp?.consent ? 'checked' : ''}></label>` : '')
+        + avisoPersona()
         + `<a class="wbtn texto" href="${cid ? `#/reservar?center=${cid}&service=${s.service_id}&slot=${s.slot_id}` : `#/reservar?provider=${s.provider_id}&service=${s.service_id}&slot=${s.slot_id}`}" data-cerrar>${T('Más opciones: guía, nitrox, recogida…')}</a>`;
     };
     const pie = () => {
@@ -442,7 +458,7 @@
       return `<div class="fila-entre"><span>${T('Total')} · ${st.pax === 1 ? T('1 persona') : `${st.pax} ${T('personas')}`}</span><span class="precio">${total}</span></div>
         ${q?.deposit ? `<p class="suave peq">${T('Ahora pagas la señal')}: <b>${dinero(q.deposit, q.currency)}</b>. ${T('El resto, en el centro')}: <b>${dinero(q.due_at_center, q.currency)}</b>.</p>` : ''}
         <button class="wbtn ancho grande" type="button" id="wda-confirmar" ${st.enviando || s.bookable === false ? 'disabled' : ''}><span>${titulo}</span>${me && pagar ? `<span class="num">${total}</span>` : ''}</button>
-        <p class="suave peq centrado">${pagar ? T('Pago seguro con Stripe: Google Pay, Apple Pay o tarjeta.') : T('No pagas nada hasta que el centro acepte.')}</p>`;
+        <p class="suave peq centrado">${pagar ? T('Pago seguro con Stripe: Google Pay, Apple Pay o tarjeta.') : persona ? T('No pagas nada a través de WORLDIVES: acuerdas el pago con el profesional por WhatsApp cuando acepte.') : T('No pagas nada hasta que el centro acepte.')}</p>`;
     };
     const capa = abrirHoja({ titulo: `<span translate="no">${esc(sal.title)}</span>`, sub: `<span translate="no">${esc(sal.provider_name || '')}</span> · ${modoTag(sal)}`, html: html(), pie: pie() });
     const cuerpo = $('.hoja-cuerpo', capa), piePie = $('.hoja-pie', capa);
@@ -470,19 +486,21 @@
       if (t.dataset.equipo) { t.checked ? st.equipo.add(t.dataset.equipo) : st.equipo.delete(t.dataset.equipo); cotizar(); }
       if (t.dataset.extra) { t.checked ? st.extras.add(t.dataset.extra) : st.extras.delete(t.dataset.extra); cotizar(); }
       if (t.id === 'wda-nota') st.nota = t.value;
+      if (t.id === 'wda-aviso') st.aviso = t.checked;
     });
     async function confirmar() {
       if (st.enviando) return;
       st.nota = $('#wda-nota', cuerpo)?.value ?? st.nota;
       if (!state.me) { recuerda(st.sal); cerrarHoja(); W.toast('Entra o crea tu cuenta para terminar. Guardamos la salida que has elegido.'); location.hash = '#/login?next=' + encodeURIComponent(location.hash || '#/'); return; }
       const s = st.sal, wa = $('#wda-wa', cuerpo);
+      if (persona && !st.aviso) { W.toast(T('Marca la casilla del aviso: este profesional cobra directamente, no a través de WORLDIVES.')); $('#wda-aviso', cuerpo)?.focus(); return; }
       const tallas = [['Traje', perfil.suit_size], ['Escarpines', perfil.boot_size], ['Chaleco', perfil.bcd_size], ['Aletas', perfil.fin_size]].filter((x) => x[1]).map(([t, v]) => `${t} ${v}`).join(' · ');
       st.enviando = true; repintarPie(); const btn = $('#wda-confirmar', piePie); btn.textContent = T('Enviando…');
       try {
         const c = await postJSON('/api/bookings', { ...(wa ? { wa_consent: wa.checked, lang: W.currentLanguage() } : {}), ...W.wdAppPay(), center_id: cid || null, service_id: s.service_id, slot_id: s.slot_id,
           dive_point_id: s.points?.length === 1 ? s.points[0].id : null, dive_point_name: s.points?.length === 1 ? s.points[0].name : null, booking_date: s.date, booking_time: s.time, participants: st.pax,
           needs_equipment: st.equipo.size > 0, equipment_items: st.equipos.filter((e) => st.equipo.has(e.code)).map((e) => e.label), equipment_codes: [...st.equipo].map((c2) => `${c2}:${st.pax}`),
-          equipment_notes: st.equipo.size ? tallas : '', extra_ids: [...st.extras].map(Number), notes: st.nota });
+          equipment_notes: st.equipo.size ? tallas : '', extra_ids: [...st.extras].map(Number), notes: st.nota, in_person_ack: persona && st.aviso });
         mem.areaAt = 0;
         if (c.checkout_url) { btn.textContent = T('Abriendo el pago seguro…'); pagoEnCurso = c.id; W.wdOpenCheckout(c.checkout_url); setTimeout(() => { st.enviando = false; cerrarHoja(); }, 1500); return; }
         cerrarHoja(); hechoReserva(c);
@@ -759,7 +777,7 @@
       const dt = new Date((b.booking_date || W.wdToday()) + 'T12:00:00');
       return `<article class="tarjeta pad pila-12"><a class="fila" href="#/reserva?id=${b.id}" style="color:inherit;text-decoration:none"><div class="fecha-b"><b class="num">${dt.getDate()}</b><small translate="no">${esc(dt.toLocaleDateString(W.wdLocale(), { month: 'short' }).replace('.', ''))}</small></div>
         <div class="crece pila"><b${b.service_title ? ' translate="no"' : ''}>${esc(b.service_title || 'Inmersión')}</b><span class="suave peq"><span translate="no">${esc(b.center_name || '')}</span>${b.booking_time ? ' · ' + esc(b.booking_time) : ''} · <span class="num">${b.participants || 1}</span> <span>${Number(b.participants) === 1 ? 'buceador' : 'buceadores'}</span></span>
-        <div class="wtags">${estadoTag(b)}${Number(b.price) > 0 && b.payment_status === 'paid' ? `<span class="wtag ok">${ic('cobrar', '')}Pagada</span>` : ''}</div></div>${ic('chev', 'chev')}</a>
+        <div class="wtags">${estadoTag(b)}${personaTag(b)}${Number(b.price) > 0 && b.payment_status === 'paid' ? `<span class="wtag ok">${ic('cobrar', '')}Pagada</span>` : ''}</div></div>${ic('chev', 'chev')}</a>
         ${vigente(b) ? `<div class="btn-fila">${porPagar(b) ? `<a class="wbtn mini" href="#/reserva?id=${b.id}">${ic('cobrar', '')}Pagar ahora</a>` : `<button class="wbtn sec mini" type="button" data-qr="${b.id}">${ic('qr', '')}Ver QR</button>`}<button class="wbtn sec mini" type="button" data-wa="${b.id}">${ic('wa', '')}WhatsApp</button></div>` : ''}</article>`;
     };
     const pintarLista = (k) => {
@@ -768,7 +786,7 @@
       const exps = d.experience_bookings || [];
       if (k === 'prox' && exps.length) box.insertAdjacentHTML('beforeend', `<h2>Viajes y vida a bordo</h2><div class="tarjeta plana lista">${exps.map((e) => `<div class="lista-fila">${ic('barco')}<div class="crece pila"><b translate="no">${esc(e.title)}</b><span class="suave peq">${esc(e.start_date ? fecha(e.start_date, { day: 'numeric', month: 'short', year: 'numeric' }) : '')}</span></div><span class="wtag neutro">${esc(W.experienceStatus(e.status)[0])}</span></div>`).join('')}</div>`);
       W.translateTree(box);
-      $$('[data-wa]', box).forEach((b) => { b.onclick = () => { const x = todas.find((y) => String(y.id) === b.dataset.wa); whatsappCentro({ nombre: x.center_name, telefono: x.center_phone, reserva: x }); }; });
+      $$('[data-wa]', box).forEach((b) => { b.onclick = () => whatsappReserva(todas.find((y) => String(y.id) === b.dataset.wa)); });
       $$('[data-qr]', box).forEach((b) => { b.onclick = () => verQR(todas.find((y) => String(y.id) === b.dataset.qr)); });
     };
     $$('[data-seg]', root).forEach((b) => { b.onclick = () => { $$('[data-seg]', root).forEach((x) => x.setAttribute('aria-pressed', String(x === b))); pintarLista(b.dataset.seg); }; });

@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from helpers import PDF_BYTES, Server, ServerTestCase, Client, _png  # noqa: E402
+from helpers import PDF_BYTES, Server, ServerTestCase, Client, _png, IN_PERSON  # noqa: E402
 
 try:
     from PIL import Image
@@ -51,6 +51,7 @@ class Tarjetas(ServerTestCase):
     def new_service(self, client=None, title='Curso Open Water Diver 3 días', template='open-water'):
         data = {'title': title, 'price': 390, 'booking_mode': 'request', 'service_type': 'curso'}
         if template: data['template_id'] = self.tpl[template]
+        if getattr(client or self.center, 'user', {}).get('role') == 'freelance': data.update(IN_PERSON)   # v50.55: a freelance without Stripe
         r = (client or self.center).post('/api/provider-services', data)
         self.assertEqual(r.status, 200, r)
         return r.json['id']

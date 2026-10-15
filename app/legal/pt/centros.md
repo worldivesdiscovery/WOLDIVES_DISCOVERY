@@ -59,6 +59,8 @@ Se o seu plano ou o seu período experimental terminarem e não renovar, o seu c
 - A {{trade_name}} não movimenta o seu dinheiro nem efetua reembolsos em seu nome.
 - Os comprovativos de reserva emitidos pela plataforma **não são faturas**. Se a sua atividade o exigir, a fatura é emitida por si.
 
+**Pagamento presencial (profissionais independentes).** Se és profissional independente podes cobrar um serviço ou uma experiência diretamente aos teus clientes com o «Pagamento presencial». Só funciona «Sob pedido», com um preço publicado e um WhatsApp de contacto que o cliente vê quando aceitas. Nesse caso és o único responsável pelas tuas cobranças, pelas tuas obrigações fiscais e de Segurança Social e pelo teu seguro, e aceitas isso marcando uma caixa ao ativá-lo. As regras completas estão em [Pagamento presencial ao profissional](#/legal/pago-en-persona).
+
 ## 7. Política de cancelamento
 
 Escolhe a sua política em **Painel → Cobranças e pagamentos**: até quantas horas antes o cancelamento é gratuito e que percentagem reembolsa depois disso. Pode fixar uma política diferente para cada serviço. A política é apresentada ao cliente antes de reservar, fica guardada com cada reserva e as alterações só afetam as novas reservas.

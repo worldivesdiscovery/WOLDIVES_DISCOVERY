@@ -141,10 +141,10 @@ class BookingModes(ServerTestCase):
         self.assertEqual(r.status, 400)
 
     def test_payment_mode_free(self):
-        sid, slot = self.service(self.pay_center, 'payment', 0)
-        r = self.book(self.diver, self.pay_center, sid, slot)
-        self.assertEqual(r.json['status'], 'confirmed')
-        self.assertEqual(self.spots(slot), 4)
+        # v50.55: every service has a price («Precio obligatorio y público»): no «gratis» and no «a consultar».
+        for price in (0, '', None):
+            r = self.pay_center.post('/api/provider-services', {'title': 'Sin precio', 'price': price, 'booking_mode': 'payment'})
+            self.assertEqual(r.status, 400, (price, r)); self.assertIn('precio', r.json['error'])
 
     def test_payment_mode_checkout_failure_releases(self):
         sid, slot = self.service(self.pay_center, 'payment', 30)
@@ -206,10 +206,11 @@ class BookingModes(ServerTestCase):
         self.assertEqual(self.spots(slot), 4)
 
     def test_request_free(self):
-        sid, slot = self.service(self.pay_center, 'request', 0)
-        bid = self.book(self.diver, self.pay_center, sid, slot).json['id']
-        self.assertEqual(self.pay_center.post(f'/api/bookings/{bid}/status', {'status': 'confirmed'}).json['status'], 'confirmed')
-        self.assertEqual(self.bk(bid)['payment_status'], 'not_required')
+        # v50.55: a service left without a price before this version is not bookable until it gets one.
+        sid, slot = self.service(self.pay_center, 'request', 30)
+        self.server.sql('UPDATE provider_services SET price=0 WHERE id=?', (sid,)); self.server.sql('UPDATE center_tariffs SET price=0 WHERE service_id=?', (sid,))
+        r = self.book(self.diver, self.pay_center, sid, slot)
+        self.assertEqual(r.status, 400, r); self.assertIn('precio', r.json['error'])
 
     def test_request_reject_with_reason(self):
         sid, slot = self.service(self.pay_center, 'request', 30)

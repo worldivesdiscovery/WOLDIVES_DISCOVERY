@@ -424,17 +424,21 @@ def build(out: Path):
 
         # --- the two freelance instructors ---------------------------------------------------------------------------
         srv.sql("UPDATE users SET avatar_url='/img/portada/logbook1.webp',provider_bio='Guía e instructor en los cenotes de la Riviera Maya desde 2012.' WHERE id=?", (pro_id,))
-        days_sid = ok(pro.post('/api/provider-services', {'title': 'Cenotes con guía, por días', 'price': 180, 'max_participants': 4, 'booking_mode': 'request',
+        # v50.55: both freelance instructors are paid in person (no Stripe): ways of paying, WhatsApp and their own policy.
+        ip1 = {'pay_way': 'in_person', 'pay_methods': ['cash', 'transfer'], 'pay_whatsapp': '+52 998 000 0101', 'accept_in_person_terms': True,
+               'pay_policy': 'Cancelación gratuita hasta 48 horas antes. Después, se paga la mitad del precio.'}
+        ip2 = {'pay_way': 'in_person', 'pay_methods': ['bizum', 'cash'], 'pay_whatsapp': '+34 611 222 333', 'accept_in_person_terms': True}
+        days_sid = ok(pro.post('/api/provider-services', {'title': 'Cenotes con guía, por días', 'price': 180, 'max_participants': 4, 'booking_mode': 'request', **ip1,
                                                           'booking_unit': 'day', 'timezone': 'America/Cancun',
                                                           'description': 'Guía titulado, dos cenotes por día. Punto de encuentro: hotel en Tulum.',
                                                           'unit_rules': {'min_days': 1, 'max_days': 10, 'lead_hours': 24},
                                                           'pricing': {'day': 180, 'discount': {'min_days': 3, 'pct': 10}}}), 'crear el servicio por días')['id']
-        half_sid = ok(pro.post('/api/provider-services', {'title': 'Cenote por la mañana o por la tarde', 'price': 110, 'max_participants': 4, 'booking_mode': 'request',
+        half_sid = ok(pro.post('/api/provider-services', {'title': 'Cenote por la mañana o por la tarde', 'price': 110, 'max_participants': 4, 'booking_mode': 'request', **ip1,
                                                           'booking_unit': 'half_day', 'timezone': 'America/Cancun',
                                                           'description': 'Medio día: un cenote con guía, transporte desde Tulum.',
                                                           'unit_rules': {'min_days': 1, 'max_days': 5, 'lead_hours': 24},
                                                           'pricing': {'day': 200, 'half': 110}}), 'crear el servicio de medio día')['id']
-        foto_sid = ok(pro.post('/api/provider-services', {'title': 'Sesión de fotos y vídeo bajo el agua', 'price': 90, 'max_participants': 2, 'booking_mode': 'request',
+        foto_sid = ok(pro.post('/api/provider-services', {'title': 'Sesión de fotos y vídeo bajo el agua', 'price': 90, 'max_participants': 2, 'booking_mode': 'request', **ip1,
                                                           'service_type': 'experiencia', 'duration_minutes': 180,
                                                           'description': 'Fotos y vídeo de tu inmersión en un cenote. Entrega en 48 horas.'}), 'crear la sesión de fotos')['id']
         for k in (4, 11, 18, 25):
@@ -442,24 +446,25 @@ def build(out: Path):
         pro.post('/api/agenda/hours', {'weekdays': [0, 1, 2, 3, 4, 5], 'closures': [], 'timezone': 'America/Cancun'})
         pro.post('/api/agenda/block', {'date_from': day(12), 'date_to': day(14), 'kind': 'holiday'})
         holiday = range(12, 15)
-        b = ok(divers[1].post('/api/bookings', {'service_id': days_sid, 'days': workdays(3, 2, holiday), 'part': 'full', 'participants': 2, 'notes': 'Primera vez en cenotes'}), 'reservar días')
+        b = ok(divers[1].post('/api/bookings', {'service_id': days_sid, 'days': workdays(3, 2, holiday), 'part': 'full', 'participants': 2, 'notes': 'Primera vez en cenotes', 'in_person_ack': True}), 'reservar días')
         ok(pro.post(f"/api/bookings/{b['id']}/status", {'status': 'confirmed'}), 'confirmar días')
-        ok(divers[2].post('/api/bookings', {'service_id': half_sid, 'days': workdays(8, 1, holiday), 'part': 'am', 'participants': 1}), 'reservar medio día')
-        ok(buzo.post('/api/bookings', {'service_id': days_sid, 'days': workdays(18, 3, holiday), 'part': 'full', 'participants': 2}), 'reservar tres días')
+        ok(pro.post('/api/pro-mark', {'kind': 'booking', 'id': b['id'], 'mark': 'paid'}), 'marcar «Cobrado»')
+        ok(divers[2].post('/api/bookings', {'service_id': half_sid, 'days': workdays(8, 1, holiday), 'part': 'am', 'participants': 1, 'in_person_ack': True}), 'reservar medio día')
+        ok(buzo.post('/api/bookings', {'service_id': days_sid, 'days': workdays(18, 3, holiday), 'part': 'full', 'participants': 2, 'in_person_ack': True}), 'reservar tres días')
         # Sara Molina: guide and underwater photographer on the Costa Blanca (half days and a two-day course)
         srv.sql("UPDATE users SET avatar_url='/img/portada/buceadores.webp',provider_bio='Instructora y fotógrafa submarina en la Costa Blanca. Guías privadas y cursos de foto en grupos de dos.' WHERE id=?", (pro2_id,))
-        guia = ok(pro2.post('/api/provider-services', {'title': 'Guía privada en Xàbia (medio día)', 'price': 85, 'max_participants': 2, 'booking_mode': 'request',
+        guia = ok(pro2.post('/api/provider-services', {'title': 'Guía privada en Xàbia (medio día)', 'price': 85, 'max_participants': 2, 'booking_mode': 'request', **ip2,
                                                        'booking_unit': 'half_day', 'timezone': 'Europe/Madrid',
                                                        'description': 'Inmersión desde la orilla o en barco con un centro de la zona. Te guío y te hago las fotos.',
                                                        'unit_rules': {'min_days': 1, 'max_days': 4, 'lead_hours': 24}, 'pricing': {'day': 150, 'half': 85}}), 'crear la guía privada')['id']
-        fotos = ok(pro2.post('/api/provider-services', {'title': 'Curso de fotografía submarina (2 días)', 'price': 240, 'max_participants': 2, 'booking_mode': 'request',
+        fotos = ok(pro2.post('/api/provider-services', {'title': 'Curso de fotografía submarina (2 días)', 'price': 240, 'max_participants': 2, 'booking_mode': 'request', **ip2,
                                                         'booking_unit': 'day', 'timezone': 'Europe/Madrid',
                                                         'description': 'Cámara, luz y composición bajo el agua. Incluye cuatro inmersiones y la revisión de tus fotos.',
                                                         'unit_rules': {'min_days': 2, 'max_days': 2, 'lead_hours': 48}, 'pricing': {'day': 120}}), 'crear el curso de foto')['id']
         pro2.post('/api/agenda/hours', {'weekdays': [0, 1, 2, 3, 4, 5], 'closures': [], 'timezone': 'Europe/Madrid'})
-        x = ok(divers[6].post('/api/bookings', {'service_id': guia, 'days': workdays(5, 1), 'part': 'am', 'participants': 2}), 'reservar la guía')
+        x = ok(divers[6].post('/api/bookings', {'service_id': guia, 'days': workdays(5, 1), 'part': 'am', 'participants': 2, 'in_person_ack': True}), 'reservar la guía')
         ok(pro2.post(f"/api/bookings/{x['id']}/status", {'status': 'confirmed'}), 'confirmar la guía')
-        ok(divers[10].post('/api/bookings', {'service_id': fotos, 'days': workdays(15, 2), 'part': 'full', 'participants': 1, 'notes': 'Tengo una cámara compacta con carcasa'}), 'reservar el curso')
+        ok(divers[10].post('/api/bookings', {'service_id': fotos, 'days': workdays(15, 2), 'part': 'full', 'participants': 1, 'notes': 'Tengo una cámara compacta con carcasa', 'in_person_ack': True}), 'reservar el curso')
 
         # v50.53: every demo service starts from its template (the same rule the migration uses for existing services),
         # so its card shows the template's photo and changes with it.
@@ -481,11 +486,11 @@ def build(out: Path):
         exp3 = srv.sql("SELECT id FROM travel_experiences ORDER BY id DESC LIMIT 1")[0]['id']
         offer = srv.sql("SELECT id FROM travel_offers WHERE title LIKE 'Riviera Maya%' LIMIT 1") or srv.sql("SELECT id FROM travel_offers ORDER BY id DESC LIMIT 1")
         offer = offer[0]['id']
-        ok(pro.post('/api/travel-experiences', {'travel_offer_id': offer, 'title': 'Vida a bordo en el Caribe mexicano', 'start_date': day(45), 'end_date': day(51),
+        ok(pro.post('/api/travel-experiences', {'travel_offer_id': offer, 'title': 'Vida a bordo en el Caribe mexicano', 'start_date': day(45), 'end_date': day(51), **ip1,
                                                 'price': 1450, 'spots_total': 12, 'spots_available': 12, 'includes': '6 noches, 15 inmersiones, pensión completa'}), 'crear el vida a bordo')
         exp2 = srv.sql("SELECT id FROM travel_experiences ORDER BY id DESC LIMIT 1")[0]['id']
         for x in (exp1, exp2, exp3): ok(admin.post('/api/admin/travel-experiences/status', {'id': x, 'status': 'published'}), 'publicar la experiencia')
-        ok(pro.post('/api/travel-experiences', {'travel_offer_id': offer, 'title': 'Semana de cenotes y cavernas', 'start_date': day(60), 'end_date': day(66),
+        ok(pro.post('/api/travel-experiences', {'travel_offer_id': offer, 'title': 'Semana de cenotes y cavernas', 'start_date': day(60), 'end_date': day(66), **ip1,
                                                 'price': 890, 'spots_total': 6, 'spots_available': 6, 'includes': '10 inmersiones en cenotes, transporte'}), 'crear la experiencia por revisar')
 
         # --- promotions, a bono of 10 dives, a joint promotion of both centres, points and advantages -------------------

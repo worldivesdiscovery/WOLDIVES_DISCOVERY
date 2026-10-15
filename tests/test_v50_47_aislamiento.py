@@ -12,7 +12,7 @@ import json
 import sqlite3
 import unittest
 
-from helpers import ServerTestCase, Client
+from helpers import ServerTestCase, Client, IN_PERSON
 
 DAY = lambda n: (dt.date.today() + dt.timedelta(days=n)).isoformat()
 
@@ -49,7 +49,7 @@ class Isolation(ServerTestCase):
         ir = Client(cls.server).post('/api/info-requests', {'center_id': cls.cidB, 'name': 'Cliente B', 'email': 'clienteb@diver.example.org', 'message': 'Quiero información', 'accept_privacy': True})
         cls.irB = (cls.server.sql('SELECT id FROM info_requests WHERE center_id=?', (cls.cidB,)) or [{'id': 0}])[0]['id']
         # --- FB's private data ----------------------------------------------------------------------------
-        cls.sFB = cls.FB.post('/api/provider-services', {'title': 'Salida FB', 'price': 25, 'booking_mode': 'request'}).json['id']
+        cls.sFB = cls.FB.post('/api/provider-services', {'title': 'Salida FB', 'price': 25, 'booking_mode': 'request', **IN_PERSON}).json['id']
         cls.slFB = cls.FB.post('/api/provider-services/slot', {'service_id': cls.sFB, 'slot_date': DAY(11), 'slot_time': '10:00', 'spots_total': 4}).json['slot_id']
         r = cls.diver.post('/api/bookings', {'service_id': cls.sFB, 'slot_id': cls.slFB, 'participants': 1, 'provider_user_id': cls.FB.user['id']})
         cls.bFB = r.json['id'] if r.status == 200 else None
