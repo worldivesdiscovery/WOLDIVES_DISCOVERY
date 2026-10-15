@@ -8728,6 +8728,9 @@ def service_mode_info(db, svc, price=None, ready=None):
     if pay['pay_way'] == 'online' and not row_get(svc, 'center_id') and not ready and info['bookable']:
         # A freelance «Pago online» service whose Stripe account stopped working: never silently «pay him directly».
         info.update(bookable=False, unavailable_reason='Este profesional no admite reservas ahora mismo. Prueba más tarde.')
+    if pay['pay_way'] == 'in_person' and info['bookable'] and not has_pay_contact(db, 'service', row_get(svc, 'id')):
+        # A service moved to «Pago en persona» by the 50.55 migration without a WhatsApp: the client could not reach him.
+        info.update(bookable=False, unavailable_reason='Este profesional no admite reservas ahora mismo. Prueba más tarde.')
     return info
 
 
@@ -8782,6 +8785,11 @@ def pay_contact(db, kind, ref_id):
     if not ref_id: return None
     r = db.execute('SELECT phone FROM pay_contacts WHERE kind=? AND ref_id=?', (kind, int(ref_id))).fetchone()
     return wcif.normalize_phone(r['phone']) if r and r['phone'] else None
+
+
+def has_pay_contact(db, kind, ref_id) -> bool:
+    if not ref_id: return False
+    return db.execute('SELECT 1 FROM pay_contacts WHERE kind=? AND ref_id=? AND phone IS NOT NULL', (kind, int(ref_id))).fetchone() is not None
 
 
 def save_pay_contact(db, kind, ref_id, e164):
@@ -15390,7 +15398,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     pay_way=service_pay_way(service)
                     if pay_way=='in_person':
                         # v50.55: the client is paid by the professional directly; he reads the notice and ticks the box.
-                        if mode!='request' or not provider_has(db,'freelance',provider_user_id,'in_person_payments'):
+                        if mode!='request' or not provider_has(db,'freelance',provider_user_id,'in_person_payments') or not has_pay_contact(db,'service',service['id']):
                             raise ValueError('Este profesional no admite reservas ahora mismo. Prueba más tarde.')
                         if not json_bool(data.get('in_person_ack')):
                             e_=ValueError(IN_PERSON_ACK_TEXT); e_.extra={'in_person_ack_required':True,'notice':wpres.NOTICE}; raise e_

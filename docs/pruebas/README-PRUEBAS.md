@@ -137,7 +137,7 @@ Apunta esa dirección: es la de tu ordenador.
 
 **En el móvil, la primera vez**
 
-1. Descarga el archivo **`WORLDIVES-Pruebas-v50.49-….apk`** (el enlace llega con cada tanda) y ábrelo.
+1. Descarga el archivo **`WORLDIVES-Pruebas-v50.55-….apk`** (el enlace llega con cada tanda) y ábrelo.
 2. Android avisa de que es una app de fuera de Google Play: pulsa **Configuración → Permitir de esta fuente**, vuelve
    atrás y pulsa **Instalar**. Si Google Play Protect pregunta, pulsa **Instalar de todas formas**.
 3. Abre **WORLDIVES Pruebas** (icono con la franja naranja «TEST»).
@@ -283,3 +283,27 @@ El informe está en `docs/auditoria/v50.51/`. Las herramientas van solo en este 
 - **Datos personales (`admin.prueba`):** son casillas, cada una con su explicación. Marca «Teléfonos de clientes»,
   guarda con un motivo y abre una reserva: ahora sí se ven los teléfonos. Cada consulta queda en *Actividad* como
   «Acceso a datos personales».
+
+## 13. Pago en persona y seguridad de la app (v50.55)
+
+**Pago en persona** (los dos freelance de la demo cobran así):
+1. Sin cuenta, abre la ficha de **Diego Arenas** (Freelance) y su «Sesión de fotos y vídeo bajo el agua». La tarjeta y
+   la ficha dicen «Pago en persona al profesional», con el mismo precio en todas partes.
+2. Entra como `buzo.prueba` y reserva una sesión. «Enviar solicitud» no se activa hasta marcar la casilla del aviso.
+   En la reserva no hay ningún WhatsApp todavía.
+3. Entra como `freelance.prueba` y acepta la solicitud. Puedes marcarla «Cobrado» o «No se presentó»: solo lo ves tú.
+4. Vuelve como `buzo.prueba`: la reserva dice «Confirmada · pago en persona» y aparece «Hablar por WhatsApp». El
+   correo de confirmación (`data/pruebas/correos/`) y el justificante PDF llevan el aviso y el «Precio publicado».
+5. Como `freelance.prueba`, edita un servicio: «Forma de cobro». «Pago online» está desactivado (Diego no tiene su
+   cuenta de Stripe conectada) y «Pago en persona» solo deja «Bajo petición».
+
+**Seguridad de la app** (APK WORLDIVES Pruebas v50.55):
+1. Entra como **Centro** o **Freelance**. La app pide proteger la cuenta con la huella o el código del móvil (o, si
+   el móvil no tiene bloqueo de pantalla, con un PIN de 6 números).
+2. Sal de la app más de **5 minutos** y vuelve: pide la huella, el código o el PIN.
+3. Falla 5 veces seguidas (el PIN de la app o la huella): la sesión se cierra, el móvil borra sus datos y pide
+   entrar de nuevo.
+4. En el ordenador, entra con la misma cuenta y abre **Mi cuenta → Dispositivos conectados**: sale el móvil. Pulsa
+   «Cerrar sesión» en él. En el móvil, al volver a la app, sale y vuelve a la pantalla de acceso.
+5. Al entrar desde un dispositivo nuevo llega el correo «Nuevo inicio de sesión» (en `data/pruebas/correos/`).
+6. Con el **Buceador**, el bloqueo es opcional: **Mi área → Ajustes → Seguridad**.

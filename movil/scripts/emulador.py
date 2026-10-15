@@ -147,6 +147,15 @@ def esperar_ventana(patron, segundos=20):
     return ''
 
 
+def registro(n=12):
+    """The last requests the test server saw (data/pruebas/logs/access.log): to understand a failure from the log."""
+    try:
+        lineas = [l for l in (DATA / 'logs' / 'access.log').read_text(encoding='utf-8', errors='replace').splitlines() if '/api/' in l]
+    except OSError:
+        return
+    for l in lineas[-n:]: print('     ', l[:160], flush=True)
+
+
 def db(query, args=()):
     c = sqlite3.connect(DATA / 'worldives.sqlite3'); c.row_factory = sqlite3.Row   # WOD_DB_PATH of scripts/iniciar.py --pruebas
     try:
@@ -263,7 +272,7 @@ def seguridad(start):
     foco = esperar_ventana(('ConfirmDeviceCredential', 'BiometricPrompt', 'systemui', 'Credential'), 20)
     ui('código del móvil al activar'); captura('24-seguridad-codigo-del-movil')
     adb('shell', 'input', 'text', '1111'); adb('shell', 'input', 'keyevent', '66'); time.sleep(4)
-    if not (s.js("Capacitor.Plugins.Seguridad.estado()") or {}).get('token'): ui('tras escribir el código')
+    if not (s.js("Capacitor.Plugins.Seguridad.estado()") or {}).get('token'): ui('tras escribir el código'); registro()
     st = s.js("Capacitor.Plugins.Seguridad.estado()") or {}
     check('con bloqueo de pantalla · protege el token con el código del móvil (BiometricPrompt)', st.get('modo') == 'sistema' and st.get('token') is True, st)
     s.js("localStorage.setItem('wda-seg-umbral', '5')")   # the wipe of the 5 failures took it with the web storage
@@ -393,6 +402,10 @@ def main():
     names = i_.js("[...document.querySelectorAll('.wda-tab > span:nth-child(2)')].map(e => e.textContent.trim())")
     check('instructor · sin la pestaña Solicitudes', tabs == ['#/', '#/agenda', '#/escanear', '#/mas'], tabs)
     print('   pestañas del instructor (en su idioma):', names, flush=True)
+    if tabs != ['#/', '#/agenda', '#/escanear', '#/mas']:
+        print('   instructor · aviso:', i_.js("(document.getElementById('toast') || {}).innerText"), '· plugin:', i_.js("Capacitor.Plugins.Seguridad.estado()"),
+              '· /api/me:', i_.js("fetch('/api/me').then(r => r.json()).then(d => [d.authenticated, d.user && d.user.role])"), flush=True)
+        ui('instructor'); registro()
     captura('18-instructor-hoy')
 
     # 7. v50.55 · Seguridad de la app PRO
