@@ -213,7 +213,7 @@ def build(out: Path):
             es = data_['texts']['es']
             ok(cl.post('/api/provider/center-showcase', {'tagline': es['tagline'], **extra, 'texts': {k: v for k, v in data_['texts'].items() if k != 'es'}}), 'guardar el escaparate')
             srv.sql('UPDATE centers SET description=? WHERE name=?', (es['description'], data_['name']))
-        srv.sql("""UPDATE centers SET logo_url='/img/demo/bahia-coralina.png',logo_consent=1,cover_url='/img/portada/portada-arrecife.webp',gallery_json=?,
+        srv.sql("""UPDATE centers SET logo_url='/img/demo/bahia-coralina.png',logo_consent=1,cover_url='/img/titular/costa-barco.webp',gallery_json=?,
                    country='España',region='Alicante',cancel_free_hours=48,cancel_refund_pct=50,specialties='Nitrox, cursos, fotografía submarina',
                    address='Puerto de Xàbia, pantalán 3',latitude=38.7955,longitude=0.1876,
                    stripe_account_id='acct_test_pruebas',stripe_charges_enabled=1,stripe_payouts_enabled=1 WHERE id=?""",
@@ -222,7 +222,7 @@ def build(out: Path):
                    country='España',region='Girona',cancel_free_hours=24,cancel_refund_pct=100,specialties='Reserva marina, inmersiones nocturnas, cursos',
                    address='Passeig Marítim, L''Estartit',latitude=42.0530,longitude=3.2050,
                    stripe_account_id='acct_test_pruebas2',stripe_charges_enabled=1,stripe_payouts_enabled=1 WHERE id=?""",
-                (json.dumps(['/img/portada/fondosuperior.webp', '/img/portada/buceadores.webp', '/img/portada/portada-arrecife.webp']), cid2))
+                (json.dumps(['/img/titular/caballito-posidonia.webp', '/img/titular/nocturna-pulpo.webp', '/img/portada/buceadores.webp']), cid2))
         # Dive sites of each centre
         pid_of = {r['name']: r['id'] for r in srv.sql('SELECT id,name FROM dive_points WHERE active=1')}
         for cl, names in ((center, POINTS_BAHIA), (center2, POINTS_MEDES)):
@@ -549,6 +549,10 @@ def build(out: Path):
                                                 'price': 1450, 'spots_total': 12, 'spots_available': 12, 'includes': '6 noches, 15 inmersiones, pensión completa'}), 'crear el vida a bordo')
         exp2 = srv.sql("SELECT id FROM travel_experiences ORDER BY id DESC LIMIT 1")[0]['id']
         for x in (exp1, exp2, exp3): ok(admin.post('/api/admin/travel-experiences/status', {'id': x, 'status': 'published'}), 'publicar la experiencia')
+        # v50.57 (3.1): the two Spanish destinations of the demo with a photo of their own, chosen by its content (the owner's
+        # photos): the coast with a dive boat for the Costa Blanca, a seahorse in the posidonia for the Medes Islands
+        srv.sql("UPDATE travel_offers SET image_path='/img/titular/costa-barco.webp' WHERE title='Costa Blanca'")
+        srv.sql("UPDATE travel_offers SET image_path='/img/titular/caballito-posidonia.webp' WHERE title='Islas Medas'")
         ok(pro.post('/api/travel-experiences', {'travel_offer_id': offer, 'title': 'Semana de cenotes y cavernas', 'start_date': day(60), 'end_date': day(66), **ip1,
                                                 'price': 890, 'spots_total': 6, 'spots_available': 6, 'includes': '10 inmersiones en cenotes, transporte'}), 'crear la experiencia por revisar')
 

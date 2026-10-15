@@ -134,7 +134,7 @@
   function initials(name=''){ return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase() || '?'; }
   // Sends the visitor to log in and brings them back to where they were afterwards.
   // Imágenes de la web: el administrador las cambia desde «Imágenes de la web»; estos son los valores de respaldo.
-  const MEDIA_DEFAULTS={'hero:explorar':'/img/destinos/micronesia.webp','hero:home':'/img/portada/portada-arrecife.webp','hero:centros':'/img/portada/buceadores.webp','hero:puntos':'/img/destinos/australia.webp','hero:tipos':'/img/portada/fondo.webp','hero:experiencias':'/img/destinos/maldivas.webp','hero:top10':'/img/destinos/tailandia.webp','hero:auth':'/img/portada/logbook1.webp'};
+  const MEDIA_DEFAULTS={'hero:explorar':'/img/titular/costa-barco.webp','hero:home':'/img/titular/buceador-rayos.webp','hero:centros':'/img/portada/buceadores.webp','hero:puntos':'/img/destinos/australia.webp','hero:tipos':'/img/portada/fondo.webp','hero:experiencias':'/img/titular/barco-cadena.webp','hero:top10':'/img/destinos/tailandia.webp','hero:auth':'/img/portada/logbook1.webp'};
   // Visitors in the southern hemisphere live the seasons the other way round: the admin can give them their own look.
   function visitorHemisphere(){ let tz=''; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone||''; }catch{}
     return /^(Australia|Antarctica)\/|^Pacific\/(Auckland|Chatham|Fiji|Tahiti|Noumea|Efate|Tongatapu|Apia|Rarotonga|Port_Moresby|Guadalcanal)|^America\/(Argentina|Santiago|Sao_Paulo|Montevideo|Asuncion|La_Paz|Lima|Recife|Bahia|Fortaleza|Belem|Maceio|Cuiaba|Campo_Grande|Punta_Arenas)|^Africa\/(Johannesburg|Maputo|Harare|Windhoek|Gaborone|Lusaka|Luanda|Dar_es_Salaam|Maseru|Mbabane|Blantyre|Lubumbashi)|^Indian\/(Mauritius|Reunion|Antananarivo|Mayotte|Comoro)|^Asia\/(Jakarta|Makassar|Jayapura|Dili)/.test(tz)?'s':'n'; }
@@ -155,9 +155,28 @@
     if(document.body) applySiteTheme(); return state.media; }
   // v50.54 · The photos that come with the web have lighter copies 640, 960 and 1440 px wide (scripts/imagenes_ligeras.py):
   // the browser downloads the one that fits the screen. Photos uploaded by centres or the administration are left as they are.
-  const WD_IMG_W={'portada/buceadores':600,'portada/fondo':2200,'portada/fondo1':2200,'portada/fondosuperior':2200,'portada/logbook1':2200,'portada/portada-arrecife':1682,'destinos/australia':1650,'destinos/california':1228,'destinos/egipto':1323,'destinos/galapagos':1760,'destinos/maldivas':1920,'destinos/mexico':1760,'destinos/micronesia':2200,'destinos/tailandia':2200};
+  const WD_IMG_W={'portada/buceadores':600,'portada/fondo':2200,'portada/fondo1':2200,'portada/fondosuperior':2200,'portada/logbook1':2200,'titular/buceador-rayos':1916,'titular/costa-barco':1915,'titular/barco-cadena':1672,'titular/nocturna-pulpo':1672,'titular/caballito-posidonia':1672,'destinos/australia':1650,'destinos/california':1228,'destinos/egipto':1323,'destinos/galapagos':1760,'destinos/maldivas':1920,'destinos/mexico':1760,'destinos/micronesia':2200,'destinos/tailandia':2200};
   const WD_IMG_COPIES=[640,960,1440];
-  const wdImgBase=url=>{ const m=/^\/img\/((?:portada|destinos)\/[a-z0-9-]+)\.webp$/.exec(String(url||'')); return m&&WD_IMG_W[m[1]]?[m[1],WD_IMG_W[m[1]]]:null; };
+  const wdImgBase=url=>{ const m=/^\/img\/((?:portada|destinos|titular)\/[a-z0-9-]+)\.webp$/.exec(String(url||'')); return m&&WD_IMG_W[m[1]]?[m[1],WD_IMG_W[m[1]]]:null; };
+  // v50.57 (revisión general 3.1): the owner's photos (public/img/titular, property of WORLDIVES DISCOVERY): what they show
+  // (the alt text; the 8 other languages come from the language packs) and the point that has to stay in view when the
+  // photo is cut for a phone or a card (object-position, from the left and from the top).
+  const WD_PHOTOS={
+    'buceador-rayos':{alt:'Buceador en aguas abiertas bajo los rayos del sol, junto a un arrecife',focus:'78% 66%'},
+    'costa-barco':{alt:'Costa rocosa vista desde el aire, con agua turquesa y un barco de buceo fondeado',focus:'74% 70%'},
+    'barco-cadena':{alt:'Un barco visto desde debajo del agua y su cadena de fondeo bajando hacia el azul',focus:'35% 8%'},
+    'nocturna-pulpo':{alt:'Inmersión nocturna: un pulpo y una morena en el arrecife, y un buceador con linterna al fondo',focus:'28% 64%'},
+    'caballito-posidonia':{alt:'Un caballito de mar entre la posidonia',focus:'34% 42%'},
+  };
+  const wdPhotoOf=url=>{ const m=/^\/img\/titular\/([a-z0-9-]+)\.webp$/.exec(String(url||'')); return m&&WD_PHOTOS[m[1]]?{name:m[1],...WD_PHOTOS[m[1]]}:null; };
+  // An image of the web. The owner's photos go as <picture>: WebP in 3 sizes for the screen and the JPG for a browser
+  // without WebP, with their description and their focus point; the rest as before (<img> with srcset).
+  function wdImgTag(url,{sizes='100vw',cls='',lazy=true,eager=false}={}){
+    const ph=wdPhotoOf(url), base=`${cls?`class="${cls}" `:''}alt="${escapeHtml(ph?ph.alt:'')}"${ph?` style="object-position:${ph.focus}"`:''}${eager?' fetchpriority="high"':lazy?' loading="lazy" decoding="async"':''}`;
+    if(!ph) return `<img ${wdImgAttrs(url,sizes)} ${base}>`;
+    const b=wdImgBase(url), set=WD_IMG_COPIES.filter(x=>x<b[1]).map(x=>`/img/titular/${ph.name}-${x}.webp ${x}w`).concat(`${url} ${b[1]}w`).join(', ');
+    return `<picture><source type="image/webp" srcset="${set}" sizes="${sizes}"><img src="/img/titular/${ph.name}.jpg" ${base}></picture>`;
+  }
   // <img> attributes: src, plus srcset and sizes when the photo has lighter copies.
   function wdImgAttrs(url,sizes='100vw'){ const b=wdImgBase(url); const set=b?WD_IMG_COPIES.filter(x=>x<b[1]).map(x=>`/img/${b[0]}-${x}.webp ${x}w`).concat(`${url} ${b[1]}w`):[];
     return `src="${escapeHtml(url||'')}"`+(set.length>1?` srcset="${escapeHtml(set.join(', '))}" sizes="${sizes}"`:''); }
@@ -165,7 +184,7 @@
   function wdImgFit(url,cssWidth=window.innerWidth){ const b=wdImgBase(url); if(!b) return url; const need=cssWidth*(window.devicePixelRatio||1); const x=WD_IMG_COPIES.find(x=>x<b[1]&&x>=need); return x?`/img/${b[0]}-${x}.webp`:url; }
   const media=(key,fallback)=>state.media?.[key]?.url||fallback||MEDIA_DEFAULTS[key]||'/img/portada/fondo.webp';
   const mediaCredit=key=>state.media?.[key]?.credit||'';
-  const heroImg=(key,fallback)=>`<img class="tp-hero-img" ${wdImgAttrs(media(key,fallback))} alt="" fetchpriority="high">${mediaCredit(key)?`<span class="hero-credit">${escapeHtml(mediaCredit(key))}</span>`:''}`;
+  const heroImg=(key,fallback)=>`${wdImgTag(media(key,fallback),{cls:'tp-hero-img',eager:true})}${mediaCredit(key)?`<span class="hero-credit">${escapeHtml(mediaCredit(key))}</span>`:''}`;
   // Una página que tarda en cargar no debe pintar encima de la siguiente si el visitante ya se ha ido.
   const navGuard=()=>{ const h=location.hash; return ()=>location.hash===h; };
   function goLogin(){ const h=location.hash||'#/'; wdGo(/^#\/(login|registro)/.test(h)?'#/login':'#/login?next='+encodeURIComponent(h)); }
@@ -828,9 +847,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // ---------------------------------------------------------------------------
   // Tipos de buceo: portada visual y ficha de cada tipo (puntos, centros, nivel).
   // ---------------------------------------------------------------------------
-  const TYPE_IMAGES={arrecifes:'fondosuperior','paredes':'australia','pecios-y-naufragios':'logbook1','cuevas-y-cavernas':'galapagos',cenotes:'mexico',muck:'tailandia',canales:'egipto',canones:'fondo','pinaculos':'buceadores','corrientes-y-deriva':'fondo1','aguas-profundas':'california',nocturnas:'micronesia',lagos:'fondo','pilares':'buceadores','playa-y-esnorquel':'maldivas'};
-  const WD_PORTADA=new Set(['portada-arrecife','fondosuperior','fondo1','fondo','logbook1','buceadores']);   // v50.46: images ordered by type
-  const typeImg=t=>{ const n=TYPE_IMAGES[t.key]||'fondo'; return media('type:'+t.key,`/img/${WD_PORTADA.has(n)?'portada':'destinos'}/${n}.webp`); };
+  // v50.57 (revisión general 3.1): the same as SITE_MEDIA_TYPE_DEFAULTS in the server. null = no suitable photo yet: the
+  // card shows the sea colour (the owner sends more; docs/fotos/README.md).
+  const TYPE_IMAGES={arrecifes:'fondosuperior','paredes':'australia','pecios-y-naufragios':'logbook1','cuevas-y-cavernas':null,cenotes:'mexico',muck:'caballito-posidonia',canales:null,canones:null,'pinaculos':null,'corrientes-y-deriva':null,'aguas-profundas':'barco-cadena',nocturnas:'nocturna-pulpo',lagos:null,'pilares':null,'playa-y-esnorquel':'maldivas'};
+  const WD_PORTADA=new Set(['fondosuperior','fondo1','fondo','logbook1','buceadores']);   // v50.46: images ordered by type
+  const WD_TITULAR=new Set(Object.keys(WD_PHOTOS));
+  const typeImg=t=>{ const m=state.media?.['type:'+t.key]; if(m&&(m.custom||m.url)) return m.url||'';
+    const n=TYPE_IMAGES[t.key]; return n?`/img/${WD_TITULAR.has(n)?'titular':WD_PORTADA.has(n)?'portada':'destinos'}/${n}.webp`:''; };
   const TYPE_LEVELS=[['all','Todos'],['start','Para empezar'],['mid','Con experiencia'],['adv','Avanzado y técnico']];
   const typeLevel=t=>/todos los niveles|iniciaci/i.test(t.level)?'start':/intermedio/i.test(t.level)?'mid':'adv';
   // v50.54 (owner's brief, point 4): a type of dive is chosen on the same page. The address changes (#/tipos?t=…, so it
@@ -838,7 +861,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // Each type shows how many dive sites it has; a type with none cannot be chosen. A choice with nothing to show says why
   // and suggests similar types that do have dive sites.
   function typeCard(t){
-    const inner=`<span class="tp-card-media"><img ${wdImgAttrs(typeImg(t),'(max-width:760px) 50vw, 320px')} alt="" loading="lazy" decoding="async"></span>
+    const img=typeImg(t);
+    const inner=`<span class="tp-card-media${img?'':' is-empty'}">${img?wdImgTag(img,{sizes:'(max-width:760px) 50vw, 320px'}):''}</span>
       <span class="tp-card-level">${escapeHtml(t.level)}</span>
       <span class="tp-card-body"><strong>${escapeHtml(t.label)}</strong><span class="tp-card-sum">${escapeHtml(t.summary)}</span>
         <span class="tp-card-meta"><span>${t.count?`${t.count} ${t.count===1?'punto':'puntos'} · ${t.countries} ${t.countries===1?'país':'países'}`:'Aún sin puntos en el catálogo'}</span></span></span>`;
@@ -1820,7 +1844,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function destinationCard(o){
     const n=o.experiences;
     return `<article class="cd-card dst-card">
-      <a class="cd-media" href="#/experiencia?id=${o.id}" tabindex="-1" aria-hidden="true"><img ${wdImgAttrs(o.image_path||WD_COUNTRY_IMAGES[o.region]||'/img/portada/fondo.webp','(max-width:760px) 100vw, 420px')} alt="" loading="lazy"><span class="cd-badges">${o.kind?`<span class="cd-badge">${escapeHtml(o.kind)}</span>`:''}${n?`<span class="cd-badge is-live">${n} ${n===1?'experiencia':'experiencias'}</span>`:''}</span></a>
+      <a class="cd-media" href="#/experiencia?id=${o.id}" tabindex="-1" aria-hidden="true">${wdImgTag(o.image_path||WD_COUNTRY_IMAGES[o.region]||'/img/titular/costa-barco.webp',{sizes:'(max-width:760px) 100vw, 420px'})}<span class="cd-badges">${o.kind?`<span class="cd-badge">${escapeHtml(o.kind)}</span>`:''}${n?`<span class="cd-badge is-live">${n} ${n===1?'experiencia':'experiencias'}</span>`:''}</span></a>
       <div class="cd-body dst-body"><h3><a href="#/experiencia?id=${o.id}">${escapeHtml(o.title)}</a></h3><p class="cd-place">${wdIcon('globe',14)}${escapeHtml(o.region||'')}</p><p class="cd-desc">${escapeHtml(o.summary||o.description||'Experiencias de buceo organizadas por centros y profesionales.')}</p></div>
       <div class="cd-foot"><div class="cd-fact"><small>Desde</small><strong>${o.price_from?wdMoney(o.price_from,o.currency):'<span class="muted">Consultar</span>'}</strong></div><div class="cd-fact"><small>Próxima salida</small><strong>${o.next_date?escapeHtml(wdDay(o.next_date)):'<span class="muted">Por anunciar</span>'}</strong></div><a class="btn ${n?'btn-primary':''} cd-cta" href="#/experiencia?id=${o.id}">${n?'Ver viajes':'Ver destino'}</a></div>
     </article>`;
@@ -1873,7 +1897,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if(!still()) return; const o=d.offer, items=d.experiences||[];
     const prices=items.map(e=>Number(e.price)).filter(n=>n>0);
     setApp(`<section class="tp-page">
-      <header class="tp-hero tp-dhero"><img class="tp-hero-img" ${wdImgAttrs(o.image_path||'/img/portada/fondo.webp')} alt="" fetchpriority="high"><div class="tp-hero-in">
+      <header class="tp-hero tp-dhero">${wdImgTag(o.image_path||'/img/titular/costa-barco.webp',{cls:'tp-hero-img',eager:true})}<div class="tp-hero-in">
         <nav class="tp-crumbs"><a href="#/experiencias">Experiencias</a><span>/</span>${escapeHtml(o.title)}</nav>
         <h1>${escapeHtml(o.title)}</h1><p class="lead">${escapeHtml(o.summary||o.description||'Experiencias de buceo en este destino.')}</p>
       </div></header>
@@ -5198,7 +5222,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let d; try{ d=await api('/api/admin/site-media'); }catch(err){ mount.innerHTML=`<div class="empty"><h3>No se han podido cargar las imágenes</h3><p>${escapeHtml(err.message)}</p></div>`; return; }
     const groups={}; (d.slots||[]).forEach(s=>(groups[s.group]??=[]).push(s));
     const card=s=>{ const it=d.items[s.key]||{}; return `<article class="mm-card" data-key="${escapeHtml(s.key)}">
-      <div class="mm-preview"><img src="${escapeHtml(it.url||s.default)}" alt="" loading="lazy"><span class="mm-badge ${it.custom?'is-custom':''}">${it.custom?'Personalizada':'Original'}</span></div>
+      <div class="mm-preview">${(it.url||s.default)?`<img src="${escapeHtml(it.url||s.default)}" alt="" loading="lazy">`:'<span class="mm-empty">Sin foto: pendiente de una foto adecuada</span>'}<span class="mm-badge ${it.custom?'is-custom':''}">${it.custom?'Personalizada':'Original'}</span></div>
       <div class="mm-body"><strong>${escapeHtml(s.label)}</strong><small>${escapeHtml(s.where)} · ${escapeHtml(s.size)} px</small>
         <label class="mm-credit"><span>Crédito</span><input type="text" maxlength="200" value="${escapeHtml(it.credit||'')}" placeholder="Foto: autor / licencia"></label>
         <div class="mm-actions"><label class="btn btn-primary mm-file">Cambiar foto<input type="file" accept="image/jpeg,image/png,image/webp" hidden></label><button type="button" class="btn mm-save-credit">Guardar crédito</button>${it.custom?'<button type="button" class="btn mm-reset">Restaurar original</button>':''}</div>

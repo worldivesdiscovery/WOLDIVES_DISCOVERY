@@ -87,7 +87,9 @@ class Pagina(ServerTestCase):
         self.assertNotIn('rel="preload"', html)                               # Spanish needs no pack
 
     def test_light_copy_is_served(self):
-        r = self.client().get('/img/portada/portada-arrecife-640.webp')
+        r = self.client().get('/img/portada/fondo-640.webp')
+        self.assertEqual(r.status, 200); self.assertEqual(r.headers.get('Content-Type'), 'image/webp')
+        r = self.client().get('/img/titular/buceador-rayos-640.webp')   # v50.57: the owner's photos have their copies too
         self.assertEqual(r.status, 200); self.assertEqual(r.headers.get('Content-Type'), 'image/webp')
 
 

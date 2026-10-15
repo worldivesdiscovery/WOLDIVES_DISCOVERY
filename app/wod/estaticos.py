@@ -3,6 +3,8 @@ iconos}, fuentes and lib. The old /assets/… addresses (e-mails already sent, o
 v50.46) are redirected to the new ones. Separated from app/server.py (plan of docs/estructura.md). Pure functions."""
 from __future__ import annotations
 
+import re
+
 STATIC_PREFIXES = ('/js/', '/css/', '/idiomas/', '/img/', '/fuentes/', '/lib/')
 _LEGACY_IMAGES = {**{n: 'destinos' for n in ('australia', 'california', 'egipto', 'galapagos', 'maldivas', 'mexico', 'micronesia', 'tailandia')},
                   **{n: 'portada' for n in ('portada-arrecife', 'fondosuperior', 'fondo1', 'fondo', 'logbook1')}}
@@ -39,14 +41,30 @@ def legacy_asset_url(path):
         if name == 'BUCEADORES.webp': return '/img/portada/buceadores.webp'
         if name.startswith('buceador') and name.endswith('.png'): return '/img/iconos/' + name
         stem = name.rsplit('.', 1)[0]
-        if stem in _LEGACY_IMAGES: return f'/img/{_LEGACY_IMAGES[stem]}/{name}'
+        if stem in _LEGACY_IMAGES:
+            new = f'/img/{_LEGACY_IMAGES[stem]}/{name}'
+            return archived_image_url(new) or new
     return None
+
+
+# v50.57 (revisión general 3.1): photos moved to _archivo/fotos/ (not deleted) when they stopped being used; their old
+# addresses (data saved before, caches, links already sent) lead to the photo that took their place, in the same size.
+ARCHIVED_IMAGES = {'portada/portada-arrecife': 'titular/buceador-rayos'}
+_ARCHIVED_RX = re.compile(r'/img/([a-z]+/[a-z0-9-]+?)(-(?:640|960|1440))?\.webp')
+
+
+def archived_image_url(path):
+    """The address of the photo that replaced an archived one, or None."""
+    m = _ARCHIVED_RX.fullmatch(str(path or ''))
+    if not m or m.group(1) not in ARCHIVED_IMAGES: return None
+    return f'/img/{ARCHIVED_IMAGES[m.group(1)]}{m.group(2) or ""}.webp'
 
 
 def legacy_path_map():
     """Old → new exact paths for the data migration (the images and brand files the site ships)."""
     out = {'/assets/images/BUCEADORES.webp': '/img/portada/buceadores.webp', '/assets/images/buceador1.png': '/img/iconos/buceador1.png',
            '/assets/images/buceador2.png': '/img/iconos/buceador2.png'}
-    for stem, folder in _LEGACY_IMAGES.items(): out[f'/assets/images/{stem}.webp'] = f'/img/{folder}/{stem}.webp'
+    for stem, folder in _LEGACY_IMAGES.items():
+        new = f'/img/{folder}/{stem}.webp'; out[f'/assets/images/{stem}.webp'] = archived_image_url(new) or new
     for name in BRAND_WEB_FILES: out[f'/assets/brand/{name}'] = f'/img/marca/{name}'
     return out

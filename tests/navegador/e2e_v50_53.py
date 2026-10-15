@@ -118,7 +118,7 @@ def run(shots: Path | None):
         for row, title in zip(svc, LONG_TITLES):
             srv.sql('UPDATE provider_services SET title=? WHERE id=?', (title, row['id']))
         # Template photos (as the administration would upload them) and one own photo of the centre.
-        for slug, img in (('inmersion-doble', 'portada/fondo1.webp'), ('open-water', 'destinos/maldivas.webp'), ('bautizo', 'portada/portada-arrecife.webp'),
+        for slug, img in (('inmersion-doble', 'portada/fondo1.webp'), ('open-water', 'destinos/maldivas.webp'), ('bautizo', 'portada/fondosuperior.webp'),
                           ('advanced', 'portada/logbook1.webp'), ('nitrox', 'portada/fondosuperior.webp')):
             admin.upload('/api/admin/service-catalog/photo', {'id': tpl[slug]}, img.rsplit('/', 1)[1], photo_file(img)); wait_ready('service_catalog', tpl[slug])
         own_sid = svc[3]['id']
@@ -279,7 +279,7 @@ def run(shots: Path | None):
             ctx, pg = session()
             go(pg, f'#/centro?id={cid}', 2500)
             before = pg.evaluate("()=>[...document.querySelectorAll('.cp-services .svc2')].map(c=>c.querySelector('img')?.getAttribute('src')||'')")
-            admin.upload('/api/admin/service-catalog/photo', {'id': tpl['inmersion-doble']}, 'nueva.webp', photo_file('portada/portada-arrecife.webp'))
+            admin.upload('/api/admin/service-catalog/photo', {'id': tpl['inmersion-doble']}, 'nueva.webp', photo_file('portada/fondosuperior.webp'))
             new_base = wait_ready('service_catalog', tpl['inmersion-doble'])['photo_base']
             pg.reload(); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(2500)
             after = pg.evaluate("()=>[...document.querySelectorAll('.cp-services .svc2')].map(c=>c.querySelector('img')?.getAttribute('src')||'')")

@@ -42,7 +42,7 @@ from wod import security as wsec
 from wod import bookings as wbk
 from wod import agenda as wag
 from wod import money as wmoney
-from wod.estaticos import STATIC_PREFIXES, legacy_asset_url, legacy_path_map
+from wod.estaticos import STATIC_PREFIXES, legacy_asset_url, legacy_path_map, archived_image_url
 from wod.formato import ES_DAYS, ES_MONTHS, es_long_date, mail_date, mail_datetime, mail_money, _DAYS, _MONTHS  # noqa: F401
 from wod import pdf as wpdf
 from wod import totp as wtotp
@@ -4308,6 +4308,9 @@ def images_report(db):
     for folder in ('portada', 'destinos', 'iconos'):                  # v50.46: images ordered by type
         for f in sorted((PUBLIC / 'img' / folder).glob('*')):
             if f.is_file() and f.suffix.lower() in ('.webp', '.png', '.jpg', '.jpeg', '.svg'): add(f'/img/{folder}/' + f.name, 'Archivos de la web')
+    for f in sorted((PUBLIC / 'img' / 'titular').glob('*')):     # v50.57: the photos of the owner (revisión general 3.1)
+        if f.is_file() and f.suffix.lower() in ('.webp', '.jpg'):
+            add('/img/titular/' + f.name, 'Fotos del titular', 'WORLDIVES DISCOVERY', 'Propiedad de WORLDIVES DISCOVERY')
     for f in sorted((PUBLIC / 'img' / 'servicios').glob('*')):   # v50.53: neutral background of the service cards, drawn by the program
         if f.is_file() and f.suffix.lower() in ('.webp', '.jpg'):
             add('/img/servicios/' + f.name, 'Tarjetas de servicio (foto neutra)', 'WORLDIVES DISCOVERY', 'Imagen propia: degradado dibujado por el programa, sin derechos de terceros')
@@ -6485,24 +6488,30 @@ def gzip_bytes(raw, level=5):
 # ---------------------------------------------------------------------------
 SITE_MEDIA_SLOTS = [
     # key, label, where it appears, default image, recommended size
-    ('hero:home', 'Portada de la web', 'Cabecera de la página de inicio', '/img/portada/portada-arrecife.webp', '2400 × 1350'),
+    ('hero:home', 'Portada de la web', 'Cabecera de la página de inicio', '/img/titular/buceador-rayos.webp', '2400 × 1350'),   # v50.57: photos of the owner
     ('hero:centros', 'Centros de buceo', 'Cabecera del directorio de centros', '/img/portada/buceadores.webp', '2400 × 900'),
     ('hero:puntos', 'Puntos de buceo', 'Cabecera del catálogo de puntos', '/img/destinos/australia.webp', '2400 × 900'),
     ('hero:tipos', 'Tipos de buceo', 'Cabecera de la página de tipos', '/img/portada/fondo.webp', '2400 × 900'),
-    ('hero:experiencias', 'Experiencias', 'Cabecera de viajes y vida a bordo', '/img/destinos/maldivas.webp', '2400 × 900'),
+    ('hero:experiencias', 'Experiencias', 'Cabecera de viajes y vida a bordo', '/img/titular/barco-cadena.webp', '2400 × 900'),
     ('hero:top10', 'Top 10', 'Cabecera del Top 10', '/img/destinos/tailandia.webp', '2400 × 900'),
-    ('hero:explorar', 'Explorar el mapa', 'Cabecera del mapa de Explorar', '/img/destinos/micronesia.webp', '2400 × 900'),
+    ('hero:explorar', 'Explorar el mapa', 'Cabecera del mapa de Explorar', '/img/titular/costa-barco.webp', '2400 × 900'),
     ('hero:auth', 'Iniciar sesión y registro', 'Foto junto al formulario de acceso', '/img/portada/logbook1.webp', '1600 × 2000 (vertical)'),
 ]
-SITE_MEDIA_TYPE_DEFAULTS = {'arrecifes':'fondosuperior','paredes':'australia','pecios-y-naufragios':'logbook1','cuevas-y-cavernas':'galapagos',
-    'cenotes':'mexico','muck':'tailandia','canales':'egipto','canones':'fondo','pinaculos':'buceadores','corrientes-y-deriva':'fondo1',
-    'aguas-profundas':'california','nocturnas':'micronesia','lagos':'fondo','pilares':'buceadores','playa-y-esnorquel':'maldivas'}
-PORTADA_IMAGES = {'portada-arrecife', 'fondosuperior', 'fondo1', 'fondo', 'logbook1', 'buceadores'}
+# v50.57 (revisión general 3.1): each type shows a photo of its content. The owner's photos (img/titular) where they fit;
+# None = no suitable photo yet (the card shows the sea colour, without a photo; listed in docs/fotos/README.md so the
+# owner can send more). The photos that did not fit those types left them (they are still used where they fit).
+SITE_MEDIA_TYPE_DEFAULTS = {'arrecifes':'fondosuperior','paredes':'australia','pecios-y-naufragios':'logbook1','cuevas-y-cavernas':None,
+    'cenotes':'mexico','muck':'caballito-posidonia','canales':None,'canones':None,'pinaculos':None,'corrientes-y-deriva':None,
+    'aguas-profundas':'barco-cadena','nocturnas':'nocturna-pulpo','lagos':None,'pilares':None,'playa-y-esnorquel':'maldivas'}
+PORTADA_IMAGES = {'fondosuperior', 'fondo1', 'fondo', 'logbook1', 'buceadores'}
+TITULAR_IMAGES = {'buceador-rayos', 'costa-barco', 'barco-cadena', 'nocturna-pulpo', 'caballito-posidonia'}   # property of WORLDIVES DISCOVERY
 
 
 def site_image(name):
-    """/img/portada/<name>.webp or /img/destinos/<name>.webp (v50.46: images ordered by type)."""
-    return f"/img/{'portada' if name in PORTADA_IMAGES else 'destinos'}/{name}.webp"
+    """/img/portada/<name>.webp, /img/destinos/<name>.webp or /img/titular/<name>.webp (v50.46: images ordered by
+    type; v50.57: the owner's photos), or '' for a place with no photo yet."""
+    if not name: return ''
+    return f"/img/{'titular' if name in TITULAR_IMAGES else 'portada' if name in PORTADA_IMAGES else 'destinos'}/{name}.webp"
 
 
 def site_media_slots():
@@ -15166,6 +15175,10 @@ class Handler(BaseHTTPRequestHandler):
             target=legacy_asset_url(path)
             if not target: self.send_error(404); return
             self.send_response(301); self.send_header('Location',target+(('?'+parsed.query) if parsed.query else '')); self.send_header('Cache-Control','public, max-age=86400')
+            self.send_header('Content-Length','0'); self.security_headers(); self.end_headers(); return
+        arch=archived_image_url(path)   # v50.57: a photo moved to _archivo/: its old address leads to the one that replaced it
+        if arch:
+            self.send_response(301); self.send_header('Location',arch); self.send_header('Cache-Control','public, max-age=86400')
             self.send_header('Content-Length','0'); self.security_headers(); self.end_headers(); return
         if path.startswith(STATIC_PREFIXES) or path in PUBLIC_ROOT_FILES:
             candidate=(PUBLIC/unquote(path).lstrip('/')).resolve()

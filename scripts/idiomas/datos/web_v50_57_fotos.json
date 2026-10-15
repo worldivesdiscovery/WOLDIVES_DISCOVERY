@@ -1,0 +1,85 @@
+{
+ "exact": {
+  "Buceador en aguas abiertas bajo los rayos del sol, junto a un arrecife": {
+   "en": "A diver in open water under rays of sunlight, beside a reef",
+   "fr": "Un plongeur en pleine eau sous les rayons du soleil, près d'un récif",
+   "de": "Ein Taucher im offenen Wasser unter Sonnenstrahlen, neben einem Riff",
+   "it": "Un subacqueo in acque libere sotto i raggi del sole, accanto a una barriera corallina",
+   "pt": "Um mergulhador em águas abertas sob os raios de sol, junto a um recife",
+   "pl": "Nurek w otwartej wodzie w promieniach słońca, obok rafy",
+   "nl": "Een duiker in open water onder zonnestralen, naast een rif",
+   "zh": "一名潜水员在开阔水域的阳光光束下，身旁是一片礁石"
+  },
+  "Costa rocosa vista desde el aire, con agua turquesa y un barco de buceo fondeado": {
+   "en": "A rocky coast seen from the air, with turquoise water and an anchored dive boat",
+   "fr": "Une côte rocheuse vue du ciel, avec une eau turquoise et un bateau de plongée au mouillage",
+   "de": "Eine Felsküste aus der Luft, mit türkisfarbenem Wasser und einem ankernden Tauchboot",
+   "it": "Una costa rocciosa vista dall'alto, con acqua turchese e una barca da immersione all'ancora",
+   "pt": "Uma costa rochosa vista do ar, com água turquesa e um barco de mergulho fundeado",
+   "pl": "Skaliste wybrzeże z lotu ptaka, turkusowa woda i zakotwiczona łódź nurkowa",
+   "nl": "Een rotsachtige kust vanuit de lucht, met turquoise water en een duikboot voor anker",
+   "zh": "从空中俯瞰的岩石海岸，碧绿的海水中停泊着一艘潜水船"
+  },
+  "Un barco visto desde debajo del agua y su cadena de fondeo bajando hacia el azul": {
+   "en": "A boat seen from under the water and its anchor chain going down into the blue",
+   "fr": "Un bateau vu depuis le dessous de l'eau et sa chaîne d'ancre qui descend dans le bleu",
+   "de": "Ein Boot von unter Wasser gesehen, seine Ankerkette führt hinab ins Blau",
+   "it": "Una barca vista da sott'acqua e la sua catena dell'ancora che scende nel blu",
+   "pt": "Um barco visto de debaixo de água e a sua corrente de fundeio a descer para o azul",
+   "pl": "Łódź widziana spod wody i jej łańcuch kotwiczny schodzący w błękit",
+   "nl": "Een boot van onder water gezien en zijn ankerketting die het blauw in loopt",
+   "zh": "从水下看到的一艘船，锚链一路沉入深蓝"
+  },
+  "Inmersión nocturna: un pulpo y una morena en el arrecife, y un buceador con linterna al fondo": {
+   "en": "Night dive: an octopus and a moray on the reef, and a diver with a torch in the background",
+   "fr": "Plongée de nuit : un poulpe et une murène sur le récif, et un plongeur avec une lampe au fond",
+   "de": "Nachttauchgang: ein Oktopus und eine Muräne am Riff, im Hintergrund ein Taucher mit Lampe",
+   "it": "Immersione notturna: un polpo e una murena sulla barriera e un subacqueo con la torcia sullo sfondo",
+   "pt": "Mergulho noturno: um polvo e uma moreia no recife e um mergulhador com lanterna ao fundo",
+   "pl": "Nurkowanie nocne: ośmiornica i murena na rafie, a w tle nurek z latarką",
+   "nl": "Nachtduik: een octopus en een murene op het rif, en een duiker met een lamp op de achtergrond",
+   "zh": "夜潜：礁石上的章鱼和海鳝，远处一名潜水员打着手电"
+  },
+  "Un caballito de mar entre la posidonia": {
+   "en": "A seahorse among the posidonia seagrass",
+   "fr": "Un hippocampe dans la posidonie",
+   "de": "Ein Seepferdchen im Neptungras",
+   "it": "Un cavalluccio marino tra la posidonia",
+   "pt": "Um cavalo-marinho entre a posidónia",
+   "pl": "Konik morski wśród posidonii",
+   "nl": "Een zeepaardje tussen het posidoniazeegras",
+   "zh": "海神草丛中的一只海马"
+  },
+  "Sin foto: pendiente de una foto adecuada": {
+   "en": "No photo: waiting for a suitable photo",
+   "fr": "Sans photo : en attente d'une photo adaptée",
+   "de": "Kein Foto: ein passendes Foto fehlt noch",
+   "it": "Senza foto: in attesa di una foto adatta",
+   "pt": "Sem foto: a aguardar uma foto adequada",
+   "pl": "Brak zdjęcia: czeka na odpowiednie zdjęcie",
+   "nl": "Geen foto: wacht op een geschikte foto",
+   "zh": "暂无照片：等待合适的照片"
+  },
+  "Fotos del titular": {
+   "en": "Owner's photos",
+   "fr": "Photos du titulaire",
+   "de": "Fotos des Inhabers",
+   "it": "Foto del titolare",
+   "pt": "Fotos do titular",
+   "pl": "Zdjęcia właściciela",
+   "nl": "Foto’s van de eigenaar",
+   "zh": "所有者的照片"
+  },
+  "Propiedad de WORLDIVES DISCOVERY": {
+   "en": "Property of WORLDIVES DISCOVERY",
+   "fr": "Propriété de WORLDIVES DISCOVERY",
+   "de": "Eigentum von WORLDIVES DISCOVERY",
+   "it": "Proprietà di WORLDIVES DISCOVERY",
+   "pt": "Propriedade da WORLDIVES DISCOVERY",
+   "pl": "Własność WORLDIVES DISCOVERY",
+   "nl": "Eigendom van WORLDIVES DISCOVERY",
+   "zh": "WORLDIVES DISCOVERY 所有"
+  }
+ },
+ "patterns": {}
+}
