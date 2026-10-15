@@ -54,12 +54,12 @@ filtros por dato de abajo) y las de escritura piden `reservas`.
 | `/api/provider/payments`, `/api/payments/center` | `cobros` |
 | `/api/center/requests`, `/api/center/clients`, `/api/center/info-requests`, `/api/provider/feed` (aviso de cada reserva nueva, v50.56), `/api/center/bookings/<id>/insurance` (seguro de los participantes, v50.56) | `reservas` |
 | `/api/provider/ical`, `/api/provider/api-keys`, `/api/provider/webhooks`, `/api/provider/ical-imports` (v50.56) | `centro` |
-| `/api/provider/stats`, `/api/center/analytics`, `/api/provider/ventas-canal` (ventas por canal, v50.56) | `estadisticas` |
+| `/api/provider/stats`, `/api/center/analytics`, `/api/provider/ventas-canal` (ventas por canal, v50.56), `/api/provider/contador` (visitas y reservas de la temporada, el mes y el total, v50.57) | `estadisticas` |
 
 | Escritura (POST) | Permiso |
 |---|---|
 | `/api/payments/connect/`, `/api/provider/payment-profile`, `/api/provider/fiscal`, `/api/provider/plan`, `/api/center/team`, `/api/provider/cuenta/` | Solo el propietario |
-| `/api/auth/`, `/api/account/`, `/api/legal/accept`, `/api/reports`, `/api/contact`, `/api/me`, `/api/team/`, `/api/app/push/`; su propio Log Book y sus buddies (v50.57): `/api/logbook`, `/api/buddies` | Cualquiera (su propia cuenta) |
+| `/api/auth/`, `/api/account/`, `/api/legal/accept`, `/api/reports`, `/api/contact`, `/api/me`, `/api/team/`, `/api/app/push/`; su propio Log Book y sus buddies (v50.57): `/api/logbook`, `/api/buddies`; la página vista, sin cookies (v50.57): `/api/visita` | Cualquiera (su propia cuenta) |
 | `/api/center/logbook/dive` (inmersiones del centro y su QR para el Log Book de los buceadores, v50.57) | `checkin` |
 | `/api/center/logbook/settings`, `/api/center/logbook/logo` (logo y nombre de la portada del pasaporte, v50.57) | `centro` |
 | `/api/manifest/sync`, `/api/pro/escanear`, `/api/pro/contar`, firma del descargo a bordo | `checkin` |

@@ -3743,3 +3743,14 @@ html.wd-app .pp-page{padding-bottom:150px}
 
 /* v50.57 (2.2) · las fechas que cubre el periodo elegido en las exportaciones */
 .wd-export-range{font-size:13px;color:var(--muted);align-self:center}
+
+/* v50.57 (4.2) · Visitas y reservas (Actividad): un bloque discreto */
+.vc-block{margin:0 0 18px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--surface,#fff)}
+.vc-block h3{margin:0 0 8px;font-size:15px}
+.vc-table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.vc-table th,.vc-table td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.vc-table th[scope=row]{text-align:left;font-weight:600;white-space:normal}
+.vc-table thead th{font-size:12.5px;color:var(--muted);font-weight:700}
+.vc-table small{font-weight:400;color:var(--muted)}
+.vc-table .vc-sub th{font-weight:400;padding-left:20px;color:var(--muted)}
+.vc-note{margin:8px 0 0;font-size:12.5px;color:var(--muted)}

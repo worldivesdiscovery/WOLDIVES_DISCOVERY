@@ -1830,11 +1830,24 @@ LOGBOOK_SCHEMA = (
 )
 
 
+VISITS_SCHEMA = (
+    # v50.57 (4.2): visits counted without cookies. Per day and scope («site», «center:<id>», «freelance:<id>»): pages
+    # seen and visitors of that day. To count each visitor once a day only a hash is kept (salt of the day + IP + browser),
+    # and only for that day: the salt changes every day and yesterday's hashes are deleted, so nobody can be identified
+    # or followed from one day to the next and no IP is ever stored.
+    '''CREATE TABLE IF NOT EXISTS visit_counts(day TEXT NOT NULL, scope TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0,
+       uniques INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(day, scope))''',
+    '''CREATE TABLE IF NOT EXISTS visit_seen(day TEXT NOT NULL, scope TEXT NOT NULL, h TEXT NOT NULL, PRIMARY KEY(day, scope, h))''',
+)
+
+
 def migrate_v50_57(db):
     """v50.57 · the dive logbook of the account (books, the dives centres register with their QR, the claims, buddies),
-    the public code of each person for buddies, the centre a diver signed up with and the logo of the passport. Adds;
-    nothing is deleted. The dives already in logbook_entries go into the book the first time it opens."""
+    the public code of each person for buddies, the centre a diver signed up with and the logo of the passport; the
+    counter of visits without cookies (4.2). Adds; nothing is deleted. The dives already in logbook_entries go into the
+    book the first time it opens."""
     for stmt in LOGBOOK_SCHEMA: db.execute(stmt)
+    for stmt in VISITS_SCHEMA: db.execute(stmt)
     add_columns(db, 'users', [('buddy_code', 'TEXT'), ('signup_center_id', 'INTEGER')])
     add_columns(db, 'logbook_entries', [('slot', 'INTEGER')])
     add_columns(db, 'centers', [('passport_logo', 'TEXT'), ('passport_name', 'TEXT')])
@@ -4750,6 +4763,78 @@ def season_setting(db):
         v = (r['value'] if r else '') or d
         return v if re.fullmatch(r'(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])', v) else d
     return get('temporada_inicio', '04-01'), get('temporada_fin', '10-31')
+
+
+# ------------------------------------------------------------------------------- v50.57 (4.2) · visits and bookings
+VISIT_LIMIT = wsec.SharedRateLimiter('visitas', 300, 600)
+# Known robots, link previews and automated browsers (also the tests of this web): their pages are not visits.
+BOT_UA = re.compile(r'bot\b|bot/|crawl|spider|slurp|bingpreview|facebookexternalhit|embedly|quora link|outbrain|pinterest|vkshare|'
+                    r'w3c_validator|whatsapp|telegram|discord|skype|preview|headless|lighthouse|pagespeed|gtmetrix|uptime|monitor|'
+                    r'curl|wget|python|httpclient|java/|go-http|axios|node-fetch|okhttp|libwww|scrapy|phantom|selenium|playwright|puppeteer', re.I)
+VISIT_PAGES = {'home', 'explorar', 'puntos', 'punto', 'centros', 'centro', 'tipos', 'experiencias', 'experiencia', 'top10', 'profesional',
+               'reservar', 'reservar-dias', 'experienciareserva', 'virtual', 'planes', 'login', 'registro'}
+
+
+def visit_salt(db, day):
+    """The random salt of the day (shared by every process of the server). A new day: new salt, and the salts and the
+    hashes of the days before are deleted."""
+    key = 'visitas_sal:' + day
+    row = db.execute('SELECT value FROM site_settings WHERE key=?', (key,)).fetchone()
+    if row: return row['value']
+    db.execute('INSERT OR IGNORE INTO site_settings(key,value,updated_at) VALUES(?,?,?)', (key, secrets.token_hex(16), now()))
+    db.execute("DELETE FROM site_settings WHERE key LIKE 'visitas\\_sal:%' ESCAPE '\\' AND key<>?", (key,))
+    db.execute('DELETE FROM visit_seen WHERE day<>?', (day,))
+    return db.execute('SELECT value FROM site_settings WHERE key=?', (key,)).fetchone()['value']
+
+
+def count_visit(db, handler, scopes):
+    day = _dt.date.today().isoformat()
+    h = hashlib.sha256(f"{visit_salt(db, day)}|{handler.client_ip()}|{handler.headers.get('User-Agent') or ''}".encode()).hexdigest()[:24]
+    for scope in scopes:
+        new = db.execute('INSERT OR IGNORE INTO visit_seen(day,scope,h) VALUES(?,?,?)', (day, scope, h)).rowcount
+        db.execute('''INSERT INTO visit_counts(day,scope,views,uniques) VALUES(?,?,1,?)
+                      ON CONFLICT(day,scope) DO UPDATE SET views=views+1, uniques=uniques+excluded.uniques''', (day, scope, 1 if new else 0))
+        if new and scope != 'site':   # «visitas a tu ficha» of Estadísticas: the same visitors of each day
+            ptype, pid = scope.split(':'); stat_bump(db, ptype, int(pid), 'views')
+
+
+def visit_scopes(db, user, data):
+    """Where a page seen counts: the whole web and, on the page of a centre or a professional, that one too. The
+    administration does not count; a centre's team or a professional seeing their own page counts only for the web."""
+    page = str(data.get('p') or '')
+    if page not in VISIT_PAGES: return []
+    if user and user['role'] == 'admin': return []
+    scopes = ['site']
+    try: pid = int(data.get('id') or 0)
+    except (TypeError, ValueError): pid = 0
+    if pid > 0 and page == 'centro' and db.execute(f'SELECT 1 FROM centers c WHERE c.id=? AND {public_center_sql("c")}', (pid,)).fetchone():
+        own = user and (user.get('center_id') == pid or db.execute('SELECT 1 FROM center_members WHERE center_id=? AND user_id=?', (pid, user['id'])).fetchone())
+        if not own: scopes.append(f'center:{pid}')
+    if pid > 0 and page == 'profesional' and db.execute(f'SELECT 1 FROM users u WHERE u.id=? AND u.center_id IS NULL AND {public_freelance_sql("u")}', (pid,)).fetchone():
+        if not (user and user['id'] == pid): scopes.append(f'freelance:{pid}')
+    return scopes
+
+
+def activity_counter(db, scope, where='1=1', args=()):
+    """Visits (pages seen, visitors of each day) and bookings (total, by mode, amount) of the current season, this
+    month and since the beginning. where/args: the bookings of whom (all of them for the administration)."""
+    today = _dt.date.today(); out = []
+    mode = "CASE WHEN b.pay_way='in_person' THEN 'in_person' WHEN b.booking_mode='payment' THEN 'payment' ELSE 'request' END"
+    modes = {'payment': 'Pago al reservar', 'request': 'Bajo petición', 'in_person': 'Pago en persona'}
+    for key in ('temporada', 'mes', 'todo'):
+        a, b, label = wexp.period(key, today, season_setting(db))
+        vw, va = ('day BETWEEN ? AND ?', (a, b)) if a else ('1=1', ())
+        v = db.execute(f'SELECT COALESCE(SUM(views),0) AS views, COALESCE(SUM(uniques),0) AS uniques FROM visit_counts WHERE scope=? AND {vw}', (scope, *va)).fetchone()
+        per, pa = _within('b.booking_date', a, b)
+        base = f"FROM bookings b WHERE {per} AND ({where}) AND b.status NOT IN ('cancelled','rejected','expired','payment_in_progress')"
+        n = db.execute(f'SELECT COUNT(*) {base}', (*pa, *args)).fetchone()[0]
+        by_mode = [{'mode': r['m'], 'label': modes.get(r['m'], r['m']), 'bookings': r['n']}
+                   for r in db.execute(f'SELECT {mode} AS m, COUNT(*) AS n {base} GROUP BY m ORDER BY n DESC', (*pa, *args))]
+        amounts = [{'currency': r['cur'], 'amount': round(r['amount'] or 0, 2)} for r in db.execute(
+            f"SELECT COALESCE(b.currency,'EUR') AS cur, SUM(COALESCE(b.price,0)) AS amount {base} AND b.status IN ('confirmed','completed') GROUP BY cur ORDER BY amount DESC",
+            (*pa, *args))]
+        out.append({'key': key, 'label': label, 'from': a, 'to': b, 'views': v['views'], 'uniques': v['uniques'], 'bookings': n, 'by_mode': by_mode, 'amounts': amounts})
+    return {'periods': out}
 
 
 def _within(col, a, b):
@@ -15029,6 +15114,17 @@ class Handler(BaseHTTPRequestHandler):
                     rows=[dict(r) for r in db.execute(f'SELECT id,name,email,phone,message,wanted_date,participants,lang,status,created_at,read_at FROM info_requests WHERE {col}=? ORDER BY id DESC LIMIT 300',(ref[1],)).fetchall()]
                     log_phone_access(db,user,'info_requests',count_phones(rows))
                     self.send_json({'items':rows,'unread':sum(1 for r in rows if not r['read_at'])}); return
+                if path == '/api/admin/contador':
+                    # v50.57 (4.2): visits of the web and bookings of every centre and professional, in figures
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    self.send_json(activity_counter(db,'site')); return
+                if path == '/api/provider/contador':
+                    # v50.57 (4.2): the same for a centre (visits to its page) or a professional (to their profile)
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    if user['role']=='center':
+                        if not user['center_id']: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                        self.send_json(activity_counter(db,f"center:{user['center_id']}",'b.center_id=?',(user['center_id'],))); return
+                    self.send_json(activity_counter(db,f"freelance:{user['id']}",'b.provider_user_id=? AND b.center_id IS NULL',(user['id'],))); return
                 if path == '/api/exportar/periodo':
                     # v50.57 (2.2): the dates a period of the exports covers, said under its menu (the same calculation as the file)
                     require_user(self,db)
@@ -15564,7 +15660,6 @@ class Handler(BaseHTTPRequestHandler):
                     provider_id=int(path.rsplit('/',1)[1])
                     u=db.execute("SELECT id,fullname,role,provider_bio,avatar_url,center_id,instagram_url,facebook_url,twitter_url,youtube_url,tiktok_url,moderation_status FROM users WHERE id=? AND role IN ('center','freelance')",(provider_id,)).fetchone()
                     if not u or (u['role']=='freelance' and (provider_closure(db,'freelance',u['id']) or u['moderation_status'])): self.send_json({'error':'Profesional no encontrado'},404); return
-                    if u['role']=='freelance' and not u['center_id']: stat_bump(db,'freelance',u['id'],'views',self.client_ip()); db.commit()
                     result={'online_booking':provider_has(db,'freelance',u['id'],'online_bookings') if u['role']=='freelance' and not u['center_id'] else None,'id':u['id'],'fullname':u['fullname'],'role':u['role'],'provider_bio':u['provider_bio'] or '', 'avatar_url':u['avatar_url'] or '', 'socials': {k:(u[k] or '') for k in ('instagram_url','facebook_url','twitter_url','youtube_url','tiktok_url')}}
                     if u['role']=='center' and u['center_id']:
                         c=db.execute(f'SELECT * FROM centers c WHERE c.id=? AND {public_center_sql()}',(u['center_id'],)).fetchone()
@@ -15875,7 +15970,7 @@ class Handler(BaseHTTPRequestHandler):
                             if _t['description']: _ci['description']=_t['description']
                             _ci['text_lang']=normalize_lang(lang_)
                         _ci['tz']=place_tz(db,center_id=cid)   # departures are shown in this local time
-                        _ci['online_booking']=provider_has(db,'center',cid,'online_bookings'); stat_bump(db,'center',cid,'views',self.client_ip()); db.commit()
+                        _ci['online_booking']=provider_has(db,'center',cid,'online_bookings')   # v50.57: its visits are counted by /api/visita
                         _ci['review_total']=row['review_count']
                         if not feature_switch(db,'reviews'): review_payload=[]; can_review=False; _ci['reviews_off']=True; _ci['review_total']=0
                         self.send_json({'item':_ci,'points':[point_row(r) for r in points],'services':service_out,'experiences':enrich_experiences(db,exp_rows), 'reviews':review_payload, 'review':{'can_review':can_review,'reason':review_reason,'current':current_review,'can_reply':bool(current and current['role']=='center' and current['center_id']==cid),'is_admin':bool(current and current['role']=='admin')}}); return
@@ -18311,6 +18406,14 @@ class Handler(BaseHTTPRequestHandler):
                     if mail_deliverable(email):
                         queue_email(db,'report_received',email,name,{'first_name':(name or '').split(' ')[0],'ref':f'DEN-{rid:05d}','reason':mail_t(rlang,REPORT_REASONS[reason])},rlang,('report',rid))
                     audit(db,cu['id'] if cu else None,'content_reported','content_report',rid,{'reason':reason}); db.commit(); self.send_json({'ok':True,'id':rid,'ref':f'DEN-{rid:05d}'}); return
+                if path=='/api/visita':
+                    # v50.57 (4.2): a page seen, counted without cookies (see VISITS_SCHEMA). Robots, link previews and the
+                    # administration do not count; the answer is the same either way.
+                    ua=self.headers.get('User-Agent') or ''
+                    if ua and not BOT_UA.search(ua) and not VISIT_LIMIT.hit('v:'+wsec.ip_group(self.client_ip())):
+                        scopes=visit_scopes(db,current_user(self,db),json_body(self))
+                        if scopes: count_visit(db,self,scopes); db.commit()
+                    self.send_json({'ok':True}); return
                 if path=='/api/contact':
                     # «Contacto» form (v50.46): stored for the administration, which gets an email; the sender gets a receipt.
                     data=json_body(self); ip=self.client_ip()

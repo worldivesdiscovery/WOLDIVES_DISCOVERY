@@ -144,7 +144,7 @@ REGLAS_POST = (
     (None, _P('/api/payments/connect/', '/api/provider/payment-profile', '/api/provider/fiscal', '/api/provider/plan', '/api/center/team',
               '/api/provider/cuenta/')),
     ('', _P('/api/auth/', '/api/account/', '/api/legal/accept', '/api/reports', '/api/contact', '/api/me', '/api/team/', '/api/app/push/',
-            '/api/logbook', '/api/buddies')),   # v50.57: each person's own logbook and buddies
+            '/api/logbook', '/api/buddies', '/api/visita')),   # v50.57: each person's own logbook and buddies; pages seen (4.2)
     # v50.57: the dives of the centre and their QR for the divers' logbooks (whoever runs the dive), the passport's logo
     ('checkin', _P('/api/center/logbook/dive')),
     ('centro', _P('/api/center/logbook/settings', '/api/center/logbook/logo')),
@@ -168,7 +168,7 @@ REGLAS_GET = (
     ('reservas', _P('/api/center/requests', '/api/center/clients', '/api/center/info-requests', '/api/provider/feed',
                     re.compile(r'/api/center/bookings/\d+/insurance'))),   # v50.56: the insurance of the participants
     ('centro', _P('/api/provider/ical', '/api/provider/api-keys', '/api/provider/webhooks', '/api/provider/ical-imports')),
-    ('estadisticas', _P('/api/provider/stats', '/api/center/analytics', '/api/provider/ventas-canal')),
+    ('estadisticas', _P('/api/provider/stats', '/api/center/analytics', '/api/provider/ventas-canal', '/api/provider/contador')),
 )
 
 

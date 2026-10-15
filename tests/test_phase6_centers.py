@@ -212,7 +212,10 @@ class CentreTools(ServerTestCase):
 
     def test_statistics_are_aggregated(self):
         cid = self.cid(); anon = self.client()
-        anon.get(f'/api/centers/{cid}'); anon.get(f'/api/centers/{cid}')     # same visitor and day: one view
+        # v50.57 (4.2): the screen seen is counted (/api/visita, without robots or the administration), not the API of the ficha
+        ua = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'}
+        anon.get(f'/api/centers/{cid}', headers=dict(ua))
+        for _ in range(2): anon.post('/api/visita', {'p': 'centro', 'id': cid}, headers=dict(ua))   # same visitor and day: one view
         anon.post('/api/stats/track', {'event': 'book_click', 'type': 'center', 'id': cid})
         st = self.center.get('/api/provider/stats').json
         self.assertGreaterEqual(st['totals']['views'], 1); self.assertGreaterEqual(st['totals']['book_clicks'], 1)
