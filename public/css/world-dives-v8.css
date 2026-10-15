@@ -3767,3 +3767,23 @@ html.wd-app .pp-page{padding-bottom:150px}
 .st-icon[aria-checked="true"]{border-color:var(--sea);background:var(--sea-soft,#e6f4f9);color:var(--sea);font-weight:700}
 .st-icon-prev{margin-top:12px;max-width:360px}
 .st-icon-prev>small{display:block;color:var(--muted);margin-bottom:6px}
+
+/* v50.57 (4.4) · Códigos QR con dirección corta */
+.sl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px;margin-top:14px}
+.sl-card{display:flex;gap:16px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface,#fff)}
+.sl-qr{flex:0 0 128px;width:128px;height:128px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:4px}
+.sl-body{min-width:0;flex:1}
+.sl-body h3{margin:0 0 4px;font-size:16px}
+.sl-body p{margin:3px 0;font-size:13.5px}
+.sl-dest{color:var(--ink);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.sl-warn{color:#8a4b08;display:flex;gap:5px;align-items:flex-start}
+.sl-cap{color:var(--muted);font-style:italic}
+.sl-url code{font-size:13px;background:var(--sea-soft,#e6f4f9);padding:2px 6px;border-radius:6px;word-break:break-all}
+.sl-scans{color:var(--muted)}.sl-scans b{color:var(--ink);font-size:15px}
+.sl-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sl-results{display:flex;flex-direction:column;gap:4px;margin-top:6px;max-height:230px;overflow:auto}
+.sl-hit{text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;color:var(--ink)}
+.sl-hit:hover,.sl-hit:focus-visible{border-color:var(--sea)}
+.sl-hit small{color:var(--muted)}
+.sl-chosen{margin:8px 0 0;display:flex;align-items:center;gap:6px;color:var(--sea)}
+@media (max-width:640px){.sl-grid{grid-template-columns:1fr}.sl-card{flex-direction:column;align-items:flex-start}}

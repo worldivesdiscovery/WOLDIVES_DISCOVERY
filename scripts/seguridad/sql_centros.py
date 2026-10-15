@@ -28,7 +28,7 @@ TENANT_TABLES = ('provider_services', 'service_slots', 'bookings', 'boats', 'wai
                  'payment_orders', 'payment_refunds', 'center_tariffs', 'center_extras', 'center_equipment', 'center_integrations', 'center_members',
                  'center_links', 'data_shares', 'promotions', 'qr_codes', 'team_invites', 'experience_bookings', 'manifest_entries', 'slot_groups',
                  'slot_cancel_offers', 'reschedule_requests', 'waiver_signatures', 'notice_batches', 'notice_outbox', 'whatsapp_accounts',
-                 'provider_settings', 'slot_events', 'resource_blocks')
+                 'provider_settings', 'slot_events', 'resource_blocks', 'short_links')
 FILTERS = re.compile(r"provider_id|center_id\s*(=|IN\b|IS NULL)|provider_user_id\s*=|payee_id\s*=|owner_center_id\s*=|owner_user_id\s*=|user_id\s*=\s*\?"
                      r"|\{(w|ew|where|scope|own|sw|bw|svc_where|bk_where|cond|flt|tenant|pw|rw)[^}]*\}|guest_center_id\s*=|recipient_user_id\s*=", re.I)
 # pw and rw (v50.57): the centre or freelance of the session in the exports (bookings and resources), built from provider_ref

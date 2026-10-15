@@ -491,6 +491,78 @@ def run(out: Path | None):
             check('4.3 · arrastrar una plantilla la cambia de sitio y se guarda', ok and dragged[:2] == [now_[1], now_[0]], (now_[:3], dragged[:3]))
             shot(pg, 'b4-3-plantillas-orden')
             c.close()
+
+            # 4.4 · QR codes with destinations chosen from a list and a short, stable address
+            def phone_scan(url):
+                ph = browser.new_context(**DESK, user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1')
+                pp = ph.new_page(); pp.goto(url); pp.wait_for_load_state('networkidle'); final = pp.url; ph.close(); return final
+
+            def qr_items(pg, url):
+                return pg.evaluate("u => fetch(u).then(r => r.json()).then(d => d.items)", url)
+
+            c, pg = ctx(); login(pg, 'admin.prueba')
+            pg.goto(f'{srv.base}/#/admin?tab=qr'); pg.wait_for_selector('#wd-short-links .sl-module', timeout=15000)
+            pg.locator('#sl-new').click(); pg.wait_for_selector('#sl-form #slf-dest', timeout=8000)
+            opts = pg.eval_on_selector_all('#slf-dest option', 'os => os.map(o => [o.value, o.disabled])')
+            keys = [k for k, _ in opts if k]
+            check('4.4 · el destino se elige de la lista (registros, puntos, centros, experiencias, app, portada) y no hay campo de dirección',
+                  keys == ['portada', 'registro_centro', 'registro_buceador', 'registro_freelance', 'puntos', 'punto', 'centros', 'centro', 'experiencias', 'experiencia', 'app']
+                  and dict(opts)['app'] and pg.locator('#sl-form input[type=url]').count() == 0, opts)
+            pg.fill('#slf-name', 'Recepción feria Madrid'); pg.select_option('#slf-dest', 'registro_centro'); pg.fill('#slf-cap', 'Regístrate como centro')
+            pg.locator('#sl-form footer button[type=submit]').click()
+            ok = toast_has('QR guardado'); pg.wait_for_selector('.sl-card', timeout=8000)
+            item = next(x for x in qr_items(pg, '/api/admin/short-links') if x['name'] == 'Recepción feria Madrid')
+            check('4.4 · se crea con su nombre interno y su dirección corta /q/…', ok and pg.locator('.sl-card', has_text='Recepción feria Madrid').count() == 1
+                  and '/q/' in pg.inner_text('.sl-card') and item['scans'] == 0)
+            card = pg.locator('.sl-card', has_text='Recepción feria Madrid')
+            with pg.context.expect_page() as newp:
+                card.locator('.sl-try').click()
+            tp = newp.value; tp.wait_for_load_state('networkidle')
+            tried = tp.url; tp.close()
+            check('4.4 · «Probar enlace» abre el destino real (el registro de centros) y no cuenta como escaneo',
+                  tried.endswith('#/registro?tipo=center') and next(x for x in qr_items(pg, '/api/admin/short-links') if x['id'] == item['id'])['scans'] == 0, tried)
+            final = phone_scan(item['short_url'].replace(item['short_url'].split('/q/')[0], srv.base))
+            check('4.4 · escanearlo con un móvil lleva al mismo sitio y suma 1 escaneo', final.endswith('#/registro?tipo=center')
+                  and next(x for x in qr_items(pg, '/api/admin/short-links') if x['id'] == item['id'])['scans'] == 1, final)
+            files = pg.evaluate("""id => Promise.all(['png', 'svg', 'pdf'].map(f => fetch(`/api/short-links/${id}/qr.${f}?descargar=1`)
+                                     .then(r => r.arrayBuffer().then(b => [r.status, r.headers.get('content-type'), r.headers.get('content-disposition'), b.byteLength]))))""", item['id'])
+            check('4.4 · descargas en PNG (alta resolución), SVG y PDF listo para imprimir', all(s_ == 200 and 'attachment' in (cd or '') for s_, _t, cd, _n in files)
+                  and [t_.split(';')[0] for _s, t_, _c, _n in files] == ['image/png', 'image/svg+xml', 'application/pdf'] and files[2][3] > 5000, files)
+            if cv2:
+                raw = pg.evaluate("id => fetch(`/api/short-links/${id}/qr.png`).then(r => r.arrayBuffer()).then(b => Array.from(new Uint8Array(b)))", item['id'])
+                full = Image.open(io.BytesIO(bytes(raw))); img = full.convert('RGB').resize((600, 600))
+                text, _p, _ = cv2.QRCodeDetector().detectAndDecode(np.array(img))
+                check('4.4 · el PNG (de al menos 2048 px, para imprimir grande) se lee como lo lee un móvil y lleva la dirección corta',
+                      text == item['short_url'] and full.size[0] >= 2048, (text, full.size))
+            # a dive site chosen with the search
+            pg.locator('#sl-new').click(); pg.wait_for_selector('#sl-form #slf-dest', timeout=8000)
+            pg.fill('#slf-name', 'Cartel del Cabo'); pg.select_option('#slf-dest', 'punto')
+            name = pg.evaluate("fetch('/api/admin/short-links/search?tipo=punto&q=a').then(r => r.json()).then(d => d.items[0].name)")
+            pg.fill('#slf-q', name[:5]); pg.wait_for_selector('#slf-results .sl-hit', timeout=8000)
+            shot(pg, 'b4-4-qr-buscar-punto')
+            pg.locator('#slf-results .sl-hit').first.click()
+            chosen = pg.inner_text('#slf-chosen')
+            pg.locator('#sl-form footer button[type=submit]').click(); ok = toast_has('QR guardado'); pg.wait_for_timeout(800)
+            it2 = next(x for x in qr_items(pg, '/api/admin/short-links') if x['name'] == 'Cartel del Cabo')
+            final = phone_scan(srv.base + '/q/' + it2['code'])
+            check('4.4 · un punto concreto, elegido con el buscador', ok and it2['ref_name'] and it2['ref_name'] in chosen and f"#/punto?id={it2['ref_id']}" in final, (chosen, final))
+            pg.reload(); pg.wait_for_selector('.sl-card', timeout=15000)
+            shot(pg, 'b4-4-qr-administracion')
+            c.close()
+            # the centre: its own destinations, from its panel
+            c, pg = ctx(); login(pg, 'centro.prueba')
+            pg.goto(f'{srv.base}/#/admin?tab=qr&pt=print'); pg.wait_for_selector('#pr-pane .sl-module', timeout=15000)
+            pg.locator('#sl-new').click(); pg.wait_for_selector('#sl-form #slf-dest', timeout=8000)
+            keys = [k for k in pg.eval_on_selector_all('#slf-dest option', 'os => os.map(o => o.value)') if k]
+            pg.fill('#slf-name', 'Mostrador · bautizo'); pg.select_option('#slf-dest', 'c_servicio')
+            svc = pg.eval_on_selector('#slf-svc', 's => s.value')
+            pg.locator('#sl-form footer button[type=submit]').click(); ok = toast_has('QR guardado'); pg.wait_for_selector('.sl-card', timeout=8000)
+            it3 = next(x for x in qr_items(pg, '/api/center/short-links') if x['name'] == 'Mostrador · bautizo')
+            final = phone_scan(srv.base + '/q/' + it3['code'])
+            check('4.4 · el centro hace QR de su página de reservas, un servicio, dejar una reseña y su ficha (el del servicio abre su página de reservas en ese servicio)',
+                  keys == ['c_reservas', 'c_servicio', 'c_resena', 'c_ficha'] and ok and '/c/' in final and f'servicio={svc}' in final, (keys, final))
+            shot(pg, 'b4-4-qr-centro')
+            c.close()
             browser.close()
     finally:
         srv.stop(); shutil.rmtree(tmp, ignore_errors=True)

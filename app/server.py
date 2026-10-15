@@ -67,6 +67,7 @@ from wod import ical as wical
 from wod import seguros as wseg
 from wod import qr as wqr   # v50.57: the single QR generator of the whole web
 from wod import exportar as wexp   # v50.57: Excel and CSV exports
+from wod import enlaces as wenl   # v50.57 (4.4): short addresses of the QR codes
 from wod import logbook as wlog   # v50.57: the dive logbook of the account («Dive Logbook»)
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
@@ -1848,6 +1849,7 @@ def migrate_v50_57(db):
     book the first time it opens."""
     for stmt in LOGBOOK_SCHEMA: db.execute(stmt)
     for stmt in VISITS_SCHEMA: db.execute(stmt)
+    for stmt in SHORT_LINKS_SCHEMA: db.execute(stmt)   # 4.4: QR codes with a short address
     add_columns(db, 'service_catalog', [('icon', 'TEXT'), ('archived_at', 'TEXT')])   # 4.3: icon of the template; archived (in use)
     add_columns(db, 'users', [('buddy_code', 'TEXT'), ('signup_center_id', 'INTEGER')])
     add_columns(db, 'logbook_entries', [('slot', 'INTEGER')])
@@ -4767,6 +4769,170 @@ def season_setting(db):
         v = (r['value'] if r else '') or d
         return v if re.fullmatch(r'(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])', v) else d
     return get('temporada_inicio', '04-01'), get('temporada_fin', '10-31')
+
+
+# ------------------------------------------------------------------------- v50.57 (4.4) · QR codes with a short address
+SHORT_LINKS_SCHEMA = (
+    # A QR of the administration (center_id NULL) or of a centre: internal name, destination chosen from a list
+    # (wod/enlaces.py) and the item it needs, an optional text for the PDF and the number of scans (nothing else).
+    '''CREATE TABLE IF NOT EXISTS short_links(id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, center_id INTEGER,
+       name TEXT NOT NULL, dest TEXT NOT NULL, ref_id INTEGER, caption TEXT, scans INTEGER NOT NULL DEFAULT 0, last_scan_at TEXT,
+       created_by INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)''',
+    'CREATE INDEX IF NOT EXISTS idx_short_links_center ON short_links(center_id)',
+)
+# Every scan counts (after the jump the phone is on the page, so a reload does not count again); from one connection at
+# most 60 per QR every 10 minutes, so nobody inflates it (a fair: many phones behind the same Wi-Fi still count).
+QR_SCAN_LIMIT = wsec.SharedRateLimiter('qr-escaneos', 60, 600)
+SHORT_LINK_ITEMS = {'punto': 'un punto de buceo', 'centro': 'un centro', 'experiencia': 'una experiencia', 'servicio': 'un servicio'}
+
+
+def short_link_scope(center_id):
+    """WHERE of the QR of the administration (center_id None) or of one centre."""
+    return ('center_id IS NULL', ()) if center_id is None else ('center_id=?', (int(center_id),))
+
+
+def short_link_item(db, kind, ref, center_id=None):
+    """The name of the item a destination needs, if it still exists and is public (None otherwise)."""
+    if not ref: return None
+    if kind == 'punto':
+        r = db.execute('SELECT name FROM dive_points WHERE id=? AND active=1', (ref,)).fetchone()
+    elif kind == 'centro':
+        r = db.execute(f'SELECT c.name FROM centers c WHERE c.id=? AND {public_center_sql("c")}', (ref,)).fetchone()
+    elif kind == 'experiencia':
+        r = db.execute('SELECT title FROM travel_offers WHERE id=? AND active=1', (ref,)).fetchone()
+    elif kind == 'servicio':
+        r = db.execute('SELECT title FROM provider_services WHERE id=? AND center_id=? AND active=1', (ref, center_id)).fetchone()
+    else:
+        r = None
+    return r[0] if r else None
+
+
+def short_link_target(db, row):
+    """(path of this web, the destination is still there) of a QR: decided when it is scanned, so a QR already printed
+    follows the web if a route changes. Never another site (wenl.is_internal)."""
+    d, ref, cid = row['dest'], row['ref_id'], row['center_id']
+    if d in wenl.FIXED: return wenl.FIXED[d], True
+    if d in wenl.ITEM:
+        ok = short_link_item(db, d, ref) is not None
+        return (wenl.ITEM[d].format(id=int(ref)), True) if ok else (wenl.FALLBACK[d], False)
+    if d.startswith('c_') and cid:
+        if not db.execute(f'SELECT 1 FROM centers c WHERE c.id=? AND {public_center_sql("c")}', (cid,)).fetchone(): return '/#/', False
+        if d == 'c_ficha': return f'/#/centro?id={int(cid)}', True
+        if d == 'c_resena': return f'/#/centro?id={int(cid)}&resena=1', True
+        slug = sales_row(db, 'center', cid)['slug']   # the address of its page today (it may change in «Vender en tu web»)
+        if d == 'c_servicio':
+            ok = short_link_item(db, 'servicio', ref, cid) is not None
+            return (f'/c/{slug}?servicio={int(ref)}', True) if ok else (f'/c/{slug}', False)
+        return f'/c/{slug}', True
+    return '/#/', False
+
+
+def short_links_list(db, center_id=None):
+    where, args = short_link_scope(center_id)
+    base, labels = public_site_url(), {k: label for k, label, _ in wenl.dests(center_id is not None)}
+    out = []
+    for r in db.execute(f'SELECT * FROM short_links WHERE {where} ORDER BY id DESC', args).fetchall():
+        target, ok = short_link_target(db, r)
+        need = (wenl.spec(r['dest'], center_id is not None) or ('', None))[1]
+        out.append({'id': r['id'], 'code': r['code'], 'name': r['name'], 'dest': r['dest'], 'dest_label': labels.get(r['dest'], r['dest']),
+                    'ref_id': r['ref_id'], 'ref_name': short_link_item(db, need, r['ref_id'], center_id) if need else None, 'caption': r['caption'] or '',
+                    'scans': r['scans'], 'last_scan_at': r['last_scan_at'], 'short_url': f"{base}/q/{r['code']}", 'target': base + target,
+                    'broken': not ok, 'created_at': r['created_at']})
+    return out
+
+
+def short_link_dests(for_center):
+    return [{'key': k, 'label': label, 'needs': need, 'not_yet': wenl.NOT_YET.get(k)} for k, label, need in wenl.dests(for_center)]
+
+
+def save_short_link(db, user, data, center_id=None):
+    """Create or change a QR. The destination is one of the list (never an address typed by hand)."""
+    sid = int(data.get('id') or 0)
+    name = clean_text(data.get('name'), 80)
+    if not name: raise ValueError('Ponle un nombre interno al QR (por ejemplo «Recepción feria Madrid»).')
+    dest = str(data.get('dest') or '')
+    sp = wenl.spec(dest, center_id is not None)
+    if not sp: raise ValueError('Elige el destino de la lista.')
+    if dest in wenl.NOT_YET: raise ValueError(wenl.NOT_YET[dest])
+    ref = None
+    if sp[1]:
+        try: ref = int(data.get('ref_id') or 0)
+        except (TypeError, ValueError): ref = 0
+        if not ref or short_link_item(db, sp[1], ref, center_id) is None: raise ValueError(f'Busca y elige {SHORT_LINK_ITEMS[sp[1]]}.')
+    caption = clean_text(data.get('caption'), 80) or None
+    where, args = short_link_scope(center_id)
+    if sid:
+        if not db.execute(f'SELECT 1 FROM short_links WHERE id=? AND {where}', (sid, *args)).fetchone(): raise NotFound('QR no encontrado.')
+        db.execute(f'UPDATE short_links SET name=?,dest=?,ref_id=?,caption=?,updated_at=? WHERE id=? AND {where}', (name, dest, ref, caption, now(), sid, *args))
+        audit(db, user['id'], 'short_link_saved', 'short_link', sid, {'destino': dest, 'centro': center_id})
+        return sid
+    code = wenl.new_code(lambda c: db.execute('SELECT 1 FROM short_links WHERE code=?', (c,)).fetchone())
+    sid = db.execute('INSERT INTO short_links(code,center_id,name,dest,ref_id,caption,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',
+                     (code, center_id, name, dest, ref, caption, user['id'], now(), now())).lastrowid
+    audit(db, user['id'], 'short_link_created', 'short_link', sid, {'destino': dest, 'centro': center_id})
+    return sid
+
+
+def delete_short_link(db, user, sid, center_id=None):
+    where, args = short_link_scope(center_id)
+    if not db.execute(f'DELETE FROM short_links WHERE id=? AND {where}', (sid, *args)).rowcount: raise NotFound('QR no encontrado.')
+    audit(db, user['id'], 'short_link_deleted', 'short_link', sid, {'centro': center_id})
+
+
+def short_link_search(db, kind, q):
+    """The items of a destination, found by name (the administration chooses one; nothing is typed by hand)."""
+    like = '%' + (q or '').strip().replace('%', '').replace('_', '')[:60] + '%'
+    if kind == 'punto':
+        rows = db.execute("SELECT id, name, region AS a, country AS b FROM dive_points WHERE active=1 AND name LIKE ? ORDER BY name LIMIT 20", (like,))
+    elif kind == 'centro':
+        rows = db.execute(f"SELECT c.id, c.name, c.city AS a, c.country AS b FROM centers c WHERE {public_center_sql('c')} AND c.name LIKE ? ORDER BY c.name LIMIT 20", (like,))
+    elif kind == 'experiencia':
+        rows = db.execute("SELECT id, title AS name, region AS a, kind AS b FROM travel_offers WHERE active=1 AND (title LIKE ? OR region LIKE ?) ORDER BY title LIMIT 20", (like, like))
+    else:
+        raise ValueError('Búsqueda no válida.')
+    return [{'id': r['id'], 'name': r['name'], 'sub': ' · '.join(x for x in ((r['a'] or '').strip(), (r['b'] or '').strip()) if x)} for r in rows.fetchall()]
+
+
+def short_link_for(db, user, sid):
+    """The QR a person may download: those of the administration (administration) or of their centre (its team)."""
+    if user['role'] == 'admin': where, args = short_link_scope(None)
+    elif user['role'] == 'center' and user.get('center_id'): where, args = short_link_scope(user['center_id'])
+    else: raise PermissionError('No puedes descargar este QR.')
+    row = db.execute(f'SELECT * FROM short_links WHERE id=? AND {where}', (sid, *args)).fetchone()
+    if not row: raise NotFound('QR no encontrado.')
+    return row
+
+
+def short_link_pdf(db, row, url, lang='es'):
+    """A4 ready to print: the logo, the optional text («Regístrate como centro»), the QR and its short address."""
+    lang = lang if lang in MAIL_LANGS else 'es'
+    t = lambda s_, **kw: mail_t(lang, s_, **kw)
+    DEEP, SEA, MUTED, INK, WHITE = BRAND_PDF['abismo'], BRAND_PDF['oceano'], (0.38, 0.43, 0.46), (0.07, 0.13, 0.16), (1, 1, 1)
+    owner = db.execute('SELECT name FROM centers WHERE id=?', (row['center_id'],)).fetchone() if row['center_id'] else None
+    pg = wpdf.Document(row['name'], lang); W = 595
+    pg.rect(0, 762, W, 80, DEEP); pg.rect(0, 758, W, 4, BRAND_PDF['turquesa'])
+    pdf_brand_icon(pg, 40, 774, 52)
+    pg.text(104, 803, 'WORLDIVES DISCOVERY', 17, WHITE, True)
+    pg.text(104, 784, pg.fit(owner[0] if owner else (urlparse(url).hostname or ''), 11, 440), 11, BRAND_PDF['agua'], True)
+    top = 712
+    if row['caption']:
+        for i, line in enumerate(pg.wrap(row['caption'], 26, 500, True, 2)):
+            pg.text(W / 2, top - i * 32, line, 26, INK, True, align='center')
+        top -= 32 * (len(pg.wrap(row['caption'], 26, 500, True, 2)) - 1) + 30
+    size = 340
+    pg.c += _qr_cmds(url, (W - size) / 2, top - size - 14, size)
+    y = top - size - 46
+    pg.text(W / 2, y, url.split('://', 1)[-1], 15, SEA, True, align='center')
+    pg.text(W / 2, y - 22, t('Escanéalo con la cámara del móvil.'), 11, MUTED, align='center')
+    return pg.pdf()
+
+
+def short_link_file(db, row, fmt, lang='es'):
+    """(bytes, type) of a QR: SVG (any size), PNG of at least 2048 px or the PDF to print."""
+    url = f"{public_site_url()}/q/{row['code']}"
+    if fmt == 'svg': return wqr.svg(url), 'image/svg+xml'
+    if fmt == 'png': return wqr.png(url, wenl.png_scale(len(wqr.matrix(url)) + 2 * wqr.QUIET)), 'image/png'
+    return short_link_pdf(db, row, url, lang), 'application/pdf'
 
 
 # ------------------------------------------------------------------------------- v50.57 (4.2) · visits and bookings
@@ -15040,6 +15206,20 @@ class Handler(BaseHTTPRequestHandler):
                 # v50.57 · logbook: the QR of a centre's dive and the QR of a buddy open the web (it asks to sign in when needed)
                 if re.fullmatch(r'/scan/d/[A-Za-z0-9_-]{16,64}',path): self.redirect('/#/scan/d/'+path[8:]); return
                 if re.fullmatch(r'/buddy/[A-Za-z0-9_-]{12,32}',path): self.redirect('/#/buddy/'+path[7:]); return
+                m_q=re.fullmatch(r'/q/([A-Za-z0-9]{1,12})',path)
+                if m_q:
+                    # v50.57 (4.4): a QR with a short address. Where it goes is decided now (a page of this web); the scan is
+                    # only counted (not robots, link previews nor «Probar enlace»; see QR_SCAN_LIMIT).
+                    code=wenl.clean_code(m_q.group(1)); row=db.execute('SELECT * FROM short_links WHERE code=?',(code,)).fetchone() if code else None
+                    if not row: self.redirect('/#/'); return   # a QR that no longer exists: the home page
+                    target,_ok=short_link_target(db,row)
+                    if not wenl.is_internal(target): target='/#/'
+                    ua=self.headers.get('User-Agent') or ''
+                    if not query.get('prueba') and ua and not BOT_UA.search(ua) and not QR_SCAN_LIMIT.hit(f"{code}:{wsec.ip_group(self.client_ip())}"):
+                        db.execute('UPDATE short_links SET scans=scans+1,last_scan_at=? WHERE id=?',(now(),row['id']))
+                    db.commit()
+                    self.send_response(302); self.send_header('Location',target); self.send_header('Cache-Control','no-store'); self.send_header('X-Robots-Tag','noindex')
+                    self.security_headers(); self.end_headers(); return
                 if path=='/registro':   # the invitation link of a centre (its panel, «Logbook»): /registro?centro=<slug>
                     slug=str(query.get('centro',[''])[0] or '')
                     self.redirect('/#/registro'+(f'?tipo=recreational&centro={slug}' if wch.SLUG_RE.fullmatch(slug) else '')); return
@@ -15149,6 +15329,28 @@ class Handler(BaseHTTPRequestHandler):
                     rows=[dict(r) for r in db.execute(f'SELECT id,name,email,phone,message,wanted_date,participants,lang,status,created_at,read_at FROM info_requests WHERE {col}=? ORDER BY id DESC LIMIT 300',(ref[1],)).fetchall()]
                     log_phone_access(db,user,'info_requests',count_phones(rows))
                     self.send_json({'items':rows,'unread':sum(1 for r in rows if not r['read_at'])}); return
+                if path == '/api/admin/short-links':
+                    # v50.57 (4.4): the QR codes of the administration, with their destination, scans and short address
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    items=short_links_list(db,None); db.commit(); self.send_json({'items':items,'dests':short_link_dests(False)}); return
+                if path == '/api/admin/short-links/search':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    self.send_json({'items':short_link_search(db,query.get('tipo',[''])[0],query.get('q',[''])[0])}); return
+                if path == '/api/center/short-links':
+                    # v50.57 (4.4): the QR codes of a centre (its pages: reservations, a service, a review, its ficha)
+                    user=require_user(self,db); require_role(user,{'center'})
+                    if not user['center_id']: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    items=short_links_list(db,user['center_id']); db.commit()
+                    svcs=[{'id':r['id'],'title':r['title']} for r in db.execute('SELECT id,title FROM provider_services WHERE center_id=? AND active=1 ORDER BY title',(user['center_id'],)).fetchall()]
+                    self.send_json({'items':items,'dests':short_link_dests(True),'services':svcs}); return
+                m_ql=re.fullmatch(r'/api/short-links/(\d+)/qr\.(svg|png|pdf)',path)
+                if m_ql:
+                    user=require_user(self,db); row=short_link_for(db,user,int(m_ql.group(1)))
+                    raw,ctype=short_link_file(db,row,m_ql.group(2),normalize_lang(query.get('lang',['es'])[0])); db.commit()
+                    name=re.sub(r'[^a-z0-9]+','-',fold_text(row['name']))[:40].strip('-') or 'qr'
+                    self.send_response(200); self.send_header('Content-Type',ctype); self.send_header('Content-Length',str(len(raw)))
+                    self.send_header('Content-Disposition',(f'attachment; filename="qr-{name}-{row["code"]}.{m_ql.group(2)}"' if query.get('descargar') else 'inline'))
+                    self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
                 if path == '/api/admin/contador':
                     # v50.57 (4.2): visits of the web and bookings of every centre and professional, in figures
                     user=require_user(self,db); require_role(user,{'admin'})
@@ -19013,6 +19215,16 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/admin/service-catalog/save':
                     user=require_user(self,db); require_role(user,{'admin'}); tid=save_catalog_template(db,user,json_body(self))
                     db.commit(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True,'id':tid}); return
+                if path in ('/api/admin/short-links/save','/api/center/short-links/save','/api/admin/short-links/delete','/api/center/short-links/delete'):
+                    # v50.57 (4.4): the QR codes of the administration and of each centre (its team, with «Mi centro»)
+                    user=require_user(self,db); data=json_body(self)
+                    if path.startswith('/api/admin/'): require_role(user,{'admin'}); cid_=None
+                    else:
+                        require_role(user,{'center'}); cid_=user['center_id']
+                        if not cid_: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    if path.endswith('/save'):
+                        sid=save_short_link(db,user,data,cid_); db.commit(); self.send_json({'ok':True,'id':sid}); return
+                    delete_short_link(db,user,int(data.get('id') or 0),cid_); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/admin/service-catalog/delete':
                     # v50.57 (4.3): deleted when nobody uses it; archived (and said how many centres use it) otherwise
                     user=require_user(self,db); require_role(user,{'admin'}); r=delete_catalog_template(db,user,int(json_body(self).get('id') or 0))

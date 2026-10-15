@@ -147,7 +147,7 @@ REGLAS_POST = (
             '/api/logbook', '/api/buddies', '/api/visita')),   # v50.57: each person's own logbook and buddies; pages seen (4.2)
     # v50.57: the dives of the centre and their QR for the divers' logbooks (whoever runs the dive), the passport's logo
     ('checkin', _P('/api/center/logbook/dive')),
-    ('centro', _P('/api/center/logbook/settings', '/api/center/logbook/logo')),
+    ('centro', _P('/api/center/logbook/settings', '/api/center/logbook/logo', '/api/center/short-links/')),   # v50.57 (4.4): its QR codes
     ('checkin', _P('/api/manifest/sync', '/api/pro/escanear', '/api/pro/contar', re.compile(r'/api/bookings/\d+/waiver/sign'))),
     ('avisos', _P('/api/provider-services/slot-cancel', '/api/avisos/', '/api/whatsapp/')),
     ('barco', _P('/api/manifest/')),

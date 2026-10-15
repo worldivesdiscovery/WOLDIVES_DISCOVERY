@@ -1,0 +1,605 @@
+{
+ "exact": {
+  "Códigos QR": {
+   "en": "QR codes",
+   "fr": "Codes QR",
+   "de": "QR-Codes",
+   "it": "Codici QR",
+   "pt": "Códigos QR",
+   "pl": "Kody QR",
+   "nl": "QR-codes",
+   "zh": "二维码"
+  },
+  "QR para imprimir": {
+   "en": "QR codes to print",
+   "fr": "QR à imprimer",
+   "de": "QR-Codes zum Drucken",
+   "it": "QR da stampare",
+   "pt": "QR para imprimir",
+   "pl": "Kody QR do druku",
+   "nl": "QR-codes om te printen",
+   "zh": "可打印的二维码"
+  },
+  "Códigos QR de WORLDIVES": {
+   "en": "WORLDIVES QR codes",
+   "fr": "Codes QR de WORLDIVES",
+   "de": "QR-Codes von WORLDIVES",
+   "it": "Codici QR di WORLDIVES",
+   "pt": "Códigos QR da WORLDIVES",
+   "pl": "Kody QR WORLDIVES",
+   "nl": "QR-codes van WORLDIVES",
+   "zh": "WORLDIVES 二维码"
+  },
+  "Los QR de tu centro": {
+   "en": "Your centre's QR codes",
+   "fr": "Les QR de votre centre",
+   "de": "Die QR-Codes deiner Basis",
+   "it": "I QR del tuo centro",
+   "pt": "Os QR do seu centro",
+   "pl": "Kody QR Twojego centrum",
+   "nl": "De QR-codes van je centrum",
+   "zh": "你的潜水中心的二维码"
+  },
+  "Elige a dónde lleva cada QR de la lista. Su dirección corta no cambia aunque cambie la web: los QR ya impresos siguen funcionando. Solo se cuenta cuántas veces se escanea, sin datos de nadie.": {
+   "en": "Choose where each QR code leads from the list. Its short address does not change even if the website does: QR codes already printed keep working. Only the number of scans is counted, with no one’s data.",
+   "fr": "Choisissez dans la liste où mène chaque QR. Son adresse courte ne change pas, même si le site change : les QR déjà imprimés continuent de fonctionner. Seul le nombre de scans est compté, sans données de personne.",
+   "de": "Wähle aus der Liste, wohin jeder QR-Code führt. Seine Kurzadresse ändert sich nicht, auch wenn sich die Website ändert: Bereits gedruckte QR-Codes funktionieren weiter. Gezählt wird nur, wie oft er gescannt wird, ohne Daten von irgendwem.",
+   "it": "Scegli dall'elenco dove porta ogni QR. Il suo indirizzo breve non cambia anche se cambia il sito: i QR già stampati continuano a funzionare. Si conta solo quante volte viene scansionato, senza dati di nessuno.",
+   "pt": "Escolha na lista para onde leva cada QR. O seu endereço curto não muda mesmo que a web mude: os QR já impressos continuam a funcionar. Só se conta quantas vezes é lido, sem dados de ninguém.",
+   "pl": "Wybierz z listy, dokąd prowadzi każdy kod QR. Jego krótki adres się nie zmienia, nawet jeśli zmieni się strona: wydrukowane kody QR nadal działają. Liczy się tylko liczba skanów, bez niczyich danych.",
+   "nl": "Kies uit de lijst waar elke QR-code naartoe leidt. Het korte adres verandert niet, ook niet als de website verandert: al geprinte QR-codes blijven werken. Alleen het aantal scans wordt geteld, zonder gegevens van wie dan ook.",
+   "zh": "从列表中选择每个二维码的去向。即使网站改版，它的短地址也不会变：已经印好的二维码仍然可用。只统计扫描次数，不收集任何人的数据。"
+  },
+  "+ Nuevo QR": {
+   "en": "+ New QR code",
+   "fr": "+ Nouveau QR",
+   "de": "+ Neuer QR-Code",
+   "it": "+ Nuovo QR",
+   "pt": "+ Novo QR",
+   "pl": "+ Nowy kod QR",
+   "nl": "+ Nieuwe QR-code",
+   "zh": "+ 新建二维码"
+  },
+  "Aún no hay ningún QR. Crea el primero: elige a dónde lleva y descárgalo en PNG, SVG o PDF.": {
+   "en": "No QR codes yet. Create the first one: choose where it leads and download it as PNG, SVG or PDF.",
+   "fr": "Aucun QR pour l'instant. Créez le premier : choisissez où il mène et téléchargez-le en PNG, SVG ou PDF.",
+   "de": "Noch keine QR-Codes. Erstelle den ersten: Wähle das Ziel und lade ihn als PNG, SVG oder PDF herunter.",
+   "it": "Non ci sono ancora QR. Crea il primo: scegli dove porta e scaricalo in PNG, SVG o PDF.",
+   "pt": "Ainda não há nenhum QR. Crie o primeiro: escolha para onde leva e descarregue-o em PNG, SVG ou PDF.",
+   "pl": "Nie ma jeszcze kodów QR. Utwórz pierwszy: wybierz, dokąd prowadzi, i pobierz go jako PNG, SVG lub PDF.",
+   "nl": "Nog geen QR-codes. Maak de eerste: kies waar hij naartoe leidt en download hem als PNG, SVG of PDF.",
+   "zh": "还没有二维码。创建第一个：选择去向，然后下载 PNG、SVG 或 PDF。"
+  },
+  "El destino ya no existe: lleva a su lista. Edítalo para elegir otro.": {
+   "en": "The destination no longer exists: it leads to its list. Edit it to choose another one.",
+   "fr": "La destination n'existe plus : il mène à sa liste. Modifiez-le pour en choisir une autre.",
+   "de": "Das Ziel existiert nicht mehr: Er führt zur Liste. Bearbeite ihn, um ein anderes zu wählen.",
+   "it": "La destinazione non esiste più: porta al suo elenco. Modificalo per sceglierne un'altra.",
+   "pt": "O destino já não existe: leva à sua lista. Edite-o para escolher outro.",
+   "pl": "Cel już nie istnieje: kod prowadzi do listy. Edytuj go, aby wybrać inny.",
+   "nl": "De bestemming bestaat niet meer: hij leidt naar de lijst. Bewerk hem om een andere te kiezen.",
+   "zh": "目标已不存在：现在会打开所在列表。请编辑以选择其他目标。"
+  },
+  "escaneo": {
+   "en": "scan",
+   "fr": "scan",
+   "de": "Scan",
+   "it": "scansione",
+   "pt": "leitura",
+   "pl": "skan",
+   "nl": "scan",
+   "zh": "次扫描"
+  },
+  "escaneos": {
+   "en": "scans",
+   "fr": "scans",
+   "de": "Scans",
+   "it": "scansioni",
+   "pt": "leituras",
+   "pl": "skanów",
+   "nl": "scans",
+   "zh": "次扫描"
+  },
+  "último:": {
+   "en": "last:",
+   "fr": "dernier :",
+   "de": "zuletzt:",
+   "it": "ultima:",
+   "pt": "última:",
+   "pl": "ostatni:",
+   "nl": "laatste:",
+   "zh": "最近："
+  },
+  "Probar enlace": {
+   "en": "Test link",
+   "fr": "Tester le lien",
+   "de": "Link testen",
+   "it": "Prova il link",
+   "pt": "Testar ligação",
+   "pl": "Przetestuj link",
+   "nl": "Link testen",
+   "zh": "测试链接"
+  },
+  "Si ya está impreso, al escanearlo llevará a la portada de WORLDIVES. No se puede deshacer.": {
+   "en": "If it is already printed, scanning it will lead to the WORLDIVES home page. This cannot be undone.",
+   "fr": "S'il est déjà imprimé, le scanner mènera à la page d'accueil de WORLDIVES. C'est irréversible.",
+   "de": "Wenn er schon gedruckt ist, führt das Scannen zur Startseite von WORLDIVES. Das lässt sich nicht rückgängig machen.",
+   "it": "Se è già stampato, scansionandolo si andrà alla home di WORLDIVES. Non si può annullare.",
+   "pt": "Se já estiver impresso, ao lê-lo irá para a página inicial da WORLDIVES. Não é possível anular.",
+   "pl": "Jeśli jest już wydrukowany, po zeskanowaniu przeniesie na stronę główną WORLDIVES. Nie da się tego cofnąć.",
+   "nl": "Is hij al geprint, dan leidt scannen naar de startpagina van WORLDIVES. Dit kan niet ongedaan worden gemaakt.",
+   "zh": "如果已经印好，扫描后会打开 WORLDIVES 首页。此操作无法撤销。"
+  },
+  "QR borrado.": {
+   "en": "QR code deleted.",
+   "fr": "QR supprimé.",
+   "de": "QR-Code gelöscht.",
+   "it": "QR eliminato.",
+   "pt": "QR apagado.",
+   "pl": "Kod QR usunięty.",
+   "nl": "QR-code verwijderd.",
+   "zh": "二维码已删除。"
+  },
+  "QR guardado.": {
+   "en": "QR code saved.",
+   "fr": "QR enregistré.",
+   "de": "QR-Code gespeichert.",
+   "it": "QR salvato.",
+   "pt": "QR guardado.",
+   "pl": "Kod QR zapisany.",
+   "nl": "QR-code opgeslagen.",
+   "zh": "二维码已保存。"
+  },
+  "Dirección copiada.": {
+   "en": "Address copied.",
+   "fr": "Adresse copiée.",
+   "de": "Adresse kopiert.",
+   "it": "Indirizzo copiato.",
+   "pt": "Endereço copiado.",
+   "pl": "Adres skopiowany.",
+   "nl": "Adres gekopieerd.",
+   "zh": "地址已复制。"
+  },
+  "Editar QR": {
+   "en": "Edit QR code",
+   "fr": "Modifier le QR",
+   "de": "QR-Code bearbeiten",
+   "it": "Modifica QR",
+   "pt": "Editar QR",
+   "pl": "Edytuj kod QR",
+   "nl": "QR-code bewerken",
+   "zh": "编辑二维码"
+  },
+  "Nuevo QR": {
+   "en": "New QR code",
+   "fr": "Nouveau QR",
+   "de": "Neuer QR-Code",
+   "it": "Nuovo QR",
+   "pt": "Novo QR",
+   "pl": "Nowy kod QR",
+   "nl": "Nieuwe QR-code",
+   "zh": "新建二维码"
+  },
+  "El destino se elige de la lista: no se puede escribir una dirección.": {
+   "en": "The destination is chosen from the list: an address cannot be typed.",
+   "fr": "La destination se choisit dans la liste : on ne peut pas saisir d'adresse.",
+   "de": "Das Ziel wird aus der Liste gewählt: Eine Adresse kann nicht eingegeben werden.",
+   "it": "La destinazione si sceglie dall'elenco: non si può scrivere un indirizzo.",
+   "pt": "O destino escolhe-se da lista: não é possível escrever um endereço.",
+   "pl": "Cel wybiera się z listy: nie można wpisać adresu.",
+   "nl": "De bestemming kies je uit de lijst: een adres typen kan niet.",
+   "zh": "目标只能从列表中选择，不能手动输入地址。"
+  },
+  "Nombre interno": {
+   "en": "Internal name",
+   "fr": "Nom interne",
+   "de": "Interner Name",
+   "it": "Nome interno",
+   "pt": "Nome interno",
+   "pl": "Nazwa wewnętrzna",
+   "nl": "Interne naam",
+   "zh": "内部名称"
+  },
+  "Por ejemplo: Recepción feria Madrid": {
+   "en": "For example: Madrid fair reception",
+   "fr": "Par exemple : Accueil salon Madrid",
+   "de": "Zum Beispiel: Empfang Messe Madrid",
+   "it": "Per esempio: Reception fiera Madrid",
+   "pt": "Por exemplo: Receção feira Madrid",
+   "pl": "Na przykład: Recepcja targi Madryt",
+   "nl": "Bijvoorbeeld: Receptie beurs Madrid",
+   "zh": "例如：马德里展会前台"
+  },
+  "Solo lo ves tú; no sale en el QR.": {
+   "en": "Only you see it; it does not appear on the QR code.",
+   "fr": "Vous seul le voyez ; il n'apparaît pas sur le QR.",
+   "de": "Nur du siehst ihn; er erscheint nicht im QR-Code.",
+   "it": "Lo vedi solo tu; non compare nel QR.",
+   "pt": "Só você o vê; não aparece no QR.",
+   "pl": "Widzisz ją tylko Ty; nie pojawia się w kodzie QR.",
+   "nl": "Alleen jij ziet hem; hij staat niet in de QR-code.",
+   "zh": "只有你能看到，不会出现在二维码上。"
+  },
+  "A dónde lleva": {
+   "en": "Where it leads",
+   "fr": "Où il mène",
+   "de": "Wohin er führt",
+   "it": "Dove porta",
+   "pt": "Para onde leva",
+   "pl": "Dokąd prowadzi",
+   "nl": "Waar hij naartoe leidt",
+   "zh": "去向"
+  },
+  "Elige un destino": {
+   "en": "Choose a destination",
+   "fr": "Choisissez une destination",
+   "de": "Wähle ein Ziel",
+   "it": "Scegli una destinazione",
+   "pt": "Escolha um destino",
+   "pl": "Wybierz cel",
+   "nl": "Kies een bestemming",
+   "zh": "选择目标"
+  },
+  "(cuando exista)": {
+   "en": "(when available)",
+   "fr": "(quand elle existera)",
+   "de": "(sobald es sie gibt)",
+   "it": "(quando esisterà)",
+   "pt": "(quando existir)",
+   "pl": "(gdy będzie dostępna)",
+   "nl": "(zodra die er is)",
+   "zh": "（上线后可用）"
+  },
+  "Texto del PDF (opcional)": {
+   "en": "PDF text (optional)",
+   "fr": "Texte du PDF (facultatif)",
+   "de": "Text im PDF (optional)",
+   "it": "Testo del PDF (facoltativo)",
+   "pt": "Texto do PDF (opcional)",
+   "pl": "Tekst w PDF (opcjonalnie)",
+   "nl": "Tekst in de pdf (optioneel)",
+   "zh": "PDF 文字（可选）"
+  },
+  "Por ejemplo: Regístrate como centro": {
+   "en": "For example: Sign up as a centre",
+   "fr": "Par exemple : Inscrivez-vous comme centre",
+   "de": "Zum Beispiel: Registriere dich als Basis",
+   "it": "Per esempio: Registrati come centro",
+   "pt": "Por exemplo: Registe-se como centro",
+   "pl": "Na przykład: Zarejestruj się jako centrum",
+   "nl": "Bijvoorbeeld: Meld je aan als centrum",
+   "zh": "例如：注册成为潜水中心"
+  },
+  "Sale encima del QR en el PDF para imprimir.": {
+   "en": "It appears above the QR code in the printable PDF.",
+   "fr": "Il apparaît au-dessus du QR dans le PDF à imprimer.",
+   "de": "Er steht über dem QR-Code im druckbaren PDF.",
+   "it": "Compare sopra il QR nel PDF da stampare.",
+   "pt": "Aparece por cima do QR no PDF para imprimir.",
+   "pl": "Pojawia się nad kodem QR w PDF do druku.",
+   "nl": "Hij staat boven de QR-code in de printbare pdf.",
+   "zh": "显示在可打印 PDF 中二维码的上方。"
+  },
+  "Guardar QR": {
+   "en": "Save QR code",
+   "fr": "Enregistrer le QR",
+   "de": "QR-Code speichern",
+   "it": "Salva QR",
+   "pt": "Guardar QR",
+   "pl": "Zapisz kod QR",
+   "nl": "QR-code opslaan",
+   "zh": "保存二维码"
+  },
+  "Busca el punto de buceo": {
+   "en": "Search for the dive site",
+   "fr": "Cherchez le site de plongée",
+   "de": "Suche den Tauchplatz",
+   "it": "Cerca il punto d'immersione",
+   "pt": "Procure o ponto de mergulho",
+   "pl": "Wyszukaj miejsce nurkowe",
+   "nl": "Zoek de duikplek",
+   "zh": "搜索潜点"
+  },
+  "Busca el centro": {
+   "en": "Search for the centre",
+   "fr": "Cherchez le centre",
+   "de": "Suche die Basis",
+   "it": "Cerca il centro",
+   "pt": "Procure o centro",
+   "pl": "Wyszukaj centrum",
+   "nl": "Zoek het centrum",
+   "zh": "搜索潜水中心"
+  },
+  "Busca la experiencia": {
+   "en": "Search for the experience",
+   "fr": "Cherchez l'expérience",
+   "de": "Suche das Erlebnis",
+   "it": "Cerca l'esperienza",
+   "pt": "Procure a experiência",
+   "pl": "Wyszukaj doświadczenie",
+   "nl": "Zoek de ervaring",
+   "zh": "搜索体验"
+  },
+  "Elige el servicio": {
+   "en": "Choose the service",
+   "fr": "Choisissez le service",
+   "de": "Wähle die Leistung",
+   "it": "Scegli il servizio",
+   "pt": "Escolha o serviço",
+   "pl": "Wybierz usługę",
+   "nl": "Kies de dienst",
+   "zh": "选择服务"
+  },
+  "Escribe parte del nombre": {
+   "en": "Type part of the name",
+   "fr": "Tapez une partie du nom",
+   "de": "Tippe einen Teil des Namens",
+   "it": "Scrivi parte del nome",
+   "pt": "Escreva parte do nome",
+   "pl": "Wpisz część nazwy",
+   "nl": "Typ een deel van de naam",
+   "zh": "输入部分名称"
+  },
+  "Nada con ese nombre.": {
+   "en": "Nothing with that name.",
+   "fr": "Rien avec ce nom.",
+   "de": "Nichts mit diesem Namen.",
+   "it": "Niente con quel nome.",
+   "pt": "Nada com esse nome.",
+   "pl": "Nic o tej nazwie.",
+   "nl": "Niets met die naam.",
+   "zh": "没有找到该名称。"
+  },
+  "(ya no existe)": {
+   "en": "(no longer exists)",
+   "fr": "(n'existe plus)",
+   "de": "(existiert nicht mehr)",
+   "it": "(non esiste più)",
+   "pt": "(já não existe)",
+   "pl": "(już nie istnieje)",
+   "nl": "(bestaat niet meer)",
+   "zh": "（已不存在）"
+  },
+  "Portada": {
+   "en": "Home page",
+   "fr": "Page d'accueil",
+   "de": "Startseite",
+   "it": "Home page",
+   "pt": "Página inicial",
+   "pl": "Strona główna",
+   "nl": "Startpagina",
+   "zh": "首页"
+  },
+  "Registro de centros de buceo": {
+   "en": "Dive centre sign-up",
+   "fr": "Inscription des centres de plongée",
+   "de": "Registrierung für Tauchbasen",
+   "it": "Registrazione dei diving",
+   "pt": "Registo de centros de mergulho",
+   "pl": "Rejestracja centrów nurkowych",
+   "nl": "Aanmelding voor duikcentra",
+   "zh": "潜水中心注册"
+  },
+  "Registro de buceadores": {
+   "en": "Diver sign-up",
+   "fr": "Inscription des plongeurs",
+   "de": "Registrierung für Taucher",
+   "it": "Registrazione dei subacquei",
+   "pt": "Registo de mergulhadores",
+   "pl": "Rejestracja nurków",
+   "nl": "Aanmelding voor duikers",
+   "zh": "潜水员注册"
+  },
+  "Registro de freelance": {
+   "en": "Freelance sign-up",
+   "fr": "Inscription des freelances",
+   "de": "Registrierung für Freelancer",
+   "it": "Registrazione dei freelance",
+   "pt": "Registo de freelancers",
+   "pl": "Rejestracja freelancerów",
+   "nl": "Aanmelding voor freelancers",
+   "zh": "自由职业者注册"
+  },
+  "Explorar puntos de buceo": {
+   "en": "Explore dive sites",
+   "fr": "Explorer les sites de plongée",
+   "de": "Tauchplätze entdecken",
+   "it": "Esplora i punti d'immersione",
+   "pt": "Explorar pontos de mergulho",
+   "pl": "Przeglądaj miejsca nurkowe",
+   "nl": "Duikplekken verkennen",
+   "zh": "浏览潜点"
+  },
+  "Un punto de buceo": {
+   "en": "A dive site",
+   "fr": "Un site de plongée",
+   "de": "Ein Tauchplatz",
+   "it": "Un punto d'immersione",
+   "pt": "Um ponto de mergulho",
+   "pl": "Miejsce nurkowe",
+   "nl": "Een duikplek",
+   "zh": "某个潜点"
+  },
+  "Listado de centros": {
+   "en": "List of centres",
+   "fr": "Liste des centres",
+   "de": "Liste der Basen",
+   "it": "Elenco dei centri",
+   "pt": "Lista de centros",
+   "pl": "Lista centrów",
+   "nl": "Lijst met centra",
+   "zh": "潜水中心列表"
+  },
+  "Un centro": {
+   "en": "A centre",
+   "fr": "Un centre",
+   "de": "Eine Basis",
+   "it": "Un centro",
+   "pt": "Um centro",
+   "pl": "Centrum",
+   "nl": "Een centrum",
+   "zh": "某个潜水中心"
+  },
+  "Una experiencia": {
+   "en": "An experience",
+   "fr": "Une expérience",
+   "de": "Ein Erlebnis",
+   "it": "Un'esperienza",
+   "pt": "Uma experiência",
+   "pl": "Doświadczenie",
+   "nl": "Een ervaring",
+   "zh": "某个体验"
+  },
+  "Descargar la app": {
+   "en": "Download the app",
+   "fr": "Télécharger l'app",
+   "de": "App herunterladen",
+   "it": "Scarica l'app",
+   "pt": "Descarregar a app",
+   "pl": "Pobierz aplikację",
+   "nl": "Download de app",
+   "zh": "下载应用"
+  },
+  "Tu página de reservas": {
+   "en": "Your booking page",
+   "fr": "Votre page de réservation",
+   "de": "Deine Buchungsseite",
+   "it": "La tua pagina di prenotazione",
+   "pt": "A sua página de reservas",
+   "pl": "Twoja strona rezerwacji",
+   "nl": "Je boekingspagina",
+   "zh": "你的预订页面"
+  },
+  "Un servicio": {
+   "en": "A service",
+   "fr": "Un service",
+   "de": "Eine Leistung",
+   "it": "Un servizio",
+   "pt": "Um serviço",
+   "pl": "Usługa",
+   "nl": "Een dienst",
+   "zh": "某项服务"
+  },
+  "Dejar una reseña": {
+   "en": "Leave a review",
+   "fr": "Laisser un avis",
+   "de": "Bewertung schreiben",
+   "it": "Lascia una recensione",
+   "pt": "Deixar uma avaliação",
+   "pl": "Zostaw opinię",
+   "nl": "Laat een review achter",
+   "zh": "留下评价"
+  },
+  "Tu ficha en WORLDIVES": {
+   "en": "Your WORLDIVES profile",
+   "fr": "Votre fiche sur WORLDIVES",
+   "de": "Dein Profil auf WORLDIVES",
+   "it": "La tua scheda su WORLDIVES",
+   "pt": "A sua ficha na WORLDIVES",
+   "pl": "Twój profil w WORLDIVES",
+   "nl": "Je profiel op WORLDIVES",
+   "zh": "你在 WORLDIVES 的主页"
+  },
+  "Ponle un nombre interno al QR (por ejemplo «Recepción feria Madrid»).": {
+   "en": "Give the QR code an internal name (for example “Madrid fair reception”).",
+   "fr": "Donnez un nom interne au QR (par exemple « Accueil salon Madrid »).",
+   "de": "Gib dem QR-Code einen internen Namen (zum Beispiel „Empfang Messe Madrid“).",
+   "it": "Dai un nome interno al QR (per esempio «Reception fiera Madrid»).",
+   "pt": "Dê um nome interno ao QR (por exemplo «Receção feira Madrid»).",
+   "pl": "Nadaj kodowi QR nazwę wewnętrzną (na przykład „Recepcja targi Madryt”).",
+   "nl": "Geef de QR-code een interne naam (bijvoorbeeld ‘Receptie beurs Madrid’).",
+   "zh": "请为二维码起一个内部名称（例如“马德里展会前台”）。"
+  },
+  "Elige el destino de la lista.": {
+   "en": "Choose the destination from the list.",
+   "fr": "Choisissez la destination dans la liste.",
+   "de": "Wähle das Ziel aus der Liste.",
+   "it": "Scegli la destinazione dall'elenco.",
+   "pt": "Escolha o destino da lista.",
+   "pl": "Wybierz cel z listy.",
+   "nl": "Kies de bestemming uit de lijst.",
+   "zh": "请从列表中选择目标。"
+  },
+  "La app todavía no está publicada: este destino se podrá elegir cuando exista.": {
+   "en": "The app is not published yet: this destination can be chosen once it exists.",
+   "fr": "L'app n'est pas encore publiée : cette destination pourra être choisie quand elle existera.",
+   "de": "Die App ist noch nicht veröffentlicht: Dieses Ziel kann gewählt werden, sobald es sie gibt.",
+   "it": "L'app non è ancora pubblicata: questa destinazione si potrà scegliere quando esisterà.",
+   "pt": "A app ainda não está publicada: este destino poderá ser escolhido quando existir.",
+   "pl": "Aplikacja nie jest jeszcze opublikowana: ten cel będzie można wybrać, gdy powstanie.",
+   "nl": "De app is nog niet gepubliceerd: deze bestemming kan worden gekozen zodra die er is.",
+   "zh": "应用尚未上线：上线后才能选择此目标。"
+  },
+  "Busca y elige un punto de buceo.": {
+   "en": "Search for and choose a dive site.",
+   "fr": "Cherchez et choisissez un site de plongée.",
+   "de": "Suche und wähle einen Tauchplatz.",
+   "it": "Cerca e scegli un punto d'immersione.",
+   "pt": "Procure e escolha um ponto de mergulho.",
+   "pl": "Wyszukaj i wybierz miejsce nurkowe.",
+   "nl": "Zoek en kies een duikplek.",
+   "zh": "请搜索并选择一个潜点。"
+  },
+  "Busca y elige un centro.": {
+   "en": "Search for and choose a centre.",
+   "fr": "Cherchez et choisissez un centre.",
+   "de": "Suche und wähle eine Basis.",
+   "it": "Cerca e scegli un centro.",
+   "pt": "Procure e escolha um centro.",
+   "pl": "Wyszukaj i wybierz centrum.",
+   "nl": "Zoek en kies een centrum.",
+   "zh": "请搜索并选择一个潜水中心。"
+  },
+  "Busca y elige una experiencia.": {
+   "en": "Search for and choose an experience.",
+   "fr": "Cherchez et choisissez une expérience.",
+   "de": "Suche und wähle ein Erlebnis.",
+   "it": "Cerca e scegli un'esperienza.",
+   "pt": "Procure e escolha uma experiência.",
+   "pl": "Wyszukaj i wybierz doświadczenie.",
+   "nl": "Zoek en kies een ervaring.",
+   "zh": "请搜索并选择一个体验。"
+  },
+  "Busca y elige un servicio.": {
+   "en": "Search for and choose a service.",
+   "fr": "Cherchez et choisissez un service.",
+   "de": "Suche und wähle eine Leistung.",
+   "it": "Cerca e scegli un servizio.",
+   "pt": "Procure e escolha um serviço.",
+   "pl": "Wyszukaj i wybierz usługę.",
+   "nl": "Zoek en kies een dienst.",
+   "zh": "请搜索并选择一项服务。"
+  },
+  "QR no encontrado.": {
+   "en": "QR code not found.",
+   "fr": "QR introuvable.",
+   "de": "QR-Code nicht gefunden.",
+   "it": "QR non trovato.",
+   "pt": "QR não encontrado.",
+   "pl": "Nie znaleziono kodu QR.",
+   "nl": "QR-code niet gevonden.",
+   "zh": "未找到二维码。"
+  },
+  "Búsqueda no válida.": {
+   "en": "Invalid search.",
+   "fr": "Recherche non valide.",
+   "de": "Ungültige Suche.",
+   "it": "Ricerca non valida.",
+   "pt": "Pesquisa inválida.",
+   "pl": "Nieprawidłowe wyszukiwanie.",
+   "nl": "Ongeldige zoekopdracht.",
+   "zh": "搜索无效。"
+  },
+  "No puedes descargar este QR.": {
+   "en": "You cannot download this QR code.",
+   "fr": "Vous ne pouvez pas télécharger ce QR.",
+   "de": "Du kannst diesen QR-Code nicht herunterladen.",
+   "it": "Non puoi scaricare questo QR.",
+   "pt": "Não pode descarregar este QR.",
+   "pl": "Nie możesz pobrać tego kodu QR.",
+   "nl": "Je kunt deze QR-code niet downloaden.",
+   "zh": "你不能下载此二维码。"
+  }
+ },
+ "patterns": {}
+}
