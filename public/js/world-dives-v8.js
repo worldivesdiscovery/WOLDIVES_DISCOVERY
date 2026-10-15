@@ -1012,7 +1012,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const title=String(s.title||''), color=/^#[0-9a-f]{6}$/i.test(s.color||'')?s.color:'#076898';
     return `<article class="svc2 ${cls}" style="${wdVeilStyle(s.photo)};--svc:${color}">${wdCardPhoto(s.photo,{eager})}
       <div class="svc2-in">
-        <header class="svc2-head"><span class="svc2-icon" aria-hidden="true">${wdIcon(s.service_type||'inmersion',20)}</span><div class="svc2-titles">${kicker?`<p class="svc2-kicker">${kicker}</p>`:''}<${heading} class="svc2-title" title="${escapeHtml(title)}">${href?`<a href="${href}">${escapeHtml(title)}</a>`:escapeHtml(title)}</${heading}></div></header>
+        <header class="svc2-head"><span class="svc2-icon" aria-hidden="true">${wdIcon(s.template?.icon||s.service_type||'inmersion',20)}</span><div class="svc2-titles">${kicker?`<p class="svc2-kicker">${kicker}</p>`:''}<${heading} class="svc2-title" title="${escapeHtml(title)}">${href?`<a href="${href}">${escapeHtml(title)}</a>`:escapeHtml(title)}</${heading}></div></header>
         ${meta||wdInPerson(s)?`<div class="svc2-meta">${meta}${wdPayChip(s)}</div>`:''}${desc?`<p class="svc2-desc">${escapeHtml(desc)}</p>`:''}${body}
         ${price||actions?`<footer class="svc2-foot">${price?`<div class="svc2-price">${price}</div>`:''}${actions}</footer>`:''}
       </div></article>`;
@@ -4353,6 +4353,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     viaje:'<path d="M3 13.5 21 6l-5.5 14.5-3.2-5.6z"/><path d="m12.3 14.9-3.8 3.6"/>',
     alquiler_equipo:'<rect x="8" y="7" width="8" height="14" rx="4"/><path d="M10 7V4h4v3M14 4h3.5M12 11v3"/>',
     extra:'<circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/>',
+    bautizo:'<path d="M3.5 9.2A3 3 0 0 1 6.5 6.2h11a3 3 0 0 1 3 3v1.6a2.7 2.7 0 0 1-2.7 2.7h-2.4l-1.5-2h-3.8l-1.5 2H6.2a2.7 2.7 0 0 1-2.7-2.7z"/><circle cx="16.5" cy="17.8" r="1.5"/><circle cx="12.5" cy="20.2" r="1"/>',
+    salida_privada:'<path d="M3 16.2 5 20.5h14l2-4.3z"/><circle cx="12" cy="6.6" r="2.6"/><path d="M7.4 16.2v-1.4a4.6 4.6 0 0 1 9.2 0v1.4"/>',
+    nocturna:'<path d="M19.5 13.4A7 7 0 1 1 11.1 4a5.6 5.6 0 0 0 8.4 9.4z"/><path d="M3 20c1.8 0 1.8-1.3 3.6-1.3s1.8 1.3 3.6 1.3 1.8-1.3 3.6-1.3 1.8 1.3 3.6 1.3"/>',
+    snorkel:'<path d="M3 11.4A3 3 0 0 1 6 8.4h6.6a3 3 0 0 1 3 3v.4a2.6 2.6 0 0 1-2.6 2.6h-1.4l-1.2-1.6H8.6l-1.2 1.6H5.6A2.6 2.6 0 0 1 3 11.8z"/><path d="M19.5 3v11.6a3.6 3.6 0 0 1-3.6 3.6H12.5"/>',
+    fotografia:'<path d="M4 8h3l1.5-2.4h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.6"/>',
     calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
     users:'<circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 5.5a3.3 3.3 0 0 1 0 6.3M18.5 14.8c1.6.8 2.6 2.5 3 5.2"/>',
     clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
@@ -4531,7 +4536,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         </article>`;
       };
       const allTemplates=()=>[...ownTemplates.map(t=>({...t,own:true})),...catalog.map(t=>({name:t.name,title:t.name,service_type:t.service_type,description:t.description,duration_minutes:t.duration_minutes,max_participants:t.max_participants,booking_mode:t.booking_mode,color:t.color,template_id:t.id}))];
-      const emptyServices=()=>`<div class="svc-empty"><span class="svc-empty-icon">${wdIcon('inmersion',30)}</span><h3>Crea tu primer servicio</h3><p>Un servicio es lo que vendes: un buceo, un bautizo, un curso, un viaje o el alquiler de equipo. Después le añades salidas con fecha, hora y plazas.</p><button type="button" class="btn btn-primary new-center-service">+ Crear servicio</button><div class="svc-empty-templates"><small>O empieza con una plantilla</small><div>${allTemplates().map((t,i)=>`<button type="button" class="svc-template" data-template="${i}">${wdIcon(t.service_type,16)}${esc(t.name)}</button>`).join('')}</div></div></div>`;
+      const emptyServices=()=>`<div class="svc-empty"><span class="svc-empty-icon">${wdIcon('inmersion',30)}</span><h3>Crea tu primer servicio</h3><p>Un servicio es lo que vendes: un buceo, un bautizo, un curso, un viaje o el alquiler de equipo. Después le añades salidas con fecha, hora y plazas.</p><button type="button" class="btn btn-primary new-center-service">+ Crear servicio</button><div class="svc-empty-templates"><small>O empieza con una plantilla</small><div>${allTemplates().map((t,i)=>`<button type="button" class="svc-template" data-template="${i}">${wdIcon(t.icon||t.service_type,16)}${esc(t.name)}</button>`).join('')}</div></div></div>`;
       const filtered=()=>{const q=svcUi.q.trim().toLowerCase(); return items.filter(s=>(svcUi.type==='all'||s.service_type===svcUi.type)&&(!q||`${s.title} ${s.description||''} ${typeOf(s.service_type).label}`.toLowerCase().includes(q)));};
       const presentTypes=[...new Set(items.map(s=>s.service_type))];
       if(svcUi.type!=='all'&&!presentTypes.includes(svcUi.type)) svcUi.type='all';
@@ -5211,23 +5216,27 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // (with a preview) and the centres' own photos, which the administration can withdraw.
   // ---------------------------------------------------------------------------
   const SVC_TPL_LANGS={es:'Castellano',en:'English',fr:'Français',de:'Deutsch',it:'Italiano',pt:'Português',pl:'Polski',nl:'Nederlands',zh:'中文'};
+  // v50.57 (4.3): the icons a template can show, with their name (the drawings are those of WD_ICON_PATHS)
+  const SVC_ICON_LABELS={inmersion:'Inmersión',bautizo:'Bautizo',curso:'Curso',salida:'Salida en barco',salida_privada:'Salida privada',nocturna:'Nocturna',snorkel:'Snorkel',
+    fotografia:'Fotografía',viaje:'Viaje de buceo',vida_a_bordo:'Vida a bordo',experiencia:'Experiencia',alquiler_equipo:'Alquiler de equipo',fish:'Vida marina',extra:'Extra'};
   async function renderAdminServiceTemplates(mountId){
     const mount=document.getElementById(mountId); if(!mount) return;
     const refresh=()=>renderAdminServiceTemplates(mountId);
     mount.innerHTML='<div class="wd-loading">Cargando plantillas…</div>';
     let d; try{ d=await api('/api/admin/service-catalog'); }catch(err){ mount.innerHTML=`<div class="empty"><h3>No se han podido cargar las plantillas</h3><p>${escapeHtml(err.message)}</p><button class="btn" type="button" id="st-retry">Reintentar</button></div>`; $('#st-retry',mount).onclick=refresh; return; }
     const esc=escapeHtml, typeLabel=v=>(SERVICE_TYPES.find(x=>x.value===v)||{label:v}).label;
-    const sample=(t,extra='')=>wdServiceCard({title:t.names?.es||'Plantilla',service_type:t.service_type,color:t.color,duration_minutes:t.duration_minutes,photo:t.photo||d.neutral,template:{name:typeLabel(t.service_type)}},
+    const sample=(t,extra='')=>wdServiceCard({title:t.names?.es||'Plantilla',service_type:t.service_type,color:t.color,duration_minutes:t.duration_minutes,photo:t.photo||d.neutral,template:{name:typeLabel(t.service_type),icon:t.icon}},
       {kicker:wdServiceKicker({duration_minutes:t.duration_minutes,template:{name:typeLabel(t.service_type)}},''),desc:t.descriptions?.es||'',price:'<strong>45 €</strong><small>por persona</small>',actions:'<span class="btn btn-primary" aria-hidden="true">Reservar</span>',cls:extra});
     const veilDemo=d.items.find(t=>t.photo)||{names:{es:'Doble inmersión'},service_type:'inmersion',duration_minutes:240};
-    const card=t=>`<article class="st-card ${t.active?'':'is-off'}" data-id="${t.id}">
+    const card=t=>`<article class="st-card ${t.active&&!t.archived_at?'':'is-off'}" data-id="${t.id}" draggable="true">
+      <div class="st-order" role="group" aria-label="Orden"><span class="st-grip" aria-hidden="true">⠿</span><button type="button" class="st-up" aria-label="Subir">↑</button><button type="button" class="st-down" aria-label="Bajar">↓</button></div>
       <div class="st-prev" title="Toca la foto o usa las flechas para elegir su punto focal" aria-label="Toca la foto o usa las flechas para elegir su punto focal">${sample(t)}</div>
       <div class="st-body"><strong>${esc(t.names.es||t.slug)}</strong><small>${esc(typeLabel(t.service_type))}${t.duration_minutes?' · '+esc(wdDuration(t.duration_minutes)):''}${t.max_participants?' · '+t.max_participants+' plazas':''}</small>
-        <small>${t.services} ${t.services===1?'servicio la usa':'servicios la usan'}${t.services?` (${t.services_with_photo} con su foto)`:''}</small>
+        <small>${t.services} ${t.services===1?'servicio la usa':'servicios la usan'}${t.services?` (${t.services_with_photo} con su foto)`:''}${t.providers?` · ${t.providers} ${t.providers===1?'centro o profesional':'centros o profesionales'}`:''}</small>
         ${t.photo_status==='processing'?'<span class="wd-pill wd-pill-warn">Procesando la foto…</span>':t.photo_error?`<span class="wd-pill wd-pill-bad">${esc(t.photo_error)}</span>`:t.photo?'':'<span class="wd-pill wd-pill-muted">Sin foto: usa la foto neutra</span>'}
         ${t.missing_langs.length?`<span class="wd-pill wd-pill-warn" title="${esc(t.missing_langs.map(l=>SVC_TPL_LANGS[l]).join(', '))}">Pendiente de traducción: ${t.missing_langs.length} ${t.missing_langs.length===1?'idioma':'idiomas'}</span>`:''}
-        ${t.active?'':'<span class="wd-pill wd-pill-muted">Desactivada</span>'}
-        <div class="st-actions"><button type="button" class="btn btn-sm st-edit">Editar</button><label class="btn btn-sm btn-primary st-file">${t.photo?'Cambiar foto':'Poner foto'}<input type="file" accept="image/jpeg,image/png,image/webp" hidden></label>${t.photo?'<button type="button" class="btn btn-sm st-reset">Quitar foto</button>':''}</div></div></article>`;
+        ${t.archived_at?'<span class="wd-pill wd-pill-muted">Archivada: no sale para servicios nuevos</span>':t.active?'':'<span class="wd-pill wd-pill-muted">Desactivada</span>'}
+        <div class="st-actions"><button type="button" class="btn btn-sm st-edit">Editar</button>${t.archived_at?'<button type="button" class="btn btn-sm st-restore">Recuperar</button>':`<button type="button" class="btn btn-sm danger st-del">${t.in_use?'Archivar':'Borrar'}</button>`}<label class="btn btn-sm btn-primary st-file">${t.photo?'Cambiar foto':'Poner foto'}<input type="file" accept="image/jpeg,image/png,image/webp" hidden></label>${t.photo?'<button type="button" class="btn btn-sm st-reset">Quitar foto</button>':''}</div></div></article>`;
     mount.innerHTML=`<section class="mm-module st-module"><div class="svc-head"><div><p class="eyebrow">Servicios</p><h2>Plantillas de servicios</h2><p>Los centros y freelance crean sus servicios desde estas plantillas: el nombre, el texto, la duración y la foto se rellenan solos. Si cambias la foto de una plantilla, cambia al momento en todos los servicios que la usan (no en los que tienen foto propia).</p></div><button type="button" class="btn btn-primary" id="st-new">+ Nueva plantilla</button></div>
       <div class="ex-tip">${wdIcon('bolt',18)}<p>${IMG_HINT} Fotos horizontales de al menos 1600 × 1000 px. Se guardan en WEBP con JPG de reserva y sin datos de la cámara. Toca la foto de una plantilla para elegir el punto que debe verse siempre.</p></div>
       <section class="st-veil"><h3>Intensidad de la capa sobre las fotos</h3><p class="muted">Para que el texto de las tarjetas se lea bien. Si una foto necesita más para el contraste mínimo (WCAG AA), se refuerza sola.</p>
@@ -5263,6 +5272,27 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         body:'<div class="field"><label for="stw-why">Motivo</label><textarea id="stw-why" rows="3" maxlength="300" required placeholder="Por ejemplo: aparecen personas sin consentimiento o tiene texto encima."></textarea></div>',
         footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn danger" id="stw-ok">Retirar foto</button>'});
       $('#stw-ok',el).onclick=async()=>{ try{ await postJSON('/api/admin/service-photo/remove',{id:Number(c.dataset.id),reason:$('#stw-why',el).value}); delete el.dataset.dirty; close(); toast('Foto retirada.'); refresh(); }catch(err){ toast(err.message); } }; }; });
+    // delete (nobody uses it) or archive (in use: the services keep it)
+    $$('.st-card',mount).forEach(c=>{ const id=Number(c.dataset.id), t=d.items.find(x=>x.id===id);
+      $('.st-del',c)?.addEventListener('click',async()=>{
+        const used=t.in_use>0, name=t.names.es||t.slug;
+        if(!await wdConfirm(used?{title:`¿Archivar «${name}»?`,text:`La usan ${t.providers} ${t.providers===1?'centro o profesional':'centros o profesionales'}. No se borra: deja de salir para servicios nuevos y los servicios que ya la usan no cambian.`,ok:'Archivar'}
+                                :{title:`¿Borrar «${name}»?`,text:'Ningún centro la usa. Se borra con su foto y no se puede deshacer.',ok:'Borrar',danger:true})) return;
+        try{ const r=await postJSON('/api/admin/service-catalog/delete',{id}); toast(r.archived?`Plantilla archivada: la usan ${r.providers} ${r.providers===1?'centro o profesional':'centros o profesionales'}.`:'Plantilla borrada.'); refresh(); }catch(err){ toast(err.message); } });
+      $('.st-restore',c)?.addEventListener('click',async()=>{ try{ await postJSON('/api/admin/service-catalog/restore',{id}); toast('Plantilla recuperada.'); refresh(); }catch(err){ toast(err.message); } });
+    });
+    // order: drag a card onto another, or the arrows (keyboard and phone); saved at once
+    const grid=$('.st-grid',mount); let dragged=null;
+    const saveOrder=async()=>{ try{ await postJSON('/api/admin/service-catalog/order',{ids:$$('.st-card',grid).map(x=>Number(x.dataset.id))}); toast('Orden guardado.'); }catch(err){ toast(err.message); refresh(); } };
+    grid.addEventListener('dragstart',e=>{ dragged=e.target.closest('.st-card'); if(!dragged) return; dragged.classList.add('is-dragging'); try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',dragged.dataset.id); }catch{} });
+    grid.addEventListener('dragover',e=>{ const over=e.target.closest('.st-card'); if(!dragged||!over||over===dragged) return; e.preventDefault();
+      const r=over.getBoundingClientRect(), after=(e.clientY-r.top)>r.height/2||(e.clientX-r.left)>r.width/2&&(e.clientY-r.top)>r.height/3; over[after?'after':'before'](dragged); });
+    grid.addEventListener('drop',e=>{ if(dragged) e.preventDefault(); });
+    grid.addEventListener('dragend',()=>{ if(!dragged) return; dragged.classList.remove('is-dragging'); dragged=null; saveOrder(); });
+    $$('.st-card',grid).forEach(c=>{
+      $('.st-up',c).onclick=()=>{ const prev=c.previousElementSibling; if(prev){ prev.before(c); $('.st-up',c).focus(); saveOrder(); } };
+      $('.st-down',c).onclick=()=>{ const next=c.nextElementSibling; if(next){ next.after(c); $('.st-down',c).focus(); saveOrder(); } };
+    });
     $('#st-new',mount).onclick=()=>openTemplateForm(null);
     function openTemplateForm(t){
       const v=t||{names:{},descriptions:{},service_type:'inmersion',booking_mode:'auto',active:1,sort_order:(d.items.length+1)*10};
@@ -5274,6 +5304,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             <div class="svc-field"><label for="stf-max">Plazas orientativas</label><input id="stf-max" type="number" min="0" value="${v.max_participants||''}"></div>
             <div class="svc-field"><label for="stf-order">Orden</label><input id="stf-order" type="number" min="0" value="${v.sort_order||0}"></div>
             <div class="svc-field"><label for="stf-color">Color</label><input id="stf-color" type="color" value="${esc(v.color||'#0891b2')}"></div></div>
+          <fieldset class="svc-fieldset st-icons"><legend>Icono</legend><div class="st-icon-grid" role="radiogroup" aria-label="Icono de la plantilla">${(d.icons||Object.keys(SVC_ICON_LABELS)).map(k=>`<button type="button" class="st-icon" role="radio" data-icon="${k}" aria-checked="${k===(v.icon||v.service_type)}" title="${esc(SVC_ICON_LABELS[k]||k)}">${wdIcon(k,22)}<small>${esc(SVC_ICON_LABELS[k]||k)}</small></button>`).join('')}</div>
+            <div class="st-icon-prev"><small>Así se verá</small><div id="stf-prev"></div></div></fieldset>
           <div class="svc-field"><label for="stf-credit">Crédito de la foto</label><input id="stf-credit" maxlength="200" value="${esc(v.photo_credit||'')}" placeholder="Foto: autor / licencia"></div>
           <div class="st-langs">${Object.entries(SVC_TPL_LANGS).map(([l,name])=>`<fieldset class="svc-fieldset"><legend>${esc(name)}${l==='es'?' *':''}</legend>
             <div class="svc-field"><label for="stf-n-${l}">Nombre</label><input id="stf-n-${l}" maxlength="80" lang="${l}" value="${esc(v.names[l]||'')}" ${l==='es'?'required':''}></div>
@@ -5281,11 +5313,16 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <label class="svc-check"><input type="checkbox" id="stf-active" ${v.active?'checked':''}><span><strong>Activa</strong><small>Los centros pueden elegirla al crear un servicio.</small></span></label>
         </form>`,
         footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="submit" form="stf" class="btn btn-primary">Guardar plantilla</button>'});
+      let icon=v.icon||v.service_type;
+      const preview=()=>{ $('#stf-prev',el).innerHTML=sample({...v,icon,service_type:$('#stf-type',el).value,color:$('#stf-color',el).value,names:{es:$('#stf-n-es',el).value||v.names?.es||'Plantilla'},
+        descriptions:{es:$('#stf-d-es',el).value||v.descriptions?.es||''},duration_minutes:Number($('#stf-dur',el).value)||v.duration_minutes}); translateTree($('#stf-prev',el)); };
+      $$('.st-icon',el).forEach(b=>b.onclick=()=>{ icon=b.dataset.icon; $$('.st-icon',el).forEach(x=>x.setAttribute('aria-checked',String(x===b))); preview(); });
+      ['#stf-type','#stf-color','#stf-n-es','#stf-d-es','#stf-dur'].forEach(q=>$(q,el).addEventListener('input',preview)); preview();
       $('#stf',el).onsubmit=async e=>{ e.preventDefault();
         const names={}, descriptions={}; Object.keys(SVC_TPL_LANGS).forEach(l=>{ names[l]=$('#stf-n-'+l,el).value.trim(); descriptions[l]=$('#stf-d-'+l,el).value.trim(); });
         if(!names.es){ $('#stf-n-es',el).focus(); toast('Escribe al menos el nombre en castellano.'); return; }
         try{ await postJSON('/api/admin/service-catalog/save',{id:t?.id||0,service_type:$('#stf-type',el).value,booking_mode:$('#stf-mode',el).value,duration_minutes:$('#stf-dur',el).value,max_participants:$('#stf-max',el).value,
-            sort_order:$('#stf-order',el).value,color:$('#stf-color',el).value,photo_credit:$('#stf-credit',el).value,active:$('#stf-active',el).checked,names,descriptions});
+            sort_order:$('#stf-order',el).value,color:$('#stf-color',el).value,photo_credit:$('#stf-credit',el).value,active:$('#stf-active',el).checked,names,descriptions,icon});
           delete el.dataset.dirty; close(); toast('Plantilla guardada.'); refresh(); }catch(err){ toast(err.message); } };
     }
   }

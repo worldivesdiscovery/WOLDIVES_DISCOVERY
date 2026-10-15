@@ -1848,6 +1848,7 @@ def migrate_v50_57(db):
     book the first time it opens."""
     for stmt in LOGBOOK_SCHEMA: db.execute(stmt)
     for stmt in VISITS_SCHEMA: db.execute(stmt)
+    add_columns(db, 'service_catalog', [('icon', 'TEXT'), ('archived_at', 'TEXT')])   # 4.3: icon of the template; archived (in use)
     add_columns(db, 'users', [('buddy_code', 'TEXT'), ('signup_center_id', 'INTEGER')])
     add_columns(db, 'logbook_entries', [('slot', 'INTEGER')])
     add_columns(db, 'centers', [('passport_logo', 'TEXT'), ('passport_name', 'TEXT')])
@@ -3589,6 +3590,9 @@ def grant_data_share(db, user_id, center_id, source):
 
 
 SERVICE_TYPES = {'inmersion','curso','salida','experiencia','vida_a_bordo','viaje','alquiler_equipo'}
+# v50.57 (4.3): the icons a template can show (the same drawings as the web: WD_ICON_PATHS in world-dives-v8.js)
+SERVICE_ICONS = ('inmersion', 'bautizo', 'curso', 'salida', 'salida_privada', 'nocturna', 'snorkel', 'fotografia', 'viaje', 'vida_a_bordo',
+                 'experiencia', 'alquiler_equipo', 'fish', 'extra')
 BOOKING_MODES = set(wbk.MODES)  # 'payment' (Pago al reservar) and 'request' (Bajo petición); 'instant' no longer exists
 
 
@@ -6861,7 +6865,7 @@ def template_label(cat, template_id, lang):
     t = cat['by_id'].get(template_id)
     if not t: return None
     name, pending = wtpl.text_in(t['names'], lang)
-    return {'id': t['id'], 'slug': t['slug'], 'name': name, 'pending_translation': pending}
+    return {'id': t['id'], 'slug': t['slug'], 'name': name, 'pending_translation': pending, 'icon': t['icon'] or t['service_type']}
 
 
 def card_fields(db, row, lang='es'):
@@ -6965,12 +6969,14 @@ def admin_service_catalog(db):
         "FROM provider_services WHERE template_id IS NOT NULL GROUP BY template_id").fetchall()}
     cat = SERVICE_CATALOG.get(db); out = []
     for r in cat['rows']:
-        d = {k: r[k] for k in ('id', 'slug', 'service_type', 'duration_minutes', 'max_participants', 'booking_mode', 'color', 'sort_order', 'active', 'photo_credit', 'photo_at')}
+        d = {k: r[k] for k in ('id', 'slug', 'service_type', 'duration_minutes', 'max_participants', 'booking_mode', 'color', 'sort_order', 'active', 'photo_credit', 'photo_at', 'archived_at')}
+        d['icon'] = r['icon'] or r['service_type']
         d['names'] = json.loads(r['names'] or '{}'); d['descriptions'] = json.loads(r['descriptions'] or '{}')
         d['photo'] = r['photo']; d['photo_focal'] = r['photo_focal'] or '50,50'
         st = r['photo_status'] or ''
         d['photo_status'] = st.split(':', 1)[0] or None; d['photo_error'] = st.split(':', 1)[1] if st.startswith('error:') else None
         d['services'], d['services_with_photo'] = use.get(r['id'], (0, 0))
+        d['in_use'], d['providers'] = template_users(db, r['id'])
         d['missing_langs'] = [lang for lang in wtpl.LANGS if not d['names'].get(lang) or not d['descriptions'].get(lang)]
         out.append(d)
     own = db.execute(
@@ -6978,16 +6984,16 @@ def admin_service_catalog(db):
         "COALESCE(c.name,u.fullname) AS provider FROM provider_services s JOIN users u ON u.id=s.provider_user_id LEFT JOIN centers c ON c.id=s.center_id "
         "WHERE s.photo_mode='own' AND s.photo_base IS NOT NULL ORDER BY s.photo_at DESC LIMIT 200").fetchall()
     own_out = [{'id': r['id'], 'title': r['title'], 'provider': r['provider'], 'photo_at': r['photo_at'], 'photo': service_card_photo(cat, dict(r))} for r in own]
-    return {'items': out, 'veil': card_veil_setting(db), 'neutral': cat['neutral'], 'own_photos': own_out, 'langs': list(wtpl.LANGS)}
+    return {'items': out, 'veil': card_veil_setting(db), 'neutral': cat['neutral'], 'own_photos': own_out, 'langs': list(wtpl.LANGS), 'icons': list(SERVICE_ICONS)}
 
 
 def public_service_catalog(db, lang):
     """The templates a centre or freelance can start from, in the language of the page."""
     cat = SERVICE_CATALOG.get(db); out = []
     for r in cat['rows']:
-        if not r['active']: continue
+        if not r['active'] or r['archived_at']: continue
         name, pn = wtpl.text_in(r['names'], lang); desc, pd = wtpl.text_in(r['descriptions'], lang)
-        out.append({'id': r['id'], 'slug': r['slug'], 'service_type': r['service_type'], 'name': name, 'description': desc, 'pending_translation': pn or pd,
+        out.append({'id': r['id'], 'slug': r['slug'], 'service_type': r['service_type'], 'icon': r['icon'] or r['service_type'], 'name': name, 'description': desc, 'pending_translation': pn or pd,
                     'duration_minutes': r['duration_minutes'], 'max_participants': r['max_participants'], 'booking_mode': r['booking_mode'],
                     'color': r['color'], 'photo': r['photo'] or cat['neutral'], 'has_photo': bool(r['photo'])})
     return {'items': out, 'neutral': cat['neutral'], 'veil': card_veil_setting(db)}
@@ -7007,27 +7013,56 @@ def save_catalog_template(db, user, data):
     if color and not re.fullmatch(r'#[0-9a-fA-F]{6}', color): color = None
     order = clean_int(data.get('sort_order'), 0, 100000, 0, 'El orden no es válido.')
     active = 0 if data.get('active') in (0, '0', False, 'false') else 1
+    icon = data.get('icon') or None
+    if icon is not None and icon not in SERVICE_ICONS: raise ValueError('Icono no válido.')
     vals = (stype, json.dumps(names, ensure_ascii=False), json.dumps(descs, ensure_ascii=False), duration, places, mode, color, order, active,
-            clean_text(data.get('photo_credit'), 200), now(), user['id'])
+            clean_text(data.get('photo_credit'), 200), icon, now(), user['id'])
     if tid:
         if not db.execute('SELECT 1 FROM service_catalog WHERE id=?', (tid,)).fetchone(): raise NotFound('Plantilla no encontrada.')
         db.execute('UPDATE service_catalog SET service_type=?,names=?,descriptions=?,duration_minutes=?,max_participants=?,booking_mode=?,color=?,sort_order=?,'
-                   'active=?,photo_credit=?,updated_at=?,updated_by=? WHERE id=?', vals + (tid,))
+                   'active=?,photo_credit=?,icon=?,updated_at=?,updated_by=? WHERE id=?', vals + (tid,))
     else:
+        if not data.get('sort_order'): vals = vals[:7] + ((db.execute('SELECT COALESCE(MAX(sort_order),0)+10 FROM service_catalog').fetchone()[0]),) + vals[8:]   # new: at the end
         slug = re.sub(r'[^a-z0-9]+', '-', fold_text(names['es'])).strip('-')[:40] or 'plantilla'
         base, n = slug, 2
         while db.execute('SELECT 1 FROM service_catalog WHERE slug=?', (slug,)).fetchone(): slug = f'{base}-{n}'; n += 1
         tid = db.execute('INSERT INTO service_catalog(service_type,names,descriptions,duration_minutes,max_participants,booking_mode,color,sort_order,active,'
-                         'photo_credit,updated_at,updated_by,slug,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', vals + (slug, now())).lastrowid
+                         'photo_credit,icon,updated_at,updated_by,slug,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', vals + (slug, now())).lastrowid
     audit(db, user['id'], 'service_template_catalog_saved', 'service_catalog', tid)
     return tid
 
 
-def valid_template_id(db, value):
-    """A template a service may use (active), or None."""
+def template_users(db, tid):
+    """(uses, centres or professionals) of a template of the catalogue: its services and the templates saved from it
+    («Mis plantillas»). For the administration: it counts across every centre."""
+    return tuple(db.execute('''SELECT COUNT(*) AS n, COUNT(DISTINCT who) AS prov FROM (
+        SELECT COALESCE('c'||center_id,'u'||provider_user_id) AS who FROM provider_services WHERE template_id=?
+        UNION ALL SELECT COALESCE('c'||u.center_id,'u'||t.provider_user_id) FROM service_templates t JOIN users u ON u.id=t.provider_user_id WHERE t.template_id=?)''',
+        (tid, tid)).fetchone())
+
+
+def delete_catalog_template(db, user, tid):
+    """v50.57 (4.3): a template nobody uses is deleted; one in use is archived (no longer offered for new services; the
+    services that use it keep its name, photo and icon)."""
+    row = db.execute('SELECT * FROM service_catalog WHERE id=?', (tid,)).fetchone()
+    if not row: raise NotFound('Plantilla no encontrada.')
+    n, prov = template_users(db, tid)
+    if n:
+        db.execute('UPDATE service_catalog SET archived_at=COALESCE(archived_at,?),updated_at=?,updated_by=? WHERE id=?', (now(), now(), user['id'], tid))
+        audit(db, user['id'], 'service_template_archived', 'service_catalog', tid, {'servicios': n, 'centros': prov})
+        return {'archived': True, 'services': n, 'providers': prov}
+    db.execute('DELETE FROM service_catalog WHERE id=?', (tid,))
+    audit(db, user['id'], 'service_template_deleted', 'service_catalog', tid, {'nombre': json.loads(row['names'] or '{}').get('es')})
+    return {'deleted': True, 'photo_base': row['photo_base']}
+
+
+def valid_template_id(db, value, current=None):
+    """A template a service may use (active and not archived), or None. v50.57 (4.3): the one a service already uses
+    stays with it when the service is edited, also if the template was archived or switched off later."""
     try: tid = int(value or 0)
     except (TypeError, ValueError): return None
-    return tid if tid and db.execute('SELECT 1 FROM service_catalog WHERE id=? AND active=1', (tid,)).fetchone() else None
+    if tid and current and tid == current: return tid if db.execute('SELECT 1 FROM service_catalog WHERE id=?', (tid,)).fetchone() else None
+    return tid if tid and db.execute('SELECT 1 FROM service_catalog WHERE id=? AND active=1 AND archived_at IS NULL', (tid,)).fetchone() else None
 
 
 POINTS=Snapshot('points',_build_points)
@@ -17594,7 +17629,7 @@ class Handler(BaseHTTPRequestHandler):
                     db.commit(); delete_card_files('service',row['photo_base']); self.send_json({'ok':True,'id':sid}); return
                 if path=='/api/provider-services/update':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); sid=int(data.get('id') or 0)
-                    row=db.execute('SELECT provider_user_id,center_id FROM provider_services WHERE id=?',(sid,)).fetchone()
+                    row=db.execute('SELECT provider_user_id,center_id,template_id FROM provider_services WHERE id=?',(sid,)).fetchone()
                     if not row or not owns_service(user,row['provider_user_id'],row['center_id']): raise NotFound('Servicio no encontrado.')
                     duration=clean_int(data.get('duration_minutes'),0,60*24*30,0,'La duración no es válida.') or None
                     maxp=clean_int(data.get('max_participants'),0,999,0,'El número máximo de personas no es válido.') or None
@@ -17623,7 +17658,7 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('''UPDATE provider_services SET service_type=?,title=?,description=?,duration_minutes=?,max_participants=?,booking_mode=?,response_hours=?,payment_hours=?,active=?,color=?,updated_at=? WHERE id=?''',(stype,title,clean_text(data.get('description'),5000),duration,maxp,mode,resp_h,pay_h,1 if data.get('active',True) else 0,color,now(),sid))
                     save_pay_settings(db,'provider_services','service',sid,pay_set)
                     if moderation_open(db,'service',sid): db.execute('UPDATE provider_services SET active=0 WHERE id=? AND provider_user_id=?',(sid,row['provider_user_id']))   # v50.54: hidden until reviewed
-                    if 'template_id' in data: db.execute('UPDATE provider_services SET template_id=? WHERE id=?',(valid_template_id(db,data.get('template_id')),sid))
+                    if 'template_id' in data: db.execute('UPDATE provider_services SET template_id=? WHERE id=?',(valid_template_id(db,data.get('template_id'),row['template_id']),sid))
                     if 'deposit_type' in data:
                         dep_kind,dep_value=clean_deposit(data,cur_price); db.execute('UPDATE provider_services SET deposit_type=?,deposit_value=? WHERE id=?',(dep_kind,dep_value,sid))
                     if 'cancel_free_hours' in data or 'cancel_refund_pct' in data:
@@ -18978,6 +19013,23 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/admin/service-catalog/save':
                     user=require_user(self,db); require_role(user,{'admin'}); tid=save_catalog_template(db,user,json_body(self))
                     db.commit(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True,'id':tid}); return
+                if path=='/api/admin/service-catalog/delete':
+                    # v50.57 (4.3): deleted when nobody uses it; archived (and said how many centres use it) otherwise
+                    user=require_user(self,db); require_role(user,{'admin'}); r=delete_catalog_template(db,user,int(json_body(self).get('id') or 0))
+                    db.commit(); SERVICE_CATALOG.invalidate()
+                    if r.get('deleted'): delete_card_files('template',r.pop('photo_base'))
+                    self.send_json({'ok':True,**r}); return
+                if path=='/api/admin/service-catalog/restore':
+                    user=require_user(self,db); require_role(user,{'admin'}); tid=int(json_body(self).get('id') or 0)
+                    if not db.execute('UPDATE service_catalog SET archived_at=NULL,updated_at=?,updated_by=? WHERE id=?',(now(),user['id'],tid)).rowcount: raise NotFound('Plantilla no encontrada.')
+                    audit(db,user['id'],'service_template_restored','service_catalog',tid); db.commit(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True}); return
+                if path=='/api/admin/service-catalog/order':
+                    # v50.57 (4.3): the order of the templates, dragged in the list (every template, in its new order)
+                    user=require_user(self,db); require_role(user,{'admin'}); ids=json_body(self).get('ids')
+                    have={r[0] for r in db.execute('SELECT id FROM service_catalog').fetchall()}
+                    if not isinstance(ids,list) or len(ids)!=len(have) or {int(x) for x in ids if str(x).isdigit()}!=have: raise ValueError('El orden no es válido: recarga la página.')
+                    for i,x in enumerate(ids): db.execute('UPDATE service_catalog SET sort_order=?,updated_at=? WHERE id=?',((i+1)*10,now(),int(x)))
+                    audit(db,user['id'],'service_templates_ordered','service_catalog',None,{'plantillas':len(ids)}); db.commit(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True}); return
                 if path=='/api/admin/service-catalog/photo':
                     user=require_user(self,db); require_role(user,{'admin'}); fields,files=parse_multipart(self); tid=int(fields.get('id') or 0)
                     if not db.execute('SELECT 1 FROM service_catalog WHERE id=?',(tid,)).fetchone(): raise NotFound('Plantilla no encontrada.')
