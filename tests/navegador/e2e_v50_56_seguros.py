@@ -12,7 +12,8 @@
     la reserva sigue sola (solicitud enviada al centro).
  5. El centro la acepta y ve el seguro 🟢 del participante; en otra reserva, un participante con el seguro caducado 🔴.
  6. Administración → Seguros: aseguradoras, productos, textos legales y estadísticas.
- 7. El widget: un cliente sin cuenta reserva el servicio obligatorio y sube su póliza en la misma ventana.
+ 7. El widget: un cliente sin cuenta reserva el servicio obligatorio y sube su póliza en la misma ventana; uno que
+    «se comprueba en el centro» se reserva sin rellenar el seguro.
  8. La ventana «Contrata tu seguro» en los 9 idiomas, y un repaso en inglés que apunta cualquier texto sin traducir.
 
     python3 tests/navegador/e2e_v50_56_seguros.py [carpeta-de-capturas]
@@ -272,6 +273,19 @@ def run(out: Path | None):
             check('7 · con la póliza, «Solicitud enviada»', 'Solicitud enviada' in pg.inner_text('.wr-done'), pg.inner_text('main')[:300])
             gb = srv.sql("SELECT status, insurance_status FROM bookings WHERE contact_email IS NOT NULL AND service_id=? AND channel='link' ORDER BY id DESC LIMIT 1", (sid,))
             check('7 · la reserva del cliente sin cuenta sigue sola con su seguro', gb and (gb[0]['status'], gb[0]['insurance_status']) == ('requested', 'ok'), gb and dict(gb[0]))
+            # «Se comprueba en el centro»: the widget lets one book without saying anything about the insurance
+            sn = srv.sql("SELECT id FROM provider_services WHERE center_id=? AND title='Snorkel en la Granadella'", (cid,))[0]['id']
+            snslot = srv.sql("SELECT slot_date FROM service_slots WHERE service_id=? AND spots_available>0 ORDER BY slot_date LIMIT 1", (sn,))[0]
+            pg.goto(f'{srv.base}/c/bahia-coralina?servicio={sn}'); pg.wait_for_selector('.wr-cal', timeout=15000)
+            pg.locator(f'[data-day="{snslot["slot_date"]}"]').click(); pg.locator('.wr-slot').first.click()
+            pg.wait_for_selector('.wr-ins')
+            check('7 · «se comprueba en el centro»: el widget lo dice y no marca nada', 'comprobará tu seguro' in pg.inner_text('.wr-ins') and pg.locator('[name=ins_mode]:checked').count() == 0)
+            pg.fill('input[name=fullname]', 'Pablo Playa'); pg.fill('input[name=email]', 'pablo.playa@example.org')
+            pg.locator('.wr-sum .wr-total').wait_for(timeout=8000)
+            pg.check('input[name=accept_policy]'); pg.locator('[data-go]').click()
+            pg.wait_for_selector('.wr-done h2', timeout=15000)
+            gb = srv.sql("SELECT status, insurance_status FROM bookings WHERE service_id=? AND contact_email IS NOT NULL ORDER BY id DESC LIMIT 1", (sn,))
+            check('7 · y se reserva sin rellenar el seguro (el centro lo comprueba ese día)', 'Solicitud enviada' in pg.inner_text('.wr-done') and gb and gb[0]['status'] == 'requested', gb and dict(gb[0]))
             c.close()
 
             # 8. The window in the 9 languages, and an English pass that lists any text without translation

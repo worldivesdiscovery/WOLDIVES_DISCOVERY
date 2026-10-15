@@ -87,7 +87,7 @@
   function insBox(s) {
     var need = s.insurance || 'no'; if (need === 'no') return '';
     var main = need === 'online' ? '<p class="wr-note">' + esc(t('ins_online_after')) + '</p>'
-      : '<label class="wr-check"><input type="radio" name="ins_mode" value="have" checked><span>' + esc(t('ins_have')) + '</span></label>' +
+      : '<label class="wr-check"><input type="radio" name="ins_mode" value="have"><span>' + esc(t('ins_have')) + '</span></label>' +
         '<div class="wr-two" data-ins-have><label>' + esc(t('ins_insurer')) + '<input type="text" name="ins_insurer" maxlength="120" autocomplete="off"></label>' +
         '<label>' + esc(t('ins_valid_to')) + '<input type="date" name="ins_valid_to"></label></div>' +
         '<label class="wr-check"><input type="radio" name="ins_mode" value="center"><span>' + esc(t('ins_at_center')) + '</span></label>';
@@ -122,11 +122,13 @@
     var need = S.svc && S.svc.insurance; if (!need || need === 'no') return true;
     var mode = f.elements.ins_mode ? (f.querySelector('[name=ins_mode]:checked') || {}).value : 'center';
     if (need !== 'online') {
-      if (mode === 'have') {
-        var ins = (f.elements.ins_insurer.value || '').trim(), to = f.elements.ins_valid_to.value;
+      // «Se comprueba en el centro»: it can always be booked (as on WORLDIVES); saying what one has is optional
+      var ins = f.elements.ins_insurer ? (f.elements.ins_insurer.value || '').trim() : '', to = f.elements.ins_valid_to ? f.elements.ins_valid_to.value : '';
+      if (mode === 'center') data.insurance = { at_center: true };
+      else if (ins || to || mode === 'have') {
         if (!ins || !to) { say(t('ins_need_fields')); return false; }
         data.insurance = { insurer: ins, valid_to: to };
-      } else data.insurance = { at_center: true };
+      }
     }
     var others = [];
     f.querySelectorAll('[data-ins-p]').forEach(function (r) {
