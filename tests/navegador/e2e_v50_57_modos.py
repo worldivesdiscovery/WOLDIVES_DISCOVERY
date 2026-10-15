@@ -105,6 +105,8 @@ def main():
                         arrows = pg.evaluate("(()=>{const c=[...document.querySelectorAll('.st-grid .st-card')];return c.map((x,i)=>[x.querySelector('.st-up').disabled,x.querySelector('.st-down').disabled])})()")
                         check('administración · plantillas: ↑ apagada en la primera y ↓ en la última, las demás activas',
                               arrows and arrows[0][0] and arrows[-1][1] and not any(a[0] for a in arrows[1:]) and not any(a[1] for a in arrows[:-1]), arrows)
+                        why = pg.evaluate("[document.querySelector('.st-grid .st-card .st-up').title, [...document.querySelectorAll('.st-grid .st-card .st-down')].pop().title]")
+                        check('administración · plantillas: la flecha apagada dice por qué', why == ['Ya es la primera: no se puede subir más', 'Ya es la última: no se puede bajar más'], why)
                         pg.locator('.st-grid .st-card').nth(1).locator('.st-up').click(); pg.wait_for_timeout(800)
                         arrows = pg.evaluate("(()=>{const c=[...document.querySelectorAll('.st-grid .st-card')];return c.map((x,i)=>[x.querySelector('.st-up').disabled,x.querySelector('.st-down').disabled])})()")
                         check('administración · plantillas: después de subir una, siguen bien las flechas', arrows[0][0] and not arrows[1][0] and arrows[-1][1], arrows)

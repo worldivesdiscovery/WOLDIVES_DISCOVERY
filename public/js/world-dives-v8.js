@@ -5383,7 +5383,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const r=over.getBoundingClientRect(), after=(e.clientY-r.top)>r.height/2||(e.clientX-r.left)>r.width/2&&(e.clientY-r.top)>r.height/3; over[after?'after':'before'](dragged); });
     grid.addEventListener('drop',e=>{ if(dragged) e.preventDefault(); });
     // the first card cannot go up nor the last one down: those arrows are off (v50.57, button walk: «Subir» did nothing)
-    const syncArrows=()=>{ const cards=$$('.st-card',grid); cards.forEach((c,i)=>{ $('.st-up',c).disabled=i===0; $('.st-down',c).disabled=i===cards.length-1; }); };
+    const syncArrows=()=>{ const cards=$$('.st-card',grid); cards.forEach((c,i)=>{ const up=$('.st-up',c), down=$('.st-down',c); up.disabled=i===0; down.disabled=i===cards.length-1;
+      if(up.disabled) up.title='Ya es la primera: no se puede subir más'; else up.removeAttribute('title'); if(down.disabled) down.title='Ya es la última: no se puede bajar más'; else down.removeAttribute('title'); }); };
     const moved=(c,cls)=>{ syncArrows(); const b=$(cls,c); (b.disabled?$(cls==='.st-up'?'.st-down':'.st-up',c):b).focus(); saveOrder(); };
     grid.addEventListener('dragend',()=>{ if(!dragged) return; dragged.classList.remove('is-dragging'); dragged=null; syncArrows(); saveOrder(); });
     $$('.st-card',grid).forEach(c=>{
