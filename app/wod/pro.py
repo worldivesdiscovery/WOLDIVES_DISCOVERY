@@ -8,7 +8,8 @@ from urllib.parse import quote
 # characters of the token). Nothing else is accepted.
 _URL = re.compile(r'verificarreserva\?(?:[^#\s]*&)?id=(\d{1,10})&t=([0-9A-Za-z_\-]{8,128})')
 _URL2 = re.compile(r'verificarreserva\?(?:[^#\s]*&)?t=([0-9A-Za-z_\-]{8,128})&id=(\d{1,10})')
-_SHORT = re.compile(r'(?:WOD-?)?0*(\d{1,10})\s*[-\s·.]\s*([0-9A-Za-z]{6})')
+# The 6 characters come from the booking's token (letters, digits, «-» and «_»: v50.56, before 1 code in 6 was not accepted)
+_SHORT = re.compile(r'(?:WOD-?)?0*(\d{1,10})\s*[-\s·.]\s*([0-9A-Za-z_\-]{6})')
 
 
 def booking_code(booking_id, token):

@@ -70,7 +70,7 @@ def lan_ip():
 
 def example_site(public_url: str, db_path: str, host: str):
     """v50.56: the website of a dive centre, as an example (README-PRUEBAS, «Probar el motor multicanal»): a plain page on
-    another address (http://localhost:8101) with the widget of Bahía Coralina (centro.prueba) in its three formats.
+    another address (http://localhost:8101) with the widget of Bahía Coralina, the first centre of the demo, in its three formats.
     Built from scripts/demo/web-de-centro-ejemplo.html each time the test environment starts."""
     import http.server
     import sqlite3

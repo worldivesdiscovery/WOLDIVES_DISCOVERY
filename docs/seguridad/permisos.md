@@ -52,9 +52,9 @@ filtros por dato de abajo) y las de escritura piden `reservas`.
 |---|---|
 | `/api/provider/fiscal`, `/api/provider/plan`, `/api/center/team`, `/api/center/activity`, `/api/provider/cuenta` | Solo el propietario |
 | `/api/provider/payments`, `/api/payments/center` | `cobros` |
-| `/api/center/requests`, `/api/center/clients`, `/api/center/info-requests` | `reservas` |
-| `/api/provider/ical` | `centro` |
-| `/api/provider/stats`, `/api/center/analytics` | `estadisticas` |
+| `/api/center/requests`, `/api/center/clients`, `/api/center/info-requests`, `/api/provider/feed` (aviso de cada reserva nueva, v50.56), `/api/center/bookings/<id>/insurance` (seguro de los participantes, v50.56) | `reservas` |
+| `/api/provider/ical`, `/api/provider/api-keys`, `/api/provider/webhooks`, `/api/provider/ical-imports` (v50.56) | `centro` |
+| `/api/provider/stats`, `/api/center/analytics`, `/api/provider/ventas-canal` (ventas por canal, v50.56) | `estadisticas` |
 
 | Escritura (POST) | Permiso |
 |---|---|
@@ -64,9 +64,9 @@ filtros por dato de abajo) y las de escritura piden `reservas`.
 | `/api/provider-services/slot-cancel`, `/api/avisos/`, `/api/whatsapp/` | `avisos` |
 | `/api/manifest/` (el resto) | `barco` |
 | `/api/bookings/refund`, `/api/bookings/<id>/refund` | `cobros` |
-| `/api/provider/insurance`, `/api/provider/cancellation-policy`, `/api/center/cancellation-policy`, `/api/center/profile`, `/api/provider/profile`, `/api/provider/avatar`, `/api/provider/center-update`, `/api/provider/center-showcase`, `/api/provider/center-cover`, `/api/provider/center-gallery`, `/api/center/integration`, `/api/provider/ical`, `/api/center/import`, `/api/center/tariffs`, `/api/provider/waiver`, `/api/marina/` | `centro` |
-| `/api/provider-services`, `/api/service-templates/`, `/api/agenda/` | `salidas` |
-| Todo lo demás del panel | `reservas` |
+| `/api/provider/insurance`, `/api/provider/cancellation-policy`, `/api/center/cancellation-policy`, `/api/center/profile`, `/api/provider/profile`, `/api/provider/avatar`, `/api/provider/center-update`, `/api/provider/center-showcase`, `/api/provider/center-cover`, `/api/provider/center-gallery`, `/api/center/integration`, `/api/provider/ical`, `/api/center/import`, `/api/center/tariffs`, `/api/provider/waiver`, `/api/marina/`; «Vender en tu web» (v50.56): `/api/provider/vender`, `/api/provider/api-keys`, `/api/provider/webhooks`, `/api/provider/ical-imports` | `centro` |
+| `/api/provider-services`, `/api/service-templates/`, `/api/agenda/`, `/api/provider/spot-blocks` (bloqueos de plazas sin cliente, v50.56) | `salidas` |
+| Todo lo demás del panel (también la póliza que el centro sube para una reserva, v50.56) | `reservas` |
 
 ## Datos sensibles: quién los lee y los cambia
 

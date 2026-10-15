@@ -72,6 +72,15 @@ class Terminar(MiddayClock, ServerTestCase):
         ids = [x['id'] for x in self.A.get('/api/center/requests').json['items']]
         self.assertLess(ids.index(soon), ids.index(late)); self.assertEqual(ids[-1], none_)
 
+    def test_short_code_with_dash_and_underscore(self):
+        # v50.56: the 6 characters come from the booking's token, which can have «-» and «_» (1 code in 6 was refused)
+        today = self.slot(0, '23:30')
+        bid = self.booked(self.make_diver('fin55u'), today)
+        self.server.sql('UPDATE bookings SET public_token=? WHERE id=?', ('a-B_c9' + 'x' * 26, bid))
+        self.assertEqual(self.A.post('/api/pro/escanear', {'code': f'{bid}-A-B_C9', 'slot_id': today}).json['result'], 'ok')
+        self.assertEqual(self.A.post('/api/pro/escanear', {'code': f'WOD-{bid:06d} · a-b_c9', 'slot_id': today}).json['result'], 'usado')   # the same code, read again
+        self.assertEqual(self.A.post('/api/pro/escanear', {'code': f'{bid}-A-B_C8', 'slot_id': today}).json['result'], 'no_valido')
+
     def test_count_on_the_way_back(self):
         today = self.slot(0, '23:30')
         d = self.make_diver('fin55c')
