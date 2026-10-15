@@ -12,6 +12,8 @@ stored in English (as the rest of the database); the labels are the official Spa
   requested                 solicitada                 request sent, no spots taken, no money
   accepted_pending_payment  aceptada_pendiente_pago    centre accepted, spots held, waiting for the diver's payment
   payment_in_progress       pago_en_curso              «Pago al reservar»: spots held for a few minutes while the diver pays
+  insurance_pending         falta_seguro               v50.56: the service asks for a diving insurance «obligatorio para reservar
+                                                       online» and the diver has none for that day: spots held while he uploads it
   confirmed                 confirmada                 the place is the diver's (paid, free, or pay at the centre)
   rejected                  rechazada                  the centre said no
   expired                   caducada                   a deadline passed (no answer, no payment, payment abandoned)
@@ -32,6 +34,7 @@ STATES = {
     'requested': 'Solicitada',
     'accepted_pending_payment': 'Aceptada · pendiente de pago',
     'payment_in_progress': 'Pago en curso',
+    'insurance_pending': 'Falta el seguro',
     'confirmed': 'Confirmada',
     'rejected': 'Rechazada',
     'expired': 'Caducada',
@@ -40,13 +43,15 @@ STATES = {
 }
 STATE_CODES_ES = {
     'requested': 'solicitada', 'accepted_pending_payment': 'aceptada_pendiente_pago', 'payment_in_progress': 'pago_en_curso',
-    'confirmed': 'confirmada', 'rejected': 'rechazada', 'expired': 'caducada', 'cancelled': 'cancelada', 'completed': 'completada',
+    'insurance_pending': 'falta_seguro', 'confirmed': 'confirmada', 'rejected': 'rechazada', 'expired': 'caducada', 'cancelled': 'cancelada', 'completed': 'completada',
 }
 # Legacy identifiers still found in old rows or old clients.
 LEGACY = {'pending': 'requested', 'unpaid': 'expired'}
 
 # States that hold spots in a departure.
-HOLDING = ('accepted_pending_payment', 'payment_in_progress', 'confirmed')
+HOLDING = ('accepted_pending_payment', 'payment_in_progress', 'insurance_pending', 'confirmed')
+# Not a booking yet (the centre does not see it, the spots are only held): the payment or the insurance is missing.
+PRE_BOOKING = ('payment_in_progress', 'insurance_pending')
 # States a centre sees as a real booking in its lists and planning (payment_in_progress only as a grey «pago en curso»).
 VISIBLE_TO_CENTER = ('requested', 'accepted_pending_payment', 'confirmed', 'completed', 'cancelled', 'rejected')
 # Final states.
@@ -57,6 +62,7 @@ CANCELLABLE = ('requested', 'accepted_pending_payment', 'confirmed')
 DEFAULT_RESPONSE_HOURS = 24
 DEFAULT_PAYMENT_HOURS = 24
 DEFAULT_HOLD_MINUTES = 10   # v50.56 (motor multicanal): 10 minutes by default, WOD_PAYMENT_HOLD_MINUTES changes it
+DEFAULT_INSURANCE_HOLD_MINUTES = 60   # v50.56 (seguros): time to contract and upload the insurance, WOD_INSURANCE_HOLD_MINUTES
 MIN_RESPONSE_HOURS = 1
 MAX_RESPONSE_HOURS = 168
 

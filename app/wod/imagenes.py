@@ -35,6 +35,24 @@ def available() -> bool:
         return False
 
 
+def without_metadata(content: bytes) -> bytes:
+    """v50.56 (seguros): a private photo (a policy) without its hidden data (EXIF, GPS, camera, comments): the image is
+    written again, turned the right way up, in the same format. Without Pillow it is kept as it came."""
+    try:
+        from PIL import Image, ImageOps
+    except ImportError:
+        return content
+    Image.MAX_IMAGE_PIXELS = MAX_PIXELS
+    with Image.open(io.BytesIO(content)) as im:
+        fmt = (im.format or 'JPEG').upper()
+        im = ImageOps.exif_transpose(im)
+        if fmt == 'JPEG' and im.mode not in ('RGB', 'L'): im = im.convert('RGB')
+        out = io.BytesIO()
+        kw = {'quality': 92, 'optimize': True} if fmt == 'JPEG' else ({'quality': 90} if fmt == 'WEBP' else {'optimize': True})
+        im.save(out, fmt, **kw)   # no exif=, no pnginfo=: nothing of the original metadata is copied
+        return out.getvalue()
+
+
 def variants(content: bytes, folder: Path, name: str, widths: tuple[int, ...], aspect: float | None = None, quality: int = 80) -> dict:
     """Writes <folder>/<name>-<w>.webp for every width (never bigger than the original) and returns
     {'widths': [..], 'ratio': width/height}. aspect: crop to this width/height ratio around the centre (16/9 for videos).

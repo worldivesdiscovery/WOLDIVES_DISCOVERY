@@ -64,6 +64,7 @@ from wod import dispositivos as wdev
 from wod import canales as wch
 from wod import widget_textos as wtx
 from wod import ical as wical
+from wod import seguros as wseg
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1774,11 +1775,11 @@ MULTICANAL_SCHEMA = (
 _FEED_COLS = "provider_feed(provider_kind,provider_id,booking_id,event,channel,status,created_at)"
 _FEED_VALS = ("CASE WHEN NEW.center_id IS NOT NULL THEN 'center' ELSE 'freelance' END, COALESCE(NEW.center_id,NEW.provider_user_id), NEW.id, "
               "'{ev}', COALESCE(NEW.channel,'worldives'), NEW.status, strftime('%Y-%m-%dT%H:%M:%S+00:00','now')")
-_GONE = "('payment_in_progress','expired','cancelled','rejected')"
+_GONE = "('payment_in_progress','insurance_pending','expired','cancelled','rejected')"
 _ENDED = "('expired','cancelled','rejected')"
 FEED_TRIGGERS = (
     f"""CREATE TRIGGER IF NOT EXISTS wod_bookings_feed_ins AFTER INSERT ON bookings
-       WHEN NEW.status <> 'payment_in_progress' AND COALESCE(NEW.center_id,NEW.provider_user_id) IS NOT NULL BEGIN
+       WHEN NEW.status NOT IN ('payment_in_progress','insurance_pending') AND COALESCE(NEW.center_id,NEW.provider_user_id) IS NOT NULL BEGIN
        INSERT INTO {_FEED_COLS} VALUES({_FEED_VALS.format(ev='booking.created')}); END""",
     f"""CREATE TRIGGER IF NOT EXISTS wod_bookings_feed_upd AFTER UPDATE ON bookings
        WHEN COALESCE(NEW.center_id,NEW.provider_user_id) IS NOT NULL BEGIN
@@ -1811,7 +1812,9 @@ def migrate_v50_56(db):
     add_columns(db, 'provider_feed', [('status', 'TEXT'), ('dispatched', 'INTEGER NOT NULL DEFAULT 0')])
     add_columns(db, 'webhook_endpoints', [('feed_after', 'INTEGER')])
     db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_channel ON bookings(center_id, channel, created_at)')
+    for name in ('wod_bookings_feed_ins', 'wod_bookings_feed_upd'): db.execute(f'DROP TRIGGER IF EXISTS {name}')   # rebuilt below, always current
     for stmt in FEED_TRIGGERS: db.execute(stmt)
+    migrate_insurance(db)   # Bloque 2: seguros de buceo
     if migration_done(db, '50.56'): return
     n = db.execute("""UPDATE bookings SET channel=CASE source WHEN 'manual' THEN 'manual' WHEN 'web' THEN 'import' WHEN 'widget' THEN 'widget'
                       WHEN 'import' THEN 'import' ELSE 'worldives' END WHERE channel IS NULL""").rowcount
@@ -6166,7 +6169,7 @@ def clean_logbook(data):
 
 
 def is_center_client(db, cid, uid):
-    return bool(db.execute(f'SELECT 1 FROM bookings b WHERE b.center_id=? AND b.user_id=? AND {CENTER_VISIBLE_SQL} AND b.status<>\'payment_in_progress\' UNION SELECT 1 FROM center_links WHERE center_id=? AND user_id=? LIMIT 1',(cid,uid,cid,uid)).fetchone())
+    return bool(db.execute(f'SELECT 1 FROM bookings b WHERE b.center_id=? AND b.user_id=? AND {CENTER_VISIBLE_SQL} AND b.status NOT IN (\'payment_in_progress\',\'insurance_pending\') UNION SELECT 1 FROM center_links WHERE center_id=? AND user_id=? LIMIT 1',(cid,uid,cid,uid)).fetchone())
 
 
 def resolve_site_media(snap, hemi='north', preview=None, today=None):
@@ -6222,7 +6225,7 @@ def _shift_month(d, n):
 
 
 # A «Pago al reservar» booking whose payment was abandoned never existed for the centre: it is hidden everywhere.
-CENTER_VISIBLE_SQL = "NOT (b.status='expired' AND COALESCE(b.expired_reason,'') IN ('hold_expired','payment_cancelled','checkout_failed','legacy_unpaid'))"
+CENTER_VISIBLE_SQL = "NOT (b.status='expired' AND COALESCE(b.expired_reason,'') IN ('hold_expired','payment_cancelled','checkout_failed','legacy_unpaid','insurance_missing','insurance_abandoned'))"
 
 
 def planning_scope(user):
@@ -6244,7 +6247,7 @@ def _planning_figures(db, svc_where, svc_args, bk_where, bk_args, start, end):
     bk=db.execute(f'''SELECT COUNT(*) n, COALESCE(SUM(b.participants),0) divers, COALESCE(SUM(b.price),0) revenue,
                           COALESCE(SUM(CASE WHEN b.payment_status='paid' THEN b.price ELSE 0 END),0) paid,
                           COALESCE(SUM(CASE WHEN b.status IN ('pending','requested') THEN 1 ELSE 0 END),0) pending
-                      FROM bookings b WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status NOT IN ('cancelled','rejected','expired','payment_in_progress')''',(*bk_args,start,end)).fetchone()
+                      FROM bookings b WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status NOT IN ('cancelled','rejected','expired','payment_in_progress','insurance_pending')''',(*bk_args,start,end)).fetchone()
     cancelled=db.execute(f"SELECT COUNT(*) FROM bookings b WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status IN ('cancelled','rejected')",(*bk_args,start,end)).fetchone()[0]
     offered=int(slots['offered'] or 0); taken=int(slots['taken'] or 0)
     return {'slots':int(slots['n'] or 0),'offered':offered,'taken':taken,'free':max(offered-taken,0),
@@ -6275,18 +6278,20 @@ def center_planning(db, user, month):
     other=[]
     for b in db.execute(f'''SELECT b.id,b.slot_id,b.service_id,b.booking_date,b.booking_time,b.participants,b.status,b.payment_status,b.price,b.booking_mode,
                                    b.response_deadline,b.payment_deadline,COALESCE(b.source,'online') AS source,b.channel,b.channel_origin,COALESCE(b.contact_name,u.fullname) AS fullname,
+                                   b.user_id,b.date_to,b.timezone,b.insurance_status,b.insurance_policy_id,
                                    s.title AS service_title,s.color AS service_color,p.name AS point_name
                               FROM bookings b LEFT JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
                               LEFT JOIN dive_points p ON p.id=b.dive_point_id
                              WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status<>'expired'
                              ORDER BY b.booking_date,b.booking_time,b.id LIMIT 5000''',(*bk_args,start,end)).fetchall():
         bd=dict(b)
-        if bd['status']=='payment_in_progress':
-            # Only a grey «pago en curso» placeholder: no name, no money, not a booking yet.
+        if bd['status'] in wbk.PRE_BOOKING:
+            # Only a grey «pago en curso» (or «falta el seguro») placeholder: no name, no money, not a booking yet.
             bd={'id':None,'slot_id':bd['slot_id'],'service_id':bd['service_id'],'booking_date':bd['booking_date'],'booking_time':bd['booking_time'],
-                'participants':bd['participants'],'status':'payment_in_progress','status_label':'Pago en curso','placeholder':True}
+                'participants':bd['participants'],'status':bd['status'],'status_label':wbk.state_label(bd['status']),'placeholder':True}
         else:
             bd.update(booking_view_status(b)); bd['channel']=wch.channel_of(b)   # v50.56: where each booking came from
+            bd['insurance']=ins_booking_icon(db,b)   # v50.56 (seguros): 🟢 🔴 ⚪ for the day, only in the allowed window
         if bd['slot_id'] in by_id: by_id[bd['slot_id']]['bookings'].append(bd)
         else: other.append(bd)
     # v50.56 (Parte F): spots kept for a group, an agency or a hotel, or blocked by an imported calendar.
@@ -6302,7 +6307,7 @@ def center_planning(db, user, month):
                              WHERE {svc_where} AND ss.slot_date BETWEEN ? AND ? AND ss.status IN ('open','full','closed') GROUP BY m''',(*svc_args,t0.isoformat(),t1.isoformat())).fetchall():
         trend.setdefault(r['m'],{})['slots']=int(r['n'] or 0); trend[r['m']]['offered']=int(r['offered'] or 0); trend[r['m']]['taken']=int(r['taken'] or 0)
     for r in db.execute(f'''SELECT substr(b.booking_date,1,7) m, COUNT(*) n, SUM(b.participants) divers, SUM(b.price) revenue FROM bookings b
-                             WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status NOT IN ('cancelled','rejected','expired','payment_in_progress') GROUP BY m''',(*bk_args,t0.isoformat(),t1.isoformat())).fetchall():
+                             WHERE {bk_where} AND b.booking_date BETWEEN ? AND ? AND b.status NOT IN ('cancelled','rejected','expired','payment_in_progress','insurance_pending') GROUP BY m''',(*bk_args,t0.isoformat(),t1.isoformat())).fetchall():
         e=trend.setdefault(r['m'],{}); e['bookings']=int(r['n'] or 0); e['divers']=int(r['divers'] or 0); e['revenue']=round(float(r['revenue'] or 0),2)
     months=[]
     for i in range(12):
@@ -7054,11 +7059,11 @@ EMAIL_TEMPLATES = {
  'booking_request': {'to': 'diver', 'subject': 'Solicitud enviada: {service} · {date_short}', 'pre': '{center} responderá antes de {response_deadline}.', 'blocks': [
    ('h', 'Hemos enviado tu solicitud'),
    ('p', 'Hola {first_name}, {center} ha recibido tu solicitud ({mode_label}). Te avisaremos por correo en cuanto la acepte o la rechace, y como muy tarde el {response_deadline}.'),
-   ('details', None), ('note', '{pay_note}'), ('in_person', None), ('policy', None), ('button', ('Ver mi reserva', 'booking_url'))]},
+   ('details', None), ('note', '{pay_note}'), ('note', '{insurance_note}'), ('in_person', None), ('policy', None), ('button', ('Ver mi reserva', 'booking_url'))]},
  'booking_confirmed': {'to': 'diver', 'subject': 'Reserva confirmada: {service} · {date_short}', 'pre': 'Tu plaza con {center} está confirmada.', 'blocks': [
    ('h', '¡Tu reserva está confirmada!'),
    ('p', 'Hola {first_name}, {center} te espera. Aquí tienes todos los detalles de tu reserva.'),
-   ('details', None), ('payment', None), ('button', ('Ver mi reserva y el QR', 'booking_url')),
+   ('details', None), ('payment', None), ('note', '{insurance_note}'), ('button', ('Ver mi reserva y el QR', 'booking_url')),
    ('p', 'Descarga el comprobante en PDF para tenerlo sin conexión: {pdf_url}'), ('policy', None), ('bring', None)]},
  'booking_manual': {'to': 'diver', 'subject': 'Tu reserva con {center}: {service} · {date_short}', 'pre': '{center} ha registrado tu reserva.', 'blocks': [
    ('h', 'Tienes una reserva con {center}'),
@@ -7307,6 +7312,15 @@ EMAIL_TEMPLATES = {
    ('note', '{change_reason}'), ('details', None),
    ('p', 'Si la nueva fecha no te viene bien, puedes cancelar la reserva desde la propia reserva o hablar con el centro.'),
    ('button', ('Ver mi reserva', 'booking_url'))]},
+ 'insurance_diver_expiring': {'to': 'diver', 'subject': '{expiry_title}', 'pre': 'Renuévalo o contrata uno nuevo antes de tu próxima inmersión.', 'blocks': [
+   ('h', '{expiry_title}'),
+   ('p', 'Hola {first_name}, tu seguro de buceo de {insurer} es válido hasta el {valid_to_text}. Para bucear necesitas un seguro vigente el día de cada inmersión.'),
+   ('button', ('Renovar o contratar seguro', 'insurance_url')),
+   ('note', 'WORLDIVES no es aseguradora ni mediador de seguros: la contratación se hace en la web de cada aseguradora. Cuando lo tengas, súbelo en «Mi seguro de buceo».')]},
+ 'insurance_policy_added': {'to': 'diver', 'subject': '{center} ha añadido tu seguro de buceo', 'pre': '¿Lo guardas en tu perfil?', 'blocks': [
+   ('h', '{center} ha añadido tu seguro'),
+   ('p', 'Hola {first_name}, {center} ha añadido tu seguro de {kind_text} del {valid_text}. ¿Lo guardas en tu perfil? Si no lo guardas, queda solo en esa reserva.'),
+   ('button', ('Revisar mi seguro', 'insurance_url'))]},
  'document_expiring': {'to': 'diver', 'subject': 'Tu documento «{doc_title}» caduca el {doc_expires}', 'pre': 'Renuévalo para seguir reservando sin problemas.', 'blocks': [
    ('h', 'Un documento está a punto de caducar'),
    ('p', 'Hola {first_name}, tu documento «{doc_title}» ({doc_type}) caduca el {doc_expires}.'),
@@ -7400,7 +7414,7 @@ EMAIL_TEMPLATE_LABELS = {
  'monthly_stats': 'Centro: estadísticas del mes', 'team_invite': 'Invitación al equipo de un centro', 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
  'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'slot_cancelled': 'Salida cancelada por el centro (buceador)', 'center_slot_choice': 'Centro: respuesta a una salida cancelada', 'booking_date_changed': 'Nueva fecha de la reserva (buceador)', 'center_booking_date_changed': 'Centro: el cliente ha cambiado la fecha', 'center_reschedule_request': 'Centro: solicitud de cambio de fecha', 'reschedule_approved': 'Cambio de fecha aceptado', 'reschedule_rejected': 'Cambio de fecha no aceptado', 'waitlist_spot': 'Lista de espera: ha quedado una plaza', 'center_rejected': 'Profesional: verificación no completada', 'admin_new_pro': 'Admin: nueva cuenta profesional',
- 'totp_enabled': 'Verificación en dos pasos activada', 'totp_required_payments': 'Verificación en dos pasos obligatoria (cobros)', 'reminder_48h': 'Recordatorio 48 h antes', 'booking_changed': 'Cambio de fecha u hora', 'document_expiring': 'Documento a punto de caducar',
+ 'totp_enabled': 'Verificación en dos pasos activada', 'totp_required_payments': 'Verificación en dos pasos obligatoria (cobros)', 'reminder_48h': 'Recordatorio 48 h antes', 'booking_changed': 'Cambio de fecha u hora', 'document_expiring': 'Documento a punto de caducar', 'insurance_diver_expiring': 'Buceador: su seguro de buceo caduca', 'insurance_policy_added': 'Buceador: un centro ha añadido su seguro',
  'document_expired': 'Documento caducado', 'legal_update': 'Cambio en un documento legal', 'plan_renewal': 'Centro: renovación de la cuota',
  'marketing': 'Comunicación comercial (con consentimiento)', 'refund_issued': 'Devolución hecha (buceador)', 'center_refund_reminder': 'Centro: devolución pendiente', 'center_dispute': 'Centro: disputa abierta',
  'admin_payment_review': 'Admin: pago en revisión', 'admin_refund_failed': 'Admin: devolución pendiente', 'admin_content_report': 'Admin: denuncia de contenido',
@@ -7460,6 +7474,9 @@ def booking_mail_ctx(db, bid, lang='es'):
             'payment_deadline': mail_deadline(db, b['payment_deadline'], lang, b['service_id'], b['center_id']),
             'response_deadline': mail_deadline(db, b['response_deadline'], lang, b['service_id'], b['center_id']),
             'reject_reason': b['reject_reason'] or '',
+            # v50.56 (seguros): the service asks for a diving insurance and the booking has none on file for that day
+            'insurance_note': (mail_t(lang, 'Recuerda llevar tu seguro de buceo vigente: este servicio lo pide para el día de la inmersión. Si no lo tienes, puedes contratar uno de día desde WORLDIVES: {url}', url=f'{base}/#/seguro?contratar=dia')
+                               if row_get(b, 'insurance_status') and b['insurance_status'] not in ('ok', 'not_required') else ''),
             # v50.56: a customer without an account (widget, API, the centre's manual booking) opens his booking with its token
             'booking_url': guest_booking_url(b) if is_guest_user(db, b['user_id']) else f'{base}/#/reserva?id={bid}',
             'pdf_url': f'{base}/api/bookings/{bid}/receipt.pdf', 'center_url': prov_url,
@@ -7647,7 +7664,7 @@ def queue_email(db, template, to_email, to_name, ctx, lang='es', related=None):
         sys.stderr.write(f'[correo] no se pudo preparar «{template}»: {exc}\n')
 
 
-PUSH_ROUTES = {'booking': '#/reserva?id={id}', 'service_slot': '#/salida?id={id}'}
+PUSH_ROUTES = {'booking': '#/reserva?id={id}', 'service_slot': '#/salida?id={id}', 'insurance': '#/seguro'}
 
 
 def push_from_email(db, to_email, subject, lang, rel):
@@ -8039,6 +8056,7 @@ def run_email_jobs(db, at=None):
                                                                             WHERE ss.id=bookings.slot_id),1)=1)''', (tomorrow,)).fetchall():
             if db.execute('UPDATE bookings SET reminder_sent_at=? WHERE id=? AND reminder_sent_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'reminder')
         queue_document_alerts(db, today)
+        queue_insurance_notices(db)   # v50.56: «Mi seguro de buceo», 30, 7 and 1 days before and the day it ends
     for r in db.execute("SELECT id FROM bookings WHERE status IN ('confirmed','completed') AND booking_date BETWEEN ? AND ? AND review_asked_at IS NULL",
                         ((today - _timedelta(days=7)).isoformat(), yesterday)).fetchall():
         if db.execute('UPDATE bookings SET review_asked_at=? WHERE id=? AND review_asked_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'review')
@@ -9046,6 +9064,511 @@ def expire_booking(db, b, reason, notify=True):
 
 
 # ---------------------------------------------------------------------------
+# v50.56 · Bloque 2: seguros de buceo (wod/seguros.py). WORLDIVES no es aseguradora ni mediador de seguros (Real
+# Decreto-ley 3/2020): guarda la póliza que sube el buceador (o el centro, si el buceador lo acepta), avisa antes de que
+# caduque, comprueba si cubre el día de una reserva y lleva a la web de las aseguradoras colaboradoras que configura la
+# administración. Ninguna aseguradora está en el código.
+# ---------------------------------------------------------------------------
+INSURANCE_SCHEMA = (
+    """CREATE TABLE IF NOT EXISTS insurance_providers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, logo_url TEXT, website TEXT,
+         allowed_domains TEXT NOT NULL DEFAULT '[]', partner_code TEXT, mode TEXT NOT NULL DEFAULT 'link', collaborator INTEGER NOT NULL DEFAULT 0,
+         featured INTEGER NOT NULL DEFAULT 0, sort_order INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, agreement_from TEXT,
+         agreement_to TEXT, api_secret TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS insurance_products (id INTEGER PRIMARY KEY AUTOINCREMENT,
+         provider_id INTEGER NOT NULL REFERENCES insurance_providers(id) ON DELETE CASCADE, kind TEXT NOT NULL, name TEXT NOT NULL,
+         price_from REAL, currency TEXT NOT NULL DEFAULT 'EUR', zones TEXT NOT NULL DEFAULT '[]', countries TEXT NOT NULL DEFAULT '[]',
+         languages TEXT NOT NULL DEFAULT '[]', diver_url TEXT, center_url TEXT, active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0,
+         created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""",
+    # A policy of a diver (user_id, status 'active'), waiting for his «sí» after a centre uploaded it ('pending'), or only
+    # for one booking ('booking': a customer without an account, or a diver who did not keep it). The file is private.
+    """CREATE TABLE IF NOT EXISTS insurance_policies (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+         booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL, provider_id INTEGER, insurer TEXT NOT NULL, policy_number TEXT,
+         kind TEXT NOT NULL DEFAULT 'otro', valid_from TEXT, valid_to TEXT NOT NULL, zone TEXT, max_depth INTEGER, file_path TEXT, original_name TEXT,
+         source TEXT NOT NULL DEFAULT 'diver', status TEXT NOT NULL DEFAULT 'active', center_id INTEGER, provider_user_id INTEGER, uploaded_by INTEGER,
+         after_click INTEGER NOT NULL DEFAULT 0, notices TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""",
+    'CREATE INDEX IF NOT EXISTS idx_insurance_policies_user ON insurance_policies(user_id, status, valid_to)',
+    'CREATE INDEX IF NOT EXISTS idx_insurance_policies_booking ON insurance_policies(booking_id)',
+    # Aggregated, without personal data: to settle commissions with each insurer.
+    """CREATE TABLE IF NOT EXISTS insurance_clicks (month TEXT NOT NULL, provider_id INTEGER NOT NULL, product_id INTEGER NOT NULL,
+         country TEXT NOT NULL DEFAULT '', audience TEXT NOT NULL, clicks INTEGER NOT NULL DEFAULT 0, policies INTEGER NOT NULL DEFAULT 0,
+         PRIMARY KEY(month, provider_id, product_id, country, audience))""",
+)
+INSURANCE_HOLD_MINUTES = wcfg.env_int('WOD_INSURANCE_HOLD_MINUTES', wbk.DEFAULT_INSURANCE_HOLD_MINUTES, 10, 24 * 60)
+INSURANCE_MAX_PER_USER = 20
+INSURANCE_CENTER_DAYS = 7          # the centre sees the insurance of a booking from its confirmation to 7 days after the dive
+INSURANCE_PROVIDERS_MAX = 50
+INSURANCE_CENTER_STATES = ('accepted_pending_payment', 'confirmed', 'completed')   # accepted by the centre (spots held) or confirmed
+INSURANCE_ICONS = {'ok': '🟢', 'declared': '🟢', 'expired': '🔴', 'missing': '⚪', 'at_center': '⚪', 'not_required': ''}
+
+
+def migrate_insurance(db):
+    """Tables and columns of the diving insurance (idempotent; nothing is deleted)."""
+    for stmt in INSURANCE_SCHEMA: db.execute(stmt)
+    add_columns(db, 'provider_services', [('insurance_required', 'TEXT')])
+    add_columns(db, 'bookings', [('insurance_status', 'TEXT'), ('insurance_policy_id', 'INTEGER'), ('insurance_info', 'TEXT')])
+    add_columns(db, 'user_profiles', [('insurance_share', 'INTEGER NOT NULL DEFAULT 0')])
+
+
+def ins_setting(db, key, default=None):
+    r = db.execute('SELECT value FROM site_settings WHERE key=?', (key,)).fetchone()
+    return r['value'] if r else default
+
+
+def ins_set_setting(db, key, value):
+    db.execute("INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",
+               (key, value, now()))
+
+
+def ins_texts(db, lang='es'):
+    """The legal texts of a language (Administración → Seguros → Textos legales, or the defaults)."""
+    try: saved = json.loads(ins_setting(db, 'insurance_texts') or '{}')
+    except ValueError: saved = {}
+    return wseg.legal_texts(saved, normalize_lang(lang) if lang else 'es')
+
+
+def ins_api_enabled():
+    return wcfg.env('WOD_INSURANCE_API') in ('1', 'true', 'yes', 'on')
+
+
+def ins_user_today(db, user_id):
+    """Today for that diver (the time zone of his country)."""
+    r = db.execute('SELECT country FROM user_profiles WHERE user_id=?', (user_id,)).fetchone()
+    return wag.today_in(wag.tz_for_country(r['country'] if r else None)).isoformat()
+
+
+def ins_active(db, user_id):
+    return db.execute("SELECT * FROM insurance_policies WHERE user_id=? AND status='active' ORDER BY valid_to DESC", (user_id,)).fetchall()
+
+
+def ins_covering(db, user_id, day, booking_id=None):
+    """The policy that covers a day (the local date of the dive): his own, or the one added to that booking."""
+    for p in ins_active(db, user_id):
+        if wseg.covers(p, day): return p
+    if booking_id:
+        for p in db.execute("SELECT * FROM insurance_policies WHERE booking_id=? AND status IN ('booking','pending') ORDER BY valid_to DESC", (booking_id,)).fetchall():
+            if wseg.covers(p, day): return p
+    return None
+
+
+def ins_state(db, user_id, day=None):
+    st = wseg.state_of(ins_active(db, user_id), day or ins_user_today(db, user_id))
+    p = st.pop('policy')
+    st.update(policy_id=p['id'] if p else None, insurer=p['insurer'] if p else None, valid_to=p['valid_to'] if p else None)
+    return st
+
+
+def ins_policy_out(db, p, owner=True):
+    prov = db.execute('SELECT name,logo_url FROM insurance_providers WHERE id=?', (p['provider_id'],)).fetchone() if p['provider_id'] else None
+    d = {'id': p['id'], 'insurer': p['insurer'], 'provider_id': p['provider_id'], 'logo_url': prov['logo_url'] if prov else None,
+         'kind': p['kind'], 'kind_label': wseg.KIND_LABELS.get(p['kind'], p['kind']), 'valid_from': p['valid_from'], 'valid_to': p['valid_to'],
+         'zone': p['zone'], 'zone_label': wseg.ZONE_LABELS.get(p['zone'] or '', ''), 'max_depth': p['max_depth'], 'has_file': bool(p['file_path']),
+         'original_name': p['original_name'], 'source': p['source'], 'status': p['status'], 'booking_id': p['booking_id'], 'created_at': p['created_at']}
+    if owner: d['policy_number'] = p['policy_number']
+    if p['center_id']:
+        c = db.execute('SELECT name FROM centers WHERE id=?', (p['center_id'],)).fetchone()
+        d['center'] = c['name'] if c else ''
+    elif p['provider_user_id']:
+        u = db.execute('SELECT fullname FROM users WHERE id=?', (p['provider_user_id'],)).fetchone()
+        d['center'] = u['fullname'] if u else ''
+    return d
+
+
+def ins_store_file(owner_id, file_info):
+    """The policy's file: PDF, JPG or PNG of at most 10 MB, checked by what it really is (not its name), through the
+    antivirus, photos without their hidden data (EXIF, GPS), in the private storage. Returns (path, original name)."""
+    content = (file_info or {}).get('content') or b''
+    if not content: raise ValueError('Adjunta tu póliza en PDF, JPG o PNG.')
+    if len(content) > wseg.MAX_FILE_BYTES: raise ValueError('El archivo pesa demasiado. Máximo 10 MB.')
+    ext = check_document(content)
+    if ext not in ('.pdf', '.jpg', '.png'): raise ValueError('Formato no admitido. Usa un PDF o una foto JPG o PNG.')
+    if ext != '.pdf':
+        try: content = wimg.without_metadata(content)
+        except Exception: raise ValueError('La imagen está dañada o no se puede leer. Prueba con otra foto JPG o PNG.')
+    original = re.sub(r'[\x00-\x1f/\\]+', '_', Path((file_info or {}).get('filename') or 'poliza').name)[:160] or 'poliza'
+    return save_upload(owner_id, {'content': content}, 'seguro'), original
+
+
+def ins_clean_fields(db, fields):
+    """What the diver (or the centre) confirms: insurer, number, kind, dates, zone and depth. Nothing read from the PDF is
+    taken unless it comes here, confirmed."""
+    pid = int(fields.get('provider_id') or 0) or None
+    prov = db.execute('SELECT id,name FROM insurance_providers WHERE id=?', (pid,)).fetchone() if pid else None
+    insurer = clean_text(fields.get('insurer'), 120) or (prov['name'] if prov else None)
+    if not insurer: raise ValueError('Indica la aseguradora.')
+    if any(w in insurer.lower() for w in MEDICAL_WORDS): raise ValueError('Aquí solo va el seguro de buceo. No subas informes médicos.')
+    vf, vt = wseg.clean_date(fields.get('valid_from')), wseg.clean_date(fields.get('valid_to'))
+    if not vt: raise ValueError('Indica hasta qué día es válido el seguro.')
+    if vf and vf > vt: raise ValueError('La fecha de inicio no puede ser posterior a la de fin.')
+    kind = fields.get('kind') if fields.get('kind') in wseg.POLICY_KINDS else 'otro'
+    zone = fields.get('zone') if fields.get('zone') in wseg.ZONES else None
+    depth = clean_int(fields.get('max_depth'), 1, 300, None, 'La profundidad máxima no es válida (en metros, de 1 a 300).')
+    number = clean_text(fields.get('policy_number'), 60)
+    return {'provider_id': prov['id'] if prov else None, 'insurer': insurer, 'policy_number': number, 'kind': kind, 'valid_from': vf, 'valid_to': vt,
+            'zone': zone, 'max_depth': depth}
+
+
+def ins_insert(db, f, *, user_id, file_path, original, source, status, booking_id=None, center_id=None, provider_user_id=None, uploaded_by=None, after_click=0):
+    return db.execute('''INSERT INTO insurance_policies(user_id,booking_id,provider_id,insurer,policy_number,kind,valid_from,valid_to,zone,max_depth,file_path,
+                         original_name,source,status,center_id,provider_user_id,uploaded_by,after_click,created_at,updated_at)
+                         VALUES(?,?,?,?,wod_cifrar(?),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                      (user_id, booking_id, f['provider_id'], f['insurer'], f['policy_number'], f['kind'], f['valid_from'], f['valid_to'], f['zone'], f['max_depth'],
+                       file_path, original, source, status, center_id, provider_user_id, uploaded_by, after_click, now(), now())).lastrowid
+
+
+def ins_count_policy_after_click(db, product_id):
+    """A policy uploaded after a click on «Contratar en …»: only counted, never linked to the person."""
+    pr = db.execute('SELECT id,provider_id FROM insurance_products WHERE id=?', (int(product_id or 0),)).fetchone()
+    if not pr: return 0
+    db.execute('''INSERT INTO insurance_clicks(month,provider_id,product_id,country,audience,clicks,policies) VALUES(?,?,?,'','buceador',0,1)
+                  ON CONFLICT(month,provider_id,product_id,country,audience) DO UPDATE SET policies=policies+1''', (_dt.date.today().strftime('%Y-%m'), pr['provider_id'], pr['id']))
+    return 1
+
+
+def ins_delete_policy(db, p):
+    db.execute('UPDATE bookings SET insurance_policy_id=NULL WHERE insurance_policy_id=?', (p['id'],))
+    db.execute('DELETE FROM insurance_policies WHERE id=?', (p['id'],))
+    if p['file_path'] and not db.execute('SELECT 1 FROM insurance_policies WHERE file_path=?', (p['file_path'],)).fetchone():
+        delete_document_file(p['file_path'])
+
+
+# ---- the insurance of a booking ------------------------------------------------------------------------------------
+def ins_requirement(service):
+    if not service: return 'no'
+    v = row_get(service, 'insurance_required')
+    return v if v in wseg.REQUIRE else wseg.DEFAULT_REQUIRE
+
+
+def ins_booking_check(db, service, customer, is_guest, bdate, data, channel, participants):
+    """What the service asks and what the customer has for that day (the local date of the dive). For those without an
+    account, whoever books may give the insurer and the last day, or «lo presentaré en el centro»."""
+    need = ins_requirement(service)
+    if need == 'no': return {'required': 'no', 'status': 'not_required', 'policy_id': None, 'info': None}
+    decl = data.get('insurance') if isinstance(data.get('insurance'), dict) else {}
+    info = {}
+    others = []
+    for x in (data.get('insurance_participants') or [])[:max(0, participants - 1)]:
+        if not isinstance(x, dict): continue
+        vt = wseg.clean_date(x.get('valid_to')); nm = clean_text(x.get('insurer'), 120)
+        others.append({'name': clean_text(x.get('name'), 120) or '', 'insurer': nm if nm and vt else None, 'valid_to': vt if nm else None,
+                       'at_center': not (nm and vt)})
+    if others: info['participants'] = others
+    pol = None if is_guest else ins_covering(db, customer['id'], bdate)
+    if pol:
+        status = 'ok'
+    else:
+        vt = wseg.clean_date(decl.get('valid_to')); nm = clean_text(decl.get('insurer'), 120)
+        if nm and vt:
+            info['declared'] = {'insurer': nm, 'valid_to': vt, 'policy_number': clean_text(decl.get('policy_number'), 60)}
+            status = 'declared' if vt >= bdate else 'expired'
+        elif json_bool(decl.get('at_center')):
+            status = 'at_center'
+        elif not is_guest and db.execute("SELECT 1 FROM insurance_policies WHERE user_id=? AND status='active' AND valid_to<?", (customer['id'], bdate)).fetchone():
+            status = 'expired'
+        else:
+            status = 'missing'
+    # «obligatorio para reservar online»: only a policy on file for that day lets the booking go on (the centre's own API
+    # may vouch for one it has checked: «declared»).
+    blocked = need == 'online' and not (status == 'ok' or (channel == 'api' and status == 'declared'))
+    return {'required': need, 'status': status, 'policy_id': pol['id'] if pol else None, 'info': info or None, 'blocked': blocked}
+
+
+def ins_booking_public(db, b):
+    """The insurance of a booking for its customer and the API: what the service asks and how it stands."""
+    st = row_get(b, 'insurance_status') or 'not_required'
+    out = {'required': ins_requirement(db.execute('SELECT insurance_required FROM provider_services WHERE id=?', (b['service_id'],)).fetchone()) if b['service_id'] else 'no',
+           'status': st}
+    p = db.execute('SELECT valid_to,insurer FROM insurance_policies WHERE id=?', (b['insurance_policy_id'],)).fetchone() if row_get(b, 'insurance_policy_id') else None
+    if p: out.update(valid_to=p['valid_to'], insurer=p['insurer'])
+    if wbk.normalize_state(b['status']) == 'insurance_pending': out['deadline'] = b['hold_expires_at']
+    return out
+
+
+def ins_resume(db, b, return_to=None):
+    """A booking that waited for the insurance now has it: it goes on exactly as it would have (pay, or send the
+    request). Returns the new state (and the payment page) or None if the policy still does not cover that day."""
+    b = booking_row(db, b['id'])
+    if wbk.normalize_state(b['status']) != 'insurance_pending': return None
+    pol = ins_covering(db, b['user_id'], b['booking_date'], b['id'])
+    if not pol: return None
+    bid = b['id']
+    db.execute("UPDATE bookings SET insurance_status='ok',insurance_policy_id=?,updated_at=? WHERE id=?", (pol['id'], now(), bid))
+    price = float(b['price'] or 0)
+    if b['booking_mode'] == 'payment' and price > 0:
+        hold = local_iso(local_now() + _timedelta(minutes=HOLD_MINUTES))
+        db.execute("UPDATE bookings SET status='payment_in_progress',payment_status='pending',hold_expires_at=?,updated_at=? WHERE id=? AND status='insurance_pending'", (hold, now(), bid))
+        db.commit()
+        customer = db.execute('SELECT * FROM users WHERE id=?', (b['user_id'],)).fetchone()
+        pay_user = dict(customer); pay_user['email'] = b['contact_email'] or customer['email']
+        nb = booking_row(db, bid)
+        try:
+            pay = start_checkout(db, pay_user, nb, return_to=return_to(nb) if callable(return_to) else return_to)
+        except ValueError:
+            expire_booking(db, booking_row(db, bid), 'checkout_failed', notify=False); db.commit(); raise
+        return {'status': 'payment_in_progress', 'checkout_url': pay['checkout_url'], 'hold_expires_at': hold}
+    if b['booking_mode'] == 'payment':
+        db.execute("UPDATE bookings SET status='confirmed',confirmed_at=?,hold_expires_at=NULL,updated_at=? WHERE id=? AND status='insurance_pending'", (now(), now(), bid))
+        notify_booking(db, bid, 'created'); db.commit()
+        return {'status': 'confirmed'}
+    # «Bajo petición»: the request goes to the centre now; a request takes no spots until it is accepted.
+    release_booking_spots(db, b)
+    svc = db.execute('SELECT response_hours FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    start = on_server_clock(db, wbk.activity_start(b['booking_date'], b['booking_time']), b['service_id'], b['center_id'])
+    deadline = local_iso(wbk.deadline_before_start(local_now(), wbk.clamp_hours(svc['response_hours'] if svc else None, wbk.DEFAULT_RESPONSE_HOURS), start)) if start else None
+    db.execute("UPDATE bookings SET status='requested',response_deadline=?,hold_expires_at=NULL,updated_at=? WHERE id=? AND status='insurance_pending'", (deadline, now(), bid))
+    notify_booking(db, bid, 'created'); db.commit()
+    return {'status': 'requested', 'response_deadline': deadline}
+
+
+def ins_center_window(db, b):
+    """The centre sees the insurance of a booking from its confirmation to 7 days after the dive."""
+    if wbk.normalize_state(b['status']) not in INSURANCE_CENTER_STATES: return False
+    last = b['date_to'] if row_get(b, 'date_to') else b['booking_date']
+    try: until = (_dt.date.fromisoformat(last) + _timedelta(days=INSURANCE_CENTER_DAYS)).isoformat()
+    except (TypeError, ValueError): return False
+    return wag.today_in(booking_tz(db, b)).isoformat() <= until
+
+
+def ins_booking_icon(db, b):
+    """A light mark for the lists of the centre (planning, bookings): 🟢 🔴 ⚪, only inside the allowed window."""
+    if not ins_center_window(db, b) or (row_get(b, 'insurance_status') or 'not_required') == 'not_required': return None
+    st = ins_booking_status_now(db, b)
+    return {'status': st, 'icon': INSURANCE_ICONS.get(st, '⚪')}
+
+
+def ins_booking_status_now(db, b):
+    """The insurance of a booking today (a policy uploaded after booking counts)."""
+    st = row_get(b, 'insurance_status') or 'not_required'
+    if st == 'not_required': return st
+    if not is_guest_user(db, b['user_id']) and ins_covering(db, b['user_id'], b['booking_date'], b['id']): return 'ok'
+    if ins_covering(db, -1, b['booking_date'], b['id']): return 'ok'
+    return 'ok' if st == 'ok' else st
+
+
+def ins_booking_view(db, b, viewer_center=None, viewer_pro=None):
+    """For the centre: the insurance of each participant for the day of the dive (state, insurer, kind and dates), only
+    from the confirmation to 7 days after; the document only if the diver shares it (or the centre uploaded it)."""
+    need = ins_requirement(db.execute('SELECT insurance_required FROM provider_services WHERE id=?', (b['service_id'],)).fetchone()) if b['service_id'] else 'no'
+    out = {'required': need, 'required_label': wseg.REQUIRE_LABELS[need], 'visible': ins_center_window(db, b), 'participants': []}
+    if not out['visible']:
+        out['note'] = 'El estado del seguro se ve desde que la reserva está confirmada hasta 7 días después de la inmersión.'
+        return out
+    try: info = json.loads(row_get(b, 'insurance_info') or '{}') or {}
+    except ValueError: info = {}
+    guest = is_guest_user(db, b['user_id'])
+    u = db.execute('SELECT fullname FROM users WHERE id=?', (b['user_id'],)).fetchone()
+    share = bool(not guest and (db.execute('SELECT insurance_share FROM user_profiles WHERE user_id=?', (b['user_id'],)).fetchone() or {'insurance_share': 0})['insurance_share'])
+    pol = ins_covering(db, -1 if guest else b['user_id'], b['booking_date'], b['id'])
+    main = {'name': (b['contact_name'] if guest and b['contact_name'] else (u['fullname'] if u else '')) or 'Cliente', 'account': not guest}
+    if pol:
+        mine = viewer_center and pol['center_id'] == viewer_center or viewer_pro and pol['provider_user_id'] == viewer_pro
+        main.update(state='ok', insurer=pol['insurer'], kind=pol['kind'], kind_label=wseg.KIND_LABELS.get(pol['kind'], ''), valid_from=pol['valid_from'],
+                    valid_to=pol['valid_to'], policy_id=pol['id'], can_view_file=bool(pol['file_path'] and (mine or share)),
+                    pending=pol['status'] == 'pending', uploaded_by_center=bool(mine))
+    else:
+        last = None if guest else db.execute("SELECT * FROM insurance_policies WHERE user_id=? AND status='active' AND valid_to<? ORDER BY valid_to DESC LIMIT 1",
+                                              (b['user_id'], b['booking_date'])).fetchone()
+        d = info.get('declared') or {}
+        if d.get('insurer'):
+            main.update(state='declared' if (d.get('valid_to') or '') >= b['booking_date'] else 'expired', insurer=d['insurer'], valid_to=d.get('valid_to'), declared=True)
+        elif last:
+            main.update(state='expired', insurer=last['insurer'], kind=last['kind'], kind_label=wseg.KIND_LABELS.get(last['kind'], ''), valid_to=last['valid_to'])
+        else:
+            main.update(state='at_center' if (row_get(b, 'insurance_status') == 'at_center') else 'missing')
+    main['icon'] = INSURANCE_ICONS.get(main['state'], '⚪')
+    out['participants'].append(main)
+    for x in info.get('participants') or []:
+        st = 'declared' if x.get('insurer') and (x.get('valid_to') or '') >= b['booking_date'] else ('expired' if x.get('insurer') else 'at_center')
+        out['participants'].append({'name': x.get('name') or 'Acompañante', 'account': False, 'state': st, 'icon': INSURANCE_ICONS.get(st, '⚪'),
+                                    'insurer': x.get('insurer'), 'valid_to': x.get('valid_to'), 'declared': bool(x.get('insurer'))})
+    out['share'] = share
+    return out
+
+
+def ins_provider_booking(db, ref, bid):
+    """A booking of that centre or freelance, or 404 (never another provider's)."""
+    if not ref: raise PermissionError('Tu cuenta no tiene un centro asociado.')
+    if ref[0] == 'center': b = db.execute('SELECT * FROM bookings WHERE id=? AND center_id=?', (bid, ref[1])).fetchone()
+    else: b = db.execute('SELECT * FROM bookings WHERE id=? AND center_id IS NULL AND provider_user_id=?', (bid, ref[1])).fetchone()
+    if not b: raise NotFound('Reserva no encontrada.')
+    return b
+
+
+def ins_center_can_view_file(db, user, p):
+    """A centre (or freelance) and a policy's file: the one it uploaded for its booking, or the diver's own if he shares
+    it and has a booking with that centre in the allowed window."""
+    ref = provider_ref(db, user)
+    if not ref: return False
+    kind, pid = ref
+    if (kind == 'center' and p['center_id'] == pid) or (kind == 'freelance' and p['provider_user_id'] == pid): return True
+    if p['status'] != 'active' or not p['user_id']: return False
+    if not (db.execute('SELECT insurance_share FROM user_profiles WHERE user_id=?', (p['user_id'],)).fetchone() or {'insurance_share': 0})['insurance_share']: return False
+    col = 'center_id' if kind == 'center' else 'provider_user_id'
+    extra = '' if kind == 'center' else ' AND center_id IS NULL'
+    for b in db.execute(f"SELECT * FROM bookings WHERE {col}=?{extra} AND user_id=? AND status IN ('accepted_pending_payment','confirmed','completed')", (pid, p['user_id'])).fetchall():
+        if ins_center_window(db, b) and wseg.covers(p, b['booking_date']): return True
+    return False
+
+
+# ---- offers (aseguradoras colaboradoras) ----------------------------------------------------------------------------
+def ins_provider_list(db, active_only=True):
+    today = _dt.date.today().isoformat()
+    rows = db.execute('SELECT * FROM insurance_providers' + (' WHERE active=1' if active_only else '') + ' ORDER BY name').fetchall()
+    if active_only:
+        rows = [r for r in rows if (not r['agreement_from'] or r['agreement_from'] <= today) and (not r['agreement_to'] or r['agreement_to'] >= today)]
+    return rows
+
+
+def ins_offers(db, kind, audience, countries, lang='es'):
+    """The insurers with that product for the country of the diver or of the dive, in the neutral order, with the
+    legal texts. Only names, products and «desde X €»: no recommendation, no comparison of coverages."""
+    kind = kind if kind in wseg.PRODUCT_KINDS else 'dia'
+    audience = audience if audience in wseg.AUDIENCES else 'buceador'
+    texts = ins_texts(db, lang)
+    order = 'rotate' if ins_setting(db, 'insurance_order') == 'rotate' else 'alpha'
+    out = []
+    for prov in wseg.ordered(ins_provider_list(db), order):
+        rows = db.execute('SELECT * FROM insurance_products WHERE provider_id=? AND kind=? AND active=1 ORDER BY sort_order,id', (prov['id'], kind)).fetchall()
+        for pr in rows:
+            if not wseg.sold_in(json.loads(pr['countries'] or '[]'), *countries): continue
+            if not ((pr['center_url'] if audience == 'centro' else None) or pr['diver_url']): continue
+            out.append({'product_id': pr['id'], 'provider_id': prov['id'], 'insurer': prov['name'], 'logo_url': prov['logo_url'], 'product': pr['name'],
+                        'kind': pr['kind'], 'kind_label': wseg.KIND_LABELS[pr['kind']], 'price_from': pr['price_from'], 'currency': pr['currency'],
+                        'zones': [wseg.ZONE_LABELS.get(z, z) for z in json.loads(pr['zones'] or '[]')],
+                        'collaborator': bool(prov['collaborator']), 'featured': bool(prov['featured']),
+                        'notice': texts['notice'].replace('{insurer}', prov['name']),
+                        'collaborator_text': texts['collaborator'].replace('{insurer}', prov['name']) if prov['collaborator'] else None,
+                        'featured_text': texts['featured'].replace('{insurer}', prov['name']) if prov['featured'] else None,
+                        'url': f'/seguros/ir/{pr["id"]}?para={audience}' + (f'&pais={countries[0]}' if countries and countries[0] else ''),
+                        'prefill': wseg.provider_for(prov, ins_api_enabled()).supports_prefill()})
+    # The general line of the window: the sentences of the notice that do not name an insurer («WORLDIVES no es…»)
+    generic = ' '.join(x for x in re.split(r'(?<=[.。])\s*', texts['notice']) if x.strip() and '{insurer}' not in x)
+    return {'kind': kind, 'audience': audience, 'offers': out, 'not_insurer': generic,
+            'kinds': [{'key': k, 'label': wseg.KIND_LABELS[k]} for k in (('rc_centro',) if kind == 'rc_centro' else ('dia', 'semana', 'anio'))]}
+
+
+def ins_provider_dict(db, r):
+    d = {k: r[k] for k in ('id', 'name', 'logo_url', 'website', 'partner_code', 'mode', 'collaborator', 'featured', 'sort_order', 'active', 'agreement_from', 'agreement_to')}
+    d['allowed_domains'] = json.loads(r['allowed_domains'] or '[]')
+    d['products'] = [{**{k: p[k] for k in ('id', 'kind', 'name', 'price_from', 'currency', 'diver_url', 'center_url', 'active', 'sort_order')},
+                      'zones': json.loads(p['zones'] or '[]'), 'countries': json.loads(p['countries'] or '[]'), 'languages': json.loads(p['languages'] or '[]')}
+                     for p in db.execute('SELECT * FROM insurance_products WHERE provider_id=? ORDER BY kind,sort_order,id', (r['id'],)).fetchall()]
+    return d
+
+
+def ins_save_provider(db, data):
+    pid = int(data.get('id') or 0) or None
+    name = clean_text(data.get('name'), 120)
+    if not name: raise ValueError('Escribe el nombre de la aseguradora.')
+    domains = wseg.clean_domains(data.get('allowed_domains'))
+    if not domains: raise ValueError('Indica al menos un dominio autorizado de la aseguradora (por ejemplo, aseguradora.com).')
+    website = clean_text(data.get('website'), 300) or None
+    if website and not wseg.url_allowed(website, domains): raise ValueError('La web de la aseguradora tiene que ser https y de uno de sus dominios autorizados.')
+    logo = clean_text(data.get('logo_url'), 300) or None
+    if logo and not (logo.startswith('/') and not logo.startswith('//') or wseg.url_allowed(logo, domains)): raise ValueError('El logo tiene que ser una imagen de la web o de un dominio autorizado de la aseguradora.')
+    mode = 'api' if data.get('mode') == 'api' else 'link'
+    vals = (name, logo, website, json.dumps(domains), clean_text(data.get('partner_code'), 60) or None, mode, 1 if json_bool(data.get('collaborator')) else 0,
+            1 if json_bool(data.get('featured')) else 0, clean_int(data.get('sort_order'), -1000, 1000, 0), 1 if json_bool(data.get('active', True)) else 0,
+            wseg.clean_date(data.get('agreement_from')), wseg.clean_date(data.get('agreement_to')), now())
+    if pid:
+        if db.execute('''UPDATE insurance_providers SET name=?,logo_url=?,website=?,allowed_domains=?,partner_code=?,mode=?,collaborator=?,featured=?,sort_order=?,active=?,
+                         agreement_from=?,agreement_to=?,updated_at=? WHERE id=?''', (*vals, pid)).rowcount != 1: raise NotFound('Aseguradora no encontrada.')
+        # A product whose address is no longer of an authorised domain stops being offered
+        for p in db.execute('SELECT id,diver_url,center_url FROM insurance_products WHERE provider_id=?', (pid,)).fetchall():
+            if any(u and not wseg.url_allowed(u.replace('{codigo}', 'x'), domains) for u in (p['diver_url'], p['center_url'])):
+                db.execute('UPDATE insurance_products SET active=0,updated_at=? WHERE id=?', (now(), p['id']))
+    else:
+        if db.execute('SELECT COUNT(*) FROM insurance_providers').fetchone()[0] >= INSURANCE_PROVIDERS_MAX: raise ValueError('Demasiadas aseguradoras.')
+        pid = db.execute('''INSERT INTO insurance_providers(name,logo_url,website,allowed_domains,partner_code,mode,collaborator,featured,sort_order,active,agreement_from,
+                            agreement_to,updated_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (*vals, now())).lastrowid
+    return pid
+
+
+def ins_save_product(db, data):
+    prov = db.execute('SELECT * FROM insurance_providers WHERE id=?', (int(data.get('provider_id') or 0),)).fetchone()
+    if not prov: raise NotFound('Aseguradora no encontrada.')
+    domains = json.loads(prov['allowed_domains'] or '[]')
+    kind = data.get('kind')
+    if kind not in wseg.PRODUCT_KINDS: raise ValueError('Tipo de producto no válido (día, semana, año o RC para centros).')
+    name = clean_text(data.get('name'), 120)
+    if not name: raise ValueError('Escribe el nombre del producto.')
+    urls = {}
+    for k in ('diver_url', 'center_url'):
+        u = clean_text(data.get(k), 600) or None
+        # Only https addresses of the domains authorised for that insurer ({codigo} is replaced by the partner code)
+        if u and not wseg.url_allowed(u.replace('{codigo}', 'x'), domains): raise ValueError('Solo se admiten direcciones https de los dominios autorizados de esta aseguradora.')
+        urls[k] = u
+    if not (urls['diver_url'] or urls['center_url']): raise ValueError('Indica la dirección de contratación (para buceadores, para centros o las dos).')
+    price = data.get('price_from')
+    try: price = round(float(str(price).replace(',', '.')), 2) if price not in (None, '') else None
+    except ValueError: raise ValueError('El precio «desde» no es válido.')
+    if price is not None and not 0 <= price <= 100000: raise ValueError('El precio «desde» no es válido.')
+    zones = [z for z in (data.get('zones') or []) if z in wseg.ZONES]
+    langs = [l for l in (data.get('languages') or []) if l in wseg.LEGAL_DEFAULTS]
+    vals = (prov['id'], kind, name, price, (clean_text(data.get('currency'), 3) or 'EUR').upper(), json.dumps(zones), json.dumps(wseg.clean_countries(data.get('countries'))),
+            json.dumps(langs), urls['diver_url'], urls['center_url'], 1 if json_bool(data.get('active', True)) else 0, clean_int(data.get('sort_order'), -1000, 1000, 0), now())
+    pid = int(data.get('id') or 0) or None
+    if pid:
+        if db.execute('''UPDATE insurance_products SET provider_id=?,kind=?,name=?,price_from=?,currency=?,zones=?,countries=?,languages=?,diver_url=?,center_url=?,active=?,
+                         sort_order=?,updated_at=? WHERE id=? AND provider_id=?''', (*vals, pid, prov['id'])).rowcount != 1: raise NotFound('Producto no encontrado.')
+        return pid
+    return db.execute('''INSERT INTO insurance_products(provider_id,kind,name,price_from,currency,zones,countries,languages,diver_url,center_url,active,sort_order,updated_at,created_at)
+                         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (*vals, now())).lastrowid
+
+
+def ins_stats(db, months=12):
+    """Clicks per insurer, product, country and month, and policies uploaded after a click. No personal data."""
+    since = (_dt.date.today().replace(day=1) - _timedelta(days=31 * (months - 1))).strftime('%Y-%m')
+    rows = db.execute('''SELECT c.month,c.provider_id,c.product_id,c.country,c.audience,c.clicks,c.policies,p.name AS insurer,pr.name AS product,pr.kind
+                           FROM insurance_clicks c LEFT JOIN insurance_providers p ON p.id=c.provider_id LEFT JOIN insurance_products pr ON pr.id=c.product_id
+                          WHERE c.month>=? ORDER BY c.month DESC,p.name,pr.name,c.country''', (since,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ---- notices and retention ------------------------------------------------------------------------------------------
+def queue_insurance_notices(db, today=None):
+    """30, 7 and 1 days before the last day of a diver's insurance, and the day it ends: e-mail (and the app, if he has
+    it) with «Renovar o contratar seguro». Only for the policy that ends last: if he already has a newer one, nothing."""
+    sent = 0
+    for p in db.execute("""SELECT p.* FROM insurance_policies p JOIN users u ON u.id=p.user_id
+                            WHERE p.status='active' AND u.password_hash<>'!' AND p.valid_to BETWEEN ? AND ?""",
+                        ((_dt.date.today() - _timedelta(days=1)).isoformat(), (_dt.date.today() + _timedelta(days=31)).isoformat())).fetchall():
+        today_u = today or ins_user_today(db, p['user_id'])
+        left = (_dt.date.fromisoformat(p['valid_to']) - _dt.date.fromisoformat(today_u)).days
+        if left < 0 or left > 30: continue
+        if db.execute("SELECT 1 FROM insurance_policies WHERE user_id=? AND status='active' AND valid_to>? AND id<>?", (p['user_id'], p['valid_to'], p['id'])).fetchone(): continue
+        mark = '0' if left == 0 else '1' if left == 1 else '7' if left <= 7 else '30'
+        done = json.loads(p['notices'] or '[]')
+        if mark in done: continue
+        db.execute('UPDATE insurance_policies SET notices=?,updated_at=? WHERE id=?', (json.dumps(done + [mark]), now(), p['id']))
+        lang = user_lang(db, p['user_id'])
+        title = {'0': 'Tu seguro de buceo caduca hoy', '1': 'Tu seguro de buceo caduca mañana', '7': 'Tu seguro de buceo caduca en 7 días',
+                 '30': 'Tu seguro de buceo caduca en {days} días'}[mark]
+        notify_user(db, p['user_id'], 'insurance_diver_expiring', {'expiry_title': mail_t(lang, title, days=left), 'insurer': p['insurer'],
+                                                                     'valid_to_text': mail_date(p['valid_to'], lang), 'insurance_url': f'{public_site_url()}/#/seguro?contratar=1'},
+                    ('insurance', p['id']))
+        sent += 1
+    db.commit()
+    return sent
+
+
+def run_insurance_retention(db, at=None):
+    """Expired policies are deleted after the months set in Conservación de datos (12 by default), unless a booking they
+    cover is in dispute (a bank dispute or a complaint still open)."""
+    months = retention_settings(db)['insurance_months']
+    limit = _months_ago(at or datetime.now(), months).date().isoformat()
+    n = 0
+    for p in db.execute('SELECT * FROM insurance_policies WHERE valid_to<? LIMIT 2000', (limit,)).fetchall():
+        disputed = db.execute("""SELECT 1 FROM bookings b JOIN payment_orders po ON po.booking_id=b.id
+                                  WHERE po.incident IN ('dispute','customer_complaint') AND (b.id=? OR (b.user_id=? AND b.booking_date BETWEEN COALESCE(?,?) AND ?)) LIMIT 1""",
+                              (p['booking_id'] or 0, p['user_id'] or 0, p['valid_from'], p['valid_to'], p['valid_to'])).fetchone()
+        if disputed: continue
+        ins_delete_policy(db, p); n += 1
+    if n: audit(db, None, 'insurance_retention', 'insurance_policy', None, {'deleted': n, 'months': months})
+    db.commit()
+    return n
+
+
+# ---------------------------------------------------------------------------
 # v50.56 · Motor de reservas multicanal, Parte B: THE single booking function. Every channel (the WORLDIVES search,
 # the centre's widget, a direct link, the API, the centre's own manual bookings and imports) goes through
 # create_booking; nothing else inserts bookings (tests/test_v50_56_multicanal.py checks it in the source). One
@@ -9220,7 +9743,7 @@ def create_booking(db, req):
     slot_id = int(data.get('slot_id') or 0) or None
     if online and slot_id and channel in ('worldives', 'link') and not idem_key:
         # v50.51 (load test): a double click or a retry of the same booking without a key gives back the one just made
-        dup = db.execute("SELECT * FROM bookings WHERE user_id=? AND slot_id=? AND participants=? AND status IN ('requested','pending','payment_in_progress','accepted_pending_payment','confirmed') AND created_at>=? ORDER BY id DESC LIMIT 1",
+        dup = db.execute("SELECT * FROM bookings WHERE user_id=? AND slot_id=? AND participants=? AND status IN ('requested','pending','payment_in_progress','insurance_pending','accepted_pending_payment','confirmed') AND created_at>=? ORDER BY id DESC LIMIT 1",
                          (customer['id'], slot_id, participants, (datetime.now(timezone.utc) - _timedelta(minutes=2)).isoformat(timespec='seconds'))).fetchone()
         if dup:
             body = {'ok': True, 'id': dup['id'], 'status': dup['status'], 'duplicate': True, 'payment_required': dup['status'] == 'payment_in_progress', 'price': dup['price'], 'booking_mode': dup['booking_mode']}
@@ -9347,6 +9870,16 @@ def create_booking(db, req):
         hours = wbk.clamp_hours(service['response_hours'] if service else None, wbk.DEFAULT_RESPONSE_HOURS)
         deadline = local_iso(wbk.deadline_before_start(local_now(), hours, start))
         pay_deadline = None
+    # ---- v50.56 · Bloque 2: the diving insurance the service asks for, the same in every channel. «Se comprueba en el
+    # centro»: noted, never blocking. «Obligatorio para reservar online» without a policy for that day: the spots are
+    # held (INSURANCE_HOLD_MINUTES) while the diver uploads one; then the booking goes on by itself (ins_resume).
+    ins = ins_booking_check(db, service, customer, contact is not None, bdate, data, channel, participants) if service else \
+        {'required': 'no', 'status': 'not_required', 'policy_id': None, 'info': None, 'blocked': False}
+    if ins['blocked'] and not by_provider:
+        status = 'insurance_pending'; deadline = None
+        hold = local_iso(local_now() + _timedelta(minutes=INSURANCE_HOLD_MINUTES))
+        if slot and not slot_reserved:
+            take_slot_spots(db, slot['id'], participants); slot_reserved = 1
     origin = wch.clean_domain(req.get('origin'), allow_local_domains()) if channel == 'widget' else None
     cur = db.execute('''INSERT INTO bookings(user_id,center_id,provider_user_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,booking_mode,response_deadline,payment_deadline,hold_expires_at,confirmed_at,terms_version,price_breakdown,deposit_amount,amount_paid,amount_due,cancel_free_hours,cancel_refund_pct,
                      source,channel,channel_origin,api_key_id,external_ref,contact_name,contact_email,contact_phone,created_by_user_id,payment_method,public_token,created_at,updated_at)
@@ -9363,6 +9896,9 @@ def create_booking(db, req):
     # Every time is stored with the time zone of the place of the activity (shown in local time everywhere).
     db.execute('UPDATE bookings SET timezone=? WHERE id=? AND user_id=?', (service_tz(db, service) if service else place_tz(db, None, center_id), bid, customer['id']))
     if not by_provider and channel != 'api': BOOKING_LIMIT.hit(limit_key)
+    if ins['required'] != 'no':
+        db.execute('UPDATE bookings SET insurance_status=?,insurance_policy_id=?,insurance_info=? WHERE id=? AND user_id=?',
+                   (ins['status'], ins['policy_id'], json.dumps(ins['info'], ensure_ascii=False) if ins['info'] else None, bid, customer['id']))
     if online and pay_way == 'in_person':
         db.execute("UPDATE bookings SET pay_way='in_person',in_person_ack_at=? WHERE id=? AND user_id=?", (now(), bid, customer['id']))
         audit(db, customer['id'], 'in_person_notice_accepted', 'booking', bid, {'notice_version': wpres.NOTICE_VERSION})
@@ -9371,7 +9907,7 @@ def create_booking(db, req):
     if day_sel:
         db.executemany('INSERT INTO booking_days(booking_id,local_date,part) VALUES(?,?,?)', [(bid, d, day_sel['part']) for d in day_sel['days']])
         db.execute('UPDATE bookings SET date_to=?,days_mode=? WHERE id=?', (day_sel['days'][-1], day_sel['part'], bid))
-        if status in ('payment_in_progress', 'confirmed', 'accepted_pending_payment'): claim_booking_days(db, booking_row(db, bid))
+        if status in ('payment_in_progress', 'insurance_pending', 'confirmed', 'accepted_pending_payment'): claim_booking_days(db, booking_row(db, bid))
         if status == 'confirmed': reject_overlapping_requests(db, booking_row(db, bid))
     if wl_hold:
         db.execute("UPDATE waitlist_entries SET status='booked',held=0,booking_id=?,updated_at=? WHERE id=?", (bid, now(), wl_hold['id']))
@@ -9386,11 +9922,18 @@ def create_booking(db, req):
             'booking_mode': mode, 'channel': channel, 'participants': participants, 'date': bdate, 'time': btime}
     if status == 'payment_in_progress': body.update(hold_expires_at=hold, deposit=deposit)
     if status == 'requested': body.update(response_deadline=deadline)
+    if ins['required'] != 'no':
+        body['insurance'] = {'required': ins['required'], 'status': ins['status']}
+        if status == 'insurance_pending':
+            body['insurance'].update(deadline=hold, message='Este servicio exige un seguro de buceo válido para el día de la inmersión. Súbelo para terminar la reserva: guardamos tus plazas hasta entonces.')
     if pay_way == 'in_person': body['pay_way'] = 'in_person'
     if contact: body['token'] = f"{bid}.{b['public_token']}"   # the customer without an account sees his booking with it
     if idem_h:
         db.execute('INSERT INTO booking_requests(key_hash,channel,booking_id,response,created_at) VALUES(?,?,?,?,?)',
                    (idem_h, channel, bid, json.dumps(body, ensure_ascii=False), now()))
+    if status == 'insurance_pending':
+        db.commit()   # not a booking yet: nobody is told, nothing is charged, the spots are held
+        return {'status': 200, 'body': body}
     if status == 'payment_in_progress':
         # The booking is not visible to the provider until Stripe confirms the payment.
         db.commit()
@@ -9435,6 +9978,7 @@ def booking_api_dict(db, b):
             'payment_status': b['payment_status'], 'booking_mode': b['booking_mode'], 'external_ref': b['external_ref'],
             'customer': {'name': (b['contact_name'] or (u['fullname'] if u else None)) if guest else (u['fullname'] if u else None),
                          'email': (b['contact_email'] if guest else (u['email'] if u else None)), 'phone': b['contact_phone'] or None},
+            'insurance': ins_booking_public(db, b),   # v50.56: {required, status[, valid_to, insurer, deadline]}
             'created_at': b['created_at'], 'updated_at': b['updated_at']}
 
 
@@ -9615,7 +10159,8 @@ def sales_services(db, kind, pid, lang='es', service_id=None, service_type=None,
              'price': round(price, 2), 'currency': s['currency'] or 'EUR', 'per': 'day' if unit in wag.DAY_UNITS else 'person',
              'duration': s['duration_minutes'], 'max_participants': s['max_participants'], 'timezone': service_tz(db, s),
              'photo': {'src': photo.get('src') or photo.get('jpg'), 'srcset': photo.get('srcset') or ''} if photo else None,
-             'deposit': s['deposit_type'] not in (None, '', 'none')}
+             'deposit': s['deposit_type'] not in (None, '', 'none'),
+             'insurance': ins_requirement(s)}   # v50.56: «Exige seguro de buceo» (no · center · online)
         if with_dates and unit not in wag.DAY_UNITS:
             d['next'] = [{'id': x['id'], 'date': x['slot_date'], 'time': x['slot_time'], 'free': int(x['spots_available'] or 0)} for x in db.execute(
                 "SELECT id,slot_date,slot_time,spots_available FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date>=date('now') ORDER BY slot_date,slot_time LIMIT 3",
@@ -9689,7 +10234,7 @@ def sales_book(handler, db, kind, pid, row, channel, data):
     customer = viewer if viewer and viewer['role'] == 'recreational' else None
     lang = normalize_lang(data.get('lang'))
     clean = {k: data.get(k) for k in ('service_id', 'slot_id', 'days', 'part', 'date_from', 'date_to', 'participants', 'notes', 'extra_ids', 'equipment_codes',
-                                      'agenda_extras', 'in_person_ack', 'booking_date', 'booking_time', 'needs_equipment')}
+                                      'agenda_extras', 'in_person_ack', 'booking_date', 'booking_time', 'needs_equipment', 'insurance', 'insurance_participants')}
     clean['center_id'] = pid if kind == 'center' else None
     if service_unit(s) in wag.DAY_UNITS and clean.get('days'): clean['booking_date'] = (clean['days'] or [None])[0]
     if not json_bool(data.get('accept_policy')): raise ValueError('Marca que has leído la política de cancelación.')
@@ -9759,7 +10304,8 @@ def guest_booking_view(db, b, lang='es'):
             'date': b['booking_date'], 'time': b['booking_time'] if b['booking_time'] and re.fullmatch(r'\d{2}:\d{2}', b['booking_time']) else None,
             'date_to': b['date_to'], 'days': days or None, 'timezone': booking_tz(db, b), 'participants': int(b['participants'] or 1),
             'price': float(b['price'] or 0), 'currency': b['currency'] or 'EUR', 'payment_status': b['payment_status'], 'channel': wch.channel_of(b),
-            'hold_expires_at': b['hold_expires_at'] if st['status'] == 'payment_in_progress' else None,
+            'hold_expires_at': b['hold_expires_at'] if st['status'] in wbk.PRE_BOOKING else None,
+            'insurance': ins_booking_public(db, b),   # v50.56: what the service asks and how the booking stands
             'payment_deadline': mail_deadline(db, b['payment_deadline'], lang, b['service_id'], b['center_id']) if st['status'] == 'accepted_pending_payment' else None,
             'policy': booking_policy(db, b, lang)['text'], 'can_pay': can_pay, 'can_cancel': bool(terms and not terms.get('started')),
             'cancel_terms': {k: terms[k] for k in ('free', 'refund_amount', 'paid_amount', 'paid_online')} if terms else None,
@@ -9769,6 +10315,10 @@ def guest_booking_view(db, b, lang='es'):
 def guest_cancel(db, b, actor_id, data):
     """The customer cancels his booking (account or token): the same rules for every channel. Returns the body."""
     bid = b['id']
+    if wbk.normalize_state(b['status']) == 'insurance_pending':
+        # v50.56 (seguros): leaving a booking that waited for the insurance: nothing was charged, the spots are freed at once.
+        expire_booking(db, b, 'insurance_abandoned', notify=False)
+        return {'ok': True, 'refund': 'none_paid', 'refund_amount': 0}
     if wbk.normalize_state(b['status']) == 'payment_in_progress':
         # Abandoning the payment of a «Pago al reservar» booking: nothing was charged, the spots are freed at once.
         for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (bid,)).fetchall(): release_order_hold(db, o, 'cancelled')
@@ -9898,7 +10448,8 @@ def api_service(db, kind, pid, s, lang='es'):
     info = service_mode_info(db, s, price)
     return {'id': s['id'], 'title': s['title'], 'type': s['service_type'], 'description': s['description'] or '', 'unit': unit, 'booking_mode': info['booking_mode'],
             'bookable': info['bookable'], 'price': round(price, 2), 'price_per': 'day' if unit in wag.DAY_UNITS else 'person', 'currency': s['currency'] or 'EUR',
-            'duration_minutes': s['duration_minutes'], 'max_participants': s['max_participants'], 'timezone': service_tz(db, s), 'pay_way': info.get('pay_way', 'online')}
+            'duration_minutes': s['duration_minutes'], 'max_participants': s['max_participants'], 'timezone': service_tz(db, s), 'pay_way': info.get('pay_way', 'online'),
+            'insurance_required': ins_requirement(s)}   # v50.56: no · center · online
 
 
 def api_availability(db, kind, pid, s, date_from, date_to):
@@ -10000,7 +10551,7 @@ def ical_feed(db, ptype, pid, center_id=None):
         args = [center_id, pid, pid, center_id]
     rows = db.execute(f"""SELECT b.*, s.title, s.duration_minutes, s.unit_rules, u.fullname
                           FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN users u ON u.id=b.user_id
-                          WHERE {where} AND b.booking_date>=? AND b.status NOT IN ('cancelled','rejected','expired','unpaid','payment_in_progress')
+                          WHERE {where} AND b.booking_date>=? AND b.status NOT IN ('cancelled','rejected','expired','unpaid','payment_in_progress','insurance_pending')
                           ORDER BY b.booking_date LIMIT 2000""", (*args, since)).fetchall()
     host = urlparse(public_site_url()).hostname or 'worldives'
     label = provider_label(db, 'freelance' if ptype == 'instructor' else ptype, pid)
@@ -10130,6 +10681,8 @@ def run_booking_deadlines(db):
     now_l = local_iso(local_now())
     for b in db.execute("SELECT * FROM bookings WHERE status='payment_in_progress' AND hold_expires_at IS NOT NULL AND hold_expires_at<? LIMIT 500", (now_l,)).fetchall():
         expire_booking(db, b, 'hold_expired'); db.commit()
+    for b in db.execute("SELECT * FROM bookings WHERE status='insurance_pending' AND hold_expires_at IS NOT NULL AND hold_expires_at<? LIMIT 500", (now_l,)).fetchall():
+        expire_booking(db, b, 'insurance_missing'); db.commit()   # v50.56: the insurance did not arrive in time: the spots are free again
     for b in db.execute(f"SELECT * FROM bookings WHERE status IN ('requested','pending') AND response_deadline IS NOT NULL AND response_deadline<? AND "+OPEN_OFFER_SQL+" LIMIT 500", (now_l,)).fetchall():
         expire_booking(db, b, 'no_response'); db.commit()
     for b in db.execute(f"SELECT * FROM bookings WHERE status='accepted_pending_payment' AND payment_deadline IS NOT NULL AND payment_deadline<? AND {OPEN_OFFER_SQL} LIMIT 500", (now_l,)).fetchall():
@@ -10475,7 +11028,7 @@ def delete_user_account(db, user):
 # after that everything is deleted except what the law obliges us to keep (payments, refunds, the amounts and dates of
 # the bookings, the tax data for DAC7 and the security log), which keeps its own retention period.
 CLOSE_KEEP_DAYS = 183
-CLOSE_STATES = ('requested', 'accepted_pending_payment', 'confirmed', 'payment_in_progress', 'pending')
+CLOSE_STATES = ('requested', 'accepted_pending_payment', 'confirmed', 'payment_in_progress', 'insurance_pending', 'pending')
 CLOSED_WRITE_OK = ('/api/auth/', '/api/provider/cuenta/reabrir', '/api/account/', '/api/legal/accept', '/api/team/switch', '/api/me', '/api/reports', '/api/contact')
 CENTER_PURGE_TABLES = ('center_tariffs', 'center_extras', 'center_equipment', 'center_integrations', 'center_links', 'data_shares', 'team_invites',
                        'center_roles', 'center_point_links', 'qr_codes', 'promotion_partners', 'center_texts')
@@ -10532,7 +11085,7 @@ def provider_cancel_all(db, user, kind, oid, note=''):
     rep = {'cancelled': 0, 'refunded': 0, 'refund_pending': 0, 'amount': 0.0}
     for x in provider_future_bookings(db, kind, oid):
         b = booking_row(db, x['id'])
-        if b['status'] == 'payment_in_progress':
+        if b['status'] in wbk.PRE_BOOKING:
             if expire_booking(db, b, 'provider_closed', notify=False) != 'paid': continue
             b = booking_row(db, x['id'])
         outcome, amount = provider_cancel_booking(db, b, 'provider_closed', user['id'], 'provider_closed', notify=True, refund=True)
@@ -10751,7 +11304,7 @@ def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
     po = db.execute("SELECT id,paid_at,card_brand,card_last4,amount_received,payment_kind FROM payment_orders WHERE booking_id=? AND status IN ('paid','partially_refunded','refunded') ORDER BY id DESC LIMIT 1", (booking_id,)).fetchone()
     DEEP = BRAND_PDF['abismo']; SEA = BRAND_PDF['oceano']; MUTED = (0.38, 0.43, 0.46); LINE = (0.86, 0.89, 0.91); SOFT = (0.955, 0.972, 0.978); WHITE = (1, 1, 1); INK = (0.07, 0.13, 0.16)
     WARN = (0.66, 0.42, 0.07); BAD = (0.61, 0.25, 0.22); GOOD = (0.184, 0.478, 0.388)
-    tone = {'confirmed': GOOD, 'completed': SEA, 'requested': WARN, 'accepted_pending_payment': WARN, 'payment_in_progress': WARN, 'expired': MUTED, 'rejected': BAD, 'cancelled': BAD}
+    tone = {'confirmed': GOOD, 'completed': SEA, 'requested': WARN, 'accepted_pending_payment': WARN, 'payment_in_progress': WARN, 'insurance_pending': WARN, 'expired': MUTED, 'rejected': BAD, 'cancelled': BAD}
     state = wbk.normalize_state(b['status'])
     in_person = booking_pay_way(b) == 'in_person'   # v50.55
     ipd = booking_in_person(db, b, lang) if in_person else {}
@@ -11248,11 +11801,11 @@ def service_choice_hours(db, slot):
 def slot_cancel_preview(db, slot):
     out = []
     for b in db.execute(f"""SELECT b.*, COALESCE(b.contact_name,u.fullname) AS diver_name FROM bookings b LEFT JOIN users u ON u.id=b.user_id
-                            WHERE b.slot_id=? AND b.status IN ('requested','accepted_pending_payment','confirmed','payment_in_progress') ORDER BY b.id""", (slot['id'],)).fetchall():
+                            WHERE b.slot_id=? AND b.status IN ('requested','accepted_pending_payment','confirmed','payment_in_progress','insurance_pending') ORDER BY b.id""", (slot['id'],)).fetchall():
         paid_, refunded_, _o = booking_paid_online(db, b['id']); net_ = round(paid_ - refunded_, 2)
-        out.append({'booking_id': b['id'], 'name': b['diver_name'] if b['status'] != 'payment_in_progress' else None, 'participants': int(b['participants'] or 1), 'status': b['status'],
-                    'paid': net_, 'currency': b['currency'] or 'EUR', 'alternatives': len(target_slots(db, b, slot['id'])) if b['status'] != 'payment_in_progress' else 0,
-                    'receives': 'released' if b['status'] == 'payment_in_progress' else ('refund' if net_ > 0 else 'no_charge')})
+        out.append({'booking_id': b['id'], 'name': b['diver_name'] if b['status'] not in wbk.PRE_BOOKING else None, 'participants': int(b['participants'] or 1), 'status': b['status'],
+                    'paid': net_, 'currency': b['currency'] or 'EUR', 'alternatives': len(target_slots(db, b, slot['id'])) if b['status'] not in wbk.PRE_BOOKING else 0,
+                    'receives': 'released' if b['status'] in wbk.PRE_BOOKING else ('refund' if net_ > 0 else 'no_charge')})
     return out
 
 
@@ -11265,7 +11818,7 @@ def cancel_slot(db, user, slot, reason, note, hours, notify=True):
     deadline = local_iso(local_now() + _timedelta(hours=hours))
     for a in affected:
         b = booking_row(db, a['booking_id'])
-        if b['status'] == 'payment_in_progress':
+        if b['status'] in wbk.PRE_BOOKING:
             if expire_booking(db, b, 'slot_cancelled', notify=False) != 'paid': continue
             b = booking_row(db, a['booking_id'])
         db.execute('INSERT OR IGNORE INTO slot_cancel_offers(booking_id,slot_id,deadline,created_at) VALUES(?,?,?,?)', (b['id'], slot['id'], deadline, now()))
@@ -11431,14 +11984,14 @@ def notice_texts(db, kind, slot, booking, lang, *, center, reason=None, note=Non
 def notice_preview(db, ctx, slot_id, kind, *, reason=None, note='', policy=None, new_time=None, new_point=None):
     """What the confirmation screen shows: recipients per channel, names with initial, money of each booking and the
     message in each language. Computed only from the bookings of this departure of this tenant."""
-    slot, rows = winq.slot_bookings(db, ctx, slot_id, NOTICE_RECIPIENT_STATES + ('payment_in_progress',))
+    slot, rows = winq.slot_bookings(db, ctx, slot_id, NOTICE_RECIPIENT_STATES + wbk.PRE_BOOKING)
     sett = provider_settings(db, ctx.key)
     policy = policy if policy in ('choice', 'refund') else sett['notice_policy']
     wa = whatsapp_account(db, ctx.key)
     center = provider_label(db, ctx.kind, ctx.oid)
     counts = {c: 0 for c in NOTICE_CHANNELS}; people = []; langs = {}; money = {'refund': 0.0, 'currency': None, 'paying': 0}
     for b in rows:
-        if b['status'] == 'payment_in_progress':
+        if b['status'] in wbk.PRE_BOOKING:
             money['paying'] += 1; continue
         contact = diver_contact(db, b); chans = notice_channels(contact, wa)
         paid_, refunded_, _o = booking_paid_online(db, b['id']); net = round(paid_ - refunded_, 2)
@@ -11608,7 +12161,7 @@ def execute_notice_batch(db, batch):
         if batch['policy'] == 'refund':
             db.execute("UPDATE service_slots SET status='closed',cancelled_at=?,cancel_reason=?,cancel_note=?,cancelled_by=?,updated_at=? WHERE id=? AND provider_id=?",
                        (now(), batch['reason'], batch['note'], actor['id'], now(), slot['id'], batch['provider_id']))
-            for b in db.execute("SELECT * FROM bookings WHERE slot_id=? AND provider_id=? AND status='payment_in_progress'", (slot['id'], batch['provider_id'])).fetchall():
+            for b in db.execute("SELECT * FROM bookings WHERE slot_id=? AND provider_id=? AND status IN ('payment_in_progress','insurance_pending')", (slot['id'], batch['provider_id'])).fetchall():
                 expire_booking(db, b, 'slot_cancelled', notify=False)
             for b in rows:
                 provider_cancel_booking(db, b, reason_es + (f": {batch['note']}" if batch['note'] else ''), actor['id'], 'slot_cancel', notify=False, refund=False)
@@ -12458,6 +13011,11 @@ def save_service_resources(db, sid, data):
 def save_service_agenda_options(db, user, sid, data):
     """Service form: booking unit (por salida · por días · por días o medias jornadas), rules, prices and time zone."""
     save_service_resources(db, sid, data)
+    if 'insurance_required' in data:
+        # v50.56 (seguros): «Exige seguro de buceo»: No · Sí, se comprueba en el centro (default) · Sí, obligatorio para reservar online
+        v = data.get('insurance_required')
+        if v not in wseg.REQUIRE: raise ValueError('Elige si el servicio exige seguro de buceo: no, se comprueba en el centro u obligatorio para reservar online.')
+        db.execute('UPDATE provider_services SET insurance_required=? WHERE id=?', (v, sid))
     if 'booking_unit' not in data: return
     unit = data.get('booking_unit') if data.get('booking_unit') in wag.UNITS else 'slot'
     if unit in wag.DAY_UNITS:
@@ -12953,13 +13511,22 @@ class Handler(BaseHTTPRequestHandler):
             lang = wtx.pick_lang(None, query.get('lang', [''])[0], self.headers.get('Accept-Language'))
             back = query.get('r', [''])[0] or query.get('pago', [''])[0]
             if back in ('ok',): guest_check_payment(db, b)
-            elif back in ('cancel', 'cancelado') and wbk.normalize_state(b['status']) == 'payment_in_progress':
+            elif back in ('cancel', 'cancelado') and wbk.normalize_state(b['status']) == 'payment_in_progress':   # (insurance_pending: the diver may still upload it)
                 guest_cancel(db, b, None, {}); db.commit()      # payment abandoned: the spots are free again at once
             b = booking_row(db, b['id'])
             view = guest_booking_view(db, b, lang); view['token'] = m.group(2); db.commit()
             kind, pid = ('center', b['center_id']) if b['center_id'] else ('freelance', b['provider_user_id'])
             self.serve_sales_page(db, 'return' if m.group(1) == 'w/pago' else 'booking', kind, pid, None, query, view, {'back': back or None, 'pay': bool(query.get('pagar'))})
             return True
+        m = re.fullmatch(r'/api/w/([a-z0-9-]{3,60})/seguros', path)
+        if m:
+            # v50.56 (seguros): the partner insurers for a customer of this centre (country of the centre and of the person)
+            found = provider_by_slug(db, m.group(1))
+            if not found: raise NotFound('Centro no encontrado.')
+            kind, pid, row = found
+            c = db.execute('SELECT country FROM centers WHERE id=?', (pid,)).fetchone() if kind == 'center' else None
+            countries = [wseg.iso_country(query.get('pais', [''])[0]), wseg.iso_country(c['country'] if c else '')]
+            self.send_json(ins_offers(db, query.get('tipo', ['dia'])[0], 'buceador', [x for x in countries if x] or [''], normalize_lang(query.get('lang', ['es'])[0]))); return True
         m = re.fullmatch(r'/api/w/([a-z0-9-]{3,60})(/fechas)?', path)
         if m:
             found = provider_by_slug(db, m.group(1))
@@ -12988,6 +13555,25 @@ class Handler(BaseHTTPRequestHandler):
             channel = 'widget' if data.get('canal') == 'widget' else 'link'
             status, body = sales_book(self, db, kind, pid, row, channel, data)
             self.send_json(body, status); return True
+        m = re.fullmatch(r'/api/mi-reserva/(\d{1,12}\.[A-Za-z0-9_\-]{20,80})/seguro', path)
+        if m:
+            # v50.56 (seguros): the customer without an account uploads his policy for this booking (only for it); a booking
+            # waiting for it goes on by itself.
+            b = guest_booking(db, m.group(1)); tok = m.group(1); base = public_site_url()
+            if wbk.normalize_state(b['status']) not in ('insurance_pending', 'requested', 'accepted_pending_payment', 'confirmed'): raise ValueError('Esta reserva ya no está activa.')
+            if db.execute("SELECT COUNT(*) FROM insurance_policies WHERE booking_id=?", (b['id'],)).fetchone()[0] >= 10: raise ValueError('Ya hay demasiadas pólizas en esta reserva.')
+            fields, files = parse_multipart(self)
+            f = ins_clean_fields(db, fields)
+            if not wseg.covers(f, b['booking_date']): raise ValueError('Esa póliza no cubre el día de la inmersión. Sube una que sea válida ese día.')
+            rel, original = ins_store_file(b['user_id'], files.get('file'))
+            pid = ins_insert(db, f, user_id=b['user_id'], booking_id=b['id'], file_path=rel, original=original, source='diver', status='booking', uploaded_by=b['user_id'],
+                             after_click=ins_count_policy_after_click(db, fields.get('after_click')) if fields.get('after_click') else 0)
+            covers = wseg.covers(f, b['booking_date'])
+            if covers: db.execute("UPDATE bookings SET insurance_status='ok',insurance_policy_id=?,updated_at=? WHERE id=?", (pid, now(), b['id']))
+            audit(db, None, 'insurance_policy_uploaded', 'insurance_policy', pid, {'booking_id': b['id'], 'guest': True, 'covers': covers}); db.commit()
+            ret = ((f'{base}/w/pago/{tok}?r=ok', f'{base}/w/pago/{tok}?r=cancel') if fields.get('ventana') else (f'{base}/mi-reserva/{tok}?pago=ok', f'{base}/mi-reserva/{tok}?pago=cancelado'))
+            out = ins_resume(db, b, return_to=ret) if wbk.normalize_state(b['status']) == 'insurance_pending' else None
+            self.send_json({'ok': True, 'covers': covers, 'booking': out}); return True
         m = re.fullmatch(r'/api/mi-reserva/(\d{1,12}\.[A-Za-z0-9_\-]{20,80})/(pagar|cancelar)', path)
         if m:
             if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
@@ -13003,6 +13589,210 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({'ok': True, 'checkout_url': out['checkout_url']}); return True
         return False
 
+
+    # ---- v50.56 · Bloque 2: seguros de buceo -------------------------------------------------------------------------
+    def insurance_get(self, db, path, query):
+        """GET routes of the diving insurance. Returns True when it answered."""
+        q = lambda k, d='': (query.get(k, [d])[0] or d)
+        if path == '/api/insurance':
+            user = require_user(self, db); uid = user['id']
+            today = ins_user_today(db, uid)
+            pols = db.execute("SELECT * FROM insurance_policies WHERE user_id=? AND status IN ('active','pending') ORDER BY valid_to DESC", (uid,)).fetchall()
+            share = (db.execute('SELECT insurance_share FROM user_profiles WHERE user_id=?', (uid,)).fetchone() or {'insurance_share': 0})['insurance_share']
+            waiting = [{'id': b['id'], 'date': b['booking_date'], 'time': b['booking_time'], 'service': b['title'], 'deadline': b['hold_expires_at']}
+                       for b in db.execute("""SELECT b.*, s.title FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id
+                                              WHERE b.user_id=? AND b.status='insurance_pending' ORDER BY b.id DESC""", (uid,)).fetchall()]
+            texts = ins_texts(db, user_lang(db, uid))
+            self.send_json({'state': ins_state(db, uid, today), 'today': today, 'share': bool(share), 'waiting': waiting,
+                            'policies': [ins_policy_out(db, p) for p in pols if p['status'] == 'active'],
+                            'pending': [ins_policy_out(db, p) for p in pols if p['status'] == 'pending'],
+                            'kinds': [{'key': k, 'label': wseg.KIND_LABELS[k]} for k in wseg.POLICY_KINDS],
+                            'zones': [{'key': k, 'label': wseg.ZONE_LABELS[k]} for k in wseg.ZONES],
+                            'providers': [{'id': p['id'], 'name': p['name']} for p in ins_provider_list(db)],
+                            'retention_months': retention_settings(db)['insurance_months'], 'max_mb': wseg.MAX_FILE_BYTES // (1024 * 1024),
+                            'not_insurer': ' '.join(x for x in re.split(r'(?<=[.。])\s*', texts['notice']) if x.strip() and '{insurer}' not in x)})
+            return True
+        if path == '/api/insurance/offers':
+            user = current_user(self, db)
+            audience = 'centro' if q('para') == 'centro' else 'buceador'
+            if audience == 'centro' and not (user and user['role'] in ('center', 'freelance', 'admin')): raise PermissionError('Solo para centros y profesionales.')
+            countries = [wseg.iso_country(q('pais'))]
+            if user:
+                prof = db.execute('SELECT country FROM user_profiles WHERE user_id=?', (user['id'],)).fetchone()
+                if prof: countries.append(wseg.iso_country(prof['country']))
+                ref = provider_ref(db, user) if audience == 'centro' else None
+                if ref and ref[0] == 'center':
+                    c = db.execute('SELECT country FROM centers WHERE id=?', (ref[1],)).fetchone()
+                    if c: countries.append(wseg.iso_country(c['country']))
+            lang = normalize_lang(q('lang')) if q('lang') else (user_lang(db, user['id']) if user else 'es')
+            self.send_json(ins_offers(db, q('tipo', 'dia'), audience, [c for c in countries if c] or [''], lang)); return True
+        m = re.fullmatch(r'/api/insurance/policies/(\d+)/file', path)
+        if m:
+            user = require_user(self, db)
+            p = db.execute('SELECT * FROM insurance_policies WHERE id=?', (int(m.group(1)),)).fetchone()
+            if not p: raise NotFound('Póliza no encontrada.')
+            own = p['user_id'] == user['id'] and p['status'] in ('active', 'pending')
+            if not own:
+                if user['role'] == 'admin': admin_data_gate(db, self, user, 'formularios_firmados', f'póliza {p["id"]} de un buceador')
+                elif user['role'] in ('center', 'freelance') and ins_center_can_view_file(db, user, p): pass
+                else:
+                    audit(db, user['id'], 'insurance_policy_denied', 'insurance_policy', p['id'], {'owner': p['user_id']}); db.commit()
+                    raise NotFound('Póliza no encontrada.')
+            fp = document_file_path(p['file_path']) if p['file_path'] else None
+            if not fp or not fp.exists(): self.send_json({'error': 'El archivo ya no está disponible.'}, 404); return True
+            # Every view of the document is logged (who, as what, which centre)
+            audit(db, user['id'], 'insurance_policy_viewed', 'insurance_policy', p['id'],
+                  {'owner': p['user_id'], 'as': 'owner' if own else user['role'], 'center_id': user['center_id'] if user['role'] == 'center' else None}); db.commit()
+            self.send_private_file(fp, p['original_name'] or fp.name, inline=own or fp.suffix.lower() != '.pdf'); return True
+        m = re.fullmatch(r'/api/center/bookings/(\d+)/insurance', path)
+        if m:
+            user = require_user(self, db); require_role(user, {'center', 'freelance'}); ref = provider_ref(db, user)
+            b = ins_provider_booking(db, ref, int(m.group(1)))
+            view = ins_booking_view(db, b, ref[1] if ref[0] == 'center' else None, ref[1] if ref[0] == 'freelance' else None)
+            view['booking'] = {'id': b['id'], 'date': b['booking_date'], 'status': wbk.normalize_state(b['status']), 'participants': b['participants']}
+            self.send_json(view); return True
+        if path == '/api/admin/insurance':
+            user = require_user(self, db); require_role(user, {'admin'})
+            try: saved = json.loads(ins_setting(db, 'insurance_texts') or '{}')
+            except ValueError: saved = {}
+            self.send_json({'providers': [ins_provider_dict(db, r) for r in ins_provider_list(db, active_only=False)],
+                            'texts': {l: wseg.legal_texts(saved, l) for l in wseg.LEGAL_DEFAULTS}, 'defaults': wseg.LEGAL_DEFAULTS,
+                            'order': 'rotate' if ins_setting(db, 'insurance_order') == 'rotate' else 'alpha', 'stats': ins_stats(db),
+                            'kinds': [{'key': k, 'label': wseg.KIND_LABELS[k]} for k in wseg.PRODUCT_KINDS],
+                            'zones': [{'key': k, 'label': wseg.ZONE_LABELS[k]} for k in wseg.ZONES], 'langs': list(wseg.LEGAL_DEFAULTS),
+                            'api_enabled': ins_api_enabled(),
+                            'note': 'WORLDIVES no es aseguradora ni mediador de seguros: aquí solo se configuran los enlaces a las aseguradoras colaboradoras.'})
+            return True
+        return False
+
+    def insurance_redirect(self, db, path, query):
+        """/seguros/ir/<producto>: counts the click (no personal data) and opens the insurer's website with the partner
+        code. Nothing about the person is sent: no name, no e-mail, no referrer."""
+        m = re.fullmatch(r'/seguros/ir/(\d+)', path)
+        if not m: return False
+        pr = db.execute('SELECT * FROM insurance_products WHERE id=? AND active=1', (int(m.group(1)),)).fetchone()
+        prov = db.execute('SELECT * FROM insurance_providers WHERE id=?', (pr['provider_id'],)).fetchone() if pr else None
+        today = _dt.date.today().isoformat()
+        if not prov or not prov['active'] or (prov['agreement_from'] and prov['agreement_from'] > today) or (prov['agreement_to'] and prov['agreement_to'] < today):
+            self.send_error(404); return True
+        audience = 'centro' if (query.get('para', [''])[0] == 'centro') else 'buceador'
+        row = dict(prov); row['allowed_domains_list'] = json.loads(prov['allowed_domains'] or '[]')
+        try: url = wseg.provider_for(row, ins_api_enabled()).offer_url(pr, audience)
+        except ValueError: self.send_error(404); return True
+        country = wseg.iso_country(query.get('pais', [''])[0])
+        db.execute('''INSERT INTO insurance_clicks(month,provider_id,product_id,country,audience,clicks,policies) VALUES(?,?,?,?,?,1,0)
+                      ON CONFLICT(month,provider_id,product_id,country,audience) DO UPDATE SET clicks=clicks+1''', (today[:7], prov['id'], pr['id'], country, audience))
+        db.commit()
+        self.send_response(302); self.send_header('Location', url); self.send_header('Cache-Control', 'no-store')
+        self.send_header('Referrer-Policy', 'no-referrer'); self.send_header('Content-Length', '0'); self.security_headers(); self.end_headers()
+        return True
+
+    def insurance_post(self, db, path):
+        """POST routes of the diving insurance. Returns True when it answered."""
+        if path == '/api/insurance/policies':
+            user = require_user(self, db); uid = user['id']
+            fields, files = parse_multipart(self)
+            if db.execute("SELECT COUNT(*) FROM insurance_policies WHERE user_id=? AND status IN ('active','pending')", (uid,)).fetchone()[0] >= INSURANCE_MAX_PER_USER:
+                raise ValueError(f'Puedes guardar como máximo {INSURANCE_MAX_PER_USER} pólizas. Borra alguna antigua.')
+            f = ins_clean_fields(db, fields)
+            rel, original = ins_store_file(uid, files.get('file'))
+            clicked = ins_count_policy_after_click(db, fields.get('after_click')) if fields.get('after_click') else 0
+            pid = ins_insert(db, f, user_id=uid, file_path=rel, original=original, source='diver', status='active', uploaded_by=uid, after_click=clicked)
+            audit(db, uid, 'insurance_policy_uploaded', 'insurance_policy', pid, {'kind': f['kind'], 'after_click': bool(clicked)}); db.commit()
+            # Bookings that were waiting for it go on by themselves (the one he came from first)
+            resumed = None
+            waiting = db.execute("SELECT * FROM bookings WHERE user_id=? AND status='insurance_pending' ORDER BY id=? DESC, id", (uid, int(fields.get('booking_id') or 0))).fetchall()
+            for b in waiting:
+                out = ins_resume(db, b)
+                if out and (resumed is None or b['id'] == int(fields.get('booking_id') or 0)): resumed = {**out, 'booking_id': b['id']}
+            self.send_json({'ok': True, 'id': pid, 'state': ins_state(db, uid), 'booking': resumed}); return True
+        if path == '/api/insurance/leer':
+            # Optional reading of a PDF with text: it only PROPOSES the dates and the number; nothing is stored.
+            require_user(self, db)
+            fields, files = parse_multipart(self); f = files.get('file') or {}
+            content = f.get('content') or b''
+            if len(content) > wseg.MAX_FILE_BYTES: raise ValueError('El archivo pesa demasiado. Máximo 10 MB.')
+            prop = wseg.propose(wseg.pdf_text(content)) if content.startswith(b'%PDF') else {}
+            self.send_json({'ok': True, 'proposal': prop, 'read': bool(prop),
+                            'note': 'Revisa los datos: solo se guardan cuando tú los confirmas.' if prop else 'No hemos podido leer el documento. Escribe los datos a mano.'}); return True
+        m = re.fullmatch(r'/api/insurance/policies/(\d+)/(delete|accept|decline)', path)
+        if m:
+            user = require_user(self, db)
+            p = db.execute('SELECT * FROM insurance_policies WHERE id=? AND user_id=?', (int(m.group(1)), user['id'])).fetchone()
+            if not p: raise NotFound('Póliza no encontrada.')
+            act = m.group(2)
+            if act == 'delete':
+                if p['status'] not in ('active', 'pending'): raise NotFound('Póliza no encontrada.')
+                ins_delete_policy(db, p); audit(db, user['id'], 'insurance_policy_deleted', 'insurance_policy', p['id'])
+            elif p['status'] != 'pending':
+                raise ValueError('Esta póliza ya está decidida.')
+            elif act == 'accept':
+                # The policy a centre uploaded reaches the diver's profile only with his «sí»
+                db.execute("UPDATE insurance_policies SET status='active',updated_at=? WHERE id=?", (now(), p['id']))
+                audit(db, user['id'], 'insurance_policy_accepted', 'insurance_policy', p['id'], {'center_id': p['center_id']})
+            else:
+                db.execute("UPDATE insurance_policies SET status='booking',updated_at=? WHERE id=?", (now(), p['id']))   # stays only in that booking
+                audit(db, user['id'], 'insurance_policy_declined', 'insurance_policy', p['id'], {'center_id': p['center_id']})
+            db.commit(); self.send_json({'ok': True, 'state': ins_state(db, user['id'])}); return True
+        if path == '/api/insurance/share':
+            user = require_user(self, db); on = json_bool(json_body(self).get('share'))
+            db.execute('INSERT OR IGNORE INTO user_profiles(user_id,updated_at) VALUES(?,?)', (user['id'], now()))
+            db.execute('UPDATE user_profiles SET insurance_share=?,updated_at=? WHERE user_id=?', (1 if on else 0, now(), user['id']))
+            audit(db, user['id'], 'insurance_share_changed', 'user', user['id'], {'share': on}); db.commit()
+            self.send_json({'ok': True, 'share': on}); return True
+        m = re.fullmatch(r'/api/center/bookings/(\d+)/insurance', path)
+        if m:
+            # The centre uploads the policy contracted with the diver in front of it: for that booking; it reaches the diver's
+            # profile only if he accepts.
+            user = require_user(self, db); require_role(user, {'center', 'freelance'}); ref = provider_ref(db, user)
+            b = ins_provider_booking(db, ref, int(m.group(1)))
+            if wbk.normalize_state(b['status']) not in ('requested', 'accepted_pending_payment', 'confirmed', 'completed', 'insurance_pending'):
+                raise ValueError('Esta reserva no está activa.')
+            fields, files = parse_multipart(self)
+            f = ins_clean_fields(db, fields)
+            guest = is_guest_user(db, b['user_id'])
+            rel, original = ins_store_file(b['user_id'], files.get('file'))
+            pid = ins_insert(db, f, user_id=b['user_id'], booking_id=b['id'], file_path=rel, original=original, source='center', status='booking' if guest else 'pending',
+                             center_id=ref[1] if ref[0] == 'center' else None, provider_user_id=ref[1] if ref[0] == 'freelance' else None, uploaded_by=user['id'])
+            covers = wseg.covers(f, b['booking_date'])
+            if covers: db.execute("UPDATE bookings SET insurance_status='ok',insurance_policy_id=?,updated_at=? WHERE id=?", (pid, now(), b['id']))
+            audit(db, user['id'], 'insurance_policy_uploaded_by_center', 'insurance_policy', pid, {'booking_id': b['id'], 'covers': covers})
+            if not guest:
+                lang = user_lang(db, b['user_id']); name = (db.execute('SELECT name FROM centers WHERE id=?', (ref[1],)).fetchone() or {'name': ''})['name'] if ref[0] == 'center' else user['fullname']
+                notify_user(db, b['user_id'], 'insurance_policy_added', {'center': name, 'kind_text': mail_t(lang, wseg.KIND_LABELS.get(f['kind'], 'Otro')).lower(),
+                                                                         'valid_text': mail_date(f['valid_from'] or f['valid_to'], lang),
+                                                                         'insurance_url': f'{public_site_url()}/#/seguro'}, ('insurance', pid))
+            db.commit()
+            out = ins_resume(db, b) if wbk.normalize_state(b['status']) == 'insurance_pending' else None
+            self.send_json({'ok': True, 'id': pid, 'covers': covers, 'pending_acceptance': not guest, 'booking': out}); return True
+        if path in ('/api/admin/insurance/providers', '/api/admin/insurance/products', '/api/admin/insurance/texts'):
+            user = require_user(self, db); require_role(user, {'admin'}); data = json_body(self)
+            if path.endswith('/texts'):
+                texts = wseg.clean_legal(data.get('texts') or {})
+                ins_set_setting(db, 'insurance_texts', json.dumps(texts, ensure_ascii=False))
+                if data.get('order') in ('alpha', 'rotate'): ins_set_setting(db, 'insurance_order', data['order'])
+                audit(db, user['id'], 'insurance_texts_saved', 'site_setting', None, {'langs': sorted(texts)}); db.commit()
+                self.send_json({'ok': True}); return True
+            kind = 'provider' if path.endswith('/providers') else 'product'
+            if data.get('action') == 'delete':
+                tid = int(data.get('id') or 0)
+                db.execute('DELETE FROM insurance_providers WHERE id=?' if kind == 'provider' else 'DELETE FROM insurance_products WHERE id=?', (tid,))
+                audit(db, user['id'], f'insurance_{kind}_deleted', f'insurance_{kind}', tid); db.commit()
+                self.send_json({'ok': True}); return True
+            tid = ins_save_provider(db, data) if kind == 'provider' else ins_save_product(db, data)
+            audit(db, user['id'], f'insurance_{kind}_saved', f'insurance_{kind}', tid); db.commit()
+            self.send_json({'ok': True, 'id': tid}); return True
+        m = re.fullmatch(r'/api/insurance/webhook/(\d+)', path)
+        if m:
+            # Prepared for the direct connection with an insurer (the issued policy arriving by itself, signed). Switched off
+            # until there is an agreement: WOD_INSURANCE_API=1 and the insurer in «API» mode with its secret.
+            prov = db.execute("SELECT * FROM insurance_providers WHERE id=? AND mode='api' AND active=1", (int(m.group(1)),)).fetchone()
+            if not prov or not ins_api_enabled() or not prov['api_secret']: raise NotFound('Conexión directa desactivada.')
+            raw = self.rfile.read(min(int(self.headers.get('Content-Length') or 0), 64 * 1024))
+            if not wch.verify(wcif.decrypt_secret(prov['api_secret']), self.headers.get('X-Insurer-Signature') or '', raw):
+                security_alert('insurance_webhook_bad_signature', {'provider': prov['id']}); raise PermissionError('Firma no válida.')
+            self.send_json({'ok': True, 'received': True, 'note': 'Recibido. La póliza se adjunta cuando haya acuerdo y formato con la aseguradora.'}); return True
+        return False
 
     def api_v1(self, method, path, query):
         """/api/v1/… (v50.56, Parte E; docs/api/). A key per centre (Authorization: Bearer wdk_…), its own limits and
@@ -13070,7 +13860,10 @@ class Handler(BaseHTTPRequestHandler):
                     clean = {'service_id': data.get('service_id'), 'slot_id': data.get('departure_id'), 'booking_date': data.get('date'), 'booking_time': data.get('time'),
                              'days': data.get('days'), 'part': data.get('part'), 'participants': data.get('participants'), 'notes': data.get('notes'),
                              'extra_ids': data.get('extras'), 'equipment_codes': data.get('equipment'), 'external_ref': data.get('external_ref'),
-                             'in_person_ack': data.get('in_person_ack'), 'center_id': pid if kind == 'center' else None}
+                             'in_person_ack': data.get('in_person_ack'), 'center_id': pid if kind == 'center' else None,
+                             # v50.56 (seguros): the insurance the centre's system has checked {insurer, valid_to} or {at_center: true}
+                             'insurance': data.get('insurance') if isinstance(data.get('insurance'), dict) else None,
+                             'insurance_participants': data.get('insurance_participants') if isinstance(data.get('insurance_participants'), list) else None}
                     if not str(clean['service_id'] or '').isdigit(): raise ApiError(400, 'missing_service_id', 'Indica service_id.')
                     base = public_site_url()
                     out = create_booking(db, {'channel': 'api', 'data': clean, 'center_id': pid if kind == 'center' else None, 'provider_user_id': pid if kind == 'freelance' else None,
@@ -13084,6 +13877,7 @@ class Handler(BaseHTTPRequestHandler):
                     res = {'booking': booking_api_dict(db, b), 'payment_required': bool(body.get('payment_required')), 'booking_url': guest_booking_url(b)}
                     if body.get('checkout_url'): res['checkout_url'] = body['checkout_url']
                     if body.get('hold_expires_at'): res['hold_expires_at'] = body['hold_expires_at']
+                    if (body.get('insurance') or {}).get('deadline'): res['insurance_required'] = True   # the customer uploads it at booking_url
                     if body.get('duplicate'): res['duplicate'] = True
                     return self.send_json(res, 200 if body.get('duplicate') else 201)
                 m = re.fullmatch(r'/api/v1/bookings/(\d+)/cancel', path)
@@ -13092,7 +13886,7 @@ class Handler(BaseHTTPRequestHandler):
                     b = api_booking_or_404(db, kind, pid, m.group(1)); st = wbk.normalize_state(b['status'])
                     actor = {'id': k['created_by']}
                     if st in ('requested', 'pending'): reject_booking(db, actor, b, clean_text(data.get('reason'), 500) or 'Cancelada desde la API del centro'); refund = 'none_paid'
-                    elif st == 'payment_in_progress': refund = guest_cancel(db, b, None, {})['refund']
+                    elif st in wbk.PRE_BOOKING: refund = guest_cancel(db, b, None, {})['refund']
                     elif st in ('confirmed', 'accepted_pending_payment'): refund = provider_cancel(db, k['created_by'], b, data.get('reason'), data.get('refund_amount'))
                     else: raise ApiError(409, 'not_cancellable', 'Esta reserva ya no se puede cancelar.')
                     audit(db, k['created_by'], 'booking_cancelled_api', 'booking', b['id'], {'api_key': k['id'], 'refund': refund})
@@ -13145,7 +13939,7 @@ class Handler(BaseHTTPRequestHandler):
         Requests without both headers are rejected, except the server-to-server endpoints in CSRF_EXEMPT.
         The allowed origin is WOD_PUBLIC_URL (mandatory in production); in development it is the Host header."""
         path = urlparse(self.path).path
-        if path in self.CSRF_EXEMPT or path.startswith('/api/v1/'):   # v50.56: the API authenticates with its key, never with a cookie
+        if path in self.CSRF_EXEMPT or path.startswith(('/api/v1/', '/api/insurance/webhook/')):   # v50.56: the API (its key) and the insurers' signed notices, never a cookie
             return
         origin = self.headers.get('Origin') or self.headers.get('Referer')
         if not origin or origin == 'null':
@@ -13382,12 +14176,14 @@ class Handler(BaseHTTPRequestHandler):
                     self.serve_widget(db,path,query); return
                 if path=='/widget.js' or path.startswith(('/w/','/c/','/mi-reserva/','/api/w/','/api/mi-reserva/')):
                     if self.sales_get(db,path,query): return
+                if path.startswith('/seguros/ir/') and self.insurance_redirect(db,path,query): return   # v50.56 · seguros
                 if re.fullmatch(r'/r/[0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
                     # Link of a notice (WhatsApp button, email, app): the web opens only that booking.
                     self.redirect('/#/r/'+path[3:]); return
                 if path.startswith('/api/'):
                     team_gate(db,current_user(self,db),path,'GET')
                     admin_reason_gate(self,db,path,'GET')
+                if path.startswith(('/api/insurance','/api/admin/insurance','/api/center/bookings/')) and self.insurance_get(db,path,query): return   # v50.56 · seguros
                 if path == '/api/health':
                     # Public health check (uptime monitors): only ok + version (G15). Details: /api/admin/health.
                     db.execute('SELECT 1').fetchone()
@@ -13534,7 +14330,7 @@ class Handler(BaseHTTPRequestHandler):
                     where='b.center_id=?' if ref[0]=='center' else 'b.center_id IS NULL AND b.provider_user_id=?'
                     rows=db.execute(f'''SELECT substr(b.created_at,1,7) AS m,b.channel,b.source,COUNT(*) AS n,SUM(b.participants) AS divers,
                                                SUM(CASE WHEN b.status IN ('confirmed','completed') THEN b.price ELSE 0 END) AS amount
-                                          FROM bookings b WHERE {where} AND substr(b.created_at,1,4)=? AND b.status NOT IN ('payment_in_progress','expired')
+                                          FROM bookings b WHERE {where} AND substr(b.created_at,1,4)=? AND b.status NOT IN ('payment_in_progress','insurance_pending','expired')
                                          GROUP BY m,b.channel,b.source''',(ref[1],str(year))).fetchall()
                     months={f'{year}-{i:02d}':{c:{'bookings':0,'divers':0,'amount':0.0} for c in wch.CHANNELS} for i in range(1,13)}
                     for r in rows:
@@ -14665,6 +15461,12 @@ class Handler(BaseHTTPRequestHandler):
                     # v50.51: the page asks for the «salida cancelada» choice only when there is one open (no 400 otherwise).
                     if b['user_id']==user['id']: _so=slot_offer_for(db,bid); bd['slot_cancel_open']=bool(_so and not _so['resolved_at'])
                     bd['tz']=place_tz(db,b['service_id'],b['center_id'])
+                    # v50.56 (seguros): the customer sees what the service asks and how his booking stands; the provider, the
+                    # insurance of each participant (only from the confirmation to 7 days after the dive)
+                    bd['insurance']=ins_booking_public(db,b)
+                    if is_provider:
+                        ref_=provider_ref(db,user) or (None,None)
+                        bd['insurance_view']=ins_booking_view(db,b,ref_[1] if ref_[0]=='center' else None,ref_[1] if ref_[0]=='freelance' else None)
                     bd.pop('public_token',None); bd['check_url']=booking_check_url(db,bid,self.base_url()) if (b['user_id']==user['id'] or can_manage_booking(user,b)) else None
                     bd['check_code']=wpro.booking_code(bid,db.execute('SELECT public_token FROM bookings WHERE id=?',(bid,)).fetchone()['public_token']) if bd['check_url'] else None
                     if b['user_id']!=user['id']:
@@ -14679,7 +15481,7 @@ class Handler(BaseHTTPRequestHandler):
                     if user['role'] in ('center','freelance'):
                         # Optional server-side filters keep the payload small for centers with many bookings.
                         scope,args=provider_scope_sql(user)
-                        where=[scope,"b.status<>'payment_in_progress'",CENTER_VISIBLE_SQL]
+                        where=[scope,"b.status NOT IN ('payment_in_progress','insurance_pending')",CENTER_VISIBLE_SQL]
                         q_from=clean_text(query.get('from',[''])[0],10); q_to=clean_text(query.get('to',[''])[0],10)
                         if q_from: where.append('b.booking_date>=?'); args.append(q_from)
                         if q_to: where.append('b.booking_date<=?'); args.append(q_to)
@@ -14709,6 +15511,8 @@ class Handler(BaseHTTPRequestHandler):
                         d=dict(r_); d.update(booking_view_status(r_)); d.pop('public_token',None) if user['role']!='recreational' else None
                         d['mode_label']=wbk.mode_label(d.get('booking_mode') or 'request')
                         d['tz']=place_tz(db,d.get('service_id'),d.get('center_id'))   # the time of the activity is the local time of this zone
+                        if user['role'] in ('center','freelance'): d['insurance']=ins_booking_icon(db,r_)   # v50.56 (seguros)
+                        elif user['role']=='recreational': d['insurance']=ins_booking_public(db,r_)
                         items.append(team_booking_view(db,user,d))
                     if user['role']!='recreational': log_phone_access(db,user,'bookings',count_phones(items))
                     if user['role']=='admin' and items and admin_may_see(db,'contacto_reservas'):   # v50.54: logged, like every personal data read
@@ -15016,6 +15820,7 @@ class Handler(BaseHTTPRequestHandler):
                 admin_reason_gate(self,db,path,'POST')
                 tenant_guard(self,db,path)
                 if path.startswith(('/api/w/','/api/mi-reserva/')) and self.sales_post(db,path): return   # v50.56: widget and the centre's page
+                if path.startswith(('/api/insurance','/api/admin/insurance','/api/center/bookings/')) and self.insurance_post(db,path): return   # v50.56 · seguros
                 if path=='/api/provider/spot-blocks':
                     # v50.56 · Parte F: spots without a customer (group, agency, hotel), out of the same inventory as every booking.
                     user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
@@ -16919,6 +17724,7 @@ class Handler(BaseHTTPRequestHandler):
                         if cur_state=='requested': result['status']=accept_booking(db,user,row)
                         elif cur_state=='accepted_pending_payment': raise ValueError('Esta reserva espera el pago online del buceador. Si te paga en el centro, registra el cobro desde «Cobro».')
                         elif cur_state=='payment_in_progress': raise ValueError('El buceador está pagando ahora mismo. La reserva se confirmará sola cuando Stripe confirme el pago.')
+                        elif cur_state=='insurance_pending': raise ValueError('El buceador está subiendo su seguro de buceo. La reserva seguirá sola cuando lo tenga.')
                         else: raise ValueError('Esta reserva no se puede confirmar en su estado actual.')
                     elif status=='rejected':
                         result['refund']=reject_booking(db,user,row,data.get('reason') or ''); result['status']='rejected'
@@ -18005,8 +18811,8 @@ def maintenance_loop():
 MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs, run_slot_cancel_jobs, run_payments_totp_notices]
 
 
-RETENTION_DEFAULTS = {'inactive_months': 36, 'expired_docs_months': 12, 'notices_months': 24, 'audit_months': 12, 'audit_keep': 300}
-RETENTION_LIMITS = {'inactive_months': (12, 120), 'expired_docs_months': (1, 60), 'notices_months': (3, 120), 'audit_months': (3, 120), 'audit_keep': (50, 100000)}
+RETENTION_DEFAULTS = {'inactive_months': 36, 'expired_docs_months': 12, 'notices_months': 24, 'audit_months': 12, 'audit_keep': 300, 'insurance_months': 12}
+RETENTION_LIMITS = {'inactive_months': (12, 120), 'expired_docs_months': (1, 60), 'notices_months': (3, 120), 'audit_months': (3, 120), 'audit_keep': (50, 100000), 'insurance_months': (1, 60)}
 RETENTION_WARN_DAYS = 30   # an inactive account is warned and deleted 30 days later if nobody signs in
 
 
@@ -18080,7 +18886,7 @@ def run_daily_plan_jobs(db):
     last = db.execute("SELECT value FROM site_settings WHERE key='plans_last_run'").fetchone()
     day = _dt.date.today().isoformat()
     if last and last['value'] == day: return
-    run_plan_jobs(db); run_insurance_alerts(db)
+    run_plan_jobs(db); run_insurance_alerts(db); run_insurance_retention(db)   # v50.56: expired diving policies
     if _dt.date.today().day == 1: run_monthly_stats_emails(db)
     db.execute("INSERT INTO site_settings(key,value,updated_at) VALUES('plans_last_run',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at", (day, now()))
 

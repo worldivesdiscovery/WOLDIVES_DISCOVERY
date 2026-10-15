@@ -161,7 +161,8 @@ REGLAS_GET = (
     (None, _P('/api/provider/fiscal', '/api/provider/plan', '/api/center/team', '/api/center/activity', '/api/provider/cuenta')),
     ('cobros', _P('/api/provider/payments', '/api/payments/center')),
     # ASVS 5.0 V8.2.1: requests, clients and their contact details (the exports are checked by kind in the route).
-    ('reservas', _P('/api/center/requests', '/api/center/clients', '/api/center/info-requests', '/api/provider/feed')),
+    ('reservas', _P('/api/center/requests', '/api/center/clients', '/api/center/info-requests', '/api/provider/feed',
+                    re.compile(r'/api/center/bookings/\d+/insurance'))),   # v50.56: the insurance of the participants
     ('centro', _P('/api/provider/ical', '/api/provider/api-keys', '/api/provider/webhooks', '/api/provider/ical-imports')),
     ('estadisticas', _P('/api/provider/stats', '/api/center/analytics', '/api/provider/ventas-canal')),
 )
