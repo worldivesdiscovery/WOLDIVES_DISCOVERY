@@ -493,3 +493,9 @@ html.wd-app .dbk-bar { background: var(--sup); }
 /* v50.55: three buttons in a booking card (QR, WhatsApp, Calendario): two per row on a narrow phone. */
 :where(.wda, .wda-capa) .btn-fila.envolver { flex-wrap: wrap; }
 :where(.wda, .wda-capa) .btn-fila.envolver > * { flex: 1 1 calc(50% - 4px); }
+
+/* v50.57 · Buddies: tu QR del Log Book */
+.wda .wda-buddy-qr { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; margin-bottom: 12px; }
+.wda .wda-buddy-qr img { width: 180px; height: 180px; background: #fff; padding: 8px; border-radius: 12px; }
+.wda .lista p.pad { padding: 14px; margin: 0; }
+.wda .pendiente + .tarjeta { margin-top: 12px; }

@@ -45,7 +45,8 @@ NOT_IN_PRODUCTION = ['docs/pruebas/*', 'data/demo/*', 'data/pruebas/*', 'scripts
                      'tests/navegador/e2e_v50_56_demo_multicanal.py', 'tests/navegador/e2e_v50_56_seguros.py',   # v50.56: README-PRUEBAS «Probar el motor multicanal» y «Probar los seguros», demo accounts
                      'docs/auditoria/*/botones-inventario.md',   # v50.51: element by element, with the demo accounts
                      'docs/encargos/encargo-multicanal-y-seguros.md',   # v50.56: the brief, word for word, names the test accounts
-                     'tests/navegador/e2e_v50_57_revision.py']   # v50.57: the walk of the general review, with the demo accounts
+                     'tests/navegador/e2e_v50_57_revision.py',   # v50.57: the walk of the general review, with the demo accounts
+                     'tests/navegador/e2e_v50_57_logbook.py']   # v50.57: the Log Book's acceptance criteria, on a copy of the demo
 # In no zip: the archive of retired files, screenshots, repository files, runtime data, caches and temporary files.
 NOT_IN_ANY = ['_archivo/*', 'docs/capturas/*', '.github/*', '.gitignore', '.env', '.env.*', '*.pyc', '*/__pycache__/*', '*.log', 'logs/*',
               'storage/*', 'public/assets/*', 'data/subidas/*', 'data/backups/*', 'data/mail-outbox/*', 'data/tiles/*', 'dist/*',

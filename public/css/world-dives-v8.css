@@ -3682,3 +3682,64 @@ html.wd-app .pp-page{padding-bottom:150px}
 .wd-crumbs a{font-weight:600}
 .wd-crumb-sep{color:var(--muted,#65747d)}
 .wd-back{min-height:38px;padding:6px 14px}
+
+/* v50.57 (revisión general, 4.1): personal data opened for a few minutes, and the bookings of the centres in figures */
+.wd-conf-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 14px;padding:10px 14px;border-radius:12px;background:#fff7e6;border:1px solid #f0c36d;color:#5c4210;font-size:14px}
+.wd-conf-strip .btn{margin-left:auto}
+.wd-gate-msg{margin:6px 0 0;color:#b42318;font-weight:600}
+.wd-mask-note{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+.ab-per{display:flex;align-items:center;gap:8px;font-weight:600}
+.ab-split{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px 24px;margin:16px 0}
+.ab-split h3{font-size:15px;margin:0 0 6px}
+.ab-chips{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+.ab-chips li{padding:4px 10px;border-radius:999px;background:var(--surface-2,#eef4f7);font-size:13px}
+.ab-detail{margin-top:18px}
+.as-form fieldset{border:1px solid var(--line,#d8e1e6);border-radius:12px;padding:12px 14px;margin:0 0 12px}
+.as-form legend{font-weight:700;padding:0 6px}
+.as-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.as-row input[type=number]{width:84px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .wd-conf-strip{background:#3a2c0b;border-color:#8a6a1f;color:#ffe2a8}}
+:root[data-theme="dark"] .wd-conf-strip{background:#3a2c0b;border-color:#8a6a1f;color:#ffe2a8}
+
+/* v50.57 · Log Book: el componente «Dive Logbook» (public/lib/logbook). La lista toma la letra y los colores de la web;
+   solo se ajusta su color de acento (con más peso que logbook.css, que se carga después). */
+.lb-card .dive-logbook{--dlc-accent:var(--sea)}
+.lb-card{padding:18px 20px 22px;min-width:0}
+.lb-sync{align-self:center;font-size:13px;color:var(--muted);white-space:nowrap}
+.lb-sync.is-ok::before{content:'✓ ';color:#2f8f6a;font-weight:700}
+.lb-sync.is-warn{color:#9a5b00}
+.lb-notice{display:flex;gap:10px;align-items:flex-start;margin:0 0 16px;padding:12px 14px;border-radius:14px;background:var(--sea-soft,#e6f4f9);border:1px solid #cfe7f1;color:var(--ink)}
+.lb-notice .wd-icon{flex:none;margin-top:2px;color:var(--sea)}
+.lb-notice>span>span,.reg-invite p>span{display:block}.lb-notice-t,.reg-invite-t{margin-bottom:2px}
+@media (max-width:640px){.lb-card{padding:14px 12px 16px}.acc-actions .lb-sync{flex-basis:100%;order:2}}
+/* Registro con el enlace de un centro */
+.reg-invite{display:flex;gap:12px;align-items:center;margin:0 0 16px;padding:12px 14px;border-radius:14px;background:var(--sea-soft,#e6f4f9);border:1px solid #cfe7f1}
+.reg-invite img{width:56px;height:56px;object-fit:contain;flex:none}
+.reg-invite .wd-icon{flex:none;color:var(--sea)}
+.reg-invite p{margin:0;font-size:14px;line-height:1.45}
+/* Panel del centro · Logbook y pasaporte */
+.clb-link{display:flex;gap:10px;flex-wrap:wrap}
+.clb-link input{flex:1 1 280px;min-width:0;font:inherit;font-size:14px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#f7fafb;color:var(--ink)}
+.clb-cover-grid{display:grid;grid-template-columns:170px minmax(0,1fr);gap:22px;align-items:start}
+.clb-preview{aspect-ratio:5/7;border-radius:5px 12px 12px 5px;background:linear-gradient(140deg,#1d3a5b,#13283f 55%,#0b1828);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;box-shadow:inset 7px 0 9px rgba(0,0,0,.35),0 8px 18px rgba(1,28,60,.18)}
+.clb-preview img{width:64%;max-height:46%;object-fit:contain}
+.clb-preview span{color:#d4b26a;font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
+.clb-preview b{color:#d4b26a;font-size:11px;letter-spacing:.16em;text-transform:uppercase;text-align:center;line-height:1.4}
+.clb-form .field{min-width:0}
+.clb-pos{display:flex;gap:8px}.clb-pos input{flex:1;min-width:0}
+.clb-types{display:flex;flex-wrap:wrap;gap:8px 18px;border:0;padding:0;margin:0}
+.clb-types legend{padding:0;margin:0 0 6px;font-weight:700;font-size:13px}
+.clb-types label{display:inline-flex;gap:6px;align-items:center;font-weight:500}
+.clb-msg{margin:0;color:#b42318;font-weight:600}
+.clb-table td small{display:block;color:var(--muted);margin-top:2px}
+.clb-table .num{text-align:right;white-space:nowrap}
+.clb-acts{text-align:right;white-space:nowrap}
+.clb-acts .btn+.btn{margin-left:6px}
+.clb-qr{text-align:center}
+.clb-qr img{width:min(280px,70vw);height:auto;aspect-ratio:1;background:#fff;padding:10px;border-radius:12px;border:1px solid var(--line)}
+.clb-qr-n{font-weight:700;margin:10px 0 4px}
+.clb-qr-help{color:var(--muted);font-size:14px;margin:0 auto;max-width:42ch}
+@media (max-width:640px){.clb-cover-grid{grid-template-columns:1fr}.clb-preview{width:150px}.clb-acts{white-space:normal}.clb-acts .btn{margin:2px 0 2px 6px}}
+
+/* v50.57 (2.2) · las fechas que cubre el periodo elegido en las exportaciones */
+.wd-export-range{font-size:13px;color:var(--muted);align-self:center}

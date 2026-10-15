@@ -278,6 +278,10 @@ class ServerTestCase(unittest.TestCase):
         c = self.client()
         r = c.login(username, 'admin-seguro-2026')
         assert r.status == 200, r
+        # v50.57 (4.1): personal data asks the administrator to confirm the password; the tests work as a confirmed
+        # administrator unless they test that (tests/test_v50_57_admin_sensible.py)
+        r = c.post('/api/admin/confirm', {'password': 'admin-seguro-2026', 'reason': 'pruebas automáticas'})
+        assert r.status == 200, r.json
         return c
 
     def make_diver(self, tag):

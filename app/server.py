@@ -67,6 +67,7 @@ from wod import ical as wical
 from wod import seguros as wseg
 from wod import qr as wqr   # v50.57: the single QR generator of the whole web
 from wod import exportar as wexp   # v50.57: Excel and CSV exports
+from wod import logbook as wlog   # v50.57: the dive logbook of the account («Dive Logbook»)
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1538,6 +1539,8 @@ def bootstrap():
         db.commit()
         migrate_v50_56(db)
         db.commit()
+        migrate_v50_57(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1801,6 +1804,44 @@ FEED_TRIGGERS = (
     'CREATE INDEX IF NOT EXISTS idx_provider_feed_todo ON provider_feed(id) WHERE dispatched=0')
 
 
+LOGBOOK_SCHEMA = (
+    # the component's book of each person (encrypted: owner data, emergency contact, insurance, photo)
+    """CREATE TABLE IF NOT EXISTS logbook_books (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, data TEXT NOT NULL,
+       version INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL)""",
+    # a dive a centre registered: the official data the verified copies must keep
+    """CREATE TABLE IF NOT EXISTS center_dives (id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL UNIQUE,
+       center_id INTEGER NOT NULL REFERENCES centers(id) ON DELETE CASCADE, created_by INTEGER, dive_date TEXT NOT NULL, site TEXT NOT NULL,
+       country TEXT, instructor TEXT NOT NULL, depth REAL, duration INTEGER, temp REAL, vis REAL, time_in TEXT, time_out TEXT, gas TEXT,
+       lat REAL, lon REAL, types TEXT, notes TEXT, center_name TEXT NOT NULL, center_ref TEXT, created_at TEXT NOT NULL)""",
+    # its single-use QR codes (one per diver): only the hash to find it, the token encrypted to print it again
+    """CREATE TABLE IF NOT EXISTS center_dive_qr (id INTEGER PRIMARY KEY AUTOINCREMENT, dive_id INTEGER NOT NULL REFERENCES center_dives(id) ON DELETE CASCADE,
+       token_hash TEXT NOT NULL UNIQUE, token_enc TEXT, created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
+       claimed_by INTEGER REFERENCES users(id) ON DELETE SET NULL, claimed_at TEXT)""",
+    # the dives each person claimed with a QR, and their page in the book (NULL until the book has it)
+    """CREATE TABLE IF NOT EXISTS logbook_claims (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+       dive_id INTEGER NOT NULL REFERENCES center_dives(id) ON DELETE CASCADE, qr_id INTEGER, slot INTEGER, removed_at TEXT, created_at TEXT NOT NULL,
+       UNIQUE(user_id, dive_id))""",
+    # buddies: both ways
+    """CREATE TABLE IF NOT EXISTS user_buddies (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+       buddy_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at TEXT NOT NULL, PRIMARY KEY(user_id, buddy_id))""",
+    'CREATE INDEX IF NOT EXISTS idx_center_dives_center ON center_dives(center_id, dive_date DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_center_dive_qr_dive ON center_dive_qr(dive_id)',
+    'CREATE INDEX IF NOT EXISTS idx_logbook_claims_dive ON logbook_claims(dive_id)',
+)
+
+
+def migrate_v50_57(db):
+    """v50.57 · the dive logbook of the account (books, the dives centres register with their QR, the claims, buddies),
+    the public code of each person for buddies, the centre a diver signed up with and the logo of the passport. Adds;
+    nothing is deleted. The dives already in logbook_entries go into the book the first time it opens."""
+    for stmt in LOGBOOK_SCHEMA: db.execute(stmt)
+    add_columns(db, 'users', [('buddy_code', 'TEXT'), ('signup_center_id', 'INTEGER')])
+    add_columns(db, 'logbook_entries', [('slot', 'INTEGER')])
+    add_columns(db, 'centers', [('passport_logo', 'TEXT'), ('passport_name', 'TEXT')])
+    db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_buddy_code ON users(buddy_code) WHERE buddy_code IS NOT NULL')
+    db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_logbook_slot ON logbook_entries(user_id, slot) WHERE slot IS NOT NULL')
+
+
 def migrate_v50_56(db):
     """v50.56 · motor de reservas multicanal: the channel of each booking (and the website it came from), idempotency,
     the widget's settings, API keys, webhooks, spot blocks, imported calendars and the panel's live feed; an
@@ -1983,6 +2024,9 @@ def migrate_v50_47(db):
             audit(db, None, 'freelance_tenant_resolved', 'user', u['id'], {'centro_anterior': u['center_id'], 'motivo': 'un freelance es siempre su propio inquilino (v50.47)'})
     scols = {r['name'] for r in db.execute('PRAGMA table_info(sessions)')}
     if 'active_center_id' not in scols: db.execute('ALTER TABLE sessions ADD COLUMN active_center_id INTEGER')
+    # v50.57 (4.1): the administrator's confirmation for sensitive data, with its reason, lasts a few minutes per session
+    if 'admin_confirmed_until' not in scols: db.execute('ALTER TABLE sessions ADD COLUMN admin_confirmed_until REAL')
+    if 'admin_confirm_reason' not in scols: db.execute('ALTER TABLE sessions ADD COLUMN admin_confirm_reason TEXT')
     if 'meeting_point' not in {r['name'] for r in db.execute('PRAGMA table_info(service_slots)')}: db.execute('ALTER TABLE service_slots ADD COLUMN meeting_point TEXT')
     # Random ids for what leaves for the web in links and notices (B.4).
     for t in ('bookings', 'service_slots'):
@@ -4737,13 +4781,13 @@ def export_sheets(db, user, kind, a=None, b=None, year=None):
         pw = 'b.center_id=?' if ptype == 'center' else 'b.provider_user_id=? AND b.center_id IS NULL'
 
     if kind == 'reservas':
-        w, args = _within('b.booking_date', a, b)
+        per, args = _within('b.booking_date', a, b)
         rows = [list(r) for r in db.execute(
             f"""SELECT 'WOD-'||printf('%06d',b.id), b.booking_date, COALESCE(sl.slot_time,b.booking_time), s.title, b.channel, b.participants, b.status,
                        b.payment_status, b.price, b.currency, COALESCE(b.contact_name,u.fullname),
                        CASE WHEN u.email LIKE '%.local' THEN COALESCE(b.contact_email,'') ELSE u.email END, b.contact_phone, b.created_at
                 FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN service_slots sl ON sl.id=b.slot_id LEFT JOIN users u ON u.id=b.user_id
-                WHERE {pw} AND {w} ORDER BY b.booking_date DESC, b.id DESC LIMIT 50000""", (pid, *args)).fetchall()]
+                WHERE {pw} AND {per} ORDER BY b.booking_date DESC, b.id DESC LIMIT 50000""", (pid, *args)).fetchall()]
         for r in rows:
             r[4] = wch.CHANNEL_LABELS.get(r[4] or 'worldives', r[4] or ''); r[6] = wbk.state_label(r[6]); r[7] = BOOKING_PAY_LABELS.get(r[7], r[7] or '')
         log_phone_access(db, user, 'export:reservas', sum(1 for r in rows if r[12]), pid)
@@ -4751,26 +4795,26 @@ def export_sheets(db, user, kind, a=None, b=None, year=None):
                                       ('Estado', 'text'), ('Pago', 'text'), ('Importe', 'money'), ('Moneda', 'text'), ('Cliente', 'text'), ('Email', 'text'),
                                       ('Teléfono', 'text'), ('Creada', 'datetime')], rows, _money_currency(rows, 9))]
     if kind == 'clientes':
-        w, args = _within('b.booking_date', a, b)
+        per, args = _within('b.booking_date', a, b)
         rows = [list(r) for r in db.execute(
             f"""SELECT COALESCE(MAX(b.contact_name),u.fullname), CASE WHEN u.email LIKE '%.local' THEN COALESCE(MAX(b.contact_email),'') ELSE u.email END,
                        MAX(b.contact_phone), COUNT(*), MIN(b.booking_date), MAX(b.booking_date)
-                FROM bookings b JOIN users u ON u.id=b.user_id WHERE {pw} AND {w} GROUP BY u.id ORDER BY 1 LIMIT 50000""", (pid, *args)).fetchall()]
+                FROM bookings b JOIN users u ON u.id=b.user_id WHERE {pw} AND {per} GROUP BY u.id ORDER BY 1 LIMIT 50000""", (pid, *args)).fetchall()]
         log_phone_access(db, user, 'export:clientes', sum(1 for r in rows if r[2]), pid)
         return label, [S('Clientes', [('Nombre', 'text'), ('Email', 'text'), ('Teléfono', 'text'), ('Reservas', 'int'), ('Primera', 'date'), ('Última', 'date')], rows)]
     if kind == 'servicios':
         sw = 's.center_id=?' if ptype == 'center' else 's.provider_user_id=? AND s.center_id IS NULL'
-        w, args = _within('x.slot_date', a, b)
+        per, args = _within('x.slot_date', a, b)
         rows = [list(r) for r in db.execute(
             f"""SELECT s.id, s.title, s.service_type, s.price, s.currency, s.duration_minutes, s.max_participants, s.booking_mode,
-                       CASE WHEN s.active=1 THEN 'Sí' ELSE 'No' END, (SELECT COUNT(*) FROM service_slots x WHERE x.service_id=s.id AND {w})
+                       CASE WHEN s.active=1 THEN 'Sí' ELSE 'No' END, (SELECT COUNT(*) FROM service_slots x WHERE x.service_id=s.id AND {per})
                 FROM provider_services s WHERE {sw} ORDER BY s.title""", (*args, pid)).fetchall()]
         for r in rows: r[7] = {'payment': 'Pago al reservar', 'request': 'Bajo petición'}.get(r[7], r[7] or '')
         return label, [S('Servicios', [('Id', 'int'), ('Servicio', 'text'), ('Tipo', 'text'), ('Precio', 'money'), ('Moneda', 'text'), ('Duración (min)', 'int'),
                                        ('Máx. personas', 'int'), ('Modo de reserva', 'text'), ('Activo', 'text'), ('Salidas en el periodo' if a else 'Salidas', 'int')],
                          rows, _money_currency(rows, 4))]
     if kind == 'pagos':
-        w, args = _within('COALESCE(o.paid_at,o.created_at)', a, b)
+        per, args = _within('COALESCE(o.paid_at,o.created_at)', a, b)
         if user['role'] == 'admin':
             rows = [list(r) for r in db.execute(
                 f"""SELECT 'PAY-'||printf('%05d',o.id), COALESCE(o.paid_at,o.created_at), o.payment_kind, o.amount, COALESCE(o.refunded_total,0), o.currency, o.status,
@@ -4778,14 +4822,14 @@ def export_sheets(db, user, kind, a=None, b=None, year=None):
                            COALESCE(c.name,pu.fullname), u.fullname, o.payment_intent_id
                     FROM payment_orders o JOIN users u ON u.id=o.user_id LEFT JOIN bookings bk ON bk.id=o.booking_id LEFT JOIN provider_services s ON s.id=o.service_id
                     LEFT JOIN centers c ON c.id=COALESCE(bk.center_id,s.center_id) LEFT JOIN users pu ON pu.id=COALESCE(bk.provider_user_id,o.provider_user_id)
-                    WHERE {w} ORDER BY o.id DESC LIMIT 50000""", args).fetchall()]
+                    WHERE {per} ORDER BY o.id DESC LIMIT 50000""", args).fetchall()]
             head = [('Pedido', 'text'), ('Fecha', 'datetime'), ('Tipo', 'text'), ('Importe', 'money'), ('Devuelto', 'money'), ('Moneda', 'text'), ('Estado', 'text'),
                     ('Reserva', 'text'), ('Centro o profesional', 'text'), ('Cliente', 'text'), ('Pago Stripe', 'text')]
         else:
             rows = [list(r) for r in db.execute(
                 f"""SELECT 'PAY-'||printf('%05d',o.id), COALESCE(o.paid_at,o.created_at), o.payment_kind, o.amount, COALESCE(o.refunded_total,0), o.currency, o.status,
                            CASE WHEN o.booking_id THEN 'WOD-'||printf('%06d',o.booking_id) ELSE 'EXP-'||printf('%05d',o.experience_booking_id) END, o.payment_intent_id
-                    FROM payment_orders o WHERE o.payee_type=? AND o.payee_id=? AND {w} ORDER BY o.id DESC LIMIT 50000""", (ptype, pid, *args)).fetchall()]
+                    FROM payment_orders o WHERE o.payee_type=? AND o.payee_id=? AND {per} ORDER BY o.id DESC LIMIT 50000""", (ptype, pid, *args)).fetchall()]
             head = [('Pedido', 'text'), ('Fecha', 'datetime'), ('Tipo', 'text'), ('Importe', 'money'), ('Devuelto', 'money'), ('Moneda', 'text'), ('Estado', 'text'),
                     ('Reserva', 'text'), ('Pago Stripe', 'text')]
         for r in rows:
@@ -4793,13 +4837,13 @@ def export_sheets(db, user, kind, a=None, b=None, year=None):
         return label, [S('Pagos', head, rows, _money_currency(rows, 5))]
     if kind == 'agenda':
         rw = 'r.owner_center_id=?' if ptype == 'center' else 'r.owner_user_id=? AND r.owner_center_id IS NULL'
-        w, args = _within('bl.local_date_from', a, b)
+        per, args = _within('bl.local_date_from', a, b)
         own_tz = place_tz(db, center_id=pid) if ptype == 'center' else provider_tz(db, {'role': 'freelance', 'id': pid, 'center_id': None})
         out = []
         for r in db.execute(
                 f"""SELECT r.name, r.timezone, bl.local_date_from, bl.local_date_to, bl.starts_at, bl.ends_at, bl.kind, bl.status, bl.ref_type, bl.ref_id, bl.private_note,
                            bl.created_at, bl.released_at
-                    FROM resource_blocks bl JOIN resources r ON r.id=bl.resource_id WHERE {rw} AND {w} ORDER BY bl.local_date_from DESC, bl.id DESC LIMIT 50000""",
+                    FROM resource_blocks bl JOIN resources r ON r.id=bl.resource_id WHERE {rw} AND {per} ORDER BY bl.local_date_from DESC, bl.id DESC LIMIT 50000""",
                 (pid, *args)).fetchall():
             tz = stored_tz(r['timezone'], own_tz, 'agenda', r['name'])
             out.append([r['name'], r['local_date_from'], r['local_date_to'], wag.utc_to_local(r['starts_at'], tz).strftime('%H:%M'), wag.utc_to_local(r['ends_at'], tz).strftime('%H:%M'), tz,
@@ -4809,31 +4853,31 @@ def export_sheets(db, user, kind, a=None, b=None, year=None):
         return label, [S('Agenda', [('Recurso', 'text'), ('Desde', 'date'), ('Hasta', 'date'), ('Hora inicio', 'text'), ('Hora fin', 'text'), ('Zona horaria', 'text'),
                                     ('Tipo', 'text'), ('Reserva', 'text'), ('Nota privada', 'text'), ('Estado', 'text'), ('Creado', 'datetime'), ('Liberado', 'datetime')], out)]
     if kind == 'actividad':
-        w, args = _within('a.created_at', a, b)
-        base_q = "SELECT a.created_at, COALESCE(u.fullname,'Sistema'), a.action, a.entity_type, a.entity_id, {det} FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE {cond} AND {w} ORDER BY a.id DESC LIMIT 50000"
-        if user['role'] == 'admin': rows = db.execute(base_q.format(det='a.details', cond='1=1', w=w), args).fetchall()
-        elif ptype == 'center': rows = db.execute(base_q.format(det='NULL', cond='a.center_id=?', w=w), (pid, *args)).fetchall()
-        else: rows = db.execute(base_q.format(det='NULL', cond='a.user_id=? AND a.center_id IS NULL', w=w), (pid, *args)).fetchall()
+        per, args = _within('a.created_at', a, b)
+        base_q = "SELECT a.created_at, COALESCE(u.fullname,'Sistema'), a.action, a.entity_type, a.entity_id, {det} FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE {cond} AND {per} ORDER BY a.id DESC LIMIT 50000"
+        if user['role'] == 'admin': rows = db.execute(base_q.format(det='a.details', cond='1=1', per=per), args).fetchall()
+        elif ptype == 'center': rows = db.execute(base_q.format(det='NULL', cond='a.center_id=?', per=per), (pid, *args)).fetchall()
+        else: rows = db.execute(base_q.format(det='NULL', cond='a.user_id=? AND a.center_id IS NULL', per=per), (pid, *args)).fetchall()
         out = [[r[0], r[1], EXPORT_ACTION_LABELS.get(r[2], (r[2] or '').replace('_', ' ')), r[3] or '', r[4], (r[5] or '')[:2000]] for r in rows]
         cols = [('Fecha', 'datetime'), ('Persona', 'text'), ('Acción', 'text'), ('Elemento', 'text'), ('Id', 'int')]
         if user['role'] == 'admin': cols.append(('Detalles', 'text'))
         else: out = [r[:5] for r in out]
         return label, [S('Actividad', cols, out)]
     if kind == 'analitica':
-        w, args = _within('b.booking_date', a, b)
+        per, args = _within('b.booking_date', a, b)
         by_day, by_svc = {}, {}
         for r in db.execute(f"""SELECT b.booking_date, s.title, b.participants FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id
-                                WHERE {pw} AND {w} AND b.status NOT IN ('cancelled','rejected','expired','payment_in_progress')""", (pid, *args)).fetchall():
+                                WHERE {pw} AND {per} AND b.status NOT IN ('cancelled','rejected','expired','payment_in_progress')""", (pid, *args)).fetchall():
             if r['booking_date']: by_day[r['booking_date']] = by_day.get(r['booking_date'], 0) + int(r['participants'] or 1)
             k = r['title'] or 'Reserva manual'; by_svc[k] = by_svc.get(k, 0) + int(r['participants'] or 1)
         return label, [S('Participantes por día', [('Fecha', 'date'), ('Participantes', 'int')], [[d, n] for d, n in sorted(by_day.items())]),
                        S('Por servicio', [('Servicio', 'text'), ('Participantes', 'int')], sorted(([k, v] for k, v in by_svc.items()), key=lambda x: -x[1]))]
     if kind == 'ventas_canal':
-        w, args = _within('b.created_at', a, b)
+        per, args = _within('b.created_at', a, b)
         out = [[r['m'], wch.CHANNEL_LABELS.get(r['ch'], r['ch']), r['n'], r['divers'] or 0, round(r['amount'] or 0, 2), r['cur'] or 'EUR'] for r in db.execute(
             f"""SELECT substr(b.created_at,1,7) AS m, COALESCE(b.channel,'worldives') AS ch, COUNT(*) AS n, SUM(b.participants) AS divers,
                        SUM(CASE WHEN b.status IN ('confirmed','completed') THEN COALESCE(b.price,0) ELSE 0 END) AS amount, MAX(b.currency) AS cur
-                FROM bookings b WHERE {pw} AND {w} AND b.status NOT IN ('payment_in_progress') GROUP BY m, ch ORDER BY m, ch""", (pid, *args)).fetchall()]
+                FROM bookings b WHERE {pw} AND {per} AND b.status NOT IN ('payment_in_progress') GROUP BY m, ch ORDER BY m, ch""", (pid, *args)).fetchall()]
         return label, [S('Ventas por canal', [('Mes', 'text'), ('Canal', 'text'), ('Reservas', 'int'), ('Buceadores', 'int'), ('Importe confirmado', 'money'), ('Moneda', 'text')],
                          out, _money_currency(out, 5))]
     if kind in ('dac7', 'dac7_pago_en_persona'):
@@ -4863,22 +4907,22 @@ def export_sheets(db, user, kind, a=None, b=None, year=None):
         return f'{label} {y}', [S(f'DAC7 {y}', [('Ejercicio', 'int')] + [(h, t) for h, t, _ in cols], out, cur),
                                 S('Datos incompletos', [('Tipo de prestador', 'text'), ('Id', 'int'), ('Nombre', 'text'), ('Le falta', 'text')], missing)]
     if kind == 'cuotas':
-        w, args = _within('created_at', a, b)
+        per, args = _within('created_at', a, b)
         out = [[r['id'], r['created_at'], 'Centro' if r['provider_type'] == 'center' else 'Profesional', provider_label(db, r['provider_type'], r['provider_id']),
                 r['plan_code'], r['amount'], r['currency'] or 'EUR', {'paid': 'Pagada', 'pending': 'Pendiente', 'failed': 'Fallida'}.get(r['status'], r['status'] or ''),
                 {'stripe': 'Tarjeta (Stripe)', 'manual': 'Apuntada a mano'}.get(r['method'], r['method'] or ''), r['period_start'], r['period_end'], r['paid_at']]
-               for r in db.execute(f'SELECT * FROM plan_payments WHERE {w} ORDER BY id DESC LIMIT 50000', args).fetchall()]
+               for r in db.execute(f'SELECT * FROM plan_payments WHERE {per} ORDER BY id DESC LIMIT 50000', args).fetchall()]
         return label, [S('Cuotas de los planes', [('Id', 'int'), ('Fecha', 'datetime'), ('Tipo', 'text'), ('Centro o profesional', 'text'), ('Plan', 'text'),
                                                   ('Importe', 'money'), ('Moneda', 'text'), ('Estado', 'text'), ('Forma de pago', 'text'), ('Desde', 'date'), ('Hasta', 'date'),
                                                   ('Pagada el', 'datetime')], out, _money_currency(out, 6))]
     if kind == 'reservas_centros':
-        w, args = _within('b.booking_date', a, b)
+        per, args = _within('b.booking_date', a, b)
         out = [[r['who'], r['t'], r['n'], r['pay'] or 0, r['req'] or 0, r['divers'] or 0, round(r['amount'] or 0, 2)] for r in db.execute(
             f"""SELECT COALESCE(c.name,pu.fullname,'—') AS who, CASE WHEN b.center_id THEN 'Centro' ELSE 'Profesional' END AS t, COUNT(*) AS n,
                        SUM(CASE WHEN b.booking_mode='payment' THEN 1 ELSE 0 END) AS pay, SUM(CASE WHEN COALESCE(b.booking_mode,'request')<>'payment' THEN 1 ELSE 0 END) AS req,
                        SUM(b.participants) AS divers, SUM(CASE WHEN b.status IN ('confirmed','completed') THEN COALESCE(b.price,0) ELSE 0 END) AS amount
                 FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id
-                WHERE {w} AND b.status NOT IN ('payment_in_progress') GROUP BY who, t ORDER BY n DESC LIMIT 5000""", args).fetchall()]
+                WHERE {per} AND b.status NOT IN ('payment_in_progress') GROUP BY who, t ORDER BY n DESC LIMIT 5000""", args).fetchall()]
         return label, [S('Reservas por centro', [('Centro o profesional', 'text'), ('Tipo', 'text'), ('Reservas', 'int'), ('Pago al reservar', 'int'), ('Bajo petición', 'int'),
                                                  ('Buceadores', 'int'), ('Importe confirmado', 'money')], out)]
     raise NotFound('Esa exportación no existe.')
@@ -5009,13 +5053,13 @@ def admin_data_gate(db, handler, user, key, what):
     if user['role'] != 'admin': return
     if not admin_may_see(db, key):
         raise PermissionError(f'La configuración de privacidad no permite a la administración ver: {ADMIN_DATA_PERMS[key][0].lower()}. Se cambia en Administración → Datos personales.')
-    reason = unquote(handler.headers.get('X-Admin-Reason') or '')[:300]
+    reason = unquote(handler.headers.get('X-Admin-Reason') or '')[:300] or (admin_confirmation(handler, db) or {}).get('reason')
     audit(db, user['id'], 'admin_personal_data', 'request', None, {'what': what, 'permiso': key, 'path': handler.path.split('?')[0], 'reason': reason or None})
 
 
 def admin_data_log(db, handler, user, what):
     """Lists the administration needs to run the site (accounts, requests, reports): not switchable, always logged."""
-    reason = unquote(handler.headers.get('X-Admin-Reason') or '')[:300]
+    reason = unquote(handler.headers.get('X-Admin-Reason') or '')[:300] or (admin_confirmation(handler, db) or {}).get('reason')
     audit(db, user['id'], 'admin_personal_data', 'request', None, {'what': what, 'path': handler.path.split('?')[0], 'reason': reason or None}); db.commit()
 
 
@@ -5103,31 +5147,107 @@ PRIVATE_POST_PREFIXES = ('/api/provider', '/api/center/', '/api/center-points', 
 
 
 # B.9 (v50.47): the administrator sees or changes the private data of a centre only with a stated reason, which is
-# logged in audit_log (header X-Admin-Reason; the web asks for it once and keeps it for 30 minutes).
-ADMIN_CENTER_GET = re.compile(r'^/api/(bookings(/\d+(/.*)?)?|manifest/.*|provider/payments|payments/center|payments/connect-status|center/clients|center/extras'
-                              r'|provider/reward-offers|admin/payments|admin/emails(/.*)?|documents/file/\d+|admin/insurance-doc|waivers/.*|public/bookings/\d+'
-                              r'|admin/dac7|admin/avisos(/.*)?)$')
-ADMIN_CENTER_POST = re.compile(r'^/api/(bookings/\d+/(status|payment|refund|reschedule|change-date/decide)|payments/connect/.*|center/extras/.*'
-                               r'|provider/reward-offers|center-points/.*|center-equipment|admin/payments/(resolve|incident)|admin/emails/resend'
-                               r'|admin/users/role|centers/update|manifest/.*)$')
+# logged in audit_log (header X-Admin-Reason).
+# v50.57 (revisión general, 4.1): entering the Centro de control and managing the web (points, destinations, templates,
+# centres, experiences, statistics, QR…) asks for nothing more. Personal or sensitive data (bookings with the clients'
+# data, documents, payments, emails sent, the DAC7 report, exports with personal data, full emails) asks the
+# administrator to confirm the password, or the code of the two-step verification, and a reason: the confirmation lasts
+# 15 minutes (Administración › Operación) for all of them, and each access is logged with the reason. Changing a
+# centre's private data (a booking, its extras, its payments setup…) keeps asking for a reason only.
+ADMIN_SENSITIVE_GET = re.compile(r'^/api/(bookings(/\d+(/.*)?)?|manifest/.*|provider/payments|payments/center|center/clients'
+                                 r'|admin/payments|admin/emails(/.*)?|documents/file/\d+|admin/insurance-doc|waivers/.*|public/bookings/\d+'
+                                 r'|admin/dac7|admin/avisos(/.*)?)$')
+ADMIN_SENSITIVE_POST = re.compile(r'^/api/(bookings/\d+/(payment|refund)|admin/payments/(resolve|incident)|admin/emails/resend)$')
+ADMIN_REASON_POST = re.compile(r'^/api/(bookings/\d+/(status|reschedule|change-date/decide)|payments/connect/.*|center/extras/.*'
+                               r'|provider/reward-offers|admin/users/role|manifest/.*)$')
+ADMIN_CONFIRM_MINUTES = (15, 5, 120)   # default, minimum and maximum
 
 
 class AdminReasonRequired(PermissionError):
     extra = {'admin_reason_required': True}
 
 
+class AdminConfirmRequired(PermissionError):
+    extra = {'admin_confirm_required': True}
+
+
+def admin_confirm_minutes(db):
+    r = db.execute("SELECT value FROM site_settings WHERE key='admin_confirm_minutes'").fetchone()
+    try: v = int(r['value']) if r and r['value'] else ADMIN_CONFIRM_MINUTES[0]
+    except (TypeError, ValueError): v = ADMIN_CONFIRM_MINUTES[0]
+    return min(max(v, ADMIN_CONFIRM_MINUTES[1]), ADMIN_CONFIRM_MINUTES[2])
+
+
+def session_hash(handler):
+    token = request_session_token(handler)
+    return hashlib.sha256(token.encode()).hexdigest() if token else None
+
+
+def admin_confirmation(handler, db):
+    """The administrator's confirmation for sensitive data in this session while it lasts: {'until': ts, 'reason': …}."""
+    h = session_hash(handler)
+    if not h: return None
+    r = db.execute('SELECT admin_confirmed_until, admin_confirm_reason FROM sessions WHERE token_hash=?', (h,)).fetchone()
+    if not r or not r['admin_confirmed_until'] or r['admin_confirmed_until'] < time.time(): return None
+    return {'until': r['admin_confirmed_until'], 'reason': r['admin_confirm_reason'] or ''}
+
+
+def require_admin_confirmed(handler, db):
+    conf = admin_confirmation(handler, db)
+    if conf: return conf
+    minutes = admin_confirm_minutes(db)
+    e = AdminConfirmRequired(f'Para ver datos personales, confirma tu contraseña e indica el motivo. Vale {minutes} minutos para todo lo sensible.')
+    e.extra = {'admin_confirm_required': True, 'minutes': minutes}
+    raise e
+
+
 def admin_reason_gate(handler, db, path, method):
-    rx = ADMIN_CENTER_GET if method == 'GET' else ADMIN_CENTER_POST
-    if not rx.match(path): return
+    sensitive = (ADMIN_SENSITIVE_GET if method == 'GET' else ADMIN_SENSITIVE_POST).match(path)
+    if not sensitive and not (method != 'GET' and ADMIN_REASON_POST.match(path)): return
     user = current_user(handler, db)
     if not user or user['role'] != 'admin': return
+    conf = require_admin_confirmed(handler, db) if sensitive else admin_confirmation(handler, db)
     raw = handler.headers.get('X-Admin-Reason') or (parse_qs(urlparse(handler.path).query).get('motivo', [''])[0] if method == 'GET' else '')
     try: raw = unquote(raw)
     except Exception: pass
-    reason = clean_text(raw, 300) or ''
+    reason = clean_text(raw, 300) or (conf or {}).get('reason') or ''
     if len(reason) < 5:
         raise AdminReasonRequired('Indica el motivo para ver o cambiar datos de un centro: queda registrado en la actividad.')
-    audit(db, user['id'], 'admin_center_access', 'request', None, {'method': method, 'path': path, 'reason': reason}); db.commit()
+    audit(db, user['id'], 'admin_center_access', 'request', None, {'method': method, 'path': path, 'reason': reason, 'sensible': bool(sensitive)}); db.commit()
+
+
+def mask_email(email):
+    """«an•••@example.org»: enough to tell accounts apart, not the full address (v50.57, 4.1)."""
+    local, at, domain = str(email or '').partition('@')
+    if not at: return '•••' if email else email
+    return (local[:2] if len(local) > 3 else local[:1]) + '•••@' + domain
+
+
+def admin_bookings_summary(db, a, b, label):
+    """The bookings of the centres and professionals in figures, without any data of the clients (v50.57, 4.1): the
+    administration is the booking engine; the detail belongs to each centre and opens only with a reason."""
+    w, args = _within('b.booking_date', a, b)
+    base = f"""FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id
+               WHERE {w} AND b.status NOT IN ('payment_in_progress')"""
+    mode = "CASE WHEN b.pay_way='in_person' THEN 'in_person' WHEN b.booking_mode='payment' THEN 'payment' ELSE 'request' END"
+    sums = """COUNT(*) AS n, COALESCE(SUM(b.participants),0) AS divers, SUM(b.status IN ('confirmed','completed')) AS ok,
+              SUM(b.status IN ('requested','accepted_pending_payment','insurance_pending')) AS pending, SUM(b.status IN ('cancelled','rejected','expired')) AS lost"""
+    providers = []
+    for r in db.execute(f"""SELECT COALESCE(c.name,pu.fullname,'—') AS name, CASE WHEN b.center_id THEN 'center' ELSE 'freelance' END AS kind, {sums},
+                                   SUM(CASE WHEN b.status IN ('confirmed','completed') THEN COALESCE(b.price,0) ELSE 0 END) AS amount, MAX(COALESCE(b.currency,'EUR')) AS cur
+                            {base} GROUP BY COALESCE(b.center_id,0), COALESCE(b.provider_user_id,0) ORDER BY n DESC LIMIT 2000""", args).fetchall():
+        providers.append({'name': r['name'], 'kind': r['kind'], 'bookings': r['n'], 'divers': r['divers'], 'confirmed': r['ok'] or 0, 'pending': r['pending'] or 0,
+                          'cancelled': r['lost'] or 0, 'amount': round(r['amount'] or 0, 2), 'currency': r['cur'] or 'EUR'})
+    t = db.execute(f'SELECT {sums} {base}', args).fetchone()
+    amounts = [{'currency': r['cur'], 'amount': round(r['amount'] or 0, 2)} for r in db.execute(
+        f"""SELECT COALESCE(b.currency,'EUR') AS cur, SUM(COALESCE(b.price,0)) AS amount {base} AND b.status IN ('confirmed','completed') GROUP BY cur ORDER BY amount DESC""", args)]
+    modes = {'payment': 'Pago al reservar', 'request': 'Bajo petición', 'in_person': 'Pago en persona'}
+    by_mode = [{'mode': r['m'], 'label': modes.get(r['m'], r['m']), 'bookings': r['n']} for r in db.execute(f'SELECT {mode} AS m, COUNT(*) AS n {base} GROUP BY m ORDER BY n DESC', args)]
+    by_channel = [{'channel': r['ch'], 'label': wch.CHANNEL_LABELS.get(r['ch'], r['ch']), 'bookings': r['n']} for r in db.execute(
+        f"SELECT COALESCE(b.channel,'worldives') AS ch, COUNT(*) AS n {base} GROUP BY ch ORDER BY n DESC", args)]
+    return {'period': label, 'from': a or None, 'to': b or None, 'providers': providers,
+            'totals': {'bookings': t['n'] or 0, 'divers': t['divers'] or 0, 'confirmed': t['ok'] or 0, 'pending': t['pending'] or 0, 'cancelled': t['lost'] or 0,
+                       'amounts': amounts, 'by_mode': by_mode, 'by_channel': by_channel}}
 
 
 def ignored_tenant_fields(db, user, path, keys):
@@ -11163,6 +11283,13 @@ def export_user_data(db, uid):
         if rows: out[t] = [dict(r) for r in rows]
     out['messages_received'] = [dict(r) for r in db.execute('SELECT subject,body,created_at,read_at FROM messages WHERE recipient_user_id=? ORDER BY id DESC LIMIT 2000', (uid,)).fetchall()]
     out['emails_sent_to_you'] = [dict(r) for r in db.execute('SELECT template,subject,status,created_at,sent_at FROM email_outbox WHERE to_email=(SELECT lower(email) FROM users WHERE id=?) ORDER BY id DESC LIMIT 500', (uid,)).fetchall()]
+    # v50.57 · logbook: the book readable (it is stored encrypted), the dives a centre verified and the buddies by name
+    book, _ = logbook_load(db, uid)
+    if book is not None: out['logbook_books'] = [{'book': book}]
+    out['logbook_verified_dives'] = [wlog.official(r)['dive'] for r in db.execute(
+        'SELECT d.* FROM logbook_claims lc JOIN center_dives d ON d.id=lc.dive_id WHERE lc.user_id=? ORDER BY lc.id', (uid,)).fetchall()]
+    out['buddies'] = [r['fullname'] for r in db.execute('SELECT u.fullname FROM user_buddies b JOIN users u ON u.id=b.buddy_id WHERE b.user_id=?', (uid,)).fetchall()]
+    out.pop('user_buddies', None)
     # v50.56: «Mi seguro de buceo» (the files go in the folder «seguros» of the ZIP)
     out['insurance_policies'] = [{k: r[k] for k in ('id', 'insurer', 'policy_number', 'kind', 'valid_from', 'valid_to', 'zone', 'max_depth', 'original_name', 'source',
                                                      'status', 'booking_id', 'created_at')} for r in db.execute('SELECT * FROM insurance_policies WHERE user_id=? ORDER BY id', (uid,)).fetchall()]
@@ -11223,6 +11350,11 @@ def delete_user_account(db, user):
                   instagram_url=NULL, facebook_url=NULL, twitter_url=NULL, youtube_url=NULL, tiktok_url=NULL WHERE id=?''',
                (f'eliminado-{uid}-{tag}@sin-email.worldives.local', f'eliminado_{uid}_{tag}', uid))
     db.execute('DELETE FROM user_profiles WHERE user_id=?', (uid,))
+    # v50.57 · logbook: the book, the dives claimed, the buddies (both ways), the public code and the centre of the sign-up
+    for sql, args in (('DELETE FROM logbook_books WHERE user_id=?', (uid,)), ('DELETE FROM logbook_claims WHERE user_id=?', (uid,)),
+                      ('DELETE FROM user_buddies WHERE user_id=? OR buddy_id=?', (uid, uid)),
+                      ('UPDATE users SET buddy_code=NULL, signup_center_id=NULL WHERE id=?', (uid,))):
+        db.execute(sql, args)
     for sql in ('DELETE FROM user_documents WHERE user_id=?', 'DELETE FROM sessions WHERE user_id=?', 'DELETE FROM device_sessions WHERE user_id=?', 'DELETE FROM known_devices WHERE user_id=?', 'DELETE FROM logbook_entries WHERE user_id=?',
                 'DELETE FROM center_links WHERE user_id=?', 'DELETE FROM password_resets WHERE user_id=?', 'DELETE FROM messages WHERE recipient_user_id=?',
                 "UPDATE promotion_codes SET status='revoked',revoked_at=? WHERE user_id=? AND status='active'",
@@ -13636,6 +13768,196 @@ def _alert_errors(events):
 ERROR_MONITOR = wops.ErrorMonitor(_alert_errors)
 
 
+# ---------------------------------------------------------------------------
+# v50.57 · El logbook de buceo: app/wod/logbook.py decides what is valid; here the database.
+# ---------------------------------------------------------------------------
+LOGBOOK_QR_DAYS = 90                       # a QR not used in 90 days stops working (the centre makes another)
+LOGBOOK_PUT_LIMIT = wsec.SharedRateLimiter('logbook-guardar', 600, 600)
+LOGBOOK_CLAIM_LIMIT = wsec.SharedRateLimiter('logbook-qr', 30, 600)
+BUDDY_LIMIT = wsec.SharedRateLimiter('logbook-buddies', 30, 600)
+TOKEN_RE = re.compile(r'[A-Za-z0-9_-]{16,64}')
+BUDDY_RE = re.compile(r'[A-Za-z0-9_-]{12,32}')
+
+
+def scan_url(token): return f'{public_site_url()}/scan/d/{token}'
+def buddy_url(code): return f'{public_site_url()}/buddy/{code}'
+def buddy_ref(code): return 'b' + hashlib.sha256(str(code).encode()).hexdigest()[:12]
+
+
+def buddy_code(db, uid):
+    """The person's public code for buddies (/buddy/<code>): random, not guessable, made the first time."""
+    r = db.execute('SELECT buddy_code FROM users WHERE id=?', (uid,)).fetchone()
+    if r and r['buddy_code']: return r['buddy_code']
+    for _ in range(5):
+        try:
+            db.execute('UPDATE users SET buddy_code=? WHERE id=? AND buddy_code IS NULL', (secrets.token_urlsafe(12), uid)); break
+        except sqlite3.IntegrityError: continue
+    return db.execute('SELECT buddy_code FROM users WHERE id=?', (uid,)).fetchone()['buddy_code']
+
+
+def logbook_load(db, uid):
+    """(book, version) of a person; (None, 0) before the first save."""
+    r = db.execute('SELECT data, version FROM logbook_books WHERE user_id=?', (uid,)).fetchone()
+    if not r: return None, 0
+    try: book = wlog.clean_book(json.loads(wcif.decrypt(r['data']) or 'null'))
+    except (ValueError, TypeError): book = None
+    return book, r['version']
+
+
+def logbook_store(db, uid, book, version):
+    raw = wcif.encrypt(json.dumps(book, ensure_ascii=False, separators=(',', ':')))
+    db.execute('''INSERT INTO logbook_books(user_id,data,version,updated_at) VALUES(?,?,?,?)
+                  ON CONFLICT(user_id) DO UPDATE SET data=excluded.data,version=excluded.version,updated_at=excluded.updated_at''', (uid, raw, version, now()))
+
+
+def logbook_claims(db, uid):
+    """({dive id: page or None}, {dive id: official data}) of the dives this person claimed with a QR (not deleted)."""
+    rows = db.execute('''SELECT lc.slot, d.* FROM logbook_claims lc JOIN center_dives d ON d.id=lc.dive_id
+                         WHERE lc.user_id=? AND lc.removed_at IS NULL ORDER BY lc.id''', (uid,)).fetchall()
+    return {r['uid']: r['slot'] for r in rows}, {r['uid']: wlog.official(r) for r in rows}
+
+
+def logbook_merge_rows(db, uid, book):
+    """The dives the book does not have yet go in: those added by the app or the old form, and those of completed
+    bookings (which, as before, are not deleted: if the diver deletes one it comes back to its page). True when the
+    book changed."""
+    changed = False
+    for r in db.execute('SELECT * FROM logbook_entries WHERE user_id=? ORDER BY dive_date, id', (uid,)).fetchall():
+        n = r['slot']
+        if n and (not wlog.is_empty(book, n) or not r['booking_id']): continue
+        if not n:
+            n = wlog.free_slot(book)
+            if not n: break   # the book is full (120 dives): the dive stays in the list of the account
+            db.execute('UPDATE logbook_entries SET slot=? WHERE id=?', (n, r['id']))
+        wlog.put_dive(book, n, wlog.dive_from_row(r)); changed = True
+    return changed
+
+
+def logbook_sync_rows(db, uid, book):
+    """The complete dives of the book as rows of logbook_entries (points, app, exports): added, changed or deleted."""
+    have = {r['slot']: r for r in db.execute('SELECT id,slot,booking_id FROM logbook_entries WHERE user_id=? AND slot IS NOT NULL', (uid,)).fetchall()}
+    for n, d in wlog.dives_of(book['v']).items():
+        f, r = wlog.row_fields(d), have.pop(n, None)
+        if f and r:
+            db.execute('UPDATE logbook_entries SET dive_date=?,site=?,country=?,depth=?,duration=?,dive_type=?,notes=? WHERE id=?',
+                       (f['dive_date'], f['site'], f['country'], f['depth'], f['duration'], f['dive_type'], f['notes'], r['id']))
+        elif f:
+            db.execute('INSERT INTO logbook_entries(user_id,dive_date,site,country,depth,duration,dive_type,notes,created_at,slot) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                       (uid, f['dive_date'], f['site'], f['country'], f['depth'], f['duration'], f['dive_type'], f['notes'], now(), n))
+        elif r and not r['booking_id']:
+            logbook_reverse_points(db, uid, r['id']); db.execute('DELETE FROM logbook_entries WHERE id=?', (r['id'],))
+    for r in have.values():
+        if r['booking_id']: continue
+        logbook_reverse_points(db, uid, r['id']); db.execute('DELETE FROM logbook_entries WHERE id=?', (r['id'],))
+    sync_user_rewards(db, uid)
+
+
+def center_passport_cover(db, cid):
+    """{logo, name} of a centre for the cover of the passport: the logo uploaded for it, else the centre's logo when it
+    is a file of this web or an https link (not a homepage); None without a logo."""
+    c = db.execute('SELECT name,logo_url,passport_logo,passport_name FROM centers WHERE id=?', (cid,)).fetchone()
+    if not c: return None
+    logo = c['passport_logo'] or ''
+    if not logo and c['logo_url'] and str(c['logo_url']).startswith(('/assets/uploads/', 'https://')) and not is_homepage_url(c['logo_url']): logo = c['logo_url']
+    return {'logo': logo, 'name': c['passport_name'] or c['name']} if logo else None
+
+
+def logbook_signup_center(db, user):
+    """{name, logo} of the centre the person signed up with (public), or None."""
+    cid = user.get('signup_center_id')
+    if not cid or not db.execute(f'SELECT 1 FROM centers c WHERE c.id=? AND {public_center_sql("c")}', (cid,)).fetchone(): return None
+    cover = center_passport_cover(db, cid)
+    c = db.execute('SELECT name,passport_name FROM centers WHERE id=?', (cid,)).fetchone()
+    return {'name': (cover or {}).get('name') or c['passport_name'] or c['name'], 'logo': (cover or {}).get('logo') or ''}
+
+
+def logbook_fix_cover(book, center):
+    """The centre's cover can only be the one of the centre the person signed up with. True when it was corrected."""
+    c = book['cover']
+    if not c: return False
+    if not center or not center['logo']: book['cover'] = None; return True
+    if c['logo'] != center['logo'] or c['name'] != center['name']:
+        c.update(logo=center['logo'], name=center['name'], style=''); return True
+    return False
+
+
+def logbook_friends(db, uid):
+    out = []
+    for r in db.execute('''SELECT u.id,u.fullname FROM user_buddies b JOIN users u ON u.id=b.buddy_id
+                           WHERE b.user_id=? AND u.password_hash<>'!' ORDER BY u.fullname COLLATE NOCASE''', (uid,)).fetchall():
+        out.append({'id': buddy_ref(buddy_code(db, r['id'])), 'name': r['fullname']})
+    return out
+
+
+def logbook_payload(db, user):
+    """GET /api/logbook: the rows as before (items, for the app and old clients) and the book of the component with
+    what the page passes to it: the dives claimed with a QR that the book does not have yet, the person's QR, the
+    buddies and the centre of the sign-up link."""
+    uid = user['id']
+    book, ver = logbook_load(db, uid)
+    if book is None: book = wlog.blank()
+    if logbook_merge_rows(db, uid, book):
+        ver += 1; logbook_store(db, uid, book, ver)
+    claims, officials = logbook_claims(db, uid)
+    code = buddy_code(db, uid)
+    center = logbook_signup_center(db, user)
+    items = [dict(r) for r in db.execute('SELECT * FROM logbook_entries WHERE user_id=? ORDER BY dive_date DESC,id DESC', (uid,)).fetchall()]
+    return {'items': items, 'book': {'data': book, 'version': ver}, 'pending': [officials[k]['dive'] for k, slot in claims.items() if slot is None],
+            'profile': {'id': code, 'qrText': buddy_url(code), 'qrImage': '/api/logbook/qr.svg'}, 'friends': logbook_friends(db, uid),
+            'center': center if center and not book['cover'] else None,
+            'storage_key': 'wd-logbook-' + hashlib.sha256(f'logbook:{code}'.encode()).hexdigest()[:16]}
+
+
+def logbook_new_qr(db, dive_id, qty):
+    exp = (datetime.now(timezone.utc) + timedelta(days=LOGBOOK_QR_DAYS)).isoformat(timespec='seconds')
+    out = []
+    for _ in range(qty):
+        tok = secrets.token_urlsafe(18)
+        qid = db.execute('INSERT INTO center_dive_qr(dive_id,token_hash,token_enc,created_at,expires_at) VALUES(?,?,?,?,?)',
+                         (dive_id, hashlib.sha256(tok.encode()).hexdigest(), wcif.encrypt(tok), now(), exp)).lastrowid
+        out.append({'id': qid, 'url': scan_url(tok)})
+    return out
+
+
+def logbook_center(db, handler):
+    """(user, centre row) of a member of a centre's team using the centre's logbook panel."""
+    user = require_user(handler, db); require_role(user, {'center'})
+    if not user['center_id']: raise ValueError('Tu cuenta no tiene un centro asociado.')
+    return user, db.execute('SELECT * FROM centers WHERE id=?', (user['center_id'],)).fetchone()
+
+
+def logbook_dive_row(db, cid, did):
+    d = db.execute('SELECT * FROM center_dives WHERE id=? AND center_id=?', (did, cid)).fetchone()
+    if not d: raise NotFound('Inmersión no encontrada.')
+    return d
+
+
+def logbook_dive_list(db, cid):
+    return [dict(r) for r in db.execute('''SELECT d.id,d.uid,d.dive_date,d.site,d.country,d.instructor,d.depth,d.duration,d.created_at,
+              (SELECT COUNT(*) FROM center_dive_qr q WHERE q.dive_id=d.id) AS qr_total,
+              (SELECT COUNT(*) FROM center_dive_qr q WHERE q.dive_id=d.id AND q.claimed_by IS NOT NULL) AS qr_used,
+              (SELECT COUNT(*) FROM center_dive_qr q WHERE q.dive_id=d.id AND q.claimed_by IS NULL AND q.expires_at>?) AS qr_free
+            FROM center_dives d WHERE d.center_id=? ORDER BY d.dive_date DESC, d.id DESC LIMIT 200''', (now(), cid)).fetchall()]
+
+
+def logbook_qr_pdf(d, tokens):
+    """A4 sheets with the QR of a dive, six per page, each one for one diver (single use)."""
+    ink, muted, line = (0.03, 0.21, 0.29), (0.38, 0.45, 0.50), (0.86, 0.89, 0.91)
+    doc = wpdf.Document('QR de la inmersión', 'es')
+    when = wlog.date_text(d['dive_date'])
+    for i, (tok, expires) in enumerate(tokens):
+        if i and i % 6 == 0: doc.new_page()
+        col, row = i % 2, (i // 2) % 3
+        x0, top = 40 + col * 265, 802 - row * 262
+        doc.box(x0, top - 248, 250, 248, (1, 1, 1), line, 12)
+        doc.text(x0 + 16, top - 26, doc.fit(d['site'], 12.5, 218, True), 12.5, ink, True)
+        doc.text(x0 + 16, top - 43, doc.fit(f"{when} · {d['center_name']}", 9, 218), 9, muted)
+        doc.c += _qr_cmds(scan_url(tok), x0 + 55, top - 205, 140)
+        doc.text(x0 + 125, top - 226, 'Escanéalo para añadir la inmersión a tu logbook', 8, muted, align='center')
+        doc.text(x0 + 125, top - 239, f'Un solo uso · caduca el {wlog.date_text(expires)}', 7, muted, align='center')
+    return doc.pdf()
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = 'WORLDIVES'
     sys_version = ''
@@ -13653,6 +13975,7 @@ class Handler(BaseHTTPRequestHandler):
             if '?' in line: line = re.sub(r'\?[^\s"]*', '', line)
             line = re.sub(r'(/ical/)[^/\s"]+(\.ics)', r'\1***\2', line)
             line = re.sub(r'(/(?:api/)?r/)[^/\s"]+', r'\1***', line)
+            line = re.sub(r'(/(?:scan/d|buddy)/)[^/\s"]+', r'\1***', line)   # v50.57: the QR of a dive and of a buddy
             ACCESS_LOG.info('%s - %s', wsec.log_ip(self.client_ip()), log_safe(line))
         except Exception:
             pass
@@ -13844,6 +14167,170 @@ class Handler(BaseHTTPRequestHandler):
 
 
     # ---- v50.56 · Bloque 2: seguros de buceo -------------------------------------------------------------------------
+    # ------------------------------------------------------------------ v50.57 · el logbook de buceo
+    def logbook_get(self, db, path, query):
+        """GET of the logbook (book, the person's QR), of a centre's logbook panel and of a centre's invitation."""
+        if path == '/api/logbook':
+            user = require_user(self, db); payload = logbook_payload(db, user); db.commit(); self.send_json(payload); return True
+        if path == '/api/logbook/qr.svg':
+            user = require_user(self, db); code = buddy_code(db, user['id']); db.commit()
+            self.send_bytes(qr_svg(buddy_url(code)), 'image/svg+xml; charset=utf-8', cache='no-store', inline=True); return True
+        if path == '/api/public/invite':
+            p = provider_by_slug(db, clean_text(query.get('centro', [''])[0], 80) or '')
+            if not p or p[0] != 'center': raise NotFound('Este enlace de invitación ya no es válido.')
+            c = db.execute('SELECT name,passport_name FROM centers WHERE id=?', (p[1],)).fetchone()
+            cover = center_passport_cover(db, p[1])
+            self.send_json({'center': {'name': (cover or {}).get('name') or c['passport_name'] or c['name'], 'logo': (cover or {}).get('logo') or ''}}); return True
+        if path == '/api/center/logbook':
+            user, c = logbook_center(db, self)
+            slug = sales_row(db, 'center', c['id'])['slug']; db.commit()
+            self.send_json({'invite_url': f'{public_site_url()}/registro?centro={slug}', 'center_name': c['name'], 'country': c['country'] or '',
+                            'passport': {'name': c['passport_name'] or '', 'logo': c['passport_logo'] or '', 'cover': center_passport_cover(db, c['id'])},
+                            'dives': logbook_dive_list(db, c['id']), 'qr_days': LOGBOOK_QR_DAYS}); return True
+        m = re.fullmatch(r'/api/center/logbook/dive/(\d+)/qr/(\d+)\.svg', path)
+        if m:
+            user, c = logbook_center(db, self); d = logbook_dive_row(db, c['id'], int(m.group(1)))
+            q = db.execute('SELECT token_enc FROM center_dive_qr WHERE id=? AND dive_id=?', (int(m.group(2)), d['id'])).fetchone()
+            tok = wcif.decrypt(q['token_enc']) if q else None
+            if not tok: raise NotFound('QR no encontrado.')
+            self.send_bytes(qr_svg(scan_url(tok)), 'image/svg+xml; charset=utf-8', cache='no-store', inline=True); return True
+        m = re.fullmatch(r'/api/center/logbook/dive/(\d+)/qr\.pdf', path)
+        if m:
+            user, c = logbook_center(db, self); d = logbook_dive_row(db, c['id'], int(m.group(1)))
+            toks = [(wcif.decrypt(q['token_enc']), q['expires_at']) for q in db.execute(
+                'SELECT token_enc,expires_at FROM center_dive_qr WHERE dive_id=? AND claimed_by IS NULL AND expires_at>? ORDER BY id', (d['id'], now())).fetchall()]
+            toks = [t for t in toks if t[0]]
+            if not toks: raise ValueError('No quedan QR sin usar en esta inmersión: crea más con «Otro QR».')
+            self.send_bytes(logbook_qr_pdf(d, toks), 'application/pdf', f'qr-inmersion-{d["uid"]}.pdf'); return True
+        return False
+
+    def logbook_post(self, db, path):
+        """POST of the logbook: claim a dive with its QR, become buddies, link the account to a centre; the centre's
+        panel: dives and their QR, the name and the logo of the passport."""
+        if path == '/api/logbook/claim':
+            user = require_user(self, db); uid = user['id']; tok = str(json_body(self).get('token') or '').strip()
+            if not TOKEN_RE.fullmatch(tok): raise NotFound('Este QR no es válido.')
+            if LOGBOOK_CLAIM_LIMIT.hit(f'u:{uid}'): raise TooManyRequests('Has escaneado muchos QR seguidos. Espera unos minutos.')
+            q = db.execute('SELECT * FROM center_dive_qr WHERE token_hash=?', (hashlib.sha256(tok.encode()).hexdigest(),)).fetchone()
+            if not q: raise NotFound('Este QR no es válido o ya no existe.')
+            mine = db.execute('SELECT * FROM logbook_claims WHERE user_id=? AND dive_id=?', (uid, q['dive_id'])).fetchone()
+            if mine:   # scanned again (this QR or another of the same dive): never twice in the book
+                already = mine['removed_at'] is None
+                if not already: db.execute('UPDATE logbook_claims SET removed_at=NULL, slot=NULL WHERE id=?', (mine['id'],))
+            else:
+                if q['claimed_by']: self.send_json({'error': 'Este QR ya lo ha usado otro buceador. Pide al centro uno para ti.', 'used': True}, 409); return True
+                if q['expires_at'] <= now(): raise NotFound('Este QR ha caducado. Pide al centro uno nuevo.')
+                if db.execute('UPDATE center_dive_qr SET claimed_by=?,claimed_at=? WHERE id=? AND claimed_by IS NULL', (uid, now(), q['id'])).rowcount != 1:
+                    self.send_json({'error': 'Este QR ya lo ha usado otro buceador. Pide al centro uno para ti.', 'used': True}, 409); return True
+                db.execute('INSERT INTO logbook_claims(user_id,dive_id,qr_id,slot,created_at) VALUES(?,?,?,NULL,?)', (uid, q['dive_id'], q['id'], now()))
+                already = False
+            d = db.execute('SELECT * FROM center_dives WHERE id=?', (q['dive_id'],)).fetchone()
+            audit(db, uid, 'logbook_dive_claimed', 'center_dive', d['id'], {'otra_vez': already}); db.commit()
+            self.send_json({'ok': True, 'already': already, 'dive': wlog.official(d)['dive']}); return True
+        if path == '/api/buddies':
+            user = require_user(self, db); uid = user['id']; code = str(json_body(self).get('code') or '').strip()
+            if not BUDDY_RE.fullmatch(code): raise NotFound('Este QR de buddy no es válido.')
+            if BUDDY_LIMIT.hit(f'u:{uid}'): raise TooManyRequests('Has añadido muchos buddies seguidos. Espera unos minutos.')
+            f = db.execute("SELECT id,fullname FROM users WHERE buddy_code=? AND password_hash<>'!'", (code,)).fetchone()
+            if not f: raise NotFound('Este QR de buddy no es válido.')
+            if f['id'] == uid: raise ValueError('Este es tu propio QR: enséñaselo a tu compañero para que lo escanee él.')
+            already = bool(db.execute('SELECT 1 FROM user_buddies WHERE user_id=? AND buddy_id=?', (uid, f['id'])).fetchone())
+            for a, b in ((uid, f['id']), (f['id'], uid)): db.execute('INSERT OR IGNORE INTO user_buddies(user_id,buddy_id,created_at) VALUES(?,?,?)', (a, b, now()))
+            audit(db, uid, 'buddy_added', 'user', f['id'], {'ya_eran': already}); db.commit()
+            self.send_json({'ok': True, 'already': already, 'friend': {'id': buddy_ref(code), 'name': f['fullname']}}); return True
+        if path == '/api/logbook/center-link':
+            # a diver who already had an account opens a centre's invitation link
+            user = require_user(self, db); p = provider_by_slug(db, clean_text(json_body(self).get('centro'), 80) or '')
+            if not p or p[0] != 'center': raise NotFound('Este enlace de invitación ya no es válido.')
+            if user['role'] not in ('recreational',): raise ValueError('Las cuentas de centros y profesionales no se unen a otro centro.')
+            if not user.get('signup_center_id'):
+                db.execute('UPDATE users SET signup_center_id=? WHERE id=?', (p[1], user['id'])); user['signup_center_id'] = p[1]
+                audit(db, user['id'], 'signup_center_linked', 'center', p[1]); db.commit()
+            self.send_json({'ok': True, 'center': logbook_signup_center(db, user), 'same': user['signup_center_id'] == p[1]}); return True
+        if path == '/api/center/logbook/dive':
+            user, c = logbook_center(db, self); data = json_body(self); f = wlog.clean_center_dive(data)
+            if not f['country']: f['country'] = c['country'] or ''
+            try: qty = max(1, min(40, int(data.get('qty') or 1)))
+            except (TypeError, ValueError): raise ValueError('Número de QR no válido.')
+            ref = sales_row(db, 'center', c['id'])['slug']
+            did = db.execute('''INSERT INTO center_dives(uid,center_id,created_by,dive_date,site,country,instructor,depth,duration,temp,vis,time_in,time_out,gas,lat,lon,types,notes,center_name,center_ref,created_at)
+                                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', ('WD-' + secrets.token_hex(5).upper(), c['id'], user['id'], f['dive_date'], f['site'], f['country'],
+                             f['instructor'], f['depth'], f['duration'], f['temp'], f['vis'], f['time_in'], f['time_out'], f['gas'], f['lat'], f['lon'], f['types'], f['notes'],
+                             c['passport_name'] or c['name'], ref, now())).lastrowid
+            qr = logbook_new_qr(db, did, qty)
+            audit(db, user['id'], 'center_dive_created', 'center_dive', did, {'qr': qty}); db.commit()
+            self.send_json({'ok': True, 'id': did, 'qr': qr}); return True
+        m = re.fullmatch(r'/api/center/logbook/dive/(\d+)/qr', path)
+        if m:
+            user, c = logbook_center(db, self); d = logbook_dive_row(db, c['id'], int(m.group(1)))
+            try: qty = max(1, min(40, int(json_body(self).get('qty') or 1)))
+            except (TypeError, ValueError): raise ValueError('Número de QR no válido.')
+            if db.execute('SELECT COUNT(*) FROM center_dive_qr WHERE dive_id=?', (d['id'],)).fetchone()[0] + qty > 200: raise ValueError('Esta inmersión ya tiene 200 QR.')
+            qr = logbook_new_qr(db, d['id'], qty); audit(db, user['id'], 'center_dive_qr_added', 'center_dive', d['id'], {'qr': qty}); db.commit()
+            self.send_json({'ok': True, 'qr': qr}); return True
+        if path == '/api/center/logbook/settings':
+            user, c = logbook_center(db, self); name = clean_text(json_body(self).get('name'), 120) or None
+            db.execute('UPDATE centers SET passport_name=?,updated_at=? WHERE id=?', (name, now(), c['id']))
+            audit(db, user['id'], 'center_passport_saved', 'center', c['id']); db.commit()
+            self.send_json({'ok': True, 'cover': center_passport_cover(db, c['id'])}); return True
+        if path == '/api/center/logbook/logo':
+            user, c = logbook_center(db, self)
+            if (self.headers.get('Content-Type') or '').lower().startswith('application/json'):
+                if not json_body(self).get('remove'): raise ValueError('Adjunta el logo.')
+                url = None
+            else:
+                fields, files = parse_multipart(self); file = files.get('file')
+                if not file or not file.get('content'): raise ValueError('Adjunta el logo (PNG o SVG con fondo transparente).')
+                content = file['content']
+                if content.lstrip()[:5].lower() in (b'<?xml', b'<svg ') or b'<svg' in content[:2000].lower():
+                    content = wlog.clean_logo_svg(content)
+                    PHOTOS.mkdir(parents=True, exist_ok=True); name = f"pasaporte_{c['id']}_{secrets.token_hex(8)}.svg"
+                    (PHOTOS / name).write_bytes(content); url = '/assets/uploads/' + name
+                else:
+                    url = save_public_image(file, f"pasaporte_{c['id']}")
+            if c['passport_logo'] and c['passport_logo'] != url: delete_public_image(c['passport_logo'])
+            db.execute('UPDATE centers SET passport_logo=?,updated_at=? WHERE id=?', (url, now(), c['id']))
+            audit(db, user['id'], 'center_passport_logo', 'center', c['id'], {'quitado': url is None}); db.commit()
+            self.send_json({'ok': True, 'logo': url or '', 'cover': center_passport_cover(db, c['id'])}); return True
+        return False
+
+    def logbook_put(self, db):
+        """PUT /api/logbook: the whole book of the component (lb «logbook:change»). Refused (409) with the version that
+        stays when it changes what a centre registered, and when another device saved first (X-Logbook-Version)."""
+        user = require_user(self, db); uid = user['id']
+        if LOGBOOK_PUT_LIMIT.hit(f'u:{uid}'): raise TooManyRequests('Demasiados cambios seguidos en el logbook. Espera un momento.')
+        body = json_body(self)
+        try: book = wlog.clean_book(body['data'] if isinstance(body.get('data'), dict) and 'v' not in body else body)
+        except wlog.BookError as e: raise ValueError(str(e))
+        cur, ver = logbook_load(db, uid)
+        base = str(self.headers.get('X-Logbook-Version') or '').strip()
+        if base.isdigit() and int(base) != ver:
+            self.send_json({'error': 'Tu logbook ha cambiado en otro dispositivo: ya ves la última versión.', 'conflict': True, 'data': cur or wlog.blank(), 'version': ver}, 409); return
+        claims, officials = logbook_claims(db, uid)
+        try: bound = wlog.check_verified(book, claims, officials)
+        except wlog.LockedError as e:
+            audit(db, uid, 'logbook_locked_refused', 'logbook', None, {'motivo': str(e)}); db.commit()
+            self.send_json({'error': str(e), 'locked': True, 'data': cur or wlog.blank(), 'version': ver}, 409); return
+        for duid, n in bound.items():
+            if claims[duid] is None:
+                db.execute('UPDATE logbook_claims SET slot=? WHERE user_id=? AND dive_id=(SELECT id FROM center_dives WHERE uid=?)', (n, uid, duid))
+        for duid, slot in claims.items():
+            if slot is not None and duid not in bound:   # the diver deleted a verified dive: it comes back by scanning its QR
+                db.execute('UPDATE logbook_claims SET slot=NULL,removed_at=? WHERE user_id=? AND dive_id=(SELECT id FROM center_dives WHERE uid=?)', (now(), uid, duid))
+        corrected = logbook_fix_cover(book, logbook_signup_center(db, user))
+        corrected = logbook_merge_rows(db, uid, book) or corrected
+        logbook_sync_rows(db, uid, book)
+        ver += 1; logbook_store(db, uid, book, ver); db.commit()
+        out = {'ok': True, 'version': ver}
+        if corrected: out['data'] = book
+        self.send_json(out)
+
+    def do_PUT(self):
+        """Only PUT /api/logbook (the component saves its whole book): the same checks and answers as a POST."""
+        self._put = True
+        try: self.do_POST()
+        finally: self._put = False   # the same Handler answers the next requests of a kept-alive connection
+
     def insurance_get(self, db, path, query):
         """GET routes of the diving insurance. Returns True when it answered."""
         q = lambda k, d='': (query.get(k, [d])[0] or d)
@@ -14430,6 +14917,12 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/widget.js' or path.startswith(('/w/','/c/','/mi-reserva/','/api/w/','/api/mi-reserva/')):
                     if self.sales_get(db,path,query): return
                 if path.startswith('/seguros/ir/') and self.insurance_redirect(db,path,query): return   # v50.56 · seguros
+                # v50.57 · logbook: the QR of a centre's dive and the QR of a buddy open the web (it asks to sign in when needed)
+                if re.fullmatch(r'/scan/d/[A-Za-z0-9_-]{16,64}',path): self.redirect('/#/scan/d/'+path[8:]); return
+                if re.fullmatch(r'/buddy/[A-Za-z0-9_-]{12,32}',path): self.redirect('/#/buddy/'+path[7:]); return
+                if path=='/registro':   # the invitation link of a centre (its panel, «Logbook»): /registro?centro=<slug>
+                    slug=str(query.get('centro',[''])[0] or '')
+                    self.redirect('/#/registro'+(f'?tipo=recreational&centro={slug}' if wch.SLUG_RE.fullmatch(slug) else '')); return
                 if re.fullmatch(r'/r/[0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
                     # Link of a notice (WhatsApp button, email, app): the web opens only that booking.
                     self.redirect('/#/r/'+path[3:]); return
@@ -14437,6 +14930,7 @@ class Handler(BaseHTTPRequestHandler):
                     team_gate(db,current_user(self,db),path,'GET')
                     admin_reason_gate(self,db,path,'GET')
                 if path.startswith(('/api/insurance','/api/admin/insurance','/api/center/bookings/')) and self.insurance_get(db,path,query): return   # v50.56 · seguros
+                if path.startswith(('/api/logbook','/api/center/logbook','/api/public/invite')) and self.logbook_get(db,path,query): return   # v50.57 · logbook
                 if path == '/api/health':
                     # Public health check (uptime monitors): only ok + version (G15). Details: /api/admin/health.
                     db.execute('SELECT 1').fetchone()
@@ -14535,6 +15029,11 @@ class Handler(BaseHTTPRequestHandler):
                     rows=[dict(r) for r in db.execute(f'SELECT id,name,email,phone,message,wanted_date,participants,lang,status,created_at,read_at FROM info_requests WHERE {col}=? ORDER BY id DESC LIMIT 300',(ref[1],)).fetchall()]
                     log_phone_access(db,user,'info_requests',count_phones(rows))
                     self.send_json({'items':rows,'unread':sum(1 for r in rows if not r['read_at'])}); return
+                if path == '/api/exportar/periodo':
+                    # v50.57 (2.2): the dates a period of the exports covers, said under its menu (the same calculation as the file)
+                    require_user(self,db)
+                    a,b,plabel=wexp.period(clean_text(query.get('periodo',['mes'])[0],20) or 'mes',_dt.date.today(),season_setting(db),query.get('desde',[''])[0],query.get('hasta',[''])[0])
+                    self.send_json({'desde':a,'hasta':b,'label':plabel}); return
                 if path == '/api/center/export' or path.startswith('/api/exportar/'):
                     # v50.57 (1.3): every export of the web, in Excel (.xlsx, by default) or CSV for Excel in Spanish, with a
                     # period; it always downloads, also empty. /api/center/export (before v50.57) is the same, in CSV and with everything.
@@ -14556,6 +15055,7 @@ class Handler(BaseHTTPRequestHandler):
                         a=b=None; plabel=str(year)
                     else:
                         a,b,plabel=wexp.period(per,_dt.date.today(),season_setting(db),query.get('desde',[''])[0],query.get('hasta',[''])[0])
+                    if user['role']=='admin' and EXPORT_KINDS[kind][3]: require_admin_confirmed(self,db)   # v50.57 (4.1): personal data
                     name,sheets=export_sheets(db,user,kind,a,b,year)
                     if user['role']=='admin' and EXPORT_KINDS[kind][3]: admin_data_log(db,self,user,f'exportación «{name}» ({plabel})')
                     ref=provider_ref(db,user) if user['role']!='admin' else None
@@ -15842,10 +16342,6 @@ class Handler(BaseHTTPRequestHandler):
                     audit(db,user['id'],'document_downloaded','user_document',did,{'owner':doc['user_id'],'as':'owner' if own else user['role'],'center_id':user.get('center_id') if user['role']=='center' else None}); db.commit()
                     inline=query.get('download',['0'])[0]!='1' and (own or file_path.suffix.lower()!='.pdf')   # ASVS V3.2.1
                     self.send_private_file(file_path,doc['original_name'] or file_path.name,inline=inline); return
-                if path == '/api/logbook':
-                    user=require_user(self,db)
-                    rows=db.execute('SELECT * FROM logbook_entries WHERE user_id=? ORDER BY dive_date DESC,id DESC',(user['id'],)).fetchall()
-                    self.send_json({'items':[dict(r) for r in rows]}); return
                 if path.startswith('/api/points/codes/') and path.endswith('/qr.svg'):
                     # The diver's own exchange code as a QR, to show at the centre.
                     user=require_user(self,db); rid=int(path.split('/')[4])
@@ -15917,15 +16413,32 @@ class Handler(BaseHTTPRequestHandler):
                         items.append(d)
                     self.send_json({'items':items,'methods':VERIFICATION_METHODS}); return
                 if path == '/api/admin/users':
+                    user=require_user(self,db); require_role(user,{'admin'}); conf=admin_confirmation(self,db)
+                    admin_data_log(db,self,user,'lista de cuentas (nombre y email)' if conf else 'lista de cuentas (nombre y email parcial)')
+                    rows=[dict(r) for r in db.execute('''SELECT u.id,u.fullname,u.email,u.username,u.role,u.center_id,u.created_at,u.last_login,c.name AS center_name FROM users u LEFT JOIN centers c ON c.id=u.center_id ORDER BY u.created_at DESC''').fetchall()]
+                    if not conf:   # v50.57 (4.1): the full email only with the confirmation
+                        for r in rows: r['email']=mask_email(r['email'])
+                    self.send_json({'items':rows,'masked':not conf}); return
+                if path == '/api/admin/confirm':
+                    user=require_user(self,db); require_role(user,{'admin'}); conf=admin_confirmation(self,db)
+                    self.send_json({'active':bool(conf),'until_ts':conf['until'] if conf else None,'reason':conf['reason'] if conf else '',
+                                    'minutes':admin_confirm_minutes(db),'method':'code' if user.get('totp_enabled') else 'password'}); return
+                if path == '/api/admin/settings':
+                    user=require_user(self,db); require_role(user,{'admin'}); ss,se=season_setting(db)
+                    self.send_json({'admin_confirm_minutes':admin_confirm_minutes(db),'temporada_inicio':ss,'temporada_fin':se,
+                                    'limits':{'admin_confirm_minutes':ADMIN_CONFIRM_MINUTES[1:]}}); return
+                if path == '/api/admin/bookings/summary':
                     user=require_user(self,db); require_role(user,{'admin'})
-                    admin_data_log(db,self,user,'lista de cuentas (nombre y email)')
-                    rows=db.execute('''SELECT u.id,u.fullname,u.email,u.username,u.role,u.center_id,u.created_at,u.last_login,c.name AS center_name FROM users u LEFT JOIN centers c ON c.id=u.center_id ORDER BY u.created_at DESC''').fetchall()
-                    self.send_json({'items':[dict(r) for r in rows]}); return
+                    per=clean_text(query.get('periodo',['temporada'])[0],20) or 'temporada'
+                    a,b,plabel=wexp.period(per,_dt.date.today(),season_setting(db),query.get('desde',[''])[0],query.get('hasta',[''])[0])
+                    self.send_json(admin_bookings_summary(db,a,b,plabel)); return
                 if path == '/api/admin/suggestions':
                     user=require_user(self,db); require_role(user,{'admin'})
                     admin_data_log(db,self,user,'propuestas de posición (nombre y email de quien propone)')
-                    rows=db.execute('''SELECT s.*, p.name AS point_name, u.fullname, u.email FROM point_position_suggestions s JOIN dive_points p ON p.id=s.dive_point_id JOIN users u ON u.id=s.user_id WHERE s.status='pending' ORDER BY s.created_at DESC''').fetchall()
-                    self.send_json({'items':[dict(r) for r in rows]}); return
+                    rows=[dict(r) for r in db.execute('''SELECT s.*, p.name AS point_name, u.fullname, u.email FROM point_position_suggestions s JOIN dive_points p ON p.id=s.dive_point_id JOIN users u ON u.id=s.user_id WHERE s.status='pending' ORDER BY s.created_at DESC''').fetchall()]
+                    if not admin_confirmation(self,db):
+                        for r in rows: r['email']=mask_email(r['email'])
+                    self.send_json({'items':rows}); return
                 if path == '/api/admin/qr':
                     user=require_user(self,db); require_role(user,{'admin'})
                     rows=db.execute('''SELECT q.*, c.name AS center_name FROM qr_codes q JOIN centers c ON c.id=q.center_id ORDER BY q.created_at DESC''').fetchall()
@@ -16093,6 +16606,10 @@ class Handler(BaseHTTPRequestHandler):
                 tenant_guard(self,db,path)
                 if path.startswith(('/api/w/','/api/mi-reserva/')) and self.sales_post(db,path): return   # v50.56: widget and the centre's page
                 if path.startswith(('/api/insurance','/api/admin/insurance','/api/center/bookings/')) and self.insurance_post(db,path): return   # v50.56 · seguros
+                if getattr(self,'_put',False):   # v50.57: PUT is only the logbook's book
+                    if path=='/api/logbook': self.logbook_put(db); return
+                    self.send_json({'error':'Método no permitido'},405); return
+                if path.startswith(('/api/logbook/','/api/buddies','/api/center/logbook')) and self.logbook_post(db,path): return   # v50.57 · logbook
                 if path=='/api/provider/spot-blocks':
                     # v50.56 · Parte F: spots without a customer (group, agency, hotel), out of the same inventory as every booking.
                     user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
@@ -16314,6 +16831,11 @@ class Handler(BaseHTTPRequestHandler):
                     guest=db.execute("SELECT id FROM users WHERE lower(email)=? AND (password_hash='!' OR (username LIKE 'web\\_%' ESCAPE '\\' AND last_login IS NULL))",(email,)).fetchone()
                     if guest: db.execute('UPDATE users SET email=? WHERE id=?',(f'cliente-{guest["id"]}-{secrets.token_hex(4)}@sin-email.worldives.local',guest['id']))
                     uid=db.execute('INSERT INTO users(fullname,email,username,password_hash,role,requested_role,created_at) VALUES(?,?,?,?,?,?,?)',(fullname,email,username,hash_password(password),'recreational',requested,now())).lastrowid
+                    # v50.57 · logbook: signing up with a centre's invitation link (/registro?centro=<slug>) keeps that centre:
+                    # its logo goes on the cover of the diver's passport
+                    if requested=='recreational' and data.get('centro'):
+                        inv=provider_by_slug(db,clean_text(data.get('centro'),80) or '')
+                        if inv and inv[0]=='center': db.execute('UPDATE users SET signup_center_id=? WHERE id=?',(inv[1],uid))
                     cert_id=int(data.get('certification_id') or 0) or None
                     if cert_id and not db.execute('SELECT 1 FROM certifications WHERE id=? AND active=1',(cert_id,)).fetchone(): cert_id=None
                     cert_text=clean_text(data.get('certification_text'),120)
@@ -18024,6 +18546,16 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); data=json_body(self); lid=int(data.get('id') or 0); v=clean_logbook(data)
                     row=db.execute('SELECT booking_id FROM logbook_entries WHERE id=? AND user_id=?',(lid,user['id'])).fetchone()
                     if not row: self.send_json({'error':'Inmersión no encontrada'},404); return
+                    slot=db.execute('SELECT slot FROM logbook_entries WHERE id=?',(lid,)).fetchone()['slot']
+                    if slot:   # v50.57: the same dive in the book; what a centre registered does not change
+                        book,ver=logbook_load(db,user['id']); claims,officials=logbook_claims(db,user['id'])
+                        if book and any(s==slot for s in claims.values()):
+                            off=next(officials[k] for k,s in claims.items() if s==slot)
+                            if (wlog.date_text(v['dive_date']),v['site'],v['country'] or '')!=(off['fields'].get('date'),off['fields'].get('site'),off['fields'].get('country','')):
+                                raise ValueError('La fecha, el lugar y el país de una inmersión verificada los registró el centro y no se pueden cambiar.')
+                        if book:
+                            row=db.execute('SELECT * FROM logbook_entries WHERE id=?',(lid,)).fetchone()
+                            wlog.put_dive(book,slot,{**wlog.dive_from_row({**dict(row),**v})}); logbook_store(db,user['id'],book,ver+1)
                     db.execute('UPDATE logbook_entries SET dive_date=?,site=?,country=?,depth=?,duration=?,dive_type=?,notes=? WHERE id=?',(v['dive_date'],v['site'],v['country'],v['depth'],v['duration'],v['dive_type'],v['notes'],lid))
                     audit(db,user['id'],'logbook_updated','logbook',lid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/logbook/delete':
@@ -18031,6 +18563,11 @@ class Handler(BaseHTTPRequestHandler):
                     row=db.execute('SELECT booking_id FROM logbook_entries WHERE id=? AND user_id=?',(lid,user['id'])).fetchone()
                     if not row: self.send_json({'error':'Inmersión no encontrada'},404); return
                     if row['booking_id']: raise ValueError('Esta inmersión viene de una reserva completada: puedes editarla, pero no borrarla.')
+                    slot=db.execute('SELECT slot FROM logbook_entries WHERE id=?',(lid,)).fetchone()['slot']
+                    if slot:   # v50.57: also out of the book (a verified dive comes back by scanning its QR again)
+                        book,ver=logbook_load(db,user['id'])
+                        if book: wlog.remove_dive(book,slot); logbook_store(db,user['id'],book,ver+1)
+                        db.execute('UPDATE logbook_claims SET slot=NULL,removed_at=? WHERE user_id=? AND slot=?',(now(),user['id'],slot))
                     logbook_reverse_points(db,user['id'],lid); db.execute('DELETE FROM logbook_entries WHERE id=?',(lid,)); audit(db,user['id'],'logbook_deleted','logbook',lid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/account/password':
                     user=require_user(self,db); data=json_body(self); new=str(data.get('new_password') or '')
@@ -18529,6 +19066,46 @@ class Handler(BaseHTTPRequestHandler):
                     admin_content_guard(db,user,cid)
                     db.execute('''UPDATE centers SET name=?,country=?,region=?,city=?,address=?,website=?,phone=?,email=?,description=?,specialties=?,latitude=?,longitude=?,logo_url=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('city'),100),clean_text(data.get('address'),250),clean_url_field(data.get('website'),250),clean_text(data.get('phone'),60),clean_text(data.get('email'),160),clean_text(data.get('description'),5000),clean_text(data.get('specialties'),2000),clean_coord(data.get('latitude'),clean_lat),clean_coord(data.get('longitude'),clean_lng),wsec.clean_local_or_http_url(data.get('logo_url'),500) or None,now(),cid))
                     audit(db,user['id'],'center_updated','center',cid); db.commit(); self.send_json({'ok':True,'id':cid}); return
+                if path=='/api/admin/confirm':
+                    # v50.57 (4.1): the password, or the code of the two-step verification, and a reason open the sensitive
+                    # data for a few minutes (all of it, not one screen); each wrong attempt counts towards the limit.
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    reason=clean_text(data.get('reason'),300) or ''
+                    if len(reason)<5: raise ValueError('Indica el motivo (soporte, disputa, fraude…): queda registrado con cada acceso.')
+                    row=db.execute('SELECT * FROM users WHERE id=?',(user['id'],)).fetchone()
+                    if row['totp_enabled']:
+                        if TOTP_LIMIT.blocked(f"totp:{user['id']}"): raise PermissionError('Demasiados intentos con el código. Espera unos minutos.')
+                        if not check_totp_or_recovery(db,row,data.get('code')):
+                            TOTP_LIMIT.hit(f"totp:{user['id']}"); security_event('admin_confirm_failed',self,user['id'])
+                            raise PermissionError('El código de verificación no es correcto: escribe el de tu aplicación (o uno de recuperación).')
+                    elif not current_password_ok(user['id'],str(data.get('password') or ''),row['password_hash'] or ''):
+                        raise PermissionError('La contraseña no es correcta.')
+                    minutes=admin_confirm_minutes(db); until=time.time()+minutes*60
+                    db.execute('UPDATE sessions SET admin_confirmed_until=?,admin_confirm_reason=? WHERE token_hash=?',(until,reason,session_hash(self)))
+                    audit(db,user['id'],'admin_sensitive_confirmed','session',None,{'reason':reason,'minutos':minutes,'con':'código' if row['totp_enabled'] else 'contraseña'}); db.commit()
+                    self.send_json({'ok':True,'active':True,'until_ts':until,'minutes':minutes,'reason':reason}); return
+                if path=='/api/admin/confirm/end':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    db.execute('UPDATE sessions SET admin_confirmed_until=NULL,admin_confirm_reason=NULL WHERE token_hash=?',(session_hash(self),))
+                    audit(db,user['id'],'admin_sensitive_closed','session',None,{}); db.commit(); self.send_json({'ok':True,'active':False}); return
+                if path=='/api/admin/settings':
+                    # v50.57: the minutes of that confirmation (4.1) and the season of the counters and exports (4.2)
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); changed={}
+                    if 'admin_confirm_minutes' in data:
+                        try: m=int(data['admin_confirm_minutes'])
+                        except (TypeError,ValueError): raise ValueError('Escribe los minutos con números.')
+                        lo,hi=ADMIN_CONFIRM_MINUTES[1:]
+                        if not lo<=m<=hi: raise ValueError(f'La confirmación dura de {lo} a {hi} minutos.')
+                        changed['admin_confirm_minutes']=str(m)
+                    for k in ('temporada_inicio','temporada_fin'):
+                        if k in data:
+                            v=clean_text(data[k],5) or ''
+                            if not re.fullmatch(r'(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])',v): raise ValueError('Fecha de la temporada no válida.')
+                            changed[k]=v
+                    for k,v in changed.items():
+                        db.execute('INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by',(k,v,now(),user['id']))
+                    audit(db,user['id'],'admin_settings_changed','site',None,changed); db.commit()
+                    ss,se=season_setting(db); self.send_json({'ok':True,'admin_confirm_minutes':admin_confirm_minutes(db),'temporada_inicio':ss,'temporada_fin':se}); return
                 if path=='/api/admin/users/role':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
                     uid=int(data['user_id']); role=clean_text(data.get('role'),30); center_id=int(data.get('center_id') or 0) or None

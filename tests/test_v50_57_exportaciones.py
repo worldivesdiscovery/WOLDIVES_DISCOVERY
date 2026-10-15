@@ -132,6 +132,21 @@ class Exportaciones(ServerTestCase):
         r = self.get(self.center, 'reservas', periodo='personalizado', desde='', hasta='')
         self.assertEqual(r.status, 400); self.assertIn('fechas', r.json['error'])
 
+    def test_las_fechas_del_periodo_se_ven(self):
+        # v50.57 (2.2): under the menu, the dates the file will cover (the same calculation as the download)
+        r = self.center.get('/api/exportar/periodo?periodo=mes').json
+        self.assertEqual(r['desde'], TODAY.replace(day=1).isoformat()); self.assertTrue(r['hasta'].startswith(TODAY.isoformat()[:7]))
+        self.assertEqual(self.center.get('/api/exportar/periodo?periodo=anio_anterior').json, {'desde': f'{TODAY.year - 1}-01-01', 'hasta': f'{TODAY.year - 1}-12-31', 'label': str(TODAY.year - 1)})
+        self.assertIsNone(self.pro.get('/api/exportar/periodo?periodo=todo').json['desde'])
+        # the season is the one configured in Administración
+        self.assertEqual(self.admin.post('/api/admin/settings', {'temporada_inicio': '05-15', 'temporada_fin': '09-30'}).status, 200)
+        try:
+            r = self.center.get('/api/exportar/periodo?periodo=temporada').json
+            self.assertEqual((r['desde'][5:], r['hasta'][5:]), ('05-15', '09-30'))
+        finally:
+            self.admin.post('/api/admin/settings', {'temporada_inicio': '04-01', 'temporada_fin': '10-31'})
+        r = self.client().get('/api/exportar/periodo?periodo=mes'); self.assertEqual(r.status, 403); self.assertTrue(r.json.get('login_required'))
+
     def test_freelance(self):
         for kind in ('reservas', 'clientes', 'servicios', 'pagos', 'agenda', 'ventas_canal'):
             with self.subTest(kind): self.assert_xlsx(self.get(self.pro, kind))

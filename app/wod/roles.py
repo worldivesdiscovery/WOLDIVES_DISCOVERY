@@ -143,7 +143,11 @@ _P = lambda *a: tuple(a)
 REGLAS_POST = (
     (None, _P('/api/payments/connect/', '/api/provider/payment-profile', '/api/provider/fiscal', '/api/provider/plan', '/api/center/team',
               '/api/provider/cuenta/')),
-    ('', _P('/api/auth/', '/api/account/', '/api/legal/accept', '/api/reports', '/api/contact', '/api/me', '/api/team/', '/api/app/push/')),
+    ('', _P('/api/auth/', '/api/account/', '/api/legal/accept', '/api/reports', '/api/contact', '/api/me', '/api/team/', '/api/app/push/',
+            '/api/logbook', '/api/buddies')),   # v50.57: each person's own logbook and buddies
+    # v50.57: the dives of the centre and their QR for the divers' logbooks (whoever runs the dive), the passport's logo
+    ('checkin', _P('/api/center/logbook/dive')),
+    ('centro', _P('/api/center/logbook/settings', '/api/center/logbook/logo')),
     ('checkin', _P('/api/manifest/sync', '/api/pro/escanear', '/api/pro/contar', re.compile(r'/api/bookings/\d+/waiver/sign'))),
     ('avisos', _P('/api/provider-services/slot-cancel', '/api/avisos/', '/api/whatsapp/')),
     ('barco', _P('/api/manifest/')),

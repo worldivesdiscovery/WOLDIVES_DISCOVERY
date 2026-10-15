@@ -59,7 +59,9 @@ filtros por dato de abajo) y las de escritura piden `reservas`.
 | Escritura (POST) | Permiso |
 |---|---|
 | `/api/payments/connect/`, `/api/provider/payment-profile`, `/api/provider/fiscal`, `/api/provider/plan`, `/api/center/team`, `/api/provider/cuenta/` | Solo el propietario |
-| `/api/auth/`, `/api/account/`, `/api/legal/accept`, `/api/reports`, `/api/contact`, `/api/me`, `/api/team/`, `/api/app/push/` | Cualquiera (su propia cuenta) |
+| `/api/auth/`, `/api/account/`, `/api/legal/accept`, `/api/reports`, `/api/contact`, `/api/me`, `/api/team/`, `/api/app/push/`; su propio Log Book y sus buddies (v50.57): `/api/logbook`, `/api/buddies` | Cualquiera (su propia cuenta) |
+| `/api/center/logbook/dive` (inmersiones del centro y su QR para el Log Book de los buceadores, v50.57) | `checkin` |
+| `/api/center/logbook/settings`, `/api/center/logbook/logo` (logo y nombre de la portada del pasaporte, v50.57) | `centro` |
 | `/api/manifest/sync`, `/api/pro/escanear`, `/api/pro/contar`, firma del descargo a bordo | `checkin` |
 | `/api/provider-services/slot-cancel`, `/api/avisos/`, `/api/whatsapp/` | `avisos` |
 | `/api/manifest/` (el resto) | `barco` |

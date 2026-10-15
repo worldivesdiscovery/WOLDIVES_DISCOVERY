@@ -7,8 +7,8 @@
      Enorme (this phone only), the band of WORLDIVES Pruebas with «Reportar fallo».
    - Buceador: Inicio (next dive, «Salidas con plazas cerca de ti», Repetir), Explorar (full-screen map with a sheet of
      three heights and a card synced with the markers), Buscar, fichas with Llamar · WhatsApp · Cómo llegar · Compartir
-     and the fixed «Desde X € · Reservar» bar, quick booking in a sheet, Reservas, Buddies (pending: not on the server
-     yet), Mi área and Ajustes.
+     and the fixed «Desde X € · Reservar» bar, quick booking in a sheet, Reservas, Buddies (v50.57: the QR and the
+     buddies of the Log Book; groups still pending), Mi área and Ajustes.
    - Visitante: Inicio, Explorar and Entrar; booking asks for the session at the end.
    - Centro PRO and Freelance PRO (v50.49, Tandas 2 to 4) live in wd-app-pro.js, downloaded only by centres and
      freelance professionals; the web panel still opens inside the app for what is «Disponible en la web».
@@ -858,10 +858,19 @@
         <a class="wbtn sec ancho" href="#/reserva?id=${b.id}">${T('Ver la reserva completa')}</a></div>` });
   }
 
-  /* ---------------------------------------------------------------- Buddies: not on the server yet */
-  function buddies() {
-    pintar(`<div class="cuerpo"><h1>Buddies</h1><div class="pendiente"><b>Pendiente.</b> Buddies todavía no existe en WORLDIVES: tu código, tus compañeros, los grupos y «¿Buceamos?» se programan primero en el servidor, siguiendo el encargo de Buddies. Esta pestaña se llenará entonces.</div>
-      <div class="tarjeta plana lista"><a class="lista-fila" href="#/logbook">${ic('libro')}<div class="crece pila"><b>Log Book</b><span class="suave peq">Tus inmersiones y con quién buceaste</span></div>${ic('chev', 'chev')}</a></div></div>`);
+  /* ---------------------------------------------------------------- Buddies (v50.57): the ones of the Log Book */
+  // Your QR (scanned with a phone, you become buddies both ways) and your buddies, from the Log Book. Groups and
+  // «¿Buceamos?» come with the Buddies brief: still pending on the server.
+  async function buddies() {
+    const logbook = `<div class="tarjeta plana lista"><a class="lista-fila" href="#/logbook">${ic('libro')}<div class="crece pila"><b>Log Book</b><span class="suave peq">Tus inmersiones y con quién buceaste</span></div>${ic('chev', 'chev')}</a></div>`;
+    pintar(`<div class="cuerpo"><h1>Buddies</h1><p class="suave">${T('Cargando…')}</p></div>`);
+    let d = null;
+    try { d = await api('/api/logbook'); } catch { /* without connection: only the link to the Log Book */ }
+    const lista = (d?.friends || []).map((f) => `<div class="lista-fila">${ic('buddies')}<div class="crece pila"><b translate="no">${esc(f.name)}</b></div></div>`).join('');
+    pintar(`<div class="cuerpo"><h1>Buddies</h1>
+      ${d ? `<div class="tarjeta pad wda-buddy-qr"><img src="${esc(d.profile.qrImage)}" alt="Tu QR de buddy" width="180" height="180"><p class="suave peq">Enséñale este QR a tu compañero: al escanearlo con su móvil seréis buddies, y aparecerá en «Compañero» de vuestro Log Book.</p></div>
+        <div class="tarjeta plana lista">${lista || '<p class="suave pad">Todavía no tienes buddies.</p>'}</div>` : ''}
+      <div class="pendiente"><b>Pendiente.</b> Los grupos y «¿Buceamos?» llegan con el encargo de Buddies.</div>${logbook}</div>`);
   }
 
   /* ---------------------------------------------------------------- Mi área and Ajustes */

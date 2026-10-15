@@ -16,6 +16,7 @@ Bloque 1.3 · las exportaciones descargan en Excel y en CSV desde Herramientas (
 Usa las cuentas de la demo: no va en el zip de producción (scripts/generar_zips.py)."""
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -40,6 +41,7 @@ except ImportError:   # without OpenCV the QR is checked on screen but not read
 ROOT = Path(__file__).resolve().parents[2]
 DESK = {'viewport': {'width': 1366, 'height': 900}, 'locale': 'es-ES'}
 BROKEN = ('No se ha podido abrir', 'No time zone', 'Falta un dato obligatorio')
+QUICK = os.environ.get('WOD_E2E_RAPIDO') == '1'
 
 
 def no_time_zones(tmp: Path) -> dict:
@@ -78,6 +80,13 @@ def run(out: Path | None):
             def login(pg, user):
                 pg.goto(srv.base + '/#/login'); pg.wait_for_selector('#login-form')
                 pg.fill('#login', user); pg.fill('#password', PASSWORD); pg.click('#login-form button[type=submit]'); pg.wait_for_timeout(1500)
+
+            def confirm_admin(pg):
+                """4.1: personal data opens with the password and a reason (as the window does), for the sections that test other things."""
+                st = pg.evaluate("""() => fetch('/api/admin/confirm', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                   body: JSON.stringify({password: '%s', reason: 'Soporte: recorrido de la revisión'})}).then(r => r.text().then(() => r.status))""" % PASSWORD)
+                # (the body is read: a response left unread counts as a request in progress and «networkidle» never comes)
+                assert st == 200, st
 
             def tab(pg, name, ready, wait=900):
                 pg.goto(f'{srv.base}/#/admin?tab={name}'); pg.wait_for_selector('.cb-nav', timeout=15000)
@@ -143,6 +152,7 @@ def run(out: Path | None):
             for user, sel, label in (('buzo.prueba', '.reservation-qr .bk-qr svg', 'buceador'), ('centro.prueba', '.bk-qr-center .bk-qr svg', 'centro'),
                                      ('admin.prueba', '.reservation-qr .bk-qr svg', 'administración')):
                 c, pg = ctx(); login(pg, user)
+                if user == 'admin.prueba': confirm_admin(pg)
                 pg.goto(f'{srv.base}/#/reserva?id={bk}'); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(1200)
                 ok = pg.locator(sel).count() == 1
                 read = ''
@@ -174,7 +184,7 @@ def run(out: Path | None):
             check('1.3 · un periodo sin datos descarga igual, con «Sin datos en este periodo»', 'Sin datos en este periodo' in data, data[:120])
             shot(pg, 'b1-3-exportar-herramientas')
             c.close()
-            c, pg = ctx(); login(pg, 'admin.prueba')
+            c, pg = ctx(); login(pg, 'admin.prueba'); confirm_admin(pg)
             pg.goto(f'{srv.base}/#/admin?tab=adminpay'); pg.wait_for_selector('#admin-payments .wd-export-wrap', timeout=15000)
             pg.locator('#admin-payments .wd-export-wrap summary').click()
             with pg.expect_download() as dl: pg.locator('#admin-payments [data-ex-kind="pagos"]').click()
@@ -260,6 +270,136 @@ def run(out: Path | None):
             pg.goto('data:text/html,<p>otra web</p>'); pg.goto(f'{srv.base}/{href}'); pg.wait_for_selector('#global-back', timeout=15000)
             pg.locator('#global-back').click(); pg.wait_for_timeout(1500)
             check('2.1 · «Volver» en la primera pantalla no saca de la web (va al inicio)', pg.url.startswith(srv.base), pg.url)
+            c.close()
+
+            # 2.2 · Administración → Puntos, Destinos y Plantillas, botón a botón (where the owner saw failures)
+            c, pg = ctx(); login(pg, 'admin.prueba')
+
+            def toast_has(text, timeout=8000):
+                for _ in range(timeout // 100):
+                    if text in (pg.inner_text('#toast') or ''): return True
+                    pg.wait_for_timeout(100)
+                return False
+
+            def every_edit(tab, button, form, field, label):
+                pg.goto(f'{srv.base}/#/admin?tab={tab}'); pg.wait_for_selector(button, timeout=15000)
+                found = pg.eval_on_selector_all(button, "bs => bs.map(b => [b.dataset.id, b.closest('tr').cells[0].innerText.trim()])")
+                bad = []
+                for rid, rname in (found[:12] if QUICK else found):   # WOD_E2E_RAPIDO=1: the first 12 (while developing)
+                    pg.locator(f'{button}[data-id="{rid}"]').click()
+                    try:
+                        pg.wait_for_selector(form, timeout=10000)
+                        if pg.input_value(field) != rname: bad.append((rname, 'abre otro: ' + pg.input_value(field)))
+                        if not pg.locator('.wd-back').is_visible(): bad.append((rname, 'sin «← Volver»'))
+                    except Exception as e:
+                        bad.append((rname, type(e).__name__))
+                    pg.go_back(); pg.wait_for_selector(button, timeout=15000)
+                check(f'2.2 · {label}: los {len(found)} botones «Editar» abren cada uno el suyo, con «← Volver»' + (' (rápido: 12)' if QUICK else ''), found and not bad, bad[:5])
+                return found
+
+            def jpeg(w=1600, h=1000):
+                buf = io.BytesIO(); Image.new('RGB', (w, h), (20, 90, 130)).save(buf, 'JPEG', quality=80); return buf.getvalue()
+
+            # Puntos
+            listed = every_edit('points', '.edit-point', '#point-form', '#p-name', 'Puntos')
+            pid = listed[0][0]
+            pg.goto(f'{srv.base}/#/admin?tab=points&edit={pid}'); pg.wait_for_selector('#point-photo-form', timeout=15000)
+            count = lambda: pg.evaluate(f"fetch('/api/dive-points/{pid}/photos').then(r => r.json()).then(d => d.photos.length)")
+            n0 = count()
+            pg.set_input_files('#point-photo-form input[name=file]', {'name': 'foto.jpg', 'mimeType': 'image/jpeg', 'buffer': jpeg(1200, 800)})
+            pg.locator('#point-photo-form button[type=submit]').click()
+            check('2.2 · Puntos › «Subir fotografía» sube la foto una vez (antes, dos)', toast_has('Fotografía subida') and (pg.wait_for_timeout(2500) or count() == n0 + 1), (n0, count()))
+            pg.locator('#point-form a.btn', has_text='Cancelar').click(); wait_hash(pg, lambda h: h == '#/admin?tab=points')
+            pg.wait_for_selector('.edit-point', timeout=15000)
+            check('2.2 · Puntos › «Cancelar» vuelve a la lista de puntos (antes, a Inicio)', pg.locator('.edit-point').first.is_visible())
+            pg.locator('#new-point').click(); pg.wait_for_selector('#point-form', timeout=15000)
+            ok = pg.input_value('#p-name') == '' and pg.evaluate('location.hash') == '#/admin?tab=points&edit=nuevo'
+            pg.fill('#p-name', 'Punto de prueba de la revisión'); pg.locator('#point-form button.btn-primary').last.click()
+            wait_hash(pg, lambda h: h == '#/admin?tab=points'); pg.wait_for_selector('.edit-point', timeout=15000)
+            check('2.2 · Puntos › «Nuevo punto» se crea y vuelve a la lista', ok and 'Punto de prueba de la revisión' in pg.inner_text('#app'))
+            # Destinos
+            every_edit('destinations', '.edit-destination', '#destination-form', '#td-title', 'Destinos')
+            pg.locator('#new-destination').click(); pg.wait_for_selector('#destination-form', timeout=15000)
+            pg.fill('#td-title', 'Destino de prueba'); pg.fill('#td-region', 'Islas Medas'); pg.fill('#td-kind', 'Viaje')
+            pg.set_input_files('#td-file', {'name': 'd.jpg', 'mimeType': 'image/jpeg', 'buffer': jpeg()})
+            pg.locator('#destination-form button.btn-primary').click()
+            wait_hash(pg, lambda h: h == '#/admin?tab=destinations'); pg.wait_for_selector('.edit-destination', timeout=15000)
+            row = pg.locator('tr', has_text='Destino de prueba')
+            check('2.2 · Destinos › «Nuevo destino» con foto se crea y vuelve a la lista', row.count() == 1 and row.locator('img').count() == 1)
+            pg.locator('.edit-destination').first.click(); pg.wait_for_selector('#destination-form', timeout=15000)
+            pg.locator('#destination-form a.btn', has_text='Cancelar').click(); wait_hash(pg, lambda h: h == '#/admin?tab=destinations')
+            pg.wait_for_selector('.edit-destination', timeout=15000)
+            check('2.2 · Destinos › «Cancelar» vuelve a la lista', pg.locator('.edit-destination').first.is_visible())
+            shot(pg, 'b2-2-destinos')
+            # Plantillas
+            pg.goto(f'{srv.base}/#/admin?tab=svctemplates'); pg.wait_for_selector('.st-card', timeout=15000)
+            check('2.2 · Plantillas se abre por su dirección (antes, «Inicio»)', pg.evaluate("document.querySelector('.provider-tabs .active')?.dataset.tab") == 'svctemplates')
+            cards = pg.eval_on_selector_all('.st-card', "cs => cs.map(c => [c.dataset.id, c.querySelector('.st-body strong').innerText.trim()])")
+            bad = []
+            for tid, tname in cards:
+                pg.locator(f'.st-card[data-id="{tid}"] .st-edit').click()
+                try:
+                    pg.wait_for_selector('#st-form #stf-n-es', timeout=8000)
+                    if pg.input_value('#stf-n-es') != tname: bad.append((tname, 'abre otra: ' + pg.input_value('#stf-n-es')))
+                    pg.locator('#st-form footer [data-modal-close]').click(); pg.wait_for_selector('#st-form', state='detached', timeout=5000)
+                except Exception as e:
+                    bad.append((tname, type(e).__name__))
+            check(f'2.2 · Plantillas: las {len(cards)} «Editar» abren cada una la suya y «Cancelar» cierra', cards and not bad, bad[:5])
+            pg.locator(f'.st-card[data-id="{cards[0][0]}"] .st-edit').click(); pg.wait_for_selector('#st-form #stf-n-es', timeout=8000)
+            pg.locator('#st-form footer button[type=submit]').click()
+            check('2.2 · Plantillas › «Guardar plantilla» guarda', toast_has('Plantilla guardada'))
+            pg.wait_for_selector('.st-card', timeout=15000)
+            pg.locator('#st-new').click(); pg.wait_for_selector('#st-form #stf-n-es', timeout=8000)
+            pg.locator('#st-form footer button[type=submit]').click()
+            ok = toast_has('Escribe al menos el nombre en castellano')
+            pg.fill('#stf-n-es', 'Plantilla de prueba'); pg.locator('#st-form footer button[type=submit]').click()
+            ok = ok and toast_has('Plantilla guardada'); pg.wait_for_timeout(1500)
+            check('2.2 · Plantillas › «Nueva plantilla» pide el nombre y se crea', ok and pg.locator('.st-card', has_text='Plantilla de prueba').count() == 1)
+            pg.locator('#st-veil-save').click()
+            check('2.2 · Plantillas › «Guardar intensidad» guarda', toast_has('Intensidad guardada'))
+            pg.set_input_files(f'.st-card[data-id="{cards[0][0]}"] .st-file input', {'name': 'p.jpg', 'mimeType': 'image/jpeg', 'buffer': jpeg()})
+            check('2.2 · Plantillas › «Poner foto / Cambiar foto» la recibe', toast_has('Foto recibida'))
+            shot(pg, 'b2-2-plantillas')
+            c.close()
+
+            # 4.1 · the password only for personal data
+            c, pg = ctx(); dialogs = []; pg.on('dialog', lambda d: (dialogs.append(d.message), d.dismiss()))
+            login(pg, 'admin.prueba')
+            pg.goto(f'{srv.base}/#/admin'); pg.wait_for_selector('.provider-tabs', timeout=15000); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(800)
+            check('4.1 · entrar en el Centro de control no pide nada (antes, dos ventanas de motivo)', not dialogs and pg.locator('#wd-admin-gate').count() == 0, dialogs)
+            for tabname in ('points', 'destinations', 'svctemplates', 'centers', 'experiences', 'qr', 'audit'):
+                pg.goto(f'{srv.base}/#/admin?tab={tabname}'); pg.wait_for_selector('#admin-content *', timeout=15000); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(300)
+            check('4.1 · gestionar la web (puntos, destinos, plantillas, centros, experiencias, QR, actividad) no pide nada',
+                  not dialogs and pg.locator('#wd-admin-gate').count() == 0, dialogs)
+            pg.goto(f'{srv.base}/#/admin?tab=bookings'); pg.wait_for_selector('.ab-sum', timeout=15000)
+            t = pg.inner_text('#admin-content')
+            check('4.1 · Reservas: en cifras y sin datos de clientes', 'En cifras' in t and 'Bahía Coralina' in t and '@' not in t and pg.locator('#wd-admin-gate').count() == 0, t[:300])
+            shot(pg, 'b4-1-reservas-en-cifras')
+            pg.locator('#ab-detail-open').click(); pg.wait_for_selector('#wd-admin-gate #wag-pass', timeout=8000)
+            shot(pg, 'b4-1-confirmar-contrasena')
+            pg.select_option('#wag-why', 'Disputa o reclamación'); pg.fill('#wag-note', 'reserva de prueba'); pg.fill('#wag-pass', 'no-es-esta')
+            pg.locator('#wd-admin-gate button[type=submit]').click(); pg.wait_for_selector('.wd-gate-msg:not([hidden])', timeout=8000)
+            check('4.1 · una contraseña mal lo dice en la ventana', 'no es correcta' in pg.inner_text('.wd-gate-msg'))
+            pg.fill('#wag-pass', PASSWORD); pg.locator('#wd-admin-gate button[type=submit]').click()
+            pg.wait_for_selector('#ab-detail-list table', timeout=15000)
+            check('4.1 · con la contraseña y el motivo se abre el detalle y se ve hasta cuándo', pg.locator('#ab-detail-list tbody tr').count() > 1
+                  and 'Datos personales abiertos hasta las' in pg.inner_text('#wd-conf-strip') and 'Disputa o reclamación: reserva de prueba' in pg.inner_text('#wd-conf-strip'))
+            shot(pg, 'b4-1-detalle-con-motivo')
+            pg.goto(f'{srv.base}/#/admin?tab=adminpay'); pg.wait_for_selector('#admin-payments', timeout=15000); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(500)
+            check('4.1 · durante esos minutos, Pagos no lo vuelve a pedir', pg.locator('#wd-admin-gate').count() == 0)
+            pg.locator('#wd-conf-end').click(); pg.wait_for_timeout(800)
+            check('4.1 · «Cerrar ahora» cierra los datos personales', pg.locator('.wd-conf-strip').count() == 0)
+            pg.goto(f'{srv.base}/#/admin?tab=users'); pg.wait_for_selector('#users-full', timeout=15000)
+            masked = pg.inner_text('#admin-content')
+            pg.locator('#users-full').click(); pg.wait_for_selector('#wd-admin-gate #wag-pass', timeout=8000)
+            pg.fill('#wag-pass', PASSWORD); pg.locator('#wd-admin-gate button[type=submit]').click()
+            pg.wait_for_selector('#users-full', state='detached', timeout=15000)
+            check('4.1 · Usuarios: correos en parte y completos tras confirmar', '•••@' in masked and '•••@' not in pg.inner_text('#admin-content'))
+            pg.goto(f'{srv.base}/#/admin?tab=ops'); pg.wait_for_selector('#as-form', timeout=15000)
+            pg.fill('#as-min', '20'); pg.locator('#as-form button.btn-primary').click()
+            check('4.1 · Operación › los minutos de la confirmación se cambian', toast_has('Guardado') and pg.evaluate("fetch('/api/admin/settings').then(r => r.json()).then(d => d.admin_confirm_minutes)") == 20)
+            shot(pg, 'b4-1-ajustes')
+            check('4.1 · ninguna ventana del navegador (prompt) en todo el recorrido', not dialogs, dialogs)
             c.close()
             browser.close()
     finally:

@@ -70,6 +70,9 @@ class AdminNeedsTotp(unittest.TestCase):
             self.assertIn('verificación en dos pasos', blocked.json['error'])
             secret = a.post('/api/account/totp/setup', {'password': 'admin-seguro-2026'}).json['secret']
             rec = a.post('/api/account/totp/enable', {'code': code_for(secret)}).json['recovery_codes']
+            # v50.57 (4.1): the payments carry personal data: the code (here a recovery one) and a reason open them
+            self.assertTrue(a.get('/api/admin/payments').json.get('admin_confirm_required'))
+            self.assertEqual(a.post('/api/admin/confirm', {'code': rec[1], 'reason': 'Soporte: prueba de la verificación'}).status, 200)
             self.assertEqual(a.get('/api/admin/payments').status, 200)
             self.assertEqual(a.post('/api/account/totp/disable', {'password': 'admin-seguro-2026', 'code': rec[0]}).status, 403)
         finally:

@@ -246,8 +246,12 @@ class Isolation(ServerTestCase):
         a = Client(self.server); a.admin_reason = None
         self.assertEqual(a.login('admin', 'admin-seguro-2026').status, 200)
         r = a.get(f'/api/bookings/{self.bB}')
+        # v50.57 (revisión general, 4.1): seeing the data of a booking asks for the password and a reason (15 minutes)
+        self.assertEqual(r.status, 403); self.assertTrue(r.json.get('admin_confirm_required'))
+        # changing a centre's data still asks for a reason
+        r = a.post(f'/api/bookings/{self.bB}/status', {'status': 'confirmed'})
         self.assertEqual(r.status, 403); self.assertTrue(r.json.get('admin_reason_required'))
-        a.admin_reason = 'Reclamación del cliente 123'
+        self.assertEqual(a.post('/api/admin/confirm', {'password': 'admin-seguro-2026', 'reason': 'Reclamación del cliente 123'}).status, 200)
         self.assertEqual(a.get(f'/api/bookings/{self.bB}').status, 200)
         logged = self.server.sql("SELECT details FROM audit_log WHERE action='admin_center_access' ORDER BY id DESC LIMIT 1")[0]['details']
         self.assertIn('Reclamación del cliente 123', logged)

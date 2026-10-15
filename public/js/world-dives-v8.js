@@ -100,7 +100,8 @@
   let i18nObserver=null;
   function observeTranslations(){
     if(i18nObserver||currentLanguage()==='es'||!I18N_PACK||!window.MutationObserver) return;
-    i18nObserver=new MutationObserver(muts=>{ for(const m of muts){ if(m.type==='childList') m.addedNodes.forEach(n=>translateTree(n)); else if(m.type==='attributes'&&m.target.nodeType===1&&!m.target.closest(I18N_SKIP_ATTR)) translateAttrs(m.target); } });
+    // v50.57: a node replaced before the observer runs (the passport of the Log Book draws its pages twice) is skipped
+    i18nObserver=new MutationObserver(muts=>{ for(const m of muts){ if(m.type==='childList') m.addedNodes.forEach(n=>{ if(n.isConnected) translateTree(n); }); else if(m.type==='attributes'&&m.target.nodeType===1&&!m.target.closest(I18N_SKIP_ATTR)) translateAttrs(m.target); } });
     i18nObserver.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['placeholder','aria-label','title']});
   }
   function applyLanguage(){
@@ -123,8 +124,8 @@
     const r = await fetch(url, opts); let d=null; try{d=await r.json();}catch{}
     // v50.55 (encargo 2): in the app the access session lasts 15 minutes; the phone renews it once and asks again.
     if((r.status===401||d?.login_required) && !retried && WD_APP?.native && window.WD_SEC && !String(url).startsWith('/api/auth/') && await window.WD_SEC.renew()) return api(url,options,true);
-    if(!r.ok && d?.admin_reason_required && !retried){ const why=(prompt(translateString('Motivo para ver o cambiar datos de este centro (queda registrado en la actividad):'),adminReason)||'').trim();
-      if(why.length>=5){ adminReason=why; adminReasonAt=Date.now(); return api(url,options,true); } }
+    // v50.57 (4.1): personal data asks for the password (or the code) and a reason once, in a window, for some minutes
+    if(!r.ok && (d?.admin_confirm_required||d?.admin_reason_required) && !retried && await wdAdminGate(d.admin_confirm_required?'confirm':'reason',d.minutes)) return api(url,options,true);
     if(!r.ok){ if(d?.plan_required) planToastNext=true; const e=new Error(d?.error==='consent_required'?'Confirma que quieres compartir tus datos con el centro.':(d?.error || `Error ${r.status}`)); e.status=r.status; e.data=d; throw e; } if(d===null) throw new Error('Respuesta no válida del servidor.'); return d; };
   const postJSON = (url, data, method='POST') => api(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   let planToastNext=false;
@@ -183,7 +184,7 @@
   function centerLogo(c){ const u=String(c?.logo_url||'').trim(); if(!u || /^https?:\/\/[^/]+\/?$/i.test(u)) return ''; return u; }
   function centerLogoMarkup(c,size='56px'){ const src=centerLogo(c); if(!src) return centerMonogram(c,size); return `<img class="center-logo" src="${escapeHtml(src)}" alt="Logo de ${escapeHtml(c.name)}" style="width:${size};height:${size};object-fit:contain;border-radius:12px;background:#fff;padding:6px" loading="lazy" data-fallback="next">${centerMonogram(c,size).replace('<span ','<span hidden ')}`; }
 
-  async function loadMe(){ try{ const d=await api('/api/me'); state.me=d.authenticated?d:null; renderAccount(); setTimeout(legalAcceptGate,400); return d; }catch{state.me=null; renderAccount();}}
+  async function loadMe(){ try{ const d=await api('/api/me'); state.me=d.authenticated?d:null; if(!d.authenticated) wdForgetLogbook(); renderAccount(); setTimeout(legalAcceptGate,400); return d; }catch{state.me=null; renderAccount();}}
   function closeTransientMenus(){ const menu=$('#account-dropdown'), toggle=$('#account-toggle'); menu?.classList.remove('open'); toggle?.setAttribute('aria-expanded','false'); $('#main-nav')?.classList.remove('open'); }
   // v50.54: the language selector and the account button appear together, already in place (no jump of the header, CLS).
   function renderAccount(){ const slot=$('#account-slot'); if(!slot) return; $('.header-tools')?.classList.add('is-ready'); if(!state.me&&!navigator.onLine){ slot.innerHTML=''; return; } if(!state.me){ slot.innerHTML='<a class="account-link" href="#/login"><span>Iniciar sesión</span></a>'; translateTree(slot); return; } const u=state.me.user; const role=u.role; const management=role==='admin'?'<a href="#/admin">👑 Administración</a>':role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':role==='freelance'?'<a href="#/admin">🧭 Gestionar mis servicios</a>':''; const personalLinks=role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':`<a href="#/area">${wdIcon('home',16)}Mi área</a>`; slot.innerHTML=`<div class="account-menu"><button class="account-link account-toggle" id="account-toggle" type="button" aria-expanded="false"><span class="avatar">${escapeHtml(initials(u.fullname))}</span><span class="label" translate="no">${escapeHtml(u.fullname.split(' ')[0])}</span><span class="account-chevron">⌄</span></button><div class="account-dropdown" id="account-dropdown"><div class="account-dropdown-head"><strong>${escapeHtml(u.fullname)}</strong><small>${escapeHtml(role==='admin'?'Administrador':role==='center'?'Centro de buceo':role==='freelance'?'Profesional / freelance':'Buceador / cliente')}</small></div>${personalLinks}<a href="#/cuenta">${wdIcon('user',16)}Mi cuenta</a><a href="#/logbook">${wdIcon('book',16)}Log Book</a><a href="#/recompensas">${wdIcon('gift',16)}Recompensas</a><a href="#/mis-puntos">${wdIcon('star',16)}Mis puntos</a>${management && role!=='center'?management:''}<button type="button" id="account-logout">Cerrar sesión</button></div></div>`; const toggle=$('#account-toggle'),menu=$('#account-dropdown'); toggle.onclick=e=>{e.stopPropagation(); const open=menu.classList.toggle('open'); toggle.setAttribute('aria-expanded',open?'true':'false');}; if(!window.__wdAccountClickBound){ document.addEventListener('click',()=>closeTransientMenus()); window.__wdAccountClickBound=true; } $('#account-logout').onclick=async()=>{closeTransientMenus();await postJSON('/api/auth/logout',{});await loadMe();wdGo('#/');}; translateTree(slot); }
@@ -206,7 +207,7 @@
   function wdExportBox(kinds,{period=true,year=false,defaultPeriod='mes',note=''}={}){
     const n=++wdExportSeq, y=new Date().getFullYear();
     return `<div class="wd-export" data-export>
-      ${period?`<div class="wd-export-row"><label>Periodo <select data-ex-period>${WD_PERIODS.map(([k,l])=>`<option value="${k}" ${k===defaultPeriod?'selected':''}>${l}</option>`).join('')}</select></label><span class="wd-export-dates" data-ex-dates hidden><label>Desde <input type="date" data-ex-from></label><label>Hasta <input type="date" data-ex-to></label></span></div>`:''}
+      ${period?`<div class="wd-export-row"><label>Periodo <select data-ex-period>${WD_PERIODS.map(([k,l])=>`<option value="${k}" ${k===defaultPeriod?'selected':''}>${l}</option>`).join('')}</select></label><span class="wd-export-dates" data-ex-dates hidden><label>Desde <input type="date" data-ex-from></label><label>Hasta <input type="date" data-ex-to></label></span><span class="wd-export-range" data-ex-range aria-live="polite"></span></div>`:''}
       ${year?`<div class="wd-export-row"><label>Ejercicio <select data-ex-year>${[y,y-1,y-2,y-3].map(v=>`<option value="${v}" ${v===y-1?'selected':''}>${v}</option>`).join('')}</select></label></div>`:''}
       <div class="wd-export-row" role="radiogroup" aria-label="Formato del archivo"><label class="wd-export-fmt"><input type="radio" name="wd-ex-fmt-${n}" value="xlsx" checked> Excel (.xlsx)</label><label class="wd-export-fmt"><input type="radio" name="wd-ex-fmt-${n}" value="csv"> CSV</label></div>
       <div class="tl-row">${kinds.map(([k,l])=>`<button type="button" class="btn" data-ex-kind="${escapeHtml(k)}">${wdIcon('download',15)} <span>${escapeHtml(l)}</span></button>`).join('')}</div>
@@ -214,8 +215,18 @@
   }
   function wdBindExports(root){
     $$('[data-export]',root||document).forEach(box=>{ if(box.__ex) return; box.__ex=true;
-      const per=box.querySelector('[data-ex-period]'); if(per) per.onchange=()=>{ box.querySelector('[data-ex-dates]').hidden=per.value!=='personalizado'; };
+      const per=box.querySelector('[data-ex-period]');
+      if(per){ per.onchange=()=>{ box.querySelector('[data-ex-dates]').hidden=per.value!=='personalizado'; wdExportRange(box); }; wdExportRange(box); }
       $$('[data-ex-kind]',box).forEach(btn=>btn.onclick=()=>wdDownloadExport(btn.dataset.exKind,wdExportQuery(box),btn,box.querySelector('[data-ex-msg]'))); });
+  }
+  // v50.57 (2.2): under the menu, the dates the file will cover (asked to the server: the season is the one of Administración)
+  async function wdExportRange(box){
+    const el=box.querySelector('[data-ex-range]'), per=box.querySelector('[data-ex-period]'); if(!el||!per) return;
+    if(per.value==='personalizado'){ el.textContent=''; return; }
+    const seq=(box.__exr=(box.__exr||0)+1), d=v=>{ const [y,m,dd]=String(v).split('-'); return `${dd}/${m}/${y}`; };
+    try{ const r=await api('/api/exportar/periodo?periodo='+encodeURIComponent(per.value)); if(seq!==box.__exr) return;
+      el.textContent=r.desde?translateString(`Del ${d(r.desde)} al ${d(r.hasta)}`):translateString('Desde el principio hasta hoy'); }
+    catch{ if(seq===box.__exr) el.textContent=''; }
   }
   function wdExportQuery(box){
     const q=new URLSearchParams({formato:box.querySelector('input[type=radio]:checked')?.value||'xlsx'});
@@ -232,13 +243,83 @@
       const headers={}; if(adminReason&&Date.now()-adminReasonAt<30*60e3) headers['X-Admin-Reason']=encodeURIComponent(adminReason);
       const r=await fetch('/api/exportar/'+encodeURIComponent(kind)+'?'+q,{credentials:'same-origin',headers});
       if(!r.ok){ let d=null; try{ d=await r.json(); }catch{}
-        if(d?.admin_reason_required&&!retried){ const why=(prompt(translateString('Motivo para ver o cambiar datos de este centro (queda registrado en la actividad):'),adminReason)||'').trim(); if(why.length>=5){ adminReason=why; adminReasonAt=Date.now(); if(btn){ btn.disabled=false; btn.innerHTML=old; } return wdDownloadExport(kind,q,btn,msgEl,true); } }
+        if((d?.admin_confirm_required||d?.admin_reason_required)&&!retried&&await wdAdminGate(d.admin_confirm_required?'confirm':'reason',d.minutes)){ if(btn){ btn.disabled=false; btn.innerHTML=old; } return wdDownloadExport(kind,q,btn,msgEl,true); }
         throw new Error(d?.error||'No se ha podido preparar el archivo. Inténtalo de nuevo.'); }
       const blob=await r.blob(); const name=((r.headers.get('Content-Disposition')||'').match(/filename="([^"]+)"/)||[])[1]||`worldives-${kind}.${q.get('formato')==='csv'?'csv':'xlsx'}`;
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },3000);
       say(translateString('Descargado:')+' '+name);
     }catch(e){ say(e.message,true); }
     finally{ if(btn){ btn.disabled=false; btn.innerHTML=old; } }
+  }
+  // v50.57 (revisión general, 4.1): the administrator confirms the password (or the code of the two-step verification)
+  // and a reason once, and personal data stays open for some minutes (15 by default) for everything; changing a centre's
+  // data asks only for a reason. One window for all the requests that are waiting, never the browser's prompt.
+  const WD_REASONS=['Soporte a un centro','Disputa o reclamación','Sospecha de fraude','Obligación legal o fiscal','Otro motivo'];
+  let wdGateP=null;
+  function wdAdminGate(kind,minutes){
+    if(wdGateP) return wdGateP;
+    const code=!!state.me?.security?.totp_enabled, min=Number(minutes)||15, confirm=kind==='confirm';
+    wdGateP=new Promise(res=>{
+      const {el,close}=wdOpenModal({id:'wd-admin-gate',title:confirm?'Confirma que eres tú':'Motivo del cambio',
+        subtitle:confirm?`Vas a ver datos personales. Vale ${min} minutos para todo lo sensible y cada acceso queda registrado con el motivo.`:'Vas a cambiar datos de un centro: el motivo queda registrado en la actividad.',
+        body:`<form id="wag-form" class="svc-form"><div class="svc-field"><label for="wag-why">Motivo</label><select id="wag-why">${WD_REASONS.map(r=>`<option>${escapeHtml(r)}</option>`).join('')}</select></div>
+          <div class="svc-field"><label for="wag-note">Detalle <small>(reserva, centro o caso)</small></label><input id="wag-note" maxlength="200" autocomplete="off"></div>
+          ${confirm?(code?'<div class="svc-field"><label for="wag-pass">Código de tu aplicación de verificación</label><input id="wag-pass" inputmode="numeric" autocomplete="one-time-code" maxlength="20" required></div>'
+                         :'<div class="svc-field"><label for="wag-pass">Tu contraseña</label><input id="wag-pass" type="password" autocomplete="current-password" required></div>'):''}
+          <p class="wd-gate-msg" role="alert" hidden></p></form>`,
+        footer:`<button type="button" class="btn" data-modal-close>Cancelar</button><button type="submit" form="wag-form" class="btn btn-primary">${confirm?'Confirmar':'Continuar'}</button>`});
+      translateTree(el); let done=false; const fin=v=>{ if(!done){ done=true; res(v); } };
+      new MutationObserver((_,o)=>{ if(!el.isConnected){ o.disconnect(); fin(false); } }).observe(document.body,{childList:true});   // closed: a «no»
+      setTimeout(()=>$(confirm?'#wag-pass':'#wag-note',el)?.focus(),60);
+      $('#wag-form',el).onsubmit=async e=>{ e.preventDefault(); const msg=$('.wd-gate-msg',el);
+        const reason=[$('#wag-why',el).value,$('#wag-note',el).value.trim()].filter(Boolean).join(': ');
+        if(!confirm){ adminReason=reason; adminReasonAt=Date.now(); fin(true); delete el.dataset.dirty; close(); return; }
+        try{ const r=await postJSON('/api/admin/confirm',code?{reason,code:$('#wag-pass',el).value.trim()}:{reason,password:$('#wag-pass',el).value});
+          adminReason=reason; adminReasonAt=Date.now(); fin(true); delete el.dataset.dirty; close(); wdConfStrip(r); }
+        catch(err){ msg.hidden=false; msg.textContent=translateString(err.message); $('#wag-pass',el).select(); } };
+    }).finally(()=>{ wdGateP=null; });
+    return wdGateP;
+  }
+  // While personal data is open: until when, why, and «Cerrar ahora».
+  function wdConfStrip(st){ const host=$('#wd-conf-strip'); if(!host) return; clearTimeout(wdConfStrip.t);
+    if(!st?.active){ host.innerHTML=''; return; }
+    const t=new Date(st.until_ts*1000).toLocaleTimeString(wdLocale(),{hour:'2-digit',minute:'2-digit'});
+    host.innerHTML=`<div class="wd-conf-strip" role="status">${wdIcon('shield',16)}<span>Datos personales abiertos hasta las ${escapeHtml(t)} · ${escapeHtml(st.reason||'')}</span><button type="button" class="btn btn-sm" id="wd-conf-end">Cerrar ahora</button></div>`; translateTree(host);
+    $('#wd-conf-end',host).onclick=async()=>{ try{ await postJSON('/api/admin/confirm/end',{}); adminReason=''; host.innerHTML=''; toast('Datos personales cerrados.'); }catch(e){ toast(e.message); } };
+    wdConfStrip.t=setTimeout(()=>wdConfStrip({active:false}),Math.max(0,st.until_ts*1000-Date.now()));
+  }
+  // The bookings of the centres in figures (no data of the clients); the detail opens only with a reason.
+  const WD_SUM_PERIODS=[['temporada','Temporada'],['mes','Este mes'],['trimestre','Este trimestre'],['anio','Este año'],['todo','Todo']];
+  function adminBookingsSummary(s,per='temporada'){ const t=s.totals||{}; const n=v=>Number(v||0).toLocaleString(wdLocale());
+    const cur=(v,c)=>{ try{ return Number(v||0).toLocaleString(wdLocale(),{style:'currency',currency:c||'EUR'}); }catch{ return `${n(v)} ${c||''}`; } };
+    const chips=list=>(list||[]).map(m=>`<li><b>${n(m.bookings)}</b> ${escapeHtml(m.label)}</li>`).join('')||'<li>—</li>';
+    return `<section class="mm-module ab-sum"><div class="svc-head"><div><p class="eyebrow">Reservas de los centros</p><h2>En cifras</h2><p>Sin datos de clientes: WORLDIVES es el motor de reservas y el detalle lo gestiona cada centro.</p></div>
+        <label class="ab-per">Periodo <select id="ab-period">${WD_SUM_PERIODS.map(([k,l])=>`<option value="${k}" ${k===per?'selected':''}>${l}</option>`).join('')}</select></label></div>
+      <p class="adl-det">${escapeHtml(s.period||'')}</p>
+      <div class="acc-kpis">${accKpi('calendar',n(t.bookings),'Reservas')}${accKpi('users',n(t.divers),'Buceadores')}${accKpi('check',n(t.confirmed),'Confirmadas o hechas')}${accKpi('clock',n(t.pending),'Pendientes')}${accKpi('close',n(t.cancelled),'Canceladas, rechazadas o caducadas')}${accKpi('wallet',(t.amounts||[]).map(a=>cur(a.amount,a.currency)).join(' · ')||cur(0),'Importe reservado (confirmadas)')}</div>
+      <div class="ab-split"><div><h3>Por modo</h3><ul class="ab-chips">${chips(t.by_mode)}</ul></div><div><h3>Por canal</h3><ul class="ab-chips">${chips(t.by_channel)}</ul></div></div>
+      <div class="table-wrap"><table><thead><tr><th>Centro o profesional</th><th>Reservas</th><th>Buceadores</th><th>Confirmadas</th><th>Pendientes</th><th>Canceladas</th><th>Importe</th></tr></thead><tbody>${(s.providers||[]).map(p=>`<tr><td><b>${escapeHtml(p.name)}</b><br><small>${p.kind==='center'?'Centro':'Profesional'}</small></td><td>${n(p.bookings)}</td><td>${n(p.divers)}</td><td>${n(p.confirmed)}</td><td>${n(p.pending)}</td><td>${n(p.cancelled)}</td><td>${cur(p.amount,p.currency)}</td></tr>`).join('')||'<tr><td colspan="7">Sin reservas en este periodo.</td></tr>'}</tbody></table></div>
+      <div class="ab-detail"><button type="button" class="btn" id="ab-detail-open">${wdIcon('shield',16)} Ver el detalle de las reservas (soporte, disputa o fraude)</button><p class="adl-det">Pide tu contraseña y el motivo. Vale unos minutos y cada acceso queda registrado.</p><div id="ab-detail-list"></div></div></section>`; }
+  function bindAdminBookingsSummary(c,statusFilter){
+    $('#ab-period',c).onchange=async e=>{ const per=e.target.value; try{ const s=await api('/api/admin/bookings/summary?periodo='+encodeURIComponent(per)); c.innerHTML=adminBookingsSummary(s,per); translateTree(c); bindAdminBookingsSummary(c,statusFilter); }catch(err){ toast(err.message); } };
+    $('#ab-detail-open',c).onclick=async()=>{ const box=$('#ab-detail-list',c); try{ const r=await api('/api/bookings'); const items=statusFilter?r.items.filter(b=>b.status===statusFilter):r.items;
+      box.innerHTML=adminBookings(items); translateTree(box); bindBookingRows(box); $('#ab-detail-open',c).hidden=true; }catch(err){ if(err.status!==403) toast(err.message); } };
+  }
+  function bindBookingRows(root){
+    $$('.booking-detail',root).forEach(b=>b.onclick=()=>wdGo('#/reserva?id='+b.dataset.id));
+    $$('.booking-status',root).forEach(b=>b.onclick=async()=>{ try{ await postJSON('/api/bookings/'+b.dataset.id+'/status',{status:b.dataset.status}); toast('Estado actualizado.'); route(); }catch(e){ toast(e.message); } });
+  }
+  // v50.57 (4.1 y 4.2): the season of the counters and the exports, and the minutes of the confirmation for personal data.
+  async function renderAdminSettings(mountId){ const mount=document.getElementById(mountId); if(!mount) return; const s=await api('/api/admin/settings');
+    const pick=(id,v)=>{ const [m,d]=String(v).split('-').map(Number); return `<select id="${id}-d" aria-label="Día">${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${i+1===d?'selected':''}>${i+1}</option>`).join('')}</select><select id="${id}-m" aria-label="Mes">${TH_MONTHS.map((x,i)=>`<option value="${i+1}" ${i+1===m?'selected':''}>${x}</option>`).join('')}</select>`; };
+    const [lo,hi]=s.limits.admin_confirm_minutes;
+    mount.innerHTML=`<section class="mm-module as-module"><div class="svc-head"><div><p class="eyebrow">Ajustes</p><h2>Temporada y datos personales</h2></div></div>
+      <form id="as-form" class="as-form"><fieldset><legend>Temporada</legend><p class="adl-det">Para los contadores de «Actividad» y el periodo «Temporada» de las exportaciones.</p><div class="as-row"><span>Del</span>${pick('as-ini',s.temporada_inicio)}<span>al</span>${pick('as-fin',s.temporada_fin)}</div></fieldset>
+        <fieldset><legend>Datos personales</legend><label class="as-row" for="as-min">Una confirmación de la contraseña vale <input id="as-min" type="number" min="${lo}" max="${hi}" value="${s.admin_confirm_minutes}" required> minutos</label>
+        <p class="adl-det">Se pide para ver reservas con datos de clientes, documentos, pagos, correos enviados, exportaciones con datos personales, el informe DAC7 y los correos completos de las cuentas. El resto del Centro de control no la pide.</p></fieldset>
+        <button class="btn btn-primary">Guardar ajustes</button></form></section>`; translateTree(mount);
+    const mmdd=id=>`${String($(`#${id}-m`,mount).value).padStart(2,'0')}-${String($(`#${id}-d`,mount).value).padStart(2,'0')}`;
+    $('#as-form',mount).onsubmit=async e=>{ e.preventDefault(); try{ await postJSON('/api/admin/settings',{admin_confirm_minutes:+$('#as-min',mount).value,temporada_inicio:mmdd('as-ini'),temporada_fin:mmdd('as-fin')}); toast('Guardado.'); }catch(err){ toast(err.message); } };
   }
   function wdPartsFailed(host,failed,retry){ if(!host||!failed.length) return; host.insertAdjacentHTML('afterbegin',`<div class="wd-block-error" role="alert"><p><strong>Algunas partes no se han podido cargar:</strong> <span>${failed.map(([l,m])=>escapeHtml(l)+(m?' ('+escapeHtml(m)+')':'')).join(' · ')}</span></p><button class="btn" type="button" data-block-retry>Reintentar</button></div>`); const box=host.firstElementChild; translateTree(box); box.querySelector('[data-block-retry]').onclick=retry; }
   // Marca en la cabecera la sección en la que está el visitante.
@@ -259,7 +340,7 @@
     });
   }
   function wdBack(fallback){ if(wdNav.depth>1) history.back(); else wdGo(fallback||'#/'); }
-  function wdRoute(seq){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('r/')) return renderSignedLink(hash.slice(2).split('?')[0]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); if(window.WDApp){ const own=window.WDApp.route(name||'home',new URLSearchParams(qs||'')); if(own){ closeTransientMenus(); return Promise.resolve(own).catch(err=>{ console.error(err); window.WDApp.failed(err); }); } } const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,verificacion:renderLoginCode,registro:renderRegister,reservar:renderBooking,'reservar-dias':renderDayBooking,seguro:renderInsurance,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin,manifiesto:renderManifest,'salida-cancelada':renderSlotCancelChoice,barco:renderBoatDay}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); const params=new URLSearchParams(qs||''); return Promise.resolve(fn(params)).then(()=>window.WDApp?.after(name||'home',params)).catch(err=>{console.error(err); if(seq!==wdNav.seq) return; setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
+  function wdRoute(seq){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('r/')) return renderSignedLink(hash.slice(2).split('?')[0]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('scan/d/')){ closeTransientMenus(); return renderScanDive(hash.slice(7).split('?')[0]); } if(hash.startsWith('buddy/')){ closeTransientMenus(); return renderBuddyLink(hash.slice(6).split('?')[0]); } if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); if(window.WDApp){ const own=window.WDApp.route(name||'home',new URLSearchParams(qs||'')); if(own){ closeTransientMenus(); return Promise.resolve(own).catch(err=>{ console.error(err); window.WDApp.failed(err); }); } } const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,verificacion:renderLoginCode,registro:renderRegister,reservar:renderBooking,'reservar-dias':renderDayBooking,seguro:renderInsurance,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin,manifiesto:renderManifest,'salida-cancelada':renderSlotCancelChoice,barco:renderBoatDay}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); const params=new URLSearchParams(qs||''); return Promise.resolve(fn(params)).then(()=>window.WDApp?.after(name||'home',params)).catch(err=>{console.error(err); if(seq!==wdNav.seq) return; setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
   window.addEventListener('hashchange', route);
   // v50.57 (revisión general, 2.1): a link or a «Guardar» to the address the page already shows re-draws it. The browser
   // does not fire «hashchange» then, so before «Administración» did nothing from «Editar punto» and you had to go back.
@@ -1986,13 +2067,22 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const REG_TYPES=[['recreational','Buceador','Reserva con centros, guarda tu titulación y lleva tu Log Book.','inmersion'],
                    ['center','Centro de buceo','Publica tus salidas y cursos y gestiona tus reservas.','home'],
                    ['freelance','Profesional','Instructor o guía independiente: tu perfil, tus servicios y tus reservas.','user']];
-  async function renderRegister(params){ const nextParam=params?.get?.('next'); if(nextParam) sessionStorage.setItem('wd_after_login', nextParam.startsWith('#')?nextParam:'#'+nextParam); const st=await api('/api/setup/status').catch(()=>({}));
+  async function renderRegister(params){ const nextParam=params?.get?.('next'); if(nextParam) sessionStorage.setItem('wd_after_login', nextParam.startsWith('#')?nextParam:'#'+nextParam);
+    // v50.57 · logbook: the invitation link of a centre (/registro?centro=<slug>): whoever signs up with it has the centre's
+    // logo on the cover of the passport. With a session already, the Log Book links the account.
+    const centro=String(params?.get?.('centro')||'').slice(0,80);
+    if(centro&&(await loadMe(),state.me)){ location.replace('#/logbook?centro='+encodeURIComponent(centro)); return; }
+    const withCentro=k=>centro&&k==='recreational'?'&centro='+encodeURIComponent(centro):'';
+    const st=await api('/api/setup/status').catch(()=>({}));
     if(st.registration_open===false){ setApp(authCard('Registro cerrado','<div class="notice">Esta es una versión de demostración: no se pueden crear cuentas nuevas.</div><p><a class="btn" href="#/login">Iniciar sesión</a></p>')); return; }
     const type=params?.get?.('tipo');
     if(!REG_TYPES.some(t=>t[0]===type)){
-      setApp(authCard('Crear cuenta',`<p class="lead auth-lead">¿Qué tipo de cuenta necesitas?</p><div class="reg-types" role="list">${REG_TYPES.map(([k,t,d,i])=>`<a class="reg-type" role="listitem" href="#/registro?tipo=${k}${nextParam?'&next='+encodeURIComponent(nextParam):''}" data-type="${k}">${wdIcon(i,22)}<span><strong>${t}</strong><small>${d}</small></span></a>`).join('')}</div><p class="auth-alt">¿Ya tienes cuenta? <a href="#/login">Iniciar sesión</a></p>`));
+      setApp(authCard('Crear cuenta',`<p class="lead auth-lead">¿Qué tipo de cuenta necesitas?</p><div class="reg-types" role="list">${REG_TYPES.map(([k,t,d,i])=>`<a class="reg-type" role="listitem" href="#/registro?tipo=${k}${nextParam?'&next='+encodeURIComponent(nextParam):''}${withCentro(k)}" data-type="${k}">${wdIcon(i,22)}<span><strong>${t}</strong><small>${d}</small></span></a>`).join('')}</div><p class="auth-alt">¿Ya tienes cuenta? <a href="#/login">Iniciar sesión</a></p>`));
       return; }
     const pro=type!=='recreational', center=type==='center', label=REG_TYPES.find(t=>t[0]===type)[1];
+    const invite=centro&&!pro?await api('/api/public/invite?centro='+encodeURIComponent(centro)).then(r=>r.center).catch(()=>null):null;
+    const inviteHtml=invite?`<div class="reg-invite">${invite.logo?`<img src="${escapeHtml(invite.logo)}" alt="" width="56" height="56">`:wdIcon('book',26)}<p><span class="reg-invite-t"><span>Invitación de</span> <b translate="no">${escapeHtml(invite.name)}</b></span><span>Al crear tu cuenta, su logo irá en la portada de tu pasaporte de buceo.</span></p></div>`:'';
+    const loginHref=invite?'#/login?next='+encodeURIComponent('#/logbook?centro='+centro):'#/login';
     const meta=pro&&!center?await loadMeta().catch(()=>({})):{};
     const certs=(meta.certifications||[]).map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
     const terms=pro?`<label class="lg-check" for="r-terms"><input type="checkbox" id="r-terms" required><span>He leído y acepto las <a href="#/legal/condiciones-buceadores" target="_blank" rel="noopener">condiciones de uso</a> y la <a href="#/legal/privacidad" target="_blank" rel="noopener">política de privacidad</a>. Acepto las <a href="#/legal/condiciones-centros" target="_blank" rel="noopener">condiciones para centros y profesionales</a>.</span></label>`
@@ -2005,20 +2095,20 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
                        field('r-phone','Teléfono','type="tel" required maxlength="60" autocomplete="tel"',true),
                        `<div class="field full"><label for="r-cert">Titulación</label><select id="r-cert" required><option value="">Elige tu titulación…</option>${certs}<option value="other">Otra</option></select></div><div class="field full" id="r-cert-other-wrap" hidden><label for="r-cert-other">¿Cuál?</label><input id="r-cert-other" maxlength="120"></div>`]
                  :[field('r-name','Nombre completo','required maxlength="120" autocomplete="name"',true),field('r-email','Email','type="email" required maxlength="160" autocomplete="email"',true)];
-    setApp(authCard('Crear cuenta',`<div class="reg-chosen"><span>${wdIcon(REG_TYPES.find(t=>t[0]===type)[3],18)} ${label}</span><a href="#/registro${nextParam?'?next='+encodeURIComponent(nextParam):''}" id="r-change">Cambiar</a></div>
+    setApp(authCard('Crear cuenta',`${inviteHtml}<div class="reg-chosen"><span>${wdIcon(REG_TYPES.find(t=>t[0]===type)[3],18)} ${label}</span><a href="#/registro?${nextParam?'next='+encodeURIComponent(nextParam):''}${centro?'&centro='+encodeURIComponent(centro):''}" id="r-change">Cambiar</a></div>
       <form id="register-form" novalidate><div class="form-grid">${fields.join('')}
         <div class="field full"><label for="r-pass">Contraseña</label><input id="r-pass" type="password" minlength="10" required autocomplete="new-password" aria-describedby="r-pass-help"><small id="r-pass-help">Mínimo 10 caracteres.</small></div>
         ${pro&&st.pilot_mode?field('r-invite','Código de invitación','required autocomplete="off"',true):''}</div>
         ${pro?`<p class="notice reg-review">${center?'Revisaremos tu centro y te avisaremos por email.':'Revisaremos tu perfil profesional y te avisaremos por email.'} Mientras tanto, la cuenta funciona como cuenta de buceador.</p>`:''}
-        <div class="lg-accept">${terms}</div><div class="form-actions"><button class="btn btn-primary" type="submit">Crear cuenta</button></div></form><p class="auth-alt">¿Ya tienes cuenta? <a href="#/login">Iniciar sesión</a></p>`));
+        <div class="lg-accept">${terms}</div><div class="form-actions"><button class="btn btn-primary" type="submit">Crear cuenta</button></div></form><p class="auth-alt">¿Ya tienes cuenta? <a href="${loginHref}">Iniciar sesión</a></p>`));
     $('#r-cert')?.addEventListener('change',e=>{ const o=e.target.value==='other'; $('#r-cert-other-wrap').hidden=!o; $('#r-cert-other').required=o; });
     { const pre=String(params?.get?.('email')||'').trim(); if(pre&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(pre)&&$('#r-email')) $('#r-email').value=pre.slice(0,160); }   // v50.56: from «Crear mi cuenta» after booking on a centre's website
     $('#register-form').onsubmit=async e=>{e.preventDefault(); const f=e.target; if(!f.reportValidity()) return; const btn=$('#register-form button[type=submit]'); btn.disabled=true;
       const v=id=>$(id)?.value?.trim()||''; const cert=v('#r-cert');
       try{ const r=await postJSON('/api/auth/register',{fullname:v('#r-name'),email:v('#r-email'),password:$('#r-pass').value,account_type:type,center_name:v('#r-center-name'),phone:v('#r-phone'),country:v('#r-country'),city:v('#r-city'),
-            certification_id:cert&&cert!=='other'?+cert:null,certification_text:cert==='other'?v('#r-cert-other'):'',invite_code:v('#r-invite'),accept_terms:$('#r-terms').checked,accept_pro_terms:pro&&$('#r-terms').checked,lang:currentLanguage()});
+            certification_id:cert&&cert!=='other'?+cert:null,certification_text:cert==='other'?v('#r-cert-other'):'',invite_code:v('#r-invite'),accept_terms:$('#r-terms').checked,accept_pro_terms:pro&&$('#r-terms').checked,lang:currentLanguage(),centro:invite?centro:undefined});
         await loadMe(); const next=sessionStorage.getItem('wd_after_login'); sessionStorage.removeItem('wd_after_login');
-        wdGo(r.provider_verification?'#/cuenta':(next||'#/area'));
+        wdGo(r.provider_verification?'#/cuenta':(next||(invite?'#/logbook':'#/area')));
         toast(r.provider_verification?'Cuenta creada. Revisaremos tu solicitud y te avisaremos por email.':'Cuenta creada. Te hemos enviado un enlace para confirmar tu email.');
       }catch(err){ toast(err.message); btn.disabled=false; } }; }
 
@@ -3617,42 +3707,257 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     }catch(e){setApp('<section class="page"><div class="empty"><h2>QR no válido</h2><p>La reserva no existe, ya no está disponible o el enlace está incompleto. Escanea de nuevo el QR de la reserva.</p></div></section>');}
   }
 
-  async function renderLogbook(){
+  // ---------------------------------------------------------------- v50.57 · Log Book: el componente «Dive Logbook»
+  // The logbook is the «Dive Logbook» component (public/lib/logbook, see its LEEME.md): a list that takes the font and
+  // the colours of the web, and a passport (3D book) that is earned. The book lives in the account: GET /api/logbook
+  // gives it to the component and each change of the component (logbook:change) goes back with PUT /api/logbook. What a
+  // centre registered with a QR cannot be changed: the server refuses it (409) and the page shows again what stays.
+  const WD_LB_V='50.57';
+  function wdLogbookLib(){
+    if(window.DiveLogbook) return Promise.resolve(true);
+    if(wdLogbookLib.p) return wdLogbookLib.p;
+    const add=(tag,props)=>new Promise(done=>{ const n=document.createElement(tag); Object.assign(n,props); n.onload=()=>done(true); n.onerror=()=>done(false); document.head.appendChild(n); });
+    const css=document.querySelector('link[href^="/lib/logbook/logbook.css"]')?Promise.resolve(true):add('link',{rel:'stylesheet',href:'/lib/logbook/logbook.css?v='+WD_LB_V});
+    wdLogbookLib.p=Promise.all([css,add('script',{src:'/lib/logbook/logbook.js?v='+WD_LB_V,async:false})]).then(()=>{ if(!window.DiveLogbook) wdLogbookLib.p=null; return !!window.DiveLogbook; });
+    return wdLogbookLib.p;
+  }
+  // The same book written with its keys in order: two copies are equal when this text is.
+  const wdStable=x=>JSON.stringify(x===undefined?null:x,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k2=>[k2,v[k2]])):v);
+  // The copy the component keeps on this device (one per account) goes when the session ends.
+  function wdForgetLogbook(){ try{ for(let i=localStorage.length-1;i>=0;i--){ const k=localStorage.key(i); if(k&&k.startsWith('wd-logbook-')) localStorage.removeItem(k); } }catch{} }
+  // The component writes in Spanish: its texts are translated with the packs of the web, never what the diver writes
+  // (sites, notes, centres) nor the bilingual labels of the passport itself (Spanish and English, as in a passport).
+  const lbKeep=el=>!el||(!el.closest('.dlc-th')&&!!el.closest('.dlc-site b,.dlc-no,.dlc-date,.dlc-num'))||!!el.closest('textarea,select,option,datalist,svg')||(!!el.closest('.dlb-book')&&!el.closest('.dlb-actions,.dlb-note,.dlb-stat>span'));
+  // In the logbook «Entrada» and «Salida» are the times of the dive, not the departure of a boat trip.
+  const LB_ALIAS={'Entrada':'Entrada al agua','Salida':'Salida del agua'};
+  function wdLbTranslate(host){
+    if(currentLanguage()==='es'||!I18N_PACK||!window.MutationObserver) return;
+    const attrs=el=>{ if(el.nodeType!==1||!el.isConnected||(lbKeep(el)&&el.tagName!=='INPUT')) return; for(const a of ['title','aria-label','placeholder']){ const v=el.getAttribute(a); if(v){ const o=translateString(v); if(o!==v) el.setAttribute(a,o); } } };
+    const tr=n=>{ if(!n.isConnected) return;   // replaced before the observer ran: nothing to translate
+      if(n.nodeType===3){ if(!lbKeep(n.parentElement)){
+          // «Fecha · centro»: a field the centre registered (label, then «centro»)
+          const v=n.nodeValue, t=v.trim(), mark=t.length>9&&t.endsWith(' · centro'), base=mark?t.slice(0,-9):t, a=LB_ALIAS[base];
+          let o=translateString(a||base); if(a&&o===a) o=base; if(mark) o+=' · '+translateString('centro');
+          if(t&&o!==t) n.nodeValue=v.replace(t,()=>o); } return; }
+      if(n.nodeType!==1) return; const w=document.createTreeWalker(n,NodeFilter.SHOW_TEXT), list=[]; while(w.nextNode()) list.push(w.currentNode); list.forEach(tr);
+      attrs(n); n.querySelectorAll('[title],[aria-label],[placeholder]').forEach(attrs); };
+    tr(host);
+    new MutationObserver(ms=>ms.forEach(m=>{ if(m.type==='childList') m.addedNodes.forEach(tr); else attrs(m.target); })).observe(host,{childList:true,subtree:true,attributes:true,attributeFilter:['title','aria-label','placeholder']});
+  }
+  // What this device changed (mine, since base) on top of what another device saved first (theirs). A dive goes whole: one
+  // changed on both sides keeps the other device's version (counted in «lost»); one added here goes to a free page.
+  // Without base (changes saved on this device while offline, the other copy changed meanwhile): only the dives it lacks.
+  function wdLbMerge(base,mine,theirs){
+    const out=JSON.parse(JSON.stringify(theirs||{})); out.v=out.v||{}; out.verified=out.verified||{}; out.pages=out.pages||10; let lost=0;
+    const of=(b,n)=>{ const f={}, p=`d:${n}:`; Object.keys(b?.v||{}).forEach(k=>{ if(k.startsWith(p)) f[k.slice(p.length)]=b.v[k]; }); return {f,ver:(b?.verified||{})[n]||null}; };
+    const used=s=>Object.keys(s.f).length>0||!!s.ver;
+    const pagesOf=b=>new Set([...Object.keys(b?.v||{}).map(k=>(/^d:(\d+):/.exec(k)||[])[1]).filter(Boolean),...Object.keys(b?.verified||{})]);
+    const put=(n,s)=>{ const p=`d:${n}:`; Object.keys(out.v).forEach(k=>{ if(k.startsWith(p)) delete out.v[k]; }); Object.entries(s.f).forEach(([k,v])=>{ out.v[p+k]=v; }); if(s.ver) out.verified[n]=s.ver; else delete out.verified[n]; };
+    const free=()=>{ for(let i=1;i<=120;i++){ if(i>out.pages*2){ if(out.pages>=60) return 0; out.pages+=10; } if(!used(of(out,i))) return i; } return 0; };
+    for(const n of new Set([...pagesOf(base),...pagesOf(mine)])){
+      const b=of(base,n), m=of(mine,n), t=of(theirs,n);
+      if((base&&wdStable(b)===wdStable(m))||wdStable(m)===wdStable(t)) continue;           // not changed here, or equal on both
+      if(base?wdStable(b)===wdStable(t):!used(t)){ put(n,m); continue; }                    // changed only here (deleted, too)
+      if((!base||!used(b))&&used(m)&&!m.ver){ const f=free(); if(f){ put(f,m); continue; } } // added on both sides
+      lost++;
+    }
+    const mo=Object.keys(mine?.v||{}).filter(k=>k.startsWith('o:')), bo=base?.v||{};
+    new Set([...mo,...Object.keys(bo).filter(k=>k.startsWith('o:'))]).forEach(k=>{ const mv=(mine?.v||{})[k];
+      if(base?wdStable(bo[k])===wdStable(mv):out.v[k]!==undefined) return; if(mv===undefined) delete out.v[k]; else out.v[k]=mv; });
+    ['photo','cover'].forEach(k=>{ if(base?wdStable(base[k])!==wdStable(mine?.[k]):!out[k]&&mine?.[k]) out[k]=mine[k]; });
+    out.unlocked=out.unlocked||mine?.unlocked||null; out.seenPassport=!!(out.seenPassport||mine?.seenPassport); if(mine?.view) out.view=mine.view;
+    out.pages=Math.min(60,Math.max(out.pages,mine?.pages||10));
+    return {data:out,lost};
+  }
+  async function renderLogbook(params){
     if(!(await loadMe(),state.me)){goLogin();return;}
-    const items=(await api('/api/logbook')).items||[]; const esc=escapeHtml;
-    const chrono=[...items].sort((a,b)=>String(a.dive_date).localeCompare(String(b.dive_date))||a.id-b.id); const num=new Map(chrono.map((x,i)=>[x.id,i+1]));
-    const maxDepth=Math.max(0,...items.map(x=>Number(x.depth)||0)); const minutes=items.reduce((n,x)=>n+(Number(x.duration)||0),0);
-    const countries=new Set(items.map(x=>String(x.country||'').trim().toLowerCase()).filter(Boolean)).size;
-    const hm=m=>m>=60?`${Math.floor(m/60)} h ${m%60?String(m%60).padStart(2,'0')+' min':''}`.trim():`${m} min`;
-    const byYear={}; items.forEach(x=>(byYear[String(x.dive_date||'').slice(0,4)||'—']??=[]).push(x));
-    const row=x=>`<article class="lb-row" data-id="${x.id}" data-s="${esc(`${x.site||''} ${x.country||''} ${x.dive_type||''} ${x.notes||''}`.toLowerCase())}"><span class="lb-num">#${num.get(x.id)}</span>${accDate(x.dive_date)}
-      <div class="lb-main"><strong>${esc(x.site)}</strong><small>${esc([x.country,x.dive_type].filter(Boolean).join(' · '))}${x.booking_id?' · <span class="lb-tag">Reserva WORLDIVES</span>':''}</small>${x.notes?`<p>${esc(x.notes)}</p>`:''}</div>
-      <div class="lb-figs"><span><b>${x.depth??'—'}</b> m</span><span><b>${x.duration??'—'}</b> min</span></div>
-      <div class="lb-act"><button type="button" class="btn lb-edit">Editar</button>${x.booking_id?'':'<button type="button" class="btn lb-del" aria-label="Borrar inmersión">Borrar</button>'}</div></article>`;
-    setApp(accountShell('logbook',{eyebrow:'MI ACTIVIDAD',title:'Log Book',lead:'Tu historial de inmersiones. Las reservas completadas se añaden solas; el resto, en un momento.',actions:`<button type="button" class="btn" id="lb-csv" ${items.length?'':'disabled'}>${wdIcon('download',15)} Exportar CSV</button><button type="button" class="btn btn-primary" id="lb-new">${wdIcon('plus',15)} Nueva inmersión</button>`},`
-      <div class="acc-kpis">${accKpi('book',items.length,'inmersiones')}${accKpi('depth',maxDepth?maxDepth+' m':'—','profundidad máxima')}${accKpi('clock',minutes?hm(minutes):'—','bajo el agua')}${accKpi('globe',countries,countries===1?'país':'países')}</div>
-      <section class="acc-card"><div class="acc-card-head"><h2>Mis inmersiones</h2>${items.length>4?`<label class="svc-search lb-search">${wdIcon('search',16)}<input id="lb-q" type="search" placeholder="Buscar punto, país o nota" aria-label="Buscar en el Log Book"></label>`:''}</div>
-        ${items.length?Object.keys(byYear).sort().reverse().map(y=>`<div class="lb-year" data-year="${esc(y)}"><h3>${esc(y)} <small>${byYear[y].length} inmersion${byYear[y].length===1?'':'es'}</small></h3>${byYear[y].map(row).join('')}</div>`).join('')+(items.length>25?`<button type="button" class="btn acc-more" id="lb-more">Ver las ${items.length} inmersiones</button>`:'')
-          :`<div class="acc-blank">${wdIcon('book',34)}<h3>Tu Log Book está vacío</h3><p>Apunta tu primera inmersión o reserva una: cuando el centro la marque como completada aparecerá aquí sola.</p><button type="button" class="btn btn-primary" id="lb-new-2">Añadir mi primera inmersión</button></div>`}</section>`));
+    const esc=escapeHtml;
+    // A centre's invitation link opened by someone who already had an account (/registro?centro=… with a session).
+    const centro=params?.get?.('centro'); let joined=null;
+    if(centro){ try{ joined=await postJSON('/api/logbook/center-link',{centro}); }catch(err){ toast(err.message); } try{ history.replaceState(history.state,'','#/logbook'); }catch{} }
+    const once=k=>{ try{ const v=JSON.parse(sessionStorage.getItem(k)||'null'); sessionStorage.removeItem(k); return v; }catch{ return null; } };
+    const claimed=once('wd-lb-claimed'), buddy=once('wd-lb-buddy');
+    const [d,lib]=await Promise.all([api('/api/logbook'),wdLogbookLib()]);
+    const notice=buddy?.friend?`<p class="lb-notice" role="status">${wdIcon('users',17)}<span><span class="lb-notice-t"><b>${buddy.already?'Ya erais buddies':'Ahora sois buddies'}</b> <span translate="no">${esc(buddy.friend.name)}</span></span><span>Aparece en «Compañero» al apuntar una inmersión.</span></span></p>`
+      :joined?.center&&!joined.same?`<p class="lb-notice" role="status">${wdIcon('info',17)}<span><span class="lb-notice-t"><span>Tu cuenta ya está unida a un centro:</span> <b translate="no">${esc(joined.center.name)}</b></span><span>Su logo sigue en la portada de tu pasaporte.</span></span></p>`:'';
+    setApp(accountShell('logbook',{eyebrow:'MI ACTIVIDAD',title:'Log Book',lead:'Tus inmersiones, guardadas en tu cuenta y en todos tus dispositivos. Las que registra tu centro con un QR llegan verificadas.',
+      actions:`<span class="lb-sync" id="lb-sync" role="status" aria-live="polite"></span><button type="button" class="btn" id="lb-csv">${wdIcon('download',15)} Exportar CSV</button>`},
+      `${notice}<section class="acc-card lb-card"><div id="wd-logbook" class="dive-logbook" data-manual translate="no"></div></section>`));
     fillAccountLevel();
-    const open=x=>{ x=x||{}; const body=`<form id="log-form" class="form-grid">
-        <div class="field"><label for="l-date">Fecha</label><input id="l-date" type="date" required max="${wdToday()}" value="${esc(x.dive_date||wdToday())}"></div>
-        <div class="field"><label for="l-site">Punto de buceo</label><input id="l-site" required maxlength="200" value="${esc(x.site||'')}" placeholder="El Bajo de la Morra"></div>
-        <div class="field"><label for="l-country">País</label><input id="l-country" maxlength="100" value="${esc(x.country||'')}"></div>
-        <div class="field"><label for="l-type">Tipo de inmersión</label><input id="l-type" maxlength="100" list="lb-types" value="${esc(x.dive_type||'')}"><datalist id="lb-types">${['Arrecife','Pared','Pecio','Cueva','Nocturna','Deriva','Profunda','Formación','Costa'].map(t=>`<option value="${t}">`).join('')}</datalist></div>
-        <div class="field"><label for="l-depth">Profundidad máxima (m)</label><input id="l-depth" type="number" min="0" max="350" step="0.1" inputmode="decimal" value="${x.depth??''}"></div>
-        <div class="field"><label for="l-duration">Duración (min)</label><input id="l-duration" type="number" min="0" max="600" inputmode="numeric" value="${x.duration??''}"></div>
-        <div class="field full"><label for="l-notes">Notas</label><textarea id="l-notes" rows="3" maxlength="2000" placeholder="Visibilidad, fauna, compañeros, equipo…">${esc(x.notes||'')}</textarea></div></form>`;
-      const {el,close}=wdOpenModal({id:'log-modal',title:x.id?'Editar inmersión':'Nueva inmersión',subtitle:x.id?`Inmersión #${num.get(x.id)}`:'Se añade a tu historial',body,footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="submit" form="log-form" class="btn btn-primary">Guardar inmersión</button>'});
-      $('#log-form',el).onsubmit=async e=>{ e.preventDefault(); const data={id:x.id,dive_date:$('#l-date',el).value,site:$('#l-site',el).value,country:$('#l-country',el).value,depth:$('#l-depth',el).value,duration:$('#l-duration',el).value,dive_type:$('#l-type',el).value,notes:$('#l-notes',el).value};
-        try{ await postJSON(x.id?'/api/logbook/update':'/api/logbook',data); close(); toast('Inmersión guardada.'); renderLogbook(); }catch(err){ toast(err.message); } }; };
-    $('#lb-new').onclick=()=>open(); $('#lb-new-2')?.addEventListener('click',()=>open());
-    $$('.lb-row').forEach(r=>{ const x=items.find(i=>i.id===+r.dataset.id); $('.lb-edit',r).onclick=()=>open(x);
-      $('.lb-del',r)?.addEventListener('click',async()=>{ if(!confirm(`¿Borrar la inmersión en ${x.site}?`)) return; try{ await postJSON('/api/logbook/delete',{id:x.id}); toast('Inmersión borrada.'); renderLogbook(); }catch(err){ toast(err.message); } }); });
-    let showAll=items.length<=25; const paint=()=>{ const v=($('#lb-q')?.value||'').trim().toLowerCase(); let i=0; $$('.lb-row').forEach(r=>{ const hit=!v||r.dataset.s.includes(v); r.hidden=!hit||(!v&&!showAll&&i>=25); if(hit) i++; }); $$('.lb-year').forEach(y=>y.hidden=!$$('.lb-row',y).some(r=>!r.hidden)); const m=$('#lb-more'); if(m) m.hidden=showAll||!!v; };
-    $('#lb-q')?.addEventListener('input',paint); $('#lb-more')?.addEventListener('click',()=>{ showAll=true; paint(); }); paint();
-    $('#lb-csv').onclick=()=>{ const rows=[['#','Fecha','Punto','País','Tipo','Profundidad (m)','Duración (min)','Notas'],...chrono.map(x=>[num.get(x.id),x.dive_date,x.site,x.country,x.dive_type,x.depth,x.duration,x.notes])];
-      const csv='﻿'+rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(';')).join('\r\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='logbook-worldives.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); };
+    const host=$('#wd-logbook');
+    if(!lib){ host.outerHTML=wdBlockError(new Error('Comprueba la conexión e inténtalo de nuevo.'),'El Log Book no se ha podido cargar.'); translateTree($('.lb-card')); $('.lb-card [data-block-retry]').onclick=()=>route(); return; }
+    const key=d.storage_key, keyDirty=key+':sin-guardar', book=d.book||{data:null,version:0};
+    const ls={ get(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch{ return null; } }, set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch{ return false; } }, del(k){ try{ localStorage.removeItem(k); }catch{} } };
+    // Changes kept on this device that never reached the account (no connection): they go first.
+    let start=book.data, lostOffline=0; const dirty=ls.get(keyDirty), local=ls.get(key);
+    if(local&&dirty){ if(dirty.v===book.version) start=local; else { const r=wdLbMerge(dirty.base||null,local,book.data); start=r.data; lostOffline=r.lost; } }
+    // The view (list or passport) is each device's: the list by default, else the last one used here.
+    start={...start,view:local?.view==='passport'?'passport':'classic'};
+    ls.set(key,start);
+    DiveLogbook.instances=DiveLogbook.instances.filter(x=>x.root.isConnected);
+    const lb=DiveLogbook.init(host,{storageKey:key,assets:'/lib/logbook/assets/',mapData:'/lib/logbook/land-50m.json',title:'',profile:d.profile,friends:d.friends||[]});
+    wdLbTranslate(host);
+    const norm=x=>JSON.parse(JSON.stringify(Object.assign(lb.blank(10),x||{})));
+    const sig=x=>wdStable({...x,view:null});                                   // two books are the same book whatever the view
+    const show=data=>lb.setData({...data,view:lb.getData().view});            // a copy from the account keeps this device's view
+    if(wdStable(lb.getData())!==wdStable(norm(start))) lb.setData(start);      // without storage on this device
+    let version=book.version||0, base=norm(book.data), synced=sig(base), busy=false, again=false, timer=0;
+    const sync=$('#lb-sync');
+    const say=(t,cls)=>{ if(!sync||!host.isConnected) return; sync.textContent=translateString(t); sync.className='lb-sync'+(cls?' is-'+cls:''); };
+    let dirtyOn=false; ls.del(keyDirty);   // written again below when this device has changes the account does not have
+    const keepDirty=()=>{ if(!dirtyOn) dirtyOn=ls.set(keyDirty,{v:version,base}); };
+    const clearDirty=()=>{ if(dirtyOn){ ls.del(keyDirty); dirtyOn=false; } };
+    const setServer=(data,ver)=>{ version=ver; show(data); base=lb.getData(); synced=sig(base); clearDirty(); };
+    const push=async()=>{
+      clearTimeout(timer);
+      if(busy){ again=true; return; }
+      const mine=lb.getData();
+      if(sig(mine)===synced){ clearDirty(); say('Guardado en tu cuenta','ok'); return; }
+      keepDirty();
+      if(!navigator.onLine){ say('Sin conexión: se guardará al volver','warn'); return; }
+      busy=true; say('Guardando…');
+      try{
+        const r=await api('/api/logbook',{method:'PUT',headers:{'Content-Type':'application/json','X-Logbook-Version':String(version)},body:JSON.stringify(mine)});
+        version=r.version;
+        if(r.data){ show(r.data); base=lb.getData(); } else base=mine;      // the server corrected something (the cover)
+        synced=sig(base); if(sig(lb.getData())===synced) clearDirty();
+        say('Guardado en tu cuenta','ok');
+      }catch(err){
+        const j=err.data||{};
+        if(err.status===409&&j.conflict){   // another device saved first: what changed here goes on top of that
+          const m=wdLbMerge(base,lb.getData(),j.data); version=j.version; base=norm(j.data); synced=sig(base); clearDirty(); keepDirty();
+          show(m.data); if(m.lost) toast('Tu logbook ha cambiado en otro dispositivo: algunas inmersiones cambiadas en los dos se quedan como en el otro.'); again=true;
+        }else if(err.status===409&&j.locked){ setServer(j.data,j.version); toast(j.error); say('Guardado en tu cuenta','ok'); }
+        else if(!err.status||err.status>=500||err.status===429){ say(err.status?'No se ha podido guardar: se reintentará':'Sin conexión: se guardará al volver','warn'); timer=setTimeout(push,err.status===429?20000:8000); }
+        else { say('No se ha podido guardar','warn'); toast(err.message); }
+      }finally{ busy=false; if(again){ again=false; timer=setTimeout(push,300); } }
+    };
+    host.addEventListener('logbook:change',()=>{ clearTimeout(timer); if(sig(lb.getData())===synced){ say('Guardado en tu cuenta','ok'); return; } keepDirty(); say('Cambios sin guardar…'); timer=setTimeout(push,700); });
+    // Back to this tab or the connection again: what changed is saved, or what another device saved is shown.
+    const wake=async()=>{
+      if(!host.isConnected){ document.removeEventListener('visibilitychange',wake); window.removeEventListener('online',wake); return; }
+      if(document.hidden||busy) return;
+      if(sig(lb.getData())!==synced){ push(); return; }
+      try{ const r=await api('/api/logbook'); if(!host.isConnected||busy||sig(lb.getData())!==synced) return;
+        lb.setFriends(r.friends||[]); if(r.book.version!==version) setServer(r.book.data,r.book.version);
+        (r.pending||[]).forEach(x=>lb.addDiveFromCenter(x)); }catch{} };
+    document.addEventListener('visibilitychange',wake); window.addEventListener('online',wake);
+    // The centre of the sign-up link: its logo on the cover (that unlocks the passport); the dives claimed with a QR.
+    if(d.center){ if(d.center.logo) lb.setCover({logo:d.center.logo,name:d.center.name}); else lb.unlock('center'); }
+    const pend=[...(d.pending||[])];
+    if(claimed?.dive){ const i=pend.findIndex(x=>x.id===claimed.dive.id); if(i>=0) pend.splice(i,1); pend.push(claimed.dive); }   // its message, last
+    let full=false; pend.forEach(x=>{ if(lb.addDiveFromCenter(x)===null) full=true; });
+    if(full) toast('Tu logbook está lleno (120 inmersiones): borra alguna para añadir las de tu centro.');
+    if(lostOffline) toast('Había cambios sin conexión en este dispositivo: algunas inmersiones cambiadas también en otro se quedan como allí.');
+    if(sig(lb.getData())!==synced) push(); else say('Guardado en tu cuenta','ok');
+    $('#lb-csv').onclick=()=>{
+      const data=lb.getData(), v=data.v||{}, dives={};
+      Object.keys(v).forEach(k=>{ const m=/^d:(\d+):(\w+)$/.exec(k); if(m) (dives[m[1]]??={})[m[2]]=v[k]; });
+      const rows=Object.keys(dives).map(Number).sort((a,b)=>a-b).map(n=>({n,...dives[n]})).filter(x=>x.site||x.date||x.depth||x.time);
+      if(!rows.length){ toast('Todavía no hay inmersiones que exportar.'); return; }
+      const cols=[['no','Nº'],['date','Fecha'],['site','Lugar'],['country','País / región'],['center','Centro de buceo'],['depth','Prof. máx (m)'],['time','Tiempo (min)'],['temp','Agua (°C)'],['vis','Visibilidad (m)'],
+        ['tin','Entrada al agua'],['tout','Salida del agua'],['pstart','Bar inicio'],['pend','Bar final'],['weight','Lastre (kg)'],['suit','Traje'],['gas','Gas'],['buddy','Compañero'],['pos','Posición GPS'],['sign','Firma / nº instructor']];
+      const head=[...cols.map(c=>c[1]),'Tipo','Observaciones · vida marina','Verificada por'].map(translateString);
+      const body=rows.map(x=>[...cols.map(([k])=>k==='no'?(x.no||x.n):x[k]),LB_TYPES.filter(([t])=>x['t_'+t]).map(([,l])=>translateString(l)).join(', '),x.notes,(data.verified||{})[x.n]?.center||'']);
+      // a cell that starts like a formula is written as text (CSV opened in a spreadsheet)
+      const cell=val=>{ let s=String(val??''); if(/^[=+@\t\r]|^-[^\d]/.test(s)) s="'"+s; return '"'+s.replaceAll('"','""')+'"'; };
+      const csv='﻿'+[head,...body].map(r=>r.map(cell).join(';')).join('\r\n');
+      const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='logbook-worldives.csv'; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000);
+    };
+  }
+  // The QR of a dive registered by a centre (/scan/d/<token>) and the QR of a buddy (/buddy/<code>): with a session they
+  // act at once and open the Log Book; without one, sign in (or create the account) and come back here.
+  async function renderScanDive(token){
+    markNav('logbook');
+    if(!(await loadMe(),state.me)){ goLogin(); return; }
+    setApp(authCard('Tu inmersión',`<p class="lead auth-lead">Añadiendo la inmersión a tu Log Book…</p>`));
+    try{ const r=await postJSON('/api/logbook/claim',{token}); try{ sessionStorage.setItem('wd-lb-claimed',JSON.stringify({dive:r.dive,already:r.already})); }catch{} location.replace('#/logbook'); }
+    catch(err){ setApp(authCard('No se ha podido añadir la inmersión',`<div class="notice">${escapeHtml(err.message)}</div><p class="form-actions"><a class="btn btn-primary" href="#/logbook">Ir a mi Log Book</a></p>`)); }
+  }
+  async function renderBuddyLink(code){
+    markNav('logbook');
+    if(!(await loadMe(),state.me)){ goLogin(); return; }
+    try{ const r=await postJSON('/api/buddies',{code}); try{ sessionStorage.setItem('wd-lb-buddy',JSON.stringify(r)); }catch{} location.replace('#/logbook'); }
+    catch(err){ setApp(authCard('Buddies',`<div class="notice">${escapeHtml(err.message)}</div><p class="form-actions"><a class="btn btn-primary" href="#/logbook">Ir a mi Log Book</a></p>`)); }
+  }
+  const LB_TYPES=[['boat','Barco'],['shore','Costa'],['night','Nocturna'],['drift','Deriva'],['wreck','Pecio'],['deep','Profunda']];
+  // v50.57 · Panel del centro, «Logbook»: the centre registers a dive once and gives each diver a QR of a single use; its
+  // invitation link puts its logo on the cover of the passport of whoever signs up with it.
+  async function wdFileDownload(url,name,btn){
+    const old=btn?.innerHTML; if(btn){ btn.disabled=true; btn.textContent=translateString('Preparando…'); }
+    try{ const r=await fetch(url,{credentials:'same-origin'}); if(!r.ok){ let d=null; try{ d=await r.json(); }catch{} throw new Error(d?.error||`Error ${r.status}`); }
+      const a=document.createElement('a'); a.href=URL.createObjectURL(await r.blob()); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }
+    catch(err){ toast(err.message); } finally{ if(btn){ btn.disabled=false; btn.innerHTML=old; } }
+  }
+  function clbShowQr(dive,list){
+    const esc=escapeHtml; let i=0;
+    const {el}=wdOpenModal({id:'clb-qr',title:esc(dive.site),subtitle:`${esc(wdLegalDate(dive.dive_date))} · ${esc(dive.instructor||'')}`,
+      body:`<div class="clb-qr"><img id="clb-qr-img" alt="QR de la inmersión" width="280" height="280"><p class="clb-qr-n" id="clb-qr-n" aria-live="polite"></p><p class="clb-qr-help">Que cada buceador lo escanee con la cámara de su móvil: la inmersión entra en su Log Book, verificada. Cada QR sirve una sola vez.</p></div>`,
+      footer:`<button type="button" class="btn" id="clb-qr-prev">‹ Anterior</button><button type="button" class="btn" id="clb-qr-pdf">${wdIcon('download',15)} Imprimir (PDF)</button><button type="button" class="btn btn-primary" id="clb-qr-next">Siguiente QR ›</button>`});
+    const prev=$('#clb-qr-prev',el), next=$('#clb-qr-next',el);
+    const show=()=>{ $('#clb-qr-img',el).src=`/api/center/logbook/dive/${dive.id}/qr/${list[i].id}.svg`; $('#clb-qr-n',el).textContent=translateString(`QR ${i+1} de ${list.length}`); prev.disabled=i===0; next.textContent=translateString(i<list.length-1?'Siguiente QR ›':'Otro QR'); };
+    prev.onclick=()=>{ if(i>0){ i--; show(); } };
+    next.onclick=async()=>{ if(i<list.length-1){ i++; show(); return; } next.disabled=true; try{ const r=await postJSON(`/api/center/logbook/dive/${dive.id}/qr`,{qty:1}); list.push(...r.qr); i=list.length-1; show(); }catch(err){ toast(err.message); } finally{ next.disabled=false; } };
+    $('#clb-qr-pdf',el).onclick=e=>wdFileDownload(`/api/center/logbook/dive/${dive.id}/qr.pdf`,`qr-inmersion-${dive.uid||dive.id}.pdf`,e.currentTarget);
+    show(); translateTree(el);
+  }
+  async function renderCenterLogbook(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    const d=await api('/api/center/logbook'); const canDive=wdCan('checkin'), canCover=wdCan('centro');
+    const cover=d.passport.cover, today=wdToday();
+    const tomorrow=(()=>{ const x=wdParseDate(today); x.setDate(x.getDate()+1); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; })();
+    const field=(id,label,attrs,cls='')=>`<div class="field ${cls}"><label for="${id}">${label}</label><input id="${id}" ${attrs}></div>`;
+    const row=x=>`<tr data-id="${x.id}"><td>${esc(wdLegalDate(x.dive_date))}</td><td><strong>${esc(x.site)}</strong><small>${esc([x.country,x.instructor].filter(Boolean).join(' · '))}</small></td>
+      <td class="num">${x.qr_used} / ${x.qr_total}</td><td class="clb-acts">${canDive?`<button type="button" class="btn btn-sm clb-more">Otro QR</button>`:''}<button type="button" class="btn btn-sm clb-pdf" ${x.qr_free?'':'disabled title="No quedan QR sin usar"'}>${wdIcon('download',14)} PDF</button></td></tr>`;
+    mount.innerHTML=`<div class="cb-module"><div class="cb-module-head"><div><p class="eyebrow">LOGBOOK DE TUS BUCEADORES</p><h2>Logbook y pasaporte</h2><p>Registra cada inmersión una vez y dale a cada buceador su QR: al escanearlo, la inmersión entra en su Log Book verificada por tu centro, y la fecha, el lugar, el país, el centro, la posición y el instructor ya no se pueden cambiar.</p></div></div>
+      <section class="cb-panel clb-invite"><div class="cb-panel-head"><div><p class="eyebrow">INVITA A TUS ALUMNOS</p><h3>Tu enlace de invitación</h3><p>Quien cree su cuenta con este enlace tendrá el logo de tu centro en la portada de su pasaporte de buceo, y el pasaporte desbloqueado.</p></div></div>
+        <div class="clb-link"><input id="clb-url" readonly value="${esc(d.invite_url)}" aria-label="Enlace de invitación" translate="no"><button type="button" class="btn btn-primary" id="clb-copy">Copiar enlace</button></div></section>
+      ${canCover?`<section class="cb-panel clb-cover"><div class="cb-panel-head"><div><p class="eyebrow">PORTADA DEL PASAPORTE</p><h3>Logo y nombre</h3><p>El logo, en PNG o SVG con fondo transparente, se graba en dorado en la portada del pasaporte de tus alumnos. Sin logo, ven la portada clásica.</p></div></div>
+        <div class="clb-cover-grid"><div class="clb-preview" aria-hidden="true">${cover?.logo?`<img src="${esc(cover.logo)}" alt="">`:'<span>Sin logo</span>'}<b translate="no">${esc(cover?.name||d.passport.name||d.center_name)}</b></div>
+          <form id="clb-cover-form" class="form-grid">${field('clb-name','Nombre en la portada',`maxlength="120" value="${esc(d.passport.name)}" placeholder="${esc(d.center_name)}"`,'full')}
+            ${field('clb-logo','Logo (PNG, WebP o SVG con fondo transparente)','type="file" accept="image/png,image/webp,image/svg+xml,.svg"','full')}
+            <div class="form-actions full"><button type="submit" class="btn btn-primary">Guardar la portada</button>${d.passport.logo?'<button type="button" class="btn" id="clb-logo-del">Quitar el logo</button>':''}</div></form></div></section>`:''}
+      ${canDive?`<section class="cb-panel"><div class="cb-panel-head"><div><p class="eyebrow">NUEVA INMERSIÓN</p><h3>Registrar una inmersión y sus QR</h3><p>Un QR por buceador: cada uno sirve una sola vez y caduca a los ${d.qr_days} días. Muéstralos en la pantalla uno detrás de otro o imprímelos.</p></div></div>
+        <form id="clb-form" class="form-grid clb-form" novalidate>
+          ${field('clb-date','Fecha',`type="date" required max="${tomorrow}" value="${today}"`)}${field('clb-site','Lugar','required maxlength="160" placeholder="Islas Medas · La Vaca"')}
+          ${field('clb-country','País / región',`maxlength="100" value="${esc(d.country)}"`)}${field('clb-instructor','Instructor o guía (nombre y nº)','required maxlength="120"')}
+          ${field('clb-depth','Prof. máx (m)','type="number" min="0" max="350" step="0.1" inputmode="decimal"')}${field('clb-time','Tiempo (min)','type="number" min="0" max="600" step="1" inputmode="numeric"')}
+          ${field('clb-temp','Agua (°C)','type="number" min="-2" max="40" step="0.1" inputmode="decimal"')}${field('clb-vis','Visibilidad (m)','type="number" min="0" max="100" step="1" inputmode="numeric"')}
+          ${field('clb-in','Entrada al agua','type="time"')}${field('clb-out','Salida del agua','type="time"')}
+          ${field('clb-gas','Gas','maxlength="40" list="clb-gases" placeholder="Aire"')}<datalist id="clb-gases"><option value="Aire"><option value="Nitrox 32"><option value="Nitrox 36"><option value="Trimix"></datalist>
+          <div class="field"><label for="clb-pos">Posición GPS (opcional)</label><div class="clb-pos"><input id="clb-pos" maxlength="60" placeholder="42.0473, 3.2257" inputmode="decimal" autocomplete="off"><button type="button" class="btn btn-sm" id="clb-here">${wdIcon('pin',14)} Aquí</button></div></div>
+          <fieldset class="field full clb-types"><legend>Tipo</legend>${LB_TYPES.map(([k,l])=>`<label><input type="checkbox" value="${k}"> ${l}</label>`).join('')}</fieldset>
+          <div class="field full"><label for="clb-notes">Observaciones · vida marina</label><textarea id="clb-notes" rows="2" maxlength="500"></textarea></div>
+          ${field('clb-qty','Buceadores (un QR para cada uno)','type="number" min="1" max="40" step="1" value="1" required')}
+          <div class="form-actions full"><button type="submit" class="btn btn-primary">${wdIcon('qr',16)} Crear la inmersión y sus QR</button></div><p class="clb-msg full" id="clb-msg" role="alert" hidden></p></form></section>`:''}
+      <section class="cb-panel"><div class="cb-panel-head"><div><p class="eyebrow">REGISTRADAS</p><h3>Inmersiones con QR</h3><p>QR usados de los creados. Un buceador que vuelve a escanear su QR no la duplica.</p></div></div>
+        ${d.dives.length?`<div class="table-wrap"><table class="data-table clb-table"><thead><tr><th>Fecha</th><th>Inmersión</th><th class="num">QR usados</th><th></th></tr></thead><tbody>${d.dives.map(row).join('')}</tbody></table></div>`
+          :'<p class="empty">Todavía no has registrado ninguna inmersión.</p>'}</section></div>`;
+    translateTree(mount);
+    $('#clb-copy',mount).onclick=async()=>{ const i=$('#clb-url',mount); try{ await navigator.clipboard.writeText(i.value); toast('Enlace copiado.'); }catch{ i.select(); toast('Selecciona y copia el enlace.'); } };
+    const coverForm=$('#clb-cover-form',mount);
+    if(coverForm) coverForm.onsubmit=async e=>{ e.preventDefault(); const btn=coverForm.querySelector('[type=submit]'); btn.disabled=true;
+      try{ await postJSON('/api/center/logbook/settings',{name:$('#clb-name',mount).value});
+        const f=$('#clb-logo',mount).files[0]; if(f){ const fd=new FormData(); fd.append('file',f); await api('/api/center/logbook/logo',{method:'POST',body:fd}); }
+        toast('Portada guardada.'); await renderCenterLogbook(mountId); }catch(err){ toast(err.message); btn.disabled=false; } };
+    $('#clb-logo-del',mount)?.addEventListener('click',async()=>{ try{ await postJSON('/api/center/logbook/logo',{remove:true}); toast('Logo quitado.'); await renderCenterLogbook(mountId); }catch(err){ toast(err.message); } });
+    const form=$('#clb-form',mount);
+    if(form){
+      $('#clb-here',mount).onclick=()=>{ if(!navigator.geolocation){ toast('Este dispositivo no da la ubicación.'); return; }
+        navigator.geolocation.getCurrentPosition(p=>{ $('#clb-pos',mount).value=`${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`; },()=>toast('No se ha podido obtener la ubicación.'),{enableHighAccuracy:true,timeout:10000}); };
+      form.onsubmit=async e=>{ e.preventDefault(); const msg=$('#clb-msg',mount); msg.hidden=true; if(!form.reportValidity()) return;
+        const v=id=>$(id,mount).value.trim(); let lat='',lon='';
+        const pos=v('#clb-pos'); if(pos){ const m=/^(-?\d{1,2}(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:[.,]\d+)?)$/.exec(pos); if(!m){ msg.textContent=translateString('Escribe la posición como 42.0473, 3.2257 (latitud, longitud).'); msg.hidden=false; return; } lat=m[1].replace(',','.'); lon=m[2].replace(',','.'); }
+        const body={date:v('#clb-date'),site:v('#clb-site'),country:v('#clb-country'),instructor:v('#clb-instructor'),depth:v('#clb-depth'),time:v('#clb-time'),temp:v('#clb-temp'),vis:v('#clb-vis'),
+          timeIn:v('#clb-in'),timeOut:v('#clb-out'),gas:v('#clb-gas'),lat,lon,types:$$('.clb-types input:checked',mount).map(x=>x.value),notes:v('#clb-notes'),qty:+v('#clb-qty')||1};
+        const btn=form.querySelector('[type=submit]'); btn.disabled=true;
+        try{ const r=await postJSON('/api/center/logbook/dive',body); await renderCenterLogbook(mountId);
+          clbShowQr({id:r.id,site:body.site,dive_date:body.date,instructor:body.instructor},r.qr); toast('Inmersión registrada.'); }
+        catch(err){ msg.textContent=err.message; msg.hidden=false; btn.disabled=false; } };
+    }
+    $$('.clb-table tr[data-id]',mount).forEach(tr=>{ const x=d.dives.find(i=>i.id===+tr.dataset.id);
+      tr.querySelector('.clb-more')?.addEventListener('click',async e=>{ const b=e.currentTarget; b.disabled=true; try{ const r=await postJSON(`/api/center/logbook/dive/${x.id}/qr`,{qty:1}); clbShowQr(x,r.qr); await renderCenterLogbook(mountId); }catch(err){ toast(err.message); b.disabled=false; } });
+      tr.querySelector('.clb-pdf').onclick=e=>wdFileDownload(`/api/center/logbook/dive/${x.id}/qr.pdf`,`qr-inmersion-${x.uid}.pdf`,e.currentTarget); });
   }
   // ---------------------------------------------------------------- v50.35 · WORLDIVES points (Fase 3)
   // Points are earned (diving, logging dives, completed bookings) or granted by a centre, and are exchanged only
@@ -5263,6 +5568,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <button class="cb-nav" data-cbtab="planning">▦ <span>Planning / agenda</span></button>
         <button class="cb-nav" data-cbtab="bookings">▣ <span>Reservas</span><b>${m.pending||0}</b></button>
         <button class="cb-nav" data-cbtab="clients">♙ <span>Clientes</span></button>
+        <button class="cb-nav" data-cbtab="logbook">✎ <span>Logbook y pasaporte</span></button>
         <div class="cb-section-title">VENTAS</div>
         <button class="cb-nav" data-cbtab="services">◈ <span>Servicios y tarifas</span></button>
         <button class="cb-nav" data-cbtab="experiences">✈ <span>Experiencias</span>${m.experience_requests?`<b>${m.experience_requests}</b>`:''}</button>
@@ -6004,12 +6310,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       else if(tab==='team'){content.innerHTML='<div id="cb-team"></div>'; await renderTeam('cb-team');}
       else if(tab==='avisos'){content.innerHTML='<div id="cb-avisos"></div>'; await renderNoticesPanel('cb-avisos');}
       else if(tab==='activity'){content.innerHTML='<div id="cb-activity"></div>'; await renderActivity('cb-activity');}
+      else if(tab==='logbook'){content.innerHTML='<div id="cb-logbook"></div>'; await renderCenterLogbook('cb-logbook');}
       else if(tab==='fiscal'){content.innerHTML='<div id="cb-fiscal"></div>'; await renderFiscalCard('cb-fiscal');}
       else if(tab==='plan'){content.innerHTML='<div id="cb-plan"></div>'; await renderMyPlan('cb-plan');}
     };
     // v50.49: each person sees the tabs their role allows (the server refuses the rest anyway).
     if((state.me?.member_role||'owner')!=='owner'){ $$('.cb-nav[data-owner]').forEach(n=>n.remove());
-      Object.entries({payments:'cobros',integration:'centro',vender:'centro',center:'centro',marina:'centro',analytics:'estadisticas',stats:'estadisticas',clients:'reservas',requests:'reservas'}).forEach(([t,p])=>{ if(!wdCan(p)) $$(`.cb-nav[data-cbtab="${t}"]`).forEach(n=>n.remove()); }); }
+      Object.entries({payments:'cobros',integration:'centro',vender:'centro',center:'centro',marina:'centro',analytics:'estadisticas',stats:'estadisticas',clients:'reservas',requests:'reservas'}).forEach(([t,p])=>{ if(!wdCan(p)) $$(`.cb-nav[data-cbtab="${t}"]`).forEach(n=>n.remove()); });
+      if(!wdCan('checkin')&&!wdCan('centro')) $$('.cb-nav[data-cbtab="logbook"]').forEach(n=>n.remove()); }
     { const pl=state.me?.plan; if(pl&&pl.status!=='active'){ const host=$('#cb-content'); host?.insertAdjacentHTML('beforebegin',`<div class="pl-bar ${pl.status==='expired'||pl.code==='free'?'is-free':''}">${wdIcon('info',16)} ${pl.status==='trial'?`Prueba gratuita del plan ${escapeHtml(pl.name)} hasta el ${escapeHtml(wdLegalDate(pl.expires_at))}.`:pl.status==='expired'?'Tu plan ha terminado: tu ficha sigue como ficha gratuita y no recibe reservas online nuevas.':'Ficha gratuita: recibes solicitudes de información.'} <a href="#/admin?tab=plan">Mi plan</a></div>`); } }
     nav.forEach(n=>n.onclick=()=>loadTab(n.dataset.cbtab));
     // v50.47 (B.6): someone who works for several centres changes the centre of this session explicitly.
@@ -6099,7 +6407,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const failed=[]; const soft=(p,fallback,label)=>Promise.resolve(p).catch(e=>{ console.error(e); failed.push([label,e?.message||'']); return fallback; }); const none={items:[]};
     const [pointsR,centersR,bookingsR,suggestionsR,claimsR,mapsInfo,clientsR,usersR,travelR,marinaR,auditR,rewardsR,meta]=await Promise.all([
       soft(isAdmin?api('/api/dive-points'):api('/api/center-points?center_id='+d.user.center_id),none,'Puntos de buceo'),
-      soft(api('/api/centers'),none,'Centros'), soft(api('/api/bookings'),none,'Reservas'),
+      soft(api('/api/centers'),none,'Centros'), soft(isAdmin?api('/api/admin/bookings/summary?periodo=temporada'):api('/api/bookings'),isAdmin?{totals:{},providers:[]}:none,'Reservas'),
       soft(api(isAdmin?'/api/admin/suggestions':'/api/my/position-suggestions'),none,'Sugerencias'),
       isAdmin?soft(api('/api/admin/center-claims'),none,'Altas de centros'):none,
       isAdmin?api('/api/admin/maps').catch(()=>null):null,
@@ -6112,6 +6420,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       soft(loadMeta(),{travel:[]},'Destinos')]);
     let points=pointsR.items||[];
     const centers=centersR.items||[]; state.centers=centers;
+    const bookSum=isAdmin?bookingsR:null;   // v50.57 (4.1): the administrator sees the bookings in figures
     const bookings=bookingsR.items||[], suggestions=suggestionsR.items||[], claims=claimsR.items||[], clients=clientsR.items||[];
     const users=usersR.items||[], travelExperiences=travelR.items||[], marinaPending=marinaR.count||0, audit=auditR.items||[], rewardOffers=rewardsR.items||[];
     const myCenter=!isAdmin?centers.find(c=>String(c.id)===String(d.user.center_id)):null;
@@ -6131,13 +6440,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       tabs.forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
       const c=$('#admin-content');
       const visibleBookings=(statusFilter&&t==='bookings')?bookings.filter(b=>b.status===statusFilter):bookings;
-      if(t==='overview') c.innerHTML=isAdmin?adminOverview(points,marinaPending,travelExperiences,users,centers,bookings):centerDashboard(bookings,points,clients,rewardOffers);
+      if(t==='overview') c.innerHTML=isAdmin?adminOverview(points,marinaPending,travelExperiences,users,centers,bookSum?.totals?.bookings||0):centerDashboard(bookings,points,clients,rewardOffers);
       if(t==='center'&&!isAdmin&&myCenter){c.innerHTML=centerProfileEditor(myCenter); bindCenterProfile(myCenter);}
       if(t==='payments'&&!isAdmin&&myCenter){c.innerHTML='<div id="center-payments-manager"></div>';renderCenterPayments(myCenter.id,'center-payments-manager');}
       if(t==='services'&&!isAdmin){c.innerHTML='<div id="center-services-manager"></div>';renderProviderServicesManager(d.user.id,'center','center-services-manager');}
       if(t==='points') c.innerHTML=isAdmin?adminPoints(points,true):`<div id="center-points-tab"></div>`; if(t==='points'&&!isAdmin) renderCenterPointManager(d.user.center_id,'center-points-tab');
-      if(t==='bookings') c.innerHTML=adminBookings(visibleBookings);
-      if(t==='users') c.innerHTML=adminUsers(users);
+      if(t==='bookings'){ if(isAdmin){ c.innerHTML=adminBookingsSummary(bookSum); bindAdminBookingsSummary(c,statusFilter); } else c.innerHTML=adminBookings(visibleBookings); }
+      if(t==='users') c.innerHTML=(usersR.masked?`<div class="notice wd-mask-note">${wdIcon('shield',16)} <span>Los correos se ven en parte. Verlos completos pide tu contraseña y el motivo.</span> <button type="button" class="btn btn-sm" id="users-full">Ver los correos completos</button></div>`:'')+adminUsers(users);
       if(t==='experiences') c.innerHTML=adminTravelExperiences(travelExperiences);
       if(t==='destinations') c.innerHTML=adminDestinations(meta.travel);
       if(t==='media'&&isAdmin){ c.innerHTML='<div id="site-theme-manager"></div><div id="site-media-manager"></div><div id="image-origins"></div>'; wdGuard('site-theme-manager',()=>renderThemeManager('site-theme-manager')); wdGuard('site-media-manager',()=>renderSiteMediaManager('site-media-manager')); wdGuard('image-origins',()=>renderImageOrigins('image-origins')); }
@@ -6145,7 +6454,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t==='adminpay'&&isAdmin){ c.innerHTML='<div id="admin-payments"></div>'; wdGuard('admin-payments',()=>renderAdminPayments('admin-payments')); }
       if(t==='emails'&&isAdmin){ c.innerHTML='<div id="admin-emails"></div>'; wdGuard('admin-emails',()=>renderAdminEmails('admin-emails')); }
       if(t==='legal'&&isAdmin){ c.innerHTML='<div id="admin-legal"></div>'; wdGuard('admin-legal',()=>renderAdminLegal('admin-legal')); }
-      if(t==='ops'&&isAdmin){ c.innerHTML='<div id="admin-ops"></div>'; wdGuard('admin-ops',()=>renderAdminOps('admin-ops')); }
+      if(t==='ops'&&isAdmin){ c.innerHTML='<div id="admin-settings"></div><div id="admin-ops"></div>'; wdGuard('admin-settings',()=>renderAdminSettings('admin-settings')); wdGuard('admin-ops',()=>renderAdminOps('admin-ops')); }
       if(t==='plans'&&isAdmin){ c.innerHTML='<div id="admin-plans"></div>'; wdGuard('admin-plans',()=>renderAdminPlans('admin-plans')); }
       if(t==='features'&&isAdmin){ c.innerHTML='<div id="admin-features"></div>'; wdGuard('admin-features',()=>renderAdminFeatures('admin-features')); }
       if(t==='maps'&&isAdmin){ c.innerHTML='<div id="admin-maps"></div>'; wdGuard('admin-maps',()=>renderAdminMaps('admin-maps')); }
@@ -6168,7 +6477,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const qsAdmin=new URLSearchParams(location.hash.split('?')[1]||'');
     const requested=qsAdmin.get('tab'); const statusFilter=qsAdmin.get('status');
     const centerTabs=['overview','bookings','services','clients','points','rewards','suggestions','qr','center','payments'];
-    show(isAdmin&&['moderation','privacy','adminpay','emails','legal','pointtexts','maps','plans','features','ops','media','promos','seguros','marina','virtual','audit','destinations','experiences','users','centers','claims','suggestions','qr','rewards','bookings','points'].includes(requested)?requested:(isAdmin?'overview':(centerTabs.includes(requested)?requested:'overview')));
+    // v50.57 (2.2): every tab of the menu can be opened by its address (before, «Plantillas» was missing from a hand-written
+    // list: its address, a reload or a link to it opened «Inicio»).
+    if(isAdmin){ $('.provider-topbar')?.insertAdjacentHTML('afterend','<div id="wd-conf-strip"></div>'); api('/api/admin/confirm').then(wdConfStrip).catch(()=>{}); }
+    const adminTabs=$$('.provider-tabs [data-tab]').map(b=>b.dataset.tab);
+    show(isAdmin&&adminTabs.includes(requested)?requested:(isAdmin?'overview':(centerTabs.includes(requested)?requested:'overview')));
   }
   // Shared by the center workspace and the legacy admin view.
   async function bindCenterProfile(c){
@@ -6177,7 +6490,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if(eqWrap){try{const eq=(await api('/api/center-equipment?center_id='+c.id)).items;eqWrap.innerHTML=eq.map(x=>`<div class="equipment-admin-row"><div><strong>${escapeHtml(x.label)}</strong></div><input class="center-equipment-price" data-code="${escapeHtml(x.code)}" type="number" min="0" step="0.01" value="${x.price==null?'':x.price}" placeholder="Consultar"><span>€</span><button class="btn save-equipment-price" data-code="${escapeHtml(x.code)}">Guardar</button></div>`).join('');$$('.save-equipment-price').forEach(btn=>btn.onclick=async()=>{const input=document.querySelector('.center-equipment-price[data-code="'+btn.dataset.code+'"]');try{await postJSON('/api/center-equipment',{code:btn.dataset.code,price:input.value});toast('Precio de equipo actualizado.');}catch(err){toast(err.message)}});}catch(e){eqWrap.innerHTML='<div class="empty">No se pudo cargar el catálogo de equipo.</div>';}}
     form.onsubmit=async e=>{e.preventDefault();try{await postJSON('/api/provider/center-update',{name:$('#mc-name').value,country:$('#mc-country').value,region:$('#mc-region').value,phone:$('#mc-phone').value,city:$('#mc-city').value,website:$('#mc-web').value,email:$('#mc-email').value,logo_url:$('#mc-logo').value,address:$('#mc-address').value,specialties:$('#mc-spec').value,description:$('#mc-desc').value,instagram_url:$('#mc-instagram').value,facebook_url:$('#mc-facebook').value,twitter_url:$('#mc-twitter').value,youtube_url:$('#mc-youtube').value,tiktok_url:$('#mc-tiktok').value});if($('#mc-photo').files[0]){const fd=new FormData();fd.append('file',$('#mc-photo').files[0]);await api('/api/provider/avatar',{method:'POST',body:fd});}toast('Ficha del centro actualizada.');renderAdmin();}catch(err){toast(err.message)}};
   }
-  function adminOverview(points,marinaPending,experiences,users,centers,bookings){return `<div class="cards" style="margin-top:18px"><a class="card" href="#/admin?tab=points"><span class="label">CATÁLOGO</span><h3>Gestionar puntos de buceo</h3><p>${points.length} puntos activos. Crear, editar, archivar y corregir ubicaciones.</p></a><a class="card" href="#/admin?tab=marina"><span class="label">VIDA MARINA Y VÍDEOS</span><h3>Especies y vídeos de las rutas</h3><p>${marinaPending?`<b class="status warn">${marinaPending}</b> <span>propuestas pendientes de aprobar.</span>`:'<span>Catálogo de especies, vídeos enlazados y propuestas de centros y freelance.</span>'}</p></a><a class="card" href="#/admin?tab=experiences"><span class="label">MARKETPLACE</span><h3>Gestionar experiencias</h3><p>${experiences.length} propuestas y viajes publicados o pendientes de revisión.</p></a><a class="card" href="#/admin?tab=destinations"><span class="label">DESTINOS</span><h3>Gestionar destinos</h3><p>Crea y organiza los destinos que alimentan la sección Experiencias.</p></a><a class="card" href="#/admin?tab=users"><span class="label">CUENTAS</span><h3>Usuarios y permisos</h3><p>${users.length} cuentas. Cambia roles entre administrador, centro, freelance y buceador.</p></a><a class="card" href="#/admin?tab=centers"><span class="label">PROVEEDORES</span><h3>Centros de buceo</h3><p>${centers.length} centros y sus puntos asociados.</p></a><a class="card" href="#/admin?tab=bookings"><span class="label">OPERACIÓN</span><h3>Reservas</h3><p>${bookings.length} reservas y solicitudes.</p></a><a class="card" href="#/admin?tab=audit"><span class="label">CONTROL</span><h3>Actividad administrativa</h3><p>Consulta quién creó, modificó, publicó o eliminó contenido.</p></a></div>`}
+  function adminOverview(points,marinaPending,experiences,users,centers,nBookings){return `<div class="cards" style="margin-top:18px"><a class="card" href="#/admin?tab=points"><span class="label">CATÁLOGO</span><h3>Gestionar puntos de buceo</h3><p>${points.length} puntos activos. Crear, editar, archivar y corregir ubicaciones.</p></a><a class="card" href="#/admin?tab=marina"><span class="label">VIDA MARINA Y VÍDEOS</span><h3>Especies y vídeos de las rutas</h3><p>${marinaPending?`<b class="status warn">${marinaPending}</b> <span>propuestas pendientes de aprobar.</span>`:'<span>Catálogo de especies, vídeos enlazados y propuestas de centros y freelance.</span>'}</p></a><a class="card" href="#/admin?tab=experiences"><span class="label">MARKETPLACE</span><h3>Gestionar experiencias</h3><p>${experiences.length} propuestas y viajes publicados o pendientes de revisión.</p></a><a class="card" href="#/admin?tab=destinations"><span class="label">DESTINOS</span><h3>Gestionar destinos</h3><p>Crea y organiza los destinos que alimentan la sección Experiencias.</p></a><a class="card" href="#/admin?tab=users"><span class="label">CUENTAS</span><h3>Usuarios y permisos</h3><p>${users.length} cuentas. Cambia roles entre administrador, centro, freelance y buceador.</p></a><a class="card" href="#/admin?tab=centers"><span class="label">PROVEEDORES</span><h3>Centros de buceo</h3><p>${centers.length} centros y sus puntos asociados.</p></a><a class="card" href="#/admin?tab=bookings"><span class="label">OPERACIÓN</span><h3>Reservas</h3><p>${Number(nBookings).toLocaleString(wdLocale())} reservas esta temporada, en cifras.</p></a><a class="card" href="#/admin?tab=audit"><span class="label">CONTROL</span><h3>Actividad administrativa</h3><p>Consulta quién creó, modificó, publicó o eliminó contenido.</p></a></div>`}
 
   function adminDestinations(items){return `<div class="notice"><strong>Destinos de Experiencias</strong><p>Estos destinos alimentan la sección Experiencias. Puedes crear nuevos destinos desde aquí.</p></div><div class="page-actions" style="margin-top:14px"><button class="btn btn-primary" id="new-destination">Nuevo destino</button></div><div class="table-wrap"><table><thead><tr><th>Destino</th><th>Región</th><th>Tipo</th><th></th></tr></thead><tbody>${items.map(t=>`<tr><td><span class="dst-thumb">${t.image_path?`<img src="${escapeHtml(t.image_path)}" alt="">`:''}</span>${escapeHtml(t.title)}</td><td>${escapeHtml(t.region)}</td><td>${escapeHtml(t.kind)}</td><td><button class="btn edit-destination" data-id="${t.id}">Editar</button></td></tr>`).join('')}</tbody></table></div>`}
   // v50.54: the actions of this version with a readable name (the rest keep their code, as before).
@@ -6210,7 +6523,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
   function adminUsers(items){ const centers=state.centers||[]; return `<div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Centro</th><th>Alta</th><th></th></tr></thead><tbody>${items.map(u=>`<tr><td>${escapeHtml(u.fullname)}</td><td>${escapeHtml(u.email)}</td><td><select class="user-role" data-id="${u.id}"><option value="recreational" ${u.role==='recreational'?'selected':''}>Recreativo</option><option value="center" ${u.role==='center'?'selected':''}>Centro</option><option value="freelance" ${u.role==='freelance'?'selected':''}>Freelance</option><option value="admin" ${u.role==='admin'?'selected':''}>Administrador</option></select></td><td><select class="user-center" data-id="${u.id}"><option value="">—</option>${centers.map(c=>`<option value="${c.id}" ${String(c.id)===String(u.center_id||'')?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select></td><td>${fmtDate(u.created_at)}</td><td><button class="btn save-role" data-id="${u.id}">Guardar</button> <button class="btn close-sessions" data-id="${u.id}" data-name="${escapeHtml(u.fullname||'')}" type="button">Cerrar sesiones</button></td></tr>`).join('')}</tbody></table></div>`}
 
-  async function proposePointPosition(id){ const p=(await api('/api/dive-points/'+id)).item; setApp(`<section class="page">${wdCrumbs([wdHomeCrumb(),['Puntos de buceo','#/admin?tab=points'],['Proponer corrección · '+(p.name||'punto')]],'#/admin?tab=points')}<p class="eyebrow">CORRECCIÓN</p><h1>${escapeHtml(p.name)}</h1><p class="lead">Propón la posición que consideres correcta. No se publicará hasta que el administrador la revise.</p><form id="position-proposal" class="detail" style="margin-top:28px"><article class="detail-main"><div class="form-grid"><div class="field"><label>Latitud</label><input id="s-lat" type="number" step="0.000001" value="${p.latitude}" required></div><div class="field"><label>Longitud</label><input id="s-lon" type="number" step="0.000001" value="${p.longitude}" required></div><div class="field full"><label>Motivo / referencia</label><textarea id="s-note" placeholder="Coordenadas tomadas por el centro, GPS de la embarcación, carta náutica, etc." required></textarea></div></div><div class="form-actions"><button class="btn btn-primary">Enviar corrección</button><a class="btn" href="#/admin">Cancelar</a></div></article></form></section>`); $('#position-proposal').onsubmit=async e=>{e.preventDefault();try{await postJSON('/api/dive-points/'+id+'/suggest',{latitude:+$('#s-lat').value,longitude:+$('#s-lon').value,note:$('#s-note').value});toast('Corrección enviada al administrador.');wdGo('#/admin?tab=suggestions');}catch(err){toast(err.message)}}; }
+  async function proposePointPosition(id){ const p=(await api('/api/dive-points/'+id)).item; setApp(`<section class="page">${wdCrumbs([wdHomeCrumb(),['Puntos de buceo','#/admin?tab=points'],['Proponer corrección · '+(p.name||'punto')]],'#/admin?tab=points')}<p class="eyebrow">CORRECCIÓN</p><h1>${escapeHtml(p.name)}</h1><p class="lead">Propón la posición que consideres correcta. No se publicará hasta que el administrador la revise.</p><form id="position-proposal" class="detail" style="margin-top:28px"><article class="detail-main"><div class="form-grid"><div class="field"><label>Latitud</label><input id="s-lat" type="number" step="0.000001" value="${p.latitude}" required></div><div class="field"><label>Longitud</label><input id="s-lon" type="number" step="0.000001" value="${p.longitude}" required></div><div class="field full"><label>Motivo / referencia</label><textarea id="s-note" placeholder="Coordenadas tomadas por el centro, GPS de la embarcación, carta náutica, etc." required></textarea></div></div><div class="form-actions"><button class="btn btn-primary">Enviar corrección</button><a class="btn" href="#/admin?tab=points">Cancelar</a></div></article></form></section>`); $('#position-proposal').onsubmit=async e=>{e.preventDefault();try{await postJSON('/api/dive-points/'+id+'/suggest',{latitude:+$('#s-lat').value,longitude:+$('#s-lon').value,note:$('#s-note').value});toast('Corrección enviada al administrador.');wdGo('#/admin?tab=suggestions');}catch(err){toast(err.message)}}; }
   function providerSuggestions(items){return `<div class="notice"><strong>Correcciones de puntos</strong><p>Como centro o profesional puedes proponer una nueva posición para cualquier punto. La ubicación oficial solo cambia cuando el administrador la aprueba.</p></div><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Punto</th><th>Propuesta</th><th>Estado</th><th>Motivo</th></tr></thead><tbody>${items.map(s=>`<tr><td>${escapeHtml(s.point_name)}</td><td>${Number(s.latitude).toFixed(6)}, ${Number(s.longitude).toFixed(6)}</td><td>${escapeHtml(s.status)}</td><td>${escapeHtml(s.note||'')}</td></tr>`).join('')||'<tr><td colspan="4">Todavía no has enviado correcciones.</td></tr>'}</tbody></table></div>`}
   function adminSuggestions(items){return `<div class="notice">Una corrección aprobada sustituye las coordenadas oficiales del punto y queda registrada.</div><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Punto</th><th>Propuesta</th><th>Usuario</th><th>Motivo</th><th></th></tr></thead><tbody>${items.map(s=>`<tr><td>${escapeHtml(s.point_name)}</td><td>${Number(s.latitude).toFixed(6)}, ${Number(s.longitude).toFixed(6)}</td><td>${escapeHtml(s.fullname)}</td><td>${escapeHtml(s.note||'')}</td><td><button class="btn review-s" data-id="${s.id}" data-decision="approve">Aprobar</button><button class="btn" data-id="${s.id}" data-decision="reject">Rechazar</button></td></tr>`).join('')||'<tr><td colspan="5">No hay correcciones pendientes.</td></tr>'}</tbody></table></div>`}
   function adminTravelExperiences(items){return `<div class="notice"><strong>Experiencias de viaje</strong><p>Los centros y profesionales pueden proponer viajes. Desde aquí el administrador puede publicar o rechazar cada propuesta.</p></div><div class="table-wrap" style="margin-top:18px"><table><thead><tr><th>Experiencia</th><th>Destino</th><th>Proveedor</th><th>Fechas</th><th>Estado</th><th></th></tr></thead><tbody>${items.map(e=>`<tr><td>${escapeHtml(e.title)}</td><td>${escapeHtml(e.destination_title)}</td><td>${escapeHtml(e.center_name||e.provider_name||'')}</td><td>${escapeHtml(e.start_date||'')}</td><td>${escapeHtml(e.status)}</td><td>${e.status==='published'?'<span class="status good">Publicada</span>':`<button class="btn experience-status" data-id="${e.id}" data-status="published">Publicar</button> <button class="btn experience-status" data-id="${e.id}" data-status="rejected">Rechazar</button>`}${e.status!=='hidden'?` <button class="btn mod-hide-btn" type="button" data-mod-type="experience" data-id="${e.id}" data-label="${escapeHtml(e.title)}">Ocultar…</button>`:' <a class="btn" href="#/admin?tab=moderation">Ver en Moderación</a>'}</td></tr>`).join('')||'<tr><td colspan="6">No hay propuestas.</td></tr>'}</tbody></table></div>`}
@@ -6219,7 +6532,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function adminCenters(items){return `<div class="page-actions"><button class="btn btn-primary" id="new-center">Nuevo centro</button></div><div class="table-wrap"><table><thead><tr><th>Centro</th><th>Ubicación</th><th>Especialidades</th><th>Puntos</th><th></th></tr></thead><tbody>${items.map(c=>`<tr><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.city||'')} · ${escapeHtml(c.country)}</td><td>${escapeHtml(c.specialties||'')}</td><td>${c.point_count||0}</td><td>${c.has_owner?'':`<button class="btn edit-center" data-id="${c.id}">Editar</button> `}<button class="btn mod-hide-btn" type="button" data-mod-type="center" data-id="${c.id}" data-label="${escapeHtml(c.name)}">Ocultar…</button>${c.has_owner?'<small class="muted" style="display:block">Lo gestiona su titular</small>':''}</td></tr>`).join('')||'<tr><td colspan="5">No hay centros.</td></tr>'}</tbody></table></div>`}
   function adminClients(items){ return `<div class="notice">Clientes que han escaneado el QR del centro o han quedado vinculados por una reserva.</div><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Cliente</th><th>Email</th><th>Primer check-in</th><th>Último</th></tr></thead><tbody>${items.map(u=>`<tr><td>${escapeHtml(u.fullname)}</td><td>${escapeHtml(u.email)}</td><td>${fmtDate(u.first_checkin)}</td><td>${fmtDate(u.last_checkin)}</td></tr>`).join('')||'<tr><td colspan="4">Todavía no hay clientes asociados.</td></tr>'}</tbody></table></div>` }
   function adminQR(){return `<div class="notice">Genera un QR para la recepción de un centro. El cliente lo escanea con el móvil; si ya ha iniciado sesión, el centro queda asociado a su cuenta.</div><form id="qr-form" style="margin-top:14px" class="form-grid"><div class="field"><label>Centro</label><select id="qr-center" required></select></div><div class="field"><label>Etiqueta</label><input id="qr-label" value="Recepción"></div><div class="full form-actions"><button class="btn btn-primary">Crear QR</button></div></form><div id="qr-output" style="margin-top:18px"></div>`}
-  function bindAdmin(tab){ if(tab==='audit') wdBindExports($('#admin-content')); if(tab==='destinations'){ $('#new-destination')?.addEventListener('click',()=>wdGo('#/admin?tab=destinations&edit=nuevo')); $$('.edit-destination').forEach(b=>b.onclick=()=>wdGo('#/admin?tab=destinations&edit='+b.dataset.id)); } if(tab==='points'){ $('#new-point')?.addEventListener('click',()=>wdGo('#/admin?tab=points&edit=nuevo')); $$('.edit-point').forEach(b=>b.onclick=()=>wdGo('#/admin?tab=points&edit='+b.dataset.id)); $$('.propose-point').forEach(b=>b.onclick=()=>wdGo('#/admin?tab=points&proponer='+b.dataset.id)); } if(tab==='centers'){ $('#new-center')?.addEventListener('click',()=>wdGo('#/admin?tab=centers&edit=nuevo')); $$('.edit-center').forEach(b=>b.onclick=()=>wdGo('#/admin?tab=centers&edit='+b.dataset.id)); } if(tab==='bookings'){ $$('.booking-detail').forEach(b=>b.onclick=()=>wdGo('#/reserva?id='+b.dataset.id)); } if(tab==='bookings') $$('.booking-status').forEach(b=>b.onclick=async()=>{try{await postJSON('/api/bookings/'+b.dataset.id+'/status',{status:b.dataset.status});toast('Estado actualizado.');renderAdmin();}catch(e){toast(e.message)}}); if(tab==='experiences') $$('.experience-status').forEach(b=>b.onclick=async()=>{try{await postJSON('/api/admin/travel-experiences/status',{id:+b.dataset.id,status:b.dataset.status});toast('Estado actualizado.');renderAdmin();}catch(e){toast(e.message)}}); if(tab==='users') $$('.save-role').forEach(b=>b.onclick=async()=>{try{const id=b.dataset.id;const role=document.querySelector('.user-role[data-id="'+id+'"]').value;const centerEl=document.querySelector('.user-center[data-id="'+id+'"]');const center_id=+(centerEl?.value||0)||null;await postJSON('/api/admin/users/role',{user_id:+id,role,center_id});toast('Rol actualizado.');}catch(e){toast(e.message)}});
+  function bindAdmin(tab){ if(tab==='audit') wdBindExports($('#admin-content')); if(tab==='destinations'){ $('#new-destination')?.addEventListener('click',()=>wdGo('#/admin?tab=destinations&edit=nuevo')); $$('.edit-destination').forEach(b=>b.onclick=()=>wdGo('#/admin?tab=destinations&edit='+b.dataset.id)); } if(tab==='points'){ $('#new-point')?.addEventListener('click',()=>wdGo('#/admin?tab=points&edit=nuevo')); $$('.edit-point').forEach(b=>b.onclick=()=>wdGo('#/admin?tab=points&edit='+b.dataset.id)); $$('.propose-point').forEach(b=>b.onclick=()=>wdGo('#/admin?tab=points&proponer='+b.dataset.id)); } if(tab==='centers'){ $('#new-center')?.addEventListener('click',()=>wdGo('#/admin?tab=centers&edit=nuevo')); $$('.edit-center').forEach(b=>b.onclick=()=>wdGo('#/admin?tab=centers&edit='+b.dataset.id)); } if(tab==='bookings'){ $$('.booking-detail').forEach(b=>b.onclick=()=>wdGo('#/reserva?id='+b.dataset.id)); } if(tab==='bookings') $$('.booking-status').forEach(b=>b.onclick=async()=>{try{await postJSON('/api/bookings/'+b.dataset.id+'/status',{status:b.dataset.status});toast('Estado actualizado.');renderAdmin();}catch(e){toast(e.message)}}); if(tab==='experiences') $$('.experience-status').forEach(b=>b.onclick=async()=>{try{await postJSON('/api/admin/travel-experiences/status',{id:+b.dataset.id,status:b.dataset.status});toast('Estado actualizado.');renderAdmin();}catch(e){toast(e.message)}}); if(tab==='users') $('#users-full')?.addEventListener('click',async()=>{ if(await wdAdminGate('confirm')) route(); }); if(tab==='users') $$('.save-role').forEach(b=>b.onclick=async()=>{try{const id=b.dataset.id;const role=document.querySelector('.user-role[data-id="'+id+'"]').value;const centerEl=document.querySelector('.user-center[data-id="'+id+'"]');const center_id=+(centerEl?.value||0)||null;await postJSON('/api/admin/users/role',{user_id:+id,role,center_id});toast('Rol actualizado.');}catch(e){toast(e.message)}});
     if(tab==='users') $$('.close-sessions').forEach(b=>b.onclick=()=>{ // v50.51 (ASVS V7.4.5)
       const {el,close}=wdOpenModal({id:'adm-sess',size:'sm',title:'Cerrar las sesiones de '+escapeHtml(b.dataset.name),body:'<div class="field"><label for="as-reason">Motivo (queda en el registro)</label><input id="as-reason" maxlength="300"></div>',
         footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="as-ok">Cerrar sesiones</button>'});
@@ -6245,7 +6558,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let p={name:'',country:'España',region:'',dive_type:'Arrecifes',latitude:38.5,longitude:-0.13,difficulty:'Intermedio',min_depth:'',max_depth:'',description:'',access_info:'',center_id:''};
     if(id){p=(await api('/api/dive-points/'+id)).item;} else if(state.me?.user?.role==='center'){p.center_id=state.me.user.center_id;}
     const meta=await loadMeta(); const cs=(await api('/api/centers')).items;
-    setApp(`<section class="page">${wdCrumbs([wdHomeCrumb(),['Puntos de buceo','#/admin?tab=points'],[id?'Editar '+(p.name||'punto'):'Nuevo punto']],'#/admin?tab=points')}<p class="eyebrow">CATÁLOGO</p><h1>${id?'Editar punto':'Nuevo punto'}</h1><p class="lead">La posición se puede introducir manualmente o seleccionando una localización en el mapa detallado.</p><form id="point-form" style="margin-top:28px"><div class="form-grid"><div class="field full"><label>Nombre</label><input id="p-name" value="${escapeHtml(p.name)}" required></div><div class="field"><label>País</label><select id="p-country">${meta.countries.map(x=>`<option ${x.name===p.country?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></div><div class="field"><label>Región / referencia</label><input id="p-region" value="${escapeHtml(p.region||'')}"></div><div class="field"><label>Tipo</label><select id="p-type">${meta.types.map(x=>`<option ${x.name===p.dive_type?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></div><div class="field"><label>Dificultad</label><select id="p-diff"><option ${p.difficulty==='Iniciación'?'selected':''}>Iniciación</option><option ${p.difficulty==='Intermedio'?'selected':''}>Intermedio</option><option ${p.difficulty==='Avanzado'?'selected':''}>Avanzado</option></select></div><div class="field"><label>Latitud</label><input id="p-lat" type="number" step="0.000001" value="${p.latitude}"></div><div class="field"><label>Longitud</label><input id="p-lon" type="number" step="0.000001" value="${p.longitude}"></div><div class="field"><label>Profundidad mínima</label><input id="p-min" type="number" step="0.1" value="${p.min_depth??''}"></div><div class="field"><label>Profundidad máxima</label><input id="p-max" type="number" step="0.1" value="${p.max_depth??''}"></div><div class="field"><label>Centro asociado</label>${state.me?.user?.role==='center'?`<input value="${escapeHtml(cs.find(c=>String(c.id)===String(state.me.user.center_id))?.name||'Mi centro')}" disabled><input id="p-center" type="hidden" value="${state.me.user.center_id}">`:`<select id="p-center"><option value="">Sin asignar</option>${cs.map(c=>`<option value="${c.id}" ${String(c.id)===String(p.center_id||'')?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select>`}</div><div class="field"><label>Orientación de titulación</label><select id="p-cert"><option value="">Automática según dificultad/tipo</option>${meta.certifications.map(c=>`<option value="${c.id}" ${String(c.id)===String(p.recommended_certification_id||'')?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select></div><div class="field full"><label>Descripción</label><textarea id="p-desc">${escapeHtml(p.description||'')}</textarea></div><div class="field full"><label>Acceso / notas operativas</label><textarea id="p-access">${escapeHtml(p.access_info||'')}</textarea></div></div><div class="notice" style="margin-top:18px"><strong>Ajustar ubicación en el mapa</strong><br><small>Arrastra el marcador o haz clic en otra posición. Las coordenadas se actualizan automáticamente.</small><div id="point-editor-map" class="map-card" style="height:320px;margin-top:12px"></div></div><div class="form-actions"><a class="btn" href="#/admin">Cancelar</a><button class="btn btn-primary">Guardar punto</button></div></form>${id?pointConditionsForm(p):''}${id?`<div class="notice mk-notice" style="margin-top:18px"><strong>Vídeos de la ruta y vida marina</strong><div id="marina-point-editor"></div></div><div class="notice" style="margin-top:18px"><strong>Material de apoyo del punto</strong><form id="point-photo-form" data-point-id="${id}" enctype="multipart/form-data" style="margin-top:10px"><div class="field"><label>Imagen</label><input name="file" type="file" accept=".jpg,.jpeg,.png,.webp" required></div><div class="field"><label>Descripción</label><input name="caption"></div><button class="btn" type="submit">Subir fotografía</button></form></div>`:''}</section>`);
+    setApp(`<section class="page">${wdCrumbs([wdHomeCrumb(),['Puntos de buceo','#/admin?tab=points'],[id?'Editar '+(p.name||'punto'):'Nuevo punto']],'#/admin?tab=points')}<p class="eyebrow">CATÁLOGO</p><h1>${id?'Editar punto':'Nuevo punto'}</h1><p class="lead">La posición se puede introducir manualmente o seleccionando una localización en el mapa detallado.</p><form id="point-form" style="margin-top:28px"><div class="form-grid"><div class="field full"><label>Nombre</label><input id="p-name" value="${escapeHtml(p.name)}" required></div><div class="field"><label>País</label><select id="p-country">${meta.countries.map(x=>`<option ${x.name===p.country?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></div><div class="field"><label>Región / referencia</label><input id="p-region" value="${escapeHtml(p.region||'')}"></div><div class="field"><label>Tipo</label><select id="p-type">${meta.types.map(x=>`<option ${x.name===p.dive_type?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></div><div class="field"><label>Dificultad</label><select id="p-diff"><option ${p.difficulty==='Iniciación'?'selected':''}>Iniciación</option><option ${p.difficulty==='Intermedio'?'selected':''}>Intermedio</option><option ${p.difficulty==='Avanzado'?'selected':''}>Avanzado</option></select></div><div class="field"><label>Latitud</label><input id="p-lat" type="number" step="0.000001" value="${p.latitude}"></div><div class="field"><label>Longitud</label><input id="p-lon" type="number" step="0.000001" value="${p.longitude}"></div><div class="field"><label>Profundidad mínima</label><input id="p-min" type="number" step="0.1" value="${p.min_depth??''}"></div><div class="field"><label>Profundidad máxima</label><input id="p-max" type="number" step="0.1" value="${p.max_depth??''}"></div><div class="field"><label>Centro asociado</label>${state.me?.user?.role==='center'?`<input value="${escapeHtml(cs.find(c=>String(c.id)===String(state.me.user.center_id))?.name||'Mi centro')}" disabled><input id="p-center" type="hidden" value="${state.me.user.center_id}">`:`<select id="p-center"><option value="">Sin asignar</option>${cs.map(c=>`<option value="${c.id}" ${String(c.id)===String(p.center_id||'')?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select>`}</div><div class="field"><label>Orientación de titulación</label><select id="p-cert"><option value="">Automática según dificultad/tipo</option>${meta.certifications.map(c=>`<option value="${c.id}" ${String(c.id)===String(p.recommended_certification_id||'')?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select></div><div class="field full"><label>Descripción</label><textarea id="p-desc">${escapeHtml(p.description||'')}</textarea></div><div class="field full"><label>Acceso / notas operativas</label><textarea id="p-access">${escapeHtml(p.access_info||'')}</textarea></div></div><div class="notice" style="margin-top:18px"><strong>Ajustar ubicación en el mapa</strong><br><small>Arrastra el marcador o haz clic en otra posición. Las coordenadas se actualizan automáticamente.</small><div id="point-editor-map" class="map-card" style="height:320px;margin-top:12px"></div></div><div class="form-actions"><a class="btn" href="#/admin?tab=points">Cancelar</a><button class="btn btn-primary">Guardar punto</button></div></form>${id?pointConditionsForm(p):''}${id?`<div class="notice mk-notice" style="margin-top:18px"><strong>Vídeos de la ruta y vida marina</strong><div id="marina-point-editor"></div></div><div class="notice" style="margin-top:18px"><strong>Material de apoyo del punto</strong><form id="point-photo-form" data-point-id="${id}" enctype="multipart/form-data" style="margin-top:10px"><div class="field"><label>Imagen</label><input name="file" type="file" accept=".jpg,.jpeg,.png,.webp" required></div><div class="field"><label>Descripción</label><input name="caption"></div><button class="btn" type="submit">Subir fotografía</button></form></div>`:''}</section>`);
     $('#point-form').onsubmit=async e=>{e.preventDefault();const data={id,name:$('#p-name').value,country:$('#p-country').value,region:$('#p-region').value,dive_type:$('#p-type').value,latitude:+$('#p-lat').value,longitude:+$('#p-lon').value,difficulty:$('#p-diff').value,min_depth:$('#p-min').value,max_depth:$('#p-max').value,center_id:+($('#p-center').value||0)||null,description:$('#p-desc').value,access_info:$('#p-access').value}; try{if(id) await postJSON('/api/dive-points/update',data,'POST'); else await postJSON('/api/dive-points',data);toast('Guardado.');wdGo('#/admin?tab=points');}catch(err){toast(err.message)}};
     if(id){
       bindPointConditions(id);
@@ -7192,9 +7505,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
 
 
-  document.addEventListener('submit', async e=>{
-    if(e.target?.id==='point-photo-form'){ e.preventDefault(); const pid=e.target.dataset.pointId; try{ await api('/api/dive-points/'+pid+'/photos',{method:'POST',body:new FormData(e.target)}); toast('Fotografía subida.'); editPointForm(+pid); }catch(err){ toast(err.message); } }
-  });
+  // v50.57 (2.2): the photo form of the point editor has its own handler (editPointForm); a second one here sent each
+  // photo twice.
 
   navMobile();
   setTimeout(()=>$('.header-tools')?.classList.add('is-ready'),4000);   // never hidden for long if the server is slow

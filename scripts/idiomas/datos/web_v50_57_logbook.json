@@ -1,0 +1,2111 @@
+{
+ "exact": {
+  "+ Añadir inmersión": {
+   "en": "+ Add dive",
+   "fr": "+ Ajouter une plongée",
+   "de": "+ Tauchgang hinzufügen",
+   "it": "+ Aggiungi immersione",
+   "pt": "+ Adicionar mergulho",
+   "pl": "+ Dodaj nurkowanie",
+   "nl": "+ Duik toevoegen",
+   "zh": "+ 添加潜水"
+  },
+  "Mis datos": {
+   "en": "My details",
+   "fr": "Mes données",
+   "de": "Meine Daten",
+   "it": "I miei dati",
+   "pt": "Os meus dados",
+   "pl": "Moje dane",
+   "nl": "Mijn gegevens",
+   "zh": "我的资料"
+  },
+  "Ver como lista": {
+   "en": "View as a list",
+   "fr": "Afficher en liste",
+   "de": "Als Liste anzeigen",
+   "it": "Mostra come elenco",
+   "pt": "Ver como lista",
+   "pl": "Pokaż jako listę",
+   "nl": "Als lijst tonen",
+   "zh": "以列表查看"
+  },
+  "Ver como pasaporte": {
+   "en": "View as a passport",
+   "fr": "Afficher en passeport",
+   "de": "Als Pass anzeigen",
+   "it": "Mostra come passaporto",
+   "pt": "Ver como passaporte",
+   "pl": "Pokaż jako paszport",
+   "nl": "Als paspoort tonen",
+   "zh": "以护照查看"
+  },
+  "Vista pasaporte: se desbloquea con tu primera inmersión en un centro de buceo": {
+   "en": "Passport view: it unlocks with your first dive at a dive centre",
+   "fr": "Vue passeport : elle se débloque avec votre première plongée dans un centre de plongée",
+   "de": "Passansicht: Sie wird mit deinem ersten Tauchgang in einem Tauchzentrum freigeschaltet",
+   "it": "Vista passaporto: si sblocca con la tua prima immersione in un centro diving",
+   "pt": "Vista de passaporte: desbloqueia-se com o teu primeiro mergulho num centro de mergulho",
+   "pl": "Widok paszportu: odblokowuje się po pierwszym nurkowaniu w centrum nurkowym",
+   "nl": "Paspoortweergave: wordt ontgrendeld met je eerste duik bij een duikcentrum",
+   "zh": "护照视图：在潜水中心完成第一次潜水后解锁"
+  },
+  "Lo has encontrado. Vista pasaporte desbloqueada.": {
+   "en": "You found it. Passport view unlocked.",
+   "fr": "Vous l'avez trouvé. Vue passeport débloquée.",
+   "de": "Gefunden! Passansicht freigeschaltet.",
+   "it": "L'hai trovato. Vista passaporto sbloccata.",
+   "pt": "Encontraste-o. Vista de passaporte desbloqueada.",
+   "pl": "Udało się. Widok paszportu odblokowany.",
+   "nl": "Gevonden! Paspoortweergave ontgrendeld.",
+   "zh": "被你发现了！护照视图已解锁。"
+  },
+  "La vista pasaporte se desbloquea con tu primera inmersión registrada en un centro de buceo.": {
+   "en": "The passport view unlocks with your first dive registered at a dive centre.",
+   "fr": "La vue passeport se débloque avec votre première plongée enregistrée dans un centre de plongée.",
+   "de": "Die Passansicht wird mit deinem ersten Tauchgang freigeschaltet, den ein Tauchzentrum einträgt.",
+   "it": "La vista passaporto si sblocca con la tua prima immersione registrata in un centro diving.",
+   "pt": "A vista de passaporte desbloqueia-se com o teu primeiro mergulho registado num centro de mergulho.",
+   "pl": "Widok paszportu odblokowuje się po pierwszym nurkowaniu zarejestrowanym w centrum nurkowym.",
+   "nl": "De paspoortweergave wordt ontgrendeld met je eerste duik die een duikcentrum registreert.",
+   "zh": "护照视图会在潜水中心为你登记第一次潜水后解锁。"
+  },
+  "Todavía no hay inmersiones registradas": {
+   "en": "No dives logged yet",
+   "fr": "Aucune plongée enregistrée pour l'instant",
+   "de": "Noch keine Tauchgänge eingetragen",
+   "it": "Ancora nessuna immersione registrata",
+   "pt": "Ainda não há mergulhos registados",
+   "pl": "Brak zapisanych nurkowań",
+   "nl": "Nog geen duiken geregistreerd",
+   "zh": "还没有潜水记录"
+  },
+  "Añade tu primera inmersión o escanea el QR de tu centro de buceo.": {
+   "en": "Add your first dive or scan your dive centre's QR code.",
+   "fr": "Ajoutez votre première plongée ou scannez le QR de votre centre de plongée.",
+   "de": "Trage deinen ersten Tauchgang ein oder scanne den QR-Code deines Tauchzentrums.",
+   "it": "Aggiungi la tua prima immersione o scansiona il QR del tuo centro diving.",
+   "pt": "Adiciona o teu primeiro mergulho ou lê o QR do teu centro de mergulho.",
+   "pl": "Dodaj pierwsze nurkowanie lub zeskanuj kod QR swojego centrum nurkowego.",
+   "nl": "Voeg je eerste duik toe of scan de QR-code van je duikcentrum.",
+   "zh": "添加你的第一次潜水，或扫描潜水中心的二维码。"
+  },
+  "Mis datos de buceador": {
+   "en": "My diver details",
+   "fr": "Mes données de plongeur",
+   "de": "Meine Taucherdaten",
+   "it": "I miei dati da sub",
+   "pt": "Os meus dados de mergulhador",
+   "pl": "Moje dane nurka",
+   "nl": "Mijn duikergegevens",
+   "zh": "我的潜水员资料"
+  },
+  "Agua (°C)": {
+   "en": "Water (°C)",
+   "fr": "Eau (°C)",
+   "de": "Wasser (°C)",
+   "it": "Acqua (°C)",
+   "pt": "Água (°C)",
+   "pl": "Woda (°C)",
+   "nl": "Water (°C)",
+   "zh": "水温 (°C)"
+  },
+  "Bar inicio": {
+   "en": "Start pressure (bar)",
+   "fr": "Pression début (bar)",
+   "de": "Anfangsdruck (bar)",
+   "it": "Pressione iniziale (bar)",
+   "pt": "Pressão inicial (bar)",
+   "pl": "Ciśnienie początkowe (bar)",
+   "nl": "Begindruk (bar)",
+   "zh": "起始压力 (bar)"
+  },
+  "Bar final": {
+   "en": "End pressure (bar)",
+   "fr": "Pression fin (bar)",
+   "de": "Enddruck (bar)",
+   "it": "Pressione finale (bar)",
+   "pt": "Pressão final (bar)",
+   "pl": "Ciśnienie końcowe (bar)",
+   "nl": "Einddruk (bar)",
+   "zh": "结束压力 (bar)"
+  },
+  "Prof. máx (m)": {
+   "en": "Max depth (m)",
+   "fr": "Prof. max (m)",
+   "de": "Max. Tiefe (m)",
+   "it": "Prof. max (m)",
+   "pt": "Prof. máx. (m)",
+   "pl": "Maks. głęb. (m)",
+   "nl": "Max. diepte (m)",
+   "zh": "最大深度 (m)"
+  },
+  "Tiempo (min)": {
+   "en": "Time (min)",
+   "fr": "Durée (min)",
+   "de": "Zeit (min)",
+   "it": "Tempo (min)",
+   "pt": "Tempo (min)",
+   "pl": "Czas (min)",
+   "nl": "Tijd (min)",
+   "zh": "时长 (分钟)"
+  },
+  "Visibilidad (m)": {
+   "en": "Visibility (m)",
+   "fr": "Visibilité (m)",
+   "de": "Sicht (m)",
+   "it": "Visibilità (m)",
+   "pt": "Visibilidade (m)",
+   "pl": "Widoczność (m)",
+   "nl": "Zicht (m)",
+   "zh": "能见度 (m)"
+  },
+  "País / región": {
+   "en": "Country / region",
+   "fr": "Pays / région",
+   "de": "Land / Region",
+   "it": "Paese / regione",
+   "pt": "País / região",
+   "pl": "Kraj / region",
+   "nl": "Land / regio",
+   "zh": "国家/地区"
+  },
+  "Firma / nº instructor": {
+   "en": "Signature / instructor no.",
+   "fr": "Signature / n° d'instructeur",
+   "de": "Unterschrift / Instruktor-Nr.",
+   "it": "Firma / n. istruttore",
+   "pt": "Assinatura / n.º de instrutor",
+   "pl": "Podpis / nr instruktora",
+   "nl": "Handtekening / instructeursnr.",
+   "zh": "签名/教练编号"
+  },
+  "Nº certificación": {
+   "en": "Certification no.",
+   "fr": "N° de brevet",
+   "de": "Brevet-Nr.",
+   "it": "N. brevetto",
+   "pt": "N.º de certificação",
+   "pl": "Nr certyfikatu",
+   "nl": "Brevetnummer",
+   "zh": "证书编号"
+  },
+  "Fecha certificación": {
+   "en": "Certification date",
+   "fr": "Date du brevet",
+   "de": "Brevetdatum",
+   "it": "Data del brevetto",
+   "pt": "Data de certificação",
+   "pl": "Data certyfikatu",
+   "nl": "Brevetdatum",
+   "zh": "认证日期"
+  },
+  "Inmersiones previas": {
+   "en": "Previous dives",
+   "fr": "Plongées antérieures",
+   "de": "Bisherige Tauchgänge",
+   "it": "Immersioni precedenti",
+   "pt": "Mergulhos anteriores",
+   "pl": "Wcześniejsze nurkowania",
+   "nl": "Eerdere duiken",
+   "zh": "既往潜水次数"
+  },
+  "Observaciones · vida marina": {
+   "en": "Notes · marine life",
+   "fr": "Observations · vie marine",
+   "de": "Notizen · Meeresleben",
+   "it": "Note · vita marina",
+   "pt": "Observações · vida marinha",
+   "pl": "Uwagi · życie morskie",
+   "nl": "Opmerkingen · zeeleven",
+   "zh": "备注 · 海洋生物"
+  },
+  "Pulsa otra vez para borrar": {
+   "en": "Tap again to delete",
+   "fr": "Appuyez à nouveau pour supprimer",
+   "de": "Zum Löschen erneut tippen",
+   "it": "Tocca di nuovo per eliminare",
+   "pt": "Toca outra vez para apagar",
+   "pl": "Naciśnij ponownie, aby usunąć",
+   "nl": "Tik nogmaals om te verwijderen",
+   "zh": "再按一次即可删除"
+  },
+  "Esta inmersión ya estaba en tu logbook.": {
+   "en": "This dive was already in your logbook.",
+   "fr": "Cette plongée était déjà dans votre logbook.",
+   "de": "Dieser Tauchgang war schon in deinem Logbook.",
+   "it": "Questa immersione era già nel tuo logbook.",
+   "pt": "Este mergulho já estava no teu logbook.",
+   "pl": "To nurkowanie było już w twoim logbooku.",
+   "nl": "Deze duik stond al in je logbook.",
+   "zh": "这次潜水已在你的潜水日志中。"
+  },
+  "El logbook está lleno (120 inmersiones).": {
+   "en": "The logbook is full (120 dives).",
+   "fr": "Le logbook est plein (120 plongées).",
+   "de": "Das Logbook ist voll (120 Tauchgänge).",
+   "it": "Il logbook è pieno (120 immersioni).",
+   "pt": "O logbook está cheio (120 mergulhos).",
+   "pl": "Logbook jest pełny (120 nurkowań).",
+   "nl": "Het logbook is vol (120 duiken).",
+   "zh": "潜水日志已满（120 次潜水）。"
+  },
+  "dd/mm/aaaa": {
+   "en": "dd/mm/yyyy",
+   "fr": "jj/mm/aaaa",
+   "de": "TT/MM/JJJJ",
+   "it": "gg/mm/aaaa",
+   "pt": "dd/mm/aaaa",
+   "pl": "dd/mm/rrrr",
+   "nl": "dd/mm/jjjj",
+   "zh": "dd/mm/yyyy"
+  },
+  "Sin lugar": {
+   "en": "No site",
+   "fr": "Sans lieu",
+   "de": "Ohne Ort",
+   "it": "Senza luogo",
+   "pt": "Sem local",
+   "pl": "Bez miejsca",
+   "nl": "Geen plek",
+   "zh": "未填地点"
+  },
+  "sin lugar": {
+   "en": "no site",
+   "fr": "sans lieu",
+   "de": "ohne Ort",
+   "it": "senza luogo",
+   "pt": "sem local",
+   "pl": "bez miejsca",
+   "nl": "geen plek",
+   "zh": "未填地点"
+  },
+  "Lugar": {
+   "en": "Site",
+   "fr": "Lieu",
+   "de": "Ort",
+   "it": "Luogo",
+   "pt": "Local",
+   "pl": "Miejsce",
+   "nl": "Plek",
+   "zh": "地点"
+  },
+  "Nº": {
+   "en": "No.",
+   "fr": "N°",
+   "de": "Nr.",
+   "it": "N.",
+   "pt": "N.º",
+   "pl": "Nr",
+   "nl": "Nr.",
+   "zh": "编号"
+  },
+  "Prof.": {
+   "en": "Depth",
+   "fr": "Prof.",
+   "de": "Tiefe",
+   "it": "Prof.",
+   "pt": "Prof.",
+   "pl": "Głęb.",
+   "nl": "Diepte",
+   "zh": "深度"
+  },
+  "Tiempo": {
+   "en": "Time",
+   "fr": "Durée",
+   "de": "Zeit",
+   "it": "Tempo",
+   "pt": "Tempo",
+   "pl": "Czas",
+   "nl": "Tijd",
+   "zh": "时长"
+  },
+  "Costa": {
+   "en": "Shore",
+   "fr": "Du bord",
+   "de": "Landtauchgang",
+   "it": "Da riva",
+   "pt": "Costa",
+   "pl": "Z brzegu",
+   "nl": "Kant",
+   "zh": "岸潜"
+  },
+  "Nocturna": {
+   "en": "Night",
+   "fr": "De nuit",
+   "de": "Nacht",
+   "it": "Notturna",
+   "pt": "Noturno",
+   "pl": "Nocne",
+   "nl": "Nacht",
+   "zh": "夜潜"
+  },
+  "Profunda": {
+   "en": "Deep",
+   "fr": "Profonde",
+   "de": "Tief",
+   "it": "Profonda",
+   "pt": "Profundo",
+   "pl": "Głębokie",
+   "nl": "Diep",
+   "zh": "深潜"
+  },
+  "Gas": {
+   "en": "Gas",
+   "fr": "Gaz",
+   "de": "Gas",
+   "it": "Gas",
+   "pt": "Gás",
+   "pl": "Gaz",
+   "nl": "Gas",
+   "zh": "气体"
+  },
+  "Compañero": {
+   "en": "Buddy",
+   "fr": "Binôme",
+   "de": "Buddy",
+   "it": "Compagno",
+   "pt": "Parceiro",
+   "pl": "Partner",
+   "nl": "Buddy",
+   "zh": "潜伴"
+  },
+  "Posición GPS": {
+   "en": "GPS position",
+   "fr": "Position GPS",
+   "de": "GPS-Position",
+   "it": "Posizione GPS",
+   "pt": "Posição GPS",
+   "pl": "Pozycja GPS",
+   "nl": "GPS-positie",
+   "zh": "GPS 位置"
+  },
+  "Apellidos": {
+   "en": "Surname",
+   "fr": "Nom",
+   "de": "Nachname",
+   "it": "Cognome",
+   "pt": "Apelidos",
+   "pl": "Nazwisko",
+   "nl": "Achternaam",
+   "zh": "姓"
+  },
+  "Nacionalidad": {
+   "en": "Nationality",
+   "fr": "Nationalité",
+   "de": "Staatsangehörigkeit",
+   "it": "Nazionalità",
+   "pt": "Nacionalidade",
+   "pl": "Obywatelstwo",
+   "nl": "Nationaliteit",
+   "zh": "国籍"
+  },
+  "Agencia": {
+   "en": "Agency",
+   "fr": "Organisme",
+   "de": "Organisation",
+   "it": "Agenzia",
+   "pt": "Agência",
+   "pl": "Federacja",
+   "nl": "Organisatie",
+   "zh": "认证机构"
+  },
+  "Entrada al agua": {
+   "en": "Time in",
+   "fr": "Entrée dans l'eau",
+   "de": "Einstieg",
+   "it": "Ingresso in acqua",
+   "pt": "Entrada na água",
+   "pl": "Wejście do wody",
+   "nl": "Te water",
+   "zh": "入水时间"
+  },
+  "Salida del agua": {
+   "en": "Time out",
+   "fr": "Sortie de l'eau",
+   "de": "Ausstieg",
+   "it": "Uscita dall'acqua",
+   "pt": "Saída da água",
+   "pl": "Wyjście z wody",
+   "nl": "Uit het water",
+   "zh": "出水时间"
+  },
+  "Dato registrado por el centro de buceo": {
+   "en": "Registered by the dive centre",
+   "fr": "Donnée enregistrée par le centre de plongée",
+   "de": "Vom Tauchzentrum eingetragen",
+   "it": "Dato registrato dal centro diving",
+   "pt": "Dado registado pelo centro de mergulho",
+   "pl": "Dane zapisane przez centrum nurkowe",
+   "nl": "Geregistreerd door het duikcentrum",
+   "zh": "由潜水中心登记"
+  },
+  "Número de inmersión": {
+   "en": "Dive number",
+   "fr": "Numéro de plongée",
+   "de": "Tauchgangsnummer",
+   "it": "Numero di immersione",
+   "pt": "Número do mergulho",
+   "pl": "Numer nurkowania",
+   "nl": "Duiknummer",
+   "zh": "潜水编号"
+  },
+  "centro": {
+   "en": "centre",
+   "fr": "centre",
+   "de": "Zentrum",
+   "it": "centro",
+   "pt": "centro",
+   "pl": "centrum",
+   "nl": "centrum",
+   "zh": "中心"
+  },
+  "hh:mm": {
+   "en": "hh:mm",
+   "fr": "hh:mm",
+   "de": "hh:mm",
+   "it": "hh:mm",
+   "pt": "hh:mm",
+   "pl": "hh:mm",
+   "nl": "hh:mm",
+   "zh": "hh:mm"
+  },
+  "mi centro": {
+   "en": "my centre",
+   "fr": "mon centre",
+   "de": "mein Zentrum",
+   "it": "il mio centro",
+   "pt": "o meu centro",
+   "pl": "moje centrum",
+   "nl": "mijn centrum",
+   "zh": "我的中心"
+  },
+  "tu centro": {
+   "en": "your centre",
+   "fr": "votre centre",
+   "de": "dein Zentrum",
+   "it": "il tuo centro",
+   "pt": "o teu centro",
+   "pl": "twoje centrum",
+   "nl": "je centrum",
+   "zh": "你的中心"
+  },
+  "Exportar copia": {
+   "en": "Export a copy",
+   "fr": "Exporter une copie",
+   "de": "Kopie exportieren",
+   "it": "Esporta una copia",
+   "pt": "Exportar cópia",
+   "pl": "Eksportuj kopię",
+   "nl": "Kopie exporteren",
+   "zh": "导出副本"
+  },
+  "Importar copia": {
+   "en": "Import a copy",
+   "fr": "Importer une copie",
+   "de": "Kopie importieren",
+   "it": "Importa una copia",
+   "pt": "Importar cópia",
+   "pl": "Importuj kopię",
+   "nl": "Kopie importeren",
+   "zh": "导入副本"
+  },
+  "Añadir 10 páginas": {
+   "en": "Add 10 pages",
+   "fr": "Ajouter 10 pages",
+   "de": "10 Seiten hinzufügen",
+   "it": "Aggiungi 10 pagine",
+   "pt": "Adicionar 10 páginas",
+   "pl": "Dodaj 10 stron",
+   "nl": "10 pagina's toevoegen",
+   "zh": "添加 10 页"
+  },
+  "Usar portada clásica": {
+   "en": "Use the classic cover",
+   "fr": "Utiliser la couverture classique",
+   "de": "Klassisches Cover verwenden",
+   "it": "Usa la copertina classica",
+   "pt": "Usar a capa clássica",
+   "pl": "Użyj klasycznej okładki",
+   "nl": "Klassieke omslag gebruiken",
+   "zh": "使用经典封面"
+  },
+  "‹ ANTERIOR": {
+   "en": "‹ PREVIOUS",
+   "fr": "‹ PRÉCÉDENT",
+   "de": "‹ ZURÜCK",
+   "it": "‹ PRECEDENTE",
+   "pt": "‹ ANTERIOR",
+   "pl": "‹ POPRZEDNIA",
+   "nl": "‹ VORIGE",
+   "zh": "‹ 上一页"
+  },
+  "SIGUIENTE ›": {
+   "en": "NEXT ›",
+   "fr": "SUIVANT ›",
+   "de": "WEITER ›",
+   "it": "SUCCESSIVA ›",
+   "pt": "SEGUINTE ›",
+   "pl": "NASTĘPNA ›",
+   "nl": "VOLGENDE ›",
+   "zh": "下一页 ›"
+  },
+  "CERRAR": {
+   "en": "CLOSE",
+   "fr": "FERMER",
+   "de": "SCHLIESSEN",
+   "it": "CHIUDI",
+   "pt": "FECHAR",
+   "pl": "ZAMKNIJ",
+   "nl": "SLUITEN",
+   "zh": "合上"
+  },
+  "PORTADA · TOCA PARA ABRIR": {
+   "en": "COVER · TAP TO OPEN",
+   "fr": "COUVERTURE · TOUCHEZ POUR OUVRIR",
+   "de": "COVER · ZUM ÖFFNEN TIPPEN",
+   "it": "COPERTINA · TOCCA PER APRIRE",
+   "pt": "CAPA · TOCA PARA ABRIR",
+   "pl": "OKŁADKA · DOTKNIJ, ABY OTWORZYĆ",
+   "nl": "OMSLAG · TIK OM TE OPENEN",
+   "zh": "封面 · 点击打开"
+  },
+  "CONTRAPORTADA": {
+   "en": "BACK COVER",
+   "fr": "QUATRIÈME DE COUVERTURE",
+   "de": "RÜCKSEITE",
+   "it": "RETRO DI COPERTINA",
+   "pt": "CONTRACAPA",
+   "pl": "TYLNA OKŁADKA",
+   "nl": "ACHTERKANT",
+   "zh": "封底"
+  },
+  "GUARDA": {
+   "en": "ENDPAPER",
+   "fr": "PAGE DE GARDE",
+   "de": "VORSATZ",
+   "it": "RISGUARDO",
+   "pt": "GUARDA",
+   "pl": "WYKLEJKA",
+   "nl": "SCHUTZBLAD",
+   "zh": "衬页"
+  },
+  "INTRODUCCIÓN": {
+   "en": "INTRODUCTION",
+   "fr": "INTRODUCTION",
+   "de": "EINLEITUNG",
+   "it": "INTRODUZIONE",
+   "pt": "INTRODUÇÃO",
+   "pl": "WSTĘP",
+   "nl": "INLEIDING",
+   "zh": "简介"
+  },
+  "TITULAR": {
+   "en": "HOLDER",
+   "fr": "TITULAIRE",
+   "de": "INHABER",
+   "it": "TITOLARE",
+   "pt": "TITULAR",
+   "pl": "POSIADACZ",
+   "nl": "HOUDER",
+   "zh": "持有人"
+  },
+  "RESUMEN": {
+   "en": "SUMMARY",
+   "fr": "RÉSUMÉ",
+   "de": "ÜBERSICHT",
+   "it": "RIEPILOGO",
+   "pt": "RESUMO",
+   "pl": "PODSUMOWANIE",
+   "nl": "OVERZICHT",
+   "zh": "总结"
+  },
+  "Inmersiones registradas": {
+   "en": "Dives logged",
+   "fr": "Plongées enregistrées",
+   "de": "Eingetragene Tauchgänge",
+   "it": "Immersioni registrate",
+   "pt": "Mergulhos registados",
+   "pl": "Zapisane nurkowania",
+   "nl": "Geregistreerde duiken",
+   "zh": "已记录潜水"
+  },
+  "Tiempo bajo el agua": {
+   "en": "Time underwater",
+   "fr": "Temps sous l'eau",
+   "de": "Zeit unter Wasser",
+   "it": "Tempo sott'acqua",
+   "pt": "Tempo debaixo de água",
+   "pl": "Czas pod wodą",
+   "nl": "Tijd onder water",
+   "zh": "水下时间"
+  },
+  "Lugares · países": {
+   "en": "Sites · countries",
+   "fr": "Lieux · pays",
+   "de": "Orte · Länder",
+   "it": "Luoghi · paesi",
+   "pt": "Locais · países",
+   "pl": "Miejsca · kraje",
+   "nl": "Plekken · landen",
+   "zh": "地点 · 国家"
+  },
+  "Has llegado al máximo de 120 inmersiones en este cuaderno.": {
+   "en": "You have reached the maximum of 120 dives in this book.",
+   "fr": "Vous avez atteint le maximum de 120 plongées dans ce carnet.",
+   "de": "Du hast das Maximum von 120 Tauchgängen in diesem Buch erreicht.",
+   "it": "Hai raggiunto il massimo di 120 immersioni in questo quaderno.",
+   "pt": "Chegaste ao máximo de 120 mergulhos neste caderno.",
+   "pl": "Osiągnięto maksimum 120 nurkowań w tym dzienniku.",
+   "nl": "Je hebt het maximum van 120 duiken in dit boek bereikt.",
+   "zh": "本日志已达到 120 次潜水的上限。"
+  },
+  "Añadidas 20 inmersiones nuevas.": {
+   "en": "20 new dives added.",
+   "fr": "20 nouvelles plongées ajoutées.",
+   "de": "20 neue Tauchgänge hinzugefügt.",
+   "it": "Aggiunte 20 nuove immersioni.",
+   "pt": "Adicionados 20 novos mergulhos.",
+   "pl": "Dodano 20 nowych nurkowań.",
+   "nl": "20 nieuwe duiken toegevoegd.",
+   "zh": "已添加 20 个新的潜水页。"
+  },
+  "Portada clásica activada.": {
+   "en": "Classic cover on.",
+   "fr": "Couverture classique activée.",
+   "de": "Klassisches Cover aktiviert.",
+   "it": "Copertina classica attivata.",
+   "pt": "Capa clássica ativada.",
+   "pl": "Włączono klasyczną okładkę.",
+   "nl": "Klassieke omslag ingeschakeld.",
+   "zh": "已启用经典封面。"
+  },
+  "Copia descargada y copiada al portapapeles.": {
+   "en": "Copy downloaded and copied to the clipboard.",
+   "fr": "Copie téléchargée et copiée dans le presse-papiers.",
+   "de": "Kopie heruntergeladen und in die Zwischenablage kopiert.",
+   "it": "Copia scaricata e copiata negli appunti.",
+   "pt": "Cópia transferida e copiada para a área de transferência.",
+   "pl": "Kopia pobrana i skopiowana do schowka.",
+   "nl": "Kopie gedownload en naar het klembord gekopieerd.",
+   "zh": "副本已下载并复制到剪贴板。"
+  },
+  "Copia descargada.": {
+   "en": "Copy downloaded.",
+   "fr": "Copie téléchargée.",
+   "de": "Kopie heruntergeladen.",
+   "it": "Copia scaricata.",
+   "pt": "Cópia transferida.",
+   "pl": "Kopia pobrana.",
+   "nl": "Kopie gedownload.",
+   "zh": "副本已下载。"
+  },
+  "Copia importada.": {
+   "en": "Copy imported.",
+   "fr": "Copie importée.",
+   "de": "Kopie importiert.",
+   "it": "Copia importata.",
+   "pt": "Cópia importada.",
+   "pl": "Kopia zaimportowana.",
+   "nl": "Kopie geïmporteerd.",
+   "zh": "副本已导入。"
+  },
+  "Ese archivo no es una copia del logbook. Usa un .json exportado desde aquí.": {
+   "en": "That file is not a copy of the logbook. Use a .json exported from here.",
+   "fr": "Ce fichier n'est pas une copie du logbook. Utilisez un .json exporté depuis ici.",
+   "de": "Diese Datei ist keine Kopie des Logbooks. Verwende eine hier exportierte .json-Datei.",
+   "it": "Questo file non è una copia del logbook. Usa un .json esportato da qui.",
+   "pt": "Esse ficheiro não é uma cópia do logbook. Usa um .json exportado daqui.",
+   "pl": "Ten plik nie jest kopią logbooka. Użyj pliku .json wyeksportowanego stąd.",
+   "nl": "Dat bestand is geen kopie van het logbook. Gebruik een .json die hier is geëxporteerd.",
+   "zh": "该文件不是潜水日志的副本。请使用从这里导出的 .json 文件。"
+  },
+  "Tus inmersiones, guardadas en tu cuenta y en todos tus dispositivos. Las que registra tu centro con un QR llegan verificadas.": {
+   "en": "Your dives, saved in your account and on all your devices. The ones your centre registers with a QR code arrive verified.",
+   "fr": "Vos plongées, enregistrées dans votre compte et sur tous vos appareils. Celles que votre centre enregistre avec un QR arrivent vérifiées.",
+   "de": "Deine Tauchgänge, gespeichert in deinem Konto und auf all deinen Geräten. Die, die dein Zentrum per QR-Code einträgt, kommen verifiziert an.",
+   "it": "Le tue immersioni, salvate nel tuo account e su tutti i tuoi dispositivi. Quelle che il tuo centro registra con un QR arrivano verificate.",
+   "pt": "Os teus mergulhos, guardados na tua conta e em todos os teus dispositivos. Os que o teu centro regista com um QR chegam verificados.",
+   "pl": "Twoje nurkowania, zapisane na koncie i na wszystkich twoich urządzeniach. Te, które centrum zarejestruje kodem QR, trafiają tu zweryfikowane.",
+   "nl": "Je duiken, opgeslagen in je account en op al je apparaten. Duiken die je centrum met een QR-code registreert, komen geverifieerd binnen.",
+   "zh": "你的潜水记录保存在账户中，所有设备同步。潜水中心用二维码登记的潜水会带有验证标记。"
+  },
+  "Guardado en tu cuenta": {
+   "en": "Saved in your account",
+   "fr": "Enregistré dans votre compte",
+   "de": "In deinem Konto gespeichert",
+   "it": "Salvato nel tuo account",
+   "pt": "Guardado na tua conta",
+   "pl": "Zapisano na koncie",
+   "nl": "Opgeslagen in je account",
+   "zh": "已保存到你的账户"
+  },
+  "Cambios sin guardar…": {
+   "en": "Unsaved changes…",
+   "fr": "Modifications non enregistrées…",
+   "de": "Ungespeicherte Änderungen…",
+   "it": "Modifiche non salvate…",
+   "pt": "Alterações por guardar…",
+   "pl": "Niezapisane zmiany…",
+   "nl": "Niet-opgeslagen wijzigingen…",
+   "zh": "有未保存的更改…"
+  },
+  "Sin conexión: se guardará al volver": {
+   "en": "Offline: it will be saved when you're back online",
+   "fr": "Hors ligne : ce sera enregistré au retour de la connexion",
+   "de": "Offline: wird gespeichert, sobald du wieder online bist",
+   "it": "Offline: verrà salvato al ritorno della connessione",
+   "pt": "Sem ligação: será guardado quando voltar",
+   "pl": "Brak połączenia: zapisze się po jego przywróceniu",
+   "nl": "Offline: wordt opgeslagen zodra je weer online bent",
+   "zh": "离线：恢复连接后会保存"
+  },
+  "No se ha podido guardar: se reintentará": {
+   "en": "Could not save: it will try again",
+   "fr": "Échec de l'enregistrement : nouvel essai bientôt",
+   "de": "Speichern fehlgeschlagen: wird erneut versucht",
+   "it": "Salvataggio non riuscito: si riproverà",
+   "pt": "Não foi possível guardar: vai tentar de novo",
+   "pl": "Nie udało się zapisać: ponowimy próbę",
+   "nl": "Opslaan mislukt: wordt opnieuw geprobeerd",
+   "zh": "保存失败：将自动重试"
+  },
+  "No se ha podido guardar": {
+   "en": "Could not save",
+   "fr": "Échec de l'enregistrement",
+   "de": "Speichern fehlgeschlagen",
+   "it": "Salvataggio non riuscito",
+   "pt": "Não foi possível guardar",
+   "pl": "Nie udało się zapisać",
+   "nl": "Opslaan mislukt",
+   "zh": "保存失败"
+  },
+  "Ahora sois buddies": {
+   "en": "You are now buddies",
+   "fr": "Vous êtes maintenant binômes",
+   "de": "Ihr seid jetzt Buddies",
+   "it": "Ora siete buddy",
+   "pt": "Agora são buddies",
+   "pl": "Jesteście teraz partnerami",
+   "nl": "Jullie zijn nu buddy's",
+   "zh": "你们现在是潜伴了"
+  },
+  "Ya erais buddies": {
+   "en": "You were already buddies",
+   "fr": "Vous étiez déjà binômes",
+   "de": "Ihr wart schon Buddies",
+   "it": "Eravate già buddy",
+   "pt": "Já eram buddies",
+   "pl": "Już byliście partnerami",
+   "nl": "Jullie waren al buddy's",
+   "zh": "你们已经是潜伴了"
+  },
+  "Aparece en «Compañero» al apuntar una inmersión.": {
+   "en": "They appear under «Buddy» when you log a dive.",
+   "fr": "Il apparaît dans « Binôme » quand vous notez une plongée.",
+   "de": "Erscheint unter „Buddy“, wenn du einen Tauchgang einträgst.",
+   "it": "Compare in «Compagno» quando registri un'immersione.",
+   "pt": "Aparece em «Parceiro» quando registares um mergulho.",
+   "pl": "Pojawia się w polu „Partner” przy zapisywaniu nurkowania.",
+   "nl": "Verschijnt bij „Buddy” als je een duik noteert.",
+   "zh": "记录潜水时可在“潜伴”中选择。"
+  },
+  "Tu cuenta ya está unida a un centro:": {
+   "en": "Your account is already linked to a centre:",
+   "fr": "Votre compte est déjà lié à un centre :",
+   "de": "Dein Konto ist bereits mit einem Zentrum verbunden:",
+   "it": "Il tuo account è già collegato a un centro:",
+   "pt": "A tua conta já está ligada a um centro:",
+   "pl": "Twoje konto jest już połączone z centrum:",
+   "nl": "Je account is al gekoppeld aan een centrum:",
+   "zh": "你的账户已关联到一个中心："
+  },
+  "Su logo sigue en la portada de tu pasaporte.": {
+   "en": "Its logo stays on the cover of your passport.",
+   "fr": "Son logo reste sur la couverture de votre passeport.",
+   "de": "Sein Logo bleibt auf dem Cover deines Passes.",
+   "it": "Il suo logo resta sulla copertina del tuo passaporto.",
+   "pt": "O logótipo dele continua na capa do teu passaporte.",
+   "pl": "Jego logo pozostaje na okładce twojego paszportu.",
+   "nl": "Het logo blijft op de omslag van je paspoort.",
+   "zh": "其标志仍保留在你的护照封面上。"
+  },
+  "El Log Book no se ha podido cargar.": {
+   "en": "The Log Book could not be loaded.",
+   "fr": "Le Log Book n'a pas pu être chargé.",
+   "de": "Das Log Book konnte nicht geladen werden.",
+   "it": "Non è stato possibile caricare il Log Book.",
+   "pt": "Não foi possível carregar o Log Book.",
+   "pl": "Nie udało się wczytać Log Booka.",
+   "nl": "Het Log Book kon niet worden geladen.",
+   "zh": "无法加载 Log Book。"
+  },
+  "Comprueba la conexión e inténtalo de nuevo.": {
+   "en": "Check your connection and try again.",
+   "fr": "Vérifiez la connexion et réessayez.",
+   "de": "Prüfe die Verbindung und versuche es erneut.",
+   "it": "Controlla la connessione e riprova.",
+   "pt": "Verifica a ligação e tenta de novo.",
+   "pl": "Sprawdź połączenie i spróbuj ponownie.",
+   "nl": "Controleer de verbinding en probeer het opnieuw.",
+   "zh": "请检查网络连接后重试。"
+  },
+  "Tu logbook ha cambiado en otro dispositivo: algunas inmersiones cambiadas en los dos se quedan como en el otro.": {
+   "en": "Your logbook changed on another device: some dives changed on both stay as on the other device.",
+   "fr": "Votre logbook a changé sur un autre appareil : certaines plongées modifiées sur les deux restent comme sur l'autre.",
+   "de": "Dein Logbook wurde auf einem anderen Gerät geändert: Einige auf beiden geänderte Tauchgänge bleiben wie auf dem anderen Gerät.",
+   "it": "Il tuo logbook è cambiato su un altro dispositivo: alcune immersioni modificate su entrambi restano come sull'altro.",
+   "pt": "O teu logbook mudou noutro dispositivo: alguns mergulhos alterados nos dois ficam como no outro.",
+   "pl": "Logbook zmienił się na innym urządzeniu: niektóre nurkowania zmienione na obu zostają jak na tamtym.",
+   "nl": "Je logbook is op een ander apparaat gewijzigd: sommige duiken die op beide zijn gewijzigd, blijven zoals op het andere apparaat.",
+   "zh": "你的潜水日志已在另一台设备上更改：两边都改过的部分潜水以另一台设备为准。"
+  },
+  "Tu logbook está lleno (120 inmersiones): borra alguna para añadir las de tu centro.": {
+   "en": "Your logbook is full (120 dives): delete one to add your centre's dives.",
+   "fr": "Votre logbook est plein (120 plongées) : supprimez-en une pour ajouter celles de votre centre.",
+   "de": "Dein Logbook ist voll (120 Tauchgänge): Lösche einen, um die deines Zentrums hinzuzufügen.",
+   "it": "Il tuo logbook è pieno (120 immersioni): eliminane una per aggiungere quelle del tuo centro.",
+   "pt": "O teu logbook está cheio (120 mergulhos): apaga algum para adicionar os do teu centro.",
+   "pl": "Twój logbook jest pełny (120 nurkowań): usuń któreś, aby dodać nurkowania z centrum.",
+   "nl": "Je logbook is vol (120 duiken): verwijder er een om die van je centrum toe te voegen.",
+   "zh": "你的潜水日志已满（120 次潜水）：请删除一些，才能添加中心登记的潜水。"
+  },
+  "Había cambios sin conexión en este dispositivo: algunas inmersiones cambiadas también en otro se quedan como allí.": {
+   "en": "There were offline changes on this device: some dives also changed on another device stay as they are there.",
+   "fr": "Il y avait des modifications hors ligne sur cet appareil : certaines plongées modifiées aussi sur un autre restent comme là-bas.",
+   "de": "Auf diesem Gerät gab es Offline-Änderungen: Einige auch auf einem anderen Gerät geänderte Tauchgänge bleiben wie dort.",
+   "it": "C'erano modifiche offline su questo dispositivo: alcune immersioni modificate anche su un altro restano come lì.",
+   "pt": "Havia alterações sem ligação neste dispositivo: alguns mergulhos alterados também noutro ficam como lá.",
+   "pl": "Na tym urządzeniu były zmiany offline: niektóre nurkowania zmienione także na innym zostają jak tam.",
+   "nl": "Er waren offline wijzigingen op dit apparaat: sommige duiken die ook op een ander apparaat zijn gewijzigd, blijven zoals daar.",
+   "zh": "此设备上有离线时做的更改：在另一台设备上也改过的部分潜水以那边为准。"
+  },
+  "Todavía no hay inmersiones que exportar.": {
+   "en": "There are no dives to export yet.",
+   "fr": "Il n'y a encore aucune plongée à exporter.",
+   "de": "Noch keine Tauchgänge zum Exportieren.",
+   "it": "Non ci sono ancora immersioni da esportare.",
+   "pt": "Ainda não há mergulhos para exportar.",
+   "pl": "Nie ma jeszcze nurkowań do eksportu.",
+   "nl": "Er zijn nog geen duiken om te exporteren.",
+   "zh": "还没有可导出的潜水。"
+  },
+  "Verificada por": {
+   "en": "Verified by",
+   "fr": "Vérifiée par",
+   "de": "Verifiziert von",
+   "it": "Verificata da",
+   "pt": "Verificado por",
+   "pl": "Zweryfikowane przez",
+   "nl": "Geverifieerd door",
+   "zh": "验证方"
+  },
+  "Tu inmersión": {
+   "en": "Your dive",
+   "fr": "Votre plongée",
+   "de": "Dein Tauchgang",
+   "it": "La tua immersione",
+   "pt": "O teu mergulho",
+   "pl": "Twoje nurkowanie",
+   "nl": "Je duik",
+   "zh": "你的潜水"
+  },
+  "Añadiendo la inmersión a tu Log Book…": {
+   "en": "Adding the dive to your Log Book…",
+   "fr": "Ajout de la plongée à votre Log Book…",
+   "de": "Tauchgang wird deinem Log Book hinzugefügt…",
+   "it": "Aggiunta dell'immersione al tuo Log Book…",
+   "pt": "A adicionar o mergulho ao teu Log Book…",
+   "pl": "Dodawanie nurkowania do Log Booka…",
+   "nl": "Duik wordt aan je Log Book toegevoegd…",
+   "zh": "正在将潜水添加到你的 Log Book…"
+  },
+  "No se ha podido añadir la inmersión": {
+   "en": "The dive could not be added",
+   "fr": "La plongée n'a pas pu être ajoutée",
+   "de": "Der Tauchgang konnte nicht hinzugefügt werden",
+   "it": "Non è stato possibile aggiungere l'immersione",
+   "pt": "Não foi possível adicionar o mergulho",
+   "pl": "Nie udało się dodać nurkowania",
+   "nl": "De duik kon niet worden toegevoegd",
+   "zh": "无法添加这次潜水"
+  },
+  "Ir a mi Log Book": {
+   "en": "Go to my Log Book",
+   "fr": "Aller à mon Log Book",
+   "de": "Zu meinem Log Book",
+   "it": "Vai al mio Log Book",
+   "pt": "Ir para o meu Log Book",
+   "pl": "Przejdź do mojego Log Booka",
+   "nl": "Naar mijn Log Book",
+   "zh": "前往我的 Log Book"
+  },
+  "Invitación de": {
+   "en": "Invitation from",
+   "fr": "Invitation de",
+   "de": "Einladung von",
+   "it": "Invito di",
+   "pt": "Convite de",
+   "pl": "Zaproszenie od",
+   "nl": "Uitnodiging van",
+   "zh": "邀请方："
+  },
+  "Al crear tu cuenta, su logo irá en la portada de tu pasaporte de buceo.": {
+   "en": "When you create your account, its logo will go on the cover of your dive passport.",
+   "fr": "En créant votre compte, son logo figurera sur la couverture de votre passeport de plongée.",
+   "de": "Wenn du dein Konto erstellst, kommt sein Logo auf das Cover deines Tauchpasses.",
+   "it": "Creando il tuo account, il suo logo andrà sulla copertina del tuo passaporto da sub.",
+   "pt": "Ao criares a tua conta, o logótipo dele irá para a capa do teu passaporte de mergulho.",
+   "pl": "Po założeniu konta jego logo pojawi się na okładce twojego paszportu nurkowego.",
+   "nl": "Als je je account aanmaakt, komt het logo op de omslag van je duikpaspoort.",
+   "zh": "创建账户后，其标志会出现在你的潜水护照封面上。"
+  },
+  "Logbook y pasaporte": {
+   "en": "Logbook and passport",
+   "fr": "Logbook et passeport",
+   "de": "Logbook und Pass",
+   "it": "Logbook e passaporto",
+   "pt": "Logbook e passaporte",
+   "pl": "Logbook i paszport",
+   "nl": "Logbook en paspoort",
+   "zh": "潜水日志和护照"
+  },
+  "LOGBOOK DE TUS BUCEADORES": {
+   "en": "YOUR DIVERS' LOGBOOK",
+   "fr": "LE LOGBOOK DE VOS PLONGEURS",
+   "de": "DAS LOGBOOK IHRER TAUCHER",
+   "it": "IL LOGBOOK DEI TUOI SUB",
+   "pt": "O LOGBOOK DOS TEUS MERGULHADORES",
+   "pl": "LOGBOOK TWOICH NURKÓW",
+   "nl": "HET LOGBOOK VAN UW DUIKERS",
+   "zh": "你的潜水员的潜水日志"
+  },
+  "Registra cada inmersión una vez y dale a cada buceador su QR: al escanearlo, la inmersión entra en su Log Book verificada por tu centro, y la fecha, el lugar, el país, el centro, la posición y el instructor ya no se pueden cambiar.": {
+   "en": "Register each dive once and give each diver their QR code: when they scan it, the dive goes into their Log Book verified by your centre, and the date, site, country, centre, position and instructor can no longer be changed.",
+   "fr": "Enregistrez chaque plongée une seule fois et donnez à chaque plongeur son QR : en le scannant, la plongée entre dans son Log Book vérifiée par votre centre, et la date, le lieu, le pays, le centre, la position et l'instructeur ne peuvent plus être modifiés.",
+   "de": "Tragen Sie jeden Tauchgang einmal ein und geben Sie jedem Taucher seinen QR-Code: Beim Scannen landet der Tauchgang von Ihrem Zentrum verifiziert in seinem Log Book, und Datum, Ort, Land, Zentrum, Position und Instruktor lassen sich nicht mehr ändern.",
+   "it": "Registra ogni immersione una volta e dai a ogni sub il suo QR: scansionandolo, l'immersione entra nel suo Log Book verificata dal tuo centro, e data, luogo, paese, centro, posizione e istruttore non si possono più cambiare.",
+   "pt": "Regista cada mergulho uma vez e dá a cada mergulhador o seu QR: ao lê-lo, o mergulho entra no Log Book dele verificado pelo teu centro, e a data, o local, o país, o centro, a posição e o instrutor já não podem ser alterados.",
+   "pl": "Zarejestruj każde nurkowanie raz i daj każdemu nurkowi jego kod QR: po zeskanowaniu nurkowanie trafia do jego Log Booka zweryfikowane przez twoje centrum, a daty, miejsca, kraju, centrum, pozycji i instruktora nie można już zmienić.",
+   "nl": "Registreer elke duik één keer en geef elke duiker zijn QR-code: bij het scannen komt de duik, geverifieerd door uw centrum, in zijn Log Book, en datum, plek, land, centrum, positie en instructeur kunnen niet meer worden gewijzigd.",
+   "zh": "每次潜水只需登记一次，并给每位潜水员一个二维码：扫码后，这次潜水会带着你中心的验证进入其 Log Book，日期、地点、国家、中心、位置和教练都无法再修改。"
+  },
+  "INVITA A TUS ALUMNOS": {
+   "en": "INVITE YOUR STUDENTS",
+   "fr": "INVITEZ VOS ÉLÈVES",
+   "de": "LADEN SIE IHRE SCHÜLER EIN",
+   "it": "INVITA I TUOI ALLIEVI",
+   "pt": "CONVIDA OS TEUS ALUNOS",
+   "pl": "ZAPROŚ SWOICH KURSANTÓW",
+   "nl": "NODIG UW CURSISTEN UIT",
+   "zh": "邀请你的学员"
+  },
+  "Tu enlace de invitación": {
+   "en": "Your invitation link",
+   "fr": "Votre lien d'invitation",
+   "de": "Ihr Einladungslink",
+   "it": "Il tuo link di invito",
+   "pt": "A tua ligação de convite",
+   "pl": "Twój link z zaproszeniem",
+   "nl": "Uw uitnodigingslink",
+   "zh": "你的邀请链接"
+  },
+  "Quien cree su cuenta con este enlace tendrá el logo de tu centro en la portada de su pasaporte de buceo, y el pasaporte desbloqueado.": {
+   "en": "Anyone who creates their account with this link will have your centre's logo on the cover of their dive passport, and the passport unlocked.",
+   "fr": "Toute personne qui crée son compte avec ce lien aura le logo de votre centre sur la couverture de son passeport de plongée, et le passeport débloqué.",
+   "de": "Wer sein Konto über diesen Link erstellt, hat das Logo Ihres Zentrums auf dem Cover seines Tauchpasses und den Pass freigeschaltet.",
+   "it": "Chi crea il proprio account con questo link avrà il logo del tuo centro sulla copertina del suo passaporto da sub, e il passaporto sbloccato.",
+   "pt": "Quem criar a conta com esta ligação terá o logótipo do teu centro na capa do passaporte de mergulho, e o passaporte desbloqueado.",
+   "pl": "Każdy, kto założy konto przez ten link, będzie miał logo twojego centrum na okładce paszportu nurkowego, a paszport odblokowany.",
+   "nl": "Wie een account aanmaakt met deze link, krijgt het logo van uw centrum op de omslag van zijn duikpaspoort en het paspoort ontgrendeld.",
+   "zh": "通过此链接创建账户的人，其潜水护照封面上会有你中心的标志，并且护照会直接解锁。"
+  },
+  "Enlace de invitación": {
+   "en": "Invitation link",
+   "fr": "Lien d'invitation",
+   "de": "Einladungslink",
+   "it": "Link di invito",
+   "pt": "Ligação de convite",
+   "pl": "Link z zaproszeniem",
+   "nl": "Uitnodigingslink",
+   "zh": "邀请链接"
+  },
+  "PORTADA DEL PASAPORTE": {
+   "en": "PASSPORT COVER",
+   "fr": "COUVERTURE DU PASSEPORT",
+   "de": "PASS-COVER",
+   "it": "COPERTINA DEL PASSAPORTO",
+   "pt": "CAPA DO PASSAPORTE",
+   "pl": "OKŁADKA PASZPORTU",
+   "nl": "PASPOORTOMSLAG",
+   "zh": "护照封面"
+  },
+  "Logo y nombre": {
+   "en": "Logo and name",
+   "fr": "Logo et nom",
+   "de": "Logo und Name",
+   "it": "Logo e nome",
+   "pt": "Logótipo e nome",
+   "pl": "Logo i nazwa",
+   "nl": "Logo en naam",
+   "zh": "标志和名称"
+  },
+  "El logo, en PNG o SVG con fondo transparente, se graba en dorado en la portada del pasaporte de tus alumnos. Sin logo, ven la portada clásica.": {
+   "en": "The logo, as a PNG or SVG with a transparent background, is stamped in gold on the cover of your students' passport. Without a logo, they see the classic cover.",
+   "fr": "Le logo, en PNG ou SVG sur fond transparent, est gravé en doré sur la couverture du passeport de vos élèves. Sans logo, ils voient la couverture classique.",
+   "de": "Das Logo, als PNG oder SVG mit transparentem Hintergrund, wird in Gold auf das Cover des Passes Ihrer Schüler geprägt. Ohne Logo sehen sie das klassische Cover.",
+   "it": "Il logo, in PNG o SVG con sfondo trasparente, viene impresso in oro sulla copertina del passaporto dei tuoi allievi. Senza logo, vedono la copertina classica.",
+   "pt": "O logótipo, em PNG ou SVG com fundo transparente, fica gravado a dourado na capa do passaporte dos teus alunos. Sem logótipo, veem a capa clássica.",
+   "pl": "Logo w formacie PNG lub SVG z przezroczystym tłem jest tłoczone złotem na okładce paszportu twoich kursantów. Bez logo widzą klasyczną okładkę.",
+   "nl": "Het logo, als PNG of SVG met transparante achtergrond, wordt in goud op de omslag van het paspoort van uw cursisten gedrukt. Zonder logo zien ze de klassieke omslag.",
+   "zh": "标志（背景透明的 PNG 或 SVG）会以烫金效果印在学员护照的封面上。没有标志时，他们看到的是经典封面。"
+  },
+  "Sin logo": {
+   "en": "No logo",
+   "fr": "Sans logo",
+   "de": "Kein Logo",
+   "it": "Senza logo",
+   "pt": "Sem logótipo",
+   "pl": "Bez logo",
+   "nl": "Geen logo",
+   "zh": "无标志"
+  },
+  "Nombre en la portada": {
+   "en": "Name on the cover",
+   "fr": "Nom sur la couverture",
+   "de": "Name auf dem Cover",
+   "it": "Nome in copertina",
+   "pt": "Nome na capa",
+   "pl": "Nazwa na okładce",
+   "nl": "Naam op de omslag",
+   "zh": "封面名称"
+  },
+  "Logo (PNG, WebP o SVG con fondo transparente)": {
+   "en": "Logo (PNG, WebP or SVG with a transparent background)",
+   "fr": "Logo (PNG, WebP ou SVG sur fond transparent)",
+   "de": "Logo (PNG, WebP oder SVG mit transparentem Hintergrund)",
+   "it": "Logo (PNG, WebP o SVG con sfondo trasparente)",
+   "pt": "Logótipo (PNG, WebP ou SVG com fundo transparente)",
+   "pl": "Logo (PNG, WebP lub SVG z przezroczystym tłem)",
+   "nl": "Logo (PNG, WebP of SVG met transparante achtergrond)",
+   "zh": "标志（背景透明的 PNG、WebP 或 SVG）"
+  },
+  "Guardar la portada": {
+   "en": "Save the cover",
+   "fr": "Enregistrer la couverture",
+   "de": "Cover speichern",
+   "it": "Salva la copertina",
+   "pt": "Guardar a capa",
+   "pl": "Zapisz okładkę",
+   "nl": "Omslag opslaan",
+   "zh": "保存封面"
+  },
+  "Quitar el logo": {
+   "en": "Remove the logo",
+   "fr": "Retirer le logo",
+   "de": "Logo entfernen",
+   "it": "Rimuovi il logo",
+   "pt": "Remover o logótipo",
+   "pl": "Usuń logo",
+   "nl": "Logo verwijderen",
+   "zh": "移除标志"
+  },
+  "NUEVA INMERSIÓN": {
+   "en": "NEW DIVE",
+   "fr": "NOUVELLE PLONGÉE",
+   "de": "NEUER TAUCHGANG",
+   "it": "NUOVA IMMERSIONE",
+   "pt": "NOVO MERGULHO",
+   "pl": "NOWE NURKOWANIE",
+   "nl": "NIEUWE DUIK",
+   "zh": "新潜水"
+  },
+  "Registrar una inmersión y sus QR": {
+   "en": "Register a dive and its QR codes",
+   "fr": "Enregistrer une plongée et ses QR",
+   "de": "Einen Tauchgang und seine QR-Codes eintragen",
+   "it": "Registra un'immersione e i suoi QR",
+   "pt": "Registar um mergulho e os seus QR",
+   "pl": "Zarejestruj nurkowanie i jego kody QR",
+   "nl": "Een duik en de QR-codes registreren",
+   "zh": "登记一次潜水及其二维码"
+  },
+  "Instructor o guía (nombre y nº)": {
+   "en": "Instructor or guide (name and no.)",
+   "fr": "Instructeur ou guide (nom et n°)",
+   "de": "Instruktor oder Guide (Name und Nr.)",
+   "it": "Istruttore o guida (nome e n.)",
+   "pt": "Instrutor ou guia (nome e n.º)",
+   "pl": "Instruktor lub przewodnik (imię i nr)",
+   "nl": "Instructeur of gids (naam en nr.)",
+   "zh": "教练或向导（姓名和编号）"
+  },
+  "Posición GPS (opcional)": {
+   "en": "GPS position (optional)",
+   "fr": "Position GPS (facultatif)",
+   "de": "GPS-Position (optional)",
+   "it": "Posizione GPS (facoltativa)",
+   "pt": "Posição GPS (opcional)",
+   "pl": "Pozycja GPS (opcjonalnie)",
+   "nl": "GPS-positie (optioneel)",
+   "zh": "GPS 位置（可选）"
+  },
+  "Aquí": {
+   "en": "Here",
+   "fr": "Ici",
+   "de": "Hier",
+   "it": "Qui",
+   "pt": "Aqui",
+   "pl": "Tutaj",
+   "nl": "Hier",
+   "zh": "当前位置"
+  },
+  "Buceadores (un QR para cada uno)": {
+   "en": "Divers (one QR code each)",
+   "fr": "Plongeurs (un QR chacun)",
+   "de": "Taucher (je ein QR-Code)",
+   "it": "Sub (un QR ciascuno)",
+   "pt": "Mergulhadores (um QR para cada um)",
+   "pl": "Nurkowie (każdy dostaje kod QR)",
+   "nl": "Duikers (elk een QR-code)",
+   "zh": "潜水员人数（每人一个二维码）"
+  },
+  "Crear la inmersión y sus QR": {
+   "en": "Create the dive and its QR codes",
+   "fr": "Créer la plongée et ses QR",
+   "de": "Tauchgang und QR-Codes erstellen",
+   "it": "Crea l'immersione e i suoi QR",
+   "pt": "Criar o mergulho e os seus QR",
+   "pl": "Utwórz nurkowanie i kody QR",
+   "nl": "Duik en QR-codes aanmaken",
+   "zh": "创建潜水及其二维码"
+  },
+  "REGISTRADAS": {
+   "en": "REGISTERED",
+   "fr": "ENREGISTRÉES",
+   "de": "EINGETRAGEN",
+   "it": "REGISTRATE",
+   "pt": "REGISTADOS",
+   "pl": "ZAREJESTROWANE",
+   "nl": "GEREGISTREERD",
+   "zh": "已登记"
+  },
+  "Inmersiones con QR": {
+   "en": "Dives with QR codes",
+   "fr": "Plongées avec QR",
+   "de": "Tauchgänge mit QR-Code",
+   "it": "Immersioni con QR",
+   "pt": "Mergulhos com QR",
+   "pl": "Nurkowania z kodami QR",
+   "nl": "Duiken met QR-code",
+   "zh": "带二维码的潜水"
+  },
+  "QR usados de los creados. Un buceador que vuelve a escanear su QR no la duplica.": {
+   "en": "QR codes used out of those created. A diver who scans their QR code again does not duplicate the dive.",
+   "fr": "QR utilisés sur ceux créés. Un plongeur qui scanne à nouveau son QR ne la duplique pas.",
+   "de": "Genutzte von den erstellten QR-Codes. Scannt ein Taucher seinen Code erneut, wird der Tauchgang nicht doppelt eingetragen.",
+   "it": "QR usati su quelli creati. Un sub che scansiona di nuovo il suo QR non la duplica.",
+   "pt": "QR usados dos criados. Um mergulhador que volta a ler o seu QR não o duplica.",
+   "pl": "Wykorzystane kody QR z utworzonych. Ponowne zeskanowanie kodu przez nurka nie dubluje nurkowania.",
+   "nl": "Gebruikte van de aangemaakte QR-codes. Een duiker die zijn QR-code opnieuw scant, verdubbelt de duik niet.",
+   "zh": "已使用/已创建的二维码数量。潜水员再次扫描自己的二维码不会重复添加。"
+  },
+  "QR usados": {
+   "en": "QR codes used",
+   "fr": "QR utilisés",
+   "de": "Genutzte QR-Codes",
+   "it": "QR usati",
+   "pt": "QR usados",
+   "pl": "Użyte kody QR",
+   "nl": "Gebruikte QR-codes",
+   "zh": "已使用二维码"
+  },
+  "Otro QR": {
+   "en": "Another QR code",
+   "fr": "Un autre QR",
+   "de": "Weiterer QR-Code",
+   "it": "Un altro QR",
+   "pt": "Outro QR",
+   "pl": "Kolejny kod QR",
+   "nl": "Nog een QR-code",
+   "zh": "再生成一个二维码"
+  },
+  "No quedan QR sin usar": {
+   "en": "No unused QR codes left",
+   "fr": "Plus de QR inutilisés",
+   "de": "Keine unbenutzten QR-Codes mehr",
+   "it": "Non restano QR inutilizzati",
+   "pt": "Não restam QR por usar",
+   "pl": "Brak niewykorzystanych kodów QR",
+   "nl": "Geen ongebruikte QR-codes meer",
+   "zh": "没有未使用的二维码了"
+  },
+  "Todavía no has registrado ninguna inmersión.": {
+   "en": "You haven't registered any dives yet.",
+   "fr": "Vous n'avez encore enregistré aucune plongée.",
+   "de": "Sie haben noch keinen Tauchgang eingetragen.",
+   "it": "Non hai ancora registrato nessuna immersione.",
+   "pt": "Ainda não registaste nenhum mergulho.",
+   "pl": "Nie zarejestrowano jeszcze żadnego nurkowania.",
+   "nl": "U hebt nog geen duik geregistreerd.",
+   "zh": "你还没有登记任何潜水。"
+  },
+  "QR de la inmersión": {
+   "en": "Dive QR code",
+   "fr": "QR de la plongée",
+   "de": "QR-Code des Tauchgangs",
+   "it": "QR dell'immersione",
+   "pt": "QR do mergulho",
+   "pl": "Kod QR nurkowania",
+   "nl": "QR-code van de duik",
+   "zh": "潜水二维码"
+  },
+  "Que cada buceador lo escanee con la cámara de su móvil: la inmersión entra en su Log Book, verificada. Cada QR sirve una sola vez.": {
+   "en": "Each diver scans it with their phone camera: the dive goes into their Log Book, verified. Each QR code works only once.",
+   "fr": "Chaque plongeur le scanne avec l'appareil photo de son téléphone : la plongée entre dans son Log Book, vérifiée. Chaque QR ne sert qu'une fois.",
+   "de": "Jeder Taucher scannt ihn mit der Kamera seines Handys: Der Tauchgang landet verifiziert in seinem Log Book. Jeder QR-Code funktioniert nur einmal.",
+   "it": "Ogni sub lo scansiona con la fotocamera del telefono: l'immersione entra nel suo Log Book, verificata. Ogni QR vale una sola volta.",
+   "pt": "Cada mergulhador lê-o com a câmara do telemóvel: o mergulho entra no Log Book dele, verificado. Cada QR serve uma única vez.",
+   "pl": "Każdy nurek skanuje go aparatem w telefonie: nurkowanie trafia do jego Log Booka, zweryfikowane. Każdy kod QR działa tylko raz.",
+   "nl": "Elke duiker scant hem met de camera van zijn telefoon: de duik komt geverifieerd in zijn Log Book. Elke QR-code werkt maar één keer.",
+   "zh": "请每位潜水员用手机相机扫描：这次潜水会带着验证标记进入其 Log Book。每个二维码只能使用一次。"
+  },
+  "‹ Anterior": {
+   "en": "‹ Previous",
+   "fr": "‹ Précédent",
+   "de": "‹ Zurück",
+   "it": "‹ Precedente",
+   "pt": "‹ Anterior",
+   "pl": "‹ Poprzedni",
+   "nl": "‹ Vorige",
+   "zh": "‹ 上一个"
+  },
+  "Imprimir (PDF)": {
+   "en": "Print (PDF)",
+   "fr": "Imprimer (PDF)",
+   "de": "Drucken (PDF)",
+   "it": "Stampa (PDF)",
+   "pt": "Imprimir (PDF)",
+   "pl": "Drukuj (PDF)",
+   "nl": "Afdrukken (PDF)",
+   "zh": "打印 (PDF)"
+  },
+  "Siguiente QR ›": {
+   "en": "Next QR code ›",
+   "fr": "QR suivant ›",
+   "de": "Nächster QR-Code ›",
+   "it": "QR successivo ›",
+   "pt": "QR seguinte ›",
+   "pl": "Następny kod QR ›",
+   "nl": "Volgende QR-code ›",
+   "zh": "下一个二维码 ›"
+  },
+  "Enlace copiado.": {
+   "en": "Link copied.",
+   "fr": "Lien copié.",
+   "de": "Link kopiert.",
+   "it": "Link copiato.",
+   "pt": "Ligação copiada.",
+   "pl": "Link skopiowany.",
+   "nl": "Link gekopieerd.",
+   "zh": "链接已复制。"
+  },
+  "Selecciona y copia el enlace.": {
+   "en": "Select and copy the link.",
+   "fr": "Sélectionnez et copiez le lien.",
+   "de": "Markieren und kopieren Sie den Link.",
+   "it": "Seleziona e copia il link.",
+   "pt": "Seleciona e copia a ligação.",
+   "pl": "Zaznacz i skopiuj link.",
+   "nl": "Selecteer en kopieer de link.",
+   "zh": "请选中并复制链接。"
+  },
+  "Portada guardada.": {
+   "en": "Cover saved.",
+   "fr": "Couverture enregistrée.",
+   "de": "Cover gespeichert.",
+   "it": "Copertina salvata.",
+   "pt": "Capa guardada.",
+   "pl": "Okładka zapisana.",
+   "nl": "Omslag opgeslagen.",
+   "zh": "封面已保存。"
+  },
+  "Logo quitado.": {
+   "en": "Logo removed.",
+   "fr": "Logo retiré.",
+   "de": "Logo entfernt.",
+   "it": "Logo rimosso.",
+   "pt": "Logótipo removido.",
+   "pl": "Logo usunięte.",
+   "nl": "Logo verwijderd.",
+   "zh": "标志已移除。"
+  },
+  "Este dispositivo no da la ubicación.": {
+   "en": "This device doesn't provide a location.",
+   "fr": "Cet appareil ne fournit pas la position.",
+   "de": "Dieses Gerät liefert keinen Standort.",
+   "it": "Questo dispositivo non fornisce la posizione.",
+   "pt": "Este dispositivo não dá a localização.",
+   "pl": "To urządzenie nie podaje lokalizacji.",
+   "nl": "Dit apparaat geeft geen locatie door.",
+   "zh": "此设备无法提供位置。"
+  },
+  "No se ha podido obtener la ubicación.": {
+   "en": "The location could not be obtained.",
+   "fr": "Impossible d'obtenir la position.",
+   "de": "Der Standort konnte nicht ermittelt werden.",
+   "it": "Non è stato possibile ottenere la posizione.",
+   "pt": "Não foi possível obter a localização.",
+   "pl": "Nie udało się ustalić lokalizacji.",
+   "nl": "De locatie kon niet worden bepaald.",
+   "zh": "无法获取位置。"
+  },
+  "Escribe la posición como 42.0473, 3.2257 (latitud, longitud).": {
+   "en": "Write the position as 42.0473, 3.2257 (latitude, longitude).",
+   "fr": "Écrivez la position sous la forme 42.0473, 3.2257 (latitude, longitude).",
+   "de": "Schreiben Sie die Position als 42.0473, 3.2257 (Breite, Länge).",
+   "it": "Scrivi la posizione come 42.0473, 3.2257 (latitudine, longitudine).",
+   "pt": "Escreve a posição como 42.0473, 3.2257 (latitude, longitude).",
+   "pl": "Wpisz pozycję jako 42.0473, 3.2257 (szerokość, długość).",
+   "nl": "Schrijf de positie als 42.0473, 3.2257 (breedte, lengte).",
+   "zh": "请按 42.0473, 3.2257（纬度, 经度）的格式填写位置。"
+  },
+  "Inmersión registrada.": {
+   "en": "Dive registered.",
+   "fr": "Plongée enregistrée.",
+   "de": "Tauchgang eingetragen.",
+   "it": "Immersione registrata.",
+   "pt": "Mergulho registado.",
+   "pl": "Nurkowanie zarejestrowane.",
+   "nl": "Duik geregistreerd.",
+   "zh": "潜水已登记。"
+  },
+  "Preparando…": {
+   "en": "Preparing…",
+   "fr": "Préparation…",
+   "de": "Wird vorbereitet…",
+   "it": "Preparazione…",
+   "pt": "A preparar…",
+   "pl": "Przygotowywanie…",
+   "nl": "Voorbereiden…",
+   "zh": "准备中…"
+  },
+  "Este QR no es válido.": {
+   "en": "This QR code is not valid.",
+   "fr": "Ce QR n'est pas valide.",
+   "de": "Dieser QR-Code ist ungültig.",
+   "it": "Questo QR non è valido.",
+   "pt": "Este QR não é válido.",
+   "pl": "Ten kod QR jest nieprawidłowy.",
+   "nl": "Deze QR-code is niet geldig.",
+   "zh": "此二维码无效。"
+  },
+  "Has escaneado muchos QR seguidos. Espera unos minutos.": {
+   "en": "You've scanned many QR codes in a row. Wait a few minutes.",
+   "fr": "Vous avez scanné beaucoup de QR d'affilée. Attendez quelques minutes.",
+   "de": "Du hast viele QR-Codes hintereinander gescannt. Warte ein paar Minuten.",
+   "it": "Hai scansionato molti QR di fila. Aspetta qualche minuto.",
+   "pt": "Leste muitos QR seguidos. Espera uns minutos.",
+   "pl": "Zeskanowano wiele kodów QR z rzędu. Odczekaj kilka minut.",
+   "nl": "Je hebt veel QR-codes achter elkaar gescand. Wacht een paar minuten.",
+   "zh": "你连续扫描了太多二维码，请稍等几分钟。"
+  },
+  "Este QR no es válido o ya no existe.": {
+   "en": "This QR code is not valid or no longer exists.",
+   "fr": "Ce QR n'est pas valide ou n'existe plus.",
+   "de": "Dieser QR-Code ist ungültig oder existiert nicht mehr.",
+   "it": "Questo QR non è valido o non esiste più.",
+   "pt": "Este QR não é válido ou já não existe.",
+   "pl": "Ten kod QR jest nieprawidłowy lub już nie istnieje.",
+   "nl": "Deze QR-code is niet geldig of bestaat niet meer.",
+   "zh": "此二维码无效或已不存在。"
+  },
+  "Este QR ya lo ha usado otro buceador. Pide al centro uno para ti.": {
+   "en": "Another diver has already used this QR code. Ask the centre for one of your own.",
+   "fr": "Un autre plongeur a déjà utilisé ce QR. Demandez au centre un QR pour vous.",
+   "de": "Diesen QR-Code hat schon ein anderer Taucher benutzt. Bitte das Zentrum um einen eigenen.",
+   "it": "Questo QR l'ha già usato un altro sub. Chiedi al centro uno per te.",
+   "pt": "Este QR já foi usado por outro mergulhador. Pede ao centro um para ti.",
+   "pl": "Ten kod QR wykorzystał już inny nurek. Poproś centrum o własny.",
+   "nl": "Een andere duiker heeft deze QR-code al gebruikt. Vraag het centrum om een eigen code.",
+   "zh": "此二维码已被其他潜水员使用。请向中心索取你自己的二维码。"
+  },
+  "Este QR ha caducado. Pide al centro uno nuevo.": {
+   "en": "This QR code has expired. Ask the centre for a new one.",
+   "fr": "Ce QR a expiré. Demandez-en un nouveau au centre.",
+   "de": "Dieser QR-Code ist abgelaufen. Bitte das Zentrum um einen neuen.",
+   "it": "Questo QR è scaduto. Chiedine uno nuovo al centro.",
+   "pt": "Este QR expirou. Pede um novo ao centro.",
+   "pl": "Ten kod QR wygasł. Poproś centrum o nowy.",
+   "nl": "Deze QR-code is verlopen. Vraag het centrum om een nieuwe.",
+   "zh": "此二维码已过期。请向中心索取新的二维码。"
+  },
+  "Este QR de buddy no es válido.": {
+   "en": "This buddy QR code is not valid.",
+   "fr": "Ce QR de binôme n'est pas valide.",
+   "de": "Dieser Buddy-QR-Code ist ungültig.",
+   "it": "Questo QR buddy non è valido.",
+   "pt": "Este QR de buddy não é válido.",
+   "pl": "Ten kod QR partnera jest nieprawidłowy.",
+   "nl": "Deze buddy-QR-code is niet geldig.",
+   "zh": "此潜伴二维码无效。"
+  },
+  "Has añadido muchos buddies seguidos. Espera unos minutos.": {
+   "en": "You've added many buddies in a row. Wait a few minutes.",
+   "fr": "Vous avez ajouté beaucoup de binômes d'affilée. Attendez quelques minutes.",
+   "de": "Du hast viele Buddies hintereinander hinzugefügt. Warte ein paar Minuten.",
+   "it": "Hai aggiunto molti buddy di fila. Aspetta qualche minuto.",
+   "pt": "Adicionaste muitos buddies seguidos. Espera uns minutos.",
+   "pl": "Dodano wielu partnerów z rzędu. Odczekaj kilka minut.",
+   "nl": "Je hebt veel buddy's achter elkaar toegevoegd. Wacht een paar minuten.",
+   "zh": "你连续添加了太多潜伴，请稍等几分钟。"
+  },
+  "Este es tu propio QR: enséñaselo a tu compañero para que lo escanee él.": {
+   "en": "This is your own QR code: show it to your buddy so they can scan it.",
+   "fr": "C'est votre propre QR : montrez-le à votre binôme pour qu'il le scanne.",
+   "de": "Das ist dein eigener QR-Code: Zeig ihn deinem Buddy, damit er ihn scannt.",
+   "it": "Questo è il tuo QR: mostralo al tuo compagno perché lo scansioni lui.",
+   "pt": "Este é o teu próprio QR: mostra-o ao teu parceiro para que ele o leia.",
+   "pl": "To twój własny kod QR: pokaż go partnerowi, żeby go zeskanował.",
+   "nl": "Dit is je eigen QR-code: laat hem aan je buddy zien zodat die hem scant.",
+   "zh": "这是你自己的二维码：请给你的潜伴扫描。"
+  },
+  "Este enlace de invitación ya no es válido.": {
+   "en": "This invitation link is no longer valid.",
+   "fr": "Ce lien d'invitation n'est plus valide.",
+   "de": "Dieser Einladungslink ist nicht mehr gültig.",
+   "it": "Questo link di invito non è più valido.",
+   "pt": "Esta ligação de convite já não é válida.",
+   "pl": "Ten link z zaproszeniem jest już nieważny.",
+   "nl": "Deze uitnodigingslink is niet meer geldig.",
+   "zh": "此邀请链接已失效。"
+  },
+  "Las cuentas de centros y profesionales no se unen a otro centro.": {
+   "en": "Centre and professional accounts don't join another centre.",
+   "fr": "Les comptes de centres et de professionnels ne rejoignent pas un autre centre.",
+   "de": "Konten von Zentren und Profis treten keinem anderen Zentrum bei.",
+   "it": "Gli account di centri e professionisti non si uniscono a un altro centro.",
+   "pt": "As contas de centros e profissionais não se juntam a outro centro.",
+   "pl": "Konta centrów i profesjonalistów nie dołączają do innego centrum.",
+   "nl": "Accounts van centra en professionals sluiten zich niet aan bij een ander centrum.",
+   "zh": "中心和专业人员账户不能加入其他中心。"
+  },
+  "Indica la fecha de la inmersión.": {
+   "en": "Enter the date of the dive.",
+   "fr": "Indiquez la date de la plongée.",
+   "de": "Geben Sie das Datum des Tauchgangs an.",
+   "it": "Indica la data dell'immersione.",
+   "pt": "Indica a data do mergulho.",
+   "pl": "Podaj datę nurkowania.",
+   "nl": "Vul de datum van de duik in.",
+   "zh": "请填写潜水日期。"
+  },
+  "La fecha de la inmersión no puede ser posterior a mañana.": {
+   "en": "The dive date can't be later than tomorrow.",
+   "fr": "La date de la plongée ne peut pas être postérieure à demain.",
+   "de": "Das Datum des Tauchgangs darf nicht nach morgen liegen.",
+   "it": "La data dell'immersione non può essere successiva a domani.",
+   "pt": "A data do mergulho não pode ser posterior a amanhã.",
+   "pl": "Data nurkowania nie może być późniejsza niż jutro.",
+   "nl": "De duikdatum mag niet later zijn dan morgen.",
+   "zh": "潜水日期不能晚于明天。"
+  },
+  "La fecha de la inmersión es de hace más de un año.": {
+   "en": "The dive date is more than a year ago.",
+   "fr": "La date de la plongée remonte à plus d'un an.",
+   "de": "Das Datum des Tauchgangs liegt mehr als ein Jahr zurück.",
+   "it": "La data dell'immersione è di più di un anno fa.",
+   "pt": "A data do mergulho é de há mais de um ano.",
+   "pl": "Data nurkowania jest sprzed ponad roku.",
+   "nl": "De duikdatum ligt meer dan een jaar terug.",
+   "zh": "潜水日期在一年以前。"
+  },
+  "Indica el lugar de la inmersión.": {
+   "en": "Enter the dive site.",
+   "fr": "Indiquez le lieu de la plongée.",
+   "de": "Geben Sie den Ort des Tauchgangs an.",
+   "it": "Indica il luogo dell'immersione.",
+   "pt": "Indica o local do mergulho.",
+   "pl": "Podaj miejsce nurkowania.",
+   "nl": "Vul de plek van de duik in.",
+   "zh": "请填写潜水地点。"
+  },
+  "Indica el instructor o guía (nombre y nº de titulación).": {
+   "en": "Enter the instructor or guide (name and certification no.).",
+   "fr": "Indiquez l'instructeur ou le guide (nom et n° de brevet).",
+   "de": "Geben Sie den Instruktor oder Guide an (Name und Brevet-Nr.).",
+   "it": "Indica l'istruttore o la guida (nome e n. di brevetto).",
+   "pt": "Indica o instrutor ou guia (nome e n.º de certificação).",
+   "pl": "Podaj instruktora lub przewodnika (imię i nazwisko oraz nr certyfikatu).",
+   "nl": "Vul de instructeur of gids in (naam en brevetnummer).",
+   "zh": "请填写教练或向导（姓名和证书编号）。"
+  },
+  "La posición no es válida (latitud y longitud).": {
+   "en": "The position is not valid (latitude and longitude).",
+   "fr": "La position n'est pas valide (latitude et longitude).",
+   "de": "Die Position ist ungültig (Breite und Länge).",
+   "it": "La posizione non è valida (latitudine e longitudine).",
+   "pt": "A posição não é válida (latitude e longitude).",
+   "pl": "Pozycja jest nieprawidłowa (szerokość i długość).",
+   "nl": "De positie is niet geldig (breedte en lengte).",
+   "zh": "位置无效（纬度和经度）。"
+  },
+  "Número de QR no válido.": {
+   "en": "Invalid number of QR codes.",
+   "fr": "Nombre de QR non valide.",
+   "de": "Ungültige Anzahl von QR-Codes.",
+   "it": "Numero di QR non valido.",
+   "pt": "Número de QR inválido.",
+   "pl": "Nieprawidłowa liczba kodów QR.",
+   "nl": "Ongeldig aantal QR-codes.",
+   "zh": "二维码数量无效。"
+  },
+  "Esta inmersión ya tiene 200 QR.": {
+   "en": "This dive already has 200 QR codes.",
+   "fr": "Cette plongée a déjà 200 QR.",
+   "de": "Dieser Tauchgang hat bereits 200 QR-Codes.",
+   "it": "Questa immersione ha già 200 QR.",
+   "pt": "Este mergulho já tem 200 QR.",
+   "pl": "To nurkowanie ma już 200 kodów QR.",
+   "nl": "Deze duik heeft al 200 QR-codes.",
+   "zh": "这次潜水已有 200 个二维码。"
+  },
+  "No quedan QR sin usar en esta inmersión: crea más con «Otro QR».": {
+   "en": "No unused QR codes are left for this dive: create more with «Another QR code».",
+   "fr": "Il ne reste aucun QR inutilisé pour cette plongée : créez-en d'autres avec « Un autre QR ».",
+   "de": "Für diesen Tauchgang gibt es keine unbenutzten QR-Codes mehr: Erstellen Sie weitere mit „Weiterer QR-Code“.",
+   "it": "Non restano QR inutilizzati in questa immersione: creane altri con «Un altro QR».",
+   "pt": "Não restam QR por usar neste mergulho: cria mais com «Outro QR».",
+   "pl": "W tym nurkowaniu nie ma już niewykorzystanych kodów QR: utwórz kolejne przyciskiem „Kolejny kod QR”.",
+   "nl": "Er zijn geen ongebruikte QR-codes meer voor deze duik: maak er meer aan met „Nog een QR-code”.",
+   "zh": "这次潜水已没有未使用的二维码：点“再生成一个二维码”创建更多。"
+  },
+  "Adjunta el logo.": {
+   "en": "Attach the logo.",
+   "fr": "Joignez le logo.",
+   "de": "Hängen Sie das Logo an.",
+   "it": "Allega il logo.",
+   "pt": "Anexa o logótipo.",
+   "pl": "Dołącz logo.",
+   "nl": "Voeg het logo toe.",
+   "zh": "请上传标志。"
+  },
+  "Adjunta el logo (PNG o SVG con fondo transparente).": {
+   "en": "Attach the logo (PNG or SVG with a transparent background).",
+   "fr": "Joignez le logo (PNG ou SVG sur fond transparent).",
+   "de": "Hängen Sie das Logo an (PNG oder SVG mit transparentem Hintergrund).",
+   "it": "Allega il logo (PNG o SVG con sfondo trasparente).",
+   "pt": "Anexa o logótipo (PNG ou SVG com fundo transparente).",
+   "pl": "Dołącz logo (PNG lub SVG z przezroczystym tłem).",
+   "nl": "Voeg het logo toe (PNG of SVG met transparante achtergrond).",
+   "zh": "请上传标志（背景透明的 PNG 或 SVG）。"
+  },
+  "Tu cuenta no tiene un centro asociado.": {
+   "en": "Your account has no centre linked.",
+   "fr": "Votre compte n'est associé à aucun centre.",
+   "de": "Ihrem Konto ist kein Zentrum zugeordnet.",
+   "it": "Il tuo account non ha un centro associato.",
+   "pt": "A tua conta não tem um centro associado.",
+   "pl": "Twoje konto nie ma przypisanego centrum.",
+   "nl": "Aan uw account is geen centrum gekoppeld.",
+   "zh": "你的账户没有关联的中心。"
+  },
+  "Inmersión no encontrada.": {
+   "en": "Dive not found.",
+   "fr": "Plongée introuvable.",
+   "de": "Tauchgang nicht gefunden.",
+   "it": "Immersione non trovata.",
+   "pt": "Mergulho não encontrado.",
+   "pl": "Nie znaleziono nurkowania.",
+   "nl": "Duik niet gevonden.",
+   "zh": "未找到该潜水。"
+  },
+  "QR no encontrado.": {
+   "en": "QR code not found.",
+   "fr": "QR introuvable.",
+   "de": "QR-Code nicht gefunden.",
+   "it": "QR non trovato.",
+   "pt": "QR não encontrado.",
+   "pl": "Nie znaleziono kodu QR.",
+   "nl": "QR-code niet gevonden.",
+   "zh": "未找到该二维码。"
+  },
+  "Tu logbook ha cambiado en otro dispositivo: ya ves la última versión.": {
+   "en": "Your logbook changed on another device: you're now seeing the latest version.",
+   "fr": "Votre logbook a changé sur un autre appareil : vous voyez maintenant la dernière version.",
+   "de": "Dein Logbook wurde auf einem anderen Gerät geändert: Du siehst jetzt die neueste Version.",
+   "it": "Il tuo logbook è cambiato su un altro dispositivo: ora vedi l'ultima versione.",
+   "pt": "O teu logbook mudou noutro dispositivo: já vês a última versão.",
+   "pl": "Logbook zmienił się na innym urządzeniu: widzisz już najnowszą wersję.",
+   "nl": "Je logbook is op een ander apparaat gewijzigd: je ziet nu de nieuwste versie.",
+   "zh": "你的潜水日志已在另一台设备上更改：现在显示的是最新版本。"
+  },
+  "Demasiados cambios seguidos en el logbook. Espera un momento.": {
+   "en": "Too many changes in a row in the logbook. Wait a moment.",
+   "fr": "Trop de modifications d'affilée dans le logbook. Attendez un instant.",
+   "de": "Zu viele Änderungen hintereinander im Logbook. Warte einen Moment.",
+   "it": "Troppe modifiche di fila nel logbook. Aspetta un momento.",
+   "pt": "Demasiadas alterações seguidas no logbook. Espera um momento.",
+   "pl": "Zbyt wiele zmian z rzędu w logbooku. Poczekaj chwilę.",
+   "nl": "Te veel wijzigingen achter elkaar in het logbook. Wacht even.",
+   "zh": "潜水日志的连续更改过多，请稍候。"
+  },
+  "Esa inmersión no la ha verificado ningún centro para tu cuenta: no se puede marcar como verificada.": {
+   "en": "No centre has verified that dive for your account: it can't be marked as verified.",
+   "fr": "Aucun centre n'a vérifié cette plongée pour votre compte : elle ne peut pas être marquée comme vérifiée.",
+   "de": "Kein Zentrum hat diesen Tauchgang für dein Konto verifiziert: Er kann nicht als verifiziert markiert werden.",
+   "it": "Nessun centro ha verificato quell'immersione per il tuo account: non può essere segnata come verificata.",
+   "pt": "Nenhum centro verificou esse mergulho para a tua conta: não pode ser marcado como verificado.",
+   "pl": "Żadne centrum nie zweryfikowało tego nurkowania dla twojego konta: nie można go oznaczyć jako zweryfikowanego.",
+   "nl": "Geen enkel centrum heeft die duik voor je account geverifieerd: hij kan niet als geverifieerd worden gemarkeerd.",
+   "zh": "没有任何中心为你的账户验证过这次潜水：不能标记为已验证。"
+  },
+  "La misma inmersión verificada aparece dos veces en el logbook.": {
+   "en": "The same verified dive appears twice in the logbook.",
+   "fr": "La même plongée vérifiée apparaît deux fois dans le logbook.",
+   "de": "Derselbe verifizierte Tauchgang steht zweimal im Logbook.",
+   "it": "La stessa immersione verificata compare due volte nel logbook.",
+   "pt": "O mesmo mergulho verificado aparece duas vezes no logbook.",
+   "pl": "To samo zweryfikowane nurkowanie występuje w logbooku dwa razy.",
+   "nl": "Dezelfde geverifieerde duik staat twee keer in het logbook.",
+   "zh": "同一次已验证的潜水在日志中出现了两次。"
+  },
+  "Una inmersión verificada no se puede cambiar de página.": {
+   "en": "A verified dive can't be moved to another page.",
+   "fr": "Une plongée vérifiée ne peut pas changer de page.",
+   "de": "Ein verifizierter Tauchgang kann nicht auf eine andere Seite verschoben werden.",
+   "it": "Un'immersione verificata non può cambiare pagina.",
+   "pt": "Um mergulho verificado não pode mudar de página.",
+   "pl": "Zweryfikowanego nurkowania nie można przenieść na inną stronę.",
+   "nl": "Een geverifieerde duik kan niet naar een andere pagina.",
+   "zh": "已验证的潜水不能移到其他页面。"
+  },
+  "Los datos que registró el centro en una inmersión verificada no se pueden cambiar.": {
+   "en": "The details the centre registered in a verified dive can't be changed.",
+   "fr": "Les données enregistrées par le centre dans une plongée vérifiée ne peuvent pas être modifiées.",
+   "de": "Die vom Zentrum eingetragenen Daten eines verifizierten Tauchgangs können nicht geändert werden.",
+   "it": "I dati registrati dal centro in un'immersione verificata non si possono cambiare.",
+   "pt": "Os dados registados pelo centro num mergulho verificado não podem ser alterados.",
+   "pl": "Danych wpisanych przez centrum w zweryfikowanym nurkowaniu nie można zmienić.",
+   "nl": "De gegevens die het centrum bij een geverifieerde duik registreerde, kunnen niet worden gewijzigd.",
+   "zh": "中心在已验证潜水中登记的数据不能更改。"
+  },
+  "La fecha": {
+   "en": "The date",
+   "fr": "la date",
+   "de": "Datum",
+   "it": "la data",
+   "pt": "a data",
+   "pl": "data",
+   "nl": "de datum",
+   "zh": "日期"
+  },
+  "El lugar": {
+   "en": "The site",
+   "fr": "le lieu",
+   "de": "Ort",
+   "it": "il luogo",
+   "pt": "o local",
+   "pl": "miejsce",
+   "nl": "de plek",
+   "zh": "地点"
+  },
+  "El país": {
+   "en": "The country",
+   "fr": "le pays",
+   "de": "Land",
+   "it": "il paese",
+   "pt": "o país",
+   "pl": "kraj",
+   "nl": "het land",
+   "zh": "国家"
+  },
+  "El centro": {
+   "en": "The centre",
+   "fr": "le centre",
+   "de": "Zentrum",
+   "it": "il centro",
+   "pt": "o centro",
+   "pl": "centrum",
+   "nl": "het centrum",
+   "zh": "中心"
+  },
+  "La posición": {
+   "en": "The position",
+   "fr": "la position",
+   "de": "Position",
+   "it": "la posizione",
+   "pt": "a posição",
+   "pl": "pozycja",
+   "nl": "de positie",
+   "zh": "位置"
+  },
+  "El instructor": {
+   "en": "The instructor",
+   "fr": "l'instructeur",
+   "de": "Instruktor",
+   "it": "l'istruttore",
+   "pt": "o instrutor",
+   "pl": "instruktor",
+   "nl": "de instructeur",
+   "zh": "教练"
+  },
+  "Ese dato": {
+   "en": "That detail",
+   "fr": "cette donnée",
+   "de": "dieser Wert",
+   "it": "questo dato",
+   "pt": "esse dado",
+   "pl": "ta wartość",
+   "nl": "dat gegeven",
+   "zh": "该数据"
+  },
+  "El logbook no tiene el formato esperado.": {
+   "en": "The logbook doesn't have the expected format.",
+   "fr": "Le logbook n'a pas le format attendu.",
+   "de": "Das Logbook hat nicht das erwartete Format.",
+   "it": "Il logbook non ha il formato previsto.",
+   "pt": "O logbook não tem o formato esperado.",
+   "pl": "Logbook nie ma oczekiwanego formatu.",
+   "nl": "Het logbook heeft niet het verwachte formaat.",
+   "zh": "潜水日志格式不正确。"
+  },
+  "El número de páginas no es válido.": {
+   "en": "The number of pages is not valid.",
+   "fr": "Le nombre de pages n'est pas valide.",
+   "de": "Die Seitenzahl ist ungültig.",
+   "it": "Il numero di pagine non è valido.",
+   "pt": "O número de páginas não é válido.",
+   "pl": "Liczba stron jest nieprawidłowa.",
+   "nl": "Het aantal pagina's is niet geldig.",
+   "zh": "页数无效。"
+  },
+  "Hay una inmersión fuera del cuaderno.": {
+   "en": "There is a dive outside the book.",
+   "fr": "Il y a une plongée hors du carnet.",
+   "de": "Ein Tauchgang liegt außerhalb des Buchs.",
+   "it": "C'è un'immersione fuori dal quaderno.",
+   "pt": "Há um mergulho fora do caderno.",
+   "pl": "Jedno nurkowanie jest poza dziennikiem.",
+   "nl": "Er staat een duik buiten het boek.",
+   "zh": "有一次潜水超出了日志范围。"
+  },
+  "Un dato del logbook no es texto.": {
+   "en": "A logbook entry is not text.",
+   "fr": "Une donnée du logbook n'est pas du texte.",
+   "de": "Ein Wert im Logbook ist kein Text.",
+   "it": "Un dato del logbook non è testo.",
+   "pt": "Um dado do logbook não é texto.",
+   "pl": "Jedna z wartości logbooka nie jest tekstem.",
+   "nl": "Een gegeven in het logbook is geen tekst.",
+   "zh": "潜水日志中有一项不是文本。"
+  },
+  "Las inmersiones verificadas no tienen el formato esperado.": {
+   "en": "The verified dives don't have the expected format.",
+   "fr": "Les plongées vérifiées n'ont pas le format attendu.",
+   "de": "Die verifizierten Tauchgänge haben nicht das erwartete Format.",
+   "it": "Le immersioni verificate non hanno il formato previsto.",
+   "pt": "Os mergulhos verificados não têm o formato esperado.",
+   "pl": "Zweryfikowane nurkowania nie mają oczekiwanego formatu.",
+   "nl": "De geverifieerde duiken hebben niet het verwachte formaat.",
+   "zh": "已验证潜水的格式不正确。"
+  },
+  "Una inmersión verificada no tiene número.": {
+   "en": "A verified dive has no number.",
+   "fr": "Une plongée vérifiée n'a pas de numéro.",
+   "de": "Ein verifizierter Tauchgang hat keine Nummer.",
+   "it": "Un'immersione verificata non ha numero.",
+   "pt": "Um mergulho verificado não tem número.",
+   "pl": "Zweryfikowane nurkowanie nie ma numeru.",
+   "nl": "Een geverifieerde duik heeft geen nummer.",
+   "zh": "有一次已验证的潜水没有编号。"
+  },
+  "Una inmersión verificada no tiene el formato esperado.": {
+   "en": "A verified dive doesn't have the expected format.",
+   "fr": "Une plongée vérifiée n'a pas le format attendu.",
+   "de": "Ein verifizierter Tauchgang hat nicht das erwartete Format.",
+   "it": "Un'immersione verificata non ha il formato previsto.",
+   "pt": "Um mergulho verificado não tem o formato esperado.",
+   "pl": "Zweryfikowane nurkowanie nie ma oczekiwanego formatu.",
+   "nl": "Een geverifieerde duik heeft niet het verwachte formaat.",
+   "zh": "有一次已验证的潜水格式不正确。"
+  },
+  "El logo pesa demasiado: máximo 300 KB.": {
+   "en": "The logo is too large: 300 KB maximum.",
+   "fr": "Le logo est trop lourd : 300 Ko maximum.",
+   "de": "Das Logo ist zu groß: maximal 300 KB.",
+   "it": "Il logo è troppo pesante: massimo 300 KB.",
+   "pt": "O logótipo é demasiado pesado: máximo 300 KB.",
+   "pl": "Logo jest za duże: maksymalnie 300 KB.",
+   "nl": "Het logo is te groot: maximaal 300 KB.",
+   "zh": "标志文件过大：最大 300 KB。"
+  },
+  "Ese SVG no se puede leer (UTF-8).": {
+   "en": "That SVG can't be read (UTF-8).",
+   "fr": "Ce SVG est illisible (UTF-8).",
+   "de": "Dieses SVG ist nicht lesbar (UTF-8).",
+   "it": "Questo SVG non si può leggere (UTF-8).",
+   "pt": "Esse SVG não pode ser lido (UTF-8).",
+   "pl": "Nie można odczytać tego pliku SVG (UTF-8).",
+   "nl": "Die SVG kan niet worden gelezen (UTF-8).",
+   "zh": "无法读取该 SVG（UTF-8）。"
+  },
+  "Ese archivo no es un SVG.": {
+   "en": "That file is not an SVG.",
+   "fr": "Ce fichier n'est pas un SVG.",
+   "de": "Diese Datei ist kein SVG.",
+   "it": "Questo file non è un SVG.",
+   "pt": "Esse ficheiro não é um SVG.",
+   "pl": "Ten plik nie jest plikiem SVG.",
+   "nl": "Dat bestand is geen SVG.",
+   "zh": "该文件不是 SVG。"
+  },
+  "El SVG trae código o enlaces a otros archivos: expórtalo solo con formas o súbelo en PNG transparente.": {
+   "en": "The SVG contains code or links to other files: export it with shapes only or upload it as a transparent PNG.",
+   "fr": "Le SVG contient du code ou des liens vers d'autres fichiers : exportez-le avec des formes uniquement ou envoyez-le en PNG transparent.",
+   "de": "Das SVG enthält Code oder Verweise auf andere Dateien: Exportieren Sie es nur mit Formen oder laden Sie ein transparentes PNG hoch.",
+   "it": "L'SVG contiene codice o link ad altri file: esportalo solo con forme o caricalo in PNG trasparente.",
+   "pt": "O SVG traz código ou ligações a outros ficheiros: exporta-o só com formas ou carrega-o em PNG transparente.",
+   "pl": "Plik SVG zawiera kod lub odnośniki do innych plików: wyeksportuj go tylko z kształtami albo wgraj przezroczysty PNG.",
+   "nl": "De SVG bevat code of links naar andere bestanden: exporteer hem alleen met vormen of upload een transparante PNG.",
+   "zh": "该 SVG 含有代码或指向其他文件的链接：请只导出图形，或上传透明背景的 PNG。"
+  },
+  "El SVG está dañado.": {
+   "en": "The SVG is damaged.",
+   "fr": "Le SVG est endommagé.",
+   "de": "Das SVG ist beschädigt.",
+   "it": "L'SVG è danneggiato.",
+   "pt": "O SVG está danificado.",
+   "pl": "Plik SVG jest uszkodzony.",
+   "nl": "De SVG is beschadigd.",
+   "zh": "该 SVG 已损坏。"
+  },
+  "Tu QR de buddy": {
+   "en": "Your buddy QR code",
+   "fr": "Votre QR de binôme",
+   "de": "Dein Buddy-QR-Code",
+   "it": "Il tuo QR buddy",
+   "pt": "O teu QR de buddy",
+   "pl": "Twój kod QR partnera",
+   "nl": "Je buddy-QR-code",
+   "zh": "你的潜伴二维码"
+  },
+  "Enséñale este QR a tu compañero: al escanearlo con su móvil seréis buddies, y aparecerá en «Compañero» de vuestro Log Book.": {
+   "en": "Show this QR code to your buddy: when they scan it with their phone you'll be buddies, and you'll appear under «Buddy» in each other's Log Book.",
+   "fr": "Montrez ce QR à votre binôme : en le scannant avec son téléphone, vous serez binômes et vous apparaîtrez dans « Binôme » de vos Log Books.",
+   "de": "Zeig diesen QR-Code deinem Buddy: Scannt er ihn mit seinem Handy, seid ihr Buddies und erscheint unter „Buddy“ in euren Log Books.",
+   "it": "Mostra questo QR al tuo compagno: quando lo scansiona con il telefono diventerete buddy e comparirete in «Compagno» dei vostri Log Book.",
+   "pt": "Mostra este QR ao teu parceiro: ao lê-lo com o telemóvel ficam buddies e aparecem em «Parceiro» nos vossos Log Books.",
+   "pl": "Pokaż ten kod QR partnerowi: gdy zeskanuje go telefonem, zostaniecie partnerami i pojawicie się w polu „Partner” w swoich Log Bookach.",
+   "nl": "Laat deze QR-code aan je buddy zien: als die hem met zijn telefoon scant, zijn jullie buddy's en verschijnen jullie bij „Buddy” in elkaars Log Book.",
+   "zh": "把这个二维码给你的潜伴看：对方用手机扫描后，你们就成为潜伴，并会出现在彼此 Log Book 的“潜伴”中。"
+  },
+  "Todavía no tienes buddies.": {
+   "en": "You don't have any buddies yet.",
+   "fr": "Vous n'avez pas encore de binôme.",
+   "de": "Du hast noch keine Buddies.",
+   "it": "Non hai ancora buddy.",
+   "pt": "Ainda não tens buddies.",
+   "pl": "Nie masz jeszcze partnerów.",
+   "nl": "Je hebt nog geen buddy's.",
+   "zh": "你还没有潜伴。"
+  },
+  "Los grupos y «¿Buceamos?» llegan con el encargo de Buddies.": {
+   "en": "Groups and «Shall we dive?» come with the Buddies project.",
+   "fr": "Les groupes et « On plonge ? » arrivent avec le projet Buddies.",
+   "de": "Gruppen und „Tauchen wir?“ kommen mit dem Buddies-Projekt.",
+   "it": "I gruppi e «Ci immergiamo?» arrivano con il progetto Buddies.",
+   "pt": "Os grupos e «Mergulhamos?» chegam com o projeto Buddies.",
+   "pl": "Grupy i „Nurkujemy?” pojawią się wraz z projektem Buddies.",
+   "nl": "Groepen en „Duiken we?” komen met het Buddies-project.",
+   "zh": "群组和“一起潜水吗？”将随 Buddies 项目推出。"
+  }
+ },
+ "patterns": {
+  "{n} inmersión · {t} bajo el agua · máx. {d} m": {
+   "en": "{n} dive · {t} underwater · max. {d} m",
+   "fr": "{n} plongée · {t} sous l'eau · max. {d} m",
+   "de": "{n} Tauchgang · {t} unter Wasser · max. {d} m",
+   "it": "{n} immersione · {t} sott'acqua · max {d} m",
+   "pt": "{n} mergulho · {t} debaixo de água · máx. {d} m",
+   "pl": "{n} nurkowanie · {t} pod wodą · maks. {d} m",
+   "nl": "{n} duik · {t} onder water · max. {d} m",
+   "zh": "{n} 次潜水 · 水下 {t} · 最深 {d} 米"
+  },
+  "{n} inmersiones · {t} bajo el agua · máx. {d} m": {
+   "en": "{n} dives · {t} underwater · max. {d} m",
+   "fr": "{n} plongées · {t} sous l'eau · max. {d} m",
+   "de": "{n} Tauchgänge · {t} unter Wasser · max. {d} m",
+   "it": "{n} immersioni · {t} sott'acqua · max {d} m",
+   "pt": "{n} mergulhos · {t} debaixo de água · máx. {d} m",
+   "pl": {
+    "one": "{n} nurkowanie · {t} pod wodą · maks. {d} m",
+    "few": "{n} nurkowania · {t} pod wodą · maks. {d} m",
+    "many": "{n} nurkowań · {t} pod wodą · maks. {d} m",
+    "other": "{n} nurkowania · {t} pod wodą · maks. {d} m"
+   },
+   "nl": "{n} duiken · {t} onder water · max. {d} m",
+   "zh": "{n} 次潜水 · 水下 {t} · 最深 {d} 米"
+  },
+  "Inmersión {n}": {
+   "en": "Dive {n}",
+   "fr": "Plongée {n}",
+   "de": "Tauchgang {n}",
+   "it": "Immersione {n}",
+   "pt": "Mergulho {n}",
+   "pl": "Nurkowanie {n}",
+   "nl": "Duik {n}",
+   "zh": "第 {n} 次潜水"
+  },
+  "Inmersión {n}, {s}": {
+   "en": "Dive {n}, {s}",
+   "fr": "Plongée {n}, {s}",
+   "de": "Tauchgang {n}, {s}",
+   "it": "Immersione {n}, {s}",
+   "pt": "Mergulho {n}, {s}",
+   "pl": "Nurkowanie {n}, {s}",
+   "nl": "Duik {n}, {s}",
+   "zh": "第 {n} 次潜水，{s}"
+  },
+  "INMERSIÓN {n}": {
+   "en": "DIVE {n}",
+   "fr": "PLONGÉE {n}",
+   "de": "TAUCHGANG {n}",
+   "it": "IMMERSIONE {n}",
+   "pt": "MERGULHO {n}",
+   "pl": "NURKOWANIE {n}",
+   "nl": "DUIK {n}",
+   "zh": "第 {n} 次潜水"
+  },
+  "INMERSIONES {n}–{b}": {
+   "en": "DIVES {n}–{b}",
+   "fr": "PLONGÉES {n}–{b}",
+   "de": "TAUCHGÄNGE {n}–{b}",
+   "it": "IMMERSIONI {n}–{b}",
+   "pt": "MERGULHOS {n}–{b}",
+   "pl": "NURKOWANIA {n}–{b}",
+   "nl": "DUIKEN {n}–{b}",
+   "zh": "第 {n}–{b} 次潜水"
+  },
+  "Verificada por {c}": {
+   "en": "Verified by {c}",
+   "fr": "Vérifiée par {c}",
+   "de": "Verifiziert von {c}",
+   "it": "Verificata da {c}",
+   "pt": "Verificado por {c}",
+   "pl": "Zweryfikowane przez {c}",
+   "nl": "Geverifieerd door {c}",
+   "zh": "由{c}验证"
+  },
+  "✓ Verificada por {c} · los datos marcados los registró el centro": {
+   "en": "✓ Verified by {c} · the marked details were registered by the centre",
+   "fr": "✓ Vérifiée par {c} · les données marquées ont été enregistrées par le centre",
+   "de": "✓ Verifiziert von {c} · die markierten Daten hat das Zentrum eingetragen",
+   "it": "✓ Verificata da {c} · i dati contrassegnati li ha registrati il centro",
+   "pt": "✓ Verificado por {c} · os dados marcados foram registados pelo centro",
+   "pl": "✓ Zweryfikowane przez {c} · zaznaczone dane wpisało centrum",
+   "nl": "✓ Geverifieerd door {c} · de gemarkeerde gegevens zijn door het centrum geregistreerd",
+   "zh": "✓ 由{c}验证 · 标记的数据由中心登记"
+  },
+  "Inmersión verificada por {c}. Has desbloqueado la vista pasaporte: pulsa el icono de arriba.": {
+   "en": "Dive verified by {c}. You've unlocked the passport view: tap the icon above.",
+   "fr": "Plongée vérifiée par {c}. Vous avez débloqué la vue passeport : touchez l'icône ci-dessus.",
+   "de": "Tauchgang verifiziert von {c}. Du hast die Passansicht freigeschaltet: Tippe oben auf das Symbol.",
+   "it": "Immersione verificata da {c}. Hai sbloccato la vista passaporto: tocca l'icona in alto.",
+   "pt": "Mergulho verificado por {c}. Desbloqueaste a vista de passaporte: toca no ícone acima.",
+   "pl": "Nurkowanie zweryfikowane przez {c}. Odblokowano widok paszportu: dotknij ikony powyżej.",
+   "nl": "Duik geverifieerd door {c}. Je hebt de paspoortweergave ontgrendeld: tik op het pictogram hierboven.",
+   "zh": "潜水已由{c}验证。你已解锁护照视图：点击上方的图标。"
+  },
+  "Inmersión verificada por {c} añadida.": {
+   "en": "Dive verified by {c} added.",
+   "fr": "Plongée vérifiée par {c} ajoutée.",
+   "de": "Von {c} verifizierter Tauchgang hinzugefügt.",
+   "it": "Immersione verificata da {c} aggiunta.",
+   "pt": "Mergulho verificado por {c} adicionado.",
+   "pl": "Dodano nurkowanie zweryfikowane przez {c}.",
+   "nl": "Duik geverifieerd door {c} toegevoegd.",
+   "zh": "已添加由{c}验证的潜水。"
+  },
+  "Bienvenido a {c}. Has desbloqueado la vista pasaporte.": {
+   "en": "Welcome to {c}. You've unlocked the passport view.",
+   "fr": "Bienvenue chez {c}. Vous avez débloqué la vue passeport.",
+   "de": "Willkommen bei {c}. Du hast die Passansicht freigeschaltet.",
+   "it": "Benvenuto da {c}. Hai sbloccato la vista passaporto.",
+   "pt": "Bem-vindo a {c}. Desbloqueaste a vista de passaporte.",
+   "pl": "Witamy w {c}. Odblokowano widok paszportu.",
+   "nl": "Welkom bij {c}. Je hebt de paspoortweergave ontgrendeld.",
+   "zh": "欢迎来到{c}。你已解锁护照视图。"
+  },
+  "Usar portada de {c}": {
+   "en": "Use the {c} cover",
+   "fr": "Utiliser la couverture de {c}",
+   "de": "Cover von {c} verwenden",
+   "it": "Usa la copertina di {c}",
+   "pt": "Usar a capa de {c}",
+   "pl": "Użyj okładki {c}",
+   "nl": "Omslag van {c} gebruiken",
+   "zh": "使用{c}的封面"
+  },
+  "Portada de {c} activada.": {
+   "en": "{c} cover on.",
+   "fr": "Couverture de {c} activée.",
+   "de": "Cover von {c} aktiviert.",
+   "it": "Copertina di {c} attivata.",
+   "pt": "Capa de {c} ativada.",
+   "pl": "Włączono okładkę {c}.",
+   "nl": "Omslag van {c} ingeschakeld.",
+   "zh": "已启用{c}的封面。"
+  },
+  "QR {n} de {b}": {
+   "en": "QR code {n} of {b}",
+   "fr": "QR {n} sur {b}",
+   "de": "QR-Code {n} von {b}",
+   "it": "QR {n} di {b}",
+   "pt": "QR {n} de {b}",
+   "pl": "Kod QR {n} z {b}",
+   "nl": "QR-code {n} van {b}",
+   "zh": "第 {n} 个，共 {b} 个"
+  },
+  "Un QR por buceador: cada uno sirve una sola vez y caduca a los {n} días. Muéstralos en la pantalla uno detrás de otro o imprímelos.": {
+   "en": "One QR code per diver: each one works only once and expires after {n} days. Show them on screen one after another or print them.",
+   "fr": "Un QR par plongeur : chacun ne sert qu'une fois et expire au bout de {n} jours. Montrez-les à l'écran l'un après l'autre ou imprimez-les.",
+   "de": "Ein QR-Code pro Taucher: Jeder funktioniert nur einmal und läuft nach {n} Tagen ab. Zeigen Sie sie nacheinander auf dem Bildschirm oder drucken Sie sie aus.",
+   "it": "Un QR per sub: ognuno vale una sola volta e scade dopo {n} giorni. Mostrali sullo schermo uno dopo l'altro o stampali.",
+   "pt": "Um QR por mergulhador: cada um serve uma única vez e expira ao fim de {n} dias. Mostra-os no ecrã um a seguir ao outro ou imprime-os.",
+   "pl": "Jeden kod QR na nurka: każdy działa tylko raz i wygasa po {n} dniach. Pokazuj je na ekranie jeden po drugim albo wydrukuj.",
+   "nl": "Eén QR-code per duiker: elke code werkt maar één keer en verloopt na {n} dagen. Toon ze na elkaar op het scherm of druk ze af.",
+   "zh": "每位潜水员一个二维码：每个只能使用一次，{n} 天后失效。可在屏幕上依次展示，或打印出来。"
+  },
+  "{x} de una inmersión verificada lo registró el centro y no se puede cambiar.": {
+   "en": "{x} of a verified dive was registered by the centre and can't be changed.",
+   "fr": "Donnée enregistrée par le centre dans une plongée vérifiée, non modifiable : {x}.",
+   "de": "Vom Zentrum eingetragen und nicht änderbar (verifizierter Tauchgang): {x}.",
+   "it": "Dato registrato dal centro in un'immersione verificata, non modificabile: {x}.",
+   "pt": "Dado registado pelo centro num mergulho verificado, não pode ser alterado: {x}.",
+   "pl": "Dane wpisane przez centrum w zweryfikowanym nurkowaniu nie mogą zostać zmienione: {x}.",
+   "nl": "Door het centrum geregistreerd bij een geverifieerde duik, kan niet worden gewijzigd: {x}.",
+   "zh": "已验证潜水中由中心登记的内容不能更改：{x}。"
+  },
+  "{x}: escribe un número entre {a} y {b}.": {
+   "en": "{x}: enter a number between {a} and {b}.",
+   "fr": "{x} : saisissez un nombre entre {a} et {b}.",
+   "de": "{x}: Geben Sie eine Zahl zwischen {a} und {b} ein.",
+   "it": "{x}: scrivi un numero tra {a} e {b}.",
+   "pt": "{x}: escreve um número entre {a} e {b}.",
+   "pl": "{x}: wpisz liczbę od {a} do {b}.",
+   "nl": "{x}: vul een getal tussen {a} en {b} in.",
+   "zh": "{x}：请输入 {a} 到 {b} 之间的数字。"
+  },
+  "{x}: escribe la hora como 10:05.": {
+   "en": "{x}: write the time as 10:05.",
+   "fr": "{x} : écrivez l'heure sous la forme 10:05.",
+   "de": "{x}: Schreiben Sie die Uhrzeit als 10:05.",
+   "it": "{x}: scrivi l'ora come 10:05.",
+   "pt": "{x}: escreve a hora como 10:05.",
+   "pl": "{x}: wpisz godzinę jako 10:05.",
+   "nl": "{x}: schrijf de tijd als 10:05.",
+   "zh": "{x}：请按 10:05 的格式填写时间。"
+  }
+ }
+}
