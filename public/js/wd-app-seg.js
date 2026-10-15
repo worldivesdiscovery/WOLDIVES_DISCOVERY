@@ -12,9 +12,9 @@
      only for the instant it hands it to the phone after signing in; it is never written to the web storage.
      If the server revoked the device (closed from «Dispositivos conectados», a password change, the owner of the
      centre…), the phone deletes its data and shows the sign-in.
-   - Offline data (the boat list, today's bookings, the QR codes…) are kept encrypted (AES-GCM, key in the Keystore)
-     and deleted after 7 days, when signing out and when the device is revoked. The rest of the app keeps using
-     localStorage as before: the protected keys live decrypted only in memory.
+   - Offline data (the boat list, today's bookings, the QR codes…) are kept by the phone, encrypted (AES-GCM, key in
+     the Keystore), and deleted after 7 days, when signing out and when the device is revoked. The rest of the app
+     keeps using localStorage as before: the protected keys live decrypted only in memory, never in the web storage.
    - The panel is hidden in the recent apps screen. */
 (() => {
   'use strict';
@@ -31,13 +31,14 @@
   };
   const RENUEVA_MS = 12 * 60e3;   // renew before the 15 minutes of the access session end
   const PROTEGIDAS = /^(wd-day-|wd-sync-queue$|wda-pro-|wda-res:|wda-qr-|wda-push$)/;
-  const ENC = 'wdenc:';
   const SIETE_DIAS = 7 * 86400e3;
 
   /* ---------------------------------------------------------------- encrypted offline data */
+  // The phone keeps them (plugin «Seguridad»: AES-GCM with a Keystore key that never reaches this page); here they live
+  // decrypted only in memory. Old copies kept in clear by an earlier version are moved there and deleted from the web.
   const proto = Storage.prototype, orig = { get: proto.getItem, set: proto.setItem, del: proto.removeItem };
   const cache = new Map();
-  let clave = null;
+  let listos = false;   // the data were read from the phone (not while locked)
   const local = (st) => { try { return st === window.localStorage; } catch { return false; } };
   const realKeys = () => { try { return Object.keys(window.localStorage); } catch { return []; } };
   proto.getItem = function (k) {
@@ -49,52 +50,45 @@
     return orig.set.call(this, k, v);
   };
   proto.removeItem = function (k) {
-    if (local(this) && PROTEGIDAS.test(String(k))) { cache.delete(String(k)); try { orig.del.call(window.localStorage, ENC + k); } catch { /* nothing */ } return; }
+    if (local(this) && PROTEGIDAS.test(String(k))) { cache.delete(String(k)); persistir(String(k)); return; }
     return orig.del.call(this, k);
   };
-  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
-  const deb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
   const pendientes = new Set(); let tPersistir = 0;
   function persistir(k) {
-    pendientes.add(k); clearTimeout(tPersistir);
+    if (k) pendientes.add(k);
+    clearTimeout(tPersistir);
     tPersistir = setTimeout(async () => {
-      if (!clave) return;   // locked: kept in memory until the key is back
-      const ks = [...pendientes]; pendientes.clear();
-      for (const key of ks) {
-        const e = cache.get(key);
-        if (!e) { try { orig.del.call(window.localStorage, ENC + key); } catch { /* nothing */ } continue; }
-        try {
-          const iv = crypto.getRandomValues(new Uint8Array(12));
-          const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, clave, new TextEncoder().encode(JSON.stringify(e)));
-          orig.set.call(window.localStorage, ENC + key, b64(iv) + '.' + b64(ct));
-        } catch { /* full storage: it stays in memory */ }
-      }
-    }, 60);
+      if (!listos || !pendientes.size) return;   // locked: kept in memory until the app is unlocked
+      const items = {};
+      for (const key of pendientes) { const e = cache.get(key); items[key] = e ? JSON.stringify(e) : null; }
+      pendientes.clear();
+      try { await S.datosGuardar({ items }); } catch { Object.keys(items).forEach((x) => pendientes.add(x)); }   // tried again
+    }, 80);
   }
   async function cargarDatos() {
-    let r; try { r = await S.datosClave(); } catch { return false; }
-    clave = await crypto.subtle.importKey('raw', deb64(r.clave), 'AES-GCM', false, ['encrypt', 'decrypt']);
+    let r; try { r = await S.datosLeer(); } catch { return false; }
     const ahora = Date.now();
+    for (const [key, txt] of Object.entries(r.items || {})) {
+      let e = null; try { e = JSON.parse(txt); } catch { /* unreadable */ }
+      if (!e || ahora - (e.at || 0) > SIETE_DIAS) { pendientes.add(key); continue; }   // deleted after 7 days
+      if (!cache.has(key)) cache.set(key, e);
+    }
     for (const k of realKeys()) {
-      if (k.startsWith(ENC)) {
-        const key = k.slice(ENC.length);
-        try {
-          const [iv, ct] = orig.get.call(window.localStorage, k).split('.');
-          const e = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: deb64(iv) }, clave, deb64(ct))));
-          if (ahora - (e.at || 0) > SIETE_DIAS) { orig.del.call(window.localStorage, k); continue; }   // deleted after 7 days
-          if (!cache.has(key)) cache.set(key, e);
-        } catch { orig.del.call(window.localStorage, k); }   // another key (a wiped phone): unreadable, deleted
-      } else if (PROTEGIDAS.test(k)) {
-        // kept in clear by an older version of the app: encrypted now and the clear copy deleted
-        cache.set(k, { v: orig.get.call(window.localStorage, k), at: ahora }); orig.del.call(window.localStorage, k); persistir(k);
+      if (k.startsWith('wdenc:')) { try { orig.del.call(window.localStorage, k); } catch { /* nothing */ } continue; }
+      if (PROTEGIDAS.test(k)) {
+        if (!cache.has(k)) cache.set(k, { v: orig.get.call(window.localStorage, k), at: ahora });
+        try { orig.del.call(window.localStorage, k); } catch { /* nothing */ }
+        pendientes.add(k);
       }
     }
-    pendientes.size && persistir([...pendientes][0]);
+    listos = true;
+    persistir();
     return true;
   }
   function olvidarDatos() {
-    cache.clear(); pendientes.clear(); clave = null;
-    for (const k of realKeys()) if (k.startsWith(ENC) || PROTEGIDAS.test(k)) { try { orig.del.call(window.localStorage, k); } catch { /* nothing */ } }
+    cache.clear(); pendientes.clear(); listos = false;
+    for (const k of realKeys()) if (k.startsWith('wdenc:') || PROTEGIDAS.test(k)) { try { orig.del.call(window.localStorage, k); } catch { /* nothing */ } }
+    S.datosBorrar?.().catch(() => {});
   }
   setInterval(() => { const ahora = Date.now(); for (const [k, e] of cache) if (ahora - (e.at || 0) > SIETE_DIAS) { cache.delete(k); persistir(k); } }, 3600e3);
 
@@ -304,5 +298,5 @@
   }
 
   window.WD_SEC = { inicio, revisar, extraLogin, trasLogin, renovar: () => renovar(), renew: () => renovar(), estado, cambiarBloqueo, olvidar,
-    keys: () => [...realKeys().filter((k) => !k.startsWith(ENC)), ...cache.keys()], umbral, PRO };
+    keys: () => [...realKeys().filter((k) => !PROTEGIDAS.test(k)), ...cache.keys()], umbral, PRO };
 })();

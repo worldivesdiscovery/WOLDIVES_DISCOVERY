@@ -22,9 +22,9 @@ Quando reserva, **o centro ou profissional que presta a atividade** é responsá
 - **Log Book, avaliações, pontos e trocas, promoções.**
 - **Avisos dos centros** sobre as suas reservas (não existem mensagens entre utilizadores).
 - **Consentimentos:** se aceita receber novidades e ofertas, e que versão de cada documento legal aceitou e quando.
-- **Dados técnicos:** endereço IP (truncado nos registos), registos de segurança e o cookie de sessão.
+- **Dados técnicos:** endereço IP (truncado nos registos), registos de segurança e o cookie de sessão. Na app, também o modelo e o sistema do telemóvel, a versão da app e, se a recebermos, a cidade aproximada de cada início de sessão: vê-os em «Dispositivos ligados» e servem para o avisar se alguém entrar a partir de um dispositivo novo. A impressão digital, o rosto e o PIN da app são verificados pelo seu telemóvel e nunca nos chegam.
 - **Localização:** se clicar em «Usar a minha localização», o seu navegador envia-nos as suas coordenadas apenas para calcular os pontos próximos. Não as guardamos.
-- **Centros e profissionais:** dados de contacto, dados fiscais do prestador e o identificador da respetiva conta Stripe (os dados bancários e de verificação são geridos pela Stripe).
+- **Centros e profissionais:** dados de contacto, dados fiscais do prestador e o identificador da respetiva conta Stripe (os dados bancários e de verificação são geridos pela Stripe). Se um profissional cobrar presencialmente, também o número de WhatsApp de contacto que indicar (guardado cifrado), que o cliente vê quando o profissional aceita o seu pedido.
 
 ## 3. Finalidades e fundamento jurídico
 
@@ -62,7 +62,7 @@ Alguns destes prestadores podem tratar dados fora do Espaço Económico Europeu 
 | Documentos carregados | Até os apagar ou eliminar a sua conta. Os documentos caducados são apagados decorrido o prazo configurado (12 meses, por predefinição) |
 | Reservas e pagamentos | 6 anos, sem o seu nome se eliminar a sua conta (obrigações comerciais e fiscais do centro e nossas) |
 | Avisos dos centros | 24 meses, por predefinição |
-| Sessões | Até terminar a sessão ou 8 horas sem atividade |
+| Sessões | Na web, até terminar a sessão ou 8 horas sem atividade. Na app, 15 minutos que o telemóvel renova e, no máximo, 30 dias por dispositivo. Os dispositivos que não são usados durante 13 meses são esquecidos |
 | Registos de segurança e de acessos com IP encurtado | 14 dias no nosso servidor e 30 dias na Better Stack; o registo de atividade, 12 meses, exceto as últimas 300 entradas |
 | Cópias de segurança | Cifradas: as horárias, 48 horas; as diárias, 30 dias; as mensais, 12 meses. O que apagar desaparece das cópias quando terminam esses prazos |
 | Aceitações de documentos legais e consentimentos | Enquanto mantiver a conta e até 5 anos depois |

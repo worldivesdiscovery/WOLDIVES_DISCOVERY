@@ -5785,11 +5785,13 @@ def top_dives(db, lat=None, lon=None, radius_km=None, scope=''):
 # Experiences directory: destinations with what is published in each (cached one minute).
 # ---------------------------------------------------------------------------
 
-def salidas_cercanas(db, lat=None, lon=None, when='', limit=20):
+def salidas_cercanas(db, lat=None, lon=None, when='', limit=20, point_id=None):
     """v50.48 (app, Inicio of the diver): «Salidas con plazas cerca de ti». The next departures with free places of the
     public centres and freelances, the closest first when the phone gives its position (only when the person taps
-    «Cerca de mí»). Public data only: what any visitor already sees on each centre's page."""
+    «Cerca de mí»). Public data only: what any visitor already sees on each centre's page.
+    v50.55: with point_id, only the departures that go to that dive point (the next 30 days): «Ver salidas aquí»."""
     d0, d1 = wmovil.departures_window(when)
+    if point_id and not when: d1 = d0 + _timedelta(days=30)
     rows = db.execute(f"""SELECT ss.id AS slot_id, ss.slot_date, ss.slot_time, ss.spots_total, ss.spots_available, s.id AS service_id, s.title,
                                  s.service_type, s.booking_mode, s.response_hours, s.center_id, s.provider_user_id, s.currency,
                                  s.pay_way, s.pay_methods, s.pay_other, s.pay_policy, s.template_id, s.photo_mode, s.photo_base, s.photo_widths, s.photo_jpg, s.photo_focal, s.photo_veil_light, s.photo_veil_dark, s.photo_status,
@@ -5800,7 +5802,8 @@ def salidas_cercanas(db, lat=None, lon=None, when='', limit=20):
                           WHERE s.active=1 AND COALESCE(s.service_type,'')<>'alquiler_equipo' AND ss.status='open' AND ss.spots_available>0 AND ss.slot_date BETWEEN ? AND ?
                             AND (ss.slot_date > date('now') OR (ss.slot_date=date('now') AND ss.slot_time>=time('now')))
                             AND ((s.center_id IS NOT NULL AND {public_center_sql()}) OR (s.center_id IS NULL AND {public_freelance_sql()}))
-                          ORDER BY ss.slot_date, ss.slot_time LIMIT 400""", (d0.isoformat(), d1.isoformat())).fetchall()
+                            {'AND ss.id IN (SELECT slot_id FROM service_slot_points WHERE dive_point_id=?)' if point_id else ''}
+                          ORDER BY ss.slot_date, ss.slot_time LIMIT 400""", (d0.isoformat(), d1.isoformat(), *([int(point_id)] if point_id else []))).fetchall()
     points = {}
     ids = [r['slot_id'] for r in rows]
     for chunk in [ids[i:i + 500] for i in range(0, len(ids), 500)]:
@@ -9879,7 +9882,7 @@ def manifest_data(db, user, slot_id, for_reading=True):
             'points': [dict(p) for p in db.execute('SELECT p.id,p.name FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id=? ORDER BY p.name', (slot_id,)).fetchall()],
             'settings': settings, 'boats': boats, 'guides': guides, 'groups': groups, 'divers': divers, 'warnings': warn,
             'waiver': {'id': waiver['id'], 'version': waiver['version'], 'title': waiver['title']} if waiver else None,
-            'can_edit': bool(can_edit), 'level_labels': wmf.LEVEL_LABELS,
+            'can_edit': bool(can_edit), 'level_labels': wmf.LEVEL_LABELS, 'headcounts': headcount_state(db, slot_id, winq.tenant_key(kind, oid)),
             'cancelled': {'at': slot['cancelled_at'], 'reason': slot['cancel_reason'], 'note': slot['cancel_note']} if slot['cancelled_at'] else None,
             'waitlist': [{**dict(r), 'expires_at': server_instant(r['expires_at'])} for r in db.execute('''SELECT w.id,w.participants,w.status,w.created_at,w.expires_at,u.fullname FROM waitlist_entries w JOIN users u ON u.id=w.user_id
                                                         WHERE w.slot_id=? AND w.status IN ('waiting','notified') ORDER BY w.created_at,w.id''', (slot_id,)).fetchall()],
@@ -11380,7 +11383,7 @@ def pro_slots(db, user, day):
                     'status': 'cancelled' if r['cancelled_at'] else r['status'], 'spots_total': int(r['spots_total'] or 0),
                     'spots_available': int(r['spots_available'] or 0), 'confirmed': int(bk['ok']), 'pending_payment': int(bk['pay']), 'requested': int(bk['req']),
                     'present': int(me['present']), 'no_show': int(me['no_show']), 'unsigned': max(0, int(unsigned)), 'mine': mine,
-                    'guides': [g['guide'] for g in groups if g['guide']]})
+                    'guides': [g['guide'] for g in groups if g['guide']], 'return_pending': headcount_state(db, r['id'], key)['return_pending']})
     return out
 
 
@@ -11486,16 +11489,32 @@ def pro_scan(db, user, data):
     return res('ok', marked=True)
 
 
-def pro_headcount(db, user, slot_id, count):
+def headcount_state(db, slot_id, key):
+    """v50.55 (brief de la app): the last count on board when leaving and when coming back. A departure counted when
+    leaving and not yet when coming back says so in «Hoy» and in its boat list («Falta contar a la vuelta»)."""
+    out = {'salida': None, 'vuelta': None}
+    for e in db.execute('''SELECT e.details,e.created_at FROM slot_events e JOIN service_slots x ON x.id=e.slot_id AND x.provider_id=?
+                            WHERE e.slot_id=? AND e.kind='headcount' ORDER BY e.id''', (key, slot_id)).fetchall():
+        d = json.loads(e['details'] or '{}')
+        fase = 'vuelta' if d.get('fase') == 'vuelta' else 'salida'
+        out[fase] = {'counted': d.get('counted'), 'present': d.get('present'), 'match': d.get('counted') == d.get('present'), 'at': e['created_at']}
+        if fase == 'salida': out['vuelta'] = None   # a new count when leaving asks for a new one when coming back
+    out['return_pending'] = bool(out['salida'] and not out['vuelta'])
+    return out
+
+
+def pro_headcount(db, user, slot_id, count, phase='salida'):
     """«Contar a bordo»: the number counted on the boat against the people marked as arrived. It is kept in the
-    history of the departure."""
+    history of the departure. v50.55: also when coming back («vuelta»), before the departure is over."""
     slot = manifest_slot(db, user, slot_id)
+    phase = 'vuelta' if phase == 'vuelta' else 'salida'
     st = ','.join('?' * len(MANIFEST_STATES))
     present = db.execute(f"""SELECT COUNT(*) FROM manifest_entries m JOIN bookings b ON b.id=m.booking_id WHERE m.slot_id=? AND m.checked_in_at IS NOT NULL
                              AND b.provider_id=? AND b.status IN ({st})""", (slot['id'], winq.tenant_key(*slot_owner(slot)), *MANIFEST_STATES)).fetchone()[0]
     count = max(0, min(999, int(count or 0)))
-    slot_event(db, slot['id'], 'headcount', user['id'], counted=count, present=present)
-    return {'counted': count, 'present': present, 'match': count == present, 'diff': count - present, 'at': now()}
+    slot_event(db, slot['id'], 'headcount', user['id'], counted=count, present=present, fase=phase)
+    return {'counted': count, 'present': present, 'match': count == present, 'diff': count - present, 'at': now(), 'fase': phase,
+            'headcounts': headcount_state(db, slot['id'], winq.tenant_key(*slot_owner(slot)))}
 
 
 def booking_whatsapp(db, user, bid, kind, base):
@@ -12871,7 +12890,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     except (TypeError, ValueError):
                         lat = lon = None
                     when = clean_text(query.get('cuando', [''])[0], 10)
-                    out = salidas_cercanas(db, lat, lon, when if when in ('hoy', 'manana', 'finde') else '', int(query.get('limite', ['20'])[0] or 20))
+                    punto = query.get('punto', [''])[0]
+                    out = salidas_cercanas(db, lat, lon, when if when in ('hoy', 'manana', 'finde') else '', int(query.get('limite', ['20'])[0] or 20),
+                                           int(punto) if punto.isdigit() else None)   # v50.55: «Ver salidas aquí» of a dive point
                     out['distances'] = lat is not None and distances_shown(query)
                     if not out['distances']: out['items'] = without_km(out['items'])   # v50.54: sorted, but no km
                     else: out['items'] = [dict(x, distance_km=wgeo.shown_km(x['distance_km'], x['lat'], x['lon'])) if x['distance_km'] is not None else x for x in out['items']]
@@ -12959,7 +12980,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     self.send_bytes(raw,'application/pdf',f'WORLDIVES-reserva-{bid}.pdf'); return
                 if path == '/api/me/area':
                     user=require_user(self,db); uid=user['id']
-                    bookings=db.execute('''SELECT b.*,COALESCE(c.name,pu.fullname) AS center_name,c.city,c.phone AS center_phone,COALESCE(c.email,pu.email) AS center_email,c.address AS center_address,p.name AS point_name,s.title AS service_title,s.response_hours
+                    bookings=db.execute('''SELECT b.*,COALESCE(c.name,pu.fullname) AS center_name,c.city,c.phone AS center_phone,COALESCE(c.email,pu.email) AS center_email,c.address AS center_address,p.name AS point_name,s.title AS service_title,s.response_hours,
+                                                 s.timezone AS service_timezone,s.duration_minutes AS service_duration
                                           FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id LEFT JOIN dive_points p ON p.id=b.dive_point_id LEFT JOIN provider_services s ON s.id=b.service_id
                                           WHERE b.user_id=? ORDER BY b.booking_date DESC,b.booking_time DESC,b.id DESC''',(uid,)).fetchall()
                     bookings=[dict(dict(x),**booking_view_status(x),mode_label=wbk.mode_label(x['booking_mode'] or 'request',x['response_hours'])) for x in bookings]
@@ -12967,6 +12989,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     for bx in bookings:
                         for k_ in PRO_ONLY_FIELDS: bx.pop(k_,None)
                         if bx.get('pay_way')=='in_person': bx.update(booking_in_person(db,bx,alang)); bx.pop('center_phone',None)
+                        bx['service_timezone']=wag.valid_tz(bx.get('service_timezone')) or wag.DEFAULT_TZ   # v50.55: «Añadir al calendario» at the local hour
                     exps=db.execute('''SELECT eb.*,e.title,e.summary,e.start_date,e.end_date,e.price,e.currency,e.includes,e.conditions,
                                               t.title AS destination_title,c.name AS center_name,c.city,c.phone AS center_phone,c.email AS center_email,
                                               u.fullname AS provider_name
@@ -13206,6 +13229,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         d['minutes_left']=max(0,int((dl-now_l).total_seconds()//60)) if dl else None
                         d['enough_spots']=d['spots_available'] is None or int(d['spots_available'])>=int(d['participants'] or 1)
                         items.append(d)
+                    # v50.55 (brief de la app): always what expires first, also between services in different time zones
+                    first=lambda x:(x['minutes_left'] is None,x['minutes_left'] if x['minutes_left'] is not None else 0,x['id'])
+                    items.sort(key=first)
                     awaiting=db.execute(f"SELECT COUNT(*) FROM bookings b WHERE {scope} AND b.status='accepted_pending_payment'",sargs).fetchone()[0]
                     refunds=db.execute(f"SELECT COUNT(*) FROM bookings b WHERE {scope} AND b.refund_status IN ('proposed','failed')",sargs).fetchone()[0]
                     # v50.49: the app also lists the accepted bookings waiting for the payment, with the time left.
@@ -13215,6 +13241,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                                FROM bookings b JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
                                               WHERE {scope} AND b.status='accepted_pending_payment' ORDER BY COALESCE(b.payment_deadline,'9999'),b.id LIMIT 200''',sargs).fetchall():
                         d=dict(r_); dl=parse_local(d['payment_deadline']); d['minutes_left']=max(0,int((dl-now_l).total_seconds()//60)) if dl else None; aw.append(d)
+                    aw.sort(key=first)
                     self.send_json({'items':items,'count':len(items),'awaiting_payment':awaiting,'awaiting_items':aw,'pending_refunds':refunds}); return
                 if path == '/api/account/documents':
                     user=require_user(self,db)
@@ -13995,7 +14022,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     # v50.49: QR (or typed code) of a booking at the door or on the boat (permission «checkin»: team_gate).
                     user=require_user(self,db); r=pro_scan(db,user,json_body(self)); db.commit(); self.send_json(r); return
                 if path=='/api/pro/contar':
-                    user=require_user(self,db); data=json_body(self); r=pro_headcount(db,user,int(data.get('slot_id') or 0),data.get('count')); db.commit(); self.send_json(r); return
+                    user=require_user(self,db); data=json_body(self); r=pro_headcount(db,user,int(data.get('slot_id') or 0),data.get('count'),str(data.get('fase') or 'salida')); db.commit(); self.send_json(r); return
                 if path=='/api/manifest/sync':
                     user=require_user(self,db); data=json_body(self); changes=data.get('changes')
                     if not isinstance(changes,list): raise ValueError('Cambio no válido.')
@@ -16561,6 +16588,8 @@ def maintenance_loop():
             db = connect()
             db.execute('DELETE FROM sessions WHERE last_seen<? OR created_at<? OR (expires_at IS NOT NULL AND expires_at<?)', (time.time() - SESSION_IDLE_SECONDS, time.time() - SESSION_TTL_SECONDS, time.time()))
             db.execute('DELETE FROM device_sessions WHERE expires_at<? OR (revoked_at IS NOT NULL AND revoked_at<?)', (time.time() - 90 * 86400, (datetime.now(timezone.utc) - _timedelta(days=90)).isoformat()))
+            # v50.55: a device not seen for 13 months is forgotten (its next sign-in sends «Nuevo inicio de sesión» again)
+            db.execute('DELETE FROM known_devices WHERE last_seen<?', ((datetime.now(timezone.utc) - _timedelta(days=wdev.KNOWN_COOKIE_DAYS)).isoformat(timespec='seconds'),))
             db.commit()
             for job in MAINTENANCE_JOBS:
                 try: job(db); db.commit()

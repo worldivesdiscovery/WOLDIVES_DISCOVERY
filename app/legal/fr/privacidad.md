@@ -22,9 +22,9 @@ Lorsque vous réservez, **le centre ou le professionnel qui fournit l'activité*
 - **Log Book, avis, points et échanges, promotions.**
 - **Notifications des centres** concernant vos réservations (il n'existe pas de messagerie entre utilisateurs).
 - **Consentements :** si vous acceptez de recevoir des nouveautés et des offres, et quelle version de chaque document juridique vous avez acceptée et quand.
-- **Données techniques :** adresse IP (tronquée dans les journaux), journaux de sécurité et cookie de session.
+- **Données techniques :** adresse IP (tronquée dans les journaux), journaux de sécurité et cookie de session. Dans l'application, également le modèle et le système du téléphone, la version de l'application et, si nous la recevons, la ville approximative de chaque connexion : vous les voyez dans « Appareils connectés » et elles servent à vous prévenir si quelqu'un se connecte depuis un nouvel appareil. L'empreinte, le visage et le code PIN de l'application sont vérifiés par votre téléphone et ne nous parviennent jamais.
 - **Localisation :** si vous cliquez sur « Utiliser ma position », votre navigateur nous envoie vos coordonnées uniquement pour calculer les sites proches. Nous ne les conservons pas.
-- **Centres et professionnels :** coordonnées, données fiscales du prestataire et identifiant de son compte Stripe (les données bancaires et de vérification sont gérées par Stripe).
+- **Centres et professionnels :** coordonnées, données fiscales du prestataire et identifiant de son compte Stripe (les données bancaires et de vérification sont gérées par Stripe). Si un professionnel est payé en personne, également le numéro WhatsApp de contact qu'il indique (conservé chiffré), que le client voit lorsque le professionnel accepte sa demande.
 
 ## 3. Finalités et bases juridiques
 
@@ -62,7 +62,7 @@ Certains de ces fournisseurs peuvent traiter des données en dehors de l'Espace 
 | Documents téléchargés | Jusqu'à ce que vous les supprimiez ou supprimiez votre compte. Les documents expirés sont supprimés après la durée configurée (12 mois par défaut) |
 | Réservations et paiements | 6 ans, sans votre nom si vous supprimez votre compte (obligations commerciales et fiscales du centre et les nôtres) |
 | Notifications des centres | 24 mois par défaut |
-| Sessions | Jusqu'à la déconnexion ou 8 heures d'inactivité |
+| Sessions | Sur le site, jusqu'à la déconnexion ou 8 heures d'inactivité. Dans l'application, 15 minutes que le téléphone renouvelle, et 30 jours au maximum par appareil. Les appareils non utilisés pendant 13 mois sont oubliés |
 | Journaux de sécurité et d'accès avec IP tronquée | 14 jours sur notre serveur et 30 jours chez Better Stack ; le journal d'activité, 12 mois, sauf les 300 dernières entrées |
 | Sauvegardes | Chiffrées : les horaires, 48 heures ; les quotidiennes, 30 jours ; les mensuelles, 12 mois. Ce que vous supprimez disparaît des sauvegardes à l'échéance de ces délais |
 | Acceptations des documents juridiques et consentements | Tant que vous avez le compte et jusqu'à 5 ans après |

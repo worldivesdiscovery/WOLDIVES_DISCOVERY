@@ -264,6 +264,9 @@ def build(out: Path):
             srv.sql('UPDATE provider_services SET price=? WHERE id=?', (in_force, sid))
         price_of = {r['id']: r['price'] for r in srv.sql('SELECT id,price FROM provider_services')}
 
+        # v50.55: each boat departure goes to one of the centre's dive sites (the point page lists them: «Ver salidas aquí»)
+        pts1 = [pid_of[n] for n in POINTS_BAHIA if n in pid_of]; pts2 = [pid_of[n] for n in POINTS_MEDES if n in pid_of]
+        to_point = lambda pts, key, k: {'dive_point_ids': [pts[k % len(pts)]]} if pts and key in ('simple', 'doble', 'nitrox', 'medas', 'nocturna') else {}
         slots = {}
         times = {'simple': '09:00', 'doble': '08:30', 'bautizo': '16:00', 'curso': '09:00', 'nitrox': '10:00', 'alquiler': '08:00'}
         spots = {'simple': 10, 'doble': 10, 'bautizo': 6, 'curso': 4, 'nitrox': 6, 'alquiler': 12}
@@ -271,13 +274,13 @@ def build(out: Path):
             for key, sid in svc.items():
                 if key == 'curso' and k not in (3, 10, 27, 41): continue
                 if key == 'nitrox' and k not in (6, 20, 48): continue
-                slots[(key, k)] = ok(center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': day(k), 'slot_time': times[key], 'spots_total': spots[key]}),
+                slots[(key, k)] = ok(center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': day(k), 'slot_time': times[key], 'spots_total': spots[key], **to_point(pts1, key, k)}),
                                      'crear una salida')['slot_id']
         slots2 = {}
         for k in (1, 2, 3, 5, 9, 12, 16, 23, 30, 37, 44):
             for key, tm, sp in (('medas', '10:00', 12), ('nocturna', '20:30', 8), ('bautizo', '11:30', 4), ('snorkel', '17:00', 10)):
                 if key == 'bautizo' and k % 2 == 0: continue
-                slots2[(key, k)] = ok(center2.post('/api/provider-services/slot', {'service_id': svc2[key], 'slot_date': day(k), 'slot_time': tm, 'spots_total': sp}), 'salida')['slot_id']
+                slots2[(key, k)] = ok(center2.post('/api/provider-services/slot', {'service_id': svc2[key], 'slot_date': day(k), 'slot_time': tm, 'spots_total': sp, **to_point(pts2, key, k)}), 'salida')['slot_id']
             if k in (9, 30):
                 slots2[('advanced', k)] = ok(center2.post('/api/provider-services/slot', {'service_id': svc2['advanced'], 'slot_date': day(k), 'slot_time': '09:00', 'spots_total': 4}), 'salida')['slot_id']
         ok(center.post('/api/manifest/boats/save', {'name': 'Neptuno', 'capacity': 12}), 'crear el barco')

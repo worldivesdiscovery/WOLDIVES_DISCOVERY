@@ -36,13 +36,15 @@ UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 (KHTML, like G
 # separate key of this origin (the real one lives in the Android Keystore and SharedPreferences, out of the WebView).
 FAKE = r"""
 (() => {
-  const K = '__fake_native_seg';
+  // WORLDIVES Pruebas opens the test server over plain http (the wifi address): there the WebView has no WebCrypto.
+  try { Object.defineProperty(Crypto.prototype, 'subtle', { get: () => undefined, configurable: true }); } catch {}
+  const K = '__fake_native_seg', D = '__fake_native_datos';
   const get = () => { try { return JSON.parse(localStorage.getItem(K) || '{}'); } catch { return {}; } };
   const put = (p) => localStorage.setItem(K, JSON.stringify(p));
   let token = null, ultimo = {};
   window.__fake = { seguro: false, bio: 'ok', fuera: -1, renovaciones: 0 };
   const wipe = () => { const p = get(); ultimo = { dispositivo: p.dispositivo || 0, device_key: p.instalacion || null }; token = null;
-    for (const k of Object.keys(localStorage)) if (k !== K) localStorage.removeItem(k); put({}); return { ok: true, ...ultimo }; };
+    for (const k of Object.keys(localStorage)) if (k !== K) localStorage.removeItem(k); sessionStorage.removeItem(D); put({}); return { ok: true, ...ultimo }; };
   const cerrado = (motivo) => ({ ok: false, cerrar: true, motivo, ...ultimo });
   const fallo = () => { const p = get(); p.fallos = (p.fallos || 0) + 1; put(p); if (p.fallos >= 5) { wipe(); return cerrado('fallos'); } return { ok: false, fallos: p.fallos, quedan: 5 - p.fallos }; };
   const Seguridad = {
@@ -63,10 +65,15 @@ FAKE = r"""
       const r = await fetch('/api/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: token }) });
       const d = await r.json().catch(() => ({})); if (r.ok) return { ok: true, status: 200 };
       if (r.status === 401 && d.revoked) { wipe(); return { ok: false, revoked: true, reason: d.reason || 'revoked' }; } return { ok: false, error: d.error }; },
-    async datosClave() { const p = get(); if (!token && (p.modo === 'sistema' || p.modo === 'pin')) throw new Error('bloqueado');
-      if (!p.datos) { p.datos = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))); put(p); } return { clave: p.datos }; },
+    // the phone's encrypted store (here: sessionStorage, outside the web storage the checks look at)
+    async datosLeer() { const p = get(); if (!token && (p.modo === 'sistema' || p.modo === 'pin')) throw new Error('bloqueado');
+      const d = JSON.parse(sessionStorage.getItem(D) || '{}'); return { items: Object.fromEntries(Object.entries(d).map(([k, v]) => [k, decodeURIComponent(escape(atob(v)))])) }; },
+    async datosGuardar(o) { const p = get(); if (!token && (p.modo === 'sistema' || p.modo === 'pin')) throw new Error('bloqueado');
+      const d = JSON.parse(sessionStorage.getItem(D) || '{}'); for (const [k, v] of Object.entries(o.items || {})) { if (v == null) delete d[k]; else d[k] = btoa(unescape(encodeURIComponent(v))); }
+      sessionStorage.setItem(D, JSON.stringify(d)); return { ok: true }; },
+    async datosBorrar() { sessionStorage.removeItem(D); return { ok: true }; },
     async cambiarModo(o) { if (!token) throw new Error('bloqueado'); const p = get(); return Seguridad.activar({ ...o, token, dispositivo: p.dispositivo }); },
-    async borrar(o) { if (o && o.salir) { const p = get(); token = null; put({ instalacion: p.instalacion }); return { ok: true }; } return wipe(); },
+    async borrar(o) { if (o && o.salir) { const p = get(); token = null; sessionStorage.removeItem(D); put({ instalacion: p.instalacion }); return { ok: true }; } return wipe(); },
     async ocultarEnRecientes(o) { window.__fake.recientes = !!o.activo; return { ok: true }; },
   };
   const oyentes = {};
@@ -156,8 +163,10 @@ def run(shots: Path):
             # what is really on disk: the named properties of localStorage do not go through getItem
             disk = pg.evaluate("(()=>{ const out={}; for (const k of Object.keys(localStorage)) out[k]=localStorage[k]; return out; })()")
             real = list(disk)
-            plain = [k for k, v in disk.items() if 'Secreta' in str(v)]
-            check('sin conexión · en el almacenamiento solo hay datos cifrados (wdenc:…)', any(k.startswith('wdenc:wda-pro-dia') for k in real) and any(k == 'wdenc:wd-sync-queue' for k in real) and not plain, (real, plain))
+            plain = [k for k, v in disk.items() if 'Secreta' in str(v) or k.startswith(('wda-pro-', 'wd-sync-queue', 'wd-day-'))]
+            native_keys = pg.evaluate("Object.keys(JSON.parse(sessionStorage.getItem('__fake_native_datos') || '{}'))")
+            check('sin conexión · nada de esos datos queda en el almacenamiento de la web', not plain, (real, plain))
+            check('sin conexión · los guarda el móvil (cifrados por el plugin)', 'wda-pro-dia:2099-01-01:x' in native_keys and 'wd-sync-queue' in native_keys, native_keys)
             check('sin conexión · la app los lee en claro mientras está abierta', 'Ñandú' in (pg.evaluate("localStorage.getItem('wda-pro-dia:2099-01-01:x')") or ''), disk)
             pg.reload(); until(pg, "document.querySelectorAll('.wda-tab').length===5", timeout=15000); pg.wait_for_timeout(300)
             check('sin conexión · al volver a abrir la app se descifran', 'Cola Secreta' in (pg.evaluate("localStorage.getItem('wd-sync-queue')") or ''))

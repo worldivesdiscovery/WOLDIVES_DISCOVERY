@@ -22,9 +22,9 @@ Wanneer u boekt, is **het centrum of de professional die de activiteit verleent*
 - **Log Book, beoordelingen, punten en inwisselingen, promoties.**
 - **Berichten van de centra** over uw boekingen (er is geen berichtenverkeer tussen gebruikers).
 - **Toestemmingen:** of u ermee instemt nieuws en aanbiedingen te ontvangen, en welke versie van elk juridisch document u wanneer hebt aanvaard.
-- **Technische gegevens:** IP-adres (ingekort in de logbestanden), beveiligingslogboeken en de sessiecookie.
+- **Technische gegevens:** IP-adres (ingekort in de logbestanden), beveiligingslogboeken en de sessiecookie. In de app ook het model en het systeem van de telefoon, de versie van de app en, als we die ontvangen, de geschatte stad van elke aanmelding: u ziet ze bij „Verbonden apparaten” en ze dienen om u te waarschuwen als iemand zich aanmeldt vanaf een nieuw apparaat. Vingerafdruk, gezicht en de pincode van de app worden door uw telefoon gecontroleerd en bereiken ons nooit.
 - **Locatie:** als u op „Mijn locatie gebruiken” klikt, stuurt uw browser ons uw coördinaten uitsluitend om nabijgelegen duikplekken te berekenen. Wij slaan ze niet op.
-- **Centra en professionals:** contactgegevens, fiscale gegevens van de dienstverlener en de identificatiecode van diens Stripe-account (bank- en verificatiegegevens worden door Stripe beheerd).
+- **Centra en professionals:** contactgegevens, fiscale gegevens van de dienstverlener en de identificatiecode van diens Stripe-account (bank- en verificatiegegevens worden door Stripe beheerd). Als een professional persoonlijk wordt betaald, ook het opgegeven WhatsApp-contactnummer (versleuteld opgeslagen), dat de klant ziet wanneer de professional de aanvraag accepteert.
 
 ## 3. Doeleinden en rechtsgrond
 
@@ -62,7 +62,7 @@ Sommige van deze aanbieders kunnen gegevens buiten de Europese Economische Ruimt
 | Geüploade documenten | Totdat u ze verwijdert of uw account opheft. Verlopen documenten worden na de ingestelde termijn (standaard 12 maanden) verwijderd |
 | Boekingen en betalingen | 6 jaar, zonder uw naam als u uw account verwijdert (handels- en fiscale verplichtingen van het centrum en van ons) |
 | Berichten van de centra | Standaard 24 maanden |
-| Sessies | Tot u uitlogt of na 8 uur inactiviteit |
+| Sessies | Op de website tot u uitlogt of na 8 uur inactiviteit. In de app 15 minuten die de telefoon vernieuwt, en hoogstens 30 dagen per apparaat. Apparaten die 13 maanden niet worden gebruikt, worden vergeten |
 | Beveiligings- en toegangslogboeken met ingekort IP-adres | 14 dagen op onze server en 30 dagen bij Better Stack; het activiteitenlogboek 12 maanden, met uitzondering van de laatste 300 vermeldingen |
 | Back-ups | Versleuteld: per uur 48 uur, dagelijks 30 dagen, maandelijks 12 maanden. Wat u verwijdert, verdwijnt uit de back-ups na afloop van die termijnen |
 | Aanvaarding van juridische documenten en toestemmingen | Zolang u het account hebt en tot 5 jaar daarna |

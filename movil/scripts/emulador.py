@@ -188,7 +188,7 @@ def seguridad(start):
     guardado = s.js(f"WD_SEC.keys().some(k => /^(wd-day-|wda-pro-)/.test(k) && (localStorage.getItem(k) || '').includes({json.dumps(nombre or '#')}))")
     claves = s.js("Object.keys(localStorage)") or []
     check('sin conexión · el móvil guarda la lista del barco (con el nombre de un buceador)', bool(nombre) and guardado is True, (nombre, guardado))
-    check('sin conexión · en el almacenamiento de la web solo hay claves cifradas «wdenc:»', any(k.startswith('wdenc:') for k in claves) and not any(k.startswith(('wd-day-', 'wda-pro-', 'wda-res:', 'wda-qr-')) for k in claves), claves)
+    check('sin conexión · nada de esos datos queda en el almacenamiento de la web', not any(k.startswith(('wd-day-', 'wda-pro-', 'wda-res:', 'wda-qr-', 'wdenc:')) for k in claves), claves)
     time.sleep(8)   # the WebView writes its storage to disk a few seconds later
     copia = OUT / 'datos-app'
     print('   adb root:', adb('root'), flush=True); time.sleep(4); adb('wait-for-device')
@@ -198,8 +198,8 @@ def seguridad(start):
     for f in archivos:
         data = f.read_bytes()
         if nombre and any(v in data for v in (nombre.encode('utf-8'), nombre.encode('utf-16-le'), nombre.encode('latin-1', 'ignore'))): claro.append(str(f.relative_to(copia)))
-    cifrado = [str(f.relative_to(copia)) for f in archivos if b'wdenc:' in f.read_bytes() or 'wdenc:'.encode('utf-16-le') in f.read_bytes()]
-    print(f'   archivos de la app copiados: {len(archivos)} · con «wdenc:» {cifrado[:3]} · con el nombre en claro: {claro}', flush=True)
+    cifrado = [str(f.relative_to(copia)) for f in archivos if f.name == 'worldives_datos.xml' and b'wda-pro-' in f.read_bytes()]   # the plugin's encrypted store
+    print(f'   archivos de la app copiados: {len(archivos)} · almacén cifrado: {cifrado} · con el nombre en claro: {claro}', flush=True)
     check('sin conexión · copiando los archivos de la app, los datos guardados no se pueden leer', len(archivos) > 5 and bool(cifrado) and not claro, (len(archivos), cifrado[:3], claro))
     s = Page(SERVER, timeout=60)   # adb restarted as root: DevTools again
     # five wrong PINs
@@ -243,6 +243,7 @@ def seguridad(start):
     adb('shell', 'input', 'text', '1111'); adb('shell', 'input', 'keyevent', '66'); time.sleep(4)
     st = s.js("Capacitor.Plugins.Seguridad.estado()") or {}
     check('con bloqueo de pantalla · protege el token con el código del móvil (BiometricPrompt)', st.get('modo') == 'sistema' and st.get('token') is True, st)
+    s.js("localStorage.setItem('wda-seg-umbral', '5')")   # the wipe of the 5 failures took it with the web storage
     a_primer_plano(9); time.sleep(2)
     captura('25-seguridad-desbloquear-con-codigo')
     adb('shell', 'input', 'text', '1111'); adb('shell', 'input', 'keyevent', '66'); time.sleep(4)

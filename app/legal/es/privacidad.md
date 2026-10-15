@@ -22,9 +22,9 @@ Cuando reservas, **el centro o profesional que presta la actividad** es responsa
 - **Log Book, reseñas, puntos y canjes, promociones.**
 - **Avisos de los centros** sobre tus reservas (no hay mensajería entre usuarios).
 - **Consentimientos:** si aceptas recibir novedades y ofertas, y qué versión de cada documento legal has aceptado y cuándo.
-- **Datos técnicos:** dirección IP (recortada en los registros), registros de seguridad y la cookie de sesión.
+- **Datos técnicos:** dirección IP (recortada en los registros), registros de seguridad y la cookie de sesión. En la app, también el modelo y el sistema del móvil, la versión de la app y, si la recibimos, la ciudad aproximada de cada inicio de sesión: los ves en «Dispositivos conectados» y sirven para avisarte si alguien entra desde un dispositivo nuevo. La huella, la cara y el PIN de la app los comprueba tu móvil y nunca nos llegan.
 - **Ubicación:** si pulsas «Usar mi ubicación», tu navegador nos envía tus coordenadas solo para calcular los puntos cercanos. No las guardamos.
-- **Centros y profesionales:** datos de contacto, datos fiscales del prestador y el identificador de su cuenta de Stripe (los datos bancarios y de verificación los gestiona Stripe).
+- **Centros y profesionales:** datos de contacto, datos fiscales del prestador y el identificador de su cuenta de Stripe (los datos bancarios y de verificación los gestiona Stripe). Si un profesional cobra en persona, también el WhatsApp de contacto que indica (guardado cifrado), que el cliente ve cuando el profesional acepta su solicitud.
 
 ## 3. Para qué y con qué base legal
 
@@ -62,7 +62,7 @@ Algunos de estos proveedores pueden tratar datos fuera del Espacio Económico Eu
 | Documentos subidos | Hasta que los borres o elimines tu cuenta. Los documentos caducados se borran pasado el plazo configurado (12 meses por defecto) |
 | Reservas y pagos | 6 años, sin tu nombre si eliminas tu cuenta (obligaciones mercantiles y fiscales del centro y nuestras) |
 | Avisos de los centros | 24 meses por defecto |
-| Sesiones | Hasta cerrar sesión o 8 horas sin actividad |
+| Sesiones | En la web, hasta cerrar sesión o 8 horas sin actividad. En la app, 15 minutos que el móvil renueva y como mucho 30 días por dispositivo. Los dispositivos que no se usan en 13 meses se olvidan |
 | Registros de seguridad y de accesos con IP recortada | 14 días en nuestro servidor y 30 días en Better Stack; el registro de actividad, 12 meses, salvo las últimas 300 entradas |
 | Copias de seguridad | Cifradas: las horarias, 48 horas; las diarias, 30 días; las mensuales, 12 meses. Lo que borres desaparece de las copias al cumplirse esos plazos |
 | Aceptaciones de documentos legales y consentimientos | Mientras tengas la cuenta y hasta 5 años después |

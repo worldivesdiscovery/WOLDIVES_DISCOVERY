@@ -469,6 +469,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   document.addEventListener('click',async e=>{ const b=e.target.closest('[data-verify-resend]'); if(!b) return; b.disabled=true; try{ await postJSON('/api/account/verify-email/resend',{}); toast('Te hemos enviado el correo de verificación.'); }catch(err){ toast(err.message); b.disabled=false; } });
   document.addEventListener('click',e=>{ if(e.target.closest('.skip-link')){ e.preventDefault(); const m=$('#app'); m?.focus(); m?.scrollIntoView(); } });
   document.addEventListener('click',e=>{ const b=e.target.closest('[data-report]'); if(!b) return; e.preventDefault(); openReportModal(b.dataset.report,b.dataset.reportId,b.dataset.reportLabel||''); });
+  // v50.55 (brief de la app): the reviews, with the centre's answers, go right after «Actividades y precios».
   async function renderCenterDetail(params){
     const id=Number(params?.get?.('id')||params||0);
     if(!id){setApp('<section class="page"><div class="empty"><h2>Centro no encontrado</h2><a class="btn btn-primary" href="#/centros">Volver a centros</a></div></section>');return;}
@@ -498,10 +499,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <article class="cp-main">
           ${c.description?`<section class="cp-section"><h2>Sobre el centro</h2><p class="cp-about"${own}>${esc(c.description)}</p></section>`:''}
           <section class="cp-section"><h2>Actividades y precios</h2>${services.length?`<div class="cp-services">${services.map(svcCard).join('')}</div>`:'<div class="empty">Este centro todavía no ha publicado actividades. Puedes contactar directamente para reservar.</div>'}</section>
+          <section class="reviews-section cp-section" id="cp-reviews"><div class="reviews-head"><div><h2>Reseñas</h2><p>Opiniones de buceadores que han completado una inmersión con este centro.</p></div><div class="review-summary-box">${reviewSummary}</div></div>${reviewForm}<div class="reviews-list" id="cp-reviews-list">${reviews.length?reviews.map(r=>reviewCard(r,reviewInfo)).join(''):'<div class="empty"><h3>Aún no hay reseñas</h3><p>Cuando los primeros buceadores completen una inmersión y compartan su experiencia, aparecerán aquí.</p></div>'}</div>${Number(c.review_total||0)>reviews.length?`<div class="cd-more"><button type="button" class="btn" id="cp-reviews-more">Ver más reseñas</button></div>`:''}</section>
           <section class="cp-section" id="cp-points"><h2>Puntos de buceo del centro</h2><p class="cp-sub">Puntos donde este centro organiza inmersiones</p>${d.points.length?`<ul class="cp-points">${d.points.map((p,i)=>`<li class="cp-point" ${i>=8?'hidden':''}><span class="wd-pin" aria-hidden="true"></span><span class="cp-point-txt"><strong>${esc(p.name)}</strong><small>${esc(placeText(p)||p.region||p.country||'')}</small></span><a class="btn btn-sm" href="${pointHref(p.id)}">Ver punto</a></li>`).join('')}</ul>${d.points.length>8?`<button type="button" class="btn btn-sm cp-points-more" id="cp-points-more">Ver todos los puntos (${d.points.length})</button>`:''}`:'<p class="cp-muted">Este centro aún no ha indicado sus puntos habituales.</p>'}</section>
           ${exps.length?`<section class="cp-section"><h2>Viajes y experiencias</h2><div class="cp-services">${exps.map(expCard).join('')}</div></section>`:''}
           ${gallery.length?`<section class="cp-section"><h2>Galería</h2><div class="cp-gallery">${gallery.map((u,i)=>`<button type="button" class="cp-photo" data-i="${i}"><img src="${esc(u)}" alt="Foto ${i+1} de ${esc(c.name)}" loading="lazy"></button>`).join('')}</div></section>`:''}
-          <section class="reviews-section cp-section" id="cp-reviews"><div class="reviews-head"><div><h2>Reseñas</h2><p>Opiniones de buceadores que han completado una inmersión con este centro.</p></div><div class="review-summary-box">${reviewSummary}</div></div>${reviewForm}<div class="reviews-list" id="cp-reviews-list">${reviews.length?reviews.map(r=>reviewCard(r,reviewInfo)).join(''):'<div class="empty"><h3>Aún no hay reseñas</h3><p>Cuando los primeros buceadores completen una inmersión y compartan su experiencia, aparecerán aquí.</p></div>'}</div>${Number(c.review_total||0)>reviews.length?`<div class="cd-more"><button type="button" class="btn" id="cp-reviews-more">Ver más reseñas</button></div>`:''}</section>
         </article>
         <aside class="cp-side">
           <section class="cp-card"><h3>Contacto</h3><dl>${c.phone?`<div><dt>Teléfono</dt><dd><a href="tel:${esc(String(c.phone).replace(/\s+/g,''))}">${esc(c.phone)}</a></dd></div>`:''}${c.email?`<div><dt>Email</dt><dd><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></dd></div>`:''}${c.website?`<div><dt>Web</dt><dd><a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(String(c.website).replace(/^https?:\/\//,'').replace(/\/$/,''))}</a></dd></div>`:''}${c.address?`<div><dt>Dirección</dt><dd>${esc(c.address)}</dd></div>`:''}</dl>
@@ -1602,6 +1603,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <section class="tp-block pp-about" id="pp-about"><h2>Sobre el punto</h2>${p.description_lang?`<div class="tp-body" translate="no" lang="${escapeHtml(p.description_lang)}">${String(p.description).split(/\n{2,}/).map(x=>`<p>${escapeHtml(x)}</p>`).join('')}</div>`:`<p class="tp-body">${escapeHtml(pointAbout(p))}</p>`}${p.access_info&&!/pendientes? de completar/i.test(p.access_info)?`<div class="tp-note"><h3>Acceso y condiciones</h3><p>${escapeHtml(p.access_info)}</p></div>`:''}</section>
         ${marineStrip(d.species)}
         ${virtualSection(p,d.videos,d.virtual)}
+        <section class="tp-block pp-salidas" id="pp-salidas" hidden></section>
         <section class="tp-block" id="pp-centers"><div class="tp-block-head"><h2>${pc.mode==='exact'?'Centros que bucean aquí':'Centros cercanos'}</h2>${centers.length?`<a href="#/centros?point=${p.id}">Ver en el directorio →</a>`:''}</div>
           ${pc.mode!=='exact'&&centers.length?'<p class="tp-scope">Ningún centro tiene todavía este punto en su operativa; estos trabajan a menos de 60 km.</p>':''}
           ${centers.length?`<div class="pp-centers">${centers.map(centerRowHtml).join('')}</div>`:'<div class="empty"><p>Todavía no hay centros en esta zona.</p><a class="btn" href="#/registro">¿Tienes un centro? Únete a WORLDIVES</a></div>'}</section>
@@ -1616,8 +1618,32 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     </section>`);
     $$('[data-scroll]').forEach(a=>a.onclick=e=>{ e.preventDefault(); document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:'smooth',block:'start'}); });
     bindMarineStrip();
+    pointDepartures(p);
     if(hasGeo) wdMaps().then(ok=>{ if(!$('#pp-map')) return; if(!ok){ $('#pp-map').innerHTML=`<div class="map-fallback"><strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong></div>`; return; } try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:false,scrollWheelZoom:false,attributionControl:true}))).setView([lat,lng],12); L.control.zoom({position:'bottomleft'}).addTo(m); wdLayerControl(m,{noteEl:$('#pp-map-note')}); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } });
     $('#suggest-pos')?.addEventListener('click',()=>{ $('#suggest-form').innerHTML=`<div class="form-grid pp-suggest"><div class="field"><label>Latitud</label><input id="s-lat" type="number" step="0.000001" value="${hasGeo?lat:''}"></div><div class="field"><label>Longitud</label><input id="s-lon" type="number" step="0.000001" value="${hasGeo?lng:''}"></div><div class="field full"><label>Motivo</label><textarea id="s-note" placeholder="Qué ves en el mapa y por qué propones moverlo…"></textarea></div></div><button class="btn btn-primary" id="s-save" type="button">Enviar propuesta</button>`; $('#s-save').onclick=async()=>{ try{ await postJSON('/api/dive-points/'+id+'/suggest',{latitude:+$('#s-lat').value,longitude:+$('#s-lon').value,note:$('#s-note').value}); toast('Propuesta enviada.'); $('#suggest-form').innerHTML='<div class="notice">Propuesta registrada y pendiente de revisión.</div>'; }catch(e){ toast(e.message); } }; });
+  }
+
+  // v50.55 (brief de la app, «Ver salidas aquí»): the next departures with free places that go to this point, and on
+  // the phone a fixed bar at the bottom that takes there. Public data only (the same as each centre's page).
+  async function pointDepartures(p){
+    const box=$('#pp-salidas'); if(!box) return;
+    let d; try{ d=await api('/api/salidas-cercanas?punto='+p.id+'&limite=8'); }catch{ return; }
+    const items=(d.items||[]).filter(x=>x.bookable!==false); if(!items.length||!box.isConnected) return;
+    const esc=escapeHtml;
+    const href=x=>x.center_id?`#/reservar?center=${x.center_id}&service=${x.service_id}&slot=${x.slot_id}`:`#/profesional?id=${x.provider_id}`;
+    box.innerHTML=`<div class="tp-block-head"><h2>Próximas salidas aquí</h2></div><div class="pp-dep-list">${items.map(x=>`<article class="pp-dep">
+        <span class="pp-dep-when"><strong>${esc(wdDay(x.date))}</strong><span>${esc(x.time||'')}</span></span>
+        <span class="pp-dep-main"><strong translate="no">${esc(x.title||'')}</strong><small><span translate="no">${esc(x.provider_name||'')}</span> · ${esc(String(x.spots_left))} ${x.spots_left===1?'plaza':'plazas'}${Number(x.price)>0?` · ${esc(wdMoney(x.price,x.currency))}`:''}</small>
+          ${x.pay_way==='in_person'?`<span class="wd-mode is-req">${esc(translateString('Pago en persona'))}</span>`:x.mode_label?`<span class="wd-mode ${x.instant?'is-pay':'is-req'}">${esc(x.mode_label)}</span>`:''}</span>
+        <a class="btn btn-primary btn-sm" href="${href(x)}">${x.booking_mode==='payment'&&x.pay_way!=='in_person'?'Reservar':'Enviar solicitud'}</a></article>`).join('')}</div>`;
+    box.hidden=false; translateTree(box);
+    document.querySelector('.pp-dep-bar')?.remove();
+    const bar=document.createElement('div'); bar.className='pp-dep-bar';
+    bar.innerHTML=`<button type="button" class="btn btn-primary">${wdIcon('calendar',16)} <span>Ver salidas aquí</span> <span class="pp-dep-n">${items.length}</span></button>`;
+    $('.pp-page')?.appendChild(bar); translateTree(bar);
+    bar.querySelector('button').onclick=()=>box.scrollIntoView({behavior:'smooth',block:'start'});
+    // the bar hides itself once the list is on the screen
+    if('IntersectionObserver' in window) new IntersectionObserver(es=>es.forEach(e=>bar.classList.toggle('is-off',e.isIntersecting))).observe(box);
   }
 
   // ---------------------------------------------------------------- Experiencias
@@ -3662,7 +3688,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     {value:'request',label:'Bajo petición',icon:'inbox',hint:'El cliente envía una solicitud sin pagar nada; tú la aceptas o la rechazas dentro del plazo.',example:'El cliente verá «Bajo petición · el centro responde en 24 h» y el botón «Enviar solicitud».'}
   ];
   const wdModeLabel=(mode,hours)=>mode==='payment'?'Pago al reservar · confirmación inmediata':`Bajo petición · el centro responde en ${Number(hours)||24} h`;
-  const wdModeTag=s=>{ if(!s) return ''; const pay=s.booking_mode==='payment'; const off=s.bookable===false; return `<span class="wd-mode ${pay?'is-pay':'is-req'} ${off?'is-off':''}" title="${escapeHtml(off?(s.unavailable_reason||'No se puede reservar ahora mismo'):'')}">${wdIcon(pay?'card':'inbox',13)}${escapeHtml(s.mode_label||wdModeLabel(s.booking_mode,s.response_hours))}${off?' · no disponible':''}</span>`; };
+  // v50.55 (brief de la app): public pages show only the real way of booking; a mode that cannot be used now is shown,
+  // struck out, only to the provider in his own panel (own=true).
+  const wdModeTag=(s,own=false)=>{ if(!s) return ''; const pay=s.booking_mode==='payment'; const off=s.bookable===false; if(off&&!own) return ''; return `<span class="wd-mode ${pay?'is-pay':'is-req'} ${off?'is-off':''}" title="${escapeHtml(off?(s.unavailable_reason||'No se puede reservar ahora mismo'):'')}">${wdIcon(pay?'card':'inbox',13)}${escapeHtml(s.mode_label||wdModeLabel(s.booking_mode,s.response_hours))}${off?' · no disponible':''}</span>`; };
   const TRIP_TYPES=new Set(['viaje','vida_a_bordo']);
   const svcUi={tab:'services',q:'',type:'all'};
 
@@ -3779,7 +3807,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             ${isCenter?`<button type="button" class="svc-link service-price" data-id="${s.id}">Cambiar tarifa</button>`:''}
           </div>
           <div class="svc-meta">
-            ${wdModeTag(s)}
+            ${wdModeTag(s,true)}
             ${s.max_participants&&!isRental?`<span>${wdIcon('users',15)}Hasta ${esc(String(s.max_participants))}</span>`:''}
             ${exp?`<span class="svc-meta-exp" title="Visible en Experiencias">${wdIcon('globe',15)}${exp.status==='published'?'En Experiencias':'Experiencia en revisión'}${destName(exp.travel_offer_id)?` · ${esc(destName(exp.travel_offer_id))}`:''}</span>`:''}
           </div>

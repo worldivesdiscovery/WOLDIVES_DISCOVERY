@@ -1,0 +1,190 @@
+{
+ "WORLDIVES está bloqueada": [
+  "WORLDIVES is locked",
+  "WORLDIVES est verrouillée"
+ ],
+ "Escribe tu PIN de la app.": [
+  "Enter your app PIN.",
+  "Saisissez le code PIN de l'application."
+ ],
+ "Desbloquéala con tu huella o con el código del móvil.": [
+  "Unlock it with your fingerprint or your phone's code.",
+  "Déverrouillez-la avec votre empreinte ou le code du téléphone."
+ ],
+ "Desbloquear": [
+  "Unlock",
+  "Déverrouiller"
+ ],
+ "Desbloquear WORLDIVES": [
+  "Unlock WORLDIVES",
+  "Déverrouiller WORLDIVES"
+ ],
+ "Huella, cara o el código del móvil": [
+  "Fingerprint, face or the phone's code",
+  "Empreinte, visage ou code du téléphone"
+ ],
+ "Cerrar sesión en este móvil": [
+  "Sign out on this phone",
+  "Se déconnecter sur ce téléphone"
+ ],
+ "Toca otra vez: se cierra la sesión y se borran los datos de este móvil": [
+  "Tap again: you are signed out and this phone's data are deleted",
+  "Touchez à nouveau : la session est fermée et les données de ce téléphone sont effacées"
+ ],
+ "Usa tu huella o el código del móvil: el desbloqueo facial de este móvil no basta.": [
+  "Use your fingerprint or the phone's code: this phone's face unlock is not enough.",
+  "Utilisez votre empreinte ou le code du téléphone : le déverrouillage facial de ce téléphone ne suffit pas."
+ ],
+ "PIN incorrecto.": [
+  "Wrong PIN.",
+  "Code PIN incorrect."
+ ],
+ "Intentos que quedan": [
+  "Attempts left",
+  "Tentatives restantes"
+ ],
+ "Intentos fallidos": [
+  "Failed attempts",
+  "Tentatives échouées"
+ ],
+ "Borrar": [
+  "Delete",
+  "Effacer"
+ ],
+ "Sesión cerrada": [
+  "Signed out",
+  "Session fermée"
+ ],
+ "Entrar con mi contraseña": [
+  "Sign in with my password",
+  "Me connecter avec mon mot de passe"
+ ],
+ "Has fallado 5 veces. Por seguridad hemos cerrado la sesión y borrado los datos guardados en este móvil.": [
+  "You failed 5 times. For security we have signed you out and deleted the data saved on this phone.",
+  "Vous avez échoué 5 fois. Par sécurité, nous avons fermé la session et effacé les données enregistrées sur ce téléphone."
+ ],
+ "Tu sesión en este móvil se ha cerrado (desde «Dispositivos conectados», por un cambio de contraseña o por el titular del centro). Hemos borrado los datos guardados en el móvil.": [
+  "Your session on this phone was closed (from \"Connected devices\", by a password change or by the owner of the centre). We have deleted the data saved on the phone.",
+  "Votre session sur ce téléphone a été fermée (depuis « Appareils connectés », par un changement de mot de passe ou par le titulaire du centre). Nous avons effacé les données enregistrées sur le téléphone."
+ ],
+ "Han pasado 30 días desde que entraste en este móvil: vuelve a entrar con tu contraseña.": [
+  "30 days have passed since you signed in on this phone: sign in again with your password.",
+  "Cela fait 30 jours que vous vous êtes connecté sur ce téléphone : reconnectez-vous avec votre mot de passe."
+ ],
+ "Has cerrado la sesión en este móvil.": [
+  "You have signed out on this phone.",
+  "Vous vous êtes déconnecté sur ce téléphone."
+ ],
+ "Tu sesión en este móvil ha terminado.": [
+  "Your session on this phone has ended.",
+  "Votre session sur ce téléphone est terminée."
+ ],
+ "Protege WORLDIVES": [
+  "Protect WORLDIVES",
+  "Protégez WORLDIVES"
+ ],
+ "Confirma con tu huella o con el código del móvil": [
+  "Confirm with your fingerprint or your phone's code",
+  "Confirmez avec votre empreinte ou le code du téléphone"
+ ],
+ "Protege tu cuenta": [
+  "Protect your account",
+  "Protégez votre compte"
+ ],
+ "Las cuentas profesionales se abren con tu huella o con el código del móvil. Vuelve a intentarlo.": [
+  "Professional accounts open with your fingerprint or your phone's code. Try again.",
+  "Les comptes professionnels s'ouvrent avec votre empreinte ou le code du téléphone. Réessayez."
+ ],
+ "Intentar de nuevo": [
+  "Try again",
+  "Réessayer"
+ ],
+ "Sin desbloqueo no se puede usar la cuenta profesional en este móvil.": [
+  "Without unlocking, the professional account cannot be used on this phone.",
+  "Sans déverrouillage, le compte professionnel ne peut pas être utilisé sur ce téléphone."
+ ],
+ "Crea tu PIN de la app": [
+  "Create your app PIN",
+  "Créez le code PIN de l'application"
+ ],
+ "Este móvil no tiene bloqueo de pantalla: WORLDIVES se abrirá con un PIN de 6 números. No lo compartas.": [
+  "This phone has no screen lock: WORLDIVES will open with a 6-digit PIN. Do not share it.",
+  "Ce téléphone n'a pas de verrouillage d'écran : WORLDIVES s'ouvrira avec un code PIN à 6 chiffres. Ne le partagez pas."
+ ],
+ "Repite el PIN": [
+  "Repeat the PIN",
+  "Répétez le code PIN"
+ ],
+ "Los dos PIN no coinciden. Empieza de nuevo.": [
+  "The two PINs do not match. Start again.",
+  "Les deux codes PIN ne correspondent pas. Recommencez."
+ ],
+ "Desde esta versión, la app de los centros y los profesionales se abre con tu huella o con un PIN. Vuelve a entrar con tu contraseña para activarlo.": [
+  "From this version, the app for centres and professionals opens with your fingerprint or a PIN. Sign in again with your password to switch it on.",
+  "Depuis cette version, l'application des centres et des professionnels s'ouvre avec votre empreinte ou un code PIN. Reconnectez-vous avec votre mot de passe pour l'activer."
+ ],
+ "Entrar de nuevo": [
+  "Sign in again",
+  "Se reconnecter"
+ ],
+ "Seguridad": [
+  "Security",
+  "Sécurité"
+ ],
+ "Bloqueo de la app": [
+  "App lock",
+  "Verrouillage de l'application"
+ ],
+ "PIN de la app (6 números)": [
+  "App PIN (6 digits)",
+  "Code PIN de l'application (6 chiffres)"
+ ],
+ "Sin bloqueo": [
+  "No lock",
+  "Sans verrouillage"
+ ],
+ "se activa al volver a entrar": [
+  "switched on when you sign in again",
+  "s'active à la prochaine connexion"
+ ],
+ "Siempre activado en las cuentas de centros y profesionales.": [
+  "Always on for centre and professional accounts.",
+  "Toujours activé pour les comptes des centres et des professionnels."
+ ],
+ "Pide tu huella o el código al abrir la app y al volver después de 5 minutos.": [
+  "Asks for your fingerprint or code when opening the app and when coming back after 5 minutes.",
+  "Demande votre empreinte ou le code à l'ouverture de l'application et au retour après 5 minutes."
+ ],
+ "Dispositivos conectados": [
+  "Connected devices",
+  "Appareils connectés"
+ ],
+ "Dónde está abierta tu cuenta y cerrar sesión a distancia": [
+  "Where your account is open, and signing out remotely",
+  "Où votre compte est ouvert, et déconnexion à distance"
+ ],
+ "Solo en Pruebas": [
+  "Only in Pruebas",
+  "Uniquement dans Pruebas"
+ ],
+ "bloqueo tras": [
+  "lock after",
+  "verrouillage après"
+ ],
+ "intentos fallidos": [
+  "failed attempts",
+  "tentatives échouées"
+ ],
+ "No se ha podido cambiar el bloqueo.": [
+  "The lock could not be changed.",
+  "Le verrouillage n'a pas pu être modifié."
+ ],
+ "Bloqueo activado.": [
+  "Lock switched on.",
+  "Verrouillage activé."
+ ],
+ "Bloqueo desactivado.": [
+  "Lock switched off.",
+  "Verrouillage désactivé."
+ ]
+}

@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 
 sys.path[:0] = [str(Path(__file__).resolve().parent), str(Path(__file__).resolve().parents[1])]
-from helpers import ServerTestCase, Server, midday_clock  # noqa: E402
+from helpers import IN_PERSON, ServerTestCase, Server, midday_clock  # noqa: E402
 from e2e_markers import chromium  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
@@ -84,7 +84,7 @@ def run(shots: Path | None):
         # a freelance with a job by days today
         fr = t.make_freelance(admin, 'libre1')
         rules = {'min_days': 1, 'max_days': 10, 'lead_hours': 0, 'am': ['08:00', '13:00'], 'pm': ['14:00', '19:00'], 'full': ['08:00', '16:00']}
-        sf = fr.post('/api/provider-services', {'title': 'Guía privado', 'price': 120, 'booking_mode': 'request', 'booking_unit': 'day', 'unit_rules': rules, 'pricing': {'day': 120}}).json['id']
+        sf = fr.post('/api/provider-services', {'title': 'Guía privado', 'price': 120, 'booking_mode': 'request', 'booking_unit': 'day', 'unit_rules': rules, 'pricing': {'day': 120}, **IN_PERSON}).json['id']   # v50.55: a freelance without Stripe is paid in person
         base = srv.base
 
         with sync_playwright() as p:
@@ -262,7 +262,7 @@ def run(shots: Path | None):
             check('freelance · bloquear un día con un toque', page.locator(f'.dia.bloqueado[data-dia="{day(3)}"]').count() == 1)
             shot(page, '11-freelance-agenda')
             d = t.make_diver('cliente1'); d.post('/api/account/profile', {'phone': '+34 633 000 001'})
-            r = d.post('/api/bookings', {'service_id': sf, 'days': [day(1)], 'part': 'full', 'participants': 1})
+            r = d.post('/api/bookings', {'service_id': sf, 'days': [day(1)], 'part': 'full', 'participants': 1, 'in_person_ack': True})
             if r.status == 200:
                 srv.sql("UPDATE bookings SET status='confirmed', booking_date=? WHERE id=?", (day(0), r.json['id']))
                 srv.sql('UPDATE booking_days SET local_date=? WHERE booking_id=?', (day(0), r.json['id']))

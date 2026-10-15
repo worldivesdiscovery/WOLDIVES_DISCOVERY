@@ -778,7 +778,10 @@
       return `<article class="tarjeta pad pila-12"><a class="fila" href="#/reserva?id=${b.id}" style="color:inherit;text-decoration:none"><div class="fecha-b"><b class="num">${dt.getDate()}</b><small translate="no">${esc(dt.toLocaleDateString(W.wdLocale(), { month: 'short' }).replace('.', ''))}</small></div>
         <div class="crece pila"><b${b.service_title ? ' translate="no"' : ''}>${esc(b.service_title || 'Inmersión')}</b><span class="suave peq"><span translate="no">${esc(b.center_name || '')}</span>${b.booking_time ? ' · ' + esc(b.booking_time) : ''} · <span class="num">${b.participants || 1}</span> <span>${Number(b.participants) === 1 ? 'buceador' : 'buceadores'}</span></span>
         <div class="wtags">${estadoTag(b)}${personaTag(b)}${Number(b.price) > 0 && b.payment_status === 'paid' ? `<span class="wtag ok">${ic('cobrar', '')}Pagada</span>` : ''}</div></div>${ic('chev', 'chev')}</a>
-        ${vigente(b) ? `<div class="btn-fila">${porPagar(b) ? `<a class="wbtn mini" href="#/reserva?id=${b.id}">${ic('cobrar', '')}Pagar ahora</a>` : `<button class="wbtn sec mini" type="button" data-qr="${b.id}">${ic('qr', '')}Ver QR</button>`}<button class="wbtn sec mini" type="button" data-wa="${b.id}">${ic('wa', '')}WhatsApp</button></div>` : ''}</article>`;
+        ${porPagar(b) ? `<a class="wbtn ancho grande pagar-ya" href="#/reserva?id=${b.id}">${ic('cobrar', '')}<span>Pagar</span> <span class="num">${dinero(Number(b.amount_due) > 0 ? b.amount_due : b.price, b.currency)}</span></a>
+          ${b.payment_deadline ? `<p class="cuenta-atras" data-hasta="${esc(b.payment_deadline)}" role="timer" aria-live="off"></p>` : ''}` : ''}
+        ${vigente(b) ? `<div class="btn-fila">${porPagar(b) ? '' : `<button class="wbtn sec mini" type="button" data-qr="${b.id}">${ic('qr', '')}Ver QR</button>`}<button class="wbtn sec mini" type="button" data-wa="${b.id}">${ic('wa', '')}WhatsApp</button>${porPagar(b) ? '' : `<button class="wbtn sec mini" type="button" data-cal="${b.id}">${ic('agenda', '')}Calendario</button>`}</div>` : ''}
+        ${!vigente(b) && repetirHref(b) ? `<div class="btn-fila"><a class="wbtn sec mini" href="${repetirHref(b)}">${ic('reloj', '')}Repetir reserva</a></div>` : ''}</article>`;
     };
     const pintarLista = (k) => {
       const lista = k === 'prox' ? prox : hist, box = $('#wda-res', root);
@@ -788,6 +791,8 @@
       W.translateTree(box);
       $$('[data-wa]', box).forEach((b) => { b.onclick = () => whatsappReserva(todas.find((y) => String(y.id) === b.dataset.wa)); });
       $$('[data-qr]', box).forEach((b) => { b.onclick = () => verQR(todas.find((y) => String(y.id) === b.dataset.qr)); });
+      $$('[data-cal]', box).forEach((b) => { b.onclick = () => alCalendario(todas.find((y) => String(y.id) === b.dataset.cal)); });
+      cuentasAtras(box);
     };
     $$('[data-seg]', root).forEach((b) => { b.onclick = () => { $$('[data-seg]', root).forEach((x) => x.setAttribute('aria-pressed', String(x === b))); pintarLista(b.dataset.seg); }; });
     $('[data-seg="prox"]', root).insertAdjacentHTML('beforeend', ` <span class="num">${prox.length}</span>`);
@@ -795,6 +800,43 @@
     pintarLista('prox');
   }
 
+  // v50.55 (brief de la app, «Mis reservas»): the time left to pay, under the big «Pagar» button; it updates by itself.
+  function cuentasAtras(box) {
+    const pinta = () => {
+      if (!box.isConnected) return false;
+      $$('.cuenta-atras', box).forEach((el) => {
+        const ms = new Date(el.dataset.hasta) - Date.now();
+        if (!Number.isFinite(ms)) { el.textContent = ''; return; }
+        if (ms <= 0) { el.textContent = T('El plazo para pagar ha terminado.'); el.classList.add('vencido'); return; }
+        const min = Math.ceil(ms / 60000), h = Math.floor(min / 60), d = Math.floor(h / 24);
+        const resto = d >= 1 ? `${d} d ${h % 24} h` : h >= 1 ? `${h} h ${min % 60} min` : `${min} min`;
+        el.innerHTML = `${esc(T('Quedan'))} <b class="num">${resto}</b> ${esc(T('para pagar'))}`;
+        el.classList.toggle('urg', min < 180);
+      });
+      return true;
+    };
+    if (!pinta()) return;
+    const t = setInterval(() => { if (!pinta()) clearInterval(t); }, 30000);
+  }
+  // «Repetir reserva» from the history: the same activity with the same centre (or the professional's page).
+  function repetirHref(b) {
+    if (b.center_id && b.service_id) return `#/reservar?center=${b.center_id}&service=${b.service_id}`;
+    if (b.center_id) return `#/centro?id=${b.center_id}`;
+    if (b.provider_user_id) return `#/profesional?id=${b.provider_user_id}`;
+    return '';
+  }
+  // «Añadir al calendario»: the phone's calendar app (Google Calendar) with the activity at the centre's local hour.
+  function alCalendario(b) {
+    if (!b?.booking_date) return;
+    const hora = /^\d{2}:\d{2}/.test(b.booking_time || '') ? b.booking_time.slice(0, 5) : '09:00';
+    const ini = new Date(`${b.booking_date}T${hora}:00Z`), fin = new Date(ini.getTime() + (Number(b.service_duration) || 180) * 60000);
+    const f = (d) => d.toISOString().replace(/[-:]/g, '').slice(0, 15);   // the same digits as the local hour: «ctz» says its zone
+    const txt = [b.service_title || T('Inmersión'), b.center_name].filter(Boolean).join(' · ');
+    const lugar = [b.point_name, b.center_address, b.city].filter(Boolean).join(', ');
+    const det = `${T('Reserva')} #${b.id} · WORLDIVES`;
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(txt)}&dates=${f(ini)}/${f(fin)}&ctz=${encodeURIComponent(b.service_timezone || 'Europe/Madrid')}&details=${encodeURIComponent(det)}&location=${encodeURIComponent(lugar)}`;
+    abrirFuera(url);
+  }
   // The QR of a booking and its code, kept on the phone: they are shown on the boat without coverage.
   async function guardarQR(b) {
     const k = 'wda-qr-' + b.id;
@@ -891,7 +933,8 @@
     $('#wda-r-servidor', root)?.addEventListener('click', async () => {
       const S = plugin('Servidor'); if (!S) { W.toast('Solo dentro de la app de pruebas.'); return; }
       // v50.55: changing server or test account ends this session on the phone (token, keys and saved data)
-      if (state.me) { await postJSON('/api/auth/logout', {}).catch(() => {}); await window.WD_SEC?.olvidar?.('cambio_de_servidor'); }
+      if (state.me) await postJSON('/api/auth/logout', {}).catch(() => {});
+      await window.WD_SEC?.olvidar?.('cambio_de_servidor');   // also a session the page had not loaded yet
       await S.olvidar();
     });
     if ($('#wda-seg', root)) seguridadAjustes($('#wda-seg', root));

@@ -22,9 +22,9 @@ Quando prenoti, **il centro o professionista che presta l'attività** è titolar
 - **Log Book, recensioni, punti e riscatti, promozioni.**
 - **Avvisi dei centri** relativi alle tue prenotazioni (non esiste messaggistica tra utenti).
 - **Consensi:** se accetti di ricevere novità e offerte, e quale versione di ciascun documento legale hai accettato e quando.
-- **Dati tecnici:** indirizzo IP (troncato nei registri), registri di sicurezza e cookie di sessione.
+- **Dati tecnici:** indirizzo IP (troncato nei registri), registri di sicurezza e cookie di sessione. Nell'app, anche il modello e il sistema del telefono, la versione dell'app e, se la riceviamo, la città approssimativa di ogni accesso: li vedi in «Dispositivi connessi» e servono ad avvisarti se qualcuno entra da un nuovo dispositivo. L'impronta, il volto e il PIN dell'app li controlla il tuo telefono e non ci arrivano mai.
 - **Posizione:** se premi «Usa la mia posizione», il tuo browser ci invia le tue coordinate al solo scopo di calcolare i punti vicini. Non le conserviamo.
-- **Centri e professionisti:** dati di contatto, dati fiscali del prestatore e identificativo del suo account Stripe (i dati bancari e di verifica sono gestiti da Stripe).
+- **Centri e professionisti:** dati di contatto, dati fiscali del prestatore e identificativo del suo account Stripe (i dati bancari e di verifica sono gestiti da Stripe). Se un professionista incassa di persona, anche il numero WhatsApp di contatto che indica (conservato cifrato), che il cliente vede quando il professionista accetta la sua richiesta.
 
 ## 3. Finalità e base giuridica
 
@@ -62,7 +62,7 @@ Alcuni di questi fornitori possono trattare dati al di fuori dello Spazio econom
 | Documenti caricati | Finché non li cancelli o non elimini il tuo account. I documenti scaduti vengono cancellati trascorso il periodo configurato (12 mesi per impostazione predefinita) |
 | Prenotazioni e pagamenti | 6 anni, senza il tuo nome se elimini il tuo account (obblighi commerciali e fiscali del centro e nostri) |
 | Avvisi dei centri | 24 mesi per impostazione predefinita |
-| Sessioni | Fino alla disconnessione o 8 ore di inattività |
+| Sessioni | Sul web, fino alla disconnessione o 8 ore di inattività. Nell'app, 15 minuti che il telefono rinnova e al massimo 30 giorni per dispositivo. I dispositivi non usati per 13 mesi vengono dimenticati |
 | Registri di sicurezza e di accesso con IP troncato | 14 giorni sul nostro server e 30 giorni presso Better Stack; il registro delle attività, 12 mesi, salvo le ultime 300 voci |
 | Copie di backup | Cifrate: le orarie, 48 ore; le giornaliere, 30 giorni; le mensili, 12 mesi. Ciò che elimini scompare dalle copie alla scadenza di questi termini |
 | Accettazioni dei documenti legali e consensi | Finché mantieni l'account e fino a 5 anni dopo |

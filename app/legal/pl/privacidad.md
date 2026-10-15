@@ -22,9 +22,9 @@ Gdy dokonujesz rezerwacji, **centrum lub profesjonalista świadczący usługę**
 - **Log Book, opinie, punkty i ich wymiana, promocje.**
 - **Powiadomienia od centrów** dotyczące Twoich rezerwacji (nie ma możliwości wymiany wiadomości między użytkownikami).
 - **Zgody:** czy zgadzasz się na otrzymywanie nowości i ofert oraz którą wersję każdego dokumentu prawnego i kiedy zaakceptowałeś.
-- **Dane techniczne:** adres IP (skrócony w dziennikach), dzienniki bezpieczeństwa i plik cookie sesji.
+- **Dane techniczne:** adres IP (skrócony w dziennikach), dzienniki bezpieczeństwa i plik cookie sesji. W aplikacji także model i system telefonu, wersja aplikacji oraz, jeśli ją otrzymamy, przybliżone miasto każdego logowania: widzisz je w „Połączone urządzenia” i służą do ostrzeżenia Cię, gdy ktoś zaloguje się z nowego urządzenia. Odcisk palca, twarz i PIN aplikacji sprawdza Twój telefon i nigdy do nas nie trafiają.
 - **Lokalizacja:** jeśli klikniesz „Użyj mojej lokalizacji”, Twoja przeglądarka przesyła nam Twoje współrzędne wyłącznie w celu wyznaczenia pobliskich miejsc nurkowych. Nie przechowujemy ich.
-- **Centra i profesjonaliści:** dane kontaktowe, dane podatkowe usługodawcy i identyfikator jego konta Stripe (dane bankowe i weryfikacyjne obsługuje Stripe).
+- **Centra i profesjonaliści:** dane kontaktowe, dane podatkowe usługodawcy i identyfikator jego konta Stripe (dane bankowe i weryfikacyjne obsługuje Stripe). Jeśli profesjonalista pobiera opłatę osobiście, także podany przez niego kontaktowy numer WhatsApp (przechowywany w postaci zaszyfrowanej), który klient widzi, gdy profesjonalista przyjmie jego zapytanie.
 
 ## 3. Cele i podstawy prawne
 
@@ -62,7 +62,7 @@ Niektórzy z tych dostawców mogą przetwarzać dane poza Europejskim Obszarem G
 | Przesłane dokumenty | Do czasu ich usunięcia przez Ciebie lub usunięcia konta. Dokumenty, których ważność wygasła, są usuwane po upływie skonfigurowanego okresu (domyślnie 12 miesięcy) |
 | Rezerwacje i płatności | 6 lat, bez Twojego imienia i nazwiska, jeśli usuniesz konto (obowiązki handlowe i podatkowe centrum oraz nasze) |
 | Powiadomienia od centrów | Domyślnie 24 miesiące |
-| Sesje | Do wylogowania lub po 8 godzinach bezczynności |
+| Sesje | W serwisie do wylogowania lub po 8 godzinach bezczynności. W aplikacji 15 minut odnawianych przez telefon i najwyżej 30 dni na urządzenie. Urządzenia nieużywane przez 13 miesięcy są zapominane |
 | Dzienniki bezpieczeństwa i dostępu ze skróconym adresem IP | 14 dni na naszym serwerze i 30 dni w Better Stack; dziennik aktywności 12 miesięcy, z wyjątkiem ostatnich 300 wpisów |
 | Kopie zapasowe | Zaszyfrowane: godzinowe 48 godzin, dzienne 30 dni, miesięczne 12 miesięcy. To, co usuniesz, znika z kopii po upływie tych terminów |
 | Akceptacje dokumentów prawnych i zgody | Dopóki posiadasz konto i do 5 lat później |

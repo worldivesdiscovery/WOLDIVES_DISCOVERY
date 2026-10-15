@@ -64,6 +64,17 @@ El código genera un informe anual (`dac7_report()`, *Administración → DAC7*,
 6. **Diligencia debida:** ¿qué hay que comprobar del NIF y la dirección del prestador? ¿Qué pasa si no da los datos (la web hoy solo los marca como incompletos)?
 7. **Conservación:** ¿10 años para los datos DAC7 (según la Directiva)?
 8. **Moneda:** ¿los importes en USD o en otras monedas se convierten a euros? ¿Con qué tipo?
+9. **v50.55 · «Pago en persona» (freelance).** Algunos profesionales independientes cobran directamente a sus clientes
+   (efectivo, Bizum, transferencia u otra forma que acuerdan por WhatsApp). La web **no cobra ni conoce el importe
+   pagado**; solo conoce el **precio publicado** de cada reserva confirmada y una marca privada «Cobrado» / «No se
+   presentó» que el profesional pone para su control. *Administración → DAC7* separa esta actividad
+   (`/api/admin/dac7?part=in_person`, CSV `dac7-AAAA-pago-en-persona.csv`): por trimestre, el precio publicado y el
+   número de actividades de las reservas confirmadas en persona, sin mezclarlo con lo cobrado online. **[PENDIENTE
+   GESTORÍA]** ¿Hay que declarar esta actividad en el modelo 238? Si sí: ¿la «contraprestación conocida o
+   razonablemente cognoscible» es el precio publicado? ¿Cuentan las reservas marcadas «No se presentó» o solo las
+   «Cobrado»? ¿Qué hacer con las que el profesional no marca?
+10. **v50.55 · Planes.** «Pago en persona» y «Pago online» son funciones activables por plan. ¿Algún efecto fiscal en
+    que la cuota anual dé acceso a recibir solicitudes que se cobran fuera de la web?
 
 ## 5. Gastos y facturas de proveedores
 

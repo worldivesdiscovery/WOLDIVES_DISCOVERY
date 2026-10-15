@@ -22,9 +22,9 @@ Wenn Sie buchen, ist **das Zentrum oder der Profi, das bzw. der die Aktivität e
 - **Log Book, Bewertungen, Punkte und Einlösungen, Aktionen.**
 - **Mitteilungen der Zentren** zu Ihren Buchungen (es gibt keinen Nachrichtenaustausch zwischen Nutzern).
 - **Einwilligungen:** ob Sie Neuigkeiten und Angebote erhalten möchten und welche Version jedes rechtlichen Dokuments Sie wann akzeptiert haben.
-- **Technische Daten:** IP-Adresse (in den Protokollen gekürzt), Sicherheitsprotokolle und das Sitzungscookie.
+- **Technische Daten:** IP-Adresse (in den Protokollen gekürzt), Sicherheitsprotokolle und das Sitzungscookie. In der App außerdem Modell und System des Handys, die App-Version und, falls wir sie erhalten, die ungefähre Stadt jeder Anmeldung: Sie sehen sie unter „Verbundene Geräte“, und sie dienen dazu, Sie zu warnen, wenn sich jemand von einem neuen Gerät anmeldet. Fingerabdruck, Gesicht und die PIN der App prüft Ihr Handy; sie erreichen uns nie.
 - **Standort:** Wenn Sie auf „Meinen Standort verwenden“ klicken, sendet Ihr Browser uns Ihre Koordinaten nur zur Berechnung nahegelegener Tauchplätze. Wir speichern sie nicht.
-- **Zentren und Profis:** Kontaktdaten, Steuerdaten des Anbieters und die Kennung seines Stripe-Kontos (Bank- und Verifizierungsdaten verwaltet Stripe).
+- **Zentren und Profis:** Kontaktdaten, Steuerdaten des Anbieters und die Kennung seines Stripe-Kontos (Bank- und Verifizierungsdaten verwaltet Stripe). Wenn ein Profi vor Ort bezahlt wird, außerdem die angegebene WhatsApp-Kontaktnummer (verschlüsselt gespeichert), die der Kunde sieht, sobald der Profi seine Anfrage annimmt.
 
 ## 3. Zwecke und Rechtsgrundlagen
 
@@ -62,7 +62,7 @@ Einige dieser Anbieter können Daten außerhalb des Europäischen Wirtschaftsrau
 | Hochgeladene Dokumente | Bis Sie sie oder Ihr Konto löschen. Abgelaufene Dokumente werden nach der eingestellten Frist (standardmäßig 12 Monate) gelöscht |
 | Buchungen und Zahlungen | 6 Jahre, ohne Ihren Namen, wenn Sie Ihr Konto löschen (handels- und steuerrechtliche Pflichten des Zentrums und unsere) |
 | Mitteilungen der Zentren | Standardmäßig 24 Monate |
-| Sitzungen | Bis zur Abmeldung oder nach 8 Stunden Inaktivität |
+| Sitzungen | Im Web bis zur Abmeldung oder nach 8 Stunden Inaktivität. In der App 15 Minuten, die das Handy erneuert, und höchstens 30 Tage pro Gerät. Geräte, die 13 Monate nicht genutzt werden, werden vergessen |
 | Sicherheits- und Zugriffsprotokolle mit gekürzter IP | 14 Tage auf unserem Server und 30 Tage bei Better Stack; das Aktivitätsprotokoll 12 Monate, mit Ausnahme der letzten 300 Einträge |
 | Sicherungskopien | Verschlüsselt: stündliche 48 Stunden, tägliche 30 Tage, monatliche 12 Monate. Was Sie löschen, verschwindet nach Ablauf dieser Fristen aus den Sicherungskopien |
 | Annahme rechtlicher Dokumente und Einwilligungen | Solange Sie das Konto haben und bis zu 5 Jahre danach |

@@ -479,3 +479,14 @@ html.wda-bloqueada body { overflow: hidden; }
 .wda-teclado button { width: 72px; height: 72px; border-radius: 50%; border: 1.5px solid var(--linea); background: var(--sup); color: var(--texto); font: 600 26px/1 var(--fuente); cursor: pointer; }
 .wda-teclado button:active { background: var(--acento-suave); }
 .wda-teclado span { width: 72px; height: 72px; }
+
+/* v50.55 (brief de la app): «Pagar» big with the time left, in «Mis reservas». */
+:where(.wda, .wda-capa) .pagar-ya { background: var(--pend-s); color: #1F1300; }
+:where(.wda, .wda-capa) .pagar-ya .num { font-weight: 800; }
+:where(.wda, .wda-capa) .cuenta-atras { margin: -4px 0 0; text-align: center; font-size: var(--t-s); color: var(--pend-t); }
+:where(.wda, .wda-capa) .cuenta-atras.urg { color: var(--urg-t); font-weight: 600; }
+:where(.wda, .wda-capa) .cuenta-atras.vencido { color: var(--canc-t); }
+
+/* v50.55: the web's fixed bars of the booking pages (total and button) go above the app's tab bar, which covered them. */
+html.wd-app .bk-bar, html.wd-app .dbk-bar { bottom: calc(var(--barra) + var(--abajo)); z-index: 850; }
+html.wd-app .dbk-bar { background: var(--sup); }

@@ -122,7 +122,7 @@
       <div class="fila"><div class="fecha-b hora"><b class="num">${esc(s.time || '—')}</b></div><div class="crece pila"><b translate="no">${esc(s.service)}</b>
         <span class="suave peq">${canc ? `<span class="wtag canc">${ic('x', '')}${T('Cancelada')}</span>` : `${plural(gente, 'buceador', 'buceadores')} · <span class="num">${s.present}</span> <span>${T('han llegado')}</span>`}${s.guides.length ? ` · <span translate="no">${esc(s.guides.join(', '))}</span>` : ''}</span></div>${ic('chev', 'chev')}</div>
       ${canc ? '' : asientos(s)}
-      <div class="wtags">${s.unsigned ? `<span class="wtag pend">${ic('documento', '')}<span class="num">${s.unsigned}</span> ${T('sin firmar')}</span>` : ''}${s.requested ? `<span class="wtag sol">${ic('sobre', '')}<span class="num">${s.requested}</span> ${T('por aceptar')}</span>` : ''}${s.mine ? `<span class="wtag ok">${ic('check', '')}${T('Guías tú')}</span>` : ''}${!canc && s.spots_available <= 0 ? `<span class="wtag neutro">${T('Completa')}</span>` : ''}</div></a>`;
+      <div class="wtags">${s.unsigned ? `<span class="wtag pend">${ic('documento', '')}<span class="num">${s.unsigned}</span> ${T('sin firmar')}</span>` : ''}${s.requested ? `<span class="wtag sol">${ic('sobre', '')}<span class="num">${s.requested}</span> ${T('por aceptar')}</span>` : ''}${s.mine ? `<span class="wtag ok">${ic('check', '')}${T('Guías tú')}</span>` : ''}${s.return_pending ? `<span class="wtag urg">${ic('area', '')}${T('Falta contar a la vuelta')}</span>` : ''}${!canc && s.spots_available <= 0 ? `<span class="wtag neutro">${T('Completa')}</span>` : ''}</div></a>`;
   }
 
   /* ================================================================ HOY */
@@ -540,6 +540,7 @@
       <p><b class="num">${presentes}/${d.divers.length}</b> <span>${T('han llegado')}</span>${d.points.length ? ` · <span translate="no">${esc(d.points.map((p) => p.name).join(', '))}</span>` : ''}</p></div>
       ${canc ? `<div class="aviso urg">${ic('x')}<div><b>${T('Salida cancelada')}</b> ${esc(d.cancelled.note || '')}</div></div>` : ''}
       <div class="acciones tres">${puede('checkin') ? `<a class="accion" href="#/escanear?salida=${s.id}">${ic('escanear')}<span>Escanear</span></a><a class="accion" href="#/contar?id=${s.id}">${ic('area')}<span>Contar a bordo</span></a>` : ''}<a class="accion" href="#/resumen-barco?id=${s.id}">${ic('barco')}<span>Resumen barco</span></a></div>
+      ${vueltaAviso(d, s)}
       ${d.warnings?.length ? `<div class="aviso pend">${ic('alerta')}<div>${d.warnings.map((w) => esc(w.text)).join('<br>')}</div></div>` : ''}
       ${d.divers.length ? grupos : `<div class="tarjeta vacio"><p>${T('Todavía no hay buceadores en esta salida.')}</p></div>`}
       <div class="tarjeta plana lista">${puede('reservas') && !esFree() && !canc ? `<a class="lista-fila" href="#/nueva-reserva?salida=${s.id}&servicio=${s.service_id}">${ic('mas1')}<span class="crece">${T('Añadir buceador')}</span>${ic('chev', 'chev')}</a>` : ''}
@@ -656,14 +657,22 @@
       catch (e) { tab?.close(); W.toast(e.message); }
     };
   }
+  // v50.55 (brief de la app): count again when coming back, before the departure is over.
+  function vueltaAviso(d, s) {
+    const h = d.headcounts || {};
+    if (!h.salida || !puede('checkin') || d.cancelled) return '';
+    if (h.vuelta) return `<div class="aviso ${h.vuelta.match ? 'ok' : 'urg'}">${ic(h.vuelta.match ? 'check' : 'alerta')}<div><b>${T('Contados a la vuelta')}:</b> <span class="num">${h.vuelta.counted}/${h.vuelta.present}</span></div></div>`;
+    return `<div class="aviso urg">${ic('area')}<div class="crece"><b>${T('Falta contar a la vuelta')}</b><p>${T('Al salir contaste')} <span class="num">${h.salida.counted}</span>. ${T('Antes de terminar la salida, cuenta otra vez a todos en el barco.')}</p>
+      <a class="wbtn mini" href="#/contar?id=${s.id}&fase=vuelta">${ic('area', '')}${T('Contar a la vuelta')}</a></div></div>`;
+  }
   async function contar(params) {
-    const id = +(params?.get?.('id') || 0);
+    const id = +(params?.get?.('id') || 0), fase = params?.get?.('fase') === 'vuelta' ? 'vuelta' : 'salida';
     const root = pintar(`<div class="cuerpo" id="wda-ct">${esqueleto(3)}</div>`);
     let d; try { d = await api('/api/manifest/' + id); } catch (e) { const c = sinRed(e) ? guardado.leer('man:' + id) : null; if (!c) { fallo($('#wda-ct', root), e, () => contar(params)); return; } d = c.v; }
     if (!vivo(root)) return;
     const lista = d.divers.filter((x) => x.checked_in_at);
     let n = 0; const tocados = new Set();
-    $('#wda-ct', root).innerHTML = `<h1>${T('Contar a bordo')}</h1><p class="suave">${T('Toca a cada persona que ves en el barco, o cuenta con + y −.')}</p>
+    $('#wda-ct', root).innerHTML = `<h1>${T(fase === 'vuelta' ? 'Contar a la vuelta' : 'Contar a bordo')}</h1><p class="suave">${T('Toca a cada persona que ves en el barco, o cuenta con + y −.')}</p>
       <div class="contar-cifra num" id="ct-n" aria-live="polite">0</div><p class="suave" style="text-align:center"><span>${T('de')}</span> <b class="num">${lista.length}</b> <span>${T('que han llegado')}</span></p>
       <div class="btn-fila"><button class="wbtn sec grande crece" type="button" id="ct-menos" aria-label="${T('Uno menos')}">${ic('menos', '')}</button><button class="wbtn sec grande crece" type="button" id="ct-mas" aria-label="${T('Uno más')}">${ic('mas1', '')}</button></div>
       <div class="pila-8">${lista.map((x, i) => `<button class="contar-btn" type="button" data-i="${i}" aria-pressed="false">${ic('area', '')}<span class="crece" translate="no">${esc(x.name || T('Acompañante'))}</span></button>`).join('')}</div>
@@ -674,7 +683,7 @@
     $('#ct-menos', root).onclick = () => pon(n - 1);
     $$('[data-i]', root).forEach((b) => { b.onclick = () => { const on = !tocados.has(b.dataset.i); on ? tocados.add(b.dataset.i) : tocados.delete(b.dataset.i); b.setAttribute('aria-pressed', String(on)); pon(n + (on ? 1 : -1)); }; });
     $('#ct-ok', root).onclick = async () => {
-      let r; try { r = await postJSON('/api/pro/contar', { slot_id: id, count: n }); } catch (e) { r = { counted: n, present: lista.length, match: n === lista.length, diff: n - lista.length, sinRed: sinRed(e) }; }
+      let r; try { r = await postJSON('/api/pro/contar', { slot_id: id, count: n, fase }); } catch (e) { r = { counted: n, present: lista.length, match: n === lista.length, diff: n - lista.length, sinRed: sinRed(e) }; }
       const falta = lista.filter((x, i) => !tocados.has(String(i)));
       vibrar(r.match ? 'SUCCESS' : 'ERROR');
       $('#ct-res', root).innerHTML = r.match ? `<div class="aviso ok">${ic('check')}<div><b>${T('Están todos.')}</b> <span class="num">${r.counted}</span> ${T('a bordo.')}</div></div>`

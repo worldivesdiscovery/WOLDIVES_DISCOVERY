@@ -3519,3 +3519,25 @@ html.wd-app[data-wda-tema="noche"] .svc2 :is(.svc2-kicker,.svc2-desc,.svc2-price
 :root[data-theme="dark"] .wd-ip-more{color:#7cc6e6}
 :root[data-theme="dark"] .wd-pay-chip,:root[data-theme="dark"] .pay-card.is-person .pay-card-icon{background:#3a2e17;color:#f0c779}
 :root[data-theme="dark"] .wd-pay-mark{background:#173a2f;color:#bfe8d6}
+
+/* v50.55 · «Ver salidas aquí» on the dive point page: the next departures to this point and, on the phone, a fixed bar. */
+.pp-dep-list{display:grid;gap:10px}
+.pp-dep{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line,#d8e3ea);border-radius:14px;background:var(--surface,#fff)}
+.pp-dep-when{display:grid;justify-items:center;min-width:64px;padding:6px 8px;border-radius:10px;background:var(--wd-espuma,#eaf4f8);font-size:13px;line-height:1.25;text-align:center}
+.pp-dep-when strong{font-size:13px}
+.pp-dep-main{display:grid;gap:3px;min-width:0}
+.pp-dep-main strong{overflow-wrap:anywhere}
+.pp-dep-main small{color:var(--muted,#4a6070)}
+.pp-dep-bar{display:none}
+@media (max-width:760px){
+  .pp-dep{grid-template-columns:auto 1fr;}
+  .pp-dep .btn{grid-column:1/-1;justify-self:stretch;min-height:44px}
+  .pp-dep-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top,rgba(255,255,255,.98) 70%,rgba(255,255,255,0));transition:transform .2s,opacity .2s}
+  .pp-dep-bar .btn{flex:1;min-height:48px;justify-content:center;gap:8px}
+  .pp-dep-bar.is-off{transform:translateY(110%);opacity:0;pointer-events:none}
+  .pp-page{padding-bottom:84px}
+}
+.pp-dep-n{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 6px;border-radius:99px;background:rgba(255,255,255,.25);font-weight:800}
+/* inside the app the tab bar is at the bottom: the bar goes above it */
+html.wd-app .pp-dep-bar{display:flex;bottom:calc(var(--barra,68px) + var(--abajo,0px));background:linear-gradient(to top,var(--fondo,#F3F7FA) 70%,transparent)}
+html.wd-app .pp-page{padding-bottom:150px}

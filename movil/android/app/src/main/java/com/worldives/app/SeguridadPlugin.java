@@ -57,8 +57,9 @@ import org.json.JSONObject;
  *   with a Keystore key, so the file cannot be attacked on another computer).</li>
  *   <li>Divers may switch the lock off: then the token is only wrapped with a Keystore key.</li>
  *   <li>5 failed attempts delete the token, the keys and everything the app keeps (WebView storage and cookies).</li>
- *   <li>The key of the offline data (manifest, today's bookings) is random, kept wrapped by the Keystore and given
- *   to the web only while the app is unlocked.</li>
+ *   <li>The offline data (boat lists, today's bookings, QR codes) are encrypted here, with a Keystore key that never
+ *   leaves it; the web reads and writes them only while the app is unlocked (also over plain http in Pruebas, where
+ *   the browser has no WebCrypto).</li>
  *   <li>The access session (15 minutes) is renewed here, with the token in memory, against the app's own server:
  *   the token never goes to the web page.</li>
  *   <li>The panel is hidden in the recent apps screen.</li>
@@ -68,6 +69,8 @@ import org.json.JSONObject;
 public class SeguridadPlugin extends Plugin {
 
     private static final String PREFS = "worldives_seguridad";
+    private static final String PREFS_DATOS = "worldives_datos";        // the offline data, each value encrypted
+    private static final String ALIAS_DATOS = "wd_datos";               // their key: never leaves the Keystore
     private static final String ALIAS_BLOQUEO = "wd_sesion_bloqueo";   // needs the fingerprint or the phone's code
     private static final String ALIAS_DISPOSITIVO = "wd_dispositivo";   // never leaves the Keystore, no unlock needed
     private static final int VALIDEZ_SEGUNDOS = 30;
@@ -81,6 +84,10 @@ public class SeguridadPlugin extends Plugin {
 
     private SharedPreferences prefs() {
         return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    private SharedPreferences datos() {
+        return getContext().getSharedPreferences(PREFS_DATOS, Context.MODE_PRIVATE);
     }
 
     // ------------------------------------------------------------------ keys
@@ -494,28 +501,74 @@ public class SeguridadPlugin extends Plugin {
     }
 
     // ------------------------------------------------------------------ offline data
-    /** The key of the offline data (base64): with the lock on, only while unlocked. Always wrapped by the Keystore on disk. */
-    @PluginMethod
-    public void datosClave(PluginCall call) {
+    /* The boat lists, today's bookings, the QR codes and the changes waiting for coverage are kept here, each value
+       encrypted with AES-GCM and a key of the Android Keystore that never leaves it (not even to the web page). With
+       the lock on, they are read and written only while the app is unlocked. */
+    private boolean bloqueada() {
         String modo = prefs().getString("modo", null);
-        if (token == null && (MODO_SISTEMA.equals(modo) || MODO_PIN.equals(modo))) { call.reject("bloqueado"); return; }
+        return token == null && (MODO_SISTEMA.equals(modo) || MODO_PIN.equals(modo));
+    }
+
+    /** All the offline data, decrypted: {items: {key: text}}. A value that cannot be decrypted is deleted. */
+    @PluginMethod
+    public void datosLeer(PluginCall call) {
+        if (bloqueada()) { call.reject("bloqueado"); return; }
         try {
-            SecretKey k = clave(ALIAS_DISPOSITIVO, false);
-            String guardada = prefs().getString("datos", null);
-            byte[] raw;
-            if (guardada == null) {
-                raw = new byte[32];
-                new SecureRandom().nextBytes(raw);
-                prefs().edit().putString("datos", b64(cifrar(k, raw))).apply();
-            } else {
-                raw = descifrar(k, deB64(guardada));
+            SecretKey k = clave(ALIAS_DATOS, false);
+            JSObject items = new JSObject();
+            SharedPreferences d = datos();
+            SharedPreferences.Editor malos = null;
+            for (Map.Entry<String, ?> e : d.getAll().entrySet()) {
+                try {
+                    items.put(e.getKey(), new String(descifrar(k, deB64(String.valueOf(e.getValue()))), StandardCharsets.UTF_8));
+                } catch (Exception x) {
+                    if (malos == null) malos = d.edit();
+                    malos.remove(e.getKey());
+                }
             }
+            if (malos != null) malos.apply();
             JSObject r = new JSObject();
-            r.put("clave", b64(raw));
+            r.put("items", items);
             call.resolve(r);
         } catch (Exception e) {
-            call.reject("No se puede leer la clave de los datos: " + e.getClass().getSimpleName());
+            call.reject("No se pueden leer los datos guardados: " + e.getClass().getSimpleName());
         }
+    }
+
+    /** {items: {key: text | null}}: each text is saved encrypted; null deletes the key. */
+    @PluginMethod
+    public void datosGuardar(PluginCall call) {
+        if (bloqueada()) { call.reject("bloqueado"); return; }
+        JSObject items = call.getObject("items", new JSObject());
+        try {
+            SecretKey k = clave(ALIAS_DATOS, false);
+            SharedPreferences.Editor e = datos().edit();
+            java.util.Iterator<String> it = items.keys();
+            while (it.hasNext()) {
+                String key = it.next();
+                if (items.isNull(key)) e.remove(key);
+                else e.putString(key, b64(cifrar(k, items.getString(key).getBytes(StandardCharsets.UTF_8))));
+            }
+            e.apply();
+            call.resolve(ok());
+        } catch (Exception x) {
+            call.reject("No se han podido guardar los datos: " + x.getClass().getSimpleName());
+        }
+    }
+
+    /** Deletes every offline data and its key (signing out). */
+    @PluginMethod
+    public void datosBorrar(PluginCall call) {
+        borrarDatos();
+        call.resolve(ok());
+    }
+
+    private void borrarDatos() {
+        datos().edit().clear().apply();
+        try {
+            KeyStore ks = keystore();
+            if (ks.containsAlias(ALIAS_DATOS)) ks.deleteEntry(ALIAS_DATOS);
+        } catch (Exception ignored) { }
     }
 
     /** Switch the lock (divers): needs the app unlocked; the token is saved again with the new protection. */
@@ -545,6 +598,7 @@ public class SeguridadPlugin extends Plugin {
         if (ultimaInstalacion != null) e.putString("instalacion", ultimaInstalacion);
         e.apply();
         borrarClaves();
+        borrarDatos();
         JSObject r = new JSObject();
         r.put("ok", true);
         return r;
@@ -566,6 +620,7 @@ public class SeguridadPlugin extends Plugin {
         token = null;
         p.edit().clear().apply();   // a new installation id next time
         borrarClaves();
+        borrarDatos();
         Activity a = getActivity();
         Runnable web = () -> {
             try { WebStorage.getInstance().deleteAllData(); } catch (Exception ignored) { }

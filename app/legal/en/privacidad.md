@@ -22,9 +22,9 @@ When you make a booking, **the centre or professional providing the activity** i
 - **Log Book, reviews, points and redemptions, promotions.**
 - **Notices from centres** about your bookings (there is no messaging between users).
 - **Consents:** whether you agree to receive news and offers, and which version of each legal document you have accepted and when.
-- **Technical data:** IP address (truncated in logs), security logs and the session cookie.
+- **Technical data:** IP address (truncated in logs), security logs and the session cookie. In the app, also the phone's model and system, the app version and, if we receive it, the approximate city of each sign-in: you see them in «Connected devices» and they are used to warn you if someone signs in from a new device. Your fingerprint, face and app PIN are checked by your phone and never reach us.
 - **Location:** if you tap «Use my location», your browser sends us your coordinates solely to calculate nearby sites. We do not store them.
-- **Centres and professionals:** contact details, the provider's tax details and the identifier of its Stripe account (bank and verification details are handled by Stripe).
+- **Centres and professionals:** contact details, the provider's tax details and the identifier of its Stripe account (bank and verification details are handled by Stripe). If a professional is paid in person, also the WhatsApp contact number they give (stored encrypted), which the customer sees when the professional accepts the request.
 
 ## 3. Purposes and legal basis
 
@@ -62,7 +62,7 @@ Some of these providers may process data outside the European Economic Area with
 | Uploaded documents | Until you delete them or delete your account. Expired documents are deleted after the configured period (12 months by default) |
 | Bookings and payments | 6 years, without your name if you delete your account (commercial and tax obligations of the centre and of us) |
 | Notices from centres | 24 months by default |
-| Sessions | Until you log out or after 8 hours of inactivity |
+| Sessions | On the web, until you log out or after 8 hours of inactivity. In the app, 15 minutes that the phone renews, and 30 days at most per device. Devices not used for 13 months are forgotten |
 | Security and access logs with shortened IP | 14 days on our server and 30 days at Better Stack; the activity log, 12 months, except for the last 300 entries |
 | Backups | Encrypted: hourly copies, 48 hours; daily copies, 30 days; monthly copies, 12 months. What you delete disappears from the backups when those periods end |
 | Acceptance of legal documents and consents | For as long as you have the account and up to 5 years afterwards |

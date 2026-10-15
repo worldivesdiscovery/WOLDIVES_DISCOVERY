@@ -124,9 +124,13 @@ class LadoWeb(unittest.TestCase):
 
     def test_offline_data_encrypted_and_kept_7_days(self):
         self.assertIn("const PROTEGIDAS = /^(wd-day-|wd-sync-queue$|wda-pro-|wda-res:|wda-qr-|wda-push$)/;", SEG)
-        self.assertIn("{ name: 'AES-GCM', iv }", SEG)
-        self.assertIn('crypto.getRandomValues(new Uint8Array(12))', SEG)
+        # the phone encrypts them (the web over plain http in Pruebas has no WebCrypto, and the key never reaches it)
+        self.assertNotIn('crypto.subtle', SEG)
+        self.assertIn('await S.datosGuardar({ items })', SEG); self.assertIn('await S.datosLeer()', SEG)
         self.assertIn('const SIETE_DIAS = 7 * 86400e3;', SEG)
+        for part in ('public void datosLeer(', 'public void datosGuardar(', 'ALIAS_DATOS', 'if (bloqueada()) { call.reject("bloqueado"); return; }'):
+            self.assertIn(part, PLUGIN)
+        self.assertNotIn('datosClave', PLUGIN)                                  # the key is never handed to the web
         # every key the offline code uses is one of the protected ones
         for key in ("'wd-day-'", "'wd-sync-queue'"): self.assertIn(key, WEB)
         for f in ('public/js/wd-app.js', 'public/js/wd-app-pro.js'):
