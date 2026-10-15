@@ -204,7 +204,7 @@
   function centerLogoMarkup(c,size='56px'){ const src=centerLogo(c); if(!src) return centerMonogram(c,size); return `<img class="center-logo" src="${escapeHtml(src)}" alt="Logo de ${escapeHtml(c.name)}" style="width:${size};height:${size};object-fit:contain;border-radius:12px;background:#fff;padding:6px" loading="lazy" data-fallback="next">${centerMonogram(c,size).replace('<span ','<span hidden ')}`; }
 
   async function loadMe(){ try{ const d=await api('/api/me'); state.me=d.authenticated?d:null; if(!d.authenticated) wdForgetLogbook(); renderAccount(); setTimeout(legalAcceptGate,400); return d; }catch{state.me=null; renderAccount();}}
-  function closeTransientMenus(){ const menu=$('#account-dropdown'), toggle=$('#account-toggle'); menu?.classList.remove('open'); toggle?.setAttribute('aria-expanded','false'); $('#main-nav')?.classList.remove('open'); }
+  function closeTransientMenus(){ const menu=$('#account-dropdown'), toggle=$('#account-toggle'); menu?.classList.remove('open'); toggle?.setAttribute('aria-expanded','false'); $('#main-nav')?.classList.remove('open'); document.documentElement.classList.remove('pt-lock'); }
   // v50.54: the language selector and the account button appear together, already in place (no jump of the header, CLS).
   function renderAccount(){ const slot=$('#account-slot'); if(!slot) return; $('.header-tools')?.classList.add('is-ready'); if(!state.me&&!navigator.onLine){ slot.innerHTML=''; return; } if(!state.me){ slot.innerHTML='<a class="account-link" href="#/login"><span>Iniciar sesión</span></a>'; translateTree(slot); return; } const u=state.me.user; const role=u.role; const management=role==='admin'?'<a href="#/admin">👑 Administración</a>':role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':role==='freelance'?'<a href="#/admin">🧭 Gestionar mis servicios</a>':''; const personalLinks=role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':`<a href="#/area">${wdIcon('home',16)}Mi área</a>`; slot.innerHTML=`<div class="account-menu"><button class="account-link account-toggle" id="account-toggle" type="button" aria-expanded="false"><span class="avatar">${escapeHtml(initials(u.fullname))}</span><span class="label" translate="no">${escapeHtml(u.fullname.split(' ')[0])}</span><span class="account-chevron">⌄</span></button><div class="account-dropdown" id="account-dropdown"><div class="account-dropdown-head"><strong>${escapeHtml(u.fullname)}</strong><small>${escapeHtml(role==='admin'?'Administrador':role==='center'?'Centro de buceo':role==='freelance'?'Profesional / freelance':'Buceador / cliente')}</small></div>${personalLinks}<a href="#/cuenta">${wdIcon('user',16)}Mi cuenta</a><a href="#/logbook">${wdIcon('book',16)}Log Book</a><a href="#/recompensas">${wdIcon('gift',16)}Recompensas</a><a href="#/mis-puntos">${wdIcon('star',16)}Mis puntos</a>${management && role!=='center'?management:''}<button type="button" id="account-logout">Cerrar sesión</button></div></div>`; const toggle=$('#account-toggle'),menu=$('#account-dropdown'); toggle.onclick=e=>{e.stopPropagation(); const open=menu.classList.toggle('open'); toggle.setAttribute('aria-expanded',open?'true':'false');}; if(!window.__wdAccountClickBound){ document.addEventListener('click',()=>closeTransientMenus()); window.__wdAccountClickBound=true; } $('#account-logout').onclick=async()=>{closeTransientMenus();await postJSON('/api/auth/logout',{});await loadMe();wdGo('#/');}; translateTree(slot); }
   function navMobile(){ $('#mobile-menu')?.addEventListener('click',()=>$('#main-nav').classList.toggle('open')); $$('#main-nav a').forEach(a=>a.addEventListener('click',()=>$('#main-nav').classList.remove('open'))); }
@@ -1242,7 +1242,6 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const PT_LEVELS=[['start','Para empezar'],['mid','Intermedio'],['adv','Avanzado']];
   const PT_DEPTHS=[['d18','Hasta 18 m'],['d30','18–30 m'],['d40','Más de 30 m']];
   const PT_SORTS=[['distance','Más cercanos'],['area','Por zonas'],['recommended','Recomendados'],['name','Nombre A-Z'],['depth','Más profundos'],['shallow','Menos profundos'],['rating','Mejor valorados']];
-  const PT_REGIONS_SHOWN=12;
   // Every dive site of the filtered list on one map (view «Mapa»): a pin each, its card in a popup.
   function wdPointsMap(el){
     if(!el||!window.L){ if(el) el.innerHTML='<div class="map-fallback"><strong>El mapa no está disponible ahora mismo</strong><span>La lista muestra los mismos puntos.</span></div>'; return null; }
@@ -1260,10 +1259,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         if(pts.length){ try{ map.fitBounds(L.latLngBounds(pts),{padding:[36,36],maxZoom:11}); }catch{} } },
       invalidate(){ setTimeout(()=>map.invalidateSize(),60); }};
   }
-  // v50.54 (owner's brief, point 2): «Puntos de buceo» with title, search and the Lista/Mapa switch in one band; a
-  // sticky bar with region (pills with counts; an empty region is not offered), type, level and depth; a compact
-  // grid (4 columns on a computer, a list on the phone); «Ver más» that also loads by itself on scrolling; and, coming
-  // back from a dive site, the same filters, the same number of pages and the same scroll position.
+  // v50.54 (owner's brief, point 2): region pills with counts (an empty region is not offered), type, level and depth;
+  // a compact grid; «Ver más» that also loads by itself on scrolling; and, coming back from a dive site, the same
+  // filters, the same number of pages and the same scroll position.
+  // v50.57 (revisión general 3.3, the filters took a third of the screen): one compact line that stays at the top when
+  // scrolling (search, «Filtros (n)», sort, list/map); the regions in one row that scrolls sideways; the active filters
+  // as small chips with a ✕ and «Borrar todo»; type, level, depth and the rest in a panel under «Filtros» (on a phone, a
+  // sheet that slides up from below); smaller cards, 3 or 4 columns on a computer. Everything stays in the address.
   async function renderPoints(params){
     params=params instanceof URLSearchParams?params:new URLSearchParams();
     if(params.get('point')){ location.replace('#/punto?id='+encodeURIComponent(params.get('point'))); return; }
@@ -1272,31 +1274,37 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // sort '' = the server decides: «Más cercanos» with the location, «Por zonas» (the launch country first) without it.
     const st={q:params.get('q')||'',area:params.get('area')||params.get('country')||'',zone:params.get('zone')||'',type:typeKey,level:pick(PT_LEVELS,params.get('level')),
       depth:pick(PT_DEPTHS,params.get('depth')),only:['centers','instant'].includes(params.get('only'))?params.get('only'):'',sort:pick(PT_SORTS,params.get('sort')),
-      view:params.get('view')==='map'?'map':'list',page:1,here:null,total:0,loading:false,regionsOpen:false};
+      view:params.get('view')==='map'?'map':'list',page:1,here:null,total:0,loading:false};
     let back=null; try{ back=JSON.parse(sessionStorage.getItem('wd_pt_back')||'null'); sessionStorage.removeItem('wd_pt_back'); }catch{}
     if(back&&back.url!==location.hash) back=null;
     // v50.54 · The grid starts with placeholder cards so nothing below jumps when the points arrive (CLS).
     const skeleton=n=>Array.from({length:n},()=>'<div class="pt-card is-skeleton" aria-hidden="true"><span class="pt-media"></span><span class="pt-info"><i></i><i></i></span></div>').join('');
-    setApp(`<section class="pt-page pt54" data-view="${st.view}">
+    setApp(`<section class="pt-page pt54 pt57" data-view="${st.view}">
       <header class="pt-band"><div class="pt-band-in">
         <div class="pt-band-title"><p class="eyebrow">Catálogo</p><h1>Puntos de buceo</h1></div>
-        <form class="pt-band-search" id="pt-search" role="search">
-          <label class="cd-field">${wdIcon('search',18)}<span class="sr-only">Buscar un punto</span><input id="pt-q" type="search" autocomplete="off" placeholder="Punto, isla, zona o país" value="${escapeHtml(st.q)}"></label>
-          <button class="btn btn-primary" type="submit">Buscar</button>
-        </form>
-        <div class="pt-view" role="group" aria-label="Ver como"><button type="button" data-view="list" aria-pressed="${st.view==='list'}">${wdIcon('file',16)}Lista</button><button type="button" data-view="map" aria-pressed="${st.view==='map'}">${wdIcon('map',16)}Mapa</button></div>
       </div></header>
-      <div class="pt-filters" id="pt-filters"><div class="pt-filters-in">
-        <div class="pt-regions" id="pt-regions" role="group" aria-label="Región"></div>
-        <div class="pt-selects">
-          <label class="pt-sel"><span>Tipo</span><select id="pt-type"><option value="">Cualquier tipo</option></select></label>
-          <label class="pt-sel"><span>Nivel</span><select id="pt-level"><option value="">Cualquier nivel</option></select></label>
-          <label class="pt-sel"><span>Profundidad</span><select id="pt-depth"><option value="">Cualquier profundidad</option></select></label>
-          <button type="button" class="cd-chip pt-only" data-only="centers" aria-pressed="${st.only==='centers'}">Con centro</button><button type="button" class="cd-chip pt-only" data-only="instant" aria-pressed="${st.only==='instant'}">Confirmación inmediata</button>
-          <label class="pt-sel pt-sort"><span>Ordenar</span><select id="pt-sort">${PT_SORTS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>
-          <button type="button" class="cd-clear" id="pt-clear" hidden>Quitar filtros</button>
+      <div class="pt-filters pt-bar" id="pt-filters"><div class="pt-bar-in">
+        <form class="pt-search" id="pt-search" role="search">
+          <label class="cd-field">${wdIcon('search',18)}<span class="sr-only">Buscar un punto</span><input id="pt-q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Punto, isla, zona o país" value="${escapeHtml(st.q)}"></label>
+        </form>
+        <button type="button" class="pt-fbtn" id="pt-filters-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="pt-panel">${wdIcon('sliders',18)}<span>Filtros</span><b class="pt-fn" id="pt-fn"></b></button>
+        <label class="pt-sortbox">${wdIcon('sort',18)}<span class="pt-sort-l">Ordenar</span><select id="pt-sort" aria-label="Ordenar">${PT_SORTS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>
+        <div class="pt-view" role="group" aria-label="Ver como"><button type="button" data-view="list" aria-pressed="${st.view==='list'}" aria-label="Lista" title="Lista">${wdIcon('list',17)}<span>Lista</span></button><button type="button" data-view="map" aria-pressed="${st.view==='map'}" aria-label="Mapa" title="Mapa">${wdIcon('map',17)}<span>Mapa</span></button></div>
+        <div class="pt-panel" id="pt-panel" role="dialog" aria-labelledby="pt-panel-t" hidden>
+          <div class="pt-panel-head"><h2 id="pt-panel-t">Filtros</h2><button type="button" class="pt-panel-x" id="pt-panel-x" aria-label="Cerrar">${wdIcon('close',18)}</button></div>
+          <div class="pt-panel-body">
+            <label class="pt-pf"><span>Región</span><select id="pt-area"><option value="">Todas</option></select></label>
+            <label class="pt-pf"><span>Tipo</span><select id="pt-type"><option value="">Cualquier tipo</option></select></label>
+            <label class="pt-pf"><span>Nivel</span><select id="pt-level"><option value="">Cualquier nivel</option></select></label>
+            <label class="pt-pf"><span>Profundidad</span><select id="pt-depth"><option value="">Cualquier profundidad</option></select></label>
+            <div class="pt-pf-row"><button type="button" class="cd-chip pt-only" data-only="centers" aria-pressed="${st.only==='centers'}">Con centro</button><button type="button" class="cd-chip pt-only" data-only="instant" aria-pressed="${st.only==='instant'}">Confirmación inmediata</button></div>
+          </div>
+          <div class="pt-panel-foot"><button type="button" class="cd-clear" id="pt-panel-clear">Borrar todo</button><button type="button" class="btn btn-primary" id="pt-panel-ok">Ver resultados</button></div>
         </div>
+        <div class="pt-scrim" id="pt-scrim" hidden></div>
       </div></div>
+      <div class="pt-zones"><button type="button" class="pt-zarrow" data-dir="-1" aria-label="Ver zonas anteriores" hidden>${wdIcon('arrow',16)}</button><div class="pt-regions" id="pt-regions" role="group" aria-label="Región"></div><button type="button" class="pt-zarrow" data-dir="1" aria-label="Ver más zonas" hidden>${wdIcon('arrow',16)}</button></div>
+      <div class="pt-active" id="pt-active" aria-label="Filtros activos" hidden></div>
       <div class="cd-wrap pt-main">
         <div class="pt-results-head"><p id="pt-count" class="pt-count" aria-live="polite">Buscando puntos…</p><div class="pt-locbar" id="pt-locbar" aria-live="polite"></div></div>
         <div class="pt-grid" id="pt-grid">${st.view==='map'?'':skeleton(8)}</div>
@@ -1304,9 +1312,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="pt-mapview" id="pt-mapview" hidden><div class="map-wrap"><div id="pt-map" class="map-card pt-map"></div></div><p class="pt-map-note" id="pt-map-note"></p></div>
       </div>
     </section>`);
-    const page=$('.pt-page'), grid=$('#pt-grid'), more=$('#pt-more'), count=$('#pt-count'), clear=$('#pt-clear'), locbar=$('#pt-locbar'), sortSel=$('#pt-sort');
+    const page=$('.pt-page'), grid=$('#pt-grid'), more=$('#pt-more'), count=$('#pt-count'), locbar=$('#pt-locbar'), sortSel=$('#pt-sort');
+    const bar=$('#pt-filters'), panel=$('#pt-panel'), fbtn=$('#pt-filters-btn'), scrim=$('#pt-scrim'), active=$('#pt-active'), regionsRow=$('#pt-regions');
     wdHeaderHeight();
-    let seq=0, shown=[], map=null, facets=null;
+    let seq=0, shown=[], map=null;
     const hasFilters=()=>!!(st.q||st.area||st.zone||st.type||st.level||st.depth||st.only);
     const query=(extra={})=>{ const qs=new URLSearchParams({q:st.q,area:st.area,zone:st.zone,type:st.type,level:st.level,depth:st.depth,only:st.only,sort:st.sort,...extra});
       if(st.here) Object.entries(wdLocation.params(st.here)).forEach(([k,v])=>qs.set(k,v));
@@ -1314,36 +1323,88 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const saveUrl=()=>{ const url=query(); ['lat','lon','acc'].forEach(k=>url.delete(k)); if(st.view==='map') url.set('view','map');
       try{ history.replaceState(history.state,'','#/puntos'+(url.toString()?'?'+url:'')); }catch{} };
     const fillSelect=(sel,all,list,current)=>{ sel.innerHTML=`<option value="">${escapeHtml(translateString(all))}</option>`+list.map(x=>`<option value="${escapeHtml(x.key)}" ${x.key===current?'selected':''} ${x.count||x.key===current?'':'disabled'}>${escapeHtml(translateString(x.label))} (${x.count})</option>`).join(''); };
-    const paintFacets=f=>{ if(!f) return; facets=f;
-      const regions=f.areas||[], open=st.regionsOpen||regions.findIndex(a=>a.name===st.area)>=PT_REGIONS_SHOWN;
-      const list=open?regions:regions.slice(0,PT_REGIONS_SHOWN), total=regions.reduce((a,x)=>a+x.count,0);
-      $('#pt-regions').innerHTML=`<button type="button" class="cd-chip" data-area="" aria-pressed="${!st.area}">Todas <span class="pt-n">${total.toLocaleString(wdLocale())}</span></button>`
-        +list.map(a=>`<button type="button" class="cd-chip" data-area="${escapeHtml(a.name)}" aria-pressed="${a.name===st.area}">${escapeHtml(a.name)} <span class="pt-n">${a.count.toLocaleString(wdLocale())}</span></button>`).join('')
-        +(st.area&&!regions.some(a=>a.name===st.area)?`<button type="button" class="cd-chip" data-area="${escapeHtml(st.area)}" aria-pressed="true">${escapeHtml(st.area)} <span class="pt-n">0</span></button>`:'')
-        +(!open&&regions.length>PT_REGIONS_SHOWN?`<button type="button" class="cd-chip pt-more-regions" id="pt-more-regions" aria-expanded="false">+ ${regions.length-PT_REGIONS_SHOWN} regiones</button>`:'');
-      $$('#pt-regions [data-area]').forEach(b=>b.onclick=()=>{ st.area=b.dataset.area===st.area?'':b.dataset.area; st.zone=''; refresh(); });
-      $('#pt-more-regions')?.addEventListener('click',()=>{ st.regionsOpen=true; paintFacets(facets); });
+    const paintFacets=f=>{ if(!f) return;
+      const regions=f.areas||[], total=regions.reduce((a,x)=>a+x.count,0), keep=regionsRow.scrollLeft;
+      regionsRow.innerHTML=`<button type="button" class="cd-chip" data-area="" aria-pressed="${!st.area}">Todas <span class="pt-n">${total.toLocaleString(wdLocale())}</span></button>`
+        +regions.map(a=>`<button type="button" class="cd-chip" data-area="${escapeHtml(a.name)}" aria-pressed="${a.name===st.area}">${escapeHtml(a.name)} <span class="pt-n">${a.count.toLocaleString(wdLocale())}</span></button>`).join('')
+        +(st.area&&!regions.some(a=>a.name===st.area)?`<button type="button" class="cd-chip" data-area="${escapeHtml(st.area)}" aria-pressed="true">${escapeHtml(st.area)} <span class="pt-n">0</span></button>`:'');
+      $$('[data-area]',regionsRow).forEach(b=>b.onclick=()=>{ st.area=b.dataset.area===st.area?'':b.dataset.area; st.zone=''; refresh(); });
+      // the chosen region in view (the row keeps where it was otherwise)
+      const on=regionsRow.querySelector('[aria-pressed=true][data-area]:not([data-area=""])');
+      regionsRow.scrollLeft=on&&(on.offsetLeft<keep||on.offsetLeft+on.offsetWidth>keep+regionsRow.clientWidth)?Math.max(0,on.offsetLeft-regionsRow.clientWidth/2+on.offsetWidth/2):keep;
+      zoneArrows();
+      fillSelect($('#pt-area'),'Todas',regions.map(a=>({key:a.name,label:a.name,count:a.count})).concat(st.area&&!regions.some(a=>a.name===st.area)?[{key:st.area,label:st.area,count:0}]:[]),st.area);
       fillSelect($('#pt-type'),'Cualquier tipo',(f.types||[]).filter(t=>t.count||t.key===st.type).sort((a,b)=>b.count-a.count),st.type);
       fillSelect($('#pt-level'),'Cualquier nivel',PT_LEVELS.map(([k,l])=>({key:k,label:l,count:(f.levels||[]).find(x=>x.key===k)?.count||0})),st.level);
       fillSelect($('#pt-depth'),'Cualquier profundidad',PT_DEPTHS.map(([k,l])=>({key:k,label:l,count:(f.depths||[]).find(x=>x.key===k)?.count||0})),st.depth);
-      translateTree($('#pt-regions'));
+      translateTree(regionsRow); translateTree(panel);
     };
+    // The active filters, each one a chip with a ✕, and «Borrar todo»; «Filtros (n)» counts them (not the search, that
+    // has its own field). Drawn at once from the address, before the points arrive (nothing jumps).
+    const activeList=()=>[st.q&&{k:'q',label:`«${st.q}»`},st.area&&{k:'area',label:st.area},st.zone&&{k:'zone',label:st.zone},
+      st.type&&{k:'type',label:translateString(typeLabelByKey(st.type))},st.level&&{k:'level',label:translateString(LEVEL_LABELS[st.level]||st.level)},
+      st.depth&&{k:'depth',label:translateString(PT_DEPTHS.find(x=>x[0]===st.depth)?.[1]||st.depth)},
+      st.only&&{k:'only',label:translateString(st.only==='centers'?'Con centro':'Confirmación inmediata')}].filter(Boolean);
+    const paintActive=()=>{ const list=activeList(), n=list.filter(x=>x.k!=='q').length, rm=translateString('Quitar filtro: {x}');
+      $('#pt-fn').textContent=n?` (${n})`:''; fbtn.classList.toggle('has-filters',n>0);
+      active.hidden=!list.length;
+      active.innerHTML=list.map(x=>`<button type="button" class="pt-achip" translate="no" data-remove="${x.k}" aria-label="${escapeHtml(rm.replace('{x}',x.label))}"><span>${escapeHtml(x.label)}</span><span class="pt-ax" aria-hidden="true">×</span></button>`).join('')
+        +(list.length?`<button type="button" class="cd-clear" id="pt-clear">${escapeHtml(translateString('Borrar todo'))}</button>`:'');
+      $('#pt-clear')?.addEventListener('click',()=>reset());
+      $$('.pt-only',panel).forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.only===st.only)));
+      const ok=$('#pt-panel-ok');
+      if(ok){ ok.disabled=!st.total&&!st.loading; ok.textContent=st.loading?translateString('Buscando puntos…'):!st.total?translateString('No hay puntos con estos filtros'):st.total===1?translateString('Ver el punto'):translateString(`Ver los ${st.total.toLocaleString(wdLocale())} puntos`); }
+    };
+    active.addEventListener('click',e=>{ const b=e.target.closest('[data-remove]'); if(!b) return; const k=b.dataset.remove;
+      st[k]=''; if(k==='area') st.zone=''; if(k==='q'){ $('#pt-q').value=''; $('#pt-q').dispatchEvent(new Event('input')); clearTimeout(timer); }
+      refresh(); requestAnimationFrame(()=>(active.querySelector('[data-remove]')||$('#pt-q')).focus()); });
+    // The regions row: arrows on a computer (a phone scrolls it with the finger), shown only when there is more.
+    const zoneArrows=()=>{ const max=regionsRow.scrollWidth-regionsRow.clientWidth;
+      $$('.pt-zarrow',page).forEach(b=>{ b.hidden=max<=4||(+b.dataset.dir<0?regionsRow.scrollLeft<=4:regionsRow.scrollLeft>=max-4); }); };
+    regionsRow.addEventListener('scroll',()=>requestAnimationFrame(zoneArrows),{passive:true});
+    $$('.pt-zarrow',page).forEach(b=>b.onclick=()=>regionsRow.scrollBy({left:+b.dataset.dir*Math.round(regionsRow.clientWidth*.8),behavior:'smooth'}));
+    window.addEventListener('resize',function onResize(){ if(!page.isConnected){ window.removeEventListener('resize',onResize); return; } zoneArrows();
+      if(!panel.hidden) panel.classList.contains('is-sheet')!==isSheet()?closePanel(false):!isSheet()&&placePanel(); });
+    // «Filtros»: a panel under the bar on a computer; on a phone, a sheet from below over a dark veil. Esc, the ✕, the
+    // veil or a click outside close it; the focus goes back to the button. The filters apply as they are chosen.
+    const isSheet=()=>matchMedia('(max-width:760px)').matches;
+    const placePanel=()=>{ const inner=bar.firstElementChild, w=Math.min(380,inner.clientWidth-16);
+      panel.style.width=w+'px'; panel.style.left=Math.max(8,Math.min(fbtn.offsetLeft,inner.clientWidth-w-8))+'px'; };
+    const panelKey=e=>{ if(panel.hidden) return;
+      if(e.key==='Escape'){ e.preventDefault(); closePanel(); return; }
+      if(e.key!=='Tab'||!panel.classList.contains('is-sheet')) return;
+      const f=[...panel.querySelectorAll('select,button')].filter(x=>!x.disabled&&x.offsetParent), first=f[0], last=f[f.length-1];
+      if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); } else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); } };
+    const panelOutside=e=>{ if(panel.hidden||!page.isConnected){ document.removeEventListener('pointerdown',panelOutside,true); return; }
+      if(!panel.contains(e.target)&&!fbtn.contains(e.target)) closePanel(false); };
+    function openPanel(){ const sheet=isSheet();
+      panel.hidden=false; panel.classList.toggle('is-sheet',sheet); panel.setAttribute('aria-modal',String(sheet)); scrim.hidden=!sheet;
+      bar.classList.add('is-open'); fbtn.setAttribute('aria-expanded','true'); document.documentElement.classList.toggle('pt-lock',sheet);
+      if(!sheet){ panel.style.removeProperty('width'); placePanel(); } else { panel.style.removeProperty('width'); panel.style.removeProperty('left'); }
+      paintActive(); document.addEventListener('keydown',panelKey,true); document.addEventListener('pointerdown',panelOutside,true);
+      requestAnimationFrame(()=>panel.querySelector('select')?.focus()); }
+    function closePanel(back=true){ if(panel.hidden) return;
+      panel.hidden=true; scrim.hidden=true; bar.classList.remove('is-open'); fbtn.setAttribute('aria-expanded','false'); document.documentElement.classList.remove('pt-lock');
+      document.removeEventListener('keydown',panelKey,true); document.removeEventListener('pointerdown',panelOutside,true);
+      if(back&&page.isConnected) fbtn.focus(); }
+    fbtn.onclick=()=>panel.hidden?openPanel():closePanel();
+    $('#pt-panel-x').onclick=()=>closePanel(); $('#pt-panel-ok').onclick=()=>closePanel(); scrim.onclick=()=>closePanel();
+    $('#pt-panel-clear').onclick=()=>reset();
     const paintLocbar=(d,msg)=>{
       if(st.here&&d?.located) locbar.innerHTML=`<p>${wdIcon('pin',15)}<span>${d.distances?'Ordenados por cercanía a ti.':'Ordenados por cercanía. Tu ubicación es aproximada: no mostramos distancias.'}</span></p><button type="button" class="pt-linkbtn" id="pt-by-area">Ver por zonas</button>`;
       else locbar.innerHTML=`<p>${wdIcon('pin',15)}<span>${escapeHtml(translateString(msg||'Activa la ubicación para ver primero los más cercanos.'))}</span></p><button type="button" class="pt-linkbtn" id="pt-locate">${wdIcon('target',15)} Ordenar por cercanía</button>`;
       translateTree(locbar);
       $('#pt-locate')?.addEventListener('click',locate); $('#pt-by-area')?.addEventListener('click',()=>{ st.sort='area'; refresh(); });
     };
-    const paintCount=d=>{ const bits=[st.area,st.type?typeLabelByKey(st.type):'',st.level?LEVEL_LABELS[st.level]:'',st.depth?PT_DEPTHS.find(x=>x[0]===st.depth)?.[1]:''].filter(Boolean);
-      count.innerHTML=d.total?`<strong>${d.total.toLocaleString(wdLocale())}</strong> <span>${d.total===1?'punto':'puntos'}</span>${bits.map(x=>` · <span>${escapeHtml(x)}</span>`).join('')}`:''; translateTree(count); };
+    const paintCount=d=>{ count.innerHTML=d.total?`<strong>${d.total.toLocaleString(wdLocale())}</strong> <span>${d.total===1?'punto':'puntos'}</span>`:''; translateTree(count); };
     // The list: one page of 12 (or, coming back from a dive site, all the pages that were open).
     const load=async(append=false,pages=1)=>{
       const mine=++seq; st.loading=true;
-      if(!append){ st.page=pages; shown=[]; grid.innerHTML=skeleton(8); more.hidden=true; count.textContent=translateString('Buscando puntos…'); }
+      if(!append){ st.page=pages; shown=[]; grid.innerHTML=skeleton(8); more.hidden=true; count.textContent=translateString('Buscando puntos…'); paintActive(); }
       const qs=query(append?{page:String(st.page),per_page:'12'}:{page:'1',per_page:String(12*pages)});
       let d;
       try{ d=await fetchPointDirectory(qs); }
-      catch(err){ st.loading=false; if(mine!==seq||!grid.isConnected) return; grid.innerHTML=`<div class="empty cd-empty"><h3>No hemos podido cargar los puntos</h3><p>${escapeHtml(navigator.onLine===false?translateString('Sin conexión. Comprueba tu conexión y vuelve a intentarlo.'):err.message)}</p><button class="btn" type="button" id="pt-retry">Reintentar</button></div>`; $('#pt-retry').onclick=()=>load(); count.textContent=''; return; }
+      catch(err){ st.loading=false; if(mine!==seq||!grid.isConnected) return; paintActive(); grid.innerHTML=`<div class="empty cd-empty"><h3>No hemos podido cargar los puntos</h3><p>${escapeHtml(navigator.onLine===false?translateString('Sin conexión. Comprueba tu conexión y vuelve a intentarlo.'):err.message)}</p><button class="btn" type="button" id="pt-retry">Reintentar</button></div>`; $('#pt-retry').onclick=()=>load(); count.textContent=''; return; }
       if(mine!==seq||!grid.isConnected) return;
       st.loading=false; st.total=d.total||0;
       if(!append) paintFacets(d.facets);
@@ -1353,14 +1414,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(!d.total) await paintEmpty(mine);
       paintCount(d);
       more.hidden=shown.length>=st.total||!st.total; more.textContent=`${translateString('Ver más puntos')} (${(st.total-shown.length).toLocaleString(wdLocale())})`;
-      clear.hidden=!hasFilters(); paintLocbar(d); translateTree(grid); saveUrl();
+      paintActive(); paintLocbar(d); translateTree(grid); saveUrl();
       if(append) near.after?.();
     };
     const loadMap=async()=>{
-      const mine=++seq; count.textContent=translateString('Buscando puntos…');
-      let d; try{ d=await api('/api/point-directory?'+query({view:'map'})); }catch(err){ if(mine===seq) count.textContent=err.message; return; }
+      const mine=++seq; count.textContent=translateString('Buscando puntos…'); st.loading=true; paintActive();
+      let d; try{ d=await api('/api/point-directory?'+query({view:'map'})); }catch(err){ if(mine===seq){ st.loading=false; count.textContent=err.message; paintActive(); } return; }
       if(mine!==seq||!grid.isConnected) return;
-      st.total=d.total||0; paintFacets(d.facets); paintCount(d); clear.hidden=!hasFilters();
+      st.loading=false; st.total=d.total||0; paintFacets(d.facets); paintCount(d); paintActive();
       if(!map){ await wdMaps(); if(mine!==seq||!grid.isConnected) return; map=wdPointsMap($('#pt-map')); }
       map?.invalidate(); map?.show(d.items||[],{me:st.here});
       $('#pt-map-note').textContent=translateString(d.total?'Toca un punto para ver su ficha.':'No hay puntos con estos filtros. Quita alguno para ver más.');
@@ -1382,17 +1443,18 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       wdLocation.forget();
       try{ st.here=await wdLocation.get(); st.sort='distance'; refresh(); }
       catch(e){ paintLocbar(null,wdLocation.message(e.code)); } };
-    const reset=()=>{ Object.assign(st,{q:'',area:'',zone:'',type:'',level:'',depth:'',only:''}); $('#pt-q').value=''; $$('.pt-page [data-only]').forEach(b=>b.setAttribute('aria-pressed','false')); refresh(); };
+    const reset=()=>{ Object.assign(st,{q:'',area:'',zone:'',type:'',level:'',depth:'',only:''}); clearTimeout(timer); $('#pt-q').value=''; $('#pt-q').dispatchEvent(new Event('input')); clearTimeout(timer);
+      $$('.pt-page [data-only]').forEach(b=>b.setAttribute('aria-pressed','false')); refresh(); };
     let timer=null;
     $('#pt-q').addEventListener('input',e=>{ clearTimeout(timer); timer=setTimeout(()=>{ st.q=e.target.value.trim(); refresh(); },350); });
     $('#pt-search').onsubmit=e=>{ e.preventDefault(); clearTimeout(timer); st.q=$('#pt-q').value.trim(); refresh(); };
+    $('#pt-area').onchange=e=>{ st.area=e.target.value; st.zone=''; refresh(); };
     $('#pt-type').onchange=e=>{ st.type=e.target.value; refresh(); };
     $('#pt-level').onchange=e=>{ st.level=e.target.value; refresh(); };
     $('#pt-depth').onchange=e=>{ st.depth=e.target.value; refresh(); };
     sortSel.onchange=e=>{ st.sort=e.target.value; refresh(); };
     $$('.pt-page [data-only]').forEach(b=>b.onclick=e=>{ const k=e.currentTarget.dataset.only; st.only=st.only===k?'':k; $$('.pt-page [data-only]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.only===st.only))); refresh(); });
     $$('.pt-view [data-view]').forEach(b=>b.onclick=()=>{ if(b.dataset.view!==st.view) setView(b.dataset.view); });
-    clear.onclick=reset;
     const next=()=>{ if(st.loading||shown.length>=st.total||st.view!=='list') return; st.page+=1; load(true); };
     more.onclick=next;
     // Progressive loading: the next page arrives by itself when «Ver más» comes within 400 px of the screen (checked on
@@ -1408,6 +1470,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // The location is used only if the visitor already allowed it; otherwise a discreet line offers to turn it on.
     // v50.54: that line is drawn at once (not when the points arrive), so the grid below does not jump (CLS).
     if(!st.here) paintLocbar(null);
+    paintActive();
     if(await wdLocation.permission()==='granted'){ try{ st.here=await wdLocation.get(); }catch{} }
     if(!grid.isConnected) return;
     if(st.view==='map'){ setView('map'); return; }
@@ -4399,6 +4462,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     whatsapp:'<path d="M4.5 19.5 5.6 16A8 8 0 1 1 8.4 18.6Z"/><path d="M9.3 8.9c.2 1.9 2.2 4.4 4.8 5.3l1.1-1.2 2 .9c-.3 1.2-1.3 1.8-2.4 1.6-3.4-.6-6.2-3.6-6.6-6.5-.1-1 .5-1.9 1.6-2.2l.9 2Z"/>',
     bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15Z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
     map:'<path d="M9 4.5 3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2z"/><path d="M9 4.5v13M15 6.5v13"/>',
+    sliders:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+    sort:'<path d="M7 4v16M4 7l3-3 3 3M17 20V4M14 17l3 3 3-3"/>',
+    list:'<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
     mail:'<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/>',
     file:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
     target:'<circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',

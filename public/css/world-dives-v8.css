@@ -3791,3 +3791,122 @@ html.wd-app .pp-page{padding-bottom:150px}
 /* v50.57 (3.1) · Un tipo de buceo sin foto adecuada todavía: el color del mar, sin foto al azar */
 .tp-card-media.is-empty{background:radial-gradient(120% 90% at 30% 20%,#1ca5c7 0%,#076898 45%,#011c3c 100%)}
 .mm-preview .mm-empty{display:flex;align-items:center;justify-content:center;height:100%;min-height:120px;padding:12px;text-align:center;font-size:13px;color:#fff;background:radial-gradient(120% 90% at 30% 20%,#1ca5c7 0%,#076898 45%,#011c3c 100%)}
+
+/* v50.57 (3.3) · Puntos de buceo: una sola línea fija al bajar (buscador, «Filtros (n)», orden y lista/mapa), las
+   regiones en una fila que se desliza de lado, los filtros activos como fichas con ✕, los demás filtros en un panel
+   (en el móvil, una hoja que sube desde abajo) y tarjetas más compactas: 4 columnas en el ordenador, 3 en la tableta. */
+.pt57 .pt-band-in{display:block;padding-top:16px;padding-bottom:14px}
+.pt57 .pt-band-title h1{font-size:clamp(26px,2.6vw,34px)}
+.pt57 .pt-bar{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--paper);border-bottom:1px solid var(--line);box-shadow:0 8px 18px -16px rgba(1,28,60,.45)}
+.pt57 .pt-bar.is-open{z-index:1150}
+.pt57 .pt-bar-in{position:relative;max-width:1240px;margin:0 auto;padding:9px 24px;display:flex;align-items:center;gap:8px}
+.pt57 .pt-search{flex:1 1 auto;min-width:0;max-width:560px;margin-right:auto}
+.pt57 .pt-search .cd-field{height:42px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:0 12px;gap:8px}
+.pt57 .pt-search .cd-field input{padding:0;height:40px}
+.pt57 .pt-fbtn,.pt57 .pt-sortbox,.pt57 .pt-view{height:42px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--deep);flex:0 0 auto}
+.pt57 .pt-fbtn{display:inline-flex;align-items:center;gap:7px;padding:0 14px;font-weight:700;font-size:14px;white-space:nowrap;cursor:pointer}
+.pt57 .pt-fbtn:hover{border-color:#b9c7cb}
+.pt57 .pt-fbtn.has-filters{border-color:var(--deep);background:#e8f2f6}
+.pt57 .pt-fbtn[aria-expanded=true]{border-color:var(--deep);box-shadow:inset 0 0 0 1px var(--deep)}
+.pt57 .pt-fn{font-weight:800}
+.pt57 .pt-sortbox{position:relative;display:inline-flex;align-items:center;gap:6px;padding:0 4px 0 12px}
+.pt57 .pt-sortbox>.wd-icon{display:none}
+.pt57 .pt-sort-l{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.pt57 .pt-sortbox select{border:0;background:transparent;font-size:14px;font-weight:600;color:var(--ink);padding:8px 2px;max-width:190px;cursor:pointer}
+.pt57 .pt-view{display:inline-flex;padding:3px;gap:2px;margin:0}
+.pt57 .pt-view button{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--deep);font-weight:700;font-size:14px;padding:0 12px;border-radius:9px;min-height:34px;cursor:pointer}
+.pt57 .pt-view button[aria-pressed=true]{background:var(--deep);color:#fff}
+/* the panel under «Filtros» (a computer and a tablet) */
+.pt57 .pt-panel{position:absolute;top:calc(100% + 4px);left:24px;width:380px;z-index:5;display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 60px rgba(1,28,60,.24);max-height:calc(100vh - var(--wd-hdr,72px) - 80px);overflow:hidden}
+.pt57 .pt-panel[hidden],.pt57 .pt-scrim[hidden]{display:none}
+.pt57 .pt-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 6px}
+.pt57 .pt-panel-head h2{margin:0;font-size:19px;color:var(--deep)}
+.pt57 .pt-panel-x{width:38px;height:38px;border-radius:50%;border:0;background:#f1f4f4;color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.pt57 .pt-panel-x:hover{background:#e3eaeb}
+.pt57 .pt-panel-body{display:grid;gap:12px;padding:6px 16px 14px;overflow:auto;overscroll-behavior:contain}
+.pt57 .pt-pf{display:grid;gap:5px}
+.pt57 .pt-pf>span{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.pt57 .pt-pf select{width:100%;height:44px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:0 10px;font-size:15px;font-weight:600;color:var(--ink)}
+.pt57 .pt-pf-row{display:flex;flex-wrap:wrap;gap:8px;padding-top:2px}
+.pt57 .pt-pf-row .cd-chip{min-height:40px}
+.pt57 .pt-panel-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid var(--line);background:#fff}
+.pt57 .pt-panel-foot .btn{min-height:44px}
+.pt57 .pt-panel-foot .btn:disabled{opacity:.6;cursor:default}
+.pt57 .pt-scrim{position:fixed;inset:0;z-index:4;background:rgba(1,28,60,.46)}
+/* on a phone: a sheet from below */
+.pt57 .pt-panel.is-sheet{position:fixed;left:0;right:0;top:auto;bottom:0;width:auto;max-height:86vh;border-radius:20px 20px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom);animation:pt-up .22s ease-out}
+.pt57 .pt-panel.is-sheet .pt-panel-head{padding-top:18px;position:relative}
+.pt57 .pt-panel.is-sheet .pt-panel-head::before{content:"";position:absolute;left:50%;top:7px;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:#d3dbdd}
+@keyframes pt-up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+html.pt-lock,html.pt-lock body{overflow:hidden}
+/* the regions: one row that scrolls sideways, with arrows on a computer */
+.pt57 .pt-zones{position:relative;max-width:1240px;margin:0 auto;padding:10px 24px 0}
+.pt57 .pt-regions{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth;margin:0;padding:1px 0 2px}
+.pt57 .pt-regions::-webkit-scrollbar{display:none}
+.pt57 .pt-regions .cd-chip{flex:0 0 auto;white-space:nowrap}
+.pt57 .pt-zarrow{position:absolute;top:11px;z-index:2;width:34px;height:34px;padding:0;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--deep);display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 8px rgba(1,28,60,.16),0 0 12px 10px var(--paper)}
+.pt57 .pt-zarrow[hidden]{display:none}
+.pt57 .pt-zarrow[data-dir="-1"]{left:14px}
+.pt57 .pt-zarrow[data-dir="-1"] .wd-icon{transform:scaleX(-1)}
+.pt57 .pt-zarrow[data-dir="1"]{right:14px}
+/* the active filters */
+.pt57 .pt-active{max-width:1240px;margin:0 auto;padding:8px 24px 0;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.pt57 .pt-active[hidden]{display:none}
+.pt57 .pt-achip{display:inline-flex;align-items:center;gap:6px;height:30px;max-width:260px;padding:0 5px 0 11px;border-radius:999px;border:1px solid #c6dde7;background:#e8f2f6;color:var(--deep);font-size:13px;font-weight:600;cursor:pointer}
+.pt57 .pt-achip>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pt57 .pt-ax{display:grid;place-items:center;flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:rgba(1,28,60,.10);font-size:15px;line-height:1}
+.pt57 .pt-achip:hover .pt-ax,.pt57 .pt-achip:focus-visible .pt-ax{background:var(--deep);color:#fff}
+.pt57 .pt-active .cd-clear{margin-left:4px;white-space:nowrap;min-height:30px;padding:0 4px}
+.pt57 .pt-main{padding-top:12px}
+/* more dive sites in view: smaller cards, 4 columns on a computer and 3 on a tablet */
+.pt57 .pt-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.pt57 .pt-media{aspect-ratio:16/10}
+.pt57 .pt-media img{position:absolute;inset:0}   /* every card the same height, whatever the shape of its photo */
+.pt57 .pt-info{padding:10px 12px 12px;gap:3px}
+.pt57 .pt-name{font-size:15.5px}
+.pt57 .pt-where{font-size:12.5px}
+.pt57 .pt-facts{font-size:12.5px;margin-top:2px}
+@media (max-width:1180px){.pt57 .pt-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.pt57 .pt-media{aspect-ratio:16/9}}
+@media (max-width:980px){.pt57 .pt-bar-in,.pt57 .pt-zones,.pt57 .pt-active{padding-left:16px;padding-right:16px}.pt57 .pt-zarrow[data-dir="-1"]{left:8px}.pt57 .pt-zarrow[data-dir="1"]{right:8px}}
+@media (max-width:760px){
+  .pt57 .pt-band-in{padding:12px 64px 10px 16px}
+  .pt57 .pt-band-title h1{font-size:24px}
+  .pt57 .pt-bar-in{padding:8px 12px;gap:6px}
+  .pt57 .pt-search .cd-field{padding:0 10px;gap:6px}
+  .pt57 .pt-fbtn{padding:0 11px;gap:6px}
+  .pt57 .pt-sortbox{width:42px;padding:0;justify-content:center}
+  .pt57 .pt-sortbox>.wd-icon{display:block}
+  .pt57 .pt-sort-l{display:none}
+  .pt57 .pt-sortbox select{position:absolute;inset:0;width:100%;height:100%;max-width:none;opacity:0}
+  .pt57 .pt-view{padding:0}
+  .pt57 .pt-view button[aria-pressed=true]{display:none}
+  .pt57 .pt-view button{width:40px;height:40px;padding:0;justify-content:center;border-radius:11px}
+  .pt57 .pt-view button span{display:none}
+  .pt57 .pt-zones{padding:8px 0 0}
+  .pt57 .pt-zarrow{display:none!important}
+  .pt57 .pt-regions{padding:1px 12px 2px}
+  .pt57 .pt-active{padding:8px 12px 0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .pt57 .pt-active::-webkit-scrollbar{display:none}
+  .pt57 .pt-achip,.pt57 .pt-active .cd-clear{flex:0 0 auto}
+  .pt57 .pt-main{padding-top:8px}
+  .pt57 .pt-results-head{margin-bottom:8px}
+  .pt57 .pt-linkbtn{padding:4px 2px;min-height:34px}
+  .pt57 .pt-achip{height:34px;min-height:34px}
+}
+@media (max-width:640px){
+  .pt57 .pt-grid{grid-template-columns:1fr;gap:8px}
+  .pt57 .pt-media{aspect-ratio:auto;flex:0 0 100px;min-height:88px}
+  .pt57 .pt-info{padding:8px 12px;gap:2px}
+  .pt57 .pt-name{font-size:15px}
+  .pt57 .pt-facts{flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
+}
+@media (prefers-reduced-motion:reduce){.pt57 .pt-panel.is-sheet{animation:none}.pt57 .pt-regions{scroll-behavior:auto}}
+/* v50.57 (3.3) · Between a phone and a computer (761–1023 px) the six sections of the menu did not fit beside the logo
+   and went one under the other: a fixed header up to 273 px tall at 768 px, a quarter of the screen. There the menu
+   goes on its own line under the logo. */
+@media (min-width:761px) and (max-width:1023px){
+  .site-header{flex-wrap:wrap;row-gap:0}
+  .site-header .main-nav{order:5;flex:1 0 100%;flex-wrap:nowrap;justify-content:center;overflow-x:auto;scrollbar-width:none}
+  .site-header .main-nav::-webkit-scrollbar{display:none}
+  .site-header .main-nav a{flex:0 0 auto;white-space:nowrap}
+}

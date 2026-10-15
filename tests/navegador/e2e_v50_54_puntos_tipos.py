@@ -2,7 +2,8 @@
 """v50.54 · puntos 2, 3 y 4 del encargo del 14/10/2026, en un navegador real (Chromium) sobre la demo:
 
 Puntos de buceo
-- cabecera compacta (título, buscador y Lista/Mapa en una franja) y barra de filtros fija al bajar;
+- cabecera compacta y barra fija al bajar (v50.57, revisión general 3.3: buscador, «Filtros», orden y Lista/Mapa en una
+  sola línea; tipo, nivel y profundidad en el panel de «Filtros»);
 - regiones con su número (ninguna vacía), tipo, nivel y profundidad con su número; la dirección guarda los filtros;
 - rejilla de 3–4 columnas en el ordenador y lista de 1 en el móvil; tarjeta sin «Por confirmar» ni «Por asociar»;
 - «Ver más» y carga al bajar; Lista/Mapa en la misma página (el mapa enseña todos los puntos filtrados);
@@ -66,8 +67,8 @@ def main():
             ctx, pg = page()
             pg.goto(srv.base + '/#/puntos'); pg.wait_for_selector('#pt-grid .pt-card:not(.is-skeleton)')
             pg.evaluate('window.__same=1')
-            band = pg.evaluate("(()=>{const b=document.querySelector('.pt-band').getBoundingClientRect();return {h:b.height,q:!!document.querySelector('.pt-band #pt-q'),v:document.querySelectorAll('.pt-band .pt-view button').length}})()")
-            check('Puntos: título, buscador y Lista/Mapa en una franja', band['q'] and band['v'] == 2 and band['h'] < 140, band)
+            band = pg.evaluate("(()=>{const b=document.querySelector('.pt-bar').getBoundingClientRect();return {h:b.height,q:!!document.querySelector('.pt-bar #pt-q'),f:!!document.querySelector('.pt-bar #pt-filters-btn'),s:!!document.querySelector('.pt-bar #pt-sort'),v:document.querySelectorAll('.pt-bar .pt-view button').length}})()")
+            check('Puntos: buscador, «Filtros», orden y Lista/Mapa en una línea', band['q'] and band['f'] and band['s'] and band['v'] == 2 and band['h'] < 70, band)
             cols = pg.evaluate("new Set([...document.querySelectorAll('#pt-grid .pt-card')].slice(0,8).map(c=>Math.round(c.getBoundingClientRect().left))).size")
             check('Puntos: 3–4 columnas en el ordenador', cols in (3, 4), cols)
             text = pg.inner_text('#pt-grid')
@@ -90,7 +91,7 @@ def main():
             check('Puntos: profundidad con su número', all('(' in o[1] for o in opts if o[0]), opts)
             first = next((o[0] for o in opts if o[0] and not o[2]), '')
             if first:
-                pg.select_option('#pt-depth', first); pg.wait_for_timeout(900)
+                pg.click('#pt-filters-btn'); pg.select_option('#pt-depth', first); pg.wait_for_timeout(900); pg.keyboard.press('Escape')
                 check('Puntos: el filtro de profundidad va a la dirección', f'depth={first}' in pg.evaluate('location.hash'), pg.evaluate('location.hash'))
             pg.click('#pt-clear'); pg.wait_for_timeout(900)
             # Ver más and loading by itself
@@ -100,7 +101,7 @@ def main():
             check('Puntos: carga sola al bajar', n2 > n1, (n1, n2))
             # back from a dive site: same filters, pages and position
             pg.click('#pt-regions [data-area=""]'); pg.wait_for_timeout(300)
-            pg.select_option('#pt-level', 'mid'); pg.wait_for_timeout(900)
+            pg.click('#pt-filters-btn'); pg.select_option('#pt-level', 'mid'); pg.wait_for_timeout(900); pg.keyboard.press('Escape')
             pg.click('#pt-more'); pg.wait_for_timeout(900)
             target = pg.locator('#pt-grid .pt-card').nth(17)
             target.scroll_into_view_if_needed(); pg.wait_for_timeout(300)
