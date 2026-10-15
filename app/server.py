@@ -63,6 +63,7 @@ from wod import presencial as wpres
 from wod import dispositivos as wdev
 from wod import canales as wch
 from wod import widget_textos as wtx
+from wod import ical as wical
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1745,7 +1746,8 @@ MULTICANAL_SCHEMA = (
     'CREATE INDEX IF NOT EXISTS idx_api_keys_provider ON api_keys(provider_kind, provider_id)',
     # Webhooks (Parte E): signed notices to the centre's server, with retries and a log of deliveries.
     """CREATE TABLE IF NOT EXISTS webhook_endpoints (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_kind TEXT NOT NULL, provider_id INTEGER NOT NULL,
-       url TEXT NOT NULL, secret TEXT NOT NULL, events TEXT, active INTEGER NOT NULL DEFAULT 1, created_by INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""",
+       url TEXT NOT NULL, secret TEXT NOT NULL, events TEXT, active INTEGER NOT NULL DEFAULT 1, created_by INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+       feed_after INTEGER)""",
     """CREATE TABLE IF NOT EXISTS webhook_deliveries (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint_id INTEGER NOT NULL REFERENCES webhook_endpoints(id) ON DELETE CASCADE,
        provider_kind TEXT NOT NULL, provider_id INTEGER NOT NULL, event TEXT NOT NULL, booking_id INTEGER, payload TEXT NOT NULL,
        status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at REAL NOT NULL, last_status INTEGER, last_error TEXT,
@@ -1807,6 +1809,7 @@ def migrate_v50_56(db):
     add_columns(db, 'email_outbox', [('reply_to', 'TEXT')])   # e-mails of a widget booking: the answer goes to the centre
     add_columns(db, 'provider_services', [('instructor_user_id', 'INTEGER'), ('boat_id', 'INTEGER')])
     add_columns(db, 'provider_feed', [('status', 'TEXT'), ('dispatched', 'INTEGER NOT NULL DEFAULT 0')])
+    add_columns(db, 'webhook_endpoints', [('feed_after', 'INTEGER')])
     db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_channel ON bookings(center_id, channel, created_at)')
     for stmt in FEED_TRIGGERS: db.execute(stmt)
     if migration_done(db, '50.56'): return
@@ -4649,43 +4652,6 @@ def dac7_in_person(db, year):
 # -------------------------------------------------------------------------------- iCal feed (Fase 6.5)
 def ical_escape(s):
     return str(s or '').replace('\\', '\\\\').replace(';', '\\;').replace(',', '\\,').replace('\r', '').replace('\n', '\\n')
-
-
-def ical_feed(db, ptype, pid):
-    """Private calendar of the provider's bookings in progress (from 30 days ago), for Google, Apple or Outlook calendar."""
-    since = (_dt.date.today() - _timedelta(days=30)).isoformat()
-    where = 'b.center_id=?' if ptype == 'center' else 'b.provider_user_id=? AND b.center_id IS NULL'
-    rows = db.execute(f"""SELECT b.id,b.booking_date,b.status,b.participants,b.updated_at,s.title,s.duration_minutes,sl.slot_time,u.fullname
-                          FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN service_slots sl ON sl.id=b.slot_id LEFT JOIN users u ON u.id=b.user_id
-                          WHERE {where} AND b.booking_date>=? AND b.status NOT IN ('cancelled','rejected','expired','unpaid') ORDER BY b.booking_date LIMIT 2000""", (pid, since)).fetchall()
-    host = urlparse(public_site_url()).hostname or 'worldives'
-    out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//WORLDIVES DISCOVERY//Reservas//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-           'X-WR-CALNAME:' + ical_escape('WORLDIVES · ' + provider_label(db, ptype, pid)), 'X-WR-TIMEZONE:' + wcfg.env('WOD_TIMEZONE', 'Europe/Madrid')]
-    for r in rows:
-        name = (r['fullname'] or 'Cliente').split(' ')[0]
-        summary = f"{r['title'] or 'Reserva'} · {name} · {r['participants']} pax"
-        stamp = re.sub(r'[-:]', '', (r['updated_at'] or now())[:19]) + 'Z'
-        out += ['BEGIN:VEVENT', f"UID:wod-booking-{r['id']}@{host}", f'DTSTAMP:{stamp}']
-        if r['slot_time'] and re.fullmatch(r'\d{2}:\d{2}', r['slot_time']):
-            start = _dt.datetime.fromisoformat(f"{r['booking_date']}T{r['slot_time']}")
-            end = start + _timedelta(minutes=int(r['duration_minutes'] or 120))
-            out += [f"DTSTART:{start.strftime('%Y%m%dT%H%M%S')}", f"DTEND:{end.strftime('%Y%m%dT%H%M%S')}"]
-        else:
-            d = _dt.date.fromisoformat(r['booking_date'][:10])
-            out += [f"DTSTART;VALUE=DATE:{d.strftime('%Y%m%d')}", f"DTEND;VALUE=DATE:{(d + _timedelta(days=1)).strftime('%Y%m%d')}"]
-        out += ['SUMMARY:' + ical_escape(summary), f"DESCRIPTION:{ical_escape('Reserva WOD-%06d · estado: %s' % (r['id'], r['status']))}",
-                f"URL:{public_site_url()}/#/admin?tab=bookings", 'STATUS:' + ('CONFIRMED' if r['status'] == 'confirmed' else 'TENTATIVE'), 'END:VEVENT']
-    out.append('END:VCALENDAR')
-    # Lines of at most 75 octets (RFC 5545 folding)
-    folded = []
-    for line in out:
-        b = line.encode('utf-8')
-        while len(b) > 75:
-            cut = 75
-            while (b[cut] & 0xC0) == 0x80: cut -= 1
-            folded.append(b[:cut].decode('utf-8')); b = b' ' + b[cut:]
-        folded.append(b.decode('utf-8'))
-    return '\r\n'.join(folded) + '\r\n'
 
 
 # ---------------------------------------------------------------------- CSV export and import (Fase 6.5)
@@ -9329,7 +9295,7 @@ def create_booking(db, req):
         raise ValueError('Este profesional no admite reservas ahora mismo. Prueba más tarde.')
     if pay_way == 'in_person' and by_provider: ready = False
     # ASVS 5.0 V2.4.1: at most BOOKING_MAX_PER_HOUR bookings an hour and PENDING_PAYMENTS_MAX unfinished payments per person.
-    if not by_provider and BOOKING_LIMIT.blocked(limit_key): raise TooManyRequests(BOOKING_LIMIT_TEXT)
+    if not by_provider and channel != 'api' and BOOKING_LIMIT.blocked(limit_key): raise TooManyRequests(BOOKING_LIMIT_TEXT)   # the API has its own (per key)
     if online and mode == 'payment' and db.execute("SELECT COUNT(*) FROM bookings WHERE user_id=? AND status='payment_in_progress' AND hold_expires_at>=?", (customer['id'], local_iso(local_now()))).fetchone()[0] >= PENDING_PAYMENTS_MAX:
         raise ValueError('Tienes varios pagos sin terminar. Termínalos o espera unos minutos.')
     pol = provider_policy(payee, service)   # the policy shown before paying is the one that applies
@@ -9387,7 +9353,7 @@ def create_booking(db, req):
     bid = cur.lastrowid
     # Every time is stored with the time zone of the place of the activity (shown in local time everywhere).
     db.execute('UPDATE bookings SET timezone=? WHERE id=? AND user_id=?', (service_tz(db, service) if service else place_tz(db, None, center_id), bid, customer['id']))
-    if not by_provider: BOOKING_LIMIT.hit(limit_key)
+    if not by_provider and channel != 'api': BOOKING_LIMIT.hit(limit_key)
     if online and pay_way == 'in_person':
         db.execute("UPDATE bookings SET pay_way='in_person',in_person_ack_at=? WHERE id=? AND user_id=?", (now(), bid, customer['id']))
         audit(db, customer['id'], 'in_person_notice_accepted', 'booking', bid, {'notice_version': wpres.NOTICE_VERSION})
@@ -9463,9 +9429,11 @@ def booking_api_dict(db, b):
             'created_at': b['created_at'], 'updated_at': b['updated_at']}
 
 
-def queue_webhooks(db, kind, pid, event, b, status=None):
-    """One delivery per active endpoint of the provider that listens to this event. Sent by webhook_loop (seconds)."""
-    eps = db.execute('SELECT * FROM webhook_endpoints WHERE provider_kind=? AND provider_id=? AND active=1', (kind, pid)).fetchall()
+def queue_webhooks(db, kind, pid, event, b, status=None, feed_id=None):
+    """One delivery per active endpoint of the provider that listens to this event. Sent by webhook_loop (seconds).
+    An endpoint only gets the changes that happened after it was created (feed_after: the last change before it)."""
+    eps = db.execute('SELECT * FROM webhook_endpoints WHERE provider_kind=? AND provider_id=? AND active=1 AND COALESCE(feed_after,0)<?',
+                     (kind, pid, feed_id if feed_id is not None else 2 ** 62)).fetchall()
     if not eps: return 0
     data = booking_api_dict(db, b)
     if status: data['status'] = wbk.normalize_state(status)   # the state at the moment of the event
@@ -9491,7 +9459,7 @@ def dispatch_feed(db, limit=500):
         for r in rows:
             if not db.execute('UPDATE provider_feed SET dispatched=1 WHERE id=? AND dispatched=0', (r['id'],)).rowcount: continue
             b = booking_row(db, r['booking_id']) if r['booking_id'] else None
-            if b: queue_webhooks(db, r['provider_kind'], r['provider_id'], r['event'], b, r['status'])
+            if b: queue_webhooks(db, r['provider_kind'], r['provider_id'], r['event'], b, r['status'], r['id'])
         db.commit()
     except Exception:
         db.rollback(); raise
@@ -9740,6 +9708,25 @@ def sales_book(handler, db, kind, pid, row, channel, data):
     return out['status'], body
 
 
+def provider_cancel(db, actor_id, row, reason=None, refund_amount=None):
+    """The centre (panel or API) cancels an accepted or confirmed booking: the spots are free at once in every channel,
+    pending payments are closed and everything paid is refunded to the same card, unless it sets a smaller amount."""
+    bid = row['id']; cur_state = wbk.normalize_state(row['status'])
+    if cur_state not in ('confirmed', 'accepted_pending_payment'): raise ValueError('Solo se pueden cancelar reservas aceptadas o confirmadas. Las solicitudes se rechazan.')
+    release_booking_spots(db, row)
+    db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='center',reject_reason=?,updated_at=? WHERE id=?", (now(), clean_text(reason, 500) or None, now(), bid))
+    for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (bid,)).fetchall():
+        expire_checkout(o); db.execute("UPDATE payment_orders SET status='cancelled',updated_at=? WHERE id=?", (now(), o['id']))
+    # The provider cancels: everything paid is refunded unless it sets a smaller amount (it is told the law).
+    paid_, refunded_, _o = booking_paid_online(db, bid); net_ = round(paid_ - refunded_, 2)
+    amt = net_ if refund_amount in (None, '') else max(0.0, min(net_, round(float(str(refund_amount).replace(',', '.')), 2)))
+    out = (refund_booking(db, bid, amt, 'requested_by_customer', actor_id, clean_text(reason, 300) or 'Cancelada por el centro', 'center_cancel') if amt > 0
+           else ('no_refund' if net_ > 0 else 'none_paid'))
+    if out == 'refunded': notify_booking(db, bid, 'refund_issued', {'amount': amt, 'note': clean_text(reason, 300) or ''})
+    notify_booking(db, bid, 'cancelled_center', {'refund': out, 'reason': clean_text(reason, 500) or ''})
+    return out
+
+
 def guest_booking(db, token):
     """The booking of a «<id>.<token>» link, or NotFound. The token is long and random; compared in constant time."""
     m = re.fullmatch(r'(\d{1,12})\.([A-Za-z0-9_\-]{20,80})', str(token or ''))
@@ -9823,15 +9810,6 @@ def sales_links(db, kind, pid, row, base=None):
             'qr': {'svg': f'{base}/c/{slug}/qr.svg', 'png': f'{base}/c/{slug}/qr.png'}}
 
 
-def qr_svg(url, color='#011C3C'):
-    """A QR code as SVG (vector: prints sharp at any size). One path, with a quiet zone of 4 modules."""
-    m = qr_matrix(url); n = len(m); q = 4
-    d = ''.join(f'M{x + q},{y + q}h1v1h-1z' for y, row in enumerate(m) for x, v in enumerate(row) if v == '1')
-    size = n + 2 * q
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" width="{size * 8}" height="{size * 8}" shape-rendering="crispEdges">'
-            f'<rect width="100%" height="100%" fill="#fff"/><path fill="{html.escape(color)}" d="{d}"/></svg>')
-
-
 def qr_png(url, scale=10):
     """The same QR as PNG for printers and apps that do not open SVG (Pillow, already used for the photos)."""
     from PIL import Image
@@ -9853,6 +9831,289 @@ def sales_link_url(base, slug, service_id=None, date=None):
     if service_id: q.append(f'servicio={int(service_id)}')
     if date and re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(date)): q.append(f'fecha={date}')
     return f"{base}/c/{slug}" + ('?' + '&'.join(q) if q else '')
+
+# ---------------------------------------------------------------------------
+# v50.56 · Parte E: API REST v1 of each centre (docs/api/). Keys per centre or freelance, created and revoked in the
+# panel, kept as a SHA-256 (shown once), with a scope («read» or «read and write»). Everything is scoped to the key's
+# provider: a key never sees another centre. Bookings go through create_booking (channel «api»): the API never sends a
+# price, never marks anything as paid and never skips a rule of the service. Server to server only: no cookies.
+# ---------------------------------------------------------------------------
+API_READ_LIMIT = wsec.SharedRateLimiter('api-v1', wcfg.env_int('WOD_API_MAX_PER_MINUTE', 120, 1), 60)
+API_WRITE_LIMIT = wsec.SharedRateLimiter('api-v1-escritura', wcfg.env_int('WOD_API_BOOKINGS_PER_HOUR', 300, 1), 3600)
+API_KEYS_MAX = 10
+WEBHOOKS_MAX = 5
+
+
+class ApiError(Exception):
+    """A clear error of the API: HTTP status, a stable code and a sentence."""
+    def __init__(self, status, code, message, extra=None):
+        super().__init__(message); self.status = status; self.code = code; self.extra = extra or {}
+
+
+def api_key_row(db, raw):
+    """The active key of an «Authorization: Bearer wdk_…» (or X-WORLDIVES-API-Key) header, or ApiError 401."""
+    raw = str(raw or '').strip()
+    if not raw.startswith('wdk_') or len(raw) > 100: raise ApiError(401, 'invalid_key', 'Falta la clave de la API o no es válida.')
+    k = db.execute('SELECT * FROM api_keys WHERE key_hash=?', (wch.api_key_hash(raw),)).fetchone()
+    if not k or k['revoked_at']: raise ApiError(401, 'invalid_key', 'Clave de la API no válida o revocada.')
+    if not provider_has(db, k['provider_kind'], k['provider_id'], 'integration'):
+        raise ApiError(403, 'plan_required', 'La API está incluida en los planes «Motor de reservas» y «Pro».')
+    return k
+
+
+def api_keys_list(db, kind, pid):
+    return [{'id': r['id'], 'name': r['name'], 'prefix': r['prefix'], 'scope': r['scope'], 'created_at': r['created_at'], 'last_used_at': r['last_used_at'],
+             'revoked_at': r['revoked_at']} for r in db.execute('SELECT * FROM api_keys WHERE provider_kind=? AND provider_id=? ORDER BY id DESC', (kind, pid)).fetchall()]
+
+
+def webhook_list(db, kind, pid):
+    out = []
+    for r in db.execute('SELECT * FROM webhook_endpoints WHERE provider_kind=? AND provider_id=? ORDER BY id', (kind, pid)).fetchall():
+        try: ev = json.loads(r['events'] or '[]')
+        except ValueError: ev = []
+        out.append({'id': r['id'], 'url': r['url'], 'events': ev or list(wch.WEBHOOK_EVENTS), 'active': bool(r['active']), 'created_at': r['created_at']})
+    return out
+
+
+def webhook_log(db, kind, pid, limit=50):
+    rows = db.execute('''SELECT d.id,d.endpoint_id,d.event,d.booking_id,d.status,d.attempts,d.last_status,d.last_error,d.created_at,d.delivered_at,d.next_attempt_at,e.url
+                         FROM webhook_deliveries d JOIN webhook_endpoints e ON e.id=d.endpoint_id WHERE d.provider_kind=? AND d.provider_id=? ORDER BY d.id DESC LIMIT ?''',
+                      (kind, pid, limit)).fetchall()
+    return [{**dict(r), 'next_attempt_at': datetime.fromtimestamp(r['next_attempt_at'], timezone.utc).isoformat(timespec='seconds') if r['status'] == 'pending' and r['next_attempt_at'] else None}
+            for r in rows]
+
+
+def api_service(db, kind, pid, s, lang='es'):
+    unit = service_unit(s); price = float(s['price'] or 0)
+    if unit in wag.DAY_UNITS: price = float(wag.clean_pricing(s['pricing'], s['price']).get('day') or price)
+    info = service_mode_info(db, s, price)
+    return {'id': s['id'], 'title': s['title'], 'type': s['service_type'], 'description': s['description'] or '', 'unit': unit, 'booking_mode': info['booking_mode'],
+            'bookable': info['bookable'], 'price': round(price, 2), 'price_per': 'day' if unit in wag.DAY_UNITS else 'person', 'currency': s['currency'] or 'EUR',
+            'duration_minutes': s['duration_minutes'], 'max_participants': s['max_participants'], 'timezone': service_tz(db, s), 'pay_way': info.get('pay_way', 'online')}
+
+
+def api_availability(db, kind, pid, s, date_from, date_to):
+    """Free spots in real time: every departure between two dates (or the state of each day for a service by days)."""
+    tz = service_tz(db, s); today = wag.today_in(tz).isoformat()
+    for v, name in ((date_from, 'from'), (date_to, 'to')):
+        if v and not re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(v)): raise ApiError(400, 'invalid_date', f'«{name}» debe ser una fecha AAAA-MM-DD.')
+    try:
+        df = clean_date(date_from) or today; dt_ = clean_date(date_to) or (_dt.date.fromisoformat(df) + _timedelta(days=31)).isoformat()
+    except ValueError: raise ApiError(400, 'invalid_date', 'Fecha no válida.')
+    if dt_ < df: raise ApiError(400, 'invalid_range', '«to» no puede ser anterior a «from».')
+    if (_dt.date.fromisoformat(dt_) - _dt.date.fromisoformat(df)).days > 92: raise ApiError(400, 'invalid_range', 'Pide como máximo 92 días de una vez.')
+    df = max(df, today)
+    if service_unit(s) in wag.DAY_UNITS:
+        res = service_resource(db, s); rules = wag.clean_rules(s['unit_rules'])
+        days = []; d = _dt.date.fromisoformat(df)
+        while d.isoformat() <= dt_: days.append(d.isoformat()); d += _timedelta(days=1)
+        states = public_day_states(db, s, res, days, rules, tz, service_unit(s)) if days else {}
+        return {'service_id': s['id'], 'unit': service_unit(s), 'timezone': tz, 'days': [{'date': k, 'state': v} for k, v in sorted(states.items())]}
+    rows = db.execute("""SELECT id,slot_date,slot_time,spots_total,spots_available FROM service_slots WHERE service_id=? AND status IN ('open','full')
+                         AND slot_date>=? AND slot_date<=? ORDER BY slot_date,slot_time LIMIT 1000""", (s['id'], df, dt_)).fetchall()
+    return {'service_id': s['id'], 'unit': 'slot', 'timezone': tz,
+            'departures': [{'id': r['id'], 'date': r['slot_date'], 'time': r['slot_time'], 'spots_total': r['spots_total'], 'spots_free': max(0, int(r['spots_available'] or 0)),
+                            'starts_at_utc': wag.local_to_utc(r['slot_date'], r['slot_time'] or '00:00', tz)} for r in rows]}
+
+
+def api_booking_or_404(db, kind, pid, bid):
+    where = 'center_id=?' if kind == 'center' else 'provider_user_id=? AND center_id IS NULL'
+    b = db.execute(f'SELECT * FROM bookings WHERE id=? AND {where}', (int(bid), pid)).fetchone()
+    if not b: raise ApiError(404, 'not_found', 'Reserva no encontrada.')
+    return b
+
+
+def webhook_url_allowed(url):
+    """https to a public host; only the automatic tests (never production) may use http://127.0.0.1."""
+    u = str(url or '').strip()
+    return wch.webhook_url_ok(u) or bool(wremoto._local_allowed() and re.fullmatch(r'http://(127\.0\.0\.1|localhost):\d{2,5}(/[^\s]*)?', u))
+
+# ---------------------------------------------------------------------------
+# v50.56 · Parte F: spots taken without a customer (a group, an agency, a hotel), with a free text. They come out of
+# the same inventory (reserve_slot_spots), so no channel can sell them; released, they are free again at once.
+# ---------------------------------------------------------------------------
+def slot_of_provider(db, kind, pid, slot_id):
+    where = 's.center_id=?' if kind == 'center' else 's.center_id IS NULL AND s.provider_user_id=?'
+    return db.execute(f'''SELECT ss.*, s.title AS service_title, s.id AS sid FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
+                          WHERE ss.id=? AND {where}''', (int(slot_id or 0), pid)).fetchone()
+
+
+def block_spots(db, kind, pid, slot_id, qty, label, actor_id, source='manual', import_id=None, import_uid=None):
+    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
+    slot = slot_of_provider(db, kind, pid, slot_id)
+    if not slot: raise NotFound('Salida no encontrada.')
+    qty = clean_int(qty, 1, 500, 1, 'El número de plazas no es válido.')
+    take_slot_spots(db, slot['id'], qty)
+    bid = db.execute('''INSERT INTO spot_blocks(provider_kind,provider_id,slot_id,qty,label,source,import_id,import_uid,status,created_by,created_at)
+                        VALUES(?,?,?,?,?,?,?,?,'active',?,?)''', (kind, pid, slot['id'], qty, clean_text(label, 160) or None, source, import_id, import_uid, actor_id, now())).lastrowid
+    audit(db, actor_id, 'spots_blocked', 'service_slot', slot['id'], {'qty': qty, 'label': clean_text(label, 160), 'source': source, 'block': bid})
+    return bid
+
+
+def release_spot_block(db, kind, pid, block_id, actor_id=None):
+    row = db.execute("SELECT * FROM spot_blocks WHERE id=? AND provider_kind=? AND provider_id=? AND status='active'", (int(block_id or 0), kind, pid)).fetchone()
+    if not row: raise NotFound('Bloqueo no encontrado.')
+    release_slot_spots(db, row['slot_id'], int(row['qty']))
+    db.execute("UPDATE spot_blocks SET status='released',released_at=? WHERE id=? AND provider_id=?", (now(), row['id'], pid))
+    audit(db, actor_id, 'spots_released', 'service_slot', row['slot_id'], {'qty': row['qty'], 'block': row['id'], 'source': row['source']})
+
+
+def spot_blocks_list(db, kind, pid, slot_id=None, date_from=None, date_to=None):
+    cond, args = [], [kind, pid]
+    if slot_id: cond.append(' AND b.slot_id=?'); args.append(int(slot_id))
+    if date_from: cond.append(' AND ss.slot_date>=?'); args.append(date_from)
+    if date_to: cond.append(' AND ss.slot_date<=?'); args.append(date_to)
+    rows = db.execute(f'''SELECT b.id,b.slot_id,b.qty,b.label,b.source,b.import_id,b.created_at,ss.slot_date,ss.slot_time,s.title AS service_title,s.id AS service_id
+                          FROM spot_blocks b JOIN service_slots ss ON ss.id=b.slot_id JOIN provider_services s ON s.id=ss.service_id
+                          WHERE b.provider_kind=? AND b.provider_id=? AND b.status='active'{''.join(cond)} ORDER BY ss.slot_date,ss.slot_time LIMIT 500''', args).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# v50.56 · Parte G: iCal. Export: a private feed per centre, per freelance and per instructor, made at every request
+# (it reflects a booking from any channel at once; each calendar app decides how often it asks). Import: the calendar
+# of another system blocks spots, resources or days, every 15 minutes (not instant: the panel says so).
+# ---------------------------------------------------------------------------
+ICAL_EVERY_MINUTES = 15
+ICAL_IMPORTS_MAX = 5
+
+
+def ical_feed(db, ptype, pid, center_id=None):
+    """Private calendar (bookings in progress from 30 days ago, and spots blocked) of a centre, a freelance or an
+    instructor of a centre (ptype 'instructor', pid = his user, center_id = his centre). Times in UTC."""
+    since = (_dt.date.today() - _timedelta(days=30)).isoformat()
+    if ptype == 'center': where, args = 'b.center_id=?', [pid]
+    elif ptype == 'freelance': where, args = 'b.provider_user_id=? AND b.center_id IS NULL', [pid]
+    else:
+        # The instructor's own work: courses whose instructor he is, and departures where he guides a group.
+        where = ('b.center_id=? AND (s.instructor_user_id=? OR b.slot_id IN (SELECT g.slot_id FROM slot_groups g JOIN service_slots x ON x.id=g.slot_id '
+                 'JOIN provider_services xs ON xs.id=x.service_id WHERE g.guide_user_id=? AND xs.center_id=?))')
+        args = [center_id, pid, pid, center_id]
+    rows = db.execute(f"""SELECT b.*, s.title, s.duration_minutes, s.unit_rules, u.fullname
+                          FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN users u ON u.id=b.user_id
+                          WHERE {where} AND b.booking_date>=? AND b.status NOT IN ('cancelled','rejected','expired','unpaid','payment_in_progress')
+                          ORDER BY b.booking_date LIMIT 2000""", (*args, since)).fetchall()
+    host = urlparse(public_site_url()).hostname or 'worldives'
+    label = provider_label(db, 'freelance' if ptype == 'instructor' else ptype, pid)
+    tz_hint = place_tz(db, None, pid if ptype == 'center' else center_id) if ptype in ('center', 'instructor') else wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ)
+    out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//WORLDIVES DISCOVERY//Reservas//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+           'X-WR-CALNAME:' + wical.escape('WORLDIVES · ' + label), 'X-WR-TIMEZONE:' + tz_hint, 'REFRESH-INTERVAL;VALUE=DURATION:PT5M', 'X-PUBLISHED-TTL:PT5M']
+    base = public_site_url()
+    for r in rows:
+        name = (r['contact_name'] or r['fullname'] or 'Cliente').split(' ')[0]
+        summary = f"{r['title'] or 'Reserva'} · {name} · {r['participants']} pax"
+        desc = f"Reserva WOD-{r['id']:06d} · {wch.CHANNEL_LABELS.get(wch.channel_of(r), '')} · estado: {wbk.state_label(r['status'])}"
+        stamp = wical.utc_stamp((r['updated_at'] or now())[:19].replace('+00:00', '') + 'Z')
+        tz = booking_tz(db, r)
+        days = [x['local_date'] for x in db.execute('SELECT local_date FROM booking_days WHERE booking_id=? ORDER BY local_date', (r['id'],)).fetchall()]
+        spans = []
+        if days:
+            part = r['days_mode'] or 'full'
+            for a, z in wag.ranges(days):
+                if part == 'full':
+                    spans.append(('date', a, (_dt.date.fromisoformat(z) + _timedelta(days=1)).isoformat()))
+                else:
+                    s_, e_ = wag.block_span(a, z, part, wag.clean_rules(r['unit_rules']), tz); spans.append(('utc', s_, e_))
+        elif r['booking_time'] and re.fullmatch(r'\d{2}:\d{2}', r['booking_time']):
+            s_ = wag.local_to_utc(r['booking_date'], r['booking_time'], tz)
+            e_ = (datetime.strptime(s_, '%Y-%m-%dT%H:%M:%SZ') + _timedelta(minutes=int(r['duration_minutes'] or 120))).strftime('%Y-%m-%dT%H:%M:%SZ')
+            spans.append(('utc', s_, e_))
+        else:
+            d = r['booking_date'][:10]; spans.append(('date', d, (_dt.date.fromisoformat(d) + _timedelta(days=1)).isoformat()))
+        for n, (k, a, z) in enumerate(spans):
+            out += ['BEGIN:VEVENT', f"UID:wod-booking-{r['id']}{'-' + str(n) if n else ''}@{host}", f'DTSTAMP:{stamp}']
+            out += ([f'DTSTART;VALUE=DATE:{wical.date_stamp(a)}', f'DTEND;VALUE=DATE:{wical.date_stamp(z)}'] if k == 'date'
+                    else [f'DTSTART:{wical.utc_stamp(a)}', f'DTEND:{wical.utc_stamp(z)}'])
+            out += ['SUMMARY:' + wical.escape(summary), 'DESCRIPTION:' + wical.escape(desc), f'URL:{base}/#/admin?tab=bookings',
+                    'STATUS:' + ('CONFIRMED' if r['status'] in ('confirmed', 'completed') else 'TENTATIVE'), 'END:VEVENT']
+    if ptype in ('center', 'freelance'):
+        for bl in db.execute("""SELECT b.id,b.qty,b.label,b.created_at,ss.slot_date,ss.slot_time,s.title,s.duration_minutes,s.id AS sid
+                                FROM spot_blocks b JOIN service_slots ss ON ss.id=b.slot_id JOIN provider_services s ON s.id=ss.service_id
+                                WHERE b.provider_kind=? AND b.provider_id=? AND b.status='active' AND ss.slot_date>=? LIMIT 1000""", (ptype, pid, since)).fetchall():
+            tz = service_tz(db, db.execute('SELECT * FROM provider_services WHERE id=?', (bl['sid'],)).fetchone())
+            if not (bl['slot_time'] and re.fullmatch(r'\d{2}:\d{2}', bl['slot_time'])): continue
+            s_ = wag.local_to_utc(bl['slot_date'], bl['slot_time'], tz)
+            e_ = (datetime.strptime(s_, '%Y-%m-%dT%H:%M:%SZ') + _timedelta(minutes=int(bl['duration_minutes'] or 120))).strftime('%Y-%m-%dT%H:%M:%SZ')
+            out += ['BEGIN:VEVENT', f"UID:wod-block-{bl['id']}@{host}", f"DTSTAMP:{wical.utc_stamp(bl['created_at'][:19] + 'Z')}", f'DTSTART:{wical.utc_stamp(s_)}', f'DTEND:{wical.utc_stamp(e_)}',
+                    'SUMMARY:' + wical.escape(f"{bl['title']} · plazas bloqueadas: {bl['qty']}" + (f" · {bl['label']}" if bl['label'] else '')), 'STATUS:CONFIRMED', 'END:VEVENT']
+    out.append('END:VCALENDAR')
+    return wical.fold(out)
+
+
+def ical_ref(key):
+    return int(hashlib.sha1(str(key).encode()).hexdigest()[:13], 16)
+
+
+def ical_import_sync(db, imp):
+    """Reads one imported calendar and makes the agenda match it: every event blocks the spots of the departures that
+    start inside it (slot services) or the days of the service or of the freelance (services by days). An event that
+    disappears releases what it blocked. Already sold spots are never taken back: they are counted as conflicts."""
+    kind, pid = imp['provider_kind'], imp['provider_id']
+    svc = None
+    if imp['service_id']:
+        where = 'center_id=?' if kind == 'center' else 'center_id IS NULL AND provider_user_id=?'
+        svc = db.execute(f'SELECT * FROM provider_services WHERE id=? AND {where}', (imp['service_id'], pid)).fetchone()
+    tz = service_tz(db, svc) if svc else (place_tz(db, None, pid) if kind == 'center' else (person_resource(db, pid)['timezone'] or wag.DEFAULT_TZ))
+    try:
+        _, _, body = wremoto.fetch(imp['url'], kinds=('text/calendar', 'text/plain', 'application/octet-stream', 'application/ics'), max_bytes=2 * 1024 * 1024, accept='text/calendar')
+        events = wical.parse(body.decode('utf-8', 'replace'), tz, wag.today_in(tz))
+    except (wremoto.FetchError, UnicodeError) as exc:
+        db.execute("UPDATE ical_imports SET last_sync_at=?,last_status='error',last_error=? WHERE id=? AND provider_id=?", (now(), str(exc)[:300], imp['id'], pid)); db.commit()
+        return {'ok': False, 'error': str(exc)}
+    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
+    keys = {e['key'] for e in events}; added = conflicts = 0
+    for row in db.execute("SELECT id,import_uid FROM spot_blocks WHERE import_id=? AND provider_kind=? AND provider_id=? AND status='active'", (imp['id'], kind, pid)).fetchall():
+        if row['import_uid'] not in keys: release_spot_block(db, kind, pid, row['id'])
+    ref_type = f"ical{imp['id']}"
+    refs = {ical_ref(k) for k in keys}
+    for row in db.execute("SELECT DISTINCT ref_id FROM resource_blocks WHERE ref_type=? AND status='active'", (ref_type,)).fetchall():
+        if row['ref_id'] not in refs: agenda_release(db, ref_type, row['ref_id'])
+    day_res = None
+    if (svc and service_unit(svc) in wag.DAY_UNITS) or (not svc and kind == 'freelance'):
+        day_res = service_resource(db, svc) if svc else person_resource(db, pid)
+    for e in events:
+        if svc and not day_res:
+            slots = db.execute("""SELECT id,slot_date,slot_time,spots_available FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date BETWEEN ? AND ?""",
+                               (svc['id'], e['local_from'], e['local_to'])).fetchall()
+            for sl in slots:
+                if not (sl['slot_time'] and re.fullmatch(r'\d{2}:\d{2}', sl['slot_time'])): continue
+                st = wag.local_to_utc(sl['slot_date'], sl['slot_time'], tz)
+                if not (e['start'] <= st < e['end']): continue
+                if db.execute("SELECT 1 FROM spot_blocks WHERE import_id=? AND import_uid=? AND slot_id=? AND status='active'", (imp['id'], e['key'], sl['id'])).fetchone(): continue
+                free = int(db.execute('SELECT spots_available FROM service_slots WHERE id=?', (sl['id'],)).fetchone()['spots_available'] or 0)
+                if free <= 0: conflicts += 1; continue
+                block_spots(db, kind, pid, sl['id'], free, 'iCal · ' + (e.get('summary') or imp['name'] or 'importado'), imp['created_by'], 'import', imp['id'], e['key']); added += 1
+        elif day_res:
+            ref = ical_ref(e['key'])
+            if db.execute("SELECT 1 FROM resource_blocks WHERE ref_type=? AND ref_id=? AND status='active'", (ref_type, ref)).fetchone(): continue
+            try:
+                agenda_claim(db, day_res['id'], [(e['start'], e['end'], e['local_from'], e['local_to'])], 'import', ref_type, ref, imp['created_by'],
+                             clean_text('iCal · ' + (e.get('summary') or imp['name'] or ''), 200)); added += 1
+            except ValueError:
+                conflicts += 1
+    msg = f'{conflicts} eventos coinciden con plazas o días ya vendidos: se han dejado como estaban.' if conflicts else None
+    db.execute("UPDATE ical_imports SET last_sync_at=?,last_status='ok',last_error=?,events=? WHERE id=? AND provider_id=?", (now(), msg, len(events), imp['id'], pid))
+    db.commit()
+    return {'ok': True, 'events': len(events), 'added': added, 'conflicts': conflicts}
+
+
+def run_ical_imports(db):
+    """Maintenance: every imported calendar is read again every 15 minutes."""
+    limit = (datetime.now(timezone.utc) - _timedelta(minutes=ICAL_EVERY_MINUTES)).isoformat(timespec='seconds')
+    for imp in db.execute('SELECT * FROM ical_imports WHERE active=1 AND (last_sync_at IS NULL OR last_sync_at<?) ORDER BY last_sync_at LIMIT 20', (limit,)).fetchall():
+        if not provider_has(db, imp['provider_kind'], imp['provider_id'], 'calendar_ical'): continue
+        try: ical_import_sync(db, imp)
+        except Exception as exc:
+            db.rollback(); sys.stderr.write(f"[ical] importación {imp['id']}: {type(exc).__name__}: {exc}\n")
+
+
+def clean_ical_url(url):
+    u = str(url or '').strip()
+    if u.lower().startswith('webcal://'): u = 'https://' + u[9:]
+    try: wremoto.check_url(u)
+    except wremoto.FetchError: raise ValueError('Pega la dirección https:// (o webcal://) del calendario que quieres importar.')
+    if len(u) > 500: raise ValueError('La dirección es demasiado larga.')
+    return u
 
 
 def run_booking_deadlines(db):
@@ -12670,7 +12931,7 @@ class Handler(BaseHTTPRequestHandler):
             found = provider_by_slug(db, m.group(1))
             if not found: self.send_error(404); return True
             url = sales_link_url(public_site_url(), m.group(1), query.get('servicio', [''])[0], query.get('fecha', [''])[0])
-            raw = qr_svg(url, wch.clean_color(found[2]['brand_color']) or '#011C3C').encode() if m.group(2) == 'svg' else qr_png(url)
+            raw = qr_svg(url, wch.clean_color(found[2]['brand_color']) or '#011C3C') if m.group(2) == 'svg' else qr_png(url)
             self.send_response(200); self.send_header('Content-Type', 'image/svg+xml' if m.group(2) == 'svg' else 'image/png')
             self.send_header('Content-Disposition', f'attachment; filename="qr-{m.group(1)}.{m.group(2)}"' if query.get('descargar') else 'inline')
             self.send_header('Content-Length', str(len(raw))); self.send_header('Cache-Control', 'public, max-age=3600')
@@ -12732,6 +12993,127 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({'ok': True, 'checkout_url': out['checkout_url']}); return True
         return False
 
+
+    def api_v1(self, method, path, query):
+        """/api/v1/… (v50.56, Parte E; docs/api/). A key per centre (Authorization: Bearer wdk_…), its own limits and
+        errors {"error": {"code", "message"}}. Never a cookie session: the CSRF check does not apply because a browser
+        cannot send the key by itself."""
+        with connect() as db:
+            try:
+                auth = (self.headers.get('Authorization') or '').strip()
+                raw = auth[7:].strip() if auth.lower().startswith('bearer ') else (self.headers.get('X-WORLDIVES-API-Key') or '')
+                k = api_key_row(db, raw); kind, pid = k['provider_kind'], k['provider_id']
+                lk = f"k:{k['id']}"
+                if API_READ_LIMIT.blocked(lk): raise ApiError(429, 'rate_limited', 'Demasiadas peticiones con esta clave. Espera un minuto.', {'retry_after': 60})
+                API_READ_LIMIT.hit(lk)
+                if not k['last_used_at'] or k['last_used_at'] < (datetime.now(timezone.utc) - _timedelta(minutes=1)).isoformat(timespec='seconds'):
+                    db.execute('UPDATE api_keys SET last_used_at=? WHERE id=? AND provider_id=?', (now(), k['id'], pid)); db.commit()
+                if method == 'POST':
+                    if k['scope'] != 'write': raise ApiError(403, 'read_only_key', 'Esta clave es de solo lectura: no puede crear ni cancelar reservas.')
+                    if 'application/json' not in (self.headers.get('Content-Type') or ''): raise ApiError(415, 'unsupported_media_type', 'Envía el cuerpo en JSON (Content-Type: application/json).')
+                    try: data = json_body(self)
+                    except Exception: raise ApiError(400, 'invalid_json', 'El cuerpo no es un JSON válido.')
+                    if not isinstance(data, dict): raise ApiError(400, 'invalid_json', 'El cuerpo debe ser un objeto JSON.')
+                svc_where = 's.center_id=?' if kind == 'center' else 's.center_id IS NULL AND s.provider_user_id=?'
+                m = re.fullmatch(r'/api/v1/services(?:/(\d+))?', path)
+                if method == 'GET' and m:
+                    if m.group(1):
+                        s = db.execute(f'SELECT s.* FROM provider_services s WHERE s.id=? AND s.active=1 AND {svc_where}', (int(m.group(1)), pid)).fetchone()
+                        if not s: raise ApiError(404, 'not_found', 'Servicio no encontrado.')
+                        return self.send_json({'service': api_service(db, kind, pid, s)})
+                    rows = db.execute(f'SELECT s.* FROM provider_services s WHERE s.active=1 AND {svc_where} ORDER BY s.title', (pid,)).fetchall()
+                    return self.send_json({'data': [api_service(db, kind, pid, s) for s in rows]})
+                if method == 'GET' and path == '/api/v1/availability':
+                    sid = query.get('service_id', [''])[0]
+                    if not str(sid).isdigit(): raise ApiError(400, 'missing_service_id', 'Indica service_id.')
+                    s = db.execute(f'SELECT s.* FROM provider_services s WHERE s.id=? AND s.active=1 AND {svc_where}', (int(sid), pid)).fetchone()
+                    if not s: raise ApiError(404, 'not_found', 'Servicio no encontrado.')
+                    out = api_availability(db, kind, pid, s, query.get('from', [''])[0], query.get('to', [''])[0]); db.commit()
+                    return self.send_json(out)
+                if method == 'GET' and path == '/api/v1/bookings':
+                    where = 'b.center_id=?' if kind == 'center' else 'b.center_id IS NULL AND b.provider_user_id=?'
+                    conds, args = ["b.status<>'payment_in_progress'"], [pid]
+                    for qk, sql in (('from', 'b.booking_date>=?'), ('to', 'b.booking_date<=?')):
+                        v = query.get(qk, [''])[0]
+                        if v:
+                            if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', v): raise ApiError(400, 'invalid_date', f'«{qk}» debe ser una fecha AAAA-MM-DD.')
+                            conds.append(sql); args.append(v)
+                    st = query.get('status', [''])[0]
+                    if st: conds.append('b.status=?'); args.append(st)
+                    ch = query.get('channel', [''])[0]
+                    if ch:
+                        if ch not in wch.CHANNELS: raise ApiError(400, 'invalid_channel', 'Canal no válido: ' + ', '.join(wch.CHANNELS) + '.')
+                        conds.append('b.channel=?'); args.append(ch)
+                    after = query.get('starting_after', [''])[0]
+                    if after.isdigit(): conds.append('b.id<?'); args.append(int(after))
+                    try: limit = max(1, min(100, int(query.get('limit', ['25'])[0])))
+                    except ValueError: raise ApiError(400, 'invalid_limit', '«limit» debe ser un número de 1 a 100.')
+                    rows = db.execute(f"SELECT b.* FROM bookings b WHERE {where} AND {' AND '.join(conds)} ORDER BY b.id DESC LIMIT ?", (*args, limit + 1)).fetchall()
+                    return self.send_json({'data': [booking_api_dict(db, r) for r in rows[:limit]], 'has_more': len(rows) > limit})
+                m = re.fullmatch(r'/api/v1/bookings/(\d+)', path)
+                if method == 'GET' and m:
+                    return self.send_json({'booking': booking_api_dict(db, api_booking_or_404(db, kind, pid, m.group(1)))})
+                if method == 'POST' and path == '/api/v1/bookings':
+                    if API_WRITE_LIMIT.blocked(lk): raise ApiError(429, 'rate_limited', 'Demasiadas reservas seguidas con esta clave. Espera unos minutos.', {'retry_after': 300})
+                    API_WRITE_LIMIT.hit(lk)
+                    cust = data.get('customer') if isinstance(data.get('customer'), dict) else {}
+                    clean = {'service_id': data.get('service_id'), 'slot_id': data.get('departure_id'), 'booking_date': data.get('date'), 'booking_time': data.get('time'),
+                             'days': data.get('days'), 'part': data.get('part'), 'participants': data.get('participants'), 'notes': data.get('notes'),
+                             'extra_ids': data.get('extras'), 'equipment_codes': data.get('equipment'), 'external_ref': data.get('external_ref'),
+                             'in_person_ack': data.get('in_person_ack'), 'center_id': pid if kind == 'center' else None}
+                    if not str(clean['service_id'] or '').isdigit(): raise ApiError(400, 'missing_service_id', 'Indica service_id.')
+                    base = public_site_url()
+                    out = create_booking(db, {'channel': 'api', 'data': clean, 'center_id': pid if kind == 'center' else None, 'provider_user_id': pid if kind == 'freelance' else None,
+                                              'guest': {'fullname': cust.get('name'), 'email': cust.get('email'), 'phone': cust.get('phone')}, 'api_key_id': k['id'],
+                                              'idem_key': self.headers.get('Idempotency-Key'), 'idem_scope': f'{kind}:{pid}', 'limit_key': lk, 'ip': self.client_ip(),
+                                              'lang': cust.get('language'),
+                                              'return_to': lambda b: (f"{base}/mi-reserva/{b['id']}.{b['public_token']}?pago=ok", f"{base}/mi-reserva/{b['id']}.{b['public_token']}?pago=cancelado")})
+                    body = out['body']
+                    if out['status'] != 200: raise ApiError(out['status'], 'processing', body.get('error') or 'La reserva se está procesando.')
+                    b = booking_row(db, body['id'])
+                    res = {'booking': booking_api_dict(db, b), 'payment_required': bool(body.get('payment_required')), 'booking_url': guest_booking_url(b)}
+                    if body.get('checkout_url'): res['checkout_url'] = body['checkout_url']
+                    if body.get('hold_expires_at'): res['hold_expires_at'] = body['hold_expires_at']
+                    if body.get('duplicate'): res['duplicate'] = True
+                    return self.send_json(res, 200 if body.get('duplicate') else 201)
+                m = re.fullmatch(r'/api/v1/bookings/(\d+)/cancel', path)
+                if method == 'POST' and m:
+                    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
+                    b = api_booking_or_404(db, kind, pid, m.group(1)); st = wbk.normalize_state(b['status'])
+                    actor = {'id': k['created_by']}
+                    if st in ('requested', 'pending'): reject_booking(db, actor, b, clean_text(data.get('reason'), 500) or 'Cancelada desde la API del centro'); refund = 'none_paid'
+                    elif st == 'payment_in_progress': refund = guest_cancel(db, b, None, {})['refund']
+                    elif st in ('confirmed', 'accepted_pending_payment'): refund = provider_cancel(db, k['created_by'], b, data.get('reason'), data.get('refund_amount'))
+                    else: raise ApiError(409, 'not_cancellable', 'Esta reserva ya no se puede cancelar.')
+                    audit(db, k['created_by'], 'booking_cancelled_api', 'booking', b['id'], {'api_key': k['id'], 'refund': refund})
+                    db.commit()
+                    return self.send_json({'booking': booking_api_dict(db, booking_row(db, b['id'])), 'refund': refund})
+                raise ApiError(404, 'not_found', 'Ruta de la API no encontrada. Consulta docs/api/.')
+            except ApiError as e:
+                db.rollback(); self._api_error(e.status, e.code, str(e), e.extra)
+            except NoSpots as e:
+                db.rollback(); self._api_error(409, 'no_spots', str(e))
+            except TooManyRequests as e:
+                db.rollback(); self._api_error(429, 'rate_limited', str(e), {'retry_after': 300})
+            except NotFound as e:
+                db.rollback(); self._api_error(404, 'not_found', str(e))
+            except PermissionError as e:
+                db.rollback(); ex = getattr(e, 'extra', {}) or {}
+                self._api_error(403, 'plan_required' if ex.get('plan_required') or ex.get('no_online_booking') else 'forbidden', str(e))
+            except ValueError as e:
+                db.rollback(); self._api_error(422, getattr(e, 'extra', {}).get('code') or 'invalid_request', str(e) or 'Algún dato no es válido.')
+            except ServerBusy as e:
+                db.rollback(); self._api_error(503, 'busy', str(e))
+            except Exception as e:
+                db.rollback(); log_exception(self, e); self._api_error(500, 'server_error', 'Error interno. Inténtalo de nuevo; si se repite, escribe a soporte.')
+
+    def _api_error(self, status, code, message, extra=None):
+        raw = json.dumps({'error': {'code': code, 'message': message, **(extra or {})}}, ensure_ascii=False).encode('utf-8')
+        self.send_response(status); self.send_header('Content-Type', 'application/json; charset=utf-8'); self.send_header('Content-Length', str(len(raw)))
+        self.send_header('Cache-Control', 'no-store')
+        if status == 429: self.send_header('Retry-After', str((extra or {}).get('retry_after', 60)))
+        self.security_headers(); self.end_headers(); self.wfile.write(raw)
+
     def security_headers(self, csp=True):
         self._sec_sent = True
         self.send_header('X-Content-Type-Options', 'nosniff')
@@ -12753,7 +13135,7 @@ class Handler(BaseHTTPRequestHandler):
         Requests without both headers are rejected, except the server-to-server endpoints in CSRF_EXEMPT.
         The allowed origin is WOD_PUBLIC_URL (mandatory in production); in development it is the Host header."""
         path = urlparse(self.path).path
-        if path in self.CSRF_EXEMPT:
+        if path in self.CSRF_EXEMPT or path.startswith('/api/v1/'):   # v50.56: the API authenticates with its key, never with a cookie
             return
         origin = self.headers.get('Origin') or self.headers.get('Referer')
         if not origin or origin == 'null':
@@ -12940,6 +13322,7 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
+        if path.startswith('/api/v1/'): self.api_v1('GET', path, query); return   # v50.56 · Parte E: API of the centres (key, no cookies)
         # Static files are served without touching the database.
         if path.startswith('/tiles/') and path.endswith('.pmtiles'):
             p = pmtiles_path()
@@ -12975,10 +13358,14 @@ class Handler(BaseHTTPRequestHandler):
                     # Private calendar feed (Fase 6.5): the long random token in the address is the only key.
                     tok=path[len('/ical/'):-4]
                     if not re.fullmatch(r'[A-Za-z0-9_-]{20,80}',tok): self.send_error(404); return
-                    r=db.execute('SELECT id FROM centers WHERE ical_token=?',(tok,)).fetchone(); ptype='center'
+                    r=db.execute('SELECT id FROM centers WHERE ical_token=?',(tok,)).fetchone(); ptype='center'; cid_=None
                     if not r: r=db.execute("SELECT id FROM users WHERE ical_token=? AND role='freelance'",(tok,)).fetchone(); ptype='freelance'
-                    if not r or not provider_has(db,ptype,r['id'],'calendar_ical'): self.send_error(404); return
-                    raw=ical_feed(db,ptype,r['id']).encode('utf-8')
+                    if not r:
+                        # v50.56: the private calendar of an instructor of a centre (his courses and the groups he guides)
+                        r=db.execute("SELECT id,center_id FROM users WHERE ical_token=? AND role='center' AND center_id IS NOT NULL",(tok,)).fetchone(); ptype='instructor'
+                        cid_=r['center_id'] if r else None
+                    if not r or not provider_has(db,'center' if ptype=='instructor' else ptype,cid_ or r['id'],'calendar_ical'): self.send_error(404); return
+                    raw=ical_feed(db,ptype,r['id'],cid_).encode('utf-8')
                     self.send_response(200); self.send_header('Content-Type','text/calendar; charset=utf-8'); self.send_header('Content-Length',str(len(raw)))
                     self.send_header('Cache-Control','no-store'); self.send_header('X-Robots-Tag','noindex'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return   # names of clients: never in a cache (ASVS V14.3.2)
                 if path.startswith('/widget/'):
@@ -13111,6 +13498,32 @@ class Handler(BaseHTTPRequestHandler):
                     require_feature(db,user,'calendar_ical')
                     r=db.execute(f'SELECT ical_token FROM {provider_table(ref[0])} WHERE id=?',(ref[1],)).fetchone()
                     self.send_json({'url':f"{public_site_url()}/ical/{r['ical_token']}.ics" if r and r['ical_token'] else None}); return
+                if path=='/api/me/ical':
+                    # v50.56 · Parte G: the private calendar of an instructor of a centre (his courses and the groups he guides).
+                    user=require_user(self,db)
+                    if user['role']!='center' or not user['center_id']: raise PermissionError('Solo para el equipo de un centro.')
+                    if not provider_has(db,'center',user['center_id'],'calendar_ical'): raise PlanRequired('calendar_ical')
+                    tok=db.execute('SELECT ical_token FROM users WHERE id=?',(user['id'],)).fetchone()['ical_token']
+                    if not tok:
+                        tok=secrets.token_urlsafe(32); db.execute('UPDATE users SET ical_token=? WHERE id=? AND center_id=?',(tok,user['id'],user['center_id'])); db.commit()
+                    self.send_json({'url':f"{public_site_url()}/ical/{tok}.ics",'note':'Tus cursos y las salidas en las que guías un grupo.'}); return
+                if path=='/api/provider/spot-blocks':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    q_=lambda k: (query.get(k,[''])[0] or None)
+                    self.send_json({'items':spot_blocks_list(db,*ref,q_('slot'),q_('from'),q_('to'))}); return
+                if path=='/api/provider/ical-imports':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    rows=db.execute('SELECT id,name,url,service_id,active,last_sync_at,last_status,last_error,events,created_at FROM ical_imports WHERE provider_kind=? AND provider_id=? ORDER BY id',ref).fetchall()
+                    self.send_json({'items':[dict(r) for r in rows],'every_minutes':ICAL_EVERY_MINUTES,'plan':provider_has(db,*ref,'calendar_ical'),
+                                    'note':f'La importación iCal no es instantánea: se lee de nuevo cada {ICAL_EVERY_MINUTES} minutos. Lo que se venda en WORLDIVES sí cuenta al momento en todos los canales.'}); return
+                if path in ('/api/provider/api-keys','/api/provider/webhooks'):
+                    # v50.56 · Parte E: the centre's API keys (never the key itself: only its start) and its webhooks with the log.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    if path.endswith('api-keys'): self.send_json({'items':api_keys_list(db,*ref),'scopes':list(wch.API_SCOPES),'plan':provider_has(db,*ref,'integration')}); return
+                    self.send_json({'items':webhook_list(db,*ref),'deliveries':webhook_log(db,*ref),'events':list(wch.WEBHOOK_EVENTS),'plan':provider_has(db,*ref,'integration')}); return
                 if path in ('/api/provider/vender','/api/provider/widget'):
                     # v50.56 · «Vender en tu web»: snippet in three formats, the page, links, QR, domains, look and plan.
                     user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
@@ -14548,6 +14961,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed=urlparse(self.path); path=parsed.path
         if not self.precheck_write(): return
+        if path.startswith('/api/v1/'): self.api_v1('POST', path, parse_qs(parsed.query)); return   # v50.56 · Parte E
         with connect() as db:
             try:
                 if path=='/api/payments/webhook':
@@ -14556,6 +14970,102 @@ class Handler(BaseHTTPRequestHandler):
                 admin_reason_gate(self,db,path,'POST')
                 tenant_guard(self,db,path)
                 if path.startswith(('/api/w/','/api/mi-reserva/')) and self.sales_post(db,path): return   # v50.56: widget and the centre's page
+                if path=='/api/provider/spot-blocks':
+                    # v50.56 · Parte F: spots without a customer (group, agency, hotel), out of the same inventory as every booking.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    act=clean_text(data.get('action'),20) or 'create'
+                    if act=='create':
+                        bid=block_spots(db,*ref,data.get('slot_id'),data.get('qty'),data.get('label'),user['id']); db.commit()
+                        self.send_json({'ok':True,'id':bid}); return
+                    if act=='release':
+                        if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
+                        release_spot_block(db,*ref,data.get('id'),user['id']); db.commit(); self.send_json({'ok':True}); return
+                    raise ValueError('Acción no válida.')
+                if path=='/api/provider/ical-imports':
+                    # v50.56 · Parte G: calendars of other systems that block spots or days (every 15 minutes).
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    act=clean_text(data.get('action'),20) or ''
+                    if act=='create':
+                        if not provider_has(db,*ref,'calendar_ical'): raise PlanRequired('calendar_ical')
+                        url=clean_ical_url(data.get('url')); sid=int(data.get('service_id') or 0) or None
+                        if sid:
+                            where='center_id=?' if ref[0]=='center' else 'center_id IS NULL AND provider_user_id=?'
+                            if not db.execute(f'SELECT 1 FROM provider_services WHERE id=? AND {where}',(sid,ref[1])).fetchone(): raise NotFound('Servicio no encontrado.')
+                        elif ref[0]=='center': raise ValueError('Elige qué servicio bloquea este calendario.')
+                        if db.execute('SELECT COUNT(*) FROM ical_imports WHERE provider_kind=? AND provider_id=?',ref).fetchone()[0]>=ICAL_IMPORTS_MAX: raise ValueError(f'Como máximo {ICAL_IMPORTS_MAX} calendarios importados.')
+                        iid=db.execute('INSERT INTO ical_imports(provider_kind,provider_id,name,url,service_id,active,created_by,created_at) VALUES(?,?,?,?,?,1,?,?)',
+                                       (*ref,clean_text(data.get('name'),80) or 'Calendario',url,sid,user['id'],now())).lastrowid
+                        audit(db,user['id'],'ical_import_created',ref[0],ref[1],{'id':iid,'service':sid}); db.commit()
+                        res=ical_import_sync(db,db.execute('SELECT * FROM ical_imports WHERE id=?',(iid,)).fetchone())
+                        self.send_json({'ok':True,'id':iid,'sync':res}); return
+                    imp=db.execute('SELECT * FROM ical_imports WHERE id=? AND provider_kind=? AND provider_id=?',(int(data.get('id') or 0),*ref)).fetchone()
+                    if not imp: raise NotFound('Calendario no encontrado.')
+                    if act=='sync':
+                        self.send_json(ical_import_sync(db,imp)); return
+                    if act=='delete':
+                        if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
+                        for row in db.execute("SELECT id FROM spot_blocks WHERE import_id=? AND provider_kind=? AND provider_id=? AND status='active'",(imp['id'],*ref)).fetchall():
+                            release_spot_block(db,*ref,row['id'],user['id'])
+                        db.execute("UPDATE resource_blocks SET status='released',released_at=? WHERE ref_type=? AND status='active'",(now(),f"ical{imp['id']}"))
+                        db.execute('DELETE FROM ical_imports WHERE id=? AND provider_id=?',(imp['id'],ref[1]))
+                        audit(db,user['id'],'ical_import_deleted',ref[0],ref[1],{'id':imp['id']}); db.commit(); self.send_json({'ok':True}); return
+                    raise ValueError('Acción no válida.')
+                if path=='/api/provider/api-keys':
+                    # v50.56 · Parte E: create a key (shown ONCE, kept as SHA-256) or revoke it. Read, or read and write.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    act=clean_text(data.get('action'),20) or ''
+                    if act=='create':
+                        if not provider_has(db,*ref,'integration'): raise PlanRequired('integration')
+                        if db.execute('SELECT COUNT(*) FROM api_keys WHERE provider_kind=? AND provider_id=? AND revoked_at IS NULL',ref).fetchone()[0]>=API_KEYS_MAX: raise ValueError(f'Como máximo {API_KEYS_MAX} claves activas. Revoca alguna que ya no uses.')
+                        scope=data.get('scope') if data.get('scope') in wch.API_SCOPES else 'read'
+                        key,prefix,digest=wch.new_api_key()
+                        kid=db.execute('INSERT INTO api_keys(provider_kind,provider_id,name,prefix,key_hash,scope,created_by,created_at) VALUES(?,?,?,?,?,?,?,?)',
+                                       (*ref,clean_text(data.get('name'),80) or 'Mi web',prefix,digest,scope,user['id'],now())).lastrowid
+                        audit(db,user['id'],'api_key_created',ref[0],ref[1],{'key':kid,'prefix':prefix,'scope':scope}); db.commit()
+                        self.send_json({'ok':True,'id':kid,'key':key,'prefix':prefix,'scope':scope,'note':'Cópiala ahora: no se vuelve a enseñar.'}); return
+                    if act=='revoke':
+                        if not db.execute('UPDATE api_keys SET revoked_at=? WHERE id=? AND provider_kind=? AND provider_id=? AND revoked_at IS NULL',(now(),int(data.get('id') or 0),*ref)).rowcount: raise NotFound('Clave no encontrada.')
+                        audit(db,user['id'],'api_key_revoked',ref[0],ref[1],{'key':int(data.get('id') or 0)}); db.commit(); self.send_json({'ok':True}); return
+                    raise ValueError('Acción no válida.')
+                if path=='/api/provider/webhooks':
+                    # v50.56 · Parte E: signed notices (HMAC-SHA256) to the centre's server, with retries and a log.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    act=clean_text(data.get('action'),20) or ''; wid=int(data.get('id') or 0)
+                    own=lambda: db.execute('SELECT * FROM webhook_endpoints WHERE id=? AND provider_kind=? AND provider_id=?',(wid,*ref)).fetchone()
+                    if act in ('create','secret','test') and not provider_has(db,*ref,'integration'): raise PlanRequired('integration')
+                    if act=='create':
+                        url=clean_text(data.get('url'),500) or ''
+                        if not webhook_url_allowed(url): raise ValueError('La dirección debe empezar por https:// y ser la de un servidor público de tu web.')
+                        if db.execute('SELECT COUNT(*) FROM webhook_endpoints WHERE provider_kind=? AND provider_id=?',ref).fetchone()[0]>=WEBHOOKS_MAX: raise ValueError(f'Como máximo {WEBHOOKS_MAX} direcciones de aviso.')
+                        ev=[e for e in (data.get('events') or []) if e in wch.WEBHOOK_EVENTS] if isinstance(data.get('events'),list) else []
+                        secret=wch.new_webhook_secret()
+                        last=db.execute('SELECT COALESCE(MAX(id),0) FROM provider_feed').fetchone()[0]   # only what happens from now on
+                        wid=db.execute('INSERT INTO webhook_endpoints(provider_kind,provider_id,url,secret,events,active,created_by,created_at,updated_at,feed_after) VALUES(?,?,?,?,?,1,?,?,?,?)',
+                                       (*ref,url,wcif.encrypt_secret(secret),json.dumps(ev),user['id'],now(),now(),last)).lastrowid
+                        audit(db,user['id'],'webhook_created',ref[0],ref[1],{'id':wid,'url':url,'events':ev}); db.commit()
+                        self.send_json({'ok':True,'id':wid,'secret':secret,'note':'Guarda el secreto ahora: sirve para comprobar la firma y no se vuelve a enseñar.'}); return
+                    row=own()
+                    if not row: raise NotFound('Aviso no encontrado.')
+                    if act=='toggle':
+                        db.execute('UPDATE webhook_endpoints SET active=?,updated_at=? WHERE id=? AND provider_id=?',(1 if json_bool(data.get('active')) else 0,now(),wid,ref[1]))
+                    elif act=='delete':
+                        db.execute('DELETE FROM webhook_endpoints WHERE id=? AND provider_kind=? AND provider_id=?',(wid,*ref))
+                    elif act=='secret':
+                        secret=wch.new_webhook_secret(); db.execute('UPDATE webhook_endpoints SET secret=?,updated_at=? WHERE id=? AND provider_id=?',(wcif.encrypt_secret(secret),now(),wid,ref[1]))
+                        audit(db,user['id'],'webhook_secret_rotated',ref[0],ref[1],{'id':wid}); db.commit(); self.send_json({'ok':True,'secret':secret}); return
+                    elif act=='test':
+                        payload=json.dumps({'id':'evt_'+secrets.token_hex(12),'type':'webhook.test','created':int(time.time()),'data':{'message':'Prueba de WORLDIVES'}},separators=(',',':'))
+                        db.execute('''INSERT INTO webhook_deliveries(endpoint_id,provider_kind,provider_id,event,booking_id,payload,status,attempts,next_attempt_at,created_at)
+                                      VALUES(?,?,?,'webhook.test',NULL,?,'pending',0,?,?)''',(wid,*ref,payload,time.time(),now()))
+                    elif act=='retry':
+                        if not db.execute("UPDATE webhook_deliveries SET status='pending',next_attempt_at=? WHERE id=? AND endpoint_id=? AND provider_id=? AND status='failed'",(time.time(),int(data.get('delivery_id') or 0),wid,ref[1])).rowcount:
+                            raise ValueError('Solo se reintentan los avisos fallidos.')
+                    else: raise ValueError('Acción no válida.')
+                    audit(db,user['id'],'webhook_'+act,ref[0],ref[1],{'id':wid}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/provider/vender':
                     # v50.56 · «Vender en tu web»: the address of the page, colour, language of the widget and authorised domains.
                     user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
@@ -16365,18 +16875,7 @@ class Handler(BaseHTTPRequestHandler):
                     elif status=='rejected':
                         result['refund']=reject_booking(db,user,row,data.get('reason') or ''); result['status']='rejected'
                     elif status=='cancelled':
-                        if cur_state not in ('confirmed','accepted_pending_payment'): raise ValueError('Solo se pueden cancelar reservas aceptadas o confirmadas. Las solicitudes se rechazan.')
-                        release_booking_spots(db,row)
-                        db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='center',reject_reason=?,updated_at=? WHERE id=?",(now(),clean_text(data.get('reason'),500) or None,now(),bid))
-                        for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchall():
-                            expire_checkout(o); db.execute("UPDATE payment_orders SET status='cancelled',updated_at=? WHERE id=?",(now(),o['id']))
-                        # The provider cancels: everything paid is refunded unless it sets a smaller amount (it is told the law).
-                        paid_,refunded_,_o=booking_paid_online(db,bid); net_=round(paid_-refunded_,2)
-                        amt=data.get('refund_amount'); amt=net_ if amt in (None,'') else max(0.0,min(net_,round(float(str(amt).replace(',','.')),2)))
-                        result['refund']=refund_booking(db,bid,amt,'requested_by_customer',user['id'],clean_text(data.get('reason'),300) or 'Cancelada por el centro','center_cancel') if amt>0 else ('no_refund' if net_>0 else 'none_paid')
-                        if result['refund']=='refunded': notify_booking(db,bid,'refund_issued',{'amount':amt,'note':clean_text(data.get('reason'),300) or ''})
-                        notify_booking(db,bid,'cancelled_center',{'refund':result['refund'],'reason':clean_text(data.get('reason'),500) or ''})
-                        result['status']='cancelled'
+                        result['refund']=provider_cancel(db,user['id'],row,data.get('reason'),data.get('refund_amount')); result['status']='cancelled'
                     elif status=='completed':
                         if cur_state!='confirmed': raise ValueError('Solo se puede completar una reserva confirmada.')
                         if str(row['booking_date'] or '')>local_now().date().isoformat(): raise ValueError('Solo puedes marcar como completada una reserva cuya fecha ya ha llegado.')
@@ -17591,6 +18090,7 @@ def run_backup_jobs(db):
 
 
 MAINTENANCE_JOBS.append(run_backup_jobs)
+MAINTENANCE_JOBS.append(run_ical_imports)   # v50.56 · Parte G: imported calendars every 15 minutes
 
 
 def site_banner(db):

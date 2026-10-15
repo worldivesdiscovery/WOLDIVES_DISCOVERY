@@ -420,10 +420,15 @@ class Seguridad(ServerTestCase):
         self.server.sql('UPDATE centers SET name=? WHERE id=?', (evil, self.cidB))
         try:
             r = self.client().get(f'/widget/center/{self.cidB}')
-            self.assertEqual(r.status, 200)
-            self.assertNotIn(b'<img src=x', r.body); self.assertNotIn(b'<script>', r.body)
-            self.assertIn(b'&lt;img', r.body)
-            self.assertIn("default-src 'none'", r.headers.get('Content-Security-Policy', ''))
+            self.assertEqual(r.status, 301)                                   # v50.56: the old address takes to the new widget
+            page = r.headers['Location'].split('?')[0]
+            for path in (page, page.replace('/w/', '/c/')):
+                r = self.client().get(path)
+                self.assertEqual(r.status, 200, path)
+                self.assertNotIn(b'<img src=x', r.body); self.assertNotIn(b'<script>alert', r.body)
+                self.assertIn(b'&lt;img', r.body)                             # the name in the page title, escaped
+                csp = r.headers.get('Content-Security-Policy', '')
+                self.assertIn("script-src 'self'", csp); self.assertNotIn("script-src 'self' 'unsafe-inline'", csp)
         finally:
             self.server.sql('UPDATE centers SET name=? WHERE id=?', (name, self.cidB))
         r = self.client().get('/app/vuelta?esquema=com.worldives.app&session_id=%22%3E%3Cscript%3Ealert(1)%3C/script%3E&pago=x')

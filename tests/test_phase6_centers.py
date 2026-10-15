@@ -2,6 +2,8 @@
 with «Solicitar información», statistics, CSV exports and import, iCal, widget, team roles, activity log, feature
 switches and pilot mode. Every test runs on a copy of the seed database (helpers.Server)."""
 import datetime as dt
+import re
+import json
 import time
 import unittest
 
@@ -89,7 +91,9 @@ class Plans(ServerTestCase):
         self.assertEqual(c.post('/api/center/info-requests/read', {'id': items['items'][0]['id'], 'answered': True}).status, 200)
         self.assertEqual(self.center.post('/api/center/info-requests/read', {'id': items['items'][0]['id']}).status, 404)  # other centre (v50.47: 404)
         w = self.client().get(f'/widget/center/{self.cid(c)}')
-        self.assertEqual(w.status, 200); self.assertIn('no tiene reserva online', w.body.decode())
+        self.assertEqual(w.status, 301)                                   # v50.56: the old address takes to the new widget
+        slug = w.headers['Location'].split('/w/')[1].split('?')[0]
+        self.assertFalse(self.client().get(f'/api/w/{slug}?canal=widget').json['bookable'])   # «Solicitar información» instead
 
     def test_renewal_notices_and_expiry_job(self):
         c = self.make_center(self.admin, 'aviso6', phone='+34 600 600 003')
@@ -230,12 +234,17 @@ class CentreTools(ServerTestCase):
         url = self.center.post('/api/provider/ical/regenerate', {}).json['url']
         ics = self.client().get('/ical/' + url.rsplit('/ical/', 1)[1])
         self.assertEqual(ics.status, 200); body = ics.body.decode()
-        self.assertIn('BEGIN:VCALENDAR', body); self.assertIn('DTSTART:20310612T093000', body); self.assertIn('Bautizo', body)
+        # v50.56: times in UTC (09:30 in Madrid in summer = 07:30 UTC); any calendar shows them in local time
+        self.assertIn('BEGIN:VCALENDAR', body); self.assertIn('DTSTART:20310612T073000Z', body); self.assertIn('Bautizo', body)
         self.assertNotIn('tools6@diver', body)      # no emails in the feed
         self.assertEqual(self.client().get('/ical/' + 'x' * 30 + '.ics').status, 404)
         w = self.client().get(f'/widget/center/{cid}')
-        self.assertEqual(w.status, 200); self.assertIn('Bautizo', w.body.decode()); self.assertIn('frame-ancestors *', w.headers.get('Content-Security-Policy'))
-        self.assertNotIn('<script', w.body.decode())
+        self.assertEqual(w.status, 301)                                   # v50.56: the new widget, only on the centre's own domains
+        slug = w.headers['Location'].split('/w/')[1].split('?')[0]
+        w = self.client().get(f'/w/{slug}')
+        self.assertEqual(w.status, 200); self.assertIn("frame-ancestors 'none'", w.headers.get('Content-Security-Policy'))   # no domain authorised yet
+        self.assertIsNone(re.search(r'<script>(?!</script>)', w.body.decode()))                                              # no inline script
+        self.assertIn('Bautizo', json.dumps(self.client().get(f'/api/w/{slug}').json, ensure_ascii=False))
         self.assertEqual(self.client().get('/widget/center/999999').status, 404)
         self.assertEqual(self.client().get('/').headers.get('X-Frame-Options'), 'DENY')     # the rest of the site cannot be framed
 
