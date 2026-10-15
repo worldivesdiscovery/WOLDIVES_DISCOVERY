@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bahía Coralina · web de ejemplo de un centro de buceo</title>
+<!-- WEB DE EJEMPLO (v50.56). Simula la web propia de un centro de buceo que vende con el widget de WORLDIVES.
+     Sus estilos son agresivos a propósito (todos los botones rojos, todos los títulos verdes, otra fuente): el widget
+     no debe cambiarlos ni dejarse cambiar por ellos. El centro solo pega estas dos líneas:
+       <script src="__WORLDIVES__/widget.js" async></script>
+       <a href="__WORLDIVES__/c/__CENTRO__" data-worldives="boton" data-centro="__CENTRO__">Reservar</a>      -->
+<style>
+  *{font-family:Georgia,"Times New Roman",serif}
+  body{margin:0;background:#fbf7ef;color:#3b2f22}
+  header{background:#0d3b4f;color:#fff;padding:28px 20px;text-align:center}
+  header p{opacity:.85}
+  h1,h2{color:#2e7d32}
+  header h1{color:#fff;margin:0 0 6px}
+  button,.btn{background:#d32f2f;color:#fff;border:0;padding:12px 22px;border-radius:4px;font-size:16px;cursor:pointer;text-decoration:none;display:inline-block}
+  iframe{border:4px dashed #d32f2f!important}
+  section{max-width:980px;margin:0 auto;padding:24px 16px}
+  .cols{display:grid;gap:24px}
+  @media(min-width:900px){.cols{grid-template-columns:1fr 1fr}}
+  #eventos{background:#fff;border:1px solid #e0d6c3;border-radius:6px;padding:10px;font:13px/1.4 monospace;min-height:48px;white-space:pre-wrap}
+  footer{text-align:center;padding:30px 16px;color:#7a6a55}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bahía Coralina · Centro de buceo</h1>
+  <p>Esta es la web propia del centro (un ejemplo). Las reservas se hacen aquí mismo, sin salir de la página.</p>
+  <!-- Formato 1: botón que abre la reserva en una ventana encima de la página -->
+  <a id="boton-reservar" class="btn" href="__WORLDIVES__/c/__CENTRO__" data-worldives="boton" data-centro="__CENTRO__">Reservar ahora</a>
+</header>
+
+<section class="cols">
+  <div>
+    <h2>Calendario de una actividad</h2>
+    <p>Formato 2: calendario incrustado de un solo servicio.</p>
+    <!-- Formato 2: calendario incrustado (filtrado por un servicio) -->
+    <div id="calendario" data-worldives="calendario" data-centro="__CENTRO__" data-servicio="__SERVICIO__"></div>
+  </div>
+  <div>
+    <h2>Todas nuestras salidas</h2>
+    <p>Formato 3: lista de salidas y servicios del catálogo entero.</p>
+    <!-- Formato 3: lista (todo el catálogo; data-tipo="curso" filtraría por tipo) -->
+    <div id="lista" data-worldives="lista" data-centro="__CENTRO__"></div>
+  </div>
+</section>
+
+<section>
+  <h2>Eventos que recibe esta página</h2>
+  <p>El widget avisa a la web del centro cuando alguien empieza o termina una reserva (para su propia analítica, si la tiene).</p>
+  <div id="eventos">(todavía ninguno)</div>
+  <p><button type="button" id="boton-propio">Un botón de la web del centro (debe seguir rojo)</button></p>
+</section>
+
+<footer>Web de ejemplo para probar el motor de reservas de WORLDIVES. No es una web real.</footer>
+
+<script>
+  (function () {
+    var log = document.getElementById('eventos'); var first = true;
+    function add(name, e) {
+      if (first) { log.textContent = ''; first = false; }
+      log.textContent += new Date().toLocaleTimeString() + '  ' + name + '  ' + JSON.stringify(e.detail) + '\n';
+      (window.__eventos = window.__eventos || []).push({ name: name, detail: e.detail });
+    }
+    window.addEventListener('worldives:reserva-iniciada', function (e) { add('reserva iniciada', e); });
+    window.addEventListener('worldives:reserva-completada', function (e) { add('reserva completada', e); });
+  })();
+</script>
+<script src="__WORLDIVES__/widget.js" async></script>
+</body>
+</html>

@@ -62,6 +62,7 @@ from wod import plantillas as wtpl
 from wod import presencial as wpres
 from wod import dispositivos as wdev
 from wod import canales as wch
+from wod import widget_textos as wtx
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1801,8 +1802,9 @@ def migrate_v50_56(db):
     instructor or a boat for the services booked by days. Existing bookings get their channel from «source».
     Nothing is deleted."""
     for stmt in MULTICANAL_SCHEMA: db.execute(stmt)
-    add_columns(db, 'bookings', [('channel', 'TEXT'), ('channel_origin', 'TEXT'), ('api_key_id', 'INTEGER'), ('block_label', 'TEXT')])
+    add_columns(db, 'bookings', [('channel', 'TEXT'), ('channel_origin', 'TEXT'), ('api_key_id', 'INTEGER'), ('block_label', 'TEXT'), ('timezone', 'TEXT')])
     add_columns(db, 'users', [('guest_provider_user_id', 'INTEGER')])
+    add_columns(db, 'email_outbox', [('reply_to', 'TEXT')])   # e-mails of a widget booking: the answer goes to the centre
     add_columns(db, 'provider_services', [('instructor_user_id', 'INTEGER'), ('boat_id', 'INTEGER')])
     add_columns(db, 'provider_feed', [('status', 'TEXT'), ('dispatched', 'INTEGER NOT NULL DEFAULT 0')])
     db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_channel ON bookings(center_id, channel, created_at)')
@@ -3647,9 +3649,9 @@ def find_or_create_customer(db, fullname, email, phone, center_id=None):
 def is_guest_user(db, user_id, center_id=None):
     """A customer record without login created by a centre: its data was typed by that centre. With center_id, only
     a record created by THAT centre counts (v50.47)."""
-    r = db.execute('SELECT password_hash, guest_center_id FROM users WHERE id=?', (user_id,)).fetchone()
-    if not (r and r['password_hash'] == '!' and r['guest_center_id']): return False
-    return center_id is None or int(r['guest_center_id']) == int(center_id)
+    r = db.execute('SELECT password_hash, guest_center_id, guest_provider_user_id FROM users WHERE id=?', (user_id,)).fetchone()
+    if not (r and r['password_hash'] == '!' and (r['guest_center_id'] or r['guest_provider_user_id'])): return False   # v50.56: also a freelance's
+    return center_id is None or int(r['guest_center_id'] or 0) == int(center_id)
 
 
 def resolve_travel_offer(db, data):
@@ -7460,6 +7462,14 @@ def booking_mail_ctx(db, bid, lang='es'):
     prov_url = f"{base}/#/centro?id={payee['id']}" if payee['type'] == 'center' else f"{base}/#/profesional?id={payee['id']}"
     paid_net = round(float(b['amount_paid'] or 0) - float(b['refunded_total'] or 0), 2)
     po = db.execute("SELECT * FROM payment_orders WHERE booking_id=? ORDER BY CASE status WHEN 'paid' THEN 0 WHEN 'refunded' THEN 1 ELSE 2 END, id DESC LIMIT 1", (bid,)).fetchone()
+    brand = None
+    if wch.channel_of(b) != 'worldives':
+        # v50.56 (Parte C): the customer booked on the centre's own website, page, API or by phone: the e-mails carry the
+        # centre's name, logo and colour, and the answer goes to the centre. WORLDIVES only appears as the technology.
+        ss = db.execute('SELECT brand_color FROM sales_settings WHERE provider_kind=? AND provider_id=?', (payee['type'], payee['id'])).fetchone()
+        logo = (db.execute('SELECT logo_url FROM centers WHERE id=?', (payee['id'],)).fetchone() or {'logo_url': None})['logo_url'] if payee['type'] == 'center' else None
+        brand = {'name': payee.get('name') or '', 'color': wch.clean_color(ss['brand_color'] if ss else '') or '#011C3C',
+                 'logo': f'{base}{logo}' if logo and str(logo).startswith('/') and not is_homepage_url(logo) else (logo if logo and str(logo).startswith('https://') and not is_homepage_url(logo) else '')}
     first = (b['contact_name'] if b['contact_name'] and is_guest_user(db, b['user_id']) else b['fullname'] or '').split(' ')[0]
     diver_email = b['email'] if mail_deliverable(b['email']) else (b['contact_email'] if mail_deliverable(b['contact_email']) else '')
     return {'booking_id': bid, 'ref': f'WOD-{bid:06d}', 'first_name': first or mail_t(lang, 'buceador'), 'diver_name': (b['contact_name'] or b['fullname'] or '') if is_guest_user(db, b['user_id']) else (b['fullname'] or ''), 'diver_email': diver_email,
@@ -7483,7 +7493,8 @@ def booking_mail_ctx(db, bid, lang='es'):
             'booking_url': guest_booking_url(b) if is_guest_user(db, b['user_id']) else f'{base}/#/reserva?id={bid}',
             'pdf_url': f'{base}/api/bookings/{bid}/receipt.pdf', 'center_url': prov_url,
             'review_url': f"{base}/#/centro?id={b['center_id']}&resena=1" if b['center_id'] else prov_url, 'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings',
-            'panel_planning_url': f'{base}/#/admin?tab=planning', 'admin_pay_url': f'{base}/#/admin?tab=adminpay', **booking_mail_in_person(db, b, lang)}
+            'panel_planning_url': f'{base}/#/admin?tab=planning', 'admin_pay_url': f'{base}/#/admin?tab=adminpay',
+            'brand': brand, 'reply_to': (payee.get('email') or '') if brand else '', **booking_mail_in_person(db, b, lang)}
 
 
 def booking_mail_in_person(db, b, lang):
@@ -7608,23 +7619,35 @@ def render_email(db, template, lang, ctx):
            'pro': 'Recibes este correo porque has creado una cuenta profesional en WORLDIVES DISCOVERY.',
            'admin': 'Aviso interno para la administración de WORLDIVES DISCOVERY.', 'any': 'Correo de servicio de WORLDIVES DISCOVERY.',
            'marketing': 'Recibes este correo porque aceptaste recibir novedades y ofertas de WORLDIVES DISCOVERY.'}[tpl.get('to', 'any')]
+    brand = ctx.get('brand') if tpl.get('to') == 'diver' else None
+    if brand:
+        who = 'Recibes este correo por tu reserva con {center}. WORLDIVES gestiona la reserva por encargo del centro.'
     unsub = ctx.get('unsubscribe_url') or ''
     owner = legal.get('owner_name') or 'WORLDIVES DISCOVERY'
     foot_addr = ' · '.join(x for x in (owner, (f"NIF {legal['nif']}" if legal.get('nif') else ''), legal.get('address'), legal.get('email')) if x)
     html_lang = HTML_LANG.get(lang, lang)
+    if brand:
+        bc = wch.clean_color(brand.get('color')) or '#011C3C'
+        logo_td = (f'<td style="padding-right:12px"><img src="{_esc(brand["logo"])}" width="44" height="44" alt="" style="display:block;border-radius:10px;background:#ffffff;object-fit:cover"></td>'
+                   if brand.get('logo') else '')
+        header_html = (f'<tr><td style="background:{bc};padding:20px 28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>{logo_td}'
+                       f'<td><span style="color:#ffffff;font-size:18px;font-weight:800">{_esc(brand.get("name") or "")}</span>'
+                       f'<div style="color:#ffffff;opacity:.8;font-size:12px;margin-top:4px">{_esc(t("Reservas con tecnología de WORLDIVES"))}</div></td></tr></table></td></tr>')
+    else:
+        header_html = f'''<tr><td style="background:#011C3C;padding:20px 28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="padding-right:12px"><img src="{_esc(base)}/img/marca/worldives-icono-correo-96.png" width="44" height="44" alt="" style="display:block;border-radius:10px;background:#011C3C"></td>
+<td><a href="{_esc(base)}" style="color:#ffffff;text-decoration:none;font-size:17px;font-weight:800;letter-spacing:.06em">WORLDIVES DISCOVERY</a><div style="height:3px;width:42px;background:#1CA5C7;margin-top:8px;border-radius:3px"></div></td></tr></table></td></tr>'''
     html_doc = f'''<!doctype html><html lang="{_esc(html_lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>{_esc(subject)}</title></head>
 <body style="margin:0;padding:0;background:#f2efe8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">{_esc(pre)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2efe8"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(1,28,60,.08)">
-<tr><td style="background:#011C3C;padding:20px 28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td style="padding-right:12px"><img src="{_esc(base)}/img/marca/worldives-icono-correo-96.png" width="44" height="44" alt="" style="display:block;border-radius:10px;background:#011C3C"></td>
-<td><a href="{_esc(base)}" style="color:#ffffff;text-decoration:none;font-size:17px;font-weight:800;letter-spacing:.06em">WORLDIVES DISCOVERY</a><div style="height:3px;width:42px;background:#1CA5C7;margin-top:8px;border-radius:3px"></div></td></tr></table></td></tr>
+{header_html}
 <tr><td style="padding:30px 28px 8px">{''.join(rows_html)}</td></tr>
-<tr><td style="padding:18px 28px 26px;border-top:1px solid #eef2f3;font-size:12px;line-height:1.55;color:#7d8d94">{_esc(t(who))}<br>{_esc(foot_addr)}<br>
+<tr><td style="padding:18px 28px 26px;border-top:1px solid #eef2f3;font-size:12px;line-height:1.55;color:#7d8d94">{_esc(t(who, center=(brand or {}).get('name', '')))}<br>{_esc(foot_addr)}<br>
 <a href="{_esc(base)}/#/legal/privacidad" style="color:#076898">{_esc(t('Política de privacidad'))}</a> · <a href="{_esc(base)}/#/legal/reservas" style="color:#076898">{_esc(t('Condiciones de reserva'))}</a> · <a href="{_esc(base)}/#/legal/aviso-legal" style="color:#076898">{_esc(t('Aviso legal'))}</a></td></tr>
 </table></td></tr></table></body></html>'''
-    text_doc = '\n'.join(text).strip() + '\n\n--\n' + t(who) + '\n' + foot_addr + '\n' + f'{base}/#/legal/privacidad\n'
+    text_doc = ((brand.get('name', '') + '\n' + t('Reservas con tecnología de WORLDIVES') + '\n\n') if brand else '') + '\n'.join(text).strip() + '\n\n--\n' + t(who, center=(brand or {}).get('name', '')) + '\n' + foot_addr + '\n' + f'{base}/#/legal/privacidad\n'
     if unsub:
         html_doc = html_doc.replace('</td></tr>\n</table></td></tr></table></body></html>', f'<br><a href="{_esc(unsub)}" style="color:#076898">{_esc(t("Darme de baja de estas comunicaciones"))}</a></td></tr>\n</table></td></tr></table></body></html>', 1)
         text_doc += t('Darme de baja de estas comunicaciones') + f': {unsub}\n'
@@ -7639,8 +7662,11 @@ def queue_email(db, template, to_email, to_name, ctx, lang='es', related=None):
         rel = related or (None, None)
         # v50.47: the body of an email may carry a client's phone (emails to the centre): it is stored encrypted and
         # opened only by the server when the email is sent or shown to the administrator.
-        db.execute('INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at,unsubscribe_url) VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?)',
-                   (template, lang, (to_email or '').strip().lower(), to_name or '', subject, wcif.encrypt(html_doc), wcif.encrypt(text_doc), status, rel[0], rel[1], now(), (ctx or {}).get('unsubscribe_api')))
+        # v50.56: a booking made on the centre's own website (widget, page, API, manual): the customer's answer goes to the centre.
+        reply = (ctx or {}).get('reply_to') if EMAIL_TEMPLATES[template].get('to') == 'diver' and (ctx or {}).get('brand') else None
+        reply = reply if reply and re.fullmatch(r'[^@\s<>,;]+@[^@\s<>,;]+\.[a-z]{2,}', str(reply), re.I) else None
+        db.execute('INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at,unsubscribe_url,reply_to) VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?,?)',
+                   (template, lang, (to_email or '').strip().lower(), to_name or '', subject, wcif.encrypt(html_doc), wcif.encrypt(text_doc), status, rel[0], rel[1], now(), (ctx or {}).get('unsubscribe_api'), reply))
         push_from_email(db, to_email, subject, lang, rel)
     except Exception as exc:
         sys.stderr.write(f'[correo] no se pudo preparar «{template}»: {exc}\n')
@@ -7872,8 +7898,9 @@ def _build_message(cfg, row):
     msg = _EmailMessage()
     msg['Subject'] = row['subject']; msg['From'] = _formataddr((cfg['from_name'], cfg['from']))
     msg['To'] = _formataddr((row['to_name'] or '', row['to_email'])); msg['Message-ID'] = _make_msgid(domain=cfg['from'].split('@')[-1])
-    if cfg['reply_to']: msg['Reply-To'] = cfg['reply_to']
     keys = row.keys() if hasattr(row, 'keys') else row
+    if 'reply_to' in keys and row['reply_to']: msg['Reply-To'] = row['reply_to']   # v50.56: the centre of a booking from its own website
+    elif cfg['reply_to']: msg['Reply-To'] = cfg['reply_to']
     if 'unsubscribe_url' in keys and row['unsubscribe_url']:
         # RFC 8058 one-click unsubscribe (Gmail and Yahoo require it for bulk senders).
         msg['List-Unsubscribe'] = f"<{row['unsubscribe_url']}>"
@@ -9194,13 +9221,17 @@ def create_booking(db, req):
         e_ = PermissionError('Este centro no tiene activa la reserva desde su web.'); e_.extra = {'no_online_booking': True}; raise e_
     # ---- who books
     if customer is None:
-        if channel in ('worldives', 'link'): raise PermissionError('Inicia sesión para reservar.')
+        if channel == 'worldives': raise PermissionError('Inicia sesión para reservar.')   # the centre's page (link) and widget take guests
         fullname = clean_text(guest.get('fullname'), 180)
         if not fullname: raise ValueError('Indica el nombre de quien reserva.')
         email = (clean_text(guest.get('email'), 160) or '').lower()
         if email and not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email): raise ValueError('Revisa el correo electrónico.')
-        if channel == 'widget' and not email: raise ValueError('Indica tu correo electrónico: te mandamos ahí la confirmación.')
+        if channel in ('widget', 'link') and not email: raise ValueError('Indica tu correo electrónico: te mandamos ahí la confirmación.')
         uid = guest_customer(db, center_id, provider_user_id, fullname, email, guest.get('phone'))
+        if req.get('lang'):
+            # The language of the page where he booked (widget, the provider's page) is the language of his e-mails.
+            db.execute('INSERT OR IGNORE INTO user_profiles(user_id,updated_at) VALUES(?,?)', (uid, now()))
+            db.execute("UPDATE user_profiles SET preferred_language=? WHERE user_id=? AND user_id IN (SELECT id FROM users WHERE password_hash='!')", (normalize_lang(req['lang']), uid))
         customer = db.execute('SELECT * FROM users WHERE id=?', (uid,)).fetchone()
         contact = {'name': fullname, 'email': email or None, 'phone': clean_text(guest.get('phone'), 60) or None}
     else:
@@ -9341,7 +9372,7 @@ def create_booking(db, req):
         hours = wbk.clamp_hours(service['response_hours'] if service else None, wbk.DEFAULT_RESPONSE_HOURS)
         deadline = local_iso(wbk.deadline_before_start(local_now(), hours, start))
         pay_deadline = None
-    origin = wch.clean_domain(req.get('origin')) if channel == 'widget' else None
+    origin = wch.clean_domain(req.get('origin'), allow_local_domains()) if channel == 'widget' else None
     cur = db.execute('''INSERT INTO bookings(user_id,center_id,provider_user_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,booking_mode,response_deadline,payment_deadline,hold_expires_at,confirmed_at,terms_version,price_breakdown,deposit_amount,amount_paid,amount_due,cancel_free_hours,cancel_refund_pct,
                      source,channel,channel_origin,api_key_id,external_ref,contact_name,contact_email,contact_phone,created_by_user_id,payment_method,public_token,created_at,updated_at)
                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?,wod_cifrar(?),?,?,?,?,?)''',
@@ -9354,6 +9385,8 @@ def create_booking(db, req):
                       contact['name'] if contact else None, contact['email'] if contact else None, contact['phone'] if contact else None,
                       req.get('actor_id') if by_provider else None, payment_method, wsec.random_token(), now(), now()))
     bid = cur.lastrowid
+    # Every time is stored with the time zone of the place of the activity (shown in local time everywhere).
+    db.execute('UPDATE bookings SET timezone=? WHERE id=? AND user_id=?', (service_tz(db, service) if service else place_tz(db, None, center_id), bid, customer['id']))
     if not by_provider: BOOKING_LIMIT.hit(limit_key)
     if online and pay_way == 'in_person':
         db.execute("UPDATE bookings SET pay_way='in_person',in_person_ack_at=? WHERE id=? AND user_id=?", (now(), bid, customer['id']))
@@ -9388,8 +9421,8 @@ def create_booking(db, req):
         db.commit()
         pay_user = dict(customer); pay_user['email'] = (contact or {}).get('email') or customer['email']
         try:
-            pay = start_checkout(db, pay_user, booking_row(db, bid), app=wmovil.app_scheme(data.get('app')),
-                                 return_to=req.get('return_to'))
+            ret = req.get('return_to'); nb = booking_row(db, bid)
+            pay = start_checkout(db, pay_user, nb, app=wmovil.app_scheme(data.get('app')), return_to=ret(nb) if callable(ret) else ret)
         except ValueError:
             expire_booking(db, booking_row(db, bid), 'checkout_failed', notify=False); db.commit(); raise
         body['checkout_url'] = pay['checkout_url']
@@ -9404,6 +9437,7 @@ def create_booking(db, req):
 
 
 def booking_tz(db, b):
+    if row_get(b, 'timezone') and wag.valid_tz(b['timezone']): return b['timezone']
     svc = db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
     return service_tz(db, svc) if svc else wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ)
 
@@ -9514,6 +9548,311 @@ def guest_pay_url(b):
     """The link a centre sends to pay online a booking it typed in (Parte F): the same page, opened on the payment."""
     u = guest_booking_url(b)
     return u + '?pagar=1' if u else None
+
+
+# ---------------------------------------------------------------------------
+# v50.56 · Partes C y D: «Vender en tu web». The widget (an iframe /w/<slug> in three formats: button with overlay,
+# calendar and list), the provider's own page /c/<slug> (direct links to a service or a date, QR codes) and the page of
+# a booking made without an account (/mi-reserva/<id>.<token>). Every booking goes through create_booking: channel
+# «widget» (with the website it came from) or «link». These pages set no cookies of any kind; the widget only runs on
+# the provider's authorised domains (CSP frame-ancestors + a check of the website on every booking).
+# ---------------------------------------------------------------------------
+WIDGET_LIMIT = wsec.SharedRateLimiter('widget', wcfg.env_int('WOD_WIDGET_MAX_PER_HOUR', 30, 1), 3600)   # booking attempts per address and hour
+WIDGET_SOFT = wsec.SharedRateLimiter('widget-reto', 5, 600)        # more than 5 attempts in 10 minutes: invisible check first
+POW_USED = wsec.SharedRateLimiter('widget-reto-usado', 1, wch.POW_TTL * 2)
+
+
+def allow_local_domains():
+    """Only the test package may authorise «localhost:8101» (the example website of the centre). Never production."""
+    return not wcfg.is_production()
+
+
+def pow_secret(body):
+    return wcif.keyed_hash('widget-pow', body)
+
+
+def sales_row(db, kind, pid, create=True):
+    """The «Vender en tu web» settings of a provider; created with a free slug from its name the first time."""
+    row = db.execute('SELECT * FROM sales_settings WHERE provider_kind=? AND provider_id=?', (kind, pid)).fetchone()
+    if row or not create: return row
+    base = wch.slugify(provider_label(db, kind, pid))[:50].strip('-')
+    if not wch.SLUG_RE.fullmatch(base or '') or base in wch.RESERVED_SLUGS: base = f"{'centro' if kind == 'center' else 'pro'}-{pid}"
+    slug, n = base, 2
+    while db.execute('SELECT 1 FROM sales_settings WHERE slug=?', (slug,)).fetchone(): slug, n = f'{base}-{n}', n + 1
+    db.execute('INSERT OR IGNORE INTO sales_settings(provider_kind,provider_id,slug,updated_at) VALUES(?,?,?,?)', (kind, pid, slug, now()))
+    return db.execute('SELECT * FROM sales_settings WHERE provider_kind=? AND provider_id=?', (kind, pid)).fetchone()
+
+
+def provider_by_slug(db, slug):
+    """(kind, id, settings row) of a public provider, or None (unknown, hidden by moderation, not verified)."""
+    if not wch.SLUG_RE.fullmatch(str(slug or '')): return None
+    row = db.execute('SELECT * FROM sales_settings WHERE slug=?', (slug,)).fetchone()
+    if not row: return None
+    if row['provider_kind'] == 'center':
+        ok = db.execute(f'SELECT 1 FROM centers c WHERE c.id=? AND {public_center_sql()}', (row['provider_id'],)).fetchone()
+    else:
+        ok = db.execute(f'SELECT 1 FROM users u WHERE u.id=? AND {public_freelance_sql()}', (row['provider_id'],)).fetchone()
+    return (row['provider_kind'], row['provider_id'], row) if ok else None
+
+
+def sales_domains(row):
+    try: return wch.clean_domains(json.loads(row['allowed_domains'] or '[]'), allow_local=allow_local_domains()) if row else []
+    except ValueError: return []
+
+
+def sales_bookable(db, kind, pid, channel):
+    """Online bookings in this channel: «Motor de reservas» or «Pro» (the widget feature for the widget). Otherwise the
+    page shows «Solicitar información» (and the bookings already made are kept)."""
+    return provider_has(db, kind, pid, 'online_bookings') and (channel != 'widget' or provider_has(db, kind, pid, 'widget'))
+
+
+def sales_provider(db, kind, pid, lang='es'):
+    if kind == 'center':
+        c = db.execute('SELECT id,name,city,country,logo_url,website FROM centers WHERE id=?', (pid,)).fetchone()
+        info = {'type': 'center', 'id': c['id'], 'name': c['name'], 'place': ', '.join(x for x in (c['city'], c['country']) if x),
+                'logo': c['logo_url'] if c['logo_url'] and not is_homepage_url(c['logo_url']) else '', 'website': c['website'] or ''}
+    else:
+        u = db.execute('SELECT u.id,u.fullname,u.avatar_url,up.city,up.country FROM users u LEFT JOIN user_profiles up ON up.user_id=u.id WHERE u.id=?', (pid,)).fetchone()
+        info = {'type': 'freelance', 'id': u['id'], 'name': u['fullname'], 'place': ', '.join(x for x in (u['city'], u['country']) if x), 'logo': u['avatar_url'] or '', 'website': ''}
+    payee = payee_of(db, pid if kind == 'center' else None, pid if kind == 'freelance' else None)
+    pol = provider_policy(payee)
+    info['policy'] = policy_text(pol['free_hours'], pol['refund_pct'], lang) + (f" {pol['note']}" if pol.get('note') else '')
+    info['timezone'] = place_tz(db, None, pid if kind == 'center' else None) if kind == 'center' else wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ)
+    return info
+
+
+def sales_services(db, kind, pid, lang='es', service_id=None, service_type=None, with_dates=True):
+    where = 's.center_id=?' if kind == 'center' else 's.center_id IS NULL AND s.provider_user_id=?'
+    args = [pid]
+    if service_id: where += ' AND s.id=?'; args.append(int(service_id))
+    if service_type: where += ' AND s.service_type=?'; args.append(str(service_type)[:40])
+    rows = db.execute(f'SELECT s.* FROM provider_services s WHERE {where} AND s.active=1 ORDER BY s.title LIMIT 60', args).fetchall()
+    cat = SERVICE_CATALOG.get(db); out = []
+    for s in rows:
+        unit = service_unit(s); price = float(s['price'] or 0)
+        if unit in wag.DAY_UNITS: price = float(wag.clean_pricing(s['pricing'], s['price']).get('day') or price)
+        info = service_mode_info(db, s, price)
+        photo = service_card_photo(cat, dict(s))
+        d = {'id': s['id'], 'title': s['title'], 'description': (s['description'] or '')[:400], 'type': s['service_type'], 'unit': unit,
+             'mode': info['booking_mode'], 'bookable': info['bookable'], 'reason': info.get('unavailable_reason') or '', 'pay_way': info.get('pay_way', 'online'),
+             'price': round(price, 2), 'currency': s['currency'] or 'EUR', 'per': 'day' if unit in wag.DAY_UNITS else 'person',
+             'duration': s['duration_minutes'], 'max_participants': s['max_participants'], 'timezone': service_tz(db, s),
+             'photo': {'src': photo.get('src') or photo.get('jpg'), 'srcset': photo.get('srcset') or ''} if photo else None,
+             'deposit': s['deposit_type'] not in (None, '', 'none')}
+        if with_dates and unit not in wag.DAY_UNITS:
+            d['next'] = [{'id': x['id'], 'date': x['slot_date'], 'time': x['slot_time'], 'free': int(x['spots_available'] or 0)} for x in db.execute(
+                "SELECT id,slot_date,slot_time,spots_available FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date>=date('now') ORDER BY slot_date,slot_time LIMIT 3",
+                (s['id'],)).fetchall()]
+        out.append(d)
+    return out
+
+
+def sales_catalog(db, kind, pid, row, lang, channel, service_id=None, service_type=None):
+    return {'provider': sales_provider(db, kind, pid, lang), 'slug': row['slug'], 'color': row['brand_color'] or '', 'channel': channel,
+            'bookable': sales_bookable(db, kind, pid, channel), 'hold_minutes': HOLD_MINUTES,
+            'services': sales_services(db, kind, pid, lang, service_id, service_type)}
+
+
+def sales_service(db, kind, pid, sid):
+    where = 'center_id=?' if kind == 'center' else 'center_id IS NULL AND provider_user_id=?'
+    s = db.execute(f'SELECT * FROM provider_services WHERE id=? AND active=1 AND {where}', (int(sid or 0), pid)).fetchone()
+    if not s: raise NotFound('Servicio no encontrado.')
+    return s
+
+
+def sales_dates(db, kind, pid, sid, month):
+    """Availability in real time: the departures of a month with their free spots, or the free days of a service by days."""
+    s = sales_service(db, kind, pid, sid)
+    if service_unit(s) in wag.DAY_UNITS:
+        a = agenda_public(db, s['id'], month)
+        return {'unit': a['unit'], 'month': a['month'], 'timezone': a['timezone'], 'today': a['today'], 'days': a['days'], 'rules': a['rules'], 'pricing': a['pricing']}
+    tz = service_tz(db, s); month = wag.clean_month(month, tz); today = wag.today_in(tz).isoformat()
+    rows = db.execute("""SELECT id,slot_date,slot_time,spots_available,status FROM service_slots WHERE service_id=? AND status IN ('open','full')
+                         AND slot_date LIKE ? AND slot_date>=? ORDER BY slot_date,slot_time LIMIT 400""", (s['id'], month + '-%', today)).fetchall()
+    now_local = wag.utc_to_local(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), tz).strftime('%H:%M')
+    slots = [{'id': r['id'], 'date': r['slot_date'], 'time': r['slot_time'], 'free': max(0, int(r['spots_available'] or 0))}
+             for r in rows if not (r['slot_date'] == today and now_local and (r['slot_time'] or '') <= now_local)]
+    return {'unit': 'slot', 'month': month, 'timezone': tz, 'today': today, 'slots': slots}
+
+
+def sales_quote(db, kind, pid, data):
+    s = sales_service(db, kind, pid, data.get('service_id'))
+    pax = clean_int(data.get('participants'), 1, PARTICIPANTS_MAX, 1, 'El número de personas no es válido.')
+    if s['max_participants'] and pax > int(s['max_participants']): raise ValueError(f'Este servicio admite como máximo {s["max_participants"]} personas.')
+    if service_unit(s) in wag.DAY_UNITS:
+        return agenda_quote(db, {**data, 'service_id': s['id'], 'participants': pax})
+    slot = db.execute("SELECT slot_date FROM service_slots WHERE id=? AND service_id=?", (int(data.get('slot_id') or 0), s['id'])).fetchone()
+    total, currency, lines = booking_quote(db, s['center_id'], s, pax, slot['slot_date'] if slot else None, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
+    return {'ok': True, 'total': total, 'lines': lines, 'currency': currency, 'deposit': deposit_for(s, total, pax)}
+
+
+def sales_book(handler, db, kind, pid, row, channel, data):
+    """A booking from the widget («widget») or the provider's page («link»): a guest (no account needed) or, on the
+    page, the diver signed in to WORLDIVES. Returns (status, body)."""
+    ip = handler.client_ip(); ipk = 'ip:' + wsec.ip_group(ip)
+    if str(data.get('website') or '').strip(): raise ValueError('No se ha podido completar la reserva.')   # honeypot: only bots fill it
+    origin = None
+    if channel == 'widget':
+        origin = wch.origin_host(data.get('host_url') or '') or str(data.get('host') or '').lower()[:200]
+        if not wch.host_allowed(origin, sales_domains(row)):
+            security_event('widget_bad_origin', handler, origen=origin[:120])
+            raise PermissionError('Esta web no está autorizada para reservar con este centro.')
+    if WIDGET_LIMIT.blocked(ipk): raise TooManyRequests('Demasiados intentos seguidos. Espera unos minutos.')
+    if WIDGET_SOFT.blocked(ipk):
+        p = data.get('pow') if isinstance(data.get('pow'), dict) else {}
+        ch = str(p.get('challenge') or '')
+        if not (ch and not POW_USED.blocked(ch) and wch.pow_ok(pow_secret, ch, p.get('nonce'))):
+            return 428, {'error': 'Comprobando que no eres un robot…', 'code': 'challenge', 'challenge': wch.pow_challenge(pow_secret), 'bits': wch.POW_BITS}
+        POW_USED.hit(ch)
+    WIDGET_SOFT.hit(ipk); WIDGET_LIMIT.hit(ipk)
+    if not sales_bookable(db, kind, pid, channel):
+        e_ = PermissionError('Este centro todavía no acepta reservas online. Puedes escribirle.'); e_.extra = {'no_online_booking': True}; raise e_
+    s = sales_service(db, kind, pid, data.get('service_id'))
+    viewer = current_user(handler, db) if channel == 'link' else None
+    customer = viewer if viewer and viewer['role'] == 'recreational' else None
+    lang = normalize_lang(data.get('lang'))
+    clean = {k: data.get(k) for k in ('service_id', 'slot_id', 'days', 'part', 'date_from', 'date_to', 'participants', 'notes', 'extra_ids', 'equipment_codes',
+                                      'agenda_extras', 'in_person_ack', 'booking_date', 'booking_time', 'needs_equipment')}
+    clean['center_id'] = pid if kind == 'center' else None
+    if service_unit(s) in wag.DAY_UNITS and clean.get('days'): clean['booking_date'] = (clean['days'] or [None])[0]
+    if not json_bool(data.get('accept_policy')): raise ValueError('Marca que has leído la política de cancelación.')
+    base = public_site_url()
+    req = {'channel': channel, 'data': clean, 'customer': customer, 'actor_id': customer['id'] if customer else None,
+           'center_id': pid if kind == 'center' else None, 'provider_user_id': pid if kind == 'freelance' else None,
+           'origin': origin, 'idem_key': handler.headers.get('Idempotency-Key') or data.get('idempotency_key'), 'ip': ip,
+           'idem_scope': f"{channel}:{row['slug']}:{customer['id'] if customer else (str(data.get('email') or '').strip().lower())}",
+           'limit_key': f"u:{customer['id']}" if customer else ipk, 'lang': lang}
+    if not customer:
+        req['guest'] = {'fullname': data.get('fullname'), 'email': data.get('email'), 'phone': data.get('phone')}
+        if channel == 'link' and not clean_text(data.get('email'), 160): raise ValueError('Indica tu correo electrónico: te mandamos ahí la confirmación.')
+    # Stripe sends the customer back to the widget's own page (a new window) or to the page of the booking.
+    req['return_to'] = lambda b: ((f"{base}/w/pago/{b['id']}.{b['public_token']}?r=ok", f"{base}/w/pago/{b['id']}.{b['public_token']}?r=cancel") if channel == 'widget'
+                                  else (f"{base}/mi-reserva/{b['id']}.{b['public_token']}?pago=ok", f"{base}/mi-reserva/{b['id']}.{b['public_token']}?pago=cancelado"))
+    out = create_booking(db, req)
+    body = out['body']
+    if out['status'] == 200 and body.get('id'):
+        b = booking_row(db, body['id'])
+        body['token'] = f"{b['id']}.{b['public_token']}"
+        body['booking_url'] = guest_booking_url(b) if not customer else f"{base}/#/reserva?id={b['id']}"
+        body['ref'] = f"WOD-{b['id']:06d}"
+        if body.get('response_deadline'):
+            body['response_deadline_text'] = mail_deadline(db, body['response_deadline'], lang, s['id'], s['center_id'])
+    return out['status'], body
+
+
+def guest_booking(db, token):
+    """The booking of a «<id>.<token>» link, or NotFound. The token is long and random; compared in constant time."""
+    m = re.fullmatch(r'(\d{1,12})\.([A-Za-z0-9_\-]{20,80})', str(token or ''))
+    b = booking_row(db, int(m.group(1))) if m else None
+    if not b or not b['public_token'] or not wsec.constant_time_equals(m.group(2), b['public_token']): raise NotFound('Reserva no encontrada.')
+    return b
+
+
+def guest_booking_view(db, b, lang='es'):
+    """What the customer sees of his own booking: never internal notes, the provider's data or other customers."""
+    svc = db.execute('SELECT id,title,center_id,provider_user_id FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    kind, pid = ('center', b['center_id']) if b['center_id'] else ('freelance', b['provider_user_id'])
+    st = booking_view_status(b); terms = None
+    if st['status'] in wbk.CANCELLABLE:
+        try: terms = booking_cancel_terms(db, b)
+        except Exception: terms = None
+    row = sales_row(db, kind, pid) if pid else None
+    can_pay = st['status'] in ('payment_in_progress', 'accepted_pending_payment') and b['payment_status'] not in ('paid', 'deposit_paid') and booking_pay_way(b) != 'in_person'
+    days = [r['local_date'] for r in db.execute('SELECT local_date FROM booking_days WHERE booking_id=? ORDER BY local_date', (b['id'],)).fetchall()]
+    return {'id': b['id'], 'ref': f"WOD-{b['id']:06d}", 'status': st['status'], 'status_label': st['status_label'], 'service': svc['title'] if svc else '',
+            'date': b['booking_date'], 'time': b['booking_time'] if b['booking_time'] and re.fullmatch(r'\d{2}:\d{2}', b['booking_time']) else None,
+            'date_to': b['date_to'], 'days': days or None, 'timezone': booking_tz(db, b), 'participants': int(b['participants'] or 1),
+            'price': float(b['price'] or 0), 'currency': b['currency'] or 'EUR', 'payment_status': b['payment_status'], 'channel': wch.channel_of(b),
+            'hold_expires_at': b['hold_expires_at'] if st['status'] == 'payment_in_progress' else None,
+            'payment_deadline': mail_deadline(db, b['payment_deadline'], lang, b['service_id'], b['center_id']) if st['status'] == 'accepted_pending_payment' else None,
+            'policy': booking_policy(db, b, lang)['text'], 'can_pay': can_pay, 'can_cancel': bool(terms and not terms.get('started')),
+            'cancel_terms': {k: terms[k] for k in ('free', 'refund_amount', 'paid_amount', 'paid_online')} if terms else None,
+            'provider': sales_provider(db, kind, pid, lang) if pid else None, 'slug': row['slug'] if row else None, 'color': (row['brand_color'] if row else '') or ''}
+
+
+def guest_cancel(db, b, actor_id, data):
+    """The customer cancels his booking (account or token): the same rules for every channel. Returns the body."""
+    bid = b['id']
+    if wbk.normalize_state(b['status']) == 'payment_in_progress':
+        # Abandoning the payment of a «Pago al reservar» booking: nothing was charged, the spots are freed at once.
+        for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (bid,)).fetchall(): release_order_hold(db, o, 'cancelled')
+        if wbk.normalize_state(booking_row(db, bid)['status']) == 'payment_in_progress': expire_booking(db, booking_row(db, bid), 'payment_cancelled', notify=False)
+        return {'ok': True, 'refund': 'none_paid', 'refund_amount': 0}
+    if wbk.normalize_state(b['status']) not in wbk.CANCELLABLE: raise ValueError('Esta reserva ya no se puede cancelar.')
+    terms = booking_cancel_terms(db, b)
+    if terms['started']: raise ValueError('La actividad ya ha empezado o ha pasado: habla directamente con el centro.')
+    if data.get('preview'): return {'ok': True, 'terms': terms}
+    if db.execute("SELECT 1 FROM payment_orders WHERE booking_id=? AND status='pending'", (bid,)).fetchone():
+        for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (bid,)).fetchall(): release_order_hold(db, o, 'cancelled')
+        b = booking_row(db, bid)
+    if db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='diver',updated_at=? WHERE id=? AND status IN ('pending','requested','accepted_pending_payment','confirmed')",
+                  (now(), now(), bid)).rowcount != 1: raise ValueError('Esta reserva ya no se puede cancelar.')
+    release_booking_spots(db, b)
+    outcome = 'none_paid'
+    if terms['paid_online']:
+        # Fase 2.4: the provider manages its refunds. The amount of its policy is proposed to it (and reminded after 72 h).
+        propose_refund(db, b, terms['refund_amount'], 'diver_cancel')
+        outcome = 'proposed' if terms['refund_amount'] > 0 else 'no_refund'
+    reason = clean_text(data.get('reason'), 300)
+    if reason: db.execute("UPDATE bookings SET internal_notes=COALESCE(internal_notes||char(10),'')||? WHERE id=? AND user_id=?", ('Motivo de la cancelación: ' + reason, bid, b['user_id']))
+    notify_booking(db, bid, 'cancelled_diver', {'refund': outcome})
+    audit(db, actor_id, 'booking_cancelled_by_diver', 'booking', bid, {'refund': outcome, 'amount': terms['refund_amount'], 'channel': wch.channel_of(b)})
+    return {'ok': True, 'refund': outcome, 'refund_amount': terms['refund_amount']}
+
+
+def guest_check_payment(db, b):
+    """Back from Stripe: do not wait for the webhook, ask Stripe for the pending order of this booking."""
+    if not stripe_secret(): return
+    for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (b['id'],)).fetchall():
+        try:
+            sess = stripe_session(o)
+            finalize_paid_order(db, o, sess, 'return'); db.commit()
+        except Exception as exc:
+            sys.stderr.write(f'[pagos] verificación al volver de Stripe (reserva {b["id"]}): {exc}\n')
+
+
+def sales_links(db, kind, pid, row, base=None):
+    """The snippet in its three formats, the page, direct links and QR codes for the panel (Parte C, «Vender en tu web»)."""
+    base = base or public_site_url(); slug = row['slug']
+    page = f'{base}/c/{slug}'
+    script = f'<script src="{base}/widget.js" async></script>'
+    return {'slug': slug, 'page': page, 'widget_script': f'{base}/widget.js',
+            'snippets': {'boton': f'{script}\n<a href="{page}" data-worldives="boton" data-centro="{slug}">Reservar</a>',
+                         'calendario': f'{script}\n<div data-worldives="calendario" data-centro="{slug}"></div>',
+                         'lista': f'{script}\n<div data-worldives="lista" data-centro="{slug}"></div>'},
+            'qr': {'svg': f'{base}/c/{slug}/qr.svg', 'png': f'{base}/c/{slug}/qr.png'}}
+
+
+def qr_svg(url, color='#011C3C'):
+    """A QR code as SVG (vector: prints sharp at any size). One path, with a quiet zone of 4 modules."""
+    m = qr_matrix(url); n = len(m); q = 4
+    d = ''.join(f'M{x + q},{y + q}h1v1h-1z' for y, row in enumerate(m) for x, v in enumerate(row) if v == '1')
+    size = n + 2 * q
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" width="{size * 8}" height="{size * 8}" shape-rendering="crispEdges">'
+            f'<rect width="100%" height="100%" fill="#fff"/><path fill="{html.escape(color)}" d="{d}"/></svg>')
+
+
+def qr_png(url, scale=10):
+    """The same QR as PNG for printers and apps that do not open SVG (Pillow, already used for the photos)."""
+    from PIL import Image
+    m = qr_matrix(url); n = len(m); q = 4; size = (n + 2 * q)
+    img = Image.new('1', (size, size), 1)
+    px = img.load()
+    for y, row in enumerate(m):
+        for x, v in enumerate(row):
+            if v == '1': px[x + q, y + q] = 0
+    img = img.resize((size * scale, size * scale), Image.NEAREST)
+    import io
+    buf = io.BytesIO(); img.save(buf, 'PNG', optimize=True)
+    return buf.getvalue()
+
+
+def sales_link_url(base, slug, service_id=None, date=None):
+    """A direct link to the page, to one service or to one date of a service (Parte D)."""
+    q = []
+    if service_id: q.append(f'servicio={int(service_id)}')
+    if date and re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(date)): q.append(f'fecha={date}')
+    return f"{base}/c/{slug}" + ('?' + '&'.join(q) if q else '')
 
 
 def run_booking_deadlines(db):
@@ -12256,44 +12595,142 @@ class Handler(BaseHTTPRequestHandler):
         self._sec_sent = False
 
     def serve_widget(self, db, path, query):
-        """Booking widget (Fase 6.5): a small page any website can embed in an iframe. It lists the provider's activities
-        and next departures; every button opens the booking on WORLDIVES in a new tab (no payment inside the iframe)."""
+        """Fase 6.5 widget address (/widget/center/<id>, /widget/pro/<id>): since v50.56 it is the new widget, list format
+        (/w/<slug>?f=lista). Same rules: only on the provider's authorised domains."""
         parts = path.strip('/').split('/')
         if len(parts) != 3 or parts[1] not in ('center', 'pro') or not parts[2].isdigit(): self.send_error(404); return
-        ptype = 'center' if parts[1] == 'center' else 'freelance'; pid = int(parts[2])
-        lang = normalize_lang(query.get('lang', ['es'])[0]); t = lambda x: mail_t(lang, x)
-        if ptype == 'center':
-            p = db.execute(f'SELECT id,name,city,country FROM centers c WHERE c.id=? AND {public_center_sql()}', (pid,)).fetchone()
-            name = p['name'] if p else ''; sq = 's.center_id=?'; book = lambda sid: f'{public_site_url()}/#/reservar?center={pid}&service={sid}'
+        kind = 'center' if parts[1] == 'center' else 'freelance'; pid = int(parts[2])
+        ok = (db.execute(f'SELECT 1 FROM centers c WHERE c.id=? AND {public_center_sql()}', (pid,)).fetchone() if kind == 'center'
+              else db.execute(f'SELECT 1 FROM users u WHERE u.id=? AND {public_freelance_sql()}', (pid,)).fetchone())
+        if not ok: self.send_error(404); return
+        row = sales_row(db, kind, pid); db.commit()
+        lang = query.get('lang', [''])[0]
+        self.send_response(301); self.send_header('Location', f"/w/{row['slug']}?f=lista" + (f'&lang={quote(lang)}' if lang else ''))
+        self.send_header('Content-Length', '0'); self.security_headers(); self.end_headers()
+
+    def serve_sales_page(self, db, mode, kind=None, pid=None, row=None, query=None, booking=None, extra=None):
+        """v50.56. The shell of the widget (/w/<slug>), the provider's page (/c/<slug>), the page of a booking
+        (/mi-reserva/…) and the return from Stripe (/w/pago/…). The app is /js/wd-reservar.js (no inline script: the
+        boot data travels as JSON). No cookie is set here. The widget may be framed only by the provider's domains."""
+        query = query or {}
+        q = lambda k: (query.get(k, [''])[0] or '')
+        fixed = row['widget_lang'] if row and row['widget_lang'] in wtx.LANGS else None
+        lang = wtx.pick_lang(fixed if mode == 'widget' else None, q('lang') or q('idioma'), self.headers.get('Accept-Language'))
+        base = public_site_url()
+        boot = {'mode': mode, 'lang': lang, 't': wtx.texts(lang), 'base': base, 'privacy': f'{base}/#/legal/privacidad',
+                'register': f'{base}/#/registro', 'hold_minutes': HOLD_MINUTES}
+        if row:
+            boot.update(slug=row['slug'], color=row['brand_color'] or '', fmt=q('f') if q('f') in wch.WIDGET_FORMATS else 'lista',
+                        service=int(q('servicio') or q('s') or 0) or None, type=(q('tipo') or q('t'))[:40] or None,
+                        date=q('fecha') if re.fullmatch(r'\d{4}-\d{2}-\d{2}', q('fecha')) else None, host=q('h')[:200])
+        if booking is not None: boot['booking'] = booking
+        if extra: boot.update(extra)
+        title = (provider_label(db, kind, pid) if kind else '') or 'WORLDIVES'
+        color = (row['brand_color'] if row else '') or (booking or {}).get('color') or ''
+        style = f' style="--marca:{color}"' if wch.clean_color(color) else ''
+        data = json.dumps(boot, ensure_ascii=False).replace('<', '\\u003c')
+        noscript = html.escape(boot['t']['book'] + ': ' + (f'{base}/c/{row["slug"]}' if row else base))
+        doc = (f'<!doctype html><html lang="{html.escape(HTML_LANG.get(lang, lang))}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+               f'<meta name="robots" content="{"noindex" if mode != "page" else "index"}"><title>{html.escape(title)}</title>'
+               f'<link rel="icon" href="/img/marca/favicon-32.png"><link rel="stylesheet" href="/css/wd-reservar.css">'
+               f'<script type="application/json" id="wd-boot">{data}</script><script src="/js/wd-reservar.js" defer></script></head>'
+               f'<body class="wr wr-{mode}"{style}><main id="wr-app" aria-live="polite"><p class="wr-load">{html.escape(boot["t"]["loading"])}</p>'
+               f'<noscript><p>{noscript}</p></noscript></main></body></html>').encode('utf-8')
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Content-Length', str(len(doc)))
+        self.send_header('Cache-Control', 'no-store'); self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+        self.send_header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
+        if mode == 'widget':
+            # Only inside the provider's own websites (CSP frame-ancestors); no X-Frame-Options, which would forbid them all.
+            self.send_header('Content-Security-Policy', CSP_HEADER.replace("frame-ancestors 'none'", 'frame-ancestors ' + wch.frame_ancestors(sales_domains(row))))
         else:
-            p = db.execute("SELECT id,fullname FROM users WHERE id=? AND role='freelance'", (pid,)).fetchone()
-            name = p['fullname'] if p else ''; sq = 's.provider_user_id=? AND s.center_id IS NULL'; book = lambda sid: f'{public_site_url()}/#/reservar?provider={pid}&service={sid}'
-        if not p: self.send_error(404); return
-        e = html.escape
-        if provider_has(db, ptype, pid, 'widget') and provider_has(db, ptype, pid, 'online_bookings'):
-            items = []
-            for sv in db.execute(f'SELECT s.id,s.title,s.price,s.currency,s.duration_minutes FROM provider_services s WHERE {sq} AND s.active=1 ORDER BY s.title LIMIT 30', (pid,)).fetchall():
-                slots = db.execute("SELECT slot_date,slot_time,spots_available FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date>=date('now') ORDER BY slot_date,slot_time LIMIT 3", (sv['id'],)).fetchall()
-                sl = ''.join(f'<li>{e(x["slot_date"])} {e(x["slot_time"] or "")} · ' + (e(t('Completa')) if int(x['spots_available'] or 0) <= 0 else f'{int(x["spots_available"])} ' + e(t('plazas'))) + '</li>' for x in slots)
-                items.append(f'<article><div><h2>{e(sv["title"])}</h2><p>{e(plan_money(sv["price"], sv["currency"] or "EUR"))}</p>{f"<ul>{sl}</ul>" if sl else ""}</div>'
-                             f'<a href="{e(book(sv["id"]))}" target="_blank" rel="noopener">{e(t("Reservar"))}</a></article>')
-            body = ''.join(items) or f'<p>{e(t("Todavía no hay actividades publicadas."))}</p>'
-        else:
-            link = f'{public_site_url()}/#/centro?id={pid}' if ptype == 'center' else f'{public_site_url()}/#/profesional?id={pid}'
-            body = f'<p>{e(t("Este centro todavía no tiene reserva online."))}</p><a href="{e(link)}" target="_blank" rel="noopener">{e(t("Solicitar información"))}</a>'
-        doc = f'''<!doctype html><html lang="{e(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(name)}</title>
-<style>body{{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#011C3C;background:#fff}}header{{padding:12px 14px;background:#011C3C;color:#fff}}header b{{font-size:15px}}
-main{{padding:10px 14px;display:grid;gap:10px}}article{{display:flex;gap:10px;justify-content:space-between;align-items:center;border:1px solid #dfe6e7;border-radius:10px;padding:10px 12px}}
-h2{{font-size:15px;margin:0}}p{{margin:2px 0;color:#5f717b}}ul{{margin:4px 0 0;padding-left:16px;color:#5f717b;font-size:12px}}a{{background:#076898;color:#fff;text-decoration:none;font-weight:700;padding:9px 14px;border-radius:999px;white-space:nowrap}}
-footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none;color:#076898;padding:0}}</style></head>
-<body><header><b>{e(name)}</b></header><main>{body}</main><footer>{e(t("Reservas con"))} <a href="{e(public_site_url())}" target="_blank" rel="noopener">WORLDIVES DISCOVERY</a></footer></body></html>'''
-        raw = doc.encode('utf-8')
-        self.send_response(200); self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Content-Length', str(len(raw)))
-        self.send_header('Cache-Control', 'public, max-age=300'); self.send_header('X-Content-Type-Options', 'nosniff'); self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
-        # Embeddable anywhere, but nothing runs inside: no scripts, no forms.
-        self.send_header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; frame-ancestors *; base-uri 'none'; form-action 'none'")
-        if os.environ.get('WOD_PUBLIC_URL', '').strip().lower().startswith('https://'): self.send_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')   # ASVS V3.4.1
-        self._sec_sent = True; self.end_headers(); self.wfile.write(raw)
+            self.send_header('X-Frame-Options', 'DENY'); self.send_header('Content-Security-Policy', CSP_HEADER)
+            self.send_header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups' if mode == 'return' else 'same-origin')
+        if wcfg.demo_mode() or mode != 'page': self.send_header('X-Robots-Tag', 'noindex, nofollow')
+        if os.environ.get('WOD_PUBLIC_URL', '').strip().lower().startswith('https://'): self.send_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+        self._sec_sent = True; self.end_headers(); self.wfile.write(doc)
+
+    def sales_get(self, db, path, query):
+        """GET routes of «Vender en tu web» (pages, availability and QR). Returns True when it answered."""
+        if path == '/widget.js':
+            p = PUBLIC / 'widget.js'; raw = p.read_bytes()
+            self.send_response(200); self.send_header('Content-Type', 'application/javascript; charset=utf-8'); self.send_header('Content-Length', str(len(raw)))
+            self.send_header('Cache-Control', 'public, max-age=3600'); self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Cross-Origin-Resource-Policy', 'cross-origin'); self._sec_sent = True; self.end_headers(); self.wfile.write(raw); return True
+        m = re.fullmatch(r'/(w|c)/([a-z0-9-]{3,60})', path)
+        if m:
+            found = provider_by_slug(db, m.group(2))
+            if not found: self.send_error(404); return True
+            kind, pid, row = found
+            self.serve_sales_page(db, 'widget' if m.group(1) == 'w' else 'page', kind, pid, row, query)
+            return True
+        m = re.fullmatch(r'/c/([a-z0-9-]{3,60})/qr\.(svg|png)', path)
+        if m:
+            found = provider_by_slug(db, m.group(1))
+            if not found: self.send_error(404); return True
+            url = sales_link_url(public_site_url(), m.group(1), query.get('servicio', [''])[0], query.get('fecha', [''])[0])
+            raw = qr_svg(url, wch.clean_color(found[2]['brand_color']) or '#011C3C').encode() if m.group(2) == 'svg' else qr_png(url)
+            self.send_response(200); self.send_header('Content-Type', 'image/svg+xml' if m.group(2) == 'svg' else 'image/png')
+            self.send_header('Content-Disposition', f'attachment; filename="qr-{m.group(1)}.{m.group(2)}"' if query.get('descargar') else 'inline')
+            self.send_header('Content-Length', str(len(raw))); self.send_header('Cache-Control', 'public, max-age=3600')
+            self.security_headers(); self.end_headers(); self.wfile.write(raw); return True
+        m = re.fullmatch(r'/(mi-reserva|w/pago)/(\d{1,12}\.[A-Za-z0-9_\-]{20,80})', path)
+        if m:
+            try: b = guest_booking(db, m.group(2))
+            except NotFound: self.send_error(404); return True
+            lang = wtx.pick_lang(None, query.get('lang', [''])[0], self.headers.get('Accept-Language'))
+            back = query.get('r', [''])[0] or query.get('pago', [''])[0]
+            if back in ('ok',): guest_check_payment(db, b)
+            elif back in ('cancel', 'cancelado') and wbk.normalize_state(b['status']) == 'payment_in_progress':
+                guest_cancel(db, b, None, {}); db.commit()      # payment abandoned: the spots are free again at once
+            b = booking_row(db, b['id'])
+            view = guest_booking_view(db, b, lang); view['token'] = m.group(2); db.commit()
+            kind, pid = ('center', b['center_id']) if b['center_id'] else ('freelance', b['provider_user_id'])
+            self.serve_sales_page(db, 'return' if m.group(1) == 'w/pago' else 'booking', kind, pid, None, query, view, {'back': back or None, 'pay': bool(query.get('pagar'))})
+            return True
+        m = re.fullmatch(r'/api/w/([a-z0-9-]{3,60})(/fechas)?', path)
+        if m:
+            found = provider_by_slug(db, m.group(1))
+            if not found: raise NotFound('Centro no encontrado.')
+            kind, pid, row = found
+            if m.group(2):
+                self.send_json(sales_dates(db, kind, pid, query.get('servicio', ['0'])[0], query.get('mes', [''])[0])); db.commit(); return True
+            channel = 'widget' if query.get('canal', [''])[0] == 'widget' else 'link'
+            lang = normalize_lang(query.get('lang', ['es'])[0])
+            self.send_json(sales_catalog(db, kind, pid, row, lang, channel, query.get('servicio', [''])[0] or None, query.get('tipo', [''])[0] or None)); return True
+        m = re.fullmatch(r'/api/mi-reserva/(\d{1,12}\.[A-Za-z0-9_\-]{20,80})', path)
+        if m:
+            b = guest_booking(db, m.group(1))
+            self.send_json({'booking': guest_booking_view(db, b, normalize_lang(query.get('lang', ['es'])[0]))}); return True
+        return False
+
+    def sales_post(self, db, path):
+        """POST routes of «Vender en tu web»: price, booking, and the customer's own booking (pay, cancel)."""
+        m = re.fullmatch(r'/api/w/([a-z0-9-]{3,60})/(precio|reservar)', path)
+        if m:
+            found = provider_by_slug(db, m.group(1))
+            if not found: raise NotFound('Centro no encontrado.')
+            kind, pid, row = found; data = json_body(self)
+            if m.group(2) == 'precio':
+                self.send_json(sales_quote(db, kind, pid, data)); return True
+            channel = 'widget' if data.get('canal') == 'widget' else 'link'
+            status, body = sales_book(self, db, kind, pid, row, channel, data)
+            self.send_json(body, status); return True
+        m = re.fullmatch(r'/api/mi-reserva/(\d{1,12}\.[A-Za-z0-9_\-]{20,80})/(pagar|cancelar)', path)
+        if m:
+            if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
+            b = guest_booking(db, m.group(1)); data = json_body(self)
+            if m.group(2) == 'cancelar':
+                out = guest_cancel(db, b, None, data); db.commit(); self.send_json(out); return True
+            tok = m.group(1); base = public_site_url()
+            ret = ((f'{base}/w/pago/{tok}?r=ok', f'{base}/w/pago/{tok}?r=cancel') if data.get('ventana')
+                   else (f'{base}/mi-reserva/{tok}?pago=ok', f'{base}/mi-reserva/{tok}?pago=cancelado'))
+            u = dict(db.execute('SELECT * FROM users WHERE id=?', (b['user_id'],)).fetchone()); u['email'] = b['contact_email'] or u['email']
+            db.commit()
+            out = start_checkout(db, u, b, return_to=ret); db.commit()
+            self.send_json({'ok': True, 'checkout_url': out['checkout_url']}); return True
+        return False
 
     def security_headers(self, csp=True):
         self._sec_sent = True
@@ -12546,6 +12983,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     self.send_header('Cache-Control','no-store'); self.send_header('X-Robots-Tag','noindex'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return   # names of clients: never in a cache (ASVS V14.3.2)
                 if path.startswith('/widget/'):
                     self.serve_widget(db,path,query); return
+                if path=='/widget.js' or path.startswith(('/w/','/c/','/mi-reserva/','/api/w/','/api/mi-reserva/')):
+                    if self.sales_get(db,path,query): return
                 if re.fullmatch(r'/r/[0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
                     # Link of a notice (WhatsApp button, email, app): the web opens only that booking.
                     self.redirect('/#/r/'+path[3:]); return
@@ -12672,13 +13111,19 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     require_feature(db,user,'calendar_ical')
                     r=db.execute(f'SELECT ical_token FROM {provider_table(ref[0])} WHERE id=?',(ref[1],)).fetchone()
                     self.send_json({'url':f"{public_site_url()}/ical/{r['ical_token']}.ics" if r and r['ical_token'] else None}); return
-                if path == '/api/provider/widget':
+                if path in ('/api/provider/vender','/api/provider/widget'):
+                    # v50.56 · «Vender en tu web»: snippet in three formats, the page, links, QR, domains, look and plan.
                     user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
                     if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
-                    base=public_site_url(); kind='center' if ref[0]=='center' else 'pro'
-                    link=f"{base}/#/reservar?center={ref[1]}" if ref[0]=='center' else f"{base}/#/profesional?id={ref[1]}"
-                    self.send_json({'widget':provider_has(db,*ref,'widget'),'link':link,'iframe':f'<iframe src="{base}/widget/{kind}/{ref[1]}" title="Reservas" style="width:100%;max-width:520px;height:560px;border:0" loading="lazy"></iframe>',
-                                    'whatsapp':'https://wa.me/?text='+quote('Reserva tu inmersión aquí: '+link),'instagram':link}); return
+                    row=sales_row(db,*ref); db.commit(); base=public_site_url()
+                    services=[{'id':s_['id'],'title':s_['title'],'type':s_['type'],'link':sales_link_url(base,row['slug'],s_['id'])} for s_ in sales_services(db,*ref,with_dates=False)]
+                    self.send_json({**sales_links(db,*ref,row,base),'color':row['brand_color'] or '','lang':row['widget_lang'] or '','langs':list(wtx.LANGS),
+                                    'domains':sales_domains(row),'local_domains':allow_local_domains(),'services':services,
+                                    'plan':{'widget':provider_has(db,*ref,'widget'),'online_bookings':provider_has(db,*ref,'online_bookings'),'api':provider_has(db,*ref,'integration'),
+                                            'ical':provider_has(db,*ref,'calendar_ical')},
+                                    'widget':provider_has(db,*ref,'widget'),'link':f"{base}/c/{row['slug']}",
+                                    'whatsapp':'https://wa.me/?text='+quote('Reserva tu inmersión aquí: '+f"{base}/c/{row['slug']}"),'instagram':f"{base}/c/{row['slug']}",
+                                    'iframe':f'<iframe src="{base}/w/{row["slug"]}?f=lista" title="Reservas" style="width:100%;max-width:560px;height:620px;border:0" loading="lazy"></iframe>'}); return
                 # ------------------------------------------------ v50.47 · mass notices and WhatsApp of each centre
                 if re.fullmatch(r'/api/avisos/[0-9a-f]{32}',path):
                     user=require_user(self,db); ctx=winq.require_ctx(db,user)
@@ -14110,6 +14555,30 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                 team_gate(db,current_user(self,db),path,'POST')
                 admin_reason_gate(self,db,path,'POST')
                 tenant_guard(self,db,path)
+                if path.startswith(('/api/w/','/api/mi-reserva/')) and self.sales_post(db,path): return   # v50.56: widget and the centre's page
+                if path=='/api/provider/vender':
+                    # v50.56 · «Vender en tu web»: the address of the page, colour, language of the widget and authorised domains.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    row=sales_row(db,*ref); slug=row['slug']
+                    if 'slug' in data and data.get('slug')!=slug:
+                        slug=wch.clean_slug(data.get('slug'))
+                        if not slug: raise ValueError('La dirección solo puede llevar letras sin acentos, números y guiones (3 a 60).')
+                        if db.execute('SELECT 1 FROM sales_settings WHERE slug=? AND NOT (provider_kind=? AND provider_id=?)',(slug,*ref)).fetchone(): raise ValueError('Esa dirección ya la usa otro centro. Prueba otra.')
+                    color=wch.clean_color(data['color']) if data.get('color') else (None if 'color' in data else row['brand_color'])
+                    if data.get('color') and not color: raise ValueError('El color debe ser como #0a6e8c.')
+                    lang=data.get('lang') if data.get('lang') in wtx.LANGS else (None if 'lang' in data else row['widget_lang'])
+                    domains=sales_domains(row)
+                    if 'domains' in data:
+                        raw=data.get('domains'); raw=raw if isinstance(raw,list) else re.split(r'[\s,;]+',str(raw or ''))
+                        raw=[x for x in raw if str(x).strip()]
+                        domains=wch.clean_domains(raw,allow_local=allow_local_domains())
+                        bad=[x for x in raw if not wch.clean_domain(x,allow_local_domains())]
+                        if bad: raise ValueError(f'«{clean_text(bad[0],80)}» no es un dominio válido. Escribe solo el dominio de tu web, por ejemplo buceomarazul.com.')
+                    db.execute('UPDATE sales_settings SET slug=?,brand_color=?,widget_lang=?,allowed_domains=?,updated_by=?,updated_at=? WHERE provider_kind=? AND provider_id=?',
+                               (slug,color,lang,json.dumps(domains),user['id'],now(),*ref))
+                    audit(db,user['id'],'sales_settings_saved',ref[0],ref[1],{'slug':slug,'domains':domains,'color':color,'lang':lang}); db.commit()
+                    self.send_json({'ok':True,'slug':slug,'domains':domains,'color':color or '','lang':lang or ''}); return
                 if path=='/api/payments/webhook/connect':
                     # Events of the connected accounts (direct charges, refunds, disputes, account changes).
                     stripe_webhook(self,db,'STRIPE_CONNECT_WEBHOOK_SECRET',True); return
@@ -15579,33 +16048,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if me and me['id']==target['id']: self.logout_user(); return
                     self.send_json({'ok':True}); return
                 if path.startswith('/api/bookings/') and path.endswith('/cancel'):
+                    # The diver cancels his own booking (v50.56: the same function as the page of a booking without account).
                     user=require_user(self,db); bid=int(path.split('/')[-2]); data=json_body(self)
                     b=db.execute('SELECT * FROM bookings WHERE id=? AND user_id=?',(bid,user['id'])).fetchone()
                     if not b: self.send_json({'error':'Reserva no encontrada'},404); return
-                    if wbk.normalize_state(b['status'])=='payment_in_progress':
-                        # Abandoning the payment of a «Pago al reservar» booking: nothing was charged, the spots are freed.
-                        for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchall(): release_order_hold(db,o,'cancelled')
-                        if wbk.normalize_state(booking_row(db,bid)['status'])=='payment_in_progress': expire_booking(db,booking_row(db,bid),'payment_cancelled',notify=False)
-                        db.commit(); self.send_json({'ok':True,'refund':'none_paid','refund_amount':0}); return
-                    if wbk.normalize_state(b['status']) not in wbk.CANCELLABLE: raise ValueError('Esta reserva ya no se puede cancelar.')
-                    terms=booking_cancel_terms(db,b)
-                    if terms['started']: raise ValueError('La actividad ya ha empezado o ha pasado: habla directamente con el centro.')
-                    if data.get('preview'): self.send_json({'ok':True,'terms':terms}); return
-                    if db.execute("SELECT 1 FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchone():
-                        for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'",(bid,)).fetchall(): release_order_hold(db,o,'cancelled')
-                        b=db.execute('SELECT * FROM bookings WHERE id=?',(bid,)).fetchone()
-                    if db.execute("UPDATE bookings SET status='cancelled',cancelled_at=?,cancelled_by='diver',updated_at=? WHERE id=? AND status IN ('pending','requested','accepted_pending_payment','confirmed')",(now(),now(),bid)).rowcount!=1: raise ValueError('Esta reserva ya no se puede cancelar.')
-                    release_booking_spots(db,b)
-                    outcome='none_paid'
-                    if terms['paid_online']:
-                        # Fase 2.4: the provider manages its refunds. The amount of its policy is proposed to it (and reminded after 72 h).
-                        propose_refund(db,b,terms['refund_amount'],'diver_cancel')
-                        outcome='proposed' if terms['refund_amount']>0 else 'no_refund'
-                    reason=clean_text(data.get('reason'),300)
-                    if reason: db.execute('UPDATE bookings SET internal_notes=COALESCE(internal_notes||char(10),\'\')||? WHERE id=?',('Motivo de la cancelación: '+reason,bid))
-                    notify_booking(db,bid,'cancelled_diver',{'refund':outcome})
-                    audit(db,user['id'],'booking_cancelled_by_diver','booking',bid,{'refund':outcome,'amount':terms['refund_amount']}); db.commit()
-                    self.send_json({'ok':True,'refund':outcome,'refund_amount':terms['refund_amount']}); return
+                    out=guest_cancel(db,b,user['id'],data); db.commit(); self.send_json(out); return
                 if path in ('/api/center/cancellation-policy','/api/provider/cancellation-policy'):
                     # Fase 2.6: free cancellation until X hours before, then Y % refunded. The three old presets still work.
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); pol=data.get('policy')

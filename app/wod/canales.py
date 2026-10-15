@@ -59,11 +59,16 @@ def idem_hash(scope: str, key: str) -> str:
 HOST_RE = re.compile(r'(?:\*\.)?(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}')
 
 
-def clean_domain(value) -> str | None:
+LOCAL_RE = re.compile(r'(localhost|127\.0\.0\.1):(\d{2,5})')
+
+
+def clean_domain(value, allow_local: bool = False) -> str | None:
     """«https://www.BuceoMarAzul.com/reservas» → «www.buceomarazul.com». «*.marazul.com» allows its subdomains.
-    No IP addresses, no localhost, no ports: a real website of the centre."""
+    No IP addresses, no localhost, no ports: a real website of the centre. Only the test package (never production,
+    allow_local) accepts «localhost:8101» or «127.0.0.1:8101», for the example website of the centre."""
     s = str(value or '').strip().lower()
     s = re.sub(r'^[a-z][a-z0-9+.-]*://', '', s).split('/')[0].split('?')[0].split('#')[0].rstrip('.')
+    if allow_local and LOCAL_RE.fullmatch(s): return s
     if ':' in s: s = s.split(':')[0]
     try:
         ipaddress.ip_address(s.lstrip('*.')); return None
@@ -72,20 +77,24 @@ def clean_domain(value) -> str | None:
     return s if HOST_RE.fullmatch(s) else None
 
 
-def clean_domains(values, limit: int = 10) -> list[str]:
+def clean_domains(values, limit: int = 10, allow_local: bool = False) -> list[str]:
     out = []
     for v in (values if isinstance(values, (list, tuple)) else re.split(r'[\s,;]+', str(values or ''))):
-        d = clean_domain(v)
+        d = clean_domain(v, allow_local)
         if d and d not in out: out.append(d)
     return out[:limit]
 
 
 def host_allowed(host: str, allowed: list[str]) -> bool:
-    """«buceomarazul.com» also covers «www.buceomarazul.com»; «*.marazul.com» covers any subdomain (not the bare one)."""
-    h = str(host or '').lower().split(':')[0].rstrip('.')
+    """«buceomarazul.com» also covers «www.buceomarazul.com»; «*.marazul.com» covers any subdomain (not the bare one).
+    A local test entry («localhost:8101») must match host and port exactly."""
+    raw = str(host or '').lower().rstrip('.')
+    h = raw.split(':')[0]
     if not h: return False
     for d in allowed or []:
-        if d.startswith('*.'):
+        if LOCAL_RE.fullmatch(d):
+            if raw == d: return True
+        elif d.startswith('*.'):
             if h.endswith(d[1:]) and h != d[2:]: return True
         elif h == d or h == 'www.' + d:
             return True
@@ -96,10 +105,75 @@ def frame_ancestors(allowed: list[str], extra=()) -> str:
     """CSP frame-ancestors for the widget of one centre: only its domains (https), never «*»."""
     parts = []
     for d in allowed or []:
+        if LOCAL_RE.fullmatch(d):
+            parts.append(f'http://{d}'); continue
         parts.append(f'https://{d}')
         if not d.startswith('*.') and not d.startswith('www.'): parts.append(f'https://www.{d}')
     parts += [x for x in extra if x]
     return ' '.join(dict.fromkeys(parts)) or "'none'"
+
+
+def origin_host(url: str) -> str:
+    """«https://www.marazul.com/reservas?x» → «www.marazul.com»; «http://localhost:8101/» → «localhost:8101»."""
+    m = re.match(r'^[a-z][a-z0-9+.-]*://([^/?#]+)', str(url or '').strip().lower())
+    if not m: return ''
+    host = m.group(1).split('@')[-1]
+    return host if LOCAL_RE.fullmatch(host) else host.split(':')[0]
+
+
+# ------------------------------------------------------------------ the centre's page and widget (Partes C y D)
+SLUG_RE = re.compile(r'[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])')
+RESERVED_SLUGS = frozenset({'admin', 'api', 'app', 'c', 'w', 'www', 'widget', 'worldives', 'reservar', 'reserva', 'centro', 'centros', 'pagar',
+                            'mi-reserva', 'nuevo', 'demo', 'prueba', 'pruebas', 'login', 'registro', 'legal', 'ayuda', 'soporte'})
+WIDGET_FORMATS = ('boton', 'calendario', 'lista')
+COLOR_RE = re.compile(r'#[0-9a-f]{6}')
+
+
+def slugify(text: str) -> str:
+    """«Buceo Mar Azul · Xàbia» → «buceo-mar-azul-xabia» (letters and digits only, 3 to 60 characters)."""
+    import unicodedata
+    s = ''.join(ch for ch in unicodedata.normalize('NFKD', str(text or '').lower()) if not unicodedata.combining(ch))
+    s = re.sub(r'[^a-z0-9]+', '-', s).strip('-')[:60].strip('-')
+    return s
+
+
+def clean_slug(value) -> str | None:
+    s = slugify(value)
+    return s if SLUG_RE.fullmatch(s or '') and s not in RESERVED_SLUGS else None
+
+
+def clean_color(value) -> str | None:
+    s = str(value or '').strip().lower()
+    return s if COLOR_RE.fullmatch(s) else None
+
+
+# ------------------------------------------------------------------ invisible check against bots (proof of work)
+# Only after several attempts from the same address: the browser of a person solves it in about a second without
+# seeing anything; a bot sending hundreds of bookings pays the work every time. No third-party service, no cookie.
+POW_BITS = 14
+POW_TTL = 300
+
+
+def pow_challenge(secret_hash, now: int | None = None) -> str:
+    """«<unix>.<random>.<bits>.<mac>»: the server keeps nothing; the MAC proves it issued the challenge."""
+    ts = int(now if now is not None else time.time()); rnd = secrets.token_hex(8)
+    body = f'{ts}.{rnd}.{POW_BITS}'
+    return f'{body}.{secret_hash(body)[:24]}'
+
+
+def pow_ok(secret_hash, challenge: str, nonce, now: int | None = None) -> bool:
+    try:
+        ts, rnd, bits, mac = str(challenge).split('.')
+        ts, bits = int(ts), int(bits)
+    except ValueError:
+        return False
+    if not hmac.compare_digest(secret_hash(f'{ts}.{rnd}.{bits}')[:24], mac): return False
+    if bits < POW_BITS or abs(int(now if now is not None else time.time()) - ts) > POW_TTL: return False
+    n = str(nonce or '')
+    if not re.fullmatch(r'[0-9]{1,12}', n): return False
+    digest = hashlib.sha256(f'{challenge}:{n}'.encode()).digest()
+    value = int.from_bytes(digest[:4], 'big')
+    return value >> (32 - bits) == 0
 
 
 # ------------------------------------------------------------------ API keys of a centre

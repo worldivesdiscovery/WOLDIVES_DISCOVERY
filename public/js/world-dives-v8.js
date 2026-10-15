@@ -1941,6 +1941,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         ${pro?`<p class="notice reg-review">${center?'Revisaremos tu centro y te avisaremos por email.':'Revisaremos tu perfil profesional y te avisaremos por email.'} Mientras tanto, la cuenta funciona como cuenta de buceador.</p>`:''}
         <div class="lg-accept">${terms}</div><div class="form-actions"><button class="btn btn-primary" type="submit">Crear cuenta</button></div></form><p class="auth-alt">¿Ya tienes cuenta? <a href="#/login">Iniciar sesión</a></p>`));
     $('#r-cert')?.addEventListener('change',e=>{ const o=e.target.value==='other'; $('#r-cert-other-wrap').hidden=!o; $('#r-cert-other').required=o; });
+    { const pre=String(params?.get?.('email')||'').trim(); if(pre&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(pre)&&$('#r-email')) $('#r-email').value=pre.slice(0,160); }   // v50.56: from «Crear mi cuenta» after booking on a centre's website
     $('#register-form').onsubmit=async e=>{e.preventDefault(); const f=e.target; if(!f.reportValidity()) return; const btn=$('#register-form button[type=submit]'); btn.disabled=true;
       const v=id=>$(id)?.value?.trim()||''; const cert=v('#r-cert');
       try{ const r=await postJSON('/api/auth/register',{fullname:v('#r-name'),email:v('#r-email'),password:$('#r-pass').value,account_type:type,center_name:v('#r-center-name'),phone:v('#r-phone'),country:v('#r-country'),city:v('#r-city'),

@@ -151,7 +151,9 @@ REGLAS_POST = (
     ('centro', _P('/api/provider/insurance', '/api/provider/cancellation-policy', '/api/center/cancellation-policy', '/api/center/profile',
                   '/api/provider/profile', '/api/provider/avatar', '/api/provider/center-update', '/api/provider/center-showcase',
                   '/api/provider/center-cover', '/api/provider/center-gallery', '/api/center/integration', '/api/provider/ical', '/api/center/import',
-                  '/api/center/tariffs', '/api/provider/waiver', '/api/marina/')),
+                  '/api/center/tariffs', '/api/provider/waiver', '/api/marina/',
+                  # v50.56 · «Vender en tu web»: widget, page, API keys, webhooks and imported calendars
+                  '/api/provider/vender', '/api/provider/api-keys', '/api/provider/webhooks', '/api/provider/ical-imports')),
     ('salidas', _P('/api/provider-services', '/api/service-templates/', '/api/agenda/')),
 )
 REGLAS_GET = (
@@ -159,7 +161,7 @@ REGLAS_GET = (
     ('cobros', _P('/api/provider/payments', '/api/payments/center')),
     # ASVS 5.0 V8.2.1: requests, clients and their contact details (the exports are checked by kind in the route).
     ('reservas', _P('/api/center/requests', '/api/center/clients', '/api/center/info-requests')),
-    ('centro', _P('/api/provider/ical',)),
+    ('centro', _P('/api/provider/ical', '/api/provider/api-keys', '/api/provider/webhooks', '/api/provider/ical-imports')),
     ('estadisticas', _P('/api/provider/stats', '/api/center/analytics')),
 )
 
