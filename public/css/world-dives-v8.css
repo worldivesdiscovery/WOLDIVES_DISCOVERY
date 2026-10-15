@@ -3675,3 +3675,10 @@ html.wd-app .pp-page{padding-bottom:150px}
 .wd-export-msg.is-bad{color:#a0392b}
 .wd-export-wrap{margin:12px 0}
 .wd-export-wrap>summary{cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-weight:600;padding:6px 0}
+
+/* v50.57 (revisión general, 2.1): «← Volver» and where you are on every editing screen */
+.wd-crumbs-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:0 0 14px}
+.wd-crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:0}
+.wd-crumbs a{font-weight:600}
+.wd-crumb-sep{color:var(--muted,#65747d)}
+.wd-back{min-height:38px;padding:6px 14px}

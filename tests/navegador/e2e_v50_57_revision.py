@@ -84,6 +84,15 @@ def run(out: Path | None):
                 pg.wait_for_selector(ready, timeout=15000); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(wait)
                 return pg.inner_text('main') if pg.locator('main').count() else pg.inner_text('body')
 
+            def wait_hash(pg, test, timeout=15000):
+                """The page's CSP does not allow wait_for_function with text: the address is read until it matches."""
+                h = ''
+                for _ in range(timeout // 100):
+                    h = pg.evaluate('location.hash')
+                    if test(h): return h
+                    pg.wait_for_timeout(100)
+                raise AssertionError('dirección: ' + h)
+
             def shot(pg, name, full=False):
                 if out: out.mkdir(parents=True, exist_ok=True); pg.screenshot(path=str(out / f'{name}.png'), full_page=full)
 
@@ -182,6 +191,75 @@ def run(out: Path | None):
             t = pg.inner_text('body')
             check('1.1 · administración: si falla una parte, el Centro de control se abre igual y lo dice', 'Centro de control' in t and 'No se ha podido abrir' not in t
                   and 'Actividad' in pg.inner_text('.wd-block-error'), t[:400])
+            c.close()
+
+            # 2.1 · always back to where you were
+            c, pg = ctx(); login(pg, 'admin.prueba')
+            pg.goto(f'{srv.base}/#/admin?tab=points'); pg.wait_for_selector('.edit-point', timeout=15000)
+            pid = pg.locator('.edit-point').first.get_attribute('data-id')
+            pg.locator('.edit-point').first.click(); pg.wait_for_selector('#point-form', timeout=15000)
+            crumbs = pg.inner_text('.wd-crumbs')
+            check('2.1 · editar un punto tiene su dirección propia', pg.evaluate('location.hash') == f'#/admin?tab=points&edit={pid}', pg.evaluate('location.hash'))
+            check('2.1 · migas «Centro de control › Puntos de buceo › Editar …» y «← Volver»',
+                  crumbs.startswith('Centro de control') and 'Puntos de buceo' in crumbs and 'Editar ' in crumbs and pg.locator('.wd-back').is_visible(), crumbs)
+            shot(pg, 'b2-1-editar-punto-migas')
+            pg.go_back(); pg.wait_for_selector('.edit-point', timeout=15000)
+            check('2.1 · el botón «atrás» del navegador vuelve a la lista de puntos', pg.evaluate('location.hash') == '#/admin?tab=points', pg.evaluate('location.hash'))
+            pg.go_forward(); pg.wait_for_selector('#point-form', timeout=15000)
+            pg.locator('.wd-back').click(); pg.wait_for_selector('.edit-point', timeout=15000)
+            check('2.1 · «← Volver» lleva a la lista de puntos', pg.evaluate('location.hash') == '#/admin?tab=points', pg.evaluate('location.hash'))
+            pg.goto(f'{srv.base}/#/admin?tab=points&edit={pid}'); pg.wait_for_selector('#point-form', timeout=15000)
+            name = pg.input_value('#p-name')
+            pg.locator('#point-form button.btn-primary').last.click()
+            wait_hash(pg, lambda h: h == '#/admin?tab=points'); pg.wait_for_selector('.edit-point', timeout=15000)
+            check('2.1 · «Guardar» un punto vuelve a Administración › Puntos con «Guardado»',
+                  'Guardado' in pg.inner_text('body') and 'Explorar' not in pg.inner_text('#app')[:200], pg.inner_text('body')[:300])
+            shot(pg, 'b2-1-guardado-vuelve-a-puntos')
+            check('2.1 · el punto se ha guardado sin cambios no pedidos', name in pg.inner_text('#app'), name)
+            # the menu of the section you are in always works (before: from «Editar punto», «Administración» did nothing)
+            pg.goto(f'{srv.base}/#/admin'); pg.wait_for_selector('.provider-tabs', timeout=15000); pg.wait_for_load_state('networkidle')
+            pg.evaluate("document.querySelector('#app').insertAdjacentHTML('afterbegin','<p id=wd-mark>marca</p>')")
+            pg.locator('#account-toggle').click(); pg.locator('#account-dropdown a[href="#/admin"]').click()
+            pg.wait_for_selector('#wd-mark', state='detached', timeout=8000); pg.wait_for_selector('.provider-tabs', timeout=15000)
+            check('2.1 · pulsar «Administración» estando ya en Administración la vuelve a cargar', pg.locator('#wd-mark').count() == 0)
+            for tabname, sel, form, label in (('centers', '#new-center', '#center-form', 'Nuevo centro'), ('centers', '.edit-center', '#center-form', 'Editar centro'),
+                                              ('destinations', '.edit-destination', '#destination-form', 'Editar destino')):
+                pg.goto(f'{srv.base}/#/admin?tab={tabname}'); pg.wait_for_selector(sel, timeout=15000)
+                pg.locator(sel).first.click()
+                try: pg.wait_for_selector(form, timeout=10000); ok = True
+                except Exception: ok = False
+                check(f'2.1 · Administración › {label} se abre, con su dirección y «← Volver»', ok and pg.locator('.wd-back').is_visible(), pg.evaluate('location.hash'))
+            pg.locator('#destination-form button.btn-primary').click()
+            wait_hash(pg, lambda h: h == '#/admin?tab=destinations')
+            check('2.1 · «Guardar destino» vuelve a Administración › Destinos con «Guardado»', 'Guardado' in pg.inner_text('body'))
+            # changing mode at the first try: Administración → public page of a centre → Administración
+            pg.locator('#main-nav a[href="#/centros"]').first.click(); wait_hash(pg, lambda h: h == '#/centros')
+            pg.wait_for_selector('a[href^="#/centro?id="]', timeout=15000); pg.locator('a[href^="#/centro?id="]').first.click()
+            wait_hash(pg, lambda h: h.startswith('#/centro?id=')); pg.wait_for_load_state('networkidle')
+            pg.locator('#account-toggle').click(); pg.locator('#account-dropdown a[href="#/admin"]').click()
+            pg.wait_for_selector('.provider-tabs', timeout=15000)
+            check('2.1 · de la ficha de un centro a Administración, a la primera', 'Centro de control' in pg.inner_text('#app'))
+            # a slow screen that finishes after the next one does not cover it
+            pg.goto(f'{srv.base}/#/centros'); pg.wait_for_selector('a[href^="#/centro?id="]', timeout=15000)
+            pg.evaluate("""() => { const f = window.fetch; window.fetch = (u, o) => String(u).includes('/api/admin/audit') ? new Promise(r => setTimeout(r, 2500)).then(() => f(u, o)) : f(u, o);
+                                   location.hash = '#/admin'; setTimeout(() => { location.hash = '#/centros'; }, 300); }""")
+            pg.wait_for_timeout(8000)   # in v50.56 Administración covered «Centros» after about 5.6 s
+            t = pg.inner_text('#app')
+            check('2.1 · una pantalla lenta (Administración) no tapa la siguiente', pg.evaluate('location.hash') == '#/centros' and 'Centro de control' not in t, t[:200])
+            shot(pg, 'b2-1-pantalla-lenta-no-tapa')
+            c.close()
+            # «Volver» never takes you out of the web (you arrived from another site)
+            c, pg = ctx()
+            pg.goto('data:text/html,<p>otra web</p>'); pg.goto(f'{srv.base}/#/centros'); pg.wait_for_selector('a[href^="#/centro?id="]', timeout=15000)
+            href = pg.locator('a[href^="#/centro?id="]').first.get_attribute('href')
+            pg.goto(f'{srv.base}/{href}'); pg.wait_for_selector('#global-back', timeout=15000)
+            pg.locator('#global-back').click(); pg.wait_for_timeout(1500)
+            check('2.1 · «Volver» vuelve a la pantalla anterior de la web', pg.url.startswith(srv.base) and pg.evaluate('location.hash') == '#/centros', pg.url)
+            c.close()
+            c, pg = ctx()
+            pg.goto('data:text/html,<p>otra web</p>'); pg.goto(f'{srv.base}/{href}'); pg.wait_for_selector('#global-back', timeout=15000)
+            pg.locator('#global-back').click(); pg.wait_for_timeout(1500)
+            check('2.1 · «Volver» en la primera pantalla no saca de la web (va al inicio)', pg.url.startswith(srv.base), pg.url)
             c.close()
             browser.close()
     finally:
