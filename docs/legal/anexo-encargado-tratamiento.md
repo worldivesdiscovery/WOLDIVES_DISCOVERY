@@ -1,6 +1,7 @@
 # Anexo de encargo del tratamiento (art. 28 RGPD) entre el centro y WORLDIVES
 
-Versión v50.52 · 14/10/2026 (subencargados y medidas al día)
+Versión v50.56 · 15/10/2026 (motor de reservas multicanal: widget, página del centro, enlaces, API v1, webhooks e iCal; apartado A.5)
+Antes: v50.52 · 14/10/2026 (subencargados y medidas al día)
 Estado: borrador para revisión
 
 Este documento tiene dos partes:
@@ -26,6 +27,8 @@ Son datos que **el centro introduce o decide tratar** para su propio negocio. WO
 | **Avisos del centro a sus clientes** | Aviso ligado a una reserva (tabla `messages`, `kind` de aviso), enviado por email y a «Avisos». No hay respuesta por la plataforma. | Texto del aviso, contacto del centro | Clientes del centro |
 | **Correos de servicio por cuenta del centro** | Confirmaciones, cambios de fecha, cancelaciones y devoluciones de reservas hechas por el centro (`email_outbox`). | Nombre, email, datos de la reserva | Clientes del centro |
 | **Exportaciones** | `GET /api/center/export?kind=clients|bookings|services|payments` → `provider_export()`. Disponible en todos los planes. Los pagos solo los exporta el propietario. Cada exportación queda en `audit_log` (`provider_export`). | Lo exportado | Clientes del centro |
+| **Reservas en la web del centro, su página, sus enlaces y la API v1** (v50.56, canales `widget`, `link`, `api`) | `create_booking()` en `app/server.py`, la única función que crea reservas. Quien reserva sin entrar con su cuenta de WORLDIVES queda como **ficha propia del centro** (`users.password_hash='!'`, `guest_center_id` o `guest_provider_user_id`, email de relleno `…@sin-email.worldives.local`; el email y el teléfono reales van en `bookings.contact_*`). Ver A.5. | Nombre, email, teléfono, comentarios, idioma, actividad, fecha, participantes, precio y pago, canal y dominio de la web (`bookings.channel`, `channel_origin`) | Clientes del centro (sin cuenta) |
+| **Avisos automáticos a la web del centro (webhooks) y calendarios iCal** (v50.56) | `webhook_endpoints`, `webhook_deliveries` (firmados con HMAC, reintentos 24 h); `/ical/<token>.ics` y la importación `ical_imports` cada 15 minutos | Datos de la reserva que el centro elige recibir en su servidor; en iCal, solo actividad, hora, plazas y nombre corto | Clientes del centro |
 | **Equipo del centro** | Invitaciones (`team_invites`) y miembros (`center_members`) con perfiles propietario / recepción / instructor. Cada acción queda en `audit_log` con `center_id`. | Nombre y email del empleado, perfil, acciones | Personal del centro |
 | **Cobros en mostrador y devoluciones** | «Cobrar el resto», «Devolver» (`payment_refunds`), incidencias. | Importes, estado de pago | Clientes del centro |
 
@@ -70,6 +73,46 @@ Para corregir o decidir antes de publicar el anexo:
 5. **Las copias de seguridad no están cifradas en el servidor.** `backup.py` las comprime (gzip) con permisos `0600`. El cifrado solo existe si el destino externo lo aplica (recomendación de `docs/despliegue/README.md`: remoto `crypt` de rclone). La política de privacidad publicada dice «copias de seguridad cifradas». **[PENDIENTE TITULAR]**: cifrar en origen o corregir el texto.
 6. **El secreto TOTP** (`users.totp_secret`) se guarda sin cifrar en la base. Los códigos de recuperación sí se guardan con hash.
 
+### A.5 Motor de reservas multicanal (v50.56)
+
+Lo que dice el encargo del titular: «Los clientes que reservan por el widget son clientes del centro. WORLDIVES es
+encargado del tratamiento, no hace marketing propio con ellos y nunca los muestra a otros centros. Si crean cuenta, son
+usuarios de WORLDIVES con su propio consentimiento». Cómo lo cumple el código hoy:
+
+| Regla | Dónde está | Prueba |
+|---|---|---|
+| El cliente del widget, de la página `/c/<centro>`, de un enlace o de la API **es una ficha del centro**, no una cuenta de WORLDIVES. Nunca se enlaza a una cuenta aunque el email coincida | `create_booking()` (rama de invitado), `find_or_create_customer()` | `tests/test_v50_56_widget.py::test_cliente_del_widget_es_del_centro` |
+| **Sin publicidad de WORLDIVES**: los correos comerciales excluyen las fichas de centros y de freelance (`guest_center_id`, `guest_provider_user_id`, `password_hash='!'`) | `/api/admin/marketing/send` | la misma prueba (incluso con el permiso marcado por error) |
+| **Ningún otro centro los ve**: ni la reserva, ni la ficha, ni la exportación | aislamiento por centro (v50.47) | la misma prueba y `tests/test_v50_47_aislamiento.py` |
+| Los correos de la reserva llevan **el nombre, el logo y el color del centro**; las respuestas van al email del centro (`Reply-To`); WORLDIVES solo aparece como «Reservas con tecnología de WORLDIVES» | `booking_mail_ctx()`, `render_email()`, `queue_email()` | `test_correo_con_la_marca_del_centro` |
+| En el paso de datos el cliente ve: «Reservas con {centro}. WORLDIVES gestiona la reserva por encargo del centro.» y el enlace a la privacidad | `public/js/wd-reservar.js`, `app/wod/widget_textos.py` (`processor`, 9 idiomas) | `tests/navegador/e2e_v50_56_widget.py` |
+| El widget **no pone cookies** ni guarda nada en el navegador; no carga nada de terceros | `/w/<centro>`, `widget.js` | `test_widget_js_ligero_y_sin_cookies`, `test_cabeceras_dominios_y_sin_cookies` |
+| **Cuenta opcional**: al terminar se ofrece «Crear mi cuenta» con el email ya escrito. Es un alta normal en WORLDIVES (acepta términos y privacidad). La reserva **no se mueve** a la cuenta: sigue siendo del centro | pantalla final del widget → `#/registro?email=` | — |
+| El cliente sin cuenta ve, paga y cancela su reserva con un enlace privado (`/mi-reserva/<id>.<token>`) | `guest_booking_view()`, `guest_cancel()` | `test_reserva_sin_cuenta_con_su_enlace` |
+| Contra abusos se cuenta en memoria cuántas reservas llegan desde la misma IP y, a partir de 5 en 10 minutos, se pide una comprobación invisible al navegador. La IP no se guarda | `WIDGET_LIMIT`, `WIDGET_SOFT`, `wod/canales.py` (`pow_*`) | `test_comprobacion_invisible_y_limite` |
+| Webhooks: el centro decide la dirección de su servidor y qué avisos recibe; los datos salen **por instrucción del centro** | `/api/provider/webhooks` | `tests/test_v50_56_api.py` |
+| iCal: el calendario exportado no lleva emails ni teléfonos; el importado solo bloquea plazas y guarda el título del evento | `ical_feed()`, `ical_import_sync()` | `tests/test_v50_56_ical.py` |
+| El cobro va **a la cuenta de Stripe del centro** (cargo directo), igual que en WORLDIVES | `start_checkout()` | `test_canal_origen_precio_y_plazas` |
+
+**Una persona con cuenta de WORLDIVES** que reserva en la página `/c/<centro>` **con la sesión iniciada** hace una reserva
+de su cuenta, como en la web de WORLDIVES (el centro es responsable independiente, apartado A.1 punto 3). Dentro del
+widget incrustado en la web del centro no hay sesión de WORLDIVES (no hay cookies): siempre es ficha del centro.
+
+**[PENDIENTE ABOGADO]** sobre el motor multicanal:
+
+1. Confirmar la calificación: centro **responsable**, WORLDIVES **encargado** de las reservas por widget, página, enlace y
+   API, y si cambia algo cuando el cliente tiene cuenta de WORLDIVES pero reserva sin entrar.
+2. El texto que ve el cliente en el widget («WORLDIVES gestiona la reserva por encargo del centro») y el párrafo nuevo de
+   la política de privacidad (§1, 9 idiomas; texto en `docs/legal/cambios-v50.56-para-abogado.md`). ¿Basta para el
+   art. 13, o el centro debe enlazar su propia política en el widget? Hoy el widget enlaza la de WORLDIVES. Se puede
+   añadir un campo «política de privacidad del centro» en «Vender en tu web».
+3. La cuenta opcional al final de la reserva: ¿hace falta un aviso más (por ejemplo, «tu reserva seguirá siendo del
+   centro»)? ¿Se puede ofrecer sin un consentimiento previo del centro?
+4. La IP en memoria para limitar abusos (interés legítimo de seguridad de WORLDIVES como encargado, art. 32): confirmar
+   que no hace falta mencionarla aparte.
+5. Los webhooks pueden enviar los datos de la reserva a un servidor del centro fuera de la UE. Es una transferencia del
+   **centro** (responsable) por su instrucción: confirmar que la cláusula 6 lo cubre.
+
 ---
 
 ## Parte B · Plantilla del anexo
@@ -86,6 +129,10 @@ Para corregir o decidir antes de publicar el anexo:
 WORLDIVES trata por cuenta del centro los datos personales necesarios para prestarle las herramientas de gestión de la plataforma {{site_url}}:
 
 - fichas de clientes propias del centro (creadas a mano, por importación CSV o por la API de reservas);
+- reservas que los clientes hacen en la web del centro (widget), en su página de reservas de WORLDIVES, con sus enlaces o
+  códigos QR, o por la API v1 con las claves del centro, sin entrar con una cuenta de WORLDIVES, y los correos, enlaces
+  privados y pagos de esas reservas;
+- avisos automáticos (webhooks) al servidor que indique el centro y calendarios iCal exportados o importados;
 - reservas introducidas por el centro, planning, salidas y agenda;
 - avisos y correos de servicio que el centro envía a sus clientes sobre sus reservas;
 - registro de cobros en el centro y devoluciones;
@@ -114,7 +161,11 @@ WORLDIVES no usa estos datos para sus propios fines. En particular:
 
 - los clientes importados **no reciben comunicaciones comerciales** de WORLDIVES (`import_clients()`: «they never become accounts nor receive marketing»; el envío comercial excluye `guest_center_id`);
 - **no se enlazan** a cuentas registradas aunque coincida el email (`find_or_create_customer()`);
-- **no se ceden** a otros centros.
+- **no se ceden** a otros centros ni los ve ningún otro centro;
+- los clientes que reservan en la web del centro, en su página o por la API **no reciben comunicaciones comerciales** de
+  WORLDIVES y sus correos de reserva van con la marca del centro y la respuesta al centro;
+- si un cliente del centro decide crear una cuenta de WORLDIVES, esa cuenta es una relación aparte con WORLDIVES, con su
+  propio consentimiento; la reserva sigue siendo del centro.
 
 ### 4. Tipos de datos
 
@@ -126,13 +177,14 @@ Según las tablas del código (`BASE_SCHEMA` en `app/server.py`):
 | Reservas del centro (`bookings`) | Fecha y hora; actividad; participantes; equipo pedido y notas de equipo; guía; nitrox; recogida; notas; notas internas; contacto (`contact_name`, `contact_email`, `contact_phone`); precio, señal, importe pagado y pendiente, devoluciones; estado; referencia externa |
 | Avisos (`messages`) | Asunto, texto, contacto del centro |
 | Solicitudes de información (`info_requests`) | Nombre, email, teléfono, mensaje, fecha deseada, participantes, idioma; IP seudonimizada (`ip_hash`) |
+| Reservas por widget, página, enlace o API (v50.56) | Lo anterior más: comentarios para el centro, idioma, canal y dominio de la web desde la que se reservó; clave de idempotencia (huella SHA-256) |
 | Equipo (`center_members`, `team_invites`) | Nombre, email, perfil, acciones registradas en `audit_log` |
 
 **Datos de categorías especiales:** no están previstos. El centro se compromete a **no introducir datos de salud** (por ejemplo, en las notas o en la importación). WORLDIVES rechaza los certificados médicos (`MEDICAL_WORDS`, G6). **[PENDIENTE ABOGADO]**: las notas libres no se filtran; valorar si basta con esta obligación contractual.
 
 ### 5. Categorías de interesados
 
-- Clientes y clientes potenciales del centro.
+- Clientes y clientes potenciales del centro, también los que reservan en su web, su página o por su API.
 - Personas que piden información al centro.
 - Personal del centro (propietarios, recepción, instructores).
 
@@ -257,6 +309,7 @@ WORLDIVES avisará al centro **sin dilación indebida y, como máximo, en [48 ho
 | ABOGADO | Base legal del centro para importar clientes; notas libres y datos de salud |
 | ABOGADO | Conservación de reservas y pagos tras la baja del centro |
 | ABOGADO | Responsabilidad, costes de auditoría y ley aplicable |
+| ABOGADO | Motor multicanal (A.5): calificación, aviso en el widget y en la privacidad, cuenta opcional, IP en memoria, webhooks fuera de la UE |
 | TITULAR | Plazos: aviso de subencargados, reenvío de derechos, supresión, devolución, auditorías, aviso de brechas |
 | TITULAR | Mostrar y exportar los clientes importados sin reservas; borrar o editar fichas de cliente desde el panel |
 | TITULAR | Procedimiento de baja de un centro en el código |

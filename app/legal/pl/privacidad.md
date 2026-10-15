@@ -13,6 +13,8 @@ W przejrzysty sposób wyjaśniamy, jakie dane przetwarzamy, w jakim celu, komu j
 
 Gdy dokonujesz rezerwacji, **centrum lub profesjonalista świadczący usługę** jest niezależnym administratorem danych, które otrzymuje w celu jej świadczenia (zob. punkt 4).
 
+**Jeśli rezerwujesz na stronie internetowej, stronie rezerwacji lub przez link centrum** (zobaczysz „Rezerwacje w technologii WORLDIVES”) bez logowania się na konto WORLDIVES, jesteś klientem tego centrum: **administratorem Twoich danych jest centrum**, a WORLDIVES przetwarza je **w jego imieniu** (art. 28 RODO), wyłącznie w celu obsługi Twojej rezerwacji, płatności i dotyczących jej e-maili. Nie wykorzystujemy ich do własnej reklamy i żadne inne centrum ich nie widzi. Aby skorzystać ze swoich praw, skontaktuj się z centrum (możesz odpowiedzieć na dowolny jego e-mail); jeśli napiszesz do nas, przekażemy Twoje żądanie centrum. Jeśli dodatkowo założysz konto WORLDIVES, to konto jest odrębną relacją z nami, opartą na Twojej własnej zgodzie, a rezerwacja nadal należy do centrum.
+
 ## 2. Jakie dane przetwarzamy
 
 - **Konto:** imię i nazwisko, e-mail, nazwa użytkownika, hasło (przechowywane w postaci zaszyfrowanej algorytmem jednokierunkowym), język oraz, jeśli ją aktywujesz, klucz weryfikacji dwuetapowej.

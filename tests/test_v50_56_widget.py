@@ -112,9 +112,9 @@ class Widget(ServerTestCase):
         self.assertNotRegex(page.body.decode(), r'<script>(?!</script>)')      # no inline script
         self.assertEqual(anon.get('/w/no-existe-este-centro').status, 404)
         self.assertEqual(anon.get(f'/widget/center/{self.cid}').headers.get('Location'), f'/w/{self.slug}?f=lista')
-        # A centre without domains: the widget may not be framed anywhere
+        # A centre without domains: no website may frame the widget (only the preview of the panel of WORLDIVES itself)
         r = anon.get(f'/w/{self.other_slug}')
-        self.assertIn("frame-ancestors 'none'", r.headers.get('Content-Security-Policy', ''))
+        self.assertIn("frame-ancestors 'self';", r.headers.get('Content-Security-Policy', '') + ';')
 
     def test_solo_dominios_autorizados(self):
         self.assertEqual(self.book(host_url='https://buceowgt.com/').status, 200)
@@ -253,6 +253,59 @@ class Widget(ServerTestCase):
         self.assertIn(Client(self.server).post('/api/provider/vender', {'color': '#000000'}).status, (401, 403))
         self.assertEqual(self.other.post('/api/provider/vender', {'slug': self.slug}).status, 400)
 
+
+    def test_aviso_al_momento_y_ventas_por_canal(self):
+        """Parte H: el panel ve cada reserva nueva al momento (con su canal), el centro recibe el correo con el canal y
+        «Ventas por canal» la cuenta en su mes. Nada de esto se ve desde otro centro."""
+        import datetime as _dt
+        year = _dt.date.today().year
+        sales = lambda c: c.get(f'/api/provider/ventas-canal?year={year}').json
+        before, other_before = sales(self.center)['totals'], sales(self.other)['totals']
+        last = self.center.get('/api/provider/feed').json['last']
+        other_last = self.other.get('/api/provider/feed').json['last']
+        bid = self.book().json['id']
+        feed = self.center.get(f'/api/provider/feed?after={last}').json
+        item = [i for i in feed['items'] if i['booking_id'] == bid]
+        self.assertEqual([(i['event'], i['channel'], i['channel_label'], i['status']) for i in item], [('booking.created', 'widget', 'Tu web', 'requested')])
+        self.assertEqual(item[0]['fullname'], f'Cliente {self.n}.')   # first name and initial only; self.assertEqual(item[0]['service_title'], 'Bautizo')
+        self.assertGreaterEqual(feed['last'], item[0]['id'])
+        self.assertEqual(self.center.get(f"/api/provider/feed?after={feed['last']}").json['items'], [])
+        self.assertNotIn(bid, [i['booking_id'] for i in self.other.get(f'/api/provider/feed?after={max(other_last, 1)}').json['items']])
+        self.assertIn(Client(self.server).get(f'/api/provider/feed?after={last}').status, (401, 403))
+        mail = self.server.sql("SELECT to_email, text FROM email_outbox WHERE template='center_new_booking' AND related_id=?", (bid,))
+        self.assertTrue(mail, 'sin correo al centro')
+        self.assertTrue(all('Canal: Tu web · www.buceowgt.com' in m['text'] for m in mail), mail)
+        self.assertTrue(all('Reservas con tecnología' not in m['text'] for m in mail))     # the centre's own notice is not branded
+        after, other_after = sales(self.center), sales(self.other)['totals']
+        self.assertEqual(after['totals']['widget']['bookings'], before['widget']['bookings'] + 1)
+        self.assertEqual(other_after, other_before)
+        self.assertEqual(len(after['months']), 12)
+        self.assertEqual([c['key'] for c in after['channels']], list(wch.CHANNELS))
+        month = _dt.date.today().strftime('%Y-%m')
+        self.assertGreaterEqual(next(m for m in after['months'] if m['month'] == month)['by']['widget']['bookings'], 1)
+        self.assertEqual(self.center.get('/api/provider/ventas-canal?year=dosmil').status, 400)
+
+    def test_cliente_del_widget_es_del_centro(self):
+        """Parte I: quien reserva en la web del centro es cliente del centro: ficha propia sin cuenta, nunca recibe
+        publicidad de WORLDIVES y ningún otro centro lo ve."""
+        bid = self.book().json['id']
+        u = self.server.sql('SELECT u.id, u.password_hash, u.guest_center_id, u.email, u.marketing_consent FROM bookings b JOIN users u ON u.id=b.user_id WHERE b.id=?', (bid,))[0]
+        self.assertEqual((u['password_hash'], u['guest_center_id'], u['marketing_consent']), ('!', self.cid, 0))
+        self.assertTrue(u['email'].endswith('@sin-email.worldives.local'), u['email'])
+        contact = f'cliente{self.n}@example.org'
+        # Even with a consent flag set by mistake, the commercial e-mails of WORLDIVES skip the centre's customers
+        self.server.sql("UPDATE users SET marketing_consent=1, email_verified_at='2026-01-01T00:00:00Z' WHERE id=?", (u['id'],))
+        try:
+            r = self.admin.post('/api/admin/marketing/send', {'subject': 'Ofertas de buceo', 'body': 'Texto de prueba'})
+            self.assertEqual(r.status, 200, r)
+            to = {m['to_email'] for m in self.server.sql("SELECT to_email FROM email_outbox WHERE template='marketing'")}
+            self.assertNotIn(u['email'], to); self.assertNotIn(contact, to)
+        finally:
+            self.server.sql('UPDATE users SET marketing_consent=0, email_verified_at=NULL WHERE id=?', (u['id'],))
+        self.assertIn(self.other.get(f'/api/bookings/{bid}').status, (403, 404))
+        self.assertNotIn(f'Cliente {self.n}', self.other.get('/api/center/clients').body.decode('utf-8', 'replace'))
+        self.assertNotIn(contact, self.other.get('/api/center/export?kind=clients').body.decode('utf-8', 'replace'))
+        self.assertIn(f'Cliente {self.n}', self.center.get('/api/center/clients').body.decode('utf-8', 'replace'))
 
 if __name__ == '__main__':
     unittest.main()

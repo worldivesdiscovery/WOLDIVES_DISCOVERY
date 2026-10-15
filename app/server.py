@@ -6274,7 +6274,7 @@ def center_planning(db, user, month):
             by_id[pp['slot_id']]['points'].append({'id':pp['id'],'name':pp['name']})
     other=[]
     for b in db.execute(f'''SELECT b.id,b.slot_id,b.service_id,b.booking_date,b.booking_time,b.participants,b.status,b.payment_status,b.price,b.booking_mode,
-                                   b.response_deadline,b.payment_deadline,COALESCE(b.source,'online') AS source,COALESCE(b.contact_name,u.fullname) AS fullname,
+                                   b.response_deadline,b.payment_deadline,COALESCE(b.source,'online') AS source,b.channel,b.channel_origin,COALESCE(b.contact_name,u.fullname) AS fullname,
                                    s.title AS service_title,s.color AS service_color,p.name AS point_name
                               FROM bookings b LEFT JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
                               LEFT JOIN dive_points p ON p.id=b.dive_point_id
@@ -6286,9 +6286,14 @@ def center_planning(db, user, month):
             bd={'id':None,'slot_id':bd['slot_id'],'service_id':bd['service_id'],'booking_date':bd['booking_date'],'booking_time':bd['booking_time'],
                 'participants':bd['participants'],'status':'payment_in_progress','status_label':'Pago en curso','placeholder':True}
         else:
-            bd.update(booking_view_status(b))
+            bd.update(booking_view_status(b)); bd['channel']=wch.channel_of(b)   # v50.56: where each booking came from
         if bd['slot_id'] in by_id: by_id[bd['slot_id']]['bookings'].append(bd)
         else: other.append(bd)
+    # v50.56 (Parte F): spots kept for a group, an agency or a hotel, or blocked by an imported calendar.
+    for chunk in [ids[i:i+500] for i in range(0,len(ids),500)]:
+        for bl in db.execute(f"SELECT id,slot_id,qty,label,source FROM spot_blocks WHERE status='active' AND provider_id=? AND slot_id IN ({','.join('?'*len(chunk))})",
+                             (user['center_id'] if user['role']=='center' else user['id'],*chunk)).fetchall():
+            by_id[bl['slot_id']].setdefault('blocks',[]).append(dict(bl))
     # Twelve months around the one on screen, for the trend strip.
     t0=_shift_month(first,-6); t1=_shift_month(first,6)-_dt.timedelta(days=1)
     trend={}
@@ -7460,7 +7465,10 @@ def booking_mail_ctx(db, bid, lang='es'):
             'pdf_url': f'{base}/api/bookings/{bid}/receipt.pdf', 'center_url': prov_url,
             'review_url': f"{base}/#/centro?id={b['center_id']}&resena=1" if b['center_id'] else prov_url, 'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings',
             'panel_planning_url': f'{base}/#/admin?tab=planning', 'admin_pay_url': f'{base}/#/admin?tab=adminpay',
-            'brand': brand, 'reply_to': (payee.get('email') or '') if brand else '', **booking_mail_in_person(db, b, lang)}
+            'brand': brand, 'reply_to': (payee.get('email') or '') if brand else '',
+            # v50.56 (Parte H): the centre sees in its notice where the booking came from
+            'channel_label': mail_t(lang, wch.CHANNEL_LABELS[wch.channel_of(b)]) + (f" · {b['channel_origin']}" if b['channel_origin'] else ''),
+            **booking_mail_in_person(db, b, lang)}
 
 
 def booking_mail_in_person(db, b, lang):
@@ -7490,6 +7498,7 @@ def render_email(db, template, lang, ctx):
         items = [(t('Reserva'), ctx.get('ref')), (t('Actividad'), ctx.get('service')), (t('Centro'), ctx.get('center')), (t('Fecha'), ctx.get('date')),
                  (t('Hora'), ctx.get('time') or t('Por confirmar')), (t('Punto de buceo'), ctx.get('point') or t('A concretar con el centro')),
                  (t('Buceadores'), ctx.get('participants')), (t('Equipo de alquiler'), ctx.get('equipment')), (t('Total'), ctx.get('total'))]
+        if tpl.get('to') == 'center': items.append((t('Canal'), ctx.get('channel_label')))
         return [(k, v) for k, v in items if v not in (None, '', 0)]
     for kind, val in tpl['blocks']:
         if kind == 'h':
@@ -12904,7 +12913,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
         if mode == 'widget':
             # Only inside the provider's own websites (CSP frame-ancestors); no X-Frame-Options, which would forbid them all.
-            self.send_header('Content-Security-Policy', CSP_HEADER.replace("frame-ancestors 'none'", 'frame-ancestors ' + wch.frame_ancestors(sales_domains(row))))
+            # 'self': the live preview of «Vender en tu web» in the panel of WORLDIVES.
+            self.send_header('Content-Security-Policy', CSP_HEADER.replace("frame-ancestors 'none'", 'frame-ancestors ' + wch.frame_ancestors(sales_domains(row), ("'self'",)).replace("'none' 'self'", "'self'")))
         else:
             self.send_header('X-Frame-Options', 'DENY'); self.send_header('Content-Security-Policy', CSP_HEADER)
             self.send_header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups' if mode == 'return' else 'same-origin')
@@ -13498,6 +13508,42 @@ class Handler(BaseHTTPRequestHandler):
                     require_feature(db,user,'calendar_ical')
                     r=db.execute(f'SELECT ical_token FROM {provider_table(ref[0])} WHERE id=?',(ref[1],)).fetchone()
                     self.send_json({'url':f"{public_site_url()}/ical/{r['ical_token']}.ics" if r and r['ical_token'] else None}); return
+                if path=='/api/provider/feed':
+                    # v50.56 · Parte H: what is new since the last look (every channel), for the instant notice of the panel.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    # Without «after» (the first look of the panel): only where the feed is now; with it, even 0, what came since.
+                    try: after=int(query['after'][0]) if 'after' in query else None
+                    except ValueError: raise ValueError('«after» no válido.')
+                    if after is None or after<0:
+                        last=db.execute('SELECT COALESCE(MAX(id),0) FROM provider_feed WHERE provider_kind=? AND provider_id=?',ref).fetchone()[0]
+                        self.send_json({'items':[],'last':last}); return
+                    rows=db.execute('''SELECT f.id,f.event,f.channel,f.booking_id,f.status,f.created_at,b.booking_date,b.booking_time,b.participants,
+                                              COALESCE(b.contact_name,u.fullname) AS fullname,s.title AS service_title
+                                         FROM provider_feed f LEFT JOIN bookings b ON b.id=f.booking_id LEFT JOIN users u ON u.id=b.user_id
+                                         LEFT JOIN provider_services s ON s.id=b.service_id
+                                        WHERE f.provider_kind=? AND f.provider_id=? AND f.id>? ORDER BY f.id LIMIT 50''',(*ref,after)).fetchall()
+                    items=[{**dict(r),'fullname':short_name(r['fullname']) if r['fullname'] else '','channel_label':wch.CHANNEL_LABELS.get(r['channel'] or 'worldives','')} for r in rows]
+                    self.send_json({'items':items,'last':(rows[-1]['id'] if rows else after)}); return
+                if path=='/api/provider/ventas-canal':
+                    # v50.56 · Parte H: «Ventas por canal», bookings and amount of each channel, month by month.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    try: year=int(query.get('year',[str(_dt.date.today().year)])[0])
+                    except ValueError: raise ValueError('Año no válido.')
+                    where='b.center_id=?' if ref[0]=='center' else 'b.center_id IS NULL AND b.provider_user_id=?'
+                    rows=db.execute(f'''SELECT substr(b.created_at,1,7) AS m,b.channel,b.source,COUNT(*) AS n,SUM(b.participants) AS divers,
+                                               SUM(CASE WHEN b.status IN ('confirmed','completed') THEN b.price ELSE 0 END) AS amount
+                                          FROM bookings b WHERE {where} AND substr(b.created_at,1,4)=? AND b.status NOT IN ('payment_in_progress','expired')
+                                         GROUP BY m,b.channel,b.source''',(ref[1],str(year))).fetchall()
+                    months={f'{year}-{i:02d}':{c:{'bookings':0,'divers':0,'amount':0.0} for c in wch.CHANNELS} for i in range(1,13)}
+                    for r in rows:
+                        c=wch.channel_of(r); e=months.setdefault(r['m'],{c_:{'bookings':0,'divers':0,'amount':0.0} for c_ in wch.CHANNELS})[c]
+                        e['bookings']+=int(r['n'] or 0); e['divers']+=int(r['divers'] or 0); e['amount']=round(e['amount']+float(r['amount'] or 0),2)
+                    totals={c:{'bookings':sum(m[c]['bookings'] for m in months.values()),'amount':round(sum(m[c]['amount'] for m in months.values()),2)} for c in wch.CHANNELS}
+                    self.send_json({'year':year,'channels':[{'key':c,'label':wch.CHANNEL_LABELS[c]} for c in wch.CHANNELS],
+                                    'months':[{'month':k,'by':v} for k,v in sorted(months.items())],'totals':totals,
+                                    'note':'Reservas: las hechas en el mes (sin contar pagos que no se completaron). Importe: el de las reservas confirmadas o realizadas.'}); return
                 if path=='/api/me/ical':
                     # v50.56 · Parte G: the private calendar of an instructor of a centre (his courses and the groups he guides).
                     user=require_user(self,db)
@@ -15334,7 +15380,9 @@ class Handler(BaseHTTPRequestHandler):
                     if url.startswith('#/'): url=public_site_url()+'/'+url
                     test_only=json_bool(data.get('test'))
                     rows=[db.execute('SELECT id,fullname,email,marketing_token FROM users WHERE id=?',(user['id'],)).fetchone()] if test_only else db.execute(
-                        "SELECT id,fullname,email,marketing_token FROM users WHERE marketing_consent=1 AND email_verified_at IS NOT NULL AND guest_center_id IS NULL").fetchall()
+                        "SELECT id,fullname,email,marketing_token FROM users WHERE marketing_consent=1 AND email_verified_at IS NOT NULL AND guest_center_id IS NULL "
+                        # v50.56 (Parte I): the customers of a centre or a freelance (widget, page, API, manual) are theirs, never ours
+                        "AND guest_provider_user_id IS NULL AND password_hash<>'!'").fetchall()
                     n=0; base=public_site_url()
                     for r_ in rows:
                         tok=r_['marketing_token']

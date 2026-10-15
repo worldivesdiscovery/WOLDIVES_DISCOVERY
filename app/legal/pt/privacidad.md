@@ -13,6 +13,8 @@ Explicamos de forma clara que dados tratamos, para que finalidades, com quem os 
 
 Quando reserva, **o centro ou profissional que presta a atividade** é responsável independente pelos dados que recebe para a prestar (ver o ponto 4).
 
+**Se reservar no site, na página de reservas ou através de um link de um centro** (verá «Reservas com tecnologia WORLDIVES») sem entrar com uma conta WORLDIVES, é cliente desse centro: **o centro é o responsável pelo tratamento** dos seus dados e a WORLDIVES trata-os **por conta dele** (art. 28.º do RGPD), apenas para gerir a sua reserva, o pagamento e os emails sobre ela. Não os usamos para a nossa publicidade e nenhum outro centro os vê. Para exercer os seus direitos, contacte o centro (pode responder a qualquer um dos seus emails); se nos escrever, encaminhamos o pedido ao centro. Se também criar uma conta WORLDIVES, essa conta é uma relação à parte connosco, com base no seu próprio consentimento, e a reserva continua a ser do centro.
+
 ## 2. Que dados tratamos
 
 - **Conta:** nome, email, nome de utilizador, palavra-passe (guardada cifrada com um algoritmo unidirecional), idioma e, se a ativar, a chave da sua verificação em dois passos.

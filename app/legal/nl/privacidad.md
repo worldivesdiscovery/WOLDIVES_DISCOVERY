@@ -13,6 +13,8 @@ Wij leggen u duidelijk uit welke gegevens wij verwerken, waarvoor, met wie wij z
 
 Wanneer u boekt, is **het centrum of de professional die de activiteit verleent** zelfstandig verwerkingsverantwoordelijke voor de gegevens die het ontvangt om deze te verlenen (zie punt 4).
 
+**Als u boekt op de website, de boekingspagina of via een link van een centrum** (u ziet "Boekingen met technologie van WORLDIVES") zonder in te loggen met een WORLDIVES-account, bent u klant van dat centrum: **het centrum is de verwerkingsverantwoordelijke** voor uw gegevens en WORLDIVES verwerkt ze **in opdracht van het centrum** (art. 28 AVG), alleen om uw boeking, de betaling en de e-mails daarover af te handelen. Wij gebruiken ze niet voor onze eigen reclame en geen enkel ander centrum ziet ze. Om uw rechten uit te oefenen, neemt u contact op met het centrum (u kunt op elk van zijn e-mails antwoorden); als u ons schrijft, sturen wij uw verzoek door naar het centrum. Als u ook een WORLDIVES-account aanmaakt, is dat account een aparte relatie met ons, op basis van uw eigen toestemming, en blijft de boeking van het centrum.
+
 ## 2. Welke gegevens wij verwerken
 
 - **Account:** naam, e-mail, gebruikersnaam, wachtwoord (versleuteld opgeslagen met een eenrichtingsalgoritme), taal en, als u deze activeert, de sleutel van uw tweestapsverificatie.

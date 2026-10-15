@@ -13,6 +13,8 @@ Wir erklären Ihnen klar, welche Daten wir verarbeiten, wofür, mit wem wir sie 
 
 Wenn Sie buchen, ist **das Zentrum oder der Profi, das bzw. der die Aktivität erbringt**, eigenständiger Verantwortlicher für die Daten, die es bzw. er dafür erhält (siehe Abschnitt 4).
 
+**Wenn Sie auf der Website, der Buchungsseite oder über einen Link eines Zentrums buchen** (Sie sehen „Buchungen mit WORLDIVES-Technologie“), ohne sich mit einem WORLDIVES-Konto anzumelden, sind Sie Kunde dieses Zentrums: **Das Zentrum ist der Verantwortliche** für Ihre Daten, und WORLDIVES verarbeitet sie **in seinem Auftrag** (Art. 28 DSGVO), nur um Ihre Buchung, die Zahlung und die E-Mails dazu abzuwickeln. Wir nutzen sie nicht für unsere eigene Werbung, und kein anderes Zentrum sieht sie. Um Ihre Rechte auszuüben, wenden Sie sich an das Zentrum (Sie können auf jede seiner E-Mails antworten); wenn Sie uns schreiben, leiten wir Ihre Anfrage an das Zentrum weiter. Wenn Sie zusätzlich ein WORLDIVES-Konto anlegen, ist dieses Konto eine eigene Beziehung zu uns, auf Grundlage Ihrer eigenen Einwilligung, und die Buchung bleibt beim Zentrum.
+
 ## 2. Welche Daten wir verarbeiten
 
 - **Konto:** Name, E-Mail, Benutzername, Passwort (verschlüsselt mit einem Einweg-Algorithmus gespeichert), Sprache und, falls Sie sie aktivieren, der Schlüssel Ihrer Zwei-Faktor-Authentifizierung.

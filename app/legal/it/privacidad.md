@@ -13,6 +13,8 @@ Ti spieghiamo in modo chiaro quali dati trattiamo, per quali finalità, con chi 
 
 Quando prenoti, **il centro o professionista che presta l'attività** è titolare autonomo del trattamento dei dati che riceve per prestarla (vedi il paragrafo 4).
 
+**Se prenoti sul sito web, sulla pagina di prenotazione o tramite un link di un centro** (vedrai «Prenotazioni con tecnologia WORLDIVES») senza accedere con un account WORLDIVES, sei cliente di quel centro: **il centro è il titolare del trattamento** dei tuoi dati e WORLDIVES li tratta **per suo conto** (art. 28 GDPR), solo per gestire la tua prenotazione, il pagamento e le email che la riguardano. Non li usiamo per la nostra pubblicità e nessun altro centro li vede. Per esercitare i tuoi diritti, rivolgiti al centro (puoi rispondere a una qualsiasi delle sue email); se scrivi a noi, gli inoltreremo la richiesta. Se crei anche un account WORLDIVES, quell'account è un rapporto distinto con noi, basato sul tuo consenso, e la prenotazione resta del centro.
+
 ## 2. Quali dati trattiamo
 
 - **Account:** nome, email, nome utente, password (conservata in forma cifrata con un algoritmo unidirezionale), lingua e, se la attivi, la chiave della tua verifica in due passaggi.

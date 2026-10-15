@@ -3470,7 +3470,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   async function renderFreelancePanel(d){
     const u=d.user||{}, esc=escapeHtml; state.me=d;
     const tabs=[['dashboard','⌂','Resumen'],['bookings','☰','Reservas'],['planning','▦','Planning'],['agenda','▣','Mi agenda'],['services','◈','Servicios y tarifas'],['experiences','✈','Experiencias y solicitudes'],['payments','€','Cobros y pagos'],['profile','✦','Perfil público'],['marina','◍','Vídeos y vida marina'],
-      ['avisos','✆','Avisos y WhatsApp'],['requests','✉','Solicitudes de información'],['stats','◑','Estadísticas'],['tools','⇩','Herramientas'],['fiscal','§','Datos fiscales y seguro'],['plan','◆','Mi plan']];
+      ['vender','↔','Vender en tu web'],['avisos','✆','Avisos y WhatsApp'],['requests','✉','Solicitudes de información'],['stats','◑','Estadísticas'],['tools','⇩','Herramientas'],['fiscal','§','Datos fiscales y seguro'],['plan','◆','Mi plan']];
     setApp(`<section class="center-backoffice fl-office">
       <div class="cb-header"><div class="cb-header-id">${u.avatar_url?`<img class="center-logo fl-avatar" src="${esc(u.avatar_url)}" alt="">`:`<span class="acc-avatar fl-avatar-txt">${esc(initials(u.fullname||''))}</span>`}<div><p class="eyebrow">Panel del profesional</p><h1>${esc(u.fullname||'Profesional')}</h1><p>Instructor / guía freelance · tus salidas, experiencias y ficha pública en un solo panel.</p></div></div>
         <div class="cb-header-actions"><a class="btn" href="#/profesional?id=${u.id}">${wdIcon('eye',15)} Ver mi ficha pública</a><a class="btn" href="#/cuenta">${wdIcon('user',15)} Mi cuenta</a></div></div>
@@ -3492,7 +3492,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       else if(tab==='payments'){ content.innerHTML='<div id="fl-payments"></div>'; await renderProviderPayments('fl-payments'); }
       else if(tab==='requests'){ content.innerHTML='<div id="fl-requests"></div>'; await renderInfoRequests('fl-requests'); }
       else if(tab==='avisos'){ content.innerHTML='<div id="fl-avisos"></div>'; await renderNoticesPanel('fl-avisos'); }
-      else if(tab==='stats'){ content.innerHTML='<div id="fl-stats"></div>'; await renderProviderStats('fl-stats'); }
+      else if(tab==='stats'){ content.innerHTML='<div id="fl-vcanal"></div><div id="fl-stats"></div>'; renderSalesByChannel('fl-vcanal'); await renderProviderStats('fl-stats'); }
+      else if(tab==='vender'){ content.innerHTML='<div id="fl-vender"></div>'; await renderSellOnline('fl-vender'); }
       else if(tab==='tools'){ content.innerHTML='<div id="fl-tools"></div><div id="fl-waiver"></div>'; await renderProviderTools('fl-tools',false); await renderWaiverEditor('fl-waiver'); }
       else if(tab==='fiscal'){ content.innerHTML='<div id="fl-fiscal"></div>'; await renderFiscalCard('fl-fiscal'); }
       else if(tab==='plan'){ content.innerHTML='<div id="fl-plan"></div>'; await renderMyPlan('fl-plan'); }
@@ -3540,7 +3541,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     }
     nav.forEach(n=>n.onclick=()=>load(n.dataset.cbtab));
     const req=new URLSearchParams(location.hash.split('?')[1]||'').get('tab');
-    loadExp(); load(tabs.some(t=>t[0]===req)?req:'dashboard');
+    loadExp(); load(tabs.some(t=>t[0]===req)?req:'dashboard'); wdStartFeed();   // v50.56: a notice for every new booking
   }
 
   // «Cobros y pagos» of a provider: a centre, or a freelance professional without a centre (v50.34, Fase 2).
@@ -4225,7 +4226,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <div class="bk-activity"><strong><i></i>${esc(b.service_title||'Reserva')}</strong><span>${esc(b.point_name||'Punto sin asignar')}${b.equipment_items?' · Equipo: '+esc(b.equipment_items):''}</span></div>
           <div class="bk-pax"><strong>${Number(b.participants||1)}</strong><span>${Number(b.participants||1)===1?'persona':'personas'}</span></div>
           <div class="bk-amount"><strong>${wdMoney(b.price,b.currency)}</strong>${wdPayTag(b)}${b.pro_mark?`<span class="wd-pay wd-pay-mark">${escapeHtml(translateString(WD_PRO_MARKS[b.pro_mark]||''))}</span>`:''}</div>
-          <div class="bk-state">${wdStatus(b.status,b.status_label)}${(b.status==='requested'||(b.status==='requested'||b.status==='pending'))&&reqById[b.id]?.minutes_left!=null?`<span class="acc-due">${wdIcon('clock',12)} ${esc(wdLeft(reqById[b.id].minutes_left))} para responder</span>`:''}${b.status==='accepted_pending_payment'&&b.payment_deadline?`<span class="acc-due">Paga antes del ${esc(wdDeadline(b.payment_deadline))}</span>`:''}<span class="bk-source">${esc(BK_SOURCE[b.source]||(b.external_ref?'Tu web':'WORLDIVES'))}</span></div>
+          <div class="bk-state">${wdStatus(b.status,b.status_label)}${(b.status==='requested'||(b.status==='requested'||b.status==='pending'))&&reqById[b.id]?.minutes_left!=null?`<span class="acc-due">${wdIcon('clock',12)} ${esc(wdLeft(reqById[b.id].minutes_left))} para responder</span>`:''}${b.status==='accepted_pending_payment'&&b.payment_deadline?`<span class="acc-due">Paga antes del ${esc(wdDeadline(b.payment_deadline))}</span>`:''}<span class="bk-source">${esc(WD_CH[wdChannel(b)]||'WORLDIVES')}</span></div>
           <div class="bk-actions">${actions(b)}</div>
         </div>`;
       const grouped=()=>{ if(!items.length) return `<div class="bk-empty"><span>${wdIcon('calendar',26)}</span><h3>${bkUi.view==='today'?'Hoy no hay reservas':bkUi.view==='pending'?'No hay nada por confirmar':bkUi.view==='unpaid'?'No hay cobros pendientes':'No hay reservas'}</h3><p>${bkUi.q||bkUi.service||bkUi.from||bkUi.to?'Prueba a quitar algún filtro.':'Cuando entre una reserva, o la crees tú, aparecerá aquí.'}</p><button type="button" class="btn btn-primary bk-new">+ Nueva reserva</button></div>`;
@@ -4293,7 +4294,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <div class="svc-field"><label for="mb-phone">Teléfono</label><input id="mb-phone" type="tel" maxlength="60" placeholder="+34 600 000 000"></div>
           <div class="svc-field"><label for="mb-email">Email (opcional)</label><input id="mb-email" type="email" maxlength="160" placeholder="cliente@email.com"></div>
         </div>
-        <small class="mb-hint">Si el cliente ya tiene cuenta con ese email, la reserva aparecerá también en su área.</small>
+        <small class="mb-hint">Queda en la ficha de cliente de tu centro. Con su email, recibe la confirmación (y el enlace de pago, si lo eliges).</small>
       </section>
       <section class="mb-section"><h3>Actividad</h3>
         <div class="svc-form-row svc-form-row-2">
@@ -4313,7 +4314,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <section class="mb-section"><h3>Estado y pago</h3>
         <div class="svc-form-row svc-form-row-2">
           <fieldset class="svc-fieldset"><legend>Reserva</legend><div class="mb-seg"><label><input type="radio" name="mb-status" value="confirmed" checked><span>Confirmada</span></label><label><input type="radio" name="mb-status" value="pending"><span>Pendiente</span></label></div></fieldset>
-          <fieldset class="svc-fieldset"><legend>Pago</legend><div class="mb-seg"><label><input type="radio" name="mb-pay" value="required" checked><span>Por cobrar</span></label><label><input type="radio" name="mb-pay" value="paid"><span>Pagado</span></label></div></fieldset>
+          <fieldset class="svc-fieldset"><legend>Pago</legend><div class="mb-seg"><label><input type="radio" name="mb-pay" value="required" checked><span>Pendiente</span></label><label><input type="radio" name="mb-pay" value="paid"><span>Pagado en el centro</span></label><label><input type="radio" name="mb-pay" value="link"><span>Online con enlace</span></label></div></fieldset>
         </div>
         <div class="svc-field" id="mb-method-field" hidden><label for="mb-method">Forma de pago</label><select id="mb-method">${PAYMENT_METHODS.map(m=>`<option>${m}</option>`).join('')}</select></div>
       </section>
@@ -4327,7 +4328,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     </form>`;
     const {el,close}=wdOpenModal({id:'manual-booking-modal',size:'lg',title:'Nueva reserva',subtitle:'Para reservas por teléfono, en el mostrador, por email o de una agencia.',body,
       footer:`<button type="button" class="btn" data-modal-close>Cancelar</button><button type="submit" form="mb-form" class="btn btn-primary">Guardar reserva</button>`});
-    let slotId=0; let quoteSeq=0, qTimer=0;
+    let slotId=0; let quoteSeq=0, qTimer=0; const mbKey='mb-'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
     const svc=()=>services.find(s=>String(s.id)===el.querySelector('#mb-service').value);
     const slotObj=()=>(svc()?.slots||[]).find(x=>Number(x.id)===slotId);
     const renderSlots=()=>{const s=svc(); const slots=(s?.slots||[]).slice(0,24); const wrap=el.querySelector('#mb-slots');
@@ -4352,7 +4353,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const pay=el.querySelector('input[name="mb-pay"]:checked').value;
       const payload={fullname:name,phone:el.querySelector('#mb-phone').value.trim(),email,service_id:+el.querySelector('#mb-service').value,slot_id:slotId||null,booking_date:el.querySelector('#mb-date').value,booking_time:el.querySelector('#mb-time').value,participants:Math.max(1,+el.querySelector('#mb-pax').value||1),equipment_codes:$$('.mb-eq:checked',el).map(x=>x.value),extra_ids:$$('.mb-extra:checked',el).map(x=>+x.value),status:el.querySelector('input[name="mb-status"]:checked').value,payment_status:pay,payment_method:pay==='paid'?el.querySelector('#mb-method').value:'',price_override:el.querySelector('#mb-override').value,notes:el.querySelector('#mb-notes').value,internal_notes:el.querySelector('#mb-internal').value};
       const submit=el.querySelector('button[type="submit"]'); submit.disabled=true;
-      try{const r=await postJSON('/api/center/bookings/manual',payload);close();toast(`Reserva #${r.id} guardada · ${wdMoney(r.total)}`);opts.onSaved?.(r);}catch(err){toast(err.message);submit.disabled=false;}
+      payload.idempotency_key=mbKey;   // v50.56: a double tap never makes two bookings
+      try{const r=await postJSON('/api/center/bookings/manual',payload);close();toast(`Reserva #${r.id} guardada · ${wdMoney(r.total)}`);opts.onSaved?.(r);
+        if(r.pay_url){ const {el:pe}=wdOpenModal({id:'pay-link',title:'Enlace de pago',subtitle:'El cliente paga online con tarjeta; el dinero va a tu cuenta de Stripe. La plaza queda guardada hasta la fecha límite.',
+          body:`<div class="vt-row"><code class="vt-link">${esc(r.pay_url)}</code><button type="button" class="btn" id="pl-copy">Copiar</button></div><p>${payload.email?'También se lo hemos enviado por email.':'Mándaselo por WhatsApp, email o SMS.'}</p><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Tu reserva: paga aquí de forma segura '+r.pay_url)}">Enviar por WhatsApp</a>`,
+          footer:'<button type="button" class="btn btn-primary" data-modal-close>Hecho</button>'}); pe.querySelector('#pl-copy').onclick=()=>wdCopyText(r.pay_url); }
+      }catch(err){toast(err.message);submit.disabled=false;}
     };
   }
 
@@ -4875,7 +4881,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <button class="cb-nav" data-cbtab="payments">▤ <span>Cobros y pagos</span></button>
         <div class="cb-section-title">CONTROL</div>
         <button class="cb-nav" data-cbtab="analytics">◔ <span>Analítica e informes</span></button>
-        <button class="cb-nav" data-cbtab="integration">↔ <span>Web e integraciones</span></button>
+        <button class="cb-nav" data-cbtab="vender">↔ <span>Vender en tu web</span></button>
         <button class="cb-nav" data-cbtab="points">⌖ <span>Puntos de buceo</span></button>
         <button class="cb-nav" data-cbtab="marina">◍ <span>Vídeos y vida marina</span></button>
         <button class="cb-nav" data-cbtab="qr">▣ <span>Check-in / QR y promociones</span></button>
@@ -4945,6 +4951,162 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     return `<div class="cb-module"><div class="cb-module-head"><div><p class="eyebrow">ANALÍTICA</p><h2>Informes y rendimiento</h2><p>Datos operativos del centro, calculados a partir de las reservas reales.</p></div><button class="btn" id="cb-export-report">Exportar CSV</button></div><div class="cb-report-kpis"><div><span>Ingresos cobrados</span><strong>${(k.income||[]).length?k.income.map(x=>wdMoney(x.amount,x.currency)).join(' · '):wdMoney(0,'EUR')}</strong></div><div><span>Participantes</span><strong>${k.participants||0}</strong></div><div><span>Conversión operativa</span><strong>${k.total?Math.round(((k.confirmed+k.completed)/k.total)*100):0}%</strong></div><div><span>Cancelación</span><strong>${k.total?Math.round((k.cancelled/k.total)*100):0}%</strong></div></div><div class="cb-grid-2"><section class="cb-panel"><p class="eyebrow">DEMANDA</p><h3>Participantes por día</h3><div class="cb-chart">${(a.by_day||[]).map(x=>`<div class="cb-chart-bar" title="${x.date}: ${x.participants}"><i style="height:${Math.max(5,(x.participants/max)*100)}%"></i><small>${escapeHtml(x.date.slice(5))}</small></div>`).join('')||'<div class="empty">Sin datos.</div>'}</div></section><section class="cb-panel"><p class="eyebrow">PRODUCTO</p><h3>Servicios más demandados</h3>${(a.by_service||[]).map((x,i)=>`<div class="cb-rank"><span>${i+1}. ${escapeHtml(x.name)}</span><strong>${x.participants} pax</strong></div>`).join('')||'<div class="empty">Sin datos.</div>'}</section></div></div>`;
   }
 
+  // ---------------------------------------------------------------------------
+  // v50.56 · «Vender en tu web» (Partes C, D, E, G y H): el código del widget en sus tres formatos con vista previa,
+  // la página propia del centro con enlaces directos y QR, el aspecto, los dominios autorizados, las claves de la API,
+  // los avisos automáticos (webhooks) con su registro, el calendario iCal (exportar e importar) y la guía para
+  // WordPress, Wix y Squarespace. Todo lo decide el servidor; aquí solo se enseña y se envía.
+  // ---------------------------------------------------------------------------
+  const WD_CH={worldives:'WORLDIVES',widget:'Tu web',link:'Enlace directo',api:'API',manual:'Manual',import:'Importada'};
+  const wdChannel=b=>b.channel||({manual:'manual',web:'import',api:'api',widget:'widget'}[b.source]||'worldives');
+  const WD_LANG_NAMES={es:'Español',en:'English',fr:'Français',de:'Deutsch',it:'Italiano',pt:'Português',pl:'Polski',nl:'Nederlands',zh:'中文'};
+  async function wdCopyText(text){ try{ await navigator.clipboard.writeText(text); toast('Copiado.'); }catch{ toast('Selecciónalo y cópialo con Ctrl+C.'); } }
+  async function renderSellOnline(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    mount.innerHTML=`<div class="pl-loading">${wdIcon('globe',22)} Cargando…</div>`;
+    let v, keys={items:[]}, hooks={items:[],deliveries:[],events:[]}, ical={url:null}, imports={items:[]}, mine=null;
+    try{ v=await api('/api/provider/vender'); }catch(err){ mount.innerHTML=`<div class="notice error">${esc(err.message)}</div>`; return; }
+    const isCenter=state.me?.user?.role==='center';
+    [keys,hooks,ical,imports]=await Promise.all([api('/api/provider/api-keys').catch(()=>keys),api('/api/provider/webhooks').catch(()=>hooks),api('/api/provider/ical').catch(()=>ical),api('/api/provider/ical-imports').catch(()=>imports)]);
+    if(isCenter) mine=await api('/api/me/ical').catch(()=>null);
+    const ui=renderSellOnline.ui||(renderSellOnline.ui={fmt:'boton',service:'',type:''});
+    const snippet=()=>{ const extra=(ui.service?` data-servicio="${ui.service}"`:'')+(ui.type?` data-tipo="${ui.type}"`:''); return v.snippets[ui.fmt].replace(/data-centro="([^"]+)"/,`data-centro="$1"${extra}`); };
+    const preview=()=>`/w/${encodeURIComponent(v.slug)}?f=${ui.fmt}${ui.service?'&servicio='+ui.service:''}${ui.type?'&tipo='+encodeURIComponent(ui.type):''}`;
+    const types=[...new Set(v.services.map(s=>s.type).filter(Boolean))];
+    const planNote=!v.plan.widget?`<div class="notice warning">${wdIcon('info',16)} El widget y la página de reservas están incluidos en los planes «Motor de reservas» y «Pro». Con la ficha gratuita, tu web enseña «Solicitar información». <a href="#/mi-plan">Ver planes</a></div>`:'';
+    mount.innerHTML=`<div class="cb-module vt-wrap">
+      <div class="cb-module-head"><div><p class="eyebrow">VENDER EN TU WEB</p><h2>Vende en tu web, en Instagram y por la API</h2><p>Un solo inventario: lo que se vende en tu web, en WORLDIVES, por un enlace, por la API o por teléfono sale de las mismas plazas, al momento.</p></div></div>
+      ${planNote}
+      <section class="vt-card"><h3>1 · Pega el código en tu web</h3>
+        <div class="vt-tabs" role="tablist">${[['boton','Botón'],['calendario','Calendario'],['lista','Lista']].map(([k,l])=>`<button type="button" role="tab" class="vt-tab" data-fmt="${k}" aria-selected="${ui.fmt===k}">${l}</button>`).join('')}</div>
+        <p class="vt-help">${ui.fmt==='boton'?'Un botón que abre la reserva encima de tu página.':ui.fmt==='calendario'?'Un calendario con las fechas libres, dentro de tu página.':'La lista de tus salidas y servicios, dentro de tu página.'}</p>
+        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-svc">Mostrar</label><select id="vt-svc"><option value="">Todo el catálogo</option>${v.services.map(s=>`<option value="${s.id}" ${String(ui.service)===String(s.id)?'selected':''}>Solo «${esc(s.title)}»</option>`).join('')}</select></div>
+          <div class="svc-field"><label for="vt-type">o un tipo</label><select id="vt-type"><option value="">Todos los tipos</option>${types.map(t=>`<option ${ui.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></div></div>
+        <pre class="vt-code" id="vt-code">${esc(snippet())}</pre>
+        <div class="vt-row"><button type="button" class="btn btn-primary" id="vt-copy">Copiar el código</button><small>Dos líneas. No hace falta tocar nada más de tu web.</small></div>
+        <h4>Vista previa en vivo</h4><div class="vt-preview"><iframe id="vt-frame" title="Vista previa del widget" src="${esc(preview())}" loading="lazy"></iframe></div>
+      </section>
+      <section class="vt-card"><h3>2 · Dónde puede funcionar</h3>
+        <p>El widget solo funciona en tus dominios. En cualquier otra web no se carga.</p>
+        <div class="svc-field"><label for="vt-domains">Dominios de tu web (uno por línea)</label><textarea id="vt-domains" rows="3" placeholder="buceomarazul.com&#10;*.buceomarazul.com">${esc((v.domains||[]).join('\n'))}</textarea>
+          <small>Escribe solo el dominio: «buceomarazul.com» vale también para «www.buceomarazul.com»; «*.buceomarazul.com» vale para sus subdominios.${v.local_domains?' En el entorno de pruebas también vale «localhost:8101».':''}</small></div>
+        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-color">Color de tu marca</label><input id="vt-color" type="color" value="${esc(v.color||'#076898')}"></div>
+          <div class="svc-field"><label for="vt-lang">Idioma del widget</label><select id="vt-lang"><option value="">Automático (el del visitante)</option>${v.langs.map(l=>`<option value="${l}" ${v.lang===l?'selected':''}>${esc(WD_LANG_NAMES[l]||l)}</option>`).join('')}</select></div></div>
+        <p class="vt-help">El logo es el de tu ficha («Escaparate y datos»). La moneda, la de tus servicios.</p>
+        <button type="button" class="btn btn-primary" id="vt-save">Guardar</button>
+      </section>
+      <section class="vt-card"><h3>3 · Tu página de reservas, enlaces y QR</h3>
+        <p>Para Instagram, WhatsApp, Google o un cartel: tu propia página, sin incrustar nada.</p>
+        <div class="vt-row"><code class="vt-link">${esc(v.page)}</code><button type="button" class="btn" data-copy="${esc(v.page)}">Copiar</button><a class="btn" href="${esc(v.page)}" target="_blank" rel="noopener">Abrir</a></div>
+        <div class="svc-field"><label for="vt-slug">Dirección</label><div class="vt-row"><span class="vt-prefix">${esc(location.origin)}/c/</span><input id="vt-slug" value="${esc(v.slug)}" maxlength="60" pattern="[a-z0-9-]{3,60}"><button type="button" class="btn" id="vt-slug-save">Cambiar</button></div><small>Si la cambias, los enlaces y QR antiguos dejan de funcionar.</small></div>
+        <div class="vt-qr"><img src="${esc(v.qr.svg)}" alt="QR de tu página de reservas" width="132" height="132"><div><p>QR de tu página de reservas.</p><a class="btn" href="${esc(v.qr.svg)}?descargar=1">Descargar SVG</a> <a class="btn" href="${esc(v.qr.png)}?descargar=1">Descargar PNG</a></div></div>
+        <h4>Enlace directo a un servicio o a una fecha</h4>
+        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-ls">Servicio</label><select id="vt-ls">${v.services.map(s=>`<option value="${s.id}">${esc(s.title)}</option>`).join('')}</select></div><div class="svc-field"><label for="vt-ld">Fecha (opcional)</label><input id="vt-ld" type="date"></div></div>
+        <div class="vt-row"><code class="vt-link" id="vt-direct"></code><button type="button" class="btn" id="vt-direct-copy">Copiar</button><a class="btn" id="vt-direct-qr" href="#" target="_blank" rel="noopener">QR</a></div>
+      </section>
+      <section class="vt-card" id="vt-api"><h3>4 · API para tu web o tu programa de reservas</h3>
+        ${v.plan.api?'':`<div class="notice warning">La API está incluida en «Motor de reservas» y «Pro».</div>`}
+        <p>Consulta servicios y plazas en tiempo real, crea y cancela reservas. Documentación: <code>docs/api/</code> del paquete.</p>
+        <table class="vt-table"><thead><tr><th>Nombre</th><th>Empieza por</th><th>Permiso</th><th>Último uso</th><th></th></tr></thead><tbody>${(keys.items||[]).map(k=>`<tr class="${k.revoked_at?'is-off':''}"><td>${esc(k.name||'')}</td><td><code>${esc(k.prefix)}…</code></td><td>${k.scope==='write'?'Lectura y escritura':'Solo lectura'}</td><td>${k.revoked_at?'Revocada':esc(k.last_used_at?wdDeadline(k.last_used_at):'Nunca')}</td><td>${k.revoked_at?'':`<button type="button" class="btn btn-small" data-revoke="${k.id}">Revocar</button>`}</td></tr>`).join('')||'<tr><td colspan="5">Todavía no tienes claves.</td></tr>'}</tbody></table>
+        <div class="vt-row"><input id="vt-key-name" placeholder="Nombre (p. ej. «Mi web»)" maxlength="80"><select id="vt-key-scope"><option value="read">Solo lectura</option><option value="write">Lectura y escritura</option></select><button type="button" class="btn btn-primary" id="vt-key-new">Crear clave</button></div>
+        <div id="vt-key-out"></div>
+      </section>
+      <section class="vt-card" id="vt-hooks"><h3>5 · Avisos automáticos a tu servidor (webhooks)</h3>
+        <p>Cada vez que una reserva se crea, se confirma, se paga, se cancela o cambia, WORLDIVES avisa a tu servidor con un mensaje firmado. Si tu servidor no contesta, se reintenta durante 24 horas.</p>
+        <table class="vt-table"><thead><tr><th>Dirección</th><th>Avisos</th><th>Estado</th><th></th></tr></thead><tbody>${(hooks.items||[]).map(h=>`<tr><td><code>${esc(h.url)}</code></td><td>${esc(h.events.join(', '))}</td><td>${h.active?'Activo':'Pausado'}</td><td class="vt-actions"><button type="button" class="btn btn-small" data-hook-test="${h.id}">Probar</button><button type="button" class="btn btn-small" data-hook-toggle="${h.id}" data-on="${h.active?0:1}">${h.active?'Pausar':'Activar'}</button><button type="button" class="btn btn-small" data-hook-secret="${h.id}">Nuevo secreto</button><button type="button" class="btn btn-small" data-hook-del="${h.id}">Quitar</button></td></tr>`).join('')||'<tr><td colspan="4">Sin avisos configurados.</td></tr>'}</tbody></table>
+        <div class="svc-field"><label for="vt-hook-url">Dirección https de tu servidor</label><input id="vt-hook-url" placeholder="https://tuweb.com/worldives/avisos" maxlength="500"></div>
+        <div class="vt-checks">${(hooks.events||[]).map(e=>`<label><input type="checkbox" class="vt-hook-ev" value="${e}" checked> ${e}</label>`).join('')}</div>
+        <button type="button" class="btn btn-primary" id="vt-hook-new">Añadir aviso</button><div id="vt-hook-out"></div>
+        <h4>Registro de envíos</h4>
+        <table class="vt-table vt-log"><thead><tr><th>Cuándo</th><th>Aviso</th><th>Reserva</th><th>Resultado</th><th>Intentos</th><th></th></tr></thead><tbody>${(hooks.deliveries||[]).slice(0,30).map(x=>`<tr><td>${esc(wdDeadline(x.created_at))}</td><td>${esc(x.event)}</td><td>${x.booking_id?'WOD-'+String(x.booking_id).padStart(6,'0'):'—'}</td><td>${x.status==='delivered'?`<span class="pl-tag good">Entregado (${x.last_status})</span>`:x.status==='failed'?`<span class="pl-tag bad">Falló: ${esc(x.last_error||'')}</span>`:`<span class="pl-tag warn">${x.attempts?'Reintento pendiente':'En cola'}</span>`}</td><td>${x.attempts}</td><td>${x.status==='failed'?`<button type="button" class="btn btn-small" data-retry="${x.id}" data-ep="${x.endpoint_id}">Reintentar</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6">Todavía no se ha enviado ningún aviso.</td></tr>'}</tbody></table>
+      </section>
+      <section class="vt-card" id="vt-ical"><h3>6 · Calendario (iCal)</h3>
+        <p><b>Exportar:</b> suscríbete desde Google Calendar, Apple o Outlook. Refleja las reservas de todos los canales; cada calendario decide cada cuánto lo vuelve a leer.</p>
+        ${ical.url?`<div class="vt-row"><code class="vt-link">${esc(ical.url)}</code><button type="button" class="btn" data-copy="${esc(ical.url)}">Copiar</button></div>`:'<button type="button" class="btn" id="vt-ical-new">Crear mi enlace de calendario</button>'}
+        ${mine?.url?`<p class="vt-help">Tu calendario personal (tus cursos y las salidas que guías): <code>${esc(mine.url)}</code> <button type="button" class="btn btn-small" data-copy="${esc(mine.url)}">Copiar</button></p>`:''}
+        <p><b>Importar:</b> otro sistema (un portal, tu programa anterior, tus vacaciones) bloquea plazas o días aquí. <span class="pl-tag warn">${esc(imports.note||'No es instantáneo: se lee cada 15 minutos.')}</span></p>
+        <table class="vt-table"><thead><tr><th>Nombre</th><th>Bloquea</th><th>Última lectura</th><th>Eventos</th><th></th></tr></thead><tbody>${(imports.items||[]).map(i=>`<tr><td>${esc(i.name||'')}</td><td>${esc((v.services.find(s=>s.id===i.service_id)||{}).title||'Mis días')}</td><td>${i.last_sync_at?esc(wdDeadline(i.last_sync_at)):'—'} ${i.last_status==='error'?`<span class="pl-tag bad">${esc(i.last_error||'error')}</span>`:i.last_error?`<span class="pl-tag warn">${esc(i.last_error)}</span>`:''}</td><td>${i.events||0}</td><td class="vt-actions"><button type="button" class="btn btn-small" data-imp-sync="${i.id}">Leer ahora</button><button type="button" class="btn btn-small" data-imp-del="${i.id}">Quitar</button></td></tr>`).join('')||'<tr><td colspan="5">Sin calendarios importados.</td></tr>'}</tbody></table>
+        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-imp-url">Dirección del calendario (https:// o webcal://)</label><input id="vt-imp-url" maxlength="500"></div><div class="svc-field"><label for="vt-imp-svc">Bloquea</label><select id="vt-imp-svc">${isCenter?'':'<option value="">Mis días (agenda)</option>'}${v.services.map(s=>`<option value="${s.id}">${esc(s.title)}</option>`).join('')}</select></div></div>
+        <div class="vt-row"><input id="vt-imp-name" placeholder="Nombre" maxlength="80"><button type="button" class="btn btn-primary" id="vt-imp-new">Importar</button></div>
+        <p class="vt-help">Gestores de canales (channel managers): pendiente de decisión. Mientras tanto, la API y el iCal sirven para conectarlos.</p>
+      </section>
+      <section class="vt-card"><h3>7 · Guía paso a paso</h3>
+        <details><summary>WordPress</summary><ol><li>Entra en el escritorio de WordPress y abre la página donde quieres vender.</li><li>Pulsa «+» y añade un bloque <b>«HTML personalizado»</b>.</li><li>Pega el código del paso 1 y pulsa <b>«Actualizar»</b>.</li><li>Añade tu dominio en el paso 2 (por ejemplo «tuweb.com»).</li><li>Abre la página: verás el botón, el calendario o la lista.</li></ol></details>
+        <details><summary>Wix</summary><ol><li>En el editor de Wix pulsa <b>«Añadir elementos» → «Insertar código» → «Código integrado»</b> (o «HTML iframe»).</li><li>Pega el código del paso 1 en «Código» y pulsa «Actualizar».</li><li>Ajusta el tamaño del recuadro (el calendario y la lista crecen solos dentro).</li><li>Añade tu dominio de Wix en el paso 2 (por ejemplo «tunombre.wixsite.com» y el tuyo propio si lo tienes).</li><li>Publica la web.</li></ol></details>
+        <details><summary>Squarespace</summary><ol><li>Edita la página y pulsa <b>«Añadir bloque» → «Código»</b>.</li><li>Pega el código del paso 1 (modo HTML) y guarda.</li><li>Añade tu dominio en el paso 2 (por ejemplo «tunombre.squarespace.com» y el tuyo).</li><li>Publica los cambios.</li></ol></details>
+        <p class="vt-help">¿Otra plataforma? Si deja pegar HTML, funciona igual. Si no, usa el enlace o el QR del paso 3.</p>
+      </section>
+    </div>`;
+    const reload=()=>renderSellOnline(mountId);
+    const show=(id,html)=>{ const o=$('#'+id,mount); if(o) o.innerHTML=html; };
+    $$('.vt-tab',mount).forEach(b=>b.onclick=()=>{ ui.fmt=b.dataset.fmt; reload(); });
+    $('#vt-svc',mount).onchange=e=>{ ui.service=e.target.value; if(ui.service) ui.type=''; reload(); };
+    $('#vt-type',mount).onchange=e=>{ ui.type=e.target.value; if(ui.type) ui.service=''; reload(); };
+    $('#vt-copy',mount).onclick=()=>wdCopyText(snippet());
+    $$('[data-copy]',mount).forEach(b=>b.onclick=()=>wdCopyText(b.dataset.copy));
+    $('#vt-save',mount).onclick=async()=>{ try{ await postJSON('/api/provider/vender',{domains:$('#vt-domains',mount).value,color:$('#vt-color',mount).value,lang:$('#vt-lang',mount).value}); toast('Guardado.'); reload(); }catch(err){ toast(err.message); } };
+    $('#vt-slug-save',mount).onclick=async()=>{ try{ await postJSON('/api/provider/vender',{slug:$('#vt-slug',mount).value.trim()}); toast('Dirección cambiada.'); reload(); }catch(err){ toast(err.message); } };
+    const direct=()=>{ const s=$('#vt-ls',mount).value, dte=$('#vt-ld',mount).value; const u=`${v.page}?servicio=${s}${dte?'&fecha='+dte:''}`; $('#vt-direct',mount).textContent=u; $('#vt-direct-qr',mount).href=`${v.qr.svg}?servicio=${s}${dte?'&fecha='+dte:''}&descargar=1`; return u; };
+    if(v.services.length){ direct(); $('#vt-ls',mount).onchange=direct; $('#vt-ld',mount).onchange=direct; $('#vt-direct-copy',mount).onclick=()=>wdCopyText(direct()); }
+    $('#vt-key-new',mount).onclick=async()=>{ try{ const r=await postJSON('/api/provider/api-keys',{action:'create',name:$('#vt-key-name',mount).value,scope:$('#vt-key-scope',mount).value});
+      show('vt-key-out',`<div class="notice warning"><b>Copia tu clave ahora: no se vuelve a enseñar.</b><div class="vt-row"><code class="vt-link">${esc(r.key)}</code><button type="button" class="btn" id="vt-key-copy">Copiar</button></div><button type="button" class="btn btn-small" id="vt-key-done">Ya la he guardado</button></div>`);
+      $('#vt-key-copy',mount).onclick=()=>wdCopyText(r.key); $('#vt-key-done',mount).onclick=reload; }catch(err){ toast(err.message); } };
+    $$('[data-revoke]',mount).forEach(b=>b.onclick=async()=>{ if(!confirm('¿Revocar esta clave? Lo que la use dejará de funcionar al momento.')) return; try{ await postJSON('/api/provider/api-keys',{action:'revoke',id:+b.dataset.revoke}); reload(); }catch(err){ toast(err.message); } });
+    $('#vt-hook-new',mount).onclick=async()=>{ try{ const r=await postJSON('/api/provider/webhooks',{action:'create',url:$('#vt-hook-url',mount).value.trim(),events:$$('.vt-hook-ev:checked',mount).map(x=>x.value)});
+      show('vt-hook-out',`<div class="notice warning"><b>Guarda el secreto: sirve para comprobar la firma y no se vuelve a enseñar.</b><div class="vt-row"><code class="vt-link">${esc(r.secret)}</code><button type="button" class="btn" id="vt-sec-copy">Copiar</button></div><button type="button" class="btn btn-small" id="vt-sec-done">Ya lo he guardado</button></div>`);
+      $('#vt-sec-copy',mount).onclick=()=>wdCopyText(r.secret); $('#vt-sec-done',mount).onclick=reload; }catch(err){ toast(err.message); } };
+    const hook=async(body,msg)=>{ try{ const r=await postJSON('/api/provider/webhooks',body); if(r.secret){ show('vt-hook-out',`<div class="notice warning"><b>Nuevo secreto (cópialo ahora):</b> <code>${esc(r.secret)}</code></div>`); return; } toast(msg); reload(); }catch(err){ toast(err.message); } };
+    $$('[data-hook-test]',mount).forEach(b=>b.onclick=()=>hook({action:'test',id:+b.dataset.hookTest},'Aviso de prueba en cola: lo verás en el registro en unos segundos.'));
+    $$('[data-hook-toggle]',mount).forEach(b=>b.onclick=()=>hook({action:'toggle',id:+b.dataset.hookToggle,active:b.dataset.on==='1'},'Hecho.'));
+    $$('[data-hook-secret]',mount).forEach(b=>b.onclick=()=>{ if(confirm('¿Cambiar el secreto? Tendrás que poner el nuevo en tu servidor.')) hook({action:'secret',id:+b.dataset.hookSecret}); });
+    $$('[data-hook-del]',mount).forEach(b=>b.onclick=()=>{ if(confirm('¿Quitar este aviso?')) hook({action:'delete',id:+b.dataset.hookDel},'Aviso quitado.'); });
+    $$('[data-retry]',mount).forEach(b=>b.onclick=()=>hook({action:'retry',id:+b.dataset.ep,delivery_id:+b.dataset.retry},'Se reintentará en unos segundos.'));
+    $('#vt-ical-new',mount)?.addEventListener('click',async()=>{ try{ await postJSON('/api/provider/ical/regenerate',{}); reload(); }catch(err){ toast(err.message); } });
+    $('#vt-imp-new',mount).onclick=async()=>{ try{ const r=await postJSON('/api/provider/ical-imports',{action:'create',url:$('#vt-imp-url',mount).value.trim(),name:$('#vt-imp-name',mount).value,service_id:+$('#vt-imp-svc',mount).value||null});
+      toast(r.sync?.ok?`Leído: ${r.sync.events} eventos, ${r.sync.added} bloqueos.`:'Guardado. No se ha podido leer todavía: lo intentaremos cada 15 minutos.'); reload(); }catch(err){ toast(err.message); } };
+    $$('[data-imp-sync]',mount).forEach(b=>b.onclick=async()=>{ try{ const r=await postJSON('/api/provider/ical-imports',{action:'sync',id:+b.dataset.impSync}); toast(r.ok?`Leído: ${r.events} eventos.`:r.error); reload(); }catch(err){ toast(err.message); } });
+    $$('[data-imp-del]',mount).forEach(b=>b.onclick=async()=>{ if(!confirm('¿Quitar este calendario? Se liberan las plazas y días que bloqueaba.')) return; try{ await postJSON('/api/provider/ical-imports',{action:'delete',id:+b.dataset.impDel}); reload(); }catch(err){ toast(err.message); } });
+  }
+
+  // «Ventas por canal» (Parte H): bookings and amount of each channel, month by month.
+  async function renderSalesByChannel(mountId){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    const ui=renderSalesByChannel.ui||(renderSalesByChannel.ui={year:new Date().getFullYear()});
+    let d; try{ d=await api('/api/provider/ventas-canal?year='+ui.year); }catch(err){ mount.innerHTML=`<div class="notice error">${esc(err.message)}</div>`; return; }
+    const used=d.channels.filter(c=>d.totals[c.key].bookings);
+    const cols=used.length?used:d.channels.slice(0,1);
+    mount.innerHTML=`<div class="cb-module vt-wrap"><div class="cb-module-head"><div><p class="eyebrow">INFORME</p><h2>Ventas por canal</h2><p>${esc(d.note)}</p></div>
+      <div class="vt-row"><button type="button" class="btn btn-small" data-y="${ui.year-1}">‹ ${ui.year-1}</button><b>${ui.year}</b><button type="button" class="btn btn-small" data-y="${ui.year+1}">${ui.year+1} ›</button><button type="button" class="btn btn-small" id="vc-csv">Exportar CSV</button></div></div>
+      <div class="vt-bars">${cols.map(c=>{ const t=d.totals[c.key]; const max=Math.max(1,...cols.map(x=>d.totals[x.key].bookings)); return `<div class="vt-bar"><span>${esc(c.label)}</span><i style="width:${Math.round(t.bookings/max*100)}%"></i><b>${t.bookings} ${t.bookings===1?'reserva':'reservas'} · ${wdMoney(t.amount)}</b></div>`; }).join('')}</div>
+      <p class="vt-help">En cada casilla: número de reservas · importe.</p>
+      <div class="vt-scroll"><table class="vt-table"><thead><tr><th>Mes</th>${cols.map(c=>`<th>${esc(c.label)}</th>`).join('')}<th>Total</th></tr></thead><tbody>${d.months.map(m=>{ const tot=cols.reduce((a,c)=>[a[0]+m.by[c.key].bookings,a[1]+m.by[c.key].amount],[0,0]);
+        return `<tr><td>${esc(plMonthLabel(m.month))}</td>${cols.map(c=>`<td>${m.by[c.key].bookings?`${m.by[c.key].bookings} · ${wdMoney(m.by[c.key].amount)}`:'—'}</td>`).join('')}<td>${tot[0]?`<b>${tot[0]} · ${wdMoney(tot[1])}</b>`:'—'}</td></tr>`; }).join('')}</tbody></table></div></div>`;
+    $$('[data-y]',mount).forEach(b=>b.onclick=()=>{ ui.year=+b.dataset.y; renderSalesByChannel(mountId); });
+    $('#vc-csv',mount).onclick=()=>{ const rows=[['Mes',...cols.flatMap(c=>[c.label+' · reservas',c.label+' · importe'])],...d.months.map(m=>[m.month,...cols.flatMap(c=>[m.by[c.key].bookings,m.by[c.key].amount])])];
+      const csv='﻿'+rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(';')).join('\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=`ventas-por-canal-${ui.year}.csv`; a.click(); };
+  }
+
+  // Instant notice of every new booking, whatever the channel (Parte H): the panel asks every 20 seconds.
+  function wdStartFeed(){
+    if(wdStartFeed.timer) return; let last=null;
+    const tick=async()=>{ if(!document.querySelector('.center-backoffice')){ clearInterval(wdStartFeed.timer); wdStartFeed.timer=0; return; }
+      try{ const r=await api('/api/provider/feed'+(last===null?'':'?after='+last)); if(last!==null&&r.items?.length){ r.items.filter(x=>x.event==='booking.created'&&x.channel!=='manual').forEach(x=>toast(`Nueva reserva · ${WD_CH[x.channel]||'WORLDIVES'} · ${x.service_title||''} ${x.booking_date?wdDay(x.booking_date):''}${x.booking_time?' '+x.booking_time:''} · ${x.fullname||''}`));
+        const bd=document.querySelector('.cb-nav[data-cbtab="bookings"] b'); if(bd&&r.items.some(x=>x.event==='booking.created')) bd.textContent=String((+bd.textContent||0)+r.items.filter(x=>x.event==='booking.created'&&x.status==='requested').length); }
+        last=r.last??last??0; }catch{ /* no permission or offline: try again later */ } };
+    tick(); wdStartFeed.timer=setInterval(tick,20000);
+  }
+
+  // v50.56 · Parte F: spots kept for a group, an agency or a hotel (no customer), out of the same inventory.
+  function openSpotBlock(slotId,free,onSaved){
+    const {el,close}=wdOpenModal({id:'spot-block',title:'Bloquear plazas sin cliente',subtitle:'Para un grupo, una agencia o un hotel. Ningún canal podrá venderlas hasta que las liberes.',
+      body:`<form id="sb-form" class="svc-form" novalidate><div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="sb-qty">Plazas</label><input id="sb-qty" type="number" min="1" max="${free}" value="1" required><small>${free} libres en esta salida.</small></div>
+        <div class="svc-field"><label for="sb-label">Para quién (texto libre)</label><input id="sb-label" maxlength="160" placeholder="Hotel Sol · grupo de 4"></div></div></form>`,
+      footer:`<button type="button" class="btn" data-modal-close>Cancelar</button><button type="submit" form="sb-form" class="btn btn-primary">Bloquear</button>`});
+    el.querySelector('#sb-form').onsubmit=async e=>{ e.preventDefault(); const btn=el.querySelector('button[type=submit]'); btn.disabled=true;
+      try{ await postJSON('/api/provider/spot-blocks',{action:'create',slot_id:slotId,qty:+el.querySelector('#sb-qty').value,label:el.querySelector('#sb-label').value}); close(); toast('Plazas bloqueadas.'); onSaved?.(); }
+      catch(err){ toast(err.message); btn.disabled=false; } };
+  }
+
   async function centerIntegrationView(){
     const d=await api('/api/center/integration'); const i=d.integration; const base=`${location.origin}/api/integrations/bookings`;
     return `<div class="cb-module"><div class="cb-module-head"><div><p class="eyebrow">CONECTIVIDAD</p><h2>Web, API y sincronización</h2><p>Conecta el motor de reservas de la web del centro para que las reservas entren directamente en este planning.</p></div><span class="status ${i?.enabled?'good':'warn'}">${i?.enabled?'● Integración activa':'● Sin configurar'}</span></div><div class="cb-integration-grid"><section class="cb-panel"><h3>Motor de reservas de tu web</h3><p>La web puede enviar cada reserva a WORLDIVES con una referencia externa. Se evita la duplicación y la salida mantiene las plazas centralizadas.</p><div class="cb-code"><strong>POST</strong> ${escapeHtml(base)}<br><small>Header: X-WORLDIVES-API-Key</small></div><div class="cb-api-fields"><div><span>Endpoint</span><code>${escapeHtml(base)}</code></div><div><span>Identificador</span><code>external_ref</code></div><div><span>Sincronización</span><code>Reserva → Planning → plazas</code></div></div><button class="btn btn-primary" id="cb-new-api-key">${i?'Regenerar API Key':'Generar API Key'}</button><div id="cb-api-result"></div></section><section class="cb-panel"><h3>Calendarios</h3><p>Las salidas gestionadas en WORLDIVES pueden consultarse desde el calendario operativo del centro. La conexión con calendarios externos se mantiene separada del motor de reservas.</p><div class="cb-checklist"><div>✓ Disponibilidad por salida</div><div>✓ Plazas actualizadas</div><div>✓ Referencia externa de reserva</div><div>✓ Estado centralizado</div></div></section></div></div>`;
@@ -4972,6 +5134,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let d; try{ d=await api('/api/center/planning?month='+encodeURIComponent(ui.month)); }catch(err){ mount.innerHTML=`<div class="svc-empty"><h3>No se ha podido cargar el planning</h3><p>${esc(err.message)}</p><button type="button" class="btn" id="pl-retry">Reintentar</button></div>`; $('#pl-retry',mount).onclick=()=>renderCenterPlanning(mountId,{center,onManage,canBook}); return; }
     if(!mount.isConnected) return;
     ui.month=d.month;
+    if(ui.channel){ d.slots.forEach(sl=>{ sl.bookings=sl.bookings.filter(b=>b.placeholder||wdChannel(b)===ui.channel); }); d.other=(d.other||[]).filter(b=>wdChannel(b)===ui.channel); }   // v50.56: one channel only
     const today=d.today, cur=today.slice(0,7);
     const phase=d.month<cur?['Historial','past']:d.month>cur?['Previsión','future']:['Mes en curso','now'];
     const byDay={}; d.slots.forEach(sl=>(byDay[sl.slot_date]??={slots:[],other:[]}).slots.push(sl)); (d.other||[]).forEach(b=>(byDay[b.booking_date]??={slots:[],other:[]}).other.push(b));
@@ -5010,7 +5173,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <button type="button" class="pl-arrow" data-go="${d.next}" aria-label="Mes siguiente">›</button>
           ${d.month!==cur?`<button type="button" class="btn pl-today" data-go="${cur}">Hoy</button>`:''}
         </div>
-        <div class="pl-actions"><div class="pl-views" role="tablist"><button type="button" data-view="month" aria-pressed="${ui.view==='month'}">Mes</button><button type="button" data-view="list" aria-pressed="${ui.view==='list'}">Lista</button></div>${canBook?'<button type="button" class="btn btn-primary pl-new">+ Reserva</button>':''}</div>
+        <div class="pl-actions"><label class="pl-chf"><span class="sr-only">Canal</span><select id="pl-channel"><option value="">Todos los canales</option>${Object.entries(WD_CH).map(([k,l])=>`<option value="${k}" ${ui.channel===k?'selected':''}>${esc(l)}</option>`).join('')}</select></label><div class="pl-views" role="tablist"><button type="button" data-view="month" aria-pressed="${ui.view==='month'}">Mes</button><button type="button" data-view="list" aria-pressed="${ui.view==='list'}">Lista</button></div>${canBook?'<button type="button" class="btn btn-primary pl-new">+ Reserva</button>':''}</div>
       </header>
       <section class="pl-summary">
         <div class="pl-phase"><span class="pl-badge ${phase[1]}">${phase[0]}</span><p>${phase[1]==='past'?'Así fue este mes.':phase[1]==='future'?'Lo que ya está reservado para este mes.':'Cómo va el mes hasta ahora, incluidas las salidas que quedan.'}</p></div>
@@ -5032,6 +5195,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const go=m=>{ ui.month=m; closePop(); renderCenterPlanning(mountId,{center,onManage,canBook}); };
     $$('[data-go]',mount).forEach(b=>b.onclick=()=>go(b.dataset.go));
     $('#pl-month',mount).onchange=e=>go(e.target.value);
+    $('#pl-channel',mount).onchange=e=>{ ui.channel=e.target.value; go(d.month); };
     $$('.pl-tbar',mount).forEach(b=>b.onclick=()=>go(b.dataset.month));
     $$('.pl-views button',mount).forEach(b=>b.onclick=()=>{ ui.view=b.dataset.view; $('.pl-body',mount).dataset.view=ui.view; $$('.pl-views button',mount).forEach(x=>x.setAttribute('aria-pressed',String(x===b))); closePop(); });
     const reload=()=>renderCenterPlanning(mountId,{center,onManage,canBook});
@@ -5049,9 +5213,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         return `<article class="pl-slot" style="--c:${esc(sl.service_color||'#2563eb')}">
           <div class="pl-slot-head"><span class="pl-time">${esc(sl.slot_time)}${end?`<small>– ${end}</small>`:''}</span><div class="pl-slot-title"><strong>${esc(sl.service_title)}</strong><small>${esc(sl.points.map(p=>p.name).join(' · ')||'Punto a elegir')}</small></div>${stTag}</div>
           <div class="pl-slot-occ">${occBar(sl.taken,sl.spots_total)}<small>${sl.taken} de ${sl.spots_total} plazas ocupadas</small></div>
-          ${act.length?`<ul class="pl-people">${act.map(b=>b.placeholder?`<li><span class="pl-person is-placeholder" title="Un buceador está pagando estas plazas. Si no completa el pago en unos minutos, se liberan solas."><span class="pl-avatar">…</span><span class="pl-pname">Pago en curso${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}</span></span></li>`:`<li><button type="button" class="pl-person" data-booking="${b.id}"><span class="pl-avatar">${esc(initials(b.fullname||'?'))}</span><span class="pl-pname">${esc(b.fullname||'Cliente')}${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}</span>${PL_PAY[b.payment_status]?`<span class="pl-tag ${PL_PAY[b.payment_status][1]}">${PL_PAY[b.payment_status][0]}</span>`:''}${(b.status==='requested'||b.status==='pending')?'<span class="pl-tag warn">Solicitud</span>':b.status==='accepted_pending_payment'?'<span class="pl-tag warn">Aceptada · pendiente de pago</span>':''}</button></li>`).join('')}</ul>`:'<p class="pl-nobody">Todavía sin reservas.</p>'}
+          ${act.length?`<ul class="pl-people">${act.map(b=>b.placeholder?`<li><span class="pl-person is-placeholder" title="Un buceador está pagando estas plazas. Si no completa el pago en unos minutos, se liberan solas."><span class="pl-avatar">…</span><span class="pl-pname">Pago en curso${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}</span></span></li>`:`<li><button type="button" class="pl-person" data-booking="${b.id}"><span class="pl-avatar">${esc(initials(b.fullname||'?'))}</span><span class="pl-pname">${esc(b.fullname||'Cliente')}${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}</span><span class="pl-tag pl-ch ch-${esc(wdChannel(b))}" title="Canal">${esc(WD_CH[wdChannel(b)])}</span>${PL_PAY[b.payment_status]?`<span class="pl-tag ${PL_PAY[b.payment_status][1]}">${PL_PAY[b.payment_status][0]}</span>`:''}${(b.status==='requested'||b.status==='pending')?'<span class="pl-tag warn">Solicitud</span>':b.status==='accepted_pending_payment'?'<span class="pl-tag warn">Aceptada · pendiente de pago</span>':''}</button></li>`).join('')}</ul>`:'<p class="pl-nobody">Todavía sin reservas.</p>'}
           ${gone?`<p class="pl-gone">${gone} ${gone===1?'reserva cancelada':'reservas canceladas'}</p>`:''}
-          <div class="pl-slot-actions">${!past&&sl.status!=='closed'&&free>0?`${canBook?`<button type="button" class="btn pl-add" data-slot="${sl.id}" data-service="${sl.service_id}">+ Reserva</button>`:''}<button type="button" class="btn pl-poster" data-slot="${sl.id}">${wdIcon('image',15)} Crear cartel</button>`:''}${act.some(b=>!b.placeholder)?`<a class="btn pl-manifest" href="#/manifiesto?slot=${sl.id}">${wdIcon('users',15)} Manifiesto</a>`:''}${!past&&!sl.cancelled_at&&canBook?`<button type="button" class="btn pl-change" data-slot="${sl.id}">Cambio de hora o punto</button><button type="button" class="btn pl-cancel" data-slot="${sl.id}">Cancelar salida y avisar a todos</button>`:''}<button type="button" class="btn pl-manage">Gestionar</button></div>
+          ${(sl.blocks||[]).map(bl=>`<p class="pl-block">${wdIcon('lock',13)} ${bl.qty} ${bl.qty===1?'plaza bloqueada':'plazas bloqueadas'} · ${esc(bl.label||'Sin nombre')}${!past?` <button type="button" class="pl-unblock" data-block="${bl.id}">Liberar</button>`:''}</p>`).join('')}
+          <div class="pl-slot-actions">${!past&&sl.status!=='closed'&&free>0?`${canBook?`<button type="button" class="btn pl-add" data-slot="${sl.id}" data-service="${sl.service_id}">+ Reserva</button>`:''}<button type="button" class="btn pl-blockspots" data-slot="${sl.id}" data-free="${free}">Bloquear plazas</button><button type="button" class="btn pl-poster" data-slot="${sl.id}">${wdIcon('image',15)} Crear cartel</button>`:''}${act.some(b=>!b.placeholder)?`<a class="btn pl-manifest" href="#/manifiesto?slot=${sl.id}">${wdIcon('users',15)} Manifiesto</a>`:''}${!past&&!sl.cancelled_at&&canBook?`<button type="button" class="btn pl-change" data-slot="${sl.id}">Cambio de hora o punto</button><button type="button" class="btn pl-cancel" data-slot="${sl.id}">Cancelar salida y avisar a todos</button>`:''}<button type="button" class="btn pl-manage">Gestionar</button></div>
         </article>`; };
       const loose=f.other.filter(plActive);
       const html=`<div class="pl-pop" id="pl-pop" role="dialog" aria-label="${esc(wdLongDay(day))}">
@@ -5080,6 +5245,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       $$('.pl-person',pop).forEach(b=>b.onclick=()=>{ closePop(); location.hash='#/reserva?id='+b.dataset.booking; });
       $$('.pl-add',pop).forEach(b=>b.onclick=()=>{ closePop(); openManualBooking({serviceId:+b.dataset.service,slotId:+b.dataset.slot,onSaved:reload}); });
       $$('.pl-poster',pop).forEach(b=>b.onclick=()=>{ const sl=f.slots.find(x=>String(x.id)===b.dataset.slot); closePop(); if(sl) openPosterStudio({center,slots:[sl]}); });
+      $$('.pl-blockspots',pop).forEach(b=>b.onclick=()=>{ closePop(); openSpotBlock(+b.dataset.slot,+b.dataset.free,reload); });
+      $$('.pl-unblock',pop).forEach(b=>b.onclick=async()=>{ if(!confirm('¿Liberar estas plazas? Se podrán vender al momento en todos los canales.')) return; try{ await postJSON('/api/provider/spot-blocks',{action:'release',id:+b.dataset.block}); closePop(); toast('Plazas liberadas.'); reload(); }catch(err){ toast(err.message); } });
       $$('.pl-manage',pop).forEach(b=>b.onclick=()=>{ closePop(); onManage?.(); });
       $$('.pl-cancel',pop).forEach(b=>b.onclick=()=>{ closePop(); openSlotNotice(+b.dataset.slot,'slot_cancelled',reload); });
       $$('.pl-change',pop).forEach(b=>b.onclick=()=>{ closePop(); openSlotNotice(+b.dataset.slot,'slot_changed',reload); });
@@ -5429,8 +5596,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       else if(tab==='clients'){try{clients=(await api('/api/center/clients')).items;}catch(e){} content.innerHTML=centerClientsView(clients); const q=$('#cl-q'); if(q)q.oninput=()=>{const v=q.value.trim().toLowerCase(); $$('.cl-row[data-search]').forEach(r=>{r.hidden=!!v&&!r.dataset.search.includes(v);});};}
       else if(tab==='experiences'){content.innerHTML='<div id="cb-experiences"></div>'; await renderProviderExperiences('cb-experiences','center',{goServices:()=>loadTab('services')});}
       else if(tab==='payments'){content.innerHTML='<div id="cb-payments"></div>'; await renderCenterPayments(d.user.center_id,'cb-payments');}
-      else if(tab==='analytics'){content.innerHTML=await centerAnalyticsView(); $('#cb-export-report').onclick=()=>{const rows=[['Fecha','Participantes'],...(analytics.by_day||[]).map(x=>[x.date,x.participants])]; const csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\\n'); const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='worldives-informe-centro.csv';a.click();};}
-      else if(tab==='integration'){content.innerHTML=await centerIntegrationView(); $('#cb-new-api-key').onclick=async()=>{try{const r=await postJSON('/api/center/integration/regenerate',{});$('#cb-api-result').innerHTML='<div class="notice warning" style="margin-top:14px"><strong>Guarda esta clave ahora.</strong><br><code>'+escapeHtml(r.api_key)+'</code><br><small>Por seguridad WORLDIVES no vuelve a mostrarla completa.</small></div>';}catch(e){toast(e.message)}};}
+      else if(tab==='analytics'){content.innerHTML=await centerAnalyticsView(); content.insertAdjacentHTML('afterbegin','<div id="cb-vcanal"></div>'); renderSalesByChannel('cb-vcanal'); $('#cb-export-report').onclick=()=>{const rows=[['Fecha','Participantes'],...(analytics.by_day||[]).map(x=>[x.date,x.participants])]; const csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\\n'); const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='worldives-informe-centro.csv';a.click();};}
+      else if(tab==='vender'||tab==='integration'){content.innerHTML='<div id="cb-vender"></div><details class="vt-legacy"><summary>Conexión antigua: tu sistema envía las reservas que ya tiene (canal «Importada»)</summary><div id="cb-legacy"></div></details>'; await renderSellOnline('cb-vender');
+        $('#cb-legacy').innerHTML=await centerIntegrationView(); $('#cb-new-api-key').onclick=async()=>{try{const r=await postJSON('/api/center/integration/regenerate',{});$('#cb-api-result').innerHTML='<div class="notice warning" style="margin-top:14px"><strong>Guarda esta clave ahora.</strong><br><code>'+escapeHtml(r.api_key)+'</code><br><small>Por seguridad WORLDIVES no vuelve a mostrarla completa.</small></div>';}catch(e){toast(e.message)}};}
       else if(tab==='points'){content.innerHTML='<div id="cb-points"></div>'; renderCenterPointManager(d.user.center_id,'cb-points');}
       else if(tab==='marina'){content.innerHTML='<div id="cb-marina"></div>'; await renderMarinaProposals('cb-marina');}
       else if(tab==='qr'){content.innerHTML=`<div class="pr-tabs" role="tablist"><button type="button" class="pr-tab is-on" data-pt="promos">${wdIcon('gift',16)} Promociones</button><button type="button" class="pr-tab" data-pt="check">${wdIcon('qr',16)} Validar un código</button><button type="button" class="pr-tab" data-pt="checkin">${wdIcon('pin',16)} QR de check-in</button></div><div id="pr-pane"></div>`;
@@ -5449,7 +5617,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     };
     // v50.49: each person sees the tabs their role allows (the server refuses the rest anyway).
     if((state.me?.member_role||'owner')!=='owner'){ $$('.cb-nav[data-owner]').forEach(n=>n.remove());
-      Object.entries({payments:'cobros',integration:'centro',center:'centro',marina:'centro',analytics:'estadisticas',stats:'estadisticas',clients:'reservas',requests:'reservas'}).forEach(([t,p])=>{ if(!wdCan(p)) $$(`.cb-nav[data-cbtab="${t}"]`).forEach(n=>n.remove()); }); }
+      Object.entries({payments:'cobros',integration:'centro',vender:'centro',center:'centro',marina:'centro',analytics:'estadisticas',stats:'estadisticas',clients:'reservas',requests:'reservas'}).forEach(([t,p])=>{ if(!wdCan(p)) $$(`.cb-nav[data-cbtab="${t}"]`).forEach(n=>n.remove()); }); }
     { const pl=state.me?.plan; if(pl&&pl.status!=='active'){ const host=$('#cb-content'); host?.insertAdjacentHTML('beforebegin',`<div class="pl-bar ${pl.status==='expired'||pl.code==='free'?'is-free':''}">${wdIcon('info',16)} ${pl.status==='trial'?`Prueba gratuita del plan ${escapeHtml(pl.name)} hasta el ${escapeHtml(wdLegalDate(pl.expires_at))}.`:pl.status==='expired'?'Tu plan ha terminado: tu ficha sigue como ficha gratuita y no recibe reservas online nuevas.':'Ficha gratuita: recibes solicitudes de información.'} <a href="#/admin?tab=plan">Mi plan</a></div>`); } }
     nav.forEach(n=>n.onclick=()=>loadTab(n.dataset.cbtab));
     // v50.47 (B.6): someone who works for several centres changes the centre of this session explicitly.
@@ -5457,6 +5625,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     content.addEventListener('click',async e=>{const g=e.target.closest('.cb-go'); if(g){e.preventDefault();loadTab(g.dataset.tab,{view:g.dataset.view});return;} if(e.target.closest('.db-new-booking')){openManualBooking({onSaved:async()=>{await reloadData(); if(currentTab==='dashboard')loadTab('dashboard');}});return;} const b=e.target.closest('.cb-booking-open'); if(b){location.hash='#/reserva?id='+b.dataset.id;}});
     $('#cb-refresh').onclick=()=>loadTab(currentTab);
     const requested=new URLSearchParams(location.hash.split('?')[1]||'').get('tab'); loadTab(requested && nav.some(n=>n.dataset.cbtab===requested)?requested:'dashboard');
+    if(wdCan('reservas')) wdStartFeed();   // v50.56: a notice for every new booking, whatever the channel
   }
 
   // ---------------------------------------------------------------- v50.54 · Moderación y datos personales (punto 8)

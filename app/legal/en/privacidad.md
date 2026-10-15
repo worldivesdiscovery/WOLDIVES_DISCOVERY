@@ -13,6 +13,8 @@ We explain clearly what data we process, for what purpose, who we share it with,
 
 When you make a booking, **the centre or professional providing the activity** is an independent controller of the data it receives in order to provide it (see section 4).
 
+**If you book on a centre's website, booking page or link** (you will see "Bookings powered by WORLDIVES") without signing in with a WORLDIVES account, you are that centre's customer: **the centre is the controller** of your data and WORLDIVES processes it **on the centre's behalf** (Art. 28 GDPR), only to manage your booking, the payment and the emails about it. We do not use it for our own advertising and no other centre can see it. To exercise your rights, contact the centre (you can reply to any of its emails); if you write to us, we will pass your request on to the centre. If you also create a WORLDIVES account, that account is a separate relationship with us, based on your own consent, and the booking remains the centre's.
+
 ## 2. What data we process
 
 - **Account:** name, email, username, password (stored encrypted using a one-way algorithm), language and, if you enable it, the key for your two-step verification.

@@ -493,7 +493,9 @@ def content_security_policy() -> str:
         "img-src 'self' data: blob: https:",
         "font-src 'self'",
         'connect-src ' + ' '.join(connect),
-        'frame-src ' + (' '.join(frames) if frames else "'none'"),
+        # v50.56: 'self' for the live preview of the centre's own widget in «Vender en tu web» (only /w/<centro> lets
+        # itself be framed; every other page keeps frame-ancestors 'none')
+        'frame-src ' + ' '.join(["'self'"] + frames),
         "media-src 'self' blob:",
         "worker-src 'self'",
         "manifest-src 'self'",

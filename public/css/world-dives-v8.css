@@ -3541,3 +3541,36 @@ html.wd-app[data-wda-tema="noche"] .svc2 :is(.svc2-kicker,.svc2-desc,.svc2-price
 /* inside the app the tab bar is at the bottom: the bar goes above it */
 html.wd-app .pp-dep-bar{display:flex;bottom:calc(var(--barra,68px) + var(--abajo,0px));background:linear-gradient(to top,var(--fondo,#F3F7FA) 70%,transparent)}
 html.wd-app .pp-page{padding-bottom:150px}
+
+/* v50.56 · Vender en tu web, canales en el planning, bloqueos de plazas y ventas por canal */
+.vt-wrap{display:grid;gap:16px}
+.vt-card{border:1px solid var(--line,#dfe6e7);border-radius:14px;padding:16px 18px;background:#fff;display:grid;gap:10px}
+.vt-card h3{margin:0;font-size:17px}.vt-card h4{margin:6px 0 0;font-size:14px}
+.vt-help{color:var(--muted,#5f717b);font-size:13px;margin:0}
+.vt-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.vt-tab{border:1px solid var(--line,#dfe6e7);background:#fff;border-radius:999px;padding:7px 14px;font-weight:700;cursor:pointer}
+.vt-tab[aria-selected="true"]{background:var(--wd-profundo,#011C3C);color:#fff;border-color:var(--wd-profundo,#011C3C)}
+.vt-code{background:#0d2333;color:#e7f3f4;border-radius:10px;padding:12px 14px;font-size:12.5px;white-space:pre-wrap;word-break:break-all;margin:0}
+.vt-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.vt-row input,.vt-row select{min-height:38px}
+.vt-link{background:#f4f8f9;border-radius:8px;padding:7px 10px;font-size:12.5px;word-break:break-all;max-width:100%}
+.vt-prefix{color:var(--muted,#5f717b);font-size:13px}
+.vt-preview{border:1px dashed var(--line,#c9d4d8);border-radius:12px;padding:8px;background:#f7f9fa}
+.vt-preview iframe{display:block;width:100%;height:520px;border:0;background:#fff;border-radius:8px}
+.vt-qr{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.vt-qr img{border:1px solid var(--line,#dfe6e7);border-radius:8px;background:#fff}
+.vt-table{width:100%;border-collapse:collapse;font-size:13px}.vt-table th,.vt-table td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line,#e6eef0);vertical-align:top}
+.vt-table tr.is-off{opacity:.55}.vt-actions{display:flex;gap:6px;flex-wrap:wrap}
+.vt-checks{display:flex;gap:10px;flex-wrap:wrap;font-size:13px}
+.vt-scroll{overflow-x:auto}
+.vt-bars{display:grid;gap:6px}.vt-bar{display:grid;grid-template-columns:120px 1fr auto;gap:10px;align-items:center;font-size:13px}
+.vt-bar i{display:block;height:10px;border-radius:99px;background:var(--wd-turquesa,#1CA5C7);min-width:2px}
+.vt-legacy{margin-top:14px}.vt-legacy summary{cursor:pointer;color:var(--muted,#5f717b);font-size:13px}
+.pl-chf select{min-height:36px;border-radius:999px;padding:0 10px;border:1px solid var(--line,#dfe6e7);background:#fff}
+.pl-tag.pl-ch{background:#eef2ff;color:#3730a3}
+.pl-tag.ch-widget{background:#e0f2f1;color:#0b5f59}.pl-tag.ch-api{background:#f3e8ff;color:#6b21a8}.pl-tag.ch-link{background:#fff7e6;color:#8a5300}
+.pl-tag.ch-manual{background:#f1f5f9;color:#334155}.pl-tag.ch-import{background:#fdf2f8;color:#9d174d}
+.pl-block{margin:6px 0 0;font-size:12.5px;color:#7c4a03;background:#fff7e6;border-radius:8px;padding:6px 8px;display:flex;gap:6px;align-items:center}
+.pl-unblock{margin-left:auto;border:0;background:none;color:var(--wd-azul,#076898);font-weight:700;cursor:pointer}
+@media (max-width:640px){.vt-bar{grid-template-columns:90px 1fr}.vt-bar b{grid-column:1/-1}.vt-preview iframe{height:460px}}
+/* the channel tag is one more tag per person: let the tags wrap under the name instead of widening the agenda pop-up */
+.pl-person{flex-wrap:wrap;row-gap:4px}.pl-person .pl-pname{flex:1 1 130px}.pl-slot>*{min-width:0}

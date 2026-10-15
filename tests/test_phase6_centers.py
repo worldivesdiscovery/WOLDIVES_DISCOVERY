@@ -242,7 +242,7 @@ class CentreTools(ServerTestCase):
         self.assertEqual(w.status, 301)                                   # v50.56: the new widget, only on the centre's own domains
         slug = w.headers['Location'].split('/w/')[1].split('?')[0]
         w = self.client().get(f'/w/{slug}')
-        self.assertEqual(w.status, 200); self.assertIn("frame-ancestors 'none'", w.headers.get('Content-Security-Policy'))   # no domain authorised yet
+        self.assertEqual(w.status, 200); self.assertIn("frame-ancestors 'self'", w.headers.get('Content-Security-Policy'))   # no domain authorised yet: only the panel's preview
         self.assertIsNone(re.search(r'<script>(?!</script>)', w.body.decode()))                                              # no inline script
         self.assertIn('Bautizo', json.dumps(self.client().get(f'/api/w/{slug}').json, ensure_ascii=False))
         self.assertEqual(self.client().get('/widget/center/999999').status, 404)
