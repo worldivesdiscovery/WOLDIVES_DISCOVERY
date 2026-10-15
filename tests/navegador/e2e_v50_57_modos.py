@@ -85,9 +85,9 @@ def main():
                         seen.append({'pantalla': route, 'ok': ok, 'errores_js': errs[:3], 'peticiones_con_error': bad[:5], 'textos_rotos': broken, 'sale_por_el_lado_px': wide,
                                      'texto': len(txt.strip())})
                         check(f'{size} · {role} · {route}', ok, seen[-1])
-                        if out and size == 'ordenador':
-                            out.mkdir(parents=True, exist_ok=True)
-                            pg.screenshot(path=str(out / f'{role}-{re.sub(r"[^a-z0-9]+", "-", route.lower()).strip("-")}.png'))
+                        if out:   # every screen, on the computer and on the phone, to look at them one by one
+                            (out / size).mkdir(parents=True, exist_ok=True)
+                            pg.screenshot(path=str(out / size / f'{role}-{re.sub(r"[^a-z0-9]+", "-", route.lower()).strip("-")}.png'), full_page=size == 'movil')
                     report[f'{size}/{role}'] = seen
 
                     # ------------------------------------------------------------ special attention
