@@ -311,7 +311,7 @@
   }
   // v50.57 (4.1 y 4.2): the season of the counters and the exports, and the minutes of the confirmation for personal data.
   async function renderAdminSettings(mountId){ const mount=document.getElementById(mountId); if(!mount) return; const s=await api('/api/admin/settings');
-    const pick=(id,v)=>{ const [m,d]=String(v).split('-').map(Number); return `<select id="${id}-d" aria-label="Día">${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${i+1===d?'selected':''}>${i+1}</option>`).join('')}</select><select id="${id}-m" aria-label="Mes">${TH_MONTHS.map((x,i)=>`<option value="${i+1}" ${i+1===m?'selected':''}>${x}</option>`).join('')}</select>`; };
+    const pick=(id,v)=>{ const [m,d]=String(v).split('-').map(Number); return `<select id="${id}-d" aria-label="Día">${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${i+1===d?'selected':''}>${i+1}</option>`).join('')}</select><select id="${id}-m" aria-label="Mes">${TH_MONTHS.map((x,i)=>`<option value="${i+1}" ${i+1===m?'selected':''}>${new Date(2024,i,1).toLocaleDateString(wdLocale(),{month:'long'})}</option>`).join('')}</select>`; };
     const [lo,hi]=s.limits.admin_confirm_minutes;
     mount.innerHTML=`<section class="mm-module as-module"><div class="svc-head"><div><p class="eyebrow">Ajustes</p><h2>Temporada y datos personales</h2></div></div>
       <form id="as-form" class="as-form"><fieldset><legend>Temporada</legend><p class="adl-det">Para los contadores de «Actividad» y el periodo «Temporada» de las exportaciones.</p><div class="as-row"><span>Del</span>${pick('as-ini',s.temporada_inicio)}<span>al</span>${pick('as-fin',s.temporada_fin)}</div></fieldset>
@@ -345,9 +345,13 @@
   // v50.57 (4.2): the counter of visits of the web, without cookies or anything stored in the browser: the server counts
   // the screen (and the centre or professional it shows) once; robots and the administration are not counted there.
   let wdVisitLast='';
+  const WD_VISIT_PAGES=new Set(['home','explorar','puntos','punto','centros','centro','tipos','experiencias','experiencia','top10','profesional','reservar',
+    'reservar-dias','experienciareserva','virtual','planes','login','registro']);   // the public screens (VISIT_PAGES in the server)
   function wdVisit(name,params){
+    if(!WD_VISIT_PAGES.has(name)){ wdVisitLast=''; return; }
     const id=+(params?.get?.('id')||0)||0, key=name+'|'+id; if(key===wdVisitLast) return; wdVisitLast=key;
-    try{ fetch('/api/visita',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(id?{p:name,id}:{p:name}),keepalive:true,credentials:'same-origin'}).catch(()=>{}); }catch{}
+    // (the answer is read: a response left unread stays «in progress» for the browser)
+    try{ fetch('/api/visita',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(id?{p:name,id}:{p:name}),keepalive:true,credentials:'same-origin'}).then(r=>r.text()).catch(()=>{}); }catch{}
   }
   // v50.57 (revisión general, 2.1): a link or a «Guardar» to the address the page already shows re-draws it. The browser
   // does not fire «hashchange» then, so before «Administración» did nothing from «Editar punto» and you had to go back.
@@ -5276,9 +5280,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $$('.st-card',mount).forEach(c=>{ const id=Number(c.dataset.id), t=d.items.find(x=>x.id===id);
       $('.st-del',c)?.addEventListener('click',async()=>{
         const used=t.in_use>0, name=t.names.es||t.slug;
-        if(!await wdConfirm(used?{title:`¿Archivar «${name}»?`,text:`La usan ${t.providers} ${t.providers===1?'centro o profesional':'centros o profesionales'}. No se borra: deja de salir para servicios nuevos y los servicios que ya la usan no cambian.`,ok:'Archivar'}
+        if(!await wdConfirm(used?{title:`¿Archivar «${name}»?`,text:`${t.providers===1?'La usa 1 centro o profesional':`La usan ${t.providers} centros o profesionales`}. No se borra: deja de salir para servicios nuevos y los servicios que ya la usan no cambian.`,ok:'Archivar'}
                                 :{title:`¿Borrar «${name}»?`,text:'Ningún centro la usa. Se borra con su foto y no se puede deshacer.',ok:'Borrar',danger:true})) return;
-        try{ const r=await postJSON('/api/admin/service-catalog/delete',{id}); toast(r.archived?`Plantilla archivada: la usan ${r.providers} ${r.providers===1?'centro o profesional':'centros o profesionales'}.`:'Plantilla borrada.'); refresh(); }catch(err){ toast(err.message); } });
+        try{ const r=await postJSON('/api/admin/service-catalog/delete',{id}); toast(r.archived?(r.providers===1?'Plantilla archivada: la usa 1 centro o profesional.':`Plantilla archivada: la usan ${r.providers} centros o profesionales.`):'Plantilla borrada.'); refresh(); }catch(err){ toast(err.message); } });
       $('.st-restore',c)?.addEventListener('click',async()=>{ try{ await postJSON('/api/admin/service-catalog/restore',{id}); toast('Plantilla recuperada.'); refresh(); }catch(err){ toast(err.message); } });
     });
     // order: drag a card onto another, or the arrows (keyboard and phone); saved at once

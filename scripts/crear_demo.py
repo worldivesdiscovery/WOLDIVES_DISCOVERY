@@ -366,12 +366,19 @@ def build(out: Path):
         print(f'Historial: {history[cid]} reservas en {bahia["name"]}, {history[cid2]} en {medes["name"]}', flush=True)
 
         # --- visits of the public pages, clicks on «Reservar» and information requests (Estadísticas) ---------------
+        # v50.57 (4.2): the same visitors in the counter of «Actividad» and «Estadísticas» (visit_counts: pages seen and
+        # visitors of each day), with a generator of its own so that the rest of the demo stays the same
+        vrnd, site = random.Random(4242), {}
         for ptype, pid, base in (('center', cid, 46), ('center', cid2, 34), ('freelance', pro_id, 14), ('freelance', pro2_id, 11)):
             for back in range(HISTORY_DAYS, -1, -1):
                 d = today - dt.timedelta(days=back)
                 views = max(0, int(rnd.gauss(base * season(d), base * .18)))
                 q('INSERT OR REPLACE INTO provider_stats_daily(provider_type,provider_id,day,views,book_clicks,info_requests) VALUES(?,?,?,?,?,?)',
                   (ptype, pid, d.isoformat(), views, int(views * rnd.uniform(.06, .11)), int(views * rnd.uniform(.0, .025))))
+                q('INSERT OR REPLACE INTO visit_counts(day,scope,views,uniques) VALUES(?,?,?,?)', (d.isoformat(), f'{ptype}:{pid}', int(views * vrnd.uniform(1.2, 1.6)), views))
+                site[d] = site.get(d, 0) + views
+        for d, n in site.items():   # the whole web: more visitors than the four pages, about three pages each
+            u = int(n * vrnd.uniform(2.2, 2.8)); q('INSERT OR REPLACE INTO visit_counts(day,scope,views,uniques) VALUES(?,?,?,?)', (d.isoformat(), 'site', int(u * vrnd.uniform(2.6, 3.4)), u))
         hdb.commit(); hdb.close()
 
         # --- reviews of divers who dived with each centre, and the centre's replies ---------------------------------

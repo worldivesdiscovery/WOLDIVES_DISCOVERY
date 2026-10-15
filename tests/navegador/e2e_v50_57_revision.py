@@ -401,6 +401,96 @@ def run(out: Path | None):
             shot(pg, 'b4-1-ajustes')
             check('4.1 · ninguna ventana del navegador (prompt) en todo el recorrido', not dialogs, dialogs)
             c.close()
+
+            # 4.2 · visits and bookings, without cookies. A visitor with a normal browser (the test browser says
+            # «HeadlessChrome», which counts as a robot), the administration and the centre's own team.
+            def figures(pg, url):
+                return pg.evaluate("u => fetch(u).then(r => r.json()).then(d => Object.fromEntries(d.periods.map(p => [p.key, p])))", url)
+
+            c, pg = ctx(); login(pg, 'admin.prueba')
+            before = figures(pg, '/api/admin/contador')['todo']
+            cid = pg.evaluate("fetch('/api/centers').then(r => r.json()).then(d => (d.items || []).find(x => x.name.includes('Bahía Coralina'))?.id)")
+            for h in ('#/', '#/centros'):   # the administration browsing: not counted
+                pg.goto(srv.base + '/' + h); pg.wait_for_load_state('networkidle')
+            vis = browser.new_context(**DESK, user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36')
+            vis.add_init_script("try{localStorage.setItem('wd_cookie_notice',String(Date.now()))}catch(e){}")
+            vp = vis.new_page(); vp.on('pageerror', lambda e: errors.append(str(e)))
+            for h in ('#/', '#/centros', f'#/centro?id={cid}', '#/puntos'):
+                vp.goto(srv.base + '/' + h); vp.wait_for_load_state('networkidle'); vp.wait_for_timeout(300)
+            kept = vp.evaluate("[...Object.keys(localStorage), ...Object.keys(sessionStorage)].filter(k => /visit|visita|track|count/i.test(k))")
+            check('4.2 · la web no deja ninguna cookie ni nada guardado para contar', not vis.cookies() and not kept, (vis.cookies(), kept))
+            vis.close()
+            after = figures(pg, '/api/admin/contador')['todo']
+            check('4.2 · 4 pantallas de un visitante: 4 páginas vistas y 1 visitante; las de la administración no cuentan',
+                  (after['views'] - before['views'], after['uniques'] - before['uniques']) == (4, 1), (before, after))
+            pg.goto(f'{srv.base}/#/admin?tab=audit'); pg.wait_for_selector('#wd-counter-admin .vc-table', timeout=15000)
+            t = pg.inner_text('#wd-counter-admin').lower()
+            check('4.2 · Actividad: visitas y reservas de la temporada, el mes y desde el inicio',
+                  all(x.lower() in t for x in ('Visitas y reservas', 'Temporada', 'Este mes', 'Desde el inicio', 'Páginas vistas', 'Visitantes únicos', 'Reservas', 'Importe reservado')), t[:400])
+            shot(pg, 'b4-2-actividad-contador')
+            c.close()
+            c, pg = ctx(); login(pg, 'centro.prueba')
+            mine = figures(pg, '/api/provider/contador')['todo']
+            pg.goto(f'{srv.base}/#/centro?id={cid}'); pg.wait_for_load_state('networkidle')   # its own team: not counted for it
+            t = tab(pg, 'stats', '#cb-stats-vc .vc-table')
+            check('4.2 · el centro ve el mismo contador en Estadísticas: la visita a su ficha, no las de su equipo',
+                  mine['views'] >= 1 and figures(pg, '/api/provider/contador')['todo']['views'] == mine['views'] and 'Visitas y reservas' in t, mine)
+            shot(pg, 'b4-2-centro-estadisticas')
+            c.close()
+
+            # 4.3 · templates: icon with a preview, delete or archive, order by dragging
+            c, pg = ctx(); login(pg, 'admin.prueba')
+            pg.goto(f'{srv.base}/#/admin?tab=svctemplates'); pg.wait_for_selector('.st-card', timeout=15000)
+            pg.locator('#st-new').click(); pg.wait_for_selector('#st-form .st-icon', timeout=8000)
+            names = pg.eval_on_selector_all('#st-form .st-icon small', 'ns => ns.map(n => n.innerText.trim())')
+            check('4.3 · el selector tiene todos los iconos (inmersión, bautizo, curso, salida privada, viaje, alquiler, fotografía, nocturna, snorkel…)',
+                  all(n in names for n in ('Inmersión', 'Bautizo', 'Curso', 'Salida privada', 'Viaje de buceo', 'Alquiler de equipo', 'Fotografía', 'Nocturna', 'Snorkel')), names)
+            pg.fill('#stf-n-es', 'Nocturna de prueba'); pg.locator('#st-form .st-icon[data-icon="nocturna"]').click()
+            prev = pg.inner_html('#stf-prev')
+            check('4.3 · al elegirlo se ve la tarjeta con ese icono y el nombre', 'Nocturna de prueba' in pg.inner_text('#stf-prev')
+                  and pg.locator('#st-form .st-icon[data-icon="nocturna"][aria-checked="true"]').count() == 1 and 'M19.5 13.4' in prev)
+            shot(pg, 'b4-3-icono-vista-previa')
+            pg.locator('#st-form footer button[type=submit]').click()
+            check('4.3 · se guarda con su icono', toast_has('Plantilla guardada'))
+            pg.wait_for_timeout(1200)
+            # delete the one nobody uses (with confirmation)
+            card = pg.locator('.st-card', has_text='Nocturna de prueba')
+            card.locator('.st-del').click(); pg.wait_for_selector('#wd-confirm', timeout=8000)
+            check('4.3 · «Borrar» pide confirmación y dice que nadie la usa', 'Ningún centro la usa' in pg.inner_text('#wd-confirm'))
+            shot(pg, 'b4-3-borrar-confirmar')
+            pg.locator('#wd-confirm-ok').click()
+            check('4.3 · se borra', toast_has('Plantilla borrada') and pg.wait_for_selector('.st-card', timeout=8000)
+                  and pg.locator('.st-card', has_text='Nocturna de prueba').count() == 0)
+            # archive one a centre uses: it says how many
+            used = pg.locator('.st-card', has=pg.locator('.st-del', has_text='Archivar')).first
+            uid = used.get_attribute('data-id')
+            used.locator('.st-del').click(); pg.wait_for_selector('#wd-confirm', timeout=8000)
+            txt = pg.inner_text('#wd-confirm')
+            check('4.3 · «Archivar» si la usa algún centro, y dice cuántos', ('La usan ' in txt or 'La usa 1 ' in txt) and 'No se borra' in txt, txt)
+            pg.locator('#wd-confirm-ok').click()
+            ok = toast_has('Plantilla archivada'); pg.wait_for_selector(f'.st-card[data-id="{uid}"]', timeout=8000)
+            arch = pg.locator(f'.st-card[data-id="{uid}"]')
+            public = pg.evaluate("fetch('/api/service-catalog').then(r => r.json()).then(d => d.items.map(x => String(x.id)))")
+            check('4.3 · archivada: sigue en la lista, deja de salir para servicios nuevos', ok and 'Archivada' in arch.inner_text() and uid not in public)
+            shot(pg, 'b4-3-archivada')
+            arch.locator('.st-restore').click()
+            check('4.3 · «Recuperar» la vuelve a ofrecer', toast_has('Plantilla recuperada'))
+            # order: the arrows, and dragging
+            pg.wait_for_selector('.st-card', timeout=8000); pg.wait_for_timeout(800)
+            first = pg.eval_on_selector_all('.st-card', 'cs => cs.map(c => c.dataset.id)')
+            pg.locator('.st-card').first.locator('.st-down').click()
+            ok = toast_has('Orden guardado')
+            pg.reload(); pg.wait_for_selector('.st-card', timeout=15000)
+            now_ = pg.eval_on_selector_all('.st-card', 'cs => cs.map(c => c.dataset.id)')
+            check('4.3 · ↓ baja una plantilla y el orden se queda al volver a entrar', ok and now_[:2] == [first[1], first[0]], (first[:3], now_[:3]))
+            # (the first two cards in view, below the fixed header of the web: a drop under the header lands on the header)
+            pg.locator('.st-card').first.scroll_into_view_if_needed(); pg.evaluate('window.scrollBy(0, -160)'); pg.wait_for_timeout(300)
+            pg.locator('.st-card').nth(1).locator('.st-grip').drag_to(pg.locator('.st-card').first, target_position={'x': 30, 'y': 120})
+            ok = toast_has('Orden guardado'); pg.reload(); pg.wait_for_selector('.st-card', timeout=15000)
+            dragged = pg.eval_on_selector_all('.st-card', 'cs => cs.map(c => c.dataset.id)')
+            check('4.3 · arrastrar una plantilla la cambia de sitio y se guarda', ok and dragged[:2] == [now_[1], now_[0]], (now_[:3], dragged[:3]))
+            shot(pg, 'b4-3-plantillas-orden')
+            c.close()
             browser.close()
     finally:
         srv.stop(); shutil.rmtree(tmp, ignore_errors=True)

@@ -1,0 +1,1491 @@
+{
+ "exact": {
+  "Visitas y reservas": {
+   "en": "Visits and bookings",
+   "fr": "Visites et réservations",
+   "de": "Besuche und Buchungen",
+   "it": "Visite e prenotazioni",
+   "pt": "Visitas e reservas",
+   "pl": "Odwiedziny i rezerwacje",
+   "nl": "Bezoeken en boekingen",
+   "zh": "访问量和预订"
+  },
+  "Temporada": {
+   "en": "Season",
+   "fr": "Saison",
+   "de": "Saison",
+   "it": "Stagione",
+   "pt": "Época",
+   "pl": "Sezon",
+   "nl": "Seizoen",
+   "zh": "潜水季"
+  },
+  "Este mes": {
+   "en": "This month",
+   "fr": "Ce mois-ci",
+   "de": "Dieser Monat",
+   "it": "Questo mese",
+   "pt": "Este mês",
+   "pl": "Ten miesiąc",
+   "nl": "Deze maand",
+   "zh": "本月"
+  },
+  "Desde el inicio": {
+   "en": "Since the start",
+   "fr": "Depuis le début",
+   "de": "Seit Beginn",
+   "it": "Dall'inizio",
+   "pt": "Desde o início",
+   "pl": "Od początku",
+   "nl": "Sinds het begin",
+   "zh": "自开始以来"
+  },
+  "Páginas vistas": {
+   "en": "Page views",
+   "fr": "Pages vues",
+   "de": "Seitenaufrufe",
+   "it": "Pagine viste",
+   "pt": "Páginas vistas",
+   "pl": "Odsłony",
+   "nl": "Paginaweergaven",
+   "zh": "页面浏览量"
+  },
+  "Visitantes únicos": {
+   "en": "Unique visitors",
+   "fr": "Visiteurs uniques",
+   "de": "Eindeutige Besucher",
+   "it": "Visitatori unici",
+   "pt": "Visitantes únicos",
+   "pl": "Unikalni odwiedzający",
+   "nl": "Unieke bezoekers",
+   "zh": "独立访客"
+  },
+  "(de cada día)": {
+   "en": "(per day)",
+   "fr": "(par jour)",
+   "de": "(pro Tag)",
+   "it": "(al giorno)",
+   "pt": "(por dia)",
+   "pl": "(dziennie)",
+   "nl": "(per dag)",
+   "zh": "（每日）"
+  },
+  "Importe reservado": {
+   "en": "Amount booked",
+   "fr": "Montant réservé",
+   "de": "Gebuchter Betrag",
+   "it": "Importo prenotato",
+   "pt": "Montante reservado",
+   "pl": "Zarezerwowana kwota",
+   "nl": "Geboekt bedrag",
+   "zh": "预订金额"
+  },
+  "(confirmadas)": {
+   "en": "(confirmed)",
+   "fr": "(confirmées)",
+   "de": "(bestätigt)",
+   "it": "(confermate)",
+   "pt": "(confirmadas)",
+   "pl": "(potwierdzone)",
+   "nl": "(bevestigd)",
+   "zh": "（已确认）"
+  },
+  "Importe reservado (confirmadas)": {
+   "en": "Amount booked (confirmed)",
+   "fr": "Montant réservé (confirmées)",
+   "de": "Gebuchter Betrag (bestätigt)",
+   "it": "Importo prenotato (confermate)",
+   "pt": "Montante reservado (confirmadas)",
+   "pl": "Zarezerwowana kwota (potwierdzone)",
+   "nl": "Geboekt bedrag (bevestigd)",
+   "zh": "预订金额（已确认）"
+  },
+  "Sin cookies ni datos de nadie: el servidor solo suma. Cada visitante cuenta una vez al día; no se cuentan los robots ni la administración.": {
+   "en": "No cookies and no one's data: the server only adds up. Each visitor counts once a day; robots and the administration are not counted.",
+   "fr": "Sans cookies ni données de personne : le serveur ne fait qu'additionner. Chaque visiteur compte une fois par jour ; les robots et l'administration ne sont pas comptés.",
+   "de": "Ohne Cookies und ohne Daten von irgendwem: Der Server zählt nur zusammen. Jeder Besucher zählt einmal pro Tag; Bots und die Verwaltung werden nicht gezählt.",
+   "it": "Senza cookie né dati di nessuno: il server si limita a sommare. Ogni visitatore conta una volta al giorno; i robot e l'amministrazione non vengono contati.",
+   "pt": "Sem cookies nem dados de ninguém: o servidor apenas soma. Cada visitante conta uma vez por dia; os robôs e a administração não são contados.",
+   "pl": "Bez plików cookie i bez niczyich danych: serwer tylko sumuje. Każdy odwiedzający liczy się raz dziennie; roboty i administracja nie są liczeni.",
+   "nl": "Zonder cookies en zonder gegevens van wie dan ook: de server telt alleen op. Elke bezoeker telt één keer per dag; robots en de beheerder worden niet meegeteld.",
+   "zh": "不使用 Cookie，也不收集任何人的数据：服务器只做累计。每位访客每天只计一次；不统计机器人和管理员。"
+  },
+  "Desde el principio hasta hoy": {
+   "en": "From the beginning until today",
+   "fr": "Depuis le début jusqu'à aujourd'hui",
+   "de": "Vom Anfang bis heute",
+   "it": "Dall'inizio a oggi",
+   "pt": "Desde o início até hoje",
+   "pl": "Od początku do dziś",
+   "nl": "Vanaf het begin tot vandaag",
+   "zh": "从开始到今天"
+  },
+  "Año anterior": {
+   "en": "Last year",
+   "fr": "Année précédente",
+   "de": "Vorjahr",
+   "it": "Anno precedente",
+   "pt": "Ano anterior",
+   "pl": "Poprzedni rok",
+   "nl": "Vorig jaar",
+   "zh": "去年"
+  },
+  "Este año": {
+   "en": "This year",
+   "fr": "Cette année",
+   "de": "Dieses Jahr",
+   "it": "Quest'anno",
+   "pt": "Este ano",
+   "pl": "Ten rok",
+   "nl": "Dit jaar",
+   "zh": "今年"
+  },
+  "Este trimestre": {
+   "en": "This quarter",
+   "fr": "Ce trimestre",
+   "de": "Dieses Quartal",
+   "it": "Questo trimestre",
+   "pt": "Este trimestre",
+   "pl": "Ten kwartał",
+   "nl": "Dit kwartaal",
+   "zh": "本季度"
+  },
+  "Trimestre anterior": {
+   "en": "Last quarter",
+   "fr": "Trimestre précédent",
+   "de": "Vorquartal",
+   "it": "Trimestre precedente",
+   "pt": "Trimestre anterior",
+   "pl": "Poprzedni kwartał",
+   "nl": "Vorig kwartaal",
+   "zh": "上季度"
+  },
+  "Todo": {
+   "en": "All",
+   "fr": "Tout",
+   "de": "Alles",
+   "it": "Tutto",
+   "pt": "Tudo",
+   "pl": "Wszystko",
+   "nl": "Alles",
+   "zh": "全部"
+  },
+  "Excel (.xlsx)": {
+   "en": "Excel (.xlsx)",
+   "fr": "Excel (.xlsx)",
+   "de": "Excel (.xlsx)",
+   "it": "Excel (.xlsx)",
+   "pt": "Excel (.xlsx)",
+   "pl": "Excel (.xlsx)",
+   "nl": "Excel (.xlsx)",
+   "zh": "Excel（.xlsx）"
+  },
+  "Exportar la actividad": {
+   "en": "Export the activity",
+   "fr": "Exporter l'activité",
+   "de": "Aktivität exportieren",
+   "it": "Esporta l'attività",
+   "pt": "Exportar a atividade",
+   "pl": "Eksportuj aktywność",
+   "nl": "Activiteit exporteren",
+   "zh": "导出动态"
+  },
+  "Exportar mis datos": {
+   "en": "Export my data",
+   "fr": "Exporter mes données",
+   "de": "Meine Daten exportieren",
+   "it": "Esporta i miei dati",
+   "pt": "Exportar os meus dados",
+   "pl": "Eksportuj moje dane",
+   "nl": "Mijn gegevens exporteren",
+   "zh": "导出我的数据"
+  },
+  "Formato del archivo": {
+   "en": "File format",
+   "fr": "Format du fichier",
+   "de": "Dateiformat",
+   "it": "Formato del file",
+   "pt": "Formato do ficheiro",
+   "pl": "Format pliku",
+   "nl": "Bestandsformaat",
+   "zh": "文件格式"
+  },
+  "Descargado:": {
+   "en": "Downloaded:",
+   "fr": "Téléchargé :",
+   "de": "Heruntergeladen:",
+   "it": "Scaricato:",
+   "pt": "Transferido:",
+   "pl": "Pobrano:",
+   "nl": "Gedownload:",
+   "zh": "已下载："
+  },
+  "Elige las dos fechas del periodo.": {
+   "en": "Choose both dates of the period.",
+   "fr": "Choisissez les deux dates de la période.",
+   "de": "Wähle beide Daten des Zeitraums.",
+   "it": "Scegli le due date del periodo.",
+   "pt": "Escolha as duas datas do período.",
+   "pl": "Wybierz obie daty okresu.",
+   "nl": "Kies beide datums van de periode.",
+   "zh": "请选择时间段的起止日期。"
+  },
+  "No se ha podido preparar el archivo. Inténtalo de nuevo.": {
+   "en": "The file could not be prepared. Please try again.",
+   "fr": "Impossible de préparer le fichier. Réessayez.",
+   "de": "Die Datei konnte nicht vorbereitet werden. Versuche es erneut.",
+   "it": "Non è stato possibile preparare il file. Riprova.",
+   "pt": "Não foi possível preparar o ficheiro. Tente novamente.",
+   "pl": "Nie udało się przygotować pliku. Spróbuj ponownie.",
+   "nl": "Het bestand kon niet worden voorbereid. Probeer het opnieuw.",
+   "zh": "无法准备文件，请重试。"
+  },
+  "Sin datos en este periodo": {
+   "en": "No data in this period",
+   "fr": "Aucune donnée sur cette période",
+   "de": "Keine Daten in diesem Zeitraum",
+   "it": "Nessun dato in questo periodo",
+   "pt": "Sem dados neste período",
+   "pl": "Brak danych w tym okresie",
+   "nl": "Geen gegevens in deze periode",
+   "zh": "此时间段内无数据"
+  },
+  "Disponible siempre, en cualquier plan. En Excel o en CSV, con el periodo que elijas; si no hay datos en ese periodo, el archivo sale con las columnas y el aviso «Sin datos en este periodo».": {
+   "en": "Always available, on any plan. In Excel or CSV, for the period you choose; if there is no data in that period, the file comes out with the columns and the notice “No data in this period”.",
+   "fr": "Toujours disponible, avec n'importe quelle formule. En Excel ou en CSV, pour la période de votre choix ; s'il n'y a pas de données sur cette période, le fichier contient les colonnes et l'avis « Aucune donnée sur cette période ».",
+   "de": "Immer verfügbar, in jedem Tarif. Als Excel oder CSV, für den gewählten Zeitraum; gibt es in diesem Zeitraum keine Daten, enthält die Datei die Spalten und den Hinweis „Keine Daten in diesem Zeitraum“.",
+   "it": "Sempre disponibile, con qualsiasi piano. In Excel o in CSV, per il periodo che scegli; se in quel periodo non ci sono dati, il file contiene le colonne e l'avviso «Nessun dato in questo periodo».",
+   "pt": "Sempre disponível, em qualquer plano. Em Excel ou CSV, com o período que escolher; se não houver dados nesse período, o ficheiro sai com as colunas e o aviso «Sem dados neste período».",
+   "pl": "Zawsze dostępne, w każdym planie. W Excelu lub CSV, za wybrany okres; jeśli w tym okresie nie ma danych, plik zawiera kolumny i komunikat „Brak danych w tym okresie”.",
+   "nl": "Altijd beschikbaar, bij elk abonnement. In Excel of CSV, voor de periode die je kiest; zijn er in die periode geen gegevens, dan bevat het bestand de kolommen en de melding ‘Geen gegevens in deze periode’.",
+   "zh": "随时可用，适用于所有套餐。可导出为 Excel 或 CSV，时间段由你选择；若该时间段内没有数据，文件仍包含各列并注明“此时间段内无数据”。"
+  },
+  "Disponible siempre, en cualquier plan. En Excel o en CSV, con el periodo que elijas; si no hay datos en ese periodo, el archivo sale con las columnas y el aviso": {
+   "en": "Always available, on any plan. In Excel or CSV, for the period you choose; if there is no data in that period, the file comes out with the columns and the notice",
+   "fr": "Toujours disponible, avec n'importe quelle formule. En Excel ou en CSV, pour la période de votre choix ; s'il n'y a pas de données sur cette période, le fichier contient les colonnes et l'avis",
+   "de": "Immer verfügbar, in jedem Tarif. Als Excel oder CSV, für den gewählten Zeitraum; gibt es in diesem Zeitraum keine Daten, enthält die Datei die Spalten und den Hinweis",
+   "it": "Sempre disponibile, con qualsiasi piano. In Excel o in CSV, per il periodo che scegli; se in quel periodo non ci sono dati, il file contiene le colonne e l'avviso",
+   "pt": "Sempre disponível, em qualquer plano. Em Excel ou CSV, com o período que escolher; se não houver dados nesse período, o ficheiro sai com as colunas e o aviso",
+   "pl": "Zawsze dostępne, w każdym planie. W Excelu lub CSV, za wybrany okres; jeśli w tym okresie nie ma danych, plik zawiera kolumny i komunikat",
+   "nl": "Altijd beschikbaar, bij elk abonnement. In Excel of CSV, voor de periode die je kiest; zijn er in die periode geen gegevens, dan bevat het bestand de kolommen en de melding",
+   "zh": "随时可用，适用于所有套餐。可导出为 Excel 或 CSV，时间段由你选择；若该时间段内没有数据，文件仍包含各列并附上提示"
+  },
+  "(reserva, centro o caso)": {
+   "en": "(booking, centre or case)",
+   "fr": "(réservation, centre ou dossier)",
+   "de": "(Buchung, Basis oder Fall)",
+   "it": "(prenotazione, centro o caso)",
+   "pt": "(reserva, centro ou caso)",
+   "pl": "(rezerwacja, centrum lub sprawa)",
+   "nl": "(boeking, centrum of zaak)",
+   "zh": "（预订、潜水中心或案例）"
+  },
+  "Confirma que eres tú": {
+   "en": "Confirm it's you",
+   "fr": "Confirmez qu'il s'agit bien de vous",
+   "de": "Bestätige, dass du es bist",
+   "it": "Conferma che sei tu",
+   "pt": "Confirme que é você",
+   "pl": "Potwierdź, że to Ty",
+   "nl": "Bevestig dat jij het bent",
+   "zh": "确认是你本人"
+  },
+  "Disputa o reclamación": {
+   "en": "Dispute or complaint",
+   "fr": "Litige ou réclamation",
+   "de": "Streitfall oder Reklamation",
+   "it": "Contestazione o reclamo",
+   "pt": "Disputa ou reclamação",
+   "pl": "Spór lub reklamacja",
+   "nl": "Geschil of klacht",
+   "zh": "争议或投诉"
+  },
+  "En cifras": {
+   "en": "In figures",
+   "fr": "En chiffres",
+   "de": "In Zahlen",
+   "it": "In cifre",
+   "pt": "Em números",
+   "pl": "W liczbach",
+   "nl": "In cijfers",
+   "zh": "数据概览"
+  },
+  "Los correos se ven en parte. Verlos completos pide tu contraseña y el motivo.": {
+   "en": "Emails are partly hidden. Seeing them in full asks for your password and the reason.",
+   "fr": "Les e-mails sont partiellement masqués. Pour les voir en entier, votre mot de passe et le motif sont demandés.",
+   "de": "Die E-Mail-Adressen sind teilweise verborgen. Um sie vollständig zu sehen, werden dein Passwort und der Grund abgefragt.",
+   "it": "Le email sono visibili solo in parte. Per vederle per intero servono la tua password e il motivo.",
+   "pt": "Os e-mails aparecem em parte. Para os ver completos, são pedidos a sua palavra-passe e o motivo.",
+   "pl": "Adresy e-mail są widoczne częściowo. Aby zobaczyć je w całości, trzeba podać hasło i powód.",
+   "nl": "E-mailadressen zijn deels zichtbaar. Om ze volledig te zien, worden je wachtwoord en de reden gevraagd.",
+   "zh": "邮箱仅部分显示。查看完整邮箱需要输入你的密码并说明原因。"
+  },
+  "Obligación legal o fiscal": {
+   "en": "Legal or tax obligation",
+   "fr": "Obligation légale ou fiscale",
+   "de": "Gesetzliche oder steuerliche Pflicht",
+   "it": "Obbligo legale o fiscale",
+   "pt": "Obrigação legal ou fiscal",
+   "pl": "Obowiązek prawny lub podatkowy",
+   "nl": "Wettelijke of fiscale verplichting",
+   "zh": "法律或税务义务"
+  },
+  "Pide tu contraseña y el motivo. Vale unos minutos y cada acceso queda registrado.": {
+   "en": "It asks for your password and the reason. It lasts a few minutes and every access is logged.",
+   "fr": "Votre mot de passe et le motif sont demandés. Valable quelques minutes ; chaque accès est enregistré.",
+   "de": "Dafür werden dein Passwort und der Grund abgefragt. Das gilt einige Minuten, und jeder Zugriff wird protokolliert.",
+   "it": "Richiede la tua password e il motivo. Vale alcuni minuti e ogni accesso viene registrato.",
+   "pt": "Pede a sua palavra-passe e o motivo. É válido durante alguns minutos e cada acesso fica registado.",
+   "pl": "Wymaga hasła i podania powodu. Działa przez kilka minut, a każdy dostęp jest rejestrowany.",
+   "nl": "Hiervoor worden je wachtwoord en de reden gevraagd. Het geldt een paar minuten en elke toegang wordt vastgelegd.",
+   "zh": "需要输入你的密码并说明原因。有效期为几分钟，每次访问都会被记录。"
+  },
+  "Reservas de los centros": {
+   "en": "Centres' bookings",
+   "fr": "Réservations des centres",
+   "de": "Buchungen der Basen",
+   "it": "Prenotazioni dei centri",
+   "pt": "Reservas dos centros",
+   "pl": "Rezerwacje centrów",
+   "nl": "Boekingen van de centra",
+   "zh": "潜水中心的预订"
+  },
+  "Sin datos de clientes: WORLDIVES es el motor de reservas y el detalle lo gestiona cada centro.": {
+   "en": "No customer data: WORLDIVES is the booking engine and each centre manages the details.",
+   "fr": "Sans données clients : WORLDIVES est le moteur de réservation et chaque centre gère le détail.",
+   "de": "Ohne Kundendaten: WORLDIVES ist das Buchungssystem, die Details verwaltet jede Basis.",
+   "it": "Senza dati dei clienti: WORLDIVES è il motore di prenotazione e il dettaglio lo gestisce ogni centro.",
+   "pt": "Sem dados de clientes: a WORLDIVES é o motor de reservas e o detalhe é gerido por cada centro.",
+   "pl": "Bez danych klientów: WORLDIVES to system rezerwacji, a szczegółami zarządza każde centrum.",
+   "nl": "Zonder klantgegevens: WORLDIVES is het boekingssysteem en elk centrum beheert de details.",
+   "zh": "不含客户数据：WORLDIVES 是预订引擎，详细信息由各潜水中心管理。"
+  },
+  "Soporte a un centro": {
+   "en": "Support for a centre",
+   "fr": "Assistance à un centre",
+   "de": "Support für eine Basis",
+   "it": "Assistenza a un centro",
+   "pt": "Apoio a um centro",
+   "pl": "Wsparcie dla centrum",
+   "nl": "Ondersteuning van een centrum",
+   "zh": "为潜水中心提供支持"
+  },
+  "Sospecha de fraude": {
+   "en": "Suspected fraud",
+   "fr": "Suspicion de fraude",
+   "de": "Betrugsverdacht",
+   "it": "Sospetto di frode",
+   "pt": "Suspeita de fraude",
+   "pl": "Podejrzenie oszustwa",
+   "nl": "Vermoeden van fraude",
+   "zh": "涉嫌欺诈"
+  },
+  "Temporada y datos personales": {
+   "en": "Season and personal data",
+   "fr": "Saison et données personnelles",
+   "de": "Saison und personenbezogene Daten",
+   "it": "Stagione e dati personali",
+   "pt": "Época e dados pessoais",
+   "pl": "Sezon i dane osobowe",
+   "nl": "Seizoen en persoonsgegevens",
+   "zh": "潜水季与个人数据"
+  },
+  "Una confirmación de la contraseña vale": {
+   "en": "A password confirmation lasts",
+   "fr": "Une confirmation du mot de passe est valable",
+   "de": "Eine Passwortbestätigung gilt",
+   "it": "Una conferma della password vale",
+   "pt": "Uma confirmação da palavra-passe é válida durante",
+   "pl": "Potwierdzenie hasła jest ważne przez",
+   "nl": "Een wachtwoordbevestiging geldt",
+   "zh": "密码确认的有效期为"
+  },
+  "minutos": {
+   "en": "minutes",
+   "fr": "minutes",
+   "de": "Minuten",
+   "it": "minuti",
+   "pt": "minutos",
+   "pl": "minut",
+   "nl": "minuten",
+   "zh": "分钟"
+  },
+  "Ver el detalle de las reservas (soporte, disputa o fraude)": {
+   "en": "See the booking details (support, dispute or fraud)",
+   "fr": "Voir le détail des réservations (assistance, litige ou fraude)",
+   "de": "Buchungsdetails ansehen (Support, Streitfall oder Betrug)",
+   "it": "Vedi il dettaglio delle prenotazioni (assistenza, contestazione o frode)",
+   "pt": "Ver o detalhe das reservas (apoio, disputa ou fraude)",
+   "pl": "Zobacz szczegóły rezerwacji (wsparcie, spór lub oszustwo)",
+   "nl": "Boekingsdetails bekijken (ondersteuning, geschil of fraude)",
+   "zh": "查看预订详情（支持、争议或欺诈）"
+  },
+  "Ver los correos completos": {
+   "en": "See the full emails",
+   "fr": "Voir les e-mails complets",
+   "de": "Vollständige E-Mail-Adressen anzeigen",
+   "it": "Vedi le email complete",
+   "pt": "Ver os e-mails completos",
+   "pl": "Pokaż pełne adresy e-mail",
+   "nl": "Volledige e-mailadressen bekijken",
+   "zh": "查看完整邮箱"
+  },
+  "Para los contadores de «Actividad» y el periodo «Temporada» de las exportaciones.": {
+   "en": "For the counters in “Activity” and the “Season” period of the exports.",
+   "fr": "Pour les compteurs d'« Activité » et la période « Saison » des exportations.",
+   "de": "Für die Zähler unter „Aktivität“ und den Zeitraum „Saison“ der Exporte.",
+   "it": "Per i contatori di «Attività» e il periodo «Stagione» delle esportazioni.",
+   "pt": "Para os contadores de «Atividade» e o período «Época» das exportações.",
+   "pl": "Dla liczników w „Aktywności” i okresu „Sezon” w eksportach.",
+   "nl": "Voor de tellers bij ‘Activiteit’ en de periode ‘Seizoen’ van de exports.",
+   "zh": "用于“动态”中的计数器以及导出中的“潜水季”时间段。"
+  },
+  "Por canal": {
+   "en": "By channel",
+   "fr": "Par canal",
+   "de": "Nach Kanal",
+   "it": "Per canale",
+   "pt": "Por canal",
+   "pl": "Według kanału",
+   "nl": "Per kanaal",
+   "zh": "按渠道"
+  },
+  "Por modo": {
+   "en": "By mode",
+   "fr": "Par mode",
+   "de": "Nach Modus",
+   "it": "Per modalità",
+   "pt": "Por modo",
+   "pl": "Według trybu",
+   "nl": "Per modus",
+   "zh": "按方式"
+  },
+  "Canceladas, rechazadas o caducadas": {
+   "en": "Cancelled, rejected or expired",
+   "fr": "Annulées, refusées ou expirées",
+   "de": "Storniert, abgelehnt oder abgelaufen",
+   "it": "Annullate, rifiutate o scadute",
+   "pt": "Canceladas, recusadas ou expiradas",
+   "pl": "Anulowane, odrzucone lub wygasłe",
+   "nl": "Geannuleerd, afgewezen of verlopen",
+   "zh": "已取消、已拒绝或已过期"
+  },
+  "Confirmadas o hechas": {
+   "en": "Confirmed or done",
+   "fr": "Confirmées ou effectuées",
+   "de": "Bestätigt oder durchgeführt",
+   "it": "Confermate o svolte",
+   "pt": "Confirmadas ou realizadas",
+   "pl": "Potwierdzone lub zrealizowane",
+   "nl": "Bevestigd of uitgevoerd",
+   "zh": "已确认或已完成"
+  },
+  "Centro o profesional": {
+   "en": "Centre or professional",
+   "fr": "Centre ou professionnel",
+   "de": "Basis oder Profi",
+   "it": "Centro o professionista",
+   "pt": "Centro ou profissional",
+   "pl": "Centrum lub profesjonalista",
+   "nl": "Centrum of professional",
+   "zh": "潜水中心或专业人士"
+  },
+  "Sin reservas en este periodo.": {
+   "en": "No bookings in this period.",
+   "fr": "Aucune réservation sur cette période.",
+   "de": "Keine Buchungen in diesem Zeitraum.",
+   "it": "Nessuna prenotazione in questo periodo.",
+   "pt": "Sem reservas neste período.",
+   "pl": "Brak rezerwacji w tym okresie.",
+   "nl": "Geen boekingen in deze periode.",
+   "zh": "此时间段内没有预订。"
+  },
+  "Guardar ajustes": {
+   "en": "Save settings",
+   "fr": "Enregistrer les réglages",
+   "de": "Einstellungen speichern",
+   "it": "Salva impostazioni",
+   "pt": "Guardar definições",
+   "pl": "Zapisz ustawienia",
+   "nl": "Instellingen opslaan",
+   "zh": "保存设置"
+  },
+  "Ajustes": {
+   "en": "Settings",
+   "fr": "Réglages",
+   "de": "Einstellungen",
+   "it": "Impostazioni",
+   "pt": "Definições",
+   "pl": "Ustawienia",
+   "nl": "Instellingen",
+   "zh": "设置"
+  },
+  "Cerrar ahora": {
+   "en": "Close now",
+   "fr": "Fermer maintenant",
+   "de": "Jetzt schließen",
+   "it": "Chiudi ora",
+   "pt": "Fechar agora",
+   "pl": "Zamknij teraz",
+   "nl": "Nu sluiten",
+   "zh": "立即关闭"
+  },
+  "Datos personales cerrados.": {
+   "en": "Personal data closed.",
+   "fr": "Données personnelles fermées.",
+   "de": "Personenbezogene Daten geschlossen.",
+   "it": "Dati personali chiusi.",
+   "pt": "Dados pessoais fechados.",
+   "pl": "Dane osobowe zamknięte.",
+   "nl": "Persoonsgegevens gesloten.",
+   "zh": "个人数据已关闭。"
+  },
+  "Motivo del cambio": {
+   "en": "Reason for the change",
+   "fr": "Motif de la modification",
+   "de": "Grund der Änderung",
+   "it": "Motivo della modifica",
+   "pt": "Motivo da alteração",
+   "pl": "Powód zmiany",
+   "nl": "Reden van de wijziging",
+   "zh": "更改原因"
+  },
+  "Vas a cambiar datos de un centro: el motivo queda registrado en la actividad.": {
+   "en": "You are about to change a centre's data: the reason is recorded in the activity log.",
+   "fr": "Vous allez modifier les données d'un centre : le motif est enregistré dans l'activité.",
+   "de": "Du änderst Daten einer Basis: Der Grund wird in der Aktivität protokolliert.",
+   "it": "Stai per modificare i dati di un centro: il motivo resta registrato nell'attività.",
+   "pt": "Vai alterar dados de um centro: o motivo fica registado na atividade.",
+   "pl": "Zmienisz dane centrum: powód zostanie zapisany w aktywności.",
+   "nl": "Je gaat gegevens van een centrum wijzigen: de reden wordt vastgelegd in de activiteit.",
+   "zh": "你将要修改潜水中心的数据：原因会记录在动态中。"
+  },
+  "Código de tu aplicación de verificación": {
+   "en": "Code from your authenticator app",
+   "fr": "Code de votre application d'authentification",
+   "de": "Code aus deiner Authenticator-App",
+   "it": "Codice della tua app di autenticazione",
+   "pt": "Código da sua aplicação de autenticação",
+   "pl": "Kod z aplikacji uwierzytelniającej",
+   "nl": "Code uit je authenticator-app",
+   "zh": "你的验证器应用中的代码"
+  },
+  "Avisos de cambios y cancelaciones por WhatsApp.": {
+   "en": "Change and cancellation notices by WhatsApp.",
+   "fr": "Avis de modifications et d'annulations par WhatsApp.",
+   "de": "Hinweise zu Änderungen und Stornierungen per WhatsApp.",
+   "it": "Avvisi di modifiche e cancellazioni via WhatsApp.",
+   "pt": "Avisos de alterações e cancelamentos por WhatsApp.",
+   "pl": "Powiadomienia o zmianach i odwołaniach przez WhatsApp.",
+   "nl": "Meldingen van wijzigingen en annuleringen via WhatsApp.",
+   "zh": "通过 WhatsApp 发送变更和取消通知。"
+  },
+  "Avisos en el móvil (app)": {
+   "en": "Phone notifications (app)",
+   "fr": "Notifications sur le mobile (app)",
+   "de": "Benachrichtigungen auf dem Handy (App)",
+   "it": "Notifiche sul cellulare (app)",
+   "pt": "Notificações no telemóvel (app)",
+   "pl": "Powiadomienia w telefonie (aplikacja)",
+   "nl": "Meldingen op de telefoon (app)",
+   "zh": "手机通知（应用）"
+  },
+  "Cifrado de las copias": {
+   "en": "Backup encryption",
+   "fr": "Chiffrement des sauvegardes",
+   "de": "Verschlüsselung der Sicherungen",
+   "it": "Cifratura dei backup",
+   "pt": "Cifragem das cópias de segurança",
+   "pl": "Szyfrowanie kopii zapasowych",
+   "nl": "Versleuteling van de back-ups",
+   "zh": "备份加密"
+  },
+  "Clave de cifrado de datos": {
+   "en": "Data encryption key",
+   "fr": "Clé de chiffrement des données",
+   "de": "Datenverschlüsselungsschlüssel",
+   "it": "Chiave di cifratura dei dati",
+   "pt": "Chave de cifragem dos dados",
+   "pl": "Klucz szyfrowania danych",
+   "nl": "Sleutel voor gegevensversleuteling",
+   "zh": "数据加密密钥"
+  },
+  "Clave de las sesiones": {
+   "en": "Session key",
+   "fr": "Clé des sessions",
+   "de": "Sitzungsschlüssel",
+   "it": "Chiave delle sessioni",
+   "pt": "Chave das sessões",
+   "pl": "Klucz sesji",
+   "nl": "Sessiesleutel",
+   "zh": "会话密钥"
+  },
+  "Cobros online desactivados: se reserva bajo petición y se paga en el centro.": {
+   "en": "Online payments switched off: bookings are on request and paid at the centre.",
+   "fr": "Paiements en ligne désactivés : on réserve sur demande et on paie au centre.",
+   "de": "Online-Zahlungen deaktiviert: Buchung auf Anfrage, Bezahlung in der Basis.",
+   "it": "Pagamenti online disattivati: si prenota su richiesta e si paga al centro.",
+   "pt": "Pagamentos online desativados: reserva-se a pedido e paga-se no centro.",
+   "pl": "Płatności online wyłączone: rezerwacja na zapytanie, płatność w centrum.",
+   "nl": "Online betalingen uitgeschakeld: boeken op aanvraag en betalen bij het centrum.",
+   "zh": "在线收款已关闭：按申请预订，在潜水中心付款。"
+  },
+  "Confirmaciones, avisos y recuperación de contraseña.": {
+   "en": "Confirmations, notices and password recovery.",
+   "fr": "Confirmations, avis et récupération du mot de passe.",
+   "de": "Bestätigungen, Hinweise und Passwort-Wiederherstellung.",
+   "it": "Conferme, avvisi e recupero della password.",
+   "pt": "Confirmações, avisos e recuperação da palavra-passe.",
+   "pl": "Potwierdzenia, powiadomienia i odzyskiwanie hasła.",
+   "nl": "Bevestigingen, meldingen en wachtwoordherstel.",
+   "zh": "确认、通知和找回密码。"
+  },
+  "Copia fuera del servidor": {
+   "en": "Off-server backup",
+   "fr": "Copie hors du serveur",
+   "de": "Kopie außerhalb des Servers",
+   "it": "Copia fuori dal server",
+   "pt": "Cópia fora do servidor",
+   "pl": "Kopia poza serwerem",
+   "nl": "Kopie buiten de server",
+   "zh": "服务器外备份"
+  },
+  "Copias de seguridad": {
+   "en": "Backups",
+   "fr": "Sauvegardes",
+   "de": "Sicherungen",
+   "it": "Backup",
+   "pt": "Cópias de segurança",
+   "pl": "Kopie zapasowe",
+   "nl": "Back-ups",
+   "zh": "备份"
+  },
+  "Desactivada (solo se permite en pruebas).": {
+   "en": "Off (only allowed in testing).",
+   "fr": "Désactivée (autorisé uniquement en test).",
+   "de": "Deaktiviert (nur im Testbetrieb erlaubt).",
+   "it": "Disattivata (consentito solo in prova).",
+   "pt": "Desativada (só é permitido em testes).",
+   "pl": "Wyłączona (dozwolone tylko w testach).",
+   "nl": "Uitgeschakeld (alleen toegestaan bij tests).",
+   "zh": "已关闭（仅在测试环境中允许）。"
+  },
+  "Desactivado: los avisos a los buceadores salen por correo y en la app.": {
+   "en": "Off: notices to divers go out by email and in the app.",
+   "fr": "Désactivé : les avis aux plongeurs partent par e-mail et dans l'app.",
+   "de": "Deaktiviert: Hinweise an Taucher gehen per E-Mail und in der App raus.",
+   "it": "Disattivato: gli avvisi ai subacquei partono via email e nell'app.",
+   "pt": "Desativado: os avisos aos mergulhadores saem por e-mail e na app.",
+   "pl": "Wyłączone: powiadomienia dla nurków idą e-mailem i w aplikacji.",
+   "nl": "Uitgeschakeld: meldingen aan duikers gaan per e-mail en in de app.",
+   "zh": "已关闭：给潜水员的通知通过邮件和应用发送。"
+  },
+  "En pruebas se usa el mapa de OpenStreetMap; en producción hace falta el archivo del mapa base (docs/mapas.md).": {
+   "en": "In testing the OpenStreetMap map is used; in production the base map file is needed (docs/mapas.md).",
+   "fr": "En test, la carte OpenStreetMap est utilisée ; en production, le fichier de la carte de base est nécessaire (docs/mapas.md).",
+   "de": "Im Testbetrieb wird die OpenStreetMap-Karte verwendet; im Produktivbetrieb wird die Datei der Basiskarte benötigt (docs/mapas.md).",
+   "it": "In prova si usa la mappa di OpenStreetMap; in produzione serve il file della mappa di base (docs/mapas.md).",
+   "pt": "Em testes usa-se o mapa do OpenStreetMap; em produção é necessário o ficheiro do mapa base (docs/mapas.md).",
+   "pl": "W testach używana jest mapa OpenStreetMap; w produkcji potrzebny jest plik mapy bazowej (docs/mapas.md).",
+   "nl": "Bij tests wordt de kaart van OpenStreetMap gebruikt; in productie is het bestand van de basiskaart nodig (docs/mapas.md).",
+   "zh": "测试环境使用 OpenStreetMap 地图；正式环境需要底图文件（docs/mapas.md）。"
+  },
+  "Enlaces de los correos, de los pagos y de los avisos.": {
+   "en": "Links in emails, payments and notices.",
+   "fr": "Liens des e-mails, des paiements et des avis.",
+   "de": "Links in E-Mails, Zahlungen und Hinweisen.",
+   "it": "Link delle email, dei pagamenti e degli avvisi.",
+   "pt": "Ligações dos e-mails, dos pagamentos e dos avisos.",
+   "pl": "Linki w e-mailach, płatnościach i powiadomieniach.",
+   "nl": "Links in e-mails, betalingen en meldingen.",
+   "zh": "邮件、付款和通知中的链接。"
+  },
+  "Espacio en disco": {
+   "en": "Disk space",
+   "fr": "Espace disque",
+   "de": "Speicherplatz",
+   "it": "Spazio su disco",
+   "pt": "Espaço em disco",
+   "pl": "Miejsce na dysku",
+   "nl": "Schijfruimte",
+   "zh": "磁盘空间"
+  },
+  "Falta: no se pueden guardar teléfonos ni credenciales.": {
+   "en": "Missing: phone numbers and credentials cannot be saved.",
+   "fr": "Manquante : impossible d'enregistrer les téléphones et les identifiants.",
+   "de": "Fehlt: Telefonnummern und Zugangsdaten können nicht gespeichert werden.",
+   "it": "Manca: non si possono salvare telefoni né credenziali.",
+   "pt": "Em falta: não é possível guardar telefones nem credenciais.",
+   "pl": "Brak: nie można zapisywać telefonów ani danych logowania.",
+   "nl": "Ontbreekt: telefoonnummers en inloggegevens kunnen niet worden opgeslagen.",
+   "zh": "缺失：无法保存电话号码和凭据。"
+  },
+  "Fondo de los mapas.": {
+   "en": "Map background.",
+   "fr": "Fond des cartes.",
+   "de": "Hintergrund der Karten.",
+   "it": "Sfondo delle mappe.",
+   "pt": "Fundo dos mapas.",
+   "pl": "Tło map.",
+   "nl": "Achtergrond van de kaarten.",
+   "zh": "地图底图。"
+  },
+  "Las copias se guardan sin cifrar: no las saques del servidor sin cifrarlas.": {
+   "en": "Backups are stored unencrypted: do not take them off the server without encrypting them.",
+   "fr": "Les sauvegardes sont stockées sans chiffrement : ne les sortez pas du serveur sans les chiffrer.",
+   "de": "Die Sicherungen werden unverschlüsselt gespeichert: Bringe sie nicht unverschlüsselt vom Server weg.",
+   "it": "I backup sono salvati senza cifratura: non portarli fuori dal server senza cifrarli.",
+   "pt": "As cópias são guardadas sem cifra: não as tire do servidor sem as cifrar.",
+   "pl": "Kopie są przechowywane bez szyfrowania: nie wynoś ich z serwera bez zaszyfrowania.",
+   "nl": "Back-ups worden onversleuteld opgeslagen: haal ze niet van de server zonder ze te versleutelen.",
+   "zh": "备份未加密存储：未经加密请勿将其移出服务器。"
+  },
+  "Las copias solo están en este servidor.": {
+   "en": "Backups are only on this server.",
+   "fr": "Les sauvegardes ne sont que sur ce serveur.",
+   "de": "Die Sicherungen liegen nur auf diesem Server.",
+   "it": "I backup sono solo su questo server.",
+   "pt": "As cópias só estão neste servidor.",
+   "pl": "Kopie są tylko na tym serwerze.",
+   "nl": "Back-ups staan alleen op deze server.",
+   "zh": "备份仅存放在此服务器上。"
+  },
+  "Mapa base": {
+   "en": "Base map",
+   "fr": "Carte de base",
+   "de": "Basiskarte",
+   "it": "Mappa di base",
+   "pt": "Mapa base",
+   "pl": "Mapa bazowa",
+   "nl": "Basiskaart",
+   "zh": "底图"
+  },
+  "Nada deja de funcionar: se usa la zona del país.": {
+   "en": "Nothing stops working: the country's time zone is used.",
+   "fr": "Rien ne cesse de fonctionner : on utilise le fuseau du pays.",
+   "de": "Nichts fällt aus: Es wird die Zeitzone des Landes verwendet.",
+   "it": "Nulla smette di funzionare: si usa il fuso del paese.",
+   "pt": "Nada deixa de funcionar: usa-se o fuso do país.",
+   "pl": "Nic nie przestaje działać: używana jest strefa czasowa kraju.",
+   "nl": "Niets houdt op met werken: de tijdzone van het land wordt gebruikt.",
+   "zh": "不影响任何功能：将使用该国家的时区。"
+  },
+  "No aparece el botón «Satélite»; el resto del mapa funciona.": {
+   "en": "The “Satellite” button does not appear; the rest of the map works.",
+   "fr": "Le bouton « Satellite » n'apparaît pas ; le reste de la carte fonctionne.",
+   "de": "Die Schaltfläche „Satellit“ erscheint nicht; der Rest der Karte funktioniert.",
+   "it": "Il pulsante «Satellite» non compare; il resto della mappa funziona.",
+   "pt": "O botão «Satélite» não aparece; o resto do mapa funciona.",
+   "pl": "Przycisk „Satelita” się nie pojawia; reszta mapy działa.",
+   "nl": "De knop ‘Satelliet’ verschijnt niet; de rest van de kaart werkt.",
+   "zh": "“卫星”按钮不会显示；地图的其他部分正常。"
+  },
+  "Pagos online (Stripe)": {
+   "en": "Online payments (Stripe)",
+   "fr": "Paiements en ligne (Stripe)",
+   "de": "Online-Zahlungen (Stripe)",
+   "it": "Pagamenti online (Stripe)",
+   "pt": "Pagamentos online (Stripe)",
+   "pl": "Płatności online (Stripe)",
+   "nl": "Online betalingen (Stripe)",
+   "zh": "在线支付（Stripe）"
+  },
+  "Sin STRIPE_CONNECT_WEBHOOK_SECRET: los pagos se confirman solo al volver de Stripe y por la revisión periódica.": {
+   "en": "Without STRIPE_CONNECT_WEBHOOK_SECRET: payments are only confirmed on return from Stripe and by the periodic check.",
+   "fr": "Sans STRIPE_CONNECT_WEBHOOK_SECRET : les paiements ne sont confirmés qu'au retour de Stripe et par la vérification périodique.",
+   "de": "Ohne STRIPE_CONNECT_WEBHOOK_SECRET: Zahlungen werden nur bei der Rückkehr von Stripe und durch die regelmäßige Prüfung bestätigt.",
+   "it": "Senza STRIPE_CONNECT_WEBHOOK_SECRET: i pagamenti si confermano solo al ritorno da Stripe e con il controllo periodico.",
+   "pt": "Sem STRIPE_CONNECT_WEBHOOK_SECRET: os pagamentos só se confirmam ao voltar do Stripe e pela verificação periódica.",
+   "pl": "Bez STRIPE_CONNECT_WEBHOOK_SECRET: płatności są potwierdzane tylko po powrocie ze Stripe i przy okresowej kontroli.",
+   "nl": "Zonder STRIPE_CONNECT_WEBHOOK_SECRET: betalingen worden alleen bevestigd bij terugkeer van Stripe en door de periodieke controle.",
+   "zh": "未设置 STRIPE_CONNECT_WEBHOOK_SECRET：付款只在从 Stripe 返回时和定期检查时确认。"
+  },
+  "Sin avisos en el móvil: la app muestra los avisos al abrirla.": {
+   "en": "No phone notifications: the app shows notices when it is opened.",
+   "fr": "Pas de notifications sur le mobile : l'app affiche les avis à l'ouverture.",
+   "de": "Keine Benachrichtigungen auf dem Handy: Die App zeigt die Hinweise beim Öffnen.",
+   "it": "Niente notifiche sul cellulare: l'app mostra gli avvisi all'apertura.",
+   "pt": "Sem notificações no telemóvel: a app mostra os avisos ao abri-la.",
+   "pl": "Bez powiadomień w telefonie: aplikacja pokazuje je po otwarciu.",
+   "nl": "Geen meldingen op de telefoon: de app toont meldingen bij het openen.",
+   "zh": "无手机推送：打开应用时会显示通知。"
+  },
+  "Todas las zonas horarias guardadas son válidas.": {
+   "en": "All saved time zones are valid.",
+   "fr": "Tous les fuseaux horaires enregistrés sont valides.",
+   "de": "Alle gespeicherten Zeitzonen sind gültig.",
+   "it": "Tutti i fusi orari salvati sono validi.",
+   "pt": "Todos os fusos horários guardados são válidos.",
+   "pl": "Wszystkie zapisane strefy czasowe są prawidłowe.",
+   "nl": "Alle opgeslagen tijdzones zijn geldig.",
+   "zh": "所有已保存的时区均有效。"
+  },
+  "Verificación en dos pasos (administración)": {
+   "en": "Two-step verification (administration)",
+   "fr": "Vérification en deux étapes (administration)",
+   "de": "Zwei-Schritt-Verifizierung (Verwaltung)",
+   "it": "Verifica in due passaggi (amministrazione)",
+   "pt": "Verificação em dois passos (administração)",
+   "pl": "Weryfikacja dwuetapowa (administracja)",
+   "nl": "Tweestapsverificatie (beheer)",
+   "zh": "两步验证（管理）"
+  },
+  "Verificación en dos pasos (cobros)": {
+   "en": "Two-step verification (payments)",
+   "fr": "Vérification en deux étapes (encaissements)",
+   "de": "Zwei-Schritt-Verifizierung (Zahlungen)",
+   "it": "Verifica in due passaggi (incassi)",
+   "pt": "Verificação em dois passos (cobranças)",
+   "pl": "Weryfikacja dwuetapowa (płatności)",
+   "nl": "Tweestapsverificatie (betalingen)",
+   "zh": "两步验证（收款）"
+  },
+  "Vista satélite": {
+   "en": "Satellite view",
+   "fr": "Vue satellite",
+   "de": "Satellitenansicht",
+   "it": "Vista satellite",
+   "pt": "Vista de satélite",
+   "pl": "Widok satelitarny",
+   "nl": "Satellietweergave",
+   "zh": "卫星视图"
+  },
+  "Zonas horarias": {
+   "en": "Time zones",
+   "fr": "Fuseaux horaires",
+   "de": "Zeitzonen",
+   "it": "Fusi orari",
+   "pt": "Fusos horários",
+   "pl": "Strefy czasowe",
+   "nl": "Tijdzones",
+   "zh": "时区"
+  },
+  "Zonas horarias guardadas": {
+   "en": "Saved time zones",
+   "fr": "Fuseaux horaires enregistrés",
+   "de": "Gespeicherte Zeitzonen",
+   "it": "Fusi orari salvati",
+   "pt": "Fusos horários guardados",
+   "pl": "Zapisane strefy czasowe",
+   "nl": "Opgeslagen tijdzones",
+   "zh": "已保存的时区"
+  },
+  "«Pago al reservar» y devoluciones automáticas.": {
+   "en": "“Pay when booking” and automatic refunds.",
+   "fr": "« Paiement à la réservation » et remboursements automatiques.",
+   "de": "„Zahlung bei Buchung“ und automatische Erstattungen.",
+   "it": "«Pagamento alla prenotazione» e rimborsi automatici.",
+   "pt": "«Pagamento ao reservar» e reembolsos automáticos.",
+   "pl": "„Płatność przy rezerwacji” i automatyczne zwroty.",
+   "nl": "‘Betalen bij boeking’ en automatische terugbetalingen.",
+   "zh": "“预订时付款”和自动退款。"
+  },
+  "Así se verá": {
+   "en": "This is how it will look",
+   "fr": "Voici le rendu",
+   "de": "So wird es aussehen",
+   "it": "Ecco come apparirà",
+   "pt": "Assim ficará",
+   "pl": "Tak to będzie wyglądać",
+   "nl": "Zo komt het eruit te zien",
+   "zh": "效果预览"
+  },
+  "Icono": {
+   "en": "Icon",
+   "fr": "Icône",
+   "de": "Symbol",
+   "it": "Icona",
+   "pt": "Ícone",
+   "pl": "Ikona",
+   "nl": "Pictogram",
+   "zh": "图标"
+  },
+  "Icono de la plantilla": {
+   "en": "Template icon",
+   "fr": "Icône du modèle",
+   "de": "Symbol der Vorlage",
+   "it": "Icona del modello",
+   "pt": "Ícone do modelo",
+   "pl": "Ikona szablonu",
+   "nl": "Pictogram van het sjabloon",
+   "zh": "模板图标"
+  },
+  "Ningún centro la usa. Se borra con su foto y no se puede deshacer.": {
+   "en": "No centre uses it. It will be deleted with its photo and this cannot be undone.",
+   "fr": "Aucun centre ne l'utilise. Il sera supprimé avec sa photo et c'est irréversible.",
+   "de": "Keine Basis nutzt sie. Sie wird mit ihrem Foto gelöscht, das lässt sich nicht rückgängig machen.",
+   "it": "Nessun centro lo usa. Verrà eliminato con la sua foto e non si può annullare.",
+   "pt": "Nenhum centro o usa. É apagado com a sua foto e não é possível anular.",
+   "pl": "Żadne centrum go nie używa. Zostanie usunięty wraz ze zdjęciem i nie da się tego cofnąć.",
+   "nl": "Geen enkel centrum gebruikt het. Het wordt met de foto verwijderd en dat kan niet ongedaan worden gemaakt.",
+   "zh": "没有潜水中心使用它。将连同照片一起删除，且无法撤销。"
+  },
+  "Archivar": {
+   "en": "Archive",
+   "fr": "Archiver",
+   "de": "Archivieren",
+   "it": "Archivia",
+   "pt": "Arquivar",
+   "pl": "Archiwizuj",
+   "nl": "Archiveren",
+   "zh": "归档"
+  },
+  "Recuperar": {
+   "en": "Restore",
+   "fr": "Restaurer",
+   "de": "Wiederherstellen",
+   "it": "Ripristina",
+   "pt": "Recuperar",
+   "pl": "Przywróć",
+   "nl": "Herstellen",
+   "zh": "恢复"
+  },
+  "Bautizo": {
+   "en": "Try dive",
+   "fr": "Baptême",
+   "de": "Schnuppertauchen",
+   "it": "Battesimo",
+   "pt": "Batismo",
+   "pl": "Próbne nurkowanie",
+   "nl": "Proefduik",
+   "zh": "体验潜水"
+  },
+  "Salida privada": {
+   "en": "Private trip",
+   "fr": "Sortie privée",
+   "de": "Private Ausfahrt",
+   "it": "Uscita privata",
+   "pt": "Saída privada",
+   "pl": "Prywatny wypad",
+   "nl": "Privétocht",
+   "zh": "私人出海"
+  },
+  "Snorkel": {
+   "en": "Snorkelling",
+   "fr": "Randonnée palmée",
+   "de": "Schnorcheln",
+   "it": "Snorkeling",
+   "pt": "Snorkeling",
+   "pl": "Snorkeling",
+   "nl": "Snorkelen",
+   "zh": "浮潜"
+  },
+  "Fotografía": {
+   "en": "Photography",
+   "fr": "Photographie",
+   "de": "Fotografie",
+   "it": "Fotografia",
+   "pt": "Fotografia",
+   "pl": "Fotografia",
+   "nl": "Fotografie",
+   "zh": "摄影"
+  },
+  "Vida marina": {
+   "en": "Marine life",
+   "fr": "Vie marine",
+   "de": "Meereslebewesen",
+   "it": "Vita marina",
+   "pt": "Vida marinha",
+   "pl": "Życie morskie",
+   "nl": "Zeeleven",
+   "zh": "海洋生物"
+  },
+  "Extra": {
+   "en": "Extra",
+   "fr": "Extra",
+   "de": "Extra",
+   "it": "Extra",
+   "pt": "Extra",
+   "pl": "Dodatek",
+   "nl": "Extra",
+   "zh": "附加项目"
+  },
+  "Archivada: no sale para servicios nuevos": {
+   "en": "Archived: not offered for new services",
+   "fr": "Archivé : n'est plus proposé pour les nouveaux services",
+   "de": "Archiviert: wird für neue Leistungen nicht angeboten",
+   "it": "Archiviato: non compare per i nuovi servizi",
+   "pt": "Arquivado: não aparece para novos serviços",
+   "pl": "Zarchiwizowany: niedostępny dla nowych usług",
+   "nl": "Gearchiveerd: niet beschikbaar voor nieuwe diensten",
+   "zh": "已归档：新服务中不再显示"
+  },
+  "Plantilla borrada.": {
+   "en": "Template deleted.",
+   "fr": "Modèle supprimé.",
+   "de": "Vorlage gelöscht.",
+   "it": "Modello eliminato.",
+   "pt": "Modelo apagado.",
+   "pl": "Szablon usunięty.",
+   "nl": "Sjabloon verwijderd.",
+   "zh": "模板已删除。"
+  },
+  "Plantilla recuperada.": {
+   "en": "Template restored.",
+   "fr": "Modèle restauré.",
+   "de": "Vorlage wiederhergestellt.",
+   "it": "Modello ripristinato.",
+   "pt": "Modelo recuperado.",
+   "pl": "Szablon przywrócony.",
+   "nl": "Sjabloon hersteld.",
+   "zh": "模板已恢复。"
+  },
+  "Orden guardado.": {
+   "en": "Order saved.",
+   "fr": "Ordre enregistré.",
+   "de": "Reihenfolge gespeichert.",
+   "it": "Ordine salvato.",
+   "pt": "Ordem guardada.",
+   "pl": "Kolejność zapisana.",
+   "nl": "Volgorde opgeslagen.",
+   "zh": "顺序已保存。"
+  },
+  "Icono no válido.": {
+   "en": "Invalid icon.",
+   "fr": "Icône non valide.",
+   "de": "Ungültiges Symbol.",
+   "it": "Icona non valida.",
+   "pt": "Ícone inválido.",
+   "pl": "Nieprawidłowa ikona.",
+   "nl": "Ongeldig pictogram.",
+   "zh": "图标无效。"
+  },
+  "El orden no es válido: recarga la página.": {
+   "en": "The order is not valid: reload the page.",
+   "fr": "L'ordre n'est pas valide : rechargez la page.",
+   "de": "Die Reihenfolge ist ungültig: Lade die Seite neu.",
+   "it": "L'ordine non è valido: ricarica la pagina.",
+   "pt": "A ordem não é válida: recarregue a página.",
+   "pl": "Kolejność jest nieprawidłowa: odśwież stronę.",
+   "nl": "De volgorde is ongeldig: laad de pagina opnieuw.",
+   "zh": "顺序无效：请刷新页面。"
+  },
+  "Plantilla archivada: la usa 1 centro o profesional.": {
+   "en": "Template archived: 1 centre or professional uses it.",
+   "fr": "Modèle archivé : 1 centre ou professionnel l'utilise.",
+   "de": "Vorlage archiviert: 1 Basis oder Profi nutzt sie.",
+   "it": "Modello archiviato: lo usa 1 centro o professionista.",
+   "pt": "Modelo arquivado: é usado por 1 centro ou profissional.",
+   "pl": "Szablon zarchiwizowany: używa go 1 centrum lub profesjonalista.",
+   "nl": "Sjabloon gearchiveerd: 1 centrum of professional gebruikt het.",
+   "zh": "模板已归档：有 1 个潜水中心或专业人士在使用。"
+  },
+  "La usa 1 centro o profesional. No se borra: deja de salir para servicios nuevos y los servicios que ya la usan no cambian.": {
+   "en": "1 centre or professional uses it. It is not deleted: it is no longer offered for new services and the services that already use it do not change.",
+   "fr": "1 centre ou professionnel l'utilise. Il n'est pas supprimé : il n'est plus proposé pour les nouveaux services et les services qui l'utilisent déjà ne changent pas.",
+   "de": "1 Basis oder Profi nutzt sie. Sie wird nicht gelöscht: Für neue Leistungen wird sie nicht mehr angeboten, und die Leistungen, die sie schon nutzen, ändern sich nicht.",
+   "it": "Lo usa 1 centro o professionista. Non viene eliminato: non compare più per i nuovi servizi e i servizi che già lo usano non cambiano.",
+   "pt": "É usado por 1 centro ou profissional. Não é apagado: deixa de aparecer para novos serviços e os serviços que já o usam não mudam.",
+   "pl": "Używa go 1 centrum lub profesjonalista. Nie zostanie usunięty: przestanie być dostępny dla nowych usług, a usługi, które już go używają, się nie zmienią.",
+   "nl": "1 centrum of professional gebruikt het. Het wordt niet verwijderd: het is niet meer beschikbaar voor nieuwe diensten en de diensten die het al gebruiken veranderen niet.",
+   "zh": "有 1 个潜水中心或专业人士在使用。不会删除：新服务中将不再显示，已在使用它的服务不受影响。"
+  },
+  "Bautizo de buceo": {
+   "en": "Try dive",
+   "fr": "Baptême de plongée",
+   "de": "Schnuppertauchen",
+   "it": "Battesimo subacqueo",
+   "pt": "Batismo de mergulho",
+   "pl": "Próbne nurkowanie",
+   "nl": "Proefduik",
+   "zh": "体验潜水"
+  },
+  "Primera experiencia bajo el agua con un instructor, sin titulación previa.": {
+   "en": "Your first time under water with an instructor; no certification needed.",
+   "fr": "Première expérience sous l'eau avec un moniteur, sans brevet.",
+   "de": "Erstes Erlebnis unter Wasser mit einem Tauchlehrer, ohne Vorkenntnisse.",
+   "it": "Prima esperienza sott'acqua con un istruttore, senza brevetto.",
+   "pt": "Primeira experiência debaixo de água com um instrutor, sem certificação.",
+   "pl": "Pierwsze doświadczenie pod wodą z instruktorem, bez uprawnień.",
+   "nl": "Je eerste ervaring onder water met een instructeur, zonder brevet.",
+   "zh": "在教练陪同下的首次水下体验，无需潜水证书。"
+  },
+  "Curso Open Water": {
+   "en": "Open Water course",
+   "fr": "Cours Open Water",
+   "de": "Open-Water-Kurs",
+   "it": "Corso Open Water",
+   "pt": "Curso Open Water",
+   "pl": "Kurs Open Water",
+   "nl": "Open Water-cursus",
+   "zh": "开放水域潜水员课程"
+  },
+  "Curso para obtener la primera titulación de buceo: teoría, aguas confinadas e inmersiones en el mar.": {
+   "en": "Course for your first diving certification: theory, confined water and open water dives.",
+   "fr": "Cours pour obtenir le premier niveau de plongée : théorie, milieu protégé et plongées en mer.",
+   "de": "Kurs für das erste Tauchbrevet: Theorie, geschütztes Gewässer und Tauchgänge im Meer.",
+   "it": "Corso per il primo brevetto subacqueo: teoria, acque confinate e immersioni in mare.",
+   "pt": "Curso para a primeira certificação de mergulho: teoria, águas confinadas e mergulhos no mar.",
+   "pl": "Kurs na pierwszy stopień nurkowy: teoria, wody osłonięte i nurkowania w morzu.",
+   "nl": "Cursus voor je eerste duikbrevet: theorie, besloten water en duiken in open water.",
+   "zh": "获取第一张潜水证书的课程：理论、平静水域训练和开放水域潜水。"
+  },
+  "Curso Advanced": {
+   "en": "Advanced course",
+   "fr": "Cours Advanced",
+   "de": "Advanced-Kurs",
+   "it": "Corso Advanced",
+   "pt": "Curso Advanced",
+   "pl": "Kurs Advanced",
+   "nl": "Advanced-cursus",
+   "zh": "进阶开放水域课程"
+  },
+  "Amplía tu experiencia con inmersiones de aventura: profunda, navegación y otras a elegir.": {
+   "en": "Build experience with adventure dives: deep, navigation and others of your choice.",
+   "fr": "Élargissez votre expérience avec des plongées d'aventure : profonde, orientation et d'autres au choix.",
+   "de": "Mehr Erfahrung mit Abenteuertauchgängen: Tieftauchen, Navigation und weitere nach Wahl.",
+   "it": "Amplia la tua esperienza con immersioni d'avventura: profonda, navigazione e altre a scelta.",
+   "pt": "Ganha experiência com mergulhos de aventura: profundo, navegação e outros à escolha.",
+   "pl": "Zdobądź doświadczenie w nurkowaniach przygodowych: głębokim, nawigacyjnym i innych do wyboru.",
+   "nl": "Doe meer ervaring op met avontuurduiken: diep, navigatie en andere naar keuze.",
+   "zh": "通过探险潜水积累经验：深潜、导航及其他自选潜水。"
+  },
+  "Curso Rescue": {
+   "en": "Rescue course",
+   "fr": "Cours Rescue",
+   "de": "Rescue-Kurs",
+   "it": "Corso Rescue",
+   "pt": "Curso Rescue",
+   "pl": "Kurs Rescue",
+   "nl": "Rescue-cursus",
+   "zh": "救援潜水员课程"
+  },
+  "Aprende a prevenir y resolver problemas bajo el agua y a ayudar a otros buceadores.": {
+   "en": "Learn to prevent and handle problems under water and to help other divers.",
+   "fr": "Apprenez à prévenir et gérer les problèmes sous l'eau et à aider les autres plongeurs.",
+   "de": "Lerne, Probleme unter Wasser zu vermeiden und zu lösen und anderen Tauchern zu helfen.",
+   "it": "Impara a prevenire e gestire i problemi sott'acqua e ad aiutare altri subacquei.",
+   "pt": "Aprende a prevenir e resolver problemas debaixo de água e a ajudar outros mergulhadores.",
+   "pl": "Naucz się zapobiegać problemom pod wodą, radzić sobie z nimi i pomagać innym nurkom.",
+   "nl": "Leer problemen onder water voorkomen en oplossen en andere duikers helpen.",
+   "zh": "学习预防和处理水下问题，并帮助其他潜水员。"
+  },
+  "Curso Divemaster": {
+   "en": "Divemaster course",
+   "fr": "Cours Divemaster",
+   "de": "Divemaster-Kurs",
+   "it": "Corso Divemaster",
+   "pt": "Curso Divemaster",
+   "pl": "Kurs Divemaster",
+   "nl": "Divemaster-cursus",
+   "zh": "潜水长课程"
+  },
+  "Primer nivel profesional: guía buceadores titulados y ayuda en los cursos.": {
+   "en": "The first professional level: lead certified divers and assist on courses.",
+   "fr": "Premier niveau professionnel : guider des plongeurs brevetés et assister les cours.",
+   "de": "Die erste Profistufe: brevetierte Taucher führen und bei Kursen assistieren.",
+   "it": "Primo livello professionale: guida subacquei brevettati e assisti nei corsi.",
+   "pt": "Primeiro nível profissional: guia mergulhadores certificados e ajuda nos cursos.",
+   "pl": "Pierwszy poziom zawodowy: prowadzenie certyfikowanych nurków i asystowanie na kursach.",
+   "nl": "Het eerste professionele niveau: begeleid gebrevetteerde duikers en assisteer bij cursussen.",
+   "zh": "第一个专业级别：带领持证潜水员并协助教学。"
+  },
+  "Especialidad Nitrox": {
+   "en": "Nitrox specialty",
+   "fr": "Spécialité Nitrox",
+   "de": "Nitrox-Spezialkurs",
+   "it": "Specialità Nitrox",
+   "pt": "Especialidade Nitrox",
+   "pl": "Specjalizacja Nitrox",
+   "nl": "Nitrox-specialisatie",
+   "zh": "高氧潜水专长"
+  },
+  "Bucea con aire enriquecido en oxígeno para alargar el tiempo sin descompresión.": {
+   "en": "Dive with oxygen-enriched air for longer no-decompression times.",
+   "fr": "Plongez à l'air enrichi en oxygène pour allonger le temps sans décompression.",
+   "de": "Tauche mit sauerstoffangereicherter Luft für längere Nullzeiten.",
+   "it": "Immergiti con aria arricchita di ossigeno per allungare il tempo senza decompressione.",
+   "pt": "Mergulha com ar enriquecido em oxigénio para prolongar o tempo sem descompressão.",
+   "pl": "Nurkuj na powietrzu wzbogaconym w tlen, by wydłużyć czas bez dekompresji.",
+   "nl": "Duik met zuurstofverrijkte lucht voor langere duiktijden zonder decompressie.",
+   "zh": "使用高氧空气潜水，延长免减压时间。"
+  },
+  "Otras especialidades": {
+   "en": "Other specialties",
+   "fr": "Autres spécialités",
+   "de": "Weitere Spezialkurse",
+   "it": "Altre specialità",
+   "pt": "Outras especialidades",
+   "pl": "Inne specjalizacje",
+   "nl": "Andere specialisaties",
+   "zh": "其他专长课程"
+  },
+  "Cursos para aprender una técnica concreta: fotografía, pecios, flotabilidad y más.": {
+   "en": "Courses to learn a specific skill: photography, wrecks, buoyancy and more.",
+   "fr": "Cours pour apprendre une technique précise : photo, épaves, flottabilité et plus.",
+   "de": "Kurse für eine bestimmte Technik: Fotografie, Wracks, Tarierung und mehr.",
+   "it": "Corsi per imparare una tecnica precisa: fotografia, relitti, assetto e altro.",
+   "pt": "Cursos para aprender uma técnica concreta: fotografia, naufrágios, flutuabilidade e mais.",
+   "pl": "Kursy konkretnej umiejętności: fotografia, wraki, pływalność i inne.",
+   "nl": "Cursussen voor een specifieke vaardigheid: fotografie, wrakken, trimmen en meer.",
+   "zh": "学习特定技能的课程：水下摄影、沉船、中性浮力等。"
+  },
+  "Inmersión simple": {
+   "en": "Single dive",
+   "fr": "Plongée simple",
+   "de": "Einzeltauchgang",
+   "it": "Immersione singola",
+   "pt": "Mergulho simples",
+   "pl": "Pojedyncze nurkowanie",
+   "nl": "Enkele duik",
+   "zh": "单次潜水"
+  },
+  "Una inmersión guiada en uno de los puntos de la zona.": {
+   "en": "One guided dive at one of the local dive sites.",
+   "fr": "Une plongée guidée sur l'un des sites de la zone.",
+   "de": "Ein geführter Tauchgang an einem Tauchplatz der Gegend.",
+   "it": "Un'immersione guidata in uno dei punti della zona.",
+   "pt": "Um mergulho guiado num dos pontos da zona.",
+   "pl": "Jedno nurkowanie z przewodnikiem w jednym z miejsc w okolicy.",
+   "nl": "Eén begeleide duik op een van de duikstekken in de buurt.",
+   "zh": "在当地潜点进行一次有向导的潜水。"
+  },
+  "Doble inmersión": {
+   "en": "Double dive",
+   "fr": "Double plongée",
+   "de": "Doppeltauchgang",
+   "it": "Doppia immersione",
+   "pt": "Mergulho duplo",
+   "pl": "Podwójne nurkowanie",
+   "nl": "Dubbele duik",
+   "zh": "双次潜水"
+  },
+  "Dos inmersiones guiadas en la misma salida, con intervalo en superficie.": {
+   "en": "Two guided dives on the same trip, with a surface interval.",
+   "fr": "Deux plongées guidées lors de la même sortie, avec intervalle en surface.",
+   "de": "Zwei geführte Tauchgänge bei derselben Ausfahrt, mit Oberflächenpause.",
+   "it": "Due immersioni guidate nella stessa uscita, con intervallo in superficie.",
+   "pt": "Dois mergulhos guiados na mesma saída, com intervalo à superfície.",
+   "pl": "Dwa nurkowania z przewodnikiem podczas jednego wypadu, z przerwą na powierzchni.",
+   "nl": "Twee begeleide duiken tijdens dezelfde tocht, met een oppervlakte-interval.",
+   "zh": "同一趟出海中两次有向导的潜水，中间有水面休息。"
+  },
+  "Tercera inmersión": {
+   "en": "Third dive",
+   "fr": "Troisième plongée",
+   "de": "Dritter Tauchgang",
+   "it": "Terza immersione",
+   "pt": "Terceiro mergulho",
+   "pl": "Trzecie nurkowanie",
+   "nl": "Derde duik",
+   "zh": "第三次潜水"
+  },
+  "Una inmersión más el mismo día, para quien ya ha hecho dos.": {
+   "en": "One more dive on the same day, for those who have already done two.",
+   "fr": "Une plongée de plus le même jour, pour ceux qui en ont déjà fait deux.",
+   "de": "Ein weiterer Tauchgang am selben Tag, für alle, die schon zwei gemacht haben.",
+   "it": "Un'immersione in più nello stesso giorno, per chi ne ha già fatte due.",
+   "pt": "Mais um mergulho no mesmo dia, para quem já fez dois.",
+   "pl": "Jeszcze jedno nurkowanie tego samego dnia, dla tych, którzy mają już dwa za sobą.",
+   "nl": "Nog een duik op dezelfde dag, voor wie er al twee heeft gedaan.",
+   "zh": "当天的第三次潜水，适合已完成两潜的潜水员。"
+  },
+  "Inmersión nocturna": {
+   "en": "Night dive",
+   "fr": "Plongée de nuit",
+   "de": "Nachttauchgang",
+   "it": "Immersione notturna",
+   "pt": "Mergulho noturno",
+   "pl": "Nurkowanie nocne",
+   "nl": "Nachtduik",
+   "zh": "夜潜"
+  },
+  "Inmersión al anochecer con linterna, para ver la vida que sale de noche.": {
+   "en": "A dive after dark with a torch, to see the life that comes out at night.",
+   "fr": "Plongée à la tombée de la nuit avec une lampe, pour voir la vie nocturne.",
+   "de": "Ein Tauchgang nach Einbruch der Dunkelheit mit Lampe, um das Nachtleben zu sehen.",
+   "it": "Immersione al calar della sera con la torcia, per vedere la vita notturna.",
+   "pt": "Mergulho ao anoitecer com lanterna, para ver a vida que sai à noite.",
+   "pl": "Nurkowanie po zmroku z latarką, by zobaczyć nocne życie.",
+   "nl": "Een duik in het donker met een lamp, om het nachtleven te zien.",
+   "zh": "带手电筒的夜间潜水，观察夜间出没的海洋生物。"
+  },
+  "Excursión en superficie con gafas, tubo y aletas, para todas las edades.": {
+   "en": "A surface outing with mask, snorkel and fins, for all ages.",
+   "fr": "Sortie en surface avec masque, tuba et palmes, pour tous les âges.",
+   "de": "Ausflug an der Oberfläche mit Maske, Schnorchel und Flossen, für alle Altersgruppen.",
+   "it": "Escursione in superficie con maschera, boccaglio e pinne, per tutte le età.",
+   "pt": "Passeio à superfície com máscara, tubo e barbatanas, para todas as idades.",
+   "pl": "Wycieczka na powierzchni z maską, fajką i płetwami, dla każdego.",
+   "nl": "Een tocht aan de oppervlakte met masker, snorkel en vinnen, voor alle leeftijden.",
+   "zh": "佩戴面镜、呼吸管和脚蹼的水面活动，适合所有年龄。"
+  },
+  "Salida en barco solo para tu grupo, con guía y horario a medida.": {
+   "en": "A boat trip just for your group, with a guide and a schedule to suit you.",
+   "fr": "Sortie en bateau rien que pour votre groupe, avec guide et horaire sur mesure.",
+   "de": "Bootsausfahrt nur für deine Gruppe, mit Guide und individuellem Zeitplan.",
+   "it": "Uscita in barca solo per il tuo gruppo, con guida e orario su misura.",
+   "pt": "Saída de barco só para o teu grupo, com guia e horário à medida.",
+   "pl": "Rejs łodzią tylko dla twojej grupy, z przewodnikiem i godzinami na życzenie.",
+   "nl": "Een boottocht alleen voor jouw groep, met gids en een schema op maat.",
+   "zh": "专属你团队的出海，配备向导，时间可定制。"
+  },
+  "Viaje de buceo": {
+   "en": "Dive trip",
+   "fr": "Voyage plongée",
+   "de": "Tauchreise",
+   "it": "Viaggio subacqueo",
+   "pt": "Viagem de mergulho",
+   "pl": "Wyjazd nurkowy",
+   "nl": "Duikreis",
+   "zh": "潜水旅行"
+  },
+  "Viaje organizado de varios días con inmersiones, alojamiento y traslados.": {
+   "en": "An organised trip of several days with dives, accommodation and transfers.",
+   "fr": "Voyage organisé de plusieurs jours avec plongées, hébergement et transferts.",
+   "de": "Organisierte mehrtägige Reise mit Tauchgängen, Unterkunft und Transfers.",
+   "it": "Viaggio organizzato di più giorni con immersioni, alloggio e trasferimenti.",
+   "pt": "Viagem organizada de vários dias com mergulhos, alojamento e transferes.",
+   "pl": "Zorganizowany kilkudniowy wyjazd z nurkowaniami, noclegiem i transferami.",
+   "nl": "Een georganiseerde meerdaagse reis met duiken, verblijf en transfers.",
+   "zh": "包含潜水、住宿和接送的多日组织行程。"
+  },
+  "Vida a bordo": {
+   "en": "Liveaboard",
+   "fr": "Croisière plongée",
+   "de": "Tauchsafari",
+   "it": "Crociera subacquea",
+   "pt": "Cruzeiro de mergulho",
+   "pl": "Safari nurkowe",
+   "nl": "Duiksafari",
+   "zh": "船宿潜水"
+  },
+  "Varios días a bordo de un barco, con varias inmersiones al día en los mejores puntos.": {
+   "en": "Several days on board a boat, with several dives a day at the best sites.",
+   "fr": "Plusieurs jours à bord d’un bateau, avec plusieurs plongées par jour sur les meilleurs sites.",
+   "de": "Mehrere Tage an Bord eines Schiffes, mit mehreren Tauchgängen täglich an den besten Plätzen.",
+   "it": "Più giorni a bordo di una barca, con diverse immersioni al giorno nei punti migliori.",
+   "pt": "Vários dias a bordo de um barco, com vários mergulhos por dia nos melhores pontos.",
+   "pl": "Kilka dni na pokładzie łodzi, z kilkoma nurkowaniami dziennie w najlepszych miejscach.",
+   "nl": "Meerdere dagen aan boord van een schip, met meerdere duiken per dag op de mooiste stekken.",
+   "zh": "在船上生活数日，每天在最佳潜点进行多次潜水。"
+  },
+  "Alquiler de equipo": {
+   "en": "Equipment rental",
+   "fr": "Location de matériel",
+   "de": "Ausrüstungsverleih",
+   "it": "Noleggio attrezzatura",
+   "pt": "Aluguer de equipamento",
+   "pl": "Wypożyczenie sprzętu",
+   "nl": "Uitrustingsverhuur",
+   "zh": "装备租赁"
+  },
+  "Equipo completo o por piezas para tus inmersiones.": {
+   "en": "Full kit or individual items for your dives.",
+   "fr": "Équipement complet ou à la pièce pour vos plongées.",
+   "de": "Komplette Ausrüstung oder einzelne Teile für deine Tauchgänge.",
+   "it": "Attrezzatura completa o a pezzi per le tue immersioni.",
+   "pt": "Equipamento completo ou por peças para os teus mergulhos.",
+   "pl": "Pełny zestaw lub pojedyncze elementy sprzętu do nurkowania.",
+   "nl": "Een complete uitrusting of losse onderdelen voor je duiken.",
+   "zh": "为你的潜水提供全套或单件装备。"
+  }
+ },
+ "patterns": {
+  "¿Archivar «{name}»?": {
+   "en": "Archive “{name}”?",
+   "fr": "Archiver « {name} » ?",
+   "de": "„{name}“ archivieren?",
+   "it": "Archiviare «{name}»?",
+   "pt": "Arquivar «{name}»?",
+   "pl": "Zarchiwizować „{name}”?",
+   "nl": "‘{name}’ archiveren?",
+   "zh": "归档“{name}”？"
+  },
+  "¿Borrar «{name}»?": {
+   "en": "Delete “{name}”?",
+   "fr": "Supprimer « {name} » ?",
+   "de": "„{name}“ löschen?",
+   "it": "Eliminare «{name}»?",
+   "pt": "Apagar «{name}»?",
+   "pl": "Usunąć „{name}”?",
+   "nl": "‘{name}’ verwijderen?",
+   "zh": "删除“{name}”？"
+  },
+  "La usan {n} centros o profesionales. No se borra: deja de salir para servicios nuevos y los servicios que ya la usan no cambian.": {
+   "en": "{n} centres or professionals use it. It is not deleted: it is no longer offered for new services and the services that already use it do not change.",
+   "fr": "{n} centres ou professionnels l'utilisent. Il n'est pas supprimé : il n'est plus proposé pour les nouveaux services et les services qui l'utilisent déjà ne changent pas.",
+   "de": "{n} Basen oder Profis nutzen sie. Sie wird nicht gelöscht: Für neue Leistungen wird sie nicht mehr angeboten, und die Leistungen, die sie schon nutzen, ändern sich nicht.",
+   "it": "Lo usano {n} centri o professionisti. Non viene eliminato: non compare più per i nuovi servizi e i servizi che già lo usano non cambiano.",
+   "pt": "É usado por {n} centros ou profissionais. Não é apagado: deixa de aparecer para novos serviços e os serviços que já o usam não mudam.",
+   "pl": {
+    "one": "Używa go {n} centrum lub profesjonalista. Nie zostanie usunięty: przestanie być dostępny dla nowych usług, a usługi, które już go używają, się nie zmienią.",
+    "few": "Używają go {n} centra lub profesjonaliści. Nie zostanie usunięty: przestanie być dostępny dla nowych usług, a usługi, które już go używają, się nie zmienią.",
+    "many": "Używa go {n} centrów lub profesjonalistów. Nie zostanie usunięty: przestanie być dostępny dla nowych usług, a usługi, które już go używają, się nie zmienią.",
+    "other": "Używają go {n} centra lub profesjonaliści. Nie zostanie usunięty: przestanie być dostępny dla nowych usług, a usługi, które już go używają, się nie zmienią."
+   },
+   "nl": "{n} centra of professionals gebruiken het. Het wordt niet verwijderd: het is niet meer beschikbaar voor nieuwe diensten en de diensten die het al gebruiken veranderen niet.",
+   "zh": "有 {n} 个潜水中心或专业人士在使用。不会删除：新服务中将不再显示，已在使用它的服务不受影响。"
+  },
+  "Plantilla archivada: la usan {n} centros o profesionales.": {
+   "en": "Template archived: {n} centres or professionals use it.",
+   "fr": "Modèle archivé : {n} centres ou professionnels l'utilisent.",
+   "de": "Vorlage archiviert: {n} Basen oder Profis nutzen sie.",
+   "it": "Modello archiviato: lo usano {n} centri o professionisti.",
+   "pt": "Modelo arquivado: é usado por {n} centros ou profissionais.",
+   "pl": {
+    "one": "Szablon zarchiwizowany: używa go {n} centrum lub profesjonalista.",
+    "few": "Szablon zarchiwizowany: używają go {n} centra lub profesjonaliści.",
+    "many": "Szablon zarchiwizowany: używa go {n} centrów lub profesjonalistów.",
+    "other": "Szablon zarchiwizowany: używają go {n} centra lub profesjonaliści."
+   },
+   "nl": "Sjabloon gearchiveerd: {n} centra of professionals gebruiken het.",
+   "zh": "模板已归档：有 {n} 个潜水中心或专业人士在使用。"
+  },
+  "{n} centro o profesional": {
+   "en": "{n} centre or professional",
+   "fr": "{n} centre ou professionnel",
+   "de": "{n} Basis oder Profi",
+   "it": "{n} centro o professionista",
+   "pt": "{n} centro ou profissional",
+   "pl": "{n} centrum lub profesjonalista",
+   "nl": "{n} centrum of professional",
+   "zh": "{n} 个潜水中心或专业人士"
+  },
+  "{n} centros o profesionales": {
+   "en": "{n} centres or professionals",
+   "fr": "{n} centres ou professionnels",
+   "de": "{n} Basen oder Profis",
+   "it": "{n} centri o professionisti",
+   "pt": "{n} centros ou profissionais",
+   "pl": {
+    "one": "{n} centrum lub profesjonalista",
+    "few": "{n} centra lub profesjonaliści",
+    "many": "{n} centrów lub profesjonalistów",
+    "other": "{n} centra lub profesjonaliści"
+   },
+   "nl": "{n} centra of professionals",
+   "zh": "{n} 个潜水中心或专业人士"
+  },
+  "Del {a} al {b}": {
+   "en": "From {a} to {b}",
+   "fr": "Du {a} au {b}",
+   "de": "Vom {a} bis {b}",
+   "it": "Dal {a} al {b}",
+   "pt": "De {a} a {b}",
+   "pl": "Od {a} do {b}",
+   "nl": "Van {a} tot {b}",
+   "zh": "{a} 至 {b}"
+  },
+  "Datos personales abiertos hasta las {t}": {
+   "en": "Personal data open until {t}",
+   "fr": "Données personnelles ouvertes jusqu'à {t}",
+   "de": "Personenbezogene Daten geöffnet bis {t}",
+   "it": "Dati personali aperti fino alle {t}",
+   "pt": "Dados pessoais abertos até às {t}",
+   "pl": "Dane osobowe otwarte do {t}",
+   "nl": "Persoonsgegevens open tot {t}",
+   "zh": "个人数据开放至 {t}"
+  },
+  "Vas a ver datos personales. Vale {n} minutos para todo lo sensible y cada acceso queda registrado con el motivo.": {
+   "en": "You are about to see personal data. It lasts {n} minutes for everything sensitive and every access is logged with the reason.",
+   "fr": "Vous allez voir des données personnelles. C'est valable {n} minutes pour tout ce qui est sensible et chaque accès est enregistré avec le motif.",
+   "de": "Du siehst gleich personenbezogene Daten. Das gilt {n} Minuten für alles Sensible, und jeder Zugriff wird mit dem Grund protokolliert.",
+   "it": "Stai per vedere dati personali. Vale {n} minuti per tutto ciò che è sensibile e ogni accesso viene registrato con il motivo.",
+   "pt": "Vai ver dados pessoais. É válido durante {n} minutos para tudo o que é sensível e cada acesso fica registado com o motivo.",
+   "pl": "Zobaczysz dane osobowe. Dostęp do wszystkich danych wrażliwych trwa {n} min, a każdy dostęp jest rejestrowany wraz z powodem.",
+   "nl": "Je gaat persoonsgegevens bekijken. Dit geldt {n} minuten voor alles wat gevoelig is en elke toegang wordt met de reden vastgelegd.",
+   "zh": "你将查看个人数据。对所有敏感信息的访问有效期为 {n} 分钟，每次访问都会连同原因一起记录。"
+  }
+ }
+}

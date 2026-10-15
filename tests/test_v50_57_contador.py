@@ -191,5 +191,17 @@ class ContadorDeVisitas(ServerTestCase):
         self.assertEqual(m.get('/api/provider/contador').json, mine)
 
 
+class MismasPantallas(unittest.TestCase):
+    def test_la_web_avisa_de_las_mismas_pantallas_que_cuenta_el_servidor(self):
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[1]
+        js = (root / 'public' / 'js' / 'world-dives-v8.js').read_text(encoding='utf-8')
+        py = (root / 'app' / 'server.py').read_text(encoding='utf-8')
+        web = set(re.findall(r"'([a-z0-9-]+)'", re.search(r'WD_VISIT_PAGES=new Set\(\[(.*?)\]\)', js, re.S).group(1)))
+        server = set(re.findall(r"'([a-z0-9-]+)'", re.search(r'VISIT_PAGES = \{(.*?)\}', py, re.S).group(1)))
+        self.assertEqual(web, server)
+        self.assertFalse(web & {'admin', 'cuenta', 'logbook', 'reserva', 'area', 'mis-puntos'})   # never a private screen
+
+
 if __name__ == '__main__':
     unittest.main()
