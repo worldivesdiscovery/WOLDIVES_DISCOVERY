@@ -931,6 +931,7 @@ body:has(.modal-backdrop){overflow:hidden}
 .bk-row span{display:block;font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bk-time strong{font-size:16px;font-variant-numeric:tabular-nums}
 .bk-activity strong i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--svc);margin-right:7px;vertical-align:1px}
+.bk-row .bk-activity strong{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}   /* v50.57: the whole name of the activity, in up to two lines */
 .bk-pax strong{font-size:16px}
 .bk-amount strong{font-variant-numeric:tabular-nums}
 .bk-state{display:grid;gap:4px;justify-items:start}
@@ -1115,8 +1116,10 @@ body:has(.modal-backdrop){overflow:hidden}
 .cp-muted{color:var(--muted);font-size:14px;margin:0}
 
 @media (max-width:1180px){
-  .bk-row{grid-template-columns:58px minmax(0,1.2fr) minmax(0,1.3fr) 64px 120px 200px;}
-  .bk-row .bk-state{display:none}
+  /* v50.57: the state of the booking (Confirmada, Solicitud…) and its channel stay visible, in a second line */
+  .bk-row{grid-template-columns:58px minmax(0,1.2fr) minmax(0,1.3fr) 64px 120px auto;grid-template-areas:"time client activity pax amount actions" "time state state state state actions";row-gap:6px}
+  .bk-row .bk-time{grid-area:time}.bk-row .bk-client{grid-area:client}.bk-row .bk-activity{grid-area:activity}.bk-row .bk-pax{grid-area:pax}.bk-row .bk-amount{grid-area:amount}.bk-row .bk-actions{grid-area:actions}
+  .bk-row .bk-state{grid-area:state;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}.bk-row .bk-state .bk-ins{margin:0}
   .db-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (max-width:980px){
@@ -1144,9 +1147,9 @@ body:has(.modal-backdrop){overflow:hidden}
   .svc-tpl-save>div{flex-wrap:wrap}
   .svc-foot-left{flex:1 1 100%;text-align:center;margin:0 0 4px}
   .bk-filters select,.bk-filters .svc-search{flex:1 1 100%;min-width:0;width:100%}
-  .bk-row{grid-template-columns:54px minmax(0,1fr) auto;grid-template-areas:"time client amount" "time activity activity" "state state actions";row-gap:6px}
+  .bk-row{grid-template-columns:54px minmax(0,1fr) auto;grid-template-areas:"time client amount" "time activity activity" "state state state" "actions actions actions";row-gap:6px}
   .bk-row .bk-time{grid-area:time}.bk-row .bk-client{grid-area:client}.bk-row .bk-activity{grid-area:activity}.bk-row .bk-amount{grid-area:amount;text-align:right}
-  .bk-row .bk-pax{display:none}.bk-row .bk-state{display:flex;grid-area:state;gap:8px;align-items:center}.bk-row .bk-actions{grid-area:actions}
+  .bk-row .bk-pax{display:none}.bk-row .bk-state{display:flex;flex-wrap:wrap;grid-area:state;gap:4px 10px;align-items:center}.bk-row .bk-actions{grid-area:actions}
   .ex-req-row{grid-template-columns:1fr;gap:6px}
   .ex-data{grid-template-columns:1fr 1fr 1fr}
   .cl-row{grid-template-columns:minmax(0,1fr) 70px;}
@@ -1979,20 +1982,22 @@ a.hm-logo:hover .hm-logo-text{color:var(--deep)}
 .bk-times-day{margin:14px 0 8px;font-weight:700;font-size:14px}
 .wd-tz-note{font-weight:500;font-size:12px;color:var(--muted,#5d6f77)}
 .bk-times-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
-.bk-time{display:flex;flex-direction:column;gap:5px;padding:13px 14px;border:1.5px solid var(--line);border-radius:14px;background:#fff;text-align:left;font:inherit;color:inherit;cursor:pointer}
-.bk-time strong{font-size:20px;font-variant-numeric:tabular-nums}.bk-time strong small{font-size:13px;color:var(--muted);font-weight:600;margin-left:3px}
-.bk-time>span{font-size:13px;color:var(--muted)}
-.bk-time-occ{display:block;height:5px;border-radius:99px;background:#e3e9ea;overflow:hidden}.bk-time-occ i{display:block;height:100%;background:var(--sea);border-radius:inherit}
-.bk-time em{font-style:normal;font-size:12.5px;font-weight:700;color:#1f7a5a}.bk-time em.is-hot{color:#b4541f}
-.bk-time:hover:not(:disabled){border-color:var(--sea)}
-.bk-time.is-on{border-color:var(--sea);background:#eef7f8;box-shadow:0 0 0 3px rgba(7,104,152,.16)}
-.bk-time:disabled{opacity:.5;cursor:not-allowed}.bk-time:disabled em{color:#9b3f37}
-.bk-pax{display:flex;align-items:center;gap:14px}
+/* v50.57: the time buttons of the booking flow, only inside their grid. The first column of the bookings list of the
+   centre and the freelance uses the same class and took these borders and paddings: the time showed as «0…» since v50.46 */
+.bk-times-grid .bk-time{display:flex;flex-direction:column;gap:5px;padding:13px 14px;border:1.5px solid var(--line);border-radius:14px;background:#fff;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.bk-times-grid .bk-time strong{font-size:20px;font-variant-numeric:tabular-nums}.bk-times-grid .bk-time strong small{font-size:13px;color:var(--muted);font-weight:600;margin-left:3px}
+.bk-times-grid .bk-time>span{font-size:13px;color:var(--muted)}
+.bk-times-grid .bk-time-occ{display:block;height:5px;border-radius:99px;background:#e3e9ea;overflow:hidden}.bk-times-grid .bk-time-occ i{display:block;height:100%;background:var(--sea);border-radius:inherit}
+.bk-times-grid .bk-time em{font-style:normal;font-size:12.5px;font-weight:700;color:#1f7a5a}.bk-times-grid .bk-time em.is-hot{color:#b4541f}
+.bk-times-grid .bk-time:hover:not(:disabled){border-color:var(--sea)}
+.bk-times-grid .bk-time.is-on{border-color:var(--sea);background:#eef7f8;box-shadow:0 0 0 3px rgba(7,104,152,.16)}
+.bk-times-grid .bk-time:disabled{opacity:.5;cursor:not-allowed}.bk-times-grid .bk-time:disabled em{color:#9b3f37}
+.bk-step .bk-pax{display:flex;align-items:center;gap:14px}
 .bk-pax-btn,.bk-qty button{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--line);background:#fff;font-size:22px;line-height:1;cursor:pointer;color:var(--ink)}
 .bk-pax-btn:hover:not(:disabled),.bk-qty button:hover:not(:disabled){border-color:var(--sea);color:var(--sea)}
 .bk-pax-btn:disabled,.bk-qty button:disabled{opacity:.35;cursor:not-allowed}
-.bk-pax output{font-size:30px;font-weight:800;min-width:34px;text-align:center;font-variant-numeric:tabular-nums}
-.bk-pax span{color:var(--muted)}
+.bk-step .bk-pax output{font-size:30px;font-weight:800;min-width:34px;text-align:center;font-variant-numeric:tabular-nums}
+.bk-step .bk-pax span{color:var(--muted)}
 .bk-seg{display:inline-flex;background:#eef2f2;border-radius:14px;padding:4px;margin-bottom:14px;flex-wrap:wrap}
 .bk-seg button{border:0;background:transparent;padding:10px 16px;border-radius:11px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer}
 .bk-seg button.is-on{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(1,28,60,.14)}

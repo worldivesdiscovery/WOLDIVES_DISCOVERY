@@ -139,6 +139,10 @@ def run(shots: Path | None):
             # Administrator
             ctx, page, errors = session('admin')
             go(page, '#/admin?tab=adminpay', 1400)
+            # v50.57 (4.1): the payments carry who paid (personal data): the window asks for the password and a reason, once
+            check('admin · los pagos piden confirmar que es él', page.locator('#wag-pass').count() == 1)
+            if page.locator('#wag-pass').count():
+                page.fill('#wag-pass', 'admin-seguro-2026'); page.click('button[form=wag-form]'); page.wait_for_timeout(1800)
             txt = page.inner_text('body')
             check('admin · sin KPI de comisión', 'comisión WORLDIVES' not in txt and 'Ingresos de los prestadores' in txt)
             check('admin · webhook de Connect', 'Webhook de Connect' in txt)

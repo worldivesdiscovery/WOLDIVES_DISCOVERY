@@ -93,12 +93,19 @@ def main():
                     # ------------------------------------------------------------ special attention
                     if size == 'ordenador' and role in ('centro', 'freelance'):
                         for tab, sel in (('bookings', '#cb-bookings .bk-row, #fl-bookings .bk-row'),
-                                         ('planning', '#cb-planning .pl-slot, #fl-planning .pl-slot'),
+                                         ('planning', '#cb-planning .pl-cell.has-events, #fl-planning .pl-cell.has-events'),   # month view: days with dives
                                          ('agenda', '#fl-agenda .ag-item, #fl-agenda .dbk-card')):
                             if role == 'centro' and tab == 'agenda': continue          # the centre has «Planning / agenda» in one
                             pg.goto(f'{srv.base}/#/admin?tab={tab}'); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(900)
                             n = pg.locator(sel).count()
                             check(f'{role} · {tab}: se abre con sus datos', n > 0, n)
+                    if role in ('centro', 'freelance'):
+                        # 5.1: the time and number of each booking showed as «0…» (a style of the booking flow with the same
+                        # name) and between 761 and 1180 px the state of the booking was hidden
+                        pg.goto(f'{srv.base}/#/admin?tab=bookings'); pg.wait_for_selector('.bk-row'); pg.wait_for_timeout(700)
+                        rows = pg.evaluate("""() => [...document.querySelectorAll('.bk-row')].slice(0, 5).map(r => { const t = r.querySelector('.bk-time strong'), n = r.querySelector('.bk-time span'), st = r.querySelector('.bk-state');
+                            return [t.textContent, t.scrollWidth <= t.clientWidth + 1 && n.scrollWidth <= n.clientWidth + 1, !!st.offsetParent && st.getBoundingClientRect().width > 0]; })""")
+                        check(f'{size} · {role} · reservas: la hora y el número se ven enteros y el estado se ve', rows and all(r[1] and r[2] for r in rows), rows)
                     if size == 'ordenador' and role == 'administración':
                         # 2.2 (button walk): «Subir» on the first template and «Bajar» on the last did nothing; now they are off
                         pg.goto(f'{srv.base}/#/admin?tab=svctemplates'); pg.wait_for_selector('.st-card .st-up'); pg.wait_for_timeout(500)
