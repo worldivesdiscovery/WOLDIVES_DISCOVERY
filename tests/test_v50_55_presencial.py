@@ -372,7 +372,7 @@ class InPerson(ServerTestCase):
         self.assertGreaterEqual(sum(mine[f'precio_publicado_t{i}'] for i in range(1, 5)), 45)
         self.assertNotIn(self.pro.user['id'], [r['id'] for r in self.admin.get(f'/api/admin/dac7?year={year}').json['items']])   # nothing went through the platform
         csv = self.admin.get(f'/api/admin/dac7?year={year}&part=in_person&format=csv')
-        self.assertEqual(csv.status, 200); self.assertIn(b'precio_publicado_t1', csv.body)
+        self.assertEqual(csv.status, 200); self.assertIn('Precio publicado T1'.encode(), csv.body)
 
 
 class Migration(unittest.TestCase):

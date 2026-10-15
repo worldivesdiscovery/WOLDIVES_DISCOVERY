@@ -207,7 +207,7 @@ class CentreTools(ServerTestCase):
         self.assertEqual(r['actividades_t1'] + r['actividades_t2'] + r['actividades_t4'], 3)
         self.assertEqual(r['comisiones'], 0); self.assertIn('tax_id', r['datos_incompletos'])
         csv = self.admin.get(f'/api/admin/dac7?year={y}&format=csv')
-        self.assertEqual(csv.status, 200); self.assertIn('importe_t1', csv.body.decode('utf-8-sig'))
+        self.assertEqual(csv.status, 200); self.assertIn('Importe T1', csv.body.decode('utf-8-sig'))   # v50.57: headers in Spanish
         self.assertEqual(self.admin.get('/api/admin/dac7?year=1990').status, 400)
 
     def test_statistics_are_aggregated(self):

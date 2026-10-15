@@ -66,6 +66,7 @@ from wod import widget_textos as wtx
 from wod import ical as wical
 from wod import seguros as wseg
 from wod import qr as wqr   # v50.57: the single QR generator of the whole web
+from wod import exportar as wexp   # v50.57: Excel and CSV exports
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -4670,42 +4671,217 @@ def csv_text(rows, header):
     return '\ufeff' + buf.getvalue()
 
 
-def provider_export(db, ptype, pid, kind):
-    """CSV exports, available in every plan (also the free listing)."""
-    pw = 'b.center_id=?' if ptype == 'center' else 'b.provider_user_id=? AND b.center_id IS NULL'
-    if kind == 'bookings':
-        rows = db.execute(f"""SELECT 'WOD-'||printf('%06d',b.id), b.booking_date, sl.slot_time, s.title, b.participants, b.status, b.payment_status, b.price, b.currency,
-                                     u.fullname, CASE WHEN u.email LIKE '%.local' THEN '' ELSE u.email END, b.contact_phone, b.created_at
-                              FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN service_slots sl ON sl.id=b.slot_id LEFT JOIN users u ON u.id=b.user_id
-                              WHERE {pw} ORDER BY b.booking_date DESC, b.id DESC LIMIT 50000""", (pid,)).fetchall()
-        return csv_text(rows, ['Reserva', 'Fecha', 'Hora', 'Actividad', 'Personas', 'Estado', 'Pago', 'Precio', 'Moneda', 'Cliente', 'Email', 'Teléfono', 'Creada'])
-    if kind == 'clients':
-        rows = db.execute(f"""SELECT u.fullname, CASE WHEN u.email LIKE '%.local' THEN '' ELSE u.email END, MAX(b.contact_phone), COUNT(*), MIN(b.booking_date), MAX(b.booking_date)
-                              FROM bookings b JOIN users u ON u.id=b.user_id WHERE {pw} GROUP BY u.id ORDER BY u.fullname LIMIT 50000""", (pid,)).fetchall()
-        return csv_text(rows, ['Nombre', 'Email', 'Teléfono', 'Reservas', 'Primera', 'Última'])
-    if kind == 'services':
+# ------------------------------------------------------------------- v50.57 · exportaciones (revisión general, 1.3)
+EXPORT_ACTION_LABELS = {
+    'booking_created': 'Reserva creada', 'booking_status_changed': 'Estado de reserva cambiado', 'service_created': 'Servicio creado',
+    'service_updated': 'Servicio modificado', 'slot_created': 'Salida creada', 'center_profile_updated': 'Datos del centro modificados',
+    'provider_fiscal_data_updated': 'Datos fiscales modificados', 'team_invited': 'Invitación al equipo', 'team_role_changed': 'Perfil del equipo cambiado',
+    'team_member_removed': 'Persona quitada del equipo', 'team_joined': 'Se une al equipo', 'clients_imported': 'Clientes importados',
+    'provider_export': 'Exportación de datos', 'ical_regenerated': 'Nueva dirección de calendario', 'review_reply_saved': 'Respuesta a una reseña',
+    'booking_rescheduled': 'Reserva cambiada de salida', 'refund_issued': 'Devolución', 'points_granted': 'Puntos concedidos',
+    'admin_personal_data': 'Acceso a datos personales', 'admin_data_permissions': 'Permisos de datos personales cambiados',
+    'moderation_hidden': 'Contenido ocultado con un motivo', 'moderation_resubmitted': 'Corrección enviada a revisión', 'moderation_kept': 'Sigue oculto tras la revisión',
+    'moderation_restored': 'Publicado de nuevo tras la revisión', 'dive_point_conditions': 'Condiciones del punto cambiadas',
+    'admin_created_cli': 'Administrador creado desde la consola', 'admin_password_reset_cli': 'Contraseña de administración restablecida desde la consola',
+    'dac7_exported': 'Informe DAC7 descargado', 'data_exported': 'Exportación de datos', 'email_resent': 'Correo reenviado'}
+# What each export is, who may ask for it, the permission of the team profile it needs and whether it carries personal
+# data (the administration confirms its identity before downloading those: 4.1).
+EXPORT_KINDS = {
+    'reservas': ('Reservas', 'provider', 'reservas', True), 'clientes': ('Clientes', 'provider', 'reservas', True),
+    'servicios': ('Servicios', 'provider', None, False), 'pagos': ('Pagos', 'any', 'cobros', True), 'agenda': ('Agenda', 'provider', None, False),
+    'actividad': ('Actividad', 'any', None, True), 'analitica': ('Analítica', 'provider', 'estadisticas', False),
+    'ventas_canal': ('Ventas por canal', 'provider', 'estadisticas', False), 'dac7': ('Informe DAC7', 'admin', None, True),
+    'dac7_pago_en_persona': ('DAC7 pago en persona', 'admin', None, True), 'cuotas': ('Cuotas de los planes', 'admin', None, False),
+    'reservas_centros': ('Reservas por centro', 'admin', None, False)}
+PAYMENT_ORDER_LABELS = {'pending': 'Pendiente', 'paid': 'Pagado', 'review': 'En revisión', 'failed': 'Fallido', 'expired': 'Caducado', 'cancelled': 'Cancelado',
+                        'refunded': 'Devuelto', 'partially_refunded': 'Devuelto en parte'}
+BOOKING_PAY_LABELS = {'paid': 'Pagado', 'pending': 'Pendiente', 'required': 'Pendiente', 'at_center': 'En el centro', 'not_required': 'Sin pago',
+                      'deposit_paid': 'Señal pagada', 'refunded': 'Devuelto', 'partially_refunded': 'Devuelto en parte', 'review': 'En revisión', 'in_person': 'En persona'}
+
+
+def season_setting(db):
+    """«Temporada» (configured in Administración; by default 1 April to 31 October), as 'MM-DD' pairs."""
+    def get(k, d):
+        r = db.execute('SELECT value FROM site_settings WHERE key=?', (k,)).fetchone()
+        v = (r['value'] if r else '') or d
+        return v if re.fullmatch(r'(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])', v) else d
+    return get('temporada_inicio', '04-01'), get('temporada_fin', '10-31')
+
+
+def _within(col, a, b):
+    """SQL that keeps the rows of a period (both days included); without a period, everything."""
+    if not a: return '1=1', ()
+    return f'substr({col},1,10) BETWEEN ? AND ?', (a, b)
+
+
+def _money_currency(rows, i):
+    return 'EUR' if all(((r[i] or 'EUR') if i < len(r) else 'EUR').upper() == 'EUR' for r in rows) else 'XXX'
+
+
+def export_sheets(db, user, kind, a=None, b=None, year=None):
+    """(name, sheets) of an export: the tabs of the Excel file (the CSV takes the first one). Raises PermissionError,
+    ValueError or NotFound with a message that can be shown as it is."""
+    if kind not in EXPORT_KINDS: raise NotFound('Esa exportación no existe.')
+    label, who, perm, _personal = EXPORT_KINDS[kind]
+    S = wexp.Sheet
+    if user['role'] not in ('admin', 'center', 'freelance'): raise PermissionError('Tu cuenta no puede descargar exportaciones.')
+    if who == 'admin' and user['role'] != 'admin': raise PermissionError('Solo la administración puede descargar esta exportación.')
+    if user['role'] == 'admin' and who == 'provider': raise PermissionError('Esta exportación es del panel de cada centro.')
+    ptype = pid = pw = None
+    if user['role'] != 'admin':
+        if perm and not user_can(db, user, perm):
+            raise PermissionError(wroles.NO_VE_RESERVAS if perm == 'reservas' else wroles.NO_PUEDE.get(perm, 'Tu perfil del equipo no permite esta exportación.'))
+        ref = provider_ref(db, user)
+        if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+        ptype, pid = ref
+        pw = 'b.center_id=?' if ptype == 'center' else 'b.provider_user_id=? AND b.center_id IS NULL'
+
+    if kind == 'reservas':
+        w, args = _within('b.booking_date', a, b)
+        rows = [list(r) for r in db.execute(
+            f"""SELECT 'WOD-'||printf('%06d',b.id), b.booking_date, COALESCE(sl.slot_time,b.booking_time), s.title, b.channel, b.participants, b.status,
+                       b.payment_status, b.price, b.currency, COALESCE(b.contact_name,u.fullname),
+                       CASE WHEN u.email LIKE '%.local' THEN COALESCE(b.contact_email,'') ELSE u.email END, b.contact_phone, b.created_at
+                FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN service_slots sl ON sl.id=b.slot_id LEFT JOIN users u ON u.id=b.user_id
+                WHERE {pw} AND {w} ORDER BY b.booking_date DESC, b.id DESC LIMIT 50000""", (pid, *args)).fetchall()]
+        for r in rows:
+            r[4] = wch.CHANNEL_LABELS.get(r[4] or 'worldives', r[4] or ''); r[6] = wbk.state_label(r[6]); r[7] = BOOKING_PAY_LABELS.get(r[7], r[7] or '')
+        log_phone_access(db, user, 'export:reservas', sum(1 for r in rows if r[12]), pid)
+        return label, [S('Reservas', [('Reserva', 'text'), ('Fecha', 'date'), ('Hora', 'text'), ('Actividad', 'text'), ('Canal', 'text'), ('Personas', 'int'),
+                                      ('Estado', 'text'), ('Pago', 'text'), ('Importe', 'money'), ('Moneda', 'text'), ('Cliente', 'text'), ('Email', 'text'),
+                                      ('Teléfono', 'text'), ('Creada', 'datetime')], rows, _money_currency(rows, 9))]
+    if kind == 'clientes':
+        w, args = _within('b.booking_date', a, b)
+        rows = [list(r) for r in db.execute(
+            f"""SELECT COALESCE(MAX(b.contact_name),u.fullname), CASE WHEN u.email LIKE '%.local' THEN COALESCE(MAX(b.contact_email),'') ELSE u.email END,
+                       MAX(b.contact_phone), COUNT(*), MIN(b.booking_date), MAX(b.booking_date)
+                FROM bookings b JOIN users u ON u.id=b.user_id WHERE {pw} AND {w} GROUP BY u.id ORDER BY 1 LIMIT 50000""", (pid, *args)).fetchall()]
+        log_phone_access(db, user, 'export:clientes', sum(1 for r in rows if r[2]), pid)
+        return label, [S('Clientes', [('Nombre', 'text'), ('Email', 'text'), ('Teléfono', 'text'), ('Reservas', 'int'), ('Primera', 'date'), ('Última', 'date')], rows)]
+    if kind == 'servicios':
         sw = 's.center_id=?' if ptype == 'center' else 's.provider_user_id=? AND s.center_id IS NULL'
-        rows = db.execute(f"""SELECT s.id, s.title, s.service_type, s.price, s.currency, s.duration_minutes, s.max_participants, s.booking_mode, s.active,
-                                     (SELECT COUNT(*) FROM service_slots x WHERE x.service_id=s.id AND x.slot_date>=date('now'))
-                              FROM provider_services s WHERE {sw} ORDER BY s.title""", (pid,)).fetchall()
-        return csv_text(rows, ['Id', 'Servicio', 'Tipo', 'Precio', 'Moneda', 'Duración (min)', 'Máx. personas', 'Modo de reserva', 'Activo', 'Salidas futuras'])
-    if kind == 'payments':
-        rows = db.execute("""SELECT o.id, COALESCE(o.paid_at,o.created_at), o.payment_kind, o.amount, COALESCE(o.refunded_total,0), o.currency, o.status,
-                                    CASE WHEN o.booking_id THEN 'WOD-'||printf('%06d',o.booking_id) ELSE 'EXP-'||printf('%05d',o.experience_booking_id) END, o.payment_intent_id
-                             FROM payment_orders o WHERE o.payee_type=? AND o.payee_id=? ORDER BY o.id DESC LIMIT 50000""", (ptype, pid)).fetchall()
-        return csv_text(rows, ['Pedido', 'Fecha', 'Tipo', 'Importe', 'Devuelto', 'Moneda', 'Estado', 'Reserva', 'Pago Stripe'])
+        w, args = _within('x.slot_date', a, b)
+        rows = [list(r) for r in db.execute(
+            f"""SELECT s.id, s.title, s.service_type, s.price, s.currency, s.duration_minutes, s.max_participants, s.booking_mode,
+                       CASE WHEN s.active=1 THEN 'Sí' ELSE 'No' END, (SELECT COUNT(*) FROM service_slots x WHERE x.service_id=s.id AND {w})
+                FROM provider_services s WHERE {sw} ORDER BY s.title""", (*args, pid)).fetchall()]
+        for r in rows: r[7] = {'payment': 'Pago al reservar', 'request': 'Bajo petición'}.get(r[7], r[7] or '')
+        return label, [S('Servicios', [('Id', 'int'), ('Servicio', 'text'), ('Tipo', 'text'), ('Precio', 'money'), ('Moneda', 'text'), ('Duración (min)', 'int'),
+                                       ('Máx. personas', 'int'), ('Modo de reserva', 'text'), ('Activo', 'text'), ('Salidas en el periodo' if a else 'Salidas', 'int')],
+                         rows, _money_currency(rows, 4))]
+    if kind == 'pagos':
+        w, args = _within('COALESCE(o.paid_at,o.created_at)', a, b)
+        if user['role'] == 'admin':
+            rows = [list(r) for r in db.execute(
+                f"""SELECT 'PAY-'||printf('%05d',o.id), COALESCE(o.paid_at,o.created_at), o.payment_kind, o.amount, COALESCE(o.refunded_total,0), o.currency, o.status,
+                           CASE WHEN o.booking_id THEN 'WOD-'||printf('%06d',o.booking_id) ELSE 'EXP-'||printf('%05d',o.experience_booking_id) END,
+                           COALESCE(c.name,pu.fullname), u.fullname, o.payment_intent_id
+                    FROM payment_orders o JOIN users u ON u.id=o.user_id LEFT JOIN bookings bk ON bk.id=o.booking_id LEFT JOIN provider_services s ON s.id=o.service_id
+                    LEFT JOIN centers c ON c.id=COALESCE(bk.center_id,s.center_id) LEFT JOIN users pu ON pu.id=COALESCE(bk.provider_user_id,o.provider_user_id)
+                    WHERE {w} ORDER BY o.id DESC LIMIT 50000""", args).fetchall()]
+            head = [('Pedido', 'text'), ('Fecha', 'datetime'), ('Tipo', 'text'), ('Importe', 'money'), ('Devuelto', 'money'), ('Moneda', 'text'), ('Estado', 'text'),
+                    ('Reserva', 'text'), ('Centro o profesional', 'text'), ('Cliente', 'text'), ('Pago Stripe', 'text')]
+        else:
+            rows = [list(r) for r in db.execute(
+                f"""SELECT 'PAY-'||printf('%05d',o.id), COALESCE(o.paid_at,o.created_at), o.payment_kind, o.amount, COALESCE(o.refunded_total,0), o.currency, o.status,
+                           CASE WHEN o.booking_id THEN 'WOD-'||printf('%06d',o.booking_id) ELSE 'EXP-'||printf('%05d',o.experience_booking_id) END, o.payment_intent_id
+                    FROM payment_orders o WHERE o.payee_type=? AND o.payee_id=? AND {w} ORDER BY o.id DESC LIMIT 50000""", (ptype, pid, *args)).fetchall()]
+            head = [('Pedido', 'text'), ('Fecha', 'datetime'), ('Tipo', 'text'), ('Importe', 'money'), ('Devuelto', 'money'), ('Moneda', 'text'), ('Estado', 'text'),
+                    ('Reserva', 'text'), ('Pago Stripe', 'text')]
+        for r in rows:
+            r[2] = {'full': 'Pago completo', 'deposit': 'Señal', 'balance': 'Resto'}.get(r[2], r[2] or ''); r[6] = PAYMENT_ORDER_LABELS.get(r[6], r[6] or '')
+        return label, [S('Pagos', head, rows, _money_currency(rows, 5))]
     if kind == 'agenda':
-        # v50.44 (A4.2): the agenda (blocks of every resource of the provider), with what is behind each block.
         rw = 'r.owner_center_id=?' if ptype == 'center' else 'r.owner_user_id=? AND r.owner_center_id IS NULL'
-        out = []; own_tz = place_tz(db, center_id=pid) if ptype == 'center' else provider_tz(db, {'role': 'freelance', 'id': pid, 'center_id': None})
-        for r in db.execute(f'''SELECT r.name,r.timezone,bl.local_date_from,bl.local_date_to,bl.starts_at,bl.ends_at,bl.kind,bl.status,bl.ref_type,bl.ref_id,bl.private_note,bl.created_at,bl.released_at
-                                FROM resource_blocks bl JOIN resources r ON r.id=bl.resource_id WHERE {rw} ORDER BY bl.local_date_from DESC, bl.id DESC LIMIT 50000''', (pid,)).fetchall():
+        w, args = _within('bl.local_date_from', a, b)
+        own_tz = place_tz(db, center_id=pid) if ptype == 'center' else provider_tz(db, {'role': 'freelance', 'id': pid, 'center_id': None})
+        out = []
+        for r in db.execute(
+                f"""SELECT r.name, r.timezone, bl.local_date_from, bl.local_date_to, bl.starts_at, bl.ends_at, bl.kind, bl.status, bl.ref_type, bl.ref_id, bl.private_note,
+                           bl.created_at, bl.released_at
+                    FROM resource_blocks bl JOIN resources r ON r.id=bl.resource_id WHERE {rw} AND {w} ORDER BY bl.local_date_from DESC, bl.id DESC LIMIT 50000""",
+                (pid, *args)).fetchall():
             tz = stored_tz(r['timezone'], own_tz, 'agenda', r['name'])
-            out.append((r['name'], r['local_date_from'], r['local_date_to'], wag.utc_to_local(r['starts_at'], tz).strftime('%H:%M'), wag.utc_to_local(r['ends_at'], tz).strftime('%H:%M'), tz,
+            out.append([r['name'], r['local_date_from'], r['local_date_to'], wag.utc_to_local(r['starts_at'], tz).strftime('%H:%M'), wag.utc_to_local(r['ends_at'], tz).strftime('%H:%M'), tz,
                         {'booking': 'Reserva', 'manual': 'Bloqueo', 'holiday': 'Vacaciones', 'unavailable': 'No disponible'}.get(r['kind'], r['kind']),
-                        'WOD-%06d' % r['ref_id'] if r['ref_type'] == 'booking' and r['ref_id'] else '', r['private_note'] or '', 'Activo' if r['status'] == 'active' else 'Liberado', r['created_at'], r['released_at'] or ''))
-        return csv_text(out, ['Recurso', 'Desde', 'Hasta', 'Hora inicio', 'Hora fin', 'Zona horaria', 'Tipo', 'Reserva', 'Nota privada', 'Estado', 'Creado', 'Liberado'])
-    raise ValueError('Exportación no válida.')
+                        'WOD-%06d' % r['ref_id'] if r['ref_type'] == 'booking' and r['ref_id'] else '', r['private_note'] or '', 'Activo' if r['status'] == 'active' else 'Liberado',
+                        r['created_at'], r['released_at'] or ''])
+        return label, [S('Agenda', [('Recurso', 'text'), ('Desde', 'date'), ('Hasta', 'date'), ('Hora inicio', 'text'), ('Hora fin', 'text'), ('Zona horaria', 'text'),
+                                    ('Tipo', 'text'), ('Reserva', 'text'), ('Nota privada', 'text'), ('Estado', 'text'), ('Creado', 'datetime'), ('Liberado', 'datetime')], out)]
+    if kind == 'actividad':
+        w, args = _within('a.created_at', a, b)
+        base_q = "SELECT a.created_at, COALESCE(u.fullname,'Sistema'), a.action, a.entity_type, a.entity_id, {det} FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE {cond} AND {w} ORDER BY a.id DESC LIMIT 50000"
+        if user['role'] == 'admin': rows = db.execute(base_q.format(det='a.details', cond='1=1', w=w), args).fetchall()
+        elif ptype == 'center': rows = db.execute(base_q.format(det='NULL', cond='a.center_id=?', w=w), (pid, *args)).fetchall()
+        else: rows = db.execute(base_q.format(det='NULL', cond='a.user_id=? AND a.center_id IS NULL', w=w), (pid, *args)).fetchall()
+        out = [[r[0], r[1], EXPORT_ACTION_LABELS.get(r[2], (r[2] or '').replace('_', ' ')), r[3] or '', r[4], (r[5] or '')[:2000]] for r in rows]
+        cols = [('Fecha', 'datetime'), ('Persona', 'text'), ('Acción', 'text'), ('Elemento', 'text'), ('Id', 'int')]
+        if user['role'] == 'admin': cols.append(('Detalles', 'text'))
+        else: out = [r[:5] for r in out]
+        return label, [S('Actividad', cols, out)]
+    if kind == 'analitica':
+        w, args = _within('b.booking_date', a, b)
+        by_day, by_svc = {}, {}
+        for r in db.execute(f"""SELECT b.booking_date, s.title, b.participants FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id
+                                WHERE {pw} AND {w} AND b.status NOT IN ('cancelled','rejected','expired','payment_in_progress')""", (pid, *args)).fetchall():
+            if r['booking_date']: by_day[r['booking_date']] = by_day.get(r['booking_date'], 0) + int(r['participants'] or 1)
+            k = r['title'] or 'Reserva manual'; by_svc[k] = by_svc.get(k, 0) + int(r['participants'] or 1)
+        return label, [S('Participantes por día', [('Fecha', 'date'), ('Participantes', 'int')], [[d, n] for d, n in sorted(by_day.items())]),
+                       S('Por servicio', [('Servicio', 'text'), ('Participantes', 'int')], sorted(([k, v] for k, v in by_svc.items()), key=lambda x: -x[1]))]
+    if kind == 'ventas_canal':
+        w, args = _within('b.created_at', a, b)
+        out = [[r['m'], wch.CHANNEL_LABELS.get(r['ch'], r['ch']), r['n'], r['divers'] or 0, round(r['amount'] or 0, 2), r['cur'] or 'EUR'] for r in db.execute(
+            f"""SELECT substr(b.created_at,1,7) AS m, COALESCE(b.channel,'worldives') AS ch, COUNT(*) AS n, SUM(b.participants) AS divers,
+                       SUM(CASE WHEN b.status IN ('confirmed','completed') THEN COALESCE(b.price,0) ELSE 0 END) AS amount, MAX(b.currency) AS cur
+                FROM bookings b WHERE {pw} AND {w} AND b.status NOT IN ('payment_in_progress') GROUP BY m, ch ORDER BY m, ch""", (pid, *args)).fetchall()]
+        return label, [S('Ventas por canal', [('Mes', 'text'), ('Canal', 'text'), ('Reservas', 'int'), ('Buceadores', 'int'), ('Importe confirmado', 'money'), ('Moneda', 'text')],
+                         out, _money_currency(out, 5))]
+    if kind in ('dac7', 'dac7_pago_en_persona'):
+        y = int(year or (_dt.date.today().year - 1))
+        if not 2020 <= y <= 2100: raise ValueError('Año no válido.')
+        if kind == 'dac7':
+            rows = dac7_report(db, y)
+            cols = [('Tipo de prestador', 'text', 'tipo_prestador'), ('Id', 'int', 'id'), ('Nombre', 'text', 'nombre'), ('Razón social', 'text', 'razon_social'),
+                    ('Persona', 'text', 'persona'), ('NIF / TIN', 'text', 'nif_tin'), ('País emisor', 'text', 'pais_emisor'), ('Registro mercantil', 'text', 'registro_mercantil'),
+                    ('Fecha de nacimiento', 'text', 'fecha_nacimiento'), ('Dirección', 'text', 'direccion'), ('Cuenta de cobro', 'text', 'cuenta_cobro'), ('Moneda', 'text', 'moneda'),
+                    ('Importe T1', 'money', 'importe_t1'), ('Importe T2', 'money', 'importe_t2'), ('Importe T3', 'money', 'importe_t3'), ('Importe T4', 'money', 'importe_t4'),
+                    ('Actividades T1', 'int', 'actividades_t1'), ('Actividades T2', 'int', 'actividades_t2'), ('Actividades T3', 'int', 'actividades_t3'),
+                    ('Actividades T4', 'int', 'actividades_t4'), ('Comisiones', 'money', 'comisiones'), ('Impuestos retenidos', 'money', 'impuestos_retenidos'),
+                    ('Datos incompletos', 'text', 'datos_incompletos')]
+        else:
+            rows = dac7_in_person(db, y)
+            cols = [('Tipo de prestador', 'text', 'tipo_prestador'), ('Id', 'int', 'id'), ('Nombre', 'text', 'nombre'), ('Forma de cobro', 'text', 'forma_de_cobro'),
+                    ('Razón social', 'text', 'razon_social'), ('Persona', 'text', 'persona'), ('NIF / TIN', 'text', 'nif_tin'), ('País emisor', 'text', 'pais_emisor'),
+                    ('Fecha de nacimiento', 'text', 'fecha_nacimiento'), ('Dirección', 'text', 'direccion'), ('Moneda', 'text', 'moneda'),
+                    ('Precio publicado T1', 'money', 'precio_publicado_t1'), ('Precio publicado T2', 'money', 'precio_publicado_t2'),
+                    ('Precio publicado T3', 'money', 'precio_publicado_t3'), ('Precio publicado T4', 'money', 'precio_publicado_t4'),
+                    ('Actividades T1', 'int', 'actividades_t1'), ('Actividades T2', 'int', 'actividades_t2'), ('Actividades T3', 'int', 'actividades_t3'),
+                    ('Actividades T4', 'int', 'actividades_t4'), ('Comisiones', 'money', 'comisiones'), ('Datos incompletos', 'text', 'datos_incompletos'), ('Nota', 'text', 'nota')]
+        out = [[y] + [r.get(k) for _, _, k in cols] for r in rows]
+        missing = [[r.get('tipo_prestador'), r.get('id'), r.get('nombre'), r.get('datos_incompletos')] for r in rows if r.get('datos_incompletos')]
+        cur = 'EUR' if all((r.get('moneda') or 'EUR') == 'EUR' for r in rows) else 'XXX'
+        return f'{label} {y}', [S(f'DAC7 {y}', [('Ejercicio', 'int')] + [(h, t) for h, t, _ in cols], out, cur),
+                                S('Datos incompletos', [('Tipo de prestador', 'text'), ('Id', 'int'), ('Nombre', 'text'), ('Le falta', 'text')], missing)]
+    if kind == 'cuotas':
+        w, args = _within('created_at', a, b)
+        out = [[r['id'], r['created_at'], 'Centro' if r['provider_type'] == 'center' else 'Profesional', provider_label(db, r['provider_type'], r['provider_id']),
+                r['plan_code'], r['amount'], r['currency'] or 'EUR', {'paid': 'Pagada', 'pending': 'Pendiente', 'failed': 'Fallida'}.get(r['status'], r['status'] or ''),
+                {'stripe': 'Tarjeta (Stripe)', 'manual': 'Apuntada a mano'}.get(r['method'], r['method'] or ''), r['period_start'], r['period_end'], r['paid_at']]
+               for r in db.execute(f'SELECT * FROM plan_payments WHERE {w} ORDER BY id DESC LIMIT 50000', args).fetchall()]
+        return label, [S('Cuotas de los planes', [('Id', 'int'), ('Fecha', 'datetime'), ('Tipo', 'text'), ('Centro o profesional', 'text'), ('Plan', 'text'),
+                                                  ('Importe', 'money'), ('Moneda', 'text'), ('Estado', 'text'), ('Forma de pago', 'text'), ('Desde', 'date'), ('Hasta', 'date'),
+                                                  ('Pagada el', 'datetime')], out, _money_currency(out, 6))]
+    if kind == 'reservas_centros':
+        w, args = _within('b.booking_date', a, b)
+        out = [[r['who'], r['t'], r['n'], r['pay'] or 0, r['req'] or 0, r['divers'] or 0, round(r['amount'] or 0, 2)] for r in db.execute(
+            f"""SELECT COALESCE(c.name,pu.fullname,'—') AS who, CASE WHEN b.center_id THEN 'Centro' ELSE 'Profesional' END AS t, COUNT(*) AS n,
+                       SUM(CASE WHEN b.booking_mode='payment' THEN 1 ELSE 0 END) AS pay, SUM(CASE WHEN COALESCE(b.booking_mode,'request')<>'payment' THEN 1 ELSE 0 END) AS req,
+                       SUM(b.participants) AS divers, SUM(CASE WHEN b.status IN ('confirmed','completed') THEN COALESCE(b.price,0) ELSE 0 END) AS amount
+                FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id
+                WHERE {w} AND b.status NOT IN ('payment_in_progress') GROUP BY who, t ORDER BY n DESC LIMIT 5000""", args).fetchall()]
+        return label, [S('Reservas por centro', [('Centro o profesional', 'text'), ('Tipo', 'text'), ('Reservas', 'int'), ('Pago al reservar', 'int'), ('Bajo petición', 'int'),
+                                                 ('Buceadores', 'int'), ('Importe confirmado', 'money')], out)]
+    raise NotFound('Esa exportación no existe.')
 
 
 IMPORT_COLUMNS = {'nombre': 'fullname', 'name': 'fullname', 'email': 'email', 'correo': 'email', 'telefono': 'phone', 'teléfono': 'phone', 'phone': 'phone',
@@ -14359,18 +14535,35 @@ class Handler(BaseHTTPRequestHandler):
                     rows=[dict(r) for r in db.execute(f'SELECT id,name,email,phone,message,wanted_date,participants,lang,status,created_at,read_at FROM info_requests WHERE {col}=? ORDER BY id DESC LIMIT 300',(ref[1],)).fetchall()]
                     log_phone_access(db,user,'info_requests',count_phones(rows))
                     self.send_json({'items':rows,'unread':sum(1 for r in rows if not r['read_at'])}); return
-                if path == '/api/center/export':
-                    # CSV exports in EVERY plan: clients, bookings, services and payments (payments only for owners).
-                    user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user)
-                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
-                    kind=clean_text(query.get('kind',['bookings'])[0],20) or 'bookings'
-                    if kind=='payments' and not user_can(db,user,'cobros'): raise PermissionError(wroles.NO_PUEDE['cobros'])
-                    if kind in ('bookings','clients') and not user_can(db,user,'reservas'): raise PermissionError(wroles.NO_VE_RESERVAS)   # ASVS V8.2.1
-                    raw=provider_export(db,*ref,kind).encode('utf-8'); audit(db,user['id'],'provider_export',ref[0],ref[1],{'kind':kind}); db.commit()
-                    if kind in ('bookings','clients'): log_phone_access(db,user,f'export:{kind}',max(0,raw.count(b'\n')-1),ref[1])
-                    self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8')
-                    self.send_header('Content-Disposition',f'attachment; filename="worldives-{kind}-{_dt.date.today().isoformat()}.csv"')
-                    self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
+                if path == '/api/center/export' or path.startswith('/api/exportar/'):
+                    # v50.57 (1.3): every export of the web, in Excel (.xlsx, by default) or CSV for Excel in Spanish, with a
+                    # period; it always downloads, also empty. /api/center/export (before v50.57) is the same, in CSV and with everything.
+                    user=require_user(self,db)
+                    if path == '/api/center/export':
+                        require_role(user,{'center','freelance'})
+                        kind={'bookings':'reservas','clients':'clientes','services':'servicios','payments':'pagos','agenda':'agenda'}.get(clean_text(query.get('kind',['bookings'])[0],20) or 'bookings','')
+                        if not kind: raise ValueError('Exportación no válida.')
+                        fmt='csv'; per='todo'
+                    else:
+                        kind=clean_text(path.rsplit('/',1)[1],30) or ''
+                        fmt='csv' if (query.get('formato',['xlsx'])[0] or '').lower()=='csv' else 'xlsx'
+                        per=clean_text(query.get('periodo',['mes'])[0],20) or 'mes'
+                    if kind not in EXPORT_KINDS: raise NotFound('Esa exportación no existe.')
+                    year=None
+                    if kind.startswith('dac7'):
+                        try: year=int(query.get('anio',query.get('year',[str(_dt.date.today().year-1)]))[0])
+                        except ValueError: raise ValueError('Año no válido.')
+                        a=b=None; plabel=str(year)
+                    else:
+                        a,b,plabel=wexp.period(per,_dt.date.today(),season_setting(db),query.get('desde',[''])[0],query.get('hasta',[''])[0])
+                    name,sheets=export_sheets(db,user,kind,a,b,year)
+                    if user['role']=='admin' and EXPORT_KINDS[kind][3]: admin_data_log(db,self,user,f'exportación «{name}» ({plabel})')
+                    ref=provider_ref(db,user) if user['role']!='admin' else None
+                    audit(db,user['id'],'dac7_exported' if kind=='dac7' else 'provider_export' if ref else 'data_exported',ref[0] if ref else 'export',ref[1] if ref else None,
+                          {'kind':kind,'periodo':plabel,'formato':fmt,'filas':sum(len(x.rows) for x in sheets)}); db.commit()
+                    raw=wexp.xlsx_bytes(sheets,title=f'WORLDIVES · {name}') if fmt=='xlsx' else wexp.csv_bytes(sheets[0])
+                    self.send_bytes(raw,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' if fmt=='xlsx' else 'text/csv; charset=utf-8',
+                                    wexp.filename(name,plabel,fmt)); return
                 if path == '/api/center/import/template':
                     raw=csv_text([['Ana García','ana@example.org','+34 600 000 000','Advanced Open Water','Prefiere salidas de mañana']],['nombre','email','telefono','titulacion','notas']).encode('utf-8')
                     self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8'); self.send_header('Content-Disposition','attachment; filename="plantilla-clientes.csv"')
@@ -14528,19 +14721,20 @@ class Handler(BaseHTTPRequestHandler):
                     if query.get('part',[''])[0]=='in_person':
                         # v50.55 · PENDIENTE GESTORÍA: «Pago en persona», kept apart from what went through the platform.
                         ip_rows=dac7_in_person(db,year)
-                        if query.get('format',[''])[0]=='csv':
-                            head=['tipo_prestador','id','nombre','forma_de_cobro','razon_social','persona','nif_tin','pais_emisor','fecha_nacimiento','direccion','moneda',
-                                  'precio_publicado_t1','precio_publicado_t2','precio_publicado_t3','precio_publicado_t4','actividades_t1','actividades_t2','actividades_t3','actividades_t4','comisiones','datos_incompletos','nota']
-                            raw=csv_text([[r[h] for h in head] for r in ip_rows],head).encode('utf-8'); audit(db,user['id'],'dac7_exported','system',None,{'year':year,'part':'in_person'}); db.commit()
-                            self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8'); self.send_header('Content-Disposition',f'attachment; filename="dac7-{year}-pago-en-persona.csv"')
-                            self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
+                        if query.get('format',[''])[0] in ('csv','xlsx'):
+                            name,sheets=export_sheets(db,user,'dac7_pago_en_persona',year=year); fmt=query.get('format',[''])[0]
+                            audit(db,user['id'],'dac7_exported','system',None,{'year':year,'part':'in_person','formato':fmt}); db.commit()
+                            raw=wexp.xlsx_bytes(sheets,title=f'WORLDIVES · {name}') if fmt=='xlsx' else wexp.csv_bytes(sheets[0])
+                            self.send_bytes(raw,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' if fmt=='xlsx' else 'text/csv; charset=utf-8',
+                                            wexp.filename('dac7-pago-en-persona',str(year),fmt)); return
                         self.send_json({'year':year,'items':ip_rows,'pending':'gestoria'}); return
-                    if query.get('format',[''])[0]=='csv':
-                        head=['tipo_prestador','id','nombre','razon_social','persona','nif_tin','pais_emisor','registro_mercantil','fecha_nacimiento','direccion','cuenta_cobro','moneda',
-                              'importe_t1','importe_t2','importe_t3','importe_t4','actividades_t1','actividades_t2','actividades_t3','actividades_t4','comisiones','impuestos_retenidos','datos_incompletos']
-                        raw=csv_text([[r[h] for h in head] for r in rows],head).encode('utf-8'); audit(db,user['id'],'dac7_exported','system',None,{'year':year}); db.commit()
-                        self.send_response(200); self.send_header('Content-Type','text/csv; charset=utf-8'); self.send_header('Content-Disposition',f'attachment; filename="dac7-{year}.csv"')
-                        self.send_header('Content-Length',str(len(raw))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return
+                    if query.get('format',[''])[0] in ('csv','xlsx'):
+                        # v50.57 (1.3): the same export as /api/exportar/dac7 (Excel with the tab «Datos incompletos», or CSV)
+                        name,sheets=export_sheets(db,user,'dac7',year=year); fmt=query.get('format',[''])[0]
+                        audit(db,user['id'],'dac7_exported','system',None,{'year':year,'formato':fmt}); db.commit()
+                        raw=wexp.xlsx_bytes(sheets,title=f'WORLDIVES · {name}') if fmt=='xlsx' else wexp.csv_bytes(sheets[0])
+                        self.send_bytes(raw,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' if fmt=='xlsx' else 'text/csv; charset=utf-8',
+                                        wexp.filename('dac7',str(year),fmt)); return
                     self.send_json({'year':year,'items':rows,'in_person_items':len(dac7_in_person(db,year))}); return
                 if path == '/api/admin/features':
                     user=require_user(self,db); require_role(user,{'admin'})

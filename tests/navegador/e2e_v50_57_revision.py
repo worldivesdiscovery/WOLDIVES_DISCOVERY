@@ -8,6 +8,9 @@ sin error. Además, si una parte del panel falla, solo esa parte lo dice (con «
 Bloque 1.2 · el QR de la reserva se ve en la ficha del buceador, del centro y de la administración, y al leerlo (OpenCV,
 como un móvil) lleva a esa reserva.
 
+Bloque 1.3 · las exportaciones descargan en Excel y en CSV desde Herramientas (centro) y desde Pagos y DAC7
+(administración); sin datos en el periodo, el archivo sale igual con el aviso.
+
     python3 tests/navegador/e2e_v50_57_revision.py [carpeta-de-capturas]
 
 Usa las cuentas de la demo: no va en el zip de producción (scripts/generar_zips.py)."""
@@ -141,6 +144,37 @@ def run(out: Path | None):
                       ok and (cv2 is None or f'verificarreserva?id={bk}&t=' in read), read or pg.inner_text('main')[:200])
                 shot(pg, f'b1-2-qr-ficha-{label.replace("ó", "o")}')
                 c.close()
+
+            # 1.3 · exports: Excel and CSV download from Herramientas (centre) and from Pagos and DAC7 (administration)
+            c, pg = ctx(); login(pg, 'centro.prueba')
+            pg.goto(f'{srv.base}/#/admin?tab=tools'); pg.wait_for_selector('#cb-tools [data-export]', timeout=15000); pg.wait_for_timeout(800)
+            box = pg.locator('#cb-tools [data-export]').first
+            with pg.expect_download() as dl: box.locator('[data-ex-kind="reservas"]').click()
+            f = dl.value; path = f.path(); data = Path(path).read_bytes()
+            check('1.3 · centro: «Reservas» descarga un Excel (.xlsx)', f.suggested_filename.endswith('.xlsx') and data[:2] == b'PK', f.suggested_filename)
+            box.locator('input[value="csv"]').check(); box.locator('[data-ex-period]').select_option('todo')
+            with pg.expect_download() as dl: box.locator('[data-ex-kind="clientes"]').click()
+            f = dl.value; data = Path(f.path()).read_bytes()
+            check('1.3 · centro: «Clientes» en CSV para Excel en español (BOM y «;»)', f.suggested_filename.endswith('.csv') and data.startswith(b'\xef\xbb\xbf') and b';' in data.split(b'\r\n')[0], data[:80])
+            box.locator('[data-ex-period]').select_option('personalizado')
+            box.locator('[data-ex-kind="servicios"]').click(); pg.wait_for_timeout(500)
+            check('1.3 · sin fechas en «Personalizado» lo dice en su sitio', 'dos fechas' in box.locator('[data-ex-msg]').inner_text())
+            box.locator('[data-ex-from]').fill('2001-01-01'); box.locator('[data-ex-to]').fill('2001-01-31')
+            with pg.expect_download() as dl: box.locator('[data-ex-kind="reservas"]').click()
+            data = Path(dl.value.path()).read_bytes().decode('utf-8-sig')
+            check('1.3 · un periodo sin datos descarga igual, con «Sin datos en este periodo»', 'Sin datos en este periodo' in data, data[:120])
+            shot(pg, 'b1-3-exportar-herramientas')
+            c.close()
+            c, pg = ctx(); login(pg, 'admin.prueba')
+            pg.goto(f'{srv.base}/#/admin?tab=adminpay'); pg.wait_for_selector('#admin-payments .wd-export-wrap', timeout=15000)
+            pg.locator('#admin-payments .wd-export-wrap summary').click()
+            with pg.expect_download() as dl: pg.locator('#admin-payments [data-ex-kind="pagos"]').click()
+            check('1.3 · administración: «Pagos» descarga', dl.value.suggested_filename.endswith('.xlsx'), dl.value.suggested_filename)
+            pg.goto(f'{srv.base}/#/admin?tab=plans'); pg.wait_for_selector('#admin-plans [data-ex-kind="dac7"]', timeout=15000)
+            with pg.expect_download() as dl: pg.locator('#admin-plans [data-ex-kind="dac7"]').click()
+            check('1.3 · administración: el informe DAC7 descarga (Excel)', dl.value.suggested_filename.startswith('worldives-informe-dac7') and dl.value.suggested_filename.endswith('.xlsx'), dl.value.suggested_filename)
+            shot(pg, 'b1-3-exportar-dac7')
+            c.close()
 
             c, pg = ctx(); login(pg, 'admin.prueba')
             pg.route('**/api/admin/audit', lambda route: route.fulfill(status=500, content_type='application/json', body='{"error":"Error interno"}'))

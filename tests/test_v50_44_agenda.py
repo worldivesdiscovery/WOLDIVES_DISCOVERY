@@ -221,7 +221,8 @@ class AgendaServer(ServerTestCase):
         r = self.pro.get('/api/center/export?kind=agenda')
         self.assertEqual(r.status, 200, r)
         txt = r.body.decode('utf-8')
-        self.assertIn('Recurso', txt); self.assertIn(d, txt); self.assertIn('Revisión del equipo', txt)
+        # v50.57: the dates as Excel in Spanish writes them (dd/mm/yyyy)
+        self.assertIn('Recurso', txt); self.assertIn('/'.join(reversed(d.split('-'))), txt); self.assertIn('Revisión del equipo', txt)
 
     def test_quote_and_rules(self):
         q = self.client().post('/api/agenda/quote', {'service_id': self.sid, 'days': [day(60), day(61), day(62)], 'part': 'full', 'participants': 2, 'agenda_extras': ['foto']})
