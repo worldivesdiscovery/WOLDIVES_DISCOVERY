@@ -73,6 +73,15 @@ class Estatico(unittest.TestCase):
             # The centre edits the capacity of its own departure: recalculated from the spots taken, never more than total.
             self.assertTrue(stmt.startswith(allowed_edits), f'{fn}: {stmt}')
 
+    def test_la_web_manda_su_clave_de_idempotencia(self):
+        # Every attempt carries its key: the two booking pages of WORLDIVES (by departure and by days) and the manual one
+        js = (ROOT / 'public' / 'js' / 'world-dives-v8.js').read_text(encoding='utf-8')
+        calls = [m.start() for m in re.finditer(r"postJSON\('/api/bookings',", js)]
+        self.assertEqual(len(calls), 2)
+        for i in calls:
+            self.assertRegex(js[i:i + 1500], r"idempotency_key:`\$\{(bkKey|dayKey)\}-[^`,]*`")
+        self.assertIn('payload.idempotency_key=mbKey', js)
+
     def test_canales(self):
         import sys
         sys.path.insert(0, str(ROOT / 'app'))

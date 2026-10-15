@@ -2576,12 +2576,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t.id==='dbk-go') submit();
     });
     root.addEventListener('change',e=>{ if(e.target.id==='dbk-pax'){ st.pax=Number(e.target.value); keepLink(); requote(); } if(e.target.closest('.dbk-extras')){ st.extras=new Set($$('.dbk-extras input:checked').map(x=>x.value)); keepLink(); requote(); } });
-    let sending=false;
+    let sending=false; const dayKey='bkd-'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);   // v50.56: idempotency
     async function submit(){ if(sending||!st.quote) return; keepLink(); st.notes=$('#dbk-notes').value;
       if(!state.me){ toast('Inicia sesión o crea tu cuenta para terminar. Guardamos los días que has elegido.'); goLogin(); return; }
       if(wdInPerson(info)&&!$('#dbk-ip-ack')?.checked){ toast('Marca la casilla del aviso: este profesional cobra directamente, no a través de WORLDIVES.'); $('#dbk-ip-ack')?.focus(); return; }
       sending=true; const go=$('#dbk-go'); go.disabled=true; const label=go.textContent; go.textContent='Enviando…';
-      try{ const c=await postJSON('/api/bookings',{...wdWaConsent(),...wdAppPay(),center_id:p.type==='center'?p.id:null,service_id:sid,days:st.quote.days,part:st.part,booking_date:st.quote.days[0],participants:st.pax,agenda_extras:[...st.extras],notes:st.notes,in_person_ack:wdInPerson(info)});
+      try{ const c=await postJSON('/api/bookings',{...wdWaConsent(),...wdAppPay(),center_id:p.type==='center'?p.id:null,service_id:sid,days:st.quote.days,part:st.part,booking_date:st.quote.days[0],participants:st.pax,agenda_extras:[...st.extras],notes:st.notes,in_person_ack:wdInPerson(info),idempotency_key:`${dayKey}-${sid}-${st.quote.days[0]}-${st.quote.days.length}-${st.part}-${st.pax}`});
         if(c.status==='insurance_pending'){ toast('Este servicio exige un seguro de buceo para ese día. Súbelo para terminar la reserva: guardamos tus plazas.'); location.hash='#/seguro?reserva='+c.id; return; }
         if(c.checkout_url){ go.textContent='Abriendo el pago seguro…'; wdOpenCheckout(c.checkout_url); return; }
         toast(c.status==='confirmed'?'¡Reserva confirmada!':'Solicitud enviada. No se cobra nada hasta que te confirmen.'); location.hash='#/reserva?id='+c.id;
@@ -2758,7 +2758,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // restore draft inputs
     if($('#bk-nitrox')) $('#bk-nitrox').checked=st.nitrox; $('#bk-guide').checked=st.guide; $('#bk-pickup').checked=st.pickup; $('#bk-notes').value=st.notes; if($('#bk-sizes')) $('#bk-sizes').value=st.sizes; $('#bk-guide-notes').value=st.guideNotes; $('#bk-guide-wrap').hidden=!st.guide;
     $$('.bk-extra').forEach(b=>b.setAttribute('aria-pressed',String(st.extras.has(+b.dataset.id))));
-    let sending=false;
+    let sending=false; const bkKey='bk-'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);   // v50.56: idempotency
     async function submit(){ if(sending) return; const s=svc(), sl=slotObj(); if(!s||!sl){ toast(s?'Elige la fecha y la hora.':'Elige una actividad.'); return; }
       syncInputs();
       if(!state.me){ try{ sessionStorage.setItem('wd_booking_draft',JSON.stringify({center:cid,st:{...st,extras:[...st.extras]}})); }catch{} toast('Inicia sesión o crea tu cuenta para terminar la reserva. Guardamos lo que has elegido.'); location.hash='#/login?next='+encodeURIComponent(`#/reservar?center=${cid}&service=${s.id}&slot=${sl.id}`); return; }
@@ -2768,7 +2768,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const point=(sl.points||[]).find(p=>Number(p.id)===st.point)||(sl.points||[])[0]||null;
       sending=true; $$('.bk-go').forEach(b=>{ b.disabled=true; b.dataset.label=b.textContent; b.textContent='Reservando…'; });
       try{ const created=await postJSON('/api/bookings',{...wdWaConsent(),...wdAppPay(),center_id:cid||null,service_id:s.id,slot_id:sl.id,dive_point_id:point?Number(point.id):null,dive_point_name:point?.name||'',booking_date:sl.slot_date,booking_time:sl.slot_time,participants:st.pax,
-          needs_equipment:codes.length>0,equipment_items:items,equipment_codes:codes,equipment_notes:st.sizes,extra_ids:[...st.extras],needs_guide:st.guide,guide_notes:st.guideNotes,nitrox:st.nitrox,pickup:st.pickup,notes:st.notes,in_person_ack:wdInPerson(s)&&!!st.ipAck});
+          needs_equipment:codes.length>0,equipment_items:items,equipment_codes:codes,equipment_notes:st.sizes,extra_ids:[...st.extras],needs_guide:st.guide,guide_notes:st.guideNotes,nitrox:st.nitrox,pickup:st.pickup,notes:st.notes,in_person_ack:wdInPerson(s)&&!!st.ipAck,
+          idempotency_key:`${bkKey}-${s.id}-${sl.id}-${st.pax}`});
         if(created.status==='insurance_pending'){ toast('Este servicio exige un seguro de buceo para ese día. Súbelo para terminar la reserva: guardamos tus plazas.'); location.hash='#/seguro?reserva='+created.id; return; }
         if(created.checkout_url){ $$('.bk-go').forEach(b=>{ b.textContent='Abriendo el pago seguro…'; }); wdOpenCheckout(created.checkout_url); return; }
         toast(created.status==='confirmed'?'¡Reserva confirmada!':'Solicitud enviada. No se cobra nada hasta que el centro acepte.'); location.hash='#/reserva?id='+created.id;
@@ -5327,7 +5328,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="vt-checks">${(hooks.events||[]).map(e=>`<label><input type="checkbox" class="vt-hook-ev" value="${e}" checked> <code translate="no">${e}</code></label>`).join('')}</div>
         <button type="button" class="btn btn-primary" id="vt-hook-new">Añadir aviso</button><div id="vt-hook-out"></div>
         <h4>Registro de envíos</h4>
-        <table class="vt-table vt-log"><thead><tr><th>Cuándo</th><th>Aviso</th><th>Reserva</th><th>Resultado</th><th>Intentos</th><th></th></tr></thead><tbody>${(hooks.deliveries||[]).slice(0,30).map(x=>`<tr><td>${esc(wdDeadline(x.created_at))}</td><td>${esc(x.event)}</td><td>${x.booking_id?'WOD-'+String(x.booking_id).padStart(6,'0'):'—'}</td><td>${x.status==='delivered'?`<span class="pl-tag good">Entregado (${x.last_status})</span>`:x.status==='failed'?`<span class="pl-tag bad">Falló: ${esc(x.last_error||'')}</span>`:`<span class="pl-tag warn">${x.attempts?'Reintento pendiente':'En cola'}</span>`}</td><td>${x.attempts}</td><td>${x.status==='failed'?`<button type="button" class="btn btn-small" data-retry="${x.id}" data-ep="${x.endpoint_id}">Reintentar</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6">Todavía no se ha enviado ningún aviso.</td></tr>'}</tbody></table>
+        <table class="vt-table vt-log"><thead><tr><th>Cuándo</th><th>Aviso</th><th>Reserva</th><th>Resultado</th><th>Intentos</th><th></th></tr></thead><tbody>${(hooks.deliveries||[]).slice(0,30).map(x=>`<tr><td>${esc(wdDeadline(x.created_at))}</td><td><code translate="no">${esc(x.event)}</code></td><td>${x.booking_id?'WOD-'+String(x.booking_id).padStart(6,'0'):'—'}</td><td>${x.status==='delivered'?`<span class="pl-tag good">Entregado (${x.last_status})</span>`:x.status==='failed'?`<span class="pl-tag bad">Falló: ${esc(x.last_error||'')}</span>`:`<span class="pl-tag warn">${x.attempts?'Reintento pendiente':'En cola'}</span>`}</td><td>${x.attempts}</td><td>${x.status==='failed'?`<button type="button" class="btn btn-small" data-retry="${x.id}" data-ep="${x.endpoint_id}">Reintentar</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6">Todavía no se ha enviado ningún aviso.</td></tr>'}</tbody></table>
       </section>
       <section class="vt-card" id="vt-ical"><h3>6 · Calendario (iCal)</h3>
         <p><b>Exportar:</b> suscríbete desde Google Calendar, Apple o Outlook. Refleja las reservas de todos los canales; cada calendario decide cada cuánto lo vuelve a leer.</p>
