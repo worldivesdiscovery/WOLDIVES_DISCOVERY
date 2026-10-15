@@ -662,7 +662,7 @@
     const h = d.headcounts || {};
     if (!h.salida || !puede('checkin') || d.cancelled) return '';
     if (h.vuelta) return `<div class="aviso ${h.vuelta.match ? 'ok' : 'urg'}">${ic(h.vuelta.match ? 'check' : 'alerta')}<div><b>${T('Contados a la vuelta')}:</b> <span class="num">${h.vuelta.counted}/${h.vuelta.present}</span></div></div>`;
-    return `<div class="aviso urg">${ic('area')}<div class="crece"><b>${T('Falta contar a la vuelta')}</b><p>${T('Al salir contaste')} <span class="num">${h.salida.counted}</span>. ${T('Antes de terminar la salida, cuenta otra vez a todos en el barco.')}</p>
+    return `<div class="aviso urg">${ic('area')}<div class="crece"><b>${T('Falta contar a la vuelta')}</b><p>${T('Al salir contaste')} <span class="num">${h.salida.counted}</span>.</p><p>${T('Antes de terminar la salida, cuenta otra vez a todos en el barco.')}</p>
       <a class="wbtn mini" href="#/contar?id=${s.id}&fase=vuelta">${ic('area', '')}${T('Contar a la vuelta')}</a></div></div>`;
   }
   async function contar(params) {
@@ -861,7 +861,8 @@
       if (!prox) return;
       const perm = await L.checkPermissions(); if (perm.display !== 'granted' && (await L.requestPermissions()).display !== 'granted') return;
       await L.cancel({ notifications: [{ id: 4901 }] }).catch(() => {});
-      await L.schedule({ notifications: [{ id: 4901, title: T('Salida en 45 minutos'), body: `${prox.s.time} · ${prox.s.service} · ${prox.s.confirmed + prox.s.pending_payment} ${T('buceadores')}`, schedule: { at: new Date(prox.at) }, extra: { ruta: '#/salida?id=' + prox.s.slot_id } }] });
+      await L.schedule({ notifications: [{ id: 4901, title: T('Salida en 45 minutos'), body: `${prox.s.time} · ${prox.s.service} · ${prox.s.confirmed + prox.s.pending_payment} ${T('buceadores')}`, schedule: { at: new Date(prox.at) }, extra: { ruta: '#/salida?id=' + prox.s.slot_id },
+        isExactNotification: false }] });   // v50.55: an exact alarm opens Android's «Alarms & reminders» settings in the middle of «Hoy»
     } catch { /* without notifications */ }
   }
   plugin('LocalNotifications')?.addListener?.('localNotificationActionPerformed', (e) => { const r = e?.notification?.extra?.ruta; if (r) location.hash = r; });

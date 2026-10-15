@@ -149,6 +149,15 @@ class LadoWeb(unittest.TestCase):
         self.assertIn("const PRO = (role) => ['center', 'freelance', 'admin'].includes(role);", SEG)
         self.assertIn("if (PRO(r.role) || quiereBloqueo) modo = st.seguro ? 'sistema' : 'pin';", SEG)
 
+    def test_departure_reminder_never_asks_for_exact_alarms(self):
+        # Capacitor's LocalNotifications schedules exact alarms by default and, on Android 12+ without that permission
+        # (Android 14 denies it to new installs), opens the «Alarms & reminders» settings in the middle of «Hoy»
+        # (seen on the emulator). A reminder 45 minutes before a departure does not need to be exact.
+        pro = (ROOT / 'public/js/wd-app-pro.js').read_text(encoding='utf-8')
+        calls = re.findall(r'\.schedule\(\{ notifications: \[(.*?)\] \}\)', pro, re.S)
+        self.assertTrue(calls)
+        for c in calls: self.assertIn('isExactNotification: false', c)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

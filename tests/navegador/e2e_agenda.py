@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 sys.path[:0] = [str(Path(__file__).resolve().parent), str(Path(__file__).resolve().parents[1])]   # tests/navegador and tests (helpers)
-from helpers import ServerTestCase, Server  # noqa: E402
+from helpers import IN_PERSON, ServerTestCase, Server  # noqa: E402
 from e2e_markers import chromium  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
@@ -39,7 +39,8 @@ def run(shots: Path | None):
         r = pro.post('/api/provider-services', {'title': 'Cenotes por días', 'description': 'Guía titulado, 2 cenotes por día, fotos del día.', 'price': 180, 'max_participants': 4,
                                                 'booking_mode': 'request', 'booking_unit': 'half_day', 'timezone': 'America/Cancun',
                                                 'unit_rules': {'min_days': 1, 'max_days': 10, 'lead_hours': 48, 'am': ['08:00', '13:00'], 'pm': ['14:00', '19:00'], 'full': ['08:00', '16:00']},
-                                                'pricing': {'day': 180, 'half': 110, 'discount': {'min_days': 3, 'pct': 10}, 'extras': [{'id': 'foto', 'label': 'Fotos y vídeo', 'price': 40, 'per': 'day'}]}})
+                                                'pricing': {'day': 180, 'half': 110, 'discount': {'min_days': 3, 'pct': 10}, 'extras': [{'id': 'foto', 'label': 'Fotos y vídeo', 'price': 40, 'per': 'day'}]},
+                                                **IN_PERSON})   # v50.55: a freelance without Stripe is paid in person
         sid = r.json['id']
         mon = next_monday(); days = [(mon + datetime.timedelta(days=i)).isoformat() for i in range(3)]
         busy_day = (mon + datetime.timedelta(days=9)).isoformat()   # a busy Wednesday the next week
@@ -107,12 +108,13 @@ def run_browser(t, srv, sid, check, shots):
                 page.fill('#login', 'diver_ana44'); page.fill('#password', PW); page.click('#login-form button[type=submit]'); page.wait_for_timeout(1500)
                 page.wait_for_selector('#dbk-total'); page.wait_for_timeout(1200)
                 check(f'{dev}: al volver conserva los días elegidos', '606' in page.inner_text('#dbk-total'), page.inner_text('#dbk-total'))
+                page.check('#dbk-ip-ack')   # v50.55: the notice of «Pago en persona»
                 page.click('#dbk-go'); page.wait_for_timeout(1500)
                 bid_a = srv.sql("SELECT id FROM bookings WHERE date_to=? ORDER BY id DESC LIMIT 1", (days[2],))
                 check(f'{dev}: solicitud enviada (sin pagar nada)', bid_a and '#/reserva' in page.url, page.url)
                 # Second diver asks for Tuesday–Wednesday through the API, as fast as it is
                 leo = t.client(); leo.login('diver_leo44')
-                rb = leo.post('/api/bookings', {'service_id': sid, 'days': days[1:], 'part': 'full', 'participants': 1})
+                rb = leo.post('/api/bookings', {'service_id': sid, 'days': days[1:], 'part': 'full', 'participants': 1, 'in_person_ack': True})
                 check(f'{dev}: la segunda solicitud también entra (los días siguen libres mientras tanto)', rb.status == 200, rb.json)
                 # The freelance confirms from «Mi agenda»
                 ctx.clear_cookies(); login('pro_tito44')
