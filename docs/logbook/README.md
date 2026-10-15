@@ -82,8 +82,9 @@ eliminar la cuenta. La copia local del componente se borra al cerrar la sesión.
 | Los campos bloqueados no se pueden cambiar ni manipulando la petición | Navegador, 7 (PUT hecho a mano y cambio forzado en el componente: 409 y vuelve lo del centro) y servidor `test_4` (9 intentos distintos) |
 
 - `tests/test_v50_57_logbook.py` (servidor, 9 pruebas).
-- `tests/navegador/e2e_v50_57_logbook.py` (navegador, 52 comprobaciones sobre una copia de la demo; usa las cuentas de la
-  demo, por eso no va en el zip de producción). Capturas en `docs/capturas/v50.57/logbook/`.
+- `tests/navegador/e2e_v50_57_logbook.py` (navegador, 58 comprobaciones sobre una copia de la demo; usa las cuentas de la
+  demo, por eso no va en el zip de producción). Pasada final con la versión entregada: **58/58**. Capturas (13) y el
+  resultado de esa pasada (`recorrido.txt`) en `docs/capturas/v50.57/logbook/`.
 
 ## Decisiones tomadas por el camino (se pueden cambiar)
 
