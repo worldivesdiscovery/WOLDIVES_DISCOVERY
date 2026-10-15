@@ -15,8 +15,12 @@ on:
       - 'movil/**'
       - '.github/workflows/app-android.yml'
       - 'public/js/wd-app.js'
+      - 'public/js/wd-app-pro.js'
+      - 'public/js/wd-app-seg.js'
+      - 'public/js/world-dives-v8.js'
       - 'public/css/wd-app.css'
       - 'app/wod/movil.py'
+      - 'app/wod/dispositivos.py'
   workflow_dispatch:
 
 concurrency:

@@ -25,6 +25,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(ServidorPlugin.class);
         registerPlugin(PushListoPlugin.class);
+        registerPlugin(SeguridadPlugin.class);   // v50.55: fingerprint / PIN, Keystore, renewal, wipe
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         String server = prefs.getString(KEY_SERVER, null);
         if (server != null) {

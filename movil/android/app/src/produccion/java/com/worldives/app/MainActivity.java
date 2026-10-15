@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(PushListoPlugin.class);
+        registerPlugin(SeguridadPlugin.class);   // v50.55: fingerprint / PIN, Keystore, renewal, wipe
         super.onCreate(savedInstanceState);
     }
 }

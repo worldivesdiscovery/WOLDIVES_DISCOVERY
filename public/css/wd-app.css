@@ -459,3 +459,23 @@ html.wd-app[data-wda-tema="noche"] .wda-deshacer button { color: #076898; }
 }
 html.wd-app[data-wda-tamano="enorme"] :where(.wda, .wda-capa) .acciones { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 html.wd-app[data-wda-tamano="enorme"] .wda-tab span:last-child { font-size: 11.5px; }
+
+/* v50.55 · Encargo 2: the lock of the app (fingerprint, the phone's code or the app's PIN), above everything. */
+html.wda-bloqueada body { overflow: hidden; }
+#wda-bloqueo { position: fixed; inset: 0; z-index: 3000; display: grid; place-items: center; padding: calc(24px + var(--arriba)) 16px calc(24px + var(--abajo)); background: var(--fondo); overflow-y: auto; }
+#wda-bloqueo .wda-bloqueo-in { width: 100%; max-width: 360px; display: grid; justify-items: center; gap: 14px; text-align: center; }
+#wda-bloqueo .wda-bloqueo-in > img { border-radius: 18px; box-shadow: var(--sombra); }
+#wda-bloqueo h1 { font-size: var(--t-l); margin: 4px 0 0; }
+#wda-bloqueo p { margin: 0; color: var(--suave); }
+#wda-bloqueo .wbtn { width: 100%; }
+.wda-bloqueo-msg { min-height: 1.4em; font-weight: 600; }
+.wda-bloqueo-msg.error { color: var(--urg-t); }
+.wda-bloqueo-msg.aviso { color: var(--pend-t); }
+.wda-bloqueo-salir { border: 0; background: none; color: var(--acento); font: 600 var(--t-s)/1.3 var(--fuente); min-height: 48px; padding: 8px 12px; cursor: pointer; text-decoration: underline; }
+.wda-pin { display: flex; gap: 14px; justify-content: center; margin: 6px 0; }
+.wda-pin span { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--acento); }
+.wda-pin span.lleno { background: var(--acento); }
+.wda-teclado { display: grid; grid-template-columns: repeat(3, 72px); gap: 12px; justify-content: center; }
+.wda-teclado button { width: 72px; height: 72px; border-radius: 50%; border: 1.5px solid var(--linea); background: var(--sup); color: var(--texto); font: 600 26px/1 var(--fuente); cursor: pointer; }
+.wda-teclado button:active { background: var(--acento-suave); }
+.wda-teclado span { width: 72px; height: 72px; }

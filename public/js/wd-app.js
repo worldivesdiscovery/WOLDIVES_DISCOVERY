@@ -852,6 +852,7 @@
     pushHecho = false;
     try { await postJSON('/api/auth/logout', {}); } catch { /* the session ends anyway */ }
     window.wdForgetDevice?.();   // ASVS V14.3.1: bookings, QR codes and lists kept on the phone go with the session
+    await window.WD_SEC?.olvidar?.();   // v50.55: and the device's token and keys
     state.me = null; mem.area = null; cuenta.reservas = 0; await W.loadMe(); location.hash = '#/';
   }
   let webVersion = null;
@@ -871,6 +872,7 @@
         <p class="eti">Tamaño del texto</p>${seg('tamano', [['normal', 'Normal'], ['grande', 'Grande'], ['enorme', 'Enorme']], pref('tamano', 'normal', TAMANOS), 'Tamaño del texto')}</section>
       <section class="pila-8"><p class="eti">Idioma</p>${seg('lang', W.APP_LANGS.map((l) => [l, W.LANGS[l]]), lang, 'Idioma')}<p class="suave peq">De momento la app está en español, inglés y francés. La web sigue en sus 9 idiomas.</p></section>
       <section class="tarjeta plana lista">${me ? fila('#/cuenta', 'ficha', 'Mi cuenta', 'Datos, contraseña, sesiones abiertas y avisos') : fila('#/login', 'entrar', 'Entrar', 'O crear una cuenta')}${fila('#/legal', 'documento', 'Privacidad y textos legales')}</section>
+      ${me && window.WD_SEC ? '<section class="pila-8" id="wda-seg"></section>' : ''}
       ${APP.pruebas ? `<section class="pila-8"><p class="eti">Solo en WORLDIVES Pruebas</p><div class="tarjeta plana lista"><button class="lista-fila" type="button" id="wda-r-fallo">${ic('bug')}<div class="crece pila"><b>Reportar fallo</b><span class="suave peq">También agitando el móvil</span></div>${ic('chev', 'chev')}</button>
         <button class="lista-fila" type="button" id="wda-r-servidor">${ic('servidor')}<div class="crece pila"><b>Cambiar de servidor o de cuenta de prueba</b><span class="suave peq" translate="no">${esc(location.origin)}</span></div>${ic('chev', 'chev')}</button></div></section>` : ''}
       ${me ? `<section class="pila-8"><button class="wbtn sec ancho" type="button" id="wda-salir">${ic('salir', '')}Cerrar sesión</button><button class="wbtn peligro ancho" type="button" id="wda-borrar">${ic('papelera', '')}Borrar mi cuenta</button></section>` : ''}
@@ -886,9 +888,34 @@
     $('#wda-salir', root)?.addEventListener('click', salir);
     $('#wda-borrar', root)?.addEventListener('click', borrarCuenta);
     $('#wda-r-fallo', root)?.addEventListener('click', () => reportarFallo());
-    $('#wda-r-servidor', root)?.addEventListener('click', async () => { const S = plugin('Servidor'); if (S) await S.olvidar(); else W.toast('Solo dentro de la app de pruebas.'); });
+    $('#wda-r-servidor', root)?.addEventListener('click', async () => {
+      const S = plugin('Servidor'); if (!S) { W.toast('Solo dentro de la app de pruebas.'); return; }
+      // v50.55: changing server or test account ends this session on the phone (token, keys and saved data)
+      if (state.me) { await postJSON('/api/auth/logout', {}).catch(() => {}); await window.WD_SEC?.olvidar?.('cambio_de_servidor'); }
+      await S.olvidar();
+    });
+    if ($('#wda-seg', root)) seguridadAjustes($('#wda-seg', root));
     const info = await infoApp(); const v = $('#wda-version', root);
     if (v) v.textContent = info.version;
+  }
+  // v50.55 (encargo 2): how this phone opens the app, and where the account is signed in.
+  async function seguridadAjustes(box) {
+    const st = await window.WD_SEC.estado(); if (!st || !vivo(box)) return;
+    const pro = window.WD_SEC.PRO(rol());
+    const modo = st.modo === 'pin' ? T('PIN de la app (6 números)') : st.modo === 'sistema' ? T('Huella, cara o el código del móvil') : T('Sin bloqueo');
+    box.innerHTML = `<p class="eti">${T('Seguridad')}</p><div class="tarjeta plana lista">
+      <div class="lista-fila">${ic('candado')}<div class="crece pila"><b>${T('Bloqueo de la app')}</b><span class="suave peq">${esc(modo)}${st.token ? '' : ' · ' + esc(T('se activa al volver a entrar'))}</span>
+        <span class="suave peq">${pro ? esc(T('Siempre activado en las cuentas de centros y profesionales.')) : esc(T('Pide tu huella o el código al abrir la app y al volver después de 5 minutos.'))}</span></div>
+        ${pro ? '' : `<label class="interruptor"><span class="sr-only">${T('Bloqueo de la app')}</span><input type="checkbox" id="wda-seg-bloqueo" ${st.modo && st.modo !== 'libre' ? 'checked' : ''}></label>`}</div>
+      <a class="lista-fila" href="#/cuenta?dispositivos=1">${ic('tel')}<div class="crece pila"><b>${T('Dispositivos conectados')}</b><span class="suave peq">${T('Dónde está abierta tu cuenta y cerrar sesión a distancia')}</span></div>${ic('chev', 'chev')}</a></div>
+      ${APP.pruebas ? `<p class="suave peq">${T('Solo en Pruebas')}: ${T('bloqueo tras')} <span class="num">${st.umbral}</span> s · ${T('intentos fallidos')}: <span class="num">${st.fallos}</span> / ${st.maxFallos}</p>` : ''}`;
+    W.translateTree(box);
+    $('#wda-seg-bloqueo', box)?.addEventListener('change', async (e) => {
+      const r = await window.WD_SEC.cambiarBloqueo(e.target.checked).catch((err) => ({ error: err?.message }));
+      if (!r?.ok) { e.target.checked = !e.target.checked; W.toast(T('No se ha podido cambiar el bloqueo.')); }
+      else W.toast(e.target.checked ? T('Bloqueo activado.') : T('Bloqueo desactivado.'));
+      seguridadAjustes(box);
+    });
   }
   function borrarCuenta() {
     // v50.49: centres (their owner) and freelance close the account in «Más» (six months to come back).
@@ -943,7 +970,7 @@
   async function entrarPrueba(params) {
     const c = params.get('cuenta') || '';
     pintar(`<div class="cuerpo"><div class="vacio"><p>${esc(T('Entrando…'))}</p></div></div>`);
-    try { await postJSON('/api/pruebas/entrar', { cuenta: c }); await W.loadMe(); plugin('Servidor')?.inicioHecho?.().catch(() => {}); W.toast(T('Has entrado como') + ' ' + c); }
+    try { const r = await postJSON('/api/pruebas/entrar', { cuenta: c, ...(await window.WD_SEC?.extraLogin?.() || {}) }); await window.WD_SEC?.trasLogin?.(r); await W.loadMe(); plugin('Servidor')?.inicioHecho?.().catch(() => {}); W.toast(T('Has entrado como') + ' ' + c); }
     catch (e) { W.toast(e.message); }
     location.replace('#/');
   }

@@ -121,6 +121,8 @@
   const api = async (url, options={}, retried=false) => { const opts={...options,headers:{...(options.headers||{})}};
     if(adminReason && Date.now()-adminReasonAt<30*60e3) opts.headers['X-Admin-Reason']=encodeURIComponent(adminReason);
     const r = await fetch(url, opts); let d=null; try{d=await r.json();}catch{}
+    // v50.55 (encargo 2): in the app the access session lasts 15 minutes; the phone renews it once and asks again.
+    if((r.status===401||d?.login_required) && !retried && WD_APP?.native && window.WD_SEC && !String(url).startsWith('/api/auth/') && await window.WD_SEC.renew()) return api(url,options,true);
     if(!r.ok && d?.admin_reason_required && !retried){ const why=(prompt(translateString('Motivo para ver o cambiar datos de este centro (queda registrado en la actividad):'),adminReason)||'').trim();
       if(why.length>=5){ adminReason=why; adminReasonAt=Date.now(); return api(url,options,true); } }
     if(!r.ok){ if(d?.plan_required) planToastNext=true; const e=new Error(d?.error==='consent_required'?'Confirma que quieres compartir tus datos con el centro.':(d?.error || `Error ${r.status}`)); e.status=r.status; e.data=d; throw e; } if(d===null) throw new Error('Respuesta no válida del servidor.'); return d; };
@@ -1856,9 +1858,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     pendingLogin=null;
     setApp(authCard('Iniciar sesión',`<p class="lead auth-lead">Entra para gestionar tus reservas, tus documentos y tu Log Book.</p><form id="login-form"><div class="field"><label for="login">Email</label><input id="login" required autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false"></div><div class="field"><label for="password">Contraseña</label><input id="password" type="password" required autocomplete="current-password"></div><div class="form-actions"><button class="btn btn-primary" type="submit">Entrar</button></div><p class="auth-small"><a href="#/recuperar">¿Has olvidado tu contraseña?</a></p></form>${st.registration_open===false?'':'<p class="auth-alt">¿No tienes cuenta? <a href="#/registro">Crear cuenta</a></p>'}${st.setup_allowed?`<div class="notice" style="margin-top:16px">${st.demo?'Entorno de pruebas: todavía no hay cuenta de administración.':'Primera instalación:'} <a href="#/setup" style="font-weight:800">crear cuenta administradora</a>.</div>`:''}`));
     $('#login-form').onsubmit=async e=>{e.preventDefault(); const btn=$('#login-form button[type=submit]'); btn.disabled=true;
-      try{ const body={login:$('#login').value.trim(),password:$('#password').value}; const r=await postJSON('/api/auth/login',body);
+      try{ const body={login:$('#login').value.trim(),password:$('#password').value,...(await window.WD_SEC?.extraLogin?.()||{})}; const r=await postJSON('/api/auth/login',body);
         if(r.totp_required){ pendingLogin=body; location.hash='#/verificacion'; return; }
-        await loadMe(); afterLogin(r);
+        await window.WD_SEC?.trasLogin?.(r); await loadMe(); afterLogin(r);
       }catch(err){ toast(err.message); btn.disabled=false; } };
     if(st.demo) demoQuickAccess($('#login-form')); }
   // v50.54 · Only in the test package (WOD_DEMO_MODE=1): one-click access with the demo accounts. The list comes from the
@@ -1872,7 +1874,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <div class="demo-quick-grid">${d.items.map(a=>`<button type="button" class="btn demo-quick-btn" data-demo-login="${escapeHtml(a.cuenta)}">${wdIcon(icon[a.kind]||'user',16)}<span><strong>${escapeHtml(a.label)}</strong>${a.detail?`<small translate="no">${escapeHtml(a.detail)}</small>`:''}</span></button>`).join('')}</div></section>`);
     const box=form.nextElementSibling; translateTree(box);
     $$('[data-demo-login]',box).forEach(b=>b.onclick=async()=>{ $$('[data-demo-login]',box).forEach(x=>x.disabled=true);
-      try{ const r=await postJSON('/api/pruebas/entrar',{cuenta:b.dataset.demoLogin}); await loadMe();
+      try{ const r=await postJSON('/api/pruebas/entrar',{cuenta:b.dataset.demoLogin,...(await window.WD_SEC?.extraLogin?.()||{})}); await window.WD_SEC?.trasLogin?.(r); await loadMe();
         try{ if(!sessionStorage.getItem('wd_after_login')) sessionStorage.setItem('wd_after_login',r.role==='recreational'?'#/area':'#/admin'); }catch{}   // straight to its panel
         afterLogin(r); }
       catch(err){ toast(err.message); $$('[data-demo-login]',box).forEach(x=>x.disabled=false); } });
@@ -1882,7 +1884,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     setApp(authCard('Verificación en dos pasos',`<p class="lead auth-lead">Escribe el código de 6 cifras de tu aplicación de verificación. Si no tienes el teléfono a mano, usa uno de tus códigos de recuperación.</p><form id="totp-form"><div class="field"><label for="totp">Código</label><input id="totp" required inputmode="numeric" autocomplete="one-time-code" maxlength="20" autocapitalize="none" spellcheck="false"></div><div class="form-actions"><button class="btn btn-primary" type="submit">Verificar y entrar</button></div><p class="auth-small"><a href="#/login">Volver a iniciar sesión</a></p></form>`));
     $('#totp').focus();
     $('#totp-form').onsubmit=async e=>{e.preventDefault(); const btn=$('#totp-form button[type=submit]'); btn.disabled=true;
-      try{ const r=await postJSON('/api/auth/login',{...pendingLogin,totp_code:$('#totp').value.trim()}); pendingLogin=null; await loadMe(); afterLogin(r); }
+      try{ const r=await postJSON('/api/auth/login',{...pendingLogin,totp_code:$('#totp').value.trim()}); pendingLogin=null; await window.WD_SEC?.trasLogin?.(r); await loadMe(); afterLogin(r); }
       catch(err){ toast(err.message); btn.disabled=false; $('#totp').select(); } }; }
   const REG_TYPES=[['recreational','Buceador','Reserva con centros, guarda tu titulación y lleva tu Log Book.','inmersion'],
                    ['center','Centro de buceo','Publica tus salidas y cursos y gestiona tus reservas.','home'],
@@ -2663,7 +2665,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const lsGet=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch{ return null; } };
   const lsSet=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch{ return false; } };
   const lsDel=k=>{ try{ localStorage.removeItem(k); }catch{} };
-  const lsKeys=()=>{ try{ return Object.keys(localStorage); }catch{ return []; } };
+  const lsKeys=()=>{ try{ return window.WD_SEC?.keys?.()||Object.keys(localStorage); }catch{ return []; } };   // v50.55: with the app's encrypted keys
   const CHECK_LABEL={present:'Presente',no_show:'No se presentó','':'Sin marcar'};
   function offPurge(){ const today=wdToday(); lsKeys().filter(k=>k.startsWith(OFF_DAY)&&k.slice(OFF_DAY.length)<today).forEach(lsDel);
     const q=(lsGet(OFF_Q)||[]).filter(x=>(x.date||today)>=today); lsSet(OFF_Q,q); }
@@ -5982,16 +5984,26 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
   function accountSecurityCard(u){ return (typeof totpCard==='function'?totpCard(u):'')+sessionsCard(); }
   // v50.51 (ASVS V7.5.2): where the account is open, and closing every other session.
+  // v50.55 (encargo 2): «Dispositivos conectados»: the web sessions and the app's devices, each with «Cerrar sesión».
   function sessionsCard(){
-    return `<section class="acc-card" id="acc-sessions"><div class="acc-card-head"><h2>${wdIcon('lock',18)} Sesiones abiertas</h2></div>
-      <p class="acc-help">Dónde está abierta tu cuenta ahora. Si ves algo que no reconoces, cierra las demás sesiones y cambia tu contraseña.</p>
+    return `<section class="acc-card" id="acc-sessions"><div class="acc-card-head"><h2>${wdIcon('lock',18)} Dispositivos conectados</h2></div>
+      <p class="acc-help">Dónde está abierta tu cuenta ahora: navegadores y la app. Si ves algo que no reconoces, cierra ese dispositivo y cambia tu contraseña.</p>
       <div id="acc-sessions-list"><p class="acc-empty">Cargando…</p></div>
-      <div class="acc-privacy-actions"><button type="button" class="btn" id="acc-sessions-close">Cerrar las demás sesiones</button></div></section>`;
+      <div class="acc-privacy-actions"><button type="button" class="btn" id="acc-sessions-close">Cerrar todas menos esta</button></div></section>`;
   }
   async function bindSessionsCard(){
     const box=$('#acc-sessions-list'); if(!box) return;
-    const load=async()=>{ try{ const d=await api('/api/account/sessions'); box.innerHTML=(d.items||[]).map(x=>`<div class="acc-doc"><span><span><strong>${escapeHtml(x.device)}</strong> ${x.current?'<span class="status good">Esta sesión</span>':''}<small>Último uso: ${escapeHtml(wdDeadline(x.last_seen))} · inicio: ${escapeHtml(wdDeadline(x.created_at))}</small></span></span></div>`).join('')||'<p class="acc-empty">Solo esta sesión.</p>'; }catch(e){ box.innerHTML=`<p class="acc-empty">${escapeHtml(e.message)}</p>`; } };
+    const esc=escapeHtml;
+    const load=async()=>{ try{ const d=await api('/api/account/devices');
+      box.innerHTML=(d.items||[]).map(x=>`<div class="acc-doc acc-device"><span class="acc-device-ic">${wdIcon(x.kind==='app'?'bell':'globe',18)}</span><span><span><strong>${esc(x.device)}</strong>${x.system?` · ${esc(x.system)}`:''} ${x.current?`<span class="status good">${esc(translateString('Este dispositivo'))}</span>`:''}
+          <small>${esc(translateString('Última actividad'))}: ${esc(wdDeadline(x.last_seen))}${x.city?` · ${esc(translateString('Ciudad aproximada'))}: ${esc(x.city)}`:''}${x.kind==='app'&&x.expires_at?` · ${esc(translateString('Pide la contraseña de nuevo el'))} ${esc(wdDeadline(x.expires_at))}`:''}</small></span></span>
+          ${x.current?'':`<button type="button" class="btn btn-sm" data-close-dev="${esc(x.id)}">${esc(translateString('Cerrar sesión'))}</button>`}</div>`).join('')||'<p class="acc-empty">Solo esta sesión.</p>';
+      if(!d.city_source) box.insertAdjacentHTML('beforeend',`<p class="acc-help"><small>${esc(translateString('La ciudad aproximada aparecerá cuando el servidor la reciba de su proxy (pendiente de configurar).'))}</small></p>`);
+      $$('[data-close-dev]',box).forEach(b=>b.onclick=async()=>{ if(!await wdConfirm({title:translateString('Cerrar la sesión de ese dispositivo'),text:translateString('Tendrá que volver a entrar con la contraseña. Si es un móvil, borrará sus datos guardados al conectarse.'),ok:translateString('Cerrar sesión')})) return;
+        try{ await postJSON('/api/account/devices/close',{id:b.dataset.closeDev}); toast(translateString('Sesión cerrada en ese dispositivo.')); load(); }catch(err){ toast(err.message); } });
+    }catch(e){ box.innerHTML=`<p class="acc-empty">${escapeHtml(e.message)}</p>`; } };
     await load();
+    if(/dispositivos=1/.test(location.hash)) setTimeout(()=>$('#acc-sessions')?.scrollIntoView({block:'start'}),400);   // after the rest of «Mi cuenta» is drawn
     $('#acc-sessions-close')?.addEventListener('click',()=>{ const two=!!state.me?.security?.totp_enabled;
       const {el,close}=wdOpenModal({id:'sess-close',size:'sm',title:'Cerrar las demás sesiones',body:`<div class="field"><label for="sc-pw">Tu contraseña</label><input id="sc-pw" type="password" autocomplete="current-password"></div>${two?'<div class="field"><label for="sc-code">Código de verificación (o de recuperación)</label><input id="sc-code" autocomplete="one-time-code" maxlength="32"></div>':''}`,
         footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="sc-ok">Cerrar sesiones</button>'});
@@ -6206,7 +6218,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <p>Cada persona tiene un perfil. Abajo puedes cambiar lo que puede hacer cada perfil y crear los tuyos (por ejemplo, «Instructor máster»). La app del móvil muestra a cada persona solo lo que su perfil permite.</p></div></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>Persona</th><th>Perfil</th><th></th></tr></thead><tbody>${d.members.map(m=>`<tr><td><b>${esc(m.fullname)}</b><div class="adl-det">${esc(m.email)}</div></td>
         <td><label class="sr-only" for="tm-r-${m.id}">Perfil de ${esc(m.fullname)}</label><select id="tm-r-${m.id}" class="tm-role" data-id="${m.id}" ${m.id===me?'disabled':''}>${opts(m.member_role)}${R[m.member_role]?'':`<option value="" selected>Perfil borrado</option>`}</select></td>
-        <td>${m.id===me?'<small>Tú</small>':`<button type="button" class="btn tm-remove" data-id="${m.id}">Quitar</button>`}</td></tr>`).join('')}</tbody></table></div>
+        <td>${m.id===me?'<small>Tú</small>':`${m.member_role!=='owner'?`<button type="button" class="btn tm-sessions" data-id="${m.id}" data-name="${esc(m.fullname||'')}">Sesiones</button> `:''}<button type="button" class="btn tm-remove" data-id="${m.id}">Quitar</button>`}</td></tr>`).join('')}</tbody></table></div>
       ${d.invites.length?`<h3 class="adl-h">Invitaciones pendientes</h3><ul class="tm-inv">${d.invites.map(i=>`<li>${esc(i.email)} · ${esc(R[i.member_role]||'Perfil borrado')} · caduca ${esc(wdLegalDate(i.expires_at))} <button type="button" class="btn-link tm-revoke" data-id="${i.id}">Anular</button></li>`).join('')}</ul>`:''}
       ${d.team_feature?`<h3 class="adl-h">Invitar a alguien</h3><form id="tm-form" class="form-grid"><div class="field"><label for="tm-email">Email</label><input id="tm-email" type="email" required maxlength="160"></div>
         <div class="field"><label for="tm-role">Perfil</label><select id="tm-role">${opts('reception')}</select></div>
@@ -6223,6 +6235,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $('#tm-form')?.addEventListener('submit',async e=>{ e.preventDefault(); try{ await postJSON('/api/center/team/invite',{email:$('#tm-email').value,member_role:$('#tm-role').value}); toast('Invitación enviada.'); renderTeam(mountId); }catch(err){ toast(err.message); } });
     $$('.tm-role',mount).forEach(x=>x.onchange=async()=>{ if(!x.value) return; try{ await postJSON('/api/center/team/role',{user_id:+x.dataset.id,member_role:x.value}); toast('Perfil cambiado.'); }catch(err){ toast(err.message); renderTeam(mountId); } });
     $$('.tm-remove',mount).forEach(b=>b.onclick=async()=>{ if(!confirm('Esta persona dejará de tener acceso al centro. ¿Continuar?')) return; try{ await postJSON('/api/center/team/remove',{user_id:+b.dataset.id}); renderTeam(mountId); }catch(err){ toast(err.message); } });
+    // v50.55 (encargo 2): the owner sees where each person of his team is signed in and can close all their sessions.
+    $$('.tm-sessions',mount).forEach(b=>b.onclick=async()=>{ let d2; try{ d2=await api('/api/center/team/sessions'); }catch(err){ toast(err.message); return; }
+      const m=(d2.items||[]).find(x=>x.user_id===+b.dataset.id)||{devices:[]};
+      const {el,close}=wdOpenModal({id:'tm-sess',size:'sm',title:translateString('Sesiones de')+' '+b.dataset.name,
+        body:(m.devices.length?m.devices.map(x=>`<div class="acc-doc"><span><strong>${esc(x.device)}</strong>${x.system?` · ${esc(x.system)}`:''}<small>${esc(translateString('Última actividad'))}: ${esc(wdDeadline(x.last_seen))}</small></span></div>`).join(''):`<p class="acc-empty">${esc(translateString('No tiene ninguna sesión abierta.'))}</p>`)
+          +`<p class="acc-help">${esc(translateString('Al cerrarlas tendrá que volver a entrar con su contraseña; en el móvil se borran los datos guardados.'))}</p>`,
+        footer:`<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="tm-sess-ok" ${m.devices.length?'':'disabled'}>${esc(translateString('Cerrar todas sus sesiones'))}</button>`});
+      $('#tm-sess-ok',el).onclick=async()=>{ try{ const r=await postJSON('/api/center/team/sessions/close',{user_id:+b.dataset.id}); close(); toast(translateString('Sesiones cerradas')+`: ${r.closed}`); }catch(err){ toast(err.message); } }; });
     $$('.tm-revoke',mount).forEach(b=>b.onclick=async()=>{ try{ await postJSON('/api/center/team/invite/revoke',{id:+b.dataset.id}); renderTeam(mountId); }catch(err){ toast(err.message); } });
     const reopen=async(key)=>{ await renderTeam(mountId); const el=key&&document.querySelector(`#${mountId} .tr-role[data-key="${key}"]`); if(el){ el.open=true; el.scrollIntoView({block:'nearest'}); } };
     $$('.tr-form',mount).forEach(f=>{
@@ -6577,7 +6597,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       LANGS,APP_LANGS:WD_APP_LANGS,LANG_KEY,APP_ASSETS:WD_APP_ASSETS,wdConfirm,wdLocation,wdServiceCard};
     document.documentElement.classList.add('wd-app'); if(WD_APP.pruebas) document.documentElement.classList.add('wd-app-pruebas');
     const css=document.createElement('link'); css.rel='stylesheet'; css.href='/css/wd-app.css?v='+WD_APP_ASSETS; document.head.appendChild(css);
-    return Promise.all([wdMaps(),new Promise(done=>{ const js=document.createElement('script'); js.src='/js/wd-app.js?v='+WD_APP_ASSETS; js.onload=js.onerror=()=>done(); document.body.appendChild(js); setTimeout(done,6000); })]);
+    const script=(src)=>new Promise(done=>{ const js=document.createElement('script'); js.src=src+'?v='+WD_APP_ASSETS; js.onload=js.onerror=()=>done(); document.body.appendChild(js); setTimeout(done,6000); });
+    // v50.55: the lock, the session renewal and the encrypted offline data come first (only in the native app).
+    return Promise.all([wdMaps(),(WD_APP.native?script('/js/wd-app-seg.js'):Promise.resolve()).then(()=>script('/js/wd-app.js'))]);
   }
-  window.addEventListener('DOMContentLoaded',async()=>{ await Promise.all([loadMe(),loadMeta().catch(()=>{}),loadSiteMedia(),loadLanguagePack(),loadMapConfig(),WD_APP?wdLoadApp():null]); applyLanguage(); applyFeatureSwitches(); siteBanner(); route(); cookieNotice(); footerOwner(); demoRibbon(); offPurge(); offSync(); });
+  window.addEventListener('DOMContentLoaded',async()=>{
+    // v50.55: in the native app, the lock and the renewal of the session go before /api/me.
+    const base=Promise.all([loadMeta().catch(()=>{}),loadSiteMedia(),loadLanguagePack(),loadMapConfig()]);
+    if(WD_APP){ await Promise.all([base,wdLoadApp()]); try{ await window.WD_SEC?.inicio?.(); }catch{} }
+    await Promise.all([loadMe(),base]); if(WD_APP) window.WD_SEC?.revisar?.().catch(()=>{});
+    applyLanguage(); applyFeatureSwitches(); siteBanner(); route(); cookieNotice(); footerOwner(); demoRibbon(); offPurge(); offSync(); });
 })();

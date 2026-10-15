@@ -190,7 +190,7 @@ class AppModeFiles(unittest.TestCase):
         self.assertNotIn('wd-app', index)                      # the normal web does not download them
         main = (ROOT / 'public' / 'js' / 'world-dives-v8.js').read_text(encoding='utf-8')
         self.assertIn(f"const WD_APP_ASSETS='{version}';", main)
-        self.assertIn('WD_APP?wdLoadApp():null', main)
+        self.assertIn('if(WD_APP){ await Promise.all([base,wdLoadApp()]);', main)   # v50.55: the app (and its lock) before /api/me
         sw = (ROOT / 'public' / 'sw.js').read_text(encoding='utf-8')
         self.assertIn(f"const CACHE='worldives-v{version.replace('.', '-')}';", sw)
         for f in (f'/js/wd-app.js?v={version}', f'/css/wd-app.css?v={version}', f'/js/world-dives-v8.js?v={version}'):

@@ -11,8 +11,16 @@ emulator reaches at http://10.0.2.2:8100 (scripts/iniciar.py --pruebas --red-loc
 6. v50.49 · Centro PRO with centro.prueba: its tabs, «Hoy» in less than 5 s, the native plugins of the professional app
    (barcode scanner, local notifications, vibration, network, push), the boat list with the 56 px check-in, a mark
    made in airplane mode that is sent when the network comes back, and the instructor without «Solicitudes».
+7. v50.55 · Seguridad de la app PRO (encargo 2), with the real plugin «Seguridad» (Android Keystore, BiometricPrompt):
+   a centre on a phone without screen lock creates a 6-digit PIN; the session is renewed natively; back after the
+   threshold (5 s here, 5 minutes in the real app) the PIN is asked; a wrong PIN says how many attempts are left; the
+   offline data are not readable in the app's files (adb root, every file of the app searched for a diver's name);
+   5 wrong PINs end the session on the server and wipe the phone; the owner closes the phone from «Dispositivos
+   conectados» and the phone wipes itself; with a screen lock the system's own prompt (the phone's code) is used.
 Usage: python3 emulador.py OUT_DIR DATA_DIR (DATA_DIR: data/pruebas of the test server). Exit 1 on any failure."""
+import http.cookiejar
 import json
+import sqlite3
 import subprocess
 import sys
 import time
@@ -23,6 +31,9 @@ import websocket  # websocket-client
 
 PKG = 'com.worldives.app.pruebas'
 SERVER = 'http://10.0.2.2:8100'
+HOST = 'http://127.0.0.1:8100'          # the same test server, seen from the computer (the «web» of section 7)
+PASSWORD = 'Worldives-Prueba-2026'      # the public password of the *.prueba accounts (README-PRUEBAS.md)
+PIN = '246802'
 OUT = Path(sys.argv[1]); OUT.mkdir(parents=True, exist_ok=True)
 DATA = Path(sys.argv[2]) if len(sys.argv) > 2 else None
 checks = []
@@ -102,6 +113,144 @@ class Page:
         self.js(f"location.hash = {json.dumps(hash_)}", wait)
 
 
+def pin(pg, digits):
+    for d in digits:
+        pg.js(f"document.querySelector('#wda-bloqueo [data-t=\"{d}\"]').click()", 0.2)
+    time.sleep(0.8)
+
+
+def crear_pin(pg, name=None):
+    """v50.55: a professional on a phone without screen lock creates the app's PIN right after signing in."""
+    if not pg.until("!!document.querySelector('#wda-bloqueo .wda-teclado')", 40): return False
+    if name: captura(name)
+    pin(pg, PIN); pin(pg, PIN)
+    return pg.until("!document.getElementById('wda-bloqueo')", 20)
+
+
+def db(query, args=()):
+    c = sqlite3.connect(DATA / 'worldives.sqlite3'); c.row_factory = sqlite3.Row   # WOD_DB_PATH of scripts/iniciar.py --pruebas
+    try:
+        return [dict(r) for r in c.execute(query, args).fetchall()]
+    finally:
+        c.close()
+
+
+def a_primer_plano(segundos):
+    """Home, wait in the background, open the app again (same task: the WebView and its DevTools stay)."""
+    adb('shell', 'input', 'keyevent', '3'); time.sleep(segundos)
+    adb('shell', 'am', 'start', '-n', f'{PKG}/com.worldives.app.MainActivity'); time.sleep(3)
+
+
+class Web:
+    """The owner on a computer: the same test server through 127.0.0.1, with cookies and the Origin of a browser."""
+
+    def __init__(self):
+        self.op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(self, path, data=None):
+        h = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/140.0 Safari/537.36'}
+        body = None
+        if data is not None:
+            body = json.dumps(data).encode(); h.update({'Content-Type': 'application/json', 'Origin': HOST})
+        try:
+            with self.op.open(urllib.request.Request(HOST + path, data=body, headers=h, method='POST' if data is not None else 'GET'), timeout=30) as r:
+                return r.status, json.loads(r.read() or b'{}')
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b'{}')
+
+
+def seguridad(start):
+    """7. v50.55 · encargo 2 with the real native plugin."""
+    start.js("document.querySelector('[data-cuenta=\"centro.prueba\"]').click()", 6)
+    s = Page(SERVER, timeout=90)
+    check('seguridad · centro en un móvil sin bloqueo de pantalla: crea un PIN de 6 números', crear_pin(s, '19-seguridad-crear-pin'))
+    st = s.js("Capacitor.Plugins.Seguridad.estado()") or {}
+    check('seguridad · token de renovación guardado en el Keystore y protegido por el PIN', st.get('token') is True and st.get('modo') == 'pin', st)
+    r = s.js("Capacitor.Plugins.Seguridad.renovar({ua: navigator.userAgent})") or {}
+    check('seguridad · el móvil renueva la sesión de 15 minutos con una petición nativa', r.get('ok') is True and s.js("fetch('/api/me').then(r => r.json()).then(d => d.authenticated)") is True, r)
+    dev = (db("SELECT * FROM device_sessions WHERE revoked_at IS NULL ORDER BY id DESC LIMIT 1") or [{}])[0]
+    check('seguridad · sesión del dispositivo en el servidor con modelo y sistema', dev.get('platform') == 'android' and bool(dev.get('model')), dev)
+    # back from the background
+    s.js("localStorage.setItem('wda-seg-umbral', '5')")
+    adb('shell', 'input', 'keyevent', 'KEYCODE_APP_SWITCH'); time.sleep(2.5); captura('20-seguridad-recientes'); adb('shell', 'input', 'keyevent', '3')
+    a_primer_plano(9)
+    check('seguridad · tras el tiempo en segundo plano la app pide el PIN', s.until("!!document.querySelector('#wda-bloqueo .wda-teclado')", 20), s.js("document.body.innerText.slice(0, 200)"))
+    captura('21-seguridad-bloqueada')
+    pin(s, '000000')
+    check('seguridad · un PIN incorrecto dice cuántos intentos quedan', s.until("(document.getElementById('wda-bloqueo-msg') || {}).textContent.includes('quedan: 4')", 15),
+          s.js("document.getElementById('wda-bloqueo') && document.getElementById('wda-bloqueo').innerText"))
+    pin(s, PIN)
+    check('seguridad · con el PIN correcto vuelve a la app', s.until("!document.getElementById('wda-bloqueo') && document.querySelectorAll('.wda-tab').length === 5", 20))
+    # offline data: open today's departure so the boat list is kept on the phone, then look into the app's files
+    sid = s.js("(document.querySelector('a[href^=\"#/salida?id=\"]') || {}).getAttribute ? document.querySelector('a[href^=\"#/salida?id=\"]').getAttribute('href') : null")
+    if sid: s.go(sid, 4)
+    nombre = s.js("""fetch('/api/manifest/day?date=' + WD.wdToday()).then(r => r.json()).then(d => ((d.slots || []).flatMap(x => x.divers || []).map(x => x.name).filter(n => n && n.length > 5)[0]) || null)""")
+    guardado = s.js(f"WD_SEC.keys().some(k => /^(wd-day-|wda-pro-)/.test(k) && (localStorage.getItem(k) || '').includes({json.dumps(nombre or '#')}))")
+    claves = s.js("Object.keys(localStorage)") or []
+    check('sin conexión · el móvil guarda la lista del barco (con el nombre de un buceador)', bool(nombre) and guardado is True, (nombre, guardado))
+    check('sin conexión · en el almacenamiento de la web solo hay claves cifradas «wdenc:»', any(k.startswith('wdenc:') for k in claves) and not any(k.startswith(('wd-day-', 'wda-pro-', 'wda-res:', 'wda-qr-')) for k in claves), claves)
+    time.sleep(8)   # the WebView writes its storage to disk a few seconds later
+    copia = OUT / 'datos-app'
+    print('   adb root:', adb('root'), flush=True); time.sleep(4); adb('wait-for-device')
+    subprocess.run(['adb', 'pull', f'/data/data/{PKG}', str(copia)], capture_output=True, timeout=180)
+    archivos = [f for f in copia.rglob('*') if f.is_file()]
+    claro = []
+    for f in archivos:
+        data = f.read_bytes()
+        if nombre and any(v in data for v in (nombre.encode('utf-8'), nombre.encode('utf-16-le'), nombre.encode('latin-1', 'ignore'))): claro.append(str(f.relative_to(copia)))
+    cifrado = [str(f.relative_to(copia)) for f in archivos if b'wdenc:' in f.read_bytes() or 'wdenc:'.encode('utf-16-le') in f.read_bytes()]
+    print(f'   archivos de la app copiados: {len(archivos)} · con «wdenc:» {cifrado[:3]} · con el nombre en claro: {claro}', flush=True)
+    check('sin conexión · copiando los archivos de la app, los datos guardados no se pueden leer', len(archivos) > 5 and bool(cifrado) and not claro, (len(archivos), cifrado[:3], claro))
+    s = Page(SERVER, timeout=60)   # adb restarted as root: DevTools again
+    # five wrong PINs
+    a_primer_plano(9)
+    s.until("!!document.querySelector('#wda-bloqueo .wda-teclado')", 20)
+    for i in range(5):
+        pin(s, '111111')
+        s.until(f"((document.getElementById('wda-bloqueo-msg') || {{}}).textContent || '').includes('quedan: {4 - i}') || /Sesión cerrada/.test((document.getElementById('wda-bloqueo') || {{}}).innerText || '')", 15)
+    time.sleep(2)
+    txt = s.js("document.getElementById('wda-bloqueo') && document.getElementById('wda-bloqueo').innerText") or ''
+    st = s.js("Capacitor.Plugins.Seguridad.estado()") or {}
+    ultimo = (db("SELECT revoked_reason FROM device_sessions ORDER BY id DESC LIMIT 1") or [{}])[0]
+    check('5 fallos · la app cierra la sesión, lo explica y borra el token', 'Sesión cerrada' in txt and st.get('token') is False, (txt, st))
+    check('5 fallos · la sesión del móvil termina también en el servidor', ultimo.get('revoked_reason') == 'unlock_failures', ultimo)
+    check('5 fallos · no queda nada guardado en la web del móvil', not [k for k in (s.js("Object.keys(localStorage)") or []) if k.startswith(('wdenc:', 'wd-day-', 'wda-pro-'))])
+    captura('22-seguridad-cinco-fallos')
+    # signed in again with the password, then closed from the computer
+    s.js("document.getElementById('wda-bloqueo-entrar').click()", 2)
+    s.until("!!document.getElementById('login-form')", 20)
+    s.js(f"document.getElementById('login').value = 'centro.prueba'; document.getElementById('password').value = {json.dumps(PASSWORD)}; document.querySelector('#login-form button[type=submit]').click()")
+    check('seguridad · vuelve a entrar con su contraseña y crea el PIN', crear_pin(s))
+    web = Web()
+    code, _ = web.call('/api/auth/login', {'login': 'centro.prueba', 'password': PASSWORD})
+    _, devs = web.call('/api/account/devices')
+    app = next((x for x in devs.get('items', []) if x.get('kind') == 'app'), None)
+    correo = db("SELECT COUNT(*) AS n FROM email_outbox WHERE template = 'new_device_login'")
+    check('correo · «Nuevo inicio de sesión» al entrar desde el ordenador', (correo or [{}])[0].get('n', 0) >= 1, correo)
+    code2, res = web.call('/api/account/devices/close', {'id': app['id']}) if app else (0, {})
+    check('ordenador · «Dispositivos conectados» lista el móvil y lo cierra', code == 200 and bool(app) and code2 == 200, (code, app, code2, res))
+    ok = s.js("WD_SEC.renew()"); time.sleep(2)
+    txt = s.js("document.getElementById('wda-bloqueo') && document.getElementById('wda-bloqueo').innerText") or ''
+    st = s.js("Capacitor.Plugins.Seguridad.estado()") or {}
+    check('móvil · cerrado desde el ordenador: sale, borra sus datos y vuelve al acceso', ok is False and 'Sesión cerrada' in txt and st.get('token') is False, (ok, txt, st))
+    captura('23-seguridad-cerrada-a-distancia')
+    # with a screen lock: the phone's own code through the system prompt (the fingerprint needs a real finger)
+    adb('shell', 'locksettings', 'set-pin', '1111'); time.sleep(2)
+    s.js("document.getElementById('wda-bloqueo-entrar').click()", 2)
+    s.until("!!document.getElementById('login-form')", 20)
+    s.js(f"document.getElementById('login').value = 'centro.prueba'; document.getElementById('password').value = {json.dumps(PASSWORD)}; document.querySelector('#login-form button[type=submit]').click()", 5)
+    captura('24-seguridad-codigo-del-movil')
+    adb('shell', 'input', 'text', '1111'); adb('shell', 'input', 'keyevent', '66'); time.sleep(4)
+    st = s.js("Capacitor.Plugins.Seguridad.estado()") or {}
+    check('con bloqueo de pantalla · protege el token con el código del móvil (BiometricPrompt)', st.get('modo') == 'sistema' and st.get('token') is True, st)
+    a_primer_plano(9); time.sleep(2)
+    captura('25-seguridad-desbloquear-con-codigo')
+    adb('shell', 'input', 'text', '1111'); adb('shell', 'input', 'keyevent', '66'); time.sleep(4)
+    check('con bloqueo de pantalla · al volver, se desbloquea con el código del móvil', s.until("!document.getElementById('wda-bloqueo') && document.querySelectorAll('.wda-tab').length === 5", 20),
+          s.js("document.body.innerText.slice(0, 200)"))
+    adb('shell', 'locksettings', 'clear', '--old', '1111')
+
+
 def main():
     # 1. the launcher
     p = Page('https://localhost')
@@ -169,6 +318,7 @@ def main():
     # 6. v50.49 · Centro PRO
     p2.js("document.querySelector('[data-cuenta=\"centro.prueba\"]').click()", 6)
     c = Page(SERVER, timeout=90)
+    check('centro · v50.55: tras entrar crea el PIN de la app (móvil sin bloqueo de pantalla)', crear_pin(c))
     ok = c.until("document.querySelectorAll('.wda-tab').length === 5 && !!document.querySelector('.cifras')", 45)
     tabs = c.js("[...document.querySelectorAll('.wda-tab')].map(a => a.getAttribute('href'))")
     check('centro · entra con centro.prueba: Hoy, Agenda, Escanear, Solicitudes, Más', ok and tabs == ['#/', '#/agenda', '#/escanear', '#/solicitudes', '#/mas'], tabs)
@@ -211,12 +361,18 @@ def main():
     p3 = Page('https://localhost', timeout=60)
     p3.js("document.querySelector('[data-cuenta=\"instructor.prueba\"]').click()", 6)
     i_ = Page(SERVER, timeout=90)
+    crear_pin(i_)
     i_.until("document.querySelectorAll('.wda-tab').length > 0", 45)
     tabs = i_.js("[...document.querySelectorAll('.wda-tab')].map(a => a.getAttribute('href'))")
     names = i_.js("[...document.querySelectorAll('.wda-tab > span:nth-child(2)')].map(e => e.textContent.trim())")
     check('instructor · sin la pestaña Solicitudes', tabs == ['#/', '#/agenda', '#/escanear', '#/mas'], tabs)
     print('   pestañas del instructor (en su idioma):', names, flush=True)
     captura('18-instructor-hoy')
+
+    # 7. v50.55 · Seguridad de la app PRO
+    i_.go('#/ajustes', 2.5)
+    i_.js("document.getElementById('wda-r-servidor').click()", 6)
+    seguridad(Page('https://localhost', timeout=60))
 
     bad = [n for n, ok in checks if not ok]
     print(f'\n{len(checks) - len(bad)}/{len(checks)} comprobaciones correctas en el emulador')

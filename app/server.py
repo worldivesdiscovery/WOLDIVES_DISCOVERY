@@ -60,6 +60,7 @@ from wod import avisos as wav
 from wod import geo as wgeo
 from wod import plantillas as wtpl
 from wod import presencial as wpres
+from wod import dispositivos as wdev
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1101,6 +1102,7 @@ NOTICE_LIMIT = wsec.SharedRateLimiter('avisos', 60, 3600)
 REGISTER_LIMIT = wsec.SharedRateLimiter('registro', wcfg.env_int('WOD_REGISTER_MAX_PER_HOUR', 10, 1), 3600)
 FORGOT_LIMIT = wsec.SharedRateLimiter('recuperar', 5, 900)
 TOTP_LIMIT = wsec.SharedRateLimiter('dos-pasos', 6, 900)
+REFRESH_LIMIT = wsec.SharedRateLimiter('renovar', 30, 900)   # v50.55: wrong refresh tokens per network (a valid one is not counted)
 GEOCODE_LIMIT = wsec.SharedRateLimiter('geocodificar', 30, 60)
 INFO_LIMIT = wsec.SharedRateLimiter('informacion', 10, 3600)
 # ASVS 5.0 V2.4.1: bookings and requests per person and hour, unfinished payments holding spots, Log Book entries a day.
@@ -1716,11 +1718,23 @@ PAY_CONTACTS_SCHEMA = """CREATE TABLE IF NOT EXISTS pay_contacts (kind TEXT NOT 
   updated_at TEXT NOT NULL, PRIMARY KEY(kind, ref_id))"""
 
 
+DEVICE_SCHEMA = (
+    """CREATE TABLE IF NOT EXISTS device_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+       refresh_hash TEXT NOT NULL UNIQUE, key_hash TEXT NOT NULL, platform TEXT, model TEXT, os TEXT, app_version TEXT, city TEXT, ip_hash TEXT,
+       created_at REAL NOT NULL, last_seen REAL NOT NULL, expires_at REAL NOT NULL, revoked_at TEXT, revoked_by INTEGER, revoked_reason TEXT)""",
+    'CREATE INDEX IF NOT EXISTS idx_device_sessions_user ON device_sessions(user_id, revoked_at)',
+    """CREATE TABLE IF NOT EXISTS known_devices (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, device_hash TEXT NOT NULL,
+       label TEXT, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, PRIMARY KEY(user_id, device_hash))""")
+
+
 def migrate_v50_55(db):
     """v50.55. «Pago en persona» for freelance professionals (the way each service and experience is paid, the ways
     of paying accepted, the professional's own policy and his WhatsApp, kept apart and encrypted), and the private
-    marks «Cobrado» / «No se presentó». Nothing is deleted."""
+    marks «Cobrado» / «No se presentó». Encargo 2: sessions per device (the app's refresh tokens), short access
+    sessions and the devices already seen by each account. Nothing is deleted."""
     db.execute(PAY_CONTACTS_SCHEMA)
+    for stmt in DEVICE_SCHEMA: db.execute(stmt)
+    add_columns(db, 'sessions', [('device_id', 'INTEGER'), ('expires_at', 'REAL'), ('city', 'TEXT')])
     for t in ('provider_services', 'travel_experiences'):
         add_columns(db, t, [('pay_way', "TEXT NOT NULL DEFAULT 'online'"), ('pay_methods', 'TEXT'), ('pay_other', 'TEXT'), ('pay_policy', 'TEXT')])
     add_columns(db, 'bookings', [('pay_way', 'TEXT'), ('in_person_ack_at', 'TEXT'), ('pro_mark', 'TEXT'), ('pro_mark_at', 'TEXT')])
@@ -2818,7 +2832,8 @@ def current_user(handler, db):
     if not session:
         return None
     current = time.time()
-    if current - session['last_seen'] > SESSION_IDLE_SECONDS or current - session['created_at'] > SESSION_TTL_SECONDS:
+    exp = session['expires_at'] if 'expires_at' in session.keys() else None   # v50.55: the app's access session (15 min)
+    if current - session['last_seen'] > SESSION_IDLE_SECONDS or current - session['created_at'] > SESSION_TTL_SECONDS or (exp and current > exp):
         db.execute('DELETE FROM sessions WHERE token_hash=?', (token_hash,)); db.commit()
         return None
     # Sliding expiry, written at most once a minute per session to keep writes cheap.
@@ -2867,7 +2882,9 @@ def is_team_member(db, center_id, user_id):
 def require_user(handler, db):
     user = current_user(handler, db)
     if not user:
-        raise PermissionError('Necesitas iniciar sesión.')
+        e = PermissionError('Necesitas iniciar sesión.')
+        e.extra = {'login_required': True}   # v50.55: the app renews its 15-minute session with this mark and asks again
+        raise e
     return user
 
 
@@ -3323,6 +3340,62 @@ def require_second_factor(db, user_id, data):
     if not check_totp_or_recovery(db, u, data.get('totp_code') or data.get('code')):
         TOTP_LIMIT.hit(f"totp:{user_id}")
         raise ValueError('Escribe el código de tu aplicación de verificación (o uno de recuperación).')
+
+
+def close_sessions(db, uid, keep=None, reason='closed', by=None):
+    """v50.55: ends the sessions of an account (all, or all but `keep`, the hash of the current one) and revokes its app
+    devices (but the one of `keep`). A revoked phone gets «revoked» when it tries to renew: it deletes its data and
+    shows the sign-in. Returns how many web sessions and devices were closed."""
+    keep_dev = None
+    if keep:
+        r = db.execute('SELECT device_id FROM sessions WHERE token_hash=?', (keep,)).fetchone()
+        keep_dev = r['device_id'] if r else None
+    web = db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>? AND device_id IS NULL', (uid, keep or '')).rowcount
+    db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>? AND device_id IS NOT NULL AND device_id IS NOT ?', (uid, keep or '', keep_dev))
+    devs = db.execute('UPDATE device_sessions SET revoked_at=?,revoked_by=?,revoked_reason=? WHERE user_id=? AND revoked_at IS NULL AND id IS NOT ?',
+                      (now(), by, reason, uid, keep_dev)).rowcount
+    return web + devs
+
+
+def revoke_device(db, uid, device_id, reason, by=None):
+    n = db.execute('UPDATE device_sessions SET revoked_at=?,revoked_by=?,revoked_reason=? WHERE id=? AND user_id=? AND revoked_at IS NULL',
+                   (now(), by, reason, device_id, uid)).rowcount
+    db.execute('DELETE FROM sessions WHERE device_id=? AND user_id=?', (device_id, uid))
+    return n
+
+
+def device_list(db, user_id, current_hash):
+    """«Dispositivos conectados»: the open web sessions and the app devices of an account, the current one first."""
+    cur = db.execute('SELECT device_id FROM sessions WHERE token_hash=?', (current_hash or '',)).fetchone()
+    cur_dev = cur['device_id'] if cur else None
+    iso = lambda t: datetime.fromtimestamp(t, timezone.utc).isoformat(timespec='minutes') if t else None
+    out = []
+    for r in db.execute('SELECT * FROM sessions WHERE user_id=? AND device_id IS NULL ORDER BY last_seen DESC', (user_id,)).fetchall():
+        label, system = wdev.browser_label(r['user_agent'] or '')
+        out.append({'id': 'w:' + r['token_hash'][:16], 'kind': 'web', 'device': label, 'system': system, 'city': r['city'] or '',
+                    'created_at': iso(r['created_at']), 'last_seen': iso(r['last_seen']), 'current': r['token_hash'] == current_hash})
+    for r in db.execute('SELECT * FROM device_sessions WHERE user_id=? AND revoked_at IS NULL AND expires_at>? ORDER BY last_seen DESC', (user_id, time.time())).fetchall():
+        label, system = wdev.app_label(r)
+        out.append({'id': f"a:{r['id']}", 'kind': 'app', 'device': label, 'system': system, 'city': r['city'] or '', 'app_version': r['app_version'] or '',
+                    'created_at': iso(r['created_at']), 'last_seen': iso(r['last_seen']), 'expires_at': iso(r['expires_at']), 'current': r['id'] == cur_dev})
+    return sorted(out, key=lambda x: (not x['current'], -(datetime.fromisoformat(x['last_seen']).timestamp() if x['last_seen'] else 0)))
+
+
+def note_device(db, uid, device_hash, label, city=''):
+    """A sign-in from a device (or browser) this account never used sends an e-mail. The first device an account uses
+    after v50.55 is only remembered (there is nothing to compare with)."""
+    row = db.execute('SELECT 1 FROM known_devices WHERE user_id=? AND device_hash=?', (uid, device_hash)).fetchone()
+    if row:
+        db.execute('UPDATE known_devices SET last_seen=? WHERE user_id=? AND device_hash=?', (now(), uid, device_hash)); return False
+    first = not db.execute('SELECT 1 FROM known_devices WHERE user_id=? LIMIT 1', (uid,)).fetchone()
+    db.execute('INSERT INTO known_devices(user_id,device_hash,label,first_seen,last_seen) VALUES(?,?,?,?,?)', (uid, device_hash, label, now(), now()))
+    if first: return False
+    lang = user_lang(db, uid)
+    notify_user(db, uid, 'new_device_login', {'device': label, 'when': datetime.now().strftime('%d/%m/%Y %H:%M'),
+                                              'city_text': mail_t(lang, 'Ciudad aproximada: {city}.', city=city) if city else '',
+                                              'security_url': f'{public_site_url()}/#/cuenta?dispositivos=1'}, ('user', uid))
+    audit(db, uid, 'new_device_login', 'user', uid, {'device': label})
+    return True
 
 
 def session_list(db, user_id, current_hash):
@@ -6904,6 +6977,12 @@ EMAIL_TEMPLATES = {
    ('p', 'Hola {first_name}, hemos recibido una solicitud para cambiar la contraseña de tu cuenta de WORLDIVES.'),
    ('button', ('Elegir una contraseña nueva', 'reset_url')),
    ('note', 'El enlace caduca en 1 hora y solo se puede usar una vez. Si no has sido tú, ignora este correo: tu contraseña no cambiará.')]},
+ 'new_device_login': {'to': 'any', 'subject': 'Nuevo inicio de sesión en tu cuenta de WORLDIVES', 'pre': 'Aviso de seguridad de tu cuenta.', 'blocks': [
+   ('h', 'Nuevo inicio de sesión'),
+   ('p', 'Hola {first_name}, alguien ha entrado en tu cuenta de WORLDIVES desde un dispositivo que no habíamos visto: {device}, el {when}.'),
+   ('p', '{city_text}'),
+   ('note', 'Si has sido tú, no tienes que hacer nada. Si no, cambia tu contraseña ahora y cierra ese dispositivo en «Dispositivos conectados».'),
+   ('button', ('Ver dispositivos conectados', 'security_url'))]},
  'password_changed': {'to': 'any', 'subject': 'Tu contraseña se ha cambiado', 'pre': 'Aviso de seguridad de tu cuenta.', 'blocks': [
    ('h', 'Contraseña cambiada'),
    ('p', 'Hola {first_name}, la contraseña de tu cuenta de WORLDIVES se ha cambiado el {when}. Por seguridad hemos cerrado las demás sesiones abiertas.'),
@@ -9194,7 +9273,7 @@ def delete_user_account(db, user):
                   instagram_url=NULL, facebook_url=NULL, twitter_url=NULL, youtube_url=NULL, tiktok_url=NULL WHERE id=?''',
                (f'eliminado-{uid}-{tag}@sin-email.worldives.local', f'eliminado_{uid}_{tag}', uid))
     db.execute('DELETE FROM user_profiles WHERE user_id=?', (uid,))
-    for sql in ('DELETE FROM user_documents WHERE user_id=?', 'DELETE FROM sessions WHERE user_id=?', 'DELETE FROM logbook_entries WHERE user_id=?',
+    for sql in ('DELETE FROM user_documents WHERE user_id=?', 'DELETE FROM sessions WHERE user_id=?', 'DELETE FROM device_sessions WHERE user_id=?', 'DELETE FROM known_devices WHERE user_id=?', 'DELETE FROM logbook_entries WHERE user_id=?',
                 'DELETE FROM center_links WHERE user_id=?', 'DELETE FROM password_resets WHERE user_id=?', 'DELETE FROM messages WHERE recipient_user_id=?',
                 "UPDATE promotion_codes SET status='revoked',revoked_at=? WHERE user_id=? AND status='active'",
                 "UPDATE center_claims SET status='withdrawn', phone=NULL, note=NULL, email=NULL, reviewed_at=COALESCE(reviewed_at,?) WHERE user_id=? AND status='pending'",
@@ -9298,7 +9377,7 @@ def provider_close(db, user, kind, oid):
     # Everybody of that centre is signed out (the owner signs in again to reopen it).
     ids = [user['id']] if kind == 'freelance' else [r['user_id'] for r in db.execute('SELECT user_id FROM center_members WHERE center_id=?', (oid,))] + \
         [r['id'] for r in db.execute("SELECT id FROM users WHERE center_id=? AND role='center'", (oid,))]
-    for uid in set(ids): db.execute('DELETE FROM sessions WHERE user_id=?', (uid,))
+    for uid in set(ids): close_sessions(db, uid, reason='account_closed')   # v50.55: also its app devices
     audit(db, user['id'], 'provider_closed', kind, oid, {'purge_after': purge[:10], 'services': len(restore['services'])})
     return purge[:10]
 
@@ -12344,6 +12423,20 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     return
                 if path == '/api/account/sessions':
                     user=require_user(self,db); self.send_json({'items':session_list(db,user['id'],self.session_hash())}); return
+                if path == '/api/account/devices':
+                    # v50.55 · «Dispositivos conectados»: web sessions and app devices, with type, system, last activity and city.
+                    user=require_user(self,db)
+                    self.send_json({'items':device_list(db,user['id'],self.session_hash()),'city_source':bool(wcfg.env('WOD_GEOIP_HEADER')),
+                                    'access_minutes':wdev.ACCESS_TTL//60,'max_days':wdev.REFRESH_MAX_DAYS}); return
+                if path == '/api/center/team/sessions':
+                    # v50.55: the owner sees where his team is signed in (only the owner: /api/center/team is his, wod.roles).
+                    user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
+                    out=[]
+                    for m in db.execute('''SELECT u.id,u.fullname,COALESCE(m.member_role,'owner') AS member_role FROM users u JOIN center_members m ON m.user_id=u.id AND m.center_id=?
+                                           WHERE u.role='center' AND u.id<>? ORDER BY u.fullname''',(cid,user['id'])).fetchall():
+                        devs=device_list(db,m['id'],None)
+                        out.append({'user_id':m['id'],'fullname':m['fullname'],'member_role':m['member_role'],'devices':[{k:d[k] for k in ('kind','device','system','last_seen','city')} for d in devs]})
+                    self.send_json({'items':out}); return
                 if path == '/api/account/shares':
                     user=require_user(self,db)
                     rows=db.execute('SELECT ds.center_id,ds.source,ds.granted_at,c.name AS center_name,c.city FROM data_shares ds JOIN centers c ON c.id=ds.center_id WHERE ds.user_id=? AND ds.revoked_at IS NULL ORDER BY ds.granted_at DESC',(user['id'],)).fetchall()
@@ -13540,7 +13633,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         old_token = self.session_hash()
                         if old_token: db.execute('DELETE FROM sessions WHERE token_hash=?', (old_token,))
                         db.execute('UPDATE users SET last_login=? WHERE id=?', (now(), user['id'])); audit(db, user['id'], 'login', details={'pruebas_app': True, 'acceso_rapido': True}); db.commit()
-                        self.login_user(user['id'], db, {'ok': True, 'role': user['role']}); return
+                        dev_ = wdev.clean_device(data.get('app_device')) if wdev.is_app(self.headers.get('User-Agent')) else None   # v50.55: as /api/auth/login
+                        self.login_user(user['id'], db, {'ok': True, 'role': user['role']}, device=dev_); return
                     report, image = wmovil.clean_report(data)
                     who = current_user(self, db)
                     name = wmovil.save_report(DB_PATH.parent / 'fallos', report, image, who['username'] if who else 'sin sesión')
@@ -13574,7 +13668,8 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     second=login_second_factor(db,user,data,ip)
                     if second: db.commit(); self.send_json(second[0],second[1]); return
                     db.execute('UPDATE users SET last_login=?,inactive_warned_at=NULL WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login',details={'ip':wsec.ip_hash(ip),'red':wsec.ip_hash(net),'totp':bool(user['totp_enabled'])}); db.commit()
-                    self.login_user(user['id'],db,{'ok':True,'totp_setup_required':totp_setup_required(db,user)}); return
+                    dev_=wdev.clean_device(data.get('app_device')) if wdev.is_app(self.headers.get('User-Agent')) else None   # v50.55: only the app gets a refresh token
+                    self.login_user(user['id'],db,{'ok':True,'role':user['role'],'totp_setup_required':totp_setup_required(db,user)},device=dev_); return
                 if path in ('/api/account/totp/setup','/api/account/totp/enable','/api/account/totp/disable','/api/account/totp/recovery'):
                     # Fase 4: two-step verification, optional for everybody and mandatory for administrators.
                     user=require_user(self,db); data=json_body(self); action=path.rsplit('/',1)[1]
@@ -13593,7 +13688,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                         if step is None: TOTP_LIMIT.hit(f"totp:{u['id']}"); raise ValueError('El código no es correcto. Comprueba la hora de tu móvil y vuelve a probar.')
                         codes=wtotp.recovery_codes()
                         db.execute('UPDATE users SET totp_secret=?,totp_pending_secret=NULL,totp_enabled=1,totp_enabled_at=?,totp_last_step=?,totp_recovery=? WHERE id=?',(wcif.encrypt_secret(sec),now(),step,json.dumps([wtotp.hash_recovery(c) for c in codes]),u['id']))
-                        db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(u['id'],self.session_hash() or ''))  # other devices sign in again with the code
+                        close_sessions(db,u['id'],keep=self.session_hash())  # other devices sign in again with the code
                         audit(db,u['id'],'totp_enabled'); notify_user(db,u['id'],'totp_enabled',{'when':now()[:16].replace('T',' ')},('user',u['id'])); db.commit()
                         self.send_json({'ok':True,'recovery_codes':codes}); return
                     if not u['totp_enabled']: raise ValueError('La verificación en dos pasos no está activada.')
@@ -13606,11 +13701,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                             security_event('totp_disable_refused',self,u['id'],motivo=payments_totp_reason(db,user))
                             raise PermissionError('No puedes desactivar la verificación en dos pasos mientras tu cuenta tenga cobros online o tu perfil tenga el permiso «Cobros».')
                         db.execute('UPDATE users SET totp_enabled=0,totp_secret=NULL,totp_recovery=NULL,totp_last_step=NULL WHERE id=?',(u['id'],))
-                        db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(u['id'],self.session_hash() or ''))   # ASVS V7.4.3
+                        close_sessions(db,u['id'],keep=self.session_hash())   # ASVS V7.4.3
                         audit(db,u['id'],'totp_disabled'); db.commit(); self.send_json({'ok':True}); return
                     codes=wtotp.recovery_codes()
                     db.execute('UPDATE users SET totp_recovery=? WHERE id=?',(json.dumps([wtotp.hash_recovery(c) for c in codes]),u['id']))
-                    db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(u['id'],self.session_hash() or ''))   # ASVS V7.4.3
+                    close_sessions(db,u['id'],keep=self.session_hash())   # ASVS V7.4.3
                     audit(db,u['id'],'totp_recovery_regenerated'); db.commit(); self.send_json({'ok':True,'recovery_codes':codes}); return
                 if path=='/api/marketing/unsubscribe':
                     # Fase 4.3: one click, from the link in the email or from the mail client (RFC 8058 List-Unsubscribe-Post).
@@ -13660,7 +13755,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if changed:
                         if db.execute('SELECT 1 FROM users WHERE lower(email)=? AND id<>?',(row['email'].lower(),row['user_id'])).fetchone(): raise ValueError('Ese email ya lo usa otra cuenta.')
                         db.execute('UPDATE users SET email=?,email_verified_at=? WHERE id=?',(row['email'].lower(),now(),row['user_id']))
-                        db.execute('DELETE FROM sessions WHERE user_id=?',(row['user_id'],))
+                        close_sessions(db,row['user_id'])
                     else:
                         db.execute('UPDATE users SET email_verified_at=? WHERE id=?',(now(),row['user_id']))
                     audit(db,row['user_id'],'email_changed' if changed else 'email_verified','user',row['user_id']); db.commit(); self.send_json({'ok':True,'changed':changed}); return
@@ -13675,7 +13770,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     row=db.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()
                     if not current_password_ok(user['id'],str(data.get('password') or ''),row['password_hash'] or ''): raise ValueError('La contraseña no es correcta.')
                     require_second_factor(db,user['id'],data)
-                    n=db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(user['id'],self.session_hash() or '')).rowcount
+                    n=close_sessions(db,user['id'],keep=self.session_hash(),by=user['id'])
                     audit(db,user['id'],'sessions_closed','user',user['id'],{'closed':n}); db.commit(); self.send_json({'ok':True,'closed':n}); return
                 if path=='/api/admin/sessions/close':
                     # ASVS V7.4.5: the administration ends the sessions of one person, or of everybody but itself, with a reason.
@@ -13684,10 +13779,11 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if len(reason)<5: raise ValueError('Escribe el motivo (queda en el registro).')
                     if data.get('all'):
                         n=db.execute('DELETE FROM sessions WHERE user_id<>?',(user['id'],)).rowcount; target=None
+                        n+=db.execute("UPDATE device_sessions SET revoked_at=?,revoked_by=?,revoked_reason='admin' WHERE user_id<>? AND revoked_at IS NULL",(now(),user['id'],user['id'])).rowcount
                     else:
                         target=int(data.get('user_id') or 0)
                         if not target or not db.execute('SELECT 1 FROM users WHERE id=?',(target,)).fetchone(): raise NotFound('Usuario no encontrado.')
-                        n=db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(target,self.session_hash() or '')).rowcount
+                        n=close_sessions(db,target,keep=self.session_hash(),by=user['id'])
                     audit(db,user['id'],'admin_sessions_closed','user',target,{'closed':n,'all':bool(data.get('all')),'reason':reason})
                     security_alert('admin_sessions_closed',{'closed':n,'all':bool(data.get('all'))})
                     db.commit(); self.send_json({'ok':True,'closed':n}); return
@@ -13707,6 +13803,58 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     audit(db,user['id'],'data_share_revoked','center',cid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/auth/logout':
                     self.logout_user(); return
+                if path=='/api/auth/refresh':
+                    # v50.55 · The app renews its access session (15 min) with the refresh token of its device. A revoked or
+                    # expired device answers 401 «revoked»: the phone deletes its data and shows the sign-in.
+                    data=json_body(self); tok=str(data.get('refresh_token') or '')[:200]; net=wsec.ip_group(self.client_ip())
+                    if REFRESH_LIMIT.blocked(f'net:{net}'): self.send_json({'error':'Demasiados intentos. Espera unos minutos.'},429); return
+                    row=db.execute('SELECT * FROM device_sessions WHERE refresh_hash=?',(wdev.token_hash(tok),)).fetchone() if len(tok)>=20 else None
+                    if not row:
+                        REFRESH_LIMIT.hit(f'net:{net}'); security_event('refresh_unknown',self)
+                        self.send_json({'error':'Tu sesión en este móvil ha terminado. Vuelve a entrar.','revoked':True,'reason':'unknown'},401); return
+                    if row['revoked_at'] or row['expires_at']<time.time():
+                        reason='expired' if not row['revoked_at'] else (row['revoked_reason'] or 'revoked')
+                        if row['revoked_at']: security_event('refresh_revoked',self,row['user_id'],motivo=reason)
+                        self.send_json({'error':'Tu sesión en este móvil ha terminado. Vuelve a entrar.','revoked':True,'reason':reason},401); return
+                    u=db.execute('SELECT id,role FROM users WHERE id=?',(row['user_id'],)).fetchone()
+                    if not u or u['role'] in ('deleted','closed'): self.send_json({'error':'Tu sesión en este móvil ha terminado.','revoked':True,'reason':'account'},401); return
+                    db.execute('UPDATE device_sessions SET last_seen=?,ip_hash=?,city=COALESCE(?,city) WHERE id=?',
+                               (time.time(),wsec.ip_hash(self.client_ip()),wdev.city_from_headers(self.headers,wcfg.env('WOD_GEOIP_HEADER')) or None,row['id']))
+                    db.execute('DELETE FROM sessions WHERE device_id=? AND user_id=?',(row['id'],row['user_id']))   # one access session per device
+                    self.login_user(row['user_id'],db,{'ok':True,'access_ttl':wdev.ACCESS_TTL,'device_id':row['id'],
+                                                       'device_expires_at':datetime.fromtimestamp(row['expires_at'],timezone.utc).isoformat(timespec='minutes')},access_device=row['id']); return
+                if path=='/api/auth/device/forget':
+                    # v50.55: after 5 failed unlocks (or «Cerrar sesión» without connection later) the phone ends its own device
+                    # session with its installation id; the answer is always the same.
+                    data=json_body(self); did=int(data.get('device_id') or 0); key=str(data.get('device_key') or '')[:80]
+                    if did and len(key)>=16:
+                        r_=db.execute('SELECT user_id FROM device_sessions WHERE id=? AND key_hash=? AND revoked_at IS NULL',(did,wdev.token_hash('key:'+key))).fetchone()
+                        if r_:
+                            revoke_device(db,r_['user_id'],did,clean_text(data.get('reason'),30) or 'forget',r_['user_id'])
+                            audit(db,r_['user_id'],'device_forgotten','user',r_['user_id'],{'device_id':did,'reason':clean_text(data.get('reason'),30) or 'forget'}); db.commit()
+                    self.send_json({'ok':True}); return
+                if path=='/api/account/devices/close':
+                    # v50.55 · «Cerrar sesión» in one device of «Dispositivos conectados» (not the one in use: that is «Salir»).
+                    user=require_user(self,db); data=json_body(self); ref=str(data.get('id') or '')
+                    cur=self.session_hash() or ''; n=0
+                    if ref.startswith('w:') and re.fullmatch(r'w:[0-9a-f]{16}',ref):
+                        if cur.startswith(ref[2:]): raise ValueError('Es este dispositivo: usa «Cerrar sesión».')
+                        n=db.execute("DELETE FROM sessions WHERE user_id=? AND device_id IS NULL AND substr(token_hash,1,16)=?",(user['id'],ref[2:])).rowcount
+                    elif ref.startswith('a:') and ref[2:].isdigit():
+                        own_dev=db.execute('SELECT device_id FROM sessions WHERE token_hash=?',(cur,)).fetchone()
+                        if own_dev and own_dev['device_id']==int(ref[2:]): raise ValueError('Es este dispositivo: usa «Cerrar sesión».')
+                        n=revoke_device(db,user['id'],int(ref[2:]),'closed_by_owner',user['id'])
+                    if not n: raise NotFound('Ese dispositivo ya no tiene la sesión abierta.')
+                    audit(db,user['id'],'device_closed','user',user['id'],{'device':ref}); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center/team/sessions/close':
+                    # v50.55: the owner ends every session of a person of his team (web and app). Only the owner (wod.roles).
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0); uid=int(data.get('user_id') or 0)
+                    if uid==user['id']: raise ValueError('Para tus propias sesiones usa «Dispositivos conectados».')
+                    m=db.execute("SELECT member_role FROM center_members WHERE center_id=? AND user_id=?",(cid,uid)).fetchone()
+                    if not m: raise NotFound('Esa persona no es del equipo.')
+                    if m['member_role']=='owner': raise PermissionError('No puedes cerrar las sesiones de otro propietario.')
+                    n=close_sessions(db,uid,reason='closed_by_center_owner',by=user['id'])
+                    audit(db,user['id'],'team_sessions_closed','user',uid,{'closed':n}); db.commit(); self.send_json({'ok':True,'closed':n}); return
                 if path=='/api/provider/avatar':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); fields,files=parse_multipart(self); file=files.get('file')
                     if not file: raise ValueError('Adjunta una imagen.')
@@ -14346,7 +14494,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if not r or r['used_at'] or r['expires_at']<now(): raise ValueError('El enlace no es válido o ha caducado. Pide uno nuevo.')
                     if db.execute('UPDATE password_resets SET used_at=? WHERE token_hash=? AND used_at IS NULL',(now(),th)).rowcount!=1: raise ValueError('El enlace ya se ha utilizado.')
                     db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(new),r['user_id']))
-                    db.execute('DELETE FROM sessions WHERE user_id=?',(r['user_id'],))
+                    close_sessions(db,r['user_id'])
                     LOGIN_ACCOUNT_LIMIT.reset(f"acct:{r['user_id']}")   # whoever reads the account's email unlocks it (ASVS V6.3.1)
                     notify_user(db,r['user_id'],'password_changed',{'when':datetime.now().strftime('%d/%m/%Y %H:%M')},('user',r['user_id']))
                     audit(db,r['user_id'],'password_reset_done','user',r['user_id']); db.commit(); self.send_json({'ok':True}); return
@@ -14666,7 +14814,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     other=db.execute('SELECT center_id FROM center_members WHERE user_id=? AND center_id<>? ORDER BY created_at LIMIT 1',(uid,cid)).fetchone()
                     if other: db.execute("UPDATE users SET center_id=? WHERE id=? AND center_id=?",(other['center_id'],uid,cid))
                     else: db.execute("UPDATE users SET role='recreational',center_id=NULL,requested_role='recreational' WHERE id=?",(uid,))
-                    db.execute('DELETE FROM sessions WHERE user_id=?',(uid,))
+                    close_sessions(db,uid)
                     audit(db,user['id'],'team_member_removed','user',uid); db.commit(); self.send_json({'ok':True}); return
                 # ------------------------------------------------ v50.47 · mass notices and WhatsApp of each centre
                 if path=='/api/avisos/preview':
@@ -15364,7 +15512,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     require_second_factor(db,user['id'],data)
                     check_new_password(new)
                     db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(new),user['id']))
-                    db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(user['id'],self.session_hash() or ''))
+                    close_sessions(db,user['id'],keep=self.session_hash())
                     notify_user(db,user['id'],'password_changed',{'when':datetime.now().strftime('%d/%m/%Y %H:%M')},('user',user['id']))
                     audit(db,user['id'],'password_changed','user',user['id']); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/account/identity':
@@ -15863,7 +16011,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if center_id and not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(center_id,)).fetchone(): raise ValueError('Centro no válido.')
                     if uid==user['id'] and role!='admin': raise ValueError('No puedes quitarte a ti mismo el rol de administración.')
                     db.execute('UPDATE users SET role=?,center_id=? WHERE id=?',(role,center_id,uid))
-                    db.execute('DELETE FROM sessions WHERE user_id=?',(uid,))  # a role change takes effect at once: the user signs in again
+                    close_sessions(db,uid)  # a role change takes effect at once: the user signs in again
                     audit(db,user['id'],'user_role_updated','user',uid,{'role':role,'center_id':center_id}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/qr/create':
                     user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self); cid=int(data.get('center_id') or user['center_id'])
@@ -15956,7 +16104,7 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                 db.execute("UPDATE centers SET active=0,verification_status='discarded',updated_at=? WHERE id=? AND verification_status='pending_provider'",(now(),claim['center_id']))
                             db.execute("INSERT OR IGNORE INTO center_members(center_id,user_id,member_role,created_at) VALUES(?,?,'owner',?)",(target,claim['user_id'],now()))
                         db.execute("UPDATE center_claims SET status='approved',center_id=COALESCE(?,center_id),reviewed_at=?,reviewed_by_user_id=?,verification_method=?,verification_note=? WHERE id=?",(target,now(),user['id'],method,vnote,cid))
-                        db.execute('DELETE FROM sessions WHERE user_id=?',(claim['user_id'],))
+                        close_sessions(db,claim['user_id'])
                         cname=db.execute('SELECT name FROM centers WHERE id=?',(target,)).fetchone()['name'] if target else db.execute('SELECT fullname FROM users WHERE id=?',(claim['user_id'],)).fetchone()['fullname']
                         notify_user(db,claim['user_id'],'center_verified',{'center':cname},('center',target) if target else ('user',claim['user_id']))
                         start_trial(db,'center' if target else 'freelance',target or claim['user_id'])   # free trial (Fase 6.2)
@@ -16305,30 +16453,63 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
         tok = request_session_token(self)
         return hashlib.sha256(tok.encode()).hexdigest() if tok else None
 
-    def login_user(self, uid, db=None, payload=None):
-        """Create a persistent session and answer the request (one response only)."""
+    def known_device_cookie(self):
+        for item in (self.headers.get('Cookie', '') or '').split(';'):
+            k, _, v = item.strip().partition('=')
+            if k == wdev.KNOWN_COOKIE and re.fullmatch(r'[A-Za-z0-9_-]{16,64}', v or ''): return v
+        return None
+
+    def login_user(self, uid, db=None, payload=None, device=None, access_device=None):
+        """Create a session and answer the request (one response only). v50.55: from the app (device), also its device
+        session with a refresh token, and an access session of 15 minutes; access_device renews one (/api/auth/refresh)."""
         token=secrets.token_urlsafe(32); now_ts=time.time(); token_hash=hashlib.sha256(token.encode()).hexdigest()
         own = db is None
         conn = connect() if own else db
+        payload = dict(payload or {'ok':True}); extra_cookies = []
         try:
-            conn.execute('DELETE FROM sessions WHERE last_seen<? OR created_at<?',(now_ts-SESSION_IDLE_SECONDS,now_ts-SESSION_TTL_SECONDS))
+            conn.execute('DELETE FROM sessions WHERE last_seen<? OR created_at<? OR (expires_at IS NOT NULL AND expires_at<?)',(now_ts-SESSION_IDLE_SECONDS,now_ts-SESSION_TTL_SECONDS,now_ts))
             old = self.session_hash()   # ASVS V7.2.4: signing in again ends the session this browser had
             if old: conn.execute('DELETE FROM sessions WHERE token_hash=?',(old,))
             ua = (self.headers.get('User-Agent') or '')[:160]
-            conn.execute('INSERT INTO sessions(token_hash,user_id,created_at,last_seen,user_agent,ip_hash) VALUES(?,?,?,?,?,?)',(token_hash,uid,now_ts,now_ts,ua,wsec.ip_hash(self.client_ip()))); conn.commit()
+            city = wdev.city_from_headers(self.headers, wcfg.env('WOD_GEOIP_HEADER'))
+            device_id = access_device; expires = now_ts + wdev.ACCESS_TTL if access_device else None
+            if device:
+                # v50.55: the app's device session (30 days at most) and its refresh token; signing in again on the same phone replaces it.
+                key_hash = wdev.token_hash('key:' + device['device_key'])
+                conn.execute("UPDATE device_sessions SET revoked_at=?,revoked_reason='relogin' WHERE user_id=? AND key_hash=? AND revoked_at IS NULL",(now(),uid,key_hash))
+                refresh = wdev.new_token()
+                device_id = conn.execute("""INSERT INTO device_sessions(user_id,refresh_hash,key_hash,platform,model,os,app_version,city,ip_hash,created_at,last_seen,expires_at)
+                                            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",(uid,wdev.token_hash(refresh),key_hash,device['platform'],device['model'],device['os'],device['app_version'],
+                                                                             city or None,wsec.ip_hash(self.client_ip()),now_ts,now_ts,now_ts+wdev.REFRESH_TTL)).lastrowid
+                expires = now_ts + wdev.ACCESS_TTL
+                payload.update(refresh_token=refresh, device_id=device_id, access_ttl=wdev.ACCESS_TTL,
+                               device_expires_at=datetime.fromtimestamp(now_ts+wdev.REFRESH_TTL, timezone.utc).isoformat(timespec='minutes'))
+                note_device(conn, uid, key_hash, wdev.app_label(device)[0] + ' · ' + wdev.app_label(device)[1], city)
+            elif not access_device:
+                dev_id = self.known_device_cookie()
+                if not dev_id:
+                    dev_id = secrets.token_urlsafe(18)
+                    extra_cookies.append(f"{wdev.KNOWN_COOKIE}={dev_id}; Path=/; Max-Age={wdev.KNOWN_COOKIE_DAYS*86400}; HttpOnly; SameSite=Lax{'; Secure' if secure_cookies() else ''}")
+                label, system = wdev.browser_label(ua)
+                note_device(conn, uid, wdev.token_hash('web:' + dev_id), label + (f' · {system}' if system else ''), city)
+            conn.execute('INSERT INTO sessions(token_hash,user_id,created_at,last_seen,user_agent,ip_hash,device_id,expires_at,city) VALUES(?,?,?,?,?,?,?,?,?)',
+                         (token_hash,uid,now_ts,now_ts,ua,wsec.ip_hash(self.client_ip()),device_id,expires,city or None)); conn.commit()
         finally:
             if own: conn.close()
         secure = '; Secure' if secure_cookies() else ''
-        body=json.dumps(payload or {'ok':True},ensure_ascii=False).encode('utf-8')
-        self.send_response(200); self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Set-Cookie',f'{session_cookie_name()}={token}; Path=/; HttpOnly; SameSite=Lax{secure}'); self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(body)
+        body=json.dumps(payload,ensure_ascii=False).encode('utf-8')
+        self.send_response(200); self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Set-Cookie',f'{session_cookie_name()}={token}; Path=/; HttpOnly; SameSite=Lax{secure}')
+        for c_ in extra_cookies: self.send_header('Set-Cookie', c_)
+        self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(body)
 
     def logout_user(self):
         token=request_session_token(self)
         if token:
             with connect() as conn:
                 th=hashlib.sha256(token.encode()).hexdigest()
-                row=conn.execute('SELECT user_id FROM sessions WHERE token_hash=?',(th,)).fetchone()
+                row=conn.execute('SELECT user_id,device_id FROM sessions WHERE token_hash=?',(th,)).fetchone()
                 conn.execute('DELETE FROM sessions WHERE token_hash=?',(th,))
+                if row and row['device_id']: revoke_device(conn,row['user_id'],row['device_id'],'logout',row['user_id'])   # v50.55
                 if row: audit(conn,row['user_id'],'logout',details={'ip':wsec.ip_hash(self.client_ip())})   # ASVS V16.3.1
                 conn.commit()
         secure = '; Secure' if secure_cookies() else ''
@@ -16378,7 +16559,8 @@ def maintenance_loop():
         db = None
         try:
             db = connect()
-            db.execute('DELETE FROM sessions WHERE last_seen<? OR created_at<?', (time.time() - SESSION_IDLE_SECONDS, time.time() - SESSION_TTL_SECONDS))
+            db.execute('DELETE FROM sessions WHERE last_seen<? OR created_at<? OR (expires_at IS NOT NULL AND expires_at<?)', (time.time() - SESSION_IDLE_SECONDS, time.time() - SESSION_TTL_SECONDS, time.time()))
+            db.execute('DELETE FROM device_sessions WHERE expires_at<? OR (revoked_at IS NOT NULL AND revoked_at<?)', (time.time() - 90 * 86400, (datetime.now(timezone.utc) - _timedelta(days=90)).isoformat()))
             db.commit()
             for job in MAINTENANCE_JOBS:
                 try: job(db); db.commit()
@@ -16818,7 +17000,7 @@ def reset_admin_password_cli(argv):
         password, problem = _cli_password('Nueva contraseña')
         if problem: print('No se ha cambiado la contraseña: ' + problem); return 1
         db.execute('UPDATE users SET password_hash=? WHERE id=?', (hash_password(password), admin['id']))
-        closed = db.execute('DELETE FROM sessions WHERE user_id=?', (admin['id'],)).rowcount
+        closed = close_sessions(db, admin['id'], reason='password_reset_cli')
         LOGIN_ACCOUNT_LIMIT.reset(f"acct:{admin['id']}")   # whoever holds the server unlocks the account (counters in a file)
         audit(db, admin['id'], 'admin_password_reset_cli', 'user', admin['id'], {'sesiones_cerradas': closed}); db.commit()
     except sqlite3.Error as e:

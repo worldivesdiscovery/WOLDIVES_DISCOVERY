@@ -186,7 +186,7 @@
   }
   async function guardarListasDelDia() {
     // ASVS V14.3.3: the lists carry phones and emergency contacts; those of past days are not kept.
-    try { const hoy = hoyISO(); for (const k of Object.keys(localStorage)) { const m = /^wda-pro-dia:(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[1] < hoy) localStorage.removeItem(k); } } catch { /* storage blocked */ }
+    try { const hoy = hoyISO(); for (const k of (window.WD_SEC?.keys?.() || Object.keys(localStorage))) { const m = /^wda-pro-dia:(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[1] < hoy) localStorage.removeItem(k); } } catch { /* storage blocked */ }
     try {
       for (const d of [hoyISO(), sumaDias(hoyISO(), 1)]) guardado.escribir('dia:' + d + ':' + (state.me?.user?.center_id || state.me?.user?.id), await api('/api/manifest/day?date=' + d));
     } catch { /* tried again next time */ }
