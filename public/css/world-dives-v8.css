@@ -3647,3 +3647,10 @@ html.wd-app .pp-page{padding-bottom:150px}
 :root[data-theme="dark"] .ins-left,:root[data-theme="dark"] .ins-read-note,:root[data-theme="dark"] .ins-wait-note{color:#f0c779!important}
 .bk-ins>span[aria-hidden]{flex:0 0 auto;display:inline-flex;line-height:1.3}.bk-ins svg{width:16px;height:16px;min-width:16px}
 .ins-offer-head{flex-wrap:wrap}.ins-offer-head .ins-tags{order:-1;flex-basis:100%;justify-content:flex-start}.ins-offer-head .ins-tags:empty{display:none}
+
+/* v50.57 (revisión general, 1.1): an error stays in its own block, with «Reintentar»; the rest of the screen keeps working */
+.wd-block-error{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin:12px 0;padding:12px 16px;border:1px solid #f0d2c8;border-left:3px solid #c4553a;border-radius:10px;background:#fdf3ef;color:#6b2c1d}
+.wd-block-error p{margin:0;flex:1 1 260px;line-height:1.45}
+.wd-block-error .btn{flex:0 0 auto}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .wd-block-error{background:#3a1f19;border-color:#6b3a2e;color:#f5d5cb}}
+:root[data-theme="dark"] .wd-block-error{background:#3a1f19;border-color:#6b3a2e;color:#f5d5cb}

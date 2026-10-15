@@ -36,13 +36,44 @@ HHMM = re.compile(r'^([01]\d|2[0-3]):[0-5]\d$')
 
 
 # ------------------------------------------------------------------------------------------------- time zones
+# v50.57: Python reads the time zones from the system (Linux, macOS) or from the «tzdata» package. Windows has none of its
+# own, so without tzdata every ZoneInfo() failed («No time zone found with key Europe/Madrid») and the panels of the
+# centres and the freelances did not open. tzdata is in requirements.txt (the official starts install it); zone() never
+# fails, and the server says at start and in «Estado del sistema» what is missing.
+_TZ_NAME = re.compile(r'^(UTC|[A-Za-z][A-Za-z_]+(/[A-Za-z0-9_+\-]+){1,2})$')
+_TZ_DB_OK = None
+
+
+def tz_database_ok() -> bool:
+    """True when Python finds the time zone database (the system's or the tzdata package)."""
+    global _TZ_DB_OK
+    if _TZ_DB_OK is None:
+        try: ZoneInfo(DEFAULT_TZ); _TZ_DB_OK = True
+        except Exception: _TZ_DB_OK = False
+    return _TZ_DB_OK
+
+
+def zone(name, fallback=DEFAULT_TZ) -> _dt.tzinfo:
+    """The time zone called `name`, or `fallback` when the name is empty or wrong. It never fails: without any time zone
+    database (Windows without tzdata) it is the computer's own offset now, which is right for its own country until the
+    next change of summer time (the console and «Estado del sistema» say how to fix it)."""
+    for n in (name, fallback, DEFAULT_TZ):
+        if n and isinstance(n, str) and len(n) < 64:
+            try: return ZoneInfo(n)
+            except Exception: continue
+    return _dt.datetime.now().astimezone().tzinfo
+
+
 def valid_tz(name) -> str | None:
+    """The name when it is a time zone, else None. Without a time zone database nothing can be checked: a well-formed
+    name is kept (it works as soon as tzdata is installed)."""
+    if not (name and isinstance(name, str) and len(name) < 64): return None
     try:
-        if name and isinstance(name, str) and len(name) < 64:
-            ZoneInfo(name); return name
-    except (ZoneInfoNotFoundError, ValueError):
-        pass
-    return None
+        ZoneInfo(name); return name
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        return name if not tz_database_ok() and _TZ_NAME.match(name) else None
+    except Exception:
+        return None
 
 
 def tz_for_country(country, fallback=DEFAULT_TZ) -> str:
@@ -54,19 +85,19 @@ def local_to_utc(day: str, hhmm: str, tz: str) -> str:
     forward) move forward; repeated ones (fall back) take the first, as zoneinfo does with fold=0."""
     h, m = (int(x) for x in hhmm.split(':')) if hhmm != '24:00' else (0, 0)
     d = _dt.date.fromisoformat(day) + (_dt.timedelta(days=1) if hhmm == '24:00' else _dt.timedelta())
-    local = _dt.datetime(d.year, d.month, d.day, h, m, tzinfo=ZoneInfo(tz))
+    local = _dt.datetime(d.year, d.month, d.day, h, m, tzinfo=zone(tz))
     # normalise a non-existent wall time (DST gap): round-trip through UTC
     utc = local.astimezone(_dt.timezone.utc)
     return utc.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
 def utc_to_local(iso_utc: str, tz: str) -> _dt.datetime:
-    return _dt.datetime.strptime(iso_utc, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=_dt.timezone.utc).astimezone(ZoneInfo(tz))
+    return _dt.datetime.strptime(iso_utc, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=_dt.timezone.utc).astimezone(zone(tz))
 
 
 def today_in(tz: str, now_utc: _dt.datetime | None = None) -> _dt.date:
     n = now_utc or _dt.datetime.now(_dt.timezone.utc)
-    return n.astimezone(ZoneInfo(tz)).date()
+    return n.astimezone(zone(tz)).date()
 
 
 def to_server_local(day: str, hhmm: str, tz: str) -> _dt.datetime:

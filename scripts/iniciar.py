@@ -10,8 +10,9 @@
                             emails saved in data/pruebas/correos, demonstration data with dates from today, and (v50.56)
                             the example website of a dive centre on http://localhost:8101 with the booking widget
 
-The first time it installs what requirements.txt asks for (stripe, qrcode, fonttools, cryptography, Pillow) if it is missing,
-and again whenever an installed version is not the one fixed there.
+The first time it installs what requirements.txt asks for (stripe, qrcode, fonttools, cryptography, Pillow, tzdata) if it is
+missing, and again whenever an installed version is not the one fixed there. v50.57: tzdata carries the time zones, which
+Windows does not have (without it the panels of the centres and the freelances did not open); it is checked after installing.
 On the real server (VPS) the web is started by systemd: see docs/despliegue/README.md.
 """
 from __future__ import annotations
@@ -27,7 +28,7 @@ import webbrowser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-NEEDED = {'stripe': 'stripe', 'qrcode': 'qrcode', 'fontTools': 'fonttools', 'cryptography': 'cryptography', 'PIL': 'Pillow'}
+NEEDED = {'stripe': 'stripe', 'qrcode': 'qrcode', 'fontTools': 'fonttools', 'cryptography': 'cryptography', 'PIL': 'Pillow', 'tzdata': 'tzdata'}
 
 
 def pinned():
@@ -54,6 +55,19 @@ def ensure_requirements():
         r = subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', str(ROOT / 'requirements.txt')])
     if r.returncode != 0:
         print('No se han podido instalar las dependencias. Ejecuta a mano:  python -m pip install -r requirements.txt'); sys.exit(1)
+
+
+def check_time_zones():
+    """v50.57: the time zones must work before the server starts (Windows has none without tzdata)."""
+    r = subprocess.run([sys.executable, '-c', 'from zoneinfo import ZoneInfo; ZoneInfo("Europe/Madrid")'], capture_output=True)
+    if r.returncode == 0: return True
+    print('=' * 64)
+    print('  Faltan las zonas horarias de Python (paquete «tzdata»).')
+    print('  Escribe en esta ventana:  python -m pip install -r requirements.txt')
+    print('  y vuelve a abrir iniciar.bat. Mientras tanto la web funciona,')
+    print('  pero las horas pueden salir con una hora de diferencia.')
+    print('=' * 64)
+    return False
 
 
 def lan_ip():
@@ -111,6 +125,7 @@ def main():
     a = ap.parse_args()
     os.chdir(ROOT)
     ensure_requirements()
+    check_time_zones()
     env = os.environ
     port = env.get('WOD_PORT') or '8000'
     if a.pruebas:

@@ -6,7 +6,7 @@
 WORLDIVES/
 ├── README.md               qué es, cómo arrancar, dónde está cada cosa
 ├── .env.example            todas las variables, vacías y comentadas
-├── requirements.txt        stripe, qrcode, fonttools, cryptography (cifrado de teléfonos, v50.47)
+├── requirements.txt        stripe, qrcode, fonttools, cryptography (cifrado de teléfonos, v50.47), Pillow, tzdata (zonas horarias, v50.57)
 ├── iniciar.bat / iniciar.sh            un solo arranque por sistema (opciones --red-local y --depuracion)
 ├── iniciar-pruebas.bat / .sh           solo en el zip de pruebas (puerto 8100)
 ├── app/                    servidor

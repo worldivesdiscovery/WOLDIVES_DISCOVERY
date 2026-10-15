@@ -19,7 +19,7 @@ Documentos de referencia que pide ASVS:
 | Componente | Versión | De dónde sale | Cómo se revisa |
 |---|---|---|---|
 | Python | 3.11 o superior (la de Debian 12 / Ubuntu 24.04) | Paquetes del sistema | Actualizaciones de seguridad del sistema (`unattended-upgrades`) |
-| Librerías de Python | Versiones exactas en `requirements.txt` (stripe, qrcode, fonttools, cryptography, Pillow) | PyPI | `pip-audit` cada lunes y en cada cambio (`.github/workflows/dependencias.yml`); el servidor instala exactamente esas versiones |
+| Librerías de Python | Versiones exactas en `requirements.txt` (stripe, qrcode, fonttools, cryptography, Pillow, tzdata) | PyPI | `pip-audit` cada lunes y en cada cambio (`.github/workflows/dependencias.yml`); el servidor instala exactamente esas versiones |
 | App del móvil (Capacitor) | `movil/package-lock.json` | npm | `npm audit` en el mismo flujo semanal |
 | Leaflet | 1.9.4 | leafletjs.com, copiado en `public/lib/leaflet` | A mano en cada versión (avisos de seguridad de Leaflet) |
 | protomaps-leaflet | 5.1.0 (BSD-3) | github.com/protomaps, `public/lib/protomaps-leaflet` | A mano en cada versión |

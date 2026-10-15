@@ -24,7 +24,7 @@ import queue
 import threading
 import time
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfoNotFoundError
 from email import policy
 from email.parser import BytesParser
 from http import HTTPStatus
@@ -4695,10 +4695,10 @@ def provider_export(db, ptype, pid, kind):
     if kind == 'agenda':
         # v50.44 (A4.2): the agenda (blocks of every resource of the provider), with what is behind each block.
         rw = 'r.owner_center_id=?' if ptype == 'center' else 'r.owner_user_id=? AND r.owner_center_id IS NULL'
-        out = []
+        out = []; own_tz = place_tz(db, center_id=pid) if ptype == 'center' else provider_tz(db, {'role': 'freelance', 'id': pid, 'center_id': None})
         for r in db.execute(f'''SELECT r.name,r.timezone,bl.local_date_from,bl.local_date_to,bl.starts_at,bl.ends_at,bl.kind,bl.status,bl.ref_type,bl.ref_id,bl.private_note,bl.created_at,bl.released_at
                                 FROM resource_blocks bl JOIN resources r ON r.id=bl.resource_id WHERE {rw} ORDER BY bl.local_date_from DESC, bl.id DESC LIMIT 50000''', (pid,)).fetchall():
-            tz = wag.valid_tz(r['timezone']) or wag.DEFAULT_TZ
+            tz = stored_tz(r['timezone'], own_tz, 'agenda', r['name'])
             out.append((r['name'], r['local_date_from'], r['local_date_to'], wag.utc_to_local(r['starts_at'], tz).strftime('%H:%M'), wag.utc_to_local(r['ends_at'], tz).strftime('%H:%M'), tz,
                         {'booking': 'Reserva', 'manual': 'Bloqueo', 'holiday': 'Vacaciones', 'unavailable': 'No disponible'}.get(r['kind'], r['kind']),
                         'WOD-%06d' % r['ref_id'] if r['ref_type'] == 'booking' and r['ref_id'] else '', r['private_note'] or '', 'Activo' if r['status'] == 'active' else 'Liberado', r['created_at'], r['released_at'] or ''))
@@ -8329,7 +8329,7 @@ def provider_tz(db, user):
 
 def place_now(tz):
     """The current wall-clock time of a place (its «today» and «now»)."""
-    try: return datetime.now(ZoneInfo(tz)).replace(tzinfo=None, microsecond=0)
+    try: return datetime.now(wag.zone(tz)).replace(tzinfo=None, microsecond=0)
     except Exception: return local_now()
 
 
@@ -8338,7 +8338,7 @@ def on_server_clock(db, wall, service_id=None, center_id=None):
     centre); the server compares them with its own clock (local_now). v50.51: before, both were taken as the same clock,
     so a server on UTC, or a centre in another time zone, moved departures and cancellation deadlines by hours."""
     if wall is None: return None
-    try: return wall.replace(tzinfo=ZoneInfo(place_tz(db, service_id, center_id))).astimezone().replace(tzinfo=None)
+    try: return wall.replace(tzinfo=wag.zone(place_tz(db, service_id, center_id))).astimezone().replace(tzinfo=None)
     except Exception: return wall
 
 
@@ -8346,7 +8346,7 @@ def place_clock(db, server_value, service_id=None, center_id=None):
     """The other way round: a date and time of the server's clock (a stored deadline) on the wall clock of the place."""
     try:
         d = server_value if isinstance(server_value, datetime) else datetime.fromisoformat(str(server_value)[:19])
-        return d.astimezone().astimezone(ZoneInfo(place_tz(db, service_id, center_id))).replace(tzinfo=None)
+        return d.astimezone().astimezone(wag.zone(place_tz(db, service_id, center_id))).replace(tzinfo=None)
     except Exception: return None
 
 
@@ -8360,7 +8360,7 @@ def server_instant(value):
 
 def place_instant(wall, tz):
     """A wall-clock time of a place as an exact instant with that place's offset."""
-    try: return wall.replace(tzinfo=ZoneInfo(tz)).isoformat(timespec='minutes') if wall else None
+    try: return wall.replace(tzinfo=wag.zone(tz)).isoformat(timespec='minutes') if wall else None
     except Exception: return local_iso(wall)
 
 
@@ -9614,7 +9614,8 @@ def staff_resource(db, center_id, user_id, create=True):
     r = db.execute("SELECT * FROM resources WHERE kind='person' AND owner_center_id=? AND user_id=?", (center_id, user_id)).fetchone()
     if r or not create: return r
     u = db.execute('SELECT fullname FROM users WHERE id=?', (user_id,)).fetchone()
-    tz = (db.execute('SELECT timezone FROM resources WHERE owner_center_id=? LIMIT 1', (center_id,)).fetchone() or {'timezone': wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ)})['timezone']
+    first = db.execute('SELECT * FROM resources WHERE owner_center_id=? LIMIT 1', (center_id,)).fetchone()
+    tz = resource_tz(db, first) if first else place_tz(db, center_id=center_id)
     db.execute("INSERT INTO resources(owner_center_id,kind,user_id,name,capacity,timezone,active,created_at,updated_at) VALUES(?,'person',?,?,1,?,1,?,?)",
                (center_id, user_id, (u['fullname'] if u else '') or 'Instructor', tz, now(), now()))
     return db.execute('SELECT * FROM resources WHERE id=last_insert_rowid()').fetchone()
@@ -9961,7 +9962,8 @@ def create_booking(db, req):
 def booking_tz(db, b):
     if row_get(b, 'timezone') and wag.valid_tz(b['timezone']): return b['timezone']
     svc = db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
-    return service_tz(db, svc) if svc else wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ)
+    fallback = service_tz(db, svc) if svc else wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ)
+    return stored_tz(row_get(b, 'timezone'), fallback, 'reserva', row_get(b, 'id'))
 
 
 def booking_api_dict(db, b):
@@ -10617,7 +10619,7 @@ def ical_import_sync(db, imp):
     if imp['service_id']:
         where = 'center_id=?' if kind == 'center' else 'center_id IS NULL AND provider_user_id=?'
         svc = db.execute(f'SELECT * FROM provider_services WHERE id=? AND {where}', (imp['service_id'], pid)).fetchone()
-    tz = service_tz(db, svc) if svc else (place_tz(db, None, pid) if kind == 'center' else (person_resource(db, pid)['timezone'] or wag.DEFAULT_TZ))
+    tz = service_tz(db, svc) if svc else (place_tz(db, None, pid) if kind == 'center' else resource_tz(db, person_resource(db, pid)))
     try:
         _, _, body = wremoto.fetch(imp['url'], kinds=('text/calendar', 'text/plain', 'application/octet-stream', 'application/ics'), max_bytes=2 * 1024 * 1024, accept='text/calendar')
         events = wical.parse(body.decode('utf-8', 'replace'), tz, wag.today_in(tz))
@@ -12767,13 +12769,59 @@ def service_unit(svc):
 
 
 def service_tz(db, svc):
-    tz = wag.valid_tz(svc['timezone'] if 'timezone' in svc.keys() else None)
+    raw = svc['timezone'] if 'timezone' in svc.keys() else None
+    tz = wag.valid_tz(raw)
     if tz: return tz
     if svc['center_id']:
         c = db.execute('SELECT country FROM centers WHERE id=?', (svc['center_id'],)).fetchone()
-        return wag.tz_for_country(c['country'] if c else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
-    r = db.execute('SELECT up.country FROM user_profiles up WHERE up.user_id=?', (svc['provider_user_id'],)).fetchone()
-    return wag.tz_for_country(r['country'] if r else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
+        fallback = wag.tz_for_country(c['country'] if c else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
+    else:
+        r = db.execute('SELECT up.country FROM user_profiles up WHERE up.user_id=?', (svc['provider_user_id'],)).fetchone()
+        fallback = wag.tz_for_country(r['country'] if r else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
+    return stored_tz(raw, fallback, 'servicio', svc['id'])
+
+
+_BAD_TZ_LOGGED = set()
+
+
+def stored_tz(raw, fallback, kind, ref_id):
+    """v50.57: the time zone saved in a service, an agenda or a booking or, when it is wrong, the one of the country of its
+    centre or freelance (an empty one is the usual case: the country decides). A wrong zone never breaks a screen: it is
+    written in the log once per process, and «Estado del sistema» lists every one so the administration can correct it."""
+    tz = wag.valid_tz(raw)
+    if tz: return tz
+    if raw and (kind, ref_id) not in _BAD_TZ_LOGGED:
+        if len(_BAD_TZ_LOGGED) > 5000: _BAD_TZ_LOGGED.clear()
+        _BAD_TZ_LOGGED.add((kind, ref_id))
+        log_event('zona_horaria_no_valida', tipo=kind, id=ref_id, guardada=str(raw)[:40], usada=fallback)
+    return fallback
+
+
+def resource_tz(db, res):
+    """The time zone of an agenda (a freelance, an instructor, a boat): its own or, when it is wrong, its owner's country."""
+    if not res: return wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ)
+    tz = wag.valid_tz(row_get(res, 'timezone'))
+    if tz: return tz
+    if row_get(res, 'owner_center_id'): fallback = place_tz(db, center_id=res['owner_center_id'])
+    else:
+        r = db.execute('SELECT country FROM user_profiles WHERE user_id=?', (row_get(res, 'owner_user_id'),)).fetchone()
+        fallback = wag.tz_for_country(r['country'] if r else None, wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
+    return stored_tz(row_get(res, 'timezone'), fallback, 'agenda', row_get(res, 'id'))
+
+
+def bad_timezones(db, limit=20):
+    """«Estado del sistema» (v50.57): services, agendas and bookings whose saved time zone is not one."""
+    out = []
+    for kind, sql in (('Servicio', "SELECT id, title AS name, timezone FROM provider_services WHERE COALESCE(timezone,'')<>''"),
+                      ('Agenda', "SELECT id, name, timezone FROM resources WHERE COALESCE(timezone,'')<>''"),
+                      ('Reserva', "SELECT id, 'WOD-'||printf('%06d',id) AS name, timezone FROM bookings WHERE COALESCE(timezone,'')<>'' AND booking_date>=date('now','-1 day')")):
+        try:
+            for r in db.execute(f"SELECT * FROM ({sql}) GROUP BY timezone, id").fetchall():
+                if not wag.valid_tz(r['timezone']): out.append({'kind': kind, 'id': r['id'], 'name': r['name'], 'timezone': r['timezone']})
+                if len(out) >= limit: return out
+        except sqlite3.Error:
+            continue
+    return out
 
 
 def person_resource(db, user_id, create=True):
@@ -12935,7 +12983,7 @@ def agenda_public(db, sid, month):
 def agenda_mine(db, user, month):
     """The provider's own agenda (A2.2): blocks with what is behind each one, pending requests and usual hours."""
     res = owner_resource(db, user); db.commit()
-    tz = wag.valid_tz(res['timezone']) or wag.DEFAULT_TZ; month = wag.clean_month(month, tz); days = wag.month_days(month)
+    tz = resource_tz(db, res); month = wag.clean_month(month, tz); days = wag.month_days(month)
     s = wag.local_to_utc(days[0], '00:00', tz); e = wag.local_to_utc(days[-1], '24:00', tz)
     items = []
     for bl in active_blocks(db, res['id'], s, e):
@@ -12961,7 +13009,7 @@ def agenda_mine(db, user, month):
 
 
 def agenda_block_days(db, user, data):
-    res = owner_resource(db, user); tz = wag.valid_tz(res['timezone']) or wag.DEFAULT_TZ
+    res = owner_resource(db, user); tz = resource_tz(db, res)
     days = wag.normalize_selection(None, data.get('date_from'), data.get('date_to'))
     if not days: raise ValueError('Elige los días que quieres bloquear.')
     part = data.get('part') if data.get('part') in wag.PARTS else 'full'
@@ -15766,6 +15814,10 @@ class Handler(BaseHTTPRequestHandler):
             except NotFound as e:
                 db.rollback()
                 self.send_json({'error':str(e)},404)
+            except ZoneInfoNotFoundError as e:
+                # v50.57: the server's time zones, not the request (a KeyError too): said clearly, never «falta un dato»
+                db.rollback(); log_exception(self, e)
+                self.send_json({'error':TZ_MISSING_TEXT},503)
             except KeyError as e:
                 # A required field is missing in the request: the client's fault, not a server error.
                 db.rollback()
@@ -18653,6 +18705,10 @@ class Handler(BaseHTTPRequestHandler):
             except ServerBusy as e:
                 db.rollback()
                 self.send_json({'error':str(e)},503)
+            except ZoneInfoNotFoundError as e:
+                # v50.57: the server's time zones, not the request (a KeyError too): said clearly, never «falta un dato»
+                db.rollback(); log_exception(self, e)
+                self.send_json({'error':TZ_MISSING_TEXT},503)
             except KeyError as e:
                 # A required field is missing in the request: the client's fault, not a server error.
                 db.rollback()
@@ -19049,12 +19105,37 @@ def system_status(db):
         add('disk', 'Espacio en disco', 'error' if free < 2 or pct > 90 else 'ok', f'{free:.1f} GB libres ({pct:.0f} % usado).')
     except OSError:
         add('disk', 'Espacio en disco', 'error', 'No se puede leer el espacio libre.')
+    if wag.tz_database_ok(): add('timezones', 'Zonas horarias', 'ok', 'Disponibles.')
+    else: add('timezones', 'Zonas horarias', 'error', TZ_MISSING_TEXT, (), 'Las horas de las salidas y los plazos pueden salir con una hora de diferencia.')
+    bad = bad_timezones(db)
+    add('timezones_saved', 'Zonas horarias guardadas', 'error' if bad else 'ok',
+        ('Zona horaria no válida en: ' + '; '.join(f"{x['kind']} {x['name']} («{x['timezone']}»)" for x in bad[:8]) + ('…' if len(bad) > 8 else '') +
+         '. Mientras tanto se usa la del país del centro o del freelance.') if bad else 'Todas las zonas horarias guardadas son válidas.',
+        (), 'Nada deja de funcionar: se usa la zona del país.')
     add('admin_2fa', 'Verificación en dos pasos (administración)', 'ok' if admin_totp_required() else ('error' if wcfg.is_production() else 'pending'),
         'Obligatoria para administradores.' if admin_totp_required() else 'Desactivada (solo se permite en pruebas).', ('WOD_ADMIN_TOTP_REQUIRED',))
     add('payments_2fa', 'Verificación en dos pasos (cobros)', 'ok' if payments_totp_required() else ('error' if wcfg.is_production() else 'pending'),
         'Obligatoria para centros y freelance con cobros online y para quien tenga el permiso «Cobros».' if payments_totp_required()
         else 'Desactivada (solo se permite en pruebas).', ('WOD_PAYMENTS_TOTP_REQUIRED',))
     return out
+
+
+TZ_MISSING_TEXT = ('Al servidor le faltan las zonas horarias (el paquete «tzdata» de Python). Ciérralo y ábrelo otra vez con iniciar.bat '
+                   'o iniciar.sh, que lo instalan, o escribe: python -m pip install -r requirements.txt')
+
+
+def tz_startup_check():
+    """v50.57: Windows has no time zones of its own: without tzdata the panels of the centres and the freelances did not
+    open. Said at start, with the solution, instead of in the middle of a screen (the web works meanwhile: zone() never fails)."""
+    if wag.tz_database_ok(): return True
+    print('=' * 64)
+    print('  ATENCIÓN: faltan las zonas horarias de Python (paquete «tzdata»).')
+    print('  La web funciona, pero las horas pueden salir con una hora de diferencia.')
+    print('  Solución: cierra esta ventana y abre otra vez iniciar.bat (o iniciar.sh),')
+    print('  que lo instala; o escribe:  python -m pip install -r requirements.txt')
+    print('=' * 64)
+    log_event('zonas_horarias_no_disponibles')
+    return False
 
 
 def check_production_settings():
@@ -19306,6 +19387,7 @@ def main():
         for w in production_warnings(): print('Aviso: ' + w)
     demo_problem = demo_guard()
     if demo_problem: print('No se puede arrancar: ' + demo_problem); raise SystemExit(2)
+    tz_startup_check()
     prepare_database()
     print(f'WORLDIVES DISCOVERY v{APP_VERSION} -> http://127.0.0.1:{PORT}')
     # Optional multi-process mode (Linux/macOS): WOD_WORKERS=4 starts 4 processes sharing the port.

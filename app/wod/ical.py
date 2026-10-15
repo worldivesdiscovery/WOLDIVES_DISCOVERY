@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import datetime as _dt
 import re
-from zoneinfo import ZoneInfo
+
+from wod.agenda import zone   # v50.57: never fails (Windows without tzdata)
 
 MAX_EVENTS = 500
 
@@ -54,7 +55,7 @@ def _when(prop: str, value: str, default_tz: str):
     v = value.strip()
     if params.get('VALUE') == 'DATE' or re.fullmatch(r'\d{8}', v):
         d = _dt.date(int(v[:4]), int(v[4:6]), int(v[6:8]))
-        start = _dt.datetime(d.year, d.month, d.day, tzinfo=ZoneInfo(default_tz)).astimezone(_dt.timezone.utc)
+        start = _dt.datetime(d.year, d.month, d.day, tzinfo=zone(default_tz)).astimezone(_dt.timezone.utc)
         return start.strftime('%Y-%m-%dT%H:%M:%SZ'), True, d.isoformat()
     m = re.fullmatch(r'(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?(Z?)', v)
     if not m: raise ValueError('fecha')
@@ -63,10 +64,8 @@ def _when(prop: str, value: str, default_tz: str):
     if z: aware = naive.replace(tzinfo=_dt.timezone.utc)
     else:
         tz = params.get('TZID', '').strip('"') or default_tz
-        try: zone = ZoneInfo(tz)
-        except Exception: zone = ZoneInfo(default_tz)
-        aware = naive.replace(tzinfo=zone)
-    loc = aware.astimezone(ZoneInfo(default_tz))
+        aware = naive.replace(tzinfo=zone(tz, default_tz))
+    loc = aware.astimezone(zone(default_tz))
     return aware.astimezone(_dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), False, loc.date().isoformat()
 
 

@@ -44,13 +44,15 @@ NOT_IN_PRODUCTION = ['docs/pruebas/*', 'data/demo/*', 'data/pruebas/*', 'scripts
                      'tests/navegador/e2e_v50_56_widget.py',   # v50.56: uses the example website of scripts/demo
                      'tests/navegador/e2e_v50_56_demo_multicanal.py', 'tests/navegador/e2e_v50_56_seguros.py',   # v50.56: README-PRUEBAS «Probar el motor multicanal» y «Probar los seguros», demo accounts
                      'docs/auditoria/*/botones-inventario.md',   # v50.51: element by element, with the demo accounts
-                     'docs/encargos/encargo-multicanal-y-seguros.md']   # v50.56: the brief, word for word, names the test accounts
+                     'docs/encargos/encargo-multicanal-y-seguros.md',   # v50.56: the brief, word for word, names the test accounts
+                     'tests/navegador/e2e_v50_57_revision.py']   # v50.57: the walk of the general review, with the demo accounts
 # In no zip: the archive of retired files, screenshots, repository files, runtime data, caches and temporary files.
 NOT_IN_ANY = ['_archivo/*', 'docs/capturas/*', '.github/*', '.gitignore', '.env', '.env.*', '*.pyc', '*/__pycache__/*', '*.log', 'logs/*',
               'storage/*', 'public/assets/*', 'data/subidas/*', 'data/backups/*', 'data/mail-outbox/*', 'data/tiles/*', 'dist/*',
               '*.sqlite3-wal', '*.sqlite3-shm', '.git/*', '*.tmp', '*.swp', '*~', '.DS_Store', 'Thumbs.db', '*.lock', '*/capturas/*',
               'data/avisos/*', 'data/pruebas/avisos/*', 'data/pruebas/web-centro/*',   # v50.56: built when the test environment starts
-              'movil/*', 'docs/app/prototipo/*']  # the mobile app (built on GitHub) and its prototype are not part of the server
+              'movil/*', 'docs/app/prototipo/*',  # the mobile app (built on GitHub) and its prototype are not part of the server
+              'scripts/fotos/originales/*']  # v50.57: the owner's original photos (the web uses the sizes made from them)
 ALLOWED_ENV = {'.env.example'}
 
 # What must never be inside the production zip

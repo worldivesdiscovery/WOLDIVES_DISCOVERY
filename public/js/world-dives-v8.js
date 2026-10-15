@@ -190,6 +190,11 @@
   function navMobile(){ $('#mobile-menu')?.addEventListener('click',()=>$('#main-nav').classList.toggle('open')); $$('#main-nav a').forEach(a=>a.addEventListener('click',()=>$('#main-nav').classList.remove('open'))); }
 
   async function loadMeta(){ if(!state.meta) state.meta=await api('/api/meta'); return state.meta; }
+  // v50.57 (revisión general, 1.1): an error shows only in its own block, with an understandable message and «Reintentar»;
+  // the rest of the screen keeps working (before, one failed request closed the whole panel).
+  function wdBlockError(err,title){ return `<div class="wd-block-error" role="alert"><p><strong>${escapeHtml(title||'Esta parte no se ha podido cargar.')}</strong> <span>${escapeHtml(err?.message||'Inténtalo de nuevo en unos segundos.')}</span></p><button class="btn" type="button" data-block-retry>Reintentar</button></div>`; }
+  function wdGuard(target,fn){ return Promise.resolve().then(fn).catch(e=>{ console.error(e); const el=typeof target==='string'?document.getElementById(target):target; if(!el||!el.isConnected) return; el.innerHTML=wdBlockError(e); translateTree(el); el.querySelector('[data-block-retry]').onclick=()=>wdGuard(target,fn); }); }
+  function wdPartsFailed(host,failed,retry){ if(!host||!failed.length) return; host.insertAdjacentHTML('afterbegin',`<div class="wd-block-error" role="alert"><p><strong>Algunas partes no se han podido cargar:</strong> <span>${failed.map(([l,m])=>escapeHtml(l)+(m?' ('+escapeHtml(m)+')':'')).join(' · ')}</span></p><button class="btn" type="button" data-block-retry>Reintentar</button></div>`); const box=host.firstElementChild; translateTree(box); box.querySelector('[data-block-retry]').onclick=retry; }
   // Marca en la cabecera la sección en la que está el visitante.
   function markNav(name){ const section={punto:'puntos',centro:'centros',experiencia:'experiencias',experienciareserva:'experiencias',reservar:'centros','reservar-dias':'experiencias'}[name]||name; $$('#main-nav a').forEach(a=>{ const on=a.getAttribute('href')==='#/'+section; a.classList.toggle('active',on); if(on) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); }); }
   function route(){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('r/')) return renderSignedLink(hash.slice(2).split('?')[0]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); if(window.WDApp){ const own=window.WDApp.route(name||'home',new URLSearchParams(qs||'')); if(own){ closeTransientMenus(); return Promise.resolve(own).catch(err=>{ console.error(err); window.WDApp.failed(err); }); } } const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,verificacion:renderLoginCode,registro:renderRegister,reservar:renderBooking,'reservar-dias':renderDayBooking,seguro:renderInsurance,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin,manifiesto:renderManifest,'salida-cancelada':renderSlotCancelChoice,barco:renderBoatDay}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); const params=new URLSearchParams(qs||''); return Promise.resolve(fn(params)).then(()=>window.WDApp?.after(name||'home',params)).catch(err=>{console.error(err);setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
@@ -3788,7 +3793,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const goServices=()=>load('services');
     api('/api/center/requests').then(r=>{ const bd=$('#fl-bk-badge'); const n=(r.count||0)+(r.pending_refunds||0); if(bd&&n){ bd.hidden=false; bd.textContent=n; } }).catch(()=>{});
     let expData=null; const loadExp=async()=>{ try{ expData=await api('/api/provider/experiences'); }catch{ expData={items:[],requests:[]}; } const n=(expData.requests||[]).filter(r=>r.status==='requested').length; const b=$('#fl-req-badge'); if(b){ b.hidden=!n; b.textContent=n; } return expData; };
-    async function load(tab){
+    // v50.57: a tab that fails shows its error in the content area; the menu and the rest of the panel keep working.
+    async function load(tab){ try{ await loadIn(tab); }catch(e){ console.error(e); content.innerHTML=wdBlockError(e); translateTree(content); content.querySelector('[data-block-retry]').onclick=()=>load(tab); } }
+    async function loadIn(tab){
       nav.forEach(n=>n.classList.toggle('active',n.dataset.cbtab===tab));
       try{ history.replaceState(null,'','#/admin?tab='+tab); }catch{}
       if(tab==='agenda'){ content.innerHTML='<div id="fl-agenda"></div>'; await renderFreelanceAgenda('fl-agenda'); }
@@ -3799,7 +3806,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       else if(tab==='payments'){ content.innerHTML='<div id="fl-payments"></div>'; await renderProviderPayments('fl-payments'); }
       else if(tab==='requests'){ content.innerHTML='<div id="fl-requests"></div>'; await renderInfoRequests('fl-requests'); }
       else if(tab==='avisos'){ content.innerHTML='<div id="fl-avisos"></div>'; await renderNoticesPanel('fl-avisos'); }
-      else if(tab==='stats'){ content.innerHTML='<div id="fl-vcanal"></div><div id="fl-stats"></div>'; renderSalesByChannel('fl-vcanal'); await renderProviderStats('fl-stats'); }
+      else if(tab==='stats'){ content.innerHTML='<div id="fl-vcanal"></div><div id="fl-stats"></div>'; wdGuard('fl-vcanal',()=>renderSalesByChannel('fl-vcanal')); await renderProviderStats('fl-stats'); }
       else if(tab==='vender'){ content.innerHTML='<div id="fl-vender"></div>'; await renderSellOnline('fl-vender'); }
       else if(tab==='tools'){ content.innerHTML='<div id="fl-tools"></div><div id="fl-waiver"></div>'; await renderProviderTools('fl-tools',false); await renderWaiverEditor('fl-waiver'); }
       else if(tab==='fiscal'){ content.innerHTML='<div id="fl-fiscal"></div>'; await renderFiscalCard('fl-fiscal'); }
@@ -5884,16 +5891,21 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // v50.51: a team profile without «estadisticas» (or a plan without analytics) still opens the panel, with empty figures.
   const centerAnalytics=()=>{ const none=()=>({metrics:{},by_day:[],by_service:[],channels:{}}); return wdCan('estadisticas')?api('/api/center/analytics').catch(none):Promise.resolve(none()); };
   async function renderCenterWorkspace(d){
-    const [centerRes,bookingsRes,servicesRes,clientsRes,analyticsRes,expRes]=await Promise.all([api('/api/centers/'+d.user.center_id),api('/api/bookings'),api('/api/provider-services?provider_id='+d.user.id),wdCan('reservas')?api('/api/center/clients'):Promise.resolve({items:[]}),centerAnalytics(),api('/api/provider/experiences').catch(()=>({requests:[]}))]);
-    const center=centerRes.item; let bookings=bookingsRes.items; let services=servicesRes.items; let clients=clientsRes.items; let analytics=analyticsRes; analytics.client_count=clients.length; let currentTab='dashboard';
+    // v50.57: each part on its own: one that fails no longer closes the panel (a notice says which, with «Reintentar»).
+    const failed=[]; const soft=(p,fallback,label)=>Promise.resolve(p).catch(e=>{ console.error(e); failed.push([label,e?.message||'']); return fallback; });
+    const [centerRes,bookingsRes,servicesRes,clientsRes,analyticsRes,expRes]=await Promise.all([soft(api('/api/centers/'+d.user.center_id),{item:{id:d.user.center_id,name:d.center?.name||d.user.center_name||'Tu centro'}},'Ficha del centro'),soft(api('/api/bookings'),{items:[]},'Reservas'),soft(api('/api/provider-services?provider_id='+d.user.id),{items:[]},'Servicios'),wdCan('reservas')?soft(api('/api/center/clients'),{items:[]},'Clientes'):Promise.resolve({items:[]}),centerAnalytics(),api('/api/provider/experiences').catch(()=>({requests:[]}))]);
+    const center=centerRes.item||{id:d.user.center_id,name:'Tu centro'}; let bookings=bookingsRes.items; let services=servicesRes.items; let clients=clientsRes.items; let analytics=analyticsRes; analytics.client_count=clients.length; let currentTab='dashboard';
     // Without statistics the «Reservas» badge counts the pending requests from the bookings themselves.
     const pendingOf=list=>list.filter(b=>['requested','pending'].includes(b.status)).length;
     analytics.metrics=Object.assign({pending:pendingOf(bookings)},analytics.metrics,{experience_requests:(expRes.requests||[]).filter(r=>r.status==='requested').length});
     setApp(centerWorkspaceShell(center,analytics.metrics)); proTermsBanner(d.user); const content=$('#cb-content'); wdModerationBanner($('.cb-main')||content); const nav=$$('.cb-nav');
+    if(failed.length){ const parts=document.createElement('div'); content.before(parts); wdPartsFailed(parts,failed,()=>route()); }
     const go=tab=>{nav.forEach(n=>n.classList.toggle('active',n.dataset.cbtab===tab)); location.hash='#/admin?tab='+tab;};
     // Bookings and analytics are reloaded after any change made from the panel, so every tab shows fresh data.
     const reloadData=async()=>{try{const [b,an]=await Promise.all([api('/api/bookings'),centerAnalytics()]); bookings=b.items; analytics=an; analytics.client_count=clients.length; analytics.metrics=Object.assign({pending:pendingOf(bookings)},analytics.metrics); const badge=document.querySelector('.cb-nav[data-cbtab="bookings"] b'); if(badge)badge.textContent=analytics.metrics?.pending||0;}catch(e){}};
-    const loadTab=async (tab,opts={})=>{ nav.forEach(n=>n.classList.toggle('active',n.dataset.cbtab===tab)); currentTab=tab;
+    // v50.57: a tab that fails shows its error in the content area; the menu and the rest of the panel keep working.
+    const loadTab=async (tab,opts={})=>{ try{ await loadTabIn(tab,opts); }catch(e){ console.error(e); content.innerHTML=wdBlockError(e); translateTree(content); content.querySelector('[data-block-retry]').onclick=()=>loadTab(tab,opts); } };
+    const loadTabIn=async (tab,opts={})=>{ nav.forEach(n=>n.classList.toggle('active',n.dataset.cbtab===tab)); currentTab=tab;
       if(opts.view) bkUi.view=opts.view;
       if(tab==='dashboard') await reloadData();
       if(['dashboard','qr'].includes(tab)){try{services=(await api('/api/provider-services?provider_id='+d.user.id)).items;}catch(e){}}
@@ -5906,10 +5918,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       else if(tab==='clients'){try{clients=(await api('/api/center/clients')).items;}catch(e){} content.innerHTML=centerClientsView(clients); const q=$('#cl-q'); if(q)q.oninput=()=>{const v=q.value.trim().toLowerCase(); $$('.cl-row[data-search]').forEach(r=>{r.hidden=!!v&&!r.dataset.search.includes(v);});};}
       else if(tab==='experiences'){content.innerHTML='<div id="cb-experiences"></div>'; await renderProviderExperiences('cb-experiences','center',{goServices:()=>loadTab('services')});}
       else if(tab==='payments'){content.innerHTML='<div id="cb-payments"></div>'; await renderCenterPayments(d.user.center_id,'cb-payments');}
-      else if(tab==='analytics'){content.innerHTML=await centerAnalyticsView(); content.insertAdjacentHTML('afterbegin','<div id="cb-vcanal"></div>'); renderSalesByChannel('cb-vcanal'); $('#cb-export-report').onclick=()=>{const rows=[['Fecha','Participantes'],...(analytics.by_day||[]).map(x=>[x.date,x.participants])]; const csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\\n'); const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='worldives-informe-centro.csv';a.click();};}
+      else if(tab==='analytics'){content.innerHTML=await centerAnalyticsView(); content.insertAdjacentHTML('afterbegin','<div id="cb-vcanal"></div>'); wdGuard('cb-vcanal',()=>renderSalesByChannel('cb-vcanal')); $('#cb-export-report').onclick=()=>{const rows=[['Fecha','Participantes'],...(analytics.by_day||[]).map(x=>[x.date,x.participants])]; const csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\\n'); const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='worldives-informe-centro.csv';a.click();};}
       else if(tab==='vender'||tab==='integration'){content.innerHTML='<div id="cb-vender"></div><details class="vt-legacy"><summary>Conexión antigua: tu sistema envía las reservas que ya tiene (canal «Importada»)</summary><div id="cb-legacy"></div></details>'; await renderSellOnline('cb-vender');
         $('#cb-legacy').innerHTML=await centerIntegrationView(); $('#cb-new-api-key').onclick=async()=>{try{const r=await postJSON('/api/center/integration/regenerate',{});$('#cb-api-result').innerHTML='<div class="notice warning" style="margin-top:14px"><strong>Guarda esta clave ahora.</strong><br><code>'+escapeHtml(r.api_key)+'</code><br><small>Por seguridad WORLDIVES no vuelve a mostrarla completa.</small></div>';}catch(e){toast(e.message)}};}
-      else if(tab==='points'){content.innerHTML='<div id="cb-points"></div>'; renderCenterPointManager(d.user.center_id,'cb-points');}
+      else if(tab==='points'){content.innerHTML='<div id="cb-points"></div>'; await renderCenterPointManager(d.user.center_id,'cb-points');}
       else if(tab==='marina'){content.innerHTML='<div id="cb-marina"></div>'; await renderMarinaProposals('cb-marina');}
       else if(tab==='qr'){content.innerHTML=`<div class="pr-tabs" role="tablist"><button type="button" class="pr-tab is-on" data-pt="promos">${wdIcon('gift',16)} Promociones</button><button type="button" class="pr-tab" data-pt="check">${wdIcon('qr',16)} Validar un código</button><button type="button" class="pr-tab" data-pt="checkin">${wdIcon('pin',16)} QR de check-in</button></div><div id="pr-pane"></div>`;
         const pane=$('#pr-pane'); const showPt=pt=>{ $$('.pr-tab').forEach(b=>b.classList.toggle('is-on',b.dataset.pt===pt)); if(pt==='promos') renderCenterPromos('pr-pane',center); else if(pt==='check') renderPromoChecker('pr-pane'); else { pane.innerHTML=centerQRManager(center,bookings,services); bindCenterQR(center,bookings,services); } };
@@ -6006,20 +6018,26 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if(d.user.role==='freelance') return Promise.resolve(renderFreelancePanel(d)).then(grace);
     const isAdmin=d.user.role==='admin';
     if(isAdmin&&d.security?.totp_setup_required){ setApp(`<section class="page"><div class="empty"><h2>Activa la verificación en dos pasos</h2><p>Para usar la administración necesitas un código de tu aplicación de verificación además de tu contraseña.</p><a class="btn btn-primary" href="#/cuenta?seguridad=1">Activarla ahora</a></div></section>`); return; }
-    let points=(await api('/api/dive-points')).items;
-    if(!isAdmin) points=(await api('/api/center-points?center_id='+d.user.center_id)).items;
-    const centers=(await api('/api/centers')).items; state.centers=centers;
-    const bookings=(await api('/api/bookings')).items;
-    const suggestions=isAdmin?(await api('/api/admin/suggestions')).items:(await api('/api/my/position-suggestions')).items;
-    const claims=isAdmin?(await api('/api/admin/center-claims')).items:[];
-    const mapsInfo=isAdmin?await api('/api/admin/maps').catch(()=>null):null;
-    const clients=!isAdmin&&wdCan('reservas')?(await api('/api/center/clients').catch(()=>({items:[]}))).items:[];
-    const users=isAdmin?(await api('/api/admin/users')).items:[];
-    const travelExperiences=isAdmin?(await api('/api/admin/travel-experiences')).items:[];
-    const marinaPending=isAdmin?((await api('/api/admin/marina/pendientes').catch(()=>({count:0}))).count||0):0;
-    const audit=isAdmin?(await api('/api/admin/audit')).items:[];
-    const rewardOffers=(await api('/api/provider/reward-offers')).items;
-    const meta=await loadMeta();
+    // v50.57: everything at once (it was one request after another) and each part on its own: if one fails, the rest
+    // shows and a notice says which part is missing, with «Reintentar».
+    const failed=[]; const soft=(p,fallback,label)=>Promise.resolve(p).catch(e=>{ console.error(e); failed.push([label,e?.message||'']); return fallback; }); const none={items:[]};
+    const [pointsR,centersR,bookingsR,suggestionsR,claimsR,mapsInfo,clientsR,usersR,travelR,marinaR,auditR,rewardsR,meta]=await Promise.all([
+      soft(isAdmin?api('/api/dive-points'):api('/api/center-points?center_id='+d.user.center_id),none,'Puntos de buceo'),
+      soft(api('/api/centers'),none,'Centros'), soft(api('/api/bookings'),none,'Reservas'),
+      soft(api(isAdmin?'/api/admin/suggestions':'/api/my/position-suggestions'),none,'Sugerencias'),
+      isAdmin?soft(api('/api/admin/center-claims'),none,'Altas de centros'):none,
+      isAdmin?api('/api/admin/maps').catch(()=>null):null,
+      !isAdmin&&wdCan('reservas')?api('/api/center/clients').catch(()=>none):none,
+      isAdmin?soft(api('/api/admin/users'),none,'Usuarios'):none,
+      isAdmin?soft(api('/api/admin/travel-experiences'),none,'Experiencias'):none,
+      isAdmin?api('/api/admin/marina/pendientes').catch(()=>({count:0})):{count:0},
+      isAdmin?soft(api('/api/admin/audit'),none,'Actividad'):none,
+      soft(api('/api/provider/reward-offers'),none,'Recompensas'),
+      soft(loadMeta(),{travel:[]},'Destinos')]);
+    let points=pointsR.items||[];
+    const centers=centersR.items||[]; state.centers=centers;
+    const bookings=bookingsR.items||[], suggestions=suggestionsR.items||[], claims=claimsR.items||[], clients=clientsR.items||[];
+    const users=usersR.items||[], travelExperiences=travelR.items||[], marinaPending=marinaR.count||0, audit=auditR.items||[], rewardOffers=rewardsR.items||[];
     const myCenter=!isAdmin?centers.find(c=>String(c.id)===String(d.user.center_id)):null;
     const centerPaid=bookings.filter(b=>b.payment_status==='paid');
     const centerPending=bookings.filter(b=>(b.status==='requested'||b.status==='pending'));
@@ -6029,7 +6047,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       ${!isAdmin?`<div class="provider-mini-summary"><span><strong>${points.length}</strong> puntos activos</span><span><strong>${bookings.length}</strong> reservas</span><span><strong>${centerPending.length}</strong> por confirmar</span><span><strong>${centerConfirmed.length}</strong> confirmadas</span><span><strong>${centerPaid.length}</strong> pagadas</span></div>`:''}
       <div class="tabs provider-tabs">${isAdmin?'<button class="tab active" data-tab="overview">Inicio</button>':'<button class="tab active" data-tab="overview">Resumen</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="services">Servicios y salidas</button><button class="tab" data-tab="clients">Clientes</button><button class="tab" data-tab="points">Puntos de buceo</button><button class="tab" data-tab="rewards">Recompensas</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR / Check-in</button><button class="tab" data-tab="center">Mi centro</button><button class="tab" data-tab="payments">Cobros y pagos</button>'}${isAdmin?'<button class="tab" data-tab="points">Puntos</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="adminpay">Pagos</button><button class="tab" data-tab="emails">Correos</button><button class="tab" data-tab="legal">Legal</button><button class="tab" data-tab="pointtexts">Descripciones de puntos</button><button class="tab" data-tab="maps">Mapas</button><button class="tab" data-tab="plans">Planes</button><button class="tab" data-tab="features">Funciones</button><button class="tab" data-tab="ops">Operación</button><button class="tab" data-tab="marina">Vida marina y vídeos</button><button class="tab" data-tab="experiences">Experiencias</button><button class="tab" data-tab="destinations">Destinos</button><button class="tab" data-tab="media">Imágenes de la web</button><button class="tab" data-tab="svctemplates">Plantillas de servicios</button><button class="tab" data-tab="promos">Patrocinio</button><button class="tab" data-tab="seguros">Seguros</button><button class="tab" data-tab="users">Usuarios</button><button class="tab" data-tab="centers">Centros</button><button class="tab" data-tab="claims">Verificaciones</button><button class="tab" data-tab="moderation">Moderación</button><button class="tab" data-tab="privacy">Datos personales</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR</button><button class="tab" data-tab="audit">Actividad</button><button class="tab" data-tab="rewards">Recompensas</button>':''}</div><div id="admin-content"></div></section>`);
     const tabs=$$('.tab');
+    if(failed.length){ const parts=document.createElement('div'); $('#admin-content')?.before(parts); wdPartsFailed(parts,failed,()=>route()); }
     async function show(t){
+      try{ await showTab(t); }catch(e){ console.error(e); const c=$('#admin-content'); if(c){ c.innerHTML=wdBlockError(e); translateTree(c); c.querySelector('[data-block-retry]').onclick=()=>show(t); } }
+    }
+    async function showTab(t){
       tabs.forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
       const c=$('#admin-content');
       const visibleBookings=(statusFilter&&t==='bookings')?bookings.filter(b=>b.status===statusFilter):bookings;
@@ -6042,28 +6064,28 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t==='users') c.innerHTML=adminUsers(users);
       if(t==='experiences') c.innerHTML=adminTravelExperiences(travelExperiences);
       if(t==='destinations') c.innerHTML=adminDestinations(meta.travel);
-      if(t==='media'&&isAdmin){ c.innerHTML='<div id="site-theme-manager"></div><div id="site-media-manager"></div><div id="image-origins"></div>'; renderThemeManager('site-theme-manager'); renderSiteMediaManager('site-media-manager'); renderImageOrigins('image-origins'); }
-      if(t==='svctemplates'&&isAdmin){ c.innerHTML='<div id="admin-svc-templates"></div>'; renderAdminServiceTemplates('admin-svc-templates'); }
-      if(t==='adminpay'&&isAdmin){ c.innerHTML='<div id="admin-payments"></div>'; renderAdminPayments('admin-payments'); }
-      if(t==='emails'&&isAdmin){ c.innerHTML='<div id="admin-emails"></div>'; renderAdminEmails('admin-emails'); }
-      if(t==='legal'&&isAdmin){ c.innerHTML='<div id="admin-legal"></div>'; renderAdminLegal('admin-legal'); }
-      if(t==='ops'&&isAdmin){ c.innerHTML='<div id="admin-ops"></div>'; renderAdminOps('admin-ops'); }
-      if(t==='plans'&&isAdmin){ c.innerHTML='<div id="admin-plans"></div>'; renderAdminPlans('admin-plans'); }
-      if(t==='features'&&isAdmin){ c.innerHTML='<div id="admin-features"></div>'; renderAdminFeatures('admin-features'); }
-      if(t==='maps'&&isAdmin){ c.innerHTML='<div id="admin-maps"></div>'; renderAdminMaps('admin-maps'); }
-      if(t==='pointtexts'&&isAdmin){ c.innerHTML='<div id="admin-pointtexts"></div>'; renderAdminPointTexts('admin-pointtexts'); }
-      if(t==='promos'&&isAdmin){ c.innerHTML='<div id="site-promos-manager"></div>'; renderPromosManager('site-promos-manager'); }
-      if(t==='seguros'&&isAdmin){ c.innerHTML='<div id="admin-insurance"></div>'; renderAdminInsurance('admin-insurance'); }
-      if((t==='marina'||t==='virtual')&&isAdmin){ c.innerHTML='<div id="admin-marina"></div>'; renderAdminMarina('admin-marina',t==='virtual'?'antiguos':undefined); }
+      if(t==='media'&&isAdmin){ c.innerHTML='<div id="site-theme-manager"></div><div id="site-media-manager"></div><div id="image-origins"></div>'; wdGuard('site-theme-manager',()=>renderThemeManager('site-theme-manager')); wdGuard('site-media-manager',()=>renderSiteMediaManager('site-media-manager')); wdGuard('image-origins',()=>renderImageOrigins('image-origins')); }
+      if(t==='svctemplates'&&isAdmin){ c.innerHTML='<div id="admin-svc-templates"></div>'; wdGuard('admin-svc-templates',()=>renderAdminServiceTemplates('admin-svc-templates')); }
+      if(t==='adminpay'&&isAdmin){ c.innerHTML='<div id="admin-payments"></div>'; wdGuard('admin-payments',()=>renderAdminPayments('admin-payments')); }
+      if(t==='emails'&&isAdmin){ c.innerHTML='<div id="admin-emails"></div>'; wdGuard('admin-emails',()=>renderAdminEmails('admin-emails')); }
+      if(t==='legal'&&isAdmin){ c.innerHTML='<div id="admin-legal"></div>'; wdGuard('admin-legal',()=>renderAdminLegal('admin-legal')); }
+      if(t==='ops'&&isAdmin){ c.innerHTML='<div id="admin-ops"></div>'; wdGuard('admin-ops',()=>renderAdminOps('admin-ops')); }
+      if(t==='plans'&&isAdmin){ c.innerHTML='<div id="admin-plans"></div>'; wdGuard('admin-plans',()=>renderAdminPlans('admin-plans')); }
+      if(t==='features'&&isAdmin){ c.innerHTML='<div id="admin-features"></div>'; wdGuard('admin-features',()=>renderAdminFeatures('admin-features')); }
+      if(t==='maps'&&isAdmin){ c.innerHTML='<div id="admin-maps"></div>'; wdGuard('admin-maps',()=>renderAdminMaps('admin-maps')); }
+      if(t==='pointtexts'&&isAdmin){ c.innerHTML='<div id="admin-pointtexts"></div>'; wdGuard('admin-pointtexts',()=>renderAdminPointTexts('admin-pointtexts')); }
+      if(t==='promos'&&isAdmin){ c.innerHTML='<div id="site-promos-manager"></div>'; wdGuard('site-promos-manager',()=>renderPromosManager('site-promos-manager')); }
+      if(t==='seguros'&&isAdmin){ c.innerHTML='<div id="admin-insurance"></div>'; wdGuard('admin-insurance',()=>renderAdminInsurance('admin-insurance')); }
+      if((t==='marina'||t==='virtual')&&isAdmin){ c.innerHTML='<div id="admin-marina"></div>'; wdGuard('admin-marina',()=>renderAdminMarina('admin-marina',t==='virtual'?'antiguos':undefined)); }
       if(t==='suggestions') c.innerHTML=isAdmin?adminSuggestions(suggestions):providerSuggestions(suggestions);
       if(t==='centers') c.innerHTML=adminCenters(centers);
       if(t==='claims') c.innerHTML=adminCenterClaims(claims);
-      if(t==='moderation'&&isAdmin){ c.innerHTML='<div id="admin-moderation"></div>'; renderAdminModeration('admin-moderation'); }
-      if(t==='privacy'&&isAdmin){ c.innerHTML='<div id="admin-privacy"></div>'; renderAdminPrivacy('admin-privacy'); }
+      if(t==='moderation'&&isAdmin){ c.innerHTML='<div id="admin-moderation"></div>'; wdGuard('admin-moderation',()=>renderAdminModeration('admin-moderation')); }
+      if(t==='privacy'&&isAdmin){ c.innerHTML='<div id="admin-privacy"></div>'; wdGuard('admin-privacy',()=>renderAdminPrivacy('admin-privacy')); }
       if(t==='qr') c.innerHTML=adminQR();
       if(t==='audit') c.innerHTML=adminAudit(audit);
       if(t==='clients') c.innerHTML=adminClients(clients);
-      if(t==='rewards'){ c.innerHTML='<div id="admin-rewards"></div>'; renderRewardsManager('admin-rewards',{isAdmin,centers,centerId:d.user.center_id}); }
+      if(t==='rewards'){ c.innerHTML='<div id="admin-rewards"></div>'; wdGuard('admin-rewards',()=>renderRewardsManager('admin-rewards',{isAdmin,centers,centerId:d.user.center_id})); }
       bindAdmin(t);
     }
     tabs.forEach(t=>t.onclick=()=>show(t.dataset.tab));
