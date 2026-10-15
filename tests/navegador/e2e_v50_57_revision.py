@@ -5,6 +5,9 @@ Bloque 1.1 · zona horaria. El servidor arranca como en un Windows limpio (sin l
 tzdata): el panel del centro, sus reservas y su planning, y las reservas, el planning y «Mi agenda» del freelance se abren
 sin error. Además, si una parte del panel falla, solo esa parte lo dice (con «Reintentar») y el resto funciona.
 
+Bloque 1.2 · el QR de la reserva se ve en la ficha del buceador, del centro y de la administración, y al leerlo (OpenCV,
+como un móvil) lleva a esa reserva.
+
     python3 tests/navegador/e2e_v50_57_revision.py [carpeta-de-capturas]
 
 Usa las cuentas de la demo: no va en el zip de producción (scripts/generar_zips.py)."""
@@ -23,6 +26,13 @@ from e2e_markers import chromium  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 from wod.cifrado import DEMO_DATA_KEY  # noqa: E402
 from crear_demo import PASSWORD  # noqa: E402
+import io  # noqa: E402
+try:
+    import cv2  # noqa: E402
+    import numpy as np  # noqa: E402
+    from PIL import Image  # noqa: E402
+except ImportError:   # without OpenCV the QR is checked on screen but not read
+    cv2 = None
 
 ROOT = Path(__file__).resolve().parents[2]
 DESK = {'viewport': {'width': 1366, 'height': 900}, 'locale': 'es-ES'}
@@ -113,6 +123,24 @@ def run(out: Path | None):
             pg.locator('.cb-nav[data-cbtab="services"]').click(); pg.wait_for_timeout(1800)
             check('1.1 · y las demás pestañas funcionan', pg.locator('#center-services-manager *').count() > 3 and pg.locator('#cb-content .wd-block-error').count() == 0)
             c.close()
+
+            # 1.2 · the QR of the booking, inside the page, for the diver, the centre and the administration
+            uid = lambda u: srv.sql('SELECT id,center_id FROM users WHERE username=?', (u,))[0]
+            bk = srv.sql("SELECT id FROM bookings WHERE user_id=? AND center_id=? AND status IN ('confirmed','requested') ORDER BY id DESC LIMIT 1",
+                         (uid('buzo.prueba')['id'], uid('centro.prueba')['center_id']))[0]['id']
+            for user, sel, label in (('buzo.prueba', '.reservation-qr .bk-qr svg', 'buceador'), ('centro.prueba', '.bk-qr-center .bk-qr svg', 'centro'),
+                                     ('admin.prueba', '.reservation-qr .bk-qr svg', 'administración')):
+                c, pg = ctx(); login(pg, user)
+                pg.goto(f'{srv.base}/#/reserva?id={bk}'); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(1200)
+                ok = pg.locator(sel).count() == 1
+                read = ''
+                if ok and cv2 is not None:
+                    raw = pg.locator(sel).screenshot()
+                    read = cv2.QRCodeDetector().detectAndDecode(np.array(Image.open(io.BytesIO(raw)).convert('RGB')))[0]
+                check(f'1.2 · {label}: el QR se ve en la ficha de la reserva y lleva a esa reserva',
+                      ok and (cv2 is None or f'verificarreserva?id={bk}&t=' in read), read or pg.inner_text('main')[:200])
+                shot(pg, f'b1-2-qr-ficha-{label.replace("ó", "o")}')
+                c.close()
 
             c, pg = ctx(); login(pg, 'admin.prueba')
             pg.route('**/api/admin/audit', lambda route: route.fulfill(status=500, content_type='application/json', body='{"error":"Error interno"}'))

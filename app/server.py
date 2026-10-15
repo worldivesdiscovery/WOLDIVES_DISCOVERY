@@ -65,6 +65,7 @@ from wod import canales as wch
 from wod import widget_textos as wtx
 from wod import ical as wical
 from wod import seguros as wseg
+from wod import qr as wqr   # v50.57: the single QR generator of the whole web
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1808,6 +1809,7 @@ def migrate_v50_56(db):
     add_columns(db, 'bookings', [('channel', 'TEXT'), ('channel_origin', 'TEXT'), ('api_key_id', 'INTEGER'), ('block_label', 'TEXT'), ('timezone', 'TEXT')])
     add_columns(db, 'users', [('guest_provider_user_id', 'INTEGER')])
     add_columns(db, 'email_outbox', [('reply_to', 'TEXT')])   # e-mails of a widget booking: the answer goes to the centre
+    add_columns(db, 'email_outbox', [('inline_qr', 'TEXT')])   # v50.57: what the QR of the booking carries (encrypted), attached as an image
     add_columns(db, 'provider_services', [('instructor_user_id', 'INTEGER'), ('boat_id', 'INTEGER')])
     add_columns(db, 'provider_feed', [('status', 'TEXT'), ('dispatched', 'INTEGER NOT NULL DEFAULT 0')])
     add_columns(db, 'webhook_endpoints', [('feed_after', 'INTEGER')])
@@ -3221,6 +3223,11 @@ def short_name(fullname):
     return parts[0] + (f' {parts[1][0].upper()}.' if len(parts) > 1 else '')
 
 
+def booking_token(db, bid):
+    r = db.execute('SELECT public_token FROM bookings WHERE id=?', (bid,)).fetchone()
+    return r['public_token'] if r else None
+
+
 def booking_check_url(db, bid, base):
     """Link printed in the QR and the PDF: it carries the booking's long random token (G4)."""
     row = db.execute('SELECT public_token FROM bookings WHERE id=?', (bid,)).fetchone()
@@ -3231,12 +3238,7 @@ def booking_check_url(db, bid, base):
 
 
 def qr_svg(payload, color='#000000'):
-    import qrcode
-    qr = qrcode.QRCode(box_size=1, border=1); qr.add_data(payload); qr.make(fit=True)
-    m = qr.get_matrix(); n = len(m); sc = 8; mg = sc * 3; size = n * sc + mg * 2
-    rects = ''.join(f'<rect x="{mg+c*sc}" y="{mg+r*sc}" width="{sc}" height="{sc}"/>' for r, row_ in enumerate(m) for c, v in enumerate(row_) if v)
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" width="{size}" height="{size}" shape-rendering="crispEdges">'
-            f'<rect width="100%" height="100%" fill="#fff"/><g fill="{html.escape(color)}">{rects}</g></svg>').encode()
+    return wqr.svg(payload, color)   # v50.57: wod/qr.py, the same QR everywhere
 
 
 def record_acceptances(db, user_id, docs, ip='', version=None):
@@ -6321,9 +6323,7 @@ def center_planning(db, user, month):
 
 
 def qr_matrix(payload):
-    import qrcode   # requirements.txt (v50.46: no bundled copy in vendor/)
-    qr=qrcode.QRCode(box_size=1,border=0,error_correction=qrcode.constants.ERROR_CORRECT_M); qr.add_data(payload); qr.make(fit=True)
-    return [''.join('1' if v else '0' for v in row) for row in qr.get_matrix()]
+    return wqr.rows(payload)   # v50.57: wod/qr.py
 
 
 # ---------------------------------------------------------------------------
@@ -7063,12 +7063,12 @@ EMAIL_TEMPLATES = {
  'booking_confirmed': {'to': 'diver', 'subject': 'Reserva confirmada: {service} · {date_short}', 'pre': 'Tu plaza con {center} está confirmada.', 'blocks': [
    ('h', '¡Tu reserva está confirmada!'),
    ('p', 'Hola {first_name}, {center} te espera. Aquí tienes todos los detalles de tu reserva.'),
-   ('details', None), ('payment', None), ('note', '{insurance_note}'), ('button', ('Ver mi reserva y el QR', 'booking_url')),
+   ('details', None), ('qr', None), ('payment', None), ('note', '{insurance_note}'), ('button', ('Ver mi reserva y el QR', 'booking_url')),
    ('p', 'Descarga el comprobante en PDF para tenerlo sin conexión: {pdf_url}'), ('policy', None), ('bring', None)]},
  'booking_manual': {'to': 'diver', 'subject': 'Tu reserva con {center}: {service} · {date_short}', 'pre': '{center} ha registrado tu reserva.', 'blocks': [
    ('h', 'Tienes una reserva con {center}'),
    ('p', 'Hola {first_name}, {center} ha registrado esta reserva a tu nombre en WORLDIVES. Si no la reconoces, contacta directamente con el centro.'),
-   ('details', None), ('payment', None), ('bring', None), ('p', 'Comprobante en PDF: {pdf_url}')]},
+   ('details', None), ('qr', None), ('payment', None), ('bring', None), ('p', 'Comprobante en PDF: {pdf_url}')]},
  'payment_required': {'to': 'diver', 'subject': 'Plaza aceptada: completa el pago · {service}', 'pre': 'Paga antes de {payment_deadline}.', 'blocks': [
    ('h', 'Tu plaza está aceptada'),
    ('p', 'Hola {first_name}, {center} ha aceptado tu solicitud y te guarda la plaza. Completa el pago de {total} antes del {payment_deadline} para confirmar la reserva.'),
@@ -7104,7 +7104,7 @@ EMAIL_TEMPLATES = {
  'reminder': {'to': 'diver', 'subject': 'Mañana buceas con {center} · {time}', 'pre': 'Todo lo que necesitas para mañana.', 'blocks': [
    ('h', '¡Mañana buceas!'),
    ('p', 'Hola {first_name}, te recordamos tu inmersión de mañana con {center}.'),
-   ('details', None), ('bring', None), ('button', ('Ver mi reserva y el QR', 'booking_url')),
+   ('details', None), ('qr', None), ('bring', None), ('button', ('Ver mi reserva y el QR', 'booking_url')),
    ('p', 'Si no puedes acudir, cancela o avisa al centro cuanto antes desde tu reserva.')]},
  'review_request': {'to': 'diver', 'subject': '¿Qué tal con {center}?', 'pre': 'Tu opinión ayuda a otros buceadores.', 'blocks': [
    ('h', '¿Qué tal tu inmersión?'),
@@ -7485,6 +7485,8 @@ def booking_mail_ctx(db, bid, lang='es'):
             'brand': brand, 'reply_to': (payee.get('email') or '') if brand else '',
             # v50.56 (Parte H): the centre sees in its notice where the booking came from
             'channel_label': mail_t(lang, wch.CHANNEL_LABELS[wch.channel_of(b)]) + (f" · {b['channel_origin']}" if b['channel_origin'] else ''),
+            # v50.57 (1.2): the QR of the booking travels inside the email (an image of the message, not a link)
+            'qr_payload': booking_check_url(db, bid, base), 'check_code': wpro.booking_code(bid, booking_token(db, bid)),
             **booking_mail_in_person(db, b, lang)}
 
 
@@ -7497,6 +7499,17 @@ def booking_mail_in_person(db, b, lang):
     if 'other' in ip['pay_methods'] and ip['pay_other']: methods = ' · '.join(x for x in (methods, ip['pay_other']) if x)
     return {'in_person': True, 'center_phone': '', 'pro_whatsapp': ip.get('pro_whatsapp') or '', 'pay_methods_text': methods,
             'pay_policy': ip['pay_policy'], 'status_label': mail_t(lang, booking_view_status(b)['status_label'])}
+
+
+MAIL_QR_CID = 'qr-reserva@worldives'
+# In the administration (preview and outbox) the image of the message is a drawn example: the real QR carries the token.
+_MAIL_QR_SAMPLE = 'data:image/svg+xml;base64,' + __import__('base64').b64encode(
+    b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36" fill="#fff"/><g fill="#011C3C"><path d="M3 3h9v9H3zM24 3h9v9h-9zM3 24h9v9H3z"/>'
+    b'<path fill="#fff" d="M5 5h5v5H5zM26 5h5v5h-5zM5 26h5v5H5z"/><path d="M6 6h3v3H6zM27 6h3v3h-3zM6 27h3v3H6zM15 4h2v2h-2zM18 8h3v2h-3zM14 14h8v2h-8zM16 18h2v6h-2zM24 16h3v3h-3zM20 26h6v2h-6zM28 22h3v6h-3z"/></g></svg>').decode()
+
+
+def mail_qr_placeholder(html_doc):
+    return (html_doc or '').replace(f'cid:{MAIL_QR_CID}', _MAIL_QR_SAMPLE)
 
 
 def render_email(db, template, lang, ctx):
@@ -7600,6 +7613,17 @@ def render_email(db, template, lang, ctx):
                                  f'<div style="font-size:13px;color:#65747d;margin:2px 0 8px">{_esc(t("Buceadores") + ": " + str(sl["taken"]) if sl.get("loose") else t("{taken} de {total} plazas ocupadas", taken=sl["taken"], total=sl["total"]))}{(" · " + _esc(sl["points"])) if sl.get("points") else ""}</div>'
                                  f'<ul style="margin:0;padding-left:18px;font-size:14px;color:#2b3f48">{people}</ul></div>')
                 text += [f"{sl['time']} · {sl['title']} ({sl['taken']}/{sl['total']})"] + ['  - ' + p for p in sl['people']] + ['']
+        elif kind == 'qr':
+            # v50.57 (1.2): the QR of the booking as an image of the message itself (cid:), so it is seen without
+            # signing in and without connection; the code below, for when it cannot be scanned.
+            if ctx.get('qr_payload'):
+                lab = t('Presenta este QR en el centro'); code = ctx.get('check_code') or ''
+                rows_html.append(f'<div style="margin:4px 0 20px;padding:18px;border:1px solid #e6eef0;border-radius:12px;text-align:center">'
+                                 f'<img src="cid:{MAIL_QR_CID}" width="180" height="180" alt="{_esc(t("QR de la reserva"))}" style="display:block;margin:0 auto 10px;width:180px;height:180px;background:#ffffff">'
+                                 f'<div style="font-size:14px;font-weight:700;color:#011C3C">{_esc(lab)}</div>'
+                                 + (f'<div style="margin-top:6px;font-size:13px;color:#65747d">{_esc(t("Si no se puede escanear, dicta este código:"))} '
+                                    f'<b style="font-family:monospace;font-size:15px;color:#011C3C">{_esc(code)}</b></div>' if code else '') + '</div>')
+                text += [lab + (f' · {t("Si no se puede escanear, dicta este código:")} {code}' if code else ''), '']
         elif kind == 'button':
             label, key = val; url = ctx.get(key) or base; s = fmt(label)
             rows_html.append(f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 22px"><tr><td style="border-radius:999px;background:#011C3C">'
@@ -7657,8 +7681,10 @@ def queue_email(db, template, to_email, to_name, ctx, lang='es', related=None):
         # v50.56: a booking made on the centre's own website (widget, page, API, manual): the customer's answer goes to the centre.
         reply = (ctx or {}).get('reply_to') if EMAIL_TEMPLATES[template].get('to') == 'diver' and (ctx or {}).get('brand') else None
         reply = reply if reply and re.fullmatch(r'[^@\s<>,;]+@[^@\s<>,;]+\.[a-z]{2,}', str(reply), re.I) else None
-        db.execute('INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at,unsubscribe_url,reply_to) VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?,?)',
-                   (template, lang, (to_email or '').strip().lower(), to_name or '', subject, wcif.encrypt(html_doc), wcif.encrypt(text_doc), status, rel[0], rel[1], now(), (ctx or {}).get('unsubscribe_api'), reply))
+        qr = (ctx or {}).get('qr_payload') if f'cid:{MAIL_QR_CID}' in html_doc else None   # v50.57: the QR image of the booking
+        db.execute('INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at,unsubscribe_url,reply_to,inline_qr) VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?,?,?)',
+                   (template, lang, (to_email or '').strip().lower(), to_name or '', subject, wcif.encrypt(html_doc), wcif.encrypt(text_doc), status, rel[0], rel[1], now(), (ctx or {}).get('unsubscribe_api'), reply,
+                    wcif.encrypt(qr) if qr else None))
         push_from_email(db, to_email, subject, lang, rel)
     except Exception as exc:
         sys.stderr.write(f'[correo] no se pudo preparar «{template}»: {exc}\n')
@@ -7902,6 +7928,11 @@ def _build_message(cfg, row):
         msg['Auto-Submitted'] = 'auto-generated'
     msg.set_content(row['text'] or '')
     msg.add_alternative(row['html'] or '', subtype='html')
+    qr = row['inline_qr'] if 'inline_qr' in keys else None
+    if qr and f'cid:{MAIL_QR_CID}' in (row['html'] or ''):
+        # v50.57 (1.2): the QR of the booking, an image inside the message (multipart/related): Gmail, Outlook and the phones
+        # show it without downloading anything and without signing in.
+        msg.get_payload()[1].add_related(wqr.png(qr, scale=6), maintype='image', subtype='png', cid=f'<{MAIL_QR_CID}>', filename='qr-reserva.png')
     return msg
 
 
@@ -8086,7 +8117,7 @@ def email_scheduler():
 def sample_email_ctx(template, lang='es'):
     """Realistic example data for the admin preview of every template."""
     base = public_site_url(); t = lambda s: mail_t(lang, s)
-    c = {'booking_id': 123, 'ref': 'WOD-000123', 'first_name': 'Laura', 'name': 'Laura Martín', 'diver_name': 'Laura Martín', 'diver_email': 'laura@ejemplo.com', 'diver_phone': '+34 600 000 000',
+    c = {'booking_id': 123, 'ref': 'WOD-000123', 'qr_payload': f'{base}/#/verificarreserva?id=123&t=ejemplo', 'check_code': '123-ABC123', 'first_name': 'Laura', 'name': 'Laura Martín', 'diver_name': 'Laura Martín', 'diver_email': 'laura@ejemplo.com', 'diver_phone': '+34 600 000 000',
          'center': 'Centro de buceo de ejemplo', 'center_email': 'info@centro.example', 'center_phone': '+34 965 000 000', 'center_address': 'Puerto deportivo, 03730 Xàbia',
          'service': 'Buceo doble', 'point': 'Cabo San Martín', 'date': mail_date('2026-10-17', lang), 'date_short': '17/10/2026', 'time': '09:00', 'participants': 2,
          'total': mail_money(150, 'EUR', lang), 'price': 150.0, 'payment_status': 'paid', 'status': 'confirmed', 'equipment': 'Traje de neopreno ×1', 'notes': 'Primera inmersión del año',
@@ -10376,18 +10407,8 @@ def sales_links(db, kind, pid, row, base=None):
 
 
 def qr_png(url, scale=10):
-    """The same QR as PNG for printers and apps that do not open SVG (Pillow, already used for the photos)."""
-    from PIL import Image
-    m = qr_matrix(url); n = len(m); q = 4; size = (n + 2 * q)
-    img = Image.new('1', (size, size), 1)
-    px = img.load()
-    for y, row in enumerate(m):
-        for x, v in enumerate(row):
-            if v == '1': px[x + q, y + q] = 0
-    img = img.resize((size * scale, size * scale), Image.NEAREST)
-    import io
-    buf = io.BytesIO(); img.save(buf, 'PNG', optimize=True)
-    return buf.getvalue()
+    """The same QR as PNG for printers and apps that do not open SVG (wod/qr.py)."""
+    return wqr.png(url, scale)
 
 
 def sales_link_url(base, slug, service_id=None, date=None):
@@ -11284,13 +11305,7 @@ def report_rate_limited(key):
 
 
 def _qr_cmds(payload,x0,y0,size):
-    import qrcode
-    qr=qrcode.QRCode(box_size=1,border=1); qr.add_data(payload); qr.make(fit=True); m=qr.get_matrix(); n=len(m); c=size/n
-    a=['q','1 1 1 rg',f'{x0-8:.2f} {y0-8:.2f} {size+16:.2f} {size+16:.2f} re f','0 0 0 rg']
-    for r,row in enumerate(m):
-        for col,v in enumerate(row):
-            if v:a.append(f'{x0+col*c:.2f} {y0+(n-1-r)*c:.2f} {c+.03:.2f} {c+.03:.2f} re f')
-    a.append('Q'); return a
+    return wqr.pdf_ops(payload,x0,y0,size)   # v50.57: wod/qr.py
 
 # Brand palette for the PDF documents (docs/marca/README.md), as RGB 0–1
 BRAND_PDF = {'abismo': (0.004, 0.110, 0.235), 'profundo': (0.016, 0.239, 0.424), 'oceano': (0.027, 0.408, 0.596),
@@ -14619,15 +14634,16 @@ class Handler(BaseHTTPRequestHandler):
                     r=db.execute('SELECT * FROM email_outbox WHERE id=?',(int(path.rsplit('/',1)[1]),)).fetchone()
                     if not r: self.send_json({'error':'Correo no encontrado'},404); return
                     admin_data_gate(db,self,user,'correos',f'correo {r["id"]} a {r["to_email"]}'); db.commit()
-                    it=dict(r)
+                    it=dict(r); it.pop('inline_qr',None)   # v50.57: what the QR carries (the booking's token) is never shown
                     for k in ('text','html'): it[k]=re.sub(r'([?&](?:t|token)=)[A-Za-z0-9_\-]{12,}', r'\1***', it.get(k) or '')
+                    it['html']=mail_qr_placeholder(it['html'])
                     self.send_json({'item':it}); return
                 if path == '/api/admin/email-preview':
                     user=require_user(self,db); require_role(user,{'admin'})
                     tpl=clean_text(query.get('template',[''])[0],40) or ''; lang=clean_text(query.get('lang',['es'])[0],5) or 'es'
                     if tpl not in EMAIL_TEMPLATES: raise ValueError('Plantilla no válida.')
                     subject,html_doc,text_doc=render_email(db,tpl,lang if lang in MAIL_LANGS else 'es',sample_email_ctx(tpl,lang))
-                    self.send_json({'subject':subject,'html':html_doc,'text':text_doc}); return
+                    self.send_json({'subject':subject,'html':mail_qr_placeholder(html_doc),'text':text_doc}); return
                 if path == '/api/center/promotions':
                     user=require_user(self,db); require_role(user,{'center'})
                     if not user['center_id']: raise ValueError('La cuenta aún no tiene un centro aprobado.')
@@ -15532,6 +15548,8 @@ class Handler(BaseHTTPRequestHandler):
                         bd['insurance_view']=ins_booking_view(db,b,ref_[1] if ref_[0]=='center' else None,ref_[1] if ref_[0]=='freelance' else None)
                     bd.pop('public_token',None); bd['check_url']=booking_check_url(db,bid,self.base_url()) if (b['user_id']==user['id'] or can_manage_booking(user,b)) else None
                     bd['check_code']=wpro.booking_code(bid,db.execute('SELECT public_token FROM bookings WHERE id=?',(bid,)).fetchone()['public_token']) if bd['check_url'] else None
+                    # v50.57 (1.2): the QR goes inside the booking itself, so the page never depends on a second request
+                    bd['qr_svg']=qr_svg(bd['check_url']).decode() if bd['check_url'] else None
                     if b['user_id']!=user['id']:
                         log_phone_access(db,user,'booking',count_phones({'booking':bd,'profile':dict(profile) if profile else {}}),bid)
                         team_booking_view(db,user,bd)
@@ -15774,14 +15792,7 @@ class Handler(BaseHTTPRequestHandler):
                     qr=db.execute('''SELECT q.*,c.name AS center_name FROM qr_codes q JOIN centers c ON c.id=q.center_id WHERE q.code=? AND q.active=1''',(code,)).fetchone()
                     if not qr: self.send_error(404); return
                     try:
-                        import qrcode
-                        from qrcode.image.svg import SvgPathImage
-                        payload=f'{self.base_url()}/#/checkin/{code}'
-                        img=qrcode.make(payload,image_factory=SvgPathImage)
-                        import io
-                        buff=io.BytesIO(); img.save(buff)
-                        raw=buff.getvalue()
-                        self.send_bytes(raw,'image/svg+xml; charset=utf-8')
+                        self.send_bytes(qr_svg(f'{self.base_url()}/#/checkin/{code}'),'image/svg+xml; charset=utf-8')   # v50.57: the same generator
                     except Exception as e:
                         log_exception(self,e); self.send_json({'error':'No se pudo generar el QR.'},500)
                     return
@@ -17745,8 +17756,8 @@ class Handler(BaseHTTPRequestHandler):
                     r=db.execute('SELECT * FROM email_outbox WHERE id=?',(eid,)).fetchone()
                     if not r: raise ValueError('Correo no encontrado.')
                     if not mail_deliverable(r['to_email']): raise ValueError('Este destinatario no tiene un email real.')
-                    db.execute("INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at) VALUES(?,?,?,?,?,?,?,'queued',?,?,0,?)",
-                               (r['template'],r['lang'],r['to_email'],r['to_name'],r['subject'],wcif.encrypt(r['html']),wcif.encrypt(r['text']),r['related_type'],r['related_id'],now()))
+                    db.execute("INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at,inline_qr) VALUES(?,?,?,?,?,?,?,'queued',?,?,0,?,?)",
+                               (r['template'],r['lang'],r['to_email'],r['to_name'],r['subject'],wcif.encrypt(r['html']),wcif.encrypt(r['text']),r['related_type'],r['related_id'],now(),wcif.encrypt(row_get(r,'inline_qr'))))
                     audit(db,user['id'],'email_resent','email_outbox',eid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/bookings':
                     # v50.56: the WORLDIVES search and a direct link («link»: the page was opened from a shared link) book
