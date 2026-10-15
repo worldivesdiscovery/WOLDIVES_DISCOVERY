@@ -357,3 +357,34 @@ class Seguros(ServerTestCase):
         self.assertEqual(Client(self.server).get('/api/insurance/offers?tipo=dia&pais=ES&lang=pl').json['offers'][1]['notice'],
                          'Ubezpieczenie zawiera się na stronie Aseguradora Demo A. WORLDIVES nie jest ubezpieczycielem ani pośrednikiem ubezpieczeniowym.')
         self.assertEqual(Client(self.server, origin=None).request('POST', f'/api/insurance/webhook/{self.prov_a}', data={'x': 1}).status, 404)   # direct connection: off
+
+    # ------------------------------------------------------------------------------------------------ languages
+    def test_avisos_y_ventana_en_9_idiomas(self):
+        """The notices (e-mail and app) and the texts of the window, in the 9 languages of the web."""
+        code = ("import json; out={}\n"
+                "for l in ('es','en','fr','de','it','pt','pl','nl','zh'):\n"
+                "    ctx={'expiry_title': server.mail_t(l,'Tu seguro de buceo caduca en {days} días',days=30),'first_name':'Bea','insurer':'Aseguradora Demo A',"
+                "'valid_to_text':'14/11','insurance_url':'https://x','center':'Mar Azul','kind_text':server.mail_t(l,'Día').lower(),'valid_text':'14/11'}\n"
+                "    a=server.render_email(db,'insurance_diver_expiring',l,ctx); b=server.render_email(db,'insurance_policy_added',l,ctx)\n"
+                "    out[l]=[a[0],a[2],b[0],b[2],server.mail_t(l,'Tu seguro de buceo caduca hoy')]\n"
+                "print(json.dumps(out))")
+        out = json.loads(self.run_py(code).strip().splitlines()[-1])
+        es = out['es']
+        self.assertIn('30 días', es[0]); self.assertIn('Renovar o contratar seguro', es[1]); self.assertIn('Mar Azul ha añadido tu seguro de buceo', es[2])
+        for l in ('en', 'fr', 'de', 'it', 'pt', 'pl', 'nl', 'zh'):
+            with self.subTest(lang=l):
+                self.assertNotEqual(out[l][0], es[0]); self.assertIn('30', out[l][0])
+                self.assertNotIn('Renovar o contratar seguro', out[l][1]); self.assertNotIn('Hola Bea', out[l][1])
+                self.assertNotEqual(out[l][2], es[2]); self.assertIn('Mar Azul', out[l][2])
+                self.assertNotEqual(out[l][4], es[4])
+        # The web: every text of «Mi seguro de buceo» and of the window has its translation in the 8 language packs
+        keys = ['Mi seguro de buceo', 'Contrata tu seguro de buceo', 'Contratar en', '¿Ya lo tienes? Sube tu póliza', 'Destacado', 'Colaborador', 'Vigente',
+                'Caduca pronto', 'Caducado', 'Sin seguro', 'Recuerda llevar tu seguro de buceo vigente.', 'Contratar seguro del día', 'Dar de alta seguro',
+                'Seguro caducado ese día', 'Contratar o renovar seguro de RC del centro', 'Exige seguro de buceo']
+        for l in ('en', 'fr', 'de', 'it', 'pt', 'pl', 'nl', 'zh'):
+            pack = json.loads((ROOT / 'public' / 'idiomas' / f'{l}.json').read_text(encoding='utf-8'))
+            with self.subTest(web=l):
+                self.assertEqual([k for k in keys if not pack['exact'].get(k)], [])
+        # The legal notice of the window comes in the language asked for (texts of Administración → Seguros)
+        notices = {l: Client(self.server).get(f'/api/insurance/offers?tipo=dia&pais=ES&lang={l}').json['not_insurer'] for l in ('es', 'en', 'fr', 'de', 'it', 'pt', 'pl', 'nl', 'zh')}
+        self.assertEqual(len(set(notices.values())), 9, notices)

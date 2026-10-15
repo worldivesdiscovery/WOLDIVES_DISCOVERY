@@ -9339,9 +9339,13 @@ def ins_booking_status_now(db, b):
     """The insurance of a booking today (a policy uploaded after booking counts)."""
     st = row_get(b, 'insurance_status') or 'not_required'
     if st == 'not_required': return st
-    if not is_guest_user(db, b['user_id']) and ins_covering(db, b['user_id'], b['booking_date'], b['id']): return 'ok'
+    guest = is_guest_user(db, b['user_id'])
+    if not guest and ins_covering(db, b['user_id'], b['booking_date'], b['id']): return 'ok'
     if ins_covering(db, -1, b['booking_date'], b['id']): return 'ok'
-    return 'ok' if st == 'ok' else st
+    # The same as the booking's detail (ins_booking_view): a policy of his that ended before the dive is 🔴, not ⚪
+    if st == 'missing' and not guest and db.execute("SELECT 1 FROM insurance_policies WHERE user_id=? AND status='active' AND valid_to<?",
+                                                    (b['user_id'], b['booking_date'])).fetchone(): return 'expired'
+    return st
 
 
 def ins_booking_view(db, b, viewer_center=None, viewer_pro=None):
@@ -13602,7 +13606,7 @@ class Handler(BaseHTTPRequestHandler):
             waiting = [{'id': b['id'], 'date': b['booking_date'], 'time': b['booking_time'], 'service': b['title'], 'deadline': b['hold_expires_at']}
                        for b in db.execute("""SELECT b.*, s.title FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id
                                               WHERE b.user_id=? AND b.status='insurance_pending' ORDER BY b.id DESC""", (uid,)).fetchall()]
-            texts = ins_texts(db, user_lang(db, uid))
+            texts = ins_texts(db, normalize_lang(q('lang')) if q('lang') else user_lang(db, uid))   # the language of the page
             self.send_json({'state': ins_state(db, uid, today), 'today': today, 'share': bool(share), 'waiting': waiting,
                             'policies': [ins_policy_out(db, p) for p in pols if p['status'] == 'active'],
                             'pending': [ins_policy_out(db, p) for p in pols if p['status'] == 'pending'],
@@ -14890,6 +14894,7 @@ class Handler(BaseHTTPRequestHandler):
                     ready_cache={}; payee_cache={}
                     for r in rows:
                         d=dict(r)
+                        d['insurance_required']=ins_requirement(r)   # v50.56: no · center · online
                         tariff_price, tariff_currency, tariff_effective = effective_service_tariff(db, r['id'])
                         d['price']=tariff_price; d['currency']=tariff_currency; d['tariff_effective_from']=tariff_effective
                         rk=(r['center_id'],r['provider_user_id'] if not r['center_id'] else None)

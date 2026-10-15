@@ -82,3 +82,14 @@ input:focus,textarea:focus,select:focus,button:focus-visible,a:focus-visible{out
   .wr-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 }
 @media (prefers-reduced-motion:no-preference){.wr-btn,.wr-chip,.wr-slot{transition:background .15s,border-color .15s,color .15s}}
+/* v50.56 · seguro de buceo en la reserva */
+.wr-ins{border:1px solid var(--borde);border-radius:var(--r);padding:10px 12px 12px;display:grid;gap:8px;margin:0;min-width:0}
+.wr-ins legend{font-weight:700;color:var(--tinta);padding:0 4px}
+.wr-ins [hidden]{display:none}
+.wr-ins-p{display:grid;gap:6px;border-top:1px dashed var(--borde);padding-top:8px}
+.wr-three{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.wr-offer{display:grid;gap:6px;border:1px solid var(--borde);border-radius:10px;padding:10px 12px;margin:6px 0;background:#fff;min-width:0}
+.wr-offer .wr-btn{justify-self:start}
+.wr-offer small{font-size:12px}
+.wr-done.wr-left{text-align:left;justify-items:stretch}
+.wr-left form{text-align:left}

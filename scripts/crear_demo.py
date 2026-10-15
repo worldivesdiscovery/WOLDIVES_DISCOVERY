@@ -122,6 +122,17 @@ def season(d: dt.date) -> float:
     return {7: 1.9, 8: 2.1, 6: 1.5, 9: 1.4, 5: 1.0, 10: .9, 4: .8}.get(d.month, .5) * (1.35 if d.weekday() >= 5 else 1.0)
 
 
+def demo_pdf(*lines):
+    """A small real PDF with text (v50.56, the test policies)."""
+    import zlib
+    content = b'BT /F1 12 Tf 72 760 Td ' + b' '.join(b'(' + l.encode('latin-1') + b') Tj 0 -18 Td' for l in lines) + b' ET'
+    comp = zlib.compress(content)
+    return (b'%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n'
+            b'3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n'
+            b'4 0 obj<</Length ' + str(len(comp)).encode() + b'/Filter/FlateDecode>>stream\n' + comp + b'\nendstream\nendobj\n'
+            b'5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n')
+
+
 def ok(r, what):
     if r.status != 200: raise SystemExit(f'No se ha podido {what}: {r.status} {r.body[:300]!r}')
     return r.json
@@ -414,6 +425,32 @@ def build(out: Path):
                      'crear el snorkel')['id']
         for k in range(1, 11):
             ok(center.post('/api/provider-services/slot', {'service_id': snorkel, 'slot_date': day(k), 'slot_time': '11:00', 'spots_total': 2}), 'salida de snorkel')
+        # v50.56 · Bloque 2 (seguros): two test insurers configured in Administración → Seguros (no insurer is in the code),
+        # that open a test page (example.com and example.org are reserved for examples); buzo.prueba with an EXPIRED policy,
+        # buzo2.prueba with a VALID one; and a service of Bahía Coralina «obligatorio para reservar online»
+        # (README-PRUEBAS «Probar los seguros», with docs/pruebas/poliza-de-prueba.pdf).
+        for name, dom, code in (('Aseguradora Demo A', 'example.com', 'WD-DEMO-A'), ('Aseguradora Demo B', 'example.org', 'WD-DEMO-B')):
+            prov = ok(admin.post('/api/admin/insurance/providers', {'name': name, 'allowed_domains': dom, 'website': f'https://{dom}/', 'partner_code': code,
+                                                                     'collaborator': True, 'active': True}), 'aseguradora de prueba')['id']
+            for kind, pname, price in (('dia', 'Seguro de buceo de un día', 6 if dom == 'example.com' else 7.5), ('semana', 'Seguro de buceo de una semana', 19),
+                                       ('anio', 'Seguro de buceo anual', 59 if dom == 'example.com' else 64), ('rc_centro', 'RC para centros de buceo', 390)):
+                url = f'https://{dom}/?seguro={kind}&colaborador={{codigo}}'
+                ok(admin.post('/api/admin/insurance/products', {'provider_id': prov, 'kind': kind, 'name': pname, 'price_from': price, 'zones': ['europa', 'mundo'],
+                                                                **({'center_url': url} if kind == 'rc_centro' else {'diver_url': url, 'center_url': url + '&para=centro'})}),
+                   'producto de prueba')
+        poliza = demo_pdf('Aseguradora Demo A', 'Poliza de seguro de buceo')
+        ok(buzo.upload('/api/insurance/policies', {'insurer': 'Aseguradora Demo A', 'policy_number': 'DA-2025-0412', 'kind': 'anio', 'valid_from': day(-400),
+                                                   'valid_to': day(-35), 'zone': 'europa', 'max_depth': '30'}, 'poliza.pdf', poliza), 'seguro caducado de buzo.prueba')
+        ok(divers[1].upload('/api/insurance/policies', {'insurer': 'Aseguradora Demo B', 'policy_number': 'DB-77-1093', 'kind': 'anio', 'valid_from': day(-60),
+                                                        'valid_to': day(305), 'zone': 'mundo', 'max_depth': '40'}, 'poliza.pdf', poliza), 'seguro vigente de buzo2.prueba')
+        guiada = ok(center.post('/api/provider-services', {'title': 'Inmersión guiada en la Granadella', 'price': 45, 'max_participants': 6, 'booking_mode': 'request',
+                                                           'service_type': 'inmersion', 'duration_minutes': 120, 'insurance_required': 'online',
+                                                           'description': 'Inmersión con guía desde la cala. Para reservar online hace falta un seguro de buceo válido ese día.'}),
+                    'crear la inmersión con seguro obligatorio')['id']
+        for k in range(1, 11):
+            ok(center.post('/api/provider-services/slot', {'service_id': guiada, 'slot_date': day(k), 'slot_time': '10:00', 'spots_total': 6}), 'salida de la inmersión guiada')
+        # The files of these policies stay in this temporary server: in the demo they are listed without a document
+        srv.sql('UPDATE insurance_policies SET file_path=NULL,original_name=NULL')
         # v50.49 (app Centro PRO): an evening dive every day of the week with divers, so «Hoy» has a boat list whatever
         # day the tester opens the app (the demo is rebuilt every 7 days), and a request that expires soon.
         # v50.54: the hour of the centre (Spain), not of the computer: at 20:00 UTC the 21:30 departure of Xàbia has

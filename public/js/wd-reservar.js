@@ -43,6 +43,11 @@
       return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) { var e = new Error(d.error || t('error')); e.status = r.status; e.data = d; throw e; } return d; });
     });
   }
+  function upload(path, form) {
+    return fetch(path, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' }, credentials: boot.mode === 'widget' ? 'omit' : 'same-origin' }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) { var e = new Error(d.error || t('error')); e.status = r.status; e.data = d; throw e; } return d; });
+    });
+  }
   function errText(e) {
     if (!e) return t('error');
     if (e.data && e.data.code === 'no_spots') return t('no_spots');
@@ -71,6 +76,100 @@
         return solve(e.data.challenge, e.data.bits || 14).then(function (nonce) { body.pow = { challenge: e.data.challenge, nonce: nonce }; return api('/api/w/' + boot.slug + '/reservar', body, { idem: idem }); });
       }
       throw e;
+    });
+  }
+
+  // ------------------------------------------------------------------ diving insurance (v50.56, Bloque 2)
+  // The service decides: «no», «se comprueba en el centro» (declared here or shown at the centre) or «obligatorio para
+  // reservar online» (the policy is uploaded after booking; the spots are held meanwhile). WORLDIVES does not sell
+  // insurance: the links only open the insurer's website, with nothing about the person.
+  var insClick = null;
+  function insBox(s) {
+    var need = s.insurance || 'no'; if (need === 'no') return '';
+    var main = need === 'online' ? '<p class="wr-note">' + esc(t('ins_online_after')) + '</p>'
+      : '<label class="wr-check"><input type="radio" name="ins_mode" value="have" checked><span>' + esc(t('ins_have')) + '</span></label>' +
+        '<div class="wr-two" data-ins-have><label>' + esc(t('ins_insurer')) + '<input type="text" name="ins_insurer" maxlength="120" autocomplete="off"></label>' +
+        '<label>' + esc(t('ins_valid_to')) + '<input type="date" name="ins_valid_to"></label></div>' +
+        '<label class="wr-check"><input type="radio" name="ins_mode" value="center"><span>' + esc(t('ins_at_center')) + '</span></label>';
+    return '<fieldset class="wr-ins"><legend>' + esc(t('ins_title')) + '</legend><p class="wr-note">' + esc(t(need === 'online' ? 'ins_online' : 'ins_center')) + '</p>' + main +
+      '<div data-ins-others></div><button type="button" class="wr-link" data-ins-offers>' + esc(t('ins_buy')) + '</button><div data-ins-list></div></fieldset>';
+  }
+  function insOthers(n) {
+    var box = app.querySelector('[data-ins-others]'); if (!box) return;
+    var keep = []; box.querySelectorAll('[data-ins-p]').forEach(function (r) { keep.push([r.querySelector('[name=insp_name]').value, r.querySelector('[name=insp_insurer]').value, r.querySelector('[name=insp_to]').value]); });
+    var html = '';
+    for (var i = 1; i < n; i++) {
+      var k = keep[i - 1] || ['', '', ''];
+      html += '<div class="wr-ins-p" data-ins-p><b>' + esc(t('ins_person', { n: i + 1 })) + '</b><div class="wr-three"><label>' + esc(t('name')) + '<input type="text" name="insp_name" maxlength="120" value="' + esc(k[0]) + '"></label>' +
+        '<label>' + esc(t('ins_insurer')) + '<input type="text" name="insp_insurer" maxlength="120" value="' + esc(k[1]) + '"></label><label>' + esc(t('ins_valid_to')) + '<input type="date" name="insp_to" value="' + esc(k[2]) + '"></label></div></div>';
+    }
+    box.innerHTML = n > 1 ? '<p class="wr-note">' + esc(t('ins_others')) + '</p>' + html : '';
+  }
+  function insOffers(box, country) {
+    if (!box) return;
+    box.innerHTML = '<p class="wr-note">' + esc(t('loading')) + '</p>';
+    api('/api/w/' + boot.slug + '/seguros?tipo=dia&lang=' + lang + (country ? '&pais=' + encodeURIComponent(country) : '')).then(function (r) {
+      box.innerHTML = '<p class="wr-note">' + esc(r.not_insurer || '') + '</p>' + (r.offers.length ? r.offers.map(function (o) {
+        return '<div class="wr-offer"><div><b>' + esc(o.insurer) + '</b> · ' + esc(o.product) + (o.price_from != null ? ' · ' + esc(t('from')) + ' ' + esc(money(o.price_from, o.currency)) : '') +
+          (o.featured ? ' <span class="wr-tag">' + esc(t('ins_featured')) + '</span>' : '') + (o.collaborator ? ' <span class="wr-tag">' + esc(t('ins_collaborator')) + '</span>' : '') + '</div>' +
+          '<a class="wr-btn wr-sec" href="' + esc(o.url) + '" target="_blank" rel="noopener noreferrer" data-ins-go="' + o.product_id + '">' + esc(t('ins_buy_in', { insurer: o.insurer })) + ' ↗</a>' +
+          '<small class="wr-note">' + esc(o.notice) + (o.collaborator_text ? ' ' + esc(o.collaborator_text) : '') + (o.featured_text ? ' ' + esc(o.featured_text) : '') + '</small></div>';
+      }).join('') : '<p class="wr-note">' + esc(t('ins_none')) + '</p>');
+      box.querySelectorAll('[data-ins-go]').forEach(function (a) { a.addEventListener('click', function () { insClick = +a.getAttribute('data-ins-go'); }); });
+    }).catch(function (e) { box.innerHTML = '<p class="wr-msg err">' + esc(errText(e)) + '</p>'; });
+  }
+  function insCollect(f, data) {
+    var need = S.svc && S.svc.insurance; if (!need || need === 'no') return true;
+    var mode = f.elements.ins_mode ? (f.querySelector('[name=ins_mode]:checked') || {}).value : 'center';
+    if (need !== 'online') {
+      if (mode === 'have') {
+        var ins = (f.elements.ins_insurer.value || '').trim(), to = f.elements.ins_valid_to.value;
+        if (!ins || !to) { say(t('ins_need_fields')); return false; }
+        data.insurance = { insurer: ins, valid_to: to };
+      } else data.insurance = { at_center: true };
+    }
+    var others = [];
+    f.querySelectorAll('[data-ins-p]').forEach(function (r) {
+      others.push({ name: r.querySelector('[name=insp_name]').value.trim(), insurer: r.querySelector('[name=insp_insurer]').value.trim(), valid_to: r.querySelector('[name=insp_to]').value });
+    });
+    if (others.length) data.insurance_participants = others;
+    return true;
+  }
+  // «Obligatorio»: the policy for the day of the dive, before the booking goes on (the same form on /mi-reserva/).
+  function insUploadForm(deadline) {
+    return '<form novalidate data-ins-form enctype="multipart/form-data"><h3>' + esc(t('ins_pending_title')) + '</h3>' +
+      '<p class="wr-note">' + esc(deadline ? t('ins_pending', { time: String(deadline).slice(11, 16) }) : t('ins_online')) + '</p>' +
+      '<div class="wr-two"><label>' + esc(t('ins_insurer')) + '<input type="text" name="insurer" maxlength="120" required></label><label>' + esc(t('ins_number')) + '<input type="text" name="policy_number" maxlength="60"></label></div>' +
+      '<div class="wr-two"><label>' + esc(t('ins_kind')) + '<select name="kind"><option value="dia">' + esc(t('ins_k_dia')) + '</option><option value="semana">' + esc(t('ins_k_semana')) + '</option><option value="anio">' + esc(t('ins_k_anio')) + '</option><option value="otro">' + esc(t('ins_k_otro')) + '</option></select></label>' +
+      '<label>' + esc(t('ins_valid_to')) + '<input type="date" name="valid_to" required></label></div>' +
+      '<label>' + esc(t('ins_valid_from')) + '<input type="date" name="valid_from"></label>' +
+      '<label>' + esc(t('ins_file')) + '<input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required></label>' +
+      '<p class="wr-note">' + esc(t('ins_no_medical')) + '</p><input type="hidden" name="after_click" value=""><input type="hidden" name="ventana" value="' + (boot.mode === 'widget' ? '1' : '') + '">' +
+      '<button class="wr-btn wr-full" type="submit" data-ins-send>' + esc(t('ins_upload')) + '</button>' +
+      '<button type="button" class="wr-link" data-ins-offers>' + esc(t('ins_buy')) + '</button><div data-ins-list></div></form>';
+  }
+  function insBindUpload(token, onDone) {
+    var form = app.querySelector('[data-ins-form]'); if (!form) return;
+    var off = form.querySelector('[data-ins-offers]'); if (off) off.addEventListener('click', function () { insOffers(form.querySelector('[data-ins-list]')); });
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var file = form.elements.file.files[0];
+      if (!form.elements.insurer.value.trim() || !form.elements.valid_to.value || !file) return say(t('ins_need_upload'));
+      if (file.size > 10 * 1024 * 1024) return say(t('ins_too_big'));
+      form.elements.after_click.value = insClick || '';
+      var go = form.querySelector('[data-ins-send]'); go.disabled = true; say('', 'info');
+      upload('/api/mi-reserva/' + token + '/seguro', form).then(function (r) { go.disabled = false; onDone(r); }).catch(function (e) { go.disabled = false; say(errText(e)); });
+    });
+  }
+  function insStep(r) {
+    draw('<div class="wr-done wr-left"><p class="wr-msg info">' + esc(t('ins_online')) + '</p>' + (r.ref ? '<p><b>' + esc(t('reference')) + ':</b> ' + esc(r.ref) + '</p>' : '') + insUploadForm(r.insurance && r.insurance.deadline) + '</div>');
+    insBindUpload(r.token, function (out) {
+      var b = out.booking || {};
+      if (b.checkout_url) {
+        if (boot.mode !== 'widget') { location.href = b.checkout_url; return; }
+        return paying({ checkout_url: b.checkout_url, token: r.token, booking_url: r.booking_url }, null);
+      }
+      done({ status: b.status || 'requested', ref: r.ref, token: r.token, booking_url: r.booking_url });
     });
   }
 
@@ -207,15 +306,17 @@
       '<h3>' + esc(t('your_details')) + '</h3><label>' + esc(t('name')) + '<input type="text" name="fullname" autocomplete="name" required maxlength="180"></label>' +
       '<div class="wr-two"><label>' + esc(t('email')) + '<input type="email" name="email" autocomplete="email" required maxlength="160"></label>' +
       '<label>' + esc(t('phone')) + '<input type="tel" name="phone" autocomplete="tel" maxlength="40"></label></div>' +
-      '<label>' + esc(t('notes')) + '<textarea name="notes" maxlength="1000"></textarea></label>' +
+      '<label>' + esc(t('notes')) + '<textarea name="notes" maxlength="1000"></textarea></label>' + insBox(s) +
       '<label class="wr-hp" aria-hidden="true">Web<input type="text" name="website" tabindex="-1" autocomplete="off"></label>' +
       '<div class="wr-policy"><b>' + esc(t('policy')) + '</b><br>' + esc(S.cat.provider.policy || '') + '</div>' +
       '<label class="wr-check"><input type="checkbox" name="accept_policy" required><span>' + esc(t('accept_policy')) + '</span></label>' +
       '<p class="wr-note">' + esc(mode) + '</p><p class="wr-note">' + esc(t('processor', { center: S.cat.provider.name })) + '</p>' +
       '<button class="wr-btn wr-full" type="submit" data-go>' + esc(s.mode === 'payment' ? t('pay_book') : t('send_request')) + '</button></form>');
     app.querySelector('[data-back]').addEventListener('click', dates);
+    var offBtn = app.querySelector('[data-ins-offers]'); if (offBtn) offBtn.addEventListener('click', function () { insOffers(app.querySelector('[data-ins-list]')); });
+    app.querySelectorAll('[name=ins_mode]').forEach(function (r) { r.addEventListener('change', function () { var h = app.querySelector('[data-ins-have]'); if (h) h.hidden = r.value !== 'have' || !r.checked; }); });
     function refresh() {
-      app.querySelector('[data-paxv]').textContent = S.pax;
+      app.querySelector('[data-paxv]').textContent = S.pax; insOthers(S.pax);
       quote().then(function (q) {
         app.querySelector('[data-sum]').innerHTML = (q.lines || []).map(function (l) {
           return '<div><span>' + esc(l.label) + (l.qty > 1 ? ' × ' + l.qty : '') + '</span><span>' + esc(money(l.total, q.currency)) + '</span></div>';
@@ -233,11 +334,13 @@
       if (data.fullname.length < 2) return say(t('need_name'));
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) return say(t('check_email'));
       if (!data.accept_policy) return say(t('accept_policy'));
+      if (!insCollect(f, data)) return;
       S.busy = true; var go = app.querySelector('[data-go]'); go.disabled = true; say('', 'info');
       var win = null;
       if (s.mode === 'payment' && boot.mode === 'widget') { try { win = window.open('', 'wd-pago'); } catch (e) { win = null; } }   // opened now: popup blockers allow it
       book(data, idem).then(function (r) {
         S.busy = false;
+        if (r.status === 'insurance_pending') { if (win) try { win.close(); } catch (e) { /* closed */ } return insStep(r); }
         if (r.checkout_url) {
           if (boot.mode !== 'widget') { location.href = r.checkout_url; return; }
           if (win) { try { win.location.href = r.checkout_url; } catch (e) { win = null; } }
@@ -275,6 +378,7 @@
       (r.ref ? '<p><b>' + esc(t('reference')) + ':</b> ' + esc(r.ref) + '</p>' : '') +
       (!ok && r.response_deadline_text ? '<p>' + esc(t('reply_before', { when: r.response_deadline_text })) + '</p>' : '') +
       (email ? '<p class="wr-note">' + esc(t('mail_sent', { email: email })) + '</p>' : '') +
+      (S.svc && S.svc.insurance && S.svc.insurance !== 'no' ? '<p class="wr-msg info">' + esc(t('ins_bring')) + '</p>' : '') +
       (r.booking_url ? '<a class="wr-btn wr-sec" href="' + esc(r.booking_url) + '" target="_blank" rel="noopener">' + esc(t('your_booking')) + '</a>' : '') +
       '<p class="wr-note" style="margin-top:8px">' + esc(t('account_offer')) + '</p><a class="wr-link" href="' + esc(boot.register + '?tipo=recreational' + (email ? '&email=' + encodeURIComponent(email) : '')) + '" target="_blank" rel="noopener">' + esc(t('create_account')) + '</a></div>');
   }
@@ -296,6 +400,11 @@
   }
 
   // ------------------------------------------------------------------ the booking of a customer without an account
+  function insLine(b) {
+    var i = b.insurance; if (!i || i.required === 'no' || b.status === 'insurance_pending') return '';
+    var ok = i.status === 'ok' || i.status === 'declared';
+    return '<dt>' + esc(t('ins_title')) + '</dt><dd>' + (ok ? '🟢 ' + esc(t('ins_ok')) + (i.insurer ? ' · ' + esc(i.insurer) : '') : esc(t('ins_bring'))) + '</dd>';
+  }
   function bookingPage() {
     var b = boot.booking;
     if (boot.mode === 'return') {
@@ -314,12 +423,18 @@
       '<dl class="wr-kv"><dt>' + esc(t('reference')) + '</dt><dd>' + esc(b.ref) + '</dd><dt>' + esc(t('activity')) + '</dt><dd>' + esc(b.service) + '</dd>' +
       '<dt>' + esc(t('date')) + '</dt><dd>' + esc(when) + ' <span class="wr-note">(' + esc(t('local_time', { tz: tzName(b.timezone) })) + ')</span></dd>' +
       '<dt>' + esc(t('people')) + '</dt><dd>' + b.participants + '</dd><dt>' + esc(t('total')) + '</dt><dd>' + esc(money(b.price, b.currency)) + '</dd>' +
-      '<dt>' + esc(t('status')) + '</dt><dd>' + esc(st) + '</dd></dl>' +
+      '<dt>' + esc(t('status')) + '</dt><dd>' + esc(st) + '</dd>' + insLine(b) + '</dl>' +
       (b.payment_deadline ? '<p class="wr-note">' + esc(b.payment_deadline) + '</p>' : '') +
       '<div class="wr-policy" style="margin:12px 0"><b>' + esc(t('policy')) + '</b><br>' + esc(b.policy || '') + '</div>' +
       '<div class="wr-actions">' + (b.can_pay ? '<button class="wr-btn" type="button" data-pay>' + esc(t('pay_now')) + '</button>' : '') +
       (b.can_cancel ? '<button class="wr-btn wr-sec" type="button" data-cancel>' + esc(t('cancel_booking')) + '</button>' : '') +
-      (b.slug ? '<a class="wr-link" href="' + esc(boot.base + '/c/' + b.slug) + '">' + esc(t('catalog')) + '</a>' : '') + '</div>');
+      (b.slug ? '<a class="wr-link" href="' + esc(boot.base + '/c/' + b.slug) + '">' + esc(t('catalog')) + '</a>' : '') + '</div>' +
+      (b.status === 'insurance_pending' ? insUploadForm(b.insurance && b.insurance.deadline || b.hold_expires_at) : ''));
+    if (b.status === 'insurance_pending') insBindUpload(b.token, function (out) {
+      var nb = out.booking || {};
+      if (nb.checkout_url) { location.href = nb.checkout_url; return; }
+      api('/api/mi-reserva/' + b.token).then(function (d) { boot.booking = Object.assign(d.booking, { token: b.token }); bookingPage(); say(t('ins_saved'), 'ok'); });
+    });
     var pay = app.querySelector('[data-pay]');
     if (pay) {
       pay.addEventListener('click', function () {
