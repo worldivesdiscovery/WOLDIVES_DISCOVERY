@@ -307,3 +307,42 @@ El informe está en `docs/auditoria/v50.51/`. Las herramientas van solo en este 
    «Cerrar sesión» en él. En el móvil, al volver a la app, sale y vuelve a la pantalla de acceso.
 5. Al entrar desde un dispositivo nuevo llega el correo «Nuevo inicio de sesión» (en `data/pruebas/correos/`).
 6. Con el **Buceador**, el bloqueo es opcional: **Mi área → Ajustes → Seguridad**.
+
+## 14. Probar el motor multicanal (v50.56)
+
+Un centro vende las mismas plazas en **su propia web**, en **WORLDIVES**, con **un enlace**, por **la API** y **a mano**
+desde el panel. Lo que se vende en un sitio desaparece en todos al momento.
+
+Al arrancar las pruebas se abre también una **web de ejemplo de un centro**: **http://localhost:8101** (no es una web
+real). Lleva el widget de **Bahía Coralina** (`centro.prueba`) en sus 3 formatos: el botón «Reservar ahora», un
+calendario (del «Snorkel en la Granadella», con salidas de **2 plazas** cada día) y la lista de todo el catálogo.
+Ábrela en **este** ordenador: el widget solo funciona en los dominios que el centro autoriza (aquí, `localhost:8101`).
+
+1. **Reserva en la web de ejemplo.** En el calendario, elige el primer día, la salida de las 11:00 («2 plazas») y envía
+   una solicitud de 1 persona con un nombre y un email cualquiera. Sale «Solicitud enviada». Abajo, en «Eventos que
+   recibe esta página», aparecen «reserva iniciada» y «reserva completada».
+2. **Mírala en el panel.** Entra como `centro.prueba`: en unos segundos sale el aviso «Nueva reserva · Tu web…» y en
+   **Reservas** está con la etiqueta **«Tu web»**. Acéptala. El correo al centro (en `data/pruebas/correos/`) dice
+   «Canal: Tu web · localhost:8101».
+3. **La plaza baja en WORLDIVES.** Abre la ficha de Bahía Coralina en WORLDIVES (Centros → Bahía Coralina): esa salida
+   del snorkel dice **«1 plaza»**.
+4. **Reserva la última plaza desde WORLDIVES.** Entra como `buzo.prueba` y reserva esa misma salida. Vuelve como
+   `centro.prueba` y acéptala.
+5. **«Completo» en el widget.** Recarga la web de ejemplo y elige ese día: la salida dice **«Completo»** y no se puede
+   elegir. En la ficha de WORLDIVES dice «Completa».
+6. **Cancela y mira la plaza libre en los dos sitios.** Como `centro.prueba`, cancela la reserva que entró por la web
+   (Reservas → la de «Tu web» → Cancelar). Recarga la web de ejemplo y la ficha de WORLDIVES: vuelve a haber 1 plaza
+   en los dos.
+
+Más cosas para mirar como `centro.prueba`:
+- **Vender en tu web**: el código para pegar en tu web (botón, calendario o lista, todo el catálogo o un solo
+  servicio), la vista previa en vivo, los dominios, el color y el idioma, tu página `/c/bahia-coralina` con su QR, las
+  claves de la API, los avisos automáticos (webhooks) y los calendarios iCal.
+- **Planning**: cada persona con la etiqueta de su canal (WORLDIVES, Tu web, Enlace directo, API, Manual) y el filtro
+  «Todos los canales»; «Bloquear plazas» para guardar plazas sin cliente (un hotel, una agencia).
+- **Nueva reserva** a mano con «Online con enlace»: da un enlace de pago para mandar por WhatsApp (los pagos online
+  necesitan las claves de prueba de Stripe, apartado 5).
+- **Analítica e informes → Ventas por canal**: reservas e importe de cada canal, mes a mes, con CSV.
+- La página de reservas del centro sin incrustar nada: **http://localhost:8100/c/bahia-coralina**.
+
+Este recorrido se comprueba solo con `python3 tests/navegador/e2e_v50_56_demo_multicanal.py`.

@@ -30,7 +30,7 @@
   }
   if (inFrame && 'ResizeObserver' in window) {
     var lastH = 0;
-    new ResizeObserver(function () { var h = Math.ceil(document.documentElement.scrollHeight); if (Math.abs(h - lastH) > 2) { lastH = h; toHost({ type: 'height', h: h }); } }).observe(document.body);
+    new ResizeObserver(function () { var h = Math.ceil(document.body.getBoundingClientRect().height); /* the content, so the frame also shrinks */ if (Math.abs(h - lastH) > 2) { lastH = h; toHost({ type: 'height', h: h }); } }).observe(document.body);
   }
   if (boot.mode === 'widget' && boot.fmt === 'boton') document.addEventListener('keydown', function (e) { if (e.key === 'Escape') toHost({ type: 'close' }); });
   if (boot.mode === 'widget' && !inFrame && boot.slug) { location.replace(boot.base + '/c/' + boot.slug + location.search.replace(/[?&]f=[^&]*/, '')); return; }

@@ -175,7 +175,14 @@ def run(shots: Path | None):
             check('móvil · sin desplazamiento lateral', over <= 0, over)
             w = page.evaluate("document.querySelector('#lista iframe').getBoundingClientRect().width")
             check('móvil · el widget cabe en la pantalla', w <= 390, w)
-            shot(page, 'widget-web-ejemplo-movil')
+            # Chromium paints an iframe only once it has been on screen: scroll through the page before the full capture
+            page.locator('#lista').scroll_into_view_if_needed(); page.wait_for_timeout(600)
+            shot(page, 'widget-lista-movil', False)
+            # The full page: a viewport as tall as the page, so every iframe is on screen when it is captured
+            page.evaluate('window.scrollTo(0, 0)'); full_h = page.evaluate('document.scrollingElement.scrollHeight')
+            page.set_viewport_size({'width': 390, 'height': full_h}); page.wait_for_timeout(800)
+            shot(page, 'widget-web-ejemplo-movil', False)
+            page.set_viewport_size({'width': 390, 'height': 844}); page.wait_for_timeout(300)
             page.click('#boton-reservar'); page.wait_for_selector('div[role=dialog] iframe', timeout=8000)
             page.frame_locator('div[role=dialog] iframe').locator('.wr-card').first.wait_for(timeout=10000)
             shot(page, 'widget-boton-movil', False)
@@ -201,6 +208,16 @@ def run(shots: Path | None):
             page.goto(f'{srv.base}/c/{slug}?servicio={req_sid}&fecha={d1}'); page.wait_for_selector('.wr-slot')
             check('enlace directo a una fecha', page.locator('.wr-slot').count() == 1)
             ctx.close()
+
+            # Time zones: a departure is shown at the local time of its place (10:00 at the centre), whoever looks and from where
+            seen = {}
+            for tzid in ('America/Los_Angeles', 'Asia/Tokyo', 'Europe/Madrid'):
+                ctx = browser.new_context(timezone_id=tzid, locale='es-ES'); page = ctx.new_page()
+                page.goto(f'{srv.base}/c/{slug}?servicio={req_sid}&fecha={d1}'); page.wait_for_selector('.wr-slot')
+                seen[tzid] = page.inner_text('body')
+                ctx.close()
+            first = next(iter(seen.values()))
+            check('zonas horarias: la misma fecha y hora local desde Los Ángeles, Tokio y Madrid', len(set(seen.values())) == 1 and '10:00' in first, {k: v[:120] for k, v in seen.items()})
 
             # Performance: the widget on 4G (simulated)
             ctx = browser.new_context(); page = ctx.new_page(); cdp = ctx.new_cdp_session(page)

@@ -3574,3 +3574,11 @@ html.wd-app .pp-page{padding-bottom:150px}
 @media (max-width:640px){.vt-bar{grid-template-columns:90px 1fr}.vt-bar b{grid-column:1/-1}.vt-preview iframe{height:460px}}
 /* the channel tag is one more tag per person: let the tags wrap under the name instead of widening the agenda pop-up */
 .pl-person{flex-wrap:wrap;row-gap:4px}.pl-person .pl-pname{flex:1 1 130px}.pl-slot>*{min-width:0}
+/* v50.56: on a phone nothing in «Vender en tu web» or «Ventas por canal» may widen the screen: the grid track never grows
+   past the screen and the tables scroll inside their card */
+.vt-wrap{grid-template-columns:minmax(0,1fr);min-width:0;max-width:100%}.vt-card{min-width:0;grid-template-columns:minmax(0,1fr)}.vt-card>*{min-width:0;max-width:100%}
+.vt-code,.vt-link{overflow-wrap:anywhere}
+@media (max-width:640px){.vt-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}.vt-table td,.vt-table th{white-space:nowrap}
+  .vt-row>input,.vt-row>select{flex:1 1 140px;min-width:0}.vt-card{padding:14px}}
+.cb-main .vt-table{min-width:0}   /* the panel gives its tables 860px; these scroll inside their card on a phone instead */
+.vt-card code{overflow-wrap:anywhere}.vt-card p .pl-tag,.vt-card div>.pl-tag{white-space:normal}

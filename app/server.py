@@ -18495,8 +18495,26 @@ def main():
     pool_drain()   # no connection opened before fork() passes to the child processes
     if reuse:
         WodHTTPServer.allow_reuse_port=True
+        children=[]; parent=os.getpid()
         for _ in range(workers-1):
-            if os.fork()==0: break
+            pid=os.fork()
+            if pid==0: children=None; break
+            children.append(pid)
+        if children is None:
+            # v50.56: a worker whose main process has gone (stopped, killed) stops too, instead of keeping the port
+            def _orphan_watch():
+                while True:
+                    time.sleep(2)
+                    if os.getppid()!=parent: os._exit(0)
+            threading.Thread(target=_orphan_watch, name='orphan-watch', daemon=True).start()
+        else:
+            import signal as _signal
+            def _stop_all(signum, frame):
+                for c in children:
+                    try: os.kill(c, _signal.SIGTERM)
+                    except OSError: pass
+                raise SystemExit(0)
+            _signal.signal(_signal.SIGTERM, _stop_all)
     try:
         s=WodHTTPServer((HOST,PORT),Handler)
     except OSError as e:

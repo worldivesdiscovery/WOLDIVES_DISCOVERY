@@ -7,7 +7,8 @@
                             http://<IP of this computer>:8100 (v50.48; also iniciar-pruebas-movil.bat / .sh)
     iniciar --depuracion    every request is written in this window (WOD_ACCESS_LOG=stdout), no browser
     iniciar --pruebas       TEST ENVIRONMENT (zip «-pruebas»): port 8100, «Entorno de pruebas» band, test accounts,
-                            emails saved in data/pruebas/correos, demonstration data with dates from today
+                            emails saved in data/pruebas/correos, demonstration data with dates from today, and (v50.56)
+                            the example website of a dive centre on http://localhost:8101 with the booking widget
 
 The first time it installs what requirements.txt asks for (stripe, qrcode, fonttools, cryptography, Pillow) if it is missing,
 and again whenever an installed version is not the one fixed there.
@@ -67,6 +68,40 @@ def lan_ip():
         return None
 
 
+def example_site(public_url: str, db_path: str, host: str):
+    """v50.56: the website of a dive centre, as an example (README-PRUEBAS, «Probar el motor multicanal»): a plain page on
+    another address (http://localhost:8101) with the widget of Bahía Coralina (centro.prueba) in its three formats.
+    Built from scripts/demo/web-de-centro-ejemplo.html each time the test environment starts."""
+    import http.server
+    import sqlite3
+    tpl = ROOT / 'scripts' / 'demo' / 'web-de-centro-ejemplo.html'
+    if not tpl.exists(): return None
+    sid = ''
+    try:
+        c = sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)
+        try:
+            r = c.execute("""SELECT s.id FROM provider_services s JOIN sales_settings ss ON ss.provider_kind='center' AND ss.provider_id=s.center_id
+                             WHERE ss.slug='bahia-coralina' AND s.title='Snorkel en la Granadella' AND s.active=1""").fetchone()
+            sid = str(r[0]) if r else ''
+        finally: c.close()
+    except sqlite3.Error:
+        pass
+    folder = ROOT / 'data' / 'pruebas' / 'web-centro'
+    folder.mkdir(parents=True, exist_ok=True)
+    html = tpl.read_text(encoding='utf-8').replace('__WORLDIVES__', public_url).replace('__CENTRO__', 'bahia-coralina').replace('__SERVICIO__', sid)
+    (folder / 'index.html').write_text(html, encoding='utf-8')
+
+    class Quiet(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **k): super().__init__(*a, directory=str(folder), **k)
+        def log_message(self, *a): pass
+    try:
+        httpd = http.server.ThreadingHTTPServer((host, 8101), Quiet)
+    except OSError:
+        print('  (La web de ejemplo no arranca: el puerto 8101 está ocupado.)'); return None
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    return 'http://localhost:8101'
+
+
 def main():
     ap = argparse.ArgumentParser(description='Arranca WORLDIVES DISCOVERY.')
     ap.add_argument('--pruebas', action='store_true', help='entorno de pruebas (puerto 8100, cuentas y datos de prueba)')
@@ -104,9 +139,11 @@ def main():
             env.update({'WOD_PUBLIC_URL': f'http://{ip}:{port}', 'WOD_ALLOWED_ORIGINS': ','.join(x for x in (extra, local) if x)})
     if a.depuracion: env['WOD_ACCESS_LOG'] = 'stdout'
     url = f'http://localhost:{port}'
+    site = example_site(env['WOD_PUBLIC_URL'], env['WOD_DB_PATH'], '0.0.0.0' if a.red_local else '127.0.0.1') if a.pruebas else None
     print('=' * 64)
     print('  WORLDIVES DISCOVERY' + ('  ·  ENTORNO DE PRUEBAS' if a.pruebas else ''))
     print(f'  Abre {url}' + ('   (cuentas en README-PRUEBAS.md)' if a.pruebas else ''))
+    if site: print(f'  Web de ejemplo de un centro, con el widget de reservas: {site}')
     if a.red_local:
         if ip: print(f'  En el móvil (misma wifi), escribe:  http://{ip}:{port}')
         else: print(f'  Desde otro dispositivo de tu red: http://<IP de este ordenador>:{port}')

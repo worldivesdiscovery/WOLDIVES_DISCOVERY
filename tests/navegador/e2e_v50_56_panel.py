@@ -26,6 +26,12 @@ PW = 'buceo-seguro-2026'
 TOASTS = """window.__toasts=[];document.addEventListener('DOMContentLoaded',()=>{const t=document.getElementById('toast');
   if(t) new MutationObserver(()=>{ if(t.textContent) window.__toasts.push(t.textContent); }).observe(t,{childList:true,characterData:true,subtree:true});});"""
 
+# Elements that end beyond the right edge of the screen (what scrolls or is clipped inside a box that fits does not count)
+OVERFLOW = """[...document.querySelectorAll('ROOT *')].filter(e => { const r = e.getBoundingClientRect(); if (!r.width || r.right <= window.innerWidth + 1) return false;
+  for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) { const o = getComputedStyle(p).overflowX;
+    if (o !== 'visible' && p.getBoundingClientRect().right <= window.innerWidth + 1) return false; }
+  return true; }).slice(0, 12).map(e => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/ +/).join('.') : '') + ' → ' + Math.round(e.getBoundingClientRect().right))"""
+
 
 def chromium(p):
     exe = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
@@ -212,11 +218,20 @@ def run(shots: Path | None):
             page.wait_for_selector('#cb-vender .vt-wrap', timeout=15000)
             sw = page.evaluate('[document.documentElement.scrollWidth, window.innerWidth]')
             check('vender en el móvil: sin desplazamiento lateral', sw[0] <= sw[1] + 1, sw)
-            shot(page, 'vender-en-tu-web-movil')
+            # The page hides what overflows: also check that nothing of the screen is cut off on the right
+            cut = page.evaluate(OVERFLOW.replace('ROOT', '#cb-vender'))
+            check('vender en el móvil: nada cortado a la derecha', not cut, cut)
+            full_h = page.evaluate('document.scrollingElement.scrollHeight')
+            page.set_viewport_size({'width': 390, 'height': full_h}); page.wait_for_timeout(800)
+            shot(page, 'vender-en-tu-web-movil', False)
+            page.set_viewport_size({'width': 390, 'height': 844})
             go(page, '#/admin?tab=analytics', 2000)
             page.wait_for_selector('#cb-vcanal .vt-table', timeout=15000)
             sw = page.evaluate('[document.documentElement.scrollWidth, window.innerWidth]')
             check('ventas por canal en el móvil: sin desplazamiento lateral', sw[0] <= sw[1] + 1, sw)
+            cut = page.evaluate(OVERFLOW.replace('ROOT', '#cb-vcanal'))
+            check('ventas por canal en el móvil: nada cortado a la derecha', not cut, cut)
+            shot(page, 'ventas-por-canal-movil')
             check('móvil sin errores JS', not errors, errors)
             ctx.close()
             browser.close()

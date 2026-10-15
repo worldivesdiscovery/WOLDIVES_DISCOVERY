@@ -402,6 +402,18 @@ def build(out: Path):
             key, k = (('medas', 5), ('nocturna', 9), ('medas', 2), ('nocturna', 3), ('medas', 16), ('nocturna', 16))[i % 6]
             x = ok(d_.post('/api/bookings', {'center_id': cid2, 'service_id': svc2[key], 'slot_id': slots2[(key, k)], 'participants': 1}), 'reservar en el segundo centro')['id']
             if i % 5: ok(center2.post(f'/api/bookings/{x}/status', {'status': 'confirmed'}), 'confirmar en el segundo centro')   # some wait for an answer
+        # v50.56 · Motor multicanal: Bahía Coralina sells in its own website too (the example website of README-PRUEBAS,
+        # http://localhost:8101, served by «iniciar --pruebas»), with its page /c/bahia-coralina and its colour.
+        ok(center.post('/api/provider/vender', {'slug': 'bahia-coralina', 'color': '#0b7a75', 'domains': ['localhost:8101', '127.0.0.1:8101']}), 'vender en tu web')
+        ok(center2.post('/api/provider/vender', {'slug': 'escafandra-medes', 'color': '#8a4b12'}), 'página de reservas')
+        # A small departure every day (2 spots), for README-PRUEBAS «Probar el motor multicanal»: book on the example
+        # website, take the last spot from WORLDIVES and see «Completo» in the widget.
+        snorkel = ok(center.post('/api/provider-services', {'title': 'Snorkel en la Granadella', 'price': 30, 'max_participants': 2, 'booking_mode': 'request',
+                                                             'service_type': 'experiencia', 'duration_minutes': 90,
+                                                             'description': 'Snorkel con guía en la cala de la Granadella. Gafas, tubo y aletas incluidos.'}),
+                     'crear el snorkel')['id']
+        for k in range(1, 11):
+            ok(center.post('/api/provider-services/slot', {'service_id': snorkel, 'slot_date': day(k), 'slot_time': '11:00', 'spots_total': 2}), 'salida de snorkel')
         # v50.49 (app Centro PRO): an evening dive every day of the week with divers, so «Hoy» has a boat list whatever
         # day the tester opens the app (the demo is rebuilt every 7 days), and a request that expires soon.
         # v50.54: the hour of the centre (Spain), not of the computer: at 20:00 UTC the 21:30 departure of Xàbia has

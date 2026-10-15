@@ -2,7 +2,7 @@
 :root{--marca:#076898;--tinta:#011C3C;--texto:#2b3f48;--suave:#65747d;--borde:#dfe6e7;--fondo:#ffffff;--zona:#f4f8f9;--ok:#1f6b52;--aviso:#a86b12;--error:#b3261e;--r:12px}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--fondo);color:var(--texto);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
-body.wr-widget{background:transparent}
+body.wr-widget{background:transparent;display:flow-root}
 body.wr-widget main{background:var(--fondo)}
 main{max-width:760px;margin:0 auto;padding:16px}
 .wr-page main{padding:20px 16px 32px}

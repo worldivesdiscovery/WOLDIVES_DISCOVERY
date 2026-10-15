@@ -120,3 +120,22 @@ a la vez** a una salida «Pago al reservar» con **3 plazas**:
 - Las pruebas de concurrencia de `tests/test_v50_51_concurrencia.py` (también con 4 procesos).
 
 Siguiente paso (Parte B): una sola función `create_booking` para todos los canales, que corrige F1 a F7, F9 y F13.
+
+## 6. Después (v50.56)
+
+El mismo script, sin cambiarlo, contra la v50.56 (todas las reservas pasan por `create_booking`):
+
+| Ejecución | Reservas con plaza | Plazas libres al final | Respuestas |
+|---|---|---|---|
+| 1 proceso | **3** | 0 | las otras 17, el mismo mensaje: «Sin plazas: ya no quedan plazas libres para esa fecha.» |
+| 4 procesos (`WOD_WORKERS=4`) | **3** | 0 | buscador 2 · manual 1 · API 0 · las otras 17, «Sin plazas» |
+
+| | Antes | Después |
+|---|---|---|
+| Sin salida: reservas confirmadas ese día (salida de 2 plazas, 6 intentos de 2 personas) | 6 (12 personas) | **1 (2 personas)**; la salida queda con 0 libres |
+| Precio por la API mandando `"price": 1` (2 × 60 €) | 1 € | **120 €** (lo calcula el servidor) |
+
+Las pruebas obligatorias del encargo (20 reservas a la vez por 4 canales sobre 3 plazas, días de freelance, instructor
+en un curso de 3 días, retención, cancelación cruzada, idempotencia, widget, API, Stripe, zonas horarias, iCal y
+rendimiento) están en `tests/test_v50_56_*.py` y `tests/navegador/e2e_v50_56_*.py`; los resultados, en
+`docs/notas-de-version/v50.56.md`.
