@@ -490,3 +490,6 @@ html.wda-bloqueada body { overflow: hidden; }
 /* v50.55: the web's fixed bars of the booking pages (total and button) go above the app's tab bar, which covered them. */
 html.wd-app .bk-bar, html.wd-app .dbk-bar { bottom: calc(var(--barra) + var(--abajo)); z-index: 850; }
 html.wd-app .dbk-bar { background: var(--sup); }
+/* v50.55: three buttons in a booking card (QR, WhatsApp, Calendario): two per row on a narrow phone. */
+:where(.wda, .wda-capa) .btn-fila.envolver { flex-wrap: wrap; }
+:where(.wda, .wda-capa) .btn-fila.envolver > * { flex: 1 1 calc(50% - 4px); }

@@ -95,7 +95,9 @@ PUBLIC_GET = re.compile(r'^/api/(health|setup/status|legal/(doc|info|history|ver
                         r'|dive-points/\d+/(virtual|centers)|salidas-cercanas|top-dives|center-directory|dive-types(/.*)?|centers(/\d+)?|qr/.*'
                         r'|app/push|promo/.*|team/invite|whatsapp/webhook|r/.*|public/bookings/\d+|slot-cancel/\d+'
                         r'|service-catalog|dive-areas|centers/\d+/reviews)$')   # v50.53: templates, areas of Spain, more reviews
-PUBLIC_POST = re.compile(r'^/api/(setup|auth/(register|login|logout|forgot|reset|verify-email)|marketing/unsubscribe|pruebas/(entrar|fallo)'
+# v50.55: «auth/device/forget» is the phone ending its own device session with its installation id (no session needed,
+# always the same answer); it is checked in tests/test_v50_55_seguridad.py.
+PUBLIC_POST = re.compile(r'^/api/(setup|auth/(register|login|logout|forgot|reset|verify-email|device/forget)|marketing/unsubscribe|pruebas/(entrar|fallo)'
                          r'|integrations/bookings|payments/webhook(/connect)?|whatsapp/webhook|info-requests|stats/track|agenda/quote|reports|contact'
                          r'|team/join|account/delete/confirm|r/.*|slot-cancel/\d+|provider/wallet-grant)$')
 # Professional and administration areas: a diver gets 403/404 there.

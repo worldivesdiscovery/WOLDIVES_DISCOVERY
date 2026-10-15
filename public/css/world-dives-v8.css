@@ -3496,7 +3496,7 @@ html.wd-app[data-wda-tema="noche"] .svc2 :is(.svc2-kicker,.svc2-desc,.svc2-price
 .wd-ip-text{margin:0 0 8px;font-size:14px;line-height:1.55}
 .wd-ip-methods{margin:0 0 8px;font-size:14px}.wd-ip-methods small{display:block;color:#6b5a3a;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
 .wd-ip-ack{display:flex;gap:8px;align-items:flex-start;margin:6px 0 8px;font-weight:600}.wd-ip-ack input{width:20px;height:20px;flex:0 0 auto;margin-top:1px}
-.wd-ip-more{font-size:13px;color:#076898}
+.wd-ip-more{font-size:13px;color:var(--wd-oceano)}
 .btn.btn-wa{background:#1f7a52;border-color:#1f7a52;color:#fff;display:inline-flex;align-items:center;gap:8px}.btn.btn-wa:hover{background:#196444}
 .acc-row-tags .btn-wa{padding:6px 12px;font-size:13px;min-height:0}
 .pay-card.is-person .pay-card-icon{background:#fff4e0;color:#7a4f10}

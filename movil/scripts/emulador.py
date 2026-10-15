@@ -127,6 +127,26 @@ def crear_pin(pg, name=None):
     return pg.until("!document.getElementById('wda-bloqueo')", 20)
 
 
+def ui(etiqueta):
+    """What Android shows now (focused window and the texts on screen): to understand a failure without the screenshots."""
+    foco = [l.strip() for l in adb('shell', 'dumpsys', 'window').splitlines() if 'mCurrentFocus' in l or 'mFocusedApp' in l][:2]
+    adb('shell', 'uiautomator', 'dump', '/sdcard/ui.xml')
+    import re as _re
+    textos = [t for t in _re.findall(r'text="([^"]+)"', adb('shell', 'cat', '/sdcard/ui.xml')) if t.strip()][:25]
+    print(f'   [{etiqueta}] ventana: {foco} · textos: {textos}', flush=True)
+    return ' '.join(foco)
+
+
+def esperar_ventana(patron, segundos=20):
+    """Waits until the focused window matches (the system's prompt or the phone's code screen)."""
+    fin = time.time() + segundos
+    while time.time() < fin:
+        foco = ' '.join(l for l in adb('shell', 'dumpsys', 'window').splitlines() if 'mCurrentFocus' in l)
+        if any(x in foco for x in patron): return foco
+        time.sleep(1)
+    return ''
+
+
 def db(query, args=()):
     c = sqlite3.connect(DATA / 'worldives.sqlite3'); c.row_factory = sqlite3.Row   # WOD_DB_PATH of scripts/iniciar.py --pruebas
     try:
@@ -177,7 +197,7 @@ def seguridad(start):
     check('seguridad · tras el tiempo en segundo plano la app pide el PIN', s.until("!!document.querySelector('#wda-bloqueo .wda-teclado')", 20), s.js("document.body.innerText.slice(0, 200)"))
     captura('21-seguridad-bloqueada')
     pin(s, '000000')
-    check('seguridad · un PIN incorrecto dice cuántos intentos quedan', s.until("(document.getElementById('wda-bloqueo-msg') || {}).textContent.includes('quedan: 4')", 15),
+    check('seguridad · un PIN incorrecto dice cuántos intentos quedan', s.until("/(quedan|left|restantes)\\D*4/i.test((document.getElementById('wda-bloqueo-msg') || {}).textContent || '')", 15),
           s.js("document.getElementById('wda-bloqueo') && document.getElementById('wda-bloqueo').innerText"))
     pin(s, PIN)
     check('seguridad · con el PIN correcto vuelve a la app', s.until("!document.getElementById('wda-bloqueo') && document.querySelectorAll('.wda-tab').length === 5", 20))
@@ -207,12 +227,13 @@ def seguridad(start):
     s.until("!!document.querySelector('#wda-bloqueo .wda-teclado')", 20)
     for i in range(5):
         pin(s, '111111')
-        s.until(f"((document.getElementById('wda-bloqueo-msg') || {{}}).textContent || '').includes('quedan: {4 - i}') || /Sesión cerrada/.test((document.getElementById('wda-bloqueo') || {{}}).innerText || '')", 15)
+        s.until(f"/(quedan|left|restantes)\\D*{4 - i}/i.test((document.getElementById('wda-bloqueo-msg') || {{}}).textContent || '') || !!document.getElementById('wda-bloqueo-entrar')", 15)
     time.sleep(2)
     txt = s.js("document.getElementById('wda-bloqueo') && document.getElementById('wda-bloqueo').innerText") or ''
     st = s.js("Capacitor.Plugins.Seguridad.estado()") or {}
     ultimo = (db("SELECT revoked_reason FROM device_sessions ORDER BY id DESC LIMIT 1") or [{}])[0]
-    check('5 fallos · la app cierra la sesión, lo explica y borra el token', 'Sesión cerrada' in txt and st.get('token') is False, (txt, st))
+    fin_ok = s.js("!!document.getElementById('wda-bloqueo-entrar')")   # «Sesión cerrada» with «Entrar con mi contraseña» (in the phone's language)
+    check('5 fallos · la app cierra la sesión, lo explica y borra el token', fin_ok and '5' in txt and st.get('token') is False, (txt, st))
     check('5 fallos · la sesión del móvil termina también en el servidor', ultimo.get('revoked_reason') == 'unlock_failures', ultimo)
     check('5 fallos · no queda nada guardado en la web del móvil', not [k for k in (s.js("Object.keys(localStorage)") or []) if k.startswith(('wdenc:', 'wd-day-', 'wda-pro-'))])
     captura('22-seguridad-cinco-fallos')
@@ -232,19 +253,22 @@ def seguridad(start):
     ok = s.js("WD_SEC.renew()"); time.sleep(2)
     txt = s.js("document.getElementById('wda-bloqueo') && document.getElementById('wda-bloqueo').innerText") or ''
     st = s.js("Capacitor.Plugins.Seguridad.estado()") or {}
-    check('móvil · cerrado desde el ordenador: sale, borra sus datos y vuelve al acceso', ok is False and 'Sesión cerrada' in txt and st.get('token') is False, (ok, txt, st))
+    check('móvil · cerrado desde el ordenador: sale, borra sus datos y vuelve al acceso', ok is False and s.js("!!document.getElementById('wda-bloqueo-entrar')") and st.get('token') is False, (ok, txt, st))
     captura('23-seguridad-cerrada-a-distancia')
     # with a screen lock: the phone's own code through the system prompt (the fingerprint needs a real finger)
     adb('shell', 'locksettings', 'set-pin', '1111'); time.sleep(2)
     s.js("document.getElementById('wda-bloqueo-entrar').click()", 2)
     s.until("!!document.getElementById('login-form')", 20)
-    s.js(f"document.getElementById('login').value = 'centro.prueba'; document.getElementById('password').value = {json.dumps(PASSWORD)}; document.querySelector('#login-form button[type=submit]').click()", 5)
-    captura('24-seguridad-codigo-del-movil')
+    s.js(f"document.getElementById('login').value = 'centro.prueba'; document.getElementById('password').value = {json.dumps(PASSWORD)}; document.querySelector('#login-form button[type=submit]').click()", 2)
+    foco = esperar_ventana(('ConfirmDeviceCredential', 'BiometricPrompt', 'systemui', 'Credential'), 20)
+    ui('código del móvil al activar'); captura('24-seguridad-codigo-del-movil')
     adb('shell', 'input', 'text', '1111'); adb('shell', 'input', 'keyevent', '66'); time.sleep(4)
+    if not (s.js("Capacitor.Plugins.Seguridad.estado()") or {}).get('token'): ui('tras escribir el código')
     st = s.js("Capacitor.Plugins.Seguridad.estado()") or {}
     check('con bloqueo de pantalla · protege el token con el código del móvil (BiometricPrompt)', st.get('modo') == 'sistema' and st.get('token') is True, st)
     s.js("localStorage.setItem('wda-seg-umbral', '5')")   # the wipe of the 5 failures took it with the web storage
-    a_primer_plano(9); time.sleep(2)
+    a_primer_plano(9)
+    esperar_ventana(('ConfirmDeviceCredential', 'BiometricPrompt', 'systemui', 'Credential'), 15); ui('código del móvil al volver')
     captura('25-seguridad-desbloquear-con-codigo')
     adb('shell', 'input', 'text', '1111'); adb('shell', 'input', 'keyevent', '66'); time.sleep(4)
     check('con bloqueo de pantalla · al volver, se desbloquea con el código del móvil', s.until("!document.getElementById('wda-bloqueo') && document.querySelectorAll('.wda-tab').length === 5", 20),
@@ -362,7 +386,8 @@ def main():
     p3 = Page('https://localhost', timeout=60)
     p3.js("document.querySelector('[data-cuenta=\"instructor.prueba\"]').click()", 6)
     i_ = Page(SERVER, timeout=90)
-    crear_pin(i_)
+    if not crear_pin(i_):
+        print('   instructor sin PIN:', i_.js("document.body.innerText.slice(0, 300)"), '· aviso:', i_.js("(document.getElementById('toast') || {}).innerText"), flush=True); ui('instructor')
     i_.until("document.querySelectorAll('.wda-tab').length > 0", 45)
     tabs = i_.js("[...document.querySelectorAll('.wda-tab')].map(a => a.getAttribute('href'))")
     names = i_.js("[...document.querySelectorAll('.wda-tab > span:nth-child(2)')].map(e => e.textContent.trim())")

@@ -1,0 +1,75 @@
+{
+ "exact": {
+  "Próximas salidas aquí": {
+   "en": "Next departures here",
+   "fr": "Prochaines sorties ici",
+   "de": "Nächste Ausfahrten hier",
+   "it": "Prossime uscite qui",
+   "pt": "Próximas saídas aqui",
+   "pl": "Najbliższe wypłynięcia tutaj",
+   "nl": "Volgende vertrekken hier",
+   "zh": "此处的近期出海"
+  },
+  "Ver salidas aquí": {
+   "en": "See departures here",
+   "fr": "Voir les sorties ici",
+   "de": "Ausfahrten hier ansehen",
+   "it": "Vedi le uscite qui",
+   "pt": "Ver saídas aqui",
+   "pl": "Zobacz wypłynięcia tutaj",
+   "nl": "Vertrekken hier bekijken",
+   "zh": "查看此处的出海"
+  },
+  "plaza": {
+   "en": "place",
+   "fr": "place",
+   "de": "Platz",
+   "it": "posto",
+   "pt": "lugar",
+   "pl": "miejsce",
+   "nl": "plaats",
+   "zh": "个名额"
+  },
+  "PROFESIONAL": {
+   "en": "PROFESSIONAL",
+   "fr": "PROFESSIONNEL",
+   "de": "PROFI",
+   "it": "PROFESSIONISTA",
+   "pt": "PROFISSIONAL",
+   "pl": "PROFESJONALISTA",
+   "nl": "PROFESSIONAL",
+   "zh": "专业人员"
+  },
+  "Punto a concretar con el profesional": {
+   "en": "Dive site to be agreed with the professional",
+   "fr": "Site à convenir avec le professionnel",
+   "de": "Tauchplatz nach Absprache mit dem Profi",
+   "it": "Punto da concordare con il professionista",
+   "pt": "Ponto a combinar com o profissional",
+   "pl": "Miejsce do uzgodnienia z profesjonalistą",
+   "nl": "Duikstek af te spreken met de professional",
+   "zh": "潜点待与专业人员商定"
+  },
+  "A concretar con el profesional": {
+   "en": "To be agreed with the professional",
+   "fr": "À convenir avec le professionnel",
+   "de": "Nach Absprache mit dem Profi",
+   "it": "Da concordare con il professionista",
+   "pt": "A combinar com o profissional",
+   "pl": "Do uzgodnienia z profesjonalistą",
+   "nl": "Af te spreken met de professional",
+   "zh": "待与专业人员商定"
+  },
+  "La reserva está confirmada. Acuerda con el profesional la forma de pago y los detalles por WhatsApp.": {
+   "en": "Your booking is confirmed. Agree the way of paying and the details with the professional on WhatsApp.",
+   "fr": "La réservation est confirmée. Convenez avec le professionnel du mode de paiement et des détails par WhatsApp.",
+   "de": "Die Buchung ist bestätigt. Vereinbare die Zahlungsweise und die Details per WhatsApp mit dem Profi.",
+   "it": "La prenotazione è confermata. Concorda con il professionista il modo di pagamento e i dettagli su WhatsApp.",
+   "pt": "A reserva está confirmada. Combina com o profissional a forma de pagamento e os detalhes por WhatsApp.",
+   "pl": "Rezerwacja jest potwierdzona. Uzgodnij z profesjonalistą formę płatności i szczegóły przez WhatsApp.",
+   "nl": "De boeking is bevestigd. Spreek de manier van betalen en de details af met de professional via WhatsApp.",
+   "zh": "预订已确认。请通过 WhatsApp 与专业人员商定付款方式和细节。"
+  }
+ },
+ "patterns": {}
+}

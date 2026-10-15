@@ -85,6 +85,7 @@ class PluginNativo(unittest.TestCase):
         self.assertIn('PBKDF2WithHmacSHA256', PLUGIN)       # the app's PIN, when the phone has no screen lock
         self.assertIn('KeyPermanentlyInvalidatedException', PLUGIN)   # fingerprints changed: the session ends
         self.assertNotRegex(PLUGIN, r'\bLog\.[dviwe]\(')     # nothing written to the phone's log
+        self.assertNotIn('call.getLong(', PLUGIN)              # it gives the default for small numbers (they arrive as Integer)
         self.assertIn('setRecentsScreenshotEnabled', PLUGIN); self.assertIn('FLAG_SECURE', PLUGIN)
         self.assertIn('WebStorage.getInstance().deleteAllData()', PLUGIN); self.assertIn('removeAllCookies', PLUGIN)
 

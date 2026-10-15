@@ -780,7 +780,7 @@
         <div class="wtags">${estadoTag(b)}${personaTag(b)}${Number(b.price) > 0 && b.payment_status === 'paid' ? `<span class="wtag ok">${ic('cobrar', '')}Pagada</span>` : ''}</div></div>${ic('chev', 'chev')}</a>
         ${porPagar(b) ? `<a class="wbtn ancho grande pagar-ya" href="#/reserva?id=${b.id}">${ic('cobrar', '')}<span>Pagar</span> <span class="num">${dinero(Number(b.amount_due) > 0 ? b.amount_due : b.price, b.currency)}</span></a>
           ${b.payment_deadline ? `<p class="cuenta-atras" data-hasta="${esc(b.payment_deadline)}" role="timer" aria-live="off"></p>` : ''}` : ''}
-        ${vigente(b) ? `<div class="btn-fila">${porPagar(b) ? '' : `<button class="wbtn sec mini" type="button" data-qr="${b.id}">${ic('qr', '')}Ver QR</button>`}<button class="wbtn sec mini" type="button" data-wa="${b.id}">${ic('wa', '')}WhatsApp</button>${porPagar(b) ? '' : `<button class="wbtn sec mini" type="button" data-cal="${b.id}">${ic('agenda', '')}Calendario</button>`}</div>` : ''}
+        ${vigente(b) ? `<div class="btn-fila envolver">${porPagar(b) ? '' : `<button class="wbtn sec mini" type="button" data-qr="${b.id}">${ic('qr', '')}Ver QR</button>`}<button class="wbtn sec mini" type="button" data-wa="${b.id}">${ic('wa', '')}WhatsApp</button>${porPagar(b) ? '' : `<button class="wbtn sec mini" type="button" data-cal="${b.id}">${ic('agenda', '')}Calendario</button>`}</div>` : ''}
         ${!vigente(b) && repetirHref(b) ? `<div class="btn-fila"><a class="wbtn sec mini" href="${repetirHref(b)}">${ic('reloj', '')}Repetir reserva</a></div>` : ''}</article>`;
     };
     const pintarLista = (k) => {
@@ -810,7 +810,7 @@
         if (ms <= 0) { el.textContent = T('El plazo para pagar ha terminado.'); el.classList.add('vencido'); return; }
         const min = Math.ceil(ms / 60000), h = Math.floor(min / 60), d = Math.floor(h / 24);
         const resto = d >= 1 ? `${d} d ${h % 24} h` : h >= 1 ? `${h} h ${min % 60} min` : `${min} min`;
-        el.innerHTML = `${esc(T('Quedan'))} <b class="num">${resto}</b> ${esc(T('para pagar'))}`;
+        el.innerHTML = `${esc(T('Tiempo para pagar'))}: <b class="num">${resto}</b>`;
         el.classList.toggle('urg', min < 180);
       });
       return true;

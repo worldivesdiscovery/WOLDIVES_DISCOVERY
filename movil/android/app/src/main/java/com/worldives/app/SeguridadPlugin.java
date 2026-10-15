@@ -218,7 +218,7 @@ public class SeguridadPlugin extends Plugin {
     public void activar(PluginCall call) {
         String t = call.getString("token", "");
         String modo = call.getString("modo", MODO_SISTEMA);
-        long dispositivo = call.getLong("dispositivo", 0L);
+        long dispositivo = numero(call, "dispositivo");
         if (t == null || t.length() < 20) { call.reject("Falta el token"); return; }
         try {
             if (MODO_LIBRE.equals(modo)) {
@@ -249,6 +249,12 @@ public class SeguridadPlugin extends Plugin {
         } catch (Exception e) {
             call.reject("No se ha podido guardar: " + e.getClass().getSimpleName());
         }
+    }
+
+    /** A number sent by the web: Capacitor's getLong() gives the default for small numbers, which arrive as Integer. */
+    private static long numero(PluginCall call, String name) {
+        Object o = call.getData().opt(name);
+        return o instanceof Number ? ((Number) o).longValue() : 0L;
     }
 
     private void guardar(String modo, byte[] blob, long dispositivo, byte[] sal) {
