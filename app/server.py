@@ -61,6 +61,7 @@ from wod import geo as wgeo
 from wod import plantillas as wtpl
 from wod import presencial as wpres
 from wod import dispositivos as wdev
+from wod import canales as wch
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1530,6 +1531,8 @@ def bootstrap():
         db.commit()
         migrate_v50_55(db)
         db.commit()
+        migrate_v50_56(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1725,6 +1728,90 @@ DEVICE_SCHEMA = (
     'CREATE INDEX IF NOT EXISTS idx_device_sessions_user ON device_sessions(user_id, revoked_at)',
     """CREATE TABLE IF NOT EXISTS known_devices (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, device_hash TEXT NOT NULL,
        label TEXT, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, PRIMARY KEY(user_id, device_hash))""")
+
+
+MULTICANAL_SCHEMA = (
+    # Idempotency (Parte B): one row per «intento de reserva»; the same key gives back the same booking, never two.
+    """CREATE TABLE IF NOT EXISTS booking_requests (key_hash TEXT PRIMARY KEY, channel TEXT NOT NULL, booking_id INTEGER, response TEXT,
+       created_at TEXT NOT NULL)""",
+    # «Vender en tu web» (Partes C y D): the page /c/<slug>, the widget's look and the domains where it may run.
+    """CREATE TABLE IF NOT EXISTS sales_settings (provider_kind TEXT NOT NULL, provider_id INTEGER NOT NULL, slug TEXT UNIQUE, brand_color TEXT,
+       widget_lang TEXT, allowed_domains TEXT, updated_by INTEGER, updated_at TEXT NOT NULL, PRIMARY KEY(provider_kind, provider_id))""",
+    # API keys of a centre or freelance (Parte E): only the SHA-256 is kept; the key is shown once.
+    """CREATE TABLE IF NOT EXISTS api_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_kind TEXT NOT NULL, provider_id INTEGER NOT NULL,
+       name TEXT, prefix TEXT NOT NULL, key_hash TEXT NOT NULL UNIQUE, scope TEXT NOT NULL DEFAULT 'read', created_by INTEGER, created_at TEXT NOT NULL,
+       last_used_at TEXT, revoked_at TEXT)""",
+    'CREATE INDEX IF NOT EXISTS idx_api_keys_provider ON api_keys(provider_kind, provider_id)',
+    # Webhooks (Parte E): signed notices to the centre's server, with retries and a log of deliveries.
+    """CREATE TABLE IF NOT EXISTS webhook_endpoints (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_kind TEXT NOT NULL, provider_id INTEGER NOT NULL,
+       url TEXT NOT NULL, secret TEXT NOT NULL, events TEXT, active INTEGER NOT NULL DEFAULT 1, created_by INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS webhook_deliveries (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint_id INTEGER NOT NULL REFERENCES webhook_endpoints(id) ON DELETE CASCADE,
+       provider_kind TEXT NOT NULL, provider_id INTEGER NOT NULL, event TEXT NOT NULL, booking_id INTEGER, payload TEXT NOT NULL,
+       status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at REAL NOT NULL, last_status INTEGER, last_error TEXT,
+       created_at TEXT NOT NULL, delivered_at TEXT)""",
+    'CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_due ON webhook_deliveries(status, next_attempt_at)',
+    'CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_provider ON webhook_deliveries(provider_kind, provider_id, id)',
+    # Spots taken without a customer (Parte F: group, agency, hotel) or by a calendar imported from elsewhere (Parte G).
+    """CREATE TABLE IF NOT EXISTS spot_blocks (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_kind TEXT NOT NULL, provider_id INTEGER NOT NULL,
+       slot_id INTEGER NOT NULL REFERENCES service_slots(id) ON DELETE CASCADE, qty INTEGER NOT NULL, label TEXT, source TEXT NOT NULL DEFAULT 'manual',
+       import_id INTEGER, import_uid TEXT, status TEXT NOT NULL DEFAULT 'active', created_by INTEGER, created_at TEXT NOT NULL, released_at TEXT)""",
+    'CREATE INDEX IF NOT EXISTS idx_spot_blocks_slot ON spot_blocks(slot_id, status)',
+    'CREATE INDEX IF NOT EXISTS idx_spot_blocks_import ON spot_blocks(import_id, import_uid, status)',
+    """CREATE TABLE IF NOT EXISTS ical_imports (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_kind TEXT NOT NULL, provider_id INTEGER NOT NULL,
+       name TEXT, url TEXT NOT NULL, service_id INTEGER, active INTEGER NOT NULL DEFAULT 1, last_sync_at TEXT, last_status TEXT, last_error TEXT,
+       events INTEGER NOT NULL DEFAULT 0, created_by INTEGER, created_at TEXT NOT NULL)""",
+    # The live feed of each provider's panel (Parte H): every new booking or change, whatever the channel.
+    """CREATE TABLE IF NOT EXISTS provider_feed (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_kind TEXT NOT NULL, provider_id INTEGER NOT NULL,
+       booking_id INTEGER, event TEXT NOT NULL, channel TEXT, status TEXT, dispatched INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)""",
+    'CREATE INDEX IF NOT EXISTS idx_provider_feed ON provider_feed(provider_kind, provider_id, id)')
+
+# Every change of a booking, whatever the code path that makes it (a channel, the panel, a payment, a deadline, an
+# import), writes one row in provider_feed: the database does it, so no path can forget it. The rows feed the live
+# panel and the webhooks (dispatch_feed). A «Pago al reservar» booking only exists for the provider once it is paid.
+_FEED_COLS = "provider_feed(provider_kind,provider_id,booking_id,event,channel,status,created_at)"
+_FEED_VALS = ("CASE WHEN NEW.center_id IS NOT NULL THEN 'center' ELSE 'freelance' END, COALESCE(NEW.center_id,NEW.provider_user_id), NEW.id, "
+              "'{ev}', COALESCE(NEW.channel,'worldives'), NEW.status, strftime('%Y-%m-%dT%H:%M:%S+00:00','now')")
+_GONE = "('payment_in_progress','expired','cancelled','rejected')"
+_ENDED = "('expired','cancelled','rejected')"
+FEED_TRIGGERS = (
+    f"""CREATE TRIGGER IF NOT EXISTS wod_bookings_feed_ins AFTER INSERT ON bookings
+       WHEN NEW.status <> 'payment_in_progress' AND COALESCE(NEW.center_id,NEW.provider_user_id) IS NOT NULL BEGIN
+       INSERT INTO {_FEED_COLS} VALUES({_FEED_VALS.format(ev='booking.created')}); END""",
+    f"""CREATE TRIGGER IF NOT EXISTS wod_bookings_feed_upd AFTER UPDATE ON bookings
+       WHEN COALESCE(NEW.center_id,NEW.provider_user_id) IS NOT NULL BEGIN
+       INSERT INTO {_FEED_COLS} SELECT {_FEED_VALS.format(ev='booking.created')}
+         WHERE OLD.status IN {_GONE} AND NEW.status NOT IN {_GONE};
+       INSERT INTO {_FEED_COLS} SELECT {_FEED_VALS.format(ev='booking.confirmed')}
+         WHERE NEW.status = 'confirmed' AND OLD.status IN ('pending','requested','accepted_pending_payment');
+       INSERT INTO {_FEED_COLS} SELECT {_FEED_VALS.format(ev='booking.paid')}
+         WHERE NEW.payment_status IN ('paid','deposit_paid') AND OLD.payment_status IS NOT NEW.payment_status AND NEW.status NOT IN {_GONE};
+       INSERT INTO {_FEED_COLS} SELECT {_FEED_VALS.format(ev='booking.cancelled')}
+         WHERE NEW.status IN {_ENDED} AND OLD.status NOT IN {_GONE};
+       INSERT INTO {_FEED_COLS} SELECT {_FEED_VALS.format(ev='booking.changed')}
+         WHERE OLD.status NOT IN {_GONE} AND NEW.status NOT IN {_GONE} AND (OLD.booking_date IS NOT NEW.booking_date
+           OR OLD.booking_time IS NOT NEW.booking_time OR OLD.slot_id IS NOT NEW.slot_id OR OLD.participants IS NOT NEW.participants
+           OR OLD.date_to IS NOT NEW.date_to OR (OLD.status IS NOT NEW.status AND NEW.status IN ('accepted_pending_payment','completed')));
+       END""",
+    'CREATE INDEX IF NOT EXISTS idx_provider_feed_todo ON provider_feed(id) WHERE dispatched=0')
+
+
+def migrate_v50_56(db):
+    """v50.56 · motor de reservas multicanal: the channel of each booking (and the website it came from), idempotency,
+    the widget's settings, API keys, webhooks, spot blocks, imported calendars and the panel's live feed; an
+    instructor or a boat for the services booked by days. Existing bookings get their channel from «source».
+    Nothing is deleted."""
+    for stmt in MULTICANAL_SCHEMA: db.execute(stmt)
+    add_columns(db, 'bookings', [('channel', 'TEXT'), ('channel_origin', 'TEXT'), ('api_key_id', 'INTEGER'), ('block_label', 'TEXT')])
+    add_columns(db, 'users', [('guest_provider_user_id', 'INTEGER')])
+    add_columns(db, 'provider_services', [('instructor_user_id', 'INTEGER'), ('boat_id', 'INTEGER')])
+    add_columns(db, 'provider_feed', [('status', 'TEXT'), ('dispatched', 'INTEGER NOT NULL DEFAULT 0')])
+    db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_channel ON bookings(center_id, channel, created_at)')
+    for stmt in FEED_TRIGGERS: db.execute(stmt)
+    if migration_done(db, '50.56'): return
+    n = db.execute("""UPDATE bookings SET channel=CASE source WHEN 'manual' THEN 'manual' WHEN 'web' THEN 'import' WHEN 'widget' THEN 'widget'
+                      WHEN 'import' THEN 'import' ELSE 'worldives' END WHERE channel IS NULL""").rowcount
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)',
+               ('50.56', now(), f'Motor de reservas multicanal ({n} reservas con su canal según su origen)'))
 
 
 def migrate_v50_55(db):
@@ -7392,7 +7479,9 @@ def booking_mail_ctx(db, bid, lang='es'):
             'payment_deadline': mail_deadline(db, b['payment_deadline'], lang, b['service_id'], b['center_id']),
             'response_deadline': mail_deadline(db, b['response_deadline'], lang, b['service_id'], b['center_id']),
             'reject_reason': b['reject_reason'] or '',
-            'booking_url': f'{base}/#/reserva?id={bid}', 'pdf_url': f'{base}/api/bookings/{bid}/receipt.pdf', 'center_url': prov_url,
+            # v50.56: a customer without an account (widget, API, the centre's manual booking) opens his booking with its token
+            'booking_url': guest_booking_url(b) if is_guest_user(db, b['user_id']) else f'{base}/#/reserva?id={bid}',
+            'pdf_url': f'{base}/api/bookings/{bid}/receipt.pdf', 'center_url': prov_url,
             'review_url': f"{base}/#/centro?id={b['center_id']}&resena=1" if b['center_id'] else prov_url, 'search_url': f'{base}/#/centros', 'panel_booking_url': f'{base}/#/admin?tab=bookings',
             'panel_planning_url': f'{base}/#/admin?tab=planning', 'admin_pay_url': f'{base}/#/admin?tab=adminpay', **booking_mail_in_person(db, b, lang)}
 
@@ -8893,7 +8982,7 @@ def reserve_or_fail(db, b):
     claim_booking_days(db, b)   # v50.44: a booking by days takes its days (raises if they were taken meanwhile)
     if b['slot_id'] and not b['slot_reserved']:
         if not reserve_slot_spots(db, b['slot_id'], max(1, int(b['participants'] or 1))):
-            raise ValueError('No quedan plazas suficientes en esa salida.')
+            raise NoSpots('Sin plazas: no quedan plazas suficientes en esa salida.')
         db.execute('UPDATE bookings SET slot_reserved=1 WHERE id=?', (b['id'],))
 
 
@@ -8952,6 +9041,479 @@ def expire_booking(db, b, reason, notify=True):
     audit(db, None, 'booking_expired', 'booking', b['id'], {'reason': reason})
     if notify and reason in ('no_response', 'not_paid'): notify_booking(db, b['id'], 'expired_' + reason)
     return 'expired'
+
+
+# ---------------------------------------------------------------------------
+# v50.56 · Motor de reservas multicanal, Parte B: THE single booking function. Every channel (the WORLDIVES search,
+# the centre's widget, a direct link, the API, the centre's own manual bookings and imports) goes through
+# create_booking; nothing else inserts bookings (tests/test_v50_56_multicanal.py checks it in the source). One
+# inventory: the spots of a departure and the days of the common agenda are checked and taken inside one write
+# transaction (BEGIN IMMEDIATE), so two bookings at the same time from two channels never get the same spot.
+# ---------------------------------------------------------------------------
+class NoSpots(ValueError):
+    """«Sin plazas»: the same words and the same code (no_spots) whatever the channel; the API answers 409."""
+    def __init__(self, msg=None):
+        super().__init__(msg or wch.NO_SPOTS_TEXT)
+        self.extra = {'code': 'no_spots'}
+
+
+class TooManyRequests(Exception):
+    """429: too many bookings in a short time from the same person, website or API key."""
+
+
+def take_slot_spots(db, slot_id, qty):
+    if not reserve_slot_spots(db, slot_id, qty): raise NoSpots()
+
+
+def guest_customer(db, center_id, provider_user_id, fullname, email, phone):
+    """The customer of a booking made without a WORLDIVES account (widget, link, API, manual): a record of THAT
+    centre or freelance only (G5), never linked to an account even when the email matches."""
+    if center_id: return find_or_create_customer(db, fullname, email, phone, center_id)
+    email = (clean_text(email, 160) or '').lower()
+    if email:
+        row = db.execute("SELECT id FROM users WHERE guest_provider_user_id=? AND password_hash='!' AND lower(guest_email)=? LIMIT 1", (provider_user_id, email)).fetchone()
+        if row: return row['id']
+    uid = db.execute('INSERT INTO users(fullname,email,username,password_hash,role,created_at,guest_provider_user_id,guest_email) VALUES(?,?,?,?,?,?,?,?)',
+                     (clean_text(fullname, 180) or 'Cliente', f'cliente-{secrets.token_hex(8)}@sin-email.worldives.local', 'cliente_' + secrets.token_hex(6), '!',
+                      'recreational', now(), provider_user_id, email or None)).lastrowid
+    db.execute('INSERT OR IGNORE INTO user_profiles(user_id,phone,updated_at) VALUES(?,wod_cifrar(?),?)', (uid, clean_text(phone, 60) or None, now()))
+    return uid
+
+
+def staff_resource(db, center_id, user_id, create=True):
+    """An instructor of a centre in the common agenda (v50.56): two courses by days of the same instructor never overlap."""
+    r = db.execute("SELECT * FROM resources WHERE kind='person' AND owner_center_id=? AND user_id=?", (center_id, user_id)).fetchone()
+    if r or not create: return r
+    u = db.execute('SELECT fullname FROM users WHERE id=?', (user_id,)).fetchone()
+    tz = (db.execute('SELECT timezone FROM resources WHERE owner_center_id=? LIMIT 1', (center_id,)).fetchone() or {'timezone': wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ)})['timezone']
+    db.execute("INSERT INTO resources(owner_center_id,kind,user_id,name,capacity,timezone,active,created_at,updated_at) VALUES(?,'person',?,?,1,?,1,?,?)",
+               (center_id, user_id, (u['fullname'] if u else '') or 'Instructor', tz, now(), now()))
+    return db.execute('SELECT * FROM resources WHERE id=last_insert_rowid()').fetchone()
+
+
+def boat_resource(db, center_id, boat_id, create=True):
+    r = db.execute("SELECT * FROM resources WHERE kind='boat' AND owner_center_id=? AND boat_id=?", (center_id, boat_id)).fetchone()
+    if r or not create: return r
+    b = db.execute('SELECT name FROM boats WHERE id=? AND center_id=?', (boat_id, center_id)).fetchone()
+    if not b: return None
+    db.execute("INSERT INTO resources(owner_center_id,kind,boat_id,name,capacity,timezone,active,created_at,updated_at) VALUES(?,'boat',?,?,1,?,1,?,?)",
+               (center_id, boat_id, b['name'] or 'Barco', wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ), now(), now()))
+    return db.execute('SELECT * FROM resources WHERE id=last_insert_rowid()').fetchone()
+
+
+def service_extra_resources(db, svc, create=True):
+    """The instructor and the boat of a centre's service booked by days (a course of 3 days): busy with it too."""
+    out = []
+    if not svc or not row_get(svc, 'center_id'): return out
+    if row_get(svc, 'instructor_user_id'):
+        r = staff_resource(db, svc['center_id'], svc['instructor_user_id'], create)
+        if r: out.append(r)
+    if row_get(svc, 'boat_id'):
+        r = boat_resource(db, svc['center_id'], svc['boat_id'], create)
+        if r: out.append(r)
+    return out
+
+
+def idem_lookup(db, h):
+    row = db.execute('SELECT * FROM booking_requests WHERE key_hash=?', (h,)).fetchone()
+    if not row: return None
+    body = json.loads(row['response'] or '{}'); body['duplicate'] = True
+    if body.get('payment_required') and row['booking_id']:
+        # the payment page may still be opening in the first request: wait for it, as the double click did (v50.51)
+        db.commit(); o = None
+        for _ in range(25):
+            o = _open_order(db, 'booking_id=?', (row['booking_id'],))
+            if o: break
+            time.sleep(0.2)
+        if not o:
+            b = booking_row(db, row['booking_id'])
+            if b and b['status'] != 'payment_in_progress': body.update(status=b['status'], payment_required=False)
+            else: return {'status': 409, 'body': {'error': 'Tu reserva ya se está procesando. Vuelve a mirarla en un momento.', 'id': row['booking_id']}}
+        else:
+            body['checkout_url'] = o['checkout_url']
+    return {'status': 200, 'body': body}
+
+
+def create_booking(db, req):
+    """Creates a booking (or a request) for any channel. req:
+      channel        worldives · widget · link · api · manual · import
+      data           what the customer chose: center_id, service_id, slot_id or days, participants, extras, notes…
+      customer       the users row of a diver with an account (WORLDIVES, link) or None
+      guest          {'fullname','email','phone'} when the customer has no account (widget, API, manual)
+      center_id / provider_user_id   the provider the channel belongs to (widget, API, manual): data cannot change it
+      actor_id       who does it (the diver, or the centre's staff for a manual booking)
+      origin         the website of the widget · api_key_id · ip
+      idem_key, idem_scope   the idempotency key and who sent it (a retry never makes two bookings or two payments)
+      limit_key      who the anti-abuse limit counts
+      manual         {'status','payment_status','payment_method','adjust','notify','reason'} for the centre's own bookings
+    The price always comes from the server (booking_quote / wag.quote): no channel can send it.
+    Returns {'status': http status, 'body': json} or raises ValueError / NoSpots / PermissionError / TooManyRequests."""
+    channel = req['channel']; data = dict(req.get('data') or {})
+    if channel not in wch.CHANNELS: raise ValueError('Canal de reserva no válido.')
+    online = channel in wch.ONLINE
+    by_provider = channel in ('manual', 'import')   # the centre (or freelance) itself types it in or imports it
+    customer = req.get('customer'); guest = req.get('guest') or {}
+    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')   # checked and created atomically: one inventory, no double booking
+    idem_key = wch.clean_idem_key(req.get('idem_key')); idem_h = None
+    if idem_key:
+        idem_h = wch.idem_hash(f"{channel}:{req.get('idem_scope') or ''}", idem_key)
+        prev = idem_lookup(db, idem_h)
+        if prev:
+            db.commit(); return prev   # the same attempt again: the same booking (and the same payment), never a second one
+    # ---- the provider: fixed by the channel (widget, API, manual) or chosen in WORLDIVES
+    forced_center = req.get('center_id'); forced_pro = req.get('provider_user_id')
+    center_id = int(forced_center or data.get('center_id') or 0) or None
+    if forced_pro: center_id = None
+    point_id = int(data.get('dive_point_id') or 0) or None
+    if point_id and not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1', (point_id,)).fetchone(): raise ValueError('Punto de buceo no válido.')
+    service_id = int(data.get('service_id') or 0) or None
+    service = None; provider_user_id = None
+    if service_id and not center_id:
+        # Fase 2.7: services of a freelance professional without a centre (only public ones, except his own manual bookings)
+        pub = '' if by_provider else f' AND s.active=1 AND {public_freelance_sql()}'
+        service = db.execute(f"SELECT s.* FROM provider_services s JOIN users u ON u.id=s.provider_user_id WHERE s.id=? AND s.center_id IS NULL{pub}", (service_id,)).fetchone()
+        if not service or (forced_pro and int(service['provider_user_id']) != int(forced_pro)): raise ValueError('Servicio no válido.')
+        provider_user_id = service['provider_user_id']
+    else:
+        if not center_id or not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1', (center_id,)).fetchone(): raise ValueError('Centro no válido.')
+        if service_id:
+            # The centre may type in a booking of a paused service; customers only book active ones.
+            service = db.execute(f"SELECT * FROM provider_services WHERE id=? AND center_id=?{'' if by_provider else ' AND active=1'}", (service_id, center_id)).fetchone()
+            if not service: raise ValueError('Servicio no válido para este centro.')
+            provider_user_id = service['provider_user_id']
+        elif not by_provider:
+            # Every booking made by a customer is of an activity with its price on the server (v50.56, fallos F2-F4).
+            # Only the centre's own records (manual or imported from its system) may have no activity.
+            raise ValueError('Elige una actividad.')
+    pkind, pid = ('center', center_id) if center_id else ('freelance', provider_user_id)
+    # Fase 6.2: a provider on the free listing receives information requests, not bookings (never «sin plazas»).
+    if online and not provider_has(db, pkind, pid, 'online_bookings'):
+        e_ = PermissionError('Este centro todavía no tiene reserva online en WORLDIVES. Puedes enviarle una solicitud de información y te contestará directamente.')
+        e_.extra = {'no_online_booking': True}; raise e_
+    if channel == 'widget' and not provider_has(db, pkind, pid, 'widget'):
+        e_ = PermissionError('Este centro no tiene activa la reserva desde su web.'); e_.extra = {'no_online_booking': True}; raise e_
+    # ---- who books
+    if customer is None:
+        if channel in ('worldives', 'link'): raise PermissionError('Inicia sesión para reservar.')
+        fullname = clean_text(guest.get('fullname'), 180)
+        if not fullname: raise ValueError('Indica el nombre de quien reserva.')
+        email = (clean_text(guest.get('email'), 160) or '').lower()
+        if email and not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email): raise ValueError('Revisa el correo electrónico.')
+        if channel == 'widget' and not email: raise ValueError('Indica tu correo electrónico: te mandamos ahí la confirmación.')
+        uid = guest_customer(db, center_id, provider_user_id, fullname, email, guest.get('phone'))
+        customer = db.execute('SELECT * FROM users WHERE id=?', (uid,)).fetchone()
+        contact = {'name': fullname, 'email': email or None, 'phone': clean_text(guest.get('phone'), 60) or None}
+    else:
+        contact = None
+    limit_key = req.get('limit_key') or f"u:{customer['id']}"
+    manual = req.get('manual') or {}
+    pmax = 200 if by_provider else PARTICIPANTS_MAX
+    participants = clean_int(data.get('participants'), 1, pmax, 1, 'El número de personas no es válido.')
+    if online and service and service['max_participants'] and participants > int(service['max_participants']):
+        raise ValueError(f'Este servicio admite como máximo {service["max_participants"]} participantes por reserva.')
+    slot_id = int(data.get('slot_id') or 0) or None
+    if online and slot_id and channel in ('worldives', 'link') and not idem_key:
+        # v50.51 (load test): a double click or a retry of the same booking without a key gives back the one just made
+        dup = db.execute("SELECT * FROM bookings WHERE user_id=? AND slot_id=? AND participants=? AND status IN ('requested','pending','payment_in_progress','accepted_pending_payment','confirmed') AND created_at>=? ORDER BY id DESC LIMIT 1",
+                         (customer['id'], slot_id, participants, (datetime.now(timezone.utc) - _timedelta(minutes=2)).isoformat(timespec='seconds'))).fetchone()
+        if dup:
+            body = {'ok': True, 'id': dup['id'], 'status': dup['status'], 'duplicate': True, 'payment_required': dup['status'] == 'payment_in_progress', 'price': dup['price'], 'booking_mode': dup['booking_mode']}
+            if dup['status'] == 'payment_in_progress':
+                db.commit(); o = None
+                for _ in range(25):
+                    o = _open_order(db, 'booking_id=?', (dup['id'],))
+                    if o: break
+                    time.sleep(0.2)
+                if not o: return {'status': 409, 'body': {'error': 'Tu reserva ya se está procesando. Mírala en «Mis reservas».', 'id': dup['id']}}
+                body['checkout_url'] = o['checkout_url']
+            db.commit()
+            return {'status': 200, 'body': body}
+    if service and service_unit(service) not in wag.DAY_UNITS and not slot_id and data.get('booking_date'):
+        # v50.56 (fallo F1): a date and time that match a departure book THAT departure, whatever the channel: the spots
+        # are taken from it (before, a manual or API booking without departure took none).
+        m = db.execute("SELECT id FROM service_slots WHERE service_id=? AND slot_date=? AND slot_time=? AND status IN ('open','full')",
+                       (service['id'], clean_text(data.get('booking_date'), 20), clean_text(data.get('booking_time'), 20) or '')).fetchone()
+        if m: slot_id = m['id']
+    slot = None; wl_hold = None
+    if slot_id:
+        slot = db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')", (slot_id, service_id)).fetchone()
+        if not slot: raise ValueError('La salida seleccionada ya no está disponible.')
+        if channel in ('worldives', 'link'):
+            wl_hold = waitlist_hold_for(db, slot_id, customer['id'])
+        if wl_hold:
+            # Encargo 2, punto 4: the spots kept for this person of the waiting list are theirs to book.
+            release_slot_spots(db, slot_id, wl_hold['held'], notify=False)
+            slot = db.execute('SELECT * FROM service_slots WHERE id=?', (slot_id,)).fetchone()
+        if participants > slot['spots_available']:
+            raise NoSpots(f'Sin plazas suficientes: solo quedan {slot["spots_available"]}.' if slot['spots_available'] > 0 else None)
+        slot_points = [int(r['dive_point_id']) for r in db.execute('SELECT dive_point_id FROM service_slot_points WHERE slot_id=?', (slot_id,)).fetchall()]
+        if slot_points:
+            # The visible choice is the source of truth; the name is accepted as a fallback; with several points and no
+            # choice, the first one (deterministic), never an arbitrary one.
+            point_name = (clean_text(data.get('dive_point_name'), 200) or '').strip().casefold()
+            if point_id and point_id not in slot_points: point_id = None
+            if not point_id and point_name:
+                matches = [int(rr['id']) for rr in db.execute('SELECT id,name FROM dive_points WHERE id IN (%s)' % ','.join('?' * len(slot_points)), slot_points).fetchall()
+                           if (clean_text(rr['name'], 200) or '').strip().casefold() == point_name]
+                if len(matches) == 1: point_id = matches[0]
+            if not point_id: point_id = slot_points[0]
+        data['booking_date'] = slot['slot_date']; data['booking_time'] = slot['slot_time']
+    if service and service_unit(service) in wag.DAY_UNITS:
+        first_day = wag.normalize_selection(data.get('days'), data.get('date_from'), data.get('date_to'))
+        if not first_day: raise ValueError('Elige al menos un día.')
+        data['booking_date'] = first_day[0]
+    bdate = clean_text(data.get('booking_date'), 20) or (slot['slot_date'] if slot else None)
+    if not bdate or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', bdate): raise ValueError('Elige la fecha de la actividad.')
+    bdate = clean_date(bdate)   # a real day (not 31 February)
+    btime = clean_time(data.get('booking_time')) if not slot else clean_text(data.get('booking_time'), 20)
+    start = on_server_clock(db, wbk.activity_start(bdate, btime), service['id'] if service else None, center_id)
+    if not by_provider and start and start <= local_now(): raise ValueError('Esa salida ya ha empezado o ha pasado. Elige otra fecha.')
+    price, service_currency, price_lines = booking_quote(db, center_id, service, participants, bdate, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
+    day_sel = None
+    if service and service_unit(service) in wag.DAY_UNITS:
+        # v50.44: booked by days or half days. The days chosen are the source of truth.
+        if slot_id: raise ValueError('Este servicio se reserva por días, no por salidas.')
+        day_sel = day_booking_selection(db, service, data, participants)
+        bdate = day_sel['days'][0]; btime = day_sel['time']; start = day_sel['start']; price = day_sel['price']; price_lines = day_sel['lines']
+    if price < 0: raise ValueError('El importe no es válido.')   # never «free» because of a wrong extra (ASVS V2.2.3)
+    if service and price <= 0: raise ValueError(NO_PRICE_TEXT)   # v50.55: no booking of a service without a published price
+    if by_provider and manual.get('adjust') not in (None, ''):
+        # The centre's own discount or surcharge on a booking it types in (never a channel of the customer).
+        adj = round(max(0.0, float(str(manual['adjust']).replace(',', '.'))), 2)
+        if abs(adj - price) >= 0.005: price_lines.append({'kind': 'adjustment', 'label': 'Ajuste del centro', 'unit': round(adj - price, 2), 'qty': 1, 'total': round(adj - price, 2)})
+        price = adj
+    mode = 'payment' if service and service['booking_mode'] == 'payment' else 'request'
+    ready = service_payments_ready(db, service) if service else False
+    deadline = None; hold = None; slot_reserved = 0
+    payee = payee_of(db, center_id, provider_user_id)
+    pay_way = service_pay_way(service) if service else 'online'
+    if online and pay_way == 'in_person':
+        # v50.55: the client is paid by the professional directly; he reads the notice and ticks the box.
+        if mode != 'request' or not provider_has(db, 'freelance', provider_user_id, 'in_person_payments') or not has_pay_contact(db, 'service', service['id']):
+            raise ValueError('Este profesional no admite reservas ahora mismo. Prueba más tarde.')
+        if not json_bool(data.get('in_person_ack')):
+            e_ = ValueError(IN_PERSON_ACK_TEXT); e_.extra = {'in_person_ack_required': True, 'notice': wpres.NOTICE}; raise e_
+        ready = False
+    elif online and service and not service['center_id'] and not ready and mode == 'request':
+        raise ValueError('Este profesional no admite reservas ahora mismo. Prueba más tarde.')
+    if pay_way == 'in_person' and by_provider: ready = False
+    # ASVS 5.0 V2.4.1: at most BOOKING_MAX_PER_HOUR bookings an hour and PENDING_PAYMENTS_MAX unfinished payments per person.
+    if not by_provider and BOOKING_LIMIT.blocked(limit_key): raise TooManyRequests(BOOKING_LIMIT_TEXT)
+    if online and mode == 'payment' and db.execute("SELECT COUNT(*) FROM bookings WHERE user_id=? AND status='payment_in_progress' AND hold_expires_at>=?", (customer['id'], local_iso(local_now()))).fetchone()[0] >= PENDING_PAYMENTS_MAX:
+        raise ValueError('Tienes varios pagos sin terminar. Termínalos o espera unos minutos.')
+    pol = provider_policy(payee, service)   # the policy shown before paying is the one that applies
+    deposit = deposit_for(service, price, participants) if service else None
+    if pay_way == 'in_person': pol = {**pol, 'free_hours': None, 'refund_pct': None}; deposit = None   # v50.55: no deposit, no managed policy
+    payment_method = None
+    if by_provider:
+        # The centre's own booking: confirmed (or a request it will answer), paid at the centre, pending, or with a link to pay online.
+        status = manual.get('status') if manual.get('status') in ('confirmed', 'requested') else 'confirmed'
+        payment_status = manual.get('payment_status') if manual.get('payment_status') in ('paid', 'required', 'not_required', 'link') else ('required' if price > 0 else 'not_required')
+        if price <= 0: payment_status = 'not_required'
+        if payment_status == 'link':
+            if not ready: raise ValueError('Para mandar un enlace de pago, activa antes los cobros online en «Cobros y pagos».')
+            status = 'accepted_pending_payment'; payment_status = 'required'
+            hours = wbk.clamp_hours(service['payment_hours'] if service else None, wbk.DEFAULT_PAYMENT_HOURS)
+            pay_deadline = local_iso(wbk.deadline_before_start(local_now(), hours, start)) if start else None
+        else:
+            pay_deadline = None
+        if payment_status == 'paid': payment_method = clean_text(manual.get('payment_method'), 30) or 'efectivo'
+        if status in ('confirmed', 'accepted_pending_payment') and slot:
+            take_slot_spots(db, slot['id'], participants); slot_reserved = 1
+        if status == 'requested':
+            deadline = local_iso(wbk.deadline_before_start(local_now(), wbk.clamp_hours(service['response_hours'] if service else None, wbk.DEFAULT_RESPONSE_HOURS), start)) if start else None
+    elif mode == 'payment':
+        # «Pago al reservar»: the customer pays to book. Never silently turned into «pay at the centre».
+        if not ready: raise ValueError('Este servicio se reserva pagando online y ahora mismo el centro no tiene los cobros activos. Prueba más tarde o contacta con el centro.')
+        if price <= 0:
+            status = 'confirmed'; payment_status = 'not_required'
+        else:
+            status = 'payment_in_progress'; payment_status = 'pending'; hold = local_iso(local_now() + _timedelta(minutes=HOLD_MINUTES))
+        if slot:
+            take_slot_spots(db, slot['id'], participants); slot_reserved = 1
+        pay_deadline = None
+    else:
+        # «Bajo petición»: no money and no spots until the centre accepts, within its response deadline.
+        status = 'requested'; payment_status = 'not_required' if price <= 0 else ('required' if ready else 'at_center')
+        if slot and wl_hold:
+            # A request from the waiting list keeps its spots while the centre answers.
+            take_slot_spots(db, slot['id'], participants); slot_reserved = 1
+        hours = wbk.clamp_hours(service['response_hours'] if service else None, wbk.DEFAULT_RESPONSE_HOURS)
+        deadline = local_iso(wbk.deadline_before_start(local_now(), hours, start))
+        pay_deadline = None
+    origin = wch.clean_domain(req.get('origin')) if channel == 'widget' else None
+    cur = db.execute('''INSERT INTO bookings(user_id,center_id,provider_user_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,booking_mode,response_deadline,payment_deadline,hold_expires_at,confirmed_at,terms_version,price_breakdown,deposit_amount,amount_paid,amount_due,cancel_free_hours,cancel_refund_pct,
+                     source,channel,channel_origin,api_key_id,external_ref,contact_name,contact_email,contact_phone,created_by_user_id,payment_method,public_token,created_at,updated_at)
+                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?,wod_cifrar(?),?,?,?,?,?)''',
+                     (customer['id'], center_id, provider_user_id, point_id, service_id, slot['id'] if slot else None, slot_reserved, bdate, btime, participants,
+                      1 if data.get('needs_equipment') or as_list(data.get('equipment_codes')) else 0, clean_text(data.get('equipment_items'), 1000) or (', '.join(l['label'] for l in price_lines if l.get('kind') == 'equipment') or None),
+                      clean_text(data.get('equipment_notes'), 1000), 1 if data.get('needs_guide') else 0, clean_text(data.get('guide_notes'), 1000), 1 if data.get('nitrox') else 0, 1 if data.get('pickup') else 0,
+                      clean_text(data.get('notes'), 2000), status, price, service['currency'] if service else (service_currency or 'EUR'), payment_status, mode, deadline, pay_deadline, hold,
+                      now() if status == 'confirmed' else None, legal_doc_version(db, 'reservas'), json.dumps(price_lines, ensure_ascii=False), deposit, price, pol['free_hours'], pol['refund_pct'],
+                      wch.source_for(channel), channel, origin, req.get('api_key_id'), clean_text(data.get('external_ref'), 180) or None,
+                      contact['name'] if contact else None, contact['email'] if contact else None, contact['phone'] if contact else None,
+                      req.get('actor_id') if by_provider else None, payment_method, wsec.random_token(), now(), now()))
+    bid = cur.lastrowid
+    if not by_provider: BOOKING_LIMIT.hit(limit_key)
+    if online and pay_way == 'in_person':
+        db.execute("UPDATE bookings SET pay_way='in_person',in_person_ack_at=? WHERE id=? AND user_id=?", (now(), bid, customer['id']))
+        audit(db, customer['id'], 'in_person_notice_accepted', 'booking', bid, {'notice_version': wpres.NOTICE_VERSION})
+    elif pay_way == 'in_person':
+        db.execute("UPDATE bookings SET pay_way='in_person' WHERE id=? AND user_id=?", (bid, customer['id']))
+    if day_sel:
+        db.executemany('INSERT INTO booking_days(booking_id,local_date,part) VALUES(?,?,?)', [(bid, d, day_sel['part']) for d in day_sel['days']])
+        db.execute('UPDATE bookings SET date_to=?,days_mode=? WHERE id=?', (day_sel['days'][-1], day_sel['part'], bid))
+        if status in ('payment_in_progress', 'confirmed', 'accepted_pending_payment'): claim_booking_days(db, booking_row(db, bid))
+        if status == 'confirmed': reject_overlapping_requests(db, booking_row(db, bid))
+    if wl_hold:
+        db.execute("UPDATE waitlist_entries SET status='booked',held=0,booking_id=?,updated_at=? WHERE id=?", (bid, now(), wl_hold['id']))
+        slot_event(db, slot_id, 'waitlist_booked', customer['id'], entry=wl_hold['id'], booking_id=bid)
+    audit(db, req.get('actor_id') or customer['id'], {'manual': 'booking_created_manual', 'import': 'booking_imported'}.get(channel, 'booking_created'), 'booking', bid,
+          {'mode': mode, 'status': status, 'channel': channel, 'origin': origin, 'api_key': req.get('api_key_id')})
+    # v50.47 (C.5): «Recibir por WhatsApp los avisos de mis reservas del centro», marked at booking time.
+    if channel in ('worldives', 'link') and data.get('wa_consent') is not None:
+        set_wa_consent(db, customer['id'], json_bool(data.get('wa_consent')), data.get('lang') or user_lang(db, customer['id']), 'reserva', req.get('ip'))
+    b = booking_row(db, bid)
+    body = {'ok': True, 'id': bid, 'status': status, 'payment_required': status == 'payment_in_progress', 'price': price, 'currency': service_currency or b['currency'],
+            'booking_mode': mode, 'channel': channel, 'participants': participants, 'date': bdate, 'time': btime}
+    if status == 'payment_in_progress': body.update(hold_expires_at=hold, deposit=deposit)
+    if status == 'requested': body.update(response_deadline=deadline)
+    if pay_way == 'in_person': body['pay_way'] = 'in_person'
+    if contact: body['token'] = f"{bid}.{b['public_token']}"   # the customer without an account sees his booking with it
+    if idem_h:
+        db.execute('INSERT INTO booking_requests(key_hash,channel,booking_id,response,created_at) VALUES(?,?,?,?,?)',
+                   (idem_h, channel, bid, json.dumps(body, ensure_ascii=False), now()))
+    if status == 'payment_in_progress':
+        # The booking is not visible to the provider until Stripe confirms the payment.
+        db.commit()
+        pay_user = dict(customer); pay_user['email'] = (contact or {}).get('email') or customer['email']
+        try:
+            pay = start_checkout(db, pay_user, booking_row(db, bid), app=wmovil.app_scheme(data.get('app')),
+                                 return_to=req.get('return_to'))
+        except ValueError:
+            expire_booking(db, booking_row(db, bid), 'checkout_failed', notify=False); db.commit(); raise
+        body['checkout_url'] = pay['checkout_url']
+        return {'status': 200, 'body': body}
+    if by_provider:
+        if status == 'confirmed' and manual.get('notify', True): notify_booking(db, bid, 'manual')
+        elif status == 'accepted_pending_payment': notify_booking(db, bid, 'accepted_payment')
+    else:
+        notify_booking(db, bid, 'created')
+    db.commit()
+    return {'status': 200, 'body': body}
+
+
+def booking_tz(db, b):
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    return service_tz(db, svc) if svc else wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ)
+
+
+def booking_api_dict(db, b):
+    """A booking as the API v1 and the webhooks give it: the same fields for every channel, the local time of the
+    place of the activity and its time zone. Only the provider's own customer data (the API key or the webhook
+    belongs to that provider)."""
+    b = booking_row(db, b['id']) if not hasattr(b, 'keys') or 'channel' not in b.keys() else b
+    svc = db.execute('SELECT id,title FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    u = db.execute('SELECT fullname,email,password_hash,guest_center_id,guest_provider_user_id FROM users WHERE id=?', (b['user_id'],)).fetchone()
+    guest = bool(u and u['password_hash'] == '!')
+    tz = booking_tz(db, b); t = b['booking_time'] if b['booking_time'] and re.fullmatch(r'\d{2}:\d{2}', b['booking_time']) else None
+    days = [r['local_date'] for r in db.execute('SELECT local_date FROM booking_days WHERE booking_id=? ORDER BY local_date', (b['id'],)).fetchall()]
+    return {'id': b['id'], 'ref': f"WOD-{b['id']:06d}", 'status': wbk.normalize_state(b['status']), 'channel': wch.channel_of(b), 'origin': b['channel_origin'],
+            'service': {'id': svc['id'], 'title': svc['title']} if svc else None, 'slot_id': b['slot_id'],
+            'date': b['booking_date'], 'time': t, 'date_to': b['date_to'] or b['booking_date'], 'days': days or None, 'timezone': tz,
+            'starts_at_utc': wag.local_to_utc(b['booking_date'], t or '00:00', tz) if b['booking_date'] else None,
+            'participants': int(b['participants'] or 1), 'price': float(b['price'] or 0), 'currency': b['currency'] or 'EUR',
+            'payment_status': b['payment_status'], 'booking_mode': b['booking_mode'], 'external_ref': b['external_ref'],
+            'customer': {'name': (b['contact_name'] or (u['fullname'] if u else None)) if guest else (u['fullname'] if u else None),
+                         'email': (b['contact_email'] if guest else (u['email'] if u else None)), 'phone': b['contact_phone'] or None},
+            'created_at': b['created_at'], 'updated_at': b['updated_at']}
+
+
+def queue_webhooks(db, kind, pid, event, b, status=None):
+    """One delivery per active endpoint of the provider that listens to this event. Sent by webhook_loop (seconds)."""
+    eps = db.execute('SELECT * FROM webhook_endpoints WHERE provider_kind=? AND provider_id=? AND active=1', (kind, pid)).fetchall()
+    if not eps: return 0
+    data = booking_api_dict(db, b)
+    if status: data['status'] = wbk.normalize_state(status)   # the state at the moment of the event
+    payload = json.dumps({'id': 'evt_' + secrets.token_hex(12), 'type': event, 'created': int(time.time()), 'data': {'booking': data}},
+                         ensure_ascii=False, separators=(',', ':'))
+    n = 0
+    for ep in eps:
+        try: wanted = json.loads(ep['events'] or '[]')
+        except ValueError: wanted = []
+        if wanted and event not in wanted: continue
+        db.execute('''INSERT INTO webhook_deliveries(endpoint_id,provider_kind,provider_id,event,booking_id,payload,status,attempts,next_attempt_at,created_at)
+                      VALUES(?,?,?,?,?,?,'pending',0,?,?)''', (ep['id'], kind, pid, event, b['id'], payload, time.time(), now()))
+        n += 1
+    return n
+
+
+def dispatch_feed(db, limit=500):
+    """Turns the new rows of provider_feed (written by the database triggers) into webhook deliveries."""
+    rows = db.execute('SELECT * FROM provider_feed WHERE dispatched=0 ORDER BY id LIMIT ?', (limit,)).fetchall()
+    if not rows: return 0
+    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
+    try:
+        for r in rows:
+            if not db.execute('UPDATE provider_feed SET dispatched=1 WHERE id=? AND dispatched=0', (r['id'],)).rowcount: continue
+            b = booking_row(db, r['booking_id']) if r['booking_id'] else None
+            if b: queue_webhooks(db, r['provider_kind'], r['provider_id'], r['event'], b, r['status'])
+        db.commit()
+    except Exception:
+        db.rollback(); raise
+    return len(rows)
+
+
+def deliver_webhooks(db, limit=50):
+    """Sends the due deliveries, signed with each endpoint's secret (X-WORLDIVES-Signature). A failure is tried again
+    after 1 min, 5 min, 30 min, 2 h, 6 h and 24 h; then it stays «failed» in the log of the panel."""
+    due = db.execute("""SELECT d.*,e.url,e.secret,e.active FROM webhook_deliveries d JOIN webhook_endpoints e ON e.id=d.endpoint_id AND e.provider_kind=d.provider_kind AND e.provider_id=d.provider_id
+                        WHERE d.status='pending' AND d.next_attempt_at<=? ORDER BY d.id LIMIT ?""", (time.time(), limit)).fetchall()
+    sent = 0
+    for d in due:
+        if not d['active']:
+            db.execute("UPDATE webhook_deliveries SET status='failed',last_error=? WHERE id=?", ('Webhook desactivado', d['id'])); db.commit(); continue
+        body = d['payload'].encode('utf-8'); secret = wcif.decrypt_secret(d['secret']) or ''
+        code, err = None, None
+        try:
+            code = wremoto.post_json(d['url'], body, {'X-WORLDIVES-Signature': wch.sign(secret, body), 'X-WORLDIVES-Event': d['event'],
+                                                      'X-WORLDIVES-Delivery': str(d['id'])})
+        except wremoto.FetchError as e:
+            err = str(e)
+        attempts = int(d['attempts']) + 1
+        if code and 200 <= code < 300:
+            db.execute("UPDATE webhook_deliveries SET status='delivered',attempts=?,last_status=?,last_error=NULL,delivered_at=? WHERE id=?", (attempts, code, now(), d['id'])); sent += 1
+        else:
+            wait = wch.retry_delay(attempts)
+            db.execute('UPDATE webhook_deliveries SET status=?,attempts=?,last_status=?,last_error=?,next_attempt_at=? WHERE id=?',
+                       ('pending' if wait else 'failed', attempts, code, err or (f'Respuesta {code}' if code else 'Sin respuesta'), time.time() + (wait or 0), d['id']))
+        db.commit()
+    return sent
+
+
+def webhook_loop():
+    """Background thread (only in the worker process): webhooks leave a few seconds after the change."""
+    while True:
+        db = None
+        try:
+            db = connect(); dispatch_feed(db); deliver_webhooks(db)
+        except Exception as exc:
+            sys.stderr.write(f'[webhooks] {type(exc).__name__}: {exc}\n')
+        finally:
+            if db is not None: db.close()
+        time.sleep(wcfg.env_int('WOD_WEBHOOK_SECONDS', 5, 1, 300))
+
+
+def guest_booking_url(b):
+    """The page of a booking for a customer without a WORLDIVES account (widget, API, manual): see it, pay it when
+    there is something to pay, cancel it with the provider's policy. Only the booking's long random token opens it."""
+    return f"{public_site_url()}/mi-reserva/{b['id']}.{b['public_token']}" if b and b['public_token'] else None
+
+
+def guest_pay_url(b):
+    """The link a centre sends to pay online a booking it typed in (Parte F): the same page, opened on the payment."""
+    u = guest_booking_url(b)
+    return u + '?pagar=1' if u else None
 
 
 def run_booking_deadlines(db):
@@ -9147,9 +9709,10 @@ def create_stripe_checkout(db, user, *, amount, currency, title, payee, booking_
     return {'checkout_url': session.url, 'order_id': oid}
 
 
-def start_checkout(db, user, b, app=None):
+def start_checkout(db, user, b, app=None, return_to=None):
     """Opens the payment of a booking in its two legal moments (Fase 1B): the whole price or the deposit (Fase 2.5).
-    From the app (v50.48), Stripe sends the person back into the app (app = its scheme)."""
+    From the app (v50.48), Stripe sends the person back into the app (app = its scheme). From the widget or a payment
+    link (v50.56), return_to = (success_url, cancel_url), always built by the server, never taken from the request."""
     st = wbk.normalize_state(b['status'])
     if booking_pay_way(b) == 'in_person': raise ValueError('Esta reserva se paga en persona al profesional, no a través de WORLDIVES.')
     if b['payment_status'] in ('paid', 'deposit_paid'): raise ValueError('Esta reserva ya está pagada.')
@@ -9173,8 +9736,9 @@ def start_checkout(db, user, b, app=None):
     return create_stripe_checkout(db, user, amount=amount, currency=currency, title=title, payee=payee, kind=kind,
                                   provider_user_id=svc['provider_user_id'] if svc else None, booking_id=b['id'],
                                   service_id=b['service_id'], slot_id=b['slot_id'], hold_reserved=bool(b['slot_reserved']),
-                                  cancel_url=wmovil.return_urls(public_site_url(), app, b['id'])[1] if app else f"{public_site_url()}/#/reserva?id={b['id']}&pago=cancelado",
-                                  success_url=wmovil.return_urls(public_site_url(), app)[0] if app else None)
+                                  cancel_url=(return_to[1] if return_to else wmovil.return_urls(public_site_url(), app, b['id'])[1] if app
+                                              else f"{public_site_url()}/#/reserva?id={b['id']}&pago=cancelado"),
+                                  success_url=return_to[0] if return_to else wmovil.return_urls(public_site_url(), app)[0] if app else None)
 
 
 def start_experience_checkout(db, user, eb):
@@ -11087,7 +11651,8 @@ def agenda_claim(db, rid, spans, kind, ref_type, ref_id, actor=None, note=None):
         clash = active_blocks(db, rid, s, e)
         clash = [c for c in clash if not (c['ref_type'] == ref_type and c['ref_id'] == ref_id)]
         if clash:
-            raise ValueError('Esos días acaban de ocuparse. Elige otras fechas.' if kind == 'booking' else 'Ya hay algo en esas fechas.')
+            if kind == 'booking': raise NoSpots('Sin plazas: esos días acaban de ocuparse. Elige otras fechas.')
+            raise ValueError('Ya hay algo en esas fechas.')
     for s, e, lf, lt in spans:
         db.execute("""INSERT INTO resource_blocks(resource_id,starts_at,ends_at,local_date_from,local_date_to,kind,ref_type,ref_id,status,private_note,created_by,created_at)
                       VALUES(?,?,?,?,?,?,?,?,'active',?,?,?)""", (rid, s, e, lf, lt, kind, ref_type, ref_id, note, actor, now()))
@@ -11113,11 +11678,14 @@ def booking_spans(db, b, rows=None):
 
 
 def claim_booking_days(db, b):
-    """The days of a booking by days become busy (confirmation or «Pago al reservar»). Idempotent."""
+    """The days of a booking by days become busy (confirmation or «Pago al reservar»). Idempotent. v50.56: also the
+    instructor and the boat of a centre's course, so the same instructor never has two courses on the same days."""
     svc, res, spans = booking_spans(db, b)
     if not spans: return False
     if db.execute("SELECT 1 FROM resource_blocks WHERE ref_type='booking' AND ref_id=? AND status='active'", (b['id'],)).fetchone(): return True
     agenda_claim(db, res['id'], spans, 'booking', 'booking', b['id'])
+    for extra in service_extra_resources(db, svc):
+        agenda_claim(db, extra['id'], spans, 'booking', 'booking', b['id'])
     return True
 
 
@@ -11146,7 +11714,7 @@ def day_booking_selection(db, svc, data, participants):
     res = service_resource(db, svc)
     states = public_day_states(db, svc, res, days, rules, tz, unit) if days else {}
     err = wag.check_selection(days, part, unit, rules, states)
-    if err: raise ValueError(err)
+    if err: raise (NoSpots(err) if err.startswith('Sin plazas') else ValueError(err))
     price, lines = wag.quote(pricing, days, part, participants, as_list(data.get('agenda_extras')), svc['title'])
     start_hhmm = rules['am'][0] if part in ('full', 'am') else rules['pm'][0]
     return {'days': days, 'part': part, 'tz': tz, 'rules': rules, 'price': price, 'lines': lines, 'time': rules['full'][0] if part == 'full' else start_hhmm,
@@ -11157,6 +11725,8 @@ def public_day_states(db, svc, res, days, rules, tz, unit):
     if not days: return {}
     s = wag.local_to_utc(days[0], '00:00', tz); e = wag.local_to_utc(days[-1], '24:00', tz)
     blocks = active_blocks(db, res['id'], s, e)
+    for extra in service_extra_resources(db, svc, create=False):   # v50.56: the instructor or the boat is busy elsewhere
+        blocks += active_blocks(db, extra['id'], s, e)
     work, closures = resource_hours(db, res['id'])
     return wag.day_states(days, blocks, rules, tz, unit, work, closures)
 
@@ -11260,8 +11830,25 @@ def agenda_save_hours(db, user, data):
     return {'ok': True}
 
 
+def save_service_resources(db, sid, data):
+    """v50.56 (fallo F14): the instructor and the boat a centre's service by days takes. Busy for the whole course in
+    the common agenda: the same instructor never gets two courses that overlap, whatever the channel."""
+    if 'instructor_user_id' not in data and 'boat_id' not in data: return
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (sid,)).fetchone()
+    if not svc or not svc['center_id']: return
+    cid = svc['center_id']
+    ins = (int(data.get('instructor_user_id') or 0) or None) if 'instructor_user_id' in data else svc['instructor_user_id']
+    boat = (int(data.get('boat_id') or 0) or None) if 'boat_id' in data else svc['boat_id']
+    if ins and not db.execute("SELECT 1 FROM users WHERE id=? AND role='center' AND center_id=?", (ins, cid)).fetchone():
+        raise ValueError('Ese instructor no es del equipo del centro.')
+    if boat and not db.execute('SELECT 1 FROM boats WHERE id=? AND center_id=?', (boat, cid)).fetchone():
+        raise ValueError('Ese barco no es del centro.')
+    db.execute('UPDATE provider_services SET instructor_user_id=?,boat_id=?,updated_at=? WHERE id=?', (ins, boat, now(), sid))
+
+
 def save_service_agenda_options(db, user, sid, data):
     """Service form: booking unit (por salida · por días · por días o medias jornadas), rules, prices and time zone."""
+    save_service_resources(db, sid, data)
     if 'booking_unit' not in data: return
     unit = data.get('booking_unit') if data.get('booking_unit') in wag.UNITS else 'slot'
     if unit in wag.DAY_UNITS:
@@ -14201,6 +14788,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     require_feature(db,user,'integration')
                     db.execute('UPDATE center_integrations SET enabled=?,updated_at=? WHERE center_id=?',(enabled,now(),cid)); audit(db,user['id'],'center_integration_toggled','center',cid,{'enabled':bool(enabled)}); db.commit(); self.send_json({'ok':True,'enabled':bool(enabled)}); return
                 if path=='/api/integrations/bookings':
+                    # Fase 6 · «Conexión con tu web»: bookings the centre already has in its own system, pushed with its key.
+                    # v50.56: channel «import», through the single function create_booking (they take spots like any
+                    # other) and the price is ALWAYS the one of WORLDIVES: a «price» sent here is ignored.
                     key=self.headers.get('X-WORLDIVES-API-Key','').strip(); data=json_body(self)
                     if not key: raise PermissionError('Falta la API Key de WORLDIVES.')
                     digest=hashlib.sha256(key.encode()).hexdigest(); integ=db.execute('SELECT * FROM center_integrations WHERE api_key_hash=? AND enabled=1',(digest,)).fetchone()
@@ -14209,26 +14799,14 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     if ext:
                         old=db.execute('SELECT id,status FROM bookings WHERE center_id=? AND external_ref=?',(cid,ext)).fetchone()
                         if old: self.send_json({'ok':True,'duplicate':True,'booking_id':old['id'],'status':old['status']}); return
-                    contact_email=(clean_text(data.get('email'),160) or '').lower() or None
-                    contact_name=clean_text(data.get('fullname') or data.get('customer_name'),180) or 'Cliente web'
-                    uid=find_or_create_customer(db,contact_name,contact_email,data.get('phone'),cid)
-                    service_id=int(data.get('service_id') or 0) or None; slot_id=int(data.get('slot_id') or 0) or None; service=None
-                    if service_id:
-                        service=db.execute('SELECT * FROM provider_services WHERE id=? AND center_id=? AND active=1',(service_id,cid)).fetchone()
-                        if not service: raise ValueError('Servicio no válido para este centro.')
-                    participants=max(1,int(data.get('participants') or 1)); slot=None
-                    if slot_id:
-                        slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(slot_id,service_id)).fetchone()
-                        if not slot or participants>slot['spots_available']: raise ValueError('La salida seleccionada no tiene plazas suficientes.')
-                    bdate=slot['slot_date'] if slot else clean_text(data.get('booking_date'),20); btime=slot['slot_time'] if slot else clean_text(data.get('booking_time'),20)
-                    if not bdate: raise ValueError('Falta booking_date.')
-                    point_id=int(data.get('dive_point_id') or 0) or None; price=clean_money(data.get('price')) if data.get('price') not in (None,'') else float((service['price'] if service else 0) or 0); status=clean_text(data.get('status'),30) or 'requested'; status='requested' if status in {'pending','requested'} else ('confirmed' if status=='confirmed' else 'requested'); reserved=0
-                    if slot and status=='confirmed':
-                        changed=db.execute("UPDATE service_slots SET spots_available=spots_available-?,status=CASE WHEN spots_available-?<=0 THEN 'full' ELSE 'open' END,updated_at=? WHERE id=? AND status='open' AND spots_available>=?",(participants,participants,now(),slot_id,participants)).rowcount
-                        if changed!=1: raise ValueError('Las plazas acaban de cambiar.')
-                        reserved=1
-                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,external_ref,source,contact_email,contact_name,contact_phone,public_token,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,wod_cifrar(?),?,?,?)''',(uid,cid,point_id,service_id,slot_id,reserved,bdate,btime,participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),status,price,service['currency'] if service else 'EUR','paid' if data.get('paid') else ('at_center' if price>0 else 'not_required'),ext,'web',contact_email,contact_name,clean_text(data.get('phone'),60),wsec.random_token(),now(),now()))
-                    audit(db,uid,'booking_imported','booking',cur.lastrowid,{'source':'center_web','external_ref':ext}); db.commit(); self.send_json({'ok':True,'booking_id':cur.lastrowid,'status':status,'external_ref':ext}); return
+                    st=clean_text(data.get('status'),30) or 'requested'; st='confirmed' if st=='confirmed' else 'requested'
+                    out=create_booking(db,{'channel':'import','data':{**data,'external_ref':ext},'center_id':cid,
+                                           'guest':{'fullname':data.get('fullname') or data.get('customer_name') or 'Cliente web','email':data.get('email'),'phone':data.get('phone')},
+                                           'idem_key':self.headers.get('Idempotency-Key'),'idem_scope':f'integration:{cid}',
+                                           'manual':{'status':st,'payment_status':'paid' if data.get('paid') else None,'payment_method':'web','notify':False}})
+                    b=out['body']
+                    self.send_json({'ok':b.get('ok',False),'booking_id':b.get('id'),'status':b.get('status'),'external_ref':ext,'price':b.get('price'),
+                                    **({'duplicate':True} if b.get('duplicate') else {}),**({'error':b['error']} if b.get('error') else {})},out['status']); return
                 if path=='/api/center/tariffs/save':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0); sid=int(data.get('service_id') or 0)
                     svc=db.execute('SELECT id,price,currency FROM provider_services WHERE id=? AND center_id=?',(sid,cid)).fetchone()
@@ -15294,170 +15872,12 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                                (r['template'],r['lang'],r['to_email'],r['to_name'],r['subject'],wcif.encrypt(r['html']),wcif.encrypt(r['text']),r['related_type'],r['related_id'],now()))
                     audit(db,user['id'],'email_resent','email_outbox',eid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/bookings':
+                    # v50.56: the WORLDIVES search and a direct link («link»: the page was opened from a shared link) book
+                    # through the single function create_booking, the same as the widget, the API and the centre.
                     user=require_user(self,db); data=json_body(self)
-                    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')   # v50.51: checked and created atomically (no double booking)
-                    center_id=int(data.get('center_id') or 0) or None
-                    point_id=int(data.get('dive_point_id') or 0) or None
-                    if point_id and not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(point_id,)).fetchone(): raise ValueError('Punto de buceo no válido.')
-                    service_id=int(data.get('service_id') or 0) or None
-                    service=None; provider_user_id=None
-                    if service_id and not center_id:
-                        # Fase 2.7: services of a freelance professional without a centre.
-                        service=db.execute(f"SELECT s.* FROM provider_services s JOIN users u ON u.id=s.provider_user_id WHERE s.id=? AND s.active=1 AND s.center_id IS NULL AND {public_freelance_sql()}",(service_id,)).fetchone()
-                        if not service: raise ValueError('Servicio no válido.')
-                        provider_user_id=service['provider_user_id']
-                    else:
-                        if not center_id or not db.execute('SELECT 1 FROM centers WHERE id=? AND active=1',(center_id,)).fetchone(): raise ValueError('Centro no válido.')
-                        if service_id:
-                            service=db.execute('SELECT * FROM provider_services WHERE id=? AND active=1 AND center_id=?',(service_id,center_id)).fetchone()
-                            if not service: raise ValueError('Servicio no válido para este centro.')
-                            provider_user_id=service['provider_user_id']
-                    # Fase 6.2: a provider on the free listing receives information requests, not bookings (never «sin plazas»).
-                    if not (provider_has(db,'center',center_id,'online_bookings') if center_id else provider_has(db,'freelance',provider_user_id,'online_bookings')):
-                        e_=PermissionError('Este centro todavía no tiene reserva online en WORLDIVES. Puedes enviarle una solicitud de información y te contestará directamente.')
-                        e_.extra={'no_online_booking':True}; raise e_
-                    participants=clean_int(data.get('participants'),1,PARTICIPANTS_MAX,1,'El número de personas no es válido.')
-                    if service and service['max_participants'] and participants>int(service['max_participants']): raise ValueError(f'Este servicio admite como máximo {service["max_participants"]} participantes por reserva.')
-                    slot_id=int(data.get('slot_id') or 0) or None
-                    # v50.51 (load test): a double click or a retry of the same booking gives back the one just made
-                    if slot_id:
-                        dup=db.execute("SELECT * FROM bookings WHERE user_id=? AND slot_id=? AND participants=? AND status IN ('requested','pending','payment_in_progress','accepted_pending_payment','confirmed') AND created_at>=? ORDER BY id DESC LIMIT 1",
-                                       (user['id'],slot_id,participants,(datetime.now(timezone.utc)-_timedelta(minutes=2)).isoformat(timespec='seconds'))).fetchone()
-                        if dup:
-                            out={'ok':True,'id':dup['id'],'status':dup['status'],'duplicate':True,'payment_required':dup['status']=='payment_in_progress','price':dup['price'],'booking_mode':dup['booking_mode']}
-                            if dup['status']=='payment_in_progress':
-                                db.commit(); o=None
-                                for _ in range(25):
-                                    o=_open_order(db,'booking_id=?',(dup['id'],))
-                                    if o: break
-                                    time.sleep(0.2)
-                                if not o: self.send_json({'error':'Tu reserva ya se está procesando. Mírala en «Mis reservas».','id':dup['id']},409); return
-                                out['checkout_url']=o['checkout_url']
-                            self.send_json(out); return
-                    slot=None; wl_hold=None
-                    if slot_id:
-                        slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(slot_id,service_id)).fetchone()
-                        if not slot: raise ValueError('La salida seleccionada ya no está disponible.')
-                        wl_hold=waitlist_hold_for(db,slot_id,user['id'])
-                        if wl_hold:
-                            # Encargo 2, punto 4: the spots kept for this person of the waiting list are theirs to book.
-                            release_slot_spots(db,slot_id,wl_hold['held'],notify=False)
-                            slot=db.execute('SELECT * FROM service_slots WHERE id=?',(slot_id,)).fetchone()
-                        if participants>slot['spots_available']: raise ValueError(f'Solo quedan {slot["spots_available"]} plazas disponibles.')
-                        slot_points=[int(r['dive_point_id']) for r in db.execute('SELECT dive_point_id FROM service_slot_points WHERE slot_id=?',(slot_id,)).fetchall()]
-                        if slot_points:
-                            # La selección visible del usuario es la fuente de verdad, pero
-                            # aceptamos también el nombre como respaldo por si el select oculto
-                            # no se sincroniza en algún navegador/cache. Nunca elegimos un punto
-                            # arbitrario cuando la salida tiene varios.
-                            point_name=(clean_text(data.get('dive_point_name'),200) or '').strip().casefold()
-                            if point_id and point_id not in slot_points:
-                                point_id=None
-                            if not point_id and point_name:
-                                matches=[]
-                                for rr in db.execute('SELECT id,name FROM dive_points WHERE id IN (%s)' % ','.join('?'*len(slot_points)), slot_points).fetchall():
-                                    if (clean_text(rr['name'],200) or '').strip().casefold()==point_name:
-                                        matches.append(int(rr['id']))
-                                if len(matches)==1: point_id=matches[0]
-                            if not point_id and len(slot_points)==1: point_id=slot_points[0]
-                            # Una salida puede tener varios puntos (por ejemplo, un servicio
-                            # de doble inmersion). La reserva sigue necesitando un punto
-                            # principal para el logbook y la ficha de reserva. Si el cliente no
-                            # ha podido transmitir la seleccion visual, usamos de forma
-                            # determinista el primer punto programado en la salida en lugar de
-                            # bloquear una reserva valida. Si el cliente eligio uno, siempre se
-                            # respeta esa eleccion.
-                            if not point_id and len(slot_points)>1: point_id=slot_points[0]
-                    if slot:
-                        # La salida seleccionada es la fuente de verdad para fecha/hora.
-                        data['booking_date']=slot['slot_date']; data['booking_time']=slot['slot_time']
-                    if service and service_unit(service) in wag.DAY_UNITS:
-                        first_day=wag.normalize_selection(data.get('days'),data.get('date_from'),data.get('date_to'))
-                        if not first_day: raise ValueError('Elige al menos un día.')
-                        data['booking_date']=first_day[0]
-                    bdate=clean_text(data.get('booking_date'),20) or (slot['slot_date'] if slot else None)
-                    if not bdate or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',bdate): raise ValueError('Elige la fecha de la actividad.')
-                    bdate=clean_date(bdate)   # a real day (not 31 February)
-                    btime=clean_time(data.get('booking_time')) if not slot else clean_text(data.get('booking_time'),20)
-                    start=on_server_clock(db,wbk.activity_start(bdate,btime),service['id'] if service else None,center_id)
-                    if start and start<=local_now(): raise ValueError('Esa salida ya ha empezado o ha pasado. Elige otra fecha.')
-                    price, service_currency, price_lines = booking_quote(db, center_id, service, participants, bdate, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
-                    day_sel=None
-                    if service and service_unit(service) in wag.DAY_UNITS:
-                        # v50.44: booked by days or half days. The days chosen are the source of truth; nothing is held
-                        # for a request until the provider confirms; «Pago al reservar» takes the days while paying.
-                        if slot_id: raise ValueError('Este servicio se reserva por días, no por salidas.')
-                        day_sel=day_booking_selection(db,service,data,participants)
-                        bdate=day_sel['days'][0]; btime=day_sel['time']; start=day_sel['start']; price=day_sel['price']; price_lines=day_sel['lines']
-                    mode='payment' if service and service['booking_mode']=='payment' else 'request'
-                    ready=service_payments_ready(db,service) if service else False
-                    deadline=None; hold=None; slot_reserved=0
-                    payee=payee_of(db,center_id,provider_user_id)
-                    if price<0: raise ValueError('El importe no es válido.')   # never «free» because of a wrong extra (ASVS V2.2.3)
-                    if service and price<=0: raise ValueError(NO_PRICE_TEXT)   # v50.55: no booking of a service without a published price
-                    pay_way=service_pay_way(service)
-                    if pay_way=='in_person':
-                        # v50.55: the client is paid by the professional directly; he reads the notice and ticks the box.
-                        if mode!='request' or not provider_has(db,'freelance',provider_user_id,'in_person_payments') or not has_pay_contact(db,'service',service['id']):
-                            raise ValueError('Este profesional no admite reservas ahora mismo. Prueba más tarde.')
-                        if not json_bool(data.get('in_person_ack')):
-                            e_=ValueError(IN_PERSON_ACK_TEXT); e_.extra={'in_person_ack_required':True,'notice':wpres.NOTICE}; raise e_
-                        ready=False
-                    elif service and not service['center_id'] and not ready and mode=='request':
-                        raise ValueError('Este profesional no admite reservas ahora mismo. Prueba más tarde.')
-                    # ASVS 5.0 V2.4.1: at most BOOKING_MAX_PER_HOUR bookings an hour and PENDING_PAYMENTS_MAX unfinished payments per person.
-                    if BOOKING_LIMIT.blocked(f"u:{user['id']}"): self.send_json({'error':BOOKING_LIMIT_TEXT},429); return
-                    if mode=='payment' and db.execute("SELECT COUNT(*) FROM bookings WHERE user_id=? AND status='payment_in_progress' AND hold_expires_at>=?",(user['id'],local_iso(local_now()))).fetchone()[0]>=PENDING_PAYMENTS_MAX:
-                        raise ValueError('Tienes varios pagos sin terminar. Termínalos o espera unos minutos.')
-                    pol=provider_policy(payee,service)  # the policy shown before paying is the one that applies
-                    deposit=deposit_for(service,price,participants)
-                    if pay_way=='in_person': pol={**pol,'free_hours':None,'refund_pct':None}; deposit=None   # v50.55: no deposit, no managed policy
-                    if mode=='payment':
-                        # «Pago al reservar»: the diver pays to book. Never silently turned into «pay at the centre».
-                        if not ready: raise ValueError('Este servicio se reserva pagando online y ahora mismo el centro no tiene los cobros activos. Prueba más tarde o contacta con el centro.')
-                        if price<=0:
-                            status='confirmed'; payment_status='not_required'
-                        else:
-                            status='payment_in_progress'; payment_status='pending'; hold=local_iso(local_now()+_timedelta(minutes=HOLD_MINUTES))
-                        if slot:
-                            if not reserve_slot_spots(db,slot['id'],participants): raise ValueError('Las plazas acaban de cambiar. Vuelve a seleccionar la salida.')
-                            slot_reserved=1
-                    else:
-                        # «Bajo petición»: no money and no spots until the centre accepts, within its response deadline.
-                        status='requested'; payment_status='not_required' if price<=0 else ('required' if ready else 'at_center')
-                        if slot and wl_hold:
-                            # A request from the waiting list keeps its spots while the centre answers.
-                            if not reserve_slot_spots(db,slot['id'],participants): raise ValueError('Las plazas acaban de cambiar. Vuelve a seleccionar la salida.')
-                            slot_reserved=1
-                        hours=wbk.clamp_hours(service['response_hours'] if service else None, wbk.DEFAULT_RESPONSE_HOURS)
-                        deadline=local_iso(wbk.deadline_before_start(local_now(),hours,start))
-                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,provider_user_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,equipment_notes,needs_guide,guide_notes,nitrox,pickup,notes,status,price,currency,payment_status,booking_mode,response_deadline,hold_expires_at,confirmed_at,terms_version,price_breakdown,deposit_amount,amount_paid,amount_due,cancel_free_hours,cancel_refund_pct,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)''',
-                                   (user['id'],center_id,provider_user_id,point_id,service_id,slot_id,slot_reserved,bdate,btime,participants,1 if data.get('needs_equipment') else 0,clean_text(data.get('equipment_items'),1000),clean_text(data.get('equipment_notes'),1000),1 if data.get('needs_guide') else 0,clean_text(data.get('guide_notes'),1000),1 if data.get('nitrox') else 0,1 if data.get('pickup') else 0,clean_text(data.get('notes'),2000),
-                                    status,price,service['currency'] if service else 'EUR',payment_status,mode,deadline,hold,now() if status=='confirmed' else None,legal_doc_version(db,'reservas'),json.dumps(price_lines,ensure_ascii=False),
-                                    deposit,price,pol['free_hours'],pol['refund_pct'],now(),now()))
-                    bid=cur.lastrowid; BOOKING_LIMIT.hit(f"u:{user['id']}")
-                    if pay_way=='in_person':
-                        db.execute("UPDATE bookings SET pay_way='in_person',in_person_ack_at=? WHERE id=? AND user_id=?",(now(),bid,user['id']))
-                        audit(db,user['id'],'in_person_notice_accepted','booking',bid,{'notice_version':wpres.NOTICE_VERSION})
-                    if day_sel:
-                        db.executemany('INSERT INTO booking_days(booking_id,local_date,part) VALUES(?,?,?)',[(bid,d,day_sel['part']) for d in day_sel['days']])
-                        db.execute('UPDATE bookings SET date_to=?,days_mode=? WHERE id=?',(day_sel['days'][-1],day_sel['part'],bid))
-                        if status in ('payment_in_progress','confirmed'): claim_booking_days(db,booking_row(db,bid))
-                        if status=='confirmed': reject_overlapping_requests(db,booking_row(db,bid))
-                    if wl_hold: db.execute("UPDATE waitlist_entries SET status='booked',held=0,booking_id=?,updated_at=? WHERE id=?",(bid,now(),wl_hold['id'])); slot_event(db,slot_id,'waitlist_booked',user['id'],entry=wl_hold['id'],booking_id=bid)
-                    audit(db,user['id'],'booking_created','booking',bid,{'mode':mode,'status':status})
-                    # v50.47 (C.5): «Recibir por WhatsApp los avisos de mis reservas del centro», marked at booking time.
-                    if data.get('wa_consent') is not None: set_wa_consent(db,user['id'],json_bool(data.get('wa_consent')),data.get('lang') or user_lang(db,user['id']),'reserva',self.client_ip())
-                    if status=='payment_in_progress':
-                        # The booking is not visible to the centre until Stripe confirms the payment.
-                        db.commit()
-                        try:
-                            pay=start_checkout(db,user,booking_row(db,bid),app=wmovil.app_scheme(data.get('app')))
-                        except ValueError:
-                            expire_booking(db,booking_row(db,bid),'checkout_failed',notify=False); db.commit(); raise
-                        self.send_json({'ok':True,'id':bid,'status':status,'payment_required':True,'checkout_url':pay['checkout_url'],'hold_expires_at':hold,'price':price,'deposit':deposit,'currency':service_currency,'booking_mode':mode}); return
-                    notify_booking(db,bid,'created')
-                    db.commit(); self.send_json({'ok':True,'id':bid,'status':status,'payment_required':False,'price':price,'currency':service_currency,'booking_mode':mode,'response_deadline':deadline,'pay_way':pay_way}); return
+                    out=create_booking(db,{'channel':'link' if data.get('channel')=='link' else 'worldives','data':data,'customer':user,'actor_id':user['id'],
+                                           'idem_key':self.headers.get('Idempotency-Key') or data.get('idempotency_key'),'idem_scope':f"u:{user['id']}",'ip':self.client_ip()})
+                    self.send_json(out['body'],out['status']); return
                 if path=='/api/pro-mark':
                     # v50.55: «Cobrado» / «No se presentó» on a booking or experience with «Pago en persona». Only for the
                     # professional's own control: the client never sees it and no money moves.
@@ -16291,51 +16711,25 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
                     audit(db,user['id'],'center_showcase_updated','center',cid); db.commit()
                     for u in removed: delete_public_image(u)
                     self.send_json({'ok':True}); return
-                if path=='/api/center/bookings/manual':
-                    # A booking entered by the center itself: phone, walk-in, email, agency...
-                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=int(user['center_id'] or 0)
-                    if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
-                    fullname=clean_text(data.get('fullname'),180)
-                    if not fullname: raise ValueError('Indica el nombre del cliente.')
-                    service_id=int(data.get('service_id') or 0)
-                    service=db.execute('SELECT * FROM provider_services WHERE id=? AND center_id=?',(service_id,cid)).fetchone()
-                    if not service: raise ValueError('Elige una actividad de tu centro.')
-                    participants=max(1,min(200,int(data.get('participants') or 1)))
-                    slot=None; slot_id=int(data.get('slot_id') or 0) or None
-                    if slot_id:
-                        slot=db.execute("SELECT * FROM service_slots WHERE id=? AND service_id=? AND status IN ('open','full')",(slot_id,service_id)).fetchone()
-                        if not slot: raise ValueError('Esa salida ya no está disponible.')
-                    bdate=slot['slot_date'] if slot else clean_text(data.get('booking_date'),10)
-                    btime=slot['slot_time'] if slot else clean_text(data.get('booking_time'),5)
-                    if not bdate: raise ValueError('Elige una salida o indica la fecha.')
-                    status=clean_text(data.get('status'),20) or 'confirmed'
-                    if status=='pending': status='requested'
-                    if status not in {'confirmed','requested'}: status='confirmed'
-                    if slot and status=='confirmed' and participants>int(slot['spots_available']):
-                        raise ValueError(f'En esa salida solo quedan {slot["spots_available"]} plazas.')
-                    total,currency,lines=booking_quote(db,cid,service,participants,bdate,as_list(data.get('extra_ids')),as_list(data.get('equipment_codes')))
-                    override=data.get('price_override')
-                    if override not in (None,''):
-                        override=round(max(0.0,float(override)),2)
-                        if abs(override-total)>=0.005: lines.append({'kind':'adjustment','label':'Ajuste del centro','unit':round(override-total,2),'qty':1,'total':round(override-total,2)})
-                        total=override
-                    payment_status=clean_text(data.get('payment_status'),20) or ('required' if total>0 else 'not_required')
-                    if payment_status not in {'paid','required','not_required'}: payment_status='required'
-                    if total<=0: payment_status='not_required'
-                    point_id=None
-                    if slot:
-                        pr=db.execute('SELECT dive_point_id FROM service_slot_points WHERE slot_id=? LIMIT 1',(slot['id'],)).fetchone(); point_id=pr['dive_point_id'] if pr else None
-                    uid=find_or_create_customer(db,fullname,data.get('email'),data.get('phone'),cid)
-                    reserved=0
-                    if slot and status=='confirmed':
-                        if not reserve_slot_spots(db,slot['id'],participants): raise ValueError('Las plazas acaban de cambiar. Revisa la salida.')
-                        reserved=1
-                    codes=as_list(data.get('equipment_codes'))
-                    cur=db.execute('''INSERT INTO bookings(user_id,center_id,dive_point_id,service_id,slot_id,slot_reserved,booking_date,booking_time,participants,needs_equipment,equipment_items,notes,status,price,currency,payment_status,price_breakdown,source,contact_phone,contact_email,contact_name,created_by_user_id,payment_method,internal_notes,public_token,created_at,updated_at)
-                                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,wod_cifrar(?),?,?,?,?,?,?,?,?)''',(uid,cid,point_id,service_id,slot['id'] if slot else None,reserved,bdate,btime,participants,1 if codes else 0,', '.join(l['label'] for l in lines if l['kind']=='equipment'),clean_text(data.get('notes'),2000),status,total,currency,payment_status,json.dumps(lines,ensure_ascii=False),'manual',clean_text(data.get('phone'),60),(clean_text(data.get('email'),160) or '').lower() or None,fullname,user['id'],clean_text(data.get('payment_method'),40),clean_text(data.get('internal_notes'),2000),wsec.random_token(),now(),now()))
-                    if data.get('notify_client',True) and status=='confirmed': notify_booking(db,cur.lastrowid,'manual')
-                    audit(db,user['id'],'booking_created_manual','booking',cur.lastrowid,{'participants':participants,'total':total}); db.commit()
-                    self.send_json({'ok':True,'id':cur.lastrowid,'total':total,'status':status,'payment_status':payment_status}); return
+                if path in ('/api/center/bookings/manual','/api/provider/bookings/manual'):
+                    # A booking typed in by the centre or the freelance (phone, desk, agency): v50.56, through the single
+                    # function create_booking (channel «manual»), so it takes spots or days exactly like any other.
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    if not clean_text(data.get('fullname'),180): raise ValueError('Indica el nombre del cliente.')
+                    if not int(data.get('service_id') or 0): raise ValueError('Elige una actividad de tu centro.')
+                    st=clean_text(data.get('status'),20) or 'confirmed'; st='requested' if st=='pending' else st
+                    out=create_booking(db,{'channel':'manual','data':data,'center_id':ref[1] if ref[0]=='center' else None,'provider_user_id':ref[1] if ref[0]=='freelance' else None,
+                                           'guest':{'fullname':data.get('fullname'),'email':data.get('email'),'phone':data.get('phone')},'actor_id':user['id'],
+                                           'idem_key':self.headers.get('Idempotency-Key') or data.get('idempotency_key'),'idem_scope':f"{ref[0]}:{ref[1]}",
+                                           'manual':{'status':st,'payment_status':clean_text(data.get('payment_status'),20),'payment_method':data.get('payment_method'),
+                                                     'adjust':data.get('price_override'),'notify':data.get('notify_client',True)}})
+                    b=out['body']
+                    if b.get('id') and not b.get('duplicate') and clean_text(data.get('internal_notes'),2000):
+                        db.execute('UPDATE bookings SET internal_notes=? WHERE id=?',(clean_text(data.get('internal_notes'),2000),b['id'])); db.commit()
+                    row=booking_row(db,b['id']) if b.get('id') else None
+                    self.send_json({**b,'total':b.get('price'),'payment_status':row['payment_status'] if row else None,
+                                    'pay_url':guest_pay_url(row) if row and row['status']=='accepted_pending_payment' else None},out['status']); return
                 if path.startswith('/api/bookings/') and path.endswith('/payment'):
                     # The center records a payment taken at the desk (cash, card terminal, transfer).
                     user=require_user(self,db); require_role(user,{'center','freelance','admin'}); bid=int(path.split('/')[-2]); data=json_body(self)
@@ -16438,6 +16832,9 @@ footer{{padding:8px 14px;font-size:11px;color:#5f717b}}footer a{{background:none
             except NotFound as e:
                 db.rollback()
                 self.send_json({'error':str(e)},404)
+            except TooManyRequests as e:
+                db.rollback()
+                self.send_json({'error':str(e)},429)
             except ServerBusy as e:
                 db.rollback()
                 self.send_json({'error':str(e)},503)
@@ -17117,6 +17514,7 @@ def main():
     if is_worker: threading.Thread(target=maintenance_loop, name='maintenance', daemon=True).start()
     if is_worker: threading.Thread(target=email_scheduler, name='email-sender', daemon=True).start()
     if is_worker: threading.Thread(target=notice_loop, name='notices', daemon=True).start()
+    if is_worker: threading.Thread(target=webhook_loop, name='webhooks', daemon=True).start()
     s.serve_forever()
 
 

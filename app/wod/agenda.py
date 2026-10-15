@@ -249,8 +249,10 @@ def check_selection(days: list[str], part: str, unit: str, rules: dict, states: 
         ok = s == 'free' or (part == 'am' and s == 'pm') or (part == 'pm' and s == 'am')
         if not ok:
             day = _dt.date.fromisoformat(d)
-            what = {'busy': 'está ocupado', 'off': 'no está disponible', 'am': 'tiene la mañana ocupada', 'pm': 'tiene la tarde ocupada'}.get(s, 'no está disponible')
-            return f'El día {day.day}/{day.month} {what}. Elige otras fechas.'
+            if s in ('busy', 'am', 'pm'):   # taken by another booking: the same «Sin plazas» of every channel (v50.56)
+                what = {'busy': 'ya está ocupado', 'am': 'tiene la mañana ocupada', 'pm': 'tiene la tarde ocupada'}[s]
+                return f'Sin plazas: el día {day.day}/{day.month} {what}. Elige otras fechas.'
+            return f'El día {day.day}/{day.month} no está disponible. Elige otras fechas.'
     return None
 
 

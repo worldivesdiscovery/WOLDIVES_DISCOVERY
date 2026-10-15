@@ -122,3 +122,28 @@ def fetch_json(url: str, max_bytes: int = 256 * 1024):
 def fetch_image(url: str, max_bytes: int = 8 * 1024 * 1024) -> bytes:
     _, _, body = fetch(url, kinds=('image/',), max_bytes=max_bytes, accept='image/webp,image/jpeg,image/png,image/*;q=0.8')
     return body
+
+
+def _local_allowed() -> bool:
+    """Only for the automatic tests (v50.56): WOD_WEBHOOK_ALLOW_LOCAL=1 lets a webhook go to http://127.0.0.1. Never in
+    production, whatever the variable says."""
+    return wcfg.env('WOD_WEBHOOK_ALLOW_LOCAL') == '1' and wcfg.env('WOD_ENV', 'development') != 'production'
+
+
+def post_json(url: str, body: bytes, headers: dict, timeout: float = 10) -> int:
+    """POST to the server of a centre (webhooks, v50.56): https only, public addresses only, no redirections (a
+    signed notice is never sent anywhere else), a few seconds at most. Returns the HTTP status; raises FetchError."""
+    p = urllib.parse.urlparse(url)
+    local = _local_allowed() and p.scheme == 'http' and p.hostname in ('127.0.0.1', 'localhost')
+    if not local:
+        p = check_url(url)
+        if not public_host(p.hostname): raise FetchError('Dirección no permitida.')
+    req = urllib.request.Request(url, data=body, method='POST', headers={'User-Agent': 'WORLDIVES-DISCOVERY-Webhooks/1.0', 'Content-Type': 'application/json', **headers})
+    try:
+        with _OPENER.open(req, timeout=timeout) as resp:
+            resp.read(4096)
+            return resp.status
+    except urllib.error.HTTPError as e:
+        return e.code
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        raise FetchError(f'No se ha podido conectar: {type(e).__name__}') from None

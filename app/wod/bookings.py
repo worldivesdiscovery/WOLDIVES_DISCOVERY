@@ -56,7 +56,7 @@ CANCELLABLE = ('requested', 'accepted_pending_payment', 'confirmed')
 
 DEFAULT_RESPONSE_HOURS = 24
 DEFAULT_PAYMENT_HOURS = 24
-DEFAULT_HOLD_MINUTES = 15
+DEFAULT_HOLD_MINUTES = 10   # v50.56 (motor multicanal): 10 minutes by default, WOD_PAYMENT_HOLD_MINUTES changes it
 MIN_RESPONSE_HOURS = 1
 MAX_RESPONSE_HOURS = 168
 

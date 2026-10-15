@@ -18,6 +18,8 @@ class Phase1Security(ServerTestCase):
         cls.pro = t.make_freelance(cls.admin, 'gamma')
         cls.diver = t.make_diver('ana')
         cls.diver2 = t.make_diver('luis')
+        # v50.56: a customer always books an activity with its price on the server (no booking «without a service»).
+        cls.svc_a = cls.center_a.post('/api/provider-services', {'title': 'Inmersión de prueba', 'price': 40, 'booking_mode': 'request'}).json['id']
 
     # ------------------------------------------------------------------ G2
     def test_g2_register_never_grants_center_role(self):
@@ -82,7 +84,7 @@ class Phase1Security(ServerTestCase):
         self.assertTrue(self.server.sql("SELECT 1 FROM audit_log WHERE action='admin_personal_data' AND details LIKE ?", (f'%documento {did}%',)))
         # The diver books with centre A himself -> centre A can see it; centre B still cannot.
         cid = self.center_a.user['center_id']
-        r = d.post('/api/bookings', {'center_id': cid, 'booking_date': '2030-06-01', 'participants': 1})
+        r = d.post('/api/bookings', {'center_id': cid, 'service_id': self.svc_a, 'booking_date': '2030-06-01', 'participants': 1})
         self.assertEqual(r.status, 200, r)
         bid = r.json['id']
         self.assertEqual(self.center_a.get(f'/api/documents/file/{did}').status, 200)
@@ -150,7 +152,7 @@ class Phase1Security(ServerTestCase):
     # ------------------------------------------------------------------ G4
     def test_g4_public_booking_needs_token(self):
         cid = self.center_a.user['center_id']
-        bid = self.diver.post('/api/bookings', {'center_id': cid, 'booking_date': '2030-07-01'}).json['id']
+        bid = self.diver.post('/api/bookings', {'center_id': cid, 'service_id': self.svc_a, 'booking_date': '2030-07-01'}).json['id']
         anon = self.client()
         self.assertEqual(anon.get(f'/api/public/bookings/{bid}').status, 404)
         self.assertEqual(anon.get(f'/api/public/bookings/{bid}?t=wrong').status, 404)
@@ -232,7 +234,7 @@ class Phase1Security(ServerTestCase):
         self.assertEqual(r.status, 400)
         self.assertEqual(self.diver.post('/api/messages', {'booking_id': 1, 'body': 'hola hola'}).status, 403)
         cid = self.center_a.user['center_id']
-        bid = self.diver2.post('/api/bookings', {'center_id': cid, 'booking_date': '2030-09-01'}).json['id']
+        bid = self.diver2.post('/api/bookings', {'center_id': cid, 'service_id': self.svc_a, 'booking_date': '2030-09-01'}).json['id']
         # Centre B cannot send a notice about centre A's booking.
         self.assertEqual(self.center_b.post('/api/messages', {'booking_id': bid, 'body': 'cambio de hora'}).status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
         r = self.center_a.post('/api/messages', {'booking_id': bid, 'subject': 'Cambio de hora', 'body': 'La salida pasa a las 10:00.'})
@@ -295,7 +297,7 @@ class Phase1Security(ServerTestCase):
     # ------------------------------------------------------------------ permissions matrix
     def test_cross_role_permissions(self):
         cid_a = self.center_a.user['center_id']
-        bid = self.diver.post('/api/bookings', {'center_id': cid_a, 'booking_date': '2030-10-01'}).json['id']
+        bid = self.diver.post('/api/bookings', {'center_id': cid_a, 'service_id': self.svc_a, 'booking_date': '2030-10-01'}).json['id']
         # Another diver cannot see or cancel it.
         self.assertEqual(self.diver2.get(f'/api/bookings/{bid}').status, 404)  # v50.47 (B.3)
         self.assertIn(self.diver2.post(f'/api/bookings/{bid}/cancel', {}).status, (403, 404))
