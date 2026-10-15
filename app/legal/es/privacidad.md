@@ -45,6 +45,7 @@ No tomamos decisiones automatizadas que te afecten de forma significativa. El or
 ## 4. Con quién compartimos tus datos
 
 - **El centro o profesional con el que reservas:** recibe los datos de la reserva y tu contacto. Ve tu ficha de buceador y tus documentos **solo si reservaste tú con él** (mientras la reserva siga en curso) **o si compartes tus datos con él** al hacer check-in con su QR. Puedes dejar de compartirlos en «Mi cuenta → Centros que ven tu ficha».
+- **Tu seguro de buceo (v50.56):** el centro con el que reservas ve si tu seguro está vigente el día de la inmersión (estado, aseguradora, tipo y fechas, nunca el número de póliza), y solo desde que confirma la reserva hasta 7 días después; el documento, solo si activas «Compartir también el documento de la póliza». Si un centro sube una póliza para tu reserva, solo pasa a tu perfil si lo aceptas. Cada consulta queda registrada. Al pulsar «Contratar en …» abrimos la web de la aseguradora sin enviarle ningún dato tuyo: solo contamos el clic, sin saber quién lo hizo. WORLDIVES no es aseguradora ni mediador de seguros.
 - **Stripe Payments Europe Ltd.** (Irlanda): procesa el pago **en la cuenta de Stripe del centro** y las devoluciones. Stripe es responsable de los datos de pago que trata.
 - **Proveedor de alojamiento:** {{hosting}}. El servidor está en {{hosting_location}}, dentro de la Unión Europea.
 - **Copias de seguridad:** se guardan cifradas en el propio servidor y en {{backup_provider}}, dentro de la Unión Europea, como encargado del tratamiento.
@@ -62,6 +63,7 @@ Algunos de estos proveedores pueden tratar datos fuera del Espacio Económico Eu
 |---|---|
 | Cuenta y ficha | Mientras tengas la cuenta. Las cuentas sin actividad durante el plazo configurado (36 meses por defecto) se avisan y después se eliminan |
 | Documentos subidos | Hasta que los borres o elimines tu cuenta. Los documentos caducados se borran pasado el plazo configurado (12 meses por defecto) |
+| Pólizas de «Mi seguro de buceo» | Hasta que las borres o elimines tu cuenta. Las caducadas se borran solas pasado el plazo configurado (12 meses por defecto), salvo que cubran una reserva en reclamación |
 | Reservas y pagos | 6 años, sin tu nombre si eliminas tu cuenta (obligaciones mercantiles y fiscales del centro y nuestras) |
 | Avisos de los centros | 24 meses por defecto |
 | Sesiones | En la web, hasta cerrar sesión o 8 horas sin actividad. En la app, 15 minutos que el móvil renueva y como mucho 30 días por dispositivo. Los dispositivos que no se usan en 13 meses se olvidan |

@@ -45,6 +45,7 @@ Nie podejmujemy zautomatyzowanych decyzji, które w istotny sposób na Ciebie wp
 ## 4. Komu udostępniamy Twoje dane
 
 - **Centrum lub profesjonalista, u którego dokonujesz rezerwacji:** otrzymuje dane rezerwacji i Twoje dane kontaktowe. Widzi Twój profil nurka i Twoje dokumenty **tylko wtedy, gdy sam dokonałeś u niego rezerwacji** (dopóki rezerwacja jest w toku) **lub gdy udostępnisz mu swoje dane**, meldując się za pomocą jego kodu QR. Możesz zakończyć udostępnianie w „Moje konto → Centra, które widzą Twój profil”.
+- **Twoje ubezpieczenie nurkowe (v50.56):** centrum, w którym dokonujesz rezerwacji, widzi, czy Twoje ubezpieczenie jest ważne w dniu nurkowania (status, ubezpieczyciel, rodzaj i daty, nigdy numer polisy), i tylko od potwierdzenia rezerwacji do 7 dni po niej; dokument tylko wtedy, gdy włączysz «Udostępnij też dokument polisy». Jeśli centrum prześle polisę do Twojej rezerwacji, trafi ona do Twojego profilu tylko po Twojej zgodzie. Każdy wgląd jest rejestrowany. Gdy klikniesz «Wykup w …», otwieramy stronę ubezpieczyciela, nie przekazując mu żadnych Twoich danych: liczymy tylko kliknięcie, nie wiedząc, kto je wykonał. WORLDIVES nie jest ubezpieczycielem ani pośrednikiem ubezpieczeniowym.
 - **Stripe Payments Europe Ltd.** (Irlandia): przetwarza płatność **na koncie Stripe centrum** oraz zwroty. Stripe jest administratorem przetwarzanych przez siebie danych płatniczych.
 - **Dostawca hostingu:** {{hosting}}. Serwer znajduje się w {{hosting_location}}, na terenie Unii Europejskiej.
 - **Kopie zapasowe:** przechowywane w formie zaszyfrowanej na naszym własnym serwerze oraz u {{backup_provider}}, na terenie Unii Europejskiej, jako podmiot przetwarzający.
@@ -62,6 +63,7 @@ Niektórzy z tych dostawców mogą przetwarzać dane poza Europejskim Obszarem G
 |---|---|
 | Konto i profil | Dopóki posiadasz konto. Konta nieaktywne przez skonfigurowany okres (domyślnie 36 miesięcy) otrzymują powiadomienie, a następnie są usuwane |
 | Przesłane dokumenty | Do czasu ich usunięcia przez Ciebie lub usunięcia konta. Dokumenty, których ważność wygasła, są usuwane po upływie skonfigurowanego okresu (domyślnie 12 miesięcy) |
+| Polisy w «Moje ubezpieczenie nurkowe» | Do czasu ich usunięcia przez Ciebie lub usunięcia konta. Wygasłe są usuwane automatycznie po ustawionym okresie (domyślnie 12 miesięcy), chyba że obejmują rezerwację objętą reklamacją |
 | Rezerwacje i płatności | 6 lat, bez Twojego imienia i nazwiska, jeśli usuniesz konto (obowiązki handlowe i podatkowe centrum oraz nasze) |
 | Powiadomienia od centrów | Domyślnie 24 miesiące |
 | Sesje | W serwisie do wylogowania lub po 8 godzinach bezczynności. W aplikacji 15 minut odnawianych przez telefon i najwyżej 30 dni na urządzenie. Urządzenia nieużywane przez 13 miesięcy są zapominane |

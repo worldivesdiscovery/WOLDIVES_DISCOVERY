@@ -45,6 +45,7 @@ Non adottiamo decisioni automatizzate che incidano in modo significativo su di t
 ## 4. Con chi condividiamo i tuoi dati
 
 - **Il centro o professionista presso cui prenoti:** riceve i dati della prenotazione e i tuoi recapiti. Vede la tua scheda del subacqueo e i tuoi documenti **solo se hai prenotato con lui** (finché la prenotazione è in corso) **o se condividi i tuoi dati con lui** effettuando il check-in con il suo QR. Puoi interrompere la condivisione in «Il mio account → Centri che vedono la tua scheda».
+- **La tua assicurazione subacquea (v50.56):** il centro presso cui prenoti vede se la tua assicurazione è valida il giorno dell'immersione (stato, assicuratore, tipo e date, mai il numero di polizza), e solo dalla conferma della prenotazione fino a 7 giorni dopo; il documento, solo se attivi «Condividi anche il documento della polizza». Se un centro carica una polizza per la tua prenotazione, passa al tuo profilo solo se la accetti. Ogni consultazione viene registrata. Quando premi «Sottoscrivi con …» apriamo il sito dell'assicuratore senza inviargli nessun tuo dato: contiamo solo il clic, senza sapere chi l'ha fatto. WORLDIVES non è un assicuratore né un intermediario assicurativo.
 - **Stripe Payments Europe Ltd.** (Irlanda): elabora il pagamento **sull'account Stripe del centro** e i rimborsi. Stripe è titolare del trattamento dei dati di pagamento che tratta.
 - **Fornitore di hosting:** {{hosting}}. Il server si trova a {{hosting_location}}, all'interno dell'Unione europea.
 - **Copie di backup:** conservate cifrate sul nostro server e presso {{backup_provider}}, all'interno dell'Unione europea, come responsabile del trattamento.
@@ -62,6 +63,7 @@ Alcuni di questi fornitori possono trattare dati al di fuori dello Spazio econom
 |---|---|
 | Account e scheda | Finché mantieni l'account. Gli account inattivi per il periodo configurato (36 mesi per impostazione predefinita) ricevono un avviso e vengono poi eliminati |
 | Documenti caricati | Finché non li cancelli o non elimini il tuo account. I documenti scaduti vengono cancellati trascorso il periodo configurato (12 mesi per impostazione predefinita) |
+| Polizze di «La mia assicurazione subacquea» | Finché non le cancelli o non elimini il tuo account. Quelle scadute si cancellano automaticamente dopo il periodo configurato (12 mesi per impostazione predefinita), salvo che coprano una prenotazione in contestazione |
 | Prenotazioni e pagamenti | 6 anni, senza il tuo nome se elimini il tuo account (obblighi commerciali e fiscali del centro e nostri) |
 | Avvisi dei centri | 24 mesi per impostazione predefinita |
 | Sessioni | Sul web, fino alla disconnessione o 8 ore di inattività. Nell'app, 15 minuti che il telefono rinnova e al massimo 30 giorni per dispositivo. I dispositivi non usati per 13 mesi vengono dimenticati |

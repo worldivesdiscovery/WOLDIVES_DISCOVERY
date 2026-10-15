@@ -45,6 +45,7 @@ We do not make automated decisions that significantly affect you. The order of r
 ## 4. Who we share your data with
 
 - **The centre or professional you book with:** receives the booking details and your contact details. It can see your diver profile and your documents **only if you booked with it** (while the booking is still in progress) **or if you share your data with it** when checking in with its QR code. You can stop sharing them in «My account → Centres that can see your profile».
+- **Your diving insurance (v50.56):** the centre you book with sees whether your insurance is valid on the day of the dive (status, insurer, type and dates, never the policy number), and only from when it confirms the booking until 7 days afterwards; the document, only if you turn on «Also share the policy document». If a centre uploads a policy for your booking, it only goes into your profile if you accept it. Every view is logged. When you press «Buy at …» we open the insurer's website without sending it any of your data: we only count the click, without knowing who made it. WORLDIVES is not an insurer or an insurance intermediary.
 - **Stripe Payments Europe Ltd.** (Ireland): processes the payment **into the centre's Stripe account** and any refunds. Stripe is the controller of the payment data it processes.
 - **Hosting provider:** {{hosting}}. The server is in {{hosting_location}}, within the European Union.
 - **Backups:** stored encrypted on our own server and with {{backup_provider}}, within the European Union, as processor.
@@ -62,6 +63,7 @@ Some of these providers may process data outside the European Economic Area with
 |---|---|
 | Account and profile | For as long as you have the account. Accounts with no activity for the configured period (36 months by default) are notified and then deleted |
 | Uploaded documents | Until you delete them or delete your account. Expired documents are deleted after the configured period (12 months by default) |
+| «My diving insurance» policies | Until you delete them or delete your account. Expired ones are deleted automatically after the configured period (12 months by default), unless they cover a booking under dispute |
 | Bookings and payments | 6 years, without your name if you delete your account (commercial and tax obligations of the centre and of us) |
 | Notices from centres | 24 months by default |
 | Sessions | On the web, until you log out or after 8 hours of inactivity. In the app, 15 minutes that the phone renews, and 30 days at most per device. Devices not used for 13 months are forgotten |

@@ -45,6 +45,7 @@ Não tomamos decisões automatizadas que o afetem de forma significativa. A orde
 ## 4. Com quem partilhamos os seus dados
 
 - **O centro ou profissional com quem reserva:** recebe os dados da reserva e o seu contacto. Vê a sua ficha de mergulhador e os seus documentos **apenas se tiver reservado com ele** (enquanto a reserva estiver em curso) **ou se partilhar os seus dados com ele** ao fazer check-in com o respetivo QR. Pode deixar de os partilhar em «A minha conta → Centros que veem a sua ficha».
+- **O seu seguro de mergulho (v50.56):** o centro com quem reserva vê se o seu seguro está válido no dia do mergulho (estado, seguradora, tipo e datas, nunca o número da apólice), e só desde que confirma a reserva até 7 dias depois; o documento, só se ativar «Partilhar também o documento da apólice». Se um centro carregar uma apólice para a sua reserva, só passa para o seu perfil se a aceitar. Cada consulta fica registada. Ao carregar em «Contratar em …» abrimos o site da seguradora sem lhe enviar nenhum dado seu: só contamos o clique, sem saber quem o fez. A WORLDIVES não é seguradora nem mediador de seguros.
 - **Stripe Payments Europe Ltd.** (Irlanda): processa o pagamento **na conta Stripe do centro** e os reembolsos. A Stripe é responsável pelos dados de pagamento que trata.
 - **Prestador de alojamento:** {{hosting}}. O servidor está em {{hosting_location}}, dentro da União Europeia.
 - **Cópias de segurança:** guardadas cifradas no nosso próprio servidor e em {{backup_provider}}, dentro da União Europeia, como subcontratante.
@@ -62,6 +63,7 @@ Alguns destes prestadores podem tratar dados fora do Espaço Económico Europeu 
 |---|---|
 | Conta e ficha | Enquanto mantiver a conta. As contas sem atividade durante o prazo configurado (36 meses, por predefinição) são notificadas e, em seguida, eliminadas |
 | Documentos carregados | Até os apagar ou eliminar a sua conta. Os documentos caducados são apagados decorrido o prazo configurado (12 meses, por predefinição) |
+| Apólices de «O meu seguro de mergulho» | Até as apagar ou eliminar a sua conta. As caducadas são apagadas automaticamente após o prazo configurado (12 meses por omissão), salvo se cobrirem uma reserva em reclamação |
 | Reservas e pagamentos | 6 anos, sem o seu nome se eliminar a sua conta (obrigações comerciais e fiscais do centro e nossas) |
 | Avisos dos centros | 24 meses, por predefinição |
 | Sessões | Na web, até terminar a sessão ou 8 horas sem atividade. Na app, 15 minutos que o telemóvel renova e, no máximo, 30 dias por dispositivo. Os dispositivos que não são usados durante 13 meses são esquecidos |

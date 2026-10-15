@@ -388,3 +388,24 @@ class Seguros(ServerTestCase):
         # The legal notice of the window comes in the language asked for (texts of Administración → Seguros)
         notices = {l: Client(self.server).get(f'/api/insurance/offers?tipo=dia&pais=ES&lang={l}').json['not_insurer'] for l in ('es', 'en', 'fr', 'de', 'it', 'pt', 'pl', 'nl', 'zh')}
         self.assertEqual(len(set(notices.values())), 9, notices)
+
+    # ------------------------------------------------------------------------------------------------ the diver's rights
+    def test_descargar_mis_datos_y_borrar_cuenta(self):
+        """«Descargar mis datos» lleva las pólizas y sus archivos; al borrar la cuenta se borran pólizas y archivos."""
+        import zipfile
+        d = self.diver()
+        pid = self.upload(d, day(200)).json['id']
+        rel = self.server.sql('SELECT file_path FROM insurance_policies WHERE id=?', (pid,))[0]['file_path']
+        stored = Path(self.server.env.get('WOD_STORAGE_DIR') or (self.server.tmp / 'storage')) / rel
+        self.assertTrue(stored.exists(), stored)
+        r = d.get('/api/account/export?format=zip')
+        self.assertEqual(r.status, 200)
+        z = zipfile.ZipFile(io.BytesIO(r.body))
+        data = json.loads(z.read('datos.json'))
+        pol = [p for p in data['insurance_policies'] if p['id'] == pid]
+        self.assertEqual(len(pol), 1); self.assertEqual(pol[0]['policy_number'], 'DA-2026-001'); self.assertEqual(pol[0]['valid_to'], day(200))
+        self.assertNotIn('file_path', pol[0])
+        self.assertTrue(any(n.startswith(f'seguros/{pid}_') for n in z.namelist()), z.namelist())
+        self.run_py(f"u=db.execute('SELECT * FROM users WHERE id=?',({d.user['id']},)).fetchone(); server.delete_user_account(db,dict(u)); db.commit()")
+        self.assertEqual(self.server.sql('SELECT COUNT(*) n FROM insurance_policies WHERE user_id=?', (d.user['id'],))[0]['n'], 0)
+        self.assertFalse(stored.exists(), stored)

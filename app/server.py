@@ -7475,7 +7475,7 @@ def booking_mail_ctx(db, bid, lang='es'):
             'response_deadline': mail_deadline(db, b['response_deadline'], lang, b['service_id'], b['center_id']),
             'reject_reason': b['reject_reason'] or '',
             # v50.56 (seguros): the service asks for a diving insurance and the booking has none on file for that day
-            'insurance_note': (mail_t(lang, 'Recuerda llevar tu seguro de buceo vigente: este servicio lo pide para el día de la inmersión. Si no lo tienes, puedes contratar uno de día desde WORLDIVES: {url}', url=f'{base}/#/seguro?contratar=dia')
+            'insurance_note': (mail_t(lang, 'Recuerda llevar tu seguro de buceo vigente: este servicio lo pide para el día de la inmersión. Si no lo tienes, en WORLDIVES encontrarás enlaces a aseguradoras con seguro de día (se contrata en su web): {url}', url=f'{base}/#/seguro?contratar=dia')
                                if row_get(b, 'insurance_status') and b['insurance_status'] not in ('ok', 'not_required') else ''),
             # v50.56: a customer without an account (widget, API, the centre's manual booking) opens his booking with its token
             'booking_url': guest_booking_url(b) if is_guest_user(db, b['user_id']) else f'{base}/#/reserva?id={bid}',
@@ -10964,6 +10964,9 @@ def export_user_data(db, uid):
         if rows: out[t] = [dict(r) for r in rows]
     out['messages_received'] = [dict(r) for r in db.execute('SELECT subject,body,created_at,read_at FROM messages WHERE recipient_user_id=? ORDER BY id DESC LIMIT 2000', (uid,)).fetchall()]
     out['emails_sent_to_you'] = [dict(r) for r in db.execute('SELECT template,subject,status,created_at,sent_at FROM email_outbox WHERE to_email=(SELECT lower(email) FROM users WHERE id=?) ORDER BY id DESC LIMIT 500', (uid,)).fetchall()]
+    # v50.56: «Mi seguro de buceo» (the files go in the folder «seguros» of the ZIP)
+    out['insurance_policies'] = [{k: r[k] for k in ('id', 'insurer', 'policy_number', 'kind', 'valid_from', 'valid_to', 'zone', 'max_depth', 'original_name', 'source',
+                                                     'status', 'booking_id', 'created_at')} for r in db.execute('SELECT * FROM insurance_policies WHERE user_id=? ORDER BY id', (uid,)).fetchall()]
     return out
 
 
@@ -10980,6 +10983,11 @@ def export_user_zip(db, uid):
             if not fp or not fp.exists(): continue
             name = re.sub(r'[^A-Za-z0-9._-]+', '_', d['original_name'] or fp.name)[-80:] or fp.name
             z.write(fp, f"documentos/{d['id']}_{d['document_type'] or 'documento'}_{name}")
+        for d in db.execute('SELECT id,file_path,original_name FROM insurance_policies WHERE user_id=? AND file_path IS NOT NULL', (uid,)).fetchall():
+            fp = document_file_path(d['file_path'])
+            if not fp or not fp.exists(): continue
+            name = re.sub(r'[^A-Za-z0-9._-]+', '_', d['original_name'] or fp.name)[-80:] or fp.name
+            z.write(fp, f"seguros/{d['id']}_{name}")
     return buf.getvalue()
 
 
@@ -11009,6 +11017,8 @@ def delete_user_account(db, user):
     db.execute('DELETE FROM document_alerts WHERE document_id IN (SELECT id FROM user_documents WHERE user_id=?)', (uid,))
     for d in db.execute('SELECT file_path FROM user_documents WHERE user_id=?', (uid,)).fetchall():
         delete_document_file(d['file_path'])
+    for p in db.execute('SELECT * FROM insurance_policies WHERE user_id=?', (uid,)).fetchall():
+        ins_delete_policy(db, p)   # v50.56: the policies and their files
     tag = secrets.token_hex(4)
     db.execute('''UPDATE users SET fullname='Usuario eliminado', email=?, username=?, password_hash='!', provider_bio=NULL, avatar_url=NULL,
                   instagram_url=NULL, facebook_url=NULL, twitter_url=NULL, youtube_url=NULL, tiktok_url=NULL WHERE id=?''',
@@ -11020,7 +11030,7 @@ def delete_user_account(db, user):
                 "UPDATE center_claims SET status='withdrawn', phone=NULL, note=NULL, email=NULL, reviewed_at=COALESCE(reviewed_at,?) WHERE user_id=? AND status='pending'",
                 "UPDATE reward_redemptions SET status='cancelled', cancelled_at=? WHERE user_id=? AND status='issued'",
                 'DELETE FROM account_deletion_requests WHERE user_id=?',
-                'UPDATE bookings SET contact_phone=NULL, contact_phone_hash=NULL, contact_email=NULL, contact_name=NULL, notes=NULL, equipment_notes=NULL, guide_notes=NULL WHERE user_id=?',
+                'UPDATE bookings SET contact_phone=NULL, contact_phone_hash=NULL, contact_email=NULL, contact_name=NULL, notes=NULL, equipment_notes=NULL, guide_notes=NULL, insurance_info=NULL WHERE user_id=?',
                 'DELETE FROM info_requests WHERE user_id=?'):
         db.execute(sql, (now(), uid) if sql.count('?') == 2 else (uid,))
     audit(db, uid, 'account_deleted', 'user', uid)

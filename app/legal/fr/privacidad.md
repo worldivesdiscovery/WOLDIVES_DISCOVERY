@@ -45,6 +45,7 @@ Nous ne prenons pas de décisions automatisées qui vous affectent de manière s
 ## 4. Avec qui nous partageons vos données
 
 - **Le centre ou le professionnel auprès duquel vous réservez :** il reçoit les données de la réservation et vos coordonnées. Il voit votre fiche de plongeur et vos documents **uniquement si vous avez réservé vous-même chez lui** (tant que la réservation est en cours) **ou si vous partagez vos données avec lui** lors de l'enregistrement avec son QR code. Vous pouvez cesser de les partager dans « Mon compte → Centres qui voient votre fiche ».
+- **Votre assurance plongée (v50.56) :** le centre auprès duquel vous réservez voit si votre assurance est valable le jour de la plongée (état, assureur, type et dates, jamais le numéro de police), et uniquement de la confirmation de la réservation jusqu'à 7 jours après ; le document, uniquement si vous activez « Partager aussi le document de la police ». Si un centre ajoute une police pour votre réservation, elle ne passe dans votre profil que si vous l'acceptez. Chaque consultation est enregistrée. Lorsque vous cliquez sur « Souscrire chez … », nous ouvrons le site de l'assureur sans lui envoyer aucune donnée vous concernant : nous comptons seulement le clic, sans savoir qui l'a fait. WORLDIVES n'est ni assureur ni intermédiaire en assurance.
 - **Stripe Payments Europe Ltd.** (Irlande) : traite le paiement **sur le compte Stripe du centre** ainsi que les remboursements. Stripe est responsable des données de paiement qu'il traite.
 - **Hébergeur :** {{hosting}}. Le serveur se trouve à {{hosting_location}}, dans l'Union européenne.
 - **Sauvegardes :** conservées chiffrées sur notre propre serveur et chez {{backup_provider}}, dans l'Union européenne, en tant que sous-traitant.
@@ -62,6 +63,7 @@ Certains de ces fournisseurs peuvent traiter des données en dehors de l'Espace 
 |---|---|
 | Compte et fiche | Tant que vous avez le compte. Les comptes inactifs pendant la durée configurée (36 mois par défaut) font l'objet d'un avertissement, puis sont supprimés |
 | Documents téléchargés | Jusqu'à ce que vous les supprimiez ou supprimiez votre compte. Les documents expirés sont supprimés après la durée configurée (12 mois par défaut) |
+| Polices de « Mon assurance plongée » | Jusqu'à ce que vous les supprimiez ou supprimiez votre compte. Les polices expirées sont supprimées automatiquement après le délai configuré (12 mois par défaut), sauf si elles couvrent une réservation en litige |
 | Réservations et paiements | 6 ans, sans votre nom si vous supprimez votre compte (obligations commerciales et fiscales du centre et les nôtres) |
 | Notifications des centres | 24 mois par défaut |
 | Sessions | Sur le site, jusqu'à la déconnexion ou 8 heures d'inactivité. Dans l'application, 15 minutes que le téléphone renouvelle, et 30 jours au maximum par appareil. Les appareils non utilisés pendant 13 mois sont oubliés |

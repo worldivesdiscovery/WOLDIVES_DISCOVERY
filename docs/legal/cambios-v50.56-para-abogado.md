@@ -62,4 +62,88 @@ Pruebas: `tests/test_v50_56_widget.py` (`test_cliente_del_widget_es_del_centro`,
 
 ## Bloque 2 · Seguros de buceo
 
-(Se completa con la parte de seguros de esta misma versión.)
+Desde la v50.56 el buceador guarda su póliza en **«Mi seguro de buceo»**, ve si está vigente y recibe avisos antes de
+que caduque; cada servicio dice si exige seguro; el centro ve el estado del seguro de sus buceadores; y una ventana
+**«Contrata tu seguro de buceo»** enlaza con **aseguradoras colaboradoras**.
+
+**La regla que sigue el código** (Real Decreto-ley 3/2020): WORLDIVES **no es aseguradora ni mediador de seguros**. No
+vende, no cobra, no recomienda ni compara coberturas: solo enlaza con la web de la aseguradora, donde se contrata y se
+paga. **Ninguna aseguradora está escrita en el código**: se dan de alta en Administración → Seguros. Hoy no hay ninguna
+real (solo las dos inventadas de la demo).
+
+### 1. Lo que ha cambiado
+
+| Documento | Dónde | Qué cambia |
+|---|---|---|
+| **Política de privacidad** (9 idiomas) | `app/legal/<idioma>/privacidad.md`: viñeta nueva tras «El centro o profesional con el que reservas» y fila nueva en la tabla de conservación | Qué ve el centro del seguro y cuándo; el documento solo si el buceador lo comparte; la póliza que sube un centro solo llega al perfil con su «sí»; registro de cada consulta; el enlace a la aseguradora no le envía datos; conservación de las pólizas. Texto exacto en el punto 2. |
+| **Aviso junto a cada aseguradora** (9 idiomas, editable) | Administración → Seguros → Textos legales (valores por defecto en `app/wod/seguros.py`, `LEGAL_DEFAULTS`) | «La contratación se realiza en la web de [aseguradora]. WORLDIVES no es aseguradora ni mediador de seguros.» |
+| **Marca «Colaborador»** (enlace con comisión) | ídem | «Colaborador: WORLDIVES puede recibir una compensación de [aseguradora] si contratas desde este enlace. No cambia el precio que pagas.» |
+| **Marca «Destacado»** (prioridad pagada) | ídem | «Destacado: [aseguradora] paga para aparecer en primer lugar.» |
+| **Correo y aviso en la app de caducidad** (9 idiomas) | `app/server.py`, plantilla `insurance_diver_expiring` | A 30, 7 y 1 días y el día que caduca, con «Renovar o contratar seguro» y la nota «WORLDIVES no es aseguradora ni mediador de seguros: la contratación se hace en la web de cada aseguradora…». |
+| **Correo «[centro] ha añadido tu seguro»** (9 idiomas) | plantilla `insurance_policy_added` | Pide al buceador que decida si guarda en su perfil la póliza que subió el centro. |
+| **Nota en la confirmación de la reserva** (9 idiomas) | `booking_mail_ctx`, `insurance_note` | Cuando el servicio pide seguro y no consta uno válido: «Recuerda llevar tu seguro de buceo vigente… Si no lo tienes, en WORLDIVES encontrarás enlaces a aseguradoras con seguro de día (se contrata en su web).» |
+
+Cómo se publican: igual que en el Bloque 1, la política de privacidad cambiada pasa a ser una **versión nueva** al
+instalar la v50.56. Los avisos de las aseguradoras se cambian en la web sin instalar nada.
+
+### 2. Texto exacto de lo nuevo en la política de privacidad (castellano)
+
+> **Tu seguro de buceo (v50.56):** el centro con el que reservas ve si tu seguro está vigente el día de la inmersión
+> (estado, aseguradora, tipo y fechas, nunca el número de póliza), y solo desde que confirma la reserva hasta 7 días
+> después; el documento, solo si activas «Compartir también el documento de la póliza». Si un centro sube una póliza
+> para tu reserva, solo pasa a tu perfil si lo aceptas. Cada consulta queda registrada. Al pulsar «Contratar en …»
+> abrimos la web de la aseguradora sin enviarle ningún dato tuyo: solo contamos el clic, sin saber quién lo hizo.
+> WORLDIVES no es aseguradora ni mediador de seguros.
+
+> Fila de conservación: **Pólizas de «Mi seguro de buceo»** · Hasta que las borres o elimines tu cuenta. Las caducadas
+> se borran solas pasado el plazo configurado (12 meses por defecto), salvo que cubran una reserva en reclamación.
+
+### 3. Cómo se cumple (lo que hace el código)
+
+- **No vende ni cobra.** «Contratar en [aseguradora]» abre su web en otra pestaña (`/seguros/ir/<producto>` → 302 a la
+  dirección que dio la aseguradora). Solo se admiten direcciones **https** de sus **dominios autorizados**; se añade
+  únicamente su **código de colaborador**. Sin nombre, correo ni referencia de la página (`Referrer-Policy: no-referrer`).
+- **No recomienda ni compara.** La ventana enseña por cada aseguradora: logo, nombre del producto, «desde X €», zona y el
+  botón. No hay valoraciones ni coberturas comparadas. Orden **neutral** (alfabético o rotando cada día); solo
+  aparece primero quien paga por ello, y entonces lleva la marca **«Destacado»**.
+- **Transparencia.** Cada aseguradora lleva el aviso legal; las que pagan comisión, «Colaborador».
+- **Datos personales.** Ninguno va a la aseguradora. El clic se cuenta agregado (mes, aseguradora, producto, país y si
+  era para buceador o centro), sin persona. Preparada para el futuro una casilla «Rellenar su formulario con mis
+  datos (solo si lo marco)»: hoy no sale porque ninguna aseguradora tiene conexión directa.
+- **Conexión directa con aseguradoras (API):** preparada y **desactivada** (`WOD_INSURANCE_API`), con firma de cada
+  aviso. No se activa sin acuerdo.
+- **La póliza del buceador:** sin datos médicos (se rechazan), archivo comprobado por su contenido real (PDF, JPG o PNG,
+  10 MB), fotos sin datos ocultos (EXIF, GPS), almacenamiento privado, número de póliza cifrado. La lectura del PDF solo
+  **propone** fechas y número: no se guarda nada sin confirmar. El buceador la borra cuando quiere; se incluye en
+  «Descargar mis datos» y se borra con la cuenta.
+- **El centro** ve el estado (🟢🔴⚪), la aseguradora, el tipo y las fechas solo de **sus** buceadores, desde la
+  confirmación hasta 7 días después; nunca el número; el documento solo si el buceador lo comparte o lo subió el centro.
+  Cada vista y cada intento denegado quedan en el registro.
+
+### 4. Comprobado con pruebas
+
+`tests/test_v50_56_seguros.py` (13 pruebas): estados y avisos, archivos (PDF falso, 20 MB, EXIF, sin sesión), lectura del
+PDF solo como propuesta, reserva «obligatorio» y «se comprueba en el centro», enlace con código y sin datos (dominio no
+autorizado rechazado), visibilidad del centro (solo lo suyo, en su plazo, registrado), la póliza del centro necesita el
+«sí», canales (WORLDIVES, widget, API), retención salvo disputa, textos legales en 9 idiomas, avisos y ventana en 9
+idiomas, descarga de datos y borrado de cuenta. En navegador: `tests/navegador/e2e_v50_56_seguros.py` (52
+comprobaciones).
+
+### 5. Pendiente de decisión del abogado
+
+1. **El papel de WORLDIVES en la distribución de seguros.** Con enlaces que pueden llevar comisión («Colaborador») y
+   prioridad pagada («Destacado»), ¿la actividad entra en el Real Decreto-ley 3/2020 (por ejemplo, como auxiliar
+   externo o colaborador de una aseguradora) y hace falta **inscripción en el registro de la DGSFP** o un contrato
+   concreto con cada aseguradora? Si hiciera falta, ¿se puede seguir enlazando sin comisión mientras tanto?
+2. **Los textos exactos** del aviso, de «Colaborador» y de «Destacado» en los 9 idiomas, y dónde deben verse (hoy:
+   debajo de cada aseguradora, en la ventana y en el widget).
+3. **«Desde X €».** ¿Mostrar el precio de partida que da la aseguradora puede entenderse como comparar? Se puede quitar
+   de la ventana sin tocar nada más.
+4. **El texto de la confirmación de la reserva** («en WORLDIVES encontrarás enlaces a aseguradoras con seguro de día»)
+   y el botón «Renovar o contratar seguro» de los avisos de caducidad: ¿son adecuados?
+5. **Póliza que sube el centro** para un cliente **sin cuenta** (widget, reserva manual): se guarda solo en esa
+   reserva. ¿Basta con la base de la reserva (ejecución del contrato) y el encargo del centro?
+6. **Plazo del centro** (desde la confirmación hasta 7 días después) y **conservación** (12 meses tras caducar, salvo
+   reclamación): ¿son proporcionados?
+7. **La casilla futura** «Rellenar su formulario con mis datos»: texto del consentimiento y qué datos podrían enviarse.
+

@@ -45,6 +45,7 @@ Wir treffen keine automatisierten Entscheidungen, die Sie erheblich beeinträcht
 ## 4. Mit wem wir Ihre Daten teilen
 
 - **Das Zentrum oder der Profi, bei dem Sie buchen:** erhält die Buchungsdaten und Ihre Kontaktdaten. Es bzw. er sieht Ihr Taucherprofil und Ihre Dokumente **nur, wenn Sie selbst dort gebucht haben** (solange die Buchung läuft), **oder wenn Sie Ihre Daten** beim Check-in mit seinem QR-Code **freigeben**. Sie können die Freigabe unter „Mein Konto → Zentren, die Ihr Profil sehen“ beenden.
+- **Ihre Tauchversicherung (v50.56):** Das Zentrum, bei dem Sie buchen, sieht, ob Ihre Versicherung am Tag des Tauchgangs gültig ist (Status, Versicherer, Art und Daten, nie die Policennummer), und zwar nur ab der Bestätigung der Buchung bis 7 Tage danach; das Dokument nur, wenn Sie «Das Policendokument auch teilen» aktivieren. Lädt ein Zentrum eine Police für Ihre Buchung hoch, gelangt sie nur in Ihr Profil, wenn Sie zustimmen. Jeder Abruf wird protokolliert. Wenn Sie auf «Abschließen bei …» klicken, öffnen wir die Website des Versicherers, ohne ihm Daten von Ihnen zu senden: Wir zählen nur den Klick, ohne zu wissen, wer ihn gemacht hat. WORLDIVES ist weder Versicherer noch Versicherungsvermittler.
 - **Stripe Payments Europe Ltd.** (Irland): wickelt die Zahlung **auf dem Stripe-Konto des Zentrums** sowie Erstattungen ab. Stripe ist für die von ihm verarbeiteten Zahlungsdaten verantwortlich.
 - **Hosting-Anbieter:** {{hosting}}. Der Server steht in {{hosting_location}}, innerhalb der Europäischen Union.
 - **Sicherungskopien:** werden verschlüsselt auf unserem eigenen Server und bei {{backup_provider}}, innerhalb der Europäischen Union, als Auftragsverarbeiter aufbewahrt.
@@ -62,6 +63,7 @@ Einige dieser Anbieter können Daten außerhalb des Europäischen Wirtschaftsrau
 |---|---|
 | Konto und Profil | Solange Sie das Konto haben. Konten, die während der eingestellten Frist (standardmäßig 36 Monate) inaktiv sind, werden benachrichtigt und danach gelöscht |
 | Hochgeladene Dokumente | Bis Sie sie oder Ihr Konto löschen. Abgelaufene Dokumente werden nach der eingestellten Frist (standardmäßig 12 Monate) gelöscht |
+| Policen in «Meine Tauchversicherung» | Bis Sie sie oder Ihr Konto löschen. Abgelaufene Policen werden nach der eingestellten Frist (standardmäßig 12 Monate) automatisch gelöscht, außer sie decken eine Buchung mit offener Beanstandung ab |
 | Buchungen und Zahlungen | 6 Jahre, ohne Ihren Namen, wenn Sie Ihr Konto löschen (handels- und steuerrechtliche Pflichten des Zentrums und unsere) |
 | Mitteilungen der Zentren | Standardmäßig 24 Monate |
 | Sitzungen | Im Web bis zur Abmeldung oder nach 8 Stunden Inaktivität. In der App 15 Minuten, die das Handy erneuert, und höchstens 30 Tage pro Gerät. Geräte, die 13 Monate nicht genutzt werden, werden vergessen |

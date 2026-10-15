@@ -41,6 +41,8 @@ Dos centros inventados que llevan meses funcionando:
   descontados, una **promoción conjunta** de los dos centros, **puntos** y ventajas para canjear.
 - **Estadísticas** de visitas, clics en «Reservar» y peticiones de información de cinco meses.
 - **Vida marina**: entre 8 y 15 especies en cada punto de los dos centros (31 especies con ilustraciones propias).
+- **Seguros de buceo** (v50.56): dos aseguradoras de prueba, `buzo.prueba` con el seguro caducado, `buzo2.prueba` con
+  uno vigente y un servicio que exige el seguro para reservar online (apartado 15).
 - **Dos freelance**: un guía de cenotes en México (por días y medio día, otra zona horaria) y una guía y fotógrafa
   en Xàbia (medio día y curso de foto de dos días).
 
@@ -346,3 +348,52 @@ Más cosas para mirar como `centro.prueba`:
 - La página de reservas del centro sin incrustar nada: **http://localhost:8100/c/bahia-coralina**.
 
 Este recorrido se comprueba solo con `python3 tests/navegador/e2e_v50_56_demo_multicanal.py`.
+
+## 15. Probar los seguros (v50.56)
+
+WORLDIVES no vende seguros: el buceador guarda su póliza y ve si está vigente; «Contratar en …» solo abre la web de la
+aseguradora (en una pestaña nueva, con el código de colaborador y **sin ningún dato de la persona**). La demo trae:
+
+- dos aseguradoras **inventadas**, «Aseguradora Demo A» y «Aseguradora Demo B», configuradas en **Administración →
+  Seguros** (ninguna está escrita en el código). Sus enlaces abren una página de prueba (`example.com` y `example.org`,
+  dominios reservados para ejemplos);
+- `buzo.prueba` con su seguro **caducado** (🔴) y `buzo2.prueba` con uno **vigente** (🟢); `buzo3.prueba` no tiene
+  ninguno (⚪);
+- en Bahía Coralina, la **«Inmersión guiada en la Granadella»**, que exige el seguro **para reservar online**;
+- una póliza de prueba para subir: **`docs/pruebas/poliza-de-prueba.pdf`** (válida del 1/1/2026 al 31/12/2030; no es
+  una póliza real).
+
+1. **Mira tu seguro.** Entra como `buzo.prueba` → Mi cuenta → **Mi seguro de buceo** (o `#/seguro`): sale
+   **🔴 Caducado** con la aseguradora y la fecha, y el botón «Contratar seguro».
+2. **Reserva el servicio que exige seguro.** Centros → Bahía Coralina → Reservar → «Inmersión guiada en la Granadella»,
+   el primer día. En el resumen, el aviso «Este servicio exige un seguro de buceo válido para ese día». Pulsa
+   «Enviar solicitud»: te lleva a **Mi seguro** con «Tu reserva espera tu seguro de buceo» y la hora hasta la que se
+   guardan tus plazas. Todavía no es una reserva: el centro no la tiene en su lista ni recibe aviso.
+3. **Contrata el seguro de prueba.** Pulsa «Contratar seguro»: la ventana **«Contrata tu seguro de buceo»** con las
+   pestañas Día · Semana · Año, las dos aseguradoras («desde», zona, «Colaborador») y el aviso «La contratación se realiza
+   en la web de … WORLDIVES no es aseguradora ni mediador de seguros.». Pulsa «Contratar en Aseguradora Demo A»: se abre
+   la página de prueba en otra pestaña; en su dirección va `colaborador=WD-DEMO-A` y nada tuyo.
+4. **Súbelo.** Vuelve a WORLDIVES y pulsa **«¿Ya lo tienes? Sube tu póliza»**: la aseguradora y el tipo ya están puestos.
+   Elige `docs/pruebas/poliza-de-prueba.pdf` y pulsa «Leer las fechas y el número del PDF»: propone las fechas y el
+   número (no guarda nada hasta que pulsas «Guardar mi seguro»). Guarda: la reserva sigue sola y la solicitud llega al
+   centro. Mi seguro dice **🟢 Vigente**.
+5. **Míralo en verde en el panel del centro.** Entra como `centro.prueba` → Reservas → acepta la solicitud de Bea y
+   ábrela: en **«Seguro de los participantes»** sale **🟢 Seguro vigente ese día**, la aseguradora, el tipo y las fechas
+   (no el número de póliza, ni el documento salvo que Bea lo comparta). En la lista de Reservas, cada una lleva su marca
+   🟢 🔴 ⚪.
+
+Más cosas para mirar:
+- Como `centro.prueba`, antes del paso 4, cualquier reserva confirmada de Bea sale con **🔴 Seguro caducado ese día**.
+  «Dar de alta seguro» abre las aseguradoras para centros (seguro de día) y «Subir póliza para esta reserva» guarda una
+  póliza solo para esa reserva: si el buceador tiene cuenta, le llega «Bahía Coralina ha añadido tu seguro… ¿Lo guardas en
+  tu perfil?» y solo se guarda en su perfil si dice que sí.
+- Como `centro.prueba`, en un servicio: **«Exige seguro de buceo»** (No · Sí, se comprueba en el centro · Sí,
+  obligatorio para reservar online). En **Datos fiscales y seguro**: «Contratar o renovar seguro de RC del centro».
+- Como `admin.prueba`, **Administración → Seguros**: aseguradoras, productos, dominios autorizados, código de
+  colaborador, «Colaborador» y «Destacado», orden neutral, textos legales en los 9 idiomas (pendientes del abogado) y
+  las estadísticas de clics, sin datos de nadie.
+- En la web de ejemplo (http://localhost:8101) o en http://localhost:8100/c/bahia-coralina: reserva la inmersión guiada
+  sin cuenta y sube la póliza en la misma ventana.
+- Los avisos de caducidad (30, 7 y 1 días y el mismo día) llegan como correo a `data/pruebas/correos/`.
+
+Este recorrido se comprueba solo con `python3 tests/navegador/e2e_v50_56_seguros.py`.

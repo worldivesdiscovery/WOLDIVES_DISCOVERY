@@ -45,6 +45,7 @@ Wij nemen geen geautomatiseerde besluiten die u in aanmerkelijke mate treffen. D
 ## 4. Met wie wij uw gegevens delen
 
 - **Het centrum of de professional bij wie u boekt:** ontvangt de boekingsgegevens en uw contactgegevens. Het ziet uw duikersprofiel en uw documenten **alleen als u zelf bij hem hebt geboekt** (zolang de boeking loopt) **of als u uw gegevens met hem deelt** door in te checken met zijn QR-code. U kunt het delen stopzetten via „Mijn account → Centra die uw profiel zien”.
+- **Uw duikverzekering (v50.56):** het centrum bij wie u boekt ziet of uw verzekering geldig is op de dag van de duik (status, verzekeraar, soort en data, nooit het polisnummer), en alleen vanaf de bevestiging van de boeking tot 7 dagen daarna; het document alleen als u «Het polisdocument ook delen» aanzet. Als een centrum een polis voor uw boeking uploadt, komt die alleen in uw profiel als u daarmee instemt. Elke inzage wordt vastgelegd. Als u op «Afsluiten bij …» klikt, openen we de website van de verzekeraar zonder gegevens van u mee te sturen: we tellen alleen de klik, zonder te weten wie die deed. WORLDIVES is geen verzekeraar of verzekeringstussenpersoon.
 - **Stripe Payments Europe Ltd.** (Ierland): verwerkt de betaling **op het Stripe-account van het centrum** en de terugbetalingen. Stripe is verwerkingsverantwoordelijke voor de betalingsgegevens die het verwerkt.
 - **Hostingprovider:** {{hosting}}. De server staat in {{hosting_location}}, binnen de Europese Unie.
 - **Back-ups:** versleuteld bewaard op onze eigen server en bij {{backup_provider}}, binnen de Europese Unie, als verwerker.
@@ -62,6 +63,7 @@ Sommige van deze aanbieders kunnen gegevens buiten de Europese Economische Ruimt
 |---|---|
 | Account en profiel | Zolang u het account hebt. Accounts die gedurende de ingestelde termijn (standaard 36 maanden) inactief zijn, krijgen een waarschuwing en worden daarna verwijderd |
 | Geüploade documenten | Totdat u ze verwijdert of uw account opheft. Verlopen documenten worden na de ingestelde termijn (standaard 12 maanden) verwijderd |
+| Polissen in «Mijn duikverzekering» | Totdat u ze verwijdert of uw account opheft. Verlopen polissen worden na de ingestelde termijn (standaard 12 maanden) automatisch verwijderd, tenzij ze een boeking in geschil dekken |
 | Boekingen en betalingen | 6 jaar, zonder uw naam als u uw account verwijdert (handels- en fiscale verplichtingen van het centrum en van ons) |
 | Berichten van de centra | Standaard 24 maanden |
 | Sessies | Op de website tot u uitlogt of na 8 uur inactiviteit. In de app 15 minuten die de telefoon vernieuwt, en hoogstens 30 dagen per apparaat. Apparaten die 13 maanden niet worden gebruikt, worden vergeten |
