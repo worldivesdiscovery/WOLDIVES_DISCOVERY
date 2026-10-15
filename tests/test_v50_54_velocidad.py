@@ -5,6 +5,8 @@
   coincide con los archivos (si se cambia una foto y no se rehacen las copias, esta prueba lo dice).
 - El paquete de idioma del visitante se pide junto con la página (preload), con la misma dirección que usa
   loadLanguagePack(); en español, o dentro de la app, no se pide nada. La respuesta lleva «Vary: Accept-Language».
+  v50.57 (revisión general 5.4): ese preload ya no lo escribe el servidor sino public/js/wd-arranque.js, que conoce la
+  dirección después del #: al momento en cualquier página y, en la portada, cuando ya se ve su cabecera.
 """
 from __future__ import annotations
 
@@ -77,14 +79,18 @@ class Pagina(ServerTestCase):
         self.assertEqual(r.status, 200); return r, r.body.decode('utf-8')
 
     def test_preload_of_the_visitor_language(self):
+        # v50.57 (5.4): the boot script preloads it (it knows the page after the #): the server only writes the header of the
+        # home page in the visitor's language, hence «Vary: Accept-Language»
         r, html = self.page(lang='de-DE,de;q=0.9')
-        self.assertIn(f'<link rel="preload" href="/idiomas/de.json?v={server.APP_VERSION}" as="fetch" crossorigin="anonymous">', html)
+        self.assertNotIn('rel="preload"', html)
         self.assertEqual(r.headers.get('Vary'), 'Accept-Language')
+        self.assertIn('lang="de"', html.split('<main', 1)[1][:400])
         self.assertEqual(self.client().get(f'/idiomas/de.json?v={server.APP_VERSION}').status, 200)
-        _, html = self.page('/?lang=it', lang='de-DE')
-        self.assertIn('/idiomas/it.json?v=', html); self.assertNotIn('/idiomas/de.json', html)
-        _, html = self.page(lang='es-ES,es;q=0.9')
-        self.assertNotIn('rel="preload"', html)                               # Spanish needs no pack
+        boot = (ROOT / 'public' / 'js' / 'wd-arranque.js').read_text(encoding='utf-8')
+        self.assertIn("preload('/idiomas/'+lang+'.json?v='+v,'fetch')", boot)   # the address of loadLanguagePack()…
+        self.assertIn('fetch(`/idiomas/${lang}.json?v=${WD_I18N_VERSION}`)', JS)
+        self.assertIn(f'data-main="/js/world-dives-v8.js?v={server.APP_VERSION}"', html)   # …with v from data-main
+        self.assertIn("if(!packed&&lang&&lang!=='es')", boot)                # Spanish needs no pack
 
     def test_light_copy_is_served(self):
         r = self.client().get('/img/portada/fondo-640.webp')

@@ -87,19 +87,41 @@ class CabeceraEnLaPagina(ServerTestCase):
     def test_5_el_aviso_de_arranque_y_la_politica_de_seguridad(self):
         html = self.client().get('/').body.decode('utf-8')
         head = html[:html.index('</head>')]
-        self.assertRegex(head, r'<script src="/js/wd-arranque\.js\?v=[0-9.]+"></script>')
-        self.assertLess(head.index('world-dives-v8.css'), head.index('wd-arranque.js'))   # the CSS starts downloading first
+        # the boot script goes first (it runs without waiting for the CSS) and names the main script: there is no other tag
+        # for it, so its download no longer competes with the photo of the header on the home page
+        self.assertRegex(head, r'<script src="/js/wd-arranque\.js\?v=([0-9.]+)" data-main="/js/world-dives-v8\.js\?v=\1"></script>')
+        self.assertLess(head.index('wd-arranque.js'), head.index('world-dives-v8.css'))
+        self.assertNotIn('<script src="/js/world-dives-v8.js', html)
         self.assertIsNone(re.search(r'<script(?![^>]*\bsrc=)', html))                    # no script written in the page
         r = self.client().get('/js/wd-arranque.js')
         self.assertEqual(r.status, 200)
         self.assertIn('javascript', r.headers.get('Content-Type', ''))
-        self.assertLess(len(r.body), 2000)
+        self.assertLess(len(r.body), 4000)
         csp = r.headers.get('Content-Security-Policy') or self.client().get('/').headers.get('Content-Security-Policy', '')
         self.assertIn("script-src 'self'", csp)
         self.assertNotIn('unsafe-inline', csp.split('script-src', 1)[1].split(';', 1)[0])
         src = r.body.decode('utf-8')
-        for rule in ('WorldivesApp', "'wd-app'", "'wod-language'", 'navigator.languages', "route!=='home'"):
+        for rule in ('WorldivesApp', "'wd-app'", "'wod-language'", 'navigator.languages', "route==='home'"):
             self.assertIn(rule, src)                                                    # only on the home page of the web
+
+    def test_6_el_programa_principal_despues_de_la_cabecera(self):
+        """5.4 · On the home page the main script (355 KB) and the language pack start once the browser says the photo of
+        the header is painted (largest-contentful-paint), at «load» without that notice, at the latest after 3 s; on any
+        other page they start right away and the main script runs when the page is ready, as before. The browser test
+        (e2e_v50_57_portada.py) measures the order of the downloads."""
+        boot = (ROOT / 'public' / 'js' / 'wd-arranque.js').read_text(encoding='utf-8')
+        for rule in ("getAttribute('data-main')", "observe({type:'largest-contentful-paint',buffered:true})", 'catch(e){ go(); }',
+                     'setTimeout(go,3000)', "pack(); preload(main,'script'); ready(run);", 's.async=false', 'window.__wdMain=new Promise'):
+            self.assertIn(rule, boot)
+        src = js()
+        self.assertIn("if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',wdBoot); else wdBoot();", src)
+        sw = (ROOT / 'public' / 'js' / 'sw-register.js').read_text(encoding='utf-8')
+        self.assertIn('Promise.resolve(window.__wdMain).then(', sw)                  # the worker copies the web afterwards
+        # the map of the home page: when it is on the screen, when the visitor scrolls or when a search shows it
+        home = src[src.index('async function renderHome(){'):src.index('// ---------------------------------------------------------------- Explorar')]
+        for rule in ('new IntersectionObserver(', "addEventListener('scroll',go,{passive:true})", 'state.homeMap=startMap', 'const layerP=loadMapLayer();'):
+            self.assertIn(rule, home)
+        self.assertIn('Promise.resolve(state.homeMap?.()).then(()=>setTimeout(()=>{', src)
 
 
 if __name__ == '__main__':

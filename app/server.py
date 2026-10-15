@@ -16982,10 +16982,10 @@ class Handler(BaseHTTPRequestHandler):
         alts=''.join(f'<link rel="alternate" hreflang="{HTML_LANG.get(l,l)}" href="{html.escape(base)}/?lang={l}">' for l in MAIL_LANGS)
         alts+=f'<link rel="alternate" hreflang="x-default" href="{html.escape(base)}/">'
         if wcfg.demo_mode(): alts+='<meta name="robots" content="noindex,nofollow">'
-        # v50.54: a visitor in another language downloads their language pack together with the page, not after the main
-        # script has run: the first screen appears sooner (LCP). Same address as loadLanguagePack() in world-dives-v8.js.
+        # The language the page starts in: the header of the home page comes written in it. v50.57 (5.4): the language pack
+        # itself is no longer preloaded here (v50.54) but by public/js/wd-arranque.js, which knows the address after the #:
+        # right away on any page, and on the home page once its first screen is drawn (it competed with the photo).
         pack=page_language_guess(qlang,self.headers.get('Accept-Language'),self.headers.get('User-Agent'))
-        if pack!='es': alts+=f'<link rel="preload" href="/idiomas/{pack}.json?v={APP_VERSION}" as="fetch" crossorigin="anonymous">'
         raw=raw.replace('<html lang="es">',f'<html lang="{HTML_LANG.get(lang,lang)}">',1).replace('<!--hreflang-->',alts,1)
         if db is not None:
             try:

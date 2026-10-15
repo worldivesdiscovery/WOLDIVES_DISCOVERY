@@ -503,7 +503,7 @@
       if(!mapEl) return;
       const top=mapEl.getBoundingClientRect().top+window.scrollY-82;
       window.scrollTo({top,behavior:'smooth'});
-      setTimeout(()=>{
+      Promise.resolve(state.homeMap?.()).then(()=>setTimeout(()=>{
         if(!state.map) return;
         const validPoints=(points||[]).filter(p=>p.latitude!=null&&p.longitude!=null);
         const validCenters=(centers||[]).filter(c=>c.latitude!=null&&c.longitude!=null);
@@ -520,7 +520,7 @@
           state.map?.flyToBounds(L.latLngBounds(targets.map(t=>[t.lat,t.lng])),{padding:[70,70],maxZoom:13,animate:true,duration:1.25,easeLinearity:.25});
           focusMapPoints(validPoints.length?validPoints:state.points);
         }
-      },420);
+      },420));
     };
     const search=async(reveal=false)=>{
       const q=input.value.trim();
@@ -1166,7 +1166,18 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // The visitor may leave before a block arrives: only paint into this page while it is on screen.
     const root=$('.hm-page'); const alive=()=>document.body.contains(root); const put=(sel,html)=>{ if(!alive()) return; const el=$(sel); if(el) el.innerHTML=html; };
     // Each block loads on its own: one slow or failed block never leaves the page empty.
-    Promise.all([loadMapLayer(),wdMaps()]).then(([layer])=>{ if(!alive()) return; state.points=layer.items; setupZones($('#home-zones'),layer.items); initMap('home-map',layer.items,[20,0],2); }).catch(err=>put('#home-map',`<div class="map-fallback"><strong>No se ha podido cargar el mapa</strong><span>${escapeHtml(err.message)}</span></div>`));
+    // v50.57 (5.4): the map (its libraries, Leaflet and the drawing: the heaviest work of the page) starts when it is on the
+    // screen, as soon as the visitor scrolls (they are on their way to it) or when a search shows its results on it, not
+    // with a first screen that does not show it; the dive sites come at once (the suggestions of the search use them).
+    const layerP=loadMapLayer(); layerP.then(layer=>{ if(alive()&&!state.points.length) state.points=layer.items; }).catch(()=>{});
+    let mapP=null;
+    const startMap=()=>mapP||(mapP=Promise.all([layerP,wdMaps()]).then(([layer])=>{ if(!alive()) return; state.points=layer.items; setupZones($('#home-zones'),layer.items); initMap('home-map',layer.items,[20,0],2); }).catch(err=>put('#home-map',`<div class="map-fallback"><strong>No se ha podido cargar el mapa</strong><span>${escapeHtml(err.message)}</span></div>`)));
+    state.homeMap=startMap;
+    const mapBox=$('#home-map');
+    if(mapBox&&'IntersectionObserver' in window){
+      let io=null; const go=()=>{ io?.disconnect(); removeEventListener('scroll',go); if(alive()) startMap(); };
+      io=new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)) go(); }); io.observe(mapBox); addEventListener('scroll',go,{passive:true});
+    } else startMap();
     api('/api/dive-types').then(d=>{
       const t=d.totals||{}; put('#hm-stats',`<span><strong>${Number(t.points||0).toLocaleString(wdLocale())}</strong> puntos de buceo</span><span><strong>${t.countries||0}</strong> países</span><span><strong>${t.centers||0}</strong> centros</span>`);
       put('#hm-types',(d.items||[]).filter(x=>x.count>0).sort((a,b)=>b.count-a.count).slice(0,6).map(typeCard).join(''));
@@ -7751,10 +7762,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // v50.55: the lock, the session renewal and the encrypted offline data come first (only in the native app).
     return Promise.all([wdMaps(),(WD_APP.native?script('/js/wd-app-seg.js'):Promise.resolve()).then(()=>script('/js/wd-app.js'))]);
   }
-  window.addEventListener('DOMContentLoaded',async()=>{
+  // v50.57 (5.4): wd-arranque.js loads this script when the page is ready (on the home page, once its first screen is
+  // drawn): DOMContentLoaded has usually gone by then.
+  const wdBoot=async()=>{
     // v50.55: in the native app, the lock and the renewal of the session go before /api/me.
     const base=Promise.all([loadMeta().catch(()=>{}),loadSiteMedia(),loadLanguagePack(),loadMapConfig()]);
     if(WD_APP){ await Promise.all([base,wdLoadApp()]); try{ await window.WD_SEC?.inicio?.(); }catch{} }
     await Promise.all([loadMe(),base]); if(WD_APP) window.WD_SEC?.revisar?.().catch(()=>{});
-    applyLanguage(); applyFeatureSwitches(); siteBanner(); route(); cookieNotice(); footerOwner(); demoRibbon(); offPurge(); offSync(); });
+    applyLanguage(); applyFeatureSwitches(); siteBanner(); route(); cookieNotice(); footerOwner(); demoRibbon(); offPurge(); offSync(); };
+  if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',wdBoot); else wdBoot();
 })();

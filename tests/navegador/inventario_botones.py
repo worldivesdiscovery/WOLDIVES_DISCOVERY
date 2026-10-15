@@ -71,6 +71,17 @@ PRIVATE = {'area', 'cuenta', 'logbook', 'recompensas', 'mis-puntos', 'admin', 'r
            'salida-cancelada', 'pago-ok', 'verificarreserva', 'checkin/*', 'r/*'}     # account and panel; the rest (booking flow included) is public
 NO_FOLLOW = {'eliminar-cuenta', 'restablecer', 'verificar-email', 'setup', 'verificacion', 'baja'}   # token links from emails
 INSTANCES = {'reserva': 8}          # booking detail: one per state (the buttons change with the state)
+# v50.57: editing has its own address (#/admin?tab=points&edit=12, &edit=nuevo, &proponer=12): one «new» and one «edit»
+# form of each section are screens of their own (before, they counted as the list and their buttons were never pressed)
+FORM_PARAMS = ('edit', 'proponer')
+
+
+def form_variant(qs):
+    out = ''
+    for a, _, v in (kv.partition('=') for kv in qs.split('&') if kv):
+        if a in FORM_PARAMS and v:
+            out += f'&{a}=' + ('nuevo' if v == 'nuevo' else '#')
+    return out
 GROUP_MIN, GROUP_TESTED = 3, 2      # lists of identical elements: 3 or more → the first 2 are tested
 CHROME_ZONES = {'cabecera', 'pie', 'menu', 'flotante', 'cookies'}
 ZONE_NAMES = {'cabecera': 'cabecera', 'pie': 'pie de página', 'menu': 'menú del panel', 'flotante': 'flotante',
@@ -405,6 +416,7 @@ class RoleCrawler:
         self.screens: list[dict] = []
         self.seen_keys: set[str] = set()
         self.queued: set[str] = set()
+        self.found_forms: list[str] = []   # v50.57: edit/new forms opened by a button (not a link): visited as screens too
         self.instances: Counter = Counter()
         self.sub_done: set[tuple] = set()
         self.chrome_done: set[str] = set()
@@ -620,7 +632,7 @@ class RoleCrawler:
 
     def screen_key(self, info, sc):
         name, qs = self.route_name(info['hash'])
-        key = name
+        key = name + form_variant(qs)
         if name in INSTANCES:
             m = re.search(r'(?:^|&)id=(\d+)', qs)
             if m and self.instances[name] < INSTANCES[name]:
@@ -637,7 +649,7 @@ class RoleCrawler:
         if name.split('/')[0] in NO_FOLLOW or not self.in_part(name):
             return
         params = [kv.partition('=') for kv in qs.split('&') if kv]
-        k = route if (name in INSTANCES) else name + ''.join(f'&{a}={v}' for a, _, v in params if a in ('tab', 'sub', 'pt'))
+        k = route if (name in INSTANCES) else name + ''.join(f'&{a}={v}' for a, _, v in params if a in ('tab', 'sub', 'pt')) + form_variant(qs)
         k = k + '|' + '>'.join(clicks or [])
         if k in self.queued:
             return
@@ -687,6 +699,8 @@ class RoleCrawler:
                 sc = queue.popleft()
                 try:
                     self.process_screen(sc, queue)
+                    while self.found_forms:
+                        self.enqueue(queue, self.found_forms.pop(0), label='formulario abierto con un botón')
                 except Exception as ex:
                     self.log(f'  ! pantalla {sc["route"]} {sc.get("clicks")}: {ex.__class__.__name__}: {str(ex)[:200]}')
                     self.screens.append({'route': sc['route'], 'clicks': sc.get('clicks', []), 'key': 'fallo:' + sc['route'], 'title': sc['route'],
@@ -1220,7 +1234,9 @@ class RoleCrawler:
             navigated = True
             h1 = '#' + u1.split('#', 1)[1] if '#' in u1 else u1[len(self.base):]
             effects.append('Abre ' + h1[:120])
-            name, _ = self.route_name(h1)
+            name, qs1 = self.route_name(h1)
+            if h1.startswith('#/') and form_variant(qs1):
+                self.found_forms.append(h1)
             if h1.startswith('#/') and name not in self.routes and name.split('/')[0] not in self.routes:
                 errors.append(f'Enlace a una ruta que no existe ({h1[:80]}): se muestra la portada')
         elif obs['loads']:

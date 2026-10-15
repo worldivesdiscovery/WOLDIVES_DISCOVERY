@@ -7,6 +7,10 @@
 - Al dibujar la web su cabecera encima, nada se mueve (la misma caja, el mismo título en el mismo sitio).
 - Con 4G lento y el procesador 4 veces más lento (como el móvil de Lighthouse): la foto de la cabecera aparece en
   menos de 2,5 s (LCP) y la página no salta (CLS < 0,1).
+- En la portada, el programa principal y el paquete de idioma empiezan a bajar cuando la foto ya está pintada (no le
+  quitan ancho de banda); en cualquier otra página empiezan al momento, como antes.
+- El mapa de la portada no se prepara mientras no se ve (en un móvil queda debajo de la cabecera): sí al bajar, y
+  «Buscar» lo prepara y enseña el punto.
 
     python3 tests/navegador/e2e_v50_57_portada.py [carpeta-de-capturas]
 """
@@ -92,6 +96,31 @@ def main():
             pg.goto(srv.base + '/'); pg.wait_for_timeout(900)
             s = pg.evaluate(STATE)
             check('Quien eligió francés y su navegador dice inglés: la foto sí, los textos esperan a su idioma', s['pre_shown'] and s['img_loaded'] and not s['text_visible'], s)
+            ctx.close()
+
+            # ---------------------------------------------------------------- order of the downloads (5.4)
+            ORDER = """() => new Promise(done => { let lcp = null;
+              new PerformanceObserver(l => { const e = l.getEntries().pop(); if (e) lcp = e.startTime; }).observe({type: 'largest-contentful-paint', buffered: true});
+              setTimeout(() => { const r = n => { const e = performance.getEntriesByType('resource').find(x => x.name.includes(n)); return e ? Math.round(e.startTime) : null; };
+                done({lcp: lcp == null ? null : Math.round(lcp), main: r('/js/world-dives-v8.js'), pack: r('/idiomas/en.json'), web: !!document.querySelector('#home-search, #pt-search, .pt57')}); }, 2500); })"""
+            ctx, pg = page(412, 823, locale='en-GB')
+            pg.goto(srv.base + '/'); pg.wait_for_selector('#home-search'); o = pg.evaluate(ORDER)
+            check('Portada · el programa principal y el paquete de idioma empiezan después de pintarse la foto',
+                  o['web'] and o['lcp'] is not None and o['main'] is not None and o['pack'] is not None and o['main'] >= o['lcp'] and o['pack'] >= o['lcp'], o)
+            pg.goto(srv.base + '/?otra=1#/puntos'); pg.wait_for_selector('.pt57, #pt-search', timeout=30000); o = pg.evaluate(ORDER)
+            check('Otra página · empiezan al momento (sin esperar a nada)', o['web'] and o['main'] is not None and o['pack'] is not None and o['main'] < 300 and o['pack'] < 300, o)
+            ctx.close()
+            ctx, pg = page(412, 823)
+            pg.goto(srv.base + '/'); pg.wait_for_selector('#home-search'); pg.wait_for_timeout(2500)
+            m0 = pg.evaluate("({L: !!window.L, map: !!document.querySelector('#home-map.leaflet-container'), top: Math.round(document.querySelector('#home-map').getBoundingClientRect().top)})")
+            pg.mouse.wheel(0, 300); pg.wait_for_timeout(2500)
+            m1 = pg.evaluate("({L: !!window.L, markers: document.querySelectorAll('#home-map .leaflet-marker-icon').length})")
+            check('Móvil · el mapa de la portada no se prepara mientras no se ve, y sí al bajar',
+                  m0['top'] > 823 and not m0['L'] and not m0['map'] and m1['L'] and m1['markers'] > 0, {'al abrir': m0, 'al bajar': m1})
+            pg.goto(srv.base + '/?b=2#/'); pg.wait_for_selector('#home-search'); pg.wait_for_timeout(2000)
+            pg.fill('#home-search', 'Carall Bernat'); pg.wait_for_timeout(600); pg.click('#home-search-btn'); pg.wait_for_timeout(4000)
+            s2 = pg.evaluate("({markers: document.querySelectorAll('#home-map .leaflet-marker-icon').length, drawer: document.querySelector('#home-drawer.open h3')?.textContent || ''})")
+            check('Móvil · «Buscar» prepara el mapa y abre la ficha del punto', s2['drawer'] == 'Medes – Carall Bernat' and s2['markers'] >= 1, s2)
             ctx.close()
 
             # ---------------------------------------------------------------- 4G lento y procesador 4× más lento
