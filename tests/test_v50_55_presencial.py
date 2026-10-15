@@ -141,15 +141,18 @@ class InPerson(ServerTestCase):
         # client could not reach the professional once accepted, so it takes no requests until he adds his WhatsApp.
         pid = self.pro.user['id']
         sid = self.pro.post('/api/provider-services', {'title': 'Migrado sin WhatsApp', 'price': 30, 'booking_mode': 'request', **IN_PERSON}).json['id']
-        slot = self.slot(28, sid=sid)
+        slot = self.slot(8, sid=sid)
         self.server.sql("DELETE FROM pay_contacts WHERE kind='service' AND ref_id=?", (sid,))
         card = lambda: [x for x in self.client().get(f'/api/provider-services?provider_id={pid}').json['items'] if x['id'] == sid][0]
+        near = lambda: [x for x in self.client().get('/api/salidas-cercanas?limite=50').json['items'] if x['slot_id'] == slot]
         self.assertFalse(card()['bookable']); self.assertIn('no admite reservas', card()['unavailable_reason'])
+        self.assertTrue(all(x['bookable'] is False for x in near()))
         r = self.book(self.diver2, slot, pax=1, sid=sid)
         self.assertEqual(r.status, 400, r); self.assertFalse(self.server.sql('SELECT 1 FROM bookings WHERE slot_id=?', (slot,)))
         r = self.pro.post('/api/provider-services/update', {'id': sid, 'title': 'Migrado sin WhatsApp', 'price': 30, 'booking_mode': 'request', **IN_PERSON})
         self.assertEqual(r.status, 200, r)
         self.assertTrue(card()['bookable'])
+        self.assertTrue(near() and all(x['bookable'] is True for x in near()), near())   # the app's «Salidas con plazas» too
         self.assertEqual(self.book(self.diver2, slot, pax=1, sid=sid).status, 200)
 
     # ------------------------------------------------------------------ 2. Precio obligatorio

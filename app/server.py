@@ -8728,7 +8728,7 @@ def service_mode_info(db, svc, price=None, ready=None):
     if pay['pay_way'] == 'online' and not row_get(svc, 'center_id') and not ready and info['bookable']:
         # A freelance «Pago online» service whose Stripe account stopped working: never silently «pay him directly».
         info.update(bookable=False, unavailable_reason='Este profesional no admite reservas ahora mismo. Prueba más tarde.')
-    if pay['pay_way'] == 'in_person' and info['bookable'] and not has_pay_contact(db, 'service', row_get(svc, 'id')):
+    if pay['pay_way'] == 'in_person' and info['bookable'] and not has_pay_contact(db, 'service', row_get(svc, 'service_id') or row_get(svc, 'id')):
         # A service moved to «Pago en persona» by the 50.55 migration without a WhatsApp: the client could not reach him.
         info.update(bookable=False, unavailable_reason='Este profesional no admite reservas ahora mismo. Prueba más tarde.')
     return info

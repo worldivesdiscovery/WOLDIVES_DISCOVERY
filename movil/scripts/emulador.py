@@ -397,7 +397,8 @@ def main():
     i_ = Page(SERVER, timeout=90)
     if not crear_pin(i_):
         print('   instructor sin PIN:', i_.js("document.body.innerText.slice(0, 300)"), '· aviso:', i_.js("(document.getElementById('toast') || {}).innerText"), flush=True); ui('instructor')
-    i_.until("document.querySelectorAll('.wda-tab').length > 0", 45)
+    # the PIN screen closes before the app has loaded the session: wait for the instructor's tabs, not the visitor's
+    i_.until("!!document.querySelector('.wda-tab[href=\"#/agenda\"]')", 45)
     tabs = i_.js("[...document.querySelectorAll('.wda-tab')].map(a => a.getAttribute('href'))")
     names = i_.js("[...document.querySelectorAll('.wda-tab > span:nth-child(2)')].map(e => e.textContent.trim())")
     check('instructor · sin la pestaña Solicitudes', tabs == ['#/', '#/agenda', '#/escanear', '#/mas'], tabs)
