@@ -5,6 +5,7 @@ import base64
 import hashlib
 import hmac
 import io
+import functools
 import html
 import json
 import math
@@ -6754,6 +6755,81 @@ def resolve_site_media(snap, hemi='north', preview=None, today=None):
     out={'items':items,'theme':None,'card_veil':snap.get('card_veil',CARD_VEIL_DEFAULT)}
     if theme: out['theme']={'id':theme['id'],'name':theme['name'],'accent':theme['accent'],'ribbon':theme.get('ribbon') or '','preview':bool(preview)}
     return out
+
+
+# v50.57 (revisión general 5.4): the header of the home page comes drawn in index.html, so its photo appears without
+# waiting for the main script (it was the LCP of the home page: 5.9 s on a mobile with slow 4G). Its texts go in the
+# language the page will start in (page_language_guess); public/js/wd-arranque.js shows it only on the home page of the
+# web (never in the app), and its texts only if the visitor's language is that one (otherwise the photo, and the texts a
+# moment later). The web then draws the same header over it. The texts and the drawing are those of homeTemplate() and
+# wdImgTag() in world-dives-v8.js (tests/test_v50_57_portada.py).
+TITULAR_FOCUS = {'buceador-rayos': '78% 66%', 'costa-barco': '74% 70%', 'barco-cadena': '35% 8%',
+                 'nocturna-pulpo': '28% 64%', 'caballito-posidonia': '34% 42%'}   # WD_PHOTOS in world-dives-v8.js
+WEB_IMAGE_COPIES = (640, 960, 1440)
+_SVG = '<svg class="wd-icon" width="{s}" height="{s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{p}</svg>'
+PRE_HOME_TEXTS = {'h1': 'Encuentra tu próxima inmersión',
+                  'lead': 'Puntos de buceo de todo el mundo, centros que reservan al momento y viajes organizados. Busca un lugar o empieza por el mapa.',
+                  'ph': 'Punto, centro, isla o ciudad', 'buscar': 'Buscar', 'cerca': 'Cerca de mí', 'pecios': 'Pecios', 'cuevas': 'Cuevas',
+                  'arrecifes': 'Arrecifes', 'online': 'Centros con reserva online'}
+PRE_HOME_HTML = ('<section class="wd-pre" lang="{lang}" aria-hidden="true"><header class="tp-hero hm-hero">{img}<div class="tp-hero-in">'
+                 '{ribbon}<p class="eyebrow">WORLDIVES DISCOVERY</p><h1>{h1}</h1><p class="lead">{lead}</p>'
+                 '<div class="hm-search"><div class="searchbar"><div class="search-input-wrap">'
+                 + _SVG.format(s=18, p='<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>')
+                 + '<input type="search" placeholder="{ph}" disabled tabindex="-1"></div><span class="btn btn-primary">{buscar}</span></div></div>'
+                 '<div class="hm-quick"><a>' + _SVG.format(s=15, p='<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>')
+                 + '{cerca}</a><a>{pecios}</a><a>{cuevas}</a><a>{arrecifes}</a><a>{online}</a></div>'
+                 '<div class="tp-hero-stats"></div></div></header></section>')
+
+
+@functools.lru_cache(maxsize=16)
+def web_language_pack(lang):
+    """The exact texts of public/idiomas/<lang>.json (nothing for Spanish, the language the web is written in)."""
+    if lang == 'es': return {}
+    try:
+        return json.loads((PUBLIC / 'idiomas' / f'{lang}.json').read_text(encoding='utf-8')).get('exact', {})
+    except (OSError, ValueError):
+        return {}
+
+
+@functools.lru_cache(maxsize=256)
+def web_image_width(rel):
+    """Width in pixels of public/img/<rel>.webp, or 0 if there is no such image."""
+    try:
+        from PIL import Image
+        with Image.open(PUBLIC / 'img' / f'{rel}.webp') as im: return im.width
+    except Exception:
+        return 0
+
+
+def hero_image_html(url):
+    """The photo of a header as the web draws it (wdImgTag): the copies of 640, 960 and 1440 px in srcset; the owner's
+    photos as <picture> with the JPG for browsers without WebP and their focus point."""
+    m = re.fullmatch(r'/img/((portada|destinos|titular)/[a-z0-9-]+)\.webp', url or '')
+    width = web_image_width(m.group(1)) if m else 0
+    attrs = 'class="tp-hero-img" alt="" fetchpriority="high"'
+    if not width: return f'<img src="{html.escape(url or "", quote=True)}" {attrs}>'
+    rel = m.group(1)
+    srcset = ', '.join([f'/img/{rel}-{x}.webp {x}w' for x in WEB_IMAGE_COPIES if x < width and (PUBLIC / 'img' / f'{rel}-{x}.webp').is_file()] + [f'{url} {width}w'])
+    if m.group(2) == 'titular':
+        name = rel.split('/', 1)[1]; focus = TITULAR_FOCUS.get(name)
+        return (f'<picture><source type="image/webp" srcset="{srcset}" sizes="100vw"><img src="/img/titular/{name}.jpg" {attrs}'
+                + (f' style="object-position:{focus}"' if focus else '') + '></picture>')
+    return f'<img src="{url}" srcset="{srcset}" sizes="100vw" {attrs}>'
+
+
+def pre_home_html(db, lang='es'):
+    """The header of the home page for index.html: the photo and the ribbon of the moment (northern hemisphere, the one
+    of most visitors; the web corrects it for the others), with the same texts as the web in that language."""
+    look = resolve_site_media(SITE_MEDIA.get(db), 'n')
+    item = look['items'].get('hero:home') or {}
+    url = item.get('url') or next(s[3] for s in SITE_MEDIA_SLOTS if s[0] == 'hero:home')
+    img = hero_image_html(url) + (f'<span class="hero-credit">{html.escape(item["credit"])}</span>' if item.get('credit') else '')
+    ribbon = (look.get('theme') or {}).get('ribbon') or ''
+    ribbon = (f'<p class="hm-ribbon">' + _SVG.format(s=14, p='<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>')
+              + f'<span>{html.escape(ribbon)}</span></p>') if ribbon else ''
+    pack = web_language_pack(lang)
+    texts = {k: html.escape(pack.get(v) or v, quote=True) for k, v in PRE_HOME_TEXTS.items()}
+    return PRE_HOME_HTML.format(img=img, ribbon=ribbon, lang=lang if pack or lang == 'es' else 'es', **texts)
 
 
 def point_photo_allowed(db, user, pid):
@@ -16860,7 +16936,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path.startswith('/api/'):
                     self.send_json({'error':'Endpoint no encontrado'},404); return
                 # Static: SPA fallback for every app route.
-                self.serve_spa()
+                self.serve_spa(db)
             except (BrokenPipeError, ConnectionResetError):
                 return
             except PermissionError as e:
@@ -16897,7 +16973,7 @@ class Handler(BaseHTTPRequestHandler):
                     payload['detail']=str(e)
                 self.send_json(payload,500)
 
-    def serve_spa(self):
+    def serve_spa(self, db=None):
         """index.html with the language of ?lang= in <html lang>, and hreflang alternates for the 9 languages (SEO)."""
         qlang=(parse_qs(urlparse(self.path).query).get('lang',[''])[0] or '')
         lang=normalize_lang((qlang or 'es')[:5])
@@ -16911,6 +16987,11 @@ class Handler(BaseHTTPRequestHandler):
         pack=page_language_guess(qlang,self.headers.get('Accept-Language'),self.headers.get('User-Agent'))
         if pack!='es': alts+=f'<link rel="preload" href="/idiomas/{pack}.json?v={APP_VERSION}" as="fetch" crossorigin="anonymous">'
         raw=raw.replace('<html lang="es">',f'<html lang="{HTML_LANG.get(lang,lang)}">',1).replace('<!--hreflang-->',alts,1)
+        if db is not None:
+            try:
+                raw=raw.replace('<!--portada-->',pre_home_html(db,pack),1)   # v50.57 (5.4): the home header, drawn in the page
+            except Exception as e:   # never without a page: the web draws the header itself as before
+                log_exception(self,e)
         if wcfg.demo_mode():
             # v50.53: the demo ribbon comes in the page itself, so nothing jumps when it appears (CLS).
             raw=raw.replace('<body>','<body class="is-demo">'+DEMO_RIBBON_HTML,1)

@@ -3910,3 +3910,13 @@ html.pt-lock,html.pt-lock body{overflow:hidden}
   .site-header .main-nav::-webkit-scrollbar{display:none}
   .site-header .main-nav a{flex:0 0 auto;white-space:nowrap}
 }
+/* v50.57 (5.4) · The header of the home page drawn in the page itself (index.html): only on the home page
+   (public/js/wd-arranque.js), with its texts only when they are in the visitor's language, until the web draws the same
+   header over it. Its photo appears without waiting for the main script (LCP); nothing moves when the web takes over. */
+.wd-pre{display:none}
+html.wd-portada .wd-pre{display:block;min-height:100vh}
+html.wd-portada .wd-pre .tp-hero-in{visibility:hidden}
+html.wd-portada-es .wd-pre[lang=es] .tp-hero-in,html.wd-portada-en .wd-pre[lang=en] .tp-hero-in,html.wd-portada-fr .wd-pre[lang=fr] .tp-hero-in,html.wd-portada-de .wd-pre[lang=de] .tp-hero-in,html.wd-portada-it .wd-pre[lang=it] .tp-hero-in,html.wd-portada-pt .wd-pre[lang=pt] .tp-hero-in,html.wd-portada-pl .wd-pre[lang=pl] .tp-hero-in,html.wd-portada-nl .wd-pre[lang=nl] .tp-hero-in,html.wd-portada-zh .wd-pre[lang=zh] .tp-hero-in{visibility:visible}
+main#app:has(>.wd-pre:only-child){min-height:100vh}
+.wd-pre input:disabled{opacity:1}
+.hm-hero .tp-hero-stats:empty{min-height:58px}   /* the line of figures arrives later: its room is kept (nothing moves) */
