@@ -5382,11 +5382,15 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     grid.addEventListener('dragover',e=>{ const over=e.target.closest('.st-card'); if(!dragged||!over||over===dragged) return; e.preventDefault();
       const r=over.getBoundingClientRect(), after=(e.clientY-r.top)>r.height/2||(e.clientX-r.left)>r.width/2&&(e.clientY-r.top)>r.height/3; over[after?'after':'before'](dragged); });
     grid.addEventListener('drop',e=>{ if(dragged) e.preventDefault(); });
-    grid.addEventListener('dragend',()=>{ if(!dragged) return; dragged.classList.remove('is-dragging'); dragged=null; saveOrder(); });
+    // the first card cannot go up nor the last one down: those arrows are off (v50.57, button walk: «Subir» did nothing)
+    const syncArrows=()=>{ const cards=$$('.st-card',grid); cards.forEach((c,i)=>{ $('.st-up',c).disabled=i===0; $('.st-down',c).disabled=i===cards.length-1; }); };
+    const moved=(c,cls)=>{ syncArrows(); const b=$(cls,c); (b.disabled?$(cls==='.st-up'?'.st-down':'.st-up',c):b).focus(); saveOrder(); };
+    grid.addEventListener('dragend',()=>{ if(!dragged) return; dragged.classList.remove('is-dragging'); dragged=null; syncArrows(); saveOrder(); });
     $$('.st-card',grid).forEach(c=>{
-      $('.st-up',c).onclick=()=>{ const prev=c.previousElementSibling; if(prev){ prev.before(c); $('.st-up',c).focus(); saveOrder(); } };
-      $('.st-down',c).onclick=()=>{ const next=c.nextElementSibling; if(next){ next.after(c); $('.st-down',c).focus(); saveOrder(); } };
+      $('.st-up',c).onclick=()=>{ const prev=c.previousElementSibling; if(prev){ prev.before(c); moved(c,'.st-up'); } };
+      $('.st-down',c).onclick=()=>{ const next=c.nextElementSibling; if(next){ next.after(c); moved(c,'.st-down'); } };
     });
+    syncArrows();
     $('#st-new',mount).onclick=()=>openTemplateForm(null);
     function openTemplateForm(t){
       const v=t||{names:{},descriptions:{},service_type:'inmersion',booking_mode:'auto',active:1,sort_order:(d.items.length+1)*10};

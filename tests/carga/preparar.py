@@ -4,6 +4,7 @@
     python3 tests/carga/preparar.py construir --dir /tmp/wod-carga --buzos 500 --centros 20 --dias 30 --plazas 40
     python3 tests/carga/preparar.py arrancar  --dir /tmp/wod-carga --workers 4 [--pagos stripe-sim|centro] [--puerto 8300]
     python3 tests/carga/preparar.py parar     --dir /tmp/wod-carga
+    python3 tests/carga/preparar.py sesiones  --dir /tmp/wod-carga   (v50.57: sesiones y salidas para la clase Reservas)
     python3 tests/carga/preparar.py todo      --dir /tmp/wod-carga --workers 4        (construir + arrancar)
 
 construir
@@ -409,6 +410,48 @@ def parar(dir_: str, quiet=False):
     if not quiet: log(f'Servidor {e["base"]} parado.')
 
 
+# ----------------------------------------------------------------------------------------------- sesiones y salidas
+def sesiones(dir_: str, n: int = 0, hilos: int = 8):
+    """v50.57 (revisión general 5.2) · Para «20 reservas por segundo» (clase Reservas de locustfile.py): abre una sesión
+    de cada cuenta de buceador en el servidor de carga ya arrancado (run/sesiones.json) y apunta las salidas futuras
+    con plazas que la web deja reservar (run/salidas.json), como las elige la clase Buceador. Las sesiones se abren
+    antes de medir: 20 inicios de sesión por segundo (PBKDF2) serían otra prueba."""
+    work = Path(dir_).resolve(); run = work / 'run'
+    estado = json.loads((run / 'estado.json').read_text()); base = estado['base']
+    cuentas = json.loads((work / 'cuentas.json').read_text())
+    buzos = cuentas['buzos'][:n] if n else cuentas['buzos']
+
+    def login(i_usuario):
+        i, usuario = i_usuario
+        body = json.dumps({'login': usuario, 'password': cuentas['password']}).encode()
+        req = urllib.request.Request(base + '/api/auth/login', data=body, method='POST', headers={
+            'Content-Type': 'application/json', 'Origin': base, 'X-Forwarded-For': f'100.{64 + i // 65000 % 64}.{i // 255 % 255}.{i % 254 + 1}'})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            cookie = r.headers.get('Set-Cookie') or ''
+        name, _, rest = cookie.partition('=')
+        return name.strip(), rest.split(';', 1)[0]
+
+    with cf.ThreadPoolExecutor(hilos) as ex:
+        got = list(ex.map(login, enumerate(buzos)))
+    names = {g[0] for g in got if g[1]}
+    tokens = [g[1] for g in got if g[1]]
+    if len(names) != 1 or not tokens: raise SystemExit(f'No se han podido abrir las sesiones: {sorted(names)} · {len(tokens)}')
+    (run / 'sesiones.json').write_text(json.dumps({'cookie': names.pop(), 'tokens': tokens}))
+    hoy = dt.date.today().isoformat(); salidas = []
+    for c in cuentas.get('centros', []):
+        cid = c.get('center_id')
+        with urllib.request.urlopen(f'{base}/api/provider-services?provider_id=0&center_id={cid}', timeout=60) as r:
+            cat = json.loads(r.read())
+        for s in cat.get('items', []):
+            if not s.get('bookable') or (s.get('booking_mode') == 'payment' and not s.get('instant')): continue
+            for sl in s.get('slots', []):
+                if sl.get('slot_date', '') > hoy and int(sl.get('spots_available') or 0) >= 1: salidas.append([cid, s['id'], sl['id']])
+    random.Random(57).shuffle(salidas)
+    (run / 'salidas.json').write_text(json.dumps({'salidas': salidas}))
+    log(f'{len(tokens)} sesiones de buceador abiertas y {len(salidas)} salidas con plazas en {run}')
+    return len(tokens), len(salidas)
+
+
 # ----------------------------------------------------------------------------------------------- simulador de Stripe
 def stripe_sim(control_host='127.0.0.1', public_host='127.0.0.1'):
     """Simulador local de Stripe (tests/stripe_mock.py) + un puerto de control: POST /pagar/<session_id> marca la sesión
@@ -481,6 +524,8 @@ def main(argv=None):
     common_run(sub.add_parser('arrancar', help='arranca el servidor de carga en segundo plano'))
     p = sub.add_parser('todo', help='construir + arrancar'); common_build(p); common_run(p)
     p = sub.add_parser('parar', help='para el servidor de carga'); p.add_argument('--dir', default=str(DEFAULT_DIR))
+    p = sub.add_parser('sesiones', help='abre las sesiones de los buceadores y apunta las salidas con plazas (clase Reservas)')
+    p.add_argument('--dir', default=str(DEFAULT_DIR)); p.add_argument('--n', type=int, default=0, help='cuántas cuentas (0 = todas)'); p.add_argument('--hilos', type=int, default=8)
     p = sub.add_parser('stripe-sim', help=argparse.SUPPRESS); p.add_argument('--control-host', default='127.0.0.1'); p.add_argument('--public-host', default='127.0.0.1')
     a = ap.parse_args(argv)
     if a.cmd == 'stripe-sim': return stripe_sim(a.control_host, a.public_host)
@@ -489,6 +534,7 @@ def main(argv=None):
         extra = dict(kv.split('=', 1) for kv in a.env)
         arrancar(a.dir, a.workers, a.pagos, a.puerto, a.host, a.public_host, a.con_copias, extra, a.reutilizar_bd)
     if a.cmd == 'parar': parar(a.dir)
+    if a.cmd == 'sesiones': sesiones(a.dir, a.n, a.hilos)
     if not a.cmd: ap.print_help()
 
 

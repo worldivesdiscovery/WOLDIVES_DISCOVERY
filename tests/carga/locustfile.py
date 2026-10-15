@@ -51,7 +51,7 @@ import time
 from pathlib import Path
 
 import gevent
-from locust import FastHttpUser, between, events, tag, task
+from locust import FastHttpUser, between, constant_throughput, events, tag, task
 
 # ---------------------------------------------------------------------------------------------- configuración
 ESTADO_PATH = Path(os.environ.get('WOD_CARGA_ESTADO') or '/tmp/wod-carga/run/estado.json')
@@ -563,3 +563,49 @@ class Centro(Web):
         b = random.choice(items)
         self.post(f'/api/bookings/{b["id"]}/payment', {'payment_status': 'paid', 'payment_method': 'Efectivo'}, '/api/bookings/[id]/payment (en el centro)',
                   negocio=('plazas', 'pago online', 'Stripe'))
+
+
+# ---------------------------------------------------------------------------------------------- reservas a ritmo fijo
+# v50.57 (revisión general 5.2): «20 reservas por segundo en salidas distintas». Cada usuario de esta clase hace una
+# reserva por segundo (WOD_CARGA_RESERVAS_RITMO) a la siguiente salida de la lista, cada vez con la sesión de un
+# buceador distinto: las sesiones las abre antes `preparar.py sesiones` (sesiones.json), porque 20 inicios de sesión
+# por segundo (PBKDF2) no son lo que se mide aquí, y cada cuenta reserva así pocas veces (el límite contra abusos de
+# 20 reservas por hora y cuenta sigue activo). Con `--clases Visitante,Reservas` y 320 usuarios: 20 reservan (fixed_count)
+# y 300 navegan.
+def _carga_json(name):
+    run = Path(ESTADO.get('run_dir') or ESTADO_PATH.parent)
+    try: return json.loads((run / name).read_text())
+    except (OSError, ValueError): return {}
+
+
+_SESIONES = _carga_json('sesiones.json')
+_SALIDAS = _carga_json('salidas.json').get('salidas', [])
+_turno = {'sesion': random.randrange(1 << 16), 'salida': random.randrange(1 << 16)}
+
+
+class Reservas(Web):
+    fixed_count = int(os.environ.get('WOD_CARGA_RESERVAS_USUARIOS', '20') or 20)
+    wait_time = constant_throughput(float(os.environ.get('WOD_CARGA_RESERVAS_RITMO', '1') or 1))
+
+    def on_start(self):
+        if not _SESIONES.get('tokens') or not _SALIDAS:
+            raise RuntimeError('Faltan sesiones.json o salidas.json: ejecuta antes «preparar.py sesiones».')
+
+    @tag('reservar')
+    @task
+    def reservar_salida(self):
+        _turno['sesion'] += 1; _turno['salida'] += 7     # salidas distintas en cada reserva seguida (paso primo)
+        token = _SESIONES['tokens'][_turno['sesion'] % len(_SESIONES['tokens'])]
+        c, s, sl = _SALIDAS[_turno['salida'] % len(_SALIDAS)]
+        try: self.client.cookiejar.clear()
+        except Exception: pass
+        body = {'center_id': c, 'service_id': s, 'slot_id': sl, 'participants': 1, 'notes': 'Reserva de la prueba de carga (20/s)'}
+        with self.client.post('/api/bookings', json=body, name='res POST /api/bookings (20 por segundo)', catch_response=True,
+                              headers=self.hdr({'Origin': self.host, 'Cookie': f"{_SESIONES['cookie']}={token}"})) as r:
+            if r.status_code == 200:
+                r.success()
+            elif r.status_code in (400, 409) and any(w in (r.text or '') for w in ('plazas', 'ya no está disponible', 'ya ha empezado')):
+                r.success(); self.biz('reserva 20/s · sin plazas en esa salida')
+            else:
+                r.failure(f'HTTP {r.status_code}: {(r.text or "")[:160]}')
+

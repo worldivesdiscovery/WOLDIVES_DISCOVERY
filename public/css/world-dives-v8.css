@@ -3760,6 +3760,7 @@ html.wd-app .pp-page{padding-bottom:150px}
 .st-card.is-dragging{opacity:.45;outline:2px dashed var(--sea)}
 .st-order{position:absolute;top:8px;right:8px;z-index:2;display:flex;gap:4px;align-items:center}
 .st-order button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:15px;line-height:1}
+.st-order button:disabled{opacity:.35;cursor:default}
 .st-grip{cursor:grab;color:var(--muted);font-size:18px;padding:0 4px;background:#fff;border-radius:6px}
 .st-icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
 .st-icon{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border:1.5px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;color:var(--ink)}
