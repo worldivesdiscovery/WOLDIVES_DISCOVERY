@@ -102,6 +102,31 @@ def main():
                 check(f'«Ver ficha del punto» abre la ficha de «{sites[0]["name"]}»', pg.evaluate('location.hash').startswith('#/punto?id=') and sites[0]['name'] in h1,
                       {'dirección': pg.evaluate('location.hash'), 'h1': h1})
 
+            # ---------------------------------------------------------------- the dive site the button walk could not reach
+            # The map does not always open at the same view: in the walk of every button «Costa del Sol, Málaga» was on it
+            # and was not there when the walk came back to press it. Found with «Filtrar puntos del mapa», as a person
+            # would, its marker opens its side card.
+            fresh()
+            pg.fill('#ex-q', 'Costa del Sol'); pg.wait_for_timeout(2500)
+            hit = [m for m in pg.evaluate(VISIBLE, '#explore-map .wd-pin-wrap') if m['name'] == 'Costa del Sol, Málaga']
+            if hit:
+                pg.mouse.click(hit[0]['x'], hit[0]['y']); pg.wait_for_timeout(1200)
+            drawer = pg.evaluate("(() => { const d = document.querySelector('#explore-drawer'); return {open: d.classList.contains('open'), h3: d.querySelector('h3')?.textContent || ''}; })()")
+            check('«Costa del Sol, Málaga» (con «Filtrar puntos del mapa»): abre su ficha lateral con su nombre',
+                  bool(hit) and drawer['open'] and drawer['h3'] == 'Costa del Sol, Málaga', {'en el mapa': hit, 'ficha': drawer})
+            # A filter that leaves one dive site, after another that left several: before the fix of v50.57 (2.2) the map
+            # was empty whenever a dive site had no other one to group with (wdClusterFix in world-dives-v8.js).
+            if drawer['open']: pg.click('#explore-drawer .close'); pg.wait_for_timeout(400)
+            for q, name in (('Andalucía', None), ('Portofino', 'Portofino – Christ of the Abyss'), ('Grenada', 'Grenada – Bianca C')):
+                pg.fill('#ex-q', q); pg.wait_for_timeout(2500)
+                marks = pg.evaluate("() => document.querySelectorAll('#explore-map .wd-pin-wrap, #explore-map .wd-cluster-wrap').length")
+                pins = [m['name'] for m in pg.evaluate(VISIBLE, '#explore-map .wd-pin-wrap')]
+                check(f'«Filtrar puntos del mapa» con «{q}»: el mapa enseña ' + (f'«{name}»' if name else 'sus puntos'),
+                      (name in pins) if name else marks >= 2, {'contador': pg.inner_text('#ex-count'), 'marcas': marks, 'puntos': pins})
+            pg.fill('#ex-q', ''); pg.wait_for_timeout(2500)
+            check('borrar el filtro vuelve a poner todos los puntos', pg.inner_text('#ex-count').startswith('293') or pg.evaluate("() => document.querySelectorAll('#explore-map .wd-pin-wrap, #explore-map .wd-cluster-wrap').length") >= 1,
+                  pg.inner_text('#ex-count'))
+
             # ---------------------------------------------------------------- «Relieve» and its safety link
             fresh()
             pg.click('.ex-map [data-mapmode="marine"]'); pg.wait_for_timeout(1200)
