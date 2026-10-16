@@ -32,7 +32,9 @@ en 4G**. El vídeo de cabecera no se hace (3.2, decisión del titular): la porta
 El primer contenido sale 0,1 s más tarde que en la v50.56 (en todas las páginas: 1,2 s frente a 1,1 s); la foto de la
 cabecera, 4,1 s antes.
 
-En un navegador real con 4G lento y el procesador 4 veces más lento (`e2e_v50_57_portada.py`): ⟪E2E⟫
+En un navegador real con 4G lento y el procesador 4 veces más lento (`e2e_v50_57_portada.py`): la foto de la
+cabecera aparece en **1,2 s** (1,21 y 1,24 s en dos pasadas) y la página no salta (CLS 0,007). La cifra de Lighthouse
+es mayor porque simula la red y el procesador con su propio modelo (abajo).
 
 ## Qué la frenaba y qué se ha cambiado
 
