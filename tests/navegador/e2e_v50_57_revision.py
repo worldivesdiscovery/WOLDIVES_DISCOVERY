@@ -441,7 +441,14 @@ def run(out: Path | None):
             # 4.3 · templates: icon with a preview, delete or archive, order by dragging
             c, pg = ctx(); login(pg, 'admin.prueba')
             pg.goto(f'{srv.base}/#/admin?tab=svctemplates'); pg.wait_for_selector('.st-card', timeout=15000)
-            pg.locator('#st-new').click(); pg.wait_for_selector('#st-form .st-icon', timeout=8000)
+            # The field chosen as the window opens keeps the focus. Before, 50 ms later the window moved it to its first field
+            # («Duración», a number) and what was being typed was lost: the final battery of v50.57 saw it here, with the name
+            # of the new template empty. «Nueva plantilla» is opened and «Nombre» chosen in the same moment.
+            pg.evaluate("() => { document.querySelector('#st-new').click(); document.querySelector('#stf-n-es').focus(); }")
+            pg.wait_for_timeout(300)
+            focus = pg.evaluate("document.activeElement && document.activeElement.id")
+            check('4.3 · «Nueva plantilla»: el campo que se elige al abrirla no pierde el foco (lo escrito no se pierde)', focus == 'stf-n-es', focus)
+            pg.wait_for_selector('#st-form .st-icon', timeout=8000)
             names = pg.eval_on_selector_all('#st-form .st-icon small', 'ns => ns.map(n => n.innerText.trim())')
             check('4.3 · el selector tiene todos los iconos (inmersión, bautizo, curso, salida privada, viaje, alquiler, fotografía, nocturna, snorkel…)',
                   all(n in names for n in ('Inmersión', 'Bautizo', 'Curso', 'Salida privada', 'Viaje de buceo', 'Alquiler de equipo', 'Fotografía', 'Nocturna', 'Snorkel')), names)

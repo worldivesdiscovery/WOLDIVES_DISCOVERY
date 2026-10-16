@@ -4545,7 +4545,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     el.addEventListener('mousedown',e=>{downOnBackdrop=e.target===el;});
     el.addEventListener('click',e=>{ if(e.target.closest('[data-modal-close]')){e.preventDefault();close();return;} if(e.target===el&&downOnBackdrop&&!el.dataset.dirty)close(); });
     el.addEventListener('input',()=>{el.dataset.dirty='1';});
-    setTimeout(()=>{const f=el.querySelector('[autofocus]')||el.querySelector('.wd-modal-body input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([readonly]),.wd-modal-body textarea'); if(f)f.focus({preventScroll:true});},50);
+    // v50.57: a field already chosen in the window keeps the focus. Before, 50 ms after opening the focus went to the first
+    // field anyway («Duración» in «Nueva plantilla», a number), and what was being typed was lost: the name stayed empty.
+    setTimeout(()=>{ if(el.contains(document.activeElement)) return; const f=el.querySelector('[autofocus]')||el.querySelector('.wd-modal-body input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([readonly]),.wd-modal-body textarea'); if(f)f.focus({preventScroll:true});},50);
     return {el,close};
   }
   if(!window.__wdModalKeys){
