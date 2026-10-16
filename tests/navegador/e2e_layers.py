@@ -63,6 +63,7 @@ def run(shots: Path | None):
 
     def open_map(page, url, scope):
         page.goto(url); page.wait_for_load_state('networkidle'); page.wait_for_timeout(1200)
+        page.locator(scope).first.scroll_into_view_if_needed(); page.wait_for_timeout(300)   # v50.58: a dive site's map loads when it is near
         page.locator(f'{scope} .map-toolbar').first.scroll_into_view_if_needed(); page.wait_for_timeout(300)
 
     # 1 · Without ARCGIS_API_KEY ----------------------------------------------------------------------------

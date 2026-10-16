@@ -2175,7 +2175,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     bindMarineStrip();
     bindPointVideos(p,d.videos||[],cover);
     pointDepartures(p);
-    if(hasGeo) wdMaps().then(ok=>{ if(!$('#pp-map')) return; if(!ok){ $('#pp-map').innerHTML=`<div class="map-fallback"><strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong></div>`; return; } try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:false,scrollWheelZoom:true,attributionControl:true}))).setView([lat,lng],12); L.control.zoom({position:'bottomleft'}).addTo(m); wdLayerControl(m,{noteEl:$('#pp-map-note')}); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } });
+    // v50.58: the map is at the end of the page: Leaflet and the tiles load when it comes near the screen (before, on
+    // every visit, while the page was still loading)
+    const initMap=()=>wdMaps().then(ok=>{ if(!$('#pp-map')) return; if(!ok){ $('#pp-map').innerHTML=`<div class="map-fallback"><strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong></div>`; return; } try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:false,scrollWheelZoom:true,attributionControl:true}))).setView([lat,lng],12); L.control.zoom({position:'bottomleft'}).addTo(m); wdLayerControl(m,{noteEl:$('#pp-map-note')}); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } });
+    if(hasGeo){ const el=$('#pp-map'); if(el&&'IntersectionObserver' in window){ const io=new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)){ io.disconnect(); initMap(); } },{rootMargin:'600px 0px'}); io.observe(el); } else initMap(); }
     $('#suggest-pos')?.addEventListener('click',()=>{
       // v50.58 (A.3): a centre that dives here proposes position, current, visibility and warnings; a diver, also the rest
       const u=state.me?.user||{}, linked=u.role==='center'&&pc.mode==='exact'&&centers.some(c=>String(c.id)===String(u.center_id));

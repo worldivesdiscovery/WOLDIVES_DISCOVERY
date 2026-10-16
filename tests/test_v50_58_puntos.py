@@ -301,6 +301,49 @@ class Catalogue(ServerTestCase):
         self.assertEqual(self.client().get(f'/api/dive-points/{pid}').json['item']['water_temp_max'], 26)
         self.assertEqual(self.admin.post('/api/dive-points/update', {'id': pid, 'water_temp_min': 30, 'water_temp_max': 20}).status, 400)
 
+    # 10 -----------------------------------------------------------------------------------------------
+    def test_10_open_data_batch(self):
+        """scripts/puntos/preparar_lote.py: lo que dicen Wikidata y OpenStreetMap entra como lote, con sus fuentes.
+        Los archivos son de ejemplo (nombres inventados): este equipo no llega a esos servicios."""
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts' / 'puntos'))
+        import preparar_lote as pl
+        base = self.base
+        zone = next((k for k, (_, box) in pl.ZONES.items() if pl.inside(box, base['latitude'], base['longitude'])), None)
+        self.assertIsNotNone(zone, 'the base site is in one of the zones')
+        far = sea_near(base['latitude'], base['longitude'], 7000); near = sea_near(base['latitude'], base['longitude'], 110)
+        twin = sea_near(far[0], far[1], 60)
+        osm = {'elements': [
+            {'type': 'node', 'id': 101, 'lat': far[0], 'lon': far[1], 'tags': {'sport': 'scuba_diving', 'name': 'Bajo Inventado de Prueba'}},
+            {'type': 'node', 'id': 102, 'lat': near[0], 'lon': near[1], 'tags': {'sport': 'scuba_diving', 'name': base['name']}},
+            {'type': 'node', 'id': 103, 'lat': far[0], 'lon': far[1], 'tags': {'sport': 'scuba_diving'}},                 # sin nombre
+            {'type': 'node', 'id': 104, 'lat': -33.9, 'lon': 151.3, 'tags': {'sport': 'scuba_diving', 'name': 'Fuera de la caja'}}]}
+        wd = {'results': {'bindings': [
+            {'item': {'value': 'http://www.wikidata.org/entity/Q999000001'}, 'itemLabel': {'value': 'El Bajón Inventado de Prueba'},
+             'coord': {'value': f'Point({twin[1]} {twin[0]})'}, 'countryLabel': {'value': 'España'}},
+            {'item': {'value': 'http://www.wikidata.org/entity/Q999000002'}, 'itemLabel': {'value': 'Q999000002'},     # sin nombre
+             'coord': {'value': f'Point({far[1]} {far[0]})'}}]}}
+        files = pl.convert(zone, osm, wd, today='2026-10-16')
+        self.assertEqual(len(files), 1); lote = files[0]
+        self.assertEqual(len(lote['items']), 2, lote['items'])
+        both = next(i for i in lote['items'] if len(i['sources']) == 2)
+        self.assertEqual({s['kind'] for s in both['sources']}, {'osm', 'wikidata'}, 'the same site in both sources goes once')
+        self.assertEqual(both['country'], 'España', 'the country only when a source says it')
+        other = next(i for i in lote['items'] if i is not both)
+        self.assertNotIn('country', other, 'no country made up')
+        for it in lote['items']:
+            self.assertEqual(set(it) - {'country'}, {'name', 'latitude', 'longitude', 'sources'}, 'only what the source says')
+        r = self.admin.post('/api/admin/dive-points/batches', lote)
+        self.assertEqual(r.status, 200, r.json); bid = r.json['id']
+        self.assertEqual((r.json['summary']['pending'], r.json['summary']['same']), (2, 1), r.json['summary'])
+        self.assertNotIn('Bajón Inventado de Prueba', {x['name'] for x in self.client().get('/api/dive-points').json['items']})
+        r = self.admin.post('/api/admin/dive-points/batches/publish', {'batch_id': bid})
+        self.assertEqual(sorted(x['status'] for x in r.json['done']), ['merged', 'published'], r.json)
+        new_id = next(x['point_id'] for x in r.json['done'] if x['status'] == 'published')
+        kinds = {(s['kind'], s['license']) for s in self.admin.get(f'/api/admin/dive-points/{new_id}').json['sources']}
+        self.assertEqual(kinds, {('osm', 'ODbL'), ('wikidata', 'CC0')})
+        self.assertNotIn('openstreetmap.org', json.dumps(self.client().get(f'/api/dive-points/{new_id}').json), 'the sources stay private')
+        self.assertEqual(self.client().get(f'/api/dive-points/{new_id}').json['item']['data_status'], 'pending')
+
 
 if __name__ == '__main__':
     unittest.main()
