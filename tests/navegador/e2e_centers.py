@@ -82,7 +82,7 @@ def run(shots: Path | None):
             # Owner: new tabs
             ctx, page, errors = session('center_panel6')
             for tab, sel, name in (('plan', '.pl-card', 'mi plan'), ('fiscal', '#fi-form', 'datos fiscales'), ('requests', '.mm-module', 'solicitudes'),
-                                   ('stats', '.acc-kpis', 'estadísticas'), ('tools', '.tl-row', 'herramientas'), ('team', '#tm-form', 'equipo'), ('activity', '.mm-module', 'registro de actividad')):
+                                   ('stats', '.acc-kpis', 'estadísticas'), ('tools', '.tl-row', 'herramientas'), ('team', '#tq-links-mount', 'equipo'), ('activity', '.mm-module', 'registro de actividad')):
                 go(page, f'#/admin?tab={tab}', 1400)
                 check(f'centro: pestaña {name}', page.locator(sel).count() >= 1)
                 unl = page.evaluate(LABELS_JS)

@@ -58,10 +58,10 @@ def run(shots: Path | None):
 
             for dev, width in (('ordenador', 1366), ('movil', 390)):
                 ctx, page, errors = session(width)
-                # Sign-in: only email, password and «Entrar»; the link to the forgotten password below
+                # Sign-in: only email, password, «Mantener la sesión iniciada» (v50.58) and «Entrar»; the link to the forgotten password below
                 go(page, '#/login')
                 inputs = page.evaluate("[...document.querySelectorAll('#login-form input')].filter(i=>i.offsetParent!==null).map(i=>i.id)")
-                check(f'{dev}: inicio de sesión solo con email y contraseña', inputs == ['login', 'password'], inputs)
+                check(f'{dev}: inicio de sesión solo con email y contraseña', inputs == ['login', 'password', 'remember'], inputs)
                 below = page.evaluate("(()=>{const b=document.querySelector('#login-form button[type=submit]').getBoundingClientRect(), a=document.querySelector('#login-form a[href=\"#/recuperar\"]').getBoundingClientRect(); return a.top>b.bottom})()")
                 check(f'{dev}: enlace «¿Has olvidado tu contraseña?» debajo de Entrar', below)
                 visual = page.locator('.auth-visual').is_visible()
