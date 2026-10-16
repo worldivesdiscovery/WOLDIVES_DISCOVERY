@@ -27,6 +27,8 @@ arrancar
         Stripe). NUNCA se llama al Stripe real.
     --pagos centro: sin claves de Stripe. Los servicios «pago al reservar» no se pueden reservar; las reservas «bajo
         petición» se aceptan y el centro registra el cobro en el centro (POST /api/bookings/<id>/payment).
+    --correo smtp (por defecto, v50.57): los correos salen por SMTP, como en producción, a un servidor local que los
+        recibe y no los envía a nadie. --correo archivos: se escriben como .eml (lo que hace el paquete DEMO).
     Las copias de seguridad automáticas se desactivan (WOD_BACKUP=off) salvo --con-copias: una copia de la base en mitad
     de un escalón falsearía la medida.
 
@@ -83,7 +85,8 @@ def demo_data_key():
 
 
 def server_env(run_dir: Path, db: Path, port: int, host: str, public_host: str, workers: int, iterations: int,
-               pagos: str = 'centro', stripe_base: str | None = None, backups: bool = False, extra: dict | None = None) -> dict:
+               pagos: str = 'centro', stripe_base: str | None = None, backups: bool = False, extra: dict | None = None,
+               smtp_port: int | None = None) -> dict:
     """Entorno del servidor de carga: el de tests/helpers.py (desarrollo, sin servicios externos) con los límites de
     registro abiertos y, por defecto, sin copias de seguridad automáticas."""
     env = dict(os.environ)
@@ -106,6 +109,9 @@ def server_env(run_dir: Path, db: Path, port: int, host: str, public_host: str, 
     if not backups: env['WOD_BACKUP'] = 'off'
     if pagos == 'stripe-sim':
         env.update({'STRIPE_SECRET_KEY': 'sk_test_carga_simulada', 'WOD_STRIPE_API_BASE': stripe_base})
+    if smtp_port:
+        # Como en producción: los correos salen por SMTP (aquí, a un servidor local que los recibe y no los envía a nadie).
+        env.update({'WOD_SMTP_HOST': '127.0.0.1', 'WOD_SMTP_PORT': str(smtp_port), 'WOD_SMTP_SECURITY': 'none'})
     env.update(extra or {})
     return env
 
@@ -364,7 +370,7 @@ def construir(a):
 
 # ----------------------------------------------------------------------------------------------- arrancar / parar
 def arrancar(dir_: str, workers: int = 1, pagos: str = 'stripe-sim', puerto: int = 0, host: str = '127.0.0.1', public_host: str | None = None,
-             backups: bool = False, extra_env: dict | None = None, reutilizar_bd: bool = False) -> dict:
+             backups: bool = False, extra_env: dict | None = None, reutilizar_bd: bool = False, correo: str = 'smtp') -> dict:
     work = Path(dir_).resolve(); run = work / 'run'
     meta = json.loads((work / 'meta.json').read_text()) if (work / 'meta.json').exists() else None
     if not meta: raise SystemExit(f'Falta {work / "meta.json"}: ejecuta antes «preparar.py construir --dir {work}».')
@@ -389,7 +395,13 @@ def arrancar(dir_: str, workers: int = 1, pagos: str = 'stripe-sim', puerto: int
         line = sim.stdout.readline()
         info = json.loads(line)
         stripe_base = info['api']; estado['stripe_sim'] = {'api': info['api'], 'control': info['control'], 'pid': sim.pid}
-    env = server_env(run, db, port, host, public_host, workers, meta['pbkdf2'], pagos, stripe_base, backups, extra_env)
+    smtp_port = None
+    if correo == 'smtp':
+        sink = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), 'smtp-sink'], stdout=subprocess.PIPE, stderr=open(run / 'smtp-sink.err.log', 'a'),
+                                text=True, start_new_session=True)
+        smtp_port = json.loads(sink.stdout.readline())['port']; estado['smtp_sink'] = {'port': smtp_port, 'pid': sink.pid}
+    estado['correo'] = correo
+    env = server_env(run, db, port, host, public_host, workers, meta['pbkdf2'], pagos, stripe_base, backups, extra_env, smtp_port)
     proc = start_server(env, run, 'servidor')
     estado['pid'] = proc.pid
     try:
@@ -398,7 +410,7 @@ def arrancar(dir_: str, workers: int = 1, pagos: str = 'stripe-sim', puerto: int
         stop_pgid(proc.pid); raise
     time.sleep(1.0 if workers > 1 else 0.2)   # los procesos hijos (fork) abren el puerto un instante después
     (run / 'estado.json').write_text(json.dumps(estado, ensure_ascii=False, indent=1))
-    log(f'Servidor de carga en {base} · WOD_WORKERS={workers} · pagos={pagos} · PID {proc.pid} · estado en {run / "estado.json"}')
+    log(f'Servidor de carga en {base} · WOD_WORKERS={workers} · pagos={pagos} · correo={correo} · PID {proc.pid} · estado en {run / "estado.json"}')
     return estado
 
 
@@ -410,6 +422,7 @@ def parar(dir_: str, quiet=False):
     e = json.loads(st.read_text())
     stop_pgid(int(e['pid']))
     if e.get('stripe_sim'): stop_pgid(int(e['stripe_sim']['pid']), 5)
+    if e.get('smtp_sink'): stop_pgid(int(e['smtp_sink']['pid']), 5)
     if not quiet: log(f'Servidor {e["base"]} parado.')
 
 
@@ -493,6 +506,44 @@ def stripe_sim(control_host='127.0.0.1', public_host='127.0.0.1'):
         time.sleep(10); del mock.calls[:]
 
 
+# ----------------------------------------------------------------------------------------------- servidor SMTP local
+def smtp_sink(host='127.0.0.1'):
+    """Servidor SMTP mínimo que acepta los correos y los descarta (no los envía a nadie): el servidor de carga manda sus
+    correos por SMTP, como en producción, con una conexión y dos escrituras cortas en la base por correo. Imprime una
+    línea JSON con el puerto. Sin TLS (WOD_SMTP_SECURITY=none, que el servidor solo admite fuera de producción)."""
+    import socketserver
+
+    class H(socketserver.StreamRequestHandler):
+        def handle(self):
+            w = lambda line: (self.wfile.write(line.encode() + b'\r\n'), self.wfile.flush())
+            w('220 carga ESMTP')
+            while True:
+                line = self.rfile.readline()
+                if not line: return
+                cmd = line.decode('latin-1').strip().upper()
+                if cmd.startswith('EHLO'):
+                    self.wfile.write(b'250-carga\r\n250-8BITMIME\r\n250 SIZE 52428800\r\n'); self.wfile.flush()
+                elif cmd.startswith(('HELO', 'MAIL', 'RCPT', 'RSET', 'NOOP')):
+                    w('250 OK')
+                elif cmd == 'DATA':
+                    w('354 Fin con <CRLF>.<CRLF>')
+                    while True:
+                        d = self.rfile.readline()
+                        if not d or d in (b'.\r\n', b'.\n'): break
+                    w('250 OK recibido')
+                elif cmd == 'QUIT':
+                    w('221 Adiós'); return
+                else:
+                    w('502 No implementado')
+
+    class S(socketserver.ThreadingTCPServer):
+        daemon_threads = True; allow_reuse_address = True
+
+    srv = S((host, 0), H)
+    print(json.dumps({'port': srv.server_address[1]}), flush=True)
+    srv.serve_forever()
+
+
 # ----------------------------------------------------------------------------------------------- CLI
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -520,6 +571,8 @@ def main(argv=None):
         p.add_argument('--public-host', default=None, help='nombre o IP con el que lo ven los generadores (WOD_PUBLIC_URL y Origin)')
         p.add_argument('--con-copias', action='store_true', help='deja activas las copias de seguridad automáticas')
         p.add_argument('--reutilizar-bd', action='store_true', help='sigue con la base de la ejecución anterior en lugar de una copia limpia')
+        p.add_argument('--correo', choices=('smtp', 'archivos'), default='smtp',
+                       help='smtp (por defecto, como en producción): a un servidor SMTP local que no envía nada; archivos: .eml en la carpeta de la ejecución')
         p.add_argument('--env', action='append', default=[], metavar='CLAVE=VALOR', help='variable extra para el servidor (p. ej. WOD_MAX_CONCURRENT=128; '
                        'con generadores remotos, WOD_TRUSTED_PROXIES=<sus IPs> para que cuente su X-Forwarded-For)')
 
@@ -530,12 +583,14 @@ def main(argv=None):
     p = sub.add_parser('sesiones', help='abre las sesiones de los buceadores y apunta las salidas con plazas (clase Reservas)')
     p.add_argument('--dir', default=str(DEFAULT_DIR)); p.add_argument('--n', type=int, default=0, help='cuántas cuentas (0 = todas)'); p.add_argument('--hilos', type=int, default=8)
     p = sub.add_parser('stripe-sim', help=argparse.SUPPRESS); p.add_argument('--control-host', default='127.0.0.1'); p.add_argument('--public-host', default='127.0.0.1')
+    sub.add_parser('smtp-sink', help=argparse.SUPPRESS)
     a = ap.parse_args(argv)
     if a.cmd == 'stripe-sim': return stripe_sim(a.control_host, a.public_host)
+    if a.cmd == 'smtp-sink': return smtp_sink()
     if a.cmd in ('construir', 'todo'): construir(a)
     if a.cmd in ('arrancar', 'todo'):
         extra = dict(kv.split('=', 1) for kv in a.env)
-        arrancar(a.dir, a.workers, a.pagos, a.puerto, a.host, a.public_host, a.con_copias, extra, a.reutilizar_bd)
+        arrancar(a.dir, a.workers, a.pagos, a.puerto, a.host, a.public_host, a.con_copias, extra, a.reutilizar_bd, a.correo)
     if a.cmd == 'parar': parar(a.dir)
     if a.cmd == 'sesiones': sesiones(a.dir, a.n, a.hilos)
     if not a.cmd: ap.print_help()

@@ -8632,10 +8632,18 @@ def spool_outbox_to_files(limit=150):
     db = None; n = 0
     try:
         db = connect(); folder.mkdir(parents=True, exist_ok=True); cfg = smtp_config()
+        # v50.57 (revisión general, 5.2): the messages are built and written first, and then marked in one short
+        # transaction. Before, the first UPDATE took the write lock of the database and kept it while the other 149
+        # messages were built (with their QR) and written: up to 2 s in which no booking could be saved.
+        done = []
         for r in db.execute("SELECT * FROM email_outbox WHERE status='queued' ORDER BY id LIMIT ?", (limit,)).fetchall():
             name = f"{r['id']:06d}-{r['template']}-{re.sub(r'[^a-z0-9]+', '_', (r['to_email'] or '').lower())[:40]}.eml"
             (folder / name).write_bytes(bytes(_build_message(cfg, r)))
-            db.execute("UPDATE email_outbox SET status='sent',sent_at=?,delivery='file',attempts=attempts+1 WHERE id=?", (now(), r['id'])); n += 1
+            done.append(r['id'])
+        if done:
+            ts = now()
+            n = sum(db.execute("UPDATE email_outbox SET status='sent',sent_at=?,delivery='file',attempts=attempts+1 WHERE id=? AND status='queued'",
+                               (ts, i)).rowcount for i in done)
         db.commit()
     except Exception as exc:
         sys.stderr.write(f'[correo] archivo local: {exc}\n')

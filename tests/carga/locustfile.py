@@ -89,6 +89,12 @@ MAP_LIBS = ['/lib/leaflet/leaflet.css', '/lib/markercluster/MarkerCluster.css', 
             '/lib/protomaps-leaflet/protomaps-leaflet.js', '/lib/protomaps-leaflet/wd-flavor.js']
 # Language of each simulated visitor: about half read the web in Spanish, the rest in the other 8 languages.
 IDIOMAS = ['es'] * 8 + ['en'] * 4 + ['fr', 'de', 'it', 'pt', 'pl', 'nl', 'zh']
+# The browser of each simulated visitor. With the default one of Locust («python/…») the server takes it for a robot and
+# does not count its visits (BOT_UA): the counter of visits (v50.57, 4.2) would not write anything.
+NAVEGADORES = ['Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36',
+               'Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1',
+               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+               'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15']
 
 # ---------------------------------------------------------------------------------------------- catálogo compartido (por proceso)
 _CAT = {'points': [], 'centers': [], 'static': None, 'version': '', 'images': [], 'lock': threading.Lock()}
@@ -209,13 +215,14 @@ class Web(FastHttpUser):
         # Una IP por usuario simulado (X-Forwarded-For): el servidor de carga confía en 127.0.0.1 como proxy.
         self.ip = f'100.{random.randint(64, 127)}.{random.randint(0, 255)}.{random.randint(1, 254)}'
         self.etags = {}; self.views = 0; self.next_visit = random.randint(8, 20)
-        self.lang = random.choice(IDIOMAS)
+        self.lang = random.choice(IDIOMAS); self.ua = None
 
     def on_start(self):
         self.cargar_web(primera=True)
 
     def hdr(self, extra=None):
         h = {'X-Forwarded-For': self.ip}
+        if self.ua: h['User-Agent'] = self.ua
         if extra: h.update(extra)
         return h
 
@@ -249,6 +256,10 @@ class Web(FastHttpUser):
             else:
                 r.failure(f'HTTP {r.status_code}: {(r.text or "")[:160]}')
             return r.status_code, body
+
+    def visita(self, page, pid=None):
+        """What the web sends on every public screen (wdVisit, v50.57 4.2): the server counts the visit, without cookies."""
+        self.post('/api/visita', {'p': page, 'id': pid} if pid else {'p': page}, '/api/visita', grupo='pag')
 
     def biz(self, what):
         events.request.fire(request_type='BIZ', name=f'biz {what}', response_time=0, response_length=0, exception=None, context={})
@@ -349,10 +360,14 @@ class Web(FastHttpUser):
 class Visitante(Web):
     weight = MEZCLA[0]
 
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.ua = random.choice(NAVEGADORES)
+
     @tag('navegar')
     @task(3)
     def inicio(self):
-        self.portada(); self.contar_vista()
+        self.portada(); self.visita('home'); self.contar_vista()
 
     @tag('navegar')
     @task(3)
@@ -363,12 +378,12 @@ class Visitante(Web):
             self.get(f'/api/point-directory?zone={z}&page=1&per_page=24&sort=recommended', '/api/point-directory')
         if d and d.get('pages', 1) > 1 and random.random() < 0.3:
             self.get(f'/api/point-directory?page={random.randint(2, min(5, d["pages"]))}&per_page=24&sort=recommended', '/api/point-directory')
-        self.contar_vista()
+        self.visita('puntos'); self.contar_vista()
 
     @tag('navegar')
     @task(4)
     def ficha_punto(self):
-        self.ver_punto(); self.contar_vista()
+        pid = self.punto(); self.ver_punto(pid); self.visita('punto', pid); self.contar_vista()
 
     @tag('navegar')
     @task(2)
@@ -377,19 +392,19 @@ class Visitante(Web):
         d = self.get_json('/api/center-directory?page=1&per_page=24', '/api/center-directory')
         if d and d.get('countries') and random.random() < 0.4:
             self.get(f'/api/center-directory?country={d["countries"][0]["name"]}&page=1&per_page=24', '/api/center-directory')
-        self.contar_vista()
+        self.visita('centros'); self.contar_vista()
 
     @tag('navegar')
     @task(3)
     def ficha_centro(self):
-        self.ver_centro(); self.contar_vista()
+        cid = self.centro_publico(); self.ver_centro(cid); self.visita('centro', cid); self.contar_vista()
 
     @tag('calendario')
     @task(2)
     def calendario_salidas(self):
         cid = self.centro_reservable()
-        self.ver_centro(cid)
-        self.calendario(cid)
+        self.ver_centro(cid); self.visita('centro', cid)
+        self.calendario(cid); self.visita('reservar')
         self.contar_vista()
 
     @tag('buscar')
@@ -398,16 +413,16 @@ class Visitante(Web):
         term = random.choice(SEARCH_TERMS)
         self.get(f'/api/center-directory?q={term}&per_page=8', '/api/center-directory?q')
         self.get(f'/api/point-directory?q={term}&page=1&per_page=24&sort=recommended', '/api/point-directory?q')
-        self.contar_vista()
+        self.visita('explorar'); self.contar_vista()
 
     @tag('navegar')
     @task(1)
     def cercanas(self):
         lat, lon = random.choice(POSITIONS)
         if random.random() < 0.5:
-            self.get(f'/api/salidas-cercanas?lat={lat}&lon={lon}&limite=20', '/api/salidas-cercanas')
+            self.get(f'/api/salidas-cercanas?lat={lat}&lon={lon}&limite=20', '/api/salidas-cercanas'); self.visita('home')
         else:
-            self.get(f'/api/top-dives?lat={lat}&lon={lon}&radius=80', '/api/top-dives')
+            self.get(f'/api/top-dives?lat={lat}&lon={lon}&radius=80', '/api/top-dives'); self.visita('top10')
         self.contar_vista()
 
 
