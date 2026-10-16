@@ -56,7 +56,10 @@ def main():
             def page(w=390, h=844, locale='es-ES'):
                 ctx = browser.new_context(viewport={'width': w, 'height': h}, locale=locale, device_scale_factor=1.75 if w < 500 else 1)
                 ctx.add_init_script("try{localStorage.setItem('wd_cookie_notice',String(Date.now()))}catch(e){}")
+                # the boot script is written in the page and allowed by its SHA-256: the policy must refuse nothing
+                ctx.add_init_script("document.addEventListener('securitypolicyviolation',e=>console.error('CSP '+e.violatedDirective+' '+(e.blockedURI||'inline')))")
                 pg = ctx.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
+                pg.on('console', lambda m: errors.append(m.text) if m.type == 'error' and m.text.startswith('CSP ') else None)
                 return ctx, pg
 
             # ---------------------------------------------------------------- what the page alone draws
@@ -102,13 +105,16 @@ def main():
             ORDER = """() => new Promise(done => { let lcp = null;
               new PerformanceObserver(l => { const e = l.getEntries().pop(); if (e) lcp = e.startTime; }).observe({type: 'largest-contentful-paint', buffered: true});
               setTimeout(() => { const r = n => { const e = performance.getEntriesByType('resource').find(x => x.name.includes(n)); return e ? Math.round(e.startTime) : null; };
-                done({lcp: lcp == null ? null : Math.round(lcp), main: r('/js/world-dives-v8.js'), pack: r('/idiomas/en.json'), web: !!document.querySelector('#home-search, #pt-search, .pt57')}); }, 2500); })"""
+                done({lcp: lcp == null ? null : Math.round(lcp), main: r('/js/world-dives-v8.js'), pack: r('/idiomas/en.json'), photo: r('/img/titular/buceador-rayos'),
+                      web: !!document.querySelector('#home-search, #pt-search, .pt57')}); }, 2500); })"""
             ctx, pg = page(412, 823, locale='en-GB')
             pg.goto(srv.base + '/'); pg.wait_for_selector('#home-search'); o = pg.evaluate(ORDER)
+            check('Portada · la foto de la cabecera se pide en cuanto se lee la página', o['photo'] is not None and o['photo'] < 200, o)
             check('Portada · el programa principal y el paquete de idioma empiezan después de pintarse la foto',
                   o['web'] and o['lcp'] is not None and o['main'] is not None and o['pack'] is not None and o['main'] >= o['lcp'] and o['pack'] >= o['lcp'], o)
             pg.goto(srv.base + '/?otra=1#/puntos'); pg.wait_for_selector('.pt57, #pt-search', timeout=30000); o = pg.evaluate(ORDER)
             check('Otra página · empiezan al momento (sin esperar a nada)', o['web'] and o['main'] is not None and o['pack'] is not None and o['main'] < 300 and o['pack'] < 300, o)
+            check('Otra página · no baja la foto de la portada (su cabecera está oculta)', o['photo'] is None, o)
             ctx.close()
             ctx, pg = page(412, 823)
             pg.goto(srv.base + '/'); pg.wait_for_selector('#home-search'); pg.wait_for_timeout(2500)
@@ -138,7 +144,7 @@ def main():
             browser.close()
     finally:
         srv.stop()
-    check('sin errores de JavaScript', not errors, errors[:3])
+    check('sin errores de JavaScript ni nada rechazado por la política de seguridad', not errors, errors[:3])
     bad = [n for n, ok in rows if not ok]
     print(f'\n{len(rows) - len(bad)}/{len(rows)} comprobaciones correctas')
     return 1 if bad else 0

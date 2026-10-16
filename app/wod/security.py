@@ -469,13 +469,14 @@ DOCUMENT_TYPES = {'.pdf': 'application/pdf', '.jpg': 'image/jpeg', '.png': 'imag
 # self-hosted); map tiles from the configured providers; iframes only from the
 # allowed embed providers and only after the visitor clicks «Cargar vídeo».
 # ---------------------------------------------------------------------------
-def content_security_policy() -> str:
+def content_security_policy(script_hashes=()) -> str:
+    """script_hashes: base64 SHA-256 of the only scripts written inside a page (v50.57: the boot script of index.html)."""
     from . import videos   # v50.50: the players of the insertable video platforms (wod.videos.PLATFORMS)
     frames = sorted({'https://' + d.partition('/')[0] for d in config.embed_domains()} |
                     {'https://www.' + d.partition('/')[0] for d in config.embed_domains() if d.count('.') == 1} |
                     {'https://' + h for h in videos.frame_hosts()})
     connect = ["'self'"] + [x.strip() for x in config.env('WOD_CSP_EXTRA_CONNECT').split(',') if x.strip()]
-    scripts = ["'self'"]
+    scripts = ["'self'"] + [f"'sha256-{h}'" for h in script_hashes]
     # v50.47: «Conectar mi WhatsApp Business» uses Meta's Embedded Signup (Facebook JS SDK). Allowed only when the owner
     # has enabled WhatsApp in the .env; otherwise the policy stays exactly as before.
     if config.env('WHATSAPP_ENABLED') in ('1', 'true', 'yes', 'on') and config.env('WHATSAPP_APP_ID'):

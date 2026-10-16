@@ -28,15 +28,22 @@ def pre(body: bytes) -> str:
 
 class CabeceraEnLaPagina(ServerTestCase):
 
+    @staticmethod
+    def version():
+        return re.search(r"^APP_VERSION = '([^']+)'", (ROOT / 'app' / 'server.py').read_text(encoding='utf-8'), re.M).group(1)
+
     def test_1_la_portada_trae_su_cabecera_con_la_foto_en_sus_tamanos(self):
         r = self.client().get('/')
         self.assertEqual(r.status, 200)
         p = pre(r.body)
         self.assertIn('lang="es"', p)
         self.assertIn('aria-hidden="true"', p)                                 # a picture of the header, not a second page
-        self.assertIn('srcset="/img/titular/buceador-rayos-640.webp 640w, /img/titular/buceador-rayos-960.webp 960w, '
+        # data-srcset/data-src: index.html serves every page, and the browser must not download this photo on the others
+        # (it stays hidden there); wd-arranque.js gives the addresses back on the home page as the page is read
+        self.assertIn('data-srcset="/img/titular/buceador-rayos-640.webp 640w, /img/titular/buceador-rayos-960.webp 960w, '
                       '/img/titular/buceador-rayos-1440.webp 1440w, /img/titular/buceador-rayos.webp 1916w"', p)
-        self.assertIn('<img src="/img/titular/buceador-rayos.jpg" class="tp-hero-img" alt="" fetchpriority="high" style="object-position:78% 66%">', p)
+        self.assertIn('<img data-src="/img/titular/buceador-rayos.jpg" class="tp-hero-img" alt="" fetchpriority="high" style="object-position:78% 66%">', p)
+        self.assertNotRegex(p, r'\s(src|srcset)=')
         self.assertNotRegex(p, r'<(?:a|button)[^>]*\bhref=|<button')               # nothing to press before the web is ready
         self.assertIn('disabled tabindex="-1"', p)
         self.assertEqual(self.client().get('/index.html').body.count(b'class="wd-pre"'), 1)
@@ -79,28 +86,39 @@ class CabeceraEnLaPagina(ServerTestCase):
         r = admin.post('/api/admin/site-themes', {'name': 'Verano', 'mode': 'always', 'ribbon': 'Temporada de verano abierta'})
         self.assertEqual(r.status, 200, r.body[:300])
         p = pre(self.client().get('/').body)
-        self.assertIn(f'<img src="{url}" class="tp-hero-img"', p)
+        self.assertIn(f'<img data-src="{url}" class="tp-hero-img"', p)
         self.assertIn('<span class="hero-credit">Foto: Ana</span>', p)
         self.assertIn('class="hm-ribbon"', p)
         self.assertIn('Temporada de verano abierta', p)
 
     def test_5_el_aviso_de_arranque_y_la_politica_de_seguridad(self):
-        html = self.client().get('/').body.decode('utf-8')
+        import base64, hashlib
+        page = self.client().get('/')
+        html = page.body.decode('utf-8')
         head = html[:html.index('</head>')]
-        # the boot script goes first (it runs without waiting for the CSS) and names the main script: there is no other tag
-        # for it, so its download no longer competes with the photo of the header on the home page
-        self.assertRegex(head, r'<script src="/js/wd-arranque\.js\?v=([0-9.]+)" data-main="/js/world-dives-v8\.js\?v=\1"></script>')
-        self.assertLess(head.index('wd-arranque.js'), head.index('world-dives-v8.css'))
-        self.assertNotIn('<script src="/js/world-dives-v8.js', html)
-        self.assertIsNone(re.search(r'<script(?![^>]*\bsrc=)', html))                    # no script written in the page
         r = self.client().get('/js/wd-arranque.js')
         self.assertEqual(r.status, 200)
         self.assertIn('javascript', r.headers.get('Content-Type', ''))
-        self.assertLess(len(r.body), 4000)
-        csp = r.headers.get('Content-Security-Policy') or self.client().get('/').headers.get('Content-Security-Policy', '')
-        self.assertIn("script-src 'self'", csp)
-        self.assertNotIn('unsafe-inline', csp.split('script-src', 1)[1].split(';', 1)[0])
+        self.assertLess(len(r.body), 6000)
         src = r.body.decode('utf-8')
+        inline = '\n'.join(l for l in src.split('\n') if not l.lstrip().startswith('//'))   # without its whole-line comments
+        self.assertLess(len(inline.encode('utf-8')), 3500)
+        # the boot script goes first (it runs without waiting for the CSS), written inside the page (one request less before
+        # the first paint), and names the main script: there is no other tag for it, so on the home page its download no
+        # longer competes with the photo of the header
+        self.assertRegex(head, r'<script data-main="/js/world-dives-v8\.js\?v=[0-9.]+">')
+        self.assertIn(f'<script data-main="/js/world-dives-v8.js?v={self.version()}">{inline}</script>', head)
+        self.assertLess(head.index('data-main='), head.index('world-dives-v8.css'))
+        self.assertNotIn('<script src="/js/world-dives-v8.js', html)
+        scripts = re.findall(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>', html, re.S)
+        self.assertEqual(scripts, [inline])                                               # the only script written in the page
+        # the policy allows exactly that text by its SHA-256, never 'unsafe-inline'
+        csp = page.headers.get('Content-Security-Policy', '')
+        allowed = csp.split('script-src', 1)[1].split(';', 1)[0]
+        self.assertIn("'self'", allowed)
+        self.assertNotIn('unsafe-inline', allowed)
+        digest = base64.b64encode(hashlib.sha256(inline.encode('utf-8')).digest()).decode()
+        self.assertEqual(re.findall(r"'sha256-([^']+)'", allowed), [digest])
         for rule in ('WorldivesApp', "'wd-app'", "'wod-language'", 'navigator.languages', "route==='home'"):
             self.assertIn(rule, src)                                                    # only on the home page of the web
 

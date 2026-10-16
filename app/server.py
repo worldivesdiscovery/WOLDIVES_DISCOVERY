@@ -6823,7 +6823,10 @@ def pre_home_html(db, lang='es'):
     look = resolve_site_media(SITE_MEDIA.get(db), 'n')
     item = look['items'].get('hero:home') or {}
     url = item.get('url') or next(s[3] for s in SITE_MEDIA_SLOTS if s[0] == 'hero:home')
-    img = hero_image_html(url) + (f'<span class="hero-credit">{html.escape(item["credit"])}</span>' if item.get('credit') else '')
+    # data-srcset/data-src: the browser downloads nothing by itself (index.html serves every page, and on the others this
+    # header stays hidden); public/js/wd-arranque.js gives them back as the page is read, only on the home page
+    img = re.sub(r' (srcset|src)="', r' data-\1="', hero_image_html(url))
+    img += f'<span class="hero-credit">{html.escape(item["credit"])}</span>' if item.get('credit') else ''
     ribbon = (look.get('theme') or {}).get('ribbon') or ''
     ribbon = (f'<p class="hm-ribbon">' + _SVG.format(s=14, p='<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>')
               + f'<span>{html.escape(ribbon)}</span></p>') if ribbon else ''
@@ -14122,7 +14125,13 @@ def boat_pdf_user(db, slot_id, token):
 
 from wod import ops as wops
 
-CSP_HEADER = wsec.content_security_policy()
+# v50.57 (5.4): the boot script of the page (public/js/wd-arranque.js) goes written inside index.html: one request less
+# before the first paint of every page. The Content-Security-Policy allows exactly that text by its SHA-256 (never
+# 'unsafe-inline'): any other script written in a page is still refused.
+BOOT_JS = '\n'.join(l for l in (PUBLIC / 'js' / 'wd-arranque.js').read_text(encoding='utf-8').split('\n') if not l.lstrip().startswith('//'))
+BOOT_JS_SHA256 = base64.b64encode(hashlib.sha256(BOOT_JS.encode('utf-8')).digest()).decode('ascii')
+BOOT_TAG = re.compile(r'<script src="/js/wd-arranque\.js\?v=[0-9.]+"( data-main="[^"<>]+")></script>')
+CSP_HEADER = wsec.content_security_policy((BOOT_JS_SHA256,))
 ACCESS_LOG = wops.access_logger(LOG_DIR)
 
 
@@ -15202,10 +15211,11 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
-    def send_bytes(self, raw: bytes, content_type: str, filename: str | None = None, cache: str = 'no-store', inline: bool = False, vary: str = ''):
+    def send_bytes(self, raw: bytes, content_type: str, filename: str | None = None, cache: str = 'no-store', inline: bool = False, vary: str = '', encoding: str = ''):
         """Generated files (PDF, SVG, CSV, ICS…) with the same security headers as every other answer."""
         self.send_response(200)
         self.send_header('Content-Type', content_type)
+        if encoding: self.send_header('Content-Encoding', encoding)
         self.send_header('Content-Length', str(len(raw)))
         self.send_header('Cache-Control', cache)
         if vary: self.send_header('Vary', vary)
@@ -16987,6 +16997,7 @@ class Handler(BaseHTTPRequestHandler):
         # right away on any page, and on the home page once its first screen is drawn (it competed with the photo).
         pack=page_language_guess(qlang,self.headers.get('Accept-Language'),self.headers.get('User-Agent'))
         raw=raw.replace('<html lang="es">',f'<html lang="{HTML_LANG.get(lang,lang)}">',1).replace('<!--hreflang-->',alts,1)
+        raw=BOOT_TAG.sub(lambda m: f'<script{m.group(1)}>{BOOT_JS}</script>',raw,count=1)   # v50.57: see BOOT_JS
         if db is not None:
             try:
                 raw=raw.replace('<!--portada-->',pre_home_html(db,pack),1)   # v50.57 (5.4): the home header, drawn in the page
@@ -16995,8 +17006,9 @@ class Handler(BaseHTTPRequestHandler):
         if wcfg.demo_mode():
             # v50.53: the demo ribbon comes in the page itself, so nothing jumps when it appears (CLS).
             raw=raw.replace('<body>','<body class="is-demo">'+DEMO_RIBBON_HTML,1)
-        body=raw.encode('utf-8')
-        self.send_bytes(body,'text/html; charset=utf-8',cache='no-cache',inline=True,vary='Accept-Language')
+        body=raw.encode('utf-8'); enc=''
+        if self.accepts_gzip(): body=gzip_bytes(body,6); enc='gzip'   # v50.57: ~16 KB → ~6 KB (no secret in this page)
+        self.send_bytes(body,'text/html; charset=utf-8',cache='no-cache',inline=True,vary='Accept-Language, Accept-Encoding',encoding=enc)
 
     def precheck_write(self):
         """Runs before any state-changing request: CSRF origin check (G10), maintenance mode and the body size

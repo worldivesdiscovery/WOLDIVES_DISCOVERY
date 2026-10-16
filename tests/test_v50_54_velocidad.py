@@ -83,13 +83,14 @@ class Pagina(ServerTestCase):
         # home page in the visitor's language, hence «Vary: Accept-Language»
         r, html = self.page(lang='de-DE,de;q=0.9')
         self.assertNotIn('rel="preload"', html)
-        self.assertEqual(r.headers.get('Vary'), 'Accept-Language')
+        self.assertEqual(r.headers.get('Vary'), 'Accept-Language, Accept-Encoding')   # v50.57: the page goes compressed
         self.assertIn('lang="de"', html.split('<main', 1)[1][:400])
         self.assertEqual(self.client().get(f'/idiomas/de.json?v={server.APP_VERSION}').status, 200)
         boot = (ROOT / 'public' / 'js' / 'wd-arranque.js').read_text(encoding='utf-8')
         self.assertIn("preload('/idiomas/'+lang+'.json?v='+v,'fetch')", boot)   # the address of loadLanguagePack()…
         self.assertIn('fetch(`/idiomas/${lang}.json?v=${WD_I18N_VERSION}`)', JS)
         self.assertIn(f'data-main="/js/world-dives-v8.js?v={server.APP_VERSION}"', html)   # …with v from data-main
+        self.assertIn('\n'.join(l for l in boot.split('\n') if not l.lstrip().startswith('//')), html)   # (written inside the page)
         self.assertIn("if(!packed&&lang&&lang!=='es')", boot)                # Spanish needs no pack
 
     def test_light_copy_is_served(self):

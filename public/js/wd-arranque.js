@@ -21,9 +21,19 @@
     home=!inApp&&(!route||route==='home');
     if(home) d.className+=(d.className?' ':'')+'wd-portada wd-portada-'+(lang||'es');
   }catch(e){}
+  // the photo of the header comes in the page as data-srcset/data-src (so the other pages do not download it): on the home
+  // page it gets its real addresses as soon as the page reads it, as early as an ordinary <img>
+  if(home){
+    var stamp=function(){ var els=document.querySelectorAll('.wd-pre [data-srcset], .wd-pre [data-src]');
+      for(var j=0;j<els.length;j++){ var e=els[j], ss=e.getAttribute('data-srcset'), sr=e.getAttribute('data-src');
+        if(ss){ e.removeAttribute('data-srcset'); e.setAttribute('srcset',ss); } if(sr){ e.removeAttribute('data-src'); e.setAttribute('src',sr); } } };
+    try{ var mo=new MutationObserver(stamp); mo.observe(d,{childList:true,subtree:true});
+      document.addEventListener('DOMContentLoaded',function(){ mo.disconnect(); stamp(); }); }catch(e){ document.addEventListener('DOMContentLoaded',stamp); }
+  }
   var main=me&&me.getAttribute('data-main'); if(!main) return;
   var v=main.split('?v=')[1]||'', packed=false, ran=false;
-  var preload=function(href,as){ var k=document.createElement('link'); k.rel='preload'; k.as=as; k.href=href; if(as==='fetch') k.crossOrigin='anonymous'; document.head.appendChild(k); };
+  // low priority: the style sheet (and the first paint) go first, as with the old tag at the end of the page
+  var preload=function(href,as){ var k=document.createElement('link'); k.rel='preload'; k.as=as; k.href=href; k.setAttribute('fetchpriority','low'); if(as==='fetch') k.crossOrigin='anonymous'; document.head.appendChild(k); };
   // the same address as loadLanguagePack() in world-dives-v8.js
   var pack=function(){ if(!packed&&lang&&lang!=='es'){ packed=true; preload('/idiomas/'+lang+'.json?v='+v,'fetch'); } };
   var run=function(){ if(ran) return; ran=true; var s=document.createElement('script'); s.src=main; s.async=false;
