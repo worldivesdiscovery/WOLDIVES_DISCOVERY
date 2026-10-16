@@ -2,13 +2,16 @@
 
 - The outbox written to files (development and the DEMO package) kept the write lock of the database while it built
   up to 150 emails with their QR: up to 2 s in which no booking, payment or visit could be saved.
+- Far above that load (from about 35 to 70 bookings a second, depending on the processor) a booking waited more than
+  10 s to write and answered «Error interno»: now it says what happened (503) and nothing is left half done.
 """
 import json
+import sqlite3
 import subprocess
 import sys
 import unittest
 
-from helpers import Server, ROOT
+from helpers import Server, ServerTestCase, ROOT
 
 
 class SpoolWithoutLock(unittest.TestCase):
@@ -49,6 +52,33 @@ print(json.dumps({'n': server.spool_outbox_to_files(limit=50), 'free': free}))
             self.assertEqual(len(list((srv.tmp / 'mail').glob('*booking_confirmed*cola*.eml'))), 6)
         finally:
             srv.stop()
+
+
+class LockedDatabase(ServerTestCase):
+    extra_env = {'WOD_DB_BUSY_MS': '300'}   # the wait for another write (10 s by default) made short for the test
+
+    def test_a_locked_database_answers_503_and_the_retry_books(self):
+        admin = self.make_admin()
+        center = self.make_center(admin, 'bloqueo')
+        cid = center.user['center_id']
+        sid = center.post('/api/provider-services', {'title': 'Salida de la prueba', 'price': 30, 'booking_mode': 'request'}).json['id']
+        slot = center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': '2031-03-12', 'slot_time': '09:00', 'spots_total': 6}).json['slot_id']
+        diver = self.make_diver('bloqueo')
+        body = {'center_id': cid, 'service_id': sid, 'slot_id': slot, 'participants': 1}
+        before = self.server.sql('SELECT COUNT(*) AS n FROM bookings')[0]['n']
+        other = sqlite3.connect(str(self.server.db), timeout=5)
+        other.execute('BEGIN IMMEDIATE')   # somebody else is writing for longer than the wait
+        try:
+            r = diver.post('/api/bookings', body)
+        finally:
+            other.rollback(); other.close()
+        self.assertEqual(r.status, 503, r)
+        self.assertEqual(r.json['error'], 'Ahora mismo hay demasiadas operaciones a la vez y no se ha podido guardar. Vuelve a intentarlo en unos segundos.')
+        self.assertEqual(self.server.sql('SELECT COUNT(*) AS n FROM bookings')[0]['n'], before)   # nothing half done
+        self.assertEqual(self.server.sql('SELECT spots_available FROM service_slots WHERE id=?', (slot,))[0]['spots_available'], 6)
+        r = diver.post('/api/bookings', body)   # the same booking again, with the database free: it is made
+        self.assertEqual(r.status, 200, r)
+        self.assertEqual(self.server.sql('SELECT COUNT(*) AS n FROM bookings')[0]['n'], before + 1)
 
 
 if __name__ == '__main__':

@@ -1190,6 +1190,9 @@ def pool_drain():
     _POOL = None; _POOL_PID = None
 
 
+DB_BUSY_MS = wcfg.env_int('WOD_DB_BUSY_MS', 10000, 100, 60000)   # see DB_BUSY_TEXT
+
+
 def connect():
     global _POOL, _POOL_PID
     if _POOL_PID != os.getpid():
@@ -1207,7 +1210,7 @@ def connect():
     db.execute('PRAGMA secure_delete=ON')   # freed space is zeroed: no old value stays readable in the file
     # WAL is persistent (set once in bootstrap); NORMAL sync is safe in WAL mode and much faster for writes.
     db.execute('PRAGMA synchronous=NORMAL')
-    db.execute('PRAGMA busy_timeout=10000')
+    db.execute(f'PRAGMA busy_timeout={DB_BUSY_MS}')   # how long a write waits while another one is writing
     # fold(): lower-case without accents, so «maria» finds «María».
     return wire_connection(db)
 
@@ -2639,6 +2642,17 @@ PASSWORD_HASHING = _password_slots()
 
 class ServerBusy(Exception):
     """Too many people signing in at the same moment: the request answers 503 and the person tries again."""
+
+
+# v50.57 (revisión general, 5.3): SQLite writes one at a time; a write waits up to DB_BUSY_MS for the one before. Only
+# far above the load of the brief (load test: from about 35 to 70 bookings a second, depending on the processor) a
+# write waits longer and the database answers «database is locked». The person is told so, with a 503 like ServerBusy,
+# instead of «Error interno»; it still goes to the log and to the error monitor (the database cannot keep up).
+DB_BUSY_TEXT = 'Ahora mismo hay demasiadas operaciones a la vez y no se ha podido guardar. Vuelve a intentarlo en unos segundos.'
+
+
+def db_busy(exc):
+    return isinstance(exc, sqlite3.OperationalError) and any(w in str(exc).lower() for w in ('database is locked', 'database is busy'))
 
 
 def _with_password_slot(fn, *args):
@@ -16986,6 +17000,8 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 db.rollback()  # never persist half-done work when a request fails
                 log_exception(self, e)
+                if db_busy(e):
+                    self.send_json({'error':DB_BUSY_TEXT},503); return
                 payload={'error':'Error interno'}
                 if os.environ.get('WOD_DEBUG','').strip().lower() in {'1','true','yes','on'}:
                     payload['detail']=str(e)
@@ -19983,6 +19999,8 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 db.rollback()  # never persist half-done work when a request fails
                 log_exception(self, e)
+                if db_busy(e):
+                    self.send_json({'error':DB_BUSY_TEXT},503); return
                 payload={'error':'Error interno'}
                 if os.environ.get('WOD_DEBUG','').strip().lower() in {'1','true','yes','on'}:
                     payload['detail']=str(e)

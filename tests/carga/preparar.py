@@ -5,6 +5,7 @@
     python3 tests/carga/preparar.py arrancar  --dir /tmp/wod-carga --workers 4 [--pagos stripe-sim|centro] [--puerto 8300]
     python3 tests/carga/preparar.py parar     --dir /tmp/wod-carga
     python3 tests/carga/preparar.py sesiones  --dir /tmp/wod-carga   (v50.57: sesiones y salidas para la clase Reservas)
+    python3 tests/carga/preparar.py comprobar --dir /tmp/wod-carga   (v50.57: al terminar, plazas y reservas repetidas en la base)
     python3 tests/carga/preparar.py todo      --dir /tmp/wod-carga --workers 4        (construir + arrancar)
 
 construir
@@ -506,6 +507,37 @@ def stripe_sim(control_host='127.0.0.1', public_host='127.0.0.1'):
         time.sleep(10); del mock.calls[:]
 
 
+# ----------------------------------------------------------------------------------------------- comprobar la base
+def comprobar(dir_: str, bd: str | None = None) -> dict:
+    """Después de medir (v50.57): plazas y reservas en la base de la ejecución, solo leyendo. Todo tiene que ser 0:
+    salidas con plazas libres negativas o con más plazas tomadas que las que tienen, salidas futuras cuyo contador de
+    plazas no cuadra con sus reservas, y reservas activas repetidas (la misma persona y la misma salida por la web).
+    Las salidas pasadas de la demo no se miran: su historia se creó con el generador de la demo."""
+    if not bd:
+        st = Path(dir_).resolve() / 'run' / 'estado.json'
+        bd = json.loads(st.read_text())['db'] if st.exists() else str(Path(dir_).resolve() / 'run' / 'carga.sqlite3')
+    db = sqlite3.connect(f'file:{bd}?mode=ro', uri=True, timeout=30)
+    q = lambda sql: db.execute(sql).fetchone()[0]
+    out = {
+        'reservas': q("SELECT COUNT(*) FROM bookings"),
+        'salidas_con_reservas': q("SELECT COUNT(DISTINCT slot_id) FROM bookings WHERE slot_id IS NOT NULL"),
+        'salidas_libres_negativas': q("SELECT COUNT(*) FROM service_slots WHERE spots_available < 0"),
+        'salidas_con_mas_tomadas_que_plazas': q("""SELECT COUNT(*) FROM (SELECT s.id, s.spots_total, SUM(b.participants) t FROM service_slots s
+            JOIN bookings b ON b.slot_id=s.id AND b.slot_reserved=1 GROUP BY s.id HAVING t > s.spots_total)"""),
+        'salidas_futuras_contador_distinto': q("""SELECT COUNT(*) FROM (SELECT s.id, s.spots_total, s.spots_available, COALESCE(SUM(b.participants),0) t
+            FROM service_slots s LEFT JOIN bookings b ON b.slot_id=s.id AND b.slot_reserved=1
+            WHERE s.slot_date >= date('now') AND s.id IN (SELECT DISTINCT slot_id FROM bookings WHERE slot_id IS NOT NULL)
+            GROUP BY s.id HAVING s.spots_total - s.spots_available <> t)"""),
+        'reservas_repetidas_activas': q("""SELECT COUNT(*) FROM (SELECT user_id, slot_id, COUNT(*) n FROM bookings WHERE slot_id IS NOT NULL
+            AND user_id IS NOT NULL AND status NOT IN ('cancelled','rejected','expired') AND channel IN ('worldives','link') GROUP BY 1,2 HAVING n > 1)"""),
+    }
+    db.close()
+    out['correcta'] = not any(out[k] for k in ('salidas_libres_negativas', 'salidas_con_mas_tomadas_que_plazas',
+                                                  'salidas_futuras_contador_distinto', 'reservas_repetidas_activas'))
+    print(json.dumps(out, ensure_ascii=False), flush=True)
+    return out
+
+
 # ----------------------------------------------------------------------------------------------- servidor SMTP local
 def smtp_sink(host='127.0.0.1'):
     """Servidor SMTP mínimo que acepta los correos y los descarta (no los envía a nadie): el servidor de carga manda sus
@@ -584,6 +616,8 @@ def main(argv=None):
     p.add_argument('--dir', default=str(DEFAULT_DIR)); p.add_argument('--n', type=int, default=0, help='cuántas cuentas (0 = todas)'); p.add_argument('--hilos', type=int, default=8)
     p = sub.add_parser('stripe-sim', help=argparse.SUPPRESS); p.add_argument('--control-host', default='127.0.0.1'); p.add_argument('--public-host', default='127.0.0.1')
     sub.add_parser('smtp-sink', help=argparse.SUPPRESS)
+    p = sub.add_parser('comprobar', help='después de medir: plazas y reservas repetidas en la base (solo lee)')
+    p.add_argument('--dir', default=str(DEFAULT_DIR)); p.add_argument('--bd', default=None, help='otra base (por defecto, la de la ejecución)')
     a = ap.parse_args(argv)
     if a.cmd == 'stripe-sim': return stripe_sim(a.control_host, a.public_host)
     if a.cmd == 'smtp-sink': return smtp_sink()
@@ -593,6 +627,7 @@ def main(argv=None):
         arrancar(a.dir, a.workers, a.pagos, a.puerto, a.host, a.public_host, a.con_copias, extra, a.reutilizar_bd, a.correo)
     if a.cmd == 'parar': parar(a.dir)
     if a.cmd == 'sesiones': sesiones(a.dir, a.n, a.hilos)
+    if a.cmd == 'comprobar' and not comprobar(a.dir, a.bd)['correcta']: raise SystemExit(1)
     if not a.cmd: ap.print_help()
 
 

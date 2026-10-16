@@ -16,7 +16,8 @@ Meta: **el 95 % de las páginas en menos de 500 ms y ningún error**.
 - **Encontrado y corregido:** la cola de correos escrita en archivos (desarrollo y paquete DEMO) dejaba la base
   bloqueada hasta 2 s seguidos. En producción, con servidor de correo, no pasaba; la prueba oficial manda los correos
   como en producción.
-- **5.3 · SQLite aguanta** con lo que ya estaba (WAL, índices y caché de las consultas públicas). ⟪MARGEN⟫
+- **5.3 · SQLite aguanta** con lo que ya estaba (WAL, índices y caché de las consultas públicas). Margen medido: sin un solo error hasta 60
+  reservas por segundo (el triple de lo pedido); a 100 pedidas, la base ya no da abasto. PostgreSQL no hace falta.
 
 ## Cómo se ha medido
 
@@ -88,7 +89,9 @@ la web y otras el centro (a mano o por la API): da igual el camino, nunca más d
 | 7 | 3 (2 · 0 · 1) | 17 | 3 de 3 | 0 | no |
 | 8 | 3 (0 · 2 · 1) | 17 | 3 de 3 | 0 | no |
 
-⟪INTEGRIDAD⟫
+Y después de la pasada más dura (100 reservas por segundo pedidas, con la base ya saturada, abajo): 11.339 reservas,
+ninguna salida con plazas libres negativas ni con más plazas tomadas que las que tiene, en todas las salidas futuras
+el contador de plazas cuadra con las reservas y ninguna reserva repetida.
 
 ## Lo que encontró la prueba y está corregido
 
@@ -134,34 +137,58 @@ estaba hecho:
   promociones, los viajes y el catálogo de servicios se calculan una vez y se renuevan en segundo plano; las
   conexiones a la base se reutilizan (v50.51).
 
-Lo que sí encontró la prueba (la cola de correos que bloqueaba la base, arriba) está corregido.
+Lo que sí encontró la prueba está corregido: la cola de correos que bloqueaba la base (arriba) y, muy por encima
+de lo pedido, el mensaje de las reservas que la base no puede guardar a tiempo (abajo).
 
-**Dónde está el límite.** Las mismas 300 personas navegando y cada vez más reservas por segundo (el mismo servidor de 2
-núcleos; 30 y 40, pasadas de 2 minutos):
+**Dónde está el límite.** Las mismas 300 personas navegando y cada vez más reservas por segundo, en el mismo equipo
+y con el servidor en 2 núcleos (pasadas de 2 minutos; la de 20, la oficial de 5):
 
-| Reservas por segundo | Páginas p95 | Reservas p95 | Errores |
-|---|---|---|---|
-| 20 (el encargo) | 16 ms | 110 ms | 0 |
-| 30 | 64 ms | 400 ms | 0 |
-| 40 pedidas (salieron 37) | 140 ms | 1,3 s | 1 reserva rechazada por la base bloqueada (más de 10 s esperando para escribir, al empezar la prueba) |
+| Reservas por segundo | Hechas | Páginas p95 | Reservas p95 | Errores |
+|---|---|---|---|---|
+| 20 (el encargo) | 20,0 | 16 ms | 110 ms | 0 |
+| 30 | 30,0 | 21 ms | 170 ms¹ | 0 |
+| 40 | 40,0 | 28 ms | 180 ms | 0 |
+| 50 | 49,8 | 39 ms | 250 ms | 0 |
+| 60 | 59,3 | 58 ms | 440 ms | 0 |
+| 80 | 67,8 | 190 ms | 1,9 s | 0 |
+| 100 | 74,4 | 430 ms | 2,9 s | 4 reservas rechazadas por la base bloqueada (3 en los primeros 11 s) |
 
-El procesador no es el límite (el servidor usó entre 135 % y 139 % de sus 200 %): lo es que SQLite escribe de una en
-una. Con 20 reservas por segundo, la base está escribiendo el 57 % del tiempo (medido transacción a transacción en una
-pasada de 2 minutos): sobre todo las reservas, que guardan la reserva y sus correos en la misma escritura.
+¹ Repetida: la primera pasada, nada más arrancar el equipo, dio 450 ms.
+
+- **Hasta unas 60 reservas por segundo** todo va bien; a partir de ahí el servidor ya no llega a todas (80 pedidas,
+  68 hechas) y las esperas crecen. El procesador no es el límite (el servidor no pasó del 140 % de sus 200 %): lo es
+  que SQLite escribe de una en una.
+- **En el equipo en el que empezó la prueba**, más lento (necesitaba un 50 % más de procesador para lo mismo), el
+  límite llegó antes: 30 reservas por segundo sin errores (reservas p95 400 ms); 40 pedidas, 37 hechas, reservas p95
+  1,3 s y una rechazada. Allí, con 20 reservas por segundo, la base estaba escribiendo el 57 % del tiempo (medido
+  transacción a transacción): sobre todo las reservas, que guardan la reserva y sus correos en la misma escritura.
+- **Las reservas rechazadas** fallaron al empezar a escribir, después de esperar 10 s su turno: no guardaron nada. La
+  persona veía «Error interno». **Corregido:** ahora ve «Ahora mismo hay demasiadas operaciones a la vez y no se ha
+  podido guardar. Vuelve a intentarlo en unos segundos.» (respuesta 503, en los 9 idiomas) y, al repetirla, la
+  reserva se hace. Sigue apuntándose en el registro del servidor, porque avisa de que la base no da abasto. Prueba:
+  `tests/test_v50_57_carga.py` (con el código anterior, «Error interno»).
 
 **¿Hace falta PostgreSQL? No** para lo que pide el encargo ni para el lanzamiento: 20 reservas por segundo son 72.000
-por hora. Conviene prepararlo si en hora punta se pasa de forma sostenida de unas 30 reservas por segundo, si aparecen
+por hora. Conviene prepararlo si en hora punta se pasa de forma sostenida de unas 30 reservas por segundo (el límite
+del equipo más lento en el que se ha medido; el del VPS hay que medirlo allí), si aparecen
 errores «database is locked» en el registro del servidor, o en los otros casos de la guía (más de un servidor, base de
 más de 10 GB, informes pesados a la vez que el tráfico). Cómo hacerlo y esos casos: `docs/despliegue/README.md`,
 apartado 9, al día con estas cifras.
 
 ## Cómo repetirlo
 
+Sobre una copia de una base de carga, nunca sobre la base real (`tests/carga/`, en el repositorio y en el paquete DEMO):
+
 ```bash
 python3 tests/carga/preparar.py construir --dir <carpeta> --buzos 500 --centros 20 --dias 30 --plazas 40
-taskset -c 0,1 python3 tests/carga/preparar.py arrancar --dir <carpeta> --workers 2 --pagos stripe-sim
+taskset -c 0,1 python3 tests/carga/preparar.py arrancar --dir <carpeta> --workers 2   # simulador de Stripe y correo por SMTP local
 python3 tests/carga/preparar.py sesiones --dir <carpeta>
 taskset -c 2,3 python3 tests/carga/medir.py --dir <carpeta> --pasos 320 --duracion 300 --clases Visitante,Reservas --procesos 2 --salida <resultados>
 python3 tests/carga/rafagas.py --dir <carpeta> --esperar 60 --cada 30 --veces 8 --salida <resultados>/rafagas.json   # a la vez que medir.py
+python3 tests/carga/preparar.py comprobar --dir <carpeta>   # al terminar: plazas y reservas repetidas en la base
 python3 tests/carga/preparar.py parar --dir <carpeta>
+
+# el margen, N reservas por segundo (antes de cada una, base limpia: arrancar y sesiones)
+WOD_CARGA_RESERVAS_USUARIOS=N taskset -c 2,3 python3 tests/carga/medir.py --dir <carpeta> --pasos $((300 + N)) --duracion 120 \
+    --clases Visitante,Reservas --procesos 2 --seguir --salida <resultados>
 ```
