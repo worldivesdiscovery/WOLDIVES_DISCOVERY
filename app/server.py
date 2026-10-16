@@ -75,6 +75,7 @@ from wod import equipo as weq   # v50.58: rental equipment inside the dive (16/1
 from wod import puntos as wpun   # v50.58: fuller dive sites, sources, batches and duplicates (16/10/2026)
 from wod import costa as wcosta   # v50.58: land or sea, and the distance to the shore, of a dive site
 from wod import equipo_qr as wteq   # v50.58: the centre's team linked by QR (16/10/2026, bloque 1)
+from wod import reserva_expres as wrx   # v50.58: the express booking from the centre's website (16/10/2026, bloque 2)
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1923,6 +1924,7 @@ def migrate_v50_58(db):
     migrate_points_v50_58(db)
     migrate_videos_v50_58(db)
     migrate_team_v50_58(db)
+    migrate_reserva_expres(db)
     if migration_done(db, '50.58'): return
     n_kind = n_plan = n_ed = 0
     for r in db.execute('SELECT * FROM provider_services WHERE kind IS NULL').fetchall():
@@ -12041,7 +12043,8 @@ def create_booking(db, req):
                     if o: break
                     time.sleep(0.2)
                 if not o: return {'status': 409, 'body': {'error': 'Tu reserva ya se está procesando. Mírala en «Mis reservas».', 'id': dup['id']}}
-                body['checkout_url'] = o['checkout_url']
+                body['checkout_url'] = o['checkout_url'] or (embedded_pay_url(db, dup) if row_get(o, 'client_secret') else None)
+                if row_get(o, 'client_secret') and req.get('embedded'): body['client_secret'] = o['client_secret']
             db.commit()
             return {'status': 200, 'body': body}
     if service and service_unit(service) not in wag.DAY_UNITS and not slot_id and data.get('booking_date'):
@@ -12246,10 +12249,11 @@ def create_booking(db, req):
         pay_user = dict(customer); pay_user['email'] = (contact or {}).get('email') or customer['email']
         try:
             ret = req.get('return_to'); nb = booking_row(db, bid)
-            pay = start_checkout(db, pay_user, nb, app=wmovil.app_scheme(data.get('app')), return_to=ret(nb) if callable(ret) else ret)
+            pay = start_checkout(db, pay_user, nb, app=wmovil.app_scheme(data.get('app')), return_to=ret(nb) if callable(ret) else ret, embedded=bool(req.get('embedded')))
         except ValueError:
             expire_booking(db, booking_row(db, bid), 'checkout_failed', notify=False); db.commit(); raise
         body['checkout_url'] = pay['checkout_url']
+        if pay.get('client_secret'): body['client_secret'] = pay['client_secret']
         return {'status': 200, 'body': body}
     if by_provider:
         if status == 'confirmed' and manual.get('notify', True): notify_booking(db, bid, 'manual')
@@ -12391,6 +12395,7 @@ def guest_pay_url(b):
 WIDGET_LIMIT = wsec.SharedRateLimiter('widget', wcfg.env_int('WOD_WIDGET_MAX_PER_HOUR', 30, 1), 3600)   # booking attempts per address and hour
 WIDGET_SOFT = wsec.SharedRateLimiter('widget-reto', 5, 600)        # more than 5 attempts in 10 minutes: invisible check first
 POW_USED = wsec.SharedRateLimiter('widget-reto-usado', 1, wch.POW_TTL * 2)
+GUEST_PEOPLE_LIMIT = wsec.SharedRateLimiter('reserva-acompanantes', 30, 3600)   # v50.58: saving the companions, per booking and hour
 
 
 def allow_local_domains():
@@ -12439,12 +12444,21 @@ def sales_bookable(db, kind, pid, channel):
 
 def sales_provider(db, kind, pid, lang='es'):
     if kind == 'center':
-        c = db.execute('SELECT id,name,city,country,logo_url,website FROM centers WHERE id=?', (pid,)).fetchone()
+        c = db.execute('SELECT id,name,city,country,address,phone,latitude,longitude,logo_url,cover_url,website FROM centers WHERE id=?', (pid,)).fetchone()
         info = {'type': 'center', 'id': c['id'], 'name': c['name'], 'place': ', '.join(x for x in (c['city'], c['country']) if x),
                 'logo': c['logo_url'] if c['logo_url'] and not is_homepage_url(c['logo_url']) else '', 'website': c['website'] or ''}
+        # v50.58 (reserva exprés): the band of the centre (cover, rating) and, after booking, «Cómo llegar» and WhatsApp.
+        # Only what the centre's public page already shows; nothing is made up when a field is empty.
+        rv = db.execute('SELECT ROUND(AVG(rating),1) AS avg, COUNT(*) AS n FROM center_reviews WHERE center_id=? AND active=1', (pid,)).fetchone()
+        info.update(cover=c['cover_url'] if c['cover_url'] and not is_homepage_url(c['cover_url']) else '',
+                    rating={'avg': rv['avg'], 'count': rv['n']} if rv and rv['n'] else None, country=c['country'] or '',
+                    whatsapp=wrx.whatsapp_link(c['phone']),
+                    maps=wrx.maps_link(c['latitude'], c['longitude'], ', '.join(x for x in (c['address'], c['city'], c['country']) if x)))
     else:
         u = db.execute('SELECT u.id,u.fullname,u.avatar_url,up.city,up.country FROM users u LEFT JOIN user_profiles up ON up.user_id=u.id WHERE u.id=?', (pid,)).fetchone()
-        info = {'type': 'freelance', 'id': u['id'], 'name': u['fullname'], 'place': ', '.join(x for x in (u['city'], u['country']) if x), 'logo': u['avatar_url'] or '', 'website': ''}
+        info = {'type': 'freelance', 'id': u['id'], 'name': u['fullname'], 'place': ', '.join(x for x in (u['city'], u['country']) if x), 'logo': u['avatar_url'] or '', 'website': '',
+                'cover': '', 'rating': None, 'country': u['country'] or '', 'whatsapp': '', 'maps': ''}
+    info['phone_prefix'] = wrx.phone_prefix(lang, info.get('country'))
     payee = payee_of(db, pid if kind == 'center' else None, pid if kind == 'freelance' else None)
     pol = provider_policy(payee)
     info['policy'] = policy_text(pol['free_hours'], pol['refund_pct'], lang) + (f" {pol['note']}" if pol.get('note') else '')
@@ -12460,6 +12474,8 @@ def sales_services(db, kind, pid, lang='es', service_id=None, service_type=None,
     rows = db.execute(f'SELECT s.* FROM provider_services s WHERE {where} AND s.active=1 ORDER BY s.title LIMIT 60', args).fetchall()
     cat = SERVICE_CATALOG.get(db); out = []
     equip = equipment_catalog(db, kind, pid)   # v50.58 (16/10): the rental pieces, once for all the services
+    payee = payee_of(db, pid if kind == 'center' else None, pid if kind == 'freelance' else None)
+    extras = [dict(r) for r in db.execute('SELECT id,name,price FROM center_extras WHERE center_id=? AND active=1 ORDER BY name', (pid,)).fetchall()] if kind == 'center' else []
     for s in rows:
         unit = service_unit(s); price = float(s['price'] or 0)
         if unit in wag.DAY_UNITS: price = float(wag.clean_pricing(s['pricing'], s['price']).get('day') or price)
@@ -12474,6 +12490,15 @@ def sales_services(db, kind, pid, lang='es', service_id=None, service_type=None,
              'insurance': ins_requirement(s)}   # v50.56: «Exige seguro de buceo» (no · center · online)
         m_, pcs_, kit_ = service_rental(db, s, equip)
         d['rental'] = {'mode': m_, 'pieces': equipment_pieces_public(pcs_), 'kit': kit_}
+        # v50.58 (reserva exprés): the trust line (its own cancellation policy, «confirmación al momento» or «el centro
+        # confirma en menos de X h»), the level buttons only when the service asks for one, and its extras.
+        pol = provider_policy(payee, s)
+        d.update(instant=bool(info.get('instant')), response_hours=info.get('response_hours'), free_hours=pol['free_hours'], refund_pct=pol['refund_pct'],
+                 policy=policy_text(pol['free_hours'], pol['refund_pct'], lang) if d['pay_way'] != 'in_person' else '',
+                 level=(row_get(s, 'level_required') or '').strip(), meeting_point=(row_get(s, 'meeting_point') or '').strip(), price_per=row_get(s, 'price_per') or 'person')
+        try: allowed = None if row_get(s, 'extra_ids') is None else {int(x) for x in json.loads(s['extra_ids'] or '[]')}
+        except (TypeError, ValueError): allowed = set()
+        d['extras'] = [{'id': x['id'], 'name': x['name'], 'price': round(float(x['price'] or 0), 2)} for x in extras if allowed is None or x['id'] in allowed]
         if with_dates and unit not in wag.DAY_UNITS:
             d['next'] = [{'id': x['id'], 'date': x['slot_date'], 'time': x['slot_time'], 'free': int(x['spots_available'] or 0)} for x in db.execute(
                 "SELECT id,slot_date,slot_time,spots_available FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date>=date('now') ORDER BY slot_date,slot_time LIMIT 3",
@@ -12485,7 +12510,8 @@ def sales_services(db, kind, pid, lang='es', service_id=None, service_type=None,
 def sales_catalog(db, kind, pid, row, lang, channel, service_id=None, service_type=None):
     return {'provider': sales_provider(db, kind, pid, lang), 'slug': row['slug'], 'color': row['brand_color'] or '', 'channel': channel,
             'bookable': sales_bookable(db, kind, pid, channel), 'hold_minutes': HOLD_MINUTES,
-            'services': sales_services(db, kind, pid, lang, service_id, service_type)}
+            'services': sales_services(db, kind, pid, lang, service_id, service_type),
+            'stripe': sales_stripe(db, kind, pid)}   # v50.58: Stripe's form inside the booking (None: Stripe's page, as before)
 
 
 def sales_service(db, kind, pid, sid):
@@ -12564,14 +12590,32 @@ def sales_book(handler, db, kind, pid, row, channel, data):
     if not customer:
         req['guest'] = {'fullname': data.get('fullname'), 'email': data.get('email'), 'phone': data.get('phone')}
         if channel == 'link' and not clean_text(data.get('email'), 160): raise ValueError('Indica tu correo electrónico: te mandamos ahí la confirmación.')
+    level = data.get('level') if data.get('level') in wrx.LEVELS else None
+    if (row_get(s, 'level_required') or '').strip() and data.get('reserva_expres') and not level:
+        raise ValueError('Indica tu titulación: este servicio la pide.')
+    req['embedded'] = bool(data.get('pago_integrado')) and sales_stripe(db, kind, pid) is not None
     # Stripe sends the customer back to the widget's own page (a new window) or to the page of the booking.
     req['return_to'] = lambda b: ((f"{base}/w/pago/{b['id']}.{b['public_token']}?r=ok", f"{base}/w/pago/{b['id']}.{b['public_token']}?r=cancel") if channel == 'widget'
                                   else (f"{base}/mi-reserva/{b['id']}.{b['public_token']}?pago=ok", f"{base}/mi-reserva/{b['id']}.{b['public_token']}?pago=cancelado"))
-    out = create_booking(db, req)
+    try:
+        out = create_booking(db, req)
+    except NoSpots as e:
+        # v50.58 (reserva exprés): «si no quedan plazas a esa hora, se proponen al momento las horas o los días más
+        # cercanos con plazas»
+        try: e.extra = {**e.extra, 'alternatives': sales_alternatives(db, kind, pid, s['id'], data.get('slot_id'), data.get('participants'))['alternatives']}
+        except (ValueError, NotFound): pass
+        raise
     body = out['body']
     if out['status'] == 200 and body.get('id'):
         b = booking_row(db, body['id'])
         body['token'] = f"{b['id']}.{b['public_token']}"
+        if level or (data.get('reserva_expres') and int(b['participants'] or 1) > 1):
+            set_booking_person(db, b['id'], 1, (customer['fullname'] if customer else clean_text(data.get('fullname'), 120)) or '', level)
+        if body.get('client_secret'):
+            body['stripe'] = sales_stripe(db, kind, pid)
+        if b['hold_expires_at'] and wbk.normalize_state(b['status']) == 'payment_in_progress':
+            hold_ = parse_local(b['hold_expires_at'])
+            body['hold_seconds'] = max(0, int((hold_ - local_now()).total_seconds())) if hold_ else HOLD_MINUTES * 60
         body['booking_url'] = guest_booking_url(b) if not customer else f"{base}/#/reserva?id={b['id']}"
         body['ref'] = f"WOD-{b['id']:06d}"
         if body.get('response_deadline'):
@@ -12626,7 +12670,11 @@ def guest_booking_view(db, b, lang='es'):
             'payment_deadline': mail_deadline(db, b['payment_deadline'], lang, b['service_id'], b['center_id']) if st['status'] == 'accepted_pending_payment' else None,
             'policy': booking_policy(db, b, lang)['text'], 'can_pay': can_pay, 'can_cancel': bool(terms and not terms.get('started')),
             'cancel_terms': {k: terms[k] for k in ('free', 'refund_amount', 'paid_amount', 'paid_online')} if terms else None,
-            'provider': sales_provider(db, kind, pid, lang) if pid else None, 'slug': row['slug'] if row else None, 'color': (row['brand_color'] if row else '') or ''}
+            'provider': sales_provider(db, kind, pid, lang) if pid else None, 'slug': row['slug'] if row else None, 'color': (row['brand_color'] if row else '') or '',
+            # v50.58 (reserva exprés): what the last screen and the page of the booking offer
+            'people': booking_people(db, b), 'has_qr': st['status'] in BOOKING_QR_STATES, 'meeting_point': guest_meeting_point(db, b),
+            'can_people': wbk.normalize_state(b['status']) not in ('cancelled', 'rejected', 'expired') and int(b['participants'] or 1) > 1,
+            'stripe': sales_stripe(db, kind, pid) if can_pay and pid else None}
 
 
 def guest_cancel(db, b, actor_id, data):
@@ -12691,12 +12739,176 @@ def qr_png(url, scale=10):
     return wqr.png(url, scale)
 
 
-def sales_link_url(base, slug, service_id=None, date=None):
-    """A direct link to the page, to one service or to one date of a service (Parte D)."""
+def sales_link_url(base, slug, service_id=None, date=None, time_=None, people=None):
+    """A direct link to the page, to one service or to one date of a service (Parte D). v50.58 (reserva exprés): also
+    the time and the number of people, so the link opens straight on «Tus datos»."""
     q = []
     if service_id: q.append(f'servicio={int(service_id)}')
     if date and re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(date)): q.append(f'fecha={date}')
+    if time_ and re.fullmatch(r'\d{1,2}:\d{2}', str(time_)): q.append(f'hora={time_}')
+    if people and str(people).isdigit() and 1 <= int(people) <= PARTICIPANTS_MAX: q.append(f'personas={int(people)}')
     return f"{base}/c/{slug}" + ('?' + '&'.join(q) if q else '')
+
+
+# ---------------------------------------------------------------------------
+# v50.58 · Reserva exprés desde la web del centro (encargo unificado del 16/10/2026, bloque 2). The same widget, page and
+# booking (create_booking): two screens and the payment. «¿Qué y cuándo?» (a strip of 14 days, the times with their
+# free spots, people; equipment and extras folded) and «Tus datos» (name, e-mail and phone, the level only when the
+# service asks for it, one box for the conditions) with Stripe's own form inside the booking when the server has the
+# publishable key (STRIPE_PUBLISHABLE_KEY); without it, Stripe's page as before. After booking: its QR, the calendar
+# file, «Cómo llegar», WhatsApp to the centre and the details of the companions (wod/reserva_expres.py).
+# ---------------------------------------------------------------------------
+BOOKING_PEOPLE_SCHEMA = """CREATE TABLE IF NOT EXISTS booking_people (booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  seat INTEGER NOT NULL, name TEXT, level TEXT, size TEXT, shoe TEXT, updated_at TEXT NOT NULL, PRIMARY KEY(booking_id, seat))"""
+STRIPE_DOMAINS_SCHEMA = """CREATE TABLE IF NOT EXISTS stripe_pm_domains (account_id TEXT NOT NULL, domain TEXT NOT NULL, status TEXT NOT NULL,
+  detail TEXT, created_at TEXT NOT NULL, PRIMARY KEY(account_id, domain))"""
+BOOKING_QR_STATES = ('confirmed', 'accepted_pending_payment', 'completed')   # the QR is shown once the centre counts on the person
+ALTERNATIVE_DAYS = 60   # how far the nearest free times are looked for
+
+
+def migrate_reserva_expres(db):
+    """v50.58 · reserva exprés. Adds; nothing is deleted."""
+    db.execute(BOOKING_PEOPLE_SCHEMA); db.execute(STRIPE_DOMAINS_SCHEMA)
+    add_columns(db, 'payment_orders', [('ui_mode', 'TEXT'), ('client_secret', 'TEXT')])
+
+
+def stripe_publishable_key():
+    """The public key of Stripe.js (pk_test_… / pk_live_…), only in the server's .env. It must be of the same mode as
+    the secret key (test with test, live with live); otherwise the booking keeps Stripe's page."""
+    pk = wcfg.env('STRIPE_PUBLISHABLE_KEY', '').strip(); sk = stripe_secret() or ''
+    m = re.fullmatch(r'pk_(test|live)_[A-Za-z0-9]{8,240}', pk)
+    if not m or not sk: return ''
+    return pk if sk.startswith(('sk_' + m.group(1) + '_', 'rk_' + m.group(1) + '_')) else ''
+
+
+def sales_stripe(db, kind, pid):
+    """{'key', 'account'} to open Stripe's form inside the booking (direct charge on the provider's account), or None."""
+    pk = stripe_publishable_key()
+    if not pk: return None
+    payee = payee_of(db, pid if kind == 'center' else None, pid if kind == 'freelance' else None)
+    return {'key': pk, 'account': payee['stripe_account_id']} if payee and payee_ready(payee) else None
+
+
+def stripe_register_domain(db, account_id):
+    """Apple Pay, Google Pay and Link inside a page need its domain registered with Stripe; with direct charges, on
+    the provider's own account. Once per account and domain, best effort: without it, cards still work."""
+    host = urlparse(public_site_url()).hostname or ''
+    if not account_id or not host or host in ('localhost', '127.0.0.1') or not stripe_secret(): return
+    if db.execute("SELECT 1 FROM stripe_pm_domains WHERE account_id=? AND domain=? AND status='ok'", (account_id, host)).fetchone(): return
+    try:
+        stripe_module().PaymentMethodDomain.create(domain_name=host, stripe_account=account_id)
+        status, detail = 'ok', ''
+    except Exception as exc:
+        status, detail = 'error', str(exc)[:300]
+        sys.stderr.write(f'[pagos] no se ha podido registrar {host} en la cuenta {account_id} para Apple Pay/Google Pay: {exc}\n')
+    db.execute('INSERT OR REPLACE INTO stripe_pm_domains(account_id,domain,status,detail,created_at) VALUES(?,?,?,?,?)', (account_id, host, status, detail, now())); db.commit()
+
+
+def embedded_pay_url(db, b):
+    """The page of the booking, opened on the payment: it opens again the form that was started inside the booking."""
+    booking_check_url(db, b['id'], public_site_url())   # makes sure the booking has its long random token
+    return guest_pay_url(booking_row(db, b['id']))
+
+
+def sales_open_slots(db, s, first, last):
+    """The departures of a service between two days (local), with their free spots; today's past times are left out."""
+    tz = service_tz(db, s); today = wag.today_in(tz).isoformat()
+    rows = db.execute("""SELECT id,slot_date,slot_time,spots_available FROM service_slots WHERE service_id=? AND status IN ('open','full')
+                         AND slot_date BETWEEN ? AND ? ORDER BY slot_date,slot_time LIMIT 600""", (s['id'], max(first, today), last)).fetchall()
+    now_local = wag.utc_to_local(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), tz).strftime('%H:%M')
+    return [{'id': r['id'], 'date': r['slot_date'], 'time': r['slot_time'] or '', 'free': max(0, int(r['spots_available'] or 0))}
+            for r in rows if not (r['slot_date'] == today and (r['slot_time'] or '') <= now_local)]
+
+
+def sales_strip(db, kind, pid, sid, start=None):
+    """«Una tira de días que se desliza, con los próximos 14 días»: each day with its departures (time and free spots)
+    or, for a service by days, whether it is free. «next»: the first day with spots after the strip («Más fechas»)."""
+    s = sales_service(db, kind, pid, sid); tz = service_tz(db, s); today = wag.today_in(tz)
+    try: first = max(today, _dt.date.fromisoformat(str(start))) if start else today
+    except ValueError: first = today
+    last = first + timedelta(days=wrx.STRIP_DAYS - 1)
+    if service_unit(s) in wag.DAY_UNITS:
+        states = {}
+        for month in sorted({first.isoformat()[:7], last.isoformat()[:7]}):
+            states.update(agenda_public(db, s['id'], month).get('days') or {})
+        days = [{'date': (first + timedelta(days=i)).isoformat(), 'slots': [], 'state': states.get((first + timedelta(days=i)).isoformat(), 'none')} for i in range(wrx.STRIP_DAYS)]
+        for d in days: d['free'] = d['state'] in ('free', 'am', 'pm')
+        return {'unit': service_unit(s), 'from': first.isoformat(), 'today': today.isoformat(), 'timezone': tz, 'days': days, 'next': None}
+    slots = sales_open_slots(db, s, first.isoformat(), last.isoformat())
+    nxt = db.execute("SELECT MIN(slot_date) AS d FROM service_slots WHERE service_id=? AND status='open' AND spots_available>0 AND slot_date>?",
+                     (s['id'], last.isoformat())).fetchone()
+    return {'unit': 'slot', 'from': first.isoformat(), 'today': today.isoformat(), 'timezone': tz,
+            'days': wrx.day_strip(first.isoformat(), slots), 'next': nxt['d'] if nxt else None}
+
+
+def sales_alternatives(db, kind, pid, sid, slot_id=None, participants=None, want_date=None, want_time=None):
+    """The nearest times or days with enough free spots for this number of people (the same day first)."""
+    s = sales_service(db, kind, pid, sid)
+    if service_unit(s) in wag.DAY_UNITS: return {'alternatives': []}
+    pax = clean_int(participants, 1, PARTICIPANTS_MAX, 1, 'El número de personas no es válido.')
+    slot = db.execute('SELECT id,slot_date,slot_time FROM service_slots WHERE id=? AND service_id=?', (int(slot_id or 0), s['id'])).fetchone() if slot_id else None
+    want_date = slot['slot_date'] if slot else (want_date if re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(want_date or '')) else None)
+    want_time = slot['slot_time'] if slot else (want_time if re.fullmatch(r'\d{1,2}:\d{2}', str(want_time or '')) else '')
+    today = wag.today_in(service_tz(db, s)); want_date = want_date or today.isoformat()
+    slots = sales_open_slots(db, s, today.isoformat(), (today + timedelta(days=ALTERNATIVE_DAYS)).isoformat())
+    return {'alternatives': wrx.alternatives(slots, want_date, want_time, pax, exclude=slot['id'] if slot else None)}
+
+
+def set_booking_person(db, bid, seat, name, level=None, size=None, shoe=None):
+    db.execute('INSERT OR REPLACE INTO booking_people(booking_id,seat,name,level,size,shoe,updated_at) VALUES(?,?,?,?,?,?,?)',
+               (bid, seat, clean_text(name, 120) or None, level, size, shoe, now()))
+
+
+def booking_people(db, b):
+    """The people of a booking that the customer has given: seat 1 is who booked; 2…N, the companions."""
+    return [{k: r[k] for k in ('seat', 'name', 'level', 'size', 'shoe')} for r in
+            db.execute('SELECT seat,name,level,size,shoe FROM booking_people WHERE booking_id=? ORDER BY seat', (b['id'],)).fetchall()]
+
+
+def save_companions(db, b, raw):
+    """«Completar los datos de mis acompañantes»: names, level and sizes of seats 2…N. The names go to the manifest
+    of the departure (the boat list), as if the centre had typed them."""
+    st = wbk.normalize_state(b['status'])
+    if st in ('cancelled', 'rejected', 'expired'): raise ValueError('Esta reserva ya no está activa.')
+    if b['booking_date'] and b['booking_date'] < wag.today_in(booking_tz(db, b)).isoformat(): raise ValueError('La actividad ya ha pasado.')
+    people = wrx.clean_companions(raw, int(b['participants'] or 1))
+    keep = {p['seat'] for p in people}
+    db.execute('DELETE FROM booking_people WHERE booking_id=? AND seat>1', (b['id'],))
+    for p in people:
+        set_booking_person(db, b['id'], p['seat'], p['name'], p['level'], p['size'], p['shoe'])
+        if b['slot_id']:
+            if db.execute('UPDATE manifest_entries SET name=?,updated_at=? WHERE booking_id=? AND seat=?', (p['name'], now(), b['id'], p['seat'])).rowcount == 0:
+                db.execute('INSERT INTO manifest_entries(booking_id,seat,slot_id,name,updated_at) VALUES(?,?,?,?,?)', (b['id'], p['seat'], b['slot_id'], p['name'], now()))
+    for seat in range(2, int(b['participants'] or 1) + 1):
+        if seat not in keep: db.execute('UPDATE manifest_entries SET name=NULL,updated_at=? WHERE booking_id=? AND seat=? AND checked_in_at IS NULL', (now(), b['id'], seat))
+    audit(db, None, 'booking_companions_saved', 'booking', b['id'], {'people': len(people), 'channel': wch.channel_of(b)})
+    return booking_people(db, b)
+
+
+def guest_meeting_point(db, b):
+    s = db.execute('SELECT meeting_point FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    return (row_get(s, 'meeting_point') or '').strip() if s else ''
+
+
+def guest_booking_ics(db, b):
+    """«Añadir al calendario»: the booking as an event (start and end in UTC; every calendar shows its own hour)."""
+    tz = booking_tz(db, b)
+    svc = db.execute('SELECT title,duration_minutes FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    kind, pid = ('center', b['center_id']) if b['center_id'] else ('freelance', b['provider_user_id'])
+    prov = sales_provider(db, kind, pid) if pid else {'name': ''}
+    hhmm = b['booking_time'] if b['booking_time'] and re.fullmatch(r'\d{2}:\d{2}', b['booking_time']) else None
+    utc = lambda day, hm: datetime.strptime(wag.local_to_utc(day, hm, tz), '%Y-%m-%dT%H:%M:%SZ')
+    if hhmm:
+        start = utc(b['booking_date'], hhmm)
+        end = start + timedelta(minutes=int((row_get(svc, 'duration_minutes') if svc else None) or 120))
+    else:   # a service by days: the whole days, from 08:00 to 18:00 local of the last one
+        start = utc(b['booking_date'], '08:00'); end = utc(b['date_to'] or b['booking_date'], '18:00')
+    c = db.execute('SELECT address,city,country FROM centers WHERE id=?', (b['center_id'],)).fetchone() if b['center_id'] else None
+    where = guest_meeting_point(db, b) or (', '.join(x for x in (c['address'], c['city'], c['country']) if x) if c else '')
+    f = lambda d: d.strftime('%Y-%m-%dT%H:%M:%SZ')
+    desc = f"WOD-{b['id']:06d} · {prov.get('name') or ''} · {int(b['participants'] or 1)} pers.\n{guest_booking_url(b) or ''}"
+    return wrx.booking_ics(f"wod-{b['id']}@{urlparse(public_site_url()).hostname or 'worldives'}", f"{row_get(svc, 'title') or 'Reserva'} · {prov.get('name') or ''}",
+                           f(start), f(end), where, desc, datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
 
 # ---------------------------------------------------------------------------
 # v50.56 · Parte E: API REST v1 of each centre (docs/api/). Keys per centre or freelance, created and revoked in the
@@ -12997,7 +13209,7 @@ def run_booking_deadlines(db):
 
 
 def _open_order(db, where, args):
-    o = db.execute(f"SELECT * FROM payment_orders WHERE {where} AND status='pending' AND checkout_url IS NOT NULL ORDER BY id DESC LIMIT 1", args).fetchone()
+    o = db.execute(f"SELECT * FROM payment_orders WHERE {where} AND status='pending' AND (checkout_url IS NOT NULL OR client_secret IS NOT NULL) ORDER BY id DESC LIMIT 1", args).fetchone()
     if not o: return None
     try: age = datetime.now(timezone.utc).timestamp() - datetime.fromisoformat(o['created_at']).timestamp()
     except Exception: age = 9999
@@ -13134,9 +13346,12 @@ def self_payee(db, user, data):
 
 
 def create_stripe_checkout(db, user, *, amount, currency, title, payee, booking_id=None, experience_booking_id=None, provider_user_id=None,
-                           service_id=None, slot_id=None, cancel_url, hold_reserved=False, kind='full', description=None, success_url=None):
+                           service_id=None, slot_id=None, cancel_url, hold_reserved=False, kind='full', description=None, success_url=None, embedded=False):
     """Creates the payment order and its Stripe Checkout Session as a DIRECT charge on the provider's connected
-    account (no application fee, no transfer: WORLDIVES takes no commission). Raises ValueError when it cannot."""
+    account (no application fee, no transfer: WORLDIVES takes no commission). Raises ValueError when it cannot.
+    v50.58 (reserva exprés): embedded=True opens the same Checkout inside the booking (ui_mode «embedded»: Stripe's own
+    form, with Apple Pay, Google Pay and Link when the customer has them) instead of Stripe's page; the booking is told
+    by the browser (onComplete) and checked with Stripe (guest_check_payment) and by the webhook, as before."""
     if amount <= 0: raise ValueError('Esta reserva no tiene un importe que pagar online.')
     if wmoney.below_minimum(amount, currency):   # Stripe refuses charges below its minimum for the currency
         raise ValueError(f'El importe online mínimo en {wmoney.code(currency)} es {wmoney.minimum(currency):g}. Pide al centro que cobre esta reserva en el centro.')
@@ -13158,8 +13373,8 @@ def create_stripe_checkout(db, user, *, amount, currency, title, payee, booking_
             mode='payment',
             line_items=[{'price_data': {'currency': currency.lower(), 'product_data': {'name': title[:250], 'description': (description or f'{ref} · {payee["name"]}')[:500]},
                                         'unit_amount': wmoney.to_minor(amount, currency)}, 'quantity': 1}],
-            success_url=success_url or f'{base}/#/pago-ok?session_id={{CHECKOUT_SESSION_ID}}',
-            cancel_url=cancel_url,
+            **({'ui_mode': 'embedded', 'redirect_on_completion': 'never'} if embedded else
+               {'success_url': success_url or f'{base}/#/pago-ok?session_id={{CHECKOUT_SESSION_ID}}', 'cancel_url': cancel_url}),
             metadata=meta,
             payment_intent_data={'description': f'{ref} · {payee["name"]}'[:500], 'metadata': meta},
             client_reference_id=f'WOD-{oid}',
@@ -13174,11 +13389,17 @@ def create_stripe_checkout(db, user, *, amount, currency, title, payee, booking_
         db.execute("UPDATE payment_orders SET status='failed',updated_at=? WHERE id=?", (now(), oid)); db.commit()
         sys.stderr.write(f'[pagos] Stripe rechazó el pedido {oid}: {exc}\n')
         raise ValueError('No se ha podido abrir el pago seguro. Inténtalo de nuevo en unos minutos.')
-    db.execute('UPDATE payment_orders SET provider_payment_id=?,checkout_url=?,updated_at=? WHERE id=?', (session.id, session.url, now(), oid)); db.commit()
-    return {'checkout_url': session.url, 'order_id': oid}
+    secret_ = getattr(session, 'client_secret', None) if embedded else None
+    if embedded and not secret_:
+        db.execute("UPDATE payment_orders SET status='failed',updated_at=? WHERE id=?", (now(), oid)); db.commit()
+        raise ValueError('No se ha podido abrir el pago seguro. Inténtalo de nuevo en unos minutos.')
+    db.execute('UPDATE payment_orders SET provider_payment_id=?,checkout_url=?,ui_mode=?,client_secret=?,updated_at=? WHERE id=?',
+               (session.id, None if embedded else session.url, 'embedded' if embedded else 'hosted', secret_, now(), oid)); db.commit()
+    if embedded: stripe_register_domain(db, account_id)
+    return {'checkout_url': None if embedded else session.url, 'client_secret': secret_, 'order_id': oid}
 
 
-def start_checkout(db, user, b, app=None, return_to=None):
+def start_checkout(db, user, b, app=None, return_to=None, embedded=False):
     """Opens the payment of a booking in its two legal moments (Fase 1B): the whole price or the deposit (Fase 2.5).
     From the app (v50.48), Stripe sends the person back into the app (app = its scheme). From the widget or a payment
     link (v50.56), return_to = (success_url, cancel_url), always built by the server, never taken from the request."""
@@ -13194,7 +13415,12 @@ def start_checkout(db, user, b, app=None, return_to=None):
     elif st == 'requested': raise ValueError('El centro todavía no ha aceptado esta solicitud. No se cobra nada hasta entonces.')
     else: raise ValueError('Esta reserva no tiene ningún pago pendiente.')
     reuse = _open_order(db, 'booking_id=?', (b['id'],))
-    if reuse: return {'checkout_url': reuse['checkout_url'], 'order_id': reuse['id'], 'reused': True}
+    if reuse:
+        if row_get(reuse, 'client_secret'):
+            # v50.58: a payment opened inside the booking (embedded) goes on there; who asks for a page gets the page of
+            # the booking, which opens the same form (never a second payment for the same spots).
+            return {'checkout_url': None if embedded else embedded_pay_url(db, b), 'client_secret': reuse['client_secret'], 'order_id': reuse['id'], 'reused': True}
+        return {'checkout_url': reuse['checkout_url'], 'order_id': reuse['id'], 'reused': True}
     svc, payee = booking_payee(db, b)
     if not payee_ready(payee):
         raise ValueError('El centro no tiene ahora mismo los cobros online activos. Contacta con el centro.')
@@ -13207,7 +13433,8 @@ def start_checkout(db, user, b, app=None, return_to=None):
                                   service_id=b['service_id'], slot_id=b['slot_id'], hold_reserved=bool(b['slot_reserved']),
                                   cancel_url=(return_to[1] if return_to else wmovil.return_urls(public_site_url(), app, b['id'])[1] if app
                                               else f"{public_site_url()}/#/reserva?id={b['id']}&pago=cancelado"),
-                                  success_url=return_to[0] if return_to else wmovil.return_urls(public_site_url(), app)[0] if app else None)
+                                  success_url=return_to[0] if return_to else wmovil.return_urls(public_site_url(), app)[0] if app else None,
+                                  embedded=bool(embedded))
 
 
 def start_experience_checkout(db, user, eb):
@@ -13346,6 +13573,7 @@ def delete_user_account(db, user):
                 "UPDATE reward_redemptions SET status='cancelled', cancelled_at=? WHERE user_id=? AND status='issued'",
                 'DELETE FROM account_deletion_requests WHERE user_id=?',
                 'UPDATE bookings SET contact_phone=NULL, contact_phone_hash=NULL, contact_email=NULL, contact_name=NULL, notes=NULL, equipment_notes=NULL, guide_notes=NULL, insurance_info=NULL WHERE user_id=?',
+                'DELETE FROM booking_people WHERE booking_id IN (SELECT id FROM bookings WHERE user_id=?)',   # v50.58: companions (reserva exprés)
                 'DELETE FROM info_requests WHERE user_id=?'):
         db.execute(sql, (now(), uid) if sql.count('?') == 2 else (uid,))
     audit(db, uid, 'account_deleted', 'user', uid)
@@ -13485,6 +13713,7 @@ def purge_provider(db, kind, oid):
     w, a = winq.owner_filter(winq.Ctx(0, kind, kind, int(oid)), 'b')
     bids = f'SELECT b.id FROM bookings b WHERE {w}'
     step('manifest', lambda: db.execute(f'DELETE FROM manifest_entries WHERE booking_id IN ({bids})', a).rowcount)
+    step('people', lambda: db.execute(f'DELETE FROM booking_people WHERE booking_id IN ({bids})', a).rowcount)   # v50.58
     step('signatures', lambda: db.execute(f'DELETE FROM waiver_signatures WHERE booking_id IN ({bids})', a).rowcount)
     step('messages', lambda: db.execute(f'DELETE FROM messages WHERE booking_id IN ({bids})', a).rowcount)
     step('bookings_anonymised', lambda: db.execute(f'''UPDATE bookings SET contact_name=NULL,contact_email=NULL,contact_phone=NULL,contact_phone_hash=NULL,notes=NULL,
@@ -16321,18 +16550,25 @@ class Handler(BaseHTTPRequestHandler):
                 'register': f'{base}/#/registro', 'hold_minutes': HOLD_MINUTES}
         if row:
             boot.update(slug=row['slug'], color=row['brand_color'] or '', fmt=q('f') if q('f') in wch.WIDGET_FORMATS else 'lista',
-                        service=int(q('servicio') or q('s') or 0) or None, type=(q('tipo') or q('t'))[:40] or None,
-                        date=q('fecha') if re.fullmatch(r'\d{4}-\d{2}-\d{2}', q('fecha')) else None, host=q('h')[:200])
+                        service=int(q('servicio') or q('s') or 0) if (q('servicio') or q('s') or '0').isdigit() else None, type=(q('tipo') or q('t'))[:40] or None,
+                        date=q('fecha') if re.fullmatch(r'\d{4}-\d{2}-\d{2}', q('fecha')) else None, host=q('h')[:200],
+                        # v50.58 (reserva exprés): a link with everything chosen opens straight on «Tus datos»; «prueba»: the
+                        # «Probar como cliente» of the panel, where nothing is booked or charged
+                        time=q('hora') if re.fullmatch(r'\d{1,2}:\d{2}', q('hora')) else None,
+                        people=int(q('personas')) if q('personas').isdigit() and 1 <= int(q('personas')) <= PARTICIPANTS_MAX else None,
+                        slot=int(q('salida')) if q('salida').isdigit() and len(q('salida')) < 12 else None, test=q('prueba') == '1')
         if booking is not None: boot['booking'] = booking
         if extra: boot.update(extra)
         title = (provider_label(db, kind, pid) if kind else '') or 'WORLDIVES'
         color = (row['brand_color'] if row else '') or (booking or {}).get('color') or ''
         style = f' style="--marca:{color}"' if wch.clean_color(color) else ''
+        stripe_on = bool(stripe_publishable_key())
         data = json.dumps(boot, ensure_ascii=False).replace('<', '\\u003c')
         noscript = html.escape(boot['t']['book'] + ': ' + (f'{base}/c/{row["slug"]}' if row else base))
         doc = (f'<!doctype html><html lang="{html.escape(HTML_LANG.get(lang, lang))}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
                f'<meta name="robots" content="{"noindex" if mode != "page" else "index"}"><title>{html.escape(title)}</title>'
                f'<link rel="icon" href="/img/marca/favicon-32.png"><link rel="stylesheet" href="/css/wd-reservar.css">'
+               + ('<link rel="preconnect" href="https://js.stripe.com">' if stripe_on else '') +
                f'<script type="application/json" id="wd-boot">{data}</script><script src="/js/wd-reservar.js" defer></script></head>'
                f'<body class="wr wr-{mode}"{style}><main id="wr-app" aria-live="polite"><p class="wr-load">{html.escape(boot["t"]["loading"])}</p>'
                f'<noscript><p>{noscript}</p></noscript></main></body></html>').encode('utf-8')
@@ -16340,13 +16576,16 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Content-Length', str(len(doc)))
         self.send_header('Cache-Control', 'no-store'); self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
-        self.send_header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
+        # v50.58 (reserva exprés): Stripe's form inside the booking (and Apple Pay / Google Pay in it) when the server has
+        # the publishable key; otherwise the same policy as before.
+        csp = wrx.with_stripe(CSP_HEADER) if stripe_on else CSP_HEADER
+        self.send_header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=' + (wrx.STRIPE_PAYMENT_ALLOW if stripe_on else '()'))
         if mode == 'widget':
             # Only inside the provider's own websites (CSP frame-ancestors); no X-Frame-Options, which would forbid them all.
             # 'self': the live preview of «Vender en tu web» in the panel of WORLDIVES.
-            self.send_header('Content-Security-Policy', CSP_HEADER.replace("frame-ancestors 'none'", 'frame-ancestors ' + wch.frame_ancestors(sales_domains(row), ("'self'",)).replace("'none' 'self'", "'self'")))
+            self.send_header('Content-Security-Policy', csp.replace("frame-ancestors 'none'", 'frame-ancestors ' + wch.frame_ancestors(sales_domains(row), ("'self'",)).replace("'none' 'self'", "'self'")))
         else:
-            self.send_header('X-Frame-Options', 'DENY'); self.send_header('Content-Security-Policy', CSP_HEADER)
+            self.send_header('X-Frame-Options', 'DENY'); self.send_header('Content-Security-Policy', csp)
             self.send_header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups' if mode == 'return' else 'same-origin')
         if wcfg.demo_mode() or mode != 'page': self.send_header('X-Robots-Tag', 'noindex, nofollow')
         if os.environ.get('WOD_PUBLIC_URL', '').strip().lower().startswith('https://'): self.send_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
@@ -16376,6 +16615,16 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Content-Disposition', f'attachment; filename="qr-{m.group(1)}.{m.group(2)}"' if query.get('descargar') else 'inline')
             self.send_header('Content-Length', str(len(raw))); self.send_header('Cache-Control', 'public, max-age=3600')
             self.security_headers(); self.end_headers(); self.wfile.write(raw); return True
+        m = re.fullmatch(r'/mi-reserva/(\d{1,12}\.[A-Za-z0-9_\-]{20,80})\.ics', path)
+        if m:
+            # v50.58 (reserva exprés): «Añadir al calendario»
+            try: b = guest_booking(db, m.group(1))
+            except NotFound: self.send_error(404); return True
+            if wbk.normalize_state(b['status']) in ('cancelled', 'rejected', 'expired'): self.send_error(404); return True
+            raw = guest_booking_ics(db, b)
+            self.send_response(200); self.send_header('Content-Type', 'text/calendar; charset=utf-8')
+            self.send_header('Content-Disposition', f'attachment; filename="reserva-WOD-{b["id"]:06d}.ics"'); self.send_header('Content-Length', str(len(raw)))
+            self.send_header('Cache-Control', 'no-store'); self.send_header('X-Robots-Tag', 'noindex'); self.security_headers(); self.end_headers(); self.wfile.write(raw); return True
         m = re.fullmatch(r'/(mi-reserva|w/pago)/(\d{1,12}\.[A-Za-z0-9_\-]{20,80})', path)
         if m:
             try: b = guest_booking(db, m.group(2))
@@ -16399,6 +16648,15 @@ class Handler(BaseHTTPRequestHandler):
             c = db.execute('SELECT country FROM centers WHERE id=?', (pid,)).fetchone() if kind == 'center' else None
             countries = [wseg.iso_country(query.get('pais', [''])[0]), wseg.iso_country(c['country'] if c else '')]
             self.send_json(ins_offers(db, query.get('tipo', ['dia'])[0], 'buceador', [x for x in countries if x] or [''], normalize_lang(query.get('lang', ['es'])[0]))); return True
+        m = re.fullmatch(r'/api/w/([a-z0-9-]{3,60})/(dias|alternativas)', path)
+        if m:
+            # v50.58 (reserva exprés): the strip of 14 days and the nearest free times
+            found = provider_by_slug(db, m.group(1))
+            if not found: raise NotFound('Centro no encontrado.')
+            kind, pid, row = found; g = lambda k: query.get(k, [''])[0]
+            if m.group(2) == 'dias': self.send_json(sales_strip(db, kind, pid, g('servicio') or 0, g('desde') or None))
+            else: self.send_json(sales_alternatives(db, kind, pid, g('servicio') or 0, g('salida') or None, g('personas') or 1, g('fecha') or None, g('hora') or None))
+            return True
         m = re.fullmatch(r'/api/w/([a-z0-9-]{3,60})(/fechas)?', path)
         if m:
             found = provider_by_slug(db, m.group(1))
@@ -16413,6 +16671,13 @@ class Handler(BaseHTTPRequestHandler):
         if m:
             b = guest_booking(db, m.group(1))
             self.send_json({'booking': guest_booking_view(db, b, normalize_lang(query.get('lang', ['es'])[0]))}); return True
+        m = re.fullmatch(r'/api/mi-reserva/(\d{1,12}\.[A-Za-z0-9_\-]{20,80})/(qr\.svg|acompanantes)', path)
+        if m:
+            # v50.58 (reserva exprés): the QR to show at the centre (once it counts on the person) and the companions
+            b = guest_booking(db, m.group(1))
+            if m.group(2) == 'acompanantes': self.send_json({'people': booking_people(db, b), 'participants': int(b['participants'] or 1)}); return True
+            if booking_view_status(b)['status'] not in BOOKING_QR_STATES: raise NotFound('Reserva no encontrada.')
+            self.send_bytes(qr_svg(booking_check_url(db, b['id'], public_site_url())), 'image/svg+xml; charset=utf-8', cache='no-store', inline=True); return True
         return False
 
     def sales_post(self, db, path):
@@ -16446,6 +16711,16 @@ class Handler(BaseHTTPRequestHandler):
             ret = ((f'{base}/w/pago/{tok}?r=ok', f'{base}/w/pago/{tok}?r=cancel') if fields.get('ventana') else (f'{base}/mi-reserva/{tok}?pago=ok', f'{base}/mi-reserva/{tok}?pago=cancelado'))
             out = ins_resume(db, b, return_to=ret) if wbk.normalize_state(b['status']) == 'insurance_pending' else None
             self.send_json({'ok': True, 'covers': covers, 'booking': out}); return True
+        m = re.fullmatch(r'/api/mi-reserva/(\d{1,12}\.[A-Za-z0-9_\-]{20,80})/(comprobar-pago|acompanantes)', path)
+        if m:
+            # v50.58 (reserva exprés): Stripe's form said «paid» in the browser: ask Stripe (never trust the browser)
+            b = guest_booking(db, m.group(1)); data = json_body(self)
+            if m.group(2) == 'acompanantes':
+                if GUEST_PEOPLE_LIMIT.blocked('b:' + str(b['id'])): raise TooManyRequests('Demasiados cambios seguidos. Espera unos minutos.')
+                GUEST_PEOPLE_LIMIT.hit('b:' + str(b['id']))
+                people = save_companions(db, b, data.get('people')); db.commit(); self.send_json({'ok': True, 'people': people}); return True
+            guest_check_payment(db, b); b = booking_row(db, b['id'])
+            view = guest_booking_view(db, b, normalize_lang(data.get('lang'))); db.commit(); self.send_json({'booking': view}); return True
         m = re.fullmatch(r'/api/mi-reserva/(\d{1,12}\.[A-Za-z0-9_\-]{20,80})/(pagar|cancelar)', path)
         if m:
             if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
@@ -16457,8 +16732,12 @@ class Handler(BaseHTTPRequestHandler):
                    else (f'{base}/mi-reserva/{tok}?pago=ok', f'{base}/mi-reserva/{tok}?pago=cancelado'))
             u = dict(db.execute('SELECT * FROM users WHERE id=?', (b['user_id'],)).fetchone()); u['email'] = b['contact_email'] or u['email']
             db.commit()
-            out = start_checkout(db, u, b, return_to=ret); db.commit()
-            self.send_json({'ok': True, 'checkout_url': out['checkout_url']}); return True
+            kind_, pid_ = ('center', b['center_id']) if b['center_id'] else ('freelance', b['provider_user_id'])
+            embedded = bool(data.get('pago_integrado')) and sales_stripe(db, kind_, pid_) is not None
+            out = start_checkout(db, u, b, return_to=ret, embedded=embedded); db.commit()
+            body = {'ok': True, 'checkout_url': out['checkout_url']}
+            if out.get('client_secret') and embedded: body.update(client_secret=out['client_secret'], stripe=sales_stripe(db, kind_, pid_))
+            self.send_json(body); return True
         return False
 
 
@@ -22691,6 +22970,7 @@ def run_retention_jobs(db, at=None, force=False):
     rep['bookings_anonymised'] = db.execute('''UPDATE bookings SET contact_phone=NULL, contact_phone_hash=NULL, contact_email=NULL, contact_name=NULL, notes=NULL,
                                                 equipment_notes=NULL, guide_notes=NULL, internal_notes=NULL WHERE booking_date < ? AND (contact_phone IS NOT NULL OR contact_email IS NOT NULL
                                                 OR contact_name IS NOT NULL OR notes IS NOT NULL OR internal_notes IS NOT NULL)''', (old,)).rowcount
+    rep['bookings_anonymised'] += db.execute('DELETE FROM booking_people WHERE booking_id IN (SELECT id FROM bookings WHERE booking_date < ?)', (old,)).rowcount   # v50.58
     keep = db.execute('SELECT id FROM audit_log ORDER BY id DESC LIMIT 1 OFFSET ?', (st['audit_keep'] - 1,)).fetchone()
     if keep:
         rep['audit_deleted'] = db.execute('DELETE FROM audit_log WHERE created_at < ? AND id < ?', (_months_ago(at, st['audit_months']).isoformat(timespec='seconds'), keep['id'])).rowcount

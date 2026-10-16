@@ -43,6 +43,7 @@ class StripeMock:
         self.sessions = {}
         self.accounts = {}
         self.refunds = []
+        self.domains = []   # v50.58: payment method domains (Apple Pay / Google Pay inside the booking)
         self.calls = []
         self.ids = itertools.count(1)
         self.fail_next = False
@@ -79,7 +80,16 @@ class StripeMock:
                     sid = f'cs_test_{next(mock.ids)}'
                     li = (params.get('line_items') or [{}])[0]
                     pd = li.get('price_data', {})
-                    s = {'id': sid, 'object': 'checkout.session', 'url': f'https://checkout.stripe.test/{sid}', 'status': 'open', 'payment_status': 'unpaid',
+                    embedded = params.get('ui_mode') == 'embedded'
+                    # Stripe's own rules for the form inside the page (ui_mode=embedded): no success_url / cancel_url, and a
+                    # return_url unless redirect_on_completion=never
+                    if embedded and (params.get('success_url') or params.get('cancel_url')):
+                        return self._send(400, {'error': {'type': 'invalid_request_error', 'message': 'success_url and cancel_url are not allowed with ui_mode=embedded'}})
+                    if embedded and params.get('redirect_on_completion') != 'never' and not params.get('return_url'):
+                        return self._send(400, {'error': {'type': 'invalid_request_error', 'message': 'return_url is required'}})
+                    s = {'id': sid, 'object': 'checkout.session', 'url': None if embedded else f'https://checkout.stripe.test/{sid}', 'status': 'open', 'payment_status': 'unpaid',
+                         'ui_mode': 'embedded' if embedded else 'hosted', 'client_secret': f'{sid}_secret_mock' if embedded else None,
+                         'customer_email': params.get('customer_email'),
                          'amount_total': int(pd.get('unit_amount', 0)) * int(li.get('quantity', 1)), 'currency': pd.get('currency', 'eur'),
                          'metadata': params.get('metadata', {}), 'payment_intent': None, 'payment_intent_data': params.get('payment_intent_data', {}),
                          'account': acct, 'expires_at': int(params.get('expires_at', 0) or 0)}
@@ -116,6 +126,10 @@ class StripeMock:
                     if len(parts) == 4 and parts[3] == 'login_links':
                         return self._send(200, {'object': 'login_link', 'url': 'https://connect.stripe.test/express'})
                     return self._send(200, a)
+                if path == '/v1/payment_method_domains' and method == 'POST':
+                    d = {'id': f'pmd_test_{next(mock.ids)}', 'object': 'payment_method_domain', 'domain_name': params.get('domain_name'), 'enabled': True, 'account': acct}
+                    mock.domains.append(d)
+                    return self._send(200, d)
                 if path == '/v1/account_links' and method == 'POST':
                     return self._send(200, {'object': 'account_link', 'url': 'https://connect.stripe.test/onboarding'})
                 if path.startswith('/v2/core/accounts'):
@@ -153,6 +167,10 @@ class StripeMock:
 
     def last_session(self):
         return list(self.sessions.values())[-1]
+
+    def session_by_secret(self, secret):
+        """The session of an embedded form (what Stripe.js gets in the browser)."""
+        return next((x for x in self.sessions.values() if x.get('client_secret') == secret), None)
 
     @staticmethod
     def signed(event: dict, secret: str):
