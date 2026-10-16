@@ -18,7 +18,9 @@ Meta: **el 95 % de las páginas en menos de 500 ms y ningún error**.
   dominio con https, y este equipo no lo tiene. Para lo que se mide no cambia nada: el mismo programa, los mismos
   procesos, la misma base con WAL, la misma caché y el mismo envío de correos por SMTP.
 - **Como el VPS contratado (Hostinger KVM 2, 2 vCPU)**: el servidor con `WOD_WORKERS=2` y fijado a **2 núcleos**
-  (`taskset`); el generador de carga (Locust) en los otros 2, para que no le quite procesador al servidor.
+  (`taskset`); el generador de carga (Locust) en los otros 2, para que no le quite procesador al servidor. Equipo:
+  Intel Xeon a 2,10 GHz, 4 núcleos y 15 GB de memoria. Con otro procesador las cifras cambian: en el VPS hay que
+  repetirla (abajo, «Cómo repetirlo»).
 - **320 usuarios a la vez** durante 280 s de régimen estable (después de 20 s de llegada y 10 s para asentarse):
   - **300 visitantes navegando** como personas: portada (con su mapa de puntos), explorar y listas de puntos, fichas
     de puntos y de centros, calendarios de salidas, buscador y salidas cercanas. Cada uno espera de 3 a 10 s entre
@@ -45,11 +47,38 @@ Meta: **el 95 % de las páginas en menos de 500 ms y ningún error**.
 
 ## Resultados
 
-⟪RESULTADOS⟫
+Pasada oficial del 16/10/2026 (5 minutos y 20 s; las cifras, del régimen estable):
+
+| Grupo | Peticiones por segundo | p50 | p95 | p99 | Errores |
+|---|---|---|---|---|---|
+| **Páginas** (todo lo que pide la web al navegar: página, estilos, programa, datos, contador de visitas) | 241 | 2 ms | **16 ms** | 41 ms | 0 de 67.514 |
+| · de ellas, el contador de visitas (`/api/visita`, una escritura) | 51 | 3 ms | 33 ms | 85 ms | 0 de 14.240 |
+| **Reservas** (`POST /api/bookings`, salidas distintas) | 20,0 | 19 ms | **110 ms** | 190 ms | 0 de 5.600 |
+| Confirmar el pago al volver de Stripe | 6,4 | 15 ms | 53 ms | 96 ms | 0 de 1.799 |
+| **Todo** | 268 | 3 ms | 28 ms | 85 ms | **0 de 74.913** |
+
+- **Servidor** (2 núcleos): 87 % de CPU de media (máximo 125 %; el máximo posible es 200 %), 618 MB de memoria entre los dos procesos, WAL de 6,4 MB como mucho.
+- **Registro del servidor**: 0 bloqueos de SQLite («database is locked») y 0 errores 500.
+- Régimen estable de 280 s; la llegada (20 s) y el asentamiento (10 s) no cuentan en las cifras.
 
 ## Sobreventa
 
-⟪SOBREVENTA⟫
+**Ninguna.** En las 8 ráfagas, de 20 reservas a la vez a una salida de 3 plazas, se aceptaron exactamente 3 y las
+otras 17 recibieron «Sin plazas: ya no quedan plazas libres para esa fecha». Unas veces las ganaron los buceadores de
+la web y otras el centro (a mano o por la API): da igual el camino, nunca más de las que hay.
+
+| Ráfaga | Aceptadas (web · manual · API) | «Sin plazas» | Plazas tomadas | Libres después | Sobreventa |
+|---|---|---|---|---|---|
+| 1 | 3 (2 · 0 · 1) | 17 | 3 de 3 | 0 | no |
+| 2 | 3 (0 · 3 · 0) | 17 | 3 de 3 | 0 | no |
+| 3 | 3 (1 · 1 · 1) | 17 | 3 de 3 | 0 | no |
+| 4 | 3 (2 · 0 · 1) | 17 | 3 de 3 | 0 | no |
+| 5 | 3 (2 · 1 · 0) | 17 | 3 de 3 | 0 | no |
+| 6 | 3 (2 · 0 · 1) | 17 | 3 de 3 | 0 | no |
+| 7 | 3 (2 · 0 · 1) | 17 | 3 de 3 | 0 | no |
+| 8 | 3 (0 · 2 · 1) | 17 | 3 de 3 | 0 | no |
+
+⟪INTEGRIDAD⟫
 
 ## Lo que encontró la prueba y está corregido
 
@@ -58,7 +87,9 @@ tardaban, se midió cada transacción de escritura del servidor (cuánto espera 
 base para él solo). La cola de correos sin servidor de correo (la que usan el modo desarrollo y el paquete DEMO) cogía
 la base al marcar el primer correo y no la soltaba hasta escribir los 150 de la tanda, con su QR: hasta 2 s cada vez
 (p95 1,57 s), un 31 % del tiempo. Mientras, ninguna reserva, pago ni visita podía guardarse: con esa cola, las
-páginas daban p95 750 ms y las reservas p95 2,7 s (pasada de 2 minutos con la misma carga).
+páginas daban p95 750 ms y las reservas p95 2,7 s (pasada de 2 minutos con la misma carga). Estas pasadas de
+diagnóstico, con y sin el arreglo, se hicieron en el equipo en el que empezó la prueba, antes de que el entorno se
+reiniciara en otro más rápido: compáralas entre sí, no con la pasada oficial.
 
 - **Arreglo** (`app/server.py`, `spool_outbox_to_files`): primero se escriben los correos y después se marcan todos
   en una sola escritura corta (p95 61 ms). Prueba: `tests/test_v50_57_carga.py`, que falla con el código anterior.
@@ -100,7 +131,7 @@ núcleos; 30 y 40, pasadas de 2 minutos):
 
 | Reservas por segundo | Páginas p95 | Reservas p95 | Errores |
 |---|---|---|---|
-| 20 (el encargo) | ⟪F20_PAG⟫ | ⟪F20_RES⟫ | 0 |
+| 20 (el encargo) | 16 ms | 110 ms | 0 |
 | 30 | 64 ms | 400 ms | 0 |
 | 40 pedidas (salieron 37) | 140 ms | 1,3 s | 1 reserva rechazada por la base bloqueada (más de 10 s esperando para escribir, al empezar la prueba) |
 
