@@ -425,6 +425,76 @@ for _l, _d in INS.items():
     T[_l].update(_d)
 
 
+# v50.58 · encargo del 16/10/2026: el equipo de alquiler dentro de la reserva (por buceador, con tallas).
+EQ = {
+    'es': {'eq_semi': 'Semiseco', 'eq_title': 'Equipo', 'eq_own': 'Llevo mi equipo', 'eq_need': 'Necesito equipo', 'eq_included': 'Incluido: botella y plomos',
+           'eq_kit': 'Equipo completo', 'eq_you': 'Tú', 'eq_diver': 'Buceador {n}', 'eq_size': 'Talla', 'eq_shoe': 'Número de pie', 'eq_thick': 'Grosor',
+           'eq_copy': 'Igual que el anterior', 'eq_note': 'Algo más que deba saber el centro (opcional)', 'eq_size_needed': 'Elige la talla de {piece} ({who}).',
+           'eq_out': 'No disponible', 'eq_kit_broken': 'Has quitado una pieza del equipo completo: ahora se cobra por piezas. Nuevo importe: {total}.',
+           'eq_inc_price': 'Equipo incluido en el precio.', 'eq_per_dive': '/ inmersión', 'eq_per_day': '/ día'},
+    'en': {'eq_semi': 'Semi-dry', 'eq_title': 'Equipment', 'eq_own': 'I bring my own gear', 'eq_need': 'I need equipment', 'eq_included': 'Included: tank and weights',
+           'eq_kit': 'Full kit', 'eq_you': 'You', 'eq_diver': 'Diver {n}', 'eq_size': 'Size', 'eq_shoe': 'Shoe size', 'eq_thick': 'Thickness',
+           'eq_copy': 'Same as the previous one', 'eq_note': 'Anything else the centre should know (optional)', 'eq_size_needed': 'Choose the size of the {piece} ({who}).',
+           'eq_out': 'Not available', 'eq_kit_broken': 'You removed a piece of the full kit: it is now charged per piece. New amount: {total}.',
+           'eq_inc_price': 'Equipment included in the price.', 'eq_per_dive': '/ dive', 'eq_per_day': '/ day'},
+    'fr': {'eq_semi': 'Semi-étanche', 'eq_title': 'Équipement', 'eq_own': "J'apporte mon équipement", 'eq_need': "J'ai besoin d'équipement", 'eq_included': 'Inclus : bloc et plombs',
+           'eq_kit': 'Équipement complet', 'eq_you': 'Toi', 'eq_diver': 'Plongeur {n}', 'eq_size': 'Taille', 'eq_shoe': 'Pointure', 'eq_thick': 'Épaisseur',
+           'eq_copy': 'Comme le précédent', 'eq_note': 'Autre chose que le centre doit savoir (facultatif)', 'eq_size_needed': 'Choisis la taille : {piece} ({who}).',
+           'eq_out': 'Indisponible', 'eq_kit_broken': "Tu as retiré une pièce de l'équipement complet : c'est maintenant facturé à la pièce. Nouveau montant : {total}.",
+           'eq_inc_price': 'Équipement inclus dans le prix.', 'eq_per_dive': '/ plongée', 'eq_per_day': '/ jour'},
+    'de': {'eq_semi': 'Halbtrocken', 'eq_title': 'Ausrüstung', 'eq_own': 'Ich bringe meine Ausrüstung mit', 'eq_need': 'Ich brauche Ausrüstung', 'eq_included': 'Inklusive: Flasche und Blei',
+           'eq_kit': 'Komplette Ausrüstung', 'eq_you': 'Du', 'eq_diver': 'Taucher {n}', 'eq_size': 'Größe', 'eq_shoe': 'Schuhgröße', 'eq_thick': 'Stärke',
+           'eq_copy': 'Wie der vorherige', 'eq_note': 'Sonst noch etwas, das das Zentrum wissen sollte (optional)', 'eq_size_needed': 'Wähle die Größe: {piece} ({who}).',
+           'eq_out': 'Nicht verfügbar', 'eq_kit_broken': 'Du hast ein Teil der kompletten Ausrüstung entfernt: Jetzt wird pro Teil berechnet. Neuer Betrag: {total}.',
+           'eq_inc_price': 'Ausrüstung im Preis inbegriffen.', 'eq_per_dive': '/ Tauchgang', 'eq_per_day': '/ Tag'},
+    'it': {'eq_semi': 'Semistagna', 'eq_title': 'Attrezzatura', 'eq_own': 'Porto la mia attrezzatura', 'eq_need': 'Mi serve attrezzatura', 'eq_included': 'Incluso: bombola e piombi',
+           'eq_kit': 'Attrezzatura completa', 'eq_you': 'Tu', 'eq_diver': 'Subacqueo {n}', 'eq_size': 'Taglia', 'eq_shoe': 'Numero di scarpa', 'eq_thick': 'Spessore',
+           'eq_copy': 'Come il precedente', 'eq_note': 'Altro che il centro dovrebbe sapere (facoltativo)', 'eq_size_needed': 'Scegli la taglia: {piece} ({who}).',
+           'eq_out': 'Non disponibile', 'eq_kit_broken': "Hai tolto un pezzo dell'attrezzatura completa: ora si paga a pezzo. Nuovo importo: {total}.",
+           'eq_inc_price': 'Attrezzatura inclusa nel prezzo.', 'eq_per_dive': '/ immersione', 'eq_per_day': '/ giorno'},
+    'pt': {'eq_semi': 'Semi-seco', 'eq_title': 'Equipamento', 'eq_own': 'Levo o meu equipamento', 'eq_need': 'Preciso de equipamento', 'eq_included': 'Incluído: garrafa e lastro',
+           'eq_kit': 'Equipamento completo', 'eq_you': 'Tu', 'eq_diver': 'Mergulhador {n}', 'eq_size': 'Tamanho', 'eq_shoe': 'Número de calçado', 'eq_thick': 'Espessura',
+           'eq_copy': 'Igual ao anterior', 'eq_note': 'Mais alguma coisa que o centro deva saber (opcional)', 'eq_size_needed': 'Escolhe o tamanho: {piece} ({who}).',
+           'eq_out': 'Indisponível', 'eq_kit_broken': 'Retiraste uma peça do equipamento completo: agora cobra-se por peças. Novo valor: {total}.',
+           'eq_inc_price': 'Equipamento incluído no preço.', 'eq_per_dive': '/ mergulho', 'eq_per_day': '/ dia'},
+    'pl': {'eq_semi': 'Półsuchy', 'eq_title': 'Sprzęt', 'eq_own': 'Mam własny sprzęt', 'eq_need': 'Potrzebuję sprzętu', 'eq_included': 'W cenie: butla i balast',
+           'eq_kit': 'Pełny zestaw', 'eq_you': 'Ty', 'eq_diver': 'Nurek {n}', 'eq_size': 'Rozmiar', 'eq_shoe': 'Rozmiar buta', 'eq_thick': 'Grubość',
+           'eq_copy': 'Tak jak poprzedni', 'eq_note': 'Coś jeszcze, co centrum powinno wiedzieć (opcjonalnie)', 'eq_size_needed': 'Wybierz rozmiar: {piece} ({who}).',
+           'eq_out': 'Niedostępny', 'eq_kit_broken': 'Usunięto element pełnego zestawu: teraz płaci się za sztukę. Nowa kwota: {total}.',
+           'eq_inc_price': 'Sprzęt wliczony w cenę.', 'eq_per_dive': '/ nurkowanie', 'eq_per_day': '/ dzień'},
+    'nl': {'eq_semi': 'Semi-droog', 'eq_title': 'Uitrusting', 'eq_own': 'Ik neem mijn eigen uitrusting mee', 'eq_need': 'Ik heb uitrusting nodig', 'eq_included': 'Inbegrepen: fles en lood',
+           'eq_kit': 'Complete uitrusting', 'eq_you': 'Jij', 'eq_diver': 'Duiker {n}', 'eq_size': 'Maat', 'eq_shoe': 'Schoenmaat', 'eq_thick': 'Dikte',
+           'eq_copy': 'Hetzelfde als de vorige', 'eq_note': 'Nog iets dat het centrum moet weten (optioneel)', 'eq_size_needed': 'Kies de maat: {piece} ({who}).',
+           'eq_out': 'Niet beschikbaar', 'eq_kit_broken': 'Je hebt een onderdeel van de complete uitrusting weggehaald: nu wordt per stuk gerekend. Nieuw bedrag: {total}.',
+           'eq_inc_price': 'Uitrusting inbegrepen in de prijs.', 'eq_per_dive': '/ duik', 'eq_per_day': '/ dag'},
+    'zh': {'eq_semi': '半干式', 'eq_title': '装备', 'eq_own': '我自带装备', 'eq_need': '我需要租装备', 'eq_included': '已包含：气瓶和配重',
+           'eq_kit': '全套装备', 'eq_you': '你', 'eq_diver': '潜水员 {n}', 'eq_size': '尺码', 'eq_shoe': '鞋码', 'eq_thick': '厚度',
+           'eq_copy': '与上一位相同', 'eq_note': '还有什么需要告诉潜水中心的（可选）', 'eq_size_needed': '请选择尺码：{piece}（{who}）。',
+           'eq_out': '无货', 'eq_kit_broken': '你去掉了全套装备中的一件：现在按单件收费。新金额：{total}。',
+           'eq_inc_price': '装备已包含在价格中。', 'eq_per_dive': '/ 次潜水', 'eq_per_day': '/ 天'},
+}
+ES.update(EQ['es'])
+for _l, _d in EQ.items():
+    if _l != 'es': T[_l].update(_d)
+
+
+# The 11 pieces of the list, in each language (a centre's own pieces keep the name it gave them).
+EQP = {
+    'es': {'eqp_mask': 'Máscara', 'eqp_fins': 'Aletas', 'eqp_boots': 'Escarpines', 'eqp_wetsuit': 'Traje o neopreno', 'eqp_hood': 'Capucha', 'eqp_gloves': 'Guantes', 'eqp_bcd': 'Chaleco (jacket)', 'eqp_regulator': 'Regulador (con octopus y manómetro)', 'eqp_computer': 'Ordenador de buceo', 'eqp_torch': 'Linterna', 'eqp_smb': 'Boya de superficie'},
+    'en': {'eqp_mask': 'Mask', 'eqp_fins': 'Fins', 'eqp_boots': 'Boots', 'eqp_wetsuit': 'Wetsuit', 'eqp_hood': 'Hood', 'eqp_gloves': 'Gloves', 'eqp_bcd': 'BCD (jacket)', 'eqp_regulator': 'Regulator (with octopus and gauge)', 'eqp_computer': 'Dive computer', 'eqp_torch': 'Torch', 'eqp_smb': 'Surface marker buoy'},
+    'fr': {'eqp_mask': 'Masque', 'eqp_fins': 'Palmes', 'eqp_boots': 'Chaussons', 'eqp_wetsuit': 'Combinaison', 'eqp_hood': 'Cagoule', 'eqp_gloves': 'Gants', 'eqp_bcd': 'Gilet (stab)', 'eqp_regulator': 'Détendeur (avec octopus et manomètre)', 'eqp_computer': 'Ordinateur de plongée', 'eqp_torch': 'Lampe', 'eqp_smb': 'Parachute de palier'},
+    'de': {'eqp_mask': 'Maske', 'eqp_fins': 'Flossen', 'eqp_boots': 'Füßlinge', 'eqp_wetsuit': 'Tauchanzug', 'eqp_hood': 'Kopfhaube', 'eqp_gloves': 'Handschuhe', 'eqp_bcd': 'Jacket (Tarierweste)', 'eqp_regulator': 'Atemregler (mit Oktopus und Finimeter)', 'eqp_computer': 'Tauchcomputer', 'eqp_torch': 'Lampe', 'eqp_smb': 'Boje'},
+    'it': {'eqp_mask': 'Maschera', 'eqp_fins': 'Pinne', 'eqp_boots': 'Calzari', 'eqp_wetsuit': 'Muta', 'eqp_hood': 'Cappuccio', 'eqp_gloves': 'Guanti', 'eqp_bcd': 'Jacket (GAV)', 'eqp_regulator': 'Erogatore (con octopus e manometro)', 'eqp_computer': 'Computer subacqueo', 'eqp_torch': 'Torcia', 'eqp_smb': 'Pedagno'},
+    'pt': {'eqp_mask': 'Máscara', 'eqp_fins': 'Barbatanas', 'eqp_boots': 'Botas', 'eqp_wetsuit': 'Fato de mergulho', 'eqp_hood': 'Capuz', 'eqp_gloves': 'Luvas', 'eqp_bcd': 'Colete (BCD)', 'eqp_regulator': 'Regulador (com octopus e manómetro)', 'eqp_computer': 'Computador de mergulho', 'eqp_torch': 'Lanterna', 'eqp_smb': 'Boia de superfície'},
+    'pl': {'eqp_mask': 'Maska', 'eqp_fins': 'Płetwy', 'eqp_boots': 'Buty', 'eqp_wetsuit': 'Pianka', 'eqp_hood': 'Kaptur', 'eqp_gloves': 'Rękawice', 'eqp_bcd': 'Jacket (BCD)', 'eqp_regulator': 'Automat (z octopusem i manometrem)', 'eqp_computer': 'Komputer nurkowy', 'eqp_torch': 'Latarka', 'eqp_smb': 'Boja dekompresyjna'},
+    'nl': {'eqp_mask': 'Duikbril', 'eqp_fins': 'Vinnen', 'eqp_boots': 'Duiklaarsjes', 'eqp_wetsuit': 'Duikpak', 'eqp_hood': 'Kap', 'eqp_gloves': 'Handschoenen', 'eqp_bcd': 'Trimvest (jacket)', 'eqp_regulator': 'Ademautomaat (met octopus en manometer)', 'eqp_computer': 'Duikcomputer', 'eqp_torch': 'Lamp', 'eqp_smb': 'Oppervlakteboei'},
+    'zh': {'eqp_mask': '面镜', 'eqp_fins': '脚蹼', 'eqp_boots': '潜水靴', 'eqp_wetsuit': '潜水服', 'eqp_hood': '头套', 'eqp_gloves': '手套', 'eqp_bcd': '浮力背心（BCD）', 'eqp_regulator': '调节器（含备用二级头和压力表）', 'eqp_computer': '潜水电脑表', 'eqp_torch': '潜水灯', 'eqp_smb': '水面标志浮标'},
+}
+ES.update(EQP['es'])
+for _l, _d in EQP.items():
+    if _l != 'es': T[_l].update(_d)
+
+
 def texts(lang: str) -> dict:
     """The texts of one language (Spanish for anything missing, never an empty label)."""
     return {**ES, **T.get(lang if lang in T else 'es', {})}

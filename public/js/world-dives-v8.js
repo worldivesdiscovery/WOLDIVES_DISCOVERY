@@ -2689,7 +2689,18 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     bcd:'<path d="M7 4h10l2 4v10l-3 2H8l-3-2V8z"/><path d="M9 4v16M15 4v16"/>',
     tank:'<rect x="8" y="6" width="8" height="15" rx="4"/><path d="M10 6V3h4v3M12 3h4"/>',
     computer:'<rect x="6" y="5" width="12" height="14" rx="3"/><path d="M9 10h6M9 14h4M6 9H3M6 15H3"/>',
-    full_kit:'<path d="M4 8h16l-1 12H5z"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/>'};
+    full_kit:'<path d="M4 8h16l-1 12H5z"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/>',
+    // v50.58 (16/10): the rest of the list and the icons of a centre's own pieces
+    boots:'<path d="M8 3h5v9l6 3v4H6l-1-4 3-3z"/>',
+    hood:'<path d="M6 20v-8a6 6 0 0 1 12 0v8"/><path d="M9 20v-5a3 3 0 0 1 6 0v5"/>',
+    gloves:'<path d="M8 21v-7l-3-4 1.5-1.5L9 11V4a1 1 0 0 1 2 0v6V3a1 1 0 0 1 2 0v7V4a1 1 0 0 1 2 0v7l1-3a1 1 0 0 1 2 .5L17 14v7z"/>',
+    torch:'<path d="M9 3h6v5l-2 3v10h-2V11L9 8z"/><path d="M12 13v2"/>',
+    smb:'<path d="M10 21V7a2 2 0 0 1 4 0v14"/><path d="M10 7l2-4 2 4M8 21h8"/>',
+    camera:'<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13" r="4"/><path d="M8 7l2-3h4l2 3"/>',
+    knife:'<path d="M4 20 15 9l3 3-6 6z"/><path d="M15 9l4-5 1 1-2 6"/>',
+    scooter:'<rect x="4" y="9" width="14" height="6" rx="3"/><path d="M18 12h3M7 15v3M15 15v3"/>',
+    tag:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
+    bag:'<path d="M4 8h16l-1 12H5z"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/>'};
   const bkEquipIcon=code=>`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${BK_EQUIP_ICONS[code]||BK_EQUIP_ICONS.full_kit}</svg>`;
   // What each booking mode means for the diver (v50.32).
   const bkModeText=(s,online)=>s.booking_mode==='payment'
@@ -2894,7 +2905,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const extras=xR.status==='fulfilled'?xR.value.items||[]:[];
     const hasNitroxExtra=extras.some(x=>/nitrox/i.test(x.name));
     // Selection state (restored from a draft when the diver had to sign in first)
-    const st={service:0,point:0,date:'',slot:0,pax:1,rent:false,qty:{},extras:new Set(),nitrox:false,guide:false,pickup:false,sizes:'',notes:'',guideNotes:''};
+    const st={service:0,point:0,date:'',slot:0,pax:1,eq:eqValue(1),extras:new Set(),nitrox:false,guide:false,pickup:false,notes:'',guideNotes:''};   // v50.58: eq = the pieces of each diver
     try{ const dr=JSON.parse(sessionStorage.getItem('wd_booking_draft')||'null'); if(dr&&Number(dr.center)===cid){ Object.assign(st,dr.st,{extras:new Set(dr.st.extras||[])}); sessionStorage.removeItem('wd_booking_draft'); } }catch{}
     if(params.get('service')) st.service=Number(params.get('service'));
     if(params.get('slot')) st.slot=Number(params.get('slot'));
@@ -2921,11 +2932,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             <div class="bk-points" id="bk-points"></div><div class="bk-dates-wrap"><button type="button" class="bk-scroll" data-dir="-1" aria-label="Fechas anteriores">‹</button><div class="bk-dates" id="bk-dates"></div><button type="button" class="bk-scroll" data-dir="1" aria-label="Más fechas">›</button></div><div class="bk-times" id="bk-times"></div></section>
           <section class="bk-step" data-step="3"><header><span class="bk-num">3</span><div><h2>Buceadores</h2><p id="bk-pax-hint">¿Cuántas personas venís?</p></div></header>
             <div class="bk-pax"><button type="button" class="bk-pax-btn" data-d="-1" aria-label="Una persona menos">−</button><output id="bk-pax" aria-live="polite">1</output><button type="button" class="bk-pax-btn" data-d="1" aria-label="Una persona más">+</button><span id="bk-pax-label">persona</span></div></section>
-          <section class="bk-step" data-step="4"><header><span class="bk-num">4</span><div><h2>Equipo</h2><p>${equipment.length?'Precio por unidad. Indica cuántas necesitáis de cada pieza.':'Este centro no alquila equipo por piezas: consulta con ellos si lo necesitas.'}</p></div></header>
-            ${equipment.length?`<div class="bk-seg" role="radiogroup" aria-label="Equipo"><button type="button" data-rent="0" role="radio">Llevamos nuestro equipo</button><button type="button" data-rent="1" role="radio">Necesito alquilar</button></div>
-            <div class="bk-equip" id="bk-equip">${equipment.map(e=>`<div class="bk-item" data-code="${esc(e.code)}"><span class="bk-item-icon">${bkEquipIcon(e.code)}</span><span class="bk-item-txt"><strong>${esc(e.label)}</strong><small>${wdMoney(e.price)} / unidad</small></span><span class="bk-qty"><button type="button" data-q="-1" aria-label="Quitar ${esc(e.label)}">−</button><output>0</output><button type="button" data-q="1" aria-label="Añadir ${esc(e.label)}">+</button></span></div>`).join('')}</div>
-            <label class="bk-field bk-sizes" id="bk-sizes-wrap"><span>Tallas y medidas</span><input id="bk-sizes" maxlength="300" placeholder="Ej.: neopreno M y L · aletas 40 y 43 · 1,75 m / 70 kg"></label>`:''}
-          </section>
+          <section class="bk-step" data-step="4"><header><span class="bk-num">4</span><div><h2>Equipo</h2><p id="bk-eq-hint">Elige primero la actividad.</p></div></header><div id="bk-eq"></div></section>
           <section class="bk-step" data-step="5"><header><span class="bk-num">5</span><div><h2>Extras y peticiones</h2><p>Opcional.</p></div></header>
             ${extras.length?`<div class="bk-extras">${extras.map(x=>`<button type="button" class="bk-extra" data-id="${x.id}" aria-pressed="false"><span class="bk-check" aria-hidden="true"></span><span><strong>${esc(x.name)}</strong>${x.description?`<small>${esc(x.description)}</small>`:''}</span><em>${wdMoney(x.price)}<small>/ persona</small></em></button>`).join('')}</div>`:''}
             <div class="bk-toggles">${hasNitroxExtra?'':`<label class="bk-toggle"><input type="checkbox" id="bk-nitrox"><span></span>Quiero bucear con nitrox <small>El centro te indica el precio</small></label>`}<label class="bk-toggle"><input type="checkbox" id="bk-guide"><span></span>Necesito un guía o instructor dedicado</label><label class="bk-toggle"><input type="checkbox" id="bk-pickup"><span></span>Necesito recogida o traslado</label></div>
@@ -2963,12 +2970,20 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const sc=strip.querySelector('.is-on'); if(sc) sc.scrollIntoView({block:'nearest',inline:'center'}); };
     const drawPax=()=>{ st.pax=Math.max(1,Math.min(maxPax(),st.pax)); $('#bk-pax').textContent=st.pax; $('#bk-pax-label').textContent=st.pax===1?'persona':'personas';
       const sl=slotObj(), s=svc(); $('#bk-pax-hint').textContent=sl?`Quedan ${sl.spots_available} plazas en esta salida${s?.max_participants?` · máximo ${s.max_participants} por reserva`:''}.`:'¿Cuántas personas venís?';
-      $$('.bk-pax-btn').forEach(b=>b.disabled=(b.dataset.d==='-1'&&st.pax<=1)||(b.dataset.d==='1'&&st.pax>=maxPax()));
-      Object.keys(st.qty).forEach(k=>{ if(st.qty[k]>st.pax) st.qty[k]=st.pax; }); };
-    const drawEquip=()=>{ if(!equipment.length) return; $$('.bk-seg button').forEach(b=>{ const on=(b.dataset.rent==='1')===st.rent; b.setAttribute('aria-checked',String(on)); b.classList.toggle('is-on',on); });
-      $('#bk-equip').hidden=!st.rent; $('#bk-sizes-wrap').hidden=!st.rent;
-      $$('#bk-equip .bk-item').forEach(it=>{ const q=st.qty[it.dataset.code]||0; it.querySelector('output').textContent=q; it.classList.toggle('is-on',q>0); it.querySelector('[data-q="-1"]').disabled=q<=0; it.querySelector('[data-q="1"]').disabled=q>=st.pax; }); };
-    const equipCodes=()=>st.rent?Object.entries(st.qty).filter(([,q])=>q>0).map(([c,q])=>`${c}:${q}`):[];
+      $$('.bk-pax-btn').forEach(b=>b.disabled=(b.dataset.d==='-1'&&st.pax<=1)||(b.dataset.d==='1'&&st.pax>=maxPax())); };
+    // v50.58 (16/10): the rental is an extra of the dive, for each diver with his sizes; tank and weights are included.
+    let eqPicker=null, eqMemory={};
+    const eqNames=()=>Array.from({length:st.pax},(_,i)=>i===0?translateString('Tú'):translateString('Buceador {n}').replace('{n}',i+1));
+    if(state.me?.user) api('/api/equipment/my-sizes?'+(cid?'center_id='+cid:'provider_id='+providerId)).then(r=>{ eqMemory=r.sizes||{}; }).catch(()=>{});
+    const drawEquip=()=>{ const s=svc(), box=$('#bk-eq'), hint=$('#bk-eq-hint'); const r=s?.rental;
+      if(!s){ hint.textContent=translateString('Elige primero la actividad.'); box.innerHTML=''; eqPicker=null; return; }
+      if(!r||r.mode!=='offer'||!(r.pieces||[]).length){ eqPicker=null; st.eq.rent=false;
+        hint.textContent=translateString(r?.mode==='included'?'Equipo incluido en el precio.':'Este servicio no incluye alquiler de equipo: consulta con el centro si lo necesitas.');
+        box.innerHTML=`<p class="eq-included">${wdIcon('check',15)} ${esc(translateString('Incluido: botella y plomos'))}</p>`; translateTree(box); return; }
+      hint.textContent=translateString('Marca solo lo que necesitéis. El precio se suma al momento.');
+      eqPicker=wdEquipPicker(box,{pieces:r.pieces,kit:r.kit,pax:st.pax,names:eqNames(),stock:quote?.equipment?.stock,memory:eqMemory,value:st.eq,
+        kitNotice:eqKitNotice(),onChange:(v,typing)=>{ if(!typing) refreshQuote(); }}); };
+    const eqKitNotice=()=>(quote?.equipment?.kit_broken||[]).includes(st.eq.tab)&&st.eq.rent?translateString('Has quitado una pieza del equipo completo: ahora se cobra por piezas. Nuevo importe: {t}.').replace('{t}',wdMoney(quote.total,quote.currency)):'';
     let quote=null, qSeq=0, qTimer=0;
     // v50.56 (seguros): the diver's policies, to say at once whether they cover the day of the dive.
     let insData=null; if(state.me?.user) api('/api/insurance?lang='+currentLanguage()).then(d=>{ insData=d; if(alive()) drawSummary(); }).catch(()=>{});
@@ -2997,7 +3012,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           ${sl&&(sl.points||[]).length?`<div><dt>Punto</dt><dd>${esc(sl.points.map(p=>p.name).join(' · '))}</dd></div>`:''}
           <div><dt>Buceadores</dt><dd>${st.pax}</dd></div>
         </dl>
-        ${lines.length&&ready?`<table class="bk-lines">${lines.map(l=>`<tr><td>${esc(l.label)}<small>${l.qty} × ${wdMoney(l.unit,quote.currency)}</small></td><td>${wdMoney(l.total,quote.currency)}</td></tr>`).join('')}</table>`:''}
+        ${lines.length&&ready?`<table class="bk-lines">${lines.map(l=>`<tr><td>${esc(l.label)}<small>${l.qty} × ${wdMoney(l.unit,quote.currency)}</small></td><td>${wdMoney(l.total,quote.currency)}</td></tr>`).join('')}</table>
+          ${lines.some(l=>l.kind==='equipment')?`<p class="bk-sum-line">${lines.map(l=>`${esc(l.label)} ${wdMoney(l.total,quote.currency)}`).join(' + ')} = <b>${wdMoney(total,quote.currency)}</b></p>`:''}`:''}
         <div class="bk-total"><span>Total</span><strong>${ready&&quote?wdMoney(total,quote.currency):'—'}</strong></div>
         ${ready&&dep>0&&online?`<div class="bk-deposit"><span>${payMode?'Señal que pagas ahora':'Señal online si el centro acepta'}</span><b>${wdMoney(dep,quote.currency)}</b><span>Resto a pagar en el centro</span><b>${wdMoney(quote.due_at_center,quote.currency)}</b></div>`:''}
         ${insNote(s,sl)}
@@ -3014,8 +3030,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       $('#bk-summary [data-ins-buy-day]')?.addEventListener('click',()=>openInsuranceOffers({kind:'dia',country:center.country||''}));
       const ack=$('#bk-ip-ack'); if(ack) ack.onchange=()=>{ st.ipAck=ack.checked; }; };
     const refreshQuote=()=>{ clearTimeout(qTimer); qTimer=setTimeout(async()=>{ const s=svc(); if(!s){ quote=null; drawSummary(); return; } const my=++qSeq;
-      const q=new URLSearchParams({center_id:String(cid||0),service_id:String(s.id),slot_id:String(st.slot||0),participants:String(st.pax),extras:[...st.extras].join(','),equipment:equipCodes().join(',')});
-      try{ const r=await api('/api/booking-quote?'+q); if(my!==qSeq||!alive()) return; quote=r; }catch{ quote=null; } drawSummary(); },120); };
+      const q=new URLSearchParams({center_id:String(cid||0),service_id:String(s.id),slot_id:String(st.slot||0),participants:String(st.pax),extras:[...st.extras].join(',')});
+      if(st.eq.rent&&eqPicker) q.set('equipment_sel',JSON.stringify(eqPayload(st.eq)));
+      try{ const r=await api('/api/booking-quote?'+q); if(my!==qSeq||!alive()) return; quote=r; }catch{ quote=null; } drawSummary(); eqPicker?.redraw({stock:quote?.equipment?.stock,kitNotice:eqKitNotice()}); },120); };
     // v50.53: the chosen activity at the head of the page, with its photo and its whole name (the cards cut it at two lines).
     const drawHead=()=>{ const s=svc(), box=$('#bk-svc-head'); if(!box) return;
       box.innerHTML=s?wdServiceCard(s,{kicker:wdServiceKicker(s,(SERVICE_TYPES.find(x=>x.value===s.service_type)||{}).label),meta:wdModeTag(s),desc:s.description,heading:'h2',cls:'is-head',eager:true,
@@ -3024,21 +3041,20 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // ---- events
     root.addEventListener('click',e=>{ const t=e.target.closest('button'); if(!t||!root.contains(t)) return;
       if(t.matches('.bk-svc')&&['day','half_day'].includes(services.find(s=>s.id===+t.dataset.id)?.booking_unit)){ wdGo('#/reservar-dias?service='+t.dataset.id); return; }
-      if(t.matches('.bk-svc')){ st.service=+t.dataset.id; st.slot=0; st.date=''; st.point=0; redraw(); if(window.innerWidth<900) $('[data-step="2"]').scrollIntoView({behavior:'smooth',block:'start'}); return; }
+      if(t.matches('.bk-svc')){ if(st.service!==+t.dataset.id) st.eq=eqValue(st.pax); st.service=+t.dataset.id; st.slot=0; st.date=''; st.point=0; redraw(); if(window.innerWidth<900) $('[data-step="2"]').scrollIntoView({behavior:'smooth',block:'start'}); return; }
       if(t.matches('#bk-points .cd-chip')){ st.point=+t.dataset.point; st.slot=0; st.date=''; redraw(); return; }
       if(t.matches('.bk-date')){ st.date=t.dataset.date; st.slot=0; redraw(); return; }
       if(t.matches('.bk-time')){ st.slot=+t.dataset.slot; redraw(); return; }
       if(t.matches('.bk-scroll')){ $('#bk-dates').scrollBy({left:Number(t.dataset.dir)*320,behavior:'smooth'}); return; }
       if(t.matches('.bk-pax-btn')){ st.pax+=Number(t.dataset.d); drawPax(); drawEquip(); drawSummary(); refreshQuote(); return; }
-      if(t.matches('.bk-seg button')){ st.rent=t.dataset.rent==='1'; drawEquip(); refreshQuote(); return; }
-      if(t.closest('.bk-qty')){ const code=t.closest('.bk-item').dataset.code; st.qty[code]=Math.max(0,Math.min(st.pax,(st.qty[code]||0)+Number(t.dataset.q))); drawEquip(); refreshQuote(); return; }
       if(t.matches('.bk-extra')){ const id=+t.dataset.id; st.extras.has(id)?st.extras.delete(id):st.extras.add(id); t.setAttribute('aria-pressed',String(st.extras.has(id))); refreshQuote(); return; }
       if(t.matches('#bk-bar-go')){ if(slotObj()) submit(); else $(`[data-step="${svc()?2:1}"]`).scrollIntoView({behavior:'smooth',block:'start'}); return; }
     });
-    const syncInputs=()=>{ st.nitrox=!!$('#bk-nitrox')?.checked; st.guide=$('#bk-guide').checked; st.pickup=$('#bk-pickup').checked; st.notes=$('#bk-notes').value; st.sizes=$('#bk-sizes')?.value||''; st.guideNotes=$('#bk-guide-notes').value; $('#bk-guide-wrap').hidden=!st.guide; };
+    const syncInputs=()=>{ st.nitrox=!!$('#bk-nitrox')?.checked; st.guide=$('#bk-guide').checked; st.pickup=$('#bk-pickup').checked; st.notes=$('#bk-notes').value; st.guideNotes=$('#bk-guide-notes').value; $('#bk-guide-wrap').hidden=!st.guide; };
     root.addEventListener('input',syncInputs); root.addEventListener('change',syncInputs);
     // restore draft inputs
-    if($('#bk-nitrox')) $('#bk-nitrox').checked=st.nitrox; $('#bk-guide').checked=st.guide; $('#bk-pickup').checked=st.pickup; $('#bk-notes').value=st.notes; if($('#bk-sizes')) $('#bk-sizes').value=st.sizes; $('#bk-guide-notes').value=st.guideNotes; $('#bk-guide-wrap').hidden=!st.guide;
+    if($('#bk-nitrox')) $('#bk-nitrox').checked=st.nitrox; $('#bk-guide').checked=st.guide; $('#bk-pickup').checked=st.pickup; $('#bk-notes').value=st.notes; $('#bk-guide-notes').value=st.guideNotes; $('#bk-guide-wrap').hidden=!st.guide;
+    if(!st.eq||!Array.isArray(st.eq.divers)) st.eq=eqValue(st.pax);   // a draft from before v50.58
     $$('.bk-extra').forEach(b=>b.setAttribute('aria-pressed',String(st.extras.has(+b.dataset.id))));
     let sending=false; const bkKey='bk-'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);   // v50.56: idempotency
     async function submit(){ if(sending) return; const s=svc(), sl=slotObj(); if(!s||!sl){ toast(s?'Elige la fecha y la hora.':'Elige una actividad.'); return; }
@@ -3046,11 +3062,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(!state.me){ try{ sessionStorage.setItem('wd_booking_draft',JSON.stringify({center:cid,st:{...st,extras:[...st.extras]}})); }catch{} toast('Inicia sesión o crea tu cuenta para terminar la reserva. Guardamos lo que has elegido.'); wdGo('#/login?next='+encodeURIComponent(`#/reservar?center=${cid}&service=${s.id}&slot=${sl.id}`)); return; }
       if(st.pax>Number(sl.spots_available)){ toast(`Solo quedan ${sl.spots_available} plazas en esta salida.`); return; }
       if(wdInPerson(s)&&!st.ipAck){ toast('Marca la casilla del aviso: este profesional cobra directamente, no a través de WORLDIVES.'); $('#bk-ip-ack')?.focus(); return; }
-      const codes=equipCodes(); const items=st.rent?equipment.filter(e=>st.qty[e.code]>0).map(e=>`${e.label} ×${st.qty[e.code]}`).join(', '):'';
+      const eqMiss=eqPicker?eqMissing(st.eq,s.rental.pieces,eqNames()):null;
+      if(eqMiss){ st.eq.tab=eqMiss.diver; eqPicker.redraw(); toast(eqMiss.text); $('[data-step="4"]').scrollIntoView({behavior:'smooth',block:'start'}); return; }
       const point=(sl.points||[]).find(p=>Number(p.id)===st.point)||(sl.points||[])[0]||null;
       sending=true; $$('.bk-go').forEach(b=>{ b.disabled=true; b.dataset.label=b.textContent; b.textContent='Reservando…'; });
       try{ const created=await postJSON('/api/bookings',{...wdWaConsent(),...wdAppPay(),center_id:cid||null,service_id:s.id,slot_id:sl.id,dive_point_id:point?Number(point.id):null,dive_point_name:point?.name||'',booking_date:sl.slot_date,booking_time:sl.slot_time,participants:st.pax,
-          needs_equipment:codes.length>0,equipment_items:items,equipment_codes:codes,equipment_notes:st.sizes,extra_ids:[...st.extras],needs_guide:st.guide,guide_notes:st.guideNotes,nitrox:st.nitrox,pickup:st.pickup,notes:st.notes,in_person_ack:wdInPerson(s)&&!!st.ipAck,
+          equipment:eqPicker?eqPayload(st.eq):[],equipment_notes:st.eq.rent?st.eq.note:'',extra_ids:[...st.extras],needs_guide:st.guide,guide_notes:st.guideNotes,nitrox:st.nitrox,pickup:st.pickup,notes:st.notes,in_person_ack:wdInPerson(s)&&!!st.ipAck,
           idempotency_key:`${bkKey}-${s.id}-${sl.id}-${st.pax}`});
         if(created.status==='insurance_pending'){ toast('Este servicio exige un seguro de buceo para ese día. Súbelo para terminar la reserva: guardamos tus plazas.'); wdGo('#/seguro?reserva='+created.id); return; }
         if(created.checkout_url){ $$('.bk-go').forEach(b=>{ b.textContent='Abriendo el pago seguro…'; }); wdOpenCheckout(created.checkout_url); return; }
@@ -3260,14 +3277,15 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const docRows=docs.map(doc=>`<div class="doc-card"><div><strong>${escapeHtml(doc.title)}</strong><div style="font-size:12px;color:var(--muted)">${escapeHtml(doc.document_type)}${doc.expires_at?' · vence '+escapeHtml(doc.expires_at):''}</div></div><a class="btn" href="/api/documents/file/${doc.id}" target="_blank" rel="noopener">Abrir</a></div>`).join('');
       setApp(`<section class="page diver-sheet-page"><div class="breadcrumb"><a href="#/admin?tab=bookings">Reservas</a> / Ficha del buceador</div><p class="eyebrow">FICHA OPERATIVA · USO INTERNO</p><div class="diver-sheet-head"><div><h1>${escapeHtml(b.fullname)}</h1><p class="lead">Documentación y datos operativos del buceador.</p></div><div class="page-actions">${wdCan('cobros')||wdCan('reservas')?`<a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Justificante PDF + QR</a>`:''}${d.data_shared?`<a class="btn btn-primary" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a>`:''}<button class="btn" type="button" id="center-notice">Enviar aviso al cliente</button>${Number(b.refundable||0)>0?'<button class="btn" type="button" id="center-refund">Devolver</button>':''}${['requested','confirmed','accepted_pending_payment'].includes(b.status)&&b.service_id?'<button class="btn" type="button" id="center-reschedule">Cambiar fecha u hora</button>':''}${['confirmed','accepted_pending_payment'].includes(b.status)?'<button class="btn danger" type="button" id="center-cancel">Cancelar reserva</button>':''}</div></div>
       ${wdInPerson(b)?inPersonBookingCard(b,false)+proMarkCard(b):wdCan('cobros')||wdCan('reservas')?bookingPaymentCard(b,d.payment||null,{own:false,canPay:false}):''}
-      <div id="bk-change"></div><div id="bk-waiver"></div><div id="bk-insurance"></div>
+      <div id="bk-equip-card"></div><div id="bk-change"></div><div id="bk-waiver"></div><div id="bk-insurance"></div>
       <div class="bk-state-bar">${wdStatus(b.status,b.status_label)}<span class="wd-mode">${escapeHtml(b.mode_label||'')}</span>${b.status==='requested'&&b.response_deadline?`<span class="acc-due">${wdIcon('clock',13)} Responde antes del ${escapeHtml(wdDeadline(b.response_deadline))}</span>`:''}${b.status==='accepted_pending_payment'&&b.payment_deadline?`<span class="acc-due">${wdIcon('clock',13)} El cliente paga antes del ${escapeHtml(wdDeadline(b.payment_deadline))}</span>`:''}
         ${b.status==='requested'?`<button class="btn btn-primary" type="button" id="center-confirm-booking">Aceptar</button><button class="btn danger" type="button" id="center-reject-booking">Rechazar</button>`:''}</div>
       ${b.check_url?`<aside class="reservation-qr bk-qr-center">${bkQR(b,id)}<div><strong>QR de la reserva</strong><small>El buceador lo enseña al llegar. Escanéalo con «Check-in / QR» o con la app WORLDIVES PRO.</small>${b.check_code?`<code class="bk-code">${escapeHtml(b.check_code)}</code><small>Si no se puede escanear, escribe este código.</small>`:''}</div></aside>`:''}
       ${d.data_shared?'':'<div class="notice warn"><strong>Ficha no compartida.</strong> Este cliente no ha reservado él mismo con tu centro ni ha compartido sus datos (por ejemplo, haciendo check-in con tu QR). Solo ves los datos de la reserva.</div>'}<div class="detail" style="margin-top:22px"><article class="detail-main"><section class="reservation-pass-section"><p class="eyebrow">DATOS DEL BUCEADOR</p><div class="data-grid"><div class="data-item"><span>Nombre</span><strong>${escapeHtml(b.fullname)}</strong></div><div class="data-item"><span>Teléfono</span><strong>${p.phone?`<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Email</span><strong>${escapeHtml(b.email||'—')}</strong></div><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(p.city||'—')}</strong></div><div class="data-item"><span>Titulación</span><strong>${escapeHtml(p.certification_name||'No indicada')}</strong></div><div class="data-item"><span>Contacto de emergencia</span><strong>${escapeHtml([p.emergency_contact_name,p.emergency_contact_phone].filter(Boolean).join(' · ')||'—')}</strong></div></div></section><section class="reservation-pass-section"><p class="eyebrow">EQUIPO Y PREFERENCIAS</p><div class="data-grid"><div class="data-item"><span>Necesita equipo</span><strong>${p.equipment_required?'Sí':'No'}</strong></div><div class="data-item"><span>Traje / talla</span><strong>${escapeHtml([p.suit_type,p.suit_size].filter(Boolean).join(' · ')||'—')}</strong></div><div class="data-item"><span>Botas</span><strong>${escapeHtml(p.boot_size||'—')}</strong></div><div class="data-item"><span>Chaleco</span><strong>${escapeHtml(p.bcd_size||'—')}</strong></div><div class="data-item"><span>Aletas</span><strong>${escapeHtml(p.fin_size||'—')}</strong></div><div class="data-item"><span>Máscara</span><strong>${escapeHtml(p.mask_size||'—')}</strong></div><div class="data-item"><span>Botella</span><strong>${escapeHtml(p.tank_preference||'—')}</strong></div><div class="data-item"><span>Ordenador</span><strong>${escapeHtml(p.computer_preference||'—')}</strong></div><div class="data-item"><span>Peso habitual</span><strong>${p.usual_weight_kg?escapeHtml(String(p.usual_weight_kg))+' kg':'—'}</strong></div></div>${p.equipment_notes?`<div class="notice" style="margin-top:14px"><strong>Notas de equipo</strong><br>${escapeHtml(p.equipment_notes)}</div>`:''}</section><section class="reservation-pass-section"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><p class="eyebrow">DOCUMENTACIÓN</p><h2>Documentación del buceador</h2></div><a class="btn" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">PDF</a></div>${docRows||'<div class="empty" style="margin-top:12px">El buceador todavía no ha aportado documentación.</div>'}</section></article><aside class="detail-side"><div class="notice"><strong>Ficha interna del centro</strong><p style="margin:8px 0 0">Esta pantalla no modifica la reserva. La confirmación, pago y estado se gestionan desde la pantalla de reservas.</p></div><a class="btn" style="margin-top:12px;width:100%" href="#/admin?tab=bookings">← Volver a reservas</a></aside></div></section>`);
-      bindCenterBookingActions(b,id,()=>renderBookingDetail(new URLSearchParams('id='+id))); bindProMark(b,id,()=>renderBookingDetail(new URLSearchParams('id='+id))); mountWaiverCard(id,true); mountCenterChange(id); mountCenterInsurance(id,b,b.insurance_view); return;
+      bindCenterBookingActions(b,id,()=>renderBookingDetail(new URLSearchParams('id='+id))); bindProMark(b,id,()=>renderBookingDetail(new URLSearchParams('id='+id))); mountWaiverCard(id,true); mountCenterChange(id); mountCenterInsurance(id,b,b.insurance_view);
+      mountBookingEquipment(id,{center:true,onChange:()=>renderBookingDetail(new URLSearchParams('id='+id))}); return;
     }
-    const payBox=(wdInPerson(b)?inPersonBookingCard(b,own):bookingPaymentCard(b,payRec,{own,canPay,cancelled:params?.get?.('pago')==='cancelado'}))+(own?'<div id="bk-change"></div><div id="bk-waiver"></div>'+bookingReviewPrompt(b)+bookingCancelCard(b):'');
+    const payBox=(wdInPerson(b)?inPersonBookingCard(b,own):bookingPaymentCard(b,payRec,{own,canPay,cancelled:params?.get?.('pago')==='cancelado'}))+(own?'<div id="bk-equip-card"></div><div id="bk-change"></div><div id="bk-waiver"></div>'+bookingReviewPrompt(b)+bookingCancelCard(b):'');
     const customerPanel=centerView?`<section class="reservation-pass-section"><p class="eyebrow">FICHA OPERATIVA DEL BUCEADOR</p><h2>${escapeHtml(b.fullname)}</h2><div class="data-grid"><div class="data-item"><span>Email</span><strong>${escapeHtml(b.email||'—')}</strong></div><div class="data-item"><span>Teléfono</span><strong>${p.phone?`<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(p.city||'—')}</strong></div><div class="data-item"><span>Titulación</span><strong>${escapeHtml(p.certification_name||'No indicada')}</strong></div><div class="data-item"><span>Seguro / documentación</span><strong>${docs.length?`${docs.length} documento(s) disponible(s)`:'No aportada'}</strong></div><div class="data-item"><span>Necesita equipo</span><strong>${p.equipment_required?'Sí':'No'}</strong></div><div class="data-item"><span>Traje / talla</span><strong>${escapeHtml([p.suit_type,p.suit_size].filter(Boolean).join(' · ')||'—')}</strong></div><div class="data-item"><span>Botas</span><strong>${escapeHtml(p.boot_size||'—')}</strong></div><div class="data-item"><span>Chaleco</span><strong>${escapeHtml(p.bcd_size||'—')}</strong></div><div class="data-item"><span>Aletas</span><strong>${escapeHtml(p.fin_size||'—')}</strong></div><div class="data-item"><span>Máscara</span><strong>${escapeHtml(p.mask_size||'—')}</strong></div><div class="data-item"><span>Botella</span><strong>${escapeHtml(p.tank_preference||'—')}</strong></div><div class="data-item"><span>Ordenador</span><strong>${escapeHtml(p.computer_preference||'—')}</strong></div><div class="data-item"><span>Peso habitual</span><strong>${p.usual_weight_kg?escapeHtml(String(p.usual_weight_kg))+' kg':'—'}</strong></div></div>${p.equipment_notes?`<div class="notice" style="margin-top:14px"><strong>Notas de equipo</strong><br>${escapeHtml(p.equipment_notes)}</div>`:''}<div style="margin-top:18px"><h3 style="margin-bottom:8px">Documentación disponible</h3>${docs.map(doc=>`<div class="doc-card"><div><strong>${escapeHtml(doc.title)}</strong><div style="font-size:12px;color:var(--muted)">${escapeHtml(doc.document_type)}${doc.expires_at?' · vence '+escapeHtml(doc.expires_at):''}</div></div><a class="btn" href="/api/documents/file/${doc.id}" target="_blank" rel="noopener">Abrir</a></div>`).join('')||'<div class="empty">El buceador todavía no ha aportado documentación.</div>'}</div></section>`:'';
     const customerNotes=centerView?`<div class="notice"><strong>Información proporcionada por el buceador</strong><br>${escapeHtml(b.notes||'Sin notas adicionales.')}</div>`:(b.notes?`<div class="notice"><strong>Tus notas para el centro</strong><br>${escapeHtml(b.notes)}</div>`:'');
     const passActions=centerView?`<div class="page-actions"><a class="btn" href="#/admin?tab=bookings">Volver a reservas</a><a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Recibo PDF + QR</a><a class="btn" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a>${(b.status==='requested'||b.status==='pending')?`<button class="btn btn-primary" id="center-confirm-booking">Confirmar reserva</button><button class="btn danger" id="center-reject-booking">Rechazar</button>`:''}</div>`:`<aside class="reservation-qr">${bkQR(b,id)}<strong>Presenta este QR</strong><small>El centro puede escanearlo para verificar la reserva.</small>${b.check_code?`<code class="bk-code">${escapeHtml(b.check_code)}</code><small>Si no se puede escanear, dicta este código.</small>`:''}<a class="btn btn-primary" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Descargar esta reserva en PDF</a></aside>`;
@@ -3275,7 +3293,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             // a discount has no unit price, only its amount (it showed «1 × 0.00 €»)
             return ls.length>1?`<small class="booking-price-lines">${ls.map(l=>`${escapeHtml(l.label)}: ${l.unit==null?m(l.total):`${l.qty} × ${m(l.unit)}`}`).join('<br>')}</small>`:'';})()}</div><div class="data-item"><span>Pago</span><strong>${wdInPerson(b)?escapeHtml(translateString('Pago en persona al profesional')):Number(b.price||0)>0?wdPayment(b.payment_status):'Sin coste'}</strong></div><div class="data-item"><span>Modo de reserva</span><strong>${escapeHtml(b.mode_label||'')}</strong></div><div class="data-item"><span>Equipo solicitado</span><strong>${b.needs_equipment?'Sí':'No'}${b.equipment_items?' · '+escapeHtml(b.equipment_items):''}</strong></div><div class="data-item"><span>Guía</span><strong>${b.needs_guide?'Sí':'No'}${b.guide_notes?' · '+escapeHtml(b.guide_notes):''}</strong></div><div class="data-item"><span>Nitrox</span><strong>${b.nitrox?'Sí':'No'}</strong></div><div class="data-item"><span>Traslado</span><strong>${b.pickup?'Sí':'No'}</strong></div></div></div>${passActions}</div>${centerView?customerNotes:`<div class="reservation-pass-section"><p class="eyebrow">${b.center_id?'CENTRO DE BUCEO':'PROFESIONAL'}</p><h2><a href="${b.center_id?`#/centro?id=${b.center_id}`:`#/profesional?id=${b.provider_user_id}`}">${escapeHtml(b.center_name)}</a></h2><div class="data-grid"><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(b.center_city||'—')}</strong></div><div class="data-item"><span>Teléfono</span><strong>${b.center_phone?`<a href="tel:${escapeHtml(b.center_phone)}">${escapeHtml(b.center_phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Email</span><strong>${b.center_email?`<a href="mailto:${escapeHtml(b.center_email)}">${escapeHtml(b.center_email)}</a>`:'—'}</strong></div><div class="data-item"><span>Dirección</span><strong>${escapeHtml(b.center_address||'—')}</strong></div></div></div>`}${customerPanel}${own?insDiverBox(b,b.insurance,id):''}${payBox}<div class="notice ${['confirmed','completed'].includes(b.status)?'success':['rejected','cancelled','expired'].includes(b.status)?'warning':''}"><strong>${escapeHtml(statusText)}.</strong> ${bookingStateHelp(b)}</div></div></section>`);
     if(canPay)$('#booking-pay-now').onclick=async e=>{const btn=e.currentTarget; btn.disabled=true; btn.textContent='Abriendo el pago seguro…'; try{const pay=await postJSON('/api/payments/checkout',{...wdAppPay(),booking_id:id,service_id:Number(b.service_id||0),slot_id:Number(b.slot_id||0)||null});if(pay.checkout_url){wdOpenCheckout(pay.checkout_url);return;}}catch(err){toast(err.message)} btn.disabled=false; btn.textContent='Pagar ahora de forma segura';};
-    if(own){ bindBookingCancel(b,id); mountWaiverCard(id,false); mountBookingChange(id,b.slot_cancel_open); bindDiverInsurance(b,id); }
+    if(own){ bindBookingCancel(b,id); mountWaiverCard(id,false); mountBookingChange(id,b.slot_cancel_open); bindDiverInsurance(b,id); mountBookingEquipment(id,{onChange:()=>renderBookingDetail(new URLSearchParams('id='+id))}); }
     if(own&&params?.get?.('pago')==='cancelado'&&!renderBookingDetail.cancelled?.[id]){ (renderBookingDetail.cancelled??={})[id]=1; postJSON('/api/payments/cancel',{booking_id:id}).then(r=>{ if(r.paid){ toast('El pago ya se había completado.'); renderBookingDetail(new URLSearchParams('id='+id)); } else if(r.status&&r.status!==b.status){ toast(r.status==='expired'?'No se ha completado el pago: la reserva no se ha hecho y las plazas se han liberado.':'No se ha completado el pago.'); renderBookingDetail(new URLSearchParams('id='+id)); } }).catch(()=>{}); }
   }
   // ---------------------------------------------------------------- v50.42 · Encargo 2, punto 6: check-in on the boat
@@ -4280,7 +4298,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function wdWeekText(wds){ const n=[1,2,3,4,5,6,7].map(i=>new Date(Date.UTC(2024,0,i)).toLocaleDateString(wdLocale(),{weekday:'short',timeZone:'UTC'})); if(wds.length===7) return translateString('todos los días'); const s=[...wds].sort(); const consec=s.every((x,i)=>!i||x===s[i-1]+1); return consec&&s.length>2?`${n[s[0]]} a ${n[s[s.length-1]]}`:s.map(i=>n[i]).join(', '); }
   async function renderFreelancePanel(d){
     const u=d.user||{}, esc=escapeHtml; state.me=d;
-    const tabs=[['dashboard','home','Resumen'],['bookings','inbox','Reservas'],['planning','calendar','Planning'],['agenda','clock','Mi agenda'],['services','tag','Servicios y tarifas'],['experiences','viaje','Experiencias y solicitudes'],['payments','card','Cobros y pagos'],['profile','user','Perfil público'],['marina','fish','Vídeos y vida marina'],
+    const tabs=[['dashboard','home','Resumen'],['bookings','inbox','Reservas'],['planning','calendar','Planning'],['agenda','clock','Mi agenda'],['services','tag','Servicios y tarifas'],['equipment','alquiler_equipo','Equipo de alquiler'],['experiences','viaje','Experiencias y solicitudes'],['payments','card','Cobros y pagos'],['profile','user','Perfil público'],['marina','fish','Vídeos y vida marina'],
       ['vender','globe','Reservas desde tu web e Instagram'],['avisos','whatsapp','Avisos y WhatsApp'],['requests','mail','Solicitudes de información'],['stats','target','Estadísticas'],['tools','download','Herramientas'],['fiscal','file','Datos fiscales y seguro'],['plan','star','Mi plan']];
     const navBtn=([k,ic,l])=>`<button class="cb-nav" data-cbtab="${k}">${wdIcon(ic,17)} <span>${l}</span>${k==='experiences'?'<b id="fl-req-badge" hidden></b>':k==='bookings'?'<b id="fl-bk-badge" hidden></b>':''}</button>`;
     setApp(`<section class="center-backoffice fl-office">
@@ -4288,9 +4306,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="cb-header-actions"><a class="btn" href="#/profesional?id=${u.id}">${wdIcon('eye',15)} Ver mi ficha pública</a><a class="btn" href="#/cuenta">${wdIcon('user',15)} Mi cuenta</a></div></div>
       <div class="cb-layout">${wdPanelSide('freelance',[
         {id:'actividad',title:'Mi actividad',items:tabs.slice(0,4).map(navBtn)},
-        {id:'ventas',title:'Ventas',items:tabs.slice(4,7).map(navBtn)},
-        {id:'escaparate',title:'Escaparate y avisos',items:tabs.slice(7,12).map(navBtn)},
-        {id:'cuenta',title:'Mi cuenta profesional',items:[...tabs.slice(12).map(navBtn),`<a class="cb-nav" href="#/logbook">${wdIcon('book',17)} <span>Log Book</span></a>`,`<a class="cb-nav" href="#/cuenta">${wdIcon('user',17)} <span>Mi cuenta</span></a>`]}])}
+        {id:'ventas',title:'Ventas',items:tabs.slice(4,8).map(navBtn)},
+        {id:'escaparate',title:'Escaparate y avisos',items:tabs.slice(8,13).map(navBtn)},
+        {id:'cuenta',title:'Mi cuenta profesional',items:[...tabs.slice(13).map(navBtn),`<a class="cb-nav" href="#/logbook">${wdIcon('book',17)} <span>Log Book</span></a>`,`<a class="cb-nav" href="#/cuenta">${wdIcon('user',17)} <span>Mi cuenta</span></a>`]}])}
       <div class="cb-main">${wdPanelMenuBtn('freelance')}<div id="cb-content"></div></div></div></section>`); proTermsBanner(d.user);
     const content=$('#cb-content'), nav=$$('.cb-nav[data-cbtab]'); wdModerationBanner($('.cb-main'));
     const goServices=()=>load('services');
@@ -4304,6 +4322,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(tab==='agenda'){ content.innerHTML='<div id="fl-agenda"></div>'; await renderFreelanceAgenda('fl-agenda'); }
       else if(tab==='planning'){ content.innerHTML='<div id="fl-planning"></div>'; await renderCenterPlanning('fl-planning',{center:{name:u.fullname,city:'',cover_url:''},canBook:false,onManage:goServices}); }
       else if(tab==='services'){ content.innerHTML='<div id="freelance-services-manager"></div>'; await renderProviderServicesManager(u.id,'freelance','freelance-services-manager'); }
+      else if(tab==='equipment'){ content.innerHTML='<div id="fl-equipment"></div>'; await renderEquipmentPanel('fl-equipment'); }   // v50.58 (16/10)
       else if(tab==='experiences'){ content.innerHTML='<div id="freelance-experiences"></div>'; await renderProviderExperiences('freelance-experiences','freelance',{goServices}); loadExp(); }
       else if(tab==='bookings'){ content.innerHTML='<div id="fl-bookings"></div>'; await renderCenterBookings('fl-bookings',{freelance:true}); }
       else if(tab==='payments'){ content.innerHTML='<div id="fl-payments"></div>'; await renderProviderPayments('fl-payments'); }
@@ -4647,7 +4666,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const freeSpots=allSlots.reduce((n,sl)=>n+Number(sl.spots_available||0),0);
       const totalSpots=allSlots.reduce((n,sl)=>n+Number(sl.spots_total||0),0);
       const occupancy=totalSpots?Math.round(((totalSpots-freeSpots)/totalSpots)*100):0;
-      const pricedEquipment=equipment.filter(x=>x.price!==null&&x.price!==undefined&&x.price!=='').length;
+      const pricedEquipment=equipment.length;   // v50.58: the pieces switched on (Panel → Equipo de alquiler)
       const kpis=`<div class="svc-kpis">
         <div><span>A la venta</span><strong>${activeItems.length}</strong><small>${items.length>activeItems.length?`${items.length-activeItems.length} en pausa`:'servicios'}</small></div>
         <div><span>Próximas salidas</span><strong>${allSlots.length}</strong><small>programadas</small></div>
@@ -4657,7 +4676,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const tabs=isCenter?`<div class="svc-tabs" role="tablist">
         <button type="button" role="tab" aria-selected="${svcUi.tab==='services'}" class="svc-tab ${svcUi.tab==='services'?'active':''}" data-svc-tab="services">Servicios <b>${items.length}</b></button>
         <button type="button" role="tab" aria-selected="${svcUi.tab==='extras'}" class="svc-tab ${svcUi.tab==='extras'?'active':''}" data-svc-tab="extras">Extras <b>${extras.length}</b></button>
-        <button type="button" role="tab" aria-selected="${svcUi.tab==='equipment'}" class="svc-tab ${svcUi.tab==='equipment'?'active':''}" data-svc-tab="equipment"><span class="svc-tab-long">Alquiler de equipo</span><span class="svc-tab-short">Equipo</span> <b>${pricedEquipment}/${equipment.length}</b></button>
+        <button type="button" role="tab" aria-selected="${svcUi.tab==='equipment'}" class="svc-tab ${svcUi.tab==='equipment'?'active':''}" data-svc-tab="equipment"><span class="svc-tab-long">Equipo de alquiler</span><span class="svc-tab-short">Equipo</span> <b>${pricedEquipment}</b></button>
       </div>`:'';
 
       // ---------- Services ----------
@@ -4724,8 +4743,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="svc-head"><div><p class="eyebrow">Catálogo y precios</p><h2>Servicios y tarifas</h2><p>Lo que vende tu centro, su precio y sus salidas.</p></div><button type="button" class="btn btn-primary new-center-service" id="new-center-service">+ Nuevo servicio</button></div>
         ${offline.length?`<div class="notice warn" role="alert"><strong>${offline.length===1?'Un servicio no se puede reservar':offline.length+' servicios no se pueden reservar'}.</strong> <span>Usan «Pago al reservar» y los cobros online no están activos:</span> <span translate="no">${offline.map(s=>esc(s.title)).join(', ')}</span>. <span>Actívalos en</span> <a href="#/admin?tab=payments">Cobros y pagos</a> <span>o cambia esos servicios a «Bajo petición».</span></div>`:''}
         ${items.length?kpis:''}${tabs}
-        <div class="svc-pane">${svcUi.tab==='extras'?extrasPane():svcUi.tab==='equipment'?equipmentPane():servicesPane()}</div>
-      </section>`; if(svcUi.tab==='services')renderGrid(); bindPane();};
+        <div class="svc-pane">${svcUi.tab==='extras'?extrasPane():svcUi.tab==='equipment'?'<div id="svc-eq-panel"></div>':servicesPane()}</div>
+      </section>`; if(svcUi.tab==='services')renderGrid(); if(svcUi.tab==='equipment') renderEquipmentPanel('svc-eq-panel'); bindPane();};
       const bindPane=()=>{
         const search=mount.querySelector('#svc-search'); if(search) search.oninput=()=>{svcUi.q=search.value;renderGrid();};
         const saveAll=mount.querySelector('#svc-equipment-save-all');
@@ -5088,7 +5107,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       plan:{days:['full','full','full'],hours:JSON.parse(JSON.stringify(WZ_DEF_HOURS)),labels:{},dives:[]},half_days:false,unit_rules:{},rental_per:'day',
       trip_from:'',trip_to:'',price:'',price_per:'person',half_price:'',max_participants:'',extra_ids:null,booking_mode:'',response_hours:24,
       deposit_type:'none',deposit_value:'',pay_way:'online',pay_methods:[],pay_whatsapp:'',pay_policy:'',accept_in_person_terms:false,lead_hours:'',tags:'',instructor_user_id:'',
-      cancel_free_hours:'',cancel_refund_pct:''};
+      cancel_free_hours:'',cancel_refund_pct:'',rental_mode:'',rental_items:null,dives_per_outing:1};
     if(!s) return blank;
     const st=wdJSON(s.wizard_state), plan=wdJSON(s.course_plan), dur=Number(s.duration_minutes)||0, arr=v=>{ const x=typeof v==='string'?(()=>{try{return JSON.parse(v);}catch{return null;}})():v; return Array.isArray(x)?x:[]; };
     return {...blank,id:s.id,kind:s.kind||blank.kind,template_id:s.template_id||'',title:s.title||'',description:s.description||'',icon:s.icon||'',includes:arr(s.includes),
@@ -5101,6 +5120,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       extra_ids:s.extra_ids==null?null:arr(s.extra_ids),booking_mode:s.booking_mode||'',response_hours:s.response_hours||24,deposit_type:s.deposit_type||'none',
       deposit_value:s.deposit_value||'',pay_way:s.pay_way||st.pay_way||'online',pay_methods:arr(s.pay_methods).length?arr(s.pay_methods):arr(st.pay_methods),pay_whatsapp:s.pay_whatsapp||'',pay_policy:s.pay_policy||st.pay_policy||'',
       lead_hours:s.lead_hours??'',tags:s.tags||'',instructor_user_id:s.instructor_user_id||'',cancel_free_hours:s.cancel_free_hours??'',cancel_refund_pct:s.cancel_refund_pct??'',
+      rental_mode:s.rental_mode||s.rental?.mode||'',rental_items:s.rental_items&&typeof s.rental_items==='object'?s.rental_items:null,dives_per_outing:Number(s.dives_per_outing)||1,
       step:s.draft?Math.min(5,Number(st.step)||1):0,draft:!!s.draft,photo:s.photo||null};
   }
   async function wdServiceWizard({existing=null,role='center',onDone=()=>{},legacy=null,startTemplate=null}={}){
@@ -5156,7 +5176,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const s2=()=>{ const k=w.kind; let body='';
       if(k==='dive'||k==='baptism'||k==='other'){
         body=`<div class="wz-grid"><div class="svc-field"><span class="svc-label">Cuánto dura</span><div class="wz-hm"><label><input type="number" id="wz-h" data-w="hours" min="0" max="23" inputmode="numeric" value="${esc(String(w.hours))}"> h</label><label><select data-w="minutes" aria-label="${esc(translateString('Minutos'))}">${[0,15,30,45].map(m=>`<option value="${m}" ${Number(w.minutes)===m?'selected':''}>${m}</option>`).join('')}</select> min</label></div>${err('duration')}</div>
-          <div class="svc-field"><label for="wz-time">Hora de salida</label><input type="time" id="wz-time" data-w="start_time" value="${esc(w.start_time)}">${err('start_time')}</div></div>${schedule('dive')}`;
+          <div class="svc-field"><label for="wz-time">Hora de salida</label><input type="time" id="wz-time" data-w="start_time" value="${esc(w.start_time)}">${err('start_time')}</div>
+          ${k==='dive'?`<div class="svc-field wz-span2"><span class="svc-label">${esc(translateString('Inmersiones en cada salida'))}</span><div class="wz-seg" role="radiogroup">${[1,2,3].map(n=>`<label><input type="radio" name="wz-dpo" value="${n}" ${Number(w.dives_per_outing||1)===n?'checked':''}><span>${n}</span></label>`).join('')}</div><small>${esc(translateString('Para el equipo que se alquila «por inmersión».'))}</small></div>`:''}</div>${schedule('dive')}`;
       } else if(k==='course'){
         const p=w.plan;
         body=`<div class="svc-field"><span class="svc-label">¿Cuántos días dura?</span><div class="wz-days" role="radiogroup">${Array.from({length:o.max_course_days||10},(_,i)=>i+1).map(n=>`<button type="button" role="radio" class="wz-n" aria-checked="${p.days.length===n}" data-ndays="${n}">${n}</button>`).join('')}</div>${err('plan')}</div>
@@ -5178,6 +5199,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <p class="wz-hint" aria-live="polite">${n!=null&&n>=0?esc(translateString(n===1?'1 noche':'{n} noches').replace('{n}',n)):''}</p>${err('trip_dates')}`;
       }
       return `<section class="wz-step" data-step="2"><h3>Cuándo y cuánto dura</h3>${body}</section>`; };
+    // ---------- v50.58 (16/10): the rental of the centre's pieces inside the service (step 4 → Extras)
+    const rentalMode=()=>w.kind==='rental'?'none':(w.rental_mode||(o.equipment?.default_mode||{})[w.kind]||'offer');
+    const rentalBlock=()=>{ if(w.kind==='rental') return ''; const eq=o.equipment||{pieces:[]}, mode=rentalMode(), ov=w.rental_items||{}, ex=new Set(ov.exclude||[]), pr=ov.prices||{};
+      return `<section class="wz-rental"><label class="svc-switch wz-rental-sw"><input type="checkbox" data-rental-on ${mode==='offer'?'checked':''}><span></span><div><strong>${esc(translateString('Ofrecer alquiler de equipo en este servicio'))}</strong><small>${esc(translateString('El buceador marca las piezas y sus tallas al reservar. Incluido siempre: botella y plomos.'))}</small></div></label>
+        ${mode==='offer'?(eq.configured?`<div class="wz-chips wz-eq-chips">${eq.pieces.map(p=>`<span class="wz-eqchip ${ex.has(p.code)?'is-off':''}">${eqIcon(p.code,16)} ${esc(p.label)} · ${wdMoney(pr[p.code]??p.price)}</span>`).join('')}${eq.kit?`<span class="wz-eqchip">${eqIcon('full_kit',16)} ${esc(translateString('Equipo completo'))} · ${wdMoney(eq.kit.price)}</span>`:''}</div>
+            ${more('rental',`<p class="wz-hint">${esc(translateString('Quita piezas o cambia su precio solo para este servicio.'))}</p><div class="wz-eq-rows">${eq.pieces.map(p=>`<div class="wz-eq-row"><label class="wz-chip"><input type="checkbox" data-rx="${esc(p.code)}" ${ex.has(p.code)?'':'checked'}><span>${eqIcon(p.code,15)} ${esc(p.label)}</span></label><label class="svc-money"><input type="number" min="0" step="0.5" data-rp="${esc(p.code)}" value="${pr[p.code]??''}" placeholder="${esc(String(p.price))}" aria-label="${esc(translateString('Precio en este servicio'))}"><span>€</span></label></div>`).join('')}</div>`)}`
+          :`<div class="notice warning wz-eq-first"><span>${esc(translateString('Primero indica qué equipo alquilas.'))}</span> <button type="button" class="svc-link" id="wz-go-equip">${esc(translateString('Ir a Equipo de alquiler'))}</button></div>`)
+        :`<div class="wz-seg" role="radiogroup">${[['included','Equipo incluido en el precio'],['none','Sin equipo de alquiler']].map(([k,l])=>`<label><input type="radio" name="wz-rental-off" value="${k}" ${mode===k?'checked':''}><span>${esc(translateString(l))}</span></label>`).join('')}</div>`}</section>`; };
     // ---------- step 4 · Precio y plazas
     const s3=()=>{ const per=w.price_per==='group', price=Number(w.price)||0, unit=w.kind==='course'?'curso':w.kind==='trip'?'viaje':w.kind==='rental'?(w.rental_per==='dive'?'inmersión':'día'):w.kind==='guide'?'día':'salida';
       const ex=per?translateString('Grupo de hasta {n} personas = {t}').replace('{n}',w.max_participants||'—').replace('{t}',wdMoney(price)):translateString('{p} personas × 1 {u} = {t}').replace('{p}',examplePax).replace('{u}',translateString(unit)).replace('{t}',wdMoney(price*examplePax));
@@ -5187,6 +5216,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         ${w.kind==='guide'&&w.half_days?`<div class="svc-field"><label for="wz-half">Precio de media jornada</label><label class="svc-money"><input id="wz-half" data-w="half_price" type="number" min="0" step="0.01" value="${esc(String(w.half_price))}"><span>€</span></label></div>`:''}
         ${w.kind!=='rental'?`<div class="svc-field"><label for="wz-seats">${esc(translateString(seatsLabel()))}</label><input id="wz-seats" data-w="max_participants" type="number" min="1" max="999" inputmode="numeric" value="${esc(String(w.max_participants))}">${err('max_participants')}</div>`:''}</div>
         ${price>0?`<div class="wz-example" aria-live="polite">${!per?`<div class="wz-stepper"><button type="button" data-pax="-1" aria-label="${esc(translateString('Una persona menos'))}">−</button><span>${examplePax}</span><button type="button" data-pax="1" aria-label="${esc(translateString('Una persona más'))}">+</button></div>`:''}<strong>${esc(ex)}</strong></div>`:''}
+        ${rentalBlock()}
         ${o.extras.length?more('extras',`<p class="svc-label">Extras que se ofrecen con este servicio</p><div class="wz-chips">${o.extras.map(x=>`<label class="wz-chip"><input type="checkbox" data-extra="${x.id}" ${w.extra_ids==null||w.extra_ids.map(Number).includes(Number(x.id))?'checked':''}><span>${esc(x.name)} · ${wdMoney(x.price)}</span></label>`).join('')}</div>`,false):''}</section>`; };
     // ---------- step 5 · Cómo se reserva
     const s4=()=>{ const rec=(o.kind_mode||{})[w.kind]||'request', canPay=o.payments_ready&&w.pay_way!=='in_person';
@@ -5215,7 +5245,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const s=svcPreview(), price=Number(w.price)>0?wdPriceBlock(w.price,'EUR',translateString(perText())):'';
       return `<section class="wz-step" data-step="5"><h3>Revisar y publicar</h3><div class="wz-review"><div><p class="svc-label">${esc(translateString('Así lo verá el buceador'))}</p>
         ${wdServiceCard(s,{kicker:[tplName()||translateString(kindInfo().t),durText()].filter(Boolean).map(esc).join(' · '),desc:w.description,price,actions:`<span class="btn btn-primary" aria-hidden="true">${esc(translateString(w.booking_mode==='payment'?'Reservar y pagar':'Enviar solicitud'))}</span>`})}
-        <div class="wz-ficha">${w.includes.length?`<p><b>${esc(translateString('Incluye'))}:</b> ${w.includes.map(k=>esc(translateString(WZ_INCLUDES[k]||k))).join(', ')}</p>`:''}${w.level_required?`<p><b>${esc(translateString('Nivel'))}:</b> ${esc(w.level_required)}</p>`:''}${w.min_age!==''?`<p><b>${esc(translateString('Edad mínima'))}:</b> ${esc(String(w.min_age))}</p>`:''}${w.languages.length?`<p><b>${esc(translateString('Idiomas'))}:</b> ${w.languages.map(k=>esc(translateString(WZ_LANGS[k]||k))).join(', ')}</p>`:''}${w.meeting_point?`<p><b>${esc(translateString('Punto de encuentro'))}:</b> ${esc(w.meeting_point)}</p>`:''}</div></div>
+        <div class="wz-ficha">${(()=>{ if(w.kind==='rental') return ''; const m=rentalMode(), eq=o.equipment||{pieces:[]}, ov=w.rental_items||{}, ex=new Set(ov.exclude||[]), pr=ov.prices||{};
+            if(m==='included') return `<p><b>${esc(translateString('Equipo incluido en el precio'))}</b> · ${esc(translateString('Incluido: botella y plomos'))}</p>`;
+            if(m==='offer'&&eq.configured){ const ps=eq.pieces.filter(p=>!ex.has(p.code)); return `<p><b>${esc(translateString('Alquiler de equipo'))}:</b> ${ps.map(p=>`${esc(p.label)} ${wdMoney(pr[p.code]??p.price)}`).join(' · ')}${eq.kit?` · ${esc(translateString('Equipo completo'))} ${wdMoney(eq.kit.price)}`:''}</p><p>${esc(translateString('Incluido: botella y plomos'))}</p>`; }
+            return ''; })()}${w.includes.length?`<p><b>${esc(translateString('Incluye'))}:</b> ${w.includes.map(k=>esc(translateString(WZ_INCLUDES[k]||k))).join(', ')}</p>`:''}${w.level_required?`<p><b>${esc(translateString('Nivel'))}:</b> ${esc(w.level_required)}</p>`:''}${w.min_age!==''?`<p><b>${esc(translateString('Edad mínima'))}:</b> ${esc(String(w.min_age))}</p>`:''}${w.languages.length?`<p><b>${esc(translateString('Idiomas'))}:</b> ${w.languages.map(k=>esc(translateString(WZ_LANGS[k]||k))).join(', ')}</p>`:''}${w.meeting_point?`<p><b>${esc(translateString('Punto de encuentro'))}:</b> ${esc(w.meeting_point)}</p>`:''}</div></div>
         <div class="wz-sum">${row(0,'Qué ofreces',esc(translateString(kindInfo().t)))}${row(1,'Nombre',esc(w.title||'—'))}${row(2,w.kind==='rental'?'Cómo se cobra':'Cuánto dura',esc(durText()||'—'))}
           ${['dive','baptism','other','course'].includes(w.kind)?row(2,w.kind==='course'?'Ediciones':'Salidas',dates.length?esc(translateString('{n} fechas').replace('{n}',dates.length)):esc(translateString(existing&&!existing.draft?'Las que ya tiene':'Ninguna todavía'))):''}
           ${row(3,'Precio',Number(w.price)>0?esc(wdMoney(w.price))+' '+esc(translateString(perText())):'—')}${w.kind!=='rental'?row(3,seatsLabel(),esc(String(w.max_participants||'—'))):''}
@@ -5241,7 +5274,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       $$('details.wz-more',box).forEach(d=>{ if(moreOpen.has(d.dataset.more)) d.open=true; });
       translateTree(box); translateTree(foot);
     }
-    const payload=publish=>{ const d={...w,publish}; delete d.draft; delete d.photo; d.extra_ids=w.extra_ids; d.unit_rules=w.unit_rules; return d; };
+    const payload=publish=>{ const d={...w,publish}; delete d.draft; delete d.photo; d.extra_ids=w.extra_ids; d.unit_rules=w.unit_rules; d.rental_mode=rentalMode(); return d; };
     async function save(publish){
       if(busy) return false; busy=true;
       try{ const r=await postJSON('/api/provider-services/wizard',payload(publish)); w.id=r.id; errs={};
@@ -5272,10 +5305,15 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t.name==='wz-rent'){ w.rental_per=t.value; return; }
       if(t.name==='wz-per'){ w.price_per=t.value; draw(); return; }
       if(t.name==='wz-way'){ w.pay_way=t.value; if(t.value==='in_person') w.booking_mode='request'; draw(); return; }
+      if(t.dataset.rentalOn!==undefined){ const def=(o.equipment?.default_mode||{})[w.kind]; w.rental_mode=t.checked?'offer':(def&&def!=='offer'?def:'included'); draw(); return; }
+      if(t.name==='wz-rental-off'){ w.rental_mode=t.value; return; }
+      if(t.name==='wz-dpo'){ w.dives_per_outing=Number(t.value)||1; return; }
+      if(t.dataset.rx){ const ov={exclude:[],prices:{},...(w.rental_items||{})}; const ex=new Set(ov.exclude); t.checked?ex.delete(t.dataset.rx):ex.add(t.dataset.rx); w.rental_items={...ov,exclude:[...ex]}; draw(); return; }
+      if(t.dataset.rp){ const ov={exclude:[],prices:{},...(w.rental_items||{})}; const pr={...ov.prices}; if(t.value==='') delete pr[t.dataset.rp]; else pr[t.dataset.rp]=Number(t.value); w.rental_items={...ov,prices:pr}; draw(); return; }
     });
     el.addEventListener('click',async e=>{ const b=e.target.closest('button'); if(!b||!el.contains(b)) return;
       if(box.contains(b)) el.dataset.dirty='1';   // a click outside the window no longer closes it once something was chosen
-      if(b.dataset.kind){ const changed=w.kind!==b.dataset.kind; w.kind=b.dataset.kind; if(changed){ w.template_id=''; w.booking_mode=defMode(w.kind); w.icon=''; } delete errs.kind; draw(); return; }
+      if(b.dataset.kind){ const changed=w.kind!==b.dataset.kind; w.kind=b.dataset.kind; if(changed){ w.template_id=''; w.booking_mode=defMode(w.kind); w.icon=''; w.rental_mode=''; } delete errs.kind; draw(); return; }
       if(b.dataset.tpl){ const t=o.templates.find(x=>String(x.id)===b.dataset.tpl); if(!t) return; w.template_id=t.id; if(!w.title||o.templates.some(x=>x.name===w.title)) w.title=t.name||w.title; if(!w.description) w.description=t.description||'';
         if(t.max_participants) w.max_participants=t.max_participants; if(t.icon) w.icon=t.icon; const m=Number(t.duration_minutes)||0;
         if(w.kind==='course'&&m>=1440) w.plan.days=Array(Math.min(10,Math.round(m/1440))).fill('full'); else if(m&&m<1440){ w.hours=Math.floor(m/60); w.minutes=m%60; }
@@ -5295,10 +5333,237 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(b.id==='wz-draft'){ const r=await save(false); if(r){ toast(translateString('Guardado como borrador. Lo encontrarás en tus servicios.')); delete el.dataset.dirty; close(); onDone(); } return; }
       if(b.id==='wz-publish'||b.id==='wz-save'){ const r=await save(true); if(r){ toast(translateString(editPage?'Cambios guardados.':'Publicado. Ya se puede reservar.')+(r.warnings?.length?' '+r.warnings.map(translateString).join(' '):'')); delete el.dataset.dirty; close(); onDone(r.id); } return; }
       if(b.id==='wz-legacy'){ close(); legacy?.(); return; }
+      if(b.id==='wz-go-equip'){ if(w.title) await save(false); delete el.dataset.dirty; close(); onDone(w.id); toast(translateString('Primero indica qué equipo alquilas. Luego vuelve al servicio: lo tienes guardado.'));
+        const nav=$('.cb-nav[data-cbtab="equipment"]'); if(nav) nav.click(); else wdGo('#/admin?tab=equipment'); return; }
     });
     draw();
     if(st0&&!existing) $(`.wz-tpl[data-tpl="${st0.id}"]`,box)?.click();
     if(!editPage&&w.step===0) $('.wz-kind',box)?.focus({preventScroll:true});
+  }
+
+  // =====================================================================
+  //  v50.58 · encargo del 16/10/2026: el alquiler de equipo es un extra dentro de la inmersión, no un servicio.
+  //  One picker for the booking page (web and app), «Mis reservas» and the centre's desk; Panel → Equipo de alquiler
+  //  (pieces, prices, «Equipo completo», stock) and «Equipo para preparar». The price always comes from the server.
+  // =====================================================================
+  const EQ_PER={dive:'inmersión',day:'día'};
+  const eqIcon=(code,size=26)=>`<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${BK_EQUIP_ICONS[code]||BK_EQUIP_ICONS.tag}</svg>`;
+  const eqPerText=p=>translateString('/ '+(EQ_PER[p.price_per]||'inmersión'));
+  const eqShort=it=>({wetsuit:'Traje',bcd:'Jacket',regulator:'Regulador',computer:'Ordenador',smb:'Boya'})[it.code]||it.label;
+  const eqThick={'3':'3 mm','5':'5 mm','7':'7 mm',semi:'Semiseco'};
+  // The value of the picker: {rent, tab, note, divers:[{kit, items:{code:{size,thick}}}]}
+  function eqValue(pax,rows){ const v={rent:false,tab:0,note:'',divers:[]};
+    for(let i=0;i<Math.max(1,pax);i++) v.divers.push({kit:false,items:{}});
+    (rows||[]).forEach(r=>{ const d=v.divers[r.diver]; if(!d) return; v.rent=true; if(r.code==='full_kit'){ d.kit=true; return; } d.items[r.code]={size:r.size||'',thick:r.thick||''}; });
+    return v; }
+  function eqPayload(v){ return v.rent?v.divers.map(d=>({kit:!!d.kit,items:Object.entries(d.items).map(([code,x])=>({code,size:x.size||'',thick:x.thick||''}))})):[]; }
+  // The first piece of a diver still without its size (the server says the same in words; here it switches to his tab).
+  function eqMissing(v,pieces,names){ if(!v.rent) return null; const by=Object.fromEntries(pieces.map(p=>[p.code,p]));
+    for(let i=0;i<v.divers.length;i++) for(const [code,x] of Object.entries(v.divers[i].items)){ const p=by[code]; if(p&&p.sizes?.length&&p.size_kind!=='mask'&&!x.size) return {diver:i,piece:p,text:translateString('Elige la talla de {pieza} ({quien}).').replace('{pieza}',p.label.toLowerCase()).replace('{quien}',names[i]||'')}; }
+    return null; }
+  function wdEquipPicker(host,o){
+    const esc=escapeHtml; const v=o.value; const pieces=o.pieces||[], kit=o.kit||null, names=o.names||[];
+    while(v.divers.length<o.pax) v.divers.push({kit:false,items:{}}); v.divers.length=Math.max(1,o.pax); if(v.tab>=v.divers.length) v.tab=0;
+    const stockOf=(code,size)=>{ const s=(o.stock||{})[code]; if(!s) return null; const k=code==='mask'?'':(size||''); return k in s?Number(s[k]):null; };
+    const sizeRow=(p,x)=>{ const sz=p.sizes||[], th=p.thick||[];
+      if(!sz.length&&!th.length) return '';
+      const chips=sz.length>8
+        ?`<select data-size-sel="${esc(p.code)}" aria-label="${esc(translateString('Talla de {pieza}').replace('{pieza}',p.label.toLowerCase()))}"><option value="">${esc(translateString(p.size_kind==='shoe'?'Número de pie':'Talla'))}</option>${sz.map(s=>{ const out=stockOf(p.code,s)===0&&x.size!==s; return `<option value="${esc(s)}" ${x.size===s?'selected':''} ${out?'disabled':''}>${esc(s)}${out?' · '+esc(translateString('No disponible')):''}</option>`; }).join('')}</select>`
+        :`<div class="eq-chips" role="radiogroup" aria-label="${esc(translateString('Talla de {pieza}').replace('{pieza}',p.label.toLowerCase()))}">${sz.map(s=>{ const out=stockOf(p.code,s)===0&&x.size!==s; return `<button type="button" role="radio" class="eq-chip ${out?'is-out':''}" aria-checked="${x.size===s}" data-size="${esc(p.code)}" data-val="${esc(s)}" ${out?`disabled title="${esc(translateString('No disponible'))}"`:''}>${esc(translateString(s))}${out?`<small>${esc(translateString('No disponible'))}</small>`:''}</button>`; }).join('')}</div>`;
+      const thick=th.length>1?`<div class="eq-chips" role="radiogroup" aria-label="${esc(translateString('Grosor'))}">${th.map(t=>`<button type="button" role="radio" class="eq-chip" aria-checked="${(x.thick||th[0])===t}" data-thick="${esc(p.code)}" data-val="${esc(t)}">${esc(translateString(eqThick[t]||t))}</button>`).join('')}</div>`:'';
+      return `<div class="eq-size-row"><span class="eq-size-label">${eqIcon(p.code,18)} ${esc(eqShort(p))}</span>${sz.length?chips:''}${thick}</div>`; };
+    function draw(){ const d=v.divers[v.tab]; const on=c=>!!d.items[c];
+      const kitOn=kit&&d.kit; const kitAll=kit&&kit.codes.every(on);
+      const count=i=>Object.keys(v.divers[i].items).length+(v.divers[i].kit?0:0);
+      host.innerHTML=`<div class="eq-pick">
+        <div class="eq-mode" role="radiogroup" aria-label="${esc(translateString('Equipo'))}">
+          <button type="button" role="radio" class="eq-mode-card" aria-checked="${!v.rent}" data-rent="0">${wdIcon('user',22)}<strong>${esc(translateString('Llevo mi equipo'))}</strong><small>${esc(translateString('Solo lo tuyo: la botella y los plomos van incluidos.'))}</small></button>
+          <button type="button" role="radio" class="eq-mode-card" aria-checked="${v.rent}" data-rent="1">${eqIcon('full_kit',22)}<strong>${esc(translateString('Necesito equipo'))}</strong><small>${esc(translateString('Marca las piezas y tus tallas. Lo tendrán preparado al llegar.'))}</small></button>
+        </div>
+        ${v.rent?`${v.divers.length>1?`<div class="eq-tabs" role="tablist">${v.divers.map((x,i)=>`<button type="button" role="tab" aria-selected="${i===v.tab}" data-tab="${i}">${esc(names[i]||'')}${count(i)?` <b>${count(i)}</b>`:''}</button>`).join('')}</div>
+            ${v.tab>0?`<button type="button" class="svc-link eq-copy" data-copy>${esc(translateString('Igual que el anterior'))}</button>`:''}`:''}
+          ${kit?`<button type="button" class="eq-kit ${kitOn&&kitAll?'is-on':''}" aria-pressed="${!!(kitOn&&kitAll)}" data-kit>${eqIcon('full_kit',30)}<span><strong>${esc(translateString('Equipo completo'))}</strong><small>${esc(kit.codes.map(c=>(pieces.find(p=>p.code===c)||{}).label).filter(Boolean).join(', '))}</small></span><em>${wdMoney(kit.price)}<small>${esc(eqPerText(kit))}</small>${kit.pieces_total>kit.price?`<s>${wdMoney(kit.pieces_total)}</s>`:''}</em></button>`:''}
+          <div class="eq-grid">${pieces.map(p=>`<button type="button" class="eq-piece ${on(p.code)?'is-on':''}" aria-pressed="${on(p.code)}" data-code="${esc(p.code)}"><span class="eq-piece-ic">${eqIcon(p.code)}</span><strong>${esc(p.label)}</strong><small>${kitOn&&kitAll&&kit.codes.includes(p.code)?esc(translateString('En el equipo completo')):`${wdMoney(p.price)} ${esc(eqPerText(p))}`}</small></button>`).join('')}</div>
+          ${o.kitNotice?`<p class="eq-warn" role="status">${esc(o.kitNotice)}</p>`:''}
+          ${(()=>{ const rows=pieces.filter(p=>on(p.code)).map(p=>sizeRow(p,d.items[p.code])).filter(Boolean); return rows.length?`<div class="eq-sizes"><p class="eq-sizes-h">${esc(translateString('Tallas'))}${v.divers.length>1?' · '+esc(names[v.tab]||''):''}</p>${rows.join('')}</div>`:''; })()}
+          ${o.noNote?'':`<label class="bk-field eq-note"><span>${esc(translateString('Algo más que deba saber el centro'))} <small>(${esc(translateString('opcional'))})</small></span><input data-eq-note maxlength="300" value="${esc(v.note||'')}" placeholder="${esc(translateString('Ej.: soy alérgico al látex · llevo mi propio ordenador'))}"></label>`}`:''}
+        <p class="eq-included">${wdIcon('check',15)} ${esc(translateString('Incluido: botella y plomos'))}</p></div>`;
+      translateTree(host); }
+    const changed=()=>{ draw(); o.onChange?.(v); };
+    host.onclick=e=>{ const b=e.target.closest('button'); if(!b||!host.contains(b)) return; const d=v.divers[v.tab];
+      if(b.dataset.rent!==undefined){ v.rent=b.dataset.rent==='1'; changed(); return; }
+      if(b.dataset.tab!==undefined){ v.tab=+b.dataset.tab; draw(); return; }
+      if(b.dataset.copy!==undefined){ const prev=v.divers[v.tab-1]; v.divers[v.tab]={kit:prev.kit,items:JSON.parse(JSON.stringify(prev.items))}; changed(); return; }
+      if(b.dataset.kit!==undefined){ const all=kit.codes.every(c=>d.items[c]);
+        if(d.kit&&all){ d.kit=false; kit.codes.forEach(c=>delete d.items[c]); }
+        else { d.kit=true; kit.codes.forEach(c=>{ if(!d.items[c]) d.items[c]=eqStart(c); }); }
+        changed(); return; }
+      if(b.dataset.code){ const c=b.dataset.code; if(d.items[c]) delete d.items[c]; else d.items[c]=eqStart(c); changed(); return; }
+      if(b.dataset.size){ d.items[b.dataset.size].size=b.dataset.val; changed(); return; }
+      if(b.dataset.thick){ d.items[b.dataset.thick].thick=b.dataset.val; changed(); return; }
+    };
+    host.onchange=e=>{ const t=e.target; if(t.dataset.sizeSel){ v.divers[v.tab].items[t.dataset.sizeSel].size=t.value; changed(); } };
+    host.oninput=e=>{ if(e.target.dataset.eqNote!==undefined){ v.note=e.target.value; o.onChange?.(v,true); } };
+    // A piece just marked: its size of last time with this centre (only for the person who books) and the first thickness.
+    function eqStart(c){ const p=pieces.find(x=>x.code===c)||{}; const mem=v.tab===0?(o.memory||{})[c]:null;
+      const size=mem&&(p.sizes||[]).includes(mem.size)&&stockOf(c,mem.size)!==0?mem.size:''; const th=(p.thick||[]);
+      return {size,thick:mem&&th.includes(mem.thick)?mem.thick:(th[0]||'')}; }
+    draw();
+    return {redraw:(more={})=>{ Object.assign(o,more); draw(); }, value:v};
+  }
+
+  // ---------- Panel → Equipo de alquiler (centre and freelance) ----------
+  async function renderEquipmentPanel(mountId,opts={}){
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    let cfg; try{ cfg=await api('/api/provider/equipment'); }catch(err){ mount.innerHTML=wdBlockError(err); translateTree(mount); return; }
+    let view=opts.view||'pieces', prepDay=wdToday(), saveTimer=0; const pending={items:{},kit:null,stock:{}};
+    const perSeg=(name,val)=>`<div class="wz-seg wz-seg-sm" role="radiogroup">${Object.entries({dive:'Por inmersión',day:'Por día'}).map(([k,l])=>`<label><input type="radio" name="${esc(name)}" value="${k}" ${val===k?'checked':''}><span>${esc(translateString(l))}</span></label>`).join('')}</div>`;
+    const sizeInfo=it=>({mask:it.prescription?'Normal o graduada':'Sin tallas',shoe:'Número de pie (UE)',suit:'Talla XS a XXL y grosor',size:'Talla XS a XXL',custom:(it.size_options||[]).join(', ')||'Tallas propias',none:'Sin tallas'})[it.size_kind]||'';
+    const stockSizes=it=>it.size_kind==='mask'||!(it.sizes||[]).length?['']:it.sizes;
+    const card=it=>{ const st=(cfg.stock||{})[it.code]||{};
+      return `<article class="eq-cfg ${it.active?'is-on':''}" data-code="${esc(it.code)}">
+        <header><span class="eq-piece-ic">${eqIcon(it.icon||it.code)}</span><div><h3>${esc(it.label)}</h3><small>${esc(translateString(sizeInfo(it)))}</small></div>
+          <label class="svc-switch eq-switch"><input type="checkbox" data-f="active" ${it.active?'checked':''} aria-label="${esc(translateString('Alquilo esta pieza'))}"><span></span></label></header>
+        <div class="eq-cfg-body"><div class="svc-field"><label for="eq-p-${esc(it.code)}">${esc(translateString('Precio'))}</label><label class="svc-money"><input id="eq-p-${esc(it.code)}" data-f="price" type="number" min="0" step="0.5" inputmode="decimal" value="${it.price??''}" placeholder="0"><span>€</span></label></div>
+          ${perSeg('eq-per-'+it.code,it.price_per)}
+          ${it.size_kind==='suit'?`<div class="eq-chips">${Object.entries(eqThick).map(([k,l])=>`<label class="wz-chip"><input type="checkbox" data-f="thick" value="${k}" ${(it.thicknesses||[]).includes(k)?'checked':''}><span>${esc(translateString(l))}</span></label>`).join('')}</div>`:''}
+          ${it.size_kind==='mask'?`<label class="svc-check"><input type="checkbox" data-f="prescription" ${it.prescription?'checked':''}><span>${esc(translateString('Tengo máscaras graduadas'))}</span></label>`:''}
+          ${cfg.kit?`<label class="svc-check"><input type="checkbox" data-f="in_kit" ${it.in_kit?'checked':''}><span>${esc(translateString('Forma parte del equipo completo'))}</span></label>`:''}
+          <details class="eq-stock"><summary>${esc(translateString('Stock por talla (opcional)'))}${Object.values(st).length?` · ${Object.values(st).reduce((a,b)=>a+Number(b||0),0)}`:''}</summary>
+            <p class="wz-hint">${esc(translateString('Cuántas tienes de cada talla. Vacío: sin límite.'))}</p><div class="eq-stock-grid">${stockSizes(it).map(s=>`<label><span>${esc(s||translateString('Unidades'))}</span><input type="number" min="0" max="999" data-stock="${esc(s)}" value="${s in st?st[s]:''}" placeholder="—"></label>`).join('')}</div></details>
+          ${it.custom?`<button type="button" class="svc-link danger eq-del" data-del="${esc(it.code)}">${esc(translateString('Borrar esta pieza'))}</button>`:''}</div></article>`; };
+    const kitCard=()=>{ const k=cfg.kit||{}; const inKit=cfg.items.filter(i=>i.in_kit&&i.active); const sum=inKit.reduce((a,i)=>a+Number(i.price||0),0);
+      return `<article class="eq-cfg eq-cfg-kit ${k.active?'is-on':''}" data-kit>
+        <header><span class="eq-piece-ic">${eqIcon('full_kit')}</span><div><h3>${esc(translateString('Equipo completo'))}</h3><small>${esc(inKit.map(i=>i.label).join(', ')||translateString('Marca qué piezas lo forman'))}</small></div>
+          <label class="svc-switch eq-switch"><input type="checkbox" data-k="active" ${k.active?'checked':''} aria-label="${esc(translateString('Ofrezco equipo completo'))}"><span></span></label></header>
+        <div class="eq-cfg-body"><div class="svc-field"><label for="eq-kit-p">${esc(translateString('Precio cerrado'))}</label><label class="svc-money"><input id="eq-kit-p" data-k="price" type="number" min="0" step="0.5" value="${k.price??''}"><span>€</span></label></div>
+          ${perSeg('eq-kit-per',k.price_per||'dive')}<p class="wz-hint">${sum?esc(translateString('Por piezas sería {t}.').replace('{t}',wdMoney(sum))):''}</p></div></article>`; };
+    function draw(){
+      mount.innerHTML=`<div class="svc-module eq-module"><header class="svc-head"><div><p class="eyebrow">${esc(translateString('Catálogo y precios'))}</p><h2>${esc(translateString('Equipo de alquiler'))}</h2><p class="svc-sub">${esc(translateString('Dilo una sola vez: cada inmersión lo ofrece con estos precios y el buceador marca lo que necesita al reservar.'))}</p></div>
+          <button type="button" class="btn btn-primary" id="eq-add">+ ${esc(translateString('Añadir pieza propia'))}</button></header>
+        <div class="svc-tabs" role="tablist"><button type="button" role="tab" class="svc-tab ${view==='pieces'?'active':''}" aria-selected="${view==='pieces'}" data-view="pieces">${esc(translateString('Piezas y precios'))}</button><button type="button" role="tab" class="svc-tab ${view==='prep'?'active':''}" aria-selected="${view==='prep'}" data-view="prep">${esc(translateString('Equipo para preparar'))}</button></div>
+        ${view==='pieces'?`<div class="notice eq-incl">${wdIcon('check',16)} <span><b>${esc(translateString('Incluido: botella y plomos'))}.</b> ${esc(translateString('Van siempre incluidos en la inmersión: no son piezas de alquiler ni se cobran aparte.'))}</span></div>
+          ${cfg.configured?'':`<div class="notice warning">${esc(translateString('Activa las piezas que alquilas y ponles precio (0 € si van gratis). Hasta entonces tus servicios no ofrecen alquiler.'))}</div>`}
+          <p class="eq-saved" id="eq-saved" aria-live="polite"></p>
+          <div class="eq-cfg-grid">${kitCard()}${cfg.items.map(card).join('')}</div>
+          ${(cfg.services||[]).length?`<section class="eq-svcs"><h3>${esc(translateString('Tus servicios'))}</h3><div class="eq-svc-list">${cfg.services.map(s=>`<span class="eq-svc ${s.mode}">${esc(s.title)} · <b>${esc(translateString(s.mode==='offer'?'Ofrece alquiler':s.mode==='included'?'Equipo incluido':'Sin alquiler'))}</b></span>`).join('')}</div><p class="wz-hint">${esc(translateString('Se cambia en cada servicio: Servicios y tarifas → Editar → Precio y plazas.'))}</p></section>`:''}`
+          :`<div class="eq-prep-bar"><label class="bk-field"><span>${esc(translateString('Día'))}</span><input type="date" id="eq-prep-day" value="${esc(prepDay)}"></label>
+              <a class="btn" id="eq-prep-pdf" href="/api/provider/equipment/prep.pdf?date=${esc(prepDay)}&ver=1" target="_blank" rel="noopener">${wdIcon('download',15)} ${esc(translateString('Imprimir o guardar PDF'))}</a>
+              ${navigator.share?`<button type="button" class="btn" id="eq-prep-share">${wdIcon('share',15)} ${esc(translateString('Compartir'))}</button>`:''}</div><div id="eq-prep"></div>`}</div>`;
+      translateTree(mount);
+      if(view==='prep') loadPrep();
+    }
+    async function loadPrep(){ const box=$('#eq-prep',mount); if(!box) return; box.innerHTML=`<p class="wz-hint">${esc(translateString('Cargando…'))}</p>`;
+      let d; try{ d=await api('/api/provider/equipment/prep?date='+encodeURIComponent(prepDay)); }catch(err){ box.innerHTML=wdBlockError(err); return; }
+      const groups=g=>g.length?`<ul class="eq-prep-groups">${g.map(x=>`<li><b>${esc(translateString(x.label))}</b> ${x.sizes.some(([s])=>s)?x.sizes.map(([s,n])=>`<span class="eq-prep-sz">${n} × ${esc(s||translateString('sin talla'))}</span>`).join(''):`<span class="eq-prep-sz">${x.count}</span>`}</li>`).join('')}</ul>`:'';
+      box.innerHTML=`<section class="eq-prep-day"><h3>${esc(translateString('Todo el día'))} · ${esc(wdLongDay(prepDay))}</h3>${groups(d.day.groups)||`<p class="wz-hint">${esc(translateString('Nadie ha pedido equipo de alquiler ese día.'))}</p>`}</section>
+        ${d.departures.map(dep=>`<section class="eq-prep-dep"><h3>${esc(dep.time)} · ${esc(dep.title)}</h3>${groups(dep.groups)}<ul class="eq-prep-divers">${dep.divers.map(x=>`<li><a href="#/reserva?id=${x.booking_id}">${esc(x.text)}</a>${x.desk?` <small>${esc(translateString('añadido en el centro'))}</small>`:''}</li>`).join('')}</ul></section>`).join('')}
+        <p class="eq-included">${wdIcon('check',15)} ${esc(translateString('Incluido: botella y plomos'))}</p>`;
+      translateTree(box);
+      const sh=$('#eq-prep-share',mount); if(sh) sh.onclick=async()=>{ const text=`${translateString('Equipo para preparar')} · ${wdLongDay(prepDay)}\n${d.day.text||translateString('Nadie ha pedido equipo de alquiler ese día.')}`;
+        try{ await navigator.share({title:translateString('Equipo para preparar'),text,url:location.origin+'/api/provider/equipment/prep.pdf?date='+prepDay}); }catch{} };
+    }
+    const queue=(code,patch)=>{ pending.items[code]={...(pending.items[code]||{}),code,...patch}; schedule(); };
+    function schedule(){ clearTimeout(saveTimer); const s=$('#eq-saved',mount); if(s) s.textContent=translateString('Guardando…'); saveTimer=setTimeout(save,600); }
+    async function save(){ const body={items:Object.values(pending.items)}; if(pending.kit) body.kit=pending.kit; if(Object.keys(pending.stock).length) body.stock=pending.stock;
+      pending.items={}; pending.kit=null; pending.stock={};
+      try{ const r=await postJSON('/api/provider/equipment',body); cfg=r; const s=$('#eq-saved',mount); if(s) s.textContent=translateString('Guardado'); refreshCards(); }
+      catch(err){ toast(err.message); try{ cfg=await api('/api/provider/equipment'); }catch{} draw(); } }
+    // After a save the switches, totals and the kit card follow the server, without losing the cursor of a price.
+    function refreshCards(){ $$('.eq-cfg[data-code]',mount).forEach(el=>{ const it=cfg.items.find(i=>i.code===el.dataset.code); if(!it) return; el.classList.toggle('is-on',it.active); const sw=el.querySelector('[data-f="active"]'); if(sw) sw.checked=it.active; });
+      const kc=$('.eq-cfg-kit',mount); if(kc&&document.activeElement?.closest('.eq-cfg-kit')!==kc){ kc.outerHTML=kitCard(); translateTree(mount); } }
+    mount.onclick=async e=>{ const b=e.target.closest('button,a'); if(!b||!mount.contains(b)) return;
+      if(b.dataset.view){ view=b.dataset.view; draw(); return; }
+      if(b.id==='eq-add'){ openCustom(); return; }
+      if(b.dataset.del){ if(!confirm(translateString('¿Borrar esta pieza? Las reservas ya hechas la conservan.'))) return; try{ cfg=await postJSON('/api/provider/equipment/custom-delete',{code:b.dataset.del}); draw(); }catch(err){ toast(err.message); } return; }
+    };
+    mount.onchange=e=>{ const t=e.target, card=t.closest('.eq-cfg'); if(!card) { if(t.id==='eq-prep-day'){ prepDay=t.value||wdToday(); const a=$('#eq-prep-pdf',mount); if(a) a.href='/api/provider/equipment/prep.pdf?date='+prepDay+'&ver=1'; loadPrep(); } return; }
+      if(card.dataset.kit!==undefined){ const k={...(pending.kit||{})};
+        if(t.dataset.k==='active'){ k.active=t.checked; if(t.checked&&card.querySelector('[data-k="price"]').value===''){ t.checked=false; toast(translateString('Pon el precio del equipo completo.')); card.querySelector('[data-k="price"]').focus(); return; } }
+        if(t.dataset.k==='price'){ k.price=t.value; }
+        if(t.name==='eq-kit-per') k.price_per=t.value;
+        pending.kit=k; schedule(); return; }
+      const code=card.dataset.code, it=cfg.items.find(i=>i.code===code);
+      if(t.dataset.f==='active'){ const pr=card.querySelector('[data-f="price"]').value; if(t.checked&&pr===''){ t.checked=false; toast(translateString('Pon el precio de «{pieza}» para activarla (0 € si va gratis).').replace('{pieza}',it.label)); card.querySelector('[data-f="price"]').focus(); return; } card.classList.toggle('is-on',t.checked); queue(code,{active:t.checked,price:pr}); return; }
+      if(t.dataset.f==='price'){ const p={price:t.value}; if(t.value!==''&&!it.configured&&!it.active) p.active=true; if(t.value===''){ p.active=false; } queue(code,p); return; }
+      if(t.name==='eq-per-'+code){ queue(code,{price_per:t.value}); return; }
+      if(t.dataset.f==='thick'){ queue(code,{thicknesses:$$('[data-f="thick"]:checked',card).map(x=>x.value)}); return; }
+      if(t.dataset.f==='prescription'){ queue(code,{prescription:t.checked}); return; }
+      if(t.dataset.f==='in_kit'){ queue(code,{in_kit:t.checked}); return; }
+      if(t.dataset.stock!==undefined){ (pending.stock[code]??={})[t.dataset.stock]=t.value===''?null:t.value; schedule(); return; }
+    };
+    function openCustom(){
+      const kinds=[['none','Sin tallas'],['size','Talla XS a XXL'],['shoe','Número de pie (UE)'],['custom','Mis tallas']];
+      const {el,close}=wdOpenModal({id:'eq-custom',size:'sm',title:esc(translateString('Pieza propia')),subtitle:esc(translateString('Por ejemplo: cámara, cuchillo o scooter.')),
+        body:`<form id="eq-c-form" class="svc-form"><div class="svc-field"><label for="eq-c-name">${esc(translateString('Nombre'))}</label><input id="eq-c-name" maxlength="60" required placeholder="${esc(translateString('Cámara'))}" autofocus></div>
+          <div class="svc-field"><span class="svc-label">${esc(translateString('Icono'))}</span><div class="wz-icons" role="radiogroup">${(cfg.custom_icons||[]).map((k,i)=>`<button type="button" class="wz-icon" role="radio" aria-checked="${i===0}" data-icon="${k}">${eqIcon(k,20)}</button>`).join('')}</div></div>
+          <div class="svc-field"><span class="svc-label">${esc(translateString('Tallas'))}</span><div class="wz-seg" role="radiogroup">${kinds.map(([k,l],i)=>`<label><input type="radio" name="eq-c-kind" value="${k}" ${i===0?'checked':''}><span>${esc(translateString(l))}</span></label>`).join('')}</div>
+            <input id="eq-c-opts" maxlength="200" placeholder="S, M, L" hidden aria-label="${esc(translateString('Mis tallas, separadas por comas'))}"></div>
+          <div class="svc-form-row"><div class="svc-field"><label for="eq-c-price">${esc(translateString('Precio'))}</label><label class="svc-money"><input id="eq-c-price" type="number" min="0" step="0.5" required><span>€</span></label></div>${perSeg('eq-c-per','dive')}</div></form>`,
+        footer:`<button type="button" class="btn" data-modal-close>${esc(translateString('Cancelar'))}</button><button type="submit" form="eq-c-form" class="btn btn-primary">${esc(translateString('Añadir'))}</button>`});
+      let icon=(cfg.custom_icons||['tag'])[0];
+      el.addEventListener('click',e=>{ const b=e.target.closest('[data-icon]'); if(!b) return; icon=b.dataset.icon; $$('[data-icon]',el).forEach(x=>x.setAttribute('aria-checked',String(x===b))); });
+      el.addEventListener('change',e=>{ if(e.target.name==='eq-c-kind') $('#eq-c-opts',el).hidden=e.target.value!=='custom'; });
+      $('#eq-c-form',el).onsubmit=async e=>{ e.preventDefault(); const kind=$('input[name="eq-c-kind"]:checked',el).value;
+        try{ cfg=await postJSON('/api/provider/equipment/custom',{label:$('#eq-c-name',el).value,icon,size_kind:kind,size_options:$('#eq-c-opts',el).value,price:$('#eq-c-price',el).value,price_per:$('input[name="eq-c-per"]:checked',el).value}); close(); toast(translateString('Pieza añadida.')); draw(); }catch(err){ toast(err.message); } };
+    }
+    draw();
+  }
+
+  // ---------- «Mis reservas»: the diver's pieces, and changing them until the cancellation deadline ----------
+  async function mountBookingEquipment(id,{center=false,onChange=()=>{}}={}){
+    const box=document.getElementById('bk-equip-card'); if(!box) return; const esc=escapeHtml;
+    let d; try{ d=await api(`/api/bookings/${id}/equipment`); }catch{ box.innerHTML=''; return; }
+    if(d.mode==='none'&&!d.rows.length&&!d.legacy_text){ box.innerHTML=''; return; }
+    const byDiver={}; d.rows.forEach(r=>(byDiver[r.diver]??=[]).push(r));
+    const line=(i,rs)=>`<li><b>${esc(d.names[i]||'')}</b> · ${rs.map(r=>r.code==='full_kit'?esc(translateString('Equipo completo')):esc(eqShort(r)+(r.size&&r.size!=='Normal'?' '+translateString(r.size):'')+(r.thick?' '+translateString(eqThick[r.thick]||r.thick):''))).join(' · ')}${rs.some(r=>r.source==='desk')?` <small>${esc(translateString('(añadido en el centro)'))}</small>`:''}</li>`;
+    box.innerHTML=`<section class="reservation-pass-section eq-card"><p class="eyebrow">${esc(translateString('EQUIPO DE ALQUILER'))}</p>
+      ${d.mode==='included'?`<p>${esc(translateString('Equipo incluido en el precio.'))}</p>`:''}
+      ${d.rows.length?`<ul class="eq-lines">${Object.entries(byDiver).map(([i,rs])=>line(+i,rs)).join('')}</ul>`:d.legacy_text?`<p>${esc(d.legacy_text)}</p>`:d.mode==='offer'?`<p>${esc(translateString('Sin equipo de alquiler: lleváis el vuestro.'))}</p>`:''}
+      ${d.note?`<p class="wz-hint">${esc(translateString('Nota'))}: ${esc(d.note)}</p>`:''}
+      <p class="eq-included">${wdIcon('check',15)} ${esc(translateString('Incluido: botella y plomos'))}</p>
+      <div class="page-actions">${d.can_change?`<button type="button" class="btn" id="eq-change">${esc(translateString('Cambiar el equipo'))}</button><small class="wz-hint">${esc(translateString('Puedes cambiarlo hasta el {fecha}.').replace('{fecha}',wdDeadline(d.deadline)))}</small>`:''}
+        ${center&&(wdCan('reservas'))?`<button type="button" class="btn" id="eq-desk">${wdIcon('plus',15)} ${esc(translateString('Añadir pieza en el mostrador'))}</button>`:''}</div></section>`;
+    translateTree(box);
+    $('#eq-change',box)?.addEventListener('click',()=>openChange());
+    $('#eq-desk',box)?.addEventListener('click',()=>openDesk());
+    function openChange(){
+      const v=eqValue(d.participants,d.rows.filter(r=>r.source!=='desk')); v.note=d.note||'';
+      const before=d.rows.filter(r=>r.source!=='desk').reduce((a,r)=>a+Number(r.total||0),0);
+      const {el,close}=wdOpenModal({id:'eq-change-m',size:'lg',title:esc(translateString('Cambiar el equipo')),subtitle:esc(translateString('La diferencia se cobra o se devuelve sola.')),
+        body:'<div id="eq-change-pick"></div><p class="eq-diff" id="eq-diff" aria-live="polite"></p>',
+        footer:`<button type="button" class="btn" data-modal-close>${esc(translateString('Cancelar'))}</button><button type="button" class="btn btn-primary" id="eq-change-save">${esc(translateString('Guardar cambios'))}</button>`});
+      let timer=0;
+      const pick=wdEquipPicker($('#eq-change-pick',el),{pieces:d.pieces,kit:d.kit,pax:d.participants,names:d.names,stock:d.stock,value:v,onChange:(val,typing)=>{ if(typing) return; clearTimeout(timer); timer=setTimeout(preview,200); }});
+      async function preview(){ const b=await api('/api/bookings/'+id).then(x=>x.booking).catch(()=>null); if(!b) return;
+        const q=new URLSearchParams({center_id:String(b.center_id||0),service_id:String(b.service_id),slot_id:String(b.slot_id||0),participants:String(d.participants),equipment_sel:JSON.stringify(eqPayload(v))});
+        try{ const r=await api('/api/booking-quote?'+q); const now=(r.lines||[]).filter(l=>l.kind==='equipment').reduce((a,l)=>a+Number(l.total||0),0), diff=Math.round((now-before)*100)/100;
+          $('#eq-diff',el).textContent=diff>0?translateString('Diferencia a pagar: {t}').replace('{t}',wdMoney(diff)):diff<0?translateString('Te devolvemos: {t}').replace('{t}',wdMoney(-diff)):translateString('Sin diferencia de precio.');
+          pick.redraw({kitNotice:(r.equipment?.kit_broken||[]).includes(v.tab)?translateString('Has quitado una pieza del equipo completo: ahora se cobra por piezas. Nuevo importe: {t}.').replace('{t}',wdMoney(r.total)):''}); }catch{} }
+      $('#eq-change-save',el).onclick=async e=>{ const miss=eqMissing(v,d.pieces,d.names); if(miss){ v.tab=miss.diver; pick.redraw(); toast(miss.text); return; }
+        const btn=e.currentTarget; btn.disabled=true;
+        try{ const r=await postJSON(`/api/bookings/${id}/equipment`,{equipment:eqPayload(v),note:v.note}); close();
+          if(r.checkout_url){ toast(translateString('Equipo cambiado. Paga la diferencia para terminar.')); wdOpenCheckout(r.checkout_url); return; }
+          toast(r.refund==='refunded'?translateString('Equipo cambiado. Te devolvemos {t} a tu tarjeta.').replace('{t}',wdMoney(-r.diff)):r.pay_note||translateString('Equipo cambiado.'));
+          onChange(); }
+        catch(err){ toast(err.message); btn.disabled=false; } };
+      preview();
+    }
+    function openDesk(){
+      const pieces=d.pieces.length?d.pieces:[];
+      const {el,close}=wdOpenModal({id:'eq-desk-m',size:'sm',title:esc(translateString('Añadir pieza en el mostrador')),subtitle:esc(translateString('«Se me ha olvidado la linterna»: se suma a la reserva.')),
+        body:`<form id="eq-desk-f" class="svc-form">${d.participants>1?`<div class="svc-field"><label for="eq-d-diver">${esc(translateString('Buceador'))}</label><select id="eq-d-diver">${d.names.map((n,i)=>`<option value="${i}">${esc(n)}</option>`).join('')}</select></div>`:''}
+          <div class="svc-field"><label for="eq-d-code">${esc(translateString('Pieza'))}</label><select id="eq-d-code" required>${pieces.map(p=>`<option value="${esc(p.code)}">${esc(p.label)} · ${wdMoney(p.price)}</option>`).join('')}</select></div>
+          <div class="svc-field" id="eq-d-size-w"><label for="eq-d-size">${esc(translateString('Talla'))}</label><select id="eq-d-size"></select></div>
+          <fieldset class="svc-fieldset"><legend>${esc(translateString('Cobro'))}</legend><label class="svc-check"><input type="radio" name="eq-d-pay" value="desk" checked><span>${esc(translateString('Pagado en el centro'))}</span></label><label class="svc-check"><input type="radio" name="eq-d-pay" value="link"><span>${esc(translateString('Enviar enlace de pago'))}</span></label></fieldset></form>`,
+        footer:`<button type="button" class="btn" data-modal-close>${esc(translateString('Cancelar'))}</button><button type="submit" form="eq-desk-f" class="btn btn-primary">${esc(translateString('Añadir'))}</button>`});
+      const sizes=()=>{ const p=pieces.find(x=>x.code===$('#eq-d-code',el).value)||{}; const s=p.sizes||[]; $('#eq-d-size-w',el).hidden=!s.length; $('#eq-d-size',el).innerHTML=s.map(x=>`<option>${esc(x)}</option>`).join(''); };
+      $('#eq-d-code',el).onchange=sizes; sizes();
+      $('#eq-desk-f',el).onsubmit=async e=>{ e.preventDefault(); const p=pieces.find(x=>x.code===$('#eq-d-code',el).value)||{};
+        try{ const r=await postJSON(`/api/center/bookings/${id}/equipment`,{code:p.code,diver:Number($('#eq-d-diver',el)?.value||0),size:(p.sizes||[]).length?$('#eq-d-size',el).value:'',thick:(p.thick||[])[0]||'',pay:$('input[name="eq-d-pay"]:checked',el).value});
+          close(); toast(r.checkout_url?translateString('Añadido. Le hemos enviado el enlace de pago.'):translateString('Añadido como pagado en el centro.')); onChange(); }
+        catch(err){ toast(err.message); } };
+    }
   }
 
   // =====================================================================
@@ -6049,6 +6314,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           `<button class="cb-nav" data-cbtab="logbook">${wdIcon('book',17)} <span>Logbook y pasaporte</span></button>`]},
         {id:'ventas',title:'Ventas',items:[
           `<button class="cb-nav" data-cbtab="services">${wdIcon('tag',17)} <span>Servicios y tarifas</span></button>`,
+          `<button class="cb-nav" data-cbtab="equipment">${wdIcon('alquiler_equipo',17)} <span>Equipo de alquiler</span></button>`,
           `<button class="cb-nav" data-cbtab="experiences">${wdIcon('viaje',17)} <span>Experiencias</span>${m.experience_requests?`<b>${m.experience_requests}</b>`:''}</button>`,
           `<button class="cb-nav" data-cbtab="payments">${wdIcon('card',17)} <span>Cobros y pagos</span></button>`]},
         {id:'control',title:'Control',items:[
@@ -6767,6 +7033,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         $$('.cb-go[data-tab]',content).forEach(b=>{ if(!document.querySelector(`.cb-nav[data-cbtab="${b.dataset.tab}"]`)) b.remove(); });}
       else if(tab==='planning'){content.innerHTML='<div id="cb-planning"></div>'; await renderCenterPlanning('cb-planning',{center,onManage:()=>loadTab('services')});}
       else if(tab==='services'){content.innerHTML='<div id="center-services-manager"></div>'; await renderProviderServicesManager(d.user.id,'center','center-services-manager');}
+      else if(tab==='equipment'){content.innerHTML='<div id="cb-equipment"></div>'; await renderEquipmentPanel('cb-equipment',{view:opts.view});}   // v50.58 (16/10)
       else if(tab==='bookings'){content.innerHTML='<div id="cb-bookings"></div>'; await renderCenterBookings('cb-bookings',{onChange:reloadData});}
       else if(tab==='clients'){try{clients=(await api('/api/center/clients')).items;}catch(e){} content.innerHTML=centerClientsView(clients); const q=$('#cl-q'); if(q)q.oninput=()=>{const v=q.value.trim().toLowerCase(); $$('.cl-row[data-search]').forEach(r=>{r.hidden=!!v&&!r.dataset.search.includes(v);});};}
       else if(tab==='experiences'){content.innerHTML='<div id="cb-experiences"></div>'; await renderProviderExperiences('cb-experiences','center',{goServices:()=>loadTab('services')});}

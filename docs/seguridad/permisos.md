@@ -67,7 +67,7 @@ filtros por dato de abajo) y las de escritura piden `reservas`.
 | `/api/manifest/` (el resto) | `barco` |
 | `/api/bookings/refund`, `/api/bookings/<id>/refund` | `cobros` |
 | `/api/provider/insurance`, `/api/provider/cancellation-policy`, `/api/center/cancellation-policy`, `/api/center/profile`, `/api/provider/profile`, `/api/provider/avatar`, `/api/provider/center-update`, `/api/provider/center-showcase`, `/api/provider/center-cover`, `/api/provider/center-gallery`, `/api/center/integration`, `/api/provider/ical`, `/api/center/import`, `/api/center/tariffs`, `/api/provider/waiver`, `/api/marina/`; «Vender en tu web» (v50.56): `/api/provider/vender`, `/api/provider/api-keys`, `/api/provider/webhooks`, `/api/provider/ical-imports` | `centro` |
-| `/api/provider-services`, `/api/service-templates/`, `/api/agenda/`, `/api/provider/spot-blocks` (bloqueos de plazas sin cliente, v50.56) | `salidas` |
+| `/api/provider-services`, `/api/service-templates/`, `/api/agenda/`, `/api/provider/spot-blocks` (bloqueos de plazas sin cliente, v50.56), `/api/provider/equipment` (piezas de alquiler, precios, equipo completo y stock, v50.58; «Equipo para preparar» lo lee todo el equipo) | `salidas` |
 | Todo lo demás del panel (también la póliza que el centro sube para una reserva, v50.56) | `reservas` |
 
 ## Datos sensibles: quién los lee y los cambia

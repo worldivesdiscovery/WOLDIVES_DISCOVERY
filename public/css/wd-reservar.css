@@ -93,3 +93,22 @@ input:focus,textarea:focus,select:focus,button:focus-visible,a:focus-visible{out
 .wr-offer small{font-size:12px}
 .wr-done.wr-left{text-align:left;justify-items:stretch}
 .wr-left form{text-align:left}
+
+/* v50.58 (16/10): el equipo de alquiler de cada buceador */
+.wr-eq{display:grid;gap:10px;margin:14px 0}
+.wr-eq h3{margin:0}
+.wr-eq-mode{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wr-eq-card{padding:12px;border:1.5px solid var(--wr-line,#d5dfe1);border-radius:12px;background:#fff;font:inherit;font-weight:700;cursor:pointer;color:inherit}
+.wr-eq-card[aria-checked="true"]{border-color:var(--marca,#076898);box-shadow:0 0 0 2px var(--marca,#076898) inset;background:#f0f8f9}
+.wr-eq-kit{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1.5px dashed var(--marca,#076898);border-radius:12px;background:#f7fbfc;font:inherit;cursor:pointer;color:inherit}
+.wr-eq-kit[aria-pressed="true"]{border-style:solid;background:#f0f8f9;box-shadow:0 0 0 2px var(--marca,#076898) inset}
+.wr-eq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+.wr-eq-piece{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px;border:1.5px solid var(--wr-line,#d5dfe1);border-radius:12px;background:#fff;font:inherit;text-align:left;cursor:pointer;color:inherit}
+.wr-eq-piece span{font-size:12.5px;opacity:.75}
+.wr-eq-piece[aria-pressed="true"]{border-color:var(--marca,#076898);background:#f0f8f9}
+.wr-eq-sizes{display:grid;gap:6px}
+.wr-eq-sizes label{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px}
+.wr-eq-sel{display:flex;gap:6px}
+.wr-eq-sizes select{padding:7px 9px;border:1px solid var(--wr-line,#d5dfe1);border-radius:9px;font:inherit}
+.wr-eq-inc{color:#2f7a63;font-weight:700}
+@media(max-width:420px){.wr-eq-mode{grid-template-columns:1fr}.wr-eq-grid{grid-template-columns:1fr 1fr}}

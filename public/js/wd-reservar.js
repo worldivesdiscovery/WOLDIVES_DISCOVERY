@@ -214,7 +214,7 @@
   }
 
   function pick(id, slotId) {
-    S.svc = S.cat.services.filter(function (s) { return s.id === id; })[0]; S.sel = null; S.quote = null; S.pax = 1;
+    S.svc = S.cat.services.filter(function (s) { return s.id === id; })[0]; S.sel = null; S.quote = null; S.pax = 1; eqInit();
     if (!S.svc) return home();
     S.month = (boot.date || (S.svc.next && S.svc.next[0] && S.svc.next[0].date) || new Date().toISOString()).slice(0, 7);
     loadMonth().then(function () {
@@ -291,7 +291,79 @@
   function choice() {
     var s = S.svc; var b = { service_id: s.id, participants: S.pax };
     if (S.sel.slot) b.slot_id = S.sel.slot.id; else { b.days = S.sel.days; b.part = S.sel.part || 'full'; }
+    if (S.eq && S.eq.rent) { b.equipment = eqPayload(); b.equipment_notes = S.eq.note || ''; }
     return b;
+  }
+
+  // ------------------------------------------------------------------ v50.58 (16/10): the rental equipment of each diver
+  // «Llevo mi equipo» or «Necesito equipo»; the pieces of each person with their sizes; the price comes from the server.
+  function eqLabel(p) { return p.custom ? p.label : (T['eqp_' + p.code] ? t('eqp_' + p.code) : p.label); }
+  function eqInit() { S.eq = { rent: false, tab: 0, note: '', divers: [] }; eqFit(); }
+  function eqFit() { while (S.eq.divers.length < S.pax) S.eq.divers.push({ kit: false, items: {} }); S.eq.divers.length = Math.max(1, S.pax); if (S.eq.tab >= S.eq.divers.length) S.eq.tab = 0; }
+  function eqPayload() {
+    return S.eq.divers.map(function (d) { return { kit: !!d.kit, items: Object.keys(d.items).map(function (c) { return { code: c, size: d.items[c].size || '', thick: d.items[c].thick || '' }; }) }; });
+  }
+  function eqWho(i) { return i === 0 ? t('eq_you') : t('eq_diver', { n: i + 1 }); }
+  function eqStart(code) { var p = (S.svc.rental.pieces || []).filter(function (x) { return x.code === code; })[0] || {}; return { size: '', thick: (p.thick || [])[0] || '' }; }
+  function eqMissing() {
+    if (!S.eq || !S.eq.rent) return null; var ps = (S.svc.rental && S.svc.rental.pieces) || [];
+    for (var i = 0; i < S.eq.divers.length; i++) for (var c in S.eq.divers[i].items) {
+      var p = ps.filter(function (x) { return x.code === c; })[0];
+      if (p && (p.sizes || []).length && p.size_kind !== 'mask' && !S.eq.divers[i].items[c].size) return { diver: i, text: t('eq_size_needed', { piece: eqLabel(p).toLowerCase(), who: eqWho(i) }) };
+    }
+    return null;
+  }
+  function eqThick(th) { return th === 'semi' ? t('eq_semi') : th + ' mm'; }
+  function eqDraw() {
+    var box = app.querySelector('[data-eq]'); if (!box || !S.svc) return; var r = S.svc.rental || {};
+    if (r.mode !== 'offer' || !(r.pieces || []).length) { box.innerHTML = '<p class="wr-note wr-eq-inc">' + (r.mode === 'included' ? esc(t('eq_inc_price')) + ' ' : '') + '✓ ' + esc(t('eq_included')) + '</p>'; return; }
+    eqFit(); var e = S.eq, d = e.divers[e.tab], q = S.quote || {}, stock = (q.equipment && q.equipment.stock) || {}, cur = S.svc.currency;
+    var out = function (code, size) { var st = stock[code]; if (!st) return false; var k = code === 'mask' ? '' : (size || ''); return (k in st) && +st[k] === 0; };
+    var per = function (p) { return t(p.price_per === 'day' ? 'eq_per_day' : 'eq_per_dive'); };
+    var html = '<h3>' + esc(t('eq_title')) + '</h3><div class="wr-eq-mode" role="radiogroup">' +
+      '<button type="button" role="radio" class="wr-eq-card" aria-checked="' + !e.rent + '" data-eqrent="0">' + esc(t('eq_own')) + '</button>' +
+      '<button type="button" role="radio" class="wr-eq-card" aria-checked="' + e.rent + '" data-eqrent="1">' + esc(t('eq_need')) + '</button></div>';
+    if (e.rent) {
+      if (e.divers.length > 1) html += '<div class="wr-chips" role="tablist">' + e.divers.map(function (x, i) {
+        var n = Object.keys(x.items).length; return '<button type="button" role="tab" class="wr-chip" aria-pressed="' + (i === e.tab) + '" data-eqtab="' + i + '">' + esc(eqWho(i)) + (n ? ' · ' + n : '') + '</button>'; }).join('') + '</div>' +
+        (e.tab > 0 ? '<button type="button" class="wr-link" data-eqcopy>' + esc(t('eq_copy')) + '</button>' : '');
+      if (r.kit) { var all = r.kit.codes.every(function (c) { return d.items[c]; });
+        html += '<button type="button" class="wr-eq-kit" aria-pressed="' + !!(d.kit && all) + '" data-eqkit><b>' + esc(t('eq_kit')) + '</b><span>' + esc(money(r.kit.price, cur)) + ' ' + esc(per(r.kit)) + '</span></button>'; }
+      html += '<div class="wr-eq-grid">' + r.pieces.map(function (p) {
+        return '<button type="button" class="wr-eq-piece" aria-pressed="' + !!d.items[p.code] + '" data-eqp="' + esc(p.code) + '"><b>' + esc(eqLabel(p)) + '</b><span>' + esc(money(p.price, cur)) + ' ' + esc(per(p)) + '</span></button>'; }).join('') + '</div>';
+      var sz = r.pieces.filter(function (p) { return d.items[p.code] && ((p.sizes || []).length || (p.thick || []).length > 1); });
+      if (sz.length) html += '<div class="wr-eq-sizes">' + sz.map(function (p) {
+        var x = d.items[p.code];
+        return '<label><span>' + esc(eqLabel(p)) + '</span><span class="wr-eq-sel">' + ((p.sizes || []).length ? '<select data-eqsize="' + esc(p.code) + '"><option value="">' + esc(t(p.size_kind === 'shoe' ? 'eq_shoe' : 'eq_size')) + '</option>' + p.sizes.map(function (v) {
+          var o = out(p.code, v) && x.size !== v; return '<option value="' + esc(v) + '"' + (x.size === v ? ' selected' : '') + (o ? ' disabled' : '') + '>' + esc(v) + (o ? ' · ' + esc(t('eq_out')) : '') + '</option>'; }).join('') + '</select>' : '') +
+          ((p.thick || []).length > 1 ? '<select data-eqthick="' + esc(p.code) + '" aria-label="' + esc(t('eq_thick')) + '">' + p.thick.map(function (th) { return '<option value="' + esc(th) + '"' + ((x.thick || p.thick[0]) === th ? ' selected' : '') + '>' + esc(eqThick(th)) + '</option>'; }).join('') + '</select>' : '') + '</span></label>';
+      }).join('') + '</div>';
+      if (((q.equipment && q.equipment.kit_broken) || []).indexOf(e.tab) >= 0) html += '<p class="wr-msg info">' + esc(t('eq_kit_broken', { total: money(q.total, q.currency) })) + '</p>';
+      html += '<label>' + esc(t('eq_note')) + '<input type="text" maxlength="300" data-eqnote value="' + esc(e.note || '') + '"></label>';
+    }
+    box.innerHTML = html + '<p class="wr-note wr-eq-inc">✓ ' + esc(t('eq_included')) + '</p>';
+  }
+  function eqBind(refresh) {
+    var box = app.querySelector('[data-eq]'); if (!box) return;
+    box.addEventListener('click', function (ev) {
+      var b = ev.target.closest('button'); if (!b) return; var e = S.eq, d = e.divers[e.tab], r = S.svc.rental;
+      if (b.hasAttribute('data-eqrent')) { e.rent = b.getAttribute('data-eqrent') === '1'; eqDraw(); refresh(); return; }
+      if (b.hasAttribute('data-eqtab')) { e.tab = +b.getAttribute('data-eqtab'); eqDraw(); return; }
+      if (b.hasAttribute('data-eqcopy')) { var prev = e.divers[e.tab - 1]; e.divers[e.tab] = { kit: prev.kit, items: JSON.parse(JSON.stringify(prev.items)) }; eqDraw(); refresh(); return; }
+      if (b.hasAttribute('data-eqkit')) {
+        var all = r.kit.codes.every(function (c) { return d.items[c]; });
+        if (d.kit && all) { d.kit = false; r.kit.codes.forEach(function (c) { delete d.items[c]; }); }
+        else { d.kit = true; r.kit.codes.forEach(function (c) { if (!d.items[c]) d.items[c] = eqStart(c); }); }
+        eqDraw(); refresh(); return;
+      }
+      if (b.hasAttribute('data-eqp')) { var c = b.getAttribute('data-eqp'); if (d.items[c]) delete d.items[c]; else d.items[c] = eqStart(c); eqDraw(); refresh(); }
+    });
+    box.addEventListener('change', function (ev) {
+      var el = ev.target, d = S.eq.divers[S.eq.tab];
+      if (el.hasAttribute('data-eqsize')) { d.items[el.getAttribute('data-eqsize')].size = el.value; refresh(); }
+      if (el.hasAttribute('data-eqthick')) { d.items[el.getAttribute('data-eqthick')].thick = el.value; refresh(); }
+    });
+    box.addEventListener('input', function (ev) { if (ev.target.hasAttribute('data-eqnote')) S.eq.note = ev.target.value; });
   }
   function quote() {
     return api('/api/w/' + boot.slug + '/precio', choice()).then(function (q) { S.quote = q; return q; });
@@ -304,6 +376,7 @@
     var mode = s.mode === 'payment' ? t('pay_note', { min: S.cat.hold_minutes || boot.hold_minutes || 10 }) : t('request_note');
     draw('<button class="wr-link" type="button" data-back>‹ ' + esc(t('back')) + '</button><h2>' + esc(s.title) + '</h2><p class="wr-note">' + esc(when) + ' · ' + esc(t('local_time', { tz: tzName(S.dates.timezone) })) + '</p>' +
       '<form novalidate data-form><div class="wr-step"><span>' + esc(t('people')) + '</span><button type="button" data-pax="-1" aria-label="−">−</button><output data-paxv>' + S.pax + '</output><button type="button" data-pax="1" aria-label="+">+</button></div>' +
+      '<div class="wr-eq" data-eq></div>' +
       '<div class="wr-sum" data-sum><span class="wr-note">' + esc(t('loading')) + '</span></div>' +
       '<h3>' + esc(t('your_details')) + '</h3><label>' + esc(t('name')) + '<input type="text" name="fullname" autocomplete="name" required maxlength="180"></label>' +
       '<div class="wr-two"><label>' + esc(t('email')) + '<input type="email" name="email" autocomplete="email" required maxlength="160"></label>' +
@@ -318,14 +391,16 @@
     var offBtn = app.querySelector('[data-ins-offers]'); if (offBtn) offBtn.addEventListener('click', function () { insOffers(app.querySelector('[data-ins-list]')); });
     app.querySelectorAll('[name=ins_mode]').forEach(function (r) { r.addEventListener('change', function () { var h = app.querySelector('[data-ins-have]'); if (h) h.hidden = r.value !== 'have' || !r.checked; }); });
     function refresh() {
-      app.querySelector('[data-paxv]').textContent = S.pax; insOthers(S.pax);
+      app.querySelector('[data-paxv]').textContent = S.pax; insOthers(S.pax); eqFit();
       quote().then(function (q) {
+        eqDraw();
         app.querySelector('[data-sum]').innerHTML = (q.lines || []).map(function (l) {
           return '<div><span>' + esc(l.label) + (l.qty > 1 ? ' × ' + l.qty : '') + '</span><span>' + esc(money(l.total, q.currency)) + '</span></div>';
         }).join('') + '<div class="wr-total"><span>' + esc(t('total')) + '</span><span>' + esc(money(q.total, q.currency)) + '</span></div>';
       }).catch(function (e) { app.querySelector('[data-sum]').innerHTML = '<span class="wr-msg err">' + esc(errText(e)) + '</span>'; });
     }
-    app.querySelectorAll('[data-pax]').forEach(function (b) { b.addEventListener('click', function () { S.pax = Math.max(1, Math.min(max, S.pax + +b.getAttribute('data-pax'))); refresh(); }); });
+    app.querySelectorAll('[data-pax]').forEach(function (b) { b.addEventListener('click', function () { S.pax = Math.max(1, Math.min(max, S.pax + +b.getAttribute('data-pax'))); eqFit(); eqDraw(); refresh(); }); });
+    eqDraw(); eqBind(refresh);
     refresh();
     var idem = key();
     app.querySelector('[data-form]').addEventListener('submit', function (ev) {
@@ -337,6 +412,7 @@
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) return say(t('check_email'));
       if (!data.accept_policy) return say(t('accept_policy'));
       if (!insCollect(f, data)) return;
+      var miss = eqMissing(); if (miss) { S.eq.tab = miss.diver; eqDraw(); return say(miss.text); }
       S.busy = true; var go = app.querySelector('[data-go]'); go.disabled = true; say('', 'info');
       var win = null;
       if (s.mode === 'payment' && boot.mode === 'widget') { try { win = window.open('', 'wd-pago'); } catch (e) { win = null; } }   // opened now: popup blockers allow it

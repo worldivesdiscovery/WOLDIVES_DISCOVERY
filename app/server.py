@@ -71,6 +71,7 @@ from wod import exportar as wexp   # v50.57: Excel and CSV exports
 from wod import enlaces as wenl   # v50.57 (4.4): short addresses of the QR codes
 from wod import logbook as wlog   # v50.57: the dive logbook of the account («Dive Logbook»)
 from wod import servicios as wsv   # v50.58: services in the words of a diver (the wizard, courses and their sessions)
+from wod import equipo as weq   # v50.58: rental equipment inside the dive (16/10/2026)
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1863,6 +1864,42 @@ COURSE_SESSIONS_SCHEMA = [
 ]
 
 
+EQUIPMENT_SCHEMA = [
+    # v50.58 · encargo del 16/10/2026: the rental pieces each diver of a booking takes, with the size and the price of
+    # the day of the booking (a later change of prices never touches a booking already made).
+    """CREATE TABLE IF NOT EXISTS booking_equipment (id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+        diver INTEGER NOT NULL DEFAULT 0, code TEXT NOT NULL, label TEXT NOT NULL, size TEXT, thick TEXT, kit INTEGER NOT NULL DEFAULT 0,
+        unit_price REAL NOT NULL DEFAULT 0, units INTEGER NOT NULL DEFAULT 1, price_per TEXT NOT NULL DEFAULT 'dive', total REAL NOT NULL DEFAULT 0,
+        source TEXT NOT NULL DEFAULT 'booking', paid_at_desk INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active',
+        created_by INTEGER, created_at TEXT NOT NULL, removed_at TEXT)""",
+    'CREATE INDEX IF NOT EXISTS idx_booking_equipment_booking ON booking_equipment(booking_id, status)',
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_center_equipment_pro ON center_equipment(provider_user_id, code) WHERE provider_user_id IS NOT NULL',
+    'CREATE INDEX IF NOT EXISTS idx_resources_equipment ON resources(kind, owner_center_id, owner_user_id, equipment_code)',
+]
+
+
+def migrate_equipment(db):
+    """v50.58 · alquiler de equipo dentro de la inmersión (16/10/2026). The rental list of a centre gets its sizes,
+    icon, price per dive or per day and its «Equipo completo»; a freelance professional can have the same list
+    (center_equipment.center_id becomes optional, with a copy of the database first when there are rows). Each service
+    says whether it offers rental; the existing ones go on offering it, as they did. The tank and the weights are
+    never pieces: their rows («Botella») stay as they were, unused. Adds and transforms; nothing is deleted."""
+    info = {r['name']: r for r in db.execute('PRAGMA table_info(center_equipment)').fetchall()}
+    if 'provider_user_id' not in info:
+        if db.execute('SELECT 1 FROM center_equipment LIMIT 1').fetchone(): backup_database(db, 'v50_58_equipo')
+        rebuild_table(db, 'center_equipment', lambda sql: sql.replace('center_id INTEGER NOT NULL,', 'center_id INTEGER, provider_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,', 1))
+    add_columns(db, 'center_equipment', [('icon', 'TEXT'), ('size_kind', 'TEXT'), ('size_options', 'TEXT'), ('thicknesses', 'TEXT'),
+                                         ('prescription', 'INTEGER NOT NULL DEFAULT 0'), ('price_per', "TEXT NOT NULL DEFAULT 'dive'"),
+                                         ('custom', 'INTEGER NOT NULL DEFAULT 0'), ('in_kit', 'INTEGER')])
+    add_columns(db, 'provider_services', [('rental_mode', 'TEXT'), ('rental_items', 'TEXT'), ('dives_per_outing', 'INTEGER')])
+    add_columns(db, 'resources', [('equipment_code', 'TEXT'), ('equipment_size', 'TEXT')])
+    for stmt in EQUIPMENT_SCHEMA: db.execute(stmt)
+    if migration_done(db, '50.58-equipo'): return
+    n = db.execute("UPDATE provider_services SET rental_mode='offer' WHERE rental_mode IS NULL AND COALESCE(kind,'')<>'rental' AND service_type<>'alquiler_equipo'").rowcount
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)',
+               ('50.58-equipo', now(), f'Alquiler de equipo dentro de la inmersión: {n} servicios existentes siguen ofreciendo el alquiler'))
+
+
 def migrate_v50_58(db):
     """v50.58 · revisión y usabilidad (Parte 3): services in the words of a diver. The kind of each service (immersion,
     course, rental…), the plan of days of a course and its editions (a start date, its end and its instructor), price per
@@ -1878,6 +1915,7 @@ def migrate_v50_58(db):
     add_columns(db, 'centers', [('course_reminder_days', 'INTEGER')])
     add_columns(db, 'users', [('course_reminder_days', 'INTEGER')])
     for stmt in COURSE_SESSIONS_SCHEMA: db.execute(stmt)
+    migrate_equipment(db)
     if migration_done(db, '50.58'): return
     n_kind = n_plan = n_ed = 0
     for r in db.execute('SELECT * FROM provider_services WHERE kind IS NULL').fetchall():
@@ -3712,9 +3750,582 @@ def effective_service_tariff(db, service_id, target_date=None):
     return (float(row['price'] or 0), row['currency'] or 'EUR', None) if row else (0.0,'EUR',None)
 
 
-def booking_quote(db, center_id, service, participants, activity_date=None, extra_ids=None, equipment_codes=None):
+# ---------------------------------------------------------------------------------------------------------------------
+# v50.58 · alquiler de equipo dentro de la inmersión (encargo del 16/10/2026). The pieces are an extra of the booking,
+# chosen for each diver with their sizes; the price always comes from here; the stock of a size is kept in the same
+# agenda engine as the instructors and the boats (resources of kind «equipment» with their capacity).
+# ---------------------------------------------------------------------------------------------------------------------
+STOCK_STATES = ('requested', 'pending', 'payment_in_progress', 'insurance_pending', 'accepted_pending_payment', 'confirmed', 'completed')
+
+
+def equip_owner_where(kind, oid):
+    return ('center_id=?', (oid,)) if kind == 'center' else ('provider_user_id=? AND center_id IS NULL', (oid,))
+
+
+def equipment_rows(db, kind, oid):
+    w, a = equip_owner_where(kind, oid)
+    return [dict(r) for r in db.execute(f'SELECT * FROM center_equipment WHERE {w} ORDER BY sort_order,id', a).fetchall()]
+
+
+def equipment_catalog(db, kind, oid):
+    """(pieces, kit) of a centre or a freelance: the 11 of the list with what it saved, and its own pieces."""
+    return weq.merge_catalog(equipment_rows(db, kind, oid)) if oid else ([], None)
+
+
+def service_owner(svc):
+    return ('center', svc['center_id']) if svc['center_id'] else ('freelance', svc['provider_user_id'])
+
+
+def service_rental_mode(svc):
+    m = row_get(svc, 'rental_mode')
+    return m if m in weq.RENTAL_MODES else weq.DEFAULT_MODE.get(wsv.kind_of(svc), 'offer')
+
+
+def service_rental(db, svc, catalog=None):
+    """(mode, pieces, kit) of a service: offer (with the pieces and prices of this service), included or none."""
+    if not svc or wsv.kind_of(svc) == 'rental': return 'none', [], None
+    items, kit = catalog or equipment_catalog(db, *service_owner(svc))
+    return weq.service_offer(items, kit, service_rental_mode(svc), weq.as_json(row_get(svc, 'rental_items'), {}))
+
+
+def rental_units(svc, day_from=None, day_to=None, n_days=None):
+    """For how many dives and days the pieces are rented: a departure is one outing (with its dives), a course edition
+    or a trip all its days, a booking by days its days."""
+    days = int(n_days or 0) or 1
+    if not n_days and day_from and day_to and day_to > day_from:
+        days = (_dt.date.fromisoformat(day_to) - _dt.date.fromisoformat(day_from)).days + 1
+    per_outing = max(1, int(row_get(svc, 'dives_per_outing') or 1)) if svc else 1
+    if svc and wsv.kind_of(svc) == 'course':
+        dives = len(service_plan(svc).get('dives') or []) or days
+    else:
+        dives = per_outing * days
+    return {'dive': dives, 'day': days}
+
+
+def equipment_quote(db, svc, participants, equipment=None, codes=None, day_from=None, day_to=None, n_days=None, strict=False, names=None):
+    """(rows, lines, info). equipment: the pieces of each diver (new format); codes: «codigo:cantidad» (v50.27, the
+    old bookings and old API clients, without sizes). strict: every piece with sizes needs its size."""
+    if not svc or (equipment in (None, '', []) and not codes): return [], [], {}
+    mode, pieces, kit = service_rental(db, svc)
+    if mode != 'offer' or not pieces:
+        if equipment not in (None, '', []) and any(d.get('items') or d.get('kit') for d in weq.parse_selection(equipment, participants)):
+            raise ValueError('Este servicio no alquila equipo: ' + ('el equipo está incluido en el precio.' if mode == 'included' else 'consulta con el centro.'))
+        return [], [], {'mode': mode}
+    if equipment not in (None, '', []):
+        sel = weq.parse_selection(equipment, participants)
+    else:
+        known = {p['code'] for p in pieces}
+        sel = weq.legacy_selection(codes, participants); strict = False
+        for d in sel: d['items'] = [it for it in d['items'] if it['code'] in known]
+    sel = weq.check_selection(sel, pieces, kit, strict=strict, names=names)
+    units = rental_units(svc, day_from, day_to, n_days)
+    rows, lines, info = weq.price(sel, pieces, kit, units)
+    info.update(units=units, mode=mode, divers=[round(sum(r['total'] for r in rows if r['diver'] == i), 2) for i in range(len(sel))])
+    return rows, lines, info
+
+
+def stock_resources(db, kind, oid, active_only=True):
+    """{(code, size): resource} of the pieces with a stock (no row: no limit)."""
+    col = 'owner_center_id' if kind == 'center' else 'owner_user_id'
+    extra = '' if kind == 'center' else ' AND owner_center_id IS NULL'
+    act = ' AND active=1' if active_only else ''
+    return {(r['equipment_code'], r['equipment_size'] or ''): r for r in db.execute(f"SELECT * FROM resources WHERE kind='equipment'{act} AND {col}=?{extra}", (oid,)).fetchall()}
+
+
+def stock_span(db, svc, day_from, day_to):
+    tz = service_tz(db, svc)
+    last = _dt.date.fromisoformat(day_to or day_from) + _dt.timedelta(days=1)
+    return wag.local_to_utc(day_from, '00:00', tz), wag.local_to_utc(last.isoformat(), '00:00', tz)
+
+
+def stock_used(db, rid, s, e, exclude_booking=None):
+    st = ','.join('?' * len(STOCK_STATES))
+    q = f'''SELECT COUNT(*) FROM resource_blocks rb JOIN booking_equipment be ON be.id=rb.ref_id JOIN bookings b ON b.id=be.booking_id
+            WHERE rb.resource_id=? AND rb.status='active' AND rb.ref_type='booking_equipment' AND be.status='active' AND b.status IN ({st})
+              AND rb.starts_at<? AND rb.ends_at>?'''
+    a = [rid, *STOCK_STATES, e, s]
+    if exclude_booking: q += ' AND b.id<>?'; a.append(exclude_booking)
+    return db.execute(q, a).fetchone()[0]
+
+
+def stock_free(db, svc, day_from, day_to=None, exclude_booking=None):
+    """{code: {size: free units}} on those days, only for the pieces with a stock."""
+    if not svc or not day_from: return {}
+    res = stock_resources(db, *service_owner(svc))
+    if not res: return {}
+    s, e = stock_span(db, svc, day_from, day_to)
+    out = {}
+    for (code, size), r in res.items():
+        out.setdefault(code, {})[size] = max(0, int(r['capacity']) - stock_used(db, r['id'], s, e, exclude_booking))
+    return out
+
+
+def stock_check(db, svc, rows, day_from, day_to=None, exclude_booking=None):
+    """No more pieces of a size than the centre has that day (E11). Raises NoSpots with the piece and the size."""
+    free = stock_free(db, svc, day_from, day_to, exclude_booking)
+    need = {}
+    for r in rows:
+        if r['code'] != weq.KIT: need[weq.stock_key(r)] = need.get(weq.stock_key(r), 0) + 1
+    for (code, size), n in need.items():
+        f = (free.get(code) or {}).get(size)
+        if f is not None and n > f:
+            lab = next((r['label'] for r in rows if r['code'] == code), code).lower()
+            raise NoSpots(f"No quedan más {lab}{' talla ' + size if size else ''} para ese día{f' (queda {f})' if f == 1 else f' (quedan {f})' if f else ''}. Elige otra talla o quítala.")
+    return free
+
+
+def stock_claim(db, svc, booking_id, day_from, day_to=None):
+    """The pieces with a stock of a booking take their units (resource_blocks of the agenda engine)."""
+    res = stock_resources(db, *service_owner(svc))
+    if not res or not day_from: return
+    agenda_lock(db)
+    s, e = stock_span(db, svc, day_from, day_to)
+    for be in db.execute("SELECT * FROM booking_equipment WHERE booking_id=? AND status='active' AND code<>?", (booking_id, weq.KIT)).fetchall():
+        r = res.get(weq.stock_key(dict(be)))
+        if not r or db.execute("SELECT 1 FROM resource_blocks WHERE ref_type='booking_equipment' AND ref_id=? AND status='active'", (be['id'],)).fetchone(): continue
+        db.execute("""INSERT INTO resource_blocks(resource_id,starts_at,ends_at,local_date_from,local_date_to,kind,ref_type,ref_id,status,created_at)
+                      VALUES(?,?,?,?,?,'equipment','booking_equipment',?,'active',?)""", (r['id'], s, e, day_from, day_to or day_from, be['id'], now()))
+
+
+def booking_diver_names(db, b):
+    """The names of the divers of a booking for the equipment: the one who books, then the manifest names."""
+    first = (row_get(b, 'contact_name') or '') or ((db.execute('SELECT fullname FROM users WHERE id=?', (b['user_id'],)).fetchone() or {'fullname': ''})['fullname'])
+    names = [(first or '').split(' ')[0] or 'Tú']
+    for seat in range(2, max(1, int(b['participants'] or 1)) + 1):
+        e = db.execute('SELECT name FROM manifest_entries WHERE booking_id=? AND seat=?', (b['id'], seat)).fetchone()
+        nm = ((e['name'] if e else '') or '').strip()
+        names.append(nm.split(' ')[0] if nm else f'Buceador {seat}')
+    return names
+
+
+def booking_equipment_rows(db, bid, active=True):
+    return [dict(r) for r in db.execute(f"SELECT * FROM booking_equipment WHERE booking_id=?{" AND status='active'" if active else ''} ORDER BY diver,id", (bid,)).fetchall()]
+
+
+def save_booking_equipment(db, bid, rows, source='booking', actor=None, desk=False):
+    for r in rows:
+        db.execute('''INSERT INTO booking_equipment(booking_id,diver,code,label,size,thick,kit,unit_price,units,price_per,total,source,paid_at_desk,status,created_by,created_at)
+                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?)''', (bid, r['diver'], r['code'], r['label'], r.get('size') or None, r.get('thick') or None,
+                                                                         int(r.get('kit') or 0), r['unit_price'], r['units'], r['price_per'], r['total'], source, 1 if desk else 0, actor, now()))
+
+
+def refresh_equipment_text(db, b):
+    """bookings.equipment_items: «Ana · Traje M 5 mm · Aletas 39 · Máscara | Buceador 2 · Boya» (every list of the
+    centre that already showed the rental shows it now per diver: manifest, Hoy, the PDF, the e-mails, exports)."""
+    rows = booking_equipment_rows(db, b['id'])
+    if not rows and not db.execute('SELECT 1 FROM booking_equipment WHERE booking_id=? LIMIT 1', (b['id'],)).fetchone(): return
+    text = weq.booking_text(rows, booking_diver_names(db, b)) or None
+    db.execute('UPDATE bookings SET equipment_items=?,needs_equipment=? WHERE id=?', (text, 1 if rows else 0, b['id']))
+
+
+def equipment_config(db, kind, oid):
+    """Panel → Equipo de alquiler: the 11 pieces of the list and the centre's own, «Equipo completo», the stock of each
+    size and the services (what each one offers)."""
+    items, kit = equipment_catalog(db, kind, oid)
+    stock = {}
+    for (code, size), r in stock_resources(db, kind, oid).items(): stock.setdefault(code, {})[size] = int(r['capacity'])
+    w, a = owner_where(kind, oid)
+    svcs = [{'id': r['id'], 'title': r['title'], 'kind': wsv.kind_of(r), 'mode': service_rental_mode(r)}
+            for r in db.execute(f'SELECT * FROM provider_services WHERE {w} AND COALESCE(draft,0)=0 AND active=1 ORDER BY title COLLATE NOCASE', a).fetchall()
+            if wsv.kind_of(r) != 'rental']
+    return {'items': items, 'kit': kit, 'stock': stock, 'configured': weq.configured(items), 'included': weq.INCLUDED_TEXT,
+            'sizes': {'letters': list(weq.LETTERS), 'shoe': list(weq.SHOE), 'thick': weq.THICK, 'mask': list(weq.MASK)},
+            'custom_icons': list(weq.CUSTOM_ICONS), 'services': svcs, 'max_custom': weq.MAX_CUSTOM}
+
+
+def equipment_upsert(db, kind, oid, code, vals):
+    w, a = equip_owner_where(kind, oid)
+    cur = db.execute(f'SELECT id FROM center_equipment WHERE {w} AND code=?', (*a, code)).fetchone()
+    vals = {**vals, 'updated_at': now()}
+    if cur:
+        db.execute(f"UPDATE center_equipment SET {','.join(k + '=?' for k in vals)} WHERE id=?", (*vals.values(), cur['id']))
+        return cur['id']
+    cols = {'center_id': oid if kind == 'center' else None, 'provider_user_id': oid if kind == 'freelance' else None, 'code': code, **vals}
+    cols.setdefault('label', weq.LABEL.get(code, code)); cols.setdefault('active', 0)
+    return db.execute(f"INSERT INTO center_equipment({','.join(cols)}) VALUES({','.join('?' * len(cols))})", tuple(cols.values())).lastrowid
+
+
+def equipment_set_stock(db, kind, oid, code, size, n, label):
+    """The units of a size, as a resource of the agenda engine (capacity). None: no limit."""
+    r = stock_resources(db, kind, oid, active_only=False).get((code, size or ''))
+    name = f"{label}{' · ' + size if size else ''}"
+    if n is None:
+        if r: db.execute('UPDATE resources SET active=0,updated_at=? WHERE id=?', (now(), r['id']))
+        return
+    if r:
+        db.execute('UPDATE resources SET capacity=?,active=1,name=?,updated_at=? WHERE id=?', (int(n), name, now(), r['id'])); return
+    tz = place_tz(db, None, oid) if kind == 'center' else wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ)
+    db.execute('''INSERT INTO resources(owner_center_id,owner_user_id,kind,name,capacity,timezone,active,equipment_code,equipment_size,created_at,updated_at)
+                  VALUES(?,?,'equipment',?,?,?,1,?,?,?,?)''', (oid if kind == 'center' else None, oid if kind == 'freelance' else None, name, int(n), tz, code, size or '', now(), now()))
+
+
+def equipment_save(db, user, data):
+    """Saves what the panel sends: pieces (switch, price, per dive or day, thicknesses, graduated mask, part of the
+    full kit, the name and sizes of an own piece), «Equipo completo» and the stock of each size."""
+    kind, oid = provider_owner(user)
+    items, kit = equipment_catalog(db, kind, oid); by = {i['code']: i for i in items}
+    for raw in (data.get('items') or [])[:60]:
+        if not isinstance(raw, dict): continue
+        it = by.get(clean_text(raw.get('code'), 40) or '')
+        if not it: raise ValueError('Pieza de equipo no válida.')
+        vals = {}
+        if 'price' in raw: vals['price'] = weq.money(raw.get('price'))
+        price_ = vals['price'] if 'price' in vals else it['price']
+        if 'active' in raw:
+            on = json_bool(raw.get('active'))
+            if on and price_ is None: raise ValueError(f"Pon el precio de «{it['label']}» para activarla (0 € si va gratis).")
+            vals['active'] = 1 if on else 0
+        if raw.get('price_per') in weq.PRICE_PER: vals['price_per'] = raw['price_per']
+        if 'in_kit' in raw: vals['in_kit'] = 1 if json_bool(raw.get('in_kit')) else 0
+        if it['size_kind'] == 'suit' and 'thicknesses' in raw:
+            th = [t for t in (raw.get('thicknesses') or []) if t in weq.THICK]
+            if not th: raise ValueError('Elige al menos un grosor de traje.')
+            vals['thicknesses'] = json.dumps(th)
+        if it['size_kind'] == 'mask' and 'prescription' in raw: vals['prescription'] = 1 if json_bool(raw.get('prescription')) else 0
+        if it['custom']:
+            if 'label' in raw:
+                lab = weq.clean_label(raw.get('label'), 60)
+                if not lab: raise ValueError('Pon un nombre a la pieza.')
+                if lab.casefold() in weq.NOT_PIECES: raise ValueError('La botella y los plomos van siempre incluidos: no son piezas de alquiler.')
+                vals['label'] = lab
+            if raw.get('icon') in weq.CUSTOM_ICONS: vals['icon'] = raw['icon']
+            if raw.get('size_kind') in ('none', 'shoe', 'size', 'custom'): vals['size_kind'] = raw['size_kind']
+            if 'size_options' in raw: vals['size_options'] = json.dumps(weq.custom_options(raw.get('size_options')), ensure_ascii=False)
+        elif not it['configured']:
+            vals.update(sort_order=it['sort'], label=it['label'], icon=it['code'])
+            if it['in_kit'] and 'in_kit' not in vals: vals['in_kit'] = 1
+        if vals: equipment_upsert(db, kind, oid, it['code'], vals)
+    if isinstance(data.get('kit'), dict):
+        k = data['kit']; vals = {'label': weq.KIT_LABEL}
+        if 'price' in k: vals['price'] = weq.money(k.get('price'))
+        if 'active' in k:
+            on = json_bool(k.get('active'))
+            if on and (vals['price'] if 'price' in vals else kit['price']) is None: raise ValueError('Pon el precio del equipo completo.')
+            vals['active'] = 1 if on else 0
+        if k.get('price_per') in weq.PRICE_PER: vals['price_per'] = k['price_per']
+        equipment_upsert(db, kind, oid, weq.KIT, vals)
+    if isinstance(data.get('stock'), dict):
+        items, _ = equipment_catalog(db, kind, oid); by = {i['code']: i for i in items}
+        for code, sizes in weq.clean_stock(data['stock'], items).items():
+            for size, n in sizes.items(): equipment_set_stock(db, kind, oid, code, size, n, by[code]['label'])
+    audit(db, user['id'], 'equipment_saved', kind, oid, {'items': [r.get('code') for r in (data.get('items') or []) if isinstance(r, dict)][:60],
+                                                         'kit': isinstance(data.get('kit'), dict), 'stock': isinstance(data.get('stock'), dict)})
+    return equipment_config(db, kind, oid)
+
+
+def equipment_custom_add(db, user, data):
+    kind, oid = provider_owner(user)
+    rows = equipment_rows(db, kind, oid); own = [r for r in rows if r['custom']]
+    if len(own) >= weq.MAX_CUSTOM: raise ValueError(f'Como mucho {weq.MAX_CUSTOM} piezas propias.')
+    lab = weq.clean_label(data.get('label'), 60)
+    if not lab: raise ValueError('Pon un nombre a la pieza. Por ejemplo: «Cámara».')
+    if lab.casefold() in weq.NOT_PIECES: raise ValueError('La botella y los plomos van siempre incluidos: no son piezas de alquiler.')
+    if any(r['label'].casefold() == lab.casefold() for r in own) or lab.casefold() in (l.casefold() for l in weq.LABEL.values()):
+        raise ValueError('Ya tienes una pieza con ese nombre.')
+    size_kind = data.get('size_kind') if data.get('size_kind') in ('none', 'shoe', 'size', 'custom') else 'none'
+    opts = weq.custom_options(data.get('size_options')) if size_kind == 'custom' else []
+    if size_kind == 'custom' and not opts: raise ValueError('Escribe las tallas separadas por comas. Por ejemplo: S, M, L.')
+    price_ = weq.money(data.get('price'))
+    code = 'own_' + secrets.token_hex(4)
+    equipment_upsert(db, kind, oid, code, {'label': lab, 'icon': data.get('icon') if data.get('icon') in weq.CUSTOM_ICONS else 'tag', 'size_kind': size_kind,
+                                           'size_options': json.dumps(opts, ensure_ascii=False), 'price': price_,
+                                           'price_per': data.get('price_per') if data.get('price_per') in weq.PRICE_PER else 'dive',
+                                           'active': 1 if price_ is not None else 0, 'custom': 1, 'sort_order': 100 + len(own), 'in_kit': 0})
+    audit(db, user['id'], 'equipment_custom_added', kind, oid, {'code': code, 'label': lab})
+    return code
+
+
+def equipment_custom_delete(db, user, code):
+    kind, oid = provider_owner(user)
+    w, a = equip_owner_where(kind, oid)
+    r = db.execute(f'SELECT * FROM center_equipment WHERE {w} AND code=? AND custom=1', (*a, clean_text(code, 40))).fetchone()
+    if not r: raise NotFound('Pieza no encontrada.')
+    db.execute('DELETE FROM center_equipment WHERE id=?', (r['id'],))   # the bookings keep their own copy (name, size and price)
+    for (c, size), res in stock_resources(db, kind, oid, active_only=False).items():
+        if c == r['code']: db.execute('UPDATE resources SET active=0,updated_at=? WHERE id=?', (now(), res['id']))
+    audit(db, user['id'], 'equipment_custom_deleted', kind, oid, {'code': r['code'], 'label': r['label']})
+
+
+def equipment_public(db, kind, oid):
+    """What a diver sees of a centre's rental (before choosing a service): its active pieces and the full kit."""
+    items, kit = equipment_catalog(db, kind, oid)
+    pub = lambda i: {k: i[k] for k in ('code', 'label', 'icon', 'price', 'price_per', 'size_kind', 'sizes', 'thick', 'in_kit', 'custom')}
+    return {'items': [dict(pub(i), active=1) for i in items if i['active']], 'kit': kit if kit and kit['active'] else None, 'included': weq.INCLUDED_TEXT}
+
+
+def booking_service(db, b):
+    return db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+
+
+def equipment_days(db, b):
+    """(first day, last day, number of days) the pieces of a booking are for."""
+    days = [r['local_date'] for r in db.execute('SELECT local_date FROM booking_days WHERE booking_id=? ORDER BY local_date', (b['id'],)).fetchall()]
+    if days: return days[0], days[-1], len(days)
+    return b['booking_date'], (row_get(b, 'date_to') or b['booking_date']), None
+
+
+def equipment_deadline(db, b):
+    """Until when the diver changes his pieces from «Mis reservas»: the free cancellation deadline of the booking (the
+    policy he accepted), or the start of the activity. A time of the server's clock."""
+    start = on_server_clock(db, wbk.activity_start(b['booking_date'], b['booking_time']), b['service_id'], b['center_id'])
+    if not start: return None
+    h = row_get(b, 'cancel_free_hours')
+    return start - _timedelta(hours=int(h)) if h not in (None, '') else start
+
+
+def equipment_pieces_public(pieces):
+    return [{k: p[k] for k in ('code', 'label', 'icon', 'price', 'price_per', 'size_kind', 'sizes', 'thick', 'in_kit', 'custom')} for p in pieces]
+
+
+def equipment_memory(db, uid, center_id=None, provider_id=None):
+    """The sizes the diver chose the last time with this centre (for himself), else those of his diver profile: the
+    next booking comes with them already set (Parte 3.10)."""
+    out = {}
+    pf = db.execute('SELECT fin_size,boot_size,suit_size,bcd_size FROM user_profiles WHERE user_id=?', (uid,)).fetchone()
+    if pf:
+        for code, col, opts in (('fins', 'fin_size', weq.SHOE), ('boots', 'boot_size', weq.SHOE), ('wetsuit', 'suit_size', weq.LETTERS), ('bcd', 'bcd_size', weq.LETTERS)):
+            v = str(pf[col] or '').strip().upper() if col in ('suit_size', 'bcd_size') else str(pf[col] or '').strip()
+            if v in opts: out[code] = {'size': v, 'thick': ''}
+    if center_id or provider_id:
+        w = 'b.center_id=?' if center_id else 'b.center_id IS NULL AND b.provider_user_id=?'
+        r = db.execute(f"""SELECT b.id FROM bookings b WHERE b.user_id=? AND {w}
+                           AND EXISTS(SELECT 1 FROM booking_equipment be WHERE be.booking_id=b.id AND be.diver=0) ORDER BY b.id DESC LIMIT 1""", (uid, center_id or provider_id)).fetchone()
+        if r:
+            for e in db.execute("SELECT code,size,thick FROM booking_equipment WHERE booking_id=? AND diver=0 AND code<>? ORDER BY id", (r['id'], weq.KIT)).fetchall():
+                out[e['code']] = {'size': e['size'] or '', 'thick': e['thick'] or ''}
+    return out
+
+
+def booking_equipment_state(db, user, bid):
+    """The pieces of a booking for its diver («Mis reservas») or its centre: per diver, what can be changed and until when."""
+    b = booking_row(db, bid)
+    if not b: raise NotFound('Reserva no encontrada.')
+    own = b['user_id'] == user['id']
+    if not own: require_booking_provider(user, b)
+    svc = booking_service(db, b)
+    mode, pieces, kit = service_rental(db, svc)
+    d_from, d_to, _n = equipment_days(db, b)
+    dl = equipment_deadline(db, b)
+    st = wbk.normalize_state(b['status'])
+    can = own and mode == 'offer' and st in ('requested', 'accepted_pending_payment', 'confirmed') and (dl is None or local_now() < dl)
+    shown = place_clock(db, dl, b['service_id'], b['center_id']) if dl else None
+    return {'booking_id': bid, 'rows': booking_equipment_rows(db, bid), 'names': booking_diver_names(db, b), 'participants': int(b['participants'] or 1),
+            'mode': mode, 'pieces': equipment_pieces_public(pieces), 'kit': kit, 'can_change': can, 'deadline': shown.strftime('%Y-%m-%dT%H:%M') if shown else None,
+            'stock': stock_free(db, svc, d_from, d_to, exclude_booking=bid) if mode == 'offer' else {}, 'included': weq.INCLUDED_TEXT,
+            'note': b['equipment_notes'] or '', 'legacy_text': b['equipment_items'] if not db.execute('SELECT 1 FROM booking_equipment WHERE booking_id=? LIMIT 1', (bid,)).fetchone() else None,
+            'price': b['price'], 'currency': b['currency'] or 'EUR'}
+
+
+def drop_open_orders(db, bid):
+    """A price that changes closes the payments still open of the booking: the next one is for the new amount."""
+    for o in db.execute("SELECT * FROM payment_orders WHERE booking_id=? AND status='pending'", (bid,)).fetchall():
+        expire_checkout(o); db.execute("UPDATE payment_orders SET status='cancelled',updated_at=? WHERE id=?", (now(), o['id']))
+
+
+def supplement_checkout(db, b, amount, title):
+    """A second payment of a booking already paid online (pieces added to it): the same direct charge on the provider's
+    account, kind «supplement». When it is paid, amount_paid grows and the booking is paid again (complete_payment)."""
+    if booking_pay_way(b) == 'in_person': raise ValueError('Esta reserva se paga en persona al profesional.')
+    svc, payee = booking_payee(db, b)
+    if not payee_ready(payee): raise ValueError('El centro no tiene ahora mismo los cobros online activos.')
+    cust = db.execute('SELECT * FROM users WHERE id=?', (b['user_id'],)).fetchone()
+    return create_stripe_checkout(db, dict(cust), amount=round(float(amount), 2), currency=b['currency'] or 'EUR', title=title, payee=payee, kind='supplement',
+                                  provider_user_id=svc['provider_user_id'] if svc else None, booking_id=b['id'], service_id=b['service_id'], slot_id=b['slot_id'],
+                                  hold_reserved=bool(b['slot_reserved']), cancel_url=f"{public_site_url()}/#/reserva?id={b['id']}")
+
+
+def booking_price_update(db, b, diff, new_lines, drop_equipment_lines, desk_paid=0.0):
+    """The price of a booking after a change of its pieces (the lines of the activity and the extras stay as they were)."""
+    try: lines = json.loads(b['price_breakdown'] or '[]')
+    except (TypeError, ValueError): lines = []
+    if not isinstance(lines, list): lines = []
+    if drop_equipment_lines: lines = [l for l in lines if not (isinstance(l, dict) and l.get('kind') == 'equipment' and not l.get('desk'))]
+    lines = lines + new_lines
+    price_ = round(float(b['price'] or 0) + diff, 2)
+    paid = float(b['amount_paid'] or 0)
+    due = round(max(0.0, price_ - paid - desk_paid_total(lines)), 2)
+    db.execute('UPDATE bookings SET price=?,price_breakdown=?,amount_due=?,updated_at=? WHERE id=?', (price_, json.dumps(lines, ensure_ascii=False), due, now(), b['id']))
+    return price_, due
+
+
+def desk_paid_total(lines):
+    return round(sum(float(l.get('total') or 0) for l in lines if isinstance(l, dict) and l.get('paid_at_desk')), 2)
+
+
+def booking_equipment_change(db, user, bid, data):
+    """The diver changes his pieces from «Mis reservas» until the cancellation deadline (Parte 3.9): the difference is
+    charged (a second online payment) or refunded (to his card) by itself; unpaid, the price just changes."""
+    b = booking_row(db, bid)
+    if not b or b['user_id'] != user['id']: raise NotFound('Reserva no encontrada.')
+    if wbk.normalize_state(b['status']) not in ('requested', 'accepted_pending_payment', 'confirmed'): raise ValueError('Esta reserva ya no admite cambios de equipo.')
+    svc = booking_service(db, b)
+    mode, pieces, kit = service_rental(db, svc)
+    if mode != 'offer': raise ValueError('Este servicio no alquila equipo: ' + ('va incluido en el precio.' if mode == 'included' else 'habla con el centro.'))
+    dl = equipment_deadline(db, b)
+    if dl and local_now() >= dl: raise ValueError('Ya ha pasado el plazo para cambiar el equipo (el mismo que el de cancelación). Habla con el centro.')
+    d_from, d_to, n_days = equipment_days(db, b)
+    names = booking_diver_names(db, b)
+    rows, lines, info = equipment_quote(db, svc, int(b['participants'] or 1), data.get('equipment') or [], None, d_from, d_to, n_days=n_days, strict=True, names=names)
+    agenda_lock(db)
+    stock_check(db, svc, rows, d_from, d_to, exclude_booking=bid)
+    old = [r for r in booking_equipment_rows(db, bid) if r['source'] != 'desk']
+    sig = lambda rs: sorted((r['diver'], r['code'], r.get('size') or '', r.get('thick') or '') for r in rs)
+    diff = round(sum(r['total'] for r in rows) - sum(r['total'] for r in old), 2)
+    note = clean_text(data.get('note'), 1000) if 'note' in data else None
+    if note is not None: db.execute('UPDATE bookings SET equipment_notes=? WHERE id=?', (note or None, bid))
+    if sig(old) == sig(rows) and abs(diff) < 0.005: return {'changed': False, 'diff': 0.0, **booking_equipment_state(db, user, bid)}
+    ids = [r['id'] for r in old]
+    if ids:
+        q = ','.join('?' * len(ids))
+        db.execute(f"UPDATE booking_equipment SET status='removed',removed_at=? WHERE id IN ({q})", (now(), *ids))
+        db.execute(f"UPDATE resource_blocks SET status='released',released_at=? WHERE ref_type='booking_equipment' AND ref_id IN ({q}) AND status='active'", (now(), *ids))
+    save_booking_equipment(db, bid, rows, source='change', actor=user['id'])
+    stock_claim(db, svc, bid, d_from, d_to)
+    drop_open_orders(db, bid)
+    price_, due = booking_price_update(db, b, diff, lines, True)
+    nb = booking_row(db, bid); refresh_equipment_text(db, nb); nb = booking_row(db, bid)
+    out = {'changed': True, 'diff': diff, 'price': price_}
+    paid_online = float(b['amount_paid'] or 0) > 0 and booking_pay_way(b) != 'in_person'
+    if diff > 0 and paid_online and b['payment_status'] == 'paid':
+        db.execute("UPDATE bookings SET payment_status='deposit_paid' WHERE id=?", (bid,))
+        try:
+            out['checkout_url'] = supplement_checkout(db, nb, diff, f"{svc['title'] if svc else 'Reserva'} · equipo")['checkout_url']
+        except ValueError as e:
+            out['pay_note'] = f'{e} La diferencia ({diff:.2f} {nb["currency"] or "EUR"}) se paga en el centro.'
+    elif diff < 0 and paid_online:
+        out['refund'] = refund_booking(db, bid, amount=-diff, reason='requested_by_customer', actor=user['id'], note='Cambio de equipo', source='equipment')
+    if b['provider_user_id']:
+        db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?,'system')",
+                   (user['id'], b['provider_user_id'], bid, f"Cambio de equipo · reserva #{bid}", (nb['equipment_items'] or 'Sin equipo de alquiler') +
+                    (f' · Diferencia: {diff:+.2f} {nb["currency"] or "EUR"}' if diff else ''), now()))
+    audit(db, user['id'], 'booking_equipment_changed', 'booking', bid, {'diff': diff, 'pieces': len(rows)})
+    out.update(booking_equipment_state(db, user, bid))
+    return out
+
+
+def booking_equipment_desk(db, user, bid, data):
+    """«Se me ha olvidado la linterna»: the centre adds a piece to a booking at the desk, paid at the centre or with a
+    payment link sent to the diver (Parte 4.4)."""
+    b = booking_row(db, bid)
+    if not b: raise NotFound('Reserva no encontrada.')
+    require_booking_provider(user, b)
+    if wbk.normalize_state(b['status']) not in ('requested', 'accepted_pending_payment', 'confirmed', 'completed'): raise ValueError('Esta reserva no admite cambios.')
+    svc = booking_service(db, b)
+    if not svc: raise ValueError('Esta reserva no es de un servicio con equipo de alquiler.')
+    items, _kit = equipment_catalog(db, *service_owner(svc))
+    mode, pieces, _k = service_rental(db, svc)
+    avail = pieces if mode == 'offer' else [i for i in items if i['active']]
+    p = next((x for x in avail if x['code'] == clean_text(data.get('code'), 40)), None)
+    if not p: raise ValueError('Elige una pieza de las que alquilas (Panel → Equipo de alquiler).')
+    pax = int(b['participants'] or 1)
+    diver = clean_int(data.get('diver'), 0, max(0, pax - 1), 0, 'Buceador no válido.')
+    how = data.get('pay') if data.get('pay') in ('desk', 'link') else 'desk'
+    sel = [{'items': [], 'kit': False} for _ in range(pax)]
+    sel[diver]['items'] = [{'code': p['code'], 'size': weq.clean_label(data.get('size'), 16), 'thick': weq.clean_label(data.get('thick'), 8)}]
+    sel = weq.check_selection(sel, [p], None, strict=True, names=booking_diver_names(db, b))
+    d_from, d_to, n_days = equipment_days(db, b)
+    rows, lines, _info = weq.price(sel, [p], None, rental_units(svc, d_from, d_to, n_days))
+    agenda_lock(db)
+    stock_check(db, svc, rows, d_from, d_to)
+    save_booking_equipment(db, bid, rows, source='desk', actor=user['id'], desk=how == 'desk')
+    stock_claim(db, svc, bid, d_from, d_to)
+    total = round(sum(r['total'] for r in rows), 2)
+    for l in lines: l.update(desk=True, paid_at_desk=how == 'desk', label=l['label'] + ' (en el centro)')
+    price_, due = booking_price_update(db, b, total, lines, False)
+    nb = booking_row(db, bid); refresh_equipment_text(db, nb); nb = booking_row(db, bid)
+    out = {'added': rows[0]['label'], 'total': total, 'price': price_, 'pay': how}
+    if how == 'link' and total > 0:
+        drop_open_orders(db, bid)
+        url = supplement_checkout(db, nb, total, f"{p['label']} · {svc['title']}")['checkout_url']
+        out['checkout_url'] = url
+        if nb['payment_status'] == 'paid': db.execute("UPDATE bookings SET payment_status='deposit_paid' WHERE id=?", (bid,))
+        cur = nb['currency'] or 'EUR'
+        db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?,'system')",
+                   (user['id'], b['user_id'], bid, 'Equipo añadido a tu reserva', f"{p['label']}: {total:.2f} {cur}. Paga aquí: {url}", now()))
+        cust = db.execute('SELECT email,fullname FROM users WHERE id=?', (b['user_id'],)).fetchone()
+        if cust and cust['email']:
+            lang = user_lang(db, b['user_id'])
+            queue_email(db, 'equipment_pay_link', cust['email'], cust['fullname'], {**(booking_mail_ctx(db, bid, lang) or {}), 'piece': p['label'],
+                        'amount': mail_money(total, cur, lang), 'pay_url': url}, lang, ('booking', bid))
+    audit(db, user['id'], 'booking_equipment_desk', 'booking', bid, {'code': p['code'], 'total': total, 'pay': how})
+    return out
+
+
+def equipment_prep(db, user, day, slot_id=None):
+    """«Equipo para preparar»: per departure and for the whole day, grouped by piece and size, with each diver's line."""
+    kind, oid = provider_owner(user)
+    w, a = owner_where(kind, oid, 'b')
+    st = ','.join('?' * len(MANIFEST_STATES))
+    q = f"""SELECT b.*, s.title AS service_title FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id
+            WHERE {w} AND b.status IN ({st}) AND b.booking_date<=? AND COALESCE(b.date_to,b.booking_date)>=?"""
+    args = [*a, *MANIFEST_STATES, day, day]
+    if slot_id: q += ' AND b.slot_id=?'; args.append(slot_id)
+    deps, all_rows = {}, []
+    for b in db.execute(q + ' ORDER BY b.booking_time, b.id', args).fetchall():
+        rows = booking_equipment_rows(db, b['id'])
+        if not rows and not b['equipment_items']: continue
+        key = b['slot_id'] or f"{b['service_id']}-{b['booking_time']}"
+        d = deps.setdefault(key, {'slot_id': b['slot_id'], 'time': b['booking_time'] or '', 'title': b['service_title'] or 'Reserva', 'divers': [], 'rows': []})
+        names = booking_diver_names(db, b)
+        if rows:
+            for i in sorted({r['diver'] for r in rows}):
+                rs = [r for r in rows if r['diver'] == i]
+                d['divers'].append({'booking_id': b['id'], 'diver': i, 'name': weq.who(i, names), 'text': weq.diver_text(weq.who(i, names), rs),
+                                    'desk': any(r['source'] == 'desk' for r in rs)})
+            d['rows'] += rows; all_rows += rows
+        else:
+            d['divers'].append({'booking_id': b['id'], 'diver': 0, 'name': names[0], 'text': f"{names[0]} · {b['equipment_items']}", 'legacy': True})
+    out = []
+    for d in deps.values():
+        g = weq.prep_groups(d.pop('rows'))
+        out.append({**d, 'groups': g, 'text': weq.prep_text(g)})
+    g = weq.prep_groups(all_rows)
+    return {'date': day, 'departures': out, 'day': {'groups': g, 'text': weq.prep_text(g)}, 'included': weq.INCLUDED_TEXT,
+            'provider': provider_label(db, kind, oid)}
+
+
+def equipment_prep_pdf(db, user, data, lang='es'):
+    T = lambda x: mail_t(lang, x)
+    doc = wpdf.Document(T('Equipo para preparar'), lang)
+    ink, muted = (0.04, 0.17, 0.24), (0.38, 0.43, 0.46)
+    doc.box(24, 748, 547, 70, BRAND_PDF['abismo'], None, 16); pdf_brand_icon(doc, 40, 756, 54)
+    doc.text(104, 790, 'WORLDIVES DISCOVERY', 21, (1, 1, 1)); doc.text(104, 773, T('Equipo para preparar').upper(), 8, BRAND_PDF['agua'])
+    doc.text(46, 722, T('Centro').upper(), 7, muted); doc.text(46, 709, doc.fit(data['provider'] or '—', 10, 250), 10, ink)
+    doc.text(320, 722, T('Fecha').upper(), 7, muted); doc.text(320, 709, when_text(data['date'], '', lang), 10, ink)
+    y = [680]
+    def line(txt, size=9, color=ink, x=46, gap=14):
+        if y[0] < 80: doc.new_page(); y[0] = 790
+        doc.text(x, y[0], doc.fit(txt, size, 520 - (x - 46)), size, color); y[0] -= gap
+    line(T('Todo el día'), 11, ink, gap=16)
+    for gg in data['day']['groups']: line(f"{gg['label']}: " + (', '.join(f"{n} × {s}" for s, n in gg['sizes'] if s) or str(gg['count'])), 9, ink, 56)
+    if not data['day']['groups']: line(T('Nadie ha pedido equipo de alquiler.'), 9, muted, 56)
+    line(T(weq.INCLUDED_TEXT), 8, muted, 56, 22)
+    for d in data['departures']:
+        line(f"{d['time']} · {d['title']}", 11, ink, gap=16)
+        for gg in d['groups']: line(f"{gg['label']}: " + (', '.join(f"{n} × {s}" for s, n in gg['sizes'] if s) or str(gg['count'])), 9, ink, 56)
+        for dv in d['divers']: line(dv['text'], 8.5, muted, 66, 12)
+        y[0] -= 8
+    by = db.execute('SELECT fullname FROM users WHERE id=?', (user['id'],)).fetchone()
+    doc.text(46, 48, doc.fit(T('Generado el {at} por {who}').replace('{at}', now()[:16].replace('T', ' ') + ' UTC').replace('{who}', by['fullname'] if by else ''), 7, 500), 7, muted)
+    return doc.pdf()
+
+
+def equipment_view(db, svc, day_from=None, day_to=None, info=None):
+    """What the booking page shows besides the price: the mode, the units left of each size those days (stock), the
+    «Equipo completo» given up with its new amount and the dives or days the pieces are for."""
+    if not svc: return {}
+    mode = service_rental_mode(svc) if wsv.kind_of(svc) != 'rental' else 'none'
+    out = {'mode': mode, 'included': weq.INCLUDED_TEXT}
+    if mode == 'offer' and day_from: out['stock'] = stock_free(db, svc, day_from, day_to)
+    out.update({k: v for k, v in (info or {}).items() if k in ('kit_broken', 'units', 'divers')})
+    return out
+
+
+def booking_quote(db, center_id, service, participants, activity_date=None, extra_ids=None, equipment_codes=None, equipment=None, out=None, strict=False, day_to=None):
     """Single source of truth for what a booking costs.
-    Activity, rental equipment and extras are priced per participant. Returns (total, currency, lines)."""
+    Activity, rental equipment and extras are priced per participant. Returns (total, currency, lines).
+    v50.58: the equipment is priced per diver (equipment) or with the old «codigo:cantidad» (equipment_codes); out
+    receives the rows to save and what the web shows (kit given up, units)."""
     participants=max(1,int(participants or 1)); lines=[]
     currency='EUR'
     if service:
@@ -3723,22 +4334,10 @@ def booking_quote(db, center_id, service, participants, activity_date=None, extr
             lines.append({'kind':'service','label':f"{service['title']} · precio por grupo",'unit':round(unit,2),'qty':1,'total':round(unit,2)})
         else:
             lines.append({'kind':'service','label':service['title'],'unit':round(unit,2),'qty':participants,'total':round(unit*participants,2)})
-    # Rental items are 'code' (one per participant) or 'code:qty' (only some divers need it; at most one per participant).
-    qty_by_code={}
-    for raw in (equipment_codes or []):
-        raw=clean_text(raw,48) or ''
-        code,_,q=raw.partition(':')
-        code=code.strip()
-        if not code: continue
-        try: n=int(q) if q else participants
-        except ValueError: n=participants
-        n=max(0,min(participants,n))
-        if n: qty_by_code[code]=n
-    codes=list(qty_by_code)[:40]
-    if codes:
-        rows=db.execute('SELECT code,label,price FROM center_equipment WHERE center_id=? AND active=1 AND price IS NOT NULL AND code IN (%s) ORDER BY sort_order' % ','.join('?'*len(codes)),[center_id]+codes).fetchall()
-        for r in rows:
-            n=qty_by_code[r['code']]; unit=float(r['price'] or 0); lines.append({'kind':'equipment','code':r['code'],'label':r['label'],'unit':round(unit,2),'qty':n,'total':round(unit*n,2)})
+    # Rental items (v50.58): per diver with sizes, or the old 'code' (one per participant) / 'code:qty' (the first ones).
+    erows, elines, einfo = equipment_quote(db, service, participants, equipment, [clean_text(x, 48) for x in (equipment_codes or [])][:40], activity_date, day_to, strict=strict)
+    lines.extend(elines)
+    if out is not None: out.update(equipment_rows=erows, equipment_info=einfo)
     ids=[]
     for x in (extra_ids or []):
         try: ids.append(int(x))
@@ -5110,7 +5709,8 @@ def export_sheets(db, user, kind, a=None, b=None, year=None):
         rows = [list(r) for r in db.execute(
             f"""SELECT 'WOD-'||printf('%06d',b.id), b.booking_date, COALESCE(sl.slot_time,b.booking_time), s.title, b.channel, b.participants, b.status,
                        b.payment_status, b.price, b.currency, COALESCE(b.contact_name,u.fullname),
-                       CASE WHEN u.email LIKE '%.local' THEN COALESCE(b.contact_email,'') ELSE u.email END, b.contact_phone, b.created_at
+                       CASE WHEN u.email LIKE '%.local' THEN COALESCE(b.contact_email,'') ELSE u.email END, b.contact_phone, b.created_at,
+                       COALESCE(b.equipment_items,'')
                 FROM bookings b LEFT JOIN provider_services s ON s.id=b.service_id LEFT JOIN service_slots sl ON sl.id=b.slot_id LEFT JOIN users u ON u.id=b.user_id
                 WHERE {pw} AND {per} ORDER BY b.booking_date DESC, b.id DESC LIMIT 50000""", (pid, *args)).fetchall()]
         for r in rows:
@@ -5118,7 +5718,7 @@ def export_sheets(db, user, kind, a=None, b=None, year=None):
         log_phone_access(db, user, 'export:reservas', sum(1 for r in rows if r[12]), pid)
         return label, [S('Reservas', [('Reserva', 'text'), ('Fecha', 'date'), ('Hora', 'text'), ('Actividad', 'text'), ('Canal', 'text'), ('Personas', 'int'),
                                       ('Estado', 'text'), ('Pago', 'text'), ('Importe', 'money'), ('Moneda', 'text'), ('Cliente', 'text'), ('Email', 'text'),
-                                      ('Teléfono', 'text'), ('Creada', 'datetime')], rows, _money_currency(rows, 9))]
+                                      ('Teléfono', 'text'), ('Creada', 'datetime'), ('Equipo de alquiler', 'text')], rows, _money_currency(rows, 9))]   # v50.58: per diver, with sizes
     if kind == 'clientes':
         per, args = _within('b.booking_date', a, b)
         rows = [list(r) for r in db.execute(
@@ -7811,6 +8411,11 @@ EMAIL_TEMPLATES = {
    ('note', 'Si no pagas antes de ese momento, la reserva se cancela sola y las plazas se liberan. No se te cobrará nada.'),
    ('details', None), ('button', ('Pagar ahora de forma segura', 'booking_url')),
    ('note', 'El pago lo procesa Stripe con cifrado y verificación 3D Secure. WORLDIVES y el centro nunca ven los datos de tu tarjeta.'), ('policy', None)]},
+ 'equipment_pay_link': {'to': 'diver', 'subject': 'Equipo añadido a tu reserva · {service}', 'pre': '{piece}: {amount}.', 'blocks': [
+   ('h', 'Equipo añadido a tu reserva'),
+   ('p', 'Hola {first_name}, {center} ha añadido a tu reserva: {piece}. Importe: {amount}.'),
+   ('details', None), ('button', ('Pagar ahora de forma segura', 'pay_url')),
+   ('note', 'El pago lo procesa Stripe con cifrado y verificación 3D Secure, directamente al centro. WORLDIVES y el centro nunca ven los datos de tu tarjeta.')]},
  'payment_receipt': {'to': 'diver', 'subject': 'Recibo de pago · {service} · {total}', 'pre': 'Hemos recibido tu pago.', 'blocks': [
    ('h', 'Pago recibido'),
    ('p', 'Hola {first_name}, hemos recibido tu pago. Tu reserva con {center} está confirmada.'),
@@ -8142,6 +8747,7 @@ EMAIL_TEMPLATE_LABELS = {
  'welcome': 'Bienvenida (buceador)', 'welcome_pro': 'Bienvenida (centro / profesional)', 'password_reset': 'Restablecer contraseña',
  'password_changed': 'Aviso de contraseña cambiada', 'booking_request': 'Solicitud enviada', 'booking_confirmed': 'Reserva confirmada',
  'booking_manual': 'Reserva registrada por el centro', 'payment_required': 'Plaza aceptada: pago pendiente', 'payment_receipt': 'Recibo de pago',
+ 'equipment_pay_link': 'Equipo añadido en el centro: enlace de pago',
  'payment_review': 'Pago en revisión', 'booking_rejected': 'Solicitud rechazada', 'booking_cancelled_center': 'Cancelada por el centro',
  'booking_cancelled_diver': 'Cancelada por el buceador', 'reminder': 'Recordatorio del día anterior', 'review_request': 'Petición de reseña',
  'promotion_received': 'Promoción recibida', 'experience_request': 'Solicitud de viaje enviada', 'experience_status': 'Respuesta a solicitud de viaje',
@@ -10580,13 +11186,23 @@ def create_booking(db, req):
     # v50.58 (Parte 3): «Antelación mínima» of the service (Más opciones of the wizard)
     if not by_provider and start and service and row_get(service, 'lead_hours') and slot and start < local_now() + _timedelta(hours=int(service['lead_hours'])):
         raise ValueError(f"Este servicio se reserva con al menos {int(service['lead_hours'])} horas de antelación. Elige otra fecha.")
-    price, service_currency, price_lines = booking_quote(db, center_id, service, participants, bdate, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
+    eq = {}; strict_eq = channel not in ('manual', 'import')
+    price, service_currency, price_lines = booking_quote(db, center_id, service, participants, bdate, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')),
+                                                         equipment=data.get('equipment'), out=eq, strict=strict_eq, day_to=slot['date_to'] if slot and row_get(slot, 'date_to') else None)
+    eq_from, eq_to = bdate, (slot['date_to'] if slot and row_get(slot, 'date_to') else bdate)
     day_sel = None
     if service and service_unit(service) in wag.DAY_UNITS:
         # v50.44: booked by days or half days. The days chosen are the source of truth.
         if slot_id: raise ValueError('Este servicio se reserva por días, no por salidas.')
         day_sel = day_booking_selection(db, service, data, participants)
         bdate = day_sel['days'][0]; btime = day_sel['time']; start = day_sel['start']; price = day_sel['price']; price_lines = day_sel['lines']
+        # v50.58: the rental pieces for all the days of the booking
+        erows, elines, einfo = equipment_quote(db, service, participants, data.get('equipment'), as_list(data.get('equipment_codes')), day_sel['days'][0], day_sel['days'][-1],
+                                               n_days=len(day_sel['days']), strict=strict_eq)
+        eq = {'equipment_rows': erows, 'equipment_info': einfo}
+        price_lines = price_lines + elines; price = round(price + sum(l['total'] for l in elines), 2)
+        eq_from, eq_to = day_sel['days'][0], day_sel['days'][-1]
+    if eq.get('equipment_rows') and service: stock_check(db, service, eq['equipment_rows'], eq_from, eq_to)   # E11: the stock of each size that day
     if price < 0: raise ValueError('El importe no es válido.')   # never «free» because of a wrong extra (ASVS V2.2.3)
     if service and price <= 0: raise ValueError(NO_PRICE_TEXT)   # v50.55: no booking of a service without a published price
     if by_provider and manual.get('adjust') not in (None, ''):
@@ -10688,6 +11304,11 @@ def create_booking(db, req):
     elif pay_way == 'in_person':
         db.execute("UPDATE bookings SET pay_way='in_person' WHERE id=? AND user_id=?", (bid, customer['id']))
     if slot and row_get(slot, 'date_to'): db.execute('UPDATE bookings SET date_to=? WHERE id=?', (slot['date_to'], bid))   # v50.58: a course edition or a trip, with its last day
+    if eq.get('equipment_rows'):
+        # v50.58: the pieces of each diver with their sizes and today's prices; the units of the sizes with a stock.
+        save_booking_equipment(db, bid, eq['equipment_rows'], actor=req.get('actor_id') or customer['id'])
+        stock_claim(db, service, bid, eq_from, eq_to)
+        refresh_equipment_text(db, booking_row(db, bid))
     if day_sel:
         db.executemany('INSERT INTO booking_days(booking_id,local_date,part) VALUES(?,?,?)', [(bid, d, day_sel['part']) for d in day_sel['days']])
         db.execute('UPDATE bookings SET date_to=?,days_mode=? WHERE id=?', (day_sel['days'][-1], day_sel['part'], bid))
@@ -10764,6 +11385,9 @@ def booking_api_dict(db, b):
             'customer': {'name': (b['contact_name'] or (u['fullname'] if u else None)) if guest else (u['fullname'] if u else None),
                          'email': (b['contact_email'] if guest else (u['email'] if u else None)), 'phone': b['contact_phone'] or None},
             'insurance': ins_booking_public(db, b),   # v50.56: {required, status[, valid_to, insurer, deadline]}
+            # v50.58: the rental pieces of each diver, with size and the price of the day of the booking
+            'equipment': [{'diver': r['diver'], 'code': r['code'], 'label': r['label'], 'size': r['size'], 'thick': r['thick'], 'kit': bool(r['kit']),
+                           'price': r['total'], 'source': r['source']} for r in booking_equipment_rows(db, b['id'])],
             'created_at': b['created_at'], 'updated_at': b['updated_at']}
 
 
@@ -10934,6 +11558,7 @@ def sales_services(db, kind, pid, lang='es', service_id=None, service_type=None,
     if service_type: where += ' AND s.service_type=?'; args.append(str(service_type)[:40])
     rows = db.execute(f'SELECT s.* FROM provider_services s WHERE {where} AND s.active=1 ORDER BY s.title LIMIT 60', args).fetchall()
     cat = SERVICE_CATALOG.get(db); out = []
+    equip = equipment_catalog(db, kind, pid)   # v50.58 (16/10): the rental pieces, once for all the services
     for s in rows:
         unit = service_unit(s); price = float(s['price'] or 0)
         if unit in wag.DAY_UNITS: price = float(wag.clean_pricing(s['pricing'], s['price']).get('day') or price)
@@ -10946,6 +11571,8 @@ def sales_services(db, kind, pid, lang='es', service_id=None, service_type=None,
              'photo': {'src': photo.get('src') or photo.get('jpg'), 'srcset': photo.get('srcset') or ''} if photo else None,
              'deposit': s['deposit_type'] not in (None, '', 'none'),
              'insurance': ins_requirement(s)}   # v50.56: «Exige seguro de buceo» (no · center · online)
+        m_, pcs_, kit_ = service_rental(db, s, equip)
+        d['rental'] = {'mode': m_, 'pieces': equipment_pieces_public(pcs_), 'kit': kit_}
         if with_dates and unit not in wag.DAY_UNITS:
             d['next'] = [{'id': x['id'], 'date': x['slot_date'], 'time': x['slot_time'], 'free': int(x['spots_available'] or 0)} for x in db.execute(
                 "SELECT id,slot_date,slot_time,spots_available FROM service_slots WHERE service_id=? AND status IN ('open','full') AND slot_date>=date('now') ORDER BY slot_date,slot_time LIMIT 3",
@@ -10988,9 +11615,12 @@ def sales_quote(db, kind, pid, data):
     if s['max_participants'] and pax > int(s['max_participants']): raise ValueError(f'Este servicio admite como máximo {s["max_participants"]} personas.')
     if service_unit(s) in wag.DAY_UNITS:
         return agenda_quote(db, {**data, 'service_id': s['id'], 'participants': pax})
-    slot = db.execute("SELECT slot_date FROM service_slots WHERE id=? AND service_id=?", (int(data.get('slot_id') or 0), s['id'])).fetchone()
-    total, currency, lines = booking_quote(db, s['center_id'], s, pax, slot['slot_date'] if slot else None, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
-    return {'ok': True, 'total': total, 'lines': lines, 'currency': currency, 'deposit': deposit_for(s, total, pax)}
+    slot = db.execute("SELECT slot_date,date_to FROM service_slots WHERE id=? AND service_id=?", (int(data.get('slot_id') or 0), s['id'])).fetchone()
+    eq_out = {}
+    total, currency, lines = booking_quote(db, s['center_id'], s, pax, slot['slot_date'] if slot else None, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')),
+                                           equipment=data.get('equipment'), out=eq_out, day_to=slot['date_to'] if slot else None)
+    return {'ok': True, 'total': total, 'lines': lines, 'currency': currency, 'deposit': deposit_for(s, total, pax),
+            'equipment': equipment_view(db, s, slot['slot_date'] if slot else None, slot['date_to'] if slot else None, eq_out.get('equipment_info'))}
 
 
 def sales_book(handler, db, kind, pid, row, channel, data):
@@ -11019,7 +11649,8 @@ def sales_book(handler, db, kind, pid, row, channel, data):
     customer = viewer if viewer and viewer['role'] == 'recreational' else None
     lang = normalize_lang(data.get('lang'))
     clean = {k: data.get(k) for k in ('service_id', 'slot_id', 'days', 'part', 'date_from', 'date_to', 'participants', 'notes', 'extra_ids', 'equipment_codes',
-                                      'agenda_extras', 'in_person_ack', 'booking_date', 'booking_time', 'needs_equipment', 'insurance', 'insurance_participants')}
+                                      'agenda_extras', 'in_person_ack', 'booking_date', 'booking_time', 'needs_equipment', 'insurance', 'insurance_participants',
+                                      'equipment', 'equipment_notes')}
     clean['center_id'] = pid if kind == 'center' else None
     if service_unit(s) in wag.DAY_UNITS and clean.get('days'): clean['booking_date'] = (clean['days'] or [None])[0]
     if not json_bool(data.get('accept_policy')): raise ValueError('Marca que has leído la política de cancelación.')
@@ -12341,6 +12972,15 @@ def booking_rental(b):
     return [x for x in items if x]
 
 
+def seat_rental(db, b, seat):
+    """v50.58: the pieces of one diver of a booking («Traje M 5 mm», «Aletas 39», «Equipo completo»); the bookings
+    made before keep showing their list on the first seat."""
+    rows = [r for r in booking_equipment_rows(db, b['id']) if r['diver'] == seat - 1]
+    if rows: return [weq.KIT_LABEL if r['code'] == weq.KIT else f"{weq.short_label(r['label'], r['code'])} {weq.size_text(None, r)}".strip() for r in rows]
+    if db.execute('SELECT 1 FROM booking_equipment WHERE booking_id=? LIMIT 1', (b['id'],)).fetchone(): return []
+    return booking_rental(b) if seat == 1 else []
+
+
 def current_waiver(db, kind, oid):
     w, a = owner_where(kind, oid)
     r = db.execute(f'SELECT * FROM waiver_templates WHERE {w} AND active=1 ORDER BY version DESC LIMIT 1', a).fetchone()
@@ -12381,7 +13021,7 @@ def manifest_data(db, user, slot_id, for_reading=True):
                    'name': (e['name'] or (b['diver_name'] if main else '')) or '', 'companion_of': None if main else b['diver_name'],
                    'level_name': b['certification_name'] if main and visible else None,
                    'level': wmf.level_of(b['certification_name'] if main and visible else None),
-                   'nitrox': bool(b['nitrox']), 'rental': booking_rental(b) if main else [],
+                   'nitrox': bool(b['nitrox']), 'rental': seat_rental(db, b, seat),
                    'sizes': None, 'emergency': None, 'phone': None, 'shared': shared if main else False,
                    'notes': b['notes'] if main else None, 'checked_in_at': e['checked_in_at'], 'no_show': bool(e['no_show']), 'note': e['note'],
                    'signed': (sigs.get(seat) or {}).get('signed_at'), 'signature_id': (sigs.get(seat) or {}).get('id')}
@@ -13841,7 +14481,8 @@ WIZARD_KEYS = ('kind', 'title', 'description', 'icon', 'includes', 'level_requir
                'minutes', 'start_time', 'plan', 'half_days', 'rental_per', 'trip_from', 'trip_to', 'price_per', 'price', 'half_price',
                'max_participants', 'extra_ids', 'booking_mode', 'response_hours', 'deposit_type', 'deposit_value', 'pay_way', 'lead_hours',
                'tags', 'schedule', 'instructor_user_id', 'boat_id', 'template_id', 'color', 'insurance_required', 'unit_rules',
-               'cancel_free_hours', 'cancel_refund_pct', 'step', 'pay_methods', 'pay_other', 'pay_whatsapp', 'pay_policy', 'accept_in_person_terms')
+               'cancel_free_hours', 'cancel_refund_pct', 'step', 'pay_methods', 'pay_other', 'pay_whatsapp', 'pay_policy', 'accept_in_person_terms',
+               'rental_mode', 'rental_items', 'dives_per_outing')   # v50.58 (16/10): rental equipment inside the service
 
 
 def service_plan(svc):
@@ -13875,7 +14516,16 @@ def wizard_options(db, user):
     ready = service_payments_ready(db, {'center_id': cid, 'provider_user_id': user['id']})
     return {'role': user['role'], 'today': provider_today(db, user), 'templates': templates, 'instructors': instructors, 'boats': boats,
             'extras': extras, 'payments_ready': bool(ready), 'kinds': wsv.KIND_LABELS, 'includes': wsv.INCLUDES, 'presets': wsv.PRESETS,
-            'kind_mode': wsv.KIND_MODE, 'hours': wsv.DEFAULT_HOURS, 'max_course_days': wsv.MAX_COURSE_DAYS}
+            'kind_mode': wsv.KIND_MODE, 'hours': wsv.DEFAULT_HOURS, 'max_course_days': wsv.MAX_COURSE_DAYS,
+            'equipment': wizard_equipment(db, user)}
+
+
+def wizard_equipment(db, user):
+    """v50.58 (16/10): what the step «Precio y plazas → Extras» needs to offer the rental of the centre's pieces."""
+    ref = provider_ref(db, user)
+    items, kit = equipment_catalog(db, *ref) if ref else ([], None)
+    return {'configured': weq.configured(items), 'pieces': equipment_pieces_public([i for i in items if i['active']]),
+            'kit': kit if kit and kit['active'] else None, 'default_mode': weq.DEFAULT_MODE, 'included': weq.INCLUDED_TEXT}
 
 
 def wizard_errors(fields, message='Revisa los datos marcados.'):
@@ -14000,6 +14650,15 @@ def wizard_save(db, user, data, ip=''):
     if 'template_id' in data: db.execute('UPDATE provider_services SET template_id=? WHERE id=?', (valid_template_id(db, data.get('template_id'), cur['template_id'] if cur else None), sid))
     if data.get('deposit_type') not in (None, ''):
         dep_kind, dep_value = clean_deposit(data, price); db.execute('UPDATE provider_services SET deposit_type=?,deposit_value=? WHERE id=?', (dep_kind, dep_value, sid))
+    # v50.58 (16/10): does the service offer the rental of the centre's pieces, are they included, or none; which
+    # pieces and at which price only for this service («Más opciones»); how many dives an outing has.
+    if kind != 'rental':
+        rmode = data.get('rental_mode') if data.get('rental_mode') in weq.RENTAL_MODES else (row_get(cur, 'rental_mode') if cur else None) or weq.DEFAULT_MODE.get(kind, 'offer')
+        ritems = weq.clean_overrides(data.get('rental_items'), weq.CODES + tuple(r['code'] for r in equipment_rows(db, *service_owner({'center_id': center_id, 'provider_user_id': user['id']})) if r['custom'])) if 'rental_items' in data else (weq.as_json(row_get(cur, 'rental_items'), None) if cur else None)
+        dpo = clean_int(data.get('dives_per_outing'), 1, 5, 1, 'Pon cuántas inmersiones tiene cada salida (de 1 a 5).') if data.get('dives_per_outing') not in (None, '') else (row_get(cur, 'dives_per_outing') if cur else None)
+        db.execute('UPDATE provider_services SET rental_mode=?,rental_items=?,dives_per_outing=? WHERE id=?', (rmode, json.dumps(ritems) if ritems else None, dpo, sid))
+    else:
+        db.execute("UPDATE provider_services SET rental_mode='none' WHERE id=?", (sid,))
     if 'cancel_free_hours' in data or 'cancel_refund_pct' in data:
         pol_h, pol_pct = clean_policy_numbers(data.get('cancel_free_hours'), data.get('cancel_refund_pct'))
         if (pol_h is None) != (pol_pct is None): raise wizard_errors({'cancel_free_hours': 'Indica las horas y el porcentaje de la política de cancelación, o deja los dos vacíos.'})
@@ -14023,6 +14682,8 @@ def wizard_save(db, user, data, ip=''):
     warnings = []
     if publish and kind in ('dive', 'baptism', 'other') and not made and not has_dates:
         warnings.append('Todavía no tiene salidas: nadie puede reservarlo hasta que añadas la primera.')
+    if publish and kind != 'rental' and service_rental_mode(svc) == 'offer' and not weq.configured(equipment_catalog(db, *service_owner(svc))[0]):
+        warnings.append('Primero indica qué equipo alquilas (Panel → Equipo de alquiler): hasta entonces no se ofrece alquiler en este servicio.')
     return {'ok': True, 'id': sid, 'draft': not publish, 'created': len(made), 'warnings': warnings}
 
 
@@ -14110,8 +14771,12 @@ def agenda_quote(db, data):
     pax = max(1, int(data.get('participants') or 1))
     if svc['max_participants'] and pax > int(svc['max_participants']): raise ValueError(f'Este servicio admite como máximo {svc["max_participants"]} personas.')
     sel = day_booking_selection(db, svc, data, pax); db.commit()
-    deposit = deposit_for(svc, sel['price'], pax)
-    return {'ok': True, 'days': sel['days'], 'part': sel['part'], 'total': sel['price'], 'lines': sel['lines'], 'deposit': deposit, 'currency': svc['currency'] or 'EUR'}
+    # v50.58: the rental pieces for all the days chosen
+    erows, elines, einfo = equipment_quote(db, svc, pax, data.get('equipment'), as_list(data.get('equipment_codes')), sel['days'][0], sel['days'][-1], n_days=len(sel['days']))
+    total = round(sel['price'] + sum(l['total'] for l in elines), 2)
+    deposit = deposit_for(svc, total, pax)
+    return {'ok': True, 'days': sel['days'], 'part': sel['part'], 'total': total, 'lines': sel['lines'] + elines, 'deposit': deposit, 'currency': svc['currency'] or 'EUR',
+            'equipment': equipment_view(db, svc, sel['days'][0], sel['days'][-1], einfo)}
 
 
 # ------------------------------------------------------------------ v50.42 · Encargo 2, punto 6: check-in without coverage
@@ -15289,7 +15954,10 @@ class Handler(BaseHTTPRequestHandler):
                     cust = data.get('customer') if isinstance(data.get('customer'), dict) else {}
                     clean = {'service_id': data.get('service_id'), 'slot_id': data.get('departure_id'), 'booking_date': data.get('date'), 'booking_time': data.get('time'),
                              'days': data.get('days'), 'part': data.get('part'), 'participants': data.get('participants'), 'notes': data.get('notes'),
-                             'extra_ids': data.get('extras'), 'equipment_codes': data.get('equipment'), 'external_ref': data.get('external_ref'),
+                             'extra_ids': data.get('extras'), 'external_ref': data.get('external_ref'),
+                             # v50.58: «equipment» per diver [{items:[{code,size,thick}], kit}] or, as before, ["fins:2", …]
+                             **({'equipment': data.get('equipment')} if isinstance(data.get('equipment'), list) and any(isinstance(x, dict) for x in data.get('equipment'))
+                                else {'equipment_codes': data.get('equipment')}),
                              'in_person_ack': data.get('in_person_ack'), 'center_id': pid if kind == 'center' else None,
                              # v50.56 (seguros): the insurance the centre's system has checked {insurer, valid_to} or {at_center: true}
                              'insurance': data.get('insurance') if isinstance(data.get('insurance'), dict) else None,
@@ -16402,11 +17070,17 @@ class Handler(BaseHTTPRequestHandler):
                             points_by_slot.setdefault(pp['slot_id'],[]).append({'id':pp['id'],'name':pp['name'],'country':pp['country'],'region':pp['region']})
                     viewer_=current_user(self,db)
                     wl_=waitlist_for_slots(db,viewer_['id'] if viewer_ else None,slot_ids)
-                    ready_cache={}; payee_cache={}
+                    ready_cache={}; payee_cache={}; equip_cache={}
                     for r in rows:
                         d=dict(r)
                         if not include_inactive: d.pop('wizard_state',None)   # v50.58: the wizard's notes are only for its provider
                         d['kind']=wsv.kind_of(r)
+                        # v50.58 (16/10): the rental pieces this service offers, with their prices, or «Equipo incluido»
+                        ok_=service_owner(r)
+                        if ok_ not in equip_cache: equip_cache[ok_]=equipment_catalog(db,*ok_)
+                        m_,pcs_,kit_=service_rental(db,r,equip_cache[ok_])
+                        d['rental']={'mode':m_,'pieces':equipment_pieces_public(pcs_),'kit':kit_,'included':weq.INCLUDED_TEXT}
+                        if include_inactive: d['rental_items']=weq.as_json(r['rental_items'],{}) if r['rental_items'] else None
                         if d['kind']=='course': d['course_plan']=service_plan(r); d['plan_summary']=wsv.plan_summary(d['course_plan'])
                         d['insurance_required']=ins_requirement(r)   # v50.56: no · center · online
                         tariff_price, tariff_currency, tariff_effective = effective_service_tariff(db, r['id'])
@@ -16492,11 +17166,14 @@ class Handler(BaseHTTPRequestHandler):
                     cid=int(query.get('center_id',['0'])[0] or 0); sid=int(query.get('service_id',['0'])[0] or 0); slot_id=int(query.get('slot_id',['0'])[0] or 0)
                     if cid: service=db.execute('SELECT * FROM provider_services WHERE id=? AND center_id=? AND active=1',(sid,cid)).fetchone() if sid else None
                     else: service=db.execute('SELECT * FROM provider_services WHERE id=? AND center_id IS NULL AND active=1',(sid,)).fetchone() if sid else None  # freelance
-                    slot=db.execute('SELECT slot_date FROM service_slots WHERE id=? AND service_id=?',(slot_id,sid)).fetchone() if slot_id and sid else None
-                    pax=max(1,int(query.get('participants',['1'])[0] or 1))
-                    total,currency,lines=booking_quote(db,cid or None,service,pax,slot['slot_date'] if slot else None,as_list(query.get('extras',[''])[0]),as_list(query.get('equipment',[''])[0]))
+                    slot=db.execute('SELECT slot_date,date_to FROM service_slots WHERE id=? AND service_id=?',(slot_id,sid)).fetchone() if slot_id and sid else None
+                    pax=max(1,min(PARTICIPANTS_MAX,int(query.get('participants',['1'])[0] or 1)))
+                    eq_out={}; sel_raw=query.get('equipment_sel',[''])[0][:8000] or None
+                    total,currency,lines=booking_quote(db,cid or None,service,pax,slot['slot_date'] if slot else None,as_list(query.get('extras',[''])[0]),as_list(query.get('equipment',[''])[0]),
+                                                       equipment=sel_raw,out=eq_out,day_to=slot['date_to'] if slot else None)
                     dep=deposit_for(service,total,pax)
-                    self.send_json({'total':total,'currency':currency,'lines':lines,'deposit':dep,'due_at_center':round(total-dep,2) if dep else 0}); return
+                    self.send_json({'total':total,'currency':currency,'lines':lines,'deposit':dep,'due_at_center':round(total-dep,2) if dep else 0,
+                                    'equipment':equipment_view(db,service,slot['slot_date'] if slot else None,slot['date_to'] if slot else None,eq_out.get('equipment_info'))}); return
                 if path == '/api/service-templates':
                     user=require_user(self,db); require_role(user,{'center','freelance'})
                     rows=db.execute('SELECT * FROM service_templates WHERE provider_user_id=? ORDER BY name COLLATE NOCASE',(user['id'],)).fetchall()
@@ -16507,12 +17184,28 @@ class Handler(BaseHTTPRequestHandler):
                     rows=db.execute('SELECT * FROM center_extras WHERE center_id=? ORDER BY active DESC,name',(cid,)).fetchall()
                     self.send_json({'items':[dict(r) for r in rows]}); return
                 if path == '/api/center-equipment':
-                    center_id=int(query.get('center_id',['0'])[0] or 0)
-                    defaults=[('fins','Aletas'),('mask','Máscara'),('wetsuit','Traje de neopreno'),('regulator','Regulador'),('bcd','Chaleco BCD'),('tank','Botella'),('computer','Ordenador de buceo'),('full_kit','Equipo completo')]
-                    rows=db.execute('SELECT code,label,price,active FROM center_equipment WHERE center_id=? ORDER BY sort_order,label',(center_id,)).fetchall()
-                    existing={r['code']:dict(r) for r in rows}
-                    items=[existing.get(code,{'code':code,'label':label,'price':None,'active':1}) for code,label in defaults if existing.get(code,{'active':1})['active']]
-                    self.send_json({'items':items}); return
+                    # Public (v50.58): the pieces a centre or a freelance rents, with their sizes and prices, and its
+                    # «Equipo completo». The tank and the weights never appear: they are always included.
+                    center_id=int(query.get('center_id',['0'])[0] or 0); pro_id=int(query.get('provider_id',['0'])[0] or 0)
+                    self.send_json(equipment_public(db,'center',center_id) if center_id else equipment_public(db,'freelance',pro_id) if pro_id else {'items':[],'kit':None,'included':weq.INCLUDED_TEXT}); return
+                if path == '/api/provider/equipment':
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    self.send_json(equipment_config(db,*provider_owner(user))); return
+                if path in ('/api/provider/equipment/prep','/api/provider/equipment/prep.pdf'):
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    day=clean_date(query.get('date',[''])[0] or local_now().date().isoformat())
+                    data=equipment_prep(db,user,day,int(query.get('slot_id',['0'])[0] or 0) or None)
+                    if path.endswith('.pdf'):
+                        raw=equipment_prep_pdf(db,user,data,normalize_lang(query.get('lang',['es'])[0]))
+                        self.send_bytes(raw,'application/pdf',filename=f'equipo-para-preparar-{day}.pdf',inline=query.get('ver',[''])[0]=='1'); return
+                    self.send_json(data); return
+                if path == '/api/equipment/my-sizes':
+                    user=require_user(self,db)
+                    self.send_json({'sizes':equipment_memory(db,user['id'],int(query.get('center_id',['0'])[0] or 0) or None,int(query.get('provider_id',['0'])[0] or 0) or None)}); return
+                m_be=re.fullmatch(r'/api/bookings/(\d+)/equipment',path)
+                if m_be:
+                    user=require_user(self,db)
+                    self.send_json(booking_equipment_state(db,user,int(m_be.group(1)))); return
                 if path == '/api/center-points':
                     # This endpoint is also part of the public booking flow. A recreational
                     # diver or freelance user must be able to see the points that a centre
@@ -18150,12 +18843,31 @@ class Handler(BaseHTTPRequestHandler):
                     admin_content_guard(db,user,center_id)
                     db.execute('DELETE FROM center_point_links WHERE center_id=? AND dive_point_id=?',(center_id,pid)); audit(db,user['id'],'center_point_unassigned','center_point',pid,{'center_id':center_id}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center-equipment':
-                    user=require_user(self,db); require_role(user,{'center','admin'}); data=json_body(self); center_id=user['center_id'] if user['role']=='center' else int(data.get('center_id') or 0)
-                    admin_content_guard(db,user,center_id)
-                    defaults={'fins':'Aletas','mask':'Máscara','wetsuit':'Traje de neopreno','regulator':'Regulador','bcd':'Chaleco BCD','tank':'Botella','computer':'Ordenador de buceo','full_kit':'Equipo completo'}
-                    code=clean_text(data.get('code'),40); label=clean_text(data.get('label'),120) or defaults.get(code,code); price=clean_money(data.get('price'),allow_none=True)
-                    if code not in defaults: raise ValueError('Equipo no válido.')
-                    db.execute('''INSERT INTO center_equipment(center_id,code,label,price,active,sort_order,updated_at) VALUES(?,?,?,?,1,?,?) ON CONFLICT(center_id,code) DO UPDATE SET label=excluded.label,price=excluded.price,active=1,updated_at=excluded.updated_at''',(center_id,code,label,price,list(defaults).index(code),now())); db.commit(); self.send_json({'ok':True}); return
+                    # Kept for old clients (v50.27): the price of one piece. The tank is never a piece (v50.58).
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self)
+                    code=clean_text(data.get('code'),40) or ''
+                    if code in weq.INCLUDED: raise ValueError('La botella y los plomos van siempre incluidos: no son piezas de alquiler.')
+                    price_=weq.money(data.get('price'))
+                    if code==weq.KIT: equipment_save(db,user,{'kit':{'price':price_,'active':price_ is not None}})
+                    else: equipment_save(db,user,{'items':[{'code':code,'price':price_,'active':price_ is not None}]})
+                    db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/provider/equipment':
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    out=equipment_save(db,user,json_body(self)); db.commit(); self.send_json({'ok':True,**out}); return
+                if path=='/api/provider/equipment/custom':
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    code=equipment_custom_add(db,user,json_body(self)); db.commit(); self.send_json({'ok':True,'code':code,**equipment_config(db,*provider_owner(user))}); return
+                if path=='/api/provider/equipment/custom-delete':
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    equipment_custom_delete(db,user,json_body(self).get('code')); db.commit(); self.send_json({'ok':True,**equipment_config(db,*provider_owner(user))}); return
+                m_be=re.fullmatch(r'/api/bookings/(\d+)/equipment',path)
+                if m_be:
+                    user=require_user(self,db); data=json_body(self)
+                    out=booking_equipment_change(db,user,int(m_be.group(1)),data); db.commit(); self.send_json({'ok':True,**out}); return
+                m_be=re.fullmatch(r'/api/center/bookings/(\d+)/equipment',path)
+                if m_be:
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
+                    out=booking_equipment_desk(db,user,int(m_be.group(1)),data); db.commit(); self.send_json({'ok':True,**out}); return
                 if path=='/api/center/integration/regenerate':
                     user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
                     require_feature(db,user,'integration')

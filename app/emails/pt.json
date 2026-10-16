@@ -652,5 +652,10 @@
  "¿Lo guardas en tu perfil?": "Queres guardá-lo no teu perfil?",
  "¿Qué tal con {center}?": "Como correu com {center}?",
  "¿Qué tal tu inmersión?": "Como correu o seu mergulho?",
- "Únete al equipo de {center}": "Junte-se à equipa de {center}"
+ "Únete al equipo de {center}": "Junte-se à equipa de {center}",
+ "Equipo añadido a tu reserva · {service}": "Equipamento adicionado à tua reserva · {service}",
+ "{piece}: {amount}.": "{piece}: {amount}.",
+ "Equipo añadido a tu reserva": "Equipamento adicionado à tua reserva",
+ "Hola {first_name}, {center} ha añadido a tu reserva: {piece}. Importe: {amount}.": "Olá {first_name}, {center} adicionou à tua reserva: {piece}. Valor: {amount}.",
+ "El pago lo procesa Stripe con cifrado y verificación 3D Secure, directamente al centro. WORLDIVES y el centro nunca ven los datos de tu tarjeta.": "O pagamento é processado pela Stripe com encriptação e verificação 3D Secure, diretamente ao centro. A WORLDIVES e o centro nunca veem os dados do teu cartão."
 }

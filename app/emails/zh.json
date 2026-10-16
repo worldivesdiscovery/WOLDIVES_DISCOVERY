@@ -652,5 +652,10 @@
  "¿Lo guardas en tu perfil?": "要保存到您的个人资料中吗？",
  "¿Qué tal con {center}?": "在 {center} 的体验如何？",
  "¿Qué tal tu inmersión?": "这次潜水怎么样？",
- "Únete al equipo de {center}": "加入 {center} 的团队"
+ "Únete al equipo de {center}": "加入 {center} 的团队",
+ "Equipo añadido a tu reserva · {service}": "已为你的预订添加装备 · {service}",
+ "{piece}: {amount}.": "{piece}: {amount}.",
+ "Equipo añadido a tu reserva": "已为你的预订添加装备",
+ "Hola {first_name}, {center} ha añadido a tu reserva: {piece}. Importe: {amount}.": "{first_name}，你好！{center} 已在你的预订中添加：{piece}。金额：{amount}。",
+ "El pago lo procesa Stripe con cifrado y verificación 3D Secure, directamente al centro. WORLDIVES y el centro nunca ven los datos de tu tarjeta.": "付款由 Stripe 处理，采用加密和 3D Secure 验证，直接付给潜水中心。WORLDIVES 和中心都看不到你的银行卡信息。"
 }

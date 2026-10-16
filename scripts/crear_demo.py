@@ -394,11 +394,30 @@ def build(out: Path):
                     ok(cl.post(f"/api/reviews/{row['id']}/reply", {'body': reply}), 'responder a la reseña')
             srv.sql("UPDATE center_reviews SET created_at=datetime('now','-'||(abs(random())%120)||' days'),updated_at=created_at WHERE center_id=?", (ccid,))
 
+        # --- v50.58 (16/10/2026): the rental equipment is an extra inside the dive. The list of each centre with
+        # indicative prices that the centre changes, a «Equipo completo» with a closed price and the stock of a size
+        # (2 jackets M at Bahía Coralina, to see «No disponible» when they are taken). Tank and weights: always included.
+        ok(center.post('/api/provider/equipment', {'items': [
+            {'code': 'mask', 'active': True, 'price': 5, 'prescription': True}, {'code': 'fins', 'active': True, 'price': 5}, {'code': 'boots', 'active': True, 'price': 3},
+            {'code': 'wetsuit', 'active': True, 'price': 10, 'thicknesses': ['5', '7']}, {'code': 'hood', 'active': True, 'price': 3}, {'code': 'gloves', 'active': True, 'price': 3},
+            {'code': 'bcd', 'active': True, 'price': 8}, {'code': 'regulator', 'active': True, 'price': 8}, {'code': 'computer', 'active': True, 'price': 10},
+            {'code': 'torch', 'active': True, 'price': 5}, {'code': 'smb', 'active': True, 'price': 2}],
+            'kit': {'active': True, 'price': 30, 'price_per': 'dive'}, 'stock': {'bcd': {'M': 2}}}), 'equipo de alquiler del primer centro')
+        ok(center.post('/api/provider/equipment/custom', {'label': 'Cámara compacta con carcasa', 'icon': 'camera', 'size_kind': 'none', 'price': 25, 'price_per': 'day'}), 'pieza propia')
+        ok(center2.post('/api/provider/equipment', {'items': [
+            {'code': 'mask', 'active': True, 'price': 4}, {'code': 'fins', 'active': True, 'price': 4}, {'code': 'wetsuit', 'active': True, 'price': 12, 'thicknesses': ['7', 'semi']},
+            {'code': 'hood', 'active': True, 'price': 4}, {'code': 'bcd', 'active': True, 'price': 9}, {'code': 'regulator', 'active': True, 'price': 9},
+            {'code': 'torch', 'active': True, 'price': 6}], 'kit': {'active': True, 'price': 35}}), 'equipo de alquiler del segundo centro')
+        EQ_TWO = [{'items': [{'code': 'wetsuit', 'size': 'M', 'thick': '5'}, {'code': 'mask'}, {'code': 'fins', 'size': '42'}, {'code': 'boots', 'size': '42'}]},
+                  {'items': [{'code': 'smb'}]}]
+
         # --- the demo diver's bookings in every state (with the first centre) ---------------------------------------
-        def book(diver, key, k, pax=1):
-            return ok(diver.post('/api/bookings', {'center_id': cid, 'service_id': svc[key], 'slot_id': slots[(key, k)], 'participants': pax}), 'reservar')['id']
+        def book(diver, key, k, pax=1, equipment=None):
+            body = {'center_id': cid, 'service_id': svc[key], 'slot_id': slots[(key, k)], 'participants': pax}
+            if equipment: body['equipment'] = equipment
+            return ok(diver.post('/api/bookings', body), 'reservar')['id']
         book(buzo, 'doble', 9, 2)                                                       # solicitada
-        b_conf = book(buzo, 'doble', 4, 2); ok(center.post(f'/api/bookings/{b_conf}/status', {'status': 'confirmed'}), 'confirmar')   # confirmada
+        b_conf = book(buzo, 'doble', 4, 2, EQ_TWO); ok(center.post(f'/api/bookings/{b_conf}/status', {'status': 'confirmed'}), 'confirmar')   # confirmada, con equipo
         b_pend = book(buzo, 'curso', 10)                                                # aceptada, pendiente de pago
         srv.sql("UPDATE bookings SET status='accepted_pending_payment',payment_status='required',payment_deadline=?,accepted_at=? WHERE id=?",
                 ((dt.datetime.now() + dt.timedelta(days=2)).isoformat(timespec='minutes'), now_s(), b_pend))
@@ -472,7 +491,11 @@ def build(out: Path):
                     'crear la salida del atardecer')['slot_id']
             # Today: three divers (four seats), so there is always someone left to mark on the boat list.
             for i, d_ in enumerate(divers[1:4] if k == 0 else divers[1:2 + k % 4]):
-                x = ok(d_.post('/api/bookings', {'center_id': cid, 'service_id': tarde, 'slot_id': sl, 'participants': 1 + ((k + i) % 2)}), 'reservar al atardecer')['id']
+                pax_ = 1 + ((k + i) % 2)
+                # v50.58: the divers of the evening dive rent some pieces (the boat list and «Equipo para preparar» show them)
+                eq_ = ([{'items': [{'code': 'wetsuit', 'size': ('S', 'M', 'L')[i % 3], 'thick': '5'}, {'code': 'fins', 'size': ('38', '41', '43')[i % 3]}, {'code': 'torch'}]}]
+                       + [{'items': [{'code': 'mask'}, {'code': 'torch'}]}] * (pax_ - 1)) if i < 2 else None
+                x = ok(d_.post('/api/bookings', {'center_id': cid, 'service_id': tarde, 'slot_id': sl, 'participants': pax_, **({'equipment': eq_} if eq_ else {})}), 'reservar al atardecer')['id']
                 ok(center.post(f'/api/bookings/{x}/status', {'status': 'confirmed'}), 'confirmar')
             if k == 1:
                 x = ok(divers[5].post('/api/bookings', {'center_id': cid, 'service_id': tarde, 'slot_id': sl, 'participants': 2, 'notes': 'Venimos dos amigos, uno sin experiencia nocturna'}), 'solicitar')['id']

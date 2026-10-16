@@ -159,7 +159,7 @@ REGLAS_POST = (
                   # v50.56 · «Vender en tu web»: widget, page, API keys, webhooks and imported calendars
                   '/api/provider/vender', '/api/provider/api-keys', '/api/provider/webhooks', '/api/provider/ical-imports')),
     ('salidas', _P('/api/provider/spot-blocks',)),   # v50.56: spots kept for a group, agency or hotel
-    ('salidas', _P('/api/provider-services', '/api/service-templates/', '/api/agenda/')),
+    ('salidas', _P('/api/provider-services', '/api/service-templates/', '/api/agenda/', '/api/provider/equipment')),   # v50.58: rental pieces
 )
 REGLAS_GET = (
     (None, _P('/api/provider/fiscal', '/api/provider/plan', '/api/center/team', '/api/center/activity', '/api/provider/cuenta')),

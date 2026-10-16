@@ -652,5 +652,10 @@
  "¿Lo guardas en tu perfil?": "Wil je hem in je profiel opslaan?",
  "¿Qué tal con {center}?": "Hoe was het bij {center}?",
  "¿Qué tal tu inmersión?": "Hoe was je duik?",
- "Únete al equipo de {center}": "Word lid van het team van {center}"
+ "Únete al equipo de {center}": "Word lid van het team van {center}",
+ "Equipo añadido a tu reserva · {service}": "Uitrusting toegevoegd aan je boeking · {service}",
+ "{piece}: {amount}.": "{piece}: {amount}.",
+ "Equipo añadido a tu reserva": "Uitrusting toegevoegd aan je boeking",
+ "Hola {first_name}, {center} ha añadido a tu reserva: {piece}. Importe: {amount}.": "Hallo {first_name}, {center} heeft aan je boeking toegevoegd: {piece}. Bedrag: {amount}.",
+ "El pago lo procesa Stripe con cifrado y verificación 3D Secure, directamente al centro. WORLDIVES y el centro nunca ven los datos de tu tarjeta.": "De betaling wordt door Stripe verwerkt met versleuteling en 3D Secure-verificatie, rechtstreeks aan het centrum. WORLDIVES en het centrum zien je kaartgegevens nooit."
 }
