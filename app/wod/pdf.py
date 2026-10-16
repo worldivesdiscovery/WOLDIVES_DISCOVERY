@@ -150,6 +150,7 @@ class Document:
         for ch in str(text or ''):
             cp = ord(ch)
             if cp in (0x202F, 0x00A0): cp = 0x20
+            if cp == 0x2212: cp, ch = 0x2013, '\u2013'   # the minus of «−10 %»: the fonts have the en dash, not it (it came out «?»)
             pick = None
             for f in files:
                 if cp in font(f).cmap: pick = f; break

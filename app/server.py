@@ -12109,7 +12109,8 @@ def booking_pdf(db, booking_id, base_url='http://localhost:8000', lang='es'):
     yy = y0 - 42
     for l in lines:
         pg.text(56, yy, pg.fit(l.get('label') or '', 9.5, 300), 9.5, INK)
-        pg.text(400, yy, f"{l.get('qty') or 1} × {money(l.get('unit'))}", 8.5, MUTED, align='right')
+        if l.get('unit') is not None:   # a discount has only its amount (it showed «1 × 0,00 €»)
+            pg.text(400, yy, f"{l.get('qty') or 1} × {money(l.get('unit'))}", 8.5, MUTED, align='right')
         pg.text(539, yy, money(l.get('total')), 9.5, INK, align='right'); yy -= 18
     pg.line(56, yy + 8, 539, yy + 8)
     pg.text(56, yy - 8, t(wpres.PRICE_LABEL) if in_person else t('Total'), 11, INK, True); pg.text(539, yy - 8, money(b['price']), 13, INK, True, align='right')
