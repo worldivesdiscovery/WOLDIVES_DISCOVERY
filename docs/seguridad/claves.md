@@ -21,6 +21,7 @@ a un correo ni a una incidencia. El servidor no arranca en producción si falta 
 | Clave de integración del centro | Programas del centro que crean reservas | `wod_` + 32 bytes aleatorios; en la base, SHA-256 | `/api/integrations/bookings` | — |
 | Calendario privado y QR de la reserva | Leer el calendario o comprobar una reserva | Testigo aleatorio largo | `/ical/…`, `/api/pro/escanear` | — |
 | `STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET(_CONNECT)` | Cobros directos al centro y comprobar los avisos de Stripe | Los de Stripe (HMAC-SHA256 en los avisos) | `stripe_module`, `stripe_webhook` | Guardar tarjetas (nunca pasan por WORLDIVES) |
+| `STRIPE_PUBLISHABLE_KEY` (v50.58) | El formulario de pago de Stripe dentro de la reserva exprés (Stripe.js). Es pública por diseño (`pk_…`), pero se pone solo en el `.env`; si no es del mismo modo que la secreta (test/live), no se usa | — | `stripe_publishable_key`, `sales_stripe` | Cobrar o leer pagos (eso solo lo hace la secreta, en el servidor) |
 | `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` y testigos de cada centro | Avisos por WhatsApp | HMAC-SHA256 en los avisos de Meta; testigos guardados con AES-256-GCM | `wod/whatsapp.py` | — |
 | `WOD_FCM_CREDENTIALS` (cuenta de servicio de Firebase) | Avisos en el móvil | RSA-2048 con RS256 (**excepción aceptada**: la impone Google; el aviso al móvil está apagado si no se configura) | `wod/push.py` | — |
 | `ARCGIS_API_KEY` | Vista satélite (el servidor la usa, nunca llega al navegador) | — | proxy `/api/tiles/satellite` | — |

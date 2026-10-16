@@ -13,6 +13,7 @@ Last updated: {{version}}
 | wd_top10 | Local storage | Remembering the location and radius you chose in the Top 10 | Until you delete them |
 | wd_booking_draft | Session storage | Not losing a half-completed booking when you log in | Deleted once used |
 | wd_cookie_notice | Local storage | Not showing you the notice again | 1 year |
+| wd-reserva-datos-v1 | Local storage, only if you tick «Remember my details on this device» when booking on a centre's website | Booking again without typing your name, email and phone | Until you delete it («Delete my details from this device») |
 
 ## Third-party services that receive your IP address
 
@@ -24,7 +25,7 @@ Even though they do not use cookies, some services loaded in your browser receiv
 | **Satellite view (Esri)** | Only if you choose «Satellite» | Nothing: the images pass through our server |
 | **Bathymetry (GEBCO)** | Only if you choose the depth layer | Your IP reaches the servers of GEBCO / British Oceanographic Data Centre |
 | **Dive site videos** (YouTube in privacy-enhanced mode, Instagram and TikTok with their official embed code; also Vimeo, Dailymotion and Facebook in older videos) and **embedded maps** (Google Maps) | When you open a dive site page only the video's image loads, from the platform itself; the player only if you press «Play» | With the image, your IP reaches the platform, without cookies. When playing, your IP and whatever that service collects, including its own cookies; see its policy. Videos from other platforms open in a new tab |
-| **Payment (Stripe)** | When you pay | Stripe's page opens, with its own cookies to prevent fraud |
+| **Payment (Stripe)** | When you pay | Stripe's page or its form inside the booking opens, with its own cookies to prevent fraud |
 
 No video or third-party content is loaded unless you ask for it.
 

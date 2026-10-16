@@ -13,6 +13,7 @@ Ostatnia aktualizacja: {{version}}
 | wd_top10 | Pamięć lokalna | Zapamiętanie lokalizacji i promienia wybranych w Top 10 | Do czasu ich usunięcia |
 | wd_booking_draft | Pamięć sesji | Zachowanie niedokończonej rezerwacji podczas logowania | Usuwany po wykorzystaniu |
 | wd_cookie_notice | Pamięć lokalna | Niewyświetlanie ponownie komunikatu | 1 rok |
+| wd-reserva-datos-v1 | Pamięć lokalna, tylko jeśli przy rezerwacji na stronie centrum zaznaczysz „Zapamiętaj moje dane na tym urządzeniu” | Ponowna rezerwacja bez wpisywania imienia, e-maila i telefonu | Do czasu usunięcia („Usuń moje dane z tego urządzenia”) |
 
 ## Usługi podmiotów trzecich, które otrzymują Twój adres IP
 
@@ -24,7 +25,7 @@ Choć nie używają plików cookie, niektóre usługi ładowane w Twojej przegl�
 | **Widok satelitarny (Esri)** | Tylko jeśli wybierzesz „Satelita” | Nic: obrazy przechodzą przez nasz serwer |
 | **Batymetria (GEBCO)** | Tylko jeśli wybierzesz warstwę głębokości | Twój adres IP trafia do serwerów GEBCO / British Oceanographic Data Centre |
 | **Filmy z miejsc nurkowych** (YouTube w trybie zwiększonej prywatności, Instagram i TikTok z oficjalnym kodem osadzania; w starszych filmach także Vimeo, Dailymotion i Facebook) oraz **osadzone mapy** (Google Maps) | Po otwarciu karty miejsca ładuje się tylko obraz filmu, bezpośrednio z platformy; odtwarzacz tylko wtedy, gdy klikniesz „Odtwórz” | Wraz z obrazem twój adres IP trafia do platformy, bez plików cookie. Podczas odtwarzania twój adres IP oraz to, co zbiera dana usługa, w tym jej własne pliki cookie; zapoznaj się z jej polityką. Filmy z innych platform otwierają się w nowej karcie |
-| **Płatność (Stripe)** | Podczas płatności | Otwiera się strona Stripe z własnymi plikami cookie służącymi zapobieganiu oszustwom |
+| **Płatność (Stripe)** | Podczas płatności | Otwiera się strona Stripe lub jej formularz w rezerwacji, z własnymi plikami cookie służącymi zapobieganiu oszustwom |
 
 Żaden film ani treść podmiotu trzeciego nie jest ładowana bez Twojego żądania.
 

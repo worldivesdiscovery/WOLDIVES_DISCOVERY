@@ -13,6 +13,7 @@ Dernière mise à jour : {{version}}
 | wd_top10 | Stockage local | Mémoriser la position et le rayon choisis dans le Top 10 | Jusqu'à ce que vous les supprimiez |
 | wd_booking_draft | Stockage de session | Ne pas perdre une réservation en cours lors de la connexion | Supprimé après utilisation |
 | wd_cookie_notice | Stockage local | Ne plus vous afficher l'avis | 1 an |
+| wd-reserva-datos-v1 | Stockage local, seulement si vous cochez « Mémoriser mes données sur cet appareil » en réservant sur le site d'un centre | Réserver à nouveau sans écrire votre nom, votre e-mail et votre téléphone | Jusqu'à ce que vous l'effaciez (« Effacer mes données de cet appareil ») |
 
 ## Services tiers qui reçoivent votre adresse IP
 
@@ -24,7 +25,7 @@ Même s'ils n'utilisent pas de cookies, certains services chargés dans votre na
 | **Vue satellite (Esri)** | Seulement si vous choisissez « Satellite » | Rien : les images passent par notre serveur |
 | **Bathymétrie (GEBCO)** | Seulement si vous choisissez la couche des profondeurs | Votre IP parvient aux serveurs de GEBCO / British Oceanographic Data Centre |
 | **Vidéos des sites** (YouTube en mode de confidentialité renforcée, Instagram et TikTok avec leur code d'intégration officiel ; aussi Vimeo, Dailymotion et Facebook pour d'anciennes vidéos) et **cartes intégrées** (Google Maps) | En ouvrant la fiche d'un site, seule l'image de la vidéo se charge, depuis la plateforme elle-même ; le lecteur, seulement si vous appuyez sur « Lire » | Avec l'image, votre IP parvient à la plateforme, sans cookies. Pendant la lecture, votre IP et ce que ce service collecte, y compris ses propres cookies ; consultez sa politique. Les vidéos des autres plateformes s'ouvrent dans un nouvel onglet |
-| **Paiement (Stripe)** | Lors du paiement | La page de Stripe s'ouvre, avec ses propres cookies de prévention de la fraude |
+| **Paiement (Stripe)** | Lors du paiement | La page de Stripe ou son formulaire dans la réservation s'ouvre, avec ses propres cookies de prévention de la fraude |
 
 Aucune vidéo ni aucun contenu de tiers n'est chargé sans votre demande.
 

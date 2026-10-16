@@ -46,3 +46,23 @@ pendientes de revisión del abogado** y no deben publicarse como versión nueva 
    antes, como con el reproductor? (Alternativa técnica posible: servir la imagen desde nuestro servidor, como antes.)
 3. ¿Hay que pedir de nuevo la aceptación de las condiciones de uso por este párrafo, o basta con publicarlo como
    versión nueva informando a los usuarios?
+
+## 5. Reserva exprés desde la web del centro (encargo unificado del 16/10/2026, bloque 2)
+
+| Documento | Dónde | Qué cambia |
+|---|---|---|
+| **Política de cookies y servicios de terceros** (9 idiomas) | `app/legal/<idioma>/cookies.md`, primera tabla | Fila nueva `wd-reserva-datos-v1`: almacenamiento local **solo si la persona marca** «Recordar mis datos en este dispositivo» al reservar en la web de un centro (nombre, correo, teléfono y prefijo, en su propio navegador; nunca llegan a WORLDIVES por esta vía). Se borra con «Borrar mis datos de este dispositivo». |
+| **Política de cookies y servicios de terceros** (9 idiomas) | misma, fila «Pago (Stripe)» | Ahora dice «la página de Stripe **o su formulario dentro de la reserva**»: con la clave pública en el servidor, Stripe.js se carga en la reserva (Stripe pone sus cookies contra el fraude, igual que en su página). |
+| **Anexo de encargado del tratamiento** (documento interno) | `docs/legal/anexo-encargado-tratamiento.md` | Las dos filas anteriores y la de los **datos de los acompañantes** (nombre, titulación, tallas), que el cliente da con el enlace privado de su reserva y pasan a la lista del barco del centro. |
+
+Lo que hace la web: el almacenamiento solo se escribe si la casilla está marcada al enviar (la prueba
+`test_widget_js_ligero_y_sin_cookies` lo comprueba en el código) y se borra si se desmarca. Los acompañantes se borran
+con la cuenta y con la retención de 6 años de las reservas (`tests/test_v50_58_reserva_expres.py`).
+
+Preguntas:
+
+4. La casilla «Recordar mis datos en este dispositivo» viene **desmarcada** y el dato solo vive en el navegador de la
+   persona. Lo hemos tratado como almacenamiento «estrictamente necesario para un servicio pedido expresamente»
+   (art. 22.2 LSSI-CE), sin aviso aparte. ¿Es correcto?
+5. Los datos de los acompañantes los da quien reserva, no cada acompañante. ¿Basta con la información de privacidad del
+   centro (encargo de tratamiento), o conviene un aviso corto en ese formulario («Comunícales que se los das al centro»)?

@@ -8,69 +8,170 @@
    "ordenador": 0.2
   },
   "scroll_s_por_pantalla": 0.6,
-  "monedero_s": 2.0
+  "monedero_s": 2.0,
+  "mirar_sugerencia_s": 0.5
  },
  "recorridos": {
   "movil-peticion": {
-   "segundos": 28.6,
-   "segundos_medidos": 28.6,
+   "segundos": 26.7,
    "segundos_modelo": 0.0,
    "toques": 10,
-   "pantallas": 5,
+   "pantallas": 4,
    "scroll_px": 696,
+   "pantallas_vistas": [
+    "servicios",
+    "calendario",
+    "horas",
+    "datos",
+    "enviada"
+   ],
    "notas": []
   },
   "movil-tarjeta": {
-   "segundos": 42.2,
-   "segundos_medidos": 27.7,
+   "segundos": 42.5,
    "segundos_modelo": 14.5,
    "toques": 15,
    "pantallas": 5,
    "scroll_px": 676,
+   "pantallas_vistas": [
+    "servicios",
+    "calendario",
+    "horas",
+    "datos",
+    "confirmada"
+   ],
    "notas": [
-    "página de pago de Stripe con la tarjeta escrita a mano (modelo)"
+    "Stripe con la tarjeta escrita a mano (modelo)"
    ]
   },
   "movil-monedero": {
-   "segundos": 30.4,
-   "segundos_medidos": 26.4,
+   "segundos": 31.6,
    "segundos_modelo": 4.0,
    "toques": 11,
    "pantallas": 5,
    "scroll_px": 676,
+   "pantallas_vistas": [
+    "servicios",
+    "calendario",
+    "horas",
+    "datos",
+    "confirmada"
+   ],
    "notas": [
-    "Apple Pay o Google Pay en la página de Stripe (modelo)"
+    "Apple Pay o Google Pay (modelo)"
+   ]
+  },
+  "movil-peticion-autocompletar": {
+   "segundos": 12.0,
+   "segundos_modelo": 0.0,
+   "toques": 9,
+   "pantallas": 4,
+   "scroll_px": 696,
+   "pantallas_vistas": [
+    "servicios",
+    "calendario",
+    "horas",
+    "datos",
+    "enviada"
+   ],
+   "notas": []
+  },
+  "movil-monedero-autocompletar": {
+   "segundos": 17.2,
+   "segundos_modelo": 4.0,
+   "toques": 10,
+   "pantallas": 5,
+   "scroll_px": 676,
+   "pantallas_vistas": [
+    "servicios",
+    "calendario",
+    "horas",
+    "datos",
+    "confirmada"
+   ],
+   "notas": [
+    "Apple Pay o Google Pay (modelo)"
    ]
   },
   "ordenador-peticion": {
-   "segundos": 23.4,
-   "segundos_medidos": 23.4,
+   "segundos": 21.8,
    "segundos_modelo": 0.0,
    "toques": 10,
-   "pantallas": 5,
+   "pantallas": 4,
    "scroll_px": 480,
+   "pantallas_vistas": [
+    "servicios",
+    "calendario",
+    "horas",
+    "datos",
+    "enviada"
+   ],
    "notas": []
   },
   "ordenador-tarjeta": {
-   "segundos": 33.1,
-   "segundos_medidos": 22.1,
+   "segundos": 34.7,
    "segundos_modelo": 11.0,
    "toques": 15,
    "pantallas": 5,
    "scroll_px": 499,
+   "pantallas_vistas": [
+    "servicios",
+    "calendario",
+    "horas",
+    "datos",
+    "confirmada"
+   ],
    "notas": [
-    "página de pago de Stripe con la tarjeta escrita a mano (modelo)"
+    "Stripe con la tarjeta escrita a mano (modelo)"
    ]
   },
   "ordenador-monedero": {
-   "segundos": 25.7,
-   "segundos_medidos": 21.7,
+   "segundos": 27.0,
    "segundos_modelo": 4.0,
    "toques": 11,
    "pantallas": 5,
    "scroll_px": 499,
+   "pantallas_vistas": [
+    "servicios",
+    "calendario",
+    "horas",
+    "datos",
+    "confirmada"
+   ],
    "notas": [
-    "Apple Pay o Google Pay en la página de Stripe (modelo)"
+    "Apple Pay o Google Pay (modelo)"
+   ]
+  },
+  "ordenador-peticion-autocompletar": {
+   "segundos": 11.9,
+   "segundos_modelo": 0.0,
+   "toques": 9,
+   "pantallas": 4,
+   "scroll_px": 480,
+   "pantallas_vistas": [
+    "servicios",
+    "calendario",
+    "horas",
+    "datos",
+    "enviada"
+   ],
+   "notas": []
+  },
+  "ordenador-monedero-autocompletar": {
+   "segundos": 17.2,
+   "segundos_modelo": 4.0,
+   "toques": 10,
+   "pantallas": 5,
+   "scroll_px": 499,
+   "pantallas_vistas": [
+    "servicios",
+    "calendario",
+    "horas",
+    "datos",
+    "confirmada"
+   ],
+   "notas": [
+    "Apple Pay o Google Pay (modelo)"
    ]
   }
  }

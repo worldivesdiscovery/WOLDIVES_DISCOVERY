@@ -48,8 +48,12 @@ class Puras(unittest.TestCase):
         for f in ('widget.js', 'js/wd-reservar.js'):
             src = (ROOT / 'public' / f).read_text(encoding='utf-8')
             self.assertNotIn('document.cookie', src, f)
-            self.assertNotIn('localStorage', src, f)
-            self.assertNotRegex(src, r'https?://(?!<WORLDIVES>)[a-z]', f)   # no third-party script, font or tracker
+            # v50.58 (reserva exprés, requisito que cambia): the browser's storage only for «Recordar mis datos en este
+            # dispositivo», when the person ticks it (store/stored, one key); and Stripe.js only to pay inside the booking.
+            self.assertEqual(src.count('localStorage'), 0 if f == 'widget.js' else 3, f)
+            self.assertNotRegex(src, r'https?://(?!<WORLDIVES>|js\.stripe\.com/v3/)[a-z]', f)   # no other third-party script, font or tracker
+        js = (ROOT / 'public' / 'js' / 'wd-reservar.js').read_text(encoding='utf-8')
+        self.assertIn("if (f.elements.remember.checked) store(REMEMBER", js)   # only when the box is ticked
 
     def test_prueba_de_trabajo(self):
         sh = lambda b: hashlib.sha256(b.encode()).hexdigest()

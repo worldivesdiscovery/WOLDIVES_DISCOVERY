@@ -6728,7 +6728,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if(isCenter) mine=await api('/api/me/ical').catch(()=>null);
     const ui=renderSellOnline.ui||(renderSellOnline.ui={fmt:'boton',service:'',type:''});
     const snippet=()=>{ const extra=(ui.service?` data-servicio="${ui.service}"`:'')+(ui.type?` data-tipo="${ui.type}"`:''); return v.snippets[ui.fmt].replace(/data-centro="([^"]+)"/,`data-centro="$1"${extra}`); };
-    const preview=()=>`/w/${encodeURIComponent(v.slug)}?f=${ui.fmt}${ui.service?'&servicio='+ui.service:''}${ui.type?'&tipo='+encodeURIComponent(ui.type):''}`;
+    // v50.58 (reserva exprés, parte 6): the preview is always in test mode (nothing is booked or charged) and follows the
+    // format, the services, the colour and the language chosen here before saving them.
+    const preview=()=>`/w/${encodeURIComponent(v.slug)}?f=${ui.fmt}${ui.service?'&servicio='+ui.service:''}${ui.type?'&tipo='+encodeURIComponent(ui.type):''}${ui.lang?'&lang='+ui.lang:''}&prueba=1`;
     const types=[...new Set(v.services.map(s=>s.type).filter(Boolean))];
     const planNote=!v.plan.widget?`<div class="notice warning">${wdIcon('info',16)} El widget y la página de reservas están incluidos en los planes «Motor de reservas» y «Pro». Con la ficha gratuita, tu web enseña «Solicitar información». <a href="#/mi-plan">Ver planes</a></div>`:'';
     mount.innerHTML=`<div class="cb-module vt-wrap">
@@ -6739,9 +6741,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <p class="vt-help">${ui.fmt==='boton'?'Un botón que abre la reserva encima de tu página.':ui.fmt==='calendario'?'Un calendario con las fechas libres, dentro de tu página.':'La lista de tus salidas y servicios, dentro de tu página.'}</p>
         <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-svc">Mostrar</label><select id="vt-svc"><option value="">Todo el catálogo</option>${v.services.map(s=>`<option value="${s.id}" ${String(ui.service)===String(s.id)?'selected':''}>Solo «${esc(s.title)}»</option>`).join('')}</select></div>
           <div class="svc-field"><label for="vt-type">o un tipo</label><select id="vt-type"><option value="">Todos los tipos</option>${types.map(t=>`<option value="${esc(t)}" ${ui.type===t?'selected':''}>${esc(SERVICE_TYPES.find(x=>x.value===t)?.label||t)}</option>`).join('')}</select></div></div>
+        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-pcolor">Color de los botones</label><input id="vt-pcolor" type="color" value="${esc(ui.color||v.color||'#076898')}"></div>
+          <div class="svc-field"><label for="vt-plang">Idioma</label><select id="vt-plang"><option value="">Automático (el del visitante)</option>${v.langs.map(l=>`<option value="${l}" ${(ui.lang||v.lang)===l?'selected':''}>${esc(WD_LANG_NAMES[l]||l)}</option>`).join('')}</select></div></div>
+        <h4>Vista previa en vivo</h4>
+        <div class="vt-previews"><figure class="vt-phone"><figcaption>${wdIcon('user',14)} Móvil</figcaption><iframe class="vt-frame" title="Vista previa en el móvil" src="${esc(preview())}" loading="lazy"></iframe></figure>
+          <figure class="vt-desk"><figcaption>${wdIcon('globe',14)} Ordenador</figcaption><iframe class="vt-frame" title="Vista previa en el ordenador" src="${esc(preview())}" loading="lazy"></iframe></figure></div>
+        <div class="vt-row"><a class="btn" id="vt-try" href="${esc(v.page)}?prueba=1${ui.service?'&servicio='+ui.service:''}" target="_blank" rel="noopener">${wdIcon('eye',14)} Probar como cliente</a><small>Modo de prueba: no se reserva ni se cobra nada.</small></div>
         <pre class="vt-code" id="vt-code">${esc(snippet())}</pre>
-        <div class="vt-row"><button type="button" class="btn btn-primary" id="vt-copy">Copiar el código</button><small>Dos líneas. No hace falta tocar nada más de tu web.</small></div>
-        <h4>Vista previa en vivo</h4><div class="vt-preview"><iframe id="vt-frame" title="Vista previa del widget" src="${esc(preview())}" loading="lazy"></iframe></div>
+        <div class="vt-row"><button type="button" class="btn btn-primary" id="vt-copy">Copiar código</button><small>Dos líneas. No hace falta tocar nada más de tu web.</small></div>
       </section>
       <section class="vt-card"><h3>2 · Dónde puede funcionar</h3>
         <p>El widget solo funciona en tus dominios. En cualquier otra web no se carga.</p>
@@ -6757,8 +6764,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="vt-row"><code class="vt-link">${esc(v.page)}</code><button type="button" class="btn" data-copy="${esc(v.page)}">Copiar</button><a class="btn" href="${esc(v.page)}" target="_blank" rel="noopener">Abrir</a></div>
         <div class="svc-field"><label for="vt-slug">Dirección</label><div class="vt-row"><span class="vt-prefix">${esc(location.origin)}/c/</span><input id="vt-slug" value="${esc(v.slug)}" maxlength="60" pattern="[a-z0-9-]{3,60}"><button type="button" class="btn" id="vt-slug-save">Cambiar</button></div><small>Si la cambias, los enlaces y QR antiguos dejan de funcionar.</small></div>
         <div class="vt-qr"><img src="${esc(v.qr.svg)}" alt="QR de tu página de reservas" width="132" height="132"><div><p>QR de tu página de reservas.</p><a class="btn" href="${esc(v.qr.svg)}?descargar=1">Descargar SVG</a> <a class="btn" href="${esc(v.qr.png)}?descargar=1">Descargar PNG</a></div></div>
-        <h4>Enlace directo a un servicio o a una fecha</h4>
+        <h4>Enlace directo a un servicio, una fecha, una hora y las personas</h4>
+        <p class="vt-help">Con la fecha y la hora, la reserva se abre directamente en «Tus datos».</p>
         <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-ls">Servicio</label><select id="vt-ls">${v.services.map(s=>`<option value="${s.id}">${esc(s.title)}</option>`).join('')}</select></div><div class="svc-field"><label for="vt-ld">Fecha (opcional)</label><input id="vt-ld" type="date"></div></div>
+        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-lt">Hora (opcional)</label><input id="vt-lt" type="time"></div><div class="svc-field"><label for="vt-lp">Personas (opcional)</label><input id="vt-lp" type="number" min="1" max="20" inputmode="numeric"></div></div>
         <div class="vt-row"><code class="vt-link" id="vt-direct"></code><button type="button" class="btn" id="vt-direct-copy">Copiar</button><a class="btn" id="vt-direct-qr" href="#" target="_blank" rel="noopener">QR</a></div>
       </section>
       <section class="vt-card" id="vt-api"><h3>4 · API para tu web o tu programa de reservas</h3>
@@ -6788,9 +6797,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <p class="vt-help">Gestores de canales (channel managers): pendiente de decisión. Mientras tanto, la API y el iCal sirven para conectarlos.</p>
       </section>
       <section class="vt-card"><h3>7 · Guía paso a paso</h3>
-        <details><summary>WordPress</summary><ol><li>Entra en el escritorio de WordPress y abre la página donde quieres vender.</li><li>Pulsa «+» y añade un bloque <b>«HTML personalizado»</b>.</li><li>Pega el código del paso 1 y pulsa <b>«Actualizar»</b>.</li><li>Añade tu dominio en el paso 2 (por ejemplo «tuweb.com»).</li><li>Abre la página: verás el botón, el calendario o la lista.</li></ol></details>
-        <details><summary>Wix</summary><ol><li>En el editor de Wix pulsa <b>«Añadir elementos» → «Insertar código» → «Código integrado»</b> (o «HTML iframe»).</li><li>Pega el código del paso 1 en «Código» y pulsa «Actualizar».</li><li>Ajusta el tamaño del recuadro (el calendario y la lista crecen solos dentro).</li><li>Añade tu dominio de Wix en el paso 2 (por ejemplo «tunombre.wixsite.com» y el tuyo propio si lo tienes).</li><li>Publica la web.</li></ol></details>
-        <details><summary>Squarespace</summary><ol><li>Edita la página y pulsa <b>«Añadir bloque» → «Código»</b>.</li><li>Pega el código del paso 1 (modo HTML) y guarda.</li><li>Añade tu dominio en el paso 2 (por ejemplo «tunombre.squarespace.com» y el tuyo).</li><li>Publica los cambios.</li></ol></details>
+        <details open><summary>WordPress</summary><ol><li>En la página donde quieres vender, pulsa «+» y añade un bloque <b>«HTML personalizado»</b>.</li><li>Pega el código del paso 1 y pulsa <b>«Actualizar»</b>.</li><li>Escribe tu dominio en el paso 2 de aquí (por ejemplo «tuweb.com») y guarda.</li></ol></details>
+        <details><summary>Wix</summary><ol><li>En el editor, pulsa <b>«Añadir elementos» → «Insertar código» → «Código integrado»</b>.</li><li>Pega el código del paso 1 y publica la web.</li><li>Escribe tu dominio en el paso 2 de aquí (por ejemplo «tunombre.wixsite.com» y el tuyo propio) y guarda.</li></ol></details>
+        <details><summary>Squarespace</summary><ol><li>Edita la página y pulsa <b>«Añadir bloque» → «Código»</b>.</li><li>Pega el código del paso 1 y guarda los cambios.</li><li>Escribe tu dominio en el paso 2 de aquí (por ejemplo «tunombre.squarespace.com» y el tuyo) y guarda.</li></ol></details>
         <p class="vt-help">¿Otra plataforma? Si deja pegar HTML, funciona igual. Si no, usa el enlace o el QR del paso 3.</p>
       </section>
     </div>`;
@@ -6803,8 +6812,15 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $$('[data-copy]',mount).forEach(b=>b.onclick=()=>wdCopyText(b.dataset.copy));
     $('#vt-save',mount).onclick=async()=>{ try{ await postJSON('/api/provider/vender',{domains:$('#vt-domains',mount).value,color:$('#vt-color',mount).value,lang:$('#vt-lang',mount).value}); toast('Guardado.'); reload(); }catch(err){ toast(err.message); } };
     $('#vt-slug-save',mount).onclick=async()=>{ try{ await postJSON('/api/provider/vender',{slug:$('#vt-slug',mount).value.trim()}); toast('Dirección cambiada.'); reload(); }catch(err){ toast(err.message); } };
-    const direct=()=>{ const s=$('#vt-ls',mount).value, dte=$('#vt-ld',mount).value; const u=`${v.page}?servicio=${s}${dte?'&fecha='+dte:''}`; $('#vt-direct',mount).textContent=u; $('#vt-direct-qr',mount).href=`${v.qr.svg}?servicio=${s}${dte?'&fecha='+dte:''}&descargar=1`; return u; };
-    if(v.services.length){ direct(); $('#vt-ls',mount).onchange=direct; $('#vt-ld',mount).onchange=direct; $('#vt-direct-copy',mount).onclick=()=>wdCopyText(direct()); }
+    const direct=()=>{ const s=$('#vt-ls',mount).value, dte=$('#vt-ld',mount).value, hr=$('#vt-lt',mount).value, pp=+$('#vt-lp',mount).value||0;
+      const q=`servicio=${s}${dte?'&fecha='+dte:''}${dte&&hr?'&hora='+hr:''}${pp>0&&pp<=20?'&personas='+pp:''}`;
+      const u=`${v.page}?${q}`; $('#vt-direct',mount).textContent=u; $('#vt-direct-qr',mount).href=`${v.qr.svg}?${q}&descargar=1`; return u; };
+    if(v.services.length){ direct(); ['#vt-ls','#vt-ld','#vt-lt','#vt-lp'].forEach(id=>{ $(id,mount).onchange=direct; $(id,mount).oninput=direct; }); $('#vt-direct-copy',mount).onclick=()=>wdCopyText(direct()); }
+    // The colour of the preview changes at once (the preview is on this same site); «Guardar» in step 2 keeps it.
+    const paint=c=>$$('.vt-frame',mount).forEach(f=>{ try{ f.contentDocument.body.style.setProperty('--marca',c); }catch{ /* not loaded yet */ } });
+    $('#vt-pcolor',mount).oninput=e=>{ ui.color=e.target.value; paint(ui.color); const c2=$('#vt-color',mount); if(c2) c2.value=ui.color; };
+    $$('.vt-frame',mount).forEach(f=>f.addEventListener('load',()=>{ if(ui.color) setTimeout(()=>paint(ui.color),400); }));
+    $('#vt-plang',mount).onchange=e=>{ ui.lang=e.target.value; reload(); };
     $('#vt-key-new',mount).onclick=async()=>{ try{ const r=await postJSON('/api/provider/api-keys',{action:'create',name:$('#vt-key-name',mount).value,scope:$('#vt-key-scope',mount).value});
       show('vt-key-out',`<div class="notice warning"><b>Copia tu clave ahora: no se vuelve a enseñar.</b><div class="vt-row"><code class="vt-link">${esc(r.key)}</code><button type="button" class="btn" id="vt-key-copy">Copiar</button></div><button type="button" class="btn btn-small" id="vt-key-done">Ya la he guardado</button></div>`);
       $('#vt-key-copy',mount).onclick=()=>wdCopyText(r.key); $('#vt-key-done',mount).onclick=reload; }catch(err){ toast(err.message); } };

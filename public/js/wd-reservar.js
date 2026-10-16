@@ -856,6 +856,7 @@
     var draw = function (b) {
       b = b || {};
       var ok = (b.status || r.status) === 'confirmed', p = (b.provider) || provider(), tok = r.token || b.token;
+      if (!/^\d+\.[A-Za-z0-9_-]{20,}$/.test(tok || '')) tok = null;   // a booking of a WORLDIVES account: its page is in the account
       var email = (S.form && S.form.email) || '';
       var when = b.date ? (b.days && b.days.length > 1 ? day(b.days[0]) + ' – ' + day(b.days[b.days.length - 1]) : fmt(b.date, { weekday: 'long', day: 'numeric', month: 'long' }) + (b.time ? ' · ' + b.time : '')) : (S.svc ? whenText() : '');
       var wa = p.whatsapp ? p.whatsapp + (p.whatsapp.indexOf('?') < 0 ? '?' : '&') + 'text=' + encodeURIComponent(t('rx_wa_text', { ref: r.ref || b.ref || '' })) : '';
@@ -879,7 +880,7 @@
       var pb = app.querySelector('[data-people]'); if (pb) pb.addEventListener('click', function () { companions(tok, pax, b.people || [], function () { draw(b); }); });
     };
     if (view) return draw(view);
-    if (!r.token) return draw(null);
+    if (!/^\d+\.[A-Za-z0-9_-]{20,}$/.test(r.token || '')) return draw(null);
     api('/api/mi-reserva/' + r.token + '?lang=' + lang).then(function (d) { draw(d.booking); }).catch(function () { draw(null); });
   }
 

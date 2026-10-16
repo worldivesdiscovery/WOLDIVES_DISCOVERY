@@ -13,6 +13,7 @@ Ultimo aggiornamento: {{version}}
 | wd_top10 | Archiviazione locale | Ricordare la posizione e il raggio che hai scelto nella Top 10 | Fino a quando non li cancelli |
 | wd_booking_draft | Archiviazione di sessione | Non perdere una prenotazione in corso al momento dell'accesso | Viene cancellato dopo l'uso |
 | wd_cookie_notice | Archiviazione locale | Non mostrarti nuovamente l'avviso | 1 anno |
+| wd-reserva-datos-v1 | Archiviazione locale, solo se spunti «Ricorda i miei dati su questo dispositivo» prenotando sul sito di un centro | Prenotare di nuovo senza scrivere nome, email e telefono | Finché non lo cancelli («Cancella i miei dati da questo dispositivo») |
 
 ## Servizi di terzi che ricevono il tuo indirizzo IP
 
@@ -24,7 +25,7 @@ Pur non utilizzando cookie, alcuni servizi caricati nel tuo browser ricevono il 
 | **Vista satellitare (Esri)** | Solo se scegli «Satellite» | Nulla: le immagini passano attraverso il nostro server |
 | **Batimetria (GEBCO)** | Solo se scegli il livello delle profondità | Il tuo IP raggiunge i server di GEBCO / British Oceanographic Data Centre |
 | **Video dei siti** (YouTube in modalità di privacy avanzata, Instagram e TikTok con il loro codice di incorporamento ufficiale; anche Vimeo, Dailymotion e Facebook nei video meno recenti) e **mappe incorporate** (Google Maps) | Aprendo la scheda di un sito si carica solo l'immagine del video, dalla piattaforma stessa; il lettore solo se premi «Riproduci» | Con l'immagine il tuo IP arriva alla piattaforma, senza cookie. Durante la riproduzione, il tuo IP e quanto raccolto da tale servizio, compresi i suoi cookie; consulta la sua informativa. I video di altre piattaforme si aprono in una nuova scheda |
-| **Pagamento (Stripe)** | Al momento del pagamento | Si apre la pagina di Stripe, con i propri cookie per prevenire le frodi |
+| **Pagamento (Stripe)** | Al momento del pagamento | Si apre la pagina di Stripe o il suo modulo dentro la prenotazione, con i propri cookie per prevenire le frodi |
 
 Nessun video né contenuto di terzi viene caricato senza che tu lo richieda.
 

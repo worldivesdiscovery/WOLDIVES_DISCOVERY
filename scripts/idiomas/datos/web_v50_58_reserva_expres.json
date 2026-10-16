@@ -1,0 +1,185 @@
+{
+ "exact": {
+  "Color de los botones": {
+   "en": "Button colour",
+   "fr": "Couleur des boutons",
+   "de": "Farbe der Schaltflächen",
+   "it": "Colore dei pulsanti",
+   "pt": "Cor dos botões",
+   "pl": "Kolor przycisków",
+   "nl": "Kleur van de knoppen",
+   "zh": "按钮颜色"
+  },
+  "Vista previa en el móvil": {
+   "en": "Preview on a phone",
+   "fr": "Aperçu sur mobile",
+   "de": "Vorschau auf dem Handy",
+   "it": "Anteprima sul cellulare",
+   "pt": "Pré-visualização no telemóvel",
+   "pl": "Podgląd na telefonie",
+   "nl": "Voorbeeld op de telefoon",
+   "zh": "手机预览"
+  },
+  "Vista previa en el ordenador": {
+   "en": "Preview on a computer",
+   "fr": "Aperçu sur ordinateur",
+   "de": "Vorschau auf dem Computer",
+   "it": "Anteprima sul computer",
+   "pt": "Pré-visualização no computador",
+   "pl": "Podgląd na komputerze",
+   "nl": "Voorbeeld op de computer",
+   "zh": "电脑预览"
+  },
+  "Probar como cliente": {
+   "en": "Try it as a customer",
+   "fr": "Tester comme un client",
+   "de": "Als Kunde ausprobieren",
+   "it": "Prova come cliente",
+   "pt": "Experimentar como cliente",
+   "pl": "Wypróbuj jako klient",
+   "nl": "Uitproberen als klant",
+   "zh": "以客户身份试用"
+  },
+  "Modo de prueba: no se reserva ni se cobra nada.": {
+   "en": "Test mode: nothing is booked or charged.",
+   "fr": "Mode test : rien n'est réservé ni débité.",
+   "de": "Testmodus: Es wird nichts gebucht oder abgebucht.",
+   "it": "Modalità prova: non si prenota né si addebita nulla.",
+   "pt": "Modo de teste: não se reserva nem se cobra nada.",
+   "pl": "Tryb testowy: nic nie jest rezerwowane ani pobierane.",
+   "nl": "Testmodus: er wordt niets geboekt of afgeschreven.",
+   "zh": "测试模式：不会预订也不会收费。"
+  },
+  "Enlace directo a un servicio, una fecha, una hora y las personas": {
+   "en": "Direct link to a service, a date, a time and the number of people",
+   "fr": "Lien direct vers un service, une date, une heure et le nombre de personnes",
+   "de": "Direktlink zu einem Service, einem Datum, einer Uhrzeit und der Personenzahl",
+   "it": "Link diretto a un servizio, una data, un orario e le persone",
+   "pt": "Ligação direta a um serviço, uma data, uma hora e as pessoas",
+   "pl": "Bezpośredni link do usługi, daty, godziny i liczby osób",
+   "nl": "Directe link naar een dienst, een datum, een tijd en het aantal personen",
+   "zh": "直达某项服务、日期、时间和人数的链接"
+  },
+  "Con la fecha y la hora, la reserva se abre directamente en «Tus datos».": {
+   "en": "With the date and the time, the booking opens straight on «Your details».",
+   "fr": "Avec la date et l'heure, la réservation s'ouvre directement sur « Tes coordonnées ».",
+   "de": "Mit Datum und Uhrzeit öffnet sich die Buchung direkt bei „Deine Daten“.",
+   "it": "Con data e orario, la prenotazione si apre direttamente su «I tuoi dati».",
+   "pt": "Com a data e a hora, a reserva abre diretamente em «Os teus dados».",
+   "pl": "Z datą i godziną rezerwacja otwiera się od razu na „Twoje dane”.",
+   "nl": "Met de datum en de tijd opent de boeking meteen bij „Je gegevens”.",
+   "zh": "填写日期和时间后，预订会直接打开「你的信息」。"
+  },
+  "Hora (opcional)": {
+   "en": "Time (optional)",
+   "fr": "Heure (facultatif)",
+   "de": "Uhrzeit (optional)",
+   "it": "Orario (facoltativo)",
+   "pt": "Hora (opcional)",
+   "pl": "Godzina (opcjonalnie)",
+   "nl": "Tijd (optioneel)",
+   "zh": "时间（可选）"
+  },
+  "Personas (opcional)": {
+   "en": "People (optional)",
+   "fr": "Personnes (facultatif)",
+   "de": "Personen (optional)",
+   "it": "Persone (facoltativo)",
+   "pt": "Pessoas (opcional)",
+   "pl": "Osoby (opcjonalnie)",
+   "nl": "Personen (optioneel)",
+   "zh": "人数（可选）"
+  },
+  "En la página donde quieres vender, pulsa «+» y añade un bloque": {
+   "en": "On the page where you want to sell, press «+» and add a block",
+   "fr": "Sur la page où tu veux vendre, appuie sur « + » et ajoute un bloc",
+   "de": "Drücke auf der Seite, auf der du verkaufen willst, „+“ und füge einen Block hinzu",
+   "it": "Nella pagina in cui vuoi vendere, premi «+» e aggiungi un blocco",
+   "pt": "Na página onde queres vender, carrega em «+» e adiciona um bloco",
+   "pl": "Na stronie, na której chcesz sprzedawać, naciśnij „+” i dodaj blok",
+   "nl": "Druk op de pagina waar je wilt verkopen op „+” en voeg een blok toe",
+   "zh": "在要销售的页面上点击「+」并添加一个区块"
+  },
+  "Pega el código del paso 1 y pulsa": {
+   "en": "Paste the code from step 1 and press",
+   "fr": "Colle le code de l’étape 1 et appuie sur",
+   "de": "Füge den Code aus Schritt 1 ein und drücke",
+   "it": "Incolla il codice del passo 1 e premi",
+   "pt": "Cola o código do passo 1 e carrega em",
+   "pl": "Wklej kod z kroku 1 i naciśnij",
+   "nl": "Plak de code van stap 1 en druk op",
+   "zh": "粘贴第 1 步的代码并点击"
+  },
+  "«Actualizar»": {
+   "en": "«Update»",
+   "fr": "« Mettre à jour »",
+   "de": "„Aktualisieren“",
+   "it": "«Aggiorna»",
+   "pt": "«Atualizar»",
+   "pl": "„Aktualizuj”",
+   "nl": "„Bijwerken”",
+   "zh": "「更新」"
+  },
+  "Escribe tu dominio en el paso 2 de aquí (por ejemplo «tuweb.com») y guarda.": {
+   "en": "Write your domain in step 2 here (for example «yourweb.com») and save.",
+   "fr": "Écris ton domaine à l’étape 2 ici (par exemple « tonsite.com ») et enregistre.",
+   "de": "Trage deine Domain hier in Schritt 2 ein (zum Beispiel „deineweb.de“) und speichere.",
+   "it": "Scrivi il tuo dominio nel passo 2 qui (per esempio «tuosito.it») e salva.",
+   "pt": "Escreve o teu domínio no passo 2 daqui (por exemplo «tuaweb.pt») e guarda.",
+   "pl": "Wpisz swoją domenę w kroku 2 tutaj (na przykład „twojastrona.pl”) i zapisz.",
+   "nl": "Vul hier je domein in bij stap 2 (bijvoorbeeld „jouwweb.nl”) en sla op.",
+   "zh": "在这里的第 2 步填写你的域名（例如「yourweb.com」）并保存。"
+  },
+  "En el editor, pulsa": {
+   "en": "In the editor, press",
+   "fr": "Dans l’éditeur, appuie sur",
+   "de": "Drücke im Editor",
+   "it": "Nell’editor, premi",
+   "pt": "No editor, carrega em",
+   "pl": "W edytorze naciśnij",
+   "nl": "Druk in de editor op",
+   "zh": "在编辑器中点击"
+  },
+  "Pega el código del paso 1 y publica la web.": {
+   "en": "Paste the code from step 1 and publish the site.",
+   "fr": "Colle le code de l’étape 1 et publie le site.",
+   "de": "Füge den Code aus Schritt 1 ein und veröffentliche die Website.",
+   "it": "Incolla il codice del passo 1 e pubblica il sito.",
+   "pt": "Cola o código do passo 1 e publica o site.",
+   "pl": "Wklej kod z kroku 1 i opublikuj stronę.",
+   "nl": "Plak de code van stap 1 en publiceer de site.",
+   "zh": "粘贴第 1 步的代码并发布网站。"
+  },
+  "Escribe tu dominio en el paso 2 de aquí (por ejemplo «tunombre.wixsite.com» y el tuyo propio) y guarda.": {
+   "en": "Write your domain in step 2 here (for example «yourname.wixsite.com» and your own) and save.",
+   "fr": "Écris ton domaine à l’étape 2 ici (par exemple « tonnom.wixsite.com » et le tien) et enregistre.",
+   "de": "Trage deine Domain hier in Schritt 2 ein (zum Beispiel „deinname.wixsite.com“ und deine eigene) und speichere.",
+   "it": "Scrivi il tuo dominio nel passo 2 qui (per esempio «tuonome.wixsite.com» e il tuo) e salva.",
+   "pt": "Escreve o teu domínio no passo 2 daqui (por exemplo «teunome.wixsite.com» e o teu) e guarda.",
+   "pl": "Wpisz swoją domenę w kroku 2 tutaj (na przykład „twojanazwa.wixsite.com” i własną) i zapisz.",
+   "nl": "Vul hier je domein in bij stap 2 (bijvoorbeeld „jouwnaam.wixsite.com” en je eigen) en sla op.",
+   "zh": "在这里的第 2 步填写你的域名（例如「yourname.wixsite.com」和你自己的域名）并保存。"
+  },
+  "Pega el código del paso 1 y guarda los cambios.": {
+   "en": "Paste the code from step 1 and save the changes.",
+   "fr": "Colle le code de l’étape 1 et enregistre les modifications.",
+   "de": "Füge den Code aus Schritt 1 ein und speichere die Änderungen.",
+   "it": "Incolla il codice del passo 1 e salva le modifiche.",
+   "pt": "Cola o código do passo 1 e guarda as alterações.",
+   "pl": "Wklej kod z kroku 1 i zapisz zmiany.",
+   "nl": "Plak de code van stap 1 en sla de wijzigingen op.",
+   "zh": "粘贴第 1 步的代码并保存更改。"
+  },
+  "Escribe tu dominio en el paso 2 de aquí (por ejemplo «tunombre.squarespace.com» y el tuyo) y guarda.": {
+   "en": "Write your domain in step 2 here (for example «yourname.squarespace.com» and yours) and save.",
+   "fr": "Écris ton domaine à l’étape 2 ici (par exemple « tonnom.squarespace.com » et le tien) et enregistre.",
+   "de": "Trage deine Domain hier in Schritt 2 ein (zum Beispiel „deinname.squarespace.com“ und deine) und speichere.",
+   "it": "Scrivi il tuo dominio nel passo 2 qui (per esempio «tuonome.squarespace.com» e il tuo) e salva.",
+   "pt": "Escreve o teu domínio no passo 2 daqui (por exemplo «teunome.squarespace.com» e o teu) e guarda.",
+   "pl": "Wpisz swoją domenę w kroku 2 tutaj (na przykład „twojanazwa.squarespace.com” i swoją) i zapisz.",
+   "nl": "Vul hier je domein in bij stap 2 (bijvoorbeeld „jouwnaam.squarespace.com” en de jouwe) en sla op.",
+   "zh": "在这里的第 2 步填写你的域名（例如「yourname.squarespace.com」和你自己的域名）并保存。"
+  }
+ },
+ "patterns": {}
+}

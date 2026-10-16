@@ -3570,6 +3570,14 @@ html.wd-app .pp-page{padding-bottom:150px}
 .vt-prefix{color:var(--muted,#5f717b);font-size:13px}
 .vt-preview{border:1px dashed var(--line,#c9d4d8);border-radius:12px;padding:8px;background:#f7f9fa}
 .vt-preview iframe{display:block;width:100%;height:520px;border:0;background:#fff;border-radius:8px}
+/* v50.58 · reserva exprés: the live preview in a phone and a computer frame */
+.vt-previews{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;justify-content:center;background:#f2f6f7;border-radius:14px;padding:16px}
+.vt-previews figure{margin:0;display:grid;gap:6px;justify-items:center}
+.vt-previews figcaption{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted,#5d6b74);font-weight:600}
+.vt-phone iframe{width:340px;height:640px;border:10px solid #10222e;border-radius:34px;background:#fff;box-shadow:0 10px 30px rgba(1,28,60,.18)}
+.vt-desk iframe{width:480px;height:640px;border:1px solid #cfd9dc;border-top:26px solid #e3eaec;border-radius:12px;background:#fff;box-shadow:0 10px 30px rgba(1,28,60,.12)}
+@media (max-width:900px){.vt-desk{display:none!important}}
+@media (max-width:420px){.vt-phone iframe{width:100%;max-width:300px;height:560px}}
 .vt-qr{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.vt-qr img{border:1px solid var(--line,#dfe6e7);border-radius:8px;background:#fff}
 .vt-table{width:100%;border-collapse:collapse;font-size:13px}.vt-table th,.vt-table td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line,#e6eef0);vertical-align:top}
 .vt-table tr.is-off{opacity:.55}.vt-actions{display:flex;gap:6px;flex-wrap:wrap}

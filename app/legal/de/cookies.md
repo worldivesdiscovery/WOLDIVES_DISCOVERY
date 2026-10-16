@@ -13,6 +13,7 @@ Letzte Aktualisierung: {{version}}
 | wd_top10 | Lokaler Speicher | Den in den Top 10 gewählten Standort und Umkreis speichern | Bis Sie sie löschen |
 | wd_booking_draft | Sitzungsspeicher | Eine angefangene Buchung bei der Anmeldung nicht verlieren | Wird nach Verwendung gelöscht |
 | wd_cookie_notice | Lokaler Speicher | Den Hinweis nicht erneut anzeigen | 1 Jahr |
+| wd-reserva-datos-v1 | Lokaler Speicher, nur wenn Sie beim Buchen auf der Website eines Zentrums „Meine Daten auf diesem Gerät merken“ ankreuzen | Erneut buchen, ohne Name, E-Mail und Telefon einzugeben | Bis Sie ihn löschen („Meine Daten von diesem Gerät löschen“) |
 
 ## Dienste Dritter, die Ihre IP-Adresse erhalten
 
@@ -24,7 +25,7 @@ Auch wenn sie keine Cookies verwenden, erhalten einige Dienste, die in Ihrem Bro
 | **Satellitenansicht (Esri)** | Nur wenn Sie „Satellit“ wählen | Nichts: Die Bilder laufen über unseren Server |
 | **Bathymetrie (GEBCO)** | Nur wenn Sie die Tiefenebene wählen | Ihre IP erreicht die Server von GEBCO / British Oceanographic Data Centre |
 | **Videos der Tauchplätze** (YouTube im erweiterten Datenschutzmodus, Instagram und TikTok mit ihrem offiziellen Einbettungscode; bei älteren Videos auch Vimeo, Dailymotion und Facebook) und **eingebettete Karten** (Google Maps) | Beim Öffnen der Seite eines Tauchplatzes lädt nur das Bild des Videos, direkt von der Plattform; der Player nur, wenn Sie auf „Abspielen“ klicken | Mit dem Bild erreicht Ihre IP die Plattform, ohne Cookies. Beim Abspielen Ihre IP und was dieser Dienst erfasst, einschließlich eigener Cookies; lesen Sie dessen Richtlinie. Videos anderer Plattformen öffnen sich in einem neuen Tab |
-| **Zahlung (Stripe)** | Beim Bezahlen | Die Stripe-Seite öffnet sich, mit eigenen Cookies zur Betrugsprävention |
+| **Zahlung (Stripe)** | Beim Bezahlen | Die Stripe-Seite oder ihr Formular in der Buchung öffnet sich, mit eigenen Cookies zur Betrugsprävention |
 
 Kein Video und kein Inhalt Dritter wird ohne Ihre Anforderung geladen.
 
