@@ -51,6 +51,36 @@ Meta: **el 95 % de las páginas en menos de 500 ms y ningún error**.
 
 ⟪SOBREVENTA⟫
 
+## Lo que encontró la prueba y está corregido
+
+**La cola de correos escrita en archivos bloqueaba la base hasta 2 s seguidos.** Para encontrar por qué las reservas
+tardaban, se midió cada transacción de escritura del servidor (cuánto espera para escribir y cuánto tiempo tiene la
+base para él solo). La cola de correos sin servidor de correo (la que usan el modo desarrollo y el paquete DEMO) cogía
+la base al marcar el primer correo y no la soltaba hasta escribir los 150 de la tanda, con su QR: hasta 2 s cada vez
+(p95 1,57 s), un 31 % del tiempo. Mientras, ninguna reserva, pago ni visita podía guardarse: con esa cola, las
+páginas daban p95 750 ms y las reservas p95 2,7 s (pasada de 2 minutos con la misma carga).
+
+- **Arreglo** (`app/server.py`, `spool_outbox_to_files`): primero se escriben los correos y después se marcan todos
+  en una sola escritura corta (p95 61 ms). Prueba: `tests/test_v50_57_carga.py`, que falla con el código anterior.
+- **En producción no pasaba:** con servidor de correo (SMTP), cada correo se marca en dos escrituras cortas y se envía
+  sin tener la base; sin servidor de correo, los correos esperan en la cola. Por eso la prueba oficial manda los
+  correos por SMTP, como en producción.
+- **En el paquete DEMO**, con esta carga extrema (que no es para lo que sirve: probar la web en tu ordenador), las
+  reservas siguen siendo lentas aunque ya no se bloquee la base: preparar 150 correos seguidos con su QR ocupa el
+  procesador del mismo proceso (p95 de las reservas 2,1 s con correos en archivos).
+
+**La prueba en sí, antes de esta pasada, medía menos de lo que pasa de verdad.** Se ha corregido en `tests/carga/`
+antes de medir (la web no tenía culpa):
+
+- las visitas nuevas ya no bajaban el programa principal ni las librerías del mapa (desde la v50.57 los pide el aviso
+  de arranque) y no avisaban al contador de visitas de la 4.2;
+- los dos procesos que generan la carga repetían la misma reserva a la vez: el servidor tomaba la segunda por un doble
+  clic y solo había unas 10 reservas distintas por segundo, no 20;
+- las reservas de «pago al reservar» se dejaban sin pagar y la regla de 3 pagos sin terminar por persona las
+  rechazaba; ahora se pagan al momento, como hace una persona;
+- las búsquedas con espacios o acentos («blue hole», «África y Mar Rojo») no se codificaban como en el navegador y no
+  llegaban al servidor.
+
 ## 5.3 · ¿Aguanta SQLite?
 
 ⟪SQLITE⟫
