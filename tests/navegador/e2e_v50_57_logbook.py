@@ -242,6 +242,8 @@ def run(out: Path | None):
             check('6 · el truco de los 5 toques desbloquea el pasaporte', 'Lo has encontrado' in hint(phone), hint(phone))
             phone.click('[data-c="toggle"]'); phone.wait_for_timeout(2600)
             n = n_new[0] if n_new else 0
+            # v50.58: the passport mounts the pages near the open one; the diver goes to that dive's page (as «Ver en el pasaporte»)
+            phone.evaluate(f"(n) => {LB}.pp.goToDive(n)", n); phone.wait_for_timeout(1500)
             same = phone.evaluate("(n) => ['site','country','depth','time','date'].map(f=>document.querySelector(`[data-k=\"d:${n}:${f}\"]`)?.value)", n)
             check('6 · en el pasaporte se ven los mismos datos que en la lista', same == ['Cala Montgó', 'España', '21', '50', '12/10/2026'], same)
             shot(phone, 'logbook-pasaporte-movil')

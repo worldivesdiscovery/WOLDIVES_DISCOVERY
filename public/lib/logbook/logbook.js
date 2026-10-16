@@ -608,31 +608,50 @@
       this.cur = Math.min(this.cur, this.N);
       const N = this.N;
       // una hoja tiene dos caras (front: página derecha; back: la izquierda cuando se ha pasado). Las tapas son hojas
-      // duras, un poco más grandes que el papel; la guarda y el resumen van pegados a ellas.
-      const face = (f, which, hard) => {
-        const side = which === "front" ? "r" : "l";
-        if (f.kind === "cover") return `<div class="dlb-face ${which} dlb-cover">${f.html}</div>`;
-        if (hard) return `<div class="dlb-face ${which} dlb-board"><div class="dlb-sheet ${side} dlb-${f.kind}">${f.html}</div></div>`;
-        return `<div class="dlb-face ${which} dlb-sheet ${side} dlb-${f.kind}">${f.html}</div>`;
-      };
-      this.leavesEl.innerHTML = faces.map((f, i) => {
-        const hard = i === 0 || i === N - 1;
-        return `<div class="dlb-leaf${hard ? " hard" : ""}" data-i="${i}">${face(f[0], "front", hard)}${face(f[1], "back", hard)}</div>`;
-      }).join("");
+      // duras, un poco más grandes que el papel; la guarda y el resumen van pegados a ellas. Solo se montan enteras las
+      // tapas y las hojas cerca de la página abierta; las demás son papel en blanco hasta que se acercan (hydrate): un
+      // pasaporte de 120 inmersiones se abre al momento también en un móvil sencillo.
+      const near = i => i === 0 || i === N - 1 || (i >= this.cur - 3 && i <= this.cur + 2);
+      this.leavesEl.innerHTML = faces.map((f, i) => near(i) ? this.leafHTML(i)
+        : `<div class="dlb-leaf" data-i="${i}" data-lazy="1"><div class="dlb-face front dlb-sheet r dlb-paper"></div><div class="dlb-face back dlb-sheet l dlb-paper"></div></div>`).join("");
       this.leaves = [...this.leavesEl.children];
-
-      this.root.querySelectorAll("[data-k]").forEach(el => {
-        const v = this.data.v[el.dataset.k];
-        if (el.type === "checkbox") el.checked = !!v; else if (v != null) el.value = v;
-      });
-      this.setPhoto(this.data.photo);
-      for (let n = 1; n <= D * 2; n++) { this.applyVerified(n); this.updateStamp(n, false); this.updateMRZ(n); }
-      this.updateMRZ("o");
-      this.renderQR();
+      this.leaves.forEach((leaf, i) => { if (!leaf.dataset.lazy) this.fillLeaf(i); });
       this.updateSummary();
       this.updateCoverButton();
       this.renderMaps();
       this.update();
+    }
+
+    leafHTML(i) {
+      const f = this.faces[i], hard = i === 0 || i === this.N - 1;
+      const face = (x, which) => {
+        const side = which === "front" ? "r" : "l";
+        if (x.kind === "cover") return `<div class="dlb-face ${which} dlb-cover">${x.html}</div>`;
+        if (hard) return `<div class="dlb-face ${which} dlb-board"><div class="dlb-sheet ${side} dlb-${x.kind}">${x.html}</div></div>`;
+        return `<div class="dlb-face ${which} dlb-sheet ${side} dlb-${x.kind}">${x.html}</div>`;
+      };
+      return `<div class="dlb-leaf${hard ? " hard" : ""}" data-i="${i}">${face(f[0], "front")}${face(f[1], "back")}</div>`;
+    }
+    // los datos de una hoja recién montada: campos, sellos, línea de lectura, mapas, verificación, foto y QR
+    fillLeaf(i) {
+      const leaf = this.leaves[i];
+      leaf.querySelectorAll("[data-k]").forEach(el => {
+        const v = this.data.v[el.dataset.k];
+        if (el.type === "checkbox") el.checked = !!v; else if (v != null) el.value = v;
+      });
+      this.faces[i].forEach(f => {
+        if (f.dive) { this.applyVerified(f.dive); this.updateStamp(f.dive, false); this.updateMRZ(f.dive); this.renderMap(f.dive); }
+      });
+      if (leaf.querySelector('[data-mrz="o"]')) { this.setPhoto(this.data.photo); this.updateMRZ("o"); this.renderQR(); }
+    }
+    hydrate(i) {
+      const leaf = this.leaves && this.leaves[i];
+      if (!leaf || !leaf.dataset.lazy) return;
+      const tmp = document.createElement("div");
+      tmp.innerHTML = this.leafHTML(i);
+      leaf.replaceChildren(...tmp.firstElementChild.childNodes);   // the same element: its place, turn and order stay
+      delete leaf.dataset.lazy;
+      this.fillLeaf(i);
     }
 
     /* ---- mapas ---- */
@@ -1021,6 +1040,7 @@
     // el libro quieto: qué hojas se ven, en qué orden, grosor de las hojas, sombra, indicador y flechas
     update() {
       const N = this.N, cur = this.cur;
+      for (let i = Math.max(0, cur - 3); i <= Math.min(N - 1, cur + 2); i++) this.hydrate(i);
       this.leaves.forEach((leaf, i) => {
         if (this.ts && leaf === this.ts.leaf) return;
         const flipped = i < cur, hard = leaf.classList.contains("hard");
@@ -1033,6 +1053,9 @@
         leaf.inert = !visible;
       });
       this.place(cur, this.side);
+      // una sola página: lo que queda al otro lado del lomo no asoma por el borde (solo el lomo y la tapa de ese lado)
+      this.scaleEl.style.clipPath = this.single && cur > 0 && cur < N
+        ? (this.side === "left" ? "inset(-40px 0 -40px -40px)" : "inset(-40px -40px -40px 0)") : "";
       this.book.classList.toggle("is-closed-front", cur === 0);
       this.book.classList.toggle("is-closed-back", cur === N);
       this.book.classList.toggle("is-single", this.single);
