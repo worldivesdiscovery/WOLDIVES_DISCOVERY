@@ -3517,6 +3517,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           ${can?`<label class="lg-check"><input type="checkbox" id="wa-coex" ${w.coexistence_available?'':'disabled'}> <span>Ya uso este número en la app WhatsApp Business y quiero seguir usándola</span></label><div class="form-actions"><button type="button" class="btn btn-primary" id="wa-connect">${wdIcon('whatsapp',16)} Conectar mi WhatsApp Business</button></div>`:'<p class="adl-det">Solo el propietario o el encargado pueden conectarlo.</p>'}`}
       </section>
       <section class="cb-panel"><div class="cb-panel-head"><h3>${wdIcon('bell',18)} Ajustes de los avisos</h3></div>
+        ${can?'':'<p class="notice" id="nt-cannot">Tu perfil no permite cancelar salidas ni avisar a todos los clientes. Pídeselo al propietario del centro.</p>'}
         <form id="nt-set" class="form-grid">
           <fieldset class="full"><legend>Al cancelar una salida, por defecto</legend>
             <label class="lg-check"><input type="radio" name="nt-pol" value="choice" ${s.notice_policy==='choice'?'checked':''} ${can?'':'disabled'}> <span>Cada buceador elige otra fecha o la devolución</span></label>

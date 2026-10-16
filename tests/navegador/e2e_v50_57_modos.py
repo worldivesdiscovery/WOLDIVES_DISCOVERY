@@ -10,6 +10,7 @@ Con especial atención (el titular encontró fallos ahí):
 - centro: reservas, planning y agenda con sus datos;
 - freelance: reservas, planning y «Mi agenda» con sus datos;
 - administración: destinos, puntos y plantillas: abrir uno, guardarlo sin cambios y volver a la lista con «Guardado».
+Y, del recorrido de botones (2.2): el instructor del centro, sin permiso de avisos, ve por qué sus ajustes están apagados.
 
     python3 tests/navegador/e2e_v50_57_modos.py [carpeta-de-capturas]
 
@@ -136,6 +137,22 @@ def main():
                                   ('Guardado' in toast or 'guardad' in toast.lower()) and h.startswith(f'#/admin?tab={tab}') and 'edit=' not in h and not errs and not bad,
                                   {'aviso': toast, 'dirección': h, 'errores': errs[:2], 'peticiones': bad[:3]})
                     ctx.close()
+            # 2.2 (button walk): a member of the team whose profile cannot send notices saw the notice settings switched
+            # off with no word about why; now the panel says it (the owner, who can change them, does not see it)
+            for user, can in (('instructor.prueba', False), ('centro.prueba', True)):
+                ctx = browser.new_context(viewport=SIZES['ordenador'], locale='es-ES')
+                ctx.add_init_script("try{localStorage.setItem('wd_cookie_notice',String(Date.now()))}catch(e){}")
+                pg = ctx.new_page()
+                pg.goto(srv.base + '/#/login'); pg.wait_for_selector('#login-form')
+                pg.fill('#login', user); pg.fill('#password', PASSWORD); pg.click('#login-form button[type=submit]'); pg.wait_for_timeout(1500)
+                pg.goto(f'{srv.base}/#/admin?tab=avisos'); pg.wait_for_selector('#nt-set'); pg.wait_for_timeout(600)
+                st = pg.evaluate("({note: document.querySelector('#nt-cannot')?.textContent || '', off: document.querySelector('#nt-hour').disabled})")
+                if can:
+                    check('centro · avisos: el propietario puede cambiar los ajustes y no ve el aviso de permiso', not st['note'] and not st['off'], st)
+                else:
+                    check('instructor del centro · avisos: los ajustes apagados dicen por qué', st['off'] and st['note'] ==
+                          'Tu perfil no permite cancelar salidas ni avisar a todos los clientes. Pídeselo al propietario del centro.', st)
+                ctx.close()
             browser.close()
     finally:
         srv.stop()
