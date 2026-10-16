@@ -110,9 +110,13 @@ def run(shots: Path | None):
             check('baja en un clic', 'ya no recibirás' in page.inner_text('body') and srv.sql('SELECT marketing_consent FROM users WHERE id=?', (diver.user['id'],))[0]['marketing_consent'] == 0)
             shot(page, 'baja')
             ctx.close()
-            # Admin: commercial email composer
+            # Admin: commercial email composer. v50.57 (4.1): the tab shows the emails sent (personal data), so it first
+            # asks for the password and a reason, in the web's own window, as the administrator would see it.
             ctx, page, errors = session('admin', 'admin-seguro-2026')
             go(page, '#/admin?tab=emails', 1400)
+            page.wait_for_selector('#wag-form', timeout=10000)
+            page.fill('#wag-note', 'Revisión de los correos comerciales'); page.fill('#wag-pass', 'admin-seguro-2026')
+            page.click('button[type=submit][form=wag-form]'); page.wait_for_selector('#mkt-form', timeout=15000)
             check('admin: comunicación comercial', page.locator('#mkt-form').count() == 1)
             shot(page, 'admin-correos')
             check('admin sin errores JS', not errors, errors)
