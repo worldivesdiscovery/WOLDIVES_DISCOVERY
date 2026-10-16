@@ -614,6 +614,7 @@ def _carga_json(name):
 _SESIONES = _carga_json('sesiones.json')
 _SALIDAS = _carga_json('salidas.json').get('salidas', [])
 _turno = {}     # filled by the first booking of each process (after the fork of --processes): see _siguiente_reserva
+RAFAGAS_CUENTAS = 60   # tokens[-60:] of sesiones.json: tests/carga/rafagas.py
 
 
 def _siguiente_reserva(environment):
@@ -628,6 +629,8 @@ def _siguiente_reserva(environment):
         procs = int(os.environ.get('WOD_CARGA_PROCESOS') or getattr(getattr(environment, 'parsed_options', None), 'processes', 0) or 1)
         if procs < 0: procs = os.cpu_count() or 1
         tokens = _SESIONES['tokens']
+        # the last 60 accounts are the ones of rafagas.py (their places stay held while unpaid)
+        if len(tokens) > 2 * RAFAGAS_CUENTAS: tokens = tokens[:-RAFAGAS_CUENTAS]
         if w >= procs or procs > len(tokens): w, procs = 0, 1
         _turno.update(w=w, procs=procs, mias=tokens[w::procs], k=random.randrange(1 << 16), salida=random.randrange(1 << 16))
     _turno['k'] += 1; _turno['salida'] += 7          # a different departure in each booking (prime step)

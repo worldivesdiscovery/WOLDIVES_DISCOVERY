@@ -138,7 +138,8 @@ def main():
                 cdp.send('Emulation.setCPUThrottlingRate', {'rate': 4})
                 pg.goto(srv.base + '/', wait_until='load', timeout=60000); pg.wait_for_selector('#home-search', timeout=60000); pg.wait_for_timeout(2500)
                 v = pg.evaluate(VITALS)
-                check(f'4G lento (pasada {run + 1}) · la foto de la cabecera en menos de 2,5 s y sin saltos', v['lcp'] < 2500 and v['cls'] < 0.1 and '/img/titular/buceador-rayos' in v['el'], v)
+                check(f"4G lento (pasada {run + 1}) · la foto de la cabecera en menos de 2,5 s y sin saltos ({v['lcp'] / 1000:.2f} s · CLS {v['cls']})",
+                      v['lcp'] < 2500 and v['cls'] < 0.1 and '/img/titular/buceador-rayos' in v['el'], v)
                 if out and run == 0: pg.screenshot(path=str(out / '390-4g-lento.png'))
                 ctx.close()
             browser.close()
