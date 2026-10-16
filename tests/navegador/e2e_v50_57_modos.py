@@ -104,9 +104,9 @@ def main():
                         # 5.1: the time and number of each booking showed as «0…» (a style of the booking flow with the same
                         # name) and between 761 and 1180 px the state of the booking was hidden
                         pg.goto(f'{srv.base}/#/admin?tab=bookings'); pg.wait_for_selector('.bk-row'); pg.wait_for_timeout(700)
-                        rows = pg.evaluate("""() => [...document.querySelectorAll('.bk-row')].slice(0, 5).map(r => { const t = r.querySelector('.bk-time strong'), n = r.querySelector('.bk-time span'), st = r.querySelector('.bk-state');
+                        bk = pg.evaluate("""() => [...document.querySelectorAll('.bk-row')].slice(0, 5).map(r => { const t = r.querySelector('.bk-time strong'), n = r.querySelector('.bk-time span'), st = r.querySelector('.bk-state');
                             return [t.textContent, t.scrollWidth <= t.clientWidth + 1 && n.scrollWidth <= n.clientWidth + 1, !!st.offsetParent && st.getBoundingClientRect().width > 0]; })""")
-                        check(f'{size} · {role} · reservas: la hora y el número se ven enteros y el estado se ve', rows and all(r[1] and r[2] for r in rows), rows)
+                        check(f'{size} · {role} · reservas: la hora y el número se ven enteros y el estado se ve', bk and all(r[1] and r[2] for r in bk), bk)
                     if size == 'ordenador' and role == 'administración':
                         # 2.2 (button walk): «Subir» on the first template and «Bajar» on the last did nothing; now they are off
                         pg.goto(f'{srv.base}/#/admin?tab=svctemplates'); pg.wait_for_selector('.st-card .st-up'); pg.wait_for_timeout(500)
