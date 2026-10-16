@@ -50,6 +50,8 @@ def walk(shots: Path | None = None, extra_routes=None):
                     page.on('console', lambda m, errs=errs: errs.append(m.text) if m.type == 'error' else None)
                     page.on('pageerror', lambda e, errs=errs: errs.append('pageerror: ' + str(e)))
                     page.on('response', lambda r, errs=errs: errs.append(f'HTTP {r.status} {r.url}') if r.status >= 500 else None)
+                    asked = []   # v50.57 (4.1): the personal data the server keeps until the administrator confirms
+                    page.on('response', lambda r, asked=asked: asked.append(r.url) if r.status == 403 and '/api/admin/' in r.url else None)
                     page.goto(base + '/#/')
                     page.wait_for_load_state('networkidle')
                     if creds:
@@ -59,10 +61,22 @@ def walk(shots: Path | None = None, extra_routes=None):
                         page.click('#login-form button[type=submit]')
                         page.wait_for_timeout(800)
                     for route in plan[role]:
-                        errs.clear()
+                        errs.clear(); asked.clear()
                         page.goto(base + '/' + route)
                         page.wait_for_load_state('networkidle')
                         page.wait_for_timeout(250)
+                        if role == 'admin' and page.locator('#wag-form').count():
+                            # v50.57 (4.1): a section with personal data (emails, payments) asks for the password and a
+                            # reason. The 403 that opens the window is the server asking for them, not an error; answered
+                            # as a person would, the section must then open with no error at all.
+                            refused = sum('status of 403' in e for e in errs)
+                            if asked and refused == len(asked):
+                                errs[:] = [e for e in errs if 'status of 403' not in e]
+                            page.fill('#wag-note', 'Recorrido de todas las pantallas'); page.fill('#wag-pass', creds[1])
+                            page.click('button[type=submit][form=wag-form]')
+                            page.wait_for_load_state('networkidle'); page.wait_for_timeout(600)
+                            if page.locator('#wag-form').count():
+                                errs.append('la ventana de la contraseña no se cierra al confirmar')
                         bad = [e for e in errs if 'favicon' not in e and 'tile.openstreetmap' not in e and 'ERR_' not in e and 'arcgis' not in e and 'gebco' not in e]
                         if bad:
                             problems.append((role, viewport['width'], route, bad))
