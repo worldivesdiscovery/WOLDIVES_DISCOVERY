@@ -6,7 +6,17 @@ Meta: **el 95 % de las páginas en menos de 500 ms y ningún error**.
 
 ## Resumen
 
-⟪RESUMEN⟫
+| Lo que pedía el encargo | Resultado | |
+|---|---|---|
+| 300 personas navegando a la vez (portada, explorar, fichas, mapa) | Páginas: p95 **16 ms** (p99 41 ms); pedido: menos de 500 ms | ✓ |
+| 20 reservas por segundo en salidas distintas | **20,0 por segundo**, p95 **110 ms** | ✓ |
+| Reservas a la vez a la misma salida, sin sobreventa | 8 ráfagas de 20 reservas para 3 plazas: **exactamente 3 aceptadas** cada vez | ✓ |
+| Ningún error | **0 errores** en 74.913 peticiones; ningún bloqueo de la base ni error 500 | ✓ |
+
+- **Encontrado y corregido:** la cola de correos escrita en archivos (desarrollo y paquete DEMO) dejaba la base
+  bloqueada hasta 2 s seguidos. En producción, con servidor de correo, no pasaba; la prueba oficial manda los correos
+  como en producción.
+- **5.3 · SQLite aguanta** con lo que ya estaba (WAL, índices y caché de las consultas públicas). ⟪MARGEN⟫
 
 ## Cómo se ha medido
 
