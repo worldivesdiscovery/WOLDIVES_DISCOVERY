@@ -133,9 +133,12 @@ def serve_old(ctx, base):
         ctx.route(base + path + '*', answer(body, kind))
 
 
-def setup(color='#0b7a75'):
+def setup(color='#0b7a75', pk=False):
+    """pk: the server has STRIPE_PUBLISHABLE_KEY (Stripe's form inside the booking); without it, Stripe's page."""
     stripe = StripeMock()
-    srv = ServerTestCase.server = Server({'STRIPE_SECRET_KEY': 'sk_test_mock', 'WOD_STRIPE_API_BASE': stripe.base}).start()
+    env = {'STRIPE_SECRET_KEY': 'sk_test_mock', 'WOD_STRIPE_API_BASE': stripe.base}
+    if pk: env['STRIPE_PUBLISHABLE_KEY'] = 'pk_test_cronometro01'
+    srv = ServerTestCase.server = Server(env).start()
     t = ServerTestCase('run')
     admin = t.make_admin(); center = t.make_center(admin, 'bahia'); cid = center.user['center_id']
     srv.sql("UPDATE centers SET name='Bahía Coralina',plan_code='pro',plan_status='active',plan_expires_at='2099-12-31',stripe_account_id='acct_bahia',"
