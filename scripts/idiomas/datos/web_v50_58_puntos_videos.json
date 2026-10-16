@@ -2709,6 +2709,16 @@
    "pl": "Miejsce z brzegu ponad 200 m od brzegu",
    "nl": "Kantduik op meer dan 200 m van de kust",
    "zh": "岸潜点距岸边超过 200 米"
+  },
+  "Cualquier acceso": {
+   "en": "Any access",
+   "fr": "Tout accès",
+   "de": "Jeder Zugang",
+   "it": "Qualsiasi accesso",
+   "pt": "Qualquer acesso",
+   "pl": "Dowolny dostęp",
+   "nl": "Elke toegang",
+   "zh": "任意入水方式"
   }
  },
  "patterns": {

@@ -3395,9 +3395,15 @@ html.wd-app[data-wda-tema="noche"] .svc2 :is(.svc2-kicker,.svc2-desc,.svc2-price
    reading column with the same sections in the same order for every dive site. */
 .pp54 .pp-hero{min-height:300px}
 .pp54 .pp-keys{position:relative;z-index:2;max-width:1100px;margin:-30px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));background:#fff;border:1px solid #e3e7e6;border-radius:18px;box-shadow:0 14px 34px rgba(1,28,60,.10);padding:4px 6px}
-.pp54 .pp-key{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:9px;align-items:center;padding:12px 12px;border-right:1px solid #eef1f1;min-width:0}
+.pp54 .pp-key{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:9px;align-items:center;align-content:center;padding:12px 12px;border-right:1px solid #eef1f1;min-width:0}
 .pp54 .pp-key:last-child{border-right:0}
-.pp54 .pp-key .wd-icon{grid-row:1/3;color:var(--sea)}
+.pp54 .pp-key .wd-icon{grid-row:1/3;color:var(--sea);width:20px;height:20px;min-width:20px}
+/* v50.58 (puntos 16/10, A.2): up to 11 data with the new ones; on a computer they wrap in even rows, wide enough for
+   «Roca · Arena · Posidonia», with no lines between them (a line at the end of a half row looked broken). */
+@media (min-width:761px){
+  .pp54 .pp-keys{grid-template-columns:repeat(auto-fill,minmax(176px,1fr));column-gap:4px;row-gap:2px;padding:8px 10px}
+  .pp54 .pp-key{border-right:0;padding:10px 12px}
+}
 .pp54 .pp-key dt{margin:0;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .pp54 .pp-key dd{margin:0;font-size:15px;font-weight:700;color:var(--deep);line-height:1.25}
 .pp54 .pp-body{max-width:920px;margin:0 auto;padding:30px 24px 50px}

@@ -85,12 +85,14 @@ def run(shots: Path | None):
             shot(page, 'centro-cobros')
             page.fill('#cxp-h', '24'); page.fill('#cxp-p', '30'); page.click('#cxp-save'); page.wait_for_timeout(700)
             check('centro · política guardada', srv.sql('SELECT cancel_free_hours,cancel_refund_pct FROM centers WHERE id=?', (cid,))[0] == {'cancel_free_hours': 24, 'cancel_refund_pct': 30})
-            # Service form
+            # Service form: v50.58 (Parte 3) «Nuevo servicio» opens the 6-step wizard; the deposit and the policy are
+            # checked where they are edited in one page, «Editar» on an existing service
             go(page, '#/admin?tab=services', 1200)
-            page.click('#new-center-service'); page.wait_for_timeout(700)
-            check('formulario: señal y política', page.locator('#svc-dep-type').count() == 1 and page.locator('#svc-pol-own').count() == 1)
-            page.select_option('#svc-dep-type', 'percent'); page.click('label:has(#svc-pol-own)'); page.wait_for_timeout(200)
-            check('formulario: texto de la política', 'Cancelación gratuita' in page.inner_text('#svc-pol-text'))
+            page.click(f'.service-edit[data-id="{sid}"]'); page.wait_for_timeout(900)
+            page.evaluate("document.querySelectorAll('.wz-modal details').forEach(d => d.open = true)"); page.wait_for_timeout(300)
+            check('formulario: señal y política', page.locator('#wz-dep').count() == 1 and page.locator('#wz-cfh').count() == 1 and page.locator('#wz-crp').count() == 1)
+            check('formulario: la señal (25 %) y la cancelación (48 h, 50 %) del servicio', page.locator('#wz-dep').input_value() == 'percent' and page.locator('#wz-depv').input_value() == '25'
+                  and page.locator('#wz-cfh').input_value() == '48' and page.locator('#wz-crp').input_value() == '50')
             shot(page, 'formulario-servicio', False)
             page.keyboard.press('Escape'); page.wait_for_timeout(300)
             # Booking detail with «Devolver»
