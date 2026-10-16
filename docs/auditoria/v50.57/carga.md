@@ -12,11 +12,11 @@ Meta: **el 95 % de las páginas en menos de 500 ms y ningún error**.
 
 - **El programa del servidor de la v50.57**, en este equipo, con una copia de una base de carga (nunca la de datos
   reales): la demo más 500 buceadores con contraseña real (PBKDF2 de 600.000 iteraciones, como en producción), 22
-  centros verificados y 2.448 salidas futuras de 40 plazas. Pagos con el simulador local de Stripe (nunca el real).
+  centros verificados y 2.448 salidas futuras de 40 plazas. Pagos con el simulador local de Stripe (nunca el real) y
+  correos por SMTP, como en producción, a un servidor de correo local que los recibe y no los envía a nadie.
 - **Arranca en modo desarrollo** (`WOD_ENV=development`), no en modo producción: el modo producción no arranca sin
   dominio con https, y este equipo no lo tiene. Para lo que se mide no cambia nada: el mismo programa, los mismos
-  procesos, la misma base con WAL y la misma caché; solo los correos se escriben en archivos en lugar de esperar al
-  servidor de correo.
+  procesos, la misma base con WAL, la misma caché y el mismo envío de correos por SMTP.
 - **Como el VPS contratado (Hostinger KVM 2, 2 vCPU)**: el servidor con `WOD_WORKERS=2` y fijado a **2 núcleos**
   (`taskset`); el generador de carga (Locust) en los otros 2, para que no le quite procesador al servidor.
 - **⟪USUARIOS⟫ usuarios a la vez** durante ⟪DURACION⟫ de régimen estable (después de la llegada y de un tiempo para
@@ -26,7 +26,8 @@ Meta: **el 95 % de las páginas en menos de 500 ms y ningún error**.
     una pantalla y otra (un uso intenso: una persona real suele tardar más) y tiene su propia IP, como detrás del
     proxy. Cada visita nueva baja la web entera, como el navegador: la página, los estilos, el programa principal, las
     librerías del mapa, las imágenes y, si lee en otro idioma (la mitad de los visitantes), su paquete de idioma. Las
-    visitas siguientes la revalidan.
+    visitas siguientes la revalidan. Y en cada pantalla avisa al contador de visitas (`/api/visita`, nuevo en la 4.2:
+    una escritura en la base por pantalla), con un navegador de verdad: el servidor no cuenta a los robots.
   - **20 usuarios reservando, cada uno una reserva por segundo**: 20 reservas por segundo, cada vez en una salida
     distinta y con la sesión de un buceador distinto (las sesiones se abren antes: 20 inicios de sesión por segundo,
     con su cálculo de contraseña deliberadamente lento, serían otra prueba). Si el servicio es de «pago al reservar»
