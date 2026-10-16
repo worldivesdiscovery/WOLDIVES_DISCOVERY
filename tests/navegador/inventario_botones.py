@@ -77,11 +77,10 @@ FORM_PARAMS = ('edit', 'proponer')
 
 
 def form_variant(qs):
-    out = ''
-    for a, _, v in (kv.partition('=') for kv in qs.split('&') if kv):
-        if a in FORM_PARAMS and v:
-            out += f'&{a}=' + ('nuevo' if v == 'nuevo' else '#')
-    return out
+    params = [kv.partition('=') for kv in qs.split('&') if kv]
+    out = ''.join(f'&{a}=' + ('nuevo' if v == 'nuevo' else '#') for a, _, v in params if a in FORM_PARAMS and v)
+    tab = next((v for a, _, v in params if a == 'tab'), '')
+    return f'&tab={tab}{out}' if out and tab else out   # the form of each section (points, destinations, centres…) is its own
 GROUP_MIN, GROUP_TESTED = 3, 2      # lists of identical elements: 3 or more → the first 2 are tested
 CHROME_ZONES = {'cabecera', 'pie', 'menu', 'flotante', 'cookies'}
 ZONE_NAMES = {'cabecera': 'cabecera', 'pie': 'pie de página', 'menu': 'menú del panel', 'flotante': 'flotante',
