@@ -4661,19 +4661,19 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       </div>`:'';
 
       // ---------- Services ----------
-      const slotMini=(s,sl)=>`<button type="button" class="svc-slot slot-edit" data-id="${sl.id}" data-service="${s.id}" title="Editar salida"><span class="svc-slot-date">${esc(wdDay(sl.slot_date))}</span><span class="svc-slot-time">${esc(sl.slot_time)}</span><span class="svc-slot-bar"><i class="${capClass(sl)}" style="width:${capPct(sl)}%"></i></span><span class="svc-slot-cap ${capClass(sl)}">${Number(sl.spots_available||0)<=0?'Completa':Number(sl.spots_available)+' libres'}</span></button>`;
+      const slotMini=(s,sl)=>`<button type="button" class="svc-slot slot-edit" data-id="${sl.id}" data-service="${s.id}" title="Editar salida"><span class="svc-slot-date">${esc(sl.date_to&&sl.date_to!==sl.slot_date?wdRange(sl.slot_date,sl.date_to):wdDay(sl.slot_date))}</span><span class="svc-slot-time">${esc(sl.slot_time)}</span><span class="svc-slot-bar"><i class="${capClass(sl)}" style="width:${capPct(sl)}%"></i></span><span class="svc-slot-cap ${capClass(sl)}">${Number(sl.spots_available||0)<=0?'Completa':Number(sl.spots_available)+' libres'}</span></button>`;
       const serviceCard=s=>{
         const t=typeOf(s.service_type), m=modeOf(s.booking_mode), slots=s.slots||[], isRental=s.service_type==='alquiler_equipo', byDays=['day','half_day'].includes(s.booking_unit);
         const color=esc(s.color||'#2563eb'), dur=wdDuration(s.duration_minutes), nt=isCenter?nextTariff(s.id):null;
         const exp=s.experience&&s.experience.active?s.experience:null;
         return `<article class="svc-card ${s.active?'':'is-paused'}" style="--svc:${color}" data-service="${s.id}">
           <div class="svc-card-top">
-            <span class="svc-icon">${wdIcon(s.service_type,22)}</span>
-            <div class="svc-card-title"><h3>${esc(s.title)}</h3><p>${esc(t.label)}${dur?` · ${esc(dur)}`:''}</p></div>
-            <span class="svc-state ${s.active?'on':'off'}">${s.active?'A la venta':'En pausa'}</span>
+            <span class="svc-icon">${wdIcon(s.icon||s.template?.icon||s.service_type,22)}</span>
+            <div class="svc-card-title"><h3>${esc(s.title)}</h3><p>${esc(t.label)}${s.kind==='course'&&s.plan_summary?` · ${esc(s.plan_summary)}`:dur?` · ${esc(dur)}`:''}</p></div>
+            ${s.draft?'<span class="svc-state draft">Borrador</span>':`<span class="svc-state ${s.active?'on':'off'}">${s.active?'A la venta':'En pausa'}</span>`}
           </div>
           <div class="svc-price-row">
-            <div><strong class="svc-price">${wdMoney(s.price,s.currency)}</strong><small>${isRental?'tarifa base':(byDays?(wdJSON(s.pricing).per==='person'?'por día y persona':'por día'):'por persona')}${nt?` · desde el ${esc(wdDay(nt.effective_from))}: ${wdMoney(nt.price,nt.currency)}`:''}</small></div>
+            <div><strong class="svc-price">${wdMoney(s.price,s.currency)}</strong><small>${isRental?(s.rental_per==='dive'?'por inmersión':s.rental_per==='day'?'por día':'tarifa base'):(byDays?(wdJSON(s.pricing).per==='person'?'por día y persona':'por día'):s.price_per==='group'?'por grupo':'por persona')}${nt?` · desde el ${esc(wdDay(nt.effective_from))}: ${wdMoney(nt.price,nt.currency)}`:''}</small></div>
             ${isCenter?`<button type="button" class="svc-link service-price" data-id="${s.id}">Cambiar tarifa</button>`:''}
           </div>
           <div class="svc-meta">
@@ -4685,11 +4685,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             ?`<div class="svc-rental-note"><span>${s.booking_unit==='half_day'?'Por días o medias jornadas: el cliente elige en tu calendario.':'Por días: el cliente elige en tu calendario.'}</span> <a class="svc-link" href="#/reservar-dias?service=${s.id}">Ver como cliente</a>${isCenter?'':' · <button type="button" class="svc-link" data-goto-agenda="1">Mi agenda</button>'}</div>`
             :isRental
             ?`<div class="svc-rental-note">Sin agenda ni salidas.${isCenter?' Los precios por artículo están en <button type="button" class="svc-link" data-svc-tab="equipment">Alquiler de equipo</button>.':''}</div>`
-            :`<div class="svc-next"><div class="svc-next-head"><span>Próximas salidas</span>${slots.length?`<button type="button" class="svc-link svc-open-agenda" data-id="${s.id}">Ver ${slots.length===1?'la salida':'las '+slots.length}</button>`:''}</div>
-               ${slots.slice(0,3).map(sl=>slotMini(s,sl)).join('')||`<button type="button" class="svc-next-empty new-slot" data-service="${s.id}">Sin salidas programadas · <u>crear la primera</u></button>`}</div>`}
+            :`<div class="svc-next"><div class="svc-next-head"><span>${s.kind==='course'?'Próximas ediciones':'Próximas salidas'}</span>${slots.length?`<button type="button" class="svc-link svc-open-agenda" data-id="${s.id}">Ver ${slots.length===1?'la salida':'las '+slots.length}</button>`:''}</div>
+               ${slots.slice(0,3).map(sl=>slotMini(s,sl)).join('')||(s.draft?`<p class="svc-next-empty">Borrador: termínalo con el asistente para publicarlo.</p>`:s.kind==='course'?`<button type="button" class="svc-next-empty svc-editions" data-service="${s.id}">Sin ediciones · <u>crear la primera</u></button>`:`<button type="button" class="svc-next-empty new-slot" data-service="${s.id}">Sin salidas programadas · <u>crear la primera</u></button>`)}</div>`}
           <footer class="svc-card-actions">
-            ${isRental||byDays?'':`<button type="button" class="svc-btn svc-btn-primary new-slot" data-service="${s.id}">+ Salida</button><button type="button" class="svc-btn svc-open-agenda" data-id="${s.id}">Agenda</button>`}
-            <button type="button" class="svc-btn service-edit" data-id="${s.id}">Editar</button>
+            ${s.draft?`<button type="button" class="svc-btn svc-btn-primary service-edit" data-id="${s.id}">Seguir con el asistente</button>`:isRental||byDays?'':s.kind==='course'?`<button type="button" class="svc-btn svc-btn-primary svc-editions" data-service="${s.id}">+ Edición</button><button type="button" class="svc-btn svc-open-agenda" data-id="${s.id}">Agenda</button>`:`<button type="button" class="svc-btn svc-btn-primary new-slot" data-service="${s.id}">+ Salida</button><button type="button" class="svc-btn svc-open-agenda" data-id="${s.id}">Agenda</button>`}
+            ${s.draft?'':`<button type="button" class="svc-btn service-edit" data-id="${s.id}">Editar</button>`}
             <details class="svc-more"><summary class="svc-iconbtn" aria-label="Más acciones">···</summary><div class="svc-menu">
               <button type="button" class="service-duplicate" data-id="${s.id}">Duplicar</button>
               <button type="button" class="service-save-template" data-id="${s.id}">Guardar como plantilla</button>
@@ -4739,6 +4739,23 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
       // ---------- Templates ----------
       const saveTemplate=async(data,name)=>{const fields=['title','service_type','description','duration_minutes','max_participants','booking_mode','response_hours','payment_hours','color','price']; const payload={name}; fields.forEach(f=>{payload[f]=data[f]??'';}); const existing=ownTemplates.find(x=>x.name.toLowerCase()===name.toLowerCase()); if(existing)payload.id=existing.id; const r=await postJSON('/api/service-templates/save',payload); ownTemplates=(await api('/api/service-templates')).items||[]; return r;};
+
+      // ---------- v50.58: more editions of a course («+ Edición»): start dates, places and instructor ----------
+      const openEditionsForm=async s=>{
+        let o={instructors:[],today:wdToday()}; try{ o=await api('/api/provider-services/wizard-options'); }catch{}
+        const plan=s.course_plan||{days:['full']}, n=Math.max(1,(plan.days||[]).length); let dates=[];
+        const {el,close}=wdOpenModal({id:'svc-editions',title:esc(translateString('Nuevas ediciones')),subtitle:esc(s.title)+' · '+esc(s.plan_summary||''),
+          body:`<form id="ed-form" class="svc-form" novalidate><div class="wz-add-date"><input type="date" id="ed-date" min="${o.today}" aria-label="${esc(translateString('Fecha de inicio'))}"><button type="button" class="btn btn-sm" id="ed-add">${esc(translateString('Añadir edición'))}</button></div><div class="wz-dates" id="ed-dates"></div>
+            <div class="svc-form-row"><div class="svc-field"><label for="ed-spots">Plazas por edición</label><input id="ed-spots" type="number" min="1" max="999" value="${esc(String(s.max_participants||6))}"></div>
+            ${o.instructors.length?`<div class="svc-field"><label for="ed-ins">Instructor</label><select id="ed-ins"><option value="">${esc(translateString('Sin asignar'))}</option>${o.instructors.map(i=>`<option value="${i.id}">${esc(i.fullname)}</option>`).join('')}</select></div>`:''}</div><p class="wz-err" id="ed-err" role="alert" hidden></p></form>`,
+          footer:`<button type="button" class="btn" data-modal-close>${esc(translateString('Cancelar'))}</button><button type="submit" form="ed-form" class="btn btn-primary">${esc(translateString('Crear ediciones'))}</button>`});
+        const draw=()=>{ $('#ed-dates',el).innerHTML=dates.map(d=>`<span class="wz-date">${esc(wdRange(d,wdAddDays(d,n-1)))}<button type="button" data-undate="${d}" aria-label="${esc(translateString('Quitar'))}">×</button></span>`).join(''); };
+        el.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; if(b.id==='ed-add'){ const v=$('#ed-date',el).value; if(v&&!dates.includes(v)){ dates=[...dates,v].sort(); draw(); } $('#ed-date',el).focus(); } if(b.dataset.undate){ dates=dates.filter(d=>d!==b.dataset.undate); draw(); } });
+        $('#ed-form',el).onsubmit=async e=>{ e.preventDefault(); const er=$('#ed-err',el); er.hidden=true;
+          try{ const r=await postJSON('/api/provider-services/dates',{service_id:s.id,schedule:{mode:'dates',dates},spots_total:$('#ed-spots',el).value,instructor_user_id:$('#ed-ins',el)?.value||''});
+            delete el.dataset.dirty; close(); toast(translateString('{n} ediciones creadas.').replace('{n}',r.created)); refresh(); }
+          catch(err){ er.hidden=false; er.textContent=translateString(Object.values(err.data?.fields||{})[0]||err.message); } };
+      };
 
       // ---------- Service form ----------
       const openServiceForm=(existing,template)=>{
@@ -5008,23 +5025,25 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       render();
       if(opts.reopenAgenda){const s=findService(opts.reopenAgenda); if(s)openAgenda(s);}
       if(opts.reopenTariff){const s=findService(opts.reopenTariff); if(s)openTariffForm(s);}
-      if(opts.openNew) openServiceForm();
+      if(opts.openNew) wdServiceWizard({role,onDone:()=>refresh()});
+      if(opts.openWizard){ const s=findService(opts.openWizard); if(s) wdServiceWizard({existing:s,role,onDone:()=>refresh(),legacy:()=>openServiceForm(s)}); }
 
       mount.onclick=async e=>{
-        const tpl=e.target.closest('.svc-template'); if(tpl){openServiceForm(null,allTemplates()[+tpl.dataset.template]);return;}
+        const tpl=e.target.closest('.svc-template'); if(tpl){ const t=allTemplates()[+tpl.dataset.template]; if(t?.template_id) wdServiceWizard({role,onDone:()=>refresh(),startTemplate:t.template_id}); else openServiceForm(null,t); return;}
         const tabBtn=e.target.closest('[data-svc-tab]'); if(tabBtn){svcUi.tab=tabBtn.dataset.svcTab;render();return;}
         const chip=e.target.closest('.svc-chip'); if(chip){svcUi.type=chip.dataset.type;$$('.svc-chip',mount).forEach(c=>c.classList.toggle('active',c===chip));renderGrid();return;}
         const btn=e.target.closest('button'); if(!btn)return;
         btn.closest('details')?.removeAttribute('open');
         const s=findService(btn.dataset.service||btn.dataset.id);
-        if(btn.classList.contains('new-center-service')){e.preventDefault();openServiceForm();return;}
-        if(btn.classList.contains('service-edit')){if(s)openServiceForm(s);return;}
+        if(btn.classList.contains('new-center-service')){e.preventDefault();wdServiceWizard({role,onDone:id=>refresh()});return;}   // v50.58: the wizard
+        if(btn.classList.contains('service-edit')){if(s)wdServiceWizard({existing:s,role,onDone:()=>refresh(),legacy:()=>openServiceForm(s)});return;}
+        if(btn.classList.contains('svc-editions')){if(s)openEditionsForm(s);return;}
         if(btn.dataset.gotoAgenda){ $('.cb-nav[data-cbtab="agenda"]')?.click(); return; }
         if(btn.classList.contains('service-price')){if(s)openTariffForm(s);return;}
         if(btn.classList.contains('svc-open-agenda')){if(s)openAgenda(s);return;}
         if(btn.classList.contains('new-slot')){if(s)openSlotForm(s);return;}
         if(btn.classList.contains('slot-edit')){const sl=findSlot(s,btn.dataset.id);if(s&&sl)openSlotForm(s,sl);return;}
-        if(btn.classList.contains('service-duplicate')){if(s){const {id,experience,...copy}=s; openServiceForm(null,{...copy,title:s.title+' (copia)'});}return;}
+        if(btn.classList.contains('service-duplicate')){if(s){try{const r=await postJSON('/api/provider-services/duplicate',{id:s.id}); toast('Copia creada como borrador: cámbiale lo que quieras.'); await refresh({openWizard:r.id});}catch(err){toast(err.message);}}return;}
         if(btn.classList.contains('service-save-template')){if(s)openSaveTemplate(s);return;}
         if(btn.classList.contains('service-toggle')){if(!s)return;try{await postJSON('/api/provider-services/update',{id:s.id,title:s.title,service_type:s.service_type,color:s.color,duration_minutes:s.duration_minutes||'',max_participants:s.max_participants||'',booking_mode:s.booking_mode,description:s.description||'',active:!s.active});toast(s.active?'Servicio en pausa. Ya no aparece en el motor de reservas.':'Servicio a la venta de nuevo.');await refresh();}catch(err){toast(err.message)}return;}
         if(btn.classList.contains('service-delete')){if(!confirm(`¿Eliminar «${s?.title||'este servicio'}»? No se puede deshacer.`))return;try{await postJSON('/api/provider-services/delete',{id:+btn.dataset.id});toast('Servicio eliminado.');await refresh();}catch(err){toast(err.message)}return;}
@@ -5034,6 +5053,252 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         if(btn.classList.contains('save-equipment-price')){try{const input=mount.querySelector('.center-equipment-price[data-code="'+btn.dataset.code+'"]');await postJSON('/api/center-equipment',{code:btn.dataset.code,price:input?.value??''});toast('Precio guardado.');await refresh();}catch(err){toast(err.message)}return;}
       };
     }catch(err){mount.innerHTML=`<div class="empty"><h3>No se ha podido cargar el catálogo</h3><p>${escapeHtml(err.message)}</p><button type="button" class="btn" id="retry-services">Reintentar</button></div>`;$('#retry-services').onclick=()=>renderProviderServicesManager(providerId,role,mountId);}
+  }
+
+  // =====================================================================
+  //  v50.58 (revisión y usabilidad, Parte 3): the services wizard. «¿Qué vas a ofrecer?» → lo básico → cuándo y cuánto
+  //  dura → precio y plazas → cómo se reserva → revisar y publicar. Few options at sight, the words of a diver, sensible
+  //  defaults and the advanced ones folded under «Más opciones». Each step is saved as a draft, so going back loses
+  //  nothing. A service already published opens in one page with the same blocks, folded.
+  // =====================================================================
+  const WZ_KINDS=[
+    {k:'dive',icon:'inmersion',t:'Inmersión o salida en barco',ex:'«Doble inmersión en Islas Medas»',m:'Horas y minutos, con hora de salida'},
+    {k:'baptism',icon:'bautizo',t:'Bautizo',ex:'«Bautizo de buceo en playa»',m:'Horas y minutos'},
+    {k:'course',icon:'curso',t:'Curso',ex:'«Open Water, 3 días»',m:'Días o sesiones'},
+    {k:'rental',icon:'alquiler_equipo',t:'Alquiler de equipo',ex:'«Traje 5 mm»',m:'Por día o por inmersión'},
+    {k:'guide',icon:'salida_privada',t:'Guía o instructor por días',ex:'«Guía privado en cenotes»',m:'Días completos o medias jornadas',pro:true},
+    {k:'trip',icon:'viaje',t:'Viaje o experiencia',ex:'«Semana en el Mar Rojo»',m:'Fechas fijas de inicio y fin'},
+    {k:'other',icon:'extra',t:'Otro',ex:'Fotografía, nitrox, recarga…',m:'A elegir'}];
+  const WZ_STEPS=['Qué ofreces','Lo básico','Cuándo y cuánto dura','Precio y plazas','Cómo se reserva','Revisar y publicar'];
+  const WZ_INCLUDES={equipo:'Equipo',barco:'Barco',seguro:'Seguro',fotos:'Fotos',titulacion:'Titulación',guia:'Guía',transporte:'Transporte',comida:'Comida',nitrox:'Nitrox'};
+  const WZ_LEVELS=['Sin titulación','Open Water','Advanced','Rescue','Divemaster'];
+  const WZ_LANGS={es:'Español',en:'Inglés',fr:'Francés',de:'Alemán',it:'Italiano',pt:'Portugués',ca:'Catalán',nl:'Neerlandés',pl:'Polaco',zh:'Chino'};
+  const WZ_PARTS={full:'Día completo',am:'Mañana',pm:'Tarde'};
+  const WZ_PRESETS=[['3full','3 días completos',['full','full','full']],['4am','4 mañanas',['am','am','am','am']],['2am2full','2 mañanas + 2 días completos',['am','am','full','full']]];
+  const WZ_FIELD_STEP={kind:0,title:1,min_age:1,duration:2,start_time:2,plan:2,trip_dates:2,schedule:2,instructor_user_id:2,price:3,max_participants:3,booking_mode:4,response_hours:4,cancel_free_hours:4,pay_way:4};
+  const WZ_DEF_HOURS={am:['09:00','13:00'],pm:['15:00','19:00'],full:['09:00','18:00']};
+  const wzWeekNames=()=>[1,2,3,4,5,6,7].map(i=>new Date(Date.UTC(2024,0,i)).toLocaleDateString(wdLocale(),{weekday:'short',timeZone:'UTC'}));
+  // The sessions of a plan: a full day is a morning and an afternoon (the same rule as the server, wod/servicios.py).
+  function wzItems(plan){ const out=[]; let seq=0; (plan.days||[]).forEach((p,i)=>{ (p==='full'?['am','pm']:[p]).forEach(x=>{ seq++; out.push({seq,day:i,part:x,label:(plan.labels||{})[seq]||`Día ${i+1} · ${x==='am'?'mañana':'tarde'}`,dive:(plan.dives||[]).includes(seq)}); }); }); return out; }
+  function wzSummary(days){ const n={full:['día completo','días completos'],am:['mañana','mañanas'],pm:['tarde','tardes']}, order=[], c={}; (days||[]).forEach(d=>{ if(!(d in c)){order.push(d);c[d]=0;} c[d]++; }); return order.map(d=>`${c[d]} ${c[d]===1?n[d][0]:n[d][1]}`).join(' + '); }
+  function wzWeekly(weekdays,from,to){ const out=[]; if(!(weekdays||[]).length||!from||!to) return out; const set=new Set(weekdays.map(Number)); let d=from; for(let i=0;i<400&&d<=to&&out.length<60;i++){ const wd=(wdParseDate(d).getDay()+6)%7; if(set.has(wd)) out.push(d); d=wdAddDays(d,1); } return out; }
+  function wzFrom(s,kind){
+    const blank={step:0,kind:kind||'',template_id:'',title:'',description:'',icon:'',includes:[],level_required:'',min_age:'',languages:['es'],meeting_point:'',
+      hours:2,minutes:0,start_time:'09:00',schedule:{mode:'weekly',weekdays:[],from:wdToday(),to:wdAddDays(wdToday(),90),dates:[]},
+      plan:{days:['full','full','full'],hours:JSON.parse(JSON.stringify(WZ_DEF_HOURS)),labels:{},dives:[]},half_days:false,unit_rules:{},rental_per:'day',
+      trip_from:'',trip_to:'',price:'',price_per:'person',half_price:'',max_participants:'',extra_ids:null,booking_mode:'',response_hours:24,
+      deposit_type:'none',deposit_value:'',pay_way:'online',pay_methods:[],pay_whatsapp:'',pay_policy:'',accept_in_person_terms:false,lead_hours:'',tags:'',instructor_user_id:'',
+      cancel_free_hours:'',cancel_refund_pct:''};
+    if(!s) return blank;
+    const st=wdJSON(s.wizard_state), plan=wdJSON(s.course_plan), dur=Number(s.duration_minutes)||0, arr=v=>{ const x=typeof v==='string'?(()=>{try{return JSON.parse(v);}catch{return null;}})():v; return Array.isArray(x)?x:[]; };
+    return {...blank,id:s.id,kind:s.kind||blank.kind,template_id:s.template_id||'',title:s.title||'',description:s.description||'',icon:s.icon||'',includes:arr(s.includes),
+      level_required:s.level_required||'',min_age:s.min_age??'',languages:arr(s.languages).length?arr(s.languages):['es'],meeting_point:s.meeting_point||'',
+      hours:st.hours??Math.floor(dur/60),minutes:st.minutes??(dur%60),start_time:st.start_time||(s.slots||[])[0]?.slot_time||'09:00',
+      schedule:s.draft&&st.schedule?{...blank.schedule,...st.schedule}:{...blank.schedule,mode:'later'},
+      plan:plan.days&&plan.days.length?{days:plan.days,hours:{...WZ_DEF_HOURS,...(plan.hours||{})},labels:plan.labels||{},dives:plan.dives||[]}:blank.plan,
+      half_days:s.booking_unit==='half_day',unit_rules:wdJSON(s.unit_rules),rental_per:s.rental_per||'day',trip_from:st.trip_from||'',trip_to:st.trip_to||'',
+      price:s.price||'',price_per:s.price_per||'person',half_price:wdJSON(s.pricing).half??'',max_participants:s.max_participants||'',
+      extra_ids:s.extra_ids==null?null:arr(s.extra_ids),booking_mode:s.booking_mode||'',response_hours:s.response_hours||24,deposit_type:s.deposit_type||'none',
+      deposit_value:s.deposit_value||'',pay_way:s.pay_way||st.pay_way||'online',pay_methods:arr(s.pay_methods).length?arr(s.pay_methods):arr(st.pay_methods),pay_whatsapp:s.pay_whatsapp||'',pay_policy:s.pay_policy||st.pay_policy||'',
+      lead_hours:s.lead_hours??'',tags:s.tags||'',instructor_user_id:s.instructor_user_id||'',cancel_free_hours:s.cancel_free_hours??'',cancel_refund_pct:s.cancel_refund_pct??'',
+      step:s.draft?Math.min(5,Number(st.step)||1):0,draft:!!s.draft,photo:s.photo||null};
+  }
+  async function wdServiceWizard({existing=null,role='center',onDone=()=>{},legacy=null,startTemplate=null}={}){
+    let o; try{ o=await api('/api/provider-services/wizard-options'); }catch(err){ toast(err.message); return; }
+    const esc=escapeHtml, isPro=role==='freelance', w=wzFrom(existing), editPage=!!(existing&&!existing.draft);
+    // The mode chosen at first is the one recommended for the kind, unless it cannot be used yet (no online payments).
+    const defMode=k=>{ const m=(o.kind_mode||{})[k]||'request'; return m==='payment'&&(!o.payments_ready||w.pay_way==='in_person')?'request':m; };
+    // A freelance without online payments can only be paid in person (v50.55): that is the way chosen at first.
+    if(isPro&&!existing&&!o.payments_ready) w.pay_way='in_person';
+    if(!w.booking_mode||(w.pay_way==='in_person'&&!existing)) w.booking_mode=w.pay_way==='in_person'?'request':defMode(w.kind);
+    let errs={}, busy=false, photoFile=null, examplePax=2;
+    const st0=startTemplate&&o.templates.find(t=>String(t.id)===String(startTemplate)); if(st0&&!existing){ w.kind=st0.kind; w.booking_mode=defMode(w.kind); }
+    const tplName=()=>o.templates.find(t=>String(t.id)===String(w.template_id))?.name;
+    const {el,close}=wdOpenModal({id:'svc-wiz',size:'xl',title:esc(editPage?translateString('Editar servicio'):existing?translateString('Seguir con el servicio'):translateString('Nuevo servicio')),
+      subtitle:editPage?esc(existing.title):'',body:'<div class="wz svc-form" id="wz"></div>',footer:'<div class="wz-foot" id="wz-foot"></div>'});
+    el.classList.add('wz-modal');
+    const box=$('#wz',el), foot=$('#wz-foot',el);
+    // Closing (×, Esc or «Cancelar») once a draft exists shows it in the list at once: «Borrador» · «Seguir con el asistente».
+    el.addEventListener('click',e=>{ if(e.target.closest('[data-modal-close]')&&w.id&&!editPage) setTimeout(()=>onDone(w.id),150); },true);
+    const err=f=>errs[f]?`<p class="wz-err" role="alert" data-for="${f}">${esc(translateString(errs[f]))}</p>`:'';
+    const more=(id,inner,open=false)=>`<details class="wz-more" data-more="${id}" ${open?'open':''}><summary>${esc(translateString('Más opciones'))}</summary><div class="wz-more-in">${inner}</div></details>`;
+    const chipBox=(name,map,sel)=>`<div class="wz-chips" role="group">${Object.entries(map).map(([k,l])=>`<label class="wz-chip"><input type="checkbox" data-warr="${name}" value="${k}" ${(sel||[]).includes(k)?'checked':''}><span>${esc(l)}</span></label>`).join('')}</div>`;
+    const kindInfo=()=>WZ_KINDS.find(x=>x.k===w.kind)||WZ_KINDS[0];
+    const seatsLabel=()=>w.kind==='course'?'Plazas por edición del curso':w.kind==='trip'?'Plazas del viaje':'Plazas por salida';
+    // ---------- step 1 · ¿Qué vas a ofrecer?
+    const s0=()=>`<section class="wz-step" data-step="0"><h3>¿Qué vas a ofrecer?</h3><p class="wz-lead">Elige una tarjeta. Rellenamos por ti lo habitual y solo te preguntamos lo que tiene sentido.</p>
+      <div class="wz-kinds" role="radiogroup" aria-label="${esc(translateString('Qué vas a ofrecer'))}">${WZ_KINDS.filter(x=>!x.pro||isPro).map(x=>`<button type="button" class="wz-kind" role="radio" aria-checked="${w.kind===x.k}" data-kind="${x.k}">${wdIcon(x.icon,28)}<strong>${esc(x.t)}</strong><small>${esc(x.ex)}</small><em>${esc(x.m)}</em></button>`).join('')}</div>${err('kind')}
+      ${w.kind?(()=>{ const ts=o.templates.filter(t=>t.kind===w.kind); return ts.length?`<div class="wz-tpls"><p>Empieza con una plantilla (opcional):</p><div class="wz-chips">${ts.map(t=>`<button type="button" class="wz-tpl ${String(w.template_id)===String(t.id)?'is-on':''}" data-tpl="${t.id}">${wdIcon(t.icon||'inmersion',15)} ${esc(t.name)}</button>`).join('')}</div></div>`:''; })():''}</section>`;
+    // ---------- step 2 · Lo básico
+    const s1=()=>`<section class="wz-step" data-step="1"><h3>Lo básico</h3>
+      <div class="wz-grid"><div class="svc-field wz-span2"><label for="wz-title">Nombre</label><input id="wz-title" data-w="title" maxlength="180" value="${esc(w.title)}" placeholder="${esc(translateString(kindInfo().ex.replace(/[«»]/g,'')))}">${err('title')}</div>
+        <div class="svc-field wz-span2"><label for="wz-desc">Descripción breve</label><textarea id="wz-desc" data-w="description" rows="3" maxlength="1200" placeholder="${esc(translateString('Qué vivirá el buceador, en dos o tres frases.'))}">${esc(w.description)}</textarea></div>
+        <div class="svc-field wz-span2"><span class="svc-label">Qué incluye</span>${chipBox('includes',WZ_INCLUDES,w.includes)}</div>
+        <div class="svc-field"><label for="wz-level">Nivel o titulación necesaria</label><input id="wz-level" data-w="level_required" list="wz-levels" maxlength="120" value="${esc(w.level_required)}" placeholder="${esc(translateString('Sin titulación'))}"><datalist id="wz-levels">${WZ_LEVELS.map(l=>`<option value="${esc(l)}">`).join('')}</datalist></div>
+        <div class="svc-field"><label for="wz-age">Edad mínima</label><input id="wz-age" data-w="min_age" type="number" min="0" max="99" inputmode="numeric" value="${esc(String(w.min_age))}" placeholder="10">${err('min_age')}</div>
+        <div class="svc-field wz-span2"><span class="svc-label">Idiomas</span>${chipBox('languages',WZ_LANGS,w.languages)}</div>
+        <div class="svc-field wz-span2"><label for="wz-meet">Punto de encuentro</label><input id="wz-meet" data-w="meeting_point" maxlength="200" value="${esc(w.meeting_point)}" placeholder="${esc(translateString('Ej. Puerto de L’Estartit, pantalán 3'))}"></div></div>
+      ${more('basic',`<div class="svc-field"><span class="svc-label">Icono</span><div class="wz-icons" role="radiogroup">${Object.keys(SVC_ICON_LABELS).map(k=>`<button type="button" class="wz-icon" role="radio" aria-checked="${(w.icon||kindInfo().icon)===k}" data-icon="${k}" title="${esc(translateString(SVC_ICON_LABELS[k]))}">${wdIcon(k,20)}</button>`).join('')}</div></div>
+        <div class="svc-field"><span class="svc-label">Foto</span><p class="wz-hint">${w.template_id||existing?.photo?'Se usa la foto de la plantilla. Puedes poner una tuya:':'Sin plantilla, la tarjeta lleva la foto neutra del mar. Puedes poner una tuya:'}</p>
+          <input type="file" id="wz-photo" accept="image/jpeg,image/png,image/webp"><label class="svc-check"><input type="checkbox" id="wz-photo-rights"><span>Declaro que tengo los derechos de esta imagen y que las personas que aparecen han dado su consentimiento.</span></label></div>
+        <div class="svc-field"><label for="wz-tags">Etiquetas</label><input id="wz-tags" data-w="tags" maxlength="200" value="${esc(w.tags)}" placeholder="${esc(translateString('Ej. familias, fotografía, principiantes'))}"></div>`)}</section>`;
+    // ---------- step 3 · Cuándo y cuánto dura
+    const dateChips=()=>(w.schedule.dates||[]).map(d=>`<span class="wz-date">${esc(w.kind==='course'?wdRange(d,wdAddDays(d,Math.max(0,w.plan.days.length-1))):wdDay(d))}<button type="button" data-undate="${d}" aria-label="${esc(translateString('Quitar'))}">×</button></span>`).join('');
+    const schedule=(what)=>{ const sc=w.schedule, wn=wzWeekNames(), list=sc.mode==='weekly'?wzWeekly(sc.weekdays,sc.from,sc.to):(sc.dates||[]);
+      return `<fieldset class="svc-fieldset wz-sched"><legend>${what==='course'?'Ediciones del curso':'¿Cuándo sale?'}</legend>
+        <div class="wz-seg" role="radiogroup">${[['weekly',what==='course'?'Cada semana':'Se repite cada semana'],['dates','Fechas sueltas'],...(existing&&!existing.draft?[['later','No añadir ahora']]:[['later','Las añado después']])].map(([k,l])=>`<label><input type="radio" name="wz-sm" value="${k}" ${sc.mode===k?'checked':''}><span>${esc(l)}</span></label>`).join('')}</div>
+        ${sc.mode==='weekly'?`<div class="wz-week" role="group" aria-label="${esc(translateString('Días de la semana'))}">${wn.map((n,i)=>`<label class="wz-chip"><input type="checkbox" data-wday="${i}" ${(sc.weekdays||[]).map(Number).includes(i)?'checked':''}><span>${esc(n)}</span></label>`).join('')}</div>
+          <div class="wz-grid"><div class="svc-field"><label for="wz-from">Desde</label><input type="date" id="wz-from" data-ws="from" min="${o.today}" value="${esc(sc.from||'')}"></div><div class="svc-field"><label for="wz-to">Hasta</label><input type="date" id="wz-to" data-ws="to" min="${o.today}" value="${esc(sc.to||'')}"></div></div>`:''}
+        ${sc.mode==='dates'?`<div class="wz-add-date"><input type="date" id="wz-newdate" min="${o.today}" aria-label="${esc(translateString(what==='course'?'Fecha de inicio':'Fecha'))}"><button type="button" class="btn btn-sm" id="wz-adddate">${esc(translateString(what==='course'?'Añadir edición':'Añadir fecha'))}</button></div><div class="wz-dates">${dateChips()}</div>`:''}
+        ${sc.mode!=='later'?`<p class="wz-hint" aria-live="polite">${list.length?esc(translateString(what==='course'?'{n} ediciones':'{n} salidas').replace('{n}',list.length))+': '+esc(list.slice(0,4).map(d=>what==='course'?wdRange(d,wdAddDays(d,Math.max(0,w.plan.days.length-1))):wdDay(d)).join(' · '))+(list.length>4?' …':''):esc(translateString(sc.mode==='weekly'?'Elige los días de la semana.':'Añade la primera fecha.'))}</p>`:''}
+        ${what==='course'&&o.instructors.length?`<div class="svc-field"><label for="wz-ins">Instructor de estas ediciones</label><select id="wz-ins" data-w="instructor_user_id"><option value="">${esc(translateString('Sin asignar'))}</option>${o.instructors.map(i=>`<option value="${i.id}" ${String(w.instructor_user_id)===String(i.id)?'selected':''}>${esc(i.fullname)}</option>`).join('')}</select>${err('instructor_user_id')}<small>${esc(translateString('Queda ocupado en su agenda los días del curso: no se le puede dar otro curso a la vez.'))}</small></div>`:''}
+        ${err('schedule')}</fieldset>`; };
+    const s2=()=>{ const k=w.kind; let body='';
+      if(k==='dive'||k==='baptism'||k==='other'){
+        body=`<div class="wz-grid"><div class="svc-field"><span class="svc-label">Cuánto dura</span><div class="wz-hm"><label><input type="number" id="wz-h" data-w="hours" min="0" max="23" inputmode="numeric" value="${esc(String(w.hours))}"> h</label><label><select data-w="minutes" aria-label="${esc(translateString('Minutos'))}">${[0,15,30,45].map(m=>`<option value="${m}" ${Number(w.minutes)===m?'selected':''}>${m}</option>`).join('')}</select> min</label></div>${err('duration')}</div>
+          <div class="svc-field"><label for="wz-time">Hora de salida</label><input type="time" id="wz-time" data-w="start_time" value="${esc(w.start_time)}">${err('start_time')}</div></div>${schedule('dive')}`;
+      } else if(k==='course'){
+        const p=w.plan;
+        body=`<div class="svc-field"><span class="svc-label">¿Cuántos días dura?</span><div class="wz-days" role="radiogroup">${Array.from({length:o.max_course_days||10},(_,i)=>i+1).map(n=>`<button type="button" role="radio" class="wz-n" aria-checked="${p.days.length===n}" data-ndays="${n}">${n}</button>`).join('')}</div>${err('plan')}</div>
+          <div class="wz-presets"><span>${esc(translateString('Atajos:'))}</span>${WZ_PRESETS.map(([k,l,d])=>`<button type="button" class="wz-tpl ${JSON.stringify(p.days)===JSON.stringify(d)?'is-on':''}" data-preset="${k}">${esc(translateString(l))}</button>`).join('')}<button type="button" class="wz-tpl" data-preset="custom">${esc(translateString('Personalizado'))}</button></div>
+          <ol class="wz-plan">${p.days.map((d,i)=>`<li><span>${esc(translateString('Día {n}').replace('{n}',i+1))}</span><div class="wz-seg wz-seg-sm" role="radiogroup">${Object.entries(WZ_PARTS).map(([x,l])=>`<label><input type="radio" name="wz-d${i}" data-day="${i}" value="${x}" ${d===x?'checked':''}><span>${esc(translateString(l))}</span></label>`).join('')}</div></li>`).join('')}</ol>
+          <p class="wz-hint">${esc(wzSummary(p.days))} · ${esc(translateString('{n} sesiones').replace('{n}',wzItems(p).length))}</p>
+          ${more('plan',`<div class="wz-grid">${Object.entries(WZ_PARTS).map(([x,l])=>`<div class="svc-field"><span class="svc-label">${esc(translateString(l))}</span><div class="wz-hm"><input type="time" data-ph="${x}:0" value="${esc(p.hours[x][0])}" aria-label="${esc(translateString('Empieza'))}"> – <input type="time" data-ph="${x}:1" value="${esc(p.hours[x][1])}" aria-label="${esc(translateString('Acaba'))}"></div></div>`).join('')}</div>
+            <p class="svc-label">Qué se hace en cada sesión</p><ol class="wz-items">${wzItems(p).map(it=>`<li><input data-label="${it.seq}" maxlength="60" value="${esc((p.labels||{})[it.seq]||'')}" placeholder="${esc(it.label)}" aria-label="${esc(it.label)}"><label class="wz-chip"><input type="checkbox" data-dive="${it.seq}" ${it.dive?'checked':''}><span>${esc(translateString('Inmersión'))}</span></label></li>`).join('')}</ol>`)}
+          ${schedule('course')}`;
+      } else if(k==='guide'){
+        body=`<div class="wz-seg" role="radiogroup"><label><input type="radio" name="wz-half" value="0" ${!w.half_days?'checked':''}><span>${esc(translateString('Días completos'))}</span></label><label><input type="radio" name="wz-half" value="1" ${w.half_days?'checked':''}><span>${esc(translateString('Días completos o medias jornadas (mañana o tarde)'))}</span></label></div>
+          <p class="wz-hint">${esc(translateString('El buceador elige los días en tu calendario libre/ocupado. Tus días libres y ocupados se gestionan en «Mi agenda».'))}</p>
+          ${more('guide',`<div class="wz-grid"><div class="svc-field"><label for="wz-mind">Mínimo de días</label><input type="number" id="wz-mind" data-wr="min_days" min="1" max="60" value="${esc(String(w.unit_rules.min_days||1))}"></div><div class="svc-field"><label for="wz-maxd">Máximo de días</label><input type="number" id="wz-maxd" data-wr="max_days" min="1" max="90" value="${esc(String(w.unit_rules.max_days||14))}"></div><div class="svc-field"><label for="wz-lead">Antelación mínima (horas)</label><input type="number" id="wz-lead" data-wr="lead_hours" min="0" max="720" value="${esc(String(w.unit_rules.lead_hours??48))}"></div></div>`)}`;
+      } else if(k==='rental'){
+        body=`<div class="svc-field"><span class="svc-label">¿Cómo se cobra?</span><div class="wz-seg" role="radiogroup"><label><input type="radio" name="wz-rent" value="day" ${w.rental_per!=='dive'?'checked':''}><span>${esc(translateString('Por día'))}</span></label><label><input type="radio" name="wz-rent" value="dive" ${w.rental_per==='dive'?'checked':''}><span>${esc(translateString('Por inmersión'))}</span></label></div></div><p class="wz-hint">${esc(translateString('El alquiler no tiene salidas: el buceador lo añade a su reserva.'))}</p>`;
+      } else if(k==='trip'){
+        const n=w.trip_from&&w.trip_to?Math.round((wdParseDate(w.trip_to)-wdParseDate(w.trip_from))/864e5):null;
+        body=`<div class="wz-grid"><div class="svc-field"><label for="wz-tf">Fecha de inicio</label><input type="date" id="wz-tf" data-w="trip_from" min="${o.today}" value="${esc(w.trip_from)}"></div><div class="svc-field"><label for="wz-tt">Fecha de fin</label><input type="date" id="wz-tt" data-w="trip_to" min="${o.today}" value="${esc(w.trip_to)}"></div></div>
+          <p class="wz-hint" aria-live="polite">${n!=null&&n>=0?esc(translateString(n===1?'1 noche':'{n} noches').replace('{n}',n)):''}</p>${err('trip_dates')}`;
+      }
+      return `<section class="wz-step" data-step="2"><h3>Cuándo y cuánto dura</h3>${body}</section>`; };
+    // ---------- step 4 · Precio y plazas
+    const s3=()=>{ const per=w.price_per==='group', price=Number(w.price)||0, unit=w.kind==='course'?'curso':w.kind==='trip'?'viaje':w.kind==='rental'?(w.rental_per==='dive'?'inmersión':'día'):w.kind==='guide'?'día':'salida';
+      const ex=per?translateString('Grupo de hasta {n} personas = {t}').replace('{n}',w.max_participants||'—').replace('{t}',wdMoney(price)):translateString('{p} personas × 1 {u} = {t}').replace('{p}',examplePax).replace('{u}',translateString(unit)).replace('{t}',wdMoney(price*examplePax));
+      return `<section class="wz-step" data-step="3"><h3>Precio y plazas</h3><div class="wz-grid">
+        <div class="svc-field"><label for="wz-price">${esc(translateString(w.kind==='guide'?'Precio por día':'Precio'))}</label><label class="svc-money"><input id="wz-price" data-w="price" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(String(w.price))}"><span>€</span></label>${err('price')}</div>
+        ${w.kind!=='rental'?`<div class="svc-field"><span class="svc-label">El precio es</span><div class="wz-seg" role="radiogroup"><label><input type="radio" name="wz-per" value="person" ${!per?'checked':''}><span>${esc(translateString('Por persona'))}</span></label><label><input type="radio" name="wz-per" value="group" ${per?'checked':''}><span>${esc(translateString('Por grupo'))}</span></label></div></div>`:''}
+        ${w.kind==='guide'&&w.half_days?`<div class="svc-field"><label for="wz-half">Precio de media jornada</label><label class="svc-money"><input id="wz-half" data-w="half_price" type="number" min="0" step="0.01" value="${esc(String(w.half_price))}"><span>€</span></label></div>`:''}
+        ${w.kind!=='rental'?`<div class="svc-field"><label for="wz-seats">${esc(translateString(seatsLabel()))}</label><input id="wz-seats" data-w="max_participants" type="number" min="1" max="999" inputmode="numeric" value="${esc(String(w.max_participants))}">${err('max_participants')}</div>`:''}</div>
+        ${price>0?`<div class="wz-example" aria-live="polite">${!per?`<div class="wz-stepper"><button type="button" data-pax="-1" aria-label="${esc(translateString('Una persona menos'))}">−</button><span>${examplePax}</span><button type="button" data-pax="1" aria-label="${esc(translateString('Una persona más'))}">+</button></div>`:''}<strong>${esc(ex)}</strong></div>`:''}
+        ${o.extras.length?more('extras',`<p class="svc-label">Extras que se ofrecen con este servicio</p><div class="wz-chips">${o.extras.map(x=>`<label class="wz-chip"><input type="checkbox" data-extra="${x.id}" ${w.extra_ids==null||w.extra_ids.map(Number).includes(Number(x.id))?'checked':''}><span>${esc(x.name)} · ${wdMoney(x.price)}</span></label>`).join('')}</div>`,false):''}</section>`; };
+    // ---------- step 5 · Cómo se reserva
+    const s4=()=>{ const rec=(o.kind_mode||{})[w.kind]||'request', canPay=o.payments_ready&&w.pay_way!=='in_person';
+      const card=(m,ic,t,d,ex)=>`<button type="button" class="wz-mode ${m==='payment'&&!canPay?'is-locked':''}" role="radio" aria-checked="${w.booking_mode===m}" data-mode="${m}" ${m==='payment'&&!canPay?'aria-disabled="true"':''}><span class="wz-mode-ic" aria-hidden="true">${ic}</span><strong>${esc(translateString(t))}</strong>${rec===m?`<em class="wz-rec">${esc(translateString('Recomendada'))}</em>`:''}<small>${esc(translateString(d))}</small><i>${esc(translateString(ex))}</i>
+        ${m==='payment'&&!canPay?`<span class="wz-lock">${esc(translateString(w.pay_way==='in_person'?'Con «Pago en persona» las reservas siempre se aprueban una a una.':'Activa los cobros online en «Cobros y pagos» para usarla.'))}</span>`:''}</button>`;
+      return `<section class="wz-step" data-step="4"><h3>¿Cómo quieres que te reserven?</h3><div class="wz-modes" role="radiogroup">
+        ${card('payment','⚡','Reserva inmediata','El buceador paga y su plaza queda confirmada al momento. Tú no tienes que hacer nada.','Recomendada para inmersiones, bautizos y alquiler con fechas fijas.')}
+        ${card('request','✋','Tú apruebas cada reserva',`El buceador te envía una solicitud. Tú la aceptas o la rechazas (tienes ${Number(w.response_hours)||24} horas). Si la aceptas, paga y queda confirmada.`,'Recomendada para cursos a medida, viajes y guías privados.')}</div>${err('booking_mode')}
+        ${more('mode',`<div class="wz-grid">
+          <div class="svc-field"><label for="wz-dep">Cobrar una señal</label><select id="wz-dep" data-w="deposit_type"><option value="none" ${w.deposit_type==='none'||!w.deposit_type?'selected':''}>${esc(translateString('No, el total'))}</option><option value="percent" ${w.deposit_type==='percent'?'selected':''}>${esc(translateString('Un porcentaje'))}</option><option value="fixed" ${w.deposit_type==='fixed'?'selected':''}>${esc(translateString('Una cantidad fija'))}</option></select></div>
+          ${w.deposit_type&&w.deposit_type!=='none'?`<div class="svc-field"><label for="wz-depv">${esc(translateString(w.deposit_type==='percent'?'Porcentaje de señal':'Señal (€)'))}</label><input id="wz-depv" data-w="deposit_value" type="number" min="1" step="1" value="${esc(String(w.deposit_value))}"></div>`:''}
+          <div class="svc-field"><label for="wz-resp">Plazo para responder a una solicitud</label><select id="wz-resp" data-w="response_hours">${[12,24,48,72].map(h=>`<option value="${h}" ${Number(w.response_hours)===h?'selected':''}>${h} h</option>`).join('')}</select>${err('response_hours')}</div>
+          <div class="svc-field"><label for="wz-leadh">Antelación mínima para reservar</label><select id="wz-leadh" data-w="lead_hours"><option value="">${esc(translateString('Sin mínimo'))}</option>${[12,24,48,72].map(h=>`<option value="${h}" ${String(w.lead_hours)===String(h)?'selected':''}>${h} h</option>`).join('')}</select></div>
+          <div class="svc-field"><label for="wz-cfh">Cancelación gratis hasta (horas antes)</label><input id="wz-cfh" data-w="cancel_free_hours" type="number" min="0" max="720" value="${esc(String(w.cancel_free_hours))}" placeholder="${esc(translateString('La de tu centro'))}">${err('cancel_free_hours')}</div>
+          <div class="svc-field"><label for="wz-crp">Después, se devuelve (%)</label><input id="wz-crp" data-w="cancel_refund_pct" type="number" min="0" max="100" value="${esc(String(w.cancel_refund_pct))}" placeholder="0"></div></div>
+          ${isPro?`<fieldset class="svc-fieldset"><legend>${esc(translateString('Pago en el centro o en persona (países sin Stripe)'))}</legend><div class="wz-seg"><label><input type="radio" name="wz-way" value="online" ${w.pay_way!=='in_person'?'checked':''}><span>${esc(translateString('Pago online'))}</span></label><label><input type="radio" name="wz-way" value="in_person" ${w.pay_way==='in_person'?'checked':''}><span>${esc(translateString('Pago en persona'))}</span></label></div>
+            ${w.pay_way==='in_person'?`<div class="wz-grid"><div class="svc-field wz-span2"><span class="svc-label">Formas de pago que aceptas</span>${chipBox('pay_methods',WD_PAY_METHODS,w.pay_methods)}</div><div class="svc-field"><label for="wz-wa">WhatsApp de contacto</label><input id="wz-wa" data-w="pay_whatsapp" type="tel" maxlength="24" value="${esc(w.pay_whatsapp)}" placeholder="+34 600 123 456"></div><div class="svc-field"><label for="wz-pol">Tu política de cancelación</label><input id="wz-pol" data-w="pay_policy" maxlength="1000" value="${esc(w.pay_policy)}"></div>
+              <label class="svc-check wz-span2"><input type="checkbox" data-w="accept_in_person_terms" ${w.accept_in_person_terms?'checked':''}><span>${esc(translateString('Acepto las condiciones del pago en persona'))} · <a href="#/legal/pago-en-persona" target="_blank" rel="noopener">${esc(translateString('Leer las condiciones'))}</a></span></label></div>`:''}${err('pay_way')}</fieldset>`
+          :`<p class="wz-hint">${esc(translateString('¿Tu país no tiene Stripe? Usa «Tú apruebas cada reserva»: el buceador envía la solicitud y te paga en el centro.'))}</p>`}`,isPro&&(w.pay_way==='in_person'||!!errs.pay_way))}</section>`; };
+    // ---------- step 6 · Revisar y publicar
+    const svcPreview=()=>({title:w.title||translateString('Tu servicio'),service_type:'inmersion',template:{icon:w.icon||kindInfo().icon,name:tplName()},color:'#076898',photo:existing?.photo||o.templates.find(t=>String(t.id)===String(w.template_id))?.photo||null,pay_way:w.pay_way});
+    const perText=()=>w.kind==='rental'?(w.rental_per==='dive'?'por inmersión':'por día'):w.kind==='guide'?'por día':w.price_per==='group'?'por grupo':'por persona';
+    const durText=()=>w.kind==='course'?wzSummary(w.plan.days):w.kind==='trip'?(w.trip_from&&w.trip_to?wdRange(w.trip_from,w.trip_to):''):w.kind==='guide'?translateString(w.half_days?'Días completos o medias jornadas':'Días completos'):w.kind==='rental'?translateString(w.rental_per==='dive'?'Por inmersión':'Por día'):wdDuration(Number(w.hours||0)*60+Number(w.minutes||0));
+    const s5=()=>{ const sc=w.schedule, dates=sc.mode==='weekly'?wzWeekly(sc.weekdays,sc.from,sc.to):sc.mode==='dates'?(sc.dates||[]):[];
+      const row=(st,l,v)=>`<div class="wz-sum-row"><span>${esc(translateString(l))}</span><strong>${v}</strong><button type="button" class="svc-link" data-goto="${st}">${esc(translateString('Cambiar'))}</button></div>`;
+      const s=svcPreview(), price=Number(w.price)>0?wdPriceBlock(w.price,'EUR',translateString(perText())):'';
+      return `<section class="wz-step" data-step="5"><h3>Revisar y publicar</h3><div class="wz-review"><div><p class="svc-label">${esc(translateString('Así lo verá el buceador'))}</p>
+        ${wdServiceCard(s,{kicker:[tplName()||translateString(kindInfo().t),durText()].filter(Boolean).map(esc).join(' · '),desc:w.description,price,actions:`<span class="btn btn-primary" aria-hidden="true">${esc(translateString(w.booking_mode==='payment'?'Reservar y pagar':'Enviar solicitud'))}</span>`})}
+        <div class="wz-ficha">${w.includes.length?`<p><b>${esc(translateString('Incluye'))}:</b> ${w.includes.map(k=>esc(translateString(WZ_INCLUDES[k]||k))).join(', ')}</p>`:''}${w.level_required?`<p><b>${esc(translateString('Nivel'))}:</b> ${esc(w.level_required)}</p>`:''}${w.min_age!==''?`<p><b>${esc(translateString('Edad mínima'))}:</b> ${esc(String(w.min_age))}</p>`:''}${w.languages.length?`<p><b>${esc(translateString('Idiomas'))}:</b> ${w.languages.map(k=>esc(translateString(WZ_LANGS[k]||k))).join(', ')}</p>`:''}${w.meeting_point?`<p><b>${esc(translateString('Punto de encuentro'))}:</b> ${esc(w.meeting_point)}</p>`:''}</div></div>
+        <div class="wz-sum">${row(0,'Qué ofreces',esc(translateString(kindInfo().t)))}${row(1,'Nombre',esc(w.title||'—'))}${row(2,w.kind==='rental'?'Cómo se cobra':'Cuánto dura',esc(durText()||'—'))}
+          ${['dive','baptism','other','course'].includes(w.kind)?row(2,w.kind==='course'?'Ediciones':'Salidas',dates.length?esc(translateString('{n} fechas').replace('{n}',dates.length)):esc(translateString(existing&&!existing.draft?'Las que ya tiene':'Ninguna todavía'))):''}
+          ${row(3,'Precio',Number(w.price)>0?esc(wdMoney(w.price))+' '+esc(translateString(perText())):'—')}${w.kind!=='rental'?row(3,seatsLabel(),esc(String(w.max_participants||'—'))):''}
+          ${row(4,'Cómo se reserva',esc(translateString(w.booking_mode==='payment'?'⚡ Reserva inmediata':'✋ Tú apruebas cada reserva')))}</div></div>
+        ${Object.keys(errs).length?`<div class="notice warning" role="alert">${esc(translateString('Falta algo: lo marcamos en rojo en su paso.'))}</div>`:''}</section>`; };
+    const steps=[s0,s1,s2,s3,s4,s5];
+    // The example of the price changes as the price or the places are typed, without drawing the step again (the cursor stays).
+    function liveExample(){ const box3=$('.wz-step[data-step="3"]',box); if(!box3) return; const tmp=document.createElement('div'); tmp.innerHTML=s3(); const n=tmp.querySelector('.wz-example'), cur=box3.querySelector('.wz-example');
+      if(n&&cur) cur.querySelector('strong').textContent=n.querySelector('strong').textContent; else if(n&&!cur) box3.querySelector('.wz-grid')?.after(n); else if(!n&&cur) cur.remove(); translateTree(box3); }
+    // ---------- drawing
+    function draw(){
+      const moreOpen=new Set($$('details.wz-more[open]',box).map(d=>d.dataset.more));
+      if(editPage){
+        box.innerHTML=`<p class="wz-lead">${wdIcon(w.icon||kindInfo().icon,18)} <b>${esc(translateString(kindInfo().t))}</b> · ${esc(translateString('Cambia lo que necesites y guarda. Cada bloque se abre al tocarlo.'))}</p>${[1,2,3,4,5].map(i=>`<details class="wz-sec" data-sec="${i}" ${(errs&&Object.entries(WZ_FIELD_STEP).some(([f,st])=>st===i&&errs[f]))||box.dataset.open==String(i)?'open':''}><summary>${esc(translateString(i===5?'Así lo verá el buceador':WZ_STEPS[i]))}</summary>${steps[i]()}</details>`).join('')}
+          ${legacy?`<p class="wz-hint"><button type="button" class="svc-link" id="wz-legacy">${esc(translateString('Más ajustes: foto con su punto de enfoque, cambio de fecha por el cliente, lista de espera, seguro y Experiencias'))}</button></p>`:''}`;
+        foot.innerHTML=`<span class="wz-saved"></span><button type="button" class="btn" data-modal-close>${esc(translateString('Cancelar'))}</button><button type="button" class="btn btn-primary" id="wz-save">${esc(translateString('Guardar cambios'))}</button>`;
+      } else {
+        box.innerHTML=`<ol class="wz-progress" aria-label="${esc(translateString('Pasos'))}">${WZ_STEPS.map((t,i)=>`<li class="${i<w.step?'is-done':''} ${i===w.step?'is-on':''}" ${i===w.step?'aria-current="step"':''}><button type="button" data-goto="${i}" ${i>w.step&&!w.id?'disabled':''}><b>${i+1}</b><span>${esc(translateString(t))}</span></button></li>`).join('')}</ol>
+          <p class="wz-stepname">${esc(translateString('Paso {n} de 6').replace('{n}',w.step+1))} · ${esc(translateString(WZ_STEPS[w.step]))}${w.id?` <span class="wz-saved-sm">· ✓ ${esc(translateString('Borrador guardado'))}</span>`:''}</p><div class="wz-bar" aria-hidden="true"><i style="width:${Math.round((w.step+1)/6*100)}%"></i></div>${steps[w.step]()}`;
+        foot.innerHTML=`${w.step>0?`<button type="button" class="btn" id="wz-back" aria-label="${esc(translateString('Atrás'))}">← <span class="wz-back-txt">${esc(translateString('Atrás'))}</span></button>`:''}<span class="wz-saved" id="wz-saved" aria-live="polite">${w.id?esc(translateString('Borrador guardado')):''}</span>
+          ${w.step===5?`<button type="button" class="btn" id="wz-draft">${esc(translateString('Guardar como borrador'))}</button><button type="button" class="btn btn-primary" id="wz-publish">${esc(translateString('Publicar'))}</button>`:`<button type="button" class="btn btn-primary" id="wz-next" ${w.step===0&&!w.kind?'disabled':''}>${esc(translateString('Siguiente'))} →</button>`}`;
+      }
+      $$('details.wz-more',box).forEach(d=>{ if(moreOpen.has(d.dataset.more)) d.open=true; });
+      translateTree(box); translateTree(foot);
+    }
+    const payload=publish=>{ const d={...w,publish}; delete d.draft; delete d.photo; d.extra_ids=w.extra_ids; d.unit_rules=w.unit_rules; return d; };
+    async function save(publish){
+      if(busy) return false; busy=true;
+      try{ const r=await postJSON('/api/provider-services/wizard',payload(publish)); w.id=r.id; errs={};
+        if(photoFile&&w.id){ if(!$('#wz-photo-rights',el)?.checked&&!photoFile.rightsOk){ toast(translateString('Marca que tienes los derechos de la foto para subirla.')); } else { await uploadForm('/api/provider-services/photo',{id:w.id,rights:'1',focal:'50,50'},photoFile); photoFile=null; } }
+        return r; }
+      catch(e){ if(e.data?.fields){ errs=e.data.fields; const first=Math.min(...Object.keys(errs).map(f=>WZ_FIELD_STEP[f]??5)); if(!editPage) w.step=first; else box.dataset.open=String(first); draw(); $('.wz-err',box)?.scrollIntoView({block:'center'}); }
+        else toast(e.message); return false; }
+      finally{ busy=false; }
+    }
+    // ---------- events: every field writes to w as it changes
+    el.addEventListener('input',e=>{ const t=e.target;
+      if(t.dataset.w){ w[t.dataset.w]=t.type==='checkbox'?t.checked:t.value; if(['price','max_participants'].includes(t.dataset.w)) liveExample(); }
+      if(t.dataset.ws){ w.schedule[t.dataset.ws]=t.value; }
+      if(t.dataset.wr){ w.unit_rules={...w.unit_rules,[t.dataset.wr]:Number(t.value)}; }
+      if(t.dataset.ph){ const [x,i]=t.dataset.ph.split(':'); w.plan.hours[x][+i]=t.value; }
+      if(t.dataset.label){ w.plan.labels={...w.plan.labels,[t.dataset.label]:t.value}; }
+      if(t.id==='wz-photo'){ photoFile=t.files[0]||null; }
+    });
+    el.addEventListener('change',e=>{ const t=e.target;
+      if(t.dataset.warr){ const a=new Set(w[t.dataset.warr]||[]); t.checked?a.add(t.value):a.delete(t.value); w[t.dataset.warr]=[...a]; return; }
+      if(t.dataset.wday!==undefined){ const a=new Set((w.schedule.weekdays||[]).map(Number)); t.checked?a.add(+t.dataset.wday):a.delete(+t.dataset.wday); w.schedule.weekdays=[...a].sort(); delete errs.schedule; draw(); return; }
+      if(t.dataset.ws||t.dataset.w==='trip_from'||t.dataset.w==='trip_to'||t.dataset.w==='deposit_type'||t.dataset.w==='response_hours'){ draw(); return; }
+      if(t.dataset.extra){ const all=o.extras.map(x=>Number(x.id)); const a=new Set(w.extra_ids==null?all:w.extra_ids.map(Number)); t.checked?a.add(+t.dataset.extra):a.delete(+t.dataset.extra); w.extra_ids=[...a]; return; }
+      if(t.dataset.dive){ const a=new Set(w.plan.dives||[]); t.checked?a.add(+t.dataset.dive):a.delete(+t.dataset.dive); w.plan.dives=[...a].sort((x,y)=>x-y); return; }
+      if(t.dataset.day!==undefined){ w.plan.days[+t.dataset.day]=t.value; draw(); return; }
+      if(t.name==='wz-sm'){ w.schedule.mode=t.value; draw(); return; }
+      if(t.name==='wz-half'){ w.half_days=t.value==='1'; return; }
+      if(t.name==='wz-rent'){ w.rental_per=t.value; return; }
+      if(t.name==='wz-per'){ w.price_per=t.value; draw(); return; }
+      if(t.name==='wz-way'){ w.pay_way=t.value; if(t.value==='in_person') w.booking_mode='request'; draw(); return; }
+    });
+    el.addEventListener('click',async e=>{ const b=e.target.closest('button'); if(!b||!el.contains(b)) return;
+      if(box.contains(b)) el.dataset.dirty='1';   // a click outside the window no longer closes it once something was chosen
+      if(b.dataset.kind){ const changed=w.kind!==b.dataset.kind; w.kind=b.dataset.kind; if(changed){ w.template_id=''; w.booking_mode=defMode(w.kind); w.icon=''; } delete errs.kind; draw(); return; }
+      if(b.dataset.tpl){ const t=o.templates.find(x=>String(x.id)===b.dataset.tpl); if(!t) return; w.template_id=t.id; if(!w.title||o.templates.some(x=>x.name===w.title)) w.title=t.name||w.title; if(!w.description) w.description=t.description||'';
+        if(t.max_participants) w.max_participants=t.max_participants; if(t.icon) w.icon=t.icon; const m=Number(t.duration_minutes)||0;
+        if(w.kind==='course'&&m>=1440) w.plan.days=Array(Math.min(10,Math.round(m/1440))).fill('full'); else if(m&&m<1440){ w.hours=Math.floor(m/60); w.minutes=m%60; }
+        if(t.booking_mode==='payment'||t.booking_mode==='request') w.booking_mode=t.booking_mode==='payment'&&!o.payments_ready?'request':t.booking_mode; draw(); return; }
+      if(b.dataset.icon){ w.icon=b.dataset.icon; draw(); return; }
+      if(b.dataset.ndays){ const n=+b.dataset.ndays, d=w.plan.days.slice(0,n); while(d.length<n) d.push(d[d.length-1]||'full'); w.plan.days=d; delete errs.plan; draw(); return; }
+      if(b.dataset.preset){ const p=WZ_PRESETS.find(x=>x[0]===b.dataset.preset); if(p) w.plan.days=[...p[2]]; else { const d=$('.wz-plan',box); d?.querySelector('input')?.focus(); } delete errs.plan; draw(); return; }
+      if(b.id==='wz-adddate'){ const v=$('#wz-newdate',box).value; if(!v) { $('#wz-newdate',box).focus(); return; } w.schedule.dates=[...new Set([...(w.schedule.dates||[]),v])].sort(); delete errs.schedule; draw(); $('#wz-newdate',box)?.focus(); return; }
+      if(b.dataset.undate){ w.schedule.dates=(w.schedule.dates||[]).filter(d=>d!==b.dataset.undate); draw(); return; }
+      if(b.dataset.pax){ examplePax=Math.max(1,Math.min(20,examplePax+Number(b.dataset.pax))); draw(); return; }
+      if(b.dataset.mode){ if(b.getAttribute('aria-disabled')==='true'){ toast(translateString(w.pay_way==='in_person'?'Con «Pago en persona» las reservas siempre se aprueban una a una.':'Activa los cobros online en «Cobros y pagos» para usarla.')); return; } w.booking_mode=b.dataset.mode; delete errs.booking_mode; draw(); return; }
+      if(b.dataset.goto!==undefined&&!editPage){ const to=+b.dataset.goto; if(to>w.step&&!w.id) return; w.step=to; if(w.id) save(false); draw(); return; }
+      if(b.dataset.goto!==undefined&&editPage){ box.dataset.open=b.dataset.goto; draw(); return; }
+      if(b.id==='wz-back'){ w.step=Math.max(0,w.step-1); draw(); return; }
+      if(b.id==='wz-next'){ if(w.step===0&&!w.kind){ errs.kind='Elige qué vas a ofrecer.'; draw(); return; } if(w.step===1&&!String(w.title).trim()){ errs.title='Pon un nombre al servicio. Por ejemplo: «Doble inmersión en Islas Medas».'; draw(); $('#wz-title',box)?.focus(); return; }
+        const prev=w.step; w.step++; const r=await save(false); if(r===false){ if(!Object.keys(errs).length){ w.step=prev; draw(); } return; } draw(); $('.wz-step h3',box)?.focus?.(); box.scrollTop=0; return; }
+      if(b.id==='wz-draft'){ const r=await save(false); if(r){ toast(translateString('Guardado como borrador. Lo encontrarás en tus servicios.')); delete el.dataset.dirty; close(); onDone(); } return; }
+      if(b.id==='wz-publish'||b.id==='wz-save'){ const r=await save(true); if(r){ toast(translateString(editPage?'Cambios guardados.':'Publicado. Ya se puede reservar.')+(r.warnings?.length?' '+r.warnings.map(translateString).join(' '):'')); delete el.dataset.dirty; close(); onDone(r.id); } return; }
+      if(b.id==='wz-legacy'){ close(); legacy?.(); return; }
+    });
+    draw();
+    if(st0&&!existing) $(`.wz-tpl[data-tpl="${st0.id}"]`,box)?.click();
+    if(!editPage&&w.step===0) $('.wz-kind',box)?.focus({preventScroll:true});
   }
 
   // =====================================================================

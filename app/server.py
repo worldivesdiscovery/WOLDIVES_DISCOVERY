@@ -13954,14 +13954,20 @@ def wizard_save(db, user, data, ip=''):
     pay_set = None
     if user['role'] == 'freelance' and (pay_way or (cur and cur['pay_way'])):
         pdata = dict(data); pdata['pay_way'] = pay_way or cur['pay_way']
-        pay_set = clean_pay_settings(db, user, pdata, mode, cur, 'service', ip)
+        try:
+            pay_set = clean_pay_settings(db, user, pdata, mode, cur, 'service', ip)
+        except ValueError as e:
+            # A draft is saved with what there is (the way of paying is checked when it is published); published, the
+            # message goes next to «Forma de cobro» in «Cómo se reserva».
+            if publish: raise wizard_errors({'pay_way': str(e)})
     title = clean['title'] or (cur['title'] if cur else 'Borrador sin nombre')
     stype = wsv.KIND_TYPE[kind] if not (cur and cur['kind'] == kind and cur['service_type'] in SERVICE_TYPES) else cur['service_type']
     if data.get('template_id'):
         t = db.execute('SELECT service_type FROM service_catalog WHERE id=?', (int(data.get('template_id') or 0),)).fetchone()
         if t and t['service_type'] in SERVICE_TYPES and wsv.kind_of({'service_type': t['service_type']}) in (kind, 'dive') and kind in ('dive', 'other', 'trip'): stype = t['service_type']
     plan_json = json.dumps(clean['plan'], ensure_ascii=False) if kind == 'course' else None
-    state = {k: data.get(k) for k in ('schedule', 'step', 'trip_from', 'trip_to', 'hours', 'minutes', 'start_time') if data.get(k) not in (None, '')}
+    # The WhatsApp of «Pago en persona» is never kept here: it is saved encrypted only when the service is published.
+    state = {k: data.get(k) for k in ('schedule', 'step', 'trip_from', 'trip_to', 'hours', 'minutes', 'start_time', 'pay_way', 'pay_methods', 'pay_policy') if data.get(k) not in (None, '')}
     seats = clean['max_participants']
     vals = dict(kind=kind, service_type=stype, title=title, description=clean['description'], duration_minutes=clean.get('duration_minutes'),
                 price=price, max_participants=seats, booking_mode=mode, response_hours=resp_h, payment_hours=pay_h,
