@@ -70,6 +70,7 @@ from wod import qr as wqr   # v50.57: the single QR generator of the whole web
 from wod import exportar as wexp   # v50.57: Excel and CSV exports
 from wod import enlaces as wenl   # v50.57 (4.4): short addresses of the QR codes
 from wod import logbook as wlog   # v50.57: the dive logbook of the account («Dive Logbook»)
+from wod import servicios as wsv   # v50.58: services in the words of a diver (the wizard, courses and their sessions)
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1546,6 +1547,8 @@ def bootstrap():
         db.commit()
         migrate_v50_57(db)
         db.commit()
+        migrate_v50_58(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -1844,6 +1847,52 @@ VISITS_SCHEMA = (
        uniques INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(day, scope))''',
     '''CREATE TABLE IF NOT EXISTS visit_seen(day TEXT NOT NULL, scope TEXT NOT NULL, h TEXT NOT NULL, PRIMARY KEY(day, scope, h))''',
 )
+
+
+COURSE_SESSIONS_SCHEMA = [
+    # v50.58 (3.5): the sessions of a course for each student: done, pending, moved to another day or waiting for a new
+    # date. Tied to the original booking, so a moved dive is never a new booking nor charged again.
+    """CREATE TABLE IF NOT EXISTS booking_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+        seq INTEGER NOT NULL, label TEXT NOT NULL, is_dive INTEGER NOT NULL DEFAULT 0, part TEXT NOT NULL, local_date TEXT NOT NULL,
+        start_time TEXT NOT NULL, end_time TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', slot_id INTEGER REFERENCES service_slots(id) ON DELETE SET NULL,
+        instructor_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, boat_id INTEGER, moved_from TEXT, moved_at TEXT, pending_since TEXT,
+        done_at TEXT, done_by INTEGER, note TEXT, notified_at TEXT, reply TEXT, reply_at TEXT, extra_amount REAL, extra_order_id INTEGER,
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(booking_id, seq))""",
+    'CREATE INDEX IF NOT EXISTS idx_booking_sessions_slot ON booking_sessions(slot_id, status)',
+    'CREATE INDEX IF NOT EXISTS idx_booking_sessions_status ON booking_sessions(status, pending_since)',
+]
+
+
+def migrate_v50_58(db):
+    """v50.58 · revisión y usabilidad (Parte 3): services in the words of a diver. The kind of each service (immersion,
+    course, rental…), the plan of days of a course and its editions (a start date, its end and its instructor), price per
+    person or per group, what is included, level, age, languages and meeting point, drafts, and the sessions of each
+    student of a course (3.5). Adds; nothing is deleted. Existing services get their kind from what they were and the
+    courses their plan from their days or minutes; their departures become editions with their end date."""
+    add_columns(db, 'provider_services', [('kind', 'TEXT'), ('icon', 'TEXT'), ('course_plan', 'TEXT'), ('rental_per', 'TEXT'),
+                                          ('price_per', "TEXT NOT NULL DEFAULT 'person'"), ('includes', 'TEXT'), ('level_required', 'TEXT'),
+                                          ('min_age', 'INTEGER'), ('languages', 'TEXT'), ('meeting_point', 'TEXT'), ('draft', 'INTEGER NOT NULL DEFAULT 0'),
+                                          ('wizard_state', 'TEXT'), ('extra_ids', 'TEXT'), ('tags', 'TEXT'), ('lead_hours', 'INTEGER')])
+    add_columns(db, 'service_slots', [('date_to', 'TEXT'), ('instructor_user_id', 'INTEGER'), ('boat_id', 'INTEGER'), ('kind', 'TEXT')])
+    add_columns(db, 'bookings', [('course_completed_at', 'TEXT')])
+    add_columns(db, 'centers', [('course_reminder_days', 'INTEGER')])
+    add_columns(db, 'users', [('course_reminder_days', 'INTEGER')])
+    for stmt in COURSE_SESSIONS_SCHEMA: db.execute(stmt)
+    if migration_done(db, '50.58'): return
+    n_kind = n_plan = n_ed = 0
+    for r in db.execute('SELECT * FROM provider_services WHERE kind IS NULL').fetchall():
+        k = wsv.kind_of(r); n_kind += 1
+        plan = json.dumps(wsv.plan_from_legacy(r['title'], r['duration_minutes'])) if k == 'course' else None
+        if plan: n_plan += 1
+        db.execute('UPDATE provider_services SET kind=?, course_plan=COALESCE(course_plan,?), rental_per=CASE WHEN ?=\'rental\' THEN COALESCE(rental_per,\'day\') ELSE rental_per END WHERE id=?',
+                   (k, plan, k, r['id']))
+    for r in db.execute("""SELECT ss.id, ss.slot_date, s.course_plan FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
+                           WHERE s.kind='course' AND ss.date_to IS NULL""").fetchall():
+        plan = wsv.clean_plan(r['course_plan'])
+        if not plan['days']: continue
+        db.execute("UPDATE service_slots SET date_to=?, kind='edition' WHERE id=?", (wsv.edition_end(r['slot_date'], plan), r['id'])); n_ed += 1
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)',
+               ('50.58', now(), f'Servicios en el idioma del buceador: {n_kind} servicios con su tipo, {n_plan} cursos con su plan de días, {n_ed} ediciones con fecha de fin'))
 
 
 def migrate_v50_57(db):
@@ -3670,7 +3719,10 @@ def booking_quote(db, center_id, service, participants, activity_date=None, extr
     currency='EUR'
     if service:
         unit, currency, _ = effective_service_tariff(db, service['id'], activity_date)
-        lines.append({'kind':'service','label':service['title'],'unit':round(unit,2),'qty':participants,'total':round(unit*participants,2)})
+        if row_get(service, 'price_per') == 'group':   # v50.58: a price for the whole group, whatever the number of people
+            lines.append({'kind':'service','label':f"{service['title']} · precio por grupo",'unit':round(unit,2),'qty':1,'total':round(unit,2)})
+        else:
+            lines.append({'kind':'service','label':service['title'],'unit':round(unit,2),'qty':participants,'total':round(unit*participants,2)})
     # Rental items are 'code' (one per participant) or 'code:qty' (only some divers need it; at most one per participant).
     qty_by_code={}
     for raw in (equipment_codes or []):
@@ -10525,6 +10577,9 @@ def create_booking(db, req):
     btime = clean_time(data.get('booking_time')) if not slot else clean_text(data.get('booking_time'), 20)
     start = on_server_clock(db, wbk.activity_start(bdate, btime), service['id'] if service else None, center_id)
     if not by_provider and start and start <= local_now(): raise ValueError('Esa salida ya ha empezado o ha pasado. Elige otra fecha.')
+    # v50.58 (Parte 3): «Antelación mínima» of the service (Más opciones of the wizard)
+    if not by_provider and start and service and row_get(service, 'lead_hours') and slot and start < local_now() + _timedelta(hours=int(service['lead_hours'])):
+        raise ValueError(f"Este servicio se reserva con al menos {int(service['lead_hours'])} horas de antelación. Elige otra fecha.")
     price, service_currency, price_lines = booking_quote(db, center_id, service, participants, bdate, as_list(data.get('extra_ids')), as_list(data.get('equipment_codes')))
     day_sel = None
     if service and service_unit(service) in wag.DAY_UNITS:
@@ -10632,6 +10687,7 @@ def create_booking(db, req):
         audit(db, customer['id'], 'in_person_notice_accepted', 'booking', bid, {'notice_version': wpres.NOTICE_VERSION})
     elif pay_way == 'in_person':
         db.execute("UPDATE bookings SET pay_way='in_person' WHERE id=? AND user_id=?", (bid, customer['id']))
+    if slot and row_get(slot, 'date_to'): db.execute('UPDATE bookings SET date_to=? WHERE id=?', (slot['date_to'], bid))   # v50.58: a course edition or a trip, with its last day
     if day_sel:
         db.executemany('INSERT INTO booking_days(booking_id,local_date,part) VALUES(?,?,?)', [(bid, d, day_sel['part']) for d in day_sel['days']])
         db.execute('UPDATE bookings SET date_to=?,days_mode=? WHERE id=?', (day_sel['days'][-1], day_sel['part'], bid))
@@ -13774,6 +13830,231 @@ def agenda_save_hours(db, user, data):
     return {'ok': True}
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# v50.58 (revisión y usabilidad, Parte 3): the services wizard. «¿Qué vas a ofrecer?» → lo básico → cuándo y cuánto dura →
+# precio y plazas → cómo se reserva → revisar y publicar. A draft is saved with whatever there is; publishing checks
+# everything and answers with the errors next to each field. The booking unit is not asked: it follows from the kind.
+# Inside, the same service of always (provider_services), the same departures (service_slots) and the same two booking
+# modes of Fase 1B: a course edition is a departure with its end date, a trip one with its dates.
+# ---------------------------------------------------------------------------------------------------------------------
+WIZARD_KEYS = ('kind', 'title', 'description', 'icon', 'includes', 'level_required', 'min_age', 'languages', 'meeting_point', 'hours',
+               'minutes', 'start_time', 'plan', 'half_days', 'rental_per', 'trip_from', 'trip_to', 'price_per', 'price', 'half_price',
+               'max_participants', 'extra_ids', 'booking_mode', 'response_hours', 'deposit_type', 'deposit_value', 'pay_way', 'lead_hours',
+               'tags', 'schedule', 'instructor_user_id', 'boat_id', 'template_id', 'color', 'insurance_required', 'unit_rules',
+               'cancel_free_hours', 'cancel_refund_pct', 'step', 'pay_methods', 'pay_other', 'pay_whatsapp', 'pay_policy', 'accept_in_person_terms')
+
+
+def service_plan(svc):
+    """The plan of days of a course: the saved one or, for a course saved before v50.58, the one its title or minutes say."""
+    plan = wsv.clean_plan(row_get(svc, 'course_plan'))
+    return plan if plan['days'] else wsv.plan_from_legacy(row_get(svc, 'title'), row_get(svc, 'duration_minutes'))
+
+
+def provider_today(db, user):
+    """Today where the centre or the freelance works (their time zone), as 'YYYY-MM-DD'."""
+    tz = place_tz(db, center_id=user['center_id']) if user['role'] == 'center' and user['center_id'] else \
+        wag.tz_for_country((db.execute('SELECT country FROM user_profiles WHERE user_id=?', (user['id'],)).fetchone() or {'country': None})['country'],
+                           wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ))
+    return wag.today_in(tz).isoformat()
+
+
+def wizard_options(db, user):
+    """What the wizard offers to this centre or freelance: templates by kind, instructors, boats, extras and whether
+    online payments work (for «⚡ Reserva inmediata»)."""
+    cid = user['center_id'] if user['role'] == 'center' else None
+    lang = 'es'
+    templates = []
+    for t in public_service_catalog(db, lang)['items']:
+        k = 'baptism' if t.get('icon') in ('bautizo', 'snorkel') else wsv.kind_of({'service_type': t.get('service_type'), 'title': t.get('name')})
+        templates.append({'id': t['id'], 'name': t.get('name'), 'kind': k, 'service_type': t.get('service_type'), 'icon': t.get('icon'),
+                          'duration_minutes': t.get('duration_minutes'), 'max_participants': t.get('max_participants'),
+                          'booking_mode': t.get('booking_mode'), 'description': t.get('description'), 'photo': t.get('photo')})
+    instructors = [dict(r) for r in db.execute("SELECT id, fullname FROM users WHERE role='center' AND center_id=? ORDER BY fullname", (cid,)).fetchall()] if cid else []
+    boats = [dict(r) for r in db.execute('SELECT id, name, capacity FROM boats WHERE center_id=? AND active=1 ORDER BY name', (cid,)).fetchall()] if cid else []
+    extras = [dict(r) for r in db.execute('SELECT id, name, price FROM center_extras WHERE center_id=? AND active=1 ORDER BY name', (cid,)).fetchall()] if cid else []
+    ready = service_payments_ready(db, {'center_id': cid, 'provider_user_id': user['id']})
+    return {'role': user['role'], 'today': provider_today(db, user), 'templates': templates, 'instructors': instructors, 'boats': boats,
+            'extras': extras, 'payments_ready': bool(ready), 'kinds': wsv.KIND_LABELS, 'includes': wsv.INCLUDES, 'presets': wsv.PRESETS,
+            'kind_mode': wsv.KIND_MODE, 'hours': wsv.DEFAULT_HOURS, 'max_course_days': wsv.MAX_COURSE_DAYS}
+
+
+def wizard_errors(fields, message='Revisa los datos marcados.'):
+    e = ValueError(message); e.extra = {'fields': fields}; return e
+
+
+def wizard_edition_claim(db, svc, slot_id, start, plan, instructor_id):
+    """The instructor of an edition is busy on each day of the course (its mornings, afternoons or full days), in the
+    common agenda: he can never have two courses, nor a course and a day booked as a guide, at the same time."""
+    if not instructor_id: return
+    res = staff_resource(db, svc['center_id'], instructor_id) if svc['center_id'] else person_resource(db, svc['provider_user_id'])
+    tz = service_tz(db, svc)
+    spans = [(wag.local_to_utc(d, a, tz), wag.local_to_utc(d, b, tz), d, d) for d, a, b in wsv.edition_spans(start, plan)]
+    try:
+        agenda_claim(db, res['id'], spans, 'manual', 'edition', slot_id, note=f"Curso · {svc['title']}"[:120])
+    except NoSpots:
+        raise
+    except ValueError:
+        d = _dt.date.fromisoformat(start)
+        who = (db.execute('SELECT fullname FROM users WHERE id=?', (instructor_id,)).fetchone() or {'fullname': 'El instructor'})['fullname']
+        raise wizard_errors({'instructor_user_id': f'{who} ya tiene algo en las fechas del curso que empieza el {d.day}/{d.month}. Elige otro instructor u otra fecha.'})
+
+
+def wizard_create_dates(db, user, svc, dates, start_time, seats, instructor_id=None, trip_to=None):
+    """Departures (an immersion), editions (a course) or the dates of a trip. A date that already exists is kept as it is."""
+    kind = wsv.kind_of(svc); plan = service_plan(svc) if kind == 'course' else None
+    if instructor_id and svc['center_id'] and not db.execute("SELECT 1 FROM users WHERE id=? AND role='center' AND center_id=?", (instructor_id, svc['center_id'])).fetchone():
+        raise wizard_errors({'instructor_user_id': 'Ese instructor no es del equipo del centro.'})
+    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
+    made = []
+    for d in dates:
+        date_to = wsv.edition_end(d, plan) if plan else (trip_to if kind == 'trip' else None)
+        if db.execute('SELECT 1 FROM service_slots WHERE service_id=? AND slot_date=? AND slot_time=?', (svc['id'], d, start_time)).fetchone(): continue
+        sid = db.execute("""INSERT INTO service_slots(service_id,slot_date,slot_time,spots_total,spots_available,status,point_mode,created_at,updated_at,date_to,instructor_user_id,kind)
+                            VALUES(?,?,?,?,?,'open','fixed',?,?,?,?,?)""",
+                         (svc['id'], d, start_time, seats, seats, now(), now(), date_to, instructor_id, 'edition' if plan else ('trip' if kind == 'trip' else None))).lastrowid
+        if plan: wizard_edition_claim(db, svc, sid, d, plan, instructor_id or (svc['provider_user_id'] if not svc['center_id'] else None))
+        made.append(sid)
+    if made: audit(db, user['id'], 'service_dates_created', 'provider_service', svc['id'], {'dates': dates[:60], 'slots': made})
+    return made
+
+
+def wizard_save(db, user, data, ip=''):
+    """Saves the wizard: as a draft (whatever there is) or published (everything checked). Returns the service and what
+    was created. The errors come back next to each field («Pon cuántos días dura el curso»)."""
+    data = {k: data.get(k) for k in WIZARD_KEYS + ('id', 'publish') if k in data}
+    publish = bool(data.get('publish')); sid = int(data.get('id') or 0)
+    center_id = user['center_id'] if user['role'] == 'center' else None
+    if user['role'] == 'center' and not center_id: raise ValueError('Tu cuenta de centro no tiene una ficha asociada.')
+    cur = None
+    if sid:
+        cur = db.execute('SELECT * FROM provider_services WHERE id=?', (sid,)).fetchone()
+        if not cur or not owns_service(user, cur['provider_user_id'], cur['center_id']): raise NotFound('Servicio no encontrado.')
+    today = provider_today(db, user)
+    clean, errors = wsv.check_form(data, user['role'], publish, today)
+    kind = clean['kind']
+    dates, derr = wsv.schedule_dates(data, kind, today) if kind in ('dive', 'baptism', 'other', 'course') else ([], None)
+    if publish and derr: errors['schedule'] = derr
+    has_dates = bool(cur) and bool(db.execute("SELECT 1 FROM service_slots WHERE service_id=? AND slot_date>=? AND status IN ('open','full')", (cur['id'], today)).fetchone())
+    if publish and kind == 'course' and not dates and not has_dates: errors['schedule'] = 'Elige la fecha de inicio de al menos una edición del curso.'
+    if publish and kind == 'trip' and clean.get('trip_from') and not has_dates: dates = [clean['trip_from']]
+    instructor_id = int(data.get('instructor_user_id') or 0) or None
+    if publish and errors: raise wizard_errors(errors)
+    # ---- what is saved as it was before v50.58 (the same helpers as the form of always)
+    unit = ('half_day' if clean.get('half_days') else 'day') if kind == 'guide' else 'slot'
+    if unit in wag.DAY_UNITS and not provider_has(db, *(provider_ref(db, user) or ('center', 0)), 'agenda_days'): raise PlanRequired('agenda_days')
+    price = clean['price'] or 0.0
+    if publish: price = clean_service_price(price, unit)
+    mode_data = {'booking_mode': clean['booking_mode'], 'response_hours': clean['response_hours'], 'payment_hours': None}
+    pay_way = data.get('pay_way') if user['role'] == 'freelance' else None
+    try:
+        mode, resp_h, pay_h = clean_booking_mode(db, user, mode_data, price)
+    except ValueError as e:
+        if publish: raise wizard_errors({'booking_mode': str(e)})
+        mode, resp_h, pay_h = 'request', wbk.clamp_hours(clean['response_hours'], wbk.DEFAULT_RESPONSE_HOURS), wbk.DEFAULT_PAYMENT_HOURS
+    pay_set = None
+    if user['role'] == 'freelance' and (pay_way or (cur and cur['pay_way'])):
+        pdata = dict(data); pdata['pay_way'] = pay_way or cur['pay_way']
+        pay_set = clean_pay_settings(db, user, pdata, mode, cur, 'service', ip)
+    title = clean['title'] or (cur['title'] if cur else 'Borrador sin nombre')
+    stype = wsv.KIND_TYPE[kind] if not (cur and cur['kind'] == kind and cur['service_type'] in SERVICE_TYPES) else cur['service_type']
+    if data.get('template_id'):
+        t = db.execute('SELECT service_type FROM service_catalog WHERE id=?', (int(data.get('template_id') or 0),)).fetchone()
+        if t and t['service_type'] in SERVICE_TYPES and wsv.kind_of({'service_type': t['service_type']}) in (kind, 'dive') and kind in ('dive', 'other', 'trip'): stype = t['service_type']
+    plan_json = json.dumps(clean['plan'], ensure_ascii=False) if kind == 'course' else None
+    state = {k: data.get(k) for k in ('schedule', 'step', 'trip_from', 'trip_to', 'hours', 'minutes', 'start_time') if data.get(k) not in (None, '')}
+    seats = clean['max_participants']
+    vals = dict(kind=kind, service_type=stype, title=title, description=clean['description'], duration_minutes=clean.get('duration_minutes'),
+                price=price, max_participants=seats, booking_mode=mode, response_hours=resp_h, payment_hours=pay_h,
+                icon=clean['icon'], course_plan=plan_json, rental_per=clean.get('rental_per'), price_per=clean['price_per'],
+                includes=json.dumps(clean['includes']), level_required=clean['level_required'] or None, min_age=clean['min_age'],
+                languages=json.dumps(clean['languages']), meeting_point=clean['meeting_point'] or None, wizard_state=json.dumps(state, ensure_ascii=False),
+                extra_ids=json.dumps(clean['extra_ids']) if clean['extra_ids'] is not None else None, tags=clean['tags'] or None,
+                lead_hours=clean['lead_hours'])
+    if publish:
+        ref = provider_ref(db, user); lim = plan_limit(db, *ref, 'services_max') if ref else 0
+        if lim and not (cur and cur['active'] and not cur['draft']):
+            n_ = db.execute('SELECT COUNT(*) FROM provider_services WHERE active=1 AND ' + ('center_id=?' if ref[0] == 'center' else 'provider_user_id=? AND center_id IS NULL'), (ref[1],)).fetchone()[0]
+            if n_ >= lim: raise PlanRequired('services_max', f'Tu plan permite {lim} servicios publicados. Desactiva alguno o cambia de plan.')
+    if cur:
+        sets = ', '.join(f'{k}=?' for k in vals)
+        db.execute(f'UPDATE provider_services SET {sets}, updated_at=? WHERE id=?', (*vals.values(), now(), cur['id']))
+        sid = cur['id']
+        if publish: db.execute('UPDATE provider_services SET draft=0, active=1 WHERE id=?', (sid,))
+        if center_id and publish and cur['draft']:
+            db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)', (center_id, sid, price, 'EUR', now()[:10], now(), now()))
+        elif center_id and publish and float(cur['price'] or 0) != float(price):
+            db.execute('UPDATE center_tariffs SET price=?,updated_at=? WHERE service_id=? AND effective_from<=? AND active=1', (price, now(), sid, now()[:10]))
+    else:
+        cols = ['provider_user_id', 'center_id', 'currency', 'active', 'draft', 'color', 'created_at', 'updated_at', *vals.keys()]
+        row = [user['id'], center_id, 'EUR', 1 if publish else 0, 0 if publish else 1, '#2563eb', now(), now(), *vals.values()]
+        sid = db.execute(f'INSERT INTO provider_services({",".join(cols)}) VALUES({",".join("?" * len(cols))})', row).lastrowid
+        if center_id:
+            db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)', (center_id, sid, price, 'EUR', now()[:10], now(), now()))
+    if pay_set: save_pay_settings(db, 'provider_services', 'service', sid, pay_set)
+    if 'template_id' in data: db.execute('UPDATE provider_services SET template_id=? WHERE id=?', (valid_template_id(db, data.get('template_id'), cur['template_id'] if cur else None), sid))
+    if data.get('deposit_type') not in (None, ''):
+        dep_kind, dep_value = clean_deposit(data, price); db.execute('UPDATE provider_services SET deposit_type=?,deposit_value=? WHERE id=?', (dep_kind, dep_value, sid))
+    if 'cancel_free_hours' in data or 'cancel_refund_pct' in data:
+        pol_h, pol_pct = clean_policy_numbers(data.get('cancel_free_hours'), data.get('cancel_refund_pct'))
+        if (pol_h is None) != (pol_pct is None): raise wizard_errors({'cancel_free_hours': 'Indica las horas y el porcentaje de la política de cancelación, o deja los dos vacíos.'})
+        db.execute('UPDATE provider_services SET cancel_free_hours=?,cancel_refund_pct=? WHERE id=?', (pol_h, pol_pct, sid))
+    # The agenda by days (a guide) and the instructor or boat of the service: the same helpers as the form of always
+    agenda = {'booking_unit': unit}
+    if 'insurance_required' in data: agenda['insurance_required'] = data['insurance_required']
+    if center_id and kind == 'course' and data.get('boat_id') is not None: agenda['boat_id'] = data.get('boat_id')
+    if unit in wag.DAY_UNITS:
+        agenda['pricing'] = {'per': 'person' if clean['price_per'] == 'person' else 'group', 'day': price, 'half': clean.get('half_price')}
+        agenda['unit_rules'] = data.get('unit_rules') or {}
+    if publish or unit in wag.DAY_UNITS: save_service_agenda_options(db, user, sid, agenda)
+    elif 'insurance_required' in data: save_service_agenda_options(db, user, sid, {'insurance_required': data['insurance_required']})
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (sid,)).fetchone()
+    made = []
+    if publish and dates and seats:
+        start_time = clean.get('start_time') or '09:00'
+        made = wizard_create_dates(db, user, svc, dates, start_time, seats, instructor_id, clean.get('trip_to'))
+    if publish and moderation_open(db, 'service', sid): db.execute('UPDATE provider_services SET active=0 WHERE id=?', (sid,))
+    audit(db, user['id'], 'service_published' if publish else 'service_draft_saved', 'provider_service', sid, {'kind': kind, 'dates': len(made)})
+    warnings = []
+    if publish and kind in ('dive', 'baptism', 'other') and not made and not has_dates:
+        warnings.append('Todavía no tiene salidas: nadie puede reservarlo hasta que añadas la primera.')
+    return {'ok': True, 'id': sid, 'draft': not publish, 'created': len(made), 'warnings': warnings}
+
+
+def duplicate_service(db, user, sid):
+    """«Duplicar servicio»: the same service as a draft («… (copia)»), to make a variant (Open Water in English). Its
+    departures and bookings are not copied; its photo is the same file only while the copy does not change it."""
+    row = db.execute('SELECT * FROM provider_services WHERE id=?', (sid,)).fetchone()
+    if not row or not owns_service(user, row['provider_user_id'], row['center_id']): raise NotFound('Servicio no encontrado.')
+    skip = {'id', 'created_at', 'updated_at', 'active', 'draft', 'title', 'provider_user_id', 'photo_base', 'photo_widths', 'photo_jpg', 'photo_status', 'photo_by', 'photo_at', 'photo_rights_at', 'photo_mode'}
+    generated = {r[1] for r in db.execute('PRAGMA table_xinfo(provider_services)').fetchall() if r[6]}   # generated columns are not copied
+    cols = [c for c in row.keys() if c not in skip and c not in generated]
+    new = db.execute(f'INSERT INTO provider_services(provider_user_id,title,active,draft,created_at,updated_at,{",".join(cols)}) VALUES(?,?,0,1,?,?,{",".join("?" * len(cols))})',
+                     (user['id'], f"{row['title']} (copia)"[:180], now(), now(), *[row[c] for c in cols])).lastrowid
+    if row['center_id']:
+        db.execute('INSERT INTO center_tariffs(center_id,service_id,price,currency,effective_from,active,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)', (row['center_id'], new, row['price'], row['currency'] or 'EUR', now()[:10], now(), now()))
+    audit(db, user['id'], 'service_duplicated', 'provider_service', new, {'from': sid})
+    return {'ok': True, 'id': new}
+
+
+def add_service_dates(db, user, data):
+    """More departures or editions of a published service: loose dates or «todos los lunes de junio», with their places and,
+    for a course, its instructor."""
+    sid = int(data.get('service_id') or 0)
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (sid,)).fetchone()
+    if not svc or not owns_service(user, svc['provider_user_id'], svc['center_id']): raise NotFound('Servicio no encontrado.')
+    today = provider_today(db, user); kind = wsv.kind_of(svc)
+    dates, err = wsv.schedule_dates({'schedule': data.get('schedule') or {}}, kind, today)
+    if err or not dates: raise wizard_errors({'schedule': err or 'Elige al menos una fecha.'})
+    seats = clean_int(data.get('spots_total') or svc['max_participants'] or 0, 1, 999, 0, 'Pon cuántas plazas hay.')
+    if not seats: raise wizard_errors({'spots_total': 'Pon cuántas plazas hay.'})
+    t = str(data.get('slot_time') or '')
+    if kind == 'course' and not wsv.HHMM.match(t):
+        plan = service_plan(svc); t = plan['hours']['pm' if plan['days'][:1] == ['pm'] else 'am'][0]
+    if not wsv.HHMM.match(t): raise wizard_errors({'slot_time': 'Pon la hora de salida (por ejemplo, 09:00).'})
+    made = wizard_create_dates(db, user, svc, dates, t, seats, int(data.get('instructor_user_id') or 0) or None)
+    return {'ok': True, 'created': len(made), 'slots': made}
+
+
 def save_service_resources(db, sid, data):
     """v50.56 (fallo F14): the instructor and the boat a centre's service by days takes. Busy for the whole course in
     the common agenda: the same instructor never gets two courses that overlap, whatever the channel."""
@@ -16074,6 +16355,8 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
                     row=db.execute('SELECT enabled,api_key_prefix,updated_at,created_at FROM center_integrations WHERE center_id=?',(cid,)).fetchone()
                     self.send_json({'configured':bool(row),'integration':dict(row) if row else None}); return
+                if path == '/api/provider-services/wizard-options':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); self.send_json(wizard_options(db,user)); return
                 if path == '/api/provider-services':
                     provider_id=int(query.get('provider_id',['0'])[0] or 0)
                     # Paused services are only listed for their own provider (management panel). Public listings stay active-only.
@@ -16116,6 +16399,9 @@ class Handler(BaseHTTPRequestHandler):
                     ready_cache={}; payee_cache={}
                     for r in rows:
                         d=dict(r)
+                        if not include_inactive: d.pop('wizard_state',None)   # v50.58: the wizard's notes are only for its provider
+                        d['kind']=wsv.kind_of(r)
+                        if d['kind']=='course': d['course_plan']=service_plan(r); d['plan_summary']=wsv.plan_summary(d['course_plan'])
                         d['insurance_required']=ins_requirement(r)   # v50.56: no · center · online
                         tariff_price, tariff_currency, tariff_effective = effective_service_tariff(db, r['id'])
                         d['price']=tariff_price; d['currency']=tariff_currency; d['tariff_effective_from']=tariff_effective
@@ -17912,6 +18198,11 @@ class Handler(BaseHTTPRequestHandler):
                     row=db.execute('SELECT * FROM center_tariffs WHERE id=? AND center_id=?',(tid,cid)).fetchone()
                     if not row: raise ValueError('Tarifa no encontrada.')
                     db.execute('DELETE FROM center_tariffs WHERE id=?',(tid,)); db.commit(); self.send_json({'ok':True}); return
+                if path in ('/api/provider-services/wizard','/api/provider-services/duplicate','/api/provider-services/dates'):
+                    # v50.58 (Parte 3): the services wizard, «Duplicar servicio» and more departures or editions
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
+                    out=wizard_save(db,user,data,self.client_ip()) if path.endswith('/wizard') else duplicate_service(db,user,int(data.get('id') or 0)) if path.endswith('/duplicate') else add_service_dates(db,user,data)
+                    db.commit(); self.send_json(out); return
                 if path=='/api/provider-services':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
                     center_id=user['center_id'] if user['role']=='center' else None
