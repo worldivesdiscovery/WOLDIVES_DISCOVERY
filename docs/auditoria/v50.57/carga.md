@@ -10,10 +10,13 @@ Meta: **el 95 % de las páginas en menos de 500 ms y ningún error**.
 
 ## Cómo se ha medido
 
-- **El servidor de producción**, en este equipo, con una copia de una base de carga (nunca la de datos reales): la demo
-  más 500 buceadores con contraseña real (PBKDF2 de 600.000 iteraciones, como en producción), 22 centros verificados
-  y 2.448 salidas futuras de 40 plazas. Modo producción (`WOD_ENV=production`), pagos con el simulador local de Stripe
-  (nunca el real).
+- **El programa del servidor de la v50.57**, en este equipo, con una copia de una base de carga (nunca la de datos
+  reales): la demo más 500 buceadores con contraseña real (PBKDF2 de 600.000 iteraciones, como en producción), 22
+  centros verificados y 2.448 salidas futuras de 40 plazas. Pagos con el simulador local de Stripe (nunca el real).
+- **Arranca en modo desarrollo** (`WOD_ENV=development`), no en modo producción: el modo producción no arranca sin
+  dominio con https, y este equipo no lo tiene. Para lo que se mide no cambia nada: el mismo programa, los mismos
+  procesos, la misma base con WAL y la misma caché; solo los correos se escriben en archivos en lugar de esperar al
+  servidor de correo.
 - **Como el VPS contratado (Hostinger KVM 2, 2 vCPU)**: el servidor con `WOD_WORKERS=2` y fijado a **2 núcleos**
   (`taskset`); el generador de carga (Locust) en los otros 2, para que no le quite procesador al servidor.
 - **⟪USUARIOS⟫ usuarios a la vez** durante ⟪DURACION⟫ de régimen estable (después de la llegada y de un tiempo para
@@ -21,10 +24,17 @@ Meta: **el 95 % de las páginas en menos de 500 ms y ningún error**.
   - **300 visitantes navegando** como personas: portada (con su mapa de puntos), explorar y listas de puntos, fichas
     de puntos y de centros, calendarios de salidas, buscador y salidas cercanas. Cada uno espera de 3 a 10 s entre
     una pantalla y otra (un uso intenso: una persona real suele tardar más) y tiene su propia IP, como detrás del
-    proxy. Cada visita nueva baja la web entera (página, estilos, programa, imágenes) y las siguientes la revalidan.
+    proxy. Cada visita nueva baja la web entera, como el navegador: la página, los estilos, el programa principal, las
+    librerías del mapa, las imágenes y, si lee en otro idioma (la mitad de los visitantes), su paquete de idioma. Las
+    visitas siguientes la revalidan.
   - **20 usuarios reservando, cada uno una reserva por segundo**: 20 reservas por segundo, cada vez en una salida
     distinta y con la sesión de un buceador distinto (las sesiones se abren antes: 20 inicios de sesión por segundo,
-    con su cálculo de contraseña deliberadamente lento, serían otra prueba).
+    con su cálculo de contraseña deliberadamente lento, serían otra prueba). Si el servicio es de «pago al reservar»
+    (uno de cada tres), la persona paga al momento en el simulador de Stripe y la página de vuelta confirma el pago,
+    como en la web.
+  - Con 500 cuentas, 20 reservas por segundo son una reserva de cada cuenta cada 25 s; en la realidad serían miles de
+    personas distintas. Por eso, solo en esta prueba, el límite de 20 reservas por persona y hora se sube (se sigue
+    consultando en cada reserva). El límite de 3 pagos sin terminar por persona sigue igual.
   - **Ráfagas a la misma salida**: cada ⟪CADA⟫ s, un centro abre una salida de ⟪PLAZAS⟫ plazas y le llegan **20 reservas
     a la vez** por los cuatro caminos del encargo multicanal: 12 buceadores por la web, 4 reservas manuales del centro y
     4 por la API del centro. Después se cuentan en la base las plazas tomadas.

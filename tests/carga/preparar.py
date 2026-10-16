@@ -99,6 +99,9 @@ def server_env(run_dir: Path, db: Path, port: int, host: str, public_host: str, 
         # Como detrás de nginx: el generador manda X-Forwarded-For con una IP distinta por usuario simulado, así los
         # límites por IP, las visitas únicas (stat_bump) y los registros funcionan como con visitantes reales.
         'WOD_TRUSTED_PROXIES': '127.0.0.1,::1',
+        # 20 reservas por segundo con 500 cuentas son una reserva por cuenta cada 25 s; en la realidad serían miles de
+        # personas distintas. El límite de 20 reservas por persona y hora se sube (se sigue consultando en cada reserva).
+        'WOD_BOOKING_MAX_PER_HOUR': '1000000',
     })
     if not backups: env['WOD_BACKUP'] = 'off'
     if pagos == 'stripe-sim':

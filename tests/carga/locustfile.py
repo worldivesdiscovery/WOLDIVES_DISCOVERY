@@ -84,8 +84,14 @@ STATIC_FALLBACK = ['/lib/leaflet/leaflet.css', '/lib/markercluster/MarkerCluster
                    '/lib/markercluster/leaflet.markercluster.js', '/lib/protomaps-leaflet/protomaps-leaflet.js', '/lib/protomaps-leaflet/wd-flavor.js',
                    '/js/world-dives-v8.js?v=50.50', '/js/sw-register.js', '/manifest.webmanifest', '/img/marca/favicon-32.png']
 
+# The map libraries, as WD_MAP_CSS and WD_MAP_JS in world-dives-v8.js: the home page draws its map of points.
+MAP_LIBS = ['/lib/leaflet/leaflet.css', '/lib/markercluster/MarkerCluster.css', '/lib/leaflet/leaflet.js', '/lib/markercluster/leaflet.markercluster.js',
+            '/lib/protomaps-leaflet/protomaps-leaflet.js', '/lib/protomaps-leaflet/wd-flavor.js']
+# Language of each simulated visitor: about half read the web in Spanish, the rest in the other 8 languages.
+IDIOMAS = ['es'] * 8 + ['en'] * 4 + ['fr', 'de', 'it', 'pt', 'pl', 'nl', 'zh']
+
 # ---------------------------------------------------------------------------------------------- catálogo compartido (por proceso)
-_CAT = {'points': [], 'centers': [], 'static': None, 'images': [], 'lock': threading.Lock()}
+_CAT = {'points': [], 'centers': [], 'static': None, 'version': '', 'images': [], 'lock': threading.Lock()}
 _counter = {'centro': random.randrange(1000), 'buzo': random.randrange(100000)}
 
 
@@ -203,6 +209,7 @@ class Web(FastHttpUser):
         # Una IP por usuario simulado (X-Forwarded-For): el servidor de carga confía en 127.0.0.1 como proxy.
         self.ip = f'100.{random.randint(64, 127)}.{random.randint(0, 255)}.{random.randint(1, 254)}'
         self.etags = {}; self.views = 0; self.next_visit = random.randint(8, 20)
+        self.lang = random.choice(IDIOMAS)
 
     def on_start(self):
         self.cargar_web(primera=True)
@@ -254,14 +261,23 @@ class Web(FastHttpUser):
         if _CAT['static'] is None:
             with self.client.get('/', name='pag GET / (index)', headers=self.hdr(), catch_response=True) as r:
                 html = r.text or ''
-                links = re.findall(r'(?:src|href)="(/[^"#]+?\.(?:js|css|png|ico|webmanifest|svg)(?:\?[^"]*)?)"', html)
-                _CAT['static'] = links or STATIC_FALLBACK
+                # v50.57: the main script comes as data-main of the boot script (written inside the page), and the map
+                # libraries are loaded by the main script when the map of the home page is drawn (since v50.54)
+                links = re.findall(r'(?:src|href|data-main)="(/[^"#]+?\.(?:js|css|png|webp|ico|webmanifest|svg)(?:\?[^"]*)?)"', html)
+                links = list(dict.fromkeys(links)) if links else list(STATIC_FALLBACK)
+                links += [x for x in MAP_LIBS if x not in links]
+                ver = next((x.split('?v=', 1)[1] for x in links if 'world-dives-v8.js?v=' in x), '')
+                _CAT['static'] = links; _CAT['version'] = ver
                 r.success() if r.status_code == 200 else r.failure(f'HTTP {r.status_code}')
         else:
             self.get('/', '/ (index)')
-        for path in _CAT['static']:
+        paths = list(_CAT['static'])
+        # the language pack of the visitor (the Spanish texts are in the main script)
+        if self.lang != 'es': paths.append(f"/idiomas/{self.lang}.json?v={_CAT.get('version') or ''}")
+        for path in paths:
             h = {'If-None-Match': self.etags[path]} if path in self.etags else None
-            r = self.get(path, 'estático ' + ('.js' if '.js' in path else '.css' if '.css' in path else 'otro'), headers=h)
+            kind = '.js' if '.js' in path else '.css' if '.css' in path else '.json (idioma)' if path.startswith('/idiomas/') else 'otro'
+            r = self.get(path, 'estático ' + kind, headers=h)
             et = r.headers.get('ETag') if r.headers else None
             if et: self.etags[path] = et
 
@@ -580,7 +596,25 @@ def _carga_json(name):
 
 _SESIONES = _carga_json('sesiones.json')
 _SALIDAS = _carga_json('salidas.json').get('salidas', [])
-_turno = {'sesion': random.randrange(1 << 16), 'salida': random.randrange(1 << 16)}
+_turno = {}     # filled by the first booking of each process (after the fork of --processes): see _siguiente_reserva
+
+
+def _siguiente_reserva(environment):
+    """Account and departure of the next booking of THIS process. With --processes P, Locust reads this file before
+    forking: started here, every process would send the same booking (same person, same departure) at the same time and
+    the server would rightly take the second one for a double click (v50.51). So each process books with its own
+    accounts (those whose number ≡ its index, mod P) and its own sequence of departures. With workers on other machines,
+    WOD_CARGA_PROCESOS must say how many worker processes there are in total."""
+    if not _turno:
+        runner = getattr(environment, 'runner', None)
+        w = max(0, int(getattr(runner, 'worker_index', 0) or 0))
+        procs = int(os.environ.get('WOD_CARGA_PROCESOS') or getattr(getattr(environment, 'parsed_options', None), 'processes', 0) or 1)
+        if procs < 0: procs = os.cpu_count() or 1
+        tokens = _SESIONES['tokens']
+        if w >= procs or procs > len(tokens): w, procs = 0, 1
+        _turno.update(w=w, procs=procs, mias=tokens[w::procs], k=random.randrange(1 << 16), salida=random.randrange(1 << 16))
+    _turno['k'] += 1; _turno['salida'] += 7          # a different departure in each booking (prime step)
+    return _turno['mias'][_turno['k'] % len(_turno['mias'])], _SALIDAS[_turno['salida'] % len(_SALIDAS)]
 
 
 class Reservas(Web):
@@ -594,18 +628,38 @@ class Reservas(Web):
     @tag('reservar')
     @task
     def reservar_salida(self):
-        _turno['sesion'] += 1; _turno['salida'] += 7     # salidas distintas en cada reserva seguida (paso primo)
-        token = _SESIONES['tokens'][_turno['sesion'] % len(_SESIONES['tokens'])]
-        c, s, sl = _SALIDAS[_turno['salida'] % len(_SALIDAS)]
+        token, (c, s, sl) = _siguiente_reserva(self.environment)
         try: self.client.cookiejar.clear()
         except Exception: pass
         body = {'center_id': c, 'service_id': s, 'slot_id': sl, 'participants': 1, 'notes': 'Reserva de la prueba de carga (20/s)'}
+        checkout = None
         with self.client.post('/api/bookings', json=body, name='res POST /api/bookings (20 por segundo)', catch_response=True,
                               headers=self.hdr({'Origin': self.host, 'Cookie': f"{_SESIONES['cookie']}={token}"})) as r:
             if r.status_code == 200:
                 r.success()
+                try: d = r.json()
+                except ValueError: d = {}
+                if d.get('payment_required'): checkout = d.get('checkout_url')
             elif r.status_code in (400, 409) and any(w in (r.text or '') for w in ('plazas', 'ya no está disponible', 'ya ha empezado')):
                 r.success(); self.biz('reserva 20/s · sin plazas en esa salida')
             else:
                 r.failure(f'HTTP {r.status_code}: {(r.text or "")[:160]}')
+        # «Pago al reservar»: the person pays at once in (the simulator of) Stripe, as a real one would. Unpaid, the same
+        # account soon meets the rule «Tienes varios pagos sin terminar» (against abuse), which is not what is measured here.
+        sid = stripe_session_id(checkout) if checkout else None
+        if sid and STRIPE_CONTROL:
+            with self.client.post(f'{STRIPE_CONTROL}/pagar/{sid}', json={}, name='sim POST stripe /pagar (reservas 20/s)', catch_response=True) as r:
+                r.success() if r.status_code == 200 else r.failure(f'HTTP {r.status_code}')
+            # back from Stripe, #/pago-ok asks the server, which checks the payment and confirms the booking
+            d = None
+            with self.client.get(f'/api/payments/session/{sid}', name='res GET /api/payments/session/[id] (reservas 20/s)', catch_response=True,
+                                 headers=self.hdr({'Cookie': f"{_SESIONES['cookie']}={token}"})) as r:
+                if r.status_code == 200:
+                    r.success()
+                    try: d = r.json()
+                    except ValueError: d = None
+                else:
+                    r.failure(f'HTTP {r.status_code}: {(r.text or "")[:120]}')
+            st = ((d or {}).get('payment') or {}).get('status')
+            if d is not None and st != 'paid': self.biz(f'reserva 20/s · pago aún no confirmado ({st})')
 
