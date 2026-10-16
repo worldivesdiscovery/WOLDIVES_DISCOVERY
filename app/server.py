@@ -72,6 +72,8 @@ from wod import enlaces as wenl   # v50.57 (4.4): short addresses of the QR code
 from wod import logbook as wlog   # v50.57: the dive logbook of the account («Dive Logbook»)
 from wod import servicios as wsv   # v50.58: services in the words of a diver (the wizard, courses and their sessions)
 from wod import equipo as weq   # v50.58: rental equipment inside the dive (16/10/2026)
+from wod import puntos as wpun   # v50.58: fuller dive sites, sources, batches and duplicates (16/10/2026)
+from wod import costa as wcosta   # v50.58: land or sea, and the distance to the shore, of a dive site
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1916,6 +1918,7 @@ def migrate_v50_58(db):
     add_columns(db, 'users', [('course_reminder_days', 'INTEGER')])
     for stmt in COURSE_SESSIONS_SCHEMA: db.execute(stmt)
     migrate_equipment(db)
+    migrate_points_v50_58(db)
     if migration_done(db, '50.58'): return
     n_kind = n_plan = n_ed = 0
     for r in db.execute('SELECT * FROM provider_services WHERE kind IS NULL').fetchall():
@@ -1931,6 +1934,44 @@ def migrate_v50_58(db):
         db.execute("UPDATE service_slots SET date_to=?, kind='edition' WHERE id=?", (wsv.edition_end(r['slot_date'], plan), r['id'])); n_ed += 1
     db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)',
                ('50.58', now(), f'Servicios en el idioma del buceador: {n_kind} servicios con su tipo, {n_plan} cursos con su plan de días, {n_ed} ediciones con fecha de fin'))
+
+
+def migrate_points_v50_58(db):
+    """v50.58 · fuller dive sites and a wider catalogue (owner's brief of 16/10/2026). Adds columns and tables; nothing
+    is deleted. Once, over what exists: the structured access where the access text says it clearly («Barco…»,
+    «Orilla…»), the land-or-sea check of every site, the old source of each site into the private register of sources,
+    the pending position corrections as change proposals (the old rows stay, marked) and a first search of possible
+    duplicates for the administration to decide."""
+    add_columns(db, 'dive_points', wpun.NEW_COLUMNS)
+    for stmt in wpun.SCHEMA: db.execute(stmt)
+    if migration_done(db, '50.58-puntos'): return
+    n_acc = n_src = n_sug = 0; checks = {}
+    kinds = {'boat': 'boat', 'boat_from': 'boat', 'shore': 'shore', 'boat_shore': 'both'}
+    for r in db.execute('SELECT * FROM dive_points').fetchall():
+        if not r['access']:
+            k = kinds.get(wpt.access_kind(r['access_info'] or '')[0])
+            if k: db.execute('UPDATE dive_points SET access=? WHERE id=?', (k, r['id'])); n_acc += 1
+        if r['latitude'] is not None and r['longitude'] is not None:
+            pc = wpun.position_check(r['latitude'], r['longitude'], r['access'] or kinds.get(wpt.access_kind(r['access_info'] or '')[0]), r['dive_type'] or '')
+            checks[pc['status']] = checks.get(pc['status'], 0) + 1
+            db.execute('UPDATE dive_points SET position_check=? WHERE id=?', (json.dumps(pc, ensure_ascii=False), r['id']))
+        if (r['source_name'] or r['source_url']) and not db.execute('SELECT 1 FROM point_sources WHERE point_id=?', (r['id'],)).fetchone():
+            db.execute('INSERT INTO point_sources(point_id,field,kind,ref,checked_at,note,created_at) VALUES(?,?,?,?,?,?,?)',
+                       (r['id'], '*', 'catalogue', (r['source_url'] or r['source_name'] or '')[:500], (r['updated_at'] or r['created_at'] or now())[:10],
+                        f"{r['source_name'] or ''} · confianza: {r['data_confidence'] or '—'}".strip(' ·'), now()))
+            n_src += 1
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='point_position_suggestions'").fetchone():
+        for g in db.execute("SELECT * FROM point_position_suggestions WHERE status='pending'").fetchall():
+            u = db.execute('SELECT role,center_id FROM users WHERE id=?', (g['user_id'],)).fetchone()
+            role = 'center' if u and u['role'] == 'center' else 'diver'
+            db.execute('INSERT INTO point_change_proposals(point_id,user_id,center_id,role,changes,note,status,created_at) VALUES(?,?,?,?,?,?,?,?)',
+                       (g['dive_point_id'], g['user_id'], u['center_id'] if role == 'center' else None, role,
+                        json.dumps({'latitude': g['latitude'], 'longitude': g['longitude']}), g['note'], 'pending', g['created_at']))
+            db.execute("UPDATE point_position_suggestions SET status='migrated' WHERE id=?", (g['id'],)); n_sug += 1
+    n_dup = wpun.scan_duplicates(db)
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)',
+               ('50.58-puntos', now(), f'Fichas de punto: acceso estructurado en {n_acc} puntos, posición comprobada {checks}, '
+                                       f'{n_src} fuentes al registro privado, {n_sug} correcciones como propuestas, {n_dup} posibles duplicados'))
 
 
 def migrate_v50_57(db):
@@ -6334,14 +6375,31 @@ def point_conditions(data):
     return out
 
 
+# v50.58: the fields of the fuller dive site (wpun.clean_fields) and which entry of the register of sources each one is
+POINT_FIELDS=('min_depth','max_depth','access','current','water_temps','visibility_min','visibility_max','bottom','best_months','warnings',
+              'warnings_i18n','protection','protection_name','permit_required')
+POINT_SOURCE_FIELD={'latitude':'position','longitude':'position','min_depth':'depth','max_depth':'depth','current_level':'current',
+                    'visibility_min':'visibility','visibility_max':'visibility','protection_name':'protection','permit_required':'protection',
+                    'dive_type':'type','difficulty':'level','warnings_i18n':'warnings'}
+
+
+def point_own_text(db, pid, desc, update=False):
+    """The texts of a site in the 9 languages: the generated ones (pointtext, from its data) and, when someone wrote
+    one, that Spanish text instead of the generated Spanish one, marked as reviewed so a restart never replaces it."""
+    if not update or not db.execute('SELECT 1 FROM dive_point_texts WHERE point_id=?',(pid,)).fetchone():
+        db.execute('UPDATE dive_points SET description_reviewed=0 WHERE id=?',(pid,)); regenerate_point_texts(db,pid)
+    if desc:
+        db.execute('UPDATE dive_points SET description=?, description_reviewed=1, description_reviewed_at=? WHERE id=?',(desc,now(),pid))
+        db.execute('INSERT INTO dive_point_texts(point_id,lang,description,updated_at) VALUES(?,?,?,?) ON CONFLICT(point_id,lang) DO UPDATE SET description=excluded.description,updated_at=excluded.updated_at',(pid,'es',desc,now()))
+
+
 def point_row(row):
     if not row:
         return None
     d = dict(row)
-    # Provenance metadata is kept internally but is not exposed in the public catalog API.
-    for k in ('source_name', 'source_url', 'data_confidence'):
-        d.pop(k, None)
-    return d
+    # Provenance metadata is kept internally but is not exposed in the public catalog API (v50.58: nor the batch, the
+    # position check, who wrote it, the old text or the translations of the warnings; see wpun.PRIVATE).
+    return wpun.private_out(d)
 
 
 # v50.47 (F1): the columns of a centre that the public may see. Every other column of `centers` (tax data, birth date,
@@ -6769,7 +6827,7 @@ def _build_points(db):
                       FROM links l JOIN centers ce ON ce.id=l.center_id AND """+public_center_sql('ce')+""" LEFT JOIN cr ON cr.center_id=l.center_id GROUP BY l.dive_point_id),
              ph AS (SELECT dive_point_id, COUNT(*) AS n FROM dive_point_photos WHERE image_path NOT IN ('/img/portada/fondo1.webp','/img/iconos/buceador1.png','/img/iconos/buceador2.png') GROUP BY dive_point_id)
         SELECT p.id,p.name,p.country,p.region,p.zone,p.subregion,p.dive_type,p.difficulty,p.min_depth,p.max_depth,p.latitude,p.longitude,
-               p.verification_status,p.description,
+               p.verification_status,p.description,p.access,p.current_level,p.bottom,
                COALESCE(pc.centers,0) AS centers_count, COALESCE(pc.rating_average,0) AS rating_average, COALESCE(pc.review_count,0) AS review_count,
                COALESCE(ph.n,0) AS photo_count,
                (SELECT image_path FROM dive_point_photos x WHERE x.dive_point_id=p.id AND x.image_path NOT IN ('/img/portada/fondo1.webp','/img/iconos/buceador1.png','/img/iconos/buceador2.png') ORDER BY sort_order,id LIMIT 1) AS photo
@@ -6792,6 +6850,7 @@ def _build_points(db):
         d['excerpt']='' if boiler else ((desc[:157]+'…') if len(desc)>160 else desc)
         d['types']=type_ids.get(d['id'],[])
         d['level']=point_level(d.get('difficulty'))
+        d['bottom']=d.get('bottom') or ''   # v50.58: «roca,posidonia» (filters of «Puntos de buceo» and «Explorar»)
         d['_text']=fold_text(' '.join(str(x or '') for x in (d['name'],d['country'],d['region'],d['zone'],d['subregion'],d['dive_type'],desc)))
         d['_name']=fold_text(d['name'])
         a=wgeo.area_of(d['latitude'],d['longitude'],d['country'],areas)
@@ -6899,9 +6958,16 @@ def point_directory(db, query):
     level=g('level') if g('level') in POINT_LEVELS else ''
     depth=g('depth') if g('depth') in DEPTH_BANDS else ''
     area=clean_text(g('area'),120)
+    # v50.58 (owner's brief of 16/10, A.2.4): access, current and type of bottom. «Barco» or «Costa» also finds the sites
+    # reached both ways.
+    access=g('access') if g('access') in ('boat','shore') else ''
+    current=g('current') if g('current') in wpun.CURRENTS else ''
+    bottom=g('bottom') if g('bottom') in wpun.BOTTOMS else ''
     keep={'type':lambda r:tkey in r['types'],'level':lambda r:r['level']==level,'depth':lambda r:depth_band(r)==depth,
-          'area':lambda r:point_group(r,home)==area}
-    active={k for k,v in (('type',tkey),('level',level),('depth',depth),('area',area)) if v}
+          'area':lambda r:point_group(r,home)==area,
+          'access':lambda r:r.get('access') in (access,'both'),'current':lambda r:r.get('current_level')==current,
+          'bottom':lambda r:bottom in (r.get('bottom') or '').split(',')}
+    active={k for k,v in (('type',tkey),('level',level),('depth',depth),('area',area),('access',access),('current',current),('bottom',bottom)) if v}
     def without(skip):
         return [r for r in rows if all(keep[k](r) for k in active if k!=skip)]
     facet_areas={}
@@ -6917,6 +6983,17 @@ def point_directory(db, query):
     for r in without('depth'):
         b=depth_band(r)
         if b: facet_depths[b]=facet_depths.get(b,0)+1
+    facet_access={'boat':0,'shore':0}
+    for r in without('access'):
+        for k in ('boat','shore'):
+            if r.get('access') in (k,'both'): facet_access[k]+=1
+    facet_current={}
+    for r in without('current'):
+        if r.get('current_level'): facet_current[r['current_level']]=facet_current.get(r['current_level'],0)+1
+    facet_bottom={}
+    for r in without('bottom'):
+        for b in (r.get('bottom') or '').split(','):
+            if b: facet_bottom[b]=facet_bottom.get(b,0)+1
     rows=without(None)
     # Facets are computed before the geographic filters so the visitor can always switch zone or country.
     zone=clean_text(g('zone'),120); sub=clean_text(g('subregion'),120); country=clean_text(g('country'),120)
@@ -6930,11 +7007,14 @@ def point_directory(db, query):
     facets={'areas':[{'name':a['name'],'count':a['count']} for a in sorted(facet_areas.values(),key=lambda a:(a['_o'],-a['count'],a['name']))],
             'types':[{'key':fold_text(c['slug']).replace(' ','-'),'label':c['label'],'count':facet_types.get(fold_text(c['slug']).replace(' ','-'),0)} for c in DIVE_CATEGORIES],
             'levels':[{'key':k,'count':facet_levels.get(k,0)} for k in POINT_LEVELS],
-            'depths':[{'key':k,'label':v[0],'count':facet_depths.get(k,0)} for k,v in DEPTH_BANDS.items()]}
+            'depths':[{'key':k,'label':v[0],'count':facet_depths.get(k,0)} for k,v in DEPTH_BANDS.items()],
+            'access':[{'key':k,'label':wpun.ACCESS[k],'count':facet_access[k]} for k in ('boat','shore')],
+            'currents':[{'key':k,'label':v,'count':facet_current.get(k,0)} for k,v in wpun.CURRENTS.items()],
+            'bottoms':[{'key':k,'label':v,'count':facet_bottom.get(k,0)} for k,v in wpun.BOTTOMS.items()]}
     if g('view')=='map':
         # «Mapa» of the list: every matching dive site (few fields), not one page.
         pts=[{'id':r['id'],'name':r['name'],'latitude':r['latitude'],'longitude':r['longitude'],'area':point_group(r,home),'level':r['level'],
-              'min_depth':r['min_depth'],'max_depth':r['max_depth'],'types':r['types'][:2]} for r in rows[:5000] if r['latitude'] is not None and r['longitude'] is not None]
+              'min_depth':r['min_depth'],'max_depth':r['max_depth'],'types':r['types'][:2]} for r in rows[:10000] if r['latitude'] is not None and r['longitude'] is not None]
         return {'items':pts,'total':len(rows),'facets':facets,'home_country':home}
     try: per=max(1,min(60,int(g('per_page','24')))); page=max(1,min(10000,int(g('page','1'))))
     except ValueError: per,page=24,1
@@ -6959,7 +7039,8 @@ def point_directory(db, query):
             'countries':[{'name':k,'count':v} for k,v in sorted(cf.items(),key=lambda x:(-x[1],x[0] or ''))]}
 
 
-MAP_FIELDS=('id','name','country','region','zone','subregion','dive_type','difficulty','latitude','longitude','min_depth','max_depth','types')
+MAP_FIELDS=('id','name','country','region','zone','subregion','dive_type','difficulty','latitude','longitude','min_depth','max_depth','types',
+            'access','current_level','bottom')   # v50.58: the new filters of «Explorar» work on the map itself
 
 
 def points_map_payload(db):
@@ -7508,7 +7589,7 @@ def point_photo_allowed(db, user, pid):
     return bool(db.execute('''SELECT 1 FROM dive_points p WHERE p.id=? AND (p.center_id=? OR EXISTS(SELECT 1 FROM center_point_links l WHERE l.dive_point_id=p.id AND l.center_id=?))''',(pid,user['center_id'],user['center_id'])).fetchone())
 
 
-SNAPSHOT_WRITE_PREFIXES=(('/api/dive-points','POINTS','DIVE_TYPES'),('/api/center-points','POINTS','DIRECTORY','DIVE_TYPES'),('/api/admin/dive-points','POINTS','DIVE_TYPES'),
+SNAPSHOT_WRITE_PREFIXES=(('/api/dive-points','POINTS','DIVE_TYPES'),('/api/admin/suggestions','POINTS'),('/api/center-points','POINTS','DIRECTORY','DIVE_TYPES'),('/api/admin/dive-points','POINTS','DIVE_TYPES'),
     ('/api/travel-experiences','TRAVEL'),('/api/admin/travel','TRAVEL'),('/api/centers','DIRECTORY'),('/api/provider/center','DIRECTORY','PROMOS'),('/api/admin/site-promos','PROMOS'),('/api/provider/center','PROMOS'),('/api/admin/centers','PROMOS'),('/api/provider/avatar','PROMOS'))
 
 
@@ -17424,7 +17505,10 @@ class Handler(BaseHTTPRequestHandler):
                 if path.startswith('/api/dive-points/'):
                     pid = int(path.rsplit('/',1)[1])
                     r = db.execute('''SELECT p.*, c.name AS center_name, rc.name AS recommended_certification_name FROM dive_points p LEFT JOIN centers c ON c.id=p.center_id LEFT JOIN certifications rc ON rc.id=p.recommended_certification_id WHERE p.id=? AND p.active=1''',(pid,)).fetchone()
-                    if not r: self.send_json({'error':'Punto no encontrado'},404); return
+                    if not r:
+                        # v50.58: a site joined to another (duplicates) sends to the one that stays: old links keep working
+                        m=db.execute('SELECT merged_into FROM dive_points WHERE id=? AND merged_into IS NOT NULL',(pid,)).fetchone()
+                        self.send_json({'error':'Punto no encontrado','merged_into':m['merged_into'] if m else None},404); return
                     photos = db.execute('SELECT * FROM dive_point_photos WHERE dive_point_id=? ORDER BY sort_order,id',(pid,)).fetchall()
                     near=[]
                     try:
@@ -17437,6 +17521,8 @@ class Handler(BaseHTTPRequestHandler):
                     if loc: item['description']=loc; item['description_lang']=lang
                     if item.get('description_generated'): item['access_info']=''   # the access is already in the text
                     item['recommended_cert']=recommended_cert(r['recommended_certification_name'],snap_row.get('types',[]))
+                    for k in ('access','current_level','water_temps','bottom','warnings','protection','protection_name','permit_required'): item.pop(k,None)
+                    item.update(wpun.public_fields(r,lang))   # v50.58: access, current, water by season, bottom, warnings, protection, data status
                     item['level']=point_level(r['difficulty'])   # v50.54: the same three levels as the filter and the cards
                     # v50.50/51: species, linked route videos and the old virtual tours come with the site (one indexed query
                     # each, never one request per item). Old tours copied to route videos are not repeated.
@@ -17871,6 +17957,77 @@ class Handler(BaseHTTPRequestHandler):
                     per=clean_text(query.get('periodo',['temporada'])[0],20) or 'temporada'
                     a,b,plabel=wexp.period(per,_dt.date.today(),season_setting(db),query.get('desde',[''])[0],query.get('hasta',[''])[0])
                     self.send_json(admin_bookings_summary(db,a,b,plabel)); return
+                # v50.58 · fuller dive sites and the catalogue (brief of 16/10): what only the administration sees
+                if path == '/api/admin/dive-points/check':
+                    # while placing a site on the map: land or sea, distance to the shore and the sites that may be the same
+                    user=require_user(self,db); require_role(user,{'admin','center'})
+                    lat=wgeo.coord(query.get('lat',[''])[0],'lat'); lon=wgeo.coord(query.get('lon',[''])[0],'lon')
+                    if lat is None or lon is None: raise ValueError('Posición no válida.')
+                    exclude={int(x) for x in query.get('exclude',['0'])[0].split(',') if x.isdigit()}
+                    pc=wpun.position_check(lat,lon,clean_text(query.get('access',[''])[0],10) or None,clean_text(query.get('type',[''])[0],100) or '')
+                    self.send_json({'position':pc,'duplicates':wpun.candidates(db,lat,lon,clean_text(query.get('name',[''])[0],180) or '',exclude=exclude)}); return
+                if path == '/api/admin/dive-points/batches':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    rows=[dict(r) for r in db.execute('SELECT * FROM point_batches ORDER BY CASE status WHEN \'published\' THEN 1 ELSE 0 END, id DESC').fetchall()]
+                    for r in rows: r['summary']=wpun.batch_summary(db,r['id'])
+                    self.send_json({'items':rows}); return
+                if path.startswith('/api/admin/dive-points/batches/'):
+                    user=require_user(self,db); require_role(user,{'admin'}); bid=int(path.rsplit('/',1)[1])
+                    b=db.execute('SELECT * FROM point_batches WHERE id=?',(bid,)).fetchone()
+                    if not b: raise NotFound('Lote no encontrado.')
+                    items=[]
+                    for r in db.execute('''SELECT i.*, p.name AS match_name FROM point_batch_items i LEFT JOIN dive_points p ON p.id=i.match_point_id
+                                            WHERE i.batch_id=? ORDER BY CASE i.status WHEN 'pending' THEN 0 ELSE 1 END, i.id''',(bid,)).fetchall():
+                        d=dict(r); d['data']=json.loads(d['data']); items.append(d)
+                    self.send_json({'batch':dict(b),'summary':wpun.batch_summary(db,bid),'items':items}); return
+                if path == '/api/admin/dive-points/duplicates':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    pairs=[dict(r) for r in db.execute('''SELECT d.*, a.name AS a_name, a.country AS a_country, a.latitude AS a_lat, a.longitude AS a_lon,
+                                                                b.name AS b_name, b.country AS b_country, b.latitude AS b_lat, b.longitude AS b_lon,
+                                                                (SELECT COUNT(*) FROM dive_point_photos x WHERE x.dive_point_id=a.id) AS a_photos,
+                                                                (SELECT COUNT(*) FROM dive_point_photos x WHERE x.dive_point_id=b.id) AS b_photos,
+                                                                (SELECT COUNT(*) FROM center_point_links x WHERE x.dive_point_id=a.id) AS a_centers,
+                                                                (SELECT COUNT(*) FROM center_point_links x WHERE x.dive_point_id=b.id) AS b_centers
+                                                           FROM point_duplicates d JOIN dive_points a ON a.id=d.a_point_id JOIN dive_points b ON b.id=d.b_point_id
+                                                          WHERE d.status='open' AND a.active=1 AND b.active=1 ORDER BY d.kind='doubt', d.distance_m''').fetchall()]
+                    items=[dict(r) for r in db.execute('''SELECT i.id,i.batch_id,i.name,i.latitude,i.longitude,i.match_point_id,i.match_distance_m,i.match_score,
+                                                                 p.name AS match_name, b.title AS batch_title
+                                                            FROM point_batch_items i JOIN point_batches b ON b.id=i.batch_id LEFT JOIN dive_points p ON p.id=i.match_point_id
+                                                           WHERE i.status='pending' AND i.match_kind='doubt' ORDER BY i.batch_id, i.id''').fetchall()]
+                    self.send_json({'pairs':pairs,'items':items}); return
+                if path == '/api/admin/dive-points/proposals':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    admin_data_log(db,self,user,'propuestas de cambio de puntos (nombre y email de quien propone)')
+                    show=admin_confirmation(self,db); items=[]
+                    for r in db.execute('''SELECT pr.*, p.name AS point_name, u.fullname, u.email, c.name AS center_name FROM point_change_proposals pr
+                                            JOIN dive_points p ON p.id=pr.point_id JOIN users u ON u.id=pr.user_id LEFT JOIN centers c ON c.id=pr.center_id
+                                           WHERE pr.status='pending' ORDER BY pr.created_at''').fetchall():
+                        d=dict(r); d['changes']=json.loads(d['changes'])
+                        if not show: d['email']=mask_email(d['email'])
+                        cur=db.execute('SELECT * FROM dive_points WHERE id=?',(r['point_id'],)).fetchone()
+                        d['current']={k:(cur[wpun.COLUMNS.get(k,k)] if wpun.COLUMNS.get(k,k) in cur.keys() else None) for k in d['changes']}
+                        if 'latitude' in d['changes']:
+                            d['position']=wpun.position_check(d['changes']['latitude'],d['changes']['longitude'],cur['access'],cur['dive_type'] or '')
+                            if cur['latitude'] is not None: d['moved_m']=round(wgeo.haversine_km(float(cur['latitude']),float(cur['longitude']),float(d['changes']['latitude']),float(d['changes']['longitude']))*1000)
+                        items.append(d)
+                    self.send_json({'items':items}); return
+                if re.fullmatch(r'/api/admin/dive-points/\d+',path):
+                    # the whole site for its edit page: also what the public page never shows (sources, check, batch)
+                    user=require_user(self,db); require_role(user,{'admin'}); pid=int(path.rsplit('/',1)[1])
+                    r=db.execute('SELECT * FROM dive_points WHERE id=?',(pid,)).fetchone()
+                    if not r: raise NotFound('Punto no encontrado.')
+                    d=dict(r)
+                    for k in ('water_temps','warnings_i18n','position_check'):
+                        try: d[k]=json.loads(d[k]) if d[k] else None
+                        except ValueError: d[k]=None
+                    d['bottom']=[x for x in (d.get('bottom') or '').split(',') if x]; d['best_months']=wpun.months_of(d.get('best_months'))
+                    d['data_status']='verified' if d['verification_status']=='verified' else 'pending'
+                    dups=[dict(x) for x in db.execute('''SELECT d.id,d.kind,d.distance_m,d.score, CASE WHEN d.a_point_id=? THEN d.b_point_id ELSE d.a_point_id END AS other_id,
+                                                                (SELECT name FROM dive_points WHERE id=CASE WHEN d.a_point_id=? THEN d.b_point_id ELSE d.a_point_id END) AS other_name
+                                                           FROM point_duplicates d WHERE d.status='open' AND (d.a_point_id=? OR d.b_point_id=?)''',(pid,pid,pid,pid)).fetchall()]
+                    self.send_json({'item':d,'sources':wpun.sources_of(db,pid),'duplicates':dups,
+                                    'proposals':db.execute("SELECT COUNT(*) FROM point_change_proposals WHERE point_id=? AND status='pending'",(pid,)).fetchone()[0],
+                                    'choices':{'access':wpun.ACCESS,'currents':wpun.CURRENTS,'bottoms':wpun.BOTTOMS,'seasons':wpun.SEASONS,'protections':wpun.PROTECTIONS,'source_kinds':wpun.SOURCE_KINDS}}); return
                 if path == '/api/admin/suggestions':
                     user=require_user(self,db); require_role(user,{'admin'})
                     admin_data_log(db,self,user,'propuestas de posición (nombre y email de quien propone)')
@@ -20100,7 +20257,36 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self)
                     center_id=data.get('center_id') or (user['center_id'] if user['role']=='center' else None)
                     if user['role']=='center' and center_id!=user['center_id']: raise PermissionError('Solo puedes crear puntos de tu centro.')
-                    cur=db.execute('''INSERT INTO dive_points(name,country,region,dive_type,latitude,longitude,difficulty,min_depth,max_depth,description,access_info,center_id,verification_status,created_by_user_id,updated_by_user_id,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('dive_type'),100),float(data.get('latitude')),float(data.get('longitude')),clean_text(data.get('difficulty'),50),data.get('min_depth') or None,data.get('max_depth') or None,clean_text(data.get('description'),5000),clean_text(data.get('access_info'),3000),center_id,'verified' if user['role']=='admin' else 'pending_center',user['id'],user['id'],1,now(),now())); audit(db,user['id'],'dive_point_created','dive_point',cur.lastrowid); db.commit(); self.send_json({'ok':True,'id':cur.lastrowid}); return
+                    name=clean_text(data.get('name'),180); country=clean_text(data.get('country'),100); dtype=clean_text(data.get('dive_type'),100)
+                    if not name or not country or not dtype: raise ValueError('Escribe el nombre, el país y el tipo de inmersión.')
+                    try: lat=float(data.get('latitude')); lon=float(data.get('longitude'))
+                    except (TypeError,ValueError): raise ValueError('Marca la posición del punto en el mapa.')
+                    if not (-90<=lat<=90 and -180<=lon<=180) or (lat==0 and lon==0): raise ValueError('La posición está fuera de rango.')
+                    extra=wpun.clean_fields({k:v for k,v in data.items() if k in POINT_FIELDS})
+                    # v50.58 (brief of 16/10, B.6 and B.4): a new site falls in the sea, and is not one that already exists
+                    pc=wpun.position_check(lat,lon,extra.get('access'),dtype)
+                    if pc['status']=='error' and not data.get('force_position'):
+                        self.send_json({'error':f"La posición cae {pc['note'][0].lower()+pc['note'][1:]}: mueve el marcador al agua.",'position':pc},409); return
+                    dups=wpun.candidates(db,lat,lon,name)
+                    same=[d for d in dups if d['kind']=='same']
+                    if same and not data.get('force_new'):
+                        self.send_json({'error':f"Ya existe «{same[0]['name']}» a {same[0]['distance_m']} m: completa esa ficha en lugar de crear otra.",'duplicates':dups},409); return
+                    desc=clean_text(data.get('description'),5000)
+                    cols={'name':name,'country':country,'region':clean_text(data.get('region'),120) or None,'zone':clean_text(data.get('zone'),80) or None,
+                          'subregion':clean_text(data.get('subregion'),120) or None,'dive_type':dtype,'latitude':lat,'longitude':lon,
+                          'difficulty':clean_text(data.get('difficulty'),50) or None,'description':desc,'access_info':clean_text(data.get('access_info'),3000),
+                          'center_id':center_id,'verification_status':'verified' if user['role']=='admin' and data.get('data_status','verified')=='verified' else ('pending_review' if user['role']=='admin' else 'pending_center'),
+                          'recommended_certification_id':int(data['recommended_certification_id']) if data.get('recommended_certification_id') else None,
+                          'created_by_user_id':user['id'],'updated_by_user_id':user['id'],'active':1,'created_at':now(),'updated_at':now(),
+                          'position_check':json.dumps(pc,ensure_ascii=False)}
+                    cols.update(extra)
+                    keys=list(cols); cur=db.execute(f"INSERT INTO dive_points({','.join(keys)}) VALUES({','.join('?'*len(keys))})",[cols[k] for k in keys]); pid=cur.lastrowid
+                    for d in dups:   # «posibles duplicados»: the administration decides (join or keep separate)
+                        a,b=sorted((pid,d['id'])); db.execute('INSERT OR IGNORE INTO point_duplicates(a_point_id,b_point_id,distance_m,score,kind,status,created_at) VALUES(?,?,?,?,?,?,?)',(a,b,d['distance_m'],d['score'],d['kind'],'open',now()))
+                    point_own_text(db,pid,desc)
+                    wpun.add_source(db,pid,'admin' if user['role']=='admin' else 'centre',clean_text(data.get('source_ref'),500) or ('Alta en Administración' if user['role']=='admin' else f'Alta del centro #{center_id}'),
+                                    field='*',checked_at=clean_text(data.get('source_checked_at'),10) or None,note=clean_text(data.get('source_note'),500) or None,user_id=user['id'])
+                    audit(db,user['id'],'dive_point_created','dive_point',pid); db.commit(); self.send_json({'ok':True,'id':pid,'position':pc,'duplicates':dups}); return
                 # v50.50 · vídeos de la ruta y vida marina. Videos are links, never files: the old «recorrido virtual»
                 # uploads and links are closed (what exists stays and is listed in Administración → Vida marina y vídeos).
                 if path.startswith('/api/dive-points/') and (path.endswith('/virtual/upload') or path.endswith('/virtual')):
@@ -20478,6 +20664,23 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); pid=int(path.split('/')[3]); data=json_body(self)
                     if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone(): self.send_json({'error':'Punto no encontrado'},404); return
                     cur=db.execute('INSERT INTO point_position_suggestions(dive_point_id,user_id,latitude,longitude,note,status,created_at) VALUES(?,?,?,?,?,?,?)',(pid,user['id'],float(data.get('latitude')),float(data.get('longitude')),clean_text(data.get('note'),2000),'pending',now())); audit(db,user['id'],'position_suggested','point_position_suggestion',cur.lastrowid); db.commit(); self.send_json({'ok':True}); return
+                if re.fullmatch(r'/api/dive-points/\d+/propose',path):
+                    # v50.58 (brief of 16/10, A.3): a centre that dives a site proposes position, current, visibility and warnings;
+                    # a diver, the position and the new data of the site. The administration accepts or rejects with one click.
+                    user=require_user(self,db); pid=int(path.split('/')[3]); data=json_body(self)
+                    if user['role']=='admin': raise ValueError('La administración cambia la ficha directamente desde Administración → Puntos.')
+                    point=db.execute('SELECT * FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone()
+                    if not point: self.send_json({'error':'Punto no encontrado'},404); return
+                    linked=user['role']=='center' and user['center_id'] and (point['center_id']==user['center_id'] or db.execute('SELECT 1 FROM center_point_links WHERE center_id=? AND dive_point_id=?',(user['center_id'],pid)).fetchone())
+                    role='center' if linked else 'diver'
+                    if db.execute("SELECT COUNT(*) FROM point_change_proposals WHERE user_id=? AND status='pending'",(user['id'],)).fetchone()[0]>=20 or \
+                       db.execute("SELECT COUNT(*) FROM point_change_proposals WHERE user_id=? AND point_id=? AND status='pending'",(user['id'],pid)).fetchone()[0]>=3:
+                        raise ValueError('Ya tienes propuestas pendientes de revisar: espera a que la administración las vea.')
+                    changes=wpun.clean_proposal(point,data,role)
+                    cur=db.execute('INSERT INTO point_change_proposals(point_id,user_id,center_id,role,changes,note,status,created_at) VALUES(?,?,?,?,?,?,?,?)',
+                                   (pid,user['id'],user['center_id'] if role=='center' else None,role,json.dumps(changes,ensure_ascii=False),clean_text(data.get('note'),1000) or None,'pending',now()))
+                    audit(db,user['id'],'point_change_proposed','dive_point',pid,{'proposal':cur.lastrowid,'fields':sorted(changes)}); db.commit()
+                    self.send_json({'ok':True,'id':cur.lastrowid,'fields':sorted(changes)}); return
                 if path=='/api/dive-points/conditions':
                     # v50.54: best season, water temperature and visibility of a dive site (all optional; empty = unknown).
                     user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self); pid=int(data.get('id') or 0)
@@ -20492,9 +20695,40 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/dive-points/update':
                     user=require_user(self,db); require_role(user,{'admin','center'}); data=json_body(self); pid=int(data['id']); row=db.execute('SELECT * FROM dive_points WHERE id=?',(pid,)).fetchone()
                     if not row: self.send_json({'error':'Punto no encontrado'},404); return
-                    if user['role']=='center' and row['center_id']!=user['center_id']: raise PermissionError('No puedes modificar este punto.')
-                    if user['role']=='center' and ('latitude' in data or 'longitude' in data): raise PermissionError('La posición oficial no puede modificarse directamente. Envía una corrección para que el administrador la revise.')
-                    db.execute('''UPDATE dive_points SET name=?,country=?,region=?,dive_type=?,latitude=?,longitude=?,difficulty=?,min_depth=?,max_depth=?,description=?,access_info=?,center_id=?,recommended_certification_id=?,verification_status=?,updated_by_user_id=?,updated_at=? WHERE id=?''',(clean_text(data.get('name'),180),clean_text(data.get('country'),100),clean_text(data.get('region'),120),clean_text(data.get('dive_type'),100),float(data.get('latitude')),float(data.get('longitude')),clean_text(data.get('difficulty'),50),data.get('min_depth') or None,data.get('max_depth') or None,clean_text(data.get('description'),5000),clean_text(data.get('access_info'),3000),data.get('center_id') if user['role']=='admin' else user['center_id'],int(data['recommended_certification_id']) if data.get('recommended_certification_id') else None,'verified' if user['role']=='admin' else 'pending_review',user['id'],now(),pid)); audit(db,user['id'],'dive_point_updated','dive_point',pid); db.commit(); self.send_json({'ok':True}); return
+                    admin=user['role']=='admin'
+                    if not admin and row['center_id']!=user['center_id']: raise PermissionError('No puedes modificar este punto.')
+                    if not admin and ('latitude' in data or 'longitude' in data): raise PermissionError('La posición oficial no puede modificarse directamente. Envía una corrección para que el administrador la revise.')
+                    sets={}
+                    for k,n,required in (('name',180,True),('country',100,True),('dive_type',100,True),('region',120,False),('zone',80,False),('subregion',120,False),('difficulty',50,False),('access_info',3000,False)):
+                        if k in data:
+                            v=clean_text(data.get(k),n)
+                            if required and not v: raise ValueError('El nombre, el país y el tipo de inmersión no pueden quedar vacíos.')
+                            sets[k]=v or None if not required else v
+                    if admin and ('latitude' in data or 'longitude' in data):
+                        try: lat=float(data.get('latitude')); lon=float(data.get('longitude'))
+                        except (TypeError,ValueError): raise ValueError('Marca la posición del punto en el mapa.')
+                        if not (-90<=lat<=90 and -180<=lon<=180) or (lat==0 and lon==0): raise ValueError('La posición está fuera de rango.')
+                        sets['latitude']=lat; sets['longitude']=lon
+                    sets.update(wpun.clean_fields({k:v for k,v in data.items() if k in POINT_FIELDS}))
+                    if admin and 'center_id' in data: sets['center_id']=int(data['center_id']) if data.get('center_id') else None
+                    # v50.58: the recommended certification changes only when it is sent (it was wiped by every save)
+                    if 'recommended_certification_id' in data: sets['recommended_certification_id']=int(data['recommended_certification_id']) if data.get('recommended_certification_id') else None
+                    pending=('curated_pending','pending_center','pending_review')
+                    if admin: sets['verification_status']='verified' if data.get('data_status','verified')=='verified' else (row['verification_status'] if row['verification_status'] in pending else 'pending_review')
+                    else: sets['verification_status']='pending_review'
+                    lat=sets.get('latitude',row['latitude']); lon=sets.get('longitude',row['longitude'])
+                    if lat is not None and lon is not None:
+                        sets['position_check']=json.dumps(wpun.position_check(lat,lon,sets.get('access',row['access']),sets.get('dive_type',row['dive_type']) or ''),ensure_ascii=False)
+                    changed=[k for k,v in sets.items() if k not in ('position_check','verification_status') and row[k]!=v]
+                    sets['updated_by_user_id']=user['id']; sets['updated_at']=now()
+                    db.execute(f"UPDATE dive_points SET {', '.join(k+'=?' for k in sets)} WHERE id=?",[*sets.values(),pid])
+                    # v50.58: the description written here is the one the web shows (it was hidden behind the generated text)
+                    if 'description' in data:
+                        desc=clean_text(data.get('description'),5000)
+                        if (desc or '')!=(row['description'] or ''): point_own_text(db,pid,desc,update=True); changed.append('description')
+                    fields=sorted({POINT_SOURCE_FIELD.get(k,k) for k in changed if POINT_SOURCE_FIELD.get(k,k) in wpun.SOURCE_FIELDS})
+                    for f in fields: wpun.add_source(db,pid,'admin' if admin else 'centre','Editado en Administración' if admin else f'Editado por el centro #{user["center_id"]}',field=f,user_id=user['id'])
+                    audit(db,user['id'],'dive_point_updated','dive_point',pid,{'fields':changed}); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/travel-experiences':
                     user=require_user(self,db)
                     require_switch(db,'experiences'); require_feature(db,user,'experiences')
@@ -20667,6 +20901,81 @@ class Handler(BaseHTTPRequestHandler):
                         db.execute('UPDATE dive_points SET latitude=?,longitude=?,updated_by_user_id=?,updated_at=?,verification_status="verified" WHERE id=?',(sug['latitude'],sug['longitude'],user['id'],now(),sug['dive_point_id'])); new_status='approved'
                     else: new_status='rejected'
                     db.execute('UPDATE point_position_suggestions SET status=?,reviewed_at=?,reviewed_by_user_id=? WHERE id=?',(new_status,now(),user['id'],sid)); audit(db,user['id'],'position_suggestion_reviewed','point_position_suggestion',sid,{'decision':decision}); db.commit(); self.send_json({'ok':True}); return
+                # v50.58 · the catalogue (brief of 16/10): proposals, register of sources, new batches and possible duplicates
+                if path=='/api/admin/dive-points/proposals/review':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); prop=db.execute('SELECT * FROM point_change_proposals WHERE id=?',(int(data.get('id') or 0),)).fetchone()
+                    if not prop: raise NotFound('Propuesta no encontrada.')
+                    if prop['status']!='pending': raise ValueError('Esa propuesta ya está decidida.')
+                    decision=clean_text(data.get('decision'),20)
+                    if decision=='approve': wpun.apply_proposal(db,prop,user['id']); st='approved'
+                    elif decision=='reject': st='rejected'
+                    else: raise ValueError('Decisión no válida.')
+                    if decision=='approve':
+                        pr=db.execute('SELECT latitude,longitude,access,dive_type FROM dive_points WHERE id=?',(prop['point_id'],)).fetchone()
+                        if pr['latitude'] is not None: db.execute('UPDATE dive_points SET position_check=? WHERE id=?',(json.dumps(wpun.position_check(pr['latitude'],pr['longitude'],pr['access'],pr['dive_type'] or ''),ensure_ascii=False),prop['point_id']))
+                    db.execute('UPDATE point_change_proposals SET status=?,reviewed_by=?,reviewed_at=?,review_note=? WHERE id=?',(st,user['id'],now(),clean_text(data.get('note'),500) or None,prop['id']))
+                    audit(db,user['id'],'point_change_reviewed','dive_point',prop['point_id'],{'proposal':prop['id'],'decision':decision}); db.commit(); self.send_json({'ok':True,'status':st}); return
+                if path=='/api/admin/dive-points/sources':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); pid=int(data.get('point_id') or 0)
+                    if not db.execute('SELECT 1 FROM dive_points WHERE id=?',(pid,)).fetchone(): raise NotFound('Punto no encontrado.')
+                    wpun.add_source(db,pid,clean_text(data.get('kind'),20),data.get('ref'),clean_text(data.get('field'),20) or '*',data.get('license'),data.get('checked_at'),data.get('note'),user['id'])
+                    audit(db,user['id'],'point_source_added','dive_point',pid); db.commit(); self.send_json({'ok':True,'sources':wpun.sources_of(db,pid)}); return
+                if path=='/api/admin/dive-points/sources/delete':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    r=db.execute('SELECT point_id FROM point_sources WHERE id=?',(int(data.get('id') or 0),)).fetchone()
+                    if not r: raise NotFound('Fuente no encontrada.')
+                    db.execute('DELETE FROM point_sources WHERE id=?',(int(data['id']),)); audit(db,user['id'],'point_source_deleted','dive_point',r['point_id'],{'source':int(data['id'])}); db.commit()
+                    self.send_json({'ok':True,'sources':wpun.sources_of(db,r['point_id'])}); return
+                if path=='/api/admin/dive-points/batches':
+                    # a zone «Pendiente de verificar» (scripts/puntos/*.py or a JSON file): nothing is public until it is published
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    bid=wpun.add_batch(db,data.get('zone'),data.get('title'),data.get('items'),user['id'],data.get('notes'))
+                    audit(db,user['id'],'point_batch_created','point_batch',bid); db.commit(); self.send_json({'ok':True,'id':bid,'summary':wpun.batch_summary(db,bid)}); return
+                if path=='/api/admin/dive-points/batches/publish':
+                    # one site (item_id, with the decision for a possible duplicate) or the whole batch (batch_id: every site
+                    # with no problem left: in the sea, not repeated and with no doubt to decide; the rest stays pending)
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); verified=bool(data.get('verified'))
+                    done=[]; skipped=[]
+                    if data.get('item_id'):
+                        st,pid,filled=wpun.publish_item(db,int(data['item_id']),user['id'],clean_text(data.get('decision'),10) or None,verified); done.append({'item':int(data['item_id']),'status':st,'point_id':pid})
+                    else:
+                        bid=int(data.get('batch_id') or 0)
+                        for it in db.execute("SELECT id,name FROM point_batch_items WHERE batch_id=? AND status='pending' ORDER BY id",(bid,)).fetchall():
+                            try:
+                                st,pid,filled=wpun.publish_item(db,it['id'],user['id'],None,verified); done.append({'item':it['id'],'status':st,'point_id':pid})
+                            except ValueError as e: skipped.append({'item':it['id'],'name':it['name'],'reason':str(e)})
+                    audit(db,user['id'],'point_batch_published','point_batch',int(data.get('batch_id') or 0) or None,{'done':len(done),'skipped':len(skipped)})
+                    if done: wpun.scan_duplicates(db)
+                    db.commit(); self.send_json({'ok':True,'done':done,'skipped':skipped}); return
+                if path=='/api/admin/dive-points/batches/discard':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    wpun.discard_item(db,int(data.get('item_id') or 0),user['id']); audit(db,user['id'],'point_batch_item_discarded','point_batch_item',int(data.get('item_id') or 0)); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/dive-points/batches/item':
+                    # the administration corrects a site of the batch before publishing it (position, name…) and it is checked again
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    it=db.execute("SELECT * FROM point_batch_items WHERE id=? AND status='pending'",(int(data.get('item_id') or 0),)).fetchone()
+                    if not it: raise ValueError('Ese punto del lote ya está decidido.')
+                    d=json.loads(it['data'])
+                    for k in ('name','latitude','longitude','country','region','zone','subregion','dive_type','difficulty','description','access','current','min_depth','max_depth','visibility_min','visibility_max','bottom','best_months','warnings','protection','protection_name','permit_required','water_temps'):
+                        if k in data: d[k]=data[k]
+                    wpun._item_fields(d)
+                    db.execute('UPDATE point_batch_items SET data=? WHERE id=?',(json.dumps(d,ensure_ascii=False),it['id'])); wpun.assess_item(db,it['id'])
+                    audit(db,user['id'],'point_batch_item_edited','point_batch_item',it['id']); db.commit()
+                    self.send_json({'ok':True,'item':dict(db.execute('SELECT * FROM point_batch_items WHERE id=?',(it['id'],)).fetchone())}); return
+                if path=='/api/admin/dive-points/duplicates/scan':
+                    user=require_user(self,db); require_role(user,{'admin'}); n=wpun.scan_duplicates(db); db.commit(); self.send_json({'ok':True,'new':n}); return
+                if path=='/api/admin/dive-points/duplicates/decide':
+                    # «Unir» (everything of the other site goes to the one that stays) or «Mantener separados» (never asked again)
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    dup=db.execute('SELECT * FROM point_duplicates WHERE id=?',(int(data.get('id') or 0),)).fetchone()
+                    if not dup or dup['status']!='open': raise ValueError('Esa pareja ya está decidida.')
+                    if data.get('decision')=='separate': wpun.keep_separate(db,dup['id'],user['id']); out={'status':'separate'}
+                    elif data.get('decision')=='merge':
+                        keep=int(data.get('keep_id') or 0)
+                        if keep not in (dup['a_point_id'],dup['b_point_id']): raise ValueError('Elige cuál de las dos fichas se queda.')
+                        out=wpun.merge(db,keep,dup['b_point_id'] if keep==dup['a_point_id'] else dup['a_point_id'],user['id']); out['status']='merged'
+                    else: raise ValueError('Decisión no válida.')
+                    audit(db,user['id'],'point_duplicate_decided','dive_point',dup['a_point_id'],{'pair':dup['id'],**{k:v for k,v in out.items() if k!='moved'}}); db.commit(); self.send_json({'ok':True,**out}); return
                 if path=='/api/admin/dive-points/review':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); pid=int(data.get('id')); decision=clean_text(data.get('decision'),20)
                     row=db.execute('SELECT * FROM dive_points WHERE id=?',(pid,)).fetchone()

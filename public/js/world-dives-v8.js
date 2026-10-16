@@ -1219,6 +1219,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <label class="cd-field ex-filter">${wdIcon('search',18)}<span class="sr-only">Buscar en el mapa</span><input id="ex-q" type="search" placeholder="Filtrar puntos del mapa" autocomplete="off"></label>
         <button type="button" class="btn ex-near" id="ex-near">${wdIcon('target',16)} Cerca de mí</button>
         <div class="ex-types" id="ex-types"></div>
+        <button type="button" class="pt-fbtn ex-fbtn" id="ex-fbtn" aria-expanded="false" aria-controls="ex-panel">${wdIcon('sliders',18)}<span>Filtros</span><b class="pt-fn" id="ex-fn"></b></button>
+        <div class="ex-panel" id="ex-panel" hidden>
+          <label class="pt-pf"><span>Acceso</span><select id="ex-access"></select></label>
+          <label class="pt-pf"><span>Corriente</span><select id="ex-current"></select></label>
+          <label class="pt-pf"><span>Tipo de fondo</span><select id="ex-bottom"></select></label>
+          <label class="pt-pf"><span>Profundidad máxima</span><select id="ex-depth"></select></label>
+          <button type="button" class="cd-clear" id="ex-clear">Borrar filtros</button>
+        </div>
         <p class="ex-count" id="ex-count" aria-live="polite"></p>
         <div class="ex-none" id="ex-none" hidden></div>
         <p class="ex-legend"><span class="wd-pin" aria-hidden="true"></span>Punto de buceo · toca para ver la ficha</p>
@@ -1240,8 +1248,27 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const fixed=[['','Todos'],['arrecifes','Arrecifes'],['paredes','Paredes'],['pecios-y-naufragios','Pecios'],['cuevas-y-cavernas','Cuevas'],['muck','Muck'],['pinaculos','Pináculos'],['aguas-profundas','Profundas']];
     let active='';
     $('#ex-types').innerHTML=fixed.map(([k,l],i)=>`<button type="button" class="cd-chip" data-t="${k}" aria-pressed="${i===0}">${l}</button>`).join('');
+    // v50.58 (brief of 16/10, A.2.4): access, current, bottom and maximum depth in a compact «Filtros», on the map itself
+    // (every site is already here); each option says how many sites it leaves, with the other filters applied.
+    const ef={access:['boat','shore'].includes(params?.get?.('access'))?params.get('access'):'',current:PT_CURRENTS[params?.get?.('current')]?params.get('current'):'',
+      bottom:PT_BOTTOMS[params?.get?.('bottom')]?params.get('bottom'):'',depth:PT_DEPTHS.some(x=>x[0]===params?.get?.('depth'))?params.get('depth'):''};
+    const efTest={access:(p,v)=>p.access===v||p.access==='both',current:(p,v)=>p.current_level===v,bottom:(p,v)=>String(p.bottom||'').split(',').includes(v),
+      depth:(p,v)=>p.max_depth!=null&&(v==='d18'?p.max_depth<=18:v==='d30'?p.max_depth>18&&p.max_depth<=30:p.max_depth>30)};
+    const efPass=(p,skip)=>Object.entries(ef).every(([k,v])=>!v||k===skip||efTest[k](p,v));
+    const efPaint=base=>{ const sel=(id,key,all,opts)=>{ const list=base.filter(p=>efPass(p,key));
+        $(id).innerHTML=`<option value="">${escapeHtml(translateString(all))}</option>`+opts.map(([k,l])=>{ const n=list.filter(p=>efTest[key](p,k)).length;
+          return `<option value="${k}" ${k===ef[key]?'selected':''} ${n||k===ef[key]?'':'disabled'}>${escapeHtml(translateString(l))} (${n.toLocaleString(wdLocale())})</option>`; }).join(''); };
+      sel('#ex-access','access','Barco o costa',[['boat',PT_ACCESS.boat],['shore',PT_ACCESS.shore]]); sel('#ex-current','current','Cualquier corriente',Object.entries(PT_CURRENTS));
+      sel('#ex-bottom','bottom','Cualquier fondo',Object.entries(PT_BOTTOMS)); sel('#ex-depth','depth','Cualquier profundidad',PT_DEPTHS);
+      const n=Object.values(ef).filter(Boolean).length; $('#ex-fn').textContent=n?` (${n})`:''; $('#ex-fbtn').classList.toggle('has-filters',n>0); $('#ex-clear').hidden=!n;
+      try{ const url=new URLSearchParams(Object.entries(ef).filter(([,v])=>v)); history.replaceState(history.state,'','#/explorar'+(url.toString()?'?'+url:'')); }catch{} };
+    $('#ex-fbtn').onclick=e=>{ const b=e.currentTarget, open=$('#ex-panel').hidden; $('#ex-panel').hidden=!open; b.setAttribute('aria-expanded',String(open)); };
+    [['#ex-access','access'],['#ex-current','current'],['#ex-bottom','bottom'],['#ex-depth','depth']].forEach(([id,k])=>$(id).onchange=e=>{ ef[k]=e.target.value; apply(); });
+    $('#ex-clear').onclick=()=>{ Object.keys(ef).forEach(k=>ef[k]=''); apply(); };
+    if(Object.values(ef).some(Boolean)){ $('#ex-panel').hidden=false; $('#ex-fbtn').setAttribute('aria-expanded','true'); }
     const apply=()=>{ const q=wdFold($('#ex-q').value).trim(); const words=q?q.split(/\s+/):[];
-      const pts=state.points.filter(p=>{ const t=wdFold([p.name,p.country,p.region,p.subregion,p.zone,p.dive_type].join(' ')); return words.every(w=>t.includes(w)) && (!active || !p.types || p.types.includes(active)); });
+      const base=state.points.filter(p=>{ const t=wdFold([p.name,p.country,p.region,p.subregion,p.zone,p.dive_type].join(' ')); return words.every(w=>t.includes(w)) && (!active || !p.types || p.types.includes(active)); });
+      efPaint(base); const pts=base.filter(p=>efPass(p));
       $('#ex-count').textContent=`${pts.length.toLocaleString(wdLocale())} ${pts.length===1?'punto':'puntos'} en el mapa`;
       const none=$('#ex-none'); none.hidden=true;
       if(!pts.length&&q){ showNone(q); return; }
@@ -1258,11 +1285,62 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let timer=null; $('#ex-q').addEventListener('input',()=>{ clearTimeout(timer); timer=setTimeout(apply,250); });
     $$('#ex-types .cd-chip').forEach(b=>b.onclick=()=>{ $$('#ex-types .cd-chip').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); active=b.dataset.t; apply(); });
     $('#ex-count').textContent=`${state.points.length.toLocaleString(wdLocale())} puntos en el mapa`;
+    if(Object.values(ef).some(Boolean)) apply(); else efPaint(state.points);
     const focus=params?.get?.('point'); if(focus){ const p=state.points.find(x=>String(x.id)===String(focus)); if(p) setTimeout(()=>openPointDrawer(p),400); }
   }
 
   // ---------------------------------------------------------------- Puntos de buceo
   const PT_LEVELS=[['start','Para empezar'],['mid','Intermedio'],['adv','Avanzado']];
+  // v50.58 (brief of 16/10): the new data of a dive site (the same keys as app/wod/puntos.py)
+  const PT_ACCESS={boat:'Barco',shore:'Costa',both:'Barco y costa'};
+  const PT_CURRENTS={none:'Nula',mild:'Suave',moderate:'Moderada',strong:'Fuerte',variable:'Variable'};
+  const PT_BOTTOMS={rock:'Roca',sand:'Arena',posidonia:'Posidonia',coral:'Coral',wall:'Pared',wreck:'Pecio',cave:'Cueva',rubble:'Cascajo'};
+  const PT_SEASONS={winter:'Invierno',spring:'Primavera',summer:'Verano',autumn:'Otoño'};
+  const PT_PROTECTIONS={none:'Ninguna',marine_reserve:'Reserva marina',national_park:'Parque nacional',natural_park:'Parque natural',protected_area:'Otro espacio protegido'};
+  const ptOptions=(map,cur,empty='—')=>`<option value="">${escapeHtml(empty)}</option>`+Object.entries(map).map(([k,l])=>`<option value="${k}" ${k===cur?'selected':''}>${escapeHtml(l)}</option>`).join('');
+  // The new data of a dive site as form fields (the administration's page and the proposals use the same ones)
+  function pointDataFields(p,{only=null,prefix='pd'}={}){
+    const v=x=>x==null?'':escapeHtml(String(x)), has=k=>!only||only.includes(k), t=p.water_temps||{}, bottoms=new Set(p.bottom||[]), months=new Set((Array.isArray(p.best_months)?p.best_months:String(p.best_months||'').split(',')).map(Number));
+    return [has('depth')&&`<div class="field"><label for="${prefix}-dmin">Profundidad mínima (m)</label><input id="${prefix}-dmin" data-k="min_depth" type="number" min="0" max="200" step="0.5" value="${v(p.min_depth)}"></div><div class="field"><label for="${prefix}-dmax">Profundidad máxima (m)</label><input id="${prefix}-dmax" data-k="max_depth" type="number" min="0" max="200" step="0.5" value="${v(p.max_depth)}"></div>`,
+      has('access')&&`<div class="field"><label for="${prefix}-access">Acceso</label><select id="${prefix}-access" data-k="access">${ptOptions(PT_ACCESS,p.access)}</select></div>`,
+      has('current')&&`<div class="field"><label for="${prefix}-current">Corriente</label><select id="${prefix}-current" data-k="current">${ptOptions(PT_CURRENTS,p.current||p.current_level)}</select></div>`,
+      has('visibility')&&`<div class="field"><label for="${prefix}-vmin">Visibilidad habitual desde (m)</label><input id="${prefix}-vmin" data-k="visibility_min" type="number" min="0" max="80" step="1" value="${v(p.visibility_min)}"></div><div class="field"><label for="${prefix}-vmax">hasta (m)</label><input id="${prefix}-vmax" data-k="visibility_max" type="number" min="0" max="80" step="1" value="${v(p.visibility_max)}"></div>`,
+      has('water_temps')&&`<fieldset class="field full pd-temps"><legend>Temperatura del agua (°C)</legend>${Object.entries(PT_SEASONS).map(([k,l])=>`<div class="pd-season"><span>${escapeHtml(l)}</span><input aria-label="${escapeHtml(l)} · mínima" data-season="${k}" data-end="0" type="number" min="0" max="40" step="0.5" value="${v((t[k]||[])[0])}"><span aria-hidden="true">–</span><input aria-label="${escapeHtml(l)} · máxima" data-season="${k}" data-end="1" type="number" min="0" max="40" step="0.5" value="${v((t[k]||[])[1])}"></div>`).join('')}</fieldset>`,
+      has('bottom')&&`<fieldset class="field full pd-checks"><legend>Tipo de fondo</legend>${Object.entries(PT_BOTTOMS).map(([k,l])=>`<label><input type="checkbox" data-bottom="${k}" ${bottoms.has(k)?'checked':''}> ${escapeHtml(l)}</label>`).join('')}</fieldset>`,
+      has('best_months')&&`<fieldset class="field full pd-checks"><legend>Mejor época</legend>${Array.from({length:12},(_,i)=>`<label><input type="checkbox" data-month="${i+1}" ${months.has(i+1)?'checked':''}> ${escapeHtml(wdMes(i+1,'short'))}</label>`).join('')}</fieldset>`,
+      has('warnings')&&`<div class="field full"><label for="${prefix}-warn">Avisos</label><textarea id="${prefix}-warn" data-k="warnings" maxlength="280" rows="2" placeholder="Tráfico de barcos, corriente en la punta, zona de anclaje…">${v(p.warnings)}</textarea></div>`,
+      has('protection')&&`<div class="field"><label for="${prefix}-prot">Protección</label><select id="${prefix}-prot" data-k="protection">${ptOptions(PT_PROTECTIONS,p.protection)}</select></div><div class="field"><label for="${prefix}-protname">Nombre del espacio protegido</label><input id="${prefix}-protname" data-k="protection_name" maxlength="140" value="${v(p.protection_name)}"></div><label class="field lg-check pd-permit"><input type="checkbox" data-k="permit_required" ${p.permit_required?'checked':''}> <span>Hace falta permiso para bucear</span></label>`]
+      .filter(Boolean).join('');
+  }
+  function readPointData(root){
+    const out={}; $$('[data-k]',root).forEach(el=>{ out[el.dataset.k]=el.type==='checkbox'?el.checked:el.value; });
+    if($('[data-season]',root)){ const t={}; $$('[data-season]',root).forEach(el=>{ if(el.value==='') return; (t[el.dataset.season]??=[null,null])[+el.dataset.end]=+el.value; }); out.water_temps=t; }
+    if($('[data-bottom]',root)) out.bottom=$$('[data-bottom]:checked',root).map(x=>x.dataset.bottom);
+    if($('[data-month]',root)) out.best_months=$$('[data-month]:checked',root).map(x=>+x.dataset.month);
+    return out;
+  }
+  function pointProposalForm(p,{lat,lng,centre}){
+    const only=centre?['current','visibility','warnings']:['depth','access','current','visibility','water_temps','bottom','best_months','warnings','protection'];
+    return `<div class="pp-suggest"><p class="pp-small">${escapeHtml(translateString(centre?'Como centro que bucea aquí puedes proponer la posición, la corriente, la visibilidad y los avisos.':'Cambia solo lo que sepas con seguridad. Lo que dejes igual no se toca.'))}</p>
+      <div class="form-grid"><div class="field"><label for="s-lat">Latitud</label><input id="s-lat" type="number" step="0.000001" value="${lat}"></div><div class="field"><label for="s-lon">Longitud</label><input id="s-lon" type="number" step="0.000001" value="${lng}"></div>
+      ${pointDataFields(p,{only,prefix:'sp'})}
+      <div class="field full"><label for="s-note">Motivo o referencia</label><textarea id="s-note" placeholder="Qué has visto y cómo lo sabes: GPS de la embarcación, tu ordenador de buceo, la reserva marina…"></textarea></div></div>
+      <button class="btn btn-primary" id="s-save" type="button">Enviar propuesta</button></div>`;
+  }
+  // only what changed travels: the server keeps the rest as it is
+  function readPointProposal(root,p,{lat,lng}){
+    const d=readPointData(root), out={note:$('#s-note',root).value};
+    const la=+$('#s-lat',root).value, lo=+$('#s-lon',root).value;
+    if(Number.isFinite(la)&&Number.isFinite(lo)&&(Math.abs(la-(+lat||0))>1e-5||Math.abs(lo-(+lng||0))>1e-5)){ out.latitude=la; out.longitude=lo; }
+    const same=(a,b)=>JSON.stringify(a??'')===JSON.stringify(b??'');
+    const cur={min_depth:p.min_depth,max_depth:p.max_depth,access:p.access||'',current:p.current||'',visibility_min:p.visibility_min,visibility_max:p.visibility_max,warnings:p.warnings||'',protection:p.protection||'',protection_name:p.protection_name||'',permit_required:!!p.permit_required};
+    Object.entries(d).forEach(([k,v])=>{
+      if(k==='water_temps'){ if(Object.keys(v).length&&!same(v,p.water_temps||{})) out[k]=v; return; }
+      if(k==='bottom'){ if(!same([...v].sort(),[...(p.bottom||[])].sort())) out[k]=v; return; }
+      if(k==='best_months'){ const was=String(p.best_months||'').split(',').filter(Boolean).map(Number); if(!same(v,was)) out[k]=v; return; }
+      if(k in cur){ const a=typeof cur[k]==='number'?String(cur[k]):cur[k]; if(String(v??'')!==String(a??'')&&!(v===''&&(a==null||a===''))) out[k]=v; } });
+    return out;
+  }
   const PT_DEPTHS=[['d18','Hasta 18 m'],['d30','18–30 m'],['d40','Más de 30 m']];
   const PT_SORTS=[['distance','Más cercanos'],['area','Por zonas'],['recommended','Recomendados'],['name','Nombre A-Z'],['depth','Más profundos'],['shallow','Menos profundos'],['rating','Mejor valorados']];
   // Every dive site of the filtered list on one map (view «Mapa»): a pin each, its card in a popup.
@@ -1270,14 +1348,17 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if(!el||!window.L){ if(el) el.innerHTML='<div class="map-fallback"><strong>El mapa no está disponible ahora mismo</strong><span>La lista muestra los mismos puntos.</span></div>'; return null; }
     wdTileDefaults(); const map=wdLimitMap(L.map(el,{zoomControl:false,scrollWheelZoom:true,zoomSnap:.25})).setView([40.2,-3.5],5);
     map.addControl(L.control.zoom({position:'bottomright'})); wdLayerControl(map);
-    const layer=L.layerGroup().addTo(map), extra=L.layerGroup().addTo(map);
+    // v50.58 (brief of 16/10, B.6): the dive flag in clusters when zooming out, so the map stays smooth with thousands of
+    // sites (it drew one pin per site); the popup is made when it opens, not for every site.
+    const layer=wdMarkerLayer().addTo(map), extra=L.layerGroup().addTo(map);
     const pin=L.divIcon({className:'pt-pin-wrap',html:'<span class="wd-pin" aria-hidden="true"></span>',iconSize:[22,22],iconAnchor:[11,20],popupAnchor:[0,-18]});
     return {map,
-      show(items,{me=null}={}){ layer.clearLayers(); extra.clearLayers(); const pts=[];
-        items.forEach(p=>{ if(p.latitude==null||p.longitude==null) return; const depth=depthText(p);
-          L.marker([p.latitude,p.longitude],{icon:pin,title:p.name,alt:p.name,keyboard:true,riseOnHover:true})
-            .bindPopup(`<div class="pt-pop"><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(p.area||'')}</span>${depth||p.level?`<span>${[depth,LEVEL_LABELS[p.level]].filter(Boolean).map(escapeHtml).join(' · ')}</span>`:''}<a class="btn btn-sm btn-primary" href="${pointHref(p.id)}">Ver punto</a></div>`)
-            .addTo(layer); pts.push([p.latitude,p.longitude]); });
+      show(items,{me=null}={}){ layer.clearLayers(); extra.clearLayers(); const pts=[], marks=[];
+        items.forEach(p=>{ if(p.latitude==null||p.longitude==null) return;
+          marks.push(L.marker([p.latitude,p.longitude],{icon:pin,title:p.name,alt:p.name,keyboard:true,riseOnHover:true})
+            .bindPopup(()=>{ const depth=depthText(p); return `<div class="pt-pop"><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(p.area||'')}</span>${depth||p.level?`<span>${[depth,LEVEL_LABELS[p.level]].filter(Boolean).map(escapeHtml).join(' · ')}</span>`:''}<a class="btn btn-sm btn-primary" href="${pointHref(p.id)}">Ver punto</a></div>`; }));
+          pts.push([p.latitude,p.longitude]); });
+        if(layer.addLayers) layer.addLayers(marks); else marks.forEach(m=>m.addTo(layer));
         if(me) wdMeMarker(me).addTo(extra);
         if(pts.length){ try{ map.fitBounds(L.latLngBounds(pts),{padding:[36,36],maxZoom:11}); }catch{} } },
       invalidate(){ setTimeout(()=>map.invalidateSize(),60); }};
@@ -1297,6 +1378,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // sort '' = the server decides: «Más cercanos» with the location, «Por zonas» (the launch country first) without it.
     const st={q:params.get('q')||'',area:params.get('area')||params.get('country')||'',zone:params.get('zone')||'',type:typeKey,level:pick(PT_LEVELS,params.get('level')),
       depth:pick(PT_DEPTHS,params.get('depth')),only:['centers','instant'].includes(params.get('only'))?params.get('only'):'',sort:pick(PT_SORTS,params.get('sort')),
+      access:['boat','shore'].includes(params.get('access'))?params.get('access'):'',current:PT_CURRENTS[params.get('current')]?params.get('current'):'',bottom:PT_BOTTOMS[params.get('bottom')]?params.get('bottom'):'',
       view:params.get('view')==='map'?'map':'list',page:1,here:null,total:0,loading:false};
     let back=null; try{ back=JSON.parse(sessionStorage.getItem('wd_pt_back')||'null'); sessionStorage.removeItem('wd_pt_back'); }catch{}
     if(back&&back.url!==location.hash) back=null;
@@ -1320,6 +1402,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             <label class="pt-pf"><span>Tipo</span><select id="pt-type"><option value="">Cualquier tipo</option></select></label>
             <label class="pt-pf"><span>Nivel</span><select id="pt-level"><option value="">Cualquier nivel</option></select></label>
             <label class="pt-pf"><span>Profundidad</span><select id="pt-depth"><option value="">Cualquier profundidad</option></select></label>
+            <label class="pt-pf"><span>Acceso</span><select id="pt-access"><option value="">Barco o costa</option></select></label>
+            <label class="pt-pf"><span>Corriente</span><select id="pt-current"><option value="">Cualquier corriente</option></select></label>
+            <label class="pt-pf"><span>Tipo de fondo</span><select id="pt-bottom"><option value="">Cualquier fondo</option></select></label>
             <div class="pt-pf-row"><button type="button" class="cd-chip pt-only" data-only="centers" aria-pressed="${st.only==='centers'}">Con centro</button><button type="button" class="cd-chip pt-only" data-only="instant" aria-pressed="${st.only==='instant'}">Confirmación inmediata</button></div>
           </div>
           <div class="pt-panel-foot"><button type="button" class="cd-clear" id="pt-panel-clear">Borrar todo</button><button type="button" class="btn btn-primary" id="pt-panel-ok">Ver resultados</button></div>
@@ -1339,8 +1424,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const bar=$('#pt-filters'), panel=$('#pt-panel'), fbtn=$('#pt-filters-btn'), scrim=$('#pt-scrim'), active=$('#pt-active'), regionsRow=$('#pt-regions');
     wdHeaderHeight();
     let seq=0, shown=[], map=null;
-    const hasFilters=()=>!!(st.q||st.area||st.zone||st.type||st.level||st.depth||st.only);
-    const query=(extra={})=>{ const qs=new URLSearchParams({q:st.q,area:st.area,zone:st.zone,type:st.type,level:st.level,depth:st.depth,only:st.only,sort:st.sort,...extra});
+    const hasFilters=()=>!!(st.q||st.area||st.zone||st.type||st.level||st.depth||st.only||st.access||st.current||st.bottom);
+    const query=(extra={})=>{ const qs=new URLSearchParams({q:st.q,area:st.area,zone:st.zone,type:st.type,level:st.level,depth:st.depth,only:st.only,access:st.access,current:st.current,bottom:st.bottom,sort:st.sort,...extra});
       if(st.here) Object.entries(wdLocation.params(st.here)).forEach(([k,v])=>qs.set(k,v));
       for(const k of [...qs.keys()]) if(!qs.get(k)) qs.delete(k); return qs; };
     const saveUrl=()=>{ const url=query(); ['lat','lon','acc'].forEach(k=>url.delete(k)); if(st.view==='map') url.set('view','map');
@@ -1360,6 +1445,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       fillSelect($('#pt-type'),'Cualquier tipo',(f.types||[]).filter(t=>t.count||t.key===st.type).sort((a,b)=>b.count-a.count),st.type);
       fillSelect($('#pt-level'),'Cualquier nivel',PT_LEVELS.map(([k,l])=>({key:k,label:l,count:(f.levels||[]).find(x=>x.key===k)?.count||0})),st.level);
       fillSelect($('#pt-depth'),'Cualquier profundidad',PT_DEPTHS.map(([k,l])=>({key:k,label:l,count:(f.depths||[]).find(x=>x.key===k)?.count||0})),st.depth);
+      const facet=(list,labels)=>Object.entries(labels).filter(([k])=>k!=='both').map(([k,l])=>({key:k,label:l,count:(list||[]).find(x=>x.key===k)?.count||0}));
+      fillSelect($('#pt-access'),'Barco o costa',facet(f.access,PT_ACCESS),st.access);
+      fillSelect($('#pt-current'),'Cualquier corriente',facet(f.currents,PT_CURRENTS),st.current);
+      fillSelect($('#pt-bottom'),'Cualquier fondo',facet(f.bottoms,PT_BOTTOMS),st.bottom);
       translateTree(regionsRow); translateTree(panel);
     };
     // The active filters, each one a chip with a ✕, and «Borrar todo»; «Filtros (n)» counts them (not the search, that
@@ -1367,6 +1456,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const activeList=()=>[st.q&&{k:'q',label:`«${st.q}»`},st.area&&{k:'area',label:st.area},st.zone&&{k:'zone',label:st.zone},
       st.type&&{k:'type',label:translateString(typeLabelByKey(st.type))},st.level&&{k:'level',label:translateString(LEVEL_LABELS[st.level]||st.level)},
       st.depth&&{k:'depth',label:translateString(PT_DEPTHS.find(x=>x[0]===st.depth)?.[1]||st.depth)},
+      st.access&&{k:'access',label:translateString(PT_ACCESS[st.access])},st.current&&{k:'current',label:translateString('Corriente')+': '+translateString(PT_CURRENTS[st.current]).toLowerCase()},
+      st.bottom&&{k:'bottom',label:translateString('Fondo')+': '+translateString(PT_BOTTOMS[st.bottom]).toLowerCase()},
       st.only&&{k:'only',label:translateString(st.only==='centers'?'Con centro':'Confirmación inmediata')}].filter(Boolean);
     const paintActive=()=>{ const list=activeList(), n=list.filter(x=>x.k!=='q').length, rm=translateString('Quitar filtro: {x}');
       $('#pt-fn').textContent=n?` (${n})`:''; fbtn.classList.toggle('has-filters',n>0);
@@ -1466,7 +1557,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       wdLocation.forget();
       try{ st.here=await wdLocation.get(); st.sort='distance'; refresh(); }
       catch(e){ paintLocbar(null,wdLocation.message(e.code)); } };
-    const reset=()=>{ Object.assign(st,{q:'',area:'',zone:'',type:'',level:'',depth:'',only:''}); clearTimeout(timer); $('#pt-q').value=''; $('#pt-q').dispatchEvent(new Event('input')); clearTimeout(timer);
+    const reset=()=>{ Object.assign(st,{q:'',area:'',zone:'',type:'',level:'',depth:'',only:'',access:'',current:'',bottom:''}); clearTimeout(timer); $('#pt-q').value=''; $('#pt-q').dispatchEvent(new Event('input')); clearTimeout(timer);
       $$('.pt-page [data-only]').forEach(b=>b.setAttribute('aria-pressed','false')); refresh(); };
     let timer=null;
     $('#pt-q').addEventListener('input',e=>{ clearTimeout(timer); timer=setTimeout(()=>{ st.q=e.target.value.trim(); refresh(); },350); });
@@ -1475,6 +1566,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $('#pt-type').onchange=e=>{ st.type=e.target.value; refresh(); };
     $('#pt-level').onchange=e=>{ st.level=e.target.value; refresh(); };
     $('#pt-depth').onchange=e=>{ st.depth=e.target.value; refresh(); };
+    $('#pt-access').onchange=e=>{ st.access=e.target.value; refresh(); };
+    $('#pt-current').onchange=e=>{ st.current=e.target.value; refresh(); };
+    $('#pt-bottom').onchange=e=>{ st.bottom=e.target.value; refresh(); };
     sortSel.onchange=e=>{ st.sort=e.target.value; refresh(); };
     $$('.pt-page [data-only]').forEach(b=>b.onclick=e=>{ const k=e.currentTarget.dataset.only; st.only=st.only===k?'':k; $$('.pt-page [data-only]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.only===st.only))); refresh(); });
     $$('.pt-view [data-view]').forEach(b=>b.onclick=()=>{ if(b.dataset.view!==st.view) setView(b.dataset.view); });
@@ -1861,8 +1955,19 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const months=String(p.best_months||'').split(',').map(Number).filter(m=>m>=1&&m<=12);
     const range=(a,b,unit)=>a!=null&&b!=null?(a===b?`${wdNum(a)} ${unit}`:`${wdNum(a)}–${wdNum(b)} ${unit}`):a!=null?`${translateString('mín.')} ${wdNum(a)} ${unit}`:b!=null?`${translateString('máx.')} ${wdNum(b)} ${unit}`:'';
     const typeText=types.length?types.slice(0,2).map(typeLabelByKey).join(' · '):(p.dive_type||'');
-    const keys=[['depth','Profundidad',depth],['level','Nivel',levelText(p)],['book','Titulación recomendada',p.recommended_cert||''],['inmersion','Tipo',typeText],
-      ['calendar','Mejor época',wdMonthsText(months)],['temp','Temperatura del agua',range(p.water_temp_min,p.water_temp_max,'°C')],['eye','Visibilidad',range(p.visibility_min,p.visibility_max,'m')]].filter(k=>k[2]);
+    // v50.58 (brief of 16/10, A.2): under the title, a strip of icons: depth, current, visibility, the water now (a tap
+    // shows the four seasons) and access; then the rest of the key data. What is not known is not shown.
+    const temps=p.water_temps||null, season=p.season_now, tNow=temps&&temps[season]?range(temps[season][0],temps[season][1],'°C'):'';
+    const tempText=tNow?`${tNow} · ${translateString(PT_SEASONS[season]).toLowerCase()}`:range(p.water_temp_min,p.water_temp_max,'°C');
+    const protText=p.protection?[translateString(PT_PROTECTIONS[p.protection]),p.permit_required?translateString('con permiso'):''].filter(Boolean).join(' · '):'';
+    const keys=[['depth','Profundidad',depth],['current','Corriente',p.current?translateString(PT_CURRENTS[p.current]):''],['eye','Visibilidad',range(p.visibility_min,p.visibility_max,'m')],
+      ['temp','Temperatura del agua',tempText,temps&&Object.keys(temps).length>1?'temps':''],['anchor','Acceso',p.access?translateString(PT_ACCESS[p.access]):''],
+      ['level','Nivel',levelText(p)],['book','Titulación recomendada',p.recommended_cert||''],['inmersion','Tipo',typeText],
+      ['bottom','Fondo',(p.bottom||[]).map(b=>translateString(PT_BOTTOMS[b])).join(' · ')],['calendar','Mejor época',wdMonthsText(months)],['shield','Protección',protText]].filter(k=>k[2]);
+    const keyHtml=([ic,label,val,more])=>more==='temps'
+      ?`<div class="pp-key pp-key-temp">${wdIcon(ic,18)}<dt>${label}</dt><dd><button type="button" class="pp-temp-btn" id="pp-temp-btn" aria-expanded="false" aria-controls="pp-temps">${escapeHtml(val)}<span aria-hidden="true">▾</span></button>
+          <div class="pp-temps" id="pp-temps" hidden><p>${escapeHtml(translateString('Temperatura del agua por estación'))}</p><ul>${Object.keys(PT_SEASONS).filter(k=>temps[k]).map(k=>`<li class="${k===season?'is-now':''}"><span>${escapeHtml(translateString(PT_SEASONS[k]))}</span><b>${escapeHtml(range(temps[k][0],temps[k][1],'°C'))}</b></li>`).join('')}</ul></div></dd></div>`
+      :`<div class="pp-key">${wdIcon(ic,18)}<dt>${label}</dt><dd>${escapeHtml(val)}</dd></div>`;
     setApp(`<section class="tp-page pp-page pp54">
       <header class="tp-hero tp-dhero pp-hero"><img class="tp-hero-img" ${wdImgAttrs(cover)} alt="" fetchpriority="high"><div class="tp-hero-in">
         <nav class="tp-crumbs"><a href="#/puntos">Puntos de buceo</a><span>/</span>${p.zone?`<a href="#/puntos?zone=${encodeURIComponent(p.zone)}">${escapeHtml(p.zone)}</a><span>/</span>`:''}${escapeHtml(p.name)}</nav>
@@ -1870,9 +1975,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <p class="lead pp-place">${wdIcon('pin',16)} ${escapeHtml(placeText(p)||p.country||'')}</p>
         <div class="tp-actions">${centers.length?`<a class="btn btn-primary" href="#pp-centers" data-scroll="pp-centers">${pc.mode==='exact'?'Centros que te llevan':'Centros cercanos'}</a>`:''}${hasGeo?`<a class="btn btn-light" href="#pp-where" data-scroll="pp-where">${wdIcon('map',16)} Ver en el mapa</a>`:''}</div>
       </div></header>
-      ${keys.length?`<dl class="pp-keys" aria-label="Datos clave">${keys.map(([ic,label,val])=>`<div class="pp-key">${wdIcon(ic,18)}<dt>${label}</dt><dd>${escapeHtml(val)}</dd></div>`).join('')}</dl>`:''}
+      ${keys.length?`<dl class="pp-keys" aria-label="Datos clave">${keys.map(keyHtml).join('')}</dl>`:''}
       <div class="pp-body">
-        ${pending?'<div class="notice warning pp-notice"><strong>Posición de referencia.</strong> La coordenada de este punto está pendiente de verificación local. Un centro o el equipo de WORLDIVES puede confirmarla.</div>':''}
+        ${pending?'<div class="notice warning pp-notice"><strong>Datos pendientes de verificar.</strong> La posición y los datos de este punto todavía no se han comprobado sobre el terreno. Un centro o el equipo de WORLDIVES puede confirmarlos.</div>':''}
+        ${p.warnings?`<div class="notice pp-warn" role="note">${wdIcon('alert',18)}<div><strong>Avisos</strong><p ${p.warnings_lang&&p.warnings_lang!==currentLanguage()?`lang="${escapeHtml(p.warnings_lang)}" translate="no"`:''}>${escapeHtml(p.warnings)}</p>${p.warnings_pending_translation?'<span class="wd-pending-tr">Pendiente de traducción</span>':''}</div></div>`:''}
+        ${p.protection_name?`<div class="notice pp-prot">${wdIcon('shield',18)}<div><strong>${escapeHtml(translateString(PT_PROTECTIONS[p.protection]||'Protección'))}</strong><p translate="no">${escapeHtml(p.protection_name)}</p>${p.permit_required?`<p class="pp-small">${escapeHtml(translateString('Para bucear aquí hace falta permiso: el centro lo gestiona o te dice cómo pedirlo.'))}</p>`:''}</div></div>`:''}
         <section class="tp-block pp-about" id="pp-about"><h2>Sobre el punto</h2>${p.description_lang?`<div class="tp-body" translate="no" lang="${escapeHtml(p.description_lang)}">${String(p.description).split(/\n{2,}/).map(x=>`<p>${escapeHtml(x)}</p>`).join('')}</div>`:`<p class="tp-body">${escapeHtml(pointAbout(p))}</p>`}${p.access_info&&!/pendientes? de completar/i.test(p.access_info)?`<div class="tp-note"><h3>Acceso y condiciones</h3><p>${escapeHtml(p.access_info)}</p></div>`:''}</section>
         ${marineStrip(d.species)}
         ${virtualSection(p,d.videos,d.virtual)}
@@ -1882,7 +1989,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           ${centers.length?`<div class="pp-centers">${centers.map(centerRowHtml).join('')}</div>`:'<div class="empty"><p>Todavía no hay centros en esta zona.</p><a class="btn" href="#/registro">¿Tienes un centro? Únete a WORLDIVES</a></div>'}</section>
         <section class="tp-block pp-where" id="pp-where"><div class="tp-block-head"><h2>Ubicación</h2>${osm?`<a href="${osm}" target="_blank" rel="noopener">Abrir en OpenStreetMap →</a>`:''}</div>
           <div id="pp-map" class="pp-map">${hasGeo?'':'<div class="map-fallback">Sin coordenadas</div>'}</div><p id="pp-map-note" class="wd-relief-note is-inline" hidden></p>
-          <details class="pp-suggest-box"><summary>¿La posición no es exacta?</summary><p class="pp-small">Propón una corrección: pasa a revisión antes de publicarse.</p>${state.me?'<button id="suggest-pos" class="btn" type="button">Proponer nueva posición</button>':`<a class="btn" href="#/login?next=${encodeURIComponent(location.hash)}">Inicia sesión para proponerla</a>`}<div id="suggest-form"></div></details></section>
+          <details class="pp-suggest-box"><summary>¿La posición o algún dato no es exacto?</summary><p class="pp-small">Propón una corrección: pasa a revisión antes de publicarse.</p>${state.me?'<button id="suggest-pos" class="btn" type="button">Proponer una corrección</button>':`<a class="btn" href="#/login?next=${encodeURIComponent(location.hash)}">Inicia sesión para proponerla</a>`}<div id="suggest-form"></div></details></section>
         ${photos.length>1?`<section class="tp-block"><h2>Fotos</h2><div class="pp-gallery">${photos.map(ph=>`<a href="${escapeHtml(ph.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(ph.image_path)}" alt="${escapeHtml(ph.caption||p.name)}" loading="lazy"></a>`).join('')}</div></section>`:''}
         <section class="tp-block pp-cert">${certificationGuidance(p,currentCert)}</section>
         ${nearby.length?`<section class="tp-block"><div class="tp-block-head"><h2>Puntos cercanos</h2></div><div class="tp-points">${nearby.map(n=>typePointCard(n).replace('</small></span></a>',`</small><small class="tp-point-meta">a ${escapeHtml(wdKm(n.distance_km))}</small></span></a>`)).join('')}</div></section>`:''}
@@ -1893,7 +2000,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     bindMarineStrip();
     pointDepartures(p);
     if(hasGeo) wdMaps().then(ok=>{ if(!$('#pp-map')) return; if(!ok){ $('#pp-map').innerHTML=`<div class="map-fallback"><strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong></div>`; return; } try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:false,scrollWheelZoom:true,attributionControl:true}))).setView([lat,lng],12); L.control.zoom({position:'bottomleft'}).addTo(m); wdLayerControl(m,{noteEl:$('#pp-map-note')}); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } });
-    $('#suggest-pos')?.addEventListener('click',()=>{ $('#suggest-form').innerHTML=`<div class="form-grid pp-suggest"><div class="field"><label>Latitud</label><input id="s-lat" type="number" step="0.000001" value="${hasGeo?lat:''}"></div><div class="field"><label>Longitud</label><input id="s-lon" type="number" step="0.000001" value="${hasGeo?lng:''}"></div><div class="field full"><label>Motivo</label><textarea id="s-note" placeholder="Qué ves en el mapa y por qué propones moverlo…"></textarea></div></div><button class="btn btn-primary" id="s-save" type="button">Enviar propuesta</button>`; $('#s-save').onclick=async()=>{ try{ await postJSON('/api/dive-points/'+id+'/suggest',{latitude:+$('#s-lat').value,longitude:+$('#s-lon').value,note:$('#s-note').value}); toast('Propuesta enviada.'); $('#suggest-form').innerHTML='<div class="notice">Propuesta registrada y pendiente de revisión.</div>'; }catch(e){ toast(e.message); } }; });
+    $('#suggest-pos')?.addEventListener('click',()=>{
+      // v50.58 (A.3): a centre that dives here proposes position, current, visibility and warnings; a diver, also the rest
+      const u=state.me?.user||{}, linked=u.role==='center'&&pc.mode==='exact'&&centers.some(c=>String(c.id)===String(u.center_id));
+      $('#suggest-form').innerHTML=pointProposalForm(p,{lat:hasGeo?lat:'',lng:hasGeo?lng:'',centre:linked}); translateTree($('#suggest-form'));
+      $('#s-save').onclick=async()=>{ try{ const r=await postJSON('/api/dive-points/'+id+'/propose',readPointProposal($('#suggest-form'),p,{lat,lng}));
+          toast('Propuesta enviada.'); $('#suggest-form').innerHTML=`<div class="notice">${escapeHtml(translateString('Propuesta registrada y pendiente de revisión.'))}</div>`; }catch(e){ toast(e.message); } }; });
+    $('#pp-temp-btn')?.addEventListener('click',e=>{ const b=e.currentTarget, box=$('#pp-temps'), open=box.hidden; box.hidden=!open; b.setAttribute('aria-expanded',String(open)); });
   }
 
   // v50.55 (brief de la app, «Ver salidas aquí»): the next departures with free places that go to this point, and on
@@ -4500,6 +4613,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     curso:'<path d="M2.5 9 12 4.5 21.5 9 12 13.5z"/><path d="M6.5 11v4.6c3.2 2.2 7.8 2.2 11 0V11"/><path d="M21.5 9v5"/>',
     experiencia:'<circle cx="8.5" cy="15" r="4.5"/><circle cx="16.5" cy="7.5" r="3"/><circle cx="17.5" cy="16.5" r="2"/>',
     salida:'<path d="M3 15.5 5 20h14l2-4.5z"/><path d="M12 15.5V3l7 9.5h-7"/>',
+    current:'<path d="M3 8c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M3 13c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M3 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/>',
+    bottom:'<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 17.5 9 4.5 9-4.5"/>',
+    anchor:'<circle cx="12" cy="5" r="2"/><path d="M12 7v14M8 11h8"/><path d="M4 14a8 8 0 0 0 16 0"/>',
     vida_a_bordo:'<path d="M2 17l2.2 3.5h15.6L22 17z"/><path d="M5 17v-4.5h14V17M8 12.5V9h8v3.5M11 9V5.5h2V9"/>',
     viaje:'<path d="M3 13.5 21 6l-5.5 14.5-3.2-5.6z"/><path d="m12.3 14.9-3.8 3.6"/>',
     alquiler_equipo:'<rect x="8" y="7" width="8" height="14" rx="4"/><path d="M10 7V4h4v3M14 4h3.5M12 11v3"/>',
