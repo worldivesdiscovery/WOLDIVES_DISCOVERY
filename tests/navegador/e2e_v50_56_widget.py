@@ -65,6 +65,7 @@ def run(shots: Path | None):
 
     def check(name, ok, detail=''):
         checks.append((name, bool(ok), detail))
+        print(('OK   ' if ok else 'FALLA') + ' ' + name + (f' · {detail}' if detail else ''), flush=True)   # as it goes: a stop shows where
 
     def shot(page, name, full=True):
         if shots:
@@ -96,6 +97,10 @@ def run(shots: Path | None):
         with sync_playwright() as p:
             browser = chromium(p)
             ctx = browser.new_context(viewport={'width': 1366, 'height': 900}, locale='es-ES')
+            # The fake Stripe of the tests sends the payment window to a host that does not exist (checkout.stripe.test).
+            # There the window shows a page, as Stripe's would: an error page that arrives late (a busy machine) used to
+            # interrupt the walk while it was already simulating the return from the payment.
+            ctx.route('https://checkout.stripe.test/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<!doctype html><title>Stripe (simulado)</title><p>Pago simulado</p>'))
             page = ctx.new_page(); errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))
             page.goto(f'{host}/index.html'); page.wait_for_load_state('networkidle')
@@ -141,6 +146,7 @@ def run(shots: Path | None):
             b = srv.sql("SELECT id, public_token, status, slot_reserved FROM bookings WHERE slot_id=? ORDER BY id DESC LIMIT 1", (pay_slot,))[0]
             check('plazas retenidas mientras se paga', b['status'] == 'payment_in_progress' and b['slot_reserved'] == 1, dict(b))
             stripe.pay(stripe.last_session()['id'])
+            popup.wait_for_url('https://checkout.stripe.test/**', timeout=15000)   # the payment page is open, as a person would see it
             popup.goto(f"{srv.base}/w/pago/{b['id']}.{b['public_token']}?r=ok"); popup.wait_for_load_state('networkidle')
             check('vuelta del pago: «Pago recibido»', 'Pago recibido' in popup.inner_text('body') or popup.is_closed())
             cal.locator('.wr-done .wr-ico').wait_for(timeout=15000)
@@ -226,7 +232,7 @@ def run(shots: Path | None):
             page.frame_locator('#lista iframe').locator('.wr-card').first.wait_for(timeout=15000)
             secs = time.time() - t0
             check('widget cargado en menos de 2 s con 4G', secs < 2.0, f'{secs:.2f} s')
-            checks.append(('(medida) carga del widget con 4G', True, f'{secs:.2f} s'))
+            check('(medida) carga del widget con 4G', True, f'{secs:.2f} s')
             ctx.close()
             browser.close()
     finally:
@@ -237,9 +243,7 @@ def run(shots: Path | None):
 
 if __name__ == '__main__':
     shots = Path(sys.argv[sys.argv.index('--shots') + 1]) if '--shots' in sys.argv else None
-    results = run(shots)
-    for name, ok, detail in results:
-        print(('OK   ' if ok else 'FALLA') + ' ' + name + (f' · {detail}' if detail else ''))
+    results = run(shots)   # (each check is printed as it happens)
     bad = [r for r in results if not r[1]]
     print(f'{len(results) - len(bad)}/{len(results)} comprobaciones correctas')
     sys.exit(1 if bad else 0)
