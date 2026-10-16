@@ -247,11 +247,16 @@ def main():
             check('Justificante PDF de otro centro: 404', center2.get(f"/api/bookings/{rb.json['id']}/receipt.pdf").status == 404)
 
             # --- administration (with the mandatory reason) ---------------------------------------------------------
+            # v50.57 (4.1): the bookings of the centres are shown in figures without asking anything; their detail (data
+            # of clients) asks for the password and a reason, in the web's own window, and the reason is logged.
             ctx, pg = new('escritorio', ('admin.prueba', PASSWORD))
             visit(pg, '#/admin?tab=claims', '.page, main', name='escritorio-admin-verificaciones')
             visit(pg, '#/admin?tab=bookings', '.page, main', name='escritorio-admin-reservas-con-motivo', settle=2000)
+            pg.click('#ab-detail-open'); pg.wait_for_selector('#wag-form', timeout=10000)
+            pg.fill('#wag-note', 'Revisión del recorrido de pruebas v50.47'); pg.fill('#wag-pass', PASSWORD)
+            pg.click('button[type=submit][form=wag-form]'); pg.wait_for_selector('#ab-detail-list .bk-row, #ab-detail-list tr, #ab-detail-list .empty', timeout=15000); pg.wait_for_timeout(800)
             logged = srv.sql("SELECT details FROM audit_log WHERE action='admin_center_access' ORDER BY id DESC LIMIT 1")
-            check('Administración: el motivo se pide y queda en el registro', bool(logged) and 'Revisión del recorrido' in logged[0]['details'], logged)
+            check('Administración: el detalle de las reservas pide contraseña y motivo, y el motivo queda en el registro', bool(logged) and 'Revisión del recorrido' in logged[0]['details'], logged)
             no_errors(pg, 'Administración'); ctx.close()
             b.close()
         check('Sin errores 500 del servidor en todo el recorrido', not errors_500, errors_500[:5])
