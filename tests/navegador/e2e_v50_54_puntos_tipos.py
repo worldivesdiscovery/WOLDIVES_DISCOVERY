@@ -31,7 +31,7 @@ from playwright.sync_api import sync_playwright  # noqa: E402
 from wod.cifrado import DEMO_DATA_KEY  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-KEY_ORDER = ['Profundidad', 'Nivel', 'Titulación recomendada', 'Tipo', 'Mejor época', 'Temperatura del agua', 'Visibilidad']
+KEY_ORDER = ['Profundidad', 'Corriente', 'Visibilidad', 'Temperatura del agua', 'Acceso', 'Nivel', 'Titulación recomendada', 'Tipo', 'Fondo', 'Mejor época', 'Protección']
 
 
 def main():
@@ -112,8 +112,8 @@ def main():
             check('Puntos: al volver de la ficha, mismos filtros, páginas y posición', after[0] == url and after[1] >= before and abs(after[2] - y) < 60 and after[3] == 'mid', {'antes': (url, before, y), 'después': after})
             # Lista / Mapa
             pg.click('.pt-view [data-view="map"]'); pg.wait_for_timeout(1500)
-            m = pg.evaluate("({map:!document.querySelector('#pt-mapview').hidden,grid:document.querySelector('#pt-grid').hidden,pins:document.querySelectorAll('#pt-map .pt-pin-wrap').length,total:+(document.querySelector('#pt-count strong')?.textContent||'0').replace(/\\D/g,''),url:location.hash})")
-            check('Puntos: Mapa en la misma página con todos los puntos filtrados', m['map'] and m['grid'] and m['pins'] == m['total'] and 'view=map' in m['url'], m)
+            m = pg.evaluate("({map:!document.querySelector('#pt-mapview').hidden,grid:document.querySelector('#pt-grid').hidden,pins:document.querySelectorAll('#pt-map .pt-pin-wrap').length+[...document.querySelectorAll('#pt-map .wd-cluster')].reduce((n,e)=>n+(parseInt(e.textContent)||0),0),total:+(document.querySelector('#pt-count strong')?.textContent||'0').replace(/\\D/g,''),url:location.hash})")
+            check('Puntos: Mapa en la misma página con todos los puntos filtrados (sueltos o en grupos)', m['map'] and m['grid'] and m['pins'] == m['total'] and 'view=map' in m['url'], m)
             pg.screenshot(path=str(out / 'puntos-mapa-ordenador.png'))
             pg.click('.pt-view [data-view="list"]'); pg.wait_for_timeout(900)
             check('Puntos: vuelta a la lista', cards(pg) > 0 and pg.evaluate("document.querySelector('#pt-mapview').hidden"))
@@ -138,13 +138,13 @@ def main():
             for i, pid in enumerate(ids):
                 pg.goto(f'{srv.base}/#/punto?id={pid}'); pg.wait_for_selector('.pp54'); pg.wait_for_timeout(500)
                 info = pg.evaluate("""(()=>{const keys=[...document.querySelectorAll('.pp-keys dt')].map(x=>x.textContent.trim());
-                  const order=['#pp-about','.pm-block','.pp-virtual-block','#pp-centers','#pp-where'].map(s=>{const e=document.querySelector(s);return e?[s,[...document.querySelectorAll('.pp-body > *')].indexOf(e)]:null}).filter(Boolean);
+                  const order=['#pp-about','#pp-videos','.pm-block','#pp-centers','#pp-where'].map(s=>{const e=document.querySelector(s);return e?[s,[...document.querySelectorAll('.pp-body > *')].indexOf(e)]:null}).filter(Boolean);
                   return {keys,order,text:document.querySelector('.pp54').innerText}})()""")
                 idx = [KEY_ORDER.index(k) for k in info['keys'] if k in KEY_ORDER]
                 check(f'Ficha {pid}: datos clave en el orden fijo', idx == sorted(idx) and len(idx) == len(info['keys']) and len(idx) >= 2, info['keys'])
                 check(f'Ficha {pid}: nunca «Por confirmar»', 'Por confirmar' not in info['text'])
                 pos = [p[1] for p in info['order']]
-                check(f'Ficha {pid}: descripción, vida marina, recorrido, centros y mapa en ese orden', pos == sorted(pos) and info['order'][0][0] == '#pp-about' and info['order'][-1][0] == '#pp-where', info['order'])
+                check(f'Ficha {pid}: descripción, vídeos, vida marina, centros y mapa en ese orden', pos == sorted(pos) and info['order'][0][0] == '#pp-about' and info['order'][-1][0] == '#pp-where', info['order'])
                 structures.append(tuple(p[0] for p in info['order']))
                 if i == 0:
                     pg.screenshot(path=str(out / 'ficha-ordenador.png'))
