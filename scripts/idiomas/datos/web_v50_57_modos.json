@@ -1,0 +1,24 @@
+{
+ "exact": {
+  "El buceador lo enseña al llegar. Escanéalo con «Check-in / QR» o con la app WORLDIVES PRO.": {
+   "en": "The diver shows it on arrival. Scan it with “Check-in / QR” or with the WORLDIVES PRO app.",
+   "fr": "Le plongeur le présente à son arrivée. Scannez-le avec « Check-in / QR » ou avec l’application WORLDIVES PRO.",
+   "de": "Der Taucher zeigt ihn bei der Ankunft. Scanne ihn mit „Check-in / QR“ oder mit der App WORLDIVES PRO.",
+   "it": "Il subacqueo lo mostra all’arrivo. Scansionalo con «Check-in / QR» o con l’app WORLDIVES PRO.",
+   "pt": "O mergulhador mostra-o à chegada. Lê-o com «Check-in / QR» ou com a app WORLDIVES PRO.",
+   "pl": "Nurek pokazuje go po przyjeździe. Zeskanuj go w «Check-in / QR» lub w aplikacji WORLDIVES PRO.",
+   "nl": "De duiker laat hem zien bij aankomst. Scan hem met «Check-in / QR» of met de app WORLDIVES PRO.",
+   "zh": "潜水员到达时出示。用“签到 / QR”或 WORLDIVES PRO 应用扫描。"
+  },
+  "Si no se puede escanear, escribe este código.": {
+   "en": "If it can’t be scanned, type this code.",
+   "fr": "S’il ne peut pas être scanné, saisissez ce code.",
+   "de": "Wenn er sich nicht scannen lässt, gib diesen Code ein.",
+   "it": "Se non si riesce a scansionarlo, scrivi questo codice.",
+   "pt": "Se não for possível lê-lo, escreve este código.",
+   "pl": "Jeśli nie da się go zeskanować, wpisz ten kod.",
+   "nl": "Lukt het scannen niet, typ dan deze code.",
+   "zh": "如果无法扫描，请输入此代码。"
+  }
+ }
+}
