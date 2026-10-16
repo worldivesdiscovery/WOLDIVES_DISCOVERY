@@ -447,11 +447,13 @@ def run(out: Path | None):
                   all(n in names for n in ('Inmersión', 'Bautizo', 'Curso', 'Salida privada', 'Viaje de buceo', 'Alquiler de equipo', 'Fotografía', 'Nocturna', 'Snorkel')), names)
             pg.fill('#stf-n-es', 'Nocturna de prueba'); pg.locator('#st-form .st-icon[data-icon="nocturna"]').click()
             prev = pg.inner_html('#stf-prev')
+            seen = {'nombre': pg.input_value('#stf-n-es'), 'vista': pg.inner_text('#stf-prev')[:120], 'ventanas': pg.locator('.wd-modal').count(),
+                    'marcado': pg.eval_on_selector_all('#st-form .st-icon[aria-checked="true"]', 'bs => bs.map(b => b.dataset.icon)'), 'icono': 'M19.5 13.4' in prev}
             check('4.3 · al elegirlo se ve la tarjeta con ese icono y el nombre', 'Nocturna de prueba' in pg.inner_text('#stf-prev')
-                  and pg.locator('#st-form .st-icon[data-icon="nocturna"][aria-checked="true"]').count() == 1 and 'M19.5 13.4' in prev)
+                  and pg.locator('#st-form .st-icon[data-icon="nocturna"][aria-checked="true"]').count() == 1 and 'M19.5 13.4' in prev, seen)
             shot(pg, 'b4-3-icono-vista-previa')
             pg.locator('#st-form footer button[type=submit]').click()
-            check('4.3 · se guarda con su icono', toast_has('Plantilla guardada'))
+            check('4.3 · se guarda con su icono', toast_has('Plantilla guardada'), pg.inner_text('#toast'))
             pg.wait_for_timeout(1200)
             # delete the one nobody uses (with confirmation)
             card = pg.locator('.st-card', has_text='Nocturna de prueba')
