@@ -34,6 +34,7 @@ class Links(unittest.TestCase):
               'https://www.youtube.com/shorts/dQw4w9WgXcQ': ('youtube', True), 'https://vimeo.com/76979871': ('vimeo', True),
               'https://www.dailymotion.com/video/x8abc12': ('dailymotion', True), 'https://www.tiktok.com/@buceo/video/7234567890123456789': ('tiktok', True),
               'https://www.facebook.com/watch/?v=1234567890': ('facebook', True), 'https://www.instagram.com/reel/Cxyz12345/': ('instagram', True),
+              'https://www.instagram.com/p/Cxyz12345/': ('instagram', True),   # v50.58: Instagram posts too (brief of 16/10)
               'https://www.twitch.tv/videos/123456789': ('twitch', False), 'https://videos.otra-plataforma.example/ver/1': ('otra', False)}
         for url, (key, ins) in ok.items():
             got = v.parse_link(url)
@@ -42,7 +43,7 @@ class Links(unittest.TestCase):
         self.assertEqual(v.player_url('youtube', 'dQw4w9WgXcQ').split('?')[0], 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ')
         bad = {'http://www.youtube.com/watch?v=dQw4w9WgXcQ': 'https://', 'https://bit.ly/abc': 'acortado', 'https://10.0.0.1/v': 'sospechoso',
                'https://a:b@youtube.com/watch?v=dQw4w9WgXcQ': 'sospechoso', 'https://www.youtube.com/@canal': 'no es de un vídeo',
-               'https://www.instagram.com/p/Cxyz12345/': 'reel', 'https://cdn.example.com/ruta.mp4': 'no el archivo', 'javascript:alert(1)': 'https://',
+               'https://www.instagram.com/buceo.restinga/': 'reel', 'https://cdn.example.com/ruta.mp4': 'no el archivo', 'javascript:alert(1)': 'https://',
                'https://example.com:8080/v': 'sospechoso', 'https://xn--youtbe-9ya.com/watch': 'sospechoso', 'https://example.com/setup.exe': 'no es de un vídeo', '': 'Pega'}
         for url, msg in bad.items():
             with self.assertRaises(v.LinkError, msg=url) as cm:
@@ -78,6 +79,8 @@ class VidaMarina(ServerTestCase):
         cls.center = t.make_center(cls.admin, 'marina1')
         cls.pro = t.make_freelance(cls.admin, 'marina2')
         cls.diver = t.make_diver('marina3')
+        # v50.58: a centre or freelance adds videos with its email confirmed (the diver's stays unconfirmed: test_03)
+        for c in (cls.center, cls.pro): cls.server.sql("UPDATE users SET email_verified_at=datetime('now') WHERE id=?", (c.user['id'],))
         pts = cls.admin.get('/api/dive-points').json['items']
         cls.pid, cls.pid2, cls.empty = pts[0]['id'], pts[1]['id'], pts[2]['id']
 
@@ -106,22 +109,19 @@ class VidaMarina(ServerTestCase):
             d = r.json
             self.assertEqual((d['platform'], d['insertable']), (key, ins), url)
             self.assertIn(title, d['title'], url)
-            self.assertTrue(d['thumb'] and d['thumb']['src'].startswith('/assets/uploads/videos/') and d['thumb']['src'].endswith('.webp'), (url, d))
-            widths = [int(x.split()[-1][:-1]) for x in d['thumb']['srcset'].split(', ')]
-            self.assertEqual(max(widths), maxw, url)
-            img = self.client().get(d['thumb']['src'])
-            self.assertEqual((img.status, img.headers.get('Content-Type')), (200, 'image/webp'), url)
-            from PIL import Image
-            im = Image.open(io.BytesIO(img.body))
-            self.assertAlmostEqual(im.width / im.height, 16 / 9, delta=0.02, msg=url)
-            if url.startswith('https://youtu.be/'):   # the black bands of hqdefault are cut away
-                self.assertGreater(sum(im.getpixel((im.width // 2, 2))), 30)
-        self.assertEqual(self.admin.post('/api/marina/video/comprobar', {'url': 'https://www.youtube.com/watch?v=Ab3dEf6hI9k'}).status, 200)
-        self.assertEqual(len(self.mock.asked('i.ytimg.com/vi/Ab3dEf6hI9k/maxresdefault')), 1, 'the preview is downloaded once')
+            # v50.58 (brief of 16/10, Parte 1.6): the preview is the platform's own image, loaded from the platform; nothing
+            # is downloaded or kept on our server any more
+            self.assertTrue(d['thumb'] and d['thumb']['src'].startswith('https://') and '/assets/' not in d['thumb']['src'], (url, d))
+            if key == 'youtube':
+                vid = url.split('v=')[-1] if 'v=' in url else url.rsplit('/', 1)[1]
+                self.assertEqual((d['thumb']['src'], d['thumb']['fallback']), (f'https://i.ytimg.com/vi/{vid}/maxresdefault.jpg', f'https://i.ytimg.com/vi/{vid}/hqdefault.jpg'))
+            self.assertEqual(d['vertical'], key == 'tiktok', url)
+        self.assertFalse(self.mock.asked('i.ytimg.com'), 'no preview image is downloaded by the server')
+        self.assertFalse(list((self.server.tmp / 'uploads' / 'videos').glob('*')), 'nothing kept on our server')
 
     def test_02_fallback_and_invalid(self):
         r = self.admin.post('/api/marina/video/comprobar', {'url': 'https://www.youtube.com/watch?v=NOTHUMB0001'})
-        self.assertEqual(r.status, 200); self.assertIsNone(r.json['thumb'])
+        self.assertEqual(r.status, 200); self.assertTrue(r.json['thumb']['src'].startswith('https://i.ytimg.com/'), 'the web tries the platform\'s image')
         r = self.admin.post('/api/marina/video/comprobar', {'url': 'https://www.facebook.com/watch/?v=1234567890'})
         self.assertEqual(r.status, 200); self.assertIsNone(r.json['thumb']); self.assertTrue(r.json['insertable'])
         for url, msg in (('https://blog.example.com/post', 'no es de un vídeo'), ('http://vimeo.com/76979871', 'https://'), ('https://bit.ly/x', 'acortado'),
@@ -131,10 +131,10 @@ class VidaMarina(ServerTestCase):
 
     def test_03_permissions_and_approval(self):
         url = 'https://www.youtube.com/watch?v=Pe3dEf6hI9k'
-        r = self.diver.post('/api/marina/video', {'point_id': self.pid, 'url': url})
-        self.assertEqual(r.status, 403); self.assertIn('buceadores', r.json['error'])
-        self.assertEqual(self.diver.post('/api/marina/video/comprobar', {'url': url}).status, 403)
-        r = self.center.post('/api/marina/video', {'point_id': self.pid, 'url': url, 'kind': '360', 'title': 'Pared de las gorgonias'})
+        # v50.58 (brief of 16/10, Parte 3): a diver with an unconfirmed email and an incomplete profile is told what to complete
+        r = self.diver.post('/api/marina/video', {'point_id': self.pid, 'url': url, 'confirm': True})
+        self.assertEqual(r.status, 403); self.assertIn('correo', r.json['error'])
+        r = self.center.post('/api/marina/video', {'point_id': self.pid, 'url': url, 'kind': '360', 'title': 'Pared de las gorgonias', 'confirm': True})
         self.assertEqual((r.status, r.json['status']), (200, 'pending'), r.json)
         vid = r.json['id']
         public = self.client().get(f'/api/dive-points/{self.pid}').json
@@ -145,16 +145,18 @@ class VidaMarina(ServerTestCase):
         self.assertEqual(self.pro.post(f'/api/marina/video/{vid}/retirar').status, 403)
         q = self.admin.get('/api/admin/marina/pendientes').json
         self.assertIn(vid, [v['id'] for v in q['videos']]); self.assertGreaterEqual(q['count'], 1)
-        r = self.admin.post('/api/admin/marina/revisar', {'type': 'video', 'id': vid, 'decision': 'reject'})
-        self.assertEqual(r.status, 400, 'a rejection needs a reason')
         self.assertEqual(self.admin.post('/api/admin/marina/revisar', {'type': 'video', 'id': vid, 'decision': 'approve'}).status, 200)
         v = [x for x in self.client().get(f'/api/dive-points/{self.pid}').json['videos'] if x['id'] == vid][0]
-        self.assertEqual((v['kind'], v['title'], v['contributor'], v['platform']), ('360', 'Pared de las gorgonias', 'Centro marina1', 'youtube'))
+        # v50.58: the type is a detail for the administration («360°» shows on the image); who sent it is not public
+        self.assertEqual((v['kind'], v['title'], v['platform']), ('normal', 'Pared de las gorgonias', 'youtube'), 'a centre does not choose the type')
+        self.assertNotIn('contributor', v)
         self.assertTrue(v['player'].startswith('https://www.youtube-nocookie.com/embed/Pe3dEf6hI9k'))
         self.assertEqual(self.center.post(f'/api/marina/video/{vid}', {'title': 'otro'}).status, 403, 'reviewed: no more changes')
         # Freelance: proposal rejected with a reason, which it sees.
-        r = self.pro.post('/api/marina/video', {'point_id': self.pid, 'url': 'https://vimeo.com/76979871'})
-        self.assertEqual(r.json['status'], 'pending')
+        r = self.pro.post('/api/marina/video', {'point_id': self.pid, 'url': 'https://vimeo.com/76979871', 'confirm': True})
+        self.assertEqual(r.status, 400, 'v50.58: only YouTube, Instagram and TikTok from a person'); self.assertIn('Solo se admiten', r.json['error'])
+        r = self.pro.post('/api/marina/video', {'point_id': self.pid, 'url': 'https://www.tiktok.com/@buceo/video/7234567890123456789', 'confirm': True})
+        self.assertEqual(r.json['status'], 'pending', r.json)
         self.assertEqual(self.admin.post('/api/admin/marina/revisar', {'type': 'video', 'id': r.json['id'], 'decision': 'reject', 'note': 'No se ve el punto'}).status, 200)
         mine = self.pro.get('/api/marina/mias').json['items']
         self.assertEqual([(x['status'], x['note']) for x in mine if x['id'] == r.json['id']], [('rejected', 'No se ve el punto')])

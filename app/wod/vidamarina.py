@@ -168,7 +168,7 @@ def point_species(db, pid, lang, statuses=('approved',), public=True) -> list[di
 
 def point_videos(db, pid, statuses=('approved',), public=True) -> list[dict]:
     marks = ','.join('?' * len(statuses))
-    rows = db.execute(f'''SELECT * FROM route_videos WHERE dive_point_id=? AND active=1 AND status IN ({marks}) ORDER BY sort_order, id''',
+    rows = db.execute(f'''SELECT * FROM route_videos WHERE dive_point_id=? AND active=1 AND status IN ({marks}) ORDER BY featured DESC, sort_order, id''',
                       (pid, *statuses)).fetchall()
     out = []
     for r in rows:

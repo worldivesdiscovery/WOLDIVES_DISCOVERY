@@ -27,7 +27,10 @@ MAX_REDIRECTS = 3
 
 
 class FetchError(Exception):
-    """The other website could not be read (down, too slow, too big, wrong type or not allowed)."""
+    """The other website could not be read (down, too slow, too big, wrong type or not allowed). status: the HTTP
+    answer when the website did answer (404, 401…), None when it could not be reached."""
+    def __init__(self, msg='', status=None):
+        super().__init__(msg); self.status = status
 
 
 def _test_base() -> str | None:
@@ -94,7 +97,7 @@ def fetch(url: str, *, kinds: tuple[str, ...], max_bytes: int, accept: str = '*/
         except urllib.error.HTTPError as e:
             if e.code in (301, 302, 303, 307, 308) and e.headers.get('Location'):
                 current = urllib.parse.urljoin(current, e.headers['Location']); continue
-            raise FetchError(f'La web respondió {e.code}.') from None
+            raise FetchError(f'La web respondió {e.code}.', e.code) from None
         except (urllib.error.URLError, OSError, ValueError) as e:
             sys.stderr.write(f'[remoto] {urllib.parse.urlparse(current).hostname}: {type(e).__name__}: {str(e)[:160]}\n')   # ASVS V16.3.4
             raise FetchError('No se ha podido conectar con la web.') from None

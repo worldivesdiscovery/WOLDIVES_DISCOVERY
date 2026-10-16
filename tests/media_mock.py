@@ -10,6 +10,9 @@ What it answers, by address:
   videos.otra-plataforma.example     a page that says it is a video (og:type video.other) with og:image.
   blog.example.com                   a page that is not a video.
   commons.wikimedia.org              search and file data with free and non-free licences; upload.wikimedia.org images.
+v50.58 (vídeos de los puntos): YouTube ids starting with «GONE» answer 404 (deleted), «PRIV» 403 (private), «NOEMB» 401
+(insertion turned off) and «SH» a portrait oEmbed (a Short); TikTok videos whose number starts with 404 are gone;
+graph.facebook.com answers Instagram's oEmbed (only asked when WOD_META_OEMBED_TOKEN is set) with a portrait image.
 Every request is kept in .seen (address list) so tests can check what was asked and when.
 """
 from __future__ import annotations
@@ -86,7 +89,12 @@ class MediaMock:
         inner = (qs.get('url') or [''])[0]
         if host == 'www.youtube.com' and p.path == '/oembed':
             vid = urllib.parse.parse_qs(urllib.parse.urlparse(inner).query).get('v', [''])[0]
-            if vid.startswith('NOOEMB'): return not_found
+            if vid.startswith('NOOEMB') or vid.startswith('GONE'): return not_found
+            if vid.startswith('PRIV'): return (403, b'Forbidden', 'text/plain', None)
+            if vid.startswith('NOEMB'): return (401, b'Unauthorized', 'text/plain', None)
+            if vid.startswith('SH'):
+                return j({'title': f'Short del pecio · {vid}', 'author_name': 'Canal de pruebas', 'width': 113, 'height': 200,
+                          'thumbnail_url': f'https://i.ytimg.com/vi/{vid}/hqdefault.jpg'})
             return j({'title': f'Ruta del pecio · {vid}' if '360' not in vid else f'Ruta 360° por la pared · {vid}', 'author_name': 'Canal de pruebas',
                       'thumbnail_url': f'https://i.ytimg.com/vi/{vid}/hqdefault.jpg'})
         if host == 'i.ytimg.com':
@@ -102,8 +110,13 @@ class MediaMock:
             return j({'title': 'Buceo nocturno en Dailymotion', 'author_name': 'Club de pruebas', 'thumbnail_url': 'https://s1.dmcdn.net/v/prueba/x1080'})
         if host == 's1.dmcdn.net': return img(1920, 1080, 5)
         if host == 'www.tiktok.com' and p.path == '/oembed':
+            if '/video/404' in inner: return (400, json.dumps({'code': 400, 'message': 'Something went wrong'}).encode(), 'application/json', None)
             return j({'title': 'Tortuga en la Restinga #buceo', 'author_name': '@buceo', 'thumbnail_url': 'https://p16-sign.tiktokcdn-eu.com/obj/prueba.jpeg'})
         if host.endswith('tiktokcdn-eu.com'): return img(720, 1280, 7)
+        if host == 'graph.facebook.com' and p.path.endswith('/instagram_oembed'):
+            if 'access_token' not in qs: return (400, b'{"error":{"message":"token"}}', 'application/json', None)
+            return j({'title': 'Reel en la Restinga', 'author_name': 'buceo.restinga', 'thumbnail_url': 'https://scontent.cdninstagram.com/v/prueba.jpg',
+                      'thumbnail_width': 640, 'thumbnail_height': 1136})
         if host.endswith('facebook.com'):
             return html('<html><head><title>Facebook</title></head><body>Inicia sesión para continuar.</body></html>')
         if host.endswith('twitch.tv'):

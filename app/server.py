@@ -1919,6 +1919,7 @@ def migrate_v50_58(db):
     for stmt in COURSE_SESSIONS_SCHEMA: db.execute(stmt)
     migrate_equipment(db)
     migrate_points_v50_58(db)
+    migrate_videos_v50_58(db)
     if migration_done(db, '50.58'): return
     n_kind = n_plan = n_ed = 0
     for r in db.execute('SELECT * FROM provider_services WHERE kind IS NULL').fetchall():
@@ -1934,6 +1935,26 @@ def migrate_v50_58(db):
         db.execute("UPDATE service_slots SET date_to=?, kind='edition' WHERE id=?", (wsv.edition_end(r['slot_date'], plan), r['id'])); n_ed += 1
     db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)',
                ('50.58', now(), f'Servicios en el idioma del buceador: {n_kind} servicios con su tipo, {n_plan} cursos con su plan de días, {n_ed} ediciones con fecha de fin'))
+
+
+VIDEO_COLUMNS = [('thumb_url', 'TEXT'), ('thumb_url_at', 'TEXT'), ('vertical', 'INTEGER'), ('featured', 'INTEGER NOT NULL DEFAULT 0'),
+                 ('verified_state', 'TEXT'), ('checked_at', 'TEXT'), ('unavailable_at', 'TEXT'), ('unavailable_reason', 'TEXT'),
+                 ('removed_at', 'TEXT'), ('removed_reason', 'TEXT'), ('removed_by', 'INTEGER'), ('last_report_check', 'TEXT')]
+
+
+def migrate_videos_v50_58(db):
+    """v50.58 · videos of the dive sites (owner's brief of 16/10/2026): the platform's own preview, portrait videos, the
+    featured one, the checks of whether a video is still there and the take-downs. Adds; nothing is deleted. The videos
+    that exist stay published and only learn whether they are portrait (Reels, TikTok, Shorts)."""
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='route_videos'").fetchone(): return
+    add_columns(db, 'route_videos', VIDEO_COLUMNS)
+    db.execute('CREATE INDEX IF NOT EXISTS idx_route_videos_user ON route_videos(created_by_user_id, created_at)')
+    if migration_done(db, '50.58-videos'): return
+    n = 0
+    for r in db.execute('SELECT id,platform,url FROM route_videos WHERE vertical IS NULL').fetchall():
+        db.execute('UPDATE route_videos SET vertical=? WHERE id=?', (1 if wvideos.is_vertical(r['platform'], r['url']) else 0, r['id'])); n += 1
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)',
+               ('50.58-videos', now(), f'Vídeos de los puntos: {n} vídeos existentes siguen publicados con el diseño nuevo'))
 
 
 def migrate_points_v50_58(db):
@@ -4606,54 +4627,239 @@ def marina_point(db, pid):
     return r
 
 
-def marina_thumb(info):
-    """The preview image of a link, downloaded once and stored as WebP in three sizes (16:9). (None, None) when the
-    platform has none or does not answer: the web then shows the dive site's photo with the play button."""
-    name = wvideos.thumb_name(info['url']); folder = PHOTOS / 'videos'
-    have = sorted(int(f.stem.rsplit('-', 1)[1]) for f in folder.glob(name + '-*.webp') if f.stem.rsplit('-', 1)[1].isdigit()) if folder.is_dir() else []
-    if have: return f'/assets/uploads/videos/{name}', ','.join(map(str, have))
-    body = wvideos.fetch_thumbnail(info)
-    if not body: return None, None
-    try:
-        res = wimg.variants(body, folder, name, wmarina.VIDEO_WIDTHS, aspect=16 / 9)
-    except ValueError:
-        return None, None
-    if res.get('original'): return f"/assets/uploads/videos/{res['original']}", ''
-    return f'/assets/uploads/videos/{name}', ','.join(map(str, res['widths']))
+def video_contributor(db, user):
+    """v50.58: (kind, provider, name) of whoever adds a video. Besides the administration, centres and freelance (v50.50),
+    any registered diver with a complete profile ('diver'; the name is only seen by the administration)."""
+    if user['role'] in ('admin', 'center', 'freelance'):
+        try: return marina_contributor(db, user)
+        except PermissionError: pass
+    return 'diver', None, (user.get('fullname') or 'Buceador')[:120]
+
+
+def video_missing(db, user):
+    """What a person still has to complete before adding a video (empty: they can). The mandatory data of each kind of
+    account: a confirmed email and name and surname; a diver also the country and the certification level; a centre,
+    that WORLDIVES has verified it. The administration adds always."""
+    if user['role'] == 'admin': return []
+    out = []
+    if not user.get('email_verified_at'): out.append(('email', 'Confirmar tu correo electrónico', '#/cuenta'))
+    if len((user.get('fullname') or '').strip()) < 3: out.append(('name', 'Tu nombre y apellidos', '#/cuenta'))
+    if user['role'] not in ('center', 'freelance'):
+        prof = db.execute('SELECT country,certification_id FROM user_profiles WHERE user_id=?', (user['id'],)).fetchone()
+        if not prof or not (prof['country'] or '').strip(): out.append(('country', 'Tu país', '#/cuenta'))
+        if not prof or not prof['certification_id']: out.append(('cert', 'Tu nivel de certificación', '#/cuenta'))
+    elif user['role'] == 'center':
+        c = db.execute('SELECT active FROM centers WHERE id=?', (user.get('center_id') or 0,)).fetchone()
+        if not c or not c['active']: out.append(('center', 'Que WORLDIVES verifique tu centro', '#/admin'))
+    return [{'key': k, 'label': l, 'href': h} for k, l, h in out]
+
+
+VIDEO_DAILY_LIMIT = 5
+
+
+def video_left_today(db, user):
+    since = (datetime.now(timezone.utc) - _timedelta(hours=24)).isoformat(timespec='seconds')
+    n = db.execute('SELECT COUNT(*) FROM route_videos WHERE created_by_user_id=? AND created_at>=?', (user['id'], since)).fetchone()[0]
+    return max(0, VIDEO_DAILY_LIMIT - n)
 
 
 def marina_preview(db, user, url):
-    marina_contributor(db, user); marina_rate(user['id'])
+    """«Comprobar» a link before adding it: its title, its platform and its preview (the platform's own image)."""
+    ckind = video_contributor(db, user)[0]; marina_rate(user['id'])
     try:
+        v = wvideos.parse_link(url)
+        if ckind != 'admin' and v['platform'] not in wvideos.USER_PLATFORMS: raise wvideos.LinkError('Ese enlace no se admite. ' + wvideos.USER_HINT)
         info = wvideos.inspect(url)
     except wvideos.LinkError as e:
         raise ValueError(str(e)) from None
-    base, widths = marina_thumb(info)
+    if info['state'] in wvideos.UNAVAILABLE: raise ValueError(wvideos.UNAVAILABLE[info['state']])
     return {'url': info['url'], 'platform': info['platform'], 'platform_name': info['platform_name'], 'insertable': info['insertable'],
-            'title': info['title'], 'author': info['author'], 'kind_guess': info['kind_guess'], 'thumb': wimg.srcset(base, widths)}
+            'title': info['title'], 'author': info['author'], 'kind_guess': info['kind_guess'], 'thumb': info['thumb'], 'vertical': info['vertical'],
+            'checked': info['state'] == 'ok'}
 
 
 def marina_add_video(db, user, data):
+    """v50.58 (encargo del 16/10/2026, Parte 3): one way in for every video. The administration publishes at once;
+    everybody else (diver, centre, freelance) with a confirmed email and a complete profile sends a proposal that waits
+    for the administration: only YouTube, Instagram and TikTok, the platform says it exists, is public and can be
+    inserted, never twice on the same site and at most 5 every 24 hours."""
     pid = int(data.get('point_id') or 0); point = marina_point(db, pid)
-    ckind, prov, cname = marina_contributor(db, user); marina_rate(user['id'])
-    kind = data.get('kind') if data.get('kind') in wvideos.KINDS else 'normal'
+    ckind, prov, cname = video_contributor(db, user)
+    admin = ckind == 'admin'
+    if not admin:
+        miss = video_missing(db, user)
+        if miss: raise PermissionError('Para añadir vídeos te falta: ' + ', '.join(m['label'][0].lower() + m['label'][1:] for m in miss) + '.')
+        if not data.get('confirm'): raise ValueError('Confirma que el vídeo es de este punto de buceo y que lo has grabado tú o tienes permiso de su autor.')
+        if video_left_today(db, user) <= 0: raise ValueError(f'Has llegado al límite de {VIDEO_DAILY_LIMIT} vídeos en 24 horas. Podrás añadir más mañana.')
+    marina_rate(user['id'])
     try:
-        info = wvideos.inspect(data.get('url'))
+        v = wvideos.parse_link(data.get('url'))
+        if not admin and v['platform'] not in wvideos.USER_PLATFORMS: raise wvideos.LinkError('Ese enlace no se admite. ' + wvideos.USER_HINT)
+        info = wvideos.inspect(data.get('url'), fresh=not admin)
     except wvideos.LinkError as e:
         raise ValueError(str(e)) from None
-    dup = db.execute("SELECT status FROM route_videos WHERE dive_point_id=? AND url=? AND active=1 AND status<>'rejected'", (pid, info['url'])).fetchone()
-    if dup: raise ValueError('Este vídeo ya está en el punto.' if dup['status'] == 'approved' else 'Este vídeo ya está propuesto y espera la aprobación.')
-    base, widths = marina_thumb(info)
-    admin = ckind == 'admin'
+    st = info['state']
+    if st in wvideos.UNAVAILABLE: raise ValueError(wvideos.UNAVAILABLE[st] + ' Así no se puede añadir.')
+    if st == 'unknown' and not admin:
+        raise ValueError(f"No hemos podido comprobar el vídeo con {info['platform_name']} ahora mismo. Inténtalo dentro de un rato.")
+    dup = db.execute("""SELECT status FROM route_videos WHERE dive_point_id=? AND active=1 AND status<>'rejected'
+                        AND (url=? OR (platform=? AND video_ref IS NOT NULL AND video_ref=?))""", (pid, info['url'], info['platform'], info['ref'] or '')).fetchone()
+    if dup: raise ValueError('Este vídeo ya está en este punto.' if dup['status'] == 'approved' else 'Este vídeo ya está enviado para este punto y espera la revisión.')
+    kind = data.get('kind') if admin and data.get('kind') in wvideos.KINDS else info['kind_guess']
     order = db.execute('SELECT COALESCE(MAX(sort_order),0)+1 FROM route_videos WHERE dive_point_id=? AND active=1', (pid,)).fetchone()[0] if admin else 0
-    cur = db.execute('''INSERT INTO route_videos(dive_point_id,url,platform,platform_name,video_ref,kind,title,source_title,source_author,thumb_base,thumb_widths,
-                        thumb_tries,sort_order,status,contributor_kind,contributor_provider,contributor_name,created_by_user_id,reviewed_by_user_id,reviewed_at,
-                        created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-                     (pid, info['url'], info['platform'], info['platform_name'][:60] or None, info['ref'], kind, clean_text(data.get('title'), 180) or None,
-                      info['title'] or None, info['author'] or None, base, widths, 0 if base else 1, order, 'approved' if admin else 'pending', ckind, prov,
-                      cname, user['id'], user['id'] if admin else None, now() if admin else None, now(), now()))
+    cur = db.execute('''INSERT INTO route_videos(dive_point_id,url,platform,platform_name,video_ref,kind,title,source_title,source_author,thumb_url,thumb_url_at,
+                        vertical,verified_state,checked_at,thumb_tries,sort_order,status,contributor_kind,contributor_provider,contributor_name,created_by_user_id,
+                        reviewed_by_user_id,reviewed_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                     (pid, info['url'], info['platform'], info['platform_name'][:60] or None, info['ref'], kind, clean_text(data.get('title'), 120) or None,
+                      info['title'] or None, info['author'] or None, info.get('thumb_url'), now() if info.get('thumb_url') else None,
+                      1 if info['vertical'] else 0, st, now(), 0, order, 'approved' if admin else 'pending', ckind, prov, cname, user['id'],
+                      user['id'] if admin else None, now() if admin else None, now(), now()))
     audit(db, user['id'], 'route_video_added' if admin else 'route_video_proposed', 'route_video', cur.lastrowid, {'point': point['name'], 'url': info['url']})
     return cur.lastrowid
+
+
+def video_notify(db, row, approved, note, admin_id):
+    """The person who sent a video learns the decision: in «Avisos» inside the web and by email, in their language."""
+    uid = row['created_by_user_id']
+    if not uid or row['contributor_kind'] == 'admin': return
+    p = db.execute('SELECT name FROM dive_points WHERE id=?', (row['dive_point_id'],)).fetchone()
+    lang = user_lang(db, uid); pname = p['name'] if p else ''
+    if approved:
+        subject = mail_t(lang, 'Tu vídeo de {point_name} ya está publicado', point_name=pname)
+        body = mail_t(lang, 'Hemos revisado el vídeo que enviaste para {point_name} y ya se ve en la ficha del punto. Gracias por compartirlo.', point_name=pname)
+    else:
+        subject = mail_t(lang, 'Tu vídeo de {point_name} no se ha publicado', point_name=pname)
+        body = mail_t(lang, 'Hemos revisado el vídeo que enviaste para {point_name} y no lo hemos publicado.', point_name=pname) + (f'\n\n{note}' if note else '')
+    db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,'system')", (admin_id, uid, subject, body, now()))
+    notify_user(db, uid, 'video_approved' if approved else 'video_rejected',
+                {'point_name': pname, 'point_url': f"{public_site_url()}/#/punto?id={row['dive_point_id']}",
+                 'reason': note or mail_t(lang, 'No encaja con las normas de los vídeos de los puntos.')}, ('route_video', row['id']))
+
+
+def video_check(db, row, fresh=True):
+    """Asks the platform again whether a video is still there (deleted, private or insertion turned off) and refreshes
+    its preview image (TikTok's expires). Returns the state; an unavailable video is marked for the administration."""
+    try:
+        info = wvideos.inspect(row['url'], fresh=fresh)
+    except wvideos.LinkError:
+        return 'unknown'
+    st = info['state']
+    sets = {'checked_at': now(), 'verified_state': st}
+    if info.get('thumb_url'): sets.update(thumb_url=info['thumb_url'], thumb_url_at=now())
+    if st in wvideos.UNAVAILABLE:
+        if not row['unavailable_at']: sets.update(unavailable_at=now(), unavailable_reason=st)
+    elif st == 'ok':
+        sets.update(unavailable_at=None, unavailable_reason=None)
+    db.execute(f"UPDATE route_videos SET {', '.join(k + '=?' for k in sets)} WHERE id=?", [*sets.values(), row['id']])
+    return st
+
+
+VIDEO_JOBS = {'last': 0.0}
+
+
+def run_video_jobs(db):
+    """Every 15 minutes, a few published videos are checked again with their platform (once a week each; TikTok and
+    Instagram previews every 12 hours because their image addresses expire). Off with WOD_VIDEO_CHECKS=0."""
+    if wcfg.env('WOD_VIDEO_CHECKS', '1') == '0' or time.time() - VIDEO_JOBS['last'] < 900: return
+    VIDEO_JOBS['last'] = time.time()
+    week = (datetime.now(timezone.utc) - _timedelta(days=7)).isoformat(timespec='seconds')
+    half = (datetime.now(timezone.utc) - _timedelta(hours=12)).isoformat(timespec='seconds')
+    for r in db.execute("""SELECT * FROM route_videos WHERE active=1 AND status='approved' AND platform IN ('youtube','tiktok','instagram','vimeo','dailymotion')
+                           AND (checked_at IS NULL OR checked_at<? OR (platform IN ('tiktok','instagram') AND (thumb_url_at IS NULL OR thumb_url_at<?)))
+                           ORDER BY checked_at IS NOT NULL, checked_at LIMIT 4""", (week, half)).fetchall():
+        video_check(db, r)
+
+
+VIDEO_REPORT_REASONS = ('wrong_point', 'inappropriate', 'not_mine')
+VIDEO_NOT_AVAILABLE_LIMIT = wsec.SharedRateLimiter('videos-no-disponibles', 30, 3600)
+
+
+def video_admin_list(db, tab, show_email):
+    """Administración → Vídeos de puntos: Pendientes, Publicados (by site, in their order) and Denunciados."""
+    where = {'pending': "v.active=1 AND v.status='pending'",
+             'published': "v.active=1 AND v.status='approved'",
+             'reported': "v.active=1 AND EXISTS(SELECT 1 FROM content_reports r WHERE r.target_type='video' AND r.target_id=v.id AND r.status='open')"}[tab]
+    order = {'pending': 'v.created_at, v.id', 'published': 'p.name, v.featured DESC, v.sort_order, v.id', 'reported': 'v.updated_at DESC, v.id'}[tab]
+    out = []
+    for r in db.execute(f'''SELECT v.*, p.name AS point_name, u.email AS user_email FROM route_videos v JOIN dive_points p ON p.id=v.dive_point_id
+                            LEFT JOIN users u ON u.id=v.created_by_user_id WHERE {where} ORDER BY {order} LIMIT 500''').fetchall():
+        d = wvideos.public_row(dict(r))
+        d.update(point_id=r['dive_point_id'], point_name=r['point_name'], created_at=r['created_at'], status=r['status'], source_title=r['source_title'] or '',
+                 contributor=r['contributor_name'] or '', contributor_kind=r['contributor_kind'], sort_order=r['sort_order'],
+                 email=(r['user_email'] if show_email else mask_email(r['user_email'])) if r['user_email'] and r['contributor_kind'] != 'admin' else '',
+                 verified_state=r['verified_state'] or '', unavailable_reason=wvideos.UNAVAILABLE.get(r['unavailable_reason'] or '', ''),
+                 unavailable_at=r['unavailable_at'], review_note=r['review_note'] or '')
+        d['reports'] = [dict(x) for x in db.execute("""SELECT id,reason,details,created_at FROM content_reports WHERE target_type='video' AND target_id=? AND status='open'
+                                                       ORDER BY id""", (r['id'],)).fetchall()]
+        for x in d['reports']: x['reason_label'] = REPORT_REASONS.get(x['reason'], x['reason'])
+        out.append(d)
+    return out
+
+
+def video_counts(db):
+    one = lambda q: db.execute(q).fetchone()[0]
+    return {'pending': one("SELECT COUNT(*) FROM route_videos WHERE active=1 AND status='pending'"),
+            'reported': one("SELECT COUNT(DISTINCT target_id) FROM content_reports r JOIN route_videos v ON v.id=r.target_id WHERE r.target_type='video' AND r.status='open' AND v.active=1"),
+            'unavailable': one("SELECT COUNT(*) FROM route_videos WHERE active=1 AND status='approved' AND unavailable_at IS NOT NULL")}
+
+
+def video_decide(db, user, vid, decision, note=''):
+    """Approve or reject a pending video (the reason of a rejection is optional) and tell the person who sent it."""
+    row = db.execute("SELECT * FROM route_videos WHERE id=? AND active=1", (vid,)).fetchone()
+    if not row: raise ValueError('Vídeo no encontrado.')
+    if row['status'] != 'pending': raise ValueError('Ese vídeo ya estaba revisado.')
+    status = 'approved' if decision == 'approve' else 'rejected'
+    if status == 'approved':
+        order = db.execute('SELECT COALESCE(MAX(sort_order),0)+1 FROM route_videos WHERE dive_point_id=? AND active=1', (row['dive_point_id'],)).fetchone()[0]
+        db.execute('UPDATE route_videos SET sort_order=? WHERE id=?', (order, vid))
+    db.execute('UPDATE route_videos SET status=?,review_note=?,reviewed_by_user_id=?,reviewed_at=?,updated_at=? WHERE id=?', (status, note or None, user['id'], now(), now(), vid))
+    audit(db, user['id'], f'marina_{status}', 'route_videos', vid, {'note': note} if note else None)
+    video_notify(db, row, status == 'approved', note, user['id'])
+
+
+def video_remove(db, user, vid, reason):
+    """A published video is taken down (it never existed on our server: only the link goes). Its open reports are
+    resolved as «actioned» and both sides are told, as with any other report."""
+    row = db.execute('SELECT * FROM route_videos WHERE id=? AND active=1', (vid,)).fetchone()
+    if not row: raise ValueError('Vídeo no encontrado.')
+    reason = reason or 'Vídeo retirado de la ficha del punto.'
+    db.execute('UPDATE route_videos SET active=0,removed_at=?,removed_reason=?,removed_by=?,updated_at=? WHERE id=?', (now(), reason, user['id'], now(), vid))
+    for r in db.execute("SELECT id FROM content_reports WHERE target_type='video' AND target_id=? AND status='open'", (vid,)).fetchall():
+        resolve_report(db, user, r['id'], 'actioned', reason)
+    audit(db, user['id'], 'route_video_removed', 'route_video', vid, {'reason': reason})
+
+
+def video_keep(db, user, vid, resolution):
+    resolution = resolution or 'Tras revisarlo, el vídeo es de este punto y cumple las normas: se mantiene publicado.'
+    for r in db.execute("SELECT id FROM content_reports WHERE target_type='video' AND target_id=? AND status='open'", (vid,)).fetchall():
+        resolve_report(db, user, r['id'], 'dismissed', resolution)
+    audit(db, user['id'], 'route_video_kept', 'route_video', vid)
+
+
+def video_reorder(db, user, pid, ids):
+    """The order of a site's published videos, as the administration left it after dragging them."""
+    have = [r['id'] for r in db.execute("SELECT id FROM route_videos WHERE dive_point_id=? AND active=1 AND status='approved' ORDER BY sort_order,id", (pid,)).fetchall()]
+    ids = [int(x) for x in ids if int(x) in have]
+    ids += [x for x in have if x not in ids]
+    for n, x in enumerate(ids, start=1): db.execute('UPDATE route_videos SET sort_order=? WHERE id=?', (n, x))
+    audit(db, user['id'], 'route_videos_ordered', 'dive_point', pid)
+    return ids
+
+
+def video_edit(db, user, vid, data):
+    row = db.execute('SELECT * FROM route_videos WHERE id=? AND active=1', (vid,)).fetchone()
+    if not row: raise ValueError('Vídeo no encontrado.')
+    sets = {}
+    if 'title' in data: sets['title'] = clean_text(data.get('title'), 120) or None
+    if 'kind' in data and data.get('kind') in wvideos.KINDS: sets['kind'] = data['kind']
+    if 'featured' in data:
+        on = 1 if data.get('featured') else 0
+        if on: db.execute('UPDATE route_videos SET featured=0 WHERE dive_point_id=? AND id<>?', (row['dive_point_id'], vid))   # one featured per site
+        sets['featured'] = on
+    if not sets: return
+    sets['updated_at'] = now()
+    db.execute(f"UPDATE route_videos SET {', '.join(k + '=?' for k in sets)} WHERE id=?", [*sets.values(), vid])
+    audit(db, user['id'], 'route_video_edited', 'route_video', vid, {k: v for k, v in sets.items() if k != 'updated_at'})
 
 
 def marina_own(db, user, row):
@@ -4727,6 +4933,8 @@ def marina_review(db, user, data):
     if not table: raise ValueError('Tipo no válido.')
     item_id = int(data.get('id') or 0); decision = data.get('decision')
     if decision not in ('approve', 'reject'): raise ValueError('Decisión no válida.')
+    if table == 'route_videos':   # v50.58: the reason of a rejection is optional and the person who sent it is told
+        return video_decide(db, user, item_id, decision, clean_text(data.get('note'), 300) or '')
     row = db.execute(f"SELECT * FROM {table} WHERE id=? AND active=1", (item_id,)).fetchone()
     if not row: raise ValueError('No encontrado.')
     if row['status'] != 'pending': raise ValueError('Ya estaba revisado.')
@@ -4749,7 +4957,7 @@ def marina_queue(db, lang='es'):
                            FROM point_species ps JOIN dive_points p ON p.id=ps.dive_point_id JOIN species s ON s.id=ps.species_id {wmarina._NAMES}
                            WHERE ps.status='pending' AND ps.active=1 ORDER BY ps.created_at, ps.id LIMIT 300''', (lang,)).fetchall()
     return {'videos': [{**wvideos.public_row(v), 'point_id': v['dive_point_id'], 'point_name': v['point_name'], 'created_at': v['created_at'],
-                        'source_title': v['source_title'] or ''} for v in vids],
+                        'source_title': v['source_title'] or '', 'contributor': v['contributor_name'] or ''} for v in vids],
             'species': [{'id': r['id'], 'point_id': r['dive_point_id'], 'point_name': r['point_name'], 'frequency': r['frequency'],
                          'months': wmarina.months_list(r['months']), 'contributor': r['contributor_name'], 'created_at': r['created_at'],
                          'scientific': r['scientific_name'], 'name': r['common_name'] or r['scientific_name'],
@@ -4892,18 +5100,6 @@ def load_example_species(db, user_id=None):
         added += 1
     audit(db, user_id, 'species_examples_loaded', 'species', None, {'added': added})
     return added
-
-
-def run_marina_jobs(db):
-    """Preview images that could not be downloaded when the link was added are tried again (3 times, 10 minutes apart)."""
-    limit = (datetime.now(timezone.utc) - _timedelta(minutes=10)).isoformat(timespec='seconds')
-    for r in db.execute("SELECT id,url FROM route_videos WHERE thumb_base IS NULL AND thumb_tries<3 AND active=1 AND updated_at<? ORDER BY id LIMIT 5", (limit,)).fetchall():
-        base = widths = None
-        try:
-            base, widths = marina_thumb(wvideos.inspect(r['url']))
-        except (wvideos.LinkError, ValueError, OSError):
-            pass
-        db.execute('UPDATE route_videos SET thumb_base=?,thumb_widths=?,thumb_tries=thumb_tries+1,updated_at=? WHERE id=?', (base, widths, now(), r['id']))
 
 
 def center_gallery(row):
@@ -8609,6 +8805,17 @@ EMAIL_TEMPLATES = {
    ('note', '{reply}'),
    ('button', ('Ver la reseña', 'center_url')),
    ('note', 'Puedes editar tu reseña cuando quieras. Si la respuesta incumple las normas, denúnciala desde la propia página.')]},
+ 'video_approved': {'to': 'any', 'subject': 'Tu vídeo de {point_name} ya está publicado', 'pre': 'Gracias por compartirlo.', 'blocks': [
+   ('h', 'Tu vídeo ya está publicado'),
+   ('p', 'Hola {first_name}, hemos revisado el vídeo que enviaste para {point_name} y ya se ve en la ficha del punto. Gracias por compartirlo.'),
+   ('button', ('Ver el punto', 'point_url')),
+   ('note', 'El vídeo sigue alojado en su plataforma: WORLDIVES solo lo muestra desde allí. Si quieres retirarlo, responde a este correo.')]},
+ 'video_rejected': {'to': 'any', 'subject': 'Tu vídeo de {point_name} no se ha publicado', 'pre': '{reason}', 'blocks': [
+   ('h', 'No hemos publicado tu vídeo'),
+   ('p', 'Hola {first_name}, hemos revisado el vídeo que enviaste para {point_name} y no lo hemos publicado.'),
+   ('note', '{reason}'),
+   ('p', 'Puedes enviar otro vídeo desde la ficha del punto cuando quieras.'),
+   ('button', ('Ver el punto', 'point_url'))]},
  'report_decision_affected': {'to': 'any', 'subject': 'Decisión sobre un contenido tuyo en WORLDIVES ({ref})', 'pre': '{decision}', 'blocks': [
    ('h', 'Hemos revisado una denuncia sobre tu contenido'),
    ('p', 'Hola {first_name}, hemos recibido una denuncia sobre «{content}» y la hemos revisado.'),
@@ -8834,7 +9041,7 @@ EMAIL_TEMPLATE_LABELS = {
  'promotion_received': 'Promoción recibida', 'experience_request': 'Solicitud de viaje enviada', 'experience_status': 'Respuesta a solicitud de viaje',
  'admin_ops_alert': 'Admin: aviso de operación (copias, integridad)', 'service_notice': 'Centro: aviso de mantenimiento o incidencia', 'moderation_hidden': 'Centro: contenido retirado por moderación', 'moderation_kept': 'Centro: sigue retirado tras la revisión', 'moderation_restored': 'Centro: contenido publicado de nuevo', 'moderation_resubmitted': 'Admin: un centro pide revisión', 'plan_expired': 'Centro: plan terminado', 'plan_paid': 'Centro: plan pagado', 'info_request': 'Centro: solicitud de información',
  'info_request_copy': 'Copia de la solicitud de información', 'insurance_expiring': 'Centro: seguro a punto de caducar', 'insurance_expired': 'Centro: seguro caducado',
- 'monthly_stats': 'Centro: estadísticas del mes', 'team_invite': 'Invitación al equipo de un centro', 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
+ 'monthly_stats': 'Centro: estadísticas del mes', 'team_invite': 'Invitación al equipo de un centro', 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'video_approved': 'Vídeo de un punto publicado', 'video_rejected': 'Vídeo de un punto no publicado', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
  'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'slot_cancelled': 'Salida cancelada por el centro (buceador)', 'center_slot_choice': 'Centro: respuesta a una salida cancelada', 'booking_date_changed': 'Nueva fecha de la reserva (buceador)', 'center_booking_date_changed': 'Centro: el cliente ha cambiado la fecha', 'center_reschedule_request': 'Centro: solicitud de cambio de fecha', 'reschedule_approved': 'Cambio de fecha aceptado', 'reschedule_rejected': 'Cambio de fecha no aceptado', 'waitlist_spot': 'Lista de espera: ha quedado una plaza', 'center_rejected': 'Profesional: verificación no completada', 'admin_new_pro': 'Admin: nueva cuenta profesional',
  'totp_enabled': 'Verificación en dos pasos activada', 'totp_required_payments': 'Verificación en dos pasos obligatoria (cobros)', 'reminder_48h': 'Recordatorio 48 h antes', 'booking_changed': 'Cambio de fecha u hora', 'document_expiring': 'Documento a punto de caducar', 'insurance_diver_expiring': 'Buceador: su seguro de buceo caduca', 'insurance_policy_added': 'Buceador: un centro ha añadido su seguro',
@@ -9574,6 +9781,7 @@ def sample_email_ctx(template, lang='es'):
          'agenda': [{'time': '09:00', 'title': 'Buceo doble', 'taken': 5, 'total': 12, 'points': 'Cabo San Martín, Isla del Portitxol', 'people': ['Laura Martín · 2 pax · Traje de neopreno ×1', 'Marc Soler · 3 pax']},
                     {'time': '15:30', 'title': 'Bautizo de buceo', 'taken': 2, 'total': 6, 'points': 'Cala Blanca', 'people': ['Elena Vidal · 2 pax · Equipo completo ×2']}]}
     c.update(refund_texts(lang, 'refunded', c['total']))
+    c.setdefault('point_name', 'Cabo San Martín'); c.setdefault('point_url', f'{base}/#/punto?id=40')   # v50.58: videos of a dive site
     return c
 
 
@@ -12732,7 +12940,7 @@ def run_closure_jobs(db, at=None):
     return len(due)
 
 
-REPORT_TARGETS = ('review', 'center', 'point', 'experience', 'photo', 'promotion', 'profile')
+REPORT_TARGETS = ('review', 'center', 'point', 'experience', 'photo', 'promotion', 'profile', 'video')
 
 
 def report_target(db, ttype, tid):
@@ -12760,16 +12968,51 @@ def report_target(db, ttype, tid):
     if ttype == 'profile':
         r = db.execute("SELECT id,fullname FROM users WHERE id=? AND role='freelance'", (tid,)).fetchone()
         return r and (f"Perfil de {r['fullname']}", f"{base}/#/profesional?id={r['id']}", [r['id']])
+    if ttype == 'video':   # v50.58: a video of a dive site (whoever sent it is told the decision)
+        r = db.execute('''SELECT v.id,v.title,v.source_title,v.dive_point_id,v.created_by_user_id,v.contributor_kind,p.name FROM route_videos v
+                          JOIN dive_points p ON p.id=v.dive_point_id WHERE v.id=?''', (tid,)).fetchone()
+        return r and (f"Vídeo «{r['title'] or r['source_title'] or 'sin título'}» de {r['name']}", f"{base}/#/punto?id={r['dive_point_id']}",
+                      [r['created_by_user_id']] if r['created_by_user_id'] and r['contributor_kind'] != 'admin' else [])
     return None
 
 
 REPORT_REASONS = {'illegal': 'Contenido ilegal', 'false': 'Información falsa o engañosa', 'fake_review': 'Reseña falsa o no auténtica',
                   'ip': 'Uso no autorizado de fotos o textos', 'safety': 'Riesgo para la seguridad', 'privacy': 'Datos personales publicados sin permiso',
-                  'fraud': 'Fraude o estafa', 'other': 'Otro motivo'}
+                  'fraud': 'Fraude o estafa', 'other': 'Otro motivo',
+                  # v50.58: the three reasons of a dive site's video
+                  'wrong_point': 'No es de este punto', 'inappropriate': 'Contenido inadecuado', 'not_mine': 'Es mío y no di permiso'}
 REPORT_LIMIT = wsec.SharedRateLimiter('denuncias', 10, 3600)            # v50.51: bounded in size like the other limits (security review)
 # «Contacto» form (v50.46). The topics follow the table of the «Contacto» page.
 CONTACT_TOPICS = {'web': 'Dudas sobre la web o tu cuenta', 'booking': 'Un problema con una reserva', 'privacy': 'Protección de datos y tus derechos',
                   'accessibility': 'Accesibilidad', 'center': 'Centros que quieren unirse', 'other': 'Otro asunto'}
+
+
+def resolve_report(db, user, rid, st, resolution):
+    """Closes a report (actioned or dismissed) with its reasons: the person who reported and the people affected are told
+    (Reglamento (UE) 2022/2065, arts. 16 and 17). An actioned report of a review or a dive site's video takes it down."""
+    if st not in ('open', 'actioned', 'dismissed'): raise ValueError('Estado no válido.')
+    reason_txt = clean_text(resolution, 2000) or ''
+    if st != 'open' and len(reason_txt) < 10: raise ValueError('Explica los motivos de la decisión (se envían a las dos partes).')
+    if not db.execute('UPDATE content_reports SET status=?,resolution=?,resolved_by=?,resolved_at=? WHERE id=?', (st, reason_txt, user['id'], now() if st != 'open' else None, rid)).rowcount:
+        raise ValueError('Denuncia no encontrada.')
+    r = db.execute('SELECT * FROM content_reports WHERE id=?', (rid,)).fetchone()
+    if st != 'open' and mail_deliverable(r['reporter_email']):
+        rl = r['lang'] or 'es'
+        queue_email(db, 'report_resolved', r['reporter_email'], r['reporter_name'], {'first_name': (r['reporter_name'] or '').split(' ')[0], 'ref': f'DEN-{rid:05d}',
+                    'decision': mail_t(rl, 'Hemos retirado o corregido el contenido denunciado.') if st == 'actioned' else mail_t(rl, 'Tras revisarlo, no hemos encontrado motivos para retirar el contenido.'),
+                    'resolution': reason_txt}, rl, ('report', rid))
+    if st == 'actioned' and r['target_type'] == 'review' and r['target_id']:
+        db.execute('UPDATE center_reviews SET active=0,moderated_at=?,moderation_reason=? WHERE id=?', (now(), reason_txt, r['target_id']))
+    if st == 'actioned' and r['target_type'] == 'video' and r['target_id']:
+        db.execute('UPDATE route_videos SET active=0,removed_at=COALESCE(removed_at,?),removed_reason=COALESCE(removed_reason,?),removed_by=COALESCE(removed_by,?),updated_at=? WHERE id=?',
+                   (now(), reason_txt, user['id'], now(), r['target_id']))
+    if st != 'open' and r['target_type']:
+        info = report_target(db, r['target_type'], r['target_id'])
+        for uid in (info[2] if info else []):
+            notify_user(db, uid, 'report_decision_affected', {'content': info[0], 'content_url': info[1], 'ref': f'DEN-{rid:05d}',
+                        'decision': mail_t(user_lang(db, uid), 'Hemos retirado o corregido este contenido.' if st == 'actioned' else 'Tras revisarlo, el contenido se mantiene publicado.'), 'resolution': reason_txt}, ('report', rid))
+        db.execute('UPDATE content_reports SET affected_notified_at=? WHERE id=?', (now(), rid))
+    audit(db, user['id'], 'content_report_' + st, 'content_report', rid)
 
 
 def report_rate_limited(key):
@@ -17973,6 +18216,20 @@ class Handler(BaseHTTPRequestHandler):
                     exclude={int(x) for x in query.get('exclude',['0'])[0].split(',') if x.isdigit()}
                     pc=wpun.position_check(lat,lon,clean_text(query.get('access',[''])[0],10) or None,clean_text(query.get('type',[''])[0],100) or '')
                     self.send_json({'position':pc,'duplicates':wpun.candidates(db,lat,lon,clean_text(query.get('name',[''])[0],180) or '',exclude=exclude)}); return
+                if path == '/api/videos/puedo':
+                    # v50.58: what a person still has to complete before adding a video (the button says it)
+                    u_=current_user(self,db)
+                    if not u_: self.send_json({'logged':False,'missing':[],'left':0}); return
+                    self.send_json({'logged':True,'missing':video_missing(db,u_),'left':VIDEO_DAILY_LIMIT if u_['role']=='admin' else video_left_today(db,u_),
+                                    'admin':u_['role']=='admin'}); return
+                if path == '/api/admin/videos':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    tab_=clean_text(query.get('tab',['pending'])[0],20) or 'pending'
+                    if tab_ not in ('pending','published','reported'): raise ValueError('Pestaña no válida.')
+                    admin_data_log(db,self,user,'vídeos de los puntos (nombre y email de quien los envía)')
+                    self.send_json({'items':video_admin_list(db,tab_,admin_confirmation(self,db)),'counts':video_counts(db)}); return
+                if path == '/api/admin/videos/summary':
+                    user=require_user(self,db); require_role(user,{'admin'}); self.send_json(video_counts(db)); return
                 if path == '/api/admin/dive-points/summary':
                     # the counters of Administración → Puntos (new batches, possible duplicates, proposals, positions to check)
                     user=require_user(self,db); require_role(user,{'admin'}); one=lambda q: db.execute(q).fetchone()[0]
@@ -19944,7 +20201,10 @@ class Handler(BaseHTTPRequestHandler):
                     if report_rate_limited(wsec.ip_group(ip)): self.send_json({'error':'Has enviado muchas denuncias seguidas. Inténtalo más tarde.'},429); return
                     reason=data.get('reason'); details=clean_text(data.get('details'),3000) or ''
                     if reason not in REPORT_REASONS: raise ValueError('Elige el motivo de la denuncia.')
-                    if len(details)<20: raise ValueError('Explica con un poco más de detalle qué ocurre (mínimo 20 caracteres).')
+                    # v50.58: a video of a dive site is reported with one of its three reasons, which already say what happens
+                    video_reason=data.get('target_type')=='video' and reason in VIDEO_REPORT_REASONS
+                    if reason in VIDEO_REPORT_REASONS and data.get('target_type')!='video': raise ValueError('Elige el motivo de la denuncia.')
+                    if len(details)<20 and not video_reason: raise ValueError('Explica con un poco más de detalle qué ocurre (mínimo 20 caracteres).')
                     cu=current_user(self,db)
                     name=clean_text(data.get('name'),120) or (cu['fullname'] if cu else ''); email=(clean_text(data.get('email'),160) or (cu['email'] if cu else '') or '').lower()
                     target=clean_text(data.get('target_url'),500) or ''
@@ -19999,26 +20259,8 @@ class Handler(BaseHTTPRequestHandler):
                     if not db.execute('UPDATE contact_messages SET status=?,done_by=?,done_at=? WHERE id=?',('done' if done else 'open',user['id'] if done else None,now() if done else None,mid)).rowcount: raise ValueError('Mensaje no encontrado.')
                     audit(db,user['id'],'contact_message_done' if done else 'contact_message_reopened','contact_message',mid); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/admin/reports/resolve':
-                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); rid=int(data.get('id') or 0); st=data.get('status')
-                    if st not in ('open','actioned','dismissed'): raise ValueError('Estado no válido.')
-                    if st!='open' and len(clean_text(data.get('resolution'),2000) or '')<10: raise ValueError('Explica los motivos de la decisión (se envían a las dos partes).')
-                    if not db.execute('UPDATE content_reports SET status=?,resolution=?,resolved_by=?,resolved_at=? WHERE id=?',(st,clean_text(data.get('resolution'),2000),user['id'],now() if st!='open' else None,rid)).rowcount: raise ValueError('Denuncia no encontrada.')
-                    r=db.execute('SELECT * FROM content_reports WHERE id=?',(rid,)).fetchone()
-                    if st!='open' and mail_deliverable(r['reporter_email']):
-                        rl=r['lang'] or 'es'
-                        queue_email(db,'report_resolved',r['reporter_email'],r['reporter_name'],{'first_name':(r['reporter_name'] or '').split(' ')[0],'ref':f'DEN-{rid:05d}',
-                                    'decision':mail_t(rl,'Hemos retirado o corregido el contenido denunciado.') if st=='actioned' else mail_t(rl,'Tras revisarlo, no hemos encontrado motivos para retirar el contenido.'),
-                                    'resolution':clean_text(data.get('resolution'),2000) or ''},rl,('report',rid))
-                    reason_txt=clean_text(data.get('resolution'),2000) or ''
-                    if st=='actioned' and r['target_type']=='review' and r['target_id']:
-                        db.execute('UPDATE center_reviews SET active=0,moderated_at=?,moderation_reason=? WHERE id=?',(now(),reason_txt,r['target_id']))
-                    if st!='open' and r['target_type']:
-                        info=report_target(db,r['target_type'],r['target_id'])
-                        for uid in (info[2] if info else []):
-                            notify_user(db,uid,'report_decision_affected',{'content':info[0],'content_url':info[1],'ref':f'DEN-{rid:05d}',
-                                        'decision':mail_t(user_lang(db,uid),'Hemos retirado o corregido este contenido.' if st=='actioned' else 'Tras revisarlo, el contenido se mantiene publicado.'),'resolution':reason_txt},('report',rid))
-                        db.execute('UPDATE content_reports SET affected_notified_at=? WHERE id=?',(now(),rid))
-                    audit(db,user['id'],'content_report_'+st,'content_report',rid); db.commit(); self.send_json({'ok':True}); return
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self)
+                    resolve_report(db,user,int(data.get('id') or 0),data.get('status'),data.get('resolution')); db.commit(); self.send_json({'ok':True}); return
                 if path.startswith('/api/reviews/') and path.endswith('/reply'):
                     # One public reply per review from the centre that was reviewed; an empty text removes it.
                     user=require_user(self,db); rid=int(path.split('/')[-2]); data=json_body(self)
@@ -20320,6 +20562,48 @@ class Handler(BaseHTTPRequestHandler):
                 if path.startswith('/api/dive-points/') and (path.endswith('/virtual/upload') or path.endswith('/virtual')):
                     require_user(self,db)
                     self.send_json({'error':'Los recorridos se añaden ahora como «Vídeos de la ruta»: pega el enlace del vídeo (YouTube, Vimeo…). No se suben archivos de vídeo.'},410); return
+                # v50.58 · vídeos de los puntos (encargo del 16/10/2026)
+                m_=re.fullmatch(r'/api/dive-points/(\d+)/videos',path)
+                if m_:
+                    user=require_user(self,db); data=json_body(self)
+                    vid_=marina_add_video(db,user,{**data,'point_id':int(m_.group(1))}); db.commit()
+                    admin_=user['role']=='admin'
+                    self.send_json({'ok':True,'id':vid_,'status':'approved' if admin_ else 'pending',
+                                    'message':'Vídeo publicado.' if admin_ else 'Gracias. Lo revisaremos antes de publicarlo.'}); return
+                m_=re.fullmatch(r'/api/videos/(\d+)/no-disponible',path)
+                if m_:
+                    # the page could not show a video's image: the server asks the platform itself (never trusts the page)
+                    # at most once an hour per video, and marks it for the administration when it is really gone
+                    if VIDEO_NOT_AVAILABLE_LIMIT.hit(wsec.ip_group(self.client_ip())): self.send_json({'ok':True,'unavailable':None}); return
+                    r_=db.execute("SELECT * FROM route_videos WHERE id=? AND active=1 AND status='approved'",(int(m_.group(1)),)).fetchone()
+                    if not r_: self.send_json({'error':'Vídeo no encontrado'},404); return
+                    hour_=(datetime.now(timezone.utc)-_timedelta(hours=1)).isoformat(timespec='seconds')
+                    if (r_['last_report_check'] or '')>hour_: self.send_json({'ok':True,'unavailable':bool(r_['unavailable_at'])}); return
+                    db.execute('UPDATE route_videos SET last_report_check=? WHERE id=?',(now(),r_['id'])); db.commit()
+                    st_=video_check(db,r_); db.commit()
+                    self.send_json({'ok':True,'unavailable':st_ in wvideos.UNAVAILABLE}); return
+                if path.startswith('/api/admin/videos/'):
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); act_=path.rsplit('/',1)[1]
+                    if act_=='approve':
+                        ids_=[int(x) for x in (data.get('ids') or [data.get('id')]) if str(x or '').isdigit()]
+                        if not ids_: raise ValueError('Elige al menos un vídeo.')
+                        done_=0
+                        for x in ids_:
+                            try: video_decide(db,user,x,'approve'); done_+=1
+                            except ValueError: continue
+                        db.commit(); self.send_json({'ok':True,'approved':done_,'counts':video_counts(db)}); return
+                    vid_=int(data.get('id') or 0)
+                    if act_=='reject': video_decide(db,user,vid_,'reject',clean_text(data.get('note'),300) or '')
+                    elif act_=='remove': video_remove(db,user,vid_,clean_text(data.get('reason'),500) or '')
+                    elif act_=='keep': video_keep(db,user,vid_,clean_text(data.get('resolution'),500) or '')
+                    elif act_=='edit': video_edit(db,user,vid_,data)
+                    elif act_=='order': video_reorder(db,user,int(data.get('point_id') or 0),data.get('ids') or [])
+                    elif act_=='recheck':
+                        r_=db.execute('SELECT * FROM route_videos WHERE id=? AND active=1',(vid_,)).fetchone()
+                        if not r_: raise ValueError('Vídeo no encontrado.')
+                        st_=video_check(db,r_); db.commit(); self.send_json({'ok':True,'state':st_,'unavailable':st_ in wvideos.UNAVAILABLE,'counts':video_counts(db)}); return
+                    else: self.send_json({'error':'Endpoint no encontrado'},404); return
+                    db.commit(); self.send_json({'ok':True,'counts':video_counts(db)}); return
                 if path.startswith('/api/marina/') or path.startswith('/api/admin/marina/'):
                     user=require_user(self,db)
                     if path.startswith('/api/admin/'): require_role(user,{'admin'})
@@ -21511,7 +21795,7 @@ def maintenance_loop():
         time.sleep(wcfg.env_int('WOD_MAINTENANCE_SECONDS', 60, 5, 3600))
 
 
-MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs, run_slot_cancel_jobs, run_payments_totp_notices]
+MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs, run_slot_cancel_jobs, run_payments_totp_notices, run_video_jobs]
 
 
 RETENTION_DEFAULTS = {'inactive_months': 36, 'expired_docs_months': 12, 'notices_months': 24, 'audit_months': 12, 'audit_keep': 300, 'insurance_months': 12}

@@ -9,8 +9,16 @@ Any other platform is accepted when its page says it is a video (Open Graph «og
 schema.org VideoObject); it then opens in a new tab. Shortened links, addresses with a user or a port, direct files
 and pages that are not videos are refused with a clear message.
 
+v50.58 (encargo del 16/10/2026, vídeos de los puntos): any registered person with a complete profile can add a video
+of YouTube, Instagram or TikTok (USER_PLATFORMS); before it is accepted, the platform's oEmbed says that it exists, that
+it is public and that it can be inserted (verify). The preview image is the platform's own, loaded from the platform
+(thumb_urls): nothing is downloaded or stored on our server any more.
+
 Environment (optional):
     WOD_VIDEO_EMBED_OFF=facebook,instagram    platforms whose player is not inserted (their videos open in a new tab)
+    WOD_META_OEMBED_TOKEN=<app id>|<client token>   Instagram oEmbed (Meta asks for an app key; «Pendiente de decisión
+                                              del titular»). Without it, an Instagram video is accepted unchecked and
+                                              shows the dive site's photo with «Ver en Instagram».
 """
 from __future__ import annotations
 
@@ -145,10 +153,22 @@ def _facebook_player(ref):
 # --- Instagram -------------------------------------------------------------------------------------------------------
 def _instagram(p):
     seg = _seg(p)
-    if len(seg) >= 2 and seg[0] in ('reel', 'reels', 'tv') and re.fullmatch(r'[A-Za-z0-9_-]{5,40}', seg[1]):
-        kind = 'tv' if seg[0] == 'tv' else 'reel'
+    if len(seg) >= 2 and seg[0] in ('reel', 'reels', 'tv', 'p') and re.fullmatch(r'[A-Za-z0-9_-]{5,40}', seg[1]):
+        kind = {'reels': 'reel'}.get(seg[0], seg[0])
         return f'{kind}/{seg[1]}', f'https://www.instagram.com/{kind}/{seg[1]}/'
     return None
+
+
+def meta_token() -> str:
+    return wcfg.env('WOD_META_OEMBED_TOKEN').strip()
+
+
+def _instagram_oembed(u):
+    """Instagram's oEmbed needs a Meta app key (WOD_META_OEMBED_TOKEN): without it there is nothing to ask (None)."""
+    tok = meta_token()
+    if not tok: return None
+    return ('https://graph.facebook.com/v21.0/instagram_oembed?omitscript=true&url=' + urllib.parse.quote(u, safe='')
+            + '&access_token=' + urllib.parse.quote(tok, safe=''))
 
 
 # --- Platforms that only open outside (no official player we can insert) -----------------------------------------------
@@ -191,8 +211,8 @@ PLATFORMS: tuple[Platform, ...] = (
     Platform('facebook', 'Facebook', ('facebook.com',), _facebook, player=_facebook_player, frames=('www.facebook.com',),
              hint='En Facebook, copia el enlace del vídeo (facebook.com/…/videos/… o facebook.com/watch/?v=…).'),
     Platform('instagram', 'Instagram', ('instagram.com',), _instagram, player=lambda v: f'https://www.instagram.com/{v}/embed/',
-             frames=('www.instagram.com',), vertical=True,
-             hint='En Instagram, copia el enlace de un reel (instagram.com/reel/…): las fotos no son vídeos.'),
+             frames=('www.instagram.com',), oembed=_instagram_oembed, vertical=True,
+             hint='En Instagram, copia el enlace de una publicación o de un reel (instagram.com/reel/… o instagram.com/p/…).'),
     Platform('twitch', 'Twitch', ('twitch.tv',), _twitch, hint='En Twitch, copia el enlace de un vídeo o de un clip.'),
     Platform('streamable', 'Streamable', ('streamable.com',), _first_segment()),
     Platform('rumble', 'Rumble', ('rumble.com',), _first_segment()),
@@ -200,6 +220,52 @@ PLATFORMS: tuple[Platform, ...] = (
 )
 BY_KEY = {p.key: p for p in PLATFORMS}
 OTHER = 'otra'
+# v50.58: what a person (not the administration) may add — any other address is refused
+USER_PLATFORMS = ('youtube', 'instagram', 'tiktok')
+USER_HINT = 'Solo se admiten vídeos de YouTube (también Shorts), Instagram (publicaciones y Reels) y TikTok.'
+
+
+def is_vertical(platform: str, url: str, oembed: dict | None = None) -> bool:
+    """Reels, TikTok and YouTube Shorts are portrait (9:16); for the rest the oEmbed size decides."""
+    if platform in ('tiktok', 'instagram'): return True
+    if platform == 'youtube' and '/shorts/' in (url or ''): return True
+    try:
+        w, h = float((oembed or {}).get('width') or 0), float((oembed or {}).get('height') or 0)
+        return bool(w and h and h > w * 1.1)
+    except (TypeError, ValueError):
+        return False
+
+
+# what the platform's oEmbed answer means, for the person who pasted the link and for the administration
+UNAVAILABLE = {'gone': 'El vídeo no existe o se ha borrado.', 'private': 'El vídeo es privado: solo lo ve su autor.',
+               'no_embed': 'El autor no permite ver este vídeo en otras webs.'}
+
+
+def verify(v: dict) -> dict:
+    """Asks the platform (oEmbed) whether the video exists, is public and can be inserted. Never cached.
+    {'state': 'ok' | 'gone' | 'private' | 'no_embed' | 'unknown' | 'no_key' | 'no_check', 'data': oEmbed answer}"""
+    plat = BY_KEY.get(v.get('platform'))
+    if not plat or not plat.oembed: return {'state': 'no_check', 'data': {}}
+    endpoint = plat.oembed(v['url'])
+    if not endpoint: return {'state': 'no_key', 'data': {}}
+    try:
+        d = remoto.fetch_json(endpoint)
+    except remoto.FetchError as e:
+        st = getattr(e, 'status', None)
+        return {'state': {401: 'no_embed', 403: 'private', 404: 'gone', 400: 'gone', 410: 'gone'}.get(st, 'unknown'), 'data': {}}
+    if not isinstance(d, dict): return {'state': 'unknown', 'data': {}}
+    if d.get('error') or d.get('code') in (400, 404) or str(d.get('status_msg') or '').lower().startswith('something'):
+        return {'state': 'gone', 'data': {}}
+    return {'state': 'ok', 'data': d}
+
+
+def thumb_urls(platform: str, ref: str | None, stored: str | None = None) -> dict | None:
+    """The preview image of a video, straight from the platform (never from our server): {'src', 'fallback'}.
+    YouTube: maxresdefault and, if it does not exist, hqdefault. The rest: the oEmbed image kept when it was checked."""
+    if platform == 'youtube' and ref and _YT_ID.match(ref):
+        return {'src': f'https://i.ytimg.com/vi/{ref}/maxresdefault.jpg', 'fallback': f'https://i.ytimg.com/vi/{ref}/hqdefault.jpg'}
+    if stored and str(stored).startswith('https://'): return {'src': stored, 'fallback': ''}
+    return None
 
 
 def embed_off() -> set[str]:
@@ -295,45 +361,51 @@ def _page_meta(url: str) -> dict:
 _CACHE: dict[str, tuple[float, dict]] = {}
 
 
-def inspect(raw) -> dict:
-    """Checks the link and reads its public data once (title, author, preview image). Kept 30 minutes in memory so that
-    «Comprobar» and «Añadir» do not ask the platform twice. Raises LinkError."""
+def inspect(raw, fresh: bool = False) -> dict:
+    """Checks the link and reads its public data once (title, author, preview image, whether it can be inserted). Kept
+    30 minutes in memory so that «Comprobar» and «Añadir» do not ask the platform twice (fresh: ask again).
+    Nothing is downloaded: the preview stays on the platform. Raises LinkError."""
     v = parse_link(raw)
     hit = _CACHE.get(v['url'])
-    if hit and hit[0] > time.time(): return dict(hit[1])
-    plat = BY_KEY.get(v['platform'])
-    info = {'title': '', 'author': '', 'thumbs': [], 'site': plat.name if plat else ''}
-    if plat:
-        if plat.oembed:
-            try:
-                d = remoto.fetch_json(plat.oembed(v['url']))
-                if isinstance(d, dict):
-                    info['title'] = str(d.get('title') or '')[:300]; info['author'] = str(d.get('author_name') or '')[:200]
-                    if d.get('thumbnail_url'): info['thumbs'].append(str(d['thumbnail_url']))
-            except remoto.FetchError:
-                pass
-        info['thumbs'] = plat.thumbs(v['ref']) + info['thumbs']
-        if not info['thumbs'] and not plat.oembed:
+    if hit and hit[0] > time.time() and not fresh:
+        out = dict(hit[1])
+    else:
+        plat = BY_KEY.get(v['platform'])
+        info = {'title': '', 'author': '', 'thumbs': [], 'site': plat.name if plat else '', 'state': 'no_check', 'size': {}}
+        if plat:
+            if plat.oembed:
+                chk = verify(v); d = chk['data']; info['state'] = chk['state']
+                info['size'] = {k: d.get(k) for k in ('width', 'height') if d.get(k)}
+                info['title'] = str(d.get('title') or '')[:300]; info['author'] = str(d.get('author_name') or '')[:200]
+                if str(d.get('thumbnail_url') or '').startswith('https://'): info['thumbs'].append(str(d['thumbnail_url']))
+            info['thumbs'] = plat.thumbs(v['ref']) + info['thumbs']
+            if not info['thumbs'] and not plat.oembed:
+                try:
+                    pm = _page_meta(v['url'])
+                    info['title'] = info['title'] or pm['title']
+                    if pm['thumb']: info['thumbs'].append(urllib.parse.urljoin(v['url'], pm['thumb']))
+                except remoto.FetchError:
+                    pass
+        else:
             try:
                 pm = _page_meta(v['url'])
-                info['title'] = info['title'] or pm['title']
-                if pm['thumb']: info['thumbs'].append(urllib.parse.urljoin(v['url'], pm['thumb']))
             except remoto.FetchError:
-                pass
-    else:
-        try:
-            pm = _page_meta(v['url'])
-        except remoto.FetchError:
-            raise LinkError('No hemos podido abrir ese enlace para comprobar que es un vídeo. Revisa que la página sea pública.') from None
-        if not pm['is_video']: raise LinkError('Ese enlace no es de un vídeo (la página no dice que tenga un vídeo).')
-        host = urllib.parse.urlparse(v['url']).hostname or ''
-        info.update(title=pm['title'], author=pm['author'], site=(pm['site'] or host.removeprefix('www.'))[:60])
-        if pm['thumb']: info['thumbs'].append(urllib.parse.urljoin(v['url'], pm['thumb']))
-    out = {**v, **info, 'title': re.sub(r'\s+', ' ', info['title']).strip()[:180], 'platform_name': info['site'] or (plat.name if plat else ''),
-           'insertable': insertable(v['platform']), 'kind_guess': guess_kind(info['title'])}
-    if len(_CACHE) > 500: _CACHE.clear()
-    _CACHE[v['url']] = (time.time() + 1800, out)
-    return dict(out)
+                raise LinkError('No hemos podido abrir ese enlace para comprobar que es un vídeo. Revisa que la página sea pública.') from None
+            if not pm['is_video']: raise LinkError('Ese enlace no es de un vídeo (la página no dice que tenga un vídeo).')
+            host = urllib.parse.urlparse(v['url']).hostname or ''
+            info.update(title=pm['title'], author=pm['author'], site=(pm['site'] or host.removeprefix('www.'))[:60])
+            if pm['thumb']: info['thumbs'].append(urllib.parse.urljoin(v['url'], pm['thumb']))
+        other = [t for t in info['thumbs'] if str(t).startswith('https://') and 'i.ytimg.com/' not in t]
+        out = {**v, 'title': re.sub(r'\s+', ' ', info['title']).strip()[:180], 'author': info['author'],
+               'platform_name': info['site'] or (plat.name if plat else ''), 'insertable': insertable(v['platform']),
+               'kind_guess': guess_kind(info['title']), 'state': info['state'], 'size': info['size'],
+               'thumb_url': other[0][:1000] if other else None}
+        if len(_CACHE) > 500: _CACHE.clear()
+        _CACHE[v['url']] = (time.time() + 1800, out)
+        out = dict(out)
+    out['vertical'] = is_vertical(out['platform'], str(raw or ''), out.get('size'))
+    out['thumb'] = thumb_urls(out['platform'], out.get('ref'), out.get('thumb_url'))
+    return out
 
 
 def guess_kind(title: str) -> str:
@@ -343,35 +415,21 @@ def guess_kind(title: str) -> str:
     return 'normal'
 
 
-def thumb_name(url: str) -> str:
-    """Files of a link's preview are named after the link, so the same video never downloads its image twice."""
-    return 'v' + hashlib.sha256(url.encode()).hexdigest()[:20]
-
-
-def fetch_thumbnail(info: dict) -> bytes | None:
-    """The first preview image that can be downloaded (only https and only images; every hop is checked)."""
-    for t in info.get('thumbs') or []:
-        if not str(t).startswith('https://'): continue
-        try:
-            body = remoto.fetch_image(t)
-        except remoto.FetchError:
-            continue
-        # YouTube answers «maxresdefault» with a small grey picture when the video has no big preview.
-        if len(body) < 2500: continue
-        return body
-    return None
-
-
 def public_row(row: dict) -> dict:
-    """What the web receives of a video: the player only for insertable platforms, never anything else to load."""
-    from . import imagenes
+    """What the web receives of a video: the player only for insertable platforms, the platform's own preview image and
+    nothing about who sent it (the administration sees that in its panel)."""
     key = row.get('platform') or OTHER
     plat = BY_KEY.get(key)
+    thumb = thumb_urls(key, row.get('video_ref'), row.get('thumb_url'))
+    if not thumb and row.get('thumb_base'):   # a preview stored before v50.58 (until the platform's one is known)
+        from . import imagenes
+        thumb = imagenes.srcset(row.get('thumb_base'), row.get('thumb_widths'))
+    vertical = row.get('vertical')
     return {'id': row['id'], 'url': row['url'], 'platform': key, 'platform_name': row.get('platform_name') or (plat.name if plat else ''),
-            'insertable': insertable(key), 'player': player_url(key, row.get('video_ref')), 'vertical': bool(plat and plat.vertical),
-            'kind': row.get('kind') or 'normal', 'title': row.get('title') or row.get('source_title') or '',
-            'thumb': imagenes.srcset(row.get('thumb_base'), row.get('thumb_widths')), 'contributor': row.get('contributor_name') or 'WORLDIVES DISCOVERY',
-            'contributor_kind': row.get('contributor_kind') or 'admin'}
+            'insertable': insertable(key), 'player': player_url(key, row.get('video_ref')),
+            'vertical': bool(vertical) if vertical is not None else bool(plat and plat.vertical),
+            'kind': row.get('kind') or 'normal', 'title': row.get('title') or row.get('source_title') or '', 'thumb': thumb,
+            'featured': bool(row.get('featured')), 'unavailable': bool(row.get('unavailable_at'))}
 
 
 def legacy_to_link(url: str | None) -> dict | None:
