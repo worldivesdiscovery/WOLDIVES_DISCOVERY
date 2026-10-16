@@ -3932,6 +3932,11 @@ html.pt-lock,html.pt-lock body{overflow:hidden}
   .pt57 .pt-linkbtn{padding:4px 2px;min-height:34px}
   .pt57 .pt-achip{height:34px;min-height:34px}
 }
+/* v50.57 (5.1): on the narrowest phones the word «Filtros» goes (the button keeps its icon, its count and its name for
+   screen readers), as «Ordenar» and «Lista/Mapa» already do: the search box was 91 px at 360 px and 51 px at 320 px */
+@media (max-width:380px){
+  .pt57 .pt-fbtn>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+}
 @media (max-width:640px){
   .pt57 .pt-grid{grid-template-columns:1fr;gap:8px}
   .pt57 .pt-media{aspect-ratio:auto;flex:0 0 100px;min-height:88px}

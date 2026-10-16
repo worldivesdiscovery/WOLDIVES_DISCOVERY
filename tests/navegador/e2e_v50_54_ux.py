@@ -26,11 +26,12 @@ ROOT = Path(__file__).resolve().parents[2]
 LEVELS = {'Para empezar', 'Intermedio', 'Avanzado'}
 # Too narrow (< 120 px), or a select whose chosen text does not fit: its width measured with the select's own font
 # against the room left by its padding (a select never reports the overflow in scrollWidth).
+# v50.57: a select with opacity 0 over an icon button (the sort of «Puntos de buceo» on a phone) shows no text
 NARROW = """(()=>{ const ctx=document.createElement('canvas').getContext('2d');
   const cut=e=>{ if(e.tagName!=='SELECT') return false; const c=getComputedStyle(e); ctx.font=`${c.fontWeight} ${c.fontSize} ${c.fontFamily}`;
     const txt=e.options[e.selectedIndex]?.text||''; return ctx.measureText(txt).width > e.clientWidth-parseFloat(c.paddingLeft)-parseFloat(c.paddingRight)+1; };
   return [...document.querySelectorAll('#app input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=range]), #app select, #app textarea')]
-    .filter(e=>e.offsetParent).map(e=>[e.id||e.name||e.placeholder||e.tagName, Math.round(e.getBoundingClientRect().width), cut(e)])
+    .filter(e=>e.offsetParent&&getComputedStyle(e).opacity!=='0').map(e=>[e.id||e.name||e.placeholder||e.tagName, Math.round(e.getBoundingClientRect().width), cut(e)])
     .filter(x=>x[1]<120||x[2]); })()"""
 
 
