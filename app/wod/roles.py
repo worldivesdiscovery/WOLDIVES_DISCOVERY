@@ -144,7 +144,8 @@ REGLAS_POST = (
     (None, _P('/api/payments/connect/', '/api/provider/payment-profile', '/api/provider/fiscal', '/api/provider/plan', '/api/center/team',
               '/api/provider/cuenta/')),
     ('', _P('/api/auth/', '/api/account/', '/api/legal/accept', '/api/reports', '/api/contact', '/api/me', '/api/team/', '/api/app/push/',
-            '/api/logbook', '/api/buddies', '/api/visita')),   # v50.57: each person's own logbook and buddies; pages seen (4.2)
+            '/api/logbook', '/api/buddies', '/api/visita',   # v50.57: each person's own logbook and buddies; pages seen (4.2)
+            '/api/my/')),   # v50.58: «Mi QR», «Mi equipo» and «Mi agenda» are the person's, also while working in a centre
     # v50.57: the dives of the centre and their QR for the divers' logbooks (whoever runs the dive), the passport's logo
     ('checkin', _P('/api/center/logbook/dive')),
     ('centro', _P('/api/center/logbook/settings', '/api/center/logbook/logo', '/api/center/short-links/')),   # v50.57 (4.4): its QR codes

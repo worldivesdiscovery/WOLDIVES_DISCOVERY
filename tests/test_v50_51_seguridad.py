@@ -94,7 +94,8 @@ PUBLIC_GET = re.compile(r'^/api/(health|setup/status|legal/(doc|info|history|ver
                         r'|meta|geocode|me|providers/.*|provider-services(/\d+)?|center-extras|booking-quote|center-equipment|dive-points(/\d+)?'
                         r'|dive-points/\d+/(virtual|centers)|salidas-cercanas|top-dives|center-directory|dive-types(/.*)?|centers(/\d+)?|qr/.*'
                         r'|app/push|promo/.*|team/invite|whatsapp/webhook|r/.*|public/bookings/\d+|slot-cancel/\d+'
-                        r'|service-catalog|dive-areas|centers/\d+/reviews)$')   # v50.53: templates, areas of Spain, more reviews
+                        r'|service-catalog|dive-areas|centers/\d+/reviews'   # v50.53: templates, areas of Spain, more reviews
+                        r'|videos/puedo)$')   # v50.58: whether this visitor may add a video (without session: {"logged": false}, nothing else)
 # v50.55: «auth/device/forget» is the phone ending its own device session with its installation id (no session needed,
 # always the same answer); it is checked in tests/test_v50_55_seguridad.py.
 PUBLIC_POST = re.compile(r'^/api/(setup|auth/(register|login|logout|forgot|reset|verify-email|device/forget)|marketing/unsubscribe|pruebas/(entrar|fallo)'
@@ -111,7 +112,10 @@ PRO_PATH = re.compile(r'^/api/(admin/|center/|provider/|manifest|avisos|whatsapp
 DIVER_ALLOWED = {('GET', '/api/center/import/template'), ('POST', '/api/provider/center-create'), ('POST', '/api/provider/wallet-grant'),
                  ('GET', '/api/team/invite'), ('POST', '/api/team/join'), ('GET', '/api/whatsapp/webhook'), ('POST', '/api/whatsapp/webhook'),
                  ('POST', '/api/pro/escanear'), ('POST', '/api/manifest/sync'), ('POST', '/api/manifest/1'),
-                 ('POST', '/api/marina/video'), ('POST', '/api/marina/especie-punto'), ('POST', '/api/reviews/1/reply')}
+                 ('POST', '/api/marina/video'), ('POST', '/api/marina/especie-punto'), ('POST', '/api/reviews/1/reply'),
+                 # v50.58: a diver checks the video link before proposing it; a diver account linked to a centre (Recepción)
+                 # chooses its profile; the owner's e-mail link to transfer a centre is checked by its token (400 without it)
+                 ('POST', '/api/marina/video/comprobar'), ('POST', '/api/team/switch'), ('POST', '/api/team/transfer/confirm')}
 
 
 def tiny_png():
@@ -313,8 +317,8 @@ class Seguridad(ServerTestCase):
         """Control positivo: las rutas «oficiales» de la ficha y la política sí comprueban el permiso «centro»."""
         self.assertEqual(self.recA.post('/api/provider/center-update', {'name': 'X'}).status, 403)
         self.assertEqual(self.recA.post('/api/provider/cancellation-policy', {'cancel_free_hours': 1, 'cancel_refund_pct': 100}).status, 403)
-        self.assertEqual(self.insA.get('/api/provider/stats').status, 403)
-        self.assertEqual(self.insA.get('/api/provider/payments').status, 403)
+        self.assertEqual(self.insA.get('/api/provider/stats').status, 404)   # v50.58: what a profile cannot read «does not exist» (404)
+        self.assertEqual(self.insA.get('/api/provider/payments').status, 404)
 
     def test_hallazgo_a01_recepcion_cambia_la_ficha_publica_con_api_center_profile(self):
         """HALLAZGO A01-1 (media). /api/center/profile no está en wod/roles.py:REGLAS_POST «centro» y cae en «reservas»:

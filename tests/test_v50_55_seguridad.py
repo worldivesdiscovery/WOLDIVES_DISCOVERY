@@ -189,7 +189,7 @@ class Devices(ServerTestCase):
         lst = self.center.get('/api/center/team/sessions').json['items']
         mine = [x for x in lst if x['user_id'] == emp_id][0]
         self.assertTrue(any(d['kind'] == 'app' for d in mine['devices']))
-        self.assertEqual(emp.get('/api/center/team/sessions').status, 403)                       # only the owner
+        self.assertEqual(emp.get('/api/center/team/sessions').status, 404)                       # only the owner (v50.58: «no existe» for the team)
         self.assertEqual(emp.post('/api/center/team/sessions/close', {'user_id': self.center.user['id']}).status, 403)
         r = self.center.post('/api/center/team/sessions/close', {'user_id': emp_id})
         self.assertEqual(r.status, 200, r); self.assertGreaterEqual(r.json['closed'], 2)

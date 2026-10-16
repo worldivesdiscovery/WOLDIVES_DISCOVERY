@@ -206,7 +206,14 @@
   async function loadMe(){ try{ const d=await api('/api/me'); state.me=d.authenticated?d:null; if(!d.authenticated) wdForgetLogbook(); renderAccount(); setTimeout(legalAcceptGate,400); return d; }catch{state.me=null; renderAccount();}}
   function closeTransientMenus(){ const menu=$('#account-dropdown'), toggle=$('#account-toggle'); menu?.classList.remove('open'); toggle?.setAttribute('aria-expanded','false'); $('#main-nav')?.classList.remove('open'); document.documentElement.classList.remove('pt-lock'); }
   // v50.54: the language selector and the account button appear together, already in place (no jump of the header, CLS).
-  function renderAccount(){ const slot=$('#account-slot'); if(!slot) return; $('.header-tools')?.classList.add('is-ready'); if(!state.me&&!navigator.onLine){ slot.innerHTML=''; return; } if(!state.me){ slot.innerHTML='<a class="account-link" href="#/login"><span>Iniciar sesión</span></a>'; translateTree(slot); return; } const u=state.me.user; const role=u.role; const management=role==='admin'?'<a href="#/admin">👑 Administración</a>':role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':role==='freelance'?'<a href="#/admin">🧭 Gestionar mis servicios</a>':''; const personalLinks=role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':`<a href="#/area">${wdIcon('home',16)}Mi área</a>`; slot.innerHTML=`<div class="account-menu"><button class="account-link account-toggle" id="account-toggle" type="button" aria-expanded="false"><span class="avatar">${escapeHtml(initials(u.fullname))}</span><span class="label" translate="no">${escapeHtml(u.fullname.split(' ')[0])}</span><span class="account-chevron">⌄</span></button><div class="account-dropdown" id="account-dropdown"><div class="account-dropdown-head"><strong>${escapeHtml(u.fullname)}</strong><small>${escapeHtml(role==='admin'?'Administrador':role==='center'?'Centro de buceo':role==='freelance'?'Profesional / freelance':'Buceador / cliente')}</small></div>${personalLinks}<a href="#/cuenta">${wdIcon('user',16)}Mi cuenta</a><a href="#/logbook">${wdIcon('book',16)}Log Book</a><a href="#/recompensas">${wdIcon('gift',16)}Recompensas</a><a href="#/mis-puntos">${wdIcon('star',16)}Mis puntos</a>${management && role!=='center'?management:''}<button type="button" id="account-logout">Cerrar sesión</button></div></div>`; const toggle=$('#account-toggle'),menu=$('#account-dropdown'); toggle.onclick=e=>{e.stopPropagation(); const open=menu.classList.toggle('open'); toggle.setAttribute('aria-expanded',open?'true':'false');}; if(!window.__wdAccountClickBound){ document.addEventListener('click',()=>closeTransientMenus()); window.__wdAccountClickBound=true; } $('#account-logout').onclick=async()=>{closeTransientMenus();await postJSON('/api/auth/logout',{});await loadMe();wdGo('#/');}; translateTree(slot); }
+  function renderAccount(){ const slot=$('#account-slot'); if(!slot) return; $('.header-tools')?.classList.add('is-ready'); if(!state.me&&!navigator.onLine){ slot.innerHTML=''; return; } if(!state.me){ slot.innerHTML='<a class="account-link" href="#/login"><span>Iniciar sesión</span></a>'; translateTree(slot); return; } const u=state.me.user; const role=u.role, own=state.me.own_role||role, esc=escapeHtml; const management=role==='admin'?'<a href="#/admin">👑 Administración</a>':role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':role==='freelance'?'<a href="#/admin">🧭 Gestionar mis servicios</a>':''; const personal=['freelance','recreational'].includes(own); const personalLinks=(role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':'')+(role!=='center'||personal?`<a href="#/area">${wdIcon('home',16)}Mi área</a>`:'');
+    // v50.58 (equipo por QR): the profile selector. A person with their own account works as themself or in one of the
+    // centres where they are today; the server changes the context of the session and never mixes two centres.
+    const profiles=state.me.profiles||[], reqs=state.me.team_requests||0, cur=profiles.find(p=>p.active&&p.center_id);
+    const profBox=profiles.length>1?`<div class="acc-profiles" role="group" aria-labelledby="acc-prof-h"><small id="acc-prof-h">Trabajar como</small>${profiles.map(p=>`<button type="button" class="acc-prof ${p.active?'is-on':''}" data-prof="${p.center_id||0}" data-name="${esc(p.label)}" aria-pressed="${p.active?'true':'false'}"><i style="--c:${esc(p.color||'#334155')}" aria-hidden="true"></i><span><b ${p.center_id?'translate="no"':''}>${esc(p.label)}</b>${p.role_name?`<small>${esc(p.role_name)}</small>`:''}</span>${p.active?wdIcon('check',14):''}</button>`).join('')}</div>`:'';
+    const teamLinks=(['freelance','recreational','center'].includes(own)?`<a href="#/mi-qr">${wdIcon('qr',16)}Mi QR</a>`:'')+(personal?`<a href="#/mi-equipo">${wdIcon('users',16)}Mi equipo${reqs?` <span class="acc-badge" aria-label="${reqs} ${esc(translateString('peticiones pendientes'))}">${reqs}</span>`:''}</a><a href="#/mi-agenda">${wdIcon('calendar',16)}Mi agenda</a>`:'');
+    const sub=cur?`<span translate="no">${esc(cur.label)}</span> · ${esc(cur.role_name||'')}`:esc(role==='admin'?'Administrador':role==='center'?'Centro de buceo':role==='freelance'?'Profesional / freelance':'Buceador / cliente');
+    slot.innerHTML=`<div class="account-menu"><button class="account-link account-toggle" id="account-toggle" type="button" aria-expanded="false"><span class="avatar">${esc(initials(u.fullname))}</span><span class="label" translate="no">${esc(u.fullname.split(' ')[0])}</span>${reqs?`<span class="acc-dot" aria-hidden="true"></span>`:''}<span class="account-chevron">⌄</span></button><div class="account-dropdown" id="account-dropdown"><div class="account-dropdown-head"><strong>${esc(u.fullname)}</strong><small>${sub}</small></div>${profBox}${personalLinks}${teamLinks}<a href="#/cuenta">${wdIcon('user',16)}Mi cuenta</a><a href="#/logbook">${wdIcon('book',16)}Log Book</a><a href="#/recompensas">${wdIcon('gift',16)}Recompensas</a><a href="#/mis-puntos">${wdIcon('star',16)}Mis puntos</a>${management && role!=='center'?management:''}<button type="button" id="account-logout">Cerrar sesión</button></div></div><button type="button" class="account-out" id="account-out" title="Cerrar sesión" aria-label="Cerrar sesión">${wdIcon('logout',18)}</button>`; const toggle=$('#account-toggle'),menu=$('#account-dropdown'); toggle.onclick=e=>{e.stopPropagation(); const open=menu.classList.toggle('open'); toggle.setAttribute('aria-expanded',open?'true':'false');}; if(!window.__wdAccountClickBound){ document.addEventListener('click',()=>closeTransientMenus()); window.__wdAccountClickBound=true; } const out=async()=>{closeTransientMenus();await postJSON('/api/auth/logout',{});await loadMe();wdGo('#/');}; $('#account-logout').onclick=out; $('#account-out').onclick=out; $$('.acc-prof',slot).forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(b.classList.contains('is-on')){ closeTransientMenus(); return; } closeTransientMenus(); tqSwitch(+b.dataset.prof,b.dataset.name); }); translateTree(slot); }
   function navMobile(){ $('#mobile-menu')?.addEventListener('click',()=>$('#main-nav').classList.toggle('open')); $$('#main-nav a').forEach(a=>a.addEventListener('click',()=>$('#main-nav').classList.remove('open'))); }
 
   async function loadMeta(){ if(!state.meta) state.meta=await api('/api/meta'); return state.meta; }
@@ -359,7 +366,7 @@
     });
   }
   function wdBack(fallback){ if(wdNav.depth>1) history.back(); else wdGo(fallback||'#/'); }
-  function wdRoute(seq){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('r/')) return renderSignedLink(hash.slice(2).split('?')[0]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('scan/d/')){ closeTransientMenus(); return renderScanDive(hash.slice(7).split('?')[0]); } if(hash.startsWith('buddy/')){ closeTransientMenus(); return renderBuddyLink(hash.slice(6).split('?')[0]); } if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); if(window.WDApp){ const ps=new URLSearchParams(qs||''), own=window.WDApp.route(name||'home',ps); if(own){ closeTransientMenus(); return Promise.resolve(own).then(()=>{ if(seq===wdNav.seq) wdVisit(name||'home',ps); }).catch(err=>{ console.error(err); window.WDApp.failed(err); }); } } const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,verificacion:renderLoginCode,registro:renderRegister,reservar:renderBooking,'reservar-dias':renderDayBooking,seguro:renderInsurance,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin,manifiesto:renderManifest,'salida-cancelada':renderSlotCancelChoice,barco:renderBoatDay}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); const params=new URLSearchParams(qs||''); return Promise.resolve(fn(params)).then(()=>{ if(seq===wdNav.seq) wdVisit(name||'home',params); return window.WDApp?.after(name||'home',params); }).catch(err=>{console.error(err); if(seq!==wdNav.seq) return; setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
+  function wdRoute(seq){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('r/')) return renderSignedLink(hash.slice(2).split('?')[0]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('scan/d/')){ closeTransientMenus(); return renderScanDive(hash.slice(7).split('?')[0]); } if(hash.startsWith('buddy/')){ closeTransientMenus(); return renderBuddyLink(hash.slice(6).split('?')[0]); } if(hash.startsWith('p/q1.')){ closeTransientMenus(); return renderPersonalQRLanding(hash.slice(2).split('?')[0]); } if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); if(window.WDApp){ const ps=new URLSearchParams(qs||''), own=window.WDApp.route(name||'home',ps); if(own){ closeTransientMenus(); return Promise.resolve(own).then(()=>{ if(seq===wdNav.seq) wdVisit(name||'home',ps); }).catch(err=>{ console.error(err); window.WDApp.failed(err); }); } } const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,verificacion:renderLoginCode,registro:renderRegister,reservar:renderBooking,'reservar-dias':renderDayBooking,seguro:renderInsurance,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin,'equipo/propiedad':renderTransferConfirm,'mi-qr':renderMyQR,'mi-equipo':renderMyTeams,'mi-agenda':renderMyAgenda,enlazar:p=>renderPersonalQRLanding('#/enlazar?i='+(p.get('i')||'')),manifiesto:renderManifest,'salida-cancelada':renderSlotCancelChoice,barco:renderBoatDay}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); const params=new URLSearchParams(qs||''); return Promise.resolve(fn(params)).then(()=>{ if(seq===wdNav.seq) wdVisit(name||'home',params); return window.WDApp?.after(name||'home',params); }).catch(err=>{console.error(err); if(seq!==wdNav.seq) return; setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
   window.addEventListener('hashchange', route);
   // v50.57 (4.2): the counter of visits of the web, without cookies or anything stored in the browser: the server counts
   // the screen (and the centre or professional it shows) once; robots and the administration are not counted there.
@@ -2450,9 +2457,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function afterLogin(r){ const next=sessionStorage.getItem('wd_after_login'); sessionStorage.removeItem('wd_after_login'); wdGo(r.totp_setup_required?'#/cuenta?seguridad=1':(next||'#/')); toast(r.totp_setup_required?'Activa la verificación en dos pasos para usar la administración.':'Sesión iniciada.'); }
   async function renderLogin(){ if((await api('/api/me')).authenticated){wdGo('#/cuenta');return;} const st=await api('/api/setup/status').catch(()=>({})); const nextParam = new URLSearchParams(location.hash.split('?')[1]||'').get('next'); if(nextParam) sessionStorage.setItem('wd_after_login', nextParam.startsWith('#')?nextParam:'#'+nextParam);
     pendingLogin=null;
-    setApp(authCard('Iniciar sesión',`<p class="lead auth-lead">Entra para gestionar tus reservas, tus documentos y tu Log Book.</p><form id="login-form"><div class="field"><label for="login">Email</label><input id="login" required autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false"></div><div class="field"><label for="password">Contraseña</label><input id="password" type="password" required autocomplete="current-password"></div><div class="form-actions"><button class="btn btn-primary" type="submit">Entrar</button></div><p class="auth-small"><a href="#/recuperar">¿Has olvidado tu contraseña?</a></p></form>${st.registration_open===false?'':'<p class="auth-alt">¿No tienes cuenta? <a href="#/registro">Crear cuenta</a></p>'}${st.setup_allowed?`<div class="notice" style="margin-top:16px">${st.demo?'Entorno de pruebas: todavía no hay cuenta de administración.':'Primera instalación:'} <a href="#/setup" style="font-weight:800">crear cuenta administradora</a>.</div>`:''}`));
+    setApp(authCard('Iniciar sesión',`<p class="lead auth-lead">Entra para gestionar tus reservas, tus documentos y tu Log Book.</p><form id="login-form"><div class="field"><label for="login">Email</label><input id="login" required autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false"></div><div class="field"><label for="password">Contraseña</label><input id="password" type="password" required autocomplete="current-password"></div>${WD_APP?'':'<label class="lg-check auth-keep"><input type="checkbox" id="remember"> <span>Mantener la sesión iniciada en este ordenador <small>Aunque cierres el navegador, durante la jornada (8 horas como mucho). En un ordenador compartido, pulsa «Cerrar sesión» al terminar.</small></span></label>'}<div class="form-actions"><button class="btn btn-primary" type="submit">Entrar</button></div><p class="auth-small"><a href="#/recuperar">¿Has olvidado tu contraseña?</a></p></form>${st.registration_open===false?'':'<p class="auth-alt">¿No tienes cuenta? <a href="#/registro">Crear cuenta</a></p>'}${st.setup_allowed?`<div class="notice" style="margin-top:16px">${st.demo?'Entorno de pruebas: todavía no hay cuenta de administración.':'Primera instalación:'} <a href="#/setup" style="font-weight:800">crear cuenta administradora</a>.</div>`:''}`));
     $('#login-form').onsubmit=async e=>{e.preventDefault(); const btn=$('#login-form button[type=submit]'); btn.disabled=true;
-      try{ const body={login:$('#login').value.trim(),password:$('#password').value,...(await window.WD_SEC?.extraLogin?.()||{})}; const r=await postJSON('/api/auth/login',body);
+      try{ const body={login:$('#login').value.trim(),password:$('#password').value,...($('#remember')?.checked?{remember:true}:{}),...(await window.WD_SEC?.extraLogin?.()||{})}; const r=await postJSON('/api/auth/login',body);
         if(r.totp_required){ pendingLogin=body; wdGo('#/verificacion'); return; }
         await window.WD_SEC?.trasLogin?.(r); await loadMe(); afterLogin(r);
       }catch(err){ toast(err.message); btn.disabled=false; } };
@@ -4080,6 +4087,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="field full" id="mfg-other-w" ${g&&!g.guide_user_id&&g.guide_name?'':'hidden'}><label for="mfg-other">Nombre del guía</label><input id="mfg-other" maxlength="80" value="${esc(g&&!g.guide_user_id?g.guide_name||'':'')}"></div></form>`,
         footer:`${g?'<button type="button" class="btn danger" id="mfg-del">Quitar grupo</button>':''}<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="mfg-save">Guardar</button>`});
       translateTree(el); $('#mfg-guide',el).onchange=e=>{ $('#mfg-other-w',el).hidden=e.target.value!=='other'; };
+      if(state.me?.user?.role==='center') api('/api/center/availability?slot_id='+s.id).then(av=>{ const busy=new Set(av.people.filter(x=>x.busy).map(x=>x.user_id));
+        $$('#mfg-guide option',el).forEach(o=>{ const id=+o.value; if(!busy.has(id)||(g&&g.guide_user_id===id)) return; o.disabled=true; o.textContent+=' — '+translateString('Ocupado'); }); }).catch(()=>{});
       $('#mfg-save',el).onclick=async()=>{ const gv=$('#mfg-guide',el).value; try{ await postJSON(`/api/manifest/${s.id}/groups/save`,{id:g?.id,label:$('#mfg-label',el).value,boat_id:+$('#mfg-boat',el).value||null,guide_user_id:gv&&gv!=='other'?+gv:null,guide_name:gv==='other'?$('#mfg-other',el).value:''}); close(); reload(); }catch(err){ toast(err.message); } };
       $('#mfg-del',el)?.addEventListener('click',async()=>{ const n=inGroup(g.id).length; close(); if(!await wdConfirm({title:'Quitar grupo',text:n?`Los ${n} buceadores de ${g.label} pasarán a «Sin grupo».`:`Se quitará ${g.label}.`,ok:'Quitar grupo',danger:true})) return;
         try{ await postJSON(`/api/manifest/${s.id}/groups/delete`,{id:g.id}); reload(); }catch(err){ toast(err.message); } }); };
@@ -4808,6 +4817,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     snorkel:'<path d="M3 11.4A3 3 0 0 1 6 8.4h6.6a3 3 0 0 1 3 3v.4a2.6 2.6 0 0 1-2.6 2.6h-1.4l-1.2-1.6H8.6l-1.2 1.6H5.6A2.6 2.6 0 0 1 3 11.8z"/><path d="M19.5 3v11.6a3.6 3.6 0 0 1-3.6 3.6H12.5"/>',
     fotografia:'<path d="M4 8h3l1.5-2.4h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.6"/>',
     calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    link:'<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L11.6 6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.6-1.6"/>',
+    camera:'<path d="M3.5 8.5a2 2 0 0 1 2-2h2l1.5-2h6l1.5 2h2a2 2 0 0 1 2 2v9.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/>',
+    logout:'<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
     users:'<circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 5.5a3.3 3.3 0 0 1 0 6.3M18.5 14.8c1.6.8 2.6 2.5 3 5.2"/>',
     clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
     globe:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.6 3.6 5.4 3.6 8.5s-1 5.9-3.6 8.5c-2.6-2.6-3.6-5.4-3.6-8.5s1-5.9 3.6-8.5z"/>',
@@ -7370,6 +7382,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if((state.me?.member_role||'owner')!=='owner'){ $$('.cb-nav[data-owner]').forEach(n=>n.remove());
       Object.entries({payments:'cobros',integration:'centro',vender:'centro',center:'centro',marina:'centro',analytics:'estadisticas',stats:'estadisticas',clients:'reservas',requests:'reservas'}).forEach(([t,p])=>{ if(!wdCan(p)) $$(`.cb-nav[data-cbtab="${t}"]`).forEach(n=>n.remove()); });
       if(!wdCan('checkin')&&!wdCan('centro')) $$('.cb-nav[data-cbtab="logbook"]').forEach(n=>n.remove()); }
+    { const cur=(state.me?.profiles||[]).find(p=>p.active&&p.center_id); if(cur){ $('#cb-content')?.insertAdjacentHTML('beforebegin',`<div class="pl-bar tq-ctx" style="--c:${escapeHtml(cur.color||'#334155')}">${wdIcon('users',16)} <span>Trabajas en</span> <b translate="no">${escapeHtml(cur.label)}</b> <span>como</span> <b>${escapeHtml(cur.role_name||'')}</b>. <button type="button" class="btn-link" id="tq-ctx-back">Volver a mi perfil</button></div>`); $('#tq-ctx-back')?.addEventListener('click',()=>tqSwitch(0,'')); } }
     { const pl=state.me?.plan; if(pl&&pl.status!=='active'){ const host=$('#cb-content'); host?.insertAdjacentHTML('beforebegin',`<div class="pl-bar ${pl.status==='expired'||pl.code==='free'?'is-free':''}">${wdIcon('info',16)} ${pl.status==='trial'?`Prueba gratuita del plan ${escapeHtml(pl.name)} hasta el ${escapeHtml(wdLegalDate(pl.expires_at))}.`:pl.status==='expired'?'Tu plan ha terminado: tu ficha sigue como ficha gratuita y no recibe reservas online nuevas.':'Ficha gratuita: recibes solicitudes de información.'} <a href="#/admin?tab=plan">Mi plan</a></div>`); } }
     nav.forEach(n=>n.onclick=()=>loadTab(n.dataset.cbtab));
     wdPanelBind($('#app'),'centro');
@@ -8392,25 +8405,23 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const me=state.me?.user?.id; const R=d.roles, RL=d.role_list||[], PERM=d.permissions||[];
     const opts=(sel)=>RL.map(r=>`<option value="${esc(r.key)}" ${r.key===sel?'selected':''}>${esc(r.name)}</option>`).join('');
     const checks=(r,pre)=>PERM.map(p=>`<label class="tr-perm"><input type="checkbox" value="${esc(p.key)}" ${r.permissions.includes(p.key)?'checked':''} ${r.owner?'disabled':''} aria-describedby="${pre}-h-${esc(p.key)}"> <span><b>${esc(p.name)}</b><small id="${pre}-h-${esc(p.key)}">${esc(p.help)}</small></span></label>`).join('');
-    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Equipo</p><h2>Personas que gestionan el centro</h2>
+    const rules=d.rules||{};
+    mount.innerHTML=`<section class="mm-module tq-links-module" id="tq-links-mount"></section><section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Equipo</p><h2>Cuentas del centro</h2>
       <p>Cada persona tiene un perfil. Abajo puedes cambiar lo que puede hacer cada perfil y crear los tuyos (por ejemplo, «Instructor máster»). La app del móvil muestra a cada persona solo lo que su perfil permite.</p></div></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>Persona</th><th>Perfil</th><th></th></tr></thead><tbody>${d.members.map(m=>`<tr><td><b>${esc(m.fullname)}</b><div class="adl-det">${esc(m.email)}</div></td>
         <td><label class="sr-only" for="tm-r-${m.id}">Perfil de ${esc(m.fullname)}</label><select id="tm-r-${m.id}" class="tm-role" data-id="${m.id}" ${m.id===me?'disabled':''}>${opts(m.member_role)}${R[m.member_role]?'':`<option value="" selected>Perfil borrado</option>`}</select></td>
         <td>${m.id===me?'<small>Tú</small>':`${m.member_role!=='owner'?`<button type="button" class="btn tm-sessions" data-id="${m.id}" data-name="${esc(m.fullname||'')}">Sesiones</button> `:''}<button type="button" class="btn tm-remove" data-id="${m.id}">Quitar</button>`}</td></tr>`).join('')}</tbody></table></div>
       ${d.invites.length?`<h3 class="adl-h">Invitaciones pendientes</h3><ul class="tm-inv">${d.invites.map(i=>`<li>${esc(i.email)} · ${esc(R[i.member_role]||'Perfil borrado')} · caduca ${esc(wdLegalDate(i.expires_at))} <button type="button" class="btn-link tm-revoke" data-id="${i.id}">Anular</button></li>`).join('')}</ul>`:''}
-      ${d.team_feature?`<h3 class="adl-h">Invitar a alguien</h3><form id="tm-form" class="form-grid"><div class="field"><label for="tm-email">Email</label><input id="tm-email" type="email" required maxlength="160"></div>
-        <div class="field"><label for="tm-role">Perfil</label><select id="tm-role">${opts('reception')}</select></div>
-        <div class="form-actions full"><button class="btn btn-primary" type="submit">Enviar invitación</button></div></form><p class="adl-det">${d.limit?`Tu plan permite ${d.limit} personas.`:''}</p>`:'<p class="adl-det">El equipo está incluido en el plan Pro. <a href="#/planes">Ver planes</a></p>'}
       <h3 class="adl-h" id="tr-h">Perfiles y lo que puede hacer cada uno</h3>
       <p class="adl-det"><span>Solo tú, como propietario, puedes:</span> ${(d.owner_only||[]).map(x=>`<span>${esc(x)}</span>`).join(' · ')}.</p>
       <div class="tr-list">${RL.map(r=>`<details class="tr-role" data-key="${esc(r.key)}"><summary><b>${esc(r.name)}</b> <small><span class="num">${r.members}</span> <span>${r.members===1?'persona':'personas'}</span>${r.builtin?'':' · <span>perfil de tu centro</span>'}${r.builtin&&r.changed?' · <span>cambiado</span>':''}</small></summary>
         ${r.owner?'<p class="adl-det">El propietario siempre puede hacerlo todo.</p>':`<form class="tr-form" data-key="${esc(r.key)}">${r.builtin?'':`<div class="field"><label for="tr-n-${esc(r.key)}">Nombre del perfil</label><input id="tr-n-${esc(r.key)}" class="tr-name" maxlength="40" value="${esc(r.name)}" required></div>`}
           <fieldset class="tr-perms"><legend class="sr-only">Qué puede hacer ${esc(r.name)}</legend>${checks(r,'tr-'+r.key)}</fieldset>
           <div class="form-actions"><button type="submit" class="btn btn-primary">Guardar</button>${r.builtin&&r.changed?`<button type="button" class="btn tr-reset">Volver a lo de siempre</button>`:''}${r.builtin?'':`<button type="button" class="btn tr-del">Borrar perfil</button>`}</div></form>`}</details>`).join('')}
-        <details class="tr-role" id="tr-new"><summary><b>+ Crear un perfil</b></summary><form class="tr-form" data-key=""><div class="field"><label for="tr-n-new">Nombre del perfil</label><input id="tr-n-new" class="tr-name" maxlength="40" placeholder="Instructor máster" required></div>
+        ${rules.custom_profiles===false?`<div class="tr-role tq-locked"><b>+ Crear un perfil</b>${tqPlans('Disponible en el plan Pro')}</div>`:`<details class="tr-role" id="tr-new"><summary><b>+ Crear un perfil</b></summary><form class="tr-form" data-key=""><div class="field"><label for="tr-n-new">Nombre del perfil</label><input id="tr-n-new" class="tr-name" maxlength="40" placeholder="Instructor máster" required></div>
           <fieldset class="tr-perms"><legend class="sr-only">Qué puede hacer el perfil nuevo</legend>${checks({permissions:['checkin'],owner:false},'tr-new')}</fieldset>
-          <div class="form-actions"><button type="submit" class="btn btn-primary">Crear perfil</button></div></form></details></div></section>`;
-    $('#tm-form')?.addEventListener('submit',async e=>{ e.preventDefault(); try{ await postJSON('/api/center/team/invite',{email:$('#tm-email').value,member_role:$('#tm-role').value}); toast('Invitación enviada.'); renderTeam(mountId); }catch(err){ toast(err.message); } });
+          <div class="form-actions"><button type="submit" class="btn btn-primary">Crear perfil</button></div></form></details>`}</div></section>`;
+    renderTeamLinks($('#tq-links-mount',mount),d,()=>renderTeam(mountId));
     $$('.tm-role',mount).forEach(x=>x.onchange=async()=>{ if(!x.value) return; try{ await postJSON('/api/center/team/role',{user_id:+x.dataset.id,member_role:x.value}); toast('Perfil cambiado.'); }catch(err){ toast(err.message); renderTeam(mountId); } });
     $$('.tm-remove',mount).forEach(b=>b.onclick=async()=>{ if(!confirm('Esta persona dejará de tener acceso al centro. ¿Continuar?')) return; try{ await postJSON('/api/center/team/remove',{user_id:+b.dataset.id}); renderTeam(mountId); }catch(err){ toast(err.message); } });
     // v50.55 (encargo 2): the owner sees where each person of his team is signed in and can close all their sessions.
@@ -8433,7 +8444,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const ACTIVITY_LABELS={booking_created:'Reserva creada',booking_status_changed:'Estado de reserva cambiado',service_created:'Servicio creado',service_updated:'Servicio modificado',slot_created:'Salida creada',
     center_profile_updated:'Datos del centro modificados',provider_fiscal_data_updated:'Datos fiscales modificados',team_invited:'Invitación al equipo',team_role_changed:'Perfil del equipo cambiado',
     team_member_removed:'Persona quitada del equipo',team_joined:'Se une al equipo',clients_imported:'Clientes importados',provider_export:'Exportación de datos',ical_regenerated:'Nueva dirección de calendario',
-    review_reply_saved:'Respuesta a una reseña',booking_rescheduled:'Reserva cambiada de salida',refund_issued:'Devolución',points_granted:'Puntos concedidos'};
+    review_reply_saved:'Respuesta a una reseña',team_link_requested:'Petición para unirse al equipo',team_link_accepted:'Acepta unirse al equipo',team_link_declined:'Rechaza unirse al equipo',
+    team_link_ended:'Sale del equipo',team_link_paused:'Equipo: en pausa',team_link_reactivated:'Equipo: reactivado',team_person_scanned:'QR personal escaneado',team_transfer_requested:'Transferencia de la propiedad pedida',
+    team_transfer_confirmed:'Propiedad transferida',team_context_switch:'Cambio de centro',phones_viewed:'Teléfonos de clientes vistos',new_device_login:'Entrada desde un dispositivo nuevo',
+    login:'Inicio de sesión',service_slot_updated:'Salida modificada',team_sessions_closed:'Sesiones del equipo cerradas',team_invite_revoked:'Invitación anulada',team_role_saved:'Perfil guardado',
+    team_role_deleted:'Perfil borrado',booking_rescheduled:'Reserva cambiada de salida',refund_issued:'Devolución',points_granted:'Puntos concedidos'};
   // v50.57 (4.4): QR codes with a short, stable address (…/q/abc234) that lead to a page of WORLDIVES chosen from a
   // list: the administration (registrations, dive sites, centres, experiences…) and each centre from its panel (its
   // pages). Nobody types an address. «Probar enlace» opens the real destination without counting a scan.
@@ -8522,22 +8537,281 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let d; try{ d=await api('/api/center/activity'); }catch(err){ mount.innerHTML=`<div class="empty">${esc(err.message)}</div>`; return; }
     mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Registro de actividad</p><h2>Quién ha hecho qué en el centro</h2></div></div>
       ${wdExportBox([['actividad','Exportar la actividad']])}
-      ${d.items.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Persona</th><th>Acción</th></tr></thead><tbody>${d.items.map(x=>`<tr><td>${esc((x.created_at||'').slice(0,16).replace('T',' '))}</td><td>${esc(x.fullname||'—')}</td><td>${esc(ACTIVITY_LABELS[x.action]||x.action.replace(/_/g,' '))}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Todavía no hay actividad.</div>'}</section>`;
+      ${d.items.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Persona</th><th>Acción</th></tr></thead><tbody>${d.items.map(x=>`<tr><td>${esc((x.created_at||'').slice(0,16).replace('T',' '))}</td><td><span translate="no">${esc(x.actor_name||x.fullname||'—')}</span>${x.actor_role?` <small>(${esc(x.actor_role)})</small>`:''}</td><td>${esc(ACTIVITY_LABELS[x.action]||x.action.replace(/_/g,' '))}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Todavía no hay actividad.</div>'}</section>`;
     wdBindExports(mount);
+  }
+  // ---------------------------------------------------------------- v50.58 · equipo enlazado por QR (encargo del 16/10/2026)
+  // Cada persona tiene su QR personal («Mi QR»: cambia cada minuto y sirve una vez), un código corto de 10 minutos y
+  // «Compartir para enlazar» (un enlace de 24 horas y un uso). El centro la enlaza en «Equipo → Enlazar persona» (cámara,
+  // código o correo); la persona dice que sí en «Mi equipo» y elige el centro en el selector de perfil del menú. «Mi
+  // agenda» junta su trabajo propio y lo que le asigna cada centro, cada centro con su color. El servidor decide todo.
+  const TQ_STATE={pending:['Pendiente de aceptar','warn'],active:['Activo','good'],paused:['En pausa','warn'],ended:['Terminado',''],cancelled:['Anulado',''],declined:['Rechazado','bad']};
+  const tqChip=x=>{ const s=TQ_STATE[x.status]||[x.status_name||x.status,'']; return `<span class="status ${s[1]}">${escapeHtml(s[0])}</span>`; };
+  const tqDay=d=>{ try{ return new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString(wdLocale(),{day:'numeric',month:'short'}); }catch{ return String(d||''); } };
+  const tqWhen=v=>{ try{ return new Date(typeof v==='number'?v*1000:v).toLocaleString(wdLocale(),{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }catch{ return ''; } };
+  const tqHere=name=>location.hash.replace(/^#\/?/,'').split('?')[0]===name;
+  const tqCode=c=>String(c||'').replace(/^(.{3})/,'$1 ');
+  const tqMMSS=s=>{ s=Math.max(0,Math.round(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
+  const tqAvatar=(photo,name,size=40)=>photo?`<img class="tq-avatar" src="${escapeHtml(photo)}" alt="" width="${size}" height="${size}" loading="lazy">`:`<span class="avatar tq-avatar" aria-hidden="true">${escapeHtml(initials(name||''))}</span>`;
+  const tqLogo=x=>x.logo?`<img class="tq-logo" src="${escapeHtml(x.logo)}" alt="" width="44" height="44" loading="lazy">`:`<span class="tq-logo" aria-hidden="true">${escapeHtml(initials(x.center_name||''))}</span>`;
+  const tqIso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const tqPlans=msg=>`<p class="tq-lock">${wdIcon('lock',16)} <span>${escapeHtml(msg)}</span> <a href="#/admin?tab=plan">Ver planes</a></p>`;
+  // The QR of a person is read with the camera: inside the app with its own scanner, in the browser with BarcodeDetector.
+  async function tqReadCamera(video){
+    const S=window.Capacitor?.Plugins?.CapacitorBarcodeScanner;
+    if(S){ const r=await S.scanBarcode({hint:0,scanInstructions:translateString('Apunta al QR de la persona'),scanButton:false,cameraDirection:1}); return r?.ScanResult||r?.scanResult||''; }
+    if(!('BarcodeDetector' in window)||!navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador no puede usar la cámara aquí: escribe el código de 6 letras que la persona ve debajo de su QR.');
+    const det=new BarcodeDetector({formats:['qr_code']});
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    video.srcObject=stream; video.hidden=false; await video.play();
+    return new Promise((ok,ko)=>{ let done=false;
+      const stop=v=>{ if(done) return; done=true; stream.getTracks().forEach(t=>t.stop()); video.hidden=true; v instanceof Error?ko(v):ok(v); };
+      const tick=async()=>{ if(done) return; if(!video.isConnected){ stop(''); return; } try{ const f=await det.detect(video); if(f[0]){ stop(f[0].rawValue); return; } }catch{} requestAnimationFrame(tick); };
+      tick(); setTimeout(()=>stop(new Error('No se ha leído ningún QR. Vuelve a probar o escribe el código.')),30000); });
+  }
+
+  // «Mi QR»: el QR de este minuto, el código corto de estos 10 minutos y «Compartir para enlazar».
+  let tqTimer=0, tqLoad=null;
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&tqLoad&&tqHere('mi-qr')) tqLoad(); });
+  async function renderMyQR(){
+    if(!state.me){ goLogin(); return; } const esc=escapeHtml; clearInterval(tqTimer);
+    setApp(`<section class="page tq-page">${wdCrumbs([['Mi área','#/area'],['Mi QR','']])}
+      <header class="tq-head"><p class="eyebrow">Mi QR</p><h1>Tu QR para unirte a un equipo</h1>
+        <p class="lead">Enséñalo en el centro: lo escanean en «Equipo → Enlazar persona» y te llega una petición que tú aceptas. No lleva tus datos, cambia cada minuto y sirve una sola vez.</p></header>
+      <div class="tq-grid"><div class="tq-card" id="tq-card"><div class="tq-skel" aria-hidden="true"></div></div>
+        <div class="tq-side"><section class="tq-box"><h2>¿No estás en el centro?</h2><p>Crea un enlace de un solo uso y mándalo por WhatsApp o por correo. Dura 24 horas y lo puedes anular.</p>
+            <button type="button" class="btn btn-primary" id="tq-share">${wdIcon('link',16)} <span>Compartir para enlazar</span></button><div id="tq-share-out"></div><div id="tq-shares"></div></section>
+          <section class="tq-box"><h2>Tus equipos</h2><p>Las peticiones de los centros, los equipos donde estás y lo que te toca cada día.</p>
+            <div class="tq-actions"><a class="btn" href="#/mi-equipo">${wdIcon('users',16)} <span>Mi equipo</span></a><a class="btn" href="#/mi-agenda">${wdIcon('calendar',16)} <span>Mi agenda</span></a></div></section></div></div></section>`);
+    const card=$('#tq-card'); let left=0, period=60, codeLeft=0, busy=false;
+    const load=tqLoad=async()=>{ if(busy||!card.isConnected) return; busy=true;
+      try{ const d=await api('/api/my/qr'); left=period=d.refresh_in||60; codeLeft=d.code_expires_in;
+        card.innerHTML=`<div class="tq-person">${tqAvatar(d.photo,d.name,48)}<div><b translate="no">${esc(d.name||'')}</b><small>${esc(d.account_label||'')}</small></div></div>
+          <div class="tq-qr" role="img" aria-label="${esc(translateString('Tu QR personal'))}">${d.svg}</div>
+          <div class="tq-timer"><span class="tq-bar" aria-hidden="true"><i id="tq-bar"></i></span><span><span>Cambia en</span> <b id="tq-left" class="num">${left}</b> <span>s</span></span></div>
+          <div class="tq-code"><span>¿No pueden escanearlo? Diles este código:</span><b id="tq-code" translate="no">${esc(tqCode(d.code))}</b>
+            <small><span>Caduca en</span> <span id="tq-code-left" class="num">${tqMMSS(codeLeft)}</span> · <span>sirve una vez</span></small></div>`;
+        translateTree(card);
+      }catch(err){ card.innerHTML=wdBlockError(err); translateTree(card); card.querySelector('[data-block-retry]').onclick=load; }
+      finally{ busy=false; } };
+    await load();
+    tqTimer=setInterval(()=>{ if(!tqHere('mi-qr')||!card.isConnected){ clearInterval(tqTimer); return; } if(document.hidden) return;
+      left--; codeLeft--;
+      const l=$('#tq-left'), b=$('#tq-bar'), c=$('#tq-code-left');
+      if(l) l.textContent=Math.max(0,left); if(b) b.style.width=Math.max(0,left/period*100)+'%'; if(c) c.textContent=tqMMSS(codeLeft);
+      if(left<=0||codeLeft<=0) load(); },1000);
+    const shares=async()=>{ const box=$('#tq-shares'); if(!box) return; let r; try{ r=await api('/api/my/qr/shares'); }catch{ return; }
+      const open=r.items.filter(x=>x.state==='open');
+      box.innerHTML=open.length?`<h3 class="tq-h3">Enlaces sin usar</h3><ul class="tq-share-list">${open.map(x=>`<li><span><span>Caduca</span> <span class="num">${esc(tqWhen(x.expires_at))}</span></span><button type="button" class="btn-link" data-revoke="${x.id}">Anular</button></li>`).join('')}</ul>`:'';
+      translateTree(box);
+      $$('[data-revoke]',box).forEach(b=>b.onclick=async()=>{ try{ await postJSON('/api/my/qr/share/revoke',{id:+b.dataset.revoke}); toast('Enlace anulado: ya no sirve.'); $('#tq-share-out').innerHTML=''; shares(); }catch(err){ toast(err.message); } }); };
+    shares();
+    $('#tq-share').onclick=async()=>{ try{ const r=await postJSON('/api/my/qr/share',{}); const out=$('#tq-share-out');
+        const msg=translateString('Para añadirme a tu equipo en WORLDIVES, abre este enlace (sirve una vez y dura 24 horas):')+' '+r.url;
+        out.innerHTML=`<div class="tq-share-new"><label for="tq-share-url">Tu enlace</label><input id="tq-share-url" readonly value="${esc(r.url)}" translate="no">
+          <div class="tq-actions"><button type="button" class="btn btn-sm" id="tq-copy">Copiar</button>${navigator.share?'<button type="button" class="btn btn-sm" id="tq-native">Compartir…</button>':''}
+            <a class="btn btn-sm" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">WhatsApp</a><a class="btn btn-sm" href="mailto:?subject=${encodeURIComponent(translateString('Mi enlace para tu equipo'))}&amp;body=${encodeURIComponent(msg)}">Correo</a></div></div>`;
+        translateTree(out);
+        $('#tq-copy').onclick=async()=>{ try{ await navigator.clipboard.writeText(r.url); toast('Enlace copiado.'); }catch{ $('#tq-share-url').select(); } };
+        $('#tq-native')?.addEventListener('click',()=>navigator.share({text:msg}).catch(()=>{}));
+        shares(); }catch(err){ toast(err.message); } };
+  }
+
+  // «Mi equipo»: las peticiones de los centros (aceptar o rechazar) y los centros donde la persona está.
+  async function tqActivateFreelance(roleName){
+    return new Promise(res=>{ const {el,close}=wdOpenModal({id:'tq-free',size:'sm',title:escapeHtml(translateString('Activa tu perfil de freelance')),
+      body:`<p>Para unirte como <b>${escapeHtml(roleName)}</b> necesitas tu perfil de freelance. Es gratis: sigues teniendo todo lo de tu cuenta y además estás en los equipos de los centros y ves en tu agenda lo que te asignan.</p>
+        <p class="adl-det">Con el plan gratuito no tienes servicios, reservas ni cobros propios.</p>
+        <label class="lg-check"><input type="checkbox" id="tq-free-ok"> <span>Acepto las <a href="#/legal/condiciones-centros" target="_blank" rel="noopener">condiciones para profesionales</a>.</span></label>`,
+      footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="tq-free-go" disabled>Activar y aceptar</button>'});
+      translateTree(el); let done=false; const fin=v=>{ if(done) return; done=true; res(v); };
+      $('#tq-free-ok',el).onchange=e=>{ $('#tq-free-go',el).disabled=!e.target.checked; };
+      $('#tq-free-go',el).onclick=()=>{ fin(true); close(); };
+      new MutationObserver((m,o)=>{ if(!el.isConnected){ o.disconnect(); fin(false); } }).observe(document.body,{childList:true}); });
+  }
+  async function tqSwitch(centerId,label){
+    try{ await postJSON('/api/team/switch',{center:+centerId||0}); await loadMe();
+      toast(centerId?translateString('Ahora trabajas en')+' '+label:translateString('Has vuelto a tu perfil.')); wdGo(centerId?'#/admin':'#/area'); }
+    catch(err){ toast(err.message); }
+  }
+  async function renderMyTeams(){
+    if(!state.me){ goLogin(); return; } const esc=escapeHtml;
+    let d; try{ d=await api('/api/my/teams'); }catch(err){ setApp(`<section class="page">${wdBlockError(err)}</section>`); $('[data-block-retry]')?.addEventListener('click',renderMyTeams); return; }
+    const req=x=>`<article class="tq-item" style="--c:${esc(x.color)}">${tqLogo(x)}<div class="tq-item-body"><h3 translate="no">${esc(x.center_name)}</h3>
+        <p><span>Quiere añadirte a su equipo como</span> <b>${esc(x.role_name)}</b> · <span>${esc(x.dates)}</span></p>
+        ${x.needs_freelance?'<p class="tq-note">Para este perfil tienes que activar tu perfil de freelance. Es gratis y lo haces al aceptar.</p>':''}
+        <div class="tq-actions"><button type="button" class="btn btn-primary" data-accept="${x.id}">Aceptar</button><button type="button" class="btn" data-decline="${x.id}">Rechazar</button></div></div></article>`;
+    const link=x=>`<article class="tq-item" style="--c:${esc(x.color)}">${tqLogo(x)}<div class="tq-item-body"><h3><span translate="no">${esc(x.center_name)}</span> ${tqChip(x)}</h3>
+        <p><b>${esc(x.role_name)}</b> · <span>${esc(x.dates)}</span>${x.status==='active'&&!x.in_force?' · <span>Aún no ha empezado</span>':''}</p>
+        <div class="tq-actions">${x.status==='active'&&x.in_force?`<button type="button" class="btn btn-sm" data-work="${x.center_id}" data-name="${esc(x.center_name)}">Trabajar en este centro</button>`:''}
+          ${['active','paused'].includes(x.status)?`<button type="button" class="btn btn-sm" data-leave="${x.id}" data-name="${esc(x.center_name)}">Salir de este centro</button>`:''}</div></div></article>`;
+    setApp(`<section class="page tq-page">${wdCrumbs([['Mi área','#/area'],['Mi equipo','']])}
+      <header class="tq-head"><p class="eyebrow">Mi equipo</p><h1>Los centros donde trabajas</h1>
+        <p class="lead">Nadie te añade a un equipo sin tu «sí». Puedes salir de un centro cuando quieras: lo que hiciste sigue en tu agenda, sin datos de sus clientes.</p>
+        <div class="tq-actions"><a class="btn" href="#/mi-qr">${wdIcon('qr',16)} <span>Mi QR</span></a><a class="btn" href="#/mi-agenda">${wdIcon('calendar',16)} <span>Mi agenda</span></a></div></header>
+      ${d.requests.length?`<h2 class="adl-h">Peticiones pendientes</h2><div class="tq-list" id="tq-requests">${d.requests.map(req).join('')}</div>`:''}
+      <h2 class="adl-h">Tus equipos</h2>${d.links.length?`<div class="tq-list" id="tq-links">${d.links.map(link).join('')}</div>`:'<div class="empty"><p>Aún no estás en ningún equipo. Enseña <a href="#/mi-qr">tu QR</a> en el centro para que te añadan.</p></div>'}</section>`);
+    $$('[data-accept]').forEach(b=>b.onclick=async()=>{ const x=d.requests.find(r=>r.id===+b.dataset.accept); const body={id:x.id,accept:true};
+      if(x.needs_freelance){ if(!await tqActivateFreelance(x.role_name)) return; body.activate_freelance=true; body.accept_terms=true; }
+      b.disabled=true;
+      try{ await postJSON('/api/my/teams/respond',body); await loadMe(); toast(translateString('Ya estás en el equipo de')+' '+x.center_name+'.'); renderMyTeams(); }
+      catch(err){ b.disabled=false; toast(err.message); } });
+    $$('[data-decline]').forEach(b=>b.onclick=async()=>{ try{ await postJSON('/api/my/teams/respond',{id:+b.dataset.decline,accept:false}); await loadMe(); toast('Petición rechazada.'); renderMyTeams(); }catch(err){ toast(err.message); } });
+    $$('[data-work]').forEach(b=>b.onclick=()=>tqSwitch(+b.dataset.work,b.dataset.name));
+    $$('[data-leave]').forEach(b=>b.onclick=async()=>{
+      if(!await wdConfirm({title:translateString('Salir de')+' '+b.dataset.name,text:'Dejarás de ver lo de este centro al momento. Tus trabajos pasados siguen en tu agenda.',ok:'Salir del equipo',danger:true})) return;
+      try{ await postJSON('/api/my/teams/leave',{id:+b.dataset.leave}); await loadMe(); toast('Has salido del equipo.'); renderMyTeams(); }catch(err){ toast(err.message); } });
+  }
+
+  // «Mi agenda»: dos semanas, día a día; cada centro con su color y el trabajo propio aparte. Sin datos de los clientes.
+  async function renderMyAgenda(params){
+    if(!state.me){ goLogin(); return; } const esc=escapeHtml;
+    const want=params?.get?.('desde')||''; const from=/^\d{4}-\d{2}-\d{2}$/.test(want)?want:tqIso(new Date());
+    const f=new Date(from+'T12:00:00'), shift=n=>tqIso(new Date(f.getTime()+n*864e5)), to=shift(13);
+    let d; try{ d=await api(`/api/my/agenda?from=${from}&to=${to}`); }catch(err){ setApp(`<section class="page">${wdBlockError(err)}</section>`); $('[data-block-retry]')?.addEventListener('click',()=>renderMyAgenda(params)); return; }
+    const days=new Map(); d.items.forEach(i=>{ if(!days.has(i.date)) days.set(i.date,[]); days.get(i.date).push(i); });
+    const legend=[...new Map(d.items.map(i=>[i.center,[i.color,i.kind]])).entries()];
+    const dayName=s=>{ try{ return new Date(s+'T12:00:00').toLocaleDateString(wdLocale(),{weekday:'long',day:'numeric',month:'long'}); }catch{ return s; } };
+    const who=i=>i.kind==='own'?`<span class="tq-ag-center">${esc(i.center)}</span>`:`<span class="tq-ag-center" translate="no">${esc(i.center)}</span>`;
+    setApp(`<section class="page tq-page">${wdCrumbs([['Mi área','#/area'],['Mi agenda','']])}
+      <header class="tq-head"><p class="eyebrow">Mi agenda</p><h1>Lo que te toca, de todos tus centros</h1>
+        <p class="lead">Tu trabajo de freelance y lo que te asigna cada centro, en una sola agenda. Cada centro tiene su color.</p></header>
+      <nav class="tq-ag-nav" aria-label="Semanas"><a class="btn btn-sm" href="#/mi-agenda?desde=${shift(-14)}">← <span>Anteriores</span></a>
+        <b class="num">${esc(tqDay(from))} – ${esc(tqDay(to))}</b><a class="btn btn-sm" href="#/mi-agenda?desde=${shift(14)}"><span>Siguientes</span> →</a></nav>
+      ${legend.length?`<ul class="tq-legend">${legend.map(([n,[c,k]])=>`<li style="--c:${esc(c)}"><i aria-hidden="true"></i><span ${k==='own'?'':'translate="no"'}>${esc(n)}</span></li>`).join('')}</ul>`:''}
+      <div id="tq-agenda">${days.size?[...days].map(([day,items])=>`<section class="tq-day"><h2>${esc(dayName(day))}</h2><ul>${items.map(i=>`<li class="tq-ag-item" style="--c:${esc(i.color)}">${who(i)}<span class="tq-ag-what">${esc(i.what||i.line)}</span></li>`).join('')}</ul></section>`).join('')
+        :'<div class="empty"><p>No tienes nada asignado en estas dos semanas.</p></div>'}</div></section>`);
+  }
+
+  // The personal QR scanned with the phone's own camera (/p/…), and the link a person shares (/e/… → #/enlazar?i=…):
+  // a centre signed in goes straight to «Enlazar persona» with it; anybody else sees how it works, without data.
+  async function renderPersonalQRLanding(code){
+    const me=state.me?.user;
+    if(me&&me.role==='center'&&(state.me?.member_role||'owner')==='owner'){ sessionStorage.setItem('wd-tq-code',code); wdGo('#/admin?tab=team'); return; }
+    setApp(authCard('Enlazar a una persona',`<p class="lead auth-lead">Es el QR o el enlace de una persona de WORLDIVES para unirse al equipo de un centro. No lleva sus datos.</p>
+      <ol class="tq-steps"><li>Entra con la cuenta del centro.</li><li>Abre <b>Equipo → Enlazar persona</b>.</li><li>Escanea el QR, escribe su código o abre su enlace.</li></ol>
+      ${me?'<p class="adl-det">Solo el propietario del centro puede enlazar personas, desde su panel.</p>':`<div class="form-actions"><a class="btn btn-primary" href="#/login?next=${encodeURIComponent(location.hash)}">Iniciar sesión</a></div>`}`));
+  }
+
+  // The centre: «Enlazar persona» (camera, code or email), the people linked, their profile, pause, remove and
+  // «Transferir la propiedad». What the plan does not allow is shown locked with «Ver planes».
+  function tqRoleOptions(roleList,rules,selected){
+    return roleList.filter(r=>r.key!=='owner').map(r=>{ const locked=rules.only_reception&&r.key!=='reception';
+      return `<option value="${escapeHtml(r.key)}" ${r.key===selected?'selected':''} ${locked?'disabled':''}>${escapeHtml(translateString(r.name))}${locked?' — '+escapeHtml(translateString('Disponible en el plan Pro')):''}</option>`; }).join('');
+  }
+  function tqDurationFields(pre){
+    return `<fieldset class="tq-dur"><legend>Duración</legend><label class="tq-radio"><input type="radio" name="${pre}-kind" value="fixed" checked> <span><b>Fijo</b><small>Hasta que lo quites del equipo.</small></span></label>
+      <label class="tq-radio"><input type="radio" name="${pre}-kind" value="days"> <span><b>Por días</b><small>Solo esos días; después sale solo.</small></span></label>
+      <div class="tq-dates" id="${pre}-dates" hidden><div class="field"><label for="${pre}-from">Desde</label><input type="date" id="${pre}-from" value="${tqIso(new Date())}"></div>
+        <div class="field"><label for="${pre}-to">Hasta</label><input type="date" id="${pre}-to" value="${tqIso(new Date())}"></div></div></fieldset>`;
+  }
+  function tqDurationBind(el,pre){ $$(`input[name="${pre}-kind"]`,el).forEach(r=>r.onchange=()=>{ $(`#${pre}-dates`,el).hidden=$(`input[name="${pre}-kind"]:checked`,el).value!=='days'; }); }
+  const tqDurationValue=(el,pre)=>{ const kind=$(`input[name="${pre}-kind"]:checked`,el).value; return kind==='days'?{kind,starts_on:$(`#${pre}-from`,el).value,ends_on:$(`#${pre}-to`,el).value}:{kind}; };
+  function tqOpenLink(d,{onDone,code}={}){
+    const esc=escapeHtml, rules=d.rules||{};
+    const firstRole=rules.only_reception?'reception':'instructor';
+    const {el,close}=wdOpenModal({id:'tq-link',title:escapeHtml(translateString('Enlazar persona')),subtitle:escapeHtml(translateString('La persona recibe la petición y tiene que aceptarla. Nadie queda enlazado sin su «sí».')),
+      body:`<div class="pr-tabs" role="tablist"><button type="button" class="pr-tab is-on" data-tqt="scan" role="tab" aria-selected="true">${wdIcon('camera',16)} <span>Escanear QR</span></button><button type="button" class="pr-tab" data-tqt="code" role="tab" aria-selected="false">${wdIcon('qr',16)} <span>Escribir el código</span></button><button type="button" class="pr-tab" data-tqt="email" role="tab" aria-selected="false">${wdIcon('message',16)} <span>Por correo</span></button></div>
+        <div id="tq-step1">
+          <div data-tqp="scan"><p class="adl-det">Pide a la persona que abra «Mi QR» en su móvil (en su menú, arriba a la derecha) y apunta la cámara.</p>
+            <video id="tq-video" playsinline muted hidden class="tq-video"></video><button type="button" class="btn btn-primary" id="tq-cam">${wdIcon('camera',16)} <span>Abrir la cámara</span></button></div>
+          <form data-tqp="code" hidden id="tq-code-form"><div class="field"><label for="tq-code-i">Código de 6 letras o enlace</label><input id="tq-code-i" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="600" placeholder="ABC 123" translate="no"><small>Lo ve debajo de su QR (dura 10 minutos), o pega el enlace que te ha enviado.</small></div>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Buscar</button></div></form>
+          <form data-tqp="email" hidden id="tq-mail-form"><div class="field"><label for="tq-mail">Email de la persona</label><input id="tq-mail" type="email" maxlength="160" required></div>
+            <div class="field"><label for="tq-mail-role">Perfil</label><select id="tq-mail-role">${tqRoleOptions(d.role_list||[],rules,firstRole)}</select></div>${tqDurationFields('tq-m')}
+            <p class="adl-det">Si aún no tiene cuenta, el correo le lleva a crearla (de freelance o normal) y queda enlazada al terminar.</p>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Enviar invitación</button></div></form>
+          <div id="tq-err" class="tq-err" role="alert"></div></div>
+        <div id="tq-step2" hidden></div>`,
+      footer:'<button type="button" class="btn" data-modal-close>Cerrar</button>'});
+    translateTree(el); tqDurationBind(el,'tq-m');
+    const tab=t=>{ $$('[data-tqt]',el).forEach(b=>{ const on=b.dataset.tqt===t; b.classList.toggle('is-on',on); b.setAttribute('aria-selected',on?'true':'false'); }); $$('[data-tqp]',el).forEach(p=>p.hidden=p.dataset.tqp!==t); $('#tq-err',el).textContent=''; };
+    $$('[data-tqt]',el).forEach(b=>b.onclick=()=>tab(b.dataset.tqt));
+    const err=m=>{ const e=$('#tq-err',el); e.textContent=translateString(m||''); };
+    const lookup=async code=>{ err(''); let r; try{ r=await postJSON('/api/center/team/scan',{code}); }catch(e){ err(e.message); return; }
+      const p=r.person, s2=$('#tq-step2',el);
+      $('#tq-step1',el).hidden=true; $('.pr-tabs',el).hidden=true; s2.hidden=false;
+      s2.innerHTML=`<div class="tq-found">${tqAvatar(p.photo,p.name,56)}<div><b translate="no">${esc(p.name)}</b><small>${esc(p.account_label)}</small>
+          ${p.certifications.length?`<ul class="tq-certs">${p.certifications.map(c=>`<li translate="no">${esc(c)}</li>`).join('')}</ul>`:'<small class="tq-nocert">Sin titulaciones en su cuenta.</small>'}</div></div>
+        ${p.self?'<p class="notice warning">Esa eres tú: ya estás en el equipo.</p>':p.already?'<p class="notice warning">Esa persona ya está en tu equipo o tiene una petición pendiente.</p>':`<form id="tq-req" class="tq-req-form">
+          <div class="field"><label for="tq-role">Perfil</label><select id="tq-role">${tqRoleOptions(d.role_list||[],r.rules,firstRole)}</select>
+            ${r.rules.only_reception?tqPlans('Con tu plan, la persona del equipo solo puede ser Recepción. Los demás perfiles: Disponible en el plan Pro.'):''}</div>
+          ${tqDurationFields('tq-r')}
+          ${p.account==='recreational'?'<p class="adl-det">Su cuenta es de buceador: para los perfiles de trabajo tendrá que activar su perfil de freelance (es gratis) al aceptar.</p>':''}
+          <div class="form-actions"><button type="button" class="btn" id="tq-back">Otra persona</button><button type="submit" class="btn btn-primary">Enviar petición</button></div></form>`}`;
+      translateTree(s2); tqDurationBind(s2,'tq-r');
+      $('#tq-back',s2)?.addEventListener('click',()=>{ s2.hidden=true; s2.innerHTML=''; $('#tq-step1',el).hidden=false; $('.pr-tabs',el).hidden=false; });
+      $('#tq-req',s2)?.addEventListener('submit',async e=>{ e.preventDefault(); const btn=$('button[type=submit]',e.target); btn.disabled=true;
+        try{ const x=await postJSON('/api/center/team/link',{ref:r.ref,member_role:$('#tq-role',s2).value,...tqDurationValue(s2,'tq-r')});
+          s2.innerHTML=`<div class="notice success"><strong>${esc(translateString(x.message))}</strong></div>`; onDone?.(); }
+        catch(e2){ btn.disabled=false; toast(e2.message); } }); };
+    $('#tq-cam',el).onclick=async()=>{ err(''); try{ const v=await tqReadCamera($('#tq-video',el)); if(v) lookup(v); }catch(e){ err(e.message); tab('code'); $('#tq-code-i',el).focus(); } };
+    $('#tq-code-form',el).onsubmit=e=>{ e.preventDefault(); const v=$('#tq-code-i',el).value.trim(); if(v) lookup(v); };
+    $('#tq-mail-form',el).onsubmit=async e=>{ e.preventDefault(); err(''); const btn=$('button[type=submit]',e.target); btn.disabled=true;
+      try{ await postJSON('/api/center/team/link-email',{email:$('#tq-mail',el).value.trim(),member_role:$('#tq-mail-role',el).value,...tqDurationValue(el,'tq-m')});
+        $('#tq-mail-form',el).innerHTML=`<div class="notice success"><strong>${esc(translateString('Invitación enviada. Cuando la acepte, aparecerá en tu equipo.'))}</strong></div>`; onDone?.(); }
+      catch(e2){ btn.disabled=false; err(e2.message); } };
+    if(code){ tab('code'); $('#tq-code-i',el).value=code.length>40?code:tqCode(code); lookup(code); }
+    return {el,close};
+  }
+  async function renderTeamLinks(mount,d,refresh){
+    const esc=escapeHtml, rules=d.rules||{}, owner=(state.me?.member_role||'owner')==='owner';
+    const RL=d.role_list||[];
+    const row=x=>{ const done=['ended','cancelled','declined'].includes(x.status);
+      return `<tr data-link="${x.id}"><td><div class="tq-who">${tqAvatar(x.photo,x.name,36)}<span><b translate="no">${esc(x.name)}</b><small>${esc(x.account_label)}</small></span></div></td>
+        <td>${done?esc(x.role_name):`<label class="sr-only" for="tl-r-${x.id}">Perfil</label><select id="tl-r-${x.id}" class="tl-role" data-id="${x.id}">${tqRoleOptions(RL,rules,x.member_role)}</select>`}</td>
+        <td>${esc(x.dates)}</td><td>${tqChip(x)}${x.waiting_start?` <small class="tq-start"><span>Empieza el</span> ${esc(tqDay(x.starts_on))}</small>`:''}</td>
+        <td class="tq-row-act">${x.status==='active'?`<button type="button" class="btn btn-sm" data-tl="pause" data-id="${x.id}">Pausar</button>`:''}${x.status==='paused'?`<button type="button" class="btn btn-sm" data-tl="reactivate" data-id="${x.id}">Reactivar</button>`:''}${done?'':`<button type="button" class="btn btn-sm danger" data-tl="end" data-id="${x.id}" data-name="${esc(x.name)}">${x.status==='pending'?'Anular':'Quitar'}</button>`}</td></tr>`; };
+    const active=(d.links||[]).filter(x=>x.status==='active'&&!x.waiting_start);
+    mount.innerHTML=`<div class="svc-head tq-team-head"><div><p class="eyebrow">Enlazar persona</p><h2>Personas enlazadas a tu centro</h2>
+        <p>Cada persona entra con su propia cuenta y elige tu centro en su menú. Ve solo lo que permite su perfil, y solo mientras está en tu equipo.</p>
+        ${rules.cap?`<p class="tq-seats"><span class="num">${rules.used}</span> <span>de</span> <span class="num">${rules.cap}</span> <span>personas además del propietario</span></p>`:''}</div>
+      ${rules.blocked?`<button type="button" class="btn btn-primary" id="tq-open" disabled aria-describedby="tq-lockmsg">${wdIcon('lock',16)} <span>Enlazar persona</span></button>`:`<button type="button" class="btn btn-primary" id="tq-open">${wdIcon('qr',16)} <span>Enlazar persona</span></button>`}</div>
+      ${rules.blocked?`<div id="tq-lockmsg">${tqPlans('Disponible en el plan Motor de reservas')}</div>`:''}
+      ${(d.links||[]).length?`<div class="table-wrap"><table class="data-table tq-table"><thead><tr><th>Persona</th><th>Perfil</th><th>Duración</th><th>Estado</th><th></th></tr></thead><tbody>${d.links.map(row).join('')}</tbody></table></div>`
+        :(rules.blocked?'':'<div class="empty"><p>Aún no has enlazado a nadie. Pulsa «Enlazar persona» y escanea su QR.</p></div>')}
+      ${owner&&active.length?`<details class="tq-transfer"><summary>Transferir la propiedad</summary><form id="tq-tr" class="tq-req-form"><p class="adl-det">La nueva persona pasa a ser la propietaria y tú quedas como Encargado. Te enviamos un correo para confirmarlo.</p>
+        <div class="field"><label for="tq-tr-who">Nueva persona propietaria</label><select id="tq-tr-who">${active.map(x=>`<option value="${x.user_id}">${esc(x.name)}</option>`).join('')}</select></div>
+        <div class="form-actions"><button type="submit" class="btn">Enviar el correo de confirmación</button></div></form></details>`:''}`;
+    translateTree(mount);
+    $('#tq-open',mount)?.addEventListener('click',()=>tqOpenLink(d,{onDone:refresh}));
+    $$('.tl-role',mount).forEach(s=>s.onchange=async()=>{ try{ await postJSON('/api/center/team/link/role',{id:+s.dataset.id,member_role:s.value}); toast('Perfil cambiado.'); }catch(err){ toast(err.message); refresh(); } });
+    $$('[data-tl]',mount).forEach(b=>b.onclick=async()=>{ const act=b.dataset.tl;
+      if(act==='end'&&!await wdConfirm({title:translateString('Quitar del equipo a')+' '+b.dataset.name,text:'Pierde el acceso al momento, también si tiene la sesión abierta. Su historial de trabajos se queda.',ok:'Quitar del equipo',danger:true})) return;
+      try{ await postJSON('/api/center/team/link/'+act,{id:+b.dataset.id}); toast(act==='end'?'Ya no está en tu equipo.':act==='pause'?'En pausa: no tiene acceso hasta que lo reactives.':'Reactivado.'); refresh(); }catch(err){ toast(err.message); } });
+    $('#tq-tr',mount)?.addEventListener('submit',async e=>{ e.preventDefault(); try{ await postJSON('/api/center/team/transfer',{user_id:+$('#tq-tr-who',mount).value}); toast('Te hemos enviado un correo para confirmar la transferencia.'); }catch(err){ toast(err.message); } });
+    // An address opened from a QR or a shared link (#/p/…, #/enlazar?i=…) opens «Enlazar persona» with it.
+    const pending=sessionStorage.getItem('wd-tq-code'); if(pending&&!rules.blocked){ sessionStorage.removeItem('wd-tq-code'); tqOpenLink(d,{onDone:refresh,code:pending}); }
+  }
+  async function renderTransferConfirm(params){
+    const token=params?.get?.('token')||'';
+    if(!state.me){ goLogin(); return; }
+    setApp(authCard('Transferir la propiedad',`<p class="lead auth-lead">Confirma que la propiedad del centro pasa a la persona que elegiste. Tú quedas en el equipo como Encargado.</p>
+      <div class="form-actions"><button class="btn btn-primary" id="tq-tr-ok" type="button">Confirmar la transferencia</button><a class="btn" href="#/admin?tab=team">Cancelar</a></div>`));
+    $('#tq-tr-ok').onclick=async()=>{ try{ await postJSON('/api/team/transfer/confirm',{token}); await loadMe(); toast('Hecho: la propiedad ha cambiado.'); wdGo('#/admin?tab=team'); }catch(err){ toast(err.message); } };
   }
   async function renderTeamJoin(params){
     const token=params?.get?.('token')||''; const esc=escapeHtml;
     let inv; try{ inv=await api('/api/team/invite?token='+encodeURIComponent(token)); }catch(err){ setApp(authCard('Invitación al equipo',`<div class="notice warning">${esc(err.message)}</div>`)); return; }
-    const me=state.me?.user;
-    setApp(authCard('Únete al equipo de '+esc(inv.center),`<p class="lead" style="font-size:15px">Te han invitado con el perfil de <b>${esc(inv.role_label)}</b> (${esc(inv.email)}).</p>
-      ${me?`<div class="form-actions"><button class="btn btn-primary" id="tj-ok" type="button">Aceptar con mi cuenta</button></div>`:`<form id="tj-form"><div class="field"><label for="tj-name">Nombre y apellidos</label><input id="tj-name" required maxlength="120" autocomplete="name"></div>
+    const me=state.me?.user, own=state.me?.own_role||me?.role;
+    // v50.58: «Enlazar persona» por correo: la persona entra con su propia cuenta (de freelance, o normal para Recepción)
+    const fresh=!!inv.account, needFree=fresh&&inv.needs_freelance;
+    const freeBox=`<label class="lg-check"><input type="checkbox" id="tj-free"> <span>Activo mi perfil de freelance (es gratis) y acepto las <a href="#/legal/condiciones-centros" target="_blank" rel="noopener">condiciones para profesionales</a>.</span></label>`;
+    const choice=!fresh?'':needFree?'<p class="adl-det">Se crea tu cuenta de freelance (es gratis): con ella puedes estar en los equipos de varios centros.</p>'
+      :`<fieldset class="tq-dur"><legend>Tu cuenta</legend><label class="tq-radio"><input type="radio" name="tj-as" value="recreational" checked> <span><b>Cuenta normal</b><small>Para Recepción. También puedes reservar y llevar tu Log Book.</small></span></label>
+        <label class="tq-radio"><input type="radio" name="tj-as" value="freelance"> <span><b>Cuenta de freelance</b><small>Gratis. Para trabajar con varios centros.</small></span></label></fieldset>`;
+    const terms=fresh?`Acepto los <a href="#/legal/terminos" target="_blank" rel="noopener">términos</a>${needFree?', las <a href="#/legal/condiciones-centros" target="_blank" rel="noopener">condiciones para profesionales</a>':''} y la <a href="#/legal/privacidad" target="_blank" rel="noopener">política de privacidad</a>.`
+      :'Acepto las <a href="#/legal/condiciones-centros" target="_blank" rel="noopener">condiciones para centros</a> y la <a href="#/legal/privacidad" target="_blank" rel="noopener">política de privacidad</a>.';
+    setApp(authCard('Únete al equipo de '+esc(inv.center),`<p class="lead" style="font-size:15px">Te han invitado con el perfil de <b>${esc(inv.role_label)}</b> (${esc(inv.email)}).${fresh&&inv.dates?` <span>${esc(inv.dates)}</span>.`:''}</p>
+      ${me?`${fresh&&own==='recreational'&&needFree?freeBox:''}<div class="form-actions"><button class="btn btn-primary" id="tj-ok" type="button">Aceptar con mi cuenta</button></div>`:`<form id="tj-form"><div class="field"><label for="tj-name">Nombre y apellidos</label><input id="tj-name" required maxlength="120" autocomplete="name"></div>
         <div class="field"><label for="tj-user">Usuario</label><input id="tj-user" required maxlength="40" autocomplete="username"></div>
         <div class="field"><label for="tj-pass">Contraseña</label><input id="tj-pass" type="password" minlength="10" required autocomplete="new-password"><small>Mínimo 10 caracteres.</small></div>
-        <label class="lg-check"><input type="checkbox" id="tj-terms" required> <span>Acepto las <a href="#/legal/condiciones-centros" target="_blank" rel="noopener">condiciones para centros</a> y la <a href="#/legal/privacidad" target="_blank" rel="noopener">política de privacidad</a>.</span></label>
+        ${choice}<label class="lg-check"><input type="checkbox" id="tj-terms" required> <span>${terms}</span></label>
         <div class="form-actions"><button class="btn btn-primary" type="submit">Crear mi cuenta y unirme</button></div></form><p style="font-size:13px">¿Ya tienes cuenta con ese email? <a href="#/login?next=${encodeURIComponent(location.hash)}">Inicia sesión</a>.</p>`}`));
-    const done=async()=>{ await loadMe(); toast('Ya formas parte del equipo.'); wdGo('#/admin'); };
-    $('#tj-ok')?.addEventListener('click',async()=>{ try{ await postJSON('/api/team/join',{token}); done(); }catch(err){ toast(err.message); } });
-    $('#tj-form')?.addEventListener('submit',async e=>{ e.preventDefault(); try{ await postJSON('/api/team/join',{token,fullname:$('#tj-name').value,username:$('#tj-user').value,password:$('#tj-pass').value,accept_terms:$('#tj-terms').checked}); done(); }catch(err){ toast(err.message); } });
+    const done=async()=>{ await loadMe(); toast('Ya formas parte del equipo.'); wdGo(fresh?'#/mi-equipo':'#/admin'); };
+    $('#tj-ok')?.addEventListener('click',async()=>{ const free=$('#tj-free'); if(free&&!free.checked){ toast('Para este perfil tienes que activar tu perfil de freelance (es gratis).'); free.focus(); return; }
+      try{ await postJSON('/api/team/join',{token,...(free?{activate_freelance:true,accept_terms:true}:{})}); done(); }catch(err){ toast(err.message); } });
+    $('#tj-form')?.addEventListener('submit',async e=>{ e.preventDefault(); try{ await postJSON('/api/team/join',{token,fullname:$('#tj-name').value,username:$('#tj-user').value,password:$('#tj-pass').value,accept_terms:$('#tj-terms').checked,as:$('input[name="tj-as"]:checked')?.value}); done(); }catch(err){ toast(err.message); } });
   }
   // Administración → Planes
   async function renderAdminOps(mountId){

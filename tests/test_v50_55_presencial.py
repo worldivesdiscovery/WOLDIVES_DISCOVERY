@@ -126,7 +126,8 @@ class InPerson(ServerTestCase):
         # without the plan feature (the owner decides in which plan it goes)
         self.server.sql("UPDATE users SET plan_code='free',plan_expires_at=NULL WHERE id=?", (f.user['id'],))
         r = f.post('/api/provider-services', {**base, 'title': 'Sin plan', 'pay_methods': ['cash'], 'pay_whatsapp': WA})
-        self.assertEqual((r.status, r.json.get('plan_required')), (403, 'in_person_payments'), r)
+        # v50.58 (owner's decision, 16/10/2026): the free plan of a freelance has no own services at all
+        self.assertEqual((r.status, r.json.get('plan_required')), (403, 'online_bookings'), r)
 
     def test_whatsapp_stored_encrypted_and_apart(self):
         row = self.server.sql("SELECT substr(phone,1,5)='wdx1:' AS enc,instr(phone,'611')>0 AS clear,phone_hash FROM pay_contacts WHERE kind='service' AND ref_id=?", (self.sid,))[0]

@@ -13,7 +13,7 @@ documento y `app/wod/roles.py` dicen lo mismo.
 | Visitante | Sin sesión | Lo público: mapa, puntos, centros, servicios, salidas, precios, reseñas | Nada (puede registrarse, pedir información, denunciar y escribir a contacto) |
 | Buceador | Cuenta personal | Lo público y lo suyo: reservas, puntos, Log Book, documentos, avisos | Lo suyo; reserva y paga; nunca datos de otros |
 | Centro (propietario) | Titular del centro | Todo lo del centro | Todo lo del centro |
-| Equipo del centro | Personas invitadas por el propietario con un perfil | Según los permisos del perfil (abajo) | Según los permisos del perfil |
+| Equipo del centro | Personas invitadas por el propietario con un perfil o enlazadas con su QR personal (v50.58: entran con su propia cuenta y eligen el centro en el selector de perfil; solo mientras dura el enlace) | Según los permisos del perfil (abajo) | Según los permisos del perfil |
 | Freelance | Profesional independiente | Todo lo suyo (como un centro de una persona) | Todo lo suyo |
 | Administración | Cuentas de la plataforma, con verificación en dos pasos | Todo, dejando motivo y registro para los datos de un centro | Revisión de centros, contenidos, usuarios; nunca cobra ni mueve dinero de un centro |
 
@@ -48,6 +48,11 @@ cobros. Detalle en [`autenticacion.md`](autenticacion.md#verificación-en-dos-pa
 Primera regla que coincide; las demás rutas de lectura del panel están abiertas a todo el equipo del centro (con los
 filtros por dato de abajo) y las de escritura piden `reservas`.
 
+**Lo que un perfil no puede leer no existe para él** (v50.58, encargo del equipo por QR, comprobación 7): una lectura
+que su perfil no permite (cobros, estadísticas, las pantallas del propietario…) responde 404 «No existe.», igual que
+una página que no está. Las lecturas que piden `reservas` siguen respondiendo 403 con el motivo, para que la persona
+sepa a quién pedírselo; las escrituras denegadas, también 403.
+
 | Lectura (GET) | Permiso |
 |---|---|
 | `/api/provider/fiscal`, `/api/provider/plan`, `/api/center/team`, `/api/center/activity`, `/api/provider/cuenta` | Solo el propietario |
@@ -59,7 +64,7 @@ filtros por dato de abajo) y las de escritura piden `reservas`.
 | Escritura (POST) | Permiso |
 |---|---|
 | `/api/payments/connect/`, `/api/provider/payment-profile`, `/api/provider/fiscal`, `/api/provider/plan`, `/api/center/team`, `/api/provider/cuenta/` | Solo el propietario |
-| `/api/auth/`, `/api/account/`, `/api/legal/accept`, `/api/reports`, `/api/contact`, `/api/me`, `/api/team/`, `/api/app/push/`; su propio Log Book y sus buddies (v50.57): `/api/logbook`, `/api/buddies`; la página vista, sin cookies (v50.57): `/api/visita` | Cualquiera (su propia cuenta) |
+| `/api/auth/`, `/api/account/`, `/api/legal/accept`, `/api/reports`, `/api/contact`, `/api/me`, `/api/team/`, `/api/app/push/`; su propio Log Book y sus buddies (v50.57): `/api/logbook`, `/api/buddies`; la página vista, sin cookies (v50.57): `/api/visita`; su QR personal, sus enlaces para compartir, sus equipos y su agenda (v50.58): `/api/my/`; avisar de que un vídeo de un punto ya no se ve (v50.58): `/api/videos/` | Cualquiera (su propia cuenta) |
 | `/api/center/logbook/dive` (inmersiones del centro y su QR para el Log Book de los buceadores, v50.57) | `checkin` |
 | `/api/center/logbook/settings`, `/api/center/logbook/logo` (logo y nombre de la portada del pasaporte, v50.57); `/api/center/short-links/` (crear, cambiar o borrar los QR para imprimir del centro, v50.57; verlos y descargarlos, todo el equipo) | `centro` |
 | `/api/manifest/sync`, `/api/pro/escanear`, `/api/pro/contar`, firma del descargo a bordo | `checkin` |

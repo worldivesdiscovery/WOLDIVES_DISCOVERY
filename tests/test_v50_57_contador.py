@@ -185,7 +185,7 @@ class ContadorDeVisitas(ServerTestCase):
         m = self.client()
         self.assertEqual(m.post('/api/team/join', {'token': tok, 'fullname': 'Persona Instructora', 'username': 'vc_inst', 'password': 'buceo-seguro-2026',
                                                    'accept_terms': True}).status, 200)
-        self.assertEqual(m.get('/api/provider/contador').status, 403)
+        self.assertEqual(m.get('/api/provider/contador').status, 404)   # v50.58: what a profile cannot read «does not exist» (404)
         self.assertEqual(self.center.post('/api/center/team/roles/save', {'key': 'instructor', 'name': 'Instructor', 'permissions': ['checkin', 'estadisticas']}).status, 200)
         mine = self.center.get('/api/provider/contador').json
         self.assertEqual(m.get('/api/provider/contador').json, mine)

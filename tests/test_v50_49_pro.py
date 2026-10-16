@@ -85,8 +85,8 @@ class Roles(ProBase):
         sid = self.center.post('/api/provider-services', {'title': 'Doble roles', 'price': 40}).json['id']
         self.assertEqual(m.post('/api/provider-services', {'title': 'No', 'price': 1}).status, 403)         # salidas
         self.assertEqual(m.post('/api/manifest/boats/save', {'name': 'Neptuno', 'capacity': 12}).status, 200)  # barco
-        self.assertEqual(m.get('/api/provider/payments').status, 403)                                        # cobros
-        self.assertEqual(m.get('/api/provider/stats').status, 403)                                           # estadísticas
+        self.assertEqual(m.get('/api/provider/payments').status, 404)                                        # cobros (v50.58: «no existe»)
+        self.assertEqual(m.get('/api/provider/stats').status, 404)                                           # estadísticas (v50.58: «no existe»)
         self.assertEqual(m.post('/api/center/team/invite', {'email': 'x@example.org', 'member_role': 'reception'}).status, 403)
         self.assertEqual(m.post('/api/center/team/roles/save', {'name': 'Yo mismo', 'permissions': ['cobros']}).status, 403)   # only the owner
         # the owner changes the role in the web: the next request already uses the new permissions
@@ -126,7 +126,7 @@ class Roles(ProBase):
         self.server.sql("UPDATE center_members SET member_role='rdeadbeef' WHERE user_id=?", (u.user['id'],))
         me = u.me()
         self.assertEqual(me['permissions'], [])
-        self.assertEqual(u.get('/api/provider/payments').status, 403)
+        self.assertEqual(u.get('/api/provider/payments').status, 404)   # v50.58 (equipo por QR, comprobación 7): what a profile cannot read «does not exist» (404)
         self.assertEqual(u.post('/api/manifest/sync', {'changes': []}).status, 403)
 
 
@@ -164,7 +164,7 @@ class CloseAccount(ProBase):
         b_conf = self.booked(d2, self.cid, self.sid, sl)
         self.assertEqual(self.server.sql('SELECT status FROM bookings WHERE id=?', (b_paid,))[0]['status'], 'confirmed')
         # only the owner
-        self.assertEqual(rec.get('/api/provider/cuenta').status, 403)
+        self.assertEqual(rec.get('/api/provider/cuenta').status, 404)   # v50.58 (equipo por QR, comprobación 7): what a profile cannot read «does not exist» (404)
         self.assertEqual(rec.post('/api/provider/cuenta/cerrar', {'password': 'buceo-seguro-2026'}).status, 403)
         st = self.center.get('/api/provider/cuenta').json
         self.assertEqual(st['future_count'], 2); self.assertFalse(st['can_close']); self.assertEqual(st['refund_total'], 50); self.assertEqual(st['keep_days'], 183)

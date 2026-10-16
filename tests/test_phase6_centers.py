@@ -300,7 +300,7 @@ class TeamAndSwitches(ServerTestCase):
         self.assertEqual(self.make_center(self.admin, 'ajeno6', phone='+34 600 600 021').post('/api/provider-services/update', {'id': r.json['id'], 'title': 'x', 'price': 1}).status, 404)  # v50.47 (B.3): what belongs to another centre does not exist (404)
         for path in ('/api/provider/payment-profile', '/api/provider/fiscal', '/api/center/team/invite', '/api/provider/plan/checkout'):
             self.assertEqual(rec.post(path, {}).status, 403, path)
-        self.assertEqual(rec.get('/api/provider/payments').status, 403)
+        self.assertEqual(rec.get('/api/provider/payments').status, 404)   # v50.58 (equipo por QR, comprobación 7): what a profile cannot read «does not exist» (404)
         self.assertEqual(rec.get('/api/center/export?kind=payments').status, 403)
         self.assertEqual(rec.get('/api/center/export?kind=bookings').status, 200)
         # Instructor: read only
@@ -312,7 +312,7 @@ class TeamAndSwitches(ServerTestCase):
         # Activity log of the centre
         acts = self.center.get('/api/center/activity').json['items']
         self.assertTrue(any(a['action'] == 'team_joined' for a in acts))
-        self.assertEqual(rec.get('/api/center/activity').status, 403)
+        self.assertEqual(rec.get('/api/center/activity').status, 404)   # v50.58 (equipo por QR, comprobación 7): what a profile cannot read «does not exist» (404)
         # Owner changes and removes
         self.assertEqual(self.center.post('/api/center/team/role', {'user_id': ins.user['id'], 'member_role': 'reception'}).status, 200)
         self.assertEqual(self.center.post('/api/center/team/role', {'user_id': self.center.user['id'], 'member_role': 'instructor'}).status, 400)

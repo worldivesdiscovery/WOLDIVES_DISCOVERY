@@ -74,6 +74,7 @@ from wod import servicios as wsv   # v50.58: services in the words of a diver (t
 from wod import equipo as weq   # v50.58: rental equipment inside the dive (16/10/2026)
 from wod import puntos as wpun   # v50.58: fuller dive sites, sources, batches and duplicates (16/10/2026)
 from wod import costa as wcosta   # v50.58: land or sea, and the distance to the shore, of a dive site
+from wod import equipo_qr as wteq   # v50.58: the centre's team linked by QR (16/10/2026, bloque 1)
 from wod.inquilinos import NotFound
 # v50.51: the server's own clock (local_now, «today») follows WOD_TIMEZONE when it is set, not the time zone the machine
 # happens to have (a VPS is often on UTC). Each activity is still compared in its own time zone (on_server_clock).
@@ -1124,7 +1125,8 @@ BOOKING_LIMIT_TEXT = 'Has hecho muchas reservas seguidas. Espera un poco o escri
 PENDING_PAYMENTS_MAX = 3
 LOGBOOK_LIMIT = wsec.SharedRateLimiter('logbook', 60, 86400)
 
-PRIVATE_USER_FIELDS = ('password_hash', 'totp_secret', 'totp_pending_secret', 'email_verify_token', 'totp_recovery', 'totp_last_step', 'marketing_token')
+PRIVATE_USER_FIELDS = ('password_hash', 'totp_secret', 'totp_pending_secret', 'email_verify_token', 'totp_recovery', 'totp_last_step', 'marketing_token',
+                       'qr_handle', 'qr_code_at')   # v50.58: the personal QR is only shown through «Mi QR»
 
 def public_user(user):
     if not user:
@@ -1920,6 +1922,7 @@ def migrate_v50_58(db):
     migrate_equipment(db)
     migrate_points_v50_58(db)
     migrate_videos_v50_58(db)
+    migrate_team_v50_58(db)
     if migration_done(db, '50.58'): return
     n_kind = n_plan = n_ed = 0
     for r in db.execute('SELECT * FROM provider_services WHERE kind IS NULL').fetchall():
@@ -2826,20 +2829,33 @@ def check_new_password(password: str):
     if problem: raise ValueError(problem)
 
 
+_ACTOR = threading.local()   # v50.58: who works in which centre in this request (set by current_user)
+
+
 def audit(db, user_id, action, entity_type=None, entity_id=None, details=None):
     # The activity log of each centre (Fase 6.6): actions by its team are tagged with the centre.
-    cid = None
+    # v50.58 (equipo por QR): the centre the person works in during this session (not the «home» one of the account),
+    # and their name and profile as they were then: «Ana (Encargado) canceló la salida de las 16:00».
+    cid = None; name = role = None
+    act = getattr(_ACTOR, 'v', None)
     if user_id:
         try:
-            r = db.execute("SELECT center_id FROM users WHERE id=? AND role IN ('center','freelance')", (user_id,)).fetchone()
-            cid = r['center_id'] if r else None
+            if act and act.get('id') == user_id:
+                cid = act.get('center_id'); name = act.get('name') or None
+                if cid:
+                    m = db.execute('SELECT member_role FROM center_members WHERE center_id=? AND user_id=?', (cid, user_id)).fetchone()
+                    role = wroles.nombre(db, cid, m['member_role'] if m else 'owner')
+            else:
+                r = db.execute("SELECT center_id FROM users WHERE id=? AND role IN ('center','freelance')", (user_id,)).fetchone()
+                cid = r['center_id'] if r else None
         except sqlite3.Error: cid = None
-    try:
-        db.execute('INSERT INTO audit_log(user_id,action,entity_type,entity_id,details,created_at,center_id) VALUES(?,?,?,?,?,?,?)',
-                   (user_id, action, entity_type, entity_id, json.dumps(details, ensure_ascii=False) if details else None, now(), cid))
-    except sqlite3.OperationalError:   # before the v50.37 migration
-        db.execute('INSERT INTO audit_log(user_id,action,entity_type,entity_id,details,created_at) VALUES(?,?,?,?,?,?)',
-                   (user_id, action, entity_type, entity_id, json.dumps(details, ensure_ascii=False) if details else None, now()))
+    vals = (user_id, action, entity_type, entity_id, json.dumps(details, ensure_ascii=False) if details else None, now())
+    for cols, extra in ((',center_id,actor_name,actor_role', (cid, name, role)), (',center_id', (cid,)), ('', ())):   # older schemas too
+        try:
+            db.execute(f'INSERT INTO audit_log(user_id,action,entity_type,entity_id,details,created_at{cols}) VALUES({",".join("?" * (6 + len(extra)))})', vals + extra)
+            return
+        except sqlite3.OperationalError as e:
+            if 'column' not in str(e): raise
 
 
 _CONTROL_CHARS = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
@@ -3173,6 +3189,18 @@ def current_user(handler, db):
             user['home_center_id'] = user['center_id']; user['center_id'] = active; user['center_name'] = c['name'] if c else ''
         else:
             db.execute('UPDATE sessions SET active_center_id=NULL WHERE token_hash=?', (token_hash,)); db.commit()
+    elif active and user['role'] in ('freelance', 'recreational'):
+        # v50.58 (equipo por QR): a freelance or a diver linked to a centre works in it with their own account, only
+        # while the link is active and in its dates; the moment it ends the session is back to their own profile.
+        m = db.execute('''SELECT m.member_role, l.id AS link_id, l.kind, l.starts_on, l.ends_on, l.status, c.name FROM center_members m
+                            JOIN team_links l ON l.id=m.link_id JOIN centers c ON c.id=m.center_id WHERE m.center_id=? AND m.user_id=?''', (active, user_id)).fetchone()
+        if m and m['status'] == 'active' and wteq.in_force(m['kind'], m['starts_on'], m['ends_on'], center_today(db, active)):
+            user['own_role'] = user['role']; user['role'] = 'center'; user['home_center_id'] = None
+            user['center_id'] = active; user['center_name'] = m['name']; user['team_link_id'] = m['link_id']
+        else:
+            if m: team_link_apply(db, team_link_row(db, m['link_id']))
+            db.execute('UPDATE sessions SET active_center_id=NULL WHERE token_hash=?', (token_hash,)); db.commit()
+    _ACTOR.v = {'id': user['id'], 'name': user.get('fullname') or '', 'center_id': user['center_id'] if user['role'] == 'center' else None}
     if user['role'] == 'admin' and admin_totp_required() and not user.get('totp_enabled') \
             and urlparse(getattr(handler, 'path', '') or '').path not in ADMIN_WITHOUT_2FA_PATHS:
         user['role'] = 'admin_sin_2fa'
@@ -5255,14 +5283,15 @@ PLAN_FEATURES = {
     'widget': 'Widget de reservas para tu web', 'import_csv': 'Importación de clientes (CSV)', 'team': 'Equipo (recepción e instructores)',
     'analytics': 'Informes completos', 'promotions': 'Promociones', 'experiences': 'Viajes y experiencias', 'rewards': 'Ventajas y puntos para clientes',
     'integration': 'Conexión con tu web (API)', 'agenda_days': 'Servicios por días y medias jornadas con calendario',
-    'in_person_payments': 'Pago en persona al profesional'}   # v50.55: «Pago online» is online_payments
+    'in_person_payments': 'Pago en persona al profesional',   # v50.55: «Pago online» is online_payments
+    'team_profiles': 'Equipo con cualquier perfil y perfiles propios'}   # v50.58: Motor de reservas, solo Recepción
 PLAN_LIMITS = {'services_max': 'Servicios publicados', 'team_max': 'Personas en el equipo'}
 PLAN_DEFAULTS = [
     ('free', 'Ficha gratuita', 'Tu ficha en el catálogo, con «Solicitar información», estadísticas básicas y exportación de datos.', 0, {}, {'services_max': 10, 'team_max': 1}, 0),
     ('booking', 'Motor de reservas', 'Reservas y cobros online, calendario, widget e importación.', None,
-     {k: True for k in ('online_bookings', 'online_payments', 'calendar_ical', 'widget', 'import_csv', 'analytics', 'integration', 'agenda_days', 'in_person_payments')}, {'services_max': 40, 'team_max': 3}, 1),
+     {k: True for k in ('online_bookings', 'online_payments', 'calendar_ical', 'widget', 'import_csv', 'analytics', 'integration', 'agenda_days', 'in_person_payments', 'team')}, {'services_max': 40, 'team_max': 1}, 1),
     ('pro', 'Pro', 'Todo lo del motor de reservas más equipo, promociones, viajes y experiencias y ventajas para tus clientes.', None,
-     {k: True for k in PLAN_FEATURES}, {'services_max': 0, 'team_max': 20}, 2)]
+     {k: True for k in PLAN_FEATURES}, {'services_max': 0, 'team_max': 15}, 2)]
 FEATURE_SWITCHES = {'points': 'Puntos', 'promotions': 'Promociones', 'experiences': 'Viajes y experiencias', 'sponsorship': 'Patrocinio',
                     'reviews': 'Reseñas', 'online_payments': 'Pagos online'}
 # Global switches that also turn off a plan feature for everybody.
@@ -6184,8 +6213,581 @@ def team_gate(db, user, path, method):
     if need == '': return
     if need is None or need not in wroles.permisos(db, user['center_id'], role):
         if method == 'GET' and need == 'reservas': raise PermissionError(wroles.NO_VE_RESERVAS)
+        # v50.58 (equipo por QR, comprobación 7): what a profile cannot read (payments, statistics, the owner's screens)
+        # «does not exist» for it: the same answer as a page that is not there.
+        if method == 'GET': raise NotFound('No existe.')
         raise PermissionError(wroles.NO_PUEDE.get(need, wroles.NO_PUEDE[None]))
 
+
+# ------------------------------------------------------------------------------- v50.58 · equipo enlazado por QR
+# Encargo unificado del 16/10/2026, bloque 1. Cada persona del equipo tiene su propia cuenta (normalmente de freelance;
+# Recepción, también una cuenta normal). El centro la enlaza a un perfil escaneando su QR personal, con su código corto,
+# con el enlace que la persona comparte o por correo; la persona acepta, y desde entonces entra con SU cuenta y elige el
+# centro en el selector de perfil. center_members sigue siendo la lista de quién trabaja hoy en cada centro (todo el
+# código de permisos la usa); team_links guarda cada enlace con su perfil, sus fechas y su estado, y se encarga de poner
+# y quitar a la persona de center_members cuando toca.
+TEAM_LINK_SCHEMA = (
+    '''CREATE TABLE IF NOT EXISTS team_links (id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL REFERENCES centers(id) ON DELETE CASCADE,
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, member_role TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'fixed',
+         starts_on TEXT, ends_on TEXT, status TEXT NOT NULL DEFAULT 'pending', source TEXT, requested_by INTEGER, requested_at TEXT NOT NULL,
+         responded_at TEXT, ended_at TEXT, ended_by INTEGER, end_reason TEXT, paused_at TEXT)''',
+    'CREATE INDEX IF NOT EXISTS idx_team_links_center ON team_links(center_id, status)',
+    'CREATE INDEX IF NOT EXISTS idx_team_links_user ON team_links(user_id, status)',
+    '''CREATE TABLE IF NOT EXISTS personal_codes (code_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         issued_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_at TEXT)''',
+    'CREATE TABLE IF NOT EXISTS qr_nonces (nonce TEXT PRIMARY KEY, user_id INTEGER, used_at INTEGER NOT NULL)',
+    '''CREATE TABLE IF NOT EXISTS qr_scan_refs (ref_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         scanned_by INTEGER NOT NULL, center_id INTEGER, source TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_at TEXT)''',
+    '''CREATE TABLE IF NOT EXISTS team_share_links (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL UNIQUE,
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at TEXT NOT NULL, expires_at INTEGER NOT NULL,
+         used_at TEXT, used_by_center INTEGER, revoked_at TEXT)''',
+    'CREATE INDEX IF NOT EXISTS idx_team_share_user ON team_share_links(user_id)',
+    '''CREATE TABLE IF NOT EXISTS team_transfers (id INTEGER PRIMARY KEY AUTOINCREMENT, center_id INTEGER NOT NULL, from_user INTEGER NOT NULL,
+         to_user INTEGER NOT NULL, token_hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, confirmed_at TEXT, cancelled_at TEXT)''',
+)
+TEAM_LINK_STATUS = {'pending': 'Pendiente de aceptar', 'active': 'Activo', 'ended': 'Terminado', 'paused': 'En pausa',
+                    'declined': 'Rechazado', 'cancelled': 'Anulado'}
+TEAM_SCAN_LIMIT = wsec.SharedRateLimiter('equipo-escaneos', 30, 600)    # lecturas de QR y códigos por centro y red
+TEAM_ROLES_FREE = ('reception',)
+
+
+def migrate_team_v50_58(db):
+    """v50.58 · equipo enlazado por QR. Añade; no borra nada. Los miembros que ya había siguen igual (enlace de antes).
+    Planes, decisión del titular del 16/10/2026: Motor de reservas, el propietario y una persona (solo Recepción); Pro,
+    hasta 15 y cualquier perfil. Solo se cambian los límites que seguían en los valores de antes (3 y 20)."""
+    add_columns(db, 'users', [('qr_handle', 'TEXT'), ('qr_code_at', 'INTEGER')])
+    add_columns(db, 'center_members', [('link_id', 'INTEGER')])
+    add_columns(db, 'audit_log', [('actor_name', 'TEXT'), ('actor_role', 'TEXT')])
+    add_columns(db, 'team_invites', [('link_kind', 'TEXT'), ('starts_on', 'TEXT'), ('ends_on', 'TEXT'), ('account', 'TEXT')])
+    add_columns(db, 'sessions', [('remember', 'INTEGER')])   # «Mantener la sesión iniciada en este ordenador»
+    for stmt in TEAM_LINK_SCHEMA: db.execute(stmt)
+    db.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_users_qr_handle ON users(qr_handle) WHERE qr_handle IS NOT NULL')
+    if migration_done(db, '50.58-equipo'): return
+    notes = []
+    for code, team, profiles, old, new in (('booking', True, False, 3, wteq.BOOKING_TEAM_MAX), ('pro', True, True, 20, wteq.PRO_TEAM_MAX)):
+        p = plan_row(db, code)
+        if not p: continue
+        f, lim = dict(p['features']), dict(p['limits'])
+        f['team'] = team; f['team_profiles'] = profiles
+        try: cur = int(lim.get('team_max') or 0)
+        except (TypeError, ValueError): cur = None
+        if cur == old: lim['team_max'] = new; notes.append(f'{code}: equipo {old}→{new}')
+        db.execute('UPDATE plans SET features=?, limits=? WHERE code=?', (json.dumps(f), json.dumps(lim), code))
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)',
+               ('50.58-equipo', now(), 'Equipo enlazado por QR; ' + ('; '.join(notes) or 'límites de equipo ya personalizados, sin cambios')))
+
+
+def real_role(user):
+    """El tipo de la cuenta de la persona, también mientras trabaja dentro de un centro."""
+    return (user or {}).get('own_role') or (user or {}).get('role')
+
+
+def center_today(db, center_id):
+    return wag.today_in(place_tz(db, center_id=center_id)).isoformat()
+
+
+def team_qr_secret():
+    return hashlib.sha256(('wod-qr-personal:' + wcfg.env('WOD_SECRET_KEY', '')).encode()).hexdigest()
+
+
+def team_handle(db, uid):
+    row = db.execute('SELECT qr_handle FROM users WHERE id=?', (uid,)).fetchone()
+    if row and row['qr_handle']: return row['qr_handle']
+    for _ in range(5):
+        h = wteq.new_handle()
+        try:
+            db.execute('UPDATE users SET qr_handle=? WHERE id=? AND qr_handle IS NULL', (h, uid)); break
+        except sqlite3.IntegrityError: continue
+    return db.execute('SELECT qr_handle FROM users WHERE id=?', (uid,)).fetchone()['qr_handle']
+
+
+def team_account(row):
+    role = row['role'] if row else ''
+    return {'freelance': ('freelance', 'Freelance'), 'recreational': ('diver', 'Buceador'), 'center': ('center', 'Centro')}.get(role, (role, role))
+
+
+def my_qr(db, user):
+    """Lo que enseña «Mi QR»: el QR de este minuto, el código corto de estos 10 minutos y quién es."""
+    uid = user['id']; secret = team_qr_secret(); t = int(time.time())
+    handle = team_handle(db, uid)
+    token = wteq.qr_token(secret, handle, t)
+    row = db.execute('SELECT fullname, avatar_url, role, qr_code_at FROM users WHERE id=?', (uid,)).fetchone()
+    issued = row['qr_code_at'] or 0
+    used = issued and db.execute('SELECT used_at FROM personal_codes WHERE user_id=? AND issued_at=?', (uid, issued)).fetchone()
+    if not issued or t >= issued + wteq.CODE_SECONDS or (used and used['used_at']):
+        issued = max(t, issued + 1)
+        db.execute('UPDATE users SET qr_code_at=? WHERE id=?', (issued, uid))
+        code = wteq.short_code(secret, handle, issued)
+        db.execute('INSERT OR IGNORE INTO personal_codes(code_hash,user_id,issued_at,expires_at) VALUES(?,?,?,?)',
+                   (wteq.code_hash(secret, code), uid, issued, issued + wteq.CODE_SECONDS))
+        db.execute('DELETE FROM personal_codes WHERE expires_at<?', (t - 3600,))
+    code = wteq.short_code(secret, handle, issued)
+    url = f'{public_site_url()}/p/{token}'
+    kind, label = team_account(row)
+    svg = qr_svg(url)
+    return {'token': token, 'url': url, 'svg': svg.decode() if isinstance(svg, bytes) else svg, 'refresh_in': wteq.QR_SECONDS, 'code': code,
+            'code_expires_in': max(0, issued + wteq.CODE_SECONDS - t), 'name': row['fullname'], 'photo': row['avatar_url'],
+            'account': kind, 'account_label': label}
+
+
+def qr_resolve(db, text, actor_id, center_id=None):
+    """El servicio común que lee un QR personal, un código corto o un enlace compartido. Devuelve el id de la persona y
+    de dónde salió. Cada lectura gasta el QR o el código (un solo uso). Hoy lo usa «Enlazar persona»; mañana, los
+    buddies o el check-in llaman a esta misma función y deciden qué hacer según quién escanea y desde dónde."""
+    kind, value = wteq.read(text)
+    secret = team_qr_secret(); t = int(time.time())
+    if kind == 'qr':
+        handle, _ts, nonce = wteq.qr_parse(secret, value, t)
+        row = db.execute('SELECT id FROM users WHERE qr_handle=?', (handle,)).fetchone()
+        if not row: raise ValueError('Ese código no es un QR de WORLDIVES.')
+        try: db.execute('INSERT INTO qr_nonces(nonce,user_id,used_at) VALUES(?,?,?)', (nonce, row['id'], t))
+        except sqlite3.IntegrityError: raise ValueError('Ese QR ya se ha usado. Pide a la persona que abra «Mi QR» otra vez: cambia cada minuto.')
+        db.execute('DELETE FROM qr_nonces WHERE used_at<?', (t - 3600,))
+        return row['id'], 'qr'
+    if kind == 'code':
+        row = db.execute('SELECT * FROM personal_codes WHERE code_hash=?', (wteq.code_hash(secret, value),)).fetchone()
+        if not row or row['expires_at'] < t: raise ValueError('Ese código no existe o ha caducado (dura 10 minutos). Pide a la persona que abra «Mi QR».')
+        if row['used_at']: raise ValueError('Ese código ya se ha usado. Pide a la persona que abra «Mi QR» otra vez.')
+        db.execute('UPDATE personal_codes SET used_at=? WHERE code_hash=?', (now(), row['code_hash']))
+        return row['user_id'], 'code'
+    row = db.execute('SELECT * FROM team_share_links WHERE token_hash=?', (wteq.token_hash(value),)).fetchone()
+    if not row or row['revoked_at']: raise ValueError('Ese enlace no existe o la persona lo ha anulado.')
+    if row['expires_at'] < t: raise ValueError('Ese enlace ha caducado (dura 24 horas). Pide a la persona uno nuevo.')
+    if row['used_at']: raise ValueError('Ese enlace ya se ha usado. Pide a la persona uno nuevo.')
+    db.execute('UPDATE team_share_links SET used_at=?, used_by_center=? WHERE id=?', (now(), center_id, row['id']))
+    return row['user_id'], 'share'
+
+
+def team_person_card(db, uid):
+    """Lo que el centro ve de la persona al escanear: nombre, foto, tipo de cuenta y titulaciones. Nada más."""
+    u = db.execute('SELECT id, fullname, avatar_url, role FROM users WHERE id=?', (uid,)).fetchone()
+    if not u: raise NotFound('Persona no encontrada.')
+    kind, label = team_account(u)
+    certs = []
+    p = db.execute('SELECT c.name FROM user_profiles p JOIN certifications c ON c.id=p.certification_id WHERE p.user_id=?', (uid,)).fetchone()
+    if p and p['name']: certs.append(p['name'])
+    certs += [r['title'] for r in db.execute("SELECT title FROM user_documents WHERE user_id=? AND document_type='Titulación' AND status<>'rejected' ORDER BY id", (uid,)).fetchall()
+              if r['title'] not in certs]
+    return {'name': u['fullname'], 'photo': u['avatar_url'], 'account': kind, 'account_label': label, 'certifications': certs[:8]}
+
+
+def team_plan_rules(db, cid):
+    pp = provider_plan(db, 'center', cid)
+    feats = pp['features']
+    cap, only_reception, blocked = wteq.team_rules(pp.get('code') or 'free', bool(feats.get('team')), bool(feats.get('team_profiles')),
+                                                   plan_limit(db, 'center', cid, 'team_max'))
+    return {'plan': pp.get('code') or 'free', 'cap': cap, 'only_reception': only_reception, 'blocked': blocked,
+            'custom_profiles': bool(feats.get('team_profiles'))}
+
+
+def team_seats(db, cid, exclude_link=None):
+    """Personas del equipo que cuentan para el plan: las de antes, los enlaces activos o pendientes de aceptar y las
+    invitaciones por correo sin usar. En pausa no cuentan."""
+    legacy = db.execute("SELECT COUNT(*) FROM center_members WHERE center_id=? AND link_id IS NULL AND member_role<>'owner'", (cid,)).fetchone()[0]
+    links = db.execute("SELECT COUNT(*) FROM team_links WHERE center_id=? AND status IN ('pending','active') AND member_role<>'owner' AND id<>?", (cid, exclude_link or 0)).fetchone()[0]
+    invites = db.execute('SELECT COUNT(*) FROM team_invites WHERE center_id=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>=?', (cid, now())).fetchone()[0]
+    return legacy + links + invites
+
+
+def team_check_plan(db, cid, member_role, exclude_link=None):
+    r = team_plan_rules(db, cid)
+    if r['blocked']: raise PlanRequired('team', 'Disponible en el plan Motor de reservas.')
+    if r['only_reception'] and member_role != wteq.RECEPTION: raise PlanRequired('team_profiles', 'Disponible en el plan Pro.')
+    if r['cap'] and team_seats(db, cid, exclude_link) >= r['cap']:
+        raise PlanRequired('team', f'Tu plan permite {r["cap"]} persona{"s" if r["cap"] != 1 else ""} en el equipo además del propietario.')
+
+
+def team_link_apply(db, link, today=None):
+    """center_members al día con un enlace: la persona está mientras el enlace está activo y en sus fechas; si no, sale
+    (y sus sesiones dejan ese centro al momento). Un enlace «Por días» cuyo último día ya pasó queda «Terminado»."""
+    link = dict(link)
+    cid, uid = link['center_id'], link['user_id']
+    today = today or center_today(db, cid)
+    if link['status'] == 'active' and link['kind'] == 'days' and link['ends_on'] and link['ends_on'] < today:
+        db.execute("UPDATE team_links SET status='ended', ended_at=?, end_reason='dates' WHERE id=?", (now(), link['id']))
+        link['status'] = 'ended'
+    on = link['status'] == 'active' and wteq.in_force(link['kind'], link['starts_on'], link['ends_on'], today)
+    row = db.execute('SELECT link_id, member_role FROM center_members WHERE center_id=? AND user_id=?', (cid, uid)).fetchone()
+    if on:
+        if not row:
+            db.execute('INSERT INTO center_members(center_id,user_id,member_role,created_at,created_by,link_id) VALUES(?,?,?,?,?,?)',
+                       (cid, uid, link['member_role'], now(), link['requested_by'], link['id']))
+        elif row['link_id'] == link['id'] and row['member_role'] != link['member_role']:
+            db.execute('UPDATE center_members SET member_role=? WHERE center_id=? AND user_id=?', (link['member_role'], cid, uid))
+    elif row and row['link_id'] == link['id']:
+        db.execute('DELETE FROM center_members WHERE center_id=? AND user_id=?', (cid, uid))
+        db.execute('UPDATE sessions SET active_center_id=NULL WHERE user_id=? AND active_center_id=?', (uid, cid))
+    return on
+
+
+def team_links_tick(db):
+    """Cada pocos minutos: los enlaces «Por días» que empiezan hoy dan acceso y los que terminaron lo quitan."""
+    n = 0
+    for link in db.execute("SELECT * FROM team_links WHERE status='active' AND kind='days'").fetchall():
+        team_link_apply(db, link); n += 1
+    return n
+
+
+def team_link_row(db, link_id, cid=None, uid=None):
+    q = 'SELECT * FROM team_links WHERE id=?'; args = [int(link_id or 0)]
+    if cid is not None: q += ' AND center_id=?'; args.append(cid)
+    if uid is not None: q += ' AND user_id=?'; args.append(uid)
+    row = db.execute(q, args).fetchone()
+    if not row: raise NotFound('Enlace no encontrado.')
+    return row
+
+
+def team_role_label(db, cid, role):
+    return wroles.nombre(db, cid, role) if role else ''
+
+
+def team_dates_text(link):
+    if link['kind'] != 'days': return 'Fijo en el equipo'
+    a, b = link['starts_on'], link['ends_on']
+    fmt = lambda d: f'{int(d[8:10])}/{int(d[5:7])}'
+    return f'Solo el {fmt(a)}' if a == b else f'Del {fmt(a)} al {fmt(b)}'
+
+
+def push_to_user(db, uid, title, body, route):
+    if not wpush.enabled(): return
+    for d in db.execute('SELECT id FROM app_devices WHERE user_id=? AND active=1', (uid,)).fetchall():
+        db.execute('INSERT INTO push_outbox(device_id,title,body,route,created_at) VALUES(?,?,?,?,?)', (d['id'], title[:120], body[:240], route, now()))
+
+
+def team_notify(db, uid, subject, body, url='#/mi-equipo', sender=None):
+    """Aviso dentro de la web y de la app (con push si el móvil lo tiene activado) a la persona."""
+    db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?)',
+               (sender or uid, uid, subject[:200], (body + f'\n\n{public_site_url()}/{url}')[:2000], now(), 'system'))
+    push_to_user(db, uid, subject, body, url)
+
+
+def team_request(db, user, cid, uid, member_role, kind, starts_on, ends_on, source):
+    """El centro pide enlazar a una persona: queda «Pendiente de aceptar» hasta que diga que sí. Nadie queda enlazado sin
+    su «sí»."""
+    if uid == user['id']: raise ValueError('Esa eres tú: ya estás en el equipo.')
+    if not wroles.existe(db, cid, member_role) or member_role == 'owner':
+        raise ValueError('Elige el perfil: encargado, recepción, instructor o uno de los perfiles de tu centro.')
+    target = db.execute('SELECT id, role, fullname, email FROM users WHERE id=?', (uid,)).fetchone()
+    if not target: raise NotFound('Persona no encontrada.')
+    if target['role'] in ('admin', 'center'):
+        raise ValueError('Esa cuenta es de un centro o de la administración. Pide a la persona que use su cuenta personal.')
+    if is_team_member(db, cid, uid) or db.execute("SELECT 1 FROM team_links WHERE center_id=? AND user_id=? AND status IN ('pending','active','paused')", (cid, uid)).fetchone():
+        raise ValueError('Esa persona ya está en tu equipo o tiene una petición pendiente.')
+    team_check_plan(db, cid, member_role)
+    kind, a, b = wteq.clean_dates(kind, starts_on, ends_on, center_today(db, cid))
+    lid = db.execute('INSERT INTO team_links(center_id,user_id,member_role,kind,starts_on,ends_on,status,source,requested_by,requested_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                     (cid, uid, member_role, kind, a, b, 'pending', source, user['id'], now())).lastrowid
+    cname = provider_label(db, 'center', cid); rname = team_role_label(db, cid, member_role)
+    link = db.execute('SELECT * FROM team_links WHERE id=?', (lid,)).fetchone()
+    when = '' if kind == 'fixed' else ', ' + team_dates_text(link)[0].lower() + team_dates_text(link)[1:]
+    needs = target['role'] == 'recreational' and wteq.needs_freelance(member_role)
+    body = f'{cname} quiere añadirte a su equipo como {rname}{when}. ¿Aceptas?'
+    if needs: body += ' Para este perfil tienes que activar tu perfil de freelance (es gratis, un minuto): lo haces al aceptar.'
+    team_notify(db, uid, f'{cname} quiere añadirte a su equipo', body, sender=user['id'])
+    audit(db, user['id'], 'team_link_requested', 'user', uid, {'role': member_role, 'kind': kind, 'starts_on': a, 'ends_on': b, 'source': source})
+    return lid, needs
+
+
+def team_respond(db, user, link_id, accept):
+    """La persona acepta o rechaza. Al aceptar se vuelve a mirar el plan del centro y, para los perfiles de trabajo, que
+    su cuenta sea de freelance."""
+    link = team_link_row(db, link_id, uid=user['id'])
+    if link['status'] != 'pending': raise ValueError('Esa petición ya no está pendiente.')
+    cname = provider_label(db, 'center', link['center_id'])
+    if not accept:
+        db.execute("UPDATE team_links SET status='declined', responded_at=? WHERE id=?", (now(), link['id']))
+        team_center_notice(db, link['center_id'], f'{user["fullname"]} no ha aceptado unirse a tu equipo.', sender=user['id'])
+        audit(db, user['id'], 'team_link_declined', 'center', link['center_id']); return 'declined'
+    if real_role(user) == 'recreational' and wteq.needs_freelance(link['member_role']):
+        raise PermissionError('Para unirte como ' + team_role_label(db, link['center_id'], link['member_role']) +
+                              ' tienes que activar tu perfil de freelance (es gratis).')
+    team_check_plan(db, link['center_id'], link['member_role'], exclude_link=link['id'])
+    db.execute("UPDATE team_links SET status='active', responded_at=? WHERE id=?", (now(), link['id']))
+    team_link_apply(db, team_link_row(db, link['id']))
+    team_center_notice(db, link['center_id'], f'{user["fullname"]} ya está en tu equipo como {team_role_label(db, link["center_id"], link["member_role"])}.', sender=user['id'])
+    audit(db, user['id'], 'team_link_accepted', 'center', link['center_id'], {'role': link['member_role']})
+    return 'active'
+
+
+def team_center_notice(db, cid, text, sender=None):
+    for uid in [r['id'] for r in db.execute("SELECT id FROM users WHERE role='center' AND center_id=?", (cid,)).fetchall()]:
+        db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?)',
+                   (sender or uid, uid, 'Equipo', text[:2000], now(), 'system'))
+
+
+def team_end(db, actor, link, reason):
+    """Quitar a alguien del equipo (el centro) o salir de un centro (la persona). El acceso se quita al momento, también
+    en una sesión abierta; su historial de trabajos queda, sin datos de los clientes."""
+    if link['member_role'] == 'owner': raise ValueError('El propietario no se puede quitar: usa «Transferir la propiedad».')
+    if link['status'] not in ('pending', 'active', 'paused'): raise ValueError('Ese enlace ya está terminado.')
+    st = 'cancelled' if link['status'] == 'pending' else 'ended'
+    db.execute('UPDATE team_links SET status=?, ended_at=?, ended_by=?, end_reason=? WHERE id=?', (st, now(), actor['id'], reason, link['id']))
+    team_link_apply(db, team_link_row(db, link['id']))
+    db.execute('UPDATE sessions SET active_center_id=NULL WHERE user_id=? AND active_center_id=?', (link['user_id'], link['center_id']))
+    audit(db, actor['id'], 'team_link_ended', 'user', link['user_id'], {'reason': reason, 'center_id': link['center_id']})
+
+
+def team_enforce_plan(db, cid):
+    """Si el plan del centro ya no da para todos (bajó de plan), los que no caben quedan «En pausa»: sin acceso, sin
+    borrarse. Se quedan los primeros enlazados (y con Motor de reservas, solo Recepción); el centro puede cambiar quién
+    se queda. Al subir de plan se reactivan con un clic."""
+    r = team_plan_rules(db, cid)
+    rows = db.execute("SELECT * FROM team_links WHERE center_id=? AND status='active' ORDER BY responded_at, id", (cid,)).fetchall()
+    keep = 0 if r['blocked'] else (r['cap'] or 10 ** 6) - db.execute("SELECT COUNT(*) FROM center_members WHERE center_id=? AND link_id IS NULL AND member_role<>'owner'", (cid,)).fetchone()[0]
+    paused = []
+    for link in rows:
+        fits = keep > 0 and (not r['only_reception'] or link['member_role'] == wteq.RECEPTION)
+        if fits: keep -= 1; continue
+        db.execute("UPDATE team_links SET status='paused', paused_at=? WHERE id=?", (now(), link['id']))
+        team_link_apply(db, team_link_row(db, link['id'])); paused.append(link['id'])
+        team_notify(db, link['user_id'], 'Tu acceso a un centro está en pausa',
+                    f'{provider_label(db, "center", cid)} ha cambiado de plan y tu perfil en su equipo queda en pausa. No se ha borrado nada.')
+    return paused
+
+
+def team_profiles(db, user):
+    """El selector de perfil: «Mi perfil freelance» (o «Buceador») y cada centro donde la persona trabaja hoy."""
+    own = real_role(user)
+    items = [{'key': 'own', 'label': 'Mi perfil freelance' if own == 'freelance' else 'Buceador' if own == 'recreational' else '', 'active': user['role'] == own}]
+    if own not in ('freelance', 'recreational'): return []
+    for r in db.execute('''SELECT m.center_id, m.member_role, c.name FROM center_members m JOIN centers c ON c.id=m.center_id
+                            WHERE m.user_id=? AND m.link_id IS NOT NULL ORDER BY c.name''', (user['id'],)).fetchall():
+        items.append({'key': f'c:{r["center_id"]}', 'center_id': r['center_id'], 'label': r['name'], 'role': r['member_role'],
+                      'role_name': team_role_label(db, r['center_id'], r['member_role']), 'color': wteq.color_of(r['center_id']),
+                      'active': user['role'] == 'center' and user['center_id'] == r['center_id']})
+    return items
+
+
+def my_teams(db, user):
+    """La persona: peticiones pendientes, centros donde está (o estuvo) y el selector de perfil."""
+    rows = db.execute('''SELECT l.*, c.name AS center_name, c.logo_url FROM team_links l JOIN centers c ON c.id=l.center_id
+                           WHERE l.user_id=? AND (l.status IN ('pending','active','paused') OR l.ended_at>=?) ORDER BY l.id DESC''',
+                      (user['id'], (datetime.now(timezone.utc) - _timedelta(days=60)).isoformat(timespec='seconds'))).fetchall()
+    own = real_role(user)
+    out = []
+    for r in rows:
+        d = {k: r[k] for k in ('id', 'center_id', 'center_name', 'member_role', 'kind', 'starts_on', 'ends_on', 'status', 'requested_at', 'responded_at', 'ended_at', 'end_reason')}
+        d.update(role_name=team_role_label(db, r['center_id'], r['member_role']), dates=team_dates_text(r), status_name=TEAM_LINK_STATUS.get(r['status'], r['status']),
+                 color=wteq.color_of(r['center_id']), logo=r['logo_url'],
+                 needs_freelance=own == 'recreational' and wteq.needs_freelance(r['member_role']),
+                 in_force=r['status'] == 'active' and wteq.in_force(r['kind'], r['starts_on'], r['ends_on'], center_today(db, r['center_id'])))
+        out.append(d)
+    return {'account': own, 'requests': [x for x in out if x['status'] == 'pending'], 'links': [x for x in out if x['status'] != 'pending'],
+            'profiles': team_profiles(db, user)}
+
+
+def center_team_links(db, cid):
+    rows = db.execute('''SELECT l.*, u.fullname, u.avatar_url, u.role FROM team_links l JOIN users u ON u.id=l.user_id
+                           WHERE l.center_id=? AND (l.status IN ('pending','active','paused') OR l.ended_at>=?) ORDER BY l.status='active' DESC, l.status='pending' DESC, u.fullname''',
+                      (cid, (datetime.now(timezone.utc) - _timedelta(days=30)).isoformat(timespec='seconds'))).fetchall()
+    today = center_today(db, cid)
+    return [{'id': r['id'], 'user_id': r['user_id'], 'name': r['fullname'], 'photo': r['avatar_url'], 'account': team_account(r)[0],
+             'account_label': team_account(r)[1], 'member_role': r['member_role'], 'role_name': team_role_label(db, cid, r['member_role']),
+             'kind': r['kind'], 'starts_on': r['starts_on'], 'ends_on': r['ends_on'], 'dates': team_dates_text(r), 'status': r['status'],
+             'status_name': TEAM_LINK_STATUS.get(r['status'], r['status']), 'source': r['source'],
+             'waiting_start': r['status'] == 'active' and not wteq.in_force(r['kind'], r['starts_on'], r['ends_on'], today)}
+            for r in rows]
+
+
+def team_activate_freelance(db, uid):
+    """«Activar mi perfil de freelance» (es gratis): la cuenta de buceador pasa a freelance con el plan gratuito. Sigue
+    teniendo todo lo del buceador; puede estar en equipos y ver lo que le asignan. Sin servicios, reservas ni cobros
+    propios, y sin escaparate público mientras el titular no decida otra cosa."""
+    n = db.execute("UPDATE users SET role='freelance', requested_role='freelance', plan_code='free', plan_status='free' WHERE id=? AND role='recreational'", (uid,)).rowcount
+    if not n: raise ValueError('Tu cuenta ya es profesional o no es de buceador.')
+
+
+def team_join_invite(handler, db, inv, cu, data):
+    """Una invitación por correo de v50.58: la persona crea su cuenta (de freelance o normal; para los perfiles de trabajo,
+    de freelance) o entra con la que ya tiene, y queda enlazada al centro con el perfil y las fechas de la invitación.
+    Abrir el enlace y terminar es su «sí»."""
+    cid, role = inv['center_id'], inv['member_role']
+    needs = wteq.needs_freelance(role)
+    if cu:
+        if (cu['email'] or '').lower() != inv['email']: raise PermissionError('Esta invitación es para otro email. Cierra sesión o entra con la cuenta invitada.')
+        if real_role(cu) not in ('recreational', 'freelance'): raise ValueError('Esa cuenta es de un centro o de la administración: usa tu cuenta personal.')
+        uid = cu['id']
+        if real_role(cu) == 'recreational' and needs:
+            if data.get('activate_freelance') is not True or data.get('accept_terms') is not True:
+                raise PermissionError('Para unirte como ' + team_role_label(db, cid, role) + ' tienes que activar tu perfil de freelance (es gratis).')
+            team_activate_freelance(db, uid); record_acceptances(db, uid, ['centros'], handler.client_ip())
+    else:
+        if db.execute('SELECT 1 FROM users WHERE lower(email)=?', (inv['email'],)).fetchone():
+            raise ValueError('Ya hay una cuenta con ese email: inicia sesión con ella y vuelve a abrir el enlace.')
+        name = clean_text(data.get('fullname'), 120); username = (clean_text(data.get('username'), 40) or '').lower(); pw = str(data.get('password') or '')
+        if not name or len(name) < 2: raise ValueError('Escribe tu nombre.')
+        if not re.fullmatch(r'[a-z0-9_.-]{3,40}', username): raise ValueError('El usuario solo admite letras, números, punto, guion y guion bajo (3–40).')
+        if db.execute('SELECT 1 FROM users WHERE lower(username)=?', (username,)).fetchone(): raise ValueError('Ese nombre de usuario ya existe.')
+        if (problem := wsec.password_problem(pw)): raise ValueError(problem)
+        if not data.get('accept_terms'): raise ValueError('Acepta las condiciones y la política de privacidad.')
+        freelance = needs or data.get('as') == 'freelance'
+        uid = db.execute('INSERT INTO users(fullname,email,username,password_hash,role,requested_role,created_at,email_verified_at,plan_code,plan_status) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                         (name, inv['email'], username, hash_password(pw), 'freelance' if freelance else 'recreational', 'freelance' if freelance else 'recreational',
+                          now(), now(), 'free' if freelance else None, 'free' if freelance else None)).lastrowid
+        db.execute('INSERT INTO user_profiles(user_id,updated_at) VALUES(?,?)', (uid, now()))
+        record_acceptances(db, uid, ['terminos', 'privacidad'] + (['centros'] if freelance else []), handler.client_ip())
+    if is_team_member(db, cid, uid) or db.execute("SELECT 1 FROM team_links WHERE center_id=? AND user_id=? AND status IN ('pending','active','paused')", (cid, uid)).fetchone():
+        raise ValueError('Ya estás en este equipo o tienes una petición pendiente.')
+    db.execute('UPDATE team_invites SET used_at=? WHERE id=?', (now(), inv['id']))
+    team_check_plan(db, cid, role)
+    kind = inv['link_kind'] or 'fixed'
+    if kind == 'days' and inv['ends_on'] and inv['ends_on'] < center_today(db, cid): raise ValueError('Las fechas de esta invitación ya han pasado. Pide al centro una nueva.')
+    lid = db.execute('INSERT INTO team_links(center_id,user_id,member_role,kind,starts_on,ends_on,status,source,requested_by,requested_at,responded_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                     (cid, uid, role, kind, inv['starts_on'], inv['ends_on'], 'active', 'email', inv['created_by'], inv['created_at'], now())).lastrowid
+    team_link_apply(db, team_link_row(db, lid))
+    who = db.execute('SELECT fullname FROM users WHERE id=?', (uid,)).fetchone()['fullname']
+    team_center_notice(db, cid, f'{who} ya está en tu equipo como {team_role_label(db, cid, role)}.', sender=uid)
+    audit(db, uid, 'team_link_accepted', 'center', cid, {'role': role, 'via': 'email'}); db.commit()
+    return uid
+
+
+TEAM_JOBS = {'last': 0}
+
+
+def run_team_jobs(db):
+    """Cada 10 minutos: los enlaces «Por días» empiezan y terminan solos, y cada centro queda dentro de su plan."""
+    if time.time() - TEAM_JOBS['last'] < 600: return
+    TEAM_JOBS['last'] = time.time()
+    team_links_tick(db)
+    for r in db.execute("SELECT DISTINCT center_id FROM team_links WHERE status='active'").fetchall():
+        team_enforce_plan(db, r['center_id'])
+    db.commit()
+
+
+def freelance_free_gate(db, user):
+    """Plan gratuito del freelance (decisión del titular, 16/10/2026): todo lo del buceador, estar en equipos de centros y
+    ver lo que le asignan. Nada más: sin servicios propios, sin reservas ni cobros propios."""
+    if user and user['role'] == 'freelance' and provider_plan(db, 'freelance', user['id']).get('code', 'free') == 'free':
+        raise PlanRequired('online_bookings', 'Con el plan gratuito de freelance no tienes servicios propios: estás en los equipos de los centros y '
+                                              'ves en tu agenda lo que te asignan. Disponible en el plan Pro.')
+
+
+# ------------------------------------------------- v50.58 · equipo por QR: agenda unida y «Ocupado» (parte 3 y 4)
+WEEKDAYS_ES = ('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo')
+
+
+def team_assignable(db, cid, uid):
+    """¿Puede el centro asignarle trabajo? Quien es del equipo hoy: las cuentas del centro y las personas enlazadas."""
+    return bool(db.execute('''SELECT 1 FROM users u LEFT JOIN center_members m ON m.user_id=u.id AND m.center_id=?
+                               WHERE u.id=? AND ((u.role='center' AND u.center_id=?) OR m.user_id IS NOT NULL)''', (cid, uid, cid)).fetchone())
+
+
+def slot_window(db, slot):
+    """(inicio, fin) en UTC de una salida: su hora y lo que dura el servicio (3 horas si no lo dice); un curso, sus días."""
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (slot['service_id'],)).fetchone()
+    tz = service_tz(db, svc) if svc else wcfg.env('WOD_TIMEZONE', wag.DEFAULT_TZ)
+    t = slot['slot_time'] if slot['slot_time'] and re.fullmatch(r'\d{2}:\d{2}', slot['slot_time']) else '09:00'
+    start = wag.local_to_utc(slot['slot_date'], t, tz)
+    to = row_get(slot, 'date_to')
+    if to and to > slot['slot_date']: return start, wag.local_to_utc(to, '23:59', tz)
+    minutes = int((svc['duration_minutes'] if svc else 0) or 180)
+    end = (datetime.strptime(start, '%Y-%m-%dT%H:%M:%SZ') + _timedelta(minutes=min(max(minutes, 30), 24 * 60))).strftime('%Y-%m-%dT%H:%M:%SZ')
+    return start, end
+
+
+def team_person_busy(db, uid, start, end, exclude_slot=None):
+    """¿Tiene ya trabajo en esa franja? Lo propio de freelance, lo de cualquier centro (instructor de una salida o guía de
+    un grupo) y lo bloqueado en la agenda común. Solo sí o no: nunca con quién ni para qué."""
+    if db.execute('''SELECT 1 FROM resource_blocks b JOIN resources r ON r.id=b.resource_id WHERE r.kind='person' AND r.user_id=?
+                      AND b.status='active' AND b.starts_at<? AND b.ends_at>? AND NOT (b.ref_type='edition' AND b.ref_id=?) LIMIT 1''',
+                  (uid, end, start, exclude_slot or 0)).fetchone(): return True
+    lo = (_dt.date.fromisoformat(start[:10]) - _timedelta(days=2)).isoformat(); hi = (_dt.date.fromisoformat(end[:10]) + _timedelta(days=1)).isoformat()
+    rows = db.execute('''SELECT x.* FROM service_slots x WHERE x.id<>? AND COALESCE(x.status,'open') NOT IN ('cancelled','deleted')
+                            AND x.slot_date<=? AND COALESCE(x.date_to,x.slot_date)>=?
+                            AND (x.instructor_user_id=? OR x.id IN (SELECT slot_id FROM slot_groups WHERE guide_user_id=?)
+                                 OR (x.service_id IN (SELECT id FROM provider_services WHERE provider_user_id=? AND center_id IS NULL) AND x.spots_available<x.spots_total))''',
+                      (exclude_slot or 0, hi, lo, uid, uid, uid)).fetchall()
+    for x in rows:
+        a, b = slot_window(db, x)
+        if a < end and b > start: return True
+    return False
+
+
+def team_check_free(db, cid, slot, uid):
+    if not uid: return
+    if not team_assignable(db, cid, uid): raise PermissionError('Esa persona no es de tu equipo.')
+    a, b = slot_window(db, slot)
+    if team_person_busy(db, uid, a, b, exclude_slot=slot['id']):
+        raise ValueError('Ocupado: esa persona ya tiene trabajo a esa hora. Elige a otra persona u otra hora.')
+
+
+def team_slot_line(db, slot, with_divers=True):
+    """«Martes 20 · 9:00 Doble inmersión · Cabo de Palos · Barco Neptuno · 8 buceadores» (sin datos de los clientes)."""
+    svc = db.execute('SELECT title, boat_id FROM provider_services WHERE id=?', (slot['service_id'],)).fetchone()
+    d = _dt.date.fromisoformat(slot['slot_date'])
+    pts = ', '.join(r['name'] for r in db.execute('SELECT p.name FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id=?', (slot['id'],)).fetchall())
+    boat = db.execute('''SELECT b.name FROM boats b WHERE b.id=COALESCE((SELECT g.boat_id FROM slot_groups g WHERE g.slot_id=? AND g.boat_id IS NOT NULL ORDER BY g.sort LIMIT 1),?,?)''',
+                      (slot['id'], row_get(slot, 'boat_id'), svc['boat_id'] if svc else None)).fetchone()
+    divers = int(slot['spots_total'] or 0) - int(slot['spots_available'] or 0)
+    parts = [f'{WEEKDAYS_ES[d.weekday()]} {d.day}', f'{slot["slot_time"] or ""} {svc["title"] if svc else ""}'.strip()]
+    if pts: parts.append(pts)
+    if boat: parts.append(f'Barco {boat["name"]}')
+    if with_divers: parts.append(f'{divers} buceador{"es" if divers != 1 else ""}')
+    return ' · '.join(parts)
+
+
+def team_notify_assignment(db, actor, cid, slot, uid, changed=False):
+    """Aviso a la persona enlazada cuando el centro le asigna o le cambia una salida."""
+    if not uid or not db.execute('SELECT 1 FROM center_members WHERE center_id=? AND user_id=? AND link_id IS NOT NULL', (cid, uid)).fetchone(): return
+    cname = provider_label(db, 'center', cid)
+    team_notify(db, uid, f'{cname}: ' + ('ha cambiado una salida tuya' if changed else 'te ha asignado una salida'),
+                f'{cname} · {team_slot_line(db, slot)}', url='#/mi-agenda', sender=actor['id'] if actor else None)
+
+
+def my_agenda(db, user, d_from, d_to):
+    """«Mi agenda»: día a día, el trabajo propio de freelance y lo que le ha asignado cada centro, cada centro con su
+    color. Sin datos de los clientes. De un centro del que ya salió solo queda lo anterior a su salida."""
+    uid = user['id']
+    links = {}
+    for r in db.execute('SELECT center_id, status, ended_at, paused_at FROM team_links WHERE user_id=? ORDER BY id', (uid,)).fetchall():
+        until = None if r['status'] == 'active' else (r['ended_at'] or r['paused_at'] or '')[:10] or None
+        prev = links.get(r['center_id'], 'x')
+        links[r['center_id']] = None if (prev is None or until is None) else max(prev if prev != 'x' else '', until)
+    items = []
+    if links:
+        q = '''SELECT DISTINCT x.*, ps.center_id AS svc_center FROM service_slots x JOIN provider_services ps ON ps.id=x.service_id
+                WHERE ps.center_id IN ({}) AND x.slot_date BETWEEN ? AND ? AND COALESCE(x.status,'open') NOT IN ('cancelled','deleted')
+                  AND (x.instructor_user_id=? OR x.id IN (SELECT slot_id FROM slot_groups WHERE guide_user_id=?))
+                ORDER BY x.slot_date, x.slot_time'''.format(','.join('?' * len(links)))
+        for x in db.execute(q, (*links.keys(), d_from, d_to, uid, uid)).fetchall():
+            until = links.get(x['svc_center'])
+            if until is not None and x['slot_date'] >= until: continue
+            line = team_slot_line(db, x)
+            items.append({'date': x['slot_date'], 'time': x['slot_time'], 'kind': 'centre', 'center_id': x['svc_center'],
+                          'center': provider_label(db, 'center', x['svc_center']), 'color': wteq.color_of(x['svc_center']), 'line': line, 'what': line.split(' · ', 1)[-1],
+                          'divers': int(x['spots_total'] or 0) - int(x['spots_available'] or 0)})
+    if real_role(user) == 'freelance':
+        for x in db.execute('''SELECT x.* FROM service_slots x JOIN provider_services ps ON ps.id=x.service_id
+                                WHERE ps.provider_user_id=? AND ps.center_id IS NULL AND x.slot_date BETWEEN ? AND ?
+                                  AND COALESCE(x.status,'open') NOT IN ('cancelled','deleted') ORDER BY x.slot_date, x.slot_time''', (uid, d_from, d_to)).fetchall():
+            line = team_slot_line(db, x)
+            items.append({'date': x['slot_date'], 'time': x['slot_time'], 'kind': 'own', 'center_id': None, 'center': 'Mi trabajo', 'color': '#334155',
+                          'line': line, 'what': line.split(' · ', 1)[-1], 'divers': int(x['spots_total'] or 0) - int(x['spots_available'] or 0)})
+    items.sort(key=lambda i: (i['date'], i['time'] or ''))
+    return {'from': d_from, 'to': d_to, 'items': items}
+
+
+def team_tomorrow_summaries(db, day):
+    """«El resumen de la agenda de mañana», también para cada persona enlazada: un aviso con lo que le toca."""
+    for r in db.execute('SELECT DISTINCT user_id FROM center_members WHERE link_id IS NOT NULL').fetchall():
+        # once per person and day: the same log as the centres' summary, with the person's id in negative
+        if db.execute('SELECT 1 FROM email_digest_log WHERE center_id=? AND digest_date=?', (-r['user_id'], day)).fetchone(): continue
+        u = db.execute('SELECT * FROM users WHERE id=?', (r['user_id'],)).fetchone()
+        if not u: continue
+        ag = [i for i in my_agenda(db, dict(u), day, day)['items'] if i['kind'] == 'centre']
+        if ag:
+            team_notify(db, r['user_id'], 'Tu agenda de mañana', '\n'.join(f"{i['center']} · {i['line']}" for i in ag), url='#/mi-agenda')
+        db.execute('INSERT OR IGNORE INTO email_digest_log(center_id,digest_date,sent_at) VALUES(?,?,?)', (-r['user_id'], day, now()))
+
+
+def team_set_instructor(db, user, cid, slot_id, raw):
+    """El instructor de una salida: alguien del equipo, libre a esa hora; la persona enlazada recibe el aviso."""
+    uid = int(raw or 0) or None
+    slot = db.execute('SELECT * FROM service_slots WHERE id=?', (slot_id,)).fetchone()
+    if uid == row_get(slot, 'instructor_user_id'): return
+    team_check_free(db, cid, slot, uid)
+    db.execute('UPDATE service_slots SET instructor_user_id=?, updated_at=? WHERE id=?', (uid, now(), slot_id))
+    if uid: team_notify_assignment(db, user, cid, slot, uid)
 
 # Booking fields about money: only with «cobros» or «reservas» (it includes charging at the centre). Internal notes: only
 # with «reservas» (ASVS 5.0 V8.2.3).
@@ -6438,9 +7040,11 @@ def public_center_sql(alias='c', include_hidden=False):
 
 
 def public_freelance_sql(alias='u'):
-    """Freelance professionals shown to the public (v50.54: not hidden by moderation)."""
+    """Freelance professionals shown to the public (v50.54: not hidden by moderation). v50.58 (6.2.5, pendiente del
+    titular): a freelance on the free plan has no public showcase until the owner decides otherwise."""
     p = f'{alias}.' if alias else ''
-    return f"{p}role='freelance' AND {p}moderation_status IS NULL"
+    return (f"{p}role='freelance' AND {p}moderation_status IS NULL AND COALESCE({p}plan_code,'free')<>'free' "
+            f"AND COALESCE({p}plan_expires_at,'')>=date('now')")
 
 
 ADMIN_CONTENT_MSG = ('Este contenido es del centro o del profesional: la administración no lo modifica. Si incumple las normas, '
@@ -8818,6 +9422,11 @@ EMAIL_TEMPLATES = {
    ('note', '{reason}'),
    ('p', 'Puedes enviar otro vídeo desde la ficha del punto cuando quieras.'),
    ('button', ('Ver el punto', 'point_url'))]},
+ 'team_transfer': {'to': 'any', 'subject': 'Confirma el cambio de propietario de {center}', 'pre': 'Nuevo propietario: {new_owner}.', 'blocks': [
+   ('h', 'Transferir la propiedad de {center}'),
+   ('p', 'Hola {first_name}, has pedido que {new_owner} pase a ser el propietario de {center} en WORLDIVES. Tú seguirás en el equipo como Encargado.'),
+   ('button', ('Confirmar el cambio', 'confirm_url')),
+   ('note', 'El enlace caduca en 2 días. Si no lo has pedido tú, ignora este correo y cambia tu contraseña.')]},
  'report_decision_affected': {'to': 'any', 'subject': 'Decisión sobre un contenido tuyo en WORLDIVES ({ref})', 'pre': '{decision}', 'blocks': [
    ('h', 'Hemos revisado una denuncia sobre tu contenido'),
    ('p', 'Hola {first_name}, hemos recibido una denuncia sobre «{content}» y la hemos revisado.'),
@@ -9043,7 +9652,7 @@ EMAIL_TEMPLATE_LABELS = {
  'promotion_received': 'Promoción recibida', 'experience_request': 'Solicitud de viaje enviada', 'experience_status': 'Respuesta a solicitud de viaje',
  'admin_ops_alert': 'Admin: aviso de operación (copias, integridad)', 'service_notice': 'Centro: aviso de mantenimiento o incidencia', 'moderation_hidden': 'Centro: contenido retirado por moderación', 'moderation_kept': 'Centro: sigue retirado tras la revisión', 'moderation_restored': 'Centro: contenido publicado de nuevo', 'moderation_resubmitted': 'Admin: un centro pide revisión', 'plan_expired': 'Centro: plan terminado', 'plan_paid': 'Centro: plan pagado', 'info_request': 'Centro: solicitud de información',
  'info_request_copy': 'Copia de la solicitud de información', 'insurance_expiring': 'Centro: seguro a punto de caducar', 'insurance_expired': 'Centro: seguro caducado',
- 'monthly_stats': 'Centro: estadísticas del mes', 'team_invite': 'Invitación al equipo de un centro', 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'video_approved': 'Vídeo de un punto publicado', 'video_rejected': 'Vídeo de un punto no publicado', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
+ 'monthly_stats': 'Centro: estadísticas del mes', 'team_invite': 'Invitación al equipo de un centro', 'admin_map_quota': 'Admin: aviso de cuota de la vista satélite', 'review_replied': 'Respuesta del centro a una reseña', 'report_decision_affected': 'Decisión sobre una denuncia (parte afectada)', 'video_approved': 'Vídeo de un punto publicado', 'video_rejected': 'Vídeo de un punto no publicado', 'team_transfer': 'Equipo: confirmar el cambio de propietario', 'account_inactive': 'Aviso de cuenta inactiva', 'account_delete_confirm': 'Confirmar eliminación de cuenta', 'account_deleted': 'Cuenta eliminada', 'center_new_booking': 'Centro: nueva reserva', 'center_booking_paid': 'Centro: pago recibido',
  'center_booking_cancelled': 'Centro: cancelación del cliente', 'center_daily_agenda': 'Centro: agenda de mañana', 'center_promo_invite': 'Centro: invitación a promoción',
  'center_experience_request': 'Centro: nueva solicitud de viaje', 'center_verified': 'Centro: perfil verificado', 'slot_cancelled': 'Salida cancelada por el centro (buceador)', 'center_slot_choice': 'Centro: respuesta a una salida cancelada', 'booking_date_changed': 'Nueva fecha de la reserva (buceador)', 'center_booking_date_changed': 'Centro: el cliente ha cambiado la fecha', 'center_reschedule_request': 'Centro: solicitud de cambio de fecha', 'reschedule_approved': 'Cambio de fecha aceptado', 'reschedule_rejected': 'Cambio de fecha no aceptado', 'waitlist_spot': 'Lista de espera: ha quedado una plaza', 'center_rejected': 'Profesional: verificación no completada', 'admin_new_pro': 'Admin: nueva cuenta profesional',
  'totp_enabled': 'Verificación en dos pasos activada', 'totp_required_payments': 'Verificación en dos pasos obligatoria (cobros)', 'reminder_48h': 'Recordatorio 48 h antes', 'booking_changed': 'Cambio de fecha u hora', 'document_expiring': 'Documento a punto de caducar', 'insurance_diver_expiring': 'Buceador: su seguro de buceo caduca', 'insurance_policy_added': 'Buceador: un centro ha añadido su seguro',
@@ -9731,7 +10340,7 @@ def run_email_jobs(db, at=None):
     for r in db.execute("SELECT id FROM bookings WHERE status IN ('confirmed','completed') AND booking_date BETWEEN ? AND ? AND review_asked_at IS NULL",
                         ((today - _timedelta(days=7)).isoformat(), yesterday)).fetchall():
         if db.execute('UPDATE bookings SET review_asked_at=? WHERE id=? AND review_asked_at IS NULL', (now(), r['id'])).rowcount == 1: notify_booking(db, r['id'], 'review')
-    if at.hour >= 18: queue_center_agendas(db, tomorrow)
+    if at.hour >= 18: queue_center_agendas(db, tomorrow); team_tomorrow_summaries(db, tomorrow)
     db.execute('DELETE FROM email_outbox WHERE created_at<?', ((datetime.now(timezone.utc) - _timedelta(days=120)).isoformat(timespec='seconds'),))
     db.execute('DELETE FROM password_resets WHERE expires_at<?', ((datetime.now(timezone.utc) - _timedelta(days=2)).isoformat(timespec='seconds'),))
     db.commit()
@@ -9784,6 +10393,7 @@ def sample_email_ctx(template, lang='es'):
                     {'time': '15:30', 'title': 'Bautizo de buceo', 'taken': 2, 'total': 6, 'points': 'Cala Blanca', 'people': ['Elena Vidal · 2 pax · Equipo completo ×2']}]}
     c.update(refund_texts(lang, 'refunded', c['total']))
     c.setdefault('point_name', 'Cabo San Martín'); c.setdefault('point_url', f'{base}/#/punto?id=40')   # v50.58: videos of a dive site
+    c.setdefault('new_owner', 'Ana García'); c.setdefault('confirm_url', f'{base}/#/equipo/propiedad?token=ejemplo')   # v50.58: team
     return c
 
 
@@ -13278,9 +13888,11 @@ def owner_guides(db, kind, oid):
     if kind == 'freelance':
         u = db.execute('SELECT id,fullname FROM users WHERE id=?', (oid,)).fetchone()
         return [{'user_id': u['id'], 'name': u['fullname']}] if u else []
+    # v50.58: also the people linked with their own account (equipo por QR) and the staff of several centres
     rows = db.execute('''SELECT u.id,u.fullname,COALESCE(m.member_role,'owner') AS member_role FROM users u
-                           LEFT JOIN center_members m ON m.user_id=u.id AND m.center_id=u.center_id
-                          WHERE u.center_id=? AND u.role='center' ORDER BY CASE COALESCE(m.member_role,'owner') WHEN 'instructor' THEN 0 WHEN 'owner' THEN 1 ELSE 2 END, u.fullname''', (oid,)).fetchall()
+                           LEFT JOIN center_members m ON m.user_id=u.id AND m.center_id=?
+                          WHERE (u.center_id=? AND u.role='center') OR m.user_id IS NOT NULL
+                          ORDER BY CASE COALESCE(m.member_role,'owner') WHEN 'instructor' THEN 0 WHEN 'owner' THEN 1 ELSE 2 END, u.fullname''', (oid, oid)).fetchall()
     # v50.49: also the roles the centre created that can do the check-in on the boat («Instructor máster»…).
     return [{'user_id': r['id'], 'name': r['fullname'], 'member_role': r['member_role']} for r in rows
             if r['member_role'] in ('owner', 'instructor') or (wroles.CLAVE_PROPIA.fullmatch(r['member_role'] or '') and 'checkin' in wroles.permisos(db, oid, r['member_role']))]
@@ -14878,7 +15490,7 @@ def wizard_edition_claim(db, svc, slot_id, start, plan, instructor_id):
 def wizard_create_dates(db, user, svc, dates, start_time, seats, instructor_id=None, trip_to=None):
     """Departures (an immersion), editions (a course) or the dates of a trip. A date that already exists is kept as it is."""
     kind = wsv.kind_of(svc); plan = service_plan(svc) if kind == 'course' else None
-    if instructor_id and svc['center_id'] and not db.execute("SELECT 1 FROM users WHERE id=? AND role='center' AND center_id=?", (instructor_id, svc['center_id'])).fetchone():
+    if instructor_id and svc['center_id'] and not team_assignable(db, svc['center_id'], instructor_id):
         raise wizard_errors({'instructor_user_id': 'Ese instructor no es del equipo del centro.'})
     if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
     made = []
@@ -14901,6 +15513,7 @@ def wizard_save(db, user, data, ip=''):
     publish = bool(data.get('publish')); sid = int(data.get('id') or 0)
     center_id = user['center_id'] if user['role'] == 'center' else None
     if user['role'] == 'center' and not center_id: raise ValueError('Tu cuenta de centro no tiene una ficha asociada.')
+    freelance_free_gate(db, user)
     cur = None
     if sid:
         cur = db.execute('SELECT * FROM provider_services WHERE id=?', (sid,)).fetchone()
@@ -16548,6 +17161,7 @@ class Handler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_GET(self):
+        _ACTOR.v = None
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
@@ -16608,6 +17222,9 @@ class Handler(BaseHTTPRequestHandler):
                 if path.startswith('/seguros/ir/') and self.insurance_redirect(db,path,query): return   # v50.56 · seguros
                 # v50.57 · logbook: the QR of a centre's dive and the QR of a buddy open the web (it asks to sign in when needed)
                 if re.fullmatch(r'/scan/d/[A-Za-z0-9_-]{16,64}',path): self.redirect('/#/scan/d/'+path[8:]); return
+                # v50.58 · equipo por QR: a personal QR or a «Compartir para enlazar» link opened outside «Enlazar persona»
+                if re.fullmatch(r'/p/q1\.[A-Za-z0-9_\-.]{20,120}',path): self.redirect('/#/p/'+path[3:]); return
+                if re.fullmatch(r'/e/[A-Za-z0-9_-]{20,64}',path): self.redirect('/#/enlazar?i='+path[3:]); return
                 if re.fullmatch(r'/buddy/[A-Za-z0-9_-]{12,32}',path): self.redirect('/#/buddy/'+path[7:]); return
                 m_q=re.fullmatch(r'/q/([A-Za-z0-9]{1,12})',path)
                 if m_q:
@@ -16917,6 +17534,33 @@ class Handler(BaseHTTPRequestHandler):
                 if path == '/api/team/centers':
                     user=require_user(self,db); require_role(user,{'center'})
                     self.send_json({'items':user_centers(db,user),'active':user['center_id']}); return
+                # v50.58 · equipo enlazado por QR (bloque 1): «Mi QR», los enlaces compartidos y los equipos de la persona
+                if path == '/api/my/qr':
+                    user=require_user(self,db)
+                    if real_role(user) not in ('recreational','freelance','center'): raise PermissionError('«Mi QR» es para buceadores, freelance y centros.')
+                    d=my_qr(db,user); db.commit(); self.send_json(d); return
+                if path == '/api/my/qr/shares':
+                    user=require_user(self,db); t=int(time.time())
+                    rows=[dict(r) for r in db.execute('SELECT id,created_at,expires_at,used_at,revoked_at FROM team_share_links WHERE user_id=? ORDER BY id DESC LIMIT 20',(user['id'],)).fetchall()]
+                    for r in rows: r['state']='revoked' if r['revoked_at'] else 'used' if r['used_at'] else 'expired' if r['expires_at']<t else 'open'
+                    self.send_json({'items':rows}); return
+                if path == '/api/my/agenda':
+                    user=require_user(self,db)
+                    d0=clean_text(query.get('from',[''])[0],10) or local_now().date().isoformat()
+                    try: a_=_dt.date.fromisoformat(d0); b_=_dt.date.fromisoformat(clean_text(query.get('to',[''])[0],10) or (a_+_timedelta(days=13)).isoformat())
+                    except ValueError: raise ValueError('Fechas no válidas.')
+                    if b_<a_ or (b_-a_).days>92: raise ValueError('Elige como mucho tres meses.')
+                    self.send_json(my_agenda(db,user,a_.isoformat(),b_.isoformat())); return
+                if path == '/api/center/availability':
+                    # «Ocupado» en el planning: quién del equipo está libre a la hora de una salida (sin decir por qué)
+                    user=require_user(self,db); require_role(user,{'center'}); cid=user['center_id']
+                    slot=db.execute('SELECT x.* FROM service_slots x JOIN provider_services ps ON ps.id=x.service_id WHERE x.id=? AND ps.center_id=?',(int(query.get('slot_id',['0'])[0] or 0),cid or -1)).fetchone()
+                    if not slot: raise NotFound('Salida no encontrada.')
+                    a_,b_=slot_window(db,slot)
+                    people=[dict(g,busy=team_person_busy(db,g['user_id'],a_,b_,exclude_slot=slot['id']),role_name=team_role_label(db,cid,g.get('member_role'))) for g in owner_guides(db,'center',cid)]
+                    self.send_json({'slot_id':slot['id'],'people':people}); return
+                if path == '/api/my/teams':
+                    user=require_user(self,db); self.send_json(my_teams(db,user)); return
                 if path == '/api/center/team':
                     user=require_user(self,db); require_role(user,{'center'})
                     if not user['center_id']: raise ValueError('Tu cuenta no tiene un centro asociado.')
@@ -16924,7 +17568,10 @@ class Handler(BaseHTTPRequestHandler):
                                                              WHERE u.role='center' AND (u.center_id=? OR m.user_id IS NOT NULL) ORDER BY m.member_role='owner' DESC,u.fullname''',(user['center_id'],user['center_id'])).fetchall()]
                     inv=[dict(r) for r in db.execute('SELECT id,email,member_role,created_at,expires_at FROM team_invites WHERE center_id=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>=? ORDER BY id DESC',(user['center_id'],now())).fetchall()]
                     rl=wroles.lista(db,user['center_id'])
+                    team_enforce_plan(db,user['center_id']); db.commit()
+                    rules=dict(team_plan_rules(db,user['center_id']),used=team_seats(db,user['center_id']))
                     self.send_json({'members':members,'invites':inv,'roles':{r['key']:r['name'] for r in rl},'role_list':rl,**wroles.catalogo(),
+                                    'links':center_team_links(db,user['center_id']),'rules':rules,
                                     'limit':plan_limit(db,'center',user['center_id'],'team_max'),'team_feature':provider_has(db,'center',user['center_id'],'team')}); return
                 if path == '/api/provider/cuenta':
                     # v50.49: «Borrar mi cuenta para siempre» (only the owner: team_gate). State, future bookings, days left.
@@ -16933,14 +17580,19 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(provider_account_status(db,*ref)); return
                 if path == '/api/center/activity':
                     user=require_user(self,db); require_role(user,{'center'})
-                    rows=[dict(r) for r in db.execute('''SELECT a.id,a.action,a.entity_type,a.entity_id,a.created_at,u.fullname FROM audit_log a LEFT JOIN users u ON u.id=a.user_id
+                    # v50.58: who did it with the name and profile they had then («Ana (Encargado)»)
+                    rows=[dict(r) for r in db.execute('''SELECT a.id,a.action,a.entity_type,a.entity_id,a.created_at,COALESCE(a.actor_name,u.fullname) AS fullname,
+                                                                a.actor_name,a.actor_role FROM audit_log a LEFT JOIN users u ON u.id=a.user_id
                                                          WHERE a.center_id=? ORDER BY a.id DESC LIMIT 300''',(user['center_id'] or -1,)).fetchall()]
                     self.send_json({'items':rows}); return
                 if path == '/api/team/invite':
                     tok=clean_text(query.get('token',[''])[0],100) or ''
-                    r=db.execute('SELECT t.center_id,t.email,t.member_role,t.expires_at,t.used_at,t.revoked_at,c.name FROM team_invites t JOIN centers c ON c.id=t.center_id WHERE t.token_hash=?',(hashlib.sha256(tok.encode()).hexdigest(),)).fetchone()
+                    r=db.execute('SELECT t.center_id,t.email,t.member_role,t.expires_at,t.used_at,t.revoked_at,t.account,t.link_kind,t.starts_on,t.ends_on,c.name FROM team_invites t JOIN centers c ON c.id=t.center_id WHERE t.token_hash=?',(hashlib.sha256(tok.encode()).hexdigest(),)).fetchone()
                     if not r or r['used_at'] or r['revoked_at'] or r['expires_at']<now(): self.send_json({'error':'La invitación no es válida o ha caducado.'},404); return
-                    self.send_json({'email':r['email'],'member_role':r['member_role'],'role_label':wroles.nombre(db,r['center_id'],r['member_role']),'center':r['name']}); return
+                    # v50.58: the invitations of «Enlazar persona» say which account they need and for which days
+                    self.send_json({'email':r['email'],'member_role':r['member_role'],'role_label':wroles.nombre(db,r['center_id'],r['member_role']),'center':r['name'],
+                                    'account':r['account'],'needs_freelance':r['account']=='freelance',
+                                    'dates':team_dates_text({'kind':r['link_kind'] or 'fixed','starts_on':r['starts_on'],'ends_on':r['ends_on']}) if r['account'] else None}); return
                 if path == '/api/admin/plans':
                     user=require_user(self,db); require_role(user,{'admin'})
                     plans=[plan_row(db,r['code']) for r in db.execute('SELECT code FROM plans ORDER BY sort_order,code').fetchall()]
@@ -17290,6 +17942,8 @@ class Handler(BaseHTTPRequestHandler):
                                         'pro_request': dict(claim) if claim else None,
                                         'legal':dict(zip(('pending','upcoming'),legal_pending_for(db,user))),
                                         'plan':provider_plan(db,*provider_ref(db,user)) if provider_ref(db,user) else None,'member_role':member_role(db,user),'centers':user_centers(db,user),
+                                        'own_role':real_role(user),'profiles':team_profiles(db,user),
+                                        'team_requests':db.execute("SELECT COUNT(*) FROM team_links WHERE user_id=? AND status='pending'",(user['id'],)).fetchone()[0],
                                         'member_role_name':wroles.nombre(db,user['center_id'],member_role(db,user)) if member_role(db,user) else None,
                                         'permissions':sorted(user_perms(db,user),key=wroles.CLAVES.index) if user['role'] in ('center','freelance') else [],
                                         'account_closed':(provider_account_status(db,*provider_of_user(user))['closed'] if provider_of_user(user) and provider_closure(db,*provider_of_user(user)) else None),
@@ -17365,13 +18019,17 @@ class Handler(BaseHTTPRequestHandler):
                     include_inactive=0
                     center_filter=int(query.get('center_id',['0'])[0] or 0)  # booking engine asks only for one center's catalog
                     owner_center=None
+                    viewer=current_user(self,db) if provider_id else None
                     if provider_id:
                         pu=db.execute("SELECT role,center_id FROM users WHERE id=?",(provider_id,)).fetchone()
-                        if pu and pu['role']=='center' and pu['center_id']:
+                        if viewer and viewer['id']==provider_id and viewer['role']=='center' and viewer['center_id']:
+                            # v50.58: the panel asks for «its» services: those of the centre this session works in (a
+                            # freelance working in a centre sees the centre's, never their own in the same screen)
+                            owner_center=int(viewer['center_id']); center_filter=owner_center
+                        elif pu and pu['role']=='center' and pu['center_id']:
                             # Fase 6.6: a centre's catalogue is the whole team's, whoever created each service.
                             owner_center=int(pu['center_id']); center_filter=center_filter or owner_center
                     if provider_id and query.get('include_inactive',['0'])[0]=='1':
-                        viewer=current_user(self,db)
                         include_inactive=1 if viewer and ((not owner_center and viewer['role']=='freelance' and int(viewer['id'])==provider_id) or (owner_center and viewer['role']=='center' and viewer['center_id']==owner_center)) else 0
                     if not provider_id and not center_filter:
                         # Never dump the whole marketplace catalog in one answer: ask for one center or provider.
@@ -18486,6 +19144,7 @@ class Handler(BaseHTTPRequestHandler):
         return True
 
     def do_POST(self):
+        _ACTOR.v = None
         parsed=urlparse(self.path); path=parsed.path
         if not self.precheck_write(): return
         if path.startswith('/api/v1/'): self.api_v1('POST', path, parse_qs(parsed.query)); return   # v50.56 · Parte E
@@ -18807,7 +19466,7 @@ class Handler(BaseHTTPRequestHandler):
                     if second: db.commit(); self.send_json(second[0],second[1]); return
                     db.execute('UPDATE users SET last_login=?,inactive_warned_at=NULL WHERE id=?',(now(),user['id'])); audit(db,user['id'],'login',details={'ip':wsec.ip_hash(ip),'red':wsec.ip_hash(net),'totp':bool(user['totp_enabled'])}); db.commit()
                     dev_=wdev.clean_device(data.get('app_device')) if wdev.is_app(self.headers.get('User-Agent')) else None   # v50.55: only the app gets a refresh token
-                    self.login_user(user['id'],db,{'ok':True,'role':user['role'],'totp_setup_required':totp_setup_required(db,user)},device=dev_); return
+                    self.login_user(user['id'],db,{'ok':True,'role':user['role'],'totp_setup_required':totp_setup_required(db,user)},device=dev_,remember=data.get('remember') is True); return
                 if path in ('/api/account/totp/setup','/api/account/totp/enable','/api/account/totp/disable','/api/account/totp/recovery'):
                     # Fase 4: two-step verification, optional for everybody and mandatory for administrators.
                     user=require_user(self,db); data=json_body(self); action=path.rsplit('/',1)[1]
@@ -19176,6 +19835,11 @@ class Handler(BaseHTTPRequestHandler):
                             w,a=owner_where(kind,oid)
                             if not db.execute(f'SELECT 1 FROM boats WHERE id=? AND {w}',(boat,*a)).fetchone(): raise NotFound('Barco no encontrado.')
                         if guide and guide not in {g['user_id'] for g in owner_guides(db,kind,oid)}: raise PermissionError('Esa persona no es guía de tu centro.')
+                        slot_row=db.execute('SELECT * FROM service_slots WHERE id=?',(slot_id,)).fetchone()
+                        prev_guide=db.execute('SELECT guide_user_id FROM slot_groups WHERE id=? AND slot_id=?',(gid,slot_id)).fetchone() if gid else None
+                        if guide and kind=='center' and (not prev_guide or prev_guide['guide_user_id']!=guide):
+                            a_,b_=slot_window(db,slot_row)
+                            if team_person_busy(db,guide,a_,b_,exclude_slot=slot_id): raise ValueError('Ocupado: esa persona ya tiene trabajo a esa hora. Elige a otra persona u otra hora.')
                         if guide: gname=None
                         if gid:
                             if not db.execute('SELECT 1 FROM slot_groups WHERE id=? AND slot_id=?',(gid,slot_id)).fetchone(): raise PermissionError('Este grupo no es de esta salida.')
@@ -19183,6 +19847,7 @@ class Handler(BaseHTTPRequestHandler):
                         else:
                             sort=(db.execute('SELECT COALESCE(MAX(sort),0) FROM slot_groups WHERE slot_id=?',(slot_id,)).fetchone()[0] or 0)+1
                             gid=db.execute('INSERT INTO slot_groups(slot_id,boat_id,guide_user_id,guide_name,label,sort,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)',(slot_id,boat,guide,gname,label,sort,now(),now())).lastrowid
+                        if guide and kind=='center' and (not prev_guide or prev_guide['guide_user_id']!=guide): team_notify_assignment(db,user,oid,slot_row,guide)
                         audit(db,user['id'],'manifest_group_saved','service_slot',slot_id,{'group':gid}); db.commit(); self.send_json({'ok':True,'id':gid}); return
                     if action=='groups/delete':
                         gid=int(data.get('id') or 0)
@@ -19369,6 +20034,7 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
                     center_id=user['center_id'] if user['role']=='center' else None
                     if user['role']=='center' and not center_id: raise ValueError('Tu cuenta de centro no tiene una ficha asociada.')
+                    freelance_free_gate(db,user)
                     ref=provider_ref(db,user); lim=plan_limit(db,*ref,'services_max') if ref else 0
                     if lim:
                         n_=db.execute('SELECT COUNT(*) FROM provider_services WHERE active=1 AND '+('center_id=?' if ref[0]=='center' else 'provider_user_id=? AND center_id IS NULL'),(ref[1],)).fetchone()[0]
@@ -19486,6 +20152,7 @@ class Handler(BaseHTTPRequestHandler):
                         available=total; slot_id=db.execute("INSERT INTO service_slots(service_id,slot_date,slot_time,spots_total,spots_available,status,point_mode,created_at,updated_at) VALUES(?,?,?,?,?,'open',?,?,?)",(sid,date,tm,total,total,point_mode,now(),now())).lastrowid
                     db.execute('DELETE FROM service_slot_points WHERE slot_id=?',(slot_id,))
                     db.executemany('INSERT OR IGNORE INTO service_slot_points(slot_id,dive_point_id) VALUES(?,?)',[(slot_id,pid) for pid in point_ids])
+                    if 'instructor_user_id' in data and service and service['center_id']: team_set_instructor(db,user,service['center_id'],slot_id,data.get('instructor_user_id'))
                     audit(db,user['id'],'service_slot_updated','service_slot',slot_id,{'spots_total':total,'spots_available':available,'dive_point_ids':point_ids}); db.commit(); self.send_json({'ok':True,'slot_id':slot_id,'spots_available':available}); return
                 if path=='/api/provider-services/slot-update':
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); slot_id=int(data.get('id') or 0)
@@ -19503,7 +20170,16 @@ class Handler(BaseHTTPRequestHandler):
                         allowed={r['dive_point_id'] for r in db.execute('SELECT dive_point_id FROM center_point_links WHERE center_id=?',(service['center_id'],)).fetchall()}
                         if not set(point_ids).issubset(allowed): raise ValueError('Selecciona solo puntos asociados al centro.')
                     available=total-consumed; status='full' if available==0 else 'open'
+                    moved=(date,tm)!=(slot['slot_date'],slot['slot_time'])
                     db.execute('UPDATE service_slots SET slot_date=?,slot_time=?,spots_total=?,spots_available=?,status=?,point_mode=?,updated_at=? WHERE id=?',(date,tm,total,available,status,point_mode,now(),slot_id))
+                    if service and service['center_id']:
+                        new_slot=db.execute('SELECT * FROM service_slots WHERE id=?',(slot_id,)).fetchone()
+                        workers={r['guide_user_id'] for r in db.execute('SELECT guide_user_id FROM slot_groups WHERE slot_id=? AND guide_user_id IS NOT NULL',(slot_id,)).fetchall()}|({slot['instructor_user_id']} if row_get(slot,'instructor_user_id') else set())
+                        if moved:
+                            for w_ in workers: team_check_free(db,service['center_id'],new_slot,w_)
+                        if 'instructor_user_id' in data: team_set_instructor(db,user,service['center_id'],slot_id,data.get('instructor_user_id'))
+                        if moved:
+                            for w_ in workers: team_notify_assignment(db,user,service['center_id'],new_slot,w_,changed=True)
                     db.execute('DELETE FROM service_slot_points WHERE slot_id=?',(slot_id,)); db.executemany('INSERT OR IGNORE INTO service_slot_points(slot_id,dive_point_id) VALUES(?,?)',[(slot_id,pid) for pid in point_ids])
                     audit(db,user['id'],'service_slot_updated','service_slot',slot_id,{'spots_total':total,'spots_available':available,'dive_point_ids':point_ids}); db.commit(); self.send_json({'ok':True,'slot_id':slot_id,'spots_available':available}); return
                 if path=='/api/provider-services/slot-delete':
@@ -19898,6 +20574,139 @@ class Handler(BaseHTTPRequestHandler):
                     tok=wsec.random_token(32)
                     db.execute(f'UPDATE {provider_table(ref[0])} SET ical_token=? WHERE id=?',(tok,ref[1])); audit(db,user['id'],'ical_regenerated',ref[0],ref[1]); db.commit()
                     self.send_json({'ok':True,'url':f'{public_site_url()}/ical/{tok}.ics'}); return
+                # ------------------------------------------------ v50.58 · equipo enlazado por QR (bloque 1)
+                if path=='/api/my/qr/share':
+                    # «Compartir para enlazar»: un enlace de un solo uso que dura 24 horas (una captura del QR no sirve)
+                    user=require_user(self,db)
+                    since=(datetime.now(timezone.utc)-_timedelta(days=1)).isoformat(timespec='seconds')
+                    if db.execute('SELECT COUNT(*) FROM team_share_links WHERE user_id=? AND created_at>=?',(user['id'],since)).fetchone()[0]>=10:
+                        raise ValueError('Has creado muchos enlaces hoy. Usa uno de los que tienes o espera a mañana.')
+                    tok=wsec.random_token(24)
+                    sid=db.execute('INSERT INTO team_share_links(token_hash,user_id,created_at,expires_at) VALUES(?,?,?,?)',(wteq.token_hash(tok),user['id'],now(),int(time.time())+wteq.SHARE_SECONDS)).lastrowid
+                    audit(db,user['id'],'team_share_link_created','user',user['id']); db.commit()
+                    self.send_json({'id':sid,'url':f'{public_site_url()}/e/{tok}','expires_in':wteq.SHARE_SECONDS}); return
+                if path=='/api/my/qr/share/revoke':
+                    user=require_user(self,db); data=json_body(self)
+                    if not db.execute('UPDATE team_share_links SET revoked_at=? WHERE id=? AND user_id=? AND used_at IS NULL AND revoked_at IS NULL',(now(),int(data.get('id') or 0),user['id'])).rowcount:
+                        raise NotFound('Ese enlace ya no se puede anular: se ha usado, ha caducado o ya estaba anulado.')
+                    audit(db,user['id'],'team_share_link_revoked','user',user['id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/my/teams/respond':
+                    user=require_user(self,db); data=json_body(self)
+                    if data.get('activate_freelance') is True and real_role(user)=='recreational':
+                        if data.get('accept_terms') is not True: raise ValueError('Acepta las condiciones para profesionales para activar tu perfil de freelance.')
+                        team_activate_freelance(db,user['id']); record_acceptances(db,user['id'],['centros'],self.client_ip())
+                        audit(db,user['id'],'freelance_activated','user',user['id']); user=dict(user,own_role='freelance') if user.get('own_role') else dict(user,role='freelance')
+                    st=team_respond(db,user,data.get('id'),data.get('accept') is True); db.commit()
+                    self.send_json({'ok':True,'status':st,**my_teams(db,user)}); return
+                if path=='/api/my/teams/leave':
+                    user=require_user(self,db); data=json_body(self)
+                    link=team_link_row(db,data.get('id'),uid=user['id']); team_end(db,user,link,'left')
+                    team_center_notice(db,link['center_id'],f'{user["fullname"]} ha salido de tu equipo.',sender=user['id'])
+                    db.commit(); self.send_json({'ok':True,**my_teams(db,user)}); return
+                if path=='/api/my/activate-freelance':
+                    user=require_user(self,db); data=json_body(self)
+                    if real_role(user)!='recreational': raise ValueError('Tu cuenta ya es profesional o no es de buceador.')
+                    if data.get('accept_terms') is not True: raise ValueError('Acepta las condiciones para profesionales para activar tu perfil de freelance.')
+                    team_activate_freelance(db,user['id']); record_acceptances(db,user['id'],['centros'],self.client_ip())
+                    audit(db,user['id'],'freelance_activated','user',user['id']); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/center/team/scan':
+                    # «Enlazar persona»: el centro escanea el QR, escribe el código o pega el enlace compartido (servicio común)
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']
+                    if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    rules=team_plan_rules(db,cid)
+                    if rules['blocked']: raise PlanRequired('team','Disponible en el plan Motor de reservas.')
+                    if TEAM_SCAN_LIMIT.hit(f"{cid}:{wsec.ip_group(self.client_ip())}"): raise ValueError('Demasiados intentos seguidos. Espera unos minutos y vuelve a probar.')
+                    uid,src=qr_resolve(db,data.get('code'),user['id'],cid)
+                    ref=wsec.random_token(24); t=int(time.time())
+                    db.execute('INSERT INTO qr_scan_refs(ref_hash,user_id,scanned_by,center_id,source,created_at,expires_at) VALUES(?,?,?,?,?,?,?)',(wteq.token_hash(ref),uid,user['id'],cid,src,t,t+wteq.REF_SECONDS))
+                    db.execute('DELETE FROM qr_scan_refs WHERE expires_at<?',(t-86400,))
+                    card=team_person_card(db,uid)
+                    card['already']=bool(is_team_member(db,cid,uid) or db.execute("SELECT 1 FROM team_links WHERE center_id=? AND user_id=? AND status IN ('pending','active','paused')",(cid,uid)).fetchone())
+                    card['self']=uid==user['id']
+                    audit(db,user['id'],'team_person_scanned','user',uid,{'source':src}); db.commit()
+                    self.send_json({'ref':ref,'person':card,'rules':dict(rules,used=team_seats(db,cid)),'source':src}); return
+                if path=='/api/center/team/link':
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']
+                    ref=db.execute('SELECT * FROM qr_scan_refs WHERE ref_hash=? AND center_id=?',(wteq.token_hash(str(data.get('ref') or '')),cid or -1)).fetchone()
+                    if not ref or ref['used_at'] or ref['expires_at']<int(time.time()): raise ValueError('Vuelve a escanear el QR de la persona: lo escaneado sirve 15 minutos y una sola vez.')
+                    lid,needs=team_request(db,user,cid,ref['user_id'],data.get('member_role'),data.get('kind') or 'fixed',data.get('starts_on'),data.get('ends_on'),ref['source'])
+                    db.execute('UPDATE qr_scan_refs SET used_at=? WHERE ref_hash=?',(now(),ref['ref_hash'])); db.commit()
+                    self.send_json({'ok':True,'id':lid,'needs_freelance':needs,
+                                    'message':'Para unirse a tu equipo, tiene que activar su perfil de freelance (es gratis). Le hemos enviado el enlace.' if needs else 'Petición enviada. En cuanto acepte, aparecerá en tu equipo.'}); return
+                if path=='/api/center/team/link-email':
+                    # Invitar por correo: a quien aún no tiene cuenta le llega un enlace para crearla (freelance o normal) y
+                    # queda enlazado al terminar. La respuesta es la misma tenga o no cuenta ese email.
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']
+                    if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    role=data.get('member_role')
+                    if not wroles.existe(db,cid,role) or role=='owner': raise ValueError('Elige el perfil: encargado, recepción, instructor o uno de los perfiles de tu centro.')
+                    email=(clean_text(data.get('email'),160) or '').lower()
+                    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email): raise ValueError('Email no válido.')
+                    team_check_plan(db,cid,role)
+                    kind,a,b=wteq.clean_dates(data.get('kind') or 'fixed',data.get('starts_on'),data.get('ends_on'),center_today(db,cid))
+                    if db.execute('SELECT 1 FROM team_invites WHERE center_id=? AND lower(email)=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>=?',(cid,email,now())).fetchone():
+                        raise ValueError('Ya hay una invitación pendiente para ese email.')
+                    tok=wsec.random_token(32)
+                    db.execute('INSERT INTO team_invites(center_id,email,member_role,token_hash,created_by,created_at,expires_at,link_kind,starts_on,ends_on,account) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                               (cid,email,role,hashlib.sha256(tok.encode()).hexdigest(),user['id'],now(),(datetime.now(timezone.utc)+_timedelta(days=7)).isoformat(timespec='seconds'),kind,a,b,
+                                'freelance' if wteq.needs_freelance(role) else 'any'))
+                    queue_email(db,'team_invite',email,'',{'first_name':'','center':provider_label(db,'center',cid),'inviter':user['fullname'],'member_role':team_role_label(db,cid,role),
+                                'join_url':f'{public_site_url()}/#/equipo?token={tok}'},'es',('center',cid))
+                    audit(db,user['id'],'team_invited','center',cid,{'role':role,'kind':kind,'starts_on':a,'ends_on':b}); db.commit(); self.send_json({'ok':True}); return
+                if path in ('/api/center/team/link/end','/api/center/team/link/pause','/api/center/team/link/reactivate','/api/center/team/link/role'):
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']
+                    link=team_link_row(db,data.get('id'),cid=cid or -1); cname=provider_label(db,'center',cid)
+                    if path.endswith('/end'):
+                        team_end(db,user,link,'removed')
+                        team_notify(db,link['user_id'],f'Ya no estás en el equipo de {cname}',f'{cname} te ha quitado de su equipo. Tus trabajos pasados siguen en tu agenda.',sender=user['id'])
+                    elif path.endswith('/pause'):
+                        if link['status']!='active': raise ValueError('Solo se pone en pausa a quien está activo.')
+                        db.execute("UPDATE team_links SET status='paused', paused_at=? WHERE id=?",(now(),link['id'])); team_link_apply(db,team_link_row(db,link['id']))
+                        audit(db,user['id'],'team_link_paused','user',link['user_id'])
+                    elif path.endswith('/reactivate'):
+                        if link['status']!='paused': raise ValueError('Esa persona no está en pausa.')
+                        team_check_plan(db,cid,link['member_role'],exclude_link=link['id'])
+                        db.execute("UPDATE team_links SET status='active', paused_at=NULL WHERE id=?",(link['id'],)); team_link_apply(db,team_link_row(db,link['id']))
+                        team_notify(db,link['user_id'],f'Vuelves a estar en el equipo de {cname}',f'{cname} ha reactivado tu perfil en su equipo.',sender=user['id'])
+                        audit(db,user['id'],'team_link_reactivated','user',link['user_id'])
+                    else:
+                        role=data.get('member_role')
+                        if not wroles.existe(db,cid,role) or role=='owner': raise ValueError('Perfil no válido.')
+                        if link['status'] not in ('pending','active','paused'): raise ValueError('Ese enlace ya está terminado.')
+                        if team_plan_rules(db,cid)['only_reception'] and role!=wteq.RECEPTION: raise PlanRequired('team_profiles','Disponible en el plan Pro.')
+                        acc=db.execute('SELECT role FROM users WHERE id=?',(link['user_id'],)).fetchone()
+                        if acc and acc['role']=='recreational' and wteq.needs_freelance(role): raise ValueError('Para ese perfil hace falta una cuenta de freelance: la persona tiene que activarla primero.')
+                        db.execute('UPDATE team_links SET member_role=? WHERE id=?',(role,link['id'])); team_link_apply(db,team_link_row(db,link['id']))
+                        audit(db,user['id'],'team_role_changed','user',link['user_id'],{'role':role})
+                    db.commit(); self.send_json({'ok':True,'links':center_team_links(db,cid),'rules':dict(team_plan_rules(db,cid),used=team_seats(db,cid))}); return
+                if path=='/api/center/team/transfer':
+                    # «Transferir la propiedad»: a otra persona activa del equipo, con confirmación por correo del propietario.
+                    user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']; uid=int(data.get('user_id') or 0)
+                    if member_role(db,user)!='owner': raise PermissionError('Solo el propietario puede transferir la propiedad.')
+                    m=db.execute('SELECT member_role FROM center_members WHERE center_id=? AND user_id=?',(cid,uid)).fetchone()
+                    if not m or m['member_role']=='owner' or uid==user['id']: raise ValueError('Elige a una persona activa de tu equipo.')
+                    tok=wsec.random_token(32)
+                    db.execute('UPDATE team_transfers SET cancelled_at=? WHERE center_id=? AND confirmed_at IS NULL AND cancelled_at IS NULL',(now(),cid))
+                    db.execute('INSERT INTO team_transfers(center_id,from_user,to_user,token_hash,created_at,expires_at) VALUES(?,?,?,?,?,?)',
+                               (cid,user['id'],uid,hashlib.sha256(tok.encode()).hexdigest(),now(),(datetime.now(timezone.utc)+_timedelta(days=2)).isoformat(timespec='seconds')))
+                    to=db.execute('SELECT fullname FROM users WHERE id=?',(uid,)).fetchone()
+                    queue_email(db,'team_transfer',user['email'],user['fullname'],{'first_name':(user['fullname'] or '').split(' ')[0],'center':provider_label(db,'center',cid),
+                                'new_owner':to['fullname'] if to else '','confirm_url':f'{public_site_url()}/#/equipo/propiedad?token={tok}'},user_lang(db,user['id']),('center',cid))
+                    audit(db,user['id'],'team_transfer_requested','user',uid); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/team/transfer/confirm':
+                    user=require_user(self,db); data=json_body(self); tok=clean_text(data.get('token'),100) or ''
+                    tr=db.execute('SELECT * FROM team_transfers WHERE token_hash=?',(hashlib.sha256(tok.encode()).hexdigest(),)).fetchone()
+                    if not tr or tr['confirmed_at'] or tr['cancelled_at'] or tr['expires_at']<now(): raise ValueError('El enlace no es válido o ha caducado.')
+                    if tr['from_user']!=user['id']: raise PermissionError('Este enlace es para el propietario del centro: entra con su cuenta.')
+                    cid=tr['center_id']
+                    if not db.execute('SELECT 1 FROM center_members WHERE center_id=? AND user_id=?',(cid,tr['to_user'])).fetchone(): raise ValueError('Esa persona ya no está en el equipo.')
+                    db.execute("UPDATE center_members SET member_role='owner' WHERE center_id=? AND user_id=?",(cid,tr['to_user']))
+                    db.execute("UPDATE team_links SET member_role='owner', kind='fixed', starts_on=NULL, ends_on=NULL WHERE center_id=? AND user_id=? AND status='active'",(cid,tr['to_user']))
+                    db.execute("INSERT INTO center_members(center_id,user_id,member_role,created_at,created_by) VALUES(?,?,'manager',?,?) ON CONFLICT(center_id,user_id) DO UPDATE SET member_role='manager'",
+                               (cid,user['id'],now(),user['id']))
+                    db.execute('UPDATE team_transfers SET confirmed_at=? WHERE id=?',(now(),tr['id']))
+                    team_notify(db,tr['to_user'],'Ahora eres el propietario',f'Ahora eres el propietario de {provider_label(db,"center",cid)} en WORLDIVES.',sender=user['id'])
+                    audit(db,user['id'],'team_transfer_confirmed','user',tr['to_user']); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/center/team/invite':
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']
                     if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
@@ -19936,6 +20745,8 @@ class Handler(BaseHTTPRequestHandler):
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); cid=user['center_id']
                     if not cid: raise ValueError('Tu cuenta no tiene un centro asociado.')
                     if path.endswith('/save'):
+                        # v50.58 (plans decided on 16/10/2026): own profiles are created only with the Pro plan
+                        if not data.get('key') and not team_plan_rules(db,cid)['custom_profiles']: raise PlanRequired('team_profiles','Disponible en el plan Pro.')
                         key=wroles.guardar(db,cid,data,user['id'],now())
                         audit(db,user['id'],'team_role_saved','center',cid,{'role':key,'name':wroles.nombre(db,cid,key),'permissions':sorted(wroles.permisos(db,cid,key))})
                     else:
@@ -20029,6 +20840,15 @@ class Handler(BaseHTTPRequestHandler):
                     else: raise ValueError('Elige una opción.')
                     audit(db,None,'slot_cancel_choice','booking',b['id'],{'choice':choice,'result':result,'via':'enlace firmado'}); db.commit()
                     self.send_json({'ok':True,'result':result}); return
+                if path=='/api/team/switch' and real_role(require_user(self,db)) in ('freelance','recreational'):
+                    # v50.58 (equipo por QR): the profile selector of a person with their own account. «Mi perfil» (0) or a
+                    # centre where they work today; the session changes context and never mixes two centres.
+                    user=require_user(self,db); data=json_body(self); target=int(data.get('center') or 0)
+                    if target and not any(p.get('center_id')==target for p in team_profiles(db,user)): raise NotFound('Centro no encontrado.')
+                    db.execute('UPDATE sessions SET active_center_id=? WHERE token_hash=?',(target or None,self.session_hash()))
+                    _ACTOR.v=dict(_ACTOR.v or {},center_id=target or None)
+                    audit(db,user['id'],'team_context_switch','center' if target else 'user',target or user['id'],{'from':user['center_id'] if user['role']=='center' else None}); db.commit()
+                    self.send_json({'ok':True,'center_id':target or None}); return
                 if path=='/api/team/switch':
                     # v50.47 (B.6): explicit change of the centre of this session. Only to a centre the account belongs to.
                     user=require_user(self,db); require_role(user,{'center'}); data=json_body(self); target=int(data.get('center') or 0)
@@ -20043,6 +20863,10 @@ class Handler(BaseHTTPRequestHandler):
                     inv=db.execute('SELECT * FROM team_invites WHERE token_hash=?',(hashlib.sha256(tok.encode()).hexdigest(),)).fetchone()
                     if not inv or inv['used_at'] or inv['revoked_at'] or inv['expires_at']<now(): raise ValueError('La invitación no es válida o ha caducado.')
                     cu=current_user(self,db)
+                    if inv['account']:
+                        uid=team_join_invite(self,db,inv,cu,data)
+                        if cu: self.send_json({'ok':True,'linked':True}); return
+                        self.login_user(uid,db,{'ok':True,'linked':True}); return
                     if cu:
                         if cu['email'].lower()!=inv['email']: raise PermissionError('Esta invitación es para otro email. Cierra sesión o entra con la cuenta invitada.')
                         if cu['role'] not in ('recreational','center'): raise ValueError('Tu cuenta ya es profesional.')
@@ -21648,6 +22472,7 @@ class Handler(BaseHTTPRequestHandler):
                 invalidate_after_post(path)
 
     def do_DELETE(self):
+        _ACTOR.v = None
         parsed=urlparse(self.path)
         if not self.precheck_write(): return
         if '/virtual/' in parsed.path and parsed.path.startswith('/api/dive-points/'):
@@ -21682,9 +22507,11 @@ class Handler(BaseHTTPRequestHandler):
             if k == wdev.KNOWN_COOKIE and re.fullmatch(r'[A-Za-z0-9_-]{16,64}', v or ''): return v
         return None
 
-    def login_user(self, uid, db=None, payload=None, device=None, access_device=None):
+    def login_user(self, uid, db=None, payload=None, device=None, access_device=None, remember=False):
         """Create a session and answer the request (one response only). v50.55: from the app (device), also its device
-        session with a refresh token, and an access session of 15 minutes; access_device renews one (/api/auth/refresh)."""
+        session with a refresh token, and an access session of 15 minutes; access_device renews one (/api/auth/refresh).
+        v50.58 (equipo, 5.5): «Mantener la sesión iniciada en este ordenador» (remember) keeps the cookie when the browser
+        closes, until the same limits as always (8 h from signing in, 4 h without use): no limit is longer."""
         token=secrets.token_urlsafe(32); now_ts=time.time(); token_hash=hashlib.sha256(token.encode()).hexdigest()
         own = db is None
         conn = connect() if own else db
@@ -21715,13 +22542,15 @@ class Handler(BaseHTTPRequestHandler):
                     extra_cookies.append(f"{wdev.KNOWN_COOKIE}={dev_id}; Path=/; Max-Age={wdev.KNOWN_COOKIE_DAYS*86400}; HttpOnly; SameSite=Lax{'; Secure' if secure_cookies() else ''}")
                 label, system = wdev.browser_label(ua)
                 note_device(conn, uid, wdev.token_hash('web:' + dev_id), label + (f' · {system}' if system else ''), city)
-            conn.execute('INSERT INTO sessions(token_hash,user_id,created_at,last_seen,user_agent,ip_hash,device_id,expires_at,city) VALUES(?,?,?,?,?,?,?,?,?)',
-                         (token_hash,uid,now_ts,now_ts,ua,wsec.ip_hash(self.client_ip()),device_id,expires,city or None)); conn.commit()
+            remember = bool(remember) and not device and not access_device
+            conn.execute('INSERT INTO sessions(token_hash,user_id,created_at,last_seen,user_agent,ip_hash,device_id,expires_at,city,remember) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                         (token_hash,uid,now_ts,now_ts,ua,wsec.ip_hash(self.client_ip()),device_id,expires,city or None,1 if remember else None)); conn.commit()
         finally:
             if own: conn.close()
         secure = '; Secure' if secure_cookies() else ''
         body=json.dumps(payload,ensure_ascii=False).encode('utf-8')
-        self.send_response(200); self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Set-Cookie',f'{session_cookie_name()}={token}; Path=/; HttpOnly; SameSite=Lax{secure}')
+        keep = f'; Max-Age={SESSION_TTL_SECONDS}' if remember else ''
+        self.send_response(200); self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Set-Cookie',f'{session_cookie_name()}={token}; Path=/{keep}; HttpOnly; SameSite=Lax{secure}')
         for c_ in extra_cookies: self.send_header('Set-Cookie', c_)
         self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store'); self.security_headers(); self.end_headers(); self.wfile.write(body)
 
@@ -21799,7 +22628,8 @@ def maintenance_loop():
         time.sleep(wcfg.env_int('WOD_MAINTENANCE_SECONDS', 60, 5, 3600))
 
 
-MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs, run_slot_cancel_jobs, run_payments_totp_notices, run_video_jobs]
+MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs, run_slot_cancel_jobs, run_payments_totp_notices, run_video_jobs,
+                    run_team_jobs]
 
 
 RETENTION_DEFAULTS = {'inactive_months': 36, 'expired_docs_months': 12, 'notices_months': 24, 'audit_months': 12, 'audit_keep': 300, 'insurance_months': 12}

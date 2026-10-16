@@ -238,7 +238,8 @@ class AgendaServer(ServerTestCase):
         # Without the plan feature, no service by days (never a silent fallback)
         self.server.sql("UPDATE users SET plan_code='free',plan_expires_at=NULL WHERE id=?", (self.other.user['id'],))
         r = self.other.post('/api/provider-services', {'title': 'Por días sin plan', 'price': 50, 'booking_unit': 'day', 'pricing': {'day': 50}})
-        self.assertEqual((r.status, r.json.get('plan_required')), (403, 'agenda_days'), r)
+        # v50.58 (owner's decision, 16/10/2026): the free plan of a freelance has no own services at all
+        self.assertEqual((r.status, r.json.get('plan_required')), (403, 'online_bookings'), r)
 
     def test_month_of_agenda_is_fast(self):
         """A4.5: a month of a provider with a busy agenda, among 500 others, in ≤ 300 ms on the server."""
