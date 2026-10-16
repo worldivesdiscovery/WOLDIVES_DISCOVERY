@@ -149,7 +149,7 @@ Los procesos comparten las sesiones (en la base de datos) y los límites de inte
 
 **Cuándo migrar a PostgreSQL.** SQLite en modo WAL admite muchas lecturas simultáneas, pero **una sola escritura a la vez**. Las escrituras de WORLDIVES son pocas y cortas (reservas, pagos, inicios de sesión, estadísticas). Conviene empezar a preparar la migración cuando se cumpla **cualquiera** de estas condiciones de forma sostenida:
 
-- más de **50 escrituras por segundo** en hora punta (equivale a unas **20 000 reservas o solicitudes al día**), o errores «database is locked» en el registro;
+- más de unas **30 reservas por segundo** en hora punta, o errores «database is locked» en el registro. Medido en la v50.57 en un servidor de 2 núcleos como el VPS (`docs/auditoria/v50.57/carga.md`): con 300 personas navegando, 20 y 30 reservas por segundo sin ningún error; con 40, las reservas tardan más de 1 s y aparece la primera rechazada por la base bloqueada. 20 reservas por segundo son 72 000 por hora;
 - la base supera **10 GB**, o las copias horarias tardan más de un minuto;
 - hace falta **más de un servidor** de aplicación (alta disponibilidad o varias regiones), porque SQLite es un archivo local;
 - se necesitan **informes pesados** en paralelo con el tráfico.

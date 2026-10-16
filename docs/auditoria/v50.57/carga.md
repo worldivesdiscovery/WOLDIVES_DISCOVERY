@@ -19,8 +19,7 @@ Meta: **el 95 % de las páginas en menos de 500 ms y ningún error**.
   procesos, la misma base con WAL, la misma caché y el mismo envío de correos por SMTP.
 - **Como el VPS contratado (Hostinger KVM 2, 2 vCPU)**: el servidor con `WOD_WORKERS=2` y fijado a **2 núcleos**
   (`taskset`); el generador de carga (Locust) en los otros 2, para que no le quite procesador al servidor.
-- **⟪USUARIOS⟫ usuarios a la vez** durante ⟪DURACION⟫ de régimen estable (después de la llegada y de un tiempo para
-  asentarse):
+- **320 usuarios a la vez** durante 280 s de régimen estable (después de 20 s de llegada y 10 s para asentarse):
   - **300 visitantes navegando** como personas: portada (con su mapa de puntos), explorar y listas de puntos, fichas
     de puntos y de centros, calendarios de salidas, buscador y salidas cercanas. Cada uno espera de 3 a 10 s entre
     una pantalla y otra (un uso intenso: una persona real suele tardar más) y tiene su propia IP, como detrás del
@@ -33,12 +32,13 @@ Meta: **el 95 % de las páginas en menos de 500 ms y ningún error**.
     con su cálculo de contraseña deliberadamente lento, serían otra prueba). Si el servicio es de «pago al reservar»
     (uno de cada tres), la persona paga al momento en el simulador de Stripe y la página de vuelta confirma el pago,
     como en la web.
-  - Con 500 cuentas, 20 reservas por segundo son una reserva de cada cuenta cada 25 s; en la realidad serían miles de
-    personas distintas. Por eso, solo en esta prueba, el límite de 20 reservas por persona y hora se sube (se sigue
+  - Con 440 cuentas (las otras 60 son de las ráfagas), 20 reservas por segundo son una reserva de cada cuenta cada
+    22 s; en la realidad serían miles de personas distintas. Por eso, solo en esta prueba, el límite de 20 reservas por persona y hora se sube (se sigue
     consultando en cada reserva). El límite de 3 pagos sin terminar por persona sigue igual.
-  - **Ráfagas a la misma salida**: cada ⟪CADA⟫ s, un centro abre una salida de ⟪PLAZAS⟫ plazas y le llegan **20 reservas
-    a la vez** por los cuatro caminos del encargo multicanal: 12 buceadores por la web, 4 reservas manuales del centro y
-    4 por la API del centro. Después se cuentan en la base las plazas tomadas.
+  - **Ráfagas a la misma salida**: cada 30 s, un centro abre una salida de 3 plazas de «pago al reservar» y le llegan
+    **20 reservas a la vez**: 12 buceadores por la web (cada reserva ocupa su plaza mientras la persona paga), 4 reservas
+    manuales del centro y 4 por la API del centro. Las 20 compiten por las mismas 3 plazas (el widget en la web del
+    centro reserva con la misma función). Después se cuentan en la base las plazas tomadas y las reservas aceptadas.
 - Se miden el p50, p95 y p99 de cada grupo (páginas, reservas), los errores, la CPU y la memoria del servidor, el
   tamaño de la base y del WAL, y en el registro del servidor los bloqueos de SQLite («database is locked») y los
   errores 500.
@@ -83,7 +83,36 @@ antes de medir (la web no tenía culpa):
 
 ## 5.3 · ¿Aguanta SQLite?
 
-⟪SQLITE⟫
+**Estado: Ya estaba.** SQLite aguanta la carga del encargo sin cambiar nada de lo que pedía el punto 5.3, porque ya
+estaba hecho:
+
+- **Modo WAL**: las lecturas no esperan a las escrituras; escrituras con `synchronous=NORMAL` y hasta 10 s de espera
+  si otra está escribiendo.
+- **Índices**: 165 en la base (135 tablas), incluidos los de las búsquedas de esta prueba.
+- **Caché de las consultas públicas**: el mapa de puntos, el directorio, los tipos de buceo, las fotos de la web, las
+  promociones, los viajes y el catálogo de servicios se calculan una vez y se renuevan en segundo plano; las
+  conexiones a la base se reutilizan (v50.51).
+
+Lo que sí encontró la prueba (la cola de correos que bloqueaba la base, arriba) está corregido.
+
+**Dónde está el límite.** Las mismas 300 personas navegando y cada vez más reservas por segundo (el mismo servidor de 2
+núcleos; 30 y 40, pasadas de 2 minutos):
+
+| Reservas por segundo | Páginas p95 | Reservas p95 | Errores |
+|---|---|---|---|
+| 20 (el encargo) | ⟪F20_PAG⟫ | ⟪F20_RES⟫ | 0 |
+| 30 | 64 ms | 400 ms | 0 |
+| 40 pedidas (salieron 37) | 140 ms | 1,3 s | 1 reserva rechazada por la base bloqueada (más de 10 s esperando para escribir, al empezar la prueba) |
+
+El procesador no es el límite (el servidor usó entre 135 % y 139 % de sus 200 %): lo es que SQLite escribe de una en
+una. Con 20 reservas por segundo, la base está escribiendo el 57 % del tiempo (medido transacción a transacción en una
+pasada de 2 minutos): sobre todo las reservas, que guardan la reserva y sus correos en la misma escritura.
+
+**¿Hace falta PostgreSQL? No** para lo que pide el encargo ni para el lanzamiento: 20 reservas por segundo son 72.000
+por hora. Conviene prepararlo si en hora punta se pasa de forma sostenida de unas 30 reservas por segundo, si aparecen
+errores «database is locked» en el registro del servidor, o en los otros casos de la guía (más de un servidor, base de
+más de 10 GB, informes pesados a la vez que el tráfico). Cómo hacerlo y esos casos: `docs/despliegue/README.md`,
+apartado 9, al día con estas cifras.
 
 ## Cómo repetirlo
 
