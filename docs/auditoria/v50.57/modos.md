@@ -26,7 +26,7 @@ especial atención a **centro: reservas, planning y agenda**; **freelance: reser
 
 ## Resultado
 
-**⟪TOTAL⟫ comprobaciones correctas** en la pasada final: las 73 pantallas, en el ordenador y en el móvil, sin
+**172/172 comprobaciones correctas** en la pasada final: las 73 pantallas, en el ordenador y en el móvil, sin
 errores, sin textos rotos y sin nada fuera de la pantalla; las de especial atención, con sus datos y guardando bien.
 
 Se han corregido **nueve fallos** (abajo). Para comprobar que las pruebas nuevas los ven de verdad, se han pasado
