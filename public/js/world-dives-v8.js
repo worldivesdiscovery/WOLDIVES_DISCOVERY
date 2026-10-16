@@ -1934,7 +1934,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <div class="cd-wrap">
         <div class="cd-toolbar"><div class="cd-chips" id="exs-kinds" role="group" aria-label="Tipo de experiencia"></div><div class="cd-tools"><label><span class="sr-only">Ordenar</span><select id="exs-sort"><option value="recommended">Con más salidas</option><option value="price">Precio más bajo</option><option value="date">Próxima salida</option><option value="name">Nombre A-Z</option></select></label></div></div>
         <div class="cd-results-head"><p id="exs-count" aria-live="polite">Cargando destinos…</p></div>
-        <div class="cd-grid" id="exs-grid"></div>
+        <div class="cd-grid" id="exs-grid">${Array.from({length:6},()=>'<div class="cd-card is-skeleton" aria-hidden="true"><div class="cd-media"></div><div class="cd-body"><i></i><i></i><i></i></div></div>').join('')}</div>
         <aside class="cd-owner"><div><p class="eyebrow">Para centros y profesionales</p><h2>Publica tus viajes</h2><p>Crea un viaje o una vida a bordo desde «Servicios y tarifas» y aparecerá aquí con sus fechas, plazas y precio actualizados.</p></div><a class="btn btn-primary" href="#/registro">Empezar a publicar</a></aside>
       </div></section>`);
     const still=navGuard(); let d; try{ d=await loadTravelDirectory(); }catch(err){ if(!still()) return; $('#exs-grid').innerHTML=`<div class="empty cd-empty"><h3>No hemos podido cargar las experiencias</h3><p>${escapeHtml(err.message)}</p></div>`; $('#exs-count').textContent=''; return; }

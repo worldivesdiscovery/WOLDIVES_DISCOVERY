@@ -105,7 +105,8 @@ def main():
             for name, path, ready in (('inicio', '/#/', '.tp-hero-img'), ('puntos', '/#/puntos', '#pt-grid .pt-card:not(.is-skeleton)'),
                                       ('punto', f'/#/punto?id={pid}', '.pp-keys'), ('tipos', '/#/tipos', '.tp54'),
                                       ('top10', '/#/top10', '.tp-hero-img'), ('centros', '/#/centros', '.cd-card'),
-                                      ('centro', f'/#/centro?id={cid}', '.cp-hero')):
+                                      ('centro', f'/#/centro?id={cid}', '.cp-hero'),
+                                      ('experiencias', '/#/experiencias', '.dst-card')):   # v50.57: the grid keeps its place while it loads
                 ctx, pg = page(MOBILE, cls=True)
                 pg.goto(srv.base + path); pg.wait_for_selector(ready, timeout=60000); pg.wait_for_timeout(2500)
                 if name == 'inicio':
