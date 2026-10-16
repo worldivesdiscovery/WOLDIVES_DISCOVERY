@@ -197,7 +197,7 @@ def run(out: Path | None):
 
             c, pg = ctx(); login(pg, 'admin.prueba')
             pg.route('**/api/admin/audit', lambda route: route.fulfill(status=500, content_type='application/json', body='{"error":"Error interno"}'))
-            pg.goto(f'{srv.base}/#/admin'); pg.wait_for_selector('.provider-tabs', timeout=15000); pg.wait_for_timeout(1500)
+            pg.goto(f'{srv.base}/#/admin'); pg.wait_for_selector('.cb-sidebar [data-tab]', timeout=15000); pg.wait_for_timeout(1500)
             t = pg.inner_text('body')
             check('1.1 · administración: si falla una parte, el Centro de control se abre igual y lo dice', 'Centro de control' in t and 'No se ha podido abrir' not in t
                   and 'Actividad' in pg.inner_text('.wd-block-error'), t[:400])
@@ -227,10 +227,10 @@ def run(out: Path | None):
             shot(pg, 'b2-1-guardado-vuelve-a-puntos')
             check('2.1 · el punto se ha guardado sin cambios no pedidos', name in pg.inner_text('#app'), name)
             # the menu of the section you are in always works (before: from «Editar punto», «Administración» did nothing)
-            pg.goto(f'{srv.base}/#/admin'); pg.wait_for_selector('.provider-tabs', timeout=15000); pg.wait_for_load_state('networkidle')
+            pg.goto(f'{srv.base}/#/admin'); pg.wait_for_selector('.cb-sidebar [data-tab]', timeout=15000); pg.wait_for_load_state('networkidle')
             pg.evaluate("document.querySelector('#app').insertAdjacentHTML('afterbegin','<p id=wd-mark>marca</p>')")
             pg.locator('#account-toggle').click(); pg.locator('#account-dropdown a[href="#/admin"]').click()
-            pg.wait_for_selector('#wd-mark', state='detached', timeout=8000); pg.wait_for_selector('.provider-tabs', timeout=15000)
+            pg.wait_for_selector('#wd-mark', state='detached', timeout=8000); pg.wait_for_selector('.cb-sidebar [data-tab]', timeout=15000)
             check('2.1 · pulsar «Administración» estando ya en Administración la vuelve a cargar', pg.locator('#wd-mark').count() == 0)
             for tabname, sel, form, label in (('centers', '#new-center', '#center-form', 'Nuevo centro'), ('centers', '.edit-center', '#center-form', 'Editar centro'),
                                               ('destinations', '.edit-destination', '#destination-form', 'Editar destino')):
@@ -247,7 +247,7 @@ def run(out: Path | None):
             pg.wait_for_selector('a[href^="#/centro?id="]', timeout=15000); pg.locator('a[href^="#/centro?id="]').first.click()
             wait_hash(pg, lambda h: h.startswith('#/centro?id=')); pg.wait_for_load_state('networkidle')
             pg.locator('#account-toggle').click(); pg.locator('#account-dropdown a[href="#/admin"]').click()
-            pg.wait_for_selector('.provider-tabs', timeout=15000)
+            pg.wait_for_selector('.cb-sidebar [data-tab]', timeout=15000)
             check('2.1 · de la ficha de un centro a Administración, a la primera', 'Centro de control' in pg.inner_text('#app'))
             # a slow screen that finishes after the next one does not cover it
             pg.goto(f'{srv.base}/#/centros'); pg.wait_for_selector('a[href^="#/centro?id="]', timeout=15000)
@@ -333,7 +333,7 @@ def run(out: Path | None):
             shot(pg, 'b2-2-destinos')
             # Plantillas
             pg.goto(f'{srv.base}/#/admin?tab=svctemplates'); pg.wait_for_selector('.st-card', timeout=15000)
-            check('2.2 · Plantillas se abre por su dirección (antes, «Inicio»)', pg.evaluate("document.querySelector('.provider-tabs .active')?.dataset.tab") == 'svctemplates')
+            check('2.2 · Plantillas se abre por su dirección (antes, «Inicio»)', pg.evaluate("document.querySelector('.cb-sidebar .cb-nav.active')?.dataset.tab") == 'svctemplates')
             cards = pg.eval_on_selector_all('.st-card', "cs => cs.map(c => [c.dataset.id, c.querySelector('.st-body strong').innerText.trim()])")
             bad = []
             for tid, tname in cards:
@@ -365,7 +365,7 @@ def run(out: Path | None):
             # 4.1 · the password only for personal data
             c, pg = ctx(); dialogs = []; pg.on('dialog', lambda d: (dialogs.append(d.message), d.dismiss()))
             login(pg, 'admin.prueba')
-            pg.goto(f'{srv.base}/#/admin'); pg.wait_for_selector('.provider-tabs', timeout=15000); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(800)
+            pg.goto(f'{srv.base}/#/admin'); pg.wait_for_selector('.cb-sidebar [data-tab]', timeout=15000); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(800)
             check('4.1 · entrar en el Centro de control no pide nada (antes, dos ventanas de motivo)', not dialogs and pg.locator('#wd-admin-gate').count() == 0, dialogs)
             for tabname in ('points', 'destinations', 'svctemplates', 'centers', 'experiences', 'qr', 'audit'):
                 pg.goto(f'{srv.base}/#/admin?tab={tabname}'); pg.wait_for_selector('#admin-content *', timeout=15000); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(300)

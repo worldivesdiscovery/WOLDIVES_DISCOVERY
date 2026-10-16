@@ -336,7 +336,7 @@ SCREEN_JS = r"""
   const vis = el => { try { if (el.checkVisibility && !el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false; } catch (e) {}
     const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const h = document.querySelector('#app h1') || document.querySelector('#app h2');
-  const navs = [...document.querySelectorAll('.cb-nav[data-cbtab], .provider-tabs .tab[data-tab]')].filter(vis);
+  const navs = [...document.querySelectorAll('.cb-nav[data-cbtab], .cb-nav[data-tab], .provider-tabs .tab[data-tab]')].filter(vis);
   const activeNav = navs.find(b => b.classList.contains('active'));
   const isOn = b => b.getAttribute('aria-selected') === 'true' || b.getAttribute('aria-pressed') === 'true' || /(^|\s)(active|is-on|is-active|selected)(\s|$)/.test(b.className);
   const subs = [];

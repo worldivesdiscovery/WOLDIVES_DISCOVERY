@@ -1892,7 +1892,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $$('[data-scroll]').forEach(a=>a.onclick=e=>{ e.preventDefault(); document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:'smooth',block:'start'}); });
     bindMarineStrip();
     pointDepartures(p);
-    if(hasGeo) wdMaps().then(ok=>{ if(!$('#pp-map')) return; if(!ok){ $('#pp-map').innerHTML=`<div class="map-fallback"><strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong></div>`; return; } try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:false,scrollWheelZoom:false,attributionControl:true}))).setView([lat,lng],12); L.control.zoom({position:'bottomleft'}).addTo(m); wdLayerControl(m,{noteEl:$('#pp-map-note')}); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } });
+    if(hasGeo) wdMaps().then(ok=>{ if(!$('#pp-map')) return; if(!ok){ $('#pp-map').innerHTML=`<div class="map-fallback"><strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong></div>`; return; } try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:false,scrollWheelZoom:true,attributionControl:true}))).setView([lat,lng],12); L.control.zoom({position:'bottomleft'}).addTo(m); wdLayerControl(m,{noteEl:$('#pp-map-note')}); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } });
     $('#suggest-pos')?.addEventListener('click',()=>{ $('#suggest-form').innerHTML=`<div class="form-grid pp-suggest"><div class="field"><label>Latitud</label><input id="s-lat" type="number" step="0.000001" value="${hasGeo?lat:''}"></div><div class="field"><label>Longitud</label><input id="s-lon" type="number" step="0.000001" value="${hasGeo?lng:''}"></div><div class="field full"><label>Motivo</label><textarea id="s-note" placeholder="Qué ves en el mapa y por qué propones moverlo…"></textarea></div></div><button class="btn btn-primary" id="s-save" type="button">Enviar propuesta</button>`; $('#s-save').onclick=async()=>{ try{ await postJSON('/api/dive-points/'+id+'/suggest',{latitude:+$('#s-lat').value,longitude:+$('#s-lon').value,note:$('#s-note').value}); toast('Propuesta enviada.'); $('#suggest-form').innerHTML='<div class="notice">Propuesta registrada y pendiente de revisión.</div>'; }catch(e){ toast(e.message); } }; });
   }
 
@@ -4280,14 +4280,18 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function wdWeekText(wds){ const n=[1,2,3,4,5,6,7].map(i=>new Date(Date.UTC(2024,0,i)).toLocaleDateString(wdLocale(),{weekday:'short',timeZone:'UTC'})); if(wds.length===7) return translateString('todos los días'); const s=[...wds].sort(); const consec=s.every((x,i)=>!i||x===s[i-1]+1); return consec&&s.length>2?`${n[s[0]]} a ${n[s[s.length-1]]}`:s.map(i=>n[i]).join(', '); }
   async function renderFreelancePanel(d){
     const u=d.user||{}, esc=escapeHtml; state.me=d;
-    const tabs=[['dashboard','⌂','Resumen'],['bookings','☰','Reservas'],['planning','▦','Planning'],['agenda','▣','Mi agenda'],['services','◈','Servicios y tarifas'],['experiences','✈','Experiencias y solicitudes'],['payments','€','Cobros y pagos'],['profile','✦','Perfil público'],['marina','◍','Vídeos y vida marina'],
-      ['vender','↔','Vender en tu web'],['avisos','✆','Avisos y WhatsApp'],['requests','✉','Solicitudes de información'],['stats','◑','Estadísticas'],['tools','⇩','Herramientas'],['fiscal','§','Datos fiscales y seguro'],['plan','◆','Mi plan']];
+    const tabs=[['dashboard','home','Resumen'],['bookings','inbox','Reservas'],['planning','calendar','Planning'],['agenda','clock','Mi agenda'],['services','tag','Servicios y tarifas'],['experiences','viaje','Experiencias y solicitudes'],['payments','card','Cobros y pagos'],['profile','user','Perfil público'],['marina','fish','Vídeos y vida marina'],
+      ['vender','globe','Reservas desde tu web e Instagram'],['avisos','whatsapp','Avisos y WhatsApp'],['requests','mail','Solicitudes de información'],['stats','target','Estadísticas'],['tools','download','Herramientas'],['fiscal','file','Datos fiscales y seguro'],['plan','star','Mi plan']];
+    const navBtn=([k,ic,l])=>`<button class="cb-nav" data-cbtab="${k}">${wdIcon(ic,17)} <span>${l}</span>${k==='experiences'?'<b id="fl-req-badge" hidden></b>':k==='bookings'?'<b id="fl-bk-badge" hidden></b>':''}</button>`;
     setApp(`<section class="center-backoffice fl-office">
       <div class="cb-header"><div class="cb-header-id">${u.avatar_url?`<img class="center-logo fl-avatar" src="${esc(u.avatar_url)}" alt="">`:`<span class="acc-avatar fl-avatar-txt">${esc(initials(u.fullname||''))}</span>`}<div><p class="eyebrow">Panel del profesional</p><h1>${esc(u.fullname||'Profesional')}</h1><p>Instructor / guía freelance · tus salidas, experiencias y ficha pública en un solo panel.</p></div></div>
         <div class="cb-header-actions"><a class="btn" href="#/profesional?id=${u.id}">${wdIcon('eye',15)} Ver mi ficha pública</a><a class="btn" href="#/cuenta">${wdIcon('user',15)} Mi cuenta</a></div></div>
-      <div class="cb-layout"><aside class="cb-sidebar"><div class="cb-section-title">MI ACTIVIDAD</div>${tabs.map(([k,ic,l])=>`<button class="cb-nav" data-cbtab="${k}">${ic} <span>${l}</span>${k==='experiences'?'<b id="fl-req-badge" hidden></b>':k==='bookings'?'<b id="fl-bk-badge" hidden></b>':''}</button>`).join('')}
-        <div class="cb-section-title">CUENTA</div><a class="cb-nav" href="#/logbook">${wdIcon('book',15)} <span>Log Book</span></a><a class="cb-nav" href="#/cuenta">${wdIcon('user',15)} <span>Mi cuenta</span></a></aside>
-      <div class="cb-main"><div id="cb-content"></div></div></div></section>`); proTermsBanner(d.user);
+      <div class="cb-layout">${wdPanelSide('freelance',[
+        {id:'actividad',title:'Mi actividad',items:tabs.slice(0,4).map(navBtn)},
+        {id:'ventas',title:'Ventas',items:tabs.slice(4,7).map(navBtn)},
+        {id:'escaparate',title:'Escaparate y avisos',items:tabs.slice(7,12).map(navBtn)},
+        {id:'cuenta',title:'Mi cuenta profesional',items:[...tabs.slice(12).map(navBtn),`<a class="cb-nav" href="#/logbook">${wdIcon('book',17)} <span>Log Book</span></a>`,`<a class="cb-nav" href="#/cuenta">${wdIcon('user',17)} <span>Mi cuenta</span></a>`]}])}
+      <div class="cb-main">${wdPanelMenuBtn('freelance')}<div id="cb-content"></div></div></div></section>`); proTermsBanner(d.user);
     const content=$('#cb-content'), nav=$$('.cb-nav[data-cbtab]'); wdModerationBanner($('.cb-main'));
     const goServices=()=>load('services');
     api('/api/center/requests').then(r=>{ const bd=$('#fl-bk-badge'); const n=(r.count||0)+(r.pending_refunds||0); if(bd&&n){ bd.hidden=false; bd.textContent=n; } }).catch(()=>{});
@@ -4353,6 +4357,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           toast('Ficha pública guardada.'); const fresh=await api('/api/me'); Object.assign(u,fresh.user); state.me=fresh; renderFreelanceProfile(); }catch(err){ toast(err.message); btn.disabled=false; } };
     }
     nav.forEach(n=>n.onclick=()=>load(n.dataset.cbtab));
+    wdPanelBind($('#app'),'freelance');
     const req=new URLSearchParams(location.hash.split('?')[1]||'').get('tab');
     loadExp(); load(tabs.some(t=>t[0]===req)?req:'dashboard'); wdStartFeed();   // v50.56: a notice for every new booking
   }
@@ -4499,6 +4504,43 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     close:'<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'
   };
   const wdIcon=(name,size=20)=>`<svg class="wd-icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${WD_ICON_PATHS[name]||WD_ICON_PATHS.extra}</svg>`;
+  // v50.58 (revisión y usabilidad 2.3 y 2.4): one panel for administración, centro y freelance. The menu on the left is its own
+  // scroll area (the wheel moves the zone under the cursor and never drags the page when it ends), its groups fold, the
+  // whole menu folds to icons on small computers and, on a phone, it opens from «☰ Menú» as a sliding panel that closes
+  // when an option is chosen. Each panel keeps its own buttons and how it opens its sections.
+  function wdPanelPref(id,set){ const k='wd-panel:'+id; let v={}; try{ v=JSON.parse(localStorage.getItem(k)||'{}')||{}; }catch{}
+    if(set){ v={...v,...set}; try{ localStorage.setItem(k,JSON.stringify(v)); }catch{} } return v; }
+  function wdPanelSide(id,groups){
+    const pref=wdPanelPref(id), closed=new Set(pref.closed||[]);
+    return `<aside class="cb-sidebar" id="cb-sidebar-${id}" data-panel="${id}" aria-label="${escapeHtml(translateString('Menú del panel'))}">
+      <div class="cb-side-head"><span class="cb-side-name">${escapeHtml(translateString('Menú'))}</span><button type="button" class="cb-fold" aria-pressed="${!!pref.fold}" title="${escapeHtml(translateString('Plegar el menú'))}" aria-label="${escapeHtml(translateString('Plegar el menú'))}">${wdIcon('arrow',16)}</button><button type="button" class="cb-side-close" aria-label="${escapeHtml(translateString('Cerrar el menú'))}">×</button></div>
+      ${groups.map(g=>`<div class="cb-group${closed.has(g.id)?' is-closed':''}" data-group="${g.id}">${g.title?`<button type="button" class="cb-section-title" aria-expanded="${!closed.has(g.id)}"><span>${escapeHtml(g.title)}</span><i class="cb-caret" aria-hidden="true">▾</i></button>`:''}<div class="cb-group-items">${g.items.join('')}</div></div>`).join('')}
+    </aside>`;
+  }
+  const wdPanelMenuBtn=id=>`<button type="button" class="cb-menu-btn" aria-controls="cb-sidebar-${id}" aria-expanded="false"><span aria-hidden="true">☰</span> <span>${escapeHtml(translateString('Menú'))}</span><b class="cb-menu-now"></b></button><div class="cb-scrim" hidden></div>`;
+  function wdPanelBind(root,id){
+    const layout=root?.querySelector('.cb-layout'), side=layout?.querySelector('.cb-sidebar'); if(!side) return;
+    const btn=layout.querySelector('.cb-menu-btn'), scrim=layout.querySelector('.cb-scrim'), fold=side.querySelector('.cb-fold');
+    layout.classList.toggle('is-folded',!!wdPanelPref(id).fold);
+    side.querySelectorAll('.cb-nav').forEach(n=>{ if(!n.title) n.title=(n.querySelector('span')?.textContent||'').trim(); });   // the name, with the menu folded to icons
+    side.querySelectorAll('.cb-group').forEach(g=>{ if(!g.querySelector('.cb-nav')) g.hidden=true; });   // a group left empty by the permissions of a profile
+    const open=on=>{ layout.classList.toggle('is-open',on); if(scrim) scrim.hidden=!on; btn?.setAttribute('aria-expanded',String(on)); document.documentElement.classList.toggle('wd-panel-open',on);
+      if(on) (side.querySelector('.cb-nav.active')||side.querySelector('.cb-nav'))?.focus({preventScroll:true}); };
+    btn?.addEventListener('click',()=>open(!layout.classList.contains('is-open')));
+    scrim?.addEventListener('click',()=>open(false));
+    side.querySelector('.cb-side-close')?.addEventListener('click',()=>{ open(false); btn?.focus(); });
+    side.addEventListener('keydown',e=>{ if(e.key==='Escape'&&layout.classList.contains('is-open')){ e.stopPropagation(); open(false); btn?.focus(); } });
+    fold?.addEventListener('click',()=>{ const on=!layout.classList.contains('is-folded'); layout.classList.toggle('is-folded',on); fold.setAttribute('aria-pressed',String(on)); wdPanelPref(id,{fold:on}); });
+    side.querySelectorAll('.cb-section-title').forEach(t=>t.addEventListener('click',()=>{ const g=t.closest('.cb-group'); const shut=!g.classList.contains('is-closed');
+      if(shut&&g.querySelector('.cb-nav.active')&&!layout.classList.contains('is-open')) return;   // the group of the section on screen stays open
+      g.classList.toggle('is-closed',shut); t.setAttribute('aria-expanded',String(!shut));
+      wdPanelPref(id,{closed:[...side.querySelectorAll('.cb-group.is-closed')].map(x=>x.dataset.group)}); }));
+    // Choosing an option closes the sliding menu of the phone; the button says where you are.
+    side.addEventListener('click',e=>{ if(e.target.closest('.cb-nav')) open(false); });
+    const now=()=>{ const a=side.querySelector('.cb-nav.active'); const b=layout.querySelector('.cb-menu-now'); if(b) b.textContent=a?(a.querySelector('span')?.textContent||'').trim():'';
+      const g=a?.closest('.cb-group'); if(g?.classList.contains('is-closed')){ g.classList.remove('is-closed'); g.querySelector('.cb-section-title')?.setAttribute('aria-expanded','true'); } };
+    new MutationObserver(now).observe(side,{subtree:true,attributes:true,attributeFilter:['class']}); now();
+  }
   const SERVICE_TYPES=[
     {value:'inmersion',label:'Inmersión',hint:'Simple, doble, nocturna'},
     {value:'curso',label:'Curso',hint:'Open Water, Advanced, Rescue'},
@@ -5310,18 +5352,18 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
 
   // Pestaña «Imágenes de la web» (administrador)
-  async function renderSiteMediaManager(mountId){
+  async function renderSiteMediaManager(mountId,opts={}){
     const mount=document.getElementById(mountId); if(!mount) return;
-    const refresh=()=>renderSiteMediaManager(mountId);
+    const refresh=()=>renderSiteMediaManager(mountId,opts);
     let d; try{ d=await api('/api/admin/site-media'); }catch(err){ mount.innerHTML=`<div class="empty"><h3>No se han podido cargar las imágenes</h3><p>${escapeHtml(err.message)}</p></div>`; return; }
-    const groups={}; (d.slots||[]).forEach(s=>(groups[s.group]??=[]).push(s));
+    const groups={}; (d.slots||[]).filter(s=>!opts.group||s.group===opts.group).forEach(s=>(groups[s.group]??=[]).push(s));
     const card=s=>{ const it=d.items[s.key]||{}; return `<article class="mm-card" data-key="${escapeHtml(s.key)}">
       <div class="mm-preview">${(it.url||s.default)?`<img src="${escapeHtml(it.url||s.default)}" alt="" loading="lazy">`:'<span class="mm-empty">Sin foto: pendiente de una foto adecuada</span>'}<span class="mm-badge ${it.custom?'is-custom':''}">${it.custom?'Personalizada':'Original'}</span></div>
       <div class="mm-body"><strong>${escapeHtml(s.label)}</strong><small>${escapeHtml(s.where)} · ${escapeHtml(s.size)} px</small>
         <label class="mm-credit"><span>Crédito</span><input type="text" maxlength="200" value="${escapeHtml(it.credit||'')}" placeholder="Foto: autor / licencia"></label>
         <div class="mm-actions"><label class="btn btn-primary mm-file">Cambiar foto<input type="file" accept="image/jpeg,image/png,image/webp" hidden></label><button type="button" class="btn mm-save-credit">Guardar crédito</button>${it.custom?'<button type="button" class="btn mm-reset">Restaurar original</button>':''}</div>
       </div></article>`; };
-    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Escaparate</p><h2>Imágenes de la web</h2><p>Portadas de cada sección y foto de cada tipo de buceo. Los cambios se ven al momento.</p></div></div>
+    mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Escaparate</p>${opts.group==='Tipos de buceo'?'<h2>Tipos de buceo</h2><p>La foto de cada tipo de buceo: sale en su tarjeta, en su cabecera y en los puntos de ese tipo que no tienen foto propia. Los cambios se ven al momento.</p>':'<h2>Imágenes de la web</h2><p>Portadas de cada sección y foto de cada tipo de buceo. Los cambios se ven al momento.</p>'}</div></div>
       <div class="ex-tip">${wdIcon('bolt',18)}<p>${IMG_HINT} Recomendado: fotos horizontales, nítidas, sin texto ni marcas de agua, y con luz natural.</p></div>
       ${Object.entries(groups).map(([g,list])=>`<h3 class="mm-group">${escapeHtml(g)}</h3><div class="mm-grid">${list.map(card).join('')}</div>`).join('')}</section>`;
     const send=async(key,fields,file,msg)=>{ try{ await uploadForm('/api/admin/site-media',{key,...fields},file); await loadSiteMedia(); toast(msg); refresh(); }catch(err){ toast(err.message); } };
@@ -5733,36 +5775,35 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const m=metrics||{};
     return `<section class="center-backoffice">
       <div class="cb-header ${c?.cover_url?'has-cover':''}" style="${c?.cover_url?`--cover:url('${escapeHtml(wdImgFit(c.cover_url))}')`:''}"><div class="cb-header-id">${centerLogoMarkup(c||{},'58px')}<div><p class="eyebrow">Panel del centro</p><h1>${escapeHtml(c?.name||'Mi centro')}</h1>${c?.tagline?`<p>${escapeHtml(c.tagline)}</p>`:''}</div></div><div class="cb-header-actions">${(state.me?.centers||[]).length>1?`<label class="cb-switch"><span>Centro activo</span><select id="cb-switch">${state.me.centers.map(x=>`<option value="${x.id}" ${x.active?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></label>`:''}<a class="btn" href="#/centro?id=${c?.id||''}">Ver mi página</a><button class="btn btn-primary" id="cb-refresh">Actualizar</button></div></div>
-      <div class="cb-layout"><aside class="cb-sidebar">
-        <div class="cb-section-title">OPERACIONES</div>
-        <button class="cb-nav active" data-cbtab="dashboard">⌂ <span>Resumen</span></button>
-        <button class="cb-nav" data-cbtab="planning">▦ <span>Planning / agenda</span></button>
-        <button class="cb-nav" data-cbtab="bookings">▣ <span>Reservas</span><b>${m.pending||0}</b></button>
-        <button class="cb-nav" data-cbtab="clients">♙ <span>Clientes</span></button>
-        <button class="cb-nav" data-cbtab="logbook">✎ <span>Logbook y pasaporte</span></button>
-        <div class="cb-section-title">VENTAS</div>
-        <button class="cb-nav" data-cbtab="services">◈ <span>Servicios y tarifas</span></button>
-        <button class="cb-nav" data-cbtab="experiences">✈ <span>Experiencias</span>${m.experience_requests?`<b>${m.experience_requests}</b>`:''}</button>
-        <button class="cb-nav" data-cbtab="payments">▤ <span>Cobros y pagos</span></button>
-        <div class="cb-section-title">CONTROL</div>
-        <button class="cb-nav" data-cbtab="analytics">◔ <span>Analítica e informes</span></button>
-        <button class="cb-nav" data-cbtab="vender">↔ <span>Vender en tu web</span></button>
-        <button class="cb-nav" data-cbtab="points">⌖ <span>Puntos de buceo</span></button>
-        <button class="cb-nav" data-cbtab="marina">◍ <span>Vídeos y vida marina</span></button>
-        <button class="cb-nav" data-cbtab="qr">▣ <span>Check-in / QR y promociones</span></button>
-        <div class="cb-section-title">CONFIGURACIÓN</div>
-        <button class="cb-nav" data-cbtab="center">✦ <span>Escaparate y datos</span></button>
-        <button class="cb-nav" data-cbtab="rewards">★ <span>Recompensas</span></button>
-        <button class="cb-nav" data-cbtab="avisos">✆ <span>Avisos y WhatsApp</span></button>
-        <div class="cb-section-title">MI CUENTA PROFESIONAL</div>
-        <button class="cb-nav" data-cbtab="requests">✉ <span>Solicitudes de información</span></button>
-        <button class="cb-nav" data-cbtab="stats">◑ <span>Estadísticas</span></button>
-        <button class="cb-nav" data-cbtab="tools">⇩ <span>Herramientas</span></button>
-        <button class="cb-nav" data-cbtab="team" data-owner>☺ <span>Equipo</span></button>
-        <button class="cb-nav" data-cbtab="activity" data-owner>☷ <span>Registro de actividad</span></button>
-        <button class="cb-nav" data-cbtab="fiscal" data-owner>§ <span>Datos fiscales y seguro</span></button>
-        <button class="cb-nav" data-cbtab="plan" data-owner>◆ <span>Mi plan</span></button>
-      </aside><div class="cb-main"><div id="cb-content"></div></div></div>
+      <div class="cb-layout">${wdPanelSide('centro',[
+        {id:'ops',title:'Operaciones',items:[
+          `<button class="cb-nav active" data-cbtab="dashboard">${wdIcon('home',17)} <span>Resumen</span></button>`,
+          `<button class="cb-nav" data-cbtab="planning">${wdIcon('calendar',17)} <span>Planning / agenda</span></button>`,
+          `<button class="cb-nav" data-cbtab="bookings">${wdIcon('inbox',17)} <span>Reservas</span><b>${m.pending||0}</b></button>`,
+          `<button class="cb-nav" data-cbtab="clients">${wdIcon('users',17)} <span>Clientes</span></button>`,
+          `<button class="cb-nav" data-cbtab="logbook">${wdIcon('book',17)} <span>Logbook y pasaporte</span></button>`]},
+        {id:'ventas',title:'Ventas',items:[
+          `<button class="cb-nav" data-cbtab="services">${wdIcon('tag',17)} <span>Servicios y tarifas</span></button>`,
+          `<button class="cb-nav" data-cbtab="experiences">${wdIcon('viaje',17)} <span>Experiencias</span>${m.experience_requests?`<b>${m.experience_requests}</b>`:''}</button>`,
+          `<button class="cb-nav" data-cbtab="payments">${wdIcon('card',17)} <span>Cobros y pagos</span></button>`]},
+        {id:'control',title:'Control',items:[
+          `<button class="cb-nav" data-cbtab="analytics">${wdIcon('chart',17)} <span>Analítica e informes</span></button>`,
+          `<button class="cb-nav" data-cbtab="vender">${wdIcon('globe',17)} <span>Reservas desde tu web e Instagram</span></button>`,
+          `<button class="cb-nav" data-cbtab="points">${wdIcon('pin',17)} <span>Puntos de buceo</span></button>`,
+          `<button class="cb-nav" data-cbtab="marina">${wdIcon('fish',17)} <span>Vídeos y vida marina</span></button>`,
+          `<button class="cb-nav" data-cbtab="qr">${wdIcon('qr',17)} <span>Check-in / QR y promociones</span></button>`]},
+        {id:'config',title:'Configuración',items:[
+          `<button class="cb-nav" data-cbtab="center">${wdIcon('image',17)} <span>Escaparate y datos</span></button>`,
+          `<button class="cb-nav" data-cbtab="rewards">${wdIcon('gift',17)} <span>Recompensas</span></button>`,
+          `<button class="cb-nav" data-cbtab="avisos">${wdIcon('whatsapp',17)} <span>Avisos y WhatsApp</span></button>`]},
+        {id:'cuenta',title:'Mi cuenta profesional',items:[
+          `<button class="cb-nav" data-cbtab="requests">${wdIcon('mail',17)} <span>Solicitudes de información</span></button>`,
+          `<button class="cb-nav" data-cbtab="stats">${wdIcon('target',17)} <span>Estadísticas</span></button>`,
+          `<button class="cb-nav" data-cbtab="tools">${wdIcon('download',17)} <span>Herramientas</span></button>`,
+          `<button class="cb-nav" data-cbtab="team" data-owner>${wdIcon('users',17)} <span>Equipo</span></button>`,
+          `<button class="cb-nav" data-cbtab="activity" data-owner>${wdIcon('list',17)} <span>Registro de actividad</span></button>`,
+          `<button class="cb-nav" data-cbtab="fiscal" data-owner>${wdIcon('file',17)} <span>Datos fiscales y seguro</span></button>`,
+          `<button class="cb-nav" data-cbtab="plan" data-owner>${wdIcon('star',17)} <span>Mi plan</span></button>`]}])}      <div class="cb-main">${wdPanelMenuBtn('centro')}<div id="cb-content"></div></div></div>
     </section>`;
   }
 
@@ -6491,6 +6532,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(!wdCan('checkin')&&!wdCan('centro')) $$('.cb-nav[data-cbtab="logbook"]').forEach(n=>n.remove()); }
     { const pl=state.me?.plan; if(pl&&pl.status!=='active'){ const host=$('#cb-content'); host?.insertAdjacentHTML('beforebegin',`<div class="pl-bar ${pl.status==='expired'||pl.code==='free'?'is-free':''}">${wdIcon('info',16)} ${pl.status==='trial'?`Prueba gratuita del plan ${escapeHtml(pl.name)} hasta el ${escapeHtml(wdLegalDate(pl.expires_at))}.`:pl.status==='expired'?'Tu plan ha terminado: tu ficha sigue como ficha gratuita y no recibe reservas online nuevas.':'Ficha gratuita: recibes solicitudes de información.'} <a href="#/admin?tab=plan">Mi plan</a></div>`); } }
     nav.forEach(n=>n.onclick=()=>loadTab(n.dataset.cbtab));
+    wdPanelBind($('#app'),'centro');
     // v50.47 (B.6): someone who works for several centres changes the centre of this session explicitly.
     $('#cb-switch')?.addEventListener('change',async e=>{ try{ await postJSON('/api/team/switch',{center:+e.target.value}); await loadMe(); wdGo('#/admin'); toast('Ahora trabajas en este centro.'); }catch(err){ toast(err.message); } });
     content.addEventListener('click',async e=>{const g=e.target.closest('.cb-go'); if(g){e.preventDefault();loadTab(g.dataset.tab,{view:g.dataset.view});return;} if(e.target.closest('.db-new-booking')){openManualBooking({onSaved:async()=>{await reloadData(); if(currentTab==='dashboard')loadTab('dashboard');}});return;} const b=e.target.closest('.cb-booking-open'); if(b){wdGo('#/reserva?id='+b.dataset.id);}});
@@ -6598,11 +6640,27 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const centerPaid=bookings.filter(b=>b.payment_status==='paid');
     const centerPending=bookings.filter(b=>(b.status==='requested'||b.status==='pending'));
     const centerConfirmed=bookings.filter(b=>b.status==='confirmed');
-    setApp(`<section class="page provider-page"><div class="provider-topbar"><div><p class="eyebrow">${isAdmin?'CUENTA ADMINISTRADOR':'PANEL PROFESIONAL · CENTRO DE BUCEO'}</p><h1>${isAdmin?'Centro de control de WORLDIVES':escapeHtml(myCenter?.name||'Panel del centro')}</h1><p class="lead">${isAdmin?'Control administrativo de WORLDIVES DISCOVERY.':'Tu centro de operaciones: reservas, salidas, clientes, pagos y catálogo.'}</p></div>${!isAdmin&&myCenter?`<div class="provider-status"><span class="status good">● Centro activo</span><a href="#/admin?tab=center">Gestionar ficha</a></div>`:''}</div>
+    // v50.58 (2.4): the administration has the same panel as a centre: the menu on the left, grouped and folding, and the
+    // section on the right. The legacy view of a centre (below) keeps its row of tabs.
+    if(isAdmin){
+      const nb=(k,ic,l,n)=>`<button type="button" class="cb-nav" data-tab="${k}">${wdIcon(ic,17)} <span>${l}</span>${n?`<b>${n}</b>`:''}</button>`;
+      const expPending=travelExperiences.filter(e=>!['published','rejected','hidden'].includes(e.status)).length;
+      setApp(`<section class="center-backoffice admin-office"><div class="cb-header provider-topbar"><div class="cb-header-id"><div><p class="eyebrow">Cuenta administrador</p><h1>Centro de control de WORLDIVES</h1><p>Control administrativo de WORLDIVES DISCOVERY. Las acciones importantes quedan registradas en «Actividad».</p></div></div></div>
+        <div class="cb-layout">${wdPanelSide('admin',[
+          {id:'inicio',title:'Inicio',items:[nb('overview','home','Centro de control'),nb('audit','chart','Actividad')]},
+          {id:'revision',title:'Revisión',items:[nb('claims','check','Solicitudes de centros',claims.length),nb('experiences','viaje','Experiencias',expPending),nb('moderation','alert','Denuncias y moderación'),nb('suggestions','pin','Correcciones de ubicación',suggestions.length)]},
+          {id:'contenido',title:'Contenido',items:[nb('points','pin','Puntos de buceo'),nb('destinations','globe','Destinos'),nb('divetypes','target','Tipos de buceo'),nb('marina','fish','Especies y vídeos',marinaPending),nb('media','image','Imágenes de la web'),nb('pointtexts','file','Descripciones de puntos'),nb('maps','map','Mapas')]},
+          {id:'catalogo',title:'Catálogo',items:[nb('svctemplates','tag','Plantillas de servicio'),nb('plans','star','Planes'),nb('features','sliders','Funciones'),nb('promos','megaphone','Patrocinio'),nb('rewards','gift','Recompensas')]},
+          {id:'personas',title:'Centros y usuarios',items:[nb('centers','home','Centros'),nb('users','users','Usuarios')]},
+          {id:'herramientas',title:'Herramientas',items:[nb('qr','qr','Códigos QR'),nb('bookings','calendar','Reservas en cifras'),nb('adminpay','receipt','Pagos, exportaciones y DAC7'),nb('emails','mail','Correos')]},
+          {id:'seguros',title:'Seguros',items:[nb('seguros','shield','Aseguradoras colaboradoras')]},
+          {id:'sistema',title:'Sistema',items:[nb('ops','bolt','Ajustes y estado del sistema'),nb('legal','file','Legal'),nb('privacy','lock','Datos personales y accesos')]}])}
+        <div class="cb-main">${wdPanelMenuBtn('admin')}${mapsInfo&&!mapsInfo.key_configured?'<div class="notice warning" id="admin-sat-notice"><strong>Añade la clave de ArcGIS para activar el satélite.</strong><p style="margin:6px 0 0">Mientras no esté, «Satélite» aparece desactivado en los mapas. <a href="#/admin?tab=maps">Ver Mapas</a></p></div>':''}<div id="admin-content"></div></div></div></section>`);
+    } else setApp(`<section class="page provider-page"><div class="provider-topbar"><div><p class="eyebrow">${isAdmin?'CUENTA ADMINISTRADOR':'PANEL PROFESIONAL · CENTRO DE BUCEO'}</p><h1>${isAdmin?'Centro de control de WORLDIVES':escapeHtml(myCenter?.name||'Panel del centro')}</h1><p class="lead">${isAdmin?'Control administrativo de WORLDIVES DISCOVERY.':'Tu centro de operaciones: reservas, salidas, clientes, pagos y catálogo.'}</p></div>${!isAdmin&&myCenter?`<div class="provider-status"><span class="status good">● Centro activo</span><a href="#/admin?tab=center">Gestionar ficha</a></div>`:''}</div>
       ${isAdmin&&mapsInfo&&!mapsInfo.key_configured?'<div class="notice warning" id="admin-sat-notice" style="margin-top:18px"><strong>Añade la clave de ArcGIS para activar el satélite.</strong><p style="margin:6px 0 0">Mientras no esté, «Satélite» aparece desactivado en los mapas. <a href="#/admin?tab=maps">Ver Mapas</a></p></div>':''}${isAdmin?'<div class="notice" style="margin-top:18px"><strong>Control total activado</strong><p style="margin:6px 0 0">Las acciones importantes quedan registradas en el historial de actividad.</p></div>':''}
       ${!isAdmin?`<div class="provider-mini-summary"><span><strong>${points.length}</strong> puntos activos</span><span><strong>${bookings.length}</strong> reservas</span><span><strong>${centerPending.length}</strong> por confirmar</span><span><strong>${centerConfirmed.length}</strong> confirmadas</span><span><strong>${centerPaid.length}</strong> pagadas</span></div>`:''}
       <div class="tabs provider-tabs">${isAdmin?'<button class="tab active" data-tab="overview">Inicio</button>':'<button class="tab active" data-tab="overview">Resumen</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="services">Servicios y salidas</button><button class="tab" data-tab="clients">Clientes</button><button class="tab" data-tab="points">Puntos de buceo</button><button class="tab" data-tab="rewards">Recompensas</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR / Check-in</button><button class="tab" data-tab="center">Mi centro</button><button class="tab" data-tab="payments">Cobros y pagos</button>'}${isAdmin?'<button class="tab" data-tab="points">Puntos</button><button class="tab" data-tab="bookings">Reservas</button><button class="tab" data-tab="adminpay">Pagos</button><button class="tab" data-tab="emails">Correos</button><button class="tab" data-tab="legal">Legal</button><button class="tab" data-tab="pointtexts">Descripciones de puntos</button><button class="tab" data-tab="maps">Mapas</button><button class="tab" data-tab="plans">Planes</button><button class="tab" data-tab="features">Funciones</button><button class="tab" data-tab="ops">Operación</button><button class="tab" data-tab="marina">Vida marina y vídeos</button><button class="tab" data-tab="experiences">Experiencias</button><button class="tab" data-tab="destinations">Destinos</button><button class="tab" data-tab="media">Imágenes de la web</button><button class="tab" data-tab="svctemplates">Plantillas de servicios</button><button class="tab" data-tab="promos">Patrocinio</button><button class="tab" data-tab="seguros">Seguros</button><button class="tab" data-tab="users">Usuarios</button><button class="tab" data-tab="centers">Centros</button><button class="tab" data-tab="claims">Verificaciones</button><button class="tab" data-tab="moderation">Moderación</button><button class="tab" data-tab="privacy">Datos personales</button><button class="tab" data-tab="suggestions">Correcciones</button><button class="tab" data-tab="qr">QR</button><button class="tab" data-tab="audit">Actividad</button><button class="tab" data-tab="rewards">Recompensas</button>':''}</div><div id="admin-content"></div></section>`);
-    const tabs=$$('.tab');
+    const tabs=isAdmin?$$('.cb-sidebar .cb-nav[data-tab]'):$$('.tab');
     if(failed.length){ const parts=document.createElement('div'); $('#admin-content')?.before(parts); wdPartsFailed(parts,failed,()=>route()); }
     async function show(t){
       try{ await showTab(t); }catch(e){ console.error(e); const c=$('#admin-content'); if(c){ c.innerHTML=wdBlockError(e); translateTree(c); c.querySelector('[data-block-retry]').onclick=()=>show(t); } }
@@ -6621,6 +6679,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t==='experiences') c.innerHTML=adminTravelExperiences(travelExperiences);
       if(t==='destinations') c.innerHTML=adminDestinations(meta.travel);
       if(t==='media'&&isAdmin){ c.innerHTML='<div id="site-theme-manager"></div><div id="site-media-manager"></div><div id="image-origins"></div>'; wdGuard('site-theme-manager',()=>renderThemeManager('site-theme-manager')); wdGuard('site-media-manager',()=>renderSiteMediaManager('site-media-manager')); wdGuard('image-origins',()=>renderImageOrigins('image-origins')); }
+      if(t==='divetypes'&&isAdmin){ c.innerHTML='<div id="admin-divetypes"></div>'; wdGuard('admin-divetypes',()=>renderSiteMediaManager('admin-divetypes',{group:'Tipos de buceo'})); }
       if(t==='svctemplates'&&isAdmin){ c.innerHTML='<div id="admin-svc-templates"></div>'; wdGuard('admin-svc-templates',()=>renderAdminServiceTemplates('admin-svc-templates')); }
       if(t==='adminpay'&&isAdmin){ c.innerHTML='<div id="admin-payments"></div>'; wdGuard('admin-payments',()=>renderAdminPayments('admin-payments')); }
       if(t==='emails'&&isAdmin){ c.innerHTML='<div id="admin-emails"></div>'; wdGuard('admin-emails',()=>renderAdminEmails('admin-emails')); }
@@ -6651,7 +6710,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // v50.57 (2.2): every tab of the menu can be opened by its address (before, «Plantillas» was missing from a hand-written
     // list: its address, a reload or a link to it opened «Inicio»).
     if(isAdmin){ $('.provider-topbar')?.insertAdjacentHTML('afterend','<div id="wd-conf-strip"></div>'); api('/api/admin/confirm').then(wdConfStrip).catch(()=>{}); }
-    const adminTabs=$$('.provider-tabs [data-tab]').map(b=>b.dataset.tab);
+    const adminTabs=$$('.cb-sidebar [data-tab]').map(b=>b.dataset.tab);
+    if(isAdmin) wdPanelBind($('#app'),'admin');
     show(isAdmin&&adminTabs.includes(requested)?requested:(isAdmin?'overview':(centerTabs.includes(requested)?requested:'overview')));
   }
   // Shared by the center workspace and the legacy admin view.

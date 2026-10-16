@@ -3964,3 +3964,52 @@ html.wd-portada-es .wd-pre[lang=es] .tp-hero-in,html.wd-portada-en .wd-pre[lang=
 main#app:has(>.wd-pre:only-child){min-height:100vh}
 .wd-pre input:disabled{opacity:1}
 .hm-hero .tp-hero-stats:empty{min-height:58px}   /* the line of figures arrives later: its room is kept (nothing moves) */
+
+/* v50.58 (revisión y usabilidad 2.3 y 2.4): one panel for administración, centro y freelance. The menu on the left is its own
+   scroll area: the wheel moves the zone under the cursor and, when the menu ends, it does not drag the page (overscroll). Its
+   groups fold, the whole menu folds to icons on small computers, and on a phone it is a sliding panel opened from «☰ Menú». */
+.cb-sidebar{top:calc(var(--wd-hdr,72px) + 12px);max-height:calc(100vh - var(--wd-hdr,72px) - 24px);max-height:calc(100dvh - var(--wd-hdr,72px) - 24px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.cb-side-head{display:flex;align-items:center;gap:6px;padding:0 0 4px 10px}
+.cb-side-name{flex:1;font-size:12px;font-weight:800;color:var(--muted)}
+.cb-fold,.cb-side-close{flex:none;width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}
+.cb-fold:hover,.cb-side-close:hover{background:var(--surface-2);color:var(--text)}
+.cb-fold .wd-icon{transform:rotate(180deg)}
+.cb-side-close{display:none;font-size:24px;line-height:1}
+.cb-section-title{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;border:0;background:none;text-align:left;text-transform:uppercase;cursor:pointer}
+.cb-section-title:hover{color:var(--text)}
+.cb-caret{font-style:normal;font-size:11px;transition:transform .15s}
+.cb-group.is-closed .cb-caret{transform:rotate(-90deg)}
+.cb-group.is-closed .cb-group-items{display:none}
+.cb-nav .wd-icon{flex:none}
+.cb-menu-btn,.cb-scrim{display:none}
+.admin-office .cb-main>.notice{margin:0 0 16px}
+@media(min-width:781px){.cb-layout{grid-template-columns:250px minmax(0,1fr)}}
+.cb-layout.is-folded{grid-template-columns:66px minmax(0,1fr)}
+.cb-layout.is-folded .cb-sidebar{padding:8px 6px}
+.cb-layout.is-folded .cb-side-head{justify-content:center;padding:0 0 4px}
+.cb-layout.is-folded .cb-side-name,.cb-layout.is-folded .cb-section-title span,.cb-layout.is-folded .cb-caret,.cb-layout.is-folded .cb-nav span{display:none}
+.cb-layout.is-folded .cb-fold .wd-icon{transform:none}
+.cb-layout.is-folded .cb-section-title{height:1px;margin:8px 6px;padding:0;background:var(--line);pointer-events:none}
+.cb-layout.is-folded .cb-group.is-closed .cb-group-items{display:block}
+.cb-layout.is-folded .cb-nav{position:relative;justify-content:center;padding:10px 0}
+.cb-layout.is-folded .cb-nav b{position:absolute;top:2px;right:2px;margin:0;padding:1px 5px;font-size:10px}
+html.wd-panel-open{overflow:hidden}
+@media(max-width:780px){
+  .cb-layout,.cb-layout.is-folded{grid-template-columns:1fr}
+  .cb-menu-btn{display:flex;align-items:center;gap:8px;width:100%;min-height:46px;margin:0 0 12px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);font-weight:800;text-align:left;cursor:pointer}
+  .cb-menu-now{min-width:0;margin-left:auto;overflow:hidden;color:var(--sea);font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+  .cb-layout .cb-sidebar,.cb-layout.is-folded .cb-sidebar{position:fixed;top:0;bottom:0;left:0;z-index:2100;display:block;width:min(86vw,320px);max-height:none;padding:12px;overflow-y:auto;border-radius:0 18px 18px 0;
+    transform:translateX(-105%);visibility:hidden;transition:transform .2s ease,visibility 0s linear .2s}
+  .cb-layout.is-open .cb-sidebar{transform:none;visibility:visible;transition:transform .2s ease}
+  .cb-layout.is-open .cb-scrim{display:block;position:fixed;inset:0;z-index:2090;background:rgba(1,28,60,.38)}
+  .cb-layout .cb-section-title,.cb-layout.is-folded .cb-section-title{display:flex;height:auto;margin:0;padding:14px 10px 7px;background:none;pointer-events:auto}
+  .cb-layout .cb-nav,.cb-layout.is-folded .cb-nav{justify-content:flex-start;min-width:0;padding:11px 10px}
+  .cb-layout .cb-nav span,.cb-layout.is-folded .cb-nav span,.cb-layout.is-folded .cb-section-title span,.cb-layout.is-folded .cb-caret,.cb-layout.is-folded .cb-side-name{display:inline}
+  .cb-layout .cb-nav b,.cb-layout.is-folded .cb-nav b{position:static;display:inline-block;margin-left:auto}
+  .cb-layout.is-folded .cb-group.is-closed .cb-group-items{display:none}
+  .cb-fold{display:none}
+  .cb-side-close{display:grid}
+}
+/* windows and side panels scroll on their own, without dragging the page when they end */
+.modal-card,.wd-modal-body,#explore-drawer,.explore-drawer{overscroll-behavior:contain}
+@media (prefers-reduced-motion:reduce){.cb-layout .cb-sidebar{transition:none}}
