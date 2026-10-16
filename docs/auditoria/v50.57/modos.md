@@ -34,6 +34,7 @@ especial atención a **centro: reservas, planning y agenda**; **freelance: reser
 | 2 | **Centro › Reservas** y **Freelance › Reservas**, de 761 a 1180 px | El estado de cada reserva (Confirmada, Solicitud…) y su canal no se veían | Van en una segunda línea de la fila |
 | 3 | **Centro › Reservas** y **Freelance › Reservas**, en el móvil | Los botones ocupaban la columna de la derecha y dejaban 72 px al cliente («Tom Jan…») y el estado cortado («C…», «W…») | El estado y los botones van cada uno en su línea; el nombre de la actividad, entero en hasta dos líneas |
 | 4 | **Administración › Plantillas** (del recorrido de botones) | «Subir» en la primera y «Bajar» en la última no hacían nada | Salen apagadas y dicen por qué; se recolocan al mover una tarjeta |
+| 5 | **Centro › Avisos y WhatsApp**, con el perfil de instructor (del recorrido de botones) | Sin permiso de avisos, los ajustes salían apagados sin decir por qué | El panel lo dice: «Tu perfil no permite cancelar salidas ni avisar a todos los clientes. Pídeselo al propietario del centro.»; el propietario no lo ve |
 
 Capturas de antes y después: `docs/capturas/v50.57/modos/`.
 
