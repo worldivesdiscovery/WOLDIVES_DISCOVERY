@@ -50,9 +50,10 @@ fallo n.º 4. Los cuatro fallos están corregidos.
 | 3 | Mapa del buceo (`#/explorar`), todos los papeles (encontrado al probar aparte los «No probado») | «Filtrar puntos del mapa» con un texto que deja un solo punto, o varios muy separados («Portofino», «Costa del Sol», «Grenada»…), decía «1 punto en el mapa» y **el mapa salía vacío** | La librería que agrupa los puntos (Leaflet.markercluster 1.5.3) no dibujaba un punto sin otro con el que agruparse cuando el zoom mínimo del mapa no es un número entero, y el de nuestros mapas no lo es (el mundo ajustado a la caja, p. ej. 1,75). Se corrige desde nuestro programa (`wdClusterFix` en `world-dives-v8.js`); el archivo de la librería sigue tal cual se publica | **Fallo corregido** (`e2e_v50_57_explorar.py`: 22/22; con el código anterior, 19/22) |
 | 4 | Instructor del centro › *Avisos y WhatsApp* (encontrado al repasar uno a uno los «Desactivado (correcto)») | Su perfil no tiene permiso de avisos y los ajustes de los avisos salían **apagados sin decir por qué**. La herramienta lo contó como «Desactivado (correcto)» por el texto de al lado («Cada buceador elige otra fecha o la devolución»), que no lo explica | El panel dice ahora «Tu perfil no permite cancelar salidas ni avisar a todos los clientes. Pídeselo al propietario del centro.» (el mismo texto que el servidor, ya traducido a los 9 idiomas); el propietario, que sí puede, no lo ve | **Fallo corregido** (`e2e_v50_57_modos.py`; con el código anterior, el aviso no sale) |
 
-El recorrido completo se pasó antes de los arreglos n.º 3 y 4. El n.º 3 solo cambia cómo se dibujan los puntos en los
-mapas y el n.º 4 añade un aviso: se han comprobado con sus pruebas y con la batería completa de pruebas en el navegador
-(notas de la versión, «Pruebas»).
+El recorrido completo se pasó antes de los arreglos n.º 3 y 4 y de los de la auditoría de los cuatro modos (5.1,
+`modos.md`). Ninguno cambia lo que hace un botón: el n.º 3 cambia cómo se dibujan los puntos en los mapas, el n.º 4
+añade un aviso y los de la 5.1 son de maquetación (sobre todo en el móvil) y del precio de una reserva por días. Se han
+comprobado con sus pruebas y con la batería completa de pruebas en el navegador (notas de la versión, «Pruebas»).
 
 ## Con especial atención: Administración › Destinos, Puntos y Plantillas
 
