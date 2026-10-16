@@ -1,0 +1,2286 @@
+{
+ "exact": {
+  "Pendiente de aceptar": {
+   "en": "Waiting for acceptance",
+   "fr": "En attente d’acceptation",
+   "de": "Wartet auf Zustimmung",
+   "it": "In attesa di accettazione",
+   "pt": "A aguardar aceitação",
+   "pl": "Czeka na akceptację",
+   "nl": "Wacht op acceptatie",
+   "zh": "等待接受"
+  },
+  "Activo": {
+   "en": "Active",
+   "fr": "Actif",
+   "de": "Aktiv",
+   "it": "Attivo",
+   "pt": "Ativo",
+   "pl": "Aktywny",
+   "nl": "Actief",
+   "zh": "已启用"
+  },
+  "En pausa": {
+   "en": "Paused",
+   "fr": "En pause",
+   "de": "Pausiert",
+   "it": "In pausa",
+   "pt": "Em pausa",
+   "pl": "Wstrzymany",
+   "nl": "Gepauzeerd",
+   "zh": "已暂停"
+  },
+  "Terminado": {
+   "en": "Ended",
+   "fr": "Terminé",
+   "de": "Beendet",
+   "it": "Terminato",
+   "pt": "Terminado",
+   "pl": "Zakończony",
+   "nl": "Beëindigd",
+   "zh": "已结束"
+  },
+  "Anulado": {
+   "en": "Cancelled",
+   "fr": "Annulé",
+   "de": "Storniert",
+   "it": "Annullato",
+   "pt": "Anulado",
+   "pl": "Anulowany",
+   "nl": "Geannuleerd",
+   "zh": "已取消"
+  },
+  "Rechazado": {
+   "en": "Declined",
+   "fr": "Refusé",
+   "de": "Abgelehnt",
+   "it": "Rifiutato",
+   "pt": "Recusado",
+   "pl": "Odrzucony",
+   "nl": "Afgewezen",
+   "zh": "已拒绝"
+  },
+  "Ver planes": {
+   "en": "See plans",
+   "fr": "Voir les offres",
+   "de": "Tarife ansehen",
+   "it": "Vedi i piani",
+   "pt": "Ver planos",
+   "pl": "Zobacz plany",
+   "nl": "Abonnementen bekijken",
+   "zh": "查看套餐"
+  },
+  "Apunta al QR de la persona": {
+   "en": "Point at the person’s QR code",
+   "fr": "Visez le QR de la personne",
+   "de": "Auf den QR-Code der Person richten",
+   "it": "Inquadra il QR della persona",
+   "pt": "Aponte para o QR da pessoa",
+   "pl": "Skieruj aparat na kod QR tej osoby",
+   "nl": "Richt op de QR-code van de persoon",
+   "zh": "对准对方的二维码"
+  },
+  "Este navegador no puede usar la cámara aquí: escribe el código de 6 letras que la persona ve debajo de su QR.": {
+   "en": "This browser can’t use the camera here: type the 6-character code the person sees under their QR code.",
+   "fr": "Ce navigateur ne peut pas utiliser la caméra ici : saisissez le code de 6 caractères que la personne voit sous son QR.",
+   "de": "Dieser Browser kann die Kamera hier nicht nutzen: Gib den 6-stelligen Code ein, den die Person unter ihrem QR-Code sieht.",
+   "it": "Questo browser non può usare la fotocamera qui: scrivi il codice di 6 caratteri che la persona vede sotto il suo QR.",
+   "pt": "Este navegador não pode usar a câmara aqui: escreva o código de 6 caracteres que a pessoa vê por baixo do QR.",
+   "pl": "Ta przeglądarka nie może tu użyć aparatu: wpisz 6-znakowy kod, który ta osoba widzi pod swoim kodem QR.",
+   "nl": "Deze browser kan de camera hier niet gebruiken: typ de code van 6 tekens die de persoon onder de QR-code ziet.",
+   "zh": "此浏览器无法在这里使用摄像头：请输入对方二维码下方显示的 6 位代码。"
+  },
+  "No se ha leído ningún QR. Vuelve a probar o escribe el código.": {
+   "en": "No QR code was read. Try again or type the code.",
+   "fr": "Aucun QR n’a été lu. Réessayez ou saisissez le code.",
+   "de": "Es wurde kein QR-Code gelesen. Versuche es erneut oder gib den Code ein.",
+   "it": "Nessun QR letto. Riprova o scrivi il codice.",
+   "pt": "Não foi lido nenhum QR. Tente de novo ou escreva o código.",
+   "pl": "Nie odczytano żadnego kodu QR. Spróbuj ponownie lub wpisz kod.",
+   "nl": "Er is geen QR-code gelezen. Probeer het opnieuw of typ de code.",
+   "zh": "未读取到二维码。请重试或输入代码。"
+  },
+  "Mi QR": {
+   "en": "My QR",
+   "fr": "Mon QR",
+   "de": "Mein QR",
+   "it": "Il mio QR",
+   "pt": "O meu QR",
+   "pl": "Mój QR",
+   "nl": "Mijn QR",
+   "zh": "我的二维码"
+  },
+  "Tu QR para unirte a un equipo": {
+   "en": "Your QR code to join a team",
+   "fr": "Votre QR pour rejoindre une équipe",
+   "de": "Dein QR-Code, um einem Team beizutreten",
+   "it": "Il tuo QR per entrare in un team",
+   "pt": "O seu QR para entrar numa equipa",
+   "pl": "Twój kod QR, aby dołączyć do zespołu",
+   "nl": "Je QR-code om bij een team te komen",
+   "zh": "加入团队的二维码"
+  },
+  "Enséñalo en el centro: lo escanean en «Equipo → Enlazar persona» y te llega una petición que tú aceptas. No lleva tus datos, cambia cada minuto y sirve una sola vez.": {
+   "en": "Show it at the centre: they scan it in “Team → Link a person” and you get a request that you accept. It carries none of your data, changes every minute and works only once.",
+   "fr": "Montrez-le au centre : il est scanné dans « Équipe → Lier une personne » et vous recevez une demande à accepter. Il ne contient pas vos données, change chaque minute et ne sert qu’une fois.",
+   "de": "Zeig ihn im Center: Er wird unter „Team → Person verknüpfen“ gescannt, und du bekommst eine Anfrage, die du annimmst. Er enthält keine Daten von dir, ändert sich jede Minute und gilt nur einmal.",
+   "it": "Mostralo al centro: lo scansionano in «Team → Collega una persona» e ti arriva una richiesta da accettare. Non contiene i tuoi dati, cambia ogni minuto e vale una sola volta.",
+   "pt": "Mostre-o no centro: é lido em «Equipa → Ligar pessoa» e recebe um pedido que aceita. Não leva os seus dados, muda a cada minuto e só serve uma vez.",
+   "pl": "Pokaż go w centrum: zeskanują go w „Zespół → Połącz osobę”, a ty dostaniesz prośbę do zaakceptowania. Nie zawiera twoich danych, zmienia się co minutę i działa tylko raz.",
+   "nl": "Laat hem zien in het centrum: ze scannen hem bij ‘Team → Persoon koppelen’ en je krijgt een verzoek dat je accepteert. Er staan geen gegevens van je in, hij verandert elke minuut en werkt maar één keer.",
+   "zh": "在中心出示：对方在“团队 → 关联人员”中扫描，你会收到一条需要你接受的请求。它不含你的个人数据，每分钟更换一次，只能使用一次。"
+  },
+  "¿No estás en el centro?": {
+   "en": "Not at the centre?",
+   "fr": "Vous n’êtes pas au centre ?",
+   "de": "Nicht im Center?",
+   "it": "Non sei al centro?",
+   "pt": "Não está no centro?",
+   "pl": "Nie jesteś w centrum?",
+   "nl": "Niet in het centrum?",
+   "zh": "不在中心？"
+  },
+  "Crea un enlace de un solo uso y mándalo por WhatsApp o por correo. Dura 24 horas y lo puedes anular.": {
+   "en": "Create a single-use link and send it by WhatsApp or email. It lasts 24 hours and you can cancel it.",
+   "fr": "Créez un lien à usage unique et envoyez-le par WhatsApp ou par e-mail. Il dure 24 heures et vous pouvez l’annuler.",
+   "de": "Erstelle einen Einmal-Link und schick ihn per WhatsApp oder E-Mail. Er gilt 24 Stunden und du kannst ihn widerrufen.",
+   "it": "Crea un link monouso e invialo via WhatsApp o email. Dura 24 ore e puoi annullarlo.",
+   "pt": "Crie uma ligação de utilização única e envie-a por WhatsApp ou por email. Dura 24 horas e pode anulá-la.",
+   "pl": "Utwórz jednorazowy link i wyślij go przez WhatsApp lub e-mailem. Działa 24 godziny i możesz go anulować.",
+   "nl": "Maak een eenmalige link en stuur hem via WhatsApp of e-mail. Hij is 24 uur geldig en je kunt hem intrekken.",
+   "zh": "生成一次性链接，通过 WhatsApp 或电子邮件发送。有效期 24 小时，可随时作废。"
+  },
+  "Compartir para enlazar": {
+   "en": "Share to link",
+   "fr": "Partager pour lier",
+   "de": "Zum Verknüpfen teilen",
+   "it": "Condividi per collegare",
+   "pt": "Partilhar para ligar",
+   "pl": "Udostępnij, aby połączyć",
+   "nl": "Delen om te koppelen",
+   "zh": "分享以关联"
+  },
+  "Tus equipos": {
+   "en": "Your teams",
+   "fr": "Vos équipes",
+   "de": "Deine Teams",
+   "it": "I tuoi team",
+   "pt": "As suas equipas",
+   "pl": "Twoje zespoły",
+   "nl": "Je teams",
+   "zh": "你的团队"
+  },
+  "Las peticiones de los centros, los equipos donde estás y lo que te toca cada día.": {
+   "en": "Requests from centres, the teams you are in and what you have each day.",
+   "fr": "Les demandes des centres, les équipes dont vous faites partie et ce qui vous attend chaque jour.",
+   "de": "Anfragen der Center, deine Teams und was du jeden Tag zu tun hast.",
+   "it": "Le richieste dei centri, i team di cui fai parte e cosa ti tocca ogni giorno.",
+   "pt": "Os pedidos dos centros, as equipas onde está e o que lhe cabe em cada dia.",
+   "pl": "Prośby centrów, zespoły, w których jesteś, i to, co masz każdego dnia.",
+   "nl": "Verzoeken van centra, de teams waar je in zit en wat je elke dag hebt.",
+   "zh": "各中心的请求、你所在的团队以及你每天的安排。"
+  },
+  "Mi equipo": {
+   "en": "My team",
+   "fr": "Mon équipe",
+   "de": "Mein Team",
+   "it": "Il mio team",
+   "pt": "A minha equipa",
+   "pl": "Mój zespół",
+   "nl": "Mijn team",
+   "zh": "我的团队"
+  },
+  "Tu QR personal": {
+   "en": "Your personal QR code",
+   "fr": "Votre QR personnel",
+   "de": "Dein persönlicher QR-Code",
+   "it": "Il tuo QR personale",
+   "pt": "O seu QR pessoal",
+   "pl": "Twój osobisty kod QR",
+   "nl": "Je persoonlijke QR-code",
+   "zh": "你的个人二维码"
+  },
+  "Cambia en": {
+   "en": "Changes in",
+   "fr": "Change dans",
+   "de": "Ändert sich in",
+   "it": "Cambia tra",
+   "pt": "Muda em",
+   "pl": "Zmieni się za",
+   "nl": "Verandert over",
+   "zh": "更换倒计时"
+  },
+  "s": {
+   "en": "s",
+   "fr": "s",
+   "de": "s",
+   "it": "s",
+   "pt": "s",
+   "pl": "s",
+   "nl": "s",
+   "zh": "秒"
+  },
+  "¿No pueden escanearlo? Diles este código:": {
+   "en": "Can’t scan it? Tell them this code:",
+   "fr": "Impossible de le scanner ? Donnez ce code :",
+   "de": "Kann nicht gescannt werden? Nenne diesen Code:",
+   "it": "Non riescono a scansionarlo? Di’ questo codice:",
+   "pt": "Não conseguem ler? Diga-lhes este código:",
+   "pl": "Nie mogą go zeskanować? Podaj ten kod:",
+   "nl": "Lukt scannen niet? Geef deze code:",
+   "zh": "无法扫描？告诉对方这个代码："
+  },
+  "Caduca en": {
+   "en": "Expires in",
+   "fr": "Expire dans",
+   "de": "Läuft ab in",
+   "it": "Scade tra",
+   "pt": "Expira em",
+   "pl": "Wygasa za",
+   "nl": "Verloopt over",
+   "zh": "剩余有效时间"
+  },
+  "sirve una vez": {
+   "en": "single use",
+   "fr": "usage unique",
+   "de": "nur einmal gültig",
+   "it": "vale una volta",
+   "pt": "serve uma vez",
+   "pl": "jednorazowy",
+   "nl": "eenmalig",
+   "zh": "仅限一次"
+  },
+  "Enlaces sin usar": {
+   "en": "Unused links",
+   "fr": "Liens non utilisés",
+   "de": "Unbenutzte Links",
+   "it": "Link non usati",
+   "pt": "Ligações por usar",
+   "pl": "Nieużyte linki",
+   "nl": "Ongebruikte links",
+   "zh": "未使用的链接"
+  },
+  "Enlace anulado: ya no sirve.": {
+   "en": "Link cancelled: it no longer works.",
+   "fr": "Lien annulé : il ne fonctionne plus.",
+   "de": "Link widerrufen: Er funktioniert nicht mehr.",
+   "it": "Link annullato: non funziona più.",
+   "pt": "Ligação anulada: já não serve.",
+   "pl": "Link anulowany: już nie działa.",
+   "nl": "Link ingetrokken: hij werkt niet meer.",
+   "zh": "链接已作废，无法再使用。"
+  },
+  "Para añadirme a tu equipo en WORLDIVES, abre este enlace (sirve una vez y dura 24 horas):": {
+   "en": "To add me to your team on WORLDIVES, open this link (single use, valid for 24 hours):",
+   "fr": "Pour m’ajouter à votre équipe sur WORLDIVES, ouvrez ce lien (usage unique, valable 24 heures) :",
+   "de": "Um mich auf WORLDIVES zu deinem Team hinzuzufügen, öffne diesen Link (einmalig, 24 Stunden gültig):",
+   "it": "Per aggiungermi al tuo team su WORLDIVES, apri questo link (vale una volta e dura 24 ore):",
+   "pt": "Para me adicionar à sua equipa na WORLDIVES, abra esta ligação (serve uma vez e dura 24 horas):",
+   "pl": "Aby dodać mnie do swojego zespołu w WORLDIVES, otwórz ten link (jednorazowy, ważny 24 godziny):",
+   "nl": "Om me aan je team op WORLDIVES toe te voegen, open je deze link (eenmalig, 24 uur geldig):",
+   "zh": "要在 WORLDIVES 上把我加入你的团队，请打开此链接（仅限一次，24 小时内有效）："
+  },
+  "Mi enlace para tu equipo": {
+   "en": "My link for your team",
+   "fr": "Mon lien pour votre équipe",
+   "de": "Mein Link für dein Team",
+   "it": "Il mio link per il tuo team",
+   "pt": "A minha ligação para a sua equipa",
+   "pl": "Mój link do twojego zespołu",
+   "nl": "Mijn link voor je team",
+   "zh": "加入你团队的链接"
+  },
+  "Tu enlace": {
+   "en": "Your link",
+   "fr": "Votre lien",
+   "de": "Dein Link",
+   "it": "Il tuo link",
+   "pt": "A sua ligação",
+   "pl": "Twój link",
+   "nl": "Je link",
+   "zh": "你的链接"
+  },
+  "Compartir…": {
+   "en": "Share…",
+   "fr": "Partager…",
+   "de": "Teilen …",
+   "it": "Condividi…",
+   "pt": "Partilhar…",
+   "pl": "Udostępnij…",
+   "nl": "Delen…",
+   "zh": "分享…"
+  },
+  "Correo": {
+   "en": "Email",
+   "fr": "E-mail",
+   "de": "E-Mail",
+   "it": "Email",
+   "pt": "Email",
+   "pl": "E-mail",
+   "nl": "E-mail",
+   "zh": "电子邮件"
+  },
+  "Activa tu perfil de freelance": {
+   "en": "Activate your freelance profile",
+   "fr": "Activez votre profil freelance",
+   "de": "Aktiviere dein Freelancer-Profil",
+   "it": "Attiva il tuo profilo freelance",
+   "pt": "Ative o seu perfil de freelancer",
+   "pl": "Aktywuj swój profil freelancera",
+   "nl": "Activeer je freelanceprofiel",
+   "zh": "启用你的自由职业者资料"
+  },
+  "Perfil en el equipo": {
+   "en": "Profile in the team",
+   "fr": "Profil dans l’équipe",
+   "de": "Profil im Team",
+   "it": "Profilo nel team",
+   "pt": "Perfil na equipa",
+   "pl": "Profil w zespole",
+   "nl": "Profiel in het team",
+   "zh": "团队中的角色"
+  },
+  "Para este perfil necesitas tu perfil de freelance. Es gratis: sigues teniendo todo lo de tu cuenta y, además, estás en los equipos de los centros y ves en tu agenda lo que te asignan.": {
+   "en": "This profile needs your freelance profile. It’s free: you keep everything in your account and, on top of that, you can be in centres’ teams and see what they assign you in your diary.",
+   "fr": "Ce profil nécessite votre profil freelance. C’est gratuit : vous gardez tout ce que contient votre compte et, en plus, vous faites partie des équipes des centres et voyez dans votre agenda ce qu’on vous attribue.",
+   "de": "Für dieses Profil brauchst du dein Freelancer-Profil. Es ist kostenlos: Du behältst alles in deinem Konto und bist außerdem in den Teams der Center und siehst in deinem Kalender, was dir zugewiesen wird.",
+   "it": "Per questo profilo serve il tuo profilo freelance. È gratis: mantieni tutto ciò che hai nel tuo account e, in più, fai parte dei team dei centri e vedi in agenda cosa ti assegnano.",
+   "pt": "Para este perfil precisa do seu perfil de freelancer. É grátis: mantém tudo o que tem na sua conta e, além disso, está nas equipas dos centros e vê na sua agenda o que lhe atribuem.",
+   "pl": "Ten profil wymaga twojego profilu freelancera. Jest bezpłatny: zachowujesz wszystko na swoim koncie, a do tego możesz być w zespołach centrów i widzieć w kalendarzu, co ci przydzielono.",
+   "nl": "Voor dit profiel heb je je freelanceprofiel nodig. Het is gratis: je houdt alles in je account en daarnaast zit je in de teams van centra en zie je in je agenda wat ze je toewijzen.",
+   "zh": "这个角色需要你的自由职业者资料。它是免费的：你账户里的一切都会保留，此外你还能加入各中心的团队，并在日程中看到分配给你的工作。"
+  },
+  "Con el plan gratuito no tienes servicios, reservas ni cobros propios.": {
+   "en": "With the free plan you have no services, bookings or payments of your own.",
+   "fr": "Avec l’offre gratuite, vous n’avez ni services, ni réservations, ni encaissements propres.",
+   "de": "Mit dem kostenlosen Tarif hast du keine eigenen Angebote, Buchungen oder Zahlungen.",
+   "it": "Con il piano gratuito non hai servizi, prenotazioni né incassi propri.",
+   "pt": "Com o plano gratuito não tem serviços, reservas nem cobranças próprios.",
+   "pl": "W planie bezpłatnym nie masz własnych usług, rezerwacji ani płatności.",
+   "nl": "Met het gratis abonnement heb je geen eigen diensten, boekingen of betalingen.",
+   "zh": "免费套餐不包括自有服务、预订或收款。"
+  },
+  "condiciones para profesionales": {
+   "en": "terms for professionals",
+   "fr": "conditions pour les professionnels",
+   "de": "Bedingungen für Profis",
+   "it": "condizioni per i professionisti",
+   "pt": "condições para profissionais",
+   "pl": "warunki dla profesjonalistów",
+   "nl": "voorwaarden voor professionals",
+   "zh": "专业人士条款"
+  },
+  "Activar y aceptar": {
+   "en": "Activate and accept",
+   "fr": "Activer et accepter",
+   "de": "Aktivieren und annehmen",
+   "it": "Attiva e accetta",
+   "pt": "Ativar e aceitar",
+   "pl": "Aktywuj i zaakceptuj",
+   "nl": "Activeren en accepteren",
+   "zh": "启用并接受"
+  },
+  "Ahora trabajas en": {
+   "en": "You are now working at",
+   "fr": "Vous travaillez maintenant à",
+   "de": "Du arbeitest jetzt bei",
+   "it": "Ora lavori presso",
+   "pt": "Agora trabalha em",
+   "pl": "Teraz pracujesz w",
+   "nl": "Je werkt nu bij",
+   "zh": "你现在的工作身份："
+  },
+  "Has vuelto a tu perfil.": {
+   "en": "You are back on your own profile.",
+   "fr": "Vous êtes revenu à votre profil.",
+   "de": "Du bist wieder in deinem Profil.",
+   "it": "Sei tornato al tuo profilo.",
+   "pt": "Voltou ao seu perfil.",
+   "pl": "Wróciłeś do swojego profilu.",
+   "nl": "Je bent terug in je eigen profiel.",
+   "zh": "已切换回你的个人资料。"
+  },
+  "Quiere añadirte a su equipo como": {
+   "en": "Wants to add you to their team as",
+   "fr": "Souhaite vous ajouter à son équipe comme",
+   "de": "Möchte dich zum Team hinzufügen als",
+   "it": "Vuole aggiungerti al suo team come",
+   "pt": "Quer adicioná-lo à equipa como",
+   "pl": "Chce dodać cię do zespołu jako",
+   "nl": "Wil je aan het team toevoegen als",
+   "zh": "想把你加入团队，角色为"
+  },
+  "Para este perfil tienes que activar tu perfil de freelance. Es gratis y lo haces al aceptar.": {
+   "en": "For this profile you need to activate your freelance profile. It’s free and you do it when you accept.",
+   "fr": "Pour ce profil, vous devez activer votre profil freelance. C’est gratuit et cela se fait en acceptant.",
+   "de": "Für dieses Profil musst du dein Freelancer-Profil aktivieren. Das ist kostenlos und passiert beim Annehmen.",
+   "it": "Per questo profilo devi attivare il tuo profilo freelance. È gratis e lo fai quando accetti.",
+   "pt": "Para este perfil tem de ativar o seu perfil de freelancer. É grátis e faz-se ao aceitar.",
+   "pl": "Do tego profilu musisz aktywować profil freelancera. To bezpłatne i robisz to przy akceptacji.",
+   "nl": "Voor dit profiel moet je je freelanceprofiel activeren. Het is gratis en gebeurt bij het accepteren.",
+   "zh": "这个角色需要启用你的自由职业者资料。免费，在接受时即可完成。"
+  },
+  "Aún no ha empezado": {
+   "en": "Hasn’t started yet",
+   "fr": "Pas encore commencé",
+   "de": "Noch nicht begonnen",
+   "it": "Non è ancora iniziato",
+   "pt": "Ainda não começou",
+   "pl": "Jeszcze się nie zaczął",
+   "nl": "Nog niet begonnen",
+   "zh": "尚未开始"
+  },
+  "Trabajar en este centro": {
+   "en": "Work at this centre",
+   "fr": "Travailler dans ce centre",
+   "de": "In diesem Center arbeiten",
+   "it": "Lavora in questo centro",
+   "pt": "Trabalhar neste centro",
+   "pl": "Pracuj w tym centrum",
+   "nl": "Bij dit centrum werken",
+   "zh": "以该中心身份工作"
+  },
+  "Salir de este centro": {
+   "en": "Leave this centre",
+   "fr": "Quitter ce centre",
+   "de": "Dieses Center verlassen",
+   "it": "Esci da questo centro",
+   "pt": "Sair deste centro",
+   "pl": "Opuść to centrum",
+   "nl": "Dit centrum verlaten",
+   "zh": "退出该中心"
+  },
+  "Los centros donde trabajas": {
+   "en": "The centres you work for",
+   "fr": "Les centres où vous travaillez",
+   "de": "Die Center, für die du arbeitest",
+   "it": "I centri in cui lavori",
+   "pt": "Os centros onde trabalha",
+   "pl": "Centra, w których pracujesz",
+   "nl": "De centra waar je werkt",
+   "zh": "你工作的中心"
+  },
+  "Nadie te añade a un equipo sin tu «sí». Puedes salir de un centro cuando quieras: lo que hiciste sigue en tu agenda, sin datos de sus clientes.": {
+   "en": "Nobody adds you to a team without your “yes”. You can leave a centre whenever you want: what you did stays in your diary, without its customers’ data.",
+   "fr": "Personne ne vous ajoute à une équipe sans votre « oui ». Vous pouvez quitter un centre quand vous voulez : ce que vous avez fait reste dans votre agenda, sans les données de ses clients.",
+   "de": "Niemand fügt dich ohne dein „Ja“ zu einem Team hinzu. Du kannst ein Center jederzeit verlassen: Was du gemacht hast, bleibt in deinem Kalender, ohne Kundendaten.",
+   "it": "Nessuno ti aggiunge a un team senza il tuo «sì». Puoi uscire da un centro quando vuoi: ciò che hai fatto resta nella tua agenda, senza i dati dei suoi clienti.",
+   "pt": "Ninguém o adiciona a uma equipa sem o seu «sim». Pode sair de um centro quando quiser: o que fez continua na sua agenda, sem os dados dos clientes.",
+   "pl": "Nikt nie doda cię do zespołu bez twojego „tak”. Możesz opuścić centrum, kiedy chcesz: to, co zrobiłeś, zostaje w kalendarzu, bez danych jego klientów.",
+   "nl": "Niemand voegt je zonder jouw ‘ja’ aan een team toe. Je kunt een centrum verlaten wanneer je wilt: wat je deed blijft in je agenda, zonder gegevens van de klanten.",
+   "zh": "没有你的同意，任何人都不能把你加入团队。你可以随时退出某个中心：你做过的工作会保留在日程中，但不含其客户数据。"
+  },
+  "Peticiones pendientes": {
+   "en": "Pending requests",
+   "fr": "Demandes en attente",
+   "de": "Offene Anfragen",
+   "it": "Richieste in sospeso",
+   "pt": "Pedidos pendentes",
+   "pl": "Oczekujące prośby",
+   "nl": "Openstaande verzoeken",
+   "zh": "待处理的请求"
+  },
+  "Aún no estás en ningún equipo. Enseña tu QR en el centro para que te añadan.": {
+   "en": "You aren’t in any team yet. Show your QR code at the centre so they can add you.",
+   "fr": "Vous ne faites encore partie d’aucune équipe. Montrez votre QR au centre pour qu’on vous ajoute.",
+   "de": "Du bist noch in keinem Team. Zeig deinen QR-Code im Center, damit man dich hinzufügt.",
+   "it": "Non fai ancora parte di nessun team. Mostra il tuo QR al centro perché ti aggiungano.",
+   "pt": "Ainda não está em nenhuma equipa. Mostre o seu QR no centro para o adicionarem.",
+   "pl": "Nie jesteś jeszcze w żadnym zespole. Pokaż swój kod QR w centrum, aby cię dodano.",
+   "nl": "Je zit nog in geen enkel team. Laat je QR-code zien in het centrum zodat ze je toevoegen.",
+   "zh": "你还没有加入任何团队。在中心出示你的二维码，让他们添加你。"
+  },
+  "Ya estás en el equipo de": {
+   "en": "You are now in the team of",
+   "fr": "Vous faites maintenant partie de l’équipe de",
+   "de": "Du bist jetzt im Team von",
+   "it": "Ora fai parte del team di",
+   "pt": "Já está na equipa de",
+   "pl": "Jesteś teraz w zespole",
+   "nl": "Je zit nu in het team van",
+   "zh": "你已加入该团队："
+  },
+  "Petición rechazada.": {
+   "en": "Request declined.",
+   "fr": "Demande refusée.",
+   "de": "Anfrage abgelehnt.",
+   "it": "Richiesta rifiutata.",
+   "pt": "Pedido recusado.",
+   "pl": "Prośba odrzucona.",
+   "nl": "Verzoek afgewezen.",
+   "zh": "已拒绝请求。"
+  },
+  "Salir de": {
+   "en": "Leave",
+   "fr": "Quitter",
+   "de": "Verlassen:",
+   "it": "Esci da",
+   "pt": "Sair de",
+   "pl": "Opuść",
+   "nl": "Verlaten:",
+   "zh": "退出"
+  },
+  "Dejarás de ver lo de este centro al momento. Tus trabajos pasados siguen en tu agenda.": {
+   "en": "You will stop seeing this centre’s information straight away. Your past work stays in your diary.",
+   "fr": "Vous ne verrez plus les informations de ce centre immédiatement. Vos missions passées restent dans votre agenda.",
+   "de": "Du siehst die Daten dieses Centers sofort nicht mehr. Deine bisherigen Einsätze bleiben in deinem Kalender.",
+   "it": "Smetterai subito di vedere i dati di questo centro. I tuoi lavori passati restano nella tua agenda.",
+   "pt": "Deixa de ver os dados deste centro de imediato. Os seus trabalhos anteriores continuam na sua agenda.",
+   "pl": "Od razu przestaniesz widzieć dane tego centrum. Twoje wcześniejsze prace zostają w kalendarzu.",
+   "nl": "Je ziet de gegevens van dit centrum meteen niet meer. Je eerdere werk blijft in je agenda.",
+   "zh": "你将立即无法查看该中心的信息。你过去的工作会保留在日程中。"
+  },
+  "Salir del equipo": {
+   "en": "Leave the team",
+   "fr": "Quitter l’équipe",
+   "de": "Team verlassen",
+   "it": "Esci dal team",
+   "pt": "Sair da equipa",
+   "pl": "Opuść zespół",
+   "nl": "Team verlaten",
+   "zh": "退出团队"
+  },
+  "Has salido del equipo.": {
+   "en": "You have left the team.",
+   "fr": "Vous avez quitté l’équipe.",
+   "de": "Du hast das Team verlassen.",
+   "it": "Sei uscito dal team.",
+   "pt": "Saiu da equipa.",
+   "pl": "Opuściłeś zespół.",
+   "nl": "Je hebt het team verlaten.",
+   "zh": "你已退出团队。"
+  },
+  "Lo que te toca, de todos tus centros": {
+   "en": "Your work, from all your centres",
+   "fr": "Ce qui vous attend, dans tous vos centres",
+   "de": "Deine Einsätze aus allen deinen Centern",
+   "it": "Quello che ti tocca, da tutti i tuoi centri",
+   "pt": "O que lhe cabe, de todos os seus centros",
+   "pl": "Twoje zadania ze wszystkich centrów",
+   "nl": "Wat je moet doen, bij al je centra",
+   "zh": "你在所有中心的工作安排"
+  },
+  "Tu trabajo de freelance y lo que te asigna cada centro, en una sola agenda. Cada centro tiene su color.": {
+   "en": "Your freelance work and what each centre assigns you, in one diary. Each centre has its own colour.",
+   "fr": "Votre travail de freelance et ce que chaque centre vous attribue, dans un seul agenda. Chaque centre a sa couleur.",
+   "de": "Deine Freelancer-Arbeit und was dir jedes Center zuweist, in einem Kalender. Jedes Center hat seine Farbe.",
+   "it": "Il tuo lavoro da freelance e quello che ti assegna ogni centro, in un’unica agenda. Ogni centro ha il suo colore.",
+   "pt": "O seu trabalho de freelancer e o que cada centro lhe atribui, numa só agenda. Cada centro tem a sua cor.",
+   "pl": "Twoja praca freelancera i to, co przydziela ci każde centrum, w jednym kalendarzu. Każde centrum ma swój kolor.",
+   "nl": "Je freelancewerk en wat elk centrum je toewijst, in één agenda. Elk centrum heeft zijn eigen kleur.",
+   "zh": "你的自由职业工作和各中心分配给你的任务，都在同一个日程里。每个中心都有自己的颜色。"
+  },
+  "Semanas": {
+   "en": "Weeks",
+   "fr": "Semaines",
+   "de": "Wochen",
+   "it": "Settimane",
+   "pt": "Semanas",
+   "pl": "Tygodnie",
+   "nl": "Weken",
+   "zh": "周"
+  },
+  "Anteriores": {
+   "en": "Previous",
+   "fr": "Précédentes",
+   "de": "Vorherige",
+   "it": "Precedenti",
+   "pt": "Anteriores",
+   "pl": "Poprzednie",
+   "nl": "Vorige",
+   "zh": "上一页"
+  },
+  "Siguientes": {
+   "en": "Next",
+   "fr": "Suivantes",
+   "de": "Nächste",
+   "it": "Successive",
+   "pt": "Seguintes",
+   "pl": "Następne",
+   "nl": "Volgende",
+   "zh": "下一页"
+  },
+  "No tienes nada asignado en estas dos semanas.": {
+   "en": "You have nothing assigned in these two weeks.",
+   "fr": "Rien ne vous est attribué ces deux semaines.",
+   "de": "In diesen zwei Wochen ist dir nichts zugewiesen.",
+   "it": "Non hai nulla assegnato in queste due settimane.",
+   "pt": "Não tem nada atribuído nestas duas semanas.",
+   "pl": "Nie masz nic przydzielonego w tych dwóch tygodniach.",
+   "nl": "Je hebt in deze twee weken niets toegewezen.",
+   "zh": "这两周没有给你分配任务。"
+  },
+  "Mi trabajo": {
+   "en": "My work",
+   "fr": "Mon travail",
+   "de": "Meine Arbeit",
+   "it": "Il mio lavoro",
+   "pt": "O meu trabalho",
+   "pl": "Moja praca",
+   "nl": "Mijn werk",
+   "zh": "我的工作"
+  },
+  "Enlazar a una persona": {
+   "en": "Link a person",
+   "fr": "Lier une personne",
+   "de": "Eine Person verknüpfen",
+   "it": "Collega una persona",
+   "pt": "Ligar uma pessoa",
+   "pl": "Połącz osobę",
+   "nl": "Een persoon koppelen",
+   "zh": "关联人员"
+  },
+  "Es el QR o el enlace de una persona de WORLDIVES para unirse al equipo de un centro. No lleva sus datos.": {
+   "en": "This is a WORLDIVES person’s QR code or link to join a centre’s team. It carries none of their data.",
+   "fr": "C’est le QR ou le lien d’une personne de WORLDIVES pour rejoindre l’équipe d’un centre. Il ne contient pas ses données.",
+   "de": "Das ist der QR-Code oder Link einer WORLDIVES-Person, um dem Team eines Centers beizutreten. Er enthält keine Daten der Person.",
+   "it": "È il QR o il link di una persona di WORLDIVES per entrare nel team di un centro. Non contiene i suoi dati.",
+   "pt": "É o QR ou a ligação de uma pessoa da WORLDIVES para entrar na equipa de um centro. Não leva os seus dados.",
+   "pl": "To kod QR lub link osoby z WORLDIVES do dołączenia do zespołu centrum. Nie zawiera jej danych.",
+   "nl": "Dit is de QR-code of link van iemand bij WORLDIVES om bij het team van een centrum te komen. Er staan geen gegevens van die persoon in.",
+   "zh": "这是 WORLDIVES 用户用于加入中心团队的二维码或链接，不含其个人数据。"
+  },
+  "Entra con la cuenta del centro.": {
+   "en": "Sign in with the centre’s account.",
+   "fr": "Connectez-vous avec le compte du centre.",
+   "de": "Melde dich mit dem Konto des Centers an.",
+   "it": "Accedi con l’account del centro.",
+   "pt": "Entre com a conta do centro.",
+   "pl": "Zaloguj się na konto centrum.",
+   "nl": "Log in met het account van het centrum.",
+   "zh": "使用中心账户登录。"
+  },
+  "Abre «Equipo → Enlazar persona».": {
+   "en": "Open “Team → Link a person”.",
+   "fr": "Ouvrez « Équipe → Lier une personne ».",
+   "de": "Öffne „Team → Person verknüpfen“.",
+   "it": "Apri «Team → Collega una persona».",
+   "pt": "Abra «Equipa → Ligar pessoa».",
+   "pl": "Otwórz „Zespół → Połącz osobę”.",
+   "nl": "Open ‘Team → Persoon koppelen’.",
+   "zh": "打开“团队 → 关联人员”。"
+  },
+  "Escanea el QR, escribe su código o abre su enlace.": {
+   "en": "Scan the QR code, type their code or open their link.",
+   "fr": "Scannez le QR, saisissez son code ou ouvrez son lien.",
+   "de": "Scanne den QR-Code, gib den Code ein oder öffne den Link.",
+   "it": "Scansiona il QR, scrivi il codice o apri il link.",
+   "pt": "Leia o QR, escreva o código ou abra a ligação.",
+   "pl": "Zeskanuj kod QR, wpisz kod lub otwórz link.",
+   "nl": "Scan de QR-code, typ de code of open de link.",
+   "zh": "扫描二维码、输入代码或打开链接。"
+  },
+  "Solo el propietario del centro puede enlazar personas, desde su panel.": {
+   "en": "Only the centre’s owner can link people, from their dashboard.",
+   "fr": "Seul le propriétaire du centre peut lier des personnes, depuis son tableau de bord.",
+   "de": "Nur der Inhaber des Centers kann Personen verknüpfen, in seinem Dashboard.",
+   "it": "Solo il titolare del centro può collegare persone, dal suo pannello.",
+   "pt": "Só o proprietário do centro pode ligar pessoas, a partir do seu painel.",
+   "pl": "Tylko właściciel centrum może łączyć osoby, ze swojego panelu.",
+   "nl": "Alleen de eigenaar van het centrum kan personen koppelen, vanuit het dashboard.",
+   "zh": "只有中心所有者可以在其面板中关联人员。"
+  },
+  "Disponible en el plan Pro": {
+   "en": "Available on the Pro plan",
+   "fr": "Disponible avec l’offre Pro",
+   "de": "Im Pro-Tarif verfügbar",
+   "it": "Disponibile nel piano Pro",
+   "pt": "Disponível no plano Pro",
+   "pl": "Dostępne w planie Pro",
+   "nl": "Beschikbaar in het Pro-abonnement",
+   "zh": "Pro 套餐可用"
+  },
+  "Fijo": {
+   "en": "Permanent",
+   "fr": "Permanent",
+   "de": "Dauerhaft",
+   "it": "Fisso",
+   "pt": "Fixo",
+   "pl": "Stały",
+   "nl": "Vast",
+   "zh": "长期"
+  },
+  "Hasta que lo quites del equipo.": {
+   "en": "Until you remove them from the team.",
+   "fr": "Jusqu’à ce que vous le retiriez de l’équipe.",
+   "de": "Bis du die Person aus dem Team entfernst.",
+   "it": "Finché non lo togli dal team.",
+   "pt": "Até o retirar da equipa.",
+   "pl": "Dopóki nie usuniesz tej osoby z zespołu.",
+   "nl": "Tot je hem uit het team haalt.",
+   "zh": "直到你将其移出团队。"
+  },
+  "Solo esos días; después sale solo.": {
+   "en": "Only those days; then they leave automatically.",
+   "fr": "Seulement ces jours-là ; ensuite, la personne sort automatiquement.",
+   "de": "Nur an diesen Tagen; danach scheidet die Person automatisch aus.",
+   "it": "Solo quei giorni; poi esce da solo.",
+   "pt": "Só esses dias; depois sai automaticamente.",
+   "pl": "Tylko w te dni; potem osoba wychodzi automatycznie.",
+   "nl": "Alleen die dagen; daarna vertrekt de persoon vanzelf.",
+   "zh": "仅限这些天；之后自动退出。"
+  },
+  "Enlazar persona": {
+   "en": "Link a person",
+   "fr": "Lier une personne",
+   "de": "Person verknüpfen",
+   "it": "Collega una persona",
+   "pt": "Ligar pessoa",
+   "pl": "Połącz osobę",
+   "nl": "Persoon koppelen",
+   "zh": "关联人员"
+  },
+  "La persona recibe la petición y tiene que aceptarla. Nadie queda enlazado sin su «sí».": {
+   "en": "The person receives the request and has to accept it. Nobody is linked without their “yes”.",
+   "fr": "La personne reçoit la demande et doit l’accepter. Personne n’est lié sans son « oui ».",
+   "de": "Die Person erhält die Anfrage und muss sie annehmen. Niemand wird ohne sein „Ja“ verknüpft.",
+   "it": "La persona riceve la richiesta e deve accettarla. Nessuno viene collegato senza il suo «sì».",
+   "pt": "A pessoa recebe o pedido e tem de o aceitar. Ninguém fica ligado sem o seu «sim».",
+   "pl": "Osoba otrzymuje prośbę i musi ją zaakceptować. Nikt nie zostaje połączony bez swojego „tak”.",
+   "nl": "De persoon krijgt het verzoek en moet het accepteren. Niemand wordt gekoppeld zonder zijn ‘ja’.",
+   "zh": "对方会收到请求并需要接受。未经本人同意，任何人都不会被关联。"
+  },
+  "Escanear QR": {
+   "en": "Scan QR",
+   "fr": "Scanner le QR",
+   "de": "QR scannen",
+   "it": "Scansiona QR",
+   "pt": "Ler QR",
+   "pl": "Skanuj QR",
+   "nl": "QR scannen",
+   "zh": "扫描二维码"
+  },
+  "Escribir el código": {
+   "en": "Type the code",
+   "fr": "Saisir le code",
+   "de": "Code eingeben",
+   "it": "Scrivi il codice",
+   "pt": "Escrever o código",
+   "pl": "Wpisz kod",
+   "nl": "Code typen",
+   "zh": "输入代码"
+  },
+  "Por correo": {
+   "en": "By email",
+   "fr": "Par e-mail",
+   "de": "Per E-Mail",
+   "it": "Per email",
+   "pt": "Por email",
+   "pl": "E-mailem",
+   "nl": "Per e-mail",
+   "zh": "通过电子邮件"
+  },
+  "Pide a la persona que abra «Mi QR» en su móvil (en su menú, arriba a la derecha) y apunta la cámara.": {
+   "en": "Ask the person to open “My QR” on their phone (in their menu, top right) and point the camera.",
+   "fr": "Demandez à la personne d’ouvrir « Mon QR » sur son téléphone (dans son menu, en haut à droite) et visez avec la caméra.",
+   "de": "Bitte die Person, auf ihrem Handy „Mein QR“ zu öffnen (im Menü oben rechts), und richte die Kamera darauf.",
+   "it": "Chiedi alla persona di aprire «Il mio QR» sul telefono (nel menu, in alto a destra) e inquadra con la fotocamera.",
+   "pt": "Peça à pessoa que abra «O meu QR» no telemóvel (no menu, em cima à direita) e aponte a câmara.",
+   "pl": "Poproś tę osobę, aby otworzyła „Mój QR” w telefonie (w menu, w prawym górnym rogu), i skieruj na niego aparat.",
+   "nl": "Vraag de persoon om ‘Mijn QR’ op de telefoon te openen (in het menu rechtsboven) en richt de camera.",
+   "zh": "请对方在手机上打开“我的二维码”（菜单右上角），然后用摄像头对准。"
+  },
+  "Abrir la cámara": {
+   "en": "Open the camera",
+   "fr": "Ouvrir la caméra",
+   "de": "Kamera öffnen",
+   "it": "Apri la fotocamera",
+   "pt": "Abrir a câmara",
+   "pl": "Otwórz aparat",
+   "nl": "Camera openen",
+   "zh": "打开摄像头"
+  },
+  "Código de 6 letras o enlace": {
+   "en": "6-character code or link",
+   "fr": "Code de 6 caractères ou lien",
+   "de": "6-stelliger Code oder Link",
+   "it": "Codice di 6 caratteri o link",
+   "pt": "Código de 6 caracteres ou ligação",
+   "pl": "6-znakowy kod lub link",
+   "nl": "Code van 6 tekens of link",
+   "zh": "6 位代码或链接"
+  },
+  "Lo ve debajo de su QR (dura 10 minutos), o pega el enlace que te ha enviado.": {
+   "en": "They see it under their QR code (it lasts 10 minutes), or paste the link they sent you.",
+   "fr": "La personne le voit sous son QR (il dure 10 minutes), ou collez le lien qu’elle vous a envoyé.",
+   "de": "Die Person sieht ihn unter ihrem QR-Code (10 Minuten gültig), oder füge den Link ein, den sie dir geschickt hat.",
+   "it": "Lo vede sotto il suo QR (dura 10 minuti), oppure incolla il link che ti ha inviato.",
+   "pt": "Vê-o por baixo do QR (dura 10 minutos), ou cole a ligação que lhe enviou.",
+   "pl": "Widzi go pod swoim kodem QR (ważny 10 minut), albo wklej link, który ci wysłała.",
+   "nl": "De persoon ziet hem onder de QR-code (10 minuten geldig), of plak de link die je kreeg.",
+   "zh": "对方可在二维码下方看到（有效期 10 分钟），也可以粘贴对方发给你的链接。"
+  },
+  "Email de la persona": {
+   "en": "The person’s email",
+   "fr": "E-mail de la personne",
+   "de": "E-Mail der Person",
+   "it": "Email della persona",
+   "pt": "Email da pessoa",
+   "pl": "E-mail tej osoby",
+   "nl": "E-mail van de persoon",
+   "zh": "对方的电子邮件"
+  },
+  "Si aún no tiene cuenta, el correo le lleva a crearla (de freelance o normal) y queda enlazada al terminar.": {
+   "en": "If they don’t have an account yet, the email takes them to create one (freelance or regular) and they are linked when they finish.",
+   "fr": "Si elle n’a pas encore de compte, l’e-mail l’invite à en créer un (freelance ou normal) et elle est liée une fois terminé.",
+   "de": "Hat die Person noch kein Konto, führt die E-Mail sie zur Erstellung (Freelancer oder normal), und danach ist sie verknüpft.",
+   "it": "Se non ha ancora un account, l’email lo porta a crearlo (freelance o normale) e alla fine resta collegato.",
+   "pt": "Se ainda não tiver conta, o email leva-a a criá-la (de freelancer ou normal) e fica ligada no fim.",
+   "pl": "Jeśli nie ma jeszcze konta, e-mail poprowadzi ją do jego założenia (freelancer lub zwykłe), a po zakończeniu zostanie połączona.",
+   "nl": "Heeft de persoon nog geen account, dan leidt de e-mail naar het aanmaken ervan (freelance of normaal) en is hij daarna gekoppeld.",
+   "zh": "如果对方还没有账户，邮件会引导其创建（自由职业者或普通账户），完成后即完成关联。"
+  },
+  "Sin titulaciones en su cuenta.": {
+   "en": "No certifications in their account.",
+   "fr": "Aucun brevet sur son compte.",
+   "de": "Keine Brevets im Konto.",
+   "it": "Nessun brevetto nel suo account.",
+   "pt": "Sem certificações na conta.",
+   "pl": "Brak certyfikatów na koncie.",
+   "nl": "Geen brevetten in het account.",
+   "zh": "账户中没有证书。"
+  },
+  "Esa eres tú: ya estás en el equipo.": {
+   "en": "That’s you: you are already in the team.",
+   "fr": "C’est vous : vous êtes déjà dans l’équipe.",
+   "de": "Das bist du: Du bist schon im Team.",
+   "it": "Sei tu: sei già nel team.",
+   "pt": "É você: já está na equipa.",
+   "pl": "To ty: już jesteś w zespole.",
+   "nl": "Dat ben jij: je zit al in het team.",
+   "zh": "这是你自己：你已在团队中。"
+  },
+  "Esa persona ya está en tu equipo o tiene una petición pendiente.": {
+   "en": "That person is already in your team or has a pending request.",
+   "fr": "Cette personne est déjà dans votre équipe ou a une demande en attente.",
+   "de": "Diese Person ist schon in deinem Team oder hat eine offene Anfrage.",
+   "it": "Questa persona è già nel tuo team o ha una richiesta in sospeso.",
+   "pt": "Essa pessoa já está na sua equipa ou tem um pedido pendente.",
+   "pl": "Ta osoba jest już w twoim zespole lub ma oczekującą prośbę.",
+   "nl": "Die persoon zit al in je team of heeft een openstaand verzoek.",
+   "zh": "此人已在你的团队中，或有待处理的请求。"
+  },
+  "Con tu plan, la persona del equipo solo puede ser Recepción. Los demás perfiles: Disponible en el plan Pro.": {
+   "en": "With your plan, the team member can only be Reception. Other profiles: available on the Pro plan.",
+   "fr": "Avec votre offre, la personne de l’équipe ne peut être qu’à l’Accueil. Les autres profils : disponibles avec l’offre Pro.",
+   "de": "Mit deinem Tarif kann die Person im Team nur Empfang sein. Andere Profile: im Pro-Tarif verfügbar.",
+   "it": "Con il tuo piano, la persona del team può essere solo Reception. Gli altri profili: disponibili nel piano Pro.",
+   "pt": "Com o seu plano, a pessoa da equipa só pode ser Receção. Os outros perfis: disponíveis no plano Pro.",
+   "pl": "W twoim planie osoba z zespołu może mieć tylko profil Recepcja. Pozostałe profile: dostępne w planie Pro.",
+   "nl": "Met je abonnement kan het teamlid alleen Receptie zijn. Andere profielen: beschikbaar in het Pro-abonnement.",
+   "zh": "在你的套餐下，团队成员只能担任前台。其他角色：Pro 套餐可用。"
+  },
+  "Su cuenta es de buceador: para los perfiles de trabajo tendrá que activar su perfil de freelance (es gratis) al aceptar.": {
+   "en": "Their account is a diver account: for work profiles they will have to activate their freelance profile (it’s free) when accepting.",
+   "fr": "Son compte est un compte de plongeur : pour les profils de travail, il devra activer son profil freelance (gratuit) en acceptant.",
+   "de": "Das Konto ist ein Taucherkonto: Für Arbeitsprofile muss die Person beim Annehmen ihr Freelancer-Profil aktivieren (kostenlos).",
+   "it": "Il suo account è da subacqueo: per i profili di lavoro dovrà attivare il profilo freelance (gratis) quando accetta.",
+   "pt": "A conta é de mergulhador: para os perfis de trabalho terá de ativar o perfil de freelancer (é grátis) ao aceitar.",
+   "pl": "To konto nurka: do profili zawodowych przy akceptacji będzie musiała aktywować profil freelancera (bezpłatny).",
+   "nl": "Het is een duikersaccount: voor werkprofielen moet de persoon bij het accepteren het freelanceprofiel activeren (gratis).",
+   "zh": "对方是潜水员账户：担任工作角色时，需要在接受时启用自由职业者资料（免费）。"
+  },
+  "Otra persona": {
+   "en": "Another person",
+   "fr": "Une autre personne",
+   "de": "Andere Person",
+   "it": "Un’altra persona",
+   "pt": "Outra pessoa",
+   "pl": "Inna osoba",
+   "nl": "Andere persoon",
+   "zh": "换一个人"
+  },
+  "Enviar petición": {
+   "en": "Send request",
+   "fr": "Envoyer la demande",
+   "de": "Anfrage senden",
+   "it": "Invia richiesta",
+   "pt": "Enviar pedido",
+   "pl": "Wyślij prośbę",
+   "nl": "Verzoek sturen",
+   "zh": "发送请求"
+  },
+  "Petición enviada. En cuanto acepte, aparecerá en tu equipo.": {
+   "en": "Request sent. As soon as they accept, they will appear in your team.",
+   "fr": "Demande envoyée. Dès qu’elle acceptera, elle apparaîtra dans votre équipe.",
+   "de": "Anfrage gesendet. Sobald die Person annimmt, erscheint sie in deinem Team.",
+   "it": "Richiesta inviata. Appena accetta, comparirà nel tuo team.",
+   "pt": "Pedido enviado. Assim que aceitar, aparecerá na sua equipa.",
+   "pl": "Prośba wysłana. Gdy tylko zaakceptuje, pojawi się w twoim zespole.",
+   "nl": "Verzoek verstuurd. Zodra de persoon accepteert, verschijnt hij in je team.",
+   "zh": "请求已发送。对方接受后就会出现在你的团队中。"
+  },
+  "Para unirse a tu equipo, tiene que activar su perfil de freelance (es gratis). Le hemos enviado el enlace.": {
+   "en": "To join your team, they have to activate their freelance profile (it’s free). We have sent them the link.",
+   "fr": "Pour rejoindre votre équipe, elle doit activer son profil freelance (gratuit). Nous lui avons envoyé le lien.",
+   "de": "Um deinem Team beizutreten, muss die Person ihr Freelancer-Profil aktivieren (kostenlos). Wir haben ihr den Link geschickt.",
+   "it": "Per entrare nel tuo team deve attivare il profilo freelance (è gratis). Gli abbiamo inviato il link.",
+   "pt": "Para entrar na sua equipa, tem de ativar o perfil de freelancer (é grátis). Enviámos-lhe a ligação.",
+   "pl": "Aby dołączyć do twojego zespołu, musi aktywować profil freelancera (bezpłatny). Wysłaliśmy jej link.",
+   "nl": "Om bij je team te komen, moet de persoon het freelanceprofiel activeren (gratis). We hebben de link gestuurd.",
+   "zh": "要加入你的团队，对方需要启用自由职业者资料（免费）。我们已把链接发给对方。"
+  },
+  "Invitación enviada. Cuando la acepte, aparecerá en tu equipo.": {
+   "en": "Invitation sent. When they accept it, they will appear in your team.",
+   "fr": "Invitation envoyée. Quand elle l’acceptera, elle apparaîtra dans votre équipe.",
+   "de": "Einladung gesendet. Wenn die Person sie annimmt, erscheint sie in deinem Team.",
+   "it": "Invito inviato. Quando lo accetta, comparirà nel tuo team.",
+   "pt": "Convite enviado. Quando o aceitar, aparecerá na sua equipa.",
+   "pl": "Zaproszenie wysłane. Gdy je przyjmie, pojawi się w twoim zespole.",
+   "nl": "Uitnodiging verstuurd. Als de persoon accepteert, verschijnt hij in je team.",
+   "zh": "邀请已发送。对方接受后就会出现在你的团队中。"
+  },
+  "Personas enlazadas a tu centro": {
+   "en": "People linked to your centre",
+   "fr": "Personnes liées à votre centre",
+   "de": "Mit deinem Center verknüpfte Personen",
+   "it": "Persone collegate al tuo centro",
+   "pt": "Pessoas ligadas ao seu centro",
+   "pl": "Osoby połączone z twoim centrum",
+   "nl": "Personen gekoppeld aan je centrum",
+   "zh": "与你的中心关联的人员"
+  },
+  "Cada persona entra con su propia cuenta y elige tu centro en su menú. Ve solo lo que permite su perfil, y solo mientras está en tu equipo.": {
+   "en": "Each person signs in with their own account and chooses your centre in their menu. They only see what their profile allows, and only while they are in your team.",
+   "fr": "Chaque personne se connecte avec son propre compte et choisit votre centre dans son menu. Elle ne voit que ce que son profil permet, et seulement tant qu’elle est dans votre équipe.",
+   "de": "Jede Person meldet sich mit ihrem eigenen Konto an und wählt dein Center im Menü. Sie sieht nur, was ihr Profil erlaubt, und nur solange sie in deinem Team ist.",
+   "it": "Ogni persona entra con il proprio account e sceglie il tuo centro nel menu. Vede solo ciò che il suo profilo consente, e solo finché è nel tuo team.",
+   "pt": "Cada pessoa entra com a sua própria conta e escolhe o seu centro no menu. Vê apenas o que o perfil permite, e só enquanto estiver na sua equipa.",
+   "pl": "Każda osoba loguje się na własne konto i wybiera twoje centrum w swoim menu. Widzi tylko to, na co pozwala jej profil, i tylko dopóki jest w twoim zespole.",
+   "nl": "Iedereen logt in met een eigen account en kiest je centrum in het menu. Ze zien alleen wat hun profiel toestaat, en alleen zolang ze in je team zitten.",
+   "zh": "每个人都用自己的账户登录，并在菜单中选择你的中心。他们只能看到其角色允许的内容，且仅限于在你团队期间。"
+  },
+  "{x} de {n} personas además del propietario": {
+   "en": "{x} of {n} people besides the owner",
+   "fr": "{x} sur {n} personnes en plus du propriétaire",
+   "de": "{x} von {n} Personen zusätzlich zum Inhaber",
+   "it": "{x} su {n} persone oltre al titolare",
+   "pt": "{x} de {n} pessoas além do proprietário",
+   "pl": "{x} z {n} osób oprócz właściciela",
+   "nl": "{x} van {n} personen naast de eigenaar",
+   "zh": "除所有者外已有 {x}/{n} 人"
+  },
+  "Disponible en el plan Motor de reservas": {
+   "en": "Available on the Booking engine plan",
+   "fr": "Disponible avec l’offre Moteur de réservation",
+   "de": "Im Tarif Buchungssystem verfügbar",
+   "it": "Disponibile nel piano Motore di prenotazione",
+   "pt": "Disponível no plano Motor de reservas",
+   "pl": "Dostępne w planie Silnik rezerwacji",
+   "nl": "Beschikbaar in het abonnement Boekingsmodule",
+   "zh": "预订引擎套餐可用"
+  },
+  "Persona": {
+   "en": "Person",
+   "fr": "Personne",
+   "de": "Person",
+   "it": "Persona",
+   "pt": "Pessoa",
+   "pl": "Osoba",
+   "nl": "Persoon",
+   "zh": "人员"
+  },
+  "Aún no has enlazado a nadie. Pulsa «Enlazar persona» y escanea su QR.": {
+   "en": "You haven’t linked anyone yet. Tap “Link a person” and scan their QR code.",
+   "fr": "Vous n’avez encore lié personne. Appuyez sur « Lier une personne » et scannez son QR.",
+   "de": "Du hast noch niemanden verknüpft. Tippe auf „Person verknüpfen“ und scanne den QR-Code.",
+   "it": "Non hai ancora collegato nessuno. Tocca «Collega una persona» e scansiona il suo QR.",
+   "pt": "Ainda não ligou ninguém. Toque em «Ligar pessoa» e leia o QR.",
+   "pl": "Nikogo jeszcze nie połączyłeś. Kliknij „Połącz osobę” i zeskanuj kod QR.",
+   "nl": "Je hebt nog niemand gekoppeld. Tik op ‘Persoon koppelen’ en scan de QR-code.",
+   "zh": "你还没有关联任何人。点击“关联人员”并扫描对方的二维码。"
+  },
+  "Transferir la propiedad": {
+   "en": "Transfer ownership",
+   "fr": "Transférer la propriété",
+   "de": "Inhaberschaft übertragen",
+   "it": "Trasferisci la titolarità",
+   "pt": "Transferir a propriedade",
+   "pl": "Przekaż własność",
+   "nl": "Eigendom overdragen",
+   "zh": "转让所有权"
+  },
+  "La nueva persona pasa a ser la propietaria y tú quedas como Encargado. Te enviamos un correo para confirmarlo.": {
+   "en": "The new person becomes the owner and you stay as Manager. We send you an email to confirm it.",
+   "fr": "La nouvelle personne devient propriétaire et vous restez Responsable. Nous vous envoyons un e-mail pour confirmer.",
+   "de": "Die neue Person wird Inhaber, und du bleibst als Leitung. Wir schicken dir eine E-Mail zur Bestätigung.",
+   "it": "La nuova persona diventa titolare e tu resti come Responsabile. Ti inviamo un’email per confermarlo.",
+   "pt": "A nova pessoa passa a ser a proprietária e você fica como Responsável. Enviamos-lhe um email para confirmar.",
+   "pl": "Nowa osoba zostaje właścicielem, a ty pozostajesz jako Kierownik. Wyślemy ci e-mail z potwierdzeniem.",
+   "nl": "De nieuwe persoon wordt eigenaar en jij blijft als Manager. We sturen je een e-mail om het te bevestigen.",
+   "zh": "新人员将成为所有者，你保留经理身份。我们会给你发送确认邮件。"
+  },
+  "Nueva persona propietaria": {
+   "en": "New owner",
+   "fr": "Nouveau propriétaire",
+   "de": "Neuer Inhaber",
+   "it": "Nuovo titolare",
+   "pt": "Novo proprietário",
+   "pl": "Nowy właściciel",
+   "nl": "Nieuwe eigenaar",
+   "zh": "新所有者"
+  },
+  "Enviar el correo de confirmación": {
+   "en": "Send the confirmation email",
+   "fr": "Envoyer l’e-mail de confirmation",
+   "de": "Bestätigungs-E-Mail senden",
+   "it": "Invia l’email di conferma",
+   "pt": "Enviar o email de confirmação",
+   "pl": "Wyślij e-mail z potwierdzeniem",
+   "nl": "Bevestigingsmail sturen",
+   "zh": "发送确认邮件"
+  },
+  "Empieza el": {
+   "en": "Starts on",
+   "fr": "Commence le",
+   "de": "Beginnt am",
+   "it": "Inizia il",
+   "pt": "Começa a",
+   "pl": "Zaczyna się",
+   "nl": "Begint op",
+   "zh": "开始于"
+  },
+  "Pausar": {
+   "en": "Pause",
+   "fr": "Mettre en pause",
+   "de": "Pausieren",
+   "it": "Metti in pausa",
+   "pt": "Pausar",
+   "pl": "Wstrzymaj",
+   "nl": "Pauzeren",
+   "zh": "暂停"
+  },
+  "Quitar del equipo a": {
+   "en": "Remove from the team:",
+   "fr": "Retirer de l’équipe :",
+   "de": "Aus dem Team entfernen:",
+   "it": "Togli dal team:",
+   "pt": "Retirar da equipa:",
+   "pl": "Usuń z zespołu:",
+   "nl": "Uit het team halen:",
+   "zh": "移出团队："
+  },
+  "Pierde el acceso al momento, también si tiene la sesión abierta. Su historial de trabajos se queda.": {
+   "en": "They lose access straight away, even if they are signed in. Their work history stays.",
+   "fr": "La personne perd l’accès immédiatement, même si sa session est ouverte. Son historique de missions est conservé.",
+   "de": "Die Person verliert den Zugang sofort, auch wenn sie angemeldet ist. Ihr Einsatzverlauf bleibt erhalten.",
+   "it": "Perde subito l’accesso, anche se ha la sessione aperta. Il suo storico dei lavori resta.",
+   "pt": "Perde o acesso de imediato, mesmo com a sessão aberta. O histórico de trabalhos fica.",
+   "pl": "Traci dostęp natychmiast, nawet jeśli jest zalogowana. Historia jej pracy zostaje.",
+   "nl": "De persoon verliest meteen de toegang, ook als hij ingelogd is. De werkgeschiedenis blijft.",
+   "zh": "对方会立即失去访问权限，即使正处于登录状态。其工作记录会保留。"
+  },
+  "Quitar del equipo": {
+   "en": "Remove from the team",
+   "fr": "Retirer de l’équipe",
+   "de": "Aus dem Team entfernen",
+   "it": "Togli dal team",
+   "pt": "Retirar da equipa",
+   "pl": "Usuń z zespołu",
+   "nl": "Uit het team halen",
+   "zh": "移出团队"
+  },
+  "Ya no está en tu equipo.": {
+   "en": "They are no longer in your team.",
+   "fr": "Cette personne ne fait plus partie de votre équipe.",
+   "de": "Die Person ist nicht mehr in deinem Team.",
+   "it": "Non è più nel tuo team.",
+   "pt": "Já não está na sua equipa.",
+   "pl": "Ta osoba nie jest już w twoim zespole.",
+   "nl": "De persoon zit niet meer in je team.",
+   "zh": "对方已不在你的团队中。"
+  },
+  "En pausa: no tiene acceso hasta que lo reactives.": {
+   "en": "Paused: no access until you reactivate them.",
+   "fr": "En pause : pas d’accès tant que vous ne la réactivez pas.",
+   "de": "Pausiert: kein Zugang, bis du die Person reaktivierst.",
+   "it": "In pausa: nessun accesso finché non lo riattivi.",
+   "pt": "Em pausa: sem acesso até o reativar.",
+   "pl": "Wstrzymany: brak dostępu, dopóki go nie przywrócisz.",
+   "nl": "Gepauzeerd: geen toegang tot je hem weer activeert.",
+   "zh": "已暂停：在你重新启用前无法访问。"
+  },
+  "Reactivado.": {
+   "en": "Reactivated.",
+   "fr": "Réactivé.",
+   "de": "Reaktiviert.",
+   "it": "Riattivato.",
+   "pt": "Reativado.",
+   "pl": "Przywrócono.",
+   "nl": "Opnieuw geactiveerd.",
+   "zh": "已重新启用。"
+  },
+  "Te hemos enviado un correo para confirmar la transferencia.": {
+   "en": "We have sent you an email to confirm the transfer.",
+   "fr": "Nous vous avons envoyé un e-mail pour confirmer le transfert.",
+   "de": "Wir haben dir eine E-Mail zur Bestätigung der Übertragung geschickt.",
+   "it": "Ti abbiamo inviato un’email per confermare il trasferimento.",
+   "pt": "Enviámos-lhe um email para confirmar a transferência.",
+   "pl": "Wysłaliśmy ci e-mail, aby potwierdzić przekazanie.",
+   "nl": "We hebben je een e-mail gestuurd om de overdracht te bevestigen.",
+   "zh": "我们已向你发送确认转让的邮件。"
+  },
+  "Confirma que la propiedad del centro pasa a la persona que elegiste. Tú quedas en el equipo como Encargado.": {
+   "en": "Confirm that ownership of the centre passes to the person you chose. You stay in the team as Manager.",
+   "fr": "Confirmez que la propriété du centre passe à la personne choisie. Vous restez dans l’équipe comme Responsable.",
+   "de": "Bestätige, dass die Inhaberschaft des Centers an die gewählte Person übergeht. Du bleibst als Leitung im Team.",
+   "it": "Conferma che la titolarità del centro passa alla persona scelta. Tu resti nel team come Responsabile.",
+   "pt": "Confirme que a propriedade do centro passa para a pessoa que escolheu. Você fica na equipa como Responsável.",
+   "pl": "Potwierdź, że własność centrum przechodzi na wybraną osobę. Ty zostajesz w zespole jako Kierownik.",
+   "nl": "Bevestig dat het eigendom van het centrum overgaat op de gekozen persoon. Jij blijft in het team als Manager.",
+   "zh": "确认将中心的所有权转给你选择的人员。你将以经理身份留在团队中。"
+  },
+  "Confirmar la transferencia": {
+   "en": "Confirm the transfer",
+   "fr": "Confirmer le transfert",
+   "de": "Übertragung bestätigen",
+   "it": "Conferma il trasferimento",
+   "pt": "Confirmar a transferência",
+   "pl": "Potwierdź przekazanie",
+   "nl": "Overdracht bevestigen",
+   "zh": "确认转让"
+  },
+  "Hecho: la propiedad ha cambiado.": {
+   "en": "Done: ownership has changed.",
+   "fr": "C’est fait : la propriété a changé.",
+   "de": "Erledigt: Die Inhaberschaft hat gewechselt.",
+   "it": "Fatto: la titolarità è cambiata.",
+   "pt": "Feito: a propriedade mudou.",
+   "pl": "Gotowe: właściciel się zmienił.",
+   "nl": "Klaar: het eigendom is gewijzigd.",
+   "zh": "完成：所有权已变更。"
+  },
+  "Activo mi perfil de freelance (es gratis) y acepto las": {
+   "en": "I activate my freelance profile (it’s free) and accept the",
+   "fr": "J’active mon profil freelance (gratuit) et j’accepte les",
+   "de": "Ich aktiviere mein Freelancer-Profil (kostenlos) und akzeptiere die",
+   "it": "Attivo il mio profilo freelance (è gratis) e accetto le",
+   "pt": "Ativo o meu perfil de freelancer (é grátis) e aceito as",
+   "pl": "Aktywuję mój profil freelancera (bezpłatny) i akceptuję",
+   "nl": "Ik activeer mijn freelanceprofiel (gratis) en accepteer de",
+   "zh": "我启用自由职业者资料（免费）并接受"
+  },
+  "Se crea tu cuenta de freelance (es gratis): con ella puedes estar en los equipos de varios centros.": {
+   "en": "Your freelance account is created (it’s free): with it you can be in several centres’ teams.",
+   "fr": "Votre compte freelance est créé (gratuit) : avec lui, vous pouvez faire partie des équipes de plusieurs centres.",
+   "de": "Dein Freelancer-Konto wird erstellt (kostenlos): Damit kannst du in den Teams mehrerer Center sein.",
+   "it": "Si crea il tuo account freelance (è gratis): con esso puoi far parte dei team di più centri.",
+   "pt": "É criada a sua conta de freelancer (é grátis): com ela pode estar nas equipas de vários centros.",
+   "pl": "Zostanie utworzone twoje konto freelancera (bezpłatne): dzięki niemu możesz być w zespołach kilku centrów.",
+   "nl": "Je freelanceaccount wordt aangemaakt (gratis): daarmee kun je in de teams van meerdere centra zitten.",
+   "zh": "系统会为你创建自由职业者账户（免费）：借此你可以加入多个中心的团队。"
+  },
+  "Cuenta normal": {
+   "en": "Regular account",
+   "fr": "Compte normal",
+   "de": "Normales Konto",
+   "it": "Account normale",
+   "pt": "Conta normal",
+   "pl": "Zwykłe konto",
+   "nl": "Normaal account",
+   "zh": "普通账户"
+  },
+  "Para Recepción. También puedes reservar y llevar tu Log Book.": {
+   "en": "For Reception. You can also book and keep your Log Book.",
+   "fr": "Pour l’Accueil. Vous pouvez aussi réserver et tenir votre Log Book.",
+   "de": "Für den Empfang. Du kannst auch buchen und dein Logbuch führen.",
+   "it": "Per la Reception. Puoi anche prenotare e tenere il tuo Log Book.",
+   "pt": "Para a Receção. Também pode reservar e manter o seu Log Book.",
+   "pl": "Do recepcji. Możesz też rezerwować i prowadzić swój Log Book.",
+   "nl": "Voor de receptie. Je kunt ook boeken en je logboek bijhouden.",
+   "zh": "用于前台工作。你也可以预订并记录你的潜水日志。"
+  },
+  "Cuenta de freelance": {
+   "en": "Freelance account",
+   "fr": "Compte freelance",
+   "de": "Freelancer-Konto",
+   "it": "Account freelance",
+   "pt": "Conta de freelancer",
+   "pl": "Konto freelancera",
+   "nl": "Freelanceaccount",
+   "zh": "自由职业者账户"
+  },
+  "Gratis. Para trabajar con varios centros.": {
+   "en": "Free. To work with several centres.",
+   "fr": "Gratuit. Pour travailler avec plusieurs centres.",
+   "de": "Kostenlos. Um mit mehreren Centern zu arbeiten.",
+   "it": "Gratis. Per lavorare con più centri.",
+   "pt": "Grátis. Para trabalhar com vários centros.",
+   "pl": "Bezpłatne. Do pracy z kilkoma centrami.",
+   "nl": "Gratis. Om met meerdere centra te werken.",
+   "zh": "免费。可与多个中心合作。"
+  },
+  "Acepto los": {
+   "en": "I accept the",
+   "fr": "J’accepte les",
+   "de": "Ich akzeptiere die",
+   "it": "Accetto i",
+   "pt": "Aceito os",
+   "pl": "Akceptuję",
+   "nl": "Ik accepteer de",
+   "zh": "我接受"
+  },
+  "términos": {
+   "en": "terms",
+   "fr": "conditions",
+   "de": "Bedingungen",
+   "it": "termini",
+   "pt": "termos",
+   "pl": "warunki",
+   "nl": "voorwaarden",
+   "zh": "条款"
+  },
+  "Para este perfil tienes que activar tu perfil de freelance (es gratis).": {
+   "en": "For this profile you need to activate your freelance profile (it’s free).",
+   "fr": "Pour ce profil, vous devez activer votre profil freelance (gratuit).",
+   "de": "Für dieses Profil musst du dein Freelancer-Profil aktivieren (kostenlos).",
+   "it": "Per questo profilo devi attivare il tuo profilo freelance (è gratis).",
+   "pt": "Para este perfil tem de ativar o seu perfil de freelancer (é grátis).",
+   "pl": "Do tego profilu musisz aktywować profil freelancera (bezpłatny).",
+   "nl": "Voor dit profiel moet je je freelanceprofiel activeren (gratis).",
+   "zh": "这个角色需要启用你的自由职业者资料（免费）。"
+  },
+  "Trabajar como": {
+   "en": "Work as",
+   "fr": "Travailler en tant que",
+   "de": "Arbeiten als",
+   "it": "Lavora come",
+   "pt": "Trabalhar como",
+   "pl": "Pracuj jako",
+   "nl": "Werken als",
+   "zh": "工作身份"
+  },
+  "peticiones pendientes": {
+   "en": "pending requests",
+   "fr": "demandes en attente",
+   "de": "offene Anfragen",
+   "it": "richieste in sospeso",
+   "pt": "pedidos pendentes",
+   "pl": "oczekujące prośby",
+   "nl": "openstaande verzoeken",
+   "zh": "待处理的请求"
+  },
+  "Mantener la sesión iniciada en este ordenador": {
+   "en": "Keep me signed in on this computer",
+   "fr": "Rester connecté sur cet ordinateur",
+   "de": "Auf diesem Computer angemeldet bleiben",
+   "it": "Resta connesso su questo computer",
+   "pt": "Manter a sessão iniciada neste computador",
+   "pl": "Nie wylogowuj mnie na tym komputerze",
+   "nl": "Ingelogd blijven op deze computer",
+   "zh": "在此电脑上保持登录"
+  },
+  "Aunque cierres el navegador, durante la jornada (8 horas como mucho). En un ordenador compartido, pulsa «Cerrar sesión» al terminar.": {
+   "en": "Even if you close the browser, during the working day (8 hours at most). On a shared computer, press “Sign out” when you finish.",
+   "fr": "Même si vous fermez le navigateur, pendant la journée de travail (8 heures au maximum). Sur un ordinateur partagé, appuyez sur « Se déconnecter » en terminant.",
+   "de": "Auch wenn du den Browser schließt, während des Arbeitstags (höchstens 8 Stunden). Auf einem gemeinsam genutzten Computer am Ende auf „Abmelden“ tippen.",
+   "it": "Anche se chiudi il browser, durante la giornata (al massimo 8 ore). Su un computer condiviso, premi «Esci» quando hai finito.",
+   "pt": "Mesmo que feche o navegador, durante a jornada (8 horas no máximo). Num computador partilhado, carregue em «Terminar sessão» no fim.",
+   "pl": "Nawet po zamknięciu przeglądarki, w ciągu dnia pracy (maksymalnie 8 godzin). Na wspólnym komputerze na koniec kliknij „Wyloguj”.",
+   "nl": "Ook als je de browser sluit, tijdens de werkdag (maximaal 8 uur). Op een gedeelde computer druk je na afloop op ‘Uitloggen’.",
+   "zh": "即使关闭浏览器，也会在工作日内保持登录（最长 8 小时）。在共用电脑上，结束时请点击“退出登录”。"
+  },
+  "Cuentas del centro": {
+   "en": "Centre accounts",
+   "fr": "Comptes du centre",
+   "de": "Konten des Centers",
+   "it": "Account del centro",
+   "pt": "Contas do centro",
+   "pl": "Konta centrum",
+   "nl": "Accounts van het centrum",
+   "zh": "中心账户"
+  },
+  "Trabajas en": {
+   "en": "You are working at",
+   "fr": "Vous travaillez à",
+   "de": "Du arbeitest bei",
+   "it": "Lavori presso",
+   "pt": "Está a trabalhar em",
+   "pl": "Pracujesz w",
+   "nl": "Je werkt bij",
+   "zh": "你当前工作于"
+  },
+  "Volver a mi perfil": {
+   "en": "Back to my profile",
+   "fr": "Revenir à mon profil",
+   "de": "Zurück zu meinem Profil",
+   "it": "Torna al mio profilo",
+   "pt": "Voltar ao meu perfil",
+   "pl": "Wróć do mojego profilu",
+   "nl": "Terug naar mijn profiel",
+   "zh": "返回我的个人资料"
+  },
+  "Petición para unirse al equipo": {
+   "en": "Request to join the team",
+   "fr": "Demande pour rejoindre l’équipe",
+   "de": "Anfrage zum Teambeitritt",
+   "it": "Richiesta di entrare nel team",
+   "pt": "Pedido para entrar na equipa",
+   "pl": "Prośba o dołączenie do zespołu",
+   "nl": "Verzoek om bij het team te komen",
+   "zh": "加入团队的请求"
+  },
+  "Acepta unirse al equipo": {
+   "en": "Accepts joining the team",
+   "fr": "Accepte de rejoindre l’équipe",
+   "de": "Nimmt den Teambeitritt an",
+   "it": "Accetta di entrare nel team",
+   "pt": "Aceita entrar na equipa",
+   "pl": "Akceptuje dołączenie do zespołu",
+   "nl": "Accepteert om bij het team te komen",
+   "zh": "接受加入团队"
+  },
+  "Rechaza unirse al equipo": {
+   "en": "Declines joining the team",
+   "fr": "Refuse de rejoindre l’équipe",
+   "de": "Lehnt den Teambeitritt ab",
+   "it": "Rifiuta di entrare nel team",
+   "pt": "Recusa entrar na equipa",
+   "pl": "Odrzuca dołączenie do zespołu",
+   "nl": "Wijst het verzoek om bij het team te komen af",
+   "zh": "拒绝加入团队"
+  },
+  "Sale del equipo": {
+   "en": "Leaves the team",
+   "fr": "Quitte l’équipe",
+   "de": "Verlässt das Team",
+   "it": "Esce dal team",
+   "pt": "Sai da equipa",
+   "pl": "Opuszcza zespół",
+   "nl": "Verlaat het team",
+   "zh": "退出团队"
+  },
+  "Equipo: en pausa": {
+   "en": "Team: paused",
+   "fr": "Équipe : en pause",
+   "de": "Team: pausiert",
+   "it": "Team: in pausa",
+   "pt": "Equipa: em pausa",
+   "pl": "Zespół: wstrzymany",
+   "nl": "Team: gepauzeerd",
+   "zh": "团队：已暂停"
+  },
+  "Equipo: reactivado": {
+   "en": "Team: reactivated",
+   "fr": "Équipe : réactivé",
+   "de": "Team: reaktiviert",
+   "it": "Team: riattivato",
+   "pt": "Equipa: reativado",
+   "pl": "Zespół: przywrócony",
+   "nl": "Team: opnieuw geactiveerd",
+   "zh": "团队：已重新启用"
+  },
+  "QR personal escaneado": {
+   "en": "Personal QR code scanned",
+   "fr": "QR personnel scanné",
+   "de": "Persönlicher QR-Code gescannt",
+   "it": "QR personale scansionato",
+   "pt": "QR pessoal lido",
+   "pl": "Zeskanowano osobisty kod QR",
+   "nl": "Persoonlijke QR-code gescand",
+   "zh": "已扫描个人二维码"
+  },
+  "Transferencia de la propiedad pedida": {
+   "en": "Ownership transfer requested",
+   "fr": "Transfert de propriété demandé",
+   "de": "Übertragung der Inhaberschaft angefragt",
+   "it": "Trasferimento di titolarità richiesto",
+   "pt": "Transferência de propriedade pedida",
+   "pl": "Zlecono przekazanie własności",
+   "nl": "Overdracht van eigendom aangevraagd",
+   "zh": "已申请转让所有权"
+  },
+  "Propiedad transferida": {
+   "en": "Ownership transferred",
+   "fr": "Propriété transférée",
+   "de": "Inhaberschaft übertragen",
+   "it": "Titolarità trasferita",
+   "pt": "Propriedade transferida",
+   "pl": "Własność przekazana",
+   "nl": "Eigendom overgedragen",
+   "zh": "所有权已转让"
+  },
+  "Cambio de centro": {
+   "en": "Change of centre",
+   "fr": "Changement de centre",
+   "de": "Center gewechselt",
+   "it": "Cambio di centro",
+   "pt": "Mudança de centro",
+   "pl": "Zmiana centrum",
+   "nl": "Ander centrum gekozen",
+   "zh": "切换中心"
+  },
+  "Teléfonos de clientes vistos": {
+   "en": "Customers’ phone numbers viewed",
+   "fr": "Téléphones des clients consultés",
+   "de": "Telefonnummern von Kunden angesehen",
+   "it": "Telefoni dei clienti visualizzati",
+   "pt": "Telefones de clientes vistos",
+   "pl": "Wyświetlono telefony klientów",
+   "nl": "Telefoonnummers van klanten bekeken",
+   "zh": "已查看客户电话"
+  },
+  "Entrada desde un dispositivo nuevo": {
+   "en": "Sign-in from a new device",
+   "fr": "Connexion depuis un nouvel appareil",
+   "de": "Anmeldung von einem neuen Gerät",
+   "it": "Accesso da un nuovo dispositivo",
+   "pt": "Entrada a partir de um dispositivo novo",
+   "pl": "Logowanie z nowego urządzenia",
+   "nl": "Ingelogd vanaf een nieuw apparaat",
+   "zh": "从新设备登录"
+  },
+  "Inicio de sesión": {
+   "en": "Sign-in",
+   "fr": "Connexion",
+   "de": "Anmeldung",
+   "it": "Accesso",
+   "pt": "Início de sessão",
+   "pl": "Logowanie",
+   "nl": "Inloggen",
+   "zh": "登录"
+  },
+  "Salida modificada": {
+   "en": "Trip changed",
+   "fr": "Sortie modifiée",
+   "de": "Ausfahrt geändert",
+   "it": "Uscita modificata",
+   "pt": "Saída alterada",
+   "pl": "Zmieniono wypłynięcie",
+   "nl": "Uitvaart gewijzigd",
+   "zh": "出海已修改"
+  },
+  "Sesiones del equipo cerradas": {
+   "en": "Team sessions closed",
+   "fr": "Sessions de l’équipe fermées",
+   "de": "Team-Sitzungen beendet",
+   "it": "Sessioni del team chiuse",
+   "pt": "Sessões da equipa terminadas",
+   "pl": "Zamknięto sesje zespołu",
+   "nl": "Teamsessies beëindigd",
+   "zh": "已结束团队会话"
+  },
+  "Invitación anulada": {
+   "en": "Invitation cancelled",
+   "fr": "Invitation annulée",
+   "de": "Einladung storniert",
+   "it": "Invito annullato",
+   "pt": "Convite anulado",
+   "pl": "Zaproszenie anulowane",
+   "nl": "Uitnodiging ingetrokken",
+   "zh": "邀请已作废"
+  },
+  "Perfil guardado": {
+   "en": "Profile saved",
+   "fr": "Profil enregistré",
+   "de": "Profil gespeichert",
+   "it": "Profilo salvato",
+   "pt": "Perfil guardado",
+   "pl": "Profil zapisany",
+   "nl": "Profiel opgeslagen",
+   "zh": "角色已保存"
+  },
+  "Para que un centro te añada a su equipo": {
+   "en": "So a centre can add you to its team",
+   "fr": "Pour qu’un centre vous ajoute à son équipe",
+   "de": "Damit ein Center dich zum Team hinzufügen kann",
+   "it": "Perché un centro ti aggiunga al suo team",
+   "pt": "Para um centro o adicionar à equipa",
+   "pl": "Aby centrum mogło dodać cię do zespołu",
+   "nl": "Zodat een centrum je aan het team kan toevoegen",
+   "zh": "供中心将你加入团队"
+  },
+  "Peticiones y centros donde trabajas": {
+   "en": "Requests and the centres you work for",
+   "fr": "Demandes et centres où vous travaillez",
+   "de": "Anfragen und Center, für die du arbeitest",
+   "it": "Richieste e centri in cui lavori",
+   "pt": "Pedidos e centros onde trabalha",
+   "pl": "Prośby i centra, w których pracujesz",
+   "nl": "Verzoeken en de centra waar je werkt",
+   "zh": "请求和你工作的中心"
+  },
+  "Lo que te toca en cada centro": {
+   "en": "What you have at each centre",
+   "fr": "Ce qui vous attend dans chaque centre",
+   "de": "Deine Einsätze in jedem Center",
+   "it": "Cosa ti tocca in ogni centro",
+   "pt": "O que lhe cabe em cada centro",
+   "pl": "Twoje zadania w każdym centrum",
+   "nl": "Wat je bij elk centrum moet doen",
+   "zh": "你在每个中心的安排"
+  },
+  "Cada centro, con lo que permite tu perfil. Nunca se mezclan.": {
+   "en": "Each centre, with what your profile allows. They never mix.",
+   "fr": "Chaque centre, avec ce que permet votre profil. Ils ne se mélangent jamais.",
+   "de": "Jedes Center mit dem, was dein Profil erlaubt. Sie werden nie vermischt.",
+   "it": "Ogni centro, con ciò che consente il tuo profilo. Non si mescolano mai.",
+   "pt": "Cada centro, com o que o seu perfil permite. Nunca se misturam.",
+   "pl": "Każde centrum z tym, na co pozwala twój profil. Nigdy się nie mieszają.",
+   "nl": "Elk centrum met wat je profiel toestaat. Ze worden nooit gemengd.",
+   "zh": "每个中心只显示你的角色允许的内容，绝不混在一起。"
+  },
+  "Equipos de centros": {
+   "en": "Centre teams",
+   "fr": "Équipes des centres",
+   "de": "Teams von Centern",
+   "it": "Team dei centri",
+   "pt": "Equipas de centros",
+   "pl": "Zespoły centrów",
+   "nl": "Teams van centra",
+   "zh": "中心团队"
+  },
+  "Fijo en el equipo": {
+   "en": "Permanent in the team",
+   "fr": "Permanent dans l’équipe",
+   "de": "Dauerhaft im Team",
+   "it": "Fisso nel team",
+   "pt": "Fixo na equipa",
+   "pl": "Na stałe w zespole",
+   "nl": "Vast in het team",
+   "zh": "长期成员"
+  },
+  "Enlace no encontrado.": {
+   "en": "Link not found.",
+   "fr": "Lien introuvable.",
+   "de": "Link nicht gefunden.",
+   "it": "Link non trovato.",
+   "pt": "Ligação não encontrada.",
+   "pl": "Nie znaleziono linku.",
+   "nl": "Link niet gevonden.",
+   "zh": "未找到链接。"
+  },
+  "Persona no encontrada.": {
+   "en": "Person not found.",
+   "fr": "Personne introuvable.",
+   "de": "Person nicht gefunden.",
+   "it": "Persona non trovata.",
+   "pt": "Pessoa não encontrada.",
+   "pl": "Nie znaleziono osoby.",
+   "nl": "Persoon niet gevonden.",
+   "zh": "未找到该人员。"
+  },
+  "Esa persona no es de tu equipo.": {
+   "en": "That person isn’t in your team.",
+   "fr": "Cette personne ne fait pas partie de votre équipe.",
+   "de": "Diese Person ist nicht in deinem Team.",
+   "it": "Questa persona non è nel tuo team.",
+   "pt": "Essa pessoa não é da sua equipa.",
+   "pl": "Ta osoba nie jest w twoim zespole.",
+   "nl": "Die persoon zit niet in je team.",
+   "zh": "此人不在你的团队中。"
+  },
+  "Esta invitación es para otro email. Cierra sesión o entra con la cuenta invitada.": {
+   "en": "This invitation is for another email. Sign out or sign in with the invited account.",
+   "fr": "Cette invitation est destinée à un autre e-mail. Déconnectez-vous ou connectez-vous avec le compte invité.",
+   "de": "Diese Einladung gilt für eine andere E-Mail. Melde dich ab oder mit dem eingeladenen Konto an.",
+   "it": "Questo invito è per un’altra email. Esci o accedi con l’account invitato.",
+   "pt": "Este convite é para outro email. Termine a sessão ou entre com a conta convidada.",
+   "pl": "To zaproszenie jest na inny e-mail. Wyloguj się lub zaloguj na zaproszone konto.",
+   "nl": "Deze uitnodiging is voor een ander e-mailadres. Log uit of log in met het uitgenodigde account.",
+   "zh": "此邀请对应另一个电子邮件。请退出登录或使用受邀账户登录。"
+  },
+  "Con el plan gratuito de freelance no tienes servicios propios: estás en los equipos de los centros y ves en tu agenda lo que te asignan. Disponible en el plan Pro.": {
+   "en": "With the free freelance plan you have no services of your own: you are in centres’ teams and see in your diary what they assign you. Available on the Pro plan.",
+   "fr": "Avec l’offre freelance gratuite, vous n’avez pas de services propres : vous faites partie des équipes des centres et voyez dans votre agenda ce qu’on vous attribue. Disponible avec l’offre Pro.",
+   "de": "Mit dem kostenlosen Freelancer-Tarif hast du keine eigenen Angebote: Du bist in den Teams der Center und siehst in deinem Kalender, was dir zugewiesen wird. Im Pro-Tarif verfügbar.",
+   "it": "Con il piano freelance gratuito non hai servizi propri: fai parte dei team dei centri e vedi in agenda cosa ti assegnano. Disponibile nel piano Pro.",
+   "pt": "Com o plano gratuito de freelancer não tem serviços próprios: está nas equipas dos centros e vê na sua agenda o que lhe atribuem. Disponível no plano Pro.",
+   "pl": "W bezpłatnym planie freelancera nie masz własnych usług: jesteś w zespołach centrów i widzisz w kalendarzu, co ci przydzielono. Dostępne w planie Pro.",
+   "nl": "Met het gratis freelanceabonnement heb je geen eigen diensten: je zit in de teams van centra en ziet in je agenda wat ze je toewijzen. Beschikbaar in het Pro-abonnement.",
+   "zh": "免费自由职业者套餐没有自有服务：你可以加入各中心的团队，并在日程中查看分配给你的工作。Pro 套餐可用。"
+  },
+  "Disponible en el plan Motor de reservas.": {
+   "en": "Available on the Booking engine plan.",
+   "fr": "Disponible avec l’offre Moteur de réservation.",
+   "de": "Im Tarif Buchungssystem verfügbar.",
+   "it": "Disponibile nel piano Motore di prenotazione.",
+   "pt": "Disponível no plano Motor de reservas.",
+   "pl": "Dostępne w planie Silnik rezerwacji.",
+   "nl": "Beschikbaar in het abonnement Boekingsmodule.",
+   "zh": "预订引擎套餐可用。"
+  },
+  "Disponible en el plan Pro.": {
+   "en": "Available on the Pro plan.",
+   "fr": "Disponible avec l’offre Pro.",
+   "de": "Im Pro-Tarif verfügbar.",
+   "it": "Disponibile nel piano Pro.",
+   "pt": "Disponível no plano Pro.",
+   "pl": "Dostępne w planie Pro.",
+   "nl": "Beschikbaar in het Pro-abonnement.",
+   "zh": "Pro 套餐可用。"
+  },
+  "El propietario no se puede quitar: usa «Transferir la propiedad».": {
+   "en": "The owner can’t be removed: use “Transfer ownership”.",
+   "fr": "Le propriétaire ne peut pas être retiré : utilisez « Transférer la propriété ».",
+   "de": "Der Inhaber kann nicht entfernt werden: Nutze „Inhaberschaft übertragen“.",
+   "it": "Il titolare non si può togliere: usa «Trasferisci la titolarità».",
+   "pt": "O proprietário não pode ser retirado: use «Transferir a propriedade».",
+   "pl": "Właściciela nie można usunąć: użyj „Przekaż własność”.",
+   "nl": "De eigenaar kan niet worden verwijderd: gebruik ‘Eigendom overdragen’.",
+   "zh": "无法移除所有者：请使用“转让所有权”。"
+  },
+  "Elige el perfil: encargado, recepción, instructor o uno de los perfiles de tu centro.": {
+   "en": "Choose the profile: manager, reception, instructor or one of your centre’s profiles.",
+   "fr": "Choisissez le profil : responsable, accueil, moniteur ou l’un des profils de votre centre.",
+   "de": "Wähle das Profil: Leitung, Empfang, Instructor oder eines der Profile deines Centers.",
+   "it": "Scegli il profilo: responsabile, reception, istruttore o uno dei profili del tuo centro.",
+   "pt": "Escolha o perfil: responsável, receção, instrutor ou um dos perfis do seu centro.",
+   "pl": "Wybierz profil: kierownik, recepcja, instruktor lub jeden z profili twojego centrum.",
+   "nl": "Kies het profiel: manager, receptie, instructeur of een van de profielen van je centrum.",
+   "zh": "请选择角色：经理、前台、教练或你中心的自定义角色。"
+  },
+  "Esa cuenta es de un centro o de la administración. Pide a la persona que use su cuenta personal.": {
+   "en": "That account belongs to a centre or to the administration. Ask the person to use their personal account.",
+   "fr": "Ce compte appartient à un centre ou à l’administration. Demandez à la personne d’utiliser son compte personnel.",
+   "de": "Dieses Konto gehört zu einem Center oder zur Verwaltung. Bitte die Person, ihr persönliches Konto zu nutzen.",
+   "it": "Quell’account è di un centro o dell’amministrazione. Chiedi alla persona di usare il suo account personale.",
+   "pt": "Essa conta é de um centro ou da administração. Peça à pessoa que use a sua conta pessoal.",
+   "pl": "To konto należy do centrum lub administracji. Poproś tę osobę o użycie konta osobistego.",
+   "nl": "Dat account is van een centrum of van de beheerders. Vraag de persoon zijn persoonlijke account te gebruiken.",
+   "zh": "该账户属于中心或管理员。请让对方使用个人账户。"
+  },
+  "Esa cuenta es de un centro o de la administración: usa tu cuenta personal.": {
+   "en": "That account belongs to a centre or to the administration: use your personal account.",
+   "fr": "Ce compte appartient à un centre ou à l’administration : utilisez votre compte personnel.",
+   "de": "Dieses Konto gehört zu einem Center oder zur Verwaltung: Nutze dein persönliches Konto.",
+   "it": "Quell’account è di un centro o dell’amministrazione: usa il tuo account personale.",
+   "pt": "Essa conta é de um centro ou da administração: use a sua conta pessoal.",
+   "pl": "To konto należy do centrum lub administracji: użyj konta osobistego.",
+   "nl": "Dat account is van een centrum of van de beheerders: gebruik je persoonlijke account.",
+   "zh": "该账户属于中心或管理员：请使用你的个人账户。"
+  },
+  "Esa petición ya no está pendiente.": {
+   "en": "That request is no longer pending.",
+   "fr": "Cette demande n’est plus en attente.",
+   "de": "Diese Anfrage ist nicht mehr offen.",
+   "it": "Questa richiesta non è più in sospeso.",
+   "pt": "Esse pedido já não está pendente.",
+   "pl": "Ta prośba nie jest już oczekująca.",
+   "nl": "Dat verzoek staat niet meer open.",
+   "zh": "该请求已不再待处理。"
+  },
+  "Ese QR ya se ha usado. Pide a la persona que abra «Mi QR» otra vez: cambia cada minuto.": {
+   "en": "That QR code has already been used. Ask the person to open “My QR” again: it changes every minute.",
+   "fr": "Ce QR a déjà été utilisé. Demandez à la personne de rouvrir « Mon QR » : il change chaque minute.",
+   "de": "Dieser QR-Code wurde schon verwendet. Bitte die Person, „Mein QR“ erneut zu öffnen: Er ändert sich jede Minute.",
+   "it": "Quel QR è già stato usato. Chiedi alla persona di riaprire «Il mio QR»: cambia ogni minuto.",
+   "pt": "Esse QR já foi usado. Peça à pessoa que abra «O meu QR» outra vez: muda a cada minuto.",
+   "pl": "Ten kod QR został już użyty. Poproś tę osobę, aby ponownie otworzyła „Mój QR”: zmienia się co minutę.",
+   "nl": "Die QR-code is al gebruikt. Vraag de persoon ‘Mijn QR’ opnieuw te openen: hij verandert elke minuut.",
+   "zh": "该二维码已被使用。请对方重新打开“我的二维码”：它每分钟更换一次。"
+  },
+  "Ese código no es un QR de WORLDIVES.": {
+   "en": "That code isn’t a WORLDIVES QR code.",
+   "fr": "Ce code n’est pas un QR de WORLDIVES.",
+   "de": "Dieser Code ist kein WORLDIVES-QR-Code.",
+   "it": "Questo codice non è un QR di WORLDIVES.",
+   "pt": "Esse código não é um QR da WORLDIVES.",
+   "pl": "Ten kod nie jest kodem QR WORLDIVES.",
+   "nl": "Die code is geen QR-code van WORLDIVES.",
+   "zh": "这不是 WORLDIVES 的二维码。"
+  },
+  "Ese código no existe o ha caducado (dura 10 minutos). Pide a la persona que abra «Mi QR».": {
+   "en": "That code doesn’t exist or has expired (it lasts 10 minutes). Ask the person to open “My QR”.",
+   "fr": "Ce code n’existe pas ou a expiré (il dure 10 minutes). Demandez à la personne d’ouvrir « Mon QR ».",
+   "de": "Dieser Code existiert nicht oder ist abgelaufen (10 Minuten gültig). Bitte die Person, „Mein QR“ zu öffnen.",
+   "it": "Quel codice non esiste o è scaduto (dura 10 minuti). Chiedi alla persona di aprire «Il mio QR».",
+   "pt": "Esse código não existe ou expirou (dura 10 minutos). Peça à pessoa que abra «O meu QR».",
+   "pl": "Ten kod nie istnieje lub wygasł (ważny 10 minut). Poproś tę osobę, aby otworzyła „Mój QR”.",
+   "nl": "Die code bestaat niet of is verlopen (10 minuten geldig). Vraag de persoon ‘Mijn QR’ te openen.",
+   "zh": "该代码不存在或已过期（有效期 10 分钟）。请对方打开“我的二维码”。"
+  },
+  "Ese código ya se ha usado. Pide a la persona que abra «Mi QR» otra vez.": {
+   "en": "That code has already been used. Ask the person to open “My QR” again.",
+   "fr": "Ce code a déjà été utilisé. Demandez à la personne de rouvrir « Mon QR ».",
+   "de": "Dieser Code wurde schon verwendet. Bitte die Person, „Mein QR“ erneut zu öffnen.",
+   "it": "Quel codice è già stato usato. Chiedi alla persona di riaprire «Il mio QR».",
+   "pt": "Esse código já foi usado. Peça à pessoa que abra «O meu QR» outra vez.",
+   "pl": "Ten kod został już użyty. Poproś tę osobę, aby ponownie otworzyła „Mój QR”.",
+   "nl": "Die code is al gebruikt. Vraag de persoon ‘Mijn QR’ opnieuw te openen.",
+   "zh": "该代码已被使用。请对方重新打开“我的二维码”。"
+  },
+  "Ese enlace ha caducado (dura 24 horas). Pide a la persona uno nuevo.": {
+   "en": "That link has expired (it lasts 24 hours). Ask the person for a new one.",
+   "fr": "Ce lien a expiré (il dure 24 heures). Demandez-en un nouveau à la personne.",
+   "de": "Dieser Link ist abgelaufen (24 Stunden gültig). Bitte die Person um einen neuen.",
+   "it": "Quel link è scaduto (dura 24 ore). Chiedine uno nuovo alla persona.",
+   "pt": "Essa ligação expirou (dura 24 horas). Peça uma nova à pessoa.",
+   "pl": "Ten link wygasł (ważny 24 godziny). Poproś tę osobę o nowy.",
+   "nl": "Die link is verlopen (24 uur geldig). Vraag de persoon om een nieuwe.",
+   "zh": "该链接已过期（有效期 24 小时）。请向对方索取新链接。"
+  },
+  "Ese enlace no existe o la persona lo ha anulado.": {
+   "en": "That link doesn’t exist or the person has cancelled it.",
+   "fr": "Ce lien n’existe pas ou la personne l’a annulé.",
+   "de": "Dieser Link existiert nicht oder die Person hat ihn widerrufen.",
+   "it": "Quel link non esiste o la persona lo ha annullato.",
+   "pt": "Essa ligação não existe ou a pessoa anulou-a.",
+   "pl": "Ten link nie istnieje lub ta osoba go anulowała.",
+   "nl": "Die link bestaat niet of de persoon heeft hem ingetrokken.",
+   "zh": "该链接不存在或已被对方作废。"
+  },
+  "Ese enlace ya está terminado.": {
+   "en": "That link has already ended.",
+   "fr": "Ce lien est déjà terminé.",
+   "de": "Diese Verknüpfung ist bereits beendet.",
+   "it": "Quel collegamento è già terminato.",
+   "pt": "Essa ligação já terminou.",
+   "pl": "To połączenie już się zakończyło.",
+   "nl": "Die koppeling is al beëindigd.",
+   "zh": "该关联已结束。"
+  },
+  "Ese enlace ya se ha usado. Pide a la persona uno nuevo.": {
+   "en": "That link has already been used. Ask the person for a new one.",
+   "fr": "Ce lien a déjà été utilisé. Demandez-en un nouveau à la personne.",
+   "de": "Dieser Link wurde schon verwendet. Bitte die Person um einen neuen.",
+   "it": "Quel link è già stato usato. Chiedine uno nuovo alla persona.",
+   "pt": "Essa ligação já foi usada. Peça uma nova à pessoa.",
+   "pl": "Ten link został już użyty. Poproś tę osobę o nowy.",
+   "nl": "Die link is al gebruikt. Vraag de persoon om een nieuwe.",
+   "zh": "该链接已被使用。请向对方索取新链接。"
+  },
+  "Las fechas de esta invitación ya han pasado. Pide al centro una nueva.": {
+   "en": "The dates of this invitation have already passed. Ask the centre for a new one.",
+   "fr": "Les dates de cette invitation sont déjà passées. Demandez-en une nouvelle au centre.",
+   "de": "Die Daten dieser Einladung sind schon vorbei. Bitte das Center um eine neue.",
+   "it": "Le date di questo invito sono già passate. Chiedine uno nuovo al centro.",
+   "pt": "As datas deste convite já passaram. Peça um novo ao centro.",
+   "pl": "Daty tego zaproszenia już minęły. Poproś centrum o nowe.",
+   "nl": "De data van deze uitnodiging zijn al voorbij. Vraag het centrum om een nieuwe.",
+   "zh": "此邀请的日期已过。请向中心索取新的邀请。"
+  },
+  "Ocupado: esa persona ya tiene trabajo a esa hora. Elige a otra persona u otra hora.": {
+   "en": "Busy: that person already has work at that time. Choose another person or another time.",
+   "fr": "Occupé : cette personne a déjà du travail à cette heure. Choisissez une autre personne ou une autre heure.",
+   "de": "Belegt: Diese Person hat zu dieser Zeit schon einen Einsatz. Wähle eine andere Person oder Zeit.",
+   "it": "Occupato: quella persona ha già un lavoro a quell’ora. Scegli un’altra persona o un altro orario.",
+   "pt": "Ocupado: essa pessoa já tem trabalho a essa hora. Escolha outra pessoa ou outra hora.",
+   "pl": "Zajęty: ta osoba ma już pracę o tej godzinie. Wybierz inną osobę lub inną godzinę.",
+   "nl": "Bezet: die persoon heeft op dat moment al werk. Kies een andere persoon of een ander tijdstip.",
+   "zh": "忙碌：此人在该时间已有工作。请选择其他人员或其他时间。"
+  },
+  "Tu cuenta ya es profesional o no es de buceador.": {
+   "en": "Your account is already professional or isn’t a diver account.",
+   "fr": "Votre compte est déjà professionnel ou n’est pas un compte de plongeur.",
+   "de": "Dein Konto ist bereits ein Profikonto oder kein Taucherkonto.",
+   "it": "Il tuo account è già professionale o non è da subacqueo.",
+   "pt": "A sua conta já é profissional ou não é de mergulhador.",
+   "pl": "Twoje konto jest już zawodowe lub nie jest kontem nurka.",
+   "nl": "Je account is al professioneel of is geen duikersaccount.",
+   "zh": "你的账户已是专业账户，或不是潜水员账户。"
+  },
+  "Ya estás en este equipo o tienes una petición pendiente.": {
+   "en": "You are already in this team or have a pending request.",
+   "fr": "Vous êtes déjà dans cette équipe ou avez une demande en attente.",
+   "de": "Du bist schon in diesem Team oder hast eine offene Anfrage.",
+   "it": "Sei già in questo team o hai una richiesta in sospeso.",
+   "pt": "Já está nesta equipa ou tem um pedido pendente.",
+   "pl": "Jesteś już w tym zespole lub masz oczekującą prośbę.",
+   "nl": "Je zit al in dit team of hebt een openstaand verzoek.",
+   "zh": "你已在该团队中，或有待处理的请求。"
+  },
+  "Ya hay una cuenta con ese email: inicia sesión con ella y vuelve a abrir el enlace.": {
+   "en": "There is already an account with that email: sign in with it and open the link again.",
+   "fr": "Un compte existe déjà avec cet e-mail : connectez-vous avec lui et rouvrez le lien.",
+   "de": "Es gibt bereits ein Konto mit dieser E-Mail: Melde dich damit an und öffne den Link erneut.",
+   "it": "Esiste già un account con quell’email: accedi con esso e riapri il link.",
+   "pt": "Já existe uma conta com esse email: entre com ela e volte a abrir a ligação.",
+   "pl": "Istnieje już konto z tym e-mailem: zaloguj się na nie i otwórz link ponownie.",
+   "nl": "Er is al een account met dat e-mailadres: log daarmee in en open de link opnieuw.",
+   "zh": "该电子邮件已有账户：请用它登录后重新打开链接。"
+  },
+  "El código tiene 6 letras y números. Revísalo con la persona.": {
+   "en": "The code has 6 letters and numbers. Check it with the person.",
+   "fr": "Le code comporte 6 lettres et chiffres. Vérifiez-le avec la personne.",
+   "de": "Der Code hat 6 Buchstaben und Ziffern. Prüfe ihn mit der Person.",
+   "it": "Il codice ha 6 lettere e numeri. Controllalo con la persona.",
+   "pt": "O código tem 6 letras e números. Confirme-o com a pessoa.",
+   "pl": "Kod ma 6 liter i cyfr. Sprawdź go z tą osobą.",
+   "nl": "De code heeft 6 letters en cijfers. Controleer hem met de persoon.",
+   "zh": "代码由 6 位字母和数字组成。请与对方核对。"
+  },
+  "El último día no puede ser antes del primero.": {
+   "en": "The last day can’t be before the first one.",
+   "fr": "Le dernier jour ne peut pas précéder le premier.",
+   "de": "Der letzte Tag darf nicht vor dem ersten liegen.",
+   "it": "L’ultimo giorno non può essere prima del primo.",
+   "pt": "O último dia não pode ser antes do primeiro.",
+   "pl": "Ostatni dzień nie może być przed pierwszym.",
+   "nl": "De laatste dag kan niet vóór de eerste liggen.",
+   "zh": "最后一天不能早于第一天。"
+  },
+  "Elige «Fijo en el equipo» o «Por días».": {
+   "en": "Choose “Permanent in the team” or “By days”.",
+   "fr": "Choisissez « Permanent dans l’équipe » ou « Par jours ».",
+   "de": "Wähle „Dauerhaft im Team“ oder „Tageweise“.",
+   "it": "Scegli «Fisso nel team» o «A giorni».",
+   "pt": "Escolha «Fixo na equipa» ou «Por dias».",
+   "pl": "Wybierz „Na stałe w zespole” lub „Na wybrane dni”.",
+   "nl": "Kies ‘Vast in het team’ of ‘Per dag’.",
+   "zh": "请选择“长期成员”或“按天”。"
+  },
+  "Escanea el QR o escribe el código.": {
+   "en": "Scan the QR code or type the code.",
+   "fr": "Scannez le QR ou saisissez le code.",
+   "de": "Scanne den QR-Code oder gib den Code ein.",
+   "it": "Scansiona il QR o scrivi il codice.",
+   "pt": "Leia o QR ou escreva o código.",
+   "pl": "Zeskanuj kod QR lub wpisz kod.",
+   "nl": "Scan de QR-code of typ de code.",
+   "zh": "扫描二维码或输入代码。"
+  },
+  "Ese QR ha caducado. Pide a la persona que abra «Mi QR» y vuelve a escanearlo.": {
+   "en": "That QR code has expired. Ask the person to open “My QR” and scan it again.",
+   "fr": "Ce QR a expiré. Demandez à la personne d’ouvrir « Mon QR » et scannez-le à nouveau.",
+   "de": "Dieser QR-Code ist abgelaufen. Bitte die Person, „Mein QR“ zu öffnen, und scanne ihn erneut.",
+   "it": "Quel QR è scaduto. Chiedi alla persona di aprire «Il mio QR» e scansionalo di nuovo.",
+   "pt": "Esse QR expirou. Peça à pessoa que abra «O meu QR» e volte a lê-lo.",
+   "pl": "Ten kod QR wygasł. Poproś tę osobę, aby otworzyła „Mój QR”, i zeskanuj go ponownie.",
+   "nl": "Die QR-code is verlopen. Vraag de persoon ‘Mijn QR’ te openen en scan hem opnieuw.",
+   "zh": "该二维码已过期。请对方打开“我的二维码”后重新扫描。"
+  },
+  "Ese código no es de WORLDIVES.": {
+   "en": "That code isn’t from WORLDIVES.",
+   "fr": "Ce code n’est pas de WORLDIVES.",
+   "de": "Dieser Code ist nicht von WORLDIVES.",
+   "it": "Questo codice non è di WORLDIVES.",
+   "pt": "Esse código não é da WORLDIVES.",
+   "pl": "Ten kod nie pochodzi z WORLDIVES.",
+   "nl": "Die code is niet van WORLDIVES.",
+   "zh": "这不是 WORLDIVES 的代码。"
+  },
+  "Ese enlace no es de WORLDIVES.": {
+   "en": "That link isn’t from WORLDIVES.",
+   "fr": "Ce lien n’est pas de WORLDIVES.",
+   "de": "Dieser Link ist nicht von WORLDIVES.",
+   "it": "Questo link non è di WORLDIVES.",
+   "pt": "Essa ligação não é da WORLDIVES.",
+   "pl": "Ten link nie pochodzi z WORLDIVES.",
+   "nl": "Die link is niet van WORLDIVES.",
+   "zh": "这不是 WORLDIVES 的链接。"
+  },
+  "Ese enlace ya habría terminado: elige días de hoy en adelante.": {
+   "en": "That link would already have ended: choose days from today onwards.",
+   "fr": "Ce lien serait déjà terminé : choisissez des jours à partir d’aujourd’hui.",
+   "de": "Diese Verknüpfung wäre schon beendet: Wähle Tage ab heute.",
+   "it": "Quel collegamento sarebbe già terminato: scegli giorni da oggi in poi.",
+   "pt": "Essa ligação já teria terminado: escolha dias a partir de hoje.",
+   "pl": "To połączenie już by się skończyło: wybierz dni od dziś.",
+   "nl": "Die koppeling zou al voorbij zijn: kies dagen vanaf vandaag.",
+   "zh": "该关联会已经结束：请选择从今天起的日期。"
+  },
+  "Pon el primer y el último día del enlace.": {
+   "en": "Enter the first and last day of the link.",
+   "fr": "Indiquez le premier et le dernier jour du lien.",
+   "de": "Gib den ersten und den letzten Tag der Verknüpfung an.",
+   "it": "Indica il primo e l’ultimo giorno del collegamento.",
+   "pt": "Indique o primeiro e o último dia da ligação.",
+   "pl": "Podaj pierwszy i ostatni dzień połączenia.",
+   "nl": "Vul de eerste en de laatste dag van de koppeling in.",
+   "zh": "请填写关联的第一天和最后一天。"
+  },
+  "Un enlace «Por días» dura como mucho un año; para más, «Fijo en el equipo».": {
+   "en": "A “By days” link lasts one year at most; for longer, use “Permanent in the team”.",
+   "fr": "Un lien « Par jours » dure au plus un an ; au-delà, « Permanent dans l’équipe ».",
+   "de": "Eine tageweise Verknüpfung dauert höchstens ein Jahr; für länger „Dauerhaft im Team“.",
+   "it": "Un collegamento «A giorni» dura al massimo un anno; per più tempo, «Fisso nel team».",
+   "pt": "Uma ligação «Por dias» dura no máximo um ano; para mais, «Fixo na equipa».",
+   "pl": "Połączenie „Na wybrane dni” trwa najwyżej rok; na dłużej wybierz „Na stałe w zespole”.",
+   "nl": "Een koppeling ‘Per dag’ duurt hooguit een jaar; voor langer ‘Vast in het team’.",
+   "zh": "“按天”关联最长一年；更长时间请选择“长期成员”。"
+  },
+  "Elige como mucho tres meses.": {
+   "en": "Choose three months at most.",
+   "fr": "Choisissez trois mois au maximum.",
+   "de": "Wähle höchstens drei Monate.",
+   "it": "Scegli al massimo tre mesi.",
+   "pt": "Escolha no máximo três meses.",
+   "pl": "Wybierz najwyżej trzy miesiące.",
+   "nl": "Kies hooguit drie maanden.",
+   "zh": "最多选择三个月。"
+  },
+  "«Mi QR» es para buceadores, freelance y centros.": {
+   "en": "“My QR” is for divers, freelancers and centres.",
+   "fr": "« Mon QR » est destiné aux plongeurs, freelances et centres.",
+   "de": "„Mein QR“ ist für Taucher, Freelancer und Center.",
+   "it": "«Il mio QR» è per subacquei, freelance e centri.",
+   "pt": "«O meu QR» é para mergulhadores, freelancers e centros.",
+   "pl": "„Mój QR” jest dla nurków, freelancerów i centrów.",
+   "nl": "‘Mijn QR’ is voor duikers, freelancers en centra.",
+   "zh": "“我的二维码”适用于潜水员、自由职业者和中心。"
+  },
+  "Acepta las condiciones para profesionales para activar tu perfil de freelance.": {
+   "en": "Accept the terms for professionals to activate your freelance profile.",
+   "fr": "Acceptez les conditions pour les professionnels pour activer votre profil freelance.",
+   "de": "Akzeptiere die Bedingungen für Profis, um dein Freelancer-Profil zu aktivieren.",
+   "it": "Accetta le condizioni per i professionisti per attivare il tuo profilo freelance.",
+   "pt": "Aceite as condições para profissionais para ativar o seu perfil de freelancer.",
+   "pl": "Zaakceptuj warunki dla profesjonalistów, aby aktywować profil freelancera.",
+   "nl": "Accepteer de voorwaarden voor professionals om je freelanceprofiel te activeren.",
+   "zh": "请接受专业人士条款以启用你的自由职业者资料。"
+  },
+  "Demasiados intentos seguidos. Espera unos minutos y vuelve a probar.": {
+   "en": "Too many attempts in a row. Wait a few minutes and try again.",
+   "fr": "Trop de tentatives d’affilée. Attendez quelques minutes et réessayez.",
+   "de": "Zu viele Versuche hintereinander. Warte ein paar Minuten und versuche es erneut.",
+   "it": "Troppi tentativi di seguito. Attendi qualche minuto e riprova.",
+   "pt": "Demasiadas tentativas seguidas. Aguarde alguns minutos e tente de novo.",
+   "pl": "Zbyt wiele prób z rzędu. Odczekaj kilka minut i spróbuj ponownie.",
+   "nl": "Te veel pogingen achter elkaar. Wacht een paar minuten en probeer het opnieuw.",
+   "zh": "连续尝试次数过多。请等几分钟再试。"
+  },
+  "Elige a una persona activa de tu equipo.": {
+   "en": "Choose an active person from your team.",
+   "fr": "Choisissez une personne active de votre équipe.",
+   "de": "Wähle eine aktive Person aus deinem Team.",
+   "it": "Scegli una persona attiva del tuo team.",
+   "pt": "Escolha uma pessoa ativa da sua equipa.",
+   "pl": "Wybierz aktywną osobę z twojego zespołu.",
+   "nl": "Kies een actieve persoon uit je team.",
+   "zh": "请选择团队中的在职人员。"
+  },
+  "Esa persona no está en pausa.": {
+   "en": "That person isn’t paused.",
+   "fr": "Cette personne n’est pas en pause.",
+   "de": "Diese Person ist nicht pausiert.",
+   "it": "Quella persona non è in pausa.",
+   "pt": "Essa pessoa não está em pausa.",
+   "pl": "Ta osoba nie jest wstrzymana.",
+   "nl": "Die persoon is niet gepauzeerd.",
+   "zh": "此人未处于暂停状态。"
+  },
+  "Esa persona ya no está en el equipo.": {
+   "en": "That person is no longer in the team.",
+   "fr": "Cette personne ne fait plus partie de l’équipe.",
+   "de": "Diese Person ist nicht mehr im Team.",
+   "it": "Quella persona non è più nel team.",
+   "pt": "Essa pessoa já não está na equipa.",
+   "pl": "Ta osoba nie jest już w zespole.",
+   "nl": "Die persoon zit niet meer in het team.",
+   "zh": "此人已不在团队中。"
+  },
+  "Este enlace es para el propietario del centro: entra con su cuenta.": {
+   "en": "This link is for the centre’s owner: sign in with their account.",
+   "fr": "Ce lien est destiné au propriétaire du centre : connectez-vous avec son compte.",
+   "de": "Dieser Link ist für den Inhaber des Centers: Melde dich mit dessen Konto an.",
+   "it": "Questo link è per il titolare del centro: accedi con il suo account.",
+   "pt": "Esta ligação é para o proprietário do centro: entre com a conta dele.",
+   "pl": "Ten link jest dla właściciela centrum: zaloguj się na jego konto.",
+   "nl": "Deze link is voor de eigenaar van het centrum: log in met diens account.",
+   "zh": "此链接供中心所有者使用：请用其账户登录。"
+  },
+  "Has creado muchos enlaces hoy. Usa uno de los que tienes o espera a mañana.": {
+   "en": "You have created many links today. Use one of the ones you have or wait until tomorrow.",
+   "fr": "Vous avez créé beaucoup de liens aujourd’hui. Utilisez l’un de ceux que vous avez ou attendez demain.",
+   "de": "Du hast heute viele Links erstellt. Nutze einen vorhandenen oder warte bis morgen.",
+   "it": "Hai creato molti link oggi. Usa uno di quelli che hai o aspetta domani.",
+   "pt": "Criou muitas ligações hoje. Use uma das que tem ou espere por amanhã.",
+   "pl": "Utworzyłeś dziś wiele linków. Użyj jednego z istniejących lub poczekaj do jutra.",
+   "nl": "Je hebt vandaag veel links gemaakt. Gebruik een bestaande of wacht tot morgen.",
+   "zh": "你今天已创建了很多链接。请使用已有链接或明天再试。"
+  },
+  "Para ese perfil hace falta una cuenta de freelance: la persona tiene que activarla primero.": {
+   "en": "That profile needs a freelance account: the person has to activate it first.",
+   "fr": "Ce profil nécessite un compte freelance : la personne doit d’abord l’activer.",
+   "de": "Für dieses Profil ist ein Freelancer-Konto nötig: Die Person muss es zuerst aktivieren.",
+   "it": "Per quel profilo serve un account freelance: la persona deve prima attivarlo.",
+   "pt": "Para esse perfil é preciso uma conta de freelancer: a pessoa tem de a ativar primeiro.",
+   "pl": "Ten profil wymaga konta freelancera: ta osoba musi je najpierw aktywować.",
+   "nl": "Voor dat profiel is een freelanceaccount nodig: de persoon moet het eerst activeren.",
+   "zh": "该角色需要自由职业者账户：对方需先启用。"
+  },
+  "Perfil no válido.": {
+   "en": "Invalid profile.",
+   "fr": "Profil non valide.",
+   "de": "Ungültiges Profil.",
+   "it": "Profilo non valido.",
+   "pt": "Perfil não válido.",
+   "pl": "Nieprawidłowy profil.",
+   "nl": "Ongeldig profiel.",
+   "zh": "角色无效。"
+  },
+  "Solo el propietario puede transferir la propiedad.": {
+   "en": "Only the owner can transfer ownership.",
+   "fr": "Seul le propriétaire peut transférer la propriété.",
+   "de": "Nur der Inhaber kann die Inhaberschaft übertragen.",
+   "it": "Solo il titolare può trasferire la titolarità.",
+   "pt": "Só o proprietário pode transferir a propriedade.",
+   "pl": "Tylko właściciel może przekazać własność.",
+   "nl": "Alleen de eigenaar kan het eigendom overdragen.",
+   "zh": "只有所有者可以转让所有权。"
+  },
+  "Solo se pone en pausa a quien está activo.": {
+   "en": "Only active people can be paused.",
+   "fr": "Seules les personnes actives peuvent être mises en pause.",
+   "de": "Nur aktive Personen können pausiert werden.",
+   "it": "Si può mettere in pausa solo chi è attivo.",
+   "pt": "Só se põe em pausa quem está ativo.",
+   "pl": "Wstrzymać można tylko aktywne osoby.",
+   "nl": "Alleen actieve personen kunnen worden gepauzeerd.",
+   "zh": "只能暂停在职人员。"
+  },
+  "Vuelve a escanear el QR de la persona: lo escaneado sirve 15 minutos y una sola vez.": {
+   "en": "Scan the person’s QR code again: a scan works for 15 minutes and only once.",
+   "fr": "Scannez à nouveau le QR de la personne : un scan sert 15 minutes et une seule fois.",
+   "de": "Scanne den QR-Code der Person erneut: Ein Scan gilt 15 Minuten und nur einmal.",
+   "it": "Scansiona di nuovo il QR della persona: la scansione vale 15 minuti e una sola volta.",
+   "pt": "Volte a ler o QR da pessoa: a leitura serve 15 minutos e uma só vez.",
+   "pl": "Zeskanuj ponownie kod QR tej osoby: skan działa 15 minut i tylko raz.",
+   "nl": "Scan de QR-code van de persoon opnieuw: een scan werkt 15 minuten en maar één keer.",
+   "zh": "请重新扫描对方的二维码：扫描结果 15 分钟内有效且只能使用一次。"
+  },
+  "Ya hay una invitación pendiente para ese email.": {
+   "en": "There is already a pending invitation for that email.",
+   "fr": "Une invitation est déjà en attente pour cet e-mail.",
+   "de": "Für diese E-Mail gibt es schon eine offene Einladung.",
+   "it": "C’è già un invito in sospeso per quell’email.",
+   "pt": "Já existe um convite pendente para esse email.",
+   "pl": "Na ten e-mail czeka już zaproszenie.",
+   "nl": "Er staat al een uitnodiging open voor dat e-mailadres.",
+   "zh": "该电子邮件已有待处理的邀请。"
+  },
+  "Tu acceso a un centro está en pausa": {
+   "en": "Your access to a centre is paused",
+   "fr": "Votre accès à un centre est en pause",
+   "de": "Dein Zugang zu einem Center ist pausiert",
+   "it": "Il tuo accesso a un centro è in pausa",
+   "pt": "O seu acesso a um centro está em pausa",
+   "pl": "Twój dostęp do centrum jest wstrzymany",
+   "nl": "Je toegang tot een centrum is gepauzeerd",
+   "zh": "你在某中心的访问已暂停"
+  },
+  "Tu agenda de mañana": {
+   "en": "Your diary for tomorrow",
+   "fr": "Votre agenda de demain",
+   "de": "Dein Kalender für morgen",
+   "it": "La tua agenda di domani",
+   "pt": "A sua agenda de amanhã",
+   "pl": "Twój plan na jutro",
+   "nl": "Je agenda voor morgen",
+   "zh": "你明天的日程"
+  },
+  "Ahora eres el propietario": {
+   "en": "You are now the owner",
+   "fr": "Vous êtes maintenant le propriétaire",
+   "de": "Du bist jetzt der Inhaber",
+   "it": "Ora sei il titolare",
+   "pt": "Agora é o proprietário",
+   "pl": "Jesteś teraz właścicielem",
+   "nl": "Je bent nu de eigenaar",
+   "zh": "你现在是所有者"
+  },
+  "Fechas no válidas.": {
+   "en": "Invalid dates.",
+   "fr": "Dates non valides.",
+   "de": "Ungültige Daten.",
+   "it": "Date non valide.",
+   "pt": "Datas inválidas.",
+   "pl": "Nieprawidłowe daty.",
+   "nl": "Ongeldige data.",
+   "zh": "日期无效。"
+  },
+  "Mi perfil freelance": {
+   "en": "My freelance profile",
+   "fr": "Mon profil freelance",
+   "de": "Mein Freelancer-Profil",
+   "it": "Il mio profilo freelance",
+   "pt": "O meu perfil de freelancer",
+   "pl": "Mój profil freelancera",
+   "nl": "Mijn freelanceprofiel",
+   "zh": "我的自由职业者资料"
+  },
+  "Cerrar el menú": {
+   "en": "Close the menu",
+   "fr": "Fermer le menu",
+   "de": "Menü schließen",
+   "it": "Chiudi il menu",
+   "pt": "Fechar o menu",
+   "pl": "Zamknij menu",
+   "nl": "Menu sluiten",
+   "zh": "关闭菜单"
+  },
+  "Estás en": {
+   "en": "You are in",
+   "fr": "Vous êtes ici",
+   "de": "Du bist hier",
+   "it": "Sei in",
+   "pt": "Está em",
+   "pl": "Jesteś tutaj",
+   "nl": "Je bent hier",
+   "zh": "当前位置"
+  },
+  "Menú del panel": {
+   "en": "Dashboard menu",
+   "fr": "Menu du tableau de bord",
+   "de": "Dashboard-Menü",
+   "it": "Menu del pannello",
+   "pt": "Menu do painel",
+   "pl": "Menu panelu",
+   "nl": "Dashboardmenu",
+   "zh": "面板菜单"
+  },
+  "Mi cuenta profesional": {
+   "en": "My professional account",
+   "fr": "Mon compte professionnel",
+   "de": "Mein Profikonto",
+   "it": "Il mio account professionale",
+   "pt": "A minha conta profissional",
+   "pl": "Moje konto zawodowe",
+   "nl": "Mijn professionele account",
+   "zh": "我的专业账户"
+  },
+  "Plegar el menú": {
+   "en": "Collapse the menu",
+   "fr": "Replier le menu",
+   "de": "Menü einklappen",
+   "it": "Comprimi il menu",
+   "pt": "Recolher o menu",
+   "pl": "Zwiń menu",
+   "nl": "Menu inklappen",
+   "zh": "收起菜单"
+  },
+  "Reservas desde tu web e Instagram": {
+   "en": "Bookings from your website and Instagram",
+   "fr": "Réservations depuis votre site et Instagram",
+   "de": "Buchungen über deine Website und Instagram",
+   "it": "Prenotazioni dal tuo sito e da Instagram",
+   "pt": "Reservas a partir do seu site e do Instagram",
+   "pl": "Rezerwacje z twojej strony i Instagrama",
+   "nl": "Boekingen via je website en Instagram",
+   "zh": "来自你的网站和 Instagram 的预订"
+  },
+  "Equipo del centro": {
+   "en": "Centre team",
+   "fr": "Équipe du centre",
+   "de": "Team des Centers",
+   "it": "Team del centro",
+   "pt": "Equipa do centro",
+   "pl": "Zespół centrum",
+   "nl": "Team van het centrum",
+   "zh": "中心团队"
+  },
+  "Propietario": {
+   "en": "Owner",
+   "fr": "Propriétaire",
+   "de": "Inhaber",
+   "it": "Titolare",
+   "pt": "Proprietário",
+   "pl": "Właściciel",
+   "nl": "Eigenaar",
+   "zh": "所有者"
+  }
+ },
+ "patterns": {
+  "{x} quiere añadirte a su equipo": {
+   "en": "{x} wants to add you to their team",
+   "fr": "{x} souhaite vous ajouter à son équipe",
+   "de": "{x} möchte dich zum Team hinzufügen",
+   "it": "{x} vuole aggiungerti al suo team",
+   "pt": "{x} quer adicioná-lo à equipa",
+   "pl": "{x} chce dodać cię do swojego zespołu",
+   "nl": "{x} wil je aan het team toevoegen",
+   "zh": "{x} 想把你加入团队"
+  },
+  "Para unirte como {x} tienes que activar tu perfil de freelance (es gratis).": {
+   "en": "To join as {x} you need to activate your freelance profile (it’s free).",
+   "fr": "Pour rejoindre l’équipe comme {x}, vous devez activer votre profil freelance (gratuit).",
+   "de": "Um als {x} beizutreten, musst du dein Freelancer-Profil aktivieren (kostenlos).",
+   "it": "Per entrare come {x} devi attivare il tuo profilo freelance (è gratis).",
+   "pt": "Para entrar como {x} tem de ativar o seu perfil de freelancer (é grátis).",
+   "pl": "Aby dołączyć jako {x}, musisz aktywować profil freelancera (bezpłatny).",
+   "nl": "Om als {x} mee te doen, moet je je freelanceprofiel activeren (gratis).",
+   "zh": "以 {x} 身份加入需要启用你的自由职业者资料（免费）。"
+  },
+  "Tu plan permite {n} persona en el equipo además del propietario.": {
+   "en": "Your plan allows {n} person in the team besides the owner.",
+   "fr": "Votre offre permet {n} personne dans l’équipe en plus du propriétaire.",
+   "de": "Dein Tarif erlaubt {n} Person im Team zusätzlich zum Inhaber.",
+   "it": "Il tuo piano consente {n} persona nel team oltre al titolare.",
+   "pt": "O seu plano permite {n} pessoa na equipa além do proprietário.",
+   "pl": "Twój plan pozwala na {n} osobę w zespole oprócz właściciela.",
+   "nl": "Je abonnement staat {n} persoon in het team toe naast de eigenaar.",
+   "zh": "你的套餐除所有者外允许 {n} 名团队成员。"
+  },
+  "Tu plan permite {n} personas en el equipo además del propietario.": {
+   "en": "Your plan allows {n} people in the team besides the owner.",
+   "fr": "Votre offre permet {n} personnes dans l’équipe en plus du propriétaire.",
+   "de": "Dein Tarif erlaubt {n} Personen im Team zusätzlich zum Inhaber.",
+   "it": "Il tuo piano consente {n} persone nel team oltre al titolare.",
+   "pt": "O seu plano permite {n} pessoas na equipa além do proprietário.",
+   "pl": "Twój plan pozwala na {n} osób w zespole oprócz właściciela.",
+   "nl": "Je abonnement staat {n} personen in het team toe naast de eigenaar.",
+   "zh": "你的套餐除所有者外允许 {n} 名团队成员。"
+  },
+  "Solo el {x}": {
+   "en": "Only on {x}",
+   "fr": "Seulement le {x}",
+   "de": "Nur am {x}",
+   "it": "Solo il {x}",
+   "pt": "Só no dia {x}",
+   "pl": "Tylko {x}",
+   "nl": "Alleen op {x}",
+   "zh": "仅 {x}"
+  },
+  "Del {x} al {y}": {
+   "en": "From {x} to {y}",
+   "fr": "Du {x} au {y}",
+   "de": "Vom {x} bis {y}",
+   "it": "Dal {x} al {y}",
+   "pt": "De {x} a {y}",
+   "pl": "Od {x} do {y}",
+   "nl": "Van {x} tot {y}",
+   "zh": "{x} 至 {y}"
+  },
+  "Ya no estás en el equipo de {x}": {
+   "en": "You are no longer in the team of {x}",
+   "fr": "Vous ne faites plus partie de l’équipe de {x}",
+   "de": "Du bist nicht mehr im Team von {x}",
+   "it": "Non sei più nel team di {x}",
+   "pt": "Já não está na equipa de {x}",
+   "pl": "Nie jesteś już w zespole {x}",
+   "nl": "Je zit niet meer in het team van {x}",
+   "zh": "你已不在 {x} 的团队中"
+  },
+  "Vuelves a estar en el equipo de {x}": {
+   "en": "You are back in the team of {x}",
+   "fr": "Vous faites de nouveau partie de l’équipe de {x}",
+   "de": "Du bist wieder im Team von {x}",
+   "it": "Sei di nuovo nel team di {x}",
+   "pt": "Voltou a estar na equipa de {x}",
+   "pl": "Znów jesteś w zespole {x}",
+   "nl": "Je zit weer in het team van {x}",
+   "zh": "你已重新加入 {x} 的团队"
+  },
+  "{x}: te ha asignado una salida": {
+   "en": "{x}: has assigned you a trip",
+   "fr": "{x} : vous a attribué une sortie",
+   "de": "{x}: hat dir eine Ausfahrt zugewiesen",
+   "it": "{x}: ti ha assegnato un’uscita",
+   "pt": "{x}: atribuiu-lhe uma saída",
+   "pl": "{x}: przydzielił ci wypłynięcie",
+   "nl": "{x}: heeft je een uitvaart toegewezen",
+   "zh": "{x}：给你分配了一次出海"
+  },
+  "{x}: ha cambiado una salida tuya": {
+   "en": "{x}: has changed one of your trips",
+   "fr": "{x} : a modifié l’une de vos sorties",
+   "de": "{x}: hat eine deiner Ausfahrten geändert",
+   "it": "{x}: ha cambiato una tua uscita",
+   "pt": "{x}: alterou uma saída sua",
+   "pl": "{x}: zmienił jedno z twoich wypłynięć",
+   "nl": "{x}: heeft een uitvaart van je gewijzigd",
+   "zh": "{x}：修改了你的一次出海"
+  },
+  "Barco {x}": {
+   "en": "Boat {x}",
+   "fr": "Bateau {x}",
+   "de": "Boot {x}",
+   "it": "Barca {x}",
+   "pt": "Barco {x}",
+   "pl": "Łódź {x}",
+   "nl": "Boot {x}",
+   "zh": "船 {x}"
+  }
+ }
+}

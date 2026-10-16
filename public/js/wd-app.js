@@ -874,6 +874,28 @@
   }
 
   /* ---------------------------------------------------------------- Mi área and Ajustes */
+  // v50.58 (equipo por QR): «Trabajar como» (the profile selector: one's own profile or a centre where one works today),
+  // «Mi QR», «Mi equipo» and «Mi agenda». The same screens as the web; the server decides who sees what.
+  function filasEquipo() {
+    const me = state.me; if (!me) return '';
+    const own = me.own_role || me.user.role; if (!['freelance', 'recreational', 'center'].includes(own)) return '';
+    const n = me.team_requests || 0, perfiles = me.profiles || [], actual = perfiles.find((p) => p.active);
+    const fila = (href, icono, a, b) => `<a class="lista-fila" href="${href}">${ic(icono)}<span class="crece pila"><b>${a}</b><span class="suave peq">${b}</span></span>${ic('chev', 'chev')}</a>`;
+    return (perfiles.length > 1 ? `<button class="lista-fila" type="button" id="wda-perfil">${ic('mover')}<span class="crece pila"><b>${T('Trabajar como')}</b><span class="suave peq" ${actual?.center_id ? 'translate="no"' : ''}>${esc(actual?.label || '')}</span></span>${ic('chev', 'chev')}</button>` : '')
+      + fila('#/mi-qr', 'qr', T('Mi QR'), T('Para que un centro te añada a su equipo'))
+      + (own !== 'center' ? fila('#/mi-equipo', 'equipo', T('Mi equipo') + (n ? ` <span class="wda-num-aviso">${n}</span>` : ''), T('Peticiones y centros donde trabajas'))
+        + fila('#/mi-agenda', 'agenda', T('Mi agenda'), T('Lo que te toca en cada centro')) : '');
+  }
+  function enlazarPerfil(root) {
+    $('#wda-perfil', root)?.addEventListener('click', () => {
+      const perfiles = state.me?.profiles || [];
+      const capa = abrirHoja({ titulo: T('Trabajar como'), sub: T('Cada centro, con lo que permite tu perfil. Nunca se mezclan.'), html: `<div class="tarjeta plana lista">${perfiles.map((p) => `<button class="lista-fila" type="button" data-p="${p.center_id || 0}"><span class="wda-color" style="--c:${esc(p.color || '#334155')}" aria-hidden="true"></span><span class="crece pila"><b ${p.center_id ? 'translate="no"' : ''}>${esc(p.label)}</b>${p.role_name ? `<span class="suave peq">${esc(p.role_name)}</span>` : ''}</span>${p.active ? ic('check', '') : ''}</button>`).join('')}</div>` });
+      $$('[data-p]', capa).forEach((b) => { b.onclick = async () => {
+        try { await postJSON('/api/team/switch', { center: +b.dataset.p }); await W.loadMe(); cerrarHoja(); W.toast(T(+b.dataset.p ? 'Ahora trabajas en este centro.' : 'Has vuelto a tu perfil.')); if (['', '#/', '#'].includes(location.hash)) W.route(); else location.hash = '#/'; }
+        catch (e) { W.toast(e.message); }
+      }; });
+    });
+  }
   async function miAreaPantalla() {
     const me = state.me;
     if (!me) { pintar(pedirEntrar(T('Mi área'), T('Entra para ver tu Log Book, tus puntos, tu ficha y tus ajustes.')) + `<div class="cuerpo" style="padding-top:0"><a class="wbtn sec ancho" href="#/ajustes">${ic('ajustes', '')}Ajustes</a></div>`); return; }
@@ -887,8 +909,9 @@
         <div class="tarjeta plana lista">${buzo ? fila('#/logbook', 'libro', 'Log Book', 'Tus inmersiones') + fila('#/mis-puntos', 'puntos', 'Mis puntos', 'Cómo se ganan y se canjean') + fila('#/recompensas', 'regalo', 'Recompensas', 'Ventajas de cada centro')
           + fila('#/area', 'avisos', 'Avisos y documentos', 'Mensajes de los centros, titulación y seguro') : fila('#/admin', 'agenda', u.role === 'admin' ? 'Administración' : 'Mi panel', 'En la web, dentro de la app')}
           ${fila('#/cuenta', 'ficha', buzo ? 'Mi ficha' : 'Mi cuenta', buzo ? 'Titulación, tallas, teléfono y WhatsApp' : 'Datos, seguridad e idioma')}${fila('#/ajustes', 'ajustes', 'Ajustes', 'Tema, tamaño del texto, idioma y cuenta')}</div>
+        ${filasEquipo() ? `<p class="eti">Equipos de centros</p><div class="tarjeta plana lista">${filasEquipo()}</div>` : ''}
         <button class="wbtn sec ancho" type="button" id="wda-salir">${ic('salir', '')}Cerrar sesión</button></div>`);
-    $('#wda-salir', root).onclick = salir;
+    $('#wda-salir', root).onclick = salir; enlazarPerfil(root);
     if (buzo) {
       api('/api/points').then((d) => { const el = $('#wda-c-puntos', root); if (el) el.textContent = Number(d.balance || 0).toLocaleString(W.wdLocale()); }).catch(() => {});
       api('/api/logbook').then((d) => { const el = $('#wda-c-log', root); if (el) el.textContent = (d.items || []).length.toLocaleString(W.wdLocale()); }).catch(() => {});
@@ -1100,7 +1123,7 @@
   /* ---------------------------------------------------------------- what wd-app-pro.js uses from here */
   const WDA = window.WDA = {
     W, APP, I, ic, esc, T, plugin, pintar, abrirHoja, cerrarHoja, abrirFuera, compartir, mapsDestino, dinero, fecha, cuando, km, anillo, estadoTag, modoTag,
-    telefonoWa, esqueleto, vivo, rol, modulo, mem, cuenta, pintarTabs, nombreRuta, infoApp, salir, borrarCuenta, reportarFallo, pref, guardarPref, aplicarAspecto,
+    telefonoWa, esqueleto, vivo, rol, modulo, mem, cuenta, pintarTabs, filasEquipo, enlazarPerfil, nombreRuta, infoApp, salir, borrarCuenta, reportarFallo, pref, guardarPref, aplicarAspecto,
     rutasPro: {}, filtrarTabs: null, ajustes, miAreaPantalla, explorar, buscar,
   };
 

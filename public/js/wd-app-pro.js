@@ -772,12 +772,13 @@
       <p class="eti">${ic('web', 'ic-mini')} <span>${T('Disponible en la web')}</span></p><div class="tarjeta plana lista">${fila('#/admin?tab=services', 'agenda', T('Servicios y precios'))}${!esFree() ? fila('#/admin?tab=planning', 'barco', T('Barcos, grupos y guías')) : ''}
         ${puede('avisos') ? fila('#/admin?tab=avisos', 'avisos', T('Avisos y WhatsApp Business')) : ''}${esDueno() && !esFree() ? fila('#/admin?tab=team', 'equipo', T('Equipo y perfiles'), T('Quién entra y qué puede hacer')) : ''}
         ${esFree() ? fila('#/admin?tab=agenda', 'reloj', T('Horario y días de cierre')) : ''}${puede('centro') ? fila('#/admin?tab=' + (esFree() ? 'profile' : 'center'), 'tienda', T(esFree() ? 'Mi ficha pública' : 'Ficha del centro')) : ''}${fila('#/admin?tab=tools', 'cartel', T('Herramientas'), T('Calendario (iCal), cartel, exportar'))}${esDueno() ? fila('#/admin?tab=plan', 'puntos', T('Mi plan')) : ''}</div>
+      ${A.filasEquipo() ? `<p class="eti">${T('Equipos de centros')}</p><div class="tarjeta plana lista">${A.filasEquipo()}</div>` : ''}
       <p class="eti">${T('Cuenta')}</p><div class="tarjeta plana lista">${fila('#/cuenta', 'ficha', T('Mi cuenta'), T('Datos, contraseña e idioma'))}${fila('#/ajustes', 'ajustes', T('Ajustes'), T('Tema y tamaño del texto'))}${fila('#/legal', 'documento', T('Privacidad y textos legales'))}
         ${(me?.centers || []).length > 1 ? `<button class="lista-fila" type="button" id="wda-centro">${ic('mover')}<span class="crece">${T('Cambiar de centro')}</span>${ic('chev', 'chev')}</button>` : ''}
         <button class="lista-fila" type="button" id="mas-salir">${ic('salir')}<span class="crece">${T('Cerrar sesión')}</span>${ic('chev', 'chev')}</button>
         ${esDueno() ? `<a class="lista-fila" href="#/cerrar-cuenta" style="color:var(--urg-t)">${ic('papelera')}<span class="crece">${T('Borrar mi cuenta para siempre')}</span>${ic('chev', 'chev')}</a>` : ''}</div>
       <p class="version" id="mas-v" translate="no">WORLDIVES</p></div>`);
-    enlazarCentro(root);
+    enlazarCentro(root); A.enlazarPerfil(root);
     $('#mas-salir', root).onclick = A.salir;
     A.infoApp().then((i) => { const v = $('#mas-v', root); if (v) v.textContent = i.version; }).catch(() => {});
     if (puede('avisos')) api('/api/avisos/ajustes').then((c) => {

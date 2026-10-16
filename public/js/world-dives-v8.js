@@ -8406,7 +8406,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const opts=(sel)=>RL.map(r=>`<option value="${esc(r.key)}" ${r.key===sel?'selected':''}>${esc(r.name)}</option>`).join('');
     const checks=(r,pre)=>PERM.map(p=>`<label class="tr-perm"><input type="checkbox" value="${esc(p.key)}" ${r.permissions.includes(p.key)?'checked':''} ${r.owner?'disabled':''} aria-describedby="${pre}-h-${esc(p.key)}"> <span><b>${esc(p.name)}</b><small id="${pre}-h-${esc(p.key)}">${esc(p.help)}</small></span></label>`).join('');
     const rules=d.rules||{};
-    mount.innerHTML=`<section class="mm-module tq-links-module" id="tq-links-mount"></section><section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Equipo</p><h2>Cuentas del centro</h2>
+    mount.innerHTML=`<section class="mm-module tq-links-module" id="tq-links-mount"></section><section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Equipo del centro</p><h2>Cuentas del centro</h2>
       <p>Cada persona tiene un perfil. Abajo puedes cambiar lo que puede hacer cada perfil y crear los tuyos (por ejemplo, «Instructor máster»). La app del móvil muestra a cada persona solo lo que su perfil permite.</p></div></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>Persona</th><th>Perfil</th><th></th></tr></thead><tbody>${d.members.map(m=>`<tr><td><b>${esc(m.fullname)}</b><div class="adl-det">${esc(m.email)}</div></td>
         <td><label class="sr-only" for="tm-r-${m.id}">Perfil de ${esc(m.fullname)}</label><select id="tm-r-${m.id}" class="tm-role" data-id="${m.id}" ${m.id===me?'disabled':''}>${opts(m.member_role)}${R[m.member_role]?'':`<option value="" selected>Perfil borrado</option>`}</select></td>
@@ -8620,7 +8620,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // «Mi equipo»: las peticiones de los centros (aceptar o rechazar) y los centros donde la persona está.
   async function tqActivateFreelance(roleName){
     return new Promise(res=>{ const {el,close}=wdOpenModal({id:'tq-free',size:'sm',title:escapeHtml(translateString('Activa tu perfil de freelance')),
-      body:`<p>Para unirte como <b>${escapeHtml(roleName)}</b> necesitas tu perfil de freelance. Es gratis: sigues teniendo todo lo de tu cuenta y además estás en los equipos de los centros y ves en tu agenda lo que te asignan.</p>
+      body:`<p><span>Perfil en el equipo</span>: <b>${escapeHtml(roleName)}</b></p><p>Para este perfil necesitas tu perfil de freelance. Es gratis: sigues teniendo todo lo de tu cuenta y, además, estás en los equipos de los centros y ves en tu agenda lo que te asignan.</p>
         <p class="adl-det">Con el plan gratuito no tienes servicios, reservas ni cobros propios.</p>
         <label class="lg-check"><input type="checkbox" id="tq-free-ok"> <span>Acepto las <a href="#/legal/condiciones-centros" target="_blank" rel="noopener">condiciones para profesionales</a>.</span></label>`,
       footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="tq-free-go" disabled>Activar y aceptar</button>'});
@@ -8650,7 +8650,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <p class="lead">Nadie te añade a un equipo sin tu «sí». Puedes salir de un centro cuando quieras: lo que hiciste sigue en tu agenda, sin datos de sus clientes.</p>
         <div class="tq-actions"><a class="btn" href="#/mi-qr">${wdIcon('qr',16)} <span>Mi QR</span></a><a class="btn" href="#/mi-agenda">${wdIcon('calendar',16)} <span>Mi agenda</span></a></div></header>
       ${d.requests.length?`<h2 class="adl-h">Peticiones pendientes</h2><div class="tq-list" id="tq-requests">${d.requests.map(req).join('')}</div>`:''}
-      <h2 class="adl-h">Tus equipos</h2>${d.links.length?`<div class="tq-list" id="tq-links">${d.links.map(link).join('')}</div>`:'<div class="empty"><p>Aún no estás en ningún equipo. Enseña <a href="#/mi-qr">tu QR</a> en el centro para que te añadan.</p></div>'}</section>`);
+      <h2 class="adl-h">Tus equipos</h2>${d.links.length?`<div class="tq-list" id="tq-links">${d.links.map(link).join('')}</div>`:'<div class="empty"><p>Aún no estás en ningún equipo. Enseña tu QR en el centro para que te añadan.</p><p><a class="btn" href="#/mi-qr">Mi QR</a></p></div>'}</section>`);
     $$('[data-accept]').forEach(b=>b.onclick=async()=>{ const x=d.requests.find(r=>r.id===+b.dataset.accept); const body={id:x.id,accept:true};
       if(x.needs_freelance){ if(!await tqActivateFreelance(x.role_name)) return; body.activate_freelance=true; body.accept_terms=true; }
       b.disabled=true;
@@ -8689,7 +8689,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const me=state.me?.user;
     if(me&&me.role==='center'&&(state.me?.member_role||'owner')==='owner'){ sessionStorage.setItem('wd-tq-code',code); wdGo('#/admin?tab=team'); return; }
     setApp(authCard('Enlazar a una persona',`<p class="lead auth-lead">Es el QR o el enlace de una persona de WORLDIVES para unirse al equipo de un centro. No lleva sus datos.</p>
-      <ol class="tq-steps"><li>Entra con la cuenta del centro.</li><li>Abre <b>Equipo → Enlazar persona</b>.</li><li>Escanea el QR, escribe su código o abre su enlace.</li></ol>
+      <ol class="tq-steps"><li>Entra con la cuenta del centro.</li><li>Abre «Equipo → Enlazar persona».</li><li>Escanea el QR, escribe su código o abre su enlace.</li></ol>
       ${me?'<p class="adl-det">Solo el propietario del centro puede enlazar personas, desde su panel.</p>':`<div class="form-actions"><a class="btn btn-primary" href="#/login?next=${encodeURIComponent(location.hash)}">Iniciar sesión</a></div>`}`));
   }
 
@@ -8765,7 +8765,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const active=(d.links||[]).filter(x=>x.status==='active'&&!x.waiting_start);
     mount.innerHTML=`<div class="svc-head tq-team-head"><div><p class="eyebrow">Enlazar persona</p><h2>Personas enlazadas a tu centro</h2>
         <p>Cada persona entra con su propia cuenta y elige tu centro en su menú. Ve solo lo que permite su perfil, y solo mientras está en tu equipo.</p>
-        ${rules.cap?`<p class="tq-seats"><span class="num">${rules.used}</span> <span>de</span> <span class="num">${rules.cap}</span> <span>personas además del propietario</span></p>`:''}</div>
+        ${rules.cap?`<p class="tq-seats">${rules.used} de ${rules.cap} personas además del propietario</p>`:''}</div>
       ${rules.blocked?`<button type="button" class="btn btn-primary" id="tq-open" disabled aria-describedby="tq-lockmsg">${wdIcon('lock',16)} <span>Enlazar persona</span></button>`:`<button type="button" class="btn btn-primary" id="tq-open">${wdIcon('qr',16)} <span>Enlazar persona</span></button>`}</div>
       ${rules.blocked?`<div id="tq-lockmsg">${tqPlans('Disponible en el plan Motor de reservas')}</div>`:''}
       ${(d.links||[]).length?`<div class="table-wrap"><table class="data-table tq-table"><thead><tr><th>Persona</th><th>Perfil</th><th>Duración</th><th>Estado</th><th></th></tr></thead><tbody>${d.links.map(row).join('')}</tbody></table></div>`
