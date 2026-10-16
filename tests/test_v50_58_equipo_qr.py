@@ -19,14 +19,16 @@ import re
 import sys
 import time
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'app'))
 from helpers import ServerTestCase  # noqa: E402
 from wod import equipo_qr as wteq  # noqa: E402
 
-DAY = lambda n: (date.today() + timedelta(days=n)).isoformat()
+# the centres of the tests are in Xàbia: their «today» is Madrid's (between 22:00 and 24:00 UTC it is already tomorrow there)
+DAY = lambda n: (datetime.now(ZoneInfo('Europe/Madrid')).date() + timedelta(days=n)).isoformat()
 SECRET = __import__('hashlib').sha256(('wod-qr-personal:' + 'x' * 40).encode()).hexdigest()   # the test server's WOD_SECRET_KEY
 
 

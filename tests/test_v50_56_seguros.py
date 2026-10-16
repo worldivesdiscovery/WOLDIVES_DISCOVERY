@@ -27,7 +27,9 @@ FAR = '2099-12-31'
 
 
 def day(n):
-    return (dt.date.today() + dt.timedelta(days=n)).isoformat()
+    # «today» of the server (Europe/Madrid): between 22:00 and 24:00 UTC it is already tomorrow there
+    from zoneinfo import ZoneInfo
+    return (dt.datetime.now(ZoneInfo('Europe/Madrid')).date() + dt.timedelta(days=n)).isoformat()
 
 
 def pdf(*lines):

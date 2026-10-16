@@ -146,7 +146,7 @@ form{display:grid;gap:8px}
 .wr-ferr{color:var(--error);font-size:13px;font-weight:600}
 .wr-hint{font-size:12.5px;color:var(--suave)}
 .wr-tel{display:flex;gap:6px}.wr-tel select{flex:0 0 92px;padding:10px 6px}
-.wr-levels{display:flex;flex-wrap:wrap;gap:6px}
+.wr-levels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .wr-chip{border:1.5px solid var(--borde);background:#fff;border-radius:999px;padding:8px 12px;font-size:14px;cursor:pointer;min-height:40px}
 .wr-chip[aria-pressed="true"],.wr-chip[aria-checked="true"]{border-color:var(--marca);background:var(--marca);color:var(--sobre-marca)}
 .wr-chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -248,6 +248,6 @@ label{display:grid;gap:4px;font-size:14px;color:var(--tinta);font-weight:600}
 .wr-compact .wr-band p{display:none}
 .wr-compact .wr-logo{width:34px;height:34px;border-radius:9px;font-size:16px}
 .wr-compact .wr-x{width:36px;height:36px}
-.wr-levels .wr-chip{min-height:38px;padding:7px 11px}
+.wr-levels .wr-chip{padding:6px 4px;font-size:13.5px;line-height:1.15;text-align:center;min-height:40px}
 .wr-lbl .wr-hint{font-weight:400}
 .wr-compact .wr-fold summary{min-height:40px;padding:8px 14px}

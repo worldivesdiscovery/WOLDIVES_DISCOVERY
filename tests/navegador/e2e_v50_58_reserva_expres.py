@@ -36,6 +36,7 @@ sys.path.insert(0, str(ROOT / 'app'))
 from wod import widget_textos as wtx  # noqa: E402
 
 FAST_4G = {'offline': False, 'latency': 150, 'downloadThroughput': 9 * 1024 * 1024 / 8, 'uploadThroughput': 9 * 1024 * 1024 / 8}
+SLOW_4G = {'offline': False, 'latency': 562.5, 'downloadThroughput': 1.6 * 1024 * 1024 / 8, 'uploadThroughput': 0.75 * 1024 * 1024 / 8}   # Chrome's «4G lenta»
 
 
 def run(shots: Path | None):
@@ -256,14 +257,37 @@ def run(shots: Path | None):
             check('14 · los 9 idiomas, sin textos en español en otro idioma', not bad, bad)
             ctx.close()
 
-            # ---- 15 · load with 4G (simulated): the sheet shows the centre's services in less than 2 s
-            ctx = context(cr.PHONE); page = ctx.new_page(); cdp = ctx.new_cdp_session(page)
-            page.goto(host + '/index.html'); page.wait_for_load_state('networkidle')
-            cdp.send('Network.enable'); cdp.send('Network.emulateNetworkConditions', FAST_4G)
-            t0 = time.time(); page.click('#boton-reservar'); sheet(page).locator('.wr-svc').first.wait_for(timeout=15000)
-            secs = time.time() - t0
-            check('15 · la reserva abierta en menos de 2 s con 4G', secs < 2.0, f'{secs:.2f} s')
-            ctx.close()
+            # ---- 15 · load with 4G (simulated), from a cold start. The booking is an iframe of another site: with site
+            # isolation Chromium runs it in its own process, which the network emulation of the page does not slow down.
+            # A browser without site isolation, so that the iframe also goes through the slow network.
+            exe = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+            slow = p.chromium.launch(executable_path=exe, args=['--disable-site-isolation-trials', '--disable-features=IsolateOrigins,site-per-process']) \
+                if Path(exe).exists() else p.chromium.launch(args=['--disable-site-isolation-trials', '--disable-features=IsolateOrigins,site-per-process'])
+
+            def cold_open(net):
+                """Seconds from the tap to the open booking with the activities on screen, everything over `net`."""
+                ctx = slow.new_context(**cr.PHONE); ctx.route('https://js.stripe.com/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=cr.STUB))
+                cr.reset_limits(srv)
+                page = ctx.new_page(); cdp = ctx.new_cdp_session(page); seen = []
+                cdp.on('Network.requestWillBeSent', lambda e: seen.append(e['request']['url']))
+                cdp.send('Network.enable'); cdp.send('Network.setCacheDisabled', {'cacheDisabled': True}); cdp.send('Network.emulateNetworkConditions', net)
+                t0 = time.time(); page.goto(host + '/index.html', wait_until='domcontentloaded')
+                page.wait_for_function('window.WORLDIVES')   # before widget.js arrives, the button is a plain link to the centre's page
+                t_page = time.time() - t0
+                t1 = time.time(); page.click('#boton-reservar'); sheet(page).locator('.wr-svc').first.wait_for(timeout=20000)
+                t_open = time.time() - t1
+                # proof that the booking went through the slow network: the page's session saw the iframe's own requests
+                slowed = any('/w/' + slug + '?f=boton' in u for u in seen) and any('/api/w/' + slug in u for u in seen)
+                ctx.close()
+                return t_open, t_page, slowed
+
+            t_open, t_page, slowed = cold_open(FAST_4G)
+            s_open, s_page, s_slowed = cold_open(SLOW_4G)
+            check('15 · con 4G simulada (9 Mbit/s y 150 ms, sin caché): la reserva abierta y con las actividades en menos de 2 s desde el toque',
+                  t_open < 2.0 and slowed and s_slowed,
+                  f'{t_open:.2f} s (la web del centro con el botón listo: {t_page:.2f} s) · con 4G lenta (1,6 Mbit/s y 562 ms): {s_open:.2f} s '
+                  f'(la web: {s_page:.2f} s) · la reserva pasó por la red lenta: {"sí" if slowed and s_slowed else "NO"}')
+            slow.close()
             browser.close()
     finally:
         env['site'].shutdown(); srv.stop(); stripe.stop()

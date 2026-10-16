@@ -16,8 +16,9 @@ Comprueba:
 import re
 import sys
 import unittest
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from helpers import ServerTestCase, Client
 from stripe_mock import StripeMock
@@ -27,7 +28,7 @@ sys.path.insert(0, str(ROOT / 'app'))
 from wod import reserva_expres as wrx  # noqa: E402
 
 FAR = '2099-12-31'
-day = lambda n: (date.today() + timedelta(days=n)).isoformat()
+day = lambda n: (datetime.now(ZoneInfo('Europe/Madrid')).date() + timedelta(days=n)).isoformat()   # the centre's «today» (Xàbia)
 
 
 class Puras(unittest.TestCase):
