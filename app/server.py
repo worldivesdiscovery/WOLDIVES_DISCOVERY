@@ -6376,10 +6376,10 @@ def point_conditions(data):
 
 
 # v50.58: the fields of the fuller dive site (wpun.clean_fields) and which entry of the register of sources each one is
-POINT_FIELDS=('min_depth','max_depth','access','current','water_temps','visibility_min','visibility_max','bottom','best_months','warnings',
-              'warnings_i18n','protection','protection_name','permit_required')
+POINT_FIELDS=('min_depth','max_depth','access','current','water_temps','water_temp_min','water_temp_max','visibility_min','visibility_max',
+              'bottom','best_months','warnings','warnings_i18n','protection','protection_name','permit_required')
 POINT_SOURCE_FIELD={'latitude':'position','longitude':'position','min_depth':'depth','max_depth':'depth','current_level':'current',
-                    'visibility_min':'visibility','visibility_max':'visibility','protection_name':'protection','permit_required':'protection',
+                    'visibility_min':'visibility','visibility_max':'visibility','protection_name':'protection','permit_required':'protection','water_temp_min':'water_temps','water_temp_max':'water_temps',
                     'dive_type':'type','difficulty':'level','warnings_i18n':'warnings'}
 
 
@@ -17235,7 +17235,14 @@ class Handler(BaseHTTPRequestHandler):
                                     'profile':{'type':payee['type'],'name':payee['name'],'legal_name':payee.get('legal_name') or '','tax_id':payee.get('tax_id') or '','fiscal_address':payee.get('fiscal_address') or '',
                                                'cancel_free_hours':pol['free_hours'],'cancel_refund_pct':pol['refund_pct'],'cancellation_note':pol['note'],'policy_text':pol['text']}}); return
                 if path=='/api/my/position-suggestions':
-                    user=require_user(self,db); require_role(user,{'center','freelance','admin'}); rows=db.execute('''SELECT s.*, p.name AS point_name FROM point_position_suggestions s JOIN dive_points p ON p.id=s.dive_point_id WHERE s.user_id=? ORDER BY s.created_at DESC''',(user['id'],)).fetchall(); self.send_json({'items':[dict(r) for r in rows]}); return
+                    # v50.58: what this account proposed (the new proposals and the position corrections of before)
+                    user=require_user(self,db); require_role(user,{'center','freelance','admin','recreational'})
+                    items=[]
+                    for r in db.execute('''SELECT pr.*, p.name AS point_name FROM point_change_proposals pr JOIN dive_points p ON p.id=pr.point_id WHERE pr.user_id=? ORDER BY pr.created_at DESC LIMIT 200''',(user['id'],)).fetchall():
+                        ch=json.loads(r['changes']); items.append({'id':r['id'],'dive_point_id':r['point_id'],'point_name':r['point_name'],'latitude':ch.get('latitude'),'longitude':ch.get('longitude'),
+                                                                   'fields':sorted(ch),'note':r['note'],'status':r['status'],'created_at':r['created_at']})
+                    items+=[dict(r) for r in db.execute('''SELECT s.*, p.name AS point_name FROM point_position_suggestions s JOIN dive_points p ON p.id=s.dive_point_id WHERE s.user_id=? AND s.status!='migrated' ORDER BY s.created_at DESC''',(user['id'],)).fetchall()]
+                    self.send_json({'items':items}); return
                 if path=='/api/admin/travel-experiences':
                     user=require_user(self,db); require_role(user,{'admin'}); rows=db.execute('''SELECT e.*,t.title AS destination_title,u.fullname AS provider_name,c.name AS center_name FROM travel_experiences e JOIN travel_offers t ON t.id=e.travel_offer_id LEFT JOIN users u ON u.id=e.provider_user_id LEFT JOIN centers c ON c.id=e.center_id ORDER BY e.id DESC''').fetchall(); self.send_json({'items':[dict(r) for r in rows]}); return
                 if path == '/api/center-extras':
@@ -17966,6 +17973,25 @@ class Handler(BaseHTTPRequestHandler):
                     exclude={int(x) for x in query.get('exclude',['0'])[0].split(',') if x.isdigit()}
                     pc=wpun.position_check(lat,lon,clean_text(query.get('access',[''])[0],10) or None,clean_text(query.get('type',[''])[0],100) or '')
                     self.send_json({'position':pc,'duplicates':wpun.candidates(db,lat,lon,clean_text(query.get('name',[''])[0],180) or '',exclude=exclude)}); return
+                if path == '/api/admin/dive-points/summary':
+                    # the counters of Administración → Puntos (new batches, possible duplicates, proposals, positions to check)
+                    user=require_user(self,db); require_role(user,{'admin'}); one=lambda q: db.execute(q).fetchone()[0]
+                    self.send_json({'batch_items':one("SELECT COUNT(*) FROM point_batch_items WHERE status='pending'"),
+                                    'duplicates':one("SELECT COUNT(*) FROM point_duplicates d JOIN dive_points a ON a.id=d.a_point_id JOIN dive_points b ON b.id=d.b_point_id WHERE d.status='open' AND a.active=1 AND b.active=1")
+                                                 +one("SELECT COUNT(*) FROM point_batch_items WHERE status='pending' AND match_kind='doubt'"),
+                                    'proposals':one("SELECT COUNT(*) FROM point_change_proposals WHERE status='pending'"),
+                                    'positions':one("SELECT COUNT(*) FROM dive_points WHERE active=1 AND json_extract(position_check,'$.status') IN ('error','warn')"),
+                                    'pending':one("SELECT COUNT(*) FROM dive_points WHERE active=1 AND verification_status!='verified'")}); return
+                if path == '/api/admin/dive-points/positions':
+                    # the published sites whose position falls on land or a shore site far from the shore: to correct by hand
+                    # with a source (never moved «by eye»)
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    rows=[]
+                    for r in db.execute('''SELECT id,name,country,region,latitude,longitude,access,dive_type,position_check FROM dive_points
+                                            WHERE active=1 AND json_extract(position_check,'$.status') IN ('error','warn') ORDER BY country,region,name''').fetchall():
+                        d=dict(r); d['position_check']=json.loads(d['position_check']); rows.append(d)
+                    unk=db.execute("SELECT COUNT(*) FROM dive_points WHERE active=1 AND (position_check IS NULL OR json_extract(position_check,'$.status')='unknown')").fetchone()[0]
+                    self.send_json({'items':rows,'unchecked':unk}); return
                 if path == '/api/admin/dive-points/batches':
                     user=require_user(self,db); require_role(user,{'admin'})
                     rows=[dict(r) for r in db.execute('SELECT * FROM point_batches ORDER BY CASE status WHEN \'published\' THEN 1 ELSE 0 END, id DESC').fetchall()]
@@ -20265,11 +20291,13 @@ class Handler(BaseHTTPRequestHandler):
                     extra=wpun.clean_fields({k:v for k,v in data.items() if k in POINT_FIELDS})
                     # v50.58 (brief of 16/10, B.6 and B.4): a new site falls in the sea, and is not one that already exists
                     pc=wpun.position_check(lat,lon,extra.get('access'),dtype)
-                    if pc['status']=='error' and not data.get('force_position'):
+                    # only the administration can keep a site on land (an inland lake the data does not know) or a second
+                    # site where one already exists; a centre links the one that exists instead
+                    if pc['status']=='error' and not (data.get('force_position') and user['role']=='admin'):
                         self.send_json({'error':f"La posición cae {pc['note'][0].lower()+pc['note'][1:]}: mueve el marcador al agua.",'position':pc},409); return
                     dups=wpun.candidates(db,lat,lon,name)
                     same=[d for d in dups if d['kind']=='same']
-                    if same and not data.get('force_new'):
+                    if same and not (data.get('force_new') and user['role']=='admin'):
                         self.send_json({'error':f"Ya existe «{same[0]['name']}» a {same[0]['distance_m']} m: completa esa ficha en lugar de crear otra.",'duplicates':dups},409); return
                     desc=clean_text(data.get('description'),5000)
                     cols={'name':name,'country':country,'region':clean_text(data.get('region'),120) or None,'zone':clean_text(data.get('zone'),80) or None,
@@ -20660,14 +20688,12 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('UPDATE travel_experiences SET image_url=?,updated_at=? WHERE id=?',(url,now(),eid)); audit(db,user['id'],'travel_experience_image','travel_experience',eid); db.commit()
                     if exp['image_url']!=url: delete_public_image(exp['image_url'])
                     TRAVEL.invalidate(); self.send_json({'ok':True,'url':url}); return
-                if path.startswith('/api/dive-points/') and '/suggest' in path:
-                    user=require_user(self,db); pid=int(path.split('/')[3]); data=json_body(self)
-                    if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone(): self.send_json({'error':'Punto no encontrado'},404); return
-                    cur=db.execute('INSERT INTO point_position_suggestions(dive_point_id,user_id,latitude,longitude,note,status,created_at) VALUES(?,?,?,?,?,?,?)',(pid,user['id'],float(data.get('latitude')),float(data.get('longitude')),clean_text(data.get('note'),2000),'pending',now())); audit(db,user['id'],'position_suggested','point_position_suggestion',cur.lastrowid); db.commit(); self.send_json({'ok':True}); return
-                if re.fullmatch(r'/api/dive-points/\d+/propose',path):
+                if re.fullmatch(r'/api/dive-points/\d+/(propose|suggest)',path):
+                    # v50.58: «/suggest» (the position correction of before) is now a proposal like the rest: one queue
                     # v50.58 (brief of 16/10, A.3): a centre that dives a site proposes position, current, visibility and warnings;
                     # a diver, the position and the new data of the site. The administration accepts or rejects with one click.
                     user=require_user(self,db); pid=int(path.split('/')[3]); data=json_body(self)
+                    if path.endswith('/suggest'): data={k:data.get(k) for k in ('latitude','longitude','note')}
                     if user['role']=='admin': raise ValueError('La administración cambia la ficha directamente desde Administración → Puntos.')
                     point=db.execute('SELECT * FROM dive_points WHERE id=? AND active=1',(pid,)).fetchone()
                     if not point: self.send_json({'error':'Punto no encontrado'},404); return
@@ -20962,6 +20988,12 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('UPDATE point_batch_items SET data=? WHERE id=?',(json.dumps(d,ensure_ascii=False),it['id'])); wpun.assess_item(db,it['id'])
                     audit(db,user['id'],'point_batch_item_edited','point_batch_item',it['id']); db.commit()
                     self.send_json({'ok':True,'item':dict(db.execute('SELECT * FROM point_batch_items WHERE id=?',(it['id'],)).fetchone())}); return
+                if path=='/api/admin/dive-points/positions/recheck':
+                    # after new coast data (scripts/puntos/preparar_costa.py): every published site is checked again
+                    user=require_user(self,db); require_role(user,{'admin'}); n=0
+                    for r in db.execute('SELECT id,latitude,longitude,access,dive_type FROM dive_points WHERE active=1 AND latitude IS NOT NULL AND longitude IS NOT NULL').fetchall():
+                        db.execute('UPDATE dive_points SET position_check=? WHERE id=?',(json.dumps(wpun.position_check(r['latitude'],r['longitude'],r['access'],r['dive_type'] or ''),ensure_ascii=False),r['id'])); n+=1
+                    audit(db,user['id'],'point_positions_rechecked','dive_point',None,{'points':n}); db.commit(); self.send_json({'ok':True,'checked':n}); return
                 if path=='/api/admin/dive-points/duplicates/scan':
                     user=require_user(self,db); require_role(user,{'admin'}); n=wpun.scan_duplicates(db); db.commit(); self.send_json({'ok':True,'new':n}); return
                 if path=='/api/admin/dive-points/duplicates/decide':

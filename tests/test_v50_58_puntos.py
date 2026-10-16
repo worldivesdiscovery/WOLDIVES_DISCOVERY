@@ -275,6 +275,32 @@ class Catalogue(ServerTestCase):
         self.assertGreater(n, 250, 'every site with a position got its land-or-sea check')
         self.assertTrue(self.server.sql("SELECT 1 FROM dive_points WHERE access IS NOT NULL"), 'the access read from the old text where it says it clearly')
 
+    def test_9_one_queue_counters_and_positions(self):
+        # the old «position correction» (/suggest) arrives in the same queue as the proposals; «my corrections» lists it
+        pid = self.new_point(name='Punto de la Cola Única', metres=12000).json['id']
+        row = self.server.sql('SELECT latitude,longitude FROM dive_points WHERE id=?', (pid,))[0]
+        lat, lon = sea_near(row['latitude'], row['longitude'], 80)
+        r = self.diver.post(f'/api/dive-points/{pid}/suggest', {'latitude': lat, 'longitude': lon, 'note': 'GPS del barco', 'current': 'strong'})
+        self.assertEqual(r.status, 200, r.json); self.assertEqual(r.json['fields'], ['latitude', 'longitude'], 'only the position travels by /suggest')
+        mine = self.diver.get('/api/my/position-suggestions').json['items']
+        self.assertTrue(any(m.get('dive_point_id') == pid and m['status'] == 'pending' for m in mine))
+        n = self.admin.get('/api/admin/dive-points/summary').json
+        self.assertGreaterEqual(n['proposals'], 1); self.assertIn('batch_items', n); self.assertIn('duplicates', n)
+        self.assertEqual(self.diver.get('/api/admin/dive-points/summary').status, 403)
+        # a published site on land is listed to be corrected by hand (the migration checked every site)
+        land = self.admin.post('/api/dive-points', {'name': 'Punto Tierra Adentro', 'country': 'España', 'dive_type': 'Arrecife', 'latitude': 40.4168, 'longitude': -3.7038, 'force_position': True})
+        self.assertEqual(land.status, 200, land.json)
+        pos = self.admin.get('/api/admin/dive-points/positions').json
+        self.assertIn(land.json['id'], [p['id'] for p in pos['items']])
+        self.assertEqual(self.admin.post('/api/admin/dive-points/positions/recheck').status, 200)
+        # only the administration keeps a site on land or creates a second one where one already exists
+        cen = self.center.post('/api/dive-points', {'name': 'Otro en Madrid', 'country': 'España', 'dive_type': 'Arrecife', 'latitude': 40.42, 'longitude': -3.70, 'force_position': True})
+        self.assertEqual(cen.status, 409, cen.json)
+        # the year-round water temperature is edited with the rest of the site
+        self.assertEqual(self.admin.post('/api/dive-points/update', {'id': pid, 'water_temp_min': 14, 'water_temp_max': 26}).status, 200)
+        self.assertEqual(self.client().get(f'/api/dive-points/{pid}').json['item']['water_temp_max'], 26)
+        self.assertEqual(self.admin.post('/api/dive-points/update', {'id': pid, 'water_temp_min': 30, 'water_temp_max': 20}).status, 400)
+
 
 if __name__ == '__main__':
     unittest.main()

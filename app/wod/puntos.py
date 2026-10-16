@@ -159,6 +159,11 @@ def clean_fields(data, partial=True):
     if has('access'): out['access'] = _pick(data.get('access'), ACCESS, 'Acceso')
     if has('current'): out['current_level'] = _pick(data.get('current'), CURRENTS, 'Corriente')
     if has('water_temps'): out['water_temps'] = clean_temps(data.get('water_temps'))
+    # la del año entero (v50.54), para los puntos que aún no la tienen por estación
+    if has('water_temp_min'): out['water_temp_min'] = _num(data.get('water_temp_min'), 0, 40, 'Temperatura mínima del año')
+    if has('water_temp_max'): out['water_temp_max'] = _num(data.get('water_temp_max'), 0, 40, 'Temperatura máxima del año')
+    if out.get('water_temp_min') is not None and out.get('water_temp_max') is not None and out['water_temp_min'] > out['water_temp_max']:
+        raise ValueError('La temperatura mínima del año no puede ser mayor que la máxima.')
     if has('visibility_min'): out['visibility_min'] = _num(data.get('visibility_min'), 0, 80, 'Visibilidad mínima')
     if has('visibility_max'): out['visibility_max'] = _num(data.get('visibility_max'), 0, 80, 'Visibilidad máxima')
     if out.get('visibility_min') is not None and out.get('visibility_max') is not None and out['visibility_min'] > out['visibility_max']:
