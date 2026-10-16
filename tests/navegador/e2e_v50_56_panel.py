@@ -207,7 +207,12 @@ def run(shots: Path | None):
             page.wait_for_selector('#cb-vcanal .vt-table', timeout=15000)
             rep = page.inner_text('#cb-vcanal')
             check('ventas por canal: los canales y el mes', all(x in rep for x in ('Tu web', 'API', 'Manual', 'Enlace directo', 'WORLDIVES')), rep[:400])
-            check('ventas por canal: exportar CSV', page.locator('#vc-csv').count() == 1)
+            # v50.57 (1.3): one way to export everywhere, Excel (by default) and CSV; the CSV is downloaded for real
+            check('ventas por canal: exportar en Excel y en CSV', page.locator('#cb-vcanal [data-vc-ex="xlsx"]').count() == 1 and page.locator('#cb-vcanal [data-vc-ex="csv"]').count() == 1)
+            with page.expect_download(timeout=15000) as dl:
+                page.click('#cb-vcanal [data-vc-ex="csv"]')
+            csv_body = Path(dl.value.path()).read_bytes()
+            check('ventas por canal: el CSV se descarga (UTF-8 con BOM y «;»)', csv_body.startswith(b'\xef\xbb\xbf') and b';' in csv_body[:400], csv_body[:120])
             page.locator('#cb-vcanal').scroll_into_view_if_needed(); shot(page, 'ventas-por-canal-ordenador', False)
             check('panel sin errores JS', not errors, errors)
             ctx.close()
