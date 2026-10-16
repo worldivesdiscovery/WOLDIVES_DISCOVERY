@@ -49,6 +49,7 @@ import re
 import threading
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 import gevent
 from locust import FastHttpUser, between, constant_throughput, events, tag, task
@@ -375,7 +376,7 @@ class Visitante(Web):
         d = self.get_json('/api/point-directory?page=1&per_page=24&sort=recommended', '/api/point-directory')
         if d and d.get('zones') and random.random() < 0.6:
             z = random.choice(d['zones'])['name']
-            self.get(f'/api/point-directory?zone={z}&page=1&per_page=24&sort=recommended', '/api/point-directory')
+            self.get(f'/api/point-directory?zone={quote(z)}&page=1&per_page=24&sort=recommended', '/api/point-directory')
         if d and d.get('pages', 1) > 1 and random.random() < 0.3:
             self.get(f'/api/point-directory?page={random.randint(2, min(5, d["pages"]))}&per_page=24&sort=recommended', '/api/point-directory')
         self.visita('puntos'); self.contar_vista()
@@ -391,7 +392,7 @@ class Visitante(Web):
         self.get('/api/dive-types', '/api/dive-types')
         d = self.get_json('/api/center-directory?page=1&per_page=24', '/api/center-directory')
         if d and d.get('countries') and random.random() < 0.4:
-            self.get(f'/api/center-directory?country={d["countries"][0]["name"]}&page=1&per_page=24', '/api/center-directory')
+            self.get(f'/api/center-directory?country={quote(d["countries"][0]["name"])}&page=1&per_page=24', '/api/center-directory')
         self.visita('centros'); self.contar_vista()
 
     @tag('navegar')
@@ -411,8 +412,9 @@ class Visitante(Web):
     @task(2)
     def buscar(self):
         term = random.choice(SEARCH_TERMS)
-        self.get(f'/api/center-directory?q={term}&per_page=8', '/api/center-directory?q')
-        self.get(f'/api/point-directory?q={term}&page=1&per_page=24&sort=recommended', '/api/point-directory?q')
+        # encoded as the browser does (spaces and accents: «blue hole», «África y Mar Rojo»)
+        self.get(f'/api/center-directory?q={quote(term)}&per_page=8', '/api/center-directory?q')
+        self.get(f'/api/point-directory?q={quote(term)}&page=1&per_page=24&sort=recommended', '/api/point-directory?q')
         self.visita('explorar'); self.contar_vista()
 
     @tag('navegar')
