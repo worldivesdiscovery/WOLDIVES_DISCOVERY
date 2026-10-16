@@ -3711,6 +3711,8 @@ html.wd-app .pp-page{padding-bottom:150px}
 /* v50.57 · Log Book: el componente «Dive Logbook» (public/lib/logbook). La lista toma la letra y los colores de la web;
    solo se ajusta su color de acento (con más peso que logbook.css, que se carga después). */
 .lb-card .dive-logbook{--dlc-accent:var(--sea)}
+/* v50.58 · Log Book: the table under the book and the arrows, dark with the dark look (the app's «Noche») */
+:root[data-theme="dark"] .dive-logbook{--dlb-desk:radial-gradient(ellipse 70% 62% at 50% 42%,rgba(70,120,170,.16),rgba(0,0,0,0) 72%),linear-gradient(180deg,#0c1d31,#071322);--dlb-arrow-bg:rgba(12,32,56,.82);--dlb-arrow-ink:#e3edf6;--dlb-arrow-line:rgba(150,190,225,.26);--dlb-arrow-hover:#163a5e}
 .lb-card{padding:18px 20px 22px;min-width:0}
 .lb-sync{align-self:center;font-size:13px;color:var(--muted);white-space:nowrap}
 .lb-sync.is-ok::before{content:'✓ ';color:#2f8f6a;font-weight:700}

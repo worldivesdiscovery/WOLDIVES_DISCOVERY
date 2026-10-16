@@ -3854,7 +3854,17 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // the colours of the web, and a passport (3D book) that is earned. The book lives in the account: GET /api/logbook
   // gives it to the component and each change of the component (logbook:change) goes back with PUT /api/logbook. What a
   // centre registered with a QR cannot be changed: the server refuses it (409) and the page shows again what stays.
-  const WD_LB_V='50.57';
+  const WD_LB_V='50.58';
+  // v50.58 · What covers the window at the top (the sticky header of the web, the band of the app) and at the bottom (the
+  // tabs of the app): the passport is as big as fits whole in the rest, without scrolling.
+  function wdLbViewport(){
+    const shown=e=>!!e&&e.getClientRects().length>0;
+    let top=0;
+    const hd=document.querySelector('.site-header'); if(shown(hd)&&/sticky|fixed/.test(getComputedStyle(hd).position)) top=Math.max(top,hd.offsetHeight);
+    const band=document.querySelector('.wda-banda'); if(shown(band)) top=Math.max(top,band.getBoundingClientRect().bottom);
+    const tabs=document.querySelector('.wda-tabs'), bottom=shown(tabs)?tabs.getBoundingClientRect().height:0;
+    return {top,bottom};
+  }
   function wdLogbookLib(){
     if(window.DiveLogbook) return Promise.resolve(true);
     if(wdLogbookLib.p) return wdLogbookLib.p;
@@ -3937,7 +3947,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     start={...start,view:local?.view==='passport'?'passport':'classic'};
     ls.set(key,start);
     DiveLogbook.instances=DiveLogbook.instances.filter(x=>x.root.isConnected);
-    const lb=DiveLogbook.init(host,{storageKey:key,assets:'/lib/logbook/assets/',mapData:'/lib/logbook/land-50m.json',title:'',profile:d.profile,friends:d.friends||[]});
+    const lb=DiveLogbook.init(host,{storageKey:key,assets:'/lib/logbook/assets/',mapData:'/lib/logbook/land-50m.json',title:'',profile:d.profile,friends:d.friends||[],viewport:wdLbViewport});
     wdLbTranslate(host);
     const norm=x=>JSON.parse(JSON.stringify(Object.assign(lb.blank(10),x||{})));
     const sig=x=>wdStable({...x,view:null});                                   // two books are the same book whatever the view

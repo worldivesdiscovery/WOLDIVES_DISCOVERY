@@ -26,12 +26,12 @@
   /* Valores por defecto. logbook.js los recalcula a partir del tema
      (data-logbook-theme o lb.setTheme), así que no hace falta tocarlos aquí. */
   --dlb-bg: transparent;
-  --dlb-navy: #13283f;
+  --dlb-navy: #011c3c;
   --dlb-navy-hi: #2b3e55;
   --dlb-navy-deep: #0b1725;
   --dlb-gold: #d4b26a;
   --dlb-gold-hi: #eaD9b5;
-  --dlb-paper: #eee9dd;
+  --dlb-paper: #f3ecdc;
   --dlb-paper-hi: #f3f0e8;
   --dlb-paper-lo: #e7e2d6;
   --dlb-ink: #1c3a6b;
@@ -68,95 +68,79 @@
 @keyframes dlb-enter { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
 .dive-logbook *, .dive-logbook *::before, .dive-logbook *::after { box-sizing: border-box; }
 
-/* ---------- escena ---------- */
+/* ---------- escena: el libro abierto sobre la mesa (v50.58) ----------
+   Páginas rectas sobre las tapas, que asoman alrededor (--pp); lomo, grosor de las hojas y sombra debajo. El tamaño
+   lo pone logbook.js: el mayor que cabe entero (90 % del ancho, 85 % del alto bajo la cabecera). */
 .dlb-stage {
   position: relative;
   width: 100%;
   overflow: hidden;
   overflow: clip;
-  padding-top: 34px;
+  border-radius: 14px;
+  background: var(--dlb-desk, radial-gradient(ellipse 70% 62% at 50% 42%, rgba(255,255,255,.6), rgba(255,255,255,0) 72%), linear-gradient(180deg, #eaf1f6, #d9e5ee));
+  touch-action: pan-y;
+  transition: opacity .15s ease;
 }
-.dlb-scale {
-  position: relative;
-  left: 50%;
-  margin-left: calc(var(--pw) * -1);
-  width: calc(var(--pw) * 2);
-  height: var(--ph);
-  transform-origin: 50% 0;
-}
-.dlb-scene {
-  position: absolute; inset: 0;
-  perspective: 2600px;
-  perspective-origin: 50% 30%;
-}
-.dlb-tilt {
-  position: absolute; inset: 0;
-  transform-style: preserve-3d;
-  transform: rotateX(var(--rx, 14deg)) rotateY(var(--ry, 0deg));
-  transition: transform .5s cubic-bezier(.2,.7,.3,1);
-}
+.dlb-stage.is-fading { opacity: 0; }
+.dlb-scale { position: absolute; transform-origin: 0 0; }
 .dlb-book {
-  position: absolute; inset: 0;
-  transform-style: preserve-3d;
-  transform: translateX(var(--tx, 0px));
-  transition: transform .9s cubic-bezier(.645,.045,.355,1);
+  position: absolute; left: var(--pp); top: var(--pp);
+  width: calc(var(--pw) * 2); height: var(--ph);
+  transition: transform .6s cubic-bezier(.45,.05,.35,1);
 }
-
+/* sombra del libro apoyado en la mesa */
 .dlb-ground {
-  position: absolute;
-  left: 4%; right: 4%; top: 6%; bottom: -3%;
-  transform: translateZ(-30px);
-  background: radial-gradient(ellipse at 50% 55%, rgba(0,0,0,.55), rgba(0,0,0,0) 68%);
-  filter: blur(18px);
-  pointer-events: none;
-  transition: left .9s, right .9s;
+  position: absolute; pointer-events: none;
+  left: calc(var(--pp) * -1); right: calc(var(--pp) * -1); top: calc(var(--pp) * -1); bottom: calc(var(--pp) * -1);
+  border-radius: 12px;
+  box-shadow: 0 26px 44px -14px rgba(6,20,38,.5), 0 10px 18px -8px rgba(6,20,38,.32), 0 2px 5px rgba(6,20,38,.2);
+  transition: left .6s cubic-bezier(.45,.05,.35,1), right .6s cubic-bezier(.45,.05,.35,1);
 }
-.dlb-book.is-closed-front .dlb-ground { left: 50%; right: 0%; }
-.dlb-book.is-closed-back .dlb-ground { left: 0%; right: 50%; }
-
-/* bloques de hojas (grosor) */
-.dlb-stack {
-  position: absolute; top: 0;
-  width: var(--pw); height: var(--ph);
-  transform: translateZ(-1px);
-  background: var(--dlb-paper-lo);
-  pointer-events: none;
-  transition: box-shadow .5s;
+.dlb-book.is-closed-front .dlb-ground { left: var(--pw); }
+.dlb-book.is-closed-back .dlb-ground { right: var(--pw); }
+/* grosor de las hojas: líneas de papel en el borde exterior (box-shadow desde logbook.js) */
+.dlb-stack { position: absolute; top: 0; z-index: 2; width: var(--pw); height: var(--ph); background: var(--dlb-paper-lo); pointer-events: none; }
+.dlb-stack.r { left: var(--pw); border-radius: 0 3px 3px 0; }
+.dlb-stack.l { left: 0; border-radius: 3px 0 0 3px; }
+.dlb-stack[hidden], .dlb-spine[hidden], .dlb-under[hidden] { display: none; }
+/* la costura del lomo */
+.dlb-spine {
+  position: absolute; left: calc(var(--pw) - 1px); top: 0; width: 2px; height: var(--ph); pointer-events: none;
+  background: linear-gradient(180deg, rgba(12,22,38,.22), rgba(12,22,38,.42) 50%, rgba(12,22,38,.22));
 }
-.dlb-stack.r { left: var(--pw); border-radius: 2px 12px 12px 2px; }
-.dlb-stack.l { left: 0; border-radius: 12px 2px 2px 12px; }
-.dlb-stack[data-empty="1"] { visibility: hidden; }
 
 /* ---------- hojas ---------- */
-.dlb-leaf {
-  position: absolute;
-  top: 0; left: var(--pw);
-  width: var(--pw); height: var(--ph);
-  transform-origin: 0 50%;
-  transform-style: preserve-3d;
-  transition: transform .9s cubic-bezier(.645,.045,.355,1);
+.dlb-leaves { position: absolute; inset: 0; }
+.dlb-leaf { position: absolute; inset: 0; pointer-events: none; }
+.dlb-face { position: absolute; top: 0; width: var(--pw); height: var(--ph); overflow: hidden; pointer-events: auto; }
+.dlb-leaf:not(.hard) > .dlb-face { transform-origin: 0 0; }
+.dlb-leaf:not(.hard) > .front { left: var(--pw); }
+.dlb-leaf:not(.hard) > .back { left: 0; }
+.dlb-leaf:not(.hard)[data-state="r"] > .back, .dlb-leaf:not(.hard)[data-state="l"] > .front { display: none; }
+/* las tapas: hojas duras, algo más grandes que el papel, que giran sobre el lomo en 3D */
+.dlb-leaf.hard {
+  left: var(--pw); top: calc(var(--pp) * -1); right: auto; bottom: auto;
+  width: calc(var(--pw) + var(--pp)); height: calc(var(--ph) + var(--pp) * 2);
+  transform-origin: 0 50%; transform-style: preserve-3d;
 }
-.dlb-face {
-  position: absolute; inset: 0;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  overflow: hidden;
+.dlb-leaf.hard > .dlb-face { left: 0; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.dlb-leaf.hard > .front { border-radius: 3px 10px 10px 3px; }
+.dlb-leaf.hard > .back { border-radius: 10px 3px 3px 10px; transform: rotateY(180deg); }
+.dlb-leaf.hard > .dlb-face::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 5;
+  background: linear-gradient(90deg, rgba(4,10,20,.55), rgba(4,10,20,.2)); opacity: var(--turn, 0);
 }
-.dlb-face.front { border-radius: 2px 12px 12px 2px; }
-.dlb-face.back  { border-radius: 12px 2px 2px 12px; transform: rotateY(180deg); }
-
-/* sombra al pasar página */
-.dlb-face::after {
-  content: ""; position: absolute; inset: 0;
-  pointer-events: none; opacity: 0;
-}
-.dlb-face.front::after { background: linear-gradient(90deg, rgba(10,20,35,.45), rgba(10,20,35,0) 70%); }
-.dlb-face.back::after  { background: linear-gradient(270deg, rgba(10,20,35,.45), rgba(10,20,35,0) 70%); }
-.dlb-leaf.turning .dlb-face::after { animation: dlb-shade .9s ease-in-out; }
-@keyframes dlb-shade { 0%,100% { opacity: 0 } 50% { opacity: 1 } }
+.dlb-board > .dlb-sheet { position: absolute; top: var(--pp); width: var(--pw); height: var(--ph); }
+.dlb-board > .dlb-sheet.l { left: var(--pp); }
+.dlb-board > .dlb-sheet.r { left: 0; }
+/* al pasar una hoja: sombra en la página que aparece y en la hoja junto al doblez */
+.dlb-under { position: absolute; top: 0; width: var(--pw); height: var(--ph); overflow: hidden; pointer-events: none; }
+.dlb-under-shade, .dlb-flap-shade { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; }
+.dlb-under-shade { background: linear-gradient(90deg, rgba(10,20,35,.55), rgba(10,20,35,.2) 35%, rgba(10,20,35,0)); }
+.dlb-flap-shade { z-index: 6; background: linear-gradient(90deg, rgba(10,20,35,.32), rgba(255,255,255,.24) 15%, rgba(10,20,35,.07) 45%, rgba(10,20,35,0) 80%); }
 
 /* ---------- tapas ---------- */
-.dlb-cover {
+.dlb-cover, .dlb-board {
   background-color: var(--dlb-navy);
   background-image:
     radial-gradient(circle at var(--lx, 30%) var(--ly, 20%), rgba(175,205,240,.16), rgba(0,0,0,0) 48%),
@@ -169,14 +153,14 @@
   background-blend-mode: normal, normal, normal, normal, overlay, normal;
   box-shadow: inset 0 0 0 1.5px rgba(130,160,200,.14), inset 0 0 26px rgba(0,0,0,.55);
 }
-.dlb-cover::before { /* destellos finos del cuero */
+.dlb-cover::before, .dlb-board::before { /* destellos finos del cuero */
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.6  0 0 0 0 0.7  0 0 0 0 0.85  0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   mix-blend-mode: soft-light; opacity: .3;
 }
-.dlb-face.front.dlb-cover { box-shadow: inset 8px 0 10px -6px rgba(0,0,0,.75), inset 0 0 0 1.5px rgba(130,160,200,.14), inset 0 0 26px rgba(0,0,0,.55); }
+.dlb-leaf.hard > .front.dlb-cover { box-shadow: inset 8px 0 10px -6px rgba(0,0,0,.75), inset 0 0 0 1.5px rgba(130,160,200,.14), inset 0 0 26px rgba(0,0,0,.55); }
 .dlb-cover svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.dlb-face.front.dlb-cover { cursor: pointer; }
+.dlb-cover { cursor: pointer; }
 
 /* ---------- papel ---------- */
 .dlb-paper {
@@ -188,29 +172,39 @@
     linear-gradient(180deg, var(--dlb-paper-hi), var(--dlb-paper-lo));
   color: var(--dlb-print);
 }
-.dlb-face.front.dlb-paper { box-shadow: inset 18px 0 22px -16px rgba(40,55,75,.45), inset -1px 0 0 rgba(0,0,0,.06); }
-.dlb-face.back.dlb-paper  { box-shadow: inset -18px 0 22px -16px rgba(40,55,75,.45), inset 1px 0 0 rgba(0,0,0,.06); }
+.dlb-sheet { position: absolute; overflow: hidden; }
+.dlb-sheet.r { border-radius: 0 3px 3px 0; }
+.dlb-sheet.l { border-radius: 3px 0 0 3px; }
+.dlb-sheet.r.dlb-paper { box-shadow: inset 18px 0 22px -16px rgba(40,55,75,.45), inset -1px 0 0 rgba(0,0,0,.08); }
+.dlb-sheet.l.dlb-paper { box-shadow: inset -18px 0 22px -16px rgba(40,55,75,.45), inset 1px 0 0 rgba(0,0,0,.08); }
+/* el lomo: la página se curva hacia la costura; un brillo muy suave en el centro del papel */
+.dlb-sheet::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.dlb-sheet.r::after { background: linear-gradient(90deg, rgba(22,32,48,.34) 0, rgba(22,32,48,.13) 3.5%, rgba(22,32,48,0) 12%), radial-gradient(ellipse 58% 46% at 56% 44%, rgba(255,253,246,.26), rgba(255,253,246,0) 70%); }
+.dlb-sheet.l::after { background: linear-gradient(270deg, rgba(22,32,48,.34) 0, rgba(22,32,48,.13) 3.5%, rgba(22,32,48,0) 12%), radial-gradient(ellipse 58% 46% at 44% 44%, rgba(255,253,246,.26), rgba(255,253,246,0) 70%); }
 
-.dlb-art { background-size: cover; background-position: center; }
+/* las ilustraciones: enteras dentro de la página (la página tiene su misma proporción) */
+.dlb-art { background: var(--dlb-paper); }
+.dlb-art picture, .dlb-art img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.dlb-art img { object-fit: contain; -webkit-user-drag: none; user-select: none; }
 
 /* fibra del papel + curvatura de la hoja */
 .dlb-paper::before, .dlb-art::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background-image: var(--dlb-paper-tex, none);
   background-size: 300px 300px;
-  mix-blend-mode: multiply; opacity: .9;
+  mix-blend-mode: multiply; opacity: .5;   /* v50.58: la fibra se nota sin agrisar el marfil */
 }
-.dlb-art::before { opacity: .45; }
-.dlb-face.front.dlb-paper::before, .dlb-face.front.dlb-art::before {
+.dlb-art::before { opacity: .35; z-index: 1; }
+.dlb-sheet.r.dlb-paper::before, .dlb-sheet.r.dlb-art::before {
   background-image: linear-gradient(90deg, rgba(60,70,85,.16) 0, rgba(60,70,85,0) 9%, rgba(60,70,85,0) 94%, rgba(60,70,85,.08) 100%), var(--dlb-paper-tex, none);
   background-size: auto, 300px 300px;
 }
-.dlb-face.back.dlb-paper::before, .dlb-face.back.dlb-art::before {
+.dlb-sheet.l.dlb-paper::before, .dlb-sheet.l.dlb-art::before {
   background-image: linear-gradient(270deg, rgba(60,70,85,.16) 0, rgba(60,70,85,0) 9%, rgba(60,70,85,0) 94%, rgba(60,70,85,.08) 100%), var(--dlb-paper-tex, none);
   background-size: auto, 300px 300px;
 }
-.dlb-art.front { box-shadow: inset 18px 0 22px -16px rgba(40,55,75,.5); }
-.dlb-art.back  { box-shadow: inset -18px 0 22px -16px rgba(40,55,75,.5); }
+.dlb-sheet.r.dlb-art { box-shadow: inset 18px 0 22px -16px rgba(40,55,75,.5); }
+.dlb-sheet.l.dlb-art { box-shadow: inset -18px 0 22px -16px rgba(40,55,75,.5); }
 
 .dlb-wm {
   position: absolute; pointer-events: none;
@@ -222,7 +216,7 @@
           mask-image: radial-gradient(ellipse at center, #000 35%, transparent 70%);
 }
 .dlb-wm.compass { right: 26px; top: 120px; width: 210px; height: 210px; opacity: .1; color: var(--dlb-ink); }
-.dlb-face.back .dlb-wm.compass { right: auto; left: 30px; }
+.dlb-sheet.l .dlb-wm.compass { right: auto; left: 30px; }
 
 /* ---------- contenido de página ---------- */
 .dlb-pg {
@@ -230,7 +224,7 @@
   padding: 22px 28px 20px 32px;
   display: flex; flex-direction: column; gap: 6px;
 }
-.dlb-face.back .dlb-pg { padding: 22px 32px 20px 28px; }
+.dlb-sheet.l .dlb-pg { padding: 22px 32px 20px 28px; }
 
 .dlb-head {
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
@@ -337,8 +331,8 @@
 .dlb-pno {
   position: absolute; bottom: 8px; font-family: var(--dlb-display); font-size: 9px; letter-spacing: .1em; color: var(--dlb-print);
 }
-.dlb-face.front .dlb-pno { right: 14px; }
-.dlb-face.back .dlb-pno { left: 14px; }
+.dlb-sheet.r .dlb-pno { right: 14px; }
+.dlb-sheet.l .dlb-pno { left: 14px; }
 
 /* titular */
 .dlb-holder { display: grid; grid-template-columns: 112px 1fr; gap: 14px; }
@@ -374,55 +368,31 @@
 .dlb-actions input { display: none; }
 .dlb-note { font-size: 11.5px; font-style: italic; min-height: 1.2em; color: var(--dlb-print); }
 
-/* esquinas para pasar página */
-.dlb-corner {
-  position: absolute; bottom: 0; width: 46px; height: 46px; cursor: pointer; z-index: 5;
-  border: 0; padding: 0; background: transparent;
+/* ---------- flechas, indicador y cerrar ---------- */
+.dlb-arrow {
+  position: absolute; z-index: 5; width: 44px; height: 44px; padding: 0;
+  display: grid; place-items: center; border-radius: 50%; cursor: pointer;
+  color: var(--dlb-arrow-ink, #011C3C); background: var(--dlb-arrow-bg, rgba(255,255,255,.74));
+  border: 1px solid var(--dlb-arrow-line, rgba(1,28,60,.14)); box-shadow: 0 2px 8px rgba(1,28,60,.12);
+  transition: opacity .2s, background .2s;
 }
-.dlb-corner::before {
-  content: ""; position: absolute; bottom: 0; width: 22px; height: 22px;
-  transition: width .25s, height .25s;
-}
-.dlb-face.front .dlb-corner { right: 0; }
-.dlb-face.front .dlb-corner::before {
-  right: 0;
-  background: linear-gradient(315deg, rgba(0,0,0,0) 50%, rgba(0,0,0,.08) 50%, #f7f3ea 62%, #d9d2c2 100%);
-  border-top-left-radius: 3px; box-shadow: -2px -2px 5px rgba(0,0,0,.12);
-}
-.dlb-face.back .dlb-corner { left: 0; }
-.dlb-face.back .dlb-corner::before {
-  left: 0;
-  background: linear-gradient(45deg, rgba(0,0,0,0) 50%, rgba(0,0,0,.08) 50%, #f7f3ea 62%, #d9d2c2 100%);
-  border-top-right-radius: 3px; box-shadow: 2px -2px 5px rgba(0,0,0,.12);
-}
-.dlb-corner:hover::before, .dlb-corner:focus-visible::before { width: 36px; height: 36px; }
-.dlb-corner:focus-visible { outline: none; }
-
-/* ---------- controles ---------- */
-.dlb-controls {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  margin-top: 30px; flex-wrap: wrap;
-}
-.dlb-btn {
-  font-family: var(--dlb-display); font-size: 12px; letter-spacing: .14em;
-  color: var(--dlb-gold-hi); background: var(--dlb-navy);
-  border: 1px solid color-mix(in srgb, var(--dlb-gold) 45%, transparent); border-radius: 30px;
-  padding: 9px 16px; cursor: pointer; transition: background .2s, opacity .2s;
-}
-.dlb-btn:hover:not(:disabled) { background: var(--dlb-navy-hi); }
-.dlb-btn:disabled { opacity: .35; cursor: default; }
-.dlb-btn:focus-visible { outline: 2px solid var(--dlb-gold); outline-offset: 2px; }
-.dlb-label {
-  font-family: var(--dlb-display); font-size: 11.5px; letter-spacing: .16em;
-  color: var(--dlb-gold-hi); background: var(--dlb-navy-deep);
-  border-radius: 30px; padding: 9px 16px; min-width: 170px; text-align: center;
-  font-variant-numeric: tabular-nums;
-}
+.dlb-arrow:hover:not(:disabled) { background: var(--dlb-arrow-hover, #ffffff); }
+.dlb-arrow:disabled { opacity: .25; cursor: default; }
+.dlb-arrow:focus-visible { outline: 2px solid var(--dlb-gold); outline-offset: 2px; }
+.dlb-stage.arrows-in .dlb-arrow { width: 36px; height: 36px; opacity: .82; }
+.dlb-stage.arrows-in .dlb-arrow:disabled { opacity: 0; pointer-events: none; }
+.dlb-controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 10px; min-height: 28px; flex-wrap: wrap; }
+.dlb-count { font-family: var(--dlb-display); font-size: 12px; letter-spacing: .16em; opacity: .78; font-variant-numeric: tabular-nums; }
+.dlb-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.dlb-close { font: inherit; font-size: 13px; line-height: 1.3; color: inherit; background: none; border: 0; border-bottom: 1px solid currentColor; padding: 1px 0; cursor: pointer; opacity: .75; }
+.dlb-close:hover { opacity: 1; }
+.dlb-close[hidden] { display: none; }
+.dlb-close:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 
 @media (prefers-reduced-motion: reduce) {
   .dlb-pp.dlb-enter, .dlc-icon.glow, .dlc-row.dlc-new { animation: none !important; }
-  .dlb-leaf, .dlb-book, .dlb-tilt { transition-duration: .01s !important; }
-  .dlb-leaf.turning .dlb-face::after, .dlb-stamp.pop { animation: none; }
+  .dlb-book, .dlb-ground { transition: none !important; }   /* el cambio de página es un fundido (.is-fading) */
+  .dlb-stamp.pop { animation: none; }
 }
 
 /* ---------- inmersión verificada por el centro ---------- */
@@ -544,9 +514,7 @@
 .dlc-types legend { width: 100%; }
 .dlc-tools { margin-left: auto; }
 @container (max-width: 520px) {
-  .dlb-controls { gap: 8px; margin-top: 22px; }
-  .dlb-label { order: -1; flex-basis: 100%; min-width: 0; padding: 7px 12px; }
-  .dlb-btn { padding: 8px 12px; font-size: 11px; }
+  .dlb-controls { gap: 12px; margin-top: 8px; }
 }
 
 /* ---------- posición y mapa de la inmersión ---------- */

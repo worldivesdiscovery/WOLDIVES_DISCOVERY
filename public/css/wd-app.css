@@ -499,3 +499,9 @@ html.wd-app .dbk-bar { background: var(--sup); }
 .wda .wda-buddy-qr img { width: 180px; height: 180px; background: #fff; padding: 8px; border-radius: 12px; }
 .wda .lista p.pad { padding: 14px; margin: 0; }
 .wda .pendiente + .tarjeta { margin-top: 12px; }
+
+/* v50.58 · Log Book: the table under the book and the arrows in «Noche» (and «Automático» with the phone in dark) */
+html.wd-app[data-wda-tema="noche"] .dive-logbook { --dlb-desk: radial-gradient(ellipse 70% 62% at 50% 42%, rgba(70,120,170,.16), rgba(0,0,0,0) 72%), linear-gradient(180deg, #0c1d31, #071322); --dlb-arrow-bg: rgba(12,32,56,.82); --dlb-arrow-ink: #e3edf6; --dlb-arrow-line: rgba(150,190,225,.26); --dlb-arrow-hover: #163a5e; }
+@media (prefers-color-scheme: dark) {
+  html.wd-app[data-wda-tema="auto"] .dive-logbook { --dlb-desk: radial-gradient(ellipse 70% 62% at 50% 42%, rgba(70,120,170,.16), rgba(0,0,0,0) 72%), linear-gradient(180deg, #0c1d31, #071322); --dlb-arrow-bg: rgba(12,32,56,.82); --dlb-arrow-ink: #e3edf6; --dlb-arrow-line: rgba(150,190,225,.26); --dlb-arrow-hover: #163a5e; }
+}

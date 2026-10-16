@@ -21,10 +21,12 @@
 (function () {
   "use strict";
 
-  const W = 400, H = 560, DZ = 0.5;
+  /* página del libro: 400 px de ancho y la proporción de las ilustraciones (0,648); P: lo que la tapa asoma
+     alrededor de las hojas. Las tapas se dibujan en 400 × 560 y se ajustan a su tamaño. */
+  const W = 400, H = 617, P = 8, CW = 400, CH = 560, TURN_MS = 600;
   let UID = 0;
 
-  const DEFAULT_THEME = { background: "transparent", cover: "#13283f", foil: "#d4b26a", paper: "#eee9dd", ink: "#1c3a6b" };
+  const DEFAULT_THEME = { background: "transparent", cover: "#011c3c", foil: "#d4b26a", paper: "#f3ecdc", ink: "#1c3a6b" };   // v50.58: tapa azul Abismo, papel marfil
   const DEFAULT_LOCKED = ["date", "site", "country", "center", "pos", "sign"];
 
   /* ---------- utilidades ---------- */
@@ -150,20 +152,20 @@
         <g filter="url(#${g}-foil)">${compassRing(cx, cy, 104, g)}<circle cx="${cx}" cy="${cy}" r="${r + 4}" fill="none" stroke="url(#${g}-gold)" stroke-width="2.4"/></g>${img}`;
     }
     const name = useLogo && cover.name
-      ? `<text x="${W / 2}" y="488" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="10.5" letter-spacing="2.6" fill="url(#${g}-gold)">${esc(String(cover.name).toUpperCase().slice(0, 34))}</text>` : "";
-    return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${goldDefs(g, theme.foil)}
+      ? `<text x="${CW / 2}" y="488" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="10.5" letter-spacing="2.6" fill="url(#${g}-gold)">${esc(String(cover.name).toUpperCase().slice(0, 34))}</text>` : "";
+    return `<svg viewBox="0 0 ${CW} ${CH}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${goldDefs(g, theme.foil)}
       ${topo(7, [[330, 70, 130, 90, 9], [40, 380, 120, 150, 10], [360, 470, 70, 60, 6], [110, 70, 70, 50, 5]])}
       ${emblem}
       <g filter="url(#${g}-foil)">
-      <text x="${W / 2}" y="${name ? 458 : 462}" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="27" letter-spacing="3" fill="url(#${g}-gold)">DIVE LOGBOOK</text>
-      ${name}${chip(W / 2, name ? 520 : 508, g)}</g></svg>`;
+      <text x="${CW / 2}" y="${name ? 458 : 462}" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="27" letter-spacing="3" fill="url(#${g}-gold)">DIVE LOGBOOK</text>
+      ${name}${chip(CW / 2, name ? 520 : 508, g)}</g></svg>`;
   }
 
   function backCoverSVG(g, theme) {
-    return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${goldDefs(g, theme.foil)}
+    return `<svg viewBox="0 0 ${CW} ${CH}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${goldDefs(g, theme.foil)}
       ${topo(19, [[90, 120, 140, 110, 10], [320, 400, 130, 170, 11]])}
-      <g filter="url(#${g}-foil)" opacity=".9">${compass(W / 2, 430, 34, g)}
-      <text x="${W / 2}" y="514" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="9.5" letter-spacing="3" fill="url(#${g}-gold)">EXPLORE · RECORD · PROTECT</text></g></svg>`;
+      <g filter="url(#${g}-foil)" opacity=".9">${compass(CW / 2, 430, 34, g)}
+      <text x="${CW / 2}" y="514" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="9.5" letter-spacing="3" fill="url(#${g}-gold)">EXPLORE · RECORD · PROTECT</text></g></svg>`;
   }
 
   function compassWM() {
@@ -395,7 +397,6 @@
     `<label class="dlb-f"><span>${es}${en ? ` <i>${en}</i>` : ""}</span><input data-k="${k}" id="${k.replace(/:/g, "-")}" placeholder="${esc(ph)}" autocomplete="off" ${extra}></label>`;
   const gauge = (k, es, unit) =>
     `<label class="dlb-f dlb-gauge"><span>${es}</span><div class="dlb-unit"><input data-k="${k}" id="${k.replace(/:/g, "-")}" inputmode="decimal" autocomplete="off"><em>${unit}</em></div></label>`;
-  const corner = dir => `<button type="button" class="dlb-corner" data-dir="${dir}" aria-label="${dir === "next" ? "Página siguiente" : "Página anterior"}"></button>`;
   const TYPES = [["boat", "Barco"], ["shore", "Costa"], ["night", "Nocturna"], ["drift", "Deriva"], ["wreck", "Pecio"], ["deep", "Profunda"]];
 
   function divePage(n, pno, assets, uid) {
@@ -444,7 +445,7 @@
         <div style="display:flex;flex-direction:column;gap:8px;min-width:0">${fld("o:sign", "Firma del titular", "Signature")}<div class="dlb-mrz" data-mrz="o"></div></div>
         <div class="dlb-qrbox"><div class="dlb-qr" data-qr></div><span>Mi QR · <i>buddy</i></span></div>
       </div>
-    </div><div class="dlb-pno">1</div>`;
+    </div><div class="dlb-pno">3</div>`;
   }
 
   function summaryPage(pno) {
@@ -491,15 +492,60 @@
   const fmtTime = m => `${Math.floor(m / 60)} h ${Math.round(m % 60)} min`;
 
   /* =========================================================
-     Vista pasaporte (libro 3D)
+     Vista pasaporte: un libro de verdad (v50.58)
+     Dos páginas rectas sobre las tapas azul marino, que asoman alrededor; lomo en el centro, grosor de las hojas en
+     los bordes y sombra debajo. Una hoja se pasa arrastrando su esquina (se dobla por una línea y gira sobre el
+     lomo), con un clic o un toque en el borde, con las flechas ‹ › y con ← →. Un móvil en vertical ve una sola
+     página y la pasa deslizando el dedo. Con «reducir movimiento» el cambio es un fundido. Sin librerías: la
+     geometría del doblez está aquí (fold) y solo se dibuja mientras una hoja se mueve.
      ========================================================= */
+  const ART_2X = false;   // true cuando existan assets/page-*@2x.webp (scripts/fotos/preparar_paginas_logbook.py)
+  const RM = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  const reduced = () => !!(RM && RM.matches);
+  const ease = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  // transformación afín: [a, b, c, d, e, f] → x' = a·x + c·y + e, y' = b·x + d·y + f (como matrix() de CSS)
+  const mul = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3],
+    m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+  const apply = (m, p) => ({ x: m[0] * p.x + m[2] * p.y + m[4], y: m[1] * p.x + m[3] * p.y + m[5] });
+  const matrix = m => `matrix(${m.map(v => +v.toFixed(5)).join(",")})`;
+  const polygon = pts => pts.length > 2 ? `polygon(${pts.map(p => `${p.x.toFixed(2)}px ${p.y.toFixed(2)}px`).join(",")})` : "polygon(0 0,0 0,0 0)";
+  const ID = [1, 0, 0, 1, 0, 0], MIRROR = [-1, 0, 0, 1, W, 0];   // MIRROR: x → W − x (su propia inversa)
+  // la parte del polígono donde sign·((X − M)·d) ≥ 0
+  function halfPlane(pts, M, d, sign) {
+    const s = p => sign * ((p.x - M.x) * d.x + (p.y - M.y) * d.y), out = [];
+    pts.forEach((a, i) => {
+      const b = pts[(i + 1) % pts.length], sa = s(a), sb = s(b);
+      if (sa >= 0) out.push(a);
+      if ((sa >= 0) !== (sb >= 0)) { const t = sa / (sa - sb); out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }); }
+    });
+    return out;
+  }
+  // El doblez de una hoja cuya esquina exterior C (arriba o abajo) se lleva al punto T. Coordenadas de la página que
+  // se pasa: el lomo en x = 0 y la página de 0 a W. El papel no se estira: T queda a menos de W del extremo del lomo
+  // en el mismo borde y a menos de la diagonal del otro.
+  function fold(T, top) {
+    const C = { x: W, y: top ? 0 : H }, B = { x: 0, y: top ? 0 : H }, A = { x: 0, y: top ? H : 0 };
+    const lim = (O, r) => { const dx = T.x - O.x, dy = T.y - O.y, l = Math.hypot(dx, dy); if (l > r) T = { x: O.x + dx * r / l, y: O.y + dy * r / l }; };
+    lim(B, W); lim(A, Math.hypot(W, H));
+    const dx = T.x - C.x, dy = T.y - C.y, l = Math.hypot(dx, dy);
+    if (l < .5) return null;
+    const d = { x: dx / l, y: dy / l }, M = { x: (C.x + T.x) / 2, y: (C.y + T.y) / 2 }, k = 2 * (M.x * d.x + M.y * d.y);
+    const rect = [{ x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }];
+    return { T, M, d, l, flat: halfPlane(rect, M, d, 1), lifted: halfPlane(rect, M, d, -1),
+      R: [1 - 2 * d.x * d.x, -2 * d.x * d.y, -2 * d.x * d.y, 1 - 2 * d.y * d.y, k * d.x, k * d.y] };   // simetría en la línea del doblez
+  }
+  const INTERACTIVE = "input,textarea,select,button,a,label,[data-act],[contenteditable],.dlb-photo,.dlb-chip,.dlb-locate";
+  const ICON_PREV = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>`;
+  const ICON_NEXT = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg>`;
+
   class Logbook {
     constructor(root, ctrl) {
       this.root = root;
       this.ctrl = ctrl;
       this.uid = ctrl.uid + "p";
       this.assets = ctrl.assets;
-      this.cur = 0; this.side = "right"; this.single = false;
+      this.cur = 0; this.side = "right"; this.single = false; this.scale = 1;
+      this.ts = null; this.anim = null; this.grab = null; this.peekKey = "";
       this.mount();
       this.build();
       this.bind();
@@ -510,51 +556,69 @@
     save() { this.ctrl.save(); }
 
     mount() {
-      this.root.style.setProperty("--dlb-leather-tex", `url("${this.assets}leather.jpg")`);
-      this.root.style.setProperty("--dlb-paper-tex", `url("${this.assets}paper.jpg")`);
+      const s = this.root.style;
+      s.setProperty("--dlb-leather-tex", `url("${this.assets}leather.jpg")`);
+      s.setProperty("--dlb-paper-tex", `url("${this.assets}paper.jpg")`);
+      s.setProperty("--pw", W + "px"); s.setProperty("--ph", H + "px"); s.setProperty("--pp", P + "px");
       this.root.innerHTML = `
         <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="${this.uid}-ink"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="4" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.2 1.9" result="m"/><feComposite in="SourceGraphic" in2="m" operator="in"/></filter></svg>
         <datalist id="${this.uid}-friends"></datalist>
-        <div class="dlb-stage"><div class="dlb-scale"><div class="dlb-scene"><div class="dlb-tilt"><div class="dlb-book is-closed-front">
-          <div class="dlb-ground"></div><div class="dlb-stack l"></div><div class="dlb-stack r"></div><div class="dlb-leaves" style="position:absolute;inset:0;transform-style:preserve-3d"></div>
-        </div></div></div></div></div>
+        <div class="dlb-stage">
+          <div class="dlb-scale"><div class="dlb-book is-closed-front">
+            <div class="dlb-ground"></div><div class="dlb-stack l"></div><div class="dlb-stack r"></div>
+            <div class="dlb-leaves"></div>
+            <div class="dlb-under" hidden><div class="dlb-under-shade"></div></div>
+            <div class="dlb-spine"></div>
+          </div></div>
+          <button type="button" class="dlb-arrow" data-nav="prev" aria-label="Página anterior">${ICON_PREV}</button>
+          <button type="button" class="dlb-arrow" data-nav="next" aria-label="Página siguiente">${ICON_NEXT}</button>
+        </div>
         <div class="dlb-controls">
-          <button type="button" class="dlb-btn" data-nav="prev" aria-label="Anterior">‹ ANTERIOR</button>
-          <div class="dlb-label" aria-live="polite"></div>
-          <button type="button" class="dlb-btn" data-nav="next" aria-label="Siguiente">SIGUIENTE ›</button>
-          <button type="button" class="dlb-btn" data-nav="close">CERRAR</button>
+          <span class="dlb-count" aria-hidden="true"></span>
+          <span class="dlb-label" aria-live="polite"></span>
+          <button type="button" class="dlb-close" data-nav="close">Cerrar el libro</button>
         </div>`;
-      this.stage = this.root.querySelector(".dlb-stage");
-      this.scaleEl = this.root.querySelector(".dlb-scale");
-      this.tilt = this.root.querySelector(".dlb-tilt");
-      this.book = this.root.querySelector(".dlb-book");
-      this.leavesEl = this.root.querySelector(".dlb-leaves");
-      this.stackL = this.root.querySelector(".dlb-stack.l");
-      this.stackR = this.root.querySelector(".dlb-stack.r");
-      this.labelEl = this.root.querySelector(".dlb-label");
+      const q = c => this.root.querySelector(c);
+      this.stage = q(".dlb-stage"); this.scaleEl = q(".dlb-scale"); this.book = q(".dlb-book");
+      this.leavesEl = q(".dlb-leaves"); this.stackL = q(".dlb-stack.l"); this.stackR = q(".dlb-stack.r");
+      this.under = q(".dlb-under"); this.underShade = q(".dlb-under-shade"); this.spine = q(".dlb-spine");
+      this.countEl = q(".dlb-count"); this.labelEl = q(".dlb-label"); this.closeEl = q(".dlb-close");
+      this.prevEl = q('.dlb-arrow[data-nav="prev"]'); this.nextEl = q('.dlb-arrow[data-nav="next"]');
       this.renderFriends();
     }
 
     build() {
+      if (this.anim) this.finish();
+      if (this.ts) this.end(false);
       const A = this.assets, D = this.data.pages, faces = [];
-      faces.push([{ cls: "dlb-cover", html: frontCoverSVG(this.uid + "f", this.theme, this.data.cover), name: "Portada", cover: 1 },
-                  { cls: "dlb-art", style: `background-image:url('${A}page-left.jpg')`, html: corner("prev"), name: "Guarda" }]);
-      faces.push([{ cls: "dlb-art", style: `background-image:url('${A}page-right.jpg')`, html: corner("next"), name: "Introducción" },
-                  { cls: "dlb-paper", html: holderPage() + corner("prev"), name: "Titular" }]);
+      const art = name => `<picture><source type="image/webp" srcset="${A}${name}.webp${ART_2X ? `, ${A}${name}@2x.webp 2x` : ""}"><img src="${A}${name}.jpg" alt="" draggable="false" decoding="async"></picture>`;
+      faces.push([{ kind: "cover", html: frontCoverSVG(this.uid + "f", this.theme, this.data.cover), name: "Portada" },
+                  { kind: "art", html: art("page-left"), name: "Guarda" }]);
+      faces.push([{ kind: "art", html: art("page-right"), name: "Introducción" },
+                  { kind: "paper", html: holderPage(), name: "Titular" }]);
       for (let i = 0; i < D; i++) {
         const a = i * 2 + 1, b = a + 1;
-        faces.push([{ cls: "dlb-paper", html: divePage(a, a + 1, A, this.uid) + corner("next"), name: "Inmersión " + a, dive: a },
-                    { cls: "dlb-paper", html: divePage(b, b + 1, A, this.uid) + corner("prev"), name: "Inmersión " + b, dive: b }]);
+        faces.push([{ kind: "paper", html: divePage(a, a + 3, A, this.uid), name: "Inmersión " + a, dive: a },
+                    { kind: "paper", html: divePage(b, b + 3, A, this.uid), name: "Inmersión " + b, dive: b }]);
       }
-      faces.push([{ cls: "dlb-paper", html: summaryPage(D * 2 + 2) + corner("next"), name: "Resumen" },
-                  { cls: "dlb-cover", html: backCoverSVG(this.uid + "b", this.theme), name: "Contraportada", cover: 1 }]);
+      faces.push([{ kind: "paper", html: summaryPage(D * 2 + 4), name: "Resumen" },
+                  { kind: "cover", html: backCoverSVG(this.uid + "b", this.theme), name: "Contraportada" }]);
       this.faces = faces;
       this.N = faces.length;
       this.cur = Math.min(this.cur, this.N);
-
-      this.leavesEl.innerHTML = faces.map((f, i) => `<div class="dlb-leaf" data-i="${i}">
-          <div class="dlb-face front ${f[0].cls}" style="${f[0].style || ""}">${f[0].html}</div>
-          <div class="dlb-face back ${f[1].cls}" style="${f[1].style || ""}">${f[1].html}</div></div>`).join("");
+      const N = this.N;
+      // una hoja tiene dos caras (front: página derecha; back: la izquierda cuando se ha pasado). Las tapas son hojas
+      // duras, un poco más grandes que el papel; la guarda y el resumen van pegados a ellas.
+      const face = (f, which, hard) => {
+        const side = which === "front" ? "r" : "l";
+        if (f.kind === "cover") return `<div class="dlb-face ${which} dlb-cover">${f.html}</div>`;
+        if (hard) return `<div class="dlb-face ${which} dlb-board"><div class="dlb-sheet ${side} dlb-${f.kind}">${f.html}</div></div>`;
+        return `<div class="dlb-face ${which} dlb-sheet ${side} dlb-${f.kind}">${f.html}</div>`;
+      };
+      this.leavesEl.innerHTML = faces.map((f, i) => {
+        const hard = i === 0 || i === N - 1;
+        return `<div class="dlb-leaf${hard ? " hard" : ""}" data-i="${i}">${face(f[0], "front", hard)}${face(f[1], "back", hard)}</div>`;
+      }).join("");
       this.leaves = [...this.leavesEl.children];
 
       this.root.querySelectorAll("[data-k]").forEach(el => {
@@ -617,12 +681,11 @@
       r.addEventListener("click", e => {
         const nav = e.target.closest("[data-nav]");
         if (nav) { const a = nav.dataset.nav; a === "close" ? this.close() : this[a](); return; }
-        const c = e.target.closest(".dlb-corner");
-        if (c) { c.dataset.dir === "next" ? this.next(true) : this.prev(true); return; }
         const act = e.target.closest("[data-act]");
         if (act) { this.action(act.dataset.act); return; }
         const loc = e.target.closest("[data-locate]");
         if (loc) { this.locate(+loc.dataset.locate); return; }
+        if (performance.now() - (this.acted || 0) < 450) return;   // ya lo hizo el gesto (arrastrar o tocar el borde)
         const cov = e.target.closest(".dlb-cover");
         if (cov) { cov.classList.contains("front") ? this.next() : this.prev(); }
       });
@@ -635,82 +698,316 @@
       r.addEventListener("keydown", e => {
         if (e.target.classList.contains("dlb-photo") && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); e.target.querySelector("input").click(); }
       });
+      // en una sola página, escribir en la otra página de las dos abiertas la trae a la vista
       r.addEventListener("focusin", e => {
         if (!this.single) return;
-        const face = e.target.closest(".dlb-face");
-        if (!face) return;
-        const want = face.classList.contains("front") ? "right" : "left";
+        const sheet = e.target.closest(".dlb-sheet");
+        if (!sheet) return;
+        const want = sheet.classList.contains("r") ? "right" : "left";
         if (want !== this.side) { this.side = want; this.update(); }
       });
       this.stage.addEventListener("scroll", () => { this.stage.scrollLeft = 0; this.stage.scrollTop = 0; });
-      this.stage.addEventListener("pointermove", e => {
-        if (e.pointerType !== "mouse") return;
-        const a = document.activeElement;
-        if (a && r.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) return;
-        const b = this.stage.getBoundingClientRect();
-        const px = (e.clientX - b.left) / b.width - .5, py = (e.clientY - b.top) / b.height - .5;
-        this.tilt.style.setProperty("--ry", (px * 9).toFixed(2) + "deg");
-        this.tilt.style.setProperty("--rx", (this.baseRx() - py * 7).toFixed(2) + "deg");
-        r.style.setProperty("--lx", (50 + px * 90).toFixed(0) + "%");
-        r.style.setProperty("--ly", (40 + py * 90).toFixed(0) + "%");
-      });
-      this.stage.addEventListener("pointerleave", () => this.resetTilt());
-      document.addEventListener("keydown", e => {
+      this.stage.addEventListener("pointerdown", e => this.down(e));
+      this.stage.addEventListener("pointermove", e => this.move(e));
+      this.stage.addEventListener("pointerup", e => this.up(e));
+      this.stage.addEventListener("pointercancel", e => this.up(e, true));
+      this.stage.addEventListener("pointerleave", e => { if (!this.grab && this.peekKey) this.peek(null); });
+      this.stage.addEventListener("dragstart", e => e.preventDefault());
+      const onKey = e => {
+        if (!r.isConnected) { document.removeEventListener("keydown", onKey); return; }
         if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.isContentEditable) return;
-        if (this.root.offsetParent === null) return; // vista oculta
+        if (r.offsetParent === null) return; // vista oculta
         const b = r.getBoundingClientRect();
         if (b.bottom < 0 || b.top > innerHeight) return;
         if (e.key === "ArrowRight") this.next(); else if (e.key === "ArrowLeft") this.prev();
-      });
-      if ("ResizeObserver" in window) new ResizeObserver(() => this.layout()).observe(this.root);
-      else addEventListener("resize", () => this.layout());
+      };
+      document.addEventListener("keydown", onKey);
+      // el alto de la ventana cuenta (el libro cabe entero sin desplazarse): también al girar el móvil
+      let rq = 0;
+      const onResize = () => { if (!r.isConnected) { removeEventListener("resize", onResize); return; } cancelAnimationFrame(rq); rq = requestAnimationFrame(() => this.layout()); };
+      addEventListener("resize", onResize);
+      if ("ResizeObserver" in window) new ResizeObserver(() => this.layout()).observe(r);
     }
 
-    baseRx() { return this.single ? 8 : 14; }
-    resetTilt() { this.tilt.style.setProperty("--ry", "0deg"); this.tilt.style.setProperty("--rx", this.baseRx() + "deg"); }
-
+    /* ---- tamaño: el mayor que quepa entero (90 % del ancho, 85 % del alto bajo la cabecera) ---- */
     layout() {
-      const cw = this.stage.clientWidth || this.root.clientWidth;
+      const cw = this.root.clientWidth;
       if (!cw) return;
-      let s = Math.min(1, (cw - 16) / (2 * W));
-      const single = s < .62;
-      if (single) s = Math.min(1, (cw - 24) / W);
+      const vp = (typeof this.ctrl.viewport === "function" && this.ctrl.viewport()) || {};
+      const vh = Math.max(260, innerHeight - (vp.top || 0) - (vp.bottom || 0));
+      const single = cw < 600 && (innerHeight >= innerWidth || cw < 420);
+      const bw = (single ? W : 2 * W) + 2 * P, bh = H + 2 * P;
+      const s = Math.max(.3, Math.min(.9 * cw / bw, .85 * (vh - 56) / bh, 1.5));
       const changed = single !== this.single;
-      this.single = single;
-      this.scale = s;
-      this.scaleEl.style.transform = `scale(${s})`;
-      this.stage.style.height = (H * s + 34 + 26 * s) + "px";
-      if (changed) { this.resetTilt(); this.update(); }
+      this.single = single; this.scale = s; this.bw = bw;
+      const pad = 14, left = (cw - bw * s) / 2;
+      this.scaleEl.style.width = bw + "px"; this.scaleEl.style.height = bh + "px";
+      this.scaleEl.style.left = left.toFixed(1) + "px"; this.scaleEl.style.top = pad + "px";
+      this.scaleEl.style.transform = `scale(${s.toFixed(4)})`;
+      this.stage.style.height = Math.round(bh * s + 2 * pad) + "px";
+      const ax = Math.max(2, left - 50), ay = pad + bh * s / 2 - 22;
+      this.prevEl.style.left = ax + "px"; this.nextEl.style.right = ax + "px";
+      this.prevEl.style.top = this.nextEl.style.top = ay + "px";
+      this.stage.classList.toggle("is-single", single);
+      this.stage.classList.toggle("arrows-in", left < 54);
+      if (changed) {
+        if (this.anim) this.finish();
+        if (this.ts) this.end(false);
+        this.side = this.cur === this.N ? "left" : "right";
+      }
+      this.update();
     }
 
-    next(fromCorner) {
-      if (this.cur >= this.N) return;
-      if (this.single && this.cur > 0 && this.side === "left" && !fromCorner) { this.side = "right"; return this.update(); }
-      this.turn(this.leaves[this.cur]);
-      this.cur++;
-      this.side = "left";
-      this.update();
+    // dónde queda el libro: la tapa sola centrada si está cerrado; en una sola página, la página que se ve
+    place(cur, side) {
+      const N = this.N;
+      let c;   // centro de lo que se ve, en coordenadas del libro (lomo en x = W)
+      if (cur === 0) c = 1.5 * W + P / 2;
+      else if (cur === N) c = W / 2 - P / 2;
+      else if (!this.single) c = W;
+      else c = side === "left" ? W / 2 : 1.5 * W;
+      const tx = this.bw / 2 - P - c;
+      this.book.style.transform = `translate(${tx.toFixed(1)}px,0)`;
     }
-    prev(fromCorner) {
-      if (this.cur <= 0) return;
-      if (this.single && this.cur < this.N && this.side === "right" && !fromCorner) { this.side = "left"; return this.update(); }
-      this.cur--;
-      this.turn(this.leaves[this.cur]);
-      this.side = "right";
+
+    /* ---- gestos: arrastrar la esquina, tocar el borde, deslizar ---- */
+    toBook(cx, cy) { const b = this.book.getBoundingClientRect(); return { x: (cx - b.left) / this.scale, y: (cy - b.top) / this.scale }; }
+    // la página que se puede pasar bajo el punto: «next» la derecha, «prev» la izquierda; u: coordenadas de esa página
+    target(p) {
+      const N = this.N, cur = this.cur;
+      if (p.x >= W) { if (cur < N && (!this.single || this.side === "right")) return { dir: "next", u: { x: p.x - W, y: p.y } }; }
+      else if (cur > 0 && (!this.single || this.side === "left")) return { dir: "prev", u: { x: W - p.x, y: p.y } };
+      return null;
+    }
+    zone(u) {
+      const r = .22 * W;
+      if (u.x > W + P + 4 || u.y < -P - 4 || u.y > H + P + 4) return "out";
+      if (Math.hypot(W - u.x, H - u.y) < r) return "corner";
+      if (Math.hypot(W - u.x, u.y) < r) return "corner";
+      return u.x > W * .86 ? "edge" : "body";
+    }
+    down(e) {
+      if (e.button > 0 || this.grab || !e.isPrimary) return;
+      const p = this.toBook(e.clientX, e.clientY), t = this.target(p);
+      const zone = t ? this.zone(t.u) : "body";
+      // los campos se usan como siempre. Con el ratón, la hoja se coge por la esquina o el borde aunque haya texto impreso
+      // de una casilla; con el dedo, un deslizamiento puede empezar en cualquier casilla (un toque la sigue abriendo),
+      // pero no en un botón ni en el campo que se está escribiendo
+      const hit = e.target.closest(INTERACTIVE);
+      if (hit) {
+        if (e.pointerType === "mouse" ? hit.matches("input,textarea,select,button,a,[contenteditable],[data-act],.dlb-locate")
+          : (hit === document.activeElement || hit.matches("button,a,select,[contenteditable],[data-act],.dlb-locate"))) return;
+      }
+      if (zone === "out") return;
+      if (this.peekKey) this.peek(null);
+      if (this.anim) this.finish();
+      if (e.pointerType === "mouse" && zone === "body") return;   // con el ratón se pasa desde la esquina o el borde
+      this.grab = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), dir: t && t.dir, u0: t && t.u, zone,
+        top: !!t && t.u.y < H / 2, moving: false, drag: false, swipe: false };
+      if (e.pointerType === "mouse") e.preventDefault();
+    }
+    move(e) {
+      const g = this.grab;
+      if (!g) { if (e.pointerType === "mouse" && !this.anim && !reduced()) this.hover(e); return; }
+      if (e.pointerId !== g.id) return;
+      const dx = e.clientX - g.x, dy = e.clientY - g.y;
+      if (!g.moving) {
+        if (Math.hypot(dx, dy) < 8) return;
+        if (g.zone === "body" && Math.abs(dy) > Math.abs(dx)) { this.grab = null; return; }   // desplazar la página
+        g.moving = true;
+        // la hoja sigue al dedo cuando el gesto va hacia donde se pasa esa página; si no, es un deslizamiento
+        const way = dx < 0 ? "next" : "prev";
+        if (!g.dir || reduced() || (g.zone === "body" && way !== g.dir) || !this.start(g.dir, g.top)) { g.swipe = true; return; }
+        g.drag = true;
+        try { this.stage.setPointerCapture(g.id); } catch (err) { /* sin captura: sigue igual */ }
+      }
+      if (g.drag) this.dragTo(e.clientX, e.clientY);
+    }
+    up(e, cancel) {
+      const g = this.grab;
+      if (!g || e.pointerId !== g.id) return;
+      this.grab = null;
+      const dx = e.clientX - g.x, dt = performance.now() - g.t;
+      if (g.drag) {
+        this.acted = performance.now();
+        if (cancel) return this.play(false);
+        const fast = Math.abs(dx) > 30 && dt < 320, toward = (dx < 0) === (g.dir === "next");
+        const s = this.ts, past = s.hard ? s.p > .5 : (s.T ? s.T.x < W / 2 : false);
+        return this.play(fast ? toward : past);
+      }
+      if (cancel) return;
+      if (g.swipe) { if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(e.clientY - g.y)) { this.acted = performance.now(); dx < 0 ? this.next() : this.prev(); } return; }
+      if (!g.moving && g.dir && (g.zone === "edge" || g.zone === "corner")) { this.acted = performance.now(); g.dir === "next" ? this.next() : this.prev(); }
+    }
+    dragTo(cx, cy) {
+      const s = this.ts, g = this.grab;
+      if (!s || !g) return;
+      const p = this.toBook(cx, cy), u = s.dir === "next" ? { x: p.x - W, y: p.y } : { x: W - p.x, y: p.y };
+      if (s.hard) { const vx = (W + P) + (u.x - g.u0.x); this.setP(Math.min(1, Math.max(0, (W + P - vx) / (2 * (W + P))))); return; }
+      // la esquina se mueve lo mismo que el dedo (aunque se coja la hoja por otro sitio)
+      const C = { x: W, y: s.top ? 0 : H };
+      this.setT({ x: C.x + (u.x - g.u0.x), y: C.y + (u.y - g.u0.y) });
+    }
+    // con el ratón cerca de una esquina, la esquina se levanta un poco
+    hover(e) {
+      const p = this.toBook(e.clientX, e.clientY), t = this.target(p);
+      let want = null;
+      if (t && this.zone(t.u) === "corner") want = { dir: t.dir, top: t.u.y < H / 2 };
+      this.peek(want);
+    }
+    peek(want) {
+      const key = want ? want.dir + (want.top ? "-top" : "") : "";
+      if (key === this.peekKey) return;
+      if (this.peekKey && this.ts) this.end(false);
+      this.peekKey = ""; this.stage.style.cursor = "";
+      if (!want || this.anim || !this.start(want.dir, want.top)) return;
+      this.peekKey = key;
+      this.stage.style.cursor = "grab";
+      if (this.ts.hard) this.setP(.05); else this.setT({ x: W - 44, y: want.top ? 30 : H - 30 });
+    }
+
+    /* ---- una hoja que se mueve ---- */
+    start(dir, top) {
+      if (this.ts) return false;
+      const j = dir === "next" ? this.cur : this.cur - 1, leaf = this.leaves[j];
+      if (!leaf) return false;
+      const hard = leaf.classList.contains("hard"), front = leaf.children[0], back = leaf.children[1];
+      const s = this.ts = { dir, top: !!top, j, leaf, hard, front, back, T: null, p: 0, side0: this.side };
+      leaf.style.display = ""; leaf.dataset.state = "turn"; leaf.style.zIndex = 3 * this.N + 5; leaf.inert = true;
+      const k = this.leaves[dir === "next" ? j + 1 : j - 1];
+      if (k) k.style.display = "";
+      if (hard) { leaf.classList.add("is-turning"); this.setP(0); return true; }
+      const flap = dir === "next" ? back : front;
+      flap.style.left = "0px";
+      s.shade = document.createElement("div"); s.shade.className = "dlb-flap-shade"; flap.appendChild(s.shade);
+      this.under.style.left = (dir === "next" ? W : 0) + "px"; this.under.style.zIndex = 3 * this.N + 3; this.under.hidden = false;
+      this.setT({ x: W, y: top ? 0 : H });
+      return true;
+    }
+    // hoja dura (las tapas): gira sobre el lomo en 3D. p: 0 sin pasar, 1 pasada
+    setP(p) {
+      const s = this.ts;
+      s.p = p;
+      const deg = s.dir === "next" ? -180 * p : -180 * (1 - p);
+      s.leaf.style.transform = `perspective(${(2.6 * W).toFixed(0)}px) rotateY(${deg.toFixed(2)}deg)`;
+      s.leaf.style.setProperty("--turn", (Math.sin(Math.PI * p) * .55).toFixed(3));
+    }
+    // hoja de papel: la esquina en T (coordenadas de la página que se pasa)
+    setT(T) {
+      const s = this.ts, f = fold(T, s.top), fwd = s.dir === "next";
+      const flat = fwd ? s.front : s.back, flap = fwd ? s.back : s.front;
+      s.T = f ? f.T : { x: W, y: s.top ? 0 : H };
+      if (!f) { flat.style.clipPath = ""; flap.style.visibility = "hidden"; this.underShade.style.opacity = "0"; return; }
+      flap.style.visibility = "";
+      const F = fwd ? [1, 0, 0, 1, W, 0] : [-1, 0, 0, 1, W, 0];   // página que se pasa → libro
+      const Q = fwd ? MIRROR : ID;                               // cara que se levanta → página (el mismo papel por detrás)
+      const Pf = fwd ? ID : MIRROR;                              // página → cara que se queda plana
+      flat.style.clipPath = polygon(f.flat.map(p => apply(Pf, p)));
+      flap.style.clipPath = polygon(f.lifted.map(p => apply(Q, p)));
+      flap.style.transform = matrix(mul(F, mul(f.R, Q)));
+      // sombras: sobre la página que aparece y sobre la hoja junto al doblez, más fuertes a mitad del giro
+      const a = Math.sin(Math.PI * Math.min(1, f.l / (2 * W))), L = 2 * (W + H), n = { x: -f.d.y, y: f.d.x };
+      const strip = [-f.d.x, -f.d.y, n.x, n.y, f.M.x - n.x * L / 2, f.M.y - n.y * L / 2];   // franja → página: del doblez hacia la esquina
+      const us = this.underShade;
+      us.style.width = Math.max(14, Math.min(W * .5, f.l * .5)).toFixed(1) + "px"; us.style.height = L + "px";
+      us.style.transform = matrix(mul([1, 0, 0, 1, fwd ? -W : 0, 0], mul(F, strip)));
+      us.style.opacity = (.25 + .6 * a).toFixed(3);
+      const sh = s.shade;
+      sh.style.width = Math.max(12, Math.min(W * .6, f.l * .55)).toFixed(1) + "px"; sh.style.height = L + "px";
+      sh.style.transform = matrix(mul(Q, strip));
+      sh.style.opacity = (.45 + .55 * a).toFixed(3);
+    }
+    tween(ms, step, done) {
+      cancelAnimationFrame(this.raf);
+      const t0 = performance.now();
+      const a = this.anim = { step, done };
+      const tick = now => {
+        if (this.anim !== a) return;
+        const k = Math.min(1, (now - t0) / ms);
+        step(k);
+        if (k < 1) this.raf = requestAnimationFrame(tick); else { this.anim = null; done(); }
+      };
+      this.raf = requestAnimationFrame(tick);
+    }
+    finish() { const a = this.anim; if (!a) return; cancelAnimationFrame(this.raf); this.anim = null; a.step(1); a.done(); }
+    // termina el giro empezado (complete) o devuelve la hoja a su sitio
+    play(complete, done) {
+      const s = this.ts;
+      if (!s) return;
+      this.peekKey = "";
+      if (s.hard) {
+        const p0 = s.p, p1 = complete ? 1 : 0;
+        this.tween(Math.max(180, TURN_MS * Math.abs(p1 - p0)), k => this.setP(p0 + (p1 - p0) * ease(k)), () => this.end(complete, done));
+      } else {
+        const C = { x: W, y: s.top ? 0 : H }, T0 = s.T || C, E = complete ? { x: -W, y: C.y } : C;
+        const lift = complete ? (s.top ? 1 : -1) * H * .045 : 0;
+        const ms = Math.max(180, TURN_MS * Math.min(1, Math.hypot(E.x - T0.x, E.y - T0.y) / (2 * W)));
+        this.tween(ms, k => { const q = ease(k); this.setT({ x: T0.x + (E.x - T0.x) * q, y: T0.y + (E.y - T0.y) * q + lift * Math.sin(Math.PI * q) }); },
+          () => this.end(complete, done));
+      }
+      // el libro se mueve a la vez: se abre o se cierra la tapa, o (una sola página) viene la página nueva
+      if (complete) this.place(s.dir === "next" ? this.cur + 1 : this.cur - 1, s.dir === "next" ? "left" : "right");
+    }
+    end(complete, done) {
+      const s = this.ts;
+      if (!s) return;
+      this.ts = null;
+      if (complete) { this.cur += s.dir === "next" ? 1 : -1; this.side = s.dir === "next" ? "left" : "right"; }
+      else this.side = s.side0;
+      [s.front, s.back].forEach(f => { f.style.clipPath = ""; f.style.transform = ""; f.style.left = ""; f.style.visibility = ""; });
+      s.leaf.style.transform = ""; s.leaf.classList.remove("is-turning"); s.leaf.style.removeProperty("--turn");
+      if (s.shade) s.shade.remove();
+      this.under.hidden = true;
       this.update();
+      if (done) done(complete);
+    }
+
+    /* ---- navegación ---- */
+    // un cambio sin pasar hoja: en una sola página, la otra página de las dos abiertas; con «reducir movimiento», todo
+    change(fn) {
+      if (reduced()) {
+        this.stage.classList.add("is-fading");
+        clearTimeout(this._fade);
+        this._fade = setTimeout(() => { fn(); this.update(); this.stage.classList.remove("is-fading"); }, 150);
+        return;
+      }
+      fn(); this.update();
+    }
+    next() {
+      if (this.peekKey) this.peek(null);
+      if (this.anim) this.finish();
+      const N = this.N;
+      if (this.single && this.cur > 0 && this.cur < N && this.side === "left") return this.change(() => { this.side = "right"; });
+      if (this.cur >= N) return;
+      if (reduced()) return this.change(() => { this.cur++; this.side = "left"; });
+      if (this.start("next", false)) this.play(true);
+    }
+    prev() {
+      if (this.peekKey) this.peek(null);
+      if (this.anim) this.finish();
+      const N = this.N;
+      if (this.single && this.cur > 0 && this.cur < N && this.side === "right") return this.change(() => { this.side = "left"; });
+      if (this.cur <= 0) return;
+      if (reduced()) return this.change(() => { this.cur--; this.side = "right"; });
+      if (this.start("prev", false)) this.play(true);
     }
     open() { if (this.cur === 0) this.next(); }
     close() { this.goTo(0, "right"); }
+    // a una hoja lejana: salta sin animar hasta la anterior y pasa la última hoja
     goTo(target, side) {
-      clearTimeout(this._go);
-      const step = () => {
-        if (this.cur < target) { this.turn(this.leaves[this.cur]); this.cur++; }
-        else if (this.cur > target) { this.cur--; this.turn(this.leaves[this.cur]); }
-        this.side = side || "right";
-        this.update();
-        if (this.cur !== target) this._go = setTimeout(step, 70);
-      };
-      step();
+      if (this.peekKey) this.peek(null);
+      if (this.anim) this.finish();
+      if (this.ts) this.end(false);
+      target = Math.max(0, Math.min(this.N, target));
+      const want = target === 0 ? "right" : target === this.N ? "left" : side || "right";
+      const settle = () => { if (this.single && this.side !== want) this.change(() => { this.side = want; }); };
+      if (target === this.cur) return settle();
+      if (reduced()) return this.change(() => { this.cur = target; this.side = want; });
+      const fwd = target > this.cur;
+      this.cur = fwd ? target - 1 : target + 1;
+      this.side = fwd ? "right" : "left";
+      this.update();
+      if (this.start(fwd ? "next" : "prev", false)) this.play(true, settle);
     }
     goToDive(n) {
       const leaf = Math.floor((n - 1) / 2) + 2;
@@ -718,60 +1015,56 @@
     }
     showDive(n) {
       this.goToDive(n);
-      setTimeout(() => { const box = this.root.querySelector(`[data-stamp="${n}"]`); if (box) { box.classList.remove("pop"); void box.offsetWidth; box.classList.add("pop"); } }, 900);
-    }
-    turn(leaf) {
-      leaf.classList.remove("turning"); void leaf.offsetWidth; leaf.classList.add("turning");
-      leaf.style.zIndex = 999;
-      clearTimeout(leaf._t);
-      leaf._t = setTimeout(() => { leaf.classList.remove("turning"); this.update(); }, 950);
+      setTimeout(() => { const box = this.root.querySelector(`[data-stamp="${n}"]`); if (box) { box.classList.remove("pop"); void box.offsetWidth; box.classList.add("pop"); } }, TURN_MS + 300);
     }
 
+    // el libro quieto: qué hojas se ven, en qué orden, grosor de las hojas, sombra, indicador y flechas
     update() {
       const N = this.N, cur = this.cur;
       this.leaves.forEach((leaf, i) => {
-        const flipped = i < cur;
-        leaf.style.transform = flipped ? `rotateY(-180deg) translateZ(${(-i * DZ).toFixed(1)}px)` : `rotateY(0deg) translateZ(${((N - i) * DZ).toFixed(1)}px)`;
-        if (!leaf.classList.contains("turning")) leaf.style.zIndex = flipped ? i + 1 : N - i + 1;
-        const visible = i === cur || i === cur - 1;
+        if (this.ts && leaf === this.ts.leaf) return;
+        const flipped = i < cur, hard = leaf.classList.contains("hard");
+        leaf.style.display = hard || (flipped ? i >= cur - 2 : i <= cur + 1) ? "" : "none";
+        leaf.dataset.state = flipped ? "l" : "r";
+        if (hard) leaf.style.transform = flipped ? "rotateY(-180deg)" : "";
+        const board = hard && (i === 0 ? flipped : !flipped);   // la tapa debajo de las hojas
+        leaf.style.zIndex = board ? 1 : flipped ? i + 3 : 2 * N - i + 3;
+        const visible = this.single ? (this.side === "left" ? i === cur - 1 : i === cur) : (i === cur || i === cur - 1);
         leaf.inert = !visible;
-        leaf.style.pointerEvents = visible ? "" : "none";
       });
-      let tx = 0;
-      if (cur === 0) tx = -W / 2; else if (cur === N) tx = W / 2;
-      else if (this.single) tx = this.side === "left" ? W / 2 : -W / 2;
-      this.book.style.setProperty("--tx", tx + "px");
+      this.place(cur, this.side);
       this.book.classList.toggle("is-closed-front", cur === 0);
       this.book.classList.toggle("is-closed-back", cur === N);
-
-      const coverEdge = mix(this.theme.cover, "#000000", .2);
-      const a = mix(this.theme.paper, "#000000", .1), b = mix(this.theme.paper, "#ffffff", .15);
-      const shadow = (count, dir) => {
+      this.book.classList.toggle("is-single", this.single);
+      // grosor: unas líneas de papel en el borde, más en el lado con más hojas
+      const a = mix(this.theme.paper, "#000000", .12), b = mix(this.theme.paper, "#ffffff", .2);
+      const lines = (count, dir) => {
         if (count <= 0) return "none";
-        const L = Math.min(7, Math.ceil(count * .5)), out = [];
-        for (let j = 1; j <= L; j++) out.push(`${(dir * j * .9).toFixed(1)}px ${(j * .7).toFixed(1)}px 0 ${j % 2 ? a : b}`);
-        out.push(`${(dir * (L + 1.6) * .9).toFixed(1)}px ${((L + 1.6) * .7).toFixed(1)}px 0 1px ${coverEdge}`);
+        const L = Math.min(4, Math.ceil(count / 3)), out = [];
+        for (let j = 1; j <= L; j++) out.push(`${(dir * j * 1.15).toFixed(2)}px ${(j * .55).toFixed(2)}px 0 ${j % 2 ? a : b}`);
         return out.join(",");
       };
-      const right = N - cur - 1, left = cur - 1;
-      this.stackR.dataset.empty = right > 0 ? "0" : "1";
-      this.stackL.dataset.empty = left > 0 ? "0" : "1";
-      this.stackR.style.boxShadow = shadow(right, 1);
-      this.stackL.style.boxShadow = shadow(left, -1);
-
-      const nm = (i, side) => (this.faces[i] && this.faces[i][side].name) || "";
-      let label;
-      if (cur === 0) label = "PORTADA · TOCA PARA ABRIR";
-      else if (cur === N) label = "CONTRAPORTADA";
-      else if (this.single) label = (this.side === "left" ? nm(cur - 1, 1) : nm(cur, 0)).toUpperCase();
+      const right = cur >= 1 && cur <= N - 2 ? N - 2 - cur : 0, left = cur >= 2 && cur <= N - 1 ? cur - 2 : 0;
+      this.stackR.hidden = !right; this.stackL.hidden = !left;
+      this.stackR.style.boxShadow = lines(right, 1); this.stackL.style.boxShadow = lines(left, -1);
+      this.spine.hidden = cur === 0 || cur === N;
+      this.spine.style.zIndex = 3 * N + 4;
+      // indicador: páginas interiores (de la guarda al resumen)
+      const total = 2 * N - 2, nm = (i, s) => (this.faces[i] && this.faces[i][s].name) || "";
+      let count, label;
+      if (cur === 0) { count = label = "PORTADA · TOCA PARA ABRIR"; }
+      else if (cur === N) { count = label = "CONTRAPORTADA"; }
+      else if (this.single) { const left = this.side === "left"; count = `${left ? 2 * cur - 1 : 2 * cur} / ${total}`; label = (left ? nm(cur - 1, 1) : nm(cur, 0)).toUpperCase(); }
       else {
+        count = `${2 * cur - 1}–${2 * cur} / ${total}`;
         const l = this.faces[cur - 1][1], r = this.faces[cur][0];
         label = (l.dive && r.dive ? `INMERSIONES ${l.dive}–${r.dive}` : `${l.name} · ${r.name}`).toUpperCase();
       }
+      this.countEl.textContent = count;
       this.labelEl.textContent = label;
-      this.root.querySelector('[data-nav="prev"]').disabled = cur === 0;
-      this.root.querySelector('[data-nav="next"]').disabled = cur === N;
-      this.root.querySelector('[data-nav="close"]').hidden = cur === 0;
+      this.prevEl.disabled = cur === 0;
+      this.nextEl.disabled = cur === N;
+      this.closeEl.hidden = cur === 0;
     }
 
     onInput(el) {
@@ -970,6 +1263,8 @@
       this.mapKm = +(opts.mapKm || ds.mapKm) || 90;
       this.profile = opts.profile || null;
       this.friends = opts.friends || [];
+      // lo que tapa la ventana arriba y abajo (cabecera fija, barra de pestañas): el libro cabe entero en el resto
+      this.viewport = typeof opts.viewport === "function" ? opts.viewport : null;
       let t = opts.theme;
       if (!t && ds.logbookTheme) { try { t = JSON.parse(ds.logbookTheme); } catch (e) { /* JSON no válido */ } }
       this.theme = Object.assign({}, DEFAULT_THEME, t || {});
@@ -1027,7 +1322,7 @@
       set("--dlb-gold", t.foil); set("--dlb-gold-hi", mix(t.foil, "#ffffff", .5));
       set("--dlb-paper", t.paper); set("--dlb-paper-hi", mix(t.paper, "#ffffff", .3)); set("--dlb-paper-lo", mix(t.paper, "#000000", .03));
       set("--dlb-ink", t.ink); set("--dlb-ink-soft", mix(t.ink, t.paper, .22));
-      set("--dlb-wash", rgba(mix(t.cover, "#ffffff", .55), .35));
+      set("--dlb-wash", rgba(mix(t.cover, "#ffffff", .55), .16));   // v50.58: papel marfil, apenas velado
       set("--dlb-print", print); set("--dlb-rule", rgba(print, .38)); set("--dlb-ph", rgba(print, .3));
     }
 
@@ -1127,7 +1422,15 @@
       if (!this.data.seenPassport) { this.data.seenPassport = true; this.save(); }
       this.hint("");
       this.renderTools();
-      if (animate) { pp.cur = 0; pp.update(); this.el.passport.classList.remove("dlb-enter"); void this.el.passport.offsetWidth; this.el.passport.classList.add("dlb-enter"); setTimeout(() => pp.open(), 650); }
+      if (animate) {
+        if (pp.anim) pp.finish(); if (pp.ts) pp.end(false); pp.cur = 0; pp.side = "right"; pp.update();
+        // el libro entero a la vista, centrado bajo la cabecera (medido antes de la animación de entrada)
+        const vp = (this.viewport && this.viewport()) || {}, top = vp.top || 0, bottom = vp.bottom || 0;
+        const b = this.el.passport.getBoundingClientRect(), gap = Math.max(8, (innerHeight - top - bottom - b.height) / 2);
+        if (b.top < top + 4 || b.bottom > innerHeight - bottom) scrollTo({ top: Math.max(0, scrollY + b.top - top - gap), behavior: reduced() ? "auto" : "smooth" });
+        this.el.passport.classList.remove("dlb-enter"); void this.el.passport.offsetWidth; this.el.passport.classList.add("dlb-enter");
+        setTimeout(() => pp.open(), 650);
+      }
     }
     showClassic() {
       this.el.passport.hidden = true;
