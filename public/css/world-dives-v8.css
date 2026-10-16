@@ -1971,14 +1971,16 @@ a.hm-logo:hover .hm-logo-text{color:var(--deep)}
 .bk-scroll{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:20px;line-height:1;cursor:pointer;color:var(--ink)}
 .bk-scroll:hover{border-color:var(--sea);color:var(--sea)}
 .bk-dates{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;padding:4px 2px 8px;scrollbar-width:thin}
-.bk-date{flex:none;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;gap:1px;width:74px;padding:10px 6px;border:1.5px solid var(--line);border-radius:14px;background:#fff;font:inherit;color:inherit;cursor:pointer}
-.bk-date small{font-size:12px;color:var(--muted);text-transform:capitalize}
-.bk-date strong{font-size:24px;line-height:1.1}
-.bk-date em{font-style:normal;font-size:10.5px;font-weight:700;color:#1f7a5a;margin-top:3px;white-space:nowrap}
-.bk-date.is-full em{color:#9b3f37}.bk-date.is-full{opacity:.6}
-.bk-date:hover{border-color:var(--sea)}
-.bk-date.is-on{background:var(--deep);border-color:var(--deep);color:#fff}
-.bk-date.is-on small,.bk-date.is-on em{color:rgba(255,255,255,.85)}
+/* v50.57 (5.1): the day buttons of the booking flow, only inside their strip: the date filters «Desde» and «Hasta» of
+   the bookings panel have the same class and became boxes of 74 px with no room for a date */
+.bk-dates .bk-date{flex:none;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;gap:1px;width:74px;padding:10px 6px;border:1.5px solid var(--line);border-radius:14px;background:#fff;font:inherit;color:inherit;cursor:pointer}
+.bk-dates .bk-date small{font-size:12px;color:var(--muted);text-transform:capitalize}
+.bk-dates .bk-date strong{font-size:24px;line-height:1.1}
+.bk-dates .bk-date em{font-style:normal;font-size:10.5px;font-weight:700;color:#1f7a5a;margin-top:3px;white-space:nowrap}
+.bk-dates .bk-date.is-full em{color:#9b3f37}.bk-dates .bk-date.is-full{opacity:.6}
+.bk-dates .bk-date:hover{border-color:var(--sea)}
+.bk-dates .bk-date.is-on{background:var(--deep);border-color:var(--deep);color:#fff}
+.bk-dates .bk-date.is-on small,.bk-dates .bk-date.is-on em{color:rgba(255,255,255,.85)}
 .bk-times-day{margin:14px 0 8px;font-weight:700;font-size:14px}
 .wd-tz-note{font-weight:500;font-size:12px;color:var(--muted,#5d6f77)}
 .bk-times-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
@@ -3759,6 +3761,37 @@ html.wd-app .pp-page{padding-bottom:150px}
 .vc-table small{font-weight:400;color:var(--muted)}
 .vc-table .vc-sub th{font-weight:400;padding-left:20px;color:var(--muted)}
 .vc-note{margin:8px 0 0;font-size:12.5px;color:var(--muted)}
+/* v50.57 (5.1): four short columns fit any screen. The panels give every table at least 650-860 px (it scrolls
+   sideways), and on a phone all the numbers of the counter were out of sight */
+.vc-block .table-wrap table.vc-table{min-width:0}
+@media (max-width:560px){
+  .vc-block{padding:10px 8px}
+  .vc-table th,.vc-table td{padding:6px 3px;font-size:12.5px}
+  .vc-table thead th{white-space:normal}
+  .vc-table thead th small{display:block}
+  .vc-table .vc-sub th{padding-left:12px}
+}
+/* v50.57 (5.1): on a phone some panels were wider than the screen, and the web clips what goes beyond the right edge
+   (overflow-x: clip): the single column of these grids grew to the width of a table inside them (650-900 px), so
+   texts were cut and buttons lost their label (Cobros y pagos, Ventajas, Seguros, Correos, Planning, Análisis).
+   The tables still scroll sideways inside their own box */
+.pay-module>*,.rw-manager>*,.ins-admin>*,.pl-wrap>*,.em-grid>*,.cb-grid-2>*,.cb-integration-grid>*{min-width:0}
+.acc-kpi,.cb-api-fields div>*{min-width:0;overflow-wrap:anywhere}
+@media (max-width:760px){
+  .pl-actions{flex-wrap:wrap}
+}
+@media (max-width:640px){
+  .table-wrap .vt-table{min-width:0}   /* it scrolls by itself here: one box to slide, not two */
+}
+@media (max-width:700px){
+  .acc-kpis,.acc-kpis.is-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cb-module-head{flex-wrap:wrap}
+  .em-test{flex-wrap:wrap}
+  .em-test input{min-width:0;flex:1 1 180px}
+}
+@media (max-width:680px){
+  #admin-moderation .cd-chips{margin-left:0;margin-right:0;padding-left:0;padding-right:0}
+}
 
 /* v50.57 (4.3) · Plantillas: icono, ordenar arrastrando, archivadas */
 .st-card{position:relative}

@@ -5,11 +5,13 @@ una copia de la demo: administración, centro, freelance y buceador, en el orden
 En cada pantalla (cada pestaña de cada panel, y las páginas del buceador):
 - sin errores de JavaScript ni respuestas de error del servidor (500) ni peticiones rechazadas que la web no esperaba;
 - sin textos rotos («undefined», «NaN», «[object Object]», «No se ha podido abrir», «Error interno»);
-- en el móvil, nada se sale por el lado.
+- en el móvil, nada queda fuera de la pantalla (la web recorta lo que pasa del borde derecho: no se vería ni se podría
+  alcanzar).
 Con especial atención (el titular encontró fallos ahí):
 - centro: reservas, planning y agenda con sus datos;
 - freelance: reservas, planning y «Mi agenda» con sus datos;
 - administración: destinos, puntos y plantillas: abrir uno, guardarlo sin cambios y volver a la lista con «Guardado».
+En el móvil, «Visitas y reservas» (4.2) enseña todos sus números sin desplazar la tabla de lado.
 Y, del recorrido de botones (2.2): el instructor del centro, sin permiso de avisos, ve por qué sus ajustes están apagados.
 
     python3 tests/navegador/e2e_v50_57_modos.py [carpeta-de-capturas]
@@ -36,6 +38,20 @@ ROOT = Path(__file__).resolve().parents[2]
 BROKEN = re.compile(r'\bundefined\b|\bNaN\b|\[object Object\]|No se ha podido abrir|Error interno|Falta un dato obligatorio')
 SIZES = {'ordenador': {'width': 1366, 'height': 900}, 'movil': {'width': 390, 'height': 844}}
 DIVER_PAGES = ['#/area', '#/cuenta', '#/logbook', '#/recompensas', '#/mis-puntos', '#/seguro', '#/reserva?id={booking}']
+# What reaches beyond the right edge of the screen. The web clips it (html and body have overflow-x: clip), so it can
+# neither be seen nor reached, and the page never gets wider: document.documentElement.scrollWidth does not show it.
+# Only the outermost boxes, and nothing inside a box that slides sideways on purpose (a table in its .table-wrap).
+BEYOND = """() => { const W = innerWidth, out = [];
+  const clipper = el => { for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).overflowX !== 'visible') return p; return null; };
+  const inView = p => p && p.getBoundingClientRect().right <= W + 1;
+  for (const el of document.querySelectorAll('main *')) {
+    const r = el.getBoundingClientRect(); if (!r.width || !r.height || r.right <= W + 1) continue;
+    const cs = getComputedStyle(el); if (cs.position === 'fixed' || cs.visibility === 'hidden' || (el.closest('svg') && el.tagName.toLowerCase() !== 'svg')) continue;
+    if (inView(clipper(el))) continue;
+    const par = el.parentElement; if (par && par.getBoundingClientRect().right > W + 1 && !inView(clipper(par))) continue;
+    out.push(el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.classList.length ? '.' + [...el.classList].slice(0, 2).join('.') : '') + ' → ' + Math.round(r.right) + ' px');
+  }
+  return out.slice(0, 5); }"""
 # Answers the web asks for knowing they may say no (checked by the screens themselves, not errors).
 EXPECTED_4XX = ('/api/admin/confirm/status', '/api/logbook', '/api/insurance', '/api/me/insurance')
 
@@ -54,6 +70,7 @@ def main():
 
     try:
         booking = srv.sql("SELECT b.id FROM bookings b JOIN users u ON u.id=b.user_id WHERE u.username='buzo.prueba' ORDER BY b.id DESC LIMIT 1")[0]['id']
+        by_days = srv.sql("SELECT b.id FROM bookings b JOIN users u ON u.id=b.user_id WHERE u.username='buzo.prueba' AND b.price_breakdown LIKE '%\"discount\"%' ORDER BY b.id DESC LIMIT 1")
         with sync_playwright() as pw:
             browser = chromium(pw)
             for size, viewport in SIZES.items():
@@ -81,14 +98,14 @@ def main():
                         pg.goto(srv.base + '/' + route); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(900)
                         txt = pg.inner_text('main') if pg.locator('main').count() else ''
                         broken = sorted(set(m.group(0) for m in BROKEN.finditer(txt)))
-                        wide = pg.evaluate('document.documentElement.scrollWidth - innerWidth') if size == 'movil' else 0
-                        ok = not errs and not bad and not broken and wide <= 1 and len(txt.strip()) > 40
-                        seen.append({'pantalla': route, 'ok': ok, 'errores_js': errs[:3], 'peticiones_con_error': bad[:5], 'textos_rotos': broken, 'sale_por_el_lado_px': wide,
+                        beyond = pg.evaluate(BEYOND) if size == 'movil' else []
+                        ok = not errs and not bad and not broken and not beyond and len(txt.strip()) > 40
+                        seen.append({'pantalla': route, 'ok': ok, 'errores_js': errs[:3], 'peticiones_con_error': bad[:5], 'textos_rotos': broken, 'fuera_de_la_pantalla': beyond,
                                      'texto': len(txt.strip())})
                         check(f'{size} · {role} · {route}', ok, seen[-1])
                         if out:   # every screen, on the computer and on the phone, to look at them one by one
                             (out / size).mkdir(parents=True, exist_ok=True)
-                            pg.screenshot(path=str(out / size / f'{role}-{re.sub(r"[^a-z0-9]+", "-", route.lower()).strip("-")}.png'), full_page=size == 'movil')
+                            pg.screenshot(path=str(out / size / f'{role}-{re.sub(r"[^a-z0-9]+", "-", route.lower()).strip("-")}.png'), full_page=True)
                     report[f'{size}/{role}'] = seen
 
                     # ------------------------------------------------------------ special attention
@@ -107,6 +124,26 @@ def main():
                         bk = pg.evaluate("""() => [...document.querySelectorAll('.bk-row')].slice(0, 5).map(r => { const t = r.querySelector('.bk-time strong'), n = r.querySelector('.bk-time span'), st = r.querySelector('.bk-state');
                             return [t.textContent, t.scrollWidth <= t.clientWidth + 1 && n.scrollWidth <= n.clientWidth + 1, !!st.offsetParent && st.getBoundingClientRect().width > 0]; })""")
                         check(f'{size} · {role} · reservas: la hora y el número se ven enteros y el estado se ve', bk and all(r[1] and r[2] for r in bk), bk)
+                        # 5.1 (looking at every capture): the filters «Desde» and «Hasta» took the style of the day buttons of
+                        # the booking flow (same class): boxes of 74 px where no date fits
+                        dates = pg.evaluate("[...document.querySelectorAll('#bk-from, #bk-to')].map(i => Math.round(i.getBoundingClientRect().width))")
+                        check(f'{size} · {role} · reservas: en «Desde» y «Hasta» cabe la fecha', len(dates) == 2 and min(dates) >= 120, dates)
+                    if size == 'ordenador' and role == 'buceador':
+                        # 5.1 (looking at every capture): the price of a booking by days with a discount said «−10 % desde
+                        # 3 días: 1 × 0.00 €» (a discount has no unit price) and the amounts had a decimal point («486.00 EUR»)
+                        check('buceador · la demo tiene una reserva por días con descuento', bool(by_days), by_days)
+                        if by_days:
+                            pg.goto(f"{srv.base}/#/reserva?id={by_days[0]['id']}"); pg.wait_for_selector('.booking-price-lines', timeout=20000); pg.wait_for_timeout(500)
+                            price = pg.evaluate("(() => { const s = document.querySelector('.booking-price-lines'); return [s.previousElementSibling.textContent, s.innerText]; })()")
+                            check('buceador · reserva por días: el descuento dice su importe y los importes van en euros con coma',
+                                  '× 0' not in price[1] and re.search(r'desde \d+ días: [−-]\s?\d', price[1]) and 'EUR' not in price[0] and not re.search(r'\d\.\d\d', ' '.join(price)), price)
+                    if size == 'movil' and role != 'buceador':
+                        # 5.1 (looking at every capture): on a phone the numbers of «Visitas y reservas» (4.2) were all out of
+                        # sight, at the right of a table that scrolled sideways
+                        pg.goto(f"{srv.base}/#/admin?tab={'audit' if role == 'administración' else 'stats'}"); pg.wait_for_selector('.vc-block .table-wrap', timeout=20000); pg.wait_for_timeout(500)
+                        fit = pg.evaluate("""() => { const w = document.querySelector('.vc-block .table-wrap'), r = w.getBoundingClientRect(), cells = [...w.querySelectorAll('tbody td')];
+                            return {celdas: cells.length, fuera: cells.filter(c => c.getBoundingClientRect().right > r.right + 1).length, ancho: w.scrollWidth, caja: w.clientWidth}; }""")
+                        check(f'{size} · {role} · «Visitas y reservas»: todos los números se ven sin desplazar de lado', fit['celdas'] > 0 and fit['fuera'] == 0, fit)
                     if size == 'ordenador' and role == 'administración':
                         # 2.2 (button walk): «Subir» on the first template and «Bajar» on the last did nothing; now they are off
                         pg.goto(f'{srv.base}/#/admin?tab=svctemplates'); pg.wait_for_selector('.st-card .st-up'); pg.wait_for_timeout(500)
