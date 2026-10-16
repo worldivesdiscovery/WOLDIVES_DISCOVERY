@@ -23,7 +23,7 @@ Auch wenn sie keine Cookies verwenden, erhalten einige Dienste, die in Ihrem Bro
 | **Basiskarte** | Immer, wenn Sie eine Karte sehen | Nichts: Sie wird von unserem Server ausgeliefert (Daten © OpenStreetMap contributors) |
 | **Satellitenansicht (Esri)** | Nur wenn Sie „Satellit“ wählen | Nichts: Die Bilder laufen über unseren Server |
 | **Bathymetrie (GEBCO)** | Nur wenn Sie die Tiefenebene wählen | Ihre IP erreicht die Server von GEBCO / British Oceanographic Data Centre |
-| **Videos der Routen** (YouTube im erweiterten Datenschutzmodus, Vimeo ohne Tracking, Dailymotion, TikTok, Facebook und Instagram) und **eingebettete Karten** (Google Maps) | Nur wenn Sie bei diesem Video auf „Abspielen“ klicken; bis dahin sehen Sie ein Vorschaubild von unserem Server | Ihre IP und was dieser Dienst erfasst, einschließlich eigener Cookies; lesen Sie dessen Richtlinie. Videos anderer Plattformen öffnen sich in einem neuen Tab |
+| **Videos der Tauchplätze** (YouTube im erweiterten Datenschutzmodus, Instagram und TikTok mit ihrem offiziellen Einbettungscode; bei älteren Videos auch Vimeo, Dailymotion und Facebook) und **eingebettete Karten** (Google Maps) | Beim Öffnen der Seite eines Tauchplatzes lädt nur das Bild des Videos, direkt von der Plattform; der Player nur, wenn Sie auf „Abspielen“ klicken | Mit dem Bild erreicht Ihre IP die Plattform, ohne Cookies. Beim Abspielen Ihre IP und was dieser Dienst erfasst, einschließlich eigener Cookies; lesen Sie dessen Richtlinie. Videos anderer Plattformen öffnen sich in einem neuen Tab |
 | **Zahlung (Stripe)** | Beim Bezahlen | Die Stripe-Seite öffnet sich, mit eigenen Cookies zur Betrugsprävention |
 
 Kein Video und kein Inhalt Dritter wird ohne Ihre Anforderung geladen.

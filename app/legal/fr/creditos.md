@@ -10,6 +10,7 @@ Dernière mise à jour : {{version}}
 - **Images satellite :** Esri, Maxar, Earthstar Geographics et la communauté des utilisateurs SIG ([Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9)), sous licence ArcGIS Location Platform.
 - **Bathymétrie :** GEBCO Compilation Group (2024) GEBCO 2024 Grid ([gebco.net](https://www.gebco.net)), d'utilisation libre avec attribution.
 - **Recherche de lieux :** Nominatim, avec des données © OpenStreetMap contributors.
+- **Trait de côte** (pour vérifier que chaque site de plongée est en mer) : terres de © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licence Open Database License (ODbL), simplifiées par le projet geo-maps (`countries-land-10m` 0.6.0).
 
 ## Logiciels
 

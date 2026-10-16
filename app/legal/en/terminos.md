@@ -34,6 +34,8 @@ We may remove content and suspend or close accounts that breach these terms. Whe
 
 The reviews, photos and suggestions you publish must be your own and truthful. You give us free, non-exclusive permission to display them on the platform. See the [Review rules](#/legal/normas-resenas). You can report any content using the «Report» button.
 
+**Videos of dive sites.** When you send a video for a dive site page you declare that it is of that site and that you filmed it or have permission from its author. {{trade_name}} does not copy or store the video: it only shows it from the platform where it is published (YouTube, Instagram or TikTok), with that platform's official player. We review it before publishing it. Anyone can ask for a video to be removed with the «Report» button («It isn't from this dive site», «Inappropriate content» or «It's mine and I didn't give permission»); if its author asks, we remove it.
+
 ## 5. Notices from centres
 
 {{trade_name}} is not a social network and has no messaging between users. Centres can only send you **notices about your bookings** (for example, a change of time), which reach you by email and in «Notices», with their phone number and email so that you can reply to them directly.

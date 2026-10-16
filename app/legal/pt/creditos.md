@@ -10,6 +10,7 @@ A {{trade_name}} utiliza programas, tipos de letra e dados de terceiros. Agradec
 - **Imagens de satélite:** Esri, Maxar, Earthstar Geographics e a comunidade de utilizadores de SIG ([Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9)), com licença da ArcGIS Location Platform.
 - **Batimetria:** GEBCO Compilation Group (2024) GEBCO 2024 Grid ([gebco.net](https://www.gebco.net)), de utilização livre com atribuição.
 - **Pesquisa de locais:** Nominatim, com dados de © OpenStreetMap contributors.
+- **Linha de costa** (para verificar que cada local de mergulho fica no mar): terra de © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licença Open Database License (ODbL), simplificada pelo projeto geo-maps (`countries-land-10m` 0.6.0).
 
 ## Programas
 

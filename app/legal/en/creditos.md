@@ -10,6 +10,7 @@ Last updated: {{version}}
 - **Satellite imagery:** Esri, Maxar, Earthstar Geographics and the GIS user community ([Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9)), licensed under ArcGIS Location Platform.
 - **Bathymetry:** GEBCO Compilation Group (2024) GEBCO 2024 Grid ([gebco.net](https://www.gebco.net)), free to use with attribution.
 - **Place search:** Nominatim, with data © OpenStreetMap contributors.
+- **Coastline** (to check that each dive site is in the sea): land from © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), Open Database License (ODbL), simplified by the geo-maps project (`countries-land-10m` 0.6.0).
 
 ## Software
 

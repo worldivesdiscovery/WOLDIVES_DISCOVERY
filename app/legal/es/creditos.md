@@ -10,6 +10,7 @@
 - **Imágenes de satélite:** Esri, Maxar, Earthstar Geographics y la comunidad de usuarios de SIG ([Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9)), con licencia de ArcGIS Location Platform.
 - **Batimetría:** GEBCO Compilation Group (2024) GEBCO 2024 Grid ([gebco.net](https://www.gebco.net)), de uso libre con atribución.
 - **Búsqueda de lugares:** Nominatim, con datos de © OpenStreetMap contributors.
+- **Línea de costa** (para comprobar que cada punto de buceo cae en el mar): tierra de © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licencia Open Database License (ODbL), simplificada por el proyecto geo-maps (`countries-land-10m` 0.6.0).
 
 ## Programas
 

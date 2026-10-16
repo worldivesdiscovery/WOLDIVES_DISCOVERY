@@ -10,6 +10,7 @@ Ostatnia aktualizacja: {{version}}
 - **Zdjęcia satelitarne:** Esri, Maxar, Earthstar Geographics i społeczność użytkowników GIS ([Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9)), na licencji ArcGIS Location Platform.
 - **Batymetria:** GEBCO Compilation Group (2024) GEBCO 2024 Grid ([gebco.net](https://www.gebco.net)), do swobodnego użytku z podaniem źródła.
 - **Wyszukiwanie miejsc:** Nominatim, z danymi © OpenStreetMap contributors.
+- **Linia brzegowa** (aby sprawdzić, czy każde miejsce nurkowe leży w morzu): ląd z © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licencja Open Database License (ODbL), uproszczony przez projekt geo-maps (`countries-land-10m` 0.6.0).
 
 ## Oprogramowanie
 

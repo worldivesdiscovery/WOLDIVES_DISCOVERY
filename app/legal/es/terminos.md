@@ -34,6 +34,8 @@ Podemos retirar contenidos y suspender o cerrar cuentas que incumplan estas cond
 
 Las reseñas, fotos y sugerencias que publiques deben ser tuyas y verdaderas. Nos das permiso, gratuito y no exclusivo, para mostrarlas en la plataforma. Consulta las [Normas de las reseñas](#/legal/normas-resenas). Puedes denunciar cualquier contenido con el botón «Denunciar».
 
+**Vídeos de los puntos de buceo.** Cuando envías un vídeo para la ficha de un punto declaras que es de ese punto y que lo has grabado tú o tienes permiso de su autor. {{trade_name}} no copia ni guarda el vídeo: solo lo muestra desde la plataforma donde está publicado (YouTube, Instagram o TikTok), con el reproductor oficial de esa plataforma. Antes de publicarlo lo revisamos. Cualquier persona puede pedir que se retire un vídeo con el botón «Denunciar» («No es de este punto», «Contenido inadecuado» o «Es mío y no di permiso»); si su autor lo pide, lo retiramos.
+
 ## 5. Avisos de los centros
 
 {{trade_name}} no es una red social ni tiene mensajería entre usuarios. Los centros solo pueden enviarte **avisos sobre tus reservas** (por ejemplo, un cambio de hora), que te llegan por email y a «Avisos», con su teléfono y email para que les contestes directamente.

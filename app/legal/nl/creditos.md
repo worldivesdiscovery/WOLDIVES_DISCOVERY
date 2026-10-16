@@ -10,6 +10,7 @@ Laatst bijgewerkt: {{version}}
 - **Satellietbeelden:** Esri, Maxar, Earthstar Geographics en de GIS-gebruikersgemeenschap ([Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9)), onder licentie van ArcGIS Location Platform.
 - **Bathymetrie:** GEBCO Compilation Group (2024) GEBCO 2024 Grid ([gebco.net](https://www.gebco.net)), vrij te gebruiken met naamsvermelding.
 - **Zoeken naar plaatsen:** Nominatim, met gegevens van © OpenStreetMap contributors.
+- **Kustlijn** (om te controleren dat elke duikplek in zee ligt): land van © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licentie Open Database License (ODbL), vereenvoudigd door het project geo-maps (`countries-land-10m` 0.6.0).
 
 ## Software
 

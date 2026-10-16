@@ -34,6 +34,8 @@ Możemy usuwać treści oraz zawieszać lub zamykać konta naruszające niniejsz
 
 Publikowane przez Ciebie opinie, zdjęcia i sugestie muszą być Twoje i prawdziwe. Udzielasz nam nieodpłatnej i niewyłącznej zgody na ich wyświetlanie na platformie. Zapoznaj się z [Zasadami dotyczącymi opinii](#/legal/normas-resenas). Każdą treść możesz zgłosić za pomocą przycisku „Zgłoś”.
 
+**Filmy z miejsc nurkowych.** Przesyłając film do karty miejsca, oświadczasz, że pochodzi z tego miejsca i że nagrałeś go sam albo masz zgodę jego autora. {{trade_name}} nie kopiuje ani nie przechowuje filmu: wyświetla go wyłącznie z platformy, na której został opublikowany (YouTube, Instagram lub TikTok), za pomocą oficjalnego odtwarzacza tej platformy. Sprawdzamy go przed publikacją. Każdy może poprosić o usunięcie filmu przyciskiem „Zgłoś” („Nie pochodzi z tego miejsca”, „Nieodpowiednia treść” lub „To mój film i nie wyraziłem zgody”); jeśli poprosi o to autor, usuwamy go.
+
 ## 5. Powiadomienia od centrów
 
 {{trade_name}} nie jest serwisem społecznościowym i nie umożliwia wymiany wiadomości między użytkownikami. Centra mogą wysyłać Ci wyłącznie **powiadomienia dotyczące Twoich rezerwacji** (na przykład o zmianie godziny), które otrzymujesz e-mailem i w sekcji „Powiadomienia”, wraz z ich numerem telefonu i adresem e-mail, abyś mógł odpowiedzieć im bezpośrednio.

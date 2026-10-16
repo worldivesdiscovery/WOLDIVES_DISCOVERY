@@ -34,6 +34,8 @@ Wij kunnen content verwijderen en accounts die deze voorwaarden schenden opschor
 
 De beoordelingen, foto's en suggesties die u publiceert, moeten van u zijn en waarheidsgetrouw. U geeft ons kosteloos en niet-exclusief toestemming om ze op het platform te tonen. Raadpleeg de [Regels voor beoordelingen](#/legal/normas-resenas). U kunt alle content melden met de knop „Melden”.
 
+**Video's van duikplekken.** Wanneer je een video voor de pagina van een duikplek instuurt, verklaar je dat hij van die plek is en dat je hem zelf hebt gefilmd of toestemming van de maker hebt. {{trade_name}} kopieert of bewaart de video niet: hij wordt alleen getoond vanaf het platform waar hij is gepubliceerd (YouTube, Instagram of TikTok), met de officiële speler van dat platform. We bekijken hem voordat we hem publiceren. Iedereen kan met de knop „Melden” vragen om een video te verwijderen („Het is niet van deze duikplek”, „Ongepaste inhoud” of „Het is van mij en ik heb geen toestemming gegeven”); als de maker erom vraagt, verwijderen we hem.
+
 ## 5. Berichten van de centra
 
 {{trade_name}} is geen sociaal netwerk en biedt geen berichtenverkeer tussen gebruikers. Centra kunnen u alleen **berichten over uw boekingen** sturen (bijvoorbeeld een gewijzigd tijdstip), die u per e-mail en in „Berichten” ontvangt, met hun telefoonnummer en e-mailadres zodat u hen rechtstreeks kunt antwoorden.

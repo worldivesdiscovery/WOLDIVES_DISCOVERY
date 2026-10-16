@@ -23,7 +23,7 @@ Embora não utilizem cookies, alguns serviços carregados no seu navegador receb
 | **Mapa base** | Sempre que visualiza um mapa | Nada: é servido a partir do nosso servidor (dados de © OpenStreetMap contributors) |
 | **Vista de satélite (Esri)** | Apenas se escolher «Satélite» | Nada: as imagens passam pelo nosso servidor |
 | **Batimetria (GEBCO)** | Apenas se escolher a camada de profundidades | O seu IP chega aos servidores da GEBCO / British Oceanographic Data Centre |
-| **Vídeos dos percursos** (YouTube em modo de privacidade melhorada, Vimeo sem rastreio, Dailymotion, TikTok, Facebook e Instagram) e **mapas incorporados** (Google Maps) | Apenas se clicar em «Reproduzir» nesse vídeo; até lá vê uma miniatura guardada no nosso servidor | O seu IP e o que esse serviço recolher, incluindo os seus próprios cookies; consulte a respetiva política. Os vídeos de outras plataformas abrem num novo separador |
+| **Vídeos dos locais** (YouTube em modo de privacidade melhorada, Instagram e TikTok com o seu código de incorporação oficial; também Vimeo, Dailymotion e Facebook em vídeos antigos) e **mapas incorporados** (Google Maps) | Ao abrir a ficha de um local carrega-se apenas a imagem do vídeo, a partir da própria plataforma; o leitor, só se clicar em «Reproduzir» | Com a imagem, o seu IP chega à plataforma, sem cookies. Ao reproduzir, o seu IP e o que esse serviço recolher, incluindo os seus próprios cookies; consulte a respetiva política. Os vídeos de outras plataformas abrem num novo separador |
 | **Pagamento (Stripe)** | Ao pagar | Abre-se a página da Stripe, com os seus próprios cookies para prevenir a fraude |
 
 Nenhum vídeo ou conteúdo de terceiros é carregado sem que o solicite.

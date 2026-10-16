@@ -10,6 +10,7 @@ Ultimo aggiornamento: {{version}}
 - **Immagini satellitari:** Esri, Maxar, Earthstar Geographics e la comunità degli utenti GIS ([Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9)), con licenza ArcGIS Location Platform.
 - **Batimetria:** GEBCO Compilation Group (2024) GEBCO 2024 Grid ([gebco.net](https://www.gebco.net)), di libero utilizzo con attribuzione.
 - **Ricerca di luoghi:** Nominatim, con dati © OpenStreetMap contributors.
+- **Linea di costa** (per verificare che ogni sito di immersione sia in mare): terre emerse di © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licenza Open Database License (ODbL), semplificate dal progetto geo-maps (`countries-land-10m` 0.6.0).
 
 ## Programmi
 

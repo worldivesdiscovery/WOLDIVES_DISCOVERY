@@ -1,6 +1,7 @@
-"""v50.51 · Recorrido en un navegador real: la ficha del punto como en v50.49, el carrusel sutil «Vida marina en esta
-inmersión» con su bocadillo, el «Recorrido virtual» con los vídeos enlazados, el editor de la administración, las
-propuestas de un centro y los 9 idiomas, en ordenador y en móvil.
+"""v50.51 · Recorrido en un navegador real: la ficha del punto, el carrusel sutil «Vida marina en esta inmersión» con su
+bocadillo, los vídeos del punto (desde la v50.58, el bloque «Vídeos del punto» justo debajo de la descripción: lo recorre
+entero tests/navegador/e2e_v50_58_videos.py), el editor de la administración, las propuestas de un centro y los 9
+idiomas, en ordenador y en móvil.
 
 Las plataformas de vídeo y Wikimedia Commons están simuladas (tests/media_mock.py): nada sale del ordenador, y el
 navegador corta cualquier petición a otra web para comprobar que nada externo se carga antes de «Cargar vídeo».
@@ -50,6 +51,7 @@ def run(shots: Path | None):
     try:
         t = ServerTestCase('run'); t.server = srv
         admin = t.make_admin(); center = t.make_center(admin, 'marinae2e'); diver = t.make_diver('marinae2e')
+        srv.sql("UPDATE users SET email_verified_at=datetime('now') WHERE id=?", (center.user['id'],))   # v50.58: proposing videos asks for it
         admin.post('/api/admin/marina/ejemplos')
         sp = {x['scientific']: x['id'] for x in admin.get('/api/admin/marina/especies').json['items']}
         month = dt.date.today().month
@@ -106,19 +108,17 @@ def run(shots: Path | None):
             sv = '#pm-viewport'
             offset = lambda page: page.evaluate("(() => { const m = getComputedStyle(document.getElementById('pm-track')).transform; return m === 'none' ? 0 : -new DOMMatrix(m).m41; })()")
             items = '#pm-track > li:not([data-copy]) .pm-item'
-            virtual_block = '.pp-virtual-block'
-            route_cards = f'{virtual_block} .pp-virtual:has(.rv-logo)'
-            platforms = lambda page: [u for u in page.outside if 'tile.openstreetmap.org' not in u]   # the map's tiles are not video platforms
+            # the map's tiles are not video platforms; since v50.58 the previews are the platforms' own images (allowed before a tap)
+            platforms = lambda page: [u for u in page.outside if 'tile.openstreetmap.org' not in u and not any(h in u for h in ('i.ytimg.com', 'vimeocdn', 'jtvnw', 'tiktokcdn', 'dmcdn'))]
 
             # ------------------------------------------------------------------------- ficha del punto (ordenador)
             page = page_for(DESK)
             go(page, f'#/punto?id={PID}', 1500)
             # v50.54 (encargo, punto 3): descripción, vida marina, recorrido virtual, centros, mapa — the same in every site
             order = page.evaluate("""() => { const y = s => { const e = document.querySelector(s); return e ? e.getBoundingClientRect().top + scrollY : null; };
-                return [y('#pp-about'), y('.pm-block'), y('.pp-virtual-block'), y('#pp-centers'), y('#pp-where')]; }""")
-            check('ficha · orden: descripción, vida marina, recorrido virtual, centros y mapa', None not in order and order == sorted(order), order)
-            gap = page.evaluate("(() => { const a = document.querySelector('.pm-block').getBoundingClientRect(), b = document.querySelector('.pm-block').nextElementSibling; return [b.querySelector('h2')?.textContent.trim(), b.getBoundingClientRect().top - a.bottom]; })()")
-            check('ficha · el carrusel va pegado al «Recorrido virtual»', gap[0] == 'Recorrido virtual' and 0 <= gap[1] <= 40, gap)
+                return [y('#pp-about'), y('#pp-videos'), y('.pm-block'), y('#pp-centers'), y('#pp-where')]; }""")
+            check('ficha · orden (v50.58): descripción, vídeos del punto, vida marina, centros y mapa', None not in order and order == sorted(order), order)
+            check('ficha · «Vídeos del punto» justo debajo de «Sobre el punto»', page.evaluate("document.querySelector('#pp-about').nextElementSibling?.id === 'pp-videos'"))
             check('ficha · sin las secciones de v50.50 (carrusel grande y «Vídeos de la ruta»)', page.locator('.mv-block, .rv-block, .rv-card').count() == 0 and 'Vídeos de la ruta' not in page.inner_text('#app'))
             check('carrusel · título pequeño y número de especies', page.inner_text('.pm-title').strip() == 'Vida marina en esta inmersión' and page.inner_text('.pm-count').strip() == '8 especies'
                   and page.evaluate("parseFloat(getComputedStyle(document.querySelector('.pm-title')).fontSize) <= 15"))
@@ -160,27 +160,21 @@ def run(shots: Path | None):
             page.keyboard.press('Tab'); page.keyboard.press('Tab'); page.keyboard.press('Tab'); page.wait_for_timeout(100)
             check('bocadillo · el foco no se escapa con Tab', page.evaluate("!!document.activeElement.closest('#pm-pop')"))
             page.keyboard.press('Escape')
-            # recorrido virtual
-            check('recorrido virtual · el aspecto de v50.49 (tarjetas con el cuadro de 58 px)', page.locator(f'{virtual_block} .pp-virtuals').count() == 1
-                  and page.evaluate(f"""(() => {{ const r = document.querySelector('{route_cards} .pp-virtual-mark').getBoundingClientRect(); return r.width === 58 && r.height === 58; }})()"""))
-            check('recorrido virtual · los 4 vídeos aprobados', page.locator(route_cards).count() == 4, page.locator(route_cards).count())
-            thumbs = page.evaluate(f"""[...document.querySelectorAll("{route_cards} .pp-virtual-thumb img")].map(i => i.currentSrc || i.src)""")
-            check('recorrido virtual · miniatura guardada en el servidor (WebP) dentro del cuadro', len(thumbs) == 3 and all('/assets/uploads/videos/' in x and x.endswith('.webp') for x in thumbs), thumbs)
-            check('recorrido virtual · etiqueta 360° y VR', page.locator(f'{route_cards} .pp-virtual-mark b', has_text='360°').count() == 1 and page.locator(f'{route_cards} .pp-virtual-mark', has_text='VR').count() == 1)
-            tw = page.locator(route_cards, has_text='Twitch')
-            check('recorrido virtual · plataforma no insertable: «Abrir en Twitch» en pestaña nueva con icono externo',
-                  tw.locator('a.btn[target=_blank][rel*=noopener]', has_text='Abrir en Twitch').count() == 1 and tw.locator('.rv-ext').count() == 1)
-            check('recorrido virtual · logotipo de la plataforma y quién lo aportó', page.locator(f'{route_cards} .rv-logo svg').count() == 4 and 'Aportado por' in page.locator(route_cards).first.inner_text())
-            check('recorrido virtual · nada de las plataformas se carga en la ficha', platforms(page) == [], platforms(page))
-            shot(page, 'ordenador-recorrido-virtual', el=virtual_block)
+            # vídeos del punto (v50.58)
+            check('vídeos · los 4 vídeos aprobados en el bloque', page.locator('#pp-videos .pv-card').count() == 4, page.locator('#pp-videos .pv-card').count())
+            check('vídeos · etiqueta 360° y VR encima de la imagen', page.locator('#pp-videos .pv-tag', has_text='360°').count() == 1 and page.locator('#pp-videos .pv-tag', has_text='VR').count() == 1)
+            check('vídeos · sin «Aportado por» ni «Entrar en el recorrido»', 'Aportado por' not in page.inner_text('#pp-videos') and 'Entrar en el recorrido' not in page.inner_text('#pp-videos'))
+            check('vídeos · nada de las plataformas se carga en la ficha salvo sus imágenes', platforms(page) == [], platforms(page))
+            shot(page, 'ordenador-videos-del-punto', el='#pp-videos')
             check('ficha · sin errores de JavaScript', not page.errors, page.errors)
-            page.locator(route_cards, has_text='YouTube').filter(has=page.locator('.pp-virtual-mark b', has_text='360°')).locator('a.btn', has_text='Entrar en el recorrido').click(); page.wait_for_timeout(1200)
-            check('recorrido virtual · «Entrar en el recorrido» abre el visor con el aviso y la miniatura de fondo', '#/virtual?video=' in page.url and page.locator('#virtual-consent.has-thumb').count() == 1 and platforms(page) == [])
-            shot(page, 'ordenador-recorrido-aviso')
-            page.click('#virtual-load'); page.wait_for_timeout(800)
-            src = page.evaluate("document.querySelector('.virtual-frame iframe')?.src || ''")
-            check('recorrido virtual · «Cargar vídeo» trae el reproductor de YouTube sin cookies', src.startswith('https://www.youtube-nocookie.com/embed/Ab360Ef6hI9'), src)
-            check('recorrido virtual · solo entonces se pide algo a la plataforma', platforms(page) and all('youtube-nocookie.com' in u for u in platforms(page)), platforms(page))
+            page.locator('#pp-videos .pv-card.is-big').click(); page.wait_for_timeout(800)
+            src = page.evaluate("document.querySelector('#pv-m-frame iframe')?.src || ''")
+            check('vídeos · al pulsar, el reproductor de YouTube sin cookies', src.startswith('https://www.youtube-nocookie.com/embed/Ab360Ef6hI9'), src)
+            check('vídeos · solo entonces se pide algo a la plataforma', platforms(page) and all('youtube-nocookie.com' in u for u in platforms(page)), platforms(page))
+            page.keyboard.press('Escape'); page.wait_for_timeout(200)
+            page.locator('#pp-videos .pv-card', has_text='Directo desde el barco').click(); page.wait_for_timeout(500)
+            check('vídeos · plataforma no insertable: «Ver en Twitch» en una pestaña nueva', page.locator('#pv-m-frame a[target=_blank]', has_text='Ver en Twitch').count() == 1)
+            page.keyboard.press('Escape')
             page.context.close()
             page = page_for(DESK); go(page, f'#/punto?id={PID}', 1500); shot(page, 'ordenador-ficha-punto-completa', full=True)
             page.locator(items).first.scroll_into_view_if_needed(); page.locator(items).first.click(); page.wait_for_timeout(500)
@@ -223,7 +217,7 @@ def run(shots: Path | None):
             go(page, f'#/punto?id={EMPTY}', 1500)
             txt = page.inner_text('#app')
             check('punto sin especies · el carrusel no aparece', page.locator('.pm-block').count() == 0 and 'Vida marina' not in txt)
-            check('punto sin vídeos · «Recorrido virtual» como en v50.49', 'Recorrido virtual' in txt and page.locator('.pp-empty .pp-virtual-mark').count() == 1)
+            check('punto sin vídeos · solo el botón para añadir uno (v50.58)', page.locator('#pp-videos .pv-card').count() == 0 and page.locator('#pp-videos .pv-add-btn').count() == 1 and 'Vídeos del punto' not in txt)
             page.context.close()
 
             # ------------------------------------------------------------------------- móvil
@@ -260,9 +254,10 @@ def run(shots: Path | None):
             page.locator(sv).scroll_into_view_if_needed(); page.wait_for_timeout(300)
             page.evaluate("document.querySelector('#pm-track .pm-item').click()"); page.wait_for_timeout(500)
             shot(page, 'movil-ficha-con-bocadillo')
-            vid = page.evaluate(f"""document.querySelector("{route_cards} a.btn[href*='video=']").getAttribute('href')""")
-            go(page, vid, 1200)
-            check('móvil · el visor del recorrido ofrece «Abrir en la app de YouTube»', page.locator('.rv-app', has_text='Abrir en la app de YouTube').count() == 1)
+            page.keyboard.press('Escape'); page.wait_for_timeout(300)   # the species bubble first
+            page.locator('#pp-videos .pv-card.is-big').scroll_into_view_if_needed(); page.locator('#pp-videos .pv-card.is-big').tap(); page.wait_for_timeout(600)
+            check('móvil · el vídeo se abre a pantalla completa con «Ver en YouTube»', page.locator('#pv-m-ext', has_text='Ver en YouTube').count() == 1
+                  and page.evaluate("Math.abs(document.querySelector('.pv-m-box').getBoundingClientRect().width - innerWidth) < 2"))
             check('móvil · sin errores de JavaScript', not page.errors, page.errors)
             page.context.close()
 
@@ -287,7 +282,7 @@ def run(shots: Path | None):
                 h = page.inner_text('.pm-title').strip(); c = page.inner_text('.pm-count').strip(); names = page.inner_text('.pm-block')
                 page.locator(items, has_text=octo).click(); page.wait_for_timeout(400)
                 f = page.inner_text('#pm-pop .pm-freq').strip() if page.locator('#pm-pop').count() else ''
-                misses = page.evaluate("""() => { const t = [...document.querySelectorAll('.pm-block, #pm-pop, .pp-virtuals')].map(e => e.innerText).join('\\n');
+                misses = page.evaluate("""() => { const t = [...document.querySelectorAll('.pm-block, #pm-pop, #pp-videos')].map(e => e.innerText).join('\\n');
                                           return [...(window.__wdI18nMisses || [])].filter(m => t.includes(m)); }""")
                 check(f'idioma {lang} · título, número, nombres y bocadillo', h == head and c == count and octo in names and f == freq and not misses, (h, c, f, misses))
                 if lang in ('en', 'zh'): shot(page, f'ordenador-bocadillo-{lang}')
@@ -303,13 +298,13 @@ def run(shots: Path | None):
             check('centro · «Comprobar» trae el título y la miniatura', page.locator('.mk-prev img').count() == 1 and 'Ruta del pecio' in page.inner_text('.mk-prev'))
             page.fill('#mk-url', 'https://bit.ly/abc'); page.click('#mk-check'); page.wait_for_timeout(900)
             check('centro · enlace no válido: mensaje claro', 'enlace acortado' in page.inner_text('#mk-preview'), page.inner_text('#mk-preview'))
-            page.fill('#mk-url', 'https://youtu.be/hB3dEf6hI9k'); page.click('#mk-vform button[type=submit]'); page.wait_for_timeout(1800)
+            page.fill('#mk-url', 'https://youtu.be/hB3dEf6hI9k'); page.check('#mk-own'); page.click('#mk-vform button[type=submit]'); page.wait_for_timeout(1800)
             check('centro · su vídeo queda «Pendiente de aprobación»', page.locator('.mk-row', has_text='Ruta del pecio').locator('.status.warn').count() >= 1)
             go(page, '#/admin?tab=marina', 1800)
             check('centro · «Tus propuestas» con el estado', 'Pendiente de aprobación' in page.inner_text('.mk-panel'))
             shot(page, 'ordenador-panel-centro')
             pub = page_for(DESK); go(pub, f'#/punto?id={PID}', 1500)
-            check('pendiente · no se publica hasta que lo apruebe la administración', 'Ruta del pecio' not in pub.inner_text('.pp-virtuals')); pub.context.close()
+            check('pendiente · no se publica hasta que lo apruebe la administración', 'Ruta del pecio' not in pub.inner_text('#pp-videos')); pub.context.close()
             page.context.close()
 
             page = page_for(DESK)
@@ -333,8 +328,8 @@ def run(shots: Path | None):
             page.context.close()
 
             page = page_for(DESK); go(page, f'#/punto?id={PID}', 1500)
-            card = page.locator('.pp-virtual', has_text='Ruta del pecio')
-            check('aprobado · ya se ve en la ficha con quién lo aportó', card.count() == 1 and 'Centro marinae2e' in card.inner_text())
+            card = page.locator('#pp-videos .pv-card', has_text='Ruta del pecio')
+            check('aprobado · ya se ve en la ficha (v50.58: sin el nombre de quien lo aportó)', card.count() == 1 and 'Centro marinae2e' not in card.inner_text())
             page.context.close()
 
             page = page_for(DESK)

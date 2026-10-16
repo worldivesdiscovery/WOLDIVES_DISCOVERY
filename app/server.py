@@ -5008,6 +5008,8 @@ def marina_point_editor(db, user, pid, lang='es'):
     else:
         ctx = winq.require_ctx(db, user)
         vids = [v for v in wmarina.point_videos(db, pid, ('approved', 'pending', 'rejected'), False) if v['status'] == 'approved' or v['contributor_provider'] == ctx.key]
+        for v in vids:   # v50.58: a centre never learns who else sent a video (a diver's name is personal data)
+            if v['contributor_provider'] != ctx.key: v['contributor'] = ''
         sp = [s for s in wmarina.point_species(db, pid, lang, ('approved', 'pending', 'rejected'), False) if s['status'] == 'approved' or s['contributor_provider'] == ctx.key]
     key = None if user['role'] == 'admin' else winq.ctx_from_user(db, user).key
     for x in vids + sp:
@@ -16655,7 +16657,9 @@ class Handler(BaseHTTPRequestHandler):
                     st=legal_settings(db)
                     docs={LEGAL_PUBLIC_SLUGS.get(k,k):v for k,v in LEGAL_DOCS.items()}
                     self.send_json({'version':legal_doc_version(db,'terminos'),'versions':{LEGAL_PUBLIC_SLUGS.get(k,k):legal_doc_version(db,k) for k in LEGAL_DOCS},'docs':docs,
-                                    'owner':{k:st.get(k,'') for k in ('owner_name','trade_name','nif','address','email','phone')},'reasons':REPORT_REASONS}); return
+                                    'owner':{k:st.get(k,'') for k in ('owner_name','trade_name','nif','address','email','phone')},
+                                    'reasons':{k:v for k,v in REPORT_REASONS.items() if k not in VIDEO_REPORT_REASONS},
+                                    'video_reasons':{k:REPORT_REASONS[k] for k in VIDEO_REPORT_REASONS}}); return
                 if path == '/api/legal/history':
                     # Public history of a document: every version with its date and the summary of the changes.
                     slug=legal_slug(clean_text(query.get('slug',[''])[0],40) or '')

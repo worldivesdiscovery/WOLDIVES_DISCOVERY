@@ -10,6 +10,7 @@
 - **卫星图像：** Esri、Maxar、Earthstar Geographics 及 GIS 用户社区（[Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9)），依据 ArcGIS Location Platform 许可使用。
 - **水深测量：** GEBCO Compilation Group (2024) GEBCO 2024 Grid（[gebco.net](https://www.gebco.net)），注明出处即可自由使用。
 - **地点搜索：** Nominatim，数据 © OpenStreetMap contributors。
+- **海岸线**（用于核实每个潜点位于海中）：陆地数据 © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)，采用 Open Database License（ODbL）许可，由 geo-maps 项目简化（`countries-land-10m` 0.6.0）。
 
 ## 程序
 

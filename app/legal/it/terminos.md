@@ -34,6 +34,8 @@ Possiamo rimuovere contenuti e sospendere o chiudere gli account che violano le 
 
 Le recensioni, le foto e i suggerimenti che pubblichi devono essere tuoi e veritieri. Ci concedi un'autorizzazione, gratuita e non esclusiva, a mostrarli sulla piattaforma. Consulta le [Regole sulle recensioni](#/legal/normas-resenas). Puoi segnalare qualsiasi contenuto con il pulsante «Segnala».
 
+**Video dei siti di immersione.** Quando invii un video per la scheda di un sito dichiari che è di quel sito e che l'hai girato tu o hai il permesso del suo autore. {{trade_name}} non copia né conserva il video: lo mostra solo dalla piattaforma in cui è pubblicato (YouTube, Instagram o TikTok), con il lettore ufficiale di quella piattaforma. Lo verifichiamo prima di pubblicarlo. Chiunque può chiedere di ritirare un video con il pulsante «Segnala» («Non è di questo sito», «Contenuto inappropriato» o «È mio e non ho dato il permesso»); se lo chiede il suo autore, lo ritiriamo.
+
 ## 5. Avvisi dei centri
 
 {{trade_name}} non è un social network né dispone di messaggistica tra utenti. I centri possono inviarti soltanto **avvisi relativi alle tue prenotazioni** (ad esempio, una modifica dell'orario), che ricevi via email e in «Avvisi», con il loro telefono e indirizzo email affinché tu possa rispondere loro direttamente.

@@ -34,6 +34,8 @@ Wir können Inhalte entfernen und Konten sperren oder schließen, die gegen dies
 
 Die Bewertungen, Fotos und Vorschläge, die Sie veröffentlichen, müssen von Ihnen stammen und wahr sein. Sie erteilen uns die unentgeltliche, nicht ausschließliche Erlaubnis, sie auf der Plattform anzuzeigen. Lesen Sie die [Bewertungsregeln](#/legal/normas-resenas). Sie können jeden Inhalt über die Schaltfläche „Melden“ melden.
 
+**Videos von Tauchplätzen.** Wenn du ein Video für die Seite eines Tauchplatzes sendest, erklärst du, dass es diesen Platz zeigt und dass du es gefilmt hast oder die Erlaubnis des Urhebers hast. {{trade_name}} kopiert oder speichert das Video nicht: Es wird nur von der Plattform gezeigt, auf der es veröffentlicht ist (YouTube, Instagram oder TikTok), mit dem offiziellen Player dieser Plattform. Wir prüfen es vor der Veröffentlichung. Jede Person kann über die Schaltfläche „Melden“ die Entfernung eines Videos verlangen („Es ist nicht von diesem Tauchplatz“, „Unangemessener Inhalt“ oder „Es gehört mir und ich habe keine Erlaubnis gegeben“); verlangt es der Urheber, entfernen wir es.
+
 ## 5. Mitteilungen der Zentren
 
 {{trade_name}} ist kein soziales Netzwerk und bietet keinen Nachrichtenaustausch zwischen Nutzern. Die Zentren können Ihnen nur **Mitteilungen zu Ihren Buchungen** senden (zum Beispiel eine Zeitänderung), die Sie per E-Mail und unter „Mitteilungen“ erhalten, mit Telefonnummer und E-Mail-Adresse des Zentrums, damit Sie direkt antworten können.

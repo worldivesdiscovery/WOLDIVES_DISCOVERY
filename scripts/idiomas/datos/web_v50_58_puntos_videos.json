@@ -1,0 +1,2966 @@
+{
+ "exact": {
+  "Vídeos del punto": {
+   "en": "Videos of this dive site",
+   "fr": "Vidéos du site",
+   "de": "Videos dieses Tauchplatzes",
+   "it": "Video del sito",
+   "pt": "Vídeos do local",
+   "pl": "Filmy z tego miejsca",
+   "nl": "Video's van deze duikplek",
+   "zh": "潜点视频"
+  },
+  "Vídeo del punto": {
+   "en": "Dive site video",
+   "fr": "Vidéo du site",
+   "de": "Video des Tauchplatzes",
+   "it": "Video del sito",
+   "pt": "Vídeo do local",
+   "pl": "Film z miejsca",
+   "nl": "Video van de duikplek",
+   "zh": "潜点视频"
+  },
+  "Añadir un vídeo de este punto": {
+   "en": "Add a video of this dive site",
+   "fr": "Ajouter une vidéo de ce site",
+   "de": "Ein Video dieses Tauchplatzes hinzufügen",
+   "it": "Aggiungi un video di questo sito",
+   "pt": "Adicionar um vídeo deste local",
+   "pl": "Dodaj film z tego miejsca",
+   "nl": "Een video van deze duikplek toevoegen",
+   "zh": "添加此潜点的视频"
+  },
+  "Más vídeos": {
+   "en": "More videos",
+   "fr": "Plus de vidéos",
+   "de": "Weitere Videos",
+   "it": "Altri video",
+   "pt": "Mais vídeos",
+   "pl": "Więcej filmów",
+   "nl": "Meer video's",
+   "zh": "更多视频"
+  },
+  "Reproducir": {
+   "en": "Play",
+   "fr": "Lire",
+   "de": "Abspielen",
+   "it": "Riproduci",
+   "pt": "Reproduzir",
+   "pl": "Odtwórz",
+   "nl": "Afspelen",
+   "zh": "播放"
+  },
+  "Ver en": {
+   "en": "Watch on",
+   "fr": "Voir sur",
+   "de": "Ansehen auf",
+   "it": "Guarda su",
+   "pt": "Ver no",
+   "pl": "Zobacz w",
+   "nl": "Bekijken op",
+   "zh": "前往观看："
+  },
+  "Ver en Instagram": {
+   "en": "Watch on Instagram",
+   "fr": "Voir sur Instagram",
+   "de": "Auf Instagram ansehen",
+   "it": "Guarda su Instagram",
+   "pt": "Ver no Instagram",
+   "pl": "Zobacz na Instagramie",
+   "nl": "Bekijken op Instagram",
+   "zh": "在 Instagram 上观看"
+  },
+  "Este vídeo ya no está disponible": {
+   "en": "This video is no longer available",
+   "fr": "Cette vidéo n'est plus disponible",
+   "de": "Dieses Video ist nicht mehr verfügbar",
+   "it": "Questo video non è più disponibile",
+   "pt": "Este vídeo já não está disponível",
+   "pl": "Ten film nie jest już dostępny",
+   "nl": "Deze video is niet meer beschikbaar",
+   "zh": "此视频已不可用"
+  },
+  "Este vídeo se ve en su plataforma": {
+   "en": "This video plays on its own platform",
+   "fr": "Cette vidéo se regarde sur sa plateforme",
+   "de": "Dieses Video läuft auf seiner Plattform",
+   "it": "Questo video si guarda sulla sua piattaforma",
+   "pt": "Este vídeo vê-se na sua plataforma",
+   "pl": "Ten film można obejrzeć na jego platformie",
+   "nl": "Deze video bekijk je op het eigen platform",
+   "zh": "此视频需在原平台观看"
+  },
+  "Este vídeo se reproduce desde YouTube, Instagram o TikTok, que pueden usar cookies.": {
+   "en": "This video plays from YouTube, Instagram or TikTok, which may use cookies.",
+   "fr": "Cette vidéo est lue depuis YouTube, Instagram ou TikTok, qui peuvent utiliser des cookies.",
+   "de": "Dieses Video wird von YouTube, Instagram oder TikTok abgespielt, die Cookies verwenden können.",
+   "it": "Questo video viene riprodotto da YouTube, Instagram o TikTok, che possono usare cookie.",
+   "pt": "Este vídeo é reproduzido a partir do YouTube, Instagram ou TikTok, que podem usar cookies.",
+   "pl": "Ten film jest odtwarzany z YouTube, Instagrama lub TikToka, które mogą używać plików cookie.",
+   "nl": "Deze video wordt afgespeeld via YouTube, Instagram of TikTok, die cookies kunnen gebruiken.",
+   "zh": "此视频通过 YouTube、Instagram 或 TikTok 播放，它们可能会使用 Cookie。"
+  },
+  "Vídeo anterior": {
+   "en": "Previous video",
+   "fr": "Vidéo précédente",
+   "de": "Vorheriges Video",
+   "it": "Video precedente",
+   "pt": "Vídeo anterior",
+   "pl": "Poprzedni film",
+   "nl": "Vorige video",
+   "zh": "上一个视频"
+  },
+  "Vídeo siguiente": {
+   "en": "Next video",
+   "fr": "Vidéo suivante",
+   "de": "Nächstes Video",
+   "it": "Video successivo",
+   "pt": "Vídeo seguinte",
+   "pl": "Następny film",
+   "nl": "Volgende video",
+   "zh": "下一个视频"
+  },
+  "Para añadir vídeos te falta:": {
+   "en": "To add videos you still need:",
+   "fr": "Pour ajouter des vidéos, il vous manque :",
+   "de": "Um Videos hinzuzufügen, fehlt dir noch:",
+   "it": "Per aggiungere video ti manca:",
+   "pt": "Para adicionar vídeos falta-te:",
+   "pl": "Aby dodawać filmy, brakuje ci:",
+   "nl": "Om video’s toe te voegen mis je nog:",
+   "zh": "要添加视频，你还需要："
+  },
+  "Confirmar tu correo electrónico": {
+   "en": "Confirm your email address",
+   "fr": "Confirmer votre adresse e-mail",
+   "de": "Deine E-Mail-Adresse bestätigen",
+   "it": "Confermare il tuo indirizzo email",
+   "pt": "Confirmar o teu e-mail",
+   "pl": "Potwierdzić adres e-mail",
+   "nl": "Je e-mailadres bevestigen",
+   "zh": "确认你的电子邮箱"
+  },
+  "Tu nombre y apellidos": {
+   "en": "Your full name",
+   "fr": "Vos nom et prénom",
+   "de": "Dein vollständiger Name",
+   "it": "Il tuo nome e cognome",
+   "pt": "O teu nome completo",
+   "pl": "Imię i nazwisko",
+   "nl": "Je voor- en achternaam",
+   "zh": "你的姓名"
+  },
+  "Tu país": {
+   "en": "Your country",
+   "fr": "Votre pays",
+   "de": "Dein Land",
+   "it": "Il tuo paese",
+   "pt": "O teu país",
+   "pl": "Twój kraj",
+   "nl": "Je land",
+   "zh": "你的国家"
+  },
+  "Tu nivel de certificación": {
+   "en": "Your certification level",
+   "fr": "Votre niveau de certification",
+   "de": "Dein Brevet-Level",
+   "it": "Il tuo livello di brevetto",
+   "pt": "O teu nível de certificação",
+   "pl": "Twój poziom uprawnień",
+   "nl": "Je brevetniveau",
+   "zh": "你的潜水证书等级"
+  },
+  "Que WORLDIVES verifique tu centro": {
+   "en": "WORLDIVES verifying your centre",
+   "fr": "La vérification de votre centre par WORLDIVES",
+   "de": "Die Prüfung deines Zentrums durch WORLDIVES",
+   "it": "La verifica del tuo centro da parte di WORLDIVES",
+   "pt": "Que a WORLDIVES verifique o teu centro",
+   "pl": "Weryfikacji twojego centrum przez WORLDIVES",
+   "nl": "Dat WORLDIVES je centrum verifieert",
+   "zh": "WORLDIVES 对你的潜水中心的审核"
+  },
+  "Reenviar el correo de confirmación": {
+   "en": "Resend the confirmation email",
+   "fr": "Renvoyer l'e-mail de confirmation",
+   "de": "Bestätigungs-E-Mail erneut senden",
+   "it": "Invia di nuovo l'email di conferma",
+   "pt": "Reenviar o e-mail de confirmação",
+   "pl": "Wyślij ponownie e-mail potwierdzający",
+   "nl": "Bevestigingsmail opnieuw sturen",
+   "zh": "重新发送确认邮件"
+  },
+  "Enlace del vídeo": {
+   "en": "Video link",
+   "fr": "Lien de la vidéo",
+   "de": "Link zum Video",
+   "it": "Link del video",
+   "pt": "Link do vídeo",
+   "pl": "Link do filmu",
+   "nl": "Link naar de video",
+   "zh": "视频链接"
+  },
+  "YouTube (también Shorts), Instagram (publicaciones y Reels) o TikTok.": {
+   "en": "YouTube (Shorts too), Instagram (posts and Reels) or TikTok.",
+   "fr": "YouTube (Shorts compris), Instagram (publications et Reels) ou TikTok.",
+   "de": "YouTube (auch Shorts), Instagram (Beiträge und Reels) oder TikTok.",
+   "it": "YouTube (anche Shorts), Instagram (post e Reels) o TikTok.",
+   "pt": "YouTube (também Shorts), Instagram (publicações e Reels) ou TikTok.",
+   "pl": "YouTube (również Shorts), Instagram (posty i rolki) lub TikTok.",
+   "nl": "YouTube (ook Shorts), Instagram (berichten en Reels) of TikTok.",
+   "zh": "YouTube（含 Shorts）、Instagram（帖子和 Reels）或 TikTok。"
+  },
+  "Título corto": {
+   "en": "Short title",
+   "fr": "Titre court",
+   "de": "Kurzer Titel",
+   "it": "Titolo breve",
+   "pt": "Título curto",
+   "pl": "Krótki tytuł",
+   "nl": "Korte titel",
+   "zh": "简短标题"
+  },
+  "Si lo dejas vacío, se usa el de la plataforma": {
+   "en": "If you leave it empty, the platform's title is used",
+   "fr": "Si vous le laissez vide, celui de la plateforme est utilisé",
+   "de": "Wenn du es leer lässt, wird der Titel der Plattform verwendet",
+   "it": "Se lo lasci vuoto, si usa quello della piattaforma",
+   "pt": "Se o deixares vazio, usa-se o da plataforma",
+   "pl": "Jeśli zostawisz puste, użyty zostanie tytuł z platformy",
+   "nl": "Laat je het leeg, dan wordt de titel van het platform gebruikt",
+   "zh": "留空则使用平台上的标题"
+  },
+  "El vídeo es de este punto de buceo y lo he grabado yo o tengo permiso de su autor": {
+   "en": "The video is of this dive site and I filmed it or have permission from its author",
+   "fr": "La vidéo est de ce site de plongée et je l'ai filmée ou j'ai l'autorisation de son auteur",
+   "de": "Das Video zeigt diesen Tauchplatz und ich habe es selbst gefilmt oder die Erlaubnis des Urhebers",
+   "it": "Il video è di questo sito di immersione e l'ho girato io o ho il permesso del suo autore",
+   "pt": "O vídeo é deste local de mergulho e fui eu que o gravei ou tenho autorização do autor",
+   "pl": "Film pochodzi z tego miejsca nurkowego i nagrałem go sam albo mam zgodę autora",
+   "nl": "De video is van deze duikplek en ik heb hem zelf gefilmd of heb toestemming van de maker",
+   "zh": "该视频拍摄于此潜点，由我本人拍摄或已获得作者许可"
+  },
+  "Solo guardamos el enlace: el vídeo sigue en su plataforma. Antes de publicarlo lo revisa el equipo de WORLDIVES.": {
+   "en": "We only keep the link: the video stays on its platform. The WORLDIVES team reviews it before publishing it.",
+   "fr": "Nous ne gardons que le lien : la vidéo reste sur sa plateforme. L'équipe WORLDIVES la vérifie avant de la publier.",
+   "de": "Wir speichern nur den Link: Das Video bleibt auf seiner Plattform. Das WORLDIVES-Team prüft es vor der Veröffentlichung.",
+   "it": "Conserviamo solo il link: il video resta sulla sua piattaforma. Il team di WORLDIVES lo verifica prima di pubblicarlo.",
+   "pt": "Só guardamos o link: o vídeo continua na sua plataforma. A equipa da WORLDIVES revê-o antes de o publicar.",
+   "pl": "Zapisujemy tylko link: film pozostaje na swojej platformie. Zespół WORLDIVES sprawdza go przed publikacją.",
+   "nl": "We bewaren alleen de link: de video blijft op het eigen platform. Het WORLDIVES-team bekijkt hem voordat hij wordt gepubliceerd.",
+   "zh": "我们只保存链接，视频仍保留在原平台。WORLDIVES 团队会在发布前进行审核。"
+  },
+  "Condiciones de uso": {
+   "en": "Terms of use",
+   "fr": "Conditions d'utilisation",
+   "de": "Nutzungsbedingungen",
+   "it": "Condizioni d'uso",
+   "pt": "Condições de utilização",
+   "pl": "Warunki korzystania",
+   "nl": "Gebruiksvoorwaarden",
+   "zh": "使用条款"
+  },
+  "Enviar el vídeo": {
+   "en": "Send the video",
+   "fr": "Envoyer la vidéo",
+   "de": "Video senden",
+   "it": "Invia il video",
+   "pt": "Enviar o vídeo",
+   "pl": "Wyślij film",
+   "nl": "Video versturen",
+   "zh": "提交视频"
+  },
+  "Pega el enlace del vídeo.": {
+   "en": "Paste the link of the video.",
+   "fr": "Collez le lien de la vidéo.",
+   "de": "Füge den Link zum Video ein.",
+   "it": "Incolla il link del video.",
+   "pt": "Cola o link do vídeo.",
+   "pl": "Wklej link do filmu.",
+   "nl": "Plak de link naar de video.",
+   "zh": "请粘贴视频链接。"
+  },
+  "Marca la casilla: el vídeo es de este punto y lo has grabado tú o tienes permiso de su autor.": {
+   "en": "Tick the box: the video is of this dive site and you filmed it or have permission from its author.",
+   "fr": "Cochez la case : la vidéo est de ce site et vous l'avez filmée ou avez l'autorisation de son auteur.",
+   "de": "Setze das Häkchen: Das Video zeigt diesen Tauchplatz und du hast es gefilmt oder die Erlaubnis des Urhebers.",
+   "it": "Spunta la casella: il video è di questo sito e l'hai girato tu o hai il permesso del suo autore.",
+   "pt": "Marca a caixa: o vídeo é deste local e foste tu que o gravaste ou tens autorização do autor.",
+   "pl": "Zaznacz pole: film pochodzi z tego miejsca i nagrałeś go sam albo masz zgodę autora.",
+   "nl": "Vink het vakje aan: de video is van deze duikplek en je hebt hem zelf gefilmd of toestemming van de maker.",
+   "zh": "请勾选：该视频拍摄于此潜点，由你本人拍摄或已获得作者许可。"
+  },
+  "Gracias. Lo revisaremos antes de publicarlo.": {
+   "en": "Thank you. We'll review it before publishing it.",
+   "fr": "Merci. Nous la vérifierons avant de la publier.",
+   "de": "Danke. Wir prüfen es vor der Veröffentlichung.",
+   "it": "Grazie. Lo verificheremo prima di pubblicarlo.",
+   "pt": "Obrigado. Vamos revê-lo antes de o publicar.",
+   "pl": "Dziękujemy. Sprawdzimy go przed publikacją.",
+   "nl": "Bedankt. We bekijken hem voordat we hem publiceren.",
+   "zh": "谢谢！我们会在发布前进行审核。"
+  },
+  "Vídeo publicado.": {
+   "en": "Video published.",
+   "fr": "Vidéo publiée.",
+   "de": "Video veröffentlicht.",
+   "it": "Video pubblicato.",
+   "pt": "Vídeo publicado.",
+   "pl": "Film opublikowany.",
+   "nl": "Video gepubliceerd.",
+   "zh": "视频已发布。"
+  },
+  "Este vídeo ya está en este punto.": {
+   "en": "This video is already on this dive site.",
+   "fr": "Cette vidéo est déjà sur ce site.",
+   "de": "Dieses Video ist schon bei diesem Tauchplatz.",
+   "it": "Questo video è già in questo sito.",
+   "pt": "Este vídeo já está neste local.",
+   "pl": "Ten film jest już w tym miejscu.",
+   "nl": "Deze video staat al bij deze duikplek.",
+   "zh": "此视频已在该潜点中。"
+  },
+  "Este vídeo ya está enviado para este punto y espera la revisión.": {
+   "en": "This video has already been sent for this dive site and is awaiting review.",
+   "fr": "Cette vidéo a déjà été envoyée pour ce site et attend la vérification.",
+   "de": "Dieses Video wurde für diesen Tauchplatz bereits gesendet und wartet auf Prüfung.",
+   "it": "Questo video è già stato inviato per questo sito ed è in attesa di revisione.",
+   "pt": "Este vídeo já foi enviado para este local e aguarda revisão.",
+   "pl": "Ten film został już przesłany dla tego miejsca i czeka na sprawdzenie.",
+   "nl": "Deze video is al ingestuurd voor deze duikplek en wacht op controle.",
+   "zh": "此视频已为该潜点提交，正在等待审核。"
+  },
+  "Ese enlace no se admite. Solo se admiten vídeos de YouTube (también Shorts), Instagram (publicaciones y Reels) y TikTok.": {
+   "en": "That link is not accepted. Only videos from YouTube (Shorts too), Instagram (posts and Reels) and TikTok are accepted.",
+   "fr": "Ce lien n'est pas accepté. Seules les vidéos YouTube (Shorts compris), Instagram (publications et Reels) et TikTok sont acceptées.",
+   "de": "Dieser Link wird nicht akzeptiert. Nur Videos von YouTube (auch Shorts), Instagram (Beiträge und Reels) und TikTok sind erlaubt.",
+   "it": "Questo link non è ammesso. Sono ammessi solo video di YouTube (anche Shorts), Instagram (post e Reels) e TikTok.",
+   "pt": "Esse link não é aceite. Só se aceitam vídeos do YouTube (também Shorts), Instagram (publicações e Reels) e TikTok.",
+   "pl": "Ten link nie jest akceptowany. Akceptujemy tylko filmy z YouTube (również Shorts), Instagrama (posty i rolki) i TikToka.",
+   "nl": "Die link wordt niet geaccepteerd. Alleen video's van YouTube (ook Shorts), Instagram (berichten en Reels) en TikTok zijn toegestaan.",
+   "zh": "不接受该链接。仅接受 YouTube（含 Shorts）、Instagram（帖子和 Reels）和 TikTok 的视频。"
+  },
+  "Has llegado al límite de 5 vídeos en 24 horas. Podrás añadir más mañana.": {
+   "en": "You've reached the limit of 5 videos in 24 hours. You can add more tomorrow.",
+   "fr": "Vous avez atteint la limite de 5 vidéos en 24 heures. Vous pourrez en ajouter demain.",
+   "de": "Du hast das Limit von 5 Videos in 24 Stunden erreicht. Morgen kannst du weitere hinzufügen.",
+   "it": "Hai raggiunto il limite di 5 video in 24 ore. Potrai aggiungerne altri domani.",
+   "pt": "Atingiste o limite de 5 vídeos em 24 horas. Poderás adicionar mais amanhã.",
+   "pl": "Osiągnąłeś limit 5 filmów w ciągu 24 godzin. Kolejne dodasz jutro.",
+   "nl": "Je hebt de limiet van 5 video's in 24 uur bereikt. Morgen kun je er meer toevoegen.",
+   "zh": "你已达到 24 小时内 5 个视频的上限，明天可以继续添加。"
+  },
+  "Confirma que el vídeo es de este punto de buceo y que lo has grabado tú o tienes permiso de su autor.": {
+   "en": "Confirm that the video is of this dive site and that you filmed it or have permission from its author.",
+   "fr": "Confirmez que la vidéo est de ce site de plongée et que vous l'avez filmée ou avez l'autorisation de son auteur.",
+   "de": "Bestätige, dass das Video diesen Tauchplatz zeigt und du es gefilmt hast oder die Erlaubnis des Urhebers hast.",
+   "it": "Conferma che il video è di questo sito di immersione e che l'hai girato tu o hai il permesso del suo autore.",
+   "pt": "Confirma que o vídeo é deste local de mergulho e que foste tu que o gravaste ou tens autorização do autor.",
+   "pl": "Potwierdź, że film pochodzi z tego miejsca nurkowego i że nagrałeś go sam albo masz zgodę autora.",
+   "nl": "Bevestig dat de video van deze duikplek is en dat je hem zelf hebt gefilmd of toestemming van de maker hebt.",
+   "zh": "请确认该视频拍摄于此潜点，且由你本人拍摄或已获得作者许可。"
+  },
+  "El vídeo no existe o se ha borrado. Así no se puede añadir.": {
+   "en": "The video doesn't exist or has been deleted. It can't be added.",
+   "fr": "La vidéo n'existe pas ou a été supprimée. Elle ne peut pas être ajoutée.",
+   "de": "Das Video existiert nicht oder wurde gelöscht. Es kann nicht hinzugefügt werden.",
+   "it": "Il video non esiste o è stato eliminato. Non si può aggiungere.",
+   "pt": "O vídeo não existe ou foi apagado. Assim não se pode adicionar.",
+   "pl": "Film nie istnieje lub został usunięty. Nie można go dodać.",
+   "nl": "De video bestaat niet of is verwijderd. Zo kan hij niet worden toegevoegd.",
+   "zh": "视频不存在或已被删除，无法添加。"
+  },
+  "El vídeo es privado: solo lo ve su autor. Así no se puede añadir.": {
+   "en": "The video is private: only its author can see it. It can't be added.",
+   "fr": "La vidéo est privée : seul son auteur peut la voir. Elle ne peut pas être ajoutée.",
+   "de": "Das Video ist privat: Nur der Urheber kann es sehen. Es kann nicht hinzugefügt werden.",
+   "it": "Il video è privato: lo vede solo il suo autore. Non si può aggiungere.",
+   "pt": "O vídeo é privado: só o autor o vê. Assim não se pode adicionar.",
+   "pl": "Film jest prywatny: widzi go tylko autor. Nie można go dodać.",
+   "nl": "De video is privé: alleen de maker kan hem zien. Zo kan hij niet worden toegevoegd.",
+   "zh": "该视频为私密视频，仅作者可见，无法添加。"
+  },
+  "El autor no permite ver este vídeo en otras webs. Así no se puede añadir.": {
+   "en": "The author doesn't allow this video to be shown on other websites. It can't be added.",
+   "fr": "L'auteur ne permet pas d'afficher cette vidéo sur d'autres sites. Elle ne peut pas être ajoutée.",
+   "de": "Der Urheber erlaubt nicht, dieses Video auf anderen Websites zu zeigen. Es kann nicht hinzugefügt werden.",
+   "it": "L'autore non consente di vedere questo video su altri siti. Non si può aggiungere.",
+   "pt": "O autor não permite ver este vídeo noutros sites. Assim não se pode adicionar.",
+   "pl": "Autor nie pozwala wyświetlać tego filmu na innych stronach. Nie można go dodać.",
+   "nl": "De maker staat niet toe dat deze video op andere websites wordt getoond. Zo kan hij niet worden toegevoegd.",
+   "zh": "作者不允许在其他网站展示此视频，无法添加。"
+  },
+  "Denunciar": {
+   "en": "Report",
+   "fr": "Signaler",
+   "de": "Melden",
+   "it": "Segnala",
+   "pt": "Denunciar",
+   "pl": "Zgłoś",
+   "nl": "Melden",
+   "zh": "举报"
+  },
+  "No es de este punto": {
+   "en": "It isn't from this dive site",
+   "fr": "Elle n'est pas de ce site",
+   "de": "Es ist nicht von diesem Tauchplatz",
+   "it": "Non è di questo sito",
+   "pt": "Não é deste local",
+   "pl": "Nie pochodzi z tego miejsca",
+   "nl": "Het is niet van deze duikplek",
+   "zh": "不是此潜点的视频"
+  },
+  "Contenido inadecuado": {
+   "en": "Inappropriate content",
+   "fr": "Contenu inapproprié",
+   "de": "Unangemessener Inhalt",
+   "it": "Contenuto inappropriato",
+   "pt": "Conteúdo inadequado",
+   "pl": "Nieodpowiednia treść",
+   "nl": "Ongepaste inhoud",
+   "zh": "内容不当"
+  },
+  "Es mío y no di permiso": {
+   "en": "It's mine and I didn't give permission",
+   "fr": "C'est le mien et je n'ai pas donné mon autorisation",
+   "de": "Es gehört mir und ich habe keine Erlaubnis gegeben",
+   "it": "È mio e non ho dato il permesso",
+   "pt": "É meu e não dei autorização",
+   "pl": "To mój film i nie wyraziłem zgody",
+   "nl": "Het is van mij en ik heb geen toestemming gegeven",
+   "zh": "这是我的视频，我没有授权"
+  },
+  "Por ejemplo, dónde está el vídeo original": {
+   "en": "For example, where the original video is",
+   "fr": "Par exemple, où se trouve la vidéo originale",
+   "de": "Zum Beispiel, wo das Originalvideo ist",
+   "it": "Per esempio, dove si trova il video originale",
+   "pt": "Por exemplo, onde está o vídeo original",
+   "pl": "Na przykład, gdzie jest oryginalny film",
+   "nl": "Bijvoorbeeld waar de originele video staat",
+   "zh": "例如，原始视频的位置"
+  },
+  "Vídeos de puntos": {
+   "en": "Dive site videos",
+   "fr": "Vidéos des sites",
+   "de": "Videos der Tauchplätze",
+   "it": "Video dei siti",
+   "pt": "Vídeos dos locais",
+   "pl": "Filmy z miejsc",
+   "nl": "Video's van duikplekken",
+   "zh": "潜点视频"
+  },
+  "Pendientes": {
+   "en": "Pending",
+   "fr": "En attente",
+   "de": "Ausstehend",
+   "it": "In attesa",
+   "pt": "Pendentes",
+   "pl": "Oczekujące",
+   "nl": "In behandeling",
+   "zh": "待审核"
+  },
+  "Publicados": {
+   "en": "Published",
+   "fr": "Publiées",
+   "de": "Veröffentlicht",
+   "it": "Pubblicati",
+   "pt": "Publicados",
+   "pl": "Opublikowane",
+   "nl": "Gepubliceerd",
+   "zh": "已发布"
+  },
+  "Denunciados": {
+   "en": "Reported",
+   "fr": "Signalées",
+   "de": "Gemeldet",
+   "it": "Segnalati",
+   "pt": "Denunciados",
+   "pl": "Zgłoszone",
+   "nl": "Gemeld",
+   "zh": "被举报"
+  },
+  "Elegir todos": {
+   "en": "Select all",
+   "fr": "Tout sélectionner",
+   "de": "Alle auswählen",
+   "it": "Seleziona tutti",
+   "pt": "Escolher todos",
+   "pl": "Zaznacz wszystkie",
+   "nl": "Alles selecteren",
+   "zh": "全选"
+  },
+  "Elegir": {
+   "en": "Select",
+   "fr": "Sélectionner",
+   "de": "Auswählen",
+   "it": "Seleziona",
+   "pt": "Escolher",
+   "pl": "Zaznacz",
+   "nl": "Selecteren",
+   "zh": "选择"
+  },
+  "Aprobar los elegidos": {
+   "en": "Approve the selected ones",
+   "fr": "Approuver la sélection",
+   "de": "Ausgewählte freigeben",
+   "it": "Approva i selezionati",
+   "pt": "Aprovar os escolhidos",
+   "pl": "Zatwierdź zaznaczone",
+   "nl": "Geselecteerde goedkeuren",
+   "zh": "批准所选"
+  },
+  "Arrastra los vídeos (o usa las flechas) para cambiar el orden en la ficha. El destacado sale el primero y en grande.": {
+   "en": "Drag the videos (or use the arrows) to change their order on the page. The featured one comes first and large.",
+   "fr": "Faites glisser les vidéos (ou utilisez les flèches) pour changer l'ordre sur la fiche. La vidéo à la une apparaît en premier et en grand.",
+   "de": "Ziehe die Videos (oder nutze die Pfeile), um die Reihenfolge auf der Seite zu ändern. Das hervorgehobene kommt zuerst und groß.",
+   "it": "Trascina i video (o usa le frecce) per cambiare l'ordine nella scheda. Quello in evidenza appare per primo e in grande.",
+   "pt": "Arrasta os vídeos (ou usa as setas) para mudar a ordem na ficha. O destacado aparece primeiro e em grande.",
+   "pl": "Przeciągnij filmy (lub użyj strzałek), aby zmienić kolejność na stronie. Wyróżniony jest pierwszy i duży.",
+   "nl": "Sleep de video's (of gebruik de pijlen) om de volgorde op de pagina te wijzigen. De uitgelichte komt eerst en groot.",
+   "zh": "拖动视频（或使用箭头）即可调整页面上的顺序。精选视频会排在首位并大图显示。"
+  },
+  "No hay vídeos pendientes.": {
+   "en": "No videos pending.",
+   "fr": "Aucune vidéo en attente.",
+   "de": "Keine ausstehenden Videos.",
+   "it": "Nessun video in attesa.",
+   "pt": "Não há vídeos pendentes.",
+   "pl": "Brak oczekujących filmów.",
+   "nl": "Geen video's in behandeling.",
+   "zh": "没有待审核的视频。"
+  },
+  "Todavía no hay vídeos publicados.": {
+   "en": "No videos published yet.",
+   "fr": "Aucune vidéo publiée pour le moment.",
+   "de": "Noch keine veröffentlichten Videos.",
+   "it": "Ancora nessun video pubblicato.",
+   "pt": "Ainda não há vídeos publicados.",
+   "pl": "Nie ma jeszcze opublikowanych filmów.",
+   "nl": "Nog geen gepubliceerde video's.",
+   "zh": "尚无已发布的视频。"
+  },
+  "No hay vídeos denunciados.": {
+   "en": "No reported videos.",
+   "fr": "Aucune vidéo signalée.",
+   "de": "Keine gemeldeten Videos.",
+   "it": "Nessun video segnalato.",
+   "pt": "Não há vídeos denunciados.",
+   "pl": "Brak zgłoszonych filmów.",
+   "nl": "Geen gemelde video's.",
+   "zh": "没有被举报的视频。"
+  },
+  "Ver el vídeo": {
+   "en": "Watch the video",
+   "fr": "Voir la vidéo",
+   "de": "Video ansehen",
+   "it": "Guarda il video",
+   "pt": "Ver o vídeo",
+   "pl": "Obejrzyj film",
+   "nl": "Video bekijken",
+   "zh": "观看视频"
+  },
+  "Sin título": {
+   "en": "Untitled",
+   "fr": "Sans titre",
+   "de": "Ohne Titel",
+   "it": "Senza titolo",
+   "pt": "Sem título",
+   "pl": "Bez tytułu",
+   "nl": "Zonder titel",
+   "zh": "无标题"
+  },
+  "Comprobado con la plataforma": {
+   "en": "Checked with the platform",
+   "fr": "Vérifié auprès de la plateforme",
+   "de": "Mit der Plattform geprüft",
+   "it": "Verificato con la piattaforma",
+   "pt": "Verificado com a plataforma",
+   "pl": "Sprawdzony na platformie",
+   "nl": "Gecontroleerd bij het platform",
+   "zh": "已通过平台核实"
+  },
+  "Sin comprobar: falta la clave de Meta": {
+   "en": "Not checked: the Meta key is missing",
+   "fr": "Non vérifié : la clé Meta manque",
+   "de": "Nicht geprüft: der Meta-Schlüssel fehlt",
+   "it": "Non verificato: manca la chiave di Meta",
+   "pt": "Não verificado: falta a chave da Meta",
+   "pl": "Niesprawdzony: brak klucza Meta",
+   "nl": "Niet gecontroleerd: de Meta-sleutel ontbreekt",
+   "zh": "未核实：缺少 Meta 密钥"
+  },
+  "Sin comprobación posible": {
+   "en": "Cannot be checked",
+   "fr": "Vérification impossible",
+   "de": "Keine Prüfung möglich",
+   "it": "Verifica non possibile",
+   "pt": "Sem verificação possível",
+   "pl": "Nie można sprawdzić",
+   "nl": "Controle niet mogelijk",
+   "zh": "无法核实"
+  },
+  "No se pudo comprobar": {
+   "en": "Couldn't be checked",
+   "fr": "N'a pas pu être vérifié",
+   "de": "Konnte nicht geprüft werden",
+   "it": "Non è stato possibile verificare",
+   "pt": "Não foi possível verificar",
+   "pl": "Nie udało się sprawdzić",
+   "nl": "Kon niet worden gecontroleerd",
+   "zh": "未能核实"
+  },
+  "Destacado": {
+   "en": "Featured",
+   "fr": "À la une",
+   "de": "Hervorgehoben",
+   "it": "In evidenza",
+   "pt": "Destacado",
+   "pl": "Wyróżniony",
+   "nl": "Uitgelicht",
+   "zh": "精选"
+  },
+  "Destacar": {
+   "en": "Feature",
+   "fr": "Mettre à la une",
+   "de": "Hervorheben",
+   "it": "Metti in evidenza",
+   "pt": "Destacar",
+   "pl": "Wyróżnij",
+   "nl": "Uitlichten",
+   "zh": "设为精选"
+  },
+  "Quitar destacado": {
+   "en": "Remove from featured",
+   "fr": "Retirer de la une",
+   "de": "Nicht mehr hervorheben",
+   "it": "Togli dall'evidenza",
+   "pt": "Tirar destaque",
+   "pl": "Usuń wyróżnienie",
+   "nl": "Niet meer uitlichten",
+   "zh": "取消精选"
+  },
+  "Comprobar": {
+   "en": "Check",
+   "fr": "Vérifier",
+   "de": "Prüfen",
+   "it": "Verifica",
+   "pt": "Verificar",
+   "pl": "Sprawdź",
+   "nl": "Controleren",
+   "zh": "检查"
+  },
+  "Retirar": {
+   "en": "Take down",
+   "fr": "Retirer",
+   "de": "Entfernen",
+   "it": "Ritira",
+   "pt": "Retirar",
+   "pl": "Wycofaj",
+   "nl": "Verwijderen",
+   "zh": "撤下"
+  },
+  "Mantener": {
+   "en": "Keep",
+   "fr": "Conserver",
+   "de": "Behalten",
+   "it": "Mantieni",
+   "pt": "Manter",
+   "pl": "Zostaw",
+   "nl": "Behouden",
+   "zh": "保留"
+  },
+  "Rechazar el vídeo": {
+   "en": "Reject the video",
+   "fr": "Refuser la vidéo",
+   "de": "Video ablehnen",
+   "it": "Rifiuta il video",
+   "pt": "Rejeitar o vídeo",
+   "pl": "Odrzuć film",
+   "nl": "Video afwijzen",
+   "zh": "拒绝该视频"
+  },
+  "(opcional, lo verá quien lo envió)": {
+   "en": "(optional, the sender will see it)",
+   "fr": "(facultatif, l'expéditeur le verra)",
+   "de": "(optional, der Absender sieht ihn)",
+   "it": "(facoltativo, lo vedrà chi lo ha inviato)",
+   "pt": "(opcional, quem o enviou verá)",
+   "pl": "(opcjonalnie, zobaczy go nadawca)",
+   "nl": "(optioneel, de afzender ziet het)",
+   "zh": "（可选，提交者会看到）"
+  },
+  "Borrar el vídeo": {
+   "en": "Delete the video",
+   "fr": "Supprimer la vidéo",
+   "de": "Video löschen",
+   "it": "Elimina il video",
+   "pt": "Apagar o vídeo",
+   "pl": "Usuń film",
+   "nl": "Video verwijderen",
+   "zh": "删除视频"
+  },
+  "Deja de verse en la ficha del punto. El vídeo sigue en su plataforma.": {
+   "en": "It will no longer appear on the dive site page. The video stays on its platform.",
+   "fr": "Elle n'apparaîtra plus sur la fiche du site. La vidéo reste sur sa plateforme.",
+   "de": "Es erscheint nicht mehr auf der Seite des Tauchplatzes. Das Video bleibt auf seiner Plattform.",
+   "it": "Non comparirà più nella scheda del sito. Il video resta sulla sua piattaforma.",
+   "pt": "Deixa de aparecer na ficha do local. O vídeo continua na sua plataforma.",
+   "pl": "Przestanie być widoczny na stronie miejsca. Film pozostaje na swojej platformie.",
+   "nl": "Hij verschijnt niet meer op de pagina van de duikplek. De video blijft op het eigen platform.",
+   "zh": "它将不再显示在潜点页面上，视频仍保留在原平台。"
+  },
+  "Vídeo borrado.": {
+   "en": "Video deleted.",
+   "fr": "Vidéo supprimée.",
+   "de": "Video gelöscht.",
+   "it": "Video eliminato.",
+   "pt": "Vídeo apagado.",
+   "pl": "Film usunięty.",
+   "nl": "Video verwijderd.",
+   "zh": "视频已删除。"
+  },
+  "Vídeo retirado. Se ha avisado a quien denunció.": {
+   "en": "Video taken down. The person who reported it has been told.",
+   "fr": "Vidéo retirée. La personne qui l’a signalée a été prévenue.",
+   "de": "Video entfernt. Die meldende Person wurde benachrichtigt.",
+   "it": "Video ritirato. Chi lo ha segnalato è stato avvisato.",
+   "pt": "Vídeo retirado. Avisámos quem o denunciou.",
+   "pl": "Film wycofany. Osoba zgłaszająca została powiadomiona.",
+   "nl": "Video verwijderd. Degene die het meldde, is op de hoogte gebracht.",
+   "zh": "视频已撤下，已通知举报人。"
+  },
+  "Se mantiene publicado. Se ha avisado a quien denunció.": {
+   "en": "It stays published. The person who reported it has been told.",
+   "fr": "Elle reste publiée. La personne qui l’a signalée a été prévenue.",
+   "de": "Es bleibt veröffentlicht. Die meldende Person wurde benachrichtigt.",
+   "it": "Resta pubblicato. Chi lo ha segnalato è stato avvisato.",
+   "pt": "Continua publicado. Avisámos quem o denunciou.",
+   "pl": "Pozostaje opublikowany. Osoba zgłaszająca została powiadomiona.",
+   "nl": "Hij blijft gepubliceerd. Degene die het meldde, is op de hoogte gebracht.",
+   "zh": "保持发布，已通知举报人。"
+  },
+  "El vídeo sigue disponible.": {
+   "en": "The video is still available.",
+   "fr": "La vidéo est toujours disponible.",
+   "de": "Das Video ist weiterhin verfügbar.",
+   "it": "Il video è ancora disponibile.",
+   "pt": "O vídeo continua disponível.",
+   "pl": "Film jest nadal dostępny.",
+   "nl": "De video is nog beschikbaar.",
+   "zh": "视频仍可观看。"
+  },
+  "Título guardado.": {
+   "en": "Title saved.",
+   "fr": "Titre enregistré.",
+   "de": "Titel gespeichert.",
+   "it": "Titolo salvato.",
+   "pt": "Título guardado.",
+   "pl": "Tytuł zapisany.",
+   "nl": "Titel opgeslagen.",
+   "zh": "标题已保存。"
+  },
+  "Publicado.": {
+   "en": "Published.",
+   "fr": "Publié.",
+   "de": "Veröffentlicht.",
+   "it": "Pubblicato.",
+   "pt": "Publicado.",
+   "pl": "Opublikowano.",
+   "nl": "Gepubliceerd.",
+   "zh": "已发布。"
+  },
+  "Rechazado.": {
+   "en": "Rejected.",
+   "fr": "Refusé.",
+   "de": "Abgelehnt.",
+   "it": "Rifiutato.",
+   "pt": "Rejeitado.",
+   "pl": "Odrzucono.",
+   "nl": "Afgewezen.",
+   "zh": "已拒绝。"
+  },
+  "Orden guardado.": {
+   "en": "Order saved.",
+   "fr": "Ordre enregistré.",
+   "de": "Reihenfolge gespeichert.",
+   "it": "Ordine salvato.",
+   "pt": "Ordem guardada.",
+   "pl": "Kolejność zapisana.",
+   "nl": "Volgorde opgeslagen.",
+   "zh": "顺序已保存。"
+  },
+  "Buceador": {
+   "en": "Diver",
+   "fr": "Plongeur",
+   "de": "Taucher",
+   "it": "Subacqueo",
+   "pt": "Mergulhador",
+   "pl": "Nurek",
+   "nl": "Duiker",
+   "zh": "潜水员"
+  },
+  "Centro": {
+   "en": "Centre",
+   "fr": "Centre",
+   "de": "Tauchzentrum",
+   "it": "Centro",
+   "pt": "Centro",
+   "pl": "Centrum",
+   "nl": "Duikcentrum",
+   "zh": "潜水中心"
+  },
+  "Freelance": {
+   "en": "Freelance",
+   "fr": "Freelance",
+   "de": "Freelancer",
+   "it": "Freelance",
+   "pt": "Freelance",
+   "pl": "Freelancer",
+   "nl": "Freelancer",
+   "zh": "自由职业者"
+  },
+  "Administración": {
+   "en": "Administration",
+   "fr": "Administration",
+   "de": "Verwaltung",
+   "it": "Amministrazione",
+   "pt": "Administração",
+   "pl": "Administracja",
+   "nl": "Beheer",
+   "zh": "管理"
+  },
+  "Retirado a petición de su autor.": {
+   "en": "Taken down at its author's request.",
+   "fr": "Retirée à la demande de son auteur.",
+   "de": "Auf Wunsch des Urhebers entfernt.",
+   "it": "Ritirato su richiesta del suo autore.",
+   "pt": "Retirado a pedido do autor.",
+   "pl": "Wycofany na prośbę autora.",
+   "nl": "Verwijderd op verzoek van de maker.",
+   "zh": "应作者要求已撤下。"
+  },
+  "Retirado tras revisar la denuncia.": {
+   "en": "Taken down after reviewing the report.",
+   "fr": "Retirée après examen du signalement.",
+   "de": "Nach Prüfung der Meldung entfernt.",
+   "it": "Ritirato dopo aver esaminato la segnalazione.",
+   "pt": "Retirado após rever a denúncia.",
+   "pl": "Wycofany po rozpatrzeniu zgłoszenia.",
+   "nl": "Verwijderd na controle van de melding.",
+   "zh": "经审核举报后已撤下。"
+  },
+  "Se guarda el enlace, nunca el archivo.": {
+   "en": "The link is kept, never the file.",
+   "fr": "Le lien est conservé, jamais le fichier.",
+   "de": "Gespeichert wird der Link, nie die Datei.",
+   "it": "Si conserva il link, mai il file.",
+   "pt": "Guarda-se o link, nunca o ficheiro.",
+   "pl": "Zapisujemy link, nigdy plik.",
+   "nl": "De link wordt bewaard, nooit het bestand.",
+   "zh": "只保存链接，不保存文件。"
+  },
+  "YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram o cualquier otra plataforma de vídeo.": {
+   "en": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram or any other video platform.",
+   "fr": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram ou toute autre plateforme vidéo.",
+   "de": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram oder jede andere Videoplattform.",
+   "it": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram o qualsiasi altra piattaforma video.",
+   "pt": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram ou qualquer outra plataforma de vídeo.",
+   "pl": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram lub dowolna inna platforma wideo.",
+   "nl": "YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram of elk ander videoplatform.",
+   "zh": "YouTube、Vimeo、Dailymotion、TikTok、Facebook、Instagram 或其他任何视频平台。"
+  },
+  "Lo que propones lo revisa el equipo de WORLDIVES antes de publicarlo.": {
+   "en": "What you propose is reviewed by the WORLDIVES team before it is published.",
+   "fr": "Ce que vous proposez est vérifié par l'équipe WORLDIVES avant publication.",
+   "de": "Was du vorschlägst, prüft das WORLDIVES-Team vor der Veröffentlichung.",
+   "it": "Ciò che proponi viene verificato dal team di WORLDIVES prima della pubblicazione.",
+   "pt": "O que propões é revisto pela equipa da WORLDIVES antes de ser publicado.",
+   "pl": "Twoje propozycje sprawdza zespół WORLDIVES przed publikacją.",
+   "nl": "Wat je voorstelt, wordt door het WORLDIVES-team bekeken voordat het wordt gepubliceerd.",
+   "zh": "你提交的内容会在发布前由 WORLDIVES 团队审核。"
+  },
+  "Acceso": {
+   "en": "Access",
+   "fr": "Accès",
+   "de": "Zugang",
+   "it": "Accesso",
+   "pt": "Acesso",
+   "pl": "Dostęp",
+   "nl": "Toegang",
+   "zh": "入水方式"
+  },
+  "Barco": {
+   "en": "Boat",
+   "fr": "Bateau",
+   "de": "Boot",
+   "it": "Barca",
+   "pt": "Barco",
+   "pl": "Łódź",
+   "nl": "Boot",
+   "zh": "船潜"
+  },
+  "Costa": {
+   "en": "Shore",
+   "fr": "Bord",
+   "de": "Ufer",
+   "it": "Riva",
+   "pt": "Costa",
+   "pl": "Z brzegu",
+   "nl": "Kant",
+   "zh": "岸潜"
+  },
+  "Barco y costa": {
+   "en": "Boat and shore",
+   "fr": "Bateau et bord",
+   "de": "Boot und Ufer",
+   "it": "Barca e riva",
+   "pt": "Barco e costa",
+   "pl": "Łódź i brzeg",
+   "nl": "Boot en kant",
+   "zh": "船潜和岸潜"
+  },
+  "Barco o costa": {
+   "en": "Boat or shore",
+   "fr": "Bateau ou bord",
+   "de": "Boot oder Ufer",
+   "it": "Barca o riva",
+   "pt": "Barco ou costa",
+   "pl": "Łódź lub brzeg",
+   "nl": "Boot of kant",
+   "zh": "船潜或岸潜"
+  },
+  "Corriente": {
+   "en": "Current",
+   "fr": "Courant",
+   "de": "Strömung",
+   "it": "Corrente",
+   "pt": "Corrente",
+   "pl": "Prąd",
+   "nl": "Stroming",
+   "zh": "水流"
+  },
+  "Nula": {
+   "en": "None",
+   "fr": "Nul",
+   "de": "Keine",
+   "it": "Nulla",
+   "pt": "Nula",
+   "pl": "Brak",
+   "nl": "Geen",
+   "zh": "无"
+  },
+  "Suave": {
+   "en": "Mild",
+   "fr": "Faible",
+   "de": "Leicht",
+   "it": "Debole",
+   "pt": "Fraca",
+   "pl": "Słaby",
+   "nl": "Licht",
+   "zh": "轻微"
+  },
+  "Moderada": {
+   "en": "Moderate",
+   "fr": "Modéré",
+   "de": "Mäßig",
+   "it": "Moderata",
+   "pt": "Moderada",
+   "pl": "Umiarkowany",
+   "nl": "Matig",
+   "zh": "中等"
+  },
+  "Fuerte": {
+   "en": "Strong",
+   "fr": "Fort",
+   "de": "Stark",
+   "it": "Forte",
+   "pt": "Forte",
+   "pl": "Silny",
+   "nl": "Sterk",
+   "zh": "强"
+  },
+  "Variable": {
+   "en": "Variable",
+   "fr": "Variable",
+   "de": "Wechselnd",
+   "it": "Variabile",
+   "pt": "Variável",
+   "pl": "Zmienny",
+   "nl": "Wisselend",
+   "zh": "多变"
+  },
+  "Cualquier corriente": {
+   "en": "Any current",
+   "fr": "Tout courant",
+   "de": "Jede Strömung",
+   "it": "Qualsiasi corrente",
+   "pt": "Qualquer corrente",
+   "pl": "Dowolny prąd",
+   "nl": "Elke stroming",
+   "zh": "任意水流"
+  },
+  "Tipo de fondo": {
+   "en": "Type of bottom",
+   "fr": "Type de fond",
+   "de": "Art des Grundes",
+   "it": "Tipo di fondale",
+   "pt": "Tipo de fundo",
+   "pl": "Rodzaj dna",
+   "nl": "Soort bodem",
+   "zh": "海底类型"
+  },
+  "Fondo": {
+   "en": "Bottom",
+   "fr": "Fond",
+   "de": "Grund",
+   "it": "Fondale",
+   "pt": "Fundo",
+   "pl": "Dno",
+   "nl": "Bodem",
+   "zh": "海底"
+  },
+  "Cualquier fondo": {
+   "en": "Any bottom",
+   "fr": "Tout fond",
+   "de": "Jeder Grund",
+   "it": "Qualsiasi fondale",
+   "pt": "Qualquer fundo",
+   "pl": "Dowolne dno",
+   "nl": "Elke bodem",
+   "zh": "任意海底"
+  },
+  "Roca": {
+   "en": "Rock",
+   "fr": "Roche",
+   "de": "Fels",
+   "it": "Roccia",
+   "pt": "Rocha",
+   "pl": "Skała",
+   "nl": "Rots",
+   "zh": "岩石"
+  },
+  "Arena": {
+   "en": "Sand",
+   "fr": "Sable",
+   "de": "Sand",
+   "it": "Sabbia",
+   "pt": "Areia",
+   "pl": "Piasek",
+   "nl": "Zand",
+   "zh": "沙地"
+  },
+  "Posidonia": {
+   "en": "Posidonia",
+   "fr": "Posidonie",
+   "de": "Posidonia",
+   "it": "Posidonia",
+   "pt": "Posidónia",
+   "pl": "Posidonia",
+   "nl": "Posidonia",
+   "zh": "波西多尼亚海草"
+  },
+  "Pared": {
+   "en": "Wall",
+   "fr": "Tombant",
+   "de": "Steilwand",
+   "it": "Parete",
+   "pt": "Parede",
+   "pl": "Ściana",
+   "nl": "Wand",
+   "zh": "峭壁"
+  },
+  "Cascajo": {
+   "en": "Rubble",
+   "fr": "Éboulis",
+   "de": "Geröll",
+   "it": "Detrito",
+   "pt": "Cascalho",
+   "pl": "Gruz",
+   "nl": "Puin",
+   "zh": "碎石"
+  },
+  "Profundidad máxima": {
+   "en": "Maximum depth",
+   "fr": "Profondeur maximale",
+   "de": "Maximale Tiefe",
+   "it": "Profondità massima",
+   "pt": "Profundidade máxima",
+   "pl": "Maksymalna głębokość",
+   "nl": "Maximale diepte",
+   "zh": "最大深度"
+  },
+  "Cualquier profundidad": {
+   "en": "Any depth",
+   "fr": "Toute profondeur",
+   "de": "Jede Tiefe",
+   "it": "Qualsiasi profondità",
+   "pt": "Qualquer profundidade",
+   "pl": "Dowolna głębokość",
+   "nl": "Elke diepte",
+   "zh": "任意深度"
+  },
+  "Borrar filtros": {
+   "en": "Clear filters",
+   "fr": "Effacer les filtres",
+   "de": "Filter löschen",
+   "it": "Cancella filtri",
+   "pt": "Limpar filtros",
+   "pl": "Wyczyść filtry",
+   "nl": "Filters wissen",
+   "zh": "清除筛选"
+  },
+  "Invierno": {
+   "en": "Winter",
+   "fr": "Hiver",
+   "de": "Winter",
+   "it": "Inverno",
+   "pt": "Inverno",
+   "pl": "Zima",
+   "nl": "Winter",
+   "zh": "冬季"
+  },
+  "Primavera": {
+   "en": "Spring",
+   "fr": "Printemps",
+   "de": "Frühling",
+   "it": "Primavera",
+   "pt": "Primavera",
+   "pl": "Wiosna",
+   "nl": "Lente",
+   "zh": "春季"
+  },
+  "Verano": {
+   "en": "Summer",
+   "fr": "Été",
+   "de": "Sommer",
+   "it": "Estate",
+   "pt": "Verão",
+   "pl": "Lato",
+   "nl": "Zomer",
+   "zh": "夏季"
+  },
+  "Otoño": {
+   "en": "Autumn",
+   "fr": "Automne",
+   "de": "Herbst",
+   "it": "Autunno",
+   "pt": "Outono",
+   "pl": "Jesień",
+   "nl": "Herfst",
+   "zh": "秋季"
+  },
+  "Todo el año": {
+   "en": "All year round",
+   "fr": "Toute l'année",
+   "de": "Ganzjährig",
+   "it": "Tutto l'anno",
+   "pt": "Todo o ano",
+   "pl": "Cały rok",
+   "nl": "Het hele jaar",
+   "zh": "全年"
+  },
+  "Temperatura del agua por estación": {
+   "en": "Water temperature by season",
+   "fr": "Température de l'eau par saison",
+   "de": "Wassertemperatur nach Jahreszeit",
+   "it": "Temperatura dell'acqua per stagione",
+   "pt": "Temperatura da água por estação",
+   "pl": "Temperatura wody w poszczególnych porach roku",
+   "nl": "Watertemperatuur per seizoen",
+   "zh": "各季节水温"
+  },
+  "Temperatura del agua (°C)": {
+   "en": "Water temperature (°C)",
+   "fr": "Température de l'eau (°C)",
+   "de": "Wassertemperatur (°C)",
+   "it": "Temperatura dell'acqua (°C)",
+   "pt": "Temperatura da água (°C)",
+   "pl": "Temperatura wody (°C)",
+   "nl": "Watertemperatuur (°C)",
+   "zh": "水温（°C）"
+  },
+  "Protección": {
+   "en": "Protection",
+   "fr": "Protection",
+   "de": "Schutz",
+   "it": "Protezione",
+   "pt": "Proteção",
+   "pl": "Ochrona",
+   "nl": "Bescherming",
+   "zh": "保护"
+  },
+  "Ninguna": {
+   "en": "None",
+   "fr": "Aucune",
+   "de": "Keiner",
+   "it": "Nessuna",
+   "pt": "Nenhuma",
+   "pl": "Brak",
+   "nl": "Geen",
+   "zh": "无"
+  },
+  "Reserva marina": {
+   "en": "Marine reserve",
+   "fr": "Réserve marine",
+   "de": "Meeresschutzgebiet",
+   "it": "Riserva marina",
+   "pt": "Reserva marinha",
+   "pl": "Rezerwat morski",
+   "nl": "Zeereservaat",
+   "zh": "海洋保护区"
+  },
+  "Parque nacional": {
+   "en": "National park",
+   "fr": "Parc national",
+   "de": "Nationalpark",
+   "it": "Parco nazionale",
+   "pt": "Parque nacional",
+   "pl": "Park narodowy",
+   "nl": "Nationaal park",
+   "zh": "国家公园"
+  },
+  "Parque natural": {
+   "en": "Nature park",
+   "fr": "Parc naturel",
+   "de": "Naturpark",
+   "it": "Parco naturale",
+   "pt": "Parque natural",
+   "pl": "Park krajobrazowy",
+   "nl": "Natuurpark",
+   "zh": "自然公园"
+  },
+  "Otro espacio protegido": {
+   "en": "Other protected area",
+   "fr": "Autre espace protégé",
+   "de": "Anderes Schutzgebiet",
+   "it": "Altra area protetta",
+   "pt": "Outro espaço protegido",
+   "pl": "Inny obszar chroniony",
+   "nl": "Ander beschermd gebied",
+   "zh": "其他保护区"
+  },
+  "con permiso": {
+   "en": "permit needed",
+   "fr": "avec autorisation",
+   "de": "mit Genehmigung",
+   "it": "con permesso",
+   "pt": "com licença",
+   "pl": "wymagane zezwolenie",
+   "nl": "met vergunning",
+   "zh": "需许可"
+  },
+  "Para bucear aquí hace falta permiso: el centro lo gestiona o te dice cómo pedirlo.": {
+   "en": "Diving here requires a permit: the centre arranges it or tells you how to apply.",
+   "fr": "Pour plonger ici, il faut une autorisation : le centre s'en occupe ou vous explique comment la demander.",
+   "de": "Zum Tauchen hier braucht man eine Genehmigung: Das Zentrum kümmert sich darum oder sagt dir, wie du sie beantragst.",
+   "it": "Per immergersi qui serve un permesso: il centro lo gestisce o ti spiega come richiederlo.",
+   "pt": "Para mergulhar aqui é preciso licença: o centro trata disso ou diz-te como pedi-la.",
+   "pl": "Nurkowanie tutaj wymaga zezwolenia: centrum je załatwia lub podpowie, jak o nie wystąpić.",
+   "nl": "Om hier te duiken is een vergunning nodig: het centrum regelt die of vertelt je hoe je hem aanvraagt.",
+   "zh": "在此潜水需要许可：潜水中心会办理或告诉你如何申请。"
+  },
+  "Avisos": {
+   "en": "Warnings",
+   "fr": "Avertissements",
+   "de": "Hinweise",
+   "it": "Avvertenze",
+   "pt": "Avisos",
+   "pl": "Ostrzeżenia",
+   "nl": "Waarschuwingen",
+   "zh": "注意事项"
+  },
+  "Pendiente de traducción": {
+   "en": "Translation pending",
+   "fr": "Traduction en attente",
+   "de": "Übersetzung ausstehend",
+   "it": "Traduzione in sospeso",
+   "pt": "Tradução pendente",
+   "pl": "Tłumaczenie w przygotowaniu",
+   "nl": "Vertaling volgt",
+   "zh": "待翻译"
+  },
+  "Datos pendientes de verificar.": {
+   "en": "Data pending verification.",
+   "fr": "Données en attente de vérification.",
+   "de": "Daten noch nicht überprüft.",
+   "it": "Dati in attesa di verifica.",
+   "pt": "Dados pendentes de verificação.",
+   "pl": "Dane czekają na weryfikację.",
+   "nl": "Gegevens nog niet gecontroleerd.",
+   "zh": "数据待核实。"
+  },
+  "La posición y los datos de este punto todavía no se han comprobado sobre el terreno. Un centro o el equipo de WORLDIVES puede confirmarlos.": {
+   "en": "The position and data of this dive site haven't been checked on site yet. A centre or the WORLDIVES team can confirm them.",
+   "fr": "La position et les données de ce site n'ont pas encore été vérifiées sur place. Un centre ou l'équipe WORLDIVES peut les confirmer.",
+   "de": "Position und Daten dieses Tauchplatzes wurden noch nicht vor Ort geprüft. Ein Zentrum oder das WORLDIVES-Team kann sie bestätigen.",
+   "it": "La posizione e i dati di questo sito non sono ancora stati verificati sul posto. Un centro o il team di WORLDIVES può confermarli.",
+   "pt": "A posição e os dados deste local ainda não foram verificados no terreno. Um centro ou a equipa da WORLDIVES pode confirmá-los.",
+   "pl": "Pozycja i dane tego miejsca nie zostały jeszcze sprawdzone na miejscu. Może je potwierdzić centrum lub zespół WORLDIVES.",
+   "nl": "De positie en gegevens van deze duikplek zijn nog niet ter plaatse gecontroleerd. Een centrum of het WORLDIVES-team kan ze bevestigen.",
+   "zh": "此潜点的位置和数据尚未经实地核实，潜水中心或 WORLDIVES 团队可以确认。"
+  },
+  "¿La posición o algún dato no es exacto?": {
+   "en": "Is the position or any data inaccurate?",
+   "fr": "La position ou une donnée est inexacte ?",
+   "de": "Ist die Position oder eine Angabe ungenau?",
+   "it": "La posizione o qualche dato non è esatto?",
+   "pt": "A posição ou algum dado não está correto?",
+   "pl": "Pozycja lub jakieś dane są nieprawidłowe?",
+   "nl": "Klopt de positie of een gegeven niet?",
+   "zh": "位置或某项数据不准确？"
+  },
+  "Proponer una corrección": {
+   "en": "Suggest a correction",
+   "fr": "Proposer une correction",
+   "de": "Korrektur vorschlagen",
+   "it": "Proponi una correzione",
+   "pt": "Propor uma correção",
+   "pl": "Zaproponuj poprawkę",
+   "nl": "Een correctie voorstellen",
+   "zh": "提出更正"
+  },
+  "Cambia solo lo que sepas con seguridad. Lo que dejes igual no se toca.": {
+   "en": "Only change what you know for sure. Whatever you leave as it is won't be touched.",
+   "fr": "Ne modifiez que ce dont vous êtes sûr. Ce que vous laissez tel quel ne change pas.",
+   "de": "Ändere nur, was du sicher weißt. Was du so lässt, bleibt unverändert.",
+   "it": "Cambia solo ciò che sai con certezza. Ciò che lasci com’è non viene toccato.",
+   "pt": "Muda só o que sabes com certeza. O que deixares igual não se altera.",
+   "pl": "Zmieniaj tylko to, czego jesteś pewien. Reszta pozostanie bez zmian.",
+   "nl": "Wijzig alleen wat je zeker weet. Wat je zo laat, blijft ongewijzigd.",
+   "zh": "只修改你确定的内容，未修改的部分保持不变。"
+  },
+  "Como centro que bucea aquí puedes proponer la posición, la corriente, la visibilidad y los avisos.": {
+   "en": "As a centre that dives here you can suggest the position, current, visibility and warnings.",
+   "fr": "En tant que centre qui plonge ici, vous pouvez proposer la position, le courant, la visibilité et les avertissements.",
+   "de": "Als Zentrum, das hier taucht, kannst du Position, Strömung, Sicht und Hinweise vorschlagen.",
+   "it": "Come centro che si immerge qui puoi proporre la posizione, la corrente, la visibilità e le avvertenze.",
+   "pt": "Como centro que mergulha aqui podes propor a posição, a corrente, a visibilidade e os avisos.",
+   "pl": "Jako centrum nurkujące w tym miejscu możesz zaproponować pozycję, prąd, widoczność i ostrzeżenia.",
+   "nl": "Als centrum dat hier duikt kun je de positie, stroming, zicht en waarschuwingen voorstellen.",
+   "zh": "作为在此潜水的潜水中心，你可以提议位置、水流、能见度和注意事项。"
+  },
+  "Motivo o referencia": {
+   "en": "Reason or reference",
+   "fr": "Motif ou référence",
+   "de": "Grund oder Quelle",
+   "it": "Motivo o riferimento",
+   "pt": "Motivo ou referência",
+   "pl": "Powód lub źródło",
+   "nl": "Reden of bron",
+   "zh": "原因或依据"
+  },
+  "Qué has visto y cómo lo sabes: GPS de la embarcación, tu ordenador de buceo, la reserva marina…": {
+   "en": "What you saw and how you know: the boat's GPS, your dive computer, the marine reserve…",
+   "fr": "Ce que vous avez vu et comment vous le savez : GPS du bateau, votre ordinateur de plongée, la réserve marine…",
+   "de": "Was du gesehen hast und woher du es weißt: GPS des Bootes, dein Tauchcomputer, das Schutzgebiet…",
+   "it": "Cosa hai visto e come lo sai: GPS dell'imbarcazione, il tuo computer subacqueo, la riserva marina…",
+   "pt": "O que viste e como sabes: GPS da embarcação, o teu computador de mergulho, a reserva marinha…",
+   "pl": "Co widziałeś i skąd to wiesz: GPS łodzi, twój komputer nurkowy, rezerwat morski…",
+   "nl": "Wat je zag en hoe je het weet: gps van de boot, je duikcomputer, het zeereservaat…",
+   "zh": "你看到了什么、依据是什么：船上 GPS、潜水电脑、海洋保护区……"
+  },
+  "Profundidad mínima (m)": {
+   "en": "Minimum depth (m)",
+   "fr": "Profondeur minimale (m)",
+   "de": "Minimale Tiefe (m)",
+   "it": "Profondità minima (m)",
+   "pt": "Profundidade mínima (m)",
+   "pl": "Minimalna głębokość (m)",
+   "nl": "Minimale diepte (m)",
+   "zh": "最小深度（米）"
+  },
+  "Profundidad máxima (m)": {
+   "en": "Maximum depth (m)",
+   "fr": "Profondeur maximale (m)",
+   "de": "Maximale Tiefe (m)",
+   "it": "Profondità massima (m)",
+   "pt": "Profundidade máxima (m)",
+   "pl": "Maksymalna głębokość (m)",
+   "nl": "Maximale diepte (m)",
+   "zh": "最大深度（米）"
+  },
+  "Visibilidad habitual desde (m)": {
+   "en": "Usual visibility from (m)",
+   "fr": "Visibilité habituelle de (m)",
+   "de": "Übliche Sicht ab (m)",
+   "it": "Visibilità abituale da (m)",
+   "pt": "Visibilidade habitual desde (m)",
+   "pl": "Zwykła widoczność od (m)",
+   "nl": "Gebruikelijk zicht vanaf (m)",
+   "zh": "常见能见度 起（米）"
+  },
+  "hasta (m)": {
+   "en": "to (m)",
+   "fr": "à (m)",
+   "de": "bis (m)",
+   "it": "a (m)",
+   "pt": "até (m)",
+   "pl": "do (m)",
+   "nl": "tot (m)",
+   "zh": "至（米）"
+  },
+  "Tráfico de barcos, corriente en la punta, zona de anclaje…": {
+   "en": "Boat traffic, current at the point, anchoring area…",
+   "fr": "Trafic de bateaux, courant à la pointe, zone de mouillage…",
+   "de": "Bootsverkehr, Strömung an der Spitze, Ankerzone…",
+   "it": "Traffico di barche, corrente sulla punta, zona di ancoraggio…",
+   "pt": "Tráfego de barcos, corrente na ponta, zona de ancoragem…",
+   "pl": "Ruch łodzi, prąd przy cyplu, strefa kotwiczenia…",
+   "nl": "Bootverkeer, stroming bij de punt, ankerplaats…",
+   "zh": "船只往来、岬角水流、抛锚区……"
+  },
+  "Nombre del espacio protegido": {
+   "en": "Name of the protected area",
+   "fr": "Nom de l'espace protégé",
+   "de": "Name des Schutzgebiets",
+   "it": "Nome dell'area protetta",
+   "pt": "Nome do espaço protegido",
+   "pl": "Nazwa obszaru chronionego",
+   "nl": "Naam van het beschermde gebied",
+   "zh": "保护区名称"
+  },
+  "Hace falta permiso para bucear": {
+   "en": "A permit is needed to dive",
+   "fr": "Une autorisation est nécessaire pour plonger",
+   "de": "Zum Tauchen ist eine Genehmigung nötig",
+   "it": "Serve un permesso per immergersi",
+   "pt": "É preciso licença para mergulhar",
+   "pl": "Do nurkowania potrzebne jest zezwolenie",
+   "nl": "Voor duiken is een vergunning nodig",
+   "zh": "潜水需要许可"
+  },
+  "Traducciones del aviso": {
+   "en": "Translations of the warning",
+   "fr": "Traductions de l'avertissement",
+   "de": "Übersetzungen des Hinweises",
+   "it": "Traduzioni dell'avvertenza",
+   "pt": "Traduções do aviso",
+   "pl": "Tłumaczenia ostrzeżenia",
+   "nl": "Vertalingen van de waarschuwing",
+   "zh": "注意事项的翻译"
+  },
+  "Si falta un idioma, la ficha enseña el castellano con «Pendiente de traducción».": {
+   "en": "If a language is missing, the page shows the Spanish text with «Translation pending».",
+   "fr": "S'il manque une langue, la fiche affiche l'espagnol avec « Traduction en attente ».",
+   "de": "Fehlt eine Sprache, zeigt die Seite den spanischen Text mit „Übersetzung ausstehend“.",
+   "it": "Se manca una lingua, la scheda mostra lo spagnolo con «Traduzione in sospeso».",
+   "pt": "Se faltar um idioma, a ficha mostra o espanhol com «Tradução pendente».",
+   "pl": "Jeśli brakuje języka, strona pokazuje tekst hiszpański z dopiskiem „Tłumaczenie w przygotowaniu”.",
+   "nl": "Ontbreekt een taal, dan toont de pagina het Spaans met „Vertaling volgt”.",
+   "zh": "若缺少某种语言，页面会显示西班牙语原文并标注“待翻译”。"
+  },
+  "«Todo el año» solo se enseña cuando no hay datos por estación.": {
+   "en": "«All year round» is only shown when there is no data by season.",
+   "fr": "« Toute l'année » ne s'affiche que s'il n'y a pas de données par saison.",
+   "de": "„Ganzjährig“ wird nur angezeigt, wenn es keine Daten nach Jahreszeit gibt.",
+   "it": "«Tutto l'anno» si mostra solo se non ci sono dati per stagione.",
+   "pt": "«Todo o ano» só aparece quando não há dados por estação.",
+   "pl": "„Cały rok” pojawia się tylko wtedy, gdy brak danych dla pór roku.",
+   "nl": "„Het hele jaar” wordt alleen getoond als er geen gegevens per seizoen zijn.",
+   "zh": "仅在没有分季节数据时才显示“全年”。"
+  },
+  "Todo el año · mínima": {
+   "en": "All year round · minimum",
+   "fr": "Toute l'année · minimale",
+   "de": "Ganzjährig · Minimum",
+   "it": "Tutto l'anno · minima",
+   "pt": "Todo o ano · mínima",
+   "pl": "Cały rok · minimalna",
+   "nl": "Het hele jaar · minimum",
+   "zh": "全年 · 最低"
+  },
+  "Todo el año · máxima": {
+   "en": "All year round · maximum",
+   "fr": "Toute l'année · maximale",
+   "de": "Ganzjährig · Maximum",
+   "it": "Tutto l'anno · massima",
+   "pt": "Todo o ano · máxima",
+   "pl": "Cały rok · maksymalna",
+   "nl": "Het hele jaar · maximum",
+   "zh": "全年 · 最高"
+  },
+  "Solo datos comprobados: lo que no se sabe con seguridad se deja vacío y no aparece en la ficha.": {
+   "en": "Checked data only: whatever isn't known for sure is left empty and doesn't appear on the page.",
+   "fr": "Uniquement des données vérifiées : ce qui n'est pas sûr reste vide et n'apparaît pas sur la fiche.",
+   "de": "Nur geprüfte Daten: Was nicht sicher bekannt ist, bleibt leer und erscheint nicht auf der Seite.",
+   "it": "Solo dati verificati: ciò che non si sa con certezza resta vuoto e non compare nella scheda.",
+   "pt": "Só dados verificados: o que não se sabe com certeza fica vazio e não aparece na ficha.",
+   "pl": "Tylko sprawdzone dane: czego nie wiadomo na pewno, zostaje puste i nie pojawia się na stronie.",
+   "nl": "Alleen gecontroleerde gegevens: wat niet zeker is, blijft leeg en verschijnt niet op de pagina.",
+   "zh": "仅填写已核实的数据：不确定的内容留空，不会显示在页面上。"
+  },
+  "Datos básicos": {
+   "en": "Basic data",
+   "fr": "Données de base",
+   "de": "Grunddaten",
+   "it": "Dati di base",
+   "pt": "Dados básicos",
+   "pl": "Dane podstawowe",
+   "nl": "Basisgegevens",
+   "zh": "基本信息"
+  },
+  "Datos de la inmersión": {
+   "en": "Dive data",
+   "fr": "Données de la plongée",
+   "de": "Tauchgangsdaten",
+   "it": "Dati dell'immersione",
+   "pt": "Dados do mergulho",
+   "pl": "Dane nurkowania",
+   "nl": "Duikgegevens",
+   "zh": "潜水数据"
+  },
+  "Posición": {
+   "en": "Position",
+   "fr": "Position",
+   "de": "Position",
+   "it": "Posizione",
+   "pt": "Posição",
+   "pl": "Pozycja",
+   "nl": "Positie",
+   "zh": "位置"
+  },
+  "La posición oficial la cambia la administración.": {
+   "en": "The official position is changed by the administration.",
+   "fr": "La position officielle est modifiée par l'administration.",
+   "de": "Die offizielle Position ändert die Verwaltung.",
+   "it": "La posizione ufficiale la cambia l'amministrazione.",
+   "pt": "A posição oficial é alterada pela administração.",
+   "pl": "Oficjalną pozycję zmienia administracja.",
+   "nl": "De officiële positie wordt door het beheer gewijzigd.",
+   "zh": "官方位置由管理员修改。"
+  },
+  "Proponer otra posición": {
+   "en": "Suggest another position",
+   "fr": "Proposer une autre position",
+   "de": "Andere Position vorschlagen",
+   "it": "Proponi un'altra posizione",
+   "pt": "Propor outra posição",
+   "pl": "Zaproponuj inną pozycję",
+   "nl": "Een andere positie voorstellen",
+   "zh": "提议其他位置"
+  },
+  "Arrastra el marcador o haz clic en el mapa. El punto tiene que caer en el agua; uno de costa, a menos de 200 m de la orilla.": {
+   "en": "Drag the marker or click on the map. The site must be in the water; a shore site, less than 200 m from the shore.",
+   "fr": "Faites glisser le repère ou cliquez sur la carte. Le site doit être dans l'eau ; un site du bord, à moins de 200 m du rivage.",
+   "de": "Ziehe die Markierung oder klicke auf die Karte. Der Platz muss im Wasser liegen; ein Uferplatz weniger als 200 m vom Ufer entfernt.",
+   "it": "Trascina il segnaposto o fai clic sulla mappa. Il sito deve essere in acqua; uno da riva, a meno di 200 m dalla costa.",
+   "pt": "Arrasta o marcador ou clica no mapa. O local tem de ficar na água; um de costa, a menos de 200 m da margem.",
+   "pl": "Przeciągnij znacznik lub kliknij mapę. Miejsce musi być w wodzie; miejsce z brzegu — mniej niż 200 m od brzegu.",
+   "nl": "Sleep de markering of klik op de kaart. De plek moet in het water liggen; een kantduik op minder dan 200 m van de kust.",
+   "zh": "拖动标记或点击地图。潜点必须位于水中；岸潜点须距岸边 200 米以内。"
+  },
+  "Descripción": {
+   "en": "Description",
+   "fr": "Description",
+   "de": "Beschreibung",
+   "it": "Descrizione",
+   "pt": "Descrição",
+   "pl": "Opis",
+   "nl": "Beschrijving",
+   "zh": "描述"
+  },
+  "Con palabras propias. Vacía, la web la escribe a partir de los datos.": {
+   "en": "In your own words. If empty, the web writes it from the data.",
+   "fr": "Avec vos propres mots. Vide, le site la rédige à partir des données.",
+   "de": "In eigenen Worten. Bleibt sie leer, schreibt die Website sie aus den Daten.",
+   "it": "Con parole tue. Se è vuota, il sito la scrive a partire dai dati.",
+   "pt": "Por palavras próprias. Vazia, o site escreve-a a partir dos dados.",
+   "pl": "Własnymi słowami. Jeśli pusty, strona utworzy go na podstawie danych.",
+   "nl": "In je eigen woorden. Leeg laat de website hem op basis van de gegevens schrijven.",
+   "zh": "请用自己的话描述。若留空，网站会根据数据自动生成。"
+  },
+  "Estado del dato": {
+   "en": "Data status",
+   "fr": "Statut des données",
+   "de": "Datenstatus",
+   "it": "Stato del dato",
+   "pt": "Estado do dado",
+   "pl": "Status danych",
+   "nl": "Status van de gegevens",
+   "zh": "数据状态"
+  },
+  "Verificado": {
+   "en": "Verified",
+   "fr": "Vérifié",
+   "de": "Geprüft",
+   "it": "Verificato",
+   "pt": "Verificado",
+   "pl": "Zweryfikowane",
+   "nl": "Geverifieerd",
+   "zh": "已核实"
+  },
+  "Pendiente de verificar": {
+   "en": "Pending verification",
+   "fr": "En attente de vérification",
+   "de": "Prüfung ausstehend",
+   "it": "In attesa di verifica",
+   "pt": "Pendente de verificação",
+   "pl": "Czeka na weryfikację",
+   "nl": "Nog te controleren",
+   "zh": "待核实"
+  },
+  "Fuente": {
+   "en": "Source",
+   "fr": "Source",
+   "de": "Quelle",
+   "it": "Fonte",
+   "pt": "Fonte",
+   "pl": "Źródło",
+   "nl": "Bron",
+   "zh": "来源"
+  },
+  "Centro, publicación oficial, enlace…": {
+   "en": "Centre, official publication, link…",
+   "fr": "Centre, publication officielle, lien…",
+   "de": "Zentrum, offizielle Veröffentlichung, Link…",
+   "it": "Centro, pubblicazione ufficiale, link…",
+   "pt": "Centro, publicação oficial, link…",
+   "pl": "Centrum, publikacja oficjalna, link…",
+   "nl": "Centrum, officiële publicatie, link…",
+   "zh": "潜水中心、官方出版物、链接……"
+  },
+  "Comprobado el": {
+   "en": "Checked on",
+   "fr": "Vérifié le",
+   "de": "Geprüft am",
+   "it": "Verificato il",
+   "pt": "Verificado em",
+   "pl": "Sprawdzono",
+   "nl": "Gecontroleerd op",
+   "zh": "核实日期"
+  },
+  "Nota de la fuente": {
+   "en": "Source note",
+   "fr": "Note sur la source",
+   "de": "Notiz zur Quelle",
+   "it": "Nota sulla fonte",
+   "pt": "Nota da fonte",
+   "pl": "Uwaga do źródła",
+   "nl": "Notitie bij de bron",
+   "zh": "来源备注"
+  },
+  "La fuente es privada: solo la ve la administración.": {
+   "en": "The source is private: only the administration sees it.",
+   "fr": "La source est privée : seule l'administration la voit.",
+   "de": "Die Quelle ist privat: Nur die Verwaltung sieht sie.",
+   "it": "La fonte è privata: la vede solo l'amministrazione.",
+   "pt": "A fonte é privada: só a administração a vê.",
+   "pl": "Źródło jest prywatne: widzi je tylko administracja.",
+   "nl": "De bron is privé: alleen het beheer ziet hem.",
+   "zh": "来源为私密信息，仅管理员可见。"
+  },
+  "Posición comprobada": {
+   "en": "Position checked",
+   "fr": "Position vérifiée",
+   "de": "Position geprüft",
+   "it": "Posizione verificata",
+   "pt": "Posição verificada",
+   "pl": "Pozycja sprawdzona",
+   "nl": "Positie gecontroleerd",
+   "zh": "位置已核实"
+  },
+  "Revisa la posición": {
+   "en": "Check the position",
+   "fr": "Vérifiez la position",
+   "de": "Position prüfen",
+   "it": "Controlla la posizione",
+   "pt": "Revê a posição",
+   "pl": "Sprawdź pozycję",
+   "nl": "Controleer de positie",
+   "zh": "请检查位置"
+  },
+  "Cae en tierra": {
+   "en": "On land",
+   "fr": "Sur la terre ferme",
+   "de": "An Land",
+   "it": "Sulla terraferma",
+   "pt": "Fica em terra",
+   "pl": "Na lądzie",
+   "nl": "Op het land",
+   "zh": "位于陆地"
+  },
+  "Sin datos de costa": {
+   "en": "No coastline data",
+   "fr": "Pas de données de côte",
+   "de": "Keine Küstendaten",
+   "it": "Nessun dato di costa",
+   "pt": "Sem dados de costa",
+   "pl": "Brak danych o wybrzeżu",
+   "nl": "Geen kustgegevens",
+   "zh": "无海岸线数据"
+  },
+  "Posibles duplicados": {
+   "en": "Possible duplicates",
+   "fr": "Doublons possibles",
+   "de": "Mögliche Duplikate",
+   "it": "Possibili duplicati",
+   "pt": "Possíveis duplicados",
+   "pl": "Możliwe duplikaty",
+   "nl": "Mogelijke dubbele",
+   "zh": "可能重复"
+  },
+  "Posible duplicado": {
+   "en": "Possible duplicate",
+   "fr": "Doublon possible",
+   "de": "Mögliches Duplikat",
+   "it": "Possibile duplicato",
+   "pt": "Possível duplicado",
+   "pl": "Możliwy duplikat",
+   "nl": "Mogelijk dubbel",
+   "zh": "可能重复"
+  },
+  "Parece el mismo punto": {
+   "en": "Looks like the same site",
+   "fr": "Semble être le même site",
+   "de": "Scheint derselbe Platz zu sein",
+   "it": "Sembra lo stesso sito",
+   "pt": "Parece o mesmo local",
+   "pl": "Wygląda na to samo miejsce",
+   "nl": "Lijkt dezelfde plek",
+   "zh": "似乎是同一潜点"
+  },
+  "Puede ser el mismo punto": {
+   "en": "May be the same site",
+   "fr": "Peut être le même site",
+   "de": "Könnte derselbe Platz sein",
+   "it": "Potrebbe essere lo stesso sito",
+   "pt": "Pode ser o mesmo local",
+   "pl": "Może to być to samo miejsce",
+   "nl": "Kan dezelfde plek zijn",
+   "zh": "可能是同一潜点"
+  },
+  "Parecen el mismo": {
+   "en": "They look the same",
+   "fr": "Ils semblent identiques",
+   "de": "Scheinen gleich",
+   "it": "Sembrano lo stesso",
+   "pt": "Parecem o mesmo",
+   "pl": "Wyglądają na to samo",
+   "nl": "Lijken hetzelfde",
+   "zh": "似乎相同"
+  },
+  "Puede ser el mismo": {
+   "en": "May be the same",
+   "fr": "Peut être le même",
+   "de": "Könnte derselbe sein",
+   "it": "Potrebbe essere lo stesso",
+   "pt": "Pode ser o mesmo",
+   "pl": "Może być to samo",
+   "nl": "Kan hetzelfde zijn",
+   "zh": "可能相同"
+  },
+  "· Antes de crear una ficha nueva, completa la que ya existe.": {
+   "en": "· Before creating a new page, complete the one that already exists.",
+   "fr": "· Avant de créer une nouvelle fiche, complétez celle qui existe déjà.",
+   "de": "· Bevor du eine neue Seite anlegst, ergänze die bestehende.",
+   "it": "· Prima di creare una nuova scheda, completa quella esistente.",
+   "pt": "· Antes de criar uma ficha nova, completa a que já existe.",
+   "pl": "· Zanim utworzysz nową kartę, uzupełnij istniejącą.",
+   "nl": "· Vul eerst de bestaande pagina aan voordat je een nieuwe maakt.",
+   "zh": "· 在新建页面前，请先完善已有的页面。"
+  },
+  "Decidir en «Posibles duplicados»": {
+   "en": "Decide in «Possible duplicates»",
+   "fr": "Décider dans « Doublons possibles »",
+   "de": "In „Mögliche Duplikate“ entscheiden",
+   "it": "Decidi in «Possibili duplicati»",
+   "pt": "Decidir em «Possíveis duplicados»",
+   "pl": "Zdecyduj w „Możliwe duplikaty”",
+   "nl": "Beslissen bij „Mogelijke dubbele”",
+   "zh": "在“可能重复”中处理"
+  },
+  "Revisar las propuestas": {
+   "en": "Review the proposals",
+   "fr": "Examiner les propositions",
+   "de": "Vorschläge prüfen",
+   "it": "Esamina le proposte",
+   "pt": "Rever as propostas",
+   "pl": "Przejrzyj propozycje",
+   "nl": "Voorstellen bekijken",
+   "zh": "查看提议"
+  },
+  "Es otro punto: crear igualmente": {
+   "en": "It's a different site: create it anyway",
+   "fr": "C'est un autre site : créer quand même",
+   "de": "Es ist ein anderer Platz: trotzdem anlegen",
+   "it": "È un altro sito: crealo comunque",
+   "pt": "É outro local: criar mesmo assim",
+   "pl": "To inne miejsce: utwórz mimo to",
+   "nl": "Het is een andere plek: toch aanmaken",
+   "zh": "是另一个潜点：仍然创建"
+  },
+  "Está bien así (agua interior u otro caso): guardar igualmente": {
+   "en": "It's right as it is (inland water or another case): save anyway",
+   "fr": "C'est correct ainsi (eau intérieure ou autre cas) : enregistrer quand même",
+   "de": "So ist es richtig (Binnengewässer o. Ä.): trotzdem speichern",
+   "it": "Va bene così (acque interne o altro caso): salva comunque",
+   "pt": "Está bem assim (água interior ou outro caso): guardar mesmo assim",
+   "pl": "Jest dobrze (wody śródlądowe lub inny przypadek): zapisz mimo to",
+   "nl": "Het klopt zo (binnenwater of iets anders): toch opslaan",
+   "zh": "这样没问题（内陆水域或其他情况）：仍然保存"
+  },
+  "Escribe el nombre del punto.": {
+   "en": "Write the name of the dive site.",
+   "fr": "Écrivez le nom du site.",
+   "de": "Gib den Namen des Tauchplatzes ein.",
+   "it": "Scrivi il nome del sito.",
+   "pt": "Escreve o nome do local.",
+   "pl": "Wpisz nazwę miejsca.",
+   "nl": "Vul de naam van de duikplek in.",
+   "zh": "请填写潜点名称。"
+  },
+  "Registro de fuentes": {
+   "en": "Source register",
+   "fr": "Registre des sources",
+   "de": "Quellenverzeichnis",
+   "it": "Registro delle fonti",
+   "pt": "Registo de fontes",
+   "pl": "Rejestr źródeł",
+   "nl": "Bronnenregister",
+   "zh": "来源记录"
+  },
+  "privado": {
+   "en": "private",
+   "fr": "privé",
+   "de": "privat",
+   "it": "privato",
+   "pt": "privado",
+   "pl": "prywatny",
+   "nl": "privé",
+   "zh": "私密"
+  },
+  "De dónde sale cada dato y cuándo se comprobó. Solo lo ve la administración: la web pública no lo enseña nunca (solo la línea de créditos de las licencias abiertas).": {
+   "en": "Where each piece of data comes from and when it was checked. Only the administration sees it: the public web never shows it (only the credits line of the open licences).",
+   "fr": "D'où vient chaque donnée et quand elle a été vérifiée. Seule l'administration le voit : le site public ne l'affiche jamais (seule la ligne de crédits des licences ouvertes).",
+   "de": "Woher jede Angabe stammt und wann sie geprüft wurde. Nur die Verwaltung sieht das: Die öffentliche Website zeigt es nie (nur die Credits-Zeile der offenen Lizenzen).",
+   "it": "Da dove proviene ogni dato e quando è stato verificato. Lo vede solo l'amministrazione: il sito pubblico non lo mostra mai (solo la riga dei crediti delle licenze aperte).",
+   "pt": "De onde vem cada dado e quando foi verificado. Só a administração o vê: o site público nunca o mostra (só a linha de créditos das licenças abertas).",
+   "pl": "Skąd pochodzi każda informacja i kiedy ją sprawdzono. Widzi to tylko administracja: publiczna strona nigdy tego nie pokazuje (jedynie wiersz z podziękowaniami dla otwartych licencji).",
+   "nl": "Waar elk gegeven vandaan komt en wanneer het is gecontroleerd. Alleen het beheer ziet dit: de openbare website toont het nooit (alleen de creditsregel van de open licenties).",
+   "zh": "每项数据的来源及核实时间。仅管理员可见：公开网站从不显示（仅显示开放许可的致谢行）。"
+  },
+  "Dato": {
+   "en": "Data",
+   "fr": "Donnée",
+   "de": "Angabe",
+   "it": "Dato",
+   "pt": "Dado",
+   "pl": "Dana",
+   "nl": "Gegeven",
+   "zh": "数据项"
+  },
+  "Referencia": {
+   "en": "Reference",
+   "fr": "Référence",
+   "de": "Quelle",
+   "it": "Riferimento",
+   "pt": "Referência",
+   "pl": "Odniesienie",
+   "nl": "Referentie",
+   "zh": "参考"
+  },
+  "Licencia": {
+   "en": "Licence",
+   "fr": "Licence",
+   "de": "Lizenz",
+   "it": "Licenza",
+   "pt": "Licença",
+   "pl": "Licencja",
+   "nl": "Licentie",
+   "zh": "许可"
+  },
+  "Comprobado": {
+   "en": "Checked",
+   "fr": "Vérifié",
+   "de": "Geprüft",
+   "it": "Verificato",
+   "pt": "Verificado",
+   "pl": "Sprawdzono",
+   "nl": "Gecontroleerd",
+   "zh": "已核实"
+  },
+  "Todavía no hay ninguna fuente anotada.": {
+   "en": "No source recorded yet.",
+   "fr": "Aucune source enregistrée pour le moment.",
+   "de": "Noch keine Quelle eingetragen.",
+   "it": "Ancora nessuna fonte registrata.",
+   "pt": "Ainda não há nenhuma fonte registada.",
+   "pl": "Nie zapisano jeszcze żadnego źródła.",
+   "nl": "Nog geen bron vastgelegd.",
+   "zh": "尚未记录任何来源。"
+  },
+  "Enlace, publicación o persona de contacto": {
+   "en": "Link, publication or contact person",
+   "fr": "Lien, publication ou personne de contact",
+   "de": "Link, Veröffentlichung oder Ansprechperson",
+   "it": "Link, pubblicazione o persona di contatto",
+   "pt": "Link, publicação ou pessoa de contacto",
+   "pl": "Link, publikacja lub osoba kontaktowa",
+   "nl": "Link, publicatie of contactpersoon",
+   "zh": "链接、出版物或联系人"
+  },
+  "CC0, ODbL…": {
+   "en": "CC0, ODbL…",
+   "fr": "CC0, ODbL…",
+   "de": "CC0, ODbL…",
+   "it": "CC0, ODbL…",
+   "pt": "CC0, ODbL…",
+   "pl": "CC0, ODbL…",
+   "nl": "CC0, ODbL…",
+   "zh": "CC0、ODbL……"
+  },
+  "Añadir fuente": {
+   "en": "Add source",
+   "fr": "Ajouter une source",
+   "de": "Quelle hinzufügen",
+   "it": "Aggiungi fonte",
+   "pt": "Adicionar fonte",
+   "pl": "Dodaj źródło",
+   "nl": "Bron toevoegen",
+   "zh": "添加来源"
+  },
+  "Fuente añadida.": {
+   "en": "Source added.",
+   "fr": "Source ajoutée.",
+   "de": "Quelle hinzugefügt.",
+   "it": "Fonte aggiunta.",
+   "pt": "Fonte adicionada.",
+   "pl": "Źródło dodane.",
+   "nl": "Bron toegevoegd.",
+   "zh": "来源已添加。"
+  },
+  "¿Quitar esta fuente del registro?": {
+   "en": "Remove this source from the register?",
+   "fr": "Retirer cette source du registre ?",
+   "de": "Diese Quelle aus dem Verzeichnis entfernen?",
+   "it": "Rimuovere questa fonte dal registro?",
+   "pt": "Retirar esta fonte do registo?",
+   "pl": "Usunąć to źródło z rejestru?",
+   "nl": "Deze bron uit het register verwijderen?",
+   "zh": "从记录中删除此来源？"
+  },
+  "Toda la ficha": {
+   "en": "The whole page",
+   "fr": "Toute la fiche",
+   "de": "Die ganze Seite",
+   "it": "Tutta la scheda",
+   "pt": "Toda a ficha",
+   "pl": "Cała karta",
+   "nl": "De hele pagina",
+   "zh": "整个页面"
+  },
+  "Vida marina": {
+   "en": "Marine life",
+   "fr": "Vie marine",
+   "de": "Meeresleben",
+   "it": "Vita marina",
+   "pt": "Vida marinha",
+   "pl": "Życie morskie",
+   "nl": "Zeeleven",
+   "zh": "海洋生物"
+  },
+  "Centro de buceo": {
+   "en": "Dive centre",
+   "fr": "Centre de plongée",
+   "de": "Tauchzentrum",
+   "it": "Centro immersioni",
+   "pt": "Centro de mergulho",
+   "pl": "Centrum nurkowe",
+   "nl": "Duikcentrum",
+   "zh": "潜水中心"
+  },
+  "Wikidata (CC0)": {
+   "en": "Wikidata (CC0)",
+   "fr": "Wikidata (CC0)",
+   "de": "Wikidata (CC0)",
+   "it": "Wikidata (CC0)",
+   "pt": "Wikidata (CC0)",
+   "pl": "Wikidata (CC0)",
+   "nl": "Wikidata (CC0)",
+   "zh": "Wikidata（CC0）"
+  },
+  "OpenStreetMap (ODbL)": {
+   "en": "OpenStreetMap (ODbL)",
+   "fr": "OpenStreetMap (ODbL)",
+   "de": "OpenStreetMap (ODbL)",
+   "it": "OpenStreetMap (ODbL)",
+   "pt": "OpenStreetMap (ODbL)",
+   "pl": "OpenStreetMap (ODbL)",
+   "nl": "OpenStreetMap (ODbL)",
+   "zh": "OpenStreetMap（ODbL）"
+  },
+  "Datos oficiales": {
+   "en": "Official data",
+   "fr": "Données officielles",
+   "de": "Amtliche Daten",
+   "it": "Dati ufficiali",
+   "pt": "Dados oficiais",
+   "pl": "Dane urzędowe",
+   "nl": "Officiële gegevens",
+   "zh": "官方数据"
+  },
+  "Investigación propia": {
+   "en": "Own research",
+   "fr": "Recherche propre",
+   "de": "Eigene Recherche",
+   "it": "Ricerca propria",
+   "pt": "Investigação própria",
+   "pl": "Własne badania",
+   "nl": "Eigen onderzoek",
+   "zh": "自行调研"
+  },
+  "Propuesta aceptada": {
+   "en": "Accepted proposal",
+   "fr": "Proposition acceptée",
+   "de": "Angenommener Vorschlag",
+   "it": "Proposta accettata",
+   "pt": "Proposta aceite",
+   "pl": "Zaakceptowana propozycja",
+   "nl": "Geaccepteerd voorstel",
+   "zh": "已接受的提议"
+  },
+  "Catálogo inicial": {
+   "en": "Initial catalogue",
+   "fr": "Catalogue initial",
+   "de": "Ursprünglicher Katalog",
+   "it": "Catalogo iniziale",
+   "pt": "Catálogo inicial",
+   "pl": "Katalog początkowy",
+   "nl": "Oorspronkelijke catalogus",
+   "zh": "初始目录"
+  },
+  "Todos los puntos": {
+   "en": "All dive sites",
+   "fr": "Tous les sites",
+   "de": "Alle Tauchplätze",
+   "it": "Tutti i siti",
+   "pt": "Todos os locais",
+   "pl": "Wszystkie miejsca",
+   "nl": "Alle duikplekken",
+   "zh": "全部潜点"
+  },
+  "Lotes nuevos": {
+   "en": "New batches",
+   "fr": "Nouveaux lots",
+   "de": "Neue Stapel",
+   "it": "Nuovi lotti",
+   "pt": "Lotes novos",
+   "pl": "Nowe partie",
+   "nl": "Nieuwe batches",
+   "zh": "新批次"
+  },
+  "Propuestas de cambio": {
+   "en": "Change proposals",
+   "fr": "Propositions de modification",
+   "de": "Änderungsvorschläge",
+   "it": "Proposte di modifica",
+   "pt": "Propostas de alteração",
+   "pl": "Propozycje zmian",
+   "nl": "Wijzigingsvoorstellen",
+   "zh": "修改提议"
+  },
+  "Posición por revisar": {
+   "en": "Position to check",
+   "fr": "Position à vérifier",
+   "de": "Position zu prüfen",
+   "it": "Posizione da controllare",
+   "pt": "Posição por rever",
+   "pl": "Pozycja do sprawdzenia",
+   "nl": "Positie te controleren",
+   "zh": "待检查位置"
+  },
+  "Puntos de buceo": {
+   "en": "Dive sites",
+   "fr": "Sites de plongée",
+   "de": "Tauchplätze",
+   "it": "Siti di immersione",
+   "pt": "Locais de mergulho",
+   "pl": "Miejsca nurkowe",
+   "nl": "Duikplekken",
+   "zh": "潜点"
+  },
+  "Proponer cambios": {
+   "en": "Suggest changes",
+   "fr": "Proposer des modifications",
+   "de": "Änderungen vorschlagen",
+   "it": "Proponi modifiche",
+   "pt": "Propor alterações",
+   "pl": "Zaproponuj zmiany",
+   "nl": "Wijzigingen voorstellen",
+   "zh": "提议修改"
+  },
+  "PROPUESTA": {
+   "en": "PROPOSAL",
+   "fr": "PROPOSITION",
+   "de": "VORSCHLAG",
+   "it": "PROPOSTA",
+   "pt": "PROPOSTA",
+   "pl": "PROPOZYCJA",
+   "nl": "VOORSTEL",
+   "zh": "提议"
+  },
+  "No se publica hasta que la administración la revisa.": {
+   "en": "It isn't published until the administration reviews it.",
+   "fr": "Elle n'est publiée qu'après examen par l'administration.",
+   "de": "Sie wird erst nach Prüfung durch die Verwaltung veröffentlicht.",
+   "it": "Non viene pubblicata finché l'amministrazione non la esamina.",
+   "pt": "Não é publicada até a administração a rever.",
+   "pl": "Nie zostanie opublikowana, dopóki administracja jej nie sprawdzi.",
+   "nl": "Het wordt pas gepubliceerd nadat het beheer het heeft bekeken.",
+   "zh": "经管理员审核后才会发布。"
+  },
+  "Propuesta enviada a la administración.": {
+   "en": "Proposal sent to the administration.",
+   "fr": "Proposition envoyée à l'administration.",
+   "de": "Vorschlag an die Verwaltung gesendet.",
+   "it": "Proposta inviata all'amministrazione.",
+   "pt": "Proposta enviada à administração.",
+   "pl": "Propozycja wysłana do administracji.",
+   "nl": "Voorstel naar het beheer gestuurd.",
+   "zh": "提议已发送给管理员。"
+  },
+  "Cada zona entra como un lote «Pendiente de verificar»: no se ve en la web hasta que lo publicas, entero o punto a punto. Un punto que cae en tierra o que puede estar repetido espera a que decidas.": {
+   "en": "Each zone comes in as a «Pending verification» batch: it is not shown on the web until you publish it, whole or site by site. A site on land or that may be repeated waits for your decision.",
+   "fr": "Chaque zone arrive comme un lot « En attente de vérification » : il n'apparaît pas sur le site tant que vous ne le publiez pas, en entier ou site par site. Un site sur la terre ferme ou peut-être en double attend votre décision.",
+   "de": "Jede Zone kommt als Stapel „Prüfung ausstehend“ herein: Er erscheint erst auf der Website, wenn du ihn veröffentlichst, ganz oder Platz für Platz. Ein Platz an Land oder ein mögliches Duplikat wartet auf deine Entscheidung.",
+   "it": "Ogni zona entra come un lotto «In attesa di verifica»: non compare sul sito finché non lo pubblichi, intero o sito per sito. Un sito sulla terraferma o forse ripetuto attende la tua decisione.",
+   "pt": "Cada zona entra como um lote «Pendente de verificação»: não aparece no site até o publicares, inteiro ou local a local. Um local em terra ou que pode estar repetido espera pela tua decisão.",
+   "pl": "Każda strefa trafia jako partia „Czeka na weryfikację”: nie pojawia się na stronie, dopóki jej nie opublikujesz, w całości lub miejsce po miejscu. Miejsce na lądzie lub możliwy duplikat czeka na twoją decyzję.",
+   "nl": "Elke zone komt binnen als batch „Nog te controleren”: hij verschijnt pas op de website als je hem publiceert, in zijn geheel of plek voor plek. Een plek op het land of die dubbel kan zijn, wacht op je beslissing.",
+   "zh": "每个区域以“待核实”批次导入：在你发布（整批或逐个潜点）之前不会在网站上显示。位于陆地或可能重复的潜点会等待你的决定。"
+  },
+  "Subir un lote (archivo JSON)": {
+   "en": "Upload a batch (JSON file)",
+   "fr": "Importer un lot (fichier JSON)",
+   "de": "Stapel hochladen (JSON-Datei)",
+   "it": "Carica un lotto (file JSON)",
+   "pt": "Carregar um lote (ficheiro JSON)",
+   "pl": "Prześlij partię (plik JSON)",
+   "nl": "Een batch uploaden (JSON-bestand)",
+   "zh": "上传批次（JSON 文件）"
+  },
+  "El archivo que preparan los scripts de": {
+   "en": "The file prepared by the scripts in",
+   "fr": "Le fichier préparé par les scripts de",
+   "de": "Die Datei, die die Skripte erstellen in",
+   "it": "Il file preparato dagli script di",
+   "pt": "O ficheiro que os scripts preparam em",
+   "pl": "Plik przygotowany przez skrypty z",
+   "nl": "Het bestand dat de scripts maken in",
+   "zh": "由以下目录中的脚本生成的文件："
+  },
+  "Subir el lote": {
+   "en": "Upload the batch",
+   "fr": "Importer le lot",
+   "de": "Stapel hochladen",
+   "it": "Carica il lotto",
+   "pt": "Carregar o lote",
+   "pl": "Prześlij partię",
+   "nl": "Batch uploaden",
+   "zh": "上传批次"
+  },
+  "Elige el archivo del lote.": {
+   "en": "Choose the batch file.",
+   "fr": "Choisissez le fichier du lot.",
+   "de": "Wähle die Stapeldatei.",
+   "it": "Scegli il file del lotto.",
+   "pt": "Escolhe o ficheiro do lote.",
+   "pl": "Wybierz plik partii.",
+   "nl": "Kies het batchbestand.",
+   "zh": "请选择批次文件。"
+  },
+  "El archivo no es un JSON válido.": {
+   "en": "The file is not valid JSON.",
+   "fr": "Le fichier n'est pas un JSON valide.",
+   "de": "Die Datei ist kein gültiges JSON.",
+   "it": "Il file non è un JSON valido.",
+   "pt": "O ficheiro não é um JSON válido.",
+   "pl": "Plik nie jest prawidłowym JSON-em.",
+   "nl": "Het bestand is geen geldige JSON.",
+   "zh": "该文件不是有效的 JSON。"
+  },
+  "Ver los puntos": {
+   "en": "See the sites",
+   "fr": "Voir les sites",
+   "de": "Plätze anzeigen",
+   "it": "Vedi i siti",
+   "pt": "Ver os locais",
+   "pl": "Zobacz miejsca",
+   "nl": "Plekken bekijken",
+   "zh": "查看潜点"
+  },
+  "Publicado en parte": {
+   "en": "Partly published",
+   "fr": "Publié en partie",
+   "de": "Teilweise veröffentlicht",
+   "it": "Pubblicato in parte",
+   "pt": "Publicado em parte",
+   "pl": "Częściowo opublikowane",
+   "nl": "Deels gepubliceerd",
+   "zh": "部分已发布"
+  },
+  "Todavía no hay lotes. Cuando se prepare una zona aparecerá aquí.": {
+   "en": "No batches yet. When a zone is prepared it will appear here.",
+   "fr": "Aucun lot pour le moment. Quand une zone sera prête, elle apparaîtra ici.",
+   "de": "Noch keine Stapel. Sobald eine Zone vorbereitet ist, erscheint sie hier.",
+   "it": "Ancora nessun lotto. Quando una zona sarà pronta, apparirà qui.",
+   "pt": "Ainda não há lotes. Quando uma zona estiver preparada, aparecerá aqui.",
+   "pl": "Nie ma jeszcze partii. Gdy strefa będzie gotowa, pojawi się tutaj.",
+   "nl": "Nog geen batches. Zodra een zone klaar is, verschijnt die hier.",
+   "zh": "暂无批次。区域准备好后将显示在这里。"
+  },
+  "Publicar como «Verificado» (si no, «Pendiente de verificar»)": {
+   "en": "Publish as «Verified» (otherwise «Pending verification»)",
+   "fr": "Publier comme « Vérifié » (sinon « En attente de vérification »)",
+   "de": "Als „Geprüft“ veröffentlichen (sonst „Prüfung ausstehend“)",
+   "it": "Pubblica come «Verificato» (altrimenti «In attesa di verifica»)",
+   "pt": "Publicar como «Verificado» (senão, «Pendente de verificação»)",
+   "pl": "Opublikuj jako „Zweryfikowane” (w przeciwnym razie „Czeka na weryfikację”)",
+   "nl": "Publiceren als „Geverifieerd” (anders „Nog te controleren”)",
+   "zh": "以“已核实”发布（否则为“待核实”）"
+  },
+  "Publicar todos los que están bien": {
+   "en": "Publish all those that are fine",
+   "fr": "Publier tous ceux qui sont corrects",
+   "de": "Alle einwandfreien veröffentlichen",
+   "it": "Pubblica tutti quelli corretti",
+   "pt": "Publicar todos os que estão bem",
+   "pl": "Opublikuj wszystkie poprawne",
+   "nl": "Alle goede publiceren",
+   "zh": "发布所有无问题的潜点"
+  },
+  "¿Ya existe?": {
+   "en": "Does it exist already?",
+   "fr": "Existe déjà ?",
+   "de": "Gibt es ihn schon?",
+   "it": "Esiste già?",
+   "pt": "Já existe?",
+   "pl": "Już istnieje?",
+   "nl": "Bestaat al?",
+   "zh": "是否已存在？"
+  },
+  "Completa": {
+   "en": "Completes",
+   "fr": "Complète",
+   "de": "Ergänzt",
+   "it": "Completa",
+   "pt": "Completa",
+   "pl": "Uzupełnia",
+   "nl": "Vult aan",
+   "zh": "补充"
+  },
+  "¿Es": {
+   "en": "Is it",
+   "fr": "Est-ce",
+   "de": "Ist es",
+   "it": "È",
+   "pt": "É",
+   "pl": "Czy to",
+   "nl": "Is het",
+   "zh": "是否为"
+  },
+  "Nuevo": {
+   "en": "New",
+   "fr": "Nouveau",
+   "de": "Neu",
+   "it": "Nuovo",
+   "pt": "Novo",
+   "pl": "Nowe",
+   "nl": "Nieuw",
+   "zh": "新"
+  },
+  "Completó una ficha": {
+   "en": "Completed a page",
+   "fr": "A complété une fiche",
+   "de": "Hat eine Seite ergänzt",
+   "it": "Ha completato una scheda",
+   "pt": "Completou uma ficha",
+   "pl": "Uzupełniło kartę",
+   "nl": "Vulde een pagina aan",
+   "zh": "已补充一个页面"
+  },
+  "Descartado": {
+   "en": "Discarded",
+   "fr": "Écarté",
+   "de": "Verworfen",
+   "it": "Scartato",
+   "pt": "Descartado",
+   "pl": "Odrzucone",
+   "nl": "Verworpen",
+   "zh": "已舍弃"
+  },
+  "Es el mismo: completar": {
+   "en": "It's the same: complete it",
+   "fr": "C'est le même : compléter",
+   "de": "Derselbe: ergänzen",
+   "it": "È lo stesso: completa",
+   "pt": "É o mesmo: completar",
+   "pl": "To samo: uzupełnij",
+   "nl": "Hetzelfde: aanvullen",
+   "zh": "相同：补充"
+  },
+  "Es otro: publicar": {
+   "en": "It's different: publish",
+   "fr": "C'est un autre : publier",
+   "de": "Ein anderer: veröffentlichen",
+   "it": "È un altro: pubblica",
+   "pt": "É outro: publicar",
+   "pl": "Inne: opublikuj",
+   "nl": "Een andere: publiceren",
+   "zh": "不同：发布"
+  },
+  "Completar la ficha": {
+   "en": "Complete the page",
+   "fr": "Compléter la fiche",
+   "de": "Seite ergänzen",
+   "it": "Completa la scheda",
+   "pt": "Completar a ficha",
+   "pl": "Uzupełnij kartę",
+   "nl": "Pagina aanvullen",
+   "zh": "补充页面"
+  },
+  "Corregir": {
+   "en": "Correct",
+   "fr": "Corriger",
+   "de": "Korrigieren",
+   "it": "Correggi",
+   "pt": "Corrigir",
+   "pl": "Popraw",
+   "nl": "Corrigeren",
+   "zh": "更正"
+  },
+  "Descartar": {
+   "en": "Discard",
+   "fr": "Écarter",
+   "de": "Verwerfen",
+   "it": "Scarta",
+   "pt": "Descartar",
+   "pl": "Odrzuć",
+   "nl": "Verwerpen",
+   "zh": "舍弃"
+  },
+  "Guardar y comprobar de nuevo": {
+   "en": "Save and check again",
+   "fr": "Enregistrer et vérifier à nouveau",
+   "de": "Speichern und erneut prüfen",
+   "it": "Salva e verifica di nuovo",
+   "pt": "Guardar e verificar de novo",
+   "pl": "Zapisz i sprawdź ponownie",
+   "nl": "Opslaan en opnieuw controleren",
+   "zh": "保存并重新检查"
+  },
+  "¿Descartar este punto del lote? No se publica.": {
+   "en": "Discard this site from the batch? It won't be published.",
+   "fr": "Écarter ce site du lot ? Il ne sera pas publié.",
+   "de": "Diesen Platz aus dem Stapel verwerfen? Er wird nicht veröffentlicht.",
+   "it": "Scartare questo sito dal lotto? Non verrà pubblicato.",
+   "pt": "Descartar este local do lote? Não é publicado.",
+   "pl": "Odrzucić to miejsce z partii? Nie zostanie opublikowane.",
+   "nl": "Deze plek uit de batch verwerpen? Hij wordt niet gepubliceerd.",
+   "zh": "从批次中舍弃此潜点？它将不会被发布。"
+  },
+  "Buscar duplicados ahora": {
+   "en": "Look for duplicates now",
+   "fr": "Rechercher les doublons maintenant",
+   "de": "Jetzt nach Duplikaten suchen",
+   "it": "Cerca duplicati ora",
+   "pt": "Procurar duplicados agora",
+   "pl": "Szukaj duplikatów teraz",
+   "nl": "Nu naar dubbele zoeken",
+   "zh": "立即查找重复"
+  },
+  "Mantener separados": {
+   "en": "Keep separate",
+   "fr": "Garder séparés",
+   "de": "Getrennt lassen",
+   "it": "Mantieni separati",
+   "pt": "Manter separados",
+   "pl": "Zostaw osobno",
+   "nl": "Apart houden",
+   "zh": "保持独立"
+  },
+  "¿Unir las dos fichas? Todo pasa a la que se queda y la otra se archiva.": {
+   "en": "Merge the two pages? Everything moves to the one that stays and the other is archived.",
+   "fr": "Fusionner les deux fiches ? Tout passe à celle qui reste et l’autre est archivée.",
+   "de": "Die beiden Seiten zusammenführen? Alles geht auf die bleibende über, die andere wird archiviert.",
+   "it": "Unire le due schede? Tutto passa a quella che resta e l'altra viene archiviata.",
+   "pt": "Unir as duas fichas? Tudo passa para a que fica e a outra é arquivada.",
+   "pl": "Połączyć obie karty? Wszystko przejdzie do pozostającej, a druga zostanie zarchiwizowana.",
+   "nl": "De twee pagina’s samenvoegen? Alles gaat naar de pagina die blijft en de andere wordt gearchiveerd.",
+   "zh": "合并这两个页面？所有内容将转到保留的页面，另一个将被归档。"
+  },
+  "Unidas.": {
+   "en": "Merged.",
+   "fr": "Fusionnées.",
+   "de": "Zusammengeführt.",
+   "it": "Unite.",
+   "pt": "Unidas.",
+   "pl": "Połączono.",
+   "nl": "Samengevoegd.",
+   "zh": "已合并。"
+  },
+  "No hay posibles duplicados entre los puntos publicados.": {
+   "en": "No possible duplicates among the published sites.",
+   "fr": "Aucun doublon possible parmi les sites publiés.",
+   "de": "Keine möglichen Duplikate unter den veröffentlichten Plätzen.",
+   "it": "Nessun possibile duplicato tra i siti pubblicati.",
+   "pt": "Não há possíveis duplicados entre os locais publicados.",
+   "pl": "Brak możliwych duplikatów wśród opublikowanych miejsc.",
+   "nl": "Geen mogelijke dubbele onder de gepubliceerde plekken.",
+   "zh": "已发布潜点中没有可能重复的项。"
+  },
+  "En los lotes nuevos": {
+   "en": "In the new batches",
+   "fr": "Dans les nouveaux lots",
+   "de": "In den neuen Stapeln",
+   "it": "Nei nuovi lotti",
+   "pt": "Nos lotes novos",
+   "pl": "W nowych partiach",
+   "nl": "In de nieuwe batches",
+   "zh": "在新批次中"
+  },
+  "Decidir en «Lotes nuevos»": {
+   "en": "Decide in «New batches»",
+   "fr": "Décider dans « Nouveaux lots »",
+   "de": "In „Neue Stapel“ entscheiden",
+   "it": "Decidi in «Nuovi lotti»",
+   "pt": "Decidir em «Lotes novos»",
+   "pl": "Zdecyduj w „Nowe partie”",
+   "nl": "Beslissen bij „Nieuwe batches”",
+   "zh": "在“新批次”中处理"
+  },
+  "Las envían los centros que bucean en el punto (posición, corriente, visibilidad y avisos) y los buceadores (también el resto de datos). Al aceptar, la ficha cambia y la propuesta queda anotada como fuente del dato.": {
+   "en": "They are sent by centres that dive at the site (position, current, visibility and warnings) and by divers (the rest of the data too). When you accept, the page changes and the proposal is recorded as the source of the data.",
+   "fr": "Elles sont envoyées par les centres qui plongent sur le site (position, courant, visibilité et avertissements) et par les plongeurs (aussi le reste des données). En acceptant, la fiche change et la proposition est notée comme source de la donnée.",
+   "de": "Sie kommen von Zentren, die an diesem Platz tauchen (Position, Strömung, Sicht und Hinweise), und von Tauchern (auch die übrigen Daten). Beim Annehmen ändert sich die Seite und der Vorschlag wird als Quelle der Angabe vermerkt.",
+   "it": "Le inviano i centri che si immergono nel sito (posizione, corrente, visibilità e avvertenze) e i subacquei (anche gli altri dati). Accettando, la scheda cambia e la proposta viene registrata come fonte del dato.",
+   "pt": "Enviam-nas os centros que mergulham no local (posição, corrente, visibilidade e avisos) e os mergulhadores (também os restantes dados). Ao aceitar, a ficha muda e a proposta fica registada como fonte do dado.",
+   "pl": "Wysyłają je centra nurkujące w tym miejscu (pozycja, prąd, widoczność i ostrzeżenia) oraz nurkowie (także pozostałe dane). Po akceptacji karta się zmienia, a propozycja zostaje zapisana jako źródło danych.",
+   "nl": "Ze worden gestuurd door centra die op de plek duiken (positie, stroming, zicht en waarschuwingen) en door duikers (ook de overige gegevens). Bij accepteren verandert de pagina en wordt het voorstel als bron vastgelegd.",
+   "zh": "提议来自在此潜水的潜水中心（位置、水流、能见度和注意事项）和潜水员（也包括其他数据）。接受后页面会更新，并将该提议记录为数据来源。"
+  },
+  "Ahora": {
+   "en": "Now",
+   "fr": "Actuel",
+   "de": "Jetzt",
+   "it": "Ora",
+   "pt": "Agora",
+   "pl": "Teraz",
+   "nl": "Nu",
+   "zh": "当前"
+  },
+  "Propuesta": {
+   "en": "Proposal",
+   "fr": "Proposition",
+   "de": "Vorschlag",
+   "it": "Proposta",
+   "pt": "Proposta",
+   "pl": "Propozycja",
+   "nl": "Voorstel",
+   "zh": "提议"
+  },
+  "Aceptar": {
+   "en": "Accept",
+   "fr": "Accepter",
+   "de": "Annehmen",
+   "it": "Accetta",
+   "pt": "Aceitar",
+   "pl": "Zaakceptuj",
+   "nl": "Accepteren",
+   "zh": "接受"
+  },
+  "Aceptada: la ficha ya tiene el cambio.": {
+   "en": "Accepted: the page already has the change.",
+   "fr": "Acceptée : la fiche a déjà la modification.",
+   "de": "Angenommen: Die Seite hat die Änderung schon.",
+   "it": "Accettata: la scheda ha già la modifica.",
+   "pt": "Aceite: a ficha já tem a alteração.",
+   "pl": "Zaakceptowano: karta ma już zmianę.",
+   "nl": "Geaccepteerd: de pagina heeft de wijziging al.",
+   "zh": "已接受：页面已更新。"
+  },
+  "Rechazada.": {
+   "en": "Rejected.",
+   "fr": "Refusée.",
+   "de": "Abgelehnt.",
+   "it": "Rifiutata.",
+   "pt": "Rejeitada.",
+   "pl": "Odrzucono.",
+   "nl": "Afgewezen.",
+   "zh": "已拒绝。"
+  },
+  "No hay propuestas pendientes.": {
+   "en": "No pending proposals.",
+   "fr": "Aucune proposition en attente.",
+   "de": "Keine offenen Vorschläge.",
+   "it": "Nessuna proposta in attesa.",
+   "pt": "Não há propostas pendentes.",
+   "pl": "Brak oczekujących propozycji.",
+   "nl": "Geen openstaande voorstellen.",
+   "zh": "没有待处理的提议。"
+  },
+  "Puntos publicados que, según la línea de costa de OpenStreetMap (10 m de error), caen en tierra, o puntos de costa a más de 200 m de la orilla. Muchos tienen la posición del pueblo o de la zona: corrígelos con una fuente (el GPS de un centro, una publicación oficial), nunca «a ojo».": {
+   "en": "Published sites that, according to OpenStreetMap's coastline (10 m error), are on land, or shore sites more than 200 m from the shore. Many have the position of the town or area: correct them with a source (a centre's GPS, an official publication), never by guesswork.",
+   "fr": "Sites publiés qui, selon le trait de côte d'OpenStreetMap (10 m d'erreur), tombent sur la terre ferme, ou sites du bord à plus de 200 m du rivage. Beaucoup ont la position du village ou de la zone : corrigez-les avec une source (GPS d'un centre, publication officielle), jamais « à l'œil ».",
+   "de": "Veröffentlichte Plätze, die laut Küstenlinie von OpenStreetMap (10 m Fehler) an Land liegen, oder Uferplätze mehr als 200 m vom Ufer entfernt. Viele haben die Position des Ortes oder Gebiets: Korrigiere sie mit einer Quelle (GPS eines Zentrums, amtliche Veröffentlichung), nie nach Augenmaß.",
+   "it": "Siti pubblicati che, secondo la linea di costa di OpenStreetMap (10 m di errore), cadono sulla terraferma, o siti da riva a più di 200 m dalla costa. Molti hanno la posizione del paese o della zona: correggili con una fonte (il GPS di un centro, una pubblicazione ufficiale), mai «a occhio».",
+   "pt": "Locais publicados que, segundo a linha de costa do OpenStreetMap (10 m de erro), ficam em terra, ou locais de costa a mais de 200 m da margem. Muitos têm a posição da povoação ou da zona: corrige-os com uma fonte (o GPS de um centro, uma publicação oficial), nunca «a olho».",
+   "pl": "Opublikowane miejsca, które według linii brzegowej OpenStreetMap (błąd 10 m) leżą na lądzie, lub miejsca z brzegu oddalone o ponad 200 m od brzegu. Wiele ma pozycję miejscowości lub obszaru: popraw je na podstawie źródła (GPS centrum, publikacja oficjalna), nigdy „na oko”.",
+   "nl": "Gepubliceerde plekken die volgens de kustlijn van OpenStreetMap (10 m fout) op het land liggen, of kantduiken op meer dan 200 m van de kust. Veel hebben de positie van het dorp of gebied: corrigeer ze met een bron (gps van een centrum, officiële publicatie), nooit op het oog.",
+   "zh": "根据 OpenStreetMap 海岸线（误差 10 米）位于陆地上的已发布潜点，或距岸边超过 200 米的岸潜点。许多潜点使用的是城镇或区域的位置：请依据来源（潜水中心的 GPS、官方出版物）更正，切勿凭目测。"
+  },
+  "Comprobar todos de nuevo": {
+   "en": "Check all again",
+   "fr": "Tout vérifier à nouveau",
+   "de": "Alle erneut prüfen",
+   "it": "Verifica tutti di nuovo",
+   "pt": "Verificar todos de novo",
+   "pl": "Sprawdź wszystkie ponownie",
+   "nl": "Alles opnieuw controleren",
+   "zh": "全部重新检查"
+  },
+  "Comprobación": {
+   "en": "Check",
+   "fr": "Vérification",
+   "de": "Prüfung",
+   "it": "Verifica",
+   "pt": "Verificação",
+   "pl": "Sprawdzenie",
+   "nl": "Controle",
+   "zh": "检查结果"
+  },
+  "Todos los puntos comprobables caen en el agua.": {
+   "en": "All checkable sites are in the water.",
+   "fr": "Tous les sites vérifiables sont dans l'eau.",
+   "de": "Alle prüfbaren Plätze liegen im Wasser.",
+   "it": "Tutti i siti verificabili sono in acqua.",
+   "pt": "Todos os locais verificáveis ficam na água.",
+   "pl": "Wszystkie sprawdzalne miejsca są w wodzie.",
+   "nl": "Alle controleerbare plekken liggen in het water.",
+   "zh": "所有可检查的潜点均位于水中。"
+  },
+  "Revisión": {
+   "en": "Review",
+   "fr": "Révision",
+   "de": "Prüfung",
+   "it": "Revisione",
+   "pt": "Revisão",
+   "pl": "Przegląd",
+   "nl": "Controle",
+   "zh": "审核"
+  },
+  "Contenido": {
+   "en": "Content",
+   "fr": "Contenu",
+   "de": "Inhalte",
+   "it": "Contenuti",
+   "pt": "Conteúdo",
+   "pl": "Treści",
+   "nl": "Inhoud",
+   "zh": "内容"
+  },
+  "Solicitudes de centros": {
+   "en": "Centre requests",
+   "fr": "Demandes de centres",
+   "de": "Anfragen von Zentren",
+   "it": "Richieste dei centri",
+   "pt": "Pedidos de centros",
+   "pl": "Wnioski centrów",
+   "nl": "Aanvragen van centra",
+   "zh": "潜水中心申请"
+  },
+  "Denuncias y moderación": {
+   "en": "Reports and moderation",
+   "fr": "Signalements et modération",
+   "de": "Meldungen und Moderation",
+   "it": "Segnalazioni e moderazione",
+   "pt": "Denúncias e moderação",
+   "pl": "Zgłoszenia i moderacja",
+   "nl": "Meldingen en moderatie",
+   "zh": "举报与审核"
+  },
+  "Especies y vídeos": {
+   "en": "Species and videos",
+   "fr": "Espèces et vidéos",
+   "de": "Arten und Videos",
+   "it": "Specie e video",
+   "pt": "Espécies e vídeos",
+   "pl": "Gatunki i filmy",
+   "nl": "Soorten en video's",
+   "zh": "物种与视频"
+  },
+  "Mapas": {
+   "en": "Maps",
+   "fr": "Cartes",
+   "de": "Karten",
+   "it": "Mappe",
+   "pt": "Mapas",
+   "pl": "Mapy",
+   "nl": "Kaarten",
+   "zh": "地图"
+  },
+  "Permiso": {
+   "en": "Permit",
+   "fr": "Autorisation",
+   "de": "Genehmigung",
+   "it": "Permesso",
+   "pt": "Licença",
+   "pl": "Zezwolenie",
+   "nl": "Vergunning",
+   "zh": "许可"
+  },
+  "Hace falta permiso": {
+   "en": "Permit needed",
+   "fr": "Autorisation nécessaire",
+   "de": "Genehmigung nötig",
+   "it": "Serve un permesso",
+   "pt": "É preciso licença",
+   "pl": "Wymagane zezwolenie",
+   "nl": "Vergunning nodig",
+   "zh": "需要许可"
+  },
+  "Sin permiso": {
+   "en": "No permit",
+   "fr": "Sans autorisation",
+   "de": "Keine Genehmigung",
+   "it": "Senza permesso",
+   "pt": "Sem licença",
+   "pl": "Bez zezwolenia",
+   "nl": "Geen vergunning",
+   "zh": "无需许可"
+  },
+  "Espacio protegido": {
+   "en": "Protected area",
+   "fr": "Espace protégé",
+   "de": "Schutzgebiet",
+   "it": "Area protetta",
+   "pt": "Espaço protegido",
+   "pl": "Obszar chroniony",
+   "nl": "Beschermd gebied",
+   "zh": "保护区"
+  },
+  "Visibilidad desde": {
+   "en": "Visibility from",
+   "fr": "Visibilité de",
+   "de": "Sicht ab",
+   "it": "Visibilità da",
+   "pt": "Visibilidade desde",
+   "pl": "Widoczność od",
+   "nl": "Zicht vanaf",
+   "zh": "能见度 起"
+  },
+  "Visibilidad hasta": {
+   "en": "Visibility to",
+   "fr": "Visibilité jusqu'à",
+   "de": "Sicht bis",
+   "it": "Visibilità fino a",
+   "pt": "Visibilidade até",
+   "pl": "Widoczność do",
+   "nl": "Zicht tot",
+   "zh": "能见度 至"
+  },
+  "Agua interior: no se comprueba la costa": {
+   "en": "Inland water: the coastline isn't checked",
+   "fr": "Eau intérieure : la côte n'est pas vérifiée",
+   "de": "Binnengewässer: Die Küste wird nicht geprüft",
+   "it": "Acque interne: la costa non viene verificata",
+   "pt": "Água interior: a costa não é verificada",
+   "pl": "Wody śródlądowe: wybrzeże nie jest sprawdzane",
+   "nl": "Binnenwater: de kust wordt niet gecontroleerd",
+   "zh": "内陆水域：不检查海岸线"
+  },
+  "Sin datos de costa para esta zona: comprobar a mano": {
+   "en": "No coastline data for this area: check by hand",
+   "fr": "Pas de données de côte pour cette zone : vérifier à la main",
+   "de": "Keine Küstendaten für dieses Gebiet: von Hand prüfen",
+   "it": "Nessun dato di costa per questa zona: verificare a mano",
+   "pt": "Sem dados de costa para esta zona: verificar à mão",
+   "pl": "Brak danych o wybrzeżu dla tego obszaru: sprawdź ręcznie",
+   "nl": "Geen kustgegevens voor dit gebied: met de hand controleren",
+   "zh": "该区域无海岸线数据：请人工检查"
+  },
+  "En el mar, lejos de la costa": {
+   "en": "In the sea, far from the coast",
+   "fr": "En mer, loin de la côte",
+   "de": "Im Meer, weit von der Küste",
+   "it": "In mare, lontano dalla costa",
+   "pt": "No mar, longe da costa",
+   "pl": "Na morzu, daleko od brzegu",
+   "nl": "In zee, ver van de kust",
+   "zh": "位于海中，远离海岸"
+  },
+  "En tierra": {
+   "en": "On land",
+   "fr": "Sur la terre ferme",
+   "de": "An Land",
+   "it": "Sulla terraferma",
+   "pt": "Em terra",
+   "pl": "Na lądzie",
+   "nl": "Op het land",
+   "zh": "位于陆地"
+  },
+  "Punto de costa a más de 200 m de la orilla": {
+   "en": "Shore site more than 200 m from the shore",
+   "fr": "Site du bord à plus de 200 m du rivage",
+   "de": "Uferplatz mehr als 200 m vom Ufer entfernt",
+   "it": "Sito da riva a più di 200 m dalla costa",
+   "pt": "Local de costa a mais de 200 m da margem",
+   "pl": "Miejsce z brzegu ponad 200 m od brzegu",
+   "nl": "Kantduik op meer dan 200 m van de kust",
+   "zh": "岸潜点距岸边超过 200 米"
+  }
+ },
+ "patterns": {
+  "Para añadir vídeos te falta: {x}.": {
+   "en": "To add videos you still need: {x}.",
+   "fr": "Pour ajouter des vidéos, il vous manque : {x}.",
+   "de": "Um Videos hinzuzufügen, fehlt dir noch: {x}.",
+   "it": "Per aggiungere video ti manca: {x}.",
+   "pt": "Para adicionar vídeos falta-te: {x}.",
+   "pl": "Aby dodawać filmy, brakuje ci: {x}.",
+   "nl": "Om video's toe te voegen mis je nog: {x}.",
+   "zh": "要添加视频，你还需要：{x}。"
+  },
+  "No hemos podido comprobar el vídeo con {x} ahora mismo. Inténtalo dentro de un rato.": {
+   "en": "We couldn't check the video with {x} right now. Try again in a while.",
+   "fr": "Nous n'avons pas pu vérifier la vidéo auprès de {x} pour le moment. Réessayez dans un moment.",
+   "de": "Wir konnten das Video gerade nicht bei {x} prüfen. Versuche es gleich noch einmal.",
+   "it": "Non siamo riusciti a verificare il video con {x} in questo momento. Riprova tra poco.",
+   "pt": "Não conseguimos verificar o vídeo com o {x} agora. Tenta daqui a pouco.",
+   "pl": "Nie udało się teraz sprawdzić filmu w {x}. Spróbuj za chwilę.",
+   "nl": "We konden de video nu niet bij {x} controleren. Probeer het zo opnieuw.",
+   "zh": "暂时无法通过 {x} 核实该视频，请稍后再试。"
+  },
+  "Publicados: {n}.": {
+   "en": "Published: {n}.",
+   "fr": "Publiées : {n}.",
+   "de": "Veröffentlicht: {n}.",
+   "it": "Pubblicati: {n}.",
+   "pt": "Publicados: {n}.",
+   "pl": "Opublikowano: {n}.",
+   "nl": "Gepubliceerd: {n}.",
+   "zh": "已发布：{n}。"
+  },
+  "En el mar, a {n} m de la orilla": {
+   "en": "In the sea, {n} m from the shore",
+   "fr": "En mer, à {n} m du rivage",
+   "de": "Im Meer, {n} m vom Ufer",
+   "it": "In mare, a {n} m dalla costa",
+   "pt": "No mar, a {n} m da margem",
+   "pl": "Na morzu, {n} m od brzegu",
+   "nl": "In zee, op {n} m van de kust",
+   "zh": "位于海中，距岸边 {n} 米"
+  },
+  "En el mar, a {x} km de la orilla": {
+   "en": "In the sea, {x} km from the shore",
+   "fr": "En mer, à {x} km du rivage",
+   "de": "Im Meer, {x} km vom Ufer",
+   "it": "In mare, a {x} km dalla costa",
+   "pt": "No mar, a {x} km da margem",
+   "pl": "Na morzu, {x} km od brzegu",
+   "nl": "In zee, op {x} km van de kust",
+   "zh": "位于海中，距岸边 {x} 公里"
+  },
+  "Sobre la línea de costa (a {n} m): comprobar que el punto está en el agua": {
+   "en": "On the coastline ({n} m): check that the site is in the water",
+   "fr": "Sur le trait de côte (à {n} m) : vérifier que le site est dans l'eau",
+   "de": "Auf der Küstenlinie ({n} m): prüfen, ob der Platz im Wasser liegt",
+   "it": "Sulla linea di costa (a {n} m): verificare che il sito sia in acqua",
+   "pt": "Sobre a linha de costa (a {n} m): verificar se o local está na água",
+   "pl": "Na linii brzegowej ({n} m): sprawdź, czy miejsce jest w wodzie",
+   "nl": "Op de kustlijn ({n} m): controleer of de plek in het water ligt",
+   "zh": "位于海岸线上（{n} 米）：请确认潜点位于水中"
+  },
+  "En tierra (a {n} m de la orilla)": {
+   "en": "On land ({n} m from the shore)",
+   "fr": "Sur la terre ferme (à {n} m du rivage)",
+   "de": "An Land ({n} m vom Ufer)",
+   "it": "Sulla terraferma (a {n} m dalla costa)",
+   "pt": "Em terra (a {n} m da margem)",
+   "pl": "Na lądzie ({n} m od brzegu)",
+   "nl": "Op het land ({n} m van de kust)",
+   "zh": "位于陆地（距岸边 {n} 米）"
+  },
+  "Punto de costa a más de 200 m de la orilla ({n} m)": {
+   "en": "Shore site more than 200 m from the shore ({n} m)",
+   "fr": "Site du bord à plus de 200 m du rivage ({n} m)",
+   "de": "Uferplatz mehr als 200 m vom Ufer entfernt ({n} m)",
+   "it": "Sito da riva a più di 200 m dalla costa ({n} m)",
+   "pt": "Local de costa a mais de 200 m da margem ({n} m)",
+   "pl": "Miejsce z brzegu ponad 200 m od brzegu ({n} m)",
+   "nl": "Kantduik op meer dan 200 m van de kust ({n} m)",
+   "zh": "岸潜点距岸边超过 200 米（{n} 米）"
+  },
+  "a {n} m": {
+   "en": "{n} m away",
+   "fr": "à {n} m",
+   "de": "{n} m entfernt",
+   "it": "a {n} m",
+   "pt": "a {n} m",
+   "pl": "{n} m stąd",
+   "nl": "op {n} m",
+   "zh": "相距 {n} 米"
+  },
+  "Unir: se queda «{x}»": {
+   "en": "Merge: «{x}» stays",
+   "fr": "Fusionner : « {x} » reste",
+   "de": "Zusammenführen: „{x}“ bleibt",
+   "it": "Unisci: resta «{x}»",
+   "pt": "Unir: fica «{x}»",
+   "pl": "Połącz: zostaje „{x}”",
+   "nl": "Samenvoegen: „{x}” blijft",
+   "zh": "合并：保留“{x}”"
+  },
+  "{n} pendientes": {
+   "en": "{n} pending",
+   "fr": "{n} en attente",
+   "de": "{n} ausstehend",
+   "it": "{n} in attesa",
+   "pt": "{n} pendentes",
+   "pl": "{n} oczekujących",
+   "nl": "{n} openstaand",
+   "zh": "{n} 个待处理"
+  },
+  "{n} publicados": {
+   "en": "{n} published",
+   "fr": "{n} publiés",
+   "de": "{n} veröffentlicht",
+   "it": "{n} pubblicati",
+   "pt": "{n} publicados",
+   "pl": "{n} opublikowanych",
+   "nl": "{n} gepubliceerd",
+   "zh": "{n} 个已发布"
+  },
+  "{n} con problemas": {
+   "en": "{n} with problems",
+   "fr": "{n} avec des problèmes",
+   "de": "{n} mit Problemen",
+   "it": "{n} con problemi",
+   "pt": "{n} com problemas",
+   "pl": "{n} z problemami",
+   "nl": "{n} met problemen",
+   "zh": "{n} 个有问题"
+  },
+  "{n} en tierra": {
+   "en": "{n} on land",
+   "fr": "{n} sur la terre ferme",
+   "de": "{n} an Land",
+   "it": "{n} sulla terraferma",
+   "pt": "{n} em terra",
+   "pl": "{n} na lądzie",
+   "nl": "{n} op het land",
+   "zh": "{n} 个位于陆地"
+  },
+  "{n} posición por revisar": {
+   "en": "{n} position to check",
+   "fr": "{n} position à vérifier",
+   "de": "{n} Position zu prüfen",
+   "it": "{n} posizione da controllare",
+   "pt": "{n} posição por rever",
+   "pl": "{n} pozycji do sprawdzenia",
+   "nl": "{n} positie te controleren",
+   "zh": "{n} 个位置待检查"
+  },
+  "{n} posibles duplicados": {
+   "en": "{n} possible duplicates",
+   "fr": "{n} doublons possibles",
+   "de": "{n} mögliche Duplikate",
+   "it": "{n} possibili duplicati",
+   "pt": "{n} possíveis duplicados",
+   "pl": "{n} możliwych duplikatów",
+   "nl": "{n} mogelijke dubbele",
+   "zh": "{n} 个可能重复"
+  },
+  "{n} completan fichas que ya existen": {
+   "en": "{n} complete existing pages",
+   "fr": "{n} complètent des fiches existantes",
+   "de": "{n} ergänzen bestehende Seiten",
+   "it": "{n} completano schede esistenti",
+   "pt": "{n} completam fichas que já existem",
+   "pl": "{n} uzupełnia istniejące karty",
+   "nl": "{n} vullen bestaande pagina’s aan",
+   "zh": "{n} 个补充已有页面"
+  },
+  "{n} completaron fichas": {
+   "en": "{n} completed pages",
+   "fr": "{n} ont complété des fiches",
+   "de": "{n} haben Seiten ergänzt",
+   "it": "{n} hanno completato schede",
+   "pt": "{n} completaram fichas",
+   "pl": "{n} uzupełniło karty",
+   "nl": "{n} vulden pagina’s aan",
+   "zh": "{n} 个已补充页面"
+  },
+  "{n} propuestas pendientes": {
+   "en": "{n} pending proposals",
+   "fr": "{n} propositions en attente",
+   "de": "{n} offene Vorschläge",
+   "it": "{n} proposte in attesa",
+   "pt": "{n} propostas pendentes",
+   "pl": "{n} oczekujących propozycji",
+   "nl": "{n} openstaande voorstellen",
+   "zh": "{n} 个待处理提议"
+  },
+  "{n} fotos · {m} centros": {
+   "en": "{n} photos · {m} centres",
+   "fr": "{n} photos · {m} centres",
+   "de": "{n} Fotos · {m} Zentren",
+   "it": "{n} foto · {m} centri",
+   "pt": "{n} fotos · {m} centros",
+   "pl": "{n} zdjęć · {m} centrów",
+   "nl": "{n} foto's · {m} centra",
+   "zh": "{n} 张照片 · {m} 个潜水中心"
+  },
+  "Publicados: {n}. Siguen pendientes: {m}.": {
+   "en": "Published: {n}. Still pending: {m}.",
+   "fr": "Publiés : {n}. Encore en attente : {m}.",
+   "de": "Veröffentlicht: {n}. Noch offen: {m}.",
+   "it": "Pubblicati: {n}. Ancora in attesa: {m}.",
+   "pt": "Publicados: {n}. Continuam pendentes: {m}.",
+   "pl": "Opublikowano: {n}. Nadal oczekuje: {m}.",
+   "nl": "Gepubliceerd: {n}. Nog openstaand: {m}.",
+   "zh": "已发布：{n}。仍待处理：{m}。"
+  },
+  "Lote subido: {n} puntos pendientes.": {
+   "en": "Batch uploaded: {n} sites pending.",
+   "fr": "Lot importé : {n} sites en attente.",
+   "de": "Stapel hochgeladen: {n} Plätze ausstehend.",
+   "it": "Lotto caricato: {n} siti in attesa.",
+   "pt": "Lote carregado: {n} locais pendentes.",
+   "pl": "Partia przesłana: {n} miejsc oczekuje.",
+   "nl": "Batch geüpload: {n} plekken openstaand.",
+   "zh": "批次已上传：{n} 个潜点待处理。"
+  },
+  "Parejas nuevas: {n}.": {
+   "en": "New pairs: {n}.",
+   "fr": "Nouvelles paires : {n}.",
+   "de": "Neue Paare: {n}.",
+   "it": "Nuove coppie: {n}.",
+   "pt": "Pares novos: {n}.",
+   "pl": "Nowe pary: {n}.",
+   "nl": "Nieuwe paren: {n}.",
+   "zh": "新的配对：{n}。"
+  },
+  "Comprobados: {n}.": {
+   "en": "Checked: {n}.",
+   "fr": "Vérifiés : {n}.",
+   "de": "Geprüft: {n}.",
+   "it": "Verificati: {n}.",
+   "pt": "Verificados: {n}.",
+   "pl": "Sprawdzono: {n}.",
+   "nl": "Gecontroleerd: {n}.",
+   "zh": "已检查：{n}。"
+  },
+  "Ya existe «{x}» a {n} m: completa esa ficha en lugar de crear otra.": {
+   "en": "«{x}» already exists {n} m away: complete that page instead of creating another.",
+   "fr": "« {x} » existe déjà à {n} m : complétez cette fiche au lieu d’en créer une autre.",
+   "de": "„{x}“ gibt es schon {n} m entfernt: Ergänze diese Seite, statt eine neue anzulegen.",
+   "it": "«{x}» esiste già a {n} m: completa quella scheda invece di crearne un'altra.",
+   "pt": "Já existe «{x}» a {n} m: completa essa ficha em vez de criar outra.",
+   "pl": "„{x}” już istnieje {n} m stąd: uzupełnij tę kartę zamiast tworzyć nową.",
+   "nl": "„{x}” bestaat al op {n} m: vul die pagina aan in plaats van een nieuwe te maken.",
+   "zh": "“{x}”已存在，相距 {n} 米：请补充该页面，不要新建。"
+  }
+ }
+}

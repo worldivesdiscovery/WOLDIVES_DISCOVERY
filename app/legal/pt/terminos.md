@@ -34,6 +34,8 @@ Podemos retirar conteúdos e suspender ou encerrar contas que violem estas condi
 
 As avaliações, fotografias e sugestões que publicar devem ser suas e verdadeiras. Concede-nos uma autorização, gratuita e não exclusiva, para as apresentar na plataforma. Consulte as [Regras das avaliações](#/legal/normas-resenas). Pode denunciar qualquer conteúdo com o botão «Denunciar».
 
+**Vídeos dos locais de mergulho.** Quando envias um vídeo para a ficha de um local declaras que é desse local e que foste tu que o gravaste ou tens autorização do autor. A {{trade_name}} não copia nem guarda o vídeo: apenas o mostra a partir da plataforma onde está publicado (YouTube, Instagram ou TikTok), com o leitor oficial dessa plataforma. Revemo-lo antes de o publicar. Qualquer pessoa pode pedir que um vídeo seja retirado com o botão «Denunciar» («Não é deste local», «Conteúdo inadequado» ou «É meu e não dei autorização»); se o autor o pedir, retiramo-lo.
+
 ## 5. Avisos dos centros
 
 A {{trade_name}} não é uma rede social nem dispõe de mensagens entre utilizadores. Os centros só lhe podem enviar **avisos sobre as suas reservas** (por exemplo, uma alteração de horário), que recebe por email e em «Avisos», com o respetivo telefone e email para que lhes possa responder diretamente.

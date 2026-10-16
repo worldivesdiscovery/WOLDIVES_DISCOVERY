@@ -647,9 +647,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // «Denunciar»: any button with data-report="review|center|point|experience|photo|promotion|profile" and data-report-id.
   async function openReportModal(type,id,label){
     const info=await legalInfo(); const me=state.me?.user; const esc=escapeHtml;
+    const video=type==='video', reasons=video?(info.video_reasons||{}):(info.reasons||{});   // v50.58: the three reasons of a video
     const {el,close}=wdOpenModal({id:'report-modal',title:'Denunciar contenido',subtitle:label?esc(label):'Revisaremos la denuncia y te comunicaremos la decisión.',
-      body:`<form id="rpm-form" class="form-grid"><div class="field full"><label for="rpm-reason">Motivo</label><select id="rpm-reason" required><option value="">Elige un motivo…</option>${Object.entries(info.reasons||{}).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')}</select></div>
-        <div class="field full"><label for="rpm-details">Explica por qué es ilegal o incumple las normas</label><textarea id="rpm-details" rows="4" minlength="20" maxlength="3000" required></textarea></div>
+      body:`<form id="rpm-form" class="form-grid"><div class="field full"><label for="rpm-reason">Motivo</label><select id="rpm-reason" required><option value="">Elige un motivo…</option>${Object.entries(reasons).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')}</select></div>
+        ${video?'<div class="field full"><label for="rpm-details">Detalles <span class="opt">(opcional)</span></label><textarea id="rpm-details" rows="3" maxlength="3000" placeholder="Por ejemplo, dónde está el vídeo original"></textarea></div>'
+          :'<div class="field full"><label for="rpm-details">Explica por qué es ilegal o incumple las normas</label><textarea id="rpm-details" rows="4" minlength="20" maxlength="3000" required></textarea></div>'}
         ${me?'':`<div class="field"><label for="rpm-name">Tu nombre</label><input id="rpm-name" minlength="2" maxlength="120" required autocomplete="name"></div><div class="field"><label for="rpm-email">Tu email (para comunicarte la decisión)</label><input id="rpm-email" type="email" maxlength="160" required autocomplete="email"></div>`}
         <label class="lg-check full"><input type="checkbox" id="rpm-faith" required> <span>Declaro que la información es exacta y que la envío de buena fe.</span></label></form>`,
       footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="rpm-send">Enviar denuncia</button>'});
@@ -1718,20 +1720,188 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const t=marinePopover.trigger; if(t){ t.setAttribute('aria-expanded','false'); if(refocus&&t.isConnected) t.focus({preventScroll:true}); }
   }
 
-  // «Recorrido virtual» (the look of v50.49): the linked route videos — approved by the administration, with their
-  // preview inside the square — and the old tours (panoramas, Street View…). Nothing of a platform loads here.
-  function virtualSection(p,videos,legacy){
+  // v50.58 (encargo del 16/10/2026, vídeos de los puntos): «Vídeos del punto», right under «Sobre el punto». The video
+  // is the protagonist: the platform's own image, big, with a play button over it; more videos in a row below (a
+  // carousel on the phone); portrait ones (Reels, TikTok, Shorts) as 9:16 cards. Before a tap only the platform's image
+  // loads, never its player (which sets its cookies): the player opens in a window over the page.
+  const PV_PLAY='<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><circle cx="32" cy="32" r="30"/><path d="M26 20.5v23L45 32z"/></svg>';
+  const pvTitle=v=>v.title||translateString('Vídeo del punto');
+  function pvImg(v,fallbackImg){
+    const t=v.thumb;
+    if(t?.src) return `<img src="${escapeHtml(t.src)}"${t.fallback?` data-fallback="${escapeHtml(t.fallback)}"`:''}${t.srcset?` srcset="${escapeHtml(t.srcset)}" sizes="(max-width: 700px) 100vw, 860px"`:''}${v.platform==='youtube'?' data-yt="1"':''} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
+    return fallbackImg?`<img class="pv-fallback" src="${escapeHtml(fallbackImg)}" alt="" loading="lazy" decoding="async">`:'';
+  }
+  function pvCard(v,i,{big=false,fallbackImg=''}={}){
+    const noThumb=!v.thumb?.src, tag=v.kind==='vr'?'VR':v.kind==='360'?'360°':'';
+    return `<button type="button" class="pv-card${big?' is-big':''}${v.vertical?' is-vertical':''}${v.unavailable?' is-gone':''}${noThumb?' no-thumb':''}" data-pv="${i}" aria-label="${escapeHtml(translateString('Reproducir')+': '+pvTitle(v))}">
+      <span class="pv-img">${pvImg(v,fallbackImg)}</span>${tag?`<span class="pv-tag" translate="no">${tag}</span>`:''}
+      <span class="pv-play">${PV_PLAY}</span><span class="pv-gone-msg">Este vídeo ya no está disponible</span>
+      ${noThumb&&v.platform==='instagram'?`<span class="pv-see">${wdPlatformLogo('instagram')}<span>Ver en Instagram</span></span>`:''}
+      <span class="pv-cap"><span class="pv-logo">${wdPlatformLogo(v.platform)}</span><span class="pv-title"${v.title?' translate="no"':''}>${escapeHtml(pvTitle(v))}</span></span></button>`;
+  }
+  function pointVideosSection(p,videos,legacy,fallbackImg){
+    const list=videos||[], old=legacy||[];
+    const add=`<div class="pv-add"><button type="button" class="pv-add-btn" id="pv-add-btn" aria-expanded="false" aria-controls="pv-form">${wdIcon('plus',16)} <span>Añadir un vídeo de este punto</span></button><div class="pv-form-box" id="pv-form" hidden></div></div>`;
+    if(!list.length&&!old.length) return `<section class="pv-block pv-empty" id="pp-videos" aria-label="Vídeos del punto">${add}</section>`;
     const labels={panorama:'360° interactivo',video360:'Vídeo 360°',streetview:'Street View',external360:'Experiencia 360°'};
-    const vids=(videos||[]).map(v=>{ const tag=v.kind==='360'?'360°':v.kind==='vr'?'VR':'';
-      const mark=v.thumb?`<span class="pp-virtual-mark pp-virtual-thumb"><img src="${escapeHtml(v.thumb.src.replace(/-\d+\.webp$/,'-400.webp'))}" alt="" loading="lazy" decoding="async">${tag?`<b translate="no">${tag}</b>`:''}</span>`:`<span class="pp-virtual-mark" translate="no">${tag||'▶'}</span>`;
-      const ext=!v.insertable, href=ext?v.url:`#/virtual?video=${v.id}&point=${p.id}`;
-      return `<article class="pp-virtual">${mark}<div><p class="eyebrow">${WD_VIDEO_KINDS[v.kind]||'Vídeo de la ruta'}</p><h3>${v.title?`<span translate="no">${escapeHtml(v.title)}</span>`:'<span>Vídeo de la ruta</span>'}${ext?` <span class="rv-ext" title="Se abre en otra pestaña">${wdIcon('external',15)}</span>`:''}</h3>
-        <p><span class="rv-logo">${wdPlatformLogo(v.platform)}<span translate="no">${escapeHtml(v.platform_name)}</span></span> · <span>Aportado por ${escapeHtml(v.contributor)}</span></p>
-        <a class="btn btn-primary" href="${escapeHtml(href)}"${ext?' target="_blank" rel="noopener noreferrer"':''}>${ext?`Abrir en ${escapeHtml(v.platform_name)}`:'Entrar en el recorrido'}</a></div></article>`; });
-    const old=(legacy||[]).map(v=>{ const ext=v.experience_type==='streetview'; const href=ext?(v.url||'#'):`#/virtual?experience=${v.id}&point=${p.id}`;
-      return `<article class="pp-virtual"><span class="pp-virtual-mark">360°</span><div><p class="eyebrow">${escapeHtml(labels[v.experience_type]||'Recorrido virtual')}</p><h3>${escapeHtml(v.title)}</h3><p>${escapeHtml(v.description||'Recorre esta inmersión antes de entrar al agua.')}</p><a class="btn btn-primary" href="${escapeHtml(href)}" ${ext?'target="_blank" rel="noopener"':''}>${ext?'Abrir Street View':'Entrar en el recorrido'}</a></div></article>`; });
-    const vt=vids.concat(old).join('');
-    return `<section class="tp-block pp-virtual-block"><h2>Recorrido virtual</h2>${vt?`<div class="pp-virtuals">${vt}</div>`:'<div class="pp-empty"><span class="pp-virtual-mark">360°</span><p>Este punto aún no tiene recorrido 360°. Cuando un centro lo publique, podrás visitarlo antes de reservar.</p></div>'}</section>`;
+    // the old tours (panoramas, Street View… of before v50.50) keep their own page
+    const oldCard=v=>{ const ext=v.experience_type==='streetview', href=ext?(v.url||'#'):`#/virtual?experience=${v.id}&point=${p.id}`;
+      return `<div role="listitem"><a class="pv-card" href="${escapeHtml(href)}"${ext?' target="_blank" rel="noopener noreferrer"':''}><span class="pv-img">${fallbackImg?`<img class="pv-fallback" src="${escapeHtml(fallbackImg)}" alt="" loading="lazy" decoding="async">`:''}</span><span class="pv-tag" translate="no">360°</span><span class="pv-play">${PV_PLAY}</span>
+        <span class="pv-cap"><span class="pv-title">${escapeHtml(v.title||labels[v.experience_type]||'Recorrido virtual')}</span></span></a></div>`; };
+    const [first,...rest]=list;
+    const row=rest.map((v,i)=>`<div role="listitem">${pvCard(v,i+1,{fallbackImg})}</div>`).join('')+old.map(oldCard).join('');
+    return `<section class="tp-block pv-block" id="pp-videos" aria-labelledby="pv-title"><h2 id="pv-title">Vídeos del punto</h2>
+      ${first?`<div class="pv-feature">${pvCard(first,0,{big:true,fallbackImg})}</div>`:''}
+      ${row?`<div class="pv-row" role="list" aria-label="Más vídeos">${row}</div>`:''}${add}</section>`;
+  }
+  // An image the platform cannot give: YouTube's «maxresdefault» does not exist for every video (then «hqdefault»); an
+  // error, or YouTube's grey 120-pixel placeholder, means the video is gone: the server asks the platform itself (it
+  // never trusts the page) and the card says «Este vídeo ya no está disponible».
+  function pvWatchImages(root,videos,fallbackImg){
+    $$('.pv-img img:not(.pv-fallback)',root).forEach(img=>{
+      const card=img.closest('[data-pv]'), v=card?videos[+card.dataset.pv]:null;
+      const gone=()=>{ if(!v||v.unavailable||card.dataset.asked) return; card.dataset.asked='1';
+        postJSON(`/api/videos/${v.id}/no-disponible`,{}).then(r=>{ if(r.unavailable){ v.unavailable=true; $$(`[data-pv="${card.dataset.pv}"]`).forEach(c=>c.classList.add('is-gone')); } }).catch(()=>{}); };
+      const bad=()=>{ if(img.dataset.fallback&&!img.dataset.tried){ img.dataset.tried='1'; img.src=img.dataset.fallback; return; }
+        if(fallbackImg&&!img.dataset.fb){ img.dataset.fb='1'; img.classList.add('pv-fallback'); img.src=fallbackImg; } if(img.dataset.yt) gone(); };
+      const check=()=>{ if(img.dataset.yt&&!img.dataset.fb&&img.naturalWidth&&img.naturalWidth<=120) bad(); };
+      img.addEventListener('error',bad); img.addEventListener('load',check);
+      if(img.complete) (img.naturalWidth?check():bad());
+    });
+  }
+  function bindPointVideos(p,videos,fallbackImg){
+    const box=$('#pp-videos'); if(!box) return;
+    pvWatchImages(box,videos,fallbackImg);
+    box.addEventListener('click',e=>{ const c=e.target.closest('button[data-pv]'); if(!c) return; openVideoModal(videos,+c.dataset.pv,{fallbackImg}); });
+    $('#pv-add-btn',box)?.addEventListener('click',e=>{ const b=e.currentTarget, f=$('#pv-form',box);
+      if(!f.hidden){ f.hidden=true; b.setAttribute('aria-expanded','false'); return; }
+      if(!state.me){ goLogin(); return; }
+      b.setAttribute('aria-expanded','true'); f.hidden=false; pvAddForm(p,f,()=>{ f.hidden=true; b.setAttribute('aria-expanded','false'); b.focus(); }); });
+  }
+  async function pvAddForm(p,box,cancel){
+    box.innerHTML='<p class="wd-loading">Cargando…</p>';
+    let can; try{ can=await api('/api/videos/puedo'); }catch(e){ box.innerHTML=`<div class="notice warning">${escapeHtml(e.message)}</div>`; return; }
+    if(can.missing?.length){
+      box.innerHTML=`<div class="notice pv-missing"><strong>Para añadir vídeos te falta:</strong><ul>${can.missing.map(m=>`<li><a href="${escapeHtml(m.href)}">${escapeHtml(m.label)}</a></li>`).join('')}</ul>${can.missing.some(m=>m.key==='email')?'<button type="button" class="btn btn-sm" data-verify-resend>Reenviar el correo de confirmación</button>':''}</div>`;
+      translateTree(box); return; }
+    box.innerHTML=`<form class="pv-form" id="pv-add-form" novalidate>
+      <div class="field"><label for="pv-url">Enlace del vídeo</label><input id="pv-url" type="url" inputmode="url" required maxlength="1000" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"><small>YouTube (también Shorts), Instagram (publicaciones y Reels) o TikTok.</small></div>
+      <div class="field"><label for="pv-vtitle">Título corto <span class="opt">(opcional)</span></label><input id="pv-vtitle" maxlength="120" placeholder="Si lo dejas vacío, se usa el de la plataforma"></div>
+      <label class="lg-check"><input type="checkbox" id="pv-own" required> <span>El vídeo es de este punto de buceo y lo he grabado yo o tengo permiso de su autor</span></label>
+      <p class="pv-legal">Solo guardamos el enlace: el vídeo sigue en su plataforma. Antes de publicarlo lo revisa el equipo de WORLDIVES. <a href="#/legal/terminos">Condiciones de uso</a></p>
+      <div class="pv-form-err" id="pv-err" role="alert"></div>
+      <div class="form-actions"><button type="button" class="btn" id="pv-cancel">Cancelar</button><button type="submit" class="btn btn-primary">Enviar el vídeo</button></div></form>`;
+    translateTree(box); $('#pv-url',box).focus();
+    $('#pv-cancel',box).onclick=cancel;
+    $('#pv-add-form',box).onsubmit=async e=>{ e.preventDefault(); const err=$('#pv-err',box); err.textContent='';
+      if(!$('#pv-url',box).value.trim()){ err.textContent=translateString('Pega el enlace del vídeo.'); $('#pv-url',box).focus(); return; }
+      if(!$('#pv-own',box).checked){ err.textContent=translateString('Marca la casilla: el vídeo es de este punto y lo has grabado tú o tienes permiso de su autor.'); $('#pv-own',box).focus(); return; }
+      const btn=e.submitter||$('[type=submit]',box); btn.disabled=true;
+      try{ const r=await postJSON(`/api/dive-points/${p.id}/videos`,{url:$('#pv-url',box).value.trim(),title:$('#pv-vtitle',box).value.trim(),confirm:true});
+        if(r.status==='approved'){ toast(r.message); route(); return; }
+        box.innerHTML=`<div class="notice pv-thanks" role="status">${wdIcon('check',18)} <span>${escapeHtml(translateString(r.message))}</span></div>`; }
+      catch(ex){ err.textContent=ex.message; btn.disabled=false; } };
+  }
+  // The player: a big window over the darkened page (the whole screen on a phone). It closes with ✕, Esc or a tap
+  // outside; ‹ › go to the next video without closing it. The platform's official player loads only now.
+  function openVideoModal(list,start,{fallbackImg='',admin=false}={}){
+    $('#pv-modal')?.remove();
+    let i=start; const back=document.activeElement, many=list.length>1;
+    document.body.insertAdjacentHTML('beforeend',`<div class="pv-modal" id="pv-modal" role="dialog" aria-modal="true" aria-labelledby="pv-m-title">
+      <div class="pv-m-back" data-pv-close></div>
+      <div class="pv-m-box"><div class="pv-m-head"><h2 class="pv-m-title" id="pv-m-title"></h2><button type="button" class="pv-m-x" data-pv-close aria-label="Cerrar">✕</button></div>
+        <div class="pv-m-stage">${many?'<button type="button" class="pv-m-nav pv-m-prev" aria-label="Vídeo anterior">‹</button>':''}<div class="pv-m-frame" id="pv-m-frame"></div>${many?'<button type="button" class="pv-m-nav pv-m-next" aria-label="Vídeo siguiente">›</button>':''}</div>
+        <div class="pv-m-foot"><p class="pv-m-note" id="pv-m-note" hidden>${wdIcon('info',14)} <span>Este vídeo se reproduce desde YouTube, Instagram o TikTok, que pueden usar cookies.</span> <a href="#/legal/cookies">Más información</a></p>
+          <div class="pv-m-links"><a class="pv-m-ext" id="pv-m-ext" target="_blank" rel="noopener noreferrer"></a>${admin?'':`<button type="button" class="wd-report" id="pv-m-report">${wdIcon('alert',13)} Denunciar</button>`}${many?'<span class="pv-m-count" id="pv-m-count"></span>':''}</div></div></div></div>`);
+    const m=$('#pv-modal'); document.documentElement.classList.add('pv-open');
+    try{ if(!localStorage.getItem('wd_video_note')){ $('#pv-m-note',m).hidden=false; localStorage.setItem('wd_video_note','1'); } }catch{ $('#pv-m-note',m).hidden=false; }
+    const show=()=>{ const v=list[i], fr=$('#pv-m-frame',m), plat=v.platform_name||'';
+      $('.pv-m-box',m).classList.toggle('is-vertical',!!v.vertical); $('#pv-m-title',m).textContent=pvTitle(v);
+      const ext=$('#pv-m-ext',m); ext.href=v.url; ext.innerHTML=`${wdPlatformLogo(v.platform)} <span>${escapeHtml(translateString('Ver en')+' '+plat)}</span>`;
+      if($('#pv-m-count',m)) $('#pv-m-count',m).textContent=`${i+1} / ${list.length}`;
+      fr.innerHTML='';
+      if(v.unavailable||!v.player){
+        fr.innerHTML=`<div class="pv-m-msg">${fallbackImg?`<img src="${escapeHtml(fallbackImg)}" alt="">`:''}<div><p><b>${escapeHtml(translateString(v.unavailable?'Este vídeo ya no está disponible':'Este vídeo se ve en su plataforma'))}</b></p><a class="btn btn-primary" href="${escapeHtml(v.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translateString('Ver en')+' '+plat)}</a></div></div>`;
+      } else {
+        const f=document.createElement('iframe'); f.src=v.player; f.title=pvTitle(v);
+        f.allow='autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; xr-spatial-tracking'; f.allowFullscreen=true;
+        f.referrerPolicy='strict-origin-when-cross-origin'; f.setAttribute('sandbox','allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox');
+        fr.appendChild(f);
+      }
+      translateTree(m); };
+    const close=()=>{ if(!m.isConnected) return; m.remove(); document.documentElement.classList.remove('pv-open'); document.removeEventListener('keydown',key,true); window.removeEventListener('hashchange',close);
+      if(back&&back.isConnected) back.focus({preventScroll:true}); };
+    const go=d=>{ i=(i+d+list.length)%list.length; show(); };
+    const key=e=>{ if(!m.isConnected) return;
+      if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); close(); }
+      else if(many&&e.key==='ArrowRight'&&!e.target.closest?.('input,textarea')){ e.preventDefault(); go(1); }
+      else if(many&&e.key==='ArrowLeft'&&!e.target.closest?.('input,textarea')){ e.preventDefault(); go(-1); }
+      else if(e.key==='Tab'){ const f=[...m.querySelectorAll('button,a[href],iframe')].filter(x=>x.offsetParent!==null); if(!f.length) return; const a=f[0], z=f[f.length-1];
+        if(e.shiftKey&&document.activeElement===a){ e.preventDefault(); z.focus(); } else if(!e.shiftKey&&document.activeElement===z){ e.preventDefault(); a.focus(); } } };
+    m.addEventListener('click',e=>{ if(e.target.closest('[data-pv-close]')) close(); });
+    $('.pv-m-prev',m)?.addEventListener('click',()=>go(-1)); $('.pv-m-next',m)?.addEventListener('click',()=>go(1));
+    $('#pv-m-report',m)?.addEventListener('click',()=>{ const v=list[i]; close(); openReportModal('video',v.id,pvTitle(v)); });
+    document.addEventListener('keydown',key,true); window.addEventListener('hashchange',close);
+    show(); $('.pv-m-x',m).focus({preventScroll:true});
+  }
+
+  // Administración → Vídeos de puntos: Pendientes, Publicados (by dive site, in their order) and Denunciados.
+  async function renderAdminPointVideos(id,tab='pending',refresh){
+    const host=document.getElementById(id); if(!host) return;
+    host.innerHTML='<p class="wd-loading">Cargando…</p>';
+    const d=await api('/api/admin/videos?tab='+tab), c=d.counts||{};
+    const tabs=[['pending','Pendientes',c.pending],['published','Publicados',c.unavailable],['reported','Denunciados',c.reported]];
+    const STATE={ok:'Comprobado con la plataforma',no_key:'Sin comprobar: falta la clave de Meta',no_check:'Sin comprobación posible',unknown:'No se pudo comprobar'};
+    const who=v=>v.contributor_kind==='admin'?'Administración':`${escapeHtml(v.contributor||'')} <small>${escapeHtml(v.email||'')}</small> · ${escapeHtml(translateString({diver:'Buceador',center:'Centro',freelance:'Freelance'}[v.contributor_kind]||''))}`;
+    const row=(v,i)=>`<article class="av-item${v.unavailable?' is-gone':''}" data-id="${v.id}" data-point="${v.point_id}"${tab==='published'?' draggable="true"':''}>
+      ${tab==='pending'?`<label class="av-pick"><input type="checkbox" class="av-check" value="${v.id}" aria-label="Elegir"></label>`:tab==='published'?`<span class="av-grip" aria-hidden="true">⠿</span>`:'<span></span>'}
+      <button type="button" class="av-thumb${v.vertical?' is-vertical':''}" data-play="${i}" aria-label="Ver el vídeo">${pvImg(v,'')||`<span class="av-nothumb">${wdPlatformLogo(v.platform)}</span>`}<span class="pv-play">${PV_PLAY}</span>${v.kind!=='normal'?`<span class="pv-tag" translate="no">${v.kind==='vr'?'VR':'360°'}</span>`:''}</button>
+      <div class="av-main"><p class="av-title"><input class="av-title-in" value="${escapeHtml(v.title||'')}" placeholder="${escapeHtml(v.source_title||'Sin título')}" maxlength="120" aria-label="Título corto"></p>
+        <p class="av-meta"><a href="#/punto?id=${v.point_id}">${escapeHtml(v.point_name)}</a> · <span class="rv-logo">${wdPlatformLogo(v.platform)} <span translate="no">${escapeHtml(v.platform_name)}</span></span> · ${escapeHtml(fmtDate(v.created_at))}</p>
+        <p class="av-meta">${who(v)}</p>
+        <p class="av-flags">${v.verified_state?`<span class="status ${v.verified_state==='ok'?'good':'warn'}">${escapeHtml(translateString(STATE[v.verified_state]||v.verified_state))}</span>`:''}${v.unavailable?`<span class="status bad">${escapeHtml(v.unavailable_reason||translateString('Este vídeo ya no está disponible'))}</span>`:''}${v.featured?'<span class="status good">Destacado</span>':''}</p>
+        ${v.reports?.length?`<ul class="av-reports">${v.reports.map(r=>`<li><b>${escapeHtml(translateString(r.reason_label))}</b>${r.details?` · ${escapeHtml(r.details)}`:''} <small>${escapeHtml(fmtDate(r.created_at))}</small></li>`).join('')}</ul>`:''}
+      </div>
+      <div class="av-acts">${tab==='pending'?`<button type="button" class="btn btn-primary btn-sm av-ok">Aprobar</button><button type="button" class="btn btn-sm av-no">Rechazar</button>`
+        :tab==='published'?`<button type="button" class="btn btn-sm av-up" aria-label="Subir">↑</button><button type="button" class="btn btn-sm av-down" aria-label="Bajar">↓</button><button type="button" class="btn btn-sm av-star" aria-pressed="${v.featured}">${v.featured?'Quitar destacado':'Destacar'}</button><button type="button" class="btn btn-sm av-check-again">Comprobar</button><button type="button" class="btn btn-sm danger av-del">Borrar</button>`
+        :`<button type="button" class="btn btn-primary btn-sm av-take">Retirar</button><button type="button" class="btn btn-sm av-keep">Mantener</button>`}</div></article>`;
+    let body;
+    if(tab==='published'){ const groups={}; d.items.forEach((v,i)=>(groups[v.point_id]??=[]).push([v,i]));
+      body=Object.values(groups).map(g=>`<section class="av-group" data-point="${g[0][0].point_id}"><h3>${escapeHtml(g[0][0].point_name)}</h3><div class="av-list">${g.map(([v,i])=>row(v,i)).join('')}</div></section>`).join(''); }
+    else body=`<div class="av-list">${d.items.map(row).join('')}</div>`;
+    host.innerHTML=`<div class="av-tabs" role="tablist">${tabs.map(([k,l,n])=>`<button type="button" role="tab" class="av-tab${k===tab?' is-on':''}" aria-selected="${k===tab}" data-tab="${k}">${l}${n?` <b>${n}</b>`:''}</button>`).join('')}</div>
+      ${tab==='pending'&&d.items.length?'<div class="av-bulk"><label class="lg-check"><input type="checkbox" id="av-all"> <span>Elegir todos</span></label><button type="button" class="btn btn-primary btn-sm" id="av-ok-all" disabled>Aprobar los elegidos</button></div>':''}
+      ${tab==='published'&&d.items.length?'<p class="pd-hint">Arrastra los vídeos (o usa las flechas) para cambiar el orden en la ficha. El destacado sale el primero y en grande.</p>':''}
+      ${d.items.length?body:`<div class="empty">${{pending:'No hay vídeos pendientes.',published:'Todavía no hay vídeos publicados.',reported:'No hay vídeos denunciados.'}[tab]}</div>`}`;
+    translateTree(host); pvWatchImages(host,d.items,'');
+    const again=t=>{ refresh?.(); renderAdminPointVideos(id,t||tab,refresh); };
+    const post=(path,data,msg)=>postJSON('/api/admin/videos/'+path,data).then(()=>{ if(msg) toast(msg); again(); }).catch(e=>toast(e.message));
+    $$('.av-tab',host).forEach(b=>b.onclick=()=>renderAdminPointVideos(id,b.dataset.tab,refresh));
+    $$('[data-play]',host).forEach(b=>b.onclick=()=>openVideoModal(d.items,+b.dataset.play,{admin:true}));
+    const itemOf=b=>+b.closest('.av-item').dataset.id;
+    $$('.av-title-in',host).forEach(inp=>inp.onchange=()=>postJSON('/api/admin/videos/edit',{id:itemOf(inp),title:inp.value}).then(()=>toast('Título guardado.')).catch(e=>toast(e.message)));
+    $$('.av-ok',host).forEach(b=>b.onclick=()=>post('approve',{ids:[itemOf(b)]},'Publicado.'));
+    $$('.av-no',host).forEach(b=>b.onclick=()=>{ const it=b.closest('.av-item'); if($('.av-reason',it)) return;
+      it.insertAdjacentHTML('beforeend',`<div class="av-reason"><label>Motivo <span class="opt">(opcional, lo verá quien lo envió)</span><input maxlength="300"></label><button type="button" class="btn btn-sm danger">Rechazar el vídeo</button></div>`);
+      translateTree(it); const r=$('.av-reason',it); $('input',r).focus(); $('button',r).onclick=()=>post('reject',{id:itemOf(b),note:$('input',r).value},'Rechazado.'); });
+    const picks=()=>$$('.av-check:checked',host).map(x=>+x.value);
+    $('#av-all',host)?.addEventListener('change',e=>{ $$('.av-check',host).forEach(x=>x.checked=e.target.checked); $('#av-ok-all',host).disabled=!picks().length; });
+    $$('.av-check',host).forEach(x=>x.onchange=()=>{ $('#av-ok-all',host).disabled=!picks().length; });
+    $('#av-ok-all',host)?.addEventListener('click',()=>postJSON('/api/admin/videos/approve',{ids:picks()}).then(r=>{ toast(`Publicados: ${r.approved}.`); again(); }).catch(e=>toast(e.message)));
+    $$('.av-star',host).forEach(b=>b.onclick=()=>post('edit',{id:itemOf(b),featured:b.getAttribute('aria-pressed')!=='true'}));
+    $$('.av-check-again',host).forEach(b=>b.onclick=()=>postJSON('/api/admin/videos/recheck',{id:itemOf(b)}).then(r=>{ toast(r.unavailable?'Este vídeo ya no está disponible':'El vídeo sigue disponible.'); again(); }).catch(e=>toast(e.message)));
+    $$('.av-del',host).forEach(b=>b.onclick=async()=>{ if(!await wdConfirm({title:'Borrar el vídeo',text:'Deja de verse en la ficha del punto. El vídeo sigue en su plataforma.',ok:'Borrar',danger:true})) return; post('remove',{id:itemOf(b)},'Vídeo borrado.'); });
+    $$('.av-take',host).forEach(b=>b.onclick=()=>{ const it=b.closest('.av-item'); const mine=[...it.querySelectorAll('.av-reports b')].some(x=>/permiso|permission/i.test(x.textContent));
+      post('remove',{id:itemOf(b),reason:mine?'Retirado a petición de su autor.':'Retirado tras revisar la denuncia.'},'Vídeo retirado. Se ha avisado a quien denunció.'); });
+    $$('.av-keep',host).forEach(b=>b.onclick=()=>post('keep',{id:itemOf(b)},'Se mantiene publicado. Se ha avisado a quien denunció.'));
+    // order inside each dive site: drag, or the arrows (keyboard and phone); saved at once
+    $$('.av-group',host).forEach(g=>{ const list=$('.av-list',g); let dragged=null;
+      const save=()=>postJSON('/api/admin/videos/order',{point_id:+g.dataset.point,ids:$$('.av-item',list).map(x=>+x.dataset.id)}).then(()=>toast('Orden guardado.')).catch(e=>{ toast(e.message); again(); });
+      list.addEventListener('dragstart',e=>{ dragged=e.target.closest('.av-item'); if(!dragged) return; dragged.classList.add('is-dragging'); try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',dragged.dataset.id); }catch{} });
+      list.addEventListener('dragover',e=>{ const over=e.target.closest('.av-item'); if(!dragged||!over||over===dragged) return; e.preventDefault(); const r=over.getBoundingClientRect(); over[(e.clientY-r.top)>r.height/2?'after':'before'](dragged); });
+      list.addEventListener('drop',e=>{ if(dragged) e.preventDefault(); });
+      list.addEventListener('dragend',()=>{ if(!dragged) return; dragged.classList.remove('is-dragging'); dragged=null; save(); });
+      $$('.av-item',list).forEach(it=>{ $('.av-up',it).onclick=()=>{ const p=it.previousElementSibling; if(p){ p.before(it); save(); } }; $('.av-down',it).onclick=()=>{ const n=it.nextElementSibling; if(n){ n.after(it); save(); } }; }); });
   }
   // #/virtual?video=<id>&point=<id>: a linked route video in the viewer of the virtual tour (the same consent box as
   // before: the platform's player loads only after «Cargar vídeo»).
@@ -1742,7 +1912,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const bg=v.thumb?` style="--virtual-bg:url('${escapeHtml(v.thumb.src.replace(/-\d+\.webp$/,'-1280.webp'))}')"`:'';
     const touch=window.matchMedia?.('(pointer: coarse)')?.matches;
     setApp(`<section class="page virtual-view-page"><div class="breadcrumb"><a href="#/punto?id=${pointId}">Volver a ${escapeHtml(d.item.name)}</a></div><p class="eyebrow">WORLDIVES DISCOVERY · RECORRIDO VIRTUAL</p>
-      <h1>${v.title?`<span translate="no">${escapeHtml(v.title)}</span>`:'Vídeo de la ruta'}</h1><p class="lead"><span>${WD_VIDEO_KINDS[v.kind]||''}</span> · <span>Aportado por ${escapeHtml(v.contributor)}</span></p>
+      <h1>${v.title?`<span translate="no">${escapeHtml(v.title)}</span>`:'Vídeo de la ruta'}</h1>${v.kind!=='normal'?`<p class="lead"><span>${WD_VIDEO_KINDS[v.kind]||''}</span></p>`:''}
       <div class="virtual-frame virtual-consent${v.thumb?' has-thumb':''}${v.vertical?' is-vertical':''}" id="virtual-consent"${bg}><div class="virtual-consent-box"><div class="virtual-empty-icon">${wdPlatformLogo(v.platform)}</div><h2>Vídeo de un servicio externo</h2><p><span>Al cargarlo te conectarás con ${escapeHtml(v.platform_name)}, que recibirá tu dirección IP y puede usar sus propias cookies.</span> <a href="#/legal/cookies">Más información</a></p><button class="btn btn-primary" type="button" id="virtual-load">Cargar vídeo</button></div></div>
       ${touch?`<p><a class="rv-app" href="${escapeHtml(v.url)}" target="_blank" rel="noopener noreferrer">${wdIcon('external',14)} <span>Abrir en la app de ${escapeHtml(v.platform_name)}</span></a></p>`:''}</section>`);
     $('#virtual-load').onclick=()=>{ const box=$('#virtual-consent'); const f=document.createElement('iframe');
@@ -1770,7 +1940,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       return `<div class="mk-row" data-v="${v.id}"><span class="mk-thumb">${v.thumb?`<img src="${escapeHtml(v.thumb.src)}" alt="" loading="lazy">`:`<span class="mk-thumb-fb">${wdPlatformLogo(v.platform)}</span>`}</span>
         <span class="mk-main"><strong translate="no">${escapeHtml(v.title||v.source_title||v.url)}</strong>
           <small><span translate="no">${escapeHtml(v.platform_name)}</span> · <span>${WD_VIDEO_KINDS[v.kind]||''}</span> · <span>${v.insertable?'Se reproduce en la ficha':'Se abre en otra pestaña'}</span></small>
-          <small>Aportado por ${escapeHtml(v.contributor)}</small>${v.review_note?`<small class="mk-note">Motivo: ${escapeHtml(v.review_note)}</small>`:''}</span>
+          ${v.contributor?`<small>Aportado por ${escapeHtml(v.contributor)}</small>`:''}${v.review_note?`<small class="mk-note">Motivo: ${escapeHtml(v.review_note)}</small>`:''}</span>
         <span class="mk-actions">${wdMkStatus(v.status)}${admin&&v.status==='approved'?`<button type="button" class="btn btn-sm" data-move="up" ${i<=0?'disabled':''} aria-label="Subir">↑</button><button type="button" class="btn btn-sm" data-move="down" ${i===approved.length-1?'disabled':''} aria-label="Bajar">↓</button>`:''}${admin&&v.status==='pending'?'<button type="button" class="btn btn-sm btn-primary" data-review="approve">Aprobar</button><button type="button" class="btn btn-sm" data-review="reject">Rechazar</button>':''}${v.mine?`<button type="button" class="btn btn-sm" data-del>${admin?'Quitar':'Retirar'}</button>`:''}</span></div>`; };
     const srow=s=>`<div class="mk-row" data-s="${s.link_id}"><span class="mk-thumb">${s.photo?`<img src="${escapeHtml(s.photo.src)}" alt="" loading="lazy">`:`<span class="mk-thumb-fb">${wdIcon('fish',22)}</span>`}</span>
         <span class="mk-main"><strong translate="no">${escapeHtml(s.name)}</strong><small><em translate="no">${escapeHtml(s.scientific)}</em> · <span>${WD_FREQ[s.frequency]||''}</span> · <span>${s.months.length?escapeHtml(wdMonthsText(s.months)):'Todo el año'}</span></small>
@@ -1779,15 +1949,16 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     el.innerHTML=`<div class="mk-editor">
       <section class="mk-part"><h3>${wdIcon('image',18)} Vídeos de la ruta</h3>${d.videos.length?`<div class="mk-list">${d.videos.map(vrow).join('')}</div>`:'<p class="mk-empty">Este punto todavía no tiene vídeos.</p>'}
         <form class="mk-add" id="mk-vform" novalidate><div class="field"><label for="mk-url">Enlace del vídeo</label><div class="mk-urlrow"><input id="mk-url" type="url" inputmode="url" autocomplete="off" placeholder="https://www.youtube.com/watch?v=…" required><button type="button" class="btn" id="mk-check">Comprobar</button></div>
-          <small>YouTube, Vimeo, Dailymotion, TikTok, Facebook, reels de Instagram o cualquier otra plataforma de vídeo. Se guarda el enlace, nunca el archivo.</small></div>
+          <small>${admin?'YouTube, Vimeo, Dailymotion, TikTok, Facebook, Instagram o cualquier otra plataforma de vídeo.':'YouTube (también Shorts), Instagram (publicaciones y Reels) o TikTok.'} Se guarda el enlace, nunca el archivo.</small></div>
           <div id="mk-preview" aria-live="polite"></div>
-          <div class="form-grid"><div class="field"><label for="mk-kind">Tipo de vídeo</label><select id="mk-kind"><option value="normal">Ruta normal</option><option value="360">Ruta 360°</option><option value="vr">Realidad virtual</option></select></div>
+          <div class="form-grid">${admin?'<div class="field"><label for="mk-kind">Tipo de vídeo</label><select id="mk-kind"><option value="normal">Ruta normal</option><option value="360">Ruta 360°</option><option value="vr">Realidad virtual</option></select></div>':''}
           <div class="field"><label for="mk-title">Título (opcional)</label><input id="mk-title" maxlength="180" autocomplete="off"></div></div>
+          ${admin?'':'<label class="lg-check"><input type="checkbox" id="mk-own" required> <span>El vídeo es de este punto de buceo y lo he grabado yo o tengo permiso de su autor</span></label>'}
           <div class="form-actions"><button class="btn btn-primary" type="submit">${admin?'Añadir vídeo':'Proponer vídeo'}</button></div></form></section>
       <section class="mk-part"><h3>${wdIcon('fish',18)} Vida marina</h3>${d.species.length?`<div class="mk-list">${d.species.map(srow).join('')}</div>`:'<p class="mk-empty">Este punto todavía no tiene especies.</p>'}
         <div class="mk-add" id="mk-sform"><div class="field"><label for="mk-sq">Buscar una especie del catálogo</label><input id="mk-sq" type="search" autocomplete="off" placeholder="Nombre común en cualquier idioma o nombre científico"></div>
           <div id="mk-sres" class="mk-sres" aria-live="polite"></div><div id="mk-schosen"></div></div></section>
-      ${admin?'':'<p class="mk-help">Lo que propones lo revisa el equipo de WORLDIVES antes de publicarlo. En la ficha aparecerá tu nombre.</p>'}</div>`;
+      ${admin?'':'<p class="mk-help">Lo que propones lo revisa el equipo de WORLDIVES antes de publicarlo.</p>'}</div>`;
     // videos
     const prev=$('#mk-preview',el);
     const check=async()=>{ const url=$('#mk-url',el).value.trim(); if(!url){ $('#mk-url',el).focus(); return null; }
@@ -1795,11 +1966,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       try{ const r=await postJSON('/api/marina/video/comprobar',{url});
         prev.innerHTML=`<div class="mk-prev"><span class="mk-prev-img">${r.thumb?`<img src="${escapeHtml(r.thumb.src)}" alt="">`:`<span class="mk-thumb-fb">${wdPlatformLogo(r.platform)}</span>`}</span><span class="mk-main"><strong translate="no">${escapeHtml(r.title||r.url)}</strong><small><span class="rv-logo">${wdPlatformLogo(r.platform)}<span translate="no">${escapeHtml(r.platform_name)}</span></span></small><small>${r.insertable?'Se reproducirá dentro de la ficha.':'Esta plataforma no deja insertarlo: se abrirá en una pestaña nueva.'}</small>${r.thumb?'':'<small>Sin miniatura: se usará la foto del punto con el botón de reproducir.</small>'}</span></div>`;
         if(!$('#mk-title',el).value) $('#mk-title',el).placeholder=r.title||'';
-        $('#mk-kind',el).value=r.kind_guess||'normal'; return r;
+        if($('#mk-kind',el)) $('#mk-kind',el).value=r.kind_guess||'normal'; return r;
       }catch(err){ prev.innerHTML=`<div class="notice warning mk-err">${escapeHtml(err.message)}</div>`; return null; } };
     $('#mk-check',el).onclick=check;
-    $('#mk-vform',el).onsubmit=async e=>{ e.preventDefault(); const btn=e.submitter||$('#mk-vform button[type=submit]',el); btn.disabled=true;
-      try{ const r=await postJSON('/api/marina/video',{point_id:pointId,url:$('#mk-url',el).value.trim(),kind:$('#mk-kind',el).value,title:$('#mk-title',el).value});
+    $('#mk-vform',el).onsubmit=async e=>{ e.preventDefault(); const btn=e.submitter||$('#mk-vform button[type=submit]',el);
+      if($('#mk-own',el)&&!$('#mk-own',el).checked){ prev.innerHTML=`<div class="notice warning mk-err">${escapeHtml(translateString('Marca la casilla: el vídeo es de este punto y lo has grabado tú o tienes permiso de su autor.'))}</div>`; $('#mk-own',el).focus(); return; }
+      btn.disabled=true;
+      try{ const r=await postJSON('/api/marina/video',{point_id:pointId,url:$('#mk-url',el).value.trim(),kind:$('#mk-kind',el)?.value,title:$('#mk-title',el).value,confirm:!!$('#mk-own',el)?.checked});
         toast(r.status==='approved'?'Vídeo publicado.':'Propuesta enviada: el equipo de WORLDIVES la revisará antes de publicarla.'); again();
       }catch(err){ prev.innerHTML=`<div class="notice warning mk-err">${escapeHtml(err.message)}</div>`; btn.disabled=false; } };
     el.querySelectorAll('.mk-row[data-v]').forEach(row=>{ const id=row.dataset.v;
@@ -1983,8 +2156,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         ${p.warnings?`<div class="notice pp-warn" role="note">${wdIcon('alert',18)}<div><strong>Avisos</strong><p ${p.warnings_lang&&p.warnings_lang!==currentLanguage()?`lang="${escapeHtml(p.warnings_lang)}" translate="no"`:''}>${escapeHtml(p.warnings)}</p>${p.warnings_pending_translation?'<span class="wd-pending-tr">Pendiente de traducción</span>':''}</div></div>`:''}
         ${p.protection_name?`<div class="notice pp-prot">${wdIcon('shield',18)}<div><strong>${escapeHtml(translateString(PT_PROTECTIONS[p.protection]||'Protección'))}</strong><p translate="no">${escapeHtml(p.protection_name)}</p>${p.permit_required?`<p class="pp-small">${escapeHtml(translateString('Para bucear aquí hace falta permiso: el centro lo gestiona o te dice cómo pedirlo.'))}</p>`:''}</div></div>`:''}
         <section class="tp-block pp-about" id="pp-about"><h2>Sobre el punto</h2>${p.description_lang?`<div class="tp-body" translate="no" lang="${escapeHtml(p.description_lang)}">${String(p.description).split(/\n{2,}/).map(x=>`<p>${escapeHtml(x)}</p>`).join('')}</div>`:`<p class="tp-body">${escapeHtml(pointAbout(p))}</p>`}${p.access_info&&!/pendientes? de completar/i.test(p.access_info)?`<div class="tp-note"><h3>Acceso y condiciones</h3><p>${escapeHtml(p.access_info)}</p></div>`:''}</section>
+        ${pointVideosSection(p,d.videos,d.virtual,cover)}
         ${marineStrip(d.species)}
-        ${virtualSection(p,d.videos,d.virtual)}
         <section class="tp-block pp-salidas" id="pp-salidas" hidden></section>
         <section class="tp-block" id="pp-centers"><div class="tp-block-head"><h2>${pc.mode==='exact'?'Centros que bucean aquí':'Centros cercanos'}</h2>${centers.length?`<a href="#/centros?point=${p.id}">Ver en el directorio →</a>`:''}</div>
           ${pc.mode!=='exact'&&centers.length?'<p class="tp-scope">Ningún centro tiene todavía este punto en su operativa; estos trabajan a menos de 60 km.</p>':''}
@@ -2000,6 +2173,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     </section>`);
     $$('[data-scroll]').forEach(a=>a.onclick=e=>{ e.preventDefault(); document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:'smooth',block:'start'}); });
     bindMarineStrip();
+    bindPointVideos(p,d.videos||[],cover);
     pointDepartures(p);
     if(hasGeo) wdMaps().then(ok=>{ if(!$('#pp-map')) return; if(!ok){ $('#pp-map').innerHTML=`<div class="map-fallback"><strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong></div>`; return; } try{ const m=(wdTileDefaults(),wdLimitMap(L.map('pp-map',{zoomControl:false,scrollWheelZoom:true,attributionControl:true}))).setView([lat,lng],12); L.control.zoom({position:'bottomleft'}).addTo(m); wdLayerControl(m,{noteEl:$('#pp-map-note')}); L.marker([lat,lng],{icon:pointIcon(p,{active:true}),title:p.name,alt:p.name,zIndexOffset:1000}).addTo(m); }catch(e){ console.warn(e); } });
     $('#suggest-pos')?.addEventListener('click',()=>{
@@ -7278,7 +7452,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // v50.57: everything at once (it was one request after another) and each part on its own: if one fails, the rest
     // shows and a notice says which part is missing, with «Reintentar».
     const failed=[]; const soft=(p,fallback,label)=>Promise.resolve(p).catch(e=>{ console.error(e); failed.push([label,e?.message||'']); return fallback; }); const none={items:[]};
-    const [pointsR,centersR,bookingsR,suggestionsR,claimsR,mapsInfo,clientsR,usersR,travelR,marinaR,auditR,rewardsR,meta,ptCountsR]=await Promise.all([
+    const [pointsR,centersR,bookingsR,suggestionsR,claimsR,mapsInfo,clientsR,usersR,travelR,marinaR,auditR,rewardsR,meta,ptCountsR,vidCountsR]=await Promise.all([
       soft(isAdmin?api('/api/dive-points'):api('/api/center-points?center_id='+d.user.center_id),none,'Puntos de buceo'),
       soft(api('/api/centers'),none,'Centros'), soft(isAdmin?api('/api/admin/bookings/summary?periodo=temporada'):api('/api/bookings'),isAdmin?{totals:{},providers:[]}:none,'Reservas'),
       soft(api(isAdmin?'/api/admin/suggestions':'/api/my/position-suggestions'),none,'Sugerencias'),
@@ -7291,7 +7465,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       isAdmin?soft(api('/api/admin/audit'),none,'Actividad'):none,
       soft(api('/api/provider/reward-offers'),none,'Recompensas'),
       soft(loadMeta(),{travel:[]},'Destinos'),
-      isAdmin?api('/api/admin/dive-points/summary').catch(()=>({})):{}]);
+      isAdmin?api('/api/admin/dive-points/summary').catch(()=>({})):{},
+      isAdmin?api('/api/admin/videos/summary').catch(()=>({})):{}]);
     let points=pointsR.items||[]; let ptCounts=ptCountsR||{};
     const centers=centersR.items||[]; state.centers=centers;
     const bookSum=isAdmin?bookingsR:null;   // v50.57 (4.1): the administrator sees the bookings in figures
@@ -7310,7 +7485,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="cb-layout">${wdPanelSide('admin',[
           {id:'inicio',title:'Inicio',items:[nb('overview','home','Centro de control'),nb('audit','chart','Actividad')]},
           {id:'revision',title:'Revisión',items:[nb('claims','check','Solicitudes de centros',claims.length),nb('experiences','viaje','Experiencias',expPending),nb('moderation','alert','Denuncias y moderación')]},
-          {id:'puntos',title:'Puntos de buceo',items:[nb('points','pin','Todos los puntos'),nb('pointbatches','inbox','Lotes nuevos',ptCounts.batch_items),nb('pointdups','list','Posibles duplicados',ptCounts.duplicates),nb('pointprops','message','Propuestas de cambio',ptCounts.proposals),nb('pointpos','alert','Posición por revisar',ptCounts.positions)]},
+          {id:'puntos',title:'Puntos de buceo',items:[nb('points','pin','Todos los puntos'),nb('pointbatches','inbox','Lotes nuevos',ptCounts.batch_items),nb('pointdups','list','Posibles duplicados',ptCounts.duplicates),nb('pointprops','message','Propuestas de cambio',ptCounts.proposals),nb('pointpos','alert','Posición por revisar',ptCounts.positions),nb('pointvideos','image','Vídeos de puntos',((vidCountsR||{}).pending||0)+((vidCountsR||{}).reported||0))]},
           {id:'contenido',title:'Contenido',items:[nb('destinations','globe','Destinos'),nb('divetypes','target','Tipos de buceo'),nb('marina','fish','Especies y vídeos',marinaPending),nb('media','image','Imágenes de la web'),nb('pointtexts','file','Descripciones de puntos'),nb('maps','map','Mapas')]},
           {id:'catalogo',title:'Catálogo',items:[nb('svctemplates','tag','Plantillas de servicio'),nb('plans','star','Planes'),nb('features','sliders','Funciones'),nb('promos','megaphone','Patrocinio'),nb('rewards','gift','Recompensas')]},
           {id:'personas',title:'Centros y usuarios',items:[nb('centers','home','Centros'),nb('users','users','Usuarios')]},
@@ -7338,6 +7513,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t==='points') c.innerHTML=isAdmin?adminPointsNav('points',ptCounts)+adminPoints(points,true):`<div id="center-points-tab"></div>`; if(t==='points'&&!isAdmin) renderCenterPointManager(d.user.center_id,'center-points-tab');
       // v50.58: the catalogue (the old «Correcciones de ubicación» address opens the proposals, where they are now)
       const PTV={pointbatches:renderAdminPointBatches,pointdups:renderAdminPointDups,pointprops:renderAdminPointProps,suggestions:renderAdminPointProps,pointpos:renderAdminPointPos};
+      if(t==='pointvideos'&&isAdmin){ c.innerHTML='<div id="admin-videos"></div>';
+        const vref=()=>api('/api/admin/videos/summary').then(n=>{ const b=$('.cb-sidebar .cb-nav[data-tab="pointvideos"]'); if(!b) return; let el=b.querySelector('b'); const k=(n.pending||0)+(n.reported||0); if(!k){ el?.remove(); return; } if(!el){ el=document.createElement('b'); b.append(el); } el.textContent=k; }).catch(()=>{});
+        wdGuard('admin-videos',()=>renderAdminPointVideos('admin-videos',new URLSearchParams(location.hash.split('?')[1]||'').get('vtab')||'pending',vref)); }
       if(isAdmin&&PTV[t]){ const tt=t==='suggestions'?'pointprops':t; c.innerHTML=adminPointsNav(tt,ptCounts)+'<div id="admin-ptcat"></div>';
         const refresh=()=>api('/api/admin/dive-points/summary').then(n=>{ ptCounts=n; const map={pointbatches:'batch_items',pointdups:'duplicates',pointprops:'proposals',pointpos:'positions'};
           Object.entries(map).forEach(([k,f])=>{ const b=$(`.cb-sidebar .cb-nav[data-tab="${k}"]`); if(!b) return; let el=b.querySelector('b'); if(!n[f]){ el?.remove(); return; } if(!el){ el=document.createElement('b'); b.append(el); } el.textContent=n[f]; });

@@ -34,6 +34,8 @@ Nous pouvons retirer des contenus et suspendre ou fermer les comptes qui enfreig
 
 Les avis, photos et suggestions que vous publiez doivent être les vôtres et véridiques. Vous nous accordez une autorisation gratuite et non exclusive de les afficher sur la plateforme. Consultez les [Règles relatives aux avis](#/legal/normas-resenas). Vous pouvez signaler tout contenu au moyen du bouton « Signaler ».
 
+**Vidéos des sites de plongée.** Lorsque vous envoyez une vidéo pour la fiche d'un site, vous déclarez qu'elle est de ce site et que vous l'avez filmée ou que vous avez l'autorisation de son auteur. {{trade_name}} ne copie ni ne conserve la vidéo : elle l'affiche seulement depuis la plateforme où elle est publiée (YouTube, Instagram ou TikTok), avec le lecteur officiel de cette plateforme. Nous la vérifions avant de la publier. Toute personne peut demander le retrait d'une vidéo avec le bouton « Signaler » (« Elle n'est pas de ce site », « Contenu inapproprié » ou « C'est le mien et je n'ai pas donné mon autorisation ») ; si son auteur le demande, nous la retirons.
+
 ## 5. Notifications des centres
 
 {{trade_name}} n'est pas un réseau social et ne dispose pas de messagerie entre utilisateurs. Les centres peuvent uniquement vous envoyer des **notifications concernant vos réservations** (par exemple, un changement d'horaire), qui vous parviennent par e-mail et dans « Notifications », avec leur téléphone et leur e-mail pour que vous puissiez leur répondre directement.

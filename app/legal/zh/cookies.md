@@ -23,7 +23,7 @@
 | **底图** | 每次您查看地图时 | 无：由我们的服务器提供（数据 © OpenStreetMap contributors） |
 | **卫星视图（Esri）** | 仅当您选择“卫星”时 | 无：图像经由我们的服务器传输 |
 | **水深测量（GEBCO）** | 仅当您选择深度图层时 | 您的 IP 会到达 GEBCO / British Oceanographic Data Centre 的服务器 |
-| **路线视频**（隐私增强模式的 YouTube、不跟踪的 Vimeo、Dailymotion、TikTok、Facebook 和 Instagram）以及**嵌入式地图**（Google Maps） | 仅当您在该视频上点击“播放”时；在此之前您看到的是保存在我们服务器上的缩略图 | 您的 IP 及该服务收集的信息，包括其自身的 Cookie；请查阅其政策。其他平台的视频会在新标签页中打开 |
+| **潜点视频**（隐私增强模式的 YouTube，以及使用官方嵌入代码的 Instagram 和 TikTok；较早的视频还包括 Vimeo、Dailymotion 和 Facebook）以及**嵌入式地图**（Google Maps） | 打开潜点页面时，只会从平台本身加载视频图片；只有当您点击“播放”时才会加载播放器 | 加载图片时，您的 IP 会到达该平台，但不涉及 Cookie。播放时，您的 IP 及该服务收集的信息，包括其自身的 Cookie；请查阅其政策。其他平台的视频会在新标签页中打开 |
 | **支付（Stripe）** | 付款时 | 将打开 Stripe 页面，其使用自有 Cookie 以防范欺诈 |
 
 未经您请求，不会加载任何视频或第三方内容。

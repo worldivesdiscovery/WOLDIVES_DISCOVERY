@@ -174,7 +174,8 @@ def point_videos(db, pid, statuses=('approved',), public=True) -> list[dict]:
     for r in rows:
         d = wvideos.public_row(dict(r))
         if not public: d.update(status=r['status'], review_note=r['review_note'] or '', sort_order=r['sort_order'],
-                                contributor_provider=r['contributor_provider'], source_title=r['source_title'] or '')
+                                contributor_provider=r['contributor_provider'], source_title=r['source_title'] or '',
+                                contributor=r['contributor_name'] or 'WORLDIVES DISCOVERY')   # the editor only (v50.58: never public)
         out.append(d)
     return out
 

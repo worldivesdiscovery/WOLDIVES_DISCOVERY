@@ -23,7 +23,7 @@ Choć nie używają plików cookie, niektóre usługi ładowane w Twojej przegl�
 | **Mapa bazowa** | Zawsze, gdy wyświetlasz mapę | Nic: jest dostarczana z naszego serwera (dane © OpenStreetMap contributors) |
 | **Widok satelitarny (Esri)** | Tylko jeśli wybierzesz „Satelita” | Nic: obrazy przechodzą przez nasz serwer |
 | **Batymetria (GEBCO)** | Tylko jeśli wybierzesz warstwę głębokości | Twój adres IP trafia do serwerów GEBCO / British Oceanographic Data Centre |
-| **Filmy z tras** (YouTube w trybie zwiększonej prywatności, Vimeo bez śledzenia, Dailymotion, TikTok, Facebook i Instagram) oraz **osadzone mapy** (Google Maps) | Tylko jeśli klikniesz „Odtwórz” przy danym filmie; do tego czasu widzisz miniaturę zapisaną na naszym serwerze | Twój adres IP oraz to, co zbiera dana usługa, w tym jej własne pliki cookie; zapoznaj się z jej polityką. Filmy z innych platform otwierają się w nowej karcie |
+| **Filmy z miejsc nurkowych** (YouTube w trybie zwiększonej prywatności, Instagram i TikTok z oficjalnym kodem osadzania; w starszych filmach także Vimeo, Dailymotion i Facebook) oraz **osadzone mapy** (Google Maps) | Po otwarciu karty miejsca ładuje się tylko obraz filmu, bezpośrednio z platformy; odtwarzacz tylko wtedy, gdy klikniesz „Odtwórz” | Wraz z obrazem twój adres IP trafia do platformy, bez plików cookie. Podczas odtwarzania twój adres IP oraz to, co zbiera dana usługa, w tym jej własne pliki cookie; zapoznaj się z jej polityką. Filmy z innych platform otwierają się w nowej karcie |
 | **Płatność (Stripe)** | Podczas płatności | Otwiera się strona Stripe z własnymi plikami cookie służącymi zapobieganiu oszustwom |
 
 Żaden film ani treść podmiotu trzeciego nie jest ładowana bez Twojego żądania.

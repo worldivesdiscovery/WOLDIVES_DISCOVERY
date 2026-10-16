@@ -10,6 +10,7 @@ Letzte Aktualisierung: {{version}}
 - **Satellitenbilder:** Esri, Maxar, Earthstar Geographics und die GIS-Nutzergemeinschaft ([Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9)), lizenziert über ArcGIS Location Platform.
 - **Bathymetrie:** GEBCO Compilation Group (2024) GEBCO 2024 Grid ([gebco.net](https://www.gebco.net)), frei nutzbar mit Namensnennung.
 - **Ortssuche:** Nominatim, mit Daten © OpenStreetMap contributors.
+- **Küstenlinie** (um zu prüfen, dass jeder Tauchplatz im Meer liegt): Landflächen von © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), Lizenz Open Database License (ODbL), vereinfacht vom Projekt geo-maps (`countries-land-10m` 0.6.0).
 
 ## Software
 
