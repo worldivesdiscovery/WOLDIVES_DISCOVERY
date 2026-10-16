@@ -15448,7 +15448,9 @@ def wizard_options(db, user):
         templates.append({'id': t['id'], 'name': t.get('name'), 'kind': k, 'service_type': t.get('service_type'), 'icon': t.get('icon'),
                           'duration_minutes': t.get('duration_minutes'), 'max_participants': t.get('max_participants'),
                           'booking_mode': t.get('booking_mode'), 'description': t.get('description'), 'photo': t.get('photo')})
-    instructors = [dict(r) for r in db.execute("SELECT id, fullname FROM users WHERE role='center' AND center_id=? ORDER BY fullname", (cid,)).fetchall()] if cid else []
+    # v50.58: everybody in the team today, also the people linked with their own account (equipo por QR)
+    instructors = [dict(r) for r in db.execute('''SELECT u.id, u.fullname FROM users u LEFT JOIN center_members m ON m.user_id=u.id AND m.center_id=?
+                                                   WHERE (u.role='center' AND u.center_id=?) OR m.user_id IS NOT NULL ORDER BY u.fullname''', (cid, cid)).fetchall()] if cid else []
     boats = [dict(r) for r in db.execute('SELECT id, name, capacity FROM boats WHERE center_id=? AND active=1 ORDER BY name', (cid,)).fetchall()] if cid else []
     extras = [dict(r) for r in db.execute('SELECT id, name, price FROM center_extras WHERE center_id=? AND active=1 ORDER BY name', (cid,)).fetchall()] if cid else []
     ready = service_payments_ready(db, {'center_id': cid, 'provider_user_id': user['id']})

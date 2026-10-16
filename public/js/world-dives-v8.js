@@ -6624,7 +6624,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function centerWorkspaceShell(c,metrics){
     const m=metrics||{};
     return `<section class="center-backoffice">
-      <div class="cb-header ${c?.cover_url?'has-cover':''}" style="${c?.cover_url?`--cover:url('${escapeHtml(wdImgFit(c.cover_url))}')`:''}"><div class="cb-header-id">${centerLogoMarkup(c||{},'58px')}<div><p class="eyebrow">Panel del centro</p><h1>${escapeHtml(c?.name||'Mi centro')}</h1>${c?.tagline?`<p>${escapeHtml(c.tagline)}</p>`:''}</div></div><div class="cb-header-actions">${(state.me?.centers||[]).length>1?`<label class="cb-switch"><span>Centro activo</span><select id="cb-switch">${state.me.centers.map(x=>`<option value="${x.id}" ${x.active?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></label>`:''}<a class="btn" href="#/centro?id=${c?.id||''}">Ver mi página</a><button class="btn btn-primary" id="cb-refresh">Actualizar</button></div></div>
+      <div class="cb-header ${c?.cover_url?'has-cover':''}" style="${c?.cover_url?`--cover:url('${escapeHtml(wdImgFit(c.cover_url))}')`:''}"><div class="cb-header-id">${centerLogoMarkup(c||{},'58px')}<div><p class="eyebrow">Panel del centro</p><h1>${escapeHtml(c?.name||'Mi centro')}</h1>${c?.tagline?`<p>${escapeHtml(c.tagline)}</p>`:''}</div></div><div class="cb-header-actions">${(state.me?.centers||[]).length>1&&!(state.me?.profiles||[]).length?`<label class="cb-switch"><span>Centro activo</span><select id="cb-switch">${state.me.centers.map(x=>`<option value="${x.id}" ${x.active?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select></label>`:''}<a class="btn" href="#/centro?id=${c?.id||''}">Ver mi página</a><button class="btn btn-primary" id="cb-refresh">Actualizar</button></div></div>
       <div class="cb-layout">${wdPanelSide('centro',[
         {id:'ops',title:'Operaciones',items:[
           `<button class="cb-nav active" data-cbtab="dashboard">${wdIcon('home',17)} <span>Resumen</span></button>`,
@@ -8415,13 +8415,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       <h3 class="adl-h" id="tr-h">Perfiles y lo que puede hacer cada uno</h3>
       <p class="adl-det"><span>Solo tú, como propietario, puedes:</span> ${(d.owner_only||[]).map(x=>`<span>${esc(x)}</span>`).join(' · ')}.</p>
       <div class="tr-list">${RL.map(r=>`<details class="tr-role" data-key="${esc(r.key)}"><summary><b>${esc(r.name)}</b> <small><span class="num">${r.members}</span> <span>${r.members===1?'persona':'personas'}</span>${r.builtin?'':' · <span>perfil de tu centro</span>'}${r.builtin&&r.changed?' · <span>cambiado</span>':''}</small></summary>
-        ${r.owner?'<p class="adl-det">El propietario siempre puede hacerlo todo.</p>':`<form class="tr-form" data-key="${esc(r.key)}">${r.builtin?'':`<div class="field"><label for="tr-n-${esc(r.key)}">Nombre del perfil</label><input id="tr-n-${esc(r.key)}" class="tr-name" maxlength="40" value="${esc(r.name)}" required></div>`}
+        ${r.owner?'<p class="adl-det">El propietario siempre puede hacerlo todo.</p>':`<p class="tq-role-link">${rules.blocked||(rules.only_reception&&r.key!=='reception')?`<button type="button" class="btn btn-sm" disabled>${wdIcon('lock',14)} <span>Enlazar persona</span></button> <small>${esc(translateString(rules.blocked?'Disponible en el plan Motor de reservas':'Disponible en el plan Pro'))}</small>`:`<button type="button" class="btn btn-sm tq-link-role" data-role="${esc(r.key)}">${wdIcon('qr',14)} <span>Enlazar persona</span></button>`}</p><form class="tr-form" data-key="${esc(r.key)}">${r.builtin?'':`<div class="field"><label for="tr-n-${esc(r.key)}">Nombre del perfil</label><input id="tr-n-${esc(r.key)}" class="tr-name" maxlength="40" value="${esc(r.name)}" required></div>`}
           <fieldset class="tr-perms"><legend class="sr-only">Qué puede hacer ${esc(r.name)}</legend>${checks(r,'tr-'+r.key)}</fieldset>
           <div class="form-actions"><button type="submit" class="btn btn-primary">Guardar</button>${r.builtin&&r.changed?`<button type="button" class="btn tr-reset">Volver a lo de siempre</button>`:''}${r.builtin?'':`<button type="button" class="btn tr-del">Borrar perfil</button>`}</div></form>`}</details>`).join('')}
         ${rules.custom_profiles===false?`<div class="tr-role tq-locked"><b>+ Crear un perfil</b>${tqPlans('Disponible en el plan Pro')}</div>`:`<details class="tr-role" id="tr-new"><summary><b>+ Crear un perfil</b></summary><form class="tr-form" data-key=""><div class="field"><label for="tr-n-new">Nombre del perfil</label><input id="tr-n-new" class="tr-name" maxlength="40" placeholder="Instructor máster" required></div>
           <fieldset class="tr-perms"><legend class="sr-only">Qué puede hacer el perfil nuevo</legend>${checks({permissions:['checkin'],owner:false},'tr-new')}</fieldset>
           <div class="form-actions"><button type="submit" class="btn btn-primary">Crear perfil</button></div></form></details>`}</div></section>`;
     renderTeamLinks($('#tq-links-mount',mount),d,()=>renderTeam(mountId));
+    $$('.tq-link-role',mount).forEach(b=>b.onclick=()=>tqOpenLink(d,{onDone:()=>renderTeam(mountId),role:b.dataset.role}));
     $$('.tm-role',mount).forEach(x=>x.onchange=async()=>{ if(!x.value) return; try{ await postJSON('/api/center/team/role',{user_id:+x.dataset.id,member_role:x.value}); toast('Perfil cambiado.'); }catch(err){ toast(err.message); renderTeam(mountId); } });
     $$('.tm-remove',mount).forEach(b=>b.onclick=async()=>{ if(!confirm('Esta persona dejará de tener acceso al centro. ¿Continuar?')) return; try{ await postJSON('/api/center/team/remove',{user_id:+b.dataset.id}); renderTeam(mountId); }catch(err){ toast(err.message); } });
     // v50.55 (encargo 2): the owner sees where each person of his team is signed in and can close all their sessions.
@@ -8561,8 +8562,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const S=window.Capacitor?.Plugins?.CapacitorBarcodeScanner;
     if(S){ const r=await S.scanBarcode({hint:0,scanInstructions:translateString('Apunta al QR de la persona'),scanButton:false,cameraDirection:1}); return r?.ScanResult||r?.scanResult||''; }
     if(!('BarcodeDetector' in window)||!navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador no puede usar la cámara aquí: escribe el código de 6 letras que la persona ve debajo de su QR.');
-    const det=new BarcodeDetector({formats:['qr_code']});
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    let det, stream;
+    try{ det=new BarcodeDetector({formats:['qr_code']}); stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}); }
+    catch{ throw new Error('No se ha podido abrir la cámara: escribe el código de 6 letras que la persona ve debajo de su QR.'); }
     video.srcObject=stream; video.hidden=false; await video.play();
     return new Promise((ok,ko)=>{ let done=false;
       const stop=v=>{ if(done) return; done=true; stream.getTracks().forEach(t=>t.stop()); video.hidden=true; v instanceof Error?ko(v):ok(v); };
@@ -8707,9 +8709,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
   function tqDurationBind(el,pre){ $$(`input[name="${pre}-kind"]`,el).forEach(r=>r.onchange=()=>{ $(`#${pre}-dates`,el).hidden=$(`input[name="${pre}-kind"]:checked`,el).value!=='days'; }); }
   const tqDurationValue=(el,pre)=>{ const kind=$(`input[name="${pre}-kind"]:checked`,el).value; return kind==='days'?{kind,starts_on:$(`#${pre}-from`,el).value,ends_on:$(`#${pre}-to`,el).value}:{kind}; };
-  function tqOpenLink(d,{onDone,code}={}){
+  function tqOpenLink(d,{onDone,code,role}={}){
     const esc=escapeHtml, rules=d.rules||{};
-    const firstRole=rules.only_reception?'reception':'instructor';
+    const firstRole=role||(rules.only_reception?'reception':'instructor');
     const {el,close}=wdOpenModal({id:'tq-link',title:escapeHtml(translateString('Enlazar persona')),subtitle:escapeHtml(translateString('La persona recibe la petición y tiene que aceptarla. Nadie queda enlazado sin su «sí».')),
       body:`<div class="pr-tabs" role="tablist"><button type="button" class="pr-tab is-on" data-tqt="scan" role="tab" aria-selected="true">${wdIcon('camera',16)} <span>Escanear QR</span></button><button type="button" class="pr-tab" data-tqt="code" role="tab" aria-selected="false">${wdIcon('qr',16)} <span>Escribir el código</span></button><button type="button" class="pr-tab" data-tqt="email" role="tab" aria-selected="false">${wdIcon('message',16)} <span>Por correo</span></button></div>
         <div id="tq-step1">
@@ -8745,7 +8747,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         try{ const x=await postJSON('/api/center/team/link',{ref:r.ref,member_role:$('#tq-role',s2).value,...tqDurationValue(s2,'tq-r')});
           s2.innerHTML=`<div class="notice success"><strong>${esc(translateString(x.message))}</strong></div>`; onDone?.(); }
         catch(e2){ btn.disabled=false; toast(e2.message); } }); };
-    $('#tq-cam',el).onclick=async()=>{ err(''); try{ const v=await tqReadCamera($('#tq-video',el)); if(v) lookup(v); }catch(e){ err(e.message); tab('code'); $('#tq-code-i',el).focus(); } };
+    $('#tq-cam',el).onclick=async()=>{ err(''); try{ const v=await tqReadCamera($('#tq-video',el)); if(v) lookup(v); }catch(e){ tab('code'); err(e.message); $('#tq-code-i',el).focus(); } };
     $('#tq-code-form',el).onsubmit=e=>{ e.preventDefault(); const v=$('#tq-code-i',el).value.trim(); if(v) lookup(v); };
     $('#tq-mail-form',el).onsubmit=async e=>{ e.preventDefault(); err(''); const btn=$('button[type=submit]',e.target); btn.disabled=true;
       try{ await postJSON('/api/center/team/link-email',{email:$('#tq-mail',el).value.trim(),member_role:$('#tq-mail-role',el).value,...tqDurationValue(el,'tq-m')});

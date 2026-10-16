@@ -557,6 +557,25 @@ def build(out: Path):
             tid = slug_id.get(guess_slug(r['title'], r['service_type']))
             if tid: srv.sql('UPDATE provider_services SET template_id=? WHERE id=?', (tid, r['id']))
 
+        # --- v50.58 (equipo por QR): freelance.prueba enlazado a los dos centros como lo haría una persona (el centro
+        # escribe el código de «Mi QR» y ella acepta), como Instructor en los dos, con salidas
+        # asignadas en cada uno para ver «Mi agenda» con los dos colores y el selector de perfil.
+        def link(cl, person, role):
+            code = ok(person.get('/api/my/qr'), 'abrir «Mi QR»')['code']
+            ref = ok(cl.post('/api/center/team/scan', {'code': code}), 'escribir el código de «Mi QR»')['ref']
+            lid = ok(cl.post('/api/center/team/link', {'ref': ref, 'member_role': role, 'kind': 'fixed'}), 'enlazar a la persona')['id']
+            ok(person.post('/api/my/teams/respond', {'id': lid, 'accept': True}), 'aceptar la petición')
+        link(center, pro, 'instructor'); link(center2, pro, 'instructor')
+        for cl, pool_ in ((center, [v for (k_, d_), v in sorted(slots.items(), key=lambda x: x[0][1]) if k_ in ('doble', 'simple')]),
+                          (center2, [v for (k_, d_), v in sorted(slots2.items(), key=lambda x: x[0][1]) if k_ in ('medas', 'nocturna')])):
+            given = 0
+            for slot_id in pool_:   # two departures each, never at a time she already works (the server says «Ocupado»)
+                r = cl.post('/api/provider-services/slot-update', {'id': slot_id, 'instructor_user_id': pro_id})
+                if r.status == 200: given += 1
+                elif 'Ocupado' not in (r.json or {}).get('error', ''): ok(r, 'asignar la salida al freelance')
+                if given == 2: break
+            if given < 2: raise SystemExit('No se han podido asignar dos salidas al freelance en cada centro.')
+
         # --- experiences: published and one waiting for review ----------------------------------------------------
         ok(center2.post('/api/travel-experiences', {'new_destination': 'Islas Medas', 'new_destination_region': 'España', 'title': 'Fin de semana en las Medas',
                                                     'start_date': day(23), 'end_date': day(24), 'price': 240, 'spots_total': 8, 'spots_available': 8,
@@ -666,7 +685,7 @@ def accounts_text() -> str:
     rows = [('Administración', 'admin'), (f'Centro «{DATA["bahia"]["name"]}» (propietaria)', 'center'), (f'Centro «{DATA["medes"]["name"]}» (propietario)', 'center2'),
             ('Instructor del primer centro', 'instructor'), ('Instructora máster del primer centro (perfil hecho en la web)', 'master'),
             ('Instructor del segundo centro', 'instructor2'), ('Recepción del segundo centro', 'recepcion'),
-            ('Freelance: cenotes en México', 'freelance'), ('Freelance: guía y fotógrafa en Xàbia', 'freelance2'), ('Buceadora con reservas en todos los estados', 'diver')]
+            ('Freelance: cenotes en México (enlazado como Instructor a los dos centros)', 'freelance'), ('Freelance: guía y fotógrafa en Xàbia', 'freelance2'), ('Buceadora con reservas en todos los estados', 'diver')]
     out = ['WORLDIVES DISCOVERY · Versión de demostración · Cuentas', '',
            f'Contraseña de todas las cuentas: {PASSWORD}', 'Se entra con el usuario o con el email.', '']
     out += [f'- {label}: {ACCOUNTS[k][0]}  ({ACCOUNTS[k][1]})' for label, k in rows]
