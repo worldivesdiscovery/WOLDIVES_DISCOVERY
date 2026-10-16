@@ -13,7 +13,7 @@
  },
  "recorridos": {
   "movil-peticion": {
-   "segundos": 24.1,
+   "segundos": 24.0,
    "segundos_modelo": 0.0,
    "toques": 9,
    "pantallas": 2,
@@ -27,7 +27,7 @@
    "notas": []
   },
   "movil-tarjeta": {
-   "segundos": 39.4,
+   "segundos": 39.3,
    "segundos_modelo": 13.0,
    "toques": 14,
    "pantallas": 3,
@@ -44,7 +44,7 @@
    ]
   },
   "movil-monedero": {
-   "segundos": 27.7,
+   "segundos": 27.6,
    "segundos_modelo": 2.5,
    "toques": 10,
    "pantallas": 3,
@@ -61,7 +61,7 @@
    ]
   },
   "movil-peticion-autocompletar": {
-   "segundos": 9.3,
+   "segundos": 9.2,
    "segundos_modelo": 0.0,
    "toques": 8,
    "pantallas": 2,
@@ -122,7 +122,7 @@
    "notas": []
   },
   "ordenador-tarjeta": {
-   "segundos": 30.2,
+   "segundos": 30.4,
    "segundos_modelo": 9.5,
    "toques": 14,
    "pantallas": 3,
@@ -139,7 +139,7 @@
    ]
   },
   "ordenador-monedero": {
-   "segundos": 23.0,
+   "segundos": 22.9,
    "segundos_modelo": 2.5,
    "toques": 10,
    "pantallas": 3,
@@ -170,7 +170,7 @@
    "notas": []
   },
   "ordenador-monedero-autocompletar": {
-   "segundos": 13.2,
+   "segundos": 13.3,
    "segundos_modelo": 2.5,
    "toques": 9,
    "pantallas": 3,
@@ -187,7 +187,7 @@
    ]
   },
   "ordenador-monedero-autocompletar-boton-servicio": {
-   "segundos": 11.2,
+   "segundos": 11.1,
    "segundos_modelo": 2.5,
    "toques": 8,
    "pantallas": 3,
