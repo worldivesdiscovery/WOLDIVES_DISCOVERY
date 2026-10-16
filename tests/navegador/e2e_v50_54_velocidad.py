@@ -110,7 +110,14 @@ def main():
                 ctx, pg = page(MOBILE, cls=True)
                 pg.goto(srv.base + path); pg.wait_for_selector(ready, timeout=60000); pg.wait_for_timeout(2500)
                 if name == 'inicio':
-                    src = pg.evaluate("document.querySelector('.tp-hero-img').currentSrc")
+                    # The page arrives with the cover already drawn (wd-pre) and the web draws it again when its script
+                    # has arrived (slow 4G: about 3.5 s): the photo is read from that final page, once it has chosen
+                    # its copy (an image just put on the page has no currentSrc for a moment).
+                    src = ''
+                    for _ in range(60):
+                        src = pg.evaluate("(document.querySelector('.hm-page .tp-hero-img')||{}).currentSrc||''")
+                        if src: break
+                        pg.wait_for_timeout(250)
                     check('Móvil: la portada baja la copia ligera', re.search(r'-(640|960)\.webp$', src or ''), src)
                     check('Cabecera: idioma y cuenta visibles', pg.evaluate("getComputedStyle(document.querySelector('.header-tools')).visibility") == 'visible')
                 cls = pg.evaluate('window.__cls')
