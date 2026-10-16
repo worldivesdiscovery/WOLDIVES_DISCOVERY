@@ -109,7 +109,7 @@ def run(shots: Path | None):
             f.locator('input[name=fullname]').fill('Lucía Martín'); f.locator('input[name=email]').fill('lucia.e2e@example.org'); f.locator('input[name=phone]').fill('611 222 333')
             f.locator('[data-level="ow"]').click(); f.locator('input[name=accept_policy]').check()
             check('6 · el error se quita al corregir', f.locator('.wr-field.bad').count() == 0)
-            check('4 · «Pagar 100 €»', f.locator('[data-primary]').inner_text().strip() == 'Pagar 100 €', f.locator('[data-primary]').inner_text())
+            check('4 · «Pagar 100 €»', f.locator('[data-primary]').inner_text().replace('\xa0', ' ').strip() == 'Pagar 100 €', f.locator('[data-primary]').inner_text())
             shot(page, 'movil-3-tus-datos')
             f.locator('[data-primary]').click()
             f.locator('[data-stripe-stub]').wait_for(timeout=10000)
@@ -218,7 +218,8 @@ def run(shots: Path | None):
             before = srv.sql('SELECT COUNT(*) AS n FROM bookings')[0]['n']
             page.goto(f"{srv.base}/c/{slug}?servicio={env['req']}&prueba=1")
             page.locator('.wr-test').wait_for(timeout=10000)
-            page.locator('.wr-time[aria-checked="true"]').wait_for(timeout=10000)
+            page.locator('.wr-time').first.wait_for(timeout=10000)
+            if not page.locator('.wr-time[aria-checked="true"]').count(): page.locator('.wr-time').first.click()   # that day has two times
             page.locator('[data-primary]').click(); page.locator('[data-form]').wait_for()
             page.locator('input[name=fullname]').fill('Cliente Prueba'); page.locator('input[name=email]').fill('prueba@example.org'); page.locator('input[name=accept_policy]').check()
             page.locator('[data-primary]').click(); page.locator('.wr-done').wait_for(timeout=8000)
@@ -246,7 +247,9 @@ def run(shots: Path | None):
                 want = [tx['rx_when'], tx['rx_continue'], tx['powered']]
                 miss = [x for x in want if x not in s1] + [x for x in (tx['rx_accept'], tx['rx_remember'], tx['your_details'] if False else tx['name']) if x not in s2]
                 if lang != 'es':
-                    leaked = [x for x in ('¿Cuándo?', 'Continuar', 'Acepto las condiciones', 'Recordar mis datos', 'Nombre y apellidos', 'Pago seguro') if x in s1 + s2]
+                    same = set(tx.values())   # a word that is the same in both languages (Portuguese «Continuar») is not a leak
+                    leaked = [x for x in ('¿Cuándo?', 'Continuar', 'Acepto las condiciones', 'Recordar mis datos', 'Nombre y apellidos', 'Pago seguro')
+                              if x in s1 + s2 and not any(x in v for v in same)]
                     if leaked: miss += leaked
                 if miss: bad[lang] = miss
                 if lang in ('zh', 'de'): shot(page, f'idioma-{lang}')

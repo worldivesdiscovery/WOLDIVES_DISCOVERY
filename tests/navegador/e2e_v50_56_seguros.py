@@ -257,13 +257,19 @@ def run(out: Path | None):
 
             # 7. The widget: a customer without an account books the «obligatorio» service and uploads the policy
             c, pg = ctx()
-            pg.goto(f'{srv.base}/c/bahia-coralina?servicio={sid}'); pg.wait_for_selector('.wr-cal', timeout=15000)
-            pg.locator(f'[data-day="{slot["slot_date"]}"]').click(); pg.locator('.wr-slot').first.click()
+            def express_day(day):
+                """v50.58 (reserva exprés): the day in the strip (or «Más fechas»), its time, «Continuar»."""
+                pg.wait_for_selector('.wr-strip .wr-dchip', timeout=15000)
+                if pg.locator(f'.wr-dchip[data-day="{day}"]').count(): pg.locator(f'.wr-dchip[data-day="{day}"]').click()
+                else: pg.locator('[data-more]').click(); pg.locator(f'[data-cal="{day}"]').click()
+                pg.wait_for_selector('.wr-time')
+                if not pg.locator('.wr-time[aria-checked="true"]').count(): pg.locator('.wr-time').first.click()
+                pg.locator('[data-primary]:not([disabled])').click(); pg.wait_for_selector('[data-form]')
+            pg.goto(f'{srv.base}/c/bahia-coralina?servicio={sid}'); express_day(slot['slot_date'])
             pg.wait_for_selector('.wr-ins')
             check('7 · el widget avisa de que el servicio exige seguro', 'exige un seguro de buceo' in pg.inner_text('.wr-ins'))
             pg.fill('input[name=fullname]', 'Marta Widget'); pg.fill('input[name=email]', 'marta.widget@example.org')
-            pg.locator('.wr-sum .wr-total').wait_for(timeout=8000)
-            pg.check('input[name=accept_policy]'); pg.locator('[data-go]').click()
+            pg.check('input[name=accept_policy]'); pg.locator('[data-primary]').click()
             pg.wait_for_selector('[data-ins-form]', timeout=15000)
             check('7 · tras reservar, pide la póliza (las plazas quedan guardadas)', 'Falta tu seguro de buceo' in pg.inner_text('main'))
             shot(pg, 'seguro-7-widget-subir-poliza', True)
@@ -276,13 +282,11 @@ def run(out: Path | None):
             # «Se comprueba en el centro»: the widget lets one book without saying anything about the insurance
             sn = srv.sql("SELECT id FROM provider_services WHERE center_id=? AND title='Snorkel en la Granadella'", (cid,))[0]['id']
             snslot = srv.sql("SELECT slot_date FROM service_slots WHERE service_id=? AND spots_available>0 ORDER BY slot_date LIMIT 1", (sn,))[0]
-            pg.goto(f'{srv.base}/c/bahia-coralina?servicio={sn}'); pg.wait_for_selector('.wr-cal', timeout=15000)
-            pg.locator(f'[data-day="{snslot["slot_date"]}"]').click(); pg.locator('.wr-slot').first.click()
-            pg.wait_for_selector('.wr-ins')
+            pg.goto(f'{srv.base}/c/bahia-coralina?servicio={sn}'); express_day(snslot['slot_date'])
+            pg.wait_for_selector('.wr-ins'); pg.locator('.wr-ins summary').click()   # folded: «Seguro de buceo»
             check('7 · «se comprueba en el centro»: el widget lo dice y no marca nada', 'comprobará tu seguro' in pg.inner_text('.wr-ins') and pg.locator('[name=ins_mode]:checked').count() == 0)
             pg.fill('input[name=fullname]', 'Pablo Playa'); pg.fill('input[name=email]', 'pablo.playa@example.org')
-            pg.locator('.wr-sum .wr-total').wait_for(timeout=8000)
-            pg.check('input[name=accept_policy]'); pg.locator('[data-go]').click()
+            pg.check('input[name=accept_policy]'); pg.locator('[data-primary]').click()
             pg.wait_for_selector('.wr-done h2', timeout=15000)
             gb = srv.sql("SELECT status, insurance_status FROM bookings WHERE service_id=? AND contact_email IS NOT NULL ORDER BY id DESC LIMIT 1", (sn,))
             check('7 · y se reserva sin rellenar el seguro (el centro lo comprueba ese día)', 'Solicitud enviada' in pg.inner_text('.wr-done') and gb and gb[0]['status'] == 'requested', gb and dict(gb[0]))

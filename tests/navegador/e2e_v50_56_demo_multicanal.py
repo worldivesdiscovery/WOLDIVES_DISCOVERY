@@ -79,12 +79,15 @@ def run(out: Path | None):
                 if full: pg.set_viewport_size(DESK['viewport'])
 
             def widget_day(pg):
-                """The calendar of the example website on the day of the departure: the text of its slot."""
+                """The calendar of the example website on the day of the departure: the text of its time (v50.58: the strip of
+                14 days of the express booking; a later day through «Más fechas»)."""
                 pg.goto(site); cal = pg.frame_locator('#calendario iframe')
-                cal.locator('.wr-cal').wait_for(timeout=15000)
-                cal.locator(f'[data-day="{slot["slot_date"]}"]').click()
-                cal.locator('.wr-slot').first.wait_for(timeout=8000)
-                return cal, cal.locator('.wr-slot').first.inner_text()
+                cal.locator('.wr-strip .wr-dchip').first.wait_for(timeout=15000)
+                chip = cal.locator(f'.wr-dchip[data-day="{slot["slot_date"]}"]')
+                if chip.count(): chip.click()
+                else: cal.locator('[data-more]').click(); cal.locator(f'[data-cal="{slot["slot_date"]}"]').click()
+                cal.locator('.wr-time').first.wait_for(timeout=8000)
+                return cal, cal.locator('.wr-time').first.inner_text()
 
             def worldives_slot(pg):
                 """The same departure on the page of the centre in WORLDIVES."""
@@ -98,11 +101,11 @@ def run(out: Path | None):
             # 1. A request from the example website (calendar format)
             c, pg = ctx()
             cal, txt = widget_day(pg)
-            check('1 · la web de ejemplo enseña la salida con 2 plazas', '2 plazas' in txt, txt)
-            cal.locator('.wr-slot').first.click()
+            check('1 · la web de ejemplo enseña la salida con 2 plazas', 'Quedan 2' in txt, txt)
+            if not cal.locator('.wr-time[aria-checked="true"]').count(): cal.locator('.wr-time').first.click()
+            cal.locator('[data-primary]:not([disabled])').click(); cal.locator('[data-form]').wait_for(timeout=8000)
             cal.locator('input[name=fullname]').fill('Paula Web'); cal.locator('input[name=email]').fill('paula.web@example.org')
-            cal.locator('.wr-sum .wr-total').wait_for(timeout=8000)
-            cal.locator('input[name=accept_policy]').check(); cal.locator('[data-go]').click()
+            cal.locator('input[name=accept_policy]').check(); cal.locator('[data-primary]').click()
             cal.locator('.wr-done h2').wait_for(timeout=15000)
             check('1 · «Solicitud enviada» en la web del centro', 'Solicitud enviada' in cal.locator('.wr-done').inner_text())
             pg.wait_for_timeout(600)
@@ -143,7 +146,8 @@ def run(out: Path | None):
             check('3 · la ficha del centro en WORLDIVES dice «Completa»', 'Completa' in txt, txt)
             cal, txt = widget_day(pg)
             check('3 · la web de ejemplo dice «Completo»', 'Completo' in txt, txt)
-            check('3 · y no deja elegirla', cal.locator('.wr-slot').first.is_disabled())
+            cal.locator('.wr-time').first.click(); cal.locator('[data-alt]').wait_for(timeout=8000)
+            check('3 · y no deja elegirla (propone otras horas o días)', cal.locator('.wr-time[aria-checked="true"]').count() == 0)
             shot(pg, 'demo-3-web-ejemplo-completo', True)
             c.close()
 
@@ -152,7 +156,7 @@ def run(out: Path | None):
             check('4 · el centro cancela la reserva de la web', r.status == 200 and free() == 1, (r.status, free()))
             c, pg = ctx()
             cal, txt = widget_day(pg)
-            check('4 · la web de ejemplo vuelve a ofrecer la plaza', 'Completo' not in txt and not cal.locator('.wr-slot').first.is_disabled(), txt)
+            check('4 · la web de ejemplo vuelve a ofrecer la plaza', 'Completo' not in txt and 'Queda 1' in txt, txt)
             shot(pg, 'demo-4-web-ejemplo-plaza-libre', True)
             txt = worldives_slot(pg)
             check('4 · y WORLDIVES también', '1 plaza' in txt, txt)

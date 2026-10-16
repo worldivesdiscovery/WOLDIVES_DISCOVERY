@@ -219,7 +219,7 @@
 
   // The whole component: band, the screen (it scrolls inside the sheet if it must), the fixed bar and the footer.
   function frame(screen, bar, name) {
-    app.innerHTML = '<div class="wr-shell' + (sheet ? ' wr-sheet' : '') + '">' + band() + testBanner() +
+    app.innerHTML = '<div class="wr-shell' + (sheet ? ' wr-sheet' : '') + (S.step !== 1 ? ' wr-compact' : '') + '">' + band() + testBanner() +
       '<section class="wr-screen" data-screen="' + esc(name || S.step) + '"><div class="wr-in wr-enter">' + screen + '<p class="wr-msg" data-msg hidden role="alert"></p></div></section>' +
       (bar || '') + powered() + '</div>';
     var c = app.querySelector('[data-close]'); if (c) c.addEventListener('click', askClose);
@@ -382,7 +382,9 @@
     var month = S.day ? fmt(S.day, { month: 'long' }) : fmt(st.from, { month: 'long' });
     var chips = st.days.map(function (d, i) {
       var first = i === 0 || d.date.slice(8) === '01';
-      return '<button type="button" class="wr-dchip' + (d.free ? '' : ' none') + '" role="option" aria-selected="' + (S.day === d.date) + '" data-day="' + d.date + '"' + (d.free ? '' : ' disabled') +
+      // a day with departures but no spots can still be opened: its times say «Completo» and tapping one proposes others
+      var can = d.free || (d.slots && d.slots.length);
+      return '<button type="button" class="wr-dchip' + (d.free ? '' : ' none') + '" role="option" aria-selected="' + (S.day === d.date) + '" data-day="' + d.date + '"' + (can ? '' : ' disabled') +
         ' aria-label="' + esc(fmt(d.date, { weekday: 'long', day: 'numeric', month: 'long' }) + (d.free ? '' : ' · ' + t('rx_day_full'))) + '"><small>' + esc(fmt(d.date, { weekday: 'short' })) + '</small><b>' + +d.date.slice(8) + '</b>' +
         '<i class="wr-dot" aria-hidden="true"></i>' + (first ? '<em>' + esc(fmt(d.date, { month: 'short' })) + '</em>' : '') + '</button>';
     }).join('') + '<button type="button" class="wr-dchip more" data-more><b>📅</b><small>' + esc(t('rx_more_dates')) + '</small></button>';
@@ -645,9 +647,10 @@
     var v = function (k) { return f[k] != null ? f[k] : (mem && mem[k]) || ''; };
     var prefix = v('prefix') || p.phone_prefix || '+34';
     var opts = PREFIXES.indexOf(prefix) < 0 ? [prefix].concat(PREFIXES) : PREFIXES;
-    var level = s.level ? '<div class="wr-field" data-f="level"><span class="wr-lbl" id="l-level">' + esc(t('rx_level')) + '</span><div class="wr-levels" role="radiogroup" aria-labelledby="l-level">' +
+    var level = s.level ? '<div class="wr-field" data-f="level"><span class="wr-lbl" id="l-level">' + esc(t('rx_level')) + ' <small class="wr-hint">· ' + esc(t('rx_level_asks', { level: s.level })) + '</small></span>' +
+      '<div class="wr-levels" role="radiogroup" aria-labelledby="l-level">' +
       LEVELS.map(function (l) { return '<button type="button" class="wr-chip" role="radio" aria-checked="' + (S.level === l) + '" data-level="' + l + '">' + esc(t('rx_lv_' + l)) + '</button>'; }).join('') +
-      '</div><small class="wr-hint">' + esc(t('rx_level_asks', { level: s.level })) + '</small><small class="wr-ferr" id="e-level" hidden></small></div>' : '';
+      '</div><small class="wr-ferr" id="e-level" hidden></small></div>' : '';
     var html = '<button type="button" class="wr-sum1" data-back><span><b>' + esc(s.title) + '</b><small>' + esc(whenText() + ' · ' + (S.pax > 1 ? t('rx_people_n', { n: S.pax }) : t('rx_people_1'))) + '</small></span><em>' + esc(t('rx_change')) + '</em></button>' +
       '<form novalidate data-form autocomplete="on">' +
       field('name', t('name'), '<input id="f-name" type="text" name="fullname" autocomplete="name" required maxlength="180" aria-describedby="e-name" value="' + esc(v('name')) + '">') +

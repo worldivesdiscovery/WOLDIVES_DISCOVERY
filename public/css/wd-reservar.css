@@ -24,7 +24,7 @@ input:focus,textarea:focus,select:focus,button:focus-visible,a:focus-visible{out
 .wr-shell{display:flex;flex-direction:column;background:var(--fondo);position:relative}
 .wr-sheet{height:100vh;height:100dvh}
 .wr-sheet .wr-screen{flex:1;overflow-y:auto;overscroll-behavior:contain}
-.wr-screen{padding:10px 16px 8px}
+.wr-screen{padding:10px 16px 6px}
 .wr-in{display:grid;gap:10px;align-content:start}
 .wr-page .wr-bar{position:sticky;bottom:0}
 .wr-band{position:relative;display:flex;align-items:center;gap:10px;padding:12px 16px;min-height:66px;color:#fff;background:var(--marca);
@@ -242,3 +242,12 @@ label{display:grid;gap:4px;font-size:14px;color:var(--tinta);font-weight:600}
 @media(max-width:420px){.wr-eq-mode{grid-template-columns:1fr}.wr-eq-grid{grid-template-columns:1fr 1fr}}
 .wr-fold.wr-ins{display:block;padding:0}
 .wr-fold.wr-ins .wr-fold-in{padding:0 14px 12px}
+
+/* screens 2 and the payment: a lower band (the centre was already seen on screen 1), so «Tus datos» fits without scroll */
+.wr-compact .wr-band{min-height:52px;padding:8px 16px}
+.wr-compact .wr-band p{display:none}
+.wr-compact .wr-logo{width:34px;height:34px;border-radius:9px;font-size:16px}
+.wr-compact .wr-x{width:36px;height:36px}
+.wr-levels .wr-chip{min-height:38px;padding:7px 11px}
+.wr-lbl .wr-hint{font-weight:400}
+.wr-compact .wr-fold summary{min-height:40px;padding:8px 14px}
