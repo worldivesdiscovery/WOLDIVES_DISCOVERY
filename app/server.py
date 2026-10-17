@@ -1942,6 +1942,7 @@ def migrate_v50_58(db):
     migrate_videos_v50_58(db)
     migrate_team_v50_58(db)
     migrate_reserva_expres(db)
+    migrate_notices_v50_58(db)
     if migration_done(db, '50.58'): return
     n_kind = n_plan = n_ed = 0
     for r in db.execute('SELECT * FROM provider_services WHERE kind IS NULL').fetchall():
@@ -2264,8 +2265,8 @@ CREATE TABLE IF NOT EXISTS whatsapp_accounts (provider_id TEXT NOT NULL PRIMARY 
   templates TEXT, connected_at TEXT NOT NULL, connected_by INTEGER, last_error TEXT, updated_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS notice_batches (id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL UNIQUE,
   provider_id TEXT NOT NULL REFERENCES providers(id), slot_id INTEGER NOT NULL REFERENCES service_slots(id),
-  kind TEXT NOT NULL CHECK (kind IN ('slot_cancelled','slot_changed','reminder')), reason TEXT, note TEXT, policy TEXT,
-  new_date TEXT, new_time TEXT, old_time TEXT, new_meeting TEXT, status TEXT NOT NULL DEFAULT 'scheduled'
+  kind TEXT NOT NULL CHECK (kind IN ('slot_cancelled','slot_changed','reminder','course_moved')), reason TEXT, note TEXT, policy TEXT,
+  new_date TEXT, new_time TEXT, old_time TEXT, new_meeting TEXT, course_seq INTEGER, status TEXT NOT NULL DEFAULT 'scheduled'
   CHECK (status IN ('scheduled','undone','running','done','failed','blocked')), run_after TEXT NOT NULL,
   created_by INTEGER, ip_hash TEXT, counts TEXT, result TEXT, created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_notice_batches_cancel ON notice_batches(slot_id) WHERE kind='slot_cancelled' AND status IN ('scheduled','running','done');
@@ -13011,6 +13012,17 @@ BOOKING_QR_STATES = ('confirmed', 'accepted_pending_payment', 'completed')   # t
 ALTERNATIVE_DAYS = 60   # how far the nearest free times are looked for
 
 
+def migrate_notices_v50_58(db):
+    """v50.58 (3.5): a notice of the kind «course_moved» (a session of a course moved to another day, by WhatsApp). The
+    kinds of notice_batches are a CHECK, so the table is rebuilt with the same rows (after a full copy of the database
+    when it has notices) and gets the session of the course it is about. Adds; nothing is deleted."""
+    row = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='notice_batches'").fetchone()
+    if row and 'course_moved' not in row['sql']:
+        backup_database(db, 'v50_58_avisos')   # always before rebuilding (only databases from before v50.58 get here)
+        rebuild_table(db, 'notice_batches', lambda sql: sql.replace("'slot_cancelled','slot_changed','reminder')", "'slot_cancelled','slot_changed','reminder','course_moved')", 1))
+    add_columns(db, 'notice_batches', [('course_seq', 'INTEGER')])
+
+
 def migrate_reserva_expres(db):
     """v50.58 · reserva exprés. Adds; nothing is deleted."""
     db.execute(BOOKING_PEOPLE_SCHEMA); db.execute(STRIPE_DOMAINS_SCHEMA)
@@ -14992,7 +15004,13 @@ def notice_status(db, ctx, uid):
         for c, v in p['channels'].items(): summary.setdefault(c, {}).setdefault(v['status'], 0); summary[c][v['status']] += 1
     refunds = [dict(r) for r in db.execute('SELECT status, amount, currency FROM notice_refunds WHERE batch_id=?', (b['id'],)).fetchall()]
     left = max(0, int((datetime.fromisoformat(b['run_after']) - datetime.now(timezone.utc)).total_seconds())) if b['status'] == 'scheduled' else 0
-    return {'uid': b['uid'], 'kind': b['kind'], 'status': b['status'], 'undo_left': left, 'slot': {'id': slot['id'], 'label': slot_label(slot)},
+    label = slot_label(slot)
+    if b['kind'] == 'course_moved' and b['new_date']:
+        # the session moved and its new day, not the first day of the course
+        first = rows[0]['booking_id'] if rows else 0
+        srow = db.execute('SELECT label FROM booking_sessions WHERE booking_id=? AND seq=? ORDER BY seat LIMIT 1', (first, b['course_seq'] or 0)).fetchone()
+        label = ' · '.join(x for x in (slot['service_title'] or '', course_name('es', srow) if srow else '', mail_date(b['new_date'], 'es'), b['new_time'] or '') if x)
+    return {'uid': b['uid'], 'kind': b['kind'], 'status': b['status'], 'undo_left': left, 'slot': {'id': slot['id'], 'label': label},
             'reason': b['reason'], 'note': b['note'], 'policy': b['policy'], 'created_at': b['created_at'], 'result': b['result'],
             'people': list(people.values()), 'summary': summary, 'refunds': refunds}
 
@@ -15170,9 +15188,14 @@ def send_notice_row(db, row):
         r = db.execute('SELECT amount FROM notice_refunds WHERE batch_id=? AND booking_id=?', (batch['id'], booking['id'])).fetchone()
         paid = float(r['amount']) if r else paid
     sett = provider_settings(db, row['provider_id'])
-    params, subject, body = notice_texts(db, kind, slot, booking, lang, center=center, reason=batch['reason'], note=batch['note'], policy=batch['policy'] or 'choice',
-                                         paid=paid, new_time=batch['new_time'], new_point=batch['new_meeting'], bring=sett.get('reminder_bring') or None, meeting=slot_meeting_point(db, slot))
-    link = notice_link(booking['id'], kind, slot['slot_date'])
+    if kind == 'course_moved':
+        if row['channel'] != 'whatsapp':   # the email, the web and the app of a course notice are sent by course_notify_moved
+            db.execute("UPDATE notice_outbox SET status='skipped',skip_reason=?,updated_at=? WHERE id=? AND provider_id=?", ('Solo por WhatsApp', now(), row['id'], row['provider_id'])); db.commit(); return
+        params, subject, body = course_notice_texts(db, batch, booking, slot, lang, center)
+    else:
+        params, subject, body = notice_texts(db, kind, slot, booking, lang, center=center, reason=batch['reason'], note=batch['note'], policy=batch['policy'] or 'choice',
+                                             paid=paid, new_time=batch['new_time'], new_point=batch['new_meeting'], bring=sett.get('reminder_bring') or None, meeting=slot_meeting_point(db, slot))
+    link = notice_link(booking['id'], kind, batch['new_date'] if kind == 'course_moved' and batch['new_date'] else slot['slot_date'])
     try:
         if row['channel'] == 'app':
             name, phone, email = provider_contact_of(db, row['provider_id'])
@@ -15291,14 +15314,15 @@ def whatsapp_status(db, ctx):
     country = ''
     if ctx.kind == 'center':
         c = db.execute('SELECT country FROM centers WHERE id=?', (ctx.oid,)).fetchone(); country = country_iso(c['country']) if c else ''
-    tpl = json.loads(acc['templates'] or '{}') if acc else {}
+    tpl = {k: v for k, v in json.loads(acc['templates'] or '{}').items() if k.split(':')[0] in wwa.TEMPLATE_NAMES.values()} if acc else {}
     return {'enabled': wa_enabled(), 'demo': wcfg.demo_mode(), 'app_id': wcfg.env('WHATSAPP_APP_ID') if wwa.enabled() else '', 'config_id': wcfg.env('WHATSAPP_CONFIG_ID') if wa_enabled() else '',
             'graph_version': wcfg.env('WHATSAPP_GRAPH_VERSION') or 'v23.0', 'country': country, 'coexistence_available': not wwa.coex_unavailable(country),
             'connected': bool(acc), 'status': acc['status'] if acc else None, 'number': wcif.mask_phone(wcif.decrypt_secret(acc['display_number'])) if acc else None,
             'verified_name': acc['verified_name'] if acc else None, 'coexistence': bool(acc['coexistence']) if acc else None, 'connected_at': acc['connected_at'] if acc else None,
             'last_error': acc['last_error'] if acc else None,
             'templates': {'approved': sum(1 for v in tpl.values() if v in ('APPROVED', 'EXISTS')), 'pending': sum(1 for v in tpl.values() if v in ('PENDING', 'IN_APPEAL')),
-                          'rejected': sum(1 for v in tpl.values() if v in ('REJECTED', 'ERROR', 'DISABLED', 'PAUSED')), 'total': len(tpl)},
+                          'rejected': sum(1 for v in tpl.values() if v in ('REJECTED', 'ERROR', 'DISABLED', 'PAUSED')),
+                          'total': len(wwa.TEMPLATE_NAMES) * len(wwa.META_LANG)},   # v50.58: a template still to create counts as missing
             'can_manage': ctx.can_send_notices}
 
 
@@ -15378,19 +15402,48 @@ def whatsapp_connect_demo(db, ctx, user, data):
     return whatsapp_status(db, ctx)
 
 
+def whatsapp_sync_templates(db, acc):
+    """Reads the templates of the centre's account and creates the ones WORLDIVES needs and it does not have yet (a
+    template added in a new version, such as the course notice of v50.58). Raises GraphError."""
+    token, waba = wcif.decrypt_secret(acc['token']), wcif.decrypt_secret(acc['waba_id'])
+    st = wwa.template_statuses(token, waba)
+    missing = {f'{n}:{c}' for n in wwa.TEMPLATE_NAMES.values() for c in wwa.META_LANG.values()} - set(st)
+    if missing:
+        wwa.create_templates(token, waba, wwa.template_payloads(wav.data(), public_site_url(), only=missing))
+        st = wwa.template_statuses(token, waba)
+    mine = {k: v for k, v in st.items() if k.split(':')[0] in wwa.TEMPLATE_NAMES.values()}
+    db.execute('UPDATE whatsapp_accounts SET templates=?,updated_at=? WHERE provider_id=?', (json.dumps(mine), now(), acc['provider_id']))
+    return mine
+
+
 def whatsapp_refresh_templates(db, ctx):
     acc = db.execute("SELECT * FROM whatsapp_accounts WHERE provider_id=?", (ctx.key,)).fetchone()
     if not acc: raise NotFound('No tienes WhatsApp conectado.')
     if wcfg.demo_mode(): return whatsapp_status(db, ctx)
     try:
-        st = wwa.template_statuses(wcif.decrypt_secret(acc['token']), wcif.decrypt_secret(acc['waba_id']))
+        whatsapp_sync_templates(db, acc); db.commit()
     except wwa.GraphError as exc:
         if exc.code in wwa.TOKEN_CODES:
             db.execute("UPDATE whatsapp_accounts SET status='reconnect',last_error=?,updated_at=? WHERE provider_id=?", ('El permiso de WhatsApp ha caducado o se ha retirado: reconecta.', now(), ctx.key)); db.commit()
         raise ValueError(f'Meta no ha respondido: {exc}')
-    mine = {k: v for k, v in st.items() if k.split(':')[0] in wwa.TEMPLATE_NAMES.values()}
-    db.execute('UPDATE whatsapp_accounts SET templates=?,updated_at=? WHERE provider_id=?', (json.dumps(mine), now(), ctx.key)); db.commit()
     return whatsapp_status(db, ctx)
+
+
+WA_TEMPLATE_JOBS = {'last': 0.0}
+
+
+def run_whatsapp_template_jobs(db):
+    """Once a day: the connected numbers that miss a template of WORLDIVES get it created in their account, so a new
+    notice (the course one of v50.58) is ready without the centre doing anything. Meta reviews it as usual."""
+    if not wwa.enabled() or wcfg.demo_mode() or time.time() - WA_TEMPLATE_JOBS['last'] < 86400: return
+    WA_TEMPLATE_JOBS['last'] = time.time()
+    need = {f'{n}:{c}' for n in wwa.TEMPLATE_NAMES.values() for c in wwa.META_LANG.values()}
+    for p in db.execute('SELECT id FROM providers ORDER BY id').fetchall():
+        acc = whatsapp_account(db, p['id'])   # each account read only as part of its own tenant
+        if not acc or need <= set(json.loads(acc['templates'] or '{}')): continue
+        try: whatsapp_sync_templates(db, acc); db.commit()
+        except wwa.GraphError as exc:
+            db.rollback(); sys.stderr.write(f"[whatsapp] plantillas de {acc['provider_id']}: {exc}\n")
 
 
 WA_STATUS_ORDER = {'sent': 1, 'delivered': 2, 'read': 3, 'failed': 4}
@@ -15447,6 +15500,13 @@ def signed_link_view(db, b, kind):
                                       'center': who.get('name') or '', 'center_phone': who.get('phone') or '', 'center_email': who.get('email') or '',
                                       'booking_date': b['booking_date'], 'booking_time': b['booking_time'],
                                       'meeting_point': (slot['meeting_point'] if slot else None) or (slot_meeting_point(db, dict(slot, meeting_point=slot['meeting_point'])) if slot else None)}}
+    if kind == 'course_moved':   # v50.58 (3.5): the session that changed, its new date and who leads it
+        s = db.execute("SELECT seq,label,local_date,start_time,instructor_user_id FROM booking_sessions WHERE booking_id=? AND status='moved' ORDER BY moved_at DESC, seq LIMIT 1",
+                       (b['id'],)).fetchone()
+        if s:
+            out['session'] = {'label': s['label'], 'date': s['local_date'], 'time': s['start_time'],
+                              'who': course_user_names(db, [s['instructor_user_id']]).get(s['instructor_user_id']) if s['instructor_user_id'] else None}
+        out['booking']['id'] = b['id']
     offer = slot_offer_for(db, b['id'])
     if offer:
         paid_, refunded_, _o = booking_paid_online(db, b['id']); net_ = round(paid_ - refunded_, 2)
@@ -16241,6 +16301,46 @@ def course_move(db, user, bid, data):
     return out
 
 
+def course_notice_texts(db, batch, booking, slot, lang, center):
+    """(WhatsApp variables, app subject, text) of a «course_moved» notice, in the diver's language. No prices: a
+    supplement is only mentioned (the amount is in the booking)."""
+    lang = wav.lang_of(lang)
+    srow = db.execute('SELECT label FROM booking_sessions WHERE booking_id=? AND seq=? ORDER BY seat LIMIT 1', (booking['id'], batch['course_seq'] or 0)).fetchone()
+    session = course_name(lang, srow) if srow else mail_t(lang, 'sesión')
+    when = course_when(lang, batch['new_date'], batch['new_time']) + (mail_t(lang, ' con {who}', who=batch['note']) if batch['note'] else '')
+    params = [wav.whatsapp_safe(p) for p in wav.params('course_moved', lang, center=center, date=when, time_='', course=slot['service_title'] or '',
+                                                       session=session, extra=batch['reason'] == 'extra')]
+    return params, wav.text('app_subject_course_moved', lang, service=slot['service_title'] or ''), wav.body('course_moved', lang, params)
+
+
+def course_queue_whatsapp(db, b, seq, date, time_, who, extra, sender):
+    """v50.58 (3.5): «Tu sesión pasa a otro día» also by WhatsApp, from the centre's own number, when it is connected
+    and the diver has given permission. It goes through the notice engine (one batch and one row), so it is checked
+    again just before sending (tenant, booking of that departure, number of the centre) and the centre sees its status
+    in «Avisos y WhatsApp». Without WhatsApp nothing is queued: the email, the web and the app already told the diver."""
+    key = b['provider_id']
+    if not key or not b['slot_id']: return None
+    wa = whatsapp_account(db, key)
+    if not wa: return None
+    contact = diver_contact(db, b)
+    to, why = notice_channels(contact, wa)['whatsapp']
+    if not to: return None
+    name = NOTICE_TEMPLATES['course_moved']
+    tpl = json.loads(wa['templates'] or '{}')
+    if tpl.get(f"{name}:{wwa.META_LANG.get(contact['lang'], 'es')}") not in ('APPROVED', 'EXISTS'):
+        to, why = None, 'La plantilla de WhatsApp del aviso de curso todavía no está aprobada por Meta'
+    uid = secrets.token_hex(16)
+    bid = db.execute('''INSERT INTO notice_batches(uid,provider_id,slot_id,kind,reason,note,new_date,new_time,course_seq,status,run_after,created_by,counts,created_at,started_at)
+                        VALUES(?,?,?,'course_moved',?,?,?,?,?,'running',?,?,?,?,?)''',
+                     (uid, key, b['slot_id'], 'extra' if extra > 0 else 'free', (who or '')[:120] or None, date, time_, seq, now(), sender,
+                      json.dumps({'encolados': {'whatsapp': 1 if to else 0, 'email': 0, 'app': 0}, 'destinatarios': 1}), now(), now())).lastrowid
+    db.execute('''INSERT INTO notice_outbox(uid,batch_id,provider_id,slot_id,booking_id,event,channel,template,lang,status,recipient,recipient_name,origin,skip_reason,created_at,updated_at)
+                  VALUES(?,?,?,?,?,?,'whatsapp',?,?,?,wod_cifrar(?),?,?,?,?,?)''',
+               (secrets.token_hex(16), bid, key, b['slot_id'], b['id'], f'course_moved:{uid}', name, contact['lang'], 'queued' if to else 'skipped', to,
+                contact['name'] or None, wa['pnid_hash'], why or None, now(), now()))
+    return uid
+
+
 def course_notify_moved(db, b, svc, pick, date, time_, who, extra, pay_url, sender):
     """«Tu inmersión 4 del Open Water pasa al sábado 14 a las 9:00 con Marta», by email, in the web and the app (push)."""
     lang = user_lang(db, b['user_id'])
@@ -16258,6 +16358,7 @@ def course_notify_moved(db, b, svc, pick, date, time_, who, extra, pay_url, send
     if ctx and ctx.get('diver_email'):
         queue_email(db, 'course_session_moved', ctx['diver_email'], ctx['diver_name'], {**ctx, 'session': what, 'when': when, 'move_text': text,
                     'pay_note': mail_t(lang, 'Paga el suplemento aquí: {url}', url=pay_url) if pay_url else ''}, lang, ('booking', b['id']))
+    course_queue_whatsapp(db, b, pick[0]['seq'], date, time_, who, extra, sender)
 
 
 def course_mark_done(db, user, bid, data):
@@ -18344,7 +18445,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/registro':   # the invitation link of a centre (its panel, «Logbook»): /registro?centro=<slug>
                     slug=str(query.get('centro',[''])[0] or '')
                     self.redirect('/#/registro'+(f'?tipo=recreational&centro={slug}' if wch.SLUG_RE.fullmatch(slug) else '')); return
-                if re.fullmatch(r'/r/[0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
+                if re.fullmatch(r'/r/[0-9a-z]+\.[cmrk]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
                     # Link of a notice (WhatsApp button, email, app): the web opens only that booking.
                     self.redirect('/#/r/'+path[3:]); return
                 if path.startswith('/api/'):
@@ -18631,7 +18732,7 @@ class Handler(BaseHTTPRequestHandler):
                         raw=str(query.get('hub.challenge',[''])[0])[:200].encode()
                         self.send_response(200); self.send_header('Content-Type','text/plain'); self.send_header('Content-Length',str(len(raw))); self.end_headers(); self.wfile.write(raw); return
                     self.send_json({'error':'No autorizado.'},403); return
-                if re.fullmatch(r'/api/r/[0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
+                if re.fullmatch(r'/api/r/[0-9a-z]+\.[cmrk]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
                     b,kind=signed_link_booking(db,path.rsplit('/',1)[1])
                     self.send_json(signed_link_view(db,b,kind)); return
                 if path == '/api/team/centers':
@@ -21954,7 +22055,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path=='/api/whatsapp/templates/refresh':
                     user=require_user(self,db); ctx=notice_actor_ctx(db,user)
                     self.send_json(whatsapp_refresh_templates(db,ctx)); return
-                if re.fullmatch(r'/api/r/[0-9a-z]+\.[cmr]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
+                if re.fullmatch(r'/api/r/[0-9a-z]+\.[cmrk]\.[0-9a-z]+\.[A-Za-z0-9_\-]+',path):
                     # The diver's choice from the signed link of a notice (no session needed; the link opens only that booking).
                     b,kind=signed_link_booking(db,path.rsplit('/',1)[1]); data=json_body(self)
                     # Only the link of the «departure cancelled» notice chooses (ASVS 5.0 V9.2.2).
@@ -23768,7 +23869,7 @@ def maintenance_loop():
 
 
 MAINTENANCE_JOBS = [run_booking_deadlines, run_refund_reminders, run_points_jobs, run_slot_cancel_jobs, run_payments_totp_notices, run_video_jobs,
-                    run_team_jobs]
+                    run_team_jobs, run_whatsapp_template_jobs]
 
 
 RETENTION_DEFAULTS = {'inactive_months': 36, 'expired_docs_months': 12, 'notices_months': 24, 'audit_months': 12, 'audit_keep': 300, 'insurance_months': 12}

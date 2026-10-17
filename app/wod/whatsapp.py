@@ -133,16 +133,18 @@ def verify_connection(token: str, waba_id: str, phone_number_id: str) -> dict:
 
 
 # ------------------------------------------------------------------------------------------- templates (D.2.2)
-TEMPLATE_NAMES = {'slot_cancelled': 'worldives_salida_cancelada', 'slot_changed': 'worldives_cambio_salida', 'reminder': 'worldives_recordatorio'}
+TEMPLATE_NAMES = {'slot_cancelled': 'worldives_salida_cancelada', 'slot_changed': 'worldives_cambio_salida', 'reminder': 'worldives_recordatorio',
+                  'course_moved': 'worldives_curso_nueva_fecha'}   # v50.58 (3.5): a session of a course moved to another day
 
 
-def template_payloads(texts: dict, site_url: str) -> list:
-    """The templates to create in a centre's WABA: 3 notices × 9 languages, category UTILITY.
+def template_payloads(texts: dict, site_url: str, only=None) -> list:
+    """The templates to create in a centre's WABA: 4 notices × 9 languages, category UTILITY.
     texts: {event: {lang: body text with {{1}}… placeholders, 'button': {lang: label}, 'map_button': {lang: label}}}"""
     out = []
     for event, name in TEMPLATE_NAMES.items():
         t = texts[event]
         for lang, code in META_LANG.items():
+            if only is not None and f'{name}:{code}' not in only: continue   # only the ones a centre is missing
             buttons = [{'type': 'URL', 'text': t['button'][lang], 'url': site_url.rstrip('/') + '/r/{{1}}', 'example': [site_url.rstrip('/') + '/r/ejemplo']}]
             if event == 'reminder':
                 buttons.append({'type': 'URL', 'text': t['map_button'][lang], 'url': 'https://www.google.com/maps/search/?api=1&query={{1}}',

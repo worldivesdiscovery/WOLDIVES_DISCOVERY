@@ -16,9 +16,9 @@ from pathlib import Path
 
 DATA = Path(__file__).resolve().parents[1] / 'data' / 'whatsapp_plantillas.json'
 LANGS = ('es', 'en', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'zh')
-KINDS = ('slot_cancelled', 'slot_changed', 'reminder')
+KINDS = ('slot_cancelled', 'slot_changed', 'reminder', 'course_moved')
 REASONS = ('weather', 'sea', 'boat', 'other')
-EVENT_CODES = {'slot_cancelled': 'c', 'slot_changed': 'm', 'reminder': 'r'}
+EVENT_CODES = {'slot_cancelled': 'c', 'slot_changed': 'm', 'reminder': 'r', 'course_moved': 'k'}
 NOTE_MAX = 200
 _CACHE: dict = {}
 
@@ -76,9 +76,11 @@ def button_label(kind, lang) -> str:
     return data()[kind]['button'][lang_of(lang)]
 
 
-def params(kind, lang, *, center, date, time_, reason=None, note=None, money=None, change=None, point=None, bring=None):
+def params(kind, lang, *, center, date, time_, reason=None, note=None, money=None, change=None, point=None, bring=None, course=None, session=None, extra=False):
     """Variables of each template, in order. The note of the centre goes with the reason (one variable)."""
     lang = lang_of(lang)
+    if kind == 'course_moved':   # v50.58 (3.5): date holds the new date, time and instructor already written
+        return [center, course or '', session or '', date, text('course_extra' if extra else 'course_free', lang)]
     if kind == 'slot_cancelled':
         r = reason_text(reason, lang) + (f' ({note})' if note else '')
         return [center, date, time_, r, money or '']
