@@ -64,7 +64,7 @@ NOT_IN_ANY = ['_archivo/*', 'docs/capturas/*', '.github/*', '.gitignore', '.env'
 ALLOWED_ENV = {'.env.example'}
 
 # What must never be inside the production zip
-TEST_ACCOUNT = re.compile(r'\b(?:admin|centro\d?|freelance\d?|instructor\d?|master|recepcion|pendiente|buzo\d{0,2})\.prueba\b|Worldives-Prueba-2026', re.I)
+TEST_ACCOUNT = re.compile(r'\b(?:admin|centro\d?|freelance\d?|instructor\d?|master|recepcion|pendiente|buzo\d{0,2}|fl\.[a-z]+)\.prueba\b|Worldives-Prueba-2026', re.I)
 SECRETS = [(re.compile(r'sk_live_[A-Za-z0-9]{8,}'), 'clave real de Stripe (sk_live_)'),
            (re.compile(r'rk_live_[A-Za-z0-9]{8,}'), 'clave restringida real de Stripe (rk_live_)'),
            (re.compile(r'sk_test_[A-Za-z0-9]{20,}'), 'clave de Stripe en modo test (sk_test_ de verdad)'),
