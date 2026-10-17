@@ -303,7 +303,10 @@ def run(shots: Path | None):
             # ---- 4b. Photo flow as the centre -------------------------------------------------------------------------
             ctx, pg = session()
             login(pg, ACCOUNTS['center'][0]); go(pg, '#/admin?tab=services', 2000)
-            pg.click('#new-center-service'); pg.wait_for_timeout(1200)
+            # v50.58 (Parte 3): «Nuevo servicio» opens the 6-step wizard; the photo with its focal point, both previews and the
+            # rights box stay in the full form, opened from the wizard of a service («Más ajustes: foto con su punto de enfoque…»).
+            bid = srv.sql("SELECT id FROM provider_services WHERE title='Snorkel en la Granadella' AND center_id=?", (cid,))[0]['id']
+            pg.click(f'.service-edit[data-id="{bid}"]'); pg.wait_for_selector('#wz-legacy', timeout=10000); pg.click('#wz-legacy'); pg.wait_for_timeout(1200)
             pg.select_option('#svc-template', str(tpl['bautizo'])); pg.wait_for_timeout(500)
             prev = pg.evaluate("()=>({l:document.querySelector('#svc-prev-light img')?.getAttribute('src')||'',d:document.querySelector('#svc-prev-dark img')?.getAttribute('src')||'',dark:document.querySelector('#svc-prev-dark .svc2')?.classList.contains('is-dark')})")
             check('centro: al elegir plantilla, vista previa clara y oscura con su foto', '/plantillas/' in prev['l'] and prev['l'] == prev['d'] and prev['dark'], prev)
@@ -317,7 +320,7 @@ def run(shots: Path | None):
             rights = pg.locator('#svc-photo-rights')
             check('centro: casilla de derechos de la imagen visible', rights.count() == 1 and rights.is_visible())
             shot(pg, 'centro-foto-propia', el='#svc-photo')
-            pg.fill('#svc-title', 'Bautizo con foto propia'); pg.fill('#svc-price', '55')
+            pg.fill('#svc-title', 'Bautizo con foto propia')   # an existing service: its price is changed in «Tarifas» (hidden here)
             pg.locator('button[type=submit][form=svc-form]').first.click(); pg.wait_for_timeout(1200)
             body = pg.inner_text('body')
             check('centro: sin la casilla no se guarda la foto (mensaje claro)', 'derechos' in body, body[-300:])
