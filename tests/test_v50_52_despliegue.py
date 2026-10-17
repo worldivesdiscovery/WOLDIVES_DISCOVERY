@@ -137,6 +137,10 @@ class Antivirus(unittest.TestCase):
 
     def test_real_clamd_when_available(self):
         if not shutil.which('clamdscan') or not Path('/var/run/clamav/clamd.ctl').exists(): self.skipTest('clamd no está en marcha aquí')
+        import socket
+        try:   # the file can stay from a clamd that is no longer running (a restarted machine): that is «not running», not a failure
+            with socket.socket(socket.AF_UNIX) as so: so.settimeout(2); so.connect('/var/run/clamav/clamd.ctl')
+        except OSError: self.skipTest('clamd no está en marcha aquí (queda su socket de antes)')
         import base64
         sample = base64.b64decode(checker().EICAR)[::-1]
         r = subprocess.run(['clamdscan', '--no-summary', '--fdpass', '-'], input=sample, capture_output=True)

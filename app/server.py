@@ -14404,13 +14404,14 @@ def booking_signatures(db, booking_id):
     return {r['seat']: dict(r) for r in db.execute('SELECT id,seat,version,signer_name,signed_at,method FROM waiver_signatures WHERE booking_id=? ORDER BY signed_at', (booking_id,)).fetchall()}
 
 
-def manifest_course_students(db, slot_id):
+def manifest_course_students(db, slot_id, kind, oid):
     """v50.58 (3.5): the course students joined to this departure («Sesión de curso – Open Water (inmersión 4)»): they
-    take a place and come with their instructor, without a booking of their own."""
+    take a place and come with their instructor, without a booking of their own. Only those of the departure's centre."""
     out = []
     for r in db.execute("""SELECT bs.*, b.contact_name, u.fullname, s.title, t.fullname AS teacher FROM booking_sessions bs JOIN bookings b ON b.id=bs.booking_id
                            JOIN provider_services s ON s.id=b.service_id LEFT JOIN users u ON u.id=b.user_id LEFT JOIN users t ON t.id=bs.instructor_user_id
-                           WHERE bs.slot_id=? AND bs.mode='join' AND bs.status IN ('moved','done') ORDER BY bs.booking_id, bs.seat""", (slot_id,)).fetchall():
+                           WHERE bs.slot_id=? AND b.provider_id=? AND bs.mode='join' AND bs.status IN ('moved','done') ORDER BY bs.booking_id, bs.seat""",
+                        (slot_id, winq.tenant_key(kind, oid))).fetchall():
         if r['seat'] == 1: name = r['contact_name'] or r['fullname'] or ''
         else: name = (db.execute('SELECT name FROM manifest_entries WHERE booking_id=? AND seat=?', (r['booking_id'], r['seat'])).fetchone() or {'name': ''})['name'] or f"Buceador {r['seat']}"
         out.append({'booking_id': r['booking_id'], 'seat': r['seat'], 'name': name, 'course': r['title'], 'label': r['label'],
@@ -14476,7 +14477,7 @@ def manifest_data(db, user, slot_id, for_reading=True):
             'settings': settings, 'boats': boats, 'guides': guides, 'groups': groups, 'divers': divers, 'warnings': warn,
             'waiver': {'id': waiver['id'], 'version': waiver['version'], 'title': waiver['title']} if waiver else None,
             'can_edit': bool(can_edit), 'level_labels': wmf.LEVEL_LABELS, 'headcounts': headcount_state(db, slot_id, winq.tenant_key(kind, oid)),
-            'course': manifest_course_students(db, slot_id),
+            'course': manifest_course_students(db, slot_id, kind, oid),
             'cancelled': {'at': slot['cancelled_at'], 'reason': slot['cancel_reason'], 'note': slot['cancel_note']} if slot['cancelled_at'] else None,
             'waitlist': [{**dict(r), 'expires_at': server_instant(r['expires_at'])} for r in db.execute('''SELECT w.id,w.participants,w.status,w.created_at,w.expires_at,u.fullname FROM waitlist_entries w JOIN users u ON u.id=w.user_id
                                                         WHERE w.slot_id=? AND w.status IN ('waiting','notified') ORDER BY w.created_at,w.id''', (slot_id,)).fetchall()],
@@ -15946,6 +15947,13 @@ def course_owner(svc):
     return ('center', int(svc['center_id'])) if svc['center_id'] else ('freelance', int(svc['provider_user_id']))
 
 
+def course_slot_owner(slot):
+    """(kind, oid) of a departure from its own provider column («c:12» or «f:5»)."""
+    k, _, n = str(slot['provider_id'] or '').partition(':')
+    if k not in ('c', 'f') or not n.isdigit(): raise ValueError('Salida sin centro.')
+    return ('center' if k == 'c' else 'freelance'), int(n)
+
+
 def course_rows(db, b, create=True):
     """((service, edition, plan, sessions), rows) of a course booking, or (None, [])."""
     c = course_of_booking(db, b)
@@ -15999,7 +16007,7 @@ def course_view(db, user, b):
     boats = {x['id']: x['name'] for x in owner_boats(db, kind, oid, active_only=False)}
     slot_ids = sorted({r['slot_id'] for r in rows if r['slot_id']})
     joined = {r['id']: r for r in db.execute(f"""SELECT ss.id, ss.slot_date, ss.slot_time, s.title FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
-                                                 WHERE ss.id IN ({','.join('?' * len(slot_ids))})""", slot_ids).fetchall()} if slot_ids else {}
+                                                 WHERE ss.provider_id=? AND ss.id IN ({','.join('?' * len(slot_ids))})""", (winq.tenant_key(kind, oid), *slot_ids)).fetchall()} if slot_ids else {}
     today = wag.today_in(service_tz(db, svc)).isoformat()
     own = bool(user) and user['id'] == b['user_id']
     sessions = []
@@ -16021,7 +16029,8 @@ def course_view(db, user, b):
     for seat in range(1, len(names) + 1):
         st = {r['seq']: r['status'] for r in rows if r['seat'] == seat}
         seats.append({'seat': seat, 'name': names[seat - 1], 'summary': wcur.summary(items, st), 'finished': wcur.finished(items, st)})
-    group = db.execute("SELECT COALESCE(SUM(participants),0) FROM bookings WHERE slot_id=? AND status IN ('confirmed','completed')", (slot['id'],)).fetchone()[0] if slot else 0
+    group = db.execute("SELECT COALESCE(SUM(participants),0) FROM bookings WHERE slot_id=? AND provider_id=? AND status IN ('confirmed','completed')",
+                       (slot['id'], winq.tenant_key(kind, oid))).fetchone()[0] if slot else 0
     provider = bool(user) and not own and can_manage_booking(user, b)
     cert = db.execute('SELECT name FROM certifications WHERE id=?', (b['course_certification_id'],)).fetchone() if row_get(b, 'course_certification_id') else None
     if len(seats) == 1: total = seats[0]['summary']
@@ -16060,7 +16069,8 @@ def course_targets(db, b, data, allowed):
     """(seq, [(booking, rows)]): the students chosen of this booking, or the whole group of the edition."""
     seq = clean_int(data.get('seq'), 1, 400, 0, 'Sesión no válida.')
     whole = data.get('scope') == 'edition' and bool(b['slot_id'])
-    books = db.execute("SELECT * FROM bookings WHERE slot_id=? AND status IN ('confirmed','completed') ORDER BY id", (b['slot_id'],)).fetchall() if whole else [b]
+    books = db.execute("SELECT * FROM bookings WHERE slot_id=? AND provider_id=? AND status IN ('confirmed','completed') ORDER BY id",
+                       (b['slot_id'], b['provider_id'])).fetchall() if whole else [b]
     out = []
     for x in books:
         _ctx, rows = course_rows(db, x)
@@ -16151,9 +16161,12 @@ def course_move(db, user, bid, data):
             if team_person_busy(db, teacher, a, z, exclude_slot=target['id'], exclude_ref=('course_join', target['id'])):
                 raise ValueError(f'{who} ya tiene trabajo a esa hora. Elige a otra persona u otra salida.')
             res = course_person_resource(db, kind, oid, teacher)
-            if not db.execute("SELECT 1 FROM resource_blocks WHERE resource_id=? AND ref_type='course_join' AND ref_id=? AND status='active'", (res['id'], target['id'])).fetchone():
+            own = 'r.owner_center_id=?' if kind == 'center' else 'r.owner_user_id=?'
+            if not db.execute(f"""SELECT 1 FROM resource_blocks rb JOIN resources r ON r.id=rb.resource_id WHERE rb.resource_id=? AND {own} AND rb.ref_type='course_join'
+                                  AND rb.ref_id=? AND rb.status='active'""", (res['id'], oid, target['id'])).fetchone():
                 agenda_claim(db, res['id'], [(a, z, target['slot_date'], target['slot_date'])], 'manual', 'course_join', target['id'], user['id'], f"Curso · {svc['title']}"[:120])
-        svc_t = db.execute('SELECT duration_minutes FROM provider_services WHERE id=?', (target['service_id'],)).fetchone()
+        svc_t = db.execute('SELECT s.duration_minutes FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id WHERE ss.id=? AND ss.provider_id=?',
+                           (target['id'], winq.tenant_key(kind, oid))).fetchone()
         t0 = target['slot_time'] or item['start']
         t1 = wcur.add_minutes(t0, int(svc_t['duration_minutes']) if svc_t and svc_t['duration_minutes'] else wcur.minutes_between(item['start'], item['end']))
         for _b, pick in targets:
@@ -16276,7 +16289,8 @@ def course_check_complete(db, b, actor=None):
     svc, edition, _plan, items = ctx
     for seat in range(1, max(1, int(b['participants'] or 1)) + 1):
         if not wcur.finished(items, {r['seq']: r['status'] for r in rows if r['seat'] == seat}): return False
-    db.execute("UPDATE bookings SET course_completed_at=?,status=CASE WHEN status='confirmed' THEN 'completed' ELSE status END,updated_at=? WHERE id=?", (now(), now(), b['id']))
+    db.execute("UPDATE bookings SET course_completed_at=?,status=CASE WHEN status='confirmed' THEN 'completed' ELSE status END,updated_at=? WHERE id=? AND provider_id=?",
+               (now(), now(), b['id'], b['provider_id']))
     if not is_guest_user(db, b['user_id']):
         place = db.execute('SELECT name, country FROM centers WHERE id=?', (svc['center_id'],)).fetchone() if svc['center_id'] else None
         where = (place['name'] if place else None) or (db.execute('SELECT fullname FROM users WHERE id=?', (svc['provider_user_id'],)).fetchone() or {'fullname': ''})['fullname']
@@ -16311,7 +16325,8 @@ def course_certify(db, user, bid, data):
     cid = clean_int(data.get('certification_id'), 1, 10**9, 0, 'Elige la titulación.')
     c = db.execute('SELECT id, name FROM certifications WHERE id=? AND active=1', (cid,)).fetchone()
     if not c: raise ValueError('Elige una titulación de la lista.')
-    db.execute('UPDATE bookings SET course_certification_id=?,course_certified_at=?,course_certified_by=?,updated_at=? WHERE id=?', (c['id'], now(), user['id'], now(), b['id']))
+    db.execute('UPDATE bookings SET course_certification_id=?,course_certified_at=?,course_certified_by=?,updated_at=? WHERE id=? AND provider_id=?',
+               (c['id'], now(), user['id'], now(), b['id'], b['provider_id']))
     profile = 'guest'
     if not is_guest_user(db, b['user_id']):
         cur = db.execute('SELECT certification_id FROM user_profiles WHERE user_id=?', (b['user_id'],)).fetchone()
@@ -16346,7 +16361,8 @@ def course_move_options(db, user, bid, seq):
         out.append({'id': x['id'], 'date': x['slot_date'], 'time': x['slot_time'], 'title': x['title'], 'free': int(x['spots_available'] or 0),
                     'total': int(x['spots_total'] or 0), 'dive': (x['service_kind'] or wsv.kind_of({'service_type': x['service_type'], 'title': x['title']})) in ('dive', 'baptism')})
     teacher = next((r['instructor_user_id'] for r in rows if r['seq'] == seq and r['instructor_user_id']), None) or (row_get(edition, 'instructor_user_id') if edition else None)
-    group = db.execute("SELECT COALESCE(SUM(participants),0) FROM bookings WHERE slot_id=? AND status IN ('confirmed','completed')", (edition['id'],)).fetchone()[0] if edition else 0
+    group = db.execute("SELECT COALESCE(SUM(participants),0) FROM bookings WHERE slot_id=? AND provider_id=? AND status IN ('confirmed','completed')",
+                       (edition['id'], winq.tenant_key(kind, oid))).fetchone()[0] if edition else 0
     return {'session': {'seq': item['seq'], 'label': item['label'], 'dive': item['dive'], 'start': item['start'], 'end': item['end'],
                         'minutes': wcur.minutes_between(item['start'], item['end'])},
             'departures': out, 'team': owner_guides(db, kind, oid), 'boats': owner_boats(db, kind, oid), 'instructor_user_id': teacher,
@@ -16385,8 +16401,7 @@ def course_slot_cancelled(db, user, slot, reason, note):
     recolocar». Returns how many."""
     rows = [dict(r) for r in db.execute("SELECT * FROM booking_sessions WHERE slot_id=? AND status='moved' AND mode='join'", (slot['id'],)).fetchall()]
     if not rows: return 0
-    svc_s = db.execute('SELECT center_id, provider_user_id FROM provider_services WHERE id=?', (slot['service_id'],)).fetchone()
-    kind, oid = course_owner(svc_s)
+    kind, oid = course_slot_owner(slot)
     why = SLOT_CANCEL_REASONS.get(reason, 'Otro motivo')
     for r in rows:
         course_release(db, kind, oid, r, user['id'] if user else None)
@@ -16416,16 +16431,16 @@ def course_cancel_preview(db, slot):
     """The course students of a departure about to be cancelled: they get «Pendiente de nueva fecha», not a refund."""
     return [{'booking_id': r['booking_id'], 'seat': r['seat'], 'label': r['label'], 'course': r['title']}
             for r in db.execute("""SELECT bs.booking_id, bs.seat, bs.label, s.title FROM booking_sessions bs JOIN bookings b ON b.id=bs.booking_id
-                                   JOIN provider_services s ON s.id=b.service_id WHERE bs.slot_id=? AND bs.status='moved' AND bs.mode='join' ORDER BY bs.id""", (slot['id'],)).fetchall()]
+                                   JOIN provider_services s ON s.id=b.service_id WHERE bs.slot_id=? AND b.provider_id=? AND bs.status='moved' AND bs.mode='join'
+                                   ORDER BY bs.id""", (slot['id'], slot['provider_id'])).fetchall()]
 
 
 def course_release_booking(db, b):
     """A course booking that is cancelled lets go of the places and the hours its moved sessions held."""
     rows = [dict(r) for r in db.execute("SELECT * FROM booking_sessions WHERE booking_id=? AND status IN ('pending','moved','pending_new_date')", (b['id'],)).fetchall()]
     if not rows: return
-    svc = db.execute('SELECT center_id, provider_user_id FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
-    if not svc: return
-    kind, oid = course_owner(svc)
+    if not b['service_id']: return
+    kind, oid = winq.booking_tenant(b)
     for r in rows:
         if r['block_id'] or r['claim_type']: course_release(db, kind, oid, r)
     db.execute("UPDATE booking_sessions SET status='cancelled',updated_at=? WHERE booking_id=? AND status IN ('pending','moved','pending_new_date')", (now(), b['id']))

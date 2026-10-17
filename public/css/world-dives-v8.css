@@ -4606,16 +4606,16 @@ html.wd-app[data-wda-tema="noche"] .pp-temps{background:#0f2433;border-color:#22
 .vt-big{font-size:15px;font-weight:700;padding:10px 12px;background:#fff;border:1px solid #cfe3e8}
 .vt-easy-qr{border:1px solid var(--line,#dfe6e7);border-radius:10px;background:#fff;padding:6px}
 .vt-step h3{display:flex;gap:10px;align-items:center}
-.vt-num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--vt-brand,#076898);color:#fff;font-size:15px;flex:0 0 auto}
+.vt-num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--vt-brand,var(--wd-oceano));color:#fff;font-size:15px;flex:0 0 auto}
 .vt-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .vt-choice,.vt-look{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1.5px solid var(--line,#dfe6e7);border-radius:12px;cursor:pointer;background:#fff;min-width:0}
-.vt-choice.is-on,.vt-look.is-on,.vt-choice:has(input:checked),.vt-look:has(input:checked){border-color:var(--vt-brand,#076898);background:#f2fafc}
+.vt-choice.is-on,.vt-look.is-on,.vt-choice:has(input:checked),.vt-look:has(input:checked){border-color:var(--vt-brand,var(--wd-oceano));background:#f2fafc}
 .vt-choice-body{display:grid;gap:4px;min-width:0;width:100%}.vt-choice-body small,.vt-look small{color:var(--muted,#5f717b)}
 .vt-choice select{max-width:100%;margin-top:4px}
 .vt-look{flex-direction:column;align-items:stretch;position:relative}.vt-look input{position:absolute;top:10px;right:10px}
 .vt-art svg{width:100%;height:auto;max-height:96px;display:block}
 .vt-brand{display:flex;gap:8px;align-items:center}.vt-brand img{border-radius:6px;object-fit:cover}
-.vt-swatch{width:18px;height:18px;border-radius:50%;background:var(--vt-brand,#076898);display:inline-block;border:2px solid #fff;box-shadow:0 0 0 1px #cfdde1}
+.vt-swatch{width:18px;height:18px;border-radius:50%;background:var(--vt-brand,var(--wd-oceano));display:inline-block;border:2px solid #fff;box-shadow:0 0 0 1px #cfdde1}
 .vt-lead{margin:0;font-size:15px;font-weight:600}
 .vt-guides{display:grid;gap:10px;margin-top:4px}
 .vt-guide{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
