@@ -71,6 +71,7 @@ from wod import exportar as wexp   # v50.57: Excel and CSV exports
 from wod import enlaces as wenl   # v50.57 (4.4): short addresses of the QR codes
 from wod import logbook as wlog   # v50.57: the dive logbook of the account («Dive Logbook»)
 from wod import servicios as wsv   # v50.58: services in the words of a diver (the wizard, courses and their sessions)
+from wod import curso as wcur   # v50.58 (3.5): the progress of a course in each booking
 from wod import equipo as weq   # v50.58: rental equipment inside the dive (16/10/2026)
 from wod import puntos as wpun   # v50.58: fuller dive sites, sources, batches and duplicates (16/10/2026)
 from wod import costa as wcosta   # v50.58: land or sea, and the distance to the shore, of a dive site
@@ -1856,17 +1857,33 @@ VISITS_SCHEMA = (
 
 
 COURSE_SESSIONS_SCHEMA = [
-    # v50.58 (3.5): the sessions of a course for each student: done, pending, moved to another day or waiting for a new
-    # date. Tied to the original booking, so a moved dive is never a new booking nor charged again.
+    # v50.58 (3.5): the sessions of a course for each student (seat 1 is the one who booked, as in the manifest): done,
+    # pending, moved to another day or waiting for a new date. Tied to the original booking, so a moved dive is never a
+    # new booking nor charged again. mode: 'join' (a place in an existing departure, block_id) or 'new' (a session of its
+    # own); claim_type/claim_id: the hours it holds in the instructor's (and the boat's) agenda.
     """CREATE TABLE IF NOT EXISTS booking_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
-        seq INTEGER NOT NULL, label TEXT NOT NULL, is_dive INTEGER NOT NULL DEFAULT 0, part TEXT NOT NULL, local_date TEXT NOT NULL,
+        seat INTEGER NOT NULL DEFAULT 1, seq INTEGER NOT NULL, label TEXT NOT NULL, is_dive INTEGER NOT NULL DEFAULT 0, part TEXT NOT NULL, local_date TEXT NOT NULL,
         start_time TEXT NOT NULL, end_time TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', slot_id INTEGER REFERENCES service_slots(id) ON DELETE SET NULL,
         instructor_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, boat_id INTEGER, moved_from TEXT, moved_at TEXT, pending_since TEXT,
         done_at TEXT, done_by INTEGER, note TEXT, notified_at TEXT, reply TEXT, reply_at TEXT, extra_amount REAL, extra_order_id INTEGER,
-        created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(booking_id, seq))""",
+        mode TEXT, block_id INTEGER, claim_type TEXT, claim_id INTEGER,
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(booking_id, seat, seq))""",
     'CREATE INDEX IF NOT EXISTS idx_booking_sessions_slot ON booking_sessions(slot_id, status)',
     'CREATE INDEX IF NOT EXISTS idx_booking_sessions_status ON booking_sessions(status, pending_since)',
 ]
+
+
+def migrate_course_sessions(db):
+    """booking_sessions as v50.58 delivers it. A table made by a build of this version before it had the seat of each
+    student is made again only when it is empty; with rows, the new columns are added and nothing is deleted."""
+    cols = {r['name'] for r in db.execute('PRAGMA table_info(booking_sessions)').fetchall()}
+    if cols and 'seat' not in cols:
+        if db.execute('SELECT COUNT(*) FROM booking_sessions').fetchone()[0] == 0: db.execute('DROP TABLE booking_sessions')
+        else: add_columns(db, 'booking_sessions', [('seat', 'INTEGER NOT NULL DEFAULT 1')])
+    for stmt in COURSE_SESSIONS_SCHEMA: db.execute(stmt)
+    add_columns(db, 'booking_sessions', [('mode', 'TEXT'), ('block_id', 'INTEGER'), ('claim_type', 'TEXT'), ('claim_id', 'INTEGER')])
+    db.execute('CREATE INDEX IF NOT EXISTS idx_booking_sessions_booking ON booking_sessions(booking_id, seat, seq)')
+    add_columns(db, 'bookings', [('course_certification_id', 'INTEGER'), ('course_certified_at', 'TEXT'), ('course_certified_by', 'INTEGER')])
 
 
 EQUIPMENT_SCHEMA = [
@@ -1919,7 +1936,7 @@ def migrate_v50_58(db):
     add_columns(db, 'bookings', [('course_completed_at', 'TEXT')])
     add_columns(db, 'centers', [('course_reminder_days', 'INTEGER')])
     add_columns(db, 'users', [('course_reminder_days', 'INTEGER')])
-    for stmt in COURSE_SESSIONS_SCHEMA: db.execute(stmt)
+    migrate_course_sessions(db)
     migrate_equipment(db)
     migrate_points_v50_58(db)
     migrate_videos_v50_58(db)
@@ -6687,12 +6704,15 @@ def slot_window(db, slot):
     return start, end
 
 
-def team_person_busy(db, uid, start, end, exclude_slot=None):
+def team_person_busy(db, uid, start, end, exclude_slot=None, exclude_ref=None):
     """¿Tiene ya trabajo en esa franja? Lo propio de freelance, lo de cualquier centro (instructor de una salida o guía de
-    un grupo) y lo bloqueado en la agenda común. Solo sí o no: nunca con quién ni para qué."""
+    un grupo) y lo bloqueado en la agenda común. Solo sí o no: nunca con quién ni para qué. exclude_ref (v50.58): lo que
+    ya tiene apuntado para esa misma salida (otro alumno de curso unido a ella)."""
+    xt, xi = exclude_ref or ('', 0)
     if db.execute('''SELECT 1 FROM resource_blocks b JOIN resources r ON r.id=b.resource_id WHERE r.kind='person' AND r.user_id=?
-                      AND b.status='active' AND b.starts_at<? AND b.ends_at>? AND NOT (b.ref_type='edition' AND b.ref_id=?) LIMIT 1''',
-                  (uid, end, start, exclude_slot or 0)).fetchone(): return True
+                      AND b.status='active' AND b.starts_at<? AND b.ends_at>? AND NOT (b.ref_type='edition' AND b.ref_id=?)
+                      AND NOT (b.ref_type=? AND b.ref_id=?) LIMIT 1''',
+                  (uid, end, start, exclude_slot or 0, xt, xi)).fetchone(): return True
     lo = (_dt.date.fromisoformat(start[:10]) - _timedelta(days=2)).isoformat(); hi = (_dt.date.fromisoformat(end[:10]) + _timedelta(days=1)).isoformat()
     rows = db.execute('''SELECT x.* FROM service_slots x WHERE x.id<>? AND COALESCE(x.status,'open') NOT IN ('cancelled','deleted')
                             AND x.slot_date<=? AND COALESCE(x.date_to,x.slot_date)>=?
@@ -8447,6 +8467,25 @@ def _planning_figures(db, svc_where, svc_args, bk_where, bk_args, start, end):
             'revenue':round(float(bk['revenue'] or 0),2),'paid':round(float(bk['paid'] or 0),2),'pending':int(bk['pending'] or 0),'cancelled':int(cancelled or 0)}
 
 
+def planning_course_sessions(db, user, start, end):
+    """v50.58 (3.5): the course sessions moved to a session of their own («Crear una sesión nueva»), one chip each in the
+    planning with its hours, instructor and students. Those joined to a departure are in that departure (its blocks)."""
+    try: kind, oid = provider_owner(user)
+    except PermissionError: return []
+    w, a = owner_where(kind, oid, 'b')
+    groups = {}
+    for r in db.execute(f"""SELECT bs.*, s.title, u.fullname AS teacher, bo.name AS boat_name FROM booking_sessions bs JOIN bookings b ON b.id=bs.booking_id
+                            JOIN provider_services s ON s.id=b.service_id LEFT JOIN users u ON u.id=bs.instructor_user_id LEFT JOIN boats bo ON bo.id=bs.boat_id
+                            WHERE {w} AND bs.mode='new' AND bs.status IN ('moved','done') AND bs.local_date BETWEEN ? AND ? AND b.status IN ('confirmed','completed')
+                            ORDER BY bs.local_date, bs.start_time, bs.id LIMIT 1000""", (*a, start, end)).fetchall():
+        g = groups.setdefault(r['claim_id'] or -r['id'], {'date': r['local_date'], 'start': r['start_time'], 'end': r['end_time'], 'course': r['title'],
+                                                         'label': r['label'], 'instructor': r['teacher'], 'boat': r['boat_name'], 'students': 0,
+                                                         'bookings': [], 'done': True})
+        g['students'] += 1; g['done'] = g['done'] and r['status'] == 'done'
+        if r['booking_id'] not in g['bookings']: g['bookings'].append(r['booking_id'])
+    return list(groups.values())
+
+
 def center_planning(db, user, month):
     svc_where,svc_args,bk_where,bk_args=planning_scope(user)
     first,last=_month_bounds(month); start,end=first.isoformat(),last.isoformat()
@@ -8520,7 +8559,7 @@ def center_planning(db, user, month):
     pf=_shift_month(first,-1); pl=first-_dt.timedelta(days=1)
     return {'month':start[:7],'start':start,'end':end,'today':(place_now(provider_tz(db,user)).date() if user['role'] in ('center','freelance') else _dt.date.today()).isoformat(),
             'prev':pf.isoformat()[:7],'next':_shift_month(first,1).isoformat()[:7],
-            'slots':slots,'other':other,'stats':_planning_figures(db,svc_where,svc_args,bk_where,bk_args,start,end),
+            'slots':slots,'other':other,'course_sessions':planning_course_sessions(db,user,start,end),'stats':_planning_figures(db,svc_where,svc_args,bk_where,bk_args,start,end),
             'prev_stats':_planning_figures(db,svc_where,svc_args,bk_where,bk_args,pf.isoformat(),pl.isoformat()),'trend':months}
 
 
@@ -9313,6 +9352,20 @@ EMAIL_TEMPLATES = {
    ('p', 'Hola {first_name}, {center} ha añadido a tu reserva: {piece}. Importe: {amount}.'),
    ('details', None), ('button', ('Pagar ahora de forma segura', 'pay_url')),
    ('note', 'El pago lo procesa Stripe con cifrado y verificación 3D Secure, directamente al centro. WORLDIVES y el centro nunca ven los datos de tu tarjeta.')]},
+ # v50.58 (3.5): the sessions of a course on another day and «Curso completado»
+ 'course_session_moved': {'to': 'diver', 'subject': 'Nueva fecha para tu {session} · {service}', 'pre': '{when}', 'blocks': [
+   ('h', 'Nueva fecha para tu {session}'),
+   ('p', 'Hola {first_name}, {move_text}'),
+   ('note', '{pay_note}'),
+   ('details', None), ('button', ('Confirmar asistencia o pedir otra fecha', 'booking_url'))]},
+ 'course_session_pending': {'to': 'diver', 'subject': 'Tu {session} queda pendiente de nueva fecha · {service}', 'pre': 'No pierdes la sesión ni se te cobra nada.', 'blocks': [
+   ('h', 'Tu {session} queda pendiente de nueva fecha'),
+   ('p', 'Hola {first_name}, {pending_text}'),
+   ('details', None), ('button', ('Ver mi curso', 'booking_url'))]},
+ 'course_completed': {'to': 'diver', 'subject': '¡Curso completado! · {service}', 'pre': 'Tus inmersiones ya están en tu Log Book.', 'blocks': [
+   ('h', '¡Curso completado!'),
+   ('p', 'Enhorabuena, {first_name}: has completado el {service} con {center}. Tus inmersiones ya están en tu Log Book.'),
+   ('button', ('Abrir mi Log Book', 'logbook_url'))]},
  'payment_receipt': {'to': 'diver', 'subject': 'Recibo de pago · {service} · {total}', 'pre': 'Hemos recibido tu pago.', 'blocks': [
    ('h', 'Pago recibido'),
    ('p', 'Hola {first_name}, hemos recibido tu pago. Tu reserva con {center} está confirmada.'),
@@ -9661,6 +9714,8 @@ EMAIL_TEMPLATE_LABELS = {
  'password_changed': 'Aviso de contraseña cambiada', 'booking_request': 'Solicitud enviada', 'booking_confirmed': 'Reserva confirmada',
  'booking_manual': 'Reserva registrada por el centro', 'payment_required': 'Plaza aceptada: pago pendiente', 'payment_receipt': 'Recibo de pago',
  'equipment_pay_link': 'Equipo añadido en el centro: enlace de pago',
+ 'course_session_moved': 'Curso: sesión pasada a otro día', 'course_session_pending': 'Curso: sesión pendiente de nueva fecha (salida cancelada)',
+ 'course_completed': 'Curso completado',
  'payment_review': 'Pago en revisión', 'booking_rejected': 'Solicitud rechazada', 'booking_cancelled_center': 'Cancelada por el centro',
  'booking_cancelled_diver': 'Cancelada por el buceador', 'reminder': 'Recordatorio del día anterior', 'review_request': 'Petición de reseña',
  'promotion_received': 'Promoción recibida', 'experience_request': 'Solicitud de viaje enviada', 'experience_status': 'Respuesta a solicitud de viaje',
@@ -11072,6 +11127,9 @@ def provider_scope_sql(user, alias='b'):
 
 def release_booking_spots(db, b):
     agenda_release(db, 'booking', b['id'])   # v50.44: days of a booking by days become free again
+    # v50.58 (3.5): a course booking that ends (cancelled, refunded, rejected) lets go of what its moved sessions held.
+    # A request going back to «pendiente» (ins_resume) keeps them: it is still alive, and it never had moved sessions.
+    if b['status'] not in ('requested', 'insurance_pending', 'payment_in_progress', 'accepted_pending_payment'): course_release_booking(db, b)
     if b['slot_id'] and b['slot_reserved']:
         release_slot_spots(db, b['slot_id'], max(1, int(b['participants'] or 1)))
         db.execute('UPDATE bookings SET slot_reserved=0 WHERE id=?', (b['id'],))
@@ -14170,6 +14228,20 @@ def booking_signatures(db, booking_id):
     return {r['seat']: dict(r) for r in db.execute('SELECT id,seat,version,signer_name,signed_at,method FROM waiver_signatures WHERE booking_id=? ORDER BY signed_at', (booking_id,)).fetchall()}
 
 
+def manifest_course_students(db, slot_id):
+    """v50.58 (3.5): the course students joined to this departure («Sesión de curso – Open Water (inmersión 4)»): they
+    take a place and come with their instructor, without a booking of their own."""
+    out = []
+    for r in db.execute("""SELECT bs.*, b.contact_name, u.fullname, s.title, t.fullname AS teacher FROM booking_sessions bs JOIN bookings b ON b.id=bs.booking_id
+                           JOIN provider_services s ON s.id=b.service_id LEFT JOIN users u ON u.id=b.user_id LEFT JOIN users t ON t.id=bs.instructor_user_id
+                           WHERE bs.slot_id=? AND bs.mode='join' AND bs.status IN ('moved','done') ORDER BY bs.booking_id, bs.seat""", (slot_id,)).fetchall():
+        if r['seat'] == 1: name = r['contact_name'] or r['fullname'] or ''
+        else: name = (db.execute('SELECT name FROM manifest_entries WHERE booking_id=? AND seat=?', (r['booking_id'], r['seat'])).fetchone() or {'name': ''})['name'] or f"Buceador {r['seat']}"
+        out.append({'booking_id': r['booking_id'], 'seat': r['seat'], 'name': name, 'course': r['title'], 'label': r['label'],
+                    'text': wcur.session_label(r['title'], r), 'instructor': r['teacher'], 'done': r['status'] == 'done'})
+    return out
+
+
 def manifest_data(db, user, slot_id, for_reading=True):
     slot = manifest_slot(db, user, slot_id)
     if for_reading and not slot_visible(db, user, slot_id): raise NotFound('Salida no encontrada.')
@@ -14228,6 +14300,7 @@ def manifest_data(db, user, slot_id, for_reading=True):
             'settings': settings, 'boats': boats, 'guides': guides, 'groups': groups, 'divers': divers, 'warnings': warn,
             'waiver': {'id': waiver['id'], 'version': waiver['version'], 'title': waiver['title']} if waiver else None,
             'can_edit': bool(can_edit), 'level_labels': wmf.LEVEL_LABELS, 'headcounts': headcount_state(db, slot_id, winq.tenant_key(kind, oid)),
+            'course': manifest_course_students(db, slot_id),
             'cancelled': {'at': slot['cancelled_at'], 'reason': slot['cancel_reason'], 'note': slot['cancel_note']} if slot['cancelled_at'] else None,
             'waitlist': [{**dict(r), 'expires_at': server_instant(r['expires_at'])} for r in db.execute('''SELECT w.id,w.participants,w.status,w.created_at,w.expires_at,u.fullname FROM waitlist_entries w JOIN users u ON u.id=w.user_id
                                                         WHERE w.slot_id=? AND w.status IN ('waiting','notified') ORDER BY w.created_at,w.id''', (slot_id,)).fetchall()],
@@ -14436,6 +14509,8 @@ def cancel_slot(db, user, slot, reason, note, hours, notify=True):
         if notify: notify_booking(db, b['id'], 'slot_cancelled', {'reason_key': reason, 'note': note, 'deadline_iso': deadline, 'paid_net': a['paid']})
     for w in db.execute("SELECT * FROM waitlist_entries WHERE slot_id=? AND status IN ('waiting','notified')", (slot['id'],)).fetchall():
         db.execute("UPDATE waitlist_entries SET status='cancelled',held=0,updated_at=? WHERE id=?", (now(), w['id']))
+    # v50.58 (3.5): the course students in it are not refunded: their session waits for a new date
+    course_slot_cancelled(db, user, slot, reason, note)
     slot_event(db, slot['id'], 'cancelled', user['id'], reason=reason, note=note, affected=len(affected), choice_hours=hours)
     audit(db, user['id'], 'service_slot_cancelled', 'service_slot', slot['id'], {'reason': reason, 'affected': len(affected)})
     return affected
@@ -15668,6 +15743,545 @@ def service_plan(svc):
     """The plan of days of a course: the saved one or, for a course saved before v50.58, the one its title or minutes say."""
     plan = wsv.clean_plan(row_get(svc, 'course_plan'))
     return plan if plan['days'] else wsv.plan_from_legacy(row_get(svc, 'title'), row_get(svc, 'duration_minutes'))
+
+
+# =================================================================== v50.58 · 3.5 progreso del curso y sesiones en otro día
+# Each student of a course booking (each seat, as in the manifest) has its sessions (wod/curso): they are made from the
+# plan of the edition the first time somebody looks at them, and from then on each one keeps its own date. Moving one
+# to another day never makes a new booking nor charges again: a place in a departure that already exists (a block of
+# spots «Sesión de curso – Open Water (inmersión 4)») or a session of its own, with the instructor (and the boat) busy
+# in the common agenda, with the same rules without overlaps as everything else. The prices and what each person may
+# do are decided here, never by the browser.
+COURSE_LIVE = ('requested', 'accepted_pending_payment', 'confirmed', 'payment_in_progress', 'insurance_pending', 'completed')
+COURSE_MOVABLE = ('pending', 'moved', 'pending_new_date')
+
+
+def course_of_booking(db, b):
+    """(service, edition, plan) of a booking of a course; None for anything else."""
+    if not b or not row_get(b, 'service_id'): return None
+    svc = db.execute('SELECT * FROM provider_services WHERE id=?', (b['service_id'],)).fetchone()
+    if not svc or wsv.kind_of(svc) != 'course': return None
+    slot = db.execute('SELECT * FROM service_slots WHERE id=?', (b['slot_id'],)).fetchone() if row_get(b, 'slot_id') else None
+    return svc, slot, service_plan(svc)
+
+
+def course_owner(svc):
+    return ('center', int(svc['center_id'])) if svc['center_id'] else ('freelance', int(svc['provider_user_id']))
+
+
+def course_rows(db, b, create=True):
+    """((service, edition, plan, sessions), rows) of a course booking, or (None, [])."""
+    c = course_of_booking(db, b)
+    if not c: return None, []
+    svc, slot, plan = c
+    items = wcur.sessions(plan, (slot['slot_date'] if slot else None) or b['booking_date'])
+    if create and b['status'] in COURSE_LIVE:
+        teacher = row_get(slot, 'instructor_user_id') if slot else None
+        if not teacher and not svc['center_id']: teacher = svc['provider_user_id']
+        for seat in range(1, max(1, int(b['participants'] or 1)) + 1):
+            for it in items:
+                db.execute("""INSERT OR IGNORE INTO booking_sessions(booking_id,seat,seq,label,is_dive,part,local_date,start_time,end_time,status,
+                              instructor_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'pending',?,?,?)""",
+                           (b['id'], seat, it['seq'], it['label'], int(it['dive']), it['part'], it['date'], it['start'], it['end'], teacher, now(), now()))
+    rows = [dict(r) for r in db.execute('SELECT * FROM booking_sessions WHERE booking_id=? ORDER BY seq, seat', (b['id'],)).fetchall()]
+    return (svc, slot, plan, items), rows
+
+
+def course_reminder_days(db, kind, oid):
+    r = db.execute('SELECT course_reminder_days AS d FROM centers WHERE id=?' if kind == 'center' else 'SELECT course_reminder_days AS d FROM users WHERE id=?', (oid,)).fetchone()
+    return int(r['d']) if r and r['d'] else wcur.PENDING_DAYS
+
+
+def course_name(lang, row):
+    """«inmersión 4» or the centre's own name of the session, for the sentences of the notices."""
+    m = re.fullmatch(r'Inmersión (\d+)', row['label'] or '')
+    if m: return mail_t(lang, 'inmersión {n}', n=m.group(1))
+    m = re.fullmatch(r'Día (\d+) · (mañana|tarde)', row['label'] or '')
+    if m: return mail_t(lang, 'sesión del día {n} por la ' + m.group(2), n=m.group(1))
+    return row['label'] or mail_t(lang, 'sesión')
+
+
+def course_when(lang, date, time_):
+    return mail_t(lang, '{date} a las {time}', date=mail_date(date, lang), time=time_) if time_ else mail_date(date, lang)
+
+
+def course_user_names(db, ids):
+    ids = [i for i in set(ids) if i]
+    if not ids: return {}
+    return {r['id']: r['fullname'] for r in db.execute(f"SELECT id, fullname FROM users WHERE id IN ({','.join('?' * len(ids))})", ids).fetchall()}
+
+
+def course_view(db, user, b):
+    """The progress of a course booking: each session with the state of each student and «3 de 4 inmersiones hechas»."""
+    ctx, rows = course_rows(db, b)
+    if not ctx: return None
+    svc, slot, plan, items = ctx
+    kind, oid = course_owner(svc)
+    names = booking_diver_names(db, b)
+    people = course_user_names(db, [r['instructor_user_id'] for r in rows] + [row_get(slot, 'instructor_user_id') if slot else None])
+    boats = {x['id']: x['name'] for x in owner_boats(db, kind, oid, active_only=False)}
+    slot_ids = sorted({r['slot_id'] for r in rows if r['slot_id']})
+    joined = {r['id']: r for r in db.execute(f"""SELECT ss.id, ss.slot_date, ss.slot_time, s.title FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
+                                                 WHERE ss.id IN ({','.join('?' * len(slot_ids))})""", slot_ids).fetchall()} if slot_ids else {}
+    today = wag.today_in(service_tz(db, svc)).isoformat()
+    own = bool(user) and user['id'] == b['user_id']
+    sessions = []
+    for it in items:
+        per = []
+        for r in (x for x in rows if x['seq'] == it['seq']):
+            j = joined.get(r['slot_id'])
+            per.append({'seat': r['seat'], 'name': names[r['seat'] - 1] if r['seat'] - 1 < len(names) else f"Buceador {r['seat']}", 'status': r['status'],
+                        'state': wcur.LABELS.get(r['status'], r['status']), 'icon': wcur.ICONS.get(r['status'], ''), 'date': r['local_date'],
+                        'start': r['start_time'], 'end': r['end_time'], 'mode': r['mode'], 'slot_id': r['slot_id'],
+                        'where': f"{j['title']} · {j['slot_time']}" if j else None, 'instructor': people.get(r['instructor_user_id']),
+                        'boat': boats.get(r['boat_id']), 'moved_from': r['moved_from'], 'moved': bool(r['moved_at']), 'reply': r['reply'],
+                        'reply_at': r['reply_at'], 'note': r['note'], 'done_at': r['done_at'], 'extra_amount': r['extra_amount'],
+                        'pending_since': r['pending_since'],
+                        'can_answer': bool(own and r['status'] == 'moved' and (r['local_date'] or '') >= today)})
+        sessions.append({'seq': it['seq'], 'label': it['label'], 'dive': it['dive'], 'dive_no': it['dive_no'], 'day': it['day'] + 1, 'part': it['part'],
+                         'planned': {'date': it['date'], 'start': it['start'], 'end': it['end']}, 'students': per})
+    seats = []
+    for seat in range(1, len(names) + 1):
+        st = {r['seq']: r['status'] for r in rows if r['seat'] == seat}
+        seats.append({'seat': seat, 'name': names[seat - 1], 'summary': wcur.summary(items, st), 'finished': wcur.finished(items, st)})
+    group = db.execute("SELECT COALESCE(SUM(participants),0) FROM bookings WHERE slot_id=? AND status IN ('confirmed','completed')", (slot['id'],)).fetchone()[0] if slot else 0
+    provider = bool(user) and not own and can_manage_booking(user, b)
+    cert = db.execute('SELECT name FROM certifications WHERE id=?', (b['course_certification_id'],)).fetchone() if row_get(b, 'course_certification_id') else None
+    if len(seats) == 1: total = seats[0]['summary']
+    else:
+        total = {'text': ' · '.join(f"{x['name']}: {x['summary']['done']}/{x['summary']['total']}" for x in seats),
+                 'done': sum(x['summary']['done'] for x in seats), 'total': sum(x['summary']['total'] for x in seats),
+                 'pending': sum(x['summary']['pending'] for x in seats), 'word': seats[0]['summary']['word'] if seats else 'sesiones'}
+    return {'booking_id': b['id'], 'course': {'title': svc['title'], 'service_id': svc['id'], 'edition_id': slot['id'] if slot else None,
+                                             'start': items[0]['date'] if items else b['booking_date'], 'end': items[-1]['date'] if items else b['booking_date'],
+                                             'instructor': people.get(row_get(slot, 'instructor_user_id')) if slot else None, 'plan': wsv.plan_summary(plan)},
+            'status': b['status'], 'completed_at': row_get(b, 'course_completed_at'), 'certification': cert['name'] if cert else None,
+            'seats': seats, 'summary': total, 'sessions': sessions, 'group': int(group or 0), 'today': today,
+            'can_edit': provider and b['status'] in ('confirmed', 'completed'),
+            'reminder_days': course_reminder_days(db, kind, oid), 'labels': wcur.LABELS, 'icons': wcur.ICONS}
+
+
+def course_booking_for(db, user, bid, provider=True):
+    b = booking_row(db, bid)
+    if not b: raise NotFound('Reserva no encontrada.')
+    if provider: require_booking_provider(user, b)
+    elif b['user_id'] != user['id'] and not can_manage_booking(user, b): raise NotFound('Reserva no encontrada.')
+    if not course_of_booking(db, b): raise ValueError('Esta reserva no es de un curso.')
+    return b
+
+
+def course_seats(data, pax):
+    raw = data.get('seats')
+    if raw in (None, '', 'all') or raw == []: return list(range(1, pax + 1))
+    if not isinstance(raw, list): raise ValueError('Elige los alumnos.')
+    out = sorted({clean_int(x, 1, pax, 0, 'Alumno no válido.') for x in raw})
+    if not out: raise ValueError('Elige al menos un alumno.')
+    return out
+
+
+def course_targets(db, b, data, allowed):
+    """(seq, [(booking, rows)]): the students chosen of this booking, or the whole group of the edition."""
+    seq = clean_int(data.get('seq'), 1, 400, 0, 'Sesión no válida.')
+    whole = data.get('scope') == 'edition' and bool(b['slot_id'])
+    books = db.execute("SELECT * FROM bookings WHERE slot_id=? AND status IN ('confirmed','completed') ORDER BY id", (b['slot_id'],)).fetchall() if whole else [b]
+    out = []
+    for x in books:
+        _ctx, rows = course_rows(db, x)
+        if not whole:
+            seats = course_seats(data, max(1, int(x['participants'] or 1)))
+            pick = [r for r in rows if r['seq'] == seq and r['seat'] in seats]
+            if not pick: raise ValueError('Elige la sesión y al menos un alumno.')
+            bad = [r for r in pick if r['status'] not in allowed]
+            if bad:
+                what = 'hecha' if bad[0]['status'] == 'done' else 'cancelada' if bad[0]['status'] == 'cancelled' else 'sin hacer'
+                raise ValueError(f"Esa sesión ya está {what} para {'ese alumno' if len(pick) == 1 else 'alguno de esos alumnos'}.")
+        else:
+            pick = [r for r in rows if r['seq'] == seq and r['status'] in allowed]
+        if pick: out.append((x, pick))
+    if not out: raise ValueError('No hay alumnos con esa sesión pendiente.')
+    return seq, out
+
+
+def course_release(db, kind, oid, r, actor=None):
+    """A moved session lets go of what it held: its place in the departure and, if nobody else uses them, the hours of
+    the instructor (and the boat)."""
+    if r.get('block_id'):
+        try: release_spot_block(db, kind, oid, r['block_id'], actor)
+        except NotFound: pass
+    if r.get('claim_type'):
+        others = db.execute("""SELECT COUNT(*) FROM booking_sessions WHERE claim_type=? AND claim_id=? AND id<>? AND status IN ('moved','done')
+                               AND (claim_type<>'course_join' OR COALESCE(instructor_user_id,0)=?)""",
+                            (r['claim_type'], r['claim_id'], r['id'], r.get('instructor_user_id') or 0)).fetchone()[0]
+        if not others:
+            if r['claim_type'] == 'course_join':
+                db.execute("""UPDATE resource_blocks SET status='released',released_at=? WHERE ref_type='course_join' AND ref_id=? AND status='active'
+                              AND resource_id IN (SELECT id FROM resources WHERE kind='person' AND user_id=?)""", (now(), r['claim_id'], r.get('instructor_user_id') or 0))
+            else: agenda_release(db, r['claim_type'], r['claim_id'])
+    db.execute('UPDATE booking_sessions SET block_id=NULL,claim_type=NULL,claim_id=NULL,updated_at=? WHERE id=?', (now(), r['id']))
+
+
+def course_person_resource(db, kind, oid, uid):
+    return staff_resource(db, oid, uid) if kind == 'center' else person_resource(db, uid)
+
+
+def course_boat_busy(db, kind, oid, boat_id, start, end, date):
+    """¿Sale ya ese barco a esa hora? Its agenda, the departures that use it and the course sessions on it."""
+    if kind == 'center':
+        res = boat_resource(db, oid, boat_id, create=False)
+        if res and active_blocks(db, res['id'], start, end): return True
+    w, a = owner_where(kind, oid, 's')
+    lo = (_dt.date.fromisoformat(date) - _timedelta(days=2)).isoformat()
+    for x in db.execute(f"""SELECT x.* FROM service_slots x JOIN provider_services s ON s.id=x.service_id WHERE {w} AND x.cancelled_at IS NULL
+                            AND COALESCE(x.status,'open') NOT IN ('cancelled','deleted') AND x.slot_date<=? AND COALESCE(x.date_to,x.slot_date)>=?
+                            AND (x.boat_id=? OR s.boat_id=? OR x.id IN (SELECT slot_id FROM slot_groups WHERE boat_id=?))""", (*a, date, lo, boat_id, boat_id, boat_id)).fetchall():
+        sa, sb = slot_window(db, x)
+        if sa < end and sb > start: return True
+    return False
+
+
+def course_move(db, user, bid, data):
+    """«Pasar a otro día»: one student, several or the whole group, to a departure that already exists or to a new
+    session. Without extra charge unless the centre adds a supplement (with its own payment link)."""
+    b = course_booking_for(db, user, bid)
+    if b['status'] != 'confirmed': raise ValueError('Las sesiones se pasan a otro día cuando la reserva está confirmada.')
+    if row_get(b, 'course_completed_at'): raise ValueError('El curso ya está completado.')
+    mode = data.get('mode')
+    if mode not in wcur.MOVE_MODES: raise ValueError('Elige si lo unes a una salida que ya existe o creas una sesión nueva.')
+    ctx, _rows = course_rows(db, b)
+    svc, edition, _plan, items = ctx
+    kind, oid = course_owner(svc)
+    agenda_lock(db)
+    seq, targets = course_targets(db, b, data, COURSE_MOVABLE)
+    item = next(i for i in items if i['seq'] == seq)
+    first = targets[0][1][0]
+    if kind == 'freelance': teacher = oid
+    else: teacher = int(data.get('instructor_user_id') or 0) or first['instructor_user_id'] or (row_get(edition, 'instructor_user_id') if edition else None)
+    if kind == 'center' and teacher and not team_assignable(db, oid, teacher): raise PermissionError('Esa persona no es de tu equipo.')
+    who = (course_user_names(db, [teacher]).get(teacher) or 'El instructor') if teacher else ''
+    for _b, pick in targets:
+        for r in pick: course_release(db, kind, oid, r, user['id'])
+    tz = service_tz(db, svc)
+    if mode == 'join':
+        target = slot_of_provider(db, kind, oid, data.get('slot_id'))
+        if not target: raise NotFound('Salida no encontrada.')
+        if (edition and target['id'] == edition['id']) or row_get(target, 'kind') == 'edition' or (target['date_to'] and target['date_to'] > target['slot_date']):
+            raise ValueError('Elige una salida de un día (no una edición de un curso).')
+        if target['cancelled_at'] or target['status'] not in ('open', 'full'): raise ValueError('Esa salida ya no está abierta.')
+        st = slot_start(db, target)
+        if st and st <= local_now(): raise ValueError('Esa salida ya ha empezado. Elige otra.')
+        a, z = slot_window(db, target)
+        if teacher:
+            if team_person_busy(db, teacher, a, z, exclude_slot=target['id'], exclude_ref=('course_join', target['id'])):
+                raise ValueError(f'{who} ya tiene trabajo a esa hora. Elige a otra persona u otra salida.')
+            res = course_person_resource(db, kind, oid, teacher)
+            if not db.execute("SELECT 1 FROM resource_blocks WHERE resource_id=? AND ref_type='course_join' AND ref_id=? AND status='active'", (res['id'], target['id'])).fetchone():
+                agenda_claim(db, res['id'], [(a, z, target['slot_date'], target['slot_date'])], 'manual', 'course_join', target['id'], user['id'], f"Curso · {svc['title']}"[:120])
+        svc_t = db.execute('SELECT duration_minutes FROM provider_services WHERE id=?', (target['service_id'],)).fetchone()
+        t0 = target['slot_time'] or item['start']
+        t1 = wcur.add_minutes(t0, int(svc_t['duration_minutes']) if svc_t and svc_t['duration_minutes'] else wcur.minutes_between(item['start'], item['end']))
+        for _b, pick in targets:
+            for r in pick:
+                try: blk = block_spots(db, kind, oid, target['id'], 1, wcur.session_label(svc['title'], r), user['id'], source='course')
+                except NoSpots: raise NoSpots('No quedan plazas en esa salida. Elige otra o crea una sesión nueva.')
+                db.execute("""UPDATE booking_sessions SET status='moved',mode='join',slot_id=?,local_date=?,start_time=?,end_time=?,instructor_user_id=?,boat_id=?,
+                              moved_from=COALESCE(moved_from,?),moved_at=?,pending_since=NULL,block_id=?,claim_type=?,claim_id=?,reply=NULL,reply_at=NULL,
+                              notified_at=?,updated_at=? WHERE id=?""",
+                           (target['id'], target['slot_date'], t0, t1, teacher, row_get(target, 'boat_id'), f"{r['local_date']} {r['start_time']}", now(), blk,
+                            'course_join' if teacher else None, target['id'] if teacher else None, now(), now(), r['id']))
+        when_date, when_time = target['slot_date'], t0
+    else:
+        date = clean_date(data.get('date'))
+        if not date: raise ValueError('Elige la fecha de la sesión.')
+        t0 = data.get('time') if isinstance(data.get('time'), str) and wsv.HHMM.match(data.get('time') or '') else None
+        if not t0: raise ValueError('Elige la hora de la sesión.')
+        t1 = data.get('end') if isinstance(data.get('end'), str) and wsv.HHMM.match(data.get('end') or '') else wcur.add_minutes(t0, wcur.minutes_between(item['start'], item['end']))
+        if t1 <= t0: raise ValueError('La hora de fin debe ser después de la de inicio.')
+        a, z = wag.local_to_utc(date, t0, tz), wag.local_to_utc(date, t1, tz)
+        if a <= datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'): raise ValueError('Elige una fecha y una hora que no hayan pasado.')
+        if kind == 'center' and not teacher: raise ValueError('Elige el instructor de la sesión.')
+        if teacher and team_person_busy(db, teacher, a, z): raise ValueError(f'{who} ya tiene trabajo a esa hora. Elige a otra persona u otra hora.')
+        boat = int(data.get('boat_id') or 0) or None
+        if boat:
+            bt = next((x for x in owner_boats(db, kind, oid) if x['id'] == boat), None)
+            if not bt: raise ValueError('Elige uno de tus barcos.')
+            if course_boat_busy(db, kind, oid, boat, a, z, date) or db.execute("""SELECT 1 FROM booking_sessions WHERE boat_id=? AND mode='new' AND status='moved'
+                                                                                   AND local_date=? AND start_time<? AND end_time>? LIMIT 1""", (boat, date, t1, t0)).fetchone():
+                raise ValueError(f"El barco {bt['name']} ya sale a esa hora. Elige otro barco u otra hora.")
+        group = db.execute("SELECT COALESCE(MAX(claim_id),0)+1 FROM booking_sessions WHERE claim_type='course_new'").fetchone()[0]
+        note = f"Curso · {svc['title']} · {item['label']}"[:120]
+        if teacher: agenda_claim(db, course_person_resource(db, kind, oid, teacher)['id'], [(a, z, date, date)], 'manual', 'course_new', group, user['id'], note)
+        if boat and kind == 'center':
+            br = boat_resource(db, oid, boat)
+            if br: agenda_claim(db, br['id'], [(a, z, date, date)], 'manual', 'course_new', group, user['id'], note)
+        for _b, pick in targets:
+            for r in pick:
+                db.execute("""UPDATE booking_sessions SET status='moved',mode='new',slot_id=NULL,local_date=?,start_time=?,end_time=?,instructor_user_id=?,boat_id=?,
+                              moved_from=COALESCE(moved_from,?),moved_at=?,pending_since=NULL,block_id=NULL,claim_type='course_new',claim_id=?,reply=NULL,reply_at=NULL,
+                              notified_at=?,updated_at=? WHERE id=?""",
+                           (date, t0, t1, teacher, boat, f"{r['local_date']} {r['start_time']}", now(), group, now(), now(), r['id']))
+        when_date, when_time = date, t0
+    try: extra = round(float(data.get('surcharge') or 0), 2)
+    except (TypeError, ValueError): raise ValueError('El suplemento no es válido.')
+    if extra < 0 or extra > 5000: raise ValueError('El suplemento no es válido.')
+    out = {'checkout_urls': {}}
+    for x, pick in targets:
+        x = booking_row(db, x['id'])
+        pay_url = None
+        if extra > 0:
+            total = round(extra * len(pick), 2)
+            label = (clean_text(data.get('surcharge_label'), 80) or 'Suplemento') + f" · {item['label']}"
+            booking_price_update(db, x, total, [{'kind': 'course_extra', 'label': label, 'qty': len(pick), 'unit': extra, 'total': total}], False)
+            db.execute(f"UPDATE booking_sessions SET extra_amount=? WHERE id IN ({','.join('?' * len(pick))})", (extra, *[r['id'] for r in pick]))
+            nb = booking_row(db, x['id'])
+            if booking_pay_way(nb) != 'in_person':
+                try:
+                    drop_open_orders(db, nb['id'])
+                    pay_url = supplement_checkout(db, nb, total, f"{label} · {svc['title']}")['checkout_url']
+                    out['checkout_urls'][nb['id']] = pay_url
+                    if nb['payment_status'] == 'paid': db.execute("UPDATE bookings SET payment_status='deposit_paid' WHERE id=?", (nb['id'],))
+                except ValueError as e:
+                    out['surcharge_note'] = f'{e} El suplemento queda pendiente de pago en el centro.'
+        course_notify_moved(db, x, svc, pick, when_date, when_time, who, extra, pay_url, user['id'])
+    audit(db, user['id'], 'course_session_moved', 'booking', b['id'], {'seq': seq, 'mode': mode, 'slot_id': data.get('slot_id') if mode == 'join' else None,
+                                                                     'date': when_date, 'time': when_time, 'instructor': teacher, 'students': sum(len(p) for _x, p in targets),
+                                                                     'bookings': [x['id'] for x, _p in targets], 'surcharge': extra})
+    out['view'] = course_view(db, user, booking_row(db, b['id']))
+    return out
+
+
+def course_notify_moved(db, b, svc, pick, date, time_, who, extra, pay_url, sender):
+    """«Tu inmersión 4 del Open Water pasa al sábado 14 a las 9:00 con Marta», by email, in the web and the app (push)."""
+    lang = user_lang(db, b['user_id'])
+    what = course_name(lang, pick[0])
+    when = course_when(lang, date, time_)
+    text = mail_t(lang, 'Tu {session} del {course} pasa al {when}', session=what, course=svc['title'], when=when) + (mail_t(lang, ' con {who}', who=who) if who else '') + '.'
+    if extra > 0: text += ' ' + mail_t(lang, 'El centro ha añadido un suplemento de {amount}.', amount=mail_money(extra * len(pick), b['currency'] or 'EUR', lang))
+    else: text += ' ' + mail_t(lang, 'Sigue unida a tu reserva y a tu curso: no se te cobra otra vez.')
+    subject = mail_t(lang, 'Nueva fecha para tu {session}', session=what)
+    db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?,'system')",
+               (sender, b['user_id'], b['id'], subject[:200],
+                (text + '\n\n' + mail_t(lang, 'Confirma tu asistencia o pide otra fecha desde tu reserva.') + f"\n{public_site_url()}/#/reserva?id={b['id']}" + (f'\n{pay_url}' if pay_url else ''))[:2000], now()))
+    push_to_user(db, b['user_id'], subject, text, f"#/reserva?id={b['id']}")
+    ctx = booking_mail_ctx(db, b['id'], lang)
+    if ctx and ctx.get('diver_email'):
+        queue_email(db, 'course_session_moved', ctx['diver_email'], ctx['diver_name'], {**ctx, 'session': what, 'when': when, 'move_text': text,
+                    'pay_note': mail_t(lang, 'Paga el suplemento aquí: {url}', url=pay_url) if pay_url else ''}, lang, ('booking', b['id']))
+
+
+def course_mark_done(db, user, bid, data):
+    """«Marcar como hecha» (or undo it) for one student, several or the whole group of the edition."""
+    b = course_booking_for(db, user, bid)
+    if b['status'] not in ('confirmed', 'completed'): raise ValueError('Las sesiones se marcan cuando la reserva está confirmada.')
+    value = data.get('value', True) is not False
+    if not value and row_get(b, 'course_completed_at'): raise ValueError('El curso ya está completado: no se puede desmarcar una sesión.')
+    if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
+    seq, targets = course_targets(db, b, data, COURSE_MOVABLE if value else ('done',))
+    today = provider_today(db, user)
+    n, completed = 0, []
+    for x, pick in targets:
+        for r in pick:
+            if value and (r['local_date'] or '') > today:
+                d = _dt.date.fromisoformat(r['local_date'])
+                raise ValueError(f'Esa sesión es el {d.day}/{d.month}: se marca como hecha cuando llegue el día.')
+            if value: db.execute("UPDATE booking_sessions SET status='done',done_at=?,done_by=?,pending_since=NULL,updated_at=? WHERE id=?", (now(), user['id'], now(), r['id']))
+            else: db.execute("UPDATE booking_sessions SET status=CASE WHEN moved_at IS NOT NULL THEN 'moved' ELSE 'pending' END,done_at=NULL,done_by=NULL,updated_at=? WHERE id=?", (now(), r['id']))
+            n += 1
+        if value and course_check_complete(db, booking_row(db, x['id']), user['id']): completed.append(x['id'])
+    audit(db, user['id'], 'course_session_done' if value else 'course_session_undone', 'booking', b['id'], {'seq': seq, 'students': n, 'bookings': [x['id'] for x, _p in targets]})
+    return {'view': course_view(db, user, booking_row(db, b['id'])), 'marked': n, 'completed': completed}
+
+
+def course_check_complete(db, b, actor=None):
+    """«Curso completado» only when every session of every student is done (a session the centre cancelled does not
+    count). Then the Log Book gets the dives of the one who booked, and the centre can register the certification."""
+    ctx, rows = course_rows(db, b, create=False)
+    if not ctx or row_get(b, 'course_completed_at') or not rows: return False
+    svc, edition, _plan, items = ctx
+    for seat in range(1, max(1, int(b['participants'] or 1)) + 1):
+        if not wcur.finished(items, {r['seq']: r['status'] for r in rows if r['seat'] == seat}): return False
+    db.execute("UPDATE bookings SET course_completed_at=?,status=CASE WHEN status='confirmed' THEN 'completed' ELSE status END,updated_at=? WHERE id=?", (now(), now(), b['id']))
+    if not is_guest_user(db, b['user_id']):
+        place = db.execute('SELECT name, country FROM centers WHERE id=?', (svc['center_id'],)).fetchone() if svc['center_id'] else None
+        where = (place['name'] if place else None) or (db.execute('SELECT fullname FROM users WHERE id=?', (svc['provider_user_id'],)).fetchone() or {'fullname': ''})['fullname']
+        for r in rows:
+            if r['seat'] != 1 or r['status'] != 'done' or not r['is_dive']: continue
+            pts = db.execute('SELECT p.name, p.country FROM service_slot_points sp JOIN dive_points p ON p.id=sp.dive_point_id WHERE sp.slot_id=? ORDER BY p.name LIMIT 1',
+                             (r['slot_id'] or (edition['id'] if edition else 0),)).fetchone()
+            note = f"{svc['title']} · {r['label']} · reserva #{b['id']}"
+            if db.execute('SELECT 1 FROM logbook_entries WHERE user_id=? AND notes=?', (b['user_id'], note)).fetchone(): continue
+            # one entry per booking can carry the booking (it comes back if deleted); the other dives go in as the diver's own
+            linked = None if db.execute('SELECT 1 FROM logbook_entries WHERE booking_id=?', (b['id'],)).fetchone() else b['id']
+            db.execute('INSERT INTO logbook_entries(user_id,dive_date,site,country,depth,duration,dive_type,notes,created_at,booking_id) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                       (b['user_id'], r['local_date'], (pts['name'] if pts else None) or row_get(svc, 'meeting_point') or where,
+                        (pts['country'] if pts else None) or (place['country'] if place else None), None, None, 'Curso', note, now(), linked))
+    lang = user_lang(db, b['user_id'])
+    body = mail_t(lang, 'Has completado el {course}. Tus inmersiones ya están en tu Log Book.', course=svc['title'])
+    db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?,'system')",
+               (actor or svc['provider_user_id'], b['user_id'], b['id'], mail_t(lang, '¡Curso completado!'), (body + f"\n\n{public_site_url()}/#/logbook")[:2000], now()))
+    push_to_user(db, b['user_id'], mail_t(lang, '¡Curso completado!'), body, '#/logbook')
+    ctx2 = booking_mail_ctx(db, b['id'], lang)
+    if ctx2 and ctx2.get('diver_email'):
+        queue_email(db, 'course_completed', ctx2['diver_email'], ctx2['diver_name'], {**ctx2, 'logbook_url': f'{public_site_url()}/#/logbook'}, lang, ('booking', b['id']))
+    audit(db, actor, 'course_completed', 'booking', b['id'], {'sessions': len(rows)})
+    return True
+
+
+def course_certify(db, user, bid, data):
+    """After «Curso completado», the centre registers the certification: it stays in the booking and goes to the
+    diver's profile only if the profile has none yet (what the diver wrote there is never overwritten)."""
+    b = course_booking_for(db, user, bid)
+    if not row_get(b, 'course_completed_at'): raise ValueError('La titulación se registra cuando el curso está completado.')
+    cid = clean_int(data.get('certification_id'), 1, 10**9, 0, 'Elige la titulación.')
+    c = db.execute('SELECT id, name FROM certifications WHERE id=? AND active=1', (cid,)).fetchone()
+    if not c: raise ValueError('Elige una titulación de la lista.')
+    db.execute('UPDATE bookings SET course_certification_id=?,course_certified_at=?,course_certified_by=?,updated_at=? WHERE id=?', (c['id'], now(), user['id'], now(), b['id']))
+    profile = 'guest'
+    if not is_guest_user(db, b['user_id']):
+        cur = db.execute('SELECT certification_id FROM user_profiles WHERE user_id=?', (b['user_id'],)).fetchone()
+        if not cur: db.execute('INSERT INTO user_profiles(user_id,certification_id,updated_at) VALUES(?,?,?)', (b['user_id'], c['id'], now())); profile = 'saved'
+        elif not cur['certification_id']: db.execute('UPDATE user_profiles SET certification_id=?,updated_at=? WHERE user_id=?', (c['id'], now(), b['user_id'])); profile = 'saved'
+        else: profile = 'kept'
+        lang = user_lang(db, b['user_id'])
+        team_notify(db, b['user_id'], mail_t(lang, 'Titulación registrada: {name}', name=c['name']),
+                    mail_t(lang, 'El centro ha registrado tu titulación {name} del curso {course}.', name=c['name'], course=booking_service(db, b)['title']), f"#/reserva?id={b['id']}")
+    audit(db, user['id'], 'course_certified', 'booking', b['id'], {'certification': c['name'], 'profile': profile})
+    return {'certification': c['name'], 'profile': profile, 'view': course_view(db, user, booking_row(db, b['id']))}
+
+
+def course_move_options(db, user, bid, seq):
+    """What «Pasar a otro día» offers: the one-day departures of the next 60 days, the team and the boats."""
+    b = course_booking_for(db, user, bid)
+    ctx, rows = course_rows(db, b)
+    svc, edition, _plan, items = ctx
+    item = next((i for i in items if i['seq'] == seq), None)
+    if not item: raise ValueError('Sesión no válida.')
+    kind, oid = course_owner(svc)
+    w, a = owner_where(kind, oid, 's')
+    today = provider_today(db, user)
+    until = (_dt.date.fromisoformat(today) + _timedelta(days=60)).isoformat()
+    out = []
+    for x in db.execute(f"""SELECT ss.*, s.title, s.service_type, s.kind AS service_kind FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
+                            WHERE {w} AND ss.slot_date>=? AND ss.slot_date<=? AND ss.status IN ('open','full') AND ss.cancelled_at IS NULL
+                              AND COALESCE(ss.kind,'')<>'edition' AND (ss.date_to IS NULL OR ss.date_to=ss.slot_date) AND ss.id<>?
+                            ORDER BY ss.slot_date, ss.slot_time LIMIT 120""", (*a, today, until, edition['id'] if edition else 0)).fetchall():
+        st = slot_start(db, x)
+        if st and st <= local_now(): continue
+        out.append({'id': x['id'], 'date': x['slot_date'], 'time': x['slot_time'], 'title': x['title'], 'free': int(x['spots_available'] or 0),
+                    'total': int(x['spots_total'] or 0), 'dive': (x['service_kind'] or wsv.kind_of({'service_type': x['service_type'], 'title': x['title']})) in ('dive', 'baptism')})
+    teacher = next((r['instructor_user_id'] for r in rows if r['seq'] == seq and r['instructor_user_id']), None) or (row_get(edition, 'instructor_user_id') if edition else None)
+    group = db.execute("SELECT COALESCE(SUM(participants),0) FROM bookings WHERE slot_id=? AND status IN ('confirmed','completed')", (edition['id'],)).fetchone()[0] if edition else 0
+    return {'session': {'seq': item['seq'], 'label': item['label'], 'dive': item['dive'], 'start': item['start'], 'end': item['end'],
+                        'minutes': wcur.minutes_between(item['start'], item['end'])},
+            'departures': out, 'team': owner_guides(db, kind, oid), 'boats': owner_boats(db, kind, oid), 'instructor_user_id': teacher,
+            'group': int(group or 0), 'today': today, 'online': booking_pay_way(b) != 'in_person', 'currency': b['currency'] or 'EUR'}
+
+
+def course_answer(db, user, bid, data):
+    """The student confirms he goes to the new date, or asks for another one: the centre is told."""
+    b = booking_row(db, bid)
+    if not b or b['user_id'] != user['id']: raise NotFound('Reserva no encontrada.')
+    ctx, rows = course_rows(db, b, create=False)
+    if not ctx: raise ValueError('Esta reserva no es de un curso.')
+    seq = clean_int(data.get('seq'), 1, 400, 0, 'Sesión no válida.')
+    answer = data.get('answer')
+    if answer not in ('ok', 'other_date'): raise ValueError('Elige «Confirmo» o «Pedir otra fecha».')
+    pick = [r for r in rows if r['seq'] == seq and r['status'] == 'moved']
+    if not pick: raise ValueError('Esa sesión no tiene una fecha nueva que confirmar.')
+    note = clean_text(data.get('note'), 300) or None
+    for r in pick: db.execute('UPDATE booking_sessions SET reply=?,reply_at=?,note=COALESCE(?,note),updated_at=? WHERE id=?', (answer, now(), note, now(), r['id']))
+    svc = ctx[0]
+    d = _dt.date.fromisoformat(pick[0]['local_date'])
+    diver = b['contact_name'] or (db.execute('SELECT fullname FROM users WHERE id=?', (b['user_id'],)).fetchone() or {'fullname': ''})['fullname'] or 'El alumno'
+    label = pick[0]['label'][0].lower() + pick[0]['label'][1:]
+    subject = f"{diver} {'confirma' if answer == 'ok' else 'pide otra fecha para'} {label} · {svc['title']}"
+    body = f"{subject} ({WEEKDAYS_ES[d.weekday()].lower()} {d.day}/{d.month} a las {pick[0]['start_time']})." + (f'\n«{note}»' if note else '')
+    kind, oid = course_owner(svc)
+    staff = [r['id'] for r in db.execute("SELECT id FROM users WHERE role='center' AND center_id=? ORDER BY id", (oid,)).fetchall()] if kind == 'center' else [oid]
+    for uid in staff[:10]: team_notify(db, uid, subject, body, f"#/reserva?id={b['id']}", sender=user['id'])
+    audit(db, user['id'], 'course_session_answer', 'booking', b['id'], {'seq': seq, 'answer': answer})
+    return course_view(db, user, booking_row(db, b['id']))
+
+
+def course_slot_cancelled(db, user, slot, reason, note):
+    """A departure is cancelled (the weather…): the course students who had a session in it are not refunded (their
+    course is paid and goes on). Their session waits for a new date and the centre sees it in «Sesiones de curso por
+    recolocar». Returns how many."""
+    rows = [dict(r) for r in db.execute("SELECT * FROM booking_sessions WHERE slot_id=? AND status='moved' AND mode='join'", (slot['id'],)).fetchall()]
+    if not rows: return 0
+    svc_s = db.execute('SELECT center_id, provider_user_id FROM provider_services WHERE id=?', (slot['service_id'],)).fetchone()
+    kind, oid = course_owner(svc_s)
+    why = SLOT_CANCEL_REASONS.get(reason, 'Otro motivo')
+    for r in rows:
+        course_release(db, kind, oid, r, user['id'] if user else None)
+        db.execute("UPDATE booking_sessions SET status='pending_new_date',pending_since=?,mode=NULL,slot_id=NULL,reply=NULL,reply_at=NULL,note=?,updated_at=? WHERE id=?",
+                   (now(), f'Salida cancelada: {why}' + (f' ({note})' if note else ''), now(), r['id']))
+    by_booking = {}
+    for r in rows: by_booking.setdefault(r['booking_id'], []).append(r)
+    for bid, pick in by_booking.items():
+        b = booking_row(db, bid)
+        svc = booking_service(db, b) if b else None
+        if not svc: continue
+        lang = user_lang(db, b['user_id']); what = course_name(lang, pick[0])
+        text = mail_t(lang, 'La salida del {when} se ha cancelado ({reason}). Tu {session} del {course} queda pendiente de nueva fecha: el centro te propondrá otra. No pierdes la sesión ni se te cobra nada.',
+                      when=course_when(lang, slot['slot_date'], slot['slot_time']), reason=mail_t(lang, why), session=what, course=svc['title'])
+        subject = mail_t(lang, 'Tu {session} queda pendiente de nueva fecha', session=what)
+        db.execute("INSERT INTO messages(sender_user_id,recipient_user_id,booking_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?,'system')",
+                   ((user['id'] if user else None) or svc['provider_user_id'], b['user_id'], bid, subject[:200], (text + f"\n\n{public_site_url()}/#/reserva?id={bid}")[:2000], now()))
+        push_to_user(db, b['user_id'], subject, text, f'#/reserva?id={bid}')
+        ctx = booking_mail_ctx(db, bid, lang)
+        if ctx and ctx.get('diver_email'):
+            queue_email(db, 'course_session_pending', ctx['diver_email'], ctx['diver_name'], {**ctx, 'session': what, 'pending_text': text}, lang, ('booking', bid))
+    slot_event(db, slot['id'], 'course_pending', user['id'] if user else None, sessions=len(rows))
+    return len(rows)
+
+
+def course_cancel_preview(db, slot):
+    """The course students of a departure about to be cancelled: they get «Pendiente de nueva fecha», not a refund."""
+    return [{'booking_id': r['booking_id'], 'seat': r['seat'], 'label': r['label'], 'course': r['title']}
+            for r in db.execute("""SELECT bs.booking_id, bs.seat, bs.label, s.title FROM booking_sessions bs JOIN bookings b ON b.id=bs.booking_id
+                                   JOIN provider_services s ON s.id=b.service_id WHERE bs.slot_id=? AND bs.status='moved' AND bs.mode='join' ORDER BY bs.id""", (slot['id'],)).fetchall()]
+
+
+def course_release_booking(db, b):
+    """A course booking that is cancelled lets go of the places and the hours its moved sessions held."""
+    rows = [dict(r) for r in db.execute("SELECT * FROM booking_sessions WHERE booking_id=? AND status IN ('pending','moved','pending_new_date')", (b['id'],)).fetchall()]
+    if not rows: return
+    svc = db.execute('SELECT center_id, provider_user_id FROM provider_services WHERE id=?', (b['service_id'],)).fetchone() if b['service_id'] else None
+    if not svc: return
+    kind, oid = course_owner(svc)
+    for r in rows:
+        if r['block_id'] or r['claim_type']: course_release(db, kind, oid, r)
+    db.execute("UPDATE booking_sessions SET status='cancelled',updated_at=? WHERE booking_id=? AND status IN ('pending','moved','pending_new_date')", (now(), b['id']))
+
+
+def course_pending(db, user):
+    """«Sesiones de curso por recolocar»: those waiting for a new date and those whose day passed without being marked.
+    With the reminder: the ones pending for longer than the days the centre chose (30 by default)."""
+    kind, oid = provider_owner(user)
+    w, a = owner_where(kind, oid, 'b')
+    days = course_reminder_days(db, kind, oid)
+    today = provider_today(db, user)
+    items = []
+    for r in db.execute(f"""SELECT bs.*, b.participants, b.contact_name, u.fullname, s.title FROM booking_sessions bs JOIN bookings b ON b.id=bs.booking_id
+                            JOIN provider_services s ON s.id=b.service_id LEFT JOIN users u ON u.id=b.user_id
+                            WHERE {w} AND b.status='confirmed' AND (bs.status='pending_new_date' OR (bs.status IN ('pending','moved') AND bs.local_date<?))
+                            ORDER BY COALESCE(substr(bs.pending_since,1,10), bs.local_date), bs.id LIMIT 300""", (*a, today)).fetchall():
+        since = (r['pending_since'] or '')[:10] if r['status'] == 'pending_new_date' else r['local_date']
+        waited = max(0, (_dt.date.fromisoformat(today) - _dt.date.fromisoformat(since)).days) if since else 0
+        if r['seat'] == 1: name = r['contact_name'] or r['fullname'] or ''
+        else: name = (db.execute('SELECT name FROM manifest_entries WHERE booking_id=? AND seat=?', (r['booking_id'], r['seat'])).fetchone() or {'name': ''})['name'] or f"Buceador {r['seat']}"
+        items.append({'booking_id': r['booking_id'], 'seat': r['seat'], 'seq': r['seq'], 'name': name, 'course': r['title'], 'label': r['label'],
+                      'status': r['status'], 'state': wcur.LABELS['pending_new_date'] if r['status'] == 'pending_new_date' else 'Sin marcar',
+                      'date': r['local_date'], 'since': since, 'days': waited, 'old': waited >= days, 'note': r['note']})
+    return {'items': items, 'days': days, 'old': sum(1 for x in items if x['old']), 'total': len(items)}
+
+
+def course_settings_save(db, user, data):
+    kind, oid = provider_owner(user)
+    d = clean_int(data.get('reminder_days'), 1, 365, wcur.PENDING_DAYS, 'Elige entre 1 y 365 días.')
+    db.execute('UPDATE centers SET course_reminder_days=? WHERE id=?' if kind == 'center' else 'UPDATE users SET course_reminder_days=? WHERE id=?', (d, oid))
+    audit(db, user['id'], 'course_settings_saved', 'center' if kind == 'center' else 'user', oid, {'reminder_days': d})
+    return {'reminder_days': d}
 
 
 def provider_today(db, user):
@@ -18492,6 +19106,17 @@ class Handler(BaseHTTPRequestHandler):
                 if m_be:
                     user=require_user(self,db)
                     self.send_json(booking_equipment_state(db,user,int(m_be.group(1)))); return
+                # v50.58 (3.5): the progress of a course in the booking (the diver and the centre)
+                m_cs=re.fullmatch(r'/api/bookings/(\d+)/course',path)
+                if m_cs:
+                    user=require_user(self,db); b_=course_booking_for(db,user,int(m_cs.group(1)),provider=False)
+                    view=course_view(db,user,b_); db.commit(); self.send_json(view); return
+                m_cs=re.fullmatch(r'/api/center/bookings/(\d+)/course/move-options',path)
+                if m_cs:
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    out=course_move_options(db,user,int(m_cs.group(1)),clean_int(query.get('seq',['0'])[0],1,400,0,'Sesión no válida.')); db.commit(); self.send_json(out); return
+                if path=='/api/center/course-pending':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); self.send_json(course_pending(db,user)); return
                 if path == '/api/center-points':
                     # This endpoint is also part of the public booking flow. A recreational
                     # diver or freelance user must be able to see the points that a centre
@@ -19967,7 +20592,7 @@ class Handler(BaseHTTPRequestHandler):
                     hours=int(data['choice_hours']) if data.get('choice_hours') not in (None,'') else service_choice_hours(db,slot)
                     if not 1<=hours<=168: raise ValueError('El plazo para elegir debe estar entre 1 y 168 horas.')
                     if data.get('preview'):
-                        self.send_json({'ok':True,'affected':slot_cancel_preview(db,slot),'choice_hours':hours,'reasons':SLOT_CANCEL_REASONS}); return
+                        self.send_json({'ok':True,'affected':slot_cancel_preview(db,slot),'course':course_cancel_preview(db,slot),'choice_hours':hours,'reasons':SLOT_CANCEL_REASONS}); return
                     reason=clean_text(data.get('reason'),20)
                     if reason not in SLOT_CANCEL_REASONS: raise ValueError('Elige el motivo de la cancelación.')
                     note=clean_text(data.get('note'),300) or ''
@@ -20270,6 +20895,16 @@ class Handler(BaseHTTPRequestHandler):
                 if m_be:
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
                     out=booking_equipment_desk(db,user,int(m_be.group(1)),data); db.commit(); self.send_json({'ok':True,**out}); return
+                # v50.58 (3.5): «Marcar como hecha», «Pasar a otro día», the certification and the student's answer
+                m_cs=re.fullmatch(r'/api/center/bookings/(\d+)/course/(done|move|certify)',path)
+                if m_cs:
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self); bid_=int(m_cs.group(1))
+                    out={'done':course_mark_done,'move':course_move,'certify':course_certify}[m_cs.group(2)](db,user,bid_,data); db.commit(); self.send_json({'ok':True,**out}); return
+                m_cs=re.fullmatch(r'/api/bookings/(\d+)/course/answer',path)
+                if m_cs:
+                    user=require_user(self,db); view=course_answer(db,user,int(m_cs.group(1)),json_body(self)); db.commit(); self.send_json({'ok':True,'view':view}); return
+                if path=='/api/center/course-settings':
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); out=course_settings_save(db,user,json_body(self)); db.commit(); self.send_json({'ok':True,**out}); return
                 if path=='/api/center/integration/regenerate':
                     user=require_user(self,db); require_role(user,{'center'}); cid=int(user['center_id'] or 0)
                     require_feature(db,user,'integration')
@@ -21552,14 +22187,18 @@ class Handler(BaseHTTPRequestHandler):
                         result['refund']=provider_cancel(db,user['id'],row,data.get('reason'),data.get('refund_amount')); result['status']='cancelled'
                     elif status=='completed':
                         if cur_state!='confirmed': raise ValueError('Solo se puede completar una reserva confirmada.')
-                        if str(row['booking_date'] or '')>local_now().date().isoformat(): raise ValueError('Solo puedes marcar como completada una reserva cuya fecha ya ha llegado.')
-                        db.execute("UPDATE bookings SET status='completed',updated_at=? WHERE id=?",(now(),bid))
-                        b=db.execute('''SELECT b.id,b.user_id,b.booking_date,COALESCE(c.name,pu.fullname) AS center_name,p.name AS point_name,p.country,p.dive_type
-                                       FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.id=?''',(bid,)).fetchone()
-                        if b and not is_guest_user(db,b['user_id']) and not db.execute('SELECT 1 FROM logbook_entries WHERE booking_id=?',(bid,)).fetchone():
-                            site=b['point_name'] or b['center_name']
-                            note=f"Inmersión generada automáticamente desde la reserva #{bid} · {b['center_name']}"
-                            db.execute('INSERT INTO logbook_entries(user_id,dive_date,site,country,depth,duration,dive_type,notes,created_at,booking_id) VALUES(?,?,?,?,?,?,?,?,?,?)',(b['user_id'],b['booking_date'],site,b['country'],None,None,b['dive_type'] or 'Buceo recreativo',note,now(),bid))
+                        if course_of_booking(db,row):
+                            # v50.58 (3.5): a course is «Completado» only when every session is done
+                            if not course_check_complete(db,booking_row(db,bid),user['id']): raise ValueError('A este curso le faltan sesiones: márcalas como hechas en «Progreso del curso» y se completará solo.')
+                        else:
+                            if str(row['booking_date'] or '')>local_now().date().isoformat(): raise ValueError('Solo puedes marcar como completada una reserva cuya fecha ya ha llegado.')
+                            db.execute("UPDATE bookings SET status='completed',updated_at=? WHERE id=?",(now(),bid))
+                            b=db.execute('''SELECT b.id,b.user_id,b.booking_date,COALESCE(c.name,pu.fullname) AS center_name,p.name AS point_name,p.country,p.dive_type
+                                           FROM bookings b LEFT JOIN centers c ON c.id=b.center_id LEFT JOIN users pu ON pu.id=b.provider_user_id LEFT JOIN dive_points p ON p.id=b.dive_point_id WHERE b.id=?''',(bid,)).fetchone()
+                            if b and not is_guest_user(db,b['user_id']) and not db.execute('SELECT 1 FROM logbook_entries WHERE booking_id=?',(bid,)).fetchone():
+                                site=b['point_name'] or b['center_name']
+                                note=f"Inmersión generada automáticamente desde la reserva #{bid} · {b['center_name']}"
+                                db.execute('INSERT INTO logbook_entries(user_id,dive_date,site,country,depth,duration,dive_type,notes,created_at,booking_id) VALUES(?,?,?,?,?,?,?,?,?,?)',(b['user_id'],b['booking_date'],site,b['country'],None,None,b['dive_type'] or 'Buceo recreativo',note,now(),bid))
                         sync_user_rewards(db,row['user_id']); result['status']='completed'
                     audit(db,user['id'],'booking_status_changed','booking',bid,{'from':cur_state,'to':result.get('status',status),'reason':clean_text(data.get('reason'),200) or None})
                     db.commit(); self.send_json(result); return
