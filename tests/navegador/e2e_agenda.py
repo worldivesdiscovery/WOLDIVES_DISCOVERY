@@ -146,7 +146,8 @@ def run_browser(t, srv, sid, check, shots):
                 # Service form: «Unidad de reserva»
                 page.goto(base + '/#/admin?tab=services'); page.wait_for_timeout(1500)
                 if page.locator('.service-edit').count():
-                    page.locator('.service-edit').first.click(); page.wait_for_timeout(800)
+                    # v50.58 (Parte 3): «Editar» opens the editor in one page; the full form is behind «Más ajustes…»
+                    page.locator('.service-edit').first.click(); page.wait_for_selector('#wz-legacy', timeout=10000); page.click('#wz-legacy'); page.wait_for_timeout(800)
                     check(f'{dev}: formulario con «Unidad de reserva» y precios por día', page.locator('#svc-unit-box').count() == 1 and page.locator('#svc-day-box').is_visible())
                     shot('formulario-servicio')
                 check(f'{dev}: sin desbordamiento', page.evaluate('document.documentElement.scrollWidth') <= (1366 if dev == 'ordenador' else 392))

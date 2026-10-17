@@ -89,7 +89,8 @@ def main():
                     if role == 'buceador':
                         screens = [p.format(booking=booking) for p in DIVER_PAGES]
                     else:
-                        pg.goto(srv.base + '/#/admin'); pg.wait_for_selector('.cb-nav, .provider-tabs .tab', timeout=20000); pg.wait_for_timeout(800)
+                        # v50.58 (2.4): the side menu is folded away on the phone, so its buttons are there but not visible
+                        pg.goto(srv.base + '/#/admin'); pg.wait_for_selector('.cb-nav, .provider-tabs .tab', state='attached', timeout=20000); pg.wait_for_timeout(800)
                         keys = pg.evaluate("[...document.querySelectorAll('.cb-nav[data-cbtab], .cb-nav[data-tab], .provider-tabs .tab[data-tab]')].map(b => b.dataset.cbtab || b.dataset.tab)")
                         screens = [f'#/admin?tab={k}' for k in dict.fromkeys(keys)]
                     seen = []

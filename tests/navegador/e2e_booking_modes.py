@@ -121,7 +121,9 @@ def run(shots: Path | None):
             txt = page.inner_text('body')
             check('panel servicios: etiquetas', 'Pago al reservar · confirmación inmediata' in txt and 'Bajo petición · el centro responde en 12 h' in txt)
             if shots: page.screenshot(path=str(shots / 'panel-servicios.png'), full_page=True)
-            page.click('#new-center-service'); page.wait_for_timeout(700)
+            # v50.58 (Parte 3): «Nuevo servicio» opens the 6-step wizard; the full form (both modes with their example) opens
+            # from «Editar» → «Más ajustes…»
+            page.locator('.service-edit').first.click(); page.wait_for_selector('#wz-legacy', timeout=10000); page.click('#wz-legacy'); page.wait_for_timeout(700)
             check('formulario: dos modos', page.locator('input[name="svc-mode"]').count() == 2)
             check('formulario: ejemplo visible', 'El cliente verá' in page.inner_text('#center-service-modal'))
             if shots: page.screenshot(path=str(shots / 'panel-formulario.png'), full_page=False)

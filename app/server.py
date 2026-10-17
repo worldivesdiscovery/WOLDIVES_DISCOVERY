@@ -16047,12 +16047,14 @@ def course_view(db, user, b):
             'reminder_days': course_reminder_days(db, kind, oid), 'labels': wcur.LABELS, 'icons': wcur.ICONS}
 
 
-def course_booking_for(db, user, bid, provider=True):
+def course_booking_for(db, user, bid, provider=True, need_course=True):
     b = booking_row(db, bid)
     if not b: raise NotFound('Reserva no encontrada.')
     if provider: require_booking_provider(user, b)
     elif b['user_id'] != user['id'] and not can_manage_booking(user, b): raise NotFound('Reserva no encontrada.')
-    if not course_of_booking(db, b): raise ValueError('Esta reserva no es de un curso.')
+    if not course_of_booking(db, b):
+        if need_course: raise ValueError('Esta reserva no es de un curso.')
+        return None
     return b
 
 
@@ -19303,8 +19305,9 @@ class Handler(BaseHTTPRequestHandler):
                 # v50.58 (3.5): the progress of a course in the booking (the diver and the centre)
                 m_cs=re.fullmatch(r'/api/bookings/(\d+)/course',path)
                 if m_cs:
-                    user=require_user(self,db); b_=course_booking_for(db,user,int(m_cs.group(1)),provider=False)
-                    view=course_view(db,user,b_); db.commit(); self.send_json(view); return
+                    user=require_user(self,db); b_=course_booking_for(db,user,int(m_cs.group(1)),provider=False,need_course=False)
+                    if not b_: self.send_json({'course':None}); return   # any booking page asks: a booking that is not a course has no progress
+                    view=course_view(db,user,b_); db.commit(); self.send_json(view or {'course':None}); return
                 m_cs=re.fullmatch(r'/api/center/bookings/(\d+)/course/move-options',path)
                 if m_cs:
                     user=require_user(self,db); require_role(user,{'center','freelance'})

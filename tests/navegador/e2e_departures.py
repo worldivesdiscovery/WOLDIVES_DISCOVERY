@@ -147,7 +147,8 @@ def run(shots: Path | None):
             check('cambio aprobado y plazas movidas', srv.sql('SELECT slot_id FROM bookings WHERE id=?', (b3,))[0]['slot_id'] == D)
             # Service form: the options of change of date and waiting list
             go(page, '#/admin?tab=services', 1600)
-            page.locator('.service-edit').first.click(); page.wait_for_timeout(800)
+            # v50.58 (Parte 3): «Editar» opens the editor in one page; change of date and waiting list are in «Más ajustes…»
+            page.locator('.service-edit').first.click(); page.wait_for_selector('#wz-legacy', timeout=10000); page.click('#wz-legacy'); page.wait_for_timeout(800)
             check('formulario del servicio: cambio de fecha y lista de espera', page.locator('#svc-resched').count() == 1 and page.locator('#svc-waitlist').count() == 1)
             page.select_option('#svc-resched', 'direct'); page.locator('#svc-waitlist').scroll_into_view_if_needed()
             shot(page, 'servicio-opciones-ordenador', False)

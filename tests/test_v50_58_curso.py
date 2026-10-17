@@ -330,7 +330,11 @@ class CourseProgress(ServerTestCase):
         self.assertEqual(self.spots(fslot), 8)
         # a normal dive booking has no course progress
         nb = self.server.sql('SELECT id FROM bookings WHERE service_id=? ORDER BY id LIMIT 1', (self.dive,))[0]['id']
-        self.assertEqual(self.center.get(f'/api/bookings/{nb}/course').status, 400)
+        # any booking page asks for the progress: a booking that is not a course answers «no course» (not an error in the browser)
+        r = self.center.get(f'/api/bookings/{nb}/course')
+        self.assertEqual((r.status, r.json), (200, {'course': None}), r)
+        self.assertEqual(self.other.get(f'/api/bookings/{nb}/course').status, 404, 'another centre still sees nothing')
+        self.assertEqual(self.center.post(f'/api/center/bookings/{nb}/course/done', {'seq': 1}).status, 400, 'and nothing can be marked on it')
 
 
 if __name__ == '__main__':

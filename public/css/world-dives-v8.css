@@ -4659,3 +4659,5 @@ html.wd-app[data-wda-tema="noche"] .pp-temps{background:#0f2433;border-color:#22
 .mmc-hero strong{position:relative;z-index:1;margin:0 14px 10px;font-size:18px}
 .mmc-point{aspect-ratio:4/3}
 
+/* v50.58 (auditoría de los cuatro modos): el ejemplo de lote JSON en «Lotes nuevos» se parte en el móvil en vez de salirse */
+.pa-upload code{overflow-wrap:anywhere;word-break:break-word;white-space:normal}

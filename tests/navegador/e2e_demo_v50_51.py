@@ -81,7 +81,9 @@ def run(shots: Path | None):
             check('aviso discreto «Versión de demostración»', 'Versión de demostración' in pg.inner_text('#demo-ribbon')
                   and pg.evaluate("getComputedStyle(document.getElementById('demo-ribbon')).position") != 'sticky')
             check('ficha · «Vida marina en esta inmersión · 14 especies»', pg.inner_text('.pm-count').strip() == '14 especies')
-            check('ficha · «Recorrido virtual» justo debajo', pg.evaluate("document.querySelector('.pm-block').nextElementSibling.querySelector('h2').textContent.trim()") == 'Recorrido virtual')
+            # v50.58 (vídeos, 16/10/2026): «Vídeos del punto» goes right under «Sobre el punto», before the marine life
+            check('ficha · «Vídeos del punto» antes de la vida marina', pg.evaluate("""(()=>{const v=document.querySelector('#pp-videos'),m=document.querySelector('.pm-block');
+                  return !!(v&&m&&(v.compareDocumentPosition(m)&Node.DOCUMENT_POSITION_FOLLOWING))})()"""))
             shot(pg, 'ordenador-ficha-cabo-san-antonio', full=True)
             open_first_species(pg)
             check('ficha · bocadillo abierto', pg.locator('#pm-pop').count() == 1)

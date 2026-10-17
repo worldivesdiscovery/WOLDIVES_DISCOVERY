@@ -5858,6 +5858,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   async function mountCourseProgress(id,{center=false}={}){
     const box=document.getElementById('bk-course'); if(!box) return; const esc=escapeHtml, tr=translateString;
     let v; try{ v=await api(`/api/bookings/${id}/course`); }catch{ box.innerHTML=''; return; }
+    if(!v||!v.course){ box.innerHTML=''; return; }   // not a course: nothing to show
     const reload=()=>mountCourseProgress(id,{center});
     const can=center&&v.can_edit&&!v.completed_at&&wdCan('reservas');
     const multi=v.seats.length>1;
