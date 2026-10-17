@@ -72,6 +72,8 @@ from wod import enlaces as wenl   # v50.57 (4.4): short addresses of the QR code
 from wod import logbook as wlog   # v50.57: the dive logbook of the account («Dive Logbook»)
 from wod import servicios as wsv   # v50.58: services in the words of a diver (the wizard, courses and their sessions)
 from wod import curso as wcur   # v50.58 (3.5): the progress of a course in each booking
+from wod import tipos_datos as wtd   # 17/10 (1.2): the own data of each type of dive (a wreck, a cave, a wall…)
+from wod import buddies as wbud   # 17/10 (1.7): buddies that accept, and «¿Buceamos?»
 from wod import equipo as weq   # v50.58: rental equipment inside the dive (16/10/2026)
 from wod import puntos as wpun   # v50.58: fuller dive sites, sources, batches and duplicates (16/10/2026)
 from wod import costa as wcosta   # v50.58: land or sea, and the distance to the shore, of a dive site
@@ -1556,6 +1558,8 @@ def bootstrap():
         db.commit()
         migrate_v50_58(db)
         db.commit()
+        migrate_v50_59(db)
+        db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
         db.commit()
@@ -2604,6 +2608,64 @@ def backup_database(db, tag):
     return target
 
 
+# Encargo del 17/10/2026 (1.2): what the owner's research says about the 10 sites of Xàbia and around (the summary of each
+# site in app/data/importar/vida-marina-puntos.json, with its sources). Only data stated there; the rest stays empty for
+# the centres to complete. (name of the site, columns of the page when empty, own data of the type, source, what it says)
+DENIA_PDF = 'https://denia.net/wp-content/uploads/2025/10/10-1750156967Submarinismo1.pdf'
+XABIA_PDF = 'https://www.actividades.comunitatvalenciana.com/sites/default/files/2020-08/Buceo%20en%20X%C3%A0bia_compressed.pdf'
+POINT_DATA_17_10 = [
+    ('La Barra (Les Marines)', {'min_depth': 7}, {}, DENIA_PDF, 'Fondeo a ~7 m y máximo de 11-15 m (guía «Submarinismo en Dénia»).'),
+    ('La Cullerà', {}, {('cuevas-y-cavernas', 'recorrido'): '50'}, 'http://denia.net/submarinismo',
+     'Cueva de ~50 m con burbuja de aire a ~5 m (Turismo Dénia, rutas de buceo).'),
+    ('Escull de Sant Pere (El Bergantí)', {}, {('cuevas-y-cavernas', 'recorrido'): '25', ('paredes', 'pared_hasta'): '31-33'}, XABIA_PDF,
+     'Cima de un monte submarino que cae a 31-33 m; cueva en L de unos 25 m con entradas a 23-27 m (guía «Buceo en Xàbia»).'),
+    ('Isla del Descubridor', {'max_depth': 30}, {}, XABIA_PDF, 'Media 14 m, máximo 18-19 m y hasta 26-30 m en la punta (guía «Buceo en Xàbia»).'),
+    ('Acantilados del Mascarat (La Bodega)', {'min_depth': 3, 'current': 'variable'}, {('paredes', 'pared_desde'): '3', ('paredes', 'pared_hasta'): '15'},
+     'https://calpe.es/en/discover-calpe/sports-tourism/scuba-diving-in-calpe/routes/10-mascarat',
+     'Pared de 3 a ~15 m; La Bodega entre 17 y 27 m, con corriente ocasional (rutas oficiales de buceo de Calp).'),
+]
+
+
+def point_type_keys(db, pid):
+    """The types of one dive site (as the catalogue computes them for every site), straight from the database."""
+    return [cat_key(c) for c in DIVE_CATEGORIES if db.execute(f"SELECT 1 FROM dive_points p WHERE p.id=? AND {c['where']}", (pid,)).fetchone()]
+
+
+def migrate_v50_59(db):
+    """Encargo unificado del 17/10/2026, primera entrega. Adds; nothing is deleted.
+    1.2: the own data of each type of dive (a list of fields per type that the administration configures, and the values of
+    each site), the fields of the brief, and what the owner's research says of the 10 sites of Xàbia and around, only in
+    data that are empty, each one with its source in the private register."""
+    for stmt in wtd.SCHEMA: db.execute(stmt)
+    for stmt in wbud.SCHEMA: db.execute(stmt)   # 1.7: buddy requests and «¿Buceamos?»
+    wtd.seed(db, now())
+    if migration_done(db, '50.59-tipos'): return
+    n_cols = n_vals = 0
+    fields = {(r['type_key'], r['field_key']): r['id'] for r in db.execute('SELECT id,type_key,field_key FROM dive_type_fields').fetchall()}
+    for name, cols, own, src, note in POINT_DATA_17_10:
+        p = db.execute("SELECT * FROM dive_points WHERE name=? AND active=1 AND country='España'", (name,)).fetchone()
+        if not p: continue
+        sets = {wpun.COLUMNS.get(k, k): v for k, v in cols.items() if p[wpun.COLUMNS.get(k, k)] in (None, '')}
+        if sets:
+            db.execute(f"UPDATE dive_points SET {', '.join(k + '=?' for k in sets)}, updated_at=? WHERE id=?", [*sets.values(), now(), p['id']])
+            n_cols += len(sets)
+            for f in sorted({POINT_SOURCE_FIELD.get(k, k) for k in sets}):
+                wpun.add_source(db, p['id'], 'official', src, field=f if f in wpun.SOURCE_FIELDS else '*', note=note)
+        types = point_type_keys(db, p['id'])
+        for (tkey, fkey), value in own.items():
+            fid = fields.get((tkey, fkey))
+            if not fid or tkey not in types: continue
+            if db.execute('INSERT OR IGNORE INTO dive_point_type_values(point_id,field_id,value,updated_at) VALUES(?,?,?,?)', (p['id'], fid, value, now())).rowcount:
+                n_vals += 1
+        if own: wpun.add_source(db, p['id'], 'official', src, field='type', note=note)
+    # María Claudia is an islet (Illa del Portitxol): no source describes it as a wreck
+    n_mc = db.execute("""UPDATE dive_points SET dive_type='Pared · Chimenea', updated_at=? WHERE name LIKE 'María Claudia%' AND active=1
+                         AND (lower(dive_type) LIKE '%pecio%' OR lower(dive_type) LIKE '%naufrag%')""", (now(),)).rowcount
+    db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)',
+               ('50.59-tipos', now(), f'Datos de cada tipo de inmersión: {n_cols} datos de la ficha y {n_vals} datos propios del tipo en los puntos de Xàbia y alrededores'
+                                     f'{"; María Claudia deja de figurar como pecio" if n_mc else ""}'))
+
+
 def migration_done(db, version):
     db.execute('CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL, backup_path TEXT, notes TEXT)')
     return bool(db.execute('SELECT 1 FROM schema_migrations WHERE version=?', (version,)).fetchone())
@@ -3177,6 +3239,10 @@ PROVIDER_WITHOUT_2FA_PREFIXES = ('/api/account/',)
 PROVIDER_PANEL_PREFIXES = ('/api/bookings', '/api/center', '/api/provider', '/api/pro/', '/api/manifest', '/api/payments/', '/api/agenda',
                            '/api/avisos', '/api/whatsapp', '/api/team/', '/api/experience-bookings', '/api/service-templates', '/api/redemptions',
                            '/api/rewards/validate', '/api/dive-points/virtual', '/api/marina/', '/api/reports/center')
+# Encargo del 17/10 (1.7): the routes of a professional (centre, freelance, administration). For a diver they «do not
+# exist», also when the address is typed by hand: the same answer as a page that is not there.
+DIVER_NOT_FOUND_PREFIXES = ('/api/center/', '/api/provider/', '/api/pro/', '/api/manifest', '/api/avisos', '/api/whatsapp/', '/api/service-templates',
+                            '/api/redemptions', '/api/rewards/validate', '/api/reports/center', '/api/admin/', '/api/center-equipment')
 PROVIDER_2FA_MESSAGE = ('Activa la verificación en dos pasos en «Mi cuenta» para seguir usando el panel: es obligatoria '
                         'para quien puede cobrar o ver los pagos.')
 
@@ -6282,6 +6348,7 @@ def team_gate(db, user, path, method):
     statistics and the owner's screens; writing needs «reservas» unless a more specific permission applies."""
     if user and user['role'] in ('center_sin_2fa', 'freelance_sin_2fa') and path.startswith(PROVIDER_PANEL_PREFIXES):
         raise PermissionError(PROVIDER_2FA_MESSAGE)      # v50.52 (V6.3.3): a clear answer on every route of the panel
+    if user and user['role'] == 'recreational' and path.startswith(DIVER_NOT_FOUND_PREFIXES): raise NotFound('No existe.')   # 17/10 (1.7)
     closed_gate(db, user, path, method)
     role = member_role(db, user)
     if not role or role == 'owner': return
@@ -8123,6 +8190,7 @@ SITE_MEDIA_SLOTS = [
     ('hero:tipos', 'Tipos de buceo', 'Cabecera de la página de tipos', '/img/portada/fondo.webp', '2400 × 900'),
     ('hero:experiencias', 'Experiencias', 'Cabecera de viajes y vida a bordo', '/img/titular/barco-cadena.webp', '2400 × 900'),
     ('hero:top10', 'Top 10', 'Cabecera del Top 10', '/img/destinos/tailandia.webp', '2400 × 900'),
+    ('hero:freelance', 'Freelance de buceo', 'Cabecera del directorio de freelance', '/img/titular/buceador-rayos.webp', '2400 × 900'),   # 17/10 (bloque 3)
     ('hero:explorar', 'Explorar el mapa', 'Cabecera del mapa de Explorar', '/img/titular/costa-barco.webp', '2400 × 900'),
     ('hero:auth', 'Iniciar sesión y registro', 'Foto junto al formulario de acceso', '/img/portada/logbook1.webp', '1600 × 2000 (vertical)'),
 ]
@@ -13822,6 +13890,8 @@ def delete_user_account(db, user):
     # v50.57 · logbook: the book, the dives claimed, the buddies (both ways), the public code and the centre of the sign-up
     for sql, args in (('DELETE FROM logbook_books WHERE user_id=?', (uid,)), ('DELETE FROM logbook_claims WHERE user_id=?', (uid,)),
                       ('DELETE FROM user_buddies WHERE user_id=? OR buddy_id=?', (uid, uid)),
+                      ('DELETE FROM buddy_requests WHERE from_user=? OR to_user=?', (uid, uid)),   # 17/10 (1.7)
+                      ('DELETE FROM dive_invites WHERE from_user=? OR to_user=?', (uid, uid)),
                       ('UPDATE users SET buddy_code=NULL, signup_center_id=NULL WHERE id=?', (uid,))):
         db.execute(sql, args)
     for sql in ('DELETE FROM user_documents WHERE user_id=?', 'DELETE FROM sessions WHERE user_id=?', 'DELETE FROM device_sessions WHERE user_id=?', 'DELETE FROM known_devices WHERE user_id=?', 'DELETE FROM logbook_entries WHERE user_id=?',
@@ -17035,14 +17105,36 @@ SCAN_TEXT = {
 }
 
 
+def personal_qr_booking(db, user, data):
+    """17/10 (1.7): the staff scans «Mi QR» of a diver (the personal QR that changes every minute) at the check-in. The QR
+    says who the person is; the booking is the one of today with this centre or professional (the departure of the scan,
+    if there are several). None when it is not a personal QR; 'none' when the person has no booking today here."""
+    code = str(data.get('code') or '')
+    try: uid, _src = qr_resolve(db, code, user['id'])
+    except ValueError: return None
+    kind, oid = provider_owner(user)
+    w, a = owner_where(kind, oid, 'b')
+    rows = db.execute(f"""SELECT b.* FROM bookings b WHERE b.user_id=? AND {w} AND b.status NOT IN ('cancelled','rejected','expired')
+                          ORDER BY b.booking_date, b.booking_time""", (uid, *a)).fetchall()
+    rows = [r for r in rows if r['booking_date'] <= place_now(place_tz(db, r['service_id'], r['center_id'])).date().isoformat() <= (r['date_to'] or r['booking_date'])]
+    want = int(data.get('slot_id') or 0)
+    pick = [r for r in rows if want and r['slot_id'] == want] or rows
+    return pick[0] if pick else 'none'
+
+
 def pro_scan(db, user, data):
     """The staff scans the QR of a booking (or types its code). Only bookings of the session's centre are described;
     the check-in is written exactly as the boat list does (manifest_entries)."""
     parsed = wpro.parse_code(data.get('code'))
-    if not parsed: return {'result': 'no_valido', 'message': SCAN_TEXT['no_valido']}
-    bid, tok, how = parsed
-    b = db.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
-    if not b or not wpro.token_matches(b['public_token'], tok, how): return {'result': 'no_valido', 'message': SCAN_TEXT['no_valido']}
+    if not parsed:
+        b = personal_qr_booking(db, user, data)   # 17/10 (1.7): «Mi QR» of the diver, at the check-in
+        if not b: return {'result': 'no_valido', 'message': SCAN_TEXT['no_valido']}
+        if b == 'none': return {'result': 'sin_reserva', 'message': 'Esta persona no tiene ninguna reserva para hoy con vosotros.'}
+        how = 'mi_qr'
+    else:
+        bid, tok, how = parsed
+        b = db.execute('SELECT * FROM bookings WHERE id=?', (bid,)).fetchone()
+        if not b or not wpro.token_matches(b['public_token'], tok, how): return {'result': 'no_valido', 'message': SCAN_TEXT['no_valido']}
     if not can_manage_booking(user, b):
         audit(db, user['id'], 'scan_other_tenant', 'booking', None, {'how': how})
         return {'result': 'otro_centro', 'message': SCAN_TEXT['otro_centro']}
@@ -17325,6 +17417,118 @@ def logbook_fix_cover(book, center):
     if c['logo'] != center['logo'] or c['name'] != center['name']:
         c.update(logo=center['logo'], name=center['name'], style=''); return True
     return False
+
+
+def buddy_notify(db, uid, subject, body, sender):
+    """17/10 (1.7): a notice inside the web and the app (with push when the phone has it on), with the link to «Buddies»."""
+    db.execute('INSERT INTO messages(sender_user_id,recipient_user_id,subject,body,created_at,kind) VALUES(?,?,?,?,?,?)',
+               (sender, uid, subject[:200], (body + f'\n\n{public_site_url()}/#/buddies')[:2000], now(), 'system'))
+    push_to_user(db, uid, subject, body, '#/buddies')
+
+
+def buddy_by_ref(db, uid, ref):
+    """The id of one of the person's buddies from its public reference (never the id of the account)."""
+    for r in db.execute('SELECT buddy_id FROM user_buddies WHERE user_id=?', (uid,)).fetchall():
+        if buddy_ref(buddy_code(db, r['buddy_id'])) == ref: return r['buddy_id']
+    return None
+
+
+def user_phone(db, uid):
+    r = db.execute('SELECT phone FROM user_profiles WHERE user_id=?', (uid,)).fetchone()
+    return wcif.normalize_phone(r['phone']) if r and r['phone'] else None
+
+
+def buddies_payload(db, user):
+    """17/10 (1.7) · «Buddies»: the buddies, the requests to answer and the ones sent, and the «¿Buceamos?» of both ways.
+    No phone and no email: only the names (the WhatsApp opens after accepting a «¿Buceamos?»)."""
+    uid = user['id']
+    pname = lambda pid: (db.execute('SELECT name FROM dive_points WHERE id=?', (pid,)).fetchone() or {'name': None})['name'] if pid else None
+    incoming = [{'id': r['id'], 'name': r['fullname'], 'created_at': r['created_at']} for r in db.execute(
+        """SELECT q.id,q.created_at,u.fullname FROM buddy_requests q JOIN users u ON u.id=q.from_user
+           WHERE q.to_user=? AND q.status='pending' ORDER BY q.created_at DESC""", (uid,)).fetchall()]
+    outgoing = [{'id': r['id'], 'name': r['fullname'], 'created_at': r['created_at']} for r in db.execute(
+        """SELECT q.id,q.created_at,u.fullname FROM buddy_requests q JOIN users u ON u.id=q.to_user
+           WHERE q.from_user=? AND q.status='pending' ORDER BY q.created_at DESC""", (uid,)).fetchall()]
+    today = datetime.now().date().isoformat()
+    inv_in = [{'id': r['id'], 'name': r['fullname'], 'date': r['dive_date'], 'point': pname(r['point_id']), 'note': r['note'], 'status': r['status']}
+              for r in db.execute("""SELECT i.*,u.fullname FROM dive_invites i JOIN users u ON u.id=i.from_user
+                                     WHERE i.to_user=? AND i.dive_date>=? AND i.status IN ('pending','accepted') ORDER BY i.dive_date""", (uid, today)).fetchall()]
+    inv_out = [{'id': r['id'], 'name': r['fullname'], 'date': r['dive_date'], 'point': pname(r['point_id']), 'status': r['status']}
+               for r in db.execute("""SELECT i.*,u.fullname FROM dive_invites i JOIN users u ON u.id=i.to_user
+                                      WHERE i.from_user=? AND i.dive_date>=? AND i.status<>'cancelled' ORDER BY i.dive_date""", (uid, today)).fetchall()]
+    code = buddy_code(db, uid); db.commit()
+    return {'buddies': logbook_friends(db, uid), 'incoming': incoming, 'outgoing': outgoing, 'invites_in': inv_in, 'invites_out': inv_out,
+            'qr': {'url': buddy_url(code), 'svg': '/api/logbook/qr.svg'}, 'has_phone': bool(user_phone(db, uid))}
+
+
+def buddies_action(db, user, path, data):
+    uid = user['id']; me = user['fullname']
+    if path == '/api/buddies/answer':
+        accept = data.get('accept') in (True, 1, '1', 'true')
+        try: r = wbud.answer_request(db, uid, int(data.get('id') or 0), accept, now())
+        except LookupError as e: raise NotFound(str(e))
+        if accept: buddy_notify(db, r['from_user'], 'Ya sois Buddies', f'{me} ha aceptado tu petición. Ya sois Buddies.', uid)
+        audit(db, uid, 'buddy_answered', 'user', r['from_user'], {'acepta': accept}); db.commit(); return {'ok': True}
+    if path == '/api/buddies/cancel':
+        n = db.execute("UPDATE buddy_requests SET status='cancelled', responded_at=? WHERE id=? AND from_user=? AND status='pending'",
+                       (now(), int(data.get('id') or 0), uid)).rowcount
+        if not n: raise NotFound('Esa petición ya no está pendiente.')
+        db.commit(); return {'ok': True}
+    if path == '/api/buddies/qr':
+        # «Mi QR» of another diver scanned with the phone: a Buddy request (the same QR the centre scans at the check-in)
+        if BUDDY_LIMIT.hit(f'u:{uid}'): raise TooManyRequests('Has añadido muchos buddies seguidos. Espera unos minutos.')
+        other, _src = qr_resolve(db, str(data.get('code') or ''), uid)
+        st, _rid = wbud.request(db, uid, other, now())
+        name = db.execute('SELECT fullname FROM users WHERE id=?', (other,)).fetchone()['fullname']
+        if st == 'pending': buddy_notify(db, other, 'Petición de Buddy', f'{me} quiere añadirte como Buddy. Acéptalo o recházalo en «Buddies».', uid)
+        elif st == 'accepted': buddy_notify(db, other, 'Ya sois Buddies', f'{me} ha aceptado. Ya sois Buddies.', uid)
+        audit(db, uid, 'buddy_requested', 'user', other, {'estado': st, 'via': 'mi_qr'}); db.commit(); return {'ok': True, 'status': st, 'name': name}
+    if path == '/api/buddies/remove':
+        other = buddy_by_ref(db, uid, str(data.get('ref') or ''))
+        if not other: raise NotFound('Ese Buddy no está en tu lista.')
+        wbud.remove(db, uid, other); audit(db, uid, 'buddy_removed', 'user', other); db.commit(); return {'ok': True}
+    if path == '/api/buddies/dive':
+        # «¿Buceamos?»: a date, a dive site if you like and one or more buddies; each one gets a notice
+        refs = [str(x) for x in (data.get('buddies') or []) if x][:wbud.MAX_INVITE_BUDDIES + 1]
+        if not refs: raise ValueError('Elige al menos un Buddy.')
+        if len(refs) > wbud.MAX_INVITE_BUDDIES: raise ValueError(f'Como mucho {wbud.MAX_INVITE_BUDDIES} Buddies a la vez.')
+        if BUDDY_LIMIT.hit(f'dive:{uid}'): raise TooManyRequests('Has enviado muchas propuestas seguidas. Espera unos minutos.')
+        dive_date, point, note = wbud.clean_invite(data, datetime.now().date())
+        if point and not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1', (point,)).fetchone(): point = None
+        pn = db.execute('SELECT name FROM dive_points WHERE id=?', (point,)).fetchone()['name'] if point else None
+        sent = 0
+        for ref in dict.fromkeys(refs):
+            other = buddy_by_ref(db, uid, ref)
+            if not other: raise NotFound('Uno de esos Buddies no está en tu lista.')
+            if db.execute("SELECT 1 FROM dive_invites WHERE from_user=? AND to_user=? AND dive_date=? AND status='pending'", (uid, other, dive_date)).fetchone(): continue
+            db.execute('INSERT INTO dive_invites(from_user,to_user,dive_date,point_id,note,status,created_at) VALUES(?,?,?,?,?,?,?)',
+                       (uid, other, dive_date, point, note, 'pending', now()))
+            buddy_notify(db, other, '¿Buceamos?', f"{me} te propone bucear el {mail_date(dive_date, user_lang(db, other))}{' en ' + pn if pn else ''}. Respóndele en «Buddies».", uid)
+            sent += 1
+        audit(db, uid, 'dive_invite_sent', 'user', uid, {'buddies': sent, 'fecha': dive_date}); db.commit(); return {'ok': True, 'sent': sent}
+    if path == '/api/buddies/dive/answer':
+        r = db.execute("SELECT * FROM dive_invites WHERE id=? AND to_user=? AND status='pending'", (int(data.get('id') or 0), uid)).fetchone()
+        if not r: raise NotFound('Esa propuesta ya no está pendiente.')
+        if not wbud.are_buddies(db, uid, r['from_user']): raise NotFound('Esa propuesta ya no está pendiente.')
+        accept = data.get('accept') in (True, 1, '1', 'true')
+        db.execute('UPDATE dive_invites SET status=?, responded_at=? WHERE id=?', ('accepted' if accept else 'rejected', now(), r['id']))
+        out = {'ok': True}
+        if accept:
+            # only now each one gets the other's WhatsApp (the phone of their own profile)
+            them = db.execute('SELECT fullname FROM users WHERE id=?', (r['from_user'],)).fetchone()['fullname']
+            when = mail_date(r['dive_date'], user_lang(db, uid))
+            out['whatsapp'] = wbud.whatsapp_url(user_phone(db, r['from_user']), f'¡Hola {them.split()[0]}! Buceamos el {when}. ¿Cómo lo organizamos?')
+            out['name'] = them
+            back = wbud.whatsapp_url(user_phone(db, uid), f"¡Hola {me.split()[0]}! Buceamos el {mail_date(r['dive_date'], user_lang(db, r['from_user']))}.")
+            buddy_notify(db, r['from_user'], '¡Buceáis juntos!', f"{me} ha aceptado bucear el {mail_date(r['dive_date'], user_lang(db, r['from_user']))}."
+                         + (f' Escríbele por WhatsApp: {back}' if back else ' No tiene teléfono en su perfil: organizaos en persona.'), uid)
+        audit(db, uid, 'dive_invite_answered', 'dive_invite', r['id'], {'acepta': accept}); db.commit(); return out
+    if path == '/api/buddies/dive/cancel':
+        n = db.execute("UPDATE dive_invites SET status='cancelled', responded_at=? WHERE id=? AND from_user=? AND status IN ('pending','accepted')",
+                       (now(), int(data.get('id') or 0), uid)).rowcount
+        if not n: raise NotFound('Esa propuesta ya no existe.')
+        db.commit(); return {'ok': True}
+    raise NotFound('No existe.')
 
 
 def logbook_friends(db, uid):
@@ -17729,11 +17933,17 @@ class Handler(BaseHTTPRequestHandler):
             if BUDDY_LIMIT.hit(f'u:{uid}'): raise TooManyRequests('Has añadido muchos buddies seguidos. Espera unos minutos.')
             f = db.execute("SELECT id,fullname FROM users WHERE buddy_code=? AND password_hash<>'!'", (code,)).fetchone()
             if not f: raise NotFound('Este QR de buddy no es válido.')
-            if f['id'] == uid: raise ValueError('Este es tu propio QR: enséñaselo a tu compañero para que lo escanee él.')
-            already = bool(db.execute('SELECT 1 FROM user_buddies WHERE user_id=? AND buddy_id=?', (uid, f['id'])).fetchone())
-            for a, b in ((uid, f['id']), (f['id'], uid)): db.execute('INSERT OR IGNORE INTO user_buddies(user_id,buddy_id,created_at) VALUES(?,?,?)', (a, b, now()))
-            audit(db, uid, 'buddy_added', 'user', f['id'], {'ya_eran': already}); db.commit()
-            self.send_json({'ok': True, 'already': already, 'friend': {'id': buddy_ref(code), 'name': f['fullname']}}); return True
+            # 17/10 (1.7): the other person accepts or rejects (before, both became buddies at once)
+            st, rid = wbud.request(db, uid, f['id'], now())
+            if st == 'pending':
+                buddy_notify(db, f['id'], 'Petición de Buddy', f"{user['fullname']} quiere añadirte como Buddy. Acéptalo o recházalo en «Buddies».", uid)
+            elif st == 'accepted':
+                buddy_notify(db, f['id'], 'Ya sois Buddies', f"{user['fullname']} ha aceptado. Ya sois Buddies.", uid)
+            audit(db, uid, 'buddy_requested', 'user', f['id'], {'estado': st}); db.commit()
+            self.send_json({'ok': True, 'status': st, 'already': st == 'already', 'pending': st == 'pending',
+                            'friend': {'id': buddy_ref(code), 'name': f['fullname']}}); return True
+        if path.startswith('/api/buddies/'):
+            user = require_user(self, db); data = json_body(self); self.send_json(buddies_action(db, user, path, data)); return True
         if path == '/api/logbook/center-link':
             # a diver who already had an account opens a centre's invitation link
             user = require_user(self, db); p = provider_by_slug(db, clean_text(json_body(self).get('centro'), 80) or '')
@@ -18453,6 +18663,8 @@ class Handler(BaseHTTPRequestHandler):
                     admin_reason_gate(self,db,path,'GET')
                 if path.startswith(('/api/insurance','/api/admin/insurance','/api/center/bookings/')) and self.insurance_get(db,path,query): return   # v50.56 · seguros
                 if path.startswith(('/api/logbook','/api/center/logbook','/api/public/invite')) and self.logbook_get(db,path,query): return   # v50.57 · logbook
+                if path=='/api/buddies':   # 17/10 (1.7): the buddies of the person, the requests and the «¿Buceamos?»
+                    user=require_user(self,db); self.send_json(buddies_payload(db,user)); return
                 if path == '/api/health':
                     # Public health check (uptime monitors): only ok + version (G15). Details: /api/admin/health.
                     db.execute('SELECT 1').fetchone()
@@ -19656,6 +19868,8 @@ class Handler(BaseHTTPRequestHandler):
                     # each, never one request per item). Old tours copied to route videos are not repeated.
                     legacy=db.execute('''SELECT v.id,v.dive_point_id,v.title,v.experience_type,v.provider,v.url,v.media_path,v.description FROM virtual_experiences v
                                          WHERE v.dive_point_id=? AND v.active=1 AND NOT EXISTS(SELECT 1 FROM route_videos r WHERE r.legacy_virtual_id=v.id) ORDER BY v.id''',(pid,)).fetchall()
+                    item['type_data']=wtd.public_data(db,pid,snap_row.get('types',[]))   # 17/10 (1.2): only the data with a value
+                    item['type_fields_def']=[{k:f[k] for k in ('id','label','kind','unit')} for f in wtd.fields_for(db,snap_row.get('types',[]))]   # what a centre may propose
                     self.send_json({'item':item,'photos':[dict(x) for x in photos],'nearby':near,'types':snap_row.get('types',[]),
                                     'species':wmarina.point_species(db,pid,lang),'videos':wmarina.point_videos(db,pid),
                                     'virtual':[virtual_public_row(r) for r in legacy]})
@@ -20156,6 +20370,13 @@ class Handler(BaseHTTPRequestHandler):
                                                             FROM point_batch_items i JOIN point_batches b ON b.id=i.batch_id LEFT JOIN dive_points p ON p.id=i.match_point_id
                                                            WHERE i.status='pending' AND i.match_kind='doubt' ORDER BY i.batch_id, i.id''').fetchall()]
                     self.send_json({'pairs':pairs,'items':items}); return
+                if path == '/api/admin/dive-type-fields':
+                    # 17/10 (1.2): the own data of each type of dive, configurable without programming
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    rows=[dict(r) for r in db.execute('SELECT * FROM dive_type_fields ORDER BY type_key,sort_order,id').fetchall()]
+                    used={r['field_id']:r['n'] for r in db.execute('SELECT field_id,COUNT(*) AS n FROM dive_point_type_values GROUP BY field_id').fetchall()}
+                    self.send_json({'types':[{'key':cat_key(c),'label':c['label'],'fields':[dict(f,points=used.get(f['id'],0)) for f in rows if f['type_key']==cat_key(c)]}
+                                             for c in DIVE_CATEGORIES]}); return
                 if path == '/api/admin/dive-points/proposals':
                     user=require_user(self,db); require_role(user,{'admin'})
                     admin_data_log(db,self,user,'propuestas de cambio de puntos (nombre y email de quien propone)')
@@ -20166,6 +20387,10 @@ class Handler(BaseHTTPRequestHandler):
                         d=dict(r); d['changes']=json.loads(d['changes'])
                         if not show: d['email']=mask_email(d['email'])
                         cur=db.execute('SELECT * FROM dive_points WHERE id=?',(r['point_id'],)).fetchone()
+                        tfc=d['changes'].pop('type_fields',None)
+                        if tfc:   # 17/10 (1.2): «Eslora: — → 32 m»
+                            fl={f['id']:f for f in wtd.fields_for(db,point_type_keys(db,r['point_id']),include_hidden=True)}; old=wtd.values_of(db,r['point_id'])
+                            d['type_rows']=[{'label':fl[int(k)]['label'],'unit':fl[int(k)]['unit'],'kind':fl[int(k)]['kind'],'current':old.get(int(k)),'new':v} for k,v in tfc.items() if int(k) in fl]
                         d['current']={k:(cur[wpun.COLUMNS.get(k,k)] if wpun.COLUMNS.get(k,k) in cur.keys() else None) for k in d['changes']}
                         if 'latitude' in d['changes']:
                             d['position']=wpun.position_check(d['changes']['latitude'],d['changes']['longitude'],cur['access'],cur['dive_type'] or '')
@@ -20186,6 +20411,7 @@ class Handler(BaseHTTPRequestHandler):
                     dups=[dict(x) for x in db.execute('''SELECT d.id,d.kind,d.distance_m,d.score, CASE WHEN d.a_point_id=? THEN d.b_point_id ELSE d.a_point_id END AS other_id,
                                                                 (SELECT name FROM dive_points WHERE id=CASE WHEN d.a_point_id=? THEN d.b_point_id ELSE d.a_point_id END) AS other_name
                                                            FROM point_duplicates d WHERE d.status='open' AND (d.a_point_id=? OR d.b_point_id=?)''',(pid,pid,pid,pid)).fetchall()]
+                    vals=wtd.values_of(db,pid); d['type_fields']=[dict(f,value=vals.get(f['id'])) for f in wtd.fields_for(db,point_type_keys(db,pid))]   # 17/10 (1.2)
                     self.send_json({'item':d,'sources':wpun.sources_of(db,pid),'duplicates':dups,
                                     'proposals':db.execute("SELECT COUNT(*) FROM point_change_proposals WHERE point_id=? AND status='pending'",(pid,)).fetchone()[0],
                                     'choices':{'access':wpun.ACCESS,'currents':wpun.CURRENTS,'bottoms':wpun.BOTTOMS,'seasons':wpun.SEASONS,'protections':wpun.PROTECTIONS,'source_kinds':wpun.SOURCE_KINDS}}); return
@@ -23054,7 +23280,12 @@ class Handler(BaseHTTPRequestHandler):
                     if db.execute("SELECT COUNT(*) FROM point_change_proposals WHERE user_id=? AND status='pending'",(user['id'],)).fetchone()[0]>=20 or \
                        db.execute("SELECT COUNT(*) FROM point_change_proposals WHERE user_id=? AND point_id=? AND status='pending'",(user['id'],pid)).fetchone()[0]>=3:
                         raise ValueError('Ya tienes propuestas pendientes de revisar: espera a que la administración las vea.')
-                    changes=wpun.clean_proposal(point,data,role)
+                    tf=wtd.clean_proposal(db,pid,point_type_keys(db,pid),data.get('type_fields')) if role=='center' and isinstance(data.get('type_fields'),dict) else {}
+                    try: changes=wpun.clean_proposal(point,{k:v for k,v in data.items() if k!='type_fields'},role)
+                    except ValueError:
+                        if not tf: raise
+                        changes={}
+                    if tf: changes['type_fields']=tf   # 17/10 (1.2): the own data of the type, only from a centre that dives the site
                     cur=db.execute('INSERT INTO point_change_proposals(point_id,user_id,center_id,role,changes,note,status,created_at) VALUES(?,?,?,?,?,?,?,?)',
                                    (pid,user['id'],user['center_id'] if role=='center' else None,role,json.dumps(changes,ensure_ascii=False),clean_text(data.get('note'),1000) or None,'pending',now()))
                     audit(db,user['id'],'point_change_proposed','dive_point',pid,{'proposal':cur.lastrowid,'fields':sorted(changes)}); db.commit()
@@ -23106,7 +23337,20 @@ class Handler(BaseHTTPRequestHandler):
                         if (desc or '')!=(row['description'] or ''): point_own_text(db,pid,desc,update=True); changed.append('description')
                     fields=sorted({POINT_SOURCE_FIELD.get(k,k) for k in changed if POINT_SOURCE_FIELD.get(k,k) in wpun.SOURCE_FIELDS})
                     for f in fields: wpun.add_source(db,pid,'admin' if admin else 'centre','Editado en Administración' if admin else f'Editado por el centro #{user["center_id"]}',field=f,user_id=user['id'])
-                    audit(db,user['id'],'dive_point_updated','dive_point',pid,{'fields':changed}); db.commit(); self.send_json({'ok':True}); return
+                    # 17/10 (1.2): the own data of the type. The administration saves them; what a centre writes goes to review.
+                    tf_note=None
+                    if isinstance(data.get('type_fields'),dict) and data['type_fields']:
+                        types=point_type_keys(db,pid)
+                        if admin:
+                            if wtd.save_values(db,pid,types,data['type_fields'],user['id'],now()):
+                                changed.append('type_fields'); wpun.add_source(db,pid,'admin','Editado en Administración',field='type',user_id=user['id'])
+                        else:
+                            tf=wtd.clean_proposal(db,pid,types,data['type_fields'])
+                            if tf:
+                                db.execute('INSERT INTO point_change_proposals(point_id,user_id,center_id,role,changes,note,status,created_at) VALUES(?,?,?,?,?,?,?,?)',
+                                           (pid,user['id'],user['center_id'],'center',json.dumps({'type_fields':tf},ensure_ascii=False),None,'pending',now()))
+                                tf_note='Los datos del tipo de inmersión quedan pendientes de que la administración los revise.'
+                    audit(db,user['id'],'dive_point_updated','dive_point',pid,{'fields':changed}); db.commit(); self.send_json({'ok':True,'note':tf_note}); return
                 if path=='/api/travel-experiences':
                     user=require_user(self,db)
                     require_switch(db,'experiences'); require_feature(db,user,'experiences')
@@ -23280,12 +23524,40 @@ class Handler(BaseHTTPRequestHandler):
                     else: new_status='rejected'
                     db.execute('UPDATE point_position_suggestions SET status=?,reviewed_at=?,reviewed_by_user_id=? WHERE id=?',(new_status,now(),user['id'],sid)); audit(db,user['id'],'position_suggestion_reviewed','point_position_suggestion',sid,{'decision':decision}); db.commit(); self.send_json({'ok':True}); return
                 # v50.58 · the catalogue (brief of 16/10): proposals, register of sources, new batches and possible duplicates
+                if path=='/api/admin/dive-type-fields':
+                    # 17/10 (1.2): add, rename, reorder or hide a field of a type (hidden keeps the values; nothing is deleted)
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); fid=int(data.get('id') or 0)
+                    if fid:
+                        f=db.execute('SELECT * FROM dive_type_fields WHERE id=?',(fid,)).fetchone()
+                        if not f: raise NotFound('Dato no encontrado.')
+                        label,kind,unit=wtd.clean_field_def({'label':data.get('label',f['label']),'kind':f['kind'],'unit':data.get('unit',f['unit'])})
+                        active=1 if data.get('active',f['active']) in (1,True,'1') else 0
+                        sort=int(data['sort_order']) if str(data.get('sort_order','')).lstrip('-').isdigit() else f['sort_order']
+                        db.execute('UPDATE dive_type_fields SET label=?,unit=?,active=?,sort_order=?,updated_at=? WHERE id=?',(label,unit,active,sort,now(),fid))
+                        audit(db,user['id'],'dive_type_field_updated','dive_type_field',fid,{'label':label,'active':active})
+                    else:
+                        tkey=clean_text(data.get('type_key'),60) or ''
+                        if tkey not in {cat_key(c) for c in DIVE_CATEGORIES}: raise ValueError('Tipo de buceo no válido.')
+                        label,kind,unit=wtd.clean_field_def(data)
+                        taken={r['field_key'] for r in db.execute('SELECT field_key FROM dive_type_fields WHERE type_key=?',(tkey,)).fetchall()}
+                        last=db.execute('SELECT COALESCE(MAX(sort_order),0) FROM dive_type_fields WHERE type_key=?',(tkey,)).fetchone()[0]
+                        cur=db.execute('INSERT INTO dive_type_fields(type_key,field_key,label,kind,unit,sort_order,created_at) VALUES(?,?,?,?,?,?,?)',
+                                       (tkey,wtd.field_key(label,taken),label,kind,unit,last+10,now()))
+                        fid=cur.lastrowid; audit(db,user['id'],'dive_type_field_created','dive_type_field',fid,{'type':tkey,'label':label})
+                    db.commit(); self.send_json({'ok':True,'id':fid}); return
                 if path=='/api/admin/dive-points/proposals/review':
                     user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); prop=db.execute('SELECT * FROM point_change_proposals WHERE id=?',(int(data.get('id') or 0),)).fetchone()
                     if not prop: raise NotFound('Propuesta no encontrada.')
                     if prop['status']!='pending': raise ValueError('Esa propuesta ya está decidida.')
                     decision=clean_text(data.get('decision'),20)
-                    if decision=='approve': wpun.apply_proposal(db,prop,user['id']); st='approved'
+                    if decision=='approve':
+                        ch=json.loads(prop['changes']); tfc=ch.pop('type_fields',None)
+                        if ch: wpun.apply_proposal(db,dict(prop,changes=json.dumps(ch,ensure_ascii=False)),user['id'])
+                        if tfc:   # 17/10 (1.2)
+                            wtd.save_values(db,prop['point_id'],point_type_keys(db,prop['point_id']),tfc,user['id'],now())
+                            wpun.add_source(db,prop['point_id'],'centre' if prop['role']=='center' else 'proposal',f'Propuesta #{prop["id"]}',field='type',user_id=user['id'],
+                                            note=('Centro #'+str(prop['center_id'])) if prop['center_id'] else None)
+                        st='approved'
                     elif decision=='reject': st='rejected'
                     else: raise ValueError('Decisión no válida.')
                     if decision=='approve':

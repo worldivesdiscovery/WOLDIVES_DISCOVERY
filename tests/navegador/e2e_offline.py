@@ -98,9 +98,10 @@ def run(shots: Path | None):
             check('móvil sin desbordamiento', page.evaluate('document.documentElement.scrollWidth') <= 392)
             check('sin errores JS', not errors, errors)
             # Signing out deletes the day kept on the device
+            # encargo del 17/10 (1.1): from the profile menu, the only «Cerrar sesión»
             page.goto(base + '/#/cuenta'); page.wait_for_timeout(1200)
-            if page.locator('#logout').count():
-                page.click('#logout'); page.wait_for_timeout(1000)
+            if page.locator('#account-toggle').count():
+                page.click('#account-toggle'); page.click('#account-logout'); page.wait_for_timeout(1000)
                 check('cerrar sesión borra el día guardado', page.evaluate(f"localStorage.getItem('wd-day-{TODAY}')") is None)
             ctx.close(); browser.close()
     finally:

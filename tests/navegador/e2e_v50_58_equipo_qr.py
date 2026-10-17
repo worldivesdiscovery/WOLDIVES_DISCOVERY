@@ -257,9 +257,11 @@ def run(out: Path | None):
             ck2 = [x for x in n_c.cookies() if x['name'].endswith('wd_session') or x['name'] == 'wd_session']
             check('«Mantener la sesión iniciada»: con la casilla la sesión sigue al cerrar el navegador (como mucho 8 horas); sin ella, no',
                   ck and 0 < ck[0]['expires'] - __import__('time').time() <= 8 * 3600 + 60 and ck2 and ck2[0]['expires'] == -1, (ck, ck2))
-            check('«Cerrar sesión» siempre a la vista, también en el móvil', k.locator('#account-out').is_visible() and n.locator('#account-out').is_visible())
-            shot(n, 'cerrar-sesion-visible-movil')
-            n.click('#account-out'); n.wait_for_timeout(1500)
+            # encargo del 17/10 (1.1): «Cerrar sesión» es la última opción del menú del perfil (ya no va suelto en la cabecera)
+            n.click('#account-toggle'); n.wait_for_timeout(300)
+            check('«Cerrar sesión», la última opción del menú del perfil, también en el móvil',
+                  n.locator('#account-dropdown > :last-child#account-logout').is_visible() and not n.locator('#account-out').count())
+            n.click('#account-logout'); n.wait_for_timeout(1500)
             check('«Cerrar sesión» cierra la sesión', n.evaluate("fetch('/api/me').then(r => r.json()).then(d => d.authenticated)") is False)
             for c_ in (k_c, n_c, ce_c, f2_c, fl_c): c_.close()
             browser.close()

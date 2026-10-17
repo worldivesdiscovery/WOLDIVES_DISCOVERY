@@ -134,7 +134,7 @@
   function initials(name=''){ return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase() || '?'; }
   // Sends the visitor to log in and brings them back to where they were afterwards.
   // Imágenes de la web: el administrador las cambia desde «Imágenes de la web»; estos son los valores de respaldo.
-  const MEDIA_DEFAULTS={'hero:explorar':'/img/titular/costa-barco.webp','hero:home':'/img/titular/buceador-rayos.webp','hero:centros':'/img/portada/buceadores.webp','hero:puntos':'/img/destinos/australia.webp','hero:tipos':'/img/portada/fondo.webp','hero:experiencias':'/img/titular/barco-cadena.webp','hero:top10':'/img/destinos/tailandia.webp','hero:auth':'/img/portada/logbook1.webp'};
+  const MEDIA_DEFAULTS={'hero:explorar':'/img/titular/costa-barco.webp','hero:home':'/img/titular/buceador-rayos.webp','hero:centros':'/img/portada/buceadores.webp','hero:puntos':'/img/destinos/australia.webp','hero:tipos':'/img/portada/fondo.webp','hero:experiencias':'/img/titular/barco-cadena.webp','hero:top10':'/img/destinos/tailandia.webp','hero:freelance':'/img/titular/buceador-rayos.webp','hero:auth':'/img/portada/logbook1.webp'};
   // Visitors in the southern hemisphere live the seasons the other way round: the admin can give them their own look.
   function visitorHemisphere(){ let tz=''; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone||''; }catch{}
     return /^(Australia|Antarctica)\/|^Pacific\/(Auckland|Chatham|Fiji|Tahiti|Noumea|Efate|Tongatapu|Apia|Rarotonga|Port_Moresby|Guadalcanal)|^America\/(Argentina|Santiago|Sao_Paulo|Montevideo|Asuncion|La_Paz|Lima|Recife|Bahia|Fortaleza|Belem|Maceio|Cuiaba|Campo_Grande|Punta_Arenas)|^Africa\/(Johannesburg|Maputo|Harare|Windhoek|Gaborone|Lusaka|Luanda|Dar_es_Salaam|Maseru|Mbabane|Blantyre|Lubumbashi)|^Indian\/(Mauritius|Reunion|Antananarivo|Mayotte|Comoro)|^Asia\/(Jakarta|Makassar|Jayapura|Dili)/.test(tz)?'s':'n'; }
@@ -186,6 +186,13 @@
   function wdImgFit(url,cssWidth=window.innerWidth){ const b=wdImgBase(url); if(!b) return url; const need=cssWidth*(window.devicePixelRatio||1); const x=WD_IMG_COPIES.find(x=>x<b[1]&&x>=need); return x?`${b[0]}-${x}.webp`:url; }
   const media=(key,fallback)=>state.media?.[key]?.url||fallback||MEDIA_DEFAULTS[key]||'/img/portada/fondo.webp';
   const mediaCredit=key=>state.media?.[key]?.credit||'';
+  // Encargo del 17/10 (1.3): one header for every directory (Centros, Puntos, Tipos, Experiencias, Top 10 y Freelance), as
+  // the one of Centros: the same height, photo with its layer, type and the search box inside. Each directory only changes
+  // its eyebrow, title, the help text of the search and its photo (Administración → Imágenes de la web).
+  const wdDirHero=({media:key,eyebrow='Directorio',title,lead='',search=''})=>`<header class="tp-hero wd-dirhero">${heroImg(key)}<div class="tp-hero-in">
+        <p class="eyebrow">${eyebrow}</p><h1>${title}</h1>${lead?`<p class="lead">${lead}</p>`:''}${search}</div></header>`;
+  const wdDirSearch=({id,input,placeholder,value='',label='Buscar',fields='',after=''})=>`<form class="cd-search wd-dirsearch${fields?'':' is-single'}" id="${id}" role="search">
+        <label class="cd-field cd-field-q">${wdIcon('search',18)}<span class="sr-only">${label}</span><input id="${input}" type="search" enterkeyhint="search" autocomplete="off" placeholder="${placeholder}" value="${escapeHtml(value)}"></label>${fields}<button class="btn btn-primary" type="submit">Buscar</button>${after}</form>`;
   const heroImg=(key,fallback)=>`${wdImgTag(media(key,fallback),{cls:'tp-hero-img',eager:true})}${mediaCredit(key)?`<span class="hero-credit">${escapeHtml(mediaCredit(key))}</span>`:''}`;
   // Una página que tarda en cargar no debe pintar encima de la siguiente si el visitante ya se ha ido.
   const navGuard=()=>{ const h=location.hash; return ()=>location.hash===h; };
@@ -208,6 +215,18 @@
   async function loadMe(){ try{ const d=await api('/api/me'); state.me=d.authenticated?d:null; if(!d.authenticated) wdForgetLogbook(); renderAccount(); setTimeout(legalAcceptGate,400); return d; }catch{state.me=null; renderAccount();}}
   function closeTransientMenus(){ const menu=$('#account-dropdown'), toggle=$('#account-toggle'); menu?.classList.remove('open'); toggle?.setAttribute('aria-expanded','false'); $('#main-nav')?.classList.remove('open'); document.documentElement.classList.remove('pt-lock'); }
   // v50.54: the language selector and the account button appear together, already in place (no jump of the header, CLS).
+  // Encargo del 17/10 (1.7): the menu of each role, in ONE place. A diver sees only what is a diver's (no team, no work
+  // diary, no services or payments); «Mi equipo» only appears to a person who works in a centre or has a request to.
+  function wdDiverMenu(me){
+    const team=(me?.profiles||[]).length>1||(me?.team_requests||0)>0;
+    return [['#/area','home','Mi área'],['#/area?s=reservas','calendar','Mis reservas'],['#/logbook','book','Log Book'],['#/pasaporte','passport','Mi pasaporte'],
+      ['#/buddies','users','Buddies'],['#/mis-profesionales','user_search','Mis profesionales'],['#/mis-puntos','star','Puntos y recompensas'],['#/mi-qr','qr','Mi QR'],
+      ...(team?[['#/mi-equipo','users','Mi equipo']]:[]),['#/cuenta','settings','Ajustes']];
+  }
+  const wdIsDiver=()=>state.me?.user?.role==='recreational';
+  // the addresses of a professional: for a diver they «do not exist» (the server answers the same for their data)
+  const WD_PRO_ROUTES=new Set(['admin','manifiesto','barco','planes','mi-plan','setup']);
+  function wdNotFound(){ setApp(`<section class="page"><div class="empty"><h1>Esta página no existe</h1><p>${escapeHtml(translateString('Comprueba la dirección o vuelve al inicio.'))}</p><div class="page-actions" style="justify-content:center"><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>`); }
   function renderAccount(){ const slot=$('#account-slot'); if(!slot) return; $('.header-tools')?.classList.add('is-ready'); if(!state.me&&!navigator.onLine){ slot.innerHTML=''; return; } if(!state.me){ slot.innerHTML='<a class="account-link" href="#/login"><span>Iniciar sesión</span></a>'; translateTree(slot); return; } const u=state.me.user; const role=u.role, own=state.me.own_role||role, esc=escapeHtml; const management=role==='admin'?'<a href="#/admin">👑 Administración</a>':role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':role==='freelance'?'<a href="#/admin">🧭 Gestionar mis servicios</a>':''; const personal=['freelance','recreational'].includes(own); const personalLinks=(role==='center'?'<a href="#/admin">🏪 Gestionar mi centro</a>':'')+(role!=='center'||personal?`<a href="#/area">${wdIcon('home',16)}Mi área</a>`:'');
     // v50.58 (equipo por QR): the profile selector. A person with their own account works as themself or in one of the
     // centres where they are today; the server changes the context of the session and never mixes two centres.
@@ -215,7 +234,13 @@
     const profBox=profiles.length>1?`<div class="acc-profiles" role="group" aria-labelledby="acc-prof-h"><small id="acc-prof-h">Trabajar como</small>${profiles.map(p=>`<button type="button" class="acc-prof ${p.active?'is-on':''}" data-prof="${p.center_id||0}" data-name="${esc(p.label)}" aria-pressed="${p.active?'true':'false'}"><i style="--c:${esc(p.color||'#334155')}" aria-hidden="true"></i><span><b ${p.center_id?'translate="no"':''}>${esc(p.label)}</b>${p.role_name?`<small>${esc(p.role_name)}</small>`:''}</span>${p.active?wdIcon('check',14):''}</button>`).join('')}</div>`:'';
     const teamLinks=(['freelance','recreational','center'].includes(own)?`<a href="#/mi-qr">${wdIcon('qr',16)}Mi QR</a>`:'')+(personal?`<a href="#/mi-equipo">${wdIcon('users',16)}Mi equipo${reqs?` <span class="acc-badge" aria-label="${reqs} ${esc(translateString('peticiones pendientes'))}">${reqs}</span>`:''}</a><a href="#/mi-agenda">${wdIcon('calendar',16)}Mi agenda</a>`:'');
     const sub=cur?`<span translate="no">${esc(cur.label)}</span> · ${esc(cur.role_name||'')}`:esc(role==='admin'?'Administrador':role==='center'?'Centro de buceo':role==='freelance'?'Profesional / freelance':'Buceador / cliente');
-    slot.innerHTML=`<div class="account-menu"><button class="account-link account-toggle" id="account-toggle" type="button" aria-expanded="false"><span class="avatar">${esc(initials(u.fullname))}</span><span class="label" translate="no">${esc(u.fullname.split(' ')[0])}</span>${reqs?`<span class="acc-dot" aria-hidden="true"></span>`:''}<span class="account-chevron">⌄</span></button><div class="account-dropdown" id="account-dropdown"><div class="account-dropdown-head"><strong>${esc(u.fullname)}</strong><small>${sub}</small></div>${profBox}${personalLinks}${teamLinks}<a href="#/cuenta">${wdIcon('user',16)}Mi cuenta</a><a href="#/logbook">${wdIcon('book',16)}Log Book</a><a href="#/recompensas">${wdIcon('gift',16)}Recompensas</a><a href="#/mis-puntos">${wdIcon('star',16)}Mis puntos</a>${management && role!=='center'?management:''}<button type="button" id="account-logout">Cerrar sesión</button></div></div><button type="button" class="account-out" id="account-out" title="Cerrar sesión" aria-label="Cerrar sesión">${wdIcon('logout',18)}</button>`; const toggle=$('#account-toggle'),menu=$('#account-dropdown'); toggle.onclick=e=>{e.stopPropagation(); const open=menu.classList.toggle('open'); toggle.setAttribute('aria-expanded',open?'true':'false');}; if(!window.__wdAccountClickBound){ document.addEventListener('click',()=>closeTransientMenus()); window.__wdAccountClickBound=true; } const out=async()=>{closeTransientMenus();await postJSON('/api/auth/logout',{});await loadMe();wdGo('#/');}; $('#account-logout').onclick=out; $('#account-out').onclick=out; $$('.acc-prof',slot).forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(b.classList.contains('is-on')){ closeTransientMenus(); return; } closeTransientMenus(); tqSwitch(+b.dataset.prof,b.dataset.name); }); translateTree(slot); }
+    const links=role==='recreational'?wdDiverMenu(state.me).map(([h,ic,l])=>`<a href="${h}">${wdIcon(ic,16)}${l}${h==='#/mi-equipo'&&reqs?` <span class="acc-badge" aria-label="${reqs} ${esc(translateString('peticiones pendientes'))}">${reqs}</span>`:''}</a>`).join('')
+      :`${personalLinks}${teamLinks}<a href="#/cuenta">${wdIcon('user',16)}Mi cuenta</a><a href="#/logbook">${wdIcon('book',16)}Log Book</a><a href="#/recompensas">${wdIcon('gift',16)}Recompensas</a><a href="#/mis-puntos">${wdIcon('star',16)}Mis puntos</a>${management && role!=='center'?management:''}`;
+    slot.innerHTML=`<div class="account-menu"><button class="account-link account-toggle" id="account-toggle" type="button" aria-expanded="false"><span class="avatar">${esc(initials(u.fullname))}</span><span class="label" translate="no">${esc(u.fullname.split(' ')[0])}</span>${reqs?`<span class="acc-dot" aria-hidden="true"></span>`:''}<span class="account-chevron">⌄</span></button><div class="account-dropdown" id="account-dropdown"><div class="account-dropdown-head"><strong>${esc(u.fullname)}</strong><small>${sub}</small></div>${profBox}${links}<button type="button" id="account-logout" class="acc-logout-item">${wdIcon('logout',16)}<span>Cerrar sesión</span></button></div></div>`; const toggle=$('#account-toggle'),menu=$('#account-dropdown'); toggle.onclick=e=>{e.stopPropagation(); const open=menu.classList.toggle('open'); toggle.setAttribute('aria-expanded',open?'true':'false');}; if(!window.__wdAccountClickBound){ document.addEventListener('click',()=>closeTransientMenus()); window.__wdAccountClickBound=true; } $('#account-logout').onclick=()=>{ closeTransientMenus(); wdLogout(); }; $$('.acc-prof',slot).forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(b.classList.contains('is-on')){ closeTransientMenus(); return; } closeTransientMenus(); tqSwitch(+b.dataset.prof,b.dataset.name); }); translateTree(slot); }
+  // Encargo del 17/10 (1.1): one way out for every role. It does not ask; it only warns when there are check-in changes
+  // made without connection that have not been sent yet, because they would be lost.
+  async function wdLogout(){ const n=offQueue().length; if(n&&!await wdConfirm({title:'Cerrar sesión',text:`Hay ${n} cambios de check-in sin enviar. Si cierras sesión ahora, se perderán.`,ok:'Cerrar sesión',danger:true})) return;
+    offClear(); try{ await postJSON('/api/auth/logout',{}); }catch{} await loadMe(); wdGo('#/'); toast('Has cerrado sesión.'); }
   function navMobile(){ $('#mobile-menu')?.addEventListener('click',()=>$('#main-nav').classList.toggle('open')); $$('#main-nav a').forEach(a=>a.addEventListener('click',()=>$('#main-nav').classList.remove('open'))); }
 
   async function loadMeta(){ if(!state.meta) state.meta=await api('/api/meta'); return state.meta; }
@@ -368,7 +393,8 @@
     });
   }
   function wdBack(fallback){ if(wdNav.depth>1) history.back(); else wdGo(fallback||'#/'); }
-  function wdRoute(seq){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('r/')) return renderSignedLink(hash.slice(2).split('?')[0]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('scan/d/')){ closeTransientMenus(); return renderScanDive(hash.slice(7).split('?')[0]); } if(hash.startsWith('buddy/')){ closeTransientMenus(); return renderBuddyLink(hash.slice(6).split('?')[0]); } if(hash.startsWith('p/q1.')){ closeTransientMenus(); return renderPersonalQRLanding(hash.slice(2).split('?')[0]); } if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); if(window.WDApp){ const ps=new URLSearchParams(qs||''), own=window.WDApp.route(name||'home',ps); if(own){ closeTransientMenus(); return Promise.resolve(own).then(()=>{ if(seq===wdNav.seq) wdVisit(name||'home',ps); }).catch(err=>{ console.error(err); window.WDApp.failed(err); }); } } const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,verificacion:renderLoginCode,registro:renderRegister,reservar:renderBooking,'reservar-dias':renderDayBooking,seguro:renderInsurance,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin,'equipo/propiedad':renderTransferConfirm,'mi-qr':renderMyQR,'mi-equipo':renderMyTeams,'mi-agenda':renderMyAgenda,enlazar:p=>renderPersonalQRLanding('#/enlazar?i='+(p.get('i')||'')),manifiesto:renderManifest,'salida-cancelada':renderSlotCancelChoice,barco:renderBoatDay}; const fn=routes[name||'home']||renderHome; closeTransientMenus(); markNav(name||'home'); const params=new URLSearchParams(qs||''); return Promise.resolve(fn(params)).then(()=>{ if(seq===wdNav.seq) wdVisit(name||'home',params); return window.WDApp?.after(name||'home',params); }).catch(err=>{console.error(err); if(seq!==wdNav.seq) return; setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
+  function wdRoute(seq){ document.querySelectorAll('.wd-modal').forEach(m=>m.remove()); clearTimeout(route.gate); route.gate=setTimeout(legalAcceptGate,700); const hash=location.hash.replace(/^#\/?/,'') || ''; if(hash.startsWith('checkin/')) return renderCheckin(hash.split('/')[1]); if(hash.startsWith('r/')) return renderSignedLink(hash.slice(2).split('?')[0]); if(hash.startsWith('promo/')) return renderPromoPage(hash.split('/')[1].split('?')[0]); if(hash.startsWith('scan/d/')){ closeTransientMenus(); return renderScanDive(hash.slice(7).split('?')[0]); } if(hash.startsWith('buddy/')){ closeTransientMenus(); return renderBuddyLink(hash.slice(6).split('?')[0]); } if(hash.startsWith('p/q1.')){ closeTransientMenus(); return renderPersonalQRLanding(hash.slice(2).split('?')[0]); } if(hash.startsWith('legal/')||hash==='legal'){ closeTransientMenus(); markNav('legal'); return renderLegal(hash.slice(6).split('?')[0]).catch(err=>{console.error(err);}); } const [name, qs] = hash.split('?'); if(window.WDApp){ const ps=new URLSearchParams(qs||''), own=window.WDApp.route(name||'home',ps); if(own){ closeTransientMenus(); return Promise.resolve(own).then(()=>{ if(seq===wdNav.seq) wdVisit(name||'home',ps); }).catch(err=>{ console.error(err); window.WDApp.failed(err); }); } } const routes={home:renderHome,explorar:renderExplorer,puntos:renderPoints,punto:renderPointPage,centros:renderCenters,centro:renderCenterDetail,tipos:renderTypes,experiencias:renderExperiences,top10:renderTop10,experiencia:renderExperienceDetail,profesional:renderProfessional,experienciareserva:renderExperienceBooking,area:renderArea,reserva:renderBookingDetail,verificarreserva:renderPublicBookingVerification,buddies:renderBuddies,pasaporte:()=>renderAccountPage({passport:true}),'pago-ok':renderPaymentSuccess,cuenta:renderAccountPage,login:renderLogin,verificacion:renderLoginCode,registro:renderRegister,reservar:renderBooking,'reservar-dias':renderDayBooking,seguro:renderInsurance,virtual:renderVirtual,logbook:renderLogbook,recompensas:renderRewards,'mis-puntos':renderMyPoints,monedero:()=>location.replace('#/mis-puntos'),'como-funcionan-los-puntos':renderPointsInfo,baja:renderUnsubscribe,admin:renderAdmin,privacidad:()=>location.replace('#/legal/privacidad'),recuperar:renderForgot,restablecer:renderReset,setup:renderSetup,'verificar-email':renderVerifyEmail,'eliminar-cuenta':renderConfirmDeletion,planes:renderPlans,'mi-plan':renderMyPlanRoute,equipo:renderTeamJoin,'equipo/propiedad':renderTransferConfirm,'mi-qr':renderMyQR,'mi-equipo':renderMyTeams,'mi-agenda':renderMyAgenda,enlazar:p=>renderPersonalQRLanding('#/enlazar?i='+(p.get('i')||'')),manifiesto:renderManifest,'salida-cancelada':renderSlotCancelChoice,barco:renderBoatDay}; const diverOnly=state.me&&wdIsDiver()&&(WD_PRO_ROUTES.has(name)||(['mi-agenda','mi-equipo'].includes(name)&&!((state.me.profiles||[]).length>1||(state.me.team_requests||0)>0)));
+      const fn=diverOnly?wdNotFound:(routes[name||'home']||renderHome); closeTransientMenus(); markNav(name||'home'); const params=new URLSearchParams(qs||''); return Promise.resolve(fn(params)).then(()=>{ if(seq===wdNav.seq) wdVisit(name||'home',params); return window.WDApp?.after(name||'home',params); }).catch(err=>{console.error(err); if(seq!==wdNav.seq) return; setApp('<section class="page"><div class="empty"><h2>No se ha podido abrir esta sección</h2><p>'+escapeHtml(err?.message||'La sección ha encontrado un error.')+'</p><div class="page-actions" style="justify-content:center"><button class="btn" type="button" data-reload>Reintentar</button><a class="btn btn-primary" href="#/">Volver al inicio</a></div></div></section>');}); }
   window.addEventListener('hashchange', route);
   // v50.57 (4.2): the counter of visits of the web, without cookies or anything stored in the browser: the server counts
   // the screen (and the centre or professional it shows) once; robots and the administration are not counted there.
@@ -813,15 +839,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const typesRes=await api('/api/dive-types').catch(()=>({items:DIVE_TYPE_FALLBACK.map(([label])=>({key:wdKey(label),label,count:1}))}));
     const types=(typesRes.items||[]).filter(t=>t.count>0||t.centers>0);
     setApp(`<section class="cd-page">
-      <header class="tp-hero cd-hero">${heroImg('hero:centros')}<div class="tp-hero-in cd-hero-in">
-        <p class="eyebrow">Directorio</p><h1>Centros de buceo</h1>
-        <p class="lead">Compara centros, consulta sus próximas salidas y reserva directamente con ellos.</p>
-        <form class="cd-search" id="cd-search" role="search">
-          <label class="cd-field cd-field-q">${wdIcon('search',18)}<span class="sr-only">Buscar</span><input id="cd-q" type="search" autocomplete="off" placeholder="Centro, ciudad o especialidad" value="${escapeHtml(st.q)}"></label>
-          <label class="cd-field">${wdIcon('pin',18)}<span class="sr-only">País</span><select id="cd-country"><option value="">Todos los países</option>${st.country?`<option selected>${escapeHtml(st.country)}</option>`:''}</select></label>
-          <button class="btn btn-primary" type="submit">Buscar</button>
-        </form>
-      </div></header>
+      ${wdDirHero({media:'hero:centros',title:'Centros de buceo',lead:'Compara centros, consulta sus próximas salidas y reserva directamente con ellos.',
+        search:wdDirSearch({id:'cd-search',input:'cd-q',placeholder:'Centro, ciudad o especialidad',value:st.q,
+          fields:`<label class="cd-field">${wdIcon('pin',18)}<span class="sr-only">País</span><select id="cd-country"><option value="">Todos los países</option>${st.country?`<option selected>${escapeHtml(st.country)}</option>`:''}</select></label>`})})}
       <div class="cd-wrap">
         <div class="cd-toolbar">
           <div class="cd-chips" role="group" aria-label="Filtros rápidos">${CD_FLAGS.map(([k,l])=>`<button type="button" class="cd-chip" data-flag="${k}" aria-pressed="${st.only.has(k)}">${l}</button>`).join('')}</div>
@@ -916,12 +936,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const byLevel=k=>ordered.filter(t=>typeLevel(t)===k&&t.count>0);
     const guide=[['start','Primeras inmersiones','Con el Open Water ya puedes disfrutar de estas inmersiones.'],['mid','Con algo de experiencia','Recomendable el Advanced y unas cuantas inmersiones registradas.'],['adv','Avanzado y técnico','Exigen formación específica, más gas o procedimientos especiales.']];
     setApp(`<section class="tp-page tp54" data-tipos>
-      <header class="tp-hero tp54-hero">${heroImg('hero:tipos')}<div class="tp-hero-in">
-        <p class="eyebrow">Tipos de buceo</p><h1>¿Qué inmersión te apetece?</h1>
-        <p class="lead">Elige un tipo de buceo y te mostramos dónde hacerlo, qué nivel necesitas y qué centros te llevan.</p>
-        <div class="tp-hero-stats"><span><strong>${Number(totals.points||0).toLocaleString(wdLocale())}</strong> puntos</span><span><strong>${totals.countries||0}</strong> países</span><span><strong>${items.filter(t=>t.count>0).length}</strong> tipos con puntos</span></div>
-      </div></header>
+      ${wdDirHero({media:'hero:tipos',title:'Tipos de buceo',lead:'Elige un tipo de buceo y te mostramos dónde hacerlo, qué nivel necesitas y qué centros te llevan.',
+        search:wdDirSearch({id:'tp-search',input:'tp-q',placeholder:'Pecio, cueva, nocturna, deriva…',label:'Buscar un tipo de buceo'})})}
       <div class="tp-wrap">
+        <p class="wd-dir-stats"><span><strong>${Number(totals.points||0).toLocaleString(wdLocale())}</strong> puntos</span><span><strong>${totals.countries||0}</strong> países</span><span><strong>${items.filter(t=>t.count>0).length}</strong> tipos con puntos</span></p>
         <div class="tp-filter" role="group" aria-label="Filtrar por nivel">${TYPE_LEVELS.map(([k,l],i)=>`<button type="button" class="cd-chip" data-level="${k}" aria-pressed="${i===0}">${l} <span class="pt-n">${k==='all'?items.filter(t=>t.count).length:byLevel(k).length}</span></button>`).join('')}</div>
         <div class="tp-grid" id="tp-grid">${ordered.map(typeCard).join('')}</div>
         <p class="tp-level-empty" id="tp-level-empty" hidden></p>
@@ -931,9 +949,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         </section>
       </div>
     </section>`);
-    $$('.tp-filter .cd-chip').forEach(b=>b.onclick=()=>{ $$('.tp-filter .cd-chip').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); const k=b.dataset.level;
-      let shown=0; $$('#tp-grid .tp-card').forEach(c=>{ c.hidden=k!=='all'&&c.dataset.level!==k; if(!c.hidden&&!c.classList.contains('is-empty')) shown++; });
-      const empty=$('#tp-level-empty'); empty.hidden=shown>0; if(!shown) empty.textContent=translateString('Todavía no hay puntos de este nivel. Prueba con «Todos».'); });
+    // The level chips and the search box of the header filter the same cards (by name and summary, in the shown language).
+    const tpFilter=()=>{ const k=$('.tp-filter .cd-chip[aria-pressed="true"]')?.dataset.level||'all', q=wdFold($('#tp-q').value.trim());
+      let shown=0; $$('#tp-grid .tp-card').forEach(c=>{ c.hidden=(k!=='all'&&c.dataset.level!==k)||(q&&!wdFold(c.textContent).includes(q)); if(!c.hidden&&!c.classList.contains('is-empty')) shown++; });
+      const empty=$('#tp-level-empty'); empty.hidden=shown>0; if(!shown) empty.textContent=translateString(q?'Ningún tipo de buceo coincide con la búsqueda.':'Todavía no hay puntos de este nivel. Prueba con «Todos».'); };
+    $$('.tp-filter .cd-chip').forEach(b=>b.onclick=()=>{ $$('.tp-filter .cd-chip').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); tpFilter(); });
+    $('#tp-q').addEventListener('input',tpFilter); $('#tp-search').onsubmit=e=>{ e.preventDefault(); tpFilter(); $('#tp-grid').scrollIntoView({behavior:'smooth',block:'start'}); };
     if(key) await typeResults(key,{scroll:true,first:true});
   }
   // The results of one type, under the grid: what it is, its dive sites and the centres that take you there.
@@ -1344,17 +1365,25 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     if($('[data-wlang]',root)){ const w={}; $$('[data-wlang]',root).forEach(el=>{ if(el.value.trim()) w[el.dataset.wlang]=el.value.trim(); }); out.warnings_i18n=w; }
     return out;
   }
+  // Encargo del 17/10 (1.2): the own data of each type of dive (a wreck, a cave, a wall…). Only what has a value is shown.
+  const typeValue=(f,v)=>f.kind==='yesno'?translateString(v==='si'?'Sí':'No'):`${String(v).replace('-','–')}${f.unit?' '+f.unit:''}`;
+  function typeDataFields(defs,vals={}){ return (defs||[]).map(f=>`<div class="field"><label for="tf-${f.id}">${escapeHtml(translateString(f.label))}${f.unit?` (${escapeHtml(f.unit)})`:''}</label>${f.kind==='yesno'
+      ?`<select id="tf-${f.id}" data-tf="${f.id}"><option value="">—</option><option value="si" ${vals[f.id]==='si'?'selected':''}>${escapeHtml(translateString('Sí'))}</option><option value="no" ${vals[f.id]==='no'?'selected':''}>No</option></select>`
+      :`<input id="tf-${f.id}" data-tf="${f.id}" ${f.kind==='number'?`inputmode="decimal" placeholder="${escapeHtml(translateString('Ej. 12 o 31-33'))}"`:'maxlength="160"'} value="${escapeHtml(vals[f.id]??'')}">`}</div>`).join(''); }
+  function readTypeData(root){ const o={}; $$('[data-tf]',root).forEach(el=>{ o[el.dataset.tf]=el.value.trim(); }); return o; }
   function pointProposalForm(p,{lat,lng,centre}){
     const only=centre?['current','visibility','warnings']:['depth','access','current','visibility','water_temps','bottom','best_months','warnings','protection'];
     return `<div class="pp-suggest"><p class="pp-small">${escapeHtml(translateString(centre?'Como centro que bucea aquí puedes proponer la posición, la corriente, la visibilidad y los avisos.':'Cambia solo lo que sepas con seguridad. Lo que dejes igual no se toca.'))}</p>
       <div class="form-grid"><div class="field"><label for="s-lat">Latitud</label><input id="s-lat" type="number" step="0.000001" value="${lat}"></div><div class="field"><label for="s-lon">Longitud</label><input id="s-lon" type="number" step="0.000001" value="${lng}"></div>
       ${pointDataFields(p,{only,prefix:'sp'})}
+      ${centre&&(p.type_fields_def||[]).length?`<fieldset class="field full pd-type"><legend>${escapeHtml(translateString('Datos propios del tipo de inmersión'))}</legend><div class="form-grid">${typeDataFields(p.type_fields_def,Object.fromEntries((p.type_data||[]).map(x=>[x.id,x.value])))}</div></fieldset>`:''}
       <div class="field full"><label for="s-note">Motivo o referencia</label><textarea id="s-note" placeholder="Qué has visto y cómo lo sabes: GPS de la embarcación, tu ordenador de buceo, la reserva marina…"></textarea></div></div>
       <button class="btn btn-primary" id="s-save" type="button">Enviar propuesta</button></div>`;
   }
   // only what changed travels: the server keeps the rest as it is
   function readPointProposal(root,p,{lat,lng}){
     const d=readPointData(root), out={note:$('#s-note',root).value};
+    if($('[data-tf]',root)){ const was=Object.fromEntries((p.type_data||[]).map(x=>[x.id,x.value])), tf={}; Object.entries(readTypeData(root)).forEach(([k,v])=>{ if(v&&v!==String(was[k]??'')) tf[k]=v; }); if(Object.keys(tf).length) out.type_fields=tf; }
     const la=+$('#s-lat',root).value, lo=+$('#s-lon',root).value;
     if(Number.isFinite(la)&&Number.isFinite(lo)&&(Math.abs(la-(+lat||0))>1e-5||Math.abs(lo-(+lng||0))>1e-5)){ out.latitude=la; out.longitude=lo; }
     const same=(a,b)=>JSON.stringify(a??'')===JSON.stringify(b??'');
@@ -1410,13 +1439,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // v50.54 · The grid starts with placeholder cards so nothing below jumps when the points arrive (CLS).
     const skeleton=n=>Array.from({length:n},()=>'<div class="pt-card is-skeleton" aria-hidden="true"><span class="pt-media"></span><span class="pt-info"><i></i><i></i></span></div>').join('');
     setApp(`<section class="pt-page pt54 pt57" data-view="${st.view}">
-      <header class="pt-band"><div class="pt-band-in">
-        <div class="pt-band-title"><p class="eyebrow">Catálogo</p><h1>Puntos de buceo</h1></div>
-      </div></header>
+      ${wdDirHero({media:'hero:puntos',title:'Puntos de buceo',lead:'Dónde está cada punto, cómo es, qué nivel pide y qué centros te llevan.',
+        search:wdDirSearch({id:'pt-search',input:'pt-q',placeholder:'Punto, isla, zona o país',value:st.q,label:'Buscar un punto'})})}
       <div class="pt-filters pt-bar" id="pt-filters"><div class="pt-bar-in">
-        <form class="pt-search" id="pt-search" role="search">
-          <label class="cd-field">${wdIcon('search',18)}<span class="sr-only">Buscar un punto</span><input id="pt-q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Punto, isla, zona o país" value="${escapeHtml(st.q)}"></label>
-        </form>
         <button type="button" class="pt-fbtn" id="pt-filters-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="pt-panel">${wdIcon('sliders',18)}<span>Filtros</span><b class="pt-fn" id="pt-fn"></b></button>
         <label class="pt-sortbox">${wdIcon('sort',18)}<span class="pt-sort-l">Ordenar</span><select id="pt-sort" aria-label="Ordenar">${PT_SORTS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>
         <div class="pt-view" role="group" aria-label="Ver como"><button type="button" data-view="list" aria-pressed="${st.view==='list'}" aria-label="Lista" title="Lista">${wdIcon('list',17)}<span>Lista</span></button><button type="button" data-view="map" aria-pressed="${st.view==='map'}" aria-label="Mapa" title="Mapa">${wdIcon('map',17)}<span>Mapa</span></button></div>
@@ -2159,7 +2184,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const keys=[['depth','Profundidad',depth],['current','Corriente',p.current?translateString(PT_CURRENTS[p.current]):''],['eye','Visibilidad',range(p.visibility_min,p.visibility_max,'m')],
       ['temp','Temperatura del agua',tempText,temps&&Object.keys(temps).length>1?'temps':''],['anchor','Acceso',p.access?translateString(PT_ACCESS[p.access]):''],
       ['level','Nivel',levelText(p)],['book','Titulación recomendada',p.recommended_cert||''],['inmersion','Tipo',typeText],
-      ['bottom','Fondo',(p.bottom||[]).map(b=>translateString(PT_BOTTOMS[b])).join(' · ')],['calendar','Mejor época',wdMonthsText(months)],['shield','Protección',protText]].filter(k=>k[2]);
+      ['bottom','Fondo',(p.bottom||[]).map(b=>translateString(PT_BOTTOMS[b])).join(' · ')],['calendar','Mejor época',wdMonthsText(months)],['shield','Protección',protText],
+      ...(p.type_data||[]).map(x=>['inmersion',translateString(x.label),typeValue(x,x.value)])].filter(k=>k[2]);
     const keyHtml=([ic,label,val,more])=>more==='temps'
       ?`<div class="pp-key pp-key-temp">${wdIcon(ic,18)}<dt>${label}</dt><dd><button type="button" class="pp-temp-btn" id="pp-temp-btn" aria-expanded="false" aria-controls="pp-temps">${escapeHtml(val)}<span aria-hidden="true">▾</span></button>
           <div class="pp-temps" id="pp-temps" hidden><p>${escapeHtml(translateString('Temperatura del agua por estación'))}</p><ul>${Object.keys(PT_SEASONS).filter(k=>temps[k]).map(k=>`<li class="${k===season?'is-now':''}"><span>${escapeHtml(translateString(PT_SEASONS[k]))}</span><b>${escapeHtml(range(temps[k][0],temps[k][1],'°C'))}</b></li>`).join('')}</ul></div></dd></div>`
@@ -2254,11 +2280,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   async function renderExperiences(params){
     params=params instanceof URLSearchParams?params:new URLSearchParams();
     setApp(`<section class="cd-page ex-page-list">
-      <header class="tp-hero">${heroImg('hero:experiencias')}<div class="tp-hero-in">
-        <p class="eyebrow">Experiencias</p><h1>Viajes y vida a bordo</h1>
-        <p class="lead">Destinos de buceo con salidas organizadas por centros y profesionales. Reservas directamente con quien organiza.</p>
-        <form class="cd-search ex-search" id="exs-form" role="search"><label class="cd-field cd-field-q">${wdIcon('search',18)}<span class="sr-only">Buscar destino</span><input id="exs-q" type="search" placeholder="Destino, país o región" value="${escapeHtml(params.get('q')||'')}" autocomplete="off"></label><button class="btn btn-primary" type="submit">Buscar</button></form>
-      </div></header>
+      ${wdDirHero({media:'hero:experiencias',title:'Viajes y vida a bordo',lead:'Destinos de buceo con salidas organizadas por centros y profesionales. Reservas directamente con quien organiza.',
+        search:wdDirSearch({id:'exs-form',input:'exs-q',placeholder:'Destino, país o región',value:params.get('q')||'',label:'Buscar destino',
+          after:`<a class="btn wd-dir-alt" href="#/freelance" title="${escapeHtml(translateString('Busca a tu guía o instructor freelance'))}">${wdIcon('user_search',17)}<span>Buscar freelance</span></a>`})})}
       <div class="cd-wrap">
         <div class="cd-toolbar"><div class="cd-chips" id="exs-kinds" role="group" aria-label="Tipo de experiencia"></div><div class="cd-tools"><label><span class="sr-only">Ordenar</span><select id="exs-sort"><option value="recommended">Con más salidas</option><option value="price">Precio más bajo</option><option value="date">Próxima salida</option><option value="name">Nombre A-Z</option></select></label></div></div>
         <div class="cd-results-head"><p id="exs-count" aria-live="polite">Cargando destinos…</p></div>
@@ -2334,15 +2358,12 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   async function renderTop10(params){
     params=params instanceof URLSearchParams?params:new URLSearchParams();
     setApp(`<section class="cd-page tt-page">
-      <header class="tp-hero">${heroImg('hero:top10')}<div class="tp-hero-in">
-        <p class="eyebrow">Top 10</p><h1>¿Te apetece bucear?</h1>
-        <p class="lead">Los 10 mejores puntos de buceo cerca de ti, ordenados por valoración y distancia.</p>
+      ${wdDirHero({media:'hero:top10',title:'Top 10 buceos',lead:'Los 10 mejores puntos de buceo cerca de ti, ordenados por valoración y distancia.',
+        search:wdDirSearch({id:'tt-search',input:'tt-q',placeholder:'Escribe una localidad: Dénia, Jávea, Cartagena…',label:'Buscar una localidad'})})}
+      <div class="cd-wrap">
         <div class="tt-locate"><div class="tt-loc-text"><strong id="tt-title">Buscando los mejores buceos…</strong><small id="tt-sub">Tu ubicación solo se usa para calcular este ranking: no la guardamos.</small></div>
           <label class="tt-radius"><span>Radio</span><select id="tt-radius"><option value="auto" selected>Lo más cerca</option><option value="25">25 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="250">250 km</option><option value="500">500 km</option></select></label>
           <div class="tt-btns"><button id="tt-locate" class="btn btn-primary" type="button">${wdIcon('target',16)} Usar mi ubicación</button><button id="tt-pick" class="btn tt-pick" type="button">${wdIcon('map',16)} Elegir en el mapa</button></div></div>
-        <form class="tt-search" id="tt-search" role="search"><label class="cd-field">${wdIcon('search',18)}<span class="sr-only">Buscar una localidad</span><input id="tt-q" type="search" placeholder="O escribe una localidad: Dénia, Jávea, Cartagena…" autocomplete="off" required></label><button class="btn btn-primary" type="submit">Buscar</button></form>
-      </div></header>
-      <div class="cd-wrap">
         <div class="tt-zones"><span>O elige una zona:</span><div class="cd-chips" id="tt-zones"></div></div>
         <div id="tt-status" class="tt-status" aria-live="polite"></div>
         <div id="tt-list" class="tt-list" aria-busy="true"></div>
@@ -2584,7 +2605,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const ROLE_LABEL={admin:'Administrador',center:'Centro de buceo',freelance:'Profesional freelance',diver:'Buceador'};
   function accountShell(active,{eyebrow='',title='',lead='',actions=''},inner){
     const u=state.me?.user||{}, esc=escapeHtml, pro=['center','freelance','admin'].includes(u.role);
-    const tabs=ACC_TABS.map(([k,l,i])=>{ const href=k==='area'&&pro?'#/admin':'#/'+k; const label=k==='area'&&pro?(u.role==='admin'?'Administración':u.role==='center'?'Mi centro':'Mi panel'):l;
+    const accTabs=u.role==='recreational'?[['area','Mi área','home'],['logbook','Log Book','book'],['buddies','Buddies','users'],['mis-puntos','Puntos y recompensas','star'],['cuenta','Ajustes','settings']]:ACC_TABS;
+    const tabs=accTabs.map(([k,l,i])=>{ const href=k==='area'&&pro?'#/admin':'#/'+k; const label=k==='area'&&pro?(u.role==='admin'?'Administración':u.role==='center'?'Mi centro':'Mi panel'):l;
       return `<a class="acc-tab ${k===active?'is-on':''}" href="${href}" ${k===active?'aria-current="page"':''}>${wdIcon(i,17)}<span>${label}</span></a>`; }).join('');
     return `<section class="acc-page"><header class="acc-hero" style="--acc-img:url('${esc(wdImgFit(media('hero:centros')))}')"><div class="acc-hero-in">
         <div class="acc-id"><span class="acc-avatar" translate="no">${esc(initials(u.fullname||''))}</span><div><strong translate="no">${esc(u.fullname||'')}</strong><small>${esc(ROLE_LABEL[u.role]||'Buceador')}</small>${u.email&&!String(u.email).endsWith('.local')?`<small translate="no">${esc(u.email)}</small>`:''}</div></div>
@@ -2639,16 +2661,17 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const LIM=6; const clip=()=>{ const list=$('#acc-bookings [data-list]:not([hidden])'); const rows=$$('.acc-row',list); rows.forEach((r,i)=>r.hidden=i>=LIM&&!list.dataset.all); const more=$('#acc-more'); more.hidden=rows.length<=LIM||!!list.dataset.all; more.textContent=`Ver las ${rows.length} reservas`; };
     $('#acc-more').onclick=()=>{ $('#acc-bookings [data-list]:not([hidden])').dataset.all='1'; clip(); }; clip();
     $$('.acc-seg button').forEach(b=>b.onclick=()=>{ $$('.acc-seg button').forEach(x=>x.classList.toggle('is-on',x===b)); $$('#acc-bookings [data-list]').forEach(l=>l.hidden=l.dataset.list!==b.dataset.seg); clip(); });
+    if(new URLSearchParams(location.hash.split('?')[1]||'').get('s')==='reservas') requestAnimationFrame(()=>$('#acc-bookings')?.scrollIntoView({block:'start'}));
     $$('.mark-message').forEach(btn=>btn.onclick=async()=>{const id=+btn.closest('[data-message-id]').dataset.messageId;try{await postJSON('/api/messages/read',{id});const row=btn.closest('.acc-msg'); row.classList.remove('is-unread'); btn.remove();}catch(e){toast(e.message)}});
   }
 
-  async function renderAccountPage(){
+  async function renderAccountPage(opts={}){
     const d=await api('/api/me'); if(!d.authenticated){ goLogin(); return; } state.me=d;
     const profile=d.profile||{}, meta=await loadMeta(), esc=escapeHtml, u=d.user;
     const certs=(meta.certifications||[]).filter(c=>!String(c.name).includes('CAVE')&&!String(c.name).includes('TEC')&&!String(c.name).includes('NITROX'));
     const comp=profileCompletion(profile,d.documents);
     const f=(id,label,value,attrs='')=>`<div class="field"><label for="${id}">${label}</label><input id="${id}" value="${esc(value??'')}" ${attrs}></div>`;
-    setApp(accountShell('cuenta',{eyebrow:'MI CUENTA',title:'Tu ficha de buceador',lead:'Rellénala una vez: cada centro con el que reserves recibe tus datos, titulación y tallas para prepararlo todo antes de que llegues.'},`
+    setApp(accountShell(opts.passport?'pasaporte':'cuenta',{eyebrow:opts.passport?'MI PASAPORTE':'MI CUENTA',title:'Tu ficha de buceador',lead:'Rellénala una vez: cada centro con el que reserves recibe tus datos, titulación y tallas para prepararlo todo antes de que llegues.'},`
       <div class="acc-grid"><div class="acc-col">
         <form id="profile-form" class="acc-form">
           <section class="acc-card"><div class="acc-card-head"><h2>${wdIcon('user',18)} Datos personales</h2><span class="acc-pct">${comp.pct}% completa</span></div><div class="form-grid">
@@ -2683,8 +2706,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             <button class="btn btn-primary" type="submit">Subir documento</button></form></details></section>
         ${d.center_links.length?`<section class="acc-card"><div class="acc-card-head"><h2>${wdIcon('pin',18)} Mis centros</h2></div>${d.center_links.map(c=>`<a class="acc-doc" href="#/centro?id=${c.center_id}"><span><span><strong>${esc(c.center_name)}</strong><small>${esc([c.city,c.country].filter(Boolean).join(', '))}</small></span></span><small>${c.last_checkin?'Última visita '+fmtDate(c.last_checkin):''}</small></a>`).join('')}</section>`:''}
         <section class="acc-card"><div class="acc-card-head"><h2>${wdIcon('lock',18)} Seguridad</h2></div>
-          <form id="pw-form" class="acc-pw"><div class="field"><label for="pw-cur">Contraseña actual</label><input id="pw-cur" type="password" autocomplete="current-password" required></div><div class="field"><label for="pw-new">Nueva contraseña</label><input id="pw-new" type="password" autocomplete="new-password" minlength="10" required><small>Mínimo 10 caracteres. Se cerrarán tus otras sesiones.</small></div>${state.me?.security?.totp_enabled?'<div class="field"><label for="pw-code">Código de verificación (o de recuperación)</label><input id="pw-code" inputmode="text" autocomplete="one-time-code" maxlength="32" required></div>':''}<button class="btn" type="submit">Cambiar contraseña</button></form>
-          <button class="btn acc-logout" type="button" id="logout">Cerrar sesión</button></section>
+          <form id="pw-form" class="acc-pw"><div class="field"><label for="pw-cur">Contraseña actual</label><input id="pw-cur" type="password" autocomplete="current-password" required></div><div class="field"><label for="pw-new">Nueva contraseña</label><input id="pw-new" type="password" autocomplete="new-password" minlength="10" required><small>Mínimo 10 caracteres. Se cerrarán tus otras sesiones.</small></div>${state.me?.security?.totp_enabled?'<div class="field"><label for="pw-code">Código de verificación (o de recuperación)</label><input id="pw-code" inputmode="text" autocomplete="one-time-code" maxlength="32" required></div>':''}<button class="btn" type="submit">Cambiar contraseña</button></form></section>
         ${accountEmailCard(u)}${accountSharesCard()}${proRequestCard(u)}${accountSecurityCard(u)}
         ${marketingCard(u)}${accountPrivacyCard(u)}
         ${['admin','center','freelance'].includes(u.role)?`<section class="acc-card"><div class="acc-card-head"><h2>${wdIcon('chart',18)} Gestión</h2></div><p class="acc-help">${u.role==='admin'?'Tu cuenta tiene acceso al panel de administración.':'Gestiona tus servicios, reservas y cobros.'}</p><a class="btn btn-primary" href="#/admin">Abrir el panel</a></section>`:''}
@@ -2698,7 +2720,6 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     bindAccountExtras(d); bindMarketingCard();
     $$('[data-docdel]').forEach(b=>b.onclick=async()=>{ if(!confirm('¿Eliminar este documento?')) return; try{await postJSON('/api/account/documents/delete',{id:+b.dataset.docdel});toast('Documento eliminado.');renderAccountPage();}catch(err){toast(err.message)}});
     $('#pw-form').onsubmit=async e=>{e.preventDefault(); try{ await postJSON('/api/account/password',{current_password:$('#pw-cur').value,new_password:$('#pw-new').value,totp_code:$('#pw-code')?.value||''}); toast('Contraseña cambiada.'); e.target.reset(); }catch(err){ toast(err.message); } };
-    $('#logout').onclick=async()=>{ const n=offQueue().length; if(n&&!await wdConfirm({title:'Cerrar sesión',text:`Hay ${n} cambios de check-in sin enviar. Si cierras sesión ahora, se perderán.`,ok:'Cerrar sesión',danger:true})) return; offClear(); await postJSON('/api/auth/logout',{});await loadMe();wdGo('#/');};
   }
   function docItem(doc){const expired=doc.expires_at && new Date(doc.expires_at)<new Date(); const days=doc.expires_at?Math.ceil((new Date(doc.expires_at)-Date.now())/86400000):null; const st=expired?'bad':days!==null&&days<45?'warn':'good'; const tx=expired?'Caducado':days!==null?`Caduca en ${days} días`:'Sin caducidad'; return `<div class="doc-card"><div><strong>${escapeHtml(doc.title)}</strong><div style="font-size:12px;color:var(--muted)">${escapeHtml(doc.document_type)} · ${escapeHtml(doc.original_name)}</div></div><div class="doc-actions"><span class="status ${st}">${tx}</span><a class="btn" href="/api/documents/file/${doc.id}" target="_blank" rel="noopener">Abrir</a><button class="btn" type="button" data-docdel="${doc.id}">Eliminar</button></div></div>`}
 
@@ -4262,7 +4283,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const once=k=>{ try{ const v=JSON.parse(sessionStorage.getItem(k)||'null'); sessionStorage.removeItem(k); return v; }catch{ return null; } };
     const claimed=once('wd-lb-claimed'), buddy=once('wd-lb-buddy');
     const [d,lib]=await Promise.all([api('/api/logbook'),wdLogbookLib()]);
-    const notice=buddy?.friend?`<p class="lb-notice" role="status">${wdIcon('users',17)}<span><span class="lb-notice-t"><b>${buddy.already?'Ya erais buddies':'Ahora sois buddies'}</b> <span translate="no">${esc(buddy.friend.name)}</span></span><span>Aparece en «Compañero» al apuntar una inmersión.</span></span></p>`
+    const notice=buddy?.friend?`<p class="lb-notice" role="status">${wdIcon('users',17)}<span><span class="lb-notice-t"><b>${buddy.pending?'Petición enviada a':buddy.already?'Ya erais buddies':'Ahora sois buddies'}</b> <span translate="no">${esc(buddy.friend.name)}</span></span><span>${buddy.pending?'Cuando la acepte, seréis Buddies y aparecerá en «Compañero».':'Aparece en «Compañero» al apuntar una inmersión.'}</span></span></p>`
       :joined?.center&&!joined.same?`<p class="lb-notice" role="status">${wdIcon('info',17)}<span><span class="lb-notice-t"><span>Tu cuenta ya está unida a un centro:</span> <b translate="no">${esc(joined.center.name)}</b></span><span>Su logo sigue en la portada de tu pasaporte.</span></span></p>`:'';
     setApp(accountShell('logbook',{eyebrow:'MI ACTIVIDAD',title:'Log Book',lead:'Tus inmersiones, guardadas en tu cuenta y en todos tus dispositivos. Las que registra tu centro con un QR llegan verificadas.',
       actions:`<span class="lb-sync" id="lb-sync" role="status" aria-live="polite"></span><button type="button" class="btn" id="lb-csv">${wdIcon('download',15)} Exportar CSV</button>`},
@@ -4817,6 +4838,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     wallet:'<path d="M4 7a2 2 0 0 1 2-2h12v4"/><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M16 13.5h2"/>',
     book:'<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>',
     user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    passport:'<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M9 16.5h6"/>',
+    settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+    user_search:'<circle cx="9.5" cy="7.5" r="3.5"/><path d="M3 20a6.5 6.5 0 0 1 9.5-5.8"/><circle cx="17" cy="16" r="3"/><path d="M19.2 18.2 21.5 20.5"/>',
     receipt:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
     tag:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
     chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
@@ -5685,7 +5709,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(b.id==='wz-publish'||b.id==='wz-save'){ const r=await save(true); if(r){ toast(translateString(editPage?'Cambios guardados.':'Publicado. Ya se puede reservar.')+(r.warnings?.length?' '+r.warnings.map(translateString).join(' '):'')); delete el.dataset.dirty; close(); onDone(r.id); } return; }
       if(b.id==='wz-legacy'){ close(); legacy?.(); return; }
       if(b.id==='wz-go-equip'){ if(w.title) await save(false); delete el.dataset.dirty; close(); onDone(w.id); toast(translateString('Primero indica qué equipo alquilas. Luego vuelve al servicio: lo tienes guardado.'));
-        const nav=$('.cb-nav[data-cbtab="equipment"]'); if(nav) nav.click(); else wdGo('#/admin?tab=equipment'); return; }
+        const nav=$('.cb-nav[data-cbtab="equipment"]'); if(nav) nav.click(); else { svcUi.tab='equipment'; wdGo('#/admin?tab=equipment'); } return; }
     });
     draw();
     if(st0&&!existing) $(`.wz-tpl[data-tpl="${st0.id}"]`,box)?.click();
@@ -6877,7 +6901,6 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           `<button class="cb-nav" data-cbtab="logbook">${wdIcon('book',17)} <span>Logbook y pasaporte</span></button>`]},
         {id:'ventas',title:'Ventas',items:[
           `<button class="cb-nav" data-cbtab="services">${wdIcon('tag',17)} <span>Servicios y tarifas</span></button>`,
-          `<button class="cb-nav" data-cbtab="equipment">${wdIcon('alquiler_equipo',17)} <span>Equipo de alquiler</span></button>`,
           `<button class="cb-nav" data-cbtab="experiences">${wdIcon('viaje',17)} <span>Experiencias</span>${m.experience_requests?`<b>${m.experience_requests}</b>`:''}</button>`,
           `<button class="cb-nav" data-cbtab="payments">${wdIcon('card',17)} <span>Cobros y pagos</span></button>`]},
         {id:'control',title:'Control',items:[
@@ -7665,7 +7688,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const reloadData=async()=>{try{const [b,an]=await Promise.all([api('/api/bookings'),centerAnalytics()]); bookings=b.items; analytics=an; analytics.client_count=clients.length; analytics.metrics=Object.assign({pending:pendingOf(bookings)},analytics.metrics); const badge=document.querySelector('.cb-nav[data-cbtab="bookings"] b'); if(badge)badge.textContent=analytics.metrics?.pending||0;}catch(e){}};
     // v50.57: a tab that fails shows its error in the content area; the menu and the rest of the panel keep working.
     const loadTab=async (tab,opts={})=>{ try{ await loadTabIn(tab,opts); }catch(e){ console.error(e); content.innerHTML=wdBlockError(e); translateTree(content); content.querySelector('[data-block-retry]').onclick=()=>loadTab(tab,opts); } };
-    const loadTabIn=async (tab,opts={})=>{ nav.forEach(n=>n.classList.toggle('active',n.dataset.cbtab===tab)); currentTab=tab;
+    const loadTabIn=async (tab,opts={})=>{
+      // Encargo del 17/10 (1.4): the rental equipment is only in «Servicios y tarifas → Equipo de alquiler»; the old address
+      // (#/admin?tab=equipment, favourites and links) opens it there.
+      if(tab==='equipment'){ svcUi.tab='equipment'; tab='services'; history.replaceState(null,'','#/admin?tab=services'); }
+      nav.forEach(n=>n.classList.toggle('active',n.dataset.cbtab===tab)); currentTab=tab;
       if(opts.view) bkUi.view=opts.view;
       if(tab==='dashboard') await reloadData();
       if(['dashboard','qr'].includes(tab)){try{services=(await api('/api/provider-services?provider_id='+d.user.id)).items;}catch(e){}}
@@ -7674,7 +7701,6 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         $$('.cb-go[data-tab]',content).forEach(b=>{ if(!document.querySelector(`.cb-nav[data-cbtab="${b.dataset.tab}"]`)) b.remove(); });}
       else if(tab==='planning'){content.innerHTML='<div id="cb-planning"></div>'; await renderCenterPlanning('cb-planning',{center,onManage:()=>loadTab('services')});}
       else if(tab==='services'){content.innerHTML='<div id="center-services-manager"></div>'; await renderProviderServicesManager(d.user.id,'center','center-services-manager');}
-      else if(tab==='equipment'){content.innerHTML='<div id="cb-equipment"></div>'; await renderEquipmentPanel('cb-equipment',{view:opts.view});}   // v50.58 (16/10)
       else if(tab==='bookings'){content.innerHTML='<div id="cb-bookings"></div>'; await renderCenterBookings('cb-bookings',{onChange:reloadData});}
       else if(tab==='clients'){try{clients=(await api('/api/center/clients')).items;}catch(e){} content.innerHTML=centerClientsView(clients); const q=$('#cl-q'); if(q)q.oninput=()=>{const v=q.value.trim().toLowerCase(); $$('.cl-row[data-search]').forEach(r=>{r.hidden=!!v&&!r.dataset.search.includes(v);});};}
       else if(tab==='experiences'){content.innerHTML='<div id="cb-experiences"></div>'; await renderProviderExperiences('cb-experiences','center',{goServices:()=>loadTab('services')});}
@@ -7866,7 +7892,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t==='experiences') c.innerHTML=adminTravelExperiences(travelExperiences);
       if(t==='destinations') c.innerHTML=adminDestinations(meta.travel);
       if(t==='media'&&isAdmin){ c.innerHTML='<div id="site-theme-manager"></div><div id="site-media-manager"></div><div id="image-origins"></div>'; wdGuard('site-theme-manager',()=>renderThemeManager('site-theme-manager')); wdGuard('site-media-manager',()=>renderSiteMediaManager('site-media-manager')); wdGuard('image-origins',()=>renderImageOrigins('image-origins')); }
-      if(t==='divetypes'&&isAdmin){ c.innerHTML='<div id="admin-divetypes"></div>'; wdGuard('admin-divetypes',()=>renderSiteMediaManager('admin-divetypes',{group:'Tipos de buceo'})); }
+      if(t==='divetypes'&&isAdmin){ c.innerHTML='<div id="admin-divetypes"></div><div id="admin-typefields"></div>'; wdGuard('admin-typefields',()=>renderTypeFieldsAdmin('admin-typefields')); wdGuard('admin-divetypes',()=>renderSiteMediaManager('admin-divetypes',{group:'Tipos de buceo'})); }
       if(t==='svctemplates'&&isAdmin){ c.innerHTML='<div id="admin-svc-templates"></div>'; wdGuard('admin-svc-templates',()=>renderAdminServiceTemplates('admin-svc-templates')); }
       if(t==='adminpay'&&isAdmin){ c.innerHTML='<div id="admin-payments"></div>'; wdGuard('admin-payments',()=>renderAdminPayments('admin-payments')); }
       if(t==='emails'&&isAdmin){ c.innerHTML='<div id="admin-emails"></div>'; wdGuard('admin-emails',()=>renderAdminEmails('admin-emails')); }
@@ -7998,11 +8024,27 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     $$('.pa-sep',host).forEach(b=>b.onclick=async()=>{ try{ await postJSON('/api/admin/dive-points/duplicates/decide',{id:+b.closest('.pa-dup').dataset.id,decision:'separate'}); refresh?.(); b.closest('.pa-dup').remove(); }catch(e){ toast(e.message); } });
   }
 
+  // Encargo del 17/10 (1.2): «Datos propios de cada tipo». Adding a field to a type needs no programming; a hidden field
+  // keeps its values (nothing is deleted) and stops showing in the pages.
+  async function renderTypeFieldsAdmin(id){
+    const host=document.getElementById(id); if(!host) return; const esc=escapeHtml; const d=await api('/api/admin/dive-type-fields');
+    const KIND={number:'Número',text:'Texto',yesno:'Sí / No'};
+    host.innerHTML=`<section class="mm-module tf-admin"><div class="svc-head"><div><p class="eyebrow">Ficha del punto</p><h2>Datos propios de cada tipo</h2><p>Lo que cada tipo añade a la ficha del punto: el nombre del barco de un pecio, la longitud de una cueva… Solo se enseña lo que tiene valor.</p></div></div>
+      <div class="tf-types">${d.types.map(t=>`<details class="tf-type" ${t.fields.length?'':''}><summary><b>${esc(translateString(t.label))}</b> <span class="pt-n">${t.fields.filter(f=>f.active).length}</span></summary>
+        <ul class="tf-list">${t.fields.map(f=>`<li class="${f.active?'':'is-off'}" data-id="${f.id}"><input class="tf-label" value="${esc(f.label)}" maxlength="80" aria-label="${esc(translateString('Nombre del dato'))}"><small>${esc(translateString(KIND[f.kind]))}${f.unit?' · '+esc(f.unit):''} · ${f.points} ${esc(translateString(f.points===1?'punto':'puntos'))}</small>
+          <button type="button" class="btn btn-sm tf-save">${esc(translateString('Guardar'))}</button><button type="button" class="btn btn-sm tf-toggle">${esc(translateString(f.active?'Ocultar':'Mostrar'))}</button></li>`).join('')||`<li class="muted">${esc(translateString('Este tipo no tiene datos propios.'))}</li>`}</ul>
+        <form class="tf-new" data-type="${esc(t.key)}"><input name="label" maxlength="80" placeholder="${esc(translateString('Nuevo dato, por ejemplo «Profundidad de la quilla»'))}" required><select name="kind">${Object.entries(KIND).map(([k,l])=>`<option value="${k}">${esc(translateString(l))}</option>`).join('')}</select><input name="unit" maxlength="12" placeholder="${esc(translateString('Unidad (m, nudos…)'))}"><button class="btn btn-sm btn-primary" type="submit">${esc(translateString('Añadir'))}</button></form></details>`).join('')}</div></section>`;
+    const again=()=>renderTypeFieldsAdmin(id);
+    $$('.tf-save',host).forEach(b=>b.onclick=()=>{ const li=b.closest('li'); postJSON('/api/admin/dive-type-fields',{id:+li.dataset.id,label:$('.tf-label',li).value}).then(()=>{ toast('Guardado.'); }).catch(e=>toast(e.message)); });
+    $$('.tf-toggle',host).forEach(b=>b.onclick=()=>{ const li=b.closest('li'); postJSON('/api/admin/dive-type-fields',{id:+li.dataset.id,active:li.classList.contains('is-off')?1:0}).then(again).catch(e=>toast(e.message)); });
+    $$('.tf-new',host).forEach(f=>f.onsubmit=e=>{ e.preventDefault(); const fd=new FormData(f); postJSON('/api/admin/dive-type-fields',{type_key:f.dataset.type,label:fd.get('label'),kind:fd.get('kind'),unit:fd.get('unit')}).then(()=>{ toast('Dato añadido.'); again(); }).catch(err=>toast(err.message)); });
+  }
   async function renderAdminPointProps(id,refresh){
     const host=document.getElementById(id); if(!host) return;
     const d=await api('/api/admin/dive-points/proposals');
     host.innerHTML=`<div class="notice"><strong>Propuestas de cambio</strong><p>Las envían los centros que bucean en el punto (posición, corriente, visibilidad y avisos) y los buceadores (también el resto de datos). Al aceptar, la ficha cambia y la propuesta queda anotada como fuente del dato.</p></div>
-      <div class="pa-props">${d.items.map(x=>{ const ch=x.changes; const rows=Object.keys(ch).filter(k=>k!=='longitude').map(k=>k==='latitude'?`<tr><th>Posición</th><td>${x.current.latitude!=null?`${Number(x.current.latitude).toFixed(5)}, ${Number(x.current.longitude).toFixed(5)}`:'—'}</td><td>${Number(ch.latitude).toFixed(5)}, ${Number(ch.longitude).toFixed(5)}${x.moved_m!=null?` <small>(${Number(x.moved_m).toLocaleString(wdLocale())} m)</small>`:''}<br>${ptPosBadge(x.position)}</td></tr>`:`<tr><th>${escapeHtml(PT_FIELD_LABELS[k]||k)}</th><td>${escapeHtml(ptValue(k,x.current[k]))}</td><td><b>${escapeHtml(ptValue(k,ch[k]))}</b></td></tr>`).join('');
+      <div class="pa-props">${d.items.map(x=>{ const ch=x.changes; const rows=Object.keys(ch).filter(k=>k!=='longitude').map(k=>k==='latitude'?`<tr><th>Posición</th><td>${x.current.latitude!=null?`${Number(x.current.latitude).toFixed(5)}, ${Number(x.current.longitude).toFixed(5)}`:'—'}</td><td>${Number(ch.latitude).toFixed(5)}, ${Number(ch.longitude).toFixed(5)}${x.moved_m!=null?` <small>(${Number(x.moved_m).toLocaleString(wdLocale())} m)</small>`:''}<br>${ptPosBadge(x.position)}</td></tr>`:`<tr><th>${escapeHtml(PT_FIELD_LABELS[k]||k)}</th><td>${escapeHtml(ptValue(k,x.current[k]))}</td><td><b>${escapeHtml(ptValue(k,ch[k]))}</b></td></tr>`).join('')
+            +(x.type_rows||[]).map(r=>`<tr><th>${escapeHtml(translateString(r.label))}</th><td>${r.current!=null?escapeHtml(typeValue(r,r.current)):'—'}</td><td><b>${escapeHtml(typeValue(r,r.new))}</b></td></tr>`).join('');
           return `<article class="pa-prop" data-id="${x.id}"><header><h3><a href="#/admin?tab=points&edit=${x.point_id}">${escapeHtml(x.point_name)}</a></h3><p class="muted">${x.role==='center'?`${wdIcon('home',14)} ${escapeHtml(x.center_name||'Centro')}`:`${wdIcon('user',14)} Buceador`} · ${escapeHtml(x.fullname||'')} <small>${escapeHtml(x.email||'')}</small> · ${escapeHtml(fmtDate(x.created_at))}</p></header>
             <div class="table-wrap"><table class="pa-table"><thead><tr><th>Dato</th><th>Ahora</th><th>Propuesta</th></tr></thead><tbody>${rows}</tbody></table></div>${x.note?`<p class="pa-note">«${escapeHtml(x.note)}»</p>`:''}
             <div class="pa-actions"><button type="button" class="btn btn-primary btn-sm pa-ok">Aceptar</button><button type="button" class="btn btn-sm pa-no">Rechazar</button></div></article>`; }).join('')||'<div class="empty">No hay propuestas pendientes.</div>'}</div>`;
@@ -8066,6 +8108,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     else if(centre){ p.center_id=state.me.user.center_id; }
     const meta=await loadMeta(); const cs=(await api('/api/centers')).items;
     const lockPos=!!id&&!admin;   // a centre proposes the position of its own site, it never moves it
+    const typeDefs=admin?(p.type_fields||[]):(p.type_fields_def||[]), typeVals=admin?Object.fromEntries((p.type_fields||[]).filter(f=>f.value!=null).map(f=>[f.id,f.value])):Object.fromEntries((p.type_data||[]).map(x=>[x.id,x.value]));
     const pc0=p.position_check&&typeof p.position_check==='object'?p.position_check:null;
     // the site's own type stays chosen even when it is not one of the listed types («Arrecife», «Pared»…): before, the
     // first type of the list was chosen and saving changed the type without anyone noticing. Every option carries its
@@ -8091,6 +8134,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div id="pe-check" class="pe-check" aria-live="polite">${pc0?pointCheckHtml(pc0,[],{admin}):''}</div>
       </fieldset>
       <fieldset class="pe-sec"><legend>Datos de la inmersión</legend><div class="form-grid" id="pe-data">${pointDataFields(p,{prefix:'pd',full:true})}</div></fieldset>
+      ${typeDefs.length?`<fieldset class="pe-sec"><legend>Datos propios del tipo de inmersión</legend><p class="pd-hint">${escapeHtml(translateString(admin?'Según el tipo del punto. Vacío no se enseña. Los campos de cada tipo se cambian en Administración → Tipos de buceo.':'Lo que escribas aquí lo revisa la administración antes de publicarse.'))}</p><div class="form-grid" id="pe-type">${typeDataFields(typeDefs,typeVals)}</div></fieldset>`:''}
       <fieldset class="pe-sec"><legend>Descripción</legend><div class="form-grid">
         <div class="field full"><label for="p-desc">Descripción</label><textarea id="p-desc" rows="5" placeholder="Con palabras propias. Vacía, la web la escribe a partir de los datos.">${escapeHtml(p.description||'')}</textarea></div>
         <div class="field full"><label for="p-access">Acceso / notas operativas</label><textarea id="p-access" rows="2">${escapeHtml(p.access_info||'')}</textarea></div>
@@ -8116,7 +8160,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(!centre) data.center_id=+($('#p-center').value||0)||null; else if(!id) data.center_id=+$('#p-center').value;
       if(admin){ data.data_status=$('#p-status').value; if(!id){ data.source_ref=$('#p-src-ref').value; data.source_checked_at=$('#p-src-date').value; data.source_note=$('#p-src-note').value; } }
       if(!data.name.trim()){ $('#p-name').focus(); throw new Error('Escribe el nombre del punto.'); }
-      if(id) await postJSON('/api/dive-points/update',data,'POST'); else await postJSON('/api/dive-points',data);
+      if(id&&$('#pe-type')) data.type_fields=readTypeData($('#pe-type'));
+      if(id){ const r=await postJSON('/api/dive-points/update',data,'POST'); if(r?.note) toast(translateString(r.note)); } else await postJSON('/api/dive-points',data);
     };
     const fail=err=>{ const box=$('#pe-error'); const d=err.data||{};
       // 409: on land, or a site that already exists. The administration can keep it anyway (an inland lake, two sites
@@ -8899,10 +8944,13 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   async function renderMyQR(){
     if(!state.me){ goLogin(); return; } const esc=escapeHtml; clearInterval(tqTimer);
     setApp(`<section class="page tq-page">${wdCrumbs([['Mi área','#/area'],['Mi QR','']])}
-      <header class="tq-head"><p class="eyebrow">Mi QR</p><h1>Tu QR para unirte a un equipo</h1>
-        <p class="lead">Enséñalo en el centro: lo escanean en «Equipo → Enlazar persona» y te llega una petición que tú aceptas. No lleva tus datos, cambia cada minuto y sirve una sola vez.</p></header>
+      ${wdIsDiver()&&!((state.me.profiles||[]).length>1||(state.me.team_requests||0)>0)
+        ?`<header class="tq-head"><p class="eyebrow">Mi QR</p><h1>Mi QR</h1><p class="lead">Enséñalo en el centro para el check-in o para añadir un Buddy. No lleva tus datos, cambia cada minuto y sirve una sola vez.</p></header>`
+        :`<header class="tq-head"><p class="eyebrow">Mi QR</p><h1>Tu QR para unirte a un equipo</h1>
+        <p class="lead">Enséñalo en el centro: lo escanean en «Equipo → Enlazar persona» y te llega una petición que tú aceptas. No lleva tus datos, cambia cada minuto y sirve una sola vez.</p></header>`}
       <div class="tq-grid"><div class="tq-card" id="tq-card"><div class="tq-skel" aria-hidden="true"></div></div>
-        <div class="tq-side"><section class="tq-box"><h2>¿No estás en el centro?</h2><p>Crea un enlace de un solo uso y mándalo por WhatsApp o por correo. Dura 24 horas y lo puedes anular.</p>
+        ${wdIsDiver()&&!((state.me.profiles||[]).length>1||(state.me.team_requests||0)>0)?`<div class="tq-side"><section class="tq-box"><h2>Buddies</h2><p>Si tu compañero lo escanea con su móvil, te llega su petición de Buddy en «Buddies».</p><div class="tq-actions"><a class="btn" href="#/buddies">${wdIcon('users',16)} <span>Mis Buddies</span></a></div></section></div></div></section>`:''}
+        <div class="tq-side" ${wdIsDiver()&&!((state.me.profiles||[]).length>1||(state.me.team_requests||0)>0)?'hidden':''}><section class="tq-box"><h2>¿No estás en el centro?</h2><p>Crea un enlace de un solo uso y mándalo por WhatsApp o por correo. Dura 24 horas y lo puedes anular.</p>
             <button type="button" class="btn btn-primary" id="tq-share">${wdIcon('link',16)} <span>Compartir para enlazar</span></button><div id="tq-share-out"></div><div id="tq-shares"></div></section>
           <section class="tq-box"><h2>Tus equipos</h2><p>Las peticiones de los centros, los equipos donde estás y lo que te toca cada día.</p>
             <div class="tq-actions"><a class="btn" href="#/mi-equipo">${wdIcon('users',16)} <span>Mi equipo</span></a><a class="btn" href="#/mi-agenda">${wdIcon('calendar',16)} <span>Mi agenda</span></a></div></section></div></div></section>`);
@@ -9008,8 +9056,57 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   // The personal QR scanned with the phone's own camera (/p/…), and the link a person shares (/e/… → #/enlazar?i=…):
   // a centre signed in goes straight to «Enlazar persona» with it; anybody else sees how it works, without data.
+  // Encargo del 17/10 (1.7) · «Buddies»: compañeros de buceo, no una red social. Peticiones que se aceptan o se rechazan,
+  // la lista, y «¿Buceamos?»: una fecha, si se quiere un punto, y uno o varios Buddies. Al aceptar se abre WhatsApp entre
+  // los dos; dentro de WORLDIVES no hay chat, ni muro, ni publicaciones, ni seguidores.
+  async function renderBuddies(){
+    if(!(await loadMe(),state.me)){ goLogin(); return; } const esc=escapeHtml;
+    let d; try{ d=await api('/api/buddies'); }catch(err){ setApp(`<section class="page">${wdBlockError(err)}</section>`); return; }
+    const when=x=>esc(wdLongDay(x.date));
+    const row=(x,actions)=>`<li class="bd-row"><span class="bd-avatar" translate="no">${esc(initials(x.name))}</span><span class="bd-main"><b translate="no">${esc(x.name)}</b>${x.date?`<small>${when(x)}${x.point?` · <span translate="no">${esc(x.point)}</span>`:''}</small>`:''}</span><span class="bd-actions">${actions}</span></li>`;
+    setApp(accountShell('buddies',{eyebrow:'BUDDIES',title:'Tus compañeros de buceo',lead:'Añade a tus Buddies con su QR y proponles bucear juntos. Al aceptar, os escribís por WhatsApp para organizaros.'},`
+      <div class="acc-grid"><div class="acc-col">
+        ${d.incoming.length?`<section class="acc-card bd-card"><div class="acc-card-head"><h2>${wdIcon('bell',18)} Peticiones para ti</h2></div><ul class="bd-list">${d.incoming.map(x=>row(x,`<button type="button" class="btn btn-sm btn-primary" data-req-ok="${x.id}">Aceptar</button><button type="button" class="btn btn-sm" data-req-no="${x.id}">Rechazar</button>`)).join('')}</ul></section>`:''}
+        ${d.invites_in.length?`<section class="acc-card bd-card"><div class="acc-card-head"><h2>${wdIcon('calendar',18)} ¿Buceamos?</h2></div><ul class="bd-list">${d.invites_in.map(x=>row(x,x.status==='pending'?`<button type="button" class="btn btn-sm btn-primary" data-inv-ok="${x.id}">${wdIcon('whatsapp',15)} Aceptar</button><button type="button" class="btn btn-sm" data-inv-no="${x.id}">No puedo</button>`:`<span class="status good">${esc(translateString('Aceptada'))}</span>`)).join('')}</ul></section>`:''}
+        <section class="acc-card bd-card"><div class="acc-card-head"><h2>${wdIcon('users',18)} Mis Buddies</h2><span class="pt-n">${d.buddies.length}</span></div>
+          ${d.buddies.length?`<ul class="bd-list">${d.buddies.map(x=>row(x,`<label class="bd-pick"><input type="checkbox" data-pick="${esc(x.id)}"> <span>${esc(translateString('Invitar'))}</span></label><button type="button" class="btn-link bd-remove" data-remove="${esc(x.id)}" data-name="${esc(x.name)}">Quitar</button>`)).join('')}</ul>`
+            :'<p class="acc-empty">Todavía no tienes Buddies. Enséñale tu QR a tu compañero o escanea el suyo.</p>'}
+          ${d.outgoing.length?`<p class="bd-sub">Esperando respuesta</p><ul class="bd-list is-muted">${d.outgoing.map(x=>row(x,`<button type="button" class="btn-link" data-req-cancel="${x.id}">Anular</button>`)).join('')}</ul>`:''}</section>
+        ${d.buddies.length?`<section class="acc-card bd-card" id="bd-dive"><div class="acc-card-head"><h2>${wdIcon('inmersion',18)} Proponer una inmersión</h2></div>
+          <form id="bd-dive-form" class="form-grid"><p class="field full pd-hint">Marca «Invitar» en uno o varios Buddies, elige la fecha y, si quieres, el punto.</p>
+            <div class="field"><label for="bd-date">Fecha</label><input id="bd-date" type="date" min="${wdToday()}" required></div>
+            <div class="field"><label for="bd-point">Punto (opcional)</label><input id="bd-point" list="bd-points" autocomplete="off" placeholder="${esc(translateString('Busca un punto de buceo'))}"><datalist id="bd-points"></datalist></div>
+            <div class="field full"><label for="bd-note">Nota (opcional)</label><input id="bd-note" maxlength="200"></div>
+            <div class="form-actions full"><button class="btn btn-primary" type="submit">¿Buceamos?</button></div></form>
+          ${d.invites_out.length?`<p class="bd-sub">Tus propuestas</p><ul class="bd-list is-muted">${d.invites_out.map(x=>row(x,`<span class="status ${x.status==='accepted'?'good':x.status==='rejected'?'bad':'warn'}">${esc(translateString(x.status==='accepted'?'Aceptada':x.status==='rejected'?'No puede':'Pendiente'))}</span>${x.status==='pending'?`<button type="button" class="btn-link" data-inv-cancel="${x.id}">Anular</button>`:''}`)).join('')}</ul>`:''}</section>`:''}
+      </div><aside class="acc-col">
+        <section class="acc-card bd-qr"><div class="acc-card-head"><h2>${wdIcon('qr',18)} Mi QR de Buddy</h2></div><img src="${esc(d.qr.svg)}" alt="${esc(translateString('Tu QR de Buddy'))}" width="200" height="200"><p class="acc-help">Que tu compañero lo escanee con su móvil: le pedirá ser tu Buddy.</p>
+          <div class="page-actions"><button type="button" class="btn btn-sm" id="bd-copy">${wdIcon('link',15)} Copiar mi enlace</button></div></section>
+        ${d.has_phone?'':`<div class="notice"><p>${esc(translateString('Para organizaros por WhatsApp, añade tu teléfono en «Ajustes».'))}</p></div>`}
+      </aside></div>`));
+    const again=()=>renderBuddies(), fail=err=>toast(err.message);
+    $$('[data-req-ok],[data-req-no]').forEach(b=>b.onclick=()=>postJSON('/api/buddies/answer',{id:+(b.dataset.reqOk||b.dataset.reqNo),accept:!!b.dataset.reqOk}).then(()=>{ toast(b.dataset.reqOk?'Ya sois Buddies.':'Petición rechazada.'); again(); }).catch(fail));
+    $$('[data-req-cancel]').forEach(b=>b.onclick=()=>postJSON('/api/buddies/cancel',{id:+b.dataset.reqCancel}).then(again).catch(fail));
+    $$('[data-remove]').forEach(b=>b.onclick=async()=>{ if(!await wdConfirm({title:'Quitar Buddy',text:translateString('¿Quitar a {n} de tus Buddies?').replace('{n}',b.dataset.name),ok:'Quitar'})) return; postJSON('/api/buddies/remove',{ref:b.dataset.remove}).then(again).catch(fail); });
+    $$('[data-inv-cancel]').forEach(b=>b.onclick=()=>postJSON('/api/buddies/dive/cancel',{id:+b.dataset.invCancel}).then(again).catch(fail));
+    $$('[data-inv-no]').forEach(b=>b.onclick=()=>postJSON('/api/buddies/dive/answer',{id:+b.dataset.invNo,accept:false}).then(again).catch(fail));
+    $$('[data-inv-ok]').forEach(b=>b.onclick=async()=>{ try{ const r=await postJSON('/api/buddies/dive/answer',{id:+b.dataset.invOk,accept:true});
+        if(r.whatsapp){ window.open(r.whatsapp,'_blank','noopener'); toast('Aceptada: se abre WhatsApp para organizaros.'); } else toast(translateString('Aceptada. {n} no tiene teléfono en su perfil: organizaos en persona.').replace('{n}',r.name||''));
+        again(); }catch(err){ fail(err); } });
+    $('#bd-copy').onclick=async()=>{ try{ await navigator.clipboard.writeText(d.qr.url); toast('Enlace copiado.'); }catch{ toast(d.qr.url); } };
+    const pin=$('#bd-point'); let pts=[], tmr=0;
+    pin?.addEventListener('input',()=>{ clearTimeout(tmr); const q=pin.value.trim(); if(q.length<2) return; tmr=setTimeout(async()=>{ try{ const r=await api('/api/dive-points?limit=8&q='+encodeURIComponent(q)); pts=(r.items||r||[]).slice(0,8); $('#bd-points').innerHTML=pts.map(x=>`<option value="${esc(x.name)}">`).join(''); }catch{} },250); });
+    $('#bd-dive-form')?.addEventListener('submit',async e=>{ e.preventDefault(); const picked=$$('[data-pick]:checked').map(x=>x.dataset.pick);
+      if(!picked.length){ toast('Marca «Invitar» en al menos un Buddy.'); return; }
+      const point=pts.find(x=>x.name===pin.value.trim());
+      try{ const r=await postJSON('/api/buddies/dive',{buddies:picked,date:$('#bd-date').value,point_id:point?.id||null,note:$('#bd-note').value}); toast(translateString(r.sent===1?'Propuesta enviada.':'Propuestas enviadas: {n}.').replace('{n}',r.sent)); again(); }catch(err){ fail(err); } });
+  }
   async function renderPersonalQRLanding(code){
     const me=state.me?.user;
+    if(me&&me.role==='recreational'){   // 17/10 (1.7): «Mi QR» of another diver, scanned with the phone
+      setApp(authCard('Añadir un Buddy',`<p class="lead auth-lead">Es el QR de otro buceador de WORLDIVES. ¿Le pides ser tu Buddy?</p><div class="form-actions"><button class="btn btn-primary" type="button" id="bq-ask">Pedir ser Buddies</button><a class="btn" href="#/buddies">Ahora no</a></div>`));
+      $('#bq-ask').onclick=async()=>{ try{ const r=await postJSON('/api/buddies/qr',{code:code.replace(/^#\/enlazar\?i=/,'')}); toast(r.status==='pending'?translateString('Petición enviada. Cuando la acepte, seréis Buddies.'):translateString('Ya sois Buddies.')); wdGo('#/buddies'); }catch(err){ toast(err.message); } };
+      return; }
     if(me&&me.role==='center'&&(state.me?.member_role||'owner')==='owner'){ sessionStorage.setItem('wd-tq-code',code); wdGo('#/admin?tab=team'); return; }
     setApp(authCard('Enlazar a una persona',`<p class="lead auth-lead">Es el QR o el enlace de una persona de WORLDIVES para unirse al equipo de un centro. No lleva sus datos.</p>
       <ol class="tq-steps"><li>Entra con la cuenta del centro.</li><li>Abre «Equipo → Enlazar persona».</li><li>Escanea el QR, escribe su código o abre su enlace.</li></ol>

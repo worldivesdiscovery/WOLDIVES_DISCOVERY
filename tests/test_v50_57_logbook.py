@@ -210,6 +210,10 @@ class Logbook(ServerTestCase):
         self.assertEqual(b.post('/api/buddies', {'code': 'noexiste12345'}).status, 404)
         r = b.post('/api/buddies', {'code': code_a}); self.assertEqual(r.status, 200, r.json); self.assertFalse(r.json['already'])
         self.assertEqual(r.json['friend']['name'], 'Buceador lbmarc Pérez')
+        # encargo del 17/10 (1.7): the other person accepts the request (before, both became buddies at once)
+        self.assertTrue(r.json['pending']); self.assertEqual(self.book(b)['friends'], [])
+        req = a.get('/api/buddies').json['incoming'][0]
+        self.assertEqual(a.post('/api/buddies/answer', {'id': req['id'], 'accept': True}).status, 200)
         self.assertEqual([f['name'] for f in self.book(b)['friends']], ['Buceador lbmarc Pérez'])
         self.assertEqual([f['name'] for f in self.book(a)['friends']], ['Buceador lblaura Pérez'])
         self.assertTrue(b.post('/api/buddies', {'code': code_a}).json['already'])
@@ -278,8 +282,9 @@ class Logbook(ServerTestCase):
         self.assertEqual(len(self.book(c)['items']), 1)
 
     def test_9_permisos_y_pdf(self):
-        self.assertEqual(self.diver.post('/api/center/logbook/dive', {'date': DAY, 'site': 'x', 'instructor': 'y'}).status, 403)
-        self.assertEqual(self.diver.get('/api/center/logbook').status, 403)
+        # encargo del 17/10 (1.7): for a diver the routes of a centre «do not exist» (404), as an address that is not there
+        self.assertEqual(self.diver.post('/api/center/logbook/dive', {'date': DAY, 'site': 'x', 'instructor': 'y'}).status, 404)
+        self.assertEqual(self.diver.get('/api/center/logbook').status, 404)   # 17/10 (1.7): «no existe» for a diver
         r = self.center.post('/api/center/logbook/dive', {'date': (TODAY + dt.timedelta(days=5)).isoformat(), 'site': 'x', 'instructor': 'y'})
         self.assertEqual(r.status, 400)
         made = self.new_dive(qty=3)
