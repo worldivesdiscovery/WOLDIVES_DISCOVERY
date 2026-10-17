@@ -4562,3 +4562,38 @@ html.wd-app[data-wda-tema="noche"] .pp-temps{background:#0f2433;border-color:#22
 :root[data-theme="dark"] .tq-card,:root[data-theme="dark"] .tq-box,:root[data-theme="dark"] .tq-item,:root[data-theme="dark"] .tq-ag-item,:root[data-theme="dark"] .account-out{background:#10212c;border-color:#26404d;color:#e6f0f4}
 :root[data-theme="dark"] .tq-note,:root[data-theme="dark"] .tq-lock{background:#2a2316;color:#f3e7cf}
 .tq-role-link{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 10px}.tq-role-link small{color:var(--muted)}
+
+/* v50.58 (3.5) · progreso del curso: la lista de sesiones con su estado, «Pasar a otro día» y «Sesiones de curso por recolocar» */
+.cs-card .cs-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.cs-card .cs-head h2{margin:2px 0}.cs-card .cs-head small{color:var(--muted)}
+.cs-sum{margin:12px 0 6px;font-size:15px}
+.cs-bar{display:block;height:8px;border-radius:99px;background:#e7eef0;overflow:hidden}.cs-bar i{display:block;height:100%;background:#16a34a;border-radius:99px;transition:width .3s}
+.cs-seats{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+.cs-list{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
+.cs-row{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.cs-ico{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#eef2f3;color:var(--muted)}.cs-ico.sm{width:20px;height:20px}
+.cs-done .cs-ico{background:#dcfce7;color:#15803d}.cs-moved .cs-ico{background:#e0e7ff;color:#4338ca}.cs-cancelled .cs-ico{background:#fee2e2;color:#b91c1c}
+.cs-pending_new_date .cs-ico{background:#fff4d6;color:#a16207}.cs-pending_new_date{border-color:#f5d48a}
+.cs-top{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}.cs-state{font-size:12.5px;color:var(--muted)}
+.cs-when,.cs-was{display:block;margin-top:2px;color:#3b4a52}.cs-was{color:var(--muted);font-size:12px}
+.cs-people{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px}.cs-people li{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.cs-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}.cs-reply{font-size:13px;color:#15803d;display:inline-flex;gap:4px;align-items:center}
+.cs-acts .link-btn{font-size:13px;font-weight:600}.cs-finished{margin-top:12px}
+.cs-cert{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:4px}
+.cs-move .cs-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;border:0;padding:0;margin:0 0 12px}
+.cs-mode{display:flex;gap:10px;padding:12px;border:1.5px solid var(--line);border-radius:12px;cursor:pointer}.cs-mode:has(input:checked){border-color:var(--wd-turquesa,#0e8fa0);background:#f0fbfc}
+.cs-mode span{display:grid;gap:3px}.cs-mode small,.cs-dep small{color:var(--muted)}
+.cs-deps{display:grid;gap:6px;max-height:240px;overflow:auto;padding:2px}
+.cs-dep{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border:1px solid var(--line);border-radius:10px;cursor:pointer}.cs-dep span{display:grid;gap:2px}
+.cs-dep:has(input:checked){border-color:var(--wd-turquesa,#0e8fa0);background:#f0fbfc}.cs-dep.is-full{opacity:.55;cursor:not-allowed}
+.cs-who{border:0;padding:0;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:6px 16px}.cs-who legend{font-weight:700;margin-bottom:4px}
+.cs-extra{margin:12px 0 4px}.cs-extra summary{cursor:pointer;font-weight:600}
+.cs-relocate{margin:12px 0;padding:12px 14px;border:1px solid #f5d48a;border-radius:14px;background:#fffaf0}
+.cs-relocate h3{display:flex;gap:8px;align-items:center;margin:0 0 6px;font-size:15px}
+.cs-relocate ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}.cs-relocate li a{display:grid;gap:1px;padding:6px 8px;border-radius:8px;text-decoration:none;color:var(--ink)}
+.cs-relocate li a:hover{background:#fff1d0}.cs-relocate li small{color:var(--muted)}.cs-relocate li.is-old a{border-left:3px solid #d97706}
+.cs-remind{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;font-size:13px}.cs-remind input{width:70px}
+.pl-chip.is-course{border-style:dashed}.pl-slot.is-course .pl-slot-title strong{color:#5b21b6}
+.pl-block.is-course{color:#4c1d95;background:#f3e8ff}
+.mf-course .mf-wl a{margin-left:6px}
+@media (max-width:560px){.cs-move .cs-modes{grid-template-columns:1fr}.cs-card .cs-head{flex-direction:column}}

@@ -3579,15 +3579,15 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const docRows=docs.map(doc=>`<div class="doc-card"><div><strong>${escapeHtml(doc.title)}</strong><div style="font-size:12px;color:var(--muted)">${escapeHtml(doc.document_type)}${doc.expires_at?' · vence '+escapeHtml(doc.expires_at):''}</div></div><a class="btn" href="/api/documents/file/${doc.id}" target="_blank" rel="noopener">Abrir</a></div>`).join('');
       setApp(`<section class="page diver-sheet-page"><div class="breadcrumb"><a href="#/admin?tab=bookings">Reservas</a> / Ficha del buceador</div><p class="eyebrow">FICHA OPERATIVA · USO INTERNO</p><div class="diver-sheet-head"><div><h1>${escapeHtml(b.fullname)}</h1><p class="lead">Documentación y datos operativos del buceador.</p></div><div class="page-actions">${wdCan('cobros')||wdCan('reservas')?`<a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Justificante PDF + QR</a>`:''}${d.data_shared?`<a class="btn btn-primary" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a>`:''}<button class="btn" type="button" id="center-notice">Enviar aviso al cliente</button>${Number(b.refundable||0)>0?'<button class="btn" type="button" id="center-refund">Devolver</button>':''}${['requested','confirmed','accepted_pending_payment'].includes(b.status)&&b.service_id?'<button class="btn" type="button" id="center-reschedule">Cambiar fecha u hora</button>':''}${['confirmed','accepted_pending_payment'].includes(b.status)?'<button class="btn danger" type="button" id="center-cancel">Cancelar reserva</button>':''}</div></div>
       ${wdInPerson(b)?inPersonBookingCard(b,false)+proMarkCard(b):wdCan('cobros')||wdCan('reservas')?bookingPaymentCard(b,d.payment||null,{own:false,canPay:false}):''}
-      <div id="bk-equip-card"></div><div id="bk-change"></div><div id="bk-waiver"></div><div id="bk-insurance"></div>
+      <div id="bk-course"></div><div id="bk-equip-card"></div><div id="bk-change"></div><div id="bk-waiver"></div><div id="bk-insurance"></div>
       <div class="bk-state-bar">${wdStatus(b.status,b.status_label)}<span class="wd-mode">${escapeHtml(b.mode_label||'')}</span>${b.status==='requested'&&b.response_deadline?`<span class="acc-due">${wdIcon('clock',13)} Responde antes del ${escapeHtml(wdDeadline(b.response_deadline))}</span>`:''}${b.status==='accepted_pending_payment'&&b.payment_deadline?`<span class="acc-due">${wdIcon('clock',13)} El cliente paga antes del ${escapeHtml(wdDeadline(b.payment_deadline))}</span>`:''}
         ${b.status==='requested'?`<button class="btn btn-primary" type="button" id="center-confirm-booking">Aceptar</button><button class="btn danger" type="button" id="center-reject-booking">Rechazar</button>`:''}</div>
       ${b.check_url?`<aside class="reservation-qr bk-qr-center">${bkQR(b,id)}<div><strong>QR de la reserva</strong><small>El buceador lo enseña al llegar. Escanéalo con «Check-in / QR» o con la app WORLDIVES PRO.</small>${b.check_code?`<code class="bk-code">${escapeHtml(b.check_code)}</code><small>Si no se puede escanear, escribe este código.</small>`:''}</div></aside>`:''}
       ${d.data_shared?'':'<div class="notice warn"><strong>Ficha no compartida.</strong> Este cliente no ha reservado él mismo con tu centro ni ha compartido sus datos (por ejemplo, haciendo check-in con tu QR). Solo ves los datos de la reserva.</div>'}<div class="detail" style="margin-top:22px"><article class="detail-main"><section class="reservation-pass-section"><p class="eyebrow">DATOS DEL BUCEADOR</p><div class="data-grid"><div class="data-item"><span>Nombre</span><strong>${escapeHtml(b.fullname)}</strong></div><div class="data-item"><span>Teléfono</span><strong>${p.phone?`<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Email</span><strong>${escapeHtml(b.email||'—')}</strong></div><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(p.city||'—')}</strong></div><div class="data-item"><span>Titulación</span><strong>${escapeHtml(p.certification_name||'No indicada')}</strong></div><div class="data-item"><span>Contacto de emergencia</span><strong>${escapeHtml([p.emergency_contact_name,p.emergency_contact_phone].filter(Boolean).join(' · ')||'—')}</strong></div></div></section><section class="reservation-pass-section"><p class="eyebrow">EQUIPO Y PREFERENCIAS</p><div class="data-grid"><div class="data-item"><span>Necesita equipo</span><strong>${p.equipment_required?'Sí':'No'}</strong></div><div class="data-item"><span>Traje / talla</span><strong>${escapeHtml([p.suit_type,p.suit_size].filter(Boolean).join(' · ')||'—')}</strong></div><div class="data-item"><span>Botas</span><strong>${escapeHtml(p.boot_size||'—')}</strong></div><div class="data-item"><span>Chaleco</span><strong>${escapeHtml(p.bcd_size||'—')}</strong></div><div class="data-item"><span>Aletas</span><strong>${escapeHtml(p.fin_size||'—')}</strong></div><div class="data-item"><span>Máscara</span><strong>${escapeHtml(p.mask_size||'—')}</strong></div><div class="data-item"><span>Botella</span><strong>${escapeHtml(p.tank_preference||'—')}</strong></div><div class="data-item"><span>Ordenador</span><strong>${escapeHtml(p.computer_preference||'—')}</strong></div><div class="data-item"><span>Peso habitual</span><strong>${p.usual_weight_kg?escapeHtml(String(p.usual_weight_kg))+' kg':'—'}</strong></div></div>${p.equipment_notes?`<div class="notice" style="margin-top:14px"><strong>Notas de equipo</strong><br>${escapeHtml(p.equipment_notes)}</div>`:''}</section><section class="reservation-pass-section"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><p class="eyebrow">DOCUMENTACIÓN</p><h2>Documentación del buceador</h2></div><a class="btn" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">PDF</a></div>${docRows||'<div class="empty" style="margin-top:12px">El buceador todavía no ha aportado documentación.</div>'}</section></article><aside class="detail-side"><div class="notice"><strong>Ficha interna del centro</strong><p style="margin:8px 0 0">Esta pantalla no modifica la reserva. La confirmación, pago y estado se gestionan desde la pantalla de reservas.</p></div><a class="btn" style="margin-top:12px;width:100%" href="#/admin?tab=bookings">← Volver a reservas</a></aside></div></section>`);
       bindCenterBookingActions(b,id,()=>renderBookingDetail(new URLSearchParams('id='+id))); bindProMark(b,id,()=>renderBookingDetail(new URLSearchParams('id='+id))); mountWaiverCard(id,true); mountCenterChange(id); mountCenterInsurance(id,b,b.insurance_view);
-      mountBookingEquipment(id,{center:true,onChange:()=>renderBookingDetail(new URLSearchParams('id='+id))}); return;
+      mountBookingEquipment(id,{center:true,onChange:()=>renderBookingDetail(new URLSearchParams('id='+id))}); mountCourseProgress(id,{center:true}); return;
     }
-    const payBox=(wdInPerson(b)?inPersonBookingCard(b,own):bookingPaymentCard(b,payRec,{own,canPay,cancelled:params?.get?.('pago')==='cancelado'}))+(own?'<div id="bk-equip-card"></div><div id="bk-change"></div><div id="bk-waiver"></div>'+bookingReviewPrompt(b)+bookingCancelCard(b):'');
+    const payBox=(wdInPerson(b)?inPersonBookingCard(b,own):bookingPaymentCard(b,payRec,{own,canPay,cancelled:params?.get?.('pago')==='cancelado'}))+(own?'<div id="bk-course"></div><div id="bk-equip-card"></div><div id="bk-change"></div><div id="bk-waiver"></div>'+bookingReviewPrompt(b)+bookingCancelCard(b):'');
     const customerPanel=centerView?`<section class="reservation-pass-section"><p class="eyebrow">FICHA OPERATIVA DEL BUCEADOR</p><h2>${escapeHtml(b.fullname)}</h2><div class="data-grid"><div class="data-item"><span>Email</span><strong>${escapeHtml(b.email||'—')}</strong></div><div class="data-item"><span>Teléfono</span><strong>${p.phone?`<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(p.city||'—')}</strong></div><div class="data-item"><span>Titulación</span><strong>${escapeHtml(p.certification_name||'No indicada')}</strong></div><div class="data-item"><span>Seguro / documentación</span><strong>${docs.length?`${docs.length} documento(s) disponible(s)`:'No aportada'}</strong></div><div class="data-item"><span>Necesita equipo</span><strong>${p.equipment_required?'Sí':'No'}</strong></div><div class="data-item"><span>Traje / talla</span><strong>${escapeHtml([p.suit_type,p.suit_size].filter(Boolean).join(' · ')||'—')}</strong></div><div class="data-item"><span>Botas</span><strong>${escapeHtml(p.boot_size||'—')}</strong></div><div class="data-item"><span>Chaleco</span><strong>${escapeHtml(p.bcd_size||'—')}</strong></div><div class="data-item"><span>Aletas</span><strong>${escapeHtml(p.fin_size||'—')}</strong></div><div class="data-item"><span>Máscara</span><strong>${escapeHtml(p.mask_size||'—')}</strong></div><div class="data-item"><span>Botella</span><strong>${escapeHtml(p.tank_preference||'—')}</strong></div><div class="data-item"><span>Ordenador</span><strong>${escapeHtml(p.computer_preference||'—')}</strong></div><div class="data-item"><span>Peso habitual</span><strong>${p.usual_weight_kg?escapeHtml(String(p.usual_weight_kg))+' kg':'—'}</strong></div></div>${p.equipment_notes?`<div class="notice" style="margin-top:14px"><strong>Notas de equipo</strong><br>${escapeHtml(p.equipment_notes)}</div>`:''}<div style="margin-top:18px"><h3 style="margin-bottom:8px">Documentación disponible</h3>${docs.map(doc=>`<div class="doc-card"><div><strong>${escapeHtml(doc.title)}</strong><div style="font-size:12px;color:var(--muted)">${escapeHtml(doc.document_type)}${doc.expires_at?' · vence '+escapeHtml(doc.expires_at):''}</div></div><a class="btn" href="/api/documents/file/${doc.id}" target="_blank" rel="noopener">Abrir</a></div>`).join('')||'<div class="empty">El buceador todavía no ha aportado documentación.</div>'}</div></section>`:'';
     const customerNotes=centerView?`<div class="notice"><strong>Información proporcionada por el buceador</strong><br>${escapeHtml(b.notes||'Sin notas adicionales.')}</div>`:(b.notes?`<div class="notice"><strong>Tus notas para el centro</strong><br>${escapeHtml(b.notes)}</div>`:'');
     const passActions=centerView?`<div class="page-actions"><a class="btn" href="#/admin?tab=bookings">Volver a reservas</a><a class="btn" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Recibo PDF + QR</a><a class="btn" href="/api/bookings/${id}/diver-sheet.pdf" target="_blank" rel="noopener">Ficha operativa PDF</a>${(b.status==='requested'||b.status==='pending')?`<button class="btn btn-primary" id="center-confirm-booking">Confirmar reserva</button><button class="btn danger" id="center-reject-booking">Rechazar</button>`:''}</div>`:`<aside class="reservation-qr">${bkQR(b,id)}<strong>Presenta este QR</strong><small>El centro puede escanearlo para verificar la reserva.</small>${b.check_code?`<code class="bk-code">${escapeHtml(b.check_code)}</code><small>Si no se puede escanear, dicta este código.</small>`:''}<a class="btn btn-primary" href="/api/bookings/${id}/receipt.pdf" target="_blank" rel="noopener">Descargar esta reserva en PDF</a></aside>`;
@@ -3595,7 +3595,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
             // a discount has no unit price, only its amount (it showed «1 × 0.00 €»)
             return ls.length>1?`<small class="booking-price-lines">${ls.map(l=>`${escapeHtml(l.label)}: ${l.unit==null?m(l.total):`${l.qty} × ${m(l.unit)}`}`).join('<br>')}</small>`:'';})()}</div><div class="data-item"><span>Pago</span><strong>${wdInPerson(b)?escapeHtml(translateString('Pago en persona al profesional')):Number(b.price||0)>0?wdPayment(b.payment_status):'Sin coste'}</strong></div><div class="data-item"><span>Modo de reserva</span><strong>${escapeHtml(b.mode_label||'')}</strong></div><div class="data-item"><span>Equipo solicitado</span><strong>${b.needs_equipment?'Sí':'No'}${b.equipment_items?' · '+escapeHtml(b.equipment_items):''}</strong></div><div class="data-item"><span>Guía</span><strong>${b.needs_guide?'Sí':'No'}${b.guide_notes?' · '+escapeHtml(b.guide_notes):''}</strong></div><div class="data-item"><span>Nitrox</span><strong>${b.nitrox?'Sí':'No'}</strong></div><div class="data-item"><span>Traslado</span><strong>${b.pickup?'Sí':'No'}</strong></div></div></div>${passActions}</div>${centerView?customerNotes:`<div class="reservation-pass-section"><p class="eyebrow">${b.center_id?'CENTRO DE BUCEO':'PROFESIONAL'}</p><h2><a href="${b.center_id?`#/centro?id=${b.center_id}`:`#/profesional?id=${b.provider_user_id}`}">${escapeHtml(b.center_name)}</a></h2><div class="data-grid"><div class="data-item"><span>Ciudad</span><strong>${escapeHtml(b.center_city||'—')}</strong></div><div class="data-item"><span>Teléfono</span><strong>${b.center_phone?`<a href="tel:${escapeHtml(b.center_phone)}">${escapeHtml(b.center_phone)}</a>`:'—'}</strong></div><div class="data-item"><span>Email</span><strong>${b.center_email?`<a href="mailto:${escapeHtml(b.center_email)}">${escapeHtml(b.center_email)}</a>`:'—'}</strong></div><div class="data-item"><span>Dirección</span><strong>${escapeHtml(b.center_address||'—')}</strong></div></div></div>`}${customerPanel}${own?insDiverBox(b,b.insurance,id):''}${payBox}<div class="notice ${['confirmed','completed'].includes(b.status)?'success':['rejected','cancelled','expired'].includes(b.status)?'warning':''}"><strong>${escapeHtml(statusText)}.</strong> ${bookingStateHelp(b)}</div></div></section>`);
     if(canPay)$('#booking-pay-now').onclick=async e=>{const btn=e.currentTarget; btn.disabled=true; btn.textContent='Abriendo el pago seguro…'; try{const pay=await postJSON('/api/payments/checkout',{...wdAppPay(),booking_id:id,service_id:Number(b.service_id||0),slot_id:Number(b.slot_id||0)||null});if(pay.checkout_url){wdOpenCheckout(pay.checkout_url);return;}}catch(err){toast(err.message)} btn.disabled=false; btn.textContent='Pagar ahora de forma segura';};
-    if(own){ bindBookingCancel(b,id); mountWaiverCard(id,false); mountBookingChange(id,b.slot_cancel_open); bindDiverInsurance(b,id); mountBookingEquipment(id,{onChange:()=>renderBookingDetail(new URLSearchParams('id='+id))}); }
+    if(own){ bindBookingCancel(b,id); mountWaiverCard(id,false); mountBookingChange(id,b.slot_cancel_open); bindDiverInsurance(b,id); mountBookingEquipment(id,{onChange:()=>renderBookingDetail(new URLSearchParams('id='+id))}); mountCourseProgress(id); }
     if(own&&params?.get?.('pago')==='cancelado'&&!renderBookingDetail.cancelled?.[id]){ (renderBookingDetail.cancelled??={})[id]=1; postJSON('/api/payments/cancel',{booking_id:id}).then(r=>{ if(r.paid){ toast('El pago ya se había completado.'); renderBookingDetail(new URLSearchParams('id='+id)); } else if(r.status&&r.status!==b.status){ toast(r.status==='expired'?'No se ha completado el pago: la reserva no se ha hecho y las plazas se han liberado.':'No se ha completado el pago.'); renderBookingDetail(new URLSearchParams('id='+id)); } }).catch(()=>{}); }
   }
   // ---------------------------------------------------------------- v50.42 · Encargo 2, punto 6: check-in on the boat
@@ -3760,6 +3760,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           :`<p class="notice">${translateString('No hay reservas activas en esta salida: no se avisa a nadie.')}</p>`}
         ${!pv.whatsapp.connected?`<p class="nt-hint">${wdIcon('info',15)} <span>${translateString(pv.whatsapp.enabled?'Tu centro no tiene WhatsApp conectado: los avisos salen por correo y en la app.':'WhatsApp aún no está activado en WORLDIVES: los avisos salen por correo y en la app.')}</span></p>`
           :`<p class="nt-hint">${wdIcon('whatsapp',15)} <span>${esc(translateString('WhatsApp sale desde tu número {number}; las respuestas te llegan a tu WhatsApp.')).replace('{number}',`<b translate="no">${esc(pv.whatsapp.number||'')}</b>`)}</span></p>`}
+        ${cancel&&pv.course?.length?`<p class="nt-hint nt-course">${wdIcon('info',15)} <span>${esc(translateString(pv.course.length===1?'1 alumno de curso tiene aquí una sesión: no se le devuelve el dinero (su curso sigue). Su sesión pasa a «Pendiente de nueva fecha» y la verás en «Sesiones de curso por recolocar».':'{n} alumnos de curso tienen aquí una sesión: no se les devuelve el dinero (su curso sigue). Su sesión pasa a «Pendiente de nueva fecha» y la verás en «Sesiones de curso por recolocar».')).replace('{n}',pv.course.length)}</span></p>`:''}
         ${pv.people.length?`<div class="table-wrap nt-people"><table class="data-table"><thead><tr><th>${translateString('Buceador')}</th>${NOTICE_CH.map(([,l])=>`<th>${l}</th>`).join('')}${cancel?`<th>${translateString('Dinero')}</th>`:''}</tr></thead><tbody>
           ${pv.people.map(x=>`<tr><td><b translate="no">${esc(x.name)}</b>${x.participants>1?` <small>×${x.participants}</small>`:''} <small class="nt-lang">${esc((x.lang||'').toUpperCase())}</small></td>${NOTICE_CH.map(([k])=>`<td>${yes(x.channels[k],x.why_not[k])}</td>`).join('')}${cancel?`<td>${x.paid>0?`${translateString(st.policy==='refund'?'Devolución de':'Otra fecha o devolución de')} ${wdMoney(x.paid,x.currency)}`:translateString(st.policy==='refund'?'Sin cobro':'Otra fecha o anulación sin coste')}</td>`:''}</tr>`).join('')}</tbody></table></div>`:''}
         ${cancel&&pv.money.refund>0?`<p class="nt-money">${translateString(st.policy==='refund'?'Se devolverá en total':'Importe pagado que se puede devolver')}: <b>${wdMoney(pv.money.refund,pv.money.currency)}</b></p>`:''}
@@ -4056,6 +4057,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         ${edit?`<div class="mf-max"><label for="mf-max">Máximo por guía</label><input id="mf-max" type="number" min="1" max="30" value="${max}"></div>`:`<span class="muted">Máximo por guía: ${max}</span>`}</div>
       <div class="mf-board">${d.groups.map(g=>col(g,inGroup(g.id))).join('')}${loose.length||!d.groups.length?col(null,loose):''}${edit?'<button type="button" class="mf-add" id="mf-add-group">+ Añadir grupo</button>':''}</div>`
       :`<div class="mf-boat-view">${d.groups.map(g=>`<section class="mf-bv-group"><h2>${esc(g.label)} <small>${esc(boatOf(g.boat_id)?.name||'Sin barco')} · ${esc(g.guide||'Sin guía')}</small></h2>${inGroup(g.id).map(card).join('')||'<p class="mf-empty">Sin buceadores</p>'}</section>`).join('')}${loose.length?`<section class="mf-bv-group"><h2>Sin grupo</h2>${loose.map(card).join('')}</section>`:''}</div>`}
+      ${d.course?.length?`<section class="mf-extra mf-course"><h2>${esc(translateString('Sesiones de curso'))}</h2><p class="muted">${esc(translateString('Alumnos de un curso que hacen aquí una sesión: ocupan plaza y vienen con su instructor. No son reservas nuevas.'))}</p><ul class="mf-wl">${d.course.map(c=>`<li><b translate="no">${esc(c.name)}</b> <span>${esc(c.text)}</span>${c.instructor?` <span>${esc(translateString('con {who}').replace('{who}',c.instructor))}</span>`:''} <a href="#/reserva?id=${c.booking_id}&curso=1">${esc(translateString('Ver la reserva'))}</a></li>`).join('')}</ul></section>`:''}
       ${d.waitlist.length||d.waitlist_enabled===false?`<section class="mf-extra"><h2>Lista de espera</h2>${d.waitlist_enabled===false?'<p class="muted">Desactivada para este servicio (se cambia en «Servicios y tarifas»).</p>':''}${d.waitlist.length?`<ol class="mf-wl">${d.waitlist.map(w=>`<li><b translate="no">${esc(w.fullname)}</b> <span>${w.participants} ${w.participants===1?'plaza':'plazas'}</span> <span>${w.status==='notified'?`Avisado: plazas guardadas hasta el ${esc(wdDeadline(w.expires_at))}`:'Esperando'}</span></li>`).join('')}</ol>`:''}</section>`:''}
       ${d.events.length?`<details class="mf-extra mf-hist"><summary>Historial de la salida (${d.events.length})</summary><ul>${d.events.map(e=>`<li><small>${esc(wdDeadline(e.created_at))}</small> ${esc(SLOT_EVENTS[e.kind]||e.kind)}${e.who?' · '+esc(e.who):''}</li>`).join('')}</ul></details>`:''}
       </div>
@@ -5831,6 +5833,155 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
 
   // ---------- «Mis reservas»: the diver's pieces, and changing them until the cancellation deadline ----------
+  // ---------------------------------------------------------------- v50.58 (3.5) · progreso del curso
+  // The sessions of a course booking with the state of each student and «3 de 4 inmersiones hechas · 1 pendiente».
+  // The centre marks a session as done (one tap; or some students; or the whole group of the edition) and passes it to
+  // another day: joined to a departure that already exists or as a new session. The student sees the same list and
+  // confirms the new date or asks for another one. What may be done, the places, the agenda and any price are decided
+  // by the server; this only shows it.
+  const CS_ICON={done:'check',pending:'clock',moved:'arrow',cancelled:'close',pending_new_date:'alert'};
+  const CS_OPEN=['pending','moved','pending_new_date'];
+  async function mountCourseProgress(id,{center=false}={}){
+    const box=document.getElementById('bk-course'); if(!box) return; const esc=escapeHtml, tr=translateString;
+    let v; try{ v=await api(`/api/bookings/${id}/course`); }catch{ box.innerHTML=''; return; }
+    const reload=()=>mountCourseProgress(id,{center});
+    const can=center&&v.can_edit&&!v.completed_at&&wdCan('reservas');
+    const multi=v.seats.length>1;
+    const when=x=>x.date?`${wdLongDay(x.date)}${x.start?` · ${x.start}`:''}`:'';
+    const studentLine=x=>{
+      const bits=[];
+      if(x.status==='pending_new_date') bits.push(`<b>${esc(tr('Pendiente de nueva fecha'))}</b>`);
+      else if(x.moved||x.status==='moved') bits.push(`<b>${esc(when(x))}</b>`);
+      else bits.push(esc(when(x)));
+      if(x.where&&x.status!=='pending_new_date') bits.push(esc(x.where));
+      if(x.instructor&&x.status!=='pending_new_date') bits.push(esc(tr('con {who}').replace('{who}',x.instructor)));
+      if(x.boat) bits.push(esc(tr('Barco'))+' '+esc(x.boat));
+      return bits.join(' · ');
+    };
+    const sessionRow=s=>{
+      const xs=s.students, first=xs[0]||{}, same=xs.every(x=>x.status===first.status&&x.date===first.date&&x.start===first.start);
+      const st=same?first.status:'mixed';
+      const open=xs.filter(x=>CS_OPEN.includes(x.status));
+      const due=open.filter(x=>(x.date||'')<=v.today);
+      const undo=xs.filter(x=>x.status==='done');
+      const was=xs.find(x=>x.moved_from);
+      const acts=[];
+      if(can&&due.length) acts.push(`<button type="button" class="btn btn-sm btn-primary" data-cs-done="${s.seq}">${wdIcon('check',14)} ${esc(tr('Marcar como hecha'))}</button>`);
+      if(can&&open.length) acts.push(`<button type="button" class="btn btn-sm" data-cs-move="${s.seq}">${wdIcon('calendar',14)} ${esc(tr('Pasar a otro día'))}</button>`);
+      if(can&&undo.length&&!open.length) acts.push(`<button type="button" class="link-btn" data-cs-undo="${s.seq}">${esc(tr('Desmarcar'))}</button>`);
+      const ans=xs.find(x=>x.can_answer);
+      if(!center&&ans) acts.push(ans.reply==='ok'?`<span class="cs-reply">${wdIcon('check',14)} ${esc(tr('Has confirmado la nueva fecha.'))}</span>`
+        :ans.reply==='other_date'?`<span class="cs-reply">${esc(tr('Has pedido otra fecha: el centro te propondrá otra.'))}</span>`
+        :`<button type="button" class="btn btn-sm btn-primary" data-cs-ok="${s.seq}">${esc(tr('Confirmo'))}</button><button type="button" class="btn btn-sm" data-cs-other="${s.seq}">${esc(tr('Pedir otra fecha'))}</button>`);
+      if(center&&first.reply&&first.status==='moved') acts.push(`<span class="cs-reply">${esc(tr(first.reply==='ok'?'El alumno ha confirmado.':'El alumno pide otra fecha.'))}</span>`);
+      return `<li class="cs-row cs-${esc(st)}" data-seq="${s.seq}">
+        <span class="cs-ico" aria-hidden="true">${wdIcon(CS_ICON[st]||'info',15)}</span>
+        <div class="cs-main"><div class="cs-top"><strong>${esc(tr(s.label))}</strong><span class="cs-state">${esc(st==='mixed'?tr('Según el alumno'):tr(first.state||''))}</span></div>
+          ${same?`<small class="cs-when">${studentLine(first)}</small>`:''}
+          ${was&&same&&first.status!=='done'?`<small class="cs-was">${esc(tr('Antes: {when}').replace('{when}',`${wdLongDay(was.moved_from.slice(0,10))} · ${was.moved_from.slice(11,16)}`))}</small>`:''}
+          ${same&&first.note&&first.status==='pending_new_date'?`<small class="cs-was">${esc(tr(first.note.split(' (')[0]))}</small>`:''}
+          ${multi&&!same?`<ul class="cs-people">${xs.map(x=>`<li class="cs-${esc(x.status)}"><span class="cs-ico sm" aria-hidden="true">${wdIcon(CS_ICON[x.status]||'info',12)}</span><b>${esc(x.name)}</b> <small>${esc(tr(x.state))}${x.status!=='done'&&x.status!=='pending'?` · ${studentLine(x)}`:''}</small></li>`).join('')}</ul>`:''}
+          ${acts.length?`<div class="cs-acts">${acts.join('')}</div>`:''}</div></li>`;
+    };
+    const s=v.summary, pct=s.total?Math.round(100*s.done/s.total):0;
+    box.innerHTML=`<section class="reservation-pass-section cs-card" id="curso">
+      <div class="cs-head"><div><p class="eyebrow">${esc(tr('PROGRESO DEL CURSO'))}</p><h2>${esc(v.course.title)}</h2>
+        <small>${esc([v.course.plan,`${wdLongDay(v.course.start)}${v.course.end!==v.course.start?` – ${wdLongDay(v.course.end)}`:''}`,v.course.instructor?tr('con {who}').replace('{who}',v.course.instructor):''].filter(Boolean).join(' · '))}</small></div>
+        ${v.completed_at?`<span class="pl-tag good">${wdIcon('check',13)} ${esc(tr('Curso completado'))}</span>`:`<span class="pl-tag">${esc(tr('En curso'))}</span>`}</div>
+      <p class="cs-sum"><strong>${esc(multi?s.text:tr(s.text))}</strong></p>
+      <span class="cs-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${s.total}" aria-valuenow="${s.done}"><i style="width:${pct}%"></i></span>
+      ${multi?`<p class="cs-seats">${v.seats.map(x=>`<span class="pl-tag ${x.finished?'good':''}">${esc(x.name)}: ${x.summary.done}/${x.summary.total}</span>`).join('')}</p>`:''}
+      <ol class="cs-list">${v.sessions.map(sessionRow).join('')}</ol>
+      ${v.completed_at?`<div class="notice success cs-finished">${center?`<strong>${esc(tr('Curso completado.'))}</strong> ${v.certification?esc(tr('Titulación registrada: {name}').replace('{name}',v.certification)):`<span>${esc(tr('Registra la titulación del alumno:'))}</span> <span class="cs-cert"><select id="cs-cert" aria-label="${esc(tr('Titulación'))}"></select><button type="button" class="btn btn-sm btn-primary" id="cs-cert-save">${esc(tr('Registrar titulación'))}</button></span>`}`
+        :`<strong>${esc(tr('¡Curso completado!'))}</strong> ${esc(tr('Tus inmersiones ya están en tu Log Book.'))} <a href="#/logbook">${esc(tr('Abrir mi Log Book'))}</a>${v.certification?` · ${esc(tr('Titulación registrada: {name}').replace('{name}',v.certification))}`:''}`}</div>`
+        :`<p class="wz-hint">${esc(tr(center?'Una sesión pasada a otro día sigue unida a esta reserva: no es una reserva nueva ni se cobra otra vez.':'Si una sesión cambia de día, sigue unida a tu reserva y a tu curso: no se te cobra otra vez.'))}</p>`}
+    </section>`;
+    translateTree(box);
+    if(/[?&]curso=1/.test(location.hash)) box.scrollIntoView({block:'start'});   // from «Sesiones de curso por recolocar»
+    const sess=seq=>v.sessions.find(x=>x.seq===seq);
+    $$('[data-cs-done]',box).forEach(b=>b.onclick=()=>openDone(+b.dataset.csDone));
+    $$('[data-cs-undo]',box).forEach(b=>b.onclick=async()=>{ if(!confirm(tr('¿Desmarcar esta sesión? Volverá a estar pendiente.'))) return; try{ await postJSON(`/api/center/bookings/${id}/course/done`,{seq:+b.dataset.csUndo,value:false}); reload(); }catch(err){ toast(err.message); } });
+    $$('[data-cs-move]',box).forEach(b=>b.onclick=()=>openMove(+b.dataset.csMove));
+    $$('[data-cs-ok]',box).forEach(b=>b.onclick=async()=>{ try{ await postJSON(`/api/bookings/${id}/course/answer`,{seq:+b.dataset.csOk,answer:'ok'}); toast(tr('Gracias: se lo hemos dicho al centro.')); reload(); }catch(err){ toast(err.message); } });
+    $$('[data-cs-other]',box).forEach(b=>b.onclick=async()=>{ const note=prompt(tr('¿Qué días te vienen mejor? (opcional)'))??null; if(note===null) return;
+      try{ await postJSON(`/api/bookings/${id}/course/answer`,{seq:+b.dataset.csOther,answer:'other_date',note}); toast(tr('Se lo hemos dicho al centro: te propondrá otra fecha.')); reload(); }catch(err){ toast(err.message); } });
+    if($('#cs-cert',box)) api('/api/meta').then(m=>{ const sel=$('#cs-cert',box); if(!sel) return; sel.innerHTML=(m.certifications||[]).map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join(''); }).catch(()=>{});
+    $('#cs-cert-save',box)?.addEventListener('click',async e=>{ e.currentTarget.disabled=true; try{ const r=await postJSON(`/api/center/bookings/${id}/course/certify`,{certification_id:+$('#cs-cert',box).value});
+      toast(r.profile==='kept'?tr('Registrada en la reserva. El buceador ya tenía una titulación en su perfil y no la cambiamos.'):tr('Titulación registrada.')); reload(); }catch(err){ toast(err.message); e.currentTarget.disabled=false; } });
+    // who: the students of this booking, or the whole group of the edition
+    const whoPicker=(s,prefix,filter)=>{
+      const rows=s.students.filter(filter);
+      const group=v.group>v.seats.length?`<label class="lg-check cs-group"><input type="checkbox" id="${prefix}-group"><span>${esc(tr('Todo el grupo del curso ({n} alumnos)').replace('{n}',v.group))}</span></label>`:'';
+      if(!multi&&!group) return '';
+      return `<fieldset class="cs-who"><legend>${esc(tr('Alumnos'))}</legend>${multi?rows.map(x=>`<label class="lg-check"><input type="checkbox" name="${prefix}-seat" value="${x.seat}" checked><span>${esc(x.name)}</span></label>`).join(''):''}${group}</fieldset>`;
+    };
+    const readWho=(el,prefix)=>{ if($(`#${prefix}-group`,el)?.checked) return {scope:'edition'};
+      const seats=$$(`input[name="${prefix}-seat"]`,el); return seats.length?{seats:seats.filter(i=>i.checked).map(i=>+i.value)}:{}; };
+    async function openDone(seq){
+      const s=sess(seq), due=x=>CS_OPEN.includes(x.status)&&(x.date||'')<=v.today;
+      const picker=whoPicker(s,'csd',due);
+      const send=async body=>{ try{ const r=await postJSON(`/api/center/bookings/${id}/course/done`,{seq,...body}); toast(r.completed?.includes(id)?tr('¡Curso completado! Ya está en su Log Book.'):tr('Marcada como hecha.')); return true; }catch(err){ toast(err.message); return false; } };
+      if(!picker){ if(await send({})) reload(); return; }   // one student: one tap
+      const {el,close}=wdOpenModal({id:'cs-done-m',size:'sm',title:esc(tr('Marcar como hecha')),subtitle:esc(tr(s.label)),body:picker,
+        footer:`<button type="button" class="btn" data-modal-close>${esc(tr('Cancelar'))}</button><button type="button" class="btn btn-primary" id="csd-ok">${esc(tr('Marcar como hecha'))}</button>`});
+      translateTree(el);
+      $('#csd-ok',el).onclick=async e=>{ const who=readWho(el,'csd'); if(who.seats&&!who.seats.length){ toast(tr('Elige al menos un alumno.')); return; } e.currentTarget.disabled=true; if(await send(who)){ close(); reload(); } else e.currentTarget.disabled=false; };
+    }
+    async function openMove(seq){
+      const s=sess(seq); let o; try{ o=await api(`/api/center/bookings/${id}/course/move-options?seq=${seq}`); }catch(err){ toast(err.message); return; }
+      const team=o.team||[], boats=o.boats||[];
+      const teamOpts=team.map(t=>`<option value="${t.user_id}" ${t.user_id===o.instructor_user_id?'selected':''}>${esc(t.name)}</option>`).join('');
+      const dep=x=>`<label class="cs-dep ${x.free<1?'is-full':''}"><input type="radio" name="csm-slot" value="${x.id}" ${x.free<1?'disabled':''}><span><b>${esc(wdDay(x.date))} · ${esc(x.time||'')}</b> ${esc(x.title)}<small>${esc(tr(x.free===1?'1 plaza libre':'{n} plazas libres').replace('{n}',x.free))}</small></span></label>`;
+      const {el,close}=wdOpenModal({id:'cs-move-m',size:'lg',title:esc(tr('Pasar a otro día')),subtitle:esc(`${tr(s.label)} · ${v.course.title}`),
+        body:`<form id="csm-form" class="cs-move" novalidate>
+          ${whoPicker(s,'csm',x=>CS_OPEN.includes(x.status))}
+          <fieldset class="cs-modes"><legend class="sr-only">${esc(tr('Cómo'))}</legend>
+            <label class="cs-mode"><input type="radio" name="csm-mode" value="join" ${o.departures.length?'checked':''}><span><b>${esc(tr('Unirlo a una salida que ya existe'))}</b><small>${esc(tr('Ocupa una plaza como «Sesión de curso» y su instructor queda asignado.'))}</small></span></label>
+            <label class="cs-mode"><input type="radio" name="csm-mode" value="new" ${o.departures.length?'':'checked'}><span><b>${esc(tr('Crear una sesión nueva'))}</b><small>${esc(tr('Fecha, hora, instructor y, si hace falta, barco. Comprobamos que estén libres.'))}</small></span></label>
+          </fieldset>
+          <div class="cs-pane" data-pane="join">${o.departures.length?`<div class="cs-deps">${o.departures.map(dep).join('')}</div>`:`<p class="notice">${esc(tr('No tienes salidas de un día en los próximos 60 días. Crea una sesión nueva.'))}</p>`}</div>
+          <div class="cs-pane" data-pane="new" hidden><div class="form-grid">
+            <div class="field"><label for="csm-date">${esc(tr('Fecha'))}</label><input id="csm-date" type="date" min="${esc(o.today)}"></div>
+            <div class="field"><label for="csm-time">${esc(tr('Empieza'))}</label><input id="csm-time" type="time" value="${esc(o.session.start)}"></div>
+            <div class="field"><label for="csm-end">${esc(tr('Acaba'))}</label><input id="csm-end" type="time" value="${esc(o.session.end)}"></div>
+            ${boats.length?`<div class="field"><label for="csm-boat">${esc(tr('Barco'))}</label><select id="csm-boat"><option value="">${esc(tr('Sin barco'))}</option>${boats.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></div>`:''}
+          </div></div>
+          ${team.length>1?`<div class="field"><label for="csm-teacher">${esc(tr('Instructor'))}</label><select id="csm-teacher">${teamOpts}</select></div>`:''}
+          <details class="cs-extra"><summary>${esc(tr('Añadir un suplemento (opcional)'))}</summary>
+            <div class="form-grid"><div class="field"><label for="csm-extra">${esc(tr('Importe por alumno'))}</label><label class="svc-money"><input id="csm-extra" type="number" min="0" step="0.01" placeholder="0"><span>${esc(o.currency==='EUR'?'€':o.currency)}</span></label></div>
+              <div class="field"><label for="csm-extra-l">${esc(tr('Concepto'))}</label><input id="csm-extra-l" maxlength="80" placeholder="${esc(tr('Ej.: barco'))}"></div></div>
+            <small class="wz-hint">${esc(tr(o.online?'Se suma a la reserva y le enviamos su propio enlace de pago.':'Se suma a lo que paga en el centro.'))}</small></details>
+          <p class="wz-hint">${wdIcon('info',14)} ${esc(tr('Sin cobro extra: sigue unida a la misma reserva y al mismo curso. Le avisamos por correo y en la app.'))}</p>
+        </form>`,
+        footer:`<button type="button" class="btn" data-modal-close>${esc(tr('Cancelar'))}</button><button type="button" class="btn btn-primary" id="csm-ok">${esc(tr('Pasar a otro día'))}</button>`});
+      translateTree(el);
+      const pane=()=>{ const m=$('input[name="csm-mode"]:checked',el)?.value||'join'; $$('.cs-pane',el).forEach(p=>p.hidden=p.dataset.pane!==m); };
+      $$('input[name="csm-mode"]',el).forEach(i=>i.onchange=pane); pane();
+      $('#csm-ok',el).onclick=async e=>{
+        const mode=$('input[name="csm-mode"]:checked',el)?.value||'join', who=readWho(el,'csm');
+        if(who.seats&&!who.seats.length){ toast(tr('Elige al menos un alumno.')); return; }
+        const body={seq,mode,...who,instructor_user_id:+($('#csm-teacher',el)?.value||0)||undefined,surcharge:$('#csm-extra',el).value||0,surcharge_label:$('#csm-extra-l',el).value};
+        if(mode==='join'){ body.slot_id=+($('input[name="csm-slot"]:checked',el)?.value||0); if(!body.slot_id){ toast(tr('Elige la salida.')); return; } }
+        else { Object.assign(body,{date:$('#csm-date',el).value,time:$('#csm-time',el).value,end:$('#csm-end',el).value,boat_id:+($('#csm-boat',el)?.value||0)||undefined}); if(!body.date){ toast(tr('Elige la fecha de la sesión.')); return; } }
+        const btn=e.currentTarget; btn.disabled=true;
+        try{ const r=await postJSON(`/api/center/bookings/${id}/course/move`,body); close();
+          toast(r.surcharge_note||tr('Hecho. Le hemos avisado con la nueva fecha.')); reload(); }
+        catch(err){ toast(err.message); btn.disabled=false; }
+      };
+    }
+  }
+  // «Sesiones de curso por recolocar» (with the reminder of the sessions pending for too long), in the planning
+  async function mountCoursePending(box){
+    if(!box) return; const esc=escapeHtml, tr=translateString;
+    let d; try{ d=await api('/api/center/course-pending'); }catch{ box.innerHTML=''; return; }
+    if(!d.total){ box.innerHTML=''; return; }
+    box.innerHTML=`<section class="cs-relocate ${d.old?'has-old':''}"><header><h3>${wdIcon('curso',16)} ${esc(tr('Sesiones de curso por recolocar'))} <span class="pl-tag">${d.total}</span></h3>
+        ${d.old?`<p class="notice warn">${esc(tr(d.old===1?'1 sesión lleva más de {d} días pendiente.':'{n} sesiones llevan más de {d} días pendientes.').replace('{n}',d.old).replace('{d}',d.days))}</p>`:''}</header>
+      <ul>${d.items.slice(0,12).map(x=>`<li class="${x.old?'is-old':''}"><a href="#/reserva?id=${x.booking_id}&curso=1"><span><b>${esc(x.name)}</b> · ${esc(x.course)} · ${esc(tr(x.label))}</span><small>${esc(tr(x.state))} · ${esc(x.days?tr(x.days===1?'desde hace 1 día':'desde hace {n} días').replace('{n}',x.days):tr('desde hoy'))}</small></a></li>`).join('')}</ul>
+      <label class="cs-remind">${esc(tr('Avisarme cuando una sesión lleve pendiente'))} <input type="number" id="cs-days" min="1" max="365" value="${d.days}"> ${esc(tr('días'))} <button type="button" class="btn btn-sm" id="cs-days-save">${esc(tr('Guardar'))}</button></label></section>`;
+    translateTree(box);
+    $('#cs-days-save',box).onclick=async()=>{ try{ await postJSON('/api/center/course-settings',{reminder_days:+$('#cs-days',box).value}); toast(tr('Guardado.')); mountCoursePending(box); }catch(err){ toast(err.message); } };
+  }
   async function mountBookingEquipment(id,{center=false,onChange=()=>{}}={}){
     const box=document.getElementById('bk-equip-card'); if(!box) return; const esc=escapeHtml;
     let d; try{ d=await api(`/api/bookings/${id}/equipment`); }catch{ box.innerHTML=''; return; }
@@ -6915,10 +7066,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(!ds){ (byDay[sl.slot_date]??={slots:[],other:[]}).slots.push(sl); return; }
       ds.forEach(x=>(byDay[x.date]??={slots:[],other:[]}).slots.push({...sl,_day:x,_of:ds.length,_cont:x.n>1})); });
     (d.other||[]).forEach(b=>(byDay[b.booking_date]??={slots:[],other:[]}).other.push(b));
+    (d.course_sessions||[]).forEach(c=>((byDay[c.date]??={slots:[],other:[]}).courses??=[]).push(c));   // v50.58 (3.5): «Crear una sesión nueva»
+    const csChip=c=>`<span class="pl-chip is-course" style="--c:#7c3aed" title="${esc(translateString('Sesión de curso'))}"><b>${esc(c.start)}</b><em>${esc(c.course)} · ${esc(c.label)}</em><small>${c.students}</small></span>`;
+    const csCard=c=>`<article class="pl-slot is-course" style="--c:#7c3aed"><div class="pl-slot-head"><span class="pl-time">${esc(c.start)}<small>– ${esc(c.end)}</small></span><div class="pl-slot-title"><strong>${esc(translateString('Sesión de curso'))} · ${esc(c.course)}</strong><small>${esc(c.label)}${c.instructor?` · ${esc(translateString('con {who}').replace('{who}',c.instructor))}`:''}${c.boat?` · ${esc(translateString('Barco'))} ${esc(c.boat)}`:''}</small></div><span class="pl-tag ${c.done?'good':''}">${esc(translateString(c.done?'Hecha':c.students===1?'1 alumno':'{n} alumnos').replace('{n}',c.students))}</span></div>
+      <ul class="pl-people">${c.bookings.map(id=>`<li><button type="button" class="pl-person" data-booking="${id}"><span class="pl-avatar">${wdIcon('curso',13)}</span><span class="pl-pname">${esc(translateString('Ver la reserva'))} WOD-${String(id).padStart(6,'0')}</span></button></li>`).join('')}</ul></article>`;
     const plPart={full:'Día completo',am:'Mañana',pm:'Tarde'};
     const plDayTag=sl=>sl._day?translateString('Día {n} de {t}').replace('{n}',sl._day.n).replace('{t}',sl._of)+' · '+translateString(plPart[sl._day.part]||''):'';
     const dayFig=day=>{ const x=byDay[day]||{slots:[],other:[]}, real=x.slots.filter(s=>!s._cont); const offered=real.reduce((n,s)=>n+Number(s.spots_total||0),0), taken=real.reduce((n,s)=>n+Number(s.taken||0),0);
-      const bks=[...real.flatMap(s=>s.bookings),...x.other].filter(plActive); return {slots:x.slots,other:x.other,offered,taken,free:Math.max(offered-taken,0),divers:bks.reduce((n,b)=>n+Number(b.participants||1),0),revenue:bks.reduce((n,b)=>n+Number(b.price||0),0),bookings:bks.length}; };
+      const bks=[...real.flatMap(s=>s.bookings),...x.other].filter(plActive); return {slots:x.slots,other:x.other,courses:x.courses||[],offered,taken,free:Math.max(offered-taken,0),divers:bks.reduce((n,b)=>n+Number(b.participants||1),0),revenue:bks.reduce((n,b)=>n+Number(b.price||0),0),bookings:bks.length}; };
     const st=d.stats, pv=d.prev_stats;
     const delta=(a,b,money)=>{ if(!b&&!a) return ''; if(!b) return '<span class="pl-delta up">nuevo</span>'; const p=Math.round((a-b)/b*100); if(!p) return '<span class="pl-delta">= que el mes anterior</span>'; return `<span class="pl-delta ${p>0?'up':'down'}">${p>0?'▲':'▼'} ${Math.abs(p)}% vs ${esc(plShortMonth(d.prev))}</span>`; };
     const kpi=(label,value,sub,extra='')=>`<div class="pl-kpi"><span>${label}</span><strong>${value}</strong>${sub?`<small>${sub}</small>`:''}${extra}</div>`;
@@ -6929,8 +7084,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // Calendar grid
     const [Y,M]=[+d.month.slice(0,4),+d.month.slice(5,7)-1]; const first=new Date(Y,M,1), days=new Date(Y,M+1,0).getDate(), lead=(first.getDay()+6)%7;
     let cells=''; for(let i=0;i<lead;i++) cells+='<div class="pl-cell is-blank" aria-hidden="true"></div>';
-    for(let day=1;day<=days;day++){ const iso=plIso(new Date(Y,M,day)); const f=dayFig(iso); const n=f.slots.length+f.other.length;
-      const chips=f.slots.slice(0,3).map(sl=>`<span class="pl-chip ${sl.status==='closed'?'is-closed':''} ${sl._day?'is-multi':''} ${sl._cont?'is-cont':''}" style="--c:${esc(sl.service_color||'#2563eb')}" ${sl._day?`title="${esc(plDayTag(sl))}"`:''}><b>${esc(sl._day?sl._day.hours[0]:sl.slot_time)}</b><em>${esc(sl.service_title)}</em><small>${sl._day?esc(`${sl._day.n}/${sl._of}`):`${sl.taken}/${sl.spots_total}`}</small></span>`).join('')+(f.other.length&&f.slots.length<3?`<span class="pl-chip is-loose" style="--c:#64748b"><em>${f.other.length} ${f.other.length===1?'reserva':'reservas'} sin salida</em></span>`:'');
+    for(let day=1;day<=days;day++){ const iso=plIso(new Date(Y,M,day)); const f=dayFig(iso); const n=f.slots.length+f.other.length+f.courses.length;
+      const chips=f.courses.slice(0,3).map(csChip).join('')+f.slots.slice(0,Math.max(0,3-f.courses.length)).map(sl=>`<span class="pl-chip ${sl.status==='closed'?'is-closed':''} ${sl._day?'is-multi':''} ${sl._cont?'is-cont':''}" style="--c:${esc(sl.service_color||'#2563eb')}" ${sl._day?`title="${esc(plDayTag(sl))}"`:''}><b>${esc(sl._day?sl._day.hours[0]:sl.slot_time)}</b><em>${esc(sl.service_title)}</em><small>${sl._day?esc(`${sl._day.n}/${sl._of}`):`${sl.taken}/${sl.spots_total}`}</small></span>`).join('')+(f.other.length&&f.slots.length<3?`<span class="pl-chip is-loose" style="--c:#64748b"><em>${f.other.length} ${f.other.length===1?'reserva':'reservas'} sin salida</em></span>`:'');
       const more=n>3?`<span class="pl-more">+${n-3} más</span>`:'';
       cells+=`<button type="button" class="pl-cell ${iso===today?'is-today':''} ${iso<today?'is-past':''} ${n?'has-events':''}" data-day="${iso}" aria-label="${esc(wdLongDay(iso))}${n?`: ${f.slots.length} salidas, ${f.divers} buceadores`:''}">
         <span class="pl-cell-top"><span class="pl-num">${day}</span>${f.divers?`<span class="pl-divers" title="Buceadores">${wdIcon('users',12)}${f.divers}</span>`:''}</span>
@@ -6965,12 +7120,14 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         </div>
         <div class="pl-trend" aria-label="Últimos y próximos meses"><div class="pl-trend-head"><span>Tendencia</span><small><i class="off"></i>Plazas ofrecidas <i class="tk"></i>Ocupadas · cifra: buceadores</small></div><div class="pl-trend-bars">${trend}</div></div>
       </section>
+      <div id="pl-course-pending"></div>
       <div class="pl-body" data-view="${ui.view}">
         <div class="pl-cal"><div class="pl-week">${PL_WEEK.map(w=>`<span>${w}</span>`).join('')}</div><div class="pl-grid">${cells}</div></div>
         <div class="pl-list">${list||`<div class="svc-empty svc-empty-small"><span class="svc-empty-icon">${wdIcon('calendar',26)}</span><p>No hay salidas ni reservas en ${esc(plMonthLabel(d.month).toLowerCase())}.</p></div>`}</div>
       </div>
       ${legend.length?`<div class="pl-legend">${legend.map(([t,c])=>`<span><i style="background:${esc(c)}"></i>${esc(t)}</span>`).join('')}</div>`:''}
     </div>`;
+    mountCoursePending($('#pl-course-pending',mount));   // v50.58 (3.5)
     const go=m=>{ ui.month=m; closePop(); renderCenterPlanning(mountId,{center,onManage,canBook}); };
     $$('[data-go]',mount).forEach(b=>b.onclick=()=>go(b.dataset.go));
     $('#pl-month',mount).onchange=e=>go(e.target.value);
@@ -6994,16 +7151,16 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <div class="pl-slot-occ">${occBar(sl.taken,sl.spots_total)}<small>${sl.taken} de ${sl.spots_total} plazas ocupadas</small></div>
           ${act.length?`<ul class="pl-people">${act.map(b=>b.placeholder?`<li><span class="pl-person is-placeholder" title="Un buceador está pagando estas plazas. Si no completa el pago en unos minutos, se liberan solas."><span class="pl-avatar">…</span><span class="pl-pname">${esc(b.status_label||'Pago en curso')}${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}</span></span></li>`:`<li><button type="button" class="pl-person" data-booking="${b.id}"><span class="pl-avatar">${esc(initials(b.fullname||'?'))}</span><span class="pl-pname">${esc(b.fullname||'Cliente')}${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}</span><span class="pl-tag pl-ch ch-${esc(wdChannel(b))}" title="Canal">${esc(WD_CH[wdChannel(b)])}</span>${b.insurance?`<span class="pl-tag pl-ins" title="${esc(INS_BOOKING_LABEL[b.insurance.status]||'Seguro de buceo')}"><span aria-hidden="true">${b.insurance.icon}</span> <span>Seguro</span></span>`:''}${PL_PAY[b.payment_status]?`<span class="pl-tag ${PL_PAY[b.payment_status][1]}">${PL_PAY[b.payment_status][0]}</span>`:''}${(b.status==='requested'||b.status==='pending')?'<span class="pl-tag warn">Solicitud</span>':b.status==='accepted_pending_payment'?'<span class="pl-tag warn">Aceptada · pendiente de pago</span>':''}</button></li>`).join('')}</ul>`:'<p class="pl-nobody">Todavía sin reservas.</p>'}
           ${gone?`<p class="pl-gone">${gone} ${gone===1?'reserva cancelada':'reservas canceladas'}</p>`:''}
-          ${(sl.blocks||[]).map(bl=>`<p class="pl-block">${wdIcon('lock',13)} ${bl.qty} ${bl.qty===1?'plaza bloqueada':'plazas bloqueadas'} · ${esc(bl.label||'Sin nombre')}${!past?` <button type="button" class="pl-unblock" data-block="${bl.id}">Liberar</button>`:''}</p>`).join('')}
+          ${(sl.blocks||[]).map(bl=>bl.source==='course'?`<p class="pl-block is-course">${wdIcon('curso',13)} ${esc(bl.label||translateString('Sesión de curso'))}</p>`:`<p class="pl-block">${wdIcon('lock',13)} ${bl.qty} ${bl.qty===1?'plaza bloqueada':'plazas bloqueadas'} · ${esc(bl.label||'Sin nombre')}${!past?` <button type="button" class="pl-unblock" data-block="${bl.id}">Liberar</button>`:''}</p>`).join('')}
           <div class="pl-slot-actions">${!past&&!sl._cont&&sl.status!=='closed'&&free>0?`${canBook?`<button type="button" class="btn pl-add" data-slot="${sl.id}" data-service="${sl.service_id}">+ Reserva</button>`:''}<button type="button" class="btn pl-blockspots" data-slot="${sl.id}" data-free="${free}">Bloquear plazas</button><button type="button" class="btn pl-poster" data-slot="${sl.id}">${wdIcon('image',15)} Crear cartel</button>`:''}${act.some(b=>!b.placeholder)?`<a class="btn pl-manifest" href="#/manifiesto?slot=${sl.id}">${wdIcon('users',15)} Manifiesto</a>`:''}${!past&&!sl.cancelled_at&&canBook?`<button type="button" class="btn pl-change" data-slot="${sl.id}">Cambio de hora o punto</button><button type="button" class="btn pl-cancel" data-slot="${sl.id}">Cancelar salida y avisar a todos</button>`:''}<button type="button" class="btn pl-manage">Gestionar</button></div>
         </article>`; };
       const loose=f.other.filter(plActive);
       const html=`<div class="pl-pop" id="pl-pop" role="dialog" aria-label="${esc(wdLongDay(day))}">
         <header class="pl-pop-head"><div><p class="eyebrow">${past?'Historial':day===today?'Hoy':'Agenda'}</p><h3>${esc(wdLongDay(day))}</h3></div><button type="button" class="pl-pop-x" aria-label="Cerrar">×</button></header>
         <div class="pl-pop-sum"><span><b>${f.slots.length}</b> ${f.slots.length===1?'salida':'salidas'}</span><span><b>${f.divers}</b> buceadores</span>${f.offered?`<span><b>${f.free}</b> plazas libres</span>`:''}<span><b>${wdMoney(f.revenue)}</b></span></div>
-        <div class="pl-pop-body">${f.slots.map(slotCard).join('')}
+        <div class="pl-pop-body">${f.courses.map(csCard).join('')}${f.slots.map(slotCard).join('')}
           ${loose.length?`<article class="pl-slot" style="--c:#64748b"><div class="pl-slot-head"><span class="pl-time">—</span><div class="pl-slot-title"><strong>Reservas sin salida programada</strong><small>Alquileres o reservas con hora libre</small></div></div><ul class="pl-people">${loose.map(b=>`<li><button type="button" class="pl-person" data-booking="${b.id}"><span class="pl-avatar">${esc(initials(b.fullname||'?'))}</span><span class="pl-pname">${esc(b.fullname||'Cliente')}${Number(b.participants)>1?` <em>×${b.participants}</em>`:''}<small>${esc([b.booking_time,b.service_title].filter(Boolean).join(' · '))}</small></span>${PL_PAY[b.payment_status]?`<span class="pl-tag ${PL_PAY[b.payment_status][1]}">${PL_PAY[b.payment_status][0]}</span>`:''}</button></li>`).join('')}</ul></article>`:''}
-          ${!f.slots.length&&!loose.length?`<div class="pl-pop-empty">${past?'Este día no hubo actividad.':'No hay salidas este día.'}</div>`:''}
+          ${!f.slots.length&&!loose.length&&!f.courses.length?`<div class="pl-pop-empty">${past?'Este día no hubo actividad.':'No hay salidas este día.'}</div>`:''}
         </div>
         <footer class="pl-pop-foot">${(day===today||day===plIso(new Date(Date.now()+864e5)))&&f.slots.some(sl=>sl.bookings.some(b=>!b.placeholder&&plActive(b)))?`<a class="btn" href="#/barco?fecha=${day}">${wdIcon('check',15)} Check-in en el barco</a>`:''}${!past&&canBook?`<button type="button" class="btn pl-day-add">+ Reserva este día</button>`:''}${!past&&f.slots.some(s=>s.status!=='closed'&&plFree(s)>0)?`<button type="button" class="btn btn-primary pl-day-poster">${wdIcon('image',15)} Cartel del día</button>`:''}</footer>
       </div>`;

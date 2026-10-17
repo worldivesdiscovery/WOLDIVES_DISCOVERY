@@ -14700,7 +14700,8 @@ def notice_preview(db, ctx, slot_id, kind, *, reason=None, note='', policy=None,
                      'cancelled': bool(slot['cancelled_at'])},
             'kind': kind, 'policy': policy, 'counts': counts, 'people': people, 'recipients': len(people), 'money': money, 'previews': previews,
             'whatsapp': {'enabled': wa_enabled(), 'connected': bool(wa), 'number': wcif.mask_phone(wcif.decrypt_secret(wa['display_number'])) if wa else None},
-            'undo_seconds': NOTICE_UNDO_SECONDS, 'confirm_hint': confirm_words(slot)}
+            'undo_seconds': NOTICE_UNDO_SECONDS, 'confirm_hint': confirm_words(slot),
+            'course': course_cancel_preview(db, slot) if kind == 'slot_cancelled' else []}   # v50.58 (3.5): course students, no refund
 
 
 def slot_meeting_point(db, slot):
@@ -20089,6 +20090,8 @@ class Handler(BaseHTTPRequestHandler):
                         self.send_json({'ok':True,'id':bid}); return
                     if act=='release':
                         if not db.in_transaction: db.execute('BEGIN IMMEDIATE')
+                        if db.execute("SELECT 1 FROM spot_blocks WHERE id=? AND source='course' AND status='active'",(int(data.get('id') or 0),)).fetchone():
+                            raise ValueError('Esta plaza es de un alumno de curso. Pásalo a otro día desde su reserva («Progreso del curso»).')   # v50.58 (3.5)
                         release_spot_block(db,*ref,data.get('id'),user['id']); db.commit(); self.send_json({'ok':True}); return
                     raise ValueError('Acción no válida.')
                 if path=='/api/provider/ical-imports':
