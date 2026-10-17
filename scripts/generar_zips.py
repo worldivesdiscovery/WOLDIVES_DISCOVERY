@@ -37,7 +37,7 @@ DEMO_LIVE = 'data/pruebas/worldives.sqlite3'
 NOT_IN_PRODUCTION = ['docs/pruebas/*', 'data/demo/*', 'data/pruebas/*', 'scripts/crear_demo.py', 'scripts/reset_demo.*', 'iniciar-pruebas.*', 'iniciar-pruebas-movil.*',
                      'scripts/demo/*', 'public/img/demo/*', 'CUENTAS-DEMO.txt',          # v50.51: the invented centres and their accounts
                      'scripts/herramientas/demo_centros_ficticios.py', 'README-PRUEBAS.md',
-                     'tests/navegador/e2e_avisos.py',   # v50.47: walks the site with the test accounts
+                     'tests/navegador/e2e_avisos.py', 'tests/navegador/capturas_v50_59.py', 'scripts/rendimiento/*', 'docs/rendimiento/fluidez/*.json',   # v50.47 and 17/10: walk the site with the test accounts
                      'tests/navegador/e2e_demo_v50_51.py', 'tests/navegador/inventario_botones.py', 'tests/carga/*',   # v50.51: on the demo database
                      'tests/navegador/e2e_v50_54_moderacion.py', 'tests/navegador/e2e_v50_54_velocidad.py',   # v50.54: they sign in with the demo accounts
                      'tests/navegador/e2e_v50_55_recorrido.py',   # v50.55: the «Pago en persona» walk with the demo accounts

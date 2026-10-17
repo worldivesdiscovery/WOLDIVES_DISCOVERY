@@ -103,7 +103,7 @@ LOG_DIR = Path(os.environ.get('WOD_LOG_DIR') or (ROOT / 'logs'))
 HOST = os.environ.get('WOD_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WOD_PORT', '8000'))
 COOKIE = 'wd_session'
-APP_VERSION = '50.58'
+APP_VERSION = '50.59'
 # G7: JSON bodies up to 1 MB; file uploads up to WOD_MAX_UPLOAD_MB (15 MB). Checked before reading the body.
 MAX_BODY = wcfg.MAX_JSON_BYTES
 MAX_UPLOAD = wcfg.MAX_UPLOAD_BYTES
@@ -2943,8 +2943,8 @@ def freelance_directory(db, query, lang):
         sids = [sv['id'] for sv in svcs]
         def has_slots(a, b):
             if not sids: return False
-            return bool(db.execute(f"SELECT 1 FROM service_slots WHERE service_id IN ({','.join('?' * len(sids))}) AND status='open' AND spots_available>0 AND slot_date BETWEEN ? AND ? LIMIT 1",
-                                   (*sids, a, b)).fetchone()) or any(row_get(sv, 'booking_unit') in ('day', 'half_day') for sv in svcs)
+            return bool(db.execute(f"SELECT 1 FROM service_slots x JOIN provider_services s ON s.id=x.service_id AND s.provider_user_id=? WHERE x.service_id IN ({','.join('?' * len(sids))}) AND x.status='open' AND x.spots_available>0 AND x.slot_date BETWEEN ? AND ? LIMIT 1",
+                                   (r['id'], *sids, a, b)).fetchone()) or any(row_get(sv, 'booking_unit') in ('day', 'half_day') for sv in svcs)
         if day and not has_slots(day, day): continue
         prices = [float(sv['price']) for sv in svcs if sv['price'] and float(sv['price']) > 0]
         out.append({'id': r['id'], 'name': r['fullname'], 'photo': r['avatar_url'], 'kind': r['kind'], 'kind_label': wfl.KINDS.get(r['kind'] or '', ''),
