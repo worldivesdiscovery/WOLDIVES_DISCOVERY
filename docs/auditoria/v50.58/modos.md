@@ -22,11 +22,14 @@ comprobación.
 
 ## Resultado
 
-**186 de 186 comprobaciones correctas** con el código final, después de corregir lo que encontró la primera pasada:
+**190 de 190 comprobaciones correctas** con el código final, después de corregir lo que encontraron la primera pasada
+y las capturas del menú lateral (abajo):
 
 | Encontrado | Qué pasaba | Arreglo |
 |---|---|---|
 | Administración → «Lotes nuevos», en el móvil | El ejemplo de lote JSON (`{"zone":"…","items":[…]}`) es una sola palabra muy larga: medía 507 px y se salía de una pantalla de 390 px | El ejemplo se parte en varias líneas (`.pa-upload code`) |
+| Centro y freelance › *Reservas*, en el ordenador (encontrado al mirar las capturas del menú lateral) | Los botones de una reserva («Registrar cobro», «Completar» y «⋯») necesitan hasta 280 px y tenían 210: se montaban sobre el canal («WORLDIVE…») y sobre el estado («Confirmada · pago en persona», «Seguro vigente ese día»). Además, el paso a dos líneas se decidía por el ancho de la pantalla, y desde la 2.4 el menú lateral le quita 250 px a la lista | La lista se ordena según su propio ancho: ancha, una línea con columnas fijas para el estado (210 px) y los botones (280 px); media, el estado y los botones en una segunda línea; estrecha, como en el móvil. Las filas siguen alineadas entre sí. Comprobado a 1600, 1366, 1180, 1024, 900 y 390 px, con el menú abierto y plegado. La prueba lo comprueba ahora («nada de una reserva queda tapado por sus botones»); con el código anterior falla en el centro y en el freelance |
+| Menú lateral plegado a iconos, en el ordenador (encontrado al mirar las capturas) | La línea fina que separa los grupos salía como un recuadro gris de 42 px: una regla general da a todos los botones esa altura mínima | La línea vuelve a medir 1 px. Lo comprueba `e2e_v50_56_panel.py` (38/38; con el código anterior, 37/38) |
 | La propia prueba, en el móvil | Esperaba a ver el primer botón del menú del panel. Desde la 2.4, en el móvil el menú está plegado tras «☰ Menú», así que el botón existe pero no se ve, y la prueba se paraba a los 20 s sin probar nada | Espera a que el menú esté en la página, no a que se vea. Las pantallas se siguen abriendo una a una y comprobando igual |
 
 Las capturas de las pantallas nuevas de esta versión se miraron una a una durante su propio encargo, en el ordenador y
@@ -35,6 +38,9 @@ en el móvil:
 - progreso del curso: `docs/capturas/v50.58/curso/`;
 - «Reservas desde tu web e Instagram»: `docs/capturas/v50.58/vender/`;
 - foto por tipo de buceo: `docs/capturas/v50.58/fototipo/`.
+
+Y el menú lateral del panel (2.4), en la administración, el centro y el freelance: abierto y plegado a iconos en el
+ordenador, y «☰ Menú» cerrado y abierto en el móvil: `docs/capturas/v50.58/panel/`.
 
 ## Cómo repetirlo
 

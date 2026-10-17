@@ -150,6 +150,16 @@ def run(shots: Path | None):
             title.click(); page.wait_for_timeout(200)
             go(page, '#/admin?tab=bookings', 1200)
             check('menú: al elegir otra sección de un grupo plegado, se abre', 'is-closed' not in (page.locator('.cb-sidebar .cb-group:has(.cb-nav.active)').get_attribute('class') or ''))
+            # The whole menu folded to icons: a narrow column, each group separated by a thin line (before, the general
+            # minimum height of the buttons made each line a grey block of 42 px) and each icon with its name on hover
+            page.click('.cb-sidebar .cb-fold'); page.wait_for_timeout(400)
+            icons = page.evaluate("""(() => { const s = document.querySelector('.cb-sidebar'); const groups = [...s.querySelectorAll('.cb-group:not([hidden])')];
+              return {folded: document.querySelector('.cb-layout').classList.contains('is-folded'), width: s.getBoundingClientRect().width,
+                      lines: groups.map(g => g.querySelector('.cb-section-title')).filter(Boolean).map(t => t.getBoundingClientRect().height),
+                      unnamed: [...s.querySelectorAll('.cb-nav')].filter(n => !n.title).length}; })()""")
+            page.click('.cb-sidebar .cb-fold'); page.wait_for_timeout(300)
+            check('menú plegado a iconos: columna estrecha, una línea fina entre grupos y cada icono con su nombre',
+                  icons['folded'] and icons['width'] <= 70 and icons['lines'] and max(icons['lines']) <= 2 and icons['unnamed'] == 0, icons)
             # ---- Planning: one inventory, every channel with its label, filter by channel
             go(page, '#/admin?tab=planning', 1500)
             if day.strftime('%Y-%m') != today.strftime('%Y-%m'):

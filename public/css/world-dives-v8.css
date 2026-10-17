@@ -925,7 +925,7 @@ body:has(.modal-backdrop){overflow:hidden}
 .bk-day>header{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:0 4px 8px}
 .bk-day>header h3{font-size:16px;margin:0}
 .bk-day>header span{font-size:13px;color:var(--muted)}
-.bk-row{display:grid;grid-template-columns:62px minmax(0,1.3fr) minmax(0,1.5fr) 74px 130px 120px 210px;gap:12px;align-items:center;background:#fff;border:1px solid #e2e8e9;border-radius:12px;padding:11px 14px;margin-bottom:6px;box-shadow:inset 3px 0 0 var(--svc)}
+.bk-row{display:grid;grid-template-columns:62px minmax(0,1.3fr) minmax(0,1.5fr) 74px 130px minmax(210px,auto) minmax(280px,auto);gap:12px;align-items:center;background:#fff;border:1px solid #e2e8e9;border-radius:12px;padding:11px 14px;margin-bottom:6px;box-shadow:inset 3px 0 0 var(--svc)}
 .bk-row>div{min-width:0}
 .bk-row strong{display:block;color:var(--deep);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bk-row span{display:block;font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1115,11 +1115,23 @@ body:has(.modal-backdrop){overflow:hidden}
 .cp-map,.cp-side-book{width:100%;text-align:center}
 .cp-muted{color:var(--muted);font-size:14px;margin:0}
 
-@media (max-width:1180px){
-  /* v50.57: the state of the booking (Confirmada, Solicitud…) and its channel stay visible, in a second line */
-  .bk-row{grid-template-columns:58px minmax(0,1.2fr) minmax(0,1.3fr) 64px 120px auto;grid-template-areas:"time client activity pax amount actions" "time state state state state actions";row-gap:6px}
-  .bk-row .bk-time{grid-area:time}.bk-row .bk-client{grid-area:client}.bk-row .bk-activity{grid-area:activity}.bk-row .bk-pax{grid-area:pax}.bk-row .bk-amount{grid-area:amount}.bk-row .bk-actions{grid-area:actions}
+/* v50.58 (auditoría con el código final): the buttons of a booking had 210 px and needed up to 280 («Registrar cobro»,
+   «Completar» and «⋯»), so they covered the channel and the state; and the layout depended on the width of the screen,
+   while since 2.4 the side menu of the panel takes 250 px of the list. Now it depends on the width of the list itself:
+   wide, one line with fixed columns; medium, the state and the buttons in a second line; narrow, the layout of the phone.
+   The columns are the same in every row, so the rows stay aligned. */
+.bk-list{container-type:inline-size}
+@container (max-width:1140px){
+  .bk-row{grid-template-columns:58px minmax(0,1.2fr) minmax(0,1.3fr) 64px 120px;grid-template-areas:"time client activity pax amount" "time state actions actions actions";row-gap:8px}
+  .bk-row .bk-time{grid-area:time}.bk-row .bk-client{grid-area:client}.bk-row .bk-activity{grid-area:activity}.bk-row .bk-pax{grid-area:pax}.bk-row .bk-amount{grid-area:amount}.bk-row .bk-actions{grid-area:actions;flex-wrap:wrap}
   .bk-row .bk-state{grid-area:state;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}.bk-row .bk-state .bk-ins{margin:0}
+}
+@container (max-width:760px){
+  .bk-row{grid-template-columns:54px minmax(0,1fr) auto;grid-template-areas:"time client amount" "time activity activity" "state state state" "actions actions actions";row-gap:6px}
+  .bk-row .bk-time{grid-area:time}.bk-row .bk-client{grid-area:client}.bk-row .bk-activity{grid-area:activity}.bk-row .bk-amount{grid-area:amount;text-align:right}
+  .bk-row .bk-pax{display:none}.bk-row .bk-state{display:flex;flex-wrap:wrap;grid-area:state;gap:4px 10px;align-items:center}.bk-row .bk-actions{grid-area:actions}
+}
+@media (max-width:1180px){
   .db-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (max-width:980px){
@@ -1147,9 +1159,6 @@ body:has(.modal-backdrop){overflow:hidden}
   .svc-tpl-save>div{flex-wrap:wrap}
   .svc-foot-left{flex:1 1 100%;text-align:center;margin:0 0 4px}
   .bk-filters select,.bk-filters .svc-search{flex:1 1 100%;min-width:0;width:100%}
-  .bk-row{grid-template-columns:54px minmax(0,1fr) auto;grid-template-areas:"time client amount" "time activity activity" "state state state" "actions actions actions";row-gap:6px}
-  .bk-row .bk-time{grid-area:time}.bk-row .bk-client{grid-area:client}.bk-row .bk-activity{grid-area:activity}.bk-row .bk-amount{grid-area:amount;text-align:right}
-  .bk-row .bk-pax{display:none}.bk-row .bk-state{display:flex;flex-wrap:wrap;grid-area:state;gap:4px 10px;align-items:center}.bk-row .bk-actions{grid-area:actions}
   .ex-req-row{grid-template-columns:1fr;gap:6px}
   .ex-data{grid-template-columns:1fr 1fr 1fr}
   .cl-row{grid-template-columns:minmax(0,1fr) 70px;}
@@ -4008,7 +4017,7 @@ main#app:has(>.wd-pre:only-child){min-height:100vh}
 .cb-layout.is-folded .cb-side-head{justify-content:center;padding:0 0 4px}
 .cb-layout.is-folded .cb-side-name,.cb-layout.is-folded .cb-section-title span,.cb-layout.is-folded .cb-caret,.cb-layout.is-folded .cb-nav span{display:none}
 .cb-layout.is-folded .cb-fold .wd-icon{transform:none}
-.cb-layout.is-folded .cb-section-title{height:1px;margin:8px 6px;padding:0;background:var(--line);pointer-events:none}
+.cb-layout.is-folded .cb-section-title{height:1px;min-height:0;margin:8px 6px;padding:0;background:var(--line);pointer-events:none}
 .cb-layout.is-folded .cb-group.is-closed .cb-group-items{display:block}
 .cb-layout.is-folded .cb-nav{position:relative;justify-content:center;padding:10px 0}
 .cb-layout.is-folded .cb-nav b{position:absolute;top:2px;right:2px;margin:0;padding:1px 5px;font-size:10px}

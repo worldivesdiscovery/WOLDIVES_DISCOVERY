@@ -125,6 +125,15 @@ def main():
                         bk = pg.evaluate("""() => [...document.querySelectorAll('.bk-row')].slice(0, 5).map(r => { const t = r.querySelector('.bk-time strong'), n = r.querySelector('.bk-time span'), st = r.querySelector('.bk-state');
                             return [t.textContent, t.scrollWidth <= t.clientWidth + 1 && n.scrollWidth <= n.clientWidth + 1, !!st.offsetParent && st.getBoundingClientRect().width > 0]; })""")
                         check(f'{size} · {role} · reservas: la hora y el número se ven enteros y el estado se ve', bk and all(r[1] and r[2] for r in bk), bk)
+                        # v50.58 (auditoría con el código final): the buttons of a booking («Registrar cobro», «Completar», «⋯»)
+                        # needed 280 px and had 210: they covered the channel and the state. Nothing of a row is covered now
+                        covered = pg.evaluate("""() => { const out = []; for (const r of document.querySelectorAll('.bk-row')) {
+                            for (const e of r.querySelectorAll('.bk-time strong, .bk-time span, .bk-client strong, .bk-amount strong, .bk-state > *')) {
+                              const b = e.getBoundingClientRect(); if (!b.width) continue;
+                              const hit = document.elementFromPoint(b.left + Math.min(b.width - 2, Math.max(2, e.scrollWidth - 4)), b.top + b.height / 2);
+                              if (hit && !e.contains(hit) && !hit.contains(e)) out.push(r.querySelector('.bk-time span').textContent + ' «' + e.textContent.trim().slice(0, 30) + '» bajo ' + hit.className); } }
+                            return out.slice(0, 6); }""")
+                        check(f'{size} · {role} · reservas: nada de una reserva queda tapado por sus botones', not covered, covered)
                         # 5.1 (looking at every capture): the filters «Desde» and «Hasta» took the style of the day buttons of
                         # the booking flow (same class): boxes of 74 px where no date fits
                         dates = pg.evaluate("[...document.querySelectorAll('#bk-from, #bk-to')].map(i => Math.round(i.getBoundingClientRect().width))")
