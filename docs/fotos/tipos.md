@@ -24,7 +24,7 @@ de *tipo*» en los 9 idiomas (las fotos del titular conservan su propia descripc
 | Nocturna | Nocturnas | `/img/titular/nocturna-pulpo.webp` | Pulpo y morena de noche, buceador con linterna | Foto del titular (6.1) |
 | Deriva | Corrientes y deriva | — | **Sin foto adecuada**: buceadores llevados por la corriente, peces en banco | — |
 | Fondo de arena o posidonia | Muck | `/img/titular/caballito-posidonia.webp` | Un caballito de mar entre la posidonia | Foto del titular (6.1) |
-| Bloques y rocas | — (no existe como tipo) | — | **Pendiente de decisión**: en el catálogo solo aparece como tipo secundario («Pared · Chimenea · Bloques», «Arrecife · Fondo rocoso»); esos puntos toman la foto de su tipo principal. Si el titular quiere el tipo, se crea y se le pone foto | — |
+| Bloques y rocas | — (no existe como tipo) | — | **No se crea, decisión del titular (17/10)**: esos fondos ya caben en otro tipo y no se quieren tipos repetidos. En el catálogo solo aparece como tipo secundario («Pared · Chimenea · Bloques», «Arrecife · Fondo rocoso»); esos puntos toman la foto de su tipo principal | — |
 | Bautizo o aguas someras | Playa y esnórquel | `/img/destinos/maldivas.webp` | Una tortuga en agua somera y turquesa, con playa y palmeras | Venía con la web (registro de origen) |
 | Profunda | Aguas profundas | `/img/titular/barco-cadena.webp` | Un barco desde abajo y su cadena bajando hacia el azul | Foto del titular (6.1) |
 | Canal | Canales | — | **Sin foto adecuada**: paso entre arrecifes con corriente y peces grandes | — |
