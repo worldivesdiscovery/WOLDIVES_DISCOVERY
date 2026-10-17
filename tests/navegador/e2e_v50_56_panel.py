@@ -110,12 +110,13 @@ def run(shots: Path | None):
             check('vender: código de 2 líneas con el centro', 'data-worldives' in code and f'data-centro="{slug}"' in code and code.strip().count('\n') <= 1, code)
             formats = {}
             for f in ('boton', 'calendario', 'lista'):
-                page.click(f'.vt-tab[data-fmt="{f}"]'); page.wait_for_timeout(400)
+                page.click(f'.vt-look[data-fmt="{f}"]'); page.wait_for_timeout(600)   # v50.58 (Parte 5): «¿Cómo quieres que se vea?»
                 formats[f] = page.inner_text('#vt-code')
             check('vender: los 3 formatos', all(f'data-formato="{f}"' in formats[f] or f in formats[f] for f in formats) and len(set(formats.values())) == 3, formats)
+            page.check('input[name="vt-what"][value="service"]'); page.wait_for_selector('#vt-svc'); page.wait_for_timeout(500)   # v50.58: paso 1
             page.select_option('#vt-svc', str(pay_sid)); page.wait_for_timeout(500)
             check('vender: filtro por servicio en el código', f'data-servicio="{pay_sid}"' in page.inner_text('#vt-code'))
-            page.select_option('#vt-svc', ''); page.wait_for_timeout(300)
+            page.check('input[name="vt-what"][value="all"]'); page.wait_for_timeout(500)
             frame = page.frame_locator('#vt-frame')
             try:
                 frame.locator('body').wait_for(timeout=10000)
@@ -123,6 +124,7 @@ def run(shots: Path | None):
             except Exception as exc:
                 prev = f'ERROR {exc}'
             check('vender: vista previa en vivo', 'Doble inmersión' in prev or 'Bautizo' in prev, prev[:200])
+            page.click('#vt-dev summary'); page.wait_for_timeout(300)   # v50.58: lo técnico, plegado en «Para programadores»
             check('vender: dominio autorizado en pantalla', 'buceobahia.example.com' in page.input_value('#vt-domains'))
             page.fill('#vt-key-name', 'Mi web'); page.select_option('#vt-key-scope', 'read'); page.click('#vt-key-new')
             page.wait_for_selector('#vt-key-out code, #vt-key-out .vt-code', timeout=10000)

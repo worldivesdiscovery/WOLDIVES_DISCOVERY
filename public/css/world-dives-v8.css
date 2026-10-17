@@ -4597,3 +4597,34 @@ html.wd-app[data-wda-tema="noche"] .pp-temps{background:#0f2433;border-color:#22
 .pl-block.is-course{color:#4c1d95;background:#f3e8ff}
 .mf-course .mf-wl a{margin-left:6px}
 @media (max-width:560px){.cs-move .cs-modes{grid-template-columns:1fr}.cs-card .cs-head{flex-direction:column}}
+
+/* v50.58 (Parte 5) · «Reservas desde tu web e Instagram»: el enlace arriba, tres pasos con dibujos, «Comprobar» y lo técnico plegado */
+.vt-count{display:flex;gap:10px;align-items:center;margin:0;padding:12px 16px;border-radius:14px;background:#eefaf3;color:#14532d;font-size:15px}
+.vt-count small{color:#3f6b52;margin-left:4px}
+.vt-easy{grid-template-columns:minmax(0,1fr) auto!important;align-items:center;background:linear-gradient(135deg,#f0fbfc,#fff);border-color:#bfe3ea}
+.vt-easy-main{display:grid;gap:8px;min-width:0}.vt-easy-main h3{font-size:20px}.vt-easy-main p{margin:0}
+.vt-big{font-size:15px;font-weight:700;padding:10px 12px;background:#fff;border:1px solid #cfe3e8}
+.vt-easy-qr{border:1px solid var(--line,#dfe6e7);border-radius:10px;background:#fff;padding:6px}
+.vt-step h3{display:flex;gap:10px;align-items:center}
+.vt-num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--vt-brand,#076898);color:#fff;font-size:15px;flex:0 0 auto}
+.vt-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.vt-choice,.vt-look{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1.5px solid var(--line,#dfe6e7);border-radius:12px;cursor:pointer;background:#fff;min-width:0}
+.vt-choice.is-on,.vt-look.is-on,.vt-choice:has(input:checked),.vt-look:has(input:checked){border-color:var(--vt-brand,#076898);background:#f2fafc}
+.vt-choice-body{display:grid;gap:4px;min-width:0;width:100%}.vt-choice-body small,.vt-look small{color:var(--muted,#5f717b)}
+.vt-choice select{max-width:100%;margin-top:4px}
+.vt-look{flex-direction:column;align-items:stretch;position:relative}.vt-look input{position:absolute;top:10px;right:10px}
+.vt-art svg{width:100%;height:auto;max-height:96px;display:block}
+.vt-brand{display:flex;gap:8px;align-items:center}.vt-brand img{border-radius:6px;object-fit:cover}
+.vt-swatch{width:18px;height:18px;border-radius:50%;background:var(--vt-brand,#076898);display:inline-block;border:2px solid #fff;box-shadow:0 0 0 1px #cfdde1}
+.vt-lead{margin:0;font-size:15px;font-weight:600}
+.vt-guides{display:grid;gap:10px;margin-top:4px}
+.vt-guide{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.vt-guide li{display:grid;gap:6px;align-content:start}.vt-guide p{margin:0;font-size:13.5px}
+.vt-gart{margin:0}.vt-gart svg{width:100%;height:auto;display:block}
+.vt-check input{flex:1 1 220px;min-width:0}
+.vt-dev{padding:0}.vt-dev>summary{cursor:pointer;padding:14px 18px;list-style:none;display:flex;justify-content:space-between;gap:10px}
+.vt-dev>summary::-webkit-details-marker{display:none}.vt-dev>summary span{display:grid;gap:3px}.vt-dev>summary small{color:var(--muted,#5f717b)}
+.vt-dev>summary::after{content:'▾';font-size:16px;color:var(--muted,#5f717b)}.vt-dev[open]>summary::after{content:'▴'}
+.vt-dev[open]{padding-bottom:12px}.vt-sub{display:grid;gap:10px;padding:12px 18px 4px;border-top:1px solid var(--line,#dfe6e7);min-width:0}
+.vt-sub h4{margin:0;font-size:15px}.vt-sub>*{min-width:0;max-width:100%}
+@media (max-width:640px){.vt-easy{grid-template-columns:minmax(0,1fr)!important}.vt-easy-qr{justify-self:start}.vt-guide{grid-template-columns:minmax(0,1fr)}.vt-guide li{grid-template-columns:120px minmax(0,1fr);align-items:center}}

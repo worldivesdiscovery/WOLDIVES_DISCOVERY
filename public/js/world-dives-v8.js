@@ -6869,66 +6869,100 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const wdChannel=b=>b.channel||({manual:'manual',web:'import',api:'api',widget:'widget'}[b.source]||'worldives');
   const WD_LANG_NAMES={es:'Español',en:'English',fr:'Français',de:'Deutsch',it:'Italiano',pt:'Português',pl:'Polski',nl:'Nederlands',zh:'中文'};
   async function wdCopyText(text){ try{ await navigator.clipboard.writeText(text); toast('Copiado.'); }catch{ toast('Selecciónalo y cópialo con Ctrl+C.'); } }
+  // v50.58 (revisión y usabilidad, Parte 5): «Reservas desde tu web e Instagram» explicado para cualquiera. Arriba lo
+  // más fácil (el enlace, WhatsApp y el QR) y el contador del mes; después tres pasos con dibujos (qué, cómo se ve y
+  // ponlo en tu web, con «Enviar las instrucciones a mi informático»), la comprobación automática (que autoriza el
+  // dominio) y, plegado al final, «Para programadores». Todo lo decide el servidor; aquí solo se enseña y se envía.
+  const VT_ART={
+    boton:'<svg viewBox="0 0 120 76" aria-hidden="true"><rect x="2" y="2" width="116" height="72" rx="8" fill="#f4f8f9" stroke="#cfdde1"/><rect x="12" y="12" width="56" height="7" rx="3" fill="#cfdde1"/><rect x="12" y="25" width="78" height="5" rx="2.5" fill="#e1eaed"/><rect x="12" y="34" width="64" height="5" rx="2.5" fill="#e1eaed"/><rect x="12" y="48" width="44" height="16" rx="8" fill="var(--vt-brand,#076898)"/><rect x="21" y="54" width="26" height="4" rx="2" fill="#fff"/></svg>',
+    calendario:'<svg viewBox="0 0 120 76" aria-hidden="true"><rect x="2" y="2" width="116" height="72" rx="8" fill="#f4f8f9" stroke="#cfdde1"/><rect x="12" y="10" width="40" height="6" rx="3" fill="#cfdde1"/>'+Array.from({length:21},(_, i)=>`<rect x="${12+(i%7)*14}" y="${22+Math.floor(i/7)*16}" width="11" height="12" rx="3" fill="${[3,9,10,16].includes(i)?'var(--vt-brand,#076898)':'#e1eaed'}"/>`).join('')+'</svg>',
+    lista:'<svg viewBox="0 0 120 76" aria-hidden="true"><rect x="2" y="2" width="116" height="72" rx="8" fill="#f4f8f9" stroke="#cfdde1"/>'+[0,1,2].map(i=>`<rect x="10" y="${10+i*21}" width="100" height="16" rx="5" fill="#fff" stroke="#dbe5e8"/><rect x="15" y="${15+i*21}" width="14" height="6" rx="2" fill="#cfdde1"/><rect x="34" y="${15+i*21}" width="40" height="6" rx="3" fill="#e1eaed"/><rect x="84" y="${13+i*21}" width="22" height="10" rx="5" fill="var(--vt-brand,#076898)"/>`).join('')+'</svg>'};
+  // The 3 steps of each guide, drawn (an editor with its «add» menu, the code pasted, publish): the same for every
+  // platform; the words under each drawing say the name of the buttons of each one.
+  const VT_GUIDE_ART=[
+    '<svg viewBox="0 0 160 96" aria-hidden="true"><rect x="2" y="2" width="156" height="92" rx="8" fill="#fff" stroke="#cfdde1"/><rect x="2" y="2" width="156" height="14" rx="8" fill="#eef3f5"/><circle cx="24" cy="40" r="10" fill="var(--vt-brand,#076898)"/><path d="M24 35v10M19 40h10" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><rect x="42" y="26" width="104" height="54" rx="6" fill="#f4f8f9" stroke="#cfdde1"/><rect x="50" y="34" width="70" height="7" rx="3" fill="#e1eaed"/><rect x="48" y="47" width="92" height="12" rx="4" fill="#fff" stroke="var(--vt-brand,#076898)" stroke-width="1.6"/><text x="56" y="56" font-size="8" font-family="monospace" fill="var(--vt-brand,#076898)">&lt;/&gt; HTML</text><rect x="50" y="65" width="60" height="7" rx="3" fill="#e1eaed"/></svg>',
+    '<svg viewBox="0 0 160 96" aria-hidden="true"><rect x="2" y="2" width="156" height="92" rx="8" fill="#fff" stroke="#cfdde1"/><rect x="2" y="2" width="156" height="14" rx="8" fill="#eef3f5"/><rect x="14" y="26" width="132" height="50" rx="6" fill="#0f2b3a"/><text x="22" y="44" font-size="8" font-family="monospace" fill="#9fe3ee">&lt;script src=…&gt;</text><text x="22" y="58" font-size="8" font-family="monospace" fill="#9fe3ee">&lt;a data-worldives…&gt;</text><rect x="104" y="64" width="34" height="8" rx="4" fill="var(--vt-brand,#076898)"/></svg>',
+    '<svg viewBox="0 0 160 96" aria-hidden="true"><rect x="2" y="2" width="156" height="92" rx="8" fill="#fff" stroke="#cfdde1"/><rect x="2" y="2" width="156" height="14" rx="8" fill="#eef3f5"/><rect x="104" y="5" width="46" height="8" rx="4" fill="var(--vt-brand,#076898)"/><rect x="14" y="26" width="80" height="8" rx="3" fill="#cfdde1"/><rect x="14" y="40" width="110" height="5" rx="2.5" fill="#e1eaed"/><rect x="14" y="56" width="46" height="16" rx="8" fill="var(--vt-brand,#076898)"/><rect x="23" y="62" width="28" height="4" rx="2" fill="#fff"/><path d="M128 30l10 10 18-20" stroke="#16a34a" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'];
+  const VT_GUIDES=[['wordpress','WordPress',['En la página donde quieres el botón, pulsa «+» y añade un bloque «HTML personalizado».','Pega el código.','Pulsa «Actualizar».']],
+    ['wix','Wix',['En el editor: «Añadir elementos» → «Insertar código» → «Código integrado».','Pega el código.','Publica la web.']],
+    ['squarespace','Squarespace',['Edita la página y pulsa «Añadir bloque» → «Código».','Pega el código.','Guarda los cambios.']]];
   async function renderSellOnline(mountId){
-    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml;
+    const mount=document.getElementById(mountId); if(!mount) return; const esc=escapeHtml, tr=translateString;
     mount.innerHTML=`<div class="pl-loading">${wdIcon('globe',22)} Cargando…</div>`;
     let v, keys={items:[]}, hooks={items:[],deliveries:[],events:[]}, ical={url:null}, imports={items:[]}, mine=null;
     try{ v=await api('/api/provider/vender'); }catch(err){ mount.innerHTML=`<div class="notice error">${esc(err.message)}</div>`; return; }
     const isCenter=state.me?.user?.role==='center';
     [keys,hooks,ical,imports]=await Promise.all([api('/api/provider/api-keys').catch(()=>keys),api('/api/provider/webhooks').catch(()=>hooks),api('/api/provider/ical').catch(()=>ical),api('/api/provider/ical-imports').catch(()=>imports)]);
     if(isCenter) mine=await api('/api/me/ical').catch(()=>null);
-    const ui=renderSellOnline.ui||(renderSellOnline.ui={fmt:'boton',service:'',type:''});
-    const snippet=()=>{ const extra=(ui.service?` data-servicio="${ui.service}"`:'')+(ui.type?` data-tipo="${ui.type}"`:''); return v.snippets[ui.fmt].replace(/data-centro="([^"]+)"/,`data-centro="$1"${extra}`); };
-    // v50.58 (reserva exprés, parte 6): the preview is always in test mode (nothing is booked or charged) and follows the
-    // format, the services, the colour and the language chosen here before saving them.
-    const preview=()=>`/w/${encodeURIComponent(v.slug)}?f=${ui.fmt}${ui.service?'&servicio='+ui.service:''}${ui.type?'&tipo='+encodeURIComponent(ui.type):''}${ui.lang?'&lang='+ui.lang:''}&prueba=1`;
+    const ui=renderSellOnline.ui||(renderSellOnline.ui={fmt:'boton',service:'',type:'',what:'all',guide:'wordpress',dev:false});
+    if(ui.what==='service'&&!ui.service&&v.services[0]) ui.service=String(v.services[0].id);
+    const snippet=()=>{ const extra=(ui.what==='service'&&ui.service?` data-servicio="${ui.service}"`:'')+(ui.what==='type'&&ui.type?` data-tipo="${ui.type}"`:''); return v.snippets[ui.fmt].replace(/data-centro="([^"]+)"/,`data-centro="$1"${extra}`); };
+    // v50.58 (reserva exprés, parte 6): the preview is always in test mode (nothing is booked or charged).
+    const preview=()=>`/w/${encodeURIComponent(v.slug)}?f=${ui.fmt}${ui.what==='service'&&ui.service?'&servicio='+ui.service:''}${ui.what==='type'&&ui.type?'&tipo='+encodeURIComponent(ui.type):''}&prueba=1`;
     const types=[...new Set(v.services.map(s=>s.type).filter(Boolean))];
-    const planNote=!v.plan.widget?`<div class="notice warning">${wdIcon('info',16)} El widget y la página de reservas están incluidos en los planes «Motor de reservas» y «Pro». Con la ficha gratuita, tu web enseña «Solicitar información». <a href="#/mi-plan">Ver planes</a></div>`:'';
-    mount.innerHTML=`<div class="cb-module vt-wrap">
-      <div class="cb-module-head"><div><p class="eyebrow">VENDER EN TU WEB</p><h2>Vende en tu web, en Instagram y por la API</h2><p>Un solo inventario: lo que se vende en tu web, en WORLDIVES, por un enlace, por la API o por teléfono sale de las mismas plazas, al momento.</p></div></div>
-      ${planNote}
-      <section class="vt-card"><h3>1 · Pega el código en tu web</h3>
-        <div class="vt-tabs" role="tablist">${[['boton','Botón'],['calendario','Calendario'],['lista','Lista']].map(([k,l])=>`<button type="button" role="tab" class="vt-tab" data-fmt="${k}" aria-selected="${ui.fmt===k}">${l}</button>`).join('')}</div>
-        <p class="vt-help">${ui.fmt==='boton'?'Un botón que abre la reserva encima de tu página.':ui.fmt==='calendario'?'Un calendario con las fechas libres, dentro de tu página.':'La lista de tus salidas y servicios, dentro de tu página.'}</p>
-        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-svc">Mostrar</label><select id="vt-svc"><option value="">Todo el catálogo</option>${v.services.map(s=>`<option value="${s.id}" ${String(ui.service)===String(s.id)?'selected':''}>Solo «${esc(s.title)}»</option>`).join('')}</select></div>
-          <div class="svc-field"><label for="vt-type">o un tipo</label><select id="vt-type"><option value="">Todos los tipos</option>${types.map(t=>`<option value="${esc(t)}" ${ui.type===t?'selected':''}>${esc(SERVICE_TYPES.find(x=>x.value===t)?.label||t)}</option>`).join('')}</select></div></div>
-        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-pcolor">Color de los botones</label><input id="vt-pcolor" type="color" value="${esc(ui.color||v.color||'#076898')}"></div>
-          <div class="svc-field"><label for="vt-plang">Idioma</label><select id="vt-plang"><option value="">Automático (el del visitante)</option>${v.langs.map(l=>`<option value="${l}" ${(ui.lang||v.lang)===l?'selected':''}>${esc(WD_LANG_NAMES[l]||l)}</option>`).join('')}</select></div></div>
-        <h4>Vista previa en vivo</h4>
-        <div class="vt-previews"><figure class="vt-phone"><figcaption>${wdIcon('user',14)} Móvil</figcaption><iframe class="vt-frame" title="Vista previa en el móvil" src="${esc(preview())}" loading="lazy"></iframe></figure>
-          <figure class="vt-desk"><figcaption>${wdIcon('globe',14)} Ordenador</figcaption><iframe class="vt-frame" title="Vista previa en el ordenador" src="${esc(preview())}" loading="lazy"></iframe></figure></div>
-        <div class="vt-row"><a class="btn" id="vt-try" href="${esc(v.page)}?prueba=1${ui.service?'&servicio='+ui.service:''}" target="_blank" rel="noopener">${wdIcon('eye',14)} Probar como cliente</a><small>Modo de prueba: no se reserva ni se cobra nada.</small></div>
-        <pre class="vt-code" id="vt-code">${esc(snippet())}</pre>
-        <div class="vt-row"><button type="button" class="btn btn-primary" id="vt-copy">Copiar código</button><small>Dos líneas. No hace falta tocar nada más de tu web.</small></div>
-      </section>
-      <section class="vt-card"><h3>2 · Dónde puede funcionar</h3>
-        <p>El widget solo funciona en tus dominios. En cualquier otra web no se carga.</p>
-        <div class="svc-field"><label for="vt-domains">Dominios de tu web (uno por línea)</label><textarea id="vt-domains" rows="3" placeholder="buceomarazul.com&#10;*.buceomarazul.com" translate="no">${esc((v.domains||[]).join('\n'))}</textarea>
-          <small>Escribe solo el dominio: «buceomarazul.com» vale también para «www.buceomarazul.com»; «*.buceomarazul.com» vale para sus subdominios.${v.local_domains?' En el entorno de pruebas también vale «localhost:8101».':''}</small></div>
-        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-color">Color de tu marca</label><input id="vt-color" type="color" value="${esc(v.color||'#076898')}"></div>
-          <div class="svc-field"><label for="vt-lang">Idioma del widget</label><select id="vt-lang"><option value="">Automático (el del visitante)</option>${v.langs.map(l=>`<option value="${l}" ${v.lang===l?'selected':''}>${esc(WD_LANG_NAMES[l]||l)}</option>`).join('')}</select></div></div>
-        <p class="vt-help">El logo es el de tu ficha («Escaparate y datos»). La moneda, la de tus servicios.</p>
-        <button type="button" class="btn btn-primary" id="vt-save">Guardar</button>
-      </section>
-      <section class="vt-card"><h3>3 · Tu página de reservas, enlaces y QR</h3>
-        <p>Para Instagram, WhatsApp, Google o un cartel: tu propia página, sin incrustar nada.</p>
-        <div class="vt-row"><code class="vt-link">${esc(v.page)}</code><button type="button" class="btn" data-copy="${esc(v.page)}">Copiar</button><a class="btn" href="${esc(v.page)}" target="_blank" rel="noopener">Abrir</a></div>
-        <div class="svc-field"><label for="vt-slug">Dirección</label><div class="vt-row"><span class="vt-prefix">${esc(location.origin)}/c/</span><input id="vt-slug" value="${esc(v.slug)}" maxlength="60" pattern="[a-z0-9-]{3,60}"><button type="button" class="btn" id="vt-slug-save">Cambiar</button></div><small>Si la cambias, los enlaces y QR antiguos dejan de funcionar.</small></div>
-        <div class="vt-qr"><img src="${esc(v.qr.svg)}" alt="QR de tu página de reservas" width="132" height="132"><div><p>QR de tu página de reservas.</p><a class="btn" href="${esc(v.qr.svg)}?descargar=1">Descargar SVG</a> <a class="btn" href="${esc(v.qr.png)}?descargar=1">Descargar PNG</a></div></div>
-        <h4>Enlace directo a un servicio, una fecha, una hora y las personas</h4>
-        <p class="vt-help">Con la fecha y la hora, la reserva se abre directamente en «Tus datos».</p>
-        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-ls">Servicio</label><select id="vt-ls">${v.services.map(s=>`<option value="${s.id}">${esc(s.title)}</option>`).join('')}</select></div><div class="svc-field"><label for="vt-ld">Fecha (opcional)</label><input id="vt-ld" type="date"></div></div>
-        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-lt">Hora (opcional)</label><input id="vt-lt" type="time"></div><div class="svc-field"><label for="vt-lp">Personas (opcional)</label><input id="vt-lp" type="number" min="1" max="20" inputmode="numeric"></div></div>
-        <div class="vt-row"><code class="vt-link" id="vt-direct"></code><button type="button" class="btn" id="vt-direct-copy">Copiar</button><a class="btn" id="vt-direct-qr" href="#" target="_blank" rel="noopener">QR</a></div>
-      </section>
-      <section class="vt-card" id="vt-api"><h3>4 · API para tu web o tu programa de reservas</h3>
-        ${v.plan.api?'':`<div class="notice warning">La API está incluida en «Motor de reservas» y «Pro».</div>`}
-        <p>Consulta servicios y plazas en tiempo real, crea y cancela reservas. Documentación: <code>docs/api/</code> del paquete.</p>
+    if(ui.what==='type'&&!ui.type&&types[0]) ui.type=types[0];
+    const typeLabel=t=>SERVICE_TYPES.find(x=>x.value===t)?.label||t;
+    const planNote=!v.plan.widget?`<div class="notice warning">${wdIcon('info',16)} ${esc(tr('El botón de reservas para tu web está incluido en los planes «Motor de reservas» y «Pro». Con la ficha gratuita, tu web enseña «Solicitar información».'))} <a href="#/mi-plan">${esc(tr('Ver planes'))}</a></div>`:'';
+    const m=v.month||{web:0,link:0};
+    const count=`<p class="vt-count">${wdIcon('users',18)} <span>${esc(tr(m.web===1?'Este mes te ha reservado 1 persona desde tu web':'Este mes te han reservado {n} personas desde tu web')).replace(/(\d+|1) (persona|personas)/,'<b>$&</b>').replace('{n}',`<b>${m.web}</b>`)}${m.link?` <small>${esc(tr(m.link===1?'y 1 desde tu enlace de reservas':'y {n} desde tu enlace de reservas').replace('{n}',m.link))}</small>`:''}</span></p>`;
+    const choice=(name,val,on,title,sub,extra='')=>`<label class="vt-choice ${on?'is-on':''}"><input type="radio" name="${name}" value="${val}" ${on?'checked':''}><span class="vt-choice-body"><b>${esc(tr(title))}</b>${sub?`<small>${esc(tr(sub))}</small>`:''}${extra}</span></label>`;
+    const look=(k,title,sub)=>`<label class="vt-look ${ui.fmt===k?'is-on':''}" data-fmt="${k}"><input type="radio" name="vt-fmt" value="${k}" ${ui.fmt===k?'checked':''}><span class="vt-art">${VT_ART[k]}</span><b>${esc(tr(title))}</b><small>${esc(tr(sub))}</small></label>`;
+    const checkBox=c=>!c?'':c.ok?`<div class="notice success vt-check-ok"><strong>${esc(tr('✔ Tu botón está funcionando'))}</strong>${c.authorized?` <span>${esc(tr('Hemos autorizado {web} para que funcione.').replace('{web}',c.authorized))}</span>`:''}</div>`
+      :`<div class="notice warning vt-check-no"><strong>${esc(tr('Aún no lo encontramos'))}</strong>${c.hint?` <span>${esc(tr(c.hint))}</span>`:''}</div>`;
+    const last=v.check?{ok:v.check.ok,hint:v.check.ok?'':'La última vez no lo encontramos. Si ya lo has pegado, vuelve a probar.'}:null;
+    mount.innerHTML=`<div class="cb-module vt-wrap" style="--vt-brand:${esc(v.color||'#076898')}">
+      <div class="cb-module-head"><div><p class="eyebrow">${esc(tr('RESERVAS DESDE TU WEB E INSTAGRAM'))}</p><h2>${esc(tr('Que te reserven desde tu web, Instagram o WhatsApp'))}</h2><p>${esc(tr('Las reservas entran solas en tu planning y salen de las mismas plazas que en WORLDIVES.'))}</p></div></div>
+      ${count}${planNote}
+      <section class="vt-card vt-easy"><div class="vt-easy-main"><p class="eyebrow">${esc(tr('LO MÁS FÁCIL · TAMBIÉN SIN WEB'))}</p><h3>${esc(tr('Tu enlace de reservas'))}</h3>
+          <p>${esc(tr('Ponlo en tu Instagram, en Google Maps o mándalo por WhatsApp.'))}</p>
+          <code class="vt-link vt-big" translate="no">${esc(v.page)}</code>
+          <div class="vt-row"><button type="button" class="btn btn-primary" id="vt-link-copy">${wdIcon('link',15)} ${esc(tr('Copiar'))}</button><a class="btn" id="vt-wa" href="${esc(v.whatsapp)}" target="_blank" rel="noopener">${wdIcon('whatsapp',15)} ${esc(tr('Compartir en WhatsApp'))}</a><a class="btn" id="vt-qr-dl" href="${esc(v.qr.png)}?descargar=1" download>${wdIcon('qr',15)} ${esc(tr('Descargar QR'))}</a><a class="btn btn-ghost" href="${esc(v.page)}" target="_blank" rel="noopener">${esc(tr('Abrir'))}</a></div></div>
+        <img class="vt-easy-qr" src="${esc(v.qr.svg)}" alt="${esc(tr('QR de tu enlace de reservas'))}" width="128" height="128"></section>
+      <section class="vt-card vt-step" id="vt-step1"><h3><span class="vt-num">1</span> ${esc(tr('¿Qué quieres que reserven?'))}</h3>
+        <div class="vt-choices">${choice('vt-what','all',ui.what==='all','Todo tu catálogo','Todos tus servicios a la venta.')}
+          ${v.services.length?choice('vt-what','service',ui.what==='service','Un servicio concreto','',`<select id="vt-svc" aria-label="${esc(tr('Servicio'))}">${v.services.map(s=>`<option value="${s.id}" ${String(ui.service)===String(s.id)?'selected':''}>${esc(s.title)}</option>`).join('')}</select>`):''}
+          ${types.length>1?choice('vt-what','type',ui.what==='type','Un tipo','Por ejemplo, solo los cursos o solo las inmersiones.',`<select id="vt-type" aria-label="${esc(tr('Tipo'))}">${types.map(t=>`<option value="${esc(t)}" ${ui.type===t?'selected':''}>${esc(tr(typeLabel(t)))}</option>`).join('')}</select>`):''}</div></section>
+      <section class="vt-card vt-step" id="vt-step2"><h3><span class="vt-num">2</span> ${esc(tr('¿Cómo quieres que se vea?'))}</h3>
+        <div class="vt-choices vt-looks">${look('boton','Un botón «Reservar»','Abre la reserva encima de tu página.')}${look('calendario','Un calendario','Las fechas libres, dentro de tu página.')}${look('lista','Una lista de próximas salidas','Tus salidas y servicios, dentro de tu página.')}</div>
+        <p class="vt-help vt-brand">${v.logo?`<img src="${esc(v.logo)}" alt="" width="28" height="28">`:''}<span class="vt-swatch" aria-hidden="true"></span> ${esc(tr('El color y el logo salen solos de tu perfil.'))}</p>
+        <div class="vt-previews"><figure class="vt-phone"><figcaption>${wdIcon('user',14)} ${esc(tr('Móvil'))}</figcaption><iframe class="vt-frame" id="vt-frame" title="${esc(tr('Vista previa en el móvil'))}" src="${esc(preview())}" loading="lazy"></iframe></figure>
+          <figure class="vt-desk"><figcaption>${wdIcon('globe',14)} ${esc(tr('Ordenador'))}</figcaption><iframe class="vt-frame" title="${esc(tr('Vista previa en el ordenador'))}" src="${esc(preview())}" loading="lazy"></iframe></figure></div>
+        <div class="vt-row"><a class="btn" id="vt-try" href="${esc(v.page)}?prueba=1${ui.what==='service'&&ui.service?'&servicio='+ui.service:''}" target="_blank" rel="noopener">${wdIcon('eye',14)} ${esc(tr('Probar como cliente'))}</a><small>${esc(tr('Modo de prueba: no se reserva ni se cobra nada.'))}</small></div></section>
+      <section class="vt-card vt-step" id="vt-step3"><h3><span class="vt-num">3</span> ${esc(tr('Ponlo en tu web'))}</h3>
+        <p class="vt-lead">${esc(tr('Pega este código en tu web donde quieras que aparezca el botón.'))}</p>
+        <pre class="vt-code" id="vt-code" translate="no">${esc(snippet())}</pre>
+        <div class="vt-row"><button type="button" class="btn btn-primary" id="vt-copy">${esc(tr('Copiar código'))}</button><button type="button" class="btn" id="vt-mail">${wdIcon('mail',15)} ${esc(tr('Enviar las instrucciones a mi informático'))}</button></div>
+        <div class="vt-guides"><div class="vt-tabs" role="tablist">${VT_GUIDES.map(([k,l])=>`<button type="button" role="tab" class="vt-tab" data-guide="${k}" aria-selected="${ui.guide===k}">${esc(l)}</button>`).join('')}</div>
+          ${VT_GUIDES.map(([k,l,steps])=>`<ol class="vt-guide" data-guide-pane="${k}" ${ui.guide===k?'':'hidden'} aria-label="${esc(l)}">${steps.map((t,i)=>`<li><figure class="vt-gart">${VT_GUIDE_ART[i]}</figure><p><b>${i+1}.</b> ${esc(tr(t))}</p></li>`).join('')}</ol>`).join('')}
+          <p class="vt-help">${esc(tr('¿Otra plataforma? Si deja pegar HTML, funciona igual. Si no, usa tu enlace de reservas de arriba.'))}</p></div></section>
+      <section class="vt-card vt-step" id="vt-step4"><h3><span class="vt-num">4</span> ${esc(tr('Comprueba que funciona'))}</h3>
+        <p>${esc(tr('Escribe la dirección de tu web y la miramos por ti. Si el botón está, autorizamos tu web para que funcione.'))}</p>
+        <form class="vt-row vt-check" id="vt-check-form" novalidate><label class="sr-only" for="vt-check-url">${esc(tr('La dirección de tu web'))}</label><input id="vt-check-url" inputmode="url" autocomplete="url" placeholder="buceomarazul.com" translate="no" maxlength="300" value="${esc(v.check?.url||'')}"><button type="submit" class="btn btn-primary" id="vt-check">${esc(tr('Comprobar'))}</button></form>
+        <div id="vt-check-out" aria-live="polite">${checkBox(last)}</div></section>
+      <details class="vt-card vt-dev" id="vt-dev" ${ui.dev?'open':''}><summary><span><b>${esc(tr('Para programadores'))}</b><small>${esc(tr('API y claves, avisos automáticos (webhooks), dominios autorizados, color e idioma, calendario iCal y enlaces directos.'))}</small></span></summary>
+      <section class="vt-sub"><h4>${esc(tr('Dominios autorizados, color e idioma'))}</h4>
+        <p>${esc(tr('El botón solo funciona en tus dominios. «Comprobar» los añade solo; aquí puedes añadir o quitar a mano.'))}</p>
+        <div class="svc-field"><label for="vt-domains">${esc(tr('Dominios de tu web (uno por línea)'))}</label><textarea id="vt-domains" rows="3" placeholder="buceomarazul.com&#10;*.buceomarazul.com" translate="no">${esc((v.domains||[]).join('\n'))}</textarea>
+          <small>${esc(tr('Escribe solo el dominio: «buceomarazul.com» vale también para «www.buceomarazul.com»; «*.buceomarazul.com» vale para sus subdominios.'))}${v.local_domains?' '+esc(tr('En el entorno de pruebas también vale «localhost:8101».')):''}</small></div>
+        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-color">${esc(tr('Color de tu marca'))}</label><input id="vt-color" type="color" value="${esc(v.color||'#076898')}"></div>
+          <div class="svc-field"><label for="vt-lang">${esc(tr('Idioma del botón'))}</label><select id="vt-lang"><option value="">${esc(tr('Automático (el del visitante)'))}</option>${v.langs.map(l=>`<option value="${l}" ${v.lang===l?'selected':''}>${esc(WD_LANG_NAMES[l]||l)}</option>`).join('')}</select></div></div>
+        <button type="button" class="btn btn-primary" id="vt-save">${esc(tr('Guardar'))}</button></section>
+      <section class="vt-sub"><h4>${esc(tr('Dirección de tu página de reservas'))}</h4>
+        <div class="svc-field"><label for="vt-slug">${esc(tr('Dirección'))}</label><div class="vt-row"><span class="vt-prefix">${esc(location.origin)}/c/</span><input id="vt-slug" value="${esc(v.slug)}" maxlength="60" pattern="[a-z0-9-]{3,60}"><button type="button" class="btn" id="vt-slug-save">${esc(tr('Cambiar'))}</button></div><small>${esc(tr('Si la cambias, los enlaces y QR antiguos dejan de funcionar.'))}</small></div>
+        <div class="vt-row"><a class="btn" href="${esc(v.qr.svg)}?descargar=1">${esc(tr('Descargar SVG'))}</a> <a class="btn" href="${esc(v.qr.png)}?descargar=1">${esc(tr('Descargar PNG'))}</a></div></section>
+      <section class="vt-sub"><h4>${esc(tr('Enlace directo a un servicio, una fecha, una hora y las personas'))}</h4>
+        <p class="vt-help">${esc(tr('Con la fecha y la hora, la reserva se abre directamente en «Tus datos».'))}</p>
+        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-ls">${esc(tr('Servicio'))}</label><select id="vt-ls">${v.services.map(s=>`<option value="${s.id}">${esc(s.title)}</option>`).join('')}</select></div><div class="svc-field"><label for="vt-ld">${esc(tr('Fecha (opcional)'))}</label><input id="vt-ld" type="date"></div></div>
+        <div class="svc-form-row svc-form-row-2"><div class="svc-field"><label for="vt-lt">${esc(tr('Hora (opcional)'))}</label><input id="vt-lt" type="time"></div><div class="svc-field"><label for="vt-lp">${esc(tr('Personas (opcional)'))}</label><input id="vt-lp" type="number" min="1" max="20" inputmode="numeric"></div></div>
+        <div class="vt-row"><code class="vt-link" id="vt-direct" translate="no"></code><button type="button" class="btn" id="vt-direct-copy">${esc(tr('Copiar'))}</button><a class="btn" id="vt-direct-qr" href="#" target="_blank" rel="noopener">QR</a></div></section>
+      <section class="vt-sub" id="vt-api"><h4>${esc(tr('API para tu web o tu programa de reservas'))}</h4>
+        ${v.plan.api?'':`<div class="notice warning">${esc(tr('La API está incluida en «Motor de reservas» y «Pro».'))}</div>`}
+        <p>${esc(tr('Consulta servicios y plazas en tiempo real, crea y cancela reservas. Documentación: docs/api/ del paquete.'))}</p>
         <table class="vt-table"><thead><tr><th>Nombre</th><th>Empieza por</th><th>Permiso</th><th>Último uso</th><th></th></tr></thead><tbody>${(keys.items||[]).map(k=>`<tr class="${k.revoked_at?'is-off':''}"><td>${esc(k.name||'')}</td><td><code>${esc(k.prefix)}…</code></td><td>${k.scope==='write'?'Lectura y escritura':'Solo lectura'}</td><td>${k.revoked_at?'Revocada':esc(k.last_used_at?wdDeadline(k.last_used_at):'Nunca')}</td><td>${k.revoked_at?'':`<button type="button" class="btn btn-small" data-revoke="${k.id}">Revocar</button>`}</td></tr>`).join('')||'<tr><td colspan="5">Todavía no tienes claves.</td></tr>'}</tbody></table>
         <div class="vt-row"><input id="vt-key-name" placeholder="Nombre (p. ej. «Mi web»)" maxlength="80"><select id="vt-key-scope"><option value="read">Solo lectura</option><option value="write">Lectura y escritura</option></select><button type="button" class="btn btn-primary" id="vt-key-new">Crear clave</button></div>
         <div id="vt-key-out"></div>
       </section>
-      <section class="vt-card" id="vt-hooks"><h3>5 · Avisos automáticos a tu servidor (webhooks)</h3>
+      <section class="vt-sub" id="vt-hooks"><h4>Avisos automáticos a tu servidor (webhooks)</h4>
         <p>Cada vez que una reserva se crea, se confirma, se paga, se cancela o cambia, WORLDIVES avisa a tu servidor con un mensaje firmado. Si tu servidor no contesta, se reintenta durante 24 horas.</p>
         <table class="vt-table"><thead><tr><th>Dirección</th><th>Avisos</th><th>Estado</th><th></th></tr></thead><tbody>${(hooks.items||[]).map(h=>`<tr><td><code>${esc(h.url)}</code></td><td><code translate="no">${esc(h.events.join(', '))}</code></td><td>${h.active?'Activo':'Pausado'}</td><td class="vt-actions"><button type="button" class="btn btn-small" data-hook-test="${h.id}">Probar</button><button type="button" class="btn btn-small" data-hook-toggle="${h.id}" data-on="${h.active?0:1}">${h.active?'Pausar':'Activar'}</button><button type="button" class="btn btn-small" data-hook-secret="${h.id}">Nuevo secreto</button><button type="button" class="btn btn-small" data-hook-del="${h.id}">Quitar</button></td></tr>`).join('')||'<tr><td colspan="4">Sin avisos configurados.</td></tr>'}</tbody></table>
         <div class="svc-field"><label for="vt-hook-url">Dirección https de tu servidor</label><input id="vt-hook-url" placeholder="https://tuweb.com/worldives/avisos" translate="no" maxlength="500"></div>
@@ -6937,7 +6971,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <h4>Registro de envíos</h4>
         <table class="vt-table vt-log"><thead><tr><th>Cuándo</th><th>Aviso</th><th>Reserva</th><th>Resultado</th><th>Intentos</th><th></th></tr></thead><tbody>${(hooks.deliveries||[]).slice(0,30).map(x=>`<tr><td>${esc(wdDeadline(x.created_at))}</td><td><code translate="no">${esc(x.event)}</code></td><td>${x.booking_id?'WOD-'+String(x.booking_id).padStart(6,'0'):'—'}</td><td>${x.status==='delivered'?`<span class="pl-tag good">Entregado (${x.last_status})</span>`:x.status==='failed'?`<span class="pl-tag bad">Falló: ${esc(x.last_error||'')}</span>`:`<span class="pl-tag warn">${x.attempts?'Reintento pendiente':'En cola'}</span>`}</td><td>${x.attempts}</td><td>${x.status==='failed'?`<button type="button" class="btn btn-small" data-retry="${x.id}" data-ep="${x.endpoint_id}">Reintentar</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6">Todavía no se ha enviado ningún aviso.</td></tr>'}</tbody></table>
       </section>
-      <section class="vt-card" id="vt-ical"><h3>6 · Calendario (iCal)</h3>
+      <section class="vt-sub" id="vt-ical"><h4>Calendario (iCal)</h4>
         <p><b>Exportar:</b> suscríbete desde Google Calendar, Apple o Outlook. Refleja las reservas de todos los canales; cada calendario decide cada cuánto lo vuelve a leer.</p>
         ${ical.url?`<div class="vt-row"><code class="vt-link">${esc(ical.url)}</code><button type="button" class="btn" data-copy="${esc(ical.url)}">Copiar</button></div>`:'<button type="button" class="btn" id="vt-ical-new">Crear mi enlace de calendario</button>'}
         ${mine?.url?`<p class="vt-help">Tu calendario personal (tus cursos y las salidas que guías): <code>${esc(mine.url)}</code> <button type="button" class="btn btn-small" data-copy="${esc(mine.url)}">Copiar</button></p>`:''}
@@ -6947,31 +6981,46 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         <div class="vt-row"><input id="vt-imp-name" placeholder="Nombre" maxlength="80"><button type="button" class="btn btn-primary" id="vt-imp-new">Importar</button></div>
         <p class="vt-help">Gestores de canales (channel managers): pendiente de decisión. Mientras tanto, la API y el iCal sirven para conectarlos.</p>
       </section>
-      <section class="vt-card"><h3>7 · Guía paso a paso</h3>
-        <details open><summary>WordPress</summary><ol><li>En la página donde quieres vender, pulsa «+» y añade un bloque <b>«HTML personalizado»</b>.</li><li>Pega el código del paso 1 y pulsa <b>«Actualizar»</b>.</li><li>Escribe tu dominio en el paso 2 de aquí (por ejemplo «tuweb.com») y guarda.</li></ol></details>
-        <details><summary>Wix</summary><ol><li>En el editor, pulsa <b>«Añadir elementos» → «Insertar código» → «Código integrado»</b>.</li><li>Pega el código del paso 1 y publica la web.</li><li>Escribe tu dominio en el paso 2 de aquí (por ejemplo «tunombre.wixsite.com» y el tuyo propio) y guarda.</li></ol></details>
-        <details><summary>Squarespace</summary><ol><li>Edita la página y pulsa <b>«Añadir bloque» → «Código»</b>.</li><li>Pega el código del paso 1 y guarda los cambios.</li><li>Escribe tu dominio en el paso 2 de aquí (por ejemplo «tunombre.squarespace.com» y el tuyo) y guarda.</li></ol></details>
-        <p class="vt-help">¿Otra plataforma? Si deja pegar HTML, funciona igual. Si no, usa el enlace o el QR del paso 3.</p>
-      </section>
+      </details>
     </div>`;
     const reload=()=>renderSellOnline(mountId);
     const show=(id,html)=>{ const o=$('#'+id,mount); if(o) o.innerHTML=html; };
-    $$('.vt-tab',mount).forEach(b=>b.onclick=()=>{ ui.fmt=b.dataset.fmt; reload(); });
-    $('#vt-svc',mount).onchange=e=>{ ui.service=e.target.value; if(ui.service) ui.type=''; reload(); };
-    $('#vt-type',mount).onchange=e=>{ ui.type=e.target.value; if(ui.type) ui.service=''; reload(); };
+    translateTree(mount);
+    $('#vt-dev',mount).addEventListener('toggle',e=>{ ui.dev=e.currentTarget.open; });
+    $$('input[name="vt-what"]',mount).forEach(i=>i.onchange=()=>{ ui.what=i.value; reload(); });
+    $('#vt-svc',mount)?.addEventListener('change',e=>{ ui.service=e.target.value; ui.what='service'; reload(); });
+    $('#vt-type',mount)?.addEventListener('change',e=>{ ui.type=e.target.value; ui.what='type'; reload(); });
+    $$('input[name="vt-fmt"]',mount).forEach(i=>i.onchange=()=>{ ui.fmt=i.value; reload(); });
+    $$('.vt-tab[data-guide]',mount).forEach(b=>b.onclick=()=>{ ui.guide=b.dataset.guide; $$('.vt-tab[data-guide]',mount).forEach(x=>x.setAttribute('aria-selected',String(x===b))); $$('[data-guide-pane]',mount).forEach(p=>p.hidden=p.dataset.guidePane!==ui.guide); });
     $('#vt-copy',mount).onclick=()=>wdCopyText(snippet());
+    $('#vt-link-copy',mount).onclick=()=>wdCopyText(v.page);
     $$('[data-copy]',mount).forEach(b=>b.onclick=()=>wdCopyText(b.dataset.copy));
-    $('#vt-save',mount).onclick=async()=>{ try{ await postJSON('/api/provider/vender',{domains:$('#vt-domains',mount).value,color:$('#vt-color',mount).value,lang:$('#vt-lang',mount).value}); toast('Guardado.'); reload(); }catch(err){ toast(err.message); } };
-    $('#vt-slug-save',mount).onclick=async()=>{ try{ await postJSON('/api/provider/vender',{slug:$('#vt-slug',mount).value.trim()}); toast('Dirección cambiada.'); reload(); }catch(err){ toast(err.message); } };
+    $('#vt-check-form',mount).onsubmit=async e=>{ e.preventDefault(); const btn=$('#vt-check',mount), url=$('#vt-check-url',mount).value.trim();
+      if(!url){ toast(tr('Escribe la dirección de tu web, por ejemplo buceomarazul.com.')); return; }
+      btn.disabled=true; show('vt-check-out',`<p class="wd-loading">${esc(tr('Mirando tu web…'))}</p>`);
+      try{ const r=await postJSON('/api/provider/vender/check',{url}); show('vt-check-out',checkBox(r)); translateTree($('#vt-check-out',mount)); if(r.ok&&r.domains) $('#vt-domains',mount).value=r.domains.join('\n'); }
+      catch(err){ show('vt-check-out',`<div class="notice error">${esc(err.message)}</div>`); }
+      btn.disabled=false; };
+    $('#vt-mail',mount).onclick=()=>{
+      const {el,close}=wdOpenModal({id:'vt-mail-m',size:'sm',title:esc(tr('Enviar las instrucciones a mi informático')),subtitle:esc(tr('Le mandamos el código y la guía de 3 pasos. Si contesta, el correo te llega a ti.')),
+        body:`<form id="vt-mail-form" novalidate><div class="field"><label for="vt-mail-to">${esc(tr('Su correo'))}</label><input id="vt-mail-to" type="email" autocomplete="off" placeholder="nombre@empresa.com" maxlength="160" required></div>
+          <div class="field"><label for="vt-mail-name">${esc(tr('Su nombre (opcional)'))}</label><input id="vt-mail-name" maxlength="80"></div>
+          <div class="field"><label for="vt-mail-note">${esc(tr('Mensaje (opcional)'))}</label><textarea id="vt-mail-note" rows="2" maxlength="300" placeholder="${esc(tr('Ej.: ponlo en la página de inicio, debajo de las fotos.'))}"></textarea></div>
+          <p class="wz-hint">${esc(tr('Va el código de lo que has elegido en los pasos 1 y 2.'))}</p></form>`,
+        footer:`<button type="button" class="btn" data-modal-close>${esc(tr('Cancelar'))}</button><button type="button" class="btn btn-primary" id="vt-mail-send">${esc(tr('Enviar'))}</button>`});
+      translateTree(el);
+      $('#vt-mail-send',el).onclick=async e=>{ const btn=e.currentTarget; btn.disabled=true;
+        try{ const r=await postJSON('/api/provider/vender/instructions',{email:$('#vt-mail-to',el).value.trim(),name:$('#vt-mail-name',el).value.trim(),note:$('#vt-mail-note',el).value.trim(),
+            fmt:ui.fmt,service:ui.what==='service'?ui.service:'',type:ui.what==='type'?ui.type:''});
+          close(); toast(tr('Enviado a {email}.').replace('{email}',r.sent_to)); }
+        catch(err){ toast(err.message); btn.disabled=false; } };
+    };
+    $('#vt-save',mount).onclick=async()=>{ try{ await postJSON('/api/provider/vender',{domains:$('#vt-domains',mount).value,color:$('#vt-color',mount).value,lang:$('#vt-lang',mount).value}); toast(tr('Guardado.')); reload(); }catch(err){ toast(err.message); } };
+    $('#vt-slug-save',mount).onclick=async()=>{ try{ await postJSON('/api/provider/vender',{slug:$('#vt-slug',mount).value.trim()}); toast(tr('Dirección cambiada.')); reload(); }catch(err){ toast(err.message); } };
     const direct=()=>{ const s=$('#vt-ls',mount).value, dte=$('#vt-ld',mount).value, hr=$('#vt-lt',mount).value, pp=+$('#vt-lp',mount).value||0;
       const q=`servicio=${s}${dte?'&fecha='+dte:''}${dte&&hr?'&hora='+hr:''}${pp>0&&pp<=20?'&personas='+pp:''}`;
       const u=`${v.page}?${q}`; $('#vt-direct',mount).textContent=u; $('#vt-direct-qr',mount).href=`${v.qr.svg}?${q}&descargar=1`; return u; };
     if(v.services.length){ direct(); ['#vt-ls','#vt-ld','#vt-lt','#vt-lp'].forEach(id=>{ $(id,mount).onchange=direct; $(id,mount).oninput=direct; }); $('#vt-direct-copy',mount).onclick=()=>wdCopyText(direct()); }
-    // The colour of the preview changes at once (the preview is on this same site); «Guardar» in step 2 keeps it.
-    const paint=c=>$$('.vt-frame',mount).forEach(f=>{ try{ f.contentDocument.body.style.setProperty('--marca',c); }catch{ /* not loaded yet */ } });
-    $('#vt-pcolor',mount).oninput=e=>{ ui.color=e.target.value; paint(ui.color); const c2=$('#vt-color',mount); if(c2) c2.value=ui.color; };
-    $$('.vt-frame',mount).forEach(f=>f.addEventListener('load',()=>{ if(ui.color) setTimeout(()=>paint(ui.color),400); }));
-    $('#vt-plang',mount).onchange=e=>{ ui.lang=e.target.value; reload(); };
     $('#vt-key-new',mount).onclick=async()=>{ try{ const r=await postJSON('/api/provider/api-keys',{action:'create',name:$('#vt-key-name',mount).value,scope:$('#vt-key-scope',mount).value});
       show('vt-key-out',`<div class="notice warning"><b>Copia tu clave ahora: no se vuelve a enseñar.</b><div class="vt-row"><code class="vt-link">${esc(r.key)}</code><button type="button" class="btn" id="vt-key-copy">Copiar</button></div><button type="button" class="btn btn-small" id="vt-key-done">Ya la he guardado</button></div>`);
       $('#vt-key-copy',mount).onclick=()=>wdCopyText(r.key); $('#vt-key-done',mount).onclick=reload; }catch(err){ toast(err.message); } };

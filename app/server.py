@@ -9352,6 +9352,18 @@ EMAIL_TEMPLATES = {
    ('p', 'Hola {first_name}, {center} ha añadido a tu reserva: {piece}. Importe: {amount}.'),
    ('details', None), ('button', ('Pagar ahora de forma segura', 'pay_url')),
    ('note', 'El pago lo procesa Stripe con cifrado y verificación 3D Secure, directamente al centro. WORLDIVES y el centro nunca ven los datos de tu tarjeta.')]},
+ # v50.58 (Parte 5): «Enviar las instrucciones a mi informático»; the answer goes to the centre (reply_ctx)
+ 'web_instructions': {'to': 'any', 'reply_ctx': True, 'subject': 'Botón de reservas para la web de {center}', 'pre': 'El código y cómo ponerlo, en 3 pasos.', 'blocks': [
+   ('h', 'Botón de reservas para la web de {center}'),
+   ('p', 'Hola{helper_hello}, {center} quiere poner en su web su botón de reservas de WORLDIVES DISCOVERY. Los clientes reservan y pagan sin salir de la web y la reserva le entra sola en su planning.'),
+   ('note', '{note}'),
+   ('p', 'Pega este código en la web, donde deba aparecer el botón:'),
+   ('pre', '{snippet}'),
+   ('list', ['WordPress: en la página, pulsa «+», añade un bloque «HTML personalizado», pega el código y pulsa «Actualizar».',
+             'Wix: «Añadir elementos» → «Insertar código» → «Código integrado», pega el código y publica la web.',
+             'Squarespace: edita la página, pulsa «Añadir bloque» → «Código», pega el código y guarda.']),
+   ('p', 'Si es otra plataforma y deja pegar HTML, funciona igual. Cuando esté publicado, {center} lo comprueba en WORLDIVES con «Comprobar» y su web queda autorizada.'),
+   ('p', 'Mientras tanto, o si no hay web, también vale este enlace de reservas: {page}')]},
  # v50.58 (3.5): the sessions of a course on another day and «Curso completado»
  'course_session_moved': {'to': 'diver', 'subject': 'Nueva fecha para tu {session} · {service}', 'pre': '{when}', 'blocks': [
    ('h', 'Nueva fecha para tu {session}'),
@@ -9716,6 +9728,7 @@ EMAIL_TEMPLATE_LABELS = {
  'equipment_pay_link': 'Equipo añadido en el centro: enlace de pago',
  'course_session_moved': 'Curso: sesión pasada a otro día', 'course_session_pending': 'Curso: sesión pendiente de nueva fecha (salida cancelada)',
  'course_completed': 'Curso completado',
+ 'web_instructions': 'Centro: instrucciones del botón de reservas para su informático',
  'payment_review': 'Pago en revisión', 'booking_rejected': 'Solicitud rechazada', 'booking_cancelled_center': 'Cancelada por el centro',
  'booking_cancelled_diver': 'Cancelada por el buceador', 'reminder': 'Recordatorio del día anterior', 'review_request': 'Petición de reseña',
  'promotion_received': 'Promoción recibida', 'experience_request': 'Solicitud de viaje enviada', 'experience_status': 'Respuesta a solicitud de viaje',
@@ -9861,6 +9874,10 @@ def render_email(db, template, lang, ctx):
             s = fmt(val)
             rows_html.append(f'<div style="margin:4px 0 14px;padding:16px;border:2px dashed #076898;border-radius:12px;text-align:center;font-size:18px;font-weight:700;color:#011C3C">{_esc(s)}</div>')
             text += [s, '']
+        elif kind == 'pre':   # v50.58: a piece of code to copy as it is (the snippet of the widget)
+            s = fmt(val)
+            rows_html.append(f'<pre style="margin:4px 0 16px;padding:14px 16px;border-radius:10px;background:#f1f5f7;border:1px solid #d5e1e5;font-family:Consolas,Menlo,monospace;font-size:13px;line-height:1.5;color:#011C3C;white-space:pre-wrap;word-break:break-all;text-align:left">{_esc(s)}</pre>')
+            text += [s, '']
         elif kind == 'details':
             rws = details_rows()
             tr = ''.join(f'<tr><td style="padding:9px 12px;border-bottom:1px solid #e6eef0;color:#65747d;font-size:13px;width:38%;vertical-align:top">{_esc(k)}</td>'
@@ -9989,7 +10006,7 @@ def queue_email(db, template, to_email, to_name, ctx, lang='es', related=None):
         # v50.47: the body of an email may carry a client's phone (emails to the centre): it is stored encrypted and
         # opened only by the server when the email is sent or shown to the administrator.
         # v50.56: a booking made on the centre's own website (widget, page, API, manual): the customer's answer goes to the centre.
-        reply = (ctx or {}).get('reply_to') if EMAIL_TEMPLATES[template].get('to') == 'diver' and (ctx or {}).get('brand') else None
+        reply = (ctx or {}).get('reply_to') if (EMAIL_TEMPLATES[template].get('to') == 'diver' and (ctx or {}).get('brand')) or EMAIL_TEMPLATES[template].get('reply_ctx') else None
         reply = reply if reply and re.fullmatch(r'[^@\s<>,;]+@[^@\s<>,;]+\.[a-z]{2,}', str(reply), re.I) else None
         qr = (ctx or {}).get('qr_payload') if f'cid:{MAIL_QR_CID}' in html_doc else None   # v50.57: the QR image of the booking
         db.execute('INSERT INTO email_outbox(template,lang,to_email,to_name,subject,html,text,status,related_type,related_id,attempts,created_at,unsubscribe_url,reply_to,inline_qr) VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?,?,?)',
@@ -12804,6 +12821,108 @@ def sales_links(db, kind, pid, row, base=None):
             'qr': {'svg': f'{base}/c/{slug}/qr.svg', 'png': f'{base}/c/{slug}/qr.png'}}
 
 
+# v50.58 (revisión y usabilidad, Parte 5) · «Reservas desde tu web e Instagram» explicado para cualquiera: the counter
+# of the month, «Comprobar» (the server reads the centre's page, safely, looks for its code and authorises its domain)
+# and «Enviar las instrucciones a mi informático» (the code and the 3-step guide by email to whom the centre says).
+VENDER_CHECK_LIMIT = wsec.SharedRateLimiter('vender_check', 30, 3600)
+VENDER_MAIL_LIMIT = wsec.SharedRateLimiter('vender_mail', 5, 86400)
+VENDER_LIVE = "status NOT IN ('cancelled','rejected','expired','payment_in_progress','insurance_pending')"
+
+
+def vender_month(db, kind, pid):
+    """{web, link}: the people of the bookings made this month on the centre's website (widget) and with its link."""
+    w = 'center_id=?' if kind == 'center' else 'center_id IS NULL AND provider_user_id=?'
+    start = local_now().date().replace(day=1).isoformat()
+    out = {'web': 0, 'link': 0, 'since': start}
+    for r in db.execute(f"""SELECT channel, COALESCE(SUM(participants),0) AS n FROM bookings WHERE {w} AND channel IN ('widget','link')
+                            AND created_at>=? AND {VENDER_LIVE} GROUP BY channel""", (pid, start)).fetchall():
+        out['web' if r['channel'] == 'widget' else 'link'] = int(r['n'] or 0)
+    return out
+
+
+def vender_snippet(db, kind, pid, row, fmt, service_id=None, service_type=None):
+    """The code of the chosen look (button, calendar or list) for all the catalogue, one service or one type."""
+    snip = sales_links(db, kind, pid, row)['snippets']
+    s = snip.get(fmt) or snip['boton']
+    extra = ''
+    if service_id:
+        w = 'center_id=?' if kind == 'center' else 'center_id IS NULL AND provider_user_id=?'
+        if db.execute(f'SELECT 1 FROM provider_services WHERE id=? AND {w}', (int(service_id), pid)).fetchone(): extra = f' data-servicio="{int(service_id)}"'
+    elif service_type and re.fullmatch(r'[a-z_]{2,40}', str(service_type)):
+        extra = f' data-tipo="{service_type}"'
+    return re.sub(r'data-centro="[^"]+"', lambda m: m.group(0) + extra, s, count=1)
+
+
+def vender_found(html, slug):
+    """Is this centre's code on the page? Its widget (data-centro), its booking page or the frame of its widget."""
+    s = re.escape(slug)
+    return any(re.search(p, html, re.I) for p in (rf'data-centro\s*=\s*["\']{s}["\']', rf'/c/{s}(?![a-z0-9-])', rf'/w/{s}(?![a-z0-9-])'))
+
+
+def vender_check(db, user, data):
+    """«✔ Tu botón está funcionando» or «Aún no lo encontramos». When it is there, the domain of that website is
+    authorised for the widget (paso 4 del encargo: the centre does not have to type it anywhere else)."""
+    ref = provider_ref(db, user)
+    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+    kind, pid = ref
+    row = sales_row(db, kind, pid)
+    raw = (clean_text(data.get('url'), 300) or '').strip()
+    if not raw: raise ValueError('Escribe la dirección de tu web, por ejemplo buceomarazul.com.')
+    url = raw if re.match(r'^https?://', raw, re.I) else 'https://' + raw
+    url = re.sub(r'^http://', 'https://', url, flags=re.I)
+    host = wch.clean_domain(url)
+    if not host or host.startswith('*.'): raise ValueError('Esa dirección no parece una web. Escríbela como buceomarazul.com.')
+    if VENDER_CHECK_LIMIT.hit(f'{kind}:{pid}'): raise ValueError('Has comprobado muchas veces en poco tiempo. Prueba otra vez dentro de un rato.')
+    found, reason, final = False, None, url
+    try:
+        final, _ctype, body = wremoto.fetch(url, kinds=('text/html', 'application/xhtml'), max_bytes=3 * 1024 * 1024, accept='text/html')
+        found = vender_found(body.decode('utf-8', 'replace'), row['slug'])
+        reason = None if found else 'no_code'
+    except wremoto.FetchError as e:
+        reason = 'not_found' if getattr(e, 'status', None) == 404 else 'unreachable'
+    authorized = None
+    if found:
+        fhost = (urlparse(final).hostname or host).lower()
+        dom = wch.clean_domain(fhost) or host
+        dom = dom[4:] if dom.startswith('www.') else dom
+        domains = sales_domains(row)
+        if not wch.host_allowed(fhost, domains):
+            domains = (domains + [dom])[-10:]
+            db.execute('UPDATE sales_settings SET allowed_domains=?,updated_by=?,updated_at=? WHERE provider_kind=? AND provider_id=?',
+                       (json.dumps(domains), user['id'], now(), kind, pid))
+        authorized = dom
+    db.execute('UPDATE sales_settings SET check_url=?,check_ok=?,check_at=? WHERE provider_kind=? AND provider_id=?', (url, int(found), now(), kind, pid))
+    audit(db, user['id'], 'web_button_checked', kind if kind == 'center' else 'user', pid, {'host': host, 'found': found, 'reason': reason, 'authorized': authorized})
+    hint = {'no_code': 'Hemos abierto tu web, pero el código no está. Si lo acabas de pegar, publica los cambios y vuelve a probar. Comprueba que pegaste el código entero.',
+            'not_found': 'Esa página no existe (error 404). Revisa la dirección.',
+            'unreachable': 'No hemos podido abrir tu web. Revisa la dirección o prueba dentro de un rato.'}.get(reason)
+    return {'ok': found, 'url': url, 'host': host, 'authorized': authorized, 'reason': reason, 'hint': hint,
+            'text': '✔ Tu botón está funcionando' if found else 'Aún no lo encontramos', 'domains': sales_domains(sales_row(db, kind, pid))}
+
+
+def vender_instructions(db, user, data):
+    """«Enviar las instrucciones a mi informático»: the code of the look chosen and the guide, by email, to the address
+    the centre writes. Only the centre's name, the code and the guide go: nothing else of the centre or its customers."""
+    ref = provider_ref(db, user)
+    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+    kind, pid = ref
+    row = sales_row(db, kind, pid)
+    email = (clean_text(data.get('email'), 160) or '').strip().lower()
+    if not re.fullmatch(r'[^@\s<>,;]+@[^@\s<>,;]+\.[a-z]{2,}', email, re.I): raise ValueError('Escribe el correo de tu informático, por ejemplo nombre@empresa.com.')
+    if VENDER_MAIL_LIMIT.hit(f'{kind}:{pid}'): raise ValueError('Hoy ya has enviado 5 veces las instrucciones. Prueba mañana o copia el código.')
+    fmt = data.get('fmt') if data.get('fmt') in ('boton', 'calendario', 'lista') else 'boton'
+    snippet = vender_snippet(db, kind, pid, row, fmt, data.get('service') or None, data.get('type') or None)
+    name = clean_text(data.get('name'), 80) or ''
+    me = db.execute('SELECT email FROM centers WHERE id=?', (pid,)).fetchone() if kind == 'center' else None
+    reply = (me['email'] if me and me['email'] else None) or user.get('email')
+    lang = user_lang(db, user['id'])
+    ctx = {'center': provider_label(db, kind, pid), 'snippet': snippet, 'page': f"{public_site_url()}/c/{row['slug']}",
+           'helper_hello': f' {name}' if name else '', 'note': clean_text(data.get('note'), 300) or '', 'reply_to': reply}
+    queue_email(db, 'web_instructions', email, name or email, ctx, lang, ('sales_settings', pid))
+    audit(db, user['id'], 'web_instructions_sent', kind if kind == 'center' else 'user', pid, {'to_domain': email.split('@')[1], 'fmt': fmt})
+    return {'sent_to': email}
+
+
 def qr_png(url, scale=10):
     """The same QR as PNG for printers and apps that do not open SVG (wod/qr.py)."""
     return wqr.png(url, scale)
@@ -12840,6 +12959,7 @@ def migrate_reserva_expres(db):
     """v50.58 · reserva exprés. Adds; nothing is deleted."""
     db.execute(BOOKING_PEOPLE_SCHEMA); db.execute(STRIPE_DOMAINS_SCHEMA)
     add_columns(db, 'payment_orders', [('ui_mode', 'TEXT'), ('client_secret', 'TEXT')])
+    add_columns(db, 'sales_settings', [('check_url', 'TEXT'), ('check_ok', 'INTEGER'), ('check_at', 'TEXT')])   # v50.58 (Parte 5): «Comprobar»
 
 
 def stripe_publishable_key():
@@ -18410,6 +18530,8 @@ class Handler(BaseHTTPRequestHandler):
                                     'plan':{'widget':provider_has(db,*ref,'widget'),'online_bookings':provider_has(db,*ref,'online_bookings'),'api':provider_has(db,*ref,'integration'),
                                             'ical':provider_has(db,*ref,'calendar_ical')},
                                     'widget':provider_has(db,*ref,'widget'),'link':f"{base}/c/{row['slug']}",
+                                    'month':vender_month(db,*ref),'logo':sales_provider(db,*ref).get('logo') or '','name':provider_label(db,*ref),   # v50.58 (Parte 5)
+                                    'check':{'url':row['check_url'],'ok':bool(row['check_ok']),'at':row['check_at']} if row['check_at'] else None,
                                     'whatsapp':'https://wa.me/?text='+quote('Reserva tu inmersión aquí: '+f"{base}/c/{row['slug']}"),'instagram':f"{base}/c/{row['slug']}",
                                     'iframe':f'<iframe src="{base}/w/{row["slug"]}?f=lista" title="Reservas" style="width:100%;max-width:560px;height:620px;border:0" loading="lazy"></iframe>'}); return
                 # ------------------------------------------------ v50.47 · mass notices and WhatsApp of each centre
@@ -20178,6 +20300,10 @@ class Handler(BaseHTTPRequestHandler):
                             raise ValueError('Solo se reintentan los avisos fallidos.')
                     else: raise ValueError('Acción no válida.')
                     audit(db,user['id'],'webhook_'+act,ref[0],ref[1],{'id':wid}); db.commit(); self.send_json({'ok':True}); return
+                if path in ('/api/provider/vender/check','/api/provider/vender/instructions'):
+                    # v50.58 (Parte 5): «Comprobar» (and authorise the domain) · «Enviar las instrucciones a mi informático»
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
+                    out=(vender_check if path.endswith('/check') else vender_instructions)(db,user,data); db.commit(); self.send_json({'ok':True,**out}); return
                 if path=='/api/provider/vender':
                     # v50.56 · «Vender en tu web»: the address of the page, colour, language of the widget and authorised domains.
                     user=require_user(self,db); require_role(user,{'center','freelance'}); ref=provider_ref(db,user); data=json_body(self)
