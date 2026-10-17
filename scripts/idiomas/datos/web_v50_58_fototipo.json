@@ -1,0 +1,276 @@
+{
+ "exact": {
+  "Arrastra la foto para elegir qué parte se ve y acerca o aleja con el zoom. La vista previa te enseña cómo quedará.": {
+   "en": "Drag the photo to choose which part shows and zoom in or out. The preview shows you how it will look.",
+   "fr": "Faites glisser la photo pour choisir la partie visible, puis zoomez ou dézoomez. L’aperçu vous montre le résultat.",
+   "de": "Zieh das Foto, um den sichtbaren Ausschnitt zu wählen, und zoome hinein oder heraus. Die Vorschau zeigt dir, wie es aussehen wird.",
+   "it": "Trascina la foto per scegliere quale parte si vede e usa lo zoom per avvicinarla o allontanarla. L’anteprima ti mostra come apparirà.",
+   "pt": "Arrasta a foto para escolher a parte que se vê e aproxima ou afasta com o zoom. A pré-visualização mostra-te como vai ficar.",
+   "pl": "Przeciągnij zdjęcie, aby wybrać widoczną część, i przybliż lub oddal je suwakiem. Podgląd pokazuje, jak będzie wyglądać.",
+   "nl": "Sleep de foto om te kiezen welk deel zichtbaar is en zoom in of uit. In het voorbeeld zie je hoe het eruit komt te zien.",
+   "zh": "拖动照片选择显示的部分，并用缩放放大或缩小。预览会显示最终效果。"
+  },
+  "Encuadre de la foto: usa las flechas para moverla y + o − para el zoom": {
+   "en": "Photo framing: use the arrow keys to move it and + or − to zoom",
+   "fr": "Cadrage de la photo : utilisez les flèches pour la déplacer et + ou − pour zoomer",
+   "de": "Bildausschnitt: mit den Pfeiltasten verschieben, mit + oder − zoomen",
+   "it": "Inquadratura della foto: usa le frecce per spostarla e + o − per lo zoom",
+   "pt": "Enquadramento da foto: usa as setas para a mover e + ou − para o zoom",
+   "pl": "Kadrowanie zdjęcia: przesuwaj strzałkami, przybliżaj i oddalaj klawiszami + lub −",
+   "nl": "Uitsnede van de foto: gebruik de pijltjestoetsen om te verschuiven en + of − om te zoomen",
+   "zh": "照片取景：用方向键移动，用 + 或 − 缩放"
+  },
+  "Alejar": {
+   "en": "Zoom out",
+   "fr": "Dézoomer",
+   "de": "Herauszoomen",
+   "it": "Allontana",
+   "pt": "Afastar",
+   "pl": "Oddal",
+   "nl": "Uitzoomen",
+   "zh": "缩小"
+  },
+  "Acercar": {
+   "en": "Zoom in",
+   "fr": "Zoomer",
+   "de": "Hineinzoomen",
+   "it": "Avvicina",
+   "pt": "Aproximar",
+   "pl": "Przybliż",
+   "nl": "Inzoomen",
+   "zh": "放大"
+  },
+  "Zoom": {
+   "en": "Zoom",
+   "fr": "Zoom",
+   "de": "Zoom",
+   "it": "Zoom",
+   "pt": "Zoom",
+   "pl": "Powiększenie",
+   "nl": "Zoom",
+   "zh": "缩放"
+  },
+  "Centrar": {
+   "en": "Centre",
+   "fr": "Centrer",
+   "de": "Zentrieren",
+   "it": "Centra",
+   "pt": "Centrar",
+   "pl": "Wyśrodkuj",
+   "nl": "Centreren",
+   "zh": "居中"
+  },
+  "Así se verá": {
+   "en": "How it will look",
+   "fr": "Aperçu",
+   "de": "So wird es aussehen",
+   "it": "Ecco come apparirà",
+   "pt": "Assim vai ficar",
+   "pl": "Tak będzie wyglądać",
+   "nl": "Zo komt het eruit te zien",
+   "zh": "效果预览"
+  },
+  "Tarjeta del tipo": {
+   "en": "Dive type card",
+   "fr": "Carte du type",
+   "de": "Karte des Tauchtyps",
+   "it": "Scheda del tipo",
+   "pt": "Cartão do tipo",
+   "pl": "Karta rodzaju",
+   "nl": "Kaart van het type",
+   "zh": "类型卡片"
+  },
+  "Cabecera de su página": {
+   "en": "Header of its page",
+   "fr": "En-tête de sa page",
+   "de": "Kopfbild seiner Seite",
+   "it": "Intestazione della sua pagina",
+   "pt": "Cabeçalho da sua página",
+   "pl": "Nagłówek jego strony",
+   "nl": "Kopafbeelding van de pagina",
+   "zh": "其页面的页眉"
+  },
+  "Punto de este tipo sin foto propia": {
+   "en": "Dive site of this type without its own photo",
+   "fr": "Site de ce type sans photo propre",
+   "de": "Tauchplatz dieses Typs ohne eigenes Foto",
+   "it": "Punto di questo tipo senza foto propria",
+   "pt": "Ponto deste tipo sem foto própria",
+   "pl": "Miejsce tego rodzaju bez własnego zdjęcia",
+   "nl": "Duikstek van dit type zonder eigen foto",
+   "zh": "没有自己照片的此类潜点"
+  },
+  "Guardar foto": {
+   "en": "Save photo",
+   "fr": "Enregistrer la photo",
+   "de": "Foto speichern",
+   "it": "Salva foto",
+   "pt": "Guardar foto",
+   "pl": "Zapisz zdjęcie",
+   "nl": "Foto opslaan",
+   "zh": "保存照片"
+  },
+  "Buena calidad: se verá nítida en todas las pantallas.": {
+   "en": "Good quality: it will look sharp on every screen.",
+   "fr": "Bonne qualité : elle sera nette sur tous les écrans.",
+   "de": "Gute Qualität: Es wird auf allen Bildschirmen scharf aussehen.",
+   "it": "Buona qualità: sarà nitida su tutti gli schermi.",
+   "pt": "Boa qualidade: vai ver-se nítida em todos os ecrãs.",
+   "pl": "Dobra jakość: będzie ostre na każdym ekranie.",
+   "nl": "Goede kwaliteit: de foto is op elk scherm scherp.",
+   "zh": "画质良好：在所有屏幕上都清晰。"
+  },
+  "La foto es muy pequeña para un tipo de buceo. Usa una de al menos 1600 × 1000 píxeles (mínimo 640 × 400).": {
+   "en": "The photo is too small for a dive type. Use one of at least 1600 × 1000 pixels (minimum 640 × 400).",
+   "fr": "La photo est trop petite pour un type de plongée. Utilisez-en une d’au moins 1600 × 1000 pixels (minimum 640 × 400).",
+   "de": "Das Foto ist zu klein für einen Tauchtyp. Nimm eines mit mindestens 1600 × 1000 Pixeln (Minimum 640 × 400).",
+   "it": "La foto è troppo piccola per un tipo di immersione. Usane una di almeno 1600 × 1000 pixel (minimo 640 × 400).",
+   "pt": "A foto é demasiado pequena para um tipo de mergulho. Usa uma com pelo menos 1600 × 1000 píxeis (mínimo 640 × 400).",
+   "pl": "Zdjęcie jest za małe dla rodzaju nurkowania. Użyj zdjęcia o rozmiarze co najmniej 1600 × 1000 pikseli (minimum 640 × 400).",
+   "nl": "De foto is te klein voor een duiktype. Gebruik er een van minstens 1600 × 1000 pixels (minimaal 640 × 400).",
+   "zh": "这张照片对潜水类型来说太小。请使用至少 1600 × 1000 像素的照片（最小 640 × 400）。"
+  },
+  "La imagen pesa demasiado. Máximo 6 MB.": {
+   "en": "The image is too large. Maximum 6 MB.",
+   "fr": "L’image est trop lourde. 6 Mo maximum.",
+   "de": "Das Bild ist zu groß. Höchstens 6 MB.",
+   "it": "L’immagine è troppo pesante. Massimo 6 MB.",
+   "pt": "A imagem é demasiado pesada. Máximo 6 MB.",
+   "pl": "Obraz jest za duży. Maksymalnie 6 MB.",
+   "nl": "De afbeelding is te groot. Maximaal 6 MB.",
+   "zh": "图片太大。最大 6 MB。"
+  },
+  "Tarjeta y cabecera del tipo, y puntos de ese tipo sin foto propia": {
+   "en": "Type card and header, and dive sites of that type without their own photo",
+   "fr": "Carte et en-tête du type, et sites de ce type sans photo propre",
+   "de": "Karte und Kopfbild des Typs sowie Tauchplätze dieses Typs ohne eigenes Foto",
+   "it": "Scheda e intestazione del tipo, e punti di quel tipo senza foto propria",
+   "pt": "Cartão e cabeçalho do tipo, e pontos desse tipo sem foto própria",
+   "pl": "Karta i nagłówek rodzaju oraz miejsca tego rodzaju bez własnego zdjęcia",
+   "nl": "Kaart en kopafbeelding van het type, en duikstekken van dat type zonder eigen foto",
+   "zh": "类型卡片和页眉，以及没有自己照片的此类潜点"
+  },
+  "El recorte de la foto no es válido. Vuelve a encuadrarla.": {
+   "en": "The photo crop is not valid. Frame it again.",
+   "fr": "Le cadrage de la photo n’est pas valide. Recadrez-la.",
+   "de": "Der Bildausschnitt ist ungültig. Wähle ihn noch einmal.",
+   "it": "Il ritaglio della foto non è valido. Inquadrala di nuovo.",
+   "pt": "O recorte da foto não é válido. Volta a enquadrá-la.",
+   "pl": "Kadr zdjęcia jest nieprawidłowy. Wykadruj je ponownie.",
+   "nl": "De uitsnede van de foto is niet geldig. Kies hem opnieuw.",
+   "zh": "照片裁剪无效。请重新取景。"
+  },
+  "Has acercado demasiado la foto y se vería borrosa. Aléjala un poco con el control del zoom.": {
+   "en": "You have zoomed in too far and the photo would look blurry. Zoom out a little with the zoom control.",
+   "fr": "Vous avez trop zoomé et la photo serait floue. Dézoomez un peu avec le curseur du zoom.",
+   "de": "Du hast zu weit hineingezoomt, das Foto würde unscharf aussehen. Zoome mit dem Regler etwas heraus.",
+   "it": "Hai avvicinato troppo la foto e risulterebbe sfocata. Allontanala un po’ con il controllo dello zoom.",
+   "pt": "Aproximaste demasiado a foto e ia ver-se desfocada. Afasta-a um pouco com o controlo do zoom.",
+   "pl": "Zdjęcie jest zbyt przybliżone i byłoby nieostre. Oddal je trochę suwakiem powiększenia.",
+   "nl": "Je bent te ver ingezoomd en de foto zou wazig zijn. Zoom een beetje uit met de zoomregelaar.",
+   "zh": "照片放得太大，会显得模糊。请用缩放控件稍微缩小。"
+  },
+  "La foto de cada tipo de buceo: sale en su tarjeta, en su cabecera y en los puntos de ese tipo que no tienen foto propia. Los cambios se ven al momento.": {
+   "en": "The photo of each dive type: it appears on its card, in its header and on the dive sites of that type that have no photo of their own. Changes show at once.",
+   "fr": "La photo de chaque type de plongée : elle apparaît sur sa carte, dans son en-tête et sur les sites de ce type qui n’ont pas de photo propre. Les changements sont visibles aussitôt.",
+   "de": "Das Foto jedes Tauchtyps: Es erscheint auf seiner Karte, im Kopfbild und bei den Tauchplätzen dieses Typs ohne eigenes Foto. Änderungen sind sofort sichtbar.",
+   "it": "La foto di ogni tipo di immersione: appare nella sua scheda, nella sua intestazione e nei punti di quel tipo senza foto propria. Le modifiche si vedono subito.",
+   "pt": "A foto de cada tipo de mergulho: aparece no seu cartão, no seu cabeçalho e nos pontos desse tipo que não têm foto própria. As alterações veem-se logo.",
+   "pl": "Zdjęcie każdego rodzaju nurkowania: pojawia się na jego karcie, w nagłówku i przy miejscach tego rodzaju bez własnego zdjęcia. Zmiany widać od razu.",
+   "nl": "De foto van elk duiktype: hij staat op de kaart, in de kopafbeelding en bij de duikstekken van dat type zonder eigen foto. Wijzigingen zie je meteen.",
+   "zh": "每种潜水类型的照片：显示在其卡片、页眉以及没有自己照片的此类潜点上。更改立即可见。"
+  },
+  "Foto actualizada.": {
+   "en": "Photo updated.",
+   "fr": "Photo mise à jour.",
+   "de": "Foto aktualisiert.",
+   "it": "Foto aggiornata.",
+   "pt": "Foto atualizada.",
+   "pl": "Zdjęcie zaktualizowane.",
+   "nl": "Foto bijgewerkt.",
+   "zh": "照片已更新。"
+  },
+  "Personalizada": {
+   "en": "Custom",
+   "fr": "Personnalisée",
+   "de": "Eigenes Foto",
+   "it": "Personalizzata",
+   "pt": "Personalizada",
+   "pl": "Własne",
+   "nl": "Eigen foto",
+   "zh": "自定义"
+  },
+  "Crédito guardado.": {
+   "en": "Credit saved.",
+   "fr": "Crédit enregistré.",
+   "de": "Bildnachweis gespeichert.",
+   "it": "Credito salvato.",
+   "pt": "Crédito guardado.",
+   "pl": "Autor zdjęcia zapisany.",
+   "nl": "Fotocredit opgeslagen.",
+   "zh": "图片署名已保存。"
+  },
+  "Foto original restaurada.": {
+   "en": "Original photo restored.",
+   "fr": "Photo d’origine restaurée.",
+   "de": "Originalfoto wiederhergestellt.",
+   "it": "Foto originale ripristinata.",
+   "pt": "Foto original reposta.",
+   "pl": "Przywrócono oryginalne zdjęcie.",
+   "nl": "Originele foto hersteld.",
+   "zh": "已恢复原始照片。"
+  },
+  "Fotos reales en JPG, PNG o WEBP, máximo 6 MB. Si la foto no es tuya, usa una con licencia libre e indica el autor en «Crédito».": {
+   "en": "Real photos in JPG, PNG or WEBP, 6 MB maximum. If the photo is not yours, use one with a free licence and name the author in “Credit”.",
+   "fr": "Des photos réelles en JPG, PNG ou WEBP, 6 Mo maximum. Si la photo n’est pas la vôtre, utilisez-en une sous licence libre et indiquez l’auteur dans « Crédit ».",
+   "de": "Echte Fotos als JPG, PNG oder WEBP, höchstens 6 MB. Wenn das Foto nicht von dir ist, nimm eines mit freier Lizenz und nenne den Urheber unter „Bildnachweis“.",
+   "it": "Foto reali in JPG, PNG o WEBP, massimo 6 MB. Se la foto non è tua, usane una con licenza libera e indica l’autore in «Credito».",
+   "pt": "Fotos reais em JPG, PNG ou WEBP, máximo 6 MB. Se a foto não for tua, usa uma com licença livre e indica o autor em «Crédito».",
+   "pl": "Prawdziwe zdjęcia w formacie JPG, PNG lub WEBP, maksymalnie 6 MB. Jeśli zdjęcie nie jest twoje, użyj zdjęcia na wolnej licencji i podaj autora w polu „Autor zdjęcia”.",
+   "nl": "Echte foto’s in JPG, PNG of WEBP, maximaal 6 MB. Is de foto niet van jou, gebruik dan een foto met een vrije licentie en vermeld de maker bij ‘Fotocredit’.",
+   "zh": "请使用 JPG、PNG 或 WEBP 格式的真实照片，最大 6 MB。如照片不是你的，请使用自由许可的照片，并在“图片署名”中注明作者。"
+  },
+  "Al elegir una foto, la encuadras y ves cómo quedará antes de guardarla.": {
+   "en": "When you choose a photo, you frame it and see how it will look before saving it.",
+   "fr": "Quand vous choisissez une photo, vous la cadrez et voyez le résultat avant de l’enregistrer.",
+   "de": "Wenn du ein Foto auswählst, legst du den Ausschnitt fest und siehst vor dem Speichern, wie es aussieht.",
+   "it": "Quando scegli una foto, la inquadri e vedi come apparirà prima di salvarla.",
+   "pt": "Ao escolher uma foto, enquadra-la e vês como vai ficar antes de a guardar.",
+   "pl": "Po wybraniu zdjęcia kadrujesz je i widzisz, jak będzie wyglądać, zanim je zapiszesz.",
+   "nl": "Als je een foto kiest, bepaal je de uitsnede en zie je hoe hij eruitziet voordat je hem opslaat.",
+   "zh": "选择照片后，你可以先取景并预览效果，再保存。"
+  }
+ },
+ "patterns": {
+  "Foto representativa de {tipo}": {
+   "en": "Representative photo: {tipo}",
+   "fr": "Photo représentative : {tipo}",
+   "de": "Typisches Foto: {tipo}",
+   "it": "Foto rappresentativa: {tipo}",
+   "pt": "Foto representativa: {tipo}",
+   "pl": "Zdjęcie poglądowe: {tipo}",
+   "nl": "Representatieve foto: {tipo}",
+   "zh": "代表性照片：{tipo}"
+  },
+  "Encuadra la foto de «{tipo}»": {
+   "en": "Frame the photo for “{tipo}”",
+   "fr": "Cadrez la photo de « {tipo} »",
+   "de": "Bildausschnitt für „{tipo}“ wählen",
+   "it": "Inquadra la foto di «{tipo}»",
+   "pt": "Enquadra a foto de «{tipo}»",
+   "pl": "Wykadruj zdjęcie: „{tipo}”",
+   "nl": "Kies de uitsnede voor ‘{tipo}’",
+   "zh": "为“{tipo}”取景"
+  },
+  "Se verá algo menos nítida en pantallas grandes: la parte elegida mide {n} px de ancho (lo ideal son 1600).": {
+   "en": "It will look slightly less sharp on large screens: the chosen part is {n} px wide (1600 is ideal).",
+   "fr": "Elle sera un peu moins nette sur les grands écrans : la partie choisie mesure {n} px de large (l’idéal est 1600).",
+   "de": "Auf großen Bildschirmen wirkt es etwas weniger scharf: Der gewählte Ausschnitt ist {n} px breit (ideal sind 1600).",
+   "it": "Sarà un po’ meno nitida sugli schermi grandi: la parte scelta è larga {n} px (l’ideale è 1600).",
+   "pt": "Vai ver-se um pouco menos nítida em ecrãs grandes: a parte escolhida tem {n} px de largura (o ideal é 1600).",
+   "pl": "Na dużych ekranach będzie nieco mniej ostre: wybrana część ma {n} px szerokości (idealnie 1600).",
+   "nl": "Op grote schermen iets minder scherp: het gekozen deel is {n} px breed (1600 is ideaal).",
+   "zh": "在大屏幕上会稍欠清晰：所选部分宽 {n} 像素（理想为 1600）。"
+  }
+ }
+}

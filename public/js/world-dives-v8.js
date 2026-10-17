@@ -157,7 +157,9 @@
   // the browser downloads the one that fits the screen. Photos uploaded by centres or the administration are left as they are.
   const WD_IMG_W={'portada/buceadores':600,'portada/fondo':2200,'portada/fondo1':2200,'portada/fondosuperior':2200,'portada/logbook1':2200,'titular/buceador-rayos':1916,'titular/costa-barco':1915,'titular/barco-cadena':1672,'titular/nocturna-pulpo':1672,'titular/caballito-posidonia':1672,'destinos/australia':1650,'destinos/california':1228,'destinos/egipto':1323,'destinos/galapagos':1760,'destinos/maldivas':1920,'destinos/mexico':1760,'destinos/micronesia':2200,'destinos/tailandia':2200};
   const WD_IMG_COPIES=[640,960,1440];
-  const wdImgBase=url=>{ const m=/^\/img\/((?:portada|destinos|titular)\/[a-z0-9-]+)\.webp$/.exec(String(url||'')); return m&&WD_IMG_W[m[1]]?[m[1],WD_IMG_W[m[1]]]:null; };
+  // v50.58 (6.4): the photo of a type of dive chosen by the administration (Tipos de buceo) is kept at 1600 px with the same copies.
+  const wdImgBase=url=>{ const u=String(url||''), m=/^\/img\/((?:portada|destinos|titular)\/[a-z0-9-]+)\.webp$/.exec(u); if(m) return WD_IMG_W[m[1]]?['/img/'+m[1],WD_IMG_W[m[1]]]:null;
+    const t=/^(\/assets\/uploads\/divetype_[a-z0-9_]+_[0-9a-f]{12})\.webp$/.exec(u); return t?[t[1],1600]:null; };
   // v50.57 (revisión general 3.1): the owner's photos (public/img/titular, property of WORLDIVES DISCOVERY): what they show
   // (the alt text; the 8 other languages come from the language packs) and the point that has to stay in view when the
   // photo is cut for a phone or a card (object-position, from the left and from the top).
@@ -171,17 +173,17 @@
   const wdPhotoOf=url=>{ const m=/^\/img\/titular\/([a-z0-9-]+)\.webp$/.exec(String(url||'')); return m&&WD_PHOTOS[m[1]]?{name:m[1],...WD_PHOTOS[m[1]]}:null; };
   // An image of the web. The owner's photos go as <picture>: WebP in 3 sizes for the screen and the JPG for a browser
   // without WebP, with their description and their focus point; the rest as before (<img> with srcset).
-  function wdImgTag(url,{sizes='100vw',cls='',lazy=true,eager=false}={}){
-    const ph=wdPhotoOf(url), base=`${cls?`class="${cls}" `:''}alt="${escapeHtml(ph?ph.alt:'')}"${ph?` style="object-position:${ph.focus}"`:''}${eager?' fetchpriority="high"':lazy?' loading="lazy" decoding="async"':''}`;
+  function wdImgTag(url,{sizes='100vw',cls='',lazy=true,eager=false,alt=''}={}){
+    const ph=wdPhotoOf(url), base=`${cls?`class="${cls}" `:''}alt="${escapeHtml(ph?ph.alt:alt)}"${ph?` style="object-position:${ph.focus}"`:''}${eager?' fetchpriority="high"':lazy?' loading="lazy" decoding="async"':''}`;
     if(!ph) return `<img ${wdImgAttrs(url,sizes)} ${base}>`;
     const b=wdImgBase(url), set=WD_IMG_COPIES.filter(x=>x<b[1]).map(x=>`/img/titular/${ph.name}-${x}.webp ${x}w`).concat(`${url} ${b[1]}w`).join(', ');
     return `<picture><source type="image/webp" srcset="${set}" sizes="${sizes}"><img src="/img/titular/${ph.name}.jpg" ${base}></picture>`;
   }
   // <img> attributes: src, plus srcset and sizes when the photo has lighter copies.
-  function wdImgAttrs(url,sizes='100vw'){ const b=wdImgBase(url); const set=b?WD_IMG_COPIES.filter(x=>x<b[1]).map(x=>`/img/${b[0]}-${x}.webp ${x}w`).concat(`${url} ${b[1]}w`):[];
+  function wdImgAttrs(url,sizes='100vw'){ const b=wdImgBase(url); const set=b?WD_IMG_COPIES.filter(x=>x<b[1]).map(x=>`${b[0]}-${x}.webp ${x}w`).concat(`${url} ${b[1]}w`):[];
     return `src="${escapeHtml(url||'')}"`+(set.length>1?` srcset="${escapeHtml(set.join(', '))}" sizes="${sizes}"`:''); }
   // A CSS background: the smallest copy as wide as the box on this screen.
-  function wdImgFit(url,cssWidth=window.innerWidth){ const b=wdImgBase(url); if(!b) return url; const need=cssWidth*(window.devicePixelRatio||1); const x=WD_IMG_COPIES.find(x=>x<b[1]&&x>=need); return x?`/img/${b[0]}-${x}.webp`:url; }
+  function wdImgFit(url,cssWidth=window.innerWidth){ const b=wdImgBase(url); if(!b) return url; const need=cssWidth*(window.devicePixelRatio||1); const x=WD_IMG_COPIES.find(x=>x<b[1]&&x>=need); return x?`${b[0]}-${x}.webp`:url; }
   const media=(key,fallback)=>state.media?.[key]?.url||fallback||MEDIA_DEFAULTS[key]||'/img/portada/fondo.webp';
   const mediaCredit=key=>state.media?.[key]?.credit||'';
   const heroImg=(key,fallback)=>`${wdImgTag(media(key,fallback),{cls:'tp-hero-img',eager:true})}${mediaCredit(key)?`<span class="hero-credit">${escapeHtml(mediaCredit(key))}</span>`:''}`;
@@ -596,8 +598,20 @@
     const per=Number(qs.get('per_page')||12), page=Number(qs.get('page')||1);
     return {items:rows.slice((page-1)*per,page*per),total:rows.length,page,per_page:per,countries:Object.entries(facet).sort((a,b)=>b[1]-a[1]).map(([name,count])=>({name,count})),legacy:true};
   }
-  const POINT_COUNTRY_IMAGES={Egipto:'egipto',Maldivas:'maldivas',Australia:'australia',Tailandia:'tailandia',Ecuador:'galapagos',Micronesia:'micronesia'};
-  function pointImg(p){ const c=POINT_COUNTRY_IMAGES[p.country]; if(c) return `/img/destinos/${c}.webp`; if(/cenote/i.test(p.name||'')||/cenote/i.test(p.dive_type||'')) return '/img/destinos/mexico.webp'; const pool=['/img/portada/fondosuperior.webp','/img/portada/buceadores.webp','/img/destinos/australia.webp','/img/destinos/micronesia.webp','/img/destinos/tailandia.webp','/img/portada/fondo.webp']; if(/cueva|cavern|t[uú]nel/i.test(p.dive_type||'')) return '/img/portada/fondo.webp'; return /pecio|wreck/i.test((p.dive_type||'')+' '+(p.name||''))?'/img/portada/logbook1.webp':pool[Math.abs(Number(p.id||0))%pool.length]; }
+  // v50.58 (revisión y usabilidad 6.4): a dive site without its own photo shows the photo of its main type (the first one
+  // of its list), the same photo the administration sets for that type (Administración → Imágenes de la web → Tipos de
+  // buceo). A type without a suitable photo yet shows the colour of the sea: never a photo picked at random.
+  const POINT_TYPE_RULES=[['cenotes',/cenote/],['pecios-y-naufragios',/pecio|naufrag|wreck/],['cuevas-y-cavernas',/cueva|cavern|tunel|cave/],['paredes',/pared|wall/],
+    ['arrecifes',/arrecif|reef/],['muck',/muck|arena|posidonia|sand/],['canales',/canal|channel/],['canones',/canon|canyon/],['pinaculos',/pinacul|pinnacle|pico/],
+    ['corrientes-y-deriva',/corriente|deriva|drift|current/],['aguas-profundas',/profund|blue/],['nocturnas',/nocturn|night/],['lagos',/lago|lake/],['pilares',/pilar|pillar/],
+    ['playa-y-esnorquel',/playa|snorkel|esnorquel|snorquel|beach|bautizo|somer/]];
+  const POINT_NO_PHOTO='/img/punto-sin-foto.svg';
+  function pointTypeKey(p){ const main=wdFold(String(p?.dive_type||'').split(/[,·\/]/)[0]);
+    if(/cueva|cavern|tunel/.test(main)&&/cenote/.test(wdFold(p?.name))) return 'cenotes';
+    for(const [k,re] of POINT_TYPE_RULES) if(re.test(main)) return k; return null; }
+  function pointImg(p){ const k=pointTypeKey(p); return (k&&typeImg({key:k}))||POINT_NO_PHOTO; }
+  // What the photo of a type shows, for those who cannot see it (the owner's photos keep their own description).
+  function typePhotoAlt(key,label){ const u=typeImg({key}), ph=wdPhotoOf(u); return !u?'':ph?ph.alt:`Foto representativa de ${label||typeLabelByKey(key)}`; }
   function certificationGuidance(p, userCertification){
     const level=(userCertification||'').toUpperCase();
     const band=levelKey(p), lv=levelText(p), own=p.recommended_cert||p.recommended_certification_name; const dt=(p.dive_type||'').toLowerCase();
@@ -883,7 +897,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // and suggests similar types that do have dive sites.
   function typeCard(t){
     const img=typeImg(t);
-    const inner=`<span class="tp-card-media${img?'':' is-empty'}">${img?wdImgTag(img,{sizes:'(max-width:760px) 50vw, 320px'}):''}</span>
+    const inner=`<span class="tp-card-media${img?'':' is-empty'}">${img?wdImgTag(img,{sizes:'(max-width:760px) 50vw, 320px',alt:typePhotoAlt(t.key,t.label)}):''}</span>
       <span class="tp-card-level">${escapeHtml(t.level)}</span>
       <span class="tp-card-body"><strong>${escapeHtml(t.label)}</strong><span class="tp-card-sum">${escapeHtml(t.summary)}</span>
         <span class="tp-card-meta"><span>${t.count?`${t.count} ${t.count===1?'punto':'puntos'} · ${t.countries} ${t.countries===1?'país':'países'}`:'Aún sin puntos en el catálogo'}</span></span></span>`;
@@ -959,7 +973,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   function typePointCard(p){
     const depth=p.max_depth?`${p.min_depth?Math.round(p.min_depth)+'–':''}${Math.round(p.max_depth)} m`:'';
     const where=[p.region&&p.region!==p.country?p.region:'',p.country].filter(Boolean).map(escapeHtml).join(' · ');
-    return `<a class="tp-point" href="${pointHref(p.id)}"><img src="${escapeHtml((p.photo&&!PLACEHOLDER_IMG.test(p.photo)?p.photo:"")||WD_COUNTRY_IMAGES[p.country]||WD_SEA_IMAGES[Math.abs(Number(p.id||0))%WD_SEA_IMAGES.length])}" alt="" loading="lazy"><span><strong>${escapeHtml(p.name)}</strong><small>${where}</small><small class="tp-point-meta">${[depth,levelText(p)].filter(Boolean).map(escapeHtml).join(' · ')}</small></span></a>`;
+    return `<a class="tp-point" href="${pointHref(p.id)}"><img ${wdImgAttrs((p.photo&&!PLACEHOLDER_IMG.test(p.photo)?p.photo:'')||pointImg(p),'120px')} alt="" loading="lazy" decoding="async"><span><strong>${escapeHtml(p.name)}</strong><small>${where}</small><small class="tp-point-meta">${[depth,levelText(p)].filter(Boolean).map(escapeHtml).join(' · ')}</small></span></a>`;
   }
   // ===========================================================================
   // Páginas públicas v50.24 — portada, Explorar, Puntos, ficha de punto,
@@ -2151,7 +2165,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
           <div class="pp-temps" id="pp-temps" hidden><p>${escapeHtml(translateString('Temperatura del agua por estación'))}</p><ul>${Object.keys(PT_SEASONS).filter(k=>temps[k]).map(k=>`<li class="${k===season?'is-now':''}"><span>${escapeHtml(translateString(PT_SEASONS[k]))}</span><b>${escapeHtml(range(temps[k][0],temps[k][1],'°C'))}</b></li>`).join('')}</ul></div></dd></div>`
       :`<div class="pp-key">${wdIcon(ic,18)}<dt>${label}</dt><dd>${escapeHtml(val)}</dd></div>`;
     setApp(`<section class="tp-page pp-page pp54">
-      <header class="tp-hero tp-dhero pp-hero"><img class="tp-hero-img" ${wdImgAttrs(cover)} alt="" fetchpriority="high"><div class="tp-hero-in">
+      <header class="tp-hero tp-dhero pp-hero"><img class="tp-hero-img" ${wdImgAttrs(cover)} alt="${escapeHtml(photos[0]?.image_path||!pointTypeKey(p)?'':typePhotoAlt(pointTypeKey(p)))}" fetchpriority="high"><div class="tp-hero-in">
         <nav class="tp-crumbs"><a href="#/puntos">Puntos de buceo</a><span>/</span>${p.zone?`<a href="#/puntos?zone=${encodeURIComponent(p.zone)}">${escapeHtml(p.zone)}</a><span>/</span>`:''}${escapeHtml(p.name)}</nav>
         <h1>${escapeHtml(p.name)}</h1>
         <p class="lead pp-place">${wdIcon('pin',16)} ${escapeHtml(placeText(p)||p.country||'')}</p>
@@ -6353,23 +6367,85 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
 
   // Pestaña «Imágenes de la web» (administrador)
+  // v50.58 (revisión y usabilidad 6.4): the photo of a type of dive is framed before it is saved. A 16:10 frame (the shape
+  // kept on the server) that is dragged with the finger or the mouse, or moved with the arrows, a zoom, and what it will
+  // look like at once: the card of the type, the header of its page and a dive site of that type without its own photo.
+  // «Guardar» sends the photo and the part chosen; the server cuts it and keeps it in WebP in three sizes.
+  function openTypePhotoCrop(slot,file,credit,done){
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onerror=()=>{ URL.revokeObjectURL(url); toast('La imagen está dañada o no se puede leer. Prueba con otra foto JPG, PNG o WEBP.'); };
+    img.onload=()=>{
+      const W=img.naturalWidth, H=img.naturalHeight;
+      if(W<640||H<400){ URL.revokeObjectURL(url); toast('La foto es muy pequeña para un tipo de buceo. Usa una de al menos 1600 × 1000 píxeles (mínimo 640 × 400).'); return; }
+      const label=slot.label, esc=escapeHtml, pic=`<img src="${url}" alt="" draggable="false">`;
+      const {el,close}=wdOpenModal({id:'mmc-m',size:'crop',title:`Encuadra la foto de «${esc(label)}»`,subtitle:'Arrastra la foto para elegir qué parte se ve y acerca o aleja con el zoom. La vista previa te enseña cómo quedará.',
+        body:`<div class="mmc"><div class="mmc-edit">
+          <div class="mmc-frame" id="mmc-frame" tabindex="0" role="application" aria-label="${esc(translateString('Encuadre de la foto: usa las flechas para moverla y + o − para el zoom'))}">${pic}<span class="mmc-grid" aria-hidden="true"></span></div>
+          <div class="mmc-zoom"><button type="button" class="btn btn-sm" id="mmc-out" aria-label="Alejar">−</button><input type="range" id="mmc-z" min="100" max="300" step="1" value="100" aria-label="Zoom"><button type="button" class="btn btn-sm" id="mmc-in" aria-label="Acercar">+</button><button type="button" class="btn btn-sm" id="mmc-center">Centrar</button></div>
+          <p class="mmc-q" id="mmc-q" aria-live="polite"></p></div>
+          <div class="mmc-look"><h3 class="mmc-h">Así se verá</h3>
+          <div class="mmc-prevs">
+            <figure class="mmc-p mmc-p-wide"><div class="mmc-box mmc-hero" data-p="hero">${pic}<strong>${esc(label)}</strong></div><figcaption>Cabecera de su página</figcaption></figure>
+            <figure class="mmc-p"><div class="mmc-card"><div class="mmc-box" data-p="card">${pic}</div><span class="mmc-card-body"><strong>${esc(label)}</strong></span></div><figcaption>Tarjeta del tipo</figcaption></figure>
+            <figure class="mmc-p"><div class="mmc-box mmc-point" data-p="point">${pic}</div><figcaption>Punto de este tipo sin foto propia</figcaption></figure>
+          </div></div></div>`,
+        footer:'<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="mmc-ok">Guardar foto</button>'});
+      el.dataset.dirty='1';
+      const frame=$('#mmc-frame',el), zIn=$('#mmc-z',el), q=$('#mmc-q',el);
+      let cx=W/2, cy=H/2, z=1, zmax=3;
+      const geo=()=>{ const Fw=frame.clientWidth, Fh=frame.clientHeight, s0=Math.max(Fw/W,Fh/H); return {Fw,Fh,s0}; };
+      const crop=()=>{ const {Fw,Fh,s0}=geo(), s=s0*z, cw=Math.min(W,Fw/s), ch=Math.min(H,Fh/s);
+        cx=Math.min(W-cw/2,Math.max(cw/2,cx)); cy=Math.min(H-ch/2,Math.max(ch/2,cy)); return {s,cw,ch,Fw,Fh}; };
+      const place=(im,bw,bh,k)=>{ im.style.width=`${W*k}px`; im.style.height=`${H*k}px`; im.style.left=`${bw/2-cx*k}px`; im.style.top=`${bh/2-cy*k}px`; };
+      const draw=()=>{ const {s,cw,ch,Fw,Fh}=crop(); place($('img',frame),Fw,Fh,s);
+        $$('.mmc-box',el).forEach(b=>{ const bw=b.clientWidth, bh=b.clientHeight; place($('img',b),bw,bh,Math.max(bw/cw,bh/ch)); });
+        const px=Math.round(cw); q.textContent=translateString(px>=1600?'Buena calidad: se verá nítida en todas las pantallas.':`Se verá algo menos nítida en pantallas grandes: la parte elegida mide ${px} px de ancho (lo ideal son 1600).`);
+        q.classList.toggle('is-warn',px<1600); };
+      const setZoom=v=>{ z=Math.min(zmax,Math.max(1,v)); zIn.value=String(Math.round(z*100)); draw(); };
+      const limits=()=>{ const {Fw,s0}=geo(); zmax=Math.max(1,Math.min(3,Fw/(s0*480))); zIn.max=String(Math.round(zmax*100)); setZoom(z); };
+      zIn.oninput=()=>setZoom(Number(zIn.value)/100);
+      $('#mmc-in',el).onclick=()=>setZoom(z+.1); $('#mmc-out',el).onclick=()=>setZoom(z-.1);
+      $('#mmc-center',el).onclick=()=>{ cx=W/2; cy=H/2; draw(); };
+      let drag=null;
+      frame.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY}; frame.setPointerCapture(e.pointerId); frame.classList.add('is-drag'); });
+      frame.addEventListener('pointermove',e=>{ if(!drag) return; const s=crop().s; cx-=(e.clientX-drag.x)/s; cy-=(e.clientY-drag.y)/s; drag={x:e.clientX,y:e.clientY}; draw(); });
+      const stop=()=>{ drag=null; frame.classList.remove('is-drag'); }; frame.addEventListener('pointerup',stop); frame.addEventListener('pointercancel',stop);
+      frame.addEventListener('keydown',e=>{ const {cw,ch}=crop(), st=e.shiftKey?.1:.02;
+        const mv={ArrowLeft:[-cw*st,0],ArrowRight:[cw*st,0],ArrowUp:[0,-ch*st],ArrowDown:[0,ch*st]}[e.key];
+        if(mv){ e.preventDefault(); cx+=mv[0]; cy+=mv[1]; draw(); } else if(e.key==='+'||e.key==='='){ e.preventDefault(); setZoom(z+.1); } else if(e.key==='-'){ e.preventDefault(); setZoom(z-.1); } });
+      const ro=new ResizeObserver(()=>limits()); ro.observe(frame);
+      const bye=()=>{ ro.disconnect(); URL.revokeObjectURL(url); };
+      new MutationObserver((m,o)=>{ if(!el.isConnected){ o.disconnect(); bye(); } }).observe(document.body,{childList:true});
+      translateTree(el); limits();
+      $('#mmc-ok',el).onclick=async e=>{ const b=e.currentTarget, {cw,ch}=crop(), f=v=>String(Math.round(v*1e6)/1e6);
+        b.disabled=true; b.textContent=translateString('Guardando…');
+        try{ await uploadForm('/api/admin/site-media',{key:slot.key,credit,crop_x:f((cx-cw/2)/W),crop_y:f((cy-ch/2)/H),crop_w:f(Math.min(1,cw/W)),crop_h:f(Math.min(1,ch/H))},file);
+          delete el.dataset.dirty; close(); done(); }
+        catch(err){ toast(err.message); b.disabled=false; b.textContent=translateString('Guardar foto'); } };
+    };
+    img.src=url;
+  }
   async function renderSiteMediaManager(mountId,opts={}){
     const mount=document.getElementById(mountId); if(!mount) return;
     const refresh=()=>renderSiteMediaManager(mountId,opts);
     let d; try{ d=await api('/api/admin/site-media'); }catch(err){ mount.innerHTML=`<div class="empty"><h3>No se han podido cargar las imágenes</h3><p>${escapeHtml(err.message)}</p></div>`; return; }
     const groups={}; (d.slots||[]).filter(s=>!opts.group||s.group===opts.group).forEach(s=>(groups[s.group]??=[]).push(s));
     const card=s=>{ const it=d.items[s.key]||{}; return `<article class="mm-card" data-key="${escapeHtml(s.key)}">
-      <div class="mm-preview">${(it.url||s.default)?`<img src="${escapeHtml(it.url||s.default)}" alt="" loading="lazy">`:'<span class="mm-empty">Sin foto: pendiente de una foto adecuada</span>'}<span class="mm-badge ${it.custom?'is-custom':''}">${it.custom?'Personalizada':'Original'}</span></div>
+      <div class="mm-preview">${(it.url||s.default)?`<img ${wdImgAttrs(it.url||s.default,'(max-width:760px) 100vw, 360px')} alt="" loading="lazy">`:'<span class="mm-empty">Sin foto: pendiente de una foto adecuada</span>'}<span class="mm-badge ${it.custom?'is-custom':''}">${it.custom?'Personalizada':'Original'}</span></div>
       <div class="mm-body"><strong>${escapeHtml(s.label)}</strong><small>${escapeHtml(s.where)} · ${escapeHtml(s.size)} px</small>
         <label class="mm-credit"><span>Crédito</span><input type="text" maxlength="200" value="${escapeHtml(it.credit||'')}" placeholder="Foto: autor / licencia"></label>
-        <div class="mm-actions"><label class="btn btn-primary mm-file">Cambiar foto<input type="file" accept="image/jpeg,image/png,image/webp" hidden></label><button type="button" class="btn mm-save-credit">Guardar crédito</button>${it.custom?'<button type="button" class="btn mm-reset">Restaurar original</button>':''}</div>
+        <div class="mm-actions"><label class="btn btn-primary mm-file">${s.key.startsWith('type:')&&!(it.url||s.default)?'Poner foto':'Cambiar foto'}<input type="file" accept="image/jpeg,image/png,image/webp" hidden></label><button type="button" class="btn mm-save-credit">Guardar crédito</button>${it.custom?'<button type="button" class="btn mm-reset">Restaurar original</button>':''}</div>
       </div></article>`; };
     mount.innerHTML=`<section class="mm-module"><div class="svc-head"><div><p class="eyebrow">Escaparate</p>${opts.group==='Tipos de buceo'?'<h2>Tipos de buceo</h2><p>La foto de cada tipo de buceo: sale en su tarjeta, en su cabecera y en los puntos de ese tipo que no tienen foto propia. Los cambios se ven al momento.</p>':'<h2>Imágenes de la web</h2><p>Portadas de cada sección y foto de cada tipo de buceo. Los cambios se ven al momento.</p>'}</div></div>
-      <div class="ex-tip">${wdIcon('bolt',18)}<p>${IMG_HINT} Recomendado: fotos horizontales, nítidas, sin texto ni marcas de agua, y con luz natural.</p></div>
+      <div class="ex-tip">${wdIcon('bolt',18)}<p><span>${IMG_HINT}</span> <span>Recomendado: fotos horizontales, nítidas, sin texto ni marcas de agua, y con luz natural.</span>${opts.group==='Tipos de buceo'?' <span>Al elegir una foto, la encuadras y ves cómo quedará antes de guardarla.</span>':''}</p></div>
       ${Object.entries(groups).map(([g,list])=>`<h3 class="mm-group">${escapeHtml(g)}</h3><div class="mm-grid">${list.map(card).join('')}</div>`).join('')}</section>`;
     const send=async(key,fields,file,msg)=>{ try{ await uploadForm('/api/admin/site-media',{key,...fields},file); await loadSiteMedia(); toast(msg); refresh(); }catch(err){ toast(err.message); } };
-    $$('.mm-card',mount).forEach(c=>{ const key=c.dataset.key, credit=()=>$('.mm-credit input',c).value;
-      $('.mm-file input',c).onchange=e=>{ const f=e.target.files[0]; if(f) send(key,{credit:credit()},f,'Foto actualizada.'); };
+    $$('.mm-card',mount).forEach(c=>{ const key=c.dataset.key, credit=()=>$('.mm-credit input',c).value, slot=(d.slots||[]).find(s=>s.key===key);
+      $('.mm-file input',c).onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
+        if(f.size>6*1024*1024){ toast('La imagen pesa demasiado. Máximo 6 MB.'); return; }
+        // v50.58 (6.4): the photo of a type is framed first, with its preview
+        if(key.startsWith('type:')) openTypePhotoCrop(slot,f,credit(),async()=>{ await loadSiteMedia(); toast('Foto actualizada.'); refresh(); });
+        else send(key,{credit:credit()},f,'Foto actualizada.'); };
       $('.mm-save-credit',c).onclick=()=>send(key,{credit:credit()},null,'Crédito guardado.');
       $('.mm-reset',c)?.addEventListener('click',()=>{ if(confirm('¿Volver a la foto original?')) send(key,{reset:'1'},null,'Foto original restaurada.'); });
     });
@@ -6403,7 +6479,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         ${t.archived_at?'<span class="wd-pill wd-pill-muted">Archivada: no sale para servicios nuevos</span>':t.active?'':'<span class="wd-pill wd-pill-muted">Desactivada</span>'}
         <div class="st-actions"><button type="button" class="btn btn-sm st-edit">Editar</button>${t.archived_at?'<button type="button" class="btn btn-sm st-restore">Recuperar</button>':`<button type="button" class="btn btn-sm danger st-del">${t.in_use?'Archivar':'Borrar'}</button>`}<label class="btn btn-sm btn-primary st-file">${t.photo?'Cambiar foto':'Poner foto'}<input type="file" accept="image/jpeg,image/png,image/webp" hidden></label>${t.photo?'<button type="button" class="btn btn-sm st-reset">Quitar foto</button>':''}</div></div></article>`;
     mount.innerHTML=`<section class="mm-module st-module"><div class="svc-head"><div><p class="eyebrow">Servicios</p><h2>Plantillas de servicios</h2><p>Los centros y freelance crean sus servicios desde estas plantillas: el nombre, el texto, la duración y la foto se rellenan solos. Si cambias la foto de una plantilla, cambia al momento en todos los servicios que la usan (no en los que tienen foto propia).</p></div><button type="button" class="btn btn-primary" id="st-new">+ Nueva plantilla</button></div>
-      <div class="ex-tip">${wdIcon('bolt',18)}<p>${IMG_HINT} Fotos horizontales de al menos 1600 × 1000 px. Se guardan en WEBP con JPG de reserva y sin datos de la cámara. Toca la foto de una plantilla para elegir el punto que debe verse siempre.</p></div>
+      <div class="ex-tip">${wdIcon('bolt',18)}<p><span>${IMG_HINT}</span> Fotos horizontales de al menos 1600 × 1000 px. Se guardan en WEBP con JPG de reserva y sin datos de la cámara. Toca la foto de una plantilla para elegir el punto que debe verse siempre.</p></div>
       <section class="st-veil"><h3>Intensidad de la capa sobre las fotos</h3><p class="muted">Para que el texto de las tarjetas se lea bien. Si una foto necesita más para el contraste mínimo (WCAG AA), se refuerza sola.</p>
         <label class="st-veil-row"><span>Más foto</span><input type="range" id="st-veil" min="50" max="95" step="1" value="${Math.round(d.veil*100)}" aria-label="Intensidad de la capa"><span>Más texto</span><output id="st-veil-out">${Math.round(d.veil*100)} %</output></label>
         <div class="st-veil-prev"><div><small>Tema claro</small><div id="st-veil-light"></div></div><div><small>Tema oscuro</small><div id="st-veil-dark"></div></div></div>

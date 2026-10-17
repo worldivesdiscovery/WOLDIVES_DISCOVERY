@@ -4586,6 +4586,16 @@ MAX_IMAGE_BYTES = 6 * 1024 * 1024
 MAX_GALLERY_IMAGES = 12
 
 
+def check_public_image(file_info):
+    """The checks of every upload (size, a JPG, PNG or WEBP by its first bytes) without storing anything."""
+    if not file_info: raise ValueError('Adjunta una imagen.')
+    content=file_info.get('content') or b''
+    if len(content)>MAX_IMAGE_BYTES: raise ValueError('La imagen pesa demasiado. Máximo 6 MB.')
+    if not (any(content.startswith(sig) for sig in IMAGE_SIGNATURES) or (content[:4]==b'RIFF' and content[8:12]==b'WEBP')):
+        raise ValueError('Formato no admitido. Usa una foto JPG, PNG o WEBP.')
+    return content
+
+
 def save_public_image(file_info, prefix):
     """Store an uploaded image under /assets/uploads after checking it really is a JPG, PNG or WEBP."""
     if not file_info: raise ValueError('Adjunta una imagen.')
@@ -4611,6 +4621,52 @@ def save_public_image(file_info, prefix):
     name=f'{prefix}_{secrets.token_hex(8)}{ext}'
     (PHOTOS/name).write_bytes(content)
     return '/assets/uploads/'+name
+
+
+TYPE_PHOTO_SIZE = (1600, 1000)   # v50.58 (6.4): the card and the header of a type of dive (16:10)
+TYPE_PHOTO_COPIES = (640, 960, 1440)
+
+
+def save_type_photo(file_info, key, crop=None):
+    """v50.58 (revisión y usabilidad 6.4): the photo of a type of dive chosen in Administración → Tipos de buceo. The
+    part the administrator framed in the preview (crop: x, y, w, h as fractions of the photo) is cut, made 1600 × 1000
+    and kept as WebP with three lighter copies (640, 960 and 1440 px) for the phones: the same rules as the owner's photos."""
+    content = check_public_image(file_info)   # the same checks (size, type) as every upload
+    from PIL import Image, ImageOps
+    Image.MAX_IMAGE_PIXELS = 40_000_000
+    try:
+        im = Image.open(io.BytesIO(content)); im.load()
+        im = ImageOps.exif_transpose(im).convert('RGB')
+    except Exception:
+        raise ValueError('La imagen está dañada o no se puede leer. Prueba con otra foto JPG, PNG o WEBP.')   # ASVS V5.2.2
+    W, H = im.size
+    if W < 640 or H < 400: raise ValueError('La foto es muy pequeña para un tipo de buceo. Usa una de al menos 1600 × 1000 píxeles (mínimo 640 × 400).')
+    box = None   # no frame: the centre of the photo, 16:10
+    if crop and any(crop.get(k) not in (None, '') for k in ('x', 'y', 'w', 'h')):
+        try:
+            x, y, w, h = (float(crop.get(k)) for k in ('x', 'y', 'w', 'h'))
+            if not all(math.isfinite(v) for v in (x, y, w, h)) or not (0 <= x < 1 and 0 <= y < 1 and 0 < w <= 1.001 and 0 < h <= 1.001): raise ValueError
+        except (TypeError, ValueError):
+            raise ValueError('El recorte de la foto no es válido. Vuelve a encuadrarla.')
+        box = (round(x * W), round(y * H), round(min(1.0, x + w) * W), round(min(1.0, y + h) * H))
+        if box[2] - box[0] < 480 or box[3] - box[1] < 300:
+            raise ValueError('Has acercado demasiado la foto y se vería borrosa. Aléjala un poco con el control del zoom.')
+    im = im.crop(box) if box else im
+    im = ImageOps.fit(im, TYPE_PHOTO_SIZE, Image.LANCZOS)
+    PHOTOS.mkdir(parents=True, exist_ok=True)
+    base = f"divetype_{re.sub(r'[^a-z0-9]+', '_', key.split(':', 1)[-1])}_{secrets.token_hex(6)}"   # the web knows it has its copies
+    im.save(PHOTOS / f'{base}.webp', 'WEBP', quality=82, method=6)
+    for wdt in TYPE_PHOTO_COPIES:
+        im.resize((wdt, round(wdt * TYPE_PHOTO_SIZE[1] / TYPE_PHOTO_SIZE[0])), Image.LANCZOS).save(PHOTOS / f'{base}-{wdt}.webp', 'WEBP', quality=80, method=6)
+    return f'/assets/uploads/{base}.webp'
+
+
+def delete_type_photo(url):
+    """A type photo and its lighter copies."""
+    delete_public_image(url)
+    m = re.fullmatch(r'/assets/uploads/(divetype_[a-z0-9_]+)\.webp', str(url or ''))
+    if m:
+        for wdt in TYPE_PHOTO_COPIES: delete_public_image(f'/assets/uploads/{m.group(1)}-{wdt}.webp')
 
 
 def own_logo(value, current):
@@ -8093,7 +8149,7 @@ def site_media_slots():
                   'default':SERVICE_NEUTRAL_DEFAULT,'size':'1600 × 1000','group':'Tarjetas de servicio'})
     for c in DIVE_CATEGORIES:
         key=cat_key(c)
-        slots.append({'key':'type:'+key,'label':c['label'],'where':'Tarjeta y cabecera del tipo de buceo','default':site_image(SITE_MEDIA_TYPE_DEFAULTS.get(key,'fondo')),'size':'1600 × 1000','group':'Tipos de buceo'})
+        slots.append({'key':'type:'+key,'label':c['label'],'where':'Tarjeta y cabecera del tipo, y puntos de ese tipo sin foto propia','default':site_image(SITE_MEDIA_TYPE_DEFAULTS.get(key,'fondo')),'size':'1600 × 1000','group':'Tipos de buceo'})
     return slots
 
 
@@ -22834,15 +22890,19 @@ class Handler(BaseHTTPRequestHandler):
                     old=row['image_url'] if row else None
                     if fields.get('reset')=='1':
                         db.execute('DELETE FROM site_media WHERE key=?',(key,)); audit(db,user['id'],'site_media_reset','site_media',None,key); db.commit()
-                        delete_public_image(old); SITE_MEDIA.invalidate(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True}); return
-                    url=save_public_image(files.get('file'),'site_'+re.sub(r'[^a-z0-9]+','_',key)) if files.get('file') else old
+                        delete_type_photo(old); SITE_MEDIA.invalidate(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True}); return
+                    if files.get('file') and key.startswith('type:'):
+                        # v50.58 (6.4): the photo of a type, framed in the preview, in WebP and three sizes
+                        url=save_type_photo(files.get('file'),key,{k:fields.get('crop_'+k) for k in ('x','y','w','h')})
+                    else:
+                        url=save_public_image(files.get('file'),'site_'+re.sub(r'[^a-z0-9]+','_',key)) if files.get('file') else old
                     credit=clean_text(fields.get('credit'),200) if 'credit' in fields else (row['credit'] if row else '')
                     if not url and not credit:
                         if row: db.execute('DELETE FROM site_media WHERE key=?',(key,)); db.commit(); SITE_MEDIA.invalidate(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True}); return
                         raise ValueError('Adjunta una foto.')
                     db.execute('INSERT INTO site_media(key,image_url,credit,updated_at,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET image_url=excluded.image_url,credit=excluded.credit,updated_at=excluded.updated_at,updated_by=excluded.updated_by',(key,url,credit,now(),user['id']))
                     audit(db,user['id'],'site_media_updated','site_media',None,key); db.commit()
-                    if old and old!=url: delete_public_image(old)
+                    if old and old!=url: delete_type_photo(old)
                     SITE_MEDIA.invalidate(); SERVICE_CATALOG.invalidate(); self.send_json({'ok':True,'url':url}); return
                 if path=='/api/admin/travel-offer-image':
                     user=require_user(self,db); require_role(user,{'admin'}); fields,files=parse_multipart(self); tid=int(fields.get('id') or 0)
