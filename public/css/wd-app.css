@@ -509,3 +509,22 @@ html.wd-app[data-wda-tema="noche"] .dive-logbook { --dlb-desk: radial-gradient(e
 /* v50.58 · equipo por QR: «Trabajar como» y el número de peticiones pendientes */
 .wda-color { width: 14px; height: 14px; border-radius: 50%; background: var(--c); flex: 0 0 auto; margin: 0 6px; }
 .wda-num-aviso { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 99px; background: var(--urg-t, #b4473b); color: #fff; font-size: var(--t-s, 13px); font-weight: 800; vertical-align: 1px; }
+
+/* v50.58 · the rental picker (shared with the web) in the «Noche» theme of the app: dark cards, light text */
+html.wd-app[data-wda-tema="noche"] .eq-pick { --line: var(--linea); --ink: var(--texto); --muted: var(--suave); --sea: var(--marca); --sea-soft: var(--acento-suave); }
+html.wd-app[data-wda-tema="noche"] :is(.eq-mode-card, .eq-piece, .eq-kit, .eq-tabs button, .eq-chip, .eq-sizes, .eq-size-row select, .eq-note input) { background: var(--sup); color: var(--texto); border-color: var(--linea); }
+html.wd-app[data-wda-tema="noche"] :is(.eq-mode-card[aria-checked="true"], .eq-piece.is-on, .eq-kit.is-on) { background: var(--sup2); border-color: var(--marca); box-shadow: 0 0 0 2px var(--marca) inset; }
+html.wd-app[data-wda-tema="noche"] .eq-piece-ic { background: var(--acento-suave); color: var(--acento); }
+html.wd-app[data-wda-tema="noche"] .eq-tabs button[aria-selected="true"] { background: var(--marca); border-color: var(--marca); color: var(--sobre-marca); }
+html.wd-app[data-wda-tema="noche"] .eq-chip[aria-checked="true"] { background: var(--marca); border-color: var(--marca); color: var(--sobre-marca); }
+html.wd-app[data-wda-tema="noche"] .eq-pick :is(.svc-link, .eq-included) { color: var(--acento); }
+html.wd-app[data-wda-tema="noche"] .eq-warn { background: var(--pend-f); color: var(--pend-t); }
+@media (prefers-color-scheme: dark) {
+  html.wd-app[data-wda-tema="auto"] .eq-pick { --line: var(--linea); --ink: var(--texto); --muted: var(--suave); --sea: var(--marca); --sea-soft: var(--acento-suave); }
+  html.wd-app[data-wda-tema="auto"] :is(.eq-mode-card, .eq-piece, .eq-kit, .eq-tabs button, .eq-chip, .eq-sizes, .eq-size-row select, .eq-note input) { background: var(--sup); color: var(--texto); border-color: var(--linea); }
+  html.wd-app[data-wda-tema="auto"] :is(.eq-mode-card[aria-checked="true"], .eq-piece.is-on, .eq-kit.is-on) { background: var(--sup2); border-color: var(--marca); box-shadow: 0 0 0 2px var(--marca) inset; }
+  html.wd-app[data-wda-tema="auto"] .eq-piece-ic { background: var(--acento-suave); color: var(--acento); }
+  html.wd-app[data-wda-tema="auto"] .eq-tabs button[aria-selected="true"], html.wd-app[data-wda-tema="auto"] .eq-chip[aria-checked="true"] { background: var(--marca); border-color: var(--marca); color: var(--sobre-marca); }
+  html.wd-app[data-wda-tema="auto"] .eq-pick :is(.svc-link, .eq-included) { color: var(--acento); }
+  html.wd-app[data-wda-tema="auto"] .eq-warn { background: var(--pend-f); color: var(--pend-t); }
+}
