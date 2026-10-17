@@ -1289,7 +1289,98 @@
    "pl": "Centrum demonstracyjne",
    "nl": "Democentrum",
    "zh": "演示中心"
+  },
+  "1 especie citada": {
+   "en": "1 species recorded",
+   "fr": "1 espèce signalée",
+   "de": "1 nachgewiesene Art",
+   "it": "1 specie segnalata",
+   "pt": "1 espécie registada",
+   "pl": "1 zanotowany gatunek",
+   "nl": "1 gemelde soort",
+   "zh": "已记录 1 种"
+  },
+  "Has visto 1 especie": {
+   "en": "You have seen 1 species",
+   "fr": "Vous avez vu 1 espèce",
+   "de": "Du hast 1 Art gesehen",
+   "it": "Hai visto 1 specie",
+   "pt": "Já viste 1 espécie",
+   "pl": "Widziany 1 gatunek",
+   "nl": "Je hebt 1 soort gezien",
+   "zh": "你已见过 1 种"
   }
  },
- "patterns": {}
+ "patterns": {
+  "{n} especies citadas": {
+   "en": "{n} species recorded",
+   "fr": "{n} espèces signalées",
+   "de": "{n} nachgewiesene Arten",
+   "it": "{n} specie segnalate",
+   "pt": "{n} espécies registadas",
+   "pl": "Zanotowane gatunki: {n}",
+   "nl": "{n} gemelde soorten",
+   "zh": "已记录 {n} 种"
+  },
+  "{n} profesionales": {
+   "en": "{n} professionals",
+   "fr": "{n} professionnels",
+   "de": "{n} Profis",
+   "it": "{n} professionisti",
+   "pt": "{n} profissionais",
+   "pl": "Profesjonaliści: {n}",
+   "nl": "{n} professionals",
+   "zh": "{n} 位专业人士"
+  },
+  "{n} fotos subidas": {
+   "en": "{n} photos uploaded",
+   "fr": "{n} photos envoyées",
+   "de": "{n} Fotos hochgeladen",
+   "it": "{n} foto caricate",
+   "pt": "{n} fotos enviadas",
+   "pl": "Przesłane zdjęcia: {n}",
+   "nl": "{n} foto's geüpload",
+   "zh": "已上传 {n} 张照片"
+  },
+  "Faltan {n} fotos": {
+   "en": "{n} photos missing",
+   "fr": "{n} photos manquantes",
+   "de": "{n} Fotos fehlen",
+   "it": "Mancano {n} foto",
+   "pt": "Faltam {n} fotos",
+   "pl": "Brakuje zdjęć: {n}",
+   "nl": "{n} foto's ontbreken",
+   "zh": "缺少 {n} 张照片"
+  },
+  "Guardadas {n} especies": {
+   "en": "{n} species saved",
+   "fr": "{n} espèces enregistrées",
+   "de": "{n} Arten gespeichert",
+   "it": "{n} specie salvate",
+   "pt": "{n} espécies guardadas",
+   "pl": "Zapisane gatunki: {n}",
+   "nl": "{n} soorten opgeslagen",
+   "zh": "已保存 {n} 种"
+  },
+  "Has visto {n} especies": {
+   "en": "You have seen {n} species",
+   "fr": "Vous avez vu {n} espèces",
+   "de": "Du hast {n} Arten gesehen",
+   "it": "Hai visto {n} specie",
+   "pt": "Já viste {n} espécies",
+   "pl": "Widziane gatunki: {n}",
+   "nl": "Je hebt {n} soorten gezien",
+   "zh": "你已见过 {n} 种"
+  },
+  "{n} citas": {
+   "en": "{n} records",
+   "fr": "{n} signalements",
+   "de": "{n} Nachweise",
+   "it": "{n} segnalazioni",
+   "pt": "{n} registos",
+   "pl": "Obserwacje: {n}",
+   "nl": "{n} waarnemingen",
+   "zh": "{n} 条记录"
+  }
+ }
 }

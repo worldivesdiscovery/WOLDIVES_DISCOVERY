@@ -20,6 +20,7 @@ from pathlib import Path
 
 ap = argparse.ArgumentParser(); ap.add_argument('out'); ap.add_argument('--raiz', default=str(Path(__file__).resolve().parents[2]))
 ap.add_argument('--solo', default='')
+ap.add_argument('--demo', action='store_true', help='como el paquete de pruebas (WOD_DEMO_MODE=1): franja de demo y «Centro de demostración»')
 A = ap.parse_args()
 ROOT = Path(A.raiz).resolve()
 sys.path[:0] = [str(ROOT / 'tests'), str(ROOT / 'app')]
@@ -38,7 +39,7 @@ def shots(ids):
     pid, cid = ids['punto'], ids['centro']
     return [
         ('1.1-menu-perfil', 'buzo.prueba', '#/area', ['click:#account-toggle'], None),
-        ('1.2-ficha-punto-franja', None, f'#/punto?id={pid}', ['scroll:.pt-strip,.point-strip,.pt-icons'], None),
+        ('1.2-ficha-punto-franja', None, f'#/punto?id={pid}', ['scroll:.pp-keys'], None),
         ('1.2-admin-datos-por-tipo', 'admin.prueba', '#/admin?tab=divetypes', ['click:.tf-type summary'], '#admin-typefields'),
         ('1.3-cabecera-centros', None, '#/centros', [], None),
         ('1.3-cabecera-tipos', None, '#/tipos', [], None),
@@ -57,6 +58,20 @@ def shots(ids):
         ('1.7-buddies', 'buzo.prueba', '#/buddies', [], None),
         ('1.7-mi-qr', 'buzo.prueba', '#/mi-qr', [], None),
         ('1.7-ruta-profesional', 'buzo.prueba', '#/mi-agenda', [], None),
+        # Bloque 2 · vida marina
+        ('2.1-ficha-vida-marina', None, f'#/punto?id={pid}', ['scroll:.pm-block'], '.pm-block'),
+        ('2.1-vida-marina-todas', None, f'#/punto?id={pid}', ['scroll:.pm-block', 'click:#pm-all'], '#pm-allmodal .wd-modal-card'),
+        ('2.3-admin-vida-marina', 'admin.prueba', '#/admin?tab=marina&sub=vida', [], None),
+        ('2.5-logbook-que-viste', 'buzo.prueba', '#/logbook', ['scroll:#lb-seen'], None),
+        # Bloque 3 · freelance
+        ('3.2-directorio-freelance', None, '#/freelance', [], None),
+        ('3.3-ficha-punto-freelance', None, f'#/punto?id={pid}', ['scroll:#pp-freelance'], None),
+        ('3.3-perfil-profesional', None, f'#/profesional?id={ids["freelance2"]}', [], None),
+        ('3.4-mis-profesionales', 'buzo.prueba', '#/mis-profesionales', [], None),
+        ('3.5-aparecer-en-directorio', 'freelance2.prueba', '#/admin?tab=profile', ['scroll:#fl-dir'], '#fl-dir'),
+        ('3.5-admin-titulaciones', 'admin.prueba', '#/admin?tab=users', [], '#admin-flcerts'),
+        # Demo · «Centro de demostración» (con --demo)
+        ('demo-centro-de-demostracion', None, f'#/centro?id={cid}', [], None),
     ]
 
 
@@ -64,11 +79,13 @@ def main():
     db = Path(tempfile.mkdtemp(prefix='wod-cap-')) / 'demo.sqlite3'
     r = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'crear_demo.py'), '--out', str(db)], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
-    srv = Server({'WOD_DATA_KEY': DEMO_DATA_KEY, 'STRIPE_SECRET_KEY': ''}, seed=db).start()
+    srv = Server({'WOD_DATA_KEY': DEMO_DATA_KEY, 'STRIPE_SECRET_KEY': '', **({'WOD_DEMO_MODE': '1'} if A.demo else {})}, seed=db).start()
     report = {}
     try:
         ids = {'punto': srv.sql("SELECT id FROM dive_points WHERE name LIKE 'Escull de Sant Pere%' AND active=1")[0]['id'],
                'centro': srv.sql("SELECT c.id FROM centers c JOIN users u ON u.center_id=c.id WHERE u.username='centro.prueba'")[0]['id']}
+        fl2 = srv.sql("SELECT id FROM users WHERE username='freelance2.prueba'")
+        ids['freelance2'] = fl2[0]['id'] if fl2 else 0
         with sync_playwright() as p:
             b = p.chromium.launch(executable_path=CHROME)
             for size, (w, h) in SIZES.items():
