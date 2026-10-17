@@ -61,6 +61,13 @@ En el recorrido final:
 - los tres títulos del fallo n.º 1 dan **«Funciona»** («Cambia su estado: aria-expanded true → false»);
 - los botones que antes quedaban sin probar se pulsan todos.
 
+Después del recorrido final se corrigieron dos fallos de maquetación que salieron al mirar las capturas (`modos.md`):
+- los botones de las reservas tapaban el canal y el estado;
+- el menú plegado a iconos tenía separadores de 42 px.
+
+Ninguno de los dos cambia lo que hace un botón. Están comprobados con sus pruebas y con la batería completa del
+navegador (notas de la versión, «Todas las pruebas»).
+
 ## «No probado» por la herramienta: probados aparte
 
 Son los mismos 24 que en la v50.57: cuatro elementos del mapa del buceo (`#/explorar`) en cada uno de los seis papeles.
