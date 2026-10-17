@@ -138,6 +138,18 @@ def run(shots: Path | None):
             check('vender: guía para WordPress, Wix y Squarespace', all(x in guide for x in ('WordPress', 'Wix', 'Squarespace')))
             check('vender: iCal en la misma pantalla', page.locator('#vt-ical').count() == 1)
 
+            # ---- v50.58 (2.4 and the button audit): the group of the section on screen folds when its title is pressed
+            # (before, nothing happened) and opens again by itself when one of its sections is chosen
+            go(page, '#/admin?tab=planning', 1500)
+            grp = page.locator('.cb-sidebar .cb-group:has(.cb-nav.active)')
+            title = grp.locator('.cb-section-title')
+            title.click(); page.wait_for_timeout(300)
+            folded = 'is-closed' in (grp.get_attribute('class') or '') and title.get_attribute('aria-expanded') == 'false'
+            title.click(); page.wait_for_timeout(300)
+            check('menú: el grupo de la sección abierta se pliega y se despliega', folded and 'is-closed' not in (grp.get_attribute('class') or ''))
+            title.click(); page.wait_for_timeout(200)
+            go(page, '#/admin?tab=bookings', 1200)
+            check('menú: al elegir otra sección de un grupo plegado, se abre', 'is-closed' not in (page.locator('.cb-sidebar .cb-group:has(.cb-nav.active)').get_attribute('class') or ''))
             # ---- Planning: one inventory, every channel with its label, filter by channel
             go(page, '#/admin?tab=planning', 1500)
             if day.strftime('%Y-%m') != today.strftime('%Y-%m'):

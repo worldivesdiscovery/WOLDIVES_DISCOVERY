@@ -4886,13 +4886,16 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     side.querySelector('.cb-side-close')?.addEventListener('click',()=>{ open(false); btn?.focus(); });
     side.addEventListener('keydown',e=>{ if(e.key==='Escape'&&layout.classList.contains('is-open')){ e.stopPropagation(); open(false); btn?.focus(); } });
     fold?.addEventListener('click',()=>{ const on=!layout.classList.contains('is-folded'); layout.classList.toggle('is-folded',on); fold.setAttribute('aria-pressed',String(on)); wdPanelPref(id,{fold:on}); });
+    // v50.58 (auditoría de botones): every group title folds and unfolds, also the one of the section on screen (before,
+    // that one did nothing when pressed); it opens again by itself only when another section of it is chosen.
     side.querySelectorAll('.cb-section-title').forEach(t=>t.addEventListener('click',()=>{ const g=t.closest('.cb-group'); const shut=!g.classList.contains('is-closed');
-      if(shut&&g.querySelector('.cb-nav.active')&&!layout.classList.contains('is-open')) return;   // the group of the section on screen stays open
       g.classList.toggle('is-closed',shut); t.setAttribute('aria-expanded',String(!shut));
       wdPanelPref(id,{closed:[...side.querySelectorAll('.cb-group.is-closed')].map(x=>x.dataset.group)}); }));
     // Choosing an option closes the sliding menu of the phone; the button says where you are.
     side.addEventListener('click',e=>{ if(e.target.closest('.cb-nav')) open(false); });
+    let shown=null;
     const now=()=>{ const a=side.querySelector('.cb-nav.active'); const b=layout.querySelector('.cb-menu-now'); if(b) b.textContent=a?(a.querySelector('span')?.textContent||'').trim():'';
+      if(a===shown) return; shown=a;   // the section changed: its group opens
       const g=a?.closest('.cb-group'); if(g?.classList.contains('is-closed')){ g.classList.remove('is-closed'); g.querySelector('.cb-section-title')?.setAttribute('aria-expanded','true'); } };
     new MutationObserver(now).observe(side,{subtree:true,attributes:true,attributeFilter:['class']}); now();
   }
