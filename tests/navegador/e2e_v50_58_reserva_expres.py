@@ -190,7 +190,28 @@ def run(shots: Path | None):
             check('1 · ordenador: ventana centrada de ~480 px', 470 <= w <= 490, w)
             check('12 · botón de un servicio: abre ya en ese servicio', 'Doble inmersión' in f.locator('.wr-svc-one').inner_text())
             shot(page, 'ordenador-1-ventana')
-            f.locator('[data-primary]').click(); f.locator('[data-form]').wait_for()
+            # A tap on «Continuar» just when the price arrives is not lost. Before, the bar was painted again with a new
+            # button, so pressing on one button and releasing on another did nothing (it happened in the full battery,
+            # with the machine busy). Here the price is held while the button is pressed and arrives before releasing.
+            held = []
+            ctx.route('**/api/w/*/precio', lambda r: held.append(r))
+            before = f.locator('[data-total]').inner_text()
+            f.locator('[data-pax="1"]').click(); page.wait_for_timeout(500)   # one person more: the price is asked again
+            bb = f.locator('[data-primary]').bounding_box()
+            page.mouse.move(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2); page.mouse.down()
+            ctx.unroute('**/api/w/*/precio')
+            for r in held: r.continue_()
+            for _ in range(50):   # the new price is on the bar
+                if f.locator('[data-total]').inner_text() != before: break
+                page.wait_for_timeout(100)
+            page.mouse.up()
+            try:
+                f.locator('[data-form]').wait_for(timeout=3000); tapped = True
+            except Exception:
+                tapped = False
+            check('16 · pulsar «Continuar» justo cuando llega el precio pasa a «Tus datos»', held and tapped, (len(held), before, f.locator('[data-total]').inner_text() if not tapped else ''))
+            if not tapped:
+                f.locator('[data-primary]').click(); f.locator('[data-form]').wait_for()
             f.locator('input[name=fullname]').fill('Marc Recuerda'); f.locator('input[name=email]').fill('marc.recuerda@example.org')
             f.locator('[data-level="aow"]').click(); f.locator('input[name=accept_policy]').check(); f.locator('input[name=remember]').check()
             f.locator('[data-primary]').click(); f.locator('[data-stripe-stub]').wait_for(timeout=10000)

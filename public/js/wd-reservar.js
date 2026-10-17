@@ -319,7 +319,21 @@
     var b = app.querySelector('[data-bar]'); if (!b) return;
     var html = S.step === 1 ? bar(t('rx_continue'), ready()) : S.step === 2 ? bar(S.svc.mode === 'payment' ? payLabel() : t('send_request'), true) : null;
     if (html == null) return;
-    var tmp = document.createElement('div'); tmp.innerHTML = html; b.replaceWith(tmp.firstChild);
+    var tmp = document.createElement('div'); tmp.innerHTML = html; var nb = tmp.firstChild;
+    // v50.58: the button the person may be pressing stays the same element; only its text and state change. Before, the
+    // whole bar was painted again when the price arrived, and a tap pressed on the old button and released on the new
+    // one was lost.
+    var oldP = b.querySelector('[data-primary]'), newP = nb.querySelector('[data-primary]');
+    if (oldP && newP) {
+      oldP.textContent = newP.textContent; oldP.disabled = newP.disabled || !!S.busy;
+      var row = b.querySelector('.wr-bar-row');
+      Array.prototype.slice.call(b.children).forEach(function (c) { if (c !== row) b.removeChild(c); });
+      Array.prototype.slice.call(nb.children).forEach(function (c) { if (!c.classList.contains('wr-bar-row')) b.insertBefore(c, row); });
+      row.querySelector('[data-bd]').replaceWith(nb.querySelector('[data-bd]'));
+      bindBar(null);
+      return;
+    }
+    b.replaceWith(nb);
     bindBar(S.step === 1 ? toDetails : submit);
   }
   function loadStrip(from) {
