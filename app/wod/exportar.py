@@ -31,6 +31,7 @@ class Sheet:
     columns: list                                # [(header, type)] with type in TYPES
     rows: list = field(default_factory=list)
     currency: str = 'EUR'                        # money columns: € unless another currency is said
+    totals: list | None = None                   # 17/10 (1.6): a bold row of totals under the data (out of the filter)
 
 
 def _as_date(v):
@@ -86,8 +87,13 @@ def _col(i):
     return s
 
 
-def _cell(ref, v, kind, currency):
+def _cell(ref, v, kind, currency, bold=False):
     if v is None or v == '': return ''
+    if bold:   # the totals row: the same formats, in bold
+        if kind in ('money', 'number', 'int') and _as_number(v) is not None:
+            n = _as_number(v); st = {'money': 9 if currency == 'EUR' else 10, 'number': 10, 'int': 11}[kind]
+            return f'<c r="{ref}" s="{st}"><v>{int(n) if kind == "int" else round(n, 2)}</v></c>'
+        return f'<c r="{ref}" s="12" t="inlineStr"><is><t xml:space="preserve">{_x(str(v))}</t></is></c>'
     if kind in ('date', 'datetime'):
         d = _as_date(v)
         if d is None: kind = 'text'
@@ -121,10 +127,13 @@ def _sheet_xml(sheet: Sheet) -> str:
     for ri, r in enumerate(sheet.rows, start=2):
         rows_xml.append(f'<row r="{ri}">' + ''.join(_cell(f'{_col(i)}{ri}', v, k, sheet.currency) for i, (v, (_, k)) in enumerate(zip(r, sheet.columns))) + '</row>')
     end = max(2, len(sheet.rows) + 1)
+    if sheet.totals:
+        tr = end + 1
+        rows_xml.append(f'<row r="{tr}">' + ''.join(_cell(f'{_col(i)}{tr}', v, k, sheet.currency, bold=True) for i, (v, (_, k)) in enumerate(zip(sheet.totals, sheet.columns))) + '</row>')
     cols = ''.join(f'<col min="{i + 1}" max="{i + 1}" width="{_width(sheet, i)}" customWidth="1"/>' for i in range(n))
     return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            f'<dimension ref="A1:{last}{end}"/>'
+            f'<dimension ref="A1:{last}{end + (1 if sheet.totals else 0)}"/>'
             '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>'
             '<selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>'
             '<sheetFormatPr defaultRowHeight="15"/>'
@@ -138,14 +147,15 @@ _STYLES_XML = (
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     '<numFmts count="4"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="dd/mm/yyyy hh:mm"/>'
     '<numFmt numFmtId="166" formatCode="#,##0.00\\ &quot;€&quot;"/><numFmt numFmtId="167" formatCode="#,##0.00"/></numFmts>'
-    '<fonts count="3"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font>'
+    '<fonts count="4"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font>'
     '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>'
-    '<font><i/><sz val="11"/><color rgb="FF65747D"/><name val="Calibri"/><family val="2"/></font></fonts>'
+    '<font><i/><sz val="11"/><color rgb="FF65747D"/><name val="Calibri"/><family val="2"/></font>'
+    '<font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts>'
     '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
     '<fill><patternFill patternType="solid"><fgColor rgb="FF011C3C"/><bgColor indexed="64"/></patternFill></fill></fills>'
-    '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+    '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top style="thin"><color rgb="FF011C3C"/></top><bottom/><diagonal/></border></borders>'
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-    '<cellXfs count="9">'
+    '<cellXfs count="13">'
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center"/></xf>'
     '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
@@ -155,6 +165,10 @@ _STYLES_XML = (
     '<xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
     '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
     '<xf numFmtId="167" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+    '<xf numFmtId="166" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>'
+    '<xf numFmtId="167" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>'
+    '<xf numFmtId="1" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>'
+    '<xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>'
     '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>')
 
 

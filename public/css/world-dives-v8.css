@@ -4692,3 +4692,17 @@ html.wd-app[data-wda-tema="noche"] .pp-temps{background:#0f2433;border-color:#22
 .bc-grid input,.bc-grid select{font:inherit;color:var(--ink,#0f172a);padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
 .bc-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;flex-wrap:wrap}.bc-check{display:flex;gap:6px;align-items:center}
 .bc-cat.is-off summary b{opacity:.6}
+/* 17/10 (1.6) · Exportar para mi gestoría */
+.ge-form{display:grid;gap:14px}.ge-row{border:0;padding:0;margin:0;display:grid;gap:8px}.ge-row legend{font-weight:700;margin-bottom:6px}
+.ge-seg{display:flex;flex-wrap:wrap;gap:8px}.ge-seg label{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;cursor:pointer;background:#fff}
+.ge-seg label:has(input:checked){border-color:var(--sea);background:color-mix(in srgb,var(--sea) 8%,#fff)}
+.ge-opt{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.ge-opt small{color:var(--muted);width:100%}.ge-chk{display:inline-flex;gap:6px;align-items:center}
+.ge-opt select,.ge-opt input{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:10px}
+.ge-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}.ge-kpis div{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;display:flex;flex-direction:column}
+.ge-kpis span{font-size:12.5px;color:var(--muted)}.ge-kpis b{font-size:17px}
+.ge-pend{margin-top:8px}.ge-pend ul{margin:6px 0 0;padding-left:18px;font-size:13.5px}
+.ge-more{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff}.ge-more summary{cursor:pointer;font-weight:600;display:flex;gap:6px;align-items:center}.ge-in{margin-top:10px;display:grid;gap:10px}
+.ge-tax-list{display:grid;gap:6px}.ge-tax{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center}
+.ge-tax select,.ge-rate input{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:8px}.ge-rate input{width:74px}
+.ge-cols .svc-ord-row{grid-template-columns:auto minmax(0,1fr) auto auto;cursor:default}
+@media (max-width:560px){.ge-tax{grid-template-columns:minmax(0,1fr) auto;}.ge-tax .svc-state{grid-column:1/-1;justify-self:start}}

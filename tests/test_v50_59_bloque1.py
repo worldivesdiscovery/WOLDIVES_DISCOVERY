@@ -250,3 +250,105 @@ class Categorias(ServerTestCase):
             self.assertIn({s['id']: s['category'] for s in w['services']}[self.bau], [c['key'] for c in w['categories']])
         finally:
             self.admin.post('/api/admin/booking-categories', {'key': 'bautizos', 'label': 'Bautizos', 'icon': 'bautizo', 'sort_order': 30, 'active': 1})
+
+
+class Gestoria(ServerTestCase):
+    """1.6 · «Exportar para mi gestoría»: un Excel con 6 hojas siempre iguales, los totales que cuadran entre hojas y con
+    el panel, los cobros del centro con su fecha, los impuestos por servicio (sin inventar ninguno), la plantilla del
+    centro y el CSV de «Ventas» para Excel en español."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        t = cls('run')
+        cls.admin = t.make_admin()
+        cls.center = t.make_center(cls.admin, 'ge59')
+        cls.other = t.make_center(cls.admin, 'ge59b')
+        cls.cid = cls.center.user['center_id']
+        cls.server.sql("UPDATE centers SET country='España', region='Alicante', legal_name='Buceo Gestoría SL', tax_id='B00000000' WHERE id=?", (cls.cid,))
+        mk = lambda **kw: cls.center.post('/api/provider-services', {'booking_mode': 'request', **kw}).json['id']
+        cls.dive = mk(title='Inmersión en barco', price=50, service_type='inmersion')
+        cls.course = mk(title='Curso Open Water', price=300, service_type='curso')
+        man = lambda sid, d, n, pay, **kw: cls.center.post('/api/center/bookings/manual', {'fullname': f'Cliente {d}', 'email': f'c{d}{n}@diver.example.org', 'service_id': sid,
+                                                                                          'booking_date': d, 'participants': n, 'payment_status': pay, **kw}).json
+        cls.b1 = man(cls.dive, DAY(5), 2, 'paid', payment_method='efectivo')['id']                 # paid at the desk when writing it: 100 €
+        cls.b2 = man(cls.course, DAY(6), 1, 'required')['id']                                        # paid later at the desk, card terminal
+        r = cls.center.post(f'/api/bookings/{cls.b2}/payment', {'payment_status': 'paid', 'payment_method': 'card', 'reference': 'TPV-778'})
+        assert r.status == 200, r.json
+        cls.b3 = man(cls.dive, DAY(7), 1, 'required')['id']                                          # of before: paid, no payment recorded, part refunded
+        cls.server.sql("UPDATE bookings SET payment_status='paid', payment_method='cash', amount_paid=50, refunded_total=20, status='confirmed' WHERE id=?", (cls.b3,))
+        cls.b4 = cls.other.post('/api/center/bookings/manual', {'fullname': 'Ajeno', 'email': 'ajeno@diver.example.org', 'booking_date': DAY(5), 'payment_status': 'paid',
+                                                                'service_id': cls.other.post('/api/provider-services', {'title': 'X', 'price': 999, 'booking_mode': 'request'}).json['id']}).json['id']
+        cls.wide = {'periodo': 'personalizado', 'desde': DAY(-400), 'hasta': DAY(400)}
+
+    def q(self, **kw):
+        return '?' + urllib.parse.urlencode({**self.wide, **kw})
+
+    def test_1_totals_match_the_panel_and_between_sheets(self):
+        s = self.center.get('/api/exportar/gestoria' + self.q(fecha='servicio', vista=1)).json
+        t = s['totals']
+        self.assertEqual((t['reservas'], t['buceadores']), (3, 4))
+        self.assertEqual((t['total'], t['centro'], t['online'], t['dev'], t['neto']), (450.0, 450.0, 0.0, 20.0, 430.0))
+        income = sum(x['amount'] for x in self.center.get('/api/center/analytics').json['metrics']['income'])
+        self.assertEqual(t['neto'], round(income, 2))   # the same figure as «Ingresos» in the panel, to the cent
+        self.assertAlmostEqual(t['base'] + t['cuota'], t['total'], places=2)
+        self.assertEqual(t['base'], round(sum(round(x / 1.21, 2) for x in (100, 300, 50)), 2))   # IVA 21 % included (general of Spain, not confirmed)
+        self.assertTrue(any('sin confirmar' in p for p in s['pending']))
+        self.assertTrue(any('Verifactu' in p for p in s['pending']))
+
+    def test_2_by_payment_date_the_undated_ones_are_apart(self):
+        s = self.center.get('/api/exportar/gestoria' + self.q(vista=1)).json
+        self.assertEqual(s['mode'], 'cobro')
+        self.assertEqual((s['totals']['reservas'], s['totals']['centro'], s['totals']['dev']), (2, 400.0, 0.0))   # 100 + 300 recorded today
+        self.assertEqual(s['undated'], {'count': 2, 'paid': 50.0, 'refunded': 20.0})
+        self.assertTrue(any('sin fecha registrada' in p for p in s['pending']))
+        pays = self.server.sql('SELECT booking_id,amount,method,reference FROM booking_payments ORDER BY id')
+        self.assertEqual([(p['booking_id'], p['amount'], p['reference']) for p in pays if p['booking_id'] in (self.b1, self.b2)], [(self.b1, 100.0, None), (self.b2, 300.0, 'TPV-778')])
+        old = self.center.get('/api/exportar/gestoria' + self.q(vista=1, periodo='anio', valor=str(dt.date.today().year - 3))).json
+        self.assertEqual(old['totals']['total'], 0.0)
+
+    def test_3_the_excel_file(self):
+        import io, re, zipfile
+        r = self.center.get('/api/exportar/gestoria' + self.q(fecha='servicio'))
+        self.assertEqual(r.status, 200)
+        self.assertRegex(r.headers['Content-Disposition'], r'WORLDIVES_Ventas_Centro-ge59_.+\.xlsx')
+        z = zipfile.ZipFile(io.BytesIO(r.body))
+        wb = z.read('xl/workbook.xml').decode()
+        self.assertEqual(re.findall(r'<sheet name="([^"]+)"', wb), ['Resumen', 'Ventas', 'Cobros', 'Devoluciones', 'Por servicio', 'Datos del informe'])
+        ventas = z.read('xl/worksheets/sheet2.xml').decode()
+        heads = re.findall(r'<c r="[A-Z]+1" s="1" t="inlineStr"><is><t>([^<]+)</t>', ventas)
+        self.assertEqual(heads[:6], ['Fecha del servicio', 'Fecha del cobro', 'Número de reserva', 'Cliente', 'NIF del cliente', 'Servicio'])
+        self.assertIn('state="frozen"', ventas); self.assertIn('<autoFilter', ventas)
+        self.assertIn('>Total<', ventas)                                     # the totals row, in bold
+        self.assertNotIn('Ajeno', z.read('xl/worksheets/sheet2.xml').decode())   # only its own bookings
+        datos = z.read('xl/worksheets/sheet6.xml').decode()
+        self.assertIn('B00000000', datos); self.assertIn('Pendiente de decisión', datos)
+        c = self.center.get('/api/exportar/gestoria' + self.q(fecha='servicio', formato='csv'))
+        self.assertTrue(c.body.startswith('﻿'.encode())); self.assertIn(b';', c.body); self.assertIn('100,00'.encode(), c.body)
+
+    def test_4_taxes_and_template(self):
+        tx = self.center.get('/api/provider-services/taxes').json
+        self.assertEqual(tx['default'], {'rate': 21.0, 'name': 'IVA'})
+        self.assertEqual(self.center.post('/api/provider-services/tax', {'items': [{'id': self.course, 'rate': 'x', 'name': 'IVA'}]}).status, 400)
+        self.assertEqual(self.center.post('/api/provider-services/tax', {'items': [{'id': self.course, 'rate': 45, 'name': 'IVA'}]}).status, 400)
+        self.assertEqual(self.other.post('/api/provider-services/tax', {'items': [{'id': self.course, 'rate': 0, 'name': 'IVA'}]}).status, 404)
+        self.assertEqual(self.center.post('/api/provider-services/tax', {'items': [{'id': self.course, 'rate': 0, 'name': 'IVA'}, {'id': self.dive, 'rate': 21, 'name': 'IVA'}]}).status, 200)
+        s = self.center.get('/api/exportar/gestoria' + self.q(fecha='servicio', vista=1)).json
+        self.assertEqual(s['totals']['cuota'], round(sum(x - round(x / 1.21, 2) for x in (100, 50)), 2))   # the course, exempt by its gestoría
+        self.assertFalse(any('sin confirmar' in p for p in s['pending']))
+        self.assertEqual(self.center.post('/api/exportar/gestoria/plantilla', {'columns': ['cliente', 'total']}).status, 400)   # without the booking number
+        self.assertEqual(self.center.post('/api/exportar/gestoria/plantilla', {'columns': ['reserva', 'cliente', 'total', 'inventada']}).status, 200)
+        import io, re, zipfile
+        z = zipfile.ZipFile(io.BytesIO(self.center.get('/api/exportar/gestoria' + self.q(fecha='servicio')).body))
+        heads = re.findall(r'<c r="[A-Z]+1" s="1" t="inlineStr"><is><t>([^<]+)</t>', z.read('xl/worksheets/sheet2.xml').decode())
+        self.assertEqual(heads, ['Número de reserva', 'Cliente', 'Total'])
+        self.center.post('/api/exportar/gestoria/plantilla', {'reset': 1})
+        self.assertIsNone(self.center.get('/api/exportar/gestoria/plantilla').json['columns'])
+
+    def test_5_who_can(self):
+        diver = self.make_diver('ge59d')
+        self.assertIn(diver.get('/api/exportar/gestoria' + self.q()).status, (403, 404))
+        self.assertIn(self.admin.get('/api/exportar/gestoria' + self.q()).status, (403, 404))
+        s = self.other.get('/api/exportar/gestoria' + self.q(fecha='servicio', vista=1)).json
+        self.assertEqual(s['totals']['total'], 999.0)   # only its own
+        self.assertEqual(self.center.get('/api/exportar/gestoria?periodo=temporada&temporadas=2024,2025&vista=1').json['label'], 'temporada 2024-2025')

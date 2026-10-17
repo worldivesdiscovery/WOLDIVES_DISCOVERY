@@ -75,6 +75,7 @@ from wod import curso as wcur   # v50.58 (3.5): the progress of a course in each
 from wod import tipos_datos as wtd   # 17/10 (1.2): the own data of each type of dive (a wreck, a cave, a wall…)
 from wod import buddies as wbud   # 17/10 (1.7): buddies that accept, and «¿Buceamos?»
 from wod import categorias as wcat   # 17/10 (1.5): the activities by categories when booking
+from wod import gestoria as wges   # 17/10 (1.6): «Exportar para mi gestoría»
 from wod import equipo as weq   # v50.58: rental equipment inside the dive (16/10/2026)
 from wod import puntos as wpun   # v50.58: fuller dive sites, sources, batches and duplicates (16/10/2026)
 from wod import costa as wcosta   # v50.58: land or sea, and the distance to the shore, of a dive site
@@ -2642,6 +2643,14 @@ def migrate_v50_59(db):
     for stmt in wcat.SCHEMA: db.execute(stmt)   # 1.5: the categories of the activities when booking
     wcat.seed(db, now())
     add_columns(db, 'provider_services', [('category', 'TEXT'), ('category_check', 'INTEGER NOT NULL DEFAULT 0'), ('sort_order', 'INTEGER')])
+    # 1.6: the tax of each service (empty: the general one of the centre's country, «sin confirmar»), every payment taken
+    # at the centre with its own date (before, only the total of the booking was kept) and «Mi plantilla de gestoría»
+    add_columns(db, 'provider_services', [('tax_rate', 'REAL'), ('tax_name', 'TEXT'), ('tax_confirmed', 'INTEGER NOT NULL DEFAULT 0')])
+    db.execute('''CREATE TABLE IF NOT EXISTS booking_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+                  amount REAL NOT NULL, currency TEXT NOT NULL, method TEXT, reference TEXT, paid_at TEXT NOT NULL, created_by INTEGER, created_at TEXT NOT NULL)''')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_booking_payments_booking ON booking_payments(booking_id)')
+    db.execute('''CREATE TABLE IF NOT EXISTS export_templates (owner_type TEXT NOT NULL, owner_id INTEGER NOT NULL, kind TEXT NOT NULL, columns TEXT NOT NULL,
+                  updated_at TEXT NOT NULL, PRIMARY KEY(owner_type, owner_id, kind))''')
     if not migration_done(db, '50.59-categorias'):
         # the services of before whose category is not clear (kind not chosen and «Otro») are marked for the centre
         n = 0
@@ -5849,6 +5858,111 @@ PAYMENT_ORDER_LABELS = {'pending': 'Pendiente', 'paid': 'Pagado', 'review': 'En 
                         'refunded': 'Devuelto', 'partially_refunded': 'Devuelto en parte'}
 BOOKING_PAY_LABELS = {'paid': 'Pagado', 'pending': 'Pendiente', 'required': 'Pendiente', 'at_center': 'En el centro', 'not_required': 'Sin pago',
                       'deposit_paid': 'Señal pagada', 'refunded': 'Devuelto', 'partially_refunded': 'Devuelto en parte', 'review': 'En revisión', 'in_person': 'En persona'}
+
+
+def record_desk_payment(db, booking, amount, method, reference, actor):
+    """17/10 (1.6): a payment taken at the centre (cash, card terminal, transfer…), with its own date."""
+    if amount is None or float(amount) <= 0.004: return
+    db.execute('INSERT INTO booking_payments(booking_id,amount,currency,method,reference,paid_at,created_by,created_at) VALUES(?,?,?,?,?,?,?,?)',
+               (booking['id'], round(float(amount), 2), (booking['currency'] if 'currency' in booking.keys() else None) or 'EUR', method, reference, now(), actor, now()))
+
+
+def provider_tax_place(db, ptype, pid):
+    """(country, region, lat, lon, name, legal_name, tax_id) of a centre or a freelance."""
+    if ptype == 'center':
+        c = db.execute('SELECT name,legal_name,tax_id,country,region,latitude,longitude FROM centers WHERE id=?', (pid,)).fetchone()
+        return dict(c) if c else {}
+    u = db.execute('SELECT * FROM users WHERE id=?', (pid,)).fetchone()
+    if not u: return {}
+    get = lambda k: u[k] if k in u.keys() else None
+    # a freelance: the fiscal data of their account; the country of their tax id (the place of each dive is not a tax place)
+    country = {'ES': 'España'}.get((get('tax_id_country') or '').upper(), get('tax_id_country') or get('country'))
+    return {'name': get('fullname') or '', 'legal_name': get('legal_name'), 'tax_id': get('tax_id'), 'country': country, 'region': '', 'latitude': None, 'longitude': None}
+
+
+def service_taxes(db, ptype, pid):
+    """The services of a provider with the tax that the export uses: their own, or the general one of the country."""
+    place = provider_tax_place(db, ptype, pid)
+    d_rate, d_name = wges.country_default(place.get('country'), place.get('region'), place.get('latitude'), place.get('longitude'))
+    w = 'center_id=?' if ptype == 'center' else 'center_id IS NULL AND provider_user_id=?'
+    out = []
+    for r in db.execute(f'SELECT id,title,active,tax_rate,tax_name,tax_confirmed FROM provider_services WHERE {w} ORDER BY active DESC, title', (pid,)).fetchall():
+        own = r['tax_rate'] is not None and r['tax_confirmed']
+        out.append({'id': r['id'], 'title': r['title'], 'active': r['active'], 'rate': r['tax_rate'] if own else d_rate, 'name': (r['tax_name'] if own else d_name) or None,
+                    'confirmed': bool(own)})
+    return {'items': out, 'default': {'rate': d_rate, 'name': d_name}, 'names': list(wges.TAX_NAMES)}
+
+
+def gestoria_report(db, user, query):
+    """17/10 (1.6): the sheets of «Exportar para mi gestoría» and its summary for the screen."""
+    if user['role'] not in ('center', 'freelance'): raise PermissionError('Esta exportación es del panel de cada centro.')
+    if not user_can(db, user, 'cobros'): raise PermissionError(wroles.NO_PUEDE.get('cobros', 'Tu perfil del equipo no permite ver los cobros.'))
+    ref = provider_ref(db, user)
+    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+    ptype, pid = ref
+    q = lambda k, d='': (query.get(k, [d])[0] or d)
+    ranges, plabel = wges.periods(clean_text(q('periodo', 'temporada'), 20), _dt.date.today(), season_setting(db), clean_text(q('valor'), 10) or '',
+                                  q('desde'), q('hasta'), [x for x in q('temporadas').split(',') if x])
+    mode = 'servicio' if q('fecha') == 'servicio' else 'cobro'
+    pw = 'b.center_id=?' if ptype == 'center' else 'b.provider_user_id=? AND b.center_id IS NULL'
+    st_ = service_taxes(db, ptype, pid); taxes = {x['id']: x for x in st_['items']}
+    dflt = {'rate': st_['default']['rate'], 'name': st_['default']['name'], 'confirmed': False}
+    cats = {c['key']: c['label'] for c in wcat.public_list(db, 'es')}; valid = service_categories_valid(db)
+    rows = db.execute(f"""SELECT b.*, COALESCE(b.contact_name,u.fullname) AS client, s.title AS stitle, s.kind AS skind, s.service_type AS stype, s.category AS scat,
+                                  s.booking_unit AS sunit FROM bookings b LEFT JOIN users u ON u.id=b.user_id LEFT JOIN provider_services s ON s.id=b.service_id
+                           WHERE {pw} AND b.status NOT IN ('payment_in_progress','expired')
+                             AND (b.status IN ('confirmed','completed') OR COALESCE(b.amount_paid,0)>0 OR COALESCE(b.refunded_total,0)>0)
+                           ORDER BY b.booking_date, b.id LIMIT 100000""", (pid,)).fetchall()
+    ids = [r['id'] for r in rows]
+    def group(sql):
+        out = {}
+        for i in range(0, len(ids), 900):
+            chunk = ids[i:i + 900]
+            for r in db.execute(sql.format(','.join('?' * len(chunk))), chunk).fetchall(): out.setdefault(r['booking_id'], []).append(r)
+        return out
+    orders = group("SELECT booking_id,paid_at,COALESCE(amount_received,amount) AS amount,COALESCE(provider_payment_id,payment_intent_id) AS ref FROM payment_orders "
+                   "WHERE booking_id IN ({}) AND status IN ('paid','partially_refunded','refunded')")
+    desk = group('SELECT booking_id,paid_at,amount,method,reference FROM booking_payments WHERE booking_id IN ({})')
+    refunds = group("SELECT booking_id,created_at,amount,reason,note,stripe_refund_id FROM payment_refunds WHERE booking_id IN ({}) AND status IN ('succeeded','pending')")
+    data = []
+    for b in rows:
+        svc = {'kind': b['skind'], 'service_type': b['stype'], 'title': b['stitle'] or '', 'booking_unit': b['sunit'], 'category': b['scat']}
+        cat = cats.get(wcat.category_of(svc, wsv.kind_of(svc), valid), '') if b['service_id'] else ''
+        tx = taxes.get(b['service_id']) or dflt
+        total = round(float(b['price'] or 0), 2); lines = []
+        try: brk = json.loads(b['price_breakdown'] or '[]')
+        except ValueError: brk = []
+        for l in brk if isinstance(brk, list) else []:
+            if not isinstance(l, dict): continue
+            t = round(float(l.get('total') or 0), 2); qty = float(l.get('qty') or 1) * float(l.get('units') or 1)
+            if not t: continue
+            lines.append({'label': str(l.get('label') or b['stitle'] or 'Reserva'), 'qty': qty, 'unit': round(t / qty, 2) if qty else t, 'total': t})
+        if not lines and total:
+            n = max(1, int(b['participants'] or 1)); lines = [{'label': b['stitle'] or 'Reserva manual', 'qty': n, 'unit': round(total / n, 2), 'total': total}]
+        diff = round(total - sum(l['total'] for l in lines), 2)
+        if abs(diff) >= 0.01: lines.append({'label': 'Ajuste de precio', 'qty': 1, 'unit': diff, 'total': diff})
+        for l in lines: l.update(rate=tx['rate'], tax_name=tx['name'], confirmed=tx['confirmed'])
+        pays = [{'date': o['paid_at'], 'amount': round(float(o['amount'] or 0), 2), 'method': 'online', 'kind': 'online', 'ref': o['ref']} for o in orders.get(b['id'], [])]
+        pays += [{'date': d['paid_at'], 'amount': round(float(d['amount']), 2), 'method': d['method'], 'kind': 'centre', 'ref': d['reference']} for d in desk.get(b['id'], [])]
+        rest = round(float(b['amount_paid'] or 0) - sum(p['amount'] for p in pays), 2)
+        if rest >= 0.01:   # paid before every payment was recorded: no date of its own
+            pays.append({'date': None, 'amount': rest, 'method': b['payment_method'] or ('online' if b['payment_status'] == 'paid' and b['channel'] in wch.ONLINE else ''),
+                         'kind': 'online' if (b['payment_method'] or '').lower() in ('online', 'stripe') else 'centre', 'ref': ''})
+        refs = [{'date': r['created_at'], 'amount': round(float(r['amount']), 2), 'reason': r['reason'] or r['note'], 'ref': r['stripe_refund_id']} for r in refunds.get(b['id'], [])]
+        rest = round(float(b['refunded_total'] or 0) - sum(r['amount'] for r in refs), 2)
+        if rest >= 0.01: refs.append({'date': None, 'amount': rest, 'reason': 'Devolución anterior al registro de devoluciones', 'ref': ''})
+        data.append({'id': b['id'], 'ref': 'WOD-%06d' % b['id'], 'service_date': b['booking_date'], 'client': b['client'] or '', 'service': b['stitle'] or 'Reserva manual',
+                     'category': cat, 'channel': wch.CHANNEL_LABELS.get(b['channel'] or 'worldives', b['channel'] or ''), 'status': wbk.state_label(b['status']),
+                     'currency': (b['currency'] or 'EUR').upper(), 'participants': b['participants'], 'lines': lines, 'payments': pays, 'refunds': refs})
+    tpl = db.execute("SELECT columns FROM export_templates WHERE owner_type=? AND owner_id=? AND kind='gestoria'", (ptype, pid)).fetchone()
+    template = None
+    if tpl and q('plantilla', '1') != '0':
+        try: template = wges.clean_template(json.loads(tpl['columns']))
+        except (ValueError, TypeError): template = None
+    place = provider_tax_place(db, ptype, pid)
+    sheets, summary = wges.build(data, mode=mode, ranges=ranges, provider=place, plabel=plabel, generated=_dt.datetime.now().strftime('%d/%m/%Y %H:%M'), template=template)
+    summary.update(label=plabel, mode=mode, file=wges.file_name(place.get('name') or 'centro', plabel), template=bool(template))
+    return (ptype, pid), sheets, summary
 
 
 def season_setting(db):
@@ -12418,6 +12532,11 @@ def create_booking(db, req):
                       contact['name'] if contact else None, contact['email'] if contact else None, contact['phone'] if contact else None,
                       req.get('actor_id') if by_provider else None, payment_method, wsec.random_token(), now(), now()))
     bid = cur.lastrowid
+    if by_provider and payment_status == 'paid' and price > 0:
+        # 17/10 (1.6): a booking the centre writes as «paid» has that money paid (before, 0 until the next start) and
+        # its payment is recorded with today's date for the gestoría's export
+        db.execute('UPDATE bookings SET amount_paid=?,amount_due=0 WHERE id=?', (price, bid))
+        record_desk_payment(db, {'id': bid, 'currency': service['currency'] if service else (service_currency or 'EUR')}, price, payment_method, None, req.get('actor_id'))
     # Every time is stored with the time zone of the place of the activity (shown in local time everywhere).
     db.execute('UPDATE bookings SET timezone=? WHERE id=? AND user_id=?', (service_tz(db, service) if service else place_tz(db, None, center_id), bid, customer['id']))
     if not by_provider and channel != 'api': BOOKING_LIMIT.hit(limit_key)
@@ -18829,6 +18948,23 @@ class Handler(BaseHTTPRequestHandler):
                     require_user(self,db)
                     a,b,plabel=wexp.period(clean_text(query.get('periodo',['mes'])[0],20) or 'mes',_dt.date.today(),season_setting(db),query.get('desde',[''])[0],query.get('hasta',[''])[0])
                     self.send_json({'desde':a,'hasta':b,'label':plabel}); return
+                if path in ('/api/exportar/gestoria','/api/exportar/gestoria/plantilla','/api/provider-services/taxes'):
+                    # 17/10 (1.6): «Exportar para mi gestoría» (a summary to show with ?vista=1), its template and the taxes
+                    user=require_user(self,db); require_role(user,{'center','freelance'})
+                    if not user_can(db,user,'cobros'): raise PermissionError(wroles.NO_PUEDE.get('cobros','Tu perfil del equipo no permite ver los cobros.'))
+                    ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    if path.endswith('/taxes'): self.send_json(service_taxes(db,*ref)); return
+                    if path.endswith('/plantilla'):
+                        t=db.execute("SELECT columns FROM export_templates WHERE owner_type=? AND owner_id=? AND kind='gestoria'",ref).fetchone()
+                        self.send_json({'columns':json.loads(t['columns']) if t else None,'all':[{'key':k,'label':h} for k,h,_ in wges.SALES_COLUMNS],'required':list(wges.REQUIRED_KEYS)}); return
+                    ref_,sheets,summary=gestoria_report(db,user,query)
+                    if query.get('vista',['0'])[0]=='1': self.send_json(summary); return
+                    fmt='csv' if (query.get('formato',['xlsx'])[0] or '').lower()=='csv' else 'xlsx'
+                    audit(db,user['id'],'provider_export',ref_[0],ref_[1],{'kind':'gestoria','periodo':summary['label'],'fecha':summary['mode'],'formato':fmt,'filas':summary['rows']['ventas']}); db.commit()
+                    raw=wexp.xlsx_bytes(sheets,title='WORLDIVES · Ventas para la gestoría') if fmt=='xlsx' else wexp.csv_bytes(sheets[1])
+                    self.send_bytes(raw,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' if fmt=='xlsx' else 'text/csv; charset=utf-8',
+                                    summary['file'] if fmt=='xlsx' else summary['file'][:-4]+'csv'); return
                 if path == '/api/center/export' or path.startswith('/api/exportar/'):
                     # v50.57 (1.3): every export of the web, in Excel (.xlsx, by default) or CSV for Excel in Spanish, with a
                     # period; it always downloads, also empty. /api/center/export (before v50.57) is the same, in CSV and with everything.
@@ -21511,6 +21647,30 @@ class Handler(BaseHTTPRequestHandler):
                     row=db.execute('SELECT * FROM center_tariffs WHERE id=? AND center_id=?',(tid,cid)).fetchone()
                     if not row: raise ValueError('Tarifa no encontrada.')
                     db.execute('DELETE FROM center_tariffs WHERE id=?',(tid,)); db.commit(); self.send_json({'ok':True}); return
+                if path in ('/api/provider-services/tax','/api/exportar/gestoria/plantilla'):
+                    # 17/10 (1.6): the centre confirms the tax of its services with its gestoría; «Mi plantilla de gestoría»
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
+                    if not user_can(db,user,'cobros'): raise PermissionError(wroles.NO_PUEDE.get('cobros','Tu perfil del equipo no permite ver los cobros.'))
+                    ref=provider_ref(db,user)
+                    if not ref: raise ValueError('Tu cuenta no tiene un centro asociado.')
+                    if path.endswith('/plantilla'):
+                        if data.get('reset'): db.execute("DELETE FROM export_templates WHERE owner_type=? AND owner_id=? AND kind='gestoria'",ref)
+                        else:
+                            cols=wges.clean_template(data.get('columns') if isinstance(data.get('columns'),list) else [])
+                            db.execute("INSERT INTO export_templates(owner_type,owner_id,kind,columns,updated_at) VALUES(?,?,'gestoria',?,?) ON CONFLICT(owner_type,owner_id,kind) DO UPDATE SET columns=excluded.columns,updated_at=excluded.updated_at",
+                                       (*ref,json.dumps(cols),now()))
+                        audit(db,user['id'],'gestoria_template',ref[0],ref[1]); db.commit(); self.send_json({'ok':True}); return
+                    w_='center_id=?' if ref[0]=='center' else 'center_id IS NULL AND provider_user_id=?'
+                    items=data.get('items') if isinstance(data.get('items'),list) else []
+                    if not items or len(items)>300: raise ValueError('No hay servicios que guardar.')
+                    for it in items:
+                        if not isinstance(it,dict): raise ValueError('Datos no válidos.')
+                        rate=wges.clean_rate(it.get('rate')); name=clean_text(it.get('name'),10) or 'IVA'
+                        if name not in wges.TAX_NAMES: raise ValueError('Impuesto no válido.')
+                        if rate is None: raise ValueError('Escribe el tipo de impuesto de cada servicio (0 si está exento).')
+                        if not db.execute(f'UPDATE provider_services SET tax_rate=?,tax_name=?,tax_confirmed=1,updated_at=? WHERE id=? AND {w_}',(rate,name,now(),int(it.get('id') or 0),ref[1])).rowcount:
+                            raise NotFound('Servicio no encontrado.')
+                    audit(db,user['id'],'service_taxes_confirmed',ref[0],ref[1],{'n':len(items)}); db.commit(); self.send_json({'ok':True}); return
                 if path in ('/api/provider-services/category','/api/provider-services/order'):
                     # 17/10 (1.5): the centre corrects the category of a service, or orders its services by dragging them
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
@@ -23919,6 +24079,8 @@ class Handler(BaseHTTPRequestHandler):
                     paid_amt=float(row['price'] or 0) if pay=='paid' else float(row['amount_paid'] or 0)
                     db.execute('UPDATE bookings SET payment_status=?,payment_method=?,amount_paid=?,amount_due=?,updated_at=? WHERE id=?',
                                (pay,clean_text(data.get('payment_method'),40) or row['payment_method'],paid_amt,round(max(0.0,float(row['price'] or 0)-paid_amt),2),now(),bid))
+                    record_desk_payment(db,row,paid_amt-float(row['amount_paid'] or 0),clean_text(data.get('payment_method'),40) or row['payment_method'],
+                                        clean_text(data.get('reference'),80),user['id'])   # 17/10 (1.6): with its own date
                     if pay=='paid' and cur_state in ('requested','accepted_pending_payment'):
                         # Paid at the desk: the place is the diver's (any open online payment is closed).
                         reserve_or_fail(db,row)
