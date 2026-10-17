@@ -8450,14 +8450,26 @@ def _planning_figures(db, svc_where, svc_args, bk_where, bk_args, start, end):
 def center_planning(db, user, month):
     svc_where,svc_args,bk_where,bk_args=planning_scope(user)
     first,last=_month_bounds(month); start,end=first.isoformat(),last.isoformat()
+    # v50.58 (3.3): a course edition is a block of several days; it comes in every month it touches, with its days.
     rows=db.execute(f'''SELECT ss.id,ss.service_id,ss.slot_date,ss.slot_time,ss.spots_total,ss.spots_available,ss.status,ss.cancelled_at,ss.cancel_reason,
-                               s.title AS service_title,s.color AS service_color,s.service_type,s.price AS service_price,s.currency,s.duration_minutes
+                               ss.date_to,ss.instructor_user_id,
+                               s.title AS service_title,s.color AS service_color,s.service_type,s.price AS service_price,s.currency,s.duration_minutes,
+                               s.course_plan,s.kind AS service_kind,s.title
                           FROM service_slots ss JOIN provider_services s ON s.id=ss.service_id
-                         WHERE {svc_where} AND ss.slot_date BETWEEN ? AND ? AND ss.status IN ('open','full','closed')
-                         ORDER BY ss.slot_date,ss.slot_time,s.title LIMIT 3000''',(*svc_args,start,end)).fetchall()
+                         WHERE {svc_where} AND ss.slot_date<=? AND COALESCE(NULLIF(ss.date_to,''),ss.slot_date)>=? AND ss.status IN ('open','full','closed')
+                         ORDER BY ss.slot_date,ss.slot_time,s.title LIMIT 3000''',(*svc_args,end,start)).fetchall()
     slots=[]; by_id={}; tariff_cache={}; today_iso=_dt.date.today().isoformat()
     for r in rows:
         d=dict(r); d['taken']=max(int(d['spots_total'] or 0)-int(d['spots_available'] or 0),0); d['points']=[]; d['bookings']=[]
+        plan_raw=d.pop('course_plan',None); kind_=d.pop('service_kind',None); title_=d.pop('title',None)
+        if d.get('date_to') and d['date_to']>d['slot_date']:
+            plan_=service_plan({'course_plan':plan_raw,'title':title_,'duration_minutes':d.get('duration_minutes')}) if (kind_=='course' or plan_raw) else {'days':[],'hours':wsv.DEFAULT_HOURS}
+            hours_=plan_.get('hours') or wsv.DEFAULT_HOURS
+            first_=_dt.date.fromisoformat(d['slot_date']); last_=_dt.date.fromisoformat(d['date_to'])
+            d['days']=[]
+            for i in range((last_-first_).days+1):
+                part_=(plan_.get('days') or [])[i] if i<len(plan_.get('days') or []) else 'full'
+                d['days'].append({'date':(first_+_dt.timedelta(days=i)).isoformat(),'n':i+1,'part':part_,'hours':list(hours_.get(part_) or wsv.DEFAULT_HOURS[part_])})
         if d['slot_date']>=today_iso:
             key=(d['service_id'],d['slot_date'])
             if key not in tariff_cache: tariff_cache[key]=effective_service_tariff(db,d['service_id'],d['slot_date'])[0]

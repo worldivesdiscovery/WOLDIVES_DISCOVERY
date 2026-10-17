@@ -1299,6 +1299,1056 @@
    "pl": "Dodano jako opłacone w centrum.",
    "nl": "Toegevoegd als betaald bij het centrum.",
    "zh": "已添加，标记为在中心付款。"
+  },
+  "Día {n} de {t}": {
+   "en": "Day {n} of {t}",
+   "fr": "Jour {n} sur {t}",
+   "de": "Tag {n} von {t}",
+   "it": "Giorno {n} di {t}",
+   "pt": "Dia {n} de {t}",
+   "pl": "Dzień {n} z {t}",
+   "nl": "Dag {n} van {t}",
+   "zh": "第 {n} 天，共 {t} 天"
+  },
+  "Próximas ediciones": {
+   "en": "Next editions",
+   "fr": "Prochaines sessions",
+   "de": "Nächste Termine",
+   "it": "Prossime edizioni",
+   "pt": "Próximas edições",
+   "pl": "Najbliższe edycje",
+   "nl": "Volgende edities",
+   "zh": "近期开班"
+  },
+  "Qué ofreces": {
+   "en": "What you offer",
+   "fr": "Ce que vous proposez",
+   "de": "Was du anbietest",
+   "it": "Cosa offri",
+   "pt": "O que ofereces",
+   "pl": "Co oferujesz",
+   "nl": "Wat je aanbiedt",
+   "zh": "你提供的"
+  },
+  "Lo básico": {
+   "en": "The basics",
+   "fr": "L’essentiel",
+   "de": "Das Wichtigste",
+   "it": "L’essenziale",
+   "pt": "O básico",
+   "pl": "Podstawy",
+   "nl": "De basis",
+   "zh": "基本信息"
+  },
+  "Cuándo y cuánto dura": {
+   "en": "When and how long",
+   "fr": "Quand et combien de temps",
+   "de": "Wann und wie lange",
+   "it": "Quando e quanto dura",
+   "pt": "Quando e quanto dura",
+   "pl": "Kiedy i jak długo",
+   "nl": "Wanneer en hoe lang",
+   "zh": "时间与时长"
+  },
+  "Precio y plazas": {
+   "en": "Price and places",
+   "fr": "Prix et places",
+   "de": "Preis und Plätze",
+   "it": "Prezzo e posti",
+   "pt": "Preço e lugares",
+   "pl": "Cena i miejsca",
+   "nl": "Prijs en plaatsen",
+   "zh": "价格与名额"
+  },
+  "Revisar y publicar": {
+   "en": "Review and publish",
+   "fr": "Vérifier et publier",
+   "de": "Prüfen und veröffentlichen",
+   "it": "Rivedi e pubblica",
+   "pt": "Rever e publicar",
+   "pl": "Sprawdź i opublikuj",
+   "nl": "Controleren en publiceren",
+   "zh": "检查并发布"
+  },
+  "¿Qué vas a ofrecer?": {
+   "en": "What will you offer?",
+   "fr": "Qu’allez-vous proposer ?",
+   "de": "Was bietest du an?",
+   "it": "Cosa offrirai?",
+   "pt": "O que vais oferecer?",
+   "pl": "Co zaoferujesz?",
+   "nl": "Wat ga je aanbieden?",
+   "zh": "你要提供什么？"
+  },
+  "Elige una tarjeta. Rellenamos por ti lo habitual y solo te preguntamos lo que tiene sentido.": {
+   "en": "Pick a card. We fill in the usual for you and only ask what makes sense.",
+   "fr": "Choisissez une carte. Nous remplissons l’habituel pour vous et ne demandons que ce qui a du sens.",
+   "de": "Wähle eine Karte. Wir füllen das Übliche für dich aus und fragen nur, was sinnvoll ist.",
+   "it": "Scegli una scheda. Compiliamo per te il solito e chiediamo solo ciò che ha senso.",
+   "pt": "Escolhe um cartão. Preenchemos por ti o habitual e só perguntamos o que faz sentido.",
+   "pl": "Wybierz kartę. Uzupełnimy za ciebie to, co zwykle, i zapytamy tylko o to, co ma sens.",
+   "nl": "Kies een kaart. Wij vullen het gebruikelijke voor je in en vragen alleen wat zinvol is.",
+   "zh": "选择一张卡片。我们会为你填好常用内容，只询问有意义的问题。"
+  },
+  "«Doble inmersión en Islas Medas»": {
+   "en": "“Double dive at the Medes Islands”",
+   "fr": "« Double plongée aux îles Medes »",
+   "de": "„Doppeltauchgang an den Medes-Inseln“",
+   "it": "«Doppia immersione alle Isole Medas»",
+   "pt": "«Duplo mergulho nas Ilhas Medas»",
+   "pl": "„Podwójne nurkowanie na Wyspach Medes”",
+   "nl": "„Dubbele duik bij de Medes-eilanden”",
+   "zh": "“梅德斯群岛双潜”"
+  },
+  "Horas y minutos, con hora de salida": {
+   "en": "Hours and minutes, with departure time",
+   "fr": "Heures et minutes, avec l’heure de départ",
+   "de": "Stunden und Minuten, mit Abfahrtszeit",
+   "it": "Ore e minuti, con orario di partenza",
+   "pt": "Horas e minutos, com hora de saída",
+   "pl": "Godziny i minuty, z godziną wypłynięcia",
+   "nl": "Uren en minuten, met vertrektijd",
+   "zh": "小时和分钟，含出发时间"
+  },
+  "«Bautizo de buceo en playa»": {
+   "en": "“Try dive from the beach”",
+   "fr": "« Baptême de plongée depuis la plage »",
+   "de": "„Schnuppertauchen vom Strand“",
+   "it": "«Battesimo subacqueo dalla spiaggia»",
+   "pt": "«Batismo de mergulho na praia»",
+   "pl": "„Nurkowanie próbne z plaży”",
+   "nl": "„Proefduik vanaf het strand”",
+   "zh": "“海滩体验潜水”"
+  },
+  "Horas y minutos": {
+   "en": "Hours and minutes",
+   "fr": "Heures et minutes",
+   "de": "Stunden und Minuten",
+   "it": "Ore e minuti",
+   "pt": "Horas e minutos",
+   "pl": "Godziny i minuty",
+   "nl": "Uren en minuten",
+   "zh": "小时和分钟"
+  },
+  "Días o sesiones": {
+   "en": "Days or sessions",
+   "fr": "Jours ou séances",
+   "de": "Tage oder Einheiten",
+   "it": "Giorni o sessioni",
+   "pt": "Dias ou sessões",
+   "pl": "Dni lub sesje",
+   "nl": "Dagen of sessies",
+   "zh": "天数或课时"
+  },
+  "Por día o por inmersión": {
+   "en": "Per day or per dive",
+   "fr": "Par jour ou par plongée",
+   "de": "Pro Tag oder pro Tauchgang",
+   "it": "Al giorno o a immersione",
+   "pt": "Por dia ou por mergulho",
+   "pl": "Za dzień lub za nurkowanie",
+   "nl": "Per dag of per duik",
+   "zh": "按天或按潜水次数"
+  },
+  "Viaje o experiencia": {
+   "en": "Trip or experience",
+   "fr": "Voyage ou expérience",
+   "de": "Reise oder Erlebnis",
+   "it": "Viaggio o esperienza",
+   "pt": "Viagem ou experiência",
+   "pl": "Wyjazd lub doświadczenie",
+   "nl": "Reis of belevenis",
+   "zh": "旅行或体验"
+  },
+  "«Semana en el Mar Rojo»": {
+   "en": "“A week in the Red Sea”",
+   "fr": "« Une semaine en mer Rouge »",
+   "de": "„Eine Woche im Roten Meer“",
+   "it": "«Una settimana nel Mar Rosso»",
+   "pt": "«Uma semana no Mar Vermelho»",
+   "pl": "„Tydzień na Morzu Czerwonym”",
+   "nl": "„Een week in de Rode Zee”",
+   "zh": "“红海一周”"
+  },
+  "Fechas fijas de inicio y fin": {
+   "en": "Fixed start and end dates",
+   "fr": "Dates de début et de fin fixes",
+   "de": "Feste Start- und Enddaten",
+   "it": "Date fisse di inizio e fine",
+   "pt": "Datas fixas de início e fim",
+   "pl": "Stałe daty rozpoczęcia i zakończenia",
+   "nl": "Vaste begin- en einddatum",
+   "zh": "固定的开始和结束日期"
+  },
+  "Fotografía, nitrox, recarga…": {
+   "en": "Photography, nitrox, refills…",
+   "fr": "Photo, nitrox, gonflage…",
+   "de": "Fotografie, Nitrox, Füllung…",
+   "it": "Fotografia, nitrox, ricariche…",
+   "pt": "Fotografia, nitrox, enchimento…",
+   "pl": "Fotografia, nitrox, napełnianie…",
+   "nl": "Fotografie, nitrox, vullen…",
+   "zh": "摄影、高氧、充气……"
+  },
+  "A elegir": {
+   "en": "Your choice",
+   "fr": "Au choix",
+   "de": "Nach Wahl",
+   "it": "A scelta",
+   "pt": "À escolha",
+   "pl": "Do wyboru",
+   "nl": "Naar keuze",
+   "zh": "自选"
+  },
+  "Empieza con una plantilla (opcional):": {
+   "en": "Start from a template (optional):",
+   "fr": "Partez d’un modèle (facultatif) :",
+   "de": "Mit einer Vorlage beginnen (optional):",
+   "it": "Inizia da un modello (facoltativo):",
+   "pt": "Começa com um modelo (opcional):",
+   "pl": "Zacznij od szablonu (opcjonalnie):",
+   "nl": "Begin met een sjabloon (optioneel):",
+   "zh": "从模板开始（可选）："
+  },
+  "Doble inmersión en Islas Medas": {
+   "en": "Double dive at the Medes Islands",
+   "fr": "Double plongée aux îles Medes",
+   "de": "Doppeltauchgang an den Medes-Inseln",
+   "it": "Doppia immersione alle Isole Medas",
+   "pt": "Duplo mergulho nas Ilhas Medas",
+   "pl": "Podwójne nurkowanie na Wyspach Medes",
+   "nl": "Dubbele duik bij de Medes-eilanden",
+   "zh": "梅德斯群岛双潜"
+  },
+  "Bautizo de buceo en playa": {
+   "en": "Try dive from the beach",
+   "fr": "Baptême de plongée depuis la plage",
+   "de": "Schnuppertauchen vom Strand",
+   "it": "Battesimo subacqueo dalla spiaggia",
+   "pt": "Batismo de mergulho na praia",
+   "pl": "Nurkowanie próbne z plaży",
+   "nl": "Proefduik vanaf het strand",
+   "zh": "海滩体验潜水"
+  },
+  "Semana en el Mar Rojo": {
+   "en": "A week in the Red Sea",
+   "fr": "Une semaine en mer Rouge",
+   "de": "Eine Woche im Roten Meer",
+   "it": "Una settimana nel Mar Rosso",
+   "pt": "Uma semana no Mar Vermelho",
+   "pl": "Tydzień na Morzu Czerwonym",
+   "nl": "Een week in de Rode Zee",
+   "zh": "红海一周"
+  },
+  "Descripción breve": {
+   "en": "Short description",
+   "fr": "Description courte",
+   "de": "Kurzbeschreibung",
+   "it": "Descrizione breve",
+   "pt": "Descrição breve",
+   "pl": "Krótki opis",
+   "nl": "Korte beschrijving",
+   "zh": "简短描述"
+  },
+  "Nivel o titulación necesaria": {
+   "en": "Level or certification needed",
+   "fr": "Niveau ou brevet requis",
+   "de": "Benötigtes Niveau oder Brevet",
+   "it": "Livello o brevetto richiesto",
+   "pt": "Nível ou certificação necessária",
+   "pl": "Wymagany poziom lub uprawnienia",
+   "nl": "Vereist niveau of brevet",
+   "zh": "所需级别或证书"
+  },
+  "Sin plantilla, la tarjeta lleva la foto neutra del mar. Puedes poner una tuya:": {
+   "en": "Without a template, the card uses the neutral sea photo. You can add your own:",
+   "fr": "Sans modèle, la carte utilise la photo neutre de la mer. Vous pouvez mettre la vôtre :",
+   "de": "Ohne Vorlage zeigt die Karte das neutrale Meeresfoto. Du kannst ein eigenes hochladen:",
+   "it": "Senza modello, la scheda usa la foto neutra del mare. Puoi metterne una tua:",
+   "pt": "Sem modelo, o cartão usa a foto neutra do mar. Podes pôr uma tua:",
+   "pl": "Bez szablonu karta ma neutralne zdjęcie morza. Możesz dodać własne:",
+   "nl": "Zonder sjabloon gebruikt de kaart de neutrale zeefoto. Je kunt er zelf een plaatsen:",
+   "zh": "没有模板时，卡片使用中性的海洋照片。你可以上传自己的照片："
+  },
+  "Se usa la foto de la plantilla. Puedes poner una tuya:": {
+   "en": "The template’s photo is used. You can add your own:",
+   "fr": "La photo du modèle est utilisée. Vous pouvez mettre la vôtre :",
+   "de": "Das Foto der Vorlage wird verwendet. Du kannst ein eigenes hochladen:",
+   "it": "Si usa la foto del modello. Puoi metterne una tua:",
+   "pt": "Usa-se a foto do modelo. Podes pôr uma tua:",
+   "pl": "Używane jest zdjęcie z szablonu. Możesz dodać własne:",
+   "nl": "De foto van het sjabloon wordt gebruikt. Je kunt er zelf een plaatsen:",
+   "zh": "使用模板中的照片。你可以上传自己的照片："
+  },
+  "Elige los días de la semana.": {
+   "en": "Choose the days of the week.",
+   "fr": "Choisissez les jours de la semaine.",
+   "de": "Wähle die Wochentage.",
+   "it": "Scegli i giorni della settimana.",
+   "pt": "Escolhe os dias da semana.",
+   "pl": "Wybierz dni tygodnia.",
+   "nl": "Kies de dagen van de week.",
+   "zh": "请选择星期几。"
+  },
+  "Elige los días de la semana y hasta cuándo.": {
+   "en": "Choose the days of the week and until when.",
+   "fr": "Choisissez les jours de la semaine et jusqu’à quand.",
+   "de": "Wähle die Wochentage und bis wann.",
+   "it": "Scegli i giorni della settimana e fino a quando.",
+   "pt": "Escolhe os dias da semana e até quando.",
+   "pl": "Wybierz dni tygodnia i do kiedy.",
+   "nl": "Kies de dagen van de week en tot wanneer.",
+   "zh": "请选择星期几以及截止日期。"
+  },
+  "Cuánto dura": {
+   "en": "How long it lasts",
+   "fr": "Durée",
+   "de": "Dauer",
+   "it": "Quanto dura",
+   "pt": "Quanto dura",
+   "pl": "Jak długo trwa",
+   "nl": "Hoe lang het duurt",
+   "zh": "时长"
+  },
+  "h": {
+   "en": "h",
+   "fr": "h",
+   "de": "Std.",
+   "it": "h",
+   "pt": "h",
+   "pl": "godz.",
+   "nl": "u",
+   "zh": "小时"
+  },
+  "¿Cuándo sale?": {
+   "en": "When does it go out?",
+   "fr": "Quand part-elle ?",
+   "de": "Wann geht es los?",
+   "it": "Quando parte?",
+   "pt": "Quando sai?",
+   "pl": "Kiedy wypływa?",
+   "nl": "Wanneer vaart hij uit?",
+   "zh": "何时出发？"
+  },
+  "Se repite cada semana": {
+   "en": "Repeats every week",
+   "fr": "Se répète chaque semaine",
+   "de": "Wiederholt sich jede Woche",
+   "it": "Si ripete ogni settimana",
+   "pt": "Repete-se todas as semanas",
+   "pl": "Powtarza się co tydzień",
+   "nl": "Herhaalt zich elke week",
+   "zh": "每周重复"
+  },
+  "Fechas sueltas": {
+   "en": "Individual dates",
+   "fr": "Dates ponctuelles",
+   "de": "Einzelne Termine",
+   "it": "Date singole",
+   "pt": "Datas avulsas",
+   "pl": "Pojedyncze daty",
+   "nl": "Losse data",
+   "zh": "单独日期"
+  },
+  "Las añado después": {
+   "en": "I’ll add them later",
+   "fr": "Je les ajouterai plus tard",
+   "de": "Ich füge sie später hinzu",
+   "it": "Le aggiungo dopo",
+   "pt": "Adiciono depois",
+   "pl": "Dodam je później",
+   "nl": "Ik voeg ze later toe",
+   "zh": "稍后添加"
+  },
+  "No añadir ahora": {
+   "en": "Don’t add now",
+   "fr": "Ne pas ajouter maintenant",
+   "de": "Jetzt nicht hinzufügen",
+   "it": "Non aggiungere ora",
+   "pt": "Não adicionar agora",
+   "pl": "Nie dodawaj teraz",
+   "nl": "Nu niet toevoegen",
+   "zh": "暂不添加"
+  },
+  "{n} salidas": {
+   "en": "{n} trips",
+   "fr": "{n} sorties",
+   "de": "{n} Ausfahrten",
+   "it": "{n} uscite",
+   "pt": "{n} saídas",
+   "pl": "Wypłynięcia: {n}",
+   "nl": "{n} uitvaarten",
+   "zh": "{n} 次出海"
+  },
+  "1 salida": {
+   "en": "1 trip",
+   "fr": "1 sortie",
+   "de": "1 Ausfahrt",
+   "it": "1 uscita",
+   "pt": "1 saída",
+   "pl": "1 wypłynięcie",
+   "nl": "1 uitvaart",
+   "zh": "1 次出海"
+  },
+  "{n} ediciones": {
+   "en": "{n} editions",
+   "fr": "{n} sessions",
+   "de": "{n} Termine",
+   "it": "{n} edizioni",
+   "pt": "{n} edições",
+   "pl": "Edycje: {n}",
+   "nl": "{n} edities",
+   "zh": "{n} 个开班"
+  },
+  "1 edición": {
+   "en": "1 edition",
+   "fr": "1 session",
+   "de": "1 Termin",
+   "it": "1 edizione",
+   "pt": "1 edição",
+   "pl": "1 edycja",
+   "nl": "1 editie",
+   "zh": "1 个开班"
+  },
+  "1 fecha": {
+   "en": "1 date",
+   "fr": "1 date",
+   "de": "1 Termin",
+   "it": "1 data",
+   "pt": "1 data",
+   "pl": "1 termin",
+   "nl": "1 datum",
+   "zh": "1 个日期"
+  },
+  "El buceador paga y su plaza queda confirmada al momento. Tú no tienes que hacer nada.": {
+   "en": "The diver pays and their place is confirmed at once. You don’t have to do anything.",
+   "fr": "Le plongeur paie et sa place est confirmée aussitôt. Vous n’avez rien à faire.",
+   "de": "Der Taucher zahlt und sein Platz ist sofort bestätigt. Du musst nichts tun.",
+   "it": "Il subacqueo paga e il suo posto è confermato subito. Tu non devi fare nulla.",
+   "pt": "O mergulhador paga e o seu lugar fica confirmado no momento. Tu não tens de fazer nada.",
+   "pl": "Nurek płaci, a jego miejsce jest od razu potwierdzone. Nie musisz nic robić.",
+   "nl": "De duiker betaalt en zijn plaats is meteen bevestigd. Jij hoeft niets te doen.",
+   "zh": "潜水员付款后名额立即确认，你无需任何操作。"
+  },
+  "Recomendada para inmersiones, bautizos y alquiler con fechas fijas.": {
+   "en": "Recommended for dives, try dives and rentals with fixed dates.",
+   "fr": "Recommandée pour les plongées, baptêmes et locations à dates fixes.",
+   "de": "Empfohlen für Tauchgänge, Schnuppertauchen und Verleih mit festen Terminen.",
+   "it": "Consigliata per immersioni, battesimi e noleggi con date fisse.",
+   "pt": "Recomendada para mergulhos, batismos e aluguer com datas fixas.",
+   "pl": "Polecana dla nurkowań, nurkowań próbnych i wypożyczeń w stałych terminach.",
+   "nl": "Aanbevolen voor duiken, proefduiken en verhuur met vaste data.",
+   "zh": "推荐用于固定日期的潜水、体验潜水和租赁。"
+  },
+  "Tú apruebas cada reserva": {
+   "en": "You approve each booking",
+   "fr": "Vous validez chaque réservation",
+   "de": "Du bestätigst jede Buchung",
+   "it": "Approvi tu ogni prenotazione",
+   "pt": "Tu aprovas cada reserva",
+   "pl": "Zatwierdzasz każdą rezerwację",
+   "nl": "Jij keurt elke boeking goed",
+   "zh": "每个预订由你确认"
+  },
+  "Recomendada para cursos a medida, viajes y guías privados.": {
+   "en": "Recommended for tailor-made courses, trips and private guides.",
+   "fr": "Recommandée pour les cours sur mesure, les voyages et les guides privés.",
+   "de": "Empfohlen für maßgeschneiderte Kurse, Reisen und private Guides.",
+   "it": "Consigliata per corsi su misura, viaggi e guide private.",
+   "pt": "Recomendada para cursos à medida, viagens e guias privados.",
+   "pl": "Polecana dla kursów na zamówienie, wyjazdów i prywatnych przewodników.",
+   "nl": "Aanbevolen voor cursussen op maat, reizen en privégidsen.",
+   "zh": "推荐用于定制课程、旅行和私人导潜。"
+  },
+  "¿Cómo quieres que te reserven?": {
+   "en": "How do you want to be booked?",
+   "fr": "Comment voulez-vous être réservé ?",
+   "de": "Wie möchtest du gebucht werden?",
+   "it": "Come vuoi essere prenotato?",
+   "pt": "Como queres que te reservem?",
+   "pl": "Jak chcesz przyjmować rezerwacje?",
+   "nl": "Hoe wil je geboekt worden?",
+   "zh": "你希望如何接受预订？"
+  },
+  "Cobrar una señal": {
+   "en": "Charge a deposit",
+   "fr": "Encaisser un acompte",
+   "de": "Anzahlung verlangen",
+   "it": "Chiedere un acconto",
+   "pt": "Cobrar um sinal",
+   "pl": "Pobierz zaliczkę",
+   "nl": "Een aanbetaling vragen",
+   "zh": "收取定金"
+  },
+  "Plazo para responder a una solicitud": {
+   "en": "Time to answer a request",
+   "fr": "Délai pour répondre à une demande",
+   "de": "Frist für die Antwort auf eine Anfrage",
+   "it": "Tempo per rispondere a una richiesta",
+   "pt": "Prazo para responder a um pedido",
+   "pl": "Czas na odpowiedź na prośbę",
+   "nl": "Termijn om op een aanvraag te reageren",
+   "zh": "回复申请的期限"
+  },
+  "Antelación mínima para reservar": {
+   "en": "Minimum notice to book",
+   "fr": "Délai minimum pour réserver",
+   "de": "Mindestvorlauf für Buchungen",
+   "it": "Preavviso minimo per prenotare",
+   "pt": "Antecedência mínima para reservar",
+   "pl": "Minimalne wyprzedzenie rezerwacji",
+   "nl": "Minimale termijn om te boeken",
+   "zh": "最少提前预订时间"
+  },
+  "Cancelación gratis hasta (horas antes)": {
+   "en": "Free cancellation until (hours before)",
+   "fr": "Annulation gratuite jusqu’à (heures avant)",
+   "de": "Kostenlose Stornierung bis (Stunden vorher)",
+   "it": "Cancellazione gratuita fino a (ore prima)",
+   "pt": "Cancelamento grátis até (horas antes)",
+   "pl": "Bezpłatne anulowanie do (godzin przed)",
+   "nl": "Gratis annuleren tot (uur vooraf)",
+   "zh": "免费取消截止（提前小时数）"
+  },
+  "Después, se devuelve (%)": {
+   "en": "After that, refund (%)",
+   "fr": "Ensuite, remboursement (%)",
+   "de": "Danach wird erstattet (%)",
+   "it": "Dopo, si rimborsa (%)",
+   "pt": "Depois, devolve-se (%)",
+   "pl": "Później zwrot (%)",
+   "nl": "Daarna wordt terugbetaald (%)",
+   "zh": "之后退款（%）"
+  },
+  "⚡ Reserva inmediata": {
+   "en": "⚡ Instant booking",
+   "fr": "⚡ Réservation immédiate",
+   "de": "⚡ Sofortbuchung",
+   "it": "⚡ Prenotazione immediata",
+   "pt": "⚡ Reserva imediata",
+   "pl": "⚡ Natychmiastowa rezerwacja",
+   "nl": "⚡ Direct boeken",
+   "zh": "⚡ 即时预订"
+  },
+  "✋ Tú apruebas cada reserva": {
+   "en": "✋ You approve each booking",
+   "fr": "✋ Vous validez chaque réservation",
+   "de": "✋ Du bestätigst jede Buchung",
+   "it": "✋ Approvi tu ogni prenotazione",
+   "pt": "✋ Tu aprovas cada reserva",
+   "pl": "✋ Zatwierdzasz każdą rezerwację",
+   "nl": "✋ Jij keurt elke boeking goed",
+   "zh": "✋ 每个预订由你确认"
+  },
+  "Pon el precio: es obligatorio y se publica tal cual.": {
+   "en": "Enter the price: it is required and is published as it is.",
+   "fr": "Indiquez le prix : il est obligatoire et publié tel quel.",
+   "de": "Gib den Preis ein: Er ist Pflicht und wird so veröffentlicht.",
+   "it": "Inserisci il prezzo: è obbligatorio e si pubblica così com’è.",
+   "pt": "Põe o preço: é obrigatório e publica-se tal como está.",
+   "pl": "Podaj cenę: jest obowiązkowa i publikowana bez zmian.",
+   "nl": "Vul de prijs in: die is verplicht en wordt zo gepubliceerd.",
+   "zh": "请填写价格：此项必填，并按原样公布。"
+  },
+  "Sin equipo de alquiler": {
+   "en": "No rental equipment",
+   "fr": "Sans équipement de location",
+   "de": "Ohne Leihausrüstung",
+   "it": "Senza attrezzatura a noleggio",
+   "pt": "Sem equipamento de aluguer",
+   "pl": "Bez sprzętu do wypożyczenia",
+   "nl": "Zonder huuruitrusting",
+   "zh": "无租赁装备"
+  },
+  "Ninguna todavía": {
+   "en": "None yet",
+   "fr": "Aucune pour l’instant",
+   "de": "Noch keine",
+   "it": "Nessuna ancora",
+   "pt": "Nenhuma ainda",
+   "pl": "Jeszcze żadnej",
+   "nl": "Nog geen",
+   "zh": "暂无"
+  },
+  "Las que ya tiene": {
+   "en": "The ones it already has",
+   "fr": "Celles qu’il a déjà",
+   "de": "Die vorhandenen",
+   "it": "Quelle che ha già",
+   "pt": "As que já tem",
+   "pl": "Te, które już ma",
+   "nl": "Die het al heeft",
+   "zh": "已有的"
+  },
+  "¿Cuántos días dura?": {
+   "en": "How many days does it last?",
+   "fr": "Combien de jours dure-t-il ?",
+   "de": "Wie viele Tage dauert er?",
+   "it": "Quanti giorni dura?",
+   "pt": "Quantos dias dura?",
+   "pl": "Ile dni trwa?",
+   "nl": "Hoeveel dagen duurt het?",
+   "zh": "持续几天？"
+  },
+  "Qué se hace en cada sesión": {
+   "en": "What is done in each session",
+   "fr": "Ce qui se fait à chaque séance",
+   "de": "Was in jeder Einheit gemacht wird",
+   "it": "Cosa si fa in ogni sessione",
+   "pt": "O que se faz em cada sessão",
+   "pl": "Co robi się na każdej sesji",
+   "nl": "Wat er in elke sessie gebeurt",
+   "zh": "每节课的内容"
+  },
+  "Ediciones del curso": {
+   "en": "Course editions",
+   "fr": "Sessions du cours",
+   "de": "Kurstermine",
+   "it": "Edizioni del corso",
+   "pt": "Edições do curso",
+   "pl": "Edycje kursu",
+   "nl": "Cursusedities",
+   "zh": "课程开班"
+  },
+  "Cada semana": {
+   "en": "Every week",
+   "fr": "Chaque semaine",
+   "de": "Jede Woche",
+   "it": "Ogni settimana",
+   "pt": "Todas as semanas",
+   "pl": "Co tydzień",
+   "nl": "Elke week",
+   "zh": "每周"
+  },
+  "Instructor de estas ediciones": {
+   "en": "Instructor of these editions",
+   "fr": "Instructeur de ces sessions",
+   "de": "Tauchlehrer dieser Termine",
+   "it": "Istruttore di queste edizioni",
+   "pt": "Instrutor destas edições",
+   "pl": "Instruktor tych edycji",
+   "nl": "Instructeur van deze edities",
+   "zh": "这些开班的教练"
+  },
+  "Añade la primera fecha.": {
+   "en": "Add the first date.",
+   "fr": "Ajoutez la première date.",
+   "de": "Füge den ersten Termin hinzu.",
+   "it": "Aggiungi la prima data.",
+   "pt": "Adiciona a primeira data.",
+   "pl": "Dodaj pierwszą datę.",
+   "nl": "Voeg de eerste datum toe.",
+   "zh": "请添加第一个日期。"
+  },
+  "Plazas por edición del curso": {
+   "en": "Places per course edition",
+   "fr": "Places par session du cours",
+   "de": "Plätze pro Kurstermin",
+   "it": "Posti per edizione del corso",
+   "pt": "Lugares por edição do curso",
+   "pl": "Miejsca na edycję kursu",
+   "nl": "Plaatsen per cursuseditie",
+   "zh": "每期课程名额"
+  },
+  "Pon cuántas plazas tiene cada edición del curso.": {
+   "en": "Enter how many places each course edition has.",
+   "fr": "Indiquez combien de places a chaque session du cours.",
+   "de": "Gib an, wie viele Plätze jeder Kurstermin hat.",
+   "it": "Indica quanti posti ha ogni edizione del corso.",
+   "pt": "Indica quantos lugares tem cada edição do curso.",
+   "pl": "Podaj, ile miejsc ma każda edycja kursu.",
+   "nl": "Geef aan hoeveel plaatsen elke cursuseditie heeft.",
+   "zh": "请填写每期课程的名额。"
+  },
+  "¿Cómo se cobra?": {
+   "en": "How is it charged?",
+   "fr": "Comment est-ce facturé ?",
+   "de": "Wie wird abgerechnet?",
+   "it": "Come si paga?",
+   "pt": "Como se cobra?",
+   "pl": "Jak się płaci?",
+   "nl": "Hoe wordt het gerekend?",
+   "zh": "如何收费？"
+  },
+  "Cómo se cobra": {
+   "en": "How it is charged",
+   "fr": "Facturation",
+   "de": "Abrechnung",
+   "it": "Come si paga",
+   "pt": "Como se cobra",
+   "pl": "Sposób płatności",
+   "nl": "Hoe het wordt gerekend",
+   "zh": "收费方式"
+  },
+  "Fecha de fin": {
+   "en": "End date",
+   "fr": "Date de fin",
+   "de": "Enddatum",
+   "it": "Data di fine",
+   "pt": "Data de fim",
+   "pl": "Data zakończenia",
+   "nl": "Einddatum",
+   "zh": "结束日期"
+  },
+  "viaje": {
+   "en": "trip",
+   "fr": "voyage",
+   "de": "Reise",
+   "it": "viaggio",
+   "pt": "viagem",
+   "pl": "wyjazd",
+   "nl": "reis",
+   "zh": "旅行"
+  },
+  "Plazas del viaje": {
+   "en": "Places on the trip",
+   "fr": "Places du voyage",
+   "de": "Plätze der Reise",
+   "it": "Posti del viaggio",
+   "pt": "Lugares da viagem",
+   "pl": "Miejsca na wyjeździe",
+   "nl": "Plaatsen op de reis",
+   "zh": "旅行名额"
+  },
+  "Pon la fecha de inicio y la de fin del viaje.": {
+   "en": "Enter the start and end dates of the trip.",
+   "fr": "Indiquez les dates de début et de fin du voyage.",
+   "de": "Gib Start- und Enddatum der Reise ein.",
+   "it": "Inserisci la data di inizio e di fine del viaggio.",
+   "pt": "Põe a data de início e de fim da viagem.",
+   "pl": "Podaj datę rozpoczęcia i zakończenia wyjazdu.",
+   "nl": "Vul de begin- en einddatum van de reis in.",
+   "zh": "请填写旅行的开始和结束日期。"
+  },
+  "Sin tallas": {
+   "en": "No sizes",
+   "fr": "Sans tailles",
+   "de": "Ohne Größen",
+   "it": "Senza taglie",
+   "pt": "Sem tamanhos",
+   "pl": "Bez rozmiarów",
+   "nl": "Zonder maten",
+   "zh": "无尺码"
+  },
+  "Número de pie (UE)": {
+   "en": "Shoe size (EU)",
+   "fr": "Pointure (UE)",
+   "de": "Schuhgröße (EU)",
+   "it": "Numero di scarpa (UE)",
+   "pt": "Número de calçado (UE)",
+   "pl": "Rozmiar buta (UE)",
+   "nl": "Schoenmaat (EU)",
+   "zh": "鞋码（欧码）"
+  },
+  "Talla XS a XXL y grosor": {
+   "en": "Size XS to XXL and thickness",
+   "fr": "Taille XS à XXL et épaisseur",
+   "de": "Größe XS bis XXL und Stärke",
+   "it": "Taglia da XS a XXL e spessore",
+   "pt": "Tamanho XS a XXL e espessura",
+   "pl": "Rozmiar XS–XXL i grubość",
+   "nl": "Maat XS tot XXL en dikte",
+   "zh": "尺码 XS 至 XXL 及厚度"
+  },
+  "Talla XS a XXL": {
+   "en": "Size XS to XXL",
+   "fr": "Taille XS à XXL",
+   "de": "Größe XS bis XXL",
+   "it": "Taglia da XS a XXL",
+   "pt": "Tamanho XS a XXL",
+   "pl": "Rozmiar XS–XXL",
+   "nl": "Maat XS tot XXL",
+   "zh": "尺码 XS 至 XXL"
+  },
+  "Normal o graduada": {
+   "en": "Standard or prescription",
+   "fr": "Normal ou à la vue",
+   "de": "Normal oder mit Sehstärke",
+   "it": "Normale o graduata",
+   "pt": "Normal ou graduada",
+   "pl": "Zwykła lub korekcyjna",
+   "nl": "Normaal of op sterkte",
+   "zh": "普通或近视"
+  },
+  "Tallas propias": {
+   "en": "Own sizes",
+   "fr": "Tailles personnalisées",
+   "de": "Eigene Größen",
+   "it": "Taglie proprie",
+   "pt": "Tamanhos próprios",
+   "pl": "Własne rozmiary",
+   "nl": "Eigen maten",
+   "zh": "自定义尺码"
+  },
+  "Ofrece alquiler": {
+   "en": "Offers rental",
+   "fr": "Propose la location",
+   "de": "Bietet Verleih an",
+   "it": "Offre noleggio",
+   "pt": "Oferece aluguer",
+   "pl": "Oferuje wypożyczenie",
+   "nl": "Biedt verhuur aan",
+   "zh": "提供租赁"
+  },
+  "Equipo incluido": {
+   "en": "Equipment included",
+   "fr": "Équipement inclus",
+   "de": "Ausrüstung inklusive",
+   "it": "Attrezzatura inclusa",
+   "pt": "Equipamento incluído",
+   "pl": "Sprzęt w cenie",
+   "nl": "Uitrusting inbegrepen",
+   "zh": "含装备"
+  },
+  "Mis tallas": {
+   "en": "My sizes",
+   "fr": "Mes tailles",
+   "de": "Meine Größen",
+   "it": "Le mie taglie",
+   "pt": "Os meus tamanhos",
+   "pl": "Moje rozmiary",
+   "nl": "Mijn maten",
+   "zh": "我的尺码"
+  },
+  "Punto a elegir": {
+   "en": "Site to be chosen",
+   "fr": "Site à choisir",
+   "de": "Tauchplatz nach Wahl",
+   "it": "Punto da scegliere",
+   "pt": "Ponto a escolher",
+   "pl": "Miejsce do wyboru",
+   "nl": "Duikstek nog te kiezen",
+   "zh": "潜点待定"
+  },
+  "Pagas ahora con tarjeta y la reserva queda confirmada al momento, sin esperar al centro. Te guardamos las plazas unos minutos mientras pagas.": {
+   "en": "You pay now by card and the booking is confirmed at once, without waiting for the centre. We hold your places for a few minutes while you pay.",
+   "fr": "Vous payez maintenant par carte et la réservation est confirmée aussitôt, sans attendre le centre. Nous gardons vos places quelques minutes pendant le paiement.",
+   "de": "Du zahlst jetzt mit Karte und die Buchung ist sofort bestätigt, ohne auf das Center zu warten. Wir halten deine Plätze ein paar Minuten, während du zahlst.",
+   "it": "Paghi ora con carta e la prenotazione è confermata subito, senza aspettare il centro. Ti teniamo i posti per qualche minuto mentre paghi.",
+   "pt": "Pagas agora com cartão e a reserva fica confirmada no momento, sem esperar pelo centro. Guardamos-te os lugares uns minutos enquanto pagas.",
+   "pl": "Płacisz teraz kartą, a rezerwacja jest od razu potwierdzona, bez czekania na centrum. Trzymamy dla ciebie miejsca przez kilka minut, gdy płacisz.",
+   "nl": "Je betaalt nu met je kaart en de boeking is meteen bevestigd, zonder op het centrum te wachten. We houden je plaatsen een paar minuten vast terwijl je betaalt.",
+   "zh": "你现在用银行卡付款，预订立即确认，无需等待中心。付款期间我们会为你保留名额几分钟。"
+  },
+  "/ inmersión": {
+   "en": "/ dive",
+   "fr": "/ plongée",
+   "de": "/ Tauchgang",
+   "it": "/ immersione",
+   "pt": "/ mergulho",
+   "pl": "/ nurkowanie",
+   "nl": "/ duik",
+   "zh": "/ 次潜水"
+  },
+  "/ día": {
+   "en": "/ day",
+   "fr": "/ jour",
+   "de": "/ Tag",
+   "it": "/ giorno",
+   "pt": "/ dia",
+   "pl": "/ dzień",
+   "nl": "/ dag",
+   "zh": "/ 天"
+  },
+  "Número de pie": {
+   "en": "Shoe size",
+   "fr": "Pointure",
+   "de": "Schuhgröße",
+   "it": "Numero di scarpa",
+   "pt": "Número de calçado",
+   "pl": "Rozmiar buta",
+   "nl": "Schoenmaat",
+   "zh": "鞋码"
+  },
+  "Boyas": {
+   "en": "Buoys",
+   "fr": "Bouées",
+   "de": "Bojen",
+   "it": "Boe",
+   "pt": "Boias",
+   "pl": "Boje",
+   "nl": "Boeien",
+   "zh": "浮标"
+  },
+  "Capucha": {
+   "en": "Hood",
+   "fr": "Cagoule",
+   "de": "Kopfhaube",
+   "it": "Cappuccio",
+   "pt": "Capuz",
+   "pl": "Kaptur",
+   "nl": "Kap",
+   "zh": "头套"
+  },
+  "Capuchas": {
+   "en": "Hoods",
+   "fr": "Cagoules",
+   "de": "Kopfhauben",
+   "it": "Cappucci",
+   "pt": "Capuzes",
+   "pl": "Kaptury",
+   "nl": "Kappen",
+   "zh": "头套"
+  },
+  "Chaleco (jacket)": {
+   "en": "BCD (jacket)",
+   "fr": "Gilet stabilisateur (stab)",
+   "de": "Tarierweste (Jacket)",
+   "it": "GAV (jacket)",
+   "pt": "Colete (BCD)",
+   "pl": "Kamizelka (jacket)",
+   "nl": "Trimvest (jacket)",
+   "zh": "浮力调整背心（BCD）"
+  },
+  "Guantes": {
+   "en": "Gloves",
+   "fr": "Gants",
+   "de": "Handschuhe",
+   "it": "Guanti",
+   "pt": "Luvas",
+   "pl": "Rękawice",
+   "nl": "Handschoenen",
+   "zh": "手套"
+  },
+  "Jackets": {
+   "en": "BCDs",
+   "fr": "Stabs",
+   "de": "Jackets",
+   "it": "Jacket",
+   "pt": "Coletes",
+   "pl": "Kamizelki",
+   "nl": "Trimvesten",
+   "zh": "浮力背心"
+  },
+  "Linterna": {
+   "en": "Torch",
+   "fr": "Lampe",
+   "de": "Lampe",
+   "it": "Torcia",
+   "pt": "Lanterna",
+   "pl": "Latarka",
+   "nl": "Lamp",
+   "zh": "手电筒"
+  },
+  "Linternas": {
+   "en": "Torches",
+   "fr": "Lampes",
+   "de": "Lampen",
+   "it": "Torce",
+   "pt": "Lanternas",
+   "pl": "Latarki",
+   "nl": "Lampen",
+   "zh": "手电筒"
+  },
+  "Máscaras": {
+   "en": "Masks",
+   "fr": "Masques",
+   "de": "Masken",
+   "it": "Maschere",
+   "pt": "Máscaras",
+   "pl": "Maski",
+   "nl": "Maskers",
+   "zh": "面镜"
+  },
+  "Ordenadores": {
+   "en": "Computers",
+   "fr": "Ordinateurs",
+   "de": "Computer",
+   "it": "Computer",
+   "pt": "Computadores",
+   "pl": "Komputery",
+   "nl": "Computers",
+   "zh": "潜水电脑"
+  },
+  "Regulador (con octopus y manómetro)": {
+   "en": "Regulator (with octopus and gauge)",
+   "fr": "Détendeur (avec octopus et manomètre)",
+   "de": "Atemregler (mit Oktopus und Finimeter)",
+   "it": "Erogatore (con octopus e manometro)",
+   "pt": "Regulador (com octopus e manómetro)",
+   "pl": "Automat (z octopusem i manometrem)",
+   "nl": "Ademautomaat (met octopus en manometer)",
+   "zh": "调节器（含备用二级头和压力表）"
+  },
+  "Reguladores": {
+   "en": "Regulators",
+   "fr": "Détendeurs",
+   "de": "Atemregler",
+   "it": "Erogatori",
+   "pt": "Reguladores",
+   "pl": "Automaty",
+   "nl": "Ademautomaten",
+   "zh": "调节器"
+  },
+  "Traje o neopreno": {
+   "en": "Wetsuit",
+   "fr": "Combinaison",
+   "de": "Neoprenanzug",
+   "it": "Muta",
+   "pt": "Fato de mergulho",
+   "pl": "Pianka",
+   "nl": "Wetsuit",
+   "zh": "潜水服"
+  },
+  "Trajes": {
+   "en": "Wetsuits",
+   "fr": "Combinaisons",
+   "de": "Anzüge",
+   "it": "Mute",
+   "pt": "Fatos",
+   "pl": "Pianki",
+   "nl": "Wetsuits",
+   "zh": "潜水服"
+  },
+  "Traje": {
+   "en": "Wetsuit",
+   "fr": "Combinaison",
+   "de": "Anzug",
+   "it": "Muta",
+   "pt": "Fato",
+   "pl": "Pianka",
+   "nl": "Wetsuit",
+   "zh": "潜水服"
+  },
+  "Jacket": {
+   "en": "BCD",
+   "fr": "Stab",
+   "de": "Jacket",
+   "it": "Jacket",
+   "pt": "Colete",
+   "pl": "Kamizelka",
+   "nl": "Trimvest",
+   "zh": "浮力背心"
+  },
+  "Regulador": {
+   "en": "Regulator",
+   "fr": "Détendeur",
+   "de": "Atemregler",
+   "it": "Erogatore",
+   "pt": "Regulador",
+   "pl": "Automat",
+   "nl": "Ademautomaat",
+   "zh": "调节器"
+  },
+  "Ordenador": {
+   "en": "Computer",
+   "fr": "Ordinateur",
+   "de": "Computer",
+   "it": "Computer",
+   "pt": "Computador",
+   "pl": "Komputer",
+   "nl": "Computer",
+   "zh": "潜水电脑"
+  },
+  "Boya": {
+   "en": "Buoy",
+   "fr": "Bouée",
+   "de": "Boje",
+   "it": "Boa",
+   "pt": "Boia",
+   "pl": "Boja",
+   "nl": "Boei",
+   "zh": "浮标"
   }
  }
 }
