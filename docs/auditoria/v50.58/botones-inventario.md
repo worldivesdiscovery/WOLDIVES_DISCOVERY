@@ -1,6 +1,6 @@
 # Inventario de botones, enlaces y formularios
 
-Generado el 17/10/2026 04:47 con `tests/navegador/inventario_botones.py` en Chromium (escritorio 1366×900, es-ES).
+Generado el 17/10/2026 07:19 con `tests/navegador/inventario_botones.py` en Chromium (escritorio 1366×900, es-ES).
 Cada papel usa su propio servidor con una copia nueva de la base de demostración (`scripts/crear_demo.py`), sin claves externas (Stripe, WhatsApp/Meta, SMTP, ArcGIS, Firebase) y sin salida a internet.
 
 ## Cómo se ha probado
@@ -23,31 +23,15 @@ Cada papel usa su propio servidor con una copia nueva de la base de demostració
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | Visitante (sin sesión) | 35 | 0 | 731 | 719 | 3 | 0 | 0 | 5 | 0 | 4 |
 | Buceador (buzo.prueba) | 51 | 0 | 897 | 885 | 3 | 0 | 0 | 5 | 0 | 4 |
-| Centro propietario (centro.prueba) | 89 | 0 | 1237 | 1198 | 7 | 1 | 0 | 8 | 0 | 23 |
-| Instructor del centro (instructor.prueba) | 76 | 0 | 1085 | 1060 | 4 | 1 | 0 | 8 | 0 | 12 |
-| Freelance (freelance.prueba) | 70 | 0 | 1019 | 989 | 4 | 1 | 0 | 7 | 0 | 18 |
-| Administración (cuenta creada para la prueba) | 79 | 0 | 1222 | 1188 | 6 | 0 | 0 | 10 | 0 | 18 |
-| **Total** | 400 | 0 | 6191 | **6039** | **27** | **3** | **0** | **43** | **0** | **79** |
+| Centro propietario (centro.prueba) | 89 | 0 | 1237 | 1218 | 7 | 0 | 0 | 8 | 0 | 4 |
+| Instructor del centro (instructor.prueba) | 76 | 0 | 1085 | 1069 | 4 | 0 | 0 | 8 | 0 | 4 |
+| Freelance (freelance.prueba) | 70 | 0 | 1019 | 1004 | 4 | 0 | 0 | 7 | 0 | 4 |
+| Administración (cuenta creada para la prueba) | 79 | 0 | 1219 | 1200 | 6 | 0 | 0 | 9 | 0 | 4 |
+| **Total** | 400 | 0 | 6188 | **6095** | **27** | **0** | **0** | **42** | **0** | **24** |
 
 ## Hallazgos: «Error» y «Sin efecto»
 
-### Centro propietario (centro.prueba)
-
-| Pantalla | Elemento | Tipo | Resultado | Qué pasa | Cómo reproducirlo |
-|---|---|---|---|---|---|
-| Bahía Coralina Centro de Buceo · Resumen `#/admin` | OPERACIONES ▾ | Botón | Sin efecto | No pasa nada visible y no se llama al servidor (observado 1,5 s y repetido con 3,5 s en la pantalla recién abierta) | Entra como `centro.prueba` (contraseña `Worldives-Prueba-2026`); abre `#/admin`; pulsa «OPERACIONES ▾». |
-
-### Instructor del centro (instructor.prueba)
-
-| Pantalla | Elemento | Tipo | Resultado | Qué pasa | Cómo reproducirlo |
-|---|---|---|---|---|---|
-| Bahía Coralina Centro de Buceo · Resumen `#/admin` | OPERACIONES ▾ | Botón | Sin efecto | No pasa nada visible y no se llama al servidor (observado 1,5 s y repetido con 3,5 s en la pantalla recién abierta) | Entra como `instructor.prueba` (contraseña `Worldives-Prueba-2026`); abre `#/admin`; pulsa «OPERACIONES ▾». |
-
-### Freelance (freelance.prueba)
-
-| Pantalla | Elemento | Tipo | Resultado | Qué pasa | Cómo reproducirlo |
-|---|---|---|---|---|---|
-| Diego Arenas · Resumen `#/admin?tab=dashboard` | MI ACTIVIDAD ▾ | Botón | Sin efecto | No pasa nada visible y no se llama al servidor (observado 1,5 s y repetido con 3,5 s en la pantalla recién abierta) | Entra como `freelance.prueba` (contraseña `Worldives-Prueba-2026`); abre `#/admin?tab=dashboard`; pulsa «MI ACTIVIDAD ▾». |
+Ninguno.
 
 ## Depende de una clave pendiente
 
@@ -92,9 +76,9 @@ Cada papel usa su propio servidor con una copia nueva de la base de demostració
 | Administración (cuenta creada para la prueba) | Nuevo centro `#/admin?tab=centers&edit=nuevo` | Satélite | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Arrastra el marcador o haz clic en el mapa.» |
 | Administración (cuenta creada para la prueba) | Centro de control de WORLDIVES · Centro de control (y en 35 pantallas más) `#/admin` | (aviso en la pantalla) | ArcGIS (satélite): «Añade la clave de ArcGIS para activar el satélite.» |
 | Administración (cuenta creada para la prueba) | Tu ficha de buceador `#/cuenta` | (aviso en la pantalla) | servicio sin configurar: «La ciudad aproximada aparecerá cuando el servidor la reciba de su proxy (pendiente de configurar).» |
-| Administración (cuenta creada para la prueba) | Centro de control de WORLDIVES · `#/admin?tab=maps` | (aviso en la pantalla) | ArcGIS (satélite): «El mapa base se sirve desde nuestro servidor. La vista satélite pasa por nuestro servidor con la clave de ArcGIS, que nunca llega al navegador; aquí controlas cuántas teselas se sirven al mes para no » |
-| Administración (cuenta creada para la prueba) | Centro de control de WORLDIVES · `#/admin?tab=maps` | (aviso en la pantalla) | ArcGIS (satélite): «Vista satélite (ARCGIS_API_KEY)» |
-| Administración (cuenta creada para la prueba) | Centro de control de WORLDIVES · `#/admin?tab=maps` | (aviso en la pantalla) | ArcGIS (satélite): «Añade la clave de ArcGIS para activar el satélite. Ponla en ARCGIS_API_KEY, en el archivo .env del servidor (nunca en el código), y reinicia. Mientras tanto, los visitantes ven «Satélite» desactivado » |
+| Administración (cuenta creada para la prueba) | Centro de control de WORLDIVES · Mapas `#/admin?tab=maps` | (aviso en la pantalla) | ArcGIS (satélite): «El mapa base se sirve desde nuestro servidor. La vista satélite pasa por nuestro servidor con la clave de ArcGIS, que nunca llega al navegador; aquí controlas cuántas teselas se sirven al mes para no » |
+| Administración (cuenta creada para la prueba) | Centro de control de WORLDIVES · Mapas `#/admin?tab=maps` | (aviso en la pantalla) | ArcGIS (satélite): «Vista satélite (ARCGIS_API_KEY)» |
+| Administración (cuenta creada para la prueba) | Centro de control de WORLDIVES · Mapas `#/admin?tab=maps` | (aviso en la pantalla) | ArcGIS (satélite): «Añade la clave de ArcGIS para activar el satélite. Ponla en ARCGIS_API_KEY, en el archivo .env del servidor (nunca en el código), y reinicia. Mientras tanto, los visitantes ven «Satélite» desactivado » |
 | Administración (cuenta creada para la prueba) | Centro de control de WORLDIVES · Ajustes y estado del sistema `#/admin?tab=ops` | (aviso en la pantalla) | Correo (SMTP): «Sin WOD_SMTP_HOST: los correos esperan en la cola (72 h) hasta configurar el proveedor (docs/despliegue/README.md).» |
 | Administración (cuenta creada para la prueba) | Centro de control de WORLDIVES · Ajustes y estado del sistema `#/admin?tab=ops` | (aviso en la pantalla) | Stripe: «Sin STRIPE_SECRET_KEY: los cobros online están desactivados.» |
 | Administración (cuenta creada para la prueba) | Centro de control de WORLDIVES · Ajustes y estado del sistema `#/admin?tab=ops` | (aviso en la pantalla) | ArcGIS (satélite): «Sin ARCGIS_API_KEY: la vista satélite no aparece.» |
@@ -103,7 +87,7 @@ Cada papel usa su propio servidor con una copia nueva de la base de demostració
 
 ### Visitante (sin sesión)
 
-35 pantallas, 731 elementos probados en 10 min 39 s.
+35 pantallas, 731 elementos probados en 10 min 43 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -160,10 +144,10 @@ Cada papel usa su propio servidor con una copia nueva de la base de demostració
 | Encuentra tu próxima inmersión | Mapa | Botón | Funciona | Ya estaba seleccionado: pulsarlo otra vez no cambia nada (correcto) |
 | Encuentra tu próxima inmersión | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | Encuentra tu próxima inmersión | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (18 elementos): «Leaflet» |
-| Encuentra tu próxima inmersión | Fernando de Noronha – Sancho | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
+| Encuentra tu próxima inmersión | Fernando de Noronha – Sancho | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (145 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
 | Encuentra tu próxima inmersión | Fiji – Great White Wall | Elemento div (role=button) | Funciona | Desplaza el contenido · clic forzado (otro elemento lo tapa) |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (19 elementos): «2» · hay 15 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (6 elementos): «Rainbow Reef» |
+| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (7 elementos): «Rainbow Reef» |
 | Encuentra tu próxima inmersión | Zoom in | Enlace | Funciona | Muestra contenido nuevo (64 elementos): «2» |
 | Encuentra tu próxima inmersión | Zoom out | Enlace | Funciona | Cambia su estado (class: leaflet-control-zoom-out → leaflet-control-zoom-out leaflet-disabled) · Cambia la pantalla (4 elementos nuevos, 0 quitados) |
 | Encuentra tu próxima inmersión | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
@@ -191,11 +175,11 @@ Cada papel usa su propio servidor con una copia nueva de la base de demostració
 | El mapa del buceo | Pináculos | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Profundas | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Filtros | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
-| El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (21 elementos nuevos, 58 quitados) |
-| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 62 quitados) |
-| El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 62 quitados) |
+| El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
+| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 60 quitados) |
+| El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
 | El mapa del buceo | 04 África y Mar Rojo 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
-| El mapa del buceo | 05 Oceanía 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
+| El mapa del buceo | 05 Oceanía 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 24 quitados) |
 | El mapa del buceo | 06 Caribe 17 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
 | El mapa del buceo | Mapa | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (4 elementos): «Leaflet» |
 | El mapa del buceo | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
@@ -269,7 +253,7 @@ Cada papel usa su propio servidor con una copia nueva de la base de demostració
 | Puntos de buceo | Venezuela 1 | Botón | Funciona | Abre #/puntos?area=Venezuela |
 | Puntos de buceo | Ver más zonas | Botón | Funciona | Cambia hidden en button.pt-zarrow (vacío → sin atributo) |
 | Puntos de buceo | Ver por zonas | Botón | Funciona | Abre #/puntos?sort=area |
-| Puntos de buceo | Arrecifes El Tangó Marina Alta · Xàbia · España Para empezar | Enlace | Funciona | Abre #/punto?id=355 · POST /api/visita → 200 · hay 11 más iguales en la lista (no se prueban todos) |
+| Puntos de buceo | Arrecifes El Tangó Marina Alta · Xàbia · España Para empezar | Enlace | Funciona | Muestra contenido nuevo (16 elementos): «Pináculos Montaña Sumergida - Cabo Negro Marina Alta · Xàbia · España 10–21 m Intermedio 1 centro» · POST /api/visita → 200 · hay 11 más iguales en la lista (no se prueban todos) |
 | Puntos de buceo | Ver más puntos (281) | Botón | Funciona | Muestra contenido nuevo (48 elementos): «Paredes Bajo del Faro - Isla de Benidorm Costa Blanca · Benidorm · España 8–25 m Intermedio» · clic forzado (otro elemento lo tapa) |
 
 #### Centros de buceo · `#/centros`
@@ -739,7 +723,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Añadir a una reserva | Enlace | Funciona | Abre #/reservar?center=31&service=25 · POST /api/stats/track → 200 |
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» · hay 1 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» |
-| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Chloé✓ Inmersión verificada 18 ago 2026 ★ ★ ★ ★ ★ Great dive centre Friendly team, clear briefings and beautiful dive si» |
+| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Lukas✓ Inmersión verificada 2 oct 2026 ★ ★ ★ ★ ★ Très bonne sortie Belle plongée et équipe sympathique. Un peu d’attente» |
 | Bahía Coralina Centro de Buceo | Ver punto | Enlace | Funciona | Mismo enlace (#/punto?id=329) que «#/punto?id=329» en «¿Te apetece bucear?»: Abre #/punto?id=201 · POST /api/visita → 200 · hay 9 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Ver viaje | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
@@ -1017,7 +1001,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 
 ### Buceador (buzo.prueba)
 
-51 pantallas, 897 elementos probados en 10 min 59 s.
+51 pantallas, 897 elementos probados en 11 min 8 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -1074,10 +1058,10 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Encuentra tu próxima inmersión | Mapa | Botón | Funciona | Ya estaba seleccionado: pulsarlo otra vez no cambia nada (correcto) |
 | Encuentra tu próxima inmersión | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | Encuentra tu próxima inmersión | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (18 elementos): «Leaflet» |
-| Encuentra tu próxima inmersión | Fernando de Noronha – Sancho | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (147 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
+| Encuentra tu próxima inmersión | Fernando de Noronha – Sancho | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
 | Encuentra tu próxima inmersión | Fiji – Great White Wall | Elemento div (role=button) | Funciona | Desplaza el contenido · clic forzado (otro elemento lo tapa) |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (19 elementos): «2» · hay 15 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (6 elementos): «Rainbow Reef» |
+| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (7 elementos): «Rainbow Reef» |
 | Encuentra tu próxima inmersión | Zoom in | Enlace | Funciona | Muestra contenido nuevo (64 elementos): «2» |
 | Encuentra tu próxima inmersión | Zoom out | Enlace | Funciona | Cambia su estado (class: leaflet-control-zoom-out → leaflet-control-zoom-out leaflet-disabled) · Cambia la pantalla (4 elementos nuevos, 0 quitados) |
 | Encuentra tu próxima inmersión | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
@@ -1095,7 +1079,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | El mapa del buceo | Volver a la pantalla anterior | Botón | Funciona | Abre #/ · POST /api/visita → 200 |
-| El mapa del buceo | Cerca de mí | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) |
+| El mapa del buceo | Cerca de mí | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Cambia la pantalla (0 elementos nuevos, 5 quitados) |
 | El mapa del buceo | Todos | Botón | Funciona | Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Arrecifes | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Paredes | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
@@ -1104,23 +1088,23 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | El mapa del buceo | Muck | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Pináculos | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Profundas | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
-| El mapa del buceo | Filtros | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
-| El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
+| El mapa del buceo | Filtros | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 5 quitados) |
+| El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (39 elementos): «2» |
 | El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
-| El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
+| El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 24 quitados) |
 | El mapa del buceo | 04 África y Mar Rojo 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
 | El mapa del buceo | 05 Oceanía 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
 | El mapa del buceo | 06 Caribe 17 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
 | El mapa del buceo | Mapa | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (4 elementos): «Leaflet» |
 | El mapa del buceo | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | El mapa del buceo | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (4 elementos): «Leaflet» |
-| El mapa del buceo | Islas Columbretes, Castellón | Elemento div (role=button) | Funciona | Muestra contenido nuevo (6 elementos): «×» · hay 7 más iguales en la lista (no se prueban todos) |
+| El mapa del buceo | Islas Columbretes, Castellón | Elemento div (role=button) | Funciona | Cambia su estado (aria-describedby: sin atributo → leaflet-tooltip-1074) · Muestra contenido nuevo (8 elementos): «Islas Columbretes, Castellón» · hay 7 más iguales en la lista (no se prueban todos) |
 | El mapa del buceo | Costa del Sol, Málaga | Elemento div (role=button) | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
 | El mapa del buceo | 2 | Elemento div (role=button) | No probado | El inventario no ha podido probarlo: TimeoutError: Locator.evaluate: Timeout 10000ms exceeded. · hay 8 más iguales en la lista (no se prueban todos) |
 | El mapa del buceo | 3 | Elemento div (role=button) | No probado | El inventario no ha podido probarlo: TimeoutError: Locator.evaluate: Timeout 10000ms exceeded. |
 | El mapa del buceo | Seguridad en el buceo | Enlace | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| El mapa del buceo | Zoom in | Enlace | Funciona | Cambia la pantalla (1 elementos nuevos, 39 quitados) |
-| El mapa del buceo | Zoom out | Enlace | Funciona | Cambia la pantalla (0 elementos nuevos, 5 quitados) |
+| El mapa del buceo | Zoom in | Enlace | Funciona | Cambia la pantalla (0 elementos nuevos, 5 quitados) |
+| El mapa del buceo | Zoom out | Enlace | Funciona | Muestra contenido nuevo (5 elementos): «2» |
 | El mapa del buceo | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
 
 #### Puntos de buceo · `#/puntos`
@@ -1664,7 +1648,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | 2 estrellas | Botón | Funciona | Cambia class en button.pick-star (pick-star selected → pick-star) |
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» · hay 1 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» |
-| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Chloé✓ Inmersión verificada 18 ago 2026 ★ ★ ★ ★ ★ Great dive centre Friendly team, clear briefings and beautiful dive si» |
+| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Lukas✓ Inmersión verificada 2 oct 2026 ★ ★ ★ ★ ★ Très bonne sortie Belle plongée et équipe sympathique. Un peu d’attente» |
 | Bahía Coralina Centro de Buceo | Ver punto | Enlace | Funciona | Mismo enlace (#/punto?id=329) que «#/punto?id=329» en «¿Te apetece bucear?»: Abre #/punto?id=201 · POST /api/visita → 200 · hay 9 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Ver viaje | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
@@ -2019,9 +2003,9 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Recompensas | Leyenda 6720 puntos | Enlace | Funciona | Mismo enlace (#/recompensas) que «Leyenda 6720 puntos» en «Hola, Bea»: Abre #/recompensas |
-| Recompensas | Ver promoción Nocturna a mitad de precio | Enlace | Funciona | Abre #/promo/EMCN9XQKXP |
-| Recompensas | Ver promoción Bono 10 inmersiones | Enlace | Funciona | Abre #/promo/LXMBCKVYRQ |
-| Recompensas | Ver promoción 10 % en tu próxima inmersión | Enlace | Funciona | Abre #/promo/CWVMQSGYTC |
+| Recompensas | Ver promoción Nocturna a mitad de precio | Enlace | Funciona | Abre #/promo/TF9BBV5CFL |
+| Recompensas | Ver promoción Bono 10 inmersiones | Enlace | Funciona | Abre #/promo/V3XH73ZNNL |
+| Recompensas | Ver promoción 10 % en tu próxima inmersión | Enlace | Funciona | Abre #/promo/JNCQKVN8XJ |
 | Recompensas | Cómo funcionan | Enlace | Funciona | Abre #/como-funcionan-los-puntos |
 | Recompensas | Canjear | Botón | Funciona | Pide confirmación «¿Canjear tus puntos por esta ventaja?» (cancelado) · hay 2 más iguales en la lista (no se prueban todos) |
 | Recompensas | Canjear | Botón | Funciona | Pide confirmación «¿Canjear tus puntos por esta ventaja?» (cancelado) |
@@ -2177,7 +2161,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 
 ### Centro propietario (centro.prueba)
 
-89 pantallas, 1237 elementos probados en 19 min 25 s.
+89 pantallas, 1237 elementos probados en 18 min 23 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -2191,7 +2175,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Encuentra tu próxima inmersión · cabecera | Tipos de buceo | Enlace | Funciona | Abre #/tipos · POST /api/visita → 200 |
 | Encuentra tu próxima inmersión · cabecera | Experiencias | Enlace | Funciona | Abre #/experiencias · POST /api/visita → 200 |
 | Encuentra tu próxima inmersión · cabecera | Top 10 buceos | Enlace | Funciona | Abre #/top10 · POST /api/visita → 200 |
-| Encuentra tu próxima inmersión · cabecera | Seleccionar idioma | Desplegable | Funciona | Recarga la página con /?lang=en · POST /api/account/language → 200 |
+| Encuentra tu próxima inmersión · cabecera | Seleccionar idioma | Desplegable | Funciona | Recarga la página con /?lang=en · POST /api/visita → 200 |
 | Encuentra tu próxima inmersión · cabecera | ML Marta ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
 | Encuentra tu próxima inmersión · pie de página | Explorar el mapa | Enlace | Funciona | Mismo enlace (#/explorar) que «Explorar» en «Encuentra tu próxima inmersión»: Abre #/explorar · POST /api/visita → 200 |
 | Encuentra tu próxima inmersión · pie de página | Top 10 cerca de ti | Enlace | Funciona | Mismo enlace (#/top10) que «Top 10 buceos» en «Encuentra tu próxima inmersión»: Abre #/top10 · POST /api/visita → 200 |
@@ -2237,7 +2221,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Encuentra tu próxima inmersión | Fernando de Noronha – Sancho | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
 | Encuentra tu próxima inmersión | Fiji – Great White Wall | Elemento div (role=button) | Funciona | Desplaza el contenido · clic forzado (otro elemento lo tapa) |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (19 elementos): «2» · hay 15 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (6 elementos): «Rainbow Reef» |
+| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (7 elementos): «Rainbow Reef» |
 | Encuentra tu próxima inmersión | Zoom in | Enlace | Funciona | Muestra contenido nuevo (64 elementos): «2» |
 | Encuentra tu próxima inmersión | Zoom out | Enlace | Funciona | Cambia su estado (class: leaflet-control-zoom-out → leaflet-control-zoom-out leaflet-disabled) · Cambia la pantalla (4 elementos nuevos, 0 quitados) |
 | Encuentra tu próxima inmersión | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
@@ -2265,11 +2249,11 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | El mapa del buceo | Pináculos | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Profundas | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Filtros | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
-| El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (21 elementos nuevos, 40 quitados) |
-| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
+| El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
+| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 62 quitados) |
 | El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
 | El mapa del buceo | 04 África y Mar Rojo 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
-| El mapa del buceo | 05 Oceanía 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 60 quitados) |
+| El mapa del buceo | 05 Oceanía 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
 | El mapa del buceo | 06 Caribe 17 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
 | El mapa del buceo | Mapa | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (4 elementos): «Leaflet» |
 | El mapa del buceo | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
@@ -2279,8 +2263,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | El mapa del buceo | 2 | Elemento div (role=button) | No probado | El inventario no ha podido probarlo: TimeoutError: Locator.evaluate: Timeout 10000ms exceeded. · hay 8 más iguales en la lista (no se prueban todos) |
 | El mapa del buceo | 3 | Elemento div (role=button) | No probado | El inventario no ha podido probarlo: TimeoutError: Locator.evaluate: Timeout 10000ms exceeded. |
 | El mapa del buceo | Seguridad en el buceo | Enlace | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| El mapa del buceo | Zoom in | Enlace | Funciona | Cambia la pantalla (1 elementos nuevos, 47 quitados) |
-| El mapa del buceo | Zoom out | Enlace | Funciona | Cambia la pantalla (0 elementos nuevos, 8 quitados) |
+| El mapa del buceo | Zoom in | Enlace | Funciona | Cambia la pantalla (0 elementos nuevos, 5 quitados) |
+| El mapa del buceo | Zoom out | Enlace | Funciona | Cambia la pantalla (0 elementos nuevos, 18 quitados) |
 | El mapa del buceo | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
 
 #### Puntos de buceo · `#/puntos`
@@ -2343,8 +2327,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Puntos de buceo | Venezuela 1 | Botón | Funciona | Abre #/puntos?area=Venezuela |
 | Puntos de buceo | Ver más zonas | Botón | Funciona | Cambia hidden en button.pt-zarrow (vacío → sin atributo) |
 | Puntos de buceo | Ver por zonas | Botón | Funciona | Abre #/puntos?sort=area |
-| Puntos de buceo | Arrecifes El Tangó Marina Alta · Xàbia · España Para empezar | Enlace | Funciona | Muestra contenido nuevo (16 elementos): «Pináculos Montaña Sumergida - Cabo Negro Marina Alta · Xàbia · España 10–21 m Intermedio 1 centro» · POST /api/visita → 200 · hay 11 más iguales en la lista (no se prueban todos) |
-| Puntos de buceo | Ver más puntos (281) | Botón | Funciona | Muestra contenido nuevo (48 elementos): «Paredes Bajo del Faro - Isla de Benidorm Costa Blanca · Benidorm · España 8–25 m Intermedio» · clic forzado (otro elemento lo tapa) |
+| Puntos de buceo | Arrecifes El Tangó Marina Alta · Xàbia · España Para empezar | Enlace | Funciona | Abre #/punto?id=355 · POST /api/visita → 200 · hay 11 más iguales en la lista (no se prueban todos) |
+| Puntos de buceo | Ver más puntos (281) | Botón | Funciona | Muestra contenido nuevo (32 elementos): «Paredes Bajo del Faro - Isla de Benidorm Costa Blanca · Benidorm · España 8–25 m Intermedio» |
 
 #### Centros de buceo · `#/centros`
 
@@ -2804,8 +2788,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» · hay 1 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Responder | Botón | Funciona | Abre la ventana «Responder a la reseña» |
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» |
-| Bahía Coralina Centro de Buceo | Editar respuesta | Botón | Funciona | Abre la ventana «Responder a la reseña» |
-| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Chloé✓ Inmersión verificada 18 ago 2026 ★ ★ ★ ★ ★ Great dive centre Friendly team, clear briefings and beautiful dive si» |
+| Bahía Coralina Centro de Buceo | Responder | Botón | Funciona | Abre la ventana «Responder a la reseña» |
+| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Lukas✓ Inmersión verificada 2 oct 2026 ★ ★ ★ ★ ★ Très bonne sortie Belle plongée et équipe sympathique. Un peu d’attente» |
 | Bahía Coralina Centro de Buceo | Ver punto | Enlace | Funciona | Mismo enlace (#/punto?id=329) que «#/punto?id=329» en «¿Te apetece bucear?»: Abre #/punto?id=201 · POST /api/visita → 200 · hay 9 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Ver viaje | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
@@ -3107,35 +3091,35 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · Resumen | Ver mi página | Enlace | Funciona | Abre #/centro?id=31 · POST /api/visita → 200 |
 | Bahía Coralina Centro de Buceo · Resumen | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Sábado, 17 de octubre Buenos días. Hoy tienes 3 reservas con 4 buceadores. + Nueva reserva Abrir planning Hoy 3 4 person» |
 | Bahía Coralina Centro de Buceo · Resumen | Plegar el menú | Botón | Funciona | Cambia su estado (aria-pressed: false → true) |
-| Bahía Coralina Centro de Buceo · Resumen | OPERACIONES ▾ | Botón | Sin efecto | No pasa nada visible y no se llama al servidor (observado 1,5 s y repetido con 3,5 s en la pantalla recién abierta) |
+| Bahía Coralina Centro de Buceo · Resumen | OPERACIONES ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Bahía Coralina Centro de Buceo · Resumen | Resumen | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Sábado, 17 de octubre Buenos días. Hoy tienes 3 reservas con 4 buceadores. + Nueva reserva Abrir planning Hoy 3 4 person» |
 | Bahía Coralina Centro de Buceo · Resumen | Planning / agenda | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando el planning…» |
 | Bahía Coralina Centro de Buceo · Resumen | Reservas 2 | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
 | Bahía Coralina Centro de Buceo · Resumen | Clientes | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (1 elementos): «Base de clientes Clientes Todas las personas que han reservado con tu centro o han hecho check-in con tu QR. 20 clientes» |
 | Bahía Coralina Centro de Buceo · Resumen | Logbook y pasaporte | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «LOGBOOK DE TUS BUCEADORES Logbook y pasaporte Registra cada inmersión una vez y dale a cada buceador su QR: al escanearl» |
 | Bahía Coralina Centro de Buceo · Resumen | VENTAS ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Bahía Coralina Centro de Buceo · Resumen | Servicios y tarifas | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Equipo de alquiler | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Experiencias | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Cobros y pagos | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Bahía Coralina Centro de Buceo · Resumen | Servicios y tarifas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (17 elementos): «Cargando catálogo…» |
+| Bahía Coralina Centro de Buceo · Resumen | Equipo de alquiler | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Catálogo y precios Equipo de alquiler Dilo una sola vez: cada inmersión lo ofrece con estos precios y el buceador marca » |
+| Bahía Coralina Centro de Buceo · Resumen | Experiencias | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando experiencias…» |
+| Bahía Coralina Centro de Buceo · Resumen | Cobros y pagos | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «COBROS Y PAGOS Cobros del centro El cliente paga en una página segura de Stripe y el dinero va directamente a tu cuenta » |
 | Bahía Coralina Centro de Buceo · Resumen | CONTROL ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Bahía Coralina Centro de Buceo · Resumen | Analítica e informes | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Reservas desde tu web e Instagram | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Puntos de buceo | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Vídeos y vida marina | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Check-in / QR y promociones | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Bahía Coralina Centro de Buceo · Resumen | Analítica e informes | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «ANALÍTICA Informes y rendimiento Datos operativos del centro, calculados a partir de las reservas reales. Periodo Este m» |
+| Bahía Coralina Centro de Buceo · Resumen | Reservas desde tu web e Instagram | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (5 elementos): «Cargando…» |
+| Bahía Coralina Centro de Buceo · Resumen | Puntos de buceo | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (22 elementos): «CENTRO · PUNTOS Mis puntos de buceo Asocia aquí los lugares a los que suele ir tu centro. No necesitas crear el punto de» |
+| Bahía Coralina Centro de Buceo · Resumen | Vídeos y vida marina | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando…» |
+| Bahía Coralina Centro de Buceo · Resumen | Check-in / QR y promociones | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Promociones Validar un código QR de check-in QR para imprimir» |
 | Bahía Coralina Centro de Buceo · Resumen | CONFIGURACIÓN ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Bahía Coralina Centro de Buceo · Resumen | Escaparate y datos | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Recompensas | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Avisos y WhatsApp | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Bahía Coralina Centro de Buceo · Resumen | Escaparate y datos | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Tu página pública Escaparate Así ven tu centro los buceadores. Cambia la portada, las fotos y los textos cuando quieras.» |
+| Bahía Coralina Centro de Buceo · Resumen | Recompensas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «PUNTOS WORLDIVES Ventajas y puntos Los buceadores canjean sus puntos por las ventajas que tu centro define y paga. Los p» |
+| Bahía Coralina Centro de Buceo · Resumen | Avisos y WhatsApp | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Avisos Avisos a tus clientes y WhatsApp Si cancelas una salida o cambias la hora o el punto de encuentro, avisamos a tod» |
 | Bahía Coralina Centro de Buceo · Resumen | MI CUENTA PROFESIONAL ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Bahía Coralina Centro de Buceo · Resumen | Solicitudes de información | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Estadísticas | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Herramientas | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Equipo | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Registro de actividad | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Datos fiscales y seguro | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Mi plan | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Bahía Coralina Centro de Buceo · Resumen | Solicitudes de información | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Solicitudes de información Mensajes de buceadores interesados Contesta directamente por email o teléfono. Te llegan tamb» |
+| Bahía Coralina Centro de Buceo · Resumen | Estadísticas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Estadísticas Cómo te encuentran los buceadores Datos agregados, sin datos personales. Disponibles en todos los planes. P» |
+| Bahía Coralina Centro de Buceo · Resumen | Herramientas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (4 elementos): «Herramientas Exportar, calendario, widget e importación Exportar mis datos Disponible siempre, en cualquier plan. En Exc» |
+| Bahía Coralina Centro de Buceo · Resumen | Equipo | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (6 elementos): «Enlazar persona Personas enlazadas a tu centro Cada persona entra con su propia cuenta y elige tu centro en su menú. Ve » |
+| Bahía Coralina Centro de Buceo · Resumen | Registro de actividad | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Registro de actividad Quién ha hecho qué en el centro Periodo Este mes Mes anterior Este trimestre Trimestre anterior Es» |
+| Bahía Coralina Centro de Buceo · Resumen | Datos fiscales y seguro | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Datos fiscales y verificación Datos del prestador (DAC7) y seguro La normativa europea DAC7 obliga a las plataformas a i» |
+| Bahía Coralina Centro de Buceo · Resumen | Mi plan | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Mi plan Pro Activo Activo hasta el 17 de octubre de 2027. Las reservas que ya tienes se atienden siempre y puedes export» |
 | Bahía Coralina Centro de Buceo · Resumen | + Nueva reserva | Botón | Funciona | Abre la ventana «Nueva reserva» |
 | Bahía Coralina Centro de Buceo · Resumen | Abrir planning | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando el planning…» |
 | Bahía Coralina Centro de Buceo · Resumen | Hoy 3 4 personas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
@@ -3591,7 +3575,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · Cobros y pagos | Moderada Gratis hasta 48 h antes | Botón | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) · Cambia el texto: «Cancelación gratuita hasta 2 días antes de la actividad; después no hay reembolso.» · Cambia el valor de «Después se devuelve (%)» (50 → 0) |
 | Bahía Coralina Centro de Buceo · Cobros y pagos | Estricta Gratis hasta 7 días antes | Botón | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) · Cambia el texto: «Cancelación gratuita hasta 7 días antes de la actividad; después no hay reembolso.» · Cambia el valor de «Cancelación gratuita hasta (horas antes)» (48 → 168) |
 | Bahía Coralina Centro de Buceo · Cobros y pagos | Guardar política | Botón | Funciona | Aviso: «Política de cancelación guardada. Se aplica a las reservas nuevas.» · POST /api/provider/cancellation-policy → 200 |
-| Bahía Coralina Centro de Buceo · Cobros y pagos | Condiciones para centros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=338#/legal/condiciones-centros |
+| Bahía Coralina Centro de Buceo · Cobros y pagos | Condiciones para centros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=278#/legal/condiciones-centros |
 
 #### Bahía Coralina Centro de Buceo · Analítica e informes · `#/admin?tab=analytics`
 
@@ -3846,10 +3830,10 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Nuevo punto | Puntos de buceo | Enlace | Funciona | Mismo enlace (#/admin?tab=points) que «← Volver» en «Cabo San Antonio»: Abre #/admin?tab=points |
 | Nuevo punto | Datos básicos | Formulario | Funciona | Enviado vacío · Aviso: «Escribe el nombre del punto.» |
 | Nuevo punto | País | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
-| Nuevo punto | Tipo | Desplegable | Funciona | Solo una petición al servidor, sin cambio visible |
+| Nuevo punto | Tipo | Desplegable | Funciona | Muestra contenido nuevo (1 elementos): «Posición comprobada En el mar, a 3.7 km de la orilla» |
 | Nuevo punto | Dificultad | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Nuevo punto | Titulación recomendada | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
-| Nuevo punto | Nuevo punto | Elemento div (role=button) | Funciona | Mueve o amplía el mapa · Cambia el valor de «Latitud» (38.5 → 38.500009) · Cambia el valor de «Longitud» (-0.13 → -0.129991) |
+| Nuevo punto | Nuevo punto | Elemento div (role=button) | Funciona | Muestra contenido nuevo (1 elementos): «Posición comprobada En el mar, a 3.7 km de la orilla» · Cambia el valor de «Latitud» (38.5 → 38.500009) · Cambia el valor de «Longitud» (-0.13 → -0.129991) |
 | Nuevo punto | Zoom in | Enlace | Funciona | Cambia la pantalla (11 elementos nuevos, 18 quitados) |
 | Nuevo punto | Zoom out | Enlace | Funciona | Cambia la pantalla (13 elementos nuevos, 18 quitados) |
 | Nuevo punto | Mapa | Botón | Funciona | Ya estaba seleccionado: pulsarlo otra vez no cambia nada (correcto) |
@@ -3857,14 +3841,14 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Nuevo punto | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (24 elementos): «Leaflet» |
 | Nuevo punto | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
 | Nuevo punto | OpenStreetMap contributors | Enlace externo | Funciona | Enlace externo a www.openstreetmap.org (no se abre: dirección https válida) |
-| Nuevo punto | Acceso | Desplegable | Funciona | Solo una petición al servidor, sin cambio visible |
+| Nuevo punto | Acceso | Desplegable | Funciona | Muestra contenido nuevo (1 elementos): «Posición comprobada En el mar, a 3.7 km de la orilla» |
 | Nuevo punto | Corriente | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Nuevo punto | Protección | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Nuevo punto | Cancelar | Enlace | Funciona | Mismo enlace (#/admin?tab=points) que «← Volver» en «Cabo San Antonio»: Abre #/admin?tab=points |
 
 ### Instructor del centro (instructor.prueba)
 
-76 pantallas, 1085 elementos probados en 14 min 41 s.
+76 pantallas, 1085 elementos probados en 14 min 19 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -3952,12 +3936,12 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | El mapa del buceo | Pináculos | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Profundas | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Filtros | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
-| El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (21 elementos nuevos, 34 quitados) |
-| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 62 quitados) |
+| El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (21 elementos nuevos, 40 quitados) |
+| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
 | El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
-| El mapa del buceo | 04 África y Mar Rojo 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (26 elementos nuevos, 55 quitados) |
+| El mapa del buceo | 04 África y Mar Rojo 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
 | El mapa del buceo | 05 Oceanía 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
-| El mapa del buceo | 06 Caribe 17 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
+| El mapa del buceo | 06 Caribe 17 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (17 elementos nuevos, 40 quitados) |
 | El mapa del buceo | Mapa | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (4 elementos): «Leaflet» |
 | El mapa del buceo | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | El mapa del buceo | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (4 elementos): «Leaflet» |
@@ -3967,7 +3951,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | El mapa del buceo | 3 | Elemento div (role=button) | No probado | El inventario no ha podido probarlo: TimeoutError: Locator.evaluate: Timeout 10000ms exceeded. |
 | El mapa del buceo | Seguridad en el buceo | Enlace | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
 | El mapa del buceo | Zoom in | Enlace | Funciona | Cambia la pantalla (0 elementos nuevos, 5 quitados) |
-| El mapa del buceo | Zoom out | Enlace | Funciona | Cambia la pantalla (0 elementos nuevos, 26 quitados) |
+| El mapa del buceo | Zoom out | Enlace | Funciona | Cambia la pantalla (0 elementos nuevos, 5 quitados) |
 | El mapa del buceo | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
 
 #### Puntos de buceo · `#/puntos`
@@ -4491,8 +4475,8 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» · hay 1 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Responder | Botón | Funciona | Abre la ventana «Responder a la reseña» |
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» |
-| Bahía Coralina Centro de Buceo | Editar respuesta | Botón | Funciona | Abre la ventana «Responder a la reseña» |
-| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Chloé✓ Inmersión verificada 18 ago 2026 ★ ★ ★ ★ ★ Great dive centre Friendly team, clear briefings and beautiful dive si» |
+| Bahía Coralina Centro de Buceo | Responder | Botón | Funciona | Abre la ventana «Responder a la reseña» |
+| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Lukas✓ Inmersión verificada 2 oct 2026 ★ ★ ★ ★ ★ Très bonne sortie Belle plongée et équipe sympathique. Un peu d’attente» |
 | Bahía Coralina Centro de Buceo | Ver punto | Enlace | Funciona | Mismo enlace (#/punto?id=329) que «#/punto?id=329» en «¿Te apetece bucear?»: Abre #/punto?id=201 · POST /api/visita → 200 · hay 9 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Ver viaje | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
@@ -4794,23 +4778,23 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo · Resumen | Ver mi página | Enlace | Funciona | Abre #/centro?id=31 · POST /api/visita → 200 |
 | Bahía Coralina Centro de Buceo · Resumen | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Sábado, 17 de octubre Buenos días. Hoy tienes 3 reservas con 4 buceadores. + Nueva reserva Abrir planning Hoy 3 4 person» |
 | Bahía Coralina Centro de Buceo · Resumen | Plegar el menú | Botón | Funciona | Cambia su estado (aria-pressed: false → true) |
-| Bahía Coralina Centro de Buceo · Resumen | OPERACIONES ▾ | Botón | Sin efecto | No pasa nada visible y no se llama al servidor (observado 1,5 s y repetido con 3,5 s en la pantalla recién abierta) |
+| Bahía Coralina Centro de Buceo · Resumen | OPERACIONES ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Bahía Coralina Centro de Buceo · Resumen | Resumen | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Sábado, 17 de octubre Buenos días. Hoy tienes 3 reservas con 4 buceadores. + Nueva reserva Abrir planning Hoy 3 4 person» |
 | Bahía Coralina Centro de Buceo · Resumen | Planning / agenda | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando el planning…» |
 | Bahía Coralina Centro de Buceo · Resumen | Reservas 2 | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
 | Bahía Coralina Centro de Buceo · Resumen | Logbook y pasaporte | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «LOGBOOK DE TUS BUCEADORES Logbook y pasaporte Registra cada inmersión una vez y dale a cada buceador su QR: al escanearl» |
 | Bahía Coralina Centro de Buceo · Resumen | VENTAS ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Bahía Coralina Centro de Buceo · Resumen | Servicios y tarifas | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Equipo de alquiler | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Experiencias | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Bahía Coralina Centro de Buceo · Resumen | Servicios y tarifas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (17 elementos): «Cargando catálogo…» |
+| Bahía Coralina Centro de Buceo · Resumen | Equipo de alquiler | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Catálogo y precios Equipo de alquiler Dilo una sola vez: cada inmersión lo ofrece con estos precios y el buceador marca » |
+| Bahía Coralina Centro de Buceo · Resumen | Experiencias | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Cargando experiencias…» |
 | Bahía Coralina Centro de Buceo · Resumen | CONTROL ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Bahía Coralina Centro de Buceo · Resumen | Puntos de buceo | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Check-in / QR y promociones | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Bahía Coralina Centro de Buceo · Resumen | Puntos de buceo | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (22 elementos): «CENTRO · PUNTOS Mis puntos de buceo Asocia aquí los lugares a los que suele ir tu centro. No necesitas crear el punto de» |
+| Bahía Coralina Centro de Buceo · Resumen | Check-in / QR y promociones | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Promociones Validar un código QR de check-in QR para imprimir» |
 | Bahía Coralina Centro de Buceo · Resumen | CONFIGURACIÓN ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Bahía Coralina Centro de Buceo · Resumen | Recompensas | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Bahía Coralina Centro de Buceo · Resumen | Avisos y WhatsApp | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Bahía Coralina Centro de Buceo · Resumen | Recompensas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «PUNTOS WORLDIVES Ventajas y puntos Los buceadores canjean sus puntos por las ventajas que tu centro define y paga. Los p» |
+| Bahía Coralina Centro de Buceo · Resumen | Avisos y WhatsApp | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Avisos Avisos a tus clientes y WhatsApp Si cancelas una salida o cambias la hora o el punto de encuentro, avisamos a tod» |
 | Bahía Coralina Centro de Buceo · Resumen | MI CUENTA PROFESIONAL ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Bahía Coralina Centro de Buceo · Resumen | Herramientas | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Bahía Coralina Centro de Buceo · Resumen | Herramientas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (4 elementos): «Herramientas Exportar, calendario, widget e importación Exportar mis datos Disponible siempre, en cualquier plan. En Exc» |
 | Bahía Coralina Centro de Buceo · Resumen | + Nueva reserva | Botón | Funciona | Abre la ventana «Nueva reserva» |
 | Bahía Coralina Centro de Buceo · Resumen | Abrir planning | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando el planning…» |
 | Bahía Coralina Centro de Buceo · Resumen | Hoy 3 4 personas | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Cargando reservas…» |
@@ -5318,10 +5302,10 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | Nuevo punto | Puntos de buceo | Enlace | Funciona | Mismo enlace (#/admin?tab=points) que «← Volver» en «Cabo San Antonio»: Abre #/admin?tab=points |
 | Nuevo punto | Datos básicos | Formulario | Funciona | Enviado vacío · Aviso: «Escribe el nombre del punto.» |
 | Nuevo punto | País | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
-| Nuevo punto | Tipo | Desplegable | Funciona | Muestra contenido nuevo (1 elementos): «Posición comprobada En el mar, a 3.7 km de la orilla» |
+| Nuevo punto | Tipo | Desplegable | Funciona | Solo una petición al servidor, sin cambio visible |
 | Nuevo punto | Dificultad | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Nuevo punto | Titulación recomendada | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
-| Nuevo punto | Nuevo punto | Elemento div (role=button) | Funciona | Muestra contenido nuevo (1 elementos): «Posición comprobada En el mar, a 3.7 km de la orilla» · Cambia el valor de «Latitud» (38.5 → 38.500009) · Cambia el valor de «Longitud» (-0.13 → -0.129991) |
+| Nuevo punto | Nuevo punto | Elemento div (role=button) | Funciona | Mueve o amplía el mapa · Cambia el valor de «Latitud» (38.5 → 38.500009) · Cambia el valor de «Longitud» (-0.13 → -0.129991) |
 | Nuevo punto | Zoom in | Enlace | Funciona | Cambia la pantalla (11 elementos nuevos, 18 quitados) |
 | Nuevo punto | Zoom out | Enlace | Funciona | Cambia la pantalla (13 elementos nuevos, 18 quitados) |
 | Nuevo punto | Mapa | Botón | Funciona | Ya estaba seleccionado: pulsarlo otra vez no cambia nada (correcto) |
@@ -5329,14 +5313,14 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | Nuevo punto | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (24 elementos): «Leaflet» |
 | Nuevo punto | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
 | Nuevo punto | OpenStreetMap contributors | Enlace externo | Funciona | Enlace externo a www.openstreetmap.org (no se abre: dirección https válida) |
-| Nuevo punto | Acceso | Desplegable | Funciona | Muestra contenido nuevo (1 elementos): «Posición comprobada En el mar, a 3.7 km de la orilla» |
+| Nuevo punto | Acceso | Desplegable | Funciona | Solo una petición al servidor, sin cambio visible |
 | Nuevo punto | Corriente | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Nuevo punto | Protección | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Nuevo punto | Cancelar | Enlace | Funciona | Mismo enlace (#/admin?tab=points) que «← Volver» en «Cabo San Antonio»: Abre #/admin?tab=points |
 
 ### Freelance (freelance.prueba)
 
-70 pantallas, 1019 elementos probados en 11 min 7 s.
+70 pantallas, 1019 elementos probados en 11 min 29 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -5350,7 +5334,7 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | Encuentra tu próxima inmersión · cabecera | Tipos de buceo | Enlace | Funciona | Abre #/tipos · POST /api/visita → 200 |
 | Encuentra tu próxima inmersión · cabecera | Experiencias | Enlace | Funciona | Abre #/experiencias · POST /api/visita → 200 |
 | Encuentra tu próxima inmersión · cabecera | Top 10 buceos | Enlace | Funciona | Abre #/top10 · POST /api/visita → 200 |
-| Encuentra tu próxima inmersión · cabecera | Seleccionar idioma | Desplegable | Funciona | Recarga la página con /?lang=en |
+| Encuentra tu próxima inmersión · cabecera | Seleccionar idioma | Desplegable | Funciona | Recarga la página con /?lang=en · POST /api/account/language → 200 |
 | Encuentra tu próxima inmersión · cabecera | DA Diego ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
 | Encuentra tu próxima inmersión · pie de página | Explorar el mapa | Enlace | Funciona | Mismo enlace (#/explorar) que «Explorar» en «Encuentra tu próxima inmersión»: Abre #/explorar · POST /api/visita → 200 |
 | Encuentra tu próxima inmersión · pie de página | Top 10 cerca de ti | Enlace | Funciona | Mismo enlace (#/top10) que «Top 10 buceos» en «Encuentra tu próxima inmersión»: Abre #/top10 · POST /api/visita → 200 |
@@ -5393,7 +5377,7 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | Encuentra tu próxima inmersión | Mapa | Botón | Funciona | Ya estaba seleccionado: pulsarlo otra vez no cambia nada (correcto) |
 | Encuentra tu próxima inmersión | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | Encuentra tu próxima inmersión | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (18 elementos): «Leaflet» |
-| Encuentra tu próxima inmersión | Fernando de Noronha – Sancho | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
+| Encuentra tu próxima inmersión | Fernando de Noronha – Sancho | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (130 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
 | Encuentra tu próxima inmersión | Fiji – Great White Wall | Elemento div (role=button) | Funciona | Desplaza el contenido · clic forzado (otro elemento lo tapa) |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (19 elementos): «2» · hay 15 más iguales en la lista (no se prueban todos) |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (6 elementos): «Rainbow Reef» |
@@ -5425,8 +5409,8 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | El mapa del buceo | Profundas | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Filtros | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
 | El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
-| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
-| El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
+| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 62 quitados) |
+| El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 62 quitados) |
 | El mapa del buceo | 04 África y Mar Rojo 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
 | El mapa del buceo | 05 Oceanía 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
 | El mapa del buceo | 06 Caribe 17 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
@@ -5502,8 +5486,8 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | Puntos de buceo | Venezuela 1 | Botón | Funciona | Abre #/puntos?area=Venezuela |
 | Puntos de buceo | Ver más zonas | Botón | Funciona | Cambia hidden en button.pt-zarrow (vacío → sin atributo) |
 | Puntos de buceo | Ver por zonas | Botón | Funciona | Abre #/puntos?sort=area |
-| Puntos de buceo | Arrecifes El Tangó Marina Alta · Xàbia · España Para empezar | Enlace | Funciona | Muestra contenido nuevo (16 elementos): «Pináculos Montaña Sumergida - Cabo Negro Marina Alta · Xàbia · España 10–21 m Intermedio 1 centro» · POST /api/visita → 200 · hay 11 más iguales en la lista (no se prueban todos) |
-| Puntos de buceo | Ver más puntos (281) | Botón | Funciona | Muestra contenido nuevo (16 elementos): «Paredes Bajo del Faro - Isla de Benidorm Costa Blanca · Benidorm · España 8–25 m Intermedio» |
+| Puntos de buceo | Arrecifes El Tangó Marina Alta · Xàbia · España Para empezar | Enlace | Funciona | Abre #/punto?id=355 · POST /api/visita → 200 · hay 11 más iguales en la lista (no se prueban todos) |
+| Puntos de buceo | Ver más puntos (281) | Botón | Funciona | Muestra contenido nuevo (48 elementos): «Paredes Bajo del Faro - Isla de Benidorm Costa Blanca · Benidorm · España 8–25 m Intermedio» · clic forzado (otro elemento lo tapa) |
 
 #### Centros de buceo · `#/centros`
 
@@ -5983,7 +5967,7 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | Bahía Coralina Centro de Buceo | Añadir a una reserva | Enlace | Funciona | Abre #/reservar?center=31&service=25 · POST /api/stats/track → 200 |
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» · hay 1 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» |
-| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Chloé✓ Inmersión verificada 18 ago 2026 ★ ★ ★ ★ ★ Great dive centre Friendly team, clear briefings and beautiful dive si» |
+| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Lukas✓ Inmersión verificada 2 oct 2026 ★ ★ ★ ★ ★ Très bonne sortie Belle plongée et équipe sympathique. Un peu d’attente» |
 | Bahía Coralina Centro de Buceo | Ver punto | Enlace | Funciona | Mismo enlace (#/punto?id=329) que «#/punto?id=329» en «¿Te apetece bucear?»: Abre #/punto?id=201 · POST /api/visita → 200 · hay 9 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Ver viaje | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
@@ -6266,28 +6250,28 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 | Diego Arenas · Resumen | Ver mi ficha pública | Enlace | Funciona | Abre #/profesional?id=8 · POST /api/visita → 200 |
 | Diego Arenas · Resumen | Mi cuenta | Enlace | Funciona | Abre #/cuenta |
 | Diego Arenas · Resumen | Plegar el menú | Botón | Funciona | Cambia su estado (aria-pressed: false → true) |
-| Diego Arenas · Resumen | MI ACTIVIDAD ▾ | Botón | Sin efecto | No pasa nada visible y no se llama al servidor (observado 1,5 s y repetido con 3,5 s en la pantalla recién abierta) |
+| Diego Arenas · Resumen | MI ACTIVIDAD ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Diego Arenas · Resumen | Resumen | Botón | Funciona | Muestra contenido nuevo (4 elementos): «Cargando…» |
 | Diego Arenas · Resumen | Reservas 2 | Botón | Funciona | Abre #/admin?tab=bookings |
 | Diego Arenas · Resumen | Planning | Botón | Funciona | Abre #/admin?tab=planning |
 | Diego Arenas · Resumen | Mi agenda | Botón | Funciona | Abre #/admin?tab=agenda |
 | Diego Arenas · Resumen | VENTAS ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Diego Arenas · Resumen | Servicios y tarifas | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Diego Arenas · Resumen | Equipo de alquiler | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Diego Arenas · Resumen | Experiencias y solicitudes | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Diego Arenas · Resumen | Cobros y pagos | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Diego Arenas · Resumen | Servicios y tarifas | Botón | Funciona | Abre #/admin?tab=services |
+| Diego Arenas · Resumen | Equipo de alquiler | Botón | Funciona | Abre #/admin?tab=equipment |
+| Diego Arenas · Resumen | Experiencias y solicitudes | Botón | Funciona | Abre #/admin?tab=experiences |
+| Diego Arenas · Resumen | Cobros y pagos | Botón | Funciona | Abre #/admin?tab=payments |
 | Diego Arenas · Resumen | ESCAPARATE Y AVISOS ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Diego Arenas · Resumen | Perfil público | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Diego Arenas · Resumen | Vídeos y vida marina | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Diego Arenas · Resumen | Reservas desde tu web e Instagram | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Diego Arenas · Resumen | Avisos y WhatsApp | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Diego Arenas · Resumen | Solicitudes de información | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Diego Arenas · Resumen | Perfil público | Botón | Funciona | Abre #/admin?tab=profile |
+| Diego Arenas · Resumen | Vídeos y vida marina | Botón | Funciona | Abre #/admin?tab=marina |
+| Diego Arenas · Resumen | Reservas desde tu web e Instagram | Botón | Funciona | Abre #/admin?tab=vender |
+| Diego Arenas · Resumen | Avisos y WhatsApp | Botón | Funciona | Abre #/admin?tab=avisos |
+| Diego Arenas · Resumen | Solicitudes de información | Botón | Funciona | Abre #/admin?tab=requests |
 | Diego Arenas · Resumen | MI CUENTA PROFESIONAL ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
-| Diego Arenas · Resumen | Estadísticas | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Diego Arenas · Resumen | Herramientas | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Diego Arenas · Resumen | Datos fiscales y seguro | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Diego Arenas · Resumen | Mi plan | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Diego Arenas · Resumen | Log Book | Enlace | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Diego Arenas · Resumen | Estadísticas | Botón | Funciona | Abre #/admin?tab=stats |
+| Diego Arenas · Resumen | Herramientas | Botón | Funciona | Abre #/admin?tab=tools |
+| Diego Arenas · Resumen | Datos fiscales y seguro | Botón | Funciona | Abre #/admin?tab=fiscal |
+| Diego Arenas · Resumen | Mi plan | Botón | Funciona | Abre #/admin?tab=plan |
+| Diego Arenas · Resumen | Log Book | Enlace | Funciona | Abre #/logbook |
 | Diego Arenas · Resumen | Mi cuenta | Enlace | Funciona | Mismo enlace (#/cuenta) que «Mi cuenta» en «Diego Arenas · Resumen»: Abre #/cuenta |
 | Diego Arenas · Resumen | Nuevo servicio | Botón | Funciona | Abre #/admin?tab=services |
 | Diego Arenas · Resumen | Ver planning | Botón | Funciona | Abre #/admin?tab=planning |
@@ -6302,7 +6286,7 @@ Al abrirla, el servidor responde con error a: `GET /api/provider/payments → 40
 |---|---|---|---|---|
 | Hola, Diego | Explorador 0 puntos | Enlace | Funciona | Abre #/recompensas |
 | Hola, Diego | Mi panel | Enlace | Funciona | Abre #/admin?tab=dashboard |
-| Hola, Diego | Log Book | Enlace | Funciona | Abre #/logbook |
+| Hola, Diego | Log Book | Enlace | Funciona | Mismo enlace (#/logbook) que «Log Book» en «Diego Arenas · Resumen»: Abre #/logbook |
 | Hola, Diego | Recompensas | Enlace | Funciona | Mismo enlace (#/recompensas) que «Explorador 0 puntos» en «Hola, Diego»: Abre #/recompensas |
 | Hola, Diego | Mis puntos | Enlace | Funciona | Abre #/mis-puntos |
 | Hola, Diego | Mi cuenta | Enlace | Funciona | Mismo enlace (#/cuenta) que «Mi cuenta» en «Diego Arenas · Resumen»: Abre #/cuenta |
@@ -6535,7 +6519,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Diego Arenas · Cobros y pagos | Moderada Gratis hasta 48 h antes | Botón | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) · Cambia el texto: «Cancelación gratuita hasta 2 días antes de la actividad; después no hay reembolso.» |
 | Diego Arenas · Cobros y pagos | Estricta Gratis hasta 7 días antes | Botón | Funciona | Cambia la pantalla (0 elementos nuevos, 1 quitados) · Cambia el texto: «Cancelación gratuita hasta 7 días antes de la actividad; después no hay reembolso.» · Cambia el valor de «Cancelación gratuita hasta (horas antes)» (48 → 168) |
 | Diego Arenas · Cobros y pagos | Guardar política | Botón | Funciona | Aviso: «Política de cancelación guardada. Se aplica a las reservas nuevas.» · POST /api/provider/cancellation-policy → 200 |
-| Diego Arenas · Cobros y pagos | Condiciones para centros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=198#/legal/condiciones-centros |
+| Diego Arenas · Cobros y pagos | Condiciones para centros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=152#/legal/condiciones-centros |
 
 #### Diego Arenas · Perfil público · `#/admin?tab=profile`
 
@@ -6656,7 +6640,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Lukas Becker | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
 | Lukas Becker | Cambiar fecha u hora | Botón | Funciona | Aviso: «No hay otras salidas de este servicio. Programa una nueva salida antes de cambiar la reserva.» |
 | Lukas Becker | Cancelar reserva | Botón | Funciona | Abre la ventana «Cancelar la reserva» |
-| Lukas Becker | Cómo funciona el pago en persona | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=245#/legal/pago-en-persona |
+| Lukas Becker | Cómo funciona el pago en persona | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=199#/legal/pago-en-persona |
 | Lukas Becker | Justificante PDF | Enlace | Funciona | Descarga /api/bookings/1260/receipt.pdf (200, application/pdf) |
 | Lukas Becker | Cobrado | Botón | Funciona | Aviso: «Cobrado.» · Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (4 elementos): «← Volver» · POST /api/pro-mark → 200 |
 | Lukas Becker | No se presentó | Botón | Funciona | Aviso: «No se presentó.» · Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (4 elementos): «← Volver» · POST /api/pro-mark → 200 |
@@ -6677,7 +6661,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Chloé Martin | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1261/diver-sheet.pdf (200, application/pdf) |
 | Chloé Martin | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
 | Chloé Martin | Cambiar fecha u hora | Botón | Funciona | Aviso: «No hay otras salidas de este servicio. Programa una nueva salida antes de cambiar la reserva.» |
-| Chloé Martin | Cómo funciona el pago en persona | Enlace | Funciona | Mismo enlace (#/legal/pago-en-persona) que «Cómo funciona el pago en persona» en «Lukas Becker»: Abre una pestaña nueva /?lang=es&_=245#/legal/pago-en-persona |
+| Chloé Martin | Cómo funciona el pago en persona | Enlace | Funciona | Mismo enlace (#/legal/pago-en-persona) que «Cómo funciona el pago en persona» en «Lukas Becker»: Abre una pestaña nueva /?lang=es&_=199#/legal/pago-en-persona |
 | Chloé Martin | Justificante PDF | Enlace | Funciona | Descarga /api/bookings/1261/receipt.pdf (200, application/pdf) |
 | Chloé Martin | Añadir pieza en el mostrador | Botón | Funciona | Abre la ventana «Añadir pieza en el mostrador» |
 | Chloé Martin | Dar de alta seguro | Botón | Funciona | Abre la ventana «Contrata tu seguro de buceo» |
@@ -6697,7 +6681,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bea Navarro | Ficha operativa PDF | Enlace | Funciona | Descarga /api/bookings/1262/diver-sheet.pdf (200, application/pdf) |
 | Bea Navarro | Enviar aviso al cliente | Botón | Funciona | Abre la ventana «Enviar aviso al cliente» |
 | Bea Navarro | Cambiar fecha u hora | Botón | Funciona | Aviso: «No hay otras salidas de este servicio. Programa una nueva salida antes de cambiar la reserva.» |
-| Bea Navarro | Cómo funciona el pago en persona | Enlace | Funciona | Mismo enlace (#/legal/pago-en-persona) que «Cómo funciona el pago en persona» en «Lukas Becker»: Abre una pestaña nueva /?lang=es&_=245#/legal/pago-en-persona |
+| Bea Navarro | Cómo funciona el pago en persona | Enlace | Funciona | Mismo enlace (#/legal/pago-en-persona) que «Cómo funciona el pago en persona» en «Lukas Becker»: Abre una pestaña nueva /?lang=es&_=199#/legal/pago-en-persona |
 | Bea Navarro | Justificante PDF | Enlace | Funciona | Descarga /api/bookings/1262/receipt.pdf (200, application/pdf) |
 | Bea Navarro | Añadir pieza en el mostrador | Botón | Funciona | Abre la ventana «Añadir pieza en el mostrador» |
 | Bea Navarro | Dar de alta seguro | Botón | Funciona | Abre la ventana «Contrata tu seguro de buceo» |
@@ -6709,7 +6693,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 
 ### Administración (cuenta creada para la prueba)
 
-79 pantallas, 1222 elementos probados en 14 min 28 s.
+79 pantallas, 1219 elementos probados en 14 min 17 s.
 
 #### Cabecera, pie y elementos flotantes (comunes a todas las pantallas)
 
@@ -6723,7 +6707,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Encuentra tu próxima inmersión · cabecera | Tipos de buceo | Enlace | Funciona | Abre #/tipos · POST /api/visita → 200 |
 | Encuentra tu próxima inmersión · cabecera | Experiencias | Enlace | Funciona | Abre #/experiencias · POST /api/visita → 200 |
 | Encuentra tu próxima inmersión · cabecera | Top 10 buceos | Enlace | Funciona | Abre #/top10 · POST /api/visita → 200 |
-| Encuentra tu próxima inmersión · cabecera | Seleccionar idioma | Desplegable | Funciona | Recarga la página con /?lang=en · POST /api/account/language → 200 |
+| Encuentra tu próxima inmersión · cabecera | Seleccionar idioma | Desplegable | Funciona | Recarga la página con /?lang=en · POST /api/visita → 200 |
 | Encuentra tu próxima inmersión · cabecera | AI Admin ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
 | Encuentra tu próxima inmersión · pie de página | Explorar el mapa | Enlace | Funciona | Mismo enlace (#/explorar) que «Explorar» en «Encuentra tu próxima inmersión»: Abre #/explorar · POST /api/visita → 200 |
 | Encuentra tu próxima inmersión · pie de página | Top 10 cerca de ti | Enlace | Funciona | Mismo enlace (#/top10) que «Top 10 buceos» en «Encuentra tu próxima inmersión»: Abre #/top10 · POST /api/visita → 200 |
@@ -6766,10 +6750,10 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Encuentra tu próxima inmersión | Mapa | Botón | Funciona | Ya estaba seleccionado: pulsarlo otra vez no cambia nada (correcto) |
 | Encuentra tu próxima inmersión | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
 | Encuentra tu próxima inmersión | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (18 elementos): «Leaflet» |
-| Encuentra tu próxima inmersión | Fernando de Noronha – Sancho | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (150 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
+| Encuentra tu próxima inmersión | Fernando de Noronha – Sancho | Elemento div (role=button) | Funciona | Cambia su estado (class: leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive → leaflet-marker-icon wd-pin-wrap leaflet-zoom-animated leaflet-interactive is-sel) · Muestra contenido nuevo (137 elementos): «×» · hay 3 más iguales en la lista (no se prueban todos) |
 | Encuentra tu próxima inmersión | Fiji – Great White Wall | Elemento div (role=button) | Funciona | Desplaza el contenido · clic forzado (otro elemento lo tapa) |
 | Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (19 elementos): «2» · hay 15 más iguales en la lista (no se prueban todos) |
-| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (6 elementos): «Rainbow Reef» |
+| Encuentra tu próxima inmersión | 2 | Elemento div (role=button) | Funciona | Muestra contenido nuevo (7 elementos): «Rainbow Reef» |
 | Encuentra tu próxima inmersión | Zoom in | Enlace | Funciona | Muestra contenido nuevo (64 elementos): «2» |
 | Encuentra tu próxima inmersión | Zoom out | Enlace | Funciona | Cambia su estado (class: leaflet-control-zoom-out → leaflet-control-zoom-out leaflet-disabled) · Cambia la pantalla (4 elementos nuevos, 0 quitados) |
 | Encuentra tu próxima inmersión | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
@@ -6787,32 +6771,32 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | El mapa del buceo | Volver a la pantalla anterior | Botón | Funciona | Abre #/ · POST /api/visita → 200 |
-| El mapa del buceo | Cerca de mí | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Cambia la pantalla (0 elementos nuevos, 5 quitados) |
-| El mapa del buceo | Todos | Botón | Funciona | Muestra contenido nuevo (47 elementos): «Cualquier acceso» |
+| El mapa del buceo | Cerca de mí | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) |
+| El mapa del buceo | Todos | Botón | Funciona | Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Arrecifes | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Paredes | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Pecios | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Cuevas | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
-| El mapa del buceo | Muck | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
+| El mapa del buceo | Muck | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (42 elementos): «Cualquier acceso» |
 | El mapa del buceo | Pináculos | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
 | El mapa del buceo | Profundas | Botón | Funciona | Cambia su estado (aria-pressed: false → true) · Muestra contenido nuevo (22 elementos): «Cualquier acceso» |
-| El mapa del buceo | Filtros | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 5 quitados) |
-| El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Muestra contenido nuevo (39 elementos): «2» |
-| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 62 quitados) |
-| El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 50 quitados) |
+| El mapa del buceo | Filtros | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
+| El mapa del buceo | 01 Europa 108 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (21 elementos nuevos, 58 quitados) |
+| El mapa del buceo | 02 Asia 104 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
+| El mapa del buceo | 03 América 24 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
 | El mapa del buceo | 04 África y Mar Rojo 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) |
-| El mapa del buceo | 05 Oceanía 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 36 quitados) |
-| El mapa del buceo | 06 Caribe 17 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (23 elementos nuevos, 88 quitados) |
-| El mapa del buceo | Mapa | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (5 elementos): «Leaflet» |
+| El mapa del buceo | 05 Oceanía 20 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (0 elementos nuevos, 62 quitados) |
+| El mapa del buceo | 06 Caribe 17 ⌄ | Botón | Funciona | Cambia su estado (aria-expanded: false → true) · Cambia la pantalla (17 elementos nuevos, 63 quitados) |
+| El mapa del buceo | Mapa | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (4 elementos): «Leaflet» |
 | El mapa del buceo | Satélite Disponible próximamente | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Disponible próximamente» |
-| El mapa del buceo | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (5 elementos): «Leaflet» |
+| El mapa del buceo | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (4 elementos): «Leaflet» |
 | El mapa del buceo | Islas Columbretes, Castellón | Elemento div (role=button) | Funciona | Muestra contenido nuevo (6 elementos): «×» · hay 7 más iguales en la lista (no se prueban todos) |
 | El mapa del buceo | Costa del Sol, Málaga | Elemento div (role=button) | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
 | El mapa del buceo | 2 | Elemento div (role=button) | No probado | El inventario no ha podido probarlo: TimeoutError: Locator.evaluate: Timeout 10000ms exceeded. · hay 8 más iguales en la lista (no se prueban todos) |
 | El mapa del buceo | 3 | Elemento div (role=button) | No probado | El inventario no ha podido probarlo: TimeoutError: Locator.evaluate: Timeout 10000ms exceeded. |
 | El mapa del buceo | Seguridad en el buceo | Enlace | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| El mapa del buceo | Zoom in | Enlace | Funciona | Cambia la pantalla (1 elementos nuevos, 39 quitados) |
-| El mapa del buceo | Zoom out | Enlace | Funciona | Muestra contenido nuevo (5 elementos): «2» |
+| El mapa del buceo | Zoom in | Enlace | Funciona | Cambia la pantalla (0 elementos nuevos, 5 quitados) |
+| El mapa del buceo | Zoom out | Enlace | Funciona | Mueve o amplía el mapa |
 | El mapa del buceo | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
 
 #### Puntos de buceo · `#/puntos`
@@ -6876,7 +6860,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Puntos de buceo | Ver más zonas | Botón | Funciona | Cambia hidden en button.pt-zarrow (vacío → sin atributo) |
 | Puntos de buceo | Ver por zonas | Botón | Funciona | Abre #/puntos?sort=area |
 | Puntos de buceo | Arrecifes El Tangó Marina Alta · Xàbia · España Para empezar | Enlace | Funciona | Muestra contenido nuevo (16 elementos): «Pináculos Montaña Sumergida - Cabo Negro Marina Alta · Xàbia · España 10–21 m Intermedio 1 centro» · POST /api/visita → 200 · hay 11 más iguales en la lista (no se prueban todos) |
-| Puntos de buceo | Ver más puntos (281) | Botón | Funciona | Muestra contenido nuevo (32 elementos): «Paredes Bajo del Faro - Isla de Benidorm Costa Blanca · Benidorm · España 8–25 m Intermedio» |
+| Puntos de buceo | Ver más puntos (281) | Botón | Funciona | Muestra contenido nuevo (48 elementos): «Paredes Bajo del Faro - Isla de Benidorm Costa Blanca · Benidorm · España 8–25 m Intermedio» · clic forzado (otro elemento lo tapa) |
 
 #### Centros de buceo · `#/centros`
 
@@ -7326,7 +7310,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» · hay 1 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Ocultar reseña | Botón | Funciona | Abre la ventana «Ocultar reseña» |
 | Bahía Coralina Centro de Buceo | Denunciar | Botón | Funciona | Abre la ventana «Denunciar contenido» |
-| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Chloé✓ Inmersión verificada 18 ago 2026 ★ ★ ★ ★ ★ Great dive centre Friendly team, clear briefings and beautiful dive si» |
+| Bahía Coralina Centro de Buceo | Ver más reseñas | Botón | Funciona | Cambia su estado (disabled: sin atributo → vacío) · Muestra contenido nuevo (1 elementos): «Lukas✓ Inmersión verificada 2 oct 2026 ★ ★ ★ ★ ★ Très bonne sortie Belle plongée et équipe sympathique. Un peu d’attente» |
 | Bahía Coralina Centro de Buceo | Ver punto | Enlace | Funciona | Mismo enlace (#/punto?id=329) que «#/punto?id=329» en «¿Te apetece bucear?»: Abre #/punto?id=201 · POST /api/visita → 200 · hay 9 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Tres días en la reserva del Cabo de San Antonio | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
 | Bahía Coralina Centro de Buceo | Ver viaje | Enlace | Funciona | Mismo enlace (#/experiencia?id=7) que «Viaje 1 experiencia» en «Viajes y vida a bordo»: Abre #/experiencia?id=7 · POST /api/visita → 200 · hay 6 más iguales en la lista (no se prueban todos) |
@@ -7607,44 +7591,44 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
 | Centro de control de WORLDIVES · Centro de control | Plegar el menú | Botón | Funciona | Cambia su estado (aria-pressed: false → true) |
-| Centro de control de WORLDIVES · Centro de control | INICIO ▾ | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Centro de control de WORLDIVES · Centro de control | INICIO ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Centro de control de WORLDIVES · Centro de control | Centro de control | Botón | Funciona | Muestra contenido nuevo (1 elementos): «CATÁLOGO Gestionar puntos de buceo 293 puntos activos. Crear, editar, archivar y corregir ubicaciones. VIDA MARINA Y VÍD» |
 | Centro de control de WORLDIVES · Centro de control | Actividad | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (5 elementos): «Historial de las acciones administrativas y de gestión registradas por WORLDIVES.» |
-| Centro de control de WORLDIVES · Centro de control | REVISIÓN ▾ | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Centro de control de WORLDIVES · Centro de control | Solicitudes de centros 1 | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Centro de control de WORLDIVES · Centro de control | Experiencias 1 | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Centro de control de WORLDIVES · Centro de control | REVISIÓN ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
+| Centro de control de WORLDIVES · Centro de control | Solicitudes de centros 1 | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Verificación de cuentas profesionales Nadie obtiene el rol de centro o profesional al registrarse. Antes de aprobar, com» |
+| Centro de control de WORLDIVES · Centro de control | Experiencias 1 | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Experiencias de viaje Los centros y profesionales pueden proponer viajes. Desde aquí el administrador puede publicar o r» |
 | Centro de control de WORLDIVES · Centro de control | Denuncias y moderación | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (5 elementos): «Moderación La administración no edita lo que publica un centro o un profesional: lo oculta con un motivo. Queda todo en » |
-| Centro de control de WORLDIVES · Centro de control | PUNTOS DE BUCEO ▾ | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Centro de control de WORLDIVES · Centro de control | PUNTOS DE BUCEO ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Centro de control de WORLDIVES · Centro de control | Todos los puntos | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
 | Centro de control de WORLDIVES · Centro de control | Lotes nuevos | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (5 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
-| Centro de control de WORLDIVES · Centro de control | Posibles duplicados 25 | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Centro de control de WORLDIVES · Centro de control | Posibles duplicados 25 | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (4 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
 | Centro de control de WORLDIVES · Centro de control | Propuestas de cambio | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (4 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
-| Centro de control de WORLDIVES · Centro de control | Posición por revisar 95 | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Centro de control de WORLDIVES · Centro de control | Posición por revisar 95 | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (4 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
 | Centro de control de WORLDIVES · Centro de control | Vídeos de puntos | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (4 elementos): «Cargando…» |
-| Centro de control de WORLDIVES · Centro de control | CONTENIDO ▾ | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Centro de control de WORLDIVES · Centro de control | CONTENIDO ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Centro de control de WORLDIVES · Centro de control | Destinos | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Destinos de Experiencias Estos destinos alimentan la sección Experiencias. Puedes crear nuevos destinos desde aquí.» |
 | Centro de control de WORLDIVES · Centro de control | Tipos de buceo | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Escaparate Tipos de buceo La foto de cada tipo de buceo: sale en su tarjeta, en su cabecera y en los puntos de ese tipo » |
-| Centro de control de WORLDIVES · Centro de control | Especies y vídeos 1 | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
-| Centro de control de WORLDIVES · Centro de control | Imágenes de la web | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (6 elementos): «Apariencia Temas de temporada Cambia las fotos y el color de la web según la época del año o la zona del visitante. Fuer» |
+| Centro de control de WORLDIVES · Centro de control | Especies y vídeos 1 | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Vida marina y vídeos de los puntos Catálogo de especies (nombre en cada idioma, foto con su autor y licencia) y vídeos d» |
+| Centro de control de WORLDIVES · Centro de control | Imágenes de la web | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (6 elementos): «Escaparate Imágenes de la web Portadas de cada sección y foto de cada tipo de buceo. Los cambios se ven al momento. Foto» |
 | Centro de control de WORLDIVES · Centro de control | Descripciones de puntos | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Catálogo Descripciones de los puntos de buceo Todas las descripciones se han reescrito con texto propio a partir de los » |
 | Centro de control de WORLDIVES · Centro de control | Mapas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Mapas Mapa base, satélite y batimetría El mapa base se sirve desde nuestro servidor. La vista satélite pasa por nuestro » |
-| Centro de control de WORLDIVES · Centro de control | CATÁLOGO ▾ | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Centro de control de WORLDIVES · Centro de control | CATÁLOGO ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Centro de control de WORLDIVES · Centro de control | Plantillas de servicio | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (5 elementos): «Cargando plantillas…» |
 | Centro de control de WORLDIVES · Centro de control | Planes | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Planes Planes, cuotas y excepciones El precio es la cuota anual (pendiente de confirmar con la gestoría si se muestra co» |
 | Centro de control de WORLDIVES · Centro de control | Funciones | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Funciones Activar u ocultar funciones de la web Al desactivar una función desaparece de la web y el servidor rechaza su » |
 | Centro de control de WORLDIVES · Centro de control | Patrocinio | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «Portada Patrocinio y colaboradores Lo que pongas aquí aparece en la parte baja de la portada: la banda de logos que se d» |
 | Centro de control de WORLDIVES · Centro de control | Recompensas | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «PUNTOS WORLDIVES Ventajas de los centros Los buceadores canjean sus puntos por las ventajas que tu centro define y paga.» |
-| Centro de control de WORLDIVES · Centro de control | CENTROS Y USUARIOS ▾ | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Centro de control de WORLDIVES · Centro de control | CENTROS Y USUARIOS ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Centro de control de WORLDIVES · Centro de control | Centros | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Nuevo centro» |
 | Centro de control de WORLDIVES · Centro de control | Usuarios | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Los correos se ven en parte. Verlos completos pide tu contraseña y el motivo. Ver los correos completos» |
-| Centro de control de WORLDIVES · Centro de control | HERRAMIENTAS ▾ | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Centro de control de WORLDIVES · Centro de control | HERRAMIENTAS ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Centro de control de WORLDIVES · Centro de control | Códigos QR | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Códigos QR Códigos QR de WORLDIVES Elige a dónde lleva cada QR de la lista. Su dirección corta no cambia aunque cambie l» |
 | Centro de control de WORLDIVES · Centro de control | Reservas en cifras | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (1 elementos): «Reservas de los centros En cifras Sin datos de clientes: WORLDIVES es el motor de reservas y el detalle lo gestiona cada» |
 | Centro de control de WORLDIVES · Centro de control | Pagos, exportaciones y DAC7 | Botón | Funciona | Abre la ventana «Confirma que eres tú» · Cambia su estado (class: cb-nav → cb-nav active) · GET /api/admin/payments → 403 «Para ver datos personales, confirma tu contraseña e indica el motivo. Vale 15 minutos para todo lo sensible.» |
 | Centro de control de WORLDIVES · Centro de control | Correos | Botón | Funciona | Abre la ventana «Confirma que eres tú» · Cambia su estado (class: cb-nav → cb-nav active) · GET /api/admin/emails → 403 «Para ver datos personales, confirma tu contraseña e indica el motivo. Vale 15 minutos para todo lo sensible.» |
-| Centro de control de WORLDIVES · Centro de control | SEGUROS ▾ | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Centro de control de WORLDIVES · Centro de control | SEGUROS ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Centro de control de WORLDIVES · Centro de control | Aseguradoras colaboradoras | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (9 elementos): «Seguros de buceo WORLDIVES no es aseguradora ni mediador de seguros: aquí solo se configuran los enlaces a las asegurado» |
-| Centro de control de WORLDIVES · Centro de control | SISTEMA ▾ | Botón | No probado | No aparece al volver a abrir la pantalla (la pantalla cambió por una prueba anterior) |
+| Centro de control de WORLDIVES · Centro de control | SISTEMA ▾ | Botón | Funciona | Cambia su estado (aria-expanded: true → false) · Cambia la pantalla (0 elementos nuevos, 1 quitados) |
 | Centro de control de WORLDIVES · Centro de control | Ajustes y estado del sistema | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (4 elementos): «Ajustes Temporada y datos personales Temporada Para los contadores de «Actividad» y el periodo «Temporada» de las export» |
 | Centro de control de WORLDIVES · Centro de control | Legal | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (6 elementos): «Legal Datos del titular y documentos legales Estos datos se insertan en el aviso legal, la privacidad, las condiciones y» |
 | Centro de control de WORLDIVES · Centro de control | Datos personales y accesos | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (3 elementos): «PENDIENTE DE ABOGADO Falta definir exactamente qué datos personales puede ver la administración según el RGPD. Mientras,» |
@@ -7737,41 +7721,38 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 | Mis puntos | Ver ventajas | Enlace | Funciona | Mismo enlace (#/recompensas) que «Explorador 0 puntos» en «Hola, Admin»: Abre #/recompensas |
 | Mis puntos | Más información sobre los puntos | Enlace | Funciona | Mismo enlace (#/como-funcionan-los-puntos) que «Cómo funcionan» en «Recompensas»: Abre #/como-funcionan-los-puntos |
 
-#### Centro de control de WORLDIVES · · `#/admin?tab=maps`
+#### Centro de control de WORLDIVES · Mapas · `#/admin?tab=maps`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Centro de control de WORLDIVES · | [cb-section-title] | Botón | Desactivado (correcto) | No responde al ratón (pointer-events: none); la pantalla explica: «Falta el archivo Mapa base (PMTiles) · /tiles/worldives.pmtiles» |
-| Centro de control de WORLDIVES · | 1 | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Verificación de cuentas profesionales Nadie obtiene el rol de centro o profesional al registrarse. Antes de aprobar, com» · hay 3 más iguales en la lista (no se prueban todos) |
-| Centro de control de WORLDIVES · | 1 | Botón | Funciona | Cambia su estado (class: cb-nav → cb-nav active) · Muestra contenido nuevo (2 elementos): «Experiencias de viaje Los centros y profesionales pueden proponer viajes. Desde aquí el administrador puede publicar o r» |
-| Centro de control de WORLDIVES · | Ver Mapas | Enlace | Funciona | Mismo enlace (#/admin?tab=maps) que «Ver Mapas» en «Centro de control de WORLDIVES · Centro »: Abre #/admin?tab=maps |
-| Centro de control de WORLDIVES · | Mapa base, satélite y batimetría | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Límite mensual de teselas satélite» (campo obligatorio) |
+| Centro de control de WORLDIVES · Mapas | Ver Mapas | Enlace | Funciona | Mismo enlace (#/admin?tab=maps) que «Ver Mapas» en «Centro de control de WORLDIVES · Centro »: Abre #/admin?tab=maps |
+| Centro de control de WORLDIVES · Mapas | Mapa base, satélite y batimetría | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Límite mensual de teselas satélite» (campo obligatorio) |
 
-#### Centro de control de WORLDIVES · · `#/admin?tab=points`
+#### Centro de control de WORLDIVES · Todos los puntos · `#/admin?tab=points`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Centro de control de WORLDIVES · | Ver Mapas | Enlace | Funciona | Mismo enlace (#/admin?tab=maps) que «Ver Mapas» en «Centro de control de WORLDIVES · Centro »: Abre #/admin?tab=maps |
-| Centro de control de WORLDIVES · | Todos los puntos | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
-| Centro de control de WORLDIVES · | Lotes nuevos | Botón | Funciona | Muestra contenido nuevo (5 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
-| Centro de control de WORLDIVES · | Posibles duplicados 25 | Botón | Funciona | Muestra contenido nuevo (4 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
-| Centro de control de WORLDIVES · | Propuestas de cambio | Botón | Funciona | Muestra contenido nuevo (4 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
-| Centro de control de WORLDIVES · | Posición por revisar 95 | Botón | Funciona | Muestra contenido nuevo (4 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
-| Centro de control de WORLDIVES · | Nuevo punto | Botón | Funciona | Abre #/admin?tab=points&edit=nuevo |
-| Centro de control de WORLDIVES · | Editar | Botón | Funciona | Abre #/admin?tab=points&edit=40 · hay 291 más iguales en la lista (no se prueban todos) |
-| Centro de control de WORLDIVES · | Editar | Botón | Funciona | Abre #/admin?tab=points&edit=228 |
+| Centro de control de WORLDIVES · Todos los puntos | Ver Mapas | Enlace | Funciona | Mismo enlace (#/admin?tab=maps) que «Ver Mapas» en «Centro de control de WORLDIVES · Centro »: Abre #/admin?tab=maps |
+| Centro de control de WORLDIVES · Todos los puntos | Todos los puntos | Botón | Funciona | Muestra contenido nuevo (3 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
+| Centro de control de WORLDIVES · Todos los puntos | Lotes nuevos | Botón | Funciona | Muestra contenido nuevo (5 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
+| Centro de control de WORLDIVES · Todos los puntos | Posibles duplicados 25 | Botón | Funciona | Muestra contenido nuevo (4 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
+| Centro de control de WORLDIVES · Todos los puntos | Propuestas de cambio | Botón | Funciona | Muestra contenido nuevo (4 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
+| Centro de control de WORLDIVES · Todos los puntos | Posición por revisar 95 | Botón | Funciona | Muestra contenido nuevo (4 elementos): «Todos los puntos Lotes nuevos Posibles duplicados 25 Propuestas de cambio Posición por revisar 95» |
+| Centro de control de WORLDIVES · Todos los puntos | Nuevo punto | Botón | Funciona | Abre #/admin?tab=points&edit=nuevo |
+| Centro de control de WORLDIVES · Todos los puntos | Editar | Botón | Funciona | Abre #/admin?tab=points&edit=40 · hay 291 más iguales en la lista (no se prueban todos) |
+| Centro de control de WORLDIVES · Todos los puntos | Editar | Botón | Funciona | Abre #/admin?tab=points&edit=228 |
 
-#### Centro de control de WORLDIVES · · `#/admin?tab=marina`
+#### Centro de control de WORLDIVES · Especies y vídeos · `#/admin?tab=marina`
 
 | Pantalla | Elemento | Tipo | Resultado | Detalle |
 |---|---|---|---|---|
-| Centro de control de WORLDIVES · | Ver Mapas | Enlace | Funciona | Mismo enlace (#/admin?tab=maps) que «Ver Mapas» en «Centro de control de WORLDIVES · Centro »: Abre #/admin?tab=maps |
-| Centro de control de WORLDIVES · | Pendientes (1) | Botón | Funciona | Abre #/admin?tab=marina&sub=pendientes |
-| Centro de control de WORLDIVES · | Especies | Botón | Funciona | Abre #/admin?tab=marina&sub=especies |
-| Centro de control de WORLDIVES · | Vídeos | Botón | Funciona | Abre #/admin?tab=marina&sub=videos |
-| Centro de control de WORLDIVES · | Piedras Rotas | Enlace | Funciona | Abre #/admin?tab=points&edit=332 |
-| Centro de control de WORLDIVES · | Aprobar | Botón | Funciona | Aviso: «Publicado.» · Muestra contenido nuevo (2 elementos): «Vida marina y vídeos de los puntos Catálogo de especies (nombre en cada idioma, foto con su autor y licencia) y vídeos d» · POST /api/admin/marina/revisar → 200 |
-| Centro de control de WORLDIVES · | Rechazar | Botón | Funciona | Pide un dato (prompt) «Motivo del rechazo (lo verá quien lo propuso):» (cancelado) |
+| Centro de control de WORLDIVES · Especies y vídeos | Ver Mapas | Enlace | Funciona | Mismo enlace (#/admin?tab=maps) que «Ver Mapas» en «Centro de control de WORLDIVES · Centro »: Abre #/admin?tab=maps |
+| Centro de control de WORLDIVES · Especies y vídeos | Pendientes (1) | Botón | Funciona | Abre #/admin?tab=marina&sub=pendientes |
+| Centro de control de WORLDIVES · Especies y vídeos | Especies | Botón | Funciona | Abre #/admin?tab=marina&sub=especies |
+| Centro de control de WORLDIVES · Especies y vídeos | Vídeos | Botón | Funciona | Abre #/admin?tab=marina&sub=videos |
+| Centro de control de WORLDIVES · Especies y vídeos | Piedras Rotas | Enlace | Funciona | Abre #/admin?tab=points&edit=332 |
+| Centro de control de WORLDIVES · Especies y vídeos | Aprobar | Botón | Funciona | Aviso: «Publicado.» · Muestra contenido nuevo (2 elementos): «Vida marina y vídeos de los puntos Catálogo de especies (nombre en cada idioma, foto con su autor y licencia) y vídeos d» · POST /api/admin/marina/revisar → 200 |
+| Centro de control de WORLDIVES · Especies y vídeos | Rechazar | Botón | Funciona | Pide un dato (prompt) «Motivo del rechazo (lo verá quien lo propuso):» (cancelado) |
 
 #### Centro de control de WORLDIVES · Especies y vídeos › Vídeos · `#/admin?tab=marina&sub=videos` (1 clic en subpestaña)
 
@@ -8114,7 +8095,7 @@ Sin elementos nuevos que probar (los comunes ya se han probado en otra pantalla)
 |---|---|---|---|---|
 | Centro de control de WORLDIVES · Funciones | Ver Mapas | Enlace | Funciona | Mismo enlace (#/admin?tab=maps) que «Ver Mapas» en «Centro de control de WORLDIVES · Centro »: Abre #/admin?tab=maps |
 | Centro de control de WORLDIVES · Funciones | Activar u ocultar funciones de la web | Formulario | Funciona | Enviado vacío · Aviso: «Funciones guardadas.» · POST /api/admin/features → 200 |
-| Centro de control de WORLDIVES · Funciones | Activar u ocultar funciones de la web | Formulario | Funciona | Enviado vacío · Aviso: «Invitación WOD-3CABE805FE331E00421183B1762BA013 creada.» · Muestra contenido nuevo (1 elementos): «Funciones Activar u ocultar funciones de la web Al desactivar una función desaparece de la web y el servidor rechaza su » · POST /api/admin/invites → 200 |
+| Centro de control de WORLDIVES · Funciones | Activar u ocultar funciones de la web | Formulario | Funciona | Enviado vacío · Aviso: «Invitación WOD-027662A17FA38121CDB0F61686169201 creada.» · Muestra contenido nuevo (1 elementos): «Funciones Activar u ocultar funciones de la web Al desactivar una función desaparece de la web y el servidor rechaza su » · POST /api/admin/invites → 200 |
 
 #### Centro de control de WORLDIVES · Patrocinio · `#/admin?tab=promos`
 
@@ -8194,7 +8175,7 @@ Al abrirla, el servidor responde con error a: `GET /api/admin/emails → 403` (l
 | Centro de control de WORLDIVES · Ajustes y estado del sistema | Mes | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Centro de control de WORLDIVES · Ajustes y estado del sistema | Día | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
 | Centro de control de WORLDIVES · Ajustes y estado del sistema | Mes | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
-| Centro de control de WORLDIVES · Ajustes y estado del sistema | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Operación Estado del servidor, copias y avisos Versión 50.58 · en marcha desde hace 0 h · 1 proceso(s) · base de 6.29 MB» |
+| Centro de control de WORLDIVES · Ajustes y estado del sistema | Actualizar | Botón | Funciona | Muestra contenido nuevo (1 elementos): «Operación Estado del servidor, copias y avisos Versión 50.58 · en marcha desde hace 0 h · 1 proceso(s) · base de 6.3 MB.» |
 | Centro de control de WORLDIVES · Ajustes y estado del sistema | Estado del servidor, copias y avisos | Formulario | Funciona | Enviado vacío · Aviso: «Escribe el texto del aviso.» |
 | Centro de control de WORLDIVES · Ajustes y estado del sistema | Tipo | Desplegable | Funciona | Campo: el cambio se aplica al pulsar «Publicar aviso» (sin efecto inmediato, correcto) |
 
@@ -8206,23 +8187,23 @@ Al abrirla, el servidor responde con error a: `GET /api/admin/emails → 403` (l
 | Centro de control de WORLDIVES · Legal | Datos del titular y documentos legales | Formulario | Funciona | Enviado vacío · Aviso: «Datos legales guardados.» · Muestra contenido nuevo (5 elementos): «Legal Datos del titular y documentos legales Estos datos se insertan en el aviso legal, la privacidad, las condiciones y» · POST /api/admin/legal → 200 |
 | Centro de control de WORLDIVES · Legal | Conservación de datos | Formulario | Funciona | Enviado vacío · El navegador no deja enviarlo: «Cuentas de buceador sin actividad (meses)» (campo obligatorio) · El navegador no deja enviarlo: «Documentos caducados (meses)» (campo obligatorio) |
 | Centro de control de WORLDIVES · Legal | Guardar y aplicar ahora | Botón | Funciona | Pide confirmación «Se borrarán ahora los datos que hayan superado los plazos. ¿Continuar?» (cancelado) |
-| Centro de control de WORLDIVES · Legal | Aviso legal | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=412#/legal/aviso-legal |
+| Centro de control de WORLDIVES · Legal | Aviso legal | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=368#/legal/aviso-legal |
 | Centro de control de WORLDIVES · Legal | Editar | Botón | Funciona | Abre la ventana «Editar «Aviso legal»» · hay 13 más iguales en la lista (no se prueban todos) |
 | Centro de control de WORLDIVES · Legal | Condiciones de uso para buceadores | Enlace | Funciona | Mismo enlace (#/legal/condiciones-buceadores) que «Condiciones de uso» en «Tu ficha de buceador»: Abre #/legal/condiciones-buceadores |
 | Centro de control de WORLDIVES · Legal | Editar | Botón | Funciona | Abre la ventana «Editar «Condiciones de uso para buceadores»» |
-| Centro de control de WORLDIVES · Legal | Condiciones de reserva, pago y cancelación | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=415#/legal/reservas |
+| Centro de control de WORLDIVES · Legal | Condiciones de reserva, pago y cancelación | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=371#/legal/reservas |
 | Centro de control de WORLDIVES · Legal | Política de privacidad | Enlace | Funciona | Mismo enlace (#/legal/privacidad) que «Privacidad» en «Tu ficha de buceador»: Abre #/legal/privacidad |
 | Centro de control de WORLDIVES · Legal | Política de cookies y servicios de terceros | Enlace | Funciona | Mismo enlace (#/legal/cookies) que «Cookies» en «Tu ficha de buceador»: Abre #/legal/cookies |
-| Centro de control de WORLDIVES · Legal | Condiciones para centros y profesionales | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=416#/legal/condiciones-centros |
-| Centro de control de WORLDIVES · Legal | Normas de las reseñas | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=417#/legal/normas-resenas |
-| Centro de control de WORLDIVES · Legal | Cómo ordenamos los resultados | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=418#/legal/clasificacion |
-| Centro de control de WORLDIVES · Legal | Denunciar contenido | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=419#/legal/denuncias |
-| Centro de control de WORLDIVES · Legal | Seguridad en el buceo | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=420#/legal/seguridad |
-| Centro de control de WORLDIVES · Legal | Puntos WORLDIVES | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=421#/legal/puntos |
-| Centro de control de WORLDIVES · Legal | Declaración de accesibilidad | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=422#/legal/accesibilidad |
-| Centro de control de WORLDIVES · Legal | Contacto | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=423#/legal/contacto |
-| Centro de control de WORLDIVES · Legal | Créditos y licencias de terceros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=424#/legal/creditos |
-| Centro de control de WORLDIVES · Legal | Pago en persona al profesional | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=425#/legal/pago-en-persona |
+| Centro de control de WORLDIVES · Legal | Condiciones para centros y profesionales | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=372#/legal/condiciones-centros |
+| Centro de control de WORLDIVES · Legal | Normas de las reseñas | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=373#/legal/normas-resenas |
+| Centro de control de WORLDIVES · Legal | Cómo ordenamos los resultados | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=374#/legal/clasificacion |
+| Centro de control de WORLDIVES · Legal | Denunciar contenido | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=375#/legal/denuncias |
+| Centro de control de WORLDIVES · Legal | Seguridad en el buceo | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=376#/legal/seguridad |
+| Centro de control de WORLDIVES · Legal | Puntos WORLDIVES | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=377#/legal/puntos |
+| Centro de control de WORLDIVES · Legal | Declaración de accesibilidad | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=378#/legal/accesibilidad |
+| Centro de control de WORLDIVES · Legal | Contacto | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=379#/legal/contacto |
+| Centro de control de WORLDIVES · Legal | Créditos y licencias de terceros | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=380#/legal/creditos |
+| Centro de control de WORLDIVES · Legal | Pago en persona al profesional | Enlace | Funciona | Abre una pestaña nueva /?lang=es&_=381#/legal/pago-en-persona |
 | Centro de control de WORLDIVES · Legal | Abrir | Enlace | Funciona | Abre en otra pestaña /#/centro?id=31 (200, text/html) |
 | Centro de control de WORLDIVES · Legal | Resolver | Botón | Funciona | Abre la ventana «Resolver denuncia» |
 
@@ -8279,7 +8260,7 @@ Al abrirla, el servidor responde con error a: `GET /api/admin/emails → 403` (l
 | Editar punto | Mapa | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (16 elementos): «Leaflet» |
 | Editar punto | Satélite | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Arrastra el marcador o haz clic en el mapa. El punto tiene que caer en el agua; uno de costa, a menos de 200 m de la orilla.» |
 | Editar punto | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (16 elementos): «Leaflet» |
-| Editar punto | Seguridad en el buceo | Enlace | Funciona | Mismo enlace (#/legal/seguridad) que «Seguridad en el buceo» en «Centro de control de WORLDIVES · Legal»: Abre una pestaña nueva /?lang=es&_=420#/legal/seguridad |
+| Editar punto | Seguridad en el buceo | Enlace | Funciona | Mismo enlace (#/legal/seguridad) que «Seguridad en el buceo» en «Centro de control de WORLDIVES · Legal»: Abre una pestaña nueva /?lang=es&_=376#/legal/seguridad |
 | Editar punto | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
 | Editar punto | Acceso | Desplegable | Funciona | Muestra contenido nuevo (1 elementos): «Sin datos de costa Sin datos de costa para esta zona: comprobar a mano» |
 | Editar punto | Corriente | Desplegable | Funciona | Campo de un formulario: el cambio se aplica al enviarlo (sin efecto inmediato, correcto) |
@@ -8330,7 +8311,7 @@ Al abrirla, el servidor responde con error a: `GET /api/admin/emails → 403` (l
 | Nuevo centro | Mapa | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (16 elementos): «Leaflet» |
 | Nuevo centro | Satélite | Botón | Depende de clave pendiente | Desactivado (ArcGIS (satélite): sin ARCGIS_API_KEY el satélite sale desactivado): «Disponible próximamente · Arrastra el marcador o haz clic en el mapa.» |
 | Nuevo centro | Relieve | Botón | Funciona | Cambia su estado (class: sin atributo → active) · Muestra contenido nuevo (16 elementos): «Leaflet» |
-| Nuevo centro | Seguridad en el buceo | Enlace | Funciona | Mismo enlace (#/legal/seguridad) que «Seguridad en el buceo» en «Centro de control de WORLDIVES · Legal»: Abre una pestaña nueva /?lang=es&_=420#/legal/seguridad |
+| Nuevo centro | Seguridad en el buceo | Enlace | Funciona | Mismo enlace (#/legal/seguridad) que «Seguridad en el buceo» en «Centro de control de WORLDIVES · Legal»: Abre una pestaña nueva /?lang=es&_=376#/legal/seguridad |
 | Nuevo centro | Leaflet | Enlace externo | Funciona | Enlace externo a leafletjs.com (no se abre: dirección https válida) |
 | Nuevo centro | Cancelar | Enlace | Funciona | Mismo enlace (#/admin?tab=centers) que «PROVEEDORES Centros de buceo 2 centros y» en «Centro de control de WORLDIVES · Centro »: Abre #/admin?tab=centers |
 
