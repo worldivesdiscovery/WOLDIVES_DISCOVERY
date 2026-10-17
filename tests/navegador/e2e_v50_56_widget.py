@@ -108,7 +108,7 @@ def run(shots: Path | None):
             page.goto(f'{host}/index.html'); page.wait_for_load_state('networkidle')
             lista = page.frame_locator('#lista iframe'); cal = page.frame_locator('#calendario iframe')
             lista.locator('.wr-svc').first.wait_for(timeout=10000)
-            check('lista · servicios del centro', lista.locator('.wr-svc').count() == 2, lista.locator('.wr-svc').count())
+            check('lista · las categorías de los servicios del centro (17/10, 1.5)', lista.locator('.wr-cat').count() == 2, lista.locator('.wr-cat').count())
             cal.locator('.wr-time[aria-checked="true"]').wait_for(timeout=10000)
             check('calendario · un solo servicio, con sus fechas', 'Doble inmersión' in cal.locator('.wr-svc-one').inner_text() and cal.locator('.wr-dchip:not(.none):not(.more)').count() >= 1)
             # Styles: the page keeps its own, the widget keeps its own
@@ -120,7 +120,7 @@ def run(shots: Path | None):
             check('el widget no añade estilos ni cookies a la página', page.evaluate('document.styleSheets.length') == 1 and page.evaluate('document.cookie') == '')
             shot(page, 'widget-web-ejemplo-escritorio')
             # A request («Bajo petición») from the list
-            lista.locator('.wr-svc', has_text='Bautizo').click()
+            lista.locator('.wr-cat', has_text='Bautizos').click(); lista.locator('.wr-svc', has_text='Bautizo').click()
             lista.locator('.wr-time[aria-checked="true"]').wait_for(timeout=10000)
             lista.locator('[data-total]').filter(has_text='75').wait_for(timeout=8000)
             check('precio calculado por el servidor', '75' in lista.locator('[data-total]').inner_text())

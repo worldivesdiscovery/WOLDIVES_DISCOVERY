@@ -242,6 +242,7 @@ def despues(page, env, walk, shots, prefix, who=PERSON):
     title = 'Bautizo' if kind == 'peticion' else 'Doble inmersión'
     if button == '#boton-reservar':
         h.screen('.wr-svc', 'que-te-apetece', '.wr-svc >> nth=-1')
+        h.tap('.wr-cat:has-text("Bautizos")' if kind == 'peticion' else '.wr-cat:has-text("Inmersiones")')   # 17/10 (1.5): first the category
         h.tap(f'.wr-svc:has-text("{title}")')
         h.f.locator('.wr-time[aria-checked="true"]').wait_for(timeout=15000)
         h.wait(READ)   # the same screen goes on: the person reads the day and the time already chosen

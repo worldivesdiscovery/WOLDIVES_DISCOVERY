@@ -3227,6 +3227,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     let root=$('.bk-page'); const alive=()=>document.body.contains(root);
     const none=Promise.resolve({items:[]});
     // A freelance professional without a centre (Fase 2.7) is booked like a centre without equipment or extras.
+    const catsP=api('/api/booking-categories?lang='+currentLanguage()).then(r=>r.items||[]).catch(()=>[]);   // 17/10 (1.5)
     const [cR,sR,eR,xR]=await Promise.allSettled(cid?[api('/api/centers/'+cid),api('/api/provider-services?provider_id=0&center_id='+cid+'&lang='+currentLanguage()),api('/api/center-equipment?center_id='+cid),api('/api/center-extras?center_id='+cid)]
       :[api('/api/providers/'+providerId).then(p=>({item:{id:0,name:p.fullname,city:'',country:'',logo_url:p.avatar_url||'',cover_url:'',freelance:true,online_booking:p.online_booking}})),api('/api/provider-services?provider_id='+providerId),none,none]);
     if(!alive()) return;
@@ -3251,6 +3252,10 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const bookable=services.filter(s=>(s.slots||[]).some(sl=>Number(sl.spots_available)>0));
     if(!st.service&&bookable.length===1) st.service=bookable[0].id;
     const svc=()=>services.find(s=>s.id===st.service);
+    // Encargo del 17/10 (1.5): first the category (only those with services, each with how many and «desde»), then only its
+    // services. A centre with one category skips it; arriving from the button of a service, it is already chosen.
+    const cats=(await catsP).map(c=>{ const list=services.filter(s=>s.category===c.key); return {...c,list,from:list.length?Math.min(...list.map(s=>Number(s.price)||0)):0}; }).filter(c=>c.list.length);
+    st.cat=svc()?.category||(cats.length===1?cats[0].key:'');
     const allSlots=()=>(svc()?.slots||[]).filter(sl=>!st.point||(sl.points||[]).some(p=>Number(p.id)===st.point));
     const slotObj=()=>allSlots().find(sl=>sl.id===st.slot);
     const maxPax=()=>{ const s=svc(), sl=slotObj(); return Math.max(1,Math.min(sl?Number(sl.spots_available):99, s?.max_participants?Number(s.max_participants):99, 30)); };
@@ -3283,7 +3288,11 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     </section>`);
     root=$('.bk-page');
     // ---- render pieces
-    const drawServices=()=>{ $('#bk-services').innerHTML=services.map(s=>{ const free=(s.slots||[]).filter(sl=>Number(sl.spots_available)>0); const next=free[0]; const byDays=['day','half_day'].includes(s.booking_unit); const ok=(byDays||free.length)&&s.bookable!==false;
+    const drawServices=()=>{
+      if(cats.length>1&&!st.cat){ $('#bk-services').innerHTML=`<div class="bk-cats" role="list">${cats.map(c=>`<button type="button" class="bk-cat" data-cat="${esc(c.key)}" role="listitem"><span class="bk-cat-icon">${wdIcon(c.icon,26)}</span><span class="bk-cat-t"><strong translate="no">${esc(c.label)}</strong><small>${esc(translateString(c.list.length===1?'1 actividad':'{n} actividades').replace('{n}',c.list.length))}${c.from?` · ${esc(translateString('desde'))} ${wdMoney(c.from,c.list[0].currency)}`:''}</small></span><span class="bk-cat-go" aria-hidden="true">›</span></button>`).join('')}</div>`; return; }
+      const canBook=s=>s.bookable!==false&&(['day','half_day'].includes(s.booking_unit)||(s.slots||[]).some(sl=>Number(sl.spots_available)>0));
+      const list=(cats.length>1?services.filter(s=>s.category===st.cat):services).map((s,i)=>[s,i]).sort((a,b)=>(canBook(b[0])-canBook(a[0]))||a[1]-b[1]).map(x=>x[0]);   // the ones that cannot be booked now, at the end
+      $('#bk-services').innerHTML=(cats.length>1?`<div class="bk-cat-now"><button type="button" class="btn-link bk-cat-back">← ${esc(translateString('Todas las categorías'))}</button><b translate="no">${wdIcon(cats.find(c=>c.key===st.cat)?.icon||'extra',18)} ${esc(cats.find(c=>c.key===st.cat)?.label||'')}</b></div>`:'')+list.map(s=>{ const free=(s.slots||[]).filter(sl=>Number(sl.spots_available)>0); const next=free[0]; const byDays=['day','half_day'].includes(s.booking_unit); const ok=(byDays||free.length)&&s.bookable!==false;
         return `<button type="button" class="bk-svc ${s.id===st.service?'is-on':''}" data-id="${s.id}" ${ok?'':'disabled'} aria-pressed="${s.id===st.service}" style="--c:${esc(s.color||'#076898')}">
           <span class="bk-svc-icon">${wdIcon(s.service_type,22)}</span>
           <span class="bk-svc-txt"><strong>${esc(s.title)}</strong><small>${s.duration_minutes?esc(wdDuration(s.duration_minutes)):''}</small>${wdModeTag(s)}<small class="bk-svc-next">${s.bookable===false?'No admite reservas ahora mismo':byDays?'A elegir fechas en su calendario':next?`Próxima: ${esc(wdDay(next.slot_date))} · ${esc(next.slot_time)}`:'Sin salidas próximas'}</small></span>
@@ -3378,6 +3387,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     // ---- events
     root.addEventListener('click',e=>{ const t=e.target.closest('button'); if(!t||!root.contains(t)) return;
       if(t.matches('.bk-svc')&&['day','half_day'].includes(services.find(s=>s.id===+t.dataset.id)?.booking_unit)){ wdGo('#/reservar-dias?service='+t.dataset.id); return; }
+      if(t.matches('.bk-cat')){ st.cat=t.dataset.cat; drawServices(); translateTree($('#bk-services')); $('#bk-services .bk-svc:not([disabled])')?.focus(); return; }
+      if(t.matches('.bk-cat-back')){ st.cat=''; st.service=0; st.slot=0; st.date=''; redraw(); return; }
       if(t.matches('.bk-svc')){ if(st.service!==+t.dataset.id) st.eq=eqValue(st.pax); st.service=+t.dataset.id; st.slot=0; st.date=''; st.point=0; redraw(); if(window.innerWidth<900) $('[data-step="2"]').scrollIntoView({behavior:'smooth',block:'start'}); return; }
       if(t.matches('#bk-points .cd-chip')){ st.point=+t.dataset.point; st.slot=0; st.date=''; redraw(); return; }
       if(t.matches('.bk-date')){ st.date=t.dataset.date; st.slot=0; redraw(); return; }
@@ -4999,7 +5010,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     try{
       const isCenter=role==='center';
       const centerId=isCenter?(state.me?.user?.center_id||0):0;
-      const [d, assignedResult, tariffResult, extrasResult, equipmentResult, ownTplResult, expResult, payResult, catResult]=await Promise.all([
+      const [d, assignedResult, tariffResult, extrasResult, equipmentResult, ownTplResult, expResult, payResult, catResult, bookCats]=await Promise.all([
         api('/api/provider-services?provider_id='+providerId+'&include_inactive=1'),
         isCenter?api('/api/center-points?center_id='+centerId):{items:[]},
         isCenter?api('/api/center/tariffs'):{items:[]},
@@ -5008,14 +5019,15 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         api('/api/service-templates').catch(()=>({items:[]})),
         api('/api/provider/experiences').catch(()=>({destinations:[]})),
         api('/api/payments/connect-status').catch(()=>({ready:false})),
-        api('/api/service-catalog?lang='+currentLanguage()).catch(()=>({items:[],neutral:null}))
+        api('/api/service-catalog?lang='+currentLanguage()).catch(()=>({items:[],neutral:null})),
+        api('/api/booking-categories?lang='+currentLanguage()).then(r=>r.items||[]).catch(()=>[])   // 17/10 (1.5)
       ]);
       // The same rule as the server (center_payments_ready): the centre's Stripe account AND the platform's keys.
       const payReady=!!(payResult.ready&&payResult.platform_ready);
       // v50.53: the templates of «Administración → Plantillas de servicios» (name, text, duration and photo).
       const catalog=catResult.items||[], neutralPhoto=catResult.neutral||null;
       const resolveMode=m=>m==='auto'||m==='instant'?(payReady?'payment':'request'):(m==='payment'&&!payReady?'request':m);
-      const items=(d.items||[]).slice().sort((a,b)=>(Number(b.active)-Number(a.active))||String(a.title).localeCompare(String(b.title),'es'));
+      const items=(d.items||[]).slice().sort((a,b)=>Number(b.active)-Number(a.active));   // 17/10 (1.5): then the order of the booking (the server's)
       const assigned=assignedResult.items||[], tariffs=tariffResult.items||[], extras=extrasResult.items||[], equipment=equipmentResult.items||[];
       const destinations=expResult.destinations||[];
       let ownTemplates=ownTplResult.items||[];
@@ -5063,7 +5075,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         return `<article class="svc-card ${s.active?'':'is-paused'}" style="--svc:${color}" data-service="${s.id}">
           <div class="svc-card-top">
             <span class="svc-icon">${wdIcon(s.icon||s.template?.icon||s.service_type,22)}</span>
-            <div class="svc-card-title"><h3>${esc(s.title)}</h3><p>${esc(t.label)}${s.kind==='course'&&s.plan_summary?` · ${esc(s.plan_summary)}`:dur?` · ${esc(dur)}`:''}</p></div>
+            <div class="svc-card-title"><h3>${esc(s.title)}</h3><p>${esc(t.label)}${s.kind==='course'&&s.plan_summary?` · ${esc(s.plan_summary)}`:dur?` · ${esc(dur)}`:''}</p>
+              ${bookCats.length>1&&!s.draft?`<label class="svc-cat"><span>Al reservar, en</span><select class="svc-cat-sel" translate="no" data-id="${s.id}" aria-label="Categoría de «${esc(s.title)}» al reservar">${bookCats.map(c=>`<option value="${esc(c.key)}"${c.key===s.category?' selected':''}>${esc(c.label)}</option>`).join('')}</select>${s.category_check?`<span class="svc-state warn" title="Este servicio es de antes y no deja clara su categoría: compruébala.">Revisar</span>`:''}</label>`:''}</div>
             ${s.draft?'<span class="svc-state draft">Borrador</span>':`<span class="svc-state ${s.active?'on':'off'}">${s.active?'A la venta':'En pausa'}</span>`}
           </div>
           <div class="svc-price-row">
@@ -5100,6 +5113,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(svcUi.type!=='all'&&!presentTypes.includes(svcUi.type)) svcUi.type='all';
       const servicesPane=()=>!items.length?emptyServices():`<div class="svc-toolbar">
           <label class="svc-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="svc-search" type="search" placeholder="Buscar servicio" value="${esc(svcUi.q)}" aria-label="Buscar servicio"></label>
+          ${items.filter(x=>x.active&&!x.draft).length>1?`<button type="button" class="btn btn-sm svc-order-open">${wdIcon('list',15)} Ordenar para la reserva</button>`:''}
           <div class="svc-chips">${presentTypes.length>1?[`<button type="button" class="svc-chip ${svcUi.type==='all'?'active':''}" data-type="all">Todos</button>`,...presentTypes.map(v=>`<button type="button" class="svc-chip ${svcUi.type===v?'active':''}" data-type="${esc(v)}">${wdIcon(v,15)}${esc(typeOf(v).label)}</button>`)].join(''):''}</div>
         </div>
         <div class="svc-grid" id="svc-grid"></div>`;
@@ -5135,6 +5149,21 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const saveTemplate=async(data,name)=>{const fields=['title','service_type','description','duration_minutes','max_participants','booking_mode','response_hours','payment_hours','color','price']; const payload={name}; fields.forEach(f=>{payload[f]=data[f]??'';}); const existing=ownTemplates.find(x=>x.name.toLowerCase()===name.toLowerCase()); if(existing)payload.id=existing.id; const r=await postJSON('/api/service-templates/save',payload); ownTemplates=(await api('/api/service-templates')).items||[]; return r;};
 
       // ---------- v50.58: more editions of a course («+ Edición»): start dates, places and instructor ----------
+      // 17/10 (1.5): the order of the services when the customer books, by category: drag them, or use the arrows
+      const openOrderForm=()=>{
+        const list=items.filter(x=>x.active&&!x.draft), groups=(bookCats.length?bookCats:[{key:'',label:''}]).map(c=>({...c,list:list.filter(x=>!c.key||x.category===c.key)})).filter(g=>g.list.length);
+        const row=x=>`<li class="svc-ord-row" draggable="true" data-id="${x.id}"><span class="svc-ord-grip" aria-hidden="true">⋮⋮</span><span class="svc-ord-t"><b>${esc(x.title)}</b><small>${wdMoney(x.price,x.currency)}</small></span><button type="button" class="svc-iconbtn" data-move="-1" aria-label="Subir «${esc(x.title)}»">↑</button><button type="button" class="svc-iconbtn" data-move="1" aria-label="Bajar «${esc(x.title)}»">↓</button></li>`;
+        const {el,close}=wdOpenModal({id:'svc-order',title:'Ordenar para la reserva',subtitle:'Así los ve el cliente al reservar. Si no los ordenas, van primero los más baratos.',
+          body:`<div class="svc-ord">${groups.map(g=>`${g.label?`<h4>${esc(g.label)}</h4>`:''}<ol class="svc-ord-list">${g.list.map(row).join('')}</ol>`).join('')}</div><p class="wz-err" id="ord-err" role="alert" hidden></p>`,
+          footer:`<button type="button" class="btn" data-modal-close>Cancelar</button><button type="button" class="btn btn-primary" id="ord-save">Guardar el orden</button>`});
+        let drag=null;
+        el.addEventListener('dragstart',e=>{ drag=e.target.closest('.svc-ord-row'); if(drag){ drag.classList.add('is-drag'); e.dataTransfer.effectAllowed='move'; } });
+        el.addEventListener('dragend',()=>{ drag?.classList.remove('is-drag'); drag=null; });
+        el.addEventListener('dragover',e=>{ const over=e.target.closest('.svc-ord-row'); if(!drag||!over||over===drag||over.parentNode!==drag.parentNode) return; e.preventDefault(); const r=over.getBoundingClientRect(); over.parentNode.insertBefore(drag,e.clientY<r.top+r.height/2?over:over.nextSibling); el.dataset.dirty='1'; });
+        el.addEventListener('click',async e=>{ const b=e.target.closest('button'); if(!b) return;
+          if(b.dataset.move){ const li=b.closest('li'), to=Number(b.dataset.move)<0?li.previousElementSibling:li.nextElementSibling?.nextElementSibling; if(Number(b.dataset.move)<0&&!to) return; li.parentNode.insertBefore(li,to||null); b.focus(); el.dataset.dirty='1'; return; }
+          if(b.id==='ord-save'){ b.disabled=true; try{ await postJSON('/api/provider-services/order',{ids:$$('.svc-ord-row',el).map(li=>Number(li.dataset.id))}); delete el.dataset.dirty; close(); toast('Orden guardado.'); refresh(); }catch(err){ const er=$('#ord-err',el); er.textContent=err.message; er.hidden=false; b.disabled=false; } } });
+      };
       const openEditionsForm=async s=>{
         let o={instructors:[],today:wdToday()}; try{ o=await api('/api/provider-services/wizard-options'); }catch{}
         const plan=s.course_plan||{days:['full']}, n=Math.max(1,(plan.days||[]).length); let dates=[];
@@ -5422,6 +5451,9 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(opts.openNew) wdServiceWizard({role,onDone:()=>refresh()});
       if(opts.openWizard){ const s=findService(opts.openWizard); if(s) wdServiceWizard({existing:s,role,onDone:()=>refresh(),legacy:()=>openServiceForm(s)}); }
 
+      mount.onchange=async e=>{ const sel=e.target.closest('.svc-cat-sel'); if(!sel) return;   // 17/10 (1.5)
+        sel.disabled=true; try{ await postJSON('/api/provider-services/category',{id:Number(sel.dataset.id),category:sel.value}); const it=findService(sel.dataset.id); if(it){ it.category=sel.value; it.category_check=0; } sel.parentNode.querySelector('.svc-state.warn')?.remove(); toast('Categoría guardada.'); }
+        catch(err){ toast(err.message); } finally{ sel.disabled=false; } };
       mount.onclick=async e=>{
         const tpl=e.target.closest('.svc-template'); if(tpl){ const t=allTemplates()[+tpl.dataset.template]; if(t?.template_id) wdServiceWizard({role,onDone:()=>refresh(),startTemplate:t.template_id}); else openServiceForm(null,t); return;}
         const tabBtn=e.target.closest('[data-svc-tab]'); if(tabBtn){svcUi.tab=tabBtn.dataset.svcTab;render();return;}
@@ -5432,6 +5464,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         if(btn.classList.contains('new-center-service')){e.preventDefault();wdServiceWizard({role,onDone:id=>refresh()});return;}   // v50.58: the wizard
         if(btn.classList.contains('service-edit')){if(s)wdServiceWizard({existing:s,role,onDone:()=>refresh(),legacy:()=>openServiceForm(s)});return;}
         if(btn.classList.contains('svc-editions')){if(s)openEditionsForm(s);return;}
+        if(btn.classList.contains('svc-order-open')){openOrderForm();return;}
         if(btn.dataset.gotoAgenda){ $('.cb-nav[data-cbtab="agenda"]')?.click(); return; }
         if(btn.classList.contains('service-price')){if(s)openTariffForm(s);return;}
         if(btn.classList.contains('svc-open-agenda')){if(s)openAgenda(s);return;}
@@ -7893,7 +7926,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       if(t==='destinations') c.innerHTML=adminDestinations(meta.travel);
       if(t==='media'&&isAdmin){ c.innerHTML='<div id="site-theme-manager"></div><div id="site-media-manager"></div><div id="image-origins"></div>'; wdGuard('site-theme-manager',()=>renderThemeManager('site-theme-manager')); wdGuard('site-media-manager',()=>renderSiteMediaManager('site-media-manager')); wdGuard('image-origins',()=>renderImageOrigins('image-origins')); }
       if(t==='divetypes'&&isAdmin){ c.innerHTML='<div id="admin-divetypes"></div><div id="admin-typefields"></div>'; wdGuard('admin-typefields',()=>renderTypeFieldsAdmin('admin-typefields')); wdGuard('admin-divetypes',()=>renderSiteMediaManager('admin-divetypes',{group:'Tipos de buceo'})); }
-      if(t==='svctemplates'&&isAdmin){ c.innerHTML='<div id="admin-svc-templates"></div>'; wdGuard('admin-svc-templates',()=>renderAdminServiceTemplates('admin-svc-templates')); }
+      if(t==='svctemplates'&&isAdmin){ c.innerHTML='<div id="admin-book-cats"></div><div id="admin-svc-templates"></div>'; wdGuard('admin-book-cats',()=>renderBookingCategoriesAdmin('admin-book-cats')); wdGuard('admin-svc-templates',()=>renderAdminServiceTemplates('admin-svc-templates')); }
       if(t==='adminpay'&&isAdmin){ c.innerHTML='<div id="admin-payments"></div>'; wdGuard('admin-payments',()=>renderAdminPayments('admin-payments')); }
       if(t==='emails'&&isAdmin){ c.innerHTML='<div id="admin-emails"></div>'; wdGuard('admin-emails',()=>renderAdminEmails('admin-emails')); }
       if(t==='legal'&&isAdmin){ c.innerHTML='<div id="admin-legal"></div>'; wdGuard('admin-legal',()=>renderAdminLegal('admin-legal')); }
@@ -8026,6 +8059,20 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
 
   // Encargo del 17/10 (1.2): «Datos propios de cada tipo». Adding a field to a type needs no programming; a hidden field
   // keeps its values (nothing is deleted) and stops showing in the pages.
+  // 17/10 (1.5): the categories of the booking (name in the 9 languages, icon, order, shown or hidden)
+  async function renderBookingCategoriesAdmin(id){
+    const host=document.getElementById(id); if(!host) return; const esc=escapeHtml; const d=await api('/api/admin/booking-categories');
+    const LN={en:'English',fr:'Français',de:'Deutsch',it:'Italiano',pt:'Português',nl:'Nederlands',pl:'Polski',zh:'中文'};
+    const tr=r=>{ try{ return JSON.parse(r.labels_i18n||'{}')||{}; }catch{ return {}; } };
+    host.innerHTML=`<section class="mm-module bc-admin"><div class="svc-head"><div><p class="eyebrow">Reservar</p><h2>Categorías al reservar</h2><p>Al reservar en un centro, el cliente elige primero la categoría y después ve solo sus actividades. Solo salen las categorías que tienen actividades a la venta.</p></div></div>
+      <div class="bc-list">${d.items.map(r=>{ const t=tr(r), miss=d.langs.filter(l=>!(t[l]||'').trim()); return `<details class="tf-type bc-cat ${r.active?'':'is-off'}" data-key="${esc(r.key)}"><summary>${wdIcon(r.icon,18)} <b>${esc(r.label)}</b>${r.active?'':' <span class="svc-state off">Oculta</span>'}${miss.length?` <span class="svc-state warn">Faltan ${miss.length} idiomas</span>`:''}</summary>
+        <form class="bc-form"><div class="bc-grid"><label>Español<input name="label" value="${esc(r.label)}" maxlength="60" required></label>${d.langs.map(l=>`<label>${LN[l]||l}<input name="tr_${l}" value="${esc(t[l]||'')}" maxlength="60" lang="${l}"></label>`).join('')}
+          <label>Icono<select name="icon">${d.icons.map(i=>`<option value="${i}"${i===r.icon?' selected':''}>${esc(i.replace(/_/g,' '))}</option>`).join('')}</select></label><label>Orden<input name="sort_order" type="number" min="0" max="999" value="${r.sort_order}"></label></div>
+          <div class="bc-actions"><label class="bc-check"><input type="checkbox" name="active"${r.active?' checked':''}> Se muestra al reservar</label><button type="submit" class="btn btn-primary btn-sm">Guardar</button></div></form></details>`; }).join('')}</div></section>`;
+    $$('.bc-form',host).forEach(f=>f.onsubmit=e=>{ e.preventDefault(); const fd=new FormData(f), key=f.closest('.bc-cat').dataset.key;
+      postJSON('/api/admin/booking-categories',{key,label:fd.get('label'),icon:fd.get('icon'),sort_order:fd.get('sort_order'),active:fd.get('active')?1:0,labels_i18n:Object.fromEntries(d.langs.map(l=>[l,fd.get('tr_'+l)||'']))})
+        .then(()=>{ toast('Categoría guardada.'); renderBookingCategoriesAdmin(id); }).catch(err=>toast(err.message)); });
+  }
   async function renderTypeFieldsAdmin(id){
     const host=document.getElementById(id); if(!host) return; const esc=escapeHtml; const d=await api('/api/admin/dive-type-fields');
     const KIND={number:'Número',text:'Texto',yesno:'Sí / No'};

@@ -176,3 +176,77 @@ class Buceador(MiddayClock, ServerTestCase):
         r = self.ana.post('/api/buddies/qr', {'code': q3['token']})
         self.assertEqual(r.status, 200, r.json); self.assertEqual(r.json['status'], 'pending')
         self.assertEqual([x['name'] for x in self.otro.get('/api/buddies').json['incoming']], [self.ana.user['fullname']])
+
+
+class Categorias(ServerTestCase):
+    """1.5 · Reservar por categorías: la categoría de cada servicio (sola por su tipo, o la que elige el centro), los
+    dudosos marcados, el orden del centro y, si no, de más barato a más caro, y las categorías en los 9 idiomas."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        t = cls('run')
+        cls.admin = t.make_admin()
+        cls.center = t.make_center(cls.admin, 'ct59')
+        cls.other = t.make_center(cls.admin, 'ct59b')
+        mk = lambda c, **kw: c.post('/api/provider-services', {'booking_mode': 'request', **kw}).json['id']
+        cls.doble = mk(cls.center, title='Doble inmersión', price=70, service_type='inmersion')
+        cls.simple = mk(cls.center, title='Inmersión simple', price=40, service_type='inmersion')
+        cls.ow = mk(cls.center, title='Open Water', price=420, service_type='curso')
+        cls.bau = mk(cls.center, title='Bautizo de buceo', price=60, service_type='inmersion')
+        cls.foreign = mk(cls.other, title='Inmersión ajena', price=30, service_type='inmersion')
+        w = t.client().get(f"/widget/center/{cls.center.user['center_id']}")
+        cls.slug = w.headers['Location'].split('/w/')[1].split('?')[0]
+
+    def services(self):
+        return self.center.get(f"/api/provider-services?provider_id=0&center_id={self.center.user['center_id']}").json['items']
+
+    def test_1_category_by_kind_and_cheapest_first(self):
+        by = {s['id']: s['category'] for s in self.services()}
+        self.assertEqual((by[self.simple], by[self.doble], by[self.ow], by[self.bau]), ('inmersiones', 'inmersiones', 'cursos', 'bautizos'))
+        w = self.client().get(f'/api/w/{self.slug}').json
+        self.assertEqual([c['key'] for c in w['categories']][:5], ['inmersiones', 'cursos', 'bautizos', 'tours', 'otros'])
+        dives = [s['id'] for s in w['services'] if s['category'] == 'inmersiones']
+        self.assertEqual(dives, [self.simple, self.doble])   # without an order of the centre: the cheapest first
+
+    def test_2_centre_changes_category_and_orders(self):
+        self.assertEqual(self.center.post('/api/provider-services/category', {'id': self.bau, 'category': 'cursos'}).status, 200)
+        self.assertEqual({s['id']: s['category'] for s in self.services()}[self.bau], 'cursos')
+        self.assertEqual(self.center.post('/api/provider-services/category', {'id': self.bau, 'category': 'inventada'}).status, 400)
+        self.assertEqual(self.center.post('/api/provider-services/category', {'id': self.foreign, 'category': 'cursos'}).status, 404)   # not its service
+        self.assertEqual(self.center.post('/api/provider-services/order', {'ids': [self.doble, self.simple, self.foreign]}).status, 404)
+        self.assertEqual(self.center.post('/api/provider-services/order', {'ids': [self.doble, self.simple]}).status, 200)
+        w = self.client().get(f'/api/w/{self.slug}').json
+        self.assertEqual([s['id'] for s in w['services'] if s['category'] == 'inmersiones'], [self.doble, self.simple])
+        self.assertEqual(self.center.post('/api/provider-services/category', {'id': self.bau, 'category': 'bautizos'}).status, 200)
+
+    def test_3_doubtful_services_of_before_are_marked(self):
+        import sys; sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1] / 'app'))
+        from wod import categorias as wcat, servicios as wsv
+        old = {'kind': None, 'service_type': 'experiencia', 'title': 'Salida especial', 'booking_unit': 'slot'}   # «Bautizo / experiencia» of before: snorkel or try dive?
+        self.assertTrue(wcat.doubtful(old, wsv.kind_of(old)))
+        self.assertFalse(wcat.doubtful({**old, 'service_type': 'curso'}, wsv.kind_of({**old, 'service_type': 'curso'})))
+        self.assertFalse(wcat.doubtful({**old, 'kind': 'other'}, 'other'))   # chosen in the wizard: it is not doubtful
+        self.assertEqual(len(self.server.sql("SELECT 1 FROM schema_migrations WHERE version='50.59-categorias'")), 1)
+
+    def test_4_admin_configures_in_9_languages(self):
+        d = self.admin.get('/api/admin/booking-categories').json
+        self.assertEqual(len(d['langs']), 8)   # Spanish is the name itself
+        self.assertIn(self.center.get('/api/admin/booking-categories').status, (403, 404))
+        r = self.admin.post('/api/admin/booking-categories', {'key': 'tours', 'label': 'Tours y experiencias', 'icon': 'viaje', 'sort_order': 40,
+                                                             'labels_i18n': {'en': 'Tours and experiences', 'de': 'Touren und Erlebnisse'}})
+        self.assertEqual(r.status, 200, r.json)
+        en = {c['key']: c for c in self.client().get('/api/booking-categories?lang=en').json['items']}
+        self.assertEqual(en['tours']['label'], 'Tours and experiences')
+        fr = {c['key']: c for c in self.client().get('/api/booking-categories?lang=fr').json['items']}
+        self.assertEqual(fr['tours']['label'], 'Tours y experiencias')   # its French was cleared: Spanish, never empty
+        self.assertEqual(self.admin.post('/api/admin/booking-categories', {'key': 'tours', 'label': '<b>x</b>', 'icon': 'viaje'}).status, 400)
+        self.assertEqual(self.admin.post('/api/admin/booking-categories', {'key': 'tours', 'label': 'X', 'icon': 'nada'}).status, 400)
+        # hidden: its services go to the first category still shown, never lost
+        self.assertEqual(self.admin.post('/api/admin/booking-categories', {'key': 'bautizos', 'label': 'Bautizos', 'icon': 'bautizo', 'sort_order': 30, 'active': 0}).status, 200)
+        try:
+            w = self.client().get(f'/api/w/{self.slug}').json
+            self.assertNotIn('bautizos', [c['key'] for c in w['categories']])
+            self.assertIn({s['id']: s['category'] for s in w['services']}[self.bau], [c['key'] for c in w['categories']])
+        finally:
+            self.admin.post('/api/admin/booking-categories', {'key': 'bautizos', 'label': 'Bautizos', 'icon': 'bautizo', 'sort_order': 30, 'active': 1})

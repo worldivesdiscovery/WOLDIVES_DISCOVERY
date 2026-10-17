@@ -375,13 +375,30 @@
   }
   function dayObj(iso) { return ((S.strip && S.strip.days) || []).filter(function (d) { return d.date === iso; })[0]; }
 
+  // 17/10 (1.5): with activities of more than one category, first the category and then only its activities
+  function catsWithServices() {
+    return (S.cat.categories || []).map(function (c) {
+      var l = S.cat.services.filter(function (s) { return s.category === c.key; });
+      return { key: c.key, label: c.label, list: l };
+    }).filter(function (c) { return c.list.length; });
+  }
   function servicesBlock() {
-    var list = S.cat.services;
-    if (S.svc && (list.length === 1 || !S.showAll)) {
+    var cats = catsWithServices(), all = S.cat.services, list = all;
+    if (cats.length > 1 && S.svc && !S.wcat) S.wcat = S.svc.category;
+    if (cats.length > 1 && !S.svc && !S.wcat) {
+      return '<h2 class="wr-h">' + esc(t('rx_what')) + '</h2><div class="wr-svcs wr-cats" role="list">' + cats.map(function (c) {
+        var from = Math.min.apply(null, c.list.map(function (s) { return +s.price || 0; }).filter(function (x) { return x > 0; }).concat([Infinity]));
+        return '<button type="button" class="wr-svc wr-cat" role="listitem" data-wcat="' + esc(c.key) + '"><span class="wr-svc-t"><b>' + esc(c.label) + '</b><small>' +
+          esc(c.list.length === 1 ? t('rx_cat_one') : t('rx_cat_n', { n: c.list.length })) + (from < Infinity ? ' · ' + esc(t('from') + ' ' + money(from, c.list[0].currency)) : '') + '</small></span><span class="wr-cat-go" aria-hidden="true">›</span></button>';
+      }).join('') + '</div>';
+    }
+    if (cats.length > 1 && S.wcat) list = all.filter(function (s) { return s.category === S.wcat; });
+    if (S.svc && (all.length === 1 || !S.showAll)) {
       return '<div class="wr-svc-one"><div><b>' + esc(S.svc.title) + '</b><small>' + esc(svcMeta(S.svc)) + '</small></div>' +
         (list.length > 1 ? '<button type="button" class="wr-link" data-all>' + esc(t('rx_change')) + '</button>' : '') + '</div>';
     }
-    return '<h2 class="wr-h">' + esc(t('rx_what')) + '</h2><div class="wr-svcs" role="radiogroup" aria-label="' + esc(t('rx_what')) + '">' + list.map(function (s) {
+    var cur = cats.length > 1 && S.wcat ? cats.filter(function (c) { return c.key === S.wcat; })[0] : null;
+    return '<div class="wr-h-row"><h2 class="wr-h">' + esc(cur ? cur.label : t('rx_what')) + '</h2>' + (cur ? '<button type="button" class="wr-link" data-wcat-back>' + esc(t('rx_all_cats')) + '</button>' : '') + '</div><div class="wr-svcs" role="radiogroup" aria-label="' + esc(t('rx_what')) + '">' + list.map(function (s) {
       var on = S.svc && S.svc.id === s.id;
       return '<button type="button" class="wr-svc" role="radio" aria-checked="' + !!on + '" data-svc="' + s.id + '"' + (s.bookable ? '' : ' disabled') + '>' +
         (s.photo && s.photo.src ? '<img src="' + esc(s.photo.src) + '" alt="" loading="lazy" width="56" height="56">' : '<span class="wr-svc-ph" aria-hidden="true"></span>') +
@@ -479,6 +496,8 @@
     bindBar(toDetails);
     app.querySelectorAll('[data-svc]').forEach(function (b) { b.addEventListener('click', function () { dirty(true); S.showAll = false; pickService(+b.getAttribute('data-svc')); }); });
     var all = app.querySelector('[data-all]'); if (all) all.addEventListener('click', function () { S.showAll = true; s1(); });
+    app.querySelectorAll('[data-wcat]').forEach(function (b) { b.addEventListener('click', function () { S.wcat = b.getAttribute('data-wcat'); S.showAll = true; s1(); var f = app.querySelector('[data-svc]:not([disabled])'); if (f) f.focus(); }); });
+    var wb = app.querySelector('[data-wcat-back]'); if (wb) wb.addEventListener('click', function () { S.wcat = ''; S.showAll = true; S.svc = null; S.slot = null; S.sel = null; S.day = null; S.quote = null; s1(); });
     app.querySelectorAll('[data-day]').forEach(function (b) {
       b.addEventListener('click', function () {
         dirty(true); S.day = b.getAttribute('data-day'); S.slot = null; S.alt = null;

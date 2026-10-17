@@ -1973,6 +1973,15 @@ a.hm-logo:hover .hm-logo-text{color:var(--deep)}
 .bk-svc-txt small{color:var(--muted);font-size:13px}
 .bk-svc-next{color:var(--sea)!important;font-weight:600}
 .bk-svc-price{text-align:right;display:flex;flex-direction:column}
+/* 1.5 · primero la categoría, después sus actividades */
+.bk-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.bk-cat{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;width:100%;min-height:78px;padding:14px 16px;border:1.5px solid var(--line);border-radius:16px;background:#fff;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.bk-cat:hover,.bk-cat:focus-visible{border-color:var(--c,var(--sea));box-shadow:0 0 0 3px color-mix(in srgb,var(--c,var(--sea)) 16%,transparent)}
+.bk-cat-icon{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:color-mix(in srgb,var(--c,var(--sea)) 14%,#fff);color:var(--c,var(--sea))}
+.bk-cat-t{display:flex;flex-direction:column;min-width:0}.bk-cat-t strong{font-size:16px}.bk-cat-t small{color:var(--muted);font-size:13px}
+.bk-cat-go{font-size:24px;color:var(--muted)}
+.bk-cat-now{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.bk-cat-now b{display:inline-flex;align-items:center;gap:6px}
 .bk-svc-price strong{font-size:19px}.bk-svc-price small{color:var(--muted);font-size:12px}
 .bk-empty{padding:18px;border:1px dashed var(--line);border-radius:14px;color:var(--muted);text-align:center}
 .bk-points{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px}
@@ -4666,3 +4675,20 @@ html.wd-app[data-wda-tema="noche"] .pp-temps{background:#0f2433;border-color:#22
 .tf-list .tf-label{flex:1 1 220px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
 .tf-list small{color:var(--muted)}
 .tf-new{display:flex;gap:8px;flex-wrap:wrap}.tf-new input[name=label]{flex:1 1 240px}.tf-new input,.tf-new select{padding:8px 10px;border:1px solid var(--line);border-radius:10px}
+
+/* 17/10 (1.5) · categoría de cada servicio al reservar y su orden */
+.svc-cat{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;color:var(--muted)}
+.svc-cat select{font:inherit;font-size:12.5px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink,#0f172a);max-width:100%}
+.svc-state.warn{background:#fff4e5;color:#9a5b00}
+.svc-ord h4{margin:14px 0 6px;font-size:14px}.svc-ord h4:first-child{margin-top:0}
+.svc-ord-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.svc-ord-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:grab}
+.svc-ord-row.is-drag{opacity:.5}
+.svc-ord-grip{color:var(--muted);letter-spacing:-2px}
+.svc-ord-t{display:flex;flex-direction:column;min-width:0}.svc-ord-t small{color:var(--muted)}
+.bc-list{display:grid;gap:8px}.bc-cat summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:10px}
+.bc-grid label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.bc-grid input,.bc-grid select{font:inherit;color:var(--ink,#0f172a);padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.bc-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;flex-wrap:wrap}.bc-check{display:flex;gap:6px;align-items:center}
+.bc-cat.is-off summary b{opacity:.6}

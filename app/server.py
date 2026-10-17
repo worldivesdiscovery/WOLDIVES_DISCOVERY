@@ -74,6 +74,7 @@ from wod import servicios as wsv   # v50.58: services in the words of a diver (t
 from wod import curso as wcur   # v50.58 (3.5): the progress of a course in each booking
 from wod import tipos_datos as wtd   # 17/10 (1.2): the own data of each type of dive (a wreck, a cave, a wall…)
 from wod import buddies as wbud   # 17/10 (1.7): buddies that accept, and «¿Buceamos?»
+from wod import categorias as wcat   # 17/10 (1.5): the activities by categories when booking
 from wod import equipo as weq   # v50.58: rental equipment inside the dive (16/10/2026)
 from wod import puntos as wpun   # v50.58: fuller dive sites, sources, batches and duplicates (16/10/2026)
 from wod import costa as wcosta   # v50.58: land or sea, and the distance to the shore, of a dive site
@@ -2638,6 +2639,15 @@ def migrate_v50_59(db):
     data that are empty, each one with its source in the private register."""
     for stmt in wtd.SCHEMA: db.execute(stmt)
     for stmt in wbud.SCHEMA: db.execute(stmt)   # 1.7: buddy requests and «¿Buceamos?»
+    for stmt in wcat.SCHEMA: db.execute(stmt)   # 1.5: the categories of the activities when booking
+    wcat.seed(db, now())
+    add_columns(db, 'provider_services', [('category', 'TEXT'), ('category_check', 'INTEGER NOT NULL DEFAULT 0'), ('sort_order', 'INTEGER')])
+    if not migration_done(db, '50.59-categorias'):
+        # the services of before whose category is not clear (kind not chosen and «Otro») are marked for the centre
+        n = 0
+        for r in db.execute('SELECT * FROM provider_services WHERE kind IS NULL').fetchall():
+            if wcat.doubtful(r, wsv.kind_of(r)): db.execute('UPDATE provider_services SET category_check=1 WHERE id=?', (r['id'],)); n += 1
+        db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.59-categorias', now(), f'{n} servicios de antes marcados para revisar su categoría'))
     wtd.seed(db, now())
     if migration_done(db, '50.59-tipos'): return
     n_cols = n_vals = 0
@@ -12678,12 +12688,22 @@ def sales_provider(db, kind, pid, lang='es'):
     return info
 
 
+def service_categories_valid(db):
+    return {r['key'] for r in wcat.rows(db)}
+
+
+def services_in_order(rows, price_of):
+    """17/10 (1.5): the order the centre set (dragging, in «Servicios y tarifas») and, without it, cheapest first."""
+    return sorted(rows, key=lambda r: (r['sort_order'] is None, r['sort_order'] or 0, price_of(r), (r['title'] or '').lower()))
+
+
 def sales_services(db, kind, pid, lang='es', service_id=None, service_type=None, with_dates=True):
     where = 's.center_id=?' if kind == 'center' else 's.center_id IS NULL AND s.provider_user_id=?'
     args = [pid]
     if service_id: where += ' AND s.id=?'; args.append(int(service_id))
     if service_type: where += ' AND s.service_type=?'; args.append(str(service_type)[:40])
     rows = db.execute(f'SELECT s.* FROM provider_services s WHERE {where} AND s.active=1 ORDER BY s.title LIMIT 60', args).fetchall()
+    rows = services_in_order(rows, lambda r: float(r['price'] or 0)); valid = service_categories_valid(db)
     cat = SERVICE_CATALOG.get(db); out = []
     equip = equipment_catalog(db, kind, pid)   # v50.58 (16/10): the rental pieces, once for all the services
     payee = payee_of(db, pid if kind == 'center' else None, pid if kind == 'freelance' else None)
@@ -12699,7 +12719,8 @@ def sales_services(db, kind, pid, lang='es', service_id=None, service_type=None,
              'duration': s['duration_minutes'], 'max_participants': s['max_participants'], 'timezone': service_tz(db, s),
              'photo': {'src': photo.get('src') or photo.get('jpg'), 'srcset': photo.get('srcset') or ''} if photo else None,
              'deposit': s['deposit_type'] not in (None, '', 'none'),
-             'insurance': ins_requirement(s)}   # v50.56: «Exige seguro de buceo» (no · center · online)
+             'insurance': ins_requirement(s),   # v50.56: «Exige seguro de buceo» (no · center · online)
+             'category': wcat.category_of(s, wsv.kind_of(s), valid)}   # 17/10 (1.5)
         m_, pcs_, kit_ = service_rental(db, s, equip)
         d['rental'] = {'mode': m_, 'pieces': equipment_pieces_public(pcs_), 'kit': kit_}
         # v50.58 (reserva exprés): the trust line (its own cancellation policy, «confirmación al momento» or «el centro
@@ -12721,6 +12742,7 @@ def sales_services(db, kind, pid, lang='es', service_id=None, service_type=None,
 
 def sales_catalog(db, kind, pid, row, lang, channel, service_id=None, service_type=None):
     return {'provider': sales_provider(db, kind, pid, lang), 'slug': row['slug'], 'color': row['brand_color'] or '', 'channel': channel,
+            'categories': wcat.public_list(db, lang),   # 17/10 (1.5)
             'bookable': sales_bookable(db, kind, pid, channel), 'hold_minutes': HOLD_MINUTES,
             'services': sales_services(db, kind, pid, lang, service_id, service_type),
             'stripe': sales_stripe(db, kind, pid)}   # v50.58: Stripe's form inside the booking (None: Stripe's page, as before)
@@ -18663,6 +18685,10 @@ class Handler(BaseHTTPRequestHandler):
                     admin_reason_gate(self,db,path,'GET')
                 if path.startswith(('/api/insurance','/api/admin/insurance','/api/center/bookings/')) and self.insurance_get(db,path,query): return   # v50.56 · seguros
                 if path.startswith(('/api/logbook','/api/center/logbook','/api/public/invite')) and self.logbook_get(db,path,query): return   # v50.57 · logbook
+                if path=='/api/booking-categories':   # 17/10 (1.5)
+                    self.send_json({'items':wcat.public_list(db,normalize_lang(query.get('lang',['es'])[0]))}); return
+                if path=='/api/admin/booking-categories':
+                    user=require_user(self,db); require_role(user,{'admin'}); self.send_json({'items':wcat.rows(db,include_hidden=True),'icons':list(wcat.ICONS),'langs':list(wcat.LANGS)}); return
                 if path=='/api/buddies':   # 17/10 (1.7): the buddies of the person, the requests and the «¿Buceamos?»
                     user=require_user(self,db); self.send_json(buddies_payload(db,user)); return
                 if path == '/api/health':
@@ -19454,7 +19480,8 @@ class Handler(BaseHTTPRequestHandler):
                                       FROM provider_services s JOIN users u ON u.id=s.provider_user_id
                                       LEFT JOIN centers c ON c.id=s.center_id
                                       WHERE (s.active=1 OR ?=1) AND (?=0 OR (s.provider_user_id=? AND s.center_id IS NULL)) AND (?=0 OR s.center_id=?) ORDER BY s.title''',(include_inactive,0 if owner_center else provider_id,provider_id,center_filter,center_filter)).fetchall()
-                    result=[]; ids=[r['id'] for r in rows]
+                    result=[]; rows=services_in_order(rows,lambda r: float(r['price'] or 0)); ids=[r['id'] for r in rows]   # 17/10 (1.5): the centre's order
+                    valid_cats=service_categories_valid(db)
                     slots_by_service={}; points_by_slot={}; exp_by_service={}
                     # Batched queries: a constant number of queries per request instead of one per departure.
                     for chunk in [ids[i:i+500] for i in range(0,len(ids),500)]:
@@ -19477,6 +19504,7 @@ class Handler(BaseHTTPRequestHandler):
                         d=dict(r)
                         if not include_inactive: d.pop('wizard_state',None)   # v50.58: the wizard's notes are only for its provider
                         d['kind']=wsv.kind_of(r)
+                        d['category']=wcat.category_of(r,d['kind'],valid_cats); d['category_check']=bool(r['category_check'])   # 17/10 (1.5)
                         # v50.58 (16/10): the rental pieces this service offers, with their prices, or «Equipo incluido»
                         ok_=service_owner(r)
                         if ok_ not in equip_cache: equip_cache[ok_]=equipment_catalog(db,*ok_)
@@ -21483,6 +21511,28 @@ class Handler(BaseHTTPRequestHandler):
                     row=db.execute('SELECT * FROM center_tariffs WHERE id=? AND center_id=?',(tid,cid)).fetchone()
                     if not row: raise ValueError('Tarifa no encontrada.')
                     db.execute('DELETE FROM center_tariffs WHERE id=?',(tid,)); db.commit(); self.send_json({'ok':True}); return
+                if path in ('/api/provider-services/category','/api/provider-services/order'):
+                    # 17/10 (1.5): the centre corrects the category of a service, or orders its services by dragging them
+                    user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
+                    kind_,oid_=provider_owner(user); w_,a_=owner_where(kind_,oid_)
+                    if path.endswith('/category'):
+                        cat_=clean_text(data.get('category'),40) or ''
+                        if cat_ not in service_categories_valid(db): raise ValueError('Categoría no válida.')
+                        if not db.execute(f'UPDATE provider_services SET category=?,category_check=0,updated_at=? WHERE id=? AND {w_}',(cat_,now(),int(data.get('id') or 0),*a_)).rowcount:
+                            raise NotFound('Servicio no encontrado.')
+                    else:
+                        ids_=[int(x) for x in (data.get('ids') or []) if str(x).isdigit()][:200]
+                        mine_={r['id'] for r in db.execute(f'SELECT id FROM provider_services WHERE {w_}',a_).fetchall()}
+                        if not ids_ or any(i not in mine_ for i in ids_): raise NotFound('Servicio no encontrado.')
+                        for i,sid_ in enumerate(ids_): db.execute(f'UPDATE provider_services SET sort_order=? WHERE id=? AND {w_}',((i+1)*10,sid_,*a_))
+                    audit(db,user['id'],'service_category' if path.endswith('/category') else 'services_ordered','provider_service',int(data.get('id') or 0) or None)
+                    db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/admin/booking-categories':
+                    user=require_user(self,db); require_role(user,{'admin'}); data=json_body(self); key=clean_text(data.get('key'),40) or ''
+                    if not db.execute('SELECT 1 FROM booking_categories WHERE key=?',(key,)).fetchone(): raise NotFound('Categoría no encontrada.')
+                    label,icon,order,tr=wcat.clean(data); active=0 if data.get('active') in (0,False,'0') else 1
+                    db.execute('UPDATE booking_categories SET label=?,icon=?,sort_order=?,labels_i18n=?,active=?,updated_at=? WHERE key=?',(label,icon,order,tr,active,now(),key))
+                    audit(db,user['id'],'booking_category_updated','booking_category',None,{'key':key}); db.commit(); self.send_json({'ok':True}); return
                 if path in ('/api/provider-services/wizard','/api/provider-services/duplicate','/api/provider-services/dates'):
                     # v50.58 (Parte 3): the services wizard, «Duplicar servicio» and more departures or editions
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)

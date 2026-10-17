@@ -724,6 +724,19 @@ RX = {
         'rx_test_done': '这就是你的客户看到的样子。测试模式下没有保存任何内容。',
     },
 }
+# 17/10/2026 (1.5): the categories step of the express booking
+RX_CATS = {
+    'es': {'rx_cat_one': '1 actividad', 'rx_cat_n': '{n} actividades', 'rx_all_cats': 'Todas las categorías'},
+    'en': {'rx_cat_one': '1 activity', 'rx_cat_n': '{n} activities', 'rx_all_cats': 'All categories'},
+    'fr': {'rx_cat_one': '1 activité', 'rx_cat_n': '{n} activités', 'rx_all_cats': 'Toutes les catégories'},
+    'de': {'rx_cat_one': '1 Aktivität', 'rx_cat_n': '{n} Aktivitäten', 'rx_all_cats': 'Alle Kategorien'},
+    'it': {'rx_cat_one': '1 attività', 'rx_cat_n': '{n} attività', 'rx_all_cats': 'Tutte le categorie'},
+    'pt': {'rx_cat_one': '1 atividade', 'rx_cat_n': '{n} atividades', 'rx_all_cats': 'Todas as categorias'},
+    'pl': {'rx_cat_one': '1 aktywność', 'rx_cat_n': 'Aktywności: {n}', 'rx_all_cats': 'Wszystkie kategorie'},
+    'nl': {'rx_cat_one': '1 activiteit', 'rx_cat_n': '{n} activiteiten', 'rx_all_cats': 'Alle categorieën'},
+    'zh': {'rx_cat_one': '1 项活动', 'rx_cat_n': '{n} 项活动', 'rx_all_cats': '全部类别'},
+}
+for _l, _d in RX_CATS.items(): RX[_l].update(_d)
 ES.update(RX['es'])
 for _l, _d in RX.items():
     if _l != 'es': T[_l].update(_d)
