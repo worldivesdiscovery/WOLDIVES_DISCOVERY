@@ -190,7 +190,7 @@ class CodigosQR(ServerTestCase):
         for c in (self.center, self.diver, self.client()):
             self.assertIn(c.get('/api/admin/short-links').status, (401, 403))
             self.assertIn(c.post('/api/admin/short-links/save', {'name': 'x', 'dest': 'portada'}).status, (401, 403))
-        self.assertIn(self.diver.get('/api/center/short-links').status, (401, 403))
+        self.assertIn(self.diver.get('/api/center/short-links').status, (401, 403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
         self.assertIn(self.admin.post('/api/center/short-links/save', {'name': 'x', 'dest': 'c_ficha'}).status, (400, 403))
 
     def test_9_el_equipo_sin_mi_centro_los_ve_pero_no_los_cambia(self):

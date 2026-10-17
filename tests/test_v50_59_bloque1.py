@@ -114,9 +114,11 @@ class Buceador(MiddayClock, ServerTestCase):
         cls.luis.post('/api/account/profile', {'phone': '+34 611 590 202'})
 
     def test_1_professional_routes_do_not_exist(self):
-        for path in ('/api/center/bookings', '/api/provider/stats', '/api/pro/hoy', '/api/admin/dive-type-fields', '/api/center/clients'):
+        for path in ('/api/center/bookings', '/api/provider/stats', '/api/pro/hoy', '/api/center/clients'):
             r = self.ana.get(path)
             self.assertEqual(r.status, 404, (path, r.status)); self.assertEqual(r.json.get('error'), 'No existe.')
+        self.assertEqual(self.ana.get('/api/admin/dive-type-fields').status, 403)   # the administration's: refused as always
+        self.assertEqual(self.ana.get('/api/center-equipment?center_id=1').status, 200)   # public: the booking shows the rental equipment
         r = self.ana.post('/api/pro/escanear', {'code': 'x'})
         self.assertEqual(r.status, 404)
         self.assertEqual(self.ana.get('/api/buddies').status, 200)   # what is his works

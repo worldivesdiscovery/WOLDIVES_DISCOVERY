@@ -23,8 +23,9 @@ class FiltrosDePuntos(unittest.TestCase):
     def test_1_una_linea_fija_y_un_panel(self):
         fn = render_points()
         bar = fn[fn.index('<div class="pt-filters pt-bar" id="pt-filters">'):fn.index('<div class="pt-panel"')]
-        for what in ('id="pt-q"', 'id="pt-filters-btn"', 'id="pt-sort"', 'data-view="list"', 'data-view="map"'):
-            self.assertIn(what, bar)                       # the one line: search, «Filtros (n)», sort and list/map
+        for what in ('id="pt-filters-btn"', 'id="pt-sort"', 'data-view="list"', 'data-view="map"'):
+            self.assertIn(what, bar)                       # the one line: «Filtros (n)», sort and list/map
+        self.assertIn("input:'pt-q'", fn[:fn.index('<div class="pt-filters pt-bar"')])   # 17/10 (1.3): the search, inside the directory's header
         panel = fn[fn.index('<div class="pt-panel"'):fn.index('<div class="pt-scrim"')]
         for what in ('id="pt-area"', 'id="pt-type"', 'id="pt-level"', 'id="pt-depth"', 'data-only="centers"', 'data-only="instant"', 'id="pt-panel-clear"'):
             self.assertIn(what, panel)                     # the rest, in the panel

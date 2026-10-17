@@ -233,7 +233,7 @@ class CentreTools(ServerTestCase):
             self.assertEqual(r.status, 200, kind); self.assertTrue(r.body.startswith('﻿'.encode('utf-8')))
         self.assertIn('Bautizo', self.center.get('/api/center/export?kind=bookings').body.decode('utf-8-sig'))
         self.assertEqual(self.center.get('/api/center/export?kind=otra').status, 400)
-        self.assertEqual(self.diver.get('/api/center/export?kind=bookings').status, 403)
+        self.assertIn(self.diver.get('/api/center/export?kind=bookings').status, (403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
         url = self.center.post('/api/provider/ical/regenerate', {}).json['url']
         ics = self.client().get('/ical/' + url.rsplit('/ical/', 1)[1])
         self.assertEqual(ics.status, 200); body = ics.body.decode()

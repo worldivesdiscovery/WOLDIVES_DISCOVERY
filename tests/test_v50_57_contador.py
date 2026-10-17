@@ -175,7 +175,7 @@ class ContadorDeVisitas(ServerTestCase):
         self.assertEqual(self.client().get('/api/admin/contador').status, 403)
         self.assertEqual(self.diver.get('/api/admin/contador').status, 403)
         self.assertEqual(self.center.get('/api/admin/contador').status, 403)
-        self.assertEqual(self.diver.get('/api/provider/contador').status, 403)
+        self.assertIn(self.diver.get('/api/provider/contador').status, (403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
         self.assertEqual(self.admin.get('/api/provider/contador').status, 403)
         self.assertEqual(self.pro.get('/api/provider/contador').status, 200)
         # a team member without «Estadísticas» does not see it; with it, the centre's figures (not the person's)

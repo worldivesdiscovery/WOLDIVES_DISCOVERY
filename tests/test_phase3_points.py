@@ -63,7 +63,7 @@ class Points(ServerTestCase):
         code = r.json['code']
         self.assertEqual(self.balance(self.diver), b0 - 30)
         self.assertEqual(self.other.post('/api/center/redemptions/validate', {'code': code}).status, 403)  # not its advantage
-        self.assertEqual(self.diver.post('/api/center/redemptions/validate', {'code': code}).status, 403)
+        self.assertIn(self.diver.post('/api/center/redemptions/validate', {'code': code}).status, (403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
         look = self.center.get('/api/center/redemptions?code=' + code)
         self.assertEqual((look.status, look.json['item']['status']), (200, 'issued'))
         self.assertNotIn('Pérez', look.json['item']['customer'])  # only «Nombre P.»
@@ -116,7 +116,7 @@ class Points(ServerTestCase):
         self.assertIn('Límite por cliente', over.json['error'])
         self.assertEqual(self.center.post('/api/provider/points-grant', {'user_id': stranger.user['id'], 'points': 5}).status, 403)
         self.assertEqual(self.center.post('/api/provider/points-grant', {'user_id': client.user['id'], 'points': 2.5}).status, 400)
-        self.assertEqual(client.post('/api/provider/points-grant', {'user_id': stranger.user['id'], 'points': 5}).status, 403)
+        self.assertIn(client.post('/api/provider/points-grant', {'user_id': stranger.user['id'], 'points': 5}).status, (403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
         self.assertEqual(self.center.post('/api/provider/wallet-grant', {'user_id': client.user['id'], 'amount': 5}).status, 410)
         items = client.get('/api/points').json['items']
         self.assertTrue(any(x['kind'] == 'granted' and x['points'] == 60 for x in items))
@@ -132,7 +132,7 @@ class Points(ServerTestCase):
         self.assertEqual(self.center.post('/api/provider/reward-offers', {'title': 'x', 'cost_points': 5, 'reward_type': 'cash'}).status, 400)
         oid = self.offer(cost=12)
         self.assertEqual(self.other.post('/api/provider/reward-offers', {'id': oid, 'title': 'robada', 'cost_points': 1}).status, 404)  # v50.47 (B.3)
-        self.assertEqual(self.diver.post('/api/provider/reward-offers', {'title': 'x', 'cost_points': 5}).status, 403)
+        self.assertIn(self.diver.post('/api/provider/reward-offers', {'title': 'x', 'cost_points': 5}).status, (403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
         offers = self.diver.get('/api/rewards').json['offers']
         self.assertTrue(all(o['center_id'] for o in offers))
 

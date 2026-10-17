@@ -50,7 +50,7 @@ class OfflineCheckin(MiddayClock, ServerTestCase):   # «today» at 23:59 must s
         self.assertEqual(self.day(date=DAY(1)).status, 200)                         # tomorrow, to prepare the evening before
         self.assertEqual(self.day(date=DAY(5)).status, 400)
         self.assertEqual(self.day(self.other).json['slots'], [])                    # another centre sees nothing of ours
-        self.assertEqual(self.diver.get('/api/manifest/day').status, 403)
+        self.assertIn(self.diver.get('/api/manifest/day').status, (403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
         self.assertEqual(self.day(self.inst).status, 200)
 
     def test_2_sync_and_conflicts(self):

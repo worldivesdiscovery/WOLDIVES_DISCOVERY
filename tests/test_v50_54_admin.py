@@ -132,7 +132,7 @@ class PermisosAdministracion(ServerTestCase):
     def test_moderation_is_for_the_administration_only(self):
         self.assertEqual(self.center.post('/api/admin/moderation/hide', {'target_type': 'center', 'target_id': self.cid, 'reason': 'Me oculto a mí mismo.'}).status, 403)
         self.assertEqual(self.center.get('/api/admin/moderation').status, 403)
-        self.assertEqual(self.diver.get('/api/provider/moderation').status, 403)
+        self.assertIn(self.diver.get('/api/provider/moderation').status, (403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
 
     # ------------------------------------------------------------------ personal data under switches, every access logged
     def test_bookings_without_private_data_by_default(self):

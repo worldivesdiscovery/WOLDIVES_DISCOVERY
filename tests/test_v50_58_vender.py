@@ -116,7 +116,7 @@ class Vender(ServerTestCase):
         for bad in ('', 'localhost', '127.0.0.1', 'http://10.0.0.5/admin', '*.buceo.com', 'ftp://buceo.com'):
             r = self.check(bad)
             self.assertEqual(r.status, 400, (bad, r))
-        self.assertEqual(self.check('buceo-con-boton.com', self.diver).status, 403)
+        self.assertIn(self.check('buceo-con-boton.com', self.diver).status, (403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
 
     def test_instructions_to_the_web_person(self):
         r = self.center.post('/api/provider/vender/instructions', {'email': 'Informatico@Empresa-Web.es', 'name': 'Jordi', 'fmt': 'calendario',

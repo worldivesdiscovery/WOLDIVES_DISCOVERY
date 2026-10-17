@@ -31,7 +31,7 @@ class Phase1Security(ServerTestCase):
         me = c.me()['user']
         self.assertEqual(me['role'], 'recreational')
         self.assertIsNone(me['center_id'])
-        self.assertEqual(c.get('/api/center/analytics').status, 403)
+        self.assertIn(c.get('/api/center/analytics').status, (403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
         claim = self.server.sql("SELECT * FROM center_claims WHERE email='intruso@evil.example.org'")[0]
         self.assertIsNone(claim['suggested_center_id'])
         self.assertIsNotNone(claim['center_id'])
@@ -55,7 +55,7 @@ class Phase1Security(ServerTestCase):
         c = self.client()
         c.register('Libre', 'libre@pro.example.org', 'libre1', account_type='freelance', phone='+34 699 000 111', certification_text='Divemaster')
         self.assertEqual(c.me()['user']['role'], 'recreational')
-        self.assertEqual(c.get('/api/provider/experiences').status, 403)
+        self.assertIn(c.get('/api/provider/experiences').status, (403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
 
     # ------------------------------------------------------------------ G1 / G8
     def test_g1_documents_access(self):
@@ -311,7 +311,7 @@ class Phase1Security(ServerTestCase):
         for c in (self.pro, self.diver):
             self.assertEqual(c.get('/api/admin/users').status, 403)
             self.assertEqual(c.get('/api/admin/audit').status, 403)
-            self.assertEqual(c.get('/api/center/clients').status, 403)
+            self.assertIn(c.get('/api/center/clients').status, (403, 404))   # 17/10 (1.7): a diver gets «no existe» on a professional route
         # A centre cannot manage another centre's services.
         svc = self.center_a.post('/api/provider-services', {'title': 'Bautizo', 'price': 40, 'booking_mode': 'request'}).json['id']
         self.assertEqual(self.center_b.post('/api/provider-services/update', {'id': svc, 'title': 'Hackeado'}).status, 404)  # v50.47 (B.3)

@@ -2929,7 +2929,7 @@ def migrate_v50_59(db):
         # the services of before whose category is not clear (kind not chosen and «Otro») are marked for the centre
         n = 0
         for r in db.execute('SELECT * FROM provider_services WHERE kind IS NULL').fetchall():
-            if wcat.doubtful(r, wsv.kind_of(r)): db.execute('UPDATE provider_services SET category_check=1 WHERE id=?', (r['id'],)); n += 1
+            if wcat.doubtful(r, wsv.kind_of(r)): db.execute('UPDATE provider_services SET category_check=1 WHERE id=? AND (center_id=? OR provider_user_id=?)', (r['id'], r['center_id'], r['provider_user_id'])); n += 1
         db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.59-categorias', now(), f'{n} servicios de antes marcados para revisar su categoría'))
     wtd.seed(db, now())
     if migration_done(db, '50.59-tipos'): return
@@ -3535,7 +3535,7 @@ PROVIDER_PANEL_PREFIXES = ('/api/bookings', '/api/center', '/api/provider', '/ap
 # Encargo del 17/10 (1.7): the routes of a professional (centre, freelance, administration). For a diver they «do not
 # exist», also when the address is typed by hand: the same answer as a page that is not there.
 DIVER_NOT_FOUND_PREFIXES = ('/api/center/', '/api/provider/', '/api/pro/', '/api/manifest', '/api/avisos', '/api/whatsapp/', '/api/service-templates',
-                            '/api/redemptions', '/api/rewards/validate', '/api/reports/center', '/api/admin/', '/api/center-equipment')
+                            '/api/redemptions', '/api/rewards/validate', '/api/reports/center')
 PROVIDER_2FA_MESSAGE = ('Activa la verificación en dos pasos en «Mi cuenta» para seguir usando el panel: es obligatoria '
                         'para quien puede cobrar o ver los pagos.')
 
@@ -12818,7 +12818,7 @@ def create_booking(db, req):
     if by_provider and payment_status == 'paid' and price > 0:
         # 17/10 (1.6): a booking the centre writes as «paid» has that money paid (before, 0 until the next start) and
         # its payment is recorded with today's date for the gestoría's export
-        db.execute('UPDATE bookings SET amount_paid=?,amount_due=0 WHERE id=?', (price, bid))
+        db.execute('UPDATE bookings SET amount_paid=?,amount_due=0 WHERE id=? AND user_id=?', (price, bid, customer['id']))
         record_desk_payment(db, {'id': bid, 'currency': service['currency'] if service else (service_currency or 'EUR')}, price, payment_method, None, req.get('actor_id'))
     # Every time is stored with the time zone of the place of the activity (shown in local time everywhere).
     db.execute('UPDATE bookings SET timezone=? WHERE id=? AND user_id=?', (service_tz(db, service) if service else place_tz(db, None, center_id), bid, customer['id']))
