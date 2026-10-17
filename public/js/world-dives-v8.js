@@ -26,7 +26,7 @@
   // «exact»: frase completa → traducción. «patterns»: frases con partes variables ({n} número, {x} texto).
   // Todo lo que se pinta en la página (también lo que llega después: ventanas, avisos, listas) se traduce al vuelo.
   // ---------------------------------------------------------------------------
-  const WD_I18N_VERSION='50.57';
+  const WD_I18N_VERSION='50.58';
   const WD_LOCALES={es:'es-ES',en:'en-GB',fr:'fr-FR',de:'de-DE',it:'it-IT',pt:'pt-PT',pl:'pl-PL',nl:'nl-NL',zh:'zh-CN'};
   // Plural forms (Polish has several): a translation may be {one,few,many,other}.
   const wdPlural=(tpl,n)=>{ if(typeof tpl!=='object'||!tpl) return tpl; let k='other'; try{ k=new Intl.PluralRules(wdLocale()).select(Number(String(n).replace(/[^\d.-]/g,''))||0); }catch{} return tpl[k]??tpl.other??Object.values(tpl)[0]; };
@@ -9432,7 +9432,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   document.addEventListener('click',e=>{ const b=e.target.closest('.mod-hide-btn'); if(b) wdModerationHide(b.dataset.modType,b.dataset.id,b.dataset.label,()=>route()); });
   initLanguage();
   // v50.48 · App mode: what /js/wd-app.js uses from this file. Only inside the app (or with «?app=1»).
-  const WD_APP_ASSETS='50.57';
+  const WD_APP_ASSETS='50.58';
   function wdLoadApp(){
     window.WD={app:WD_APP,state,$,$$,escapeHtml,api,postJSON,toast,setApp,route,loadMe,currentLanguage,translateString,translateTree,applyLanguage,
       wdIcon,wdLocale,fmtDate,wdMoney,wdLongDay,wdToday,daysUntil,wdDeadline,bookingStatus,experienceStatus,initials,goLogin,wdOpenCheckout,wdAppPay,
