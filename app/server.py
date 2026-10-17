@@ -77,6 +77,7 @@ from wod import buddies as wbud   # 17/10 (1.7): buddies that accept, and «¿Bu
 from wod import categorias as wcat   # 17/10 (1.5): the activities by categories when booking
 from wod import gestoria as wges   # 17/10 (1.6): «Exportar para mi gestoría»
 from wod import vm_import as wvmi   # 17/10 (Bloque 2): the marine life cited in public sources
+from wod import freelance_dir as wfl   # 17/10 (Bloque 3): the directory of freelance and «Mis profesionales»
 from wod import equipo as weq   # v50.58: rental equipment inside the dive (16/10/2026)
 from wod import puntos as wpun   # v50.58: fuller dive sites, sources, batches and duplicates (16/10/2026)
 from wod import costa as wcosta   # v50.58: land or sea, and the distance to the shore, of a dive site
@@ -1129,6 +1130,7 @@ INFO_LIMIT = wsec.SharedRateLimiter('informacion', 10, 3600)
 # ASVS 5.0 V2.4.1: bookings and requests per person and hour, unfinished payments holding spots, Log Book entries a day.
 BOOKING_LIMIT = wsec.SharedRateLimiter('reservas', wcfg.env_int('WOD_BOOKING_MAX_PER_HOUR', 20, 1), 3600)
 BOOKING_LIMIT_TEXT = 'Has hecho muchas reservas seguidas. Espera un poco o escribe al centro.'
+FREELANCE_DIR_LIMIT = wsec.SharedRateLimiter('directorio-freelance', wcfg.env_int('WOD_FREELANCE_DIR_PER_HOUR', 300, 10), 3600)   # 17/10 (3.3.6): against bulk copying
 PENDING_PAYMENTS_MAX = 3
 LOGBOOK_LIMIT = wsec.SharedRateLimiter('logbook', 60, 86400)
 
@@ -1563,6 +1565,7 @@ def bootstrap():
         db.commit()
         migrate_v50_59(db)
         migrate_v50_59_marina(db)
+        for stmt in wfl.SCHEMA: db.execute(stmt)   # 17/10 (Bloque 3)
         db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
@@ -2884,6 +2887,106 @@ def save_sightings(db, user, data):
     for sid in dict.fromkeys(ids):
         db.execute('INSERT INTO logbook_sightings(user_id,dive_no,point_id,species_id,dive_date,created_at) VALUES(?,?,?,?,?,?)', (user['id'], no, pid, sid, d, now()))
     return len(set(ids))
+
+
+# ------------------------------------------------------------------------------- 17/10 (Bloque 3) · freelance
+def freelance_profile(db, uid):
+    r = db.execute('SELECT * FROM freelance_profiles WHERE user_id=?', (uid,)).fetchone()
+    return dict(r) if r else {'user_id': uid, 'kind': None, 'zone': None, 'lat': None, 'lon': None, 'languages': None, 'in_directory': 1,
+                               'contact_whatsapp': 0, 'contact_phone': 0, 'contact_email': 0}
+
+
+def freelance_certs(db, uid):
+    return [dict(r) for r in db.execute('SELECT id,agency,level,number,verified FROM pro_certifications WHERE user_id=? ORDER BY verified DESC, id', (uid,)).fetchall()]
+
+
+def freelance_own(db, user):
+    """The freelance's own «Aparecer en el directorio»: the profile, the qualifications and what is missing."""
+    u = db.execute('SELECT id,fullname,avatar_url FROM users WHERE id=?', (user['id'],)).fetchone()
+    prof, certs = freelance_profile(db, user['id']), freelance_certs(db, user['id'])
+    miss = wfl.missing(dict(u), prof, certs)
+    return {'profile': {**prof, 'languages': (prof['languages'] or '').split(',') if prof['languages'] else []}, 'certifications': certs, 'missing': miss,
+            'listed': bool(prof['in_directory']) and not miss, 'kinds': wfl.KINDS, 'agencies': list(wfl.AGENCIES), 'langs': list(wfl.LANGS),
+            'blocked': [dict(r) for r in db.execute("SELECT b.user_id, u.fullname FROM pro_blocks b JOIN users u ON u.id=b.user_id WHERE b.kind='freelance' AND b.ref_id=? ORDER BY u.fullname", (user['id'],)).fetchall()]}
+
+
+def freelance_directory(db, query, lang):
+    """3.2/3.3: the approved freelance with the minimum (photo, name, zone, a qualification) who did not switch off
+    «Aparecer en el directorio». Never the address, phone or email. Same order for everybody (free or Pro)."""
+    q = lambda k, d='': clean_text(query.get(k, [d])[0], 120) or d
+    try: lat, lon = float(q('lat')) if q('lat') else None, float(q('lon')) if q('lon') else None
+    except ValueError: lat = lon = None
+    near_point = int(q('punto') or 0)
+    if near_point:
+        pr = db.execute('SELECT latitude,longitude FROM dive_points WHERE id=? AND active=1', (near_point,)).fetchone()
+        if pr: lat, lon = pr['latitude'], pr['longitude']
+    day = q('fecha')[:10]
+    try: day = _dt.date.fromisoformat(day).isoformat() if day else ''
+    except ValueError: day = ''
+    rows = db.execute(f'''SELECT u.id,u.fullname,u.avatar_url,u.provider_bio,fp.kind,fp.zone,fp.lat,fp.lon,fp.languages FROM users u JOIN freelance_profiles fp ON fp.user_id=u.id
+                           WHERE {public_freelance_sql('u')} AND fp.in_directory=1 AND COALESCE(u.avatar_url,'')<>'' AND COALESCE(fp.zone,'')<>''
+                             AND EXISTS (SELECT 1 FROM pro_certifications c WHERE c.user_id=u.id)''').fetchall()
+    zone, lang_f, agency, cat = wvmi.norm(q('zona')), q('idioma'), q('agencia'), q('tipo')
+    valid = service_categories_valid(db); cats = {c['key']: c['label'] for c in wcat.public_list(db, lang)}
+    today = _dt.date.today().isoformat(); soon = (_dt.date.today() + _dt.timedelta(days=14)).isoformat()
+    out = []
+    for r in rows:
+        if provider_closure(db, 'freelance', r['id']): continue
+        langs = (r['languages'] or '').split(',') if r['languages'] else []
+        certs = freelance_certs(db, r['id'])
+        if zone and zone not in wvmi.norm(r['zone']): continue
+        if lang_f and lang_f not in langs: continue
+        if agency and agency not in [c['agency'] for c in certs]: continue
+        svcs = db.execute("SELECT * FROM provider_services WHERE provider_user_id=? AND center_id IS NULL AND active=1 AND COALESCE(draft,0)=0", (r['id'],)).fetchall()
+        svc_cats = {wcat.category_of(sv, wsv.kind_of(sv), valid) for sv in svcs}
+        if cat and cat not in svc_cats: continue
+        sids = [sv['id'] for sv in svcs]
+        def has_slots(a, b):
+            if not sids: return False
+            return bool(db.execute(f"SELECT 1 FROM service_slots WHERE service_id IN ({','.join('?' * len(sids))}) AND status='open' AND spots_available>0 AND slot_date BETWEEN ? AND ? LIMIT 1",
+                                   (*sids, a, b)).fetchone()) or any(row_get(sv, 'booking_unit') in ('day', 'half_day') for sv in svcs)
+        if day and not has_slots(day, day): continue
+        prices = [float(sv['price']) for sv in svcs if sv['price'] and float(sv['price']) > 0]
+        out.append({'id': r['id'], 'name': r['fullname'], 'photo': r['avatar_url'], 'kind': r['kind'], 'kind_label': wfl.KINDS.get(r['kind'] or '', ''),
+                    'certifications': [{'agency': c['agency'], 'level': c['level'], 'verified': bool(c['verified'])} for c in certs], 'languages': langs,
+                    'zone': r['zone'], 'distance_km': wfl.km(lat, lon, r['lat'], r['lon']), 'available_soon': has_slots(today, soon),
+                    'rating': None,   # 3.3.1: only verified reviews; the freelance have none yet (reviews are of centres)
+                    'price_from': min(prices) if prices else None, 'currency': (svcs[0]['currency'] if svcs else 'EUR') or 'EUR',
+                    'categories': [cats[k] for k in cats if k in svc_cats]})
+    if q('orden') == 'valoracion': out.sort(key=lambda x: (-(x['rating'] or 0), x['name']))
+    else: out.sort(key=lambda x: (x['distance_km'] if x['distance_km'] is not None else 1e9, not x['available_soon'], x['name']))
+    if near_point: out = [x for x in out if x['distance_km'] is not None and x['distance_km'] <= 40]
+    return out
+
+
+def my_professionals(db, user, lang):
+    """3.4: the centres and freelance the diver has a confirmed booking with (minus the ones they removed): «Volver a
+    reservar» and the contact buttons the professional switched on, if they did not block this diver."""
+    hidden = {(r['kind'], r['ref_id']) for r in db.execute('SELECT kind,ref_id FROM my_pros_hidden WHERE user_id=?', (user['id'],)).fetchall()}
+    rows = db.execute("""SELECT b.center_id, b.provider_user_id, MAX(b.booking_date) AS last FROM bookings b WHERE b.user_id=? AND b.status IN ('confirmed','completed')
+                         GROUP BY b.center_id, CASE WHEN b.center_id IS NULL THEN b.provider_user_id END ORDER BY last DESC LIMIT 100""", (user['id'],)).fetchall()
+    out = []
+    for r in rows:
+        if r['center_id']:
+            c = db.execute(f'SELECT * FROM centers c WHERE c.id=? AND {public_center_sql()}', (r['center_id'],)).fetchone()
+            if not c or ('center', c['id']) in hidden: continue
+            blocked = bool(db.execute("SELECT 1 FROM pro_blocks WHERE kind='center' AND ref_id=? AND user_id=?", (c['id'], user['id'])).fetchone())
+            contact = {} if blocked else {k: v for k, v in (('phone', c['phone']), ('email', c['email']), ('whatsapp', wcif.normalize_phone(c['phone']) if c['phone'] else None)) if v}
+            nxt = db.execute("SELECT MIN(sl.slot_date) d FROM service_slots sl JOIN provider_services s ON s.id=sl.service_id WHERE s.center_id=? AND s.active=1 AND sl.status='open' AND sl.spots_available>0 AND sl.slot_date>=date('now')", (c['id'],)).fetchone()
+            out.append({'kind': 'center', 'id': c['id'], 'name': c['name'], 'photo': c['logo_url'], 'last': r['last'], 'next': nxt['d'] if nxt else None,
+                        'book': f"#/reservar?center={c['id']}", 'page': f"#/centro?id={c['id']}", 'contact': contact})
+        elif r['provider_user_id']:
+            u = db.execute(f'SELECT * FROM users u WHERE u.id=? AND {public_freelance_sql("u")}', (r['provider_user_id'],)).fetchone()
+            if not u or ('freelance', u['id']) in hidden: continue
+            fp = freelance_profile(db, u['id'])
+            blocked = bool(db.execute("SELECT 1 FROM pro_blocks WHERE kind='freelance' AND ref_id=? AND user_id=?", (u['id'], user['id'])).fetchone())
+            ph = user_phone(db, u['id'])
+            contact = {} if blocked else {k: v for k, v in (('whatsapp', ph if fp['contact_whatsapp'] else None), ('phone', ph if fp['contact_phone'] else None),
+                                                           ('email', u['email'] if fp['contact_email'] and not str(u['email']).endswith('.local') else None)) if v}
+            nxt = db.execute("SELECT MIN(sl.slot_date) d FROM service_slots sl JOIN provider_services s ON s.id=sl.service_id WHERE s.provider_user_id=? AND s.center_id IS NULL AND s.active=1 AND sl.status='open' AND sl.spots_available>0 AND sl.slot_date>=date('now')", (u['id'],)).fetchone()
+            out.append({'kind': 'freelance', 'id': u['id'], 'name': u['fullname'], 'photo': u['avatar_url'], 'last': r['last'], 'next': nxt['d'] if nxt else None,
+                        'book': f"#/reservar?provider={u['id']}", 'page': f"#/profesional?id={u['id']}", 'contact': contact})
+    return out
 
 
 def marine_link(db, pid, sid, c, actor):
@@ -7593,11 +7696,10 @@ def public_center_sql(alias='c', include_hidden=False):
 
 
 def public_freelance_sql(alias='u'):
-    """Freelance professionals shown to the public (v50.54: not hidden by moderation). v50.58 (6.2.5, pendiente del
-    titular): a freelance on the free plan has no public showcase until the owner decides otherwise."""
+    """Freelance professionals shown to the public (v50.54: not hidden by moderation)."""
     p = f'{alias}.' if alias else ''
-    return (f"{p}role='freelance' AND {p}moderation_status IS NULL AND COALESCE({p}plan_code,'free')<>'free' "
-            f"AND COALESCE({p}plan_expires_at,'')>=date('now')")
+    # 17/10/2026 (Bloque 3.2): decision of the owner: every approved freelance has a public profile, free plan or Pro
+    return f"{p}role='freelance' AND {p}moderation_status IS NULL"
 
 
 ADMIN_CONTENT_MSG = ('Este contenido es del centro o del profesional: la administración no lo modifica. Si incumple las normas, '
@@ -14316,6 +14418,8 @@ def delete_user_account(db, user):
                       ('DELETE FROM user_buddies WHERE user_id=? OR buddy_id=?', (uid, uid)),
                       ('DELETE FROM buddy_requests WHERE from_user=? OR to_user=?', (uid, uid)),   # 17/10 (1.7)
                       ('DELETE FROM logbook_sightings WHERE user_id=?', (uid,)),   # 17/10 (2.5)
+                      ('DELETE FROM my_pros_hidden WHERE user_id=?', (uid,)), ('DELETE FROM pro_blocks WHERE user_id=?', (uid,)),   # 17/10 (3.4)
+                      ('DELETE FROM freelance_profiles WHERE user_id=?', (uid,)), ('DELETE FROM pro_certifications WHERE user_id=?', (uid,)),
                       ('DELETE FROM dive_invites WHERE from_user=? OR to_user=?', (uid, uid)),
                       ('UPDATE users SET buddy_code=NULL, signup_center_id=NULL WHERE id=?', (uid,))):
         db.execute(sql, args)
@@ -19096,6 +19200,18 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({'items':wcat.public_list(db,normalize_lang(query.get('lang',['es'])[0]))}); return
                 if path=='/api/admin/booking-categories':
                     user=require_user(self,db); require_role(user,{'admin'}); self.send_json({'items':wcat.rows(db,include_hidden=True),'icons':list(wcat.ICONS),'langs':list(wcat.LANGS)}); return
+                if path=='/api/freelance':   # 17/10 (3.3): the directory of freelance, with a limit per IP against bulk copying
+                    ip_=self.client_ip()
+                    if FREELANCE_DIR_LIMIT.blocked(ip_): self.send_json({'error':'Demasiadas consultas seguidas. Espera un poco.'},429); return
+                    FREELANCE_DIR_LIMIT.hit(ip_); self.send_json({'items':freelance_directory(db,query,normalize_lang(query.get('lang',['es'])[0]))}); return
+                if path=='/api/freelance/perfil':
+                    user=require_user(self,db); require_role(user,{'freelance'}); self.send_json(freelance_own(db,user)); return
+                if path=='/api/mis-profesionales':   # 3.4
+                    user=require_user(self,db); self.send_json({'items':my_professionals(db,user,normalize_lang(query.get('lang',['es'])[0]))}); return
+                if path=='/api/admin/freelance-titulaciones':
+                    user=require_user(self,db); require_role(user,{'admin'})
+                    rows=db.execute("SELECT c.*, u.fullname FROM pro_certifications c JOIN users u ON u.id=c.user_id ORDER BY c.verified, c.created_at DESC LIMIT 500").fetchall()
+                    self.send_json({'items':[dict(r) for r in rows]}); return
                 if path=='/api/diver/sightings':   # 17/10 (2.5): «¿Qué viste?» of the Log Book
                     user=require_user(self,db); self.send_json(sightings_of(db,user,normalize_lang(query.get('lang',['es'])[0]))); return
                 if path=='/api/buddies':   # 17/10 (1.7): the buddies of the person, the requests and the «¿Buceamos?»
@@ -19829,6 +19945,10 @@ class Handler(BaseHTTPRequestHandler):
                         c=db.execute(f'SELECT * FROM centers c WHERE c.id=? AND {public_center_sql()}',(u['center_id'],)).fetchone()
                         if c:
                             result['center']=center_row(c)
+                    if u['role']=='freelance':   # 17/10 (3.3.4): what the directory shows (never the address, phone or email)
+                        fp_=freelance_profile(db,u['id'])
+                        result['directory']={'kind_label':wfl.KINDS.get(fp_['kind'] or '',''),'zone':fp_['zone'] or '','languages':(fp_['languages'] or '').split(',') if fp_['languages'] else [],
+                                             'certifications':[{'agency':c_['agency'],'level':c_['level'],'verified':bool(c_['verified'])} for c_ in freelance_certs(db,u['id'])]}
                     self.send_json(result); return
                 if path.startswith('/api/payments/session/'):
                     user=require_user(self,db); sid=path.rsplit('/',1)[1]
@@ -21939,6 +22059,36 @@ class Handler(BaseHTTPRequestHandler):
                     row=db.execute('SELECT * FROM center_tariffs WHERE id=? AND center_id=?',(tid,cid)).fetchone()
                     if not row: raise ValueError('Tarifa no encontrada.')
                     db.execute('DELETE FROM center_tariffs WHERE id=?',(tid,)); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/freelance/perfil' or path=='/api/freelance/titulacion' or re.fullmatch(r'/api/freelance/titulacion/\d+/borrar',path) or path=='/api/freelance/bloquear':
+                    # 17/10 (3.2): what a freelance needs to appear in the directory, and the divers it blocks (3.4.4)
+                    user=require_user(self,db); require_role(user,{'freelance'}); data=json_body(self)
+                    if path=='/api/freelance/perfil':
+                        v_=wfl.clean_profile(data)
+                        db.execute('''INSERT INTO freelance_profiles(user_id,kind,zone,lat,lon,languages,in_directory,contact_whatsapp,contact_phone,contact_email,updated_at)
+                                      VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET kind=excluded.kind,zone=excluded.zone,lat=excluded.lat,lon=excluded.lon,
+                                      languages=excluded.languages,in_directory=excluded.in_directory,contact_whatsapp=excluded.contact_whatsapp,contact_phone=excluded.contact_phone,
+                                      contact_email=excluded.contact_email,updated_at=excluded.updated_at''',(user['id'],*v_.values(),now()))
+                    elif path=='/api/freelance/titulacion':
+                        if db.execute('SELECT COUNT(*) FROM pro_certifications WHERE user_id=?',(user['id'],)).fetchone()[0]>=20: raise ValueError('Como mucho 20 titulaciones.')
+                        db.execute('INSERT INTO pro_certifications(user_id,agency,level,number,created_at) VALUES(?,?,?,?,?)',(user['id'],*wfl.clean_cert(data),now()))
+                    elif path=='/api/freelance/bloquear':
+                        uid_=int(data.get('user_id') or 0)
+                        if data.get('block') in (0,False,'0'): db.execute("DELETE FROM pro_blocks WHERE kind='freelance' AND ref_id=? AND user_id=?",(user['id'],uid_))
+                        else:
+                            if not db.execute("SELECT 1 FROM bookings WHERE provider_user_id=? AND center_id IS NULL AND user_id=?",(user['id'],uid_)).fetchone(): raise NotFound('No encontrado.')
+                            db.execute("INSERT OR IGNORE INTO pro_blocks(kind,ref_id,user_id,created_at) VALUES('freelance',?,?,?)",(user['id'],uid_,now()))
+                    else:
+                        if not db.execute('DELETE FROM pro_certifications WHERE id=? AND user_id=?',(int(path.split('/')[4]),user['id'])).rowcount: raise NotFound('Titulación no encontrada.')
+                    audit(db,user['id'],'freelance_directory_profile','user',user['id'],{'path':path}); db.commit(); self.send_json(freelance_own(db,user)); return
+                if path=='/api/mis-profesionales/quitar':
+                    user=require_user(self,db); data=json_body(self); k_=data.get('kind')
+                    if k_ not in ('center','freelance'): raise ValueError('Profesional no válido.')
+                    db.execute('INSERT OR IGNORE INTO my_pros_hidden(user_id,kind,ref_id,created_at) VALUES(?,?,?,?)',(user['id'],k_,int(data.get('id') or 0),now())); db.commit()
+                    self.send_json({'ok':True}); return
+                if re.fullmatch(r'/api/admin/freelance-titulaciones/\d+',path):
+                    user=require_user(self,db); require_role(user,{'admin'}); v_=1 if json_body(self).get('verified') in (1,True,'1') else 0; cid_=int(path.rsplit('/',1)[1])
+                    if not db.execute('UPDATE pro_certifications SET verified=?,verified_by=?,verified_at=? WHERE id=?',(v_,user['id'] if v_ else None,now() if v_ else None,cid_)).rowcount: raise NotFound('Titulación no encontrada.')
+                    audit(db,user['id'],'freelance_cert_verified' if v_ else 'freelance_cert_unverified','pro_certification',cid_); db.commit(); self.send_json({'ok':True}); return
                 if path=='/api/diver/sightings':
                     user=require_user(self,db); n_=save_sightings(db,user,json_body(self)); db.commit()
                     self.send_json({'ok':True,'saved':n_,'total':sightings_of(db,user,'es')['total']}); return

@@ -96,7 +96,7 @@ PUBLIC_GET = re.compile(r'^/api/(health|setup/status|legal/(doc|info|history|ver
                         r'|app/push|promo/.*|team/invite|whatsapp/webhook|r/.*|public/bookings/\d+|slot-cancel/\d+'
                         r'|service-catalog|dive-areas|centers/\d+/reviews'   # v50.53: templates, areas of Spain, more reviews
                         r'|videos/puedo'
-                        r'|booking-categories|especies(/\d+/puntos)?)$')   # 17/10: the categories of the booking; the catalogue and «dónde se ve» (never the sources)   # v50.58: whether this visitor may add a video (without session: {"logged": false}, nothing else)
+                        r'|booking-categories|especies(/\d+/puntos)?|freelance)$')   # 17/10: the categories of the booking; the catalogue and «dónde se ve» (never the sources); the freelance directory (never address, phone or email)   # v50.58: whether this visitor may add a video (without session: {"logged": false}, nothing else)
 # v50.55: «auth/device/forget» is the phone ending its own device session with its installation id (no session needed,
 # always the same answer); it is checked in tests/test_v50_55_seguridad.py.
 PUBLIC_POST = re.compile(r'^/api/(setup|auth/(register|login|logout|forgot|reset|verify-email|device/forget)|marketing/unsubscribe|pruebas/(entrar|fallo)'
