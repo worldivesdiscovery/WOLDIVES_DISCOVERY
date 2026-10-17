@@ -1279,6 +1279,16 @@
    "pl": "Użyj mojej lokalizacji",
    "nl": "Mijn locatie gebruiken",
    "zh": "使用我的位置"
+  },
+  "Centro de demostración": {
+   "en": "Demo centre",
+   "fr": "Centre de démonstration",
+   "de": "Demo-Zentrum",
+   "it": "Centro dimostrativo",
+   "pt": "Centro de demonstração",
+   "pl": "Centrum demonstracyjne",
+   "nl": "Democentrum",
+   "zh": "演示中心"
   }
  },
  "patterns": {}

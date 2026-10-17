@@ -98,26 +98,26 @@ def run(out: Path | None):
             fl.click('#account-toggle'); fl.wait_for_timeout(300)
             profs = [fl.inner_text(f'.acc-prof >> nth={i}') for i in range(fl.locator('.acc-prof').count())]
             check('13 · la demo trae a freelance.prueba enlazado a los dos centros (su perfil y los dos centros en el selector)',
-                  len(profs) == 3 and any('Bahía Coralina' in p and 'Instructor' in p for p in profs) and any('Escafandra' in p and 'Instructor' in p for p in profs), profs)
+                  len(profs) == 3 and any('Bahía Coralina' in p and 'Instructor' in p for p in profs) and any('Posidonia Norte' in p and 'Instructor' in p for p in profs), profs)
             shot(fl, 'selector-de-perfil')
             # 5 · «Mi agenda»: both centres, each with its colour, and her own work
             fl.goto(srv.base + '/#/mi-agenda'); fl.wait_for_selector('.tq-ag-nav'); fl.wait_for_timeout(500)
             colours = set(fl.eval_on_selector_all('.tq-ag-item', 'xs => xs.map(x => getComputedStyle(x).borderLeftColor)'))
             legend = fl.inner_text('.tq-legend')
-            check('5 · «Mi agenda» junta los dos centros, cada uno con su color', 'Bahía Coralina' in legend and 'Escafandra' in legend and len(colours) >= 2, (legend, colours))
+            check('5 · «Mi agenda» junta los dos centros, cada uno con su color', 'Bahía Coralina' in legend and 'Posidonia Norte' in legend and len(colours) >= 2, (legend, colours))
             shot(fl, 'mi-agenda-dos-centros', True)
             # 5 · working in the second centre: nothing of the first one on screen
             fl.goto(srv.base + '/#/area'); fl.wait_for_timeout(800)
-            fl.click('#account-toggle'); fl.locator('.acc-prof', has_text='Escafandra').click(); fl.wait_for_timeout(2500)
+            fl.click('#account-toggle'); fl.locator('.acc-prof', has_text='Posidonia Norte').click(); fl.wait_for_timeout(2500)
             fl.goto(srv.base + '/#/admin?tab=bookings'); fl.wait_for_selector('#cb-bookings *', timeout=15000); fl.wait_for_timeout(1500)
             body = fl.inner_text('main') if fl.locator('main').count() else fl.inner_text('body')
             check('5 · al trabajar en el segundo centro no se ve nada del primero (sus reservas, su nombre)',
-                  'Escafandra' in fl.inner_text('body') and 'Bahía Coralina' not in body and fl.locator('.tq-ctx').count() == 1, body[:300])
+                  'Posidonia Norte' in fl.inner_text('body') and 'Bahía Coralina' not in body and fl.locator('.tq-ctx').count() == 1, body[:300])
             shot(fl, 'trabajando-en-el-segundo-centro')
             # 6 · «Ocupado» in the manifest of the second centre at the time she works for the first one
             # (a departure of the second centre with divers, at a time she works for the first one: the demo assigns her two)
             busy = srv.sql("""SELECT x.id FROM service_slots x JOIN provider_services ps ON ps.id=x.service_id JOIN centers c ON c.id=ps.center_id
-                               WHERE c.name LIKE 'Escafandra%' AND x.spots_available<x.spots_total AND x.slot_time BETWEEN '09:00' AND '11:30'
+                               WHERE c.name LIKE 'Posidonia Norte%' AND x.spots_available<x.spots_total AND x.slot_time BETWEEN '09:00' AND '11:30'
                                  AND x.slot_date IN (SELECT y.slot_date FROM service_slots y JOIN provider_services q ON q.id=y.service_id JOIN centers d ON d.id=q.center_id
                                                      WHERE d.name LIKE 'Bahía%' AND y.slot_time BETWEEN '08:30' AND '09:00'
                                                        AND y.instructor_user_id=(SELECT id FROM users WHERE username='freelance.prueba'))
@@ -235,12 +235,12 @@ def run(out: Path | None):
             shot(fl, 'instructor-sin-cobros')
 
             # 10 · plans: Ficha gratuita, locked; Motor de reservas, only Recepción
-            srv.sql("UPDATE centers SET plan_code='free',plan_status='free' WHERE name LIKE 'Escafandra%'")
+            srv.sql("UPDATE centers SET plan_code='free',plan_status='free' WHERE name LIKE 'Posidonia Norte%'")
             team(ce2)
             check('10 · con Ficha gratuita «Enlazar persona» sale bloqueado, con «Disponible en el plan Motor de reservas» y «Ver planes»',
                   ce2.locator('#tq-open[disabled]').count() == 1 and 'Disponible en el plan Motor de reservas' in ce2.inner_text('#tq-links-mount') and 'Ver planes' in ce2.inner_text('#tq-links-mount'))
             shot(ce2, 'plan-gratuito-bloqueado')
-            srv.sql("UPDATE centers SET plan_code='booking',plan_status='active',plan_expires_at=date('now','+30 day') WHERE name LIKE 'Escafandra%'")
+            srv.sql("UPDATE centers SET plan_code='booking',plan_status='active',plan_expires_at=date('now','+30 day') WHERE name LIKE 'Posidonia Norte%'")
             team(ce2)
             dis = ce2.eval_on_selector_all('#tq-links-mount select.tl-role >> nth=0 >> option', 'os => os.map(o => [o.value, o.disabled])') if ce2.locator('select.tl-role').count() else []
             ce2.click('#tq-open'); ce2.wait_for_selector('#tq-link'); ce2.click('[data-tqt="email"]')

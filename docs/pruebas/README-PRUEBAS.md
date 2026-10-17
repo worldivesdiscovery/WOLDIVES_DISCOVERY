@@ -17,14 +17,14 @@ Necesitas Python 3.11 o superior; lo que falte se instala solo la primera vez.
 ## 2. Cuentas
 
 Las cuentas y su contraseña están en **`CUENTAS-DEMO.txt`**, en esta misma carpeta (no en el código de la web).
-Hay una cuenta de **administración**, una por cada **centro** (y su equipo), **dos freelance** y **veinte
-buceadores**. Se entra con el usuario o con el email.
+Hay una cuenta de **administración**, una por cada **centro** (y su equipo), **nueve freelance** (dos con cuenta de prueba y
+siete más en el directorio: Jávea, Dénia, Calp y Vigo) y **veinte buceadores**. Se entra con el usuario o con el email.
 
 ## 3. Qué trae la demo
 
 Dos centros inventados que llevan meses funcionando:
 
-| | Bahía Coralina Centro de Buceo | Escafandra Medes |
+| | Bahía Coralina Centro de Buceo | Posidonia Norte Buceo |
 |---|---|---|
 | Dónde | Xàbia (Alicante), Cabo de San Antonio | L'Estartit (Girona), Islas Medes |
 | Cuenta | `centro.prueba` | `centro2.prueba` |
@@ -32,6 +32,9 @@ Dos centros inventados que llevan meses funcionando:
 | Servicios | inmersión simple y doble, bautizo, Open Water, Nitrox, alquiler, atardecer; hechos con el asistente nuevo (v50.58): Open Water en 3 días, Advanced en 2 mañanas y 2 días, doble inmersión de los sábados y alquiler de traje seco | Medas, nocturna, bautizo, Advanced, snorkel |
 | Puntos | 6 (Cabo San Antonio, Portitxol, Cabo San Martín, Pared Negra…) | 4 (Medes, La Vaca, Carall Bernat, Tascons) |
 
+- **Todos los centros de la demo tienen nombre inventado** (lista del titular del 17/10, cada nombre buscado antes de usarlo) y su ficha
+  lleva la etiqueta «Centro de demostración». Monograma, fotos de la biblioteca de la web, teléfono y correo ficticios (`@ejemplo.worldives`)
+  y solo la ciudad, sin calle.
 - **Perfil en los 9 idiomas** de la web: cambia el idioma arriba y abre la página de cada centro.
 - **Precios de temporada**: temporada baja desde enero, alta desde el 15 de junio, baja desde octubre y la próxima
   alta ya anunciada (*Panel del centro → Servicios → Tarifas*).
@@ -49,7 +52,7 @@ Dos centros inventados que llevan meses funcionando:
 ## 4. Qué probar con cada cuenta
 
 - **Administración (`admin.prueba`):**
-  - en **Verificaciones**, aprueba el centro pendiente («Arrecife Azul Dénia»);
+  - en **Verificaciones**, aprueba el centro pendiente («Faro Escondido Diving»);
   - en **Experiencias**, revisa «Semana de cenotes y cavernas»;
   - en **Legal**, mira la denuncia;
   - en **Vida marina y vídeos → Pendientes**, la propuesta de Bahía Coralina (caballito de mar en Piedras Rotas);

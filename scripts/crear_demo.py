@@ -35,7 +35,7 @@ VIDEOS = ROOT / 'data' / 'demo' / 'videos-demo.json'      # optional real links 
 PASSWORD = 'Worldives-Prueba-2026'
 ACCOUNTS = {'admin': ('admin.prueba', 'admin@example.com', 'Nerea Galván'),
             'center': ('centro.prueba', 'hola@bahiacoralina.example.com', 'Marta Llorens'),
-            'center2': ('centro2.prueba', 'hola@escafandramedes.example.com', 'Jordi Pujadas'),
+            'center2': ('centro2.prueba', 'hola@posidonianorte.example.com', 'Jordi Pujadas'),
             'freelance': ('freelance.prueba', 'diego.arenas@example.com', 'Diego Arenas'),
             'freelance2': ('freelance2.prueba', 'sara.molina@example.com', 'Sara Molina'),
             'diver': ('buzo.prueba', 'bea.navarro@example.com', 'Bea Navarro'),
@@ -63,7 +63,7 @@ EXTRA_DIVERS = [('buzo2.prueba', 'lukas.becker@example.com', 'Lukas Becker', 'de
                 ('buzo18.prueba', 'raul.ortega@example.com', 'Raúl Ortega', 'es', 'España'),
                 ('buzo19.prueba', 'anna.kowalska@example.com', 'Anna Kowalska', 'pl', 'Polonia'),
                 ('buzo20.prueba', 'li.na@example.com', 'Li Na', 'zh', 'China')]
-PENDING_CENTER = ('pendiente.prueba', 'hola@arrecifeazul.example.com', 'Rosa Domènech')
+PENDING_CENTER = ('pendiente.prueba', 'hola@faroescondido.example.com', 'Rosa Domènech')
 HISTORY_DAYS = 150
 # Species of each dive site (name in the catalogue → [(example key, frequency, months)]): only species that live there.
 MARINE = {
@@ -103,6 +103,36 @@ POINTS_MEDES = ['Islas Medes, Costa Brava', 'Medes – La Vaca', 'Medes – Cara
 
 def app_version() -> str:
     return re.search(r"^APP_VERSION = '([^']+)'", (ROOT / 'app' / 'server.py').read_text(encoding='utf-8'), re.M).group(1)
+
+
+# 17/10: invented names for the centres of the demo catalogue, from the owner's list (after «Bahía Coralina Centro de Buceo»,
+# «Posidonia Norte Buceo» and «Faro Escondido Diving», used by the three demo accounts). «Estela Marina Diving» was left
+# out (too close to a real centre in Águilas); «Cantil Sereno Buceo» and «Rompiente Azul Buceo» were invented in the same style.
+DEMO_CENTER_NAMES = ['Roca Turquesa Buceo', 'Cala Nautilus Diving', 'Escollo Dorado Buceo', 'Brisa de Levante Diving', 'Mero Sereno Centro de Buceo',
+                     'Arrecife Lunar Buceo', 'Gorgonia Roja Diving', 'Isla Silenciosa Buceo', 'Corriente Clara Diving', 'Bajo del Delfín Buceo',
+                     'Ancla Vieja Diving', 'Marea Quieta Centro de Buceo', 'Caracola Azul Buceo', 'Pecio Sombra Diving', 'Cueva Esmeralda Buceo',
+                     'Ola Mansa Diving', 'Ensenada Profunda Buceo', 'Nácar Diving Center', 'Sargo Plateado Buceo', 'Medusa Clara Diving',
+                     'Abisal Centro de Buceo', 'Boya Naranja Buceo', 'Horizonte Submarino Diving', 'Faralló Buceo', 'Coral Errante Buceo',
+                     'Punta Calma Diving', 'Cantil Sereno Buceo', 'Rompiente Azul Buceo']
+
+# 17/10 (Bloque 3): invented freelance of the directory (username, name, kind, area, lat, lon, languages, agency, qualification,
+# photo from the web's own library, bio, service, price, unit). None of them is a real person or business.
+DIRECTORY_FREELANCE = [
+    ('fl.aitana.prueba', 'Aitana Llopis', 'guia', 'Dénia, Alicante', 38.84, 0.11, ['es', 'en', 'ca'], 'SSI', 'Dive Guide', '/img/titular/caballito-posidonia.webp',
+     'Guía en Dénia y el Cabo de San Antonio. Grupos de dos o tres, salidas desde la orilla o con un centro de la zona.', 'Guía en Dénia (medio día)', 70, 'half_day'),
+    ('fl.marc.prueba', 'Marc Ribes', 'instructor', 'Dénia, Alicante', 38.83, 0.12, ['es', 'ca', 'en'], 'NAUI', 'Instructor', '/img/titular/barco-cadena.webp',
+     'Instructor en Dénia. Cursos de iniciación y de buceo avanzado a tu ritmo, con días a elegir.', 'Curso de iniciación (por días)', 140, 'day'),
+    ('fl.tomas.prueba', 'Tomás Ferrandis', 'instructor', 'Calp, Alicante', 38.64, 0.05, ['es', 'en', 'de'], 'PADI', 'Open Water Scuba Instructor', '/img/titular/buceador-rayos.webp',
+     'Instructor en Calp, junto al Peñón de Ifach. Cursos en grupos pequeños y salidas guiadas.', 'Guía en Calp (medio día)', 75, 'half_day'),
+    ('fl.helena.prueba', 'Helena Brandt', 'guia', 'Calp, Alicante', 38.65, 0.06, ['de', 'en', 'es'], 'PADI', 'Divemaster', '/img/titular/costa-barco.webp',
+     'Guía en Calp y Altea. Inmersiones tranquilas para quien vuelve a bucear después de un tiempo.', 'Inmersión guiada en Calp (medio día)', 65, 'half_day'),
+    ('fl.lucia.prueba', 'Lucía Montaner', 'instructor', 'Jávea, Alicante', 38.78, 0.18, ['es', 'fr', 'en'], 'SSI', 'Open Water Instructor', '/img/titular/nocturna-pulpo.webp',
+     'Instructora en Jávea. Nocturnas, cursos de especialidad y salidas al Portitxol.', 'Inmersión nocturna en Jávea (medio día)', 80, 'half_day'),
+    ('fl.iria.prueba', 'Iria Castro', 'instructor', 'Vigo, Pontevedra', 42.23, -8.72, ['es', 'gl', 'pt'], 'FEDAS', 'Instructor 2 estrellas', '/img/portada/fondo1.webp',
+     'Instructora en Vigo y la ría. Cursos y salidas en el Atlántico, con traje seco si hace falta.', 'Curso de buceo en la ría (por días)', 130, 'day'),
+    ('fl.bruno.prueba', 'Bruno Seoane', 'guia', 'Vigo, Pontevedra', 42.24, -8.71, ['es', 'gl', 'en'], 'PADI', 'Divemaster', '/img/portada/fondosuperior.webp',
+     'Guía en Vigo. Inmersiones en la ría y en las Islas Cíes con un centro de la zona.', 'Guía en la ría de Vigo (medio día)', 70, 'half_day'),
+]
 
 
 def day(n):
@@ -173,7 +203,7 @@ def build(out: Path):
         cid = center.me()['user']['center_id']
         u, e, n = ACCOUNTS['center2']
         center2 = c(); ok(center2.register(n, e, u, pw, account_type='center', center_name=medes['name'], phone='+34 972 000 202',
-                                           city="L'Estartit", website='https://escafandramedes.example.com'), 'registrar el segundo centro')
+                                           city="L'Estartit", website='https://posidonianorte.example.com'), 'registrar el segundo centro')
         approve(e, 'email_domain'); ok(center2.login(u, pw), 'entrar como segundo centro')
         cid2 = center2.me()['user']['center_id']
         u, e, n = ACCOUNTS['freelance']
@@ -218,7 +248,7 @@ def build(out: Path):
                    address='Puerto de Xàbia, pantalán 3',latitude=38.7955,longitude=0.1876,
                    stripe_account_id='acct_test_pruebas',stripe_charges_enabled=1,stripe_payouts_enabled=1 WHERE id=?""",
                 (json.dumps(['/img/portada/buceadores.webp', '/img/portada/fondosuperior.webp', '/img/portada/fondo1.webp', '/img/portada/logbook1.webp']), cid))
-        srv.sql("""UPDATE centers SET logo_url='/img/demo/escafandra-medes.png',logo_consent=1,cover_url='/img/portada/fondo.webp',gallery_json=?,
+        srv.sql("""UPDATE centers SET logo_url='/img/demo/posidonia-norte.png',logo_consent=1,cover_url='/img/portada/fondo.webp',gallery_json=?,
                    country='España',region='Girona',cancel_free_hours=24,cancel_refund_pct=100,specialties='Reserva marina, inmersiones nocturnas, cursos',
                    address='Passeig Marítim, L''Estartit',latitude=42.0530,longitude=3.2050,
                    stripe_account_id='acct_test_pruebas2',stripe_charges_enabled=1,stripe_payouts_enabled=1 WHERE id=?""",
@@ -442,7 +472,7 @@ def build(out: Path):
         # v50.56 · Motor multicanal: Bahía Coralina sells in its own website too (the example website of README-PRUEBAS,
         # http://localhost:8101, served by «iniciar --pruebas»), with its page /c/bahia-coralina and its colour.
         ok(center.post('/api/provider/vender', {'slug': 'bahia-coralina', 'color': '#0b7a75', 'domains': ['localhost:8101', '127.0.0.1:8101']}), 'vender en tu web')
-        ok(center2.post('/api/provider/vender', {'slug': 'escafandra-medes', 'color': '#8a4b12'}), 'página de reservas')
+        ok(center2.post('/api/provider/vender', {'slug': 'posidonia-norte', 'color': '#8a4b12'}), 'página de reservas')
         # A small departure every day (2 spots), for README-PRUEBAS «Probar el motor multicanal»: book on the example
         # website, take the last spot from WORLDIVES and see «Completo» in the widget.
         snorkel = ok(center.post('/api/provider-services', {'title': 'Snorkel en la Granadella', 'price': 30, 'max_participants': 2, 'booking_mode': 'request',
@@ -547,6 +577,31 @@ def build(out: Path):
         x = ok(divers[6].post('/api/bookings', {'service_id': guia, 'days': workdays(5, 1), 'part': 'am', 'participants': 2, 'in_person_ack': True}), 'reservar la guía')
         ok(pro2.post(f"/api/bookings/{x['id']}/status", {'status': 'confirmed'}), 'confirmar la guía')
         ok(divers[10].post('/api/bookings', {'service_id': fotos, 'days': workdays(15, 2), 'part': 'full', 'participants': 1, 'notes': 'Tengo una cámara compacta con carcasa', 'in_person_ack': True}), 'reservar el curso')
+
+        # --- 17/10 (Bloque 3): the freelance directory. Every name is invented; at least 8 in Jávea, Dénia, Calp and Vigo,
+        # each with photo (from the web's own image library), area, qualifications, languages and a service of their own.
+        ok(pro.post('/api/freelance/perfil', {'kind': 'guia', 'zone': 'Riviera Maya, México', 'lat': 20.21, 'lon': -87.47, 'languages': ['es', 'en'],
+                                              'contact_whatsapp': 1}), 'perfil del directorio')
+        ok(pro.post('/api/freelance/titulacion', {'agency': 'SSI', 'level': 'Dive Guide'}), 'titulación')
+        ok(pro2.post('/api/freelance/perfil', {'kind': 'instructor', 'zone': 'Xàbia, Alicante', 'lat': 38.79, 'lon': 0.17, 'languages': ['es', 'en', 'fr'],
+                                               'contact_whatsapp': 1, 'contact_email': 1}), 'perfil del directorio')
+        ok(pro2.post('/api/freelance/titulacion', {'agency': 'PADI', 'level': 'Open Water Scuba Instructor'}), 'titulación')
+        for k_, (u_, n_, kind_, zone_, lat_, lon_, langs_, agency_, level_, photo_, bio_, svc_, price_, unit_) in enumerate(DIRECTORY_FREELANCE):
+            cl = c(); ok(cl.register(n_, f'{u_.split(".")[1]}@ejemplo.worldives', u_, pw, account_type='freelance', phone=f'+34 611 300 {k_ + 10:03d}',
+                                     certification_text=f'{agency_} {level_}'), 'registrar ' + u_)
+            approve(f'{u_.split(".")[1]}@ejemplo.worldives', 'document'); ok(cl.login(u_, pw), 'entrar como ' + u_)
+            srv.sql("UPDATE users SET avatar_url=?,provider_bio=? WHERE username=?", (photo_, bio_, u_))
+            ok(cl.post('/api/freelance/perfil', {'kind': kind_, 'zone': zone_, 'lat': lat_, 'lon': lon_, 'languages': langs_,
+                                                 'contact_whatsapp': 1, 'contact_phone': k_ % 2, 'contact_email': 1}), 'perfil del directorio')
+            ok(cl.post('/api/freelance/titulacion', {'agency': agency_, 'level': level_}), 'titulación')
+            ipk = {'pay_way': 'in_person', 'pay_methods': ['cash', 'bizum'], 'pay_whatsapp': f'+34 611 300 {k_ + 10:03d}', 'accept_in_person_terms': True}
+            pricing = {'day': price_ * 2 - 20, 'half': price_} if unit_ == 'half_day' else {'day': price_}
+            ok(cl.post('/api/provider-services', {'title': svc_, 'price': price_, 'max_participants': 3, 'booking_mode': 'request', **ipk,
+                                                  'booking_unit': unit_, 'timezone': 'Europe/Madrid', 'description': bio_,
+                                                  'unit_rules': {'min_days': 1, 'max_days': 4, 'lead_hours': 24}, 'pricing': pricing}), 'crear el servicio de ' + u_)
+            cl.post('/api/agenda/hours', {'weekdays': [0, 1, 2, 3, 4, 5] if k_ % 2 else [1, 2, 3, 4, 5, 6], 'closures': [], 'timezone': 'Europe/Madrid'})
+        for r_ in srv.sql("SELECT c.id FROM pro_certifications c JOIN users u ON u.id=c.user_id WHERE u.username IN ('freelance2.prueba','fl.tomas.prueba','fl.iria.prueba','fl.lucia.prueba')"):
+            ok(admin.post(f"/api/admin/freelance-titulaciones/{r_['id']}", {'verified': 1}), 'verificar la titulación')
 
         # --- v50.58 (revisión y usabilidad, Parte 3): services made with the new 6-step editor, as a centre would: an
         # Open Water of 3 full days in two editions with its instructor, an Advanced of «2 mañanas + 2 días completos»,
@@ -699,10 +754,29 @@ def build(out: Path):
         ok(c().post('/api/reports', {'reason': 'false', 'details': 'El precio que aparece en la ficha no coincide con el que me dijeron por teléfono.', 'name': 'Persona de la demo',
                                      'email': 'denuncia@example.com', 'good_faith': True, 'target_url': f'/#/centro?id={cid}'}), 'enviar la denuncia')
         u, e, n = PENDING_CENTER
-        ok(c().register(n, e, u, pw, account_type='center', center_name='Arrecife Azul Dénia', phone='+34 600 000 103', city='Dénia',
-                        website='https://arrecifeazul.example.com'), 'registrar el centro pendiente')
+        ok(c().register(n, e, u, pw, account_type='center', center_name='Faro Escondido Diving', phone='+34 600 000 103', city='Dénia',
+                        website='https://faroescondido.example.com'), 'registrar el centro pendiente')
 
         # --- finishing touches ----------------------------------------------------------------------------------------
+        # 17/10: no centre of the demo carries the name, logo, photos or data of a real one. The centres of the demo
+        # catalogue (imported from public lists) take the invented names of the owner's list, in order (each one searched
+        # with «buceo/diving» before use: no centre with that name was found), a monogram, the web's own photos, a
+        # fictitious phone and email, and only the town (no street). Nothing of the original centre is kept.
+        photos = ['/img/titular/costa-barco.webp', '/img/titular/barco-cadena.webp', '/img/titular/buceador-rayos.webp',
+                  '/img/titular/caballito-posidonia.webp', '/img/titular/nocturna-pulpo.webp', '/img/portada/fondo.webp']
+        others = srv.sql('SELECT id,city,latitude,longitude FROM centers WHERE id NOT IN (?,?) AND name<>? ORDER BY id', (cid, cid2, 'Faro Escondido Diving'))
+        if len(others) > len(DEMO_CENTER_NAMES): raise SystemExit(f'Faltan nombres inventados para {len(others)} centros de la demo.')
+        for k_, (r_, name_) in enumerate(zip(others, DEMO_CENTER_NAMES)):
+            slug_ = re.sub(r'[^a-z0-9]+', '', name_.lower().translate(str.maketrans('áéíóúñ', 'aeioun')))
+            lat_, lon_ = (round(r_['latitude'], 2), round(r_['longitude'], 2)) if r_['latitude'] is not None and r_['longitude'] is not None else (None, None)
+            srv.sql(f"""UPDATE centers SET name=?,address=?,website=NULL,phone=?,email=?,description=NULL,tagline=NULL,specialties=NULL,latitude=?,longitude=?,
+                        source_name=NULL,source_url=NULL,logo_url=NULL,logo_source=NULL,logo_consent=0,instagram_url=NULL,facebook_url=NULL,twitter_url=NULL,
+                        youtube_url=NULL,tiktok_url=NULL,cover_url=?,gallery_json=NULL,legal_name=NULL,tax_id=NULL,fiscal_address=NULL,registration_number=NULL,
+                        insurance_company=NULL,insurance_policy=NULL,passport_logo=NULL,passport_name=NULL WHERE id=?""",
+                    (name_, r_['city'], f'+34 600 200 {k_ + 100:03d}', f'contacto.{slug_}@ejemplo.worldives', lat_, lon_, photos[k_ % len(photos)], r_['id']))
+        srv.sql("UPDATE centers SET email=? WHERE id=?", ('hola@bahiacoralina.ejemplo.worldives', cid))
+        srv.sql("UPDATE centers SET email=? WHERE id=?", ('hola@posidonianorte.ejemplo.worldives', cid2))
+        srv.sql("UPDATE centers SET email=? WHERE name='Faro Escondido Diving'", ('hola@faroescondido.ejemplo.worldives',))
         srv.sql("UPDATE users SET email_verified_at=? WHERE username LIKE '%.prueba'", (now_s(),))
         srv.sql("UPDATE users SET created_at=? WHERE username LIKE '%.prueba' AND role<>'admin'", (f'{today - dt.timedelta(days=HISTORY_DAYS + 30)}T10:00:00',))
         srv.sql("UPDATE centers SET created_at=? WHERE id IN (?,?)", (f'{today - dt.timedelta(days=HISTORY_DAYS + 30)}T10:00:00', cid, cid2))

@@ -91,7 +91,7 @@ def run(shots: Path | None):
             shot(pg, 'ordenador-ficha-bocadillo')
             check('ficha · sin errores de JavaScript', not pg.errors, pg.errors)
             pg.context.close()
-            # ordenador · Islas Medes en inglés (Escafandra Medes) con el bocadillo
+            # ordenador · Islas Medes en inglés (Posidonia Norte Buceo) con el bocadillo
             pg = page_for(DESK, 'en-GB')
             go(pg, f'?lang=en#/punto?id={pts["Islas Medes, Costa Brava"]}')
             check('inglés · «Marine life on this dive · 15 species»', pg.inner_text('.pm-title').strip() == 'Marine life on this dive' and pg.inner_text('.pm-count').strip() == '15 species')

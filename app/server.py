@@ -20302,7 +20302,7 @@ class Handler(BaseHTTPRequestHandler):
                                                WHERE e.center_id=? AND e.active=1 AND e.status='published'
                                                  AND (e.service_id IS NULL OR EXISTS(SELECT 1 FROM provider_services ps WHERE ps.id=e.service_id AND ps.active=1))
                                                ORDER BY e.id DESC LIMIT 12''',(cid,)).fetchall()
-                        _ci=center_row(row,member=bool(current and current['role']=='center' and current['center_id']==cid)); _ci['cancellation_policy']=cancellation_policy_key(row['cancellation_policy']); _ci['cancellation_text']=cancellation_policy_text(row['cancellation_policy']); _ci['cancellation_note']=row['cancellation_note'] or ''
+                        _ci=center_row(row,member=bool(current and current['role']=='center' and current['center_id']==cid)); _ci['cancellation_policy']=cancellation_policy_key(row['cancellation_policy']); _ci['cancellation_text']=cancellation_policy_text(row['cancellation_policy']); _ci['cancellation_note']=row['cancellation_note'] or ''; _ci['demo']=wcfg.demo_mode()   # 17/10: every centre of the test package is invented («Centro de demostración»)
                         _ci['texts']=center_texts(db,cid); lang_=query.get('lang',[''])[0]
                         if lang_ and (_t:=_ci['texts'].get(normalize_lang(lang_))):   # v50.51: the centre's own text in the visitor's language
                             if _t['tagline']: _ci['tagline']=_t['tagline']

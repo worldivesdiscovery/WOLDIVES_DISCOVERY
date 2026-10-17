@@ -105,3 +105,19 @@ class Freelance(ServerTestCase):
     def test_4_limit_per_ip(self):
         statuses = [self.client().get('/api/freelance').status for _ in range(45)]
         self.assertIn(429, statuses)
+
+
+class CentroDeDemostracion(ServerTestCase):
+    """17/10 · demo data: every centre page of the test package (WOD_DEMO_MODE=1) carries «Centro de demostración»; the real site never."""
+    extra_env = {'WOD_DEMO_MODE': '1', 'STRIPE_SECRET_KEY': 'sk_test_no_se_usa'}
+
+    def test_demo_flag(self):
+        self.server.sql("INSERT INTO centers(name,country,city,active,verification_status,created_at,updated_at) VALUES('Centro inventado','España','Xàbia',1,'verified',datetime('now'),datetime('now'))")
+        cid = self.server.sql("SELECT id FROM centers WHERE name='Centro inventado'")[0]['id']   # the demo accepts no new accounts
+        self.assertIs(self.client().get(f'/api/centers/{cid}').json['item']['demo'], True)
+
+
+class CentroReal(ServerTestCase):
+    def test_no_demo_flag(self):
+        admin = self.make_admin(); center = self.make_center(admin, 'real59')
+        self.assertIs(self.client().get(f"/api/centers/{center.user['center_id']}").json['item']['demo'], False)

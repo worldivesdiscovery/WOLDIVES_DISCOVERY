@@ -14,8 +14,8 @@ Todas son **propiedad de WORLDIVES DISCOVERY**: así consta en el registro de or
 | `buceador-rayos` | Buceador en aguas abiertas bajo los rayos del sol, junto a un arrecife | Cabecera de la portada (fondo marino amplio con buceador) | 78 % 66 % (el buceador) |
 | `costa-barco` | Costa rocosa desde el aire, agua turquesa y un barco de buceo fondeado | Cabecera de «Explorar el mapa» (vista aérea); foto de los destinos y experiencias que no tienen foto propia (paisaje de costa); en la demo, destino «Costa Blanca» y portada de Bahía Coralina (Xàbia, salidas en barco) | 74 % 70 % (el barco) |
 | `barco-cadena` | Un barco visto desde debajo del agua y su cadena de fondeo bajando hacia el azul | Cabecera de «Experiencias» (barco y viaje); tarjeta del tipo «Aguas profundas» | 35 % 8 % (el barco y el arranque de la cadena) |
-| `nocturna-pulpo` | Inmersión nocturna: pulpo y morena en el arrecife, buceador con linterna al fondo | Tarjeta del tipo «Nocturnas»; en la demo, galería de Escafandra Medes (inmersiones nocturnas) | 28 % 64 % (el pulpo) |
-| `caballito-posidonia` | Un caballito de mar entre la posidonia | Tarjeta del tipo «Muck» (fondos de arena y macro); en la demo, destino «Islas Medas» y galería de Escafandra Medes | 34 % 42 % (el caballito) |
+| `nocturna-pulpo` | Inmersión nocturna: pulpo y morena en el arrecife, buceador con linterna al fondo | Tarjeta del tipo «Nocturnas»; en la demo, galería de Posidonia Norte Buceo (inmersiones nocturnas) | 28 % 64 % (el pulpo) |
+| `caballito-posidonia` | Un caballito de mar entre la posidonia | Tarjeta del tipo «Muck» (fondos de arena y macro); en la demo, destino «Islas Medas» y galería de Posidonia Norte Buceo | 34 % 42 % (el caballito) |
 
 El punto de enfoque (`object-position`, desde la izquierda y desde arriba) está en `WD_PHOTOS`
 (`public/js/world-dives-v8.js`): cuando la foto se recorta para un móvil o una tarjeta, ese punto queda a la vista.
