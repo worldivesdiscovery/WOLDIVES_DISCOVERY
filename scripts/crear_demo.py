@@ -548,6 +548,51 @@ def build(out: Path):
         ok(pro2.post(f"/api/bookings/{x['id']}/status", {'status': 'confirmed'}), 'confirmar la guía')
         ok(divers[10].post('/api/bookings', {'service_id': fotos, 'days': workdays(15, 2), 'part': 'full', 'participants': 1, 'notes': 'Tengo una cámara compacta con carcasa', 'in_person_ack': True}), 'reservar el curso')
 
+        # --- v50.58 (revisión y usabilidad, Parte 3): services made with the new 6-step editor, as a centre would: an
+        # Open Water of 3 full days in two editions with its instructor, an Advanced of «2 mañanas + 2 días completos»,
+        # a double dive every Saturday and a rental by days. And (3.5) an Open Water that began 4 days ago: the first
+        # five sessions done and «Inmersión 4» moved to the coming Saturday's double dive (the student sees it in «Mis reservas»).
+        def wizard(cl, data, what):
+            return ok(cl.post('/api/provider-services/wizard', {'publish': True, **data}), what)['id']
+
+        def next_wd(wd, after):
+            d = today + dt.timedelta(days=after)
+            while d.weekday() != wd: d += dt.timedelta(days=1)
+            return d.isoformat()
+        ivan = srv.sql("SELECT id FROM users WHERE username=?", (ACCOUNTS['instructor'][0],))[0]['id']
+        ow3 = wizard(center, {'kind': 'course', 'title': 'Open Water en 3 días', 'price': 420, 'max_participants': 4, 'booking_mode': 'request',
+                              'plan': {'preset': '3full', 'dives': [3, 4, 5, 6], 'labels': {'1': 'Teoría', '2': 'Piscina'}}, 'instructor_user_id': ivan,
+                              'description': 'Tu primera titulación: teoría y piscina el primer día y cuatro inmersiones en el mar los dos siguientes.',
+                              'includes': ['equipo', 'barco', 'titulacion', 'seguro'], 'languages': ['es', 'en'],
+                              'schedule': {'mode': 'dates', 'dates': [next_wd(0, 12), next_wd(0, 26), next_wd(0, 40)]}}, 'crear el Open Water en 3 días')
+        wizard(center, {'kind': 'course', 'title': 'Advanced en 2 mañanas y 2 días', 'price': 340, 'max_participants': 4, 'booking_mode': 'request',
+                        'plan': {'preset': '2am2full', 'dives': [2, 3, 4, 5, 6], 'labels': {'1': 'Teoría y planificación'}},
+                        'description': 'Cinco inmersiones de aventura: profunda, navegación, nocturna, pecio y flotabilidad. Las dos primeras mañanas te dejan la tarde libre.',
+                        'includes': ['barco', 'titulacion'], 'languages': ['es', 'en'],
+                        'schedule': {'mode': 'dates', 'dates': [next_wd(3, 15), next_wd(3, 43)]}}, 'crear el Advanced de 2 mañanas y 2 días')
+        sat = wizard(center, {'kind': 'dive', 'title': 'Doble inmersión de los sábados', 'hours': 4, 'minutes': 0, 'start_time': '08:30', 'price': 75,
+                              'max_participants': 10, 'booking_mode': 'request', 'includes': ['barco', 'guia'], 'languages': ['es', 'en', 'fr'],
+                              'description': 'Dos inmersiones en la reserva marina del Cabo de San Antonio, con descanso a bordo entre las dos.',
+                              'schedule': {'mode': 'weekly', 'weekdays': [5], 'from': day(1), 'to': day(70)}}, 'crear la doble inmersión de los sábados')
+        wizard(center, {'kind': 'rental', 'title': 'Alquiler de traje seco', 'rental_per': 'day', 'price': 35, 'max_participants': 4, 'booking_mode': 'request',
+                        'description': 'Traje seco con su ropa interior térmica, para las inmersiones de invierno. Se reserva por días.'}, 'crear el alquiler de traje seco')
+        # 3.5: the third edition becomes the one that began 4 days ago (moved before anything is seen, like a course of last week)
+        eds = srv.sql("SELECT id FROM service_slots WHERE service_id=? ORDER BY slot_date", (ow3,))
+        past_ed = eds[-1]['id']
+        students = []
+        for d_ in (buzo, divers[1]):
+            x = ok(d_.post('/api/bookings', {'center_id': cid, 'service_id': ow3, 'slot_id': past_ed, 'participants': 1}), 'reservar el Open Water')['id']
+            ok(center.post(f'/api/bookings/{x}/status', {'status': 'confirmed'}), 'confirmar el Open Water'); students.append(x)
+        srv.sql("UPDATE resource_blocks SET status='released' WHERE ref_type='edition' AND ref_id=?", (past_ed,))   # nobody works in the past
+        srv.sql('UPDATE service_slots SET slot_date=?,date_to=? WHERE id=?', (day(-4), day(-2), past_ed))
+        srv.sql('UPDATE bookings SET booking_date=?,date_to=? WHERE slot_id=?', (day(-4), day(-2), past_ed))
+        for x in students:
+            ok(center.get(f'/api/bookings/{x}/course'), 'ver el progreso del curso')
+            for seq in (1, 2, 3, 4, 5): ok(center.post(f'/api/center/bookings/{x}/course/done', {'seq': seq}), 'marcar la sesión como hecha')
+        first_sat = srv.sql("SELECT id FROM service_slots WHERE service_id=? ORDER BY slot_date LIMIT 1", (sat,))[0]['id']
+        ok(center.post(f'/api/center/bookings/{students[0]}/course/move', {'seq': 6, 'mode': 'join', 'slot_id': first_sat, 'scope': 'edition',
+                                                                           'instructor_user_id': ivan}), 'pasar la inmersión 4 al sábado')
+
         # v50.53: every demo service starts from its template (the same rule the migration uses for existing services),
         # so its card shows the template's photo and changes with it.
         sys.path.insert(0, str(ROOT / 'app'))

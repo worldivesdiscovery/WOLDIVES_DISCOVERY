@@ -29,7 +29,7 @@ Dos centros inventados que llevan meses funcionando:
 | Dónde | Xàbia (Alicante), Cabo de San Antonio | L'Estartit (Girona), Islas Medes |
 | Cuenta | `centro.prueba` | `centro2.prueba` |
 | Equipo | instructor e instructora máster (perfil hecho en la web) | instructor y recepción |
-| Servicios | inmersión simple y doble, bautizo, Open Water, Nitrox, alquiler, atardecer | Medas, nocturna, bautizo, Advanced, snorkel |
+| Servicios | inmersión simple y doble, bautizo, Open Water, Nitrox, alquiler, atardecer; hechos con el asistente nuevo (v50.58): Open Water en 3 días, Advanced en 2 mañanas y 2 días, doble inmersión de los sábados y alquiler de traje seco | Medas, nocturna, bautizo, Advanced, snorkel |
 | Puntos | 6 (Cabo San Antonio, Portitxol, Cabo San Martín, Pared Negra…) | 4 (Medes, La Vaca, Carall Bernat, Tascons) |
 
 - **Perfil en los 9 idiomas** de la web: cambia el idioma arriba y abre la página de cada centro.
@@ -397,3 +397,33 @@ Más cosas para mirar:
 - Los avisos de caducidad (30, 7 y 1 días y el mismo día) llegan como correo a `data/pruebas/correos/`.
 
 Este recorrido se comprueba solo con `python3 tests/navegador/e2e_v50_56_seguros.py`.
+
+## 16. Asistente de servicios, progreso del curso y foto por tipo (v50.58)
+
+La demo trae en Bahía Coralina cuatro servicios hechos con el **asistente de 6 pasos** (como los haría un centro):
+
+- **Open Water en 3 días**: tres días completos (teoría y piscina el primero, cuatro inmersiones los dos siguientes),
+  con Iván Soler de instructor y dos ediciones en las próximas semanas. En el planning sale como un bloque de 3 días y
+  Iván ocupado esos días.
+- **Advanced en 2 mañanas y 2 días**: las dos primeras mañanas (tarde libre) y dos días completos.
+- **Doble inmersión de los sábados**: una salida cada sábado de las próximas diez semanas.
+- **Alquiler de traje seco**, por días.
+
+Y un **Open Water que empezó hace 4 días** con `buzo.prueba` y `buzo2.prueba`: las cinco primeras sesiones están hechas y
+la **Inmersión 4** se pasó a la doble inmersión del próximo sábado.
+
+1. **Míralo como alumno.** Entra como `buzo.prueba` → Mis reservas → el Open Water: **«3 de 4 inmersiones hechas · 1
+   pendiente»** y la Inmersión 4 **↪ Aplazada** con su nuevo día (el sábado, 08:30), con «Confirmo» y «Pedir otra fecha».
+2. **Míralo como centro.** Entra como `centro.prueba` → Reservas → la del Open Water de Bea Navarro: cada sesión con su estado,
+   «Marcar como hecha» y «Pasar a otro día». En el planning, el sábado lleva la Inmersión 4 de los dos alumnos dentro de
+   la doble inmersión, y en el manifiesto de esa salida salen en «Sesiones de curso».
+3. **Crea un servicio.** Panel → Servicios → «Nuevo servicio»: el asistente (qué vas a ofrecer, lo básico, duración o
+   días del curso, fechas, precio y modo, vista previa). Prueba «2 mañanas + 2 días completos» o «cada sábado».
+4. **Foto por tipo de buceo (6.4).** Entra como `admin.prueba` → Administración → **Tipos de buceo** → «Cambiar foto»
+   en cualquier tipo: encuadra la foto (arrastra, zoom) y mira la vista previa de la tarjeta, la cabecera y un punto sin
+   foto. Al guardar, los puntos de ese tipo sin foto propia la muestran. Los tipos sin foto adecuada salen como «Sin
+   foto: pendiente de una foto adecuada» (tabla en `docs/fotos/tipos.md`).
+
+Estos recorridos se comprueban solos con `python3 tests/navegador/e2e_v50_58_asistente.py`,
+`python3 tests/navegador/e2e_v50_58_curso.py` y `python3 tests/navegador/e2e_v50_58_fototipo.py` (servidores nuevos,
+sin tocar la demo).
