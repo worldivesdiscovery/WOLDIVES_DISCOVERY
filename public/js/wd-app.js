@@ -414,27 +414,38 @@
   function pendiente() { try { const v = JSON.parse(sessionStorage.getItem(PENDIENTE) || 'null'); sessionStorage.removeItem(PENDIENTE); return v; } catch { return null; } }
   async function abrirReserva(sal) {
     if (!sal) return;
-    const st = { sal, pax: 1, abierta: '', equipo: new Set(), extras: new Set(), nota: '', quote: null, enviando: false, otras: null, equipos: [], extrasList: [], aviso: false };
+    const st = { sal, pax: 1, abierta: '', eq: W.eqValue(1, []), extras: new Set(), nota: '', quote: null, enviando: false, otras: null, rental: null, extrasList: [], aviso: false };
     const me = state.me, perfil = me?.profile || {};
     const cid = sal.center_id || 0;
-    // Equipment and extras of the centre (a freelance has none) and the other departures of the same service.
-    const [eq, ex, cat] = await Promise.allSettled(cid ? [api('/api/center-equipment?center_id=' + cid), api('/api/center-extras?center_id=' + cid), api('/api/provider-services?provider_id=0&center_id=' + cid)]
-      : [Promise.resolve({ items: [] }), Promise.resolve({ items: [] }), api('/api/provider-services?provider_id=' + sal.provider_id)]);
-    st.equipos = (eq.status === 'fulfilled' ? eq.value.items || [] : []).filter((e) => e.active !== 0 && e.price != null && e.price !== '');
+    // Extras of the centre (a freelance has none), the service (with its rental: v50.58) and its other departures.
+    const [ex, cat] = await Promise.allSettled(cid ? [api('/api/center-extras?center_id=' + cid), api('/api/provider-services?provider_id=0&center_id=' + cid)]
+      : [Promise.resolve({ items: [] }), api('/api/provider-services?provider_id=' + sal.provider_id)]);
     st.extrasList = (ex.status === 'fulfilled' ? ex.value.items || [] : []).filter((e) => e.active !== 0);
     const serv = cat.status === 'fulfilled' ? (cat.value.items || []).find((s) => String(s.id) === String(sal.service_id)) : null;
+    // v50.58 · Rental inside the dive: the same picker as the web (one per diver, sizes, «Equipo completo»); the tank
+    // and the weights are always included. The sizes of last time with this centre come already chosen.
+    st.rental = serv?.rental || null;
+    const alquila = st.rental?.mode === 'offer' && (st.rental.pieces || []).length > 0;
+    let tallasMem = {};
+    if (alquila && me) api('/api/equipment/my-sizes?' + (cid ? 'center_id=' + cid : 'provider_id=' + sal.provider_id)).then((r) => { tallasMem = r.sizes || {}; }).catch(() => {});
+    const nombres = () => Array.from({ length: st.pax }, (_, i) => i === 0 ? T('Tú') : T('Buceador {n}').replace('{n}', i + 1));
+    const eqTitulo = () => {
+      if (!st.eq.rent) return T('Llevo mi equipo');
+      const lab = Object.fromEntries((st.rental.pieces || []).map((p) => [p.code, p.label]));
+      const por = st.eq.divers.map((d, i) => { const it = Object.keys(d.items).map((c) => lab[c]).filter(Boolean); return it.length ? (st.pax > 1 ? `${nombres()[i]}: ` : '') + (d.kit ? T('Equipo completo') : it.join(', ')) : ''; }).filter(Boolean);
+      return por.length ? por.join(' · ') : T('Necesito equipo');
+    };
+    let eqPick = null;
     st.otras = (serv?.slots || []).filter((x) => x.status === 'open' && Number(x.spots_available) > 0).slice(0, 12);
     const persona = enPersona(sal) || enPersona(serv), info = serv || sal;
     const avisoPersona = () => !persona ? '' : `<div class="aviso pend">${ic('cobrar')}<div class="pila"><b>${esc(T('Pago en persona al profesional'))}</b><span>${esc(T(info.pay_notice || AVISO_PERSONA))}</span>
       ${(info.pay_methods || []).length ? `<span class="peq"><b>${esc(T('Formas de pago que acepta'))}:</b> ${esc(info.pay_methods.map((m) => m === 'other' ? (info.pay_other || '') : T(FORMAS[m] || m)).filter(Boolean).join(' · '))}</span>` : ''}
       <span class="peq"><b>${esc(T('Política del profesional'))}:</b> ${esc(info.pay_policy || T('Este profesional no ha publicado una política de cancelación. WORLDIVES no gestiona cancelaciones ni devoluciones en este servicio.'))}</span>
       <label class="marcar"><input type="checkbox" id="wda-aviso" ${st.aviso ? 'checked' : ''}><span class="crece">${esc(T('He leído el aviso: pago en persona al profesional'))}</span></label></div></div>`;
-    const tallas = [['Traje', perfil.suit_size], ['Escarpines', perfil.boot_size], ['Chaleco', perfil.bcd_size], ['Aletas', perfil.fin_size]].filter((x) => x[1]);
     const linea = (k, icono, titulo, sub, editor) => `<div class="bloque-res"><div class="linea-res">${ic(icono)}<div class="crece"><p style="font-weight:600">${titulo}</p>${sub ? `<p class="suave peq">${sub}</p>` : ''}</div>
       ${editor ? `<button class="wbtn texto" type="button" data-cambiar="${k}" aria-expanded="${st.abierta === k}">${st.abierta === k ? T('Listo') : T('Cambiar')}</button>` : ''}</div>${editor && st.abierta === k ? `<div class="editor">${editor}</div>` : ''}</div>`;
     const html = () => {
       const s = st.sal, puntos = (s.points || []).map((p) => p.name).join(', ');
-      const eqSel = st.equipos.filter((e) => st.equipo.has(e.code));
       const exSel = st.extrasList.filter((e) => st.extras.has(String(e.id)));
       return linea('fecha', 'agenda', `${esc(cuando(s.date))} · ${esc(s.time || '')}`, puntos ? `<span translate="no">${esc(puntos)}</span>` : esc(T('Punto a concretar con el centro')),
         st.otras?.length > 1 ? `<div class="wchips">${st.otras.map((x) => `<button type="button" class="wchip" data-slot="${x.id}" aria-pressed="${String(x.id) === String(s.slot_id)}">${esc(cuando(x.slot_date))} · ${esc(x.slot_time || '')}</button>`).join('')}</div>` : '')
@@ -442,8 +453,8 @@
           `<div class="contador"><button type="button" data-pax="-1" aria-label="${T('Una persona menos')}">${ic('menos', '')}</button><b>${st.pax}</b><button type="button" data-pax="1" aria-label="${T('Una persona más')}">${ic('mas1', '')}</button><span class="suave peq">${T('personas')}</span></div>`)
         + (me ? linea('tit', 'ficha', perfil.certification_name ? `<span translate="no">${esc(perfil.certification_name)}</span>` : esc(T('Sin titulación en tu ficha')), esc(T('De tu ficha · el centro la comprueba antes de bucear')),
           `<p class="peq">${T('Se cambia en Mi ficha. Esta reserva usa lo último que guardaste.')}</p><a class="wbtn sec mini" href="#/cuenta">${T('Abrir Mi ficha')}</a>`) : '')
-        + (st.equipos.length ? linea('equipo', 'tanque', eqSel.length ? esc(eqSel.map((e) => T(e.label)).join(', ')) : esc(T('Sin alquiler de equipo')), tallas.length ? esc(tallas.map(([t, v]) => `${T(t)} ${v}`).join(' · ')) : esc(T('Tus tallas se guardan en Mi ficha')),
-          st.equipos.map((e) => `<label class="marcar"><input type="checkbox" data-equipo="${esc(e.code)}" ${st.equipo.has(e.code) ? 'checked' : ''}><span class="crece">${esc(T(e.label))}</span><span class="peq num">+${dinero(e.price, s.currency)}</span></label>`).join('')) : '')
+        + (alquila ? linea('equipo', 'tanque', `<span id="wda-eq-tit">${esc(eqTitulo())}</span>`, esc(T('Incluido: botella y plomos')), '<div id="wda-eq" class="wda-eq"></div>')
+          : st.rental?.mode === 'included' ? linea('equipo', 'tanque', esc(T('Equipo incluido en el precio')), esc(T('Incluido: botella y plomos')), '') : '')
         + (st.extrasList.length ? linea('extras', 'mas1', exSel.length ? esc(exSel.map((e) => e.name).join(', ')) : esc(T('Sin extras')), '',
           st.extrasList.map((e) => `<label class="marcar"><input type="checkbox" data-extra="${e.id}" ${st.extras.has(String(e.id)) ? 'checked' : ''}><span class="crece" translate="no">${esc(e.name)}</span><span class="peq num">+${dinero(e.price, s.currency)}</span></label>`).join('')) : '')
         + linea('nota', 'documento', st.nota ? esc(st.nota.slice(0, 60)) : esc(T('Sin nota para el centro')), '', `<div class="campo"><label for="wda-nota">${T('Nota para el centro')}</label><textarea id="wda-nota" maxlength="500">${esc(st.nota)}</textarea></div>`)
@@ -462,14 +473,22 @@
     };
     const capa = abrirHoja({ titulo: `<span translate="no">${esc(sal.title)}</span>`, sub: `<span translate="no">${esc(sal.provider_name || '')}</span> · ${modoTag(sal)}`, html: html(), pie: pie() });
     const cuerpo = $('.hoja-cuerpo', capa), piePie = $('.hoja-pie', capa);
-    const repintar = () => { const y = cuerpo.scrollTop; cuerpo.innerHTML = html(); W.translateTree(cuerpo); cuerpo.scrollTop = y; };
+    const montarEquipo = () => {
+      const host = $('#wda-eq', cuerpo); eqPick = null; if (!host) return;
+      const q = st.quote?.equipment || {};
+      const aviso = (q.kit_broken || []).includes(st.eq.tab) && st.eq.rent ? T('Has quitado una pieza del equipo completo: ahora se cobra por piezas. Nuevo importe: {t}.').replace('{t}', dinero(st.quote.total, st.quote.currency)) : '';
+      eqPick = W.wdEquipPicker(host, { pieces: st.rental.pieces, kit: st.rental.kit, pax: st.pax, names: nombres(), stock: q.stock, memory: tallasMem, value: st.eq, kitNotice: aviso,
+        onChange: (v, escribiendo) => { const t = $('#wda-eq-tit', cuerpo); if (t) t.textContent = eqTitulo(); if (!escribiendo) cotizar(); } });
+    };
+    const repintar = () => { const y = cuerpo.scrollTop; cuerpo.innerHTML = html(); W.translateTree(cuerpo); montarEquipo(); cuerpo.scrollTop = y; };
     const repintarPie = () => { piePie.innerHTML = pie(); W.translateTree(piePie); $('#wda-confirmar', piePie).onclick = confirmar; };
     let qn = 0;
     const cotizar = async () => {
       const n = ++qn, s = st.sal;
       const p = new URLSearchParams({ center_id: String(cid || 0), service_id: String(s.service_id), slot_id: String(s.slot_id), participants: String(st.pax),
-        extras: [...st.extras].join(','), equipment: [...st.equipo].map((c) => `${c}:${st.pax}`).join(',') });
-      try { const q = await api('/api/booking-quote?' + p); if (n === qn) { st.quote = q; repintarPie(); } } catch { /* keep the last total */ }
+        extras: [...st.extras].join(',') });
+      if (alquila && st.eq.rent) p.set('equipment_sel', JSON.stringify(W.eqPayload(st.eq)));
+      try { const q = await api('/api/booking-quote?' + p); if (n === qn) { st.quote = q; repintarPie(); eqPick?.redraw({ stock: q.equipment?.stock }); } } catch { /* keep the last total */ }
     };
     cuerpo.addEventListener('click', (e) => {
       const b = e.target.closest('button'); if (!b) return;
@@ -483,7 +502,6 @@
     });
     cuerpo.addEventListener('change', (e) => {
       const t = e.target;
-      if (t.dataset.equipo) { t.checked ? st.equipo.add(t.dataset.equipo) : st.equipo.delete(t.dataset.equipo); cotizar(); }
       if (t.dataset.extra) { t.checked ? st.extras.add(t.dataset.extra) : st.extras.delete(t.dataset.extra); cotizar(); }
       if (t.id === 'wda-nota') st.nota = t.value;
       if (t.id === 'wda-aviso') st.aviso = t.checked;
@@ -494,13 +512,13 @@
       if (!state.me) { recuerda(st.sal); cerrarHoja(); W.toast('Entra o crea tu cuenta para terminar. Guardamos la salida que has elegido.'); location.hash = '#/login?next=' + encodeURIComponent(location.hash || '#/'); return; }
       const s = st.sal, wa = $('#wda-wa', cuerpo);
       if (persona && !st.aviso) { W.toast(T('Marca la casilla del aviso: este profesional cobra directamente, no a través de WORLDIVES.')); $('#wda-aviso', cuerpo)?.focus(); return; }
-      const tallas = [['Traje', perfil.suit_size], ['Escarpines', perfil.boot_size], ['Chaleco', perfil.bcd_size], ['Aletas', perfil.fin_size]].filter((x) => x[1]).map(([t, v]) => `${t} ${v}`).join(' · ');
+      const falta = alquila ? W.eqMissing(st.eq, st.rental.pieces, nombres()) : null;   // a piece still without its size
+      if (falta) { st.eq.tab = falta.diver; st.abierta = 'equipo'; repintar(); W.toast(falta.text); $('#wda-eq', cuerpo)?.scrollIntoView({ block: 'center' }); return; }
       st.enviando = true; repintarPie(); const btn = $('#wda-confirmar', piePie); btn.textContent = T('Enviando…');
       try {
         const c = await postJSON('/api/bookings', { ...(wa ? { wa_consent: wa.checked, lang: W.currentLanguage() } : {}), ...W.wdAppPay(), center_id: cid || null, service_id: s.service_id, slot_id: s.slot_id,
           dive_point_id: s.points?.length === 1 ? s.points[0].id : null, dive_point_name: s.points?.length === 1 ? s.points[0].name : null, booking_date: s.date, booking_time: s.time, participants: st.pax,
-          needs_equipment: st.equipo.size > 0, equipment_items: st.equipos.filter((e) => st.equipo.has(e.code)).map((e) => e.label), equipment_codes: [...st.equipo].map((c2) => `${c2}:${st.pax}`),
-          equipment_notes: st.equipo.size ? tallas : '', extra_ids: [...st.extras].map(Number), notes: st.nota, in_person_ack: persona && st.aviso });
+          equipment: alquila ? W.eqPayload(st.eq) : [], equipment_notes: alquila && st.eq.rent ? st.eq.note : '', extra_ids: [...st.extras].map(Number), notes: st.nota, in_person_ack: persona && st.aviso });
         mem.areaAt = 0;
         if (c.checkout_url) { btn.textContent = T('Abriendo el pago seguro…'); pagoEnCurso = c.id; W.wdOpenCheckout(c.checkout_url); setTimeout(() => { st.enviando = false; cerrarHoja(); }, 1500); return; }
         cerrarHoja(); hechoReserva(c);

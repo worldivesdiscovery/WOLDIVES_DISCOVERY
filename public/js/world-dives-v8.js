@@ -9148,7 +9148,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     window.WD={app:WD_APP,state,$,$$,escapeHtml,api,postJSON,toast,setApp,route,loadMe,currentLanguage,translateString,translateTree,applyLanguage,
       wdIcon,wdLocale,fmtDate,wdMoney,wdLongDay,wdToday,daysUntil,wdDeadline,bookingStatus,experienceStatus,initials,goLogin,wdOpenCheckout,wdAppPay,
       loadMapLayer,loadMapConfig,wdTileDefaults,wdMapLayers,wdLayerToolbar,wdLimitMap,pointIcon,wdMarkerLayer,wdFold,centerLogoMarkup,
-      LANGS,APP_LANGS:WD_APP_LANGS,LANG_KEY,APP_ASSETS:WD_APP_ASSETS,wdConfirm,wdLocation,wdServiceCard};
+      LANGS,APP_LANGS:WD_APP_LANGS,LANG_KEY,APP_ASSETS:WD_APP_ASSETS,wdConfirm,wdLocation,wdServiceCard,
+      wdEquipPicker,eqValue,eqPayload,eqMissing};   // v50.58: the same rental picker in the app's booking sheet
     document.documentElement.classList.add('wd-app'); if(WD_APP.pruebas) document.documentElement.classList.add('wd-app-pruebas');
     const css=document.createElement('link'); css.rel='stylesheet'; css.href='/css/wd-app.css?v='+WD_APP_ASSETS; document.head.appendChild(css);
     const script=(src)=>new Promise(done=>{ const js=document.createElement('script'); js.src=src+'?v='+WD_APP_ASSETS; js.onload=js.onerror=()=>done(); document.body.appendChild(js); setTimeout(done,6000); });

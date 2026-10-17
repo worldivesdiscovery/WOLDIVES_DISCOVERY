@@ -1,0 +1,1304 @@
+{
+ "exact": {
+  "Quitar filtro: {x}": {
+   "en": "Remove filter: {x}",
+   "fr": "Retirer le filtre : {x}",
+   "de": "Filter entfernen: {x}",
+   "it": "Rimuovi filtro: {x}",
+   "pt": "Remover filtro: {x}",
+   "pl": "Usuń filtr: {x}",
+   "nl": "Filter verwijderen: {x}",
+   "zh": "移除筛选：{x}"
+  },
+  "Nuevas ediciones": {
+   "en": "New editions",
+   "fr": "Nouvelles sessions",
+   "de": "Neue Termine",
+   "it": "Nuove edizioni",
+   "pt": "Novas edições",
+   "pl": "Nowe edycje",
+   "nl": "Nieuwe edities",
+   "zh": "新开班"
+  },
+  "Fecha de inicio": {
+   "en": "Start date",
+   "fr": "Date de début",
+   "de": "Startdatum",
+   "it": "Data di inizio",
+   "pt": "Data de início",
+   "pl": "Data rozpoczęcia",
+   "nl": "Startdatum",
+   "zh": "开始日期"
+  },
+  "Añadir edición": {
+   "en": "Add edition",
+   "fr": "Ajouter une session",
+   "de": "Termin hinzufügen",
+   "it": "Aggiungi edizione",
+   "pt": "Adicionar edição",
+   "pl": "Dodaj edycję",
+   "nl": "Editie toevoegen",
+   "zh": "添加开班"
+  },
+  "Crear ediciones": {
+   "en": "Create editions",
+   "fr": "Créer les sessions",
+   "de": "Termine anlegen",
+   "it": "Crea edizioni",
+   "pt": "Criar edições",
+   "pl": "Utwórz edycje",
+   "nl": "Edities aanmaken",
+   "zh": "创建开班"
+  },
+  "{n} ediciones creadas.": {
+   "en": "{n} editions created.",
+   "fr": "{n} sessions créées.",
+   "de": "{n} Termine angelegt.",
+   "it": "{n} edizioni create.",
+   "pt": "{n} edições criadas.",
+   "pl": "Utworzono edycje: {n}.",
+   "nl": "{n} edities aangemaakt.",
+   "zh": "已创建 {n} 个开班。"
+  },
+  "Seguir con el servicio": {
+   "en": "Continue with the service",
+   "fr": "Continuer avec le service",
+   "de": "Mit dem Angebot weitermachen",
+   "it": "Continua con il servizio",
+   "pt": "Continuar com o serviço",
+   "pl": "Wróć do usługi",
+   "nl": "Verder met de dienst",
+   "zh": "继续编辑服务"
+  },
+  "Qué vas a ofrecer": {
+   "en": "What you will offer",
+   "fr": "Ce que vous allez proposer",
+   "de": "Was du anbietest",
+   "it": "Cosa offrirai",
+   "pt": "O que vais oferecer",
+   "pl": "Co zaoferujesz",
+   "nl": "Wat je gaat aanbieden",
+   "zh": "你要提供什么"
+  },
+  "Qué vivirá el buceador, en dos o tres frases.": {
+   "en": "What the diver will experience, in two or three sentences.",
+   "fr": "Ce que vivra le plongeur, en deux ou trois phrases.",
+   "de": "Was der Taucher erlebt, in zwei oder drei Sätzen.",
+   "it": "Cosa vivrà il subacqueo, in due o tre frasi.",
+   "pt": "O que o mergulhador vai viver, em duas ou três frases.",
+   "pl": "Co przeżyje nurek, w dwóch lub trzech zdaniach.",
+   "nl": "Wat de duiker gaat beleven, in twee of drie zinnen.",
+   "zh": "用两三句话说明潜水员将会体验什么。"
+  },
+  "Sin titulación": {
+   "en": "No certification",
+   "fr": "Sans niveau",
+   "de": "Ohne Brevet",
+   "it": "Senza brevetto",
+   "pt": "Sem certificação",
+   "pl": "Bez uprawnień",
+   "nl": "Zonder brevet",
+   "zh": "无需证书"
+  },
+  "Ej. Puerto de L’Estartit, pantalán 3": {
+   "en": "E.g. L’Estartit harbour, pontoon 3",
+   "fr": "Ex. : port de L’Estartit, ponton 3",
+   "de": "Z. B. Hafen von L’Estartit, Steg 3",
+   "it": "Es.: porto di L’Estartit, pontile 3",
+   "pt": "Ex.: porto de L’Estartit, pontão 3",
+   "pl": "Np. port L’Estartit, pomost 3",
+   "nl": "Bijv. haven van L’Estartit, steiger 3",
+   "zh": "例如：L’Estartit 港 3 号码头"
+  },
+  "Ej. familias, fotografía, principiantes": {
+   "en": "E.g. families, photography, beginners",
+   "fr": "Ex. : familles, photo, débutants",
+   "de": "Z. B. Familien, Fotografie, Anfänger",
+   "it": "Es.: famiglie, fotografia, principianti",
+   "pt": "Ex.: famílias, fotografia, principiantes",
+   "pl": "Np. rodziny, fotografia, początkujący",
+   "nl": "Bijv. gezinnen, fotografie, beginners",
+   "zh": "例如：家庭、摄影、初学者"
+  },
+  "Días de la semana": {
+   "en": "Days of the week",
+   "fr": "Jours de la semaine",
+   "de": "Wochentage",
+   "it": "Giorni della settimana",
+   "pt": "Dias da semana",
+   "pl": "Dni tygodnia",
+   "nl": "Dagen van de week",
+   "zh": "星期"
+  },
+  "Queda ocupado en su agenda los días del curso: no se le puede dar otro curso a la vez.": {
+   "en": "Their calendar is blocked on the course days: they cannot be given another course at the same time.",
+   "fr": "Son agenda est bloqué les jours du cours : on ne peut pas lui confier un autre cours en même temps.",
+   "de": "An den Kurstagen ist er im Kalender belegt: Ein zweiter Kurs zur selben Zeit ist nicht möglich.",
+   "it": "Nei giorni del corso risulta occupato in agenda: non gli si può assegnare un altro corso in contemporanea.",
+   "pt": "Fica ocupado na agenda nos dias do curso: não pode dar outro curso ao mesmo tempo.",
+   "pl": "W dni kursu jest zajęty w kalendarzu: nie można mu przydzielić innego kursu w tym samym czasie.",
+   "nl": "Op de cursusdagen is hij bezet in de agenda: er kan niet tegelijk een andere cursus aan hem worden gegeven.",
+   "zh": "课程期间其日程已被占用：不能同时安排另一门课程。"
+  },
+  "Minutos": {
+   "en": "Minutes",
+   "fr": "Minutes",
+   "de": "Minuten",
+   "it": "Minuti",
+   "pt": "Minutos",
+   "pl": "Minuty",
+   "nl": "Minuten",
+   "zh": "分钟"
+  },
+  "Inmersiones en cada salida": {
+   "en": "Dives per trip",
+   "fr": "Plongées par sortie",
+   "de": "Tauchgänge pro Ausfahrt",
+   "it": "Immersioni per uscita",
+   "pt": "Mergulhos por saída",
+   "pl": "Nurkowania na wypłynięcie",
+   "nl": "Duiken per uitvaart",
+   "zh": "每次出海的潜水次数"
+  },
+  "Para el equipo que se alquila «por inmersión».": {
+   "en": "For equipment rented “per dive”.",
+   "fr": "Pour l’équipement loué « par plongée ».",
+   "de": "Für Ausrüstung, die „pro Tauchgang“ vermietet wird.",
+   "it": "Per l’attrezzatura noleggiata «a immersione».",
+   "pt": "Para o equipamento alugado «por mergulho».",
+   "pl": "Dla sprzętu wypożyczanego „za nurkowanie”.",
+   "nl": "Voor uitrusting die „per duik” wordt verhuurd.",
+   "zh": "用于“按次潜水”出租的装备。"
+  },
+  "Atajos:": {
+   "en": "Shortcuts:",
+   "fr": "Raccourcis :",
+   "de": "Schnellwahl:",
+   "it": "Scorciatoie:",
+   "pt": "Atalhos:",
+   "pl": "Skróty:",
+   "nl": "Snelkeuze:",
+   "zh": "快捷选择："
+  },
+  "Personalizado": {
+   "en": "Custom",
+   "fr": "Personnalisé",
+   "de": "Individuell",
+   "it": "Personalizzato",
+   "pt": "Personalizado",
+   "pl": "Własny",
+   "nl": "Aangepast",
+   "zh": "自定义"
+  },
+  "Día {n}": {
+   "en": "Day {n}",
+   "fr": "Jour {n}",
+   "de": "Tag {n}",
+   "it": "Giorno {n}",
+   "pt": "Dia {n}",
+   "pl": "Dzień {n}",
+   "nl": "Dag {n}",
+   "zh": "第 {n} 天"
+  },
+  "{n} sesiones": {
+   "en": "{n} sessions",
+   "fr": "{n} séances",
+   "de": "{n} Einheiten",
+   "it": "{n} sessioni",
+   "pt": "{n} sessões",
+   "pl": "Sesje: {n}",
+   "nl": "{n} sessies",
+   "zh": "{n} 节课"
+  },
+  "Empieza": {
+   "en": "Starts",
+   "fr": "Début",
+   "de": "Beginn",
+   "it": "Inizio",
+   "pt": "Começa",
+   "pl": "Początek",
+   "nl": "Begint",
+   "zh": "开始"
+  },
+  "Acaba": {
+   "en": "Ends",
+   "fr": "Fin",
+   "de": "Ende",
+   "it": "Fine",
+   "pt": "Acaba",
+   "pl": "Koniec",
+   "nl": "Eindigt",
+   "zh": "结束"
+  },
+  "Días completos": {
+   "en": "Full days",
+   "fr": "Journées complètes",
+   "de": "Ganze Tage",
+   "it": "Giornate intere",
+   "pt": "Dias completos",
+   "pl": "Pełne dni",
+   "nl": "Hele dagen",
+   "zh": "全天"
+  },
+  "Días completos o medias jornadas (mañana o tarde)": {
+   "en": "Full days or half days (morning or afternoon)",
+   "fr": "Journées complètes ou demi-journées (matin ou après-midi)",
+   "de": "Ganze oder halbe Tage (Vormittag oder Nachmittag)",
+   "it": "Giornate intere o mezze giornate (mattina o pomeriggio)",
+   "pt": "Dias completos ou meios-dias (manhã ou tarde)",
+   "pl": "Pełne dni lub pół dnia (rano lub po południu)",
+   "nl": "Hele of halve dagen (ochtend of middag)",
+   "zh": "全天或半天（上午或下午）"
+  },
+  "El buceador elige los días en tu calendario libre/ocupado. Tus días libres y ocupados se gestionan en «Mi agenda».": {
+   "en": "The diver picks the days on your free/busy calendar. You manage your free and busy days in “My calendar”.",
+   "fr": "Le plongeur choisit les jours dans votre calendrier libre/occupé. Vos jours libres et occupés se gèrent dans « Mon agenda ».",
+   "de": "Der Taucher wählt die Tage in deinem Frei/Belegt-Kalender. Freie und belegte Tage verwaltest du unter „Mein Kalender“.",
+   "it": "Il subacqueo sceglie i giorni nel tuo calendario libero/occupato. I tuoi giorni liberi e occupati si gestiscono in «La mia agenda».",
+   "pt": "O mergulhador escolhe os dias no teu calendário livre/ocupado. Os teus dias livres e ocupados geres em «A minha agenda».",
+   "pl": "Nurek wybiera dni w twoim kalendarzu wolny/zajęty. Wolnymi i zajętymi dniami zarządzasz w „Mój kalendarz”.",
+   "nl": "De duiker kiest de dagen in je vrij/bezet-agenda. Je vrije en bezette dagen beheer je in „Mijn agenda”.",
+   "zh": "潜水员在你的空闲/忙碌日历中选择日期。你的空闲和忙碌日期在“我的日程”中管理。"
+  },
+  "Por día": {
+   "en": "Per day",
+   "fr": "Par jour",
+   "de": "Pro Tag",
+   "it": "Al giorno",
+   "pt": "Por dia",
+   "pl": "Za dzień",
+   "nl": "Per dag",
+   "zh": "按天"
+  },
+  "Por inmersión": {
+   "en": "Per dive",
+   "fr": "Par plongée",
+   "de": "Pro Tauchgang",
+   "it": "A immersione",
+   "pt": "Por mergulho",
+   "pl": "Za nurkowanie",
+   "nl": "Per duik",
+   "zh": "按潜水次数"
+  },
+  "El alquiler no tiene salidas: el buceador lo añade a su reserva.": {
+   "en": "Rental has no trips: the diver adds it to their booking.",
+   "fr": "La location n’a pas de sorties : le plongeur l’ajoute à sa réservation.",
+   "de": "Der Verleih hat keine Ausfahrten: Der Taucher fügt ihn seiner Buchung hinzu.",
+   "it": "Il noleggio non ha uscite: il subacqueo lo aggiunge alla sua prenotazione.",
+   "pt": "O aluguer não tem saídas: o mergulhador junta-o à sua reserva.",
+   "pl": "Wypożyczenie nie ma wypłynięć: nurek dodaje je do swojej rezerwacji.",
+   "nl": "Verhuur heeft geen uitvaarten: de duiker voegt het toe aan zijn boeking.",
+   "zh": "租赁没有出海班次：潜水员将其添加到自己的预订中。"
+  },
+  "Ofrecer alquiler de equipo en este servicio": {
+   "en": "Offer equipment rental with this service",
+   "fr": "Proposer la location d’équipement avec ce service",
+   "de": "Ausrüstungsverleih bei diesem Angebot anbieten",
+   "it": "Offri il noleggio dell’attrezzatura in questo servizio",
+   "pt": "Oferecer aluguer de equipamento neste serviço",
+   "pl": "Oferuj wypożyczenie sprzętu w tej usłudze",
+   "nl": "Verhuur van uitrusting aanbieden bij deze dienst",
+   "zh": "在此服务中提供装备租赁"
+  },
+  "El buceador marca las piezas y sus tallas al reservar. Incluido siempre: botella y plomos.": {
+   "en": "The diver ticks the items and their sizes when booking. Always included: tank and weights.",
+   "fr": "Le plongeur coche les pièces et ses tailles en réservant. Toujours inclus : bouteille et plombs.",
+   "de": "Der Taucher wählt beim Buchen die Teile und seine Größen. Immer inklusive: Flasche und Blei.",
+   "it": "Il subacqueo segna i pezzi e le sue taglie al momento della prenotazione. Sempre inclusi: bombola e zavorra.",
+   "pt": "O mergulhador marca as peças e os seus tamanhos ao reservar. Sempre incluído: garrafa e lastro.",
+   "pl": "Nurek zaznacza elementy i swoje rozmiary przy rezerwacji. Zawsze w cenie: butla i balast.",
+   "nl": "De duiker vinkt bij het boeken de onderdelen en zijn maten aan. Altijd inbegrepen: fles en lood.",
+   "zh": "潜水员预订时勾选所需装备和尺码。始终包含：气瓶和配重。"
+  },
+  "Quita piezas o cambia su precio solo para este servicio.": {
+   "en": "Remove items or change their price for this service only.",
+   "fr": "Retirez des pièces ou changez leur prix pour ce service uniquement.",
+   "de": "Teile entfernen oder ihren Preis nur für dieses Angebot ändern.",
+   "it": "Togli pezzi o cambia il loro prezzo solo per questo servizio.",
+   "pt": "Retira peças ou muda o seu preço só para este serviço.",
+   "pl": "Usuń elementy lub zmień ich cenę tylko dla tej usługi.",
+   "nl": "Verwijder onderdelen of wijzig hun prijs alleen voor deze dienst.",
+   "zh": "仅针对此服务移除装备或修改价格。"
+  },
+  "Precio en este servicio": {
+   "en": "Price in this service",
+   "fr": "Prix dans ce service",
+   "de": "Preis bei diesem Angebot",
+   "it": "Prezzo in questo servizio",
+   "pt": "Preço neste serviço",
+   "pl": "Cena w tej usłudze",
+   "nl": "Prijs bij deze dienst",
+   "zh": "此服务中的价格"
+  },
+  "Primero indica qué equipo alquilas.": {
+   "en": "First tell us what equipment you rent.",
+   "fr": "Indiquez d’abord quel équipement vous louez.",
+   "de": "Gib zuerst an, welche Ausrüstung du vermietest.",
+   "it": "Prima indica quale attrezzatura noleggi.",
+   "pt": "Primeiro indica que equipamento alugas.",
+   "pl": "Najpierw wskaż, jaki sprzęt wypożyczasz.",
+   "nl": "Geef eerst aan welke uitrusting je verhuurt.",
+   "zh": "请先说明你出租哪些装备。"
+  },
+  "Ir a Equipo de alquiler": {
+   "en": "Go to Rental equipment",
+   "fr": "Aller à Équipement de location",
+   "de": "Zu Leihausrüstung",
+   "it": "Vai a Attrezzatura a noleggio",
+   "pt": "Ir para Equipamento de aluguer",
+   "pl": "Przejdź do Sprzętu do wypożyczenia",
+   "nl": "Naar Huuruitrusting",
+   "zh": "前往租赁装备"
+  },
+  "Grupo de hasta {n} personas = {t}": {
+   "en": "Group of up to {n} people = {t}",
+   "fr": "Groupe jusqu’à {n} personnes = {t}",
+   "de": "Gruppe bis {n} Personen = {t}",
+   "it": "Gruppo fino a {n} persone = {t}",
+   "pt": "Grupo até {n} pessoas = {t}",
+   "pl": "Grupa do {n} osób = {t}",
+   "nl": "Groep tot {n} personen = {t}",
+   "zh": "最多 {n} 人的团体 = {t}"
+  },
+  "{p} personas × 1 {u} = {t}": {
+   "en": "{p} people × 1 {u} = {t}",
+   "fr": "{p} personnes × 1 {u} = {t}",
+   "de": "{p} Personen × 1 {u} = {t}",
+   "it": "{p} persone × 1 {u} = {t}",
+   "pt": "{p} pessoas × 1 {u} = {t}",
+   "pl": "{p} osoby × 1 {u} = {t}",
+   "nl": "{p} personen × 1 {u} = {t}",
+   "zh": "{p} 人 × 1 {u} = {t}"
+  },
+  "Recomendada": {
+   "en": "Recommended",
+   "fr": "Recommandée",
+   "de": "Empfohlen",
+   "it": "Consigliata",
+   "pt": "Recomendada",
+   "pl": "Polecana",
+   "nl": "Aanbevolen",
+   "zh": "推荐"
+  },
+  "No, el total": {
+   "en": "No, the full amount",
+   "fr": "Non, le total",
+   "de": "Nein, den Gesamtbetrag",
+   "it": "No, il totale",
+   "pt": "Não, o total",
+   "pl": "Nie, całość",
+   "nl": "Nee, het totaal",
+   "zh": "不，收取全款"
+  },
+  "Un porcentaje": {
+   "en": "A percentage",
+   "fr": "Un pourcentage",
+   "de": "Einen Prozentsatz",
+   "it": "Una percentuale",
+   "pt": "Uma percentagem",
+   "pl": "Procent",
+   "nl": "Een percentage",
+   "zh": "按百分比"
+  },
+  "Una cantidad fija": {
+   "en": "A fixed amount",
+   "fr": "Un montant fixe",
+   "de": "Einen festen Betrag",
+   "it": "Un importo fisso",
+   "pt": "Um valor fixo",
+   "pl": "Stała kwota",
+   "nl": "Een vast bedrag",
+   "zh": "固定金额"
+  },
+  "Sin mínimo": {
+   "en": "No minimum",
+   "fr": "Sans minimum",
+   "de": "Kein Minimum",
+   "it": "Nessun minimo",
+   "pt": "Sem mínimo",
+   "pl": "Bez minimum",
+   "nl": "Geen minimum",
+   "zh": "无最低要求"
+  },
+  "La de tu centro": {
+   "en": "Your centre’s",
+   "fr": "Celle de votre centre",
+   "de": "Die deines Centers",
+   "it": "Quella del tuo centro",
+   "pt": "A do teu centro",
+   "pl": "Tak jak w twoim centrum",
+   "nl": "Die van je centrum",
+   "zh": "沿用你中心的"
+  },
+  "Pago en el centro o en persona (países sin Stripe)": {
+   "en": "Pay at the centre or in person (countries without Stripe)",
+   "fr": "Paiement au centre ou en personne (pays sans Stripe)",
+   "de": "Zahlung im Center oder persönlich (Länder ohne Stripe)",
+   "it": "Pagamento al centro o di persona (paesi senza Stripe)",
+   "pt": "Pagamento no centro ou em pessoa (países sem Stripe)",
+   "pl": "Płatność w centrum lub osobiście (kraje bez Stripe)",
+   "nl": "Betalen bij het centrum of persoonlijk (landen zonder Stripe)",
+   "zh": "在中心或当面付款（无 Stripe 的国家）"
+  },
+  "¿Tu país no tiene Stripe? Usa «Tú apruebas cada reserva»: el buceador envía la solicitud y te paga en el centro.": {
+   "en": "No Stripe in your country? Use “You approve each booking”: the diver sends a request and pays you at the centre.",
+   "fr": "Pas de Stripe dans votre pays ? Utilisez « Vous validez chaque réservation » : le plongeur envoie une demande et vous paie au centre.",
+   "de": "Kein Stripe in deinem Land? Nutze „Du bestätigst jede Buchung“: Der Taucher schickt eine Anfrage und zahlt dir im Center.",
+   "it": "Il tuo paese non ha Stripe? Usa «Approvi tu ogni prenotazione»: il subacqueo invia la richiesta e ti paga al centro.",
+   "pt": "O teu país não tem Stripe? Usa «Tu aprovas cada reserva»: o mergulhador envia o pedido e paga-te no centro.",
+   "pl": "W twoim kraju nie ma Stripe? Użyj „Zatwierdzasz każdą rezerwację”: nurek wysyła prośbę i płaci ci w centrum.",
+   "nl": "Geen Stripe in je land? Gebruik „Jij keurt elke boeking goed”: de duiker stuurt een aanvraag en betaalt je bij het centrum.",
+   "zh": "你的国家没有 Stripe？请使用“每个预订由你确认”：潜水员发送申请，并在中心向你付款。"
+  },
+  "Tu servicio": {
+   "en": "Your service",
+   "fr": "Votre service",
+   "de": "Dein Angebot",
+   "it": "Il tuo servizio",
+   "pt": "O teu serviço",
+   "pl": "Twoja usługa",
+   "nl": "Je dienst",
+   "zh": "你的服务"
+  },
+  "Así lo verá el buceador": {
+   "en": "How the diver will see it",
+   "fr": "Ce que verra le plongeur",
+   "de": "So sieht es der Taucher",
+   "it": "Così lo vedrà il subacqueo",
+   "pt": "Assim o verá o mergulhador",
+   "pl": "Tak zobaczy to nurek",
+   "nl": "Zo ziet de duiker het",
+   "zh": "潜水员看到的样子"
+  },
+  "Equipo incluido en el precio": {
+   "en": "Equipment included in the price",
+   "fr": "Équipement inclus dans le prix",
+   "de": "Ausrüstung im Preis inbegriffen",
+   "it": "Attrezzatura inclusa nel prezzo",
+   "pt": "Equipamento incluído no preço",
+   "pl": "Sprzęt w cenie",
+   "nl": "Uitrusting inbegrepen in de prijs",
+   "zh": "价格已含装备"
+  },
+  "Edad mínima": {
+   "en": "Minimum age",
+   "fr": "Âge minimum",
+   "de": "Mindestalter",
+   "it": "Età minima",
+   "pt": "Idade mínima",
+   "pl": "Minimalny wiek",
+   "nl": "Minimumleeftijd",
+   "zh": "最低年龄"
+  },
+  "{n} fechas": {
+   "en": "{n} dates",
+   "fr": "{n} dates",
+   "de": "{n} Termine",
+   "it": "{n} date",
+   "pt": "{n} datas",
+   "pl": "Terminy: {n}",
+   "nl": "{n} data",
+   "zh": "{n} 个日期"
+  },
+  "Falta algo: lo marcamos en rojo en su paso.": {
+   "en": "Something is missing: we have marked it in red in its step.",
+   "fr": "Il manque quelque chose : nous l’avons signalé en rouge à son étape.",
+   "de": "Es fehlt etwas: Wir haben es in seinem Schritt rot markiert.",
+   "it": "Manca qualcosa: l’abbiamo segnato in rosso nel suo passo.",
+   "pt": "Falta alguma coisa: marcámo-la a vermelho no seu passo.",
+   "pl": "Czegoś brakuje: zaznaczyliśmy to na czerwono w odpowiednim kroku.",
+   "nl": "Er ontbreekt iets: we hebben het in rood gemarkeerd bij de stap.",
+   "zh": "还有内容未填写：已在对应步骤中用红色标出。"
+  },
+  "Cambia lo que necesites y guarda. Cada bloque se abre al tocarlo.": {
+   "en": "Change what you need and save. Each block opens when you tap it.",
+   "fr": "Modifiez ce dont vous avez besoin et enregistrez. Chaque bloc s’ouvre d’un toucher.",
+   "de": "Ändere, was nötig ist, und speichere. Jeder Block öffnet sich beim Antippen.",
+   "it": "Cambia ciò che ti serve e salva. Ogni blocco si apre toccandolo.",
+   "pt": "Muda o que precisares e guarda. Cada bloco abre-se ao tocar.",
+   "pl": "Zmień, co trzeba, i zapisz. Każdy blok otwiera się po dotknięciu.",
+   "nl": "Wijzig wat nodig is en sla op. Elk blok opent als je erop tikt.",
+   "zh": "修改需要的内容并保存。点按即可展开每个模块。"
+  },
+  "Más ajustes: foto con su punto de enfoque, cambio de fecha por el cliente, lista de espera, seguro y Experiencias": {
+   "en": "More settings: photo and its focus point, date change by the customer, waiting list, insurance and Experiences",
+   "fr": "Plus de réglages : photo et son point de netteté, changement de date par le client, liste d’attente, assurance et Expériences",
+   "de": "Weitere Einstellungen: Foto mit Fokuspunkt, Terminänderung durch den Kunden, Warteliste, Versicherung und Erlebnisse",
+   "it": "Altre impostazioni: foto con il punto di messa a fuoco, cambio data da parte del cliente, lista d’attesa, assicurazione ed Esperienze",
+   "pt": "Mais definições: foto com o ponto de foco, mudança de data pelo cliente, lista de espera, seguro e Experiências",
+   "pl": "Więcej ustawień: zdjęcie z punktem ostrości, zmiana terminu przez klienta, lista oczekujących, ubezpieczenie i Doświadczenia",
+   "nl": "Meer instellingen: foto met focuspunt, datumwijziging door de klant, wachtlijst, verzekering en Belevenissen",
+   "zh": "更多设置：照片及其焦点、客户改期、候补名单、保险和体验"
+  },
+  "Pasos": {
+   "en": "Steps",
+   "fr": "Étapes",
+   "de": "Schritte",
+   "it": "Passi",
+   "pt": "Passos",
+   "pl": "Kroki",
+   "nl": "Stappen",
+   "zh": "步骤"
+  },
+  "Paso {n} de 6": {
+   "en": "Step {n} of 6",
+   "fr": "Étape {n} sur 6",
+   "de": "Schritt {n} von 6",
+   "it": "Passo {n} di 6",
+   "pt": "Passo {n} de 6",
+   "pl": "Krok {n} z 6",
+   "nl": "Stap {n} van 6",
+   "zh": "第 {n} 步，共 6 步"
+  },
+  "Borrador guardado": {
+   "en": "Draft saved",
+   "fr": "Brouillon enregistré",
+   "de": "Entwurf gespeichert",
+   "it": "Bozza salvata",
+   "pt": "Rascunho guardado",
+   "pl": "Szkic zapisany",
+   "nl": "Concept opgeslagen",
+   "zh": "草稿已保存"
+  },
+  "Atrás": {
+   "en": "Back",
+   "fr": "Retour",
+   "de": "Zurück",
+   "it": "Indietro",
+   "pt": "Atrás",
+   "pl": "Wstecz",
+   "nl": "Terug",
+   "zh": "返回"
+  },
+  "Guardar como borrador": {
+   "en": "Save as draft",
+   "fr": "Enregistrer comme brouillon",
+   "de": "Als Entwurf speichern",
+   "it": "Salva come bozza",
+   "pt": "Guardar como rascunho",
+   "pl": "Zapisz jako szkic",
+   "nl": "Opslaan als concept",
+   "zh": "保存为草稿"
+  },
+  "Marca que tienes los derechos de la foto para subirla.": {
+   "en": "Confirm that you own the rights to the photo to upload it.",
+   "fr": "Confirmez que vous détenez les droits de la photo pour la téléverser.",
+   "de": "Bestätige, dass du die Rechte am Foto hast, um es hochzuladen.",
+   "it": "Conferma di avere i diritti della foto per caricarla.",
+   "pt": "Confirma que tens os direitos da foto para a carregar.",
+   "pl": "Potwierdź, że masz prawa do zdjęcia, aby je przesłać.",
+   "nl": "Bevestig dat je de rechten op de foto hebt om hem te uploaden.",
+   "zh": "请确认你拥有照片的版权后再上传。"
+  },
+  "Guardado como borrador. Lo encontrarás en tus servicios.": {
+   "en": "Saved as a draft. You will find it in your services.",
+   "fr": "Enregistré comme brouillon. Vous le trouverez dans vos services.",
+   "de": "Als Entwurf gespeichert. Du findest es bei deinen Angeboten.",
+   "it": "Salvato come bozza. Lo troverai nei tuoi servizi.",
+   "pt": "Guardado como rascunho. Encontrá-lo-ás nos teus serviços.",
+   "pl": "Zapisano jako szkic. Znajdziesz go w swoich usługach.",
+   "nl": "Opgeslagen als concept. Je vindt het bij je diensten.",
+   "zh": "已保存为草稿，可在你的服务中找到。"
+  },
+  "Primero indica qué equipo alquilas. Luego vuelve al servicio: lo tienes guardado.": {
+   "en": "First tell us what equipment you rent. Then come back to the service: it is saved.",
+   "fr": "Indiquez d’abord quel équipement vous louez. Revenez ensuite au service : il est enregistré.",
+   "de": "Gib zuerst an, welche Ausrüstung du vermietest. Dann zurück zum Angebot: Es ist gespeichert.",
+   "it": "Prima indica quale attrezzatura noleggi. Poi torna al servizio: è salvato.",
+   "pt": "Primeiro indica que equipamento alugas. Depois volta ao serviço: está guardado.",
+   "pl": "Najpierw wskaż, jaki sprzęt wypożyczasz. Potem wróć do usługi: jest zapisana.",
+   "nl": "Geef eerst aan welke uitrusting je verhuurt. Ga daarna terug naar de dienst: hij is opgeslagen.",
+   "zh": "请先说明你出租哪些装备，然后返回此服务：内容已保存。"
+  },
+  "Buceador {n}": {
+   "en": "Diver {n}",
+   "fr": "Plongeur {n}",
+   "de": "Taucher {n}",
+   "it": "Subacqueo {n}",
+   "pt": "Mergulhador {n}",
+   "pl": "Nurek {n}",
+   "nl": "Duiker {n}",
+   "zh": "潜水员 {n}"
+  },
+  "Incluido: botella y plomos": {
+   "en": "Included: tank and weights",
+   "fr": "Inclus : bouteille et plombs",
+   "de": "Inklusive: Flasche und Blei",
+   "it": "Inclusi: bombola e zavorra",
+   "pt": "Incluído: garrafa e lastro",
+   "pl": "W cenie: butla i balast",
+   "nl": "Inbegrepen: fles en lood",
+   "zh": "已含：气瓶和配重"
+  },
+  "Marca solo lo que necesitéis. El precio se suma al momento.": {
+   "en": "Tick only what you need. The price is added straight away.",
+   "fr": "Cochez seulement ce dont vous avez besoin. Le prix s’ajoute aussitôt.",
+   "de": "Wählt nur, was ihr braucht. Der Preis wird sofort addiert.",
+   "it": "Segnate solo ciò che vi serve. Il prezzo si somma subito.",
+   "pt": "Marcai só o que precisais. O preço soma-se no momento.",
+   "pl": "Zaznaczcie tylko to, czego potrzebujecie. Cena dolicza się od razu.",
+   "nl": "Vink alleen aan wat jullie nodig hebben. De prijs wordt meteen opgeteld.",
+   "zh": "只勾选你们需要的装备，价格会立即累加。"
+  },
+  "Has quitado una pieza del equipo completo: ahora se cobra por piezas. Nuevo importe: {t}.": {
+   "en": "You removed an item from the full kit: it is now charged per item. New amount: {t}.",
+   "fr": "Vous avez retiré une pièce de l’équipement complet : elle est désormais facturée à la pièce. Nouveau montant : {t}.",
+   "de": "Du hast ein Teil aus der Komplettausrüstung entfernt: Jetzt wird pro Teil berechnet. Neuer Betrag: {t}.",
+   "it": "Hai tolto un pezzo dall’attrezzatura completa: ora si paga a pezzo. Nuovo importo: {t}.",
+   "pt": "Tiraste uma peça do equipamento completo: agora cobra-se por peças. Novo valor: {t}.",
+   "pl": "Usunięto element z pełnego zestawu: teraz płatność za elementy. Nowa kwota: {t}.",
+   "nl": "Je hebt een onderdeel uit de complete uitrusting gehaald: nu wordt per onderdeel gerekend. Nieuw bedrag: {t}.",
+   "zh": "你从全套装备中移除了一件：现在按单件计费。新金额：{t}。"
+  },
+  "Elige la talla de {pieza} ({quien}).": {
+   "en": "Choose the size of {pieza} ({quien}).",
+   "fr": "Choisissez la taille : {pieza} ({quien}).",
+   "de": "Wähle die Größe: {pieza} ({quien}).",
+   "it": "Scegli la taglia di {pieza} ({quien}).",
+   "pt": "Escolhe o tamanho de {pieza} ({quien}).",
+   "pl": "Wybierz rozmiar: {pieza} ({quien}).",
+   "nl": "Kies de maat van {pieza} ({quien}).",
+   "zh": "请选择{pieza}的尺码（{quien}）。"
+  },
+  "Talla de {pieza}": {
+   "en": "Size of {pieza}",
+   "fr": "Taille : {pieza}",
+   "de": "Größe: {pieza}",
+   "it": "Taglia di {pieza}",
+   "pt": "Tamanho de {pieza}",
+   "pl": "Rozmiar: {pieza}",
+   "nl": "Maat van {pieza}",
+   "zh": "{pieza}尺码"
+  },
+  "Grosor": {
+   "en": "Thickness",
+   "fr": "Épaisseur",
+   "de": "Stärke",
+   "it": "Spessore",
+   "pt": "Espessura",
+   "pl": "Grubość",
+   "nl": "Dikte",
+   "zh": "厚度"
+  },
+  "Llevo mi equipo": {
+   "en": "I bring my own gear",
+   "fr": "J’apporte mon équipement",
+   "de": "Ich bringe meine Ausrüstung mit",
+   "it": "Porto la mia attrezzatura",
+   "pt": "Levo o meu equipamento",
+   "pl": "Mam własny sprzęt",
+   "nl": "Ik neem mijn eigen uitrusting mee",
+   "zh": "我自带装备"
+  },
+  "Solo lo tuyo: la botella y los plomos van incluidos.": {
+   "en": "Just your own: the tank and weights are included.",
+   "fr": "Juste le vôtre : la bouteille et les plombs sont inclus.",
+   "de": "Nur deine eigene: Flasche und Blei sind inklusive.",
+   "it": "Solo la tua: bombola e zavorra sono incluse.",
+   "pt": "Só o teu: a garrafa e o lastro estão incluídos.",
+   "pl": "Tylko własny: butla i balast są w cenie.",
+   "nl": "Alleen je eigen: fles en lood zijn inbegrepen.",
+   "zh": "只带你自己的：气瓶和配重已包含。"
+  },
+  "Necesito equipo": {
+   "en": "I need equipment",
+   "fr": "J’ai besoin d’équipement",
+   "de": "Ich brauche Ausrüstung",
+   "it": "Mi serve l’attrezzatura",
+   "pt": "Preciso de equipamento",
+   "pl": "Potrzebuję sprzętu",
+   "nl": "Ik heb uitrusting nodig",
+   "zh": "我需要装备"
+  },
+  "Marca las piezas y tus tallas. Lo tendrán preparado al llegar.": {
+   "en": "Tick the items and your sizes. It will be ready when you arrive.",
+   "fr": "Cochez les pièces et vos tailles. Tout sera prêt à votre arrivée.",
+   "de": "Wähle die Teile und deine Größen. Bei deiner Ankunft liegt alles bereit.",
+   "it": "Segna i pezzi e le tue taglie. Lo troverai pronto all’arrivo.",
+   "pt": "Marca as peças e os teus tamanhos. Estará pronto quando chegares.",
+   "pl": "Zaznacz elementy i swoje rozmiary. Wszystko będzie gotowe na miejscu.",
+   "nl": "Vink de onderdelen en je maten aan. Bij aankomst ligt alles klaar.",
+   "zh": "勾选装备和你的尺码，到达时就会准备好。"
+  },
+  "Igual que el anterior": {
+   "en": "Same as the previous one",
+   "fr": "Comme le précédent",
+   "de": "Wie der vorherige",
+   "it": "Come il precedente",
+   "pt": "Igual ao anterior",
+   "pl": "Tak jak poprzedni",
+   "nl": "Zelfde als de vorige",
+   "zh": "与上一位相同"
+  },
+  "En el equipo completo": {
+   "en": "In the full kit",
+   "fr": "Dans l’équipement complet",
+   "de": "In der Komplettausrüstung",
+   "it": "Nell’attrezzatura completa",
+   "pt": "No equipamento completo",
+   "pl": "W pełnym zestawie",
+   "nl": "In de complete uitrusting",
+   "zh": "包含在全套装备中"
+  },
+  "Algo más que deba saber el centro": {
+   "en": "Anything else the centre should know",
+   "fr": "Autre chose que le centre doit savoir",
+   "de": "Sonst noch etwas, das das Center wissen sollte",
+   "it": "Altro che il centro deve sapere",
+   "pt": "Algo mais que o centro deva saber",
+   "pl": "Coś jeszcze, o czym centrum powinno wiedzieć",
+   "nl": "Nog iets dat het centrum moet weten",
+   "zh": "还有什么需要告诉中心的"
+  },
+  "opcional": {
+   "en": "optional",
+   "fr": "facultatif",
+   "de": "optional",
+   "it": "facoltativo",
+   "pt": "opcional",
+   "pl": "opcjonalnie",
+   "nl": "optioneel",
+   "zh": "选填"
+  },
+  "Ej.: soy alérgico al látex · llevo mi propio ordenador": {
+   "en": "E.g. I am allergic to latex · I bring my own computer",
+   "fr": "Ex. : je suis allergique au latex · j’apporte mon ordinateur",
+   "de": "Z. B.: Ich bin allergisch gegen Latex · ich bringe meinen eigenen Computer mit",
+   "it": "Es.: sono allergico al lattice · porto il mio computer",
+   "pt": "Ex.: sou alérgico ao látex · levo o meu computador",
+   "pl": "Np.: mam alergię na lateks · mam własny komputer",
+   "nl": "Bijv.: ik ben allergisch voor latex · ik neem mijn eigen computer mee",
+   "zh": "例如：我对乳胶过敏 · 我自带潜水电脑"
+  },
+  "Alquilo esta pieza": {
+   "en": "I rent this item",
+   "fr": "Je loue cette pièce",
+   "de": "Ich vermiete dieses Teil",
+   "it": "Noleggio questo pezzo",
+   "pt": "Alugo esta peça",
+   "pl": "Wypożyczam ten element",
+   "nl": "Ik verhuur dit onderdeel",
+   "zh": "我出租此装备"
+  },
+  "Tengo máscaras graduadas": {
+   "en": "I have prescription masks",
+   "fr": "J’ai des masques à la vue",
+   "de": "Ich habe Masken mit Sehstärke",
+   "it": "Ho maschere graduate",
+   "pt": "Tenho máscaras graduadas",
+   "pl": "Mam maski korekcyjne",
+   "nl": "Ik heb maskers op sterkte",
+   "zh": "我有近视潜水面镜"
+  },
+  "Forma parte del equipo completo": {
+   "en": "Part of the full kit",
+   "fr": "Fait partie de l’équipement complet",
+   "de": "Teil der Komplettausrüstung",
+   "it": "Fa parte dell’attrezzatura completa",
+   "pt": "Faz parte do equipamento completo",
+   "pl": "Należy do pełnego zestawu",
+   "nl": "Hoort bij de complete uitrusting",
+   "zh": "属于全套装备"
+  },
+  "Stock por talla (opcional)": {
+   "en": "Stock per size (optional)",
+   "fr": "Stock par taille (facultatif)",
+   "de": "Bestand pro Größe (optional)",
+   "it": "Stock per taglia (facoltativo)",
+   "pt": "Stock por tamanho (opcional)",
+   "pl": "Stan na rozmiar (opcjonalnie)",
+   "nl": "Voorraad per maat (optioneel)",
+   "zh": "各尺码库存（选填）"
+  },
+  "Cuántas tienes de cada talla. Vacío: sin límite.": {
+   "en": "How many you have of each size. Empty: no limit.",
+   "fr": "Combien vous en avez par taille. Vide : sans limite.",
+   "de": "Wie viele du pro Größe hast. Leer: ohne Begrenzung.",
+   "it": "Quanti ne hai per taglia. Vuoto: senza limite.",
+   "pt": "Quantas tens de cada tamanho. Vazio: sem limite.",
+   "pl": "Ile masz sztuk w każdym rozmiarze. Puste: bez limitu.",
+   "nl": "Hoeveel je er per maat hebt. Leeg: geen limiet.",
+   "zh": "每个尺码有多少件。留空：不限。"
+  },
+  "Unidades": {
+   "en": "Units",
+   "fr": "Unités",
+   "de": "Stück",
+   "it": "Unità",
+   "pt": "Unidades",
+   "pl": "Sztuki",
+   "nl": "Stuks",
+   "zh": "数量"
+  },
+  "Borrar esta pieza": {
+   "en": "Delete this item",
+   "fr": "Supprimer cette pièce",
+   "de": "Dieses Teil löschen",
+   "it": "Elimina questo pezzo",
+   "pt": "Apagar esta peça",
+   "pl": "Usuń ten element",
+   "nl": "Dit onderdeel verwijderen",
+   "zh": "删除此装备"
+  },
+  "Marca qué piezas lo forman": {
+   "en": "Tick the items it includes",
+   "fr": "Cochez les pièces qui le composent",
+   "de": "Wähle die Teile, aus denen sie besteht",
+   "it": "Segna i pezzi che la compongono",
+   "pt": "Marca as peças que o formam",
+   "pl": "Zaznacz elementy zestawu",
+   "nl": "Vink de onderdelen aan die erbij horen",
+   "zh": "勾选其包含的装备"
+  },
+  "Ofrezco equipo completo": {
+   "en": "I offer a full kit",
+   "fr": "Je propose un équipement complet",
+   "de": "Ich biete eine Komplettausrüstung an",
+   "it": "Offro l’attrezzatura completa",
+   "pt": "Ofereço equipamento completo",
+   "pl": "Oferuję pełny zestaw",
+   "nl": "Ik bied een complete uitrusting aan",
+   "zh": "我提供全套装备"
+  },
+  "Precio cerrado": {
+   "en": "Fixed price",
+   "fr": "Prix forfaitaire",
+   "de": "Festpreis",
+   "it": "Prezzo fisso",
+   "pt": "Preço fechado",
+   "pl": "Cena ryczałtowa",
+   "nl": "Vaste prijs",
+   "zh": "套餐价"
+  },
+  "Por piezas sería {t}.": {
+   "en": "Item by item it would be {t}.",
+   "fr": "À la pièce, ce serait {t}.",
+   "de": "Einzeln wären es {t}.",
+   "it": "A pezzi sarebbe {t}.",
+   "pt": "Por peças seria {t}.",
+   "pl": "Za elementy byłoby to {t}.",
+   "nl": "Per onderdeel zou het {t} zijn.",
+   "zh": "按单件计算为 {t}。"
+  },
+  "Dilo una sola vez: cada inmersión lo ofrece con estos precios y el buceador marca lo que necesita al reservar.": {
+   "en": "Set it up once: every dive offers it at these prices and the diver ticks what they need when booking.",
+   "fr": "Indiquez-le une seule fois : chaque plongée le propose à ces prix et le plongeur coche ce dont il a besoin en réservant.",
+   "de": "Einmal festlegen: Jeder Tauchgang bietet es zu diesen Preisen an, und der Taucher wählt beim Buchen, was er braucht.",
+   "it": "Dillo una volta sola: ogni immersione lo offre a questi prezzi e il subacqueo segna ciò che gli serve quando prenota.",
+   "pt": "Di-lo uma só vez: cada mergulho oferece-o com estes preços e o mergulhador marca o que precisa ao reservar.",
+   "pl": "Ustaw to raz: każde nurkowanie oferuje sprzęt w tych cenach, a nurek zaznacza, czego potrzebuje przy rezerwacji.",
+   "nl": "Stel het één keer in: elke duik biedt het aan tegen deze prijzen en de duiker vinkt bij het boeken aan wat hij nodig heeft.",
+   "zh": "只需设置一次：每次潜水都会按这些价格提供，潜水员预订时勾选所需装备。"
+  },
+  "Añadir pieza propia": {
+   "en": "Add your own item",
+   "fr": "Ajouter une pièce à vous",
+   "de": "Eigenes Teil hinzufügen",
+   "it": "Aggiungi un pezzo tuo",
+   "pt": "Adicionar peça própria",
+   "pl": "Dodaj własny element",
+   "nl": "Eigen onderdeel toevoegen",
+   "zh": "添加自定义装备"
+  },
+  "Piezas y precios": {
+   "en": "Items and prices",
+   "fr": "Pièces et prix",
+   "de": "Teile und Preise",
+   "it": "Pezzi e prezzi",
+   "pt": "Peças e preços",
+   "pl": "Elementy i ceny",
+   "nl": "Onderdelen en prijzen",
+   "zh": "装备与价格"
+  },
+  "Equipo para preparar": {
+   "en": "Equipment to prepare",
+   "fr": "Équipement à préparer",
+   "de": "Vorzubereitende Ausrüstung",
+   "it": "Attrezzatura da preparare",
+   "pt": "Equipamento a preparar",
+   "pl": "Sprzęt do przygotowania",
+   "nl": "Klaar te zetten uitrusting",
+   "zh": "待准备装备"
+  },
+  "Van siempre incluidos en la inmersión: no son piezas de alquiler ni se cobran aparte.": {
+   "en": "They are always included in the dive: they are not rental items and are not charged separately.",
+   "fr": "Ils sont toujours inclus dans la plongée : ce ne sont pas des pièces de location et ils ne sont pas facturés à part.",
+   "de": "Sie sind immer im Tauchgang inbegriffen: keine Leihteile und nicht extra berechnet.",
+   "it": "Sono sempre inclusi nell’immersione: non sono pezzi a noleggio né si pagano a parte.",
+   "pt": "Estão sempre incluídos no mergulho: não são peças de aluguer nem se cobram à parte.",
+   "pl": "Są zawsze wliczone w nurkowanie: nie są elementami do wypożyczenia i nie są płatne osobno.",
+   "nl": "Ze zijn altijd inbegrepen bij de duik: het zijn geen huuronderdelen en ze worden niet apart gerekend.",
+   "zh": "潜水始终包含这些：它们不是租赁装备，也不另外收费。"
+  },
+  "Activa las piezas que alquilas y ponles precio (0 € si van gratis). Hasta entonces tus servicios no ofrecen alquiler.": {
+   "en": "Turn on the items you rent and give them a price (0 € if free). Until then your services do not offer rental.",
+   "fr": "Activez les pièces que vous louez et fixez leur prix (0 € si gratuites). D’ici là, vos services ne proposent pas de location.",
+   "de": "Aktiviere die Teile, die du vermietest, und gib ihnen einen Preis (0 €, wenn gratis). Bis dahin bieten deine Angebote keinen Verleih an.",
+   "it": "Attiva i pezzi che noleggi e mettigli un prezzo (0 € se gratis). Fino ad allora i tuoi servizi non offrono il noleggio.",
+   "pt": "Ativa as peças que alugas e põe-lhes preço (0 € se forem grátis). Até lá os teus serviços não oferecem aluguer.",
+   "pl": "Włącz elementy, które wypożyczasz, i ustaw cenę (0 €, jeśli za darmo). Do tego czasu twoje usługi nie oferują wypożyczenia.",
+   "nl": "Zet de onderdelen aan die je verhuurt en geef ze een prijs (0 € als ze gratis zijn). Tot die tijd bieden je diensten geen verhuur aan.",
+   "zh": "启用你出租的装备并设定价格（免费则填 0 €）。在此之前，你的服务不提供租赁。"
+  },
+  "Tus servicios": {
+   "en": "Your services",
+   "fr": "Vos services",
+   "de": "Deine Angebote",
+   "it": "I tuoi servizi",
+   "pt": "Os teus serviços",
+   "pl": "Twoje usługi",
+   "nl": "Je diensten",
+   "zh": "你的服务"
+  },
+  "Se cambia en cada servicio: Servicios y tarifas → Editar → Precio y plazas.": {
+   "en": "Change it in each service: Services and prices → Edit → Price and places.",
+   "fr": "Se modifie dans chaque service : Services et tarifs → Modifier → Prix et places.",
+   "de": "Wird in jedem Angebot geändert: Angebote und Preise → Bearbeiten → Preis und Plätze.",
+   "it": "Si cambia in ogni servizio: Servizi e tariffe → Modifica → Prezzo e posti.",
+   "pt": "Muda-se em cada serviço: Serviços e tarifas → Editar → Preço e lugares.",
+   "pl": "Zmienia się w każdej usłudze: Usługi i cennik → Edytuj → Cena i miejsca.",
+   "nl": "Wijzig je per dienst: Diensten en tarieven → Bewerken → Prijs en plaatsen.",
+   "zh": "在每项服务中修改：服务与价格 → 编辑 → 价格与名额。"
+  },
+  "Imprimir o guardar PDF": {
+   "en": "Print or save as PDF",
+   "fr": "Imprimer ou enregistrer en PDF",
+   "de": "Drucken oder als PDF speichern",
+   "it": "Stampa o salva in PDF",
+   "pt": "Imprimir ou guardar PDF",
+   "pl": "Drukuj lub zapisz PDF",
+   "nl": "Afdrukken of als pdf opslaan",
+   "zh": "打印或保存为 PDF"
+  },
+  "sin talla": {
+   "en": "no size",
+   "fr": "sans taille",
+   "de": "ohne Größe",
+   "it": "senza taglia",
+   "pt": "sem tamanho",
+   "pl": "bez rozmiaru",
+   "nl": "zonder maat",
+   "zh": "无尺码"
+  },
+  "Nadie ha pedido equipo de alquiler ese día.": {
+   "en": "Nobody has asked for rental equipment that day.",
+   "fr": "Personne n’a demandé d’équipement de location ce jour-là.",
+   "de": "An diesem Tag hat niemand Leihausrüstung bestellt.",
+   "it": "Nessuno ha chiesto attrezzatura a noleggio quel giorno.",
+   "pt": "Ninguém pediu equipamento de aluguer nesse dia.",
+   "pl": "Tego dnia nikt nie zamówił sprzętu do wypożyczenia.",
+   "nl": "Niemand heeft die dag huuruitrusting gevraagd.",
+   "zh": "当天没有人租用装备。"
+  },
+  "añadido en el centro": {
+   "en": "added at the centre",
+   "fr": "ajouté au centre",
+   "de": "im Center hinzugefügt",
+   "it": "aggiunto al centro",
+   "pt": "adicionado no centro",
+   "pl": "dodane w centrum",
+   "nl": "toegevoegd bij het centrum",
+   "zh": "在中心添加"
+  },
+  "¿Borrar esta pieza? Las reservas ya hechas la conservan.": {
+   "en": "Delete this item? Bookings already made keep it.",
+   "fr": "Supprimer cette pièce ? Les réservations déjà faites la conservent.",
+   "de": "Dieses Teil löschen? Bereits gemachte Buchungen behalten es.",
+   "it": "Eliminare questo pezzo? Le prenotazioni già fatte lo mantengono.",
+   "pt": "Apagar esta peça? As reservas já feitas mantêm-na.",
+   "pl": "Usunąć ten element? Istniejące rezerwacje go zachowają.",
+   "nl": "Dit onderdeel verwijderen? Bestaande boekingen houden het.",
+   "zh": "删除此装备？已完成的预订会保留它。"
+  },
+  "Pon el precio del equipo completo.": {
+   "en": "Enter the price of the full kit.",
+   "fr": "Indiquez le prix de l’équipement complet.",
+   "de": "Gib den Preis der Komplettausrüstung ein.",
+   "it": "Inserisci il prezzo dell’attrezzatura completa.",
+   "pt": "Põe o preço do equipamento completo.",
+   "pl": "Podaj cenę pełnego zestawu.",
+   "nl": "Vul de prijs van de complete uitrusting in.",
+   "zh": "请填写全套装备的价格。"
+  },
+  "Pon el precio de «{pieza}» para activarla (0 € si va gratis).": {
+   "en": "Enter the price of “{pieza}” to turn it on (0 € if free).",
+   "fr": "Indiquez le prix de « {pieza} » pour l’activer (0 € si gratuite).",
+   "de": "Gib den Preis für „{pieza}“ ein, um es zu aktivieren (0 €, wenn gratis).",
+   "it": "Inserisci il prezzo di «{pieza}» per attivarlo (0 € se gratis).",
+   "pt": "Põe o preço de «{pieza}» para a ativar (0 € se for grátis).",
+   "pl": "Podaj cenę „{pieza}”, aby go włączyć (0 €, jeśli za darmo).",
+   "nl": "Vul de prijs van „{pieza}” in om het aan te zetten (0 € als het gratis is).",
+   "zh": "填写“{pieza}”的价格即可启用（免费则填 0 €）。"
+  },
+  "Pieza propia": {
+   "en": "Your own item",
+   "fr": "Pièce à vous",
+   "de": "Eigenes Teil",
+   "it": "Pezzo tuo",
+   "pt": "Peça própria",
+   "pl": "Własny element",
+   "nl": "Eigen onderdeel",
+   "zh": "自定义装备"
+  },
+  "Por ejemplo: cámara, cuchillo o scooter.": {
+   "en": "For example: camera, knife or scooter.",
+   "fr": "Par exemple : appareil photo, couteau ou scooter.",
+   "de": "Zum Beispiel: Kamera, Messer oder Scooter.",
+   "it": "Per esempio: fotocamera, coltello o scooter.",
+   "pt": "Por exemplo: câmara, faca ou scooter.",
+   "pl": "Na przykład: aparat, nóż lub skuter.",
+   "nl": "Bijvoorbeeld: camera, mes of scooter.",
+   "zh": "例如：相机、潜水刀或水下推进器。"
+  },
+  "Cámara": {
+   "en": "Camera",
+   "fr": "Appareil photo",
+   "de": "Kamera",
+   "it": "Fotocamera",
+   "pt": "Câmara",
+   "pl": "Aparat",
+   "nl": "Camera",
+   "zh": "相机"
+  },
+  "Mis tallas, separadas por comas": {
+   "en": "My sizes, separated by commas",
+   "fr": "Mes tailles, séparées par des virgules",
+   "de": "Meine Größen, durch Kommas getrennt",
+   "it": "Le mie taglie, separate da virgole",
+   "pt": "Os meus tamanhos, separados por vírgulas",
+   "pl": "Moje rozmiary, oddzielone przecinkami",
+   "nl": "Mijn maten, gescheiden door komma’s",
+   "zh": "我的尺码，用逗号分隔"
+  },
+  "Pieza añadida.": {
+   "en": "Item added.",
+   "fr": "Pièce ajoutée.",
+   "de": "Teil hinzugefügt.",
+   "it": "Pezzo aggiunto.",
+   "pt": "Peça adicionada.",
+   "pl": "Element dodany.",
+   "nl": "Onderdeel toegevoegd.",
+   "zh": "已添加装备。"
+  },
+  "(añadido en el centro)": {
+   "en": "(added at the centre)",
+   "fr": "(ajouté au centre)",
+   "de": "(im Center hinzugefügt)",
+   "it": "(aggiunto al centro)",
+   "pt": "(adicionado no centro)",
+   "pl": "(dodane w centrum)",
+   "nl": "(toegevoegd bij het centrum)",
+   "zh": "（在中心添加）"
+  },
+  "EQUIPO DE ALQUILER": {
+   "en": "RENTAL EQUIPMENT",
+   "fr": "ÉQUIPEMENT DE LOCATION",
+   "de": "LEIHAUSRÜSTUNG",
+   "it": "ATTREZZATURA A NOLEGGIO",
+   "pt": "EQUIPAMENTO DE ALUGUER",
+   "pl": "SPRZĘT DO WYPOŻYCZENIA",
+   "nl": "HUURUITRUSTING",
+   "zh": "租赁装备"
+  },
+  "Equipo incluido en el precio.": {
+   "en": "Equipment included in the price.",
+   "fr": "Équipement inclus dans le prix.",
+   "de": "Ausrüstung im Preis inbegriffen.",
+   "it": "Attrezzatura inclusa nel prezzo.",
+   "pt": "Equipamento incluído no preço.",
+   "pl": "Sprzęt w cenie.",
+   "nl": "Uitrusting inbegrepen in de prijs.",
+   "zh": "价格已含装备。"
+  },
+  "Sin equipo de alquiler: lleváis el vuestro.": {
+   "en": "No rental equipment: you bring your own.",
+   "fr": "Pas d’équipement de location : vous apportez le vôtre.",
+   "de": "Keine Leihausrüstung: Ihr bringt eure eigene mit.",
+   "it": "Nessuna attrezzatura a noleggio: portate la vostra.",
+   "pt": "Sem equipamento de aluguer: levais o vosso.",
+   "pl": "Bez wypożyczonego sprzętu: macie własny.",
+   "nl": "Geen huuruitrusting: jullie nemen je eigen mee.",
+   "zh": "无租赁装备：你们自带装备。"
+  },
+  "Cambiar el equipo": {
+   "en": "Change the equipment",
+   "fr": "Modifier l’équipement",
+   "de": "Ausrüstung ändern",
+   "it": "Cambia l’attrezzatura",
+   "pt": "Mudar o equipamento",
+   "pl": "Zmień sprzęt",
+   "nl": "Uitrusting wijzigen",
+   "zh": "更改装备"
+  },
+  "Puedes cambiarlo hasta el {fecha}.": {
+   "en": "You can change it until {fecha}.",
+   "fr": "Vous pouvez le modifier jusqu’au {fecha}.",
+   "de": "Du kannst es bis {fecha} ändern.",
+   "it": "Puoi cambiarla fino al {fecha}.",
+   "pt": "Podes mudá-lo até {fecha}.",
+   "pl": "Możesz to zmienić do {fecha}.",
+   "nl": "Je kunt het wijzigen tot {fecha}.",
+   "zh": "你可以在 {fecha} 之前更改。"
+  },
+  "Añadir pieza en el mostrador": {
+   "en": "Add an item at the desk",
+   "fr": "Ajouter une pièce au comptoir",
+   "de": "Teil an der Theke hinzufügen",
+   "it": "Aggiungi un pezzo al banco",
+   "pt": "Adicionar peça no balcão",
+   "pl": "Dodaj element przy ladzie",
+   "nl": "Onderdeel toevoegen aan de balie",
+   "zh": "在前台添加装备"
+  },
+  "La diferencia se cobra o se devuelve sola.": {
+   "en": "The difference is charged or refunded automatically.",
+   "fr": "La différence est débitée ou remboursée automatiquement.",
+   "de": "Die Differenz wird automatisch berechnet oder erstattet.",
+   "it": "La differenza si addebita o si rimborsa da sola.",
+   "pt": "A diferença cobra-se ou devolve-se sozinha.",
+   "pl": "Różnica zostanie automatycznie pobrana lub zwrócona.",
+   "nl": "Het verschil wordt automatisch gerekend of terugbetaald.",
+   "zh": "差价会自动收取或退还。"
+  },
+  "Diferencia a pagar: {t}": {
+   "en": "Difference to pay: {t}",
+   "fr": "Différence à payer : {t}",
+   "de": "Zu zahlende Differenz: {t}",
+   "it": "Differenza da pagare: {t}",
+   "pt": "Diferença a pagar: {t}",
+   "pl": "Różnica do zapłaty: {t}",
+   "nl": "Te betalen verschil: {t}",
+   "zh": "需补差价：{t}"
+  },
+  "Te devolvemos: {t}": {
+   "en": "We refund you: {t}",
+   "fr": "Nous vous remboursons : {t}",
+   "de": "Wir erstatten dir: {t}",
+   "it": "Ti rimborsiamo: {t}",
+   "pt": "Devolvemos-te: {t}",
+   "pl": "Zwrócimy ci: {t}",
+   "nl": "We betalen je terug: {t}",
+   "zh": "我们将退还你：{t}"
+  },
+  "Sin diferencia de precio.": {
+   "en": "No price difference.",
+   "fr": "Pas de différence de prix.",
+   "de": "Kein Preisunterschied.",
+   "it": "Nessuna differenza di prezzo.",
+   "pt": "Sem diferença de preço.",
+   "pl": "Bez różnicy w cenie.",
+   "nl": "Geen prijsverschil.",
+   "zh": "无差价。"
+  },
+  "Equipo cambiado. Paga la diferencia para terminar.": {
+   "en": "Equipment changed. Pay the difference to finish.",
+   "fr": "Équipement modifié. Payez la différence pour terminer.",
+   "de": "Ausrüstung geändert. Zahle die Differenz, um abzuschließen.",
+   "it": "Attrezzatura cambiata. Paga la differenza per finire.",
+   "pt": "Equipamento mudado. Paga a diferença para terminar.",
+   "pl": "Sprzęt zmieniony. Zapłać różnicę, aby zakończyć.",
+   "nl": "Uitrusting gewijzigd. Betaal het verschil om af te ronden.",
+   "zh": "装备已更改。请支付差价以完成。"
+  },
+  "Equipo cambiado. Te devolvemos {t} a tu tarjeta.": {
+   "en": "Equipment changed. We refund {t} to your card.",
+   "fr": "Équipement modifié. Nous vous remboursons {t} sur votre carte.",
+   "de": "Ausrüstung geändert. Wir erstatten {t} auf deine Karte.",
+   "it": "Attrezzatura cambiata. Ti rimborsiamo {t} sulla carta.",
+   "pt": "Equipamento mudado. Devolvemos-te {t} no cartão.",
+   "pl": "Sprzęt zmieniony. Zwrócimy {t} na twoją kartę.",
+   "nl": "Uitrusting gewijzigd. We betalen {t} terug op je kaart.",
+   "zh": "装备已更改。我们将退还 {t} 至你的卡。"
+  },
+  "Equipo cambiado.": {
+   "en": "Equipment changed.",
+   "fr": "Équipement modifié.",
+   "de": "Ausrüstung geändert.",
+   "it": "Attrezzatura cambiata.",
+   "pt": "Equipamento mudado.",
+   "pl": "Sprzęt zmieniony.",
+   "nl": "Uitrusting gewijzigd.",
+   "zh": "装备已更改。"
+  },
+  "«Se me ha olvidado la linterna»: se suma a la reserva.": {
+   "en": "“I forgot my torch”: it is added to the booking.",
+   "fr": "« J’ai oublié ma lampe » : elle s’ajoute à la réservation.",
+   "de": "„Ich habe meine Lampe vergessen“: Sie wird zur Buchung hinzugefügt.",
+   "it": "«Ho dimenticato la torcia»: si aggiunge alla prenotazione.",
+   "pt": "«Esqueci-me da lanterna»: junta-se à reserva.",
+   "pl": "„Zapomniałem latarki”: dolicza się do rezerwacji.",
+   "nl": "„Ik ben mijn lamp vergeten”: wordt aan de boeking toegevoegd.",
+   "zh": "“我忘带手电筒了”：会添加到预订中。"
+  },
+  "Pieza": {
+   "en": "Item",
+   "fr": "Pièce",
+   "de": "Teil",
+   "it": "Pezzo",
+   "pt": "Peça",
+   "pl": "Element",
+   "nl": "Onderdeel",
+   "zh": "装备"
+  },
+  "Talla": {
+   "en": "Size",
+   "fr": "Taille",
+   "de": "Größe",
+   "it": "Taglia",
+   "pt": "Tamanho",
+   "pl": "Rozmiar",
+   "nl": "Maat",
+   "zh": "尺码"
+  },
+  "Cobro": {
+   "en": "Payment",
+   "fr": "Paiement",
+   "de": "Zahlung",
+   "it": "Pagamento",
+   "pt": "Cobrança",
+   "pl": "Płatność",
+   "nl": "Betaling",
+   "zh": "收款"
+  },
+  "Pagado en el centro": {
+   "en": "Paid at the centre",
+   "fr": "Payé au centre",
+   "de": "Im Center bezahlt",
+   "it": "Pagato al centro",
+   "pt": "Pago no centro",
+   "pl": "Opłacone w centrum",
+   "nl": "Betaald bij het centrum",
+   "zh": "已在中心付款"
+  },
+  "Enviar enlace de pago": {
+   "en": "Send payment link",
+   "fr": "Envoyer le lien de paiement",
+   "de": "Zahlungslink senden",
+   "it": "Invia il link di pagamento",
+   "pt": "Enviar link de pagamento",
+   "pl": "Wyślij link do płatności",
+   "nl": "Betaallink sturen",
+   "zh": "发送付款链接"
+  },
+  "Añadido. Le hemos enviado el enlace de pago.": {
+   "en": "Added. We have sent them the payment link.",
+   "fr": "Ajouté. Nous lui avons envoyé le lien de paiement.",
+   "de": "Hinzugefügt. Wir haben den Zahlungslink geschickt.",
+   "it": "Aggiunto. Gli abbiamo inviato il link di pagamento.",
+   "pt": "Adicionado. Enviámos-lhe o link de pagamento.",
+   "pl": "Dodano. Wysłaliśmy link do płatności.",
+   "nl": "Toegevoegd. We hebben de betaallink gestuurd.",
+   "zh": "已添加。我们已向其发送付款链接。"
+  },
+  "Añadido como pagado en el centro.": {
+   "en": "Added as paid at the centre.",
+   "fr": "Ajouté comme payé au centre.",
+   "de": "Als im Center bezahlt hinzugefügt.",
+   "it": "Aggiunto come pagato al centro.",
+   "pt": "Adicionado como pago no centro.",
+   "pl": "Dodano jako opłacone w centrum.",
+   "nl": "Toegevoegd als betaald bij het centrum.",
+   "zh": "已添加，标记为在中心付款。"
+  }
+ }
+}

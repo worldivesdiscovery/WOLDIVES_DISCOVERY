@@ -27,6 +27,13 @@ from e2e_markers import chromium  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 PW = 'buceo-seguro-2026'
+# Chooses the first free size of the first piece still without one (the picker draws again after each choice): 1 if it chose one.
+SIZES_JS = """() => { const host = document.querySelector('.wda-capa .eq-pick'); if (!host) return 0;
+  for (const sel of host.querySelectorAll('select[data-size-sel]')) if (!sel.value) { const o = [...sel.options].find(x => x.value && !x.disabled);
+    sel.value = o.value; sel.dispatchEvent(new Event('change', {bubbles: true})); return 1; }
+  for (const row of host.querySelectorAll('.eq-size-row')) { const chips = [...row.querySelectorAll('[data-size]')];
+    if (chips.length && !chips.some(c => c.getAttribute('aria-checked') === 'true')) { chips.find(c => !c.disabled).click(); return 1; } }
+  return 0; }"""
 UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36 WorldivesApp/1.0 pruebas'
 FAKE_CAPACITOR = """
 window.__cap = {listeners: {}, opened: [], closed: 0, min: false, shared: null,
@@ -52,6 +59,7 @@ def run(shots: Path | None):
 
     def check(name, ok, detail=''):
         checks.append((name, bool(ok), detail))
+        if not ok: print('MAL ' + name + (f'  → {str(detail)[:300]}' if detail != '' else ''), flush=True)
 
     stripe = StripeMock()
     ServerTestCase.server = Server({'STRIPE_SECRET_KEY': 'sk_test_mock', 'WOD_STRIPE_API_BASE': stripe.base}).start(); srv = ServerTestCase.server
@@ -62,7 +70,9 @@ def run(shots: Path | None):
         cn, cf = near.user['center_id'], far.user['center_id']
         srv.sql("UPDATE centers SET name='Centro de Buceo Xàbia', latitude=38.79, longitude=0.18, address='Puerto de Xàbia, pantalán 3', stripe_account_id='acct_c', stripe_charges_enabled=1, stripe_payouts_enabled=1 WHERE id=?", (cn,))
         srv.sql("UPDATE centers SET name='Estartit Diving', latitude=41.98, longitude=3.22 WHERE id=?", (cf,))
-        near.post('/api/center-equipment', {'code': 'full_kit', 'price': 25}); near.post('/api/center-equipment', {'code': 'computer', 'price': 8})
+        # v50.58: the centre's rental (its pieces and an «Equipo completo» at 25 € per dive)
+        near.post('/api/provider/equipment', {'items': [{'code': c, 'active': True, 'price': pr} for c, pr in (('mask', 5), ('fins', 5), ('wetsuit', 10), ('bcd', 10), ('regulator', 10), ('computer', 8))],
+                                              'kit': {'active': True, 'price': 25, 'price_per': 'dive'}})
         s1 = near.post('/api/provider-services', {'title': 'Doble inmersión en barco', 'price': 45, 'booking_mode': 'payment'}).json['id']
         for d, h in ((1, '09:00'), (2, '09:00'), (3, '09:00')):
             near.post('/api/provider-services/slot', {'service_id': s1, 'slot_date': day(d), 'slot_time': h, 'spots_total': 10})
@@ -146,10 +156,18 @@ def run(shots: Path | None):
             check('reserva · total del presupuesto (45 €)', '45' in page.inner_text('.wda-capa .hoja-pie'), page.inner_text('.wda-capa .hoja-pie'))
             page.click('[data-cambiar="pers"]'); page.wait_for_timeout(300); page.click('[data-pax="1"]'); page.wait_for_timeout(700)
             check('reserva · «Cambiar» personas recalcula el total (90 €)', '90' in page.inner_text('.wda-capa .hoja-pie'), page.inner_text('.wda-capa .hoja-pie'))
-            page.click('[data-cambiar="equipo"]'); page.wait_for_timeout(300)
-            check('reserva · equipo del centro con su precio', page.locator('[data-equipo="full_kit"]').count() == 1)
-            page.check('[data-equipo="full_kit"]'); page.wait_for_timeout(800)
-            check('reserva · alquiler suma por persona (140 €)', '140' in page.inner_text('.wda-capa .hoja-pie'), page.inner_text('.wda-capa .hoja-pie'))
+            # v50.58: the rental inside the dive, with the same picker as the web (per diver, sizes, «Equipo completo»)
+            page.click('[data-cambiar="equipo"]'); page.wait_for_timeout(400)
+            check('reserva · «Llevo mi equipo» / «Necesito equipo» e «Incluido: botella y plomos»', page.locator('.wda-capa [data-rent="1"]').count() == 1
+                  and 'botella y plomos' in page.inner_text('.wda-capa .eq-pick'))
+            page.click('.wda-capa [data-rent="1"]'); page.wait_for_timeout(300)
+            check('reserva · «Equipo completo» del centro con su precio (25 €)', page.locator('.wda-capa [data-kit]').count() == 1 and '25' in page.inner_text('.wda-capa [data-kit]'))
+            page.click('.wda-capa [data-kit]'); page.wait_for_timeout(300)
+            for _ in range(20):   # the size of each piece of the kit (the first one free)
+                if not page.evaluate(SIZES_JS): break
+                page.wait_for_timeout(120)
+            page.click('.wda-capa [data-tab="1"]'); page.wait_for_timeout(200); page.click('.wda-capa [data-copy]'); page.wait_for_timeout(900)
+            check('reserva · equipo completo para los dos buceadores: suma por persona (140 €)', '140' in page.inner_text('.wda-capa .hoja-pie'), page.inner_text('.wda-capa .hoja-pie'))
             page.click('[data-cambiar="fecha"]'); page.wait_for_timeout(300)
             check('reserva · «Cambiar» la salida enseña las otras fechas', page.locator('[data-slot]').count() >= 2)
             shot(page, '05-reserva-rapida')
