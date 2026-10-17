@@ -138,6 +138,8 @@ def known_routes() -> set[str]:
 INIT_JS = r"""
 (() => {
   try { if (!sessionStorage.getItem('wdinv-cookies')) localStorage.setItem('wd_cookie_notice', String(Date.now())); else localStorage.removeItem('wd_cookie_notice'); } catch (e) {}
+  // v50.58: each test starts on a fresh screen, also the panel menu: a group folded by the previous test stays open again
+  try { Object.keys(localStorage).filter(k => k.startsWith('wd-panel:')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
   window.print = () => { window.__wdinvPrints = (window.__wdinvPrints || 0) + 1; };
   const STATE = /^(active|is-on|is-active|show|shown|open|is-open|selected|is-selected|current|is-current|on|is-closing|loading|is-loading|hover|is-hover|focus|focused|is-focus|dirty|is-dirty)$/;
   const txt = s => (s || '').replace(/\s+/g, ' ').trim();

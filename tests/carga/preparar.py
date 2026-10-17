@@ -524,10 +524,13 @@ def comprobar(dir_: str, bd: str | None = None) -> dict:
         'salidas_libres_negativas': q("SELECT COUNT(*) FROM service_slots WHERE spots_available < 0"),
         'salidas_con_mas_tomadas_que_plazas': q("""SELECT COUNT(*) FROM (SELECT s.id, s.spots_total, SUM(b.participants) t FROM service_slots s
             JOIN bookings b ON b.slot_id=s.id AND b.slot_reserved=1 GROUP BY s.id HAVING t > s.spots_total)"""),
-        'salidas_futuras_contador_distinto': q("""SELECT COUNT(*) FROM (SELECT s.id, s.spots_total, s.spots_available, COALESCE(SUM(b.participants),0) t
-            FROM service_slots s LEFT JOIN bookings b ON b.slot_id=s.id AND b.slot_reserved=1
-            WHERE s.slot_date >= date('now') AND s.id IN (SELECT DISTINCT slot_id FROM bookings WHERE slot_id IS NOT NULL)
-            GROUP BY s.id HAVING s.spots_total - s.spots_available <> t)"""),
+        # v50.58: the places taken are those of the bookings and of the active blocks (a course session moved to a
+        # departure, places blocked by the centre), which the counter of the departure also takes
+        'salidas_futuras_contador_distinto': q("""SELECT COUNT(*) FROM (SELECT s.id, s.spots_total, s.spots_available,
+            COALESCE((SELECT SUM(b.participants) FROM bookings b WHERE b.slot_id=s.id AND b.slot_reserved=1),0)
+            + COALESCE((SELECT SUM(k.qty) FROM spot_blocks k WHERE k.slot_id=s.id AND k.status='active'),0) t
+            FROM service_slots s WHERE s.slot_date >= date('now') AND s.id IN (SELECT DISTINCT slot_id FROM bookings WHERE slot_id IS NOT NULL)
+            AND s.spots_total - s.spots_available <> t)"""),
         'reservas_repetidas_activas': q("""SELECT COUNT(*) FROM (SELECT user_id, slot_id, COUNT(*) n FROM bookings WHERE slot_id IS NOT NULL
             AND user_id IS NOT NULL AND status NOT IN ('cancelled','rejected','expired') AND channel IN ('worldives','link') GROUP BY 1,2 HAVING n > 1)"""),
     }
