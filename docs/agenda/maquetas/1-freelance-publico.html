@@ -1,0 +1,26 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Maqueta · Calendario público del freelance</title><link rel="stylesheet" href="maqueta.css"><script src="cal.js"></script></head><body>
+<div class="top"><b>WORLDIVES</b><nav><span>Explorar</span><span>Centros</span><span class="on">Experiencias</span><span>Top 10</span></nav></div>
+<main class="page">
+ <div class="row" style="gap:18px;align-items:center;margin-bottom:16px"><div class="hero hide-m" style="width:300px;height:150px;flex:none"></div><div>   
+   <div class="row" style="margin-top:14px"><div class="avatar">T</div><div><p class="eyebrow" style="margin:0">Profesional · Guía de cenotes y fotógrafo</p><h1>Cenotes con Tito, por días</h1><div class="row"><span class="chip">A elegir fechas</span><span class="chip ok">★ 4,9 · 37 reseñas</span><span class="muted" style="font-size:13px">Tulum, México · Horario de Cancún</span></div></div></div>
+</div></div>
+ <div class="grid2 cal-first">
+  <div>
+   <div class="card"><h3>Qué incluye</h3><p class="muted" style="margin:0">Guía titulado, 2 cenotes por día, fotos del día. Punto de encuentro: hotel en Tulum. Idiomas: español, inglés.</p></div>
+   <div class="card hide-m" style="margin-top:12px"><h3>Tarifas</h3><p class="muted" style="margin:0">Día completo 8:00–16:00: 180 € (grupo de hasta 4) · Media jornada mañana 8:00–13:00 o tarde 14:00–19:00: 110 € · Desde 3 días: −10 % · Fotos y vídeo: +40 €/día</p></div>
+  </div>
+  <div class="card" id="pick">
+   <div class="row" style="justify-content:space-between"><h2>Elige tus días</h2><div class="row"><span class="btn btn-sm">‹</span><strong>noviembre 2026</strong><span class="btn btn-sm">›</span></div></div>
+   <div class="tabs" style="margin:6px 0 10px"><span class="on">Día completo</span><span>Mañana</span><span>Tarde</span></div>
+   <table class="cal" id="c"></table>
+   <div class="legend"><span><i></i>Libre</span><span><i style="background:var(--busy-soft);border-color:#ecb9b3"></i>Ocupado</span><span><i style="background:linear-gradient(180deg,var(--busy-soft) 50%,#fff 50%)"></i>Media jornada libre</span><span><i style="background:#eef1f1"></i>No disponible</span></div>
+   <div class="note bad" style="margin-top:10px">El 20 por la tarde está ocupado: elige hasta el 19 o reserva solo la mañana del 20.</div>
+   <div class="field" style="margin-top:12px"><label>Personas</label><select><option>2 personas</option></select></div>
+   <label class="row" style="font-size:14px"><input type="checkbox" checked> Fotos y vídeo (+40 €/día)</label>
+  </div>
+ </div>
+</main>
+<div class="sumbar"><div><strong>3 días · 2 personas · 606 €</strong><div class="lines">Lun 16 – mié 18 · 3 × 180 € = 540 € · −10 % desde 3 días: −54 € · Fotos 3 × 40 € = 120 € · Señal hoy: 0 € (bajo petición)</div></div><span class="btn btn-primary">Solicitar reserva</span></div>
+<span class="mk-tag">MAQUETA A1 · no funcional</span>
+<script>drawMonth(document.getElementById('c'),2026,11,{1:'past',2:'past',3:'past',5:'busy',6:'busy',11:'am',16:'sel',17:'sel-mid',18:'sel',20:'pm',24:'busy',25:'busy',26:'busy'},{11:'solo tarde',20:'solo mañana'});</script>
+</body></html>

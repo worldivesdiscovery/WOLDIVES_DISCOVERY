@@ -1,0 +1,1166 @@
+{
+ "exact": {
+  "Esta página no existe": {
+   "en": "This page does not exist",
+   "fr": "Cette page n'existe pas",
+   "de": "Diese Seite gibt es nicht",
+   "it": "Questa pagina non esiste",
+   "pt": "Esta página não existe",
+   "pl": "Ta strona nie istnieje",
+   "nl": "Deze pagina bestaat niet",
+   "zh": "此页面不存在"
+  },
+  "Comprueba la dirección o vuelve al inicio.": {
+   "en": "Check the address or go back to the home page.",
+   "fr": "Vérifiez l'adresse ou revenez à l'accueil.",
+   "de": "Prüfe die Adresse oder geh zur Startseite.",
+   "it": "Controlla l'indirizzo o torna alla home.",
+   "pt": "Verifica o endereço ou volta ao início.",
+   "pl": "Sprawdź adres albo wróć na stronę główną.",
+   "nl": "Controleer het adres of ga terug naar de startpagina.",
+   "zh": "请检查地址或返回首页。"
+  },
+  "Has cerrado sesión.": {
+   "en": "You have logged out.",
+   "fr": "Vous êtes déconnecté.",
+   "de": "Du hast dich abgemeldet.",
+   "it": "Sei uscito dall'account.",
+   "pt": "Terminaste a sessão.",
+   "pl": "Wylogowano.",
+   "nl": "Je bent uitgelogd.",
+   "zh": "你已退出登录。"
+  },
+  "Mi pasaporte": {
+   "en": "My passport",
+   "fr": "Mon passeport",
+   "de": "Mein Pass",
+   "it": "Il mio passaporto",
+   "pt": "O meu passaporte",
+   "pl": "Mój paszport",
+   "nl": "Mijn paspoort",
+   "zh": "我的潜水护照"
+  },
+  "Mis profesionales": {
+   "en": "My professionals",
+   "fr": "Mes professionnels",
+   "de": "Meine Profis",
+   "it": "I miei professionisti",
+   "pt": "Os meus profissionais",
+   "pl": "Moi profesjonaliści",
+   "nl": "Mijn professionals",
+   "zh": "我的专业人士"
+  },
+  "Puntos y recompensas": {
+   "en": "Points and rewards",
+   "fr": "Points et récompenses",
+   "de": "Punkte und Prämien",
+   "it": "Punti e premi",
+   "pt": "Pontos e recompensas",
+   "pl": "Punkty i nagrody",
+   "nl": "Punten en beloningen",
+   "zh": "积分与奖励"
+  },
+  "Mis Buddies": {
+   "en": "My Buddies",
+   "fr": "Mes Buddies",
+   "de": "Meine Buddies",
+   "it": "I miei Buddy",
+   "pt": "Os meus Buddies",
+   "pl": "Moi Buddies",
+   "nl": "Mijn Buddies",
+   "zh": "我的潜伴"
+  },
+  "Tus compañeros de buceo": {
+   "en": "Your dive buddies",
+   "fr": "Vos binômes de plongée",
+   "de": "Deine Tauchpartner",
+   "it": "I tuoi compagni di immersione",
+   "pt": "Os teus parceiros de mergulho",
+   "pl": "Twoi partnerzy do nurkowania",
+   "nl": "Je duikbuddy's",
+   "zh": "你的潜伴"
+  },
+  "Añade a tus Buddies con su QR y proponles bucear juntos. Al aceptar, os escribís por WhatsApp para organizaros.": {
+   "en": "Add your Buddies with their QR and suggest diving together. Once they accept, you message each other on WhatsApp to organise it.",
+   "fr": "Ajoutez vos Buddies avec leur QR et proposez-leur de plonger ensemble. Une fois accepté, vous vous écrivez sur WhatsApp pour vous organiser.",
+   "de": "Füge deine Buddies mit ihrem QR hinzu und schlag ihnen einen gemeinsamen Tauchgang vor. Nach der Zusage schreibt ihr euch auf WhatsApp, um alles zu planen.",
+   "it": "Aggiungi i tuoi Buddy con il loro QR e proponi di immergervi insieme. Quando accettano, vi scrivete su WhatsApp per organizzarvi.",
+   "pt": "Adiciona os teus Buddies com o QR deles e propõe mergulhar juntos. Ao aceitarem, falam pelo WhatsApp para se organizarem.",
+   "pl": "Dodaj Buddies za pomocą ich QR i zaproponuj wspólne nurkowanie. Po akceptacji piszecie do siebie na WhatsAppie, żeby wszystko ustalić.",
+   "nl": "Voeg je Buddies toe met hun QR en stel voor om samen te duiken. Na het accepteren app je elkaar via WhatsApp om het te regelen.",
+   "zh": "用二维码添加潜伴，并邀请他们一起潜水。对方接受后，你们可以通过 WhatsApp 联系安排。"
+  },
+  "Peticiones para ti": {
+   "en": "Requests for you",
+   "fr": "Demandes pour vous",
+   "de": "Anfragen an dich",
+   "it": "Richieste per te",
+   "pt": "Pedidos para ti",
+   "pl": "Prośby do ciebie",
+   "nl": "Verzoeken voor jou",
+   "zh": "发给你的请求"
+  },
+  "¿Buceamos?": {
+   "en": "Shall we dive?",
+   "fr": "On plonge ?",
+   "de": "Tauchen wir?",
+   "it": "Ci immergiamo?",
+   "pt": "Mergulhamos?",
+   "pl": "Nurkujemy?",
+   "nl": "Zullen we duiken?",
+   "zh": "一起潜水吗？"
+  },
+  "No puedo": {
+   "en": "I can't",
+   "fr": "Je ne peux pas",
+   "de": "Ich kann nicht",
+   "it": "Non posso",
+   "pt": "Não posso",
+   "pl": "Nie mogę",
+   "nl": "Ik kan niet",
+   "zh": "我去不了"
+  },
+  "Aceptada": {
+   "en": "Accepted",
+   "fr": "Acceptée",
+   "de": "Angenommen",
+   "it": "Accettata",
+   "pt": "Aceite",
+   "pl": "Zaakceptowano",
+   "nl": "Geaccepteerd",
+   "zh": "已接受"
+  },
+  "Invitar": {
+   "en": "Invite",
+   "fr": "Inviter",
+   "de": "Einladen",
+   "it": "Invita",
+   "pt": "Convidar",
+   "pl": "Zaproś",
+   "nl": "Uitnodigen",
+   "zh": "邀请"
+  },
+  "Todavía no tienes Buddies. Enséñale tu QR a tu compañero o escanea el suyo.": {
+   "en": "You don't have any Buddies yet. Show your QR to your buddy or scan theirs.",
+   "fr": "Vous n'avez pas encore de Buddies. Montrez votre QR à votre binôme ou scannez le sien.",
+   "de": "Du hast noch keine Buddies. Zeig deinem Partner deinen QR oder scanne seinen.",
+   "it": "Non hai ancora Buddy. Mostra il tuo QR al tuo compagno o scansiona il suo.",
+   "pt": "Ainda não tens Buddies. Mostra o teu QR ao teu parceiro ou lê o dele.",
+   "pl": "Nie masz jeszcze Buddies. Pokaż partnerowi swój QR albo zeskanuj jego.",
+   "nl": "Je hebt nog geen Buddies. Laat je QR aan je buddy zien of scan die van hem of haar.",
+   "zh": "你还没有潜伴。把你的二维码给同伴看，或扫描对方的二维码。"
+  },
+  "Esperando respuesta": {
+   "en": "Waiting for an answer",
+   "fr": "En attente de réponse",
+   "de": "Warte auf Antwort",
+   "it": "In attesa di risposta",
+   "pt": "À espera de resposta",
+   "pl": "Czeka na odpowiedź",
+   "nl": "Wacht op antwoord",
+   "zh": "等待回复"
+  },
+  "Marca «Invitar» en uno o varios Buddies, elige la fecha y, si quieres, el punto.": {
+   "en": "Tick «Invite» on one or more Buddies, choose the date and, if you like, the site.",
+   "fr": "Cochez « Inviter » pour un ou plusieurs Buddies, choisissez la date et, si vous voulez, le site.",
+   "de": "Markiere «Einladen» bei einem oder mehreren Buddies, wähle das Datum und, wenn du willst, den Tauchplatz.",
+   "it": "Segna «Invita» su uno o più Buddy, scegli la data e, se vuoi, il punto.",
+   "pt": "Marca «Convidar» em um ou vários Buddies, escolhe a data e, se quiseres, o ponto.",
+   "pl": "Zaznacz «Zaproś» przy jednym lub kilku Buddies, wybierz datę i, jeśli chcesz, miejsce.",
+   "nl": "Vink «Uitnodigen» aan bij een of meer Buddies, kies de datum en, als je wilt, de duikplek.",
+   "zh": "在一位或多位潜伴旁勾选“邀请”，选择日期，也可以选择潜点。"
+  },
+  "Marca «Invitar» en al menos un Buddy.": {
+   "en": "Tick «Invite» on at least one Buddy.",
+   "fr": "Cochez « Inviter » pour au moins un Buddy.",
+   "de": "Markiere «Einladen» bei mindestens einem Buddy.",
+   "it": "Segna «Invita» su almeno un Buddy.",
+   "pt": "Marca «Convidar» em pelo menos um Buddy.",
+   "pl": "Zaznacz «Zaproś» przy co najmniej jednym Buddy.",
+   "nl": "Vink «Uitnodigen» aan bij minstens één Buddy.",
+   "zh": "请至少勾选一位潜伴的“邀请”。"
+  },
+  "Punto (opcional)": {
+   "en": "Site (optional)",
+   "fr": "Site (facultatif)",
+   "de": "Tauchplatz (optional)",
+   "it": "Punto (facoltativo)",
+   "pt": "Ponto (opcional)",
+   "pl": "Miejsce (opcjonalnie)",
+   "nl": "Duikplek (optioneel)",
+   "zh": "潜点（可选）"
+  },
+  "Nota (opcional)": {
+   "en": "Note (optional)",
+   "fr": "Note (facultatif)",
+   "de": "Notiz (optional)",
+   "it": "Nota (facoltativa)",
+   "pt": "Nota (opcional)",
+   "pl": "Notatka (opcjonalnie)",
+   "nl": "Notitie (optioneel)",
+   "zh": "备注（可选）"
+  },
+  "Que tu compañero lo escanee con su móvil: le pedirá ser tu Buddy.": {
+   "en": "Have your buddy scan it with their phone: it will ask to be your Buddy.",
+   "fr": "Que votre binôme le scanne avec son mobile : il vous demandera d'être votre Buddy.",
+   "de": "Lass es deinen Partner mit dem Handy scannen: Er wird gefragt, dein Buddy zu werden.",
+   "it": "Fallo scansionare al tuo compagno con il cellulare: gli chiederà di essere il tuo Buddy.",
+   "pt": "Pede ao teu parceiro para o ler com o telemóvel: vai pedir para ser teu Buddy.",
+   "pl": "Niech partner zeskanuje go telefonem: poprosi o zostanie twoim Buddy.",
+   "nl": "Laat je buddy hem scannen met de telefoon: dan vraagt hij of zij om je Buddy te worden.",
+   "zh": "让同伴用手机扫描：将向你发送潜伴请求。"
+  },
+  "Si tu compañero lo escanea con su móvil, te llega su petición de Buddy en «Buddies».": {
+   "en": "If your buddy scans it with their phone, you get their Buddy request in «Buddies».",
+   "fr": "Si votre binôme le scanne avec son mobile, vous recevez sa demande de Buddy dans « Buddies ».",
+   "de": "Wenn dein Partner es mit dem Handy scannt, bekommst du seine Buddy-Anfrage unter «Buddies».",
+   "it": "Se il tuo compagno lo scansiona con il cellulare, ricevi la sua richiesta di Buddy in «Buddies».",
+   "pt": "Se o teu parceiro o ler com o telemóvel, recebes o pedido de Buddy em «Buddies».",
+   "pl": "Jeśli partner zeskanuje go telefonem, jego prośba o Buddy pojawi się w «Buddies».",
+   "nl": "Als je buddy hem scant met de telefoon, krijg je het Buddy-verzoek in «Buddies».",
+   "zh": "同伴用手机扫描后，你会在“潜伴”中收到对方的请求。"
+  },
+  "Copiar mi enlace": {
+   "en": "Copy my link",
+   "fr": "Copier mon lien",
+   "de": "Meinen Link kopieren",
+   "it": "Copia il mio link",
+   "pt": "Copiar a minha ligação",
+   "pl": "Kopiuj mój link",
+   "nl": "Mijn link kopiëren",
+   "zh": "复制我的链接"
+  },
+  "Para organizaros por WhatsApp, añade tu teléfono en «Ajustes».": {
+   "en": "To organise it on WhatsApp, add your phone number in «Settings».",
+   "fr": "Pour vous organiser sur WhatsApp, ajoutez votre téléphone dans « Paramètres ».",
+   "de": "Um euch über WhatsApp abzustimmen, trag deine Telefonnummer unter «Einstellungen» ein.",
+   "it": "Per organizzarvi su WhatsApp, aggiungi il tuo telefono in «Impostazioni».",
+   "pt": "Para se organizarem pelo WhatsApp, adiciona o teu telefone em «Definições».",
+   "pl": "Aby umówić się przez WhatsApp, dodaj swój telefon w «Ustawieniach».",
+   "nl": "Om het via WhatsApp te regelen, voeg je je telefoonnummer toe in «Instellingen».",
+   "zh": "如需通过 WhatsApp 联系，请在“设置”中添加你的手机号。"
+  },
+  "Aceptada: se abre WhatsApp para organizaros.": {
+   "en": "Accepted: WhatsApp opens so you can organise it.",
+   "fr": "Acceptée : WhatsApp s'ouvre pour vous organiser.",
+   "de": "Angenommen: WhatsApp öffnet sich, damit ihr alles plant.",
+   "it": "Accettata: si apre WhatsApp per organizzarvi.",
+   "pt": "Aceite: abre-se o WhatsApp para se organizarem.",
+   "pl": "Zaakceptowano: otwiera się WhatsApp, żebyście się umówili.",
+   "nl": "Geaccepteerd: WhatsApp opent zodat jullie het kunnen regelen.",
+   "zh": "已接受：将打开 WhatsApp 方便你们安排。"
+  },
+  "Pedir ser Buddies": {
+   "en": "Ask to be Buddies",
+   "fr": "Demander à être Buddies",
+   "de": "Als Buddies anfragen",
+   "it": "Chiedi di essere Buddy",
+   "pt": "Pedir para serem Buddies",
+   "pl": "Poproś o bycie Buddies",
+   "nl": "Vragen om Buddies te worden",
+   "zh": "请求成为潜伴"
+  },
+  "Ahora no": {
+   "en": "Not now",
+   "fr": "Pas maintenant",
+   "de": "Jetzt nicht",
+   "it": "Non ora",
+   "pt": "Agora não",
+   "pl": "Nie teraz",
+   "nl": "Nu niet",
+   "zh": "暂不"
+  },
+  "Petición enviada. Cuando la acepte, seréis Buddies.": {
+   "en": "Request sent. Once they accept, you will be Buddies.",
+   "fr": "Demande envoyée. Dès qu'elle sera acceptée, vous serez Buddies.",
+   "de": "Anfrage gesendet. Sobald sie angenommen wird, seid ihr Buddies.",
+   "it": "Richiesta inviata. Quando l'accetta, sarete Buddy.",
+   "pt": "Pedido enviado. Quando aceitar, serão Buddies.",
+   "pl": "Prośba wysłana. Gdy ją zaakceptuje, zostaniecie Buddies.",
+   "nl": "Verzoek verstuurd. Zodra het geaccepteerd is, zijn jullie Buddies.",
+   "zh": "请求已发送。对方接受后，你们就是潜伴了。"
+  },
+  "Ya sois Buddies.": {
+   "en": "You are already Buddies.",
+   "fr": "Vous êtes déjà Buddies.",
+   "de": "Ihr seid schon Buddies.",
+   "it": "Siete già Buddy.",
+   "pt": "Já são Buddies.",
+   "pl": "Już jesteście Buddies.",
+   "nl": "Jullie zijn al Buddies.",
+   "zh": "你们已经是潜伴了。"
+  },
+  "Enséñalo en el centro para el check-in o para añadir un Buddy. No lleva tus datos, cambia cada minuto y sirve una sola vez.": {
+   "en": "Show it at the centre for check-in or to add a Buddy. It carries none of your data, changes every minute and works only once.",
+   "fr": "Montrez-le au centre pour l'enregistrement ou pour ajouter un Buddy. Il ne contient pas vos données, change chaque minute et ne sert qu'une fois.",
+   "de": "Zeig ihn im Center zum Check-in oder um einen Buddy hinzuzufügen. Er enthält keine Daten von dir, ändert sich jede Minute und gilt nur einmal.",
+   "it": "Mostralo al centro per il check-in o per aggiungere un Buddy. Non contiene i tuoi dati, cambia ogni minuto e vale una sola volta.",
+   "pt": "Mostra-o no centro para o check-in ou para adicionar um Buddy. Não leva os teus dados, muda a cada minuto e só serve uma vez.",
+   "pl": "Pokaż go w centrum przy odprawie albo żeby dodać Buddy. Nie zawiera twoich danych, zmienia się co minutę i działa tylko raz.",
+   "nl": "Laat hem zien in het centrum voor de check-in of om een Buddy toe te voegen. Er staan geen gegevens van je op, hij verandert elke minuut en werkt maar één keer.",
+   "zh": "在潜水中心出示以办理签到或添加潜伴。不包含你的个人数据，每分钟更新一次，仅可使用一次。"
+  },
+  "Buscar freelance": {
+   "en": "Find a freelance",
+   "fr": "Chercher un freelance",
+   "de": "Freelancer suchen",
+   "it": "Cerca un freelance",
+   "pt": "Procurar freelance",
+   "pl": "Szukaj freelancera",
+   "nl": "Freelancer zoeken",
+   "zh": "查找自由职业者"
+  },
+  "Busca a tu guía o instructor freelance": {
+   "en": "Find your freelance guide or instructor",
+   "fr": "Trouvez votre guide ou moniteur freelance",
+   "de": "Finde deinen freiberuflichen Guide oder Tauchlehrer",
+   "it": "Trova la tua guida o il tuo istruttore freelance",
+   "pt": "Encontra o teu guia ou instrutor freelance",
+   "pl": "Znajdź swojego przewodnika lub instruktora freelancera",
+   "nl": "Vind je freelance gids of instructeur",
+   "zh": "寻找你的自由职业导潜或教练"
+  },
+  "Buscar un tipo de buceo": {
+   "en": "Search for a type of dive",
+   "fr": "Rechercher un type de plongée",
+   "de": "Tauchart suchen",
+   "it": "Cerca un tipo di immersione",
+   "pt": "Procurar um tipo de mergulho",
+   "pl": "Szukaj rodzaju nurkowania",
+   "nl": "Zoek een soort duik",
+   "zh": "搜索潜水类型"
+  },
+  "Escribe una localidad: Dénia, Jávea, Cartagena…": {
+   "en": "Type a town: Dénia, Jávea, Cartagena…",
+   "fr": "Saisissez une localité : Dénia, Jávea, Cartagena…",
+   "de": "Gib einen Ort ein: Dénia, Jávea, Cartagena…",
+   "it": "Scrivi una località: Dénia, Jávea, Cartagena…",
+   "pt": "Escreve uma localidade: Dénia, Jávea, Cartagena…",
+   "pl": "Wpisz miejscowość: Dénia, Jávea, Cartagena…",
+   "nl": "Typ een plaats: Dénia, Jávea, Cartagena…",
+   "zh": "输入地点：Dénia、Jávea、Cartagena…"
+  },
+  "Dónde está cada punto, cómo es, qué nivel pide y qué centros te llevan.": {
+   "en": "Where each site is, what it is like, what level it needs and which centres take you there.",
+   "fr": "Où se trouve chaque site, comment il est, quel niveau il demande et quels centres vous y emmènent.",
+   "de": "Wo jeder Tauchplatz liegt, wie er ist, welches Level er verlangt und welche Center dich hinbringen.",
+   "it": "Dove si trova ogni punto, com'è, che livello richiede e quali centri ti ci portano.",
+   "pt": "Onde fica cada ponto, como é, que nível pede e que centros te levam lá.",
+   "pl": "Gdzie jest każde miejsce, jakie jest, jakiego poziomu wymaga i które centra cię tam zabiorą.",
+   "nl": "Waar elke duikplek ligt, hoe hij is, welk niveau nodig is en welke centra je erheen brengen.",
+   "zh": "每个潜点在哪里、是什么样、需要什么等级，以及哪些中心可以带你去。"
+  },
+  "Pecio, cueva, nocturna, deriva…": {
+   "en": "Wreck, cave, night, drift…",
+   "fr": "Épave, grotte, de nuit, dérivante…",
+   "de": "Wrack, Höhle, Nacht, Strömung…",
+   "it": "Relitto, grotta, notturna, in corrente…",
+   "pt": "Naufrágio, gruta, noturno, à deriva…",
+   "pl": "Wrak, jaskinia, nocne, z prądem…",
+   "nl": "Wrak, grot, nacht, drift…",
+   "zh": "沉船、洞穴、夜潜、放流…"
+  },
+  "Todas las categorías": {
+   "en": "All categories",
+   "fr": "Toutes les catégories",
+   "de": "Alle Kategorien",
+   "it": "Tutte le categorie",
+   "pt": "Todas as categorias",
+   "pl": "Wszystkie kategorie",
+   "nl": "Alle categorieën",
+   "zh": "全部类别"
+  },
+  "← Todas las categorías": {
+   "en": "← All categories",
+   "fr": "← Toutes les catégories",
+   "de": "← Alle Kategorien",
+   "it": "← Tutte le categorie",
+   "pt": "← Todas as categorias",
+   "pl": "← Wszystkie kategorie",
+   "nl": "← Alle categorieën",
+   "zh": "← 全部类别"
+  },
+  "1 actividad": {
+   "en": "1 activity",
+   "fr": "1 activité",
+   "de": "1 Aktivität",
+   "it": "1 attività",
+   "pt": "1 atividade",
+   "pl": "1 aktywność",
+   "nl": "1 activiteit",
+   "zh": "1 项活动"
+  },
+  "Al reservar, en": {
+   "en": "When booking, in",
+   "fr": "À la réservation, dans",
+   "de": "Beim Buchen in",
+   "it": "Alla prenotazione, in",
+   "pt": "Ao reservar, em",
+   "pl": "Przy rezerwacji w",
+   "nl": "Bij het boeken, in",
+   "zh": "预订时归入"
+  },
+  "Revisar": {
+   "en": "Check",
+   "fr": "À vérifier",
+   "de": "Prüfen",
+   "it": "Da controllare",
+   "pt": "Rever",
+   "pl": "Do sprawdzenia",
+   "nl": "Controleren",
+   "zh": "待检查"
+  },
+  "Ordenar para la reserva": {
+   "en": "Order for booking",
+   "fr": "Ordonner pour la réservation",
+   "de": "Reihenfolge beim Buchen",
+   "it": "Ordina per la prenotazione",
+   "pt": "Ordenar para a reserva",
+   "pl": "Kolejność przy rezerwacji",
+   "nl": "Volgorde bij het boeken",
+   "zh": "设置预订时的顺序"
+  },
+  "Así los ve el cliente al reservar. Si no los ordenas, van primero los más baratos.": {
+   "en": "This is how customers see them when booking. If you don't order them, the cheapest come first.",
+   "fr": "C'est ainsi que le client les voit en réservant. Si vous ne les ordonnez pas, les moins chers passent en premier.",
+   "de": "So sieht der Kunde sie beim Buchen. Wenn du sie nicht ordnest, kommen die günstigsten zuerst.",
+   "it": "Così li vede il cliente quando prenota. Se non li ordini, vengono prima i più economici.",
+   "pt": "É assim que o cliente os vê ao reservar. Se não os ordenares, aparecem primeiro os mais baratos.",
+   "pl": "Tak widzi je klient przy rezerwacji. Jeśli ich nie uporządkujesz, najpierw pojawią się najtańsze.",
+   "nl": "Zo ziet de klant ze bij het boeken. Als je ze niet ordent, komen de goedkoopste eerst.",
+   "zh": "这是客户预订时看到的顺序。如果不设置，最便宜的排在前面。"
+  },
+  "Guardar el orden": {
+   "en": "Save the order",
+   "fr": "Enregistrer l'ordre",
+   "de": "Reihenfolge speichern",
+   "it": "Salva l'ordine",
+   "pt": "Guardar a ordem",
+   "pl": "Zapisz kolejność",
+   "nl": "Volgorde opslaan",
+   "zh": "保存顺序"
+  },
+  "Categoría guardada.": {
+   "en": "Category saved.",
+   "fr": "Catégorie enregistrée.",
+   "de": "Kategorie gespeichert.",
+   "it": "Categoria salvata.",
+   "pt": "Categoria guardada.",
+   "pl": "Kategoria zapisana.",
+   "nl": "Categorie opgeslagen.",
+   "zh": "类别已保存。"
+  },
+  "Categoría": {
+   "en": "Category",
+   "fr": "Catégorie",
+   "de": "Kategorie",
+   "it": "Categoria",
+   "pt": "Categoria",
+   "pl": "Kategoria",
+   "nl": "Categorie",
+   "zh": "类别"
+  },
+  "Categorías al reservar": {
+   "en": "Booking categories",
+   "fr": "Catégories de réservation",
+   "de": "Kategorien beim Buchen",
+   "it": "Categorie di prenotazione",
+   "pt": "Categorias de reserva",
+   "pl": "Kategorie przy rezerwacji",
+   "nl": "Categorieën bij het boeken",
+   "zh": "预订类别"
+  },
+  "Al reservar en un centro, el cliente elige primero la categoría y después ve solo sus actividades. Solo salen las categorías que tienen actividades a la venta.": {
+   "en": "When booking with a centre, customers first choose the category and then see only its activities. Only categories with activities on sale are shown.",
+   "fr": "En réservant dans un centre, le client choisit d'abord la catégorie puis ne voit que ses activités. Seules les catégories avec des activités en vente apparaissent.",
+   "de": "Beim Buchen in einem Center wählt der Kunde zuerst die Kategorie und sieht dann nur deren Aktivitäten. Es erscheinen nur Kategorien mit Aktivitäten im Verkauf.",
+   "it": "Prenotando in un centro, il cliente sceglie prima la categoria e poi vede solo le sue attività. Compaiono solo le categorie con attività in vendita.",
+   "pt": "Ao reservar num centro, o cliente escolhe primeiro a categoria e depois vê só as suas atividades. Só aparecem as categorias com atividades à venda.",
+   "pl": "Przy rezerwacji w centrum klient najpierw wybiera kategorię, a potem widzi tylko jej aktywności. Pokazują się tylko kategorie z aktywnościami w sprzedaży.",
+   "nl": "Bij het boeken bij een centrum kiest de klant eerst de categorie en ziet daarna alleen de activiteiten daarvan. Alleen categorieën met activiteiten te koop worden getoond.",
+   "zh": "在潜水中心预订时，客户先选择类别，然后只看到该类别的活动。只显示有在售活动的类别。"
+  },
+  "Se muestra al reservar": {
+   "en": "Shown when booking",
+   "fr": "Affichée à la réservation",
+   "de": "Beim Buchen sichtbar",
+   "it": "Mostrata alla prenotazione",
+   "pt": "Mostrada ao reservar",
+   "pl": "Widoczna przy rezerwacji",
+   "nl": "Zichtbaar bij het boeken",
+   "zh": "预订时显示"
+  },
+  "Oculta": {
+   "en": "Hidden",
+   "fr": "Masquée",
+   "de": "Ausgeblendet",
+   "it": "Nascosta",
+   "pt": "Oculta",
+   "pl": "Ukryta",
+   "nl": "Verborgen",
+   "zh": "已隐藏"
+  },
+  "Tours y experiencias": {
+   "en": "Tours and experiences",
+   "fr": "Excursions et expériences",
+   "de": "Touren und Erlebnisse",
+   "it": "Tour ed esperienze",
+   "pt": "Passeios e experiências",
+   "pl": "Wycieczki i przeżycia",
+   "nl": "Tours en belevenissen",
+   "zh": "旅行与体验"
+  },
+  "Datos propios de cada tipo": {
+   "en": "Own data of each type",
+   "fr": "Données propres à chaque type",
+   "de": "Eigene Daten je Tauchart",
+   "it": "Dati propri di ogni tipo",
+   "pt": "Dados próprios de cada tipo",
+   "pl": "Dane właściwe dla każdego rodzaju",
+   "nl": "Eigen gegevens per type",
+   "zh": "各类型的专属数据"
+  },
+  "Datos propios del tipo de inmersión": {
+   "en": "Data specific to the type of dive",
+   "fr": "Données propres au type de plongée",
+   "de": "Eigene Daten der Tauchart",
+   "it": "Dati propri del tipo di immersione",
+   "pt": "Dados próprios do tipo de mergulho",
+   "pl": "Dane właściwe dla rodzaju nurkowania",
+   "nl": "Eigen gegevens van het soort duik",
+   "zh": "该潜水类型的专属数据"
+  },
+  "Lo que cada tipo añade a la ficha del punto: el nombre del barco de un pecio, la longitud de una cueva… Solo se enseña lo que tiene valor.": {
+   "en": "What each type adds to the site page: the name of a wreck's ship, the length of a cave… Only what has a value is shown.",
+   "fr": "Ce que chaque type ajoute à la fiche du site : le nom du navire d'une épave, la longueur d'une grotte… Seul ce qui a une valeur est affiché.",
+   "de": "Was jede Tauchart der Platzseite hinzufügt: den Namen des Schiffs eines Wracks, die Länge einer Höhle… Es wird nur angezeigt, was einen Wert hat.",
+   "it": "Ciò che ogni tipo aggiunge alla scheda del punto: il nome della nave di un relitto, la lunghezza di una grotta… Si mostra solo ciò che ha un valore.",
+   "pt": "O que cada tipo acrescenta à ficha do ponto: o nome do navio de um naufrágio, o comprimento de uma gruta… Só se mostra o que tem valor.",
+   "pl": "Co każdy rodzaj dodaje do karty miejsca: nazwę statku wraku, długość jaskini… Pokazuje się tylko to, co ma wartość.",
+   "nl": "Wat elk type toevoegt aan de pagina van de duikplek: de naam van het schip van een wrak, de lengte van een grot… Alleen wat een waarde heeft, wordt getoond.",
+   "zh": "每种类型为潜点页面添加的信息：沉船的船名、洞穴的长度…只显示有值的内容。"
+  },
+  "Según el tipo del punto. Vacío no se enseña. Los campos de cada tipo se cambian en Administración → Tipos de buceo.": {
+   "en": "Depending on the site's type. Empty fields are not shown. The fields of each type are changed in Administration → Dive types.",
+   "fr": "Selon le type du site. Ce qui est vide n'est pas affiché. Les champs de chaque type se modifient dans Administration → Types de plongée.",
+   "de": "Je nach Art des Tauchplatzes. Leere Felder werden nicht angezeigt. Die Felder jeder Art änderst du unter Verwaltung → Taucharten.",
+   "it": "In base al tipo del punto. I campi vuoti non si mostrano. I campi di ogni tipo si cambiano in Amministrazione → Tipi di immersione.",
+   "pt": "Conforme o tipo do ponto. O que está vazio não se mostra. Os campos de cada tipo mudam-se em Administração → Tipos de mergulho.",
+   "pl": "Zależnie od rodzaju miejsca. Puste pola nie są pokazywane. Pola każdego rodzaju zmienia się w Administracja → Rodzaje nurkowania.",
+   "nl": "Afhankelijk van het type duikplek. Lege velden worden niet getoond. De velden per type wijzig je in Beheer → Soorten duiken.",
+   "zh": "根据潜点类型而定。空白内容不显示。各类型的字段可在“管理 → 潜水类型”中修改。"
+  },
+  "Nombre del dato": {
+   "en": "Name of the field",
+   "fr": "Nom de la donnée",
+   "de": "Name des Feldes",
+   "it": "Nome del dato",
+   "pt": "Nome do dado",
+   "pl": "Nazwa pola",
+   "nl": "Naam van het gegeven",
+   "zh": "字段名称"
+  },
+  "Este tipo no tiene datos propios.": {
+   "en": "This type has no data of its own.",
+   "fr": "Ce type n'a pas de données propres.",
+   "de": "Diese Tauchart hat keine eigenen Daten.",
+   "it": "Questo tipo non ha dati propri.",
+   "pt": "Este tipo não tem dados próprios.",
+   "pl": "Ten rodzaj nie ma własnych danych.",
+   "nl": "Dit type heeft geen eigen gegevens.",
+   "zh": "此类型没有专属数据。"
+  },
+  "Nuevo dato, por ejemplo «Profundidad de la quilla»": {
+   "en": "New field, for example «Keel depth»",
+   "fr": "Nouvelle donnée, par exemple « Profondeur de la quille »",
+   "de": "Neues Feld, zum Beispiel «Tiefe des Kiels»",
+   "it": "Nuovo dato, per esempio «Profondità della chiglia»",
+   "pt": "Novo dado, por exemplo «Profundidade da quilha»",
+   "pl": "Nowe pole, na przykład «Głębokość kilu»",
+   "nl": "Nieuw gegeven, bijvoorbeeld «Diepte van de kiel»",
+   "zh": "新字段，例如“龙骨深度”"
+  },
+  "Unidad (m, nudos…)": {
+   "en": "Unit (m, knots…)",
+   "fr": "Unité (m, nœuds…)",
+   "de": "Einheit (m, Knoten…)",
+   "it": "Unità (m, nodi…)",
+   "pt": "Unidade (m, nós…)",
+   "pl": "Jednostka (m, węzły…)",
+   "nl": "Eenheid (m, knopen…)",
+   "zh": "单位（米、节…）"
+  },
+  "Dato añadido.": {
+   "en": "Field added.",
+   "fr": "Donnée ajoutée.",
+   "de": "Feld hinzugefügt.",
+   "it": "Dato aggiunto.",
+   "pt": "Dado adicionado.",
+   "pl": "Pole dodane.",
+   "nl": "Gegeven toegevoegd.",
+   "zh": "字段已添加。"
+  },
+  "Ej. 12 o 31-33": {
+   "en": "E.g. 12 or 31-33",
+   "fr": "Ex. 12 ou 31-33",
+   "de": "Z. B. 12 oder 31-33",
+   "it": "Es. 12 o 31-33",
+   "pt": "Ex. 12 ou 31-33",
+   "pl": "Np. 12 lub 31-33",
+   "nl": "Bijv. 12 of 31-33",
+   "zh": "例如 12 或 31-33"
+  },
+  "La pared empieza a": {
+   "en": "The wall starts at",
+   "fr": "La paroi commence à",
+   "de": "Die Wand beginnt bei",
+   "it": "La parete inizia a",
+   "pt": "A parede começa a",
+   "pl": "Ściana zaczyna się na",
+   "nl": "De wand begint op",
+   "zh": "岩壁起始深度"
+  },
+  "La pared empieza a (m)": {
+   "en": "The wall starts at (m)",
+   "fr": "La paroi commence à (m)",
+   "de": "Die Wand beginnt bei (m)",
+   "it": "La parete inizia a (m)",
+   "pt": "A parede começa a (m)",
+   "pl": "Ściana zaczyna się na (m)",
+   "nl": "De wand begint op (m)",
+   "zh": "岩壁起始深度（米）"
+  },
+  "La pared termina a": {
+   "en": "The wall ends at",
+   "fr": "La paroi se termine à",
+   "de": "Die Wand endet bei",
+   "it": "La parete finisce a",
+   "pt": "A parede termina a",
+   "pl": "Ściana kończy się na",
+   "nl": "De wand eindigt op",
+   "zh": "岩壁结束深度"
+  },
+  "La pared termina a (m)": {
+   "en": "The wall ends at (m)",
+   "fr": "La paroi se termine à (m)",
+   "de": "Die Wand endet bei (m)",
+   "it": "La parete finisce a (m)",
+   "pt": "A parede termina a (m)",
+   "pl": "Ściana kończy się na (m)",
+   "nl": "De wand eindigt op (m)",
+   "zh": "岩壁结束深度（米）"
+  },
+  "Longitud del recorrido": {
+   "en": "Length of the route",
+   "fr": "Longueur du parcours",
+   "de": "Länge der Strecke",
+   "it": "Lunghezza del percorso",
+   "pt": "Comprimento do percurso",
+   "pl": "Długość trasy",
+   "nl": "Lengte van de route",
+   "zh": "路线长度"
+  },
+  "Longitud del recorrido (m)": {
+   "en": "Length of the route (m)",
+   "fr": "Longueur du parcours (m)",
+   "de": "Länge der Strecke (m)",
+   "it": "Lunghezza del percorso (m)",
+   "pt": "Comprimento do percurso (m)",
+   "pl": "Długość trasy (m)",
+   "nl": "Lengte van de route (m)",
+   "zh": "路线长度（米）"
+  },
+  "Profundidad máxima recomendada": {
+   "en": "Recommended maximum depth",
+   "fr": "Profondeur maximale recommandée",
+   "de": "Empfohlene Maximaltiefe",
+   "it": "Profondità massima consigliata",
+   "pt": "Profundidade máxima recomendada",
+   "pl": "Zalecana maksymalna głębokość",
+   "nl": "Aanbevolen maximale diepte",
+   "zh": "建议最大深度"
+  },
+  "Profundidad máxima recomendada (m)": {
+   "en": "Recommended maximum depth (m)",
+   "fr": "Profondeur maximale recommandée (m)",
+   "de": "Empfohlene Maximaltiefe (m)",
+   "it": "Profondità massima consigliata (m)",
+   "pt": "Profundidade máxima recomendada (m)",
+   "pl": "Zalecana maksymalna głębokość (m)",
+   "nl": "Aanbevolen maximale diepte (m)",
+   "zh": "建议最大深度（米）"
+  },
+  "Especialidad necesaria": {
+   "en": "Specialty required",
+   "fr": "Spécialité requise",
+   "de": "Erforderliches Spezialbrevet",
+   "it": "Specialità necessaria",
+   "pt": "Especialidade necessária",
+   "pl": "Wymagana specjalizacja",
+   "nl": "Vereiste specialisatie",
+   "zh": "所需专长"
+  },
+  "Exige linterna o especialidad": {
+   "en": "Requires a torch or specialty",
+   "fr": "Exige une lampe ou une spécialité",
+   "de": "Erfordert Lampe oder Spezialbrevet",
+   "it": "Richiede torcia o specialità",
+   "pt": "Exige lanterna ou especialidade",
+   "pl": "Wymaga latarki lub specjalizacji",
+   "nl": "Vereist een lamp of specialisatie",
+   "zh": "需要潜水灯或专长"
+  },
+  "Zona sin luz natural": {
+   "en": "Area without natural light",
+   "fr": "Zone sans lumière naturelle",
+   "de": "Bereich ohne Tageslicht",
+   "it": "Zona senza luce naturale",
+   "pt": "Zona sem luz natural",
+   "pl": "Strefa bez światła dziennego",
+   "nl": "Zone zonder daglicht",
+   "zh": "无自然光区域"
+  },
+  "Exportar la analítica": {
+   "en": "Export the analytics",
+   "fr": "Exporter l'analyse",
+   "de": "Analyse exportieren",
+   "it": "Esporta l'analisi",
+   "pt": "Exportar a análise",
+   "pl": "Eksportuj analitykę",
+   "nl": "Analyse exporteren",
+   "zh": "导出分析数据"
+  },
+  "Exportar para mi gestoría": {
+   "en": "Export for my accountant",
+   "fr": "Exporter pour mon comptable",
+   "de": "Für meinen Steuerberater exportieren",
+   "it": "Esporta per il mio commercialista",
+   "pt": "Exportar para o meu contabilista",
+   "pl": "Eksport dla mojego księgowego",
+   "nl": "Exporteren voor mijn boekhouder",
+   "zh": "导出给我的会计"
+  },
+  "Un único Excel con las ventas, los cobros y las devoluciones, listo para el contable.": {
+   "en": "A single Excel file with sales, payments and refunds, ready for the accountant.",
+   "fr": "Un seul fichier Excel avec les ventes, les encaissements et les remboursements, prêt pour le comptable.",
+   "de": "Eine einzige Excel-Datei mit Verkäufen, Zahlungen und Erstattungen, fertig für den Steuerberater.",
+   "it": "Un unico Excel con vendite, incassi e rimborsi, pronto per il commercialista.",
+   "pt": "Um único Excel com as vendas, os pagamentos e as devoluções, pronto para o contabilista.",
+   "pl": "Jeden plik Excel ze sprzedażą, wpłatami i zwrotami, gotowy dla księgowego.",
+   "nl": "Eén Excel-bestand met verkopen, betalingen en terugbetalingen, klaar voor de boekhouder.",
+   "zh": "一个包含销售、收款和退款的 Excel 文件，可直接交给会计。"
+  },
+  "Trimestre": {
+   "en": "Quarter",
+   "fr": "Trimestre",
+   "de": "Quartal",
+   "it": "Trimestre",
+   "pt": "Trimestre",
+   "pl": "Kwartał",
+   "nl": "Kwartaal",
+   "zh": "季度"
+  },
+  "Puedes marcar varias temporadas a la vez.": {
+   "en": "You can tick several seasons at once.",
+   "fr": "Vous pouvez cocher plusieurs saisons à la fois.",
+   "de": "Du kannst mehrere Saisons auf einmal markieren.",
+   "it": "Puoi selezionare più stagioni insieme.",
+   "pt": "Podes marcar várias temporadas de uma vez.",
+   "pl": "Możesz zaznaczyć kilka sezonów naraz.",
+   "nl": "Je kunt meerdere seizoenen tegelijk aanvinken.",
+   "zh": "可以同时勾选多个旺季。"
+  },
+  "Elige al menos una temporada.": {
+   "en": "Choose at least one season.",
+   "fr": "Choisissez au moins une saison.",
+   "de": "Wähle mindestens eine Saison.",
+   "it": "Scegli almeno una stagione.",
+   "pt": "Escolhe pelo menos uma temporada.",
+   "pl": "Wybierz co najmniej jeden sezon.",
+   "nl": "Kies minstens één seizoen.",
+   "zh": "请至少选择一个旺季。"
+  },
+  "La fecha que manda": {
+   "en": "The date that counts",
+   "fr": "La date qui compte",
+   "de": "Maßgebliches Datum",
+   "it": "La data che conta",
+   "pt": "A data que conta",
+   "pl": "Data, która się liczy",
+   "nl": "De datum die telt",
+   "zh": "以哪个日期为准"
+  },
+  "La del cobro": {
+   "en": "The payment date",
+   "fr": "Celle de l'encaissement",
+   "de": "Das Zahlungsdatum",
+   "it": "Quella dell'incasso",
+   "pt": "A do pagamento",
+   "pl": "Data wpłaty",
+   "nl": "De betaaldatum",
+   "zh": "收款日期"
+  },
+  "(cuándo entró el dinero)": {
+   "en": "(when the money came in)",
+   "fr": "(quand l'argent est entré)",
+   "de": "(wann das Geld eingegangen ist)",
+   "it": "(quando è entrato il denaro)",
+   "pt": "(quando entrou o dinheiro)",
+   "pl": "(kiedy wpłynęły pieniądze)",
+   "nl": "(wanneer het geld binnenkwam)",
+   "zh": "（款项到账时间）"
+  },
+  "La del servicio": {
+   "en": "The service date",
+   "fr": "Celle du service",
+   "de": "Das Leistungsdatum",
+   "it": "Quella del servizio",
+   "pt": "A do serviço",
+   "pl": "Data usługi",
+   "nl": "De dienstdatum",
+   "zh": "服务日期"
+  },
+  "(cuándo se buceó)": {
+   "en": "(when the dive took place)",
+   "fr": "(quand on a plongé)",
+   "de": "(wann getaucht wurde)",
+   "it": "(quando ci si è immersi)",
+   "pt": "(quando se mergulhou)",
+   "pl": "(kiedy odbyło się nurkowanie)",
+   "nl": "(wanneer er gedoken is)",
+   "zh": "（潜水的时间）"
+  },
+  "Descargar Excel": {
+   "en": "Download Excel",
+   "fr": "Télécharger l'Excel",
+   "de": "Excel herunterladen",
+   "it": "Scarica Excel",
+   "pt": "Descarregar Excel",
+   "pl": "Pobierz Excel",
+   "nl": "Excel downloaden",
+   "zh": "下载 Excel"
+  },
+  "CSV de «Ventas»": {
+   "en": "«Sales» CSV",
+   "fr": "CSV « Ventes »",
+   "de": "CSV «Verkäufe»",
+   "it": "CSV «Vendite»",
+   "pt": "CSV de «Vendas»",
+   "pl": "CSV «Sprzedaż»",
+   "nl": "CSV «Verkopen»",
+   "zh": "“销售”CSV"
+  },
+  "Total vendido": {
+   "en": "Total sold",
+   "fr": "Total vendu",
+   "de": "Verkauft gesamt",
+   "it": "Totale venduto",
+   "pt": "Total vendido",
+   "pl": "Sprzedano łącznie",
+   "nl": "Totaal verkocht",
+   "zh": "销售总额"
+  },
+  "Neto cobrado": {
+   "en": "Net collected",
+   "fr": "Net encaissé",
+   "de": "Netto eingenommen",
+   "it": "Netto incassato",
+   "pt": "Líquido recebido",
+   "pl": "Netto otrzymano",
+   "nl": "Netto ontvangen",
+   "zh": "实收净额"
+  },
+  "Calculando…": {
+   "en": "Calculating…",
+   "fr": "Calcul en cours…",
+   "de": "Wird berechnet…",
+   "it": "Calcolo in corso…",
+   "pt": "A calcular…",
+   "pl": "Obliczanie…",
+   "nl": "Bezig met berekenen…",
+   "zh": "正在计算…"
+  },
+  "Impuestos de tus servicios": {
+   "en": "Taxes of your services",
+   "fr": "Taxes de vos services",
+   "de": "Steuern deiner Leistungen",
+   "it": "Imposte dei tuoi servizi",
+   "pt": "Impostos dos teus serviços",
+   "pl": "Podatki twoich usług",
+   "nl": "Belastingen van je diensten",
+   "zh": "你的服务的税费"
+  },
+  "Más opciones: Mi plantilla de gestoría": {
+   "en": "More options: My accountant template",
+   "fr": "Plus d'options : mon modèle pour le comptable",
+   "de": "Weitere Optionen: Meine Vorlage für den Steuerberater",
+   "it": "Altre opzioni: il mio modello per il commercialista",
+   "pt": "Mais opções: o meu modelo para o contabilista",
+   "pl": "Więcej opcji: mój szablon dla księgowego",
+   "nl": "Meer opties: mijn sjabloon voor de boekhouder",
+   "zh": "更多选项：我的会计模板"
+  },
+  "Confirmado": {
+   "en": "Confirmed",
+   "fr": "Confirmé",
+   "de": "Bestätigt",
+   "it": "Confermato",
+   "pt": "Confirmado",
+   "pl": "Potwierdzone",
+   "nl": "Bevestigd",
+   "zh": "已确认"
+  },
+  "No hay servicios a la venta.": {
+   "en": "There are no services on sale.",
+   "fr": "Aucun service en vente.",
+   "de": "Keine Leistungen im Verkauf.",
+   "it": "Non ci sono servizi in vendita.",
+   "pt": "Não há serviços à venda.",
+   "pl": "Brak usług w sprzedaży.",
+   "nl": "Er zijn geen diensten te koop.",
+   "zh": "没有在售的服务。"
+  },
+  "Impuesto": {
+   "en": "Tax",
+   "fr": "Taxe",
+   "de": "Steuer",
+   "it": "Imposta",
+   "pt": "Imposto",
+   "pl": "Podatek",
+   "nl": "Belasting",
+   "zh": "税种"
+  },
+  "Tipo (%)": {
+   "en": "Rate (%)",
+   "fr": "Taux (%)",
+   "de": "Satz (%)",
+   "it": "Aliquota (%)",
+   "pt": "Taxa (%)",
+   "pl": "Stawka (%)",
+   "nl": "Tarief (%)",
+   "zh": "税率（%）"
+  },
+  "Confirmar estos tipos": {
+   "en": "Confirm these rates",
+   "fr": "Confirmer ces taux",
+   "de": "Diese Sätze bestätigen",
+   "it": "Conferma queste aliquote",
+   "pt": "Confirmar estas taxas",
+   "pl": "Potwierdź te stawki",
+   "nl": "Deze tarieven bevestigen",
+   "zh": "确认这些税率"
+  },
+  "Impuestos guardados.": {
+   "en": "Taxes saved.",
+   "fr": "Taxes enregistrées.",
+   "de": "Steuern gespeichert.",
+   "it": "Imposte salvate.",
+   "pt": "Impostos guardados.",
+   "pl": "Podatki zapisane.",
+   "nl": "Belastingen opgeslagen.",
+   "zh": "税费已保存。"
+  },
+  "Elige las columnas de la hoja «Ventas» y su orden. El número de reserva y el total van siempre.": {
+   "en": "Choose the columns of the «Sales» sheet and their order. The booking number and the total are always included.",
+   "fr": "Choisissez les colonnes de la feuille « Ventes » et leur ordre. Le numéro de réservation et le total y figurent toujours.",
+   "de": "Wähle die Spalten des Blatts «Verkäufe» und ihre Reihenfolge. Buchungsnummer und Gesamtbetrag sind immer dabei.",
+   "it": "Scegli le colonne del foglio «Vendite» e il loro ordine. Il numero di prenotazione e il totale ci sono sempre.",
+   "pt": "Escolhe as colunas da folha «Vendas» e a sua ordem. O número da reserva e o total vão sempre.",
+   "pl": "Wybierz kolumny arkusza «Sprzedaż» i ich kolejność. Numer rezerwacji i suma są zawsze.",
+   "nl": "Kies de kolommen van het blad «Verkopen» en hun volgorde. Het boekingsnummer en het totaal staan er altijd in.",
+   "zh": "选择“销售”表的列及其顺序。预订编号和总额始终包含在内。"
+  },
+  "Volver a las columnas de siempre": {
+   "en": "Back to the usual columns",
+   "fr": "Revenir aux colonnes habituelles",
+   "de": "Zurück zu den üblichen Spalten",
+   "it": "Torna alle colonne di sempre",
+   "pt": "Voltar às colunas habituais",
+   "pl": "Wróć do zwykłych kolumn",
+   "nl": "Terug naar de gewone kolommen",
+   "zh": "恢复默认列"
+  },
+  "Guardar como «Mi plantilla de gestoría»": {
+   "en": "Save as «My accountant template»",
+   "fr": "Enregistrer comme « Mon modèle pour le comptable »",
+   "de": "Als «Meine Vorlage für den Steuerberater» speichern",
+   "it": "Salva come «Il mio modello per il commercialista»",
+   "pt": "Guardar como «O meu modelo para o contabilista»",
+   "pl": "Zapisz jako «Mój szablon dla księgowego»",
+   "nl": "Opslaan als «Mijn sjabloon voor de boekhouder»",
+   "zh": "另存为“我的会计模板”"
+  },
+  "Columnas de siempre.": {
+   "en": "Usual columns.",
+   "fr": "Colonnes habituelles.",
+   "de": "Übliche Spalten.",
+   "it": "Colonne di sempre.",
+   "pt": "Colunas habituais.",
+   "pl": "Zwykłe kolumny.",
+   "nl": "Gewone kolommen.",
+   "zh": "已恢复默认列。"
+  },
+  "Fecha del servicio": {
+   "en": "Service date",
+   "fr": "Date du service",
+   "de": "Leistungsdatum",
+   "it": "Data del servizio",
+   "pt": "Data do serviço",
+   "pl": "Data usługi",
+   "nl": "Dienstdatum",
+   "zh": "服务日期"
+  },
+  "Fecha del cobro": {
+   "en": "Payment date",
+   "fr": "Date de l'encaissement",
+   "de": "Zahlungsdatum",
+   "it": "Data dell'incasso",
+   "pt": "Data do pagamento",
+   "pl": "Data wpłaty",
+   "nl": "Betaaldatum",
+   "zh": "收款日期"
+  },
+  "Número de reserva": {
+   "en": "Booking number",
+   "fr": "Numéro de réservation",
+   "de": "Buchungsnummer",
+   "it": "Numero di prenotazione",
+   "pt": "Número da reserva",
+   "pl": "Numer rezerwacji",
+   "nl": "Boekingsnummer",
+   "zh": "预订编号"
+  },
+  "NIF del cliente": {
+   "en": "Customer tax ID",
+   "fr": "N° fiscal du client",
+   "de": "Steuernummer des Kunden",
+   "it": "Codice fiscale del cliente",
+   "pt": "NIF do cliente",
+   "pl": "NIP klienta",
+   "nl": "Fiscaal nummer klant",
+   "zh": "客户税号"
+  },
+  "Precio unitario": {
+   "en": "Unit price",
+   "fr": "Prix unitaire",
+   "de": "Stückpreis",
+   "it": "Prezzo unitario",
+   "pt": "Preço unitário",
+   "pl": "Cena jednostkowa",
+   "nl": "Stukprijs",
+   "zh": "单价"
+  },
+  "Base imponible": {
+   "en": "Taxable base",
+   "fr": "Base imposable",
+   "de": "Bemessungsgrundlage",
+   "it": "Imponibile",
+   "pt": "Base tributável",
+   "pl": "Podstawa opodatkowania",
+   "nl": "Belastbaar bedrag",
+   "zh": "计税基数"
+  },
+  "Tipo de impuesto (%)": {
+   "en": "Tax rate (%)",
+   "fr": "Taux de taxe (%)",
+   "de": "Steuersatz (%)",
+   "it": "Aliquota d'imposta (%)",
+   "pt": "Taxa de imposto (%)",
+   "pl": "Stawka podatku (%)",
+   "nl": "Belastingtarief (%)",
+   "zh": "税率（%）"
+  },
+  "Cuota": {
+   "en": "Tax amount",
+   "fr": "Montant de la taxe",
+   "de": "Steuerbetrag",
+   "it": "Imposta dovuta",
+   "pt": "Valor do imposto",
+   "pl": "Kwota podatku",
+   "nl": "Belastingbedrag",
+   "zh": "税额"
+  },
+  "Método de pago": {
+   "en": "Payment method",
+   "fr": "Moyen de paiement",
+   "de": "Zahlungsart",
+   "it": "Metodo di pagamento",
+   "pt": "Método de pagamento",
+   "pl": "Metoda płatności",
+   "nl": "Betaalmethode",
+   "zh": "支付方式"
+  },
+  "Pendiente de decisión": {
+   "en": "Pending decision",
+   "fr": "Décision en attente",
+   "de": "Entscheidung ausstehend",
+   "it": "In attesa di decisione",
+   "pt": "Decisão pendente",
+   "pl": "Decyzja w toku",
+   "nl": "Beslissing nodig",
+   "zh": "待决定"
+  },
+  "Inmersión": {
+   "en": "Dive",
+   "fr": "Plongée",
+   "de": "Tauchgang",
+   "it": "Immersione",
+   "pt": "Mergulho",
+   "pl": "Nurkowanie",
+   "nl": "Duik",
+   "zh": "潜水"
+  }
+ },
+ "patterns": {
+  "{n} actividades": {
+   "en": "{n} activities",
+   "fr": "{n} activités",
+   "de": "{n} Aktivitäten",
+   "it": "{n} attività",
+   "pt": "{n} atividades",
+   "pl": "Aktywności: {n}",
+   "nl": "{n} activiteiten",
+   "zh": "{n} 项活动"
+  },
+  "Subir «{t}»": {
+   "en": "Move «{t}» up",
+   "fr": "Monter « {t} »",
+   "de": "«{t}» nach oben",
+   "it": "Sposta su «{t}»",
+   "pt": "Subir «{t}»",
+   "pl": "Przesuń w górę «{t}»",
+   "nl": "«{t}» omhoog",
+   "zh": "上移“{t}”"
+  },
+  "Bajar «{t}»": {
+   "en": "Move «{t}» down",
+   "fr": "Descendre « {t} »",
+   "de": "«{t}» nach unten",
+   "it": "Sposta giù «{t}»",
+   "pt": "Descer «{t}»",
+   "pl": "Przesuń w dół «{t}»",
+   "nl": "«{t}» omlaag",
+   "zh": "下移“{t}”"
+  },
+  "Faltan {n} idiomas": {
+   "en": "{n} languages missing",
+   "fr": "{n} langues manquantes",
+   "de": "{n} Sprachen fehlen",
+   "it": "Mancano {n} lingue",
+   "pt": "Faltam {n} idiomas",
+   "pl": "Brakuje języków: {n}",
+   "nl": "{n} talen ontbreken",
+   "zh": "缺少 {n} 种语言"
+  },
+  "Categoría de «{t}» al reservar": {
+   "en": "Category of «{t}» when booking",
+   "fr": "Catégorie de « {t} » à la réservation",
+   "de": "Kategorie von «{t}» beim Buchen",
+   "it": "Categoria di «{t}» alla prenotazione",
+   "pt": "Categoria de «{t}» ao reservar",
+   "pl": "Kategoria «{t}» przy rezerwacji",
+   "nl": "Categorie van «{t}» bij het boeken",
+   "zh": "“{t}”的预订类别"
+  }
+ }
+}

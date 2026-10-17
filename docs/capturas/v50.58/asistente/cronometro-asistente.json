@@ -1,0 +1,23 @@
+{
+ "Open Water de 3 días con dos ediciones": {
+  "segundos": 77.5,
+  "toques": 20,
+  "letras": 76
+ },
+ "Doble inmersión de los sábados": {
+  "segundos": 65.0,
+  "toques": 17,
+  "letras": 38
+ },
+ "Alquiler de traje": {
+  "segundos": 54.4,
+  "toques": 10,
+  "letras": 24
+ },
+ "ritmo": {
+  "leer_paso": 6.0,
+  "decidir": 2.0,
+  "toque": 0.5,
+  "letra": 0.2
+ }
+}

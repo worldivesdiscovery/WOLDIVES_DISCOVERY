@@ -1,0 +1,245 @@
+{
+ "exact": {
+  "Dispositivos conectados": {
+   "en": "Connected devices",
+   "fr": "Appareils connectés",
+   "de": "Verbundene Geräte",
+   "it": "Dispositivi connessi",
+   "pt": "Dispositivos ligados",
+   "pl": "Połączone urządzenia",
+   "nl": "Verbonden apparaten",
+   "zh": "已连接的设备"
+  },
+  "Dónde está abierta tu cuenta ahora: navegadores y la app. Si ves algo que no reconoces, cierra ese dispositivo y cambia tu contraseña.": {
+   "en": "Where your account is open now: browsers and the app. If you see something you do not recognise, sign that device out and change your password.",
+   "fr": "Où votre compte est ouvert en ce moment : navigateurs et application. Si vous voyez quelque chose que vous ne reconnaissez pas, déconnectez cet appareil et changez votre mot de passe.",
+   "de": "Wo dein Konto gerade geöffnet ist: Browser und App. Wenn du etwas nicht erkennst, melde dieses Gerät ab und ändere dein Passwort.",
+   "it": "Dove è aperto ora il tuo account: browser e app. Se vedi qualcosa che non riconosci, disconnetti quel dispositivo e cambia la password.",
+   "pt": "Onde a tua conta está aberta agora: navegadores e a app. Se vires algo que não reconheces, termina a sessão nesse dispositivo e muda a tua palavra-passe.",
+   "pl": "Gdzie Twoje konto jest teraz otwarte: przeglądarki i aplikacja. Jeśli widzisz coś, czego nie rozpoznajesz, wyloguj to urządzenie i zmień hasło.",
+   "nl": "Waar je account nu open is: browsers en de app. Zie je iets wat je niet herkent, meld dat apparaat dan af en wijzig je wachtwoord.",
+   "zh": "你的账户当前在哪些地方登录：浏览器和应用。如果看到不认识的设备，请将其退出登录并修改密码。"
+  },
+  "Cerrar todas menos esta": {
+   "en": "Sign out everywhere else",
+   "fr": "Fermer toutes sauf celle-ci",
+   "de": "Alle außer dieser abmelden",
+   "it": "Chiudi tutte tranne questa",
+   "pt": "Fechar todas menos esta",
+   "pl": "Zamknij wszystkie oprócz tej",
+   "nl": "Alle behalve deze afmelden",
+   "zh": "退出除此之外的所有会话"
+  },
+  "Este dispositivo": {
+   "en": "This device",
+   "fr": "Cet appareil",
+   "de": "Dieses Gerät",
+   "it": "Questo dispositivo",
+   "pt": "Este dispositivo",
+   "pl": "To urządzenie",
+   "nl": "Dit apparaat",
+   "zh": "此设备"
+  },
+  "Última actividad": {
+   "en": "Last activity",
+   "fr": "Dernière activité",
+   "de": "Letzte Aktivität",
+   "it": "Ultima attività",
+   "pt": "Última atividade",
+   "pl": "Ostatnia aktywność",
+   "nl": "Laatste activiteit",
+   "zh": "最近活动"
+  },
+  "Ciudad aproximada": {
+   "en": "Approximate city",
+   "fr": "Ville approximative",
+   "de": "Ungefähre Stadt",
+   "it": "Città approssimativa",
+   "pt": "Cidade aproximada",
+   "pl": "Przybliżone miasto",
+   "nl": "Geschatte stad",
+   "zh": "大致城市"
+  },
+  "Pide la contraseña de nuevo el": {
+   "en": "Asks for the password again on",
+   "fr": "Redemande le mot de passe le",
+   "de": "Fragt erneut nach dem Passwort am",
+   "it": "Chiede di nuovo la password il",
+   "pt": "Pede a palavra-passe de novo a",
+   "pl": "Ponownie poprosi o hasło",
+   "nl": "Vraagt opnieuw om het wachtwoord op",
+   "zh": "再次要求输入密码的日期："
+  },
+  "La ciudad aproximada aparecerá cuando el servidor la reciba de su proxy (pendiente de configurar).": {
+   "en": "The approximate city will appear when the server receives it from its proxy (still to be configured).",
+   "fr": "La ville approximative apparaîtra lorsque le serveur la recevra de son proxy (à configurer).",
+   "de": "Die ungefähre Stadt erscheint, sobald der Server sie von seinem Proxy erhält (noch einzurichten).",
+   "it": "La città approssimativa comparirà quando il server la riceverà dal suo proxy (da configurare).",
+   "pt": "A cidade aproximada aparecerá quando o servidor a receber do seu proxy (por configurar).",
+   "pl": "Przybliżone miasto pojawi się, gdy serwer otrzyma je od swojego proxy (do skonfigurowania).",
+   "nl": "De geschatte stad verschijnt zodra de server die van zijn proxy ontvangt (nog in te stellen).",
+   "zh": "服务器从其代理收到大致城市后会显示（待配置）。"
+  },
+  "Cerrar la sesión de ese dispositivo": {
+   "en": "Sign out that device",
+   "fr": "Déconnecter cet appareil",
+   "de": "Dieses Gerät abmelden",
+   "it": "Disconnetti quel dispositivo",
+   "pt": "Terminar a sessão nesse dispositivo",
+   "pl": "Wyloguj to urządzenie",
+   "nl": "Dat apparaat afmelden",
+   "zh": "退出该设备的登录"
+  },
+  "Tendrá que volver a entrar con la contraseña. Si es un móvil, borrará sus datos guardados al conectarse.": {
+   "en": "It will have to sign in again with the password. If it is a phone, it will delete its saved data when it connects.",
+   "fr": "Il faudra se reconnecter avec le mot de passe. Si c'est un téléphone, il effacera ses données enregistrées à la prochaine connexion.",
+   "de": "Dort muss man sich erneut mit dem Passwort anmelden. Ist es ein Handy, löscht es beim Verbinden seine gespeicherten Daten.",
+   "it": "Dovrà accedere di nuovo con la password. Se è un telefono, cancellerà i dati salvati quando si connette.",
+   "pt": "Terá de voltar a entrar com a palavra-passe. Se for um telemóvel, apagará os dados guardados ao ligar-se.",
+   "pl": "Trzeba będzie zalogować się ponownie hasłem. Jeśli to telefon, po połączeniu usunie zapisane dane.",
+   "nl": "Er moet opnieuw met het wachtwoord worden aangemeld. Is het een telefoon, dan wist die zijn opgeslagen gegevens zodra hij verbinding maakt.",
+   "zh": "需要重新用密码登录。如果是手机，联网时会删除其保存的数据。"
+  },
+  "Sesión cerrada en ese dispositivo.": {
+   "en": "Signed out on that device.",
+   "fr": "Session fermée sur cet appareil.",
+   "de": "Auf diesem Gerät abgemeldet.",
+   "it": "Sessione chiusa su quel dispositivo.",
+   "pt": "Sessão terminada nesse dispositivo.",
+   "pl": "Wylogowano na tym urządzeniu.",
+   "nl": "Afgemeld op dat apparaat.",
+   "zh": "已在该设备上退出登录。"
+  },
+  "Sesiones": {
+   "en": "Sessions",
+   "fr": "Sessions",
+   "de": "Sitzungen",
+   "it": "Sessioni",
+   "pt": "Sessões",
+   "pl": "Sesje",
+   "nl": "Sessies",
+   "zh": "会话"
+  },
+  "Sesiones de": {
+   "en": "Sessions of",
+   "fr": "Sessions de",
+   "de": "Sitzungen von",
+   "it": "Sessioni di",
+   "pt": "Sessões de",
+   "pl": "Sesje:",
+   "nl": "Sessies van",
+   "zh": "会话："
+  },
+  "No tiene ninguna sesión abierta.": {
+   "en": "They have no open session.",
+   "fr": "Cette personne n'a aucune session ouverte.",
+   "de": "Keine offene Sitzung.",
+   "it": "Non ha nessuna sessione aperta.",
+   "pt": "Não tem nenhuma sessão aberta.",
+   "pl": "Nie ma żadnej otwartej sesji.",
+   "nl": "Heeft geen open sessie.",
+   "zh": "没有任何已打开的会话。"
+  },
+  "Al cerrarlas tendrá que volver a entrar con su contraseña; en el móvil se borran los datos guardados.": {
+   "en": "Once they are closed, this person will have to sign in again with their password; the phone deletes its saved data.",
+   "fr": "Une fois fermées, cette personne devra se reconnecter avec son mot de passe ; le téléphone efface ses données enregistrées.",
+   "de": "Danach muss sich die Person erneut mit ihrem Passwort anmelden; auf dem Handy werden die gespeicherten Daten gelöscht.",
+   "it": "Dopo averle chiuse dovrà accedere di nuovo con la sua password; sul telefono si cancellano i dati salvati.",
+   "pt": "Ao fechá-las, terá de voltar a entrar com a sua palavra-passe; no telemóvel apagam-se os dados guardados.",
+   "pl": "Po ich zamknięciu ta osoba będzie musiała zalogować się ponownie hasłem; telefon usunie zapisane dane.",
+   "nl": "Daarna moet deze persoon opnieuw met het eigen wachtwoord aanmelden; op de telefoon worden de opgeslagen gegevens gewist.",
+   "zh": "关闭后，此人需要用自己的密码重新登录；手机上保存的数据会被删除。"
+  },
+  "Cerrar todas sus sesiones": {
+   "en": "Close all their sessions",
+   "fr": "Fermer toutes ses sessions",
+   "de": "Alle Sitzungen beenden",
+   "it": "Chiudi tutte le sue sessioni",
+   "pt": "Fechar todas as sessões",
+   "pl": "Zamknij wszystkie sesje tej osoby",
+   "nl": "Al zijn of haar sessies sluiten",
+   "zh": "关闭其所有会话"
+  },
+  "Sesiones cerradas": {
+   "en": "Sessions closed",
+   "fr": "Sessions fermées",
+   "de": "Sitzungen beendet",
+   "it": "Sessioni chiuse",
+   "pt": "Sessões fechadas",
+   "pl": "Zamknięte sesje",
+   "nl": "Sessies gesloten",
+   "zh": "已关闭的会话"
+  },
+  "Es este dispositivo: usa «Cerrar sesión».": {
+   "en": "It is this device: use \"Sign out\".",
+   "fr": "C'est cet appareil : utilisez « Se déconnecter ».",
+   "de": "Das ist dieses Gerät: Nutze „Abmelden“.",
+   "it": "È questo dispositivo: usa «Esci».",
+   "pt": "É este dispositivo: usa «Terminar sessão».",
+   "pl": "To jest to urządzenie: użyj „Wyloguj”.",
+   "nl": "Dit is dit apparaat: gebruik \"Afmelden\".",
+   "zh": "这是当前设备：请使用「退出登录」。"
+  },
+  "Ese dispositivo ya no tiene la sesión abierta.": {
+   "en": "That device is no longer signed in.",
+   "fr": "Cet appareil n'a plus de session ouverte.",
+   "de": "Dieses Gerät ist nicht mehr angemeldet.",
+   "it": "Quel dispositivo non ha più la sessione aperta.",
+   "pt": "Esse dispositivo já não tem a sessão aberta.",
+   "pl": "To urządzenie nie jest już zalogowane.",
+   "nl": "Dat apparaat is niet meer aangemeld.",
+   "zh": "该设备已不再登录。"
+  },
+  "Para tus propias sesiones usa «Dispositivos conectados».": {
+   "en": "For your own sessions use \"Connected devices\".",
+   "fr": "Pour vos propres sessions, utilisez « Appareils connectés ».",
+   "de": "Für deine eigenen Sitzungen nutze „Verbundene Geräte“.",
+   "it": "Per le tue sessioni usa «Dispositivi connessi».",
+   "pt": "Para as tuas próprias sessões usa «Dispositivos ligados».",
+   "pl": "Do własnych sesji użyj „Połączone urządzenia”.",
+   "nl": "Gebruik voor je eigen sessies \"Verbonden apparaten\".",
+   "zh": "管理你自己的会话请使用「已连接的设备」。"
+  },
+  "Esa persona no es del equipo.": {
+   "en": "That person is not in the team.",
+   "fr": "Cette personne ne fait pas partie de l'équipe.",
+   "de": "Diese Person gehört nicht zum Team.",
+   "it": "Quella persona non fa parte del team.",
+   "pt": "Essa pessoa não é da equipa.",
+   "pl": "Ta osoba nie należy do zespołu.",
+   "nl": "Die persoon hoort niet bij het team.",
+   "zh": "此人不属于团队。"
+  },
+  "No puedes cerrar las sesiones de otro propietario.": {
+   "en": "You cannot close the sessions of another owner.",
+   "fr": "Vous ne pouvez pas fermer les sessions d'un autre propriétaire.",
+   "de": "Du kannst die Sitzungen eines anderen Inhabers nicht beenden.",
+   "it": "Non puoi chiudere le sessioni di un altro titolare.",
+   "pt": "Não podes fechar as sessões de outro proprietário.",
+   "pl": "Nie możesz zamknąć sesji innego właściciela.",
+   "nl": "Je kunt de sessies van een andere eigenaar niet sluiten.",
+   "zh": "你不能关闭其他所有者的会话。"
+  },
+  "Tu sesión en este móvil ha terminado. Vuelve a entrar.": {
+   "en": "Your session on this phone has ended. Sign in again.",
+   "fr": "Votre session sur ce téléphone est terminée. Reconnectez-vous.",
+   "de": "Deine Sitzung auf diesem Handy ist beendet. Melde dich erneut an.",
+   "it": "La tua sessione su questo telefono è terminata. Accedi di nuovo.",
+   "pt": "A tua sessão neste telemóvel terminou. Volta a entrar.",
+   "pl": "Twoja sesja na tym telefonie się zakończyła. Zaloguj się ponownie.",
+   "nl": "Je sessie op deze telefoon is beëindigd. Meld je opnieuw aan.",
+   "zh": "你在此手机上的会话已结束。请重新登录。"
+  },
+  "Tu sesión en este móvil ha terminado.": {
+   "en": "Your session on this phone has ended.",
+   "fr": "Votre session sur ce téléphone est terminée.",
+   "de": "Deine Sitzung auf diesem Handy ist beendet.",
+   "it": "La tua sessione su questo telefono è terminata.",
+   "pt": "A tua sessão neste telemóvel terminou.",
+   "pl": "Twoja sesja na tym telefonie się zakończyła.",
+   "nl": "Je sessie op deze telefoon is beëindigd.",
+   "zh": "你在此手机上的会话已结束。"
+  }
+ },
+ "patterns": {}
+}

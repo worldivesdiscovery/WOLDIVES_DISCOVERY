@@ -1,0 +1,555 @@
+{
+ "exact": {
+  "Pago en persona al profesional": {
+   "en": "Payment in person to the professional",
+   "fr": "Paiement en personne au professionnel",
+   "de": "Zahlung vor Ort an den Profi",
+   "it": "Pagamento di persona al professionista",
+   "pt": "Pagamento presencial ao profissional",
+   "pl": "Płatność osobiście u profesjonalisty",
+   "nl": "Persoonlijke betaling aan de professional",
+   "zh": "向专业人员当面付款"
+  },
+  "Confirmada · pago en persona": {
+   "en": "Confirmed · payment in person",
+   "fr": "Confirmée · paiement en personne",
+   "de": "Bestätigt · Zahlung vor Ort",
+   "it": "Confermata · pagamento di persona",
+   "pt": "Confirmada · pagamento presencial",
+   "pl": "Potwierdzona · płatność osobiście",
+   "nl": "Bevestigd · persoonlijke betaling",
+   "zh": "已确认 · 当面付款"
+  },
+  "Política del profesional": {
+   "en": "Professional's policy",
+   "fr": "Politique du professionnel",
+   "de": "Bedingungen des Profis",
+   "it": "Politica del professionista",
+   "pt": "Política do profissional",
+   "pl": "Zasady profesjonalisty",
+   "nl": "Beleid van de professional",
+   "zh": "专业人员的政策"
+  },
+  "Precio publicado": {
+   "en": "Published price",
+   "fr": "Prix publié",
+   "de": "Veröffentlichter Preis",
+   "it": "Prezzo pubblicato",
+   "pt": "Preço publicado",
+   "pl": "Cena opublikowana",
+   "nl": "Gepubliceerde prijs",
+   "zh": "公布价格"
+  },
+  "Hablar por WhatsApp": {
+   "en": "Chat on WhatsApp",
+   "fr": "Écrire sur WhatsApp",
+   "de": "Per WhatsApp schreiben",
+   "it": "Scrivi su WhatsApp",
+   "pt": "Falar por WhatsApp",
+   "pl": "Napisz na WhatsApp",
+   "nl": "Chat via WhatsApp",
+   "zh": "通过 WhatsApp 联系"
+  },
+  "Efectivo": {
+   "en": "Cash",
+   "fr": "Espèces",
+   "de": "Bargeld",
+   "it": "Contanti",
+   "pt": "Dinheiro",
+   "pl": "Gotówka",
+   "nl": "Contant",
+   "zh": "现金"
+  },
+  "Bizum": {
+   "en": "Bizum",
+   "fr": "Bizum",
+   "de": "Bizum",
+   "it": "Bizum",
+   "pt": "Bizum",
+   "pl": "Bizum",
+   "nl": "Bizum",
+   "zh": "Bizum"
+  },
+  "Transferencia": {
+   "en": "Bank transfer",
+   "fr": "Virement",
+   "de": "Überweisung",
+   "it": "Bonifico",
+   "pt": "Transferência",
+   "pl": "Przelew",
+   "nl": "Overschrijving",
+   "zh": "银行转账"
+  },
+  "Otra": {
+   "en": "Other",
+   "fr": "Autre",
+   "de": "Andere",
+   "it": "Altro",
+   "pt": "Outra",
+   "pl": "Inna",
+   "nl": "Andere",
+   "zh": "其他"
+  },
+  "Este profesional cobra directamente, no a través de WORLDIVES. El precio es el publicado aquí. Acuerda con él la forma de pago y los detalles por WhatsApp. En este servicio WORLDIVES no gestiona pagos, devoluciones, cancelaciones ni incidencias.": {
+   "en": "This professional is paid directly, not through WORLDIVES. The price is the one published here. Agree the way of paying and the details with him or her on WhatsApp. For this service WORLDIVES does not handle payments, refunds, cancellations or incidents.",
+   "fr": "Ce professionnel est payé directement, pas via WORLDIVES. Le prix est celui publié ici. Convenez avec lui du mode de paiement et des détails par WhatsApp. Pour ce service, WORLDIVES ne gère ni les paiements, ni les remboursements, ni les annulations, ni les incidents.",
+   "de": "Dieser Profi wird direkt bezahlt, nicht über WORLDIVES. Der Preis ist der hier veröffentlichte. Vereinbare die Zahlungsweise und die Details mit ihm per WhatsApp. Bei dieser Leistung übernimmt WORLDIVES weder Zahlungen noch Erstattungen, Stornierungen oder Vorfälle.",
+   "it": "Questo professionista incassa direttamente, non tramite WORLDIVES. Il prezzo è quello pubblicato qui. Concorda con lui il modo di pagamento e i dettagli su WhatsApp. Per questo servizio WORLDIVES non gestisce pagamenti, rimborsi, cancellazioni né incidenti.",
+   "pt": "Este profissional cobra diretamente, não através da WORLDIVES. O preço é o publicado aqui. Combina com ele a forma de pagamento e os detalhes por WhatsApp. Neste serviço a WORLDIVES não gere pagamentos, reembolsos, cancelamentos nem incidências.",
+   "pl": "Ten profesjonalista pobiera opłatę bezpośrednio, nie przez WORLDIVES. Cena jest ceną opublikowaną tutaj. Formę płatności i szczegóły uzgodnij z nim przez WhatsApp. W tej usłudze WORLDIVES nie obsługuje płatności, zwrotów, anulacji ani incydentów.",
+   "nl": "Deze professional wordt rechtstreeks betaald, niet via WORLDIVES. De prijs is de hier gepubliceerde. Spreek de manier van betalen en de details met hem of haar af via WhatsApp. Voor deze dienst regelt WORLDIVES geen betalingen, terugbetalingen, annuleringen of incidenten.",
+   "zh": "该专业人员直接收款，不通过 WORLDIVES。价格为此处公布的价格。请通过 WhatsApp 与其商定付款方式和细节。对于此服务，WORLDIVES 不处理付款、退款、取消或任何纠纷。"
+  },
+  "Este profesional no ha publicado una política de cancelación. WORLDIVES no gestiona cancelaciones ni devoluciones en este servicio.": {
+   "en": "This professional has not published a cancellation policy. WORLDIVES does not handle cancellations or refunds for this service.",
+   "fr": "Ce professionnel n'a pas publié de politique d'annulation. WORLDIVES ne gère ni les annulations ni les remboursements de ce service.",
+   "de": "Dieser Profi hat keine Stornobedingungen veröffentlicht. WORLDIVES übernimmt bei dieser Leistung weder Stornierungen noch Erstattungen.",
+   "it": "Questo professionista non ha pubblicato una politica di cancellazione. WORLDIVES non gestisce cancellazioni né rimborsi per questo servizio.",
+   "pt": "Este profissional não publicou uma política de cancelamento. A WORLDIVES não gere cancelamentos nem reembolsos neste serviço.",
+   "pl": "Ten profesjonalista nie opublikował zasad anulowania. WORLDIVES nie obsługuje anulacji ani zwrotów w tej usłudze.",
+   "nl": "Deze professional heeft geen annuleringsbeleid gepubliceerd. WORLDIVES regelt geen annuleringen of terugbetalingen voor deze dienst.",
+   "zh": "该专业人员未公布取消政策。对于此服务，WORLDIVES 不处理取消或退款。"
+  },
+  "Formas de pago que acepta": {
+   "en": "Ways of paying accepted",
+   "fr": "Modes de paiement acceptés",
+   "de": "Akzeptierte Zahlungsweisen",
+   "it": "Modi di pagamento accettati",
+   "pt": "Formas de pagamento aceites",
+   "pl": "Akceptowane formy płatności",
+   "nl": "Aanvaarde betaalwijzen",
+   "zh": "接受的付款方式"
+  },
+  "He leído el aviso: pago en persona al profesional": {
+   "en": "I have read the notice: payment in person to the professional",
+   "fr": "J'ai lu l'avis : paiement en personne au professionnel",
+   "de": "Ich habe den Hinweis gelesen: Zahlung vor Ort an den Profi",
+   "it": "Ho letto l'avviso: pagamento di persona al professionista",
+   "pt": "Li o aviso: pagamento presencial ao profissional",
+   "pl": "Przeczytałem ostrzeżenie: płatność osobiście u profesjonalisty",
+   "nl": "Ik heb de melding gelezen: persoonlijke betaling aan de professional",
+   "zh": "我已阅读提示：向专业人员当面付款"
+  },
+  "Marca la casilla del aviso: este profesional cobra directamente, no a través de WORLDIVES.": {
+   "en": "Tick the box of the notice: this professional is paid directly, not through WORLDIVES.",
+   "fr": "Cochez la case de l'avis : ce professionnel est payé directement, pas via WORLDIVES.",
+   "de": "Setze das Häkchen beim Hinweis: Dieser Profi wird direkt bezahlt, nicht über WORLDIVES.",
+   "it": "Spunta la casella dell'avviso: questo professionista incassa direttamente, non tramite WORLDIVES.",
+   "pt": "Marca a caixa do aviso: este profissional cobra diretamente, não através da WORLDIVES.",
+   "pl": "Zaznacz pole ostrzeżenia: ten profesjonalista pobiera opłatę bezpośrednio, nie przez WORLDIVES.",
+   "nl": "Vink het vakje van de melding aan: deze professional wordt rechtstreeks betaald, niet via WORLDIVES.",
+   "zh": "请勾选提示：该专业人员直接收款，不通过 WORLDIVES。"
+  },
+  "El botón «Hablar por WhatsApp» aparece cuando el profesional acepta tu solicitud.": {
+   "en": "The \"Chat on WhatsApp\" button appears when the professional accepts your request.",
+   "fr": "Le bouton « Écrire sur WhatsApp » apparaît lorsque le professionnel accepte votre demande.",
+   "de": "Die Schaltfläche „Per WhatsApp schreiben“ erscheint, wenn der Profi deine Anfrage annimmt.",
+   "it": "Il pulsante «Scrivi su WhatsApp» compare quando il professionista accetta la tua richiesta.",
+   "pt": "O botão «Falar por WhatsApp» aparece quando o profissional aceita o teu pedido.",
+   "pl": "Przycisk „Napisz na WhatsApp” pojawia się, gdy profesjonalista przyjmie Twoje zapytanie.",
+   "nl": "De knop \"Chat via WhatsApp\" verschijnt wanneer de professional je aanvraag accepteert.",
+   "zh": "专业人员接受你的申请后，会出现「通过 WhatsApp 联系」按钮。"
+  },
+  "Sin precio publicado": {
+   "en": "No published price",
+   "fr": "Aucun prix publié",
+   "de": "Kein veröffentlichter Preis",
+   "it": "Nessun prezzo pubblicato",
+   "pt": "Sem preço publicado",
+   "pl": "Brak opublikowanej ceny",
+   "nl": "Geen gepubliceerde prijs",
+   "zh": "未公布价格"
+  },
+  "Cómo funciona el pago en persona": {
+   "en": "How payment in person works",
+   "fr": "Comment fonctionne le paiement en personne",
+   "de": "So funktioniert die Zahlung vor Ort",
+   "it": "Come funziona il pagamento di persona",
+   "pt": "Como funciona o pagamento presencial",
+   "pl": "Jak działa płatność osobiście",
+   "nl": "Hoe persoonlijke betaling werkt",
+   "zh": "当面付款如何运作"
+  },
+  "Pago en persona": {
+   "en": "Payment in person",
+   "fr": "Paiement en personne",
+   "de": "Zahlung vor Ort",
+   "it": "Pagamento di persona",
+   "pt": "Pagamento presencial",
+   "pl": "Płatność osobiście",
+   "nl": "Persoonlijke betaling",
+   "zh": "当面付款"
+  },
+  "Cobrado": {
+   "en": "Paid",
+   "fr": "Encaissé",
+   "de": "Bezahlt",
+   "it": "Incassato",
+   "pt": "Cobrado",
+   "pl": "Opłacone",
+   "nl": "Betaald",
+   "zh": "已收款"
+  },
+  "No se presentó": {
+   "en": "No-show",
+   "fr": "Ne s'est pas présenté",
+   "de": "Nicht erschienen",
+   "it": "Non si è presentato",
+   "pt": "Não compareceu",
+   "pl": "Nie stawił się",
+   "nl": "Niet verschenen",
+   "zh": "未到场"
+  },
+  "No se cobra nada a través de WORLDIVES. Si el profesional acepta, verás el botón «Hablar por WhatsApp» para acordar con él la forma de pago.": {
+   "en": "Nothing is charged through WORLDIVES. If the professional accepts, you will see the \"Chat on WhatsApp\" button to agree the way of paying with him or her.",
+   "fr": "Rien n'est encaissé via WORLDIVES. Si le professionnel accepte, vous verrez le bouton « Écrire sur WhatsApp » pour convenir avec lui du mode de paiement.",
+   "de": "Über WORLDIVES wird nichts kassiert. Wenn der Profi annimmt, siehst du die Schaltfläche „Per WhatsApp schreiben“, um mit ihm die Zahlungsweise zu vereinbaren.",
+   "it": "Tramite WORLDIVES non si paga nulla. Se il professionista accetta, vedrai il pulsante «Scrivi su WhatsApp» per concordare con lui il modo di pagamento.",
+   "pt": "Não se cobra nada através da WORLDIVES. Se o profissional aceitar, verás o botão «Falar por WhatsApp» para combinar com ele a forma de pagamento.",
+   "pl": "Przez WORLDIVES nic nie jest pobierane. Jeśli profesjonalista przyjmie zapytanie, zobaczysz przycisk „Napisz na WhatsApp”, aby uzgodnić z nim formę płatności.",
+   "nl": "Via WORLDIVES wordt niets aangerekend. Als de professional accepteert, zie je de knop \"Chat via WhatsApp\" om met hem of haar de manier van betalen af te spreken.",
+   "zh": "不通过 WORLDIVES 收取任何费用。专业人员接受后，你会看到「通过 WhatsApp 联系」按钮，与其商定付款方式。"
+  },
+  "Envías la solicitud sin pagar nada. Si el profesional acepta, verás el botón «Hablar por WhatsApp» para acordar con él la forma de pago.": {
+   "en": "You send the request without paying anything. If the professional accepts, you will see the \"Chat on WhatsApp\" button to agree the way of paying with him or her.",
+   "fr": "Vous envoyez la demande sans rien payer. Si le professionnel accepte, vous verrez le bouton « Écrire sur WhatsApp » pour convenir avec lui du mode de paiement.",
+   "de": "Du sendest die Anfrage, ohne etwas zu bezahlen. Wenn der Profi annimmt, siehst du die Schaltfläche „Per WhatsApp schreiben“, um mit ihm die Zahlungsweise zu vereinbaren.",
+   "it": "Invii la richiesta senza pagare nulla. Se il professionista accetta, vedrai il pulsante «Scrivi su WhatsApp» per concordare con lui il modo di pagamento.",
+   "pt": "Envias o pedido sem pagar nada. Se o profissional aceitar, verás o botão «Falar por WhatsApp» para combinar com ele a forma de pagamento.",
+   "pl": "Wysyłasz zapytanie, nic nie płacąc. Jeśli profesjonalista je przyjmie, zobaczysz przycisk „Napisz na WhatsApp”, aby uzgodnić z nim formę płatności.",
+   "nl": "Je verstuurt de aanvraag zonder iets te betalen. Als de professional accepteert, zie je de knop \"Chat via WhatsApp\" om met hem of haar de manier van betalen af te spreken.",
+   "zh": "发送申请无需付款。专业人员接受后，你会看到「通过 WhatsApp 联系」按钮，与其商定付款方式。"
+  },
+  "Acuerda con el profesional la forma de pago y los detalles.": {
+   "en": "Agree the way of paying and the details with the professional.",
+   "fr": "Convenez avec le professionnel du mode de paiement et des détails.",
+   "de": "Vereinbare mit dem Profi die Zahlungsweise und die Details.",
+   "it": "Concorda con il professionista il modo di pagamento e i dettagli.",
+   "pt": "Combina com o profissional a forma de pagamento e os detalhes.",
+   "pl": "Uzgodnij z profesjonalistą formę płatności i szczegóły.",
+   "nl": "Spreek met de professional de manier van betalen en de details af.",
+   "zh": "请与专业人员商定付款方式和细节。"
+  },
+  "SOLO PARA TU CONTROL": {
+   "en": "FOR YOUR OWN RECORDS",
+   "fr": "POUR VOTRE SUIVI",
+   "de": "NUR FÜR DEINE ÜBERSICHT",
+   "it": "SOLO PER IL TUO CONTROLLO",
+   "pt": "SÓ PARA O TEU CONTROLO",
+   "pl": "TYLKO NA WŁASNY UŻYTEK",
+   "nl": "ALLEEN VOOR JE EIGEN OVERZICHT",
+   "zh": "仅供你自己管理"
+  },
+  "Sin marcar": {
+   "en": "Not marked",
+   "fr": "Non marqué",
+   "de": "Nicht markiert",
+   "it": "Non segnato",
+   "pt": "Sem marcar",
+   "pl": "Nieoznaczone",
+   "nl": "Niet gemarkeerd",
+   "zh": "未标记"
+  },
+  "El cliente no ve esta marca y no mueve dinero.": {
+   "en": "The customer does not see this mark and it moves no money.",
+   "fr": "Le client ne voit pas cette marque et elle ne déplace aucun argent.",
+   "de": "Der Kunde sieht diese Markierung nicht, und sie bewegt kein Geld.",
+   "it": "Il cliente non vede questo segno e non muove denaro.",
+   "pt": "O cliente não vê esta marca e não movimenta dinheiro.",
+   "pl": "Klient nie widzi tego oznaczenia i nie przenosi ono pieniędzy.",
+   "nl": "De klant ziet deze markering niet en ze verplaatst geen geld.",
+   "zh": "客户看不到此标记，也不涉及任何资金。"
+  },
+  "Quitar la marca": {
+   "en": "Remove the mark",
+   "fr": "Retirer la marque",
+   "de": "Markierung entfernen",
+   "it": "Togli il segno",
+   "pt": "Retirar a marca",
+   "pl": "Usuń oznaczenie",
+   "nl": "Markering verwijderen",
+   "zh": "取消标记"
+  },
+  "Marca quitada.": {
+   "en": "Mark removed.",
+   "fr": "Marque retirée.",
+   "de": "Markierung entfernt.",
+   "it": "Segno tolto.",
+   "pt": "Marca retirada.",
+   "pl": "Oznaczenie usunięte.",
+   "nl": "Markering verwijderd.",
+   "zh": "已取消标记。"
+  },
+  "Si cancelas, se libera tu plaza y avisamos al profesional. WORLDIVES no gestiona pagos ni devoluciones en este servicio: si le has pagado algo, resuélvelo directamente con él.": {
+   "en": "If you cancel, your place is freed and we tell the professional. WORLDIVES does not handle payments or refunds for this service: if you have paid anything, settle it directly with the professional.",
+   "fr": "Si vous annulez, votre place est libérée et nous prévenons le professionnel. WORLDIVES ne gère ni les paiements ni les remboursements de ce service : si vous lui avez payé quelque chose, réglez-le directement avec lui.",
+   "de": "Wenn du stornierst, wird dein Platz frei und wir benachrichtigen den Profi. WORLDIVES übernimmt bei dieser Leistung weder Zahlungen noch Erstattungen: Hast du etwas bezahlt, kläre es direkt mit ihm.",
+   "it": "Se annulli, il tuo posto si libera e avvisiamo il professionista. WORLDIVES non gestisce pagamenti né rimborsi per questo servizio: se gli hai pagato qualcosa, risolvilo direttamente con lui.",
+   "pt": "Se cancelares, o teu lugar fica livre e avisamos o profissional. A WORLDIVES não gere pagamentos nem reembolsos neste serviço: se lhe pagaste algo, resolve-o diretamente com ele.",
+   "pl": "Jeśli anulujesz, Twoje miejsce zostanie zwolnione, a my powiadomimy profesjonalistę. WORLDIVES nie obsługuje płatności ani zwrotów w tej usłudze: jeśli coś mu zapłaciłeś, rozlicz to bezpośrednio z nim.",
+   "nl": "Als je annuleert, komt je plaats vrij en verwittigen we de professional. WORLDIVES regelt geen betalingen of terugbetalingen voor deze dienst: heb je iets betaald, regel het dan rechtstreeks met hem of haar.",
+   "zh": "如果取消，你的名额会被释放，我们会通知专业人员。对于此服务，WORLDIVES 不处理付款或退款：如已向其付款，请直接与其解决。"
+  },
+  "Indica el precio: es obligatorio y se publica tal cual.": {
+   "en": "Enter the price: it is required and published as it is.",
+   "fr": "Indiquez le prix : il est obligatoire et publié tel quel.",
+   "de": "Gib den Preis an: Er ist Pflicht und wird so veröffentlicht.",
+   "it": "Indica il prezzo: è obbligatorio e viene pubblicato così com’è.",
+   "pt": "Indica o preço: é obrigatório e é publicado tal como está.",
+   "pl": "Podaj cenę: jest obowiązkowa i zostanie opublikowana bez zmian.",
+   "nl": "Vul de prijs in: die is verplicht en wordt zo gepubliceerd.",
+   "zh": "请填写价格：价格为必填项，并将按原样公布。"
+  },
+  "Marca al menos una forma de pago que aceptas.": {
+   "en": "Tick at least one way of paying you accept.",
+   "fr": "Cochez au moins un mode de paiement que vous acceptez.",
+   "de": "Markiere mindestens eine Zahlungsweise, die du akzeptierst.",
+   "it": "Spunta almeno un modo di pagamento che accetti.",
+   "pt": "Marca pelo menos uma forma de pagamento que aceitas.",
+   "pl": "Zaznacz co najmniej jedną akceptowaną formę płatności.",
+   "nl": "Vink minstens één betaalwijze aan die je aanvaardt.",
+   "zh": "请至少勾选一种你接受的付款方式。"
+  },
+  "Escribe cuál es la otra forma de pago.": {
+   "en": "Write which other way of paying it is.",
+   "fr": "Indiquez quel est l'autre mode de paiement.",
+   "de": "Schreib, welche andere Zahlungsweise es ist.",
+   "it": "Scrivi qual è l'altro modo di pagamento.",
+   "pt": "Escreve qual é a outra forma de pagamento.",
+   "pl": "Napisz, jaka to inna forma płatności.",
+   "nl": "Schrijf welke andere betaalwijze het is.",
+   "zh": "请写明其他付款方式。"
+  },
+  "Escribe tu WhatsApp con el prefijo del país.": {
+   "en": "Write your WhatsApp number with the country code.",
+   "fr": "Indiquez votre WhatsApp avec l’indicatif du pays.",
+   "de": "Gib deine WhatsApp-Nummer mit Ländervorwahl an.",
+   "it": "Scrivi il tuo WhatsApp con il prefisso del paese.",
+   "pt": "Escreve o teu WhatsApp com o indicativo do país.",
+   "pl": "Podaj swój numer WhatsApp z kierunkowym kraju.",
+   "nl": "Vul je WhatsApp-nummer in met het landnummer.",
+   "zh": "请填写带国家区号的 WhatsApp 号码。"
+  },
+  "Acepta las condiciones del pago en persona para activarlo.": {
+   "en": "Accept the terms of payment in person to switch it on.",
+   "fr": "Acceptez les conditions du paiement en personne pour l’activer.",
+   "de": "Akzeptiere die Bedingungen der Zahlung vor Ort, um sie zu aktivieren.",
+   "it": "Accetta le condizioni del pagamento di persona per attivarlo.",
+   "pt": "Aceita as condições do pagamento presencial para o ativar.",
+   "pl": "Zaakceptuj warunki płatności osobiście, aby ją włączyć.",
+   "nl": "Aanvaard de voorwaarden van persoonlijke betaling om die in te schakelen.",
+   "zh": "请接受当面付款条款以开启此功能。"
+  },
+  "Revisa el número: escríbelo con el prefijo del país.": {
+   "en": "Check the number: write it with the country code.",
+   "fr": "Vérifiez le numéro : écrivez-le avec l’indicatif du pays.",
+   "de": "Prüfe die Nummer: Schreib sie mit Ländervorwahl.",
+   "it": "Controlla il numero: scrivilo con il prefisso del paese.",
+   "pt": "Verifica o número: escreve-o com o indicativo do país.",
+   "pl": "Sprawdź numer: wpisz go z kierunkowym kraju.",
+   "nl": "Controleer het nummer: schrijf het met het landnummer.",
+   "zh": "请检查号码：需包含国家区号。"
+  },
+  "Forma de cobro": {
+   "en": "How you get paid",
+   "fr": "Mode d’encaissement",
+   "de": "Zahlungsart",
+   "it": "Modalità di incasso",
+   "pt": "Forma de cobrança",
+   "pl": "Sposób pobierania płatności",
+   "nl": "Manier van betaling",
+   "zh": "收款方式"
+  },
+  "Pago online": {
+   "en": "Online payment",
+   "fr": "Paiement en ligne",
+   "de": "Online-Zahlung",
+   "it": "Pagamento online",
+   "pt": "Pagamento online",
+   "pl": "Płatność online",
+   "nl": "Online betaling",
+   "zh": "在线付款"
+  },
+  "El cliente paga con tarjeta y el dinero va a tu cuenta de Stripe.": {
+   "en": "The customer pays by card and the money goes to your Stripe account.",
+   "fr": "Le client paie par carte et l'argent va sur votre compte Stripe.",
+   "de": "Der Kunde zahlt mit Karte und das Geld geht auf dein Stripe-Konto.",
+   "it": "Il cliente paga con carta e il denaro va sul tuo conto Stripe.",
+   "pt": "O cliente paga com cartão e o dinheiro vai para a tua conta Stripe.",
+   "pl": "Klient płaci kartą, a pieniądze trafiają na Twoje konto Stripe.",
+   "nl": "De klant betaalt met kaart en het geld gaat naar je Stripe-rekening.",
+   "zh": "客户刷卡付款，款项进入你的 Stripe 账户。"
+  },
+  "El cliente te paga directamente: efectivo, Bizum, transferencia… Siempre «Bajo petición».": {
+   "en": "The customer pays you directly: cash, Bizum, bank transfer… Always \"On request\".",
+   "fr": "Le client vous paie directement : espèces, Bizum, virement… Toujours « Sur demande ».",
+   "de": "Der Kunde bezahlt dich direkt: bar, Bizum, Überweisung … Immer „Auf Anfrage“.",
+   "it": "Il cliente ti paga direttamente: contanti, Bizum, bonifico… Sempre «Su richiesta».",
+   "pt": "O cliente paga-te diretamente: dinheiro, Bizum, transferência… Sempre «Sob pedido».",
+   "pl": "Klient płaci Ci bezpośrednio: gotówką, Bizum, przelewem… Zawsze „Na zapytanie”.",
+   "nl": "De klant betaalt je rechtstreeks: contant, Bizum, overschrijving… Altijd \"Op aanvraag\".",
+   "zh": "客户直接向你付款：现金、Bizum、银行转账……始终为「按申请预订」。"
+  },
+  "WORLDIVES no toca el dinero: solo es el buscador, el escaparate y la agenda.": {
+   "en": "WORLDIVES never touches the money: it is only the search engine, the showcase and the schedule.",
+   "fr": "WORLDIVES ne touche pas à l'argent : ce n'est que le moteur de recherche, la vitrine et l'agenda.",
+   "de": "WORLDIVES fasst das Geld nicht an: Es ist nur Suchmaschine, Schaufenster und Kalender.",
+   "it": "WORLDIVES non tocca il denaro: è solo il motore di ricerca, la vetrina e l’agenda.",
+   "pt": "A WORLDIVES não toca no dinheiro: é só o motor de pesquisa, a montra e a agenda.",
+   "pl": "WORLDIVES nie dotyka pieniędzy: jest tylko wyszukiwarką, witryną i kalendarzem.",
+   "nl": "WORLDIVES raakt het geld niet aan: het is alleen de zoekmachine, de etalage en de agenda.",
+   "zh": "WORLDIVES 不经手任何资金：它只是搜索引擎、展示平台和日程工具。"
+  },
+  "Formas de pago que aceptas": {
+   "en": "Ways of paying you accept",
+   "fr": "Modes de paiement que vous acceptez",
+   "de": "Zahlungsweisen, die du akzeptierst",
+   "it": "Modi di pagamento che accetti",
+   "pt": "Formas de pagamento que aceitas",
+   "pl": "Akceptowane przez Ciebie formy płatności",
+   "nl": "Betaalwijzen die je aanvaardt",
+   "zh": "你接受的付款方式"
+  },
+  "Solo informativo: el cliente lo ve antes de enviar la solicitud.": {
+   "en": "For information only: the customer sees it before sending the request.",
+   "fr": "À titre informatif : le client le voit avant d’envoyer la demande.",
+   "de": "Nur zur Information: Der Kunde sieht es vor dem Absenden der Anfrage.",
+   "it": "Solo informativo: il cliente lo vede prima di inviare la richiesta.",
+   "pt": "Apenas informativo: o cliente vê-o antes de enviar o pedido.",
+   "pl": "Tylko informacyjnie: klient widzi to przed wysłaniem zapytania.",
+   "nl": "Alleen ter informatie: de klant ziet het voordat hij de aanvraag verstuurt.",
+   "zh": "仅供参考：客户在发送申请前可以看到。"
+  },
+  "WhatsApp de contacto": {
+   "en": "Contact WhatsApp",
+   "fr": "WhatsApp de contact",
+   "de": "WhatsApp-Kontakt",
+   "it": "WhatsApp di contatto",
+   "pt": "WhatsApp de contacto",
+   "pl": "WhatsApp do kontaktu",
+   "nl": "WhatsApp-contact",
+   "zh": "联系 WhatsApp"
+  },
+  "Obligatorio. No se publica: el cliente solo lo ve cuando aceptas su reserva, con el botón «Hablar por WhatsApp».": {
+   "en": "Required. It is not published: the customer only sees it once you accept the booking, with the \"Chat on WhatsApp\" button.",
+   "fr": "Obligatoire. Il n'est pas publié : le client ne le voit que lorsque vous acceptez sa réservation, avec le bouton « Écrire sur WhatsApp ».",
+   "de": "Pflicht. Sie wird nicht veröffentlicht: Der Kunde sieht sie erst, wenn du seine Buchung annimmst, mit der Schaltfläche „Per WhatsApp schreiben“.",
+   "it": "Obbligatorio. Non viene pubblicato: il cliente lo vede solo quando accetti la prenotazione, con il pulsante «Scrivi su WhatsApp».",
+   "pt": "Obrigatório. Não é publicado: o cliente só o vê quando aceitas a reserva, com o botão «Falar por WhatsApp».",
+   "pl": "Obowiązkowe. Numer nie jest publiczny: klient widzi go dopiero po przyjęciu rezerwacji, przyciskiem „Napisz na WhatsApp”.",
+   "nl": "Verplicht. Het wordt niet gepubliceerd: de klant ziet het pas als je de boeking accepteert, met de knop \"Chat via WhatsApp\".",
+   "zh": "必填。不会公开：只有在你接受预订后，客户才能通过「通过 WhatsApp 联系」按钮看到。"
+  },
+  "Tu política de cancelación (opcional)": {
+   "en": "Your cancellation policy (optional)",
+   "fr": "Votre politique d'annulation (facultatif)",
+   "de": "Deine Stornobedingungen (optional)",
+   "it": "La tua politica di cancellazione (facoltativa)",
+   "pt": "A tua política de cancelamento (opcional)",
+   "pl": "Twoje zasady anulowania (opcjonalnie)",
+   "nl": "Je annuleringsbeleid (optioneel)",
+   "zh": "你的取消政策（可选）"
+  },
+  "Se muestra como «Política del profesional». WORLDIVES no gestiona cancelaciones ni devoluciones en este servicio.": {
+   "en": "It is shown as \"Professional's policy\". WORLDIVES does not handle cancellations or refunds for this service.",
+   "fr": "Elle s'affiche comme « Politique du professionnel ». WORLDIVES ne gère ni les annulations ni les remboursements de ce service.",
+   "de": "Sie wird als „Bedingungen des Profis“ angezeigt. WORLDIVES übernimmt bei dieser Leistung weder Stornierungen noch Erstattungen.",
+   "it": "Si mostra come «Politica del professionista». WORLDIVES non gestisce cancellazioni né rimborsi per questo servizio.",
+   "pt": "Aparece como «Política do profissional». A WORLDIVES não gere cancelamentos nem reembolsos neste serviço.",
+   "pl": "Wyświetla się jako „Zasady profesjonalisty”. WORLDIVES nie obsługuje anulacji ani zwrotów w tej usłudze.",
+   "nl": "Het wordt getoond als \"Beleid van de professional\". WORLDIVES regelt geen annuleringen of terugbetalingen voor deze dienst.",
+   "zh": "显示为「专业人员的政策」。对于此服务，WORLDIVES 不处理取消或退款。"
+  },
+  "Acepto las condiciones del pago en persona": {
+   "en": "I accept the terms of payment in person",
+   "fr": "J'accepte les conditions du paiement en personne",
+   "de": "Ich akzeptiere die Bedingungen der Zahlung vor Ort",
+   "it": "Accetto le condizioni del pagamento di persona",
+   "pt": "Aceito as condições do pagamento presencial",
+   "pl": "Akceptuję warunki płatności osobiście",
+   "nl": "Ik aanvaard de voorwaarden van persoonlijke betaling",
+   "zh": "我接受当面付款条款"
+  },
+  "Soy el único responsable de mis cobros, de mis obligaciones fiscales y de Seguridad Social y de mi seguro.": {
+   "en": "I am solely responsible for my payments, my tax and social security obligations and my insurance.",
+   "fr": "Je suis seul responsable de mes encaissements, de mes obligations fiscales et de sécurité sociale et de mon assurance.",
+   "de": "Ich bin allein für meine Zahlungen, meine steuerlichen und sozialversicherungsrechtlichen Pflichten und meine Versicherung verantwortlich.",
+   "it": "Sono l’unico responsabile dei miei incassi, dei miei obblighi fiscali e previdenziali e della mia assicurazione.",
+   "pt": "Sou o único responsável pelas minhas cobranças, pelas minhas obrigações fiscais e de Segurança Social e pelo meu seguro.",
+   "pl": "Wyłącznie ja odpowiadam za swoje płatności, obowiązki podatkowe i ubezpieczenie społeczne oraz ubezpieczenie.",
+   "nl": "Ik ben als enige verantwoordelijk voor mijn betalingen, mijn fiscale en socialezekerheidsverplichtingen en mijn verzekering.",
+   "zh": "我独自负责自己的收款、税务和社会保险义务以及保险。"
+  },
+  "Leer las condiciones": {
+   "en": "Read the terms",
+   "fr": "Lire les conditions",
+   "de": "Bedingungen lesen",
+   "it": "Leggi le condizioni",
+   "pt": "Ler as condições",
+   "pl": "Przeczytaj warunki",
+   "nl": "Lees de voorwaarden",
+   "zh": "阅读条款"
+  },
+  "Obligatorio: se publica tal cual en el buscador, la ficha y la reserva (sin «a consultar»).": {
+   "en": "Required: it is published as it is in the search, on the page and in the booking (no \"price on request\").",
+   "fr": "Obligatoire : il est publié tel quel dans la recherche, la fiche et la réservation (sans « sur demande »).",
+   "de": "Pflicht: Er wird so in der Suche, auf der Seite und in der Buchung veröffentlicht (ohne „auf Anfrage“).",
+   "it": "Obbligatorio: viene pubblicato così com’è nella ricerca, nella scheda e nella prenotazione (senza «su richiesta»).",
+   "pt": "Obrigatório: é publicado tal como está na pesquisa, na ficha e na reserva (sem «sob consulta»).",
+   "pl": "Obowiązkowe: publikowana bez zmian w wyszukiwarce, na karcie i w rezerwacji (bez „do uzgodnienia”).",
+   "nl": "Verplicht: wordt zo gepubliceerd in de zoekresultaten, op de pagina en in de boeking (zonder \"op aanvraag\").",
+   "zh": "必填：将按原样公布在搜索结果、详情页和预订中（不得写「面议」）。"
+  },
+  "No pagas nada a través de WORLDIVES: acuerdas el pago con el profesional por WhatsApp cuando acepte.": {
+   "en": "You pay nothing through WORLDIVES: you agree the payment with the professional on WhatsApp once he or she accepts.",
+   "fr": "Vous ne payez rien via WORLDIVES : vous convenez du paiement avec le professionnel sur WhatsApp lorsqu'il accepte.",
+   "de": "Über WORLDIVES zahlst du nichts: Du vereinbarst die Zahlung per WhatsApp mit dem Profi, sobald er annimmt.",
+   "it": "Tramite WORLDIVES non paghi nulla: concordi il pagamento con il professionista su WhatsApp quando accetta.",
+   "pt": "Não pagas nada através da WORLDIVES: combinas o pagamento com o profissional por WhatsApp quando ele aceitar.",
+   "pl": "Przez WORLDIVES nic nie płacisz: płatność uzgadniasz z profesjonalistą przez WhatsApp, gdy przyjmie zapytanie.",
+   "nl": "Via WORLDIVES betaal je niets: je spreekt de betaling via WhatsApp af met de professional zodra die accepteert.",
+   "zh": "不通过 WORLDIVES 付款：专业人员接受后，你通过 WhatsApp 与其商定付款。"
+  },
+  "Este servicio todavía no tiene precio publicado.": {
+   "en": "This service has no published price yet.",
+   "fr": "Ce service n'a pas encore de prix publié.",
+   "de": "Für diese Leistung ist noch kein Preis veröffentlicht.",
+   "it": "Questo servizio non ha ancora un prezzo pubblicato.",
+   "pt": "Este serviço ainda não tem preço publicado.",
+   "pl": "Ta usługa nie ma jeszcze opublikowanej ceny.",
+   "nl": "Voor deze dienst is nog geen prijs gepubliceerd.",
+   "zh": "该服务尚未公布价格。"
+  },
+  "Este profesional no admite reservas ahora mismo. Prueba más tarde.": {
+   "en": "This professional is not taking bookings right now. Try again later.",
+   "fr": "Ce professionnel n'accepte pas de réservations pour le moment. Réessayez plus tard.",
+   "de": "Dieser Profi nimmt gerade keine Buchungen an. Versuch es später noch einmal.",
+   "it": "Questo professionista al momento non accetta prenotazioni. Riprova più tardi.",
+   "pt": "Este profissional não aceita reservas neste momento. Tenta mais tarde.",
+   "pl": "Ten profesjonalista nie przyjmuje teraz rezerwacji. Spróbuj później.",
+   "nl": "Deze professional neemt nu geen boekingen aan. Probeer het later opnieuw.",
+   "zh": "该专业人员目前不接受预订，请稍后再试。"
+  },
+  "Indica el precio del servicio: es obligatorio y se publica tal cual (sin «a consultar»).": {
+   "en": "Enter the price of the service: it is required and published as it is (no \"price on request\").",
+   "fr": "Indiquez le prix du service : il est obligatoire et publié tel quel (sans « sur demande »).",
+   "de": "Gib den Preis der Leistung an: Er ist Pflicht und wird so veröffentlicht (ohne „auf Anfrage“).",
+   "it": "Indica il prezzo del servizio: è obbligatorio e viene pubblicato così com’è (senza «su richiesta»).",
+   "pt": "Indica o preço do serviço: é obrigatório e é publicado tal como está (sem «sob consulta»).",
+   "pl": "Podaj cenę usługi: jest obowiązkowa i zostanie opublikowana bez zmian (bez „do uzgodnienia”).",
+   "nl": "Vul de prijs van de dienst in: die is verplicht en wordt zo gepubliceerd (zonder \"op aanvraag\").",
+   "zh": "请填写服务价格：价格为必填项，并将按原样公布（不得写「面议」）。"
+  },
+  "«Pago en persona» solo funciona con «Bajo petición»: el cliente te envía una solicitud y tú la aceptas. «Pago al reservar» no es posible con pago en persona.": {
+   "en": "\"Payment in person\" only works with \"On request\": the customer sends you a request and you accept it. \"Pay when booking\" is not possible with payment in person.",
+   "fr": "Le « Paiement en personne » ne fonctionne qu'avec « Sur demande » : le client vous envoie une demande et vous l'acceptez. Le « Paiement à la réservation » n'est pas possible avec le paiement en personne.",
+   "de": "„Zahlung vor Ort“ funktioniert nur mit „Auf Anfrage“: Der Kunde sendet dir eine Anfrage und du nimmst sie an. „Bezahlen bei der Buchung“ ist mit Zahlung vor Ort nicht möglich.",
+   "it": "Il «Pagamento di persona» funziona solo con «Su richiesta»: il cliente ti invia una richiesta e tu la accetti. Il «Pagamento alla prenotazione» non è possibile con il pagamento di persona.",
+   "pt": "O «Pagamento presencial» só funciona com «Sob pedido»: o cliente envia-te um pedido e tu aceitas. O «Pagamento ao reservar» não é possível com pagamento presencial.",
+   "pl": "„Płatność osobiście” działa tylko z opcją „Na zapytanie”: klient wysyła zapytanie, a Ty je przyjmujesz. „Płatność przy rezerwacji” nie jest możliwa przy płatności osobiście.",
+   "nl": "\"Persoonlijke betaling\" werkt alleen met \"Op aanvraag\": de klant stuurt je een aanvraag en jij accepteert die. \"Betalen bij boeken\" is niet mogelijk met persoonlijke betaling.",
+   "zh": "「当面付款」只适用于「按申请预订」：客户向你发送申请，由你接受。当面付款不能使用「预订时付款」。"
+  }
+ },
+ "patterns": {}
+}

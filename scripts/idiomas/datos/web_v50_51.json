@@ -1,0 +1,936 @@
+{
+ "exact": {
+  "Vida marina en esta inmersión": {
+   "en": "Marine life on this dive",
+   "fr": "Vie marine de cette plongée",
+   "de": "Meeresleben bei diesem Tauchgang",
+   "it": "Vita marina in questa immersione",
+   "pt": "Vida marinha neste mergulho",
+   "nl": "Zeeleven tijdens deze duik",
+   "pl": "Życie morskie podczas tego nurkowania",
+   "zh": "本次潜水可见的海洋生物"
+  },
+  "1 especie": {
+   "en": "1 species",
+   "fr": "1 espèce",
+   "de": "1 Art",
+   "it": "1 specie",
+   "pt": "1 espécie",
+   "nl": "1 soort",
+   "pl": "1 gatunek",
+   "zh": "1 个物种"
+  },
+  "En esta inmersión": {
+   "en": "On this dive",
+   "fr": "Dans cette plongée",
+   "de": "Bei diesem Tauchgang",
+   "it": "In questa immersione",
+   "pt": "Neste mergulho",
+   "nl": "Tijdens deze duik",
+   "pl": "Podczas tego nurkowania",
+   "zh": "本次潜水"
+  },
+  "Mejor época": {
+   "en": "Best season",
+   "fr": "Meilleure période",
+   "de": "Beste Zeit",
+   "it": "Periodo migliore",
+   "pt": "Melhor época",
+   "nl": "Beste periode",
+   "pl": "Najlepszy okres",
+   "zh": "最佳季节"
+  },
+  "Entrar en el recorrido": {
+   "en": "Start the tour",
+   "fr": "Commencer la visite",
+   "de": "Tour starten",
+   "it": "Inizia il percorso",
+   "pt": "Entrar no percurso",
+   "nl": "Start de rondleiding",
+   "pl": "Rozpocznij wycieczkę",
+   "zh": "进入导览"
+  },
+  "Vídeo de un servicio externo": {
+   "en": "Video from an external service",
+   "fr": "Vidéo d’un service externe",
+   "de": "Video eines externen Dienstes",
+   "it": "Video di un servizio esterno",
+   "pt": "Vídeo de um serviço externo",
+   "nl": "Video van een externe dienst",
+   "pl": "Film z zewnętrznego serwisu",
+   "zh": "来自外部服务的视频"
+  },
+  "Cargar vídeo": {
+   "en": "Load video",
+   "fr": "Charger la vidéo",
+   "de": "Video laden",
+   "it": "Carica video",
+   "pt": "Carregar vídeo",
+   "nl": "Video laden",
+   "pl": "Wczytaj film",
+   "zh": "加载视频"
+  },
+  "Versión de demostración": {
+   "en": "Demo version",
+   "fr": "Version de démonstration",
+   "de": "Demoversion",
+   "it": "Versione dimostrativa",
+   "pt": "Versão de demonstração",
+   "nl": "Demoversie",
+   "pl": "Wersja demonstracyjna",
+   "zh": "演示版"
+  },
+  "Centros, personas y reservas inventados. Pagos de prueba; los correos no salen.": {
+   "en": "Invented centres, people and bookings. Test payments; no emails are sent.",
+   "fr": "Centres, personnes et réservations inventés. Paiements de test ; aucun e-mail n’est envoyé.",
+   "de": "Erfundene Tauchbasen, Personen und Buchungen. Testzahlungen; es werden keine E-Mails verschickt.",
+   "it": "Centri, persone e prenotazioni inventati. Pagamenti di prova; le e-mail non vengono inviate.",
+   "pt": "Centros, pessoas e reservas inventados. Pagamentos de teste; os e-mails não são enviados.",
+   "nl": "Verzonnen centra, personen en boekingen. Testbetalingen; er worden geen e-mails verstuurd.",
+   "pl": "Wymyślone centra, osoby i rezerwacje. Płatności testowe; e-maile nie są wysyłane.",
+   "zh": "中心、人物和预订均为虚构。测试付款；不会发送电子邮件。"
+  },
+  "En otros idiomas": {
+   "en": "In other languages",
+   "fr": "Dans d’autres langues",
+   "de": "In anderen Sprachen",
+   "it": "In altre lingue",
+   "pt": "Noutros idiomas",
+   "nl": "In andere talen",
+   "pl": "W innych językach",
+   "zh": "其他语言"
+  },
+  "Escribe tu presentación en cada idioma que hables. Quien visite tu página en ese idioma la verá así; en los demás idiomas se ve el texto principal.": {
+   "en": "Write your presentation in each language you speak. Visitors in that language will see it; in the others they see the main text.",
+   "fr": "Rédigez votre présentation dans chaque langue que vous parlez. Les visiteurs dans cette langue la verront ; dans les autres, ils voient le texte principal.",
+   "de": "Schreibe deine Vorstellung in jeder Sprache, die du sprichst. Besucher in dieser Sprache sehen sie so; in den anderen Sprachen erscheint der Haupttext.",
+   "it": "Scrivi la tua presentazione in ogni lingua che parli. Chi visita la pagina in quella lingua la vedrà così; nelle altre si vede il testo principale.",
+   "pt": "Escreva a sua apresentação em cada idioma que fala. Quem visitar a página nesse idioma vê-a assim; nos outros vê o texto principal.",
+   "nl": "Schrijf je presentatie in elke taal die je spreekt. Bezoekers in die taal zien hem zo; in de andere talen zien ze de hoofdtekst.",
+   "pl": "Napisz prezentację w każdym języku, którym mówisz. Odwiedzający w tym języku zobaczą ją tak; w pozostałych widać tekst główny.",
+   "zh": "用你会说的每种语言撰写介绍。使用该语言的访客会看到它；其他语言显示主要文本。"
+  },
+  "Demasiados intentos con la contraseña. Espera unos minutos.": {
+   "en": "Too many password attempts. Please wait a few minutes.",
+   "fr": "Trop de tentatives de mot de passe. Patientez quelques minutes.",
+   "de": "Zu viele Passwortversuche. Bitte warte ein paar Minuten.",
+   "it": "Troppi tentativi con la password. Attendi qualche minuto.",
+   "pt": "Demasiadas tentativas com a palavra-passe. Aguarde alguns minutos.",
+   "nl": "Te veel wachtwoordpogingen. Wacht een paar minuten.",
+   "pl": "Zbyt wiele prób hasła. Odczekaj kilka minut.",
+   "zh": "密码尝试次数过多，请几分钟后再试。"
+  },
+  "Estado del sistema": {
+   "en": "System status",
+   "fr": "État du système",
+   "de": "Systemstatus",
+   "it": "Stato del sistema",
+   "pt": "Estado do sistema",
+   "nl": "Systeemstatus",
+   "pl": "Stan systemu",
+   "zh": "系统状态"
+  },
+  "Detalle": {
+   "en": "Details",
+   "fr": "Détail",
+   "de": "Details",
+   "it": "Dettaglio",
+   "pt": "Detalhe",
+   "nl": "Details",
+   "pl": "Szczegóły",
+   "zh": "详情"
+  },
+  "Variable del .env": {
+   "en": ".env variable",
+   "fr": "Variable du .env",
+   "de": ".env-Variable",
+   "it": "Variabile del .env",
+   "pt": "Variável do .env",
+   "nl": ".env-variabele",
+   "pl": "Zmienna .env",
+   "zh": ".env 变量"
+  },
+  "Configurado": {
+   "en": "Configured",
+   "fr": "Configuré",
+   "de": "Eingerichtet",
+   "it": "Configurato",
+   "pt": "Configurado",
+   "nl": "Ingesteld",
+   "pl": "Skonfigurowano",
+   "zh": "已配置"
+  },
+  "Error": {
+   "en": "Error",
+   "fr": "Erreur",
+   "de": "Fehler",
+   "it": "Errore",
+   "pt": "Erro",
+   "nl": "Fout",
+   "pl": "Błąd",
+   "zh": "错误"
+  },
+  "Si falta una clave, solo se desactiva esa función; el resto de la web sigue funcionando. Las claves van en el archivo": {
+   "en": "If a key is missing, only that function is switched off; the rest of the website keeps working. Keys go in the file",
+   "fr": "S’il manque une clé, seule cette fonction est désactivée ; le reste du site continue de fonctionner. Les clés vont dans le fichier",
+   "de": "Fehlt ein Schlüssel, wird nur diese Funktion abgeschaltet; der Rest der Website funktioniert weiter. Die Schlüssel stehen in der Datei",
+   "it": "Se manca una chiave, si disattiva solo quella funzione; il resto del sito continua a funzionare. Le chiavi vanno nel file",
+   "pt": "Se faltar uma chave, só essa função é desativada; o resto do site continua a funcionar. As chaves vão no ficheiro",
+   "nl": "Ontbreekt een sleutel, dan wordt alleen die functie uitgeschakeld; de rest van de website blijft werken. De sleutels staan in het bestand",
+   "pl": "Jeśli brakuje klucza, wyłącza się tylko ta funkcja; reszta strony działa dalej. Klucze są w pliku",
+   "zh": "缺少某个密钥时，只会关闭该功能；网站其余部分照常运行。密钥写在服务器的文件"
+  },
+  "del servidor y se aplican al reiniciarlo.": {
+   "en": "on the server and are applied when it restarts.",
+   "fr": "du serveur et s’appliquent au redémarrage.",
+   "de": "auf dem Server und gelten nach einem Neustart.",
+   "it": "del server e si applicano al riavvio.",
+   "pt": "do servidor e aplicam-se ao reiniciá-lo.",
+   "nl": "op de server en worden toegepast na een herstart.",
+   "pl": "na serwerze i działają po ponownym uruchomieniu.",
+   "zh": "中，重启后生效。"
+  },
+  "Panorámicas, Street View y archivos subidos que no son enlaces de YouTube o Vimeo. Siguen saliendo en «Recorrido virtual» de la ficha del punto, como siempre. Si quieres, sustitúyelos por un vídeo enlazado.": {
+   "en": "Panoramas, Street View and uploaded files that aren't YouTube or Vimeo links. They still appear under «Virtual tour» on the dive site page, as always. If you like, replace them with a linked video.",
+   "fr": "Panoramas, Street View et fichiers envoyés qui ne sont pas des liens YouTube ou Vimeo. Ils apparaissent toujours dans « Visite virtuelle » de la fiche du site. Si vous le souhaitez, remplacez-les par une vidéo liée.",
+   "de": "Panoramen, Street View und hochgeladene Dateien, die keine YouTube- oder Vimeo-Links sind. Sie erscheinen wie bisher unter „Virtuelle Tour“ auf der Seite des Tauchplatzes. Wenn du willst, ersetze sie durch ein verlinktes Video.",
+   "it": "Panoramiche, Street View e file caricati che non sono link di YouTube o Vimeo. Continuano ad apparire in «Percorso virtuale» nella scheda del punto. Se vuoi, sostituiscili con un video collegato.",
+   "pt": "Panorâmicas, Street View e ficheiros enviados que não são ligações do YouTube ou Vimeo. Continuam a aparecer em «Percurso virtual» na ficha do ponto. Se quiser, substitua-os por um vídeo ligado.",
+   "nl": "Panorama's, Street View en geüploade bestanden die geen YouTube- of Vimeo-links zijn. Ze staan zoals altijd onder ‘Virtuele tour’ op de pagina van de duikstek. Vervang ze desgewenst door een gekoppelde video.",
+   "pl": "Panoramy, Street View i przesłane pliki, które nie są linkami do YouTube ani Vimeo. Nadal widać je w „Wirtualnej wycieczce” na stronie miejsca. Jeśli chcesz, zastąp je podlinkowanym filmem.",
+   "zh": "不是 YouTube 或 Vimeo 链接的全景图、街景和上传文件。它们照常显示在潜点页面的“虚拟导览”中。如有需要，可以用链接视频替换。"
+  },
+  "Escribe al menos dos letras": {
+   "en": "Type at least two letters",
+   "fr": "Tapez au moins deux lettres",
+   "de": "Gib mindestens zwei Buchstaben ein",
+   "it": "Scrivi almeno due lettere",
+   "pt": "Escreve pelo menos duas letras",
+   "pl": "Wpisz co najmniej dwie litery",
+   "nl": "Typ minstens twee letters",
+   "zh": "请至少输入两个字"
+  },
+  "El nombre de un punto, una ciudad, una isla o un centro de buceo.": {
+   "en": "The name of a dive site, a town, an island or a dive centre.",
+   "fr": "Le nom d'un site, d'une ville, d'une île ou d'un centre de plongée.",
+   "de": "Der Name eines Tauchplatzes, einer Stadt, einer Insel oder einer Tauchbasis.",
+   "it": "Il nome di un punto d'immersione, una città, un'isola o un centro sub.",
+   "pt": "O nome de um ponto de mergulho, uma cidade, uma ilha ou um centro de mergulho.",
+   "pl": "Nazwa miejsca nurkowego, miasta, wyspy lub centrum nurkowego.",
+   "nl": "De naam van een duikstek, een plaats, een eiland of een duikcentrum.",
+   "zh": "潜点、城市、岛屿或潜水中心的名称。"
+  },
+  "hora local": {
+   "en": "local time",
+   "fr": "heure locale",
+   "de": "Ortszeit",
+   "it": "ora locale",
+   "pt": "hora local",
+   "pl": "czas lokalny",
+   "nl": "lokale tijd",
+   "zh": "当地时间"
+  },
+  "Activa la verificación en dos pasos en «Mi cuenta» para usar la administración.": {
+   "en": "Turn on two-step verification in «My account» to use the administration.",
+   "fr": "Activez la vérification en deux étapes dans « Mon compte » pour utiliser l’administration.",
+   "de": "Aktiviere die Zwei-Schritt-Verifizierung unter „Mein Konto“, um die Verwaltung zu nutzen.",
+   "it": "Attiva la verifica in due passaggi in «Il mio account» per usare l’amministrazione.",
+   "pt": "Ative a verificação em dois passos em «A minha conta» para usar a administração.",
+   "nl": "Zet tweestapsverificatie aan in ‘Mijn account’ om het beheer te gebruiken.",
+   "pl": "Włącz weryfikację dwuetapową w „Moje konto”, aby korzystać z administracji.",
+   "zh": "请在“我的账户”中开启两步验证后再使用管理功能。"
+  },
+  "Ahora mismo no se pueden comprobar los archivos. Prueba dentro de unos minutos.": {
+   "en": "Files can’t be checked right now. Try again in a few minutes.",
+   "fr": "Impossible de vérifier les fichiers pour le moment. Réessayez dans quelques minutes.",
+   "de": "Dateien können gerade nicht geprüft werden. Versuche es in ein paar Minuten erneut.",
+   "it": "Al momento non è possibile controllare i file. Riprova tra qualche minuto.",
+   "pt": "Neste momento não é possível verificar os ficheiros. Tente dentro de alguns minutos.",
+   "nl": "Bestanden kunnen nu niet worden gecontroleerd. Probeer het over een paar minuten opnieuw.",
+   "pl": "W tej chwili nie można sprawdzić plików. Spróbuj za kilka minut.",
+   "zh": "暂时无法检查文件，请几分钟后再试。"
+  },
+  "Algún dato enviado no tiene el formato esperado.": {
+   "en": "Some of the data sent is not in the expected format.",
+   "fr": "Certaines données envoyées n’ont pas le format attendu.",
+   "de": "Einige gesendete Daten haben nicht das erwartete Format.",
+   "it": "Alcuni dati inviati non hanno il formato previsto.",
+   "pt": "Alguns dados enviados não têm o formato esperado.",
+   "nl": "Sommige verzonden gegevens hebben niet het verwachte formaat.",
+   "pl": "Niektóre wysłane dane mają nieprawidłowy format.",
+   "zh": "提交的部分数据格式不正确。"
+  },
+  "Antivirus de los documentos": {
+   "en": "Document antivirus",
+   "fr": "Antivirus des documents",
+   "de": "Virenprüfung der Dokumente",
+   "it": "Antivirus dei documenti",
+   "pt": "Antivírus dos documentos",
+   "nl": "Antivirus voor documenten",
+   "pl": "Antywirus dokumentów",
+   "zh": "文件杀毒检查"
+  },
+  "Cada documento pasa por el antivirus antes de guardarse.": {
+   "en": "Every document is scanned by the antivirus before it is saved.",
+   "fr": "Chaque document passe par l’antivirus avant d’être enregistré.",
+   "de": "Jedes Dokument wird vor dem Speichern auf Viren geprüft.",
+   "it": "Ogni documento passa dall’antivirus prima di essere salvato.",
+   "pt": "Cada documento passa pelo antivírus antes de ser guardado.",
+   "nl": "Elk document gaat door de antivirus voordat het wordt opgeslagen.",
+   "pl": "Każdy dokument jest skanowany antywirusem przed zapisaniem.",
+   "zh": "每份文件保存前都会经过杀毒检查。"
+  },
+  "Sin antivirus: los documentos solo se comprueban por su contenido.": {
+   "en": "No antivirus: documents are only checked by their content.",
+   "fr": "Pas d’antivirus : les documents ne sont vérifiés que par leur contenu.",
+   "de": "Keine Virenprüfung: Dokumente werden nur anhand ihres Inhalts geprüft.",
+   "it": "Nessun antivirus: i documenti vengono controllati solo in base al contenuto.",
+   "pt": "Sem antivírus: os documentos só são verificados pelo conteúdo.",
+   "nl": "Geen antivirus: documenten worden alleen op hun inhoud gecontroleerd.",
+   "pl": "Brak antywirusa: dokumenty są sprawdzane tylko po zawartości.",
+   "zh": "未启用杀毒：仅按内容检查文件。"
+  },
+  "Documentos que suben buceadores y centros (ASVS 5.0 V5.4.3).": {
+   "en": "Documents uploaded by divers and centres (ASVS 5.0 V5.4.3).",
+   "fr": "Documents envoyés par les plongeurs et les centres (ASVS 5.0 V5.4.3).",
+   "de": "Von Tauchern und Tauchbasen hochgeladene Dokumente (ASVS 5.0 V5.4.3).",
+   "it": "Documenti caricati da subacquei e centri (ASVS 5.0 V5.4.3).",
+   "pt": "Documentos enviados por mergulhadores e centros (ASVS 5.0 V5.4.3).",
+   "nl": "Documenten die duikers en centra uploaden (ASVS 5.0 V5.4.3).",
+   "pl": "Dokumenty przesyłane przez nurków i centra (ASVS 5.0 V5.4.3).",
+   "zh": "潜水员和潜水中心上传的文件（ASVS 5.0 V5.4.3）。"
+  },
+  "Cerrar las demás sesiones": {
+   "en": "Sign out other sessions",
+   "fr": "Fermer les autres sessions",
+   "de": "Andere Sitzungen beenden",
+   "it": "Chiudi le altre sessioni",
+   "pt": "Terminar as outras sessões",
+   "nl": "Andere sessies afsluiten",
+   "pl": "Zamknij pozostałe sesje",
+   "zh": "退出其他会话"
+  },
+  "Cerrar sesiones": {
+   "en": "Close sessions",
+   "fr": "Fermer les sessions",
+   "de": "Sitzungen beenden",
+   "it": "Chiudi sessioni",
+   "pt": "Terminar sessões",
+   "nl": "Sessies afsluiten",
+   "pl": "Zamknij sesje",
+   "zh": "关闭会话"
+  },
+  "Sesiones abiertas": {
+   "en": "Open sessions",
+   "fr": "Sessions ouvertes",
+   "de": "Offene Sitzungen",
+   "it": "Sessioni aperte",
+   "pt": "Sessões abertas",
+   "nl": "Open sessies",
+   "pl": "Otwarte sesje",
+   "zh": "已登录的会话"
+  },
+  "Esta sesión": {
+   "en": "This session",
+   "fr": "Cette session",
+   "de": "Diese Sitzung",
+   "it": "Questa sessione",
+   "pt": "Esta sessão",
+   "nl": "Deze sessie",
+   "pl": "Ta sesja",
+   "zh": "当前会话"
+  },
+  "Solo esta sesión.": {
+   "en": "Only this session.",
+   "fr": "Seulement cette session.",
+   "de": "Nur diese Sitzung.",
+   "it": "Solo questa sessione.",
+   "pt": "Apenas esta sessão.",
+   "nl": "Alleen deze sessie.",
+   "pl": "Tylko ta sesja.",
+   "zh": "仅当前会话。"
+  },
+  "Se ha cerrado 1 sesión.": {
+   "en": "1 session has been closed.",
+   "fr": "1 session a été fermée.",
+   "de": "1 Sitzung wurde beendet.",
+   "it": "È stata chiusa 1 sessione.",
+   "pt": "Foi terminada 1 sessão.",
+   "nl": "1 sessie is afgesloten.",
+   "pl": "Zamknięto 1 sesję.",
+   "zh": "已关闭 1 个会话。"
+  },
+  "Dónde está abierta tu cuenta ahora. Si ves algo que no reconoces, cierra las demás sesiones y cambia tu contraseña.": {
+   "en": "Where your account is signed in right now. If you see something you don’t recognise, sign out the other sessions and change your password.",
+   "fr": "Où votre compte est ouvert en ce moment. Si vous voyez quelque chose que vous ne reconnaissez pas, fermez les autres sessions et changez votre mot de passe.",
+   "de": "Wo dein Konto gerade angemeldet ist. Wenn du etwas nicht wiedererkennst, beende die anderen Sitzungen und ändere dein Passwort.",
+   "it": "Dove è aperto ora il tuo account. Se vedi qualcosa che non riconosci, chiudi le altre sessioni e cambia la password.",
+   "pt": "Onde a sua conta está aberta neste momento. Se vir algo que não reconhece, termine as outras sessões e altere a palavra-passe.",
+   "nl": "Waar je account nu is ingelogd. Zie je iets wat je niet herkent, sluit dan de andere sessies af en wijzig je wachtwoord.",
+   "pl": "Gdzie Twoje konto jest teraz zalogowane. Jeśli widzisz coś, czego nie rozpoznajesz, zamknij pozostałe sesje i zmień hasło.",
+   "zh": "你的账户当前在哪些地方登录。如有不认识的会话，请退出其他会话并修改密码。"
+  },
+  "Código de verificación (o de recuperación)": {
+   "en": "Verification code (or recovery code)",
+   "fr": "Code de vérification (ou de récupération)",
+   "de": "Bestätigungscode (oder Wiederherstellungscode)",
+   "it": "Codice di verifica (o di recupero)",
+   "pt": "Código de verificação (ou de recuperação)",
+   "nl": "Verificatiecode (of herstelcode)",
+   "pl": "Kod weryfikacyjny (lub kod odzyskiwania)",
+   "zh": "验证码（或恢复码）"
+  },
+  "Escribe el código de tu aplicación de verificación (o uno de recuperación).": {
+   "en": "Enter the code from your authenticator app (or a recovery code).",
+   "fr": "Saisissez le code de votre application de vérification (ou un code de récupération).",
+   "de": "Gib den Code aus deiner Authenticator-App ein (oder einen Wiederherstellungscode).",
+   "it": "Inserisci il codice della tua app di verifica (o uno di recupero).",
+   "pt": "Escreva o código da sua aplicação de verificação (ou um de recuperação).",
+   "nl": "Voer de code uit je authenticator-app in (of een herstelcode).",
+   "pl": "Wpisz kod z aplikacji uwierzytelniającej (lub kod odzyskiwania).",
+   "zh": "请输入验证器应用中的验证码（或一个恢复码）。"
+  },
+  "Motivo (queda en el registro)": {
+   "en": "Reason (it is logged)",
+   "fr": "Motif (il est enregistré)",
+   "de": "Grund (wird protokolliert)",
+   "it": "Motivo (resta nel registro)",
+   "pt": "Motivo (fica registado)",
+   "nl": "Reden (wordt vastgelegd)",
+   "pl": "Powód (zostaje zapisany)",
+   "zh": "原因（将被记录）"
+  },
+  "Escribe el motivo (queda en el registro).": {
+   "en": "Write the reason (it is logged).",
+   "fr": "Indiquez le motif (il est enregistré).",
+   "de": "Gib den Grund an (wird protokolliert).",
+   "it": "Scrivi il motivo (resta nel registro).",
+   "pt": "Escreva o motivo (fica registado).",
+   "nl": "Geef de reden op (wordt vastgelegd).",
+   "pl": "Wpisz powód (zostanie zapisany).",
+   "zh": "请填写原因（将被记录）。"
+  },
+  "Mínimo 10 caracteres. Se cerrarán tus otras sesiones.": {
+   "en": "At least 10 characters. Your other sessions will be closed.",
+   "fr": "10 caractères minimum. Vos autres sessions seront fermées.",
+   "de": "Mindestens 10 Zeichen. Deine anderen Sitzungen werden beendet.",
+   "it": "Minimo 10 caratteri. Le altre sessioni verranno chiuse.",
+   "pt": "Mínimo de 10 caracteres. As suas outras sessões serão terminadas.",
+   "nl": "Minimaal 10 tekens. Je andere sessies worden afgesloten.",
+   "pl": "Co najmniej 10 znaków. Pozostałe sesje zostaną zamknięte.",
+   "zh": "至少 10 个字符。其他会话将被关闭。"
+  },
+  "Hay cambios de check-in sin enviar. Si cierras sesión ahora, se perderán.": {
+   "en": "There are check-in changes not sent yet. If you sign out now, they will be lost.",
+   "fr": "Des modifications d’enregistrement n’ont pas encore été envoyées. Si vous vous déconnectez maintenant, elles seront perdues.",
+   "de": "Es gibt noch nicht gesendete Check-in-Änderungen. Wenn du dich jetzt abmeldest, gehen sie verloren.",
+   "it": "Ci sono modifiche al check-in non ancora inviate. Se esci ora, andranno perse.",
+   "pt": "Há alterações de check-in por enviar. Se terminar sessão agora, perdem-se.",
+   "nl": "Er zijn check-inwijzigingen die nog niet zijn verzonden. Als je nu uitlogt, gaan ze verloren.",
+   "pl": "Są niewysłane zmiany odprawy. Jeśli się teraz wylogujesz, przepadną.",
+   "zh": "有尚未发送的签到更改。现在退出登录将会丢失。"
+  },
+  "Código no válido.": {
+   "en": "Invalid code.",
+   "fr": "Code non valide.",
+   "de": "Ungültiger Code.",
+   "it": "Codice non valido.",
+   "pt": "Código inválido.",
+   "nl": "Ongeldige code.",
+   "pl": "Nieprawidłowy kod.",
+   "zh": "代码无效。"
+  },
+  "Demasiadas búsquedas seguidas. Espera un momento.": {
+   "en": "Too many searches in a row. Please wait a moment.",
+   "fr": "Trop de recherches d’affilée. Patientez un instant.",
+   "de": "Zu viele Suchen hintereinander. Bitte warte einen Moment.",
+   "it": "Troppe ricerche di seguito. Attendi un momento.",
+   "pt": "Demasiadas pesquisas seguidas. Aguarde um momento.",
+   "nl": "Te veel zoekopdrachten achter elkaar. Wacht even.",
+   "pl": "Zbyt wiele wyszukiwań z rzędu. Odczekaj chwilę.",
+   "zh": "连续搜索次数过多，请稍候。"
+  },
+  "Demasiadas solicitudes. Espera unos minutos.": {
+   "en": "Too many requests. Please wait a few minutes.",
+   "fr": "Trop de demandes. Patientez quelques minutes.",
+   "de": "Zu viele Anfragen. Bitte warte ein paar Minuten.",
+   "it": "Troppe richieste. Attendi qualche minuto.",
+   "pt": "Demasiados pedidos. Aguarde alguns minutos.",
+   "nl": "Te veel verzoeken. Wacht een paar minuten.",
+   "pl": "Zbyt wiele żądań. Odczekaj kilka minut.",
+   "zh": "请求过多，请几分钟后再试。"
+  },
+  "Demasiados intentos con el código. Espera unos minutos.": {
+   "en": "Too many attempts with the code. Please wait a few minutes.",
+   "fr": "Trop de tentatives avec le code. Patientez quelques minutes.",
+   "de": "Zu viele Versuche mit dem Code. Bitte warte ein paar Minuten.",
+   "it": "Troppi tentativi con il codice. Attendi qualche minuto.",
+   "pt": "Demasiadas tentativas com o código. Aguarde alguns minutos.",
+   "nl": "Te veel pogingen met de code. Wacht een paar minuten.",
+   "pl": "Zbyt wiele prób z kodem. Odczekaj kilka minut.",
+   "zh": "验证码尝试次数过多，请几分钟后再试。"
+  },
+  "Demasiados intentos. Espera un poco.": {
+   "en": "Too many attempts. Please wait a little.",
+   "fr": "Trop de tentatives. Patientez un peu.",
+   "de": "Zu viele Versuche. Bitte warte kurz.",
+   "it": "Troppi tentativi. Attendi un po’.",
+   "pt": "Demasiadas tentativas. Aguarde um pouco.",
+   "nl": "Te veel pogingen. Wacht even.",
+   "pl": "Zbyt wiele prób. Odczekaj chwilę.",
+   "zh": "尝试次数过多，请稍后再试。"
+  },
+  "Demasiados intentos. Espera unos minutos.": {
+   "en": "Too many attempts. Please wait a few minutes.",
+   "fr": "Trop de tentatives. Patientez quelques minutes.",
+   "de": "Zu viele Versuche. Bitte warte ein paar Minuten.",
+   "it": "Troppi tentativi. Attendi qualche minuto.",
+   "pt": "Demasiadas tentativas. Aguarde alguns minutos.",
+   "nl": "Te veel pogingen. Wacht een paar minuten.",
+   "pl": "Zbyt wiele prób. Odczekaj kilka minut.",
+   "zh": "尝试次数过多，请几分钟后再试。"
+  },
+  "Demasiados registros desde esta conexión. Inténtalo más tarde.": {
+   "en": "Too many sign-ups from this connection. Try again later.",
+   "fr": "Trop d’inscriptions depuis cette connexion. Réessayez plus tard.",
+   "de": "Zu viele Registrierungen von dieser Verbindung. Versuche es später erneut.",
+   "it": "Troppe registrazioni da questa connessione. Riprova più tardi.",
+   "pt": "Demasiados registos a partir desta ligação. Tente mais tarde.",
+   "nl": "Te veel registraties vanaf deze verbinding. Probeer het later opnieuw.",
+   "pl": "Zbyt wiele rejestracji z tego połączenia. Spróbuj później.",
+   "zh": "此网络的注册次数过多，请稍后再试。"
+  },
+  "El archivo no ha superado el control antivirus.": {
+   "en": "The file did not pass the antivirus check.",
+   "fr": "Le fichier n’a pas passé le contrôle antivirus.",
+   "de": "Die Datei hat die Virenprüfung nicht bestanden.",
+   "it": "Il file non ha superato il controllo antivirus.",
+   "pt": "O ficheiro não passou no controlo antivírus.",
+   "nl": "Het bestand is niet door de viruscontrole gekomen.",
+   "pl": "Plik nie przeszedł kontroli antywirusowej.",
+   "zh": "文件未通过杀毒检查。"
+  },
+  "El cuerpo de la petición no es un JSON válido.": {
+   "en": "The request body is not valid JSON.",
+   "fr": "Le corps de la requête n’est pas un JSON valide.",
+   "de": "Der Inhalt der Anfrage ist kein gültiges JSON.",
+   "it": "Il corpo della richiesta non è un JSON valido.",
+   "pt": "O corpo do pedido não é um JSON válido.",
+   "nl": "De inhoud van het verzoek is geen geldige JSON.",
+   "pl": "Treść żądania nie jest prawidłowym JSON.",
+   "zh": "请求内容不是有效的 JSON。"
+  },
+  "El importe no es válido.": {
+   "en": "The amount is not valid.",
+   "fr": "Le montant n’est pas valide.",
+   "de": "Der Betrag ist ungültig.",
+   "it": "L’importo non è valido.",
+   "pt": "O montante não é válido.",
+   "nl": "Het bedrag is ongeldig.",
+   "pl": "Kwota jest nieprawidłowa.",
+   "zh": "金额无效。"
+  },
+  "El número de personas no es válido.": {
+   "en": "The number of people is not valid.",
+   "fr": "Le nombre de personnes n’est pas valide.",
+   "de": "Die Personenzahl ist ungültig.",
+   "it": "Il numero di persone non è valido.",
+   "pt": "O número de pessoas não é válido.",
+   "nl": "Het aantal personen is ongeldig.",
+   "pl": "Liczba osób jest nieprawidłowa.",
+   "zh": "人数无效。"
+  },
+  "El número máximo de personas no es válido.": {
+   "en": "The maximum number of people is not valid.",
+   "fr": "Le nombre maximal de personnes n’est pas valide.",
+   "de": "Die maximale Personenzahl ist ungültig.",
+   "it": "Il numero massimo di persone non è valido.",
+   "pt": "O número máximo de pessoas não é válido.",
+   "nl": "Het maximumaantal personen is ongeldig.",
+   "pl": "Maksymalna liczba osób jest nieprawidłowa.",
+   "zh": "最大人数无效。"
+  },
+  "El número no es válido.": {
+   "en": "The number is not valid.",
+   "fr": "Le nombre n’est pas valide.",
+   "de": "Die Zahl ist ungültig.",
+   "it": "Il numero non è valido.",
+   "pt": "O número não é válido.",
+   "nl": "Het getal is ongeldig.",
+   "pl": "Liczba jest nieprawidłowa.",
+   "zh": "数字无效。"
+  },
+  "Un número es demasiado grande.": {
+   "en": "A number is too large.",
+   "fr": "Un nombre est trop grand.",
+   "de": "Eine Zahl ist zu groß.",
+   "it": "Un numero è troppo grande.",
+   "pt": "Um número é demasiado grande.",
+   "nl": "Een getal is te groot.",
+   "pl": "Liczba jest zbyt duża.",
+   "zh": "数字过大。"
+  },
+  "Esa contraseña es demasiado fácil de adivinar.": {
+   "en": "That password is too easy to guess.",
+   "fr": "Ce mot de passe est trop facile à deviner.",
+   "de": "Dieses Passwort ist zu leicht zu erraten.",
+   "it": "Questa password è troppo facile da indovinare.",
+   "pt": "Essa palavra-passe é demasiado fácil de adivinhar.",
+   "nl": "Dat wachtwoord is te makkelijk te raden.",
+   "pl": "To hasło jest zbyt łatwe do odgadnięcia.",
+   "zh": "该密码太容易被猜到。"
+  },
+  "Esta ventaja ya no tiene disponibilidad.": {
+   "en": "This reward is no longer available.",
+   "fr": "Cet avantage n’est plus disponible.",
+   "de": "Dieser Vorteil ist nicht mehr verfügbar.",
+   "it": "Questo vantaggio non è più disponibile.",
+   "pt": "Esta vantagem já não está disponível.",
+   "nl": "Dit voordeel is niet meer beschikbaar.",
+   "pl": "Ta korzyść nie jest już dostępna.",
+   "zh": "该优惠已无库存。"
+  },
+  "Este enlace no sirve para esta acción.": {
+   "en": "This link can’t be used for this action.",
+   "fr": "Ce lien ne sert pas pour cette action.",
+   "de": "Dieser Link gilt nicht für diese Aktion.",
+   "it": "Questo link non vale per questa azione.",
+   "pt": "Esta ligação não serve para esta ação.",
+   "nl": "Deze link is niet bedoeld voor deze actie.",
+   "pl": "Ten link nie służy do tej czynności.",
+   "zh": "此链接不能用于此操作。"
+  },
+  "Formato no admitido. Usa un PDF o una imagen JPG, PNG o WEBP.": {
+   "en": "Format not supported. Use a PDF or a JPG, PNG or WEBP image.",
+   "fr": "Format non accepté. Utilisez un PDF ou une image JPG, PNG ou WEBP.",
+   "de": "Format nicht unterstützt. Verwende ein PDF oder ein JPG-, PNG- oder WEBP-Bild.",
+   "it": "Formato non ammesso. Usa un PDF o un’immagine JPG, PNG o WEBP.",
+   "pt": "Formato não admitido. Use um PDF ou uma imagem JPG, PNG ou WEBP.",
+   "nl": "Formaat niet ondersteund. Gebruik een pdf of een JPG-, PNG- of WEBP-afbeelding.",
+   "pl": "Nieobsługiwany format. Użyj pliku PDF lub obrazu JPG, PNG albo WEBP.",
+   "zh": "不支持该格式。请使用 PDF 或 JPG、PNG、WEBP 图片。"
+  },
+  "Has añadido muchas inmersiones hoy. Vuelve mañana.": {
+   "en": "You’ve added a lot of dives today. Come back tomorrow.",
+   "fr": "Vous avez ajouté beaucoup de plongées aujourd’hui. Revenez demain.",
+   "de": "Du hast heute viele Tauchgänge hinzugefügt. Komm morgen wieder.",
+   "it": "Hai aggiunto molte immersioni oggi. Torna domani.",
+   "pt": "Adicionou muitos mergulhos hoje. Volte amanhã.",
+   "nl": "Je hebt vandaag veel duiken toegevoegd. Kom morgen terug.",
+   "pl": "Dodano dziś wiele nurkowań. Wróć jutro.",
+   "zh": "你今天添加的潜水记录太多了，请明天再来。"
+  },
+  "Has enviado muchas denuncias seguidas. Inténtalo más tarde.": {
+   "en": "You’ve sent many reports in a row. Try again later.",
+   "fr": "Vous avez envoyé beaucoup de signalements d’affilée. Réessayez plus tard.",
+   "de": "Du hast viele Meldungen hintereinander gesendet. Versuche es später erneut.",
+   "it": "Hai inviato molte segnalazioni di seguito. Riprova più tardi.",
+   "pt": "Enviou muitas denúncias seguidas. Tente mais tarde.",
+   "nl": "Je hebt veel meldingen achter elkaar verstuurd. Probeer het later opnieuw.",
+   "pl": "Wysłano wiele zgłoszeń z rzędu. Spróbuj później.",
+   "zh": "你连续发送了太多举报，请稍后再试。"
+  },
+  "Has enviado muchas solicitudes seguidas. Inténtalo más tarde.": {
+   "en": "You’ve sent many requests in a row. Try again later.",
+   "fr": "Vous avez envoyé beaucoup de demandes d’affilée. Réessayez plus tard.",
+   "de": "Du hast viele Anfragen hintereinander gesendet. Versuche es später erneut.",
+   "it": "Hai inviato molte richieste di seguito. Riprova più tardi.",
+   "pt": "Enviou muitos pedidos seguidos. Tente mais tarde.",
+   "nl": "Je hebt veel verzoeken achter elkaar verstuurd. Probeer het later opnieuw.",
+   "pl": "Wysłano wiele zapytań z rzędu. Spróbuj później.",
+   "zh": "你连续发送了太多请求，请稍后再试。"
+  },
+  "Has enviado muchos mensajes seguidos. Inténtalo más tarde.": {
+   "en": "You’ve sent many messages in a row. Try again later.",
+   "fr": "Vous avez envoyé beaucoup de messages d’affilée. Réessayez plus tard.",
+   "de": "Du hast viele Nachrichten hintereinander gesendet. Versuche es später erneut.",
+   "it": "Hai inviato molti messaggi di seguito. Riprova più tardi.",
+   "pt": "Enviou muitas mensagens seguidas. Tente mais tarde.",
+   "nl": "Je hebt veel berichten achter elkaar verstuurd. Probeer het later opnieuw.",
+   "pl": "Wysłano wiele wiadomości z rzędu. Spróbuj później.",
+   "zh": "你连续发送了太多消息，请稍后再试。"
+  },
+  "Has hecho muchas reservas seguidas. Espera un poco o escribe al centro.": {
+   "en": "You’ve made many bookings in a row. Wait a little or write to the centre.",
+   "fr": "Vous avez fait beaucoup de réservations d’affilée. Patientez un peu ou écrivez au centre.",
+   "de": "Du hast viele Buchungen hintereinander gemacht. Warte kurz oder schreib der Tauchbasis.",
+   "it": "Hai fatto molte prenotazioni di seguito. Attendi un po’ o scrivi al centro.",
+   "pt": "Fez muitas reservas seguidas. Aguarde um pouco ou escreva ao centro.",
+   "nl": "Je hebt veel boekingen achter elkaar gemaakt. Wacht even of schrijf het centrum.",
+   "pl": "Dokonano wielu rezerwacji z rzędu. Odczekaj chwilę lub napisz do centrum.",
+   "zh": "你连续预订次数过多。请稍等或联系潜水中心。"
+  },
+  "Tienes varios pagos sin terminar. Termínalos o espera unos minutos.": {
+   "en": "You have several unfinished payments. Complete them or wait a few minutes.",
+   "fr": "Vous avez plusieurs paiements non terminés. Terminez-les ou patientez quelques minutes.",
+   "de": "Du hast mehrere nicht abgeschlossene Zahlungen. Schließe sie ab oder warte ein paar Minuten.",
+   "it": "Hai diversi pagamenti non completati. Completali o attendi qualche minuto.",
+   "pt": "Tem vários pagamentos por concluir. Conclua-os ou aguarde alguns minutos.",
+   "nl": "Je hebt meerdere onvoltooide betalingen. Rond ze af of wacht een paar minuten.",
+   "pl": "Masz kilka niedokończonych płatności. Dokończ je lub odczekaj kilka minut.",
+   "zh": "你有多笔未完成的付款。请先完成，或几分钟后再试。"
+  },
+  "La administración entra con su contraseña.": {
+   "en": "The administration signs in with its password.",
+   "fr": "L’administration se connecte avec son mot de passe.",
+   "de": "Die Verwaltung meldet sich mit ihrem Passwort an.",
+   "it": "L’amministrazione accede con la sua password.",
+   "pt": "A administração entra com a sua palavra-passe.",
+   "nl": "Het beheer logt in met zijn wachtwoord.",
+   "pl": "Administracja loguje się swoim hasłem.",
+   "zh": "管理账户需使用密码登录。"
+  },
+  "La duración no es válida.": {
+   "en": "The duration is not valid.",
+   "fr": "La durée n’est pas valide.",
+   "de": "Die Dauer ist ungültig.",
+   "it": "La durata non è valida.",
+   "pt": "A duração não é válida.",
+   "nl": "De duur is ongeldig.",
+   "pl": "Czas trwania jest nieprawidłowy.",
+   "zh": "时长无效。"
+  },
+  "La fecha de fin no puede ser anterior a la de inicio.": {
+   "en": "The end date can’t be before the start date.",
+   "fr": "La date de fin ne peut pas être antérieure à la date de début.",
+   "de": "Das Enddatum darf nicht vor dem Startdatum liegen.",
+   "it": "La data di fine non può essere precedente a quella di inizio.",
+   "pt": "A data de fim não pode ser anterior à de início.",
+   "nl": "De einddatum mag niet vóór de begindatum liggen.",
+   "pl": "Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.",
+   "zh": "结束日期不能早于开始日期。"
+  },
+  "La fecha de la inmersión no es válida.": {
+   "en": "The dive date is not valid.",
+   "fr": "La date de la plongée n’est pas valide.",
+   "de": "Das Datum des Tauchgangs ist ungültig.",
+   "it": "La data dell’immersione non è valida.",
+   "pt": "A data do mergulho não é válida.",
+   "nl": "De duikdatum is ongeldig.",
+   "pl": "Data nurkowania jest nieprawidłowa.",
+   "zh": "潜水日期无效。"
+  },
+  "La hora no es válida (usa el formato HH:MM).": {
+   "en": "The time is not valid (use the HH:MM format).",
+   "fr": "L’heure n’est pas valide (utilisez le format HH:MM).",
+   "de": "Die Uhrzeit ist ungültig (Format HH:MM).",
+   "it": "L’ora non è valida (usa il formato HH:MM).",
+   "pt": "A hora não é válida (use o formato HH:MM).",
+   "nl": "De tijd is ongeldig (gebruik het formaat UU:MM).",
+   "pl": "Godzina jest nieprawidłowa (użyj formatu GG:MM).",
+   "zh": "时间无效（请使用 HH:MM 格式）。"
+  },
+  "La imagen está dañada o no se puede leer. Prueba con otra foto JPG, PNG o WEBP.": {
+   "en": "The image is damaged or can’t be read. Try another JPG, PNG or WEBP photo.",
+   "fr": "L’image est endommagée ou illisible. Essayez une autre photo JPG, PNG ou WEBP.",
+   "de": "Das Bild ist beschädigt oder nicht lesbar. Versuche es mit einem anderen JPG-, PNG- oder WEBP-Foto.",
+   "it": "L’immagine è danneggiata o non leggibile. Prova con un’altra foto JPG, PNG o WEBP.",
+   "pt": "A imagem está danificada ou não pode ser lida. Tente outra fotografia JPG, PNG ou WEBP.",
+   "nl": "De afbeelding is beschadigd of onleesbaar. Probeer een andere JPG-, PNG- of WEBP-foto.",
+   "pl": "Obraz jest uszkodzony lub nieczytelny. Spróbuj innego zdjęcia JPG, PNG lub WEBP.",
+   "zh": "图片已损坏或无法读取。请换一张 JPG、PNG 或 WEBP 照片。"
+  },
+  "El PDF está incompleto o dañado. Vuelve a guardarlo y súbelo otra vez.": {
+   "en": "The PDF is incomplete or damaged. Save it again and upload it once more.",
+   "fr": "Le PDF est incomplet ou endommagé. Enregistrez-le de nouveau et renvoyez-le.",
+   "de": "Das PDF ist unvollständig oder beschädigt. Speichere es neu und lade es erneut hoch.",
+   "it": "Il PDF è incompleto o danneggiato. Salvalo di nuovo e caricalo un’altra volta.",
+   "pt": "O PDF está incompleto ou danificado. Volte a guardá-lo e envie-o outra vez.",
+   "nl": "De pdf is onvolledig of beschadigd. Sla hem opnieuw op en upload hem nogmaals.",
+   "pl": "Plik PDF jest niekompletny lub uszkodzony. Zapisz go ponownie i prześlij jeszcze raz.",
+   "zh": "PDF 不完整或已损坏。请重新保存后再上传。"
+  },
+  "La señal debe ser un número.": {
+   "en": "The deposit must be a number.",
+   "fr": "L’acompte doit être un nombre.",
+   "de": "Die Anzahlung muss eine Zahl sein.",
+   "it": "L’acconto deve essere un numero.",
+   "pt": "O sinal tem de ser um número.",
+   "nl": "De aanbetaling moet een getal zijn.",
+   "pl": "Zaliczka musi być liczbą.",
+   "zh": "定金必须是数字。"
+  },
+  "Las coordenadas no son válidas.": {
+   "en": "The coordinates are not valid.",
+   "fr": "Les coordonnées ne sont pas valides.",
+   "de": "Die Koordinaten sind ungültig.",
+   "it": "Le coordinate non sono valide.",
+   "pt": "As coordenadas não são válidas.",
+   "nl": "De coördinaten zijn ongeldig.",
+   "pl": "Współrzędne są nieprawidłowe.",
+   "zh": "坐标无效。"
+  },
+  "Las plazas libres no pueden superar las plazas totales.": {
+   "en": "Free places can’t exceed the total places.",
+   "fr": "Les places libres ne peuvent pas dépasser le total des places.",
+   "de": "Freie Plätze dürfen die Gesamtplätze nicht übersteigen.",
+   "it": "I posti liberi non possono superare i posti totali.",
+   "pt": "As vagas livres não podem ser mais do que as vagas totais.",
+   "nl": "Vrije plaatsen mogen het totaal niet overschrijden.",
+   "pl": "Wolnych miejsc nie może być więcej niż wszystkich miejsc.",
+   "zh": "空余名额不能超过总名额。"
+  },
+  "Las plazas no son válidas.": {
+   "en": "The places are not valid.",
+   "fr": "Les places ne sont pas valides.",
+   "de": "Die Plätze sind ungültig.",
+   "it": "I posti non sono validi.",
+   "pt": "As vagas não são válidas.",
+   "nl": "De plaatsen zijn ongeldig.",
+   "pl": "Liczba miejsc jest nieprawidłowa.",
+   "zh": "名额无效。"
+  },
+  "Los datos enviados no son válidos.": {
+   "en": "The data sent is not valid.",
+   "fr": "Les données envoyées ne sont pas valides.",
+   "de": "Die gesendeten Daten sind ungültig.",
+   "it": "I dati inviati non sono validi.",
+   "pt": "Os dados enviados não são válidos.",
+   "nl": "De verzonden gegevens zijn ongeldig.",
+   "pl": "Wysłane dane są nieprawidłowe.",
+   "zh": "提交的数据无效。"
+  },
+  "Tu perfil no permite ver las solicitudes ni los clientes. Pídeselo al propietario del centro.": {
+   "en": "Your profile can’t see requests or clients. Ask the owner of the centre.",
+   "fr": "Votre profil ne permet pas de voir les demandes ni les clients. Demandez-le au propriétaire du centre.",
+   "de": "Dein Profil darf Anfragen und Kunden nicht sehen. Frag den Inhaber der Tauchbasis.",
+   "it": "Il tuo profilo non permette di vedere richieste e clienti. Chiedilo al titolare del centro.",
+   "pt": "O seu perfil não permite ver os pedidos nem os clientes. Peça ao proprietário do centro.",
+   "nl": "Je profiel mag aanvragen en klanten niet zien. Vraag het de eigenaar van het centrum.",
+   "pl": "Twój profil nie pozwala oglądać zapytań ani klientów. Poproś właściciela centrum.",
+   "zh": "你的角色无权查看请求和客户。请联系中心负责人。"
+  },
+  "Sube el logo con «Cambiar logo» o pega un enlace https.": {
+   "en": "Upload the logo with «Change logo» or paste an https link.",
+   "fr": "Envoyez le logo avec « Changer le logo » ou collez un lien https.",
+   "de": "Lade das Logo mit „Logo ändern“ hoch oder füge einen https-Link ein.",
+   "it": "Carica il logo con «Cambia logo» o incolla un link https.",
+   "pt": "Envie o logótipo com «Alterar logótipo» ou cole uma ligação https.",
+   "nl": "Upload het logo met ‘Logo wijzigen’ of plak een https-link.",
+   "pl": "Prześlij logo przyciskiem „Zmień logo” albo wklej link https.",
+   "zh": "请用“更换标志”上传标志，或粘贴一个 https 链接。"
+  },
+  "El buscador de lugares no responde. Prueba dentro de un minuto.": {
+   "en": "The place search isn’t responding. Try again in a minute.",
+   "fr": "La recherche de lieux ne répond pas. Réessayez dans une minute.",
+   "de": "Die Ortssuche antwortet nicht. Versuche es in einer Minute erneut.",
+   "it": "La ricerca dei luoghi non risponde. Riprova tra un minuto.",
+   "pt": "A pesquisa de locais não responde. Tente dentro de um minuto.",
+   "nl": "De plaatszoeker reageert niet. Probeer het over een minuut opnieuw.",
+   "pl": "Wyszukiwarka miejsc nie odpowiada. Spróbuj za minutę.",
+   "zh": "地点搜索无响应，请一分钟后再试。"
+  },
+  "El buscador de lugares está ocupado. Prueba en unos segundos.": {
+   "en": "The place search is busy. Try again in a few seconds.",
+   "fr": "La recherche de lieux est occupée. Réessayez dans quelques secondes.",
+   "de": "Die Ortssuche ist ausgelastet. Versuche es in ein paar Sekunden erneut.",
+   "it": "La ricerca dei luoghi è occupata. Riprova tra qualche secondo.",
+   "pt": "A pesquisa de locais está ocupada. Tente dentro de alguns segundos.",
+   "nl": "De plaatszoeker is bezet. Probeer het over een paar seconden opnieuw.",
+   "pl": "Wyszukiwarka miejsc jest zajęta. Spróbuj za kilka sekund.",
+   "zh": "地点搜索繁忙，请几秒后再试。"
+  },
+  "Error interno del servidor.": {
+   "en": "Internal server error.",
+   "fr": "Erreur interne du serveur.",
+   "de": "Interner Serverfehler.",
+   "it": "Errore interno del server.",
+   "pt": "Erro interno do servidor.",
+   "nl": "Interne serverfout.",
+   "pl": "Wewnętrzny błąd serwera.",
+   "zh": "服务器内部错误。"
+  },
+  "Tu perfil puede comprobar un código, pero no validarlo, conceder puntos ni cambiar las ventajas. Pídeselo al propietario del centro.": {
+   "en": "Your profile can check a code, but not validate it, grant points or change the rewards. Ask the centre owner.",
+   "fr": "Votre profil peut vérifier un code, mais pas le valider, accorder des points ni modifier les avantages. Demandez-le au propriétaire du centre.",
+   "de": "Dein Profil kann einen Code prüfen, ihn aber nicht einlösen, keine Punkte vergeben und die Vorteile nicht ändern. Frag den Inhaber des Zentrums.",
+   "it": "Il tuo profilo può controllare un codice, ma non convalidarlo, assegnare punti né modificare i vantaggi. Chiedilo al titolare del centro.",
+   "pt": "O teu perfil pode verificar um código, mas não validá-lo, atribuir pontos nem alterar as vantagens. Pede-o ao proprietário do centro.",
+   "nl": "Je profiel kan een code controleren, maar niet valideren, geen punten toekennen en de voordelen niet wijzigen. Vraag het aan de eigenaar van het centrum.",
+   "pl": "Twój profil może sprawdzić kod, ale nie może go zatwierdzić, przyznać punktów ani zmienić korzyści. Poproś właściciela centrum.",
+   "zh": "你的角色可以查看代码，但不能核销、发放积分或修改优惠。请联系潜水中心的所有者。"
+  }
+ },
+ "patterns": {
+  "{n} especies": {
+   "en": "{n} species",
+   "fr": "{n} espèces",
+   "de": "{n} Arten",
+   "it": "{n} specie",
+   "pt": "{n} espécies",
+   "nl": "{n} soorten",
+   "pl": "{n} gatunków",
+   "zh": "{n} 个物种"
+  },
+  "Abrir en {x}": {
+   "en": "Open on {x}",
+   "fr": "Ouvrir sur {x}",
+   "de": "Auf {x} öffnen",
+   "it": "Apri su {x}",
+   "pt": "Abrir no {x}",
+   "nl": "Openen op {x}",
+   "pl": "Otwórz w {x}",
+   "zh": "在 {x} 中打开"
+  },
+  "Volver a {x}": {
+   "en": "Back to {x}",
+   "fr": "Retour à {x}",
+   "de": "Zurück zu {x}",
+   "it": "Torna a {x}",
+   "pt": "Voltar a {x}",
+   "nl": "Terug naar {x}",
+   "pl": "Wróć do {x}",
+   "zh": "返回 {x}"
+  },
+  "Al cargarlo te conectarás con {x}, que recibirá tu dirección IP y puede usar sus propias cookies.": {
+   "en": "Loading it connects you to {x}, which will receive your IP address and may use its own cookies.",
+   "fr": "En la chargeant, vous vous connecterez à {x}, qui recevra votre adresse IP et peut utiliser ses propres cookies.",
+   "de": "Beim Laden verbindest du dich mit {x}; der Dienst erhält deine IP-Adresse und kann eigene Cookies verwenden.",
+   "it": "Caricandolo ti collegherai a {x}, che riceverà il tuo indirizzo IP e può usare i propri cookie.",
+   "pt": "Ao carregá-lo, ligar-se-á a {x}, que receberá o seu endereço IP e pode usar os seus próprios cookies.",
+   "nl": "Bij het laden maak je verbinding met {x}, dat je IP-adres ontvangt en eigen cookies kan gebruiken.",
+   "pl": "Po wczytaniu połączysz się z {x}, który otrzyma Twój adres IP i może używać własnych plików cookie.",
+   "zh": "加载后你将连接到 {x}，它会收到你的 IP 地址，并可能使用自己的 Cookie。"
+  },
+  "Último uso: {a} · inicio: {b}": {
+   "en": "Last used: {a} · started: {b}",
+   "fr": "Dernière utilisation : {a} · début : {b}",
+   "de": "Zuletzt verwendet: {a} · Beginn: {b}",
+   "it": "Ultimo uso: {a} · inizio: {b}",
+   "pt": "Última utilização: {a} · início: {b}",
+   "nl": "Laatst gebruikt: {a} · begin: {b}",
+   "pl": "Ostatnie użycie: {a} · początek: {b}",
+   "zh": "最近使用：{a} · 开始：{b}"
+  },
+  "Sesiones cerradas: {n}.": {
+   "en": "Sessions closed: {n}.",
+   "fr": "Sessions fermées : {n}.",
+   "de": "Beendete Sitzungen: {n}.",
+   "it": "Sessioni chiuse: {n}.",
+   "pt": "Sessões terminadas: {n}.",
+   "nl": "Afgesloten sessies: {n}.",
+   "pl": "Zamknięte sesje: {n}.",
+   "zh": "已关闭的会话：{n}。"
+  },
+  "Cerrar las sesiones de {name}": {
+   "en": "Close {name}’s sessions",
+   "fr": "Fermer les sessions de {name}",
+   "de": "Sitzungen von {name} beenden",
+   "it": "Chiudi le sessioni di {name}",
+   "pt": "Terminar as sessões de {name}",
+   "nl": "Sessies van {name} afsluiten",
+   "pl": "Zamknij sesje: {name}",
+   "zh": "关闭 {name} 的会话"
+  },
+  "Se han cerrado {n} sesiones.": {
+   "en": "{n} sessions have been closed.",
+   "fr": "{n} sessions ont été fermées.",
+   "de": "{n} Sitzungen wurden beendet.",
+   "it": "Sono state chiuse {n} sessioni.",
+   "pt": "Foram terminadas {n} sessões.",
+   "nl": "{n} sessies zijn afgesloten.",
+   "pl": "Zamknięto sesje: {n}.",
+   "zh": "已关闭 {n} 个会话。"
+  }
+ }
+}

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" width="640" height="300" font-family="Inter,Arial,sans-serif" font-size="12">
+<rect width="640" height="300" fill="#fff"/><text x="64" y="18" font-size="14" font-weight="700" fill="#0b2f40">Tiempo de respuesta p95 (régimen estable)</text>
+<line x1="64" x2="620" y1="256.0" y2="256.0" stroke="#e3e7e6"/><text x="56" y="260.0" text-anchor="end" fill="#5d6f77">0</text>
+<line x1="64" x2="620" y1="199.5" y2="199.5" stroke="#e3e7e6"/><text x="56" y="203.5" text-anchor="end" fill="#5d6f77">1000</text>
+<line x1="64" x2="620" y1="143.0" y2="143.0" stroke="#e3e7e6"/><text x="56" y="147.0" text-anchor="end" fill="#5d6f77">2000</text>
+<line x1="64" x2="620" y1="86.5" y2="86.5" stroke="#e3e7e6"/><text x="56" y="90.5" text-anchor="end" fill="#5d6f77">3000</text>
+<line x1="64" x2="620" y1="30.0" y2="30.0" stroke="#e3e7e6"/><text x="56" y="34.0" text-anchor="end" fill="#5d6f77">4000</text>
+<text x="64.0" y="274" text-anchor="middle" fill="#5d6f77">100</text>
+<text x="203.0" y="274" text-anchor="middle" fill="#5d6f77">250</text>
+<text x="342.0" y="274" text-anchor="middle" fill="#5d6f77">500</text>
+<text x="481.0" y="274" text-anchor="middle" fill="#5d6f77">1.000</text>
+<text x="620.0" y="274" text-anchor="middle" fill="#5d6f77">1.500</text>
+<text x="342" y="294" text-anchor="middle" fill="#35505d">usuarios simultáneos</text><text x="14" y="143" transform="rotate(-90 14 143)" text-anchor="middle" fill="#35505d">ms</text>
+<line x1="64" x2="620" y1="199.5" y2="199.5" stroke="#b23b26" stroke-dasharray="6 4"/><text x="620" y="193.5" text-anchor="end" fill="#b23b26">objetivo páginas: 1 s</text>
+<polyline fill="none" stroke="#0c4a6e" stroke-width="2.5" points="64.0,255.5 203.0,255.5 342.0,255.3 481.0,254.1 620.0,92.2"/>
+<circle cx="64.0" cy="255.5" r="3.5" fill="#0c4a6e"/>
+<circle cx="203.0" cy="255.5" r="3.5" fill="#0c4a6e"/>
+<circle cx="342.0" cy="255.3" r="3.5" fill="#0c4a6e"/>
+<circle cx="481.0" cy="254.1" r="3.5" fill="#0c4a6e"/>
+<circle cx="620.0" cy="92.2" r="3.5" fill="#0c4a6e"/>
+<rect x="74" y="32" width="12" height="4" fill="#0c4a6e"/><text x="92" y="38" fill="#35505d">Páginas (p95)</text>
+<polyline fill="none" stroke="#e9775f" stroke-width="2.5" points="64.0,255.0 203.0,254.9 342.0,254.3 481.0,244.1 620.0,143.0"/>
+<circle cx="64.0" cy="255.0" r="3.5" fill="#e9775f"/>
+<circle cx="203.0" cy="254.9" r="3.5" fill="#e9775f"/>
+<circle cx="342.0" cy="254.3" r="3.5" fill="#e9775f"/>
+<circle cx="481.0" cy="244.1" r="3.5" fill="#e9775f"/>
+<circle cx="620.0" cy="143.0" r="3.5" fill="#e9775f"/>
+<rect x="244" y="32" width="12" height="4" fill="#e9775f"/><text x="262" y="38" fill="#35505d">Reservas y panel (p95)</text>
+</svg>

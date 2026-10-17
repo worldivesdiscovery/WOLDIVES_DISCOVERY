@@ -1,0 +1,407 @@
+# Informe de traducciones
+
+Textos de referencia: 3812 frases y 426 patrones de la web; 194 textos de correos.
+
+| Idioma | Web: faltan | Web: sin traducir (igual que el castellano) | Correos: faltan | Claves basura |
+|---|---|---|---|---|
+| en | 0 | 101 | 0 | 0 |
+| fr | 0 | 89 | 0 | 0 |
+| de | 0 | 77 | 0 | 0 |
+| it | 0 | 115 | 0 | 0 |
+| pt | 0 | 406 | 0 | 0 |
+| pl | 0 | 73 | 194 | 0 |
+| nl | 0 | 93 | 0 | 0 |
+| zh | 0 | 47 | 0 | 0 |
+| ru | 0 | 47 | 194 | 0 |
+
+## pl: textos que faltan
+- (correo) A concretar con el centro
+- (correo) Abrir el planning
+- (correo) Abrir mi panel
+- (correo) Activa los cobros online en «Cobros y pagos» para cobrar al reservar.
+- (correo) Actividad
+- (correo) Actividad sin coste.
+- (correo) Agenda de mañana · {date_short} · {slots_count} salidas
+- (correo) Antes de bucear
+- (correo) Aviso de seguridad de tu cuenta.
+- (correo) Aviso interno para la administración de WORLDIVES DISCOVERY.
+- (correo) Aviso legal
+- (correo) Bienvenido a WORLDIVES DISCOVERY
+- (correo) Bienvenido, {first_name}
+- (correo) Buceadores
+- (correo) Buscar otra fecha
+- (correo) Buscar otra inmersión
+- (correo) Cada inmersión suma puntos y desbloquea recompensas.
+- (correo) Cancelación fuera de plazo: según tu política de cancelación, no hay reembolso.
+- (correo) Cancelación sin reembolso.
+- (correo) Centro
+- (correo) Cliente
+- (correo) Completa tu escaparate: fotos, descripción, idiomas y datos de contacto.
+- (correo) Completa tu ficha de buceador una sola vez: los centros reciben tu titulación y tus tallas al reservar.
+- (correo) Completar mi ficha
+- (correo) Comprobante en PDF: {pdf_url}
+- (correo) Condiciones de reserva
+- (correo) Confirmación de baja.
+- (correo) Confirmar o rechazar
+- (correo) Contraseña cambiada
+- (correo) Correo de servicio de WORLDIVES DISCOVERY.
+- (correo) Crea tus servicios y tarifas y programa tus salidas en el planning.
+- (correo) Cuenta eliminada
+- (correo) Descarga el comprobante en PDF para tenerlo sin conexión: {pdf_url}
+- (correo) Dirección del centro: {address}
+- (correo) Documento de identidad o pasaporte.
+- (correo) El cliente no había pagado online.
+- (correo) El enlace caduca en 1 hora y solo se puede usar una vez. Si no has sido tú, ignora este correo: tu contraseña no cambiará.
+- (correo) El enlace caduca en 1 hora.
+- (correo) El importe se ha devuelto automáticamente al cliente según tu política de cancelación.
+- (correo) El organizador te responderá en breve.
+- (correo) El pago lo procesa Stripe con cifrado y verificación 3D Secure. WORLDIVES y el centro nunca ven los datos de tu tarjeta.
+- (correo) Elegir una contraseña nueva
+- (correo) Elige tu política de cancelación para que los buceadores la vean antes de reservar.
+- (correo) Email
+- (correo) Equipo de alquiler
+- (correo) Escribir mi reseña
+- (correo) Esta solicitud no está disponible
+- (correo) Estamos revisando tu pago
+- (correo) Estamos revisando tu pago · {service}
+- (correo) Estas son tus salidas del {date}:
+- (correo) Estricta: cancelación gratuita hasta 7 días antes de la actividad; después no hay reembolso.
+- (correo) Fecha
+- (correo) Flexible: cancelación gratuita hasta 24 horas antes de la actividad; después no hay reembolso.
+- (correo) Gracias por haber buceado con nosotros. Si algún día quieres volver, estaremos aquí.
+- (correo) Has cancelado tu reserva · {service}
+- (correo) Hemos enviado tu solicitud
+- (correo) Hemos recibido el alta de tu cuenta profesional. Revisaremos tus datos para activarla y marcar tu perfil como verificado. Mientras tanto, estos son los siguientes pasos:
+- (correo) Hemos recibido tu pago.
+- (correo) Hola {first_name}, el centro ha tenido que cancelar tu reserva del {date}. Suele deberse al estado del mar o a motivos de seguridad.
+- (correo) Hola {first_name}, el importe recibido no coincide con el de tu reserva con {center}. Nuestro equipo lo está revisando y te escribirá en breve.
+- (correo) Hola {first_name}, el organizador de «{experience}» ha recibido tu solicitud para {participants} personas. Te avisaremos en cuanto responda.
+- (correo) Hola {first_name}, esperamos que disfrutaras buceando con {center}. ¿Nos cuentas qué tal? Tu reseña aparece como verificada y ayuda a otros buceadores a elegir.
+- (correo) Hola {first_name}, hemos cancelado tu reserva con {center} del {date}.
+- (correo) Hola {first_name}, hemos eliminado tu cuenta y tus datos personales como nos pediste. Solo conservamos, de forma bloqueada, lo que la ley nos obliga a guardar (por ejemplo, los datos de los pagos).
+- (correo) Hola {first_name}, hemos recibido tu pago. Tu reserva con {center} está confirmada.
+- (correo) Hola {first_name}, hemos recibido una solicitud para cambiar la contraseña de tu cuenta de WORLDIVES.
+- (correo) Hola {first_name}, hemos verificado tu perfil profesional ({center}). Desde ahora puedes gestionar tus servicios y recibir reservas en WORLDIVES.
+- (correo) Hola {first_name}, la contraseña de tu cuenta de WORLDIVES se ha cambiado el {when}. Por seguridad hemos cerrado las demás sesiones abiertas.
+- (correo) Hola {first_name}, lo sentimos: {center} no puede atender tu solicitud para el {date}.
+- (correo) Hola {first_name}, te recordamos tu inmersión de mañana con {center}.
+- (correo) Hola {first_name}, {center} ha aceptado tu solicitud. Completa el pago de {total} para cerrar la reserva.
+- (correo) Hola {first_name}, {center} ha recibido tu solicitud. Te avisaremos por correo en cuanto confirme la plaza.
+- (correo) Hola {first_name}, {center} ha registrado esta reserva a tu nombre en WORLDIVES. Si no la reconoces, contacta directamente con el centro.
+- (correo) Hola {first_name}, {center} te espera. Aquí tienes todos los detalles de tu reserva.
+- (correo) Hola {first_name}, {center} te ha regalado una promoción:
+- (correo) Hola {first_name}, {status_text}
+- (correo) Hora
+- (correo) Importe devuelto: {total}.
+- (correo) Inmersión
+- (correo) Invitación a una promoción
+- (correo) La devolución al cliente está en curso.
+- (correo) Llega 15–20 minutos antes de la hora.
+- (correo) Lleva tu titulación y el seguro de buceo.
+- (correo) Mañana buceas con {center} · {time}
+- (correo) Moderada: cancelación gratuita hasta 48 horas antes de la actividad; después no hay reembolso.
+- (correo) No hace falta que pagues otra vez. Si se ha cobrado de más, te lo devolveremos íntegramente.
+- (correo) No pagues otra vez.
+- (correo) No se te había cobrado nada.
+- (correo) Notas
+- (correo) Nueva reserva confirmada
+- (correo) Nueva reserva pagada
+- (correo) Nueva reserva: {service} · {date_short} · {diver_name}
+- (correo) Nueva solicitud de viaje
+- (correo) Nueva solicitud: confírmala
+- (correo) Nueva solicitud: {experience}
+- (correo) Pagada online y confirmada
+- (correo) Pagado: {total}
+- (correo) Pagar ahora de forma segura
+- (correo) Pagarás directamente en el centro el día de la actividad.
+- (correo) Pago en el centro: {total}, el día de la actividad.
+- (correo) Pago pendiente: {total}.
+- (correo) Pago recibido
+- (correo) Pago recibido: {service} · {date_short} · {diver_name}
+- (correo) Pendiente de que la confirmes
+- (correo) Plaza aceptada: completa el pago · {service}
+- (correo) Política de cancelación del centro: {policy}
+- (correo) Política de privacidad
+- (correo) Por confirmar
+- (correo) Punto de buceo
+- (correo) Recibes este correo porque gestionas un centro o un perfil profesional en WORLDIVES DISCOVERY.
+- (correo) Recibes este correo porque has creado una cuenta profesional en WORLDIVES DISCOVERY.
+- (correo) Recibes este correo porque tienes una cuenta o una reserva en WORLDIVES DISCOVERY.
+- (correo) Recibo de pago · {service} · {total}
+- (correo) Recuerda que puedes apuntar la profundidad, el tiempo y tus notas en tu Log Book.
+- (correo) Ref. del pago
+- (correo) Reserva
+- (correo) Reserva cancelada
+- (correo) Reserva cancelada por el centro · {service}
+- (correo) Reserva cancelada por el cliente
+- (correo) Reserva cancelada por el cliente: {service} · {date_short}
+- (correo) Reserva confirmada
+- (correo) Reserva confirmada: {service} · {date_short}
+- (correo) Responder la solicitud
+- (correo) Restablece tu contraseña de WORLDIVES
+- (correo) Restablecer contraseña
+- (correo) Según la política de cancelación del centro, esta cancelación no tiene reembolso.
+- (correo) Si no has sido tú, restablece tu contraseña ahora y escríbenos.
+- (correo) Si no puedes acudir, cancela o avisa al centro cuanto antes desde tu reserva.
+- (correo) Siguientes pasos para empezar a recibir reservas.
+- (correo) Sin reservas todavía
+- (correo) Solicitud cancelada
+- (correo) Solicitud confirmada
+- (correo) Solicitud enviada: {experience}
+- (correo) Solicitud enviada: {service} · {date_short}
+- (correo) Solicitud no disponible
+- (correo) Solicitud no disponible · {service} · {date_short}
+- (correo) Sube tu titulación y tu seguro para reservar más rápido.
+- (correo) Te devolvemos {amount} a la misma tarjeta. Lo verás en tu cuenta en 5–10 días hábiles, según tu banco.
+- (correo) Te devolvemos {amount}.
+- (correo) Teléfono
+- (correo) Teléfono del centro: {phone}
+- (correo) Tienes una promoción
+- (correo) Tienes una promoción de {center}
+- (correo) Tienes una reserva con {center}
+- (correo) Todo lo que necesitas para mañana.
+- (correo) Total
+- (correo) Tu agenda de mañana
+- (correo) Tu contraseña se ha cambiado
+- (correo) Tu cuenta de WORLDIVES se ha eliminado
+- (correo) Tu cuenta está lista para buscar y reservar inmersiones.
+- (correo) Tu cuenta está lista. Desde ahora puedes buscar puntos de buceo de todo el mundo, reservar con centros de buceo y llevar tu Log Book en un solo sitio.
+- (correo) Tu cuenta profesional en WORLDIVES DISCOVERY
+- (correo) Tu opinión ayuda a otros buceadores.
+- (correo) Tu perfil profesional está verificado en WORLDIVES
+- (correo) Tu plaza con {center} está confirmada.
+- (correo) Tu plaza está aceptada
+- (correo) Tu reserva con {center}: {service} · {date_short}
+- (correo) Vamos a devolverte {amount} a la misma tarjeta. Te avisaremos cuando la devolución esté hecha.
+- (correo) Ver el planning
+- (correo) Ver la invitación
+- (correo) Ver la reserva
+- (correo) Ver mi QR
+- (correo) Ver mi reserva
+- (correo) Ver mi reserva y el QR
+- (correo) Ver mis viajes
+- (correo) Válida hasta el {valid_until}. Enseña tu QR personal en el centro y lo validarán al momento.
+- (correo) Ya puedes recibir reservas.
+- (correo) buceador
+- (correo) el organizador de «{experience}» no puede atender tu solicitud esta vez. Echa un vistazo a otros viajes en WORLDIVES.
+- (correo) tu plaza en «{experience}» está confirmada. El organizador te contactará con los detalles.
+- (correo) tu solicitud para «{experience}» se ha cancelado. Si habías pagado, te devolveremos el importe.
+- (correo) {center} ha aceptado tu solicitud.
+- (correo) {center} ha cancelado tu reserva
+- (correo) {center} ha registrado tu reserva.
+- (correo) {center} no puede atender esta solicitud.
+- (correo) {center} te confirmará la plaza en breve.
+- (correo) {diver_name} ha cancelado su reserva del {date}. Las plazas vuelven a estar disponibles en tu planning.
+- (correo) {diver_name} ha cancelado.
+- (correo) {diver_name} ha pagado su reserva. La plaza queda confirmada.
+- (correo) {diver_name} ha reservado «{service}» para el {date}.
+- (correo) {diver_name} ha solicitado plaza en «{experience}» para {participants} personas.
+- (correo) {diver_name} quiere apuntarse.
+- (correo) {divers_count} buceadores confirmados.
+- (correo) {issuer} quiere que su promoción «{promo_title}» también sea válida en tu centro. Si la aceptas, podrás validar y canjear los códigos de sus clientes.
+- (correo) {issuer} te invita a una promoción
+- (correo) {status_title}: {experience}
+- (correo) {taken} de {total} plazas ocupadas
+- (correo) {total} cobrados online.
+- (correo) ¡Hola, {first_name}! Ya formas parte de WORLDIVES
+- (correo) ¡Mañana buceas!
+- (correo) ¡Perfil verificado!
+- (correo) ¡Tu reserva está confirmada!
+- (correo) ¿Qué tal con {center}?
+- (correo) ¿Qué tal tu inmersión?
+
+## ru: textos que faltan
+- (correo) A concretar con el centro
+- (correo) Abrir el planning
+- (correo) Abrir mi panel
+- (correo) Activa los cobros online en «Cobros y pagos» para cobrar al reservar.
+- (correo) Actividad
+- (correo) Actividad sin coste.
+- (correo) Agenda de mañana · {date_short} · {slots_count} salidas
+- (correo) Antes de bucear
+- (correo) Aviso de seguridad de tu cuenta.
+- (correo) Aviso interno para la administración de WORLDIVES DISCOVERY.
+- (correo) Aviso legal
+- (correo) Bienvenido a WORLDIVES DISCOVERY
+- (correo) Bienvenido, {first_name}
+- (correo) Buceadores
+- (correo) Buscar otra fecha
+- (correo) Buscar otra inmersión
+- (correo) Cada inmersión suma puntos y desbloquea recompensas.
+- (correo) Cancelación fuera de plazo: según tu política de cancelación, no hay reembolso.
+- (correo) Cancelación sin reembolso.
+- (correo) Centro
+- (correo) Cliente
+- (correo) Completa tu escaparate: fotos, descripción, idiomas y datos de contacto.
+- (correo) Completa tu ficha de buceador una sola vez: los centros reciben tu titulación y tus tallas al reservar.
+- (correo) Completar mi ficha
+- (correo) Comprobante en PDF: {pdf_url}
+- (correo) Condiciones de reserva
+- (correo) Confirmación de baja.
+- (correo) Confirmar o rechazar
+- (correo) Contraseña cambiada
+- (correo) Correo de servicio de WORLDIVES DISCOVERY.
+- (correo) Crea tus servicios y tarifas y programa tus salidas en el planning.
+- (correo) Cuenta eliminada
+- (correo) Descarga el comprobante en PDF para tenerlo sin conexión: {pdf_url}
+- (correo) Dirección del centro: {address}
+- (correo) Documento de identidad o pasaporte.
+- (correo) El cliente no había pagado online.
+- (correo) El enlace caduca en 1 hora y solo se puede usar una vez. Si no has sido tú, ignora este correo: tu contraseña no cambiará.
+- (correo) El enlace caduca en 1 hora.
+- (correo) El importe se ha devuelto automáticamente al cliente según tu política de cancelación.
+- (correo) El organizador te responderá en breve.
+- (correo) El pago lo procesa Stripe con cifrado y verificación 3D Secure. WORLDIVES y el centro nunca ven los datos de tu tarjeta.
+- (correo) Elegir una contraseña nueva
+- (correo) Elige tu política de cancelación para que los buceadores la vean antes de reservar.
+- (correo) Email
+- (correo) Equipo de alquiler
+- (correo) Escribir mi reseña
+- (correo) Esta solicitud no está disponible
+- (correo) Estamos revisando tu pago
+- (correo) Estamos revisando tu pago · {service}
+- (correo) Estas son tus salidas del {date}:
+- (correo) Estricta: cancelación gratuita hasta 7 días antes de la actividad; después no hay reembolso.
+- (correo) Fecha
+- (correo) Flexible: cancelación gratuita hasta 24 horas antes de la actividad; después no hay reembolso.
+- (correo) Gracias por haber buceado con nosotros. Si algún día quieres volver, estaremos aquí.
+- (correo) Has cancelado tu reserva · {service}
+- (correo) Hemos enviado tu solicitud
+- (correo) Hemos recibido el alta de tu cuenta profesional. Revisaremos tus datos para activarla y marcar tu perfil como verificado. Mientras tanto, estos son los siguientes pasos:
+- (correo) Hemos recibido tu pago.
+- (correo) Hola {first_name}, el centro ha tenido que cancelar tu reserva del {date}. Suele deberse al estado del mar o a motivos de seguridad.
+- (correo) Hola {first_name}, el importe recibido no coincide con el de tu reserva con {center}. Nuestro equipo lo está revisando y te escribirá en breve.
+- (correo) Hola {first_name}, el organizador de «{experience}» ha recibido tu solicitud para {participants} personas. Te avisaremos en cuanto responda.
+- (correo) Hola {first_name}, esperamos que disfrutaras buceando con {center}. ¿Nos cuentas qué tal? Tu reseña aparece como verificada y ayuda a otros buceadores a elegir.
+- (correo) Hola {first_name}, hemos cancelado tu reserva con {center} del {date}.
+- (correo) Hola {first_name}, hemos eliminado tu cuenta y tus datos personales como nos pediste. Solo conservamos, de forma bloqueada, lo que la ley nos obliga a guardar (por ejemplo, los datos de los pagos).
+- (correo) Hola {first_name}, hemos recibido tu pago. Tu reserva con {center} está confirmada.
+- (correo) Hola {first_name}, hemos recibido una solicitud para cambiar la contraseña de tu cuenta de WORLDIVES.
+- (correo) Hola {first_name}, hemos verificado tu perfil profesional ({center}). Desde ahora puedes gestionar tus servicios y recibir reservas en WORLDIVES.
+- (correo) Hola {first_name}, la contraseña de tu cuenta de WORLDIVES se ha cambiado el {when}. Por seguridad hemos cerrado las demás sesiones abiertas.
+- (correo) Hola {first_name}, lo sentimos: {center} no puede atender tu solicitud para el {date}.
+- (correo) Hola {first_name}, te recordamos tu inmersión de mañana con {center}.
+- (correo) Hola {first_name}, {center} ha aceptado tu solicitud. Completa el pago de {total} para cerrar la reserva.
+- (correo) Hola {first_name}, {center} ha recibido tu solicitud. Te avisaremos por correo en cuanto confirme la plaza.
+- (correo) Hola {first_name}, {center} ha registrado esta reserva a tu nombre en WORLDIVES. Si no la reconoces, contacta directamente con el centro.
+- (correo) Hola {first_name}, {center} te espera. Aquí tienes todos los detalles de tu reserva.
+- (correo) Hola {first_name}, {center} te ha regalado una promoción:
+- (correo) Hola {first_name}, {status_text}
+- (correo) Hora
+- (correo) Importe devuelto: {total}.
+- (correo) Inmersión
+- (correo) Invitación a una promoción
+- (correo) La devolución al cliente está en curso.
+- (correo) Llega 15–20 minutos antes de la hora.
+- (correo) Lleva tu titulación y el seguro de buceo.
+- (correo) Mañana buceas con {center} · {time}
+- (correo) Moderada: cancelación gratuita hasta 48 horas antes de la actividad; después no hay reembolso.
+- (correo) No hace falta que pagues otra vez. Si se ha cobrado de más, te lo devolveremos íntegramente.
+- (correo) No pagues otra vez.
+- (correo) No se te había cobrado nada.
+- (correo) Notas
+- (correo) Nueva reserva confirmada
+- (correo) Nueva reserva pagada
+- (correo) Nueva reserva: {service} · {date_short} · {diver_name}
+- (correo) Nueva solicitud de viaje
+- (correo) Nueva solicitud: confírmala
+- (correo) Nueva solicitud: {experience}
+- (correo) Pagada online y confirmada
+- (correo) Pagado: {total}
+- (correo) Pagar ahora de forma segura
+- (correo) Pagarás directamente en el centro el día de la actividad.
+- (correo) Pago en el centro: {total}, el día de la actividad.
+- (correo) Pago pendiente: {total}.
+- (correo) Pago recibido
+- (correo) Pago recibido: {service} · {date_short} · {diver_name}
+- (correo) Pendiente de que la confirmes
+- (correo) Plaza aceptada: completa el pago · {service}
+- (correo) Política de cancelación del centro: {policy}
+- (correo) Política de privacidad
+- (correo) Por confirmar
+- (correo) Punto de buceo
+- (correo) Recibes este correo porque gestionas un centro o un perfil profesional en WORLDIVES DISCOVERY.
+- (correo) Recibes este correo porque has creado una cuenta profesional en WORLDIVES DISCOVERY.
+- (correo) Recibes este correo porque tienes una cuenta o una reserva en WORLDIVES DISCOVERY.
+- (correo) Recibo de pago · {service} · {total}
+- (correo) Recuerda que puedes apuntar la profundidad, el tiempo y tus notas en tu Log Book.
+- (correo) Ref. del pago
+- (correo) Reserva
+- (correo) Reserva cancelada
+- (correo) Reserva cancelada por el centro · {service}
+- (correo) Reserva cancelada por el cliente
+- (correo) Reserva cancelada por el cliente: {service} · {date_short}
+- (correo) Reserva confirmada
+- (correo) Reserva confirmada: {service} · {date_short}
+- (correo) Responder la solicitud
+- (correo) Restablece tu contraseña de WORLDIVES
+- (correo) Restablecer contraseña
+- (correo) Según la política de cancelación del centro, esta cancelación no tiene reembolso.
+- (correo) Si no has sido tú, restablece tu contraseña ahora y escríbenos.
+- (correo) Si no puedes acudir, cancela o avisa al centro cuanto antes desde tu reserva.
+- (correo) Siguientes pasos para empezar a recibir reservas.
+- (correo) Sin reservas todavía
+- (correo) Solicitud cancelada
+- (correo) Solicitud confirmada
+- (correo) Solicitud enviada: {experience}
+- (correo) Solicitud enviada: {service} · {date_short}
+- (correo) Solicitud no disponible
+- (correo) Solicitud no disponible · {service} · {date_short}
+- (correo) Sube tu titulación y tu seguro para reservar más rápido.
+- (correo) Te devolvemos {amount} a la misma tarjeta. Lo verás en tu cuenta en 5–10 días hábiles, según tu banco.
+- (correo) Te devolvemos {amount}.
+- (correo) Teléfono
+- (correo) Teléfono del centro: {phone}
+- (correo) Tienes una promoción
+- (correo) Tienes una promoción de {center}
+- (correo) Tienes una reserva con {center}
+- (correo) Todo lo que necesitas para mañana.
+- (correo) Total
+- (correo) Tu agenda de mañana
+- (correo) Tu contraseña se ha cambiado
+- (correo) Tu cuenta de WORLDIVES se ha eliminado
+- (correo) Tu cuenta está lista para buscar y reservar inmersiones.
+- (correo) Tu cuenta está lista. Desde ahora puedes buscar puntos de buceo de todo el mundo, reservar con centros de buceo y llevar tu Log Book en un solo sitio.
+- (correo) Tu cuenta profesional en WORLDIVES DISCOVERY
+- (correo) Tu opinión ayuda a otros buceadores.
+- (correo) Tu perfil profesional está verificado en WORLDIVES
+- (correo) Tu plaza con {center} está confirmada.
+- (correo) Tu plaza está aceptada
+- (correo) Tu reserva con {center}: {service} · {date_short}
+- (correo) Vamos a devolverte {amount} a la misma tarjeta. Te avisaremos cuando la devolución esté hecha.
+- (correo) Ver el planning
+- (correo) Ver la invitación
+- (correo) Ver la reserva
+- (correo) Ver mi QR
+- (correo) Ver mi reserva
+- (correo) Ver mi reserva y el QR
+- (correo) Ver mis viajes
+- (correo) Válida hasta el {valid_until}. Enseña tu QR personal en el centro y lo validarán al momento.
+- (correo) Ya puedes recibir reservas.
+- (correo) buceador
+- (correo) el organizador de «{experience}» no puede atender tu solicitud esta vez. Echa un vistazo a otros viajes en WORLDIVES.
+- (correo) tu plaza en «{experience}» está confirmada. El organizador te contactará con los detalles.
+- (correo) tu solicitud para «{experience}» se ha cancelado. Si habías pagado, te devolveremos el importe.
+- (correo) {center} ha aceptado tu solicitud.
+- (correo) {center} ha cancelado tu reserva
+- (correo) {center} ha registrado tu reserva.
+- (correo) {center} no puede atender esta solicitud.
+- (correo) {center} te confirmará la plaza en breve.
+- (correo) {diver_name} ha cancelado su reserva del {date}. Las plazas vuelven a estar disponibles en tu planning.
+- (correo) {diver_name} ha cancelado.
+- (correo) {diver_name} ha pagado su reserva. La plaza queda confirmada.
+- (correo) {diver_name} ha reservado «{service}» para el {date}.
+- (correo) {diver_name} ha solicitado plaza en «{experience}» para {participants} personas.
+- (correo) {diver_name} quiere apuntarse.
+- (correo) {divers_count} buceadores confirmados.
+- (correo) {issuer} quiere que su promoción «{promo_title}» también sea válida en tu centro. Si la aceptas, podrás validar y canjear los códigos de sus clientes.
+- (correo) {issuer} te invita a una promoción
+- (correo) {status_title}: {experience}
+- (correo) {taken} de {total} plazas ocupadas
+- (correo) {total} cobrados online.
+- (correo) ¡Hola, {first_name}! Ya formas parte de WORLDIVES
+- (correo) ¡Mañana buceas!
+- (correo) ¡Perfil verificado!
+- (correo) ¡Tu reserva está confirmada!
+- (correo) ¿Qué tal con {center}?
+- (correo) ¿Qué tal tu inmersión?

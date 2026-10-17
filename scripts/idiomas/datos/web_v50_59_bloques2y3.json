@@ -1,0 +1,1386 @@
+{
+ "exact": {
+  "También en la zona": {
+   "en": "Also in the area",
+   "fr": "Aussi dans la zone",
+   "de": "Auch in der Umgebung",
+   "it": "Anche nella zona",
+   "pt": "Também na zona",
+   "pl": "Także w okolicy",
+   "nl": "Ook in de omgeving",
+   "zh": "附近海域也有"
+  },
+  "Ver toda la vida marina": {
+   "en": "See all marine life",
+   "fr": "Voir toute la vie marine",
+   "de": "Alle Meeresbewohner ansehen",
+   "it": "Vedi tutta la vita marina",
+   "pt": "Ver toda a vida marinha",
+   "pl": "Zobacz całe życie morskie",
+   "nl": "Bekijk al het zeeleven",
+   "zh": "查看全部海洋生物"
+  },
+  "Citada en la zona": {
+   "en": "Recorded in the area",
+   "fr": "Signalée dans la zone",
+   "de": "In der Umgebung nachgewiesen",
+   "it": "Segnalata nella zona",
+   "pt": "Registada na zona",
+   "pl": "Notowany w okolicy",
+   "nl": "Gemeld in de omgeving",
+   "zh": "附近海域有记录"
+  },
+  "Grupo": {
+   "en": "Group",
+   "fr": "Groupe",
+   "de": "Gruppe",
+   "it": "Gruppo",
+   "pt": "Grupo",
+   "pl": "Grupa",
+   "nl": "Groep",
+   "zh": "类别"
+  },
+  "Vista por buceadores recientemente": {
+   "en": "Recently seen by divers",
+   "fr": "Vue récemment par des plongeurs",
+   "de": "Kürzlich von Tauchern gesehen",
+   "it": "Vista di recente dai subacquei",
+   "pt": "Vista recentemente por mergulhadores",
+   "pl": "Niedawno widziany przez nurków",
+   "nl": "Onlangs gezien door duikers",
+   "zh": "潜水员最近见过"
+  },
+  "Frecuencia": {
+   "en": "Frequency",
+   "fr": "Fréquence",
+   "de": "Häufigkeit",
+   "it": "Frequenza",
+   "pt": "Frequência",
+   "pl": "Częstość",
+   "nl": "Frequentie",
+   "zh": "出现频率"
+  },
+  "Dónde se suele ver": {
+   "en": "Where it is usually seen",
+   "fr": "Où on la voit d'habitude",
+   "de": "Wo man sie meist sieht",
+   "it": "Dove si vede di solito",
+   "pt": "Onde se costuma ver",
+   "pl": "Gdzie zwykle można go zobaczyć",
+   "nl": "Waar je hem meestal ziet",
+   "zh": "常见位置"
+  },
+  "Ver todos los puntos donde se ve": {
+   "en": "See every site where it is seen",
+   "fr": "Voir tous les sites où on la voit",
+   "de": "Alle Tauchplätze ansehen, an denen sie vorkommt",
+   "it": "Vedi tutti i punti dove si vede",
+   "pt": "Ver todos os pontos onde se vê",
+   "pl": "Zobacz wszystkie miejsca, gdzie występuje",
+   "nl": "Bekijk alle duikstekken waar hij voorkomt",
+   "zh": "查看所有能见到它的潜点"
+  },
+  "Subir fotos en bloque": {
+   "en": "Upload photos in bulk",
+   "fr": "Envoyer des photos en lot",
+   "de": "Fotos gesammelt hochladen",
+   "it": "Carica foto in blocco",
+   "pt": "Enviar fotos em lote",
+   "pl": "Prześlij zdjęcia hurtowo",
+   "nl": "Foto's in bulk uploaden",
+   "zh": "批量上传照片"
+  },
+  "El número del catálogo y el nombre científico de cada archivo tienen que ser de la misma especie.": {
+   "en": "The catalogue number and the scientific name of each file must belong to the same species.",
+   "fr": "Le numéro du catalogue et le nom scientifique de chaque fichier doivent correspondre à la même espèce.",
+   "de": "Katalognummer und wissenschaftlicher Name jeder Datei müssen zur selben Art gehören.",
+   "it": "Il numero di catalogo e il nome scientifico di ogni file devono essere della stessa specie.",
+   "pt": "O número do catálogo e o nome científico de cada ficheiro têm de ser da mesma espécie.",
+   "pl": "Numer katalogowy i nazwa naukowa każdego pliku muszą dotyczyć tego samego gatunku.",
+   "nl": "Het catalogusnummer en de wetenschappelijke naam van elk bestand moeten bij dezelfde soort horen.",
+   "zh": "每个文件的目录编号和学名必须属于同一物种。"
+  },
+  "El número del catálogo y el nombre científico de cada archivo tienen que ser de la misma especie": {
+   "en": "The catalogue number and the scientific name of each file must belong to the same species",
+   "fr": "Le numéro du catalogue et le nom scientifique de chaque fichier doivent correspondre à la même espèce",
+   "de": "Katalognummer und wissenschaftlicher Name jeder Datei müssen zur selben Art gehören",
+   "it": "Il numero di catalogo e il nome scientifico di ogni file devono essere della stessa specie",
+   "pt": "O número do catálogo e o nome científico de cada ficheiro têm de ser da mesma espécie",
+   "pl": "Numer katalogowy i nazwa naukowa każdego pliku muszą dotyczyć tego samego gatunku",
+   "nl": "Het catalogusnummer en de wetenschappelijke naam van elk bestand moeten bij dezelfde soort horen",
+   "zh": "每个文件的目录编号和学名必须属于同一物种"
+  },
+  "Archivos": {
+   "en": "Files",
+   "fr": "Fichiers",
+   "de": "Dateien",
+   "it": "File",
+   "pt": "Ficheiros",
+   "pl": "Pliki",
+   "nl": "Bestanden",
+   "zh": "文件"
+  },
+  "Autor de las fotos": {
+   "en": "Photo author",
+   "fr": "Auteur des photos",
+   "de": "Urheber der Fotos",
+   "it": "Autore delle foto",
+   "pt": "Autor das fotos",
+   "pl": "Autor zdjęć",
+   "nl": "Maker van de foto's",
+   "zh": "照片作者"
+  },
+  "Propia, CC BY 4.0…": {
+   "en": "Own work, CC BY 4.0…",
+   "fr": "Personnelle, CC BY 4.0…",
+   "de": "Eigenes Werk, CC BY 4.0…",
+   "it": "Propria, CC BY 4.0…",
+   "pt": "Própria, CC BY 4.0…",
+   "pl": "Własne, CC BY 4.0…",
+   "nl": "Eigen werk, CC BY 4.0…",
+   "zh": "原创，CC BY 4.0…"
+  },
+  "Citas importadas": {
+   "en": "Imported records",
+   "fr": "Signalements importés",
+   "de": "Importierte Nachweise",
+   "it": "Segnalazioni importate",
+   "pt": "Registos importados",
+   "pl": "Zaimportowane obserwacje",
+   "nl": "Geïmporteerde waarnemingen",
+   "zh": "已导入记录"
+  },
+  "Genéricas por afinar": {
+   "en": "Generic, to refine",
+   "fr": "Génériques à préciser",
+   "de": "Allgemeine, noch zu präzisieren",
+   "it": "Generiche da precisare",
+   "pt": "Genéricas por afinar",
+   "pl": "Ogólne do doprecyzowania",
+   "nl": "Algemene, nog te verfijnen",
+   "zh": "待细化的泛称"
+  },
+  "Sin punto": {
+   "en": "No site",
+   "fr": "Sans site",
+   "de": "Ohne Tauchplatz",
+   "it": "Senza punto",
+   "pt": "Sem ponto",
+   "pl": "Bez miejsca",
+   "nl": "Zonder duikstek",
+   "zh": "无潜点"
+  },
+  "Ocultas por revisar": {
+   "en": "Hidden, to review",
+   "fr": "Masquées à vérifier",
+   "de": "Ausgeblendet, zu prüfen",
+   "it": "Nascoste da rivedere",
+   "pt": "Ocultas por rever",
+   "pl": "Ukryte do sprawdzenia",
+   "nl": "Verborgen, te controleren",
+   "zh": "已隐藏待审核"
+  },
+  "Sin foto": {
+   "en": "No photo",
+   "fr": "Sans photo",
+   "de": "Ohne Foto",
+   "it": "Senza foto",
+   "pt": "Sem foto",
+   "pl": "Bez zdjęcia",
+   "nl": "Zonder foto",
+   "zh": "无照片"
+  },
+  "Pendientes de traducción": {
+   "en": "Awaiting translation",
+   "fr": "En attente de traduction",
+   "de": "Übersetzung ausstehend",
+   "it": "Da tradurre",
+   "pt": "Por traduzir",
+   "pl": "Do przetłumaczenia",
+   "nl": "Nog te vertalen",
+   "zh": "待翻译"
+  },
+  "Importar un archivo JSON o CSV": {
+   "en": "Import a JSON or CSV file",
+   "fr": "Importer un fichier JSON ou CSV",
+   "de": "JSON- oder CSV-Datei importieren",
+   "it": "Importa un file JSON o CSV",
+   "pt": "Importar um ficheiro JSON ou CSV",
+   "pl": "Importuj plik JSON lub CSV",
+   "nl": "Een JSON- of CSV-bestand importeren",
+   "zh": "导入 JSON 或 CSV 文件"
+  },
+  "Mismo formato que el archivo ya importado. Cada cita se enlaza con su punto por el nombre y el municipio, y con su especie por el nombre científico. Repetir un archivo no duplica nada.": {
+   "en": "Same format as the file already imported. Each record is linked to its site by name and municipality, and to its species by scientific name. Importing a file again duplicates nothing.",
+   "fr": "Même format que le fichier déjà importé. Chaque signalement est relié à son site par le nom et la commune, et à son espèce par le nom scientifique. Importer à nouveau un fichier ne crée aucun doublon.",
+   "de": "Gleiches Format wie die bereits importierte Datei. Jeder Nachweis wird über Name und Gemeinde mit seinem Tauchplatz und über den wissenschaftlichen Namen mit seiner Art verknüpft. Eine Datei erneut zu importieren, verdoppelt nichts.",
+   "it": "Stesso formato del file già importato. Ogni segnalazione si collega al suo punto per nome e comune, e alla sua specie per nome scientifico. Ripetere un file non duplica nulla.",
+   "pt": "Mesmo formato do ficheiro já importado. Cada registo liga-se ao seu ponto pelo nome e município, e à sua espécie pelo nome científico. Repetir um ficheiro não duplica nada.",
+   "pl": "Ten sam format co już zaimportowany plik. Każda obserwacja łączy się z miejscem po nazwie i gminie, a z gatunkiem po nazwie naukowej. Ponowny import pliku niczego nie dubluje.",
+   "nl": "Zelfde formaat als het al geïmporteerde bestand. Elke waarneming wordt via naam en gemeente aan de duikstek gekoppeld en via de wetenschappelijke naam aan de soort. Een bestand opnieuw importeren dupliceert niets.",
+   "zh": "格式与已导入的文件相同。每条记录按名称和所在市镇关联潜点，按学名关联物种。重复导入同一文件不会产生重复。"
+  },
+  "Mismo formato que el archivo ya importado. Cada cita se enlaza con su punto por el nombre y el municipio, y con su especie por el nombre científico. Repetir un archivo no duplica nada": {
+   "en": "Same format as the file already imported. Each record is linked to its site by name and municipality, and to its species by scientific name. Importing a file again duplicates nothing",
+   "fr": "Même format que le fichier déjà importé. Chaque signalement est relié à son site par le nom et la commune, et à son espèce par le nom scientifique. Importer à nouveau un fichier ne crée aucun doublon",
+   "de": "Gleiches Format wie die bereits importierte Datei. Jeder Nachweis wird über Name und Gemeinde mit seinem Tauchplatz und über den wissenschaftlichen Namen mit seiner Art verknüpft. Eine Datei erneut zu importieren, verdoppelt nichts",
+   "it": "Stesso formato del file già importato. Ogni segnalazione si collega al suo punto per nome e comune, e alla sua specie per nome scientifico. Ripetere un file non duplica nulla",
+   "pt": "Mesmo formato do ficheiro já importado. Cada registo liga-se ao seu ponto pelo nome e município, e à sua espécie pelo nome científico. Repetir um ficheiro não duplica nada",
+   "pl": "Ten sam format co już zaimportowany plik. Każda obserwacja łączy się z miejscem po nazwie i gminie, a z gatunkiem po nazwie naukowej. Ponowny import pliku niczego nie dubluje",
+   "nl": "Zelfde formaat als het al geïmporteerde bestand. Elke waarneming wordt via naam en gemeente aan de duikstek gekoppeld en via de wetenschappelijke naam aan de soort. Een bestand opnieuw importeren dupliceert niets",
+   "zh": "格式与已导入的文件相同。每条记录按名称和所在市镇关联潜点，按学名关联物种。重复导入同一文件不会产生重复"
+  },
+  "Importar": {
+   "en": "Import",
+   "fr": "Importer",
+   "de": "Importieren",
+   "it": "Importa",
+   "pt": "Importar",
+   "pl": "Importuj",
+   "nl": "Importeren",
+   "zh": "导入"
+  },
+  "Importaciones": {
+   "en": "Imports",
+   "fr": "Importations",
+   "de": "Importe",
+   "it": "Importazioni",
+   "pt": "Importações",
+   "pl": "Importy",
+   "nl": "Imports",
+   "zh": "导入记录"
+  },
+  "Importando…": {
+   "en": "Importing…",
+   "fr": "Importation…",
+   "de": "Wird importiert…",
+   "it": "Importazione…",
+   "pt": "A importar…",
+   "pl": "Importowanie…",
+   "nl": "Bezig met importeren…",
+   "zh": "正在导入…"
+  },
+  "Especies que no estaban en el punto y que al menos 5 buceadores distintos han marcado en su Log Book.": {
+   "en": "Species that were not listed at the site and that at least 5 different divers have marked in their Log Book.",
+   "fr": "Espèces absentes du site que au moins 5 plongeurs différents ont notées dans leur Log Book.",
+   "de": "Arten, die nicht beim Tauchplatz standen und die mindestens 5 verschiedene Taucher in ihrem Log Book markiert haben.",
+   "it": "Specie che non erano nel punto e che almeno 5 subacquei diversi hanno segnato nel loro Log Book.",
+   "pt": "Espécies que não estavam no ponto e que pelo menos 5 mergulhadores diferentes marcaram no seu Log Book.",
+   "pl": "Gatunki, których nie było w miejscu, a które co najmniej 5 różnych nurków zaznaczyło w Log Booku.",
+   "nl": "Soorten die niet bij de duikstek stonden en die minstens 5 verschillende duikers in hun Log Book hebben aangevinkt.",
+   "zh": "该潜点原本未列出、但至少 5 位不同潜水员在 Log Book 中标记过的物种。"
+  },
+  "Especies que no estaban en el punto y que al menos 5 buceadores distintos han marcado en su Log Book": {
+   "en": "Species that were not listed at the site and that at least 5 different divers have marked in their Log Book",
+   "fr": "Espèces absentes du site que au moins 5 plongeurs différents ont notées dans leur Log Book",
+   "de": "Arten, die nicht beim Tauchplatz standen und die mindestens 5 verschiedene Taucher in ihrem Log Book markiert haben",
+   "it": "Specie che non erano nel punto e che almeno 5 subacquei diversi hanno segnato nel loro Log Book",
+   "pt": "Espécies que não estavam no ponto e que pelo menos 5 mergulhadores diferentes marcaram no seu Log Book",
+   "pl": "Gatunki, których nie było w miejscu, a które co najmniej 5 różnych nurków zaznaczyło w Log Booku",
+   "nl": "Soorten die niet bij de duikstek stonden en die minstens 5 verschillende duikers in hun Log Book hebben aangevinkt",
+   "zh": "该潜点原本未列出、但至少 5 位不同潜水员在 Log Book 中标记过的物种"
+  },
+  "En la zona": {
+   "en": "In the area",
+   "fr": "Dans la zone",
+   "de": "In der Umgebung",
+   "it": "Nella zona",
+   "pt": "Na zona",
+   "pl": "W okolicy",
+   "nl": "In de omgeving",
+   "zh": "附近海域"
+  },
+  "En el punto": {
+   "en": "At the site",
+   "fr": "Sur le site",
+   "de": "Am Tauchplatz",
+   "it": "Nel punto",
+   "pt": "No ponto",
+   "pl": "W miejscu",
+   "nl": "Op de duikstek",
+   "zh": "在潜点"
+  },
+  "Evidencia": {
+   "en": "Evidence",
+   "fr": "Preuve",
+   "de": "Nachweis",
+   "it": "Evidenza",
+   "pt": "Evidência",
+   "pl": "Dowód",
+   "nl": "Bewijs",
+   "zh": "证据"
+  },
+  "Dónde se ve": {
+   "en": "Where it is seen",
+   "fr": "Où on la voit",
+   "de": "Wo man sie sieht",
+   "it": "Dove si vede",
+   "pt": "Onde se vê",
+   "pl": "Gdzie występuje",
+   "nl": "Waar je hem ziet",
+   "zh": "出现位置"
+  },
+  "Fuentes": {
+   "en": "Sources",
+   "fr": "Sources",
+   "de": "Quellen",
+   "it": "Fonti",
+   "pt": "Fontes",
+   "pl": "Źródła",
+   "nl": "Bronnen",
+   "zh": "来源"
+  },
+  "Ver la ficha": {
+   "en": "View the page",
+   "fr": "Voir la fiche",
+   "de": "Seite ansehen",
+   "it": "Vedi la scheda",
+   "pt": "Ver a ficha",
+   "pl": "Zobacz kartę",
+   "nl": "Bekijk de pagina",
+   "zh": "查看详情"
+  },
+  "Citas genéricas por afinar": {
+   "en": "Generic records to refine",
+   "fr": "Signalements génériques à préciser",
+   "de": "Allgemeine Nachweise zum Präzisieren",
+   "it": "Segnalazioni generiche da precisare",
+   "pt": "Registos genéricos por afinar",
+   "pl": "Ogólne obserwacje do doprecyzowania",
+   "nl": "Algemene waarnemingen om te verfijnen",
+   "zh": "待细化的泛称记录"
+  },
+  "La fuente solo dice «sargos», «rayas»… Elige la especie concreta para que salga en el carrusel.": {
+   "en": "The source only says “seabreams”, “rays”… Choose the exact species so it appears in the carousel.",
+   "fr": "La source dit seulement « sars », « raies »… Choisissez l'espèce précise pour qu'elle apparaisse dans le carrousel.",
+   "de": "Die Quelle sagt nur „Brassen“, „Rochen“… Wähle die genaue Art, damit sie im Karussell erscheint.",
+   "it": "La fonte dice solo «saraghi», «razze»… Scegli la specie precisa perché compaia nel carosello.",
+   "pt": "A fonte só diz «sargos», «raias»… Escolhe a espécie concreta para que apareça no carrossel.",
+   "pl": "Źródło mówi tylko „sargi”, „płaszczki”… Wybierz konkretny gatunek, aby pojawił się w karuzeli.",
+   "nl": "De bron zegt alleen “zeebrasems”, “roggen”… Kies de precieze soort zodat hij in de carrousel verschijnt.",
+   "zh": "来源只写了“鲷鱼”“鳐鱼”等泛称……请选择具体物种，它才会出现在轮播中。"
+  },
+  "La fuente solo dice «sargos», «rayas»… Elige la especie concreta para que salga en el carrusel": {
+   "en": "The source only says “seabreams”, “rays”… Choose the exact species so it appears in the carousel",
+   "fr": "La source dit seulement « sars », « raies »… Choisissez l'espèce précise pour qu'elle apparaisse dans le carrousel",
+   "de": "Die Quelle sagt nur „Brassen“, „Rochen“… Wähle die genaue Art, damit sie im Karussell erscheint",
+   "it": "La fonte dice solo «saraghi», «razze»… Scegli la specie precisa perché compaia nel carosello",
+   "pt": "A fonte só diz «sargos», «raias»… Escolhe a espécie concreta para que apareça no carrossel",
+   "pl": "Źródło mówi tylko „sargi”, „płaszczki”… Wybierz konkretny gatunek, aby pojawił się w karuzeli",
+   "nl": "De bron zegt alleen “zeebrasems”, “roggen”… Kies de precieze soort zodat hij in de carrousel verschijnt",
+   "zh": "来源只写了“鲷鱼”“鳐鱼”等泛称……请选择具体物种，它才会出现在轮播中"
+  },
+  "Buscar la especie": {
+   "en": "Search for the species",
+   "fr": "Rechercher l'espèce",
+   "de": "Art suchen",
+   "it": "Cerca la specie",
+   "pt": "Procurar a espécie",
+   "pl": "Szukaj gatunku",
+   "nl": "Zoek de soort",
+   "zh": "搜索物种"
+  },
+  "Quitada": {
+   "en": "Removed",
+   "fr": "Retirée",
+   "de": "Entfernt",
+   "it": "Rimossa",
+   "pt": "Retirada",
+   "pl": "Usunięta",
+   "nl": "Verwijderd",
+   "zh": "已移除"
+  },
+  "Quitada.": {
+   "en": "Removed.",
+   "fr": "Retirée.",
+   "de": "Entfernt.",
+   "it": "Rimossa.",
+   "pt": "Retirada.",
+   "pl": "Usunięta.",
+   "nl": "Verwijderd.",
+   "zh": "已移除。"
+  },
+  "Afinada: ya sale en la ficha": {
+   "en": "Refined: it now appears on the page",
+   "fr": "Précisée : elle apparaît maintenant sur la fiche",
+   "de": "Präzisiert: erscheint jetzt auf der Seite",
+   "it": "Precisata: ora compare nella scheda",
+   "pt": "Afinada: já aparece na ficha",
+   "pl": "Doprecyzowano: jest już na karcie",
+   "nl": "Verfijnd: staat nu op de pagina",
+   "zh": "已细化：现已显示在详情页"
+  },
+  "Afinada: ya sale en la ficha.": {
+   "en": "Refined: it now appears on the page.",
+   "fr": "Précisée : elle apparaît maintenant sur la fiche.",
+   "de": "Präzisiert: erscheint jetzt auf der Seite.",
+   "it": "Precisata: ora compare nella scheda.",
+   "pt": "Afinada: já aparece na ficha.",
+   "pl": "Doprecyzowano: jest już na karcie.",
+   "nl": "Verfijnd: staat nu op de pagina.",
+   "zh": "已细化：现已显示在详情页。"
+  },
+  "Verificada": {
+   "en": "Verified",
+   "fr": "Vérifiée",
+   "de": "Verifiziert",
+   "it": "Verificata",
+   "pt": "Verificada",
+   "pl": "Zweryfikowana",
+   "nl": "Geverifieerd",
+   "zh": "已核实"
+  },
+  "Denunciar perfil": {
+   "en": "Report profile",
+   "fr": "Signaler le profil",
+   "de": "Profil melden",
+   "it": "Segnala profilo",
+   "pt": "Denunciar perfil",
+   "pl": "Zgłoś profil",
+   "nl": "Profiel melden",
+   "zh": "举报资料"
+  },
+  "¿Qué viste?": {
+   "en": "What did you see?",
+   "fr": "Qu'avez-vous vu ?",
+   "de": "Was hast du gesehen?",
+   "it": "Cosa hai visto?",
+   "pt": "O que viste?",
+   "pl": "Co widziałeś?",
+   "nl": "Wat heb je gezien?",
+   "zh": "你看到了什么？"
+  },
+  "Cuando apuntes una inmersión con su lugar, aquí podrás marcar lo que viste.": {
+   "en": "When you log a dive with its site, you can mark what you saw here.",
+   "fr": "Quand vous notez une plongée avec son site, vous pourrez indiquer ici ce que vous avez vu.",
+   "de": "Wenn du einen Tauchgang mit Ort einträgst, kannst du hier markieren, was du gesehen hast.",
+   "it": "Quando annoti un'immersione con il suo luogo, qui potrai segnare cosa hai visto.",
+   "pt": "Quando registares um mergulho com o seu local, aqui poderás marcar o que viste.",
+   "pl": "Gdy zapiszesz nurkowanie z miejscem, tutaj zaznaczysz, co widziałeś.",
+   "nl": "Als je een duik met de plek noteert, kun je hier aanvinken wat je zag.",
+   "zh": "记录一次带地点的潜水后，即可在这里标记你看到的生物。"
+  },
+  "Cuando apuntes una inmersión con su lugar, aquí podrás marcar lo que viste": {
+   "en": "When you log a dive with its site, you can mark what you saw here",
+   "fr": "Quand vous notez une plongée avec son site, vous pourrez indiquer ici ce que vous avez vu",
+   "de": "Wenn du einen Tauchgang mit Ort einträgst, kannst du hier markieren, was du gesehen hast",
+   "it": "Quando annoti un'immersione con il suo luogo, qui potrai segnare cosa hai visto",
+   "pt": "Quando registares um mergulho com o seu local, aqui poderás marcar o que viste",
+   "pl": "Gdy zapiszesz nurkowanie z miejscem, tutaj zaznaczysz, co widziałeś",
+   "nl": "Als je een duik met de plek noteert, kun je hier aanvinken wat je zag",
+   "zh": "记录一次带地点的潜水后，即可在这里标记你看到的生物"
+  },
+  "Elige una inmersión": {
+   "en": "Choose a dive",
+   "fr": "Choisissez une plongée",
+   "de": "Wähle einen Tauchgang",
+   "it": "Scegli un'immersione",
+   "pt": "Escolhe um mergulho",
+   "pl": "Wybierz nurkowanie",
+   "nl": "Kies een duik",
+   "zh": "选择一次潜水"
+  },
+  "Otra especie": {
+   "en": "Another species",
+   "fr": "Autre espèce",
+   "de": "Andere Art",
+   "it": "Altra specie",
+   "pt": "Outra espécie",
+   "pl": "Inny gatunek",
+   "nl": "Andere soort",
+   "zh": "其他物种"
+  },
+  "Busca en el catálogo": {
+   "en": "Search the catalogue",
+   "fr": "Cherchez dans le catalogue",
+   "de": "Im Katalog suchen",
+   "it": "Cerca nel catalogo",
+   "pt": "Procura no catálogo",
+   "pl": "Szukaj w katalogu",
+   "nl": "Zoek in de catalogus",
+   "zh": "在目录中搜索"
+  },
+  "Guardar lo que vi": {
+   "en": "Save what I saw",
+   "fr": "Enregistrer ce que j'ai vu",
+   "de": "Speichern, was ich gesehen habe",
+   "it": "Salva cosa ho visto",
+   "pt": "Guardar o que vi",
+   "pl": "Zapisz, co widziałem",
+   "nl": "Opslaan wat ik zag",
+   "zh": "保存我看到的"
+  },
+  "Mostrar especies sin foto (con el icono de su grupo)": {
+   "en": "Show species without a photo (with their group icon)",
+   "fr": "Afficher les espèces sans photo (avec l'icône de leur groupe)",
+   "de": "Arten ohne Foto zeigen (mit dem Symbol ihrer Gruppe)",
+   "it": "Mostra specie senza foto (con l'icona del loro gruppo)",
+   "pt": "Mostrar espécies sem foto (com o ícone do seu grupo)",
+   "pl": "Pokaż gatunki bez zdjęcia (z ikoną grupy)",
+   "nl": "Soorten zonder foto tonen (met het pictogram van hun groep)",
+   "zh": "显示无照片的物种（使用其类别图标）"
+  },
+  "N.º": {
+   "en": "No.",
+   "fr": "N°",
+   "de": "Nr.",
+   "it": "N.",
+   "pt": "N.º",
+   "pl": "Nr",
+   "nl": "Nr.",
+   "zh": "编号"
+  },
+  "Por punto": {
+   "en": "By site",
+   "fr": "Par site",
+   "de": "Nach Tauchplatz",
+   "it": "Per punto",
+   "pt": "Por ponto",
+   "pl": "Według miejsca",
+   "nl": "Per duikstek",
+   "zh": "按潜点"
+  },
+  "Vida marina de los puntos": {
+   "en": "Marine life of the sites",
+   "fr": "Vie marine des sites",
+   "de": "Meeresleben der Tauchplätze",
+   "it": "Vita marina dei punti",
+   "pt": "Vida marinha dos pontos",
+   "pl": "Życie morskie miejsc",
+   "nl": "Zeeleven van de duikstekken",
+   "zh": "潜点海洋生物"
+  },
+  "Fotos pendientes": {
+   "en": "Pending photos",
+   "fr": "Photos en attente",
+   "de": "Ausstehende Fotos",
+   "it": "Foto in sospeso",
+   "pt": "Fotos pendentes",
+   "pl": "Oczekujące zdjęcia",
+   "nl": "Openstaande foto's",
+   "zh": "待补照片"
+  },
+  "Algas y plantas": {
+   "en": "Algae and plants",
+   "fr": "Algues et plantes",
+   "de": "Algen und Pflanzen",
+   "it": "Alghe e piante",
+   "pt": "Algas e plantas",
+   "pl": "Glony i rośliny",
+   "nl": "Algen en planten",
+   "zh": "藻类与植物"
+  },
+  "Freelance de buceo": {
+   "en": "Freelance divers",
+   "fr": "Plongeurs freelance",
+   "de": "Freelance-Tauchprofis",
+   "it": "Subacquei freelance",
+   "pt": "Mergulhadores freelance",
+   "pl": "Nurkowie freelance",
+   "nl": "Freelance duikprofessionals",
+   "zh": "自由职业潜水教练"
+  },
+  "Guías e instructores que trabajan por su cuenta. Encuentra el tuyo y resérvale directamente.": {
+   "en": "Guides and instructors who work for themselves. Find yours and book them directly.",
+   "fr": "Guides et moniteurs indépendants. Trouvez le vôtre et réservez-le directement.",
+   "de": "Guides und Tauchlehrer, die selbstständig arbeiten. Finde deinen und buche direkt.",
+   "it": "Guide e istruttori che lavorano in proprio. Trova il tuo e prenotalo direttamente.",
+   "pt": "Guias e instrutores que trabalham por conta própria. Encontra o teu e reserva diretamente.",
+   "pl": "Przewodnicy i instruktorzy pracujący na własny rachunek. Znajdź swojego i zarezerwuj bezpośrednio.",
+   "nl": "Gidsen en instructeurs die voor zichzelf werken. Vind de jouwe en boek direct.",
+   "zh": "独立工作的潜导和教练。找到适合你的，直接预订。"
+  },
+  "Guías e instructores que trabajan por su cuenta. Encuentra el tuyo y resérvale directamente": {
+   "en": "Guides and instructors who work for themselves. Find yours and book them directly",
+   "fr": "Guides et moniteurs indépendants. Trouvez le vôtre et réservez-le directement",
+   "de": "Guides und Tauchlehrer, die selbstständig arbeiten. Finde deinen und buche direkt",
+   "it": "Guide e istruttori che lavorano in proprio. Trova il tuo e prenotalo direttamente",
+   "pt": "Guias e instrutores que trabalham por conta própria. Encontra o teu e reserva diretamente",
+   "pl": "Przewodnicy i instruktorzy pracujący na własny rachunek. Znajdź swojego i zarezerwuj bezpośrednio",
+   "nl": "Gidsen en instructeurs die voor zichzelf werken. Vind de jouwe en boek direct",
+   "zh": "独立工作的潜导和教练。找到适合你的，直接预订"
+  },
+  "Directorio": {
+   "en": "Directory",
+   "fr": "Annuaire",
+   "de": "Verzeichnis",
+   "it": "Elenco",
+   "pt": "Diretório",
+   "pl": "Katalog",
+   "nl": "Overzicht",
+   "zh": "名录"
+  },
+  "Buscar por zona": {
+   "en": "Search by area",
+   "fr": "Rechercher par zone",
+   "de": "Nach Gebiet suchen",
+   "it": "Cerca per zona",
+   "pt": "Procurar por zona",
+   "pl": "Szukaj według okolicy",
+   "nl": "Zoeken op gebied",
+   "zh": "按区域搜索"
+  },
+  "Cercanía y disponibilidad": {
+   "en": "Distance and availability",
+   "fr": "Proximité et disponibilité",
+   "de": "Nähe und Verfügbarkeit",
+   "it": "Vicinanza e disponibilità",
+   "pt": "Proximidade e disponibilidade",
+   "pl": "Odległość i dostępność",
+   "nl": "Afstand en beschikbaarheid",
+   "zh": "距离与空档"
+  },
+  "No hay freelance con estos filtros": {
+   "en": "No freelance match these filters",
+   "fr": "Aucun freelance avec ces filtres",
+   "de": "Keine Freelancer mit diesen Filtern",
+   "it": "Nessun freelance con questi filtri",
+   "pt": "Não há freelancers com estes filtros",
+   "pl": "Brak freelancerów dla tych filtrów",
+   "nl": "Geen freelancers met deze filters",
+   "zh": "没有符合筛选条件的自由职业者"
+  },
+  "No hay freelance con estos filtros.": {
+   "en": "No freelance match these filters.",
+   "fr": "Aucun freelance avec ces filtres.",
+   "de": "Keine Freelancer mit diesen Filtern.",
+   "it": "Nessun freelance con questi filtri.",
+   "pt": "Não há freelancers com estes filtros.",
+   "pl": "Brak freelancerów dla tych filtrów.",
+   "nl": "Geen freelancers met deze filters.",
+   "zh": "没有符合筛选条件的自由职业者。"
+  },
+  "Tu navegador no da la ubicación": {
+   "en": "Your browser does not provide your location",
+   "fr": "Votre navigateur ne fournit pas la position",
+   "de": "Dein Browser gibt den Standort nicht frei",
+   "it": "Il tuo browser non fornisce la posizione",
+   "pt": "O teu navegador não dá a localização",
+   "pl": "Twoja przeglądarka nie udostępnia lokalizacji",
+   "nl": "Je browser geeft je locatie niet door",
+   "zh": "你的浏览器无法提供位置"
+  },
+  "Tu navegador no da la ubicación.": {
+   "en": "Your browser does not provide your location.",
+   "fr": "Votre navigateur ne fournit pas la position.",
+   "de": "Dein Browser gibt den Standort nicht frei.",
+   "it": "Il tuo browser non fornisce la posizione.",
+   "pt": "O teu navegador não dá a localização.",
+   "pl": "Twoja przeglądarka nie udostępnia lokalizacji.",
+   "nl": "Je browser geeft je locatie niet door.",
+   "zh": "你的浏览器无法提供位置。"
+  },
+  "No se ha podido obtener tu ubicación": {
+   "en": "Your location could not be obtained",
+   "fr": "Impossible d'obtenir votre position",
+   "de": "Dein Standort konnte nicht ermittelt werden",
+   "it": "Non è stato possibile ottenere la tua posizione",
+   "pt": "Não foi possível obter a tua localização",
+   "pl": "Nie udało się ustalić lokalizacji",
+   "nl": "Je locatie kon niet worden bepaald",
+   "zh": "无法获取你的位置"
+  },
+  "No se ha podido obtener tu ubicación.": {
+   "en": "Your location could not be obtained.",
+   "fr": "Impossible d'obtenir votre position.",
+   "de": "Dein Standort konnte nicht ermittelt werden.",
+   "it": "Non è stato possibile ottenere la tua posizione.",
+   "pt": "Não foi possível obter a tua localização.",
+   "pl": "Nie udało się ustalić lokalizacji.",
+   "nl": "Je locatie kon niet worden bepaald.",
+   "zh": "无法获取你的位置。"
+  },
+  "Freelance que bucean aquí": {
+   "en": "Freelance who dive here",
+   "fr": "Freelance qui plongent ici",
+   "de": "Freelancer, die hier tauchen",
+   "it": "Freelance che si immergono qui",
+   "pt": "Freelancers que mergulham aqui",
+   "pl": "Freelancerzy nurkujący tutaj",
+   "nl": "Freelancers die hier duiken",
+   "zh": "在这里潜水的自由职业者"
+  },
+  "Próxima fecha libre": {
+   "en": "Next free date",
+   "fr": "Prochaine date libre",
+   "de": "Nächster freier Termin",
+   "it": "Prossima data libera",
+   "pt": "Próxima data livre",
+   "pl": "Najbliższy wolny termin",
+   "nl": "Eerstvolgende vrije datum",
+   "zh": "最近空档日期"
+  },
+  "Con fechas libres": {
+   "en": "Dates available",
+   "fr": "Dates disponibles",
+   "de": "Freie Termine",
+   "it": "Date libere",
+   "pt": "Com datas livres",
+   "pl": "Wolne terminy",
+   "nl": "Vrije data",
+   "zh": "有空档"
+  },
+  "Cuando tengas una reserva confirmada con un centro o un freelance, aparecerá aquí": {
+   "en": "When you have a confirmed booking with a centre or a freelance, it will appear here",
+   "fr": "Quand vous aurez une réservation confirmée avec un centre ou un freelance, il apparaîtra ici",
+   "de": "Sobald du eine bestätigte Buchung bei einem Zentrum oder Freelancer hast, erscheint er hier",
+   "it": "Quando avrai una prenotazione confermata con un centro o un freelance, comparirà qui",
+   "pt": "Quando tiveres uma reserva confirmada com um centro ou um freelancer, aparecerá aqui",
+   "pl": "Gdy będziesz mieć potwierdzoną rezerwację w centrum lub u freelancera, pojawi się tutaj",
+   "nl": "Zodra je een bevestigde boeking bij een centrum of freelancer hebt, verschijnt die hier",
+   "zh": "当你在潜水中心或自由职业者处有已确认的预订后，会显示在这里"
+  },
+  "Cuando tengas una reserva confirmada con un centro o un freelance, aparecerá aquí.": {
+   "en": "When you have a confirmed booking with a centre or a freelance, it will appear here.",
+   "fr": "Quand vous aurez une réservation confirmée avec un centre ou un freelance, il apparaîtra ici.",
+   "de": "Sobald du eine bestätigte Buchung bei einem Zentrum oder Freelancer hast, erscheint er hier.",
+   "it": "Quando avrai una prenotazione confermata con un centro o un freelance, comparirà qui.",
+   "pt": "Quando tiveres uma reserva confirmada com um centro ou um freelancer, aparecerá aqui.",
+   "pl": "Gdy będziesz mieć potwierdzoną rezerwację w centrum lub u freelancera, pojawi się tutaj.",
+   "nl": "Zodra je een bevestigde boeking bij een centrum of freelancer hebt, verschijnt die hier.",
+   "zh": "当你在潜水中心或自由职业者处有已确认的预订后，会显示在这里。"
+  },
+  "Los centros y freelance con los que ya has reservado. Vuelve a reservar o contacta con ellos por WhatsApp, teléfono o correo, fuera de WORLDIVES.": {
+   "en": "The centres and freelance you have already booked with. Book again or contact them by WhatsApp, phone or email, outside WORLDIVES.",
+   "fr": "Les centres et freelance chez qui vous avez déjà réservé. Réservez à nouveau ou contactez-les par WhatsApp, téléphone ou e-mail, en dehors de WORLDIVES.",
+   "de": "Die Zentren und Freelancer, bei denen du schon gebucht hast. Buche erneut oder kontaktiere sie per WhatsApp, Telefon oder E-Mail, außerhalb von WORLDIVES.",
+   "it": "I centri e i freelance con cui hai già prenotato. Prenota di nuovo o contattali via WhatsApp, telefono o e-mail, fuori da WORLDIVES.",
+   "pt": "Os centros e freelancers com quem já reservaste. Volta a reservar ou contacta-os por WhatsApp, telefone ou e-mail, fora da WORLDIVES.",
+   "pl": "Centra i freelancerzy, u których już rezerwowałeś. Zarezerwuj ponownie lub skontaktuj się przez WhatsApp, telefon lub e-mail, poza WORLDIVES.",
+   "nl": "De centra en freelancers waar je al hebt geboekt. Boek opnieuw of neem contact op via WhatsApp, telefoon of e-mail, buiten WORLDIVES.",
+   "zh": "你已预订过的潜水中心和自由职业者。可以再次预订，或通过 WhatsApp、电话或邮件在 WORLDIVES 之外联系他们。"
+  },
+  "Los centros y freelance con los que ya has reservado. Vuelve a reservar o contacta con ellos por WhatsApp, teléfono o correo, fuera de WORLDIVES": {
+   "en": "The centres and freelance you have already booked with. Book again or contact them by WhatsApp, phone or email, outside WORLDIVES",
+   "fr": "Les centres et freelance chez qui vous avez déjà réservé. Réservez à nouveau ou contactez-les par WhatsApp, téléphone ou e-mail, en dehors de WORLDIVES",
+   "de": "Die Zentren und Freelancer, bei denen du schon gebucht hast. Buche erneut oder kontaktiere sie per WhatsApp, Telefon oder E-Mail, außerhalb von WORLDIVES",
+   "it": "I centri e i freelance con cui hai già prenotato. Prenota di nuovo o contattali via WhatsApp, telefono o e-mail, fuori da WORLDIVES",
+   "pt": "Os centros e freelancers com quem já reservaste. Volta a reservar ou contacta-os por WhatsApp, telefone ou e-mail, fora da WORLDIVES",
+   "pl": "Centra i freelancerzy, u których już rezerwowałeś. Zarezerwuj ponownie lub skontaktuj się przez WhatsApp, telefon lub e-mail, poza WORLDIVES",
+   "nl": "De centra en freelancers waar je al hebt geboekt. Boek opnieuw of neem contact op via WhatsApp, telefoon of e-mail, buiten WORLDIVES",
+   "zh": "你已预订过的潜水中心和自由职业者。可以再次预订，或通过 WhatsApp、电话或邮件在 WORLDIVES 之外联系他们"
+  },
+  "Directorio de freelance": {
+   "en": "Freelance directory",
+   "fr": "Annuaire des freelance",
+   "de": "Freelancer-Verzeichnis",
+   "it": "Elenco dei freelance",
+   "pt": "Diretório de freelancers",
+   "pl": "Katalog freelancerów",
+   "nl": "Overzicht van freelancers",
+   "zh": "自由职业者名录"
+  },
+  "Aparecer en el directorio": {
+   "en": "Appear in the directory",
+   "fr": "Apparaître dans l'annuaire",
+   "de": "Im Verzeichnis erscheinen",
+   "it": "Comparire nell'elenco",
+   "pt": "Aparecer no diretório",
+   "pl": "Pokazuj w katalogu",
+   "nl": "In het overzicht verschijnen",
+   "zh": "显示在名录中"
+  },
+  "Los buceadores te encuentran en Experiencias → «Buscar freelance» y te reservan directamente. Nunca se publican tu dirección, tu teléfono ni tu correo.": {
+   "en": "Divers find you in Experiences → “Find freelance” and book you directly. Your address, phone and email are never published.",
+   "fr": "Les plongeurs vous trouvent dans Expériences → « Trouver un freelance » et vous réservent directement. Votre adresse, votre téléphone et votre e-mail ne sont jamais publiés.",
+   "de": "Taucher finden dich unter Erlebnisse → „Freelancer suchen“ und buchen dich direkt. Adresse, Telefon und E-Mail werden nie veröffentlicht.",
+   "it": "I subacquei ti trovano in Esperienze → «Cerca freelance» e ti prenotano direttamente. Indirizzo, telefono ed e-mail non vengono mai pubblicati.",
+   "pt": "Os mergulhadores encontram-te em Experiências → «Procurar freelance» e reservam diretamente. O teu endereço, telefone e e-mail nunca são publicados.",
+   "pl": "Nurkowie znajdą cię w Doświadczeniach → „Szukaj freelancera” i zarezerwują bezpośrednio. Twój adres, telefon i e-mail nigdy nie są publikowane.",
+   "nl": "Duikers vinden je in Ervaringen → “Freelancer zoeken” en boeken je direct. Je adres, telefoon en e-mail worden nooit gepubliceerd.",
+   "zh": "潜水员会在“体验”→“查找自由职业者”中找到你并直接预订。你的地址、电话和邮箱绝不会公开。"
+  },
+  "Los buceadores te encuentran en Experiencias → «Buscar freelance» y te reservan directamente. Nunca se publican tu dirección, tu teléfono ni tu correo": {
+   "en": "Divers find you in Experiences → “Find freelance” and book you directly. Your address, phone and email are never published",
+   "fr": "Les plongeurs vous trouvent dans Expériences → « Trouver un freelance » et vous réservent directement. Votre adresse, votre téléphone et votre e-mail ne sont jamais publiés",
+   "de": "Taucher finden dich unter Erlebnisse → „Freelancer suchen“ und buchen dich direkt. Adresse, Telefon und E-Mail werden nie veröffentlicht",
+   "it": "I subacquei ti trovano in Esperienze → «Cerca freelance» e ti prenotano direttamente. Indirizzo, telefono ed e-mail non vengono mai pubblicati",
+   "pt": "Os mergulhadores encontram-te em Experiências → «Procurar freelance» e reservam diretamente. O teu endereço, telefone e e-mail nunca são publicados",
+   "pl": "Nurkowie znajdą cię w Doświadczeniach → „Szukaj freelancera” i zarezerwują bezpośrednio. Twój adres, telefon i e-mail nigdy nie są publikowane",
+   "nl": "Duikers vinden je in Ervaringen → “Freelancer zoeken” en boeken je direct. Je adres, telefoon en e-mail worden nooit gepubliceerd",
+   "zh": "潜水员会在“体验”→“查找自由职业者”中找到你并直接预订。你的地址、电话和邮箱绝不会公开"
+  },
+  "Ver el directorio": {
+   "en": "View the directory",
+   "fr": "Voir l'annuaire",
+   "de": "Verzeichnis ansehen",
+   "it": "Vedi l'elenco",
+   "pt": "Ver o diretório",
+   "pl": "Zobacz katalog",
+   "nl": "Bekijk het overzicht",
+   "zh": "查看名录"
+  },
+  "Completa tu perfil para aparecer en el directorio": {
+   "en": "Complete your profile to appear in the directory",
+   "fr": "Complétez votre profil pour apparaître dans l'annuaire",
+   "de": "Vervollständige dein Profil, um im Verzeichnis zu erscheinen",
+   "it": "Completa il profilo per comparire nell'elenco",
+   "pt": "Completa o teu perfil para aparecer no diretório",
+   "pl": "Uzupełnij profil, aby pojawić się w katalogu",
+   "nl": "Vul je profiel aan om in het overzicht te verschijnen",
+   "zh": "完善资料后即可显示在名录中"
+  },
+  "Completa tu perfil para aparecer en el directorio.": {
+   "en": "Complete your profile to appear in the directory.",
+   "fr": "Complétez votre profil pour apparaître dans l'annuaire.",
+   "de": "Vervollständige dein Profil, um im Verzeichnis zu erscheinen.",
+   "it": "Completa il profilo per comparire nell'elenco.",
+   "pt": "Completa o teu perfil para aparecer no diretório.",
+   "pl": "Uzupełnij profil, aby pojawić się w katalogu.",
+   "nl": "Vul je profiel aan om in het overzicht te verschijnen.",
+   "zh": "完善资料后即可显示在名录中。"
+  },
+  "Apareces en el directorio": {
+   "en": "You appear in the directory",
+   "fr": "Vous apparaissez dans l'annuaire",
+   "de": "Du erscheinst im Verzeichnis",
+   "it": "Compari nell'elenco",
+   "pt": "Apareces no diretório",
+   "pl": "Jesteś widoczny w katalogu",
+   "nl": "Je staat in het overzicht",
+   "zh": "你已显示在名录中"
+  },
+  "Apareces en el directorio.": {
+   "en": "You appear in the directory.",
+   "fr": "Vous apparaissez dans l'annuaire.",
+   "de": "Du erscheinst im Verzeichnis.",
+   "it": "Compari nell'elenco.",
+   "pt": "Apareces no diretório.",
+   "pl": "Jesteś widoczny w katalogu.",
+   "nl": "Je staat in het overzicht.",
+   "zh": "你已显示在名录中。"
+  },
+  "Has apagado «Aparecer en el directorio»": {
+   "en": "You have switched off “Appear in the directory”",
+   "fr": "Vous avez désactivé « Apparaître dans l'annuaire »",
+   "de": "Du hast „Im Verzeichnis erscheinen“ ausgeschaltet",
+   "it": "Hai disattivato «Comparire nell'elenco»",
+   "pt": "Desativaste «Aparecer no diretório»",
+   "pl": "Wyłączyłeś „Pokazuj w katalogu”",
+   "nl": "Je hebt “In het overzicht verschijnen” uitgezet",
+   "zh": "你已关闭“显示在名录中”"
+  },
+  "Has apagado «Aparecer en el directorio».": {
+   "en": "You have switched off “Appear in the directory”.",
+   "fr": "Vous avez désactivé « Apparaître dans l'annuaire ».",
+   "de": "Du hast „Im Verzeichnis erscheinen“ ausgeschaltet.",
+   "it": "Hai disattivato «Comparire nell'elenco».",
+   "pt": "Desativaste «Aparecer no diretório».",
+   "pl": "Wyłączyłeś „Pokazuj w katalogu”.",
+   "nl": "Je hebt “In het overzicht verschijnen” uitgezet.",
+   "zh": "你已关闭“显示在名录中”。"
+  },
+  "Eres": {
+   "en": "You are",
+   "fr": "Vous êtes",
+   "de": "Du bist",
+   "it": "Sei",
+   "pt": "És",
+   "pl": "Jesteś",
+   "nl": "Je bent",
+   "zh": "你是"
+  },
+  "Elige": {
+   "en": "Choose",
+   "fr": "Choisissez",
+   "de": "Auswählen",
+   "it": "Scegli",
+   "pt": "Escolhe",
+   "pl": "Wybierz",
+   "nl": "Kies",
+   "zh": "请选择"
+  },
+  "Zona donde trabajas": {
+   "en": "Area where you work",
+   "fr": "Zone où vous travaillez",
+   "de": "Gebiet, in dem du arbeitest",
+   "it": "Zona in cui lavori",
+   "pt": "Zona onde trabalhas",
+   "pl": "Okolica, w której pracujesz",
+   "nl": "Gebied waar je werkt",
+   "zh": "工作区域"
+  },
+  "Latitud (opcional)": {
+   "en": "Latitude (optional)",
+   "fr": "Latitude (facultatif)",
+   "de": "Breitengrad (optional)",
+   "it": "Latitudine (facoltativa)",
+   "pt": "Latitude (opcional)",
+   "pl": "Szerokość (opcjonalnie)",
+   "nl": "Breedtegraad (optioneel)",
+   "zh": "纬度（可选）"
+  },
+  "Longitud (opcional)": {
+   "en": "Longitude (optional)",
+   "fr": "Longitude (facultatif)",
+   "de": "Längengrad (optional)",
+   "it": "Longitudine (facoltativa)",
+   "pt": "Longitude (opcional)",
+   "pl": "Długość (opcjonalnie)",
+   "nl": "Lengtegraad (optioneel)",
+   "zh": "经度（可选）"
+  },
+  "Contacto para quien ya ha reservado contigo": {
+   "en": "Contact for people who have already booked with you",
+   "fr": "Contact pour ceux qui ont déjà réservé avec vous",
+   "de": "Kontakt für alle, die schon bei dir gebucht haben",
+   "it": "Contatto per chi ha già prenotato con te",
+   "pt": "Contacto para quem já reservou contigo",
+   "pl": "Kontakt dla osób, które już u ciebie rezerwowały",
+   "nl": "Contact voor wie al bij je heeft geboekt",
+   "zh": "供已预订过你的客户联系的方式"
+  },
+  "Llamar": {
+   "en": "Call",
+   "fr": "Appeler",
+   "de": "Anrufen",
+   "it": "Chiama",
+   "pt": "Ligar",
+   "pl": "Zadzwoń",
+   "nl": "Bellen",
+   "zh": "致电"
+  },
+  "Correo": {
+   "en": "Email",
+   "fr": "E-mail",
+   "de": "E-Mail",
+   "it": "E-mail",
+   "pt": "E-mail",
+   "pl": "E-mail",
+   "nl": "E-mail",
+   "zh": "邮件"
+  },
+  "Tus titulaciones profesionales": {
+   "en": "Your professional certifications",
+   "fr": "Vos qualifications professionnelles",
+   "de": "Deine Profi-Brevets",
+   "it": "Le tue certificazioni professionali",
+   "pt": "As tuas certificações profissionais",
+   "pl": "Twoje uprawnienia zawodowe",
+   "nl": "Je professionele brevetten",
+   "zh": "你的专业资质"
+  },
+  "Todavía no has añadido ninguna": {
+   "en": "You have not added any yet",
+   "fr": "Vous n'en avez encore ajouté aucune",
+   "de": "Du hast noch keine hinzugefügt",
+   "it": "Non ne hai ancora aggiunta nessuna",
+   "pt": "Ainda não adicionaste nenhuma",
+   "pl": "Nie dodano jeszcze żadnego",
+   "nl": "Je hebt er nog geen toegevoegd",
+   "zh": "你还没有添加任何资质"
+  },
+  "Todavía no has añadido ninguna.": {
+   "en": "You have not added any yet.",
+   "fr": "Vous n'en avez encore ajouté aucune.",
+   "de": "Du hast noch keine hinzugefügt.",
+   "it": "Non ne hai ancora aggiunta nessuna.",
+   "pt": "Ainda não adicionaste nenhuma.",
+   "pl": "Nie dodano jeszcze żadnego.",
+   "nl": "Je hebt er nog geen toegevoegd.",
+   "zh": "你还没有添加任何资质。"
+  },
+  "Número (solo lo ve la administración)": {
+   "en": "Number (only the administration sees it)",
+   "fr": "Numéro (visible seulement par l'administration)",
+   "de": "Nummer (nur die Verwaltung sieht sie)",
+   "it": "Numero (lo vede solo l'amministrazione)",
+   "pt": "Número (só a administração o vê)",
+   "pl": "Numer (widzi go tylko administracja)",
+   "nl": "Nummer (alleen de beheerder ziet het)",
+   "zh": "编号（仅管理员可见）"
+  },
+  "Añadir titulación": {
+   "en": "Add certification",
+   "fr": "Ajouter une qualification",
+   "de": "Brevet hinzufügen",
+   "it": "Aggiungi certificazione",
+   "pt": "Adicionar certificação",
+   "pl": "Dodaj uprawnienie",
+   "nl": "Brevet toevoegen",
+   "zh": "添加资质"
+  },
+  "Buceadores bloqueados": {
+   "en": "Blocked divers",
+   "fr": "Plongeurs bloqués",
+   "de": "Blockierte Taucher",
+   "it": "Subacquei bloccati",
+   "pt": "Mergulhadores bloqueados",
+   "pl": "Zablokowani nurkowie",
+   "nl": "Geblokkeerde duikers",
+   "zh": "已屏蔽的潜水员"
+  },
+  "Titulación añadida": {
+   "en": "Certification added",
+   "fr": "Qualification ajoutée",
+   "de": "Brevet hinzugefügt",
+   "it": "Certificazione aggiunta",
+   "pt": "Certificação adicionada",
+   "pl": "Dodano uprawnienie",
+   "nl": "Brevet toegevoegd",
+   "zh": "资质已添加"
+  },
+  "Titulación añadida.": {
+   "en": "Certification added.",
+   "fr": "Qualification ajoutée.",
+   "de": "Brevet hinzugefügt.",
+   "it": "Certificazione aggiunta.",
+   "pt": "Certificação adicionada.",
+   "pl": "Dodano uprawnienie.",
+   "nl": "Brevet toegevoegd.",
+   "zh": "资质已添加。"
+  },
+  "Número": {
+   "en": "Number",
+   "fr": "Numéro",
+   "de": "Nummer",
+   "it": "Numero",
+   "pt": "Número",
+   "pl": "Numer",
+   "nl": "Nummer",
+   "zh": "编号"
+  },
+  "Todavía no hay titulaciones": {
+   "en": "No certifications yet",
+   "fr": "Pas encore de qualifications",
+   "de": "Noch keine Brevets",
+   "it": "Ancora nessuna certificazione",
+   "pt": "Ainda não há certificações",
+   "pl": "Brak uprawnień",
+   "nl": "Nog geen brevetten",
+   "zh": "暂无资质"
+  },
+  "Todavía no hay titulaciones.": {
+   "en": "No certifications yet.",
+   "fr": "Pas encore de qualifications.",
+   "de": "Noch keine Brevets.",
+   "it": "Ancora nessuna certificazione.",
+   "pt": "Ainda não há certificações.",
+   "pl": "Brak uprawnień.",
+   "nl": "Nog geen brevetten.",
+   "zh": "暂无资质。"
+  },
+  "Titulaciones de freelance": {
+   "en": "Freelance certifications",
+   "fr": "Qualifications des freelance",
+   "de": "Brevets der Freelancer",
+   "it": "Certificazioni dei freelance",
+   "pt": "Certificações de freelancers",
+   "pl": "Uprawnienia freelancerów",
+   "nl": "Brevetten van freelancers",
+   "zh": "自由职业者资质"
+  },
+  "por verificar": {
+   "en": "to verify",
+   "fr": "à vérifier",
+   "de": "zu prüfen",
+   "it": "da verificare",
+   "pt": "por verificar",
+   "pl": "do weryfikacji",
+   "nl": "te verifiëren",
+   "zh": "待核实"
+  },
+  "Verificar": {
+   "en": "Verify",
+   "fr": "Vérifier",
+   "de": "Prüfen",
+   "it": "Verifica",
+   "pt": "Verificar",
+   "pl": "Zweryfikuj",
+   "nl": "Verifiëren",
+   "zh": "核实"
+  },
+  "Pendiente de verificar": {
+   "en": "Pending verification",
+   "fr": "En attente de vérification",
+   "de": "Prüfung ausstehend",
+   "it": "In attesa di verifica",
+   "pt": "Por verificar",
+   "pl": "Oczekuje na weryfikację",
+   "nl": "Wacht op verificatie",
+   "zh": "待核实"
+  },
+  "Los correos se ven en parte. Verlos completos pide tu contraseña y el motivo.": {
+   "en": "Emails are partly hidden. Seeing them in full asks for your password and the reason.",
+   "fr": "Les e-mails sont partiellement masqués. Les voir en entier demande votre mot de passe et le motif.",
+   "de": "E-Mails sind teilweise verborgen. Sie vollständig zu sehen, verlangt dein Passwort und den Grund.",
+   "it": "Le e-mail si vedono in parte. Vederle per intero richiede la password e il motivo.",
+   "pt": "Os e-mails veem-se em parte. Vê-los completos pede a tua palavra-passe e o motivo.",
+   "pl": "Adresy e-mail są częściowo ukryte. Pełny widok wymaga hasła i podania powodu.",
+   "nl": "E-mailadressen zijn deels verborgen. Ze volledig zien vraagt je wachtwoord en de reden.",
+   "zh": "邮箱仅部分显示。查看完整邮箱需要输入密码并说明原因。"
+  },
+  "Los correos se ven en parte. Verlos completos pide tu contraseña y el motivo": {
+   "en": "Emails are partly hidden. Seeing them in full asks for your password and the reason",
+   "fr": "Les e-mails sont partiellement masqués. Les voir en entier demande votre mot de passe et le motif",
+   "de": "E-Mails sind teilweise verborgen. Sie vollständig zu sehen, verlangt dein Passwort und den Grund",
+   "it": "Le e-mail si vedono in parte. Vederle per intero richiede la password e il motivo",
+   "pt": "Os e-mails veem-se em parte. Vê-los completos pede a tua palavra-passe e o motivo",
+   "pl": "Adresy e-mail są częściowo ukryte. Pełny widok wymaga hasła i podania powodu",
+   "nl": "E-mailadressen zijn deels verborgen. Ze volledig zien vraagt je wachtwoord en de reden",
+   "zh": "邮箱仅部分显示。查看完整邮箱需要输入密码并说明原因"
+  },
+  "Ver los correos completos": {
+   "en": "See full emails",
+   "fr": "Voir les e-mails complets",
+   "de": "Vollständige E-Mails ansehen",
+   "it": "Vedi le e-mail complete",
+   "pt": "Ver os e-mails completos",
+   "pl": "Pokaż pełne adresy e-mail",
+   "nl": "Volledige e-mailadressen bekijken",
+   "zh": "查看完整邮箱"
+  },
+  "Mi actividad": {
+   "en": "My activity",
+   "fr": "Mon activité",
+   "de": "Meine Aktivität",
+   "it": "La mia attività",
+   "pt": "A minha atividade",
+   "pl": "Moja aktywność",
+   "nl": "Mijn activiteit",
+   "zh": "我的动态"
+  },
+  "Centro de control": {
+   "en": "Control centre",
+   "fr": "Centre de contrôle",
+   "de": "Kontrollzentrum",
+   "it": "Centro di controllo",
+   "pt": "Centro de controlo",
+   "pl": "Centrum sterowania",
+   "nl": "Controlecentrum",
+   "zh": "控制中心"
+  },
+  "Escaparate y avisos": {
+   "en": "Showcase and notices",
+   "fr": "Vitrine et avis",
+   "de": "Schaufenster und Hinweise",
+   "it": "Vetrina e avvisi",
+   "pt": "Montra e avisos",
+   "pl": "Wizytówka i powiadomienia",
+   "nl": "Etalage en meldingen",
+   "zh": "展示与通知"
+  },
+  "Reservas en cifras": {
+   "en": "Bookings in figures",
+   "fr": "Réservations en chiffres",
+   "de": "Buchungen in Zahlen",
+   "it": "Prenotazioni in cifre",
+   "pt": "Reservas em números",
+   "pl": "Rezerwacje w liczbach",
+   "nl": "Boekingen in cijfers",
+   "zh": "预订数据"
+  },
+  "Centros y usuarios": {
+   "en": "Centres and users",
+   "fr": "Centres et utilisateurs",
+   "de": "Zentren und Nutzer",
+   "it": "Centri e utenti",
+   "pt": "Centros e utilizadores",
+   "pl": "Centra i użytkownicy",
+   "nl": "Centra en gebruikers",
+   "zh": "中心与用户"
+  },
+  "Datos personales y accesos": {
+   "en": "Personal data and access",
+   "fr": "Données personnelles et accès",
+   "de": "Persönliche Daten und Zugriffe",
+   "it": "Dati personali e accessi",
+   "pt": "Dados pessoais e acessos",
+   "pl": "Dane osobowe i dostępy",
+   "nl": "Persoonsgegevens en toegang",
+   "zh": "个人数据与访问"
+  },
+  "Ajustes y estado del sistema": {
+   "en": "Settings and system status",
+   "fr": "Réglages et état du système",
+   "de": "Einstellungen und Systemstatus",
+   "it": "Impostazioni e stato del sistema",
+   "pt": "Definições e estado do sistema",
+   "pl": "Ustawienia i stan systemu",
+   "nl": "Instellingen en systeemstatus",
+   "zh": "设置与系统状态"
+  },
+  "Plantillas de servicio": {
+   "en": "Service templates",
+   "fr": "Modèles de service",
+   "de": "Leistungsvorlagen",
+   "it": "Modelli di servizio",
+   "pt": "Modelos de serviço",
+   "pl": "Szablony usług",
+   "nl": "Dienstsjablonen",
+   "zh": "服务模板"
+  },
+  "Cuenta administrador": {
+   "en": "Administrator account",
+   "fr": "Compte administrateur",
+   "de": "Administratorkonto",
+   "it": "Account amministratore",
+   "pt": "Conta de administrador",
+   "pl": "Konto administratora",
+   "nl": "Beheerdersaccount",
+   "zh": "管理员账户"
+  },
+  "Control administrativo de WORLDIVES DISCOVERY. Las acciones importantes quedan registradas en «Actividad».": {
+   "en": "Administrative control of WORLDIVES DISCOVERY. Important actions are logged in “Activity”.",
+   "fr": "Contrôle administratif de WORLDIVES DISCOVERY. Les actions importantes sont enregistrées dans « Activité ».",
+   "de": "Verwaltung von WORLDIVES DISCOVERY. Wichtige Aktionen werden unter „Aktivität“ protokolliert.",
+   "it": "Controllo amministrativo di WORLDIVES DISCOVERY. Le azioni importanti sono registrate in «Attività».",
+   "pt": "Controlo administrativo da WORLDIVES DISCOVERY. As ações importantes ficam registadas em «Atividade».",
+   "pl": "Panel administracyjny WORLDIVES DISCOVERY. Ważne działania są zapisywane w „Aktywności”.",
+   "nl": "Beheer van WORLDIVES DISCOVERY. Belangrijke acties worden vastgelegd in “Activiteit”.",
+   "zh": "WORLDIVES DISCOVERY 管理后台。重要操作会记录在“动态”中。"
+  },
+  "Control administrativo de WORLDIVES DISCOVERY. Las acciones importantes quedan registradas en «Actividad»": {
+   "en": "Administrative control of WORLDIVES DISCOVERY. Important actions are logged in “Activity”",
+   "fr": "Contrôle administratif de WORLDIVES DISCOVERY. Les actions importantes sont enregistrées dans « Activité »",
+   "de": "Verwaltung von WORLDIVES DISCOVERY. Wichtige Aktionen werden unter „Aktivität“ protokolliert",
+   "it": "Controllo amministrativo di WORLDIVES DISCOVERY. Le azioni importanti sono registrate in «Attività»",
+   "pt": "Controlo administrativo da WORLDIVES DISCOVERY. As ações importantes ficam registadas em «Atividade»",
+   "pl": "Panel administracyjny WORLDIVES DISCOVERY. Ważne działania są zapisywane w „Aktywności”",
+   "nl": "Beheer van WORLDIVES DISCOVERY. Belangrijke acties worden vastgelegd in “Activiteit”",
+   "zh": "WORLDIVES DISCOVERY 管理后台。重要操作会记录在“动态”中"
+  },
+  "Instructor": {
+   "en": "Instructor",
+   "fr": "Moniteur",
+   "de": "Tauchlehrer",
+   "it": "Istruttore",
+   "pt": "Instrutor",
+   "pl": "Instruktor",
+   "nl": "Instructeur",
+   "zh": "教练"
+  },
+  "Guía": {
+   "en": "Guide",
+   "fr": "Guide",
+   "de": "Guide",
+   "it": "Guida",
+   "pt": "Guia",
+   "pl": "Przewodnik",
+   "nl": "Gids",
+   "zh": "潜导"
+  },
+  "Otra": {
+   "en": "Other",
+   "fr": "Autre",
+   "de": "Andere",
+   "it": "Altra",
+   "pt": "Outra",
+   "pl": "Inna",
+   "nl": "Andere",
+   "zh": "其他"
+  },
+  "Usar mi ubicación": {
+   "en": "Use my location",
+   "fr": "Utiliser ma position",
+   "de": "Meinen Standort verwenden",
+   "it": "Usa la mia posizione",
+   "pt": "Usar a minha localização",
+   "pl": "Użyj mojej lokalizacji",
+   "nl": "Mijn locatie gebruiken",
+   "zh": "使用我的位置"
+  },
+  "Centro de demostración": {
+   "en": "Demo centre",
+   "fr": "Centre de démonstration",
+   "de": "Demo-Zentrum",
+   "it": "Centro dimostrativo",
+   "pt": "Centro de demonstração",
+   "pl": "Centrum demonstracyjne",
+   "nl": "Democentrum",
+   "zh": "演示中心"
+  },
+  "1 especie citada": {
+   "en": "1 species recorded",
+   "fr": "1 espèce signalée",
+   "de": "1 nachgewiesene Art",
+   "it": "1 specie segnalata",
+   "pt": "1 espécie registada",
+   "pl": "1 zanotowany gatunek",
+   "nl": "1 gemelde soort",
+   "zh": "已记录 1 种"
+  },
+  "Has visto 1 especie": {
+   "en": "You have seen 1 species",
+   "fr": "Vous avez vu 1 espèce",
+   "de": "Du hast 1 Art gesehen",
+   "it": "Hai visto 1 specie",
+   "pt": "Já viste 1 espécie",
+   "pl": "Widziany 1 gatunek",
+   "nl": "Je hebt 1 soort gezien",
+   "zh": "你已见过 1 种"
+  }
+ },
+ "patterns": {
+  "{n} especies citadas": {
+   "en": "{n} species recorded",
+   "fr": "{n} espèces signalées",
+   "de": "{n} nachgewiesene Arten",
+   "it": "{n} specie segnalate",
+   "pt": "{n} espécies registadas",
+   "pl": "Zanotowane gatunki: {n}",
+   "nl": "{n} gemelde soorten",
+   "zh": "已记录 {n} 种"
+  },
+  "{n} profesionales": {
+   "en": "{n} professionals",
+   "fr": "{n} professionnels",
+   "de": "{n} Profis",
+   "it": "{n} professionisti",
+   "pt": "{n} profissionais",
+   "pl": "Profesjonaliści: {n}",
+   "nl": "{n} professionals",
+   "zh": "{n} 位专业人士"
+  },
+  "{n} fotos subidas": {
+   "en": "{n} photos uploaded",
+   "fr": "{n} photos envoyées",
+   "de": "{n} Fotos hochgeladen",
+   "it": "{n} foto caricate",
+   "pt": "{n} fotos enviadas",
+   "pl": "Przesłane zdjęcia: {n}",
+   "nl": "{n} foto's geüpload",
+   "zh": "已上传 {n} 张照片"
+  },
+  "Faltan {n} fotos": {
+   "en": "{n} photos missing",
+   "fr": "{n} photos manquantes",
+   "de": "{n} Fotos fehlen",
+   "it": "Mancano {n} foto",
+   "pt": "Faltam {n} fotos",
+   "pl": "Brakuje zdjęć: {n}",
+   "nl": "{n} foto's ontbreken",
+   "zh": "缺少 {n} 张照片"
+  },
+  "Guardadas {n} especies": {
+   "en": "{n} species saved",
+   "fr": "{n} espèces enregistrées",
+   "de": "{n} Arten gespeichert",
+   "it": "{n} specie salvate",
+   "pt": "{n} espécies guardadas",
+   "pl": "Zapisane gatunki: {n}",
+   "nl": "{n} soorten opgeslagen",
+   "zh": "已保存 {n} 种"
+  },
+  "Has visto {n} especies": {
+   "en": "You have seen {n} species",
+   "fr": "Vous avez vu {n} espèces",
+   "de": "Du hast {n} Arten gesehen",
+   "it": "Hai visto {n} specie",
+   "pt": "Já viste {n} espécies",
+   "pl": "Widziane gatunki: {n}",
+   "nl": "Je hebt {n} soorten gezien",
+   "zh": "你已见过 {n} 种"
+  },
+  "{n} citas": {
+   "en": "{n} records",
+   "fr": "{n} signalements",
+   "de": "{n} Nachweise",
+   "it": "{n} segnalazioni",
+   "pt": "{n} registos",
+   "pl": "Obserwacje: {n}",
+   "nl": "{n} waarnemingen",
+   "zh": "{n} 条记录"
+  }
+ }
+}

@@ -1,0 +1,56 @@
+{
+  "name": "WORLDIVES DISCOVERY",
+  "short_name": "WORLDIVES",
+  "description": "Descubre puntos de buceo, centros y experiencias en una sola plataforma.",
+  "lang": "es",
+  "start_url": "/#/explorar",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#011C3C",
+  "theme_color": "#011C3C",
+  "icons": [
+    {
+      "src": "/img/marca/worldives-icono-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/marca/worldives-icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/marca/worldives-icono-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Check-in en el barco",
+      "short_name": "Check-in",
+      "url": "/#/barco",
+      "icons": [
+        {
+          "src": "/img/marca/worldives-icono-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Planning",
+      "url": "/#/admin?tab=planning",
+      "icons": [
+        {
+          "src": "/img/marca/worldives-icono-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

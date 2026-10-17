@@ -1,0 +1,68 @@
+{
+ "_nota": "Centros, personas y textos INVENTADOS para la versión de demostración (v50.51). No corresponden a ningún centro real.",
+ "bahia": {
+  "name": "Bahía Coralina Centro de Buceo",
+  "texts": {
+   "es": {"tagline": "Buceo en barco en el Cabo de San Antonio, en Xàbia",
+          "description": "Somos un centro pequeño en el puerto de Xàbia. Salimos cada día en barco hacia la reserva marina del Cabo de San Antonio, el Portitxol y el Cabo de San Martín, con grupos de seis buceadores por guía como máximo.\n\nOfrecemos bautizos, cursos de iniciación y avanzados, nitrox y alquiler de equipo. Hablamos español, inglés, francés y alemán."},
+   "en": {"tagline": "Boat diving at Cape San Antonio, in Xàbia",
+          "description": "We are a small centre in the port of Xàbia. Every day we take the boat to the Cape San Antonio marine reserve, Portitxol and Cape San Martín, with no more than six divers per guide.\n\nWe offer try dives, beginner and advanced courses, nitrox and equipment rental. We speak Spanish, English, French and German."},
+   "fr": {"tagline": "Plongée en bateau au cap Saint-Antoine, à Xàbia",
+          "description": "Nous sommes un petit centre dans le port de Xàbia. Chaque jour, nous partons en bateau vers la réserve marine du cap Saint-Antoine, le Portitxol et le cap Saint-Martin, avec six plongeurs au maximum par guide.\n\nNous proposons des baptêmes, des cours débutants et avancés, le nitrox et la location de matériel. Nous parlons espagnol, anglais, français et allemand."},
+   "de": {"tagline": "Bootstauchen am Kap San Antonio in Xàbia",
+          "description": "Wir sind eine kleine Tauchbasis im Hafen von Xàbia. Jeden Tag fahren wir mit dem Boot ins Meeresschutzgebiet am Kap San Antonio, zum Portitxol und zum Kap San Martín – mit höchstens sechs Tauchern pro Guide.\n\nWir bieten Schnuppertauchen, Anfänger- und Fortgeschrittenenkurse, Nitrox und Ausrüstungsverleih an. Wir sprechen Spanisch, Englisch, Französisch und Deutsch."},
+   "it": {"tagline": "Immersioni in barca a Capo San Antonio, a Xàbia",
+          "description": "Siamo un piccolo centro nel porto di Xàbia. Ogni giorno usciamo in barca verso la riserva marina di Capo San Antonio, il Portitxol e Capo San Martín, con al massimo sei subacquei per guida.\n\nOffriamo battesimi, corsi base e avanzati, nitrox e noleggio dell’attrezzatura. Parliamo spagnolo, inglese, francese e tedesco."},
+   "pt": {"tagline": "Mergulho de barco no Cabo de San Antonio, em Xàbia",
+          "description": "Somos um centro pequeno no porto de Xàbia. Saímos todos os dias de barco para a reserva marinha do Cabo de San Antonio, o Portitxol e o Cabo de San Martín, com no máximo seis mergulhadores por guia.\n\nOferecemos batismos, cursos de iniciação e avançados, nitrox e aluguer de equipamento. Falamos espanhol, inglês, francês e alemão."},
+   "nl": {"tagline": "Duiken vanaf de boot bij Kaap San Antonio, in Xàbia",
+          "description": "Wij zijn een klein duikcentrum in de haven van Xàbia. Elke dag varen we naar het zeereservaat van Kaap San Antonio, de Portitxol en Kaap San Martín, met hooguit zes duikers per gids.\n\nWe bieden introductieduiken, beginners- en gevorderdencursussen, nitrox en materiaalverhuur. We spreken Spaans, Engels, Frans en Duits."},
+   "pl": {"tagline": "Nurkowanie z łodzi przy przylądku San Antonio w Xàbii",
+          "description": "Jesteśmy małym centrum w porcie w Xàbii. Codziennie wypływamy łodzią do rezerwatu morskiego przylądka San Antonio, na Portitxol i przylądek San Martín, maksymalnie z sześcioma nurkami na przewodnika.\n\nOferujemy nurkowania próbne, kursy podstawowe i zaawansowane, nitrox oraz wypożyczenie sprzętu. Mówimy po hiszpańsku, angielsku, francusku i niemiecku."},
+   "zh": {"tagline": "在哈韦亚圣安东尼奥角乘船潜水",
+          "description": "我们是位于哈韦亚港口的一家小型潜水中心。每天乘船前往圣安东尼奥角海洋保护区、波蒂索尔和圣马丁角，每位导潜最多带六名潜水员。\n\n我们提供体验潜水、初级和进阶课程、高氧潜水以及装备租赁。我们会说西班牙语、英语、法语和德语。"}
+  }
+ },
+ "medes": {
+  "name": "Posidonia Norte Buceo",
+  "texts": {
+   "es": {"tagline": "Buceo en las Islas Medes desde L'Estartit",
+          "description": "Centro familiar en el paseo marítimo de L'Estartit, a diez minutos en barco de las Islas Medes. Buceamos en La Vaca, el Carall Bernat y los Tascons, con meros, gorgonias y corales.\n\nOrganizamos inmersiones diarias, nocturnas, bautizos y cursos. Respetamos el cupo de buceadores de la reserva y salimos con grupos pequeños."},
+   "en": {"tagline": "Diving in the Medes Islands from L'Estartit",
+          "description": "A family-run centre on the seafront of L'Estartit, ten minutes by boat from the Medes Islands. We dive La Vaca, Carall Bernat and Tascons, with groupers, gorgonians and corals.\n\nWe run daily dives, night dives, try dives and courses. We respect the reserve's diver quota and go out in small groups."},
+   "fr": {"tagline": "Plongée aux îles Medes depuis L'Estartit",
+          "description": "Centre familial sur le front de mer de L'Estartit, à dix minutes en bateau des îles Medes. Nous plongeons à La Vaca, au Carall Bernat et aux Tascons, avec mérous, gorgones et corail.\n\nNous organisons des plongées quotidiennes, de nuit, des baptêmes et des cours. Nous respectons le quota de plongeurs de la réserve et sortons en petits groupes."},
+   "de": {"tagline": "Tauchen an den Medes-Inseln ab L'Estartit",
+          "description": "Familienbetrieb an der Strandpromenade von L'Estartit, zehn Bootsminuten von den Medes-Inseln entfernt. Wir tauchen an La Vaca, Carall Bernat und Tascons – mit Zackenbarschen, Gorgonien und Korallen.\n\nWir bieten tägliche Tauchgänge, Nachttauchgänge, Schnuppertauchen und Kurse. Wir halten die Taucherquote des Schutzgebiets ein und fahren in kleinen Gruppen."},
+   "it": {"tagline": "Immersioni alle isole Medes da L'Estartit",
+          "description": "Centro a gestione familiare sul lungomare di L'Estartit, a dieci minuti di barca dalle isole Medes. Ci immergiamo a La Vaca, al Carall Bernat e ai Tascons, tra cernie, gorgonie e coralli.\n\nOrganizziamo immersioni giornaliere, notturne, battesimi e corsi. Rispettiamo il numero massimo di subacquei della riserva e usciamo in piccoli gruppi."},
+   "pt": {"tagline": "Mergulho nas Ilhas Medes a partir de L'Estartit",
+          "description": "Centro familiar no passeio marítimo de L'Estartit, a dez minutos de barco das Ilhas Medes. Mergulhamos em La Vaca, no Carall Bernat e nos Tascons, com meros, gorgónias e corais.\n\nOrganizamos mergulhos diários, noturnos, batismos e cursos. Respeitamos a quota de mergulhadores da reserva e saímos em grupos pequenos."},
+   "nl": {"tagline": "Duiken bij de Medes-eilanden vanuit L'Estartit",
+          "description": "Familiebedrijf aan de boulevard van L'Estartit, tien minuten varen van de Medes-eilanden. We duiken bij La Vaca, Carall Bernat en Tascons, met tandbaarzen, gorgonen en koralen.\n\nWe organiseren dagelijkse duiken, nachtduiken, introductieduiken en cursussen. We houden ons aan het duikersquotum van het reservaat en gaan in kleine groepen."},
+   "pl": {"tagline": "Nurkowanie przy wyspach Medes z L'Estartit",
+          "description": "Rodzinne centrum na nabrzeżu w L'Estartit, dziesięć minut łodzią od wysp Medes. Nurkujemy w La Vaca, Carall Bernat i Tascons, wśród graników, gorgonii i koralowców.\n\nOrganizujemy codzienne nurkowania, nurkowania nocne, próbne i kursy. Przestrzegamy limitu nurków w rezerwacie i wypływamy w małych grupach."},
+   "zh": {"tagline": "从莱斯塔蒂特出发，在梅德斯群岛潜水",
+          "description": "我们是位于莱斯塔蒂特海滨大道的家庭式潜水中心，乘船十分钟即可到达梅德斯群岛。我们在拉瓦卡、卡拉尔贝尔纳特和塔斯孔斯潜水，可见石斑鱼、柳珊瑚和珊瑚。\n\n我们组织日常潜水、夜潜、体验潜水和课程，遵守保护区的潜水人数限制，并以小团体出海。"}
+  }
+ },
+ "reviews": [
+  [5, "Inmersión preciosa", "Grupo pequeño y guía muy atento. Vimos un mero enorme y un pulpo en la pared."],
+  [5, "Repetiremos", "Todo muy bien organizado: equipo en buen estado y explicaciones claras antes de entrar."],
+  [4, "Muy recomendable", "Buena inmersión y trato cercano. El barco iba algo lleno el sábado, pero sin problemas."],
+  [5, "Great dive centre", "Friendly team, clear briefings and beautiful dive sites. We will be back next summer."],
+  [5, "Mein erster Tauchgang im Mittelmeer", "Sehr geduldige Guides und gutes Material. Klare Empfehlung."],
+  [4, "Très bonne sortie", "Belle plongée et équipe sympathique. Un peu d’attente au port le matin."],
+  [5, "Bautizo perfecto", "Mi hija hizo su primer bautizo y salió encantada. Mucha paciencia y seguridad."],
+  [3, "Bien, aunque mejorable", "La inmersión estuvo bien, pero la salida se retrasó media hora por el viento."],
+  [5, "Il mio corso Open Water", "Istruttori bravissimi, teoria chiara e immersioni in posti bellissimi."],
+  [4, "Buen ambiente", "Centro muy limpio, duchas calientes y café al volver. Volveremos en otoño."],
+  [5, "Nocturna inolvidable", "Vimos sepias, pulpos y una langosta enorme. El guía controló el grupo en todo momento."],
+  [5, "Goede duikschool", "Duidelijke uitleg en mooie duikstekken. Aanrader voor gevorderde duikers."]
+ ],
+ "replies": [
+  "¡Gracias por venir! Nos alegra que disfrutaras de la reserva. Te esperamos pronto.",
+  "Thank you! It was a pleasure diving with you.",
+  "Gracias por el comentario. Tomamos nota del retraso: ese día el viento cambió de golpe y preferimos esperar para salir con seguridad."
+ ]
+}

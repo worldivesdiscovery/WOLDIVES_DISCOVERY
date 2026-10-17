@@ -1,0 +1,296 @@
+"""v50.51 · La ficha del punto como en v50.49: vida marina, vídeos de la ruta y recorridos 360° antiguos en una sola
+petición; las fotos de las especies en dos tamaños; la demo se regenera cuando cambia la versión."""
+import datetime as dt
+import importlib.util
+import sqlite3
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'app'))
+from helpers import ServerTestCase  # noqa: E402
+from media_mock import MediaMock  # noqa: E402
+
+
+class Ficha(ServerTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.mock = MediaMock()
+        cls.extra_env = {'WOD_MEDIA_FETCH_BASE': cls.mock.base}
+        super().setUpClass()
+        cls.admin = cls('run').make_admin()
+        cls.pid = cls.admin.get('/api/dive-points').json['items'][0]['id']
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass(); cls.mock.stop()
+
+    def test_01_one_request_for_everything(self):
+        srv = self.server
+        srv.sql("INSERT INTO virtual_experiences(dive_point_id,title,experience_type,url,active,created_at,updated_at) VALUES(?,?,?,?,1,datetime(),datetime())",
+                (self.pid, 'Panorámica de la entrada', 'panorama', None))
+        srv.sql("INSERT INTO virtual_experiences(dive_point_id,title,experience_type,url,active,created_at,updated_at) VALUES(?,?,?,?,1,datetime(),datetime())",
+                (self.pid, 'Vídeo copiado a la ruta', 'video360', 'https://www.youtube-nocookie.com/embed/Ab3dEf6hI9k'))
+        copied = srv.sql("SELECT id FROM virtual_experiences WHERE title='Vídeo copiado a la ruta'")[0]['id']
+        r = self.admin.post('/api/marina/video', {'point_id': self.pid, 'url': 'https://www.youtube.com/watch?v=Ab3dEf6hI9k', 'kind': '360', 'title': ''})
+        self.assertEqual(r.status, 200, r.json)
+        srv.sql('UPDATE route_videos SET legacy_virtual_id=? WHERE dive_point_id=?', (copied, self.pid))
+        self.admin.post('/api/admin/marina/ejemplos')
+        sp = {x['scientific']: x['id'] for x in self.admin.get('/api/admin/marina/especies').json['items']}
+        self.admin.post('/api/marina/especie-punto', {'point_id': self.pid, 'species_id': sp['Octopus vulgaris'], 'frequency': 'common', 'months': []})
+
+        d = self.client().get(f'/api/dive-points/{self.pid}?lang=de').json
+        self.assertEqual([v['title'] for v in d['virtual']], ['Panorámica de la entrada'])   # the copied one is a route video now
+        self.assertEqual(len(d['videos']), 1)
+        self.assertEqual(d['videos'][0]['kind'], '360')
+        self.assertTrue(d['videos'][0]['insertable'])
+        self.assertEqual(d['species'][0]['name'], 'Gemeiner Krake')
+
+    def test_02_example_photos_in_two_sizes(self):
+        self.admin.post('/api/admin/marina/ejemplos')
+        item = [x for x in self.admin.get('/api/admin/marina/especies').json['items'] if x['scientific'] == 'Mola mola'][0]
+        srcset = item['photo']['srcset']
+        self.assertEqual(srcset, '/img/especies/pez-luna-128.webp 128w, /img/especies/pez-luna-640.webp 640w')
+        for w in (128, 640):
+            r = self.client().get(f'/img/especies/pez-luna-{w}.webp')
+            self.assertEqual(r.status, 200)
+            self.assertEqual(r.headers.get('Content-Type'), 'image/webp')
+        old = self.server.sql("SELECT COUNT(*) AS n FROM species WHERE photo_base LIKE '/img/especies/%' AND photo_widths<>'128,640'")[0]['n']
+        self.assertEqual(old, 0)
+        self.assertTrue(self.server.sql("SELECT 1 FROM schema_migrations WHERE version='50.51'"))
+
+
+class CentroIdiomas(ServerTestCase):
+    """The centre writes its presentation in other languages; each visitor sees the one of their language."""
+
+    def test_texts_by_language(self):
+        admin = self.make_admin()
+        center = self.make_center(admin, 'idiomas1'); other = self.make_center(admin, 'idiomas2')
+        cid = center.user['center_id']
+        base = {'tagline': 'Buceo en la reserva marina', 'languages': 'Español, inglés', 'opening_hours': '9-19'}
+        texts = {'en': {'tagline': 'Diving in the marine reserve', 'description': 'A small family centre.\n\nBoat dives every day.'},
+                 'de': {'tagline': 'Tauchen im Meeresschutzgebiet', 'description': ''}, 'fr': {'tagline': '', 'description': ''}, 'xx': {'tagline': 'ignored'}}
+        r = center.post('/api/provider/center-showcase', {**base, 'texts': texts}); self.assertEqual(r.status, 200, r.json)
+        en = self.client().get(f'/api/centers/{cid}?lang=en').json['item']
+        self.assertEqual((en['tagline'], en['text_lang']), ('Diving in the marine reserve', 'en'))
+        self.assertIn('Boat dives every day.', en['description'])
+        de = self.client().get(f'/api/centers/{cid}?lang=de').json['item']
+        self.assertEqual(de['tagline'], 'Tauchen im Meeresschutzgebiet')
+        it = self.client().get(f'/api/centers/{cid}?lang=it').json['item']
+        self.assertEqual(it['tagline'], 'Buceo en la reserva marina'); self.assertNotIn('text_lang', it)
+        self.assertEqual(sorted(it['texts']), ['de', 'en'])                     # empty languages are not stored
+        r = center.post('/api/provider/center-showcase', {**base})                   # saving without «texts» keeps them
+        self.assertEqual(sorted(self.client().get(f'/api/centers/{cid}').json['item']['texts']), ['de', 'en'])
+        r = other.post('/api/provider/center-showcase', {**base, 'texts': {'en': {'tagline': 'Hacked'}}})
+        self.assertEqual(self.client().get(f'/api/centers/{cid}?lang=en').json['item']['tagline'], 'Diving in the marine reserve')
+        self.assertIn(self.client().post('/api/provider/center-showcase', {**base, 'texts': {}}).status, (401, 403))
+        r = center.post('/api/provider/center-showcase', {**base, 'texts': 'no'}); self.assertEqual(r.status, 400)
+
+
+class SeguridadExtra(ServerTestCase):
+    """Security review v50.51: findings without an automated test in the review (now with one)."""
+
+    def test_current_password_attempts_are_limited(self):
+        d = self.make_diver('pwlimit1')
+        for _ in range(10):
+            self.assertEqual(d.post('/api/account/password', {'current_password': 'no-es-esta-1', 'new_password': 'otra-clave-segura-1'}).status, 400)
+        r = d.post('/api/account/password', {'current_password': 'buceo-seguro-2026', 'new_password': 'otra-clave-segura-1'})
+        self.assertEqual(r.status, 403, r.json)                                   # blocked for a while, even with the right one
+
+    def test_report_limit_is_bounded(self):
+        import importlib
+        sys.path.insert(0, str(ROOT / 'app'))
+        from wod import security as wsec
+        lim = wsec.RateLimiter(10, 3600, max_keys=50)
+        for i in range(500): lim.hit(f'10.0.{i // 250}.{i % 250}')
+        self.assertLessEqual(len(lim._hits), 60)
+
+    def test_team_join_uses_the_password_rules(self):
+        admin = self.make_admin('adm-pw@worldives.test', 'admpw')
+        center = self.make_center(admin, 'pwteam1')
+        self.assertEqual(center.post('/api/center/team/invite', {'email': 'nuevo@pwteam1.example.org', 'member_role': 'instructor'}).status, 200)
+        mail = self.server.sql("SELECT html FROM email_outbox WHERE template='team_invite' ORDER BY id DESC LIMIT 1")[0]['html']
+        token = __import__('re').search(r'#/equipo\?token=([A-Za-z0-9_-]+)', mail).group(1)
+        r = self.client().post('/api/team/join', {'token': token, 'fullname': 'Nuevo Instructor', 'username': 'nuevo.pw', 'password': 'qwertyuiop', 'accept_terms': True})
+        self.assertEqual(r.status, 400); self.assertIn('fácil', r.json['error'])
+
+
+class EstadoDelSistema(unittest.TestCase):
+    """Administración → Operación → «Estado del sistema»: each service with its state and the .env variable."""
+
+    def status(self, env):
+        from helpers import Client, Server
+        srv = Server(env).start()
+        try:
+            res = srv.run_cli('--create-admin', '--email', 'est@example.com', '--username', 'est', '--name', 'Estado', env={'WOD_ADMIN_PASSWORD': 'Estado-Seguro-2026'})
+            self.assertEqual(res.returncode, 0, res.stderr)
+            a = Client(srv); self.assertEqual(a.login('est', 'Estado-Seguro-2026').status, 200)
+            self.assertEqual(Client(srv).get('/api/admin/health').status in (401, 403), True)
+            return {x['key']: x for x in a.get('/api/admin/health').json['services']}
+        finally:
+            srv.stop()
+
+    def test_missing_keys_are_pending_and_present_ones_ok(self):
+        st = self.status({'WOD_SMTP_HOST': '', 'STRIPE_SECRET_KEY': '', 'ARCGIS_API_KEY': '', 'WOD_BACKUP_KEY': ''})
+        for k in ('domain', 'session_key', 'data_key', 'mail', 'payments', 'basemap', 'satellite', 'whatsapp', 'push', 'backup', 'backup_key', 'backup_offsite', 'disk', 'admin_2fa'):
+            self.assertIn(k, st)
+        self.assertEqual((st['mail']['state'], st['payments']['state'], st['satellite']['state'], st['backup_key']['state']), ('pending',) * 4)
+        self.assertIn('STRIPE_SECRET_KEY', st['payments']['env'])
+        st = self.status({'WOD_SMTP_HOST': 'smtp.example.com', 'STRIPE_SECRET_KEY': 'sk_test_x', 'STRIPE_CONNECT_WEBHOOK_SECRET': 'whsec_x', 'ARCGIS_API_KEY': 'AAPKx', 'WOD_BACKUP_KEY': 'k' * 40})
+        self.assertEqual((st['mail']['state'], st['payments']['state'], st['satellite']['state'], st['backup_key']['state']), ('ok',) * 4)
+        self.assertIn('prueba', st['payments']['detail'])
+
+
+class DemoVersion(unittest.TestCase):
+    """reset_demo --si-hace-falta keeps the demonstration data only when it is recent AND from this version."""
+
+    def test_rebuilt_when_the_version_changes(self):
+        spec = importlib.util.spec_from_file_location('reset_demo', ROOT / 'scripts' / 'reset_demo.py')
+        mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+        self.assertRegex(mod.app_version(), r'^\d+\.\d+$')
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / 'demo.sqlite3'
+            c = sqlite3.connect(db); c.execute('CREATE TABLE site_settings(key TEXT PRIMARY KEY, value TEXT)')
+            c.execute("INSERT INTO site_settings VALUES('demo_generated_on',?)", (dt.date.today().isoformat(),)); c.commit()
+            self.assertEqual(mod.generated(db), (dt.date.today(), None))          # made before v50.51: no version → rebuilt
+            c.execute("INSERT INTO site_settings VALUES('demo_generated_version','50.49')"); c.commit(); c.close()
+            made, version = mod.generated(db)
+            self.assertNotEqual(version, mod.app_version())
+        self.assertEqual(mod.generated(Path('/no/existe.sqlite3')), (None, None))
+
+
+class LimitesCompartidos(ServerTestCase):
+    """The limits of attempts are the same with several processes (WOD_WORKERS): before, each process counted on its
+    own, so with 4 processes a person could try up to 4 times more passwords or two-step codes."""
+    extra_env = {'WOD_WORKERS': '4'}
+
+    @classmethod
+    def tearDownClass(cls):
+        import os, signal
+        from test_v50_51_concurrencia import child_pids
+        for k in (child_pids(cls.server.proc.pid) if cls.server.proc else []):
+            try: os.kill(k, signal.SIGTERM)
+            except ProcessLookupError: pass
+        super().tearDownClass()
+
+    def test_login_limit_counts_every_process(self):
+        self.make_diver('limite4')
+        seen = []
+        for _ in range(8):                       # WOD_LOGIN_MAX_ATTEMPTS: 8 per account and address every 15 minutes
+            seen.append(self.client().post('/api/auth/login', {'login': 'diver_limite4', 'password': 'no-es-esta-1'}).status)
+        self.assertEqual(seen, [401] * 8)
+        # each request is a new connection: the kernel spreads them over the 4 processes, and all of them say no now
+        self.assertEqual([self.client().post('/api/auth/login', {'login': 'diver_limite4', 'password': 'buceo-seguro-2026'}).status
+                          for _ in range(6)], [429] * 6)
+
+
+class LimitadorCompartido(unittest.TestCase):
+    """wod.security.SharedRateLimiter: the same fixed window as RateLimiter, counted in one file for every process."""
+
+    def setUp(self):
+        from wod import security as wsec
+        self.wsec = wsec; self.tmp = tempfile.TemporaryDirectory()
+        wsec.configure_shared_limits(Path(self.tmp.name) / 'limites.sqlite3')
+
+    def tearDown(self):
+        self.wsec.configure_shared_limits(None); self.tmp.cleanup()
+
+    def test_window_reset_and_no_clear_keys(self):
+        lim = self.wsec.SharedRateLimiter('prueba', 3, 3600)
+        self.assertEqual([lim.hit('10.0.0.1') for _ in range(4)], [False, False, False, True])
+        self.assertTrue(lim.blocked('10.0.0.1')); self.assertFalse(lim.blocked('10.0.0.2'))
+        lim.reset('10.0.0.1'); self.assertFalse(lim.blocked('10.0.0.1'))
+        self.assertFalse(self.wsec.SharedRateLimiter('otro', 3, 3600).blocked('10.0.0.1'))   # each limit on its own
+        lim.hit('10.0.0.9')
+        raw = sqlite3.connect(Path(self.tmp.name) / 'limites.sqlite3').execute('SELECT group_concat(key) FROM hits').fetchone()[0]
+        self.assertNotIn('10.0.0.9', raw)                                                    # addresses are not stored
+        short = self.wsec.SharedRateLimiter('corto', 1, 1)
+        short.hit('k'); short.hit('k'); self.assertTrue(short.blocked('k'))
+        import time; time.sleep(1.1); self.assertFalse(short.blocked('k'))                  # the window ends
+
+    def test_exact_count_across_processes(self):
+        import os
+        lim = self.wsec.SharedRateLimiter('procesos', 1000, 3600)
+        kids = []
+        for _ in range(4):
+            pid = os.fork()
+            if pid == 0:
+                try:
+                    for _ in range(25): lim.hit('misma-clave')
+                finally: os._exit(0)
+            kids.append(pid)
+        for pid in kids: os.waitpid(pid, 0)
+        self.assertFalse(lim.hit('misma-clave'))
+        n = sqlite3.connect(Path(self.tmp.name) / 'limites.sqlite3').execute("SELECT count FROM hits WHERE name='procesos'").fetchone()[0]
+        self.assertEqual(n, 101)                                                             # 4 × 25 + 1, none lost
+
+class ZonasHorarias(ServerTestCase):
+    """Each departure is compared with the time of the place where it happens, whatever the clock of the machine (here
+    UTC, like many VPS): in Spain, one that began 30 minutes ago is closed; in Cancún, one that starts in an hour is
+    open; the free cancellation counts the hours of the centre."""
+    extra_env = {'TZ': 'UTC'}
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        t = cls('run'); admin = t.make_admin('adm-tz@worldives.test', 'admtz')
+        cls.es = t.make_center(admin, 'zonaes', phone='+34 600 515 001')
+        cls.mx = t.make_center(admin, 'zonamx', phone='+34 600 515 002')
+        cls.server.sql("UPDATE centers SET country='México' WHERE id=?", (cls.mx.user['center_id'],))
+        cls.diver = t.make_diver('zonas1')
+
+    def departure(self, center, tz, delta):
+        from zoneinfo import ZoneInfo
+        sid = center.post('/api/provider-services', {'title': f'Salida {tz}', 'price': 40, 'booking_mode': 'request'}).json['id']
+        later = (dt.date.today() + dt.timedelta(days=10)).isoformat()
+        slot = center.post('/api/provider-services/slot', {'service_id': sid, 'slot_date': later, 'slot_time': '09:00', 'spots_total': 8}).json['slot_id']
+        when = dt.datetime.now(ZoneInfo(tz)) + delta
+        self.server.sql('UPDATE service_slots SET slot_date=?, slot_time=? WHERE id=?', (when.date().isoformat(), when.strftime('%H:%M'), slot))
+        return sid, slot
+
+    def book(self, center, sid, slot):
+        return self.diver.post('/api/bookings', {'center_id': center.user['center_id'], 'service_id': sid, 'slot_id': slot, 'participants': 1})
+
+    def test_started_in_spain_is_closed_on_a_utc_server(self):
+        r = self.book(self.es, *self.departure(self.es, 'Europe/Madrid', dt.timedelta(minutes=-30)))
+        self.assertEqual(r.status, 400, r); self.assertIn('ya ha empezado', r.json['error'])
+
+    def test_ahead_in_cancun_is_open(self):
+        r = self.book(self.mx, *self.departure(self.mx, 'America/Cancun', dt.timedelta(minutes=60)))
+        self.assertEqual(r.status, 200, r)
+
+    def test_free_cancellation_counts_the_hours_of_the_centre(self):
+        from zoneinfo import ZoneInfo
+        bid = self.book(self.es, *self.departure(self.es, 'Europe/Madrid', dt.timedelta(days=5))).json['id']
+        hours = self.diver.post(f'/api/bookings/{bid}/cancel', {'preview': True}).json['terms']['policy_hours']
+        self.assertGreaterEqual(hours, 2)
+        when = dt.datetime.now(ZoneInfo('Europe/Madrid')) + dt.timedelta(hours=hours - 1)
+        self.server.sql('UPDATE bookings SET booking_date=?, booking_time=? WHERE id=?', (when.date().isoformat(), when.strftime('%H:%M'), bid))
+        t = self.diver.post(f'/api/bookings/{bid}/cancel', {'preview': True}).json['terms']
+        self.assertFalse(t['free'], t); self.assertAlmostEqual(t['hours_left'], hours - 1, delta=0.2)
+        self.assertEqual(t['deadline'][11:16], (when - dt.timedelta(hours=hours)).strftime('%H:%M'))   # shown in the centre's time
+
+    def test_deadlines_are_exact_instants_and_today_is_the_centres(self):
+        """Seen from anywhere: deadlines go out with their offset (each browser shows them in its own time), bookings say
+        the time zone of their departure, the e-mail says «(hora local)» and «Hoy» is the centre's day."""
+        import re
+        from zoneinfo import ZoneInfo
+        sid, slot = self.departure(self.mx, 'America/Cancun', dt.timedelta(days=3))
+        bid = self.book(self.mx, sid, slot).json['id']
+        b = self.diver.get(f'/api/bookings/{bid}').json['booking']
+        self.assertEqual(b['tz'], 'America/Cancun')
+        self.assertRegex(b['response_deadline'], r'T\d\d:\d\d[+-]\d\d:\d\d$')
+        mine = [x for x in self.diver.get('/api/bookings').json['items'] if x['id'] == bid][0]
+        self.assertEqual(mine['tz'], 'America/Cancun'); self.assertRegex(mine['response_deadline'], r'[+-]\d\d:\d\d$')
+        terms = self.diver.post(f'/api/bookings/{bid}/cancel', {'preview': True}).json['terms']
+        self.assertTrue(terms['deadline'].endswith('-05:00'), terms['deadline'])                 # Cancún, all year
+        mail = self.server.sql("SELECT text FROM email_outbox WHERE template='booking_request' ORDER BY id DESC LIMIT 1")[0]['text']
+        self.assertIn('(hora local)', mail)
+        hoy = self.mx.get('/api/pro/hoy').json
+        self.assertEqual((hoy['date'], hoy['tz']), (dt.datetime.now(ZoneInfo('America/Cancun')).date().isoformat(), 'America/Cancun'))
+        self.assertEqual(self.mx.get(f"/api/centers/{self.mx.user['center_id']}").json['item']['tz'], 'America/Cancun')
+
+if __name__ == '__main__':
+    unittest.main()

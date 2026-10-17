@@ -1,0 +1,13 @@
+{
+ "exact": {
+  "Filtros": {"en": "Filters", "fr": "Filtres", "de": "Filter", "it": "Filtri", "pt": "Filtros", "pl": "Filtry", "nl": "Filters", "zh": "筛选"},
+  "Borrar todo": {"en": "Clear all", "fr": "Tout effacer", "de": "Alle entfernen", "it": "Cancella tutto", "pt": "Limpar tudo", "pl": "Wyczyść wszystko", "nl": "Alles wissen", "zh": "全部清除"},
+  "Filtros activos": {"en": "Active filters", "fr": "Filtres actifs", "de": "Aktive Filter", "it": "Filtri attivi", "pt": "Filtros ativos", "pl": "Aktywne filtry", "nl": "Actieve filters", "zh": "已选筛选"},
+  "Ver zonas anteriores": {"en": "Show previous areas", "fr": "Voir les zones précédentes", "de": "Vorherige Gebiete anzeigen", "it": "Vedi le zone precedenti", "pt": "Ver zonas anteriores", "pl": "Pokaż poprzednie rejony", "nl": "Vorige gebieden tonen", "zh": "查看前面的区域"},
+  "Ver más zonas": {"en": "Show more areas", "fr": "Voir plus de zones", "de": "Weitere Gebiete anzeigen", "it": "Vedi altre zone", "pt": "Ver mais zonas", "pl": "Pokaż więcej rejonów", "nl": "Meer gebieden tonen", "zh": "查看更多区域"},
+  "Ver resultados": {"en": "Show results", "fr": "Voir les résultats", "de": "Ergebnisse anzeigen", "it": "Vedi i risultati", "pt": "Ver resultados", "pl": "Pokaż wyniki", "nl": "Resultaten tonen", "zh": "查看结果"}
+ },
+ "patterns": {
+  "Quitar filtro: {x}": {"en": "Remove filter: {x}", "fr": "Retirer le filtre : {x}", "de": "Filter entfernen: {x}", "it": "Rimuovi filtro: {x}", "pt": "Remover filtro: {x}", "pl": "Usuń filtr: {x}", "nl": "Filter verwijderen: {x}", "zh": "移除筛选：{x}"}
+ }
+}

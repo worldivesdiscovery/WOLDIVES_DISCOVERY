@@ -1,0 +1,686 @@
+{
+ "exact": {
+  "Moderación": {
+   "en": "Moderation",
+   "fr": "Modération",
+   "de": "Moderation",
+   "it": "Moderazione",
+   "pt": "Moderação",
+   "pl": "Moderacja",
+   "nl": "Moderatie",
+   "zh": "审核"
+  },
+  "Datos personales": {
+   "en": "Personal data",
+   "fr": "Données personnelles",
+   "de": "Personenbezogene Daten",
+   "it": "Dati personali",
+   "pt": "Dados pessoais",
+   "pl": "Dane osobowe",
+   "nl": "Persoonsgegevens",
+   "zh": "个人数据"
+  },
+  "Ficha del centro": {
+   "en": "Centre page",
+   "fr": "Fiche du centre",
+   "de": "Seite der Tauchbasis",
+   "it": "Scheda del centro",
+   "pt": "Ficha do centro",
+   "pl": "Strona centrum",
+   "nl": "Pagina van het centrum",
+   "zh": "中心页面"
+  },
+  "Perfil profesional": {
+   "en": "Professional profile",
+   "fr": "Profil professionnel",
+   "de": "Profil",
+   "it": "Profilo professionale",
+   "pt": "Perfil profissional",
+   "pl": "Profil zawodowy",
+   "nl": "Professioneel profiel",
+   "zh": "专业资料"
+  },
+  "Contenido retirado por la administración": {
+   "en": "Content removed by the administration",
+   "fr": "Contenu retiré par l’administration",
+   "de": "Von der Verwaltung entfernte Inhalte",
+   "it": "Contenuti rimossi dall’amministrazione",
+   "pt": "Conteúdo retirado pela administração",
+   "pl": "Treści usunięte przez administrację",
+   "nl": "Inhoud weggehaald door de beheerders",
+   "zh": "被管理员撤下的内容"
+  },
+  "Corrígelo y cuéntanos qué has cambiado. Seguirá oculto hasta que lo revisemos.": {
+   "en": "Correct it and tell us what you changed. It stays hidden until we review it.",
+   "fr": "Corrigez-le et dites-nous ce que vous avez changé. Il reste masqué jusqu’à notre révision.",
+   "de": "Korrigiere es und sag uns, was du geändert hast. Es bleibt ausgeblendet, bis wir es geprüft haben.",
+   "it": "Correggilo e dicci cosa hai cambiato. Resta nascosto finché non lo rivediamo.",
+   "pt": "Corrige-o e diz-nos o que mudaste. Fica oculto até o revermos.",
+   "pl": "Popraw to i napisz, co zmieniłeś. Pozostanie ukryte, dopóki tego nie sprawdzimy.",
+   "nl": "Corrigeer het en vertel ons wat je hebt gewijzigd. Het blijft verborgen tot we het hebben gecontroleerd.",
+   "zh": "请修改并告诉我们你改了什么。在我们审核之前它会保持隐藏。"
+  },
+  "Lo estamos revisando. Te avisaremos por correo.": {
+   "en": "We are reviewing it. We will email you.",
+   "fr": "Nous l’examinons. Nous vous préviendrons par e-mail.",
+   "de": "Wir prüfen es. Wir benachrichtigen dich per E-Mail.",
+   "it": "Lo stiamo rivedendo. Ti avviseremo via email.",
+   "pt": "Estamos a revê-lo. Avisamos-te por e-mail.",
+   "pl": "Sprawdzamy to. Powiadomimy cię e-mailem.",
+   "nl": "We bekijken het. We laten het je per e-mail weten.",
+   "zh": "我们正在审核，结果会通过邮件通知你。"
+  },
+  "Qué has corregido": {
+   "en": "What you corrected",
+   "fr": "Ce que vous avez corrigé",
+   "de": "Was du korrigiert hast",
+   "it": "Cosa hai corretto",
+   "pt": "O que corrigiste",
+   "pl": "Co poprawiłeś",
+   "nl": "Wat je hebt gecorrigeerd",
+   "zh": "你修改了什么"
+  },
+  "Enviar a revisión": {
+   "en": "Send for review",
+   "fr": "Envoyer en révision",
+   "de": "Zur Prüfung senden",
+   "it": "Invia in revisione",
+   "pt": "Enviar para revisão",
+   "pl": "Wyślij do weryfikacji",
+   "nl": "Ter controle sturen",
+   "zh": "提交审核"
+  },
+  "Enviado a revisión": {
+   "en": "Sent for review",
+   "fr": "Envoyé en révision",
+   "de": "Zur Prüfung gesendet",
+   "it": "Inviato in revisione",
+   "pt": "Enviado para revisão",
+   "pl": "Wysłano do weryfikacji",
+   "nl": "Ter controle gestuurd",
+   "zh": "已提交审核"
+  },
+  "Enviado a revisión.": {
+   "en": "Sent for review.",
+   "fr": "Envoyé en révision.",
+   "de": "Zur Prüfung gesendet.",
+   "it": "Inviato in revisione.",
+   "pt": "Enviado para revisão.",
+   "pl": "Wysłano do weryfikacji.",
+   "nl": "Ter controle gestuurd.",
+   "zh": "已提交审核。"
+  },
+  "Enviados a revisión": {
+   "en": "Sent for review",
+   "fr": "Envoyés en révision",
+   "de": "Zur Prüfung gesendet",
+   "it": "Inviati in revisione",
+   "pt": "Enviados para revisão",
+   "pl": "Wysłane do weryfikacji",
+   "nl": "Ter controle gestuurd",
+   "zh": "已提交审核"
+  },
+  "Oculto": {
+   "en": "Hidden",
+   "fr": "Masqué",
+   "de": "Ausgeblendet",
+   "it": "Nascosto",
+   "pt": "Oculto",
+   "pl": "Ukryte",
+   "nl": "Verborgen",
+   "zh": "已隐藏"
+  },
+  "Ocultos": {
+   "en": "Hidden",
+   "fr": "Masqués",
+   "de": "Ausgeblendet",
+   "it": "Nascosti",
+   "pt": "Ocultos",
+   "pl": "Ukryte",
+   "nl": "Verborgen",
+   "zh": "已隐藏"
+  },
+  "Oculto: pendiente de corrección": {
+   "en": "Hidden: waiting for a correction",
+   "fr": "Masqué : en attente de correction",
+   "de": "Ausgeblendet: wartet auf Korrektur",
+   "it": "Nascosto: in attesa di correzione",
+   "pt": "Oculto: à espera de correção",
+   "pl": "Ukryte: czeka na poprawkę",
+   "nl": "Verborgen: wacht op correctie",
+   "zh": "已隐藏：等待修改"
+  },
+  "Publicado de nuevo": {
+   "en": "Published again",
+   "fr": "Republié",
+   "de": "Wieder veröffentlicht",
+   "it": "Ripubblicato",
+   "pt": "Publicado de novo",
+   "pl": "Ponownie opublikowane",
+   "nl": "Opnieuw gepubliceerd",
+   "zh": "已重新发布"
+  },
+  "Publicado de nuevo.": {
+   "en": "Published again.",
+   "fr": "Republié.",
+   "de": "Wieder veröffentlicht.",
+   "it": "Ripubblicato.",
+   "pt": "Publicado de novo.",
+   "pl": "Ponownie opublikowane.",
+   "nl": "Opnieuw gepubliceerd.",
+   "zh": "已重新发布。"
+  },
+  "Publicados de nuevo": {
+   "en": "Published again",
+   "fr": "Republiés",
+   "de": "Wieder veröffentlicht",
+   "it": "Ripubblicati",
+   "pt": "Publicados de novo",
+   "pl": "Ponownie opublikowane",
+   "nl": "Opnieuw gepubliceerd",
+   "zh": "已重新发布"
+  },
+  "Volver a publicar": {
+   "en": "Publish again",
+   "fr": "Republier",
+   "de": "Wieder veröffentlichen",
+   "it": "Ripubblica",
+   "pt": "Publicar de novo",
+   "pl": "Opublikuj ponownie",
+   "nl": "Opnieuw publiceren",
+   "zh": "重新发布"
+  },
+  "Mantener oculto": {
+   "en": "Keep hidden",
+   "fr": "Garder masqué",
+   "de": "Ausgeblendet lassen",
+   "it": "Mantieni nascosto",
+   "pt": "Manter oculto",
+   "pl": "Pozostaw ukryte",
+   "nl": "Verborgen houden",
+   "zh": "保持隐藏"
+  },
+  "Mantener oculto…": {
+   "en": "Keep hidden…",
+   "fr": "Garder masqué…",
+   "de": "Ausgeblendet lassen…",
+   "it": "Mantieni nascosto…",
+   "pt": "Manter oculto…",
+   "pl": "Pozostaw ukryte…",
+   "nl": "Verborgen houden…",
+   "zh": "保持隐藏…"
+  },
+  "Ocultar…": {
+   "en": "Hide…",
+   "fr": "Masquer…",
+   "de": "Ausblenden…",
+   "it": "Nascondi…",
+   "pt": "Ocultar…",
+   "pl": "Ukryj…",
+   "nl": "Verbergen…",
+   "zh": "隐藏…"
+  },
+  "Ocultar con un motivo": {
+   "en": "Hide with a reason",
+   "fr": "Masquer avec un motif",
+   "de": "Mit Begründung ausblenden",
+   "it": "Nascondi con un motivo",
+   "pt": "Ocultar com um motivo",
+   "pl": "Ukryj z podaniem powodu",
+   "nl": "Verbergen met een reden",
+   "zh": "附原因隐藏"
+  },
+  "Ocultar otro contenido": {
+   "en": "Hide other content",
+   "fr": "Masquer un autre contenu",
+   "de": "Andere Inhalte ausblenden",
+   "it": "Nascondi altri contenuti",
+   "pt": "Ocultar outro conteúdo",
+   "pl": "Ukryj inną treść",
+   "nl": "Andere inhoud verbergen",
+   "zh": "隐藏其他内容"
+  },
+  "Ver en Moderación": {
+   "en": "See in Moderation",
+   "fr": "Voir dans Modération",
+   "de": "In Moderation ansehen",
+   "it": "Vedi in Moderazione",
+   "pt": "Ver em Moderação",
+   "pl": "Zobacz w moderacji",
+   "nl": "Bekijken in Moderatie",
+   "zh": "在审核中查看"
+  },
+  "Lo gestiona su titular": {
+   "en": "Run by its owner",
+   "fr": "Géré par son titulaire",
+   "de": "Wird vom Inhaber verwaltet",
+   "it": "Gestito dal titolare",
+   "pt": "Gerido pelo titular",
+   "pl": "Zarządzane przez właściciela",
+   "nl": "Beheerd door de eigenaar",
+   "zh": "由所有者管理"
+  },
+  "Motivo:": {
+   "en": "Reason:",
+   "fr": "Motif :",
+   "de": "Grund:",
+   "it": "Motivo:",
+   "pt": "Motivo:",
+   "pl": "Powód:",
+   "nl": "Reden:",
+   "zh": "原因："
+  },
+  "Motivo (lo leerá el titular)": {
+   "en": "Reason (the owner will read it)",
+   "fr": "Motif (le titulaire le lira)",
+   "de": "Grund (der Inhaber liest ihn)",
+   "it": "Motivo (lo leggerà il titolare)",
+   "pt": "Motivo (o titular vai lê-lo)",
+   "pl": "Powód (przeczyta go właściciel)",
+   "nl": "Reden (de eigenaar leest die)",
+   "zh": "原因（所有者会看到）"
+  },
+  "Motivo del cambio (queda en el registro)": {
+   "en": "Reason for the change (it stays in the log)",
+   "fr": "Motif du changement (il reste dans le journal)",
+   "de": "Grund der Änderung (wird protokolliert)",
+   "it": "Motivo della modifica (resta nel registro)",
+   "pt": "Motivo da alteração (fica no registo)",
+   "pl": "Powód zmiany (zostaje w rejestrze)",
+   "nl": "Reden van de wijziging (blijft in het logboek)",
+   "zh": "更改原因（会记入日志）"
+  },
+  "Lo que dice el titular:": {
+   "en": "What the owner says:",
+   "fr": "Ce que dit le titulaire :",
+   "de": "Was der Inhaber sagt:",
+   "it": "Cosa dice il titolare:",
+   "pt": "O que diz o titular:",
+   "pl": "Co mówi właściciel:",
+   "nl": "Wat de eigenaar zegt:",
+   "zh": "所有者的说明："
+  },
+  "Última nota de la administración:": {
+   "en": "Last note from the administration:",
+   "fr": "Dernière note de l’administration :",
+   "de": "Letzter Hinweis der Verwaltung:",
+   "it": "Ultima nota dell’amministrazione:",
+   "pt": "Última nota da administração:",
+   "pl": "Ostatnia notatka administracji:",
+   "nl": "Laatste opmerking van de beheerders:",
+   "zh": "管理员的最新说明："
+  },
+  "Nota de la administración:": {
+   "en": "Note from the administration:",
+   "fr": "Note de l’administration :",
+   "de": "Hinweis der Verwaltung:",
+   "it": "Nota dell’amministrazione:",
+   "pt": "Nota da administração:",
+   "pl": "Notatka administracji:",
+   "nl": "Opmerking van de beheerders:",
+   "zh": "管理员说明："
+  },
+  "Nadie cambia el contenido: solo deja de verse en la web. El titular recibe el motivo tal cual, lo corrige y lo envía a revisión.": {
+   "en": "Nobody changes the content: it just stops showing on the website. The owner receives the reason as written, corrects it and sends it for review.",
+   "fr": "Personne ne modifie le contenu : il cesse simplement d’être visible. Le titulaire reçoit le motif tel quel, le corrige et l’envoie en révision.",
+   "de": "Niemand ändert den Inhalt: Er ist nur nicht mehr auf der Website sichtbar. Der Inhaber erhält den Grund wörtlich, korrigiert und schickt ihn zur Prüfung.",
+   "it": "Nessuno modifica il contenuto: smette solo di essere visibile. Il titolare riceve il motivo così com’è, lo corregge e lo invia in revisione.",
+   "pt": "Ninguém altera o conteúdo: apenas deixa de se ver no site. O titular recebe o motivo tal como está, corrige-o e envia-o para revisão.",
+   "pl": "Nikt nie zmienia treści: po prostu przestaje być widoczna. Właściciel otrzymuje powód dosłownie, poprawia treść i wysyła ją do weryfikacji.",
+   "nl": "Niemand wijzigt de inhoud: die is alleen niet meer zichtbaar. De eigenaar krijgt de reden letterlijk, corrigeert het en stuurt het ter controle.",
+   "zh": "不会有人修改内容：只是不再在网站上显示。所有者会收到原样的原因，修改后提交审核。"
+  },
+  "Qué incumple y qué tiene que corregir": {
+   "en": "What breaks the rules and what has to be corrected",
+   "fr": "Ce qui ne respecte pas les règles et ce qu’il faut corriger",
+   "de": "Was gegen die Regeln verstößt und was korrigiert werden muss",
+   "it": "Cosa non rispetta le regole e cosa va corretto",
+   "pt": "O que não cumpre as regras e o que tem de corrigir",
+   "pl": "Co narusza zasady i co trzeba poprawić",
+   "nl": "Wat niet voldoet en wat gecorrigeerd moet worden",
+   "zh": "违反了什么、需要修改什么"
+  },
+  "Qué falta por corregir (lo leerá el titular)": {
+   "en": "What still has to be corrected (the owner will read it)",
+   "fr": "Ce qu’il reste à corriger (le titulaire le lira)",
+   "de": "Was noch korrigiert werden muss (der Inhaber liest es)",
+   "it": "Cosa resta da correggere (lo leggerà il titolare)",
+   "pt": "O que falta corrigir (o titular vai lê-lo)",
+   "pl": "Co jeszcze trzeba poprawić (przeczyta to właściciel)",
+   "nl": "Wat nog gecorrigeerd moet worden (de eigenaar leest het)",
+   "zh": "还需修改的内容（所有者会看到）"
+  },
+  "Número (id)": {
+   "en": "Number (id)",
+   "fr": "Numéro (id)",
+   "de": "Nummer (ID)",
+   "it": "Numero (id)",
+   "pt": "Número (id)",
+   "pl": "Numer (id)",
+   "nl": "Nummer (id)",
+   "zh": "编号（id）"
+  },
+  "Escribe el número.": {
+   "en": "Type the number.",
+   "fr": "Saisissez le numéro.",
+   "de": "Gib die Nummer ein.",
+   "it": "Scrivi il numero.",
+   "pt": "Escreve o número.",
+   "pl": "Wpisz numer.",
+   "nl": "Typ het nummer.",
+   "zh": "请输入编号。"
+  },
+  "No hay casos.": {
+   "en": "No cases.",
+   "fr": "Aucun cas.",
+   "de": "Keine Fälle.",
+   "it": "Nessun caso.",
+   "pt": "Não há casos.",
+   "pl": "Brak spraw.",
+   "nl": "Geen zaken.",
+   "zh": "没有记录。"
+  },
+  "Oculto. El titular ha recibido el aviso.": {
+   "en": "Hidden. The owner has been told.",
+   "fr": "Masqué. Le titulaire a été prévenu.",
+   "de": "Ausgeblendet. Der Inhaber wurde benachrichtigt.",
+   "it": "Nascosto. Il titolare è stato avvisato.",
+   "pt": "Oculto. O titular foi avisado.",
+   "pl": "Ukryte. Właściciel został powiadomiony.",
+   "nl": "Verborgen. De eigenaar is op de hoogte gebracht.",
+   "zh": "已隐藏，已通知所有者。"
+  },
+  "Enviado al titular.": {
+   "en": "Sent to the owner.",
+   "fr": "Envoyé au titulaire.",
+   "de": "An den Inhaber gesendet.",
+   "it": "Inviato al titolare.",
+   "pt": "Enviado ao titular.",
+   "pl": "Wysłano do właściciela.",
+   "nl": "Naar de eigenaar gestuurd.",
+   "zh": "已发送给所有者。"
+  },
+  "Nota para el titular (opcional):": {
+   "en": "Note for the owner (optional):",
+   "fr": "Note pour le titulaire (facultatif) :",
+   "de": "Hinweis für den Inhaber (optional):",
+   "it": "Nota per il titolare (facoltativa):",
+   "pt": "Nota para o titular (opcional):",
+   "pl": "Notatka dla właściciela (opcjonalnie):",
+   "nl": "Opmerking voor de eigenaar (optioneel):",
+   "zh": "给所有者的说明（选填）："
+  },
+  "Moderación y datos": {
+   "en": "Moderation and data",
+   "fr": "Modération et données",
+   "de": "Moderation und Daten",
+   "it": "Moderazione e dati",
+   "pt": "Moderação e dados",
+   "pl": "Moderacja i dane",
+   "nl": "Moderatie en gegevens",
+   "zh": "审核与数据"
+  },
+  "La administración no edita lo que publica un centro o un profesional: lo oculta con un motivo. Queda todo en «Actividad»: quién, cuándo y por qué.": {
+   "en": "The administration does not edit what a centre or a professional publishes: it hides it with a reason. Everything stays in “Activity”: who, when and why.",
+   "fr": "L’administration ne modifie pas ce que publie un centre ou un professionnel : elle le masque avec un motif. Tout reste dans « Activité » : qui, quand et pourquoi.",
+   "de": "Die Verwaltung bearbeitet nicht, was eine Basis oder ein Profi veröffentlicht: Sie blendet es mit Begründung aus. Alles steht in „Aktivität“: wer, wann und warum.",
+   "it": "L’amministrazione non modifica ciò che pubblica un centro o un professionista: lo nasconde con un motivo. Tutto resta in «Attività»: chi, quando e perché.",
+   "pt": "A administração não edita o que um centro ou um profissional publica: oculta-o com um motivo. Fica tudo em «Atividade»: quem, quando e porquê.",
+   "pl": "Administracja nie edytuje tego, co publikuje centrum lub profesjonalista: ukrywa to z podaniem powodu. Wszystko zostaje w „Aktywności”: kto, kiedy i dlaczego.",
+   "nl": "De beheerders bewerken niet wat een centrum of professional publiceert: ze verbergen het met een reden. Alles staat in ‘Activiteit’: wie, wanneer en waarom.",
+   "zh": "管理员不会修改中心或专业人员发布的内容，只会附原因将其隐藏。所有操作都会记录在“活动”中：谁、何时、为何。"
+  },
+  "Falta definir exactamente qué datos personales puede ver la administración según el RGPD. Mientras, solo está abierto lo que necesitan el soporte y los pagos. Cambiar estas casillas no requiere tocar el código; cada cambio y cada acceso a datos personales quedan en «Actividad» con quién, cuándo y por qué.": {
+   "en": "It still has to be defined exactly which personal data the administration may see under the GDPR. Meanwhile, only what support and payments need is open. Changing these boxes needs no code change; every change and every access to personal data stays in “Activity” with who, when and why.",
+   "fr": "Il reste à définir exactement quelles données personnelles l’administration peut voir selon le RGPD. En attendant, seul ce dont ont besoin le support et les paiements est ouvert. Modifier ces cases ne demande aucun changement de code ; chaque changement et chaque accès aux données personnelles restent dans « Activité » avec qui, quand et pourquoi.",
+   "de": "Es muss noch genau festgelegt werden, welche personenbezogenen Daten die Verwaltung nach der DSGVO sehen darf. Bis dahin ist nur offen, was Support und Zahlungen brauchen. Diese Kästchen zu ändern erfordert keine Codeänderung; jede Änderung und jeder Zugriff auf personenbezogene Daten steht in „Aktivität“ mit wer, wann und warum.",
+   "it": "Resta da definire esattamente quali dati personali può vedere l’amministrazione secondo il GDPR. Nel frattempo è aperto solo ciò che serve a supporto e pagamenti. Cambiare queste caselle non richiede modifiche al codice; ogni modifica e ogni accesso ai dati personali restano in «Attività» con chi, quando e perché.",
+   "pt": "Falta definir exatamente que dados pessoais a administração pode ver segundo o RGPD. Entretanto, só está aberto o que o apoio e os pagamentos precisam. Alterar estas caixas não exige mexer no código; cada alteração e cada acesso a dados pessoais ficam em «Atividade» com quem, quando e porquê.",
+   "pl": "Trzeba jeszcze dokładnie określić, jakie dane osobowe może widzieć administracja zgodnie z RODO. Do tego czasu otwarte jest tylko to, czego potrzebuje wsparcie i płatności. Zmiana tych pól nie wymaga zmian w kodzie; każda zmiana i każdy dostęp do danych osobowych zostają w „Aktywności” z informacją kto, kiedy i dlaczego.",
+   "nl": "Er moet nog precies worden bepaald welke persoonsgegevens de beheerders volgens de AVG mogen zien. Tot die tijd staat alleen open wat support en betalingen nodig hebben. Deze vakjes wijzigen vraagt geen codewijziging; elke wijziging en elke toegang tot persoonsgegevens staat in ‘Activiteit’ met wie, wanneer en waarom.",
+   "zh": "仍需根据 GDPR 明确管理员可以查看哪些个人数据。在此之前，只开放支持和付款所需的内容。修改这些选项无需改动代码；每次修改和每次访问个人数据都会记录在“活动”中：谁、何时、为何。"
+  },
+  "Nombre y email de quien reserva": {
+   "en": "Name and email of who books",
+   "fr": "Nom et e-mail de la personne qui réserve",
+   "de": "Name und E-Mail der buchenden Person",
+   "it": "Nome ed email di chi prenota",
+   "pt": "Nome e e-mail de quem reserva",
+   "pl": "Imię i e-mail osoby rezerwującej",
+   "nl": "Naam en e-mail van wie boekt",
+   "zh": "预订人的姓名和邮箱"
+  },
+  "Teléfonos de clientes y contactos de emergencia": {
+   "en": "Client phone numbers and emergency contacts",
+   "fr": "Téléphones des clients et contacts d’urgence",
+   "de": "Telefonnummern der Kunden und Notfallkontakte",
+   "it": "Telefoni dei clienti e contatti di emergenza",
+   "pt": "Telefones de clientes e contactos de emergência",
+   "pl": "Telefony klientów i kontakty alarmowe",
+   "nl": "Telefoonnummers van klanten en noodcontacten",
+   "zh": "客户电话和紧急联系人"
+  },
+  "Ficha del buceador y clientes de cada centro": {
+   "en": "Diver profile and each centre’s clients",
+   "fr": "Fiche du plongeur et clients de chaque centre",
+   "de": "Taucherprofil und Kunden jeder Basis",
+   "it": "Scheda del sub e clienti di ogni centro",
+   "pt": "Ficha do mergulhador e clientes de cada centro",
+   "pl": "Profil nurka i klienci każdego centrum",
+   "nl": "Duikersprofiel en klanten van elk centrum",
+   "zh": "潜水员资料和各中心的客户"
+  },
+  "Notas internas de los centros": {
+   "en": "Centres’ internal notes",
+   "fr": "Notes internes des centres",
+   "de": "Interne Notizen der Basen",
+   "it": "Note interne dei centri",
+   "pt": "Notas internas dos centros",
+   "pl": "Notatki wewnętrzne centrów",
+   "nl": "Interne notities van centra",
+   "zh": "中心的内部备注"
+  },
+  "Formularios firmados, fichas de buceador y documentos": {
+   "en": "Signed forms, diver sheets and documents",
+   "fr": "Formulaires signés, fiches plongeur et documents",
+   "de": "Unterschriebene Formulare, Taucherblätter und Dokumente",
+   "it": "Moduli firmati, schede del sub e documenti",
+   "pt": "Formulários assinados, fichas de mergulhador e documentos",
+   "pl": "Podpisane formularze, karty nurka i dokumenty",
+   "nl": "Ondertekende formulieren, duikersbladen en documenten",
+   "zh": "已签署表格、潜水员资料单和文件"
+  },
+  "Contenido de los correos enviados": {
+   "en": "Content of the emails sent",
+   "fr": "Contenu des e-mails envoyés",
+   "de": "Inhalt der gesendeten E-Mails",
+   "it": "Contenuto delle email inviate",
+   "pt": "Conteúdo dos e-mails enviados",
+   "pl": "Treść wysłanych e-maili",
+   "nl": "Inhoud van verzonden e-mails",
+   "zh": "已发送邮件的内容"
+  },
+  "Para atender incidencias de reservas y de pagos.": {
+   "en": "To handle booking and payment issues.",
+   "fr": "Pour traiter les incidents de réservation et de paiement.",
+   "de": "Um Probleme mit Buchungen und Zahlungen zu lösen.",
+   "it": "Per gestire problemi di prenotazioni e pagamenti.",
+   "pt": "Para tratar incidências de reservas e de pagamentos.",
+   "pl": "Do obsługi problemów z rezerwacjami i płatnościami.",
+   "nl": "Om problemen met boekingen en betalingen af te handelen.",
+   "zh": "用于处理预订和付款问题。"
+  },
+  "Solo si hace falta llamar a un cliente por seguridad.": {
+   "en": "Only if a client must be called for safety.",
+   "fr": "Uniquement s’il faut appeler un client pour sa sécurité.",
+   "de": "Nur wenn ein Kunde aus Sicherheitsgründen angerufen werden muss.",
+   "it": "Solo se bisogna chiamare un cliente per sicurezza.",
+   "pt": "Só se for preciso ligar a um cliente por segurança.",
+   "pl": "Tylko jeśli trzeba zadzwonić do klienta ze względów bezpieczeństwa.",
+   "nl": "Alleen als een klant om veiligheidsredenen gebeld moet worden.",
+   "zh": "仅在出于安全需要联系客户时使用。"
+  },
+  "Perfil, fecha de nacimiento, tallas, hoja de embarque y lista de clientes.": {
+   "en": "Profile, date of birth, sizes, boat list and client list.",
+   "fr": "Profil, date de naissance, tailles, liste d’embarquement et liste des clients.",
+   "de": "Profil, Geburtsdatum, Größen, Bootsliste und Kundenliste.",
+   "it": "Profilo, data di nascita, taglie, lista d’imbarco e lista clienti.",
+   "pt": "Perfil, data de nascimento, tamanhos, lista de embarque e lista de clientes.",
+   "pl": "Profil, data urodzenia, rozmiary, lista na łódź i lista klientów.",
+   "nl": "Profiel, geboortedatum, maten, bootlijst en klantenlijst.",
+   "zh": "资料、出生日期、尺码、登船名单和客户名单。"
+  },
+  "Lo que el centro escribe para su equipo sobre una reserva.": {
+   "en": "What the centre writes for its team about a booking.",
+   "fr": "Ce que le centre écrit pour son équipe sur une réservation.",
+   "de": "Was die Basis für ihr Team zu einer Buchung schreibt.",
+   "it": "Ciò che il centro scrive per il suo team su una prenotazione.",
+   "pt": "O que o centro escreve para a sua equipa sobre uma reserva.",
+   "pl": "To, co centrum pisze dla swojego zespołu o rezerwacji.",
+   "nl": "Wat het centrum voor zijn team over een boeking schrijft.",
+   "zh": "中心为其团队写的关于预订的内容。"
+  },
+  "Descargos firmados, ficha en PDF y documentos subidos por el buceador.": {
+   "en": "Signed waivers, PDF diver sheet and documents uploaded by the diver.",
+   "fr": "Décharges signées, fiche PDF et documents envoyés par le plongeur.",
+   "de": "Unterschriebene Haftungsverzichte, PDF-Taucherblatt und vom Taucher hochgeladene Dokumente.",
+   "it": "Liberatorie firmate, scheda PDF e documenti caricati dal sub.",
+   "pt": "Termos assinados, ficha em PDF e documentos enviados pelo mergulhador.",
+   "pl": "Podpisane oświadczenia, karta nurka w PDF i dokumenty przesłane przez nurka.",
+   "nl": "Ondertekende verklaringen, duikersblad als pdf en documenten geüpload door de duiker.",
+   "zh": "已签署的免责声明、PDF 潜水员资料单和潜水员上传的文件。"
+  },
+  "Para comprobar o reenviar un correo que no llegó.": {
+   "en": "To check or resend an email that did not arrive.",
+   "fr": "Pour vérifier ou renvoyer un e-mail qui n’est pas arrivé.",
+   "de": "Um eine nicht angekommene E-Mail zu prüfen oder erneut zu senden.",
+   "it": "Per verificare o reinviare un’email non arrivata.",
+   "pt": "Para verificar ou reenviar um e-mail que não chegou.",
+   "pl": "Aby sprawdzić lub ponownie wysłać e-mail, który nie dotarł.",
+   "nl": "Om een e-mail die niet aankwam te controleren of opnieuw te sturen.",
+   "zh": "用于检查或重发未送达的邮件。"
+  },
+  "abierto por defecto": {
+   "en": "open by default",
+   "fr": "ouvert par défaut",
+   "de": "standardmäßig offen",
+   "it": "aperto per impostazione predefinita",
+   "pt": "aberto por defeito",
+   "pl": "domyślnie otwarte",
+   "nl": "standaard open",
+   "zh": "默认开放"
+  },
+  "cerrado por defecto": {
+   "en": "closed by default",
+   "fr": "fermé par défaut",
+   "de": "standardmäßig geschlossen",
+   "it": "chiuso per impostazione predefinita",
+   "pt": "fechado por defeito",
+   "pl": "domyślnie zamknięte",
+   "nl": "standaard gesloten",
+   "zh": "默认关闭"
+  },
+  "Permisos guardados.": {
+   "en": "Permissions saved.",
+   "fr": "Autorisations enregistrées.",
+   "de": "Berechtigungen gespeichert.",
+   "it": "Permessi salvati.",
+   "pt": "Permissões guardadas.",
+   "pl": "Uprawnienia zapisane.",
+   "nl": "Rechten opgeslagen.",
+   "zh": "权限已保存。"
+  },
+  "No había cambios.": {
+   "en": "There were no changes.",
+   "fr": "Il n’y avait aucun changement.",
+   "de": "Es gab keine Änderungen.",
+   "it": "Non c’erano modifiche.",
+   "pt": "Não havia alterações.",
+   "pl": "Nie było zmian.",
+   "nl": "Er waren geen wijzigingen.",
+   "zh": "没有更改。"
+  },
+  "Este contenido es del centro o del profesional: la administración no lo modifica. Si incumple las normas, ocúltalo con un motivo desde «Moderación»; el titular recibe el aviso, lo corrige y lo envía a revisión.": {
+   "en": "This content belongs to the centre or the professional: the administration does not change it. If it breaks the rules, hide it with a reason from “Moderation”; the owner is told, corrects it and sends it for review.",
+   "fr": "Ce contenu appartient au centre ou au professionnel : l’administration ne le modifie pas. S’il enfreint les règles, masquez-le avec un motif depuis « Modération » ; le titulaire est prévenu, le corrige et l’envoie en révision.",
+   "de": "Dieser Inhalt gehört der Basis oder dem Profi: Die Verwaltung ändert ihn nicht. Wenn er gegen die Regeln verstößt, blende ihn in „Moderation“ mit Begründung aus; der Inhaber wird benachrichtigt, korrigiert ihn und schickt ihn zur Prüfung.",
+   "it": "Questo contenuto è del centro o del professionista: l’amministrazione non lo modifica. Se non rispetta le regole, nascondilo con un motivo da «Moderazione»; il titolare viene avvisato, lo corregge e lo invia in revisione.",
+   "pt": "Este conteúdo é do centro ou do profissional: a administração não o altera. Se não cumprir as regras, oculta-o com um motivo em «Moderação»; o titular é avisado, corrige-o e envia-o para revisão.",
+   "pl": "Ta treść należy do centrum lub profesjonalisty: administracja jej nie zmienia. Jeśli narusza zasady, ukryj ją z podaniem powodu w „Moderacji”; właściciel zostanie powiadomiony, poprawi ją i wyśle do weryfikacji.",
+   "nl": "Deze inhoud is van het centrum of de professional: de beheerders wijzigen die niet. Als die de regels overtreedt, verberg je die met een reden via ‘Moderatie’; de eigenaar wordt ingelicht, corrigeert het en stuurt het ter controle.",
+   "zh": "此内容属于中心或专业人员：管理员不会修改。如违反规定，请在“审核”中附原因将其隐藏；所有者会收到通知、修改后提交审核。"
+  },
+  "Explica el motivo (al menos 10 caracteres): el centro lo recibe tal cual.": {
+   "en": "Explain the reason (at least 10 characters): the centre receives it as written.",
+   "fr": "Expliquez le motif (au moins 10 caractères) : le centre le reçoit tel quel.",
+   "de": "Erkläre den Grund (mindestens 10 Zeichen): Die Basis erhält ihn wörtlich.",
+   "it": "Spiega il motivo (almeno 10 caratteri): il centro lo riceve così com’è.",
+   "pt": "Explica o motivo (pelo menos 10 caracteres): o centro recebe-o tal como está.",
+   "pl": "Wyjaśnij powód (co najmniej 10 znaków): centrum otrzyma go dosłownie.",
+   "nl": "Leg de reden uit (minstens 10 tekens): het centrum krijgt die letterlijk.",
+   "zh": "请说明原因（至少 10 个字符）：中心会收到原文。"
+  },
+  "Ya está oculto y pendiente de corrección.": {
+   "en": "It is already hidden and waiting for a correction.",
+   "fr": "Il est déjà masqué et en attente de correction.",
+   "de": "Es ist bereits ausgeblendet und wartet auf Korrektur.",
+   "it": "È già nascosto e in attesa di correzione.",
+   "pt": "Já está oculto e à espera de correção.",
+   "pl": "Jest już ukryte i czeka na poprawkę.",
+   "nl": "Het is al verborgen en wacht op correctie.",
+   "zh": "已隐藏，正在等待修改。"
+  },
+  "Explica qué falta por corregir (al menos 10 caracteres).": {
+   "en": "Explain what still has to be corrected (at least 10 characters).",
+   "fr": "Expliquez ce qu’il reste à corriger (au moins 10 caractères).",
+   "de": "Erkläre, was noch korrigiert werden muss (mindestens 10 Zeichen).",
+   "it": "Spiega cosa resta da correggere (almeno 10 caratteri).",
+   "pt": "Explica o que falta corrigir (pelo menos 10 caracteres).",
+   "pl": "Wyjaśnij, co jeszcze trzeba poprawić (co najmniej 10 znaków).",
+   "nl": "Leg uit wat nog gecorrigeerd moet worden (minstens 10 tekens).",
+   "zh": "请说明还需修改什么（至少 10 个字符）。"
+  },
+  "Cuenta qué has corregido (al menos 5 caracteres).": {
+   "en": "Say what you corrected (at least 5 characters).",
+   "fr": "Dites ce que vous avez corrigé (au moins 5 caractères).",
+   "de": "Schreib, was du korrigiert hast (mindestens 5 Zeichen).",
+   "it": "Di’ cosa hai corretto (almeno 5 caratteri).",
+   "pt": "Diz o que corrigiste (pelo menos 5 caracteres).",
+   "pl": "Napisz, co poprawiłeś (co najmniej 5 znaków).",
+   "nl": "Vertel wat je hebt gecorrigeerd (minstens 5 tekens).",
+   "zh": "请说明你修改了什么（至少 5 个字符）。"
+  },
+  "Ya está enviado a revisión.": {
+   "en": "It has already been sent for review.",
+   "fr": "Il a déjà été envoyé en révision.",
+   "de": "Es wurde bereits zur Prüfung gesendet.",
+   "it": "È già stato inviato in revisione.",
+   "pt": "Já foi enviado para revisão.",
+   "pl": "Zostało już wysłane do weryfikacji.",
+   "nl": "Het is al ter controle gestuurd.",
+   "zh": "已提交审核。"
+  },
+  "Explica el motivo del cambio (al menos 10 caracteres): queda en el registro.": {
+   "en": "Explain the reason for the change (at least 10 characters): it stays in the log.",
+   "fr": "Expliquez le motif du changement (au moins 10 caractères) : il reste dans le journal.",
+   "de": "Erkläre den Grund der Änderung (mindestens 10 Zeichen): Er wird protokolliert.",
+   "it": "Spiega il motivo della modifica (almeno 10 caratteri): resta nel registro.",
+   "pt": "Explica o motivo da alteração (pelo menos 10 caracteres): fica no registo.",
+   "pl": "Wyjaśnij powód zmiany (co najmniej 10 znaków): zostaje w rejestrze.",
+   "nl": "Leg de reden van de wijziging uit (minstens 10 tekens): die blijft in het logboek.",
+   "zh": "请说明更改原因（至少 10 个字符）：会记入日志。"
+  }
+ },
+ "patterns": {
+  "La configuración de privacidad no permite a la administración ver: {x}. Se cambia en Administración → Datos personales.": {
+   "en": "The privacy settings do not allow the administration to see: {x}. It is changed in Administration → Personal data.",
+   "fr": "Les paramètres de confidentialité ne permettent pas à l’administration de voir : {x}. Cela se modifie dans Administration → Données personnelles.",
+   "de": "Die Datenschutzeinstellungen erlauben der Verwaltung nicht, Folgendes zu sehen: {x}. Das wird unter Verwaltung → Personenbezogene Daten geändert.",
+   "it": "Le impostazioni di privacy non permettono all’amministrazione di vedere: {x}. Si cambia in Amministrazione → Dati personali.",
+   "pt": "As definições de privacidade não permitem à administração ver: {x}. Altera-se em Administração → Dados pessoais.",
+   "pl": "Ustawienia prywatności nie pozwalają administracji zobaczyć: {x}. Zmienia się to w Administracja → Dane osobowe.",
+   "nl": "De privacy-instellingen staan de beheerders niet toe dit te zien: {x}. Dat wijzig je in Beheer → Persoonsgegevens.",
+   "zh": "隐私设置不允许管理员查看：{x}。可在 管理 → 个人数据 中更改。"
+  }
+ }
+}

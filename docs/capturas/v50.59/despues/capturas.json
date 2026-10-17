@@ -1,0 +1,312 @@
+{
+ "1.1-menu-perfil-escritorio": {
+  "url": "#/area",
+  "nota": "",
+  "errores": []
+ },
+ "1.2-ficha-punto-franja-escritorio": {
+  "url": "#/punto?id=357",
+  "nota": "",
+  "errores": []
+ },
+ "1.2-admin-datos-por-tipo-escritorio": {
+  "url": "#/admin?tab=divetypes",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-centros-escritorio": {
+  "url": "#/centros",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-tipos-escritorio": {
+  "url": "#/tipos",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-puntos-escritorio": {
+  "url": "#/puntos",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-experiencias-escritorio": {
+  "url": "#/experiencias",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-top10-escritorio": {
+  "url": "#/top10",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-freelance-escritorio": {
+  "url": "#/freelance",
+  "nota": "",
+  "errores": []
+ },
+ "1.4-menu-centro-escritorio": {
+  "url": "#/admin",
+  "nota": "",
+  "errores": []
+ },
+ "1.5-reservar-categorias-escritorio": {
+  "url": "#/reservar?center=31",
+  "nota": "",
+  "errores": []
+ },
+ "1.5-reservar-una-categoria-escritorio": {
+  "url": "#/reservar?center=31",
+  "nota": "",
+  "errores": []
+ },
+ "1.5-servicios-categoria-escritorio": {
+  "url": "#/admin?tab=services",
+  "nota": "",
+  "errores": []
+ },
+ "1.5-servicios-ordenar-escritorio": {
+  "url": "#/admin?tab=services",
+  "nota": "",
+  "errores": []
+ },
+ "1.5-admin-categorias-escritorio": {
+  "url": "#/admin?tab=svctemplates",
+  "nota": "",
+  "errores": []
+ },
+ "1.6-exportar-gestoria-escritorio": {
+  "url": "#/admin?tab=analytics",
+  "nota": "",
+  "errores": []
+ },
+ "1.7-menu-buceador-escritorio": {
+  "url": "#/area",
+  "nota": "",
+  "errores": []
+ },
+ "1.7-buddies-escritorio": {
+  "url": "#/buddies",
+  "nota": "",
+  "errores": []
+ },
+ "1.7-mi-qr-escritorio": {
+  "url": "#/mi-qr",
+  "nota": "",
+  "errores": []
+ },
+ "1.7-ruta-profesional-escritorio": {
+  "url": "#/mi-agenda",
+  "nota": "",
+  "errores": []
+ },
+ "2.1-ficha-vida-marina-escritorio": {
+  "url": "#/punto?id=357",
+  "nota": "",
+  "errores": []
+ },
+ "2.1-vida-marina-todas-escritorio": {
+  "url": "#/punto?id=357",
+  "nota": "",
+  "errores": []
+ },
+ "2.3-admin-vida-marina-escritorio": {
+  "url": "#/admin?tab=marina&sub=vida",
+  "nota": "",
+  "errores": []
+ },
+ "2.5-logbook-que-viste-escritorio": {
+  "url": "#/logbook",
+  "nota": "",
+  "errores": []
+ },
+ "3.2-directorio-freelance-escritorio": {
+  "url": "#/freelance",
+  "nota": "",
+  "errores": []
+ },
+ "3.3-ficha-punto-freelance-escritorio": {
+  "url": "#/punto?id=357",
+  "nota": "",
+  "errores": []
+ },
+ "3.3-perfil-profesional-escritorio": {
+  "url": "#/profesional?id=9",
+  "nota": "",
+  "errores": []
+ },
+ "3.4-mis-profesionales-escritorio": {
+  "url": "#/mis-profesionales",
+  "nota": "",
+  "errores": []
+ },
+ "3.5-aparecer-en-directorio-escritorio": {
+  "url": "#/admin?tab=profile",
+  "nota": "",
+  "errores": []
+ },
+ "3.5-admin-titulaciones-escritorio": {
+  "url": "#/admin?tab=users",
+  "nota": "",
+  "errores": []
+ },
+ "demo-centro-de-demostracion-escritorio": {
+  "url": "#/centro?id=31",
+  "nota": "",
+  "errores": []
+ },
+ "1.1-menu-perfil-movil": {
+  "url": "#/area",
+  "nota": "",
+  "errores": []
+ },
+ "1.2-ficha-punto-franja-movil": {
+  "url": "#/punto?id=357",
+  "nota": "",
+  "errores": []
+ },
+ "1.2-admin-datos-por-tipo-movil": {
+  "url": "#/admin?tab=divetypes",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-centros-movil": {
+  "url": "#/centros",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-tipos-movil": {
+  "url": "#/tipos",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-puntos-movil": {
+  "url": "#/puntos",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-experiencias-movil": {
+  "url": "#/experiencias",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-top10-movil": {
+  "url": "#/top10",
+  "nota": "",
+  "errores": []
+ },
+ "1.3-cabecera-freelance-movil": {
+  "url": "#/freelance",
+  "nota": "",
+  "errores": []
+ },
+ "1.4-menu-centro-movil": {
+  "url": "#/admin",
+  "nota": "no existía (.cb-sidebar)",
+  "errores": []
+ },
+ "1.5-reservar-categorias-movil": {
+  "url": "#/reservar?center=31",
+  "nota": "",
+  "errores": []
+ },
+ "1.5-reservar-una-categoria-movil": {
+  "url": "#/reservar?center=31",
+  "nota": "",
+  "errores": []
+ },
+ "1.5-servicios-categoria-movil": {
+  "url": "#/admin?tab=services",
+  "nota": "",
+  "errores": []
+ },
+ "1.5-servicios-ordenar-movil": {
+  "url": "#/admin?tab=services",
+  "nota": "",
+  "errores": []
+ },
+ "1.5-admin-categorias-movil": {
+  "url": "#/admin?tab=svctemplates",
+  "nota": "",
+  "errores": []
+ },
+ "1.6-exportar-gestoria-movil": {
+  "url": "#/admin?tab=analytics",
+  "nota": "",
+  "errores": []
+ },
+ "1.7-menu-buceador-movil": {
+  "url": "#/area",
+  "nota": "",
+  "errores": []
+ },
+ "1.7-buddies-movil": {
+  "url": "#/buddies",
+  "nota": "",
+  "errores": []
+ },
+ "1.7-mi-qr-movil": {
+  "url": "#/mi-qr",
+  "nota": "",
+  "errores": []
+ },
+ "1.7-ruta-profesional-movil": {
+  "url": "#/mi-agenda",
+  "nota": "",
+  "errores": []
+ },
+ "2.1-ficha-vida-marina-movil": {
+  "url": "#/punto?id=357",
+  "nota": "",
+  "errores": []
+ },
+ "2.1-vida-marina-todas-movil": {
+  "url": "#/punto?id=357",
+  "nota": "",
+  "errores": []
+ },
+ "2.3-admin-vida-marina-movil": {
+  "url": "#/admin?tab=marina&sub=vida",
+  "nota": "",
+  "errores": []
+ },
+ "2.5-logbook-que-viste-movil": {
+  "url": "#/logbook",
+  "nota": "",
+  "errores": []
+ },
+ "3.2-directorio-freelance-movil": {
+  "url": "#/freelance",
+  "nota": "",
+  "errores": []
+ },
+ "3.3-ficha-punto-freelance-movil": {
+  "url": "#/punto?id=357",
+  "nota": "",
+  "errores": []
+ },
+ "3.3-perfil-profesional-movil": {
+  "url": "#/profesional?id=9",
+  "nota": "",
+  "errores": []
+ },
+ "3.4-mis-profesionales-movil": {
+  "url": "#/mis-profesionales",
+  "nota": "",
+  "errores": []
+ },
+ "3.5-aparecer-en-directorio-movil": {
+  "url": "#/admin?tab=profile",
+  "nota": "",
+  "errores": []
+ },
+ "3.5-admin-titulaciones-movil": {
+  "url": "#/admin?tab=users",
+  "nota": "",
+  "errores": []
+ },
+ "demo-centro-de-demostracion-movil": {
+  "url": "#/centro?id=31",
+  "nota": "",
+  "errores": []
+ }
+}

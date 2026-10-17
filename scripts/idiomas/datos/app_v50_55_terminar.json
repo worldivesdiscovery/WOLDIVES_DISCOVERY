@@ -1,0 +1,42 @@
+{
+ "Pagar": [
+  "Pay",
+  "Payer"
+ ],
+ "Calendario": [
+  "Calendar",
+  "Calendrier"
+ ],
+ "Repetir reserva": [
+  "Book again",
+  "Réserver à nouveau"
+ ],
+ "El plazo para pagar ha terminado.": [
+  "The time to pay has ended.",
+  "Le délai pour payer est terminé."
+ ],
+ "Tiempo para pagar": [
+  "Time left to pay",
+  "Temps restant pour payer"
+ ],
+ "Falta contar a la vuelta": [
+  "Count on the way back",
+  "Comptage au retour à faire"
+ ],
+ "Contados a la vuelta": [
+  "Counted on the way back",
+  "Comptés au retour"
+ ],
+ "Al salir contaste": [
+  "When leaving you counted",
+  "Au départ, vous avez compté"
+ ],
+ "Antes de terminar la salida, cuenta otra vez a todos en el barco.": [
+  "Before the departure ends, count everyone on the boat again.",
+  "Avant la fin de la sortie, recomptez tout le monde sur le bateau."
+ ],
+ "Contar a la vuelta": [
+  "Count on the way back",
+  "Compter au retour"
+ ]
+}

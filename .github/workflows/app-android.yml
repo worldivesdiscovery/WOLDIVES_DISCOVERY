@@ -1,0 +1,155 @@
+name: App Android (Capacitor)
+
+# The WORLDIVES app for Android (encargo «App móvil en 3 módulos»): the web inside a native app (Capacitor 8).
+# Builds two APKs from movil/:
+#  · WORLDIVES Pruebas (com.worldives.app.pruebas): signed with the test key, to install and test. It is the artifact.
+#  · WORLDIVES (com.worldives.app): built unsigned only to check that it carries nothing of the test variant.
+# The test key is made here the first time and kept in the Actions cache (never in the repository). If the cache
+# expires (7 days without builds), a new key is made and the test app has to be uninstalled once before installing.
+# Then an Android emulator installs WORLDIVES Pruebas, connects it to the test server of the zip (started here, reached
+# by the emulator at 10.0.2.2:8100) and checks it screen by screen (movil/scripts/emulador.py). Screenshots: artifact.
+
+on:
+  push:
+    paths:
+      - 'movil/**'
+      - '.github/workflows/app-android.yml'
+      - 'public/js/wd-app.js'
+      - 'public/js/wd-app-pro.js'
+      - 'public/js/wd-app-seg.js'
+      - 'public/js/world-dives-v8.js'
+      - 'public/css/wd-app.css'
+      - 'app/wod/movil.py'
+      - 'app/wod/dispositivos.py'
+  workflow_dispatch:
+
+concurrency:
+  group: app-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: movil/package-lock.json
+
+      - name: Install Capacitor
+        working-directory: movil
+        run: npm ci
+
+      - name: Copy the local pages into the Android project
+        working-directory: movil
+        run: npx cap sync android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Test key (from the cache)
+        id: clave
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.worldives-claves
+          key: worldives-pruebas-keystore-v1
+
+      - name: Make the test key (first time only)
+        if: steps.clave.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.worldives-claves
+          PASS=$(openssl rand -hex 24)
+          keytool -genkeypair -v -keystore ~/.worldives-claves/pruebas.jks -alias worldives-pruebas -keyalg RSA -keysize 4096 \
+            -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "CN=WORLDIVES Pruebas, O=WORLDIVES DISCOVERY, C=ES"
+          printf '%s' "$PASS" > ~/.worldives-claves/clave.txt
+          echo "::warning::Clave de pruebas nueva: desinstala WORLDIVES Pruebas del móvil antes de instalar esta versión."
+
+      - name: Keep the test key
+        if: steps.clave.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.worldives-claves
+          key: worldives-pruebas-keystore-v1
+
+      - name: Build both APKs
+        working-directory: movil/android
+        run: |
+          export WD_PRUEBAS_KEYSTORE=~/.worldives-claves/pruebas.jks
+          export WD_PRUEBAS_KEYSTORE_PASSWORD=$(cat ~/.worldives-claves/clave.txt)
+          export WD_VERSION_CODE=${{ github.run_number }}
+          export WD_VERSION_NAME=1.0.${{ github.run_number }}
+          ./gradlew assemblePruebasRelease assembleProduccionRelease --no-daemon
+
+      - name: Check that the production APK carries nothing of the test variant
+        run: python3 movil/scripts/comprobar_apk.py movil/android/app/build/outputs/apk/produccion/release/*.apk movil/android/app/build/outputs/apk/pruebas/release/*.apk
+
+      - name: Name the test APK after the web version
+        run: |
+          V=$(sed -n "s/^APP_VERSION = '\(.*\)'/\1/p" app/server.py)
+          mkdir -p apk
+          cp movil/android/app/build/outputs/apk/pruebas/release/app-pruebas-release.apk "apk/WORLDIVES-Pruebas-v$V-${{ github.run_number }}.apk"
+          ls -l apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WORLDIVES-Pruebas-apk
+          path: apk/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  emulador:
+    needs: apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: WORLDIVES-Pruebas-apk
+          path: apk
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test server of the zip (port 8100, test accounts)
+        run: |
+          python -m pip install -r requirements.txt websocket-client
+          WOD_IP_MOVIL=10.0.2.2 nohup python scripts/iniciar.py --pruebas --red-local --sin-navegador > servidor.log 2>&1 &
+          for i in $(seq 1 90); do curl -sf http://127.0.0.1:8100/api/health && break; sleep 2; done
+          curl -sf http://127.0.0.1:8100/api/health
+
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Android emulator, install and check
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash movil/scripts/emulador.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WORLDIVES-Pruebas-emulador
+          path: |
+            capturas-emulador/
+            servidor.log
+          if-no-files-found: warn
+          retention-days: 30

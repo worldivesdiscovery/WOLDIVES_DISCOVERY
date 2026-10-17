@@ -1,0 +1,764 @@
+{
+ "exact": {
+  "RESERVAS DESDE TU WEB E INSTAGRAM": {
+   "en": "BOOKINGS FROM YOUR WEBSITE AND INSTAGRAM",
+   "fr": "RÉSERVATIONS DEPUIS VOTRE SITE ET INSTAGRAM",
+   "de": "BUCHUNGEN ÜBER DEINE WEBSITE UND INSTAGRAM",
+   "it": "PRENOTAZIONI DAL TUO SITO E INSTAGRAM",
+   "pt": "RESERVAS PELO TEU SITE E INSTAGRAM",
+   "pl": "REZERWACJE Z TWOJEJ STRONY I INSTAGRAMA",
+   "nl": "BOEKINGEN VIA JE WEBSITE EN INSTAGRAM",
+   "zh": "来自你的网站和Instagram的预订"
+  },
+  "Que te reserven desde tu web, Instagram o WhatsApp": {
+   "en": "Get bookings from your website, Instagram or WhatsApp",
+   "fr": "Recevez des réservations depuis votre site, Instagram ou WhatsApp",
+   "de": "Buchungen über deine Website, Instagram oder WhatsApp",
+   "it": "Ricevi prenotazioni dal tuo sito, da Instagram o WhatsApp",
+   "pt": "Recebe reservas pelo teu site, Instagram ou WhatsApp",
+   "pl": "Przyjmuj rezerwacje ze strony, Instagrama lub WhatsAppa",
+   "nl": "Ontvang boekingen via je website, Instagram of WhatsApp",
+   "zh": "通过你的网站、Instagram或WhatsApp接收预订"
+  },
+  "Las reservas entran solas en tu planning y salen de las mismas plazas que en WORLDIVES.": {
+   "en": "Bookings go straight into your planner and use the same places as on WORLDIVES.",
+   "fr": "Les réservations arrivent seules dans votre planning et utilisent les mêmes places que sur WORLDIVES.",
+   "de": "Buchungen landen automatisch in deiner Planung und nutzen dieselben Plätze wie auf WORLDIVES.",
+   "it": "Le prenotazioni entrano da sole nel tuo planning e usano gli stessi posti di WORLDIVES.",
+   "pt": "As reservas entram sozinhas no teu planeamento e usam os mesmos lugares que no WORLDIVES.",
+   "pl": "Rezerwacje same trafiają do Twojego planu i korzystają z tych samych miejsc co w WORLDIVES.",
+   "nl": "Boekingen komen vanzelf in je planning en gebruiken dezelfde plaatsen als op WORLDIVES.",
+   "zh": "预订会自动进入你的日程，并与WORLDIVES共用同一批名额。"
+  },
+  "Este mes te ha reservado 1 persona desde tu web": {
+   "en": "This month 1 person has booked from your website",
+   "fr": "Ce mois-ci, 1 personne a réservé depuis votre site",
+   "de": "Diesen Monat hat 1 Person über deine Website gebucht",
+   "it": "Questo mese ti ha prenotato 1 persona dal tuo sito",
+   "pt": "Este mês, 1 pessoa reservou pelo teu site",
+   "pl": "W tym miesiącu 1 osoba zarezerwowała z Twojej strony",
+   "nl": "Deze maand heeft 1 persoon via je website geboekt",
+   "zh": "本月有1人通过你的网站预订"
+  },
+  "Este mes te han reservado {n} personas desde tu web": {
+   "en": "This month {n} people have booked from your website",
+   "fr": "Ce mois-ci, {n} personnes ont réservé depuis votre site",
+   "de": "Diesen Monat haben {n} Personen über deine Website gebucht",
+   "it": "Questo mese ti hanno prenotato {n} persone dal tuo sito",
+   "pt": "Este mês, {n} pessoas reservaram pelo teu site",
+   "pl": "W tym miesiącu {n} osób zarezerwowało z Twojej strony",
+   "nl": "Deze maand hebben {n} personen via je website geboekt",
+   "zh": "本月有{n}人通过你的网站预订"
+  },
+  "y 1 desde tu enlace de reservas": {
+   "en": "and 1 from your booking link",
+   "fr": "et 1 depuis votre lien de réservation",
+   "de": "und 1 über deinen Buchungslink",
+   "it": "e 1 dal tuo link di prenotazione",
+   "pt": "e 1 pelo teu link de reservas",
+   "pl": "i 1 z Twojego linku do rezerwacji",
+   "nl": "en 1 via je boekingslink",
+   "zh": "另有1人通过你的预订链接"
+  },
+  "y {n} desde tu enlace de reservas": {
+   "en": "and {n} from your booking link",
+   "fr": "et {n} depuis votre lien de réservation",
+   "de": "und {n} über deinen Buchungslink",
+   "it": "e {n} dal tuo link di prenotazione",
+   "pt": "e {n} pelo teu link de reservas",
+   "pl": "i {n} z Twojego linku do rezerwacji",
+   "nl": "en {n} via je boekingslink",
+   "zh": "另有{n}人通过你的预订链接"
+  },
+  "El botón de reservas para tu web está incluido en los planes «Motor de reservas» y «Pro». Con la ficha gratuita, tu web enseña «Solicitar información».": {
+   "en": "The booking button for your website is included in the «Booking engine» and «Pro» plans. With the free listing, your website shows «Request information».",
+   "fr": "Le bouton de réservation pour votre site est inclus dans les formules « Moteur de réservation » et « Pro ». Avec la fiche gratuite, votre site affiche « Demander des informations ».",
+   "de": "Der Buchungsbutton für deine Website ist in den Tarifen „Buchungsmaschine“ und „Pro“ enthalten. Mit dem kostenlosen Eintrag zeigt deine Website „Informationen anfragen“.",
+   "it": "Il pulsante di prenotazione per il tuo sito è incluso nei piani «Motore di prenotazione» e «Pro». Con la scheda gratuita, il tuo sito mostra «Richiedi informazioni».",
+   "pt": "O botão de reservas para o teu site está incluído nos planos «Motor de reservas» e «Pro». Com a ficha gratuita, o teu site mostra «Pedir informação».",
+   "pl": "Przycisk rezerwacji na Twoją stronę jest w planach „Silnik rezerwacji” i „Pro”. Z darmową wizytówką strona pokazuje „Poproś o informacje”.",
+   "nl": "De boekknop voor je website zit in de abonnementen „Boekingsmotor” en „Pro”. Met de gratis vermelding toont je website „Informatie aanvragen”.",
+   "zh": "网站预订按钮包含在「预订引擎」和「Pro」套餐中。使用免费主页时，你的网站显示「咨询信息」。"
+  },
+  "LO MÁS FÁCIL · TAMBIÉN SIN WEB": {
+   "en": "THE EASIEST · EVEN WITHOUT A WEBSITE",
+   "fr": "LE PLUS SIMPLE · MÊME SANS SITE",
+   "de": "AM EINFACHSTEN · AUCH OHNE WEBSITE",
+   "it": "LA COSA PIÙ FACILE · ANCHE SENZA SITO",
+   "pt": "O MAIS FÁCIL · TAMBÉM SEM SITE",
+   "pl": "NAJPROŚCIEJ · TAKŻE BEZ STRONY",
+   "nl": "HET MAKKELIJKST · OOK ZONDER WEBSITE",
+   "zh": "最简单 · 没有网站也可以"
+  },
+  "Tu enlace de reservas": {
+   "en": "Your booking link",
+   "fr": "Votre lien de réservation",
+   "de": "Dein Buchungslink",
+   "it": "Il tuo link di prenotazione",
+   "pt": "O teu link de reservas",
+   "pl": "Twój link do rezerwacji",
+   "nl": "Je boekingslink",
+   "zh": "你的预订链接"
+  },
+  "Ponlo en tu Instagram, en Google Maps o mándalo por WhatsApp.": {
+   "en": "Put it on your Instagram or Google Maps, or send it by WhatsApp.",
+   "fr": "Mettez-le sur votre Instagram, sur Google Maps ou envoyez-le par WhatsApp.",
+   "de": "Setz ihn in dein Instagram, in Google Maps oder schick ihn per WhatsApp.",
+   "it": "Mettilo su Instagram, su Google Maps o mandalo via WhatsApp.",
+   "pt": "Põe-no no teu Instagram, no Google Maps ou envia-o por WhatsApp.",
+   "pl": "Dodaj go na Instagram, do Map Google albo wyślij przez WhatsApp.",
+   "nl": "Zet hem op je Instagram, in Google Maps of stuur hem via WhatsApp.",
+   "zh": "放到你的Instagram、谷歌地图上，或通过WhatsApp发送。"
+  },
+  "Compartir en WhatsApp": {
+   "en": "Share on WhatsApp",
+   "fr": "Partager sur WhatsApp",
+   "de": "Auf WhatsApp teilen",
+   "it": "Condividi su WhatsApp",
+   "pt": "Partilhar no WhatsApp",
+   "pl": "Udostępnij w WhatsApp",
+   "nl": "Delen via WhatsApp",
+   "zh": "通过WhatsApp分享"
+  },
+  "Descargar QR": {
+   "en": "Download QR",
+   "fr": "Télécharger le QR",
+   "de": "QR herunterladen",
+   "it": "Scarica il QR",
+   "pt": "Descarregar QR",
+   "pl": "Pobierz QR",
+   "nl": "QR downloaden",
+   "zh": "下载二维码"
+  },
+  "QR de tu enlace de reservas": {
+   "en": "QR of your booking link",
+   "fr": "QR de votre lien de réservation",
+   "de": "QR deines Buchungslinks",
+   "it": "QR del tuo link di prenotazione",
+   "pt": "QR do teu link de reservas",
+   "pl": "QR Twojego linku do rezerwacji",
+   "nl": "QR van je boekingslink",
+   "zh": "你的预订链接二维码"
+  },
+  "¿Qué quieres que reserven?": {
+   "en": "What do you want them to book?",
+   "fr": "Que voulez-vous qu'on réserve ?",
+   "de": "Was sollen sie buchen?",
+   "it": "Cosa vuoi che prenotino?",
+   "pt": "O que queres que reservem?",
+   "pl": "Co mają rezerwować?",
+   "nl": "Wat wil je dat ze boeken?",
+   "zh": "你希望客人预订什么？"
+  },
+  "Todo tu catálogo": {
+   "en": "Your whole catalogue",
+   "fr": "Tout votre catalogue",
+   "de": "Dein ganzes Angebot",
+   "it": "Tutto il tuo catalogo",
+   "pt": "Todo o teu catálogo",
+   "pl": "Cała Twoja oferta",
+   "nl": "Je hele aanbod",
+   "zh": "你的全部服务"
+  },
+  "Todos tus servicios a la venta.": {
+   "en": "All your services on sale.",
+   "fr": "Tous vos services en vente.",
+   "de": "Alle deine Angebote im Verkauf.",
+   "it": "Tutti i tuoi servizi in vendita.",
+   "pt": "Todos os teus serviços à venda.",
+   "pl": "Wszystkie Twoje usługi w sprzedaży.",
+   "nl": "Al je diensten die te koop zijn.",
+   "zh": "所有在售服务。"
+  },
+  "Un servicio concreto": {
+   "en": "One service",
+   "fr": "Un service précis",
+   "de": "Ein bestimmtes Angebot",
+   "it": "Un servizio preciso",
+   "pt": "Um serviço concreto",
+   "pl": "Jedna konkretna usługa",
+   "nl": "Eén specifieke dienst",
+   "zh": "某一项服务"
+  },
+  "Un tipo": {
+   "en": "One type",
+   "fr": "Un type",
+   "de": "Eine Art",
+   "it": "Un tipo",
+   "pt": "Um tipo",
+   "pl": "Jeden rodzaj",
+   "nl": "Eén soort",
+   "zh": "某一类"
+  },
+  "Por ejemplo, solo los cursos o solo las inmersiones.": {
+   "en": "For example, only the courses or only the dives.",
+   "fr": "Par exemple, seulement les cours ou seulement les plongées.",
+   "de": "Zum Beispiel nur die Kurse oder nur die Tauchgänge.",
+   "it": "Per esempio, solo i corsi o solo le immersioni.",
+   "pt": "Por exemplo, só os cursos ou só os mergulhos.",
+   "pl": "Na przykład tylko kursy albo tylko nurkowania.",
+   "nl": "Bijvoorbeeld alleen de cursussen of alleen de duiken.",
+   "zh": "例如只显示课程或只显示潜水。"
+  },
+  "¿Cómo quieres que se vea?": {
+   "en": "How should it look?",
+   "fr": "Comment voulez-vous qu'il s'affiche ?",
+   "de": "Wie soll es aussehen?",
+   "it": "Come vuoi che si veda?",
+   "pt": "Como queres que se veja?",
+   "pl": "Jak ma wyglądać?",
+   "nl": "Hoe moet het eruitzien?",
+   "zh": "你希望如何显示？"
+  },
+  "Un botón «Reservar»": {
+   "en": "A «Book» button",
+   "fr": "Un bouton « Réserver »",
+   "de": "Ein „Buchen“-Button",
+   "it": "Un pulsante «Prenota»",
+   "pt": "Um botão «Reservar»",
+   "pl": "Przycisk „Zarezerwuj”",
+   "nl": "Een knop „Boeken”",
+   "zh": "一个「预订」按钮"
+  },
+  "Abre la reserva encima de tu página.": {
+   "en": "It opens the booking on top of your page.",
+   "fr": "Il ouvre la réservation par-dessus votre page.",
+   "de": "Öffnet die Buchung über deiner Seite.",
+   "it": "Apre la prenotazione sopra la tua pagina.",
+   "pt": "Abre a reserva por cima da tua página.",
+   "pl": "Otwiera rezerwację nad Twoją stroną.",
+   "nl": "Opent de boeking boven je pagina.",
+   "zh": "在你的页面上方打开预订。"
+  },
+  "Un calendario": {
+   "en": "A calendar",
+   "fr": "Un calendrier",
+   "de": "Ein Kalender",
+   "it": "Un calendario",
+   "pt": "Um calendário",
+   "pl": "Kalendarz",
+   "nl": "Een kalender",
+   "zh": "一个日历"
+  },
+  "Las fechas libres, dentro de tu página.": {
+   "en": "The free dates, inside your page.",
+   "fr": "Les dates libres, dans votre page.",
+   "de": "Die freien Termine, in deiner Seite.",
+   "it": "Le date libere, dentro la tua pagina.",
+   "pt": "As datas livres, dentro da tua página.",
+   "pl": "Wolne terminy, na Twojej stronie.",
+   "nl": "De vrije data, in je pagina.",
+   "zh": "在你的页面中显示可预订日期。"
+  },
+  "Una lista de próximas salidas": {
+   "en": "A list of upcoming departures",
+   "fr": "Une liste des prochaines sorties",
+   "de": "Eine Liste der nächsten Ausfahrten",
+   "it": "Un elenco delle prossime uscite",
+   "pt": "Uma lista das próximas saídas",
+   "pl": "Lista najbliższych wypłynięć",
+   "nl": "Een lijst met de volgende uitvaarten",
+   "zh": "即将出发的行程列表"
+  },
+  "Tus salidas y servicios, dentro de tu página.": {
+   "en": "Your departures and services, inside your page.",
+   "fr": "Vos sorties et services, dans votre page.",
+   "de": "Deine Ausfahrten und Angebote, in deiner Seite.",
+   "it": "Le tue uscite e i tuoi servizi, dentro la tua pagina.",
+   "pt": "As tuas saídas e serviços, dentro da tua página.",
+   "pl": "Twoje wypłynięcia i usługi, na Twojej stronie.",
+   "nl": "Je uitvaarten en diensten, in je pagina.",
+   "zh": "在你的页面中显示你的行程和服务。"
+  },
+  "El color y el logo salen solos de tu perfil.": {
+   "en": "The colour and the logo come from your profile.",
+   "fr": "La couleur et le logo viennent de votre profil.",
+   "de": "Farbe und Logo kommen automatisch aus deinem Profil.",
+   "it": "Il colore e il logo vengono dal tuo profilo.",
+   "pt": "A cor e o logótipo vêm do teu perfil.",
+   "pl": "Kolor i logo pochodzą z Twojego profilu.",
+   "nl": "De kleur en het logo komen uit je profiel.",
+   "zh": "颜色和标志自动取自你的资料。"
+  },
+  "Ponlo en tu web": {
+   "en": "Put it on your website",
+   "fr": "Mettez-le sur votre site",
+   "de": "Bau es in deine Website ein",
+   "it": "Mettilo sul tuo sito",
+   "pt": "Põe-no no teu site",
+   "pl": "Wstaw go na swoją stronę",
+   "nl": "Zet het op je website",
+   "zh": "放到你的网站上"
+  },
+  "Pega este código en tu web donde quieras que aparezca el botón.": {
+   "en": "Paste this code on your website where you want the button to appear.",
+   "fr": "Collez ce code sur votre site là où le bouton doit apparaître.",
+   "de": "Füge diesen Code in deine Website ein, wo der Button erscheinen soll.",
+   "it": "Incolla questo codice sul tuo sito dove vuoi che compaia il pulsante.",
+   "pt": "Cola este código no teu site onde queres que apareça o botão.",
+   "pl": "Wklej ten kod na stronie tam, gdzie ma pojawić się przycisk.",
+   "nl": "Plak deze code op je website waar de knop moet komen.",
+   "zh": "把这段代码粘贴到你的网站上需要显示按钮的位置。"
+  },
+  "Enviar las instrucciones a mi informático": {
+   "en": "Send the instructions to my web person",
+   "fr": "Envoyer les instructions à mon informaticien",
+   "de": "Anleitung an meinen IT-Menschen senden",
+   "it": "Invia le istruzioni al mio informatico",
+   "pt": "Enviar as instruções ao meu informático",
+   "pl": "Wyślij instrukcje mojemu informatykowi",
+   "nl": "Instructies naar mijn webbouwer sturen",
+   "zh": "把说明发给我的技术人员"
+  },
+  "En la página donde quieres el botón, pulsa «+» y añade un bloque «HTML personalizado».": {
+   "en": "On the page where you want the button, press «+» and add a «Custom HTML» block.",
+   "fr": "Sur la page où vous voulez le bouton, appuyez sur « + » et ajoutez un bloc « HTML personnalisé ».",
+   "de": "Auf der Seite, wo der Button hin soll, „+“ drücken und einen Block „Individuelles HTML“ hinzufügen.",
+   "it": "Nella pagina dove vuoi il pulsante, premi «+» e aggiungi un blocco «HTML personalizzato».",
+   "pt": "Na página onde queres o botão, carrega em «+» e adiciona um bloco «HTML personalizado».",
+   "pl": "Na stronie, gdzie ma być przycisk, naciśnij „+” i dodaj blok „Własny HTML”.",
+   "nl": "Druk op de pagina waar de knop moet komen op „+” en voeg een blok „Aangepaste HTML” toe.",
+   "zh": "在需要按钮的页面上点「+」，添加「自定义HTML」区块。"
+  },
+  "Pega el código.": {
+   "en": "Paste the code.",
+   "fr": "Collez le code.",
+   "de": "Füge den Code ein.",
+   "it": "Incolla il codice.",
+   "pt": "Cola o código.",
+   "pl": "Wklej kod.",
+   "nl": "Plak de code.",
+   "zh": "粘贴代码。"
+  },
+  "Pulsa «Actualizar».": {
+   "en": "Press «Update».",
+   "fr": "Appuyez sur « Mettre à jour ».",
+   "de": "Drücke „Aktualisieren“.",
+   "it": "Premi «Aggiorna».",
+   "pt": "Carrega em «Atualizar».",
+   "pl": "Naciśnij „Aktualizuj”.",
+   "nl": "Druk op „Bijwerken”.",
+   "zh": "点「更新」。"
+  },
+  "En el editor: «Añadir elementos» → «Insertar código» → «Código integrado».": {
+   "en": "In the editor: «Add Elements» → «Embed Code» → «Embed HTML».",
+   "fr": "Dans l'éditeur : « Ajouter des éléments » → « Intégrer du code » → « Code intégré ».",
+   "de": "Im Editor: „Elemente hinzufügen“ → „Code einbetten“ → „HTML einbetten“.",
+   "it": "Nell'editor: «Aggiungi elementi» → «Incorpora codice» → «Codice incorporato».",
+   "pt": "No editor: «Adicionar elementos» → «Incorporar código» → «Código incorporado».",
+   "pl": "W edytorze: „Dodaj elementy” → „Osadź kod” → „Osadzony kod”.",
+   "nl": "In de editor: „Elementen toevoegen” → „Code insluiten” → „HTML insluiten”.",
+   "zh": "在编辑器中：「添加元素」→「嵌入代码」→「嵌入HTML」。"
+  },
+  "Publica la web.": {
+   "en": "Publish the website.",
+   "fr": "Publiez le site.",
+   "de": "Veröffentliche die Website.",
+   "it": "Pubblica il sito.",
+   "pt": "Publica o site.",
+   "pl": "Opublikuj stronę.",
+   "nl": "Publiceer de website.",
+   "zh": "发布网站。"
+  },
+  "Edita la página y pulsa «Añadir bloque» → «Código».": {
+   "en": "Edit the page and press «Add Block» → «Code».",
+   "fr": "Modifiez la page et appuyez sur « Ajouter un bloc » → « Code ».",
+   "de": "Bearbeite die Seite und drücke „Block hinzufügen“ → „Code“.",
+   "it": "Modifica la pagina e premi «Aggiungi blocco» → «Codice».",
+   "pt": "Edita a página e carrega em «Adicionar bloco» → «Código».",
+   "pl": "Edytuj stronę i naciśnij „Dodaj blok” → „Kod”.",
+   "nl": "Bewerk de pagina en druk op „Blok toevoegen” → „Code”.",
+   "zh": "编辑页面，点「添加区块」→「代码」。"
+  },
+  "Guarda los cambios.": {
+   "en": "Save the changes.",
+   "fr": "Enregistrez les modifications.",
+   "de": "Speichere die Änderungen.",
+   "it": "Salva le modifiche.",
+   "pt": "Guarda as alterações.",
+   "pl": "Zapisz zmiany.",
+   "nl": "Sla de wijzigingen op.",
+   "zh": "保存更改。"
+  },
+  "¿Otra plataforma? Si deja pegar HTML, funciona igual. Si no, usa tu enlace de reservas de arriba.": {
+   "en": "Another platform? If it lets you paste HTML, it works the same. If not, use your booking link above.",
+   "fr": "Une autre plateforme ? Si elle permet de coller du HTML, cela fonctionne pareil. Sinon, utilisez votre lien de réservation ci-dessus.",
+   "de": "Andere Plattform? Wenn sie HTML erlaubt, funktioniert es genauso. Sonst nutze deinen Buchungslink oben.",
+   "it": "Un'altra piattaforma? Se permette di incollare HTML, funziona uguale. Altrimenti usa il tuo link di prenotazione qui sopra.",
+   "pt": "Outra plataforma? Se deixar colar HTML, funciona igual. Se não, usa o teu link de reservas acima.",
+   "pl": "Inna platforma? Jeśli pozwala wkleić HTML, działa tak samo. Jeśli nie, użyj linku do rezerwacji powyżej.",
+   "nl": "Ander platform? Als het HTML toestaat, werkt het hetzelfde. Zo niet, gebruik je boekingslink hierboven.",
+   "zh": "其他平台？只要能粘贴HTML就一样可用；否则请使用上面的预订链接。"
+  },
+  "Comprueba que funciona": {
+   "en": "Check that it works",
+   "fr": "Vérifiez que cela fonctionne",
+   "de": "Prüfe, ob es funktioniert",
+   "it": "Controlla che funzioni",
+   "pt": "Verifica que funciona",
+   "pl": "Sprawdź, czy działa",
+   "nl": "Controleer of het werkt",
+   "zh": "检查是否正常工作"
+  },
+  "Escribe la dirección de tu web y la miramos por ti. Si el botón está, autorizamos tu web para que funcione.": {
+   "en": "Type your website address and we look at it for you. If the button is there, we authorise your website so it works.",
+   "fr": "Saisissez l'adresse de votre site et nous la vérifions pour vous. Si le bouton y est, nous autorisons votre site pour qu'il fonctionne.",
+   "de": "Gib die Adresse deiner Website ein und wir schauen für dich nach. Ist der Button da, schalten wir deine Website frei.",
+   "it": "Scrivi l'indirizzo del tuo sito e lo controlliamo noi. Se il pulsante c'è, autorizziamo il tuo sito perché funzioni.",
+   "pt": "Escreve o endereço do teu site e verificamos por ti. Se o botão lá estiver, autorizamos o teu site para que funcione.",
+   "pl": "Wpisz adres swojej strony, a sprawdzimy ją za Ciebie. Jeśli przycisk jest, autoryzujemy stronę, żeby działał.",
+   "nl": "Typ het adres van je website en wij kijken voor je. Staat de knop er, dan geven we je website toestemming zodat hij werkt.",
+   "zh": "输入你的网站地址，我们替你检查。如果按钮已在，我们会授权你的网站以便正常使用。"
+  },
+  "La dirección de tu web": {
+   "en": "Your website address",
+   "fr": "L'adresse de votre site",
+   "de": "Die Adresse deiner Website",
+   "it": "L'indirizzo del tuo sito",
+   "pt": "O endereço do teu site",
+   "pl": "Adres Twojej strony",
+   "nl": "Het adres van je website",
+   "zh": "你的网站地址"
+  },
+  "✔ Tu botón está funcionando": {
+   "en": "✔ Your button is working",
+   "fr": "✔ Votre bouton fonctionne",
+   "de": "✔ Dein Button funktioniert",
+   "it": "✔ Il tuo pulsante funziona",
+   "pt": "✔ O teu botão está a funcionar",
+   "pl": "✔ Twój przycisk działa",
+   "nl": "✔ Je knop werkt",
+   "zh": "✔ 你的按钮工作正常"
+  },
+  "Aún no lo encontramos": {
+   "en": "We cannot find it yet",
+   "fr": "Nous ne le trouvons pas encore",
+   "de": "Wir finden ihn noch nicht",
+   "it": "Non lo troviamo ancora",
+   "pt": "Ainda não o encontramos",
+   "pl": "Jeszcze go nie znajdujemy",
+   "nl": "We vinden hem nog niet",
+   "zh": "我们还没有找到它"
+  },
+  "Hemos autorizado {web} para que funcione.": {
+   "en": "We have authorised {web} so it works.",
+   "fr": "Nous avons autorisé {web} pour qu'il fonctionne.",
+   "de": "Wir haben {web} freigeschaltet.",
+   "it": "Abbiamo autorizzato {web} perché funzioni.",
+   "pt": "Autorizámos {web} para que funcione.",
+   "pl": "Autoryzowaliśmy {web}, żeby działał.",
+   "nl": "We hebben {web} toestemming gegeven zodat hij werkt.",
+   "zh": "我们已授权{web}，以便正常使用。"
+  },
+  "La última vez no lo encontramos. Si ya lo has pegado, vuelve a probar.": {
+   "en": "Last time we did not find it. If you have pasted it already, try again.",
+   "fr": "La dernière fois, nous ne l'avons pas trouvé. Si vous l'avez déjà collé, réessayez.",
+   "de": "Beim letzten Mal haben wir ihn nicht gefunden. Wenn du ihn schon eingefügt hast, versuch es nochmal.",
+   "it": "L'ultima volta non l'abbiamo trovato. Se l'hai già incollato, riprova.",
+   "pt": "Da última vez não o encontrámos. Se já o colaste, tenta outra vez.",
+   "pl": "Ostatnio go nie znaleźliśmy. Jeśli już go wkleiłeś, spróbuj ponownie.",
+   "nl": "De vorige keer vonden we hem niet. Heb je hem al geplakt, probeer het opnieuw.",
+   "zh": "上次我们没有找到。如果你已经粘贴，请再试一次。"
+  },
+  "Hemos abierto tu web, pero el código no está. Si lo acabas de pegar, publica los cambios y vuelve a probar. Comprueba que pegaste el código entero.": {
+   "en": "We opened your website, but the code is not there. If you have just pasted it, publish the changes and try again. Check that you pasted the whole code.",
+   "fr": "Nous avons ouvert votre site, mais le code n'y est pas. Si vous venez de le coller, publiez les modifications et réessayez. Vérifiez que vous avez collé tout le code.",
+   "de": "Wir haben deine Website geöffnet, aber der Code ist nicht da. Wenn du ihn gerade eingefügt hast, veröffentliche die Änderungen und versuch es nochmal. Prüfe, ob du den ganzen Code eingefügt hast.",
+   "it": "Abbiamo aperto il tuo sito, ma il codice non c'è. Se l'hai appena incollato, pubblica le modifiche e riprova. Controlla di aver incollato tutto il codice.",
+   "pt": "Abrimos o teu site, mas o código não está lá. Se acabaste de o colar, publica as alterações e tenta outra vez. Verifica que colaste o código inteiro.",
+   "pl": "Otworzyliśmy Twoją stronę, ale kodu tam nie ma. Jeśli właśnie go wkleiłeś, opublikuj zmiany i spróbuj ponownie. Sprawdź, czy wkleiłeś cały kod.",
+   "nl": "We hebben je website geopend, maar de code staat er niet. Heb je hem net geplakt, publiceer dan de wijzigingen en probeer opnieuw. Controleer of je de hele code hebt geplakt.",
+   "zh": "我们打开了你的网站，但没有找到代码。如果你刚粘贴，请发布更改后再试，并检查是否粘贴了完整代码。"
+  },
+  "Esa página no existe (error 404). Revisa la dirección.": {
+   "en": "That page does not exist (error 404). Check the address.",
+   "fr": "Cette page n'existe pas (erreur 404). Vérifiez l'adresse.",
+   "de": "Diese Seite gibt es nicht (Fehler 404). Prüfe die Adresse.",
+   "it": "Quella pagina non esiste (errore 404). Controlla l'indirizzo.",
+   "pt": "Essa página não existe (erro 404). Verifica o endereço.",
+   "pl": "Ta strona nie istnieje (błąd 404). Sprawdź adres.",
+   "nl": "Die pagina bestaat niet (fout 404). Controleer het adres.",
+   "zh": "该页面不存在（404错误）。请检查地址。"
+  },
+  "No hemos podido abrir tu web. Revisa la dirección o prueba dentro de un rato.": {
+   "en": "We could not open your website. Check the address or try again later.",
+   "fr": "Nous n'avons pas pu ouvrir votre site. Vérifiez l'adresse ou réessayez plus tard.",
+   "de": "Wir konnten deine Website nicht öffnen. Prüfe die Adresse oder versuch es später.",
+   "it": "Non siamo riusciti ad aprire il tuo sito. Controlla l'indirizzo o riprova più tardi.",
+   "pt": "Não conseguimos abrir o teu site. Verifica o endereço ou tenta mais tarde.",
+   "pl": "Nie udało się otworzyć Twojej strony. Sprawdź adres lub spróbuj później.",
+   "nl": "We konden je website niet openen. Controleer het adres of probeer het later.",
+   "zh": "无法打开你的网站。请检查地址或稍后再试。"
+  },
+  "Escribe la dirección de tu web, por ejemplo buceomarazul.com.": {
+   "en": "Type your website address, for example buceomarazul.com.",
+   "fr": "Saisissez l'adresse de votre site, par exemple buceomarazul.com.",
+   "de": "Gib die Adresse deiner Website ein, zum Beispiel buceomarazul.com.",
+   "it": "Scrivi l'indirizzo del tuo sito, per esempio buceomarazul.com.",
+   "pt": "Escreve o endereço do teu site, por exemplo buceomarazul.com.",
+   "pl": "Wpisz adres swojej strony, na przykład buceomarazul.com.",
+   "nl": "Typ het adres van je website, bijvoorbeeld buceomarazul.com.",
+   "zh": "请输入你的网站地址，例如 buceomarazul.com。"
+  },
+  "Esa dirección no parece una web. Escríbela como buceomarazul.com.": {
+   "en": "That address does not look like a website. Type it like buceomarazul.com.",
+   "fr": "Cette adresse ne ressemble pas à un site. Écrivez-la comme buceomarazul.com.",
+   "de": "Das sieht nicht wie eine Website aus. Schreib sie wie buceomarazul.com.",
+   "it": "Quell'indirizzo non sembra un sito. Scrivilo come buceomarazul.com.",
+   "pt": "Esse endereço não parece um site. Escreve-o como buceomarazul.com.",
+   "pl": "Ten adres nie wygląda na stronę. Wpisz go jak buceomarazul.com.",
+   "nl": "Dat adres lijkt geen website. Schrijf het als buceomarazul.com.",
+   "zh": "这个地址不像是网站。请写成 buceomarazul.com 这样的格式。"
+  },
+  "Has comprobado muchas veces en poco tiempo. Prueba otra vez dentro de un rato.": {
+   "en": "You have checked many times in a short time. Try again in a while.",
+   "fr": "Vous avez vérifié de nombreuses fois en peu de temps. Réessayez dans un moment.",
+   "de": "Du hast in kurzer Zeit sehr oft geprüft. Versuch es später nochmal.",
+   "it": "Hai controllato molte volte in poco tempo. Riprova tra un po'.",
+   "pt": "Verificaste muitas vezes em pouco tempo. Tenta outra vez daqui a pouco.",
+   "pl": "Sprawdzałeś wiele razy w krótkim czasie. Spróbuj za chwilę.",
+   "nl": "Je hebt in korte tijd vaak gecontroleerd. Probeer het straks opnieuw.",
+   "zh": "你在短时间内检查了太多次，请稍后再试。"
+  },
+  "Mirando tu web…": {
+   "en": "Looking at your website…",
+   "fr": "Nous regardons votre site…",
+   "de": "Wir schauen uns deine Website an…",
+   "it": "Stiamo guardando il tuo sito…",
+   "pt": "A ver o teu site…",
+   "pl": "Sprawdzamy Twoją stronę…",
+   "nl": "We bekijken je website…",
+   "zh": "正在查看你的网站…"
+  },
+  "Para programadores": {
+   "en": "For developers",
+   "fr": "Pour les développeurs",
+   "de": "Für Entwickler",
+   "it": "Per sviluppatori",
+   "pt": "Para programadores",
+   "pl": "Dla programistów",
+   "nl": "Voor ontwikkelaars",
+   "zh": "开发者选项"
+  },
+  "API y claves, avisos automáticos (webhooks), dominios autorizados, color e idioma, calendario iCal y enlaces directos.": {
+   "en": "API and keys, automatic notices (webhooks), authorised domains, colour and language, iCal calendar and direct links.",
+   "fr": "API et clés, notifications automatiques (webhooks), domaines autorisés, couleur et langue, calendrier iCal et liens directs.",
+   "de": "API und Schlüssel, automatische Benachrichtigungen (Webhooks), freigegebene Domains, Farbe und Sprache, iCal-Kalender und Direktlinks.",
+   "it": "API e chiavi, avvisi automatici (webhook), domini autorizzati, colore e lingua, calendario iCal e link diretti.",
+   "pt": "API e chaves, avisos automáticos (webhooks), domínios autorizados, cor e idioma, calendário iCal e links diretos.",
+   "pl": "API i klucze, automatyczne powiadomienia (webhooki), autoryzowane domeny, kolor i język, kalendarz iCal i linki bezpośrednie.",
+   "nl": "API en sleutels, automatische meldingen (webhooks), toegestane domeinen, kleur en taal, iCal-agenda en directe links.",
+   "zh": "API与密钥、自动通知（webhooks）、授权域名、颜色和语言、iCal日历和直达链接。"
+  },
+  "Dominios autorizados, color e idioma": {
+   "en": "Authorised domains, colour and language",
+   "fr": "Domaines autorisés, couleur et langue",
+   "de": "Freigegebene Domains, Farbe und Sprache",
+   "it": "Domini autorizzati, colore e lingua",
+   "pt": "Domínios autorizados, cor e idioma",
+   "pl": "Autoryzowane domeny, kolor i język",
+   "nl": "Toegestane domeinen, kleur en taal",
+   "zh": "授权域名、颜色和语言"
+  },
+  "El botón solo funciona en tus dominios. «Comprobar» los añade solo; aquí puedes añadir o quitar a mano.": {
+   "en": "The button only works on your domains. «Check» adds them on its own; here you can add or remove them by hand.",
+   "fr": "Le bouton ne fonctionne que sur vos domaines. « Vérifier » les ajoute tout seul ; ici vous pouvez en ajouter ou en retirer à la main.",
+   "de": "Der Button funktioniert nur auf deinen Domains. „Prüfen“ fügt sie selbst hinzu; hier kannst du sie von Hand hinzufügen oder entfernen.",
+   "it": "Il pulsante funziona solo sui tuoi domini. «Controlla» li aggiunge da solo; qui puoi aggiungerli o toglierli a mano.",
+   "pt": "O botão só funciona nos teus domínios. «Verificar» adiciona-os sozinho; aqui podes adicioná-los ou retirá-los à mão.",
+   "pl": "Przycisk działa tylko w Twoich domenach. „Sprawdź” dodaje je sam; tutaj możesz dodać lub usunąć je ręcznie.",
+   "nl": "De knop werkt alleen op je domeinen. „Controleren” voegt ze zelf toe; hier kun je ze met de hand toevoegen of weghalen.",
+   "zh": "按钮只在你的域名上工作。「检查」会自动添加；也可在这里手动增删。"
+  },
+  "Escribe solo el dominio: «buceomarazul.com» vale también para «www.buceomarazul.com»; «*.buceomarazul.com» vale para sus subdominios.": {
+   "en": "Type only the domain: «buceomarazul.com» also covers «www.buceomarazul.com»; «*.buceomarazul.com» covers its subdomains.",
+   "fr": "Écrivez seulement le domaine : « buceomarazul.com » vaut aussi pour « www.buceomarazul.com » ; « *.buceomarazul.com » vaut pour ses sous-domaines.",
+   "de": "Schreib nur die Domain: „buceomarazul.com“ gilt auch für „www.buceomarazul.com“; „*.buceomarazul.com“ gilt für ihre Subdomains.",
+   "it": "Scrivi solo il dominio: «buceomarazul.com» vale anche per «www.buceomarazul.com»; «*.buceomarazul.com» vale per i suoi sottodomini.",
+   "pt": "Escreve só o domínio: «buceomarazul.com» também vale para «www.buceomarazul.com»; «*.buceomarazul.com» vale para os subdomínios.",
+   "pl": "Wpisz tylko domenę: „buceomarazul.com” obejmuje też „www.buceomarazul.com”; „*.buceomarazul.com” obejmuje subdomeny.",
+   "nl": "Typ alleen het domein: „buceomarazul.com” geldt ook voor „www.buceomarazul.com”; „*.buceomarazul.com” geldt voor de subdomeinen.",
+   "zh": "只写域名：「buceomarazul.com」也适用于「www.buceomarazul.com」；「*.buceomarazul.com」适用于其子域名。"
+  },
+  "En el entorno de pruebas también vale «localhost:8101».": {
+   "en": "In the test environment «localhost:8101» also works.",
+   "fr": "Dans l'environnement de test, « localhost:8101 » fonctionne aussi.",
+   "de": "In der Testumgebung geht auch „localhost:8101“.",
+   "it": "Nell'ambiente di prova vale anche «localhost:8101».",
+   "pt": "No ambiente de testes também vale «localhost:8101».",
+   "pl": "W środowisku testowym działa też „localhost:8101”.",
+   "nl": "In de testomgeving werkt ook „localhost:8101”.",
+   "zh": "在测试环境中也可使用「localhost:8101」。"
+  },
+  "Idioma del botón": {
+   "en": "Button language",
+   "fr": "Langue du bouton",
+   "de": "Sprache des Buttons",
+   "it": "Lingua del pulsante",
+   "pt": "Idioma do botão",
+   "pl": "Język przycisku",
+   "nl": "Taal van de knop",
+   "zh": "按钮语言"
+  },
+  "Dirección de tu página de reservas": {
+   "en": "Address of your booking page",
+   "fr": "Adresse de votre page de réservation",
+   "de": "Adresse deiner Buchungsseite",
+   "it": "Indirizzo della tua pagina di prenotazione",
+   "pt": "Endereço da tua página de reservas",
+   "pl": "Adres Twojej strony rezerwacji",
+   "nl": "Adres van je boekingspagina",
+   "zh": "你的预订页面地址"
+  },
+  "Dirección cambiada.": {
+   "en": "Address changed.",
+   "fr": "Adresse modifiée.",
+   "de": "Adresse geändert.",
+   "it": "Indirizzo cambiato.",
+   "pt": "Endereço alterado.",
+   "pl": "Adres zmieniony.",
+   "nl": "Adres gewijzigd.",
+   "zh": "地址已更改。"
+  },
+  "Descargar SVG": {
+   "en": "Download SVG",
+   "fr": "Télécharger le SVG",
+   "de": "SVG herunterladen",
+   "it": "Scarica SVG",
+   "pt": "Descarregar SVG",
+   "pl": "Pobierz SVG",
+   "nl": "SVG downloaden",
+   "zh": "下载SVG"
+  },
+  "Descargar PNG": {
+   "en": "Download PNG",
+   "fr": "Télécharger le PNG",
+   "de": "PNG herunterladen",
+   "it": "Scarica PNG",
+   "pt": "Descarregar PNG",
+   "pl": "Pobierz PNG",
+   "nl": "PNG downloaden",
+   "zh": "下载PNG"
+  },
+  "API para tu web o tu programa de reservas": {
+   "en": "API for your website or your booking software",
+   "fr": "API pour votre site ou votre logiciel de réservation",
+   "de": "API für deine Website oder dein Buchungsprogramm",
+   "it": "API per il tuo sito o il tuo programma di prenotazioni",
+   "pt": "API para o teu site ou o teu programa de reservas",
+   "pl": "API dla Twojej strony lub programu rezerwacji",
+   "nl": "API voor je website of je boekingsprogramma",
+   "zh": "用于你的网站或预订软件的API"
+  },
+  "Consulta servicios y plazas en tiempo real, crea y cancela reservas. Documentación: docs/api/ del paquete.": {
+   "en": "Check services and places in real time, create and cancel bookings. Documentation: docs/api/ in the package.",
+   "fr": "Consultez services et places en temps réel, créez et annulez des réservations. Documentation : docs/api/ du paquet.",
+   "de": "Angebote und Plätze in Echtzeit abfragen, Buchungen anlegen und stornieren. Dokumentation: docs/api/ im Paket.",
+   "it": "Consulta servizi e posti in tempo reale, crea e annulla prenotazioni. Documentazione: docs/api/ del pacchetto.",
+   "pt": "Consulta serviços e lugares em tempo real, cria e cancela reservas. Documentação: docs/api/ do pacote.",
+   "pl": "Sprawdzaj usługi i miejsca na bieżąco, twórz i anuluj rezerwacje. Dokumentacja: docs/api/ w pakiecie.",
+   "nl": "Bekijk diensten en plaatsen in realtime, maak en annuleer boekingen. Documentatie: docs/api/ in het pakket.",
+   "zh": "实时查询服务和名额，创建和取消预订。文档：安装包中的 docs/api/。"
+  },
+  "La API está incluida en «Motor de reservas» y «Pro».": {
+   "en": "The API is included in «Booking engine» and «Pro».",
+   "fr": "L'API est incluse dans « Moteur de réservation » et « Pro ».",
+   "de": "Die API ist in „Buchungsmaschine“ und „Pro“ enthalten.",
+   "it": "L'API è inclusa in «Motore di prenotazione» e «Pro».",
+   "pt": "A API está incluída em «Motor de reservas» e «Pro».",
+   "pl": "API jest w planach „Silnik rezerwacji” i „Pro”.",
+   "nl": "De API zit in „Boekingsmotor” en „Pro”.",
+   "zh": "API包含在「预订引擎」和「Pro」中。"
+  },
+  "Le mandamos el código y la guía de 3 pasos. Si contesta, el correo te llega a ti.": {
+   "en": "We send them the code and the 3-step guide. If they reply, the email reaches you.",
+   "fr": "Nous lui envoyons le code et le guide en 3 étapes. S'il répond, l'e-mail vous arrive.",
+   "de": "Wir schicken den Code und die 3-Schritte-Anleitung. Antwortet die Person, kommt die E-Mail bei dir an.",
+   "it": "Gli mandiamo il codice e la guida in 3 passi. Se risponde, l'e-mail arriva a te.",
+   "pt": "Enviamos-lhe o código e o guia de 3 passos. Se responder, o e-mail chega-te a ti.",
+   "pl": "Wyślemy kod i 3-krokowy poradnik. Jeśli odpisze, wiadomość trafi do Ciebie.",
+   "nl": "We sturen de code en de handleiding in 3 stappen. Als die persoon antwoordt, komt de e-mail bij jou.",
+   "zh": "我们会发送代码和三步指南。对方回复时，邮件会发给你。"
+  },
+  "Su correo": {
+   "en": "Their email",
+   "fr": "Son e-mail",
+   "de": "E-Mail-Adresse",
+   "it": "La sua e-mail",
+   "pt": "O e-mail dele",
+   "pl": "Jego e-mail",
+   "nl": "Diens e-mail",
+   "zh": "对方邮箱"
+  },
+  "Su nombre (opcional)": {
+   "en": "Their name (optional)",
+   "fr": "Son nom (facultatif)",
+   "de": "Name (optional)",
+   "it": "Il suo nome (facoltativo)",
+   "pt": "O nome (opcional)",
+   "pl": "Imię (opcjonalnie)",
+   "nl": "Naam (optioneel)",
+   "zh": "对方姓名（可选）"
+  },
+  "Mensaje (opcional)": {
+   "en": "Message (optional)",
+   "fr": "Message (facultatif)",
+   "de": "Nachricht (optional)",
+   "it": "Messaggio (facoltativo)",
+   "pt": "Mensagem (opcional)",
+   "pl": "Wiadomość (opcjonalnie)",
+   "nl": "Bericht (optioneel)",
+   "zh": "留言（可选）"
+  },
+  "Ej.: ponlo en la página de inicio, debajo de las fotos.": {
+   "en": "E.g. put it on the home page, under the photos.",
+   "fr": "Ex. : mets-le sur la page d'accueil, sous les photos.",
+   "de": "Z. B.: auf die Startseite, unter die Fotos.",
+   "it": "Es.: mettilo nella home, sotto le foto.",
+   "pt": "Ex.: põe-no na página inicial, por baixo das fotos.",
+   "pl": "Np. wstaw na stronę główną pod zdjęciami.",
+   "nl": "Bijv.: zet het op de startpagina, onder de foto's.",
+   "zh": "例如：放在首页的照片下方。"
+  },
+  "Va el código de lo que has elegido en los pasos 1 y 2.": {
+   "en": "It carries the code of what you chose in steps 1 and 2.",
+   "fr": "Le code de ce que vous avez choisi aux étapes 1 et 2 est joint.",
+   "de": "Enthält den Code deiner Auswahl aus Schritt 1 und 2.",
+   "it": "Contiene il codice di ciò che hai scelto nei passi 1 e 2.",
+   "pt": "Leva o código do que escolheste nos passos 1 e 2.",
+   "pl": "Zawiera kod tego, co wybrałeś w krokach 1 i 2.",
+   "nl": "Met de code van wat je in stap 1 en 2 hebt gekozen.",
+   "zh": "包含你在第1、2步所选内容的代码。"
+  },
+  "Enviado a {email}.": {
+   "en": "Sent to {email}.",
+   "fr": "Envoyé à {email}.",
+   "de": "An {email} gesendet.",
+   "it": "Inviato a {email}.",
+   "pt": "Enviado para {email}.",
+   "pl": "Wysłano do {email}.",
+   "nl": "Verzonden naar {email}.",
+   "zh": "已发送至{email}。"
+  },
+  "Escribe el correo de tu informático, por ejemplo nombre@empresa.com.": {
+   "en": "Type your web person's email, for example name@company.com.",
+   "fr": "Saisissez l'e-mail de votre informaticien, par exemple nom@entreprise.com.",
+   "de": "Gib die E-Mail-Adresse deines IT-Menschen ein, zum Beispiel name@firma.com.",
+   "it": "Scrivi l'e-mail del tuo informatico, per esempio nome@azienda.com.",
+   "pt": "Escreve o e-mail do teu informático, por exemplo nome@empresa.com.",
+   "pl": "Wpisz e-mail swojego informatyka, na przykład imie@firma.com.",
+   "nl": "Typ het e-mailadres van je webbouwer, bijvoorbeeld naam@bedrijf.com.",
+   "zh": "请输入你的技术人员邮箱，例如 name@company.com。"
+  },
+  "Hoy ya has enviado 5 veces las instrucciones. Prueba mañana o copia el código.": {
+   "en": "You have already sent the instructions 5 times today. Try tomorrow or copy the code.",
+   "fr": "Vous avez déjà envoyé les instructions 5 fois aujourd'hui. Réessayez demain ou copiez le code.",
+   "de": "Du hast die Anleitung heute schon 5-mal gesendet. Versuch es morgen oder kopiere den Code.",
+   "it": "Oggi hai già inviato le istruzioni 5 volte. Riprova domani o copia il codice.",
+   "pt": "Hoje já enviaste as instruções 5 vezes. Tenta amanhã ou copia o código.",
+   "pl": "Dziś wysłałeś już instrukcje 5 razy. Spróbuj jutro albo skopiuj kod.",
+   "nl": "Je hebt de instructies vandaag al 5 keer verstuurd. Probeer morgen of kopieer de code.",
+   "zh": "你今天已发送说明5次。请明天再试或直接复制代码。"
+  }
+ }
+}

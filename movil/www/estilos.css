@@ -1,0 +1,29 @@
+/* Local pages of the app (shown only before the web loads or when there is no connection). Brand palette as the web. */
+:root { --wd-abismo:#011C3C; --wd-profundo:#043D6C; --wd-oceano:#076898; --wd-turquesa:#1CA5C7; --fondo:#F3F7FA; --sup:#FFFFFF;
+  --linea:#D2E0E9; --texto:#0A2239; --suave:#465E71; --ok:#12663F; --ok-f:#E2F3E9; --err:#A51C12; --err-f:#FDE7E4; color-scheme: light; }
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--fondo); color: var(--texto); font: 16px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+body { padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0); }
+main { max-width: 480px; margin: 0 auto; padding: 24px 20px 32px; display: grid; gap: 18px; }
+.banda { background: #E07B00; color: #1F1300; text-align: center; font-size: 13px; font-weight: 700; padding: 6px; letter-spacing: .04em; position: sticky; top: 0; }
+.logo { width: 220px; height: auto; margin: 20px auto 0; display: block; }
+h1 { font-size: 24px; margin: 0; text-align: center; }
+p { margin: 0; }
+.suave { color: var(--suave); }
+.peq { font-size: 14px; }
+.tarjeta { background: var(--sup); border: 1px solid var(--linea); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+label { font-weight: 600; font-size: 15px; }
+input { width: 100%; min-height: 52px; border: 1.5px solid var(--linea); border-radius: 12px; padding: 10px 12px; font: inherit; background: var(--sup); color: var(--texto); }
+.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 10px 16px; border-radius: 12px; border: 0; background: var(--wd-profundo);
+  color: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer; width: 100%; text-align: center; }
+.btn.sec { background: var(--sup); color: var(--texto); border: 1.5px solid var(--linea); }
+.btn:focus-visible, input:focus-visible { outline: 3px solid var(--wd-turquesa); outline-offset: 2px; }
+.rejilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rejilla .btn { min-height: 56px; font-size: 14px; flex-direction: column; gap: 2px; }
+.rejilla .btn small { font-weight: 400; font-size: 12px; opacity: .85; }
+.estado { padding: 10px 12px; border-radius: 10px; font-size: 14px; }
+.estado.ok { background: var(--ok-f); color: var(--ok); }
+.estado.err { background: var(--err-f); color: var(--err); }
+.eti { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); }
+ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.version { text-align: center; font-size: 13px; color: var(--suave); }

@@ -1,0 +1,61 @@
+OK  1 · escritorio: la lista está dentro de «Log Book» con las inmersiones de la cuenta (101)
+OK  1 · escritorio: la lista usa la letra de la web
+OK  1 · escritorio: el acento es el azul océano de la web
+OK  1 · escritorio: nada se sale de la pantalla
+OK  1 · móvil: la lista está dentro de «Log Book» con las inmersiones de la cuenta (101)
+OK  1 · móvil: la lista usa la letra de la web
+OK  1 · móvil: el acento es el azul océano de la web
+OK  1 · móvil: nada se sale de la pantalla
+OK  2 · usuario nuevo: el icono del pasaporte está bloqueado y en gris
+OK  2 · al pulsarlo sale la explicación
+OK  2 · y el pasaporte no se abre
+OK  3 · el centro crea la inmersión con 2 QR
+OK  3 · el QR se ve en la pantalla del centro
+OK  3 · leído con la cámara (OpenCV), lleva a /scan/d/<token> de esa inmersión
+OK  3 · la inmersión aparece en «Inmersiones con QR» con 0 de 2 usados
+OK  3 · escanear el QR la añade al logbook, verificada (✓)
+OK  3 · y desbloquea el pasaporte
+OK  3 · con el aviso del componente
+OK  3 · y queda guardada en la cuenta (servidor)
+OK  3 · escanearla otra vez no la duplica
+OK  3 · y lo dice: «ya estaba en tu logbook»
+OK  3 · ni con el otro QR de la misma inmersión
+OK  3 · el pasaporte se abre
+OK  4 · el centro sube su logo (PNG transparente) y se ve en la vista previa
+OK  4 · el enlace de invitación es /registro?centro=<slug>
+OK  4 · el registro con el enlace dice qué centro invita
+OK  4 · tras registrarse, su logo está en la portada del pasaporte
+OK  4 · y el pasaporte está desbloqueado
+OK  4 · con la bienvenida del centro
+OK  4 · y la portada lo muestra
+OK  5 · cada buceador tiene su URL pública de buddy, no adivinable
+OK  5 · su QR personal (el del pasaporte) lleva a esa URL
+OK  5 · al escanearlo sale «Ahora sois buddies»
+OK  5 · y aparece en «Compañero»
+OK  5 · la amistad va en los dos sentidos
+OK  6 · ordenador: inmersión nueva guardada en la cuenta
+OK  6 · móvil (otro dispositivo, sin datos locales): la misma inmersión
+OK  6 · el truco de los 5 toques desbloquea el pasaporte
+OK  6 · en el pasaporte se ven los mismos datos que en la lista
+OK  6 · cada dispositivo abre en su vista: el ordenador, en la lista (por defecto)
+OK  6 · lo cambiado en el pasaporte del móvil se ve en la lista del ordenador
+OK  6 · y el desbloqueo también (es de la cuenta)
+OK  6 · dos dispositivos a la vez: lo apuntado en los dos queda en la cuenta
+OK  6 · y el ordenador ya enseña las dos
+OK  6 · al volver a la pestaña, el ordenador trae lo guardado en el móvil
+OK  6 · sin conexión lo dice y lo guarda en el dispositivo
+OK  6 · y al volver la conexión sube a la cuenta
+OK  6 · cerrada la página sin conexión, sube al volver a abrir el Log Book
+OK  7 · en pantalla: fecha, lugar, país, centro, posición e instructor son de solo lectura
+OK  7 · y lo dice («· centro»)
+OK  7 · manipulando la petición (PUT a mano): 409 y el lugar no cambia
+OK  7 · manipulando el componente: el servidor lo rechaza y la página vuelve a lo del centro
+OK  7 · cada intento queda registrado
+OK  idiomas · en inglés el componente habla inglés («+ Add dive», «underwater»)
+OK  idiomas · y lo que escribió el buceador o su centro no se traduce
+OK  idiomas · los campos del centro, marcados en inglés («Date · centre»)
+OK  sin errores de JavaScript
+OK  sin bloqueos de la política de seguridad (CSP)
+
+58/58 comprobaciones OK
+rc=0

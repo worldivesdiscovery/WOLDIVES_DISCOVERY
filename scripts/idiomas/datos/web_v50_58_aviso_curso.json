@@ -1,0 +1,27 @@
+{
+ "exact": {
+  "Nueva fecha de una sesión de curso": {
+   "en": "New date for a course session", "fr": "Nouvelle date d’une séance de cours", "de": "Neuer Termin einer Kurseinheit",
+   "it": "Nuova data di una sessione del corso", "pt": "Nova data de uma sessão do curso", "nl": "Nieuwe datum voor een cursussessie",
+   "pl": "Nowy termin sesji kursu", "zh": "课程中一节课的新日期"
+  },
+  "Nueva fecha para tu sesión del curso": {
+   "en": "New date for your course session", "fr": "Nouvelle date pour votre séance de cours", "de": "Neuer Termin für deine Kurseinheit",
+   "it": "Nuova data per la tua sessione del corso", "pt": "Nova data para a tua sessão do curso", "nl": "Nieuwe datum voor je cursussessie",
+   "pl": "Nowy termin Twojej sesji kursu", "zh": "您的课程课时有新日期"
+  },
+  "Con {who}": {
+   "en": "With {who}", "fr": "Avec {who}", "de": "Mit {who}", "it": "Con {who}", "pt": "Com {who}", "nl": "Met {who}", "pl": "Z {who}", "zh": "由{who}带领"
+  },
+  "Confírmala o pide otro día desde tu reserva.": {
+   "en": "Confirm it or ask for another day from your booking.", "fr": "Confirmez-la ou demandez un autre jour depuis votre réservation.",
+   "de": "Bestätige ihn oder bitte in deiner Buchung um einen anderen Tag.", "it": "Confermala o chiedi un altro giorno dalla tua prenotazione.",
+   "pt": "Confirma-a ou pede outro dia na tua reserva.", "nl": "Bevestig hem of vraag via je boeking een andere dag aan.",
+   "pl": "Potwierdź go lub poproś o inny dzień w swojej rezerwacji.", "zh": "请在您的预订中确认，或申请改到其他日期。"
+  },
+  "Abrir mi reserva": {
+   "en": "Open my booking", "fr": "Ouvrir ma réservation", "de": "Meine Buchung öffnen", "it": "Apri la mia prenotazione", "pt": "Abrir a minha reserva",
+   "nl": "Mijn boeking openen", "pl": "Otwórz moją rezerwację", "zh": "打开我的预订"
+  }
+ }
+}

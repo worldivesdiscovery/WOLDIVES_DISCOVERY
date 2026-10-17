@@ -1,0 +1,32 @@
+{
+  "generated": "2026-10-04",
+  "total_points": 283,
+  "active_centers": 28,
+  "zones": [
+    {
+      "zone": "América",
+      "points": 24
+    },
+    {
+      "zone": "Asia",
+      "points": 104
+    },
+    {
+      "zone": "Caribe",
+      "points": 17
+    },
+    {
+      "zone": "Europa",
+      "points": 98
+    },
+    {
+      "zone": "Oceanía",
+      "points": 20
+    },
+    {
+      "zone": "África y Mar Rojo",
+      "points": 20
+    }
+  ],
+  "catalog_note": "Catálogo WORLDIVES DISCOVERY. La información pública se presenta como catálogo propio de la plataforma; la procedencia técnica se conserva únicamente en metadatos internos de administración."
+}

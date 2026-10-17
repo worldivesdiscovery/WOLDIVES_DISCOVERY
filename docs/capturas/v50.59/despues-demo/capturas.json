@@ -1,0 +1,12 @@
+{
+ "demo-centro-de-demostracion-escritorio": {
+  "url": "#/centro?id=31",
+  "nota": "",
+  "errores": []
+ },
+ "demo-centro-de-demostracion-movil": {
+  "url": "#/centro?id=31",
+  "nota": "",
+  "errores": []
+ }
+}

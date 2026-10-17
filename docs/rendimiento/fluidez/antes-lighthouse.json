@@ -1,0 +1,439 @@
+{
+ "fecha": "2026-10-17 17:04",
+ "commit": "d62697b",
+ "lighthouse": "12.8.2 · móvil (perfil de serie)",
+ "paginas": {
+  "inicio": {
+   "pagina": "Inicio",
+   "ruta": "/",
+   "mediana": {
+    "rendimiento": 96,
+    "lcp_s": 2.26,
+    "fcp_s": 1.21,
+    "tbt_ms": 170,
+    "cls": 0.007,
+    "si_s": 1.47,
+    "accesibilidad": 100,
+    "buenas_practicas": 100,
+    "seo": 100,
+    "peso_kb": 911
+   },
+   "pasadas": [
+    {
+     "rendimiento": 95,
+     "lcp_s": 2.34,
+     "fcp_s": 1.21,
+     "tbt_ms": 184,
+     "cls": 0.007,
+     "si_s": 1.47,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 911
+    },
+    {
+     "rendimiento": 96,
+     "lcp_s": 2.26,
+     "fcp_s": 1.21,
+     "tbt_ms": 170,
+     "cls": 0.007,
+     "si_s": 1.44,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 911
+    },
+    {
+     "rendimiento": 97,
+     "lcp_s": 2.26,
+     "fcp_s": 1.21,
+     "tbt_ms": 157,
+     "cls": 0.007,
+     "si_s": 1.49,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 911
+    }
+   ]
+  },
+  "puntos": {
+   "pagina": "Puntos de buceo",
+   "ruta": "/#/puntos",
+   "mediana": {
+    "rendimiento": 79,
+    "lcp_s": 5.27,
+    "fcp_s": 1.21,
+    "tbt_ms": 137,
+    "cls": 0.01,
+    "si_s": 1.71,
+    "accesibilidad": 100,
+    "buenas_practicas": 100,
+    "seo": 100,
+    "peso_kb": 862
+   },
+   "pasadas": [
+    {
+     "rendimiento": 77,
+     "lcp_s": 5.31,
+     "fcp_s": 1.21,
+     "tbt_ms": 182,
+     "cls": 0.01,
+     "si_s": 1.77,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 862
+    },
+    {
+     "rendimiento": 80,
+     "lcp_s": 5.21,
+     "fcp_s": 1.21,
+     "tbt_ms": 94,
+     "cls": 0.01,
+     "si_s": 1.7,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 862
+    },
+    {
+     "rendimiento": 79,
+     "lcp_s": 5.27,
+     "fcp_s": 1.21,
+     "tbt_ms": 137,
+     "cls": 0.01,
+     "si_s": 1.71,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 862
+    }
+   ]
+  },
+  "punto": {
+   "pagina": "Ficha de un punto",
+   "ruta": "/#/punto?id=360",
+   "mediana": {
+    "rendimiento": 71,
+    "lcp_s": 5.56,
+    "fcp_s": 1.21,
+    "tbt_ms": 370,
+    "cls": 0.007,
+    "si_s": 1.65,
+    "accesibilidad": 100,
+    "buenas_practicas": 100,
+    "seo": 100,
+    "peso_kb": 769
+   },
+   "pasadas": [
+    {
+     "rendimiento": 73,
+     "lcp_s": 5.53,
+     "fcp_s": 1.21,
+     "tbt_ms": 318,
+     "cls": 0.007,
+     "si_s": 1.85,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 769
+    },
+    {
+     "rendimiento": 70,
+     "lcp_s": 5.59,
+     "fcp_s": 1.21,
+     "tbt_ms": 380,
+     "cls": 0.007,
+     "si_s": 1.65,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 758
+    },
+    {
+     "rendimiento": 71,
+     "lcp_s": 5.56,
+     "fcp_s": 1.21,
+     "tbt_ms": 370,
+     "cls": 0.007,
+     "si_s": 1.65,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 769
+    }
+   ]
+  },
+  "centro": {
+   "pagina": "Ficha de un centro",
+   "ruta": "/#/centro?id=31",
+   "mediana": {
+    "rendimiento": 69,
+    "lcp_s": 5.93,
+    "fcp_s": 1.21,
+    "tbt_ms": 400,
+    "cls": 0.007,
+    "si_s": 1.73,
+    "accesibilidad": 100,
+    "buenas_practicas": 100,
+    "seo": 100,
+    "peso_kb": 827
+   },
+   "pasadas": [
+    {
+     "rendimiento": 69,
+     "lcp_s": 5.88,
+     "fcp_s": 1.21,
+     "tbt_ms": 391,
+     "cls": 0.007,
+     "si_s": 1.73,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 838
+    },
+    {
+     "rendimiento": 67,
+     "lcp_s": 6.01,
+     "fcp_s": 1.21,
+     "tbt_ms": 458,
+     "cls": 0.007,
+     "si_s": 1.67,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 827
+    },
+    {
+     "rendimiento": 69,
+     "lcp_s": 5.93,
+     "fcp_s": 1.21,
+     "tbt_ms": 400,
+     "cls": 0.007,
+     "si_s": 1.82,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 827
+    }
+   ]
+  },
+  "centros": {
+   "pagina": "Centros",
+   "ruta": "/#/centros",
+   "mediana": {
+    "rendimiento": 77,
+    "lcp_s": 5.62,
+    "fcp_s": 1.21,
+    "tbt_ms": 156,
+    "cls": 0.007,
+    "si_s": 1.37,
+    "accesibilidad": 98,
+    "buenas_practicas": 100,
+    "seo": 100,
+    "peso_kb": 882
+   },
+   "pasadas": [
+    {
+     "rendimiento": 78,
+     "lcp_s": 5.59,
+     "fcp_s": 1.21,
+     "tbt_ms": 156,
+     "cls": 0.007,
+     "si_s": 1.37,
+     "accesibilidad": 98,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 892
+    },
+    {
+     "rendimiento": 77,
+     "lcp_s": 5.62,
+     "fcp_s": 1.21,
+     "tbt_ms": 152,
+     "cls": 0.007,
+     "si_s": 1.35,
+     "accesibilidad": 98,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 882
+    },
+    {
+     "rendimiento": 76,
+     "lcp_s": 5.72,
+     "fcp_s": 1.21,
+     "tbt_ms": 199,
+     "cls": 0.007,
+     "si_s": 1.39,
+     "accesibilidad": 98,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 882
+    }
+   ]
+  },
+  "experiencias": {
+   "pagina": "Experiencias",
+   "ruta": "/#/experiencias",
+   "mediana": {
+    "rendimiento": 77,
+    "lcp_s": 5.55,
+    "fcp_s": 1.21,
+    "tbt_ms": 158,
+    "cls": 0.028,
+    "si_s": 1.69,
+    "accesibilidad": 98,
+    "buenas_practicas": 100,
+    "seo": 100,
+    "peso_kb": 1322
+   },
+   "pasadas": [
+    {
+     "rendimiento": 77,
+     "lcp_s": 5.6,
+     "fcp_s": 1.21,
+     "tbt_ms": 158,
+     "cls": 0.028,
+     "si_s": 1.68,
+     "accesibilidad": 98,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 1322
+    },
+    {
+     "rendimiento": 77,
+     "lcp_s": 5.55,
+     "fcp_s": 1.21,
+     "tbt_ms": 183,
+     "cls": 0.028,
+     "si_s": 1.88,
+     "accesibilidad": 98,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 1322
+    },
+    {
+     "rendimiento": 79,
+     "lcp_s": 5.52,
+     "fcp_s": 1.21,
+     "tbt_ms": 124,
+     "cls": 0.028,
+     "si_s": 1.69,
+     "accesibilidad": 98,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 1322
+    }
+   ]
+  },
+  "tipos": {
+   "pagina": "Tipos de buceo",
+   "ruta": "/#/tipos",
+   "mediana": {
+    "rendimiento": 76,
+    "lcp_s": 6.12,
+    "fcp_s": 1.21,
+    "tbt_ms": 166,
+    "cls": 0.007,
+    "si_s": 1.74,
+    "accesibilidad": 100,
+    "buenas_practicas": 100,
+    "seo": 100,
+    "peso_kb": 1096
+   },
+   "pasadas": [
+    {
+     "rendimiento": 76,
+     "lcp_s": 5.99,
+     "fcp_s": 1.21,
+     "tbt_ms": 172,
+     "cls": 0.007,
+     "si_s": 1.74,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 1096
+    },
+    {
+     "rendimiento": 75,
+     "lcp_s": 6.86,
+     "fcp_s": 1.21,
+     "tbt_ms": 153,
+     "cls": 0.007,
+     "si_s": 1.72,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 1096
+    },
+    {
+     "rendimiento": 76,
+     "lcp_s": 6.12,
+     "fcp_s": 1.21,
+     "tbt_ms": 166,
+     "cls": 0.007,
+     "si_s": 1.88,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 1106
+    }
+   ]
+  },
+  "top10": {
+   "pagina": "Top 10",
+   "ruta": "/#/top10",
+   "mediana": {
+    "rendimiento": 71,
+    "lcp_s": 5.76,
+    "fcp_s": 1.21,
+    "tbt_ms": 295,
+    "cls": 0.074,
+    "si_s": 1.65,
+    "accesibilidad": 100,
+    "buenas_practicas": 100,
+    "seo": 100,
+    "peso_kb": 811
+   },
+   "pasadas": [
+    {
+     "rendimiento": 69,
+     "lcp_s": 5.86,
+     "fcp_s": 1.21,
+     "tbt_ms": 365,
+     "cls": 0.042,
+     "si_s": 1.7,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 811
+    },
+    {
+     "rendimiento": 73,
+     "lcp_s": 5.7,
+     "fcp_s": 1.21,
+     "tbt_ms": 243,
+     "cls": 0.074,
+     "si_s": 1.57,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 811
+    },
+    {
+     "rendimiento": 71,
+     "lcp_s": 5.76,
+     "fcp_s": 1.21,
+     "tbt_ms": 295,
+     "cls": 0.074,
+     "si_s": 1.65,
+     "accesibilidad": 100,
+     "buenas_practicas": 100,
+     "seo": 100,
+     "peso_kb": 811
+    }
+   ]
+  }
+ }
+}

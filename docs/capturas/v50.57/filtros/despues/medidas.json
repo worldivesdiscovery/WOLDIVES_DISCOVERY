@@ -1,0 +1,192 @@
+{
+ "360": {
+  "arriba": {
+   "bar_h": 59,
+   "bar_top": 209,
+   "header_h": 119,
+   "full_cards": 2,
+   "cols": 1,
+   "rows_in_bar": 1,
+   "first_card_top": 363,
+   "scroll_w": 360
+  },
+  "al_bajar": {
+   "bar_h": 59,
+   "bar_top": 0,
+   "header_h": 119,
+   "full_cards": 4,
+   "cols": 1,
+   "rows_in_bar": 1,
+   "first_card_top": -537,
+   "scroll_w": 360
+  },
+  "url_filtros": "#/puntos?area=Comunidad%20Valenciana&level=start",
+  "con_filtros": {
+   "bar_h": 59,
+   "bar_top": 209,
+   "header_h": 119,
+   "full_cards": 2,
+   "cols": 1,
+   "rows_in_bar": 1,
+   "first_card_top": 405,
+   "scroll_w": 360
+  },
+  "fichas": [
+   "Comunidad Valenciana×",
+   "Para empezar×"
+  ],
+  "errores": []
+ },
+ "390": {
+  "arriba": {
+   "bar_h": 59,
+   "bar_top": 209,
+   "header_h": 119,
+   "full_cards": 5,
+   "cols": 1,
+   "rows_in_bar": 1,
+   "first_card_top": 363,
+   "scroll_w": 390
+  },
+  "al_bajar": {
+   "bar_h": 59,
+   "bar_top": 0,
+   "header_h": 119,
+   "full_cards": 7,
+   "cols": 1,
+   "rows_in_bar": 1,
+   "first_card_top": -537,
+   "scroll_w": 390
+  },
+  "url_filtros": "#/puntos?area=Comunidad%20Valenciana&level=start",
+  "con_filtros": {
+   "bar_h": 59,
+   "bar_top": 209,
+   "header_h": 119,
+   "full_cards": 4,
+   "cols": 1,
+   "rows_in_bar": 1,
+   "first_card_top": 405,
+   "scroll_w": 390
+  },
+  "fichas": [
+   "Comunidad Valenciana×",
+   "Para empezar×"
+  ],
+  "errores": []
+ },
+ "768": {
+  "arriba": {
+   "bar_h": 61,
+   "bar_top": 223,
+   "header_h": 122,
+   "full_cards": 6,
+   "cols": 3,
+   "rows_in_bar": 1,
+   "first_card_top": 397,
+   "scroll_w": 768
+  },
+  "al_bajar": {
+   "bar_h": 61,
+   "bar_top": 122,
+   "header_h": 122,
+   "full_cards": 9,
+   "cols": 3,
+   "rows_in_bar": 1,
+   "first_card_top": -503,
+   "scroll_w": 768
+  },
+  "url_filtros": "#/puntos?area=Comunidad%20Valenciana&level=start",
+  "con_filtros": {
+   "bar_h": 61,
+   "bar_top": 223,
+   "header_h": 122,
+   "full_cards": 6,
+   "cols": 3,
+   "rows_in_bar": 1,
+   "first_card_top": 447,
+   "scroll_w": 768
+  },
+  "fichas": [
+   "Comunidad Valenciana×",
+   "Para empezar×"
+  ],
+  "errores": []
+ },
+ "1024": {
+  "arriba": {
+   "bar_h": 61,
+   "bar_top": 203,
+   "header_h": 101,
+   "full_cards": 3,
+   "cols": 3,
+   "rows_in_bar": 1,
+   "first_card_top": 377,
+   "scroll_w": 1024
+  },
+  "al_bajar": {
+   "bar_h": 61,
+   "bar_top": 101,
+   "header_h": 101,
+   "full_cards": 3,
+   "cols": 3,
+   "rows_in_bar": 1,
+   "first_card_top": -523,
+   "scroll_w": 1024
+  },
+  "url_filtros": "#/puntos?area=Comunidad%20Valenciana&level=start",
+  "con_filtros": {
+   "bar_h": 61,
+   "bar_top": 203,
+   "header_h": 101,
+   "full_cards": 3,
+   "cols": 3,
+   "rows_in_bar": 1,
+   "first_card_top": 427,
+   "scroll_w": 1024
+  },
+  "fichas": [
+   "Comunidad Valenciana×",
+   "Para empezar×"
+  ],
+  "errores": []
+ },
+ "1440": {
+  "arriba": {
+   "bar_h": 61,
+   "bar_top": 190,
+   "header_h": 81,
+   "full_cards": 4,
+   "cols": 4,
+   "rows_in_bar": 1,
+   "first_card_top": 364,
+   "scroll_w": 1440
+  },
+  "al_bajar": {
+   "bar_h": 61,
+   "bar_top": 81,
+   "header_h": 81,
+   "full_cards": 8,
+   "cols": 4,
+   "rows_in_bar": 1,
+   "first_card_top": -381,
+   "scroll_w": 1440
+  },
+  "url_filtros": "#/puntos?area=Comunidad%20Valenciana&level=start",
+  "con_filtros": {
+   "bar_h": 61,
+   "bar_top": 190,
+   "header_h": 81,
+   "full_cards": 4,
+   "cols": 4,
+   "rows_in_bar": 1,
+   "first_card_top": 414,
+   "scroll_w": 1440
+  },
+  "fichas": [
+   "Comunidad Valenciana×",
+   "Para empezar×"
+  ],
+  "errores": []
+ }
+}

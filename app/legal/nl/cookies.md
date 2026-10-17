@@ -1,0 +1,38 @@
+# Cookiebeleid en diensten van derden
+
+Laatst bijgewerkt: {{version}}
+
+## Wat wij gebruiken
+
+{{trade_name}} **gebruikt uitsluitend technische cookies en technische opslag**, die nodig zijn om de website te laten werken of om uw keuzes te onthouden. **Wij gebruiken geen advertentie- of analysecookies.** Volgens artikel 22.2 van de LSSI-CE en de richtsnoeren van het Spaanse Agentschap voor Gegevensbescherming (AEPD) is hiervoor uw toestemming niet vereist; wij informeren u er hier over.
+
+| Naam | Type | Doel | Duur |
+|---|---|---|---|
+| wd_session | Eigen technische cookie | Uw ingelogde sessie veilig in stand houden | Tot u uitlogt of na 8 uur inactiviteit |
+| Taal en filters | Lokale opslag | Uw taal en uw laatste zoekfilters onthouden | Tot u ze verwijdert |
+| wd_top10 | Lokale opslag | De locatie en de straal onthouden die u in de Top 10 hebt gekozen | Tot u ze verwijdert |
+| wd_booking_draft | Sessieopslag | Een half voltooide boeking niet verliezen bij het inloggen | Wordt na gebruik verwijderd |
+| wd_cookie_notice | Lokale opslag | De melding niet opnieuw tonen | 1 jaar |
+| wd-reserva-datos-v1 | Lokale opslag, alleen als je bij het boeken op de website van een centrum „Mijn gegevens op dit apparaat onthouden” aanvinkt | Opnieuw boeken zonder je naam, e-mail en telefoon te typen | Tot je het wist („Mijn gegevens van dit apparaat wissen”) |
+
+## Diensten van derden die uw IP-adres ontvangen
+
+Hoewel zij geen cookies gebruiken, ontvangen sommige diensten die in uw browser worden geladen uw IP-adres:
+
+| Dienst | Wanneer | Wat zij ontvangen |
+|---|---|---|
+| **Basiskaart** | Telkens wanneer u een kaart bekijkt | Niets: deze wordt vanaf onze server aangeboden (gegevens van © OpenStreetMap contributors) |
+| **Satellietweergave (Esri)** | Alleen als u „Satelliet” kiest | Niets: de beelden lopen via onze server |
+| **Bathymetrie (GEBCO)** | Alleen als u de dieptelaag kiest | Uw IP-adres bereikt de servers van GEBCO / British Oceanographic Data Centre |
+| **Video's van duikplekken** (YouTube in privacyverbeterde modus, Instagram en TikTok met hun officiële insluitcode; bij oudere video's ook Vimeo, Dailymotion en Facebook) en **ingesloten kaarten** (Google Maps) | Bij het openen van de pagina van een duikplek wordt alleen de afbeelding van de video geladen, vanaf het platform zelf; de speler alleen als u op „Afspelen” klikt | Met de afbeelding bereikt uw IP-adres het platform, zonder cookies. Bij het afspelen uw IP-adres en wat die dienst verzamelt, inclusief eigen cookies; raadpleeg het beleid van die dienst. Video's van andere platforms openen in een nieuw tabblad |
+| **Betaling (Stripe)** | Bij het betalen | De pagina van Stripe of het formulier in de boeking wordt geopend, met eigen cookies ter voorkoming van fraude |
+
+Geen enkele video of content van derden wordt geladen zonder dat u daarom vraagt.
+
+## Hoe u ze verwijdert
+
+U kunt cookies en lokale opslag verwijderen via de instellingen van uw browser. Als u de sessiecookie verwijdert, moet u opnieuw inloggen.
+
+## Als wij er ooit meer toevoegen
+
+Als wij in de toekomst analyse- of advertentiecookies gebruiken, vragen wij u vooraf om toestemming via een melding met drie even zichtbare knoppen: **Accepteren**, **Weigeren** en **Instellen**. Weigeren zal even gemakkelijk zijn als accepteren.

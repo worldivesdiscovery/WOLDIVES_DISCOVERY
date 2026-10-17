@@ -1,0 +1,96 @@
+# Política de privacidad
+
+Última actualización: {{version}}
+
+Te explicamos de forma clara qué datos tratamos, para qué, con quién los compartimos, cuánto tiempo los guardamos y cuáles son tus derechos, según el Reglamento (UE) 2016/679 (RGPD) y la Ley Orgánica 3/2018 (LOPDGDD).
+
+## 1. Responsable
+
+- **Responsable:** {{owner_name}} ({{trade_name}})
+- **NIF/CIF:** {{nif}}
+- **Domicilio:** {{address}}
+- **Email de privacidad:** {{dpo_email}}
+
+Cuando reservas, **el centro o profesional que presta la actividad** es responsable independiente de los datos que recibe para prestarla (ver el apartado 4).
+
+**Si reservas en la web, en la página de reservas o con un enlace de un centro** (verás «Reservas con tecnología de WORLDIVES») sin entrar con una cuenta de WORLDIVES, eres cliente de ese centro: **el centro es el responsable** de tus datos y WORLDIVES los trata **por su encargo** (art. 28 RGPD), solo para gestionar tu reserva, el pago y los correos sobre ella. No los usamos para nuestra publicidad y ningún otro centro los ve. Para ejercer tus derechos, dirígete al centro (puedes responder a cualquiera de sus correos); si nos escribes a nosotros, se lo trasladamos. Si además creas una cuenta de WORLDIVES, esa cuenta es una relación aparte con nosotros, con tu propio consentimiento, y la reserva sigue siendo del centro.
+
+## 2. Qué datos tratamos
+
+- **Cuenta:** nombre, email, usuario, contraseña (guardada cifrada con un algoritmo de un solo sentido), idioma y, si la activas, la clave de tu verificación en dos pasos.
+- **Ficha de buceador (opcional):** teléfono, país, ciudad, fecha de nacimiento, titulación, contacto de emergencia, tallas y preferencias de equipo y lastre habitual. Solo lo que tú quieras rellenar.
+- **Documentos que subas:** titulación y seguro de buceo, con su fecha de caducidad. **No admitimos certificados médicos ni otros datos de salud:** si un centro te los pide, entrégaselos directamente a él.
+- **Reservas y pagos:** actividad, fechas, participantes, importes, señal, devoluciones y estado. Los datos de tu tarjeta los trata Stripe; nosotros solo vemos la marca y los cuatro últimos dígitos.
+- **Log Book, reseñas, puntos y canjes, promociones.**
+- **Avisos de los centros** sobre tus reservas (no hay mensajería entre usuarios).
+- **Consentimientos:** si aceptas recibir novedades y ofertas, y qué versión de cada documento legal has aceptado y cuándo.
+- **Datos técnicos:** dirección IP (recortada en los registros), registros de seguridad y la cookie de sesión. En la app, también el modelo y el sistema del móvil, la versión de la app y, si la recibimos, la ciudad aproximada de cada inicio de sesión: los ves en «Dispositivos conectados» y sirven para avisarte si alguien entra desde un dispositivo nuevo. La huella, la cara y el PIN de la app los comprueba tu móvil y nunca nos llegan.
+- **Ubicación:** si pulsas «Usar mi ubicación», tu navegador nos envía tus coordenadas solo para calcular los puntos cercanos. No las guardamos.
+- **Centros y profesionales:** datos de contacto, datos fiscales del prestador y el identificador de su cuenta de Stripe (los datos bancarios y de verificación los gestiona Stripe). Si un profesional cobra en persona, también el WhatsApp de contacto que indica (guardado cifrado), que el cliente ve cuando el profesional acepta su solicitud.
+
+## 3. Para qué y con qué base legal
+
+| Finalidad | Base legal |
+|---|---|
+| Gestionar tu cuenta, tus reservas y los emails del servicio (confirmaciones, pagos, recordatorios, cambios, cancelaciones, caducidad de documentos) | Ejecución del contrato (art. 6.1.b RGPD) |
+| Registrar las aceptaciones de los documentos legales y conservar los datos de las reservas el tiempo que exige la ley | Obligación legal (art. 6.1.c RGPD) |
+| Seguridad, prevención del fraude, verificación de los centros y mejora técnica del servicio | Interés legítimo (art. 6.1.f RGPD) |
+| Pedirte una reseña tras tu inmersión | Interés legítimo; puedes oponerte escribiéndonos |
+| Programa de puntos | Ejecución del contrato |
+| Enviarte novedades y ofertas | Tu consentimiento (art. 6.1.a RGPD), que puedes retirar en un clic |
+| Gestionar denuncias de contenidos | Obligación legal (Reglamento (UE) 2022/2065 de servicios digitales) |
+
+No tomamos decisiones automatizadas que te afecten de forma significativa. El orden de los resultados se explica en [Cómo ordenamos los resultados](#/legal/clasificacion).
+
+## 4. Con quién compartimos tus datos
+
+- **El centro o profesional con el que reservas:** recibe los datos de la reserva y tu contacto. Ve tu ficha de buceador y tus documentos **solo si reservaste tú con él** (mientras la reserva siga en curso) **o si compartes tus datos con él** al hacer check-in con su QR. Puedes dejar de compartirlos en «Mi cuenta → Centros que ven tu ficha».
+- **Tu seguro de buceo (v50.56):** el centro con el que reservas ve si tu seguro está vigente el día de la inmersión (estado, aseguradora, tipo y fechas, nunca el número de póliza), y solo desde que confirma la reserva hasta 7 días después; el documento, solo si activas «Compartir también el documento de la póliza». Si un centro sube una póliza para tu reserva, solo pasa a tu perfil si lo aceptas. Cada consulta queda registrada. Al pulsar «Contratar en …» abrimos la web de la aseguradora sin enviarle ningún dato tuyo: solo contamos el clic, sin saber quién lo hizo. WORLDIVES no es aseguradora ni mediador de seguros.
+- **Stripe Payments Europe Ltd.** (Irlanda): procesa el pago **en la cuenta de Stripe del centro** y las devoluciones. Stripe es responsable de los datos de pago que trata.
+- **Proveedor de alojamiento:** {{hosting}}. El servidor está en {{hosting_location}}, dentro de la Unión Europea.
+- **Copias de seguridad:** se guardan cifradas en el propio servidor y en {{backup_provider}}, dentro de la Unión Europea, como encargado del tratamiento.
+- **Registros técnicos y de seguridad:** Better Stack (con sede en Praga), con los datos en su región de Europa, como encargado del tratamiento. Recibe solo los registros de seguridad (intentos de acceso fallidos o bloqueados, accesos denegados, avisos de firmas falsas) y el registro de accesos de la web, con tu IP recortada o convertida en una huella y sin tu nombre, tu email ni tu teléfono. Sirven para detectar ataques y fallos y para que nadie pueda borrar ese rastro desde nuestro servidor.
+- **Proveedor de correo electrónico:** el servicio SMTP que envía nuestros emails, como encargado del tratamiento.
+- **Servicios de mapas:** el mapa base se sirve desde nuestro propio servidor. La vista satélite (Esri) se pide a través de nuestro servidor, que no envía tu IP a Esri. La capa batimétrica de GEBCO se descarga directamente de sus servidores, que reciben tu IP. Detalles en la [Política de cookies y servicios de terceros](#/legal/cookies).
+- **Vídeos integrados** (YouTube, Vimeo, Google Maps): solo se cargan si pulsas «Cargar vídeo». A partir de ese momento, el proveedor recibe tu IP.
+- **Autoridades**, cuando una ley nos obligue.
+
+Algunos de estos proveedores pueden tratar datos fuera del Espacio Económico Europeo con garantías adecuadas (cláusulas contractuales tipo de la Comisión Europea o el Marco de Privacidad de Datos UE-EE. UU.).
+
+## 5. Cuánto tiempo los guardamos
+
+| Datos | Plazo |
+|---|---|
+| Cuenta y ficha | Mientras tengas la cuenta. Las cuentas sin actividad durante el plazo configurado (36 meses por defecto) se avisan y después se eliminan |
+| Documentos subidos | Hasta que los borres o elimines tu cuenta. Los documentos caducados se borran pasado el plazo configurado (12 meses por defecto) |
+| Pólizas de «Mi seguro de buceo» | Hasta que las borres o elimines tu cuenta. Las caducadas se borran solas pasado el plazo configurado (12 meses por defecto), salvo que cubran una reserva en reclamación |
+| Reservas y pagos | 6 años, sin tu nombre si eliminas tu cuenta (obligaciones mercantiles y fiscales del centro y nuestras) |
+| Avisos de los centros | 24 meses por defecto |
+| Sesiones | En la web, hasta cerrar sesión o 8 horas sin actividad. En la app, 15 minutos que el móvil renueva y como mucho 30 días por dispositivo. Los dispositivos que no se usan en 13 meses se olvidan |
+| Registros de seguridad y de accesos con IP recortada | 14 días en nuestro servidor y 30 días en Better Stack; el registro de actividad, 12 meses, salvo las últimas 300 entradas |
+| Copias de seguridad | Cifradas: las horarias, 48 horas; las diarias, 30 días; las mensuales, 12 meses. Lo que borres desaparece de las copias al cumplirse esos plazos |
+| Aceptaciones de documentos legales y consentimientos | Mientras tengas la cuenta y hasta 5 años después |
+
+## 6. Tus derechos
+
+Puedes **acceder, rectificar, suprimir, oponerte, limitar el tratamiento y pedir la portabilidad** de tus datos, y retirar tu consentimiento cuando quieras:
+
+- **Descargar mis datos:** en «Mi cuenta», un archivo ZIP con todos tus datos (en JSON) y tus documentos.
+- **Eliminar mi cuenta:** en «Mi cuenta». Te pedimos que lo confirmes desde tu email. Borramos tu ficha, tus documentos y tu contenido; las reservas se conservan sin tu nombre el tiempo que exige la ley.
+- **Cambiar tu email:** con verificación del nuevo email.
+- **Dejar de recibir novedades:** con el enlace de cada email o en «Mi cuenta».
+- Para todo lo demás, escribe a {{dpo_email}}. Te responderemos en un mes como máximo.
+
+Si no estás de acuerdo con nuestra respuesta, puedes reclamar ante la **Agencia Española de Protección de Datos** (www.aepd.es).
+
+## 7. Seguridad
+
+Conexión cifrada (HTTPS), contraseñas cifradas, verificación en dos pasos opcional (obligatoria para los administradores y para quien cobra online o ve los pagos de un centro), accesos a documentos registrados y limitados, antivirus para los documentos que se suben, registros de seguridad guardados fuera del servidor y copias de seguridad cifradas. Si alguna vez hubiera una brecha de seguridad que te afecte, te avisaremos según la ley.
+
+## 8. Menores
+
+La cuenta es para mayores de 18 años. Las reservas de menores las hace un adulto responsable.
+
+## 9. Cambios
+
+Si cambiamos esta política te avisaremos por email y te pediremos que la aceptes al entrar. Puedes ver todas las versiones anteriores al final de esta página.

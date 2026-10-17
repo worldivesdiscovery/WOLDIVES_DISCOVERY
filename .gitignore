@@ -1,0 +1,54 @@
+# Secrets / local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Runtime / local state
+storage/
+*.log
+*.tmp
+*.swp
+
+# Databases (Fase 7.2): the runtime database is never committed. Only the demo/test catalogue in data/demo/ is.
+data/*.sqlite3
+data/backups/
+data/tiles/
+data/mail-outbox/
+*.sqlite3-wal
+*.sqlite3-shm
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Test/build artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Logs and local mail spool (v50.31)
+logs/
+mail-outbox/
+public/assets/uploads/
+data/subidas/
+
+# Delivery (v50.45): generated seed, test environment data and release zips
+data/seed/*.sqlite3
+data/pruebas/
+dist/
+data/.email-worker.lock
+*.lock

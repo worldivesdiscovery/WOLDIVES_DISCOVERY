@@ -1,0 +1,1536 @@
+{
+ "exact": {
+  "Más cercanos": {
+   "en": "Closest first",
+   "fr": "Les plus proches",
+   "de": "Am nächsten",
+   "it": "Più vicini",
+   "pt": "Mais próximos",
+   "pl": "Najbliższe",
+   "nl": "Dichtstbij",
+   "zh": "距离最近"
+  },
+  "Por zonas": {
+   "en": "By area",
+   "fr": "Par zones",
+   "de": "Nach Gebieten",
+   "it": "Per zone",
+   "pt": "Por zonas",
+   "pl": "Według rejonów",
+   "nl": "Per gebied",
+   "zh": "按区域"
+  },
+  "Ver en el mapa": {
+   "en": "View on the map",
+   "fr": "Voir sur la carte",
+   "de": "Auf der Karte ansehen",
+   "it": "Vedi sulla mappa",
+   "pt": "Ver no mapa",
+   "pl": "Zobacz na mapie",
+   "nl": "Bekijk op de kaart",
+   "zh": "在地图上查看"
+  },
+  "El mapa enseña los mismos puntos que la lista, con el mismo número.": {
+   "en": "The map shows the same dive sites as the list, with the same number.",
+   "fr": "La carte montre les mêmes sites que la liste, avec le même numéro.",
+   "de": "Die Karte zeigt dieselben Tauchplätze wie die Liste, mit derselben Nummer.",
+   "it": "La mappa mostra gli stessi punti della lista, con lo stesso numero.",
+   "pt": "O mapa mostra os mesmos pontos que a lista, com o mesmo número.",
+   "pl": "Mapa pokazuje te same miejsca co lista, z tym samym numerem.",
+   "nl": "De kaart toont dezelfde duikstekken als de lijst, met hetzelfde nummer.",
+   "zh": "地图显示与列表相同的潜点，编号一致。"
+  },
+  "Mapa de los puntos de la lista": {
+   "en": "Map of the dive sites in the list",
+   "fr": "Carte des sites de la liste",
+   "de": "Karte der Tauchplätze der Liste",
+   "it": "Mappa dei punti della lista",
+   "pt": "Mapa dos pontos da lista",
+   "pl": "Mapa miejsc z listy",
+   "nl": "Kaart van de duikstekken in de lijst",
+   "zh": "列表中潜点的地图"
+  },
+  "Ordenados de más cerca a más lejos de tu ubicación.": {
+   "en": "Sorted from nearest to farthest from your location.",
+   "fr": "Triés du plus proche au plus éloigné de votre position.",
+   "de": "Sortiert von nah bis fern ab deinem Standort.",
+   "it": "Ordinati dal più vicino al più lontano dalla tua posizione.",
+   "pt": "Ordenados do mais perto para o mais longe da tua localização.",
+   "pl": "Posortowane od najbliższych do najdalszych od twojej lokalizacji.",
+   "nl": "Gesorteerd van dichtbij naar ver vanaf je locatie.",
+   "zh": "按距离你的位置由近到远排序。"
+  },
+  "Ver por zonas": {
+   "en": "View by area",
+   "fr": "Voir par zones",
+   "de": "Nach Gebieten anzeigen",
+   "it": "Vedi per zone",
+   "pt": "Ver por zonas",
+   "pl": "Pokaż według rejonów",
+   "nl": "Bekijk per gebied",
+   "zh": "按区域查看"
+  },
+  "Activa la ubicación para ver primero los más cercanos.": {
+   "en": "Turn on your location to see the closest ones first.",
+   "fr": "Activez la localisation pour voir d’abord les plus proches.",
+   "de": "Aktiviere den Standort, um zuerst die nächstgelegenen zu sehen.",
+   "it": "Attiva la posizione per vedere prima i più vicini.",
+   "pt": "Ativa a localização para ver primeiro os mais próximos.",
+   "pl": "Włącz lokalizację, aby najpierw zobaczyć najbliższe.",
+   "nl": "Zet je locatie aan om eerst de dichtstbijzijnde te zien.",
+   "zh": "开启定位，优先查看最近的潜点。"
+  },
+  "Activar ubicación": {
+   "en": "Turn on location",
+   "fr": "Activer la localisation",
+   "de": "Standort aktivieren",
+   "it": "Attiva posizione",
+   "pt": "Ativar localização",
+   "pl": "Włącz lokalizację",
+   "nl": "Locatie aanzetten",
+   "zh": "开启定位"
+  },
+  "Buscando tu ubicación…": {
+   "en": "Finding your location…",
+   "fr": "Recherche de votre position…",
+   "de": "Standort wird ermittelt…",
+   "it": "Cerco la tua posizione…",
+   "pt": "A procurar a tua localização…",
+   "pl": "Szukam twojej lokalizacji…",
+   "nl": "Je locatie wordt gezocht…",
+   "zh": "正在获取你的位置…"
+  },
+  "Sin conexión. Comprueba tu conexión y vuelve a intentarlo.": {
+   "en": "No connection. Check your connection and try again.",
+   "fr": "Pas de connexion. Vérifiez votre connexion et réessayez.",
+   "de": "Keine Verbindung. Prüfe deine Verbindung und versuche es erneut.",
+   "it": "Nessuna connessione. Controlla la connessione e riprova.",
+   "pt": "Sem ligação. Verifica a tua ligação e tenta de novo.",
+   "pl": "Brak połączenia. Sprawdź połączenie i spróbuj ponownie.",
+   "nl": "Geen verbinding. Controleer je verbinding en probeer het opnieuw.",
+   "zh": "无网络连接。请检查网络后重试。"
+  },
+  "Todavía no hay puntos de buceo en {x}": {
+   "en": "There are no dive sites in {x} yet",
+   "fr": "Il n’y a pas encore de sites de plongée à {x}",
+   "de": "In {x} gibt es noch keine Tauchplätze",
+   "it": "Non ci sono ancora punti di immersione a {x}",
+   "pt": "Ainda não há pontos de mergulho em {x}",
+   "pl": "Nie ma jeszcze miejsc nurkowych w {x}",
+   "nl": "Er zijn nog geen duikstekken in {x}",
+   "zh": "{x}暂时还没有潜点"
+  },
+  "Te enseñamos los más cercanos que sí existen.": {
+   "en": "Here are the closest ones we do have.",
+   "fr": "Voici les plus proches qui existent.",
+   "de": "Hier sind die nächstgelegenen, die es gibt.",
+   "it": "Ecco i più vicini che esistono.",
+   "pt": "Mostramos-te os mais próximos que existem.",
+   "pl": "Pokazujemy najbliższe, które już są.",
+   "nl": "Hier zijn de dichtstbijzijnde die er wel zijn.",
+   "zh": "以下是已有的最近潜点。"
+  },
+  "Los más cercanos a ti": {
+   "en": "The closest to you",
+   "fr": "Les plus proches de vous",
+   "de": "Die nächstgelegenen zu dir",
+   "it": "I più vicini a te",
+   "pt": "Os mais próximos de ti",
+   "pl": "Najbliższe tobie",
+   "nl": "Het dichtst bij jou",
+   "zh": "离你最近的潜点"
+  },
+  "Tu ubicación": {
+   "en": "Your location",
+   "fr": "Votre position",
+   "de": "Dein Standort",
+   "it": "La tua posizione",
+   "pt": "A tua localização",
+   "pl": "Twoja lokalizacja",
+   "nl": "Je locatie",
+   "zh": "你的位置"
+  },
+  "Buscando los más cercanos…": {
+   "en": "Looking for the closest ones…",
+   "fr": "Recherche des plus proches…",
+   "de": "Die nächstgelegenen werden gesucht…",
+   "it": "Cerco i più vicini…",
+   "pt": "A procurar os mais próximos…",
+   "pl": "Szukam najbliższych…",
+   "nl": "De dichtstbijzijnde worden gezocht…",
+   "zh": "正在查找最近的潜点…"
+  },
+  "Has denegado el permiso de ubicación. Puedes activarlo en los ajustes del navegador.": {
+   "en": "You have denied location access. You can turn it on in your browser settings.",
+   "fr": "Vous avez refusé l’accès à la localisation. Vous pouvez l’activer dans les réglages du navigateur.",
+   "de": "Du hast den Standortzugriff abgelehnt. Du kannst ihn in den Browsereinstellungen aktivieren.",
+   "it": "Hai negato il permesso di posizione. Puoi attivarlo nelle impostazioni del browser.",
+   "pt": "Recusaste a permissão de localização. Podes ativá-la nas definições do navegador.",
+   "pl": "Odmówiono dostępu do lokalizacji. Możesz go włączyć w ustawieniach przeglądarki.",
+   "nl": "Je hebt locatietoegang geweigerd. Je kunt die aanzetten in de browserinstellingen.",
+   "zh": "你已拒绝位置权限。可在浏览器设置中开启。"
+  },
+  "La ubicación solo funciona en una conexión segura (https).": {
+   "en": "Location only works over a secure connection (https).",
+   "fr": "La localisation ne fonctionne qu’avec une connexion sécurisée (https).",
+   "de": "Der Standort funktioniert nur über eine sichere Verbindung (https).",
+   "it": "La posizione funziona solo con una connessione sicura (https).",
+   "pt": "A localização só funciona numa ligação segura (https).",
+   "pl": "Lokalizacja działa tylko przez bezpieczne połączenie (https).",
+   "nl": "Locatie werkt alleen via een beveiligde verbinding (https).",
+   "zh": "定位仅在安全连接（https）下可用。"
+  },
+  "Este navegador no permite obtener la ubicación.": {
+   "en": "This browser cannot provide your location.",
+   "fr": "Ce navigateur ne permet pas d’obtenir la position.",
+   "de": "Dieser Browser kann deinen Standort nicht ermitteln.",
+   "it": "Questo browser non permette di ottenere la posizione.",
+   "pt": "Este navegador não permite obter a localização.",
+   "pl": "Ta przeglądarka nie pozwala ustalić lokalizacji.",
+   "nl": "Deze browser kan je locatie niet bepalen.",
+   "zh": "此浏览器无法获取位置。"
+  },
+  "Tu ubicación está tardando demasiado.": {
+   "en": "Your location is taking too long.",
+   "fr": "Votre position met trop de temps.",
+   "de": "Dein Standort braucht zu lange.",
+   "it": "La tua posizione sta impiegando troppo tempo.",
+   "pt": "A tua localização está a demorar demasiado.",
+   "pl": "Ustalanie lokalizacji trwa zbyt długo.",
+   "nl": "Je locatie duurt te lang.",
+   "zh": "获取位置耗时过长。"
+  },
+  "No hemos podido obtener tu ubicación.": {
+   "en": "We couldn't get your location.",
+   "fr": "Nous n’avons pas pu obtenir votre position.",
+   "de": "Wir konnten deinen Standort nicht ermitteln.",
+   "it": "Non siamo riusciti a ottenere la tua posizione.",
+   "pt": "Não conseguimos obter a tua localização.",
+   "pl": "Nie udało się ustalić twojej lokalizacji.",
+   "nl": "We konden je locatie niet bepalen.",
+   "zh": "无法获取你的位置。"
+  },
+  "Buscando los mejores buceos…": {
+   "en": "Looking for the best dives…",
+   "fr": "Recherche des meilleures plongées…",
+   "de": "Die besten Tauchgänge werden gesucht…",
+   "it": "Cerco le immersioni migliori…",
+   "pt": "A procurar os melhores mergulhos…",
+   "pl": "Szukam najlepszych nurkowań…",
+   "nl": "De beste duiken worden gezocht…",
+   "zh": "正在查找最佳潜水…"
+  },
+  "Lo más cerca": {
+   "en": "Closest",
+   "fr": "Au plus près",
+   "de": "Am nächsten",
+   "it": "Il più vicino",
+   "pt": "O mais perto",
+   "pl": "Najbliżej",
+   "nl": "Dichtstbij",
+   "zh": "最近"
+  },
+  "Ver lo más cerca": {
+   "en": "Show the closest",
+   "fr": "Voir les plus proches",
+   "de": "Die nächstgelegenen anzeigen",
+   "it": "Vedi i più vicini",
+   "pt": "Ver os mais próximos",
+   "pl": "Pokaż najbliższe",
+   "nl": "Toon de dichtstbijzijnde",
+   "zh": "查看最近的"
+  },
+  "Los mejores buceos según la valoración de los centros que bucean en cada punto.": {
+   "en": "The best dives according to the ratings of the centres that dive each site.",
+   "fr": "Les meilleures plongées selon les avis sur les centres qui plongent sur chaque site.",
+   "de": "Die besten Tauchgänge nach der Bewertung der Zentren, die an jedem Platz tauchen.",
+   "it": "Le immersioni migliori secondo le valutazioni dei centri che si immergono in ogni punto.",
+   "pt": "Os melhores mergulhos segundo a avaliação dos centros que mergulham em cada ponto.",
+   "pl": "Najlepsze nurkowania według ocen centrów nurkujących w każdym miejscu.",
+   "nl": "De beste duiken volgens de beoordeling van de centra die op elke stek duiken.",
+   "zh": "根据在各潜点开展潜水的潜水中心评分选出的最佳潜水。"
+  },
+  "Activa la ubicación para ver los mejores buceos cerca de ti.": {
+   "en": "Turn on your location to see the best dives near you.",
+   "fr": "Activez la localisation pour voir les meilleures plongées près de vous.",
+   "de": "Aktiviere den Standort, um die besten Tauchgänge in deiner Nähe zu sehen.",
+   "it": "Attiva la posizione per vedere le immersioni migliori vicino a te.",
+   "pt": "Ativa a localização para ver os melhores mergulhos perto de ti.",
+   "pl": "Włącz lokalizację, aby zobaczyć najlepsze nurkowania w pobliżu.",
+   "nl": "Zet je locatie aan om de beste duiken bij jou in de buurt te zien.",
+   "zh": "开启定位，查看你附近的最佳潜水。"
+  },
+  "Tu ubicación está tardando demasiado. Mientras, estos son los mejores de España: pulsa «Usar mi ubicación» para volver a intentarlo.": {
+   "en": "Your location is taking too long. Meanwhile, these are the best in Spain: press «Use my location» to try again.",
+   "fr": "Votre position met trop de temps. En attendant, voici les meilleures d’Espagne : appuyez sur « Utiliser ma position » pour réessayer.",
+   "de": "Dein Standort braucht zu lange. Inzwischen sind das die besten in Spanien: tippe auf „Meinen Standort verwenden“, um es erneut zu versuchen.",
+   "it": "La tua posizione sta impiegando troppo tempo. Intanto, queste sono le migliori della Spagna: premi «Usa la mia posizione» per riprovare.",
+   "pt": "A tua localização está a demorar demasiado. Entretanto, estes são os melhores de Espanha: carrega em «Usar a minha localização» para tentar de novo.",
+   "pl": "Ustalanie lokalizacji trwa zbyt długo. Tymczasem oto najlepsze w Hiszpanii: naciśnij „Użyj mojej lokalizacji”, aby spróbować ponownie.",
+   "nl": "Je locatie duurt te lang. Intussen zijn dit de beste van Spanje: druk op ‘Mijn locatie gebruiken’ om het opnieuw te proberen.",
+   "zh": "获取位置耗时过长。以下是西班牙的最佳潜水：点击“使用我的位置”重试。"
+  },
+  "Si te lo pide, permite el acceso a la ubicación. Tu ubicación solo se usa para calcular este ranking: no la guardamos.": {
+   "en": "If asked, allow access to your location. It is only used to calculate this ranking: we do not store it.",
+   "fr": "Si on vous le demande, autorisez l’accès à la position. Elle sert uniquement à calculer ce classement : nous ne la conservons pas.",
+   "de": "Wenn du gefragt wirst, erlaube den Zugriff auf den Standort. Er wird nur für dieses Ranking genutzt: Wir speichern ihn nicht.",
+   "it": "Se richiesto, consenti l’accesso alla posizione. Serve solo a calcolare questa classifica: non la conserviamo.",
+   "pt": "Se te pedir, permite o acesso à localização. Só é usada para calcular este ranking: não a guardamos.",
+   "pl": "Jeśli pojawi się pytanie, zezwól na dostęp do lokalizacji. Służy tylko do obliczenia tego rankingu: nie zapisujemy jej.",
+   "nl": "Sta toegang tot je locatie toe als daarom wordt gevraagd. Die wordt alleen gebruikt voor deze ranglijst: we bewaren hem niet.",
+   "zh": "如有提示，请允许访问位置。位置仅用于计算本排名，我们不会保存。"
+  },
+  "el punto elegido": {
+   "en": "the chosen point",
+   "fr": "le point choisi",
+   "de": "dem gewählten Punkt",
+   "it": "il punto scelto",
+   "pt": "o ponto escolhido",
+   "pl": "wybrany punkt",
+   "nl": "het gekozen punt",
+   "zh": "所选地点"
+  },
+  "Todavía no hay puntos de buceo": {
+   "en": "There are no dive sites yet",
+   "fr": "Il n’y a pas encore de sites de plongée",
+   "de": "Es gibt noch keine Tauchplätze",
+   "it": "Non ci sono ancora punti di immersione",
+   "pt": "Ainda não há pontos de mergulho",
+   "pl": "Nie ma jeszcze miejsc nurkowych",
+   "nl": "Er zijn nog geen duikstekken",
+   "zh": "暂时还没有潜点"
+  },
+  "No hemos podido calcular el Top 10": {
+   "en": "We couldn't calculate the Top 10",
+   "fr": "Nous n’avons pas pu calculer le Top 10",
+   "de": "Wir konnten die Top 10 nicht berechnen",
+   "it": "Non siamo riusciti a calcolare la Top 10",
+   "pt": "Não conseguimos calcular o Top 10",
+   "pl": "Nie udało się obliczyć Top 10",
+   "nl": "We konden de top 10 niet berekenen",
+   "zh": "无法计算前十名"
+  },
+  "No se ha podido buscar": {
+   "en": "The search could not be done",
+   "fr": "La recherche n’a pas pu être faite",
+   "de": "Die Suche war nicht möglich",
+   "it": "Non è stato possibile cercare",
+   "pt": "Não foi possível pesquisar",
+   "pl": "Nie udało się wyszukać",
+   "nl": "Zoeken is niet gelukt",
+   "zh": "无法搜索"
+  },
+  "Comprueba la conexión o elige en el mapa.": {
+   "en": "Check your connection or pick on the map.",
+   "fr": "Vérifiez la connexion ou choisissez sur la carte.",
+   "de": "Prüfe die Verbindung oder wähle auf der Karte.",
+   "it": "Controlla la connessione o scegli sulla mappa.",
+   "pt": "Verifica a ligação ou escolhe no mapa.",
+   "pl": "Sprawdź połączenie lub wybierz na mapie.",
+   "nl": "Controleer de verbinding of kies op de kaart.",
+   "zh": "请检查网络，或在地图上选择。"
+  },
+  "Ordenado por la valoración de los centros que bucean en cada punto y por cercanía.": {
+   "en": "Sorted by the ratings of the centres that dive each site, and by distance.",
+   "fr": "Trié selon les avis sur les centres qui plongent sur chaque site et la proximité.",
+   "de": "Sortiert nach der Bewertung der Zentren, die an jedem Platz tauchen, und nach Entfernung.",
+   "it": "Ordinato per valutazione dei centri che si immergono in ogni punto e per vicinanza.",
+   "pt": "Ordenado pela avaliação dos centros que mergulham em cada ponto e pela proximidade.",
+   "pl": "Posortowane według ocen centrów nurkujących w każdym miejscu i odległości.",
+   "nl": "Gesorteerd op beoordeling van de centra die op elke stek duiken en op afstand.",
+   "zh": "按在各潜点开展潜水的潜水中心评分及距离排序。"
+  },
+  "Aún no hay reseñas en esta zona: el orden combina el catálogo y la cercanía.": {
+   "en": "No reviews in this area yet: the order combines the catalogue and distance.",
+   "fr": "Pas encore d’avis dans cette zone : l’ordre combine le catalogue et la proximité.",
+   "de": "In diesem Gebiet gibt es noch keine Bewertungen: Die Reihenfolge kombiniert Katalog und Entfernung.",
+   "it": "Ancora nessuna recensione in questa zona: l’ordine combina il catalogo e la vicinanza.",
+   "pt": "Ainda não há avaliações nesta zona: a ordem combina o catálogo e a proximidade.",
+   "pl": "W tym rejonie nie ma jeszcze opinii: kolejność łączy katalog i odległość.",
+   "nl": "Nog geen beoordelingen in dit gebied: de volgorde combineert de catalogus en de afstand.",
+   "zh": "该区域尚无评价：排序结合目录与距离。"
+  },
+  "Puntos de buceo del centro": {
+   "en": "The centre's dive sites",
+   "fr": "Sites de plongée du centre",
+   "de": "Tauchplätze des Zentrums",
+   "it": "Punti di immersione del centro",
+   "pt": "Pontos de mergulho do centro",
+   "pl": "Miejsca nurkowe centrum",
+   "nl": "Duikstekken van het centrum",
+   "zh": "本中心的潜点"
+  },
+  "Puntos donde este centro organiza inmersiones": {
+   "en": "Sites where this centre runs dives",
+   "fr": "Sites où ce centre organise des plongées",
+   "de": "Plätze, an denen dieses Zentrum Tauchgänge anbietet",
+   "it": "Punti in cui questo centro organizza immersioni",
+   "pt": "Pontos onde este centro organiza mergulhos",
+   "pl": "Miejsca, w których to centrum organizuje nurkowania",
+   "nl": "Stekken waar dit centrum duiken organiseert",
+   "zh": "本中心组织潜水的潜点"
+  },
+  "Ver más reseñas": {
+   "en": "See more reviews",
+   "fr": "Voir plus d’avis",
+   "de": "Weitere Bewertungen anzeigen",
+   "it": "Vedi altre recensioni",
+   "pt": "Ver mais avaliações",
+   "pl": "Zobacz więcej opinii",
+   "nl": "Meer beoordelingen bekijken",
+   "zh": "查看更多评价"
+  },
+  "Cargando reseñas…": {
+   "en": "Loading reviews…",
+   "fr": "Chargement des avis…",
+   "de": "Bewertungen werden geladen…",
+   "it": "Caricamento recensioni…",
+   "pt": "A carregar avaliações…",
+   "pl": "Wczytywanie opinii…",
+   "nl": "Beoordelingen laden…",
+   "zh": "正在加载评价…"
+  },
+  "Leer la respuesta completa": {
+   "en": "Read the full reply",
+   "fr": "Lire la réponse complète",
+   "de": "Ganze Antwort lesen",
+   "it": "Leggi la risposta completa",
+   "pt": "Ler a resposta completa",
+   "pl": "Przeczytaj całą odpowiedź",
+   "nl": "Lees het volledige antwoord",
+   "zh": "阅读完整回复"
+  },
+  "Ocultar la respuesta": {
+   "en": "Hide the reply",
+   "fr": "Masquer la réponse",
+   "de": "Antwort ausblenden",
+   "it": "Nascondi la risposta",
+   "pt": "Ocultar a resposta",
+   "pl": "Ukryj odpowiedź",
+   "nl": "Antwoord verbergen",
+   "zh": "收起回复"
+  },
+  "Ver viaje": {
+   "en": "View trip",
+   "fr": "Voir le voyage",
+   "de": "Reise ansehen",
+   "it": "Vedi viaggio",
+   "pt": "Ver viagem",
+   "pl": "Zobacz wyjazd",
+   "nl": "Reis bekijken",
+   "zh": "查看行程"
+  },
+  "Incluye:": {
+   "en": "Includes:",
+   "fr": "Comprend :",
+   "de": "Enthalten:",
+   "it": "Include:",
+   "pt": "Inclui:",
+   "pl": "Zawiera:",
+   "nl": "Inbegrepen:",
+   "zh": "包含："
+  },
+  "Foto de la tarjeta": {
+   "en": "Card photo",
+   "fr": "Photo de la carte",
+   "de": "Foto der Karte",
+   "it": "Foto della scheda",
+   "pt": "Foto do cartão",
+   "pl": "Zdjęcie karty",
+   "nl": "Foto van de kaart",
+   "zh": "卡片照片"
+  },
+  "Sin plantilla (foto neutra)": {
+   "en": "No template (neutral photo)",
+   "fr": "Sans modèle (photo neutre)",
+   "de": "Ohne Vorlage (neutrales Foto)",
+   "it": "Senza modello (foto neutra)",
+   "pt": "Sem modelo (foto neutra)",
+   "pl": "Bez szablonu (zdjęcie neutralne)",
+   "nl": "Zonder sjabloon (neutrale foto)",
+   "zh": "不使用模板（通用照片）"
+  },
+  "La foto de la plantilla la elige la administración: si la cambia, tu tarjeta cambia con ella.": {
+   "en": "The template's photo is chosen by the administration: if it changes, your card changes too.",
+   "fr": "La photo du modèle est choisie par l’administration : si elle change, votre carte change aussi.",
+   "de": "Das Foto der Vorlage wählt die Verwaltung: Ändert sie es, ändert sich auch deine Karte.",
+   "it": "La foto del modello la sceglie l’amministrazione: se la cambia, la tua scheda cambia con lei.",
+   "pt": "A foto do modelo é escolhida pela administração: se a mudar, o teu cartão muda com ela.",
+   "pl": "Zdjęcie szablonu wybiera administracja: jeśli je zmieni, twoja karta też się zmieni.",
+   "nl": "De foto van het sjabloon kiest de beheerder: verandert die, dan verandert je kaart mee.",
+   "zh": "模板照片由管理员选择：如有更换，你的卡片会随之更新。"
+  },
+  "Usar la foto de la plantilla": {
+   "en": "Use the template's photo",
+   "fr": "Utiliser la photo du modèle",
+   "de": "Foto der Vorlage verwenden",
+   "it": "Usa la foto del modello",
+   "pt": "Usar a foto do modelo",
+   "pl": "Użyj zdjęcia szablonu",
+   "nl": "Foto van het sjabloon gebruiken",
+   "zh": "使用模板照片"
+  },
+  "Recomendado.": {
+   "en": "Recommended.",
+   "fr": "Recommandé.",
+   "de": "Empfohlen.",
+   "it": "Consigliato.",
+   "pt": "Recomendado.",
+   "pl": "Zalecane.",
+   "nl": "Aanbevolen.",
+   "zh": "推荐。"
+  },
+  "Subir mi propia foto": {
+   "en": "Upload my own photo",
+   "fr": "Envoyer ma propre photo",
+   "de": "Eigenes Foto hochladen",
+   "it": "Carica la mia foto",
+   "pt": "Carregar a minha própria foto",
+   "pl": "Prześlij własne zdjęcie",
+   "nl": "Mijn eigen foto uploaden",
+   "zh": "上传我自己的照片"
+  },
+  "JPG, PNG o WEBP de hasta 6 MB. Quitamos los datos ocultos de la cámara (ubicación GPS incluida).": {
+   "en": "JPG, PNG or WEBP up to 6 MB. We remove the camera's hidden data (GPS location included).",
+   "fr": "JPG, PNG ou WEBP jusqu’à 6 Mo. Nous supprimons les données cachées de l’appareil (position GPS comprise).",
+   "de": "JPG, PNG oder WEBP bis 6 MB. Wir entfernen die versteckten Kameradaten (auch den GPS-Standort).",
+   "it": "JPG, PNG o WEBP fino a 6 MB. Rimuoviamo i dati nascosti della fotocamera (posizione GPS compresa).",
+   "pt": "JPG, PNG ou WEBP até 6 MB. Removemos os dados ocultos da câmara (localização GPS incluída).",
+   "pl": "JPG, PNG lub WEBP do 6 MB. Usuwamy ukryte dane aparatu (także lokalizację GPS).",
+   "nl": "JPG, PNG of WEBP tot 6 MB. We verwijderen de verborgen cameragegevens (ook de gps-locatie).",
+   "zh": "JPG、PNG 或 WEBP，最大 6 MB。我们会删除相机的隐藏数据（包括 GPS 位置）。"
+  },
+  "Tu foto": {
+   "en": "Your photo",
+   "fr": "Votre photo",
+   "de": "Dein Foto",
+   "it": "La tua foto",
+   "pt": "A tua foto",
+   "pl": "Twoje zdjęcie",
+   "nl": "Je foto",
+   "zh": "你的照片"
+  },
+  "Estamos preparando tu foto: aparecerá en unos segundos.": {
+   "en": "We are preparing your photo: it will appear in a few seconds.",
+   "fr": "Nous préparons votre photo : elle apparaîtra dans quelques secondes.",
+   "de": "Wir bereiten dein Foto vor: Es erscheint in wenigen Sekunden.",
+   "it": "Stiamo preparando la tua foto: apparirà tra pochi secondi.",
+   "pt": "Estamos a preparar a tua foto: vai aparecer dentro de segundos.",
+   "pl": "Przygotowujemy twoje zdjęcie: pojawi się za kilka sekund.",
+   "nl": "We bereiden je foto voor: hij verschijnt over een paar seconden.",
+   "zh": "正在处理你的照片，几秒后显示。"
+  },
+  "Declaro que tengo los derechos de esta imagen y que las personas que aparecen han dado su consentimiento.": {
+   "en": "I declare that I hold the rights to this image and that the people in it have given their consent.",
+   "fr": "Je déclare détenir les droits de cette image et que les personnes qui y apparaissent ont donné leur consentement.",
+   "de": "Ich erkläre, dass ich die Rechte an diesem Bild habe und dass die abgebildeten Personen eingewilligt haben.",
+   "it": "Dichiaro di avere i diritti di questa immagine e che le persone ritratte hanno dato il loro consenso.",
+   "pt": "Declaro que tenho os direitos desta imagem e que as pessoas que aparecem deram o seu consentimento.",
+   "pl": "Oświadczam, że mam prawa do tego zdjęcia, a osoby na nim widoczne wyraziły zgodę.",
+   "nl": "Ik verklaar dat ik de rechten op deze afbeelding heb en dat de personen erop toestemming hebben gegeven.",
+   "zh": "我声明拥有此图片的权利，且图中人物已同意。"
+  },
+  "Volver a la foto de la plantilla": {
+   "en": "Back to the template's photo",
+   "fr": "Revenir à la photo du modèle",
+   "de": "Zurück zum Foto der Vorlage",
+   "it": "Torna alla foto del modello",
+   "pt": "Voltar à foto do modelo",
+   "pl": "Wróć do zdjęcia szablonu",
+   "nl": "Terug naar de foto van het sjabloon",
+   "zh": "恢复为模板照片"
+  },
+  "Tema claro": {
+   "en": "Light theme",
+   "fr": "Thème clair",
+   "de": "Helles Design",
+   "it": "Tema chiaro",
+   "pt": "Tema claro",
+   "pl": "Motyw jasny",
+   "nl": "Licht thema",
+   "zh": "浅色主题"
+  },
+  "Tema oscuro": {
+   "en": "Dark theme",
+   "fr": "Thème sombre",
+   "de": "Dunkles Design",
+   "it": "Tema scuro",
+   "pt": "Tema escuro",
+   "pl": "Motyw ciemny",
+   "nl": "Donker thema",
+   "zh": "深色主题"
+  },
+  "Vista previa de la tarjeta": {
+   "en": "Card preview",
+   "fr": "Aperçu de la carte",
+   "de": "Vorschau der Karte",
+   "it": "Anteprima della scheda",
+   "pt": "Pré-visualização do cartão",
+   "pl": "Podgląd karty",
+   "nl": "Voorbeeld van de kaart",
+   "zh": "卡片预览"
+  },
+  "La foto pesa demasiado. Máximo 6 MB.": {
+   "en": "The photo is too large. Maximum 6 MB.",
+   "fr": "La photo est trop lourde. 6 Mo maximum.",
+   "de": "Das Foto ist zu groß. Maximal 6 MB.",
+   "it": "La foto è troppo pesante. Massimo 6 MB.",
+   "pt": "A foto é demasiado pesada. Máximo 6 MB.",
+   "pl": "Zdjęcie jest za duże. Maksymalnie 6 MB.",
+   "nl": "De foto is te groot. Maximaal 6 MB.",
+   "zh": "照片过大，最大 6 MB。"
+  },
+  "Formato no admitido. Usa una foto JPG, PNG o WEBP.": {
+   "en": "Format not supported. Use a JPG, PNG or WEBP photo.",
+   "fr": "Format non accepté. Utilisez une photo JPG, PNG ou WEBP.",
+   "de": "Format nicht unterstützt. Verwende ein JPG-, PNG- oder WEBP-Foto.",
+   "it": "Formato non supportato. Usa una foto JPG, PNG o WEBP.",
+   "pt": "Formato não suportado. Usa uma foto JPG, PNG ou WEBP.",
+   "pl": "Nieobsługiwany format. Użyj zdjęcia JPG, PNG lub WEBP.",
+   "nl": "Formaat niet ondersteund. Gebruik een JPG-, PNG- of WEBP-foto.",
+   "zh": "格式不支持。请使用 JPG、PNG 或 WEBP 照片。"
+  },
+  "Elige tu foto o usa la foto de la plantilla.": {
+   "en": "Choose your photo or use the template's photo.",
+   "fr": "Choisissez votre photo ou utilisez celle du modèle.",
+   "de": "Wähle dein Foto oder verwende das Foto der Vorlage.",
+   "it": "Scegli la tua foto o usa quella del modello.",
+   "pt": "Escolhe a tua foto ou usa a foto do modelo.",
+   "pl": "Wybierz swoje zdjęcie lub użyj zdjęcia szablonu.",
+   "nl": "Kies je foto of gebruik de foto van het sjabloon.",
+   "zh": "请选择你的照片，或使用模板照片。"
+  },
+  "Marca la casilla de los derechos de la imagen.": {
+   "en": "Tick the image rights box.",
+   "fr": "Cochez la case des droits de l’image.",
+   "de": "Kreuze das Feld zu den Bildrechten an.",
+   "it": "Spunta la casella dei diritti dell’immagine.",
+   "pt": "Marca a caixa dos direitos da imagem.",
+   "pl": "Zaznacz pole praw do zdjęcia.",
+   "nl": "Vink het vakje voor de beeldrechten aan.",
+   "zh": "请勾选图片权利声明。"
+  },
+  "Foto recibida: la verás en la tarjeta en unos segundos.": {
+   "en": "Photo received: you will see it on the card in a few seconds.",
+   "fr": "Photo reçue : vous la verrez sur la carte dans quelques secondes.",
+   "de": "Foto erhalten: Du siehst es in wenigen Sekunden auf der Karte.",
+   "it": "Foto ricevuta: la vedrai sulla scheda tra pochi secondi.",
+   "pt": "Foto recebida: vais vê-la no cartão dentro de segundos.",
+   "pl": "Zdjęcie odebrane: zobaczysz je na karcie za kilka sekund.",
+   "nl": "Foto ontvangen: je ziet hem over een paar seconden op de kaart.",
+   "zh": "照片已收到，几秒后会显示在卡片上。"
+  },
+  "Marca la casilla: declaras que tienes los derechos de la imagen y que las personas que aparecen han dado su consentimiento.": {
+   "en": "Tick the box: you declare that you hold the rights to the image and that the people in it have given their consent.",
+   "fr": "Cochez la case : vous déclarez détenir les droits de l’image et que les personnes qui y apparaissent ont donné leur consentement.",
+   "de": "Kreuze das Feld an: Du erklärst, dass du die Bildrechte hast und die abgebildeten Personen eingewilligt haben.",
+   "it": "Spunta la casella: dichiari di avere i diritti dell’immagine e che le persone ritratte hanno dato il consenso.",
+   "pt": "Marca a caixa: declaras que tens os direitos da imagem e que as pessoas que aparecem deram o seu consentimento.",
+   "pl": "Zaznacz pole: oświadczasz, że masz prawa do zdjęcia, a widoczne na nim osoby wyraziły zgodę.",
+   "nl": "Vink het vakje aan: je verklaart dat je de rechten op de afbeelding hebt en dat de personen erop toestemming hebben gegeven.",
+   "zh": "请勾选：你声明拥有该图片的权利，且图中人物已同意。"
+  },
+  "Adjunta una foto.": {
+   "en": "Attach a photo.",
+   "fr": "Joignez une photo.",
+   "de": "Füge ein Foto bei.",
+   "it": "Allega una foto.",
+   "pt": "Anexa uma foto.",
+   "pl": "Dołącz zdjęcie.",
+   "nl": "Voeg een foto toe.",
+   "zh": "请附上一张照片。"
+  },
+  "La foto está vacía.": {
+   "en": "The photo is empty.",
+   "fr": "La photo est vide.",
+   "de": "Das Foto ist leer.",
+   "it": "La foto è vuota.",
+   "pt": "A foto está vazia.",
+   "pl": "Zdjęcie jest puste.",
+   "nl": "De foto is leeg.",
+   "zh": "照片为空。"
+  },
+  "La foto está dañada o no se puede leer. Prueba con otra JPG, PNG o WEBP.": {
+   "en": "The photo is damaged or cannot be read. Try another JPG, PNG or WEBP.",
+   "fr": "La photo est endommagée ou illisible. Essayez une autre JPG, PNG ou WEBP.",
+   "de": "Das Foto ist beschädigt oder nicht lesbar. Versuche ein anderes JPG, PNG oder WEBP.",
+   "it": "La foto è danneggiata o illeggibile. Prova con un’altra JPG, PNG o WEBP.",
+   "pt": "A foto está danificada ou não se pode ler. Experimenta outra JPG, PNG ou WEBP.",
+   "pl": "Zdjęcie jest uszkodzone lub nieczytelne. Spróbuj innego JPG, PNG lub WEBP.",
+   "nl": "De foto is beschadigd of onleesbaar. Probeer een andere JPG, PNG of WEBP.",
+   "zh": "照片已损坏或无法读取。请换一张 JPG、PNG 或 WEBP。"
+  },
+  "Ahora mismo hay muchas fotos en cola. Prueba dentro de un momento.": {
+   "en": "There are many photos queued right now. Try again in a moment.",
+   "fr": "Il y a beaucoup de photos en attente. Réessayez dans un instant.",
+   "de": "Gerade warten viele Fotos. Versuche es gleich noch einmal.",
+   "it": "In questo momento ci sono molte foto in coda. Riprova tra poco.",
+   "pt": "Neste momento há muitas fotos em fila. Tenta dentro de um momento.",
+   "pl": "W kolejce jest teraz wiele zdjęć. Spróbuj za chwilę.",
+   "nl": "Er staan nu veel foto's in de wachtrij. Probeer het zo opnieuw.",
+   "zh": "当前排队的照片较多，请稍后再试。"
+  },
+  "Ese servicio no tiene foto propia.": {
+   "en": "That service has no photo of its own.",
+   "fr": "Ce service n’a pas de photo propre.",
+   "de": "Dieser Service hat kein eigenes Foto.",
+   "it": "Quel servizio non ha una foto propria.",
+   "pt": "Esse serviço não tem foto própria.",
+   "pl": "Ta usługa nie ma własnego zdjęcia.",
+   "nl": "Die dienst heeft geen eigen foto.",
+   "zh": "该服务没有自有照片。"
+  },
+  "Escribe el motivo (lo verá el centro).": {
+   "en": "Write the reason (the centre will see it).",
+   "fr": "Indiquez le motif (le centre le verra).",
+   "de": "Gib den Grund an (das Zentrum sieht ihn).",
+   "it": "Scrivi il motivo (lo vedrà il centro).",
+   "pt": "Escreve o motivo (o centro vai vê-lo).",
+   "pl": "Podaj powód (centrum go zobaczy).",
+   "nl": "Schrijf de reden (het centrum ziet die).",
+   "zh": "请填写原因（中心会看到）。"
+  },
+  "Plantilla no encontrada.": {
+   "en": "Template not found.",
+   "fr": "Modèle introuvable.",
+   "de": "Vorlage nicht gefunden.",
+   "it": "Modello non trovato.",
+   "pt": "Modelo não encontrado.",
+   "pl": "Nie znaleziono szablonu.",
+   "nl": "Sjabloon niet gevonden.",
+   "zh": "未找到模板。"
+  },
+  "Escribe al menos el nombre en castellano.": {
+   "en": "Write at least the name in Spanish.",
+   "fr": "Écrivez au moins le nom en espagnol.",
+   "de": "Gib mindestens den Namen auf Spanisch ein.",
+   "it": "Scrivi almeno il nome in spagnolo.",
+   "pt": "Escreve pelo menos o nome em espanhol.",
+   "pl": "Wpisz przynajmniej nazwę po hiszpańsku.",
+   "nl": "Schrijf ten minste de naam in het Spaans.",
+   "zh": "请至少填写西班牙语名称。"
+  },
+  "Tipo de servicio no válido.": {
+   "en": "Invalid service type.",
+   "fr": "Type de service non valide.",
+   "de": "Ungültige Serviceart.",
+   "it": "Tipo di servizio non valido.",
+   "pt": "Tipo de serviço não válido.",
+   "pl": "Nieprawidłowy typ usługi.",
+   "nl": "Ongeldig type dienst.",
+   "zh": "服务类型无效。"
+  },
+  "El número de plazas no es válido.": {
+   "en": "The number of places is not valid.",
+   "fr": "Le nombre de places n’est pas valide.",
+   "de": "Die Anzahl der Plätze ist ungültig.",
+   "it": "Il numero di posti non è valido.",
+   "pt": "O número de vagas não é válido.",
+   "pl": "Liczba miejsc jest nieprawidłowa.",
+   "nl": "Het aantal plaatsen is ongeldig.",
+   "zh": "名额数量无效。"
+  },
+  "El orden no es válido.": {
+   "en": "The order is not valid.",
+   "fr": "L’ordre n’est pas valide.",
+   "de": "Die Reihenfolge ist ungültig.",
+   "it": "L’ordine non è valido.",
+   "pt": "A ordem não é válida.",
+   "pl": "Kolejność jest nieprawidłowa.",
+   "nl": "De volgorde is ongeldig.",
+   "zh": "排序无效。"
+  },
+  "La intensidad debe estar entre 50 % y 95 %.": {
+   "en": "The strength must be between 50 % and 95 %.",
+   "fr": "L’intensité doit être comprise entre 50 % et 95 %.",
+   "de": "Die Stärke muss zwischen 50 % und 95 % liegen.",
+   "it": "L’intensità deve essere tra il 50 % e il 95 %.",
+   "pt": "A intensidade deve estar entre 50 % e 95 %.",
+   "pl": "Intensywność musi wynosić od 50 % do 95 %.",
+   "nl": "De sterkte moet tussen 50 % en 95 % liggen.",
+   "zh": "强度必须在 50% 到 95% 之间。"
+  },
+  "Plantillas de servicios": {
+   "en": "Service templates",
+   "fr": "Modèles de services",
+   "de": "Servicevorlagen",
+   "it": "Modelli di servizi",
+   "pt": "Modelos de serviços",
+   "pl": "Szablony usług",
+   "nl": "Dienstsjablonen",
+   "zh": "服务模板"
+  },
+  "Los centros y freelance crean sus servicios desde estas plantillas: el nombre, el texto, la duración y la foto se rellenan solos. Si cambias la foto de una plantilla, cambia al momento en todos los servicios que la usan (no en los que tienen foto propia).": {
+   "en": "Centres and freelancers create their services from these templates: the name, text, duration and photo are filled in automatically. If you change a template's photo, it changes at once in every service that uses it (not in those with their own photo).",
+   "fr": "Les centres et indépendants créent leurs services à partir de ces modèles : le nom, le texte, la durée et la photo se remplissent seuls. Si vous changez la photo d’un modèle, elle change aussitôt dans tous les services qui l’utilisent (pas dans ceux qui ont leur propre photo).",
+   "de": "Zentren und Freelancer erstellen ihre Services aus diesen Vorlagen: Name, Text, Dauer und Foto werden automatisch ausgefüllt. Änderst du das Foto einer Vorlage, ändert es sich sofort in allen Services, die sie nutzen (nicht in denen mit eigenem Foto).",
+   "it": "I centri e i freelance creano i loro servizi da questi modelli: nome, testo, durata e foto si compilano da soli. Se cambi la foto di un modello, cambia subito in tutti i servizi che lo usano (non in quelli con foto propria).",
+   "pt": "Os centros e freelancers criam os seus serviços a partir destes modelos: o nome, o texto, a duração e a foto preenchem-se sozinhos. Se mudares a foto de um modelo, muda logo em todos os serviços que o usam (não nos que têm foto própria).",
+   "pl": "Centra i freelancerzy tworzą usługi z tych szablonów: nazwa, tekst, czas trwania i zdjęcie uzupełniają się same. Gdy zmienisz zdjęcie szablonu, zmieni się od razu we wszystkich usługach, które go używają (oprócz tych z własnym zdjęciem).",
+   "nl": "Centra en freelancers maken hun diensten op basis van deze sjablonen: naam, tekst, duur en foto worden automatisch ingevuld. Wijzig je de foto van een sjabloon, dan verandert die meteen in alle diensten die het gebruiken (niet in die met een eigen foto).",
+   "zh": "中心和自由职业者从这些模板创建服务：名称、文字、时长和照片会自动填写。更换模板照片后，所有使用该模板的服务会立即更新（使用自有照片的服务除外）。"
+  },
+  "+ Nueva plantilla": {
+   "en": "+ New template",
+   "fr": "+ Nouveau modèle",
+   "de": "+ Neue Vorlage",
+   "it": "+ Nuovo modello",
+   "pt": "+ Novo modelo",
+   "pl": "+ Nowy szablon",
+   "nl": "+ Nieuw sjabloon",
+   "zh": "+ 新建模板"
+  },
+  "Intensidad de la capa sobre las fotos": {
+   "en": "Strength of the veil over the photos",
+   "fr": "Intensité du voile sur les photos",
+   "de": "Stärke der Schicht über den Fotos",
+   "it": "Intensità del velo sulle foto",
+   "pt": "Intensidade da camada sobre as fotos",
+   "pl": "Intensywność warstwy na zdjęciach",
+   "nl": "Sterkte van de laag over de foto's",
+   "zh": "照片蒙版强度"
+  },
+  "Para que el texto de las tarjetas se lea bien. Si una foto necesita más para el contraste mínimo (WCAG AA), se refuerza sola.": {
+   "en": "So the text on the cards is easy to read. If a photo needs more for the minimum contrast (WCAG AA), it is strengthened automatically.",
+   "fr": "Pour que le texte des cartes se lise bien. Si une photo en a besoin pour le contraste minimal (WCAG AA), il se renforce seul.",
+   "de": "Damit der Text auf den Karten gut lesbar ist. Braucht ein Foto mehr für den Mindestkontrast (WCAG AA), wird sie automatisch verstärkt.",
+   "it": "Perché il testo delle schede si legga bene. Se una foto ha bisogno di più per il contrasto minimo (WCAG AA), si rinforza da solo.",
+   "pt": "Para que o texto dos cartões se leia bem. Se uma foto precisar de mais para o contraste mínimo (WCAG AA), reforça-se sozinha.",
+   "pl": "Aby tekst na kartach był czytelny. Jeśli zdjęcie wymaga więcej dla minimalnego kontrastu (WCAG AA), warstwa wzmacnia się sama.",
+   "nl": "Zodat de tekst op de kaarten goed leesbaar is. Heeft een foto meer nodig voor het minimale contrast (WCAG AA), dan wordt die vanzelf versterkt.",
+   "zh": "让卡片文字清晰易读。如照片需要更多遮罩才能达到最低对比度（WCAG AA），会自动加强。"
+  },
+  "Más foto": {
+   "en": "More photo",
+   "fr": "Plus de photo",
+   "de": "Mehr Foto",
+   "it": "Più foto",
+   "pt": "Mais foto",
+   "pl": "Więcej zdjęcia",
+   "nl": "Meer foto",
+   "zh": "更多照片"
+  },
+  "Más texto": {
+   "en": "More text",
+   "fr": "Plus de texte",
+   "de": "Mehr Text",
+   "it": "Più testo",
+   "pt": "Mais texto",
+   "pl": "Więcej tekstu",
+   "nl": "Meer tekst",
+   "zh": "更多文字"
+  },
+  "Intensidad de la capa": {
+   "en": "Veil strength",
+   "fr": "Intensité du voile",
+   "de": "Stärke der Schicht",
+   "it": "Intensità del velo",
+   "pt": "Intensidade da camada",
+   "pl": "Intensywność warstwy",
+   "nl": "Sterkte van de laag",
+   "zh": "蒙版强度"
+  },
+  "Guardar intensidad": {
+   "en": "Save strength",
+   "fr": "Enregistrer l’intensité",
+   "de": "Stärke speichern",
+   "it": "Salva intensità",
+   "pt": "Guardar intensidade",
+   "pl": "Zapisz intensywność",
+   "nl": "Sterkte opslaan",
+   "zh": "保存强度"
+  },
+  "Intensidad guardada.": {
+   "en": "Strength saved.",
+   "fr": "Intensité enregistrée.",
+   "de": "Stärke gespeichert.",
+   "it": "Intensità salvata.",
+   "pt": "Intensidade guardada.",
+   "pl": "Zapisano intensywność.",
+   "nl": "Sterkte opgeslagen.",
+   "zh": "强度已保存。"
+  },
+  "Fotos propias de los centros": {
+   "en": "Centres' own photos",
+   "fr": "Photos propres des centres",
+   "de": "Eigene Fotos der Zentren",
+   "it": "Foto proprie dei centri",
+   "pt": "Fotos próprias dos centros",
+   "pl": "Własne zdjęcia centrów",
+   "nl": "Eigen foto's van de centra",
+   "zh": "各中心的自有照片"
+  },
+  "Si una no es adecuada, retírala: el servicio vuelve a la foto de su plantilla y el centro ve el motivo.": {
+   "en": "If one is not suitable, withdraw it: the service goes back to its template's photo and the centre sees the reason.",
+   "fr": "Si l’une n’est pas adaptée, retirez-la : le service revient à la photo de son modèle et le centre voit le motif.",
+   "de": "Ist eines ungeeignet, entferne es: Der Service kehrt zum Foto seiner Vorlage zurück und das Zentrum sieht den Grund.",
+   "it": "Se una non è adatta, ritirala: il servizio torna alla foto del suo modello e il centro vede il motivo.",
+   "pt": "Se alguma não for adequada, retira-a: o serviço volta à foto do seu modelo e o centro vê o motivo.",
+   "pl": "Jeśli któreś jest nieodpowiednie, wycofaj je: usługa wraca do zdjęcia szablonu, a centrum widzi powód.",
+   "nl": "Is er een niet geschikt, trek die dan in: de dienst krijgt weer de foto van zijn sjabloon en het centrum ziet de reden.",
+   "zh": "如有不合适的照片，请撤下：该服务会恢复为模板照片，中心会看到原因。"
+  },
+  "Ningún centro ha subido una foto propia todavía.": {
+   "en": "No centre has uploaded its own photo yet.",
+   "fr": "Aucun centre n’a encore envoyé sa propre photo.",
+   "de": "Noch kein Zentrum hat ein eigenes Foto hochgeladen.",
+   "it": "Nessun centro ha ancora caricato una foto propria.",
+   "pt": "Nenhum centro carregou ainda uma foto própria.",
+   "pl": "Żadne centrum nie przesłało jeszcze własnego zdjęcia.",
+   "nl": "Nog geen enkel centrum heeft een eigen foto geüpload.",
+   "zh": "尚无中心上传自有照片。"
+  },
+  "Retirar foto": {
+   "en": "Withdraw photo",
+   "fr": "Retirer la photo",
+   "de": "Foto entfernen",
+   "it": "Ritira foto",
+   "pt": "Retirar foto",
+   "pl": "Wycofaj zdjęcie",
+   "nl": "Foto intrekken",
+   "zh": "撤下照片"
+  },
+  "Retirar la foto propia": {
+   "en": "Withdraw the own photo",
+   "fr": "Retirer la photo propre",
+   "de": "Eigenes Foto entfernen",
+   "it": "Ritira la foto propria",
+   "pt": "Retirar a foto própria",
+   "pl": "Wycofaj własne zdjęcie",
+   "nl": "Eigen foto intrekken",
+   "zh": "撤下自有照片"
+  },
+  "El servicio vuelve a la foto de su plantilla. El centro verá el motivo.": {
+   "en": "The service goes back to its template's photo. The centre will see the reason.",
+   "fr": "Le service revient à la photo de son modèle. Le centre verra le motif.",
+   "de": "Der Service kehrt zum Foto seiner Vorlage zurück. Das Zentrum sieht den Grund.",
+   "it": "Il servizio torna alla foto del suo modello. Il centro vedrà il motivo.",
+   "pt": "O serviço volta à foto do seu modelo. O centro verá o motivo.",
+   "pl": "Usługa wraca do zdjęcia szablonu. Centrum zobaczy powód.",
+   "nl": "De dienst krijgt weer de foto van zijn sjabloon. Het centrum ziet de reden.",
+   "zh": "该服务将恢复为模板照片，中心会看到原因。"
+  },
+  "Por ejemplo: aparecen personas sin consentimiento o tiene texto encima.": {
+   "en": "For example: people appear without consent, or it has text on it.",
+   "fr": "Par exemple : des personnes apparaissent sans consentement ou il y a du texte dessus.",
+   "de": "Zum Beispiel: Es sind Personen ohne Einwilligung zu sehen oder es steht Text darauf.",
+   "it": "Per esempio: compaiono persone senza consenso o c’è del testo sopra.",
+   "pt": "Por exemplo: aparecem pessoas sem consentimento ou tem texto por cima.",
+   "pl": "Na przykład: widać osoby bez zgody albo jest na nim tekst.",
+   "nl": "Bijvoorbeeld: er staan mensen op zonder toestemming of er staat tekst op.",
+   "zh": "例如：出现未经同意的人物，或照片上有文字。"
+  },
+  "Foto retirada.": {
+   "en": "Photo withdrawn.",
+   "fr": "Photo retirée.",
+   "de": "Foto entfernt.",
+   "it": "Foto ritirata.",
+   "pt": "Foto retirada.",
+   "pl": "Zdjęcie wycofane.",
+   "nl": "Foto ingetrokken.",
+   "zh": "照片已撤下。"
+  },
+  "Cambiar foto": {
+   "en": "Change photo",
+   "fr": "Changer la photo",
+   "de": "Foto ändern",
+   "it": "Cambia foto",
+   "pt": "Mudar foto",
+   "pl": "Zmień zdjęcie",
+   "nl": "Foto wijzigen",
+   "zh": "更换照片"
+  },
+  "Poner foto": {
+   "en": "Add photo",
+   "fr": "Ajouter une photo",
+   "de": "Foto hinzufügen",
+   "it": "Aggiungi foto",
+   "pt": "Pôr foto",
+   "pl": "Dodaj zdjęcie",
+   "nl": "Foto toevoegen",
+   "zh": "添加照片"
+  },
+  "Quitar foto": {
+   "en": "Remove photo",
+   "fr": "Retirer la photo",
+   "de": "Foto entfernen",
+   "it": "Rimuovi foto",
+   "pt": "Tirar foto",
+   "pl": "Usuń zdjęcie",
+   "nl": "Foto verwijderen",
+   "zh": "移除照片"
+  },
+  "Procesando la foto…": {
+   "en": "Processing the photo…",
+   "fr": "Traitement de la photo…",
+   "de": "Foto wird verarbeitet…",
+   "it": "Elaborazione della foto…",
+   "pt": "A processar a foto…",
+   "pl": "Przetwarzanie zdjęcia…",
+   "nl": "Foto wordt verwerkt…",
+   "zh": "正在处理照片…"
+  },
+  "Sin foto: usa la foto neutra": {
+   "en": "No photo: uses the neutral photo",
+   "fr": "Sans photo : utilise la photo neutre",
+   "de": "Ohne Foto: neutrales Foto",
+   "it": "Senza foto: usa la foto neutra",
+   "pt": "Sem foto: usa a foto neutra",
+   "pl": "Bez zdjęcia: używa zdjęcia neutralnego",
+   "nl": "Geen foto: gebruikt de neutrale foto",
+   "zh": "无照片：使用通用照片"
+  },
+  "Desactivada": {
+   "en": "Switched off",
+   "fr": "Désactivé",
+   "de": "Deaktiviert",
+   "it": "Disattivato",
+   "pt": "Desativado",
+   "pl": "Wyłączony",
+   "nl": "Uitgeschakeld",
+   "zh": "已停用"
+  },
+  "Foto recibida: la estamos preparando.": {
+   "en": "Photo received: we are preparing it.",
+   "fr": "Photo reçue : nous la préparons.",
+   "de": "Foto erhalten: Wir bereiten es vor.",
+   "it": "Foto ricevuta: la stiamo preparando.",
+   "pt": "Foto recebida: estamos a prepará-la.",
+   "pl": "Zdjęcie odebrane: przygotowujemy je.",
+   "nl": "Foto ontvangen: we bereiden hem voor.",
+   "zh": "照片已收到，正在处理。"
+  },
+  "¿Quitar la foto de esta plantilla?": {
+   "en": "Remove this template's photo?",
+   "fr": "Retirer la photo de ce modèle ?",
+   "de": "Foto dieser Vorlage entfernen?",
+   "it": "Rimuovere la foto di questo modello?",
+   "pt": "Tirar a foto deste modelo?",
+   "pl": "Usunąć zdjęcie tego szablonu?",
+   "nl": "De foto van dit sjabloon verwijderen?",
+   "zh": "移除此模板的照片？"
+  },
+  "Sus servicios pasarán a la foto neutra (los que tienen foto propia no cambian).": {
+   "en": "Its services will use the neutral photo (those with their own photo do not change).",
+   "fr": "Ses services passeront à la photo neutre (ceux qui ont leur propre photo ne changent pas).",
+   "de": "Seine Services zeigen dann das neutrale Foto (die mit eigenem Foto ändern sich nicht).",
+   "it": "I suoi servizi passeranno alla foto neutra (quelli con foto propria non cambiano).",
+   "pt": "Os seus serviços passam para a foto neutra (os que têm foto própria não mudam).",
+   "pl": "Jego usługi otrzymają zdjęcie neutralne (te z własnym zdjęciem się nie zmienią).",
+   "nl": "Zijn diensten krijgen de neutrale foto (die met een eigen foto veranderen niet).",
+   "zh": "其服务将改用通用照片（有自有照片的服务不变）。"
+  },
+  "Foto quitada.": {
+   "en": "Photo removed.",
+   "fr": "Photo retirée.",
+   "de": "Foto entfernt.",
+   "it": "Foto rimossa.",
+   "pt": "Foto tirada.",
+   "pl": "Zdjęcie usunięte.",
+   "nl": "Foto verwijderd.",
+   "zh": "照片已移除。"
+  },
+  "Punto focal guardado.": {
+   "en": "Focal point saved.",
+   "fr": "Point focal enregistré.",
+   "de": "Fokuspunkt gespeichert.",
+   "it": "Punto focale salvato.",
+   "pt": "Ponto focal guardado.",
+   "pl": "Zapisano punkt centralny.",
+   "nl": "Brandpunt opgeslagen.",
+   "zh": "焦点已保存。"
+  },
+  "Editar plantilla": {
+   "en": "Edit template",
+   "fr": "Modifier le modèle",
+   "de": "Vorlage bearbeiten",
+   "it": "Modifica modello",
+   "pt": "Editar modelo",
+   "pl": "Edytuj szablon",
+   "nl": "Sjabloon bewerken",
+   "zh": "编辑模板"
+  },
+  "Nueva plantilla": {
+   "en": "New template",
+   "fr": "Nouveau modèle",
+   "de": "Neue Vorlage",
+   "it": "Nuovo modello",
+   "pt": "Novo modelo",
+   "pl": "Nowy szablon",
+   "nl": "Nieuw sjabloon",
+   "zh": "新建模板"
+  },
+  "El castellano es obligatorio; los idiomas sin texto muestran el castellano y quedan como «Pendiente de traducción».": {
+   "en": "Spanish is required; languages without text show the Spanish one and are marked «Pending translation».",
+   "fr": "L’espagnol est obligatoire ; les langues sans texte affichent l’espagnol et restent « En attente de traduction ».",
+   "de": "Spanisch ist Pflicht; Sprachen ohne Text zeigen das Spanische und gelten als „Übersetzung ausstehend“.",
+   "it": "Lo spagnolo è obbligatorio; le lingue senza testo mostrano lo spagnolo e restano «In attesa di traduzione».",
+   "pt": "O espanhol é obrigatório; os idiomas sem texto mostram o espanhol e ficam como «Tradução pendente».",
+   "pl": "Hiszpański jest obowiązkowy; języki bez tekstu pokazują hiszpański i są oznaczone jako „Oczekuje na tłumaczenie”.",
+   "nl": "Spaans is verplicht; talen zonder tekst tonen het Spaans en staan als ‘Vertaling in afwachting’.",
+   "zh": "西班牙语为必填；未填写的语言会显示西班牙语，并标记为“待翻译”。"
+  },
+  "Duración orientativa (min)": {
+   "en": "Approximate duration (min)",
+   "fr": "Durée indicative (min)",
+   "de": "Ungefähre Dauer (Min.)",
+   "it": "Durata indicativa (min)",
+   "pt": "Duração orientativa (min)",
+   "pl": "Orientacyjny czas trwania (min)",
+   "nl": "Indicatieve duur (min)",
+   "zh": "参考时长（分钟）"
+  },
+  "Plazas orientativas": {
+   "en": "Approximate places",
+   "fr": "Places indicatives",
+   "de": "Ungefähre Plätze",
+   "it": "Posti indicativi",
+   "pt": "Vagas orientativas",
+   "pl": "Orientacyjna liczba miejsc",
+   "nl": "Indicatieve plaatsen",
+   "zh": "参考名额"
+  },
+  "Crédito de la foto": {
+   "en": "Photo credit",
+   "fr": "Crédit de la photo",
+   "de": "Bildnachweis",
+   "it": "Credito della foto",
+   "pt": "Crédito da foto",
+   "pl": "Autor zdjęcia",
+   "nl": "Fotocredit",
+   "zh": "照片署名"
+  },
+  "Descripción base": {
+   "en": "Base description",
+   "fr": "Description de base",
+   "de": "Grundbeschreibung",
+   "it": "Descrizione base",
+   "pt": "Descrição base",
+   "pl": "Opis podstawowy",
+   "nl": "Basisbeschrijving",
+   "zh": "基础描述"
+  },
+  "Los centros pueden elegirla al crear un servicio.": {
+   "en": "Centres can choose it when creating a service.",
+   "fr": "Les centres peuvent le choisir en créant un service.",
+   "de": "Zentren können sie beim Anlegen eines Services wählen.",
+   "it": "I centri possono sceglierlo quando creano un servizio.",
+   "pt": "Os centros podem escolhê-lo ao criar um serviço.",
+   "pl": "Centra mogą go wybrać przy tworzeniu usługi.",
+   "nl": "Centra kunnen het kiezen bij het maken van een dienst.",
+   "zh": "中心创建服务时可选择此模板。"
+  },
+  "Guardar plantilla": {
+   "en": "Save template",
+   "fr": "Enregistrer le modèle",
+   "de": "Vorlage speichern",
+   "it": "Salva modello",
+   "pt": "Guardar modelo",
+   "pl": "Zapisz szablon",
+   "nl": "Sjabloon opslaan",
+   "zh": "保存模板"
+  },
+  "Plantilla guardada.": {
+   "en": "Template saved.",
+   "fr": "Modèle enregistré.",
+   "de": "Vorlage gespeichert.",
+   "it": "Modello salvato.",
+   "pt": "Modelo guardado.",
+   "pl": "Zapisano szablon.",
+   "nl": "Sjabloon opgeslagen.",
+   "zh": "模板已保存。"
+  },
+  "Pago al reservar si el centro cobra online": {
+   "en": "Pay when booking if the centre takes online payments",
+   "fr": "Paiement à la réservation si le centre encaisse en ligne",
+   "de": "Zahlung bei Buchung, wenn das Zentrum online kassiert",
+   "it": "Pagamento alla prenotazione se il centro incassa online",
+   "pt": "Pagamento ao reservar se o centro cobra online",
+   "pl": "Płatność przy rezerwacji, jeśli centrum przyjmuje płatności online",
+   "nl": "Betalen bij boeken als het centrum online betalingen ontvangt",
+   "zh": "若中心开通在线收款，则预订时付款"
+  },
+  "Cargando plantillas…": {
+   "en": "Loading templates…",
+   "fr": "Chargement des modèles…",
+   "de": "Vorlagen werden geladen…",
+   "it": "Caricamento modelli…",
+   "pt": "A carregar modelos…",
+   "pl": "Wczytywanie szablonów…",
+   "nl": "Sjablonen laden…",
+   "zh": "正在加载模板…"
+  },
+  "No se han podido cargar las plantillas": {
+   "en": "The templates could not be loaded",
+   "fr": "Les modèles n’ont pas pu être chargés",
+   "de": "Die Vorlagen konnten nicht geladen werden",
+   "it": "Non è stato possibile caricare i modelli",
+   "pt": "Não foi possível carregar os modelos",
+   "pl": "Nie udało się wczytać szablonów",
+   "nl": "De sjablonen konden niet worden geladen",
+   "zh": "无法加载模板"
+  },
+  "Foto neutra de los servicios": {
+   "en": "Neutral photo for services",
+   "fr": "Photo neutre des services",
+   "de": "Neutrales Foto der Services",
+   "it": "Foto neutra dei servizi",
+   "pt": "Foto neutra dos serviços",
+   "pl": "Neutralne zdjęcie usług",
+   "nl": "Neutrale foto voor diensten",
+   "zh": "服务通用照片"
+  },
+  "Fondo de las tarjetas de servicio sin plantilla ni foto propia": {
+   "en": "Background of service cards with neither a template nor their own photo",
+   "fr": "Fond des cartes de service sans modèle ni photo propre",
+   "de": "Hintergrund der Servicekarten ohne Vorlage und ohne eigenes Foto",
+   "it": "Sfondo delle schede di servizio senza modello né foto propria",
+   "pt": "Fundo dos cartões de serviço sem modelo nem foto própria",
+   "pl": "Tło kart usług bez szablonu i bez własnego zdjęcia",
+   "nl": "Achtergrond van dienstkaarten zonder sjabloon of eigen foto",
+   "zh": "无模板且无自有照片的服务卡片背景"
+  },
+  "Tarjetas de servicio": {
+   "en": "Service cards",
+   "fr": "Cartes de service",
+   "de": "Servicekarten",
+   "it": "Schede di servizio",
+   "pt": "Cartões de serviço",
+   "pl": "Karty usług",
+   "nl": "Dienstkaarten",
+   "zh": "服务卡片"
+  },
+  "Costa Brava": {
+   "en": "Costa Brava",
+   "fr": "Costa Brava",
+   "de": "Costa Brava",
+   "it": "Costa Brava",
+   "pt": "Costa Brava",
+   "pl": "Costa Brava",
+   "nl": "Costa Brava",
+   "zh": "布拉瓦海岸"
+  },
+  "Comunidad Valenciana": {
+   "en": "Valencia region",
+   "fr": "Communauté valencienne",
+   "de": "Region Valencia",
+   "it": "Comunità Valenciana",
+   "pt": "Comunidade Valenciana",
+   "pl": "Wspólnota Walencka",
+   "nl": "Valencia (regio)",
+   "zh": "瓦伦西亚自治区"
+  },
+  "Murcia": {
+   "en": "Murcia",
+   "fr": "Murcie",
+   "de": "Murcia",
+   "it": "Murcia",
+   "pt": "Múrcia",
+   "pl": "Murcja",
+   "nl": "Murcia",
+   "zh": "穆尔西亚"
+  },
+  "Andalucía": {
+   "en": "Andalusia",
+   "fr": "Andalousie",
+   "de": "Andalusien",
+   "it": "Andalusia",
+   "pt": "Andaluzia",
+   "pl": "Andaluzja",
+   "nl": "Andalusië",
+   "zh": "安达卢西亚"
+  },
+  "Baleares": {
+   "en": "Balearic Islands",
+   "fr": "Baléares",
+   "de": "Balearen",
+   "it": "Baleari",
+   "pt": "Baleares",
+   "pl": "Baleary",
+   "nl": "Balearen",
+   "zh": "巴利阿里群岛"
+  },
+  "Canarias": {
+   "en": "Canary Islands",
+   "fr": "Canaries",
+   "de": "Kanaren",
+   "it": "Canarie",
+   "pt": "Canárias",
+   "pl": "Wyspy Kanaryjskie",
+   "nl": "Canarische Eilanden",
+   "zh": "加那利群岛"
+  },
+  "Cantábrico": {
+   "en": "Cantabrian coast",
+   "fr": "Côte cantabrique",
+   "de": "Kantabrische Küste",
+   "it": "Costa cantabrica",
+   "pt": "Costa cantábrica",
+   "pl": "Wybrzeże Kantabryjskie",
+   "nl": "Cantabrische kust",
+   "zh": "坎塔布里亚海岸"
+  },
+  "Galicia": {
+   "en": "Galicia",
+   "fr": "Galice",
+   "de": "Galicien",
+   "it": "Galizia",
+   "pt": "Galiza",
+   "pl": "Galicja",
+   "nl": "Galicië",
+   "zh": "加利西亚"
+  },
+  "Costa Daurada y Barcelona": {
+   "en": "Costa Daurada and Barcelona",
+   "fr": "Costa Daurada et Barcelone",
+   "de": "Costa Daurada und Barcelona",
+   "it": "Costa Daurada e Barcellona",
+   "pt": "Costa Daurada e Barcelona",
+   "pl": "Costa Daurada i Barcelona",
+   "nl": "Costa Daurada en Barcelona",
+   "zh": "黄金海岸与巴塞罗那"
+  },
+  "La foto es demasiado pequeña: el mínimo es 320 × 180 px (mejor 1440 × 810 px o más).": {
+   "en": "The photo is too small: the minimum is 320 × 180 px (1440 × 810 px or more is better).",
+   "fr": "La photo est trop petite : le minimum est de 320 × 180 px (1440 × 810 px ou plus, c’est mieux).",
+   "de": "Das Foto ist zu klein: Mindestens 320 × 180 px (besser 1440 × 810 px oder mehr).",
+   "it": "La foto è troppo piccola: il minimo è 320 × 180 px (meglio 1440 × 810 px o più).",
+   "pt": "A foto é demasiado pequena: o mínimo é 320 × 180 px (melhor 1440 × 810 px ou mais).",
+   "pl": "Zdjęcie jest za małe: minimum to 320 × 180 px (lepiej 1440 × 810 px lub więcej).",
+   "nl": "De foto is te klein: minimaal 320 × 180 px (beter 1440 × 810 px of meer).",
+   "zh": "照片太小：最小 320 × 180 像素（建议 1440 × 810 像素或以上）。"
+  },
+  "La foto no se ha podido preparar: {x}": {
+   "en": "The photo could not be prepared: {x}",
+   "fr": "La photo n’a pas pu être préparée : {x}",
+   "de": "Das Foto konnte nicht vorbereitet werden: {x}",
+   "it": "Non è stato possibile preparare la foto: {x}",
+   "pt": "Não foi possível preparar a foto: {x}",
+   "pl": "Nie udało się przygotować zdjęcia: {x}",
+   "nl": "De foto kon niet worden voorbereid: {x}",
+   "zh": "无法处理照片：{x}"
+  },
+  "Buenos días. Hoy no hay reservas en agenda.": {
+   "en": "Good morning. No bookings on the schedule today.",
+   "fr": "Bonjour. Aucune réservation au planning aujourd’hui.",
+   "de": "Guten Morgen. Heute stehen keine Buchungen im Plan.",
+   "it": "Buongiorno. Oggi non ci sono prenotazioni in agenda.",
+   "pt": "Bom dia. Hoje não há reservas na agenda.",
+   "pl": "Dzień dobry. Dziś nie ma rezerwacji w grafiku.",
+   "nl": "Goedemorgen. Vandaag staan er geen boekingen in de planning.",
+   "zh": "早上好。今天日程中没有预订。"
+  },
+  "Buenas tardes. Hoy no hay reservas en agenda.": {
+   "en": "Good afternoon. No bookings on the schedule today.",
+   "fr": "Bon après-midi. Aucune réservation au planning aujourd’hui.",
+   "de": "Guten Tag. Heute stehen keine Buchungen im Plan.",
+   "it": "Buon pomeriggio. Oggi non ci sono prenotazioni in agenda.",
+   "pt": "Boa tarde. Hoje não há reservas na agenda.",
+   "pl": "Dzień dobry. Dziś nie ma rezerwacji w grafiku.",
+   "nl": "Goedemiddag. Vandaag staan er geen boekingen in de planning.",
+   "zh": "下午好。今天日程中没有预订。"
+  },
+  "Instructor máster": {
+   "en": "Master instructor",
+   "fr": "Instructeur master",
+   "de": "Master-Instructor",
+   "it": "Istruttore master",
+   "pt": "Instrutor master",
+   "pl": "Instruktor master",
+   "nl": "Masterinstructeur",
+   "zh": "高级教练"
+  },
+  "canjeados": {
+   "en": "redeemed",
+   "fr": "échangés",
+   "de": "eingelöst",
+   "it": "riscattati",
+   "pt": "trocados",
+   "pl": "wykorzystane",
+   "nl": "ingewisseld",
+   "zh": "已兑换"
+  },
+  "Indica el motivo para ver o cambiar datos de un centro: queda registrado en la actividad.": {
+   "en": "Give the reason to view or change a centre's data: it is recorded in the activity log.",
+   "fr": "Indiquez le motif pour voir ou modifier les données d’un centre : il est enregistré dans l’activité.",
+   "de": "Gib den Grund an, um Daten eines Zentrums anzusehen oder zu ändern: Er wird im Aktivitätsprotokoll gespeichert.",
+   "it": "Indica il motivo per vedere o modificare i dati di un centro: resta registrato nell’attività.",
+   "pt": "Indica o motivo para ver ou alterar os dados de um centro: fica registado na atividade.",
+   "pl": "Podaj powód, aby zobaczyć lub zmienić dane centrum: zostanie zapisany w dzienniku aktywności.",
+   "nl": "Geef de reden op om gegevens van een centrum te bekijken of te wijzigen: die wordt vastgelegd in de activiteit.",
+   "zh": "请说明查看或修改中心数据的原因：将记录在活动日志中。"
+  },
+  "Toca la vista previa o usa las flechas para elegir el punto de la foto que debe verse siempre.": {
+   "en": "Tap the preview or use the arrow keys to choose the part of the photo that must always show.",
+   "fr": "Touchez l’aperçu ou utilisez les flèches pour choisir le point de la photo qui doit toujours être visible.",
+   "de": "Tippe auf die Vorschau oder nutze die Pfeiltasten, um den Bildpunkt zu wählen, der immer sichtbar sein soll.",
+   "it": "Tocca l’anteprima o usa le frecce per scegliere il punto della foto che deve vedersi sempre.",
+   "pt": "Toca na pré-visualização ou usa as setas para escolher o ponto da foto que deve ver-se sempre.",
+   "pl": "Dotknij podglądu lub użyj strzałek, aby wybrać miejsce zdjęcia, które ma być zawsze widoczne.",
+   "nl": "Tik op het voorbeeld of gebruik de pijltjestoetsen om het punt van de foto te kiezen dat altijd zichtbaar moet zijn.",
+   "zh": "点击预览或使用方向键，选择照片中始终要显示的位置。"
+  },
+  "Toca la foto o usa las flechas para elegir su punto focal": {
+   "en": "Tap the photo or use the arrow keys to choose its focal point",
+   "fr": "Touchez la photo ou utilisez les flèches pour choisir son point focal",
+   "de": "Tippe auf das Foto oder nutze die Pfeiltasten, um seinen Fokuspunkt zu wählen",
+   "it": "Tocca la foto o usa le frecce per scegliere il punto focale",
+   "pt": "Toca na foto ou usa as setas para escolher o ponto focal",
+   "pl": "Dotknij zdjęcia lub użyj strzałek, aby wybrać punkt centralny",
+   "nl": "Tik op de foto of gebruik de pijltjestoetsen om het brandpunt te kiezen",
+   "zh": "点击照片或使用方向键选择焦点"
+  }
+ },
+ "patterns": {
+  "Los más cercanos a {x}": {
+   "en": "The closest to {x}",
+   "fr": "Les plus proches de {x}",
+   "de": "Die nächstgelegenen zu {x}",
+   "it": "I più vicini a {x}",
+   "pt": "Os mais próximos de {x}",
+   "pl": "Najbliższe miejscu {x}",
+   "nl": "Het dichtst bij {x}",
+   "zh": "离{x}最近的潜点"
+  },
+  "Puntos de buceo en {x}": {
+   "en": "Dive sites in {x}",
+   "fr": "Sites de plongée en {x}",
+   "de": "Tauchplätze in {x}",
+   "it": "Punti di immersione in {x}",
+   "pt": "Pontos de mergulho em {x}",
+   "pl": "Miejsca nurkowe: {x}",
+   "nl": "Duikstekken in {x}",
+   "zh": "{x}的潜点"
+  },
+  "Otras zonas de {x}": {
+   "en": "Other areas of {x}",
+   "fr": "Autres zones de {x}",
+   "de": "Weitere Gebiete in {x}",
+   "it": "Altre zone di {x}",
+   "pt": "Outras zonas de {x}",
+   "pl": "Inne rejony: {x}",
+   "nl": "Andere gebieden van {x}",
+   "zh": "{x}其他区域"
+  },
+  "Top 10 de {x}": {
+   "en": "Top 10 of {x}",
+   "fr": "Top 10 de {x}",
+   "de": "Top 10 in {x}",
+   "it": "Top 10 di {x}",
+   "pt": "Top 10 de {x}",
+   "pl": "Top 10: {x}",
+   "nl": "Top 10 van {x}",
+   "zh": "{x}前十名"
+  },
+  "Los mejores buceos a menos de {n} km": {
+   "en": "The best dives within {n} km",
+   "fr": "Les meilleures plongées à moins de {n} km",
+   "de": "Die besten Tauchgänge im Umkreis von {n} km",
+   "it": "Le immersioni migliori entro {n} km",
+   "pt": "Os melhores mergulhos a menos de {n} km",
+   "pl": "Najlepsze nurkowania w promieniu {n} km",
+   "nl": "De beste duiken binnen {n} km",
+   "zh": "{n} 公里内的最佳潜水"
+  },
+  "Los mejores buceos a menos de {n} km.": {
+   "en": "The best dives within {n} km.",
+   "fr": "Les meilleures plongées à moins de {n} km.",
+   "de": "Die besten Tauchgänge im Umkreis von {n} km.",
+   "it": "Le immersioni migliori entro {n} km.",
+   "pt": "Os melhores mergulhos a menos de {n} km.",
+   "pl": "Najlepsze nurkowania w promieniu {n} km.",
+   "nl": "De beste duiken binnen {n} km.",
+   "zh": "{n} 公里内的最佳潜水。"
+  },
+  "tu ubicación es aproximada (± {n} km)": {
+   "en": "your location is approximate (± {n} km)",
+   "fr": "votre position est approximative (± {n} km)",
+   "de": "dein Standort ist ungefähr (± {n} km)",
+   "it": "la tua posizione è approssimativa (± {n} km)",
+   "pt": "a tua localização é aproximada (± {n} km)",
+   "pl": "twoja lokalizacja jest przybliżona (± {n} km)",
+   "nl": "je locatie is bij benadering (± {n} km)",
+   "zh": "你的位置为大致位置（± {n} 公里）"
+  },
+  "No hay puntos a menos de {n} km": {
+   "en": "No dive sites within {n} km",
+   "fr": "Aucun site à moins de {n} km",
+   "de": "Keine Tauchplätze im Umkreis von {n} km",
+   "it": "Nessun punto entro {n} km",
+   "pt": "Não há pontos a menos de {n} km",
+   "pl": "Brak miejsc w promieniu {n} km",
+   "nl": "Geen duikstekken binnen {n} km",
+   "zh": "{n} 公里内没有潜点"
+  },
+  "Ver todos los puntos ({n})": {
+   "en": "See all dive sites ({n})",
+   "fr": "Voir tous les sites ({n})",
+   "de": "Alle Tauchplätze anzeigen ({n})",
+   "it": "Vedi tutti i punti ({n})",
+   "pt": "Ver todos os pontos ({n})",
+   "pl": "Zobacz wszystkie miejsca ({n})",
+   "nl": "Alle duikstekken bekijken ({n})",
+   "zh": "查看全部潜点（{n}）"
+  },
+  "La administración ha retirado la foto: {x}": {
+   "en": "The administration has withdrawn the photo: {x}",
+   "fr": "L’administration a retiré la photo : {x}",
+   "de": "Die Verwaltung hat das Foto entfernt: {x}",
+   "it": "L’amministrazione ha ritirato la foto: {x}",
+   "pt": "A administração retirou a foto: {x}",
+   "pl": "Administracja wycofała zdjęcie: {x}",
+   "nl": "De beheerder heeft de foto ingetrokken: {x}",
+   "zh": "管理员已撤下照片：{x}"
+  },
+  "Pendiente de traducción: {n} idiomas": {
+   "en": "Pending translation: {n} languages",
+   "fr": "En attente de traduction : {n} langues",
+   "de": "Übersetzung ausstehend: {n} Sprachen",
+   "it": "In attesa di traduzione: {n} lingue",
+   "pt": "Tradução pendente: {n} idiomas",
+   "pl": "Oczekuje na tłumaczenie: {n} języki",
+   "nl": "Vertaling in afwachting: {n} talen",
+   "zh": "待翻译：{n} 种语言"
+  },
+  "Pendiente de traducción: {n} idioma": {
+   "en": "Pending translation: {n} language",
+   "fr": "En attente de traduction : {n} langue",
+   "de": "Übersetzung ausstehend: {n} Sprache",
+   "it": "In attesa di traduzione: {n} lingua",
+   "pt": "Tradução pendente: {n} idioma",
+   "pl": "Oczekuje na tłumaczenie: {n} język",
+   "nl": "Vertaling in afwachting: {n} taal",
+   "zh": "待翻译：{n} 种语言"
+  },
+  "{n} servicios la usan": {
+   "en": "{n} services use it",
+   "fr": "{n} services l’utilisent",
+   "de": "{n} Services nutzen sie",
+   "it": "{n} servizi lo usano",
+   "pt": "{n} serviços usam-no",
+   "pl": "Używa go {n} usług",
+   "nl": "{n} diensten gebruiken het",
+   "zh": "{n} 项服务在使用"
+  },
+  "{n} servicio la usa": {
+   "en": "{n} service uses it",
+   "fr": "{n} service l’utilise",
+   "de": "{n} Service nutzt sie",
+   "it": "{n} servizio lo usa",
+   "pt": "{n} serviço usa-o",
+   "pl": "Używa go {n} usługa",
+   "nl": "{n} dienst gebruikt het",
+   "zh": "{n} 项服务在使用"
+  },
+  "Qué puede hacer {x}": {
+   "en": "What {x} can do",
+   "fr": "Ce que peut faire {x}",
+   "de": "Was {x} tun kann",
+   "it": "Cosa può fare {x}",
+   "pt": "O que pode fazer {x}",
+   "pl": "Co może robić {x}",
+   "nl": "Wat {x} kan doen",
+   "zh": "{x}可以做什么"
+  }
+ }
+}

@@ -1,0 +1,92 @@
+{
+ "Botón de reservas para la web de {center}": {
+  "en": "Booking button for the {center} website",
+  "fr": "Bouton de réservation pour le site de {center}",
+  "de": "Buchungsbutton für die Website von {center}",
+  "it": "Pulsante di prenotazione per il sito di {center}",
+  "pt": "Botão de reservas para o site de {center}",
+  "pl": "Przycisk rezerwacji na stronę {center}",
+  "nl": "Boekknop voor de website van {center}",
+  "zh": "{center}网站的预订按钮"
+ },
+ "El código y cómo ponerlo, en 3 pasos.": {
+  "en": "The code and how to add it, in 3 steps.",
+  "fr": "Le code et comment l'ajouter, en 3 étapes.",
+  "de": "Der Code und wie man ihn einbaut, in 3 Schritten.",
+  "it": "Il codice e come inserirlo, in 3 passi.",
+  "pt": "O código e como o pôr, em 3 passos.",
+  "pl": "Kod i jak go wstawić, w 3 krokach.",
+  "nl": "De code en hoe je hem plaatst, in 3 stappen.",
+  "zh": "代码及三步添加方法。"
+ },
+ "Hola{helper_hello}, {center} quiere poner en su web su botón de reservas de WORLDIVES DISCOVERY. Los clientes reservan y pagan sin salir de la web y la reserva le entra sola en su planning.": {
+  "en": "Hello{helper_hello}, {center} wants to add its WORLDIVES DISCOVERY booking button to its website. Customers book and pay without leaving the website and the booking goes straight into its planner.",
+  "fr": "Bonjour{helper_hello}, {center} souhaite ajouter son bouton de réservation WORLDIVES DISCOVERY à son site. Les clients réservent et paient sans quitter le site et la réservation arrive seule dans son planning.",
+  "de": "Hallo{helper_hello}, {center} möchte seinen WORLDIVES-DISCOVERY-Buchungsbutton auf seiner Website einbauen. Die Kunden buchen und bezahlen, ohne die Website zu verlassen, und die Buchung landet automatisch in der Planung.",
+  "it": "Ciao{helper_hello}, {center} vuole mettere sul suo sito il pulsante di prenotazione di WORLDIVES DISCOVERY. I clienti prenotano e pagano senza lasciare il sito e la prenotazione entra da sola nel suo planning.",
+  "pt": "Olá{helper_hello}, {center} quer pôr no seu site o botão de reservas da WORLDIVES DISCOVERY. Os clientes reservam e pagam sem sair do site e a reserva entra sozinha no seu planeamento.",
+  "pl": "Cześć{helper_hello}, {center} chce dodać na swoją stronę przycisk rezerwacji WORLDIVES DISCOVERY. Klienci rezerwują i płacą bez wychodzenia ze strony, a rezerwacja sama trafia do planu.",
+  "nl": "Hallo{helper_hello}, {center} wil de boekknop van WORLDIVES DISCOVERY op zijn website zetten. Klanten boeken en betalen zonder de website te verlaten en de boeking komt vanzelf in de planning.",
+  "zh": "你好{helper_hello}，{center}想在其网站上添加WORLDIVES DISCOVERY预订按钮。客户无需离开网站即可预订和付款，预订会自动进入其日程。"
+ },
+ "Mientras tanto, o si no hay web, también vale este enlace de reservas: {page}": {
+  "en": "Meanwhile, or without a website, this booking link also works: {page}",
+  "fr": "En attendant, ou sans site, ce lien de réservation fonctionne aussi : {page}",
+  "de": "In der Zwischenzeit, oder ohne Website, funktioniert auch dieser Buchungslink: {page}",
+  "it": "Nel frattempo, o senza sito, va bene anche questo link di prenotazione: {page}",
+  "pt": "Entretanto, ou sem site, também serve este link de reservas: {page}",
+  "pl": "Tymczasem, albo bez strony, działa też ten link do rezerwacji: {page}",
+  "nl": "Ondertussen, of zonder website, werkt ook deze boekingslink: {page}",
+  "zh": "在此期间或没有网站时，也可使用此预订链接：{page}"
+ },
+ "Pega este código en la web, donde deba aparecer el botón:": {
+  "en": "Paste this code on the website, where the button should appear:",
+  "fr": "Collez ce code sur le site, là où le bouton doit apparaître :",
+  "de": "Füge diesen Code in die Website ein, wo der Button erscheinen soll:",
+  "it": "Incolla questo codice nel sito, dove deve comparire il pulsante:",
+  "pt": "Cola este código no site, onde o botão deve aparecer:",
+  "pl": "Wklej ten kod na stronie, tam gdzie ma być przycisk:",
+  "nl": "Plak deze code op de website, waar de knop moet komen:",
+  "zh": "请把这段代码粘贴到网站上需要显示按钮的位置："
+ },
+ "Si es otra plataforma y deja pegar HTML, funciona igual. Cuando esté publicado, {center} lo comprueba en WORLDIVES con «Comprobar» y su web queda autorizada.": {
+  "en": "If it is another platform and it lets you paste HTML, it works the same. Once it is published, {center} checks it in WORLDIVES with «Check» and its website is authorised.",
+  "fr": "S'il s'agit d'une autre plateforme qui permet de coller du HTML, cela fonctionne pareil. Une fois publié, {center} le vérifie dans WORLDIVES avec « Vérifier » et son site est autorisé.",
+  "de": "Bei einer anderen Plattform, die HTML erlaubt, funktioniert es genauso. Sobald es veröffentlicht ist, prüft {center} es in WORLDIVES mit „Prüfen“ und die Website wird freigeschaltet.",
+  "it": "Se è un'altra piattaforma e permette di incollare HTML, funziona uguale. Quando è pubblicato, {center} lo controlla in WORLDIVES con «Controlla» e il suo sito viene autorizzato.",
+  "pt": "Se for outra plataforma e deixar colar HTML, funciona igual. Quando estiver publicado, {center} verifica-o no WORLDIVES com «Verificar» e o site fica autorizado.",
+  "pl": "Jeśli to inna platforma i pozwala wkleić HTML, działa tak samo. Po publikacji {center} sprawdza to w WORLDIVES przyciskiem „Sprawdź” i strona zostaje autoryzowana.",
+  "nl": "Is het een ander platform dat HTML toestaat, dan werkt het hetzelfde. Zodra het gepubliceerd is, controleert {center} het in WORLDIVES met „Controleren” en krijgt de website toestemming.",
+  "zh": "如果是其他可粘贴HTML的平台，同样可用。发布后，{center}会在WORLDIVES中点「检查」，其网站即获授权。"
+ },
+ "Squarespace: edita la página, pulsa «Añadir bloque» → «Código», pega el código y guarda.": {
+  "en": "Squarespace: edit the page, press «Add Block» → «Code», paste the code and save.",
+  "fr": "Squarespace : modifiez la page, appuyez sur « Ajouter un bloc » → « Code », collez le code et enregistrez.",
+  "de": "Squarespace: Seite bearbeiten, „Block hinzufügen“ → „Code“, Code einfügen und speichern.",
+  "it": "Squarespace: modifica la pagina, premi «Aggiungi blocco» → «Codice», incolla il codice e salva.",
+  "pt": "Squarespace: edita a página, carrega em «Adicionar bloco» → «Código», cola o código e guarda.",
+  "pl": "Squarespace: edytuj stronę, naciśnij „Dodaj blok” → „Kod”, wklej kod i zapisz.",
+  "nl": "Squarespace: bewerk de pagina, druk op „Blok toevoegen” → „Code”, plak de code en sla op.",
+  "zh": "Squarespace：编辑页面，点「添加区块」→「代码」，粘贴代码并保存。"
+ },
+ "Wix: «Añadir elementos» → «Insertar código» → «Código integrado», pega el código y publica la web.": {
+  "en": "Wix: «Add Elements» → «Embed Code» → «Embed HTML», paste the code and publish the website.",
+  "fr": "Wix : « Ajouter des éléments » → « Intégrer du code » → « Code intégré », collez le code et publiez le site.",
+  "de": "Wix: „Elemente hinzufügen“ → „Code einbetten“ → „HTML einbetten“, Code einfügen und Website veröffentlichen.",
+  "it": "Wix: «Aggiungi elementi» → «Incorpora codice» → «Codice incorporato», incolla il codice e pubblica il sito.",
+  "pt": "Wix: «Adicionar elementos» → «Incorporar código» → «Código incorporado», cola o código e publica o site.",
+  "pl": "Wix: „Dodaj elementy” → „Osadź kod” → „Osadzony kod”, wklej kod i opublikuj stronę.",
+  "nl": "Wix: „Elementen toevoegen” → „Code insluiten” → „HTML insluiten”, plak de code en publiceer de website.",
+  "zh": "Wix：「添加元素」→「嵌入代码」→「嵌入HTML」，粘贴代码并发布网站。"
+ },
+ "WordPress: en la página, pulsa «+», añade un bloque «HTML personalizado», pega el código y pulsa «Actualizar».": {
+  "en": "WordPress: on the page, press «+», add a «Custom HTML» block, paste the code and press «Update».",
+  "fr": "WordPress : sur la page, appuyez sur « + », ajoutez un bloc « HTML personnalisé », collez le code et appuyez sur « Mettre à jour ».",
+  "de": "WordPress: auf der Seite „+“ drücken, einen Block „Individuelles HTML“ hinzufügen, Code einfügen und „Aktualisieren“ drücken.",
+  "it": "WordPress: nella pagina premi «+», aggiungi un blocco «HTML personalizzato», incolla il codice e premi «Aggiorna».",
+  "pt": "WordPress: na página, carrega em «+», adiciona um bloco «HTML personalizado», cola o código e carrega em «Atualizar».",
+  "pl": "WordPress: na stronie naciśnij „+”, dodaj blok „Własny HTML”, wklej kod i naciśnij „Aktualizuj”.",
+  "nl": "WordPress: druk op de pagina op „+”, voeg een blok „Aangepaste HTML” toe, plak de code en druk op „Bijwerken”.",
+  "zh": "WordPress：在页面上点「+」，添加「自定义HTML」区块，粘贴代码后点「更新」。"
+ }
+}

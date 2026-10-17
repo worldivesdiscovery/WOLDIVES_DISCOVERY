@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">WORLDIVES Pruebas</string>
+    <string name="title_activity_main">WORLDIVES Pruebas</string>
+    <string name="package_name">com.worldives.app.pruebas</string>
+    <string name="custom_url_scheme">com.worldives.app.pruebas</string>
+</resources>

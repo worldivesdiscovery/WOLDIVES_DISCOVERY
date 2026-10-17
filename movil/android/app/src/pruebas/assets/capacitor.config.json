@@ -1,0 +1,18 @@
+{
+  "appId": "com.worldives.app.pruebas",
+  "appName": "WORLDIVES Pruebas",
+  "webDir": "www",
+  "backgroundColor": "#011C3C",
+  "appendUserAgent": "WorldivesApp/1.0 pruebas",
+  "server": {
+    "errorPath": "sin-conexion.html",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 800, "launchAutoHide": true, "backgroundColor": "#011C3C", "showSpinner": false }
+  }
+}

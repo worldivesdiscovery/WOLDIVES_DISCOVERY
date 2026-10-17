@@ -1,0 +1,10 @@
+# WORLDIVES DISCOVERY · dependencias del servidor con la versión exacta probada (v50.51).
+# Se revisan cada semana contra las vulnerabilidades conocidas (.github/workflows/dependencias.yml).
+# Para actualizar: cambia la versión aquí, pasa las pruebas (tests/) y despliega con pip install -r requirements.txt.
+# Python 3.11 o superior (Debian 12 trae 3.11; Ubuntu 24.04, 3.12).
+stripe==12.5.1          # pagos (Stripe Connect)
+qrcode==8.2             # códigos QR de reservas y check-in
+fonttools==4.66.1       # recorta la fuente de los bonos en PDF a las letras que usan
+cryptography==50.0.2    # teléfonos, secretos y copias cifrados (AES-GCM)
+Pillow==12.3.0          # miniaturas de vídeos y fotos de especies en WebP
+tzdata==2026.5          # zonas horarias (v50.57): Windows no las trae y sin ellas no abrían los paneles

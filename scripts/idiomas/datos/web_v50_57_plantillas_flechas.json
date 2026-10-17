@@ -1,0 +1,7 @@
+{
+ "exact": {
+  "Ya es la primera: no se puede subir más": {"en": "Already first: it cannot move up", "fr": "Déjà en premier : impossible de monter plus", "de": "Schon an erster Stelle: weiter nach oben geht nicht", "it": "È già la prima: non può salire di più", "pt": "Já é a primeira: não pode subir mais", "pl": "To już pierwsza: nie można przesunąć wyżej", "nl": "Staat al bovenaan: kan niet hoger", "zh": "已是第一个：无法再上移"},
+  "Ya es la última: no se puede bajar más": {"en": "Already last: it cannot move down", "fr": "Déjà en dernier : impossible de descendre plus", "de": "Schon an letzter Stelle: weiter nach unten geht nicht", "it": "È già l'ultima: non può scendere di più", "pt": "Já é a última: não pode descer mais", "pl": "To już ostatnia: nie można przesunąć niżej", "nl": "Staat al onderaan: kan niet lager", "zh": "已是最后一个：无法再下移"}
+ },
+ "patterns": {}
+}

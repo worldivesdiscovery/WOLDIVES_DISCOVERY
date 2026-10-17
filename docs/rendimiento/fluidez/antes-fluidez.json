@@ -1,0 +1,783 @@
+{
+ "fecha": "2026-10-17 16:50",
+ "commit": "d62697b",
+ "perfiles": {
+  "android": {
+   "label": "Android de gama media",
+   "cpu": 4,
+   "hz": 60
+  },
+  "movil120": {
+   "label": "Móvil de 120 Hz",
+   "cpu": 2,
+   "hz": 120
+  },
+  "ordenador": {
+   "label": "Ordenador normal",
+   "cpu": 1,
+   "hz": 60
+  }
+ },
+ "pantallas": {
+  "inicio": {
+   "pantalla": "Inicio y buscador",
+   "ruta": "#/",
+   "cuenta": "visitante",
+   "perfiles": {
+    "android": {
+     "accion": "escribir en el buscador y bajar por la portada",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 312,
+      "cls": 0.007,
+      "tareas_largas": 3,
+      "bloqueo_ms": 347
+     },
+     "interaccion": {
+      "fotogramas": 198,
+      "trabajo_p50_ms": 1,
+      "trabajo_p95_ms": 7,
+      "trabajo_max_ms": 61.4,
+      "perdidos_120hz_pct": 2.1,
+      "perdidos_60hz_pct": 0.5,
+      "perdidos_perfil_pct": 0.5,
+      "tareas_largas": 3,
+      "tarea_mas_larga_ms": 246,
+      "inp_ms": 32
+     }
+    },
+    "movil120": {
+     "accion": "escribir en el buscador y bajar por la portada",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 192,
+      "cls": 0,
+      "tareas_largas": 1,
+      "bloqueo_ms": 133
+     },
+     "interaccion": {
+      "fotogramas": 204,
+      "trabajo_p50_ms": 0.5,
+      "trabajo_p95_ms": 2.9,
+      "trabajo_max_ms": 12.1,
+      "perdidos_120hz_pct": 0.5,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.5,
+      "tareas_largas": 1,
+      "tarea_mas_larga_ms": 84,
+      "inp_ms": 24
+     }
+    },
+    "ordenador": {
+     "accion": "escribir en el buscador y bajar por la portada",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 156,
+      "cls": 0,
+      "tareas_largas": 1,
+      "bloqueo_ms": 38
+     },
+     "interaccion": {
+      "fotogramas": 198,
+      "trabajo_p50_ms": 0.2,
+      "trabajo_p95_ms": 1.3,
+      "trabajo_max_ms": 4.2,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 48
+     }
+    }
+   }
+  },
+  "explorar": {
+   "pantalla": "Explorar con el mapa",
+   "ruta": "#/explorar",
+   "cuenta": "visitante",
+   "perfiles": {
+    "android": {
+     "accion": "arrastrar el mapa 4 veces y acercar/alejar",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 804,
+      "cls": 0.009,
+      "tareas_largas": 5,
+      "bloqueo_ms": 498
+     },
+     "interaccion": {
+      "fotogramas": 396,
+      "trabajo_p50_ms": 0.6,
+      "trabajo_p95_ms": 1.5,
+      "trabajo_max_ms": 5.1,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 16
+     }
+    },
+    "movil120": {
+     "accion": "arrastrar el mapa 4 veces y acercar/alejar",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 452,
+      "cls": 0,
+      "tareas_largas": 3,
+      "bloqueo_ms": 159
+     },
+     "interaccion": {
+      "fotogramas": 395,
+      "trabajo_p50_ms": 0.3,
+      "trabajo_p95_ms": 0.6,
+      "trabajo_max_ms": 3.7,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 24
+     }
+    },
+    "ordenador": {
+     "accion": "arrastrar el mapa 4 veces y acercar/alejar",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 304,
+      "cls": 0.004,
+      "tareas_largas": 2,
+      "bloqueo_ms": 28
+     },
+     "interaccion": {
+      "fotogramas": 399,
+      "trabajo_p50_ms": 0.5,
+      "trabajo_p95_ms": 2,
+      "trabajo_max_ms": 7.8,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 32
+     }
+    }
+   }
+  },
+  "puntos": {
+   "pantalla": "Listado de puntos de buceo",
+   "ruta": "#/puntos",
+   "cuenta": "visitante",
+   "perfiles": {
+    "android": {
+     "accion": "bajar por el listado de puntos",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 236,
+      "cls": 0.002,
+      "tareas_largas": 4,
+      "bloqueo_ms": 313
+     },
+     "interaccion": {
+      "fotogramas": 140,
+      "trabajo_p50_ms": 0.8,
+      "trabajo_p95_ms": 11.4,
+      "trabajo_max_ms": 42,
+      "perdidos_120hz_pct": 7.1,
+      "perdidos_60hz_pct": 4.3,
+      "perdidos_perfil_pct": 4.3,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    },
+    "movil120": {
+     "accion": "bajar por el listado de puntos",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 124,
+      "cls": 0,
+      "tareas_largas": 1,
+      "bloqueo_ms": 110
+     },
+     "interaccion": {
+      "fotogramas": 151,
+      "trabajo_p50_ms": 0.3,
+      "trabajo_p95_ms": 7.1,
+      "trabajo_max_ms": 17.9,
+      "perdidos_120hz_pct": 4.1,
+      "perdidos_60hz_pct": 0.7,
+      "perdidos_perfil_pct": 4.1,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    },
+    "ordenador": {
+     "accion": "bajar por el listado de puntos",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 332,
+      "cls": 0.001,
+      "tareas_largas": 1,
+      "bloqueo_ms": 21
+     },
+     "interaccion": {
+      "fotogramas": 150,
+      "trabajo_p50_ms": 0.2,
+      "trabajo_p95_ms": 4.8,
+      "trabajo_max_ms": 9.2,
+      "perdidos_120hz_pct": 0.7,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    }
+   }
+  },
+  "punto": {
+   "pantalla": "Ficha del punto (vida marina y recorrido virtual)",
+   "ruta": "#/punto?id=360",
+   "cuenta": "visitante",
+   "perfiles": {
+    "android": {
+     "accion": "bajar por la ficha",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 884,
+      "cls": 0,
+      "tareas_largas": 3,
+      "bloqueo_ms": 369
+     },
+     "interaccion": {
+      "fotogramas": 142,
+      "trabajo_p50_ms": 0.6,
+      "trabajo_p95_ms": 4.9,
+      "trabajo_max_ms": 77.2,
+      "perdidos_120hz_pct": 1.4,
+      "perdidos_60hz_pct": 0.7,
+      "perdidos_perfil_pct": 0.7,
+      "tareas_largas": 2,
+      "tarea_mas_larga_ms": 83,
+      "inp_ms": 0
+     }
+    },
+    "movil120": {
+     "accion": "bajar por la ficha",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 448,
+      "cls": 0,
+      "tareas_largas": 2,
+      "bloqueo_ms": 122
+     },
+     "interaccion": {
+      "fotogramas": 139,
+      "trabajo_p50_ms": 0.3,
+      "trabajo_p95_ms": 2.5,
+      "trabajo_max_ms": 9.8,
+      "perdidos_120hz_pct": 0.7,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.7,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    },
+    "ordenador": {
+     "accion": "bajar por la ficha",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 316,
+      "cls": 0,
+      "tareas_largas": 1,
+      "bloqueo_ms": 24
+     },
+     "interaccion": {
+      "fotogramas": 139,
+      "trabajo_p50_ms": 0.2,
+      "trabajo_p95_ms": 0.3,
+      "trabajo_max_ms": 1.4,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    }
+   }
+  },
+  "centro": {
+   "pantalla": "Ficha del centro con el calendario",
+   "ruta": "#/centro?id=31",
+   "cuenta": "visitante",
+   "perfiles": {
+    "android": {
+     "accion": "bajar por la ficha",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 900,
+      "cls": 0,
+      "tareas_largas": 3,
+      "bloqueo_ms": 423
+     },
+     "interaccion": {
+      "fotogramas": 139,
+      "trabajo_p50_ms": 0.5,
+      "trabajo_p95_ms": 1.7,
+      "trabajo_max_ms": 16,
+      "perdidos_120hz_pct": 2.2,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    },
+    "movil120": {
+     "accion": "bajar por la ficha",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 552,
+      "cls": 0,
+      "tareas_largas": 2,
+      "bloqueo_ms": 169
+     },
+     "interaccion": {
+      "fotogramas": 133,
+      "trabajo_p50_ms": 0.3,
+      "trabajo_p95_ms": 0.6,
+      "trabajo_max_ms": 7.1,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    },
+    "ordenador": {
+     "accion": "bajar por la ficha",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 280,
+      "cls": 0,
+      "tareas_largas": 2,
+      "bloqueo_ms": 28
+     },
+     "interaccion": {
+      "fotogramas": 131,
+      "trabajo_p50_ms": 0.2,
+      "trabajo_p95_ms": 0.9,
+      "trabajo_max_ms": 2.7,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    }
+   }
+  },
+  "reserva": {
+   "pantalla": "Proceso de reserva",
+   "ruta": "#/reservar?center=31",
+   "cuenta": "buzo.prueba",
+   "perfiles": {
+    "android": {
+     "accion": "bajar (sin servicios que tocar)",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 964,
+      "cls": 0.384,
+      "tareas_largas": 4,
+      "bloqueo_ms": 364
+     },
+     "interaccion": {
+      "fotogramas": 86,
+      "trabajo_p50_ms": 0.5,
+      "trabajo_p95_ms": 1.4,
+      "trabajo_max_ms": 20.9,
+      "perdidos_120hz_pct": 1.2,
+      "perdidos_60hz_pct": 1.1,
+      "perdidos_perfil_pct": 1.1,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    },
+    "movil120": {
+     "accion": "bajar (sin servicios que tocar)",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 504,
+      "cls": 0,
+      "tareas_largas": 1,
+      "bloqueo_ms": 110
+     },
+     "interaccion": {
+      "fotogramas": 85,
+      "trabajo_p50_ms": 0.3,
+      "trabajo_p95_ms": 0.6,
+      "trabajo_max_ms": 2.7,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    },
+    "ordenador": {
+     "accion": "bajar (sin servicios que tocar)",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 364,
+      "cls": 0.375,
+      "tareas_largas": 1,
+      "bloqueo_ms": 20
+     },
+     "interaccion": {
+      "fotogramas": 83,
+      "trabajo_p50_ms": 0.2,
+      "trabajo_p95_ms": 0.4,
+      "trabajo_max_ms": 1.2,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    }
+   }
+  },
+  "area": {
+   "pantalla": "«Mi área» del buceador",
+   "ruta": "#/area",
+   "cuenta": "buzo.prueba",
+   "perfiles": {
+    "android": {
+     "accion": "bajar por Mi área",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 984,
+      "cls": 0.053,
+      "tareas_largas": 3,
+      "bloqueo_ms": 474
+     },
+     "interaccion": {
+      "fotogramas": 109,
+      "trabajo_p50_ms": 0.5,
+      "trabajo_p95_ms": 1.3,
+      "trabajo_max_ms": 2.4,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    },
+    "movil120": {
+     "accion": "bajar por Mi área",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 492,
+      "cls": 0,
+      "tareas_largas": 2,
+      "bloqueo_ms": 134
+     },
+     "interaccion": {
+      "fotogramas": 109,
+      "trabajo_p50_ms": 0.3,
+      "trabajo_p95_ms": 0.7,
+      "trabajo_max_ms": 1.9,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    },
+    "ordenador": {
+     "accion": "bajar por Mi área",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 344,
+      "cls": 0,
+      "tareas_largas": 1,
+      "bloqueo_ms": 19
+     },
+     "interaccion": {
+      "fotogramas": 109,
+      "trabajo_p50_ms": 0.2,
+      "trabajo_p95_ms": 0.3,
+      "trabajo_max_ms": 1.2,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    }
+   }
+  },
+  "planning": {
+   "pantalla": "Panel del centro · planning",
+   "ruta": "#/admin?tab=planning",
+   "cuenta": "centro.prueba",
+   "perfiles": {
+    "android": {
+     "accion": "bajar por el planning y cambiar de vista",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 1272,
+      "cls": 0.227,
+      "tareas_largas": 5,
+      "bloqueo_ms": 445
+     },
+     "interaccion": {
+      "fotogramas": 173,
+      "trabajo_p50_ms": 0.6,
+      "trabajo_p95_ms": 2.2,
+      "trabajo_max_ms": 6.2,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 1,
+      "tarea_mas_larga_ms": 75,
+      "inp_ms": 96
+     }
+    },
+    "movil120": {
+     "accion": "bajar por el planning y cambiar de vista",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 784,
+      "cls": 0.22,
+      "tareas_largas": 3,
+      "bloqueo_ms": 134
+     },
+     "interaccion": {
+      "fotogramas": 168,
+      "trabajo_p50_ms": 0.3,
+      "trabajo_p95_ms": 1.4,
+      "trabajo_max_ms": 4.3,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 56
+     }
+    },
+    "ordenador": {
+     "accion": "bajar por el planning y cambiar de vista",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 728,
+      "cls": 0,
+      "tareas_largas": 1,
+      "bloqueo_ms": 18
+     },
+     "interaccion": {
+      "fotogramas": 171,
+      "trabajo_p50_ms": 0.2,
+      "trabajo_p95_ms": 0.9,
+      "trabajo_max_ms": 4.8,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 48
+     }
+    }
+   }
+  },
+  "manifiesto": {
+   "pantalla": "Panel del centro · manifiesto",
+   "ruta": "#/manifiesto?slot=522",
+   "cuenta": "centro.prueba",
+   "perfiles": {
+    "android": {
+     "accion": "bajar por el manifiesto",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 256,
+      "cls": 0,
+      "tareas_largas": 2,
+      "bloqueo_ms": 295
+     },
+     "interaccion": {
+      "fotogramas": 109,
+      "trabajo_p50_ms": 0.5,
+      "trabajo_p95_ms": 1.1,
+      "trabajo_max_ms": 1.9,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    },
+    "movil120": {
+     "accion": "bajar por el manifiesto",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 168,
+      "cls": 0,
+      "tareas_largas": 1,
+      "bloqueo_ms": 98
+     },
+     "interaccion": {
+      "fotogramas": 109,
+      "trabajo_p50_ms": 0.2,
+      "trabajo_p95_ms": 0.6,
+      "trabajo_max_ms": 0.8,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    },
+    "ordenador": {
+     "accion": "bajar por el manifiesto",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 240,
+      "cls": 0,
+      "tareas_largas": 1,
+      "bloqueo_ms": 32
+     },
+     "interaccion": {
+      "fotogramas": 109,
+      "trabajo_p50_ms": 0.2,
+      "trabajo_p95_ms": 0.3,
+      "trabajo_max_ms": 4,
+      "perdidos_120hz_pct": 0.0,
+      "perdidos_60hz_pct": 0.0,
+      "perdidos_perfil_pct": 0.0,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 0,
+      "inp_ms": 0
+     }
+    }
+   }
+  },
+  "admin": {
+   "pantalla": "Panel del administrador",
+   "ruta": "#/admin",
+   "cuenta": "admin.prueba",
+   "perfiles": {
+    "android": {
+     "accion": "abrir 3 secciones del menú y bajar",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 1012,
+      "cls": 0.089,
+      "tareas_largas": 3,
+      "bloqueo_ms": 414
+     },
+     "interaccion": {
+      "fotogramas": 336,
+      "trabajo_p50_ms": 0.8,
+      "trabajo_p95_ms": 6.3,
+      "trabajo_max_ms": 244.9,
+      "perdidos_120hz_pct": 4.2,
+      "perdidos_60hz_pct": 3.3,
+      "perdidos_perfil_pct": 3.3,
+      "tareas_largas": 2,
+      "tarea_mas_larga_ms": 248,
+      "inp_ms": 0
+     }
+    },
+    "movil120": {
+     "accion": "abrir 3 secciones del menú y bajar",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 544,
+      "cls": 0,
+      "tareas_largas": 2,
+      "bloqueo_ms": 111
+     },
+     "interaccion": {
+      "fotogramas": 348,
+      "trabajo_p50_ms": 0.4,
+      "trabajo_p95_ms": 1.6,
+      "trabajo_max_ms": 122.1,
+      "perdidos_120hz_pct": 2.0,
+      "perdidos_60hz_pct": 1.4,
+      "perdidos_perfil_pct": 2.0,
+      "tareas_largas": 1,
+      "tarea_mas_larga_ms": 125,
+      "inp_ms": 0
+     }
+    },
+    "ordenador": {
+     "accion": "abrir 3 secciones del menú y bajar",
+     "errores_js": [],
+     "repeticiones": 3,
+     "carga": {
+      "lcp_ms": 372,
+      "cls": 0.031,
+      "tareas_largas": 1,
+      "bloqueo_ms": 24
+     },
+     "interaccion": {
+      "fotogramas": 354,
+      "trabajo_p50_ms": 0.2,
+      "trabajo_p95_ms": 0.9,
+      "trabajo_max_ms": 42.2,
+      "perdidos_120hz_pct": 0.8,
+      "perdidos_60hz_pct": 0.3,
+      "perdidos_perfil_pct": 0.3,
+      "tareas_largas": 0,
+      "tarea_mas_larga_ms": 51,
+      "inp_ms": 0
+     }
+    }
+   }
+  }
+ }
+}

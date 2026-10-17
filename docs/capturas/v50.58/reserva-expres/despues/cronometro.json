@@ -1,0 +1,206 @@
+{
+ "version": "despues",
+ "ritmo": {
+  "lectura_s": 1.5,
+  "toque_s": 0.5,
+  "letra_s": {
+   "movil": 0.3,
+   "ordenador": 0.2
+  },
+  "scroll_s_por_pantalla": 0.6,
+  "monedero_s": 2.0,
+  "mirar_sugerencia_s": 0.5
+ },
+ "recorridos": {
+  "movil-peticion": {
+   "segundos": 24.0,
+   "segundos_modelo": 0.0,
+   "toques": 9,
+   "pantallas": 2,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-te-apetece",
+    "que-y-cuando",
+    "tus-datos",
+    "enviada"
+   ],
+   "notas": []
+  },
+  "movil-tarjeta": {
+   "segundos": 39.3,
+   "segundos_modelo": 13.0,
+   "toques": 14,
+   "pantallas": 3,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-te-apetece",
+    "que-y-cuando",
+    "tus-datos",
+    "pago",
+    "reservado"
+   ],
+   "notas": [
+    "Stripe con la tarjeta escrita a mano (modelo)"
+   ]
+  },
+  "movil-monedero": {
+   "segundos": 27.6,
+   "segundos_modelo": 2.5,
+   "toques": 10,
+   "pantallas": 3,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-te-apetece",
+    "que-y-cuando",
+    "tus-datos",
+    "pago",
+    "reservado"
+   ],
+   "notas": [
+    "Apple Pay o Google Pay (modelo)"
+   ]
+  },
+  "movil-peticion-autocompletar": {
+   "segundos": 9.2,
+   "segundos_modelo": 0.0,
+   "toques": 8,
+   "pantallas": 2,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-te-apetece",
+    "que-y-cuando",
+    "tus-datos",
+    "enviada"
+   ],
+   "notas": []
+  },
+  "movil-monedero-autocompletar": {
+   "segundos": 13.3,
+   "segundos_modelo": 2.5,
+   "toques": 9,
+   "pantallas": 3,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-te-apetece",
+    "que-y-cuando",
+    "tus-datos",
+    "pago",
+    "reservado"
+   ],
+   "notas": [
+    "Apple Pay o Google Pay (modelo)"
+   ]
+  },
+  "movil-monedero-autocompletar-boton-servicio": {
+   "segundos": 11.2,
+   "segundos_modelo": 2.5,
+   "toques": 8,
+   "pantallas": 3,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-y-cuando",
+    "tus-datos",
+    "pago",
+    "reservado"
+   ],
+   "notas": [
+    "Apple Pay o Google Pay (modelo)"
+   ]
+  },
+  "ordenador-peticion": {
+   "segundos": 19.1,
+   "segundos_modelo": 0.0,
+   "toques": 9,
+   "pantallas": 2,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-te-apetece",
+    "que-y-cuando",
+    "tus-datos",
+    "enviada"
+   ],
+   "notas": []
+  },
+  "ordenador-tarjeta": {
+   "segundos": 30.4,
+   "segundos_modelo": 9.5,
+   "toques": 14,
+   "pantallas": 3,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-te-apetece",
+    "que-y-cuando",
+    "tus-datos",
+    "pago",
+    "reservado"
+   ],
+   "notas": [
+    "Stripe con la tarjeta escrita a mano (modelo)"
+   ]
+  },
+  "ordenador-monedero": {
+   "segundos": 22.9,
+   "segundos_modelo": 2.5,
+   "toques": 10,
+   "pantallas": 3,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-te-apetece",
+    "que-y-cuando",
+    "tus-datos",
+    "pago",
+    "reservado"
+   ],
+   "notas": [
+    "Apple Pay o Google Pay (modelo)"
+   ]
+  },
+  "ordenador-peticion-autocompletar": {
+   "segundos": 9.2,
+   "segundos_modelo": 0.0,
+   "toques": 8,
+   "pantallas": 2,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-te-apetece",
+    "que-y-cuando",
+    "tus-datos",
+    "enviada"
+   ],
+   "notas": []
+  },
+  "ordenador-monedero-autocompletar": {
+   "segundos": 13.3,
+   "segundos_modelo": 2.5,
+   "toques": 9,
+   "pantallas": 3,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-te-apetece",
+    "que-y-cuando",
+    "tus-datos",
+    "pago",
+    "reservado"
+   ],
+   "notas": [
+    "Apple Pay o Google Pay (modelo)"
+   ]
+  },
+  "ordenador-monedero-autocompletar-boton-servicio": {
+   "segundos": 11.1,
+   "segundos_modelo": 2.5,
+   "toques": 8,
+   "pantallas": 3,
+   "scroll_px": 0,
+   "pantallas_vistas": [
+    "que-y-cuando",
+    "tus-datos",
+    "pago",
+    "reservado"
+   ],
+   "notas": [
+    "Apple Pay o Google Pay (modelo)"
+   ]
+  }
+ }
+}

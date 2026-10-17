@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WORLDIVES Pruebas</title><link rel="stylesheet" href="estilos.css"></head>
+<body>
+<div class="banda" role="note">ENTORNO DE PRUEBAS</div>
+<main>
+  <img class="logo" src="logo.webp" alt="WORLDIVES" style="width:180px">
+  <h1>WORLDIVES Pruebas</h1>
+  <p class="suave peq" style="text-align:center">Esta app se conecta al entorno de pruebas que arrancas en tu ordenador. Nada de lo que hagas aquí es real: los pagos son de prueba y no se envía ningún WhatsApp ni correo.</p>
+
+  <section class="tarjeta" aria-labelledby="t-srv">
+    <label id="t-srv" for="servidor">Servidor de pruebas</label>
+    <input id="servidor" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="http://192.168.1.50:8100">
+    <p class="suave peq">Es la dirección que enseña tu ordenador al hacer doble clic en <b>iniciar-pruebas-movil</b>. El móvil y el ordenador tienen que estar en la misma wifi.</p>
+    <button class="btn sec" id="probar" type="button">Probar la conexión</button>
+    <p class="estado" id="estado" hidden></p>
+  </section>
+
+  <section class="tarjeta" aria-labelledby="t-cuentas">
+    <p class="eti" id="t-cuentas">Entrar rápido con una cuenta de prueba</p>
+    <div class="rejilla" id="cuentas">
+      <button class="btn" data-cuenta="buzo.prueba">Buceador<small>buzo.prueba</small></button>
+      <button class="btn" data-cuenta="centro.prueba">Centro<small>centro.prueba</small></button>
+      <button class="btn" data-cuenta="centro2.prueba">Segundo centro<small>centro2.prueba</small></button>
+      <button class="btn" data-cuenta="freelance.prueba">Freelance<small>freelance.prueba</small></button>
+      <button class="btn" data-cuenta="instructor.prueba">Instructor<small>instructor.prueba</small></button>
+      <button class="btn" data-cuenta="master.prueba">Instructora máster<small>master.prueba</small></button>
+      <button class="btn" data-cuenta="admin.prueba">Administración<small>admin.prueba</small></button>
+    </div>
+    <button class="btn sec" id="sin-cuenta" type="button">Entrar sin cuenta (como visitante)</button>
+  </section>
+  <p class="version" id="version">WORLDIVES Pruebas</p>
+</main>
+<script>
+(function () {
+  var C = window.Capacitor || {}, P = C.Plugins || {}, S = P.Servidor, A = P.App;
+  var campo = document.getElementById('servidor'), estado = document.getElementById('estado');
+  try { campo.value = localStorage.getItem('wd-ultimo-servidor') || ''; } catch (e) { /* no storage */ }
+  if (A && A.getInfo) A.getInfo().then(function (i) { document.getElementById('version').textContent = 'WORLDIVES Pruebas ' + i.version + ' (versión ' + i.build + ')'; });
+  function direccion() {
+    var v = campo.value.trim().replace(/\/+$/, '');
+    if (v && !/^https?:\/\//i.test(v)) v = 'http://' + v;
+    if (v && !/:\d+$/.test(v.replace(/^https?:\/\//i, '')) && /^http:/i.test(v)) v += ':8100';
+    return v;
+  }
+  function aviso(texto, ok) { estado.hidden = false; estado.className = 'estado ' + (ok ? 'ok' : 'err'); estado.textContent = texto; }
+  function probar() {
+    var url = direccion(); if (!url) { aviso('Escribe la dirección del servidor de pruebas.', false); campo.focus(); return Promise.resolve(false); }
+    aviso('Probando ' + url + '…', true);
+    var corte = new Promise(function (_, no) { setTimeout(function () { no(new Error('tiempo')); }, 6000); });
+    return Promise.race([fetch(url + '/api/health?ts=' + Date.now(), { mode: 'no-cors', cache: 'no-store' }), corte])
+      .then(function () { aviso('Conectado con ' + url, true); return true; })
+      .catch(function () { aviso('No responde ' + url + '. Comprueba que en el ordenador está abierto «iniciar-pruebas-movil» y que el móvil está en la misma wifi.', false); return false; });
+  }
+  function entrar(cuenta) {
+    var url = direccion(); if (!url) { aviso('Escribe primero la dirección del servidor de pruebas.', false); campo.focus(); return; }
+    try { localStorage.setItem('wd-ultimo-servidor', url); } catch (e) { /* no storage */ }
+    if (!S) { aviso('Esta pantalla solo funciona dentro de la app WORLDIVES Pruebas.', false); return; }
+    S.guardar({ url: url, cuenta: cuenta || '' }).catch(function (e) { aviso(e && e.message || 'No se ha podido guardar el servidor.', false); });
+  }
+  document.getElementById('probar').onclick = probar;
+  document.getElementById('sin-cuenta').onclick = function () { entrar(''); };
+  document.getElementById('cuentas').addEventListener('click', function (e) { var b = e.target.closest('[data-cuenta]'); if (b) entrar(b.getAttribute('data-cuenta')); });
+})();
+</script>
+</body>
+</html>
