@@ -51,7 +51,9 @@ NOT_IN_PRODUCTION = ['docs/pruebas/*', 'data/demo/*', 'data/pruebas/*', 'scripts
                      'tests/navegador/e2e_v50_58_equipo_qr.py',   # v50.58: the team linked by QR, with the demo accounts
                      'tests/navegador/e2e_v50_58_logbook_libro.py',   # v50.58: the Log Book as a book, on a copy of the demo
                      'tests/navegador/cronometro_reserva.py', 'tests/navegador/e2e_v50_58_reserva_expres.py',   # v50.58: the express booking on the example website of scripts/demo
-                     'tests/navegador/reserva_v50_57/*']   # v50.58: the booking of v50.57, frozen for the stopwatch «before»
+                     'tests/navegador/reserva_v50_57/*',   # v50.58: the booking of v50.57, frozen for the stopwatch «before»
+                     'docs/encargos/encargo-equipo-qr-reserva-expres-16-10-2026.md',   # v50.58: the briefs, word for word, name the test accounts
+                     'docs/encargos/encargo-revision-usabilidad-15-16-10-2026.md']
 # In no zip: the archive of retired files, screenshots, repository files, runtime data, caches and temporary files.
 NOT_IN_ANY = ['_archivo/*', 'docs/capturas/*', '.github/*', '.gitignore', '.env', '.env.*', '*.pyc', '*/__pycache__/*', '*.log', 'logs/*',
               'storage/*', 'public/assets/*', 'data/subidas/*', 'data/backups/*', 'data/mail-outbox/*', 'data/tiles/*', 'dist/*',
