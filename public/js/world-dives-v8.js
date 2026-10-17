@@ -1737,15 +1737,48 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   // Slow continuous loop with faded edges; it stops on hover, touch, keyboard focus, with a species open, off-screen
   // and with «reduce motion»; it stays still when every species fits. Touching a photo opens a small bubble.
   const PM_SPEED=22;   // px per second
+  // 17/10/2026 (Bloque 2): «Vida marina» of the site: first the species cited at the site and then those of the area
+  // («También en la zona»), in the order of the server; a species without a photo yet is a sober card with the line
+  // icon of its group (never a drawing of the animal). Only 20 thumbnails load before the person touches the strip.
+  const VM_GROUPS={pez:['Peces','fish'],cefalopodo:['Cefalópodos','octopus'],crustaceo:['Crustáceos','crab'],nudibranquio:['Nudibranquios','nudibranch'],molusco:['Moluscos','shell'],
+    equinodermo:['Equinodermos','starfish'],cnidario:['Cnidarios','coral'],esponja:['Esponjas','sponge'],gusano:['Gusanos','worm'],tunicado:['Tunicados','tunicate'],
+    alga:['Algas y plantas','seaweed'],reptil:['Reptiles','turtle'],mamifero:['Mamíferos','dolphin']};
+  const VM_FREQ={habitual:'Habitual',frecuente:'Frecuente',ocasional:'Ocasional',raro:'Rara'};
+  const VM_EAGER=20;
+  const vmIcon=(s,size)=>wdIcon(VM_GROUPS[s.group]?.[1]||'fish',size);
   function marineStrip(species){
     if(!species?.length) return '';
-    const m=new Date().getMonth()+1;
-    const list=[...species].sort((a,b)=>(wdInSeason(a.months,m)?0:1)-(wdInSeason(b.months,m)?0:1)||(WD_FREQ_RANK[a.frequency]??3)-(WD_FREQ_RANK[b.frequency]??3)||String(a.name).localeCompare(String(b.name),wdLocale()));
-    marineStrip.list=list;
-    const item=(s,i)=>`<li><button type="button" class="pm-item" data-i="${i}" aria-haspopup="dialog" aria-expanded="false">${s.photo?`<img class="pm-photo" src="${escapeHtml(s.photo.src)}"${s.photo.srcset?` srcset="${escapeHtml(s.photo.srcset)}" sizes="64px"`:''} alt="" loading="lazy" decoding="async" width="60" height="60">`:`<span class="pm-photo pm-nophoto">${wdIcon('fish',24)}</span>`}<span class="pm-name" translate="no"${s.name_lang?` lang="${escapeHtml(s.name_lang)}"`:''}>${escapeHtml(s.name)}</span></button></li>`;
-    return `<section class="pm-block" aria-labelledby="pm-title"><div class="pm-head"><h2 class="pm-title" id="pm-title">Vida marina en esta inmersión</h2><span class="pm-count">${list.length===1?'1 especie':`${list.length} especies`}</span></div>
-      <div class="pm-viewport" id="pm-viewport"><ul class="pm-track" id="pm-track">${list.map(item).join('')}</ul></div></section>`;
+    const list=[...species]; marineStrip.list=list;
+    const firstZone=list.findIndex(s=>s.evidence==='zone');
+    const item=(s,i)=>`${i===firstZone&&i>0?'<li class="pm-zone-sep" aria-hidden="true"><span>También en la zona</span></li>':''}<li><button type="button" class="pm-item${s.photo?'':' is-card'}" data-i="${i}" aria-haspopup="dialog" aria-expanded="false" aria-label="${escapeHtml(s.name)}${s.evidence==='zone'?' · '+escapeHtml(translateString('También en la zona')):''}">${s.photo?`<img class="pm-photo" ${i<VM_EAGER?'src':'data-src'}="${escapeHtml(s.photo.src)}"${s.photo.srcset?` ${i<VM_EAGER?'srcset':'data-srcset'}="${escapeHtml(s.photo.srcset)}" sizes="64px"`:''} alt="" loading="lazy" decoding="async" width="60" height="60">`:`<span class="pm-photo pm-nophoto">${vmIcon(s,26)}</span>`}<span class="pm-name" translate="no"${s.name_lang?` lang="${escapeHtml(s.name_lang)}"`:''}>${escapeHtml(s.name)}</span>${s.same_name?`<em class="pm-sci" translate="no">${escapeHtml(s.scientific)}</em>`:''}</button></li>`;
+    return `<section class="pm-block" aria-labelledby="pm-title"><div class="pm-head"><h2 class="pm-title" id="pm-title">Vida marina</h2><span class="pm-count">${list.length===1?'1 especie citada':`${list.length} especies citadas`}</span></div>
+      <div class="pm-viewport" id="pm-viewport"><ul class="pm-track" id="pm-track">${list.map(item).join('')}</ul></div>
+      <button type="button" class="btn-link pm-all" id="pm-all">${wdIcon('list',15)} Ver toda la vida marina</button></section>`;
   }
+  // the thumbnails after the first 20: when the person touches, hovers or focuses the strip (or opens the whole list)
+  function marineLoadAll(){ $$('#pm-track img[data-src]').forEach(img=>{ img.src=img.dataset.src; img.removeAttribute('data-src'); if(img.dataset.srcset){ img.srcset=img.dataset.srcset; img.removeAttribute('data-srcset'); } }); }
+  // «Ver toda la vida marina»: the whole list of the site, by groups, with a filter by group
+  function marineAll(){
+    const list=marineStrip.list||[]; if(!list.length) return; marineLoadAll();
+    const groups=[...new Set(list.map(s=>s.group||'pez'))].sort((a,b)=>Object.keys(VM_GROUPS).indexOf(a)-Object.keys(VM_GROUPS).indexOf(b));
+    const card=s=>`<button type="button" class="pm-cell" data-i="${list.indexOf(s)}">${s.photo?`<img src="${escapeHtml(s.photo.src)}" alt="" loading="lazy" width="72" height="72">`:`<span class="pm-photo pm-nophoto">${vmIcon(s,26)}</span>`}<span><b translate="no">${escapeHtml(s.name)}</b><em translate="no">${escapeHtml(s.scientific)}</em>${s.evidence==='zone'?'<small>Citada en la zona</small>':''}</span></button>`;
+    const body=g=>groups.filter(x=>!g||x===g).map(x=>`<section class="pm-group"><h3>${vmIcon({group:x},18)} ${escapeHtml(VM_GROUPS[x]?.[0]||x)} <span class="pm-count">${list.filter(s=>(s.group||'pez')===x).length}</span></h3><div class="pm-grid">${list.filter(s=>(s.group||'pez')===x).map(card).join('')}</div></section>`).join('');
+    const {el}=wdOpenModal({id:'pm-allmodal',size:'lg',title:'Vida marina',subtitle:`${list.length} ${list.length===1?'especie citada':'especies citadas'}`,
+      body:`${groups.length>1?`<div class="pm-filter" role="group" aria-label="Grupo"><button type="button" class="svc-chip active" data-g="">Todas</button>${groups.map(x=>`<button type="button" class="svc-chip" data-g="${x}">${vmIcon({group:x},14)} ${escapeHtml(VM_GROUPS[x]?.[0]||x)}</button>`).join('')}</div>`:''}<div id="pm-allbody">${body('')}</div>`});
+    translateTree(el);
+    el.addEventListener('click',e=>{ const f=e.target.closest('[data-g]'); if(f){ $$('[data-g]',el).forEach(b=>b.classList.toggle('active',b===f)); $('#pm-allbody',el).innerHTML=body(f.dataset.g); translateTree($('#pm-allbody',el)); return; }
+      const c=e.target.closest('.pm-cell'); if(c) marinePopover(list[+c.dataset.i],c); });
+  }
+  // «Ver todos los puntos donde se ve»
+  async function marinePoints(s){
+    const {el}=wdOpenModal({id:'pm-points',title:escapeHtml(s.name),subtitle:`<em translate="no">${escapeHtml(s.scientific)}</em>`,body:'<div id="pm-points-list"><p class="muted">Cargando…</p></div>'});
+    translateTree(el); const box=$('#pm-points-list',el);
+    try{ const d=await api('/api/especies/'+s.id+'/puntos'); if(!box.isConnected) return;
+      box.innerHTML=d.items.length?`<ul class="pm-plist">${d.items.map(p=>`<li><a href="#/punto?id=${p.id}" translate="no">${escapeHtml(p.name)}</a><small>${escapeHtml(p.place)}${p.evidence==='zone'?' · '+escapeHtml(translateString('Citada en la zona')):''}</small></li>`).join('')}</ul>`:'<p class="muted">Todavía no hay puntos.</p>';
+      translateTree(box); }
+    catch(err){ box.innerHTML=`<p class="notice warn">${escapeHtml(err.message)}</p>`; }
+  }
+
   function bindMarineStrip(){
     const vp=$('#pm-viewport'), track=$('#pm-track'); if(!vp||!track) return;
     const reduce=window.matchMedia?window.matchMedia('(prefers-reduced-motion: reduce)'):null;
@@ -1763,7 +1796,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       const w=setWidth(), fits=w<=vp.clientWidth+1;
       if(fits) return;                                                   // everything fits: still
       if(reduce&&reduce.matches){ vp.classList.add('is-scroll'); return; } // reduce motion: still, scrolled by hand
-      firstSet().forEach(li=>{ const c=li.cloneNode(true); c.setAttribute('data-copy',''); c.setAttribute('aria-hidden','true'); c.querySelector('button').tabIndex=-1; track.appendChild(c); });
+      firstSet().forEach(li=>{ const c=li.cloneNode(true); c.setAttribute('data-copy',''); c.setAttribute('aria-hidden','true'); const cb=c.querySelector('button'); if(cb) cb.tabIndex=-1; track.appendChild(c); });
       st.width=w; st.looping=true; st.offset%=w; vp.classList.add('is-moving'); render();
       if(!st.raf){ st.last=0; st.raf=requestAnimationFrame(tick); }
     };
@@ -1784,6 +1817,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     vp.addEventListener('pointerup',endDrag); vp.addEventListener('pointercancel',endDrag);
     if('IntersectionObserver' in window) new IntersectionObserver(es=>{ st.visible=es[0].isIntersecting; }).observe(vp);
     track.addEventListener('click',e=>{ const b=e.target.closest('.pm-item'); if(!b||Date.now()<st.noClickUntil) return; marinePopover(marineStrip.list[+b.dataset.i],b); });
+    ['pointerenter','pointerdown','focusin'].forEach(ev=>vp.addEventListener(ev,marineLoadAll,{once:true}));
+    const all=$('#pm-all'); if(all) all.onclick=()=>marineAll();
   }
   // The bubble of a species: next to its photo (on a phone, a small panel from the bottom). One at a time; it closes
   // with ×, a tap outside or Esc, and gives the focus back to the photo.
@@ -1794,14 +1829,19 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     const when=wdMonthsText(s.months), c=s.credit;
     const html=`${sheet?'<div class="pm-backdrop" id="pm-backdrop"></div>':''}<div class="pm-pop${sheet?' is-sheet':''}" id="pm-pop" data-i="${trigger.dataset.i}" role="dialog" aria-modal="true" aria-labelledby="pm-pop-title">
       ${sheet?'':'<span class="pm-pop-arrow" aria-hidden="true"></span>'}<button type="button" class="pm-pop-x" id="pm-pop-x" aria-label="Cerrar">×</button>
-      <div class="pm-pop-photo">${s.photo?`<img src="${escapeHtml(s.photo.src.replace(/-\d+\.webp$/,'-640.webp'))}"${s.photo.srcset?` srcset="${escapeHtml(s.photo.srcset)}" sizes="${sheet?'100vw':'320px'}"`:''} alt="${escapeHtml(s.name)}" translate="no">`:`<span class="pm-nophoto">${wdIcon('fish',48)}</span>`}</div>
+      <div class="pm-pop-photo">${s.photo?`<img src="${escapeHtml(s.photo.src.replace(/-\d+\.webp$/,'-640.webp'))}"${s.photo.srcset?` srcset="${escapeHtml(s.photo.srcset)}" sizes="${sheet?'100vw':'320px'}"`:''} alt="${escapeHtml(s.name)}" translate="no">`:`<span class="pm-nophoto">${vmIcon(s,48)}</span>`}</div>
       <div class="pm-pop-body"><h3 id="pm-pop-title" translate="no">${escapeHtml(s.name)}</h3><p class="pm-pop-sci"><em translate="no">${escapeHtml(s.scientific)}</em></p>
-        <dl class="pm-pop-facts"><div><dt>En esta inmersión</dt><dd><span class="pm-freq pm-${escapeHtml(s.frequency||'common')}">${WD_FREQ[s.frequency]||''}</span></dd></div><div><dt>Mejor época</dt><dd>${when?`<span translate="no">${escapeHtml(when)}</span>`:'Todo el año'}</dd></div></dl>
+        <p class="pm-pop-ev ${s.evidence==='zone'?'is-zone':''}">${wdIcon(s.evidence==='zone'?'map':'pin',14)} ${s.evidence==='zone'?'Citada en la zona':'Vista en este punto'}</p>
+        ${s.recent?`<p class="pm-pop-recent">${wdIcon('users',14)} Vista por buceadores recientemente</p>`:''}
+        ${(()=>{ const freq=s.frequency_label?VM_FREQ[s.frequency_label]:(s.evidence&&!s.frequency_label?'':WD_FREQ[s.frequency]); const facts=[freq?`<div><dt>Frecuencia</dt><dd><span class="pm-freq">${freq}</span></dd></div>`:'',
+            s.where?`<div><dt>Dónde se suele ver</dt><dd translate="no" lang="es">${escapeHtml(s.where)}</dd></div>`:'', s.season?`<div><dt>Temporada</dt><dd translate="no" lang="es">${escapeHtml(s.season)}</dd></div>`:(when?`<div><dt>Mejor época</dt><dd><span translate="no">${escapeHtml(when)}</span></dd></div>`:'')].filter(Boolean);
+            return facts.length?`<dl class="pm-pop-facts">${facts.join('')}</dl>`:''; })()}
         ${s.blurb?`<p class="pm-pop-info" translate="no">${escapeHtml(s.blurb)}</p>`:''}
         ${c?`<p class="pm-pop-credit"><span>Imagen:</span> <span translate="no">${escapeHtml(c.author)}</span> · ${c.license_url?`<a href="${escapeHtml(c.license_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(c.license)}</a>`:`<span>${escapeHtml(c.license)}</span>`}${c.source?` · <a href="${escapeHtml(c.source)}" target="_blank" rel="noopener noreferrer">Origen de la foto</a>`:''}</p>`:''}
+        <button type="button" class="btn-link pm-pop-points" id="pm-pop-points">${wdIcon('pin',14)} Ver todos los puntos donde se ve</button>
       </div></div>`;
     document.body.insertAdjacentHTML('beforeend',html);
-    const pop=$('#pm-pop'); trigger.setAttribute('aria-expanded','true'); marinePopover.trigger=trigger;
+    const pop=$('#pm-pop'); translateTree(pop); $('#pm-pop-points').onclick=()=>{ closeMarinePopover(false); marinePoints(s); }; trigger.setAttribute('aria-expanded','true'); marinePopover.trigger=trigger;
     if(!sheet){ const place=()=>{ if(!pop.isConnected) return; const r=trigger.getBoundingClientRect(), w=pop.offsetWidth, h=pop.offsetHeight, vw=document.documentElement.clientWidth;
         const left=Math.min(Math.max(12,r.left+r.width/2-w/2),vw-w-12), below=r.bottom+12+h<=innerHeight||r.top-12-h<0;
         pop.classList.toggle('is-above',!below); pop.style.left=(left+scrollX)+'px'; pop.style.top=((below?r.bottom+12:r.top-12-h)+scrollY)+'px';
@@ -2137,16 +2177,77 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   }
 
   // Administración → «Vida marina y vídeos»: pending proposals, species catalogue, all videos and the old tours.
+  // 17/10/2026 (Bloque 2 · 2.4): the marine life of each site (what was imported, per site, the citations to refine and
+  // what divers propose) and the photos missing, the species seen at most sites first.
+  async function renderMarineLife(pane,sub,again){
+    const esc=escapeHtml, d=await api('/api/admin/marina/vida');
+    if(sub==='fotos'){
+      pane.innerHTML=`<div class="vm-adm"><div class="vm-kpis"><div><b>${d.photos_missing}</b><span>Faltan ${d.photos_missing} fotos</span></div></div>
+        <form class="vm-up" id="vm-up"><p><strong>Subir fotos en bloque.</strong> Cada archivo se llama <code>NNN_nombre-cientifico.jpg</code> (por ejemplo <code>151_thalassoma-pavo.jpg</code>): el número del catálogo y el nombre científico tienen que ser de la misma especie.</p>
+          <div class="bc-grid"><label>Autor de las fotos<input name="photo_author" required maxlength="160"></label><label>Licencia<input name="photo_license" required placeholder="Propia, CC BY 4.0…" maxlength="60"></label><label>Archivos<input type="file" name="files" accept="image/jpeg,image/png,image/webp" multiple required></label></div>
+          <button class="btn btn-primary btn-sm" type="submit">Subir</button><ul class="vm-uplog" id="vm-uplog" aria-live="polite"></ul></form>
+        <div class="table-wrap"><table class="data-table"><thead><tr><th>N.º</th><th>Especie</th><th>Grupo</th><th>Puntos</th></tr></thead><tbody>${d.photos.map(x=>`<tr><td>${x.catalog_no??'—'}</td><td><b translate="no">${esc(x.common_name||'')}</b> <em translate="no">${esc(x.scientific_name)}</em></td><td>${esc(d.groups[x.group_key]||'—')}</td><td>${x.points}</td></tr>`).join('')}</tbody></table></div></div>`;
+      $('#vm-up',pane).onsubmit=async e=>{ e.preventDefault(); const f=e.target, log=$('#vm-uplog',pane); log.innerHTML=''; let ok=0;
+        for(const file of f.files.files){ const fd=new FormData(); fd.append('photo_author',f.photo_author.value); fd.append('photo_license',f.photo_license.value); fd.append('file',file,file.name);
+          try{ await api('/api/admin/marina/foto-lote',{method:'POST',body:fd}); ok++; log.insertAdjacentHTML('beforeend',`<li class="ok">${esc(file.name)}</li>`); }
+          catch(err){ log.insertAdjacentHTML('beforeend',`<li class="bad">${esc(err.message)}</li>`); } }
+        toast(`${ok} fotos subidas.`); if(ok) setTimeout(again,1200); };
+      return;
+    }
+    const c=d.citations||{};
+    pane.innerHTML=`<div class="vm-adm"><div class="vm-kpis"><div><b>${(c.linked||0)+(c.generic||0)+(c.no_point||0)}</b><span>Citas importadas</span></div><div><b>${c.generic||0}</b><span>Genéricas por afinar</span></div><div><b>${c.no_point||0}</b><span>Sin punto</span></div><div><b>${d.hidden}</b><span>Ocultas por revisar</span></div><div><b>${d.photos_missing}</b><span>Sin foto</span></div><div><b>${d.needs_translation}</b><span>Pendientes de traducción</span></div></div>
+      <label class="bc-check vm-switch"><input type="checkbox" id="vm-nophoto" ${d.show_no_photo?'checked':''}> Mostrar especies sin foto (con el icono de su grupo)</label>
+      <form class="vm-up" id="vm-imp"><p><strong>Importar</strong> un archivo JSON o CSV con el mismo formato que el del encargo. Se enlaza cada cita con su punto por el nombre y el municipio y con su especie por el nombre científico. Repetir un archivo no duplica nada.</p><input type="file" name="file" accept=".json,.csv,application/json,text/csv" required> <button class="btn btn-primary btn-sm">Importar</button><p class="muted" id="vm-impres" aria-live="polite"></p></form>
+      ${d.suggestions.length?`<section><h3>Propuestas de los buceadores</h3><p class="muted">Especies que no estaban en el punto y que han marcado ${5} buceadores distintos o más en su Log Book.</p><div class="mk-list">${d.suggestions.map(x=>`<div class="mk-row"><span class="mk-main"><strong translate="no">${esc(x.common_name||x.scientific_name)}</strong><small><em translate="no">${esc(x.scientific_name)}</em> · <span translate="no">${esc(x.point_name)}</span> · ${x.divers} buceadores</small></span><span class="mk-act"><button type="button" class="btn btn-sm btn-primary" data-sug="${x.point_id}:${x.species_id}">Añadir al punto</button></span></div>`).join('')}</div></section>`:''}
+      <section><h3>Por punto</h3><div class="vm-pick"><input type="search" id="vm-pq" placeholder="Buscar un punto" aria-label="Buscar un punto"><div id="vm-pres" class="vm-pres"></div></div><div id="vm-point"></div></section>
+      ${d.imports.length?`<section><h3>Importaciones</h3><ul class="vm-imps">${d.imports.map(i=>`<li><b translate="no">${esc(i.filename||'—')}</b> · ${esc(fmtDate(i.created_at))} · ${i.rows} citas · ${i.summary.enlazadas??0} enlazadas · ${i.summary.genericas??0} genéricas · ${i.summary.sin_punto??0} sin punto · ${i.summary.especies_nuevas??0} especies nuevas</li>`).join('')}</ul></section>`:''}</div>`;
+    translateTree(pane);
+    $('#vm-nophoto',pane).onchange=async e=>{ try{ await postJSON('/api/admin/marina/ajustes',{show_no_photo:e.target.checked?1:0}); toast('Guardado.'); }catch(err){ toast(err.message); } };
+    $('#vm-imp',pane).onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); const out=$('#vm-impres',pane); out.textContent=translateString('Importando…');
+      try{ const j=await api('/api/admin/marina/importar',{method:'POST',body:fd});
+        const s_=j.summary; out.textContent=`${s_.citas} citas · ${s_.enlazadas} enlazadas · ${s_.genericas} genéricas · ${s_.sin_punto} sin punto · ${s_.ocultas} ocultas · ${s_.especies_nuevas} especies nuevas`; }
+      catch(err){ out.textContent=err.message; } };
+    pane.querySelectorAll('[data-sug]').forEach(b=>b.onclick=async()=>{ const [pid,sid]=b.dataset.sug.split(':').map(Number);
+      try{ await postJSON('/api/marina/especie-punto',{point_id:pid,species_id:sid,frequency:'occasional'}); toast('Añadida al punto.'); again(); }catch(err){ toast(err.message); } });
+    let t=null; $('#vm-pq',pane).oninput=e=>{ clearTimeout(t); t=setTimeout(async()=>{ const q_=e.target.value.trim(); if(q_.length<2){ $('#vm-pres',pane).innerHTML=''; return; }
+      const r=await api('/api/marina/puntos?q='+encodeURIComponent(q_)); $('#vm-pres',pane).innerHTML=r.items.map(p=>`<button type="button" class="svc-chip" data-pt="${p.id}" translate="no">${esc(p.name)}</button>`).join(''); },250); };
+    $('#vm-pres',pane).onclick=e=>{ const b=e.target.closest('[data-pt]'); if(b) marinePointAdmin($('#vm-point',pane),+b.dataset.pt,d.groups); };
+  }
+  async function marinePointAdmin(box,pid,groups){
+    const esc=escapeHtml, d=await api(`/api/admin/marina/vida/punto/${pid}?lang=${currentLanguage()}`);
+    const FREQ=['','habitual','frecuente','ocasional','raro'];
+    const row=x=>`<li class="vm-row${x.visible?'':' is-off'}" data-l="${x.link_id}"><span class="vm-ord"><button type="button" class="svc-iconbtn" data-mv="-1" aria-label="Subir">↑</button><button type="button" class="svc-iconbtn" data-mv="1" aria-label="Bajar">↓</button></span>
+      <span class="vm-sp">${x.photo?`<img src="${esc(x.photo.src)}" alt="" width="40" height="40">`:`<span class="pm-photo pm-nophoto">${vmIcon(x,20)}</span>`}<span><b translate="no">${esc(x.name)}</b><em translate="no">${esc(x.scientific)}</em>${x.status==='pending'?' <span class="svc-state warn">Propuesta</span>':''}${x.visible?'':` <span class="svc-state off" title="${esc(x.hidden_reason)}">Oculta${x.hidden_reason?': '+esc(x.hidden_reason):''}</span>`}</span></span>
+      <select data-f="evidence" aria-label="Evidencia"><option value="point" ${x.evidence!=='zone'?'selected':''}>En el punto</option><option value="zone" ${x.evidence==='zone'?'selected':''}>En la zona</option></select>
+      <select data-f="frequency_label" aria-label="Frecuencia">${FREQ.map(f=>`<option value="${f}" ${f===(x.frequency_label||'')?'selected':''}>${f?esc(VM_FREQ[f]):'Sin dato'}</option>`).join('')}</select>
+      <input data-f="where_text" value="${esc(x.where||'')}" placeholder="Dónde se ve" maxlength="300" aria-label="Dónde se ve">
+      <span class="vm-act"><button type="button" class="btn btn-sm" data-vis="${x.visible?0:1}">${x.visible?'Ocultar':'Mostrar'}</button><button type="button" class="btn btn-sm danger" data-del>Quitar</button>${x.sources?.length?`<details class="vm-src"><summary>Fuentes (${x.sources.length})</summary>${x.sources.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u.replace(/^https?:\/\//,'').slice(0,60))}</a>`).join('')}</details>`:''}</span></li>`;
+    box.innerHTML=`<h4 translate="no">${esc(d.point.name)}</h4><p class="muted">${d.items.length} especies. Las fuentes solo las ves tú; en la ficha pública no salen.</p><ol class="vm-list">${d.items.map(row).join('')}</ol>
+      <div class="bc-actions"><button type="button" class="btn btn-sm btn-primary" id="vm-ord-save">Guardar el orden</button><a class="btn btn-sm" href="#/punto?id=${pid}">Ver la ficha</a></div>
+      ${d.generic.length?`<h4>Citas genéricas por afinar (${d.generic.length})</h4><p class="muted">La fuente solo dice «sargos», «rayas»… Elige la especie concreta para que salga en el carrusel.</p><ul class="vm-gen">${d.generic.map(g=>`<li data-c="${g.id}"><span><b translate="no">${esc(g.common_name)}</b> <em translate="no">${esc(g.scientific_name)}</em> · ${g.evidence==='zone'?'En la zona':'En el punto'}</span><input type="search" placeholder="Buscar la especie" data-cq aria-label="Buscar la especie"><span class="vm-cres" data-cres></span></li>`).join('')}</ul>`:''}`;
+    translateTree(box);
+    const save=async(lid,patch)=>{ try{ await postJSON('/api/admin/marina/enlace/'+lid,patch); toast('Guardado.'); }catch(err){ toast(err.message); } };
+    box.onchange=e=>{ const f=e.target.dataset.f; if(!f) return; save(+e.target.closest('[data-l]').dataset.l,{[f]:e.target.value}); };
+    box.onclick=async e=>{ const b=e.target.closest('button'); if(!b) return; const li=b.closest('[data-l]');
+      if(b.dataset.mv){ const up=b.dataset.mv==='-1', to=up?li.previousElementSibling:li.nextElementSibling?.nextElementSibling; if(up&&!to) return; li.parentNode.insertBefore(li,to||null); b.focus(); return; }
+      if(b.id==='vm-ord-save'){ try{ await postJSON('/api/admin/marina/orden',{point_id:pid,ids:$$('.vm-row',box).map(x=>+x.dataset.l)}); toast('Orden guardado.'); }catch(err){ toast(err.message); } return; }
+      if(b.dataset.vis){ await save(+li.dataset.l,{visible:+b.dataset.vis}); marinePointAdmin(box,pid,groups); return; }
+      if(b.hasAttribute('data-del')){ if(!confirm(translateString('¿Quitar esta especie del punto?'))) return; try{ await postJSON(`/api/marina/especie-punto/${li.dataset.l}/retirar`,{}); toast('Quitada.'); marinePointAdmin(box,pid,groups); }catch(err){ toast(err.message); } return; }
+      if(b.dataset.pick){ const c=b.closest('[data-c]'); try{ await postJSON('/api/admin/marina/cita/'+c.dataset.c,{species_id:+b.dataset.pick}); toast('Afinada: ya sale en la ficha.'); marinePointAdmin(box,pid,groups); }catch(err){ toast(err.message); } } };
+    let t=null; box.oninput=e=>{ if(!e.target.matches('[data-cq]')) return; clearTimeout(t); const li=e.target.closest('[data-c]');
+      t=setTimeout(async()=>{ const r=await api(`/api/admin/marina/especies?lang=${currentLanguage()}&q=${encodeURIComponent(e.target.value)}`); li.querySelector('[data-cres]').innerHTML=r.items.slice(0,8).map(sp=>`<button type="button" class="svc-chip" data-pick="${sp.id}" translate="no">${esc(sp.name)} · <em>${esc(sp.scientific)}</em></button>`).join(''); },250); };
+  }
   async function renderAdminMarina(mountId,sub){
     const el=document.getElementById(mountId); if(!el) return;
     sub=sub||new URLSearchParams(location.hash.split('?')[1]||'').get('sub')||'pendientes';
     const q=await api('/api/admin/marina/pendientes?lang='+currentLanguage()).catch(()=>({count:0,videos:[],species:[]}));
     const old=await api('/api/admin/marina/antiguos').catch(()=>({items:[]}));
-    const subs=[['pendientes',`Pendientes (${q.count})`],['especies','Especies'],['videos','Vídeos'],...(old.items.length?[['antiguos',`Recorridos antiguos (${old.items.length})`]]:[])];
+    const subs=[['pendientes',`Pendientes (${q.count})`],['vida','Vida marina de los puntos'],['fotos','Fotos pendientes'],['especies','Especies'],['videos','Vídeos'],...(old.items.length?[['antiguos',`Recorridos antiguos (${old.items.length})`]]:[])];
     el.innerHTML=`<div class="mk-admin"><div class="notice"><strong>Vida marina y vídeos de los puntos</strong><p>Catálogo de especies (nombre en cada idioma, foto con su autor y licencia) y vídeos de las rutas enlazados desde YouTube, Vimeo y otras plataformas. Lo que proponen los centros y los freelance espera aquí tu aprobación.</p></div>
       <div class="pr-tabs" role="tablist">${subs.map(([k,l])=>`<button type="button" class="pr-tab${k===sub?' is-on':''}" data-sub="${k}">${escapeHtml(l)}</button>`).join('')}</div><div id="mk-admin-pane"></div></div>`;
     el.querySelectorAll('[data-sub]').forEach(b=>b.onclick=()=>{ try{ history.replaceState(history.state,'',`#/admin?tab=marina&sub=${b.dataset.sub}`); }catch{} renderAdminMarina(mountId,b.dataset.sub); });
     const pane=$('#mk-admin-pane',el), again=()=>renderAdminMarina(mountId,sub);
+    if(sub==='vida'||sub==='fotos'){ await renderMarineLife(pane,sub,again); return; }
     if(sub==='pendientes'){
       const vr=v=>`<div class="mk-row"><span class="mk-thumb">${v.thumb?`<img src="${escapeHtml(v.thumb.src)}" alt="">`:`<span class="mk-thumb-fb">${wdPlatformLogo(v.platform)}</span>`}</span><span class="mk-main"><strong translate="no">${escapeHtml(v.title||v.source_title||v.url)}</strong><small><span>Vídeo</span> · <a href="#/admin?tab=points&edit=${v.point_id}" translate="no">${escapeHtml(v.point_name)}</a> · <span translate="no">${escapeHtml(v.platform_name)}</span> · <span>${WD_VIDEO_KINDS[v.kind]||''}</span></small><small>Aportado por ${escapeHtml(v.contributor)}</small><small><a href="${escapeHtml(v.url)}" target="_blank" rel="noopener noreferrer">${wdIcon('external',13)} <span>Ver en la plataforma</span></a></small></span><span class="mk-actions"><button type="button" class="btn btn-sm btn-primary" data-r="video:${v.id}:approve">Aprobar</button><button type="button" class="btn btn-sm" data-r="video:${v.id}:reject">Rechazar</button></span></div>`;
       const sr=s=>`<div class="mk-row"><span class="mk-thumb">${s.photo?`<img src="${escapeHtml(s.photo.src)}" alt="">`:wdIcon('fish',22)}</span><span class="mk-main"><strong translate="no">${escapeHtml(s.name)}</strong><small><span>Especie</span> · <a href="#/admin?tab=points&edit=${s.point_id}" translate="no">${escapeHtml(s.point_name)}</a> · <span>${WD_FREQ[s.frequency]||''}</span> · <span>${s.months.length?escapeHtml(wdMonthsText(s.months)):'Todo el año'}</span></small><small>Aportado por ${escapeHtml(s.contributor)}</small></span><span class="mk-actions"><button type="button" class="btn btn-sm btn-primary" data-r="especie:${s.id}:approve">Aprobar</button><button type="button" class="btn btn-sm" data-r="especie:${s.id}:reject">Rechazar</button></span></div>`;
@@ -2259,8 +2360,8 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
         ${p.warnings?`<div class="notice pp-warn" role="note">${wdIcon('alert',18)}<div><strong>Avisos</strong><p ${p.warnings_lang&&p.warnings_lang!==currentLanguage()?`lang="${escapeHtml(p.warnings_lang)}" translate="no"`:''}>${escapeHtml(p.warnings)}</p>${p.warnings_pending_translation?'<span class="wd-pending-tr">Pendiente de traducción</span>':''}</div></div>`:''}
         ${p.protection_name?`<div class="notice pp-prot">${wdIcon('shield',18)}<div><strong>${escapeHtml(translateString(PT_PROTECTIONS[p.protection]||'Protección'))}</strong><p translate="no">${escapeHtml(p.protection_name)}</p>${p.permit_required?`<p class="pp-small">${escapeHtml(translateString('Para bucear aquí hace falta permiso: el centro lo gestiona o te dice cómo pedirlo.'))}</p>`:''}</div></div>`:''}
         <section class="tp-block pp-about" id="pp-about"><h2>Sobre el punto</h2>${p.description_lang?`<div class="tp-body" translate="no" lang="${escapeHtml(p.description_lang)}">${String(p.description).split(/\n{2,}/).map(x=>`<p>${escapeHtml(x)}</p>`).join('')}</div>`:`<p class="tp-body">${escapeHtml(pointAbout(p))}</p>`}${p.access_info&&!/pendientes? de completar/i.test(p.access_info)?`<div class="tp-note"><h3>Acceso y condiciones</h3><p>${escapeHtml(p.access_info)}</p></div>`:''}</section>
-        ${pointVideosSection(p,d.videos,d.virtual,cover)}
         ${marineStrip(d.species)}
+        ${pointVideosSection(p,d.videos,d.virtual,cover)}
         <section class="tp-block pp-salidas" id="pp-salidas" hidden></section>
         <section class="tp-block" id="pp-centers"><div class="tp-block-head"><h2>${pc.mode==='exact'?'Centros que bucean aquí':'Centros cercanos'}</h2>${centers.length?`<a href="#/centros?point=${p.id}">Ver en el directorio →</a>`:''}</div>
           ${pc.mode!=='exact'&&centers.length?'<p class="tp-scope">Ningún centro tiene todavía este punto en su operativa; estos trabajan a menos de 60 km.</p>':''}
@@ -4341,6 +4442,44 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     out.pages=Math.min(60,Math.max(out.pages,mine?.pages||10));
     return {data:out,lost};
   }
+  // 17/10/2026 (Bloque 2 · 2.5): «¿Qué viste?» in each dive of the Log Book: the site (found from what the person wrote
+  // in «Lugar») and the species of that site, or any other of the catalogue. It stays in their Log Book and adds up to
+  // their collection; the site's page only says «Vista por buceadores recientemente» with 5 different people, never who.
+  async function wdLogbookSeen(lb){
+    const box=$('#lb-seen'); if(!box) return; const esc=escapeHtml;
+    let mine=await api('/api/diver/sightings?lang='+currentLanguage());
+    const dives=()=>{ const v=(lb.getData()||{}).v||{}, out={}; Object.entries(v).forEach(([k,val])=>{ const m=/^d:(\d+):(date|site)$/.exec(k); if(m&&val){ (out[m[1]]=out[m[1]]||{n:+m[1]})[m[2]]=val; } });
+      return Object.values(out).filter(x=>x.site||x.date).sort((a,b)=>b.n-a.n); };
+    const ui={dive:null,point:null,species:[],chosen:new Set()};
+    const draw=()=>{ const list=dives(), cur=list.find(x=>x.n===ui.dive);
+      box.innerHTML=`<div class="lb-seen-head"><h2 id="lb-seen-h">${wdIcon('fish',20)} ¿Qué viste?</h2><span class="lb-seen-total">${mine.total===1?'Has visto 1 especie':`Has visto ${mine.total} especies`}</span></div>
+        ${list.length?`<label class="lb-seen-row">Inmersión <select id="lb-seen-dive"><option value="">Elige una inmersión</option>${list.map(x=>`<option value="${x.n}" ${x.n===ui.dive?'selected':''}>${x.n}. ${esc([x.date,x.site].filter(Boolean).join(' · '))}</option>`).join('')}</select></label>`:'<p class="muted">Cuando apuntes una inmersión con su lugar, aquí podrás marcar lo que viste.</p>'}
+        ${cur?`<label class="lb-seen-row">Punto <input type="search" id="lb-seen-pq" value="${esc(ui.point?.name||cur.site||'')}" placeholder="Busca el punto" autocomplete="off"></label><div class="vm-pres" id="lb-seen-pres"></div>
+          ${ui.point?`<p class="muted"><span translate="no">${esc(ui.point.name)}</span>: ${ui.species.length?'toca lo que viste.':'todavía no tiene especies citadas; busca en el catálogo.'}</p>`:''}
+          <div class="lb-seen-chips">${[...ui.species,...[...ui.chosen].filter(id=>!ui.species.some(s=>s.id===id)).map(id=>ui.extra?.[id]).filter(Boolean)].map(s=>`<button type="button" class="svc-chip${ui.chosen.has(s.id)?' active':''}" data-sp="${s.id}" aria-pressed="${ui.chosen.has(s.id)}">${s.photo?`<img src="${esc(s.photo.src)}" alt="" width="22" height="22">`:vmIcon(s,15)} <span translate="no">${esc(s.name)}</span></button>`).join('')}</div>
+          <label class="lb-seen-row">Otra especie <input type="search" id="lb-seen-sq" placeholder="Busca en el catálogo" autocomplete="off"></label><div class="vm-pres" id="lb-seen-sres"></div>
+          <button type="button" class="btn btn-primary" id="lb-seen-save">Guardar lo que vi</button>`:''}`;
+      translateTree(box); };
+    const loadDive=async n=>{ ui.dive=n; ui.point=null; ui.species=[]; ui.chosen=new Set(); ui.extra={};
+      const was=mine.dives.find(x=>x.dive_no===n); if(was){ (was.species||[]).forEach(s=>{ ui.chosen.add(s.id); ui.extra[s.id]=s; }); if(was.point_id) await pickPoint(was.point_id,was.point_name,false); }
+      else { const cur=dives().find(x=>x.n===n); if(cur?.site){ try{ const r=await api('/api/dive-points?q='+encodeURIComponent(cur.site)); const p=(r.items||[])[0]; if(p) await pickPoint(p.id,p.name,false); }catch{} } }
+      draw(); };
+    const pickPoint=async(id,name,redraw=true)=>{ ui.point={id,name}; try{ const d=await api('/api/dive-points/'+id); ui.species=d.species||[]; }catch{ ui.species=[]; } if(redraw) draw(); };
+    let t=null;
+    box.addEventListener('change',e=>{ if(e.target.id==='lb-seen-dive') loadDive(+e.target.value||null); });
+    box.addEventListener('input',e=>{ const pq=e.target.id==='lb-seen-pq', sq=e.target.id==='lb-seen-sq'; if(!pq&&!sq) return; clearTimeout(t); const q=e.target.value.trim();
+      t=setTimeout(async()=>{ if(q.length<2) return; if(pq){ const r=await api('/api/dive-points?q='+encodeURIComponent(q)); $('#lb-seen-pres',box).innerHTML=(r.items||[]).slice(0,8).map(p=>`<button type="button" class="svc-chip" data-pt="${p.id}" data-name="${esc(p.name)}" translate="no">${esc(p.name)}</button>`).join(''); }
+        else { const r=await api('/api/especies?q='+encodeURIComponent(q)+'&lang='+currentLanguage()); $('#lb-seen-sres',box).innerHTML=(r.items||[]).slice(0,10).map(s=>{ ui.extra[s.id]=s; return `<button type="button" class="svc-chip" data-add="${s.id}" translate="no">${esc(s.name)} · <em>${esc(s.scientific)}</em></button>`; }).join(''); } },250); });
+    box.addEventListener('click',async e=>{ const b=e.target.closest('button'); if(!b) return;
+      if(b.dataset.pt){ pickPoint(+b.dataset.pt,b.dataset.name); return; }
+      if(b.dataset.sp){ const id=+b.dataset.sp; ui.chosen.has(id)?ui.chosen.delete(id):ui.chosen.add(id); b.classList.toggle('active'); b.setAttribute('aria-pressed',ui.chosen.has(id)); return; }
+      if(b.dataset.add){ ui.chosen.add(+b.dataset.add); draw(); return; }
+      if(b.id==='lb-seen-save'){ const cur=dives().find(x=>x.n===ui.dive); b.disabled=true;
+        try{ const r=await postJSON('/api/diver/sightings',{dive_no:ui.dive,point_id:ui.point?.id||null,species_ids:[...ui.chosen],dive_date:/^\d{4}-\d{2}-\d{2}$/.test(cur?.date||'')?cur.date:null});
+          mine=await api('/api/diver/sightings?lang='+currentLanguage()); toast(r.saved===1?'Guardada 1 especie.':`Guardadas ${r.saved} especies.`); draw(); }
+        catch(err){ toast(err.message); b.disabled=false; } } });
+    draw();
+  }
   async function renderLogbook(params){
     if(!(await loadMe(),state.me)){goLogin();return;}
     const esc=escapeHtml;
@@ -4354,7 +4493,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
       :joined?.center&&!joined.same?`<p class="lb-notice" role="status">${wdIcon('info',17)}<span><span class="lb-notice-t"><span>Tu cuenta ya está unida a un centro:</span> <b translate="no">${esc(joined.center.name)}</b></span><span>Su logo sigue en la portada de tu pasaporte.</span></span></p>`:'';
     setApp(accountShell('logbook',{eyebrow:'MI ACTIVIDAD',title:'Log Book',lead:'Tus inmersiones, guardadas en tu cuenta y en todos tus dispositivos. Las que registra tu centro con un QR llegan verificadas.',
       actions:`<span class="lb-sync" id="lb-sync" role="status" aria-live="polite"></span><button type="button" class="btn" id="lb-csv">${wdIcon('download',15)} Exportar CSV</button>`},
-      `${notice}<section class="acc-card lb-card"><div id="wd-logbook" class="dive-logbook" data-manual translate="no"></div></section>`));
+      `${notice}<section class="acc-card lb-card"><div id="wd-logbook" class="dive-logbook" data-manual translate="no"></div></section><section class="acc-card lb-seen" id="lb-seen" aria-labelledby="lb-seen-h"></section>`));
     fillAccountLevel();
     const host=$('#wd-logbook');
     if(!lib){ host.outerHTML=wdBlockError(new Error('Comprueba la conexión e inténtalo de nuevo.'),'El Log Book no se ha podido cargar.'); translateTree($('.lb-card')); $('.lb-card [data-block-retry]').onclick=()=>route(); return; }
@@ -4369,6 +4508,7 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
     DiveLogbook.instances=DiveLogbook.instances.filter(x=>x.root.isConnected);
     const lb=DiveLogbook.init(host,{storageKey:key,assets:'/lib/logbook/assets/',mapData:'/lib/logbook/land-50m.json',title:'',profile:d.profile,friends:d.friends||[],viewport:wdLbViewport});
     wdLbTranslate(host);
+    wdLogbookSeen(lb).catch(err=>console.error(err));   // 17/10 (2.5): «¿Qué viste?»
     const norm=x=>JSON.parse(JSON.stringify(Object.assign(lb.blank(10),x||{})));
     const sig=x=>wdStable({...x,view:null});                                   // two books are the same book whatever the view
     const show=data=>lb.setData({...data,view:lb.getData().view});            // a copy from the account keeps this device's view
@@ -4892,6 +5032,18 @@ function wdEmbedAllowed(u,domains){ if(!u) return false; let p; try{ p=new URL(S
   const serviceColorOptions=(selected)=>SERVICE_COLOR_PALETTE.map(c=>`<option value="${c.value}" ${String(selected||'')===c.value?'selected':''}>${c.label}</option>`).join('');
   // Line icons (inline SVG) so the catalogue looks the same on every device, unlike emoji.
   const WD_ICON_PATHS={
+    octopus:'<path d="M7 11a5 5 0 1 1 10 0v2"/><path d="M7 11v3c0 2-2 2.5-3 4M9.5 14c0 2.5-1 4-2 5.5M12 14.5V20M14.5 14c0 2.5 1 4 2 5.5M17 13c0 2 2 2.5 3 4"/><circle cx="10" cy="9.5" r=".6"/><circle cx="14" cy="9.5" r=".6"/>',
+    crab:'<ellipse cx="12" cy="13" rx="5" ry="3.5"/><path d="M7.5 11 5 7.5 3 9M16.5 11 19 7.5 21 9M7.5 14.5 4 16M7 13H3.5M16.5 14.5 20 16M17 13h3.5M10.5 10V8M13.5 10V8"/>',
+    nudibranch:'<path d="M3 16c2-4 5-6 9-6s7 2 9 6H3z"/><path d="M8 10.5 7 7M12 10V6.5M16 10.5l1-3.5"/><path d="M19.5 16c.3 1.2-.3 2-1.5 2"/>',
+    shell:'<path d="M12 4c-4 0-7 3.5-7 8 0 3 2 6 7 8 5-2 7-5 7-8 0-4.5-3-8-7-8z"/><path d="M12 4v16M8.5 6.5 12 20l3.5-13.5M5.6 9.5 12 20l6.4-10.5"/>',
+    starfish:'<path d="m12 3 2.2 5.6 6 .4-4.6 3.9 1.5 5.8L12 15.5l-5.1 3.2 1.5-5.8L3.8 9l6-.4z"/>',
+    coral:'<path d="M12 21v-7M12 14c0-3-2-4-2-7M12 14c0-2.5 2.5-3.5 2.5-6.5M12 17c-2.5 0-4.5-1.5-5-4.5M7 12.5 5.5 10M12 17c2.5 0 4.5-1.5 5-4.5M17 12.5l1.5-2.5M9 21h6"/>',
+    sponge:'<path d="M6 20V9c0-2.5 2-4 6-4s6 1.5 6 4v11z"/><path d="M5 20h14"/><circle cx="9.5" cy="10" r="1"/><circle cx="14" cy="12.5" r="1"/><circle cx="10" cy="15.5" r="1"/>',
+    worm:'<path d="M4 17c2-3 4-3 6 0s4 3 6 0 2-5 0-7"/><circle cx="16" cy="9" r="2"/>',
+    tunicate:'<path d="M8 20c-2-3-2.5-8 0-12s6.5-4 8 0 0 9-2 12z"/><path d="M10 6.5 9.5 4M14.5 6.5 15 4"/><path d="M7 20h10"/>',
+    seaweed:'<path d="M9 21c-2-4 2-6 0-10s1-6 0-8M15 21c2-3-2-5 0-9s-1-5 1-8"/><path d="M9 14c-2 0-3-1-4-2M15 12c2 0 3-1 4-2"/>',
+    turtle:'<ellipse cx="12" cy="12.5" rx="5.5" ry="4.5"/><path d="M17.5 12.5H20a1.5 1.5 0 0 0 0-3h-.5M8 9 5.5 6.5M16 9l1.5-2M8 16l-2.5 2.5M16 16l2 2.5M6.5 12.5H4"/>',
+    dolphin:'<path d="M3 15c3 0 4-5 9-6.5 2-.6 4-.3 5 .5l2.5-2v4c1 1.5 1.5 3 1.5 4.5-2-1-3.5-1.5-6-1-3 .5-5 3-8 3"/><path d="M11 9 9.5 6"/><path d="M5 15c0 2 1 3 2.5 3.5"/>',
     fish:'<path d="M3 12c3-4.5 7-6 11-6 3 0 5.5 2.2 7 6-1.5 3.8-4 6-7 6-4 0-8-1.5-11-6z"/><path d="M3 12 1.5 8.5M3 12l-1.5 3.5"/><circle cx="16.5" cy="10.6" r="1"/>',
     external:'<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
     star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',

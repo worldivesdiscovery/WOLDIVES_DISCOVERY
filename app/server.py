@@ -76,6 +76,7 @@ from wod import tipos_datos as wtd   # 17/10 (1.2): the own data of each type of
 from wod import buddies as wbud   # 17/10 (1.7): buddies that accept, and «¿Buceamos?»
 from wod import categorias as wcat   # 17/10 (1.5): the activities by categories when booking
 from wod import gestoria as wges   # 17/10 (1.6): «Exportar para mi gestoría»
+from wod import vm_import as wvmi   # 17/10 (Bloque 2): the marine life cited in public sources
 from wod import equipo as weq   # v50.58: rental equipment inside the dive (16/10/2026)
 from wod import puntos as wpun   # v50.58: fuller dive sites, sources, batches and duplicates (16/10/2026)
 from wod import costa as wcosta   # v50.58: land or sea, and the distance to the shore, of a dive site
@@ -1561,6 +1562,7 @@ def bootstrap():
         migrate_v50_58(db)
         db.commit()
         migrate_v50_59(db)
+        migrate_v50_59_marina(db)
         db.commit()
         for stmt in BASE_SCHEMA.split(';\n'):
             if stmt.strip().startswith(('CREATE INDEX', 'CREATE UNIQUE INDEX')): db.execute(stmt.strip().rstrip(';'))
@@ -2631,6 +2633,278 @@ POINT_DATA_17_10 = [
 def point_type_keys(db, pid):
     """The types of one dive site (as the catalogue computes them for every site), straight from the database."""
     return [cat_key(c) for c in DIVE_CATEGORIES if db.execute(f"SELECT 1 FROM dive_points p WHERE p.id=? AND {c['where']}", (pid,)).fetchone()]
+
+
+VM_IMPORT_FILE = ROOT / 'app' / 'data' / 'importar' / 'vida-marina-puntos.json'
+VM_IMPORT_NAME = 'Fuentes públicas (importación)'
+
+
+def migrate_v50_59_marina(db):
+    """Encargo del 17/10/2026, Bloque 2. Adds; nothing is deleted. The catalogue of species gets its number, group and
+    «pendiente de traducción»; each species of a site its evidence (at the site or in the area), frequency and season
+    only if a source says them, where it is seen, visible or hidden (and why) and its sources (only for the
+    administrator). Every imported citation is kept as it came (also the generic ones and those without a site), the
+    sightings of the Log Book go apart, and the file of the brief is imported once."""
+    add_columns(db, 'species', [('catalog_no', 'INTEGER'), ('group_key', 'TEXT'), ('needs_translation', 'INTEGER NOT NULL DEFAULT 0'), ('origin', 'TEXT')])
+    db.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_species_catalog_no ON species(catalog_no) WHERE catalog_no IS NOT NULL AND active=1')
+    add_columns(db, 'point_species', [('evidence', 'TEXT'), ('frequency_label', 'TEXT'), ('season', 'TEXT'), ('where_text', 'TEXT'),
+                                      ('visible', 'INTEGER NOT NULL DEFAULT 1'), ('hidden_reason', 'TEXT'), ('sort_order', 'INTEGER'), ('sources', 'TEXT')])
+    db.execute('''CREATE TABLE IF NOT EXISTS marine_imports (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT, rows INTEGER NOT NULL, summary TEXT,
+                  created_by INTEGER, created_at TEXT NOT NULL)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS marine_citations (id INTEGER PRIMARY KEY AUTOINCREMENT, import_id INTEGER, point_name TEXT NOT NULL,
+                  municipio TEXT, point_id INTEGER REFERENCES dive_points(id) ON DELETE SET NULL, common_name TEXT NOT NULL, scientific_name TEXT NOT NULL,
+                  group_key TEXT, evidence TEXT NOT NULL, frequency TEXT, season TEXT, where_text TEXT, catalog TEXT, visible INTEGER NOT NULL DEFAULT 0,
+                  hidden_reason TEXT, sources TEXT, species_id INTEGER REFERENCES species(id) ON DELETE SET NULL, link_id INTEGER, state TEXT NOT NULL,
+                  created_at TEXT NOT NULL, updated_at TEXT NOT NULL)''')
+    db.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_marine_citations ON marine_citations(point_name, municipio, scientific_name, evidence)')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_marine_citations_state ON marine_citations(state, point_id)')
+    # 2.5: what each diver saw in each dive of their Log Book (the page of the dive in the book), with the site chosen
+    db.execute('''CREATE TABLE IF NOT EXISTS logbook_sightings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                  dive_no INTEGER NOT NULL, point_id INTEGER REFERENCES dive_points(id) ON DELETE SET NULL, species_id INTEGER NOT NULL REFERENCES species(id) ON DELETE CASCADE,
+                  dive_date TEXT, created_at TEXT NOT NULL, UNIQUE(user_id, dive_no, species_id))''')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_logbook_sightings_point ON logbook_sightings(point_id, species_id, dive_date)')
+    if not migration_done(db, '50.59-vida-marina') and VM_IMPORT_FILE.is_file():
+        st = marine_import(db, None, wvmi.parse(VM_IMPORT_FILE.read_bytes()), VM_IMPORT_FILE.name)
+        db.execute('INSERT INTO schema_migrations(version,applied_at,notes) VALUES(?,?,?)', ('50.59-vida-marina', now(), json.dumps(st, ensure_ascii=False)))
+
+
+def marine_import(db, actor, cites, filename=''):
+    """Loads the citations of a file (wod/vm_import.parse). Again with the same file: nothing is duplicated, the
+    citations are updated. Returns what was done."""
+    points = [(r['id'], r['name'], r['region'] or '', r['subregion'] or '') for r in db.execute('SELECT id,name,region,subregion FROM dive_points WHERE active=1').fetchall()]
+    by_sci = {r['scientific_name'].lower(): r for r in db.execute('SELECT id,scientific_name,group_key FROM species WHERE active=1').fetchall()}
+    next_no = max(150, db.execute('SELECT COALESCE(MAX(catalog_no),0) FROM species').fetchone()[0]) + 1
+    st = {'citas': len(cites), 'enlazadas': 0, 'genericas': 0, 'sin_punto': 0, 'ocultas': 0, 'especies_nuevas': 0, 'especies_sin_numero': 0, 'puntos': 0}
+    imp = db.execute('INSERT INTO marine_imports(filename,rows,created_by,created_at) VALUES(?,?,?,?)', (clean_text(filename, 200), len(cites), actor, now())).lastrowid
+    seen_points = set(); matched = {}
+    for c in cites:
+        key = (c['point'], c['municipio'])
+        if key not in matched: matched[key] = wvmi.match_point(points, *key)
+        pid = matched[key]
+        if pid: seen_points.add(pid)
+        sid = None; link = None
+        if c['catalog'] != 'generico':
+            sp = by_sci.get(c['scientific'].lower())
+            if not sp:
+                no = None
+                if c['catalog'] == 'no': no = next_no; next_no += 1; st['especies_nuevas'] += 1
+                else: st['especies_sin_numero'] += 1   # «already in the 150»: that catalogue is not on the server (notes)
+                sid = db.execute('INSERT INTO species(scientific_name,catalog_no,group_key,needs_translation,origin,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)',
+                                 (c['scientific'], no, c['group'], 1, 'import', actor, now(), now())).lastrowid
+                db.execute('INSERT OR IGNORE INTO species_texts(species_id,lang,common_name,blurb,search_key) VALUES(?,?,?,?,?)',
+                           (sid, 'es', c['common'], None, wmarina.search_key(c['common'] + ' ' + c['scientific'])))
+                sp = {'id': sid, 'scientific_name': c['scientific'], 'group_key': c['group']}; by_sci[c['scientific'].lower()] = sp
+            else:
+                sid = sp['id']
+                if not sp['group_key']: db.execute('UPDATE species SET group_key=? WHERE id=? AND group_key IS NULL', (c['group'], sid))
+            if pid: link = marine_link(db, pid, sid, c, actor)
+        state = 'generic' if c['catalog'] == 'generico' else ('linked' if link else 'no_point')
+        st['enlazadas' if state == 'linked' else 'genericas' if state == 'generic' else 'sin_punto'] += 1
+        if not pid and state == 'generic': st['sin_punto'] += 1
+        if not c['visible']: st['ocultas'] += 1
+        db.execute('''INSERT INTO marine_citations(import_id,point_name,municipio,point_id,common_name,scientific_name,group_key,evidence,frequency,season,where_text,catalog,
+                         visible,hidden_reason,sources,species_id,link_id,state,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                      ON CONFLICT(point_name,municipio,scientific_name,evidence) DO UPDATE SET import_id=excluded.import_id,point_id=COALESCE(marine_citations.point_id,excluded.point_id),
+                         common_name=excluded.common_name,group_key=excluded.group_key,frequency=excluded.frequency,season=excluded.season,where_text=excluded.where_text,
+                         catalog=excluded.catalog,hidden_reason=excluded.hidden_reason,sources=excluded.sources,
+                         species_id=COALESCE(marine_citations.species_id,excluded.species_id),link_id=COALESCE(marine_citations.link_id,excluded.link_id),
+                         state=CASE WHEN marine_citations.state='linked' THEN 'linked' ELSE excluded.state END,updated_at=excluded.updated_at''',
+                   (imp, c['point'], c['municipio'], pid, c['common'], c['scientific'], c['group'], c['evidence'], c['frequency'], c['season'] or None,
+                    c['where'] or None, c['catalog'], 1 if c['visible'] else 0, c['hidden_reason'] or None, json.dumps(c['sources']), sid, link, state, now(), now()))
+    st['puntos'] = len(seen_points)
+    db.execute('UPDATE marine_imports SET summary=? WHERE id=?', (json.dumps(st, ensure_ascii=False), imp))
+    if actor: audit(db, actor, 'marine_imported', 'marine_import', imp, st)
+    return st
+
+
+VM_RECENT_DIVERS = 5      # 2.5: «Vista por buceadores recientemente» and a species proposed for the site
+
+
+def vm_show_no_photo(db):
+    """2.3.4: «Mostrar especies sin foto» (Administración → Vida marina), on by default."""
+    r = db.execute("SELECT value FROM site_settings WHERE key='vm_show_no_photo'").fetchone()
+    return not r or r['value'] != '0'
+
+
+def public_point_species(db, pid, lang):
+    """The species of a site for its page, with «Vista por buceadores recientemente» when at least 5 different divers
+    marked it in their Log Book in the last 12 months (never who)."""
+    items = wmarina.point_species(db, pid, lang, with_no_photo=vm_show_no_photo(db))
+    since = (_dt.date.today() - _dt.timedelta(days=365)).isoformat()
+    recent = {r['species_id'] for r in db.execute('SELECT species_id FROM logbook_sightings WHERE point_id=? AND COALESCE(dive_date,substr(created_at,1,10))>=? '
+                                                   'GROUP BY species_id HAVING COUNT(DISTINCT user_id)>=?', (pid, since, VM_RECENT_DIVERS)).fetchall()}
+    for x in items: x['recent'] = x['id'] in recent
+    return items
+
+
+def vm_overview(db):
+    """Administración → Vida marina: what has been imported, what waits for the administrator and the photos missing,
+    the species that appear at most sites first (to upload those first)."""
+    cnt = {r['state']: r['n'] for r in db.execute('SELECT state,COUNT(*) n FROM marine_citations GROUP BY state').fetchall()}
+    hidden = db.execute("SELECT COUNT(*) FROM point_species WHERE active=1 AND status='approved' AND COALESCE(visible,1)=0").fetchone()[0]
+    photos = [dict(r) for r in db.execute('''SELECT s.id, s.catalog_no, s.scientific_name, s.group_key,
+                     (SELECT common_name FROM species_texts t WHERE t.species_id=s.id AND t.lang='es') AS common_name,
+                     COUNT(DISTINCT ps.dive_point_id) AS points FROM species s
+                   JOIN point_species ps ON ps.species_id=s.id AND ps.active=1 AND ps.status='approved'
+                   WHERE s.active=1 AND s.photo_base IS NULL GROUP BY s.id ORDER BY points DESC, s.catalog_no, s.scientific_name''').fetchall()]
+    no_photo_total = db.execute('SELECT COUNT(*) FROM species WHERE active=1 AND photo_base IS NULL').fetchone()[0]
+    imports = [dict(r) for r in db.execute('SELECT id,filename,rows,summary,created_at FROM marine_imports ORDER BY id DESC LIMIT 10').fetchall()]
+    for i in imports:
+        try: i['summary'] = json.loads(i['summary'] or '{}')
+        except ValueError: i['summary'] = {}
+    return {'citations': cnt, 'hidden': hidden, 'photos_missing': no_photo_total, 'photos': photos[:300], 'imports': imports,
+            'needs_translation': db.execute('SELECT COUNT(*) FROM species WHERE active=1 AND needs_translation=1').fetchone()[0],
+            'show_no_photo': vm_show_no_photo(db), 'suggestions': vm_suggestions(db), 'groups': {k: v[0] for k, v in wvmi.GROUPS.items()}}
+
+
+def vm_suggestions(db):
+    """2.5.4: a species that is not at a site and that 5 different divers marked there goes to review."""
+    return [dict(r) for r in db.execute('''SELECT ls.point_id, p.name AS point_name, ls.species_id, s.scientific_name,
+                     (SELECT common_name FROM species_texts t WHERE t.species_id=s.id AND t.lang='es') AS common_name, COUNT(DISTINCT ls.user_id) AS divers
+                   FROM logbook_sightings ls JOIN dive_points p ON p.id=ls.point_id JOIN species s ON s.id=ls.species_id AND s.active=1
+                   WHERE NOT EXISTS (SELECT 1 FROM point_species ps WHERE ps.dive_point_id=ls.point_id AND ps.species_id=ls.species_id AND ps.active=1 AND ps.status<>'rejected')
+                   GROUP BY ls.point_id, ls.species_id HAVING COUNT(DISTINCT ls.user_id)>=? ORDER BY divers DESC LIMIT 200''', (VM_RECENT_DIVERS,)).fetchall()]
+
+
+def vm_point_admin(db, pid, lang):
+    """2.4.1: the species of a site (also the hidden ones, with their sources) and its citations still to refine."""
+    point = db.execute('SELECT id,name FROM dive_points WHERE id=?', (pid,)).fetchone()
+    if not point: raise NotFound('Punto no encontrado.')
+    cites = [dict(r) for r in db.execute("SELECT id,common_name,scientific_name,group_key,evidence,where_text,hidden_reason,sources FROM marine_citations "
+                                          "WHERE point_id=? AND state='generic' ORDER BY evidence DESC, common_name", (pid,)).fetchall()]
+    for c in cites: c['sources'] = json.loads(c['sources'] or '[]')
+    return {'point': dict(point), 'items': wmarina.point_species(db, pid, lang, ('approved', 'pending'), False), 'generic': cites}
+
+
+def vm_edit_link(db, user, lid, data):
+    """2.4.1: visible or hidden, at the site or in the area, frequency, season and where; only the administrator."""
+    row = db.execute("SELECT * FROM point_species WHERE id=? AND active=1", (lid,)).fetchone()
+    if not row: raise NotFound('Especie no encontrada en el punto.')
+    sets = {}
+    if 'visible' in data: sets['visible'] = 1 if data.get('visible') in (1, True, '1', 'true') else 0
+    if 'hidden_reason' in data: sets['hidden_reason'] = clean_text(data.get('hidden_reason'), 120) or None
+    if data.get('evidence') in ('point', 'zone'): sets['evidence'] = data['evidence']
+    if 'frequency_label' in data:
+        f = data.get('frequency_label') or None
+        if f is not None and f not in ('habitual', 'frecuente', 'ocasional', 'raro'): raise ValueError('Frecuencia no válida.')
+        sets['frequency_label'] = f
+        if f: sets['frequency'] = wvmi.LEGACY_FREQ[f]
+    for k, n in (('where_text', 300), ('season', 120)):
+        if k in data: sets[k] = clean_text(data.get(k), n) or None
+    if not sets: raise ValueError('No hay cambios.')
+    if sets.get('visible') == 1: sets['hidden_reason'] = None
+    db.execute(f"UPDATE point_species SET {','.join(k + '=?' for k in sets)},updated_at=? WHERE id=?", (*sets.values(), now(), lid))
+    audit(db, user['id'], 'marine_link_edited', 'point_species', lid, {k: v for k, v in sets.items() if k != 'where_text'})
+
+
+def vm_order(db, user, pid, ids):
+    ids = [int(x) for x in ids if str(x).isdigit()][:500]
+    mine = {r['id'] for r in db.execute('SELECT id FROM point_species WHERE dive_point_id=? AND active=1', (pid,)).fetchall()}
+    if not ids or any(i not in mine for i in ids): raise NotFound('Especie no encontrada en el punto.')
+    for i, lid in enumerate(ids): db.execute('UPDATE point_species SET sort_order=? WHERE id=?', ((i + 1) * 10, lid))
+    audit(db, user['id'], 'marine_order', 'dive_point', pid)
+
+
+def vm_refine(db, user, cid, data):
+    """A citation of the import: a generic one («sargos») turned into a species of the catalogue, or one without a
+    site linked to its site. Its sources come with it; it is published (the administrator decided)."""
+    c = db.execute('SELECT * FROM marine_citations WHERE id=?', (cid,)).fetchone()
+    if not c: raise NotFound('Cita no encontrada.')
+    pid = int(data.get('point_id') or c['point_id'] or 0)
+    if not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1', (pid,)).fetchone(): raise ValueError('Elige el punto de la cita.')
+    sid = int(data.get('species_id') or c['species_id'] or 0)
+    if not db.execute('SELECT 1 FROM species WHERE id=? AND active=1', (sid,)).fetchone(): raise ValueError('Elige la especie del catálogo.')
+    cite = {'evidence': c['evidence'], 'frequency': c['frequency'], 'season': c['season'] or '', 'where': c['where_text'] or '',
+            'sources': json.loads(c['sources'] or '[]'), 'visible': True, 'hidden_reason': ''}
+    lid = marine_link(db, pid, sid, cite, user['id'])
+    db.execute("UPDATE point_species SET visible=1,hidden_reason=NULL WHERE id=? AND contributor_name=?", (lid, VM_IMPORT_NAME))
+    db.execute("UPDATE marine_citations SET point_id=?,species_id=?,link_id=?,state='linked',updated_at=? WHERE id=?", (pid, sid, lid, now(), cid))
+    audit(db, user['id'], 'marine_citation_refined', 'marine_citation', cid, {'species_id': sid, 'point_id': pid})
+    return lid
+
+
+PHOTO_NAME = re.compile(r'^(\d{1,4})_([a-z][a-z0-9-]+)\.(jpe?g|png|webp)$', re.I)
+
+
+def vm_bulk_photo(db, user, file, fields):
+    """2.4.4: one photo of the bulk upload, named «NNN_nombre-cientifico.jpg»: the number of the catalogue and the
+    scientific name must be the same species (so a typo never puts a photo on another one)."""
+    name = (file or {}).get('filename') or ''
+    m = PHOTO_NAME.match(name)
+    if not m: raise ValueError(f'«{name}»: el nombre tiene que ser NNN_nombre-cientifico.jpg (por ejemplo 151_thalassoma-pavo.jpg).')
+    no, slug = int(m.group(1)), m.group(2).lower()
+    sp = db.execute('SELECT id,scientific_name FROM species WHERE catalog_no=? AND active=1', (no,)).fetchone()
+    want = lambda sci: re.sub(r'[^a-z0-9]+', '-', wvmi.norm(sci)).strip('-')
+    if not sp:
+        sp = next((r for r in db.execute('SELECT id,scientific_name FROM species WHERE active=1 AND catalog_no IS NULL').fetchall() if want(r['scientific_name']) == slug), None)
+        if not sp: raise ValueError(f'«{name}»: no hay ninguna especie con el número {no}.')
+    elif want(sp['scientific_name']) != slug:
+        raise ValueError(f'«{name}»: el número {no} es {sp["scientific_name"]}, no {slug.replace("-", " ")}.')
+    marina_species_photo(db, sp['id'], file['content'], fields.get('photo_author'), fields.get('photo_license'), fields.get('photo_license_url'), fields.get('photo_source_url'))
+    audit(db, user['id'], 'species_photo_bulk', 'species', sp['id'], {'file': name})
+    return sp['id']
+
+
+def species_points_public(db, sid, lang):
+    """«Ver todos los puntos donde se ve»: the sites where a species is visible (never the sources)."""
+    rows = db.execute('''SELECT p.id, p.name, p.region, p.country, ps.evidence FROM point_species ps JOIN dive_points p ON p.id=ps.dive_point_id AND p.active=1
+                          WHERE ps.species_id=? AND ps.active=1 AND ps.status='approved' AND COALESCE(ps.visible,1)=1
+                          ORDER BY CASE WHEN ps.evidence='zone' THEN 1 ELSE 0 END, p.name LIMIT 300''', (sid,)).fetchall()
+    return [{'id': r['id'], 'name': r['name'], 'place': ', '.join(x for x in (r['region'], r['country']) if x), 'evidence': r['evidence'] or 'point'} for r in rows]
+
+
+def sightings_of(db, user, lang):
+    """2.5: what the diver saw in each dive of their Log Book and their collection («Has visto 34 especies»)."""
+    rows = db.execute(f'''SELECT ls.dive_no, ls.point_id, ls.dive_date, p.name AS point_name, s.id AS species_id, s.scientific_name, s.group_key, s.photo_base,
+                                  s.photo_widths, {wmarina._NAME_COLS} FROM logbook_sightings ls JOIN species s ON s.id=ls.species_id
+                           LEFT JOIN dive_points p ON p.id=ls.point_id {wmarina._NAMES} WHERE ls.user_id=? ORDER BY ls.dive_no, common_name''', (lang, user['id'])).fetchall()
+    dives = {}
+    for r in rows:
+        d = dives.setdefault(r['dive_no'], {'dive_no': r['dive_no'], 'point_id': r['point_id'], 'point_name': r['point_name'] or '', 'date': r['dive_date'], 'species': []})
+        d['species'].append({'id': r['species_id'], 'name': r['common_name'] or r['scientific_name'], 'scientific': r['scientific_name'], 'group': r['group_key'] or '',
+                             'photo': wimg.srcset(r['photo_base'], r['photo_widths']) if r['photo_base'] else None})
+    return {'dives': list(dives.values()), 'total': len({r['species_id'] for r in rows})}
+
+
+def save_sightings(db, user, data):
+    """«¿Qué viste?» of one dive: the site and the species (they replace what was marked before for that dive)."""
+    try: no = int(data.get('dive_no') or 0)
+    except (TypeError, ValueError): no = 0
+    if not 1 <= no <= wlog.MAX_DIVE: raise ValueError('Inmersión no válida.')
+    pid = int(data.get('point_id') or 0) or None
+    if pid and not db.execute('SELECT 1 FROM dive_points WHERE id=? AND active=1', (pid,)).fetchone(): raise ValueError('Punto no encontrado.')
+    ids = [int(x) for x in (data.get('species_ids') or []) if str(x).isdigit()][:80]
+    if ids and len({r['id'] for r in db.execute(f"SELECT id FROM species WHERE active=1 AND id IN ({','.join('?' * len(ids))})", ids).fetchall()}) != len(set(ids)):
+        raise ValueError('Elige especies del catálogo.')
+    d = str(data.get('dive_date') or '')[:10]
+    try: d = _dt.date.fromisoformat(d).isoformat() if d else None
+    except ValueError: d = None
+    if d and d > _dt.date.today().isoformat(): raise ValueError('La fecha de la inmersión no puede ser futura.')
+    db.execute('DELETE FROM logbook_sightings WHERE user_id=? AND dive_no=?', (user['id'], no))
+    for sid in dict.fromkeys(ids):
+        db.execute('INSERT INTO logbook_sightings(user_id,dive_no,point_id,species_id,dive_date,created_at) VALUES(?,?,?,?,?,?)', (user['id'], no, pid, sid, d, now()))
+    return len(set(ids))
+
+
+def marine_link(db, pid, sid, c, actor):
+    """The species at the site from a citation: new, or the one already there with what was missing (at the site wins
+    over in the area; the sources add up). Hidden when the file says so, with its reason."""
+    row = db.execute("SELECT * FROM point_species WHERE dive_point_id=? AND species_id=? AND active=1 AND status<>'rejected'", (pid, sid)).fetchone()
+    if row:
+        ev = 'point' if 'point' in (row['evidence'], c['evidence']) else (row['evidence'] or c['evidence'])
+        try: srcs = json.loads(row['sources'] or '[]')
+        except ValueError: srcs = []
+        srcs = list(dict.fromkeys(srcs + c['sources']))[:20]
+        db.execute('''UPDATE point_species SET evidence=?,frequency_label=COALESCE(frequency_label,?),season=COALESCE(season,?),where_text=COALESCE(where_text,?),
+                        sources=?,updated_at=? WHERE id=?''', (ev, c['frequency'], c['season'] or None, c['where'] or None, json.dumps(srcs), now(), row['id']))
+        if row['evidence'] is None and not c['visible'] and row['contributor_name'] == VM_IMPORT_NAME:
+            db.execute('UPDATE point_species SET visible=0,hidden_reason=? WHERE id=?', (c['hidden_reason'] or None, row['id']))
+        return row['id']
+    return db.execute('''INSERT INTO point_species(dive_point_id,species_id,frequency,months,status,contributor_kind,contributor_name,created_by_user_id,reviewed_by_user_id,
+                             reviewed_at,evidence,frequency_label,season,where_text,visible,hidden_reason,sources,created_at,updated_at)
+                          VALUES(?,?,?,0,'approved','admin',?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                      (pid, sid, wvmi.LEGACY_FREQ.get(c['frequency'] or '', 'common'), VM_IMPORT_NAME, actor, actor, now(), c['evidence'], c['frequency'],
+                       c['season'] or None, c['where'] or None, 1 if c['visible'] else 0, None if c['visible'] else (c['hidden_reason'] or None), json.dumps(c['sources']), now(), now())).lastrowid
 
 
 def migrate_v50_59(db):
@@ -5244,6 +5518,8 @@ def marina_save_species(db, user, sid, fields, file=None):
         if not (file and file.get('content')): raise ValueError('Añade la foto de la especie (propia o con una licencia que permita usarla).')
         sid = db.execute('INSERT INTO species(scientific_name,created_by_user_id,created_at,updated_at) VALUES(?,?,?,?)', (sci, user['id'], now(), now())).lastrowid
     wmarina.save_texts(db, sid, texts)
+    db.execute('UPDATE species SET needs_translation=CASE WHEN (SELECT COUNT(*) FROM species_texts WHERE species_id=?)>=? THEN 0 ELSE needs_translation END WHERE id=?',
+               (sid, len(wmarina.LANGS), sid))   # 17/10: «Pendiente de traducción» until it has the 9 languages
     if file and file.get('content'):
         marina_species_photo(db, sid, file['content'], fields.get('photo_author'), fields.get('photo_license'), fields.get('photo_license_url'), fields.get('photo_source_url'))
     elif any(k in fields for k in ('photo_author', 'photo_license')):
@@ -5281,8 +5557,15 @@ def load_example_species(db, user_id=None):
     """Also on the first start of a new installation (v50.51): the production package brings the catalogue."""
     added = 0
     for ex in wmarina.examples():
-        if db.execute('SELECT 1 FROM species WHERE lower(scientific_name)=lower(?) AND active=1', (ex['cientifico'],)).fetchone(): continue
         widths = [w for w in wmarina.SPECIES_WIDTHS if (PUBLIC / 'img' / 'especies' / f"{ex['clave']}-{w}.webp").is_file()]
+        have = db.execute('SELECT id,photo_base FROM species WHERE lower(scientific_name)=lower(?) AND active=1', (ex['cientifico'],)).fetchone()
+        if have:
+            # 17/10: a species the import of public sources created first (no photo yet) gets its picture and its names
+            if not have['photo_base'] and widths:
+                db.execute('UPDATE species SET photo_base=?,photo_widths=?,photo_ratio=?,photo_author=?,photo_license=?,example_key=?,needs_translation=0,updated_at=? WHERE id=?',
+                           (f"/img/especies/{ex['clave']}", ','.join(map(str, widths)), round(4 / 3, 4), ex['autor'], wmarina.clean_license(ex['licencia']), ex['clave'], now(), have['id']))
+                wmarina.save_texts(db, have['id'], ex['textos']); added += 1
+            continue
         if not widths: continue
         sid = db.execute('''INSERT INTO species(scientific_name,photo_base,photo_widths,photo_ratio,photo_author,photo_license,example_key,created_by_user_id,created_at,updated_at)
                             VALUES(?,?,?,?,?,?,?,?,?,?)''', (ex['cientifico'], f"/img/especies/{ex['clave']}", ','.join(map(str, widths)), round(4 / 3, 4),
@@ -14032,6 +14315,7 @@ def delete_user_account(db, user):
     for sql, args in (('DELETE FROM logbook_books WHERE user_id=?', (uid,)), ('DELETE FROM logbook_claims WHERE user_id=?', (uid,)),
                       ('DELETE FROM user_buddies WHERE user_id=? OR buddy_id=?', (uid, uid)),
                       ('DELETE FROM buddy_requests WHERE from_user=? OR to_user=?', (uid, uid)),   # 17/10 (1.7)
+                      ('DELETE FROM logbook_sightings WHERE user_id=?', (uid,)),   # 17/10 (2.5)
                       ('DELETE FROM dive_invites WHERE from_user=? OR to_user=?', (uid, uid)),
                       ('UPDATE users SET buddy_code=NULL, signup_center_id=NULL WHERE id=?', (uid,))):
         db.execute(sql, args)
@@ -18804,10 +19088,16 @@ class Handler(BaseHTTPRequestHandler):
                     admin_reason_gate(self,db,path,'GET')
                 if path.startswith(('/api/insurance','/api/admin/insurance','/api/center/bookings/')) and self.insurance_get(db,path,query): return   # v50.56 · seguros
                 if path.startswith(('/api/logbook','/api/center/logbook','/api/public/invite')) and self.logbook_get(db,path,query): return   # v50.57 · logbook
+                if re.fullmatch(r'/api/especies/\d+/puntos',path):   # 17/10 (Bloque 2): «Ver todos los puntos donde se ve»
+                    self.send_json({'items':species_points_public(db,int(path.split('/')[3]),normalize_lang(query.get('lang',['es'])[0]))}); return
+                if path=='/api/especies':   # the catalogue, for «¿Qué viste?» of the Log Book
+                    self.send_json({'items':wmarina.search_species(db,clean_text(query.get('q',[''])[0],100),normalize_lang(query.get('lang',['es'])[0]),30)}); return
                 if path=='/api/booking-categories':   # 17/10 (1.5)
                     self.send_json({'items':wcat.public_list(db,normalize_lang(query.get('lang',['es'])[0]))}); return
                 if path=='/api/admin/booking-categories':
                     user=require_user(self,db); require_role(user,{'admin'}); self.send_json({'items':wcat.rows(db,include_hidden=True),'icons':list(wcat.ICONS),'langs':list(wcat.LANGS)}); return
+                if path=='/api/diver/sightings':   # 17/10 (2.5): «¿Qué viste?» of the Log Book
+                    user=require_user(self,db); self.send_json(sightings_of(db,user,normalize_lang(query.get('lang',['es'])[0]))); return
                 if path=='/api/buddies':   # 17/10 (1.7): the buddies of the person, the requests and the «¿Buceamos?»
                     user=require_user(self,db); self.send_json(buddies_payload(db,user)); return
                 if path == '/api/health':
@@ -19918,13 +20208,15 @@ class Handler(BaseHTTPRequestHandler):
                     if re.fullmatch(r'/api/marina/punto/\d+',path): self.send_json(marina_point_editor(db,user,int(path.rsplit('/',1)[1]),lang_)); return
                     if path=='/api/marina/plataformas': self.send_json({'items':wvideos.platform_names()}); return
                     if path=='/api/admin/marina/pendientes': self.send_json({**marina_queue(db,lang_),'count':marina_pending_count(db)}); return
+                    if path=='/api/admin/marina/vida': self.send_json(vm_overview(db)); return   # 17/10 (Bloque 2)
+                    if re.fullmatch(r'/api/admin/marina/vida/punto/\d+',path): self.send_json(vm_point_admin(db,int(path.rsplit('/',1)[1]),lang_)); return
                     if path=='/api/admin/marina/especies':
                         key_=wmarina.search_key(q_)
                         flt_="AND (s.id IN (SELECT species_id FROM species_texts WHERE search_key LIKE ?) OR lower(s.scientific_name) LIKE ?)" if key_ else ''
                         rows=db.execute(f"SELECT s.*, {wmarina._NAME_COLS}, (SELECT COUNT(*) FROM point_species ps WHERE ps.species_id=s.id AND ps.active=1 AND ps.status='approved') AS points, "
                                         f"(SELECT group_concat(lang) FROM species_texts x WHERE x.species_id=s.id) AS langs FROM species s {wmarina._NAMES} WHERE s.active=1 {flt_} "
                                         "ORDER BY common_name LIMIT 1000",(lang_,*((f'%{key_}%',)*2 if key_ else ()))).fetchall()
-                        ex_=wmarina.examples(); have_={r_['scientific_name'].lower() for r_ in db.execute('SELECT scientific_name FROM species WHERE active=1').fetchall()}
+                        ex_=wmarina.examples(); have_={r_['scientific_name'].lower() for r_ in db.execute('SELECT scientific_name FROM species WHERE active=1 AND photo_base IS NOT NULL').fetchall()}   # 17/10: an imported one still without its picture counts as missing
                         self.send_json({'items':[{**wmarina.species_public(r),'points':r['points'],'langs':sorted((r['langs'] or '').split(',')),'example':bool(r['example_key'])} for r in rows],
                                         'examples_missing':sum(1 for e in ex_ if e['cientifico'].lower() not in have_),'langs':list(wmarina.LANGS)}); return
                     if re.fullmatch(r'/api/admin/marina/especie/\d+',path):
@@ -20035,7 +20327,7 @@ class Handler(BaseHTTPRequestHandler):
                     item['type_data']=wtd.public_data(db,pid,snap_row.get('types',[]))   # 17/10 (1.2): only the data with a value
                     item['type_fields_def']=[{k:f[k] for k in ('id','label','kind','unit')} for f in wtd.fields_for(db,snap_row.get('types',[]))]   # what a centre may propose
                     self.send_json({'item':item,'photos':[dict(x) for x in photos],'nearby':near,'types':snap_row.get('types',[]),
-                                    'species':wmarina.point_species(db,pid,lang),'videos':wmarina.point_videos(db,pid),
+                                    'species':public_point_species(db,pid,lang),'videos':wmarina.point_videos(db,pid),
                                     'virtual':[virtual_public_row(r) for r in legacy]})
                     return
                 if path == '/api/center-directory':
@@ -21647,6 +21939,9 @@ class Handler(BaseHTTPRequestHandler):
                     row=db.execute('SELECT * FROM center_tariffs WHERE id=? AND center_id=?',(tid,cid)).fetchone()
                     if not row: raise ValueError('Tarifa no encontrada.')
                     db.execute('DELETE FROM center_tariffs WHERE id=?',(tid,)); db.commit(); self.send_json({'ok':True}); return
+                if path=='/api/diver/sightings':
+                    user=require_user(self,db); n_=save_sightings(db,user,json_body(self)); db.commit()
+                    self.send_json({'ok':True,'saved':n_,'total':sightings_of(db,user,'es')['total']}); return
                 if path in ('/api/provider-services/tax','/api/exportar/gestoria/plantilla'):
                     # 17/10 (1.6): the centre confirms the tax of its services with its gestoría; «Mi plantilla de gestoría»
                     user=require_user(self,db); require_role(user,{'center','freelance'}); data=json_body(self)
@@ -23120,7 +23415,24 @@ class Handler(BaseHTTPRequestHandler):
                         if ctype_.startswith('multipart/'): fields_,files_=parse_multipart(self); file_=files_.get('file')
                         else: fields_,file_=json_body(self),None
                         sid_=marina_save_species(db,user,sid_,fields_,file_); db.commit(); self.send_json({'ok':True,'id':sid_,'item':wmarina.species_full(db,sid_)}); return
+                    if path=='/api/admin/marina/importar':   # 17/10 (Bloque 2): the JSON or CSV of the marine life of the sites
+                        if (self.headers.get('Content-Type') or '').lower().startswith('multipart/'):
+                            _f,files_=parse_multipart(self); fl_=files_.get('file') or {}; raw_,fname_=fl_.get('content') or b'',fl_.get('filename') or ''
+                        else: d_=json_body(self); raw_,fname_=str(d_.get('text') or ''),clean_text(d_.get('filename'),200) or ''
+                        if not raw_: raise ValueError('Elige el archivo JSON o CSV.')
+                        st_=marine_import(db,user['id'],wvmi.parse(raw_,fname_),fname_); db.commit(); self.send_json({'ok':True,'summary':st_}); return
+                    if path=='/api/admin/marina/foto-lote':
+                        fields_,files_=parse_multipart(self); sid_=vm_bulk_photo(db,user,files_.get('file'),fields_); db.commit(); self.send_json({'ok':True,'id':sid_}); return
                     data=json_body(self)
+                    m_=re.fullmatch(r'/api/admin/marina/(enlace|cita)/(\d+)',path)
+                    if m_:
+                        if m_.group(1)=='enlace': vm_edit_link(db,user,int(m_.group(2)),data)
+                        else: vm_refine(db,user,int(m_.group(2)),data)
+                        db.commit(); self.send_json({'ok':True}); return
+                    if path=='/api/admin/marina/orden': vm_order(db,user,int(data.get('point_id') or 0),data.get('ids') or []); db.commit(); self.send_json({'ok':True}); return
+                    if path=='/api/admin/marina/ajustes':
+                        ins_set_setting(db,'vm_show_no_photo','1' if data.get('show_no_photo') in (1,True,'1','true') else '0'); audit(db,user['id'],'marine_settings','site_settings',None,{'show_no_photo':data.get('show_no_photo')})
+                        db.commit(); self.send_json({'ok':True}); return
                     if path=='/api/marina/video/comprobar': self.send_json(marina_preview(db,user,data.get('url'))); return
                     if path=='/api/marina/video':
                         vid_=marina_add_video(db,user,data); db.commit(); self.send_json({'ok':True,'id':vid_,'status':'approved' if user['role']=='admin' else 'pending'}); return
@@ -24674,7 +24986,7 @@ def prepare_database():
     if new_install:
         # v50.51: a new installation starts with the catalogue of species (own illustrations, licence «Ilustración propia»).
         with connect() as _db:
-            if not _db.execute('SELECT 1 FROM species LIMIT 1').fetchone():
+            if not _db.execute('SELECT 1 FROM species WHERE example_key IS NOT NULL LIMIT 1').fetchone():   # 17/10: the import may have created some first
                 print(f'Catálogo de especies: {load_example_species(_db)} especies de ejemplo.'); _db.commit()
     return new_install
 

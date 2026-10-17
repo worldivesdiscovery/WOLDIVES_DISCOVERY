@@ -81,6 +81,10 @@ class VidaMarina(ServerTestCase):
         cls.diver = t.make_diver('marina3')
         # v50.58: a centre or freelance adds videos with its email confirmed (the diver's stays unconfirmed: test_03)
         for c in (cls.center, cls.pro): cls.server.sql("UPDATE users SET email_verified_at=datetime('now') WHERE id=?", (c.user['id'],))
+        # 17/10/2026: the catalogue now arrives with the species of the import of public sources (tests/test_v50_59_bloque2);
+        # these tests build their own catalogue from nothing, as before, on this copy
+        cls.server.sql("UPDATE point_species SET active=0 WHERE contributor_name='Fuentes públicas (importación)'")
+        cls.server.sql("UPDATE species SET active=0 WHERE origin='import'")
         pts = cls.admin.get('/api/dive-points').json['items']
         cls.pid, cls.pid2, cls.empty = pts[0]['id'], pts[1]['id'], pts[2]['id']
 

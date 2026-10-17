@@ -136,6 +136,10 @@ def species_public(r) -> dict:
     return {'id': d['species_id'] if 'species_id' in d else d['id'], 'link_id': d.get('link_id'), 'scientific': d['scientific_name'],
             'name': d.get('common_name') or d['scientific_name'], 'name_lang': d.get('name_lang'), 'blurb': d.get('blurb') or '',
             'frequency': d.get('frequency'), 'months': months_list(d.get('months')),
+            # 17/10 (Bloque 2): at the site or in the area, the frequency and the season only when a source says them, where
+            # it is seen, its group (the icon of a species without a photo) and its number in the catalogue
+            'evidence': d.get('evidence') or 'point', 'frequency_label': d.get('frequency_label'), 'season': d.get('season') or '',
+            'where': d.get('where_text') or '', 'group': d.get('group_key') or '', 'catalog_no': d.get('catalog_no'),
             'photo': ({**(imagenes.srcset(d.get('photo_base'), d.get('photo_widths')) or {}), 'ratio': d.get('photo_ratio')} if d.get('photo_base') else None),
             'credit': ({'author': d.get('photo_author') or '', 'license': d.get('photo_license') or '', 'license_url': d.get('photo_license_url') or '',
                         'source': d.get('photo_source_url') or ''} if d.get('photo_base') else None)}
@@ -148,20 +152,33 @@ _NAME_COLS = '''COALESCE(t1.common_name,t2.common_name,t3.common_name) AS common
                 CASE WHEN t1.common_name IS NOT NULL THEN t1.lang WHEN t2.common_name IS NOT NULL THEN 'en' WHEN t3.common_name IS NOT NULL THEN 'es' END AS name_lang'''
 
 
-def point_species(db, pid, lang, statuses=('approved',), public=True) -> list[dict]:
-    """The species of a dive site in the visitor's language (falls back to English, then Spanish): one query."""
+def point_species(db, pid, lang, statuses=('approved',), public=True, with_no_photo=True) -> list[dict]:
+    """The species of a dive site in the visitor's language (falls back to English, then Spanish): one query. The
+    public list only has the visible ones (17/10: the generic, doubtful or shore ones of an import wait hidden), first
+    those cited at the site and then those of the area, in the order the administrator set."""
     marks = ','.join('?' * len(statuses))
+    vis = ' AND COALESCE(ps.visible,1)=1' + ('' if with_no_photo else ' AND s.photo_base IS NOT NULL') if public else ''
     rows = db.execute(f'''SELECT ps.id AS link_id, ps.frequency, ps.months, ps.status, ps.review_note, ps.contributor_name, ps.contributor_provider,
+                                 ps.evidence, ps.frequency_label, ps.season, ps.where_text, ps.visible, ps.hidden_reason, ps.sort_order, ps.sources,
                                  s.id AS species_id, s.scientific_name, s.photo_base, s.photo_widths, s.photo_ratio, s.photo_author, s.photo_license,
-                                 s.photo_license_url, s.photo_source_url, {_NAME_COLS}
+                                 s.photo_license_url, s.photo_source_url, s.group_key, s.catalog_no, {_NAME_COLS}
                           FROM point_species ps JOIN species s ON s.id=ps.species_id AND s.active=1 {_NAMES}
-                          WHERE ps.dive_point_id=? AND ps.active=1 AND ps.status IN ({marks})
-                          ORDER BY CASE ps.frequency WHEN 'common' THEN 0 WHEN 'occasional' THEN 1 ELSE 2 END, common_name''',
+                          WHERE ps.dive_point_id=? AND ps.active=1 AND ps.status IN ({marks}){vis}
+                          ORDER BY CASE WHEN ps.evidence='zone' THEN 1 ELSE 0 END, CASE WHEN ps.sort_order IS NULL THEN 1 ELSE 0 END, ps.sort_order,
+                                   CASE COALESCE(ps.frequency_label, ps.frequency) WHEN 'habitual' THEN 0 WHEN 'common' THEN 0 WHEN 'frecuente' THEN 1
+                                   WHEN 'occasional' THEN 2 WHEN 'ocasional' THEN 2 ELSE 3 END, common_name''',
                       (lang, pid, *statuses)).fetchall()
     out = []
+    names = {}
+    for r in rows: names[(r['common_name'] or '').lower()] = names.get((r['common_name'] or '').lower(), 0) + 1
     for r in rows:
         d = species_public(r); d['contributor'] = r['contributor_name'] or 'WORLDIVES DISCOVERY'
-        if not public: d.update(status=r['status'], review_note=r['review_note'] or '', contributor_provider=r['contributor_provider'])
+        d['same_name'] = names.get((r['common_name'] or '').lower(), 0) > 1   # two species with one common name: the scientific one under it
+        if not public:
+            try: srcs = json.loads(r['sources'] or '[]')
+            except ValueError: srcs = []
+            d.update(status=r['status'], review_note=r['review_note'] or '', contributor_provider=r['contributor_provider'],
+                     visible=bool(r['visible'] if r['visible'] is not None else 1), hidden_reason=r['hidden_reason'] or '', sort_order=r['sort_order'], sources=srcs)
         out.append(d)
     return out
 
